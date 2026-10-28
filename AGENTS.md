@@ -103,6 +103,7 @@
   - Vite 8.3.5(rolldown): 첫 화면과 지연 조각이 같이 쓰는 모듈은 별도 조각이 되고 미리 불러와진다.
   - Vite 플러그인 `transform`은 CSS 안의 `@import`로 불러온 파일에는 돌지 않는다. 고쳐 써야 하는 CSS는 JS에서 import한다.
   - Workbox 7.4.1: 미리 캐시 목록에 같은 주소·판이 두 번 있으면 하나로 친다.
+  - Playwright 1.63: `context.setOffline(true)`는 이미 열린 WebSocket을 끊지 않는다. 끊김 시험은 서버를 다시 켜거나 `page.routeWebSocket` + `connectToServer()`로 한다(쿠키가 실린 채 이어진다, 2026-10-29 확인: S1 기기 연결 시험).
   - `@fastify/static` 10.1.7: `setHeaders(reply, path, stat)`는 Fastify `reply`를 받고 기본 머리글 뒤에 불린다. 그래서 `cache-control`을 덮어쓸 수 있다(패키지 코드 `index.js`).
 - **three 0.186.1 + Vite 8.3.5 엔진** (2026-10-29 확인: 2차맵 엔진 구현·시험)
   - `CapsuleGeometry`의 `height`는 가운데(원기둥) 부분 길이다. 전체 키 = height + 2 × 반지름.

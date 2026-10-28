@@ -61,6 +61,12 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
 - **되돌림 훈련**: Actions → **rollback-drill** → Run workflow. 일부러 고장 난 버전을 배포해 직전 버전으로 돌아오는지 확인한다(약 2분간 새 스택 앱이 멈춘다).
 - **NAS 밖 보관(해 주실 일)**: 백업이 NAS 안에만 있으면 NAS가 고장 날 때 같이 잃는다. DSM → Hyper Backup → 백업 작업 생성 → 대상(USB·다른 NAS·클라우드) → 폴더 `docker/terra-in-cognita/backups` → 매일.
 
+## 9. 관측 (보는 법)
+- 서버 지표(1분마다 로그 한 줄: 이벤트 루프 지연, 메모리, 접속 수): `docker logs tic-app 2>&1 | grep '"metric":"server"' | tail -5`
+- 기기 오류: `docker exec tic-db psql -U terra -d terra -c "select received_at, kind, message, page from client_errors order by id desc limit 20"`
+- 기기 성능 요약: `docker exec tic-db psql -U terra -d terra -c "select received_at, fps, frame_p95_ms, long_frames, memory_mb, device from client_perf_samples order by id desc limit 20"`
+- 관리자 화면이 생기면 이 내용을 화면에서 본다(PLAN 9.5).
+
 ## 문제가 생기면
 - **실행기가 계속 다시 시작된다**(로그에 `DISABLE_AUTOMATIC_DEREGISTRATION should be set to true`): compose에 `DISABLE_AUTOMATIC_DEREGISTRATION: "true"`가 없거나 `tic-runner/config` 폴더가 없는 것이다. 프로젝트를 중지하고 YAML을 저장소의 `ops/runner/compose.yml`로 바꾼 뒤(토큰은 새로 받아 넣는다) 다시 빌드한다.
 

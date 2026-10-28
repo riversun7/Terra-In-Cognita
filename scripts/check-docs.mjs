@@ -1,6 +1,7 @@
-// 문서 갱신 검사 (docs/adr/2026-10-28-dev-workflow.md)
+// 변경 규칙 검사 (docs/adr/2026-10-28-dev-workflow.md)
 // - 코드를 바꿨으면 작업 기록(docs/worklog/)도 함께 추가·수정해야 한다. 의존성 버전만 올린 변경은 제외.
 // - 새 런타임 의존성(dependencies)을 추가했으면 ADR(docs/adr/)도 함께 추가해야 한다.
+// - 이미 올라간 마이그레이션(apps/server/drizzle/)은 고치거나 지우지 않는다. 새로 추가만 한다.
 // 사용: node scripts/check-docs.mjs [기준 커밋]  (기본: upstream, 없으면 HEAD~1)
 import { fail, git } from "./lib.mjs";
 
@@ -112,5 +113,17 @@ if (addedRuntimeDeps.length > 0 && !changed.some((f) => /^docs\/adr\/\d{4}-\d{2}
   errors.push(`새 런타임 의존성에는 ADR이 필요합니다: ${addedRuntimeDeps.join(", ")}`);
 }
 
+// 기준 커밋에 이미 있던 마이그레이션 파일이 바뀌거나 지워졌으면 실패 (docs/PROTECTED.md)
+// Drizzle은 적용된 마이그레이션을 이름으로만 건너뛰므로, 고친 내용은 운영 DB에 반영되지 않고 조용히 어긋난다.
+const touchedMigrations = git(["diff", "--name-status", `${base}...HEAD`, "--", "apps/server/drizzle"])
+  .split("\n")
+  .filter((line) => /^[MDR]/.test(line))
+  .map((line) => line.replaceAll("\t", " "));
+if (touchedMigrations.length > 0) {
+  errors.push(
+    `이미 올라간 마이그레이션은 고치지 않습니다. 새 마이그레이션을 추가하세요 (pnpm --filter @terra/server db:generate): ${touchedMigrations.join(", ")}`,
+  );
+}
+
 if (errors.length > 0) fail(errors);
-console.log(`✓ 문서 갱신 규칙 통과 (기준 ${base.slice(0, 7)})`);
+console.log(`✓ 변경 규칙 통과 — 작업 기록·ADR·마이그레이션 (기준 ${base.slice(0, 7)})`);

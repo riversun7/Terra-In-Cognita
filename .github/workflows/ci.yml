@@ -26,6 +26,20 @@ jobs:
     timeout-minutes: 20
     outputs:
       deploy: ${{ steps.changes.outputs.deploy }}
+    # DB 통합 테스트용 — 운영과 같은 PostgreSQL 이미지. 이 작업 안에서만 쓰고 버리므로 비밀번호 없이 연다
+    services:
+      postgres:
+        image: postgres:18.6-trixie
+        env:
+          POSTGRES_USER: terra
+          POSTGRES_DB: terra
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U terra -d terra"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgres://terra@127.0.0.1:5432/terra
     steps:
       - uses: actions/checkout@v6
         with:
@@ -47,8 +61,16 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: npm install -g pnpm@${{ env.PNPM_VERSION }}
       - run: pnpm install --frozen-lockfile
-      - name: 검사 (포맷·린트·타입·경계·파일 크기·다국어·테스트)
+      - name: 검사 (포맷·린트·타입·경계·파일 크기·다국어·테스트, DB 통합 테스트 포함)
         run: pnpm check
+      - name: 표 정의와 마이그레이션 일치 (schema.ts를 바꾸고 db:generate를 빠뜨리면 실패)
+        run: |
+          pnpm --filter @terra/server db:generate
+          if [ -n "$(git status --porcelain -- apps/server/drizzle)" ]; then
+            git status --short -- apps/server/drizzle
+            echo "::error::apps/server/src/db/schema.ts에 맞는 마이그레이션이 없습니다. pnpm --filter @terra/server db:generate 후 커밋하세요."
+            exit 1
+          fi
       - name: 작업 기록 목차 최신 여부
         run: pnpm docs:index --check
       - name: 문서 갱신 규칙 (코드 변경 → 작업 기록, 새 런타임 의존성 → ADR)

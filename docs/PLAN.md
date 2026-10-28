@@ -23,6 +23,7 @@
 
 ### 1.2 플랫폼
 - 모바일 웹 1순위, 데스크톱 웹 2순위. PWA(홈 화면 설치). 게임엔진 대신 웹 기술.
+- 지원 브라우저 하한(ADR 28): iOS 16.4+, Chrome·Edge 111+, 삼성 인터넷 22+, Firefox 115+. 더 새 기능은 기능 확인 뒤에만 쓴다.
 - 언어: 한국어 기본, 영어 필수 (8장).
 
 ### 1.3 우선순위
@@ -67,7 +68,7 @@
 | 언어 | TypeScript (strict) | 7.0.2 (+ 컴파일러 API가 필요한 도구용 `@typescript/typescript6` 6.0.2) | Go 네이티브 컴파일러, 빠른 타입 검사 |
 | 모노레포 | pnpm workspaces | 11.28.9 | Node 25+는 corepack 미포함 [V] → `npm i -g pnpm@<버전>`. 공개 1일 미만 버전 설치 금지(`minimumReleaseAge`), 설치 스크립트 허용 목록(`allowBuilds`) |
 | 앱 골격 | Vite + React | Vite 8.3.5, React 19.3.1 | 게임 클라이언트에 서버 렌더링 불필요 |
-| PWA | vite-plugin-pwa | 2.0.0 (Vite 8 지원 [V]) | |
+| PWA | vite-plugin-pwa + workbox-window | 2.0.0 / 7.4.1 | workbox-window는 게임 앱 직접 의존성. "Vite 8 지원"은 peer 범위만 넓힌 것이라 Vite 8.3.5 빌드·Chromium에서 직접 확인 [V] (ADR 28) |
 | 3D | Three.js (React와 분리된 엔진 모듈) | r186 (0.186.1) | three-globe 미사용(위경도 기반이라 격자 설계와 충돌) |
 | 지도 라벨 | troika-three-text | 0.52.5 | 한글 글리프를 필요할 때 생성 |
 | 화면 이동 | TanStack Router | 1.170.x | 타입 안전 라우팅 |
@@ -356,6 +357,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 
 ### 9.8 에셋
 - 이미지·모델 원본은 git에 넣지 않는다(기존 `.git` 487MiB의 원인). NAS 에셋 저장소에 해시 파일명으로 두고, git에는 목록(매니페스트)만 둔다.
+  - 예외: 앱 아이콘·파비콘(`apps/game/public/`, 파일마다 수십 KB 이하). 앱 주소에서 바로 내려줘야 한다(ADR 28).
 - 변환 파이프라인: 텍스처는 KTX2, 모델은 glTF + meshopt(glTF Transform). 앱 이미지에는 에셋을 넣지 않는다.
 
 ---
@@ -405,7 +407,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 | 골든 해시 | 고정 시드의 행성·2차맵 생성 결과 |
 | 통계 | 상세도 단계·오프라인 정산과 전체 시뮬레이션의 기대값 일치 |
 | 통합 | 부하 중 `kill -9` 복구, 배포·롤백, 접속 재개 |
-| E2E | Playwright(로그인, 2차맵 진입, 명령, 관리자 권한 거부) |
+| E2E | Playwright(로그인, 2차맵 진입, 명령, 관리자 권한 거부, PWA 새 버전 적용 — 빌드 2개, Chromium만) |
 | 성능 | 기준 기기 20분 실행(11장), 서버 이벤트 루프 지연 |
 | 부하 | NAS 밖 봇 클라이언트 |
 | 콘텐츠 | 7장 검증 단계 |
@@ -481,6 +483,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 | 25 | 유닛 표현: 과장 없이 실제 크기, 대형 유닛 최대 약 12m(기획 D-068·D-095, ADR 11 일부 대체) | `2026-10-28-unit-display-real-size.md` |
 | 26 | 안개와 지형 공개 범위: 1차맵은 공개, 2차맵부터 서버가 확인, 탐사 기록은 서버 원본 | `2026-10-28-fog-and-map-visibility.md` |
 | 27 | NPC 세력: 유닛 10만 개는 유저 + NPC 합계, M2 다음에 N1 NPC 세력 단계 | `2026-10-28-npc-scale-and-stage.md` |
+| 28 | PWA(generateSW, 켤 때 자동 + 쓰는 중엔 안내)와 지원 브라우저 하한(iOS 16.4) | `2026-10-28-pwa-and-browser-baseline.md` |
 
 ---
 

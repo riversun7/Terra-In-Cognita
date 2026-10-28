@@ -77,6 +77,12 @@
 - **Zod 4 + tRPC 11** (zod 4.6.7, 2026-10-28 확인: 패키지 코드·시험): 입력·출력 타입은 Standard Schema로 추론된다(`transform`이 있으면 입력과 출력 타입이 다르다). 실행 검사는 Standard Schema가 아니라 Zod `parseAsync`를 쓰므로 `error.cause`는 `ZodError`다. 틀린 입력은 HTTP 400 `BAD_REQUEST`. 오류 메시지는 Zod의 영어 문제 목록(JSON 문자열)이라 화면에 쓰지 않는다(`error.data.code`로 판단).
 - **TS 7 프로젝트 참조** (7.0.2, 2026-10-28 확인): `tsc -b`, composite, pnpm 링크를 거친 참조가 동작한다. composite는 가져오는 파일을 모두 `include`해야 한다(TS6307). `node_modules`를 거쳐 읽는 작업공간 패키지(`@terra/protocol` 등)는 넣지 않아도 된다. 게임 앱 `typecheck`는 `tsc -b`라서 서버 선언 파일(`apps/server/dist-types/`, 저장소에 올리지 않음)을 필요할 때 만든다. oxlint 타입 인식 린트는 선언 파일이 없어도 참조를 따라 서버 소스를 읽는다.
 - **Node 24 타입 지우기** (24.22.1, 2026-10-28 확인): `node`가 `.ts`를 바로 실행한다(경고 없음). `.mjs` 검사 스크립트가 작업공간 패키지(`@terra/content`)의 `.ts`를 pnpm 링크로 가져와도 된다. enum·namespace·생성자 매개변수 속성은 안 된다 → tsconfig `erasableSyntaxOnly`(TS 7.0.2가 TS1294로 막는 것 확인). `JSON.parse` 오류 문구에는 `(line N column M)`이 있을 때도 없을 때도 있다.
+- **vite-plugin-pwa 2.0.0 + workbox-window 7.4.1** (2026-10-28 확인: 패키지 코드·빌드·Playwright):
+  - Vite 8.3.5(rolldown)에서 `generateSW`가 동작한다. `workbox-window`는 게임 앱 직접 의존성이어야 한다(pnpm).
+  - 타입은 tsconfig `types`에 `vite-plugin-pwa/vanillajs`를 넣는다. 개발 서버의 `virtual:pwa-register`는 아무것도 하지 않는다.
+  - `onNeedReload`는 SW가 바뀔 때(controlling, 원래 SW 아래 있던 화면)만 불린다. 플러그인 `updateServiceWorker()`는 등록(페이지 load 뒤) 전에는 SKIP_WAITING을 보내지 않는다.
+  - workbox-window는 밖에서 생긴 첫 새 버전 뒤로 `updatefound`를 알려 주지 않는다 → `apps/game/src/pwa/updates.ts`가 직접 본다.
+  - `sw.js`는 `workbox-<해시>.js`를 따로 불러온다. Vite `baseline-widely-available` = chrome111·edge111·firefox114·safari16.4·ios16.4(`toSorted`는 Firefox 115부터).
 - **watchtower**: 개발이 중단됐다. 쓰지 않는다.
 - **pnpm 11** (11.28.9, 2026-10-28 설치로 확인): `minimumReleaseAge: 1440` 때문에 공개된 지 하루가 안 된 버전은 설치되지 않는다. "버전을 찾을 수 없음"이 나오면 하루 기다리거나 그 전 버전을 쓴다. 설치 스크립트는 `pnpm-workspace.yaml`의 `allowBuilds`에 적은 패키지만 실행된다(추가: `pnpm approve-builds <이름>`). Dependabot PR이 `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`으로 실패하면 하루 뒤 CI를 다시 실행한다. `minimumReleaseAge`는 낮추지 않는다(ADR `2026-10-28-dependency-updates.md`).
 - **Biome 2.6**: Markdown도 포맷한다. 보호 문서가 바뀌지 않게 `biome.json`에서 `**/*.md`를 뺐다. 이 제외를 지우지 않는다(2026-10-28 확인).

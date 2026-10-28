@@ -77,7 +77,7 @@
 | 다국어 | Paraglide JS | 2.29.2 | 컴파일 시 타입 검사, 누락 번역을 빌드에서 잡음. 대안 i18next 26. 메시지 플러그인은 로컬 설치(CDN 미사용) |
 | HTTP·WebSocket | Fastify + @fastify/websocket | 5.12.x / 11.3.x | 정적 파일도 서빙(@fastify/static 10.1.x) → 컨테이너 수 최소화 |
 | 서버 빌드·실행 | Vite SSR 빌드 + tsx(개발 실행) | Vite 8.3.5 / tsx 4.23.15 | 내부 패키지·zod를 `dist/main.js` 하나로 묶음. 운영 이미지는 `pnpm deploy --prod`로 필요한 것만 |
-| 요청·응답 API | tRPC + Zod | 11.19.x / 4.6.x | 클라·서버 타입 자동 공유. Zod 4 연동은 Standard Schema 경유로 동작 예상 [A] → 골격 단계에서 확인 |
+| 요청·응답 API | tRPC + Zod | 11.19.x / 4.6.x | 클라·서버 타입 자동 공유. 게임 앱은 서버 타입만 가져온다(프로젝트 참조, ADR 23). Zod 4 연동 확인 [V]: 타입은 Standard Schema로 추론, 실행 검사는 Zod `parseAsync`, 틀린 입력은 400 |
 | 실시간 | WebSocket 자체 프로토콜 (`packages/protocol`) | — | 4.6절. 인코딩 교체 가능(JSON → 측정 후 MessagePack) |
 | 워커 스레드 | Piscina | 5.3.2 | 경로탐색·전투·NPC 판단·맵 생성 같은 순수 계산 |
 | DB | PostgreSQL | 18 | Docker 이미지 18부터 데이터 경로 `/var/lib/postgresql/18/docker`, 마운트는 `/var/lib/postgresql` [V] |
@@ -120,7 +120,7 @@ docs/              # 계획서, ADR, 작업 기록, 보호 목록, design/(기�
 ops/               # compose, deploy.sh, 실행기(runner) 설정, 백업 스크립트, NAS 설치 안내
 scripts/           # 검사 스크립트(모듈 경계·파일 크기·다국어·비밀값·문서 규칙), 작업 기록 목차 생성
 ```
-의존 방향(도구로 강제: `scripts/check-boundaries.mjs`): `apps/* → packages/*`, `engine`은 `server`·`sim`을 import 금지, `sim`은 `engine`·DOM 금지, **`apps/game`은 `sim` import 금지**(판정 코드를 기기로 보내지 않음), `protocol`·`shared`는 아무것도 import하지 않는 최하층.
+의존 방향(도구로 강제: `scripts/check-boundaries.mjs`): `apps/* → packages/*`, `engine`은 `server`·`sim`을 import 금지, `sim`은 `engine`·DOM 금지, **`apps/game`은 `sim` import 금지**(판정 코드를 기기로 보내지 않음), `protocol`·`shared`는 아무것도 import하지 않는 최하층. 예외 하나: `apps/game`은 tRPC 라우터 타입 때문에 `apps/server`를 **타입으로만**(`import type`) 가져온다(ADR 23).
 
 관리자 화면 코드도 정적 파일이라 누구나 내려받을 수 있다. 비밀값·시드·숨김 데이터는 코드에 넣지 않고 서버가 권한 확인 후에만 보낸다.
 
@@ -383,7 +383,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 
 ### 10.4 코드 규칙
 - 주석은 한국어, 이름(변수·함수·파일)은 영어.
-- 모듈 경계는 `scripts/check-boundaries.mjs`(package.json 내부 의존 허용 목록 + 판정 코드 금지 API) + pnpm 엄격 의존성 + 패키지 `exports`로 강제(4.1 의존 방향, ADR 17).
+- 모듈 경계는 `scripts/check-boundaries.mjs`(package.json 내부 의존 허용 목록 + 타입 전용 의존의 `import type` 검사 + 판정 코드 금지 API) + pnpm 엄격 의존성 + 패키지 `exports`로 강제(4.1 의존 방향, ADR 17·23). 게임 앱 코드의 Node 전역·내장 모듈은 oxlint로 막는다(ADR 23).
 - 파일 크기: 600줄 초과 경고, 1,000줄 초과 CI 실패(자동 생성 파일 제외). 기존 프로젝트는 최대 4,765줄이었다 [V].
 - 복사해 쓴 코드·데이터의 출처와 라이선스는 `THIRD_PARTY_NOTICES.md`에 적는다(FastNoiseLite 등).
 - 보호 경로(`packages/protocol`, 원장, `packages/planet` 생성기, `packages/sim`)는 ADR 링크 없이 의미를 바꾸지 않는다.
@@ -467,6 +467,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 | 20 | 개발 흐름 스킬(Matt Pocock) 추가와 문서 규칙 우선 | `2026-10-28-agent-skills-dev-flow.md` |
 | 21 | 의존성 자동 업데이트(Dependabot, cooldown, 문서 검사 예외) | `2026-10-28-dependency-updates.md` |
 | 22 | DB 접근(pg)과 마이그레이션(배포 5단계, 직전 버전 호환) | `2026-10-28-db-access-and-migrations.md` |
+| 23 | tRPC 도입과 서버 타입 공유(게임 앱 → 서버 타입 전용 예외, 프로젝트 참조), Zod 4 연동 확인 | `2026-10-28-trpc-type-sharing.md` |
 
 ---
 

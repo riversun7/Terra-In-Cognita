@@ -31,16 +31,18 @@
 - **새 런타임 의존성 추가는 ADR 필수**(이유·대안·라이선스). 버전 올림·개발 도구는 제외.
 - 파일 크기: 600줄 초과 경고, 1,000줄 초과 CI 실패(자동 생성 파일 제외). 넘으면 나눈다.
 - 모듈 경계(도구로 강제):
-  - `apps/*` → `packages/*` 방향만 허용.
+  - `apps/*` → `packages/*` 방향만 허용(예외는 아래 게임 앱 → 서버 타입 하나).
   - `packages/engine`은 `apps/server`·`packages/sim`을 import하지 않는다.
   - `packages/sim`은 `packages/engine`·DOM API를 쓰지 않는다.
   - `apps/game`은 `packages/sim`을 import하지 않는다(판정 코드를 기기로 보내지 않음).
   - `packages/protocol`·`packages/shared`는 다른 내부 패키지를 import하지 않는다.
+  - `apps/game`은 `apps/server`를 **타입으로만** 가져온다(tRPC 라우터 타입): `import type { AppRouter } from "@terra/server/trpc"`. 값 import, `import { type X }`, 동적 `import()`는 검사에서 실패한다. `@terra/server`는 게임 앱 `devDependencies`에만 둔다(ADR `2026-10-28-trpc-type-sharing.md`).
+  - 게임 앱 코드(`apps/game/src`)는 Node 전역(`process`, `Buffer` 등)과 Node 내장 모듈을 쓰지 않는다. 타입 검사로는 못 막아서(`@trpc/client` 타입이 `@types/node`를 불러온다) oxlint가 막는다.
 - **서버 권위**: 자원 획득, 전투 결과, 거래·잔고, 아이템 생성, 조우, 소유권 판정은 서버만 한다.
 - 판정 코드(`packages/sim` 등)에서는 `Math.random`, `Date.now`, `Math.sin/cos/tan/exp/log/pow` 같은 초월함수를 쓰지 않는다. 시드 난수와 `packages/shared`의 결정적 수학 함수를 쓴다.
 - 금액은 최소 단위 정수(`BigInt`, DB `int8`). 소수점 실수 계산 금지.
 - DB 표 정의는 `apps/server/src/db/schema.ts`. 바꾸면 `pnpm --filter @terra/server db:generate`로 마이그레이션을 만들어 함께 커밋한다. 마이그레이션은 **직전 버전 앱이 그대로 돌 수 있게** 만든다(추가 → 코드 전환 → 다음 배포에서 정리). 올라간 마이그레이션은 고치지 않는다(ADR `2026-10-28-db-access-and-migrations.md`).
-- 게임 상태를 바꾸는 명령은 WebSocket 프로토콜(`packages/protocol`)로만 보낸다. tRPC는 조회와 비실시간 기능용.
+- 게임 상태를 바꾸는 명령은 WebSocket 프로토콜(`packages/protocol`)로만 보낸다. tRPC는 조회와 비실시간 기능용(프로시저는 `apps/server/src/trpc/`, 기기 클라이언트는 `apps/game/src/net/api.ts`).
 - UI 문자열은 메시지 키로만 쓰고, 한국어와 영어를 **함께** 추가한다(영어 누락 시 빌드 실패).
 - 비밀값(비밀번호, 토큰, `.env`)을 커밋하지 않는다. 관리자 화면 코드에도 비밀값·시드를 넣지 않는다.
 
@@ -65,7 +67,9 @@
 - **Node.js**: 24 LTS 사용. 26은 LTS 전환 릴리스가 나온 뒤 전환한다. Node 25+는 corepack을 포함하지 않으므로 pnpm은 `npm i -g pnpm@<버전>`으로 설치한다.
 - **PostgreSQL 18 Docker 이미지**: 데이터 경로가 `/var/lib/postgresql/18/docker`로 바뀌었다. 볼륨은 `/var/lib/postgresql`에 마운트한다(또는 `PGDATA`를 명시).
 - **Drizzle ORM**: 1.0 RC(`1.0.0-rc.x`)로 시작한다. 0.x 문서의 관계형 쿼리 예제는 1.0에서 바뀌었으니 1.0 문서를 본다. 1.0.0-rc.5에서 확인한 것(2026-10-28, 패키지 코드): 마이그레이션은 폴더 하나에 하나(`drizzle/<시각>_<이름>/migration.sql`)이고, 밀린 것은 트랜잭션 하나로 적용되며, 적용 여부는 이름으로만 판단한다. 연결 설정에 `casing`·`schema` 옵션이 없다(열 이름을 직접 쓴다). `db.execute` 결과 타입이 여러 문장용이라 단순 조회는 `db.$client.query`로 한다.
-- **tRPC 11**: Fastify 어댑터는 Fastify 5 이상이 필요하다.
+- **tRPC 11** (11.19.0, 2026-10-28 확인: 패키지 코드·시험): Fastify 어댑터는 Fastify 5 이상이 필요하다. `fastifyTRPCPlugin`을 `prefix: "/api/trpc"`로 등록한다. 묶음 요청은 경로에 프로시저 이름을 쉼표로 이어서 Fastify 기본 상한(경로 매개변수 100자)에 걸린다 → `Fastify({ routerOptions: { maxParamLength: 5000 } })`. 최상위 `maxParamLength`는 Fastify 5.12에서 사용 중단 경고(FSTDEP022)가 난다. 어댑터는 자기 플러그인 범위에서만 JSON 파서를 바꾼다(다른 경로는 그대로). `@trpc/client`는 실행 중에 `@trpc/server`를 import하므로 게임 앱에도 `@trpc/server`가 필요하다. `httpBatchLink`의 `fetch` 옵션 타입은 `typeof fetch`와 맞지 않는다(`exactOptionalPropertyTypes`) → `Parameters<typeof httpBatchLink<AppRouter>>[0]["fetch"]`를 쓴다.
+- **Zod 4 + tRPC 11** (zod 4.6.7, 2026-10-28 확인: 패키지 코드·시험): 입력·출력 타입은 Standard Schema로 추론된다(`transform`이 있으면 입력과 출력 타입이 다르다). 실행 검사는 Standard Schema가 아니라 Zod `parseAsync`를 쓰므로 `error.cause`는 `ZodError`다. 틀린 입력은 HTTP 400 `BAD_REQUEST`. 오류 메시지는 Zod의 영어 문제 목록(JSON 문자열)이라 화면에 쓰지 않는다(`error.data.code`로 판단).
+- **TS 7 프로젝트 참조** (7.0.2, 2026-10-28 확인): `tsc -b`, composite, pnpm 링크를 거친 참조가 동작한다. composite는 가져오는 파일을 모두 `include`해야 한다(TS6307). `node_modules`를 거쳐 읽는 작업공간 패키지(`@terra/protocol` 등)는 넣지 않아도 된다. 게임 앱 `typecheck`는 `tsc -b`라서 서버 선언 파일(`apps/server/dist-types/`, 저장소에 올리지 않음)을 필요할 때 만든다. oxlint 타입 인식 린트는 선언 파일이 없어도 참조를 따라 서버 소스를 읽는다.
 - **watchtower**: 개발이 중단됐다. 쓰지 않는다.
 - **pnpm 11** (11.28.9, 2026-10-28 설치로 확인): `minimumReleaseAge: 1440` 때문에 공개된 지 하루가 안 된 버전은 설치되지 않는다. "버전을 찾을 수 없음"이 나오면 하루 기다리거나 그 전 버전을 쓴다. 설치 스크립트는 `pnpm-workspace.yaml`의 `allowBuilds`에 적은 패키지만 실행된다(추가: `pnpm approve-builds <이름>`). Dependabot PR이 `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`으로 실패하면 하루 뒤 CI를 다시 실행한다. `minimumReleaseAge`는 낮추지 않는다(ADR `2026-10-28-dependency-updates.md`).
 - **Biome 2.6**: Markdown도 포맷한다. 보호 문서가 바뀌지 않게 `biome.json`에서 `**/*.md`를 뺐다. 이 제외를 지우지 않는다(2026-10-28 확인).
@@ -80,7 +84,7 @@
 |---|---|
 | `pnpm install` | 의존성 설치 + git 훅 설치 |
 | `pnpm dev:server` | 서버 개발 실행 (`http://127.0.0.1:4100`, `/health`, `/ws`) |
-| `pnpm dev:game` | 게임 앱 개발 실행 (Vite, `/health`·`/ws`는 서버로 넘김. 서버 주소는 `TERRA_SERVER_URL`) |
+| `pnpm dev:game` | 게임 앱 개발 실행 (Vite, `/health`·`/api`·`/ws`는 서버로 넘김. 서버 주소는 `TERRA_SERVER_URL`) |
 | `pnpm check` | 포맷·린트·타입·모듈 경계·파일 크기·다국어·단위 테스트 (CI와 같은 검사) |
 | `pnpm format` | 포맷 자동 수정 |
 | `pnpm test` | 단위 테스트만 |

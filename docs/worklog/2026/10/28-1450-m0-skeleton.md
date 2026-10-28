@@ -50,6 +50,8 @@
 - 이미지 태그 존재(Docker Hub API): `node:24.22.1-trixie-slim`, `postgres:18.6-trixie`, `myoung34/github-runner:2.338.2-ubuntu-noble`, `zricethezav/gitleaks:v8.30.1`.
 - 실행기 이미지에 docker CLI와 compose 플러그인이 들어 있음(해당 저장소의 빌드 스크립트·설정 확인). 실행기 환경변수 이름은 그 저장소 README로 확인.
 - gitleaks 기본 설정이 `pnpm-lock.yaml`을 검사에서 뺀다(v8.30.1 `config/gitleaks.toml`).
+- CI 1회차(커밋 2c80c82) 전부 통과: check, secrets(gitleaks: 커밋 5개, 유출 없음), image(`sha-2c80c82b6ec3` GHCR 푸시). deploy는 `NAS_DEPLOY_ENABLED` 미설정이라 건너뜀(의도대로).
+- 그 뒤 CI 이미지 단계에 "컨테이너 실행 → `/health`·첫 화면 확인"을 추가했다. 이미지가 실제로 뜨는지 푸시 전에 확인한다.
 
 ## 미검증·TODO·알려진 문제
 - 미실행: Docker 이미지 빌드, gitleaks, NAS 배포. 이 환경에 Docker가 없어 CI 결과로 확인한다.

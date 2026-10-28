@@ -66,18 +66,31 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - id: meta
-        run: echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          echo "IMAGE_REF=ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA::12}" >> "$GITHUB_ENV"
       - name: GHCR 로그인
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-      - name: 이미지 빌드·푸시
+      - name: 이미지 빌드
         run: |
-          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
           # source 라벨: GHCR 패키지를 이 저장소에 연결한다(권한 상속)
           docker build --build-arg APP_BUILD="${GITHUB_SHA::12}" \
             --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
             --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
-            -t "$IMAGE:${{ steps.meta.outputs.tag }}" .
-          docker push "$IMAGE:${{ steps.meta.outputs.tag }}"
+            -t "$IMAGE_REF" .
+      - name: 이미지 동작 확인 (컨테이너 실행 → /health, 첫 화면)
+        run: |
+          docker run -d --name smoke -p 127.0.0.1:4100:4100 "$IMAGE_REF"
+          ok=""
+          for _ in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:4100/health; then ok=1; break; fi
+            sleep 1
+          done
+          if [ -z "$ok" ]; then docker logs smoke; exit 1; fi
+          curl -fsS http://127.0.0.1:4100/ | grep -q 'id="root"'
+          docker rm -f smoke
+      - name: 이미지 푸시
+        run: docker push "$IMAGE_REF"
 
   deploy:
     needs: image

@@ -1,0 +1,27 @@
+# 의존성·빌드 산출물
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.vite/
+.turbo/
+playwright-report/
+test-results/
+
+# 비밀값·로컬 설정 (절대 커밋 금지)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.claude/settings.local.json
+
+# 로그·임시 파일
+*.log
+tmp/
+.DS_Store
+Thumbs.db
+
+# 큰 에셋 원본은 git에 넣지 않는다 (docs/PLAN.md 9.8)
+assets-src/

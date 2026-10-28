@@ -1,6 +1,6 @@
 # NPC 세력: 규모 목표에 포함하고, 검증 단계를 새로 둔다
 
-- 상태: 확정
+- 상태: 확정 (일부 대체됨: `2026-10-28-unit-cap-housing.md` — 넘치는 유닛을 맞추는 장치)
 - 날짜: 2026-10-28
 - 관련: docs/PLAN.md 1.4·11장, `2026-10-28-simulation-model.md`, `2026-10-28-server-authority.md`, 기획 GDD v4 D-044(P0)·D-013·D-098, 조사 `docs/research/2026-10-28-gdd-v4-tech-crosscheck.md` C4·A5·A7
 

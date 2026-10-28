@@ -169,6 +169,12 @@ importers:
 
   packages/shared: {}
 
+  packages/sim:
+    devDependencies:
+      '@terra/shared':
+        specifier: workspace:*
+        version: link:../shared
+
 packages:
 
   '@apideck/better-ajv-errors@0.3.7':

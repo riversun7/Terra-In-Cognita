@@ -14,6 +14,7 @@
 | hallmark 스킬 | `.claude/skills/hallmark/` | https://github.com/Nutlope/hallmark `skills/hallmark` @ `6033bab2a805` (2026-10-27) | MIT (폴더의 `LICENSE`) |
 | taste-skill | `.claude/skills/taste-skill/` | https://github.com/Leonxlnx/taste-skill `skills/taste-skill` @ `12af471f627f` (2026-10-25) | MIT (저장소 루트 `LICENSE`를 폴더에 복사) |
 | Emil Kowalski 스킬 8개: emil-design-eng, animate, review-animations, animation-performance, find-animation-opportunities, improve-animations, animation-vocabulary, break-ui | `.claude/skills/<이름>/` | https://github.com/emilkowalski/skills `skills/<이름>` @ `2d228630ba14` (2026-10-11) | MIT (저장소 루트 `LICENSE`를 각 폴더에 복사) |
+| 정수 섞기 함수 lowbias32의 구성(시프트·곱 상수) | `packages/sim/src/math/hash.ts`(`mix32`) | https://github.com/skeeto/hash-prospector `README.md` @ `396dbe235c94` (2026-10-28 확인) | Unlicense(공개 도메인, 저장소 `UNLICENSE`) |
 
 외부 스킬은 원본 파일을 바꾸지 않고 그대로 복사했다(복사 후 원본과 비교해 같음을 확인). 추가한 것은 라이선스 파일뿐이다.
 

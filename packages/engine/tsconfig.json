@@ -1,0 +1,9 @@
+{
+  // 기기로 가는 코드 — 지원 하한(iOS 16.4)에 맞춰 ES2023까지(게임 앱과 같다, ADR 2026-10-28-pwa-and-browser-baseline).
+  // 지형 워커(src/terrain/terrainWorker.ts)도 DOM 타입으로 검사한다(워커 전용 타입 WebWorker와 함께 쓰면 선언이 겹친다)
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"]
+  },
+  "include": ["src"]
+}

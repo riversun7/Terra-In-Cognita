@@ -80,3 +80,4 @@ export {
   type Motion,
   type MotionInput,
 } from "./motion/motion.ts";
+export { createEventQueue, type EventQueue, type ScheduledEvent } from "./events/eventQueue.ts";

@@ -43,7 +43,23 @@ function describe(error: unknown, fallback: string): string {
   }
 }
 
-const currentPage = (): string => clip(location.pathname, TELEMETRY_LIMITS.page);
+/** 주소가 바뀌지 않는 화면(2차맵 등)의 이름 — 보고의 page 뒤에 `#이름`으로 붙인다 */
+let currentView: string | null = null;
+/** 지금 켜진 보고의 성능 구간 보내기(화면이 바뀌기 전 구간을 먼저 보낸다) */
+let flushActive: (() => void) | null = null;
+
+/**
+ * 지금 보이는 화면 이름을 성능·오류 보고에 붙인다(없으면 null). S1 측정에서 2차맵 구간을 따로 보려고 쓴다.
+ * 바뀌기 전까지 모은 성능 구간은 이전 이름으로 먼저 보낸다.
+ */
+export function setTelemetryView(view: string | null): void {
+  if (view === currentView) return;
+  flushActive?.();
+  currentView = view;
+}
+
+const currentPage = (): string =>
+  clip(currentView ? `${location.pathname}#${currentView}` : location.pathname, TELEMETRY_LIMITS.page);
 
 /** 보고를 시작한다. 멈추는 함수를 돌려준다. */
 export function startTelemetry(monitor: FrameMonitor, clientBuild: string): () => void {
@@ -102,8 +118,10 @@ export function startTelemetry(monitor: FrameMonitor, clientBuild: string): () =
   const timer = setInterval(() => {
     if (document.visibilityState === "visible") flushPerf();
   }, PERF_INTERVAL_MS);
+  flushActive = flushPerf;
 
   return () => {
+    if (flushActive === flushPerf) flushActive = null;
     window.removeEventListener("error", onError);
     window.removeEventListener("unhandledrejection", onRejection);
     document.removeEventListener("visibilitychange", onVisibility);

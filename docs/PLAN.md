@@ -328,8 +328,8 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 
 ### 9.4 DB
 - 기존 테스트 DB 컨테이너 `terra_testDB`: PostgreSQL 18.6(`postgres:latest` 이미지), 포트 5440, 데이터는 `/volume1/docker/terra-testDB/data`(바인드 마운트, PGDATA 직접 지정) [V: 사용자 제공 화면]. 버전이 이미 18이라 교체는 필요 없다.
-- 사용자 허가에 따라 이 자리를 비우고 새 스택 전용으로 쓴다. 새 DB는 `tic-db`(`postgres:18.6-trixie` 고정), **호스트 포트 없음**(내부 네트워크만, 관리는 `docker exec`), 데이터는 `/volume1/docker/terra-in-cognita/pgdata`. 기존 `terra_testDB`는 새 스택이 정상 동작하면 중지하고, 데이터 폴더는 확인 후 정리한다.
-- 기존 테스트 서버(`terra-test-server`)는 이 DB를 쓰므로 함께 중지한다.
+- 사용자 허가에 따라 이 자리를 비우고 새 스택 전용으로 쓴다. 새 DB는 `tic-db`(`postgres:18.6-trixie` 고정), **호스트 포트 없음**(내부 네트워크만, 관리는 `docker exec`), 데이터는 `/volume1/docker/terra-in-cognita/pgdata`. 기존 `terra_testDB`와 `terra-test-server`는 사용자 결정(2026-10-28)으로 삭제한다(기존 버전은 운영 서버만 남김, 순서는 `ops/nas-setup.md` 7단계).
+- 기존 테스트 서버(`terra-test-server`)는 이 DB를 쓰므로 함께 삭제한다.
 
 ### 9.5 백업·관측·알림
 - 백업: 매일 `pg_dump` → NAS 백업 폴더 → NAS 밖 보관(예: Hyper Backup). 주 1회 임시 컨테이너에 자동 복구 + 원장 합계 검사. 마이그레이션 전 자동 백업. 실유저 단계 전에 WAL 아카이브(시점 복구)를 추가한다.

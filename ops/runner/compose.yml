@@ -13,8 +13,10 @@ services:
       LABELS: nas
       # GitHub 저장소 Settings → Actions → Runners → New self-hosted runner 화면의 토큰 (1시간 유효)
       RUNNER_TOKEN: "여기에_토큰_붙여넣기"
-      # 등록 정보를 저장해 재시작해도 다시 등록하지 않게 한다
+      # 등록 정보를 저장해 재시작해도 다시 등록하지 않게 한다 (docker/tic-runner/config 폴더를 미리 만들어야 함)
       CONFIGURED_ACTIONS_RUNNER_FILES_DIR: /volume1/docker/tic-runner/config
+      # 위 저장 기능을 쓰면 반드시 "true" — 없으면 이미지의 entrypoint.sh가 시작하자마자 종료한다(무한 재시작)
+      DISABLE_AUTOMATIC_DEREGISTRATION: "true"
       # 작업 폴더는 NAS와 같은 경로로 연결해야 컨테이너 안 도구가 파일을 찾는다
       RUNNER_WORKDIR: /volume1/docker/tic-runner/work
     volumes:

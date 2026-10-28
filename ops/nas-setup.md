@@ -4,8 +4,9 @@
 기존 운영 서버(기존 버전)와 다른 프로젝트 컨테이너는 건드리지 않는다. 새 스택은 이름이 모두 `tic-`로 시작한다.
 
 ## 1. 폴더 만들기
-File Station → `docker` 공유 폴더 안에 폴더 2개를 만든다.
-- `tic-runner` — 실행기(runner) 설정과 작업 폴더
+File Station → `docker` 공유 폴더 안에 폴더를 만든다.
+- `tic-runner` — 실행기(runner) 작업 폴더
+- `tic-runner/config` — 실행기 등록 정보(**꼭 미리 만든다.** 실행기 이미지가 이 폴더를 스스로 만들지 않는다)
 - `terra-in-cognita` — 새 DB 데이터, 배포 전 백업, 비밀값 파일(`.env`)
 
 ## 2. 실행기(runner) 설치
@@ -44,9 +45,16 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
 3. 새 포트를 썼다면 공유기에서 그 포트만 포워딩한다.
 4. 같이 확인할 것: 공유기에서 기존 DB 포트(5439·5440)가 외부로 포워딩되어 있는지. 열려 있으면 닫을지 정한다.
 
-## 7. 기존 테스트 컨테이너 정리 (선택)
-새 스택이 잘 돌면 Container Manager에서 `terra-test-server`, `terra_testDB`를 **중지**한다.
-데이터 폴더(`docker/terra-testDB`)는 필요 없다고 확인한 뒤 지운다.
+## 7. 기존 테스트 서버 삭제 (사용자 결정 2026-10-28)
+기존 버전은 운영 서버(`terra-server`, `terra-client`, `terra-postgres`, `terra-watchtower`)만 남긴다.
+1. `terra_testDB`(프로젝트 없음): 컨테이너 → 중지 → 삭제. 데이터 폴더 `docker/terra-testDB`는 File Station에서 지운다.
+2. `terra-test-server`(`antigravt01` 프로젝트 소속): 컨테이너 → 중지 → 삭제.
+   - 프로젝트 소속이라 삭제가 막히거나, 나중에 `antigravt01` 프로젝트를 다시 빌드하면 되살아난다. 완전히 없애려면 그 프로젝트 YAML에서 `test-server:` 부분을 지운다. 다른 서비스의 `depends_on`에 `test-server`가 있으면 그 줄도 함께 지운다(남기면 빌드 실패). 저장·빌드하면 운영 컨테이너도 잠깐 다시 시작된다.
+   - `docker/antigravt01` 폴더는 운영 서버가 쓰므로 지우지 않는다.
+3. 기존 로그인 화면의 "테스트 서버" 선택지는 남지만 누르면 접속되지 않는다(운영 서버 선택은 그대로).
+
+## 문제가 생기면
+- **실행기가 계속 다시 시작된다**(로그에 `DISABLE_AUTOMATIC_DEREGISTRATION should be set to true`): compose에 `DISABLE_AUTOMATIC_DEREGISTRATION: "true"`가 없거나 `tic-runner/config` 폴더가 없는 것이다. 프로젝트를 중지하고 YAML을 저장소의 `ops/runner/compose.yml`로 바꾼 뒤(토큰은 새로 받아 넣는다) 다시 빌드한다.
 
 ## 참고
 - 실행기는 NAS의 Docker를 제어할 수 있다. 배포 작업은 main 브랜치 실행에서만 돈다. 저장소에 쓰기 권한을 가진 사람만 작업을 실행할 수 있으니 협업자를 추가할 때 주의한다.

@@ -20,6 +20,7 @@
     "@better-auth/drizzle-adapter": "1.7.14",
     "@fastify/static": "10.1.7",
     "@fastify/websocket": "11.3.4",
+    "@terra/content": "workspace:*",
     "@terra/protocol": "workspace:*",
     "@terra/shared": "workspace:*",
     "@trpc/server": "11.19.0",

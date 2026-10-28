@@ -14,7 +14,10 @@ import { registerTrpc } from "./trpc/plugin.ts";
 import { appRouter } from "./trpc/router.ts";
 
 export interface AppOptions {
+  /** 콘텐츠 팩 버전 "<팩 ID>@<팩 버전>" (시험에서는 아무 문자열) */
   contentVersion: string;
+  /** 콘텐츠 팩 해시(SHA-256). 없으면 /health에 넣지 않는다(시험용) */
+  contentHash?: string | undefined;
   staticDir?: string | undefined;
   logger?: boolean;
   now?: () => number;
@@ -39,6 +42,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   await app.register(websocket, { options: { maxPayload: MAX_MESSAGE_BYTES } });
 
   // DB가 응답하지 않으면 503 → 배포 헬스체크가 실패해 직전 버전으로 되돌린다
+  // 배포 점검(ops/smoke.mjs)은 여기의 콘텐츠 버전·해시를 CI가 검사한 값과 비교한다
   app.get("/health", async (_request, reply) => {
     const db = options.db ? ((await pingDatabase(options.db)) ? "ok" : "error") : "off";
     if (db === "error") reply.code(503);
@@ -48,6 +52,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       protocolVersion: PROTOCOL_VERSION,
       simVersion: SIM_VERSION,
       contentVersion: options.contentVersion,
+      contentHash: options.contentHash,
       uptimeSec: Math.floor(process.uptime()),
     };
   });

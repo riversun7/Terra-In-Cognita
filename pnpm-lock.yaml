@@ -102,6 +102,9 @@ importers:
       '@fastify/websocket':
         specifier: 11.3.4
         version: 11.3.4
+      '@terra/content':
+        specifier: workspace:*
+        version: link:../../packages/content
       '@terra/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

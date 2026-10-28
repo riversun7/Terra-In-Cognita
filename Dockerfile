@@ -24,7 +24,8 @@ FROM node:24.22.1-trixie-slim
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=4100 \
-    STATIC_DIR=/app/public
+    STATIC_DIR=/app/public \
+    CONTENT_DIR=/app/content/core
 WORKDIR /app
 COPY --from=build /out/package.json ./package.json
 COPY --from=build /out/node_modules ./node_modules
@@ -32,6 +33,8 @@ COPY --from=build /out/dist ./dist
 # 마이그레이션 SQL — dist/migrate.js가 ../drizzle을 읽는다 (ops/deploy.sh 5단계)
 COPY --from=build /repo/apps/server/drizzle ./drizzle
 COPY --from=build /repo/apps/game/dist ./public
+# 콘텐츠 팩 — 코드와 함께 배포·되돌림한다. 서버가 시작할 때 검사하고, 틀리면 뜨지 않는다 (docs/adr/2026-10-28-content-pack-format.md)
+COPY --from=build /repo/content ./content
 USER node
 EXPOSE 4100
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \

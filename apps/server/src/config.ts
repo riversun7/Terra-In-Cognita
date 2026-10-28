@@ -1,4 +1,5 @@
 // 서버 설정 — 환경 변수에서 읽는다. 비밀값은 여기 기본값으로 두지 않는다.
+import { fileURLToPath } from "node:url";
 
 /** 판정 규칙 버전. packages/sim 규칙이 바뀌면 올린다. */
 export const SIM_VERSION = 1;
@@ -10,12 +11,19 @@ export const SIM_VERSION = 1;
  */
 export const DEFAULT_TRUST_PROXY = "loopback, uniquelocal";
 
+/**
+ * 콘텐츠 팩 폴더 기본값: 저장소의 content/core (개발 실행 src/, 빌드 dist/ 모두 apps/server 한 단계 아래).
+ * 이미지는 CONTENT_DIR=/app/content/core를 준다(Dockerfile).
+ */
+export const DEFAULT_CONTENT_DIR = fileURLToPath(new URL("../../../content/core", import.meta.url));
+
 export interface ServerConfig {
   host: string;
   port: number;
   /** 빌드된 게임 앱(정적 파일) 위치. 없으면 API만 제공 */
   staticDir: string | undefined;
-  contentVersion: string;
+  /** 콘텐츠 팩 폴더 (CONTENT_DIR). 시작할 때 검사하고, 틀리면 시작하지 않는다 */
+  contentDir: string;
   /** PostgreSQL 접속 주소. 없으면 DB 없이 뜬다(이미지 동작 확인·DB 없는 개발용) */
   databaseUrl: string | undefined;
   /** 믿는 프록시 주소 (TRUST_PROXY) */
@@ -31,7 +39,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     host: env.HOST ?? "0.0.0.0",
     port,
     staticDir: env.STATIC_DIR || undefined,
-    contentVersion: env.CONTENT_VERSION ?? "dev",
+    contentDir: env.CONTENT_DIR || DEFAULT_CONTENT_DIR,
     databaseUrl: env.DATABASE_URL || undefined,
     trustProxy: env.TRUST_PROXY || DEFAULT_TRUST_PROXY,
   };

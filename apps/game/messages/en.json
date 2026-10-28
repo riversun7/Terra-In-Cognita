@@ -1,0 +1,13 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "app_title": "Terra In-Cognita",
+  "status_connecting": "Connecting to server…",
+  "status_connected": "Connected",
+  "status_disconnected": "Disconnected. Reconnecting…",
+  "status_rejected_protocol": "This app is out of date. Please reload.",
+  "status_rejected_other": "The server rejected the connection.",
+  "clock_offset": "Server clock offset: {offset}ms (round trip {rtt}ms)",
+  "fps": "Frame rate: {fps} fps",
+  "reload": "Reload",
+  "language": "Language"
+}

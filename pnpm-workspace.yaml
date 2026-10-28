@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+
+# 공급망 보호: 배포된 지 하루가 안 된 패키지 버전은 설치하지 않는다 (분 단위)
+minimumReleaseAge: 1440
+
+# 설치 스크립트 실행을 허용하는 패키지 (나머지는 차단)
+allowBuilds:
+  esbuild: true
+  lefthook: true

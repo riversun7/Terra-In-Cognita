@@ -1,0 +1,54 @@
+// Fastify 앱 구성 — 테스트에서도 같은 함수로 만든다
+import path from "node:path";
+import fastifyStatic from "@fastify/static";
+import websocket from "@fastify/websocket";
+import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "@terra/protocol";
+import Fastify, { type FastifyInstance } from "fastify";
+import { SIM_VERSION } from "./config.ts";
+import { handleSession } from "./session.ts";
+
+export interface AppOptions {
+  contentVersion: string;
+  staticDir?: string | undefined;
+  logger?: boolean;
+  now?: () => number;
+}
+
+export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
+  const now = options.now ?? Date.now;
+  const app = Fastify({
+    logger: options.logger ?? true,
+    // DSM 역방향 프록시 뒤에서 실제 접속 주소를 읽기 위해
+    trustProxy: true,
+  });
+
+  await app.register(websocket, { options: { maxPayload: MAX_MESSAGE_BYTES } });
+
+  app.get("/health", async () => ({
+    status: "ok",
+    protocolVersion: PROTOCOL_VERSION,
+    simVersion: SIM_VERSION,
+    contentVersion: options.contentVersion,
+    uptimeSec: Math.floor(process.uptime()),
+  }));
+
+  await app.register(async (scope) => {
+    scope.get("/ws", { websocket: true }, (socket) => {
+      handleSession(socket, { simVersion: SIM_VERSION, contentVersion: options.contentVersion, now });
+    });
+  });
+
+  if (options.staticDir) {
+    const root = path.resolve(options.staticDir);
+    await app.register(fastifyStatic, { root, wildcard: false });
+    // 화면 이동(SPA) 경로는 index.html로 보낸다. API 경로는 404 유지.
+    app.setNotFoundHandler((request, reply) => {
+      if (request.method === "GET" && !request.url.startsWith("/api") && !request.url.startsWith("/ws")) {
+        return reply.sendFile("index.html");
+      }
+      return reply.code(404).send({ error: "not_found" });
+    });
+  }
+
+  return app;
+}

@@ -1,0 +1,51 @@
+// 메시지 정의 (Zod 스키마 = 런타임 검증 + 타입)
+import { z } from "zod";
+
+const nonNegativeInt = z.number().int().nonnegative();
+const timestampMs = z.number().nonnegative();
+
+// ---------- 기기 → 서버 ----------
+
+/** 접속 직후 첫 메시지. 버전이 맞지 않으면 서버가 reject 후 연결을 끊는다. */
+const helloMessage = z.object({
+  t: z.literal("hello"),
+  protocolVersion: nonNegativeInt,
+  clientBuild: z.string().min(1).max(64),
+});
+
+/** 시계 차이 측정용 */
+const pingMessage = z.object({
+  t: z.literal("ping"),
+  id: nonNegativeInt,
+  clientSendTime: timestampMs,
+});
+
+export const clientMessageSchema = z.discriminatedUnion("t", [helloMessage, pingMessage]);
+export type ClientMessage = z.infer<typeof clientMessageSchema>;
+
+// ---------- 서버 → 기기 ----------
+
+const welcomeMessage = z.object({
+  t: z.literal("welcome"),
+  protocolVersion: nonNegativeInt,
+  simVersion: nonNegativeInt,
+  contentVersion: z.string().min(1),
+  serverTime: timestampMs,
+});
+
+/** 거절 사유는 문장 대신 코드로 보낸다 (기기가 번역) */
+const rejectMessage = z.object({
+  t: z.literal("reject"),
+  code: z.enum(["protocol_unsupported", "hello_required", "invalid_message"]),
+  minProtocolVersion: nonNegativeInt,
+});
+
+const pongMessage = z.object({
+  t: z.literal("pong"),
+  id: nonNegativeInt,
+  clientSendTime: timestampMs,
+  serverTime: timestampMs,
+});
+
+export const serverMessageSchema = z.discriminatedUnion("t", [welcomeMessage, rejectMessage, pongMessage]);
+export type ServerMessage = z.infer<typeof serverMessageSchema>;

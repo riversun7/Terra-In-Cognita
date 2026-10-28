@@ -1,0 +1,46 @@
+# 변경 이력(CHANGELOG.md) 생성 설정 — git-cliff (PLAN 10.3, ADR 2026-10-28-dev-workflow.md)
+# 버전 태그 직전에 `pnpm changelog --tag vX.Y.Z`로 만든다. 커밋 메시지(Conventional Commits)가 원본이라 파일을 직접 고치지 않는다.
+
+[changelog]
+header = """
+# 변경 이력
+
+이 파일은 git-cliff가 커밋 메시지로 만든다. 직접 고치지 않는다.
+
+"""
+body = """
+{% if version %}\
+## {{ version | trim_start_matches(pat="v") }} ({{ timestamp | date(format="%Y-%m-%d") }})
+{% else %}\
+## 다음 버전 (태그 전)
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+{% for commit in commits %}
+- {% if commit.breaking %}**[호환 깨짐]** {% endif %}{% if commit.scope %}`{{ commit.scope }}` {% endif %}{{ commit.message }} ({{ commit.id | truncate(length=7, end="") }})\
+{% endfor %}
+{% endfor %}
+"""
+footer = ""
+trim = true
+
+[git]
+conventional_commits = true
+# Conventional Commits 형식이 아닌 커밋(병합 커밋 등)은 넣지 않는다
+filter_unconventional = true
+split_commits = false
+# 그룹 이름 앞의 숫자 주석은 순서용 (striptags로 지워진다)
+commit_parsers = [
+  { message = "^feat", group = "<!-- 0 -->기능" },
+  { message = "^fix", group = "<!-- 1 -->수정" },
+  { message = "^perf", group = "<!-- 2 -->성능" },
+  { message = "^refactor", group = "<!-- 3 -->구조 개선" },
+  { message = "^docs", group = "<!-- 4 -->문서" },
+  { message = "^test", group = "<!-- 5 -->테스트" },
+  { message = "^build", group = "<!-- 6 -->빌드·의존성" },
+  { message = "^ci", group = "<!-- 7 -->CI" },
+  { message = "^chore", group = "<!-- 8 -->기타" },
+]
+protect_breaking_commits = true
+tag_pattern = "v[0-9].*"
+sort_commits = "oldest"

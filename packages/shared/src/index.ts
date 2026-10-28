@@ -9,6 +9,7 @@ export {
   type LoginIdProblem,
   type LoginIdResult,
 } from "./loginId.ts";
+export { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "./passwordRules.ts";
 export { DEFAULT_ROLE, ROLES, isRole, type Role } from "./roles.ts";
 export {
   ACCOUNT_API_PATHS,

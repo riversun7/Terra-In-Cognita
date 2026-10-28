@@ -3,7 +3,13 @@
 // - Drizzle 어댑터는 relations-v2(drizzle-orm 1.0용). 옛 어댑터(better-auth/adapters/drizzle)는 1.0 RC와 맞지 않는다.
 // - HTTP 경로(/api/auth/*)는 src/auth/bridge.ts의 허용 목록만 연다. 들어가기·비밀번호 찾기는 src/auth/account.ts.
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2";
-import { DEFAULT_ROLE, LOGIN_ID_MAX_LENGTH, LOGIN_ID_MIN_LENGTH, parseLoginId } from "@terra/shared";
+import {
+  DEFAULT_ROLE,
+  LOGIN_ID_MAX_LENGTH,
+  LOGIN_ID_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+  parseLoginId,
+} from "@terra/shared";
 import { betterAuth } from "better-auth/minimal";
 import { admin } from "better-auth/plugins/admin";
 import { username } from "better-auth/plugins/username";
@@ -55,7 +61,7 @@ export function createAuth({ db, settings, log }: CreateAuthOptions) {
       // 새 비밀번호 규칙(8~128자 등)은 우리 쪽(src/auth/passwordPolicy.ts)이 본다. 관리 명령(--allow-weak)은
       // 그 규칙을 건너뛸 수 있어서 Better Auth 하한은 1자로 둔다(0은 기본값 8로 바뀐다).
       minPasswordLength: 1,
-      maxPasswordLength: 128,
+      maxPasswordLength: PASSWORD_MAX_LENGTH,
       autoSignIn: true,
     },
     session: {

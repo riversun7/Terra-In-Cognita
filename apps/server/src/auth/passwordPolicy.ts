@@ -2,9 +2,10 @@
 // - 8~128자, 아이디와 같으면 안 된다, 흔한 비밀번호 목록에 있으면 안 된다.
 // - 로그인(있는 계정)에는 적용하지 않는다: 관리 명령(--allow-weak)으로 만든 계정은 더 짧을 수 있다.
 // - 길이는 Better Auth와 같게 UTF-16 글자 수(.length)로 잰다. 비교는 NFKC·소문자로 한다.
+// - 길이 숫자는 기기도 쓰므로 @terra/shared(passwordRules.ts)에 둔다.
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@terra/shared";
 
-export const PASSWORD_MIN_LENGTH = 8;
-export const PASSWORD_MAX_LENGTH = 128;
+export { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH };
 
 export type PasswordProblem =
   | "PASSWORD_TOO_SHORT"

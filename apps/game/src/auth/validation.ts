@@ -1,13 +1,10 @@
 // 입력 검사 — 순수 함수(시험 대상). 보내기 전에 바로 알려 주려는 것이고, 판정은 서버가 다시 한다.
 // - 아이디: @terra/shared의 parseLoginId(서버와 같은 함수).
 // - 새 비밀번호: 길이·아이디와 같음만 미리 본다. 흔한 비밀번호 목록은 서버만 본다.
-//   길이 숫자는 서버 apps/server/src/auth/passwordPolicy.ts와 같아야 한다(ADR 2026-10-28-auth-and-accounts).
+//   길이 숫자는 서버와 같은 @terra/shared 값을 쓴다(ADR 2026-10-28-auth-and-accounts).
 //   시도 제한 때문에 미리 거른다: 규칙에 걸린 요청도 서버에서는 시도 한 번으로 센다.
-import { type LoginIdProblem, parseLoginId } from "@terra/shared";
+import { type LoginIdProblem, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, parseLoginId } from "@terra/shared";
 import type { PlainMessageKey } from "../ui/messageRef.ts";
-
-export const NEW_PASSWORD_MIN_LENGTH = 8;
-export const NEW_PASSWORD_MAX_LENGTH = 128;
 /** 이메일 주소 길이 상한(서버와 같다) */
 const EMAIL_MAX_LENGTH = 254;
 /** 느슨한 모양 검사(골뱅이 하나, 점 있는 도메인). 정확한 검사는 서버가 한다 */
@@ -27,8 +24,8 @@ export const hasErrors = (errors: FieldErrors<string>): boolean => Object.keys(e
 
 /** 새 비밀번호 규칙(길이, 아이디와 같음). loginIdKey는 소문자 아이디 키 */
 export function newPasswordProblem(password: string, loginIdKey: string): PlainMessageKey | undefined {
-  if (password.length < NEW_PASSWORD_MIN_LENGTH) return "auth_err_password_too_short";
-  if (password.length > NEW_PASSWORD_MAX_LENGTH) return "auth_err_password_too_long";
+  if (password.length < PASSWORD_MIN_LENGTH) return "auth_err_password_too_short";
+  if (password.length > PASSWORD_MAX_LENGTH) return "auth_err_password_too_long";
   if (password.normalize("NFKC").toLowerCase() === loginIdKey) return "auth_err_password_same_as_id";
   return undefined;
 }

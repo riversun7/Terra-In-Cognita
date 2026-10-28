@@ -11,6 +11,7 @@
 //   같은 값의 경로가 여러 개면 먼저 찾은 부모를 유지한다. 그래서 같은 입력이면 항상 같은 경로다.
 // - 노드 예산: 펼친 칸 수의 상한. 넘으면 "budget_exceeded"(길이 있는지 모름), 다 봤는데 없으면 "no_path".
 import { type SizeClass, isSizeClass } from "../grid/clearance.ts";
+import { ROAD_COST } from "../grid/costs.ts";
 import { type PlacementGrid, cheapestCellCost, footprintCost, isInside } from "../grid/placementGrid.ts";
 import { type CellPoint, PLACEMENT_CELLS, PLACEMENT_SIZE } from "../units.ts";
 import { createNodeHeap } from "./nodeHeap.ts";
@@ -63,8 +64,8 @@ function octile(dx: number, dy: number): number {
 }
 
 /**
- * 길찾기 객체를 만든다. 칸별 작업 배열(약 1.25MiB)을 한 번 만들어 계속 쓴다.
- * 한 번에 한 탐색만 한다(워커 스레드마다 하나씩 둔다).
+ * 길찾기 객체를 만든다. 칸별 작업 배열(약 2.75MiB: g·부모·도장 2개 1.25MiB + 힙 1.5MiB)을
+ * 한 번 만들어 계속 쓴다. 한 번에 한 탐색만 한다(워커 스레드마다 하나씩 둔다).
  */
 export function createPathfinder(): Pathfinder {
   const g = new Float64Array(PLACEMENT_CELLS);
@@ -72,7 +73,7 @@ export function createPathfinder(): Pathfinder {
   // 탐색 번호 도장: 배열을 매번 지우지 않으려고, 이번 탐색에서 쓴 칸인지 표시한다
   const seen = new Uint32Array(PLACEMENT_CELLS);
   const closed = new Uint32Array(PLACEMENT_CELLS);
-  const heap = createNodeHeap();
+  const heap = createNodeHeap(PLACEMENT_CELLS);
   let stamp = 0;
 
   const nextStamp = (): number => {
@@ -105,18 +106,20 @@ export function createPathfinder(): Pathfinder {
     if (startIndex === goalIndex) return { status: "found", cells: [startIndex], cost: 0, expanded: 0 };
 
     const unitCost = cheapestCellCost(grid);
+    const { terrainCost, road } = grid;
+    const gx = goal.x;
+    const gy = goal.y;
     const mark = nextStamp();
     heap.clear();
     g[startIndex] = 0;
     seen[startIndex] = mark;
     parent[startIndex] = -1;
-    const startH = octile(Math.abs(start.x - goal.x), Math.abs(start.y - goal.y)) * unitCost;
-    heap.push(startH, startH, startIndex);
+    const startH = octile(Math.abs(start.x - gx), Math.abs(start.y - gy)) * unitCost;
+    heap.upsert(startH, startH, startIndex);
 
     let expanded = 0;
     while (heap.size > 0) {
       const node = heap.pop();
-      if (closed[node] === mark) continue;
       if (node === goalIndex) {
         return { status: "found", cells: tracePath(parent, node), cost: g[node] ?? 0, expanded };
       }
@@ -141,13 +144,23 @@ export function createPathfinder(): Pathfinder {
         ) {
           continue;
         }
-        const tentative = base + (diagonal ? DIAGONAL_STEP : STRAIGHT_STEP) * footprintCost(grid, next, size);
+        // 1등급은 칸 하나의 비용(cellCost와 같은 계산을 펼쳐 썼다 — 가장 많이 도는 곳)
+        let enter: number;
+        if (size === 1) {
+          const roadType = road[next] ?? 0;
+          enter = roadType !== 0 ? (ROAD_COST[roadType] ?? 0) : (terrainCost[next] ?? 0);
+        } else {
+          enter = footprintCost(grid, next, size);
+        }
+        const tentative = base + (diagonal ? DIAGONAL_STEP : STRAIGHT_STEP) * enter;
         if (seen[next] === mark && tentative >= (g[next] ?? 0)) continue;
         g[next] = tentative;
         seen[next] = mark;
         parent[next] = node;
-        const h = octile(Math.abs(nx - goal.x), Math.abs(ny - goal.y)) * unitCost;
-        heap.push(tentative + h, h, next);
+        const hx = nx > gx ? nx - gx : gx - nx;
+        const hy = ny > gy ? ny - gy : gy - ny;
+        const h = octile(hx, hy) * unitCost;
+        heap.upsert(tentative + h, h, next);
       }
     }
     return { status: "no_path", expanded };

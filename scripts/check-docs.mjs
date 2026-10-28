@@ -3,33 +3,9 @@
 // - 새 런타임 의존성(dependencies)을 추가했으면 ADR(docs/adr/)도 함께 추가해야 한다.
 // - 이미 올라간 마이그레이션(apps/server/drizzle/)은 고치거나 지우지 않는다. 새로 추가만 한다.
 // 사용: node scripts/check-docs.mjs [기준 커밋]  (기본: upstream, 없으면 HEAD~1)
-import { fail, git } from "./lib.mjs";
+import { fail, git, resolveBase } from "./lib.mjs";
 
-function exists(ref) {
-  try {
-    git(["rev-parse", "--verify", `${ref}^{commit}`]);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function resolveBase() {
-  const arg = process.argv[2];
-  // 강제 푸시 등으로 기준 커밋이 사라졌으면 다음 후보로 넘어간다
-  if (arg && !/^0+$/.test(arg) && exists(arg)) return arg;
-  try {
-    return git(["rev-parse", "--verify", "@{u}"]);
-  } catch {
-    try {
-      return git(["rev-parse", "--verify", "HEAD~1"]);
-    } catch {
-      return null; // 첫 커밋
-    }
-  }
-}
-
-const base = resolveBase();
+const base = resolveBase(process.argv[2]);
 if (!base) {
   console.log("✓ 기준 커밋이 없어 문서 검사를 건너뜁니다 (첫 커밋)");
   process.exit(0);

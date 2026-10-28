@@ -96,6 +96,7 @@
 - **pnpm 11** (11.28.9, 2026-10-28 설치로 확인): `minimumReleaseAge: 1440` 때문에 공개된 지 하루가 안 된 버전은 설치되지 않는다. "버전을 찾을 수 없음"이 나오면 하루 기다리거나 그 전 버전을 쓴다. 설치 스크립트는 `pnpm-workspace.yaml`의 `allowBuilds`에 적은 패키지만 실행된다(추가: `pnpm approve-builds <이름>`). Dependabot PR이 `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`으로 실패하면 하루 뒤 CI를 다시 실행한다. `minimumReleaseAge`는 낮추지 않는다(ADR `2026-10-28-dependency-updates.md`).
 - **Biome 2.6**: Markdown도 포맷한다. 보호 문서가 바뀌지 않게 `biome.json`에서 `**/*.md`를 뺐다. 이 제외를 지우지 않는다(2026-10-28 확인).
 - **oxlint 타입 인식 린트**: `--type-aware`는 `oxlint-tsgolint` 패키지가 있어야 동작한다(2026-10-28 확인).
+- **oxlint 1.89.0 규칙** (2026-10-28 확인: 시험 파일로 실행): 네임스페이스 import를 계산해서 읽으면(`m[key]`) `import(namespace)` 오류다. 키로 고르는 화면 문구는 `apps/game/src/ui/messageTable.ts` 표에 적는다. 효과(`useEffect`) 안에서 바로 setState하면 `react(set-state-in-effect)`, 그리는 중에 `ref.current`를 읽으면 `react(refs)` 오류다.
 - **Paraglide JS 2** (2.29.2): 메시지 원본은 `apps/game/messages/{ko,en}.json`. 코드에서는 `import { m } from "./paraglide/messages.js"` 후 `m.app_title()`, 변수는 `m.fps({ fps })`. 언어는 `./paraglide/runtime.js`의 `getLocale`·`setLocale`·`isLocale`. `src/paraglide/`는 생성 파일(git 제외)이라 `pnpm --filter @terra/game typecheck`·`dev`·`build` 때 다시 만들어진다. 메시지 플러그인은 CDN이 아니라 설치된 `@inlang/plugin-message-format`에서 읽는다(2026-10-28 확인).
 
 ## 7. 명령어
@@ -121,6 +122,7 @@
 | `TEST_DATABASE_URL=postgres://… pnpm test` | DB 통합 테스트 포함(없으면 DB 테스트는 건너뜀. 접속 계정에 CREATEDB 권한 필요) |
 | GitHub Actions `account-admin` (수동 실행) | NAS 운영 컨테이너에서 계정 만들기·역할 바꾸기·비밀번호 바꾸기(`dist/cli.js`, 감사 기록 남음). 비밀번호는 로그에 가려진다 |
 | `BETTER_AUTH_URL=http://localhost:5173 pnpm dev:server` | 개발 중 로그인 시험(같은 출처 검사가 Vite 개발 서버 주소를 기준으로 하게). DB(`DATABASE_URL`)가 있어야 인증이 켜진다 |
+| `NODE_ENV= PORT=4320 STATIC_DIR=apps/game/dist DATABASE_URL=… BETTER_AUTH_SECRET=… BETTER_AUTH_URL=http://127.0.0.1:4320 node apps/server/dist/main.js` | 빌드한 앱·서버로 화면 시험(Playwright 등). 운영 모드(`NODE_ENV=production`)는 https 주소를 요구하므로 비운다. 먼저 `pnpm build`, `DATABASE_URL=… node apps/server/dist/migrate.js`. 시험 계정은 `node apps/server/dist/cli.js create-user`(가짜 자료만) |
 
 git 훅: 커밋 전(포맷·비밀값), 커밋 메시지(Conventional Commits), 푸시 전(`pnpm check` + 문서 규칙 + 콘텐츠 호환 + 목차 최신 여부).
 새 패키지를 만들면 `scripts/check-boundaries.mjs`의 `ALLOWED` 표에 넣는다. 배포·NAS는 `ops/nas-setup.md`.

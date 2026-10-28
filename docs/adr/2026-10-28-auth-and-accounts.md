@@ -1,8 +1,8 @@
 # 인증과 계정: Better Auth, 아이디로 들어가기, 관리자 권한, 감사 기록
 
-- 상태: 제안
+- 상태: 확정
 - 날짜: 2026-10-28
-- 관련: docs/PLAN.md 3장(인증)·4.8, 조사 `docs/research/2026-10-28-better-auth-integration.md`·`docs/research/2026-10-28-username-login.md`, `2026-10-28-db-access-and-migrations.md`(ADR 22), `2026-10-28-trpc-type-sharing.md`(ADR 23), 작업 기록 `2026/10/28-1935-proxy-trust-static-404.md`(접속 주소)
+- 관련: docs/PLAN.md 3장(인증)·4.8, 조사 `docs/research/2026-10-28-better-auth-integration.md`·`docs/research/2026-10-28-username-login.md`, `2026-10-28-db-access-and-migrations.md`(ADR 22), `2026-10-28-trpc-type-sharing.md`(ADR 23), 작업 기록 `2026/10/28-1935-proxy-trust-static-404.md`(접속 주소)·`2026/10/28-2100-auth-server.md`(구현·확인·API 표)
 
 ## 배경
 - PLAN 4.8: Better Auth 세션(쿠키), 역할 `player`·`gm`·`dev`·`admin`(조합 가능), 서버가 모든 관리자 요청을 검증, 지울 수 없는 감사 기록.
@@ -73,6 +73,17 @@
   - GitHub Actions 수동 실행 작업(NAS 실행기)으로 부른다. 감사 기록은 `actor_kind: cli`다.
   - 첫 관리자 계정은 사용자가 정한 아이디·비밀번호로 이 작업을 써서 만든다. 관리 명령만 길이 규칙을 건너뛸 수 있다(경고를 남긴다).
 - 접속 주소는 Fastify가 믿는 프록시를 거친 값(`request.ip`)을 Better Auth에 넘긴다.
+- 구현하며 정한 것(Verified: 패키지 코드·시험, 작업 기록 `28-2100-auth-server.md`)
+  - 역할 바꾸기는 우리 트랜잭션 하나로 한다. DB 잠금(advisory lock), 마지막 admin 확인, 역할 쓰기, 감사 기록을 한 번에 한다. Better Auth에는 관리자 세션 머리글로 권한만 다시 묻는다(`userHasPermission`).
+  - 비밀번호 바꾸기(비밀번호 찾기·관리 명령)도 트랜잭션 하나다. 계정 비밀번호 쓰기, 그 계정 세션 모두 지우기, 감사 기록을 한 번에 한다. 해시는 Better Auth 것(`auth.$context.password.hash`)을 쓴다.
+  - 세션 조회(get-session) 응답은 다시 만든다: `{ user: { id, loginId, roles }, expiresAt }` 또는 null. Better Auth 원래 응답에는 세션 토큰과 이메일이 들어 있다.
+  - 세션 쿠키 캐시는 끈다. 끊은 세션이 바로 끊긴다.
+  - Better Auth `minPasswordLength`는 1이다(0은 기본값 8로 바뀐다). 8자 규칙은 우리 쪽(`passwordPolicy.ts`)이 스스로 만들 때만 본다.
+  - 계정을 만들 때는 비밀번호 확인값(`passwordConfirm`)도 서버가 비교한다.
+  - 권한: admin은 사용자 만들기·목록·조회·역할 바꾸기·정지·비밀번호 바꾸기와 세션 목록·끊기. gm·dev는 아직 계정 관리 권한이 없다. 대리 로그인·삭제·이메일 바꾸기·임의 수정은 누구에게도 없다.
+  - 감사 기록 action: `account.create`, `account.password_reset`, `account.set_roles`, `cli.create_user`, `cli.set_roles`, `cli.set_password`. 이메일은 남기지 않고 `recoveryEmail: true/false`만 남긴다.
+  - 계정 관리 작업(GitHub Actions)은 첫 단계에서 비밀번호를 이벤트 파일로 읽어 가린다(`::add-mask::`). 단계의 `env:` 값은 로그 머리에 찍히기 때문이다. main 브랜치에서만 돈다.
+  - 로그인 아이디 규칙·역할 목록·계정 API 약속(경로, 요청·응답, 오류 코드)은 `packages/shared`에 둔다. 서버와 기기가 같이 쓴다.
 
 ## 이유
 - Fastify 경로 + 공개 `auth.api`

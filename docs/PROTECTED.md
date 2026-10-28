@@ -14,6 +14,8 @@
 | `content/*/id-changes.json` | 기록 수정·삭제 금지, 뒤에 추가만(`scripts/check-content.mjs` 4b단계가 검사) | 운영 데이터와 이미 배포된 팩이 옛 ID를 쓴다. 기록을 고치면 옛 ID의 새 ID·보상이 조용히 바뀐다(ADR `2026-10-28-content-pack-format.md`) |
 | `content/*/` 팩 ID | 한 번 쓴 ID는 다시 쓰지 않는다. 지우거나 바꾸면 `id-changes.json`에 기록 | 같은 ID가 다른 것을 뜻하면 운영 데이터가 엉뚱한 항목을 가리킨다 |
 | `apps/server/drizzle/` (올라간 마이그레이션) | 수정·삭제·이름 변경 금지, 새 마이그레이션 추가만(`scripts/check-docs.mjs`가 검사) | Drizzle은 이름으로만 건너뛰어, 고친 내용이 운영 DB와 조용히 어긋난다(ADR `2026-10-28-db-access-and-migrations.md`) |
+| `apps/server/src/auth/bridge.ts`의 `/api/auth` 허용 목록(세션 조회·로그아웃) | 넓히려면 ADR | Better Auth 기본 경로(가입·로그인·비밀번호 재설정·관리자)는 우리 출처 확인·시도 제한을 거치지 않는다(ADR `2026-10-28-auth-and-accounts.md`) |
+| 감사 기록 추가만 트리거(`apps/server/drizzle/20261028112504_audit_log_append_only/`) | 지우거나 끄지 않는다. 바꾸려면 새 마이그레이션 + ADR | 감사 기록은 지울 수 없어야 한다(PLAN 4.8) |
 
 생성되면 추가할 보호 대상(PLAN 10.4):
 

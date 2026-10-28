@@ -83,6 +83,15 @@
   - `onNeedReload`는 SW가 바뀔 때(controlling, 원래 SW 아래 있던 화면)만 불린다. 플러그인 `updateServiceWorker()`는 등록(페이지 load 뒤) 전에는 SKIP_WAITING을 보내지 않는다.
   - workbox-window는 밖에서 생긴 첫 새 버전 뒤로 `updatefound`를 알려 주지 않는다 → `apps/game/src/pwa/updates.ts`가 직접 본다.
   - `sw.js`는 `workbox-<해시>.js`를 따로 불러온다. Vite `baseline-widely-available` = chrome111·edge111·firefox114·safari16.4·ios16.4(`toSorted`는 Firefox 115부터).
+- **Better Auth 1.7.14** (2026-10-28 확인: 패키지 코드·시험):
+  - import는 `better-auth/minimal`, Drizzle 어댑터는 `@better-auth/drizzle-adapter/relations-v2`(옛 `better-auth/adapters/drizzle`는 Drizzle 1.0 RC와 안 맞는다).
+  - pg에서 `generateId: "uuid"`면 Better Auth가 id를 보내지 않는다 → 표에 `uuid().defaultRandom()`.
+  - 표 정의 확인(`explicitSchemaCheck`)은 열 이름이 아니라 Drizzle 속성 이름을 비교한다.
+  - `minPasswordLength: 0`은 기본값 8로 바뀐다(`|| 8`).
+  - `NODE_ENV=test`에서는 출처 확인과 속도 제한이 꺼진다(시험에서 켜려면 따로 설정).
+  - 서버에서 `auth.api`를 부르면 HTTP 보호(출처 확인, CSRF, 속도 제한, `disabledPaths`)가 돌지 않는다. 우리 경로가 직접 막는다.
+  - get-session 원래 응답에는 세션 토큰과 이메일이 있다 → 다리(`src/auth/bridge.ts`)가 본문을 다시 만든다.
+  - `listUsers`는 DB 오류를 삼킨다. sign-out은 JSON만 받는다(폼 본문은 415).
 - **watchtower**: 개발이 중단됐다. 쓰지 않는다.
 - **pnpm 11** (11.28.9, 2026-10-28 설치로 확인): `minimumReleaseAge: 1440` 때문에 공개된 지 하루가 안 된 버전은 설치되지 않는다. "버전을 찾을 수 없음"이 나오면 하루 기다리거나 그 전 버전을 쓴다. 설치 스크립트는 `pnpm-workspace.yaml`의 `allowBuilds`에 적은 패키지만 실행된다(추가: `pnpm approve-builds <이름>`). Dependabot PR이 `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`으로 실패하면 하루 뒤 CI를 다시 실행한다. `minimumReleaseAge`는 낮추지 않는다(ADR `2026-10-28-dependency-updates.md`).
 - **Biome 2.6**: Markdown도 포맷한다. 보호 문서가 바뀌지 않게 `biome.json`에서 `**/*.md`를 뺐다. 이 제외를 지우지 않는다(2026-10-28 확인).
@@ -110,6 +119,8 @@
 | `pnpm --filter @terra/server db:generate` | 표 정의(`src/db/schema.ts`)에 맞는 마이그레이션을 만든다(DB 접속 없음) |
 | `pnpm --filter @terra/server db:migrate` | 밀린 마이그레이션 적용(`DATABASE_URL` 필요) |
 | `TEST_DATABASE_URL=postgres://… pnpm test` | DB 통합 테스트 포함(없으면 DB 테스트는 건너뜀. 접속 계정에 CREATEDB 권한 필요) |
+| GitHub Actions `account-admin` (수동 실행) | NAS 운영 컨테이너에서 계정 만들기·역할 바꾸기·비밀번호 바꾸기(`dist/cli.js`, 감사 기록 남음). 비밀번호는 로그에 가려진다 |
+| `BETTER_AUTH_URL=http://localhost:5173 pnpm dev:server` | 개발 중 로그인 시험(같은 출처 검사가 Vite 개발 서버 주소를 기준으로 하게). DB(`DATABASE_URL`)가 있어야 인증이 켜진다 |
 
 git 훅: 커밋 전(포맷·비밀값), 커밋 메시지(Conventional Commits), 푸시 전(`pnpm check` + 문서 규칙 + 콘텐츠 호환 + 목차 최신 여부).
 새 패키지를 만들면 `scripts/check-boundaries.mjs`의 `ALLOWED` 표에 넣는다. 배포·NAS는 `ops/nas-setup.md`.

@@ -1,4 +1,6 @@
 // 게임 앱 빌드 설정
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import react from "@vitejs/plugin-react";
 import { type Plugin, defineConfig } from "vite";
@@ -36,9 +38,36 @@ function woff2Only(): Plugin {
   };
 }
 
+/**
+ * 글꼴 라이선스 원문을 빌드 결과에 함께 내보낸다 — licenses/pretendard-OFL.txt, licenses/jua-OFL.txt.
+ * OFL-1.1은 글꼴을 배포할 때 저작권 표시와 라이선스를 함께 두라고 한다(별도 텍스트 파일로 둘 수 있다).
+ * 원문은 꾸러미(package.json 고정 판)에서 그대로 읽는다. THIRD_PARTY_NOTICES.md "기기로 내보내는 글꼴"
+ */
+function fontLicenses(): Plugin {
+  const require = createRequire(import.meta.url);
+  const files = [
+    { fileName: "licenses/pretendard-OFL.txt", from: "pretendard/dist/LICENSE.txt" },
+    { fileName: "licenses/jua-OFL.txt", from: "@fontsource/jua/LICENSE" },
+  ];
+  return {
+    name: "terra:font-licenses",
+    apply: "build",
+    generateBundle() {
+      for (const file of files) {
+        this.emitFile({
+          type: "asset",
+          fileName: file.fileName,
+          source: readFileSync(require.resolve(file.from), "utf8"),
+        });
+      }
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
     woff2Only(),
+    fontLicenses(),
     react(),
     paraglideVitePlugin({
       project: "./project.inlang",

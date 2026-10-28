@@ -17,4 +17,14 @@
 
 외부 스킬은 원본 파일을 바꾸지 않고 그대로 복사했다(복사 후 원본과 비교해 같음을 확인). 추가한 것은 라이선스 파일뿐이다.
 
+## 기기로 내보내는 글꼴
+npm 의존성이지만 글꼴 파일을 사용자 기기로 내보내므로(배포) 여기에 적는다. 글꼴 파일은 고치지 않는다(ADR `docs/adr/2026-10-28-design-system.md`).
+
+| 글꼴 | 꾸러미 | 저작권 | 라이선스 |
+|---|---|---|---|
+| Pretendard(Regular·SemiBold, KS X 1001 부분 집합) | `pretendard` 1.3.9 | Copyright (c) 2021, Kil Hyung-jin, with Reserved Font Name Pretendard | SIL Open Font License 1.1 |
+| Jua(`unicode-range` 조각) | `@fontsource/jua` 5.3.0 | Copyright 2018 The BM JUA Project Authors | SIL Open Font License 1.1 |
+
+빌드할 때 라이선스 원문을 `licenses/pretendard-OFL.txt`, `licenses/jua-OFL.txt`로 함께 내보낸다(`apps/game/vite.config.ts`의 `fontLicenses`).
+
 추가 예정: FastNoiseLite(MIT) — 맵 생성기 작성 시 복사, NOAA ETOPO 2022(CC0) — 지구 고도 데이터 변환 시.

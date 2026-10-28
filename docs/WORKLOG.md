@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-28 21:50 | 로그인·관리자 화면: 들어가기·새 아이디 확인·비밀번호 찾기·계정 줄·역할 바꾸기, 디자인 값 한곳에 | Claude Code (서브에이전트, 작업 트리) | [28-2150-auth-ui](worklog/2026/10/28-2150-auth-ui.md) |
 | 2026-10-28 21:00 | 인증 서버: Better Auth 연결, 들어가기·비밀번호 찾기, 관리자 역할, 감사 기록, 관리 명령 | Claude Code (클라우드 세션, 서브에이전트 worktree) | [28-2100-auth-server](worklog/2026/10/28-2100-auth-server.md) |
 | 2026-10-28 20:55 | 기획서 GDD v4 대조, 기술 계획 정합(ADR 25~27, PLAN 14장) | Claude Code (클라우드 세션) | [28-2055-gdd-v4-alignment](worklog/2026/10/28-2055-gdd-v4-alignment.md) |
 | 2026-10-28 20:43 | 게임 앱 임시 파비콘 추가 | Claude Code (클라우드 세션) | [28-2043-favicon](worklog/2026/10/28-2043-favicon.md) |

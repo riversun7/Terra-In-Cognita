@@ -12,6 +12,10 @@ const ADMIN_ACTIONS: PermissionRequest[] = [
   { user: ["set-password"] },
   { session: ["list"] },
   { session: ["revoke"] },
+  // S1 시험 2차맵 명령(WebSocket)
+  { secondMap: ["move-unit"] },
+  { secondMap: ["place-building"] },
+  { secondMap: ["remove-building"] },
 ];
 
 // 누구에게도 주지 않는 동작(대리 로그인·삭제·이메일 바꾸기·임의 수정)

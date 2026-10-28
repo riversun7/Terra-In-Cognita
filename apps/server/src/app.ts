@@ -3,20 +3,31 @@ import path from "node:path";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "@terra/protocol";
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { registerAccountRoutes } from "./auth/account.ts";
 import { type AuthSettings, type TerraAuth, createAuth, verifyAuth } from "./auth/auth.ts";
 import { registerAuthBridge } from "./auth/bridge.ts";
-import { createProxyChainLogger } from "./auth/http.ts";
+import { authHeaders, createProxyChainLogger } from "./auth/http.ts";
 import { type AccountLimitName, type LimitSetting, createAccountLimiters } from "./auth/limits.ts";
+import { isAllowedSocketOrigin } from "./auth/requestGuard.ts";
 import { DEFAULT_TRUST_PROXY, SIM_VERSION } from "./config.ts";
 import { type Database, pingDatabase } from "./db/client.ts";
 import { startServerMetrics } from "./metrics.ts";
 import { handleSession } from "./session.ts";
 import { registerTelemetry } from "./telemetry.ts";
-import { createContextFactory } from "./trpc/createContext.ts";
+import type { Viewer } from "./trpc/context.ts";
+import { createContextFactory, loadViewer } from "./trpc/createContext.ts";
 import { registerTrpc } from "./trpc/plugin.ts";
 import { appRouter } from "./trpc/router.ts";
+import { cacheViewer, createWorldGateway } from "./world/gateway.ts";
+import { registerTerrainRoute } from "./world/terrainRoute.ts";
+import { type WorldConfig, startWorld } from "./world/world.ts";
+
+/** WebSocket 연결의 로그인 사용자 조회를 기억하는 시간(ms). 명령마다 DB를 부르지 않는다 */
+export const SOCKET_VIEWER_TTL_MS = 15_000;
+
+/** 로그인하지 않은 사용자(인증이 꺼져 있거나 믿을 수 없는 연결) */
+const signedOut = (): Promise<Viewer | null> => Promise.resolve(null);
 
 /**
  * 빌드 파일 중 이름에 내용 해시가 있는 것(/assets/: JS·CSS·글꼴)의 캐시. 한 번 받으면 다시 묻지 않는다.
@@ -50,6 +61,13 @@ export interface AppOptions {
   trustProxy?: string;
   /** 인증. db가 있어야 한다 */
   auth?: AppAuthOptions | undefined;
+  /** S1 2차맵(시험 2차맵 + 경로 워커 + 시험용 봇). 없으면 2차맵 요청에 unknown_map, 지형 경로 없음 */
+  world?: WorldConfig | undefined;
+  /**
+   * 시험용: 요청의 로그인 사용자를 직접 정한다(DB 없는 시험). 주면 인증 세션 조회와 WebSocket 출처 검사를 하지 않는다.
+   * 운영 코드는 쓰지 않는다.
+   */
+  testViewer?: ((request: FastifyRequest) => Promise<Viewer | null>) | undefined;
 }
 
 export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
@@ -107,20 +125,55 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     createContext: createContextFactory({ contentVersion: options.contentVersion, now, auth }),
   });
 
+  // 로그인 사용자 조회: HTTP 요청은 쿠키로 바로, WebSocket은 연결 요청의 출처가 앱 출처일 때만 쿠키를 믿는다
+  const httpViewer = (request: FastifyRequest): Promise<Viewer | null> => {
+    if (options.testViewer) return options.testViewer(request);
+    return auth ? loadViewer(auth.auth, authHeaders(request)) : signedOut();
+  };
+  const socketViewer = (request: FastifyRequest): (() => Promise<Viewer | null>) => {
+    const { testViewer } = options;
+    if (testViewer) return cacheViewer(() => testViewer(request), now, SOCKET_VIEWER_TTL_MS);
+    if (!auth || !options.auth || !isAllowedSocketOrigin(request.headers, options.auth.settings.baseUrl)) {
+      return signedOut;
+    }
+    // 머리글은 연결할 때 한 번 읽어 둔다(쿠키는 연결 요청에만 있다)
+    const headers = authHeaders(request);
+    const deps = auth;
+    return cacheViewer(() => loadViewer(deps.auth, headers), now, SOCKET_VIEWER_TTL_MS);
+  };
+
+  const world = options.world ? startWorld({ ...options.world, now, log: app.log }) : undefined;
+  if (world) {
+    app.addHook("onClose", async () => world.stop());
+    registerTerrainRoute(app, { world, viewer: httpViewer });
+  }
+  const gateway = world ? createWorldGateway({ world, now, log: app.log }) : undefined;
+
   let wsConnections = 0;
   await app.register(async (scope) => {
-    scope.get("/ws", { websocket: true }, (socket) => {
+    scope.get("/ws", { websocket: true }, (socket, request) => {
       wsConnections += 1;
       socket.on("close", () => {
         wsConnections -= 1;
       });
-      handleSession(socket, { simVersion: SIM_VERSION, contentVersion: options.contentVersion, now });
+      handleSession(socket, {
+        simVersion: SIM_VERSION,
+        contentVersion: options.contentVersion,
+        now,
+        world: gateway,
+        viewer: socketViewer(request),
+      });
     });
   });
 
   const metricsIntervalMs = options.metricsIntervalMs ?? 60_000;
   if (metricsIntervalMs > 0) {
-    const stopMetrics = startServerMetrics(app.log, () => wsConnections, metricsIntervalMs);
+    const stopMetrics = startServerMetrics(
+      app.log,
+      () => wsConnections,
+      metricsIntervalMs,
+      world ? () => world.takeMetrics() : undefined,
+    );
     app.addHook("onClose", async () => stopMetrics());
   }
 

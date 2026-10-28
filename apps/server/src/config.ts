@@ -4,8 +4,21 @@ import { type AuthConfig, readAuthConfig } from "./auth/config.ts";
 
 export type { AuthConfig };
 
-/** 판정 규칙 버전. packages/sim 규칙이 바뀌면 올린다. */
-export const SIM_VERSION = 1;
+/** 판정 규칙 버전 — packages/sim의 값을 그대로 쓴다(규칙이 바뀌면 그쪽에서 올린다) */
+export { SIM_VERSION } from "@terra/sim";
+
+/** 시험용 봇 수 상한(S1_TEST_BOTS). 스냅샷이 유닛 1만 개면 약 2.5MB다 */
+export const MAX_TEST_BOTS = 20_000;
+/** 경로 워커 수 상한(PATH_WORKERS). NAS는 2코어 4스레드(ops/nas-facts.md) */
+export const MAX_PATH_WORKERS = 8;
+
+/** S1 2차맵 시험 설정 */
+export interface S1Config {
+  /** 서버가 움직이는 시험용 봇 수 (S1_TEST_BOTS, 기본 0 = 봇 없음). 2차맵과 경로 워커는 늘 켠다 */
+  testBots: number;
+  /** 경로탐색 워커 스레드 수 (PATH_WORKERS, 기본 1) */
+  pathWorkers: number;
+}
 
 /**
  * 믿는 프록시 주소. 이 주소에서 온 연결만 X-Forwarded-For를 따라간다.
@@ -33,6 +46,23 @@ export interface ServerConfig {
   trustProxy: string;
   /** 인증 설정. DB가 없으면 인증을 켜지 않는다(undefined) — CI 이미지 확인은 DB 없이 돈다 */
   auth: AuthConfig | undefined;
+  s1: S1Config;
+}
+
+/** 비어 있으면 기본값, 아니면 [min, max] 정수여야 한다 */
+function readInteger(
+  value: string | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+  name: string,
+): number {
+  if (value === undefined || value === "") return fallback;
+  const parsed = Number(value);
+  if (!/^\d+$/.test(value) || !Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+    throw new Error(`${name} must be an integer in [${min}, ${max}]: ${value}`);
+  }
+  return parsed;
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
@@ -49,5 +79,9 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     databaseUrl,
     trustProxy: env.TRUST_PROXY || DEFAULT_TRUST_PROXY,
     auth: databaseUrl ? readAuthConfig(env, port) : undefined,
+    s1: {
+      testBots: readInteger(env.S1_TEST_BOTS, 0, 0, MAX_TEST_BOTS, "S1_TEST_BOTS"),
+      pathWorkers: readInteger(env.PATH_WORKERS, 1, 1, MAX_PATH_WORKERS, "PATH_WORKERS"),
+    },
   };
 }

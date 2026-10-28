@@ -4,7 +4,7 @@ import { readConfig } from "../config.ts";
 import { readAuthConfig } from "./config.ts";
 import { createAccountLimiters, takeAll } from "./limits.ts";
 import { checkNewPassword } from "./passwordPolicy.ts";
-import { isJsonRequest, isSameOriginRequest } from "./requestGuard.ts";
+import { isAllowedSocketOrigin, isJsonRequest, isSameOriginRequest } from "./requestGuard.ts";
 
 const APP = "https://game.example.test:4443";
 
@@ -30,6 +30,19 @@ describe("같은 출처 검사", () => {
   it("Origin 없이 Sec-Fetch-Site: same-origin만 있으면 통과, 둘 다 없으면 거절", () => {
     expect(isSameOriginRequest({ "sec-fetch-site": "same-origin" }, APP)).toBe(true);
     expect(isSameOriginRequest({}, APP)).toBe(false);
+  });
+});
+
+describe("WebSocket 출처 검사", () => {
+  it("Origin이 앱 출처와 같거나 없으면(브라우저가 아님) 쿠키를 믿는다", () => {
+    expect(isAllowedSocketOrigin({ origin: APP }, APP)).toBe(true);
+    expect(isAllowedSocketOrigin({}, APP)).toBe(true);
+  });
+
+  it("다른 출처·null Origin이면 믿지 않는다", () => {
+    expect(isAllowedSocketOrigin({ origin: "https://evil.example.test" }, APP)).toBe(false);
+    expect(isAllowedSocketOrigin({ origin: "https://game.example.test" }, APP)).toBe(false);
+    expect(isAllowedSocketOrigin({ origin: "null" }, APP)).toBe(false);
   });
 });
 

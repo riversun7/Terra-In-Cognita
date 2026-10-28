@@ -114,12 +114,18 @@ importers:
       '@terra/content':
         specifier: workspace:*
         version: link:../../packages/content
+      '@terra/planet':
+        specifier: workspace:*
+        version: link:../../packages/planet
       '@terra/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
       '@terra/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@terra/sim':
+        specifier: workspace:*
+        version: link:../../packages/sim
       '@trpc/server':
         specifier: 11.19.0
         version: 11.19.0(typescript@7.0.2)

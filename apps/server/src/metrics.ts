@@ -34,16 +34,20 @@ export function readServerMetrics(histogram: ELDHistogram, wsConnections: number
   };
 }
 
-/** 주기적으로 지표를 기록한다. 멈추는 함수를 돌려준다. */
+/**
+ * 주기적으로 지표를 기록한다. 멈추는 함수를 돌려준다.
+ * extra: 같은 줄에 붙일 값(S1 2차맵 측정값, src/world/worldStats.ts). 부를 때마다 그 구간 값을 주고 비운다.
+ */
 export function startServerMetrics(
   log: FastifyBaseLogger,
   wsConnections: () => number,
   intervalMs = 60_000,
+  extra?: () => Record<string, number>,
 ): () => void {
   const histogram = monitorEventLoopDelay({ resolution: 20 });
   histogram.enable();
   const timer = setInterval(() => {
-    log.info(readServerMetrics(histogram, wsConnections()), "server metrics");
+    log.info({ ...readServerMetrics(histogram, wsConnections()), ...extra?.() }, "server metrics");
     histogram.reset();
   }, intervalMs);
   // 이 타이머 때문에 프로세스가 안 꺼지는 일이 없게

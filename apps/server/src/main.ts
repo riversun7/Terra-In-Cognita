@@ -6,6 +6,16 @@ import { loadServerContent } from "./content.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
 
 const config = readConfig();
+
+/**
+ * 경로 워커 진입 파일. 이 파일(시작점)을 기준으로 찾는다:
+ * 개발(tsx)은 src/main.ts → src/world/pathWorker.ts, 빌드는 dist/main.js → dist/pathWorker.js(vite.config.ts 입력).
+ * 시작점은 늘 자기 조각에 있어서(공용 조각 dist/assets/로 빠지지 않는다) 상대 경로가 어긋나지 않는다.
+ */
+const pathWorkerUrl = import.meta.url.endsWith(".ts")
+  ? new URL("./world/pathWorker.ts", import.meta.url)
+  : new URL("./pathWorker.js", import.meta.url);
+
 // 팩이 틀리면 DB에 붙기 전에 끝낸다(코드 1). 앱 로거가 아직 없어 표준 오류로 쓴다
 const loaded = loadServerContent(config.contentDir);
 if (!loaded.ok) {
@@ -31,6 +41,11 @@ app = await buildApp({
         openSignup: config.auth.openSignup,
       }
     : undefined,
+  // S1 시험 2차맵은 늘 켠다(봇 수는 S1_TEST_BOTS, 기본 0). 경로는 워커 스레드에서 푼다
+  world: {
+    testBots: config.s1.testBots,
+    paths: { kind: "workers", workerUrl: pathWorkerUrl, workers: config.s1.pathWorkers },
+  },
 });
 if (config.auth) {
   app.log.info(

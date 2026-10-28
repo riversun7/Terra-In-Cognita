@@ -6,8 +6,14 @@ import { ROLES, type Role, isRole } from "@terra/shared";
 import { createAccessControl } from "better-auth/plugins/access";
 import { defaultStatements } from "better-auth/plugins/admin/access";
 
-/** 권한 문장 — Better Auth 관리자 플러그인 기본(user·session 동작) */
-export const statements = { ...defaultStatements } as const;
+/**
+ * 권한 문장 — Better Auth 관리자 플러그인 기본(user·session 동작) + 게임 기능.
+ * secondMap: S1 시험 2차맵 명령(WebSocket, src/world/gateway.ts). 지금은 admin만 한다(ADR 2026-10-28-s1-second-map).
+ */
+export const statements = {
+  ...defaultStatements,
+  secondMap: ["move-unit", "place-building", "remove-building"],
+} as const;
 
 export const ac = createAccessControl(statements);
 
@@ -22,6 +28,7 @@ export const roles = {
   admin: ac.newRole({
     user: ["create", "list", "get", "set-role", "ban", "set-password"],
     session: ["list", "revoke"],
+    secondMap: ["move-unit", "place-building", "remove-building"],
   }),
 } satisfies Record<Role, unknown>;
 

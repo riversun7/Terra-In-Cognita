@@ -103,3 +103,9 @@
 ## 사용자 결정 대기
 - ADR 30 확정 여부(확정하면 PWA ADR 상태 줄에 "일부 대체됨(manifest 색)").
 - 글꼴 라이선스 고지 방식.
+
+## 합칠 때 더한 것 (메인 세션, 2026-10-28)
+- main(134d26b) 위로 옮겼다. 충돌은 목차(`docs/WORKLOG.md`)뿐이라 다시 만들었다. 옮긴 뒤 전체 검사를 다시 돌렸다(시험 345개, 대비 136쌍, 빌드, PWA·문서 검사 통과).
+- 글꼴 라이선스: OFL-1.1은 글꼴을 배포할 때 저작권 표시와 라이선스를 함께 두라고 한다. 빌드가 `licenses/pretendard-OFL.txt`, `licenses/jua-OFL.txt`를 꾸러미 원문 그대로 내보낸다(`vite.config.ts`의 `fontLicenses`). `THIRD_PARTY_NOTICES.md`에 "기기로 내보내는 글꼴"을 더했다.
+- 문서: ADR 30 확정, PWA ADR 상태 줄에 "일부 대체됨(manifest 색)", AGENTS 6장(도구 확인 사항 6개)·7장(`pnpm check:contrast`)·8장(디자인 시스템 기준), PLAN 13장.
+- 화면 사진은 아이콘을 새로 그리기 전(d5c7f47)에 찍었다. 지금 빌드는 새 아이콘을 쓴다.

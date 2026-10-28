@@ -1,6 +1,6 @@
 # 디자인 시스템: 후보 A(새싹 장난감), 테마 4개, 글꼴 직접 배포, 설정은 기기 + 계정
 
-- 상태: 제안
+- 상태: 확정
 - 날짜: 2026-10-28
 - 관련: docs/PLAN.md 1.2·9.8장, AGENTS.md 8장, `2026-10-28-pwa-and-browser-baseline.md`(manifest 색), `2026-10-28-i18n.md`(언어), `2026-10-28-auth-and-accounts.md`(계정), 조사 `docs/research/2026-10-28-design-system-candidates.md`, 작업 기록 `2026/10/28-2150-auth-ui.md`(토큰 한곳), 기획 GDD v4 D-063·D-064·D-070
 
@@ -124,7 +124,7 @@
 - 확정할 때 할 일: PWA ADR 상태 줄에 "일부 대체됨(manifest 색)"을 표시한다.
 
 ## 구현하며 정한 것
-2026-10-28 구현(Verified: 시험·빌드·Playwright Chromium, 작업 기록 `2026/10/28-2340-design-system.md`). 상태는 그대로 "제안"이다.
+2026-10-28 구현(Verified: 시험·빌드·Playwright Chromium, 작업 기록 `2026/10/28-2340-design-system.md`). 같은 날 main에 합치며 확정했다. 글꼴 라이선스 원문은 빌드 결과 `licenses/`에 함께 내보낸다(`THIRD_PARTY_NOTICES.md`).
 
 ### 값
 - 부록 값은 그대로 옮기고 이름만 지금 규칙으로 바꿨다(`--bg` → `--color-bg`, `--accent` → `--color-primary`, `--shadow-1` → `--shadow-control` 등).

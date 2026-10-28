@@ -1,6 +1,6 @@
 # PWA(설치형 웹앱)와 지원 브라우저 하한
 
-- 상태: 확정
+- 상태: 확정 (일부 대체됨: `2026-10-28-design-system.md` — manifest 색)
 - 날짜: 2026-10-28
 - 관련: docs/PLAN.md 1.2·3장·9.8, 조사 `docs/research/2026-10-28-pwa-and-browser-baseline.md`, `2026-10-28-time-and-session-protocol.md`(재접속·버전 거절), 작업 기록 `2026/10/28-1935-proxy-trust-static-404.md`(없는 파일은 404)·`2026/10/28-2040-pwa.md`(구현·확인)·`2026/10/28-2043-favicon.md`(파비콘)
 

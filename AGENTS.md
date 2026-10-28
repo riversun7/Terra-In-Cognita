@@ -96,6 +96,13 @@
 - **pnpm 11** (11.28.9, 2026-10-28 설치로 확인): `minimumReleaseAge: 1440` 때문에 공개된 지 하루가 안 된 버전은 설치되지 않는다. "버전을 찾을 수 없음"이 나오면 하루 기다리거나 그 전 버전을 쓴다. 설치 스크립트는 `pnpm-workspace.yaml`의 `allowBuilds`에 적은 패키지만 실행된다(추가: `pnpm approve-builds <이름>`). Dependabot PR이 `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`으로 실패하면 하루 뒤 CI를 다시 실행한다. `minimumReleaseAge`는 낮추지 않는다(ADR `2026-10-28-dependency-updates.md`).
 - **Biome 2.6**: Markdown도 포맷한다. 보호 문서가 바뀌지 않게 `biome.json`에서 `**/*.md`를 뺐다. 이 제외를 지우지 않는다(2026-10-28 확인).
 - **oxlint 타입 인식 린트**: `--type-aware`는 `oxlint-tsgolint` 패키지가 있어야 동작한다(2026-10-28 확인).
+- **화면 빌드·시험 도구 확인 사항** (2026-10-28 확인: 디자인 시스템 구현 중 빌드·시험으로 실행)
+  - Vitest 5.0.5: CSS를 `?raw`로 읽으면 기본은 빈 문자열이다. 내용이 필요한 파일은 `vitest.config.ts`의 `test.css.include`에 넣는다.
+  - Paraglide 2.29.2: `getLocale()`은 처음 정한 언어(기기 언어 등)도 localStorage에 저장한다. "사용자가 고른 언어"는 따로 적어야 한다.
+  - Vite 8.3.5(rolldown): 첫 화면과 지연 조각이 같이 쓰는 모듈은 별도 조각이 되고 미리 불러와진다.
+  - Vite 플러그인 `transform`은 CSS 안의 `@import`로 불러온 파일에는 돌지 않는다. 고쳐 써야 하는 CSS는 JS에서 import한다.
+  - Workbox 7.4.1: 미리 캐시 목록에 같은 주소·판이 두 번 있으면 하나로 친다.
+  - `@fastify/static` 10.1.7: `setHeaders(reply, path, stat)`는 Fastify `reply`를 받고 기본 머리글 뒤에 불린다. 그래서 `cache-control`을 덮어쓸 수 있다(패키지 코드 `index.js`).
 - **oxlint 1.89.0 규칙** (2026-10-28 확인: 시험 파일로 실행): 네임스페이스 import를 계산해서 읽으면(`m[key]`) `import(namespace)` 오류다. 키로 고르는 화면 문구는 `apps/game/src/ui/messageTable.ts` 표에 적는다. 효과(`useEffect`) 안에서 바로 setState하면 `react(set-state-in-effect)`, 그리는 중에 `ref.current`를 읽으면 `react(refs)` 오류다.
 - **Paraglide JS 2** (2.29.2): 메시지 원본은 `apps/game/messages/{ko,en}.json`. 코드에서는 `import { m } from "./paraglide/messages.js"` 후 `m.app_title()`, 변수는 `m.fps({ fps })`. 언어는 `./paraglide/runtime.js`의 `getLocale`·`setLocale`·`isLocale`. `src/paraglide/`는 생성 파일(git 제외)이라 `pnpm --filter @terra/game typecheck`·`dev`·`build` 때 다시 만들어진다. 메시지 플러그인은 CDN이 아니라 설치된 `@inlang/plugin-message-format`에서 읽는다(2026-10-28 확인).
 
@@ -108,7 +115,8 @@
 | `pnpm install` | 의존성 설치 + git 훅 설치 |
 | `pnpm dev:server` | 서버 개발 실행 (`http://127.0.0.1:4100`, `/health`, `/ws`) |
 | `pnpm dev:game` | 게임 앱 개발 실행 (Vite, `/health`·`/api`·`/ws`는 서버로 넘김. 서버 주소는 `TERRA_SERVER_URL`) |
-| `pnpm check` | 포맷·린트·타입·모듈 경계·파일 크기·다국어·콘텐츠 팩(호환 검사 제외)·단위 테스트 (CI와 같은 검사) |
+| `pnpm check` | 포맷·린트·타입·모듈 경계·파일 크기·다국어·디자인 값(테마 대비·직접 쓴 값)·콘텐츠 팩(호환 검사 제외)·단위 테스트 (CI와 같은 검사) |
+| `pnpm check:contrast` | 디자인 값 검사만: 테마 4개의 대비 쌍, 화면 CSS에 직접 쓴 색·px 값. `--print`는 대비 표 출력 |
 | `pnpm format` | 포맷 자동 수정 |
 | `pnpm test` | 단위 테스트만 |
 | `pnpm build` | 전체 빌드 |
@@ -140,7 +148,7 @@ git 훅: 커밋 전(포맷·비밀값), 커밋 메시지(Conventional Commits), 
 6. 한국어 문구·문서·보고: `korean-writing`.
 
 - `hallmark`, `taste-skill`은 다른 시각 방향을 시험할 때나 사용자가 이름을 말할 때만 쓴다. `find-animation-opportunities`, `improve-animations`, `animation-vocabulary`는 필요할 때.
-- 디자인 시스템(색·글꼴·간격 토큰)은 아직 정하지 않았다. 첫 본격 화면 작업 때 `ui-ux-pro-max`로 후보를 만들고, 사용자 확인 뒤 ADR로 정한다.
+- 디자인 시스템은 ADR `2026-10-28-design-system.md`(후보 A 새싹 장난감)다. 화면 스타일은 `apps/game/src/styles/tokens.css`의 `var(--…)`만 쓴다(직접 쓴 색·px 값은 `pnpm check:contrast`가 막는다). 화면을 바꾸면 테마 4개(파스텔·다크·선명·정거장)에서 모두 확인한다. 관리자·거래창처럼 빽빽한 화면은 `data-density="compact"`.
 - **스킬보다 이 문서가 우선한다.** 모바일 우선, 화면 문구는 메시지 키(ko·en 함께), 성능 기준(PLAN 11장). 스킬이 권하는 새 런타임 의존성(Tailwind, framer-motion, shadcn 등)은 ADR을 먼저 쓴다.
 - 스킬이 훅을 설치하거나 설정 파일(`.claude/settings.json` 등)을 바꾸려 하면 사용자 승인 뒤에만 한다(`hallmark`의 install-hook, `/impeccable hooks on`).
 - `impeccable`의 일부 명령은 처음 실행할 때 GitHub에서 실행 파일을 내려받는다(체크섬 검증). 환경이 막으면 그 명령은 건너뛰고 문서 기반 규칙만 쓴다.

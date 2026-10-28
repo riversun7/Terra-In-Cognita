@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-28 19:35 | 서버: 믿는 프록시 범위 좁히기, 없는 파일은 404 | Claude Code (클라우드 세션) | [28-1935-proxy-trust-static-404](worklog/2026/10/28-1935-proxy-trust-static-404.md) |
 | 2026-10-28 18:51 | tRPC 11 연결, 서버 타입 공유(타입 전용 예외), Zod 4 연동 확인 | Claude Code (클라우드 세션) | [28-1851-trpc](worklog/2026/10/28-1851-trpc.md) |
 | 2026-10-28 18:20 | 텔레메트리: 기기 오류·성능 요약 수집, 성능 오버레이, 서버 지표 로그 | Claude Code (클라우드 세션) | [28-1820-telemetry](worklog/2026/10/28-1820-telemetry.md) |
 | 2026-10-28 18:10 | DB 기반: Drizzle 1.0 RC + pg, 마이그레이션, 배포 연동 | Claude Code (클라우드 세션) | [28-1810-db-layer](worklog/2026/10/28-1810-db-layer.md) |

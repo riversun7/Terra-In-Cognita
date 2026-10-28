@@ -39,6 +39,7 @@
 - **서버 권위**: 자원 획득, 전투 결과, 거래·잔고, 아이템 생성, 조우, 소유권 판정은 서버만 한다.
 - 판정 코드(`packages/sim` 등)에서는 `Math.random`, `Date.now`, `Math.sin/cos/tan/exp/log/pow` 같은 초월함수를 쓰지 않는다. 시드 난수와 `packages/shared`의 결정적 수학 함수를 쓴다.
 - 금액은 최소 단위 정수(`BigInt`, DB `int8`). 소수점 실수 계산 금지.
+- DB 표 정의는 `apps/server/src/db/schema.ts`. 바꾸면 `pnpm --filter @terra/server db:generate`로 마이그레이션을 만들어 함께 커밋한다. 마이그레이션은 **직전 버전 앱이 그대로 돌 수 있게** 만든다(추가 → 코드 전환 → 다음 배포에서 정리). 올라간 마이그레이션은 고치지 않는다(ADR `2026-10-28-db-access-and-migrations.md`).
 - 게임 상태를 바꾸는 명령은 WebSocket 프로토콜(`packages/protocol`)로만 보낸다. tRPC는 조회와 비실시간 기능용.
 - UI 문자열은 메시지 키로만 쓰고, 한국어와 영어를 **함께** 추가한다(영어 누락 시 빌드 실패).
 - 비밀값(비밀번호, 토큰, `.env`)을 커밋하지 않는다. 관리자 화면 코드에도 비밀값·시드를 넣지 않는다.
@@ -63,7 +64,7 @@
 - **TypeScript 7.0** (2026-10 기준 7.0.2): Go로 다시 만든 컴파일러. 컴파일러 API가 필요한 도구는 `@typescript/typescript6` 별칭을 쓴다.
 - **Node.js**: 24 LTS 사용. 26은 LTS 전환 릴리스가 나온 뒤 전환한다. Node 25+는 corepack을 포함하지 않으므로 pnpm은 `npm i -g pnpm@<버전>`으로 설치한다.
 - **PostgreSQL 18 Docker 이미지**: 데이터 경로가 `/var/lib/postgresql/18/docker`로 바뀌었다. 볼륨은 `/var/lib/postgresql`에 마운트한다(또는 `PGDATA`를 명시).
-- **Drizzle ORM**: 1.0 RC(`1.0.0-rc.x`)로 시작한다. 0.x 문서의 관계형 쿼리 예제는 1.0에서 바뀌었으니 1.0 문서를 본다.
+- **Drizzle ORM**: 1.0 RC(`1.0.0-rc.x`)로 시작한다. 0.x 문서의 관계형 쿼리 예제는 1.0에서 바뀌었으니 1.0 문서를 본다. 1.0.0-rc.5에서 확인한 것(2026-10-28, 패키지 코드): 마이그레이션은 폴더 하나에 하나(`drizzle/<시각>_<이름>/migration.sql`)이고, 밀린 것은 트랜잭션 하나로 적용되며, 적용 여부는 이름으로만 판단한다. 연결 설정에 `casing`·`schema` 옵션이 없다(열 이름을 직접 쓴다). `db.execute` 결과 타입이 여러 문장용이라 단순 조회는 `db.$client.query`로 한다.
 - **tRPC 11**: Fastify 어댑터는 Fastify 5 이상이 필요하다.
 - **watchtower**: 개발이 중단됐다. 쓰지 않는다.
 - **pnpm 11** (11.28.9, 2026-10-28 설치로 확인): `minimumReleaseAge: 1440` 때문에 공개된 지 하루가 안 된 버전은 설치되지 않는다. "버전을 찾을 수 없음"이 나오면 하루 기다리거나 그 전 버전을 쓴다. 설치 스크립트는 `pnpm-workspace.yaml`의 `allowBuilds`에 적은 패키지만 실행된다(추가: `pnpm approve-builds <이름>`). Dependabot PR이 `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`으로 실패하면 하루 뒤 CI를 다시 실행한다. `minimumReleaseAge`는 낮추지 않는다(ADR `2026-10-28-dependency-updates.md`).
@@ -85,8 +86,11 @@
 | `pnpm test` | 단위 테스트만 |
 | `pnpm build` | 전체 빌드 |
 | `pnpm docs:index` | 작업 기록을 추가한 뒤 `docs/WORKLOG.md` 목차를 다시 만든다 |
-| `pnpm check:docs` | 코드 변경 → 작업 기록, 새 런타임 의존성 → ADR 규칙 검사 (의존성 버전만 올린 변경은 제외) |
+| `pnpm check:docs` | 코드 변경 → 작업 기록(의존성 버전만 올린 변경은 제외), 새 런타임 의존성 → ADR, 올라간 마이그레이션 수정 금지 |
 | `pnpm changelog --tag vX.Y.Z` | 버전 태그 직전에 `CHANGELOG.md`를 만든다(git-cliff, 설정 `cliff.toml`) |
+| `pnpm --filter @terra/server db:generate` | 표 정의(`src/db/schema.ts`)에 맞는 마이그레이션을 만든다(DB 접속 없음) |
+| `pnpm --filter @terra/server db:migrate` | 밀린 마이그레이션 적용(`DATABASE_URL` 필요) |
+| `TEST_DATABASE_URL=postgres://… pnpm test` | DB 통합 테스트 포함(없으면 DB 테스트는 건너뜀. 접속 계정에 CREATEDB 권한 필요) |
 
 git 훅: 커밋 전(포맷·비밀값), 커밋 메시지(Conventional Commits), 푸시 전(`pnpm check` + 문서 규칙 + 목차 최신 여부).
 새 패키지를 만들면 `scripts/check-boundaries.mjs`의 `ALLOWED` 표에 넣는다. 배포·NAS는 `ops/nas-setup.md`.

@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-28 18:10 | DB 기반: Drizzle 1.0 RC + pg, 마이그레이션, 배포 연동 | Claude Code (클라우드 세션) | [28-1810-db-layer](worklog/2026/10/28-1810-db-layer.md) |
 | 2026-10-28 17:50 | Dependabot 주간 업데이트, git-cliff 변경 이력 설정 | Claude Code (클라우드 세션) | [28-1750-dependabot-git-cliff](worklog/2026/10/28-1750-dependabot-git-cliff.md) |
 | 2026-10-28 17:40 | 백업·복구 훈련·되돌림 훈련 자동화, 문서만 바뀐 푸시는 배포 생략 | Claude Code (클라우드 세션) | [28-1740-backup-rollback-drills](worklog/2026/10/28-1740-backup-rollback-drills.md) |
 | 2026-10-28 17:25 | Matt Pocock 개발 흐름 스킬 추가 | Claude Code (클라우드 세션) | [28-1725-matt-pocock-skills](worklog/2026/10/28-1725-matt-pocock-skills.md) |

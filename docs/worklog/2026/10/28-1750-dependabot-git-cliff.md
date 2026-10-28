@@ -49,7 +49,10 @@ git-cliff: `pnpm changelog --tag v0.1.0`으로 `CHANGELOG.md`가 만들어지는
 - `pnpm-workspace.yaml`의 `minimumReleaseAge`를 낮추지 않는다(공급망 보호). 봇 PR이 이 규칙으로 실패하면 하루 뒤 CI를 다시 실행한다.
 
 ## 미검증·TODO·알려진 문제
-- Dependabot 첫 실행 결과는 아직 확인하지 않았다. 확인할 것: 설정 오류, pnpm 11.28.9 lockfile 처리, `ignore: pnpm` 동작(Assumed).
+- Dependabot 첫 실행 결과(Verified, 2026-10-28 푸시 직후 자동 실행):
+  - npm: pnpm을 인식했고, 로그에 "pnpm-workspace.yaml minimumReleaseAge (1440 minutes, 1 days) is already satisfied by all dependabot.yml update_cooldown values"가 나왔다. 올릴 것은 없었다. 몇 개는 3일 대기에 걸려 미뤄졌다. `@types/node` 메이저는 무시됐다.
+  - GitHub Actions: PR #1(`actions/checkout`·`actions/setup-node` 6 → 7, 메이저)을 열었다. 이 PR의 CI가 통과했다 → 워크플로 `uses:` 줄 예외가 실제로 동작했다. 합칠지는 사용자 결정.
+  - `ignore: pnpm`: 로그에 pnpm 확인 줄이 없다. `packageManager` 필드를 의존성으로 다루지 않는 것으로 보인다(Assumed).
 - Dependabot PR을 합치는 사람: 사용자(또는 사용자가 맡긴 에이전트). 합치면 main CI가 NAS에 배포한다.
 - 야간 CI: 첫 E2E 테스트가 생길 때 만든다.
 - Actions 무료 한도는 월 2,000분이다. 코드 푸시 1회는 약 3분이다(작업 3개, 각 1분 미만을 분 단위로 올려 셈. 올림 규칙은 Assumed).

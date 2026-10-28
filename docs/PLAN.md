@@ -82,6 +82,7 @@
 | 워커 스레드 | Piscina | 5.3.2 | 경로탐색·전투·NPC 판단·맵 생성 같은 순수 계산 |
 | DB | PostgreSQL | 18 | Docker 이미지 18부터 데이터 경로 `/var/lib/postgresql/18/docker`, 마운트는 `/var/lib/postgresql` [V] |
 | DB 접근 | Drizzle ORM | 1.0.0-rc.5로 시작 | 0.45에서 시작하면 1.0 전환 때 재작업(관계형 쿼리 API·마이그레이션 구조 변경 [V: Drizzle v1 업그레이드 문서, 독립 검토 확인]) |
+| DB 연결 | pg (node-postgres) | 8.23.1 | Better Auth 공식 지원, Drizzle 공식 드라이버 [V: npm]. 대안 postgres.js 3.4.9는 Better Auth 목록에 없음. 사용자 결정 2026-10-28(ADR 22) |
 | 인증 | Better Auth | 1.7.14 | 이메일·비밀번호 + 카카오·네이버·라인 등 소셜, 관리자 플러그인 내장 [V: 패키지 내용] |
 | 린트 | oxlint + oxlint-tsgolint | 1.89.0 / 7.0.2005 | TS 7과 같은 타입 검사기 기반 타입 인식 규칙(빠뜨린 await 등) |
 | 포맷 | Biome | 2.6.3 | 포맷 전용. Markdown은 제외(보호 문서가 바뀌지 않게) |
@@ -329,6 +330,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 ### 9.4 DB
 - 기존 테스트 DB 컨테이너 `terra_testDB`: PostgreSQL 18.6(`postgres:latest` 이미지), 포트 5440, 데이터는 `/volume1/docker/terra-testDB/data`(바인드 마운트, PGDATA 직접 지정) [V: 사용자 제공 화면]. 버전이 이미 18이라 교체는 필요 없다.
 - 사용자 허가에 따라 이 자리를 비우고 새 스택 전용으로 쓴다. 새 DB는 `tic-db`(`postgres:18.6-trixie` 고정), **호스트 포트 없음**(내부 네트워크만, 관리는 `docker exec`), 데이터는 `/volume1/docker/terra-in-cognita/pgdata`. 기존 `terra_testDB`와 `terra-test-server`는 사용자 결정(2026-10-28)으로 삭제한다(기존 버전은 운영 서버만 남김, 순서는 `ops/nas-setup.md` 7단계).
+- 스키마 변경: Drizzle 마이그레이션(`apps/server/drizzle/`)을 배포 5단계에서 새 이미지로 한 번 적용한다(배포 전 백업 다음, 앱 교체 전). 되돌림은 DB를 되돌리지 않으므로 마이그레이션은 직전 버전 앱과 호환되게 만든다(ADR 22).
 - 기존 테스트 서버(`terra-test-server`)는 이 DB를 쓰므로 함께 삭제한다.
 
 ### 9.5 백업·관측·알림
@@ -364,7 +366,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 | commit-msg | Conventional Commits 형식(commitlint) |
 | pre-commit | 포맷(Biome), 비밀값(자체 스크립트, 흔한 형태만) — 빠르게 |
 | pre-push | 린트(oxlint), 타입 검사, 단위 테스트, 모듈 경계, 파일 크기, 다국어, 문서 갱신 검사 (`pnpm check` + 문서 검사) |
-| main 푸시 CI | 위 전체 + 비밀값 전체 이력(gitleaks) + 콘텐츠 검증 + 이미지 빌드 + 스테이징 배포. 문서·스킬만 바뀐 푸시는 이미지·배포 생략 |
+| main 푸시 CI | 위 전체 + DB 통합 테스트(PostgreSQL 18.6 서비스 컨테이너)·표 정의와 마이그레이션 일치 + 비밀값 전체 이력(gitleaks) + 콘텐츠 검증 + 이미지 빌드 + 스테이징 배포. 문서·스킬만 바뀐 푸시는 이미지·배포 생략 |
 | 정기(NAS) | 매일 DB 백업, 주 1회 복구 훈련(`nas-backup`). 되돌림 훈련은 수동(`rollback-drill`) |
 | 정기(GitHub) | 매주 월요일 Dependabot PR(npm·Actions). 버전 올림만 있는 PR은 작업 기록 검사에서 빠진다(ADR 21) |
 | 야간 CI | E2E, 생성기 해시, 복구 테스트, 성능 스모크 |
@@ -464,6 +466,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 | 19 | AI 스킬 구성(디자인 스킬 설치, 한국어 스킬) | `2026-10-28-agent-skills.md` |
 | 20 | 개발 흐름 스킬(Matt Pocock) 추가와 문서 규칙 우선 | `2026-10-28-agent-skills-dev-flow.md` |
 | 21 | 의존성 자동 업데이트(Dependabot, cooldown, 문서 검사 예외) | `2026-10-28-dependency-updates.md` |
+| 22 | DB 접근(pg)과 마이그레이션(배포 5단계, 직전 버전 호환) | `2026-10-28-db-access-and-migrations.md` |
 
 ---
 

@@ -94,7 +94,7 @@
   - get-session 원래 응답에는 세션 토큰과 이메일이 있다 → 다리(`src/auth/bridge.ts`)가 본문을 다시 만든다.
   - `listUsers`는 DB 오류를 삼킨다. sign-out은 JSON만 받는다(폼 본문은 415).
 - **watchtower**: 개발이 중단됐다. 쓰지 않는다.
-- **pnpm 11** (11.28.9, 2026-10-28 설치로 확인): `minimumReleaseAge: 1440` 때문에 공개된 지 하루가 안 된 버전은 설치되지 않는다. "버전을 찾을 수 없음"이 나오면 하루 기다리거나 그 전 버전을 쓴다. 설치 스크립트는 `pnpm-workspace.yaml`의 `allowBuilds`에 적은 패키지만 실행된다(추가: `pnpm approve-builds <이름>`). Dependabot PR이 `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`으로 실패하면 하루 뒤 CI를 다시 실행한다. `minimumReleaseAge`는 낮추지 않는다(ADR `2026-10-28-dependency-updates.md`).
+- **pnpm 11** (11.28.9, 2026-10-28 설치로 확인): `minimumReleaseAge: 1440` 때문에 공개된 지 하루가 안 된 버전은 설치되지 않는다. "버전을 찾을 수 없음"이 나오면 하루 기다리거나 그 전 버전을 쓴다. 설치 스크립트는 `pnpm-workspace.yaml`의 `allowBuilds`에 적은 패키지만 실행된다(추가: `pnpm approve-builds <이름>`). Dependabot PR이 `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`으로 실패하면 하루 뒤 CI를 다시 실행한다. `minimumReleaseAge`는 낮추지 않는다(ADR `2026-10-28-dependency-updates.md`). `--frozen-lockfile` 설치는 package.json이 없는 작업공간 묶음도 잠금 파일대로 링크·설치한다(2026-10-29 확인: Docker 설치 단계 흉내).
 - **Biome 2.6**: Markdown도 포맷한다. 보호 문서가 바뀌지 않게 `biome.json`에서 `**/*.md`를 뺐다. 이 제외를 지우지 않는다(2026-10-28 확인).
 - **oxlint 타입 인식 린트**: `--type-aware`는 `oxlint-tsgolint` 패키지가 있어야 동작한다(2026-10-28 확인).
 - **화면 빌드·시험 도구 확인 사항** (2026-10-28 확인: 디자인 시스템 구현 중 빌드·시험으로 실행)
@@ -104,6 +104,12 @@
   - Vite 플러그인 `transform`은 CSS 안의 `@import`로 불러온 파일에는 돌지 않는다. 고쳐 써야 하는 CSS는 JS에서 import한다.
   - Workbox 7.4.1: 미리 캐시 목록에 같은 주소·판이 두 번 있으면 하나로 친다.
   - `@fastify/static` 10.1.7: `setHeaders(reply, path, stat)`는 Fastify `reply`를 받고 기본 머리글 뒤에 불린다. 그래서 `cache-control`을 덮어쓸 수 있다(패키지 코드 `index.js`).
+- **three 0.186.1 + Vite 8.3.5 엔진** (2026-10-29 확인: 2차맵 엔진 구현·시험)
+  - `CapsuleGeometry`의 `height`는 가운데(원기둥) 부분 길이다. 전체 키 = height + 2 × 반지름.
+  - 컨텍스트를 잃으면 three는 console.log만 남긴다. 복구되면 자원을 다시 올린다. 화면은 `webglcontextlost`·`restored`를 직접 듣는다.
+  - 버퍼 일부만 올릴 때는 `addUpdateRange`·`clearUpdateRanges`를 쓴다.
+  - Vite는 작업공간 패키지 안의 `new Worker(new URL(…, import.meta.url), { type: "module" })`를 따로 조각으로 묶는다.
+  - 헤드리스 Chromium의 WebGL은 소프트웨어(SwiftShader)라 프레임 수치는 휴대폰 기준이 아니다. 정확한 JS 메모리는 `--enable-precise-memory-info`가 있어야 보인다.
 - **oxlint 1.89.0 규칙** (2026-10-28 확인: 시험 파일로 실행): 네임스페이스 import를 계산해서 읽으면(`m[key]`) `import(namespace)` 오류다. 키로 고르는 화면 문구는 `apps/game/src/ui/messageTable.ts` 표에 적는다. 효과(`useEffect`) 안에서 바로 setState하면 `react(set-state-in-effect)`, 그리는 중에 `ref.current`를 읽으면 `react(refs)` 오류다.
 - **Paraglide JS 2** (2.29.2): 메시지 원본은 `apps/game/messages/{ko,en}.json`. 코드에서는 `import { m } from "./paraglide/messages.js"` 후 `m.app_title()`, 변수는 `m.fps({ fps })`. 언어는 `./paraglide/runtime.js`의 `getLocale`·`setLocale`·`isLocale`. `src/paraglide/`는 생성 파일(git 제외)이라 `pnpm --filter @terra/game typecheck`·`dev`·`build` 때 다시 만들어진다. 메시지 플러그인은 CDN이 아니라 설치된 `@inlang/plugin-message-format`에서 읽는다(2026-10-28 확인).
 

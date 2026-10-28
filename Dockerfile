@@ -10,6 +10,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/game/package.json apps/game/
 COPY apps/server/package.json apps/server/
 COPY packages/content/package.json packages/content/
+# 게임 앱이 쓰는 2차맵 엔진(three 포함). pnpm은 package.json이 없어도 잠금 파일대로 설치하지만(2026-10-29 확인), 쓰는 묶음은 적어 둔다
+COPY packages/engine/package.json packages/engine/
 COPY packages/protocol/package.json packages/protocol/
 COPY packages/shared/package.json packages/shared/
 RUN pnpm install --frozen-lockfile --ignore-scripts

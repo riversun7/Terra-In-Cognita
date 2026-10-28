@@ -6,12 +6,16 @@
   "status_connecting": "Connecting to server…",
   "status_connected": "Connected",
   "status_disconnected": "Disconnected. Reconnecting…",
-  "status_rejected_protocol": "This app is out of date. Please reload.",
+  "status_rejected_protocol": "App and server versions don't match. Checking for an update…",
   "status_rejected_other": "The server rejected the connection.",
   "clock_offset": "Server clock offset: {offset}ms (round trip {rtt}ms)",
   "fps": "Frame rate: {fps} fps",
   "frame_p95": "Frame p95: {ms} ms",
   "memory": "Memory: {mb} MB",
   "reload": "Reload",
-  "language": "Language"
+  "language": "Language",
+  "update_available": "A new version is available.",
+  "update_now": "Update Now",
+  "update_later": "Later",
+  "update_applying": "Updating…"
 }

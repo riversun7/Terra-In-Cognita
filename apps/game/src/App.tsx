@@ -1,10 +1,12 @@
-// 첫 화면 — M0 단계: 서버 연결 상태, 시계 차이, 성능 오버레이(fps·프레임 시간 p95·메모리)를 보여준다
+// 첫 화면 — M0 단계: 서버 연결 상태, 시계 차이, 성능 오버레이(fps·프레임 시간 p95·메모리)와 새 버전 안내를 보여준다
 import { useEffect, useState } from "react";
 import { m } from "./paraglide/messages.js";
 import { getLocale, isLocale, locales, setLocale } from "./paraglide/runtime.js";
 import { type ConnectionStatus, connect } from "./net/connection.ts";
 import type { FrameMonitor } from "./perf/frameMonitor.ts";
 import { usePerfStats } from "./perf/usePerfStats.ts";
+import { UpdateBanner } from "./pwa/UpdateBanner.tsx";
+import { checkForUpdate, forceUpdate } from "./pwa/updates.ts";
 
 function statusText(status: ConnectionStatus): string {
   switch (status.kind) {
@@ -34,7 +36,19 @@ export function App({ monitor }: { monitor: FrameMonitor }) {
   const [status, setStatus] = useState<ConnectionStatus>({ kind: "connecting" });
   const perf = usePerfStats(monitor);
 
-  useEffect(() => connect(setStatus), []);
+  useEffect(
+    () =>
+      connect(
+        (next) => {
+          setStatus(next);
+          // 서버와 버전이 안 맞으면 새 버전을 찾아 적용한다(없으면 새로고침). 되돌림 배포로 기기가 더 새 버전일 때도 같다
+          if (next.kind === "rejected" && next.code === "protocol_unsupported") void forceUpdate("auto");
+        },
+        // 배포하면 서버가 다시 시작되고 기기가 다시 접속한다 → welcome마다 새 버전 확인
+        { onWelcome: checkForUpdate },
+      ),
+    [],
+  );
 
   return (
     <main className="shell">
@@ -57,7 +71,8 @@ export function App({ monitor }: { monitor: FrameMonitor }) {
         </p>
       ) : null}
       {status.kind === "rejected" ? (
-        <button type="button" onClick={() => window.location.reload()}>
+        // 자동 적용이 막혔을 때(1분 안에 이미 자동 새로고침함)를 위한 손 버튼. 그냥 새로고침하면 SW가 옛 화면을 다시 띄운다
+        <button type="button" onClick={() => void forceUpdate("manual")}>
           {m.reload()}
         </button>
       ) : null}
@@ -71,6 +86,7 @@ export function App({ monitor }: { monitor: FrameMonitor }) {
           ))}
         </select>
       </label>
+      <UpdateBanner />
     </main>
   );
 }

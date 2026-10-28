@@ -6,12 +6,16 @@
   "status_connecting": "서버에 연결하는 중…",
   "status_connected": "서버에 연결됨",
   "status_disconnected": "연결이 끊어졌습니다. 다시 연결하는 중…",
-  "status_rejected_protocol": "앱이 오래된 버전입니다. 새로고침해 주세요.",
+  "status_rejected_protocol": "앱과 서버 버전이 맞지 않습니다. 새 버전을 확인하는 중…",
   "status_rejected_other": "서버가 연결을 거절했습니다.",
   "clock_offset": "서버 시계 차이: {offset}ms (왕복 {rtt}ms)",
   "fps": "화면 갱신: {fps} fps",
   "frame_p95": "프레임 p95: {ms}ms",
   "memory": "메모리: {mb}MB",
   "reload": "새로고침",
-  "language": "언어"
+  "language": "언어",
+  "update_available": "새 버전이 있습니다.",
+  "update_now": "지금 바꾸기",
+  "update_later": "나중에",
+  "update_applying": "새 버전으로 바꾸는 중…"
 }

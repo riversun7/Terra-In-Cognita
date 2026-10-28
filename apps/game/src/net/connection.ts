@@ -8,16 +8,32 @@ export type ConnectionStatus =
   | { kind: "disconnected" }
   | { kind: "rejected"; code: "protocol_unsupported" | "hello_required" | "invalid_message" };
 
+export interface ConnectOptions {
+  /** 서버의 welcome을 받을 때마다(다시 연결 포함). 배포 뒤 새 버전 확인에 쓴다 */
+  onWelcome?: () => void;
+}
+
 const CLOCK_SAMPLE_COUNT = 5;
 const CLOCK_SAMPLE_INTERVAL_MS = 200;
 const MAX_RECONNECT_DELAY_MS = 15_000;
+
+/** 열린 연결들의 "새로고침 전 정상 종료" 함수 */
+const reloadClosers = new Set<() => void>();
+
+/** 새로고침 직전 — 열린 연결을 정상 종료(1000)하고 다시 연결하지 않는다 (pwa/updates.ts) */
+export function closeForReload(): void {
+  for (const close of reloadClosers) close();
+}
 
 function socketUrl(): string {
   const scheme = window.location.protocol === "https:" ? "wss" : "ws";
   return `${scheme}://${window.location.host}/ws`;
 }
 
-export function connect(onStatus: (status: ConnectionStatus) => void): () => void {
+export function connect(
+  onStatus: (status: ConnectionStatus) => void,
+  options: ConnectOptions = {},
+): () => void {
   let socket: WebSocket | undefined;
   let stopped = false;
   let rejected = false;
@@ -52,6 +68,7 @@ export function connect(onStatus: (status: ConnectionStatus) => void): () => voi
         attempt = 0;
         onStatus({ kind: "connected", clock: null });
         syncClock();
+        options.onWelcome?.();
         return;
       case "pong":
         samples.push({
@@ -106,13 +123,24 @@ export function connect(onStatus: (status: ConnectionStatus) => void): () => voi
   };
   document.addEventListener("visibilitychange", onVisibility);
 
-  open();
-
-  return () => {
+  const stop = (): void => {
     stopped = true;
     clearPings();
     if (reconnectTimer) clearTimeout(reconnectTimer);
     document.removeEventListener("visibilitychange", onVisibility);
+    reloadClosers.delete(closeNormally);
+  };
+  // 정상 종료(1000)를 알리고 끊는다. 코드 없이 close()하면 서버는 1005(코드 없음)를 받는다
+  const closeNormally = (): void => {
+    stop();
+    socket?.close(1000, "reload");
+  };
+  reloadClosers.add(closeNormally);
+
+  open();
+
+  return () => {
+    stop();
     socket?.close();
   };
 }

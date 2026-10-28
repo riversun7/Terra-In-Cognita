@@ -110,6 +110,14 @@
   - 버퍼 일부만 올릴 때는 `addUpdateRange`·`clearUpdateRanges`를 쓴다.
   - Vite는 작업공간 패키지 안의 `new Worker(new URL(…, import.meta.url), { type: "module" })`를 따로 조각으로 묶는다.
   - 헤드리스 Chromium의 WebGL은 소프트웨어(SwiftShader)라 프레임 수치는 휴대폰 기준이 아니다. 정확한 JS 메모리는 `--enable-precise-memory-info`가 있어야 보인다.
+- **Node 24 서버 확인 사항** (2026-10-29 확인: S1 서버 구현·시험·빌드 실행, Node 24.22.1)
+  - `node:worker_threads`는 `.ts` 진입 파일을 그대로 띄운다: Node 타입 지우기, tsx(워커가 부모 `execArgv`의 tsx 로더를 물려받음), vitest 모두. 서버 빌드는 Vite 입력에 따로 넣어 `dist/pathWorker.js`로 만들고, 시작점(`src/main.ts`)이 `import.meta.url` 기준으로 고른다.
+  - Vite 8.3.5 SSR 빌드는 `new URL("…", import.meta.url)`을 고치지 않는다(자산 플러그인은 client 환경에만 돈다).
+  - `perf_hooks.monitorEventLoopDelay`는 지연이 아니라 타이머 사이 간격을 적는다(쉬어도 resolution 근처, 20ms면 약 20.1ms). 지연 = 값 − resolution(`src/metrics.ts`).
+  - 전역 `fetch`는 `origin` 머리글을 그대로 보내고, 전역 `WebSocket`은 `new WebSocket(url, { headers: { cookie, origin } })`를 받는다(`ops/s1-probe.mjs`).
+  - `@fastify/websocket` 11.3.4 `injectWS`의 가짜 요청에는 `socket`이 없어 `request.ip`가 오류를 낸다 → 시험은 `injectWS(path, { headers, socket })`에 `remoteAddress`를 단 `net.Socket`을 넣는다.
+  - `Buffer#slice`는 복사가 아니라 보기를 돌려준다. 이진 해석기는 받은 값을 일반 `Uint8Array` 보기로 바꾼 뒤 자른다(`packages/protocol` `decodeTerrain`).
+  - oxlint 1.89.0 `unicorn(require-post-message-target-origin)`은 worker_threads의 `worker.postMessage`도 잡는다(브라우저 window 규칙이라 해당 없음) → 보내는 도우미 하나에서만 끈다(`src/world/pathPool.ts`의 `post`).
 - **oxlint 1.89.0 규칙** (2026-10-28 확인: 시험 파일로 실행): 네임스페이스 import를 계산해서 읽으면(`m[key]`) `import(namespace)` 오류다. 키로 고르는 화면 문구는 `apps/game/src/ui/messageTable.ts` 표에 적는다. 효과(`useEffect`) 안에서 바로 setState하면 `react(set-state-in-effect)`, 그리는 중에 `ref.current`를 읽으면 `react(refs)` 오류다.
 - **Paraglide JS 2** (2.29.2): 메시지 원본은 `apps/game/messages/{ko,en}.json`. 코드에서는 `import { m } from "./paraglide/messages.js"` 후 `m.app_title()`, 변수는 `m.fps({ fps })`. 언어는 `./paraglide/runtime.js`의 `getLocale`·`setLocale`·`isLocale`. `src/paraglide/`는 생성 파일(git 제외)이라 `pnpm --filter @terra/game typecheck`·`dev`·`build` 때 다시 만들어진다. 메시지 플러그인은 CDN이 아니라 설치된 `@inlang/plugin-message-format`에서 읽는다(2026-10-28 확인).
 
@@ -139,6 +147,8 @@
 | GitHub Actions `account-admin` (수동 실행) | NAS 운영 컨테이너에서 계정 만들기·역할 바꾸기·비밀번호 바꾸기(`dist/cli.js`, 감사 기록 남음). 비밀번호는 로그에 가려진다 |
 | `BETTER_AUTH_URL=http://localhost:5173 pnpm dev:server` | 개발 중 로그인 시험(같은 출처 검사가 Vite 개발 서버 주소를 기준으로 하게). DB(`DATABASE_URL`)가 있어야 인증이 켜진다 |
 | `NODE_ENV= PORT=4320 STATIC_DIR=apps/game/dist DATABASE_URL=… BETTER_AUTH_SECRET=… BETTER_AUTH_URL=http://127.0.0.1:4320 node apps/server/dist/main.js` | 빌드한 앱·서버로 화면 시험(Playwright 등). 운영 모드(`NODE_ENV=production`)는 https 주소를 요구하므로 비운다. 먼저 `pnpm build`, `DATABASE_URL=… node apps/server/dist/migrate.js`. 시험 계정은 `node apps/server/dist/cli.js create-user`(가짜 자료만) |
+| `S1_TEST_BOTS=1000 PATH_WORKERS=1 pnpm dev:server` | S1 시험 2차맵(키 `S1_TEST_MAP_KEY`)에 서버가 움직이는 봇 수(기본 0 = 봇 없음, 최대 20,000)와 경로 워커 스레드 수(기본 1, 최대 8). 2차맵·경로 워커는 늘 켜진다. 빌드한 서버(`node apps/server/dist/main.js`)도 같다. NAS는 `ops/compose.yml`에서 1,000 |
+| `S1_URL=http://127.0.0.1:4320 S1_ID=… S1_PASSWORD=… node ops/s1-probe.mjs` | S1 측정 클라이언트: 들어가기 → 구독 → 스냅샷 크기·받는 시간·갱신 양·경로 지연·rev 빠짐. `S1_SECONDS`(기본 60), `S1_CLIENTS`(동시 연결), `S1_MOVE_MS`(관리자 이동 명령 간격, admin 계정만). `S1_URL`은 서버 `BETTER_AUTH_URL`과 같아야 한다. 저장소에서 `pnpm install` 뒤 실행(가짜 계정만) |
 
 git 훅: 커밋 전(포맷·비밀값), 커밋 메시지(Conventional Commits), 푸시 전(`pnpm check` + 문서 규칙 + 콘텐츠 호환 + 목차 최신 여부).
 새 패키지를 만들면 `scripts/check-boundaries.mjs`의 `ALLOWED` 표에 넣는다. 배포·NAS는 `ops/nas-setup.md`.

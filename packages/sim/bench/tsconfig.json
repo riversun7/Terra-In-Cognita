@@ -1,0 +1,10 @@
+{
+  // 벤치마크 스크립트 — 시간·메모리를 재려고 Node 타입(performance, process)을 쓴다.
+  // 판정 코드(src/)는 이 설정이 아니라 상위 tsconfig.json으로 검사한다.
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "erasableSyntaxOnly": true
+  },
+  "include": ["."]
+}

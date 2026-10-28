@@ -83,6 +83,8 @@ jobs:
         run: node scripts/check-docs.mjs "${{ github.event.pull_request.base.sha || github.event.before }}"
       - name: 빌드
         run: pnpm build
+      - name: PWA 빌드 결과 (manifest·아이콘·theme-color, sw.js의 화면 이동 제외 경로·SKIP_WAITING)
+        run: node scripts/check-pwa.mjs
 
   secrets:
     runs-on: ubuntu-24.04
@@ -133,6 +135,15 @@ jobs:
           done
           if [ -z "$ok" ]; then docker logs smoke; exit 1; fi
           curl -fsS http://127.0.0.1:4100/ | grep -q 'id="root"'
+          # PWA 파일 형식, 없는 파일은 HTML이 아니라 404 (옛 SW·지연 로딩이 HTML을 받지 않게)
+          expect_type() {
+            ct=$(curl -fsS -o /dev/null -w '%{content_type}' "http://127.0.0.1:4100$1") && echo "$ct" | grep -Eq "$2" \
+              || { echo "::error::$1 형식이 '$ct'입니다 ($2)"; exit 1; }
+          }
+          expect_type /manifest.webmanifest '^application/manifest\+json'
+          expect_type /sw.js '^(text|application)/javascript'
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4100/assets/missing-abc.js)
+          if [ "$code" != 404 ]; then echo "::error::없는 파일 응답이 $code입니다 (404)"; exit 1; fi
           # 배포와 같은 점검(ops/smoke.mjs)을 컨테이너 안의 node로. DB 없이 띄웠으므로 db는 off
           docker exec -i -e EXPECT_DB=off -e EXPECT_CONTENT_VERSION -e EXPECT_CONTENT_HASH smoke \
             node --input-type=module - < ops/smoke.mjs || { docker logs smoke; exit 1; }

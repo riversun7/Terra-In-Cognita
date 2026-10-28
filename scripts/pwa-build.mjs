@@ -1,0 +1,184 @@
+// PWA 빌드 결과 검사 — 순수 함수(시험: pwa-build.test.mjs). 파일 읽기는 check-pwa.mjs가 한다.
+// ADR 2026-10-28-pwa-and-browser-baseline: 설치 조건(manifest·아이콘), 화면 이동 대체에서 뺄 경로, 새 버전 적용 메시지
+
+/** 서비스 워커가 화면 이동 대체(index.html)를 하면 안 되는 경로 — 소셜 로그인 콜백 등 */
+export const DENIED_NAVIGATIONS = [
+  "/api",
+  "/api/",
+  "/api/auth/callback/google?code=1",
+  "/api?x=1",
+  "/ws",
+  "/health",
+];
+/** 화면 이동 대체가 맡아야 하는 화면 경로 */
+export const ALLOWED_NAVIGATIONS = ["/", "/game", "/apiary", "/healthy", "/wsx", "/settings/api"];
+
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+/** manifest 아이콘의 용도 목록(없으면 any) */
+const purposes = (icon) => String(icon.purpose ?? "any").split(/\s+/);
+
+/** HTML의 태그 속성 읽기 (빌드된 index.html 정도만 다룬다) */
+function tags(html, name) {
+  return [...html.matchAll(new RegExp(`<${name}\\b([^>]*)>`, "gi"))].map((match) => {
+    const attributes = {};
+    for (const attr of match[1].matchAll(/([\w-]+)\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'>]+))/g)) {
+      attributes[attr[1].toLowerCase()] = attr[3] ?? attr[4] ?? attr[5] ?? "";
+    }
+    return attributes;
+  });
+}
+
+/** 사이트 안 주소 → dist 안 경로("/a/b.png" → "a/b.png"). 다른 사이트 주소면 null */
+function localPath(href, base = "/") {
+  const url = new URL(href, new URL(base, "https://app.invalid"));
+  return url.origin === "https://app.invalid" ? decodeURIComponent(url.pathname).replace(/^\/+/, "") : null;
+}
+
+/** PNG 머리(IHDR)의 가로·세로. PNG가 아니면 null */
+export function pngSize(bytes) {
+  if (!bytes || bytes.length < 24 || PNG_SIGNATURE.some((value, i) => bytes[i] !== value)) return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return { width: view.getUint32(16), height: view.getUint32(20) };
+}
+
+/** 압축된 sw.js에서 `denylist:[/.../, ...]`의 정규식들을 꺼낸다. 없으면 null */
+export function extractDenylist(source) {
+  const start = /denylist\s*:\s*\[/.exec(source);
+  if (!start) return null;
+  const regexes = [];
+  let i = start.index + start[0].length;
+  while (i < source.length) {
+    const ch = source[i];
+    if (ch === "]") return regexes;
+    if (ch !== "/") {
+      i += 1;
+      continue;
+    }
+    // 정규식 리터럴: 이스케이프와 [...] 안의 /를 건너뛴다
+    let body = "";
+    let inClass = false;
+    let j = i + 1;
+    for (; j < source.length; j++) {
+      const c = source[j];
+      if (c === "\\") {
+        body += c + (source[j + 1] ?? "");
+        j += 1;
+        continue;
+      }
+      if (c === "/" && !inClass) break;
+      if (c === "[") inClass = true;
+      else if (c === "]") inClass = false;
+      body += c;
+    }
+    let flags = "";
+    let k = j + 1;
+    while (k < source.length && /[a-z]/.test(source[k])) flags += source[k++];
+    try {
+      regexes.push(new RegExp(body, flags));
+    } catch {
+      return null;
+    }
+    i = k;
+  }
+  return null;
+}
+
+/**
+ * 빌드 결과의 문제 목록. 비어 있으면 통과.
+ * @param {{ indexHtml: string | null, manifest: string | null, sw: string | null,
+ *           readFile: (path: string) => Uint8Array | null }} build  path는 dist 기준 상대 경로
+ * @returns {string[]}
+ */
+export function findPwaProblems({ indexHtml, manifest, sw, readFile }) {
+  const problems = [];
+  if (indexHtml === null) return ["index.html이 없습니다."];
+
+  // index.html: manifest 링크, theme-color, 아이콘 링크가 가리키는 파일
+  const links = tags(indexHtml, "link");
+  const manifestLinks = links.filter((link) => link.rel?.toLowerCase() === "manifest");
+  if (manifestLinks.length !== 1 || manifestLinks[0].href !== "/manifest.webmanifest") {
+    problems.push('index.html에 <link rel="manifest" href="/manifest.webmanifest">가 하나 있어야 합니다.');
+  }
+  for (const link of links.filter((l) => /^(icon|apple-touch-icon)$/i.test(l.rel ?? ""))) {
+    const path = link.href ? localPath(link.href) : null;
+    if (!path || readFile(path) === null)
+      problems.push(`index.html의 ${link.rel} 파일이 없습니다: ${link.href}`);
+  }
+  const themeMeta = tags(indexHtml, "meta").find((meta) => meta.name?.toLowerCase() === "theme-color");
+
+  // manifest: 설치 조건(Chrome·삼성 인터넷)과 우리 값
+  let data = null;
+  if (manifest === null) problems.push("manifest.webmanifest가 없습니다.");
+  else {
+    try {
+      data = JSON.parse(manifest);
+    } catch (error) {
+      problems.push(`manifest.webmanifest가 JSON이 아닙니다: ${error.message}`);
+    }
+  }
+  if (data) {
+    for (const field of ["name", "short_name", "start_url", "id", "scope"]) {
+      if (typeof data[field] !== "string" || data[field].trim() === "") {
+        problems.push(`manifest의 ${field}가 비어 있습니다.`);
+      }
+    }
+    if (data.display !== "standalone")
+      problems.push(`manifest의 display가 "${data.display}"입니다(standalone).`);
+    if (!themeMeta?.content) problems.push('index.html에 <meta name="theme-color">가 없습니다.');
+    else if (String(data.theme_color).toLowerCase() !== themeMeta.content.toLowerCase()) {
+      problems.push(
+        `manifest의 theme_color(${data.theme_color})와 index.html의 theme-color(${themeMeta.content})가 다릅니다.`,
+      );
+    }
+    const icons = Array.isArray(data.icons) ? data.icons : [];
+    const hasIcon = (size, purpose) =>
+      icons.some(
+        (icon) => String(icon.sizes).split(/\s+/).includes(size) && purposes(icon).includes(purpose),
+      );
+    if (!hasIcon("192x192", "any")) problems.push("manifest에 192x192 아이콘이 없습니다.");
+    if (!hasIcon("512x512", "any")) problems.push("manifest에 512x512 아이콘이 없습니다.");
+    if (!icons.some((icon) => purposes(icon).includes("maskable"))) {
+      problems.push("manifest에 maskable 아이콘이 없습니다.");
+    }
+    for (const icon of icons) {
+      const path = typeof icon.src === "string" ? localPath(icon.src, "/manifest.webmanifest") : null;
+      const bytes = path ? readFile(path) : null;
+      if (!bytes) {
+        problems.push(`manifest 아이콘 파일이 없습니다: ${icon.src}`);
+        continue;
+      }
+      if (icon.type !== "image/png") continue;
+      const size = pngSize(bytes);
+      if (!size) problems.push(`manifest 아이콘이 PNG가 아닙니다: ${icon.src}`);
+      else if (!String(icon.sizes).split(/\s+/).includes(`${size.width}x${size.height}`)) {
+        problems.push(
+          `manifest 아이콘 크기가 다릅니다: ${icon.src}는 ${size.width}x${size.height}(${icon.sizes})`,
+        );
+      }
+    }
+  }
+
+  // sw.js: 새 버전 적용 메시지, 화면 이동 대체와 제외 경로, 껍데기 캐시
+  if (sw === null) return [...problems, "sw.js가 없습니다."];
+  if (!/["']SKIP_WAITING["']/.test(sw) || !sw.includes("skipWaiting()")) {
+    problems.push("sw.js가 SKIP_WAITING 메시지를 받지 않습니다(src/pwa/updates.ts가 보낸다).");
+  }
+  if (!/createHandlerBoundToURL\(\s*["']index\.html["']\s*\)/.test(sw)) {
+    problems.push("sw.js에 화면 이동 대체(index.html)가 없습니다.");
+  }
+  if (!/url\s*:\s*["']index\.html["']/.test(sw))
+    problems.push("sw.js가 index.html을 미리 캐시하지 않습니다.");
+  const denylist = extractDenylist(sw);
+  if (!denylist) problems.push("sw.js에 화면 이동 대체 제외 목록(denylist)이 없습니다.");
+  else {
+    const denied = (path) => denylist.some((regex) => regex.test(path));
+    for (const path of DENIED_NAVIGATIONS.filter((p) => !denied(p))) {
+      problems.push(`sw.js가 ${path} 화면 이동을 index.html로 대신합니다(제외해야 함).`);
+    }
+    for (const path of ALLOWED_NAVIGATIONS.filter(denied)) {
+      problems.push(`sw.js가 화면 경로 ${path}를 화면 이동 대체에서 뺍니다.`);
+    }
+  }
+  return problems;
+}

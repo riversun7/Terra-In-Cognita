@@ -7,6 +7,7 @@
 |---|---|---|---|
 | 2026-10-29 00:22 | 기획서 미러 다시 동기화 (GDD v4, D-001~D-183) | Claude Code | [29-0022-design-mirror-sync](worklog/2026/10/29-0022-design-mirror-sync.md) |
 | 2026-10-29 00:20 | S1 판정 코어: packages/sim — 배치 격자·통과 폭, 8방향 A*, 경로 이동, 이벤트 큐, 건물 배치, 임시 지형 | Claude Code (클라우드 세션, 서브에이전트 worktree) | [29-0020-sim-core](worklog/2026/10/29-0020-sim-core.md) |
+| 2026-10-29 00:05 | 행성 격자 계약 구현: `@terra/planet` 셀 키·힐베르트 순서·면 경계·이웃·꼭짓점·탄젠트 투영 | Claude Code (서브에이전트, 작업 트리) | [29-0005-planet-grid](worklog/2026/10/29-0005-planet-grid.md) |
 | 2026-10-28 23:40 | 새 앱 아이콘 PNG를 손실 없이 다시 압축 (736KB → 286KB) | Claude Code | [28-2340-icon-compress](worklog/2026/10/28-2340-icon-compress.md) |
 | 2026-10-28 23:40 | 디자인 시스템 구현: 후보 A(새싹 장난감), 테마 4개, 글꼴, 설정 화면(기기 + 계정) | Claude Code | [28-2340-design-system](worklog/2026/10/28-2340-design-system.md) |
 | 2026-10-28 23:27 | 파비콘과 앱 아이콘 새로 그리기 (정원 새싹·행성·궤도 정거장) | Antigravity | [28-2327-favicon-redesign](worklog/2026/10/28-2327-favicon-redesign.md) |

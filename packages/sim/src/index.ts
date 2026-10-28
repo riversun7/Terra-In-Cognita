@@ -92,3 +92,19 @@ export {
   type PlacementProblem,
   type Rotation,
 } from "./placement/placement.ts";
+export { NOISE_MAX, valueNoise } from "./terrain/noise.ts";
+export {
+  CLIFF_RELIEF_CM,
+  ROCK_RELIEF_CM,
+  SURFACE_COST,
+  SURFACE_DIRT,
+  SURFACE_GRASS,
+  SURFACE_ROCK,
+  SURFACE_WATER,
+  generateTempTerrain,
+  placementCostsFromTerrain,
+  seedFromCellKey,
+  terrainCellRelief,
+  terrainHash,
+  type TempTerrain,
+} from "./terrain/tempTerrain.ts";

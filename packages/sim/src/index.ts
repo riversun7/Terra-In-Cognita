@@ -69,3 +69,14 @@ export {
   type RouteRequest,
   type RouteResult,
 } from "./path/waypoints.ts";
+export {
+  MAX_COORDINATE,
+  MAX_SPEED,
+  arrivalAt,
+  createMotion,
+  distanceAt,
+  positionAt,
+  positionAtDistance,
+  type Motion,
+  type MotionInput,
+} from "./motion/motion.ts";

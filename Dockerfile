@@ -9,6 +9,7 @@ WORKDIR /repo
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/game/package.json apps/game/
 COPY apps/server/package.json apps/server/
+COPY packages/content/package.json packages/content/
 COPY packages/protocol/package.json packages/protocol/
 COPY packages/shared/package.json packages/shared/
 RUN pnpm install --frozen-lockfile --ignore-scripts

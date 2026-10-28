@@ -1,0 +1,11 @@
+{
+  "renamed": [{ "category": "items", "from": "sample_rock", "to": "sample_ore", "since": 2 }],
+  "removed": [
+    {
+      "category": "items",
+      "id": "sample_junk",
+      "since": 2,
+      "compensation": { "kind": "replace", "with": "sample_tool" }
+    }
+  ]
+}

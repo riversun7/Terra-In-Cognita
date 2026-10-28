@@ -1,0 +1,11 @@
+{
+  // 검사 스크립트(scripts/check-content.mjs)가 빌드 없이 node로 바로 실행한다(타입 지우기).
+  // 그래서 지울 수 있는 문법만 쓴다: enum·namespace·생성자 매개변수 속성 금지.
+  // Node 타입은 src/node/(파일 읽기·해시)용이다. 나머지 코드의 Node 모듈 사용은 oxlint가 막는다.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "erasableSyntaxOnly": true
+  },
+  "include": ["src"]
+}

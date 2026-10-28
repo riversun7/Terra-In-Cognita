@@ -46,6 +46,30 @@
         ],
         "import/no-nodejs-modules": "error"
       }
+    },
+    {
+      "files": ["packages/content/src/**"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "process",
+            "message": "콘텐츠 검증기는 브라우저 편집기에서도 씁니다. Node 전용 코드는 src/node/에 둡니다"
+          },
+          {
+            "name": "Buffer",
+            "message": "콘텐츠 검증기는 브라우저 편집기에서도 씁니다. Node 전용 코드는 src/node/에 둡니다"
+          }
+        ],
+        "import/no-nodejs-modules": "error"
+      }
+    },
+    {
+      "files": ["packages/content/src/node/**"],
+      "rules": {
+        "no-restricted-globals": "off",
+        "import/no-nodejs-modules": "off"
+      }
     }
   ],
   "ignorePatterns": ["**/dist/**", "**/dist-types/**", "**/src/paraglide/**", "**/node_modules/**"]

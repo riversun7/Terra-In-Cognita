@@ -1,5 +1,8 @@
 // 서버 설정 — 환경 변수에서 읽는다. 비밀값은 여기 기본값으로 두지 않는다.
 import { fileURLToPath } from "node:url";
+import { type AuthConfig, readAuthConfig } from "./auth/config.ts";
+
+export type { AuthConfig };
 
 /** 판정 규칙 버전. packages/sim 규칙이 바뀌면 올린다. */
 export const SIM_VERSION = 1;
@@ -28,6 +31,8 @@ export interface ServerConfig {
   databaseUrl: string | undefined;
   /** 믿는 프록시 주소 (TRUST_PROXY) */
   trustProxy: string;
+  /** 인증 설정. DB가 없으면 인증을 켜지 않는다(undefined) — CI 이미지 확인은 DB 없이 돈다 */
+  auth: AuthConfig | undefined;
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
@@ -35,12 +40,14 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
     throw new Error(`invalid PORT: ${env.PORT}`);
   }
+  const databaseUrl = env.DATABASE_URL || undefined;
   return {
     host: env.HOST ?? "0.0.0.0",
     port,
     staticDir: env.STATIC_DIR || undefined,
     contentDir: env.CONTENT_DIR || DEFAULT_CONTENT_DIR,
-    databaseUrl: env.DATABASE_URL || undefined,
+    databaseUrl,
     trustProxy: env.TRUST_PROXY || DEFAULT_TRUST_PROXY,
+    auth: databaseUrl ? readAuthConfig(env, port) : undefined,
   };
 }

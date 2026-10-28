@@ -9,7 +9,7 @@ import { TRPCError, type inferRouterInputs, type inferRouterOutputs } from "@trp
 import Fastify, { type FastifyInstance } from "fastify";
 import { afterEach, describe, expect, expectTypeOf, it } from "vitest";
 import { z } from "zod";
-import { createContextFactory } from "./context.ts";
+import { createContextFactory } from "./createContext.ts";
 import { INTERNAL_ERROR_MESSAGE, createCallerFactory, publicProcedure, router } from "./init.ts";
 import { registerTrpc } from "./plugin.ts";
 

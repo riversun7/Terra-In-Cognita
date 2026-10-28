@@ -12,6 +12,8 @@ export interface RateLimiterOptions {
 export interface RateLimiter {
   /** 1개를 쓴다. 남은 것이 없으면 false */
   take(key: string): boolean;
+  /** 다음 1개가 찰 때까지 남은 시간(ms). 지금 쓸 수 있으면 0 (Retry-After 안내용, 쓰지 않는다) */
+  retryAfterMs(key: string): number;
   /** 기억하고 있는 키 수 (시험용) */
   size(): number;
 }
@@ -48,6 +50,12 @@ export function createRateLimiter(options: RateLimiterOptions): RateLimiter {
       if (bucket.tokens < 1) return false;
       bucket.tokens -= 1;
       return true;
+    },
+    retryAfterMs(key) {
+      const bucket = buckets.get(key);
+      if (!bucket) return 0;
+      const tokens = refilled(bucket, now());
+      return tokens >= 1 ? 0 : Math.ceil((1 - tokens) / perMs);
     },
     size: () => buckets.size,
   };

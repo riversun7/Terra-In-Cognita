@@ -18,13 +18,26 @@ let app: FastifyInstance | undefined;
 const db = config.databaseUrl
   ? createDatabase(config.databaseUrl, (error) => app?.log.warn({ err: error }, "db pool error"))
   : undefined;
+// 인증은 DB가 있을 때만 켠다(config.auth). 비밀값·표 정의가 틀리면 buildApp이 실패해 서버가 뜨지 않는다
 app = await buildApp({
   contentVersion: content.version,
   contentHash: content.hash,
   staticDir: config.staticDir,
   db,
   trustProxy: config.trustProxy,
+  auth: config.auth
+    ? {
+        settings: { secret: config.auth.secret, baseUrl: config.auth.baseUrl },
+        openSignup: config.auth.openSignup,
+      }
+    : undefined,
 });
+if (config.auth) {
+  app.log.info(
+    { authUrl: config.auth.baseUrl, openSignup: config.auth.openSignup, devSecret: !config.auth.secret },
+    "auth enabled",
+  );
+}
 app.log.info(
   { contentVersion: content.version, contentHash: content.hash, dir: config.contentDir },
   "content pack",

@@ -2,12 +2,14 @@
 // 어댑터는 자기 플러그인 범위 안에서만 JSON 파서를 바꾼다. 텔레메트리 같은 다른 경로에는 영향이 없다.
 import { TRPC_PATH } from "@terra/protocol";
 import type { AnyRouter, inferRouterContext } from "@trpc/server";
-import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
+import { type CreateFastifyContextOptions, fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
 import type { FastifyInstance } from "fastify";
 
 export interface TrpcPluginOptions<TRouter extends AnyRouter> {
   router: TRouter;
-  createContext: () => inferRouterContext<TRouter> | Promise<inferRouterContext<TRouter>>;
+  createContext: (
+    opts: CreateFastifyContextOptions,
+  ) => inferRouterContext<TRouter> | Promise<inferRouterContext<TRouter>>;
 }
 
 export async function registerTrpc<TRouter extends AnyRouter>(

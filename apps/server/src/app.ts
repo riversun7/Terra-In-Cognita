@@ -4,14 +4,28 @@ import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "@terra/protocol";
 import Fastify, { type FastifyInstance } from "fastify";
+import { registerAccountRoutes } from "./auth/account.ts";
+import { type AuthSettings, type TerraAuth, createAuth, verifyAuth } from "./auth/auth.ts";
+import { registerAuthBridge } from "./auth/bridge.ts";
+import { createProxyChainLogger } from "./auth/http.ts";
+import { type AccountLimitName, type LimitSetting, createAccountLimiters } from "./auth/limits.ts";
 import { DEFAULT_TRUST_PROXY, SIM_VERSION } from "./config.ts";
 import { type Database, pingDatabase } from "./db/client.ts";
 import { startServerMetrics } from "./metrics.ts";
 import { handleSession } from "./session.ts";
 import { registerTelemetry } from "./telemetry.ts";
-import { createContextFactory } from "./trpc/context.ts";
+import { createContextFactory } from "./trpc/createContext.ts";
 import { registerTrpc } from "./trpc/plugin.ts";
 import { appRouter } from "./trpc/router.ts";
+
+/** 인증 켜기(DB가 있을 때만). 없으면 /api/auth/*, /api/account/*는 404이고 tRPC는 늘 로그인하지 않은 상태 */
+export interface AppAuthOptions {
+  settings: AuthSettings;
+  /** 새 아이디 가입 허용 (AUTH_OPEN_SIGNUP) */
+  openSignup: boolean;
+  /** 시험용: 시도 제한 숫자 바꾸기 */
+  limits?: Partial<Record<AccountLimitName, LimitSetting>> | undefined;
+}
 
 export interface AppOptions {
   /** 콘텐츠 팩 버전 "<팩 ID>@<팩 버전>" (시험에서는 아무 문자열) */
@@ -27,6 +41,8 @@ export interface AppOptions {
   metricsIntervalMs?: number;
   /** 믿는 프록시 주소 (기본: 루프백·사설 주소) */
   trustProxy?: string;
+  /** 인증. db가 있어야 한다 */
+  auth?: AppAuthOptions | undefined;
 }
 
 export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
@@ -58,9 +74,30 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   });
 
   registerTelemetry(app, { db: options.db, now });
+
+  let auth: { auth: TerraAuth; db: Database } | undefined;
+  if (options.auth) {
+    if (!options.db) throw new Error("auth requires a database");
+    const instance = createAuth({ db: options.db, settings: options.auth.settings, log: app.log });
+    // 비밀값이 없거나(운영) 표 정의가 Better Auth 기대와 다르면 여기서 실패한다(서버가 뜨지 않음)
+    await verifyAuth(instance);
+    auth = { auth: instance, db: options.db };
+    const appOrigin = options.auth.settings.baseUrl;
+    const onFirstRequest = createProxyChainLogger();
+    await registerAuthBridge(app, { auth: instance, appOrigin, onFirstRequest });
+    await registerAccountRoutes(app, {
+      auth: instance,
+      db: options.db,
+      appOrigin,
+      openSignup: options.auth.openSignup,
+      limiters: createAccountLimiters(now, options.auth.limits),
+      onFirstRequest,
+    });
+  }
+
   await registerTrpc(app, {
     router: appRouter,
-    createContext: createContextFactory({ contentVersion: options.contentVersion, now }),
+    createContext: createContextFactory({ contentVersion: options.contentVersion, now, auth }),
   });
 
   let wsConnections = 0;

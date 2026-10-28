@@ -319,7 +319,7 @@ scripts/           # 검사 스크립트(모듈 경계·파일 크기·다국어
 
 ### 9.2 NAS 사양 자동 수집 (M0 첫 작업)
 - 확인된 사실(2026-10-28 사용자 제공 화면) [V]: Synology Container Manager 사용. 같은 NAS에 다른 프로젝트 컨테이너(DB 2개, 문서 뷰어, 랜딩 페이지)도 있다 → 새 스택은 고유한 컨테이너 이름·네트워크·포트를 쓰고 다른 컨테이너를 건드리지 않는다.
-self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·여유, Docker·Compose 버전, `pg_test_fsync`(디스크 동기화 지연)를 수집해 `ops/nas-facts.md`에 기록한다(`nas-facts` 워크플로 수동 실행 → Actions 요약 화면 → 파일로 옮김). 커널이 Node 공식 지원 최소 버전(glibc 기준 4.18)보다 낮으면 대응을 ADR로 정한다(기존 서버도 같은 NAS에서 동작 중이라 실제 문제 가능성은 낮음 [A]).
+self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·여유, Docker·Compose 버전, `pg_test_fsync`(디스크 동기화 지연)를 수집해 `ops/nas-facts.md`에 기록한다(`nas-facts` 워크플로 수동 실행 → Actions 요약 화면 → 파일로 옮김). 커널이 Node 공식 지원 최소 버전(glibc 기준 4.18)보다 낮으면 대응을 ADR로 정한다 → 측정 결과 4.4.302+ [V], ADR 18로 그대로 운영하기로 함(첫 배포에서 Node 24·PostgreSQL 18 동작 확인 [V]).
 
 ### 9.3 네트워크
 - 외부에는 HTTPS 하나만 연다(DSM 역방향 프록시, Let's Encrypt). 새 스택은 기존 운영 주소와 겹치지 않게 별도 포트 또는 별도 호스트 이름으로 연결한다(M0에서 사용자와 설정).
@@ -458,7 +458,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 | 15 | 배포·운영 | `2026-10-28-deploy-and-ops.md` |
 | 16 | 개발 방식 (모듈 경계 도구는 17로 대체) | `2026-10-28-dev-workflow.md` |
 | 17 | M0 골격의 검사·빌드 도구 구성 | `2026-10-28-m0-toolchain.md` |
-| 18 | NAS 커널 4.4 대응(실행 환경, CPU 상한) — 제안 | `2026-10-28-nas-kernel-limits.md` |
+| 18 | NAS 커널 4.4 대응(실행 환경, CPU 상한) | `2026-10-28-nas-kernel-limits.md` |
 
 ---
 

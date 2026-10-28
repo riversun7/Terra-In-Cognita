@@ -133,10 +133,11 @@ function buildGoldenGrid(): PlacementGrid {
   return grid;
 }
 
-// 고정 시드의 요청 40개를 풀고 결과(상태·비용·칸)를 해시한다
+// 고정 시드의 요청 40개를 새 길찾기 객체 하나로 풀고(작업 배열을 다시 씀) 결과(상태·비용·칸)를 해시한다
 function runGoldenQueries(grid: PlacementGrid): { digest: string; found: number } {
   const rng = createRng(99);
   const hash = createFnv1a();
+  const finder = createPathfinder();
   const pickCell = (size: SizeClass) => {
     for (;;) {
       const cell = { x: rng.nextInt(N), y: rng.nextInt(N) };
@@ -147,7 +148,7 @@ function runGoldenQueries(grid: PlacementGrid): { digest: string; found: number 
   for (let i = 0; i < 40; i++) {
     const size = pickSize(rng, 2);
     const request = { start: pickCell(size), goal: pickCell(size), size };
-    const result = createPathfinder().findPath(grid, request);
+    const result = finder.findPath(grid, request);
     hash.updateText(result.status);
     if (result.status === "found") {
       found++;

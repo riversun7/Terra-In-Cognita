@@ -4,6 +4,7 @@ import { computeClearance } from "../grid/clearance.ts";
 import { ROAD_TRAIL } from "../grid/costs.ts";
 import { cellIndex, createPlacementGrid, setRoad, setTerrainCost } from "../grid/placementGrid.ts";
 import { createPathfinder } from "../path/astar.ts";
+import { firstDifference } from "../testSupport.ts";
 import { PLACEMENT_SIZE } from "../units.ts";
 import {
   type BuildingPlacement,
@@ -98,14 +99,17 @@ describe("건물 배치", () => {
     const grid = createPlacementGrid();
     const before = Uint8Array.from(grid.clearance);
     validatePlacement(grid, place(50, 50, 5, 5));
-    expect(grid.clearance).toEqual(before);
+    expect(firstDifference(grid.clearance, before)).toBe(-1);
     expect(occupiedCells(grid, 0)).toBe(PLACEMENT_SIZE * PLACEMENT_SIZE);
 
     expect(applyPlacement(grid, 9, place(50, 50, 5, 5)).ok).toBe(true);
     expect(grid.clearance[cellIndex(52, 52)]).toBe(0);
     expect(grid.clearance[cellIndex(48, 48)]).toBe(2);
-    expect(grid.clearance).toEqual(computeClearance(grid));
+    expect(firstDifference(grid.clearance, computeClearance(grid))).toBe(-1);
     expect(() => applyPlacement(grid, 9, place(0, 0, 1, 1))).toThrow(RangeError);
+    for (const badId of [0, -3, 1.5, 2 ** 32]) {
+      expect(() => applyPlacement(grid, badId, place(0, 0, 1, 1))).toThrow(RangeError);
+    }
     // 실패한 배치는 아무것도 바꾸지 않는다
     expect(applyPlacement(grid, 10, place(52, 52, 5, 5)).ok).toBe(false);
     expect(occupiedCells(grid, 10)).toBe(0);
@@ -113,7 +117,7 @@ describe("건물 배치", () => {
     expect(removeBuilding(grid, 9)).toBe(true);
     expect(removeBuilding(grid, 9)).toBe(false);
     expect(occupiedCells(grid, 9)).toBe(0);
-    expect(grid.clearance).toEqual(before);
+    expect(firstDifference(grid.clearance, before)).toBe(-1);
   });
 
   it("무작위로 놓고 치운 뒤에도 국소 갱신한 통과 폭이 전체 다시 계산과 같다", () => {
@@ -136,10 +140,10 @@ describe("건물 배치", () => {
         if (applyPlacement(grid, nextId, placement).ok) placed.push(nextId);
         nextId++;
       }
-      if (step % 250 === 0) expect(grid.clearance).toEqual(computeClearance(grid));
+      if (step % 250 === 0) expect(firstDifference(grid.clearance, computeClearance(grid))).toBe(-1);
     }
     expect(placed.length).toBeGreaterThan(100);
-    expect(grid.clearance).toEqual(computeClearance(grid));
+    expect(firstDifference(grid.clearance, computeClearance(grid))).toBe(-1);
   });
 
   it("놓인 건물은 경로탐색이 돌아간다", () => {

@@ -97,15 +97,18 @@ describe("경로 이동 계산", () => {
       });
       const end = arrivalAt(motion);
       const step = Math.max(1, Math.floor((end - motion.departAtMs) / 500));
+      // 표본마다 expect를 부르면 느려서, 어긋난 첫 표본만 모아 한 번에 확인한다
       let previous = -1;
-      for (let t = motion.departAtMs - 5; t <= end + 5; t += step) {
+      let problem = "";
+      for (let t = motion.departAtMs - 5; t <= end + 5 && problem === ""; t += step) {
         const point = positionAt(motion, t);
-        expect(Number.isInteger(point.x) && Number.isInteger(point.y)).toBe(true);
         const d = distanceAt(motion, t);
-        expect(d).toBeGreaterThanOrEqual(previous);
+        if (!Number.isInteger(point.x) || !Number.isInteger(point.y)) problem = `정수가 아님 t=${t}`;
+        else if (d < previous) problem = `거리가 줄어듦 t=${t}`;
+        else if (t > motion.departAtMs && t < end && !onSegment(motion, t, point)) problem = `구간 밖 t=${t}`;
         previous = d;
-        if (t > motion.departAtMs && t < end) expect(onSegment(motion, t, point)).toBe(true);
       }
+      expect(problem).toBe("");
       motion.waypoints.forEach((waypoint, i) => {
         const reached = motion.distances[i] ?? 0;
         // 누적 거리에서는 정확히 꺾이는 점이다

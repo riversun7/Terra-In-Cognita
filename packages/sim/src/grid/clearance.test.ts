@@ -1,5 +1,6 @@
 import { createRng } from "@terra/shared";
 import { describe, expect, it } from "vitest";
+import { firstDifference } from "../testSupport.ts";
 import { PLACEMENT_SIZE } from "../units.ts";
 import { computeClearance } from "./clearance.ts";
 import { BASE_COST, ROAD_TRAIL } from "./costs.ts";
@@ -63,12 +64,13 @@ describe("통과 폭(clearance)", () => {
       const y = rng.nextInt(PLACEMENT_SIZE);
       if (rng.nextInt(3) === 0) setRoad(grid, x, y, rng.nextInt(2) === 0 ? 0 : ROAD_TRAIL);
       else setTerrainCost(grid, x, y, rng.nextInt(2) === 0 ? 0 : BASE_COST);
-      if (step % 300 === 0) expect(grid.clearance).toEqual(computeClearance(grid));
+      if (step % 300 === 0) expect(firstDifference(grid.clearance, computeClearance(grid))).toBe(-1);
     }
-    expect(grid.clearance).toEqual(computeClearance(grid));
+    expect(firstDifference(grid.clearance, computeClearance(grid))).toBe(-1);
   });
 
   it("잘못된 칸·값은 거부한다", () => {
+    expect(() => createPlacementGrid(new Uint16Array(100))).toThrow(RangeError);
     const grid = createPlacementGrid();
     expect(() => setTerrainCost(grid, -1, 0, 0)).toThrow(RangeError);
     expect(() => setTerrainCost(grid, 0, 256, 0)).toThrow(RangeError);

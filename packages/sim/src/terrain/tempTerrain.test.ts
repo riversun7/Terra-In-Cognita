@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BASE_COST } from "../grid/costs.ts";
+import { firstDifference } from "../testSupport.ts";
 import { PLACEMENT_SIZE, TERRAIN_SIZE, TERRAIN_VERTEX_SIZE } from "../units.ts";
 import { TEMP_TERRAIN_GENERATOR_VERSION } from "../version.ts";
 import { valueNoise } from "./noise.ts";
@@ -36,14 +37,14 @@ describe("S1 임시 지형", () => {
     expect(terrain.generatorVersion).toBe(TEMP_TERRAIN_GENERATOR_VERSION);
     expect(terrain.heights).toHaveLength(TERRAIN_VERTEX_SIZE * TERRAIN_VERTEX_SIZE);
     expect(terrain.surface).toHaveLength(TERRAIN_SIZE * TERRAIN_SIZE);
-    for (const value of terrain.surface) expect(value).toBeLessThanOrEqual(SURFACE_ROCK);
+    expect(terrain.surface.every((value) => value <= SURFACE_ROCK)).toBe(true);
   });
 
   it("같은 시드는 같은 지형, 다른 시드는 다른 지형", () => {
     const a = generateTempTerrain(777);
     const b = generateTempTerrain(777);
-    expect(a.heights).toEqual(b.heights);
-    expect(a.surface).toEqual(b.surface);
+    expect(firstDifference(a.heights, b.heights)).toBe(-1);
+    expect(firstDifference(a.surface, b.surface)).toBe(-1);
     expect(terrainHash(a)).toBe(terrainHash(b));
     expect(terrainHash(generateTempTerrain(778))).not.toBe(terrainHash(a));
   });
@@ -85,22 +86,20 @@ describe("S1 임시 지형", () => {
   it("지형 칸 하나가 배치 칸 2×2를 덮고, 물·가파른 비탈은 막힌다", () => {
     const terrain = generateTempTerrain(4242);
     const costs = placementCostsFromTerrain(terrain);
-    expect(costs).toHaveLength(PLACEMENT_SIZE * PLACEMENT_SIZE);
-    for (let ty = 0; ty < TERRAIN_SIZE; ty++) {
-      for (let tx = 0; tx < TERRAIN_SIZE; tx++) {
+    // 배치 칸 (px, py)는 지형 칸 (px ÷ 2, py ÷ 2)의 값을 따른다
+    const expected = new Uint16Array(PLACEMENT_SIZE * PLACEMENT_SIZE);
+    for (let py = 0; py < PLACEMENT_SIZE; py++) {
+      for (let px = 0; px < PLACEMENT_SIZE; px++) {
+        const tx = px >> 1;
+        const ty = py >> 1;
         const surface = terrain.surface[ty * TERRAIN_SIZE + tx] ?? SURFACE_WATER;
         const blocked = surface === SURFACE_WATER || terrainCellRelief(terrain, tx, ty) >= CLIFF_RELIEF_CM;
-        const expected = blocked ? 0 : (SURFACE_COST[surface] ?? 0);
-        for (const [dx, dy] of [
-          [0, 0],
-          [1, 0],
-          [0, 1],
-          [1, 1],
-        ] as const) {
-          expect(costs[(ty * 2 + dy) * PLACEMENT_SIZE + tx * 2 + dx]).toBe(expected);
-        }
+        expected[py * PLACEMENT_SIZE + px] = blocked ? 0 : (SURFACE_COST[surface] ?? 0);
       }
     }
+    expect(costs).toHaveLength(PLACEMENT_SIZE * PLACEMENT_SIZE);
+    expect(firstDifference(costs, expected)).toBe(-1);
+    expect(costs.filter((cost) => cost === 0).length).toBeGreaterThan(1000);
   });
 
   it("칸 키 → 시드는 결정적이고 안전 정수만 받는다", () => {
@@ -109,5 +108,6 @@ describe("S1 임시 지형", () => {
     expect(seedFromCellKey(2 ** 40)).not.toBe(seedFromCellKey(0));
     expect(() => seedFromCellKey(-1)).toThrow(RangeError);
     expect(() => seedFromCellKey(2 ** 53)).toThrow(RangeError);
+    for (const bad of [-1, 1.5, 2 ** 32]) expect(() => generateTempTerrain(bad)).toThrow(RangeError);
   });
 });

@@ -76,6 +76,33 @@ describe("이벤트 큐", () => {
     expect(popped).toEqual(expected);
   });
 
+  it("취소가 살아 있는 수보다 훨씬 많아져 힙을 다시 만들어도 순서가 같다", () => {
+    const rng = createRng(78);
+    const queue = createEventQueue<number>();
+    const live = new Map<number, { id: number; timeMs: number; payload: number }>();
+    for (let round = 0; round < 3; round++) {
+      const ids: number[] = [];
+      for (let i = 0; i < 2000; i++) {
+        const timeMs = rng.nextInt(1000);
+        const id = queue.schedule(timeMs, round * 10_000 + i);
+        live.set(id, { id, timeMs, payload: round * 10_000 + i });
+        ids.push(id);
+      }
+      // 이번에 예약한 것의 약 80%를 취소한다 → 힙이 살아 있는 수의 2배를 넘는다
+      for (const id of ids) {
+        if (rng.nextInt(10) < 8) {
+          expect(queue.cancel(id)).toBe(true);
+          live.delete(id);
+        }
+      }
+      expect(queue.size).toBe(live.size);
+    }
+    const expected = [...live.values()].toSorted((a, b) => a.timeMs - b.timeMs || a.id - b.id);
+    expect(queue.popDue(400)).toEqual(expected.filter((event) => event.timeMs <= 400));
+    expect(queue.popDue(1000)).toEqual(expected.filter((event) => event.timeMs > 400));
+    expect(queue.size).toBe(0);
+  });
+
   it("틀린 시각은 거부한다", () => {
     const queue = createEventQueue<string>();
     expect(() => queue.schedule(1.5, "x")).toThrow(RangeError);

@@ -13,6 +13,7 @@
 | Docker | 엔진 24.0.2(API 1.43). 실행기 안의 클라이언트 29.9.2가 API 1.43으로 맞춰 동작함 |
 | Compose | v5.6.1(실행기 안) |
 | 디스크 동기화(`pg_test_fsync`, 8kB 1회) | fdatasync 약 13회/초(약 77ms/회), fsync 약 15회/초(약 68ms/회) |
+| CPU 상한(CFS 대역폭) | **지원 안 함.** compose의 `cpus`를 쓰면 컨테이너 생성이 실패한다(첫 배포, 2026-10-28). 메모리 상한은 동작 |
 
 ## 컨테이너 (수집 시점)
 | 이름 | 이미지 | 공개 포트 | 비고 |
@@ -23,7 +24,7 @@
 | `terra-postgres` | `postgres:18` | 5439 | 기존 버전 운영 DB |
 | `terra-watchtower` | `containrrr/watchtower` | 없음 | 기존 버전 자동 갱신(대상 필터 없음) |
 | `sunplant-db` | `postgres:latest` | 5433 | 다른 프로젝트(`sunplant26`) |
-| `KS-FrontierDB` | `postgres:latest` | 7432 | 무엇인지 미확인 |
+| `KS-FrontierDB` | `postgres:latest` | 7432 | 다른 프로젝트로 보고 건드리지 않음(사용자 결정 2026-10-28) |
 | `synology_docviewer_1`, `_2` | Synology 문서 뷰어 | 없음 | |
 | `mac2-landing-1` | `mac2-landing:amd64` | — | 꺼짐(Exited 1) |
 

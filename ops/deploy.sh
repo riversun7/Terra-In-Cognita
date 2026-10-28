@@ -50,11 +50,8 @@ fi
 
 # 5) 마이그레이션 — 서버에 마이그레이션 명령이 생기면 여기서 한 번 실행한다 (M0 이후)
 
-# 6) 앱 교체
-compose up -d app
-
-# 7) 헬스체크 (최대 약 90초), 실패 시 이전 버전으로
-if ! wait_healthy tic-app 45; then
+# 6) 앱 교체 → 7) 헬스체크 (최대 약 90초). 컨테이너 생성 실패든 헬스체크 실패든 이전 버전으로
+if ! compose up -d app || ! wait_healthy tic-app 45; then
   if [ -n "$PREV_TAG" ]; then
     echo "이전 버전으로 되돌립니다: $PREV_TAG"
     TERRA_TAG="$PREV_TAG" compose up -d app

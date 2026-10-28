@@ -21,7 +21,9 @@ services:
       # 기존 watchtower가 이 컨테이너를 자동 갱신하지 않게 한다
       com.centurylinklabs.watchtower.enable: "false"
     mem_limit: 1g
-    cpus: 2
+    # CPU 상한(cpus)은 NAS 커널(4.4)이 지원하지 않는다(배포 오류로 확인, ops/nas-facts.md).
+    # 대신 상대 우선순위만 둔다: 기본값 1024의 절반 → CPU가 모자랄 때 기존 운영 컨테이너에 양보
+    cpu_shares: 512
     networks: [tic]
 
   db:
@@ -44,6 +46,7 @@ services:
     labels:
       com.centurylinklabs.watchtower.enable: "false"
     mem_limit: 1g
+    cpu_shares: 512
     networks: [tic]
 
 networks:

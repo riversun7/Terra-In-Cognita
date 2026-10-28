@@ -43,7 +43,7 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
    - 사용자 지정 머리글 → 생성 → **WebSocket**
 2. 제어판 → 보안 → 인증서: 이 호스트 이름에 Let's Encrypt 인증서를 연결한다.
 3. 새 포트를 썼다면 공유기에서 그 포트만 포워딩한다.
-4. 같이 확인할 것: 공유기에서 기존 DB 포트(5439·5440)가 외부로 포워딩되어 있는지. 열려 있으면 닫을지 정한다.
+4. 같이 확인할 것: 공유기에서 NAS의 DB 포트(5433·5439·7432, `ops/nas-facts.md`)가 외부로 포워딩되어 있는지. 열려 있으면 닫을지 정한다.
 
 ## 7. 기존 테스트 서버 삭제 (사용자 결정 2026-10-28)
 기존 버전은 운영 서버(`terra-server`, `terra-client`, `terra-postgres`, `terra-watchtower`)만 남긴다.

@@ -12,7 +12,7 @@
 // - 노드 예산: 펼친 칸 수의 상한. 넘으면 "budget_exceeded"(길이 있는지 모름), 다 봤는데 없으면 "no_path".
 import { type SizeClass, isSizeClass } from "../grid/clearance.ts";
 import { type PlacementGrid, cheapestCellCost, footprintCost, isInside } from "../grid/placementGrid.ts";
-import { PLACEMENT_CELLS, PLACEMENT_SIZE } from "../units.ts";
+import { type CellPoint, PLACEMENT_CELLS, PLACEMENT_SIZE } from "../units.ts";
 import { createNodeHeap } from "./nodeHeap.ts";
 
 /** 직선 한 걸음의 길이(고정소수점 단위 = 배치 칸 1개) */
@@ -22,12 +22,6 @@ export const DIAGONAL_STEP = 1448;
 
 /** 기본 노드 예산 — 2차맵 전체 칸 수(이 격자에서는 넘을 수 없다). 서버는 상황에 맞게 줄여서 준다. */
 export const DEFAULT_NODE_BUDGET = PLACEMENT_CELLS;
-
-/** 배치 칸 좌표(정수) */
-export interface CellPoint {
-  readonly x: number;
-  readonly y: number;
-}
 
 export interface PathRequest {
   /** 출발 기준 칸 */

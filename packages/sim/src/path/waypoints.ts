@@ -7,8 +7,8 @@
 // - 크기 등급 s 유닛의 위치(중심) = 기준 칸 왼쪽 위 모서리 + s × 512 (s×s 정사각형의 가운데).
 import type { SizeClass } from "../grid/clearance.ts";
 import type { PlacementGrid } from "../grid/placementGrid.ts";
-import { CELL_UNITS, HALF_CELL_UNITS, PLACEMENT_SIZE, type Point } from "../units.ts";
-import type { CellPoint, PathResult, Pathfinder } from "./astar.ts";
+import { CELL_UNITS, type CellPoint, HALF_CELL_UNITS, PLACEMENT_SIZE, type Point } from "../units.ts";
+import type { PathResult, Pathfinder } from "./astar.ts";
 
 /** 꺾이는 칸만 남긴다. 칸 번호 차이(±1, ±255, ±256, ±257)가 곧 방향이다. */
 export function simplifyCellPath(cells: readonly number[]): number[] {

@@ -34,6 +34,12 @@ export interface Point {
   readonly y: number;
 }
 
+/** 배치 칸 좌표(0 ~ 255 정수) */
+export interface CellPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
 /**
  * 걷기 출발값(단위/초). 기획 D-120 "2차맵 하나(약 1.5km)를 10분 안에, 약 0.42칸/초 이상"에서
  * 256칸을 600초 안에 건너는 가장 느린 정수 속도: 256 × 1024 ÷ 600 = 436.9 → 437(약 0.427칸/초).

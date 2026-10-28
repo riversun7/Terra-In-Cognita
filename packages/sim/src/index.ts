@@ -13,6 +13,7 @@ export {
   TERRAIN_SIZE,
   TERRAIN_VERTEX_SIZE,
   WALK_SPEED,
+  type CellPoint,
   type Point,
 } from "./units.ts";
 export { isqrt, isqrtRound } from "./math/isqrt.ts";
@@ -55,7 +56,6 @@ export {
   DIAGONAL_STEP,
   STRAIGHT_STEP,
   createPathfinder,
-  type CellPoint,
   type PathRequest,
   type PathResult,
   type Pathfinder,
@@ -81,3 +81,14 @@ export {
   type MotionInput,
 } from "./motion/motion.ts";
 export { createEventQueue, type EventQueue, type ScheduledEvent } from "./events/eventQueue.ts";
+export {
+  MAX_BUILDING_ID,
+  applyPlacement,
+  footprintRect,
+  removeBuilding,
+  validatePlacement,
+  type BuildingPlacement,
+  type PlacementCheck,
+  type PlacementProblem,
+  type Rotation,
+} from "./placement/placement.ts";

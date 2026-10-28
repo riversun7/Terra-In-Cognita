@@ -29,6 +29,7 @@ ENV NODE_ENV=production \
 WORKDIR /app
 COPY --from=build /out/package.json ./package.json
 COPY --from=build /out/node_modules ./node_modules
+# dist/main.js(서버), dist/migrate.js(마이그레이션), dist/cli.js(관리 명령, .github/workflows/account-admin.yml), dist/assets/(공용 조각)
 COPY --from=build /out/dist ./dist
 # 마이그레이션 SQL — dist/migrate.js가 ../drizzle을 읽는다 (ops/deploy.sh 5단계)
 COPY --from=build /repo/apps/server/drizzle ./drizzle

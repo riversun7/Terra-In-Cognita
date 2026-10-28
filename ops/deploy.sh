@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # NAS 배포 스크립트 — NAS의 self-hosted runner가 실행한다 (docs/adr/2026-10-28-deploy-and-ops.md)
-# 순서: 비밀값 준비 → 이미지 받기 → DB 기동·백업 → 마이그레이션 → 앱 교체 → 헬스체크 + 자동 점검 → 실패 시 이전 버전으로 되돌림
+# 순서: 비밀값 준비(빠진 키만 추가) → 이미지 받기 → DB 기동·백업 → 마이그레이션 → 앱 교체 → 헬스체크 + 자동 점검 → 실패 시 이전 버전으로 되돌림
 # 사용: deploy.sh <이미지 태그> [콘텐츠 버전] [콘텐츠 해시]
 #   콘텐츠 버전·해시는 CI가 검사한 팩의 값(check 작업 출력). 주면 새 앱의 /health가 같은지 본다(ops/smoke.mjs)
 set -euo pipefail
@@ -34,14 +34,28 @@ smoke() {
     -e "EXPECT_CONTENT_HASH=$EXPECT_CONTENT_HASH" tic-app node --input-type=module - < "$HERE/smoke.mjs"
 }
 
+# 비밀값 파일(.env)에 키가 없으면 무작위 값($2바이트, 16진수)을 덧붙인다. 이미 있는 값은 바꾸지 않는다(값은 출력하지 않음)
+ensure_secret() {
+  local name="$1" bytes="$2"
+  grep -q "^${name}=" "$ENV_FILE" && return 0
+  # 마지막 줄에 줄바꿈이 없으면(손으로 고친 경우) 먼저 줄을 바꾼다
+  if [ -s "$ENV_FILE" ] && [ -n "$(tail -c 1 "$ENV_FILE")" ]; then echo >> "$ENV_FILE"; fi
+  printf '%s=%s\n' "$name" "$(head -c "$bytes" /dev/urandom | od -An -tx1 | tr -d ' \n')" >> "$ENV_FILE"
+  echo "비밀값을 추가했습니다: $name ($ENV_FILE)"
+}
+
 mkdir -p "$DATA_DIR/pgdata" "$DATA_DIR/backups"
 
-# 1) 비밀값 파일이 없으면 처음 한 번 만든다 (git에는 절대 넣지 않음)
+# 1) 비밀값 파일 준비 (git에는 절대 넣지 않음). 없으면 만들고, 빠진 키만 덧붙인다
+#    - POSTGRES_PASSWORD: DB 비밀번호(24바이트)
+#    - BETTER_AUTH_SECRET: 로그인 쿠키 서명 비밀값(32바이트 → 64자). 바꾸면 모든 로그인이 풀린다
 if [ ! -f "$ENV_FILE" ]; then
   umask 077
-  printf 'POSTGRES_PASSWORD=%s\n' "$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')" > "$ENV_FILE"
+  : > "$ENV_FILE"
   echo "새 비밀값 파일을 만들었습니다: $ENV_FILE"
 fi
+ensure_secret POSTGRES_PASSWORD 24
+ensure_secret BETTER_AUTH_SECRET 32
 
 PREV_TAG="$(cat "$DATA_DIR/deployed-tag" 2>/dev/null || true)"
 export TERRA_TAG="$TAG"

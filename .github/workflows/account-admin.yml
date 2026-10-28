@@ -1,0 +1,75 @@
+# 계정 관리(수동 실행) — NAS 운영 컨테이너 안에서 관리 명령(dist/cli.js)을 돌린다 (docs/adr/2026-10-28-auth-and-accounts.md)
+# 계정 만들기·역할 바꾸기·비밀번호 바꾸기. 감사 기록(audit_log)에 actor_kind=cli, 실행자 github:<계정>:run <번호>로 남는다.
+# 보안:
+# - 비밀번호는 첫 단계에서 이벤트 파일로 읽어 가린다(::add-mask::). 그 뒤 단계의 env 표시·출력에는 ***로 나온다.
+#   첫 단계에서 env로 받으면 단계 머리의 env 표시에 가리기 전 값이 찍히므로 env를 쓰지 않는다.
+# - 입력값은 env로만 넘기고 실행 스크립트 안에 ${{ }}를 쓰지 않는다(명령 주입 방지).
+# - 비밀번호는 docker exec -e로 컨테이너 안 환경 변수로만 넘긴다(명령줄 인자에 넣지 않는다).
+name: account-admin
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 할 일
+        type: choice
+        options: [create-user, set-roles, set-password]
+        required: true
+      login_id:
+        description: 로그인 아이디 (영문·숫자·_ 3~20자, 대소문자 무시)
+        type: string
+        required: true
+      roles:
+        description: 역할, 쉼표로 (create-user·set-roles). 예 player,admin
+        type: string
+        default: player
+      password:
+        description: 비밀번호 (create-user·set-password). 로그에는 가려진다
+        type: string
+        required: false
+      allow_weak:
+        description: 비밀번호 규칙(8자 이상 등) 건너뛰기 — 경고를 남긴다
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# 배포와 같은 줄에 서서 배포 중(앱 교체 중)에는 돌지 않는다
+concurrency:
+  group: deploy-nas
+  cancel-in-progress: false
+
+jobs:
+  run:
+    # 배포와 같이 main에서 실행할 때만(다른 브랜치의 고친 작업 파일로 운영 DB를 건드리지 않게)
+    if: vars.NAS_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, nas]
+    timeout-minutes: 5
+    steps:
+      - name: 비밀번호 가리기 (다른 무엇보다 먼저)
+        run: |
+          set -euo pipefail
+          # 실행기 이미지(myoung34/github-runner)에 jq가 있다. 없으면 여기서 멈춘다(값을 찍지 않고 실패)
+          password="$(jq -r '.inputs.password // ""' "$GITHUB_EVENT_PATH")"
+          if [ -n "$password" ]; then echo "::add-mask::$password"; fi
+
+      - name: 관리 명령 실행
+        env:
+          COMMAND: ${{ inputs.command }}
+          LOGIN_ID: ${{ inputs.login_id }}
+          ROLES: ${{ inputs.roles }}
+          ALLOW_WEAK: ${{ inputs.allow_weak }}
+          TIC_PASSWORD: ${{ inputs.password }}
+        run: |
+          set -euo pipefail
+          export TIC_ACTOR="github:${GITHUB_ACTOR}:run ${GITHUB_RUN_ID}"
+          args=("$COMMAND" --id "$LOGIN_ID")
+          case "$COMMAND" in
+            create-user | set-roles) args+=(--roles "$ROLES") ;;
+            set-password) ;;
+            *) echo "알 수 없는 명령"; exit 2 ;;
+          esac
+          if [ "$ALLOW_WEAK" = "true" ]; then args+=(--allow-weak); fi
+          # 컨테이너 안 환경(DATABASE_URL·BETTER_AUTH_SECRET·BETTER_AUTH_URL)을 그대로 쓴다
+          docker exec -e TIC_PASSWORD -e TIC_ACTOR tic-app node dist/cli.js "${args[@]}"

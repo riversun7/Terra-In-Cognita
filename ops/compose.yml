@@ -13,6 +13,12 @@ services:
       # 콘텐츠 팩은 이미지 안에 있다(CONTENT_DIR=/app/content/core, Dockerfile). 이미지 태그를 되돌리면 팩도 함께 되돌아간다
       # 비밀번호는 NAS의 .env에만 있다(deploy.sh가 첫 배포 때 16진수로 만든다 → 주소에 그대로 넣어도 안전)
       DATABASE_URL: postgres://terra:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/terra
+      # 로그인(Better Auth, docs/adr/2026-10-28-auth-and-accounts.md). 비밀값은 deploy.sh가 .env에 만든다(바꾸면 모든 로그인이 풀린다)
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
+      # 사용자가 접속하는 주소(DSM 역방향 프록시). 같은 출처 검사와 Secure 쿠키의 기준이다
+      BETTER_AUTH_URL: https://riversun7.synology.me:4443
+      # 새 아이디 가입 허용. 닫으려면 .env에 AUTH_OPEN_SIGNUP=false를 넣고 다시 배포한다
+      AUTH_OPEN_SIGNUP: ${AUTH_OPEN_SIGNUP:-true}
     ports:
       # NAS 안에서만 열고, 외부 접속은 DSM 역방향 프록시(HTTPS)가 맡는다
       - "127.0.0.1:4100:4100"

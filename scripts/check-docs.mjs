@@ -1,5 +1,5 @@
 // 문서 갱신 검사 (docs/adr/2026-10-28-dev-workflow.md)
-// - 코드를 바꿨으면 작업 기록(docs/worklog/)도 함께 추가·수정해야 한다.
+// - 코드를 바꿨으면 작업 기록(docs/worklog/)도 함께 추가·수정해야 한다. 의존성 버전만 올린 변경은 제외.
 // - 새 런타임 의존성(dependencies)을 추가했으면 ADR(docs/adr/)도 함께 추가해야 한다.
 // 사용: node scripts/check-docs.mjs [기준 커밋]  (기본: upstream, 없으면 HEAD~1)
 import { fail, git } from "./lib.mjs";
@@ -39,8 +39,59 @@ const changed = git(["diff", "--name-only", `${base}...HEAD`])
 const CODE = /^(apps|packages|scripts|ops)\/|^\.github\/workflows\//;
 const errors = [];
 
+const readJson = (ref, file) => {
+  try {
+    return JSON.parse(git(["show", `${ref}:${file}`]));
+  } catch {
+    return null; // 그 시점에 파일이 없음
+  }
+};
+// 키 순서와 무관하게 비교하려고 객체 키를 정렬한다
+const canonical = (value) =>
+  Array.isArray(value)
+    ? value.map(canonical)
+    : value && typeof value === "object"
+      ? Object.fromEntries(
+          Object.keys(value)
+            .toSorted()
+            .map((key) => [key, canonical(value[key])]),
+        )
+      : value;
+const DEP_FIELDS = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"];
+
+// 버전 올림만 있는 파일(Dependabot PR 등)은 코드 변경으로 치지 않는다 (docs/adr/2026-10-28-dependency-updates.md)
+// - package.json: 의존성 버전 문자열만 바뀜 (이름이 늘거나 줄거나, 다른 필드가 바뀌면 코드 변경)
+// - 워크플로: 바뀐 줄이 모두 `uses:` 줄 (액션 버전)
+function isVersionBumpOnly(file) {
+  if (/(^|\/)package\.json$/.test(file)) {
+    const before = readJson(base, file);
+    const after = readJson("HEAD", file);
+    if (!before || !after) return false;
+    const shape = (pkg) =>
+      JSON.stringify(
+        canonical({
+          ...pkg,
+          ...Object.fromEntries(DEP_FIELDS.map((field) => [field, Object.keys(pkg[field] ?? {}).toSorted()])),
+        }),
+      );
+    return shape(before) === shape(after);
+  }
+  if (file.startsWith(".github/workflows/")) {
+    const lines = git(["diff", "-U0", `${base}...HEAD`, "--", file])
+      .split("\n")
+      .filter((line) => /^[+-]/.test(line) && !/^(\+\+\+|---) /.test(line));
+    return lines.length > 0 && lines.every((line) => /^[+-]\s*(-\s+)?uses:\s/.test(line));
+  }
+  return false;
+}
+
+const codeFiles = changed.filter((f) => CODE.test(f));
+const bumpOnly = codeFiles.filter(isVersionBumpOnly);
+if (bumpOnly.length > 0) {
+  console.log(`· 버전 올림만 있어 작업 기록 검사에서 뺀 파일: ${bumpOnly.join(", ")}`);
+}
 if (
-  changed.some((f) => CODE.test(f)) &&
+  codeFiles.length > bumpOnly.length &&
   !changed.some((f) => f.startsWith("docs/worklog/") && !f.endsWith("TEMPLATE.md"))
 ) {
   errors.push(
@@ -48,13 +99,7 @@ if (
   );
 }
 
-const readDeps = (ref, file) => {
-  try {
-    return Object.keys(JSON.parse(git(["show", `${ref}:${file}`])).dependencies ?? {});
-  } catch {
-    return [];
-  }
-};
+const readDeps = (ref, file) => Object.keys(readJson(ref, file)?.dependencies ?? {});
 const addedRuntimeDeps = changed
   .filter((f) => f === "package.json" || /^(apps|packages)\/[^/]+\/package\.json$/.test(f))
   .flatMap((file) => {

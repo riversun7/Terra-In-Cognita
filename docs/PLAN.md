@@ -59,7 +59,7 @@
 
 ## 3. 기술스택 (2026-10-27~28 기준)
 
-버전 정책: **정확한 버전 고정**(`^` 금지), 주간 의존성 업데이트 PR(Dependabot)으로만 올린다. 새 메이저 버전은 AI 학습 데이터보다 최신이므로 `AGENTS.md`의 API 요약표를 함께 갱신한다.
+버전 정책: **정확한 버전 고정**(`^` 금지), 주간 의존성 업데이트 PR(Dependabot)으로만 올린다. 공개 후 3일(메이저 7일) 지난 버전만 제안하고, pnpm·Node·Docker 이미지는 함께 바꿀 파일과 같이 손으로 올린다(ADR 21). 새 메이저 버전은 AI 학습 데이터보다 최신이므로 `AGENTS.md`의 API 요약표를 함께 갱신한다.
 
 | 계층 | 선택 | 버전 [V: npm] | 이유 / 검토한 대안 |
 |---|---|---|---|
@@ -366,6 +366,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 | pre-push | 린트(oxlint), 타입 검사, 단위 테스트, 모듈 경계, 파일 크기, 다국어, 문서 갱신 검사 (`pnpm check` + 문서 검사) |
 | main 푸시 CI | 위 전체 + 비밀값 전체 이력(gitleaks) + 콘텐츠 검증 + 이미지 빌드 + 스테이징 배포. 문서·스킬만 바뀐 푸시는 이미지·배포 생략 |
 | 정기(NAS) | 매일 DB 백업, 주 1회 복구 훈련(`nas-backup`). 되돌림 훈련은 수동(`rollback-drill`) |
+| 정기(GitHub) | 매주 월요일 Dependabot PR(npm·Actions). 버전 올림만 있는 PR은 작업 기록 검사에서 빠진다(ADR 21) |
 | 야간 CI | E2E, 생성기 해시, 복구 테스트, 성능 스모크 |
 
 ### 10.3 기록 체계
@@ -462,6 +463,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 | 18 | NAS 커널 4.4 대응(실행 환경, CPU 상한) | `2026-10-28-nas-kernel-limits.md` |
 | 19 | AI 스킬 구성(디자인 스킬 설치, 한국어 스킬) | `2026-10-28-agent-skills.md` |
 | 20 | 개발 흐름 스킬(Matt Pocock) 추가와 문서 규칙 우선 | `2026-10-28-agent-skills-dev-flow.md` |
+| 21 | 의존성 자동 업데이트(Dependabot, cooldown, 문서 검사 예외) | `2026-10-28-dependency-updates.md` |
 
 ---
 

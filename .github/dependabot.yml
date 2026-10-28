@@ -1,0 +1,49 @@
+# 의존성 주간 업데이트 PR — docs/adr/2026-10-28-dependency-updates.md
+# 버전은 정확히 고정하고(PLAN 3장) 올림은 이 PR로만 한다. PR을 합치는 것은 사람(또는 에이전트)이 한다.
+version: 2
+updates:
+  # pnpm 작업공간 전체 (pnpm-lock.yaml 하나)
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Seoul
+    # pnpm의 minimumReleaseAge(1일)보다 길게 기다린다 → 공개 직후 버전 때문에 설치 검사가 실패하지 않게
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    versioning-strategy: increase
+    groups:
+      # 작은 올림은 PR 하나로 묶어 CI 실행을 줄인다(무료 한도). 메이저는 따로 연다.
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      # pnpm 버전은 CI·Dockerfile·AGENTS.md와 함께 손으로 올린다
+      - dependency-name: pnpm
+      # Node 24를 쓰므로 타입도 24에 맞춘다
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: build
+      include: scope
+    open-pull-requests-limit: 5
+
+  # 워크플로의 액션 버전 (uses: 줄)
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Seoul
+    cooldown:
+      default-days: 3
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+      include: scope

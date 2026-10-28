@@ -13,7 +13,8 @@ compose() { docker compose -p tic -f "$HERE/compose.yml" --env-file "$ENV_FILE" 
 wait_healthy() {
   local status=none
   for _ in $(seq 1 "$2"); do
-    status="$(docker inspect -f '{{.State.Health.Status}}' "$1" 2>/dev/null || echo none)"
+    # 헬스체크가 없는 컨테이너는 inspect가 빈 줄을 찍고 실패한다 → 실패하면 none
+    status="$(docker inspect -f '{{.State.Health.Status}}' "$1" 2>/dev/null)" || status=none
     [ "$status" = healthy ] && return 0
     sleep 2
   done

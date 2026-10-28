@@ -94,6 +94,7 @@ export function cellCost(grid: PlacementGrid, index: number): number {
 /**
  * 크기 등급 size 유닛이 기준 칸 index에 들어갈 때의 비용(천분율): 차지하는 s×s 칸 중 가장 비싼 칸.
  * 대형 유닛은 몸 전체가 도로 위에 있어야 도로 비용을 받는다.
+ * 그 기준 칸에 설 수 있을 때만 부른다(발자국이 지도 안에 있어야 한다).
  */
 export function footprintCost(grid: PlacementGrid, index: number, size: SizeClass): number {
   if (size === 1) return cellCost(grid, index);
@@ -107,7 +108,10 @@ export function footprintCost(grid: PlacementGrid, index: number, size: SizeClas
   return highest;
 }
 
-/** 지나갈 수 있는 칸 중 가장 싼 비용(천분율). 길찾기 추정값을 과대평가하지 않게 쓴다. */
+/**
+ * 비용이 0이 아닌 칸 중 가장 싼 비용(천분율). 길찾기 추정값이 실제 비용을 넘지 않게 쓴다.
+ * 건물 밑 칸도 센다(더 작게 잡으면 추정값이 약해질 뿐 틀리지 않는다). 도로·지형이 바뀌면 다시 센다.
+ */
 export function cheapestCellCost(grid: PlacementGrid): number {
   if (grid.cheapestCostCache > 0) return grid.cheapestCostCache;
   let cheapest = 0;

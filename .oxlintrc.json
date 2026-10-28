@@ -23,5 +23,30 @@
       }
     ]
   },
+  "overrides": [
+    {
+      "files": ["apps/game/src/**"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "process",
+            "message": "Node 전역은 기기에서 쓸 수 없습니다 (빌드 값은 vite.config.ts의 define)"
+          },
+          {
+            "name": "Buffer",
+            "message": "Node 전역은 기기에서 쓸 수 없습니다 (Uint8Array·TextEncoder 사용)"
+          },
+          { "name": "global", "message": "Node 전역은 기기에서 쓸 수 없습니다 (globalThis 사용)" },
+          { "name": "require", "message": "기기 코드는 ES 모듈 import만 씁니다" },
+          { "name": "__dirname", "message": "Node 전역은 기기에서 쓸 수 없습니다" },
+          { "name": "__filename", "message": "Node 전역은 기기에서 쓸 수 없습니다" },
+          { "name": "setImmediate", "message": "Node 전역은 기기에서 쓸 수 없습니다 (setTimeout 사용)" },
+          { "name": "clearImmediate", "message": "Node 전역은 기기에서 쓸 수 없습니다" }
+        ],
+        "import/no-nodejs-modules": "error"
+      }
+    }
+  ],
   "ignorePatterns": ["**/dist/**", "**/src/paraglide/**", "**/node_modules/**"]
 }

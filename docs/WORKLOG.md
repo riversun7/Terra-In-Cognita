@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-28 23:40 | 새 앱 아이콘 PNG를 손실 없이 다시 압축 (736KB → 286KB) | Claude Code | [28-2340-icon-compress](worklog/2026/10/28-2340-icon-compress.md) |
 | 2026-10-28 23:27 | 파비콘과 앱 아이콘 새로 그리기 (정원 새싹·행성·궤도 정거장) | Antigravity | [28-2327-favicon-redesign](worklog/2026/10/28-2327-favicon-redesign.md) |
 | 2026-10-28 22:15 | 기획서 미러 첫 동기화 (GDD v4, D-001~D-138) | Claude Code | [28-2215-design-mirror-sync](worklog/2026/10/28-2215-design-mirror-sync.md) |
 | 2026-10-28 21:50 | 로그인·관리자 화면: 들어가기·새 아이디 확인·비밀번호 찾기·계정 줄·역할 바꾸기, 디자인 값 한곳에 | Claude Code (서브에이전트, 작업 트리) | [28-2150-auth-ui](worklog/2026/10/28-2150-auth-ui.md) |

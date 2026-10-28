@@ -28,7 +28,7 @@ export default defineConfig({
       registerType: "prompt",
       // 등록은 src/pwa/updates.ts에서 virtual:pwa-register로 직접 한다
       injectRegister: false,
-      includeAssets: ["favicon.ico", "apple-touch-icon-180x180.png"],
+      includeAssets: ["favicon.ico", "favicon.svg", "apple-touch-icon-180x180.png"],
       manifest: {
         id: "/",
         start_url: "/",
@@ -41,7 +41,7 @@ export default defineConfig({
         orientation: "any",
         theme_color: THEME_COLOR,
         background_color: THEME_COLOR,
-        // 임시 아이콘 — apps/game/scripts/placeholder-icons.mjs로 만든다
+        // 임시 아이콘 — public/favicon.svg에서 그린다(만드는 법: docs/worklog/2026/10/28-2040-pwa.md)
         icons: [
           { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
           { src: "pwa-512x512.png", sizes: "512x512", type: "image/png" },

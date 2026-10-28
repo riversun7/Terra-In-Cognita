@@ -139,7 +139,7 @@ git 훅: 커밋 전(포맷·비밀값), 커밋 메시지(Conventional Commits), 
 
 스킬은 `.claude/skills/`에 있다(Claude Code). Antigravity는 같은 폴더를 `.agent/skills`(링크)로 읽는다. 구성과 이유는 ADR `docs/adr/2026-10-28-agent-skills.md`.
 
-화면을 만들거나 고칠 때는 이 순서로 스킬을 쓴다.
+화면을 만들거나 고칠 때는 이 순서로 스킬을 쓴다. 디자인 시스템이 정해졌으므로(ADR 30) 1·2단계는 새 시각 방향이 필요할 때만 쓴다. 5단계는 `web-design-guidelines`와 `break-ui`(390px, 한국어·영어)를 기본으로 하고, `impeccable`·`review-animations`는 큰 화면을 새로 만들 때만 쓴다(빠르게 진행, 위 사용자 결정).
 1. 방향: `frontend-design` — 분위기·글꼴·색의 방향을 코드보다 먼저 정한다.
 2. 디자인 시스템·규칙: `ui-ux-pro-max` — 스타일, 색 조합, 글꼴 조합, UX 규칙을 검색한다(스택은 `react`, `python3` 필요). 기본 스타일 엔진은 이것 하나다.
 3. 움직임: 새로 만들 때 `animate`, 끊길 때 `animation-performance`, 다듬을 때 `emil-design-eng`.
@@ -148,7 +148,7 @@ git 훅: 커밋 전(포맷·비밀값), 커밋 메시지(Conventional Commits), 
 6. 한국어 문구·문서·보고: `korean-writing`.
 
 - `hallmark`, `taste-skill`은 다른 시각 방향을 시험할 때나 사용자가 이름을 말할 때만 쓴다. `find-animation-opportunities`, `improve-animations`, `animation-vocabulary`는 필요할 때.
-- 디자인 시스템은 ADR `2026-10-28-design-system.md`(후보 A 새싹 장난감)다. 화면 스타일은 `apps/game/src/styles/tokens.css`의 `var(--…)`만 쓴다(직접 쓴 색·px 값은 `pnpm check:contrast`가 막는다). 화면을 바꾸면 테마 4개(파스텔·다크·선명·정거장)에서 모두 확인한다. 관리자·거래창처럼 빽빽한 화면은 `data-density="compact"`.
+- 디자인 시스템은 ADR `2026-10-28-design-system.md`(후보 A 새싹 장난감)다. 화면 스타일은 `apps/game/src/styles/tokens.css`의 `var(--…)`만 쓴다(직접 쓴 색·px 값은 `pnpm check:contrast`가 막는다). 화면을 바꾸면 기본 테마 2개(파스텔·다크)에서만 눈으로 확인하고 사진을 찍는다. 선명·정거장은 자동 검사(`pnpm check:contrast`)로만 지킨다. 새 화면은 디자인 후보를 따로 만들지 않고 이 디자인 시스템으로 바로 만든다(사용자 결정 2026-10-28: "디자인 작업이 너무 오래걸리므로 다음부터는 기본 두가지만 만들고 진도를 빠르게 나가보자"). 관리자·거래창처럼 빽빽한 화면은 `data-density="compact"`.
 - **스킬보다 이 문서가 우선한다.** 모바일 우선, 화면 문구는 메시지 키(ko·en 함께), 성능 기준(PLAN 11장). 스킬이 권하는 새 런타임 의존성(Tailwind, framer-motion, shadcn 등)은 ADR을 먼저 쓴다.
 - 스킬이 훅을 설치하거나 설정 파일(`.claude/settings.json` 등)을 바꾸려 하면 사용자 승인 뒤에만 한다(`hallmark`의 install-hook, `/impeccable hooks on`).
 - `impeccable`의 일부 명령은 처음 실행할 때 GitHub에서 실행 파일을 내려받는다(체크섬 검증). 환경이 막으면 그 명령은 건너뛰고 문서 기반 규칙만 쓴다.

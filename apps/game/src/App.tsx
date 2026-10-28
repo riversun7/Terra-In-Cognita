@@ -148,11 +148,7 @@ export function App({ monitor }: { monitor: FrameMonitor }) {
   } else if (mapOpen) {
     content = (
       <LazyView loading={m.map_loading()} failed={m.map_load_failed()}>
-        <SecondaryMapScreen
-          onClose={close}
-          monitor={monitor}
-          clockOffsetMs={status.kind === "connected" && status.clock ? status.clock.offsetMs : 0}
-        />
+        <SecondaryMapScreen onClose={close} monitor={monitor} />
       </LazyView>
     );
   } else {

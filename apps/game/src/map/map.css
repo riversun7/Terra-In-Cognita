@@ -78,6 +78,10 @@
   top: 50%;
   left: 0;
   right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
   width: fit-content;
   max-width: calc(100% - 2 * var(--space-6));
   margin-inline: auto;
@@ -85,10 +89,24 @@
   font-weight: var(--font-weight-strong);
   text-align: center;
 }
+.map-notice p {
+  margin: 0;
+}
+/* 두 번째 줄부터(이유) — 보통 굵기 */
+.map-notice p + p {
+  font-weight: var(--font-weight-regular);
+}
 .map-hint {
   flex: 1 1 12em;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-snug);
+}
+.map-hint p {
+  margin: 0;
+}
+/* 명령 안내(보냄·결과·보기 전용) — 선택 안내 아래 한 줄 */
+.map-command {
+  color: var(--color-text-muted);
 }
 .map-actions {
   display: flex;
@@ -96,11 +114,4 @@
   justify-content: flex-end;
   gap: var(--space-2);
   margin-left: auto;
-}
-/* 눌린 토글(모두 멈춤) — 버튼 색 쌍(대비 검사함) */
-.map-actions button[aria-pressed="true"] {
-  --button-lip: var(--color-primary-lip);
-  border-color: transparent;
-  background-color: var(--color-primary);
-  color: var(--color-on-primary);
 }

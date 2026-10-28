@@ -1,0 +1,122 @@
+// 2차맵 자료 받기(mapFeed.ts)의 바깥 모양 — 화면은 이 타입과 요약(status·stats)만 본다(PLAN 5.7).
+import type { SecondMapEngine, TerrainInput } from "@terra/engine";
+import type { ResultCode } from "@terra/protocol";
+import type { ServerLink } from "../net/serverLink.ts";
+import type { FeedRates } from "./feedMeter.ts";
+import type { TerrainFailure } from "./terrainLoader.ts";
+
+/** 엔진 쪽 — SecondMapEngine이 그대로 맞는다(시험은 가짜를 넣는다) */
+export type FeedSink = Pick<
+  SecondMapEngine,
+  "setTerrain" | "setUnits" | "setUnitPath" | "setBuildings" | "select" | "selected"
+>;
+
+export type FeedPhase =
+  /** 연결을 기다린다(처음) */
+  | { kind: "connecting" }
+  /** 구독을 보냈다(스냅샷을 기다린다) */
+  | { kind: "subscribing" }
+  | { kind: "live" }
+  /** 끊겼다. 받은 유닛은 마지막 경로대로 계속 그린다. 다시 연결되면 다시 구독한다 */
+  | { kind: "offline" }
+  /** 서버가 바쁘거나 요청이 많다 — 잠시 뒤 저절로 다시 구독한다 */
+  | { kind: "retrying"; code: ResultCode }
+  /** 구독을 거절당했다 — [다시 시도]를 기다린다 */
+  | { kind: "failed"; code: ResultCode };
+
+export type TerrainState =
+  | { kind: "none" }
+  /** 받는 중(HTTP + 읽기) */
+  | { kind: "loading" }
+  /** 엔진이 메시를 만드는 중(워커) */
+  | { kind: "building" }
+  | { kind: "ready" }
+  /** render: 받은 지형으로 메시를 만들지 못함(엔진) */
+  | { kind: "failed"; reason: TerrainFailure | "render" };
+
+export interface FeedStatus {
+  phase: FeedPhase;
+  terrain: TerrainState;
+  /** 스냅샷을 한 번이라도 넣었는가(그 뒤에는 다시 받는 동안에도 유닛이 보인다) */
+  hasSnapshot: boolean;
+}
+
+export const INITIAL_FEED_STATUS: FeedStatus = {
+  phase: { kind: "connecting" },
+  terrain: { kind: "none" },
+  hasSnapshot: false,
+};
+
+/** no_reply: 정해진 시간 안에 결과가 오지 않음(기기가 붙인 코드) */
+export type CommandOutcome = { ok: true } | { ok: false; code: ResultCode | "no_reply" };
+
+export type MoveAttempt =
+  | { kind: "sent"; id: number }
+  /** 보기 전용 계정 — 보내지 않았다 */
+  | { kind: "view_only" }
+  /** 연결이나 스냅샷이 없어 보내지 않았다 */
+  | { kind: "offline" };
+
+export interface CommandReport {
+  id: number;
+  unitId: number;
+  outcome: CommandOutcome;
+  /** 보낸 때부터 결과까지(ms) */
+  elapsedMs: number;
+}
+
+export interface FeedStats extends FeedRates {
+  /** 지금 rev(스냅샷 전이면 null) */
+  rev: number | null;
+  units: number;
+  buildings: number;
+  /** 마지막 스냅샷: 글자 수(= 바이트, ASCII JSON), 조각 수, 구독을 보낸 때부터 다 받기까지(ms) */
+  snapshotBytes: number;
+  snapshotParts: number;
+  snapshotMs: number | null;
+  /** 연 때부터 스냅샷과 지형이 모두 준비되기까지(ms). 아직이면 null */
+  readyMs: number | null;
+  /** 지형 받기·읽기(ms, 메시 만들기 제외) */
+  terrainMs: number | null;
+  /** 보낸 구독 수(처음 포함)와 그중 다시 구독(= 구독 − 1) */
+  subscribes: number;
+  resubscribes: number;
+  /** rev가 빠져 다시 구독한 수 */
+  gaps: number;
+  /** 요청하지 않았는데 온 스냅샷(느린 연결 따라잡기) */
+  serverResyncs: number;
+  /** 엔진 상한을 넘어 그리지 않는 유닛 수 */
+  droppedUnits: number;
+  commands: number;
+  pendingCommands: number;
+}
+
+export interface MapFeedOptions {
+  link: Pick<ServerLink, "send" | "isReady" | "listen" | "reconnect">;
+  mapKey: number;
+  sink: FeedSink;
+  loadTerrain: (url: string) => Promise<TerrainInput>;
+  /** 명령을 보내도 되는가(관리자). 서버가 따로 확인한다 */
+  canCommand: () => boolean;
+  /** 측정용 시각(ms, performance.now) */
+  now: () => number;
+  /** 서버 시계(ms) — 움직임의 늦음을 잰다 */
+  serverNow: () => number;
+  /** 요청 번호(기본: 무작위 수에서 시작해 1씩) */
+  nextRequestId?: () => number;
+  /** 엔진 유닛 상한(엔진 unitCapacity와 같게) */
+  unitCapacity?: number;
+  onStatus?: (status: FeedStatus) => void;
+  onCommand?: (report: CommandReport) => void;
+}
+
+export interface MapFeed {
+  status(): FeedStatus;
+  stats(): FeedStats;
+  /** 관리자 시험 명령: 유닛을 누른 칸(배치 칸, 실수)의 가운데로 보낸다 */
+  moveUnit(unitId: number, cell: { x: number; y: number }): MoveAttempt;
+  /** [다시 시도] — 실패한 구독·지형을 다시 */
+  retry(): void;
+  /** 해제를 보내고 모두 멈춘다 */
+  stop(): void;
+}

@@ -36,7 +36,8 @@
 - AntiGravt01 저장소 main: 고치면 기존 CI가 이미지를 만들고 watchtower가 운영 서버에 자동 반영한다. 테스트 서버 선택지 제거 같은 코드 수정은 하지 않았다.
 
 ## 미검증·TODO·알려진 문제
-- 미실행: 고친 실행기 설정으로 NAS에서 등록·대기 상태가 되는지(사용자가 다시 빌드한 뒤 GitHub Runners 목록에서 확인).
+- 고친 설정으로 다시 만든 뒤 실행기가 정상 실행됨(사용자 확인 16:05경, Container Manager 초록불). 작업 수신은 `nas-facts` 실행으로 확인한다.
+- 이후 추가: 실행기 이미지를 지문(digest)으로 고정(`ops/runner/compose.yml`). NAS에서 지금 도는 이미지와 같은 것(태그 갱신 2026-10-26, Assumed)이라 NAS 쪽은 다시 설치할 때만 바꾸면 된다. `nas-facts`에 컨테이너 공개 포트를 추가(4100 충돌 확인용).
 - 실행기 이미지의 docker CLI와 NAS Docker 엔진의 API 버전이 맞는지 미확인. 첫 배포나 `nas-facts`에서 "client version ... is too new"가 나오면 실행기에 `DOCKER_API_VERSION`을 지정해야 한다.
 - `KS-FrontierDB`, `synology_docviewer_*`, `mac2-landing-1` 처리는 사용자 확인 후.
 

@@ -30,9 +30,10 @@ jobs:
               case "${d##*/}" in loop*|ram*|zram*|dm-*|md*) continue ;; esac
               if [ -r "$d/queue/rotational" ]; then echo "  ${d##*/}: $(cat "$d/queue/rotational")"; fi
             done
-            echo; docker version --format 'docker engine: {{.Server.Version}}'
+            echo; docker version --format 'docker client: {{.Client.Version}} (API {{.Client.APIVersion}}), engine: {{.Server.Version}} (API {{.Server.APIVersion}})' \
+              || echo "docker version 실패 (클라이언트·엔진 API 불일치 가능)"
             docker compose version
-            echo; echo "running containers:"; docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}'
+            echo; echo "containers (이름, 이미지, 상태, 공개 포트):"; docker ps -a --format '{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
             echo '```'
             echo "### 디스크 동기화 지연 (pg_test_fsync, 2초씩)"
             echo '```'

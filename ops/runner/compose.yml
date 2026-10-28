@@ -4,7 +4,8 @@ name: tic-runner
 
 services:
   runner:
-    image: myoung34/github-runner:2.338.2-ubuntu-noble
+    # 이미지 지문(digest)으로 고정 — 같은 태그로 다른 이미지가 올라와도 바뀌지 않는다 (Docker Hub, 2026-10-26 태그)
+    image: myoung34/github-runner:2.338.2-ubuntu-noble@sha256:23e3a4a1da30de5b462ad0ae13d901288e803a688075c3b9b5bb79b7148c07fa
     container_name: tic-runner
     restart: unless-stopped
     environment:

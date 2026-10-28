@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-28 20:55 | 기획서 GDD v4 대조, 기술 계획 정합(ADR 25~27, PLAN 14장) | Claude Code (클라우드 세션) | [28-2055-gdd-v4-alignment](worklog/2026/10/28-2055-gdd-v4-alignment.md) |
 | 2026-10-28 20:43 | 게임 앱 임시 파비콘 추가 | Claude Code (클라우드 세션) | [28-2043-favicon](worklog/2026/10/28-2043-favicon.md) |
 | 2026-10-28 20:10 | PWA·인증 의존성 먼저 추가, 인증 ADR(제안), 아이디 로그인 조사 원본 | Claude Code (클라우드 세션) | [28-2010-auth-pwa-deps](worklog/2026/10/28-2010-auth-pwa-deps.md) |
 | 2026-10-28 20:08 | 콘텐츠 팩 검증 1·2·4·7단계, 팩을 서버 이미지에 포함 | Claude Code (클라우드 세션, 서브에이전트 worktree) | [28-2008-content-validation](worklog/2026/10/28-2008-content-validation.md) |

@@ -32,6 +32,11 @@ export const PLAIN_MESSAGES = {
   auth_notice_signed_out: m.auth_notice_signed_out,
   auth_notice_session_ended: m.auth_notice_session_ended,
   auth_notice_password_reset: m.auth_notice_password_reset,
+  admin_err_last_admin: m.admin_err_last_admin,
+  admin_err_forbidden: m.admin_err_forbidden,
+  admin_err_unauthorized: m.admin_err_unauthorized,
+  admin_err_not_found: m.admin_err_not_found,
+  admin_err_bad_request: m.admin_err_bad_request,
 } satisfies Record<string, () => string>;
 
 /** 기다릴 시간({wait})을 넣는 문구 — 시도 제한(429) */

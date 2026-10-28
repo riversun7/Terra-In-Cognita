@@ -1,0 +1,103 @@
+/* 관리자 화면 — 지연 로딩 조각과 함께 따로 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다 */
+.admin-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.admin-subtitle {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+.admin-search-row {
+  display: flex;
+  gap: var(--space-2);
+}
+.admin-search-row .input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.admin-search-row button {
+  flex: none;
+}
+.admin > p.status {
+  margin: 0;
+}
+.user-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.user-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.user-id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+.user-login-id {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.user-meta {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.badge {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  font-size: var(--font-size-sm);
+}
+.badge-warn {
+  background: var(--color-badge);
+}
+.role-set {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+/* 누르는 영역은 글자까지 포함해 44px */
+.role-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-size);
+  padding-right: var(--space-1);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+}
+.role-option input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--color-focus);
+}
+.user-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.user-message {
+  flex: 1 1 10em;
+  min-width: 0;
+}

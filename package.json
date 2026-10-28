@@ -19,11 +19,12 @@
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check:size": "node scripts/check-file-size.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
+    "check:contrast": "node scripts/check-contrast.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:content": "node scripts/check-content.mjs",
     "docs:index": "node scripts/build-worklog-index.mjs",
     "changelog": "git-cliff --output CHANGELOG.md",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm check:size && pnpm check:i18n && pnpm check:content --no-compat && pnpm test",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm check:size && pnpm check:i18n && pnpm check:contrast && pnpm check:content --no-compat && pnpm test",
     "prepare": "lefthook install"
   },
   "devDependencies": {

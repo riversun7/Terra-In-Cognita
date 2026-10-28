@@ -84,15 +84,80 @@ export function extractDenylist(source) {
   return null;
 }
 
+/** 글꼴 파일 */
+const FONT_FILE = /\.(woff2?|ttf|otf|eot)$/i;
+/** 빌드가 내용 해시를 붙인 /assets/ 파일 이름: <이름>-<해시>.<확장자> */
+const HASHED_ASSET = /^assets\/(?:[^/]+\/)*[^/]+-[A-Za-z0-9_-]{8,}\.[a-z0-9]+$/;
+
+/** sw.js가 미리 캐시하는 주소들(precacheAndRoute 목록의 url) */
+export function precacheUrls(sw) {
+  return [...sw.matchAll(/\burl\s*:\s*["']([^"']+)["']/g)].map((match) => match[1]);
+}
+
+/**
+ * 디자인 시스템 규칙(ADR 2026-10-28-design-system)
+ * - 테마 시작 스크립트(theme-init.js): <head>에서 CSS·앱 스크립트보다 먼저, 외부 파일로(인라인 아님). 앱 껍데기로 미리 캐시한다.
+ * - 글꼴: WOFF2만, /assets/<이름>-<해시>.woff2로 내보낸다. CSS에 인라인하지 않고, 서비스 워커가 미리 캐시하지 않는다.
+ */
+function findDesignProblems({ indexHtml, sw, files, readFile }) {
+  const problems = [];
+  const head = indexHtml.slice(0, Math.max(0, indexHtml.search(/<\/head>/i)));
+  const init = head.search(/<script\b[^>]*\bsrc="\/theme-init\.js"[^>]*>\s*<\/script>/i);
+  if (init < 0) {
+    problems.push('index.html <head>에 <script src="/theme-init.js"></script>가 없습니다.');
+  } else {
+    const initTag = /<script\b[^>]*\bsrc="\/theme-init\.js"[^>]*>/i.exec(head.slice(init))?.[0] ?? "";
+    if (/\b(type="module"|async|defer)\b/i.test(initTag)) {
+      problems.push("theme-init.js는 바로 실행되는 일반 스크립트여야 합니다(type=module·async·defer 없이).");
+    }
+    const firstStyle = head.search(/<link\b[^>]*rel="stylesheet"/i);
+    const firstModule = head.search(/<script\b[^>]*type="module"/i);
+    if ((firstStyle >= 0 && firstStyle < init) || (firstModule >= 0 && firstModule < init)) {
+      problems.push(
+        "theme-init.js는 CSS·앱 스크립트보다 먼저 읽어야 합니다(첫 화면이 다른 색으로 번쩍인다).",
+      );
+    }
+  }
+  if (/<script(?![^>]*\bsrc=)[^>]*>\s*\S/i.test(indexHtml)) {
+    problems.push(
+      "index.html에 인라인 스크립트가 있습니다(나중에 넣을 콘텐츠 보안 정책). 외부 파일로 두세요.",
+    );
+  }
+  if (readFile("theme-init.js") === null) problems.push("theme-init.js가 빌드 결과에 없습니다(public/).");
+  if (sw !== null) {
+    const urls = precacheUrls(sw);
+    if (!urls.includes("theme-init.js")) problems.push("sw.js가 theme-init.js를 미리 캐시하지 않습니다.");
+    for (const url of urls.filter((u) => FONT_FILE.test(u))) {
+      problems.push(`sw.js가 글꼴을 미리 캐시합니다(처음 쓸 때 받아야 함): ${url}`);
+    }
+  }
+  const fonts = files.filter((file) => FONT_FILE.test(file));
+  for (const file of fonts) {
+    if (!/\.woff2$/i.test(file)) problems.push(`WOFF2가 아닌 글꼴 파일이 있습니다: ${file}`);
+    else if (!HASHED_ASSET.test(file))
+      problems.push(`글꼴은 /assets/<이름>-<해시>.woff2로 내보냅니다: ${file}`);
+  }
+  for (const css of files.filter((file) => /\.css$/i.test(file))) {
+    const bytes = readFile(css);
+    const text = bytes ? new TextDecoder().decode(bytes) : "";
+    if (/url\(\s*["']?data:(?:font|application\/(?:font|x-font)|[^)]*woff)/i.test(text)) {
+      problems.push(`CSS에 글꼴이 인라인돼 있습니다(파일로 내보내야 함): ${css}`);
+    }
+  }
+  return problems;
+}
+
 /**
  * 빌드 결과의 문제 목록. 비어 있으면 통과.
  * @param {{ indexHtml: string | null, manifest: string | null, sw: string | null,
- *           readFile: (path: string) => Uint8Array | null }} build  path는 dist 기준 상대 경로
+ *           readFile: (path: string) => Uint8Array | null, files?: string[] }} build
+ *   path·files는 dist 기준 상대 경로(/로 나눔). files는 dist의 모든 파일
  * @returns {string[]}
  */
-export function findPwaProblems({ indexHtml, manifest, sw, readFile }) {
+export function findPwaProblems({ indexHtml, manifest, sw, readFile, files = [] }) {
   const problems = [];
   if (indexHtml === null) return ["index.html이 없습니다."];
+  problems.push(...findDesignProblems({ indexHtml, sw, files, readFile }));
 
   // index.html: manifest 링크, theme-color, 아이콘 링크가 가리키는 파일
   const links = tags(indexHtml, "link");

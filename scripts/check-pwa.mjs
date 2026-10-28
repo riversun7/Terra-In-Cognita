@@ -1,6 +1,6 @@
 // PWA 빌드 결과 검사 — 게임 앱을 빌드한 뒤 dist를 본다(CI 빌드 단계 다음). 규칙은 pwa-build.mjs
 // 사용: node scripts/check-pwa.mjs [dist 폴더]  (기본: apps/game/dist)
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fail } from "./lib.mjs";
 import { findPwaProblems } from "./pwa-build.mjs";
@@ -17,12 +17,20 @@ const readFile = (relative) => {
   return readFileSync(full);
 };
 const readText = (relative) => readFile(relative)?.toString("utf8") ?? null;
+// dist의 모든 파일(dist 기준, / 구분). 소스 맵은 뺀다
+const files = readdirSync(dist, { recursive: true, withFileTypes: true })
+  .filter((entry) => entry.isFile() && !entry.name.endsWith(".map"))
+  .map((entry) => path.relative(dist, path.join(entry.parentPath, entry.name)).split(path.sep).join("/"));
 
 const problems = findPwaProblems({
   indexHtml: readText("index.html"),
   manifest: readText("manifest.webmanifest"),
   sw: readText("sw.js"),
   readFile,
+  files,
 });
 if (problems.length > 0) fail(problems);
-console.log(`✓ PWA 빌드 결과 통과 — manifest·아이콘·sw.js (${path.relative(process.cwd(), dist) || "."})`);
+const fonts = files.filter((file) => file.endsWith(".woff2")).length;
+console.log(
+  `✓ PWA 빌드 결과 통과 — manifest·아이콘·sw.js·theme-init.js·글꼴 ${fonts}개(WOFF2, 미리 캐시 안 함) (${path.relative(process.cwd(), dist) || "."})`,
+);

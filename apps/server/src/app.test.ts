@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { PROTOCOL_VERSION, decodeServerMessage, encodeMessage } from "@terra/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
@@ -94,5 +97,50 @@ describe("WebSocket 세션", () => {
     ws.send("not json");
     expect(await reply).toMatchObject({ t: "reject", code: "invalid_message" });
     ws.terminate();
+  });
+});
+
+describe("정적 파일", () => {
+  it("화면 경로는 index.html, 없는 파일·API는 404", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "terra-static-"));
+    try {
+      writeFileSync(path.join(dir, "index.html"), "<!doctype html><title>t</title>");
+      app = await buildApp({ contentVersion: "test", logger: false, metricsIntervalMs: 0, staticDir: dir });
+      const page = await app.inject({ method: "GET", url: "/lobby/map?x=1" });
+      expect(page.statusCode).toBe(200);
+      expect(page.headers["content-type"]).toContain("text/html");
+      expect((await app.inject({ method: "GET", url: "/" })).statusCode).toBe(200);
+      // 배포 뒤 옛 화면이 찾는 없는 파일에 HTML을 주면 안 된다
+      expect((await app.inject({ method: "GET", url: "/assets/missing-abc.js" })).statusCode).toBe(404);
+      expect((await app.inject({ method: "GET", url: "/sw.js" })).statusCode).toBe(404);
+      expect((await app.inject({ method: "GET", url: "/api/nope" })).statusCode).toBe(404);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// 시험용으로 접속 주소를 그대로 돌려주는 경로를 붙여, 서버가 본 주소를 꺼낸다
+async function ipOf(remoteAddress: string, forwarded: string): Promise<string> {
+  app = await buildApp({ contentVersion: "test", logger: false, metricsIntervalMs: 0 });
+  app.get("/__ip", (request, reply) => {
+    void reply.send({ ip: request.ip });
+  });
+  const res = await app.inject({
+    method: "GET",
+    url: "/__ip",
+    remoteAddress,
+    headers: { "x-forwarded-for": forwarded },
+  });
+  return res.json<{ ip: string }>().ip;
+}
+
+describe("프록시 머리글 (X-Forwarded-For)", () => {
+  it("믿는 프록시(사설 주소)를 거치면 프록시가 덧붙인 마지막 주소를 쓴다 (앞쪽 위조 값은 무시)", async () => {
+    expect(await ipOf("172.18.0.1", "6.6.6.6, 203.0.113.7")).toBe("203.0.113.7");
+  });
+
+  it("모르는 곳에서 직접 온 머리글은 믿지 않는다", async () => {
+    expect(await ipOf("198.51.100.9", "6.6.6.6")).toBe("198.51.100.9");
   });
 });

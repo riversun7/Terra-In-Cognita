@@ -4,7 +4,7 @@ import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "@terra/protocol";
 import Fastify, { type FastifyInstance } from "fastify";
-import { SIM_VERSION } from "./config.ts";
+import { DEFAULT_TRUST_PROXY, SIM_VERSION } from "./config.ts";
 import { type Database, pingDatabase } from "./db/client.ts";
 import { startServerMetrics } from "./metrics.ts";
 import { handleSession } from "./session.ts";
@@ -22,14 +22,16 @@ export interface AppOptions {
   db?: Database | undefined;
   /** 서버 지표 기록 간격(ms). 0이면 기록하지 않는다 */
   metricsIntervalMs?: number;
+  /** 믿는 프록시 주소 (기본: 루프백·사설 주소) */
+  trustProxy?: string;
 }
 
 export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const now = options.now ?? Date.now;
   const app = Fastify({
     logger: options.logger ?? true,
-    // DSM 역방향 프록시 뒤에서 실제 접속 주소를 읽기 위해
-    trustProxy: true,
+    // DSM 역방향 프록시 뒤에서 실제 접속 주소를 읽는다. 모두 믿으면(true) 맨 앞의 위조 값이 접속 주소가 된다.
+    trustProxy: options.trustProxy ?? DEFAULT_TRUST_PROXY,
     // tRPC 묶음 요청은 경로에 프로시저 이름을 쉼표로 잇는다(/api/trpc/a,b,c). 기본 100자는 짧다.
     routerOptions: { maxParamLength: 5_000 },
   });
@@ -76,11 +78,17 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   if (options.staticDir) {
     const root = path.resolve(options.staticDir);
     await app.register(fastifyStatic, { root, wildcard: false });
-    // 화면 이동(SPA) 경로는 index.html로 보낸다. API 경로는 404 유지.
+    // 화면 이동(SPA) 경로만 index.html로 보낸다. API·WebSocket과 파일처럼 보이는 경로(확장자 있음)는 404.
+    // 없는 /assets/*.js에 HTML을 주면 브라우저가 형식 오류를 내고, 나중에 서비스 워커를 걷어낼 수도 없다.
+    // 그래서 화면 경로 이름에는 점(.)을 쓰지 않는다.
     app.setNotFoundHandler((request, reply) => {
-      if (request.method === "GET" && !request.url.startsWith("/api") && !request.url.startsWith("/ws")) {
-        return reply.sendFile("index.html");
-      }
+      const pathname = request.url.split("?", 1)[0] ?? "";
+      const isPage =
+        request.method === "GET" &&
+        !pathname.startsWith("/api") &&
+        !pathname.startsWith("/ws") &&
+        !/\.[^/]*$/.test(pathname);
+      if (isPage) return reply.sendFile("index.html");
       return reply.code(404).send({ error: "not_found" });
     });
   }

@@ -3,6 +3,13 @@
 /** 판정 규칙 버전. packages/sim 규칙이 바뀌면 올린다. */
 export const SIM_VERSION = 1;
 
+/**
+ * 믿는 프록시 주소. 이 주소에서 온 연결만 X-Forwarded-For를 따라간다.
+ * NAS에서는 DSM 역방향 프록시 → Docker 포트(사설 주소)를 거쳐 들어온다. 기기가 위조한 앞쪽 값은 무시된다.
+ * 형식은 Fastify trustProxy 문자열(쉼표로 구분, loopback·linklocal·uniquelocal 이름 또는 CIDR).
+ */
+export const DEFAULT_TRUST_PROXY = "loopback, uniquelocal";
+
 export interface ServerConfig {
   host: string;
   port: number;
@@ -11,6 +18,8 @@ export interface ServerConfig {
   contentVersion: string;
   /** PostgreSQL 접속 주소. 없으면 DB 없이 뜬다(이미지 동작 확인·DB 없는 개발용) */
   databaseUrl: string | undefined;
+  /** 믿는 프록시 주소 (TRUST_PROXY) */
+  trustProxy: string;
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
@@ -24,5 +33,6 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     staticDir: env.STATIC_DIR || undefined,
     contentVersion: env.CONTENT_VERSION ?? "dev",
     databaseUrl: env.DATABASE_URL || undefined,
+    trustProxy: env.TRUST_PROXY || DEFAULT_TRUST_PROXY,
   };
 }

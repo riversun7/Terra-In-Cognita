@@ -9,7 +9,12 @@ let app: FastifyInstance | undefined;
 const db = config.databaseUrl
   ? createDatabase(config.databaseUrl, (error) => app?.log.warn({ err: error }, "db pool error"))
   : undefined;
-app = await buildApp({ contentVersion: config.contentVersion, staticDir: config.staticDir, db });
+app = await buildApp({
+  contentVersion: config.contentVersion,
+  staticDir: config.staticDir,
+  db,
+  trustProxy: config.trustProxy,
+});
 if (!db) app.log.warn("DATABASE_URL이 없어 DB 없이 시작합니다");
 
 const shutdown = async (signal: string): Promise<void> => {

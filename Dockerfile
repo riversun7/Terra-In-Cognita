@@ -28,6 +28,8 @@ WORKDIR /app
 COPY --from=build /out/package.json ./package.json
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/dist ./dist
+# 마이그레이션 SQL — dist/migrate.js가 ../drizzle을 읽는다 (ops/deploy.sh 5단계)
+COPY --from=build /repo/apps/server/drizzle ./drizzle
 COPY --from=build /repo/apps/game/dist ./public
 USER node
 EXPOSE 4100

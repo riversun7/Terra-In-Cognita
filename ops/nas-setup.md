@@ -34,6 +34,7 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
 - Container Manager에서 `tic-app`, `tic-db`가 실행 중(정상)으로 보인다.
 - DB 비밀번호는 첫 배포 때 자동으로 만들어져 `docker/terra-in-cognita/.env`에만 저장된다(git에는 없음).
 - 배포 중 헬스체크가 실패하면 직전 버전으로 자동으로 되돌린다. 배포 전 DB 백업은 `docker/terra-in-cognita/backups`에 14일 보관한다.
+- DB 구조 변경(마이그레이션)은 배포 로그에 `마이그레이션 적용: …` 또는 `적용할 마이그레이션 없음`으로 나온다. 실패하면 앱을 바꾸지 않고 멈춘다.
 
 ## 6. 외부 접속 (주소를 정할 때 같이 설정)
 앱은 NAS 안(`localhost:4100`)에만 열려 있다. 휴대폰에서 접속하려면 DSM 역방향 프록시를 만든다.

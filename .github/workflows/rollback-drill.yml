@@ -21,7 +21,13 @@ jobs:
       - name: 켜지자마자 꺼지는 이미지 만들기·푸시 (태그 drill-broken)
         run: |
           IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}:drill-broken"
-          printf 'FROM busybox:1.37\nCMD ["sh", "-c", "echo rollback drill image; exit 1"]\n' > Dockerfile.drill
+          # 배포의 마이그레이션 단계(node dist/migrate.js)는 가짜 node로 통과시키고, 앱만 뜨지 않게 한다
+          # → 헬스체크 실패 → 되돌림 경로를 시험한다
+          printf '%s\n' \
+            'FROM busybox:1.37' \
+            "RUN printf '#!/bin/sh\\nexit 0\\n' > /bin/node && chmod +x /bin/node" \
+            'CMD ["sh", "-c", "echo rollback drill image; exit 1"]' > Dockerfile.drill
+          cat Dockerfile.drill
           docker build -f Dockerfile.drill \
             --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
             -t "$IMAGE" .

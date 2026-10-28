@@ -46,14 +46,14 @@ fi
 
 docker exec -i "$NAME" pg_restore -U terra -d terra --no-owner --exit-on-error < "$BACKUP"
 
-# 검사 1: 백업 목차의 표 개수 = 되살린 DB의 표 개수
+# 검사 1: 백업 목차의 표 개수 = 되살린 DB의 표 개수 (게임 표 public + 마이그레이션 기록 drizzle)
 # (목차 줄 예: "215; 1259 16385 TABLE public 이름 terra". 데이터 줄은 "TABLE DATA public"이라 세지 않는다)
-toc_tables="$(docker exec -i "$NAME" pg_restore --list < "$BACKUP" | grep -c -E '^[0-9]+; [0-9]+ [0-9]+ TABLE public ' || true)"
+toc_tables="$(docker exec -i "$NAME" pg_restore --list < "$BACKUP" | grep -c -E '^[0-9]+; [0-9]+ [0-9]+ TABLE (public|drizzle) ' || true)"
 restored_tables="$(docker exec "$NAME" psql -U terra -d terra -At -c \
-  "select count(*) from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'")"
+  "select count(*) from information_schema.tables where table_schema in ('public', 'drizzle') and table_type = 'BASE TABLE'")"
 # 참고: 표별 행 수 (원장 합계 같은 불변 조건은 원장이 생기면 여기에 더한다)
 row_counts="$(docker exec "$NAME" psql -U terra -d terra -At -c \
-  "select coalesce(string_agg(format('%s=%s', table_name, (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from %I.%I', table_schema, table_name), false, true, '')))[1]::text), ', ' order by table_name), '(표 없음)') from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'")"
+  "select coalesce(string_agg(format('%s.%s=%s', table_schema, table_name, (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from %I.%I', table_schema, table_name), false, true, '')))[1]::text), ', ' order by table_schema, table_name), '(표 없음)') from information_schema.tables where table_schema in ('public', 'drizzle') and table_type = 'BASE TABLE'")"
 
 result="표 ${restored_tables}개 (백업 목차 ${toc_tables}개) / 행 수: ${row_counts}"
 echo "$result"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # NAS 배포 스크립트 — NAS의 self-hosted runner가 실행한다 (docs/adr/2026-10-28-deploy-and-ops.md)
-# 순서: 비밀값 준비 → 이미지 받기 → DB 기동·백업 → 앱 교체 → 헬스체크 → 실패 시 이전 버전으로 되돌림
+# 순서: 비밀값 준비 → 이미지 받기 → DB 기동·백업 → 마이그레이션 → 앱 교체 → 헬스체크 → 실패 시 이전 버전으로 되돌림
 set -euo pipefail
 
 TAG="${1:?사용법: deploy.sh <이미지 태그>}"
@@ -49,7 +49,10 @@ if [ -n "$PREV_TAG" ]; then
   echo "백업: $BACKUP"
 fi
 
-# 5) 마이그레이션 — 서버에 마이그레이션 명령이 생기면 여기서 한 번 실행한다 (M0 이후)
+# 5) 마이그레이션 — 새 이미지로 한 번 실행한다(앱 교체 전). 밀린 것을 트랜잭션 하나로 적용하므로
+#    실패하면 DB는 그대로고, 앱도 바꾸지 않은 채 멈춘다. 되돌림(7단계)은 DB를 되돌리지 않는다
+#    → 마이그레이션은 직전 버전 앱이 그대로 돌 수 있게 만든다 (docs/adr/2026-10-28-db-access-and-migrations.md)
+compose run --rm --no-deps app node dist/migrate.js
 
 # 6) 앱 교체 → 7) 헬스체크 (최대 약 90초). 컨테이너 생성 실패든 헬스체크 실패든 이전 버전으로
 if ! compose up -d app || ! wait_healthy tic-app 45; then

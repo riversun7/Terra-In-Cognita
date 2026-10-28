@@ -6,7 +6,14 @@ const WARN_LINES = 600;
 const FAIL_LINES = 1000;
 const CODE = /\.(ts|tsx|js|mjs|cjs|css)$/;
 // 자동 생성 파일과 외부에서 그대로 복사한 스킬은 제외
-const GENERATED = [/\/src\/paraglide\//, /\/dist\//, /^\.claude\/skills\//, /^\.agent\//];
+// drizzle-kit이 만드는 마이그레이션(apps/server/drizzle/)도 자동 생성 파일이다
+const GENERATED = [
+  /\/src\/paraglide\//,
+  /\/dist\//,
+  /^\.claude\/skills\//,
+  /^\.agent\//,
+  /^apps\/server\/drizzle\//,
+];
 
 const errors = [];
 for (const file of listFiles()) {

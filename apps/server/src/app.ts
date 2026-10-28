@@ -5,6 +5,7 @@ import websocket from "@fastify/websocket";
 import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "@terra/protocol";
 import Fastify, { type FastifyInstance } from "fastify";
 import { SIM_VERSION } from "./config.ts";
+import { type Database, pingDatabase } from "./db/client.ts";
 import { handleSession } from "./session.ts";
 
 export interface AppOptions {
@@ -12,6 +13,8 @@ export interface AppOptions {
   staticDir?: string | undefined;
   logger?: boolean;
   now?: () => number;
+  /** 없으면 DB 없이 뜬다(헬스체크의 db는 "off") */
+  db?: Database | undefined;
 }
 
 export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
@@ -24,13 +27,19 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   await app.register(websocket, { options: { maxPayload: MAX_MESSAGE_BYTES } });
 
-  app.get("/health", async () => ({
-    status: "ok",
-    protocolVersion: PROTOCOL_VERSION,
-    simVersion: SIM_VERSION,
-    contentVersion: options.contentVersion,
-    uptimeSec: Math.floor(process.uptime()),
-  }));
+  // DB가 응답하지 않으면 503 → 배포 헬스체크가 실패해 직전 버전으로 되돌린다
+  app.get("/health", async (_request, reply) => {
+    const db = options.db ? ((await pingDatabase(options.db)) ? "ok" : "error") : "off";
+    if (db === "error") reply.code(503);
+    return {
+      status: db === "error" ? "degraded" : "ok",
+      db,
+      protocolVersion: PROTOCOL_VERSION,
+      simVersion: SIM_VERSION,
+      contentVersion: options.contentVersion,
+      uptimeSec: Math.floor(process.uptime()),
+    };
+  });
 
   await app.register(async (scope) => {
     scope.get("/ws", { websocket: true }, (socket) => {

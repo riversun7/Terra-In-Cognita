@@ -9,6 +9,8 @@ export interface ServerConfig {
   /** 빌드된 게임 앱(정적 파일) 위치. 없으면 API만 제공 */
   staticDir: string | undefined;
   contentVersion: string;
+  /** PostgreSQL 접속 주소. 없으면 DB 없이 뜬다(이미지 동작 확인·DB 없는 개발용) */
+  databaseUrl: string | undefined;
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
@@ -21,5 +23,6 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     port,
     staticDir: env.STATIC_DIR || undefined,
     contentVersion: env.CONTENT_VERSION ?? "dev",
+    databaseUrl: env.DATABASE_URL || undefined,
   };
 }

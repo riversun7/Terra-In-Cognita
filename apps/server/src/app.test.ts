@@ -2,6 +2,7 @@ import { PROTOCOL_VERSION, decodeServerMessage, encodeMessage } from "@terra/pro
 import { afterEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "./app.ts";
+import { closeDatabase, createDatabase } from "./db/client.ts";
 
 let app: FastifyInstance | undefined;
 
@@ -30,9 +31,23 @@ describe("GET /health", () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({
       status: "ok",
+      db: "off",
       protocolVersion: PROTOCOL_VERSION,
       contentVersion: "test",
     });
+  });
+
+  it("DB가 응답하지 않으면 503을 돌려준다", async () => {
+    // 아무도 듣지 않는 포트 → 연결이 바로 거부된다
+    const db = createDatabase("postgres://terra@127.0.0.1:1/terra", () => {});
+    app = await buildApp({ contentVersion: "test", logger: false, db });
+    try {
+      const res = await app.inject({ method: "GET", url: "/health" });
+      expect(res.statusCode).toBe(503);
+      expect(res.json()).toMatchObject({ status: "degraded", db: "error" });
+    } finally {
+      await closeDatabase(db);
+    }
   });
 });
 

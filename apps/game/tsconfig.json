@@ -1,7 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    // 지원 하한(iOS 16.4)에 맞춰 ES2023까지. 더 새 기능은 기능 확인 뒤에만 쓴다(ADR 2026-10-28-pwa-and-browser-baseline)
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "allowJs": true,
     "types": ["vite/client"]

@@ -24,7 +24,8 @@ function percentile(sorted: Float64Array, p: number): number {
 
 export function summarizeFrames(durations: readonly number[]): FrameSummary {
   // 숫자 배열(Float64Array)의 sort는 숫자 순서로 정렬하고, 새로 만든 사본이라 원본을 바꾸지 않는다.
-  // toSorted(ES2023)는 오래된 휴대폰 브라우저(iOS 15 등)에 없어서 쓰지 않는다
+  // toSorted(ES2023)도 지원 하한(iOS 16.4, Chrome 111)에서 쓸 수 있지만 사본을 한 번 더 만들어서 쓰지 않는다
+  // (Firefox는 115부터. 공용 시계 코드 packages/shared/src/clock.ts는 toSorted를 쓴다)
   // oxlint-disable-next-line unicorn/no-array-sort
   const sorted = Float64Array.from(durations).sort();
   let elapsedMs = 0;

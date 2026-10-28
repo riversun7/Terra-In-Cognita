@@ -27,7 +27,8 @@ export default defineConfig({
     },
   },
   build: {
-    target: "es2022",
+    // 지원 하한: iOS 16.4+, Chrome·Edge 111+, Firefox 114+ (Vite 내장 대상, ADR 2026-10-28-pwa-and-browser-baseline)
+    target: "baseline-widely-available",
     sourcemap: true,
   },
 });

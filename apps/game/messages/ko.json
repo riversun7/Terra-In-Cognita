@@ -1,6 +1,8 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "app_title": "테라 인코그니타",
+  "app_short_name": "테라",
+  "app_description": "사이보그와 미니언을 이끄는 전략 게임",
   "status_connecting": "서버에 연결하는 중…",
   "status_connected": "서버에 연결됨",
   "status_disconnected": "연결이 끊어졌습니다. 다시 연결하는 중…",

@@ -5,7 +5,8 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "allowJs": true,
-    "types": ["vite/client"]
+    // vite-plugin-pwa/vanillajs: virtual:pwa-register 모듈 타입
+    "types": ["vite/client", "vite-plugin-pwa/vanillajs"]
   },
   "include": ["src", "vite.config.ts"],
   // 서버 API 타입(AppRouter)은 서버 소스가 아니라 이 참조가 만든 선언 파일로 읽는다 → typecheck는 `tsc -b`

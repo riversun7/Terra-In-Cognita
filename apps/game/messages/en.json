@@ -1,6 +1,8 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "app_title": "Terra In-Cognita",
+  "app_short_name": "Terra",
+  "app_description": "A strategy game of cyborgs and minions",
   "status_connecting": "Connecting to server…",
   "status_connected": "Connected",
   "status_disconnected": "Disconnected. Reconnecting…",

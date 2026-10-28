@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 버전 | v1.1 (2026-10-28) — v1.0 자체 재검토 반영 |
+| 버전 | v1.2 (2026-10-28) — M0 골격을 만들며 바뀐 도구 반영(ADR 17). v1.1: v1.0 자체 재검토 반영 |
 | 상태 | **확정** (2026-10-28 사용자 승인) |
 | 작성 | Claude Code (grill-me / grilling 세션, Round 1~9) |
 | 근거 | 기존 프로젝트(AntiGravt01) 전수 조사, 지구 맵 실패 원인 조사, 기술스택 최신 현황 조사(2026-10-27), 독립 검토 1회, 계획서 자체 재검토 1회. 질문·답변 전체는 `DECISION_LOG.md` |
@@ -65,7 +65,7 @@
 |---|---|---|---|
 | 런타임 | Node.js | 24 LTS → 26 LTS 전환 릴리스 확인 후 | 26은 10-21 릴리스까지 LTS 표시 없음 [V]. Bun은 모듈별 호환성 미확인 |
 | 언어 | TypeScript (strict) | 7.0.2 (+ 컴파일러 API가 필요한 도구용 `@typescript/typescript6` 6.0.2) | Go 네이티브 컴파일러, 빠른 타입 검사 |
-| 모노레포 | pnpm workspaces | 정확한 버전 고정 | Node 25+는 corepack 미포함 [V] → Docker에서 `npm i -g pnpm@<버전>` |
+| 모노레포 | pnpm workspaces | 11.28.9 | Node 25+는 corepack 미포함 [V] → `npm i -g pnpm@<버전>`. 공개 1일 미만 버전 설치 금지(`minimumReleaseAge`), 설치 스크립트 허용 목록(`allowBuilds`) |
 | 앱 골격 | Vite + React | Vite 8.3.5, React 19.3.1 | 게임 클라이언트에 서버 렌더링 불필요 |
 | PWA | vite-plugin-pwa | 2.0.0 (Vite 8 지원 [V]) | |
 | 3D | Three.js (React와 분리된 엔진 모듈) | r186 (0.186.1) | three-globe 미사용(위경도 기반이라 격자 설계와 충돌) |
@@ -74,23 +74,24 @@
 | 요청·응답 데이터 | TanStack Query | 5.105.x | |
 | UI 상태 | Zustand | 5.0.16 | UI용 요약 상태만. 고빈도 게임 상태는 엔진 내부 |
 | 거래 차트 | TradingView Lightweight Charts | 5.2.1 | 출처 고지 + tradingview.com 링크 필수 [V] (`attributionLogo` 옵션) |
-| 다국어 | Paraglide JS | 2.29.x | 컴파일 시 타입 검사, 누락 번역을 빌드에서 잡음. 대안 i18next 26 |
+| 다국어 | Paraglide JS | 2.29.2 | 컴파일 시 타입 검사, 누락 번역을 빌드에서 잡음. 대안 i18next 26. 메시지 플러그인은 로컬 설치(CDN 미사용) |
 | HTTP·WebSocket | Fastify + @fastify/websocket | 5.12.x / 11.3.x | 정적 파일도 서빙(@fastify/static 10.1.x) → 컨테이너 수 최소화 |
+| 서버 빌드·실행 | Vite SSR 빌드 + tsx(개발 실행) | Vite 8.3.5 / tsx 4.23.15 | 내부 패키지·zod를 `dist/main.js` 하나로 묶음. 운영 이미지는 `pnpm deploy --prod`로 필요한 것만 |
 | 요청·응답 API | tRPC + Zod | 11.19.x / 4.6.x | 클라·서버 타입 자동 공유. Zod 4 연동은 Standard Schema 경유로 동작 예상 [A] → 골격 단계에서 확인 |
 | 실시간 | WebSocket 자체 프로토콜 (`packages/protocol`) | — | 4.6절. 인코딩 교체 가능(JSON → 측정 후 MessagePack) |
 | 워커 스레드 | Piscina | 5.3.2 | 경로탐색·전투·NPC 판단·맵 생성 같은 순수 계산 |
 | DB | PostgreSQL | 18 | Docker 이미지 18부터 데이터 경로 `/var/lib/postgresql/18/docker`, 마운트는 `/var/lib/postgresql` [V] |
 | DB 접근 | Drizzle ORM | 1.0.0-rc.5로 시작 | 0.45에서 시작하면 1.0 전환 때 재작업(관계형 쿼리 API·마이그레이션 구조 변경 [V: Drizzle v1 업그레이드 문서, 독립 검토 확인]) |
 | 인증 | Better Auth | 1.7.14 | 이메일·비밀번호 + 카카오·네이버·라인 등 소셜, 관리자 플러그인 내장 [V: 패키지 내용] |
-| 린트 | oxlint + oxlint-tsgolint | 1.90.x / 7.0.x | TS 7과 같은 타입 검사기 기반 타입 인식 규칙(빠뜨린 await 등) |
-| 포맷 | Biome | 2.6.x | 포맷 전용 |
+| 린트 | oxlint + oxlint-tsgolint | 1.89.0 / 7.0.2005 | TS 7과 같은 타입 검사기 기반 타입 인식 규칙(빠뜨린 await 등) |
+| 포맷 | Biome | 2.6.3 | 포맷 전용. Markdown은 제외(보호 문서가 바뀌지 않게) |
 | 테스트 | Vitest + Playwright | 5.0.x / 1.64.1 | 10.5 테스트 전략 |
 | 격자 교차 검증 | s2js | 1.44.0 (Apache-2.0) | 테스트에서만 사용(자체 격자 구현 결과와 비교) |
 | 웹 푸시 | web-push | 3.6.7 (MPL-2.0, 2024-01 이후 갱신 없음) | VAPID 푸시 발송. 수정 없이 의존성으로만 사용 |
-| 모듈 경계 | dependency-cruiser | 18.7.x | 패키지 간 금지된 import를 CI에서 실패 처리 |
+| 모듈 경계 | 자체 검사 스크립트 + pnpm 엄격 의존성 | — | `scripts/check-boundaries.mjs`: 패키지 간 금지된 의존, 판정 코드의 금지 API를 실패 처리. dependency-cruiser는 TS 7 작업공간 import를 해석하지 못해 제외(ADR 17) |
 | 훅·커밋 규칙 | lefthook + commitlint | 2.2.x / 21.2.x | |
 | 변경 이력 | git-cliff | 2.14.x | 태그 시 커밋 메시지로 CHANGELOG 생성 |
-| 비밀값 검사 | gitleaks (바이너리) | 최신 고정 | |
+| 비밀값 검사 | gitleaks(CI, Docker 이미지) + 커밋 훅용 자체 스크립트 | 8.30.1 | 훅은 설치 없이 돌도록 흔한 형태만 검사, 전체 이력은 CI에서 |
 | 에셋 최적화 | glTF Transform CLI | 4.5.x | KTX2 텍스처, glTF + meshopt |
 | 맵 생성 보조 | FastNoiseLite(저장소에 복사, MIT), d3-geo-voronoi 2.1.0(ISC), poisson-disk-sampling 2.3.1(MIT) | | Priority-Flood는 논문(Barnes 외 2014) 보고 새로 구현 |
 | 실측 지형 | NOAA ETOPO 2022 (CC0) | | 1차맵 해상도로 오프라인 변환 |
@@ -104,7 +105,7 @@
 ### 4.1 저장소 구조
 ```
 apps/
-  game/            # 플레이어 앱 + 관리자 화면(지연 로딩) — Vite + React
+  game/            # 플레이어 앱 + 관리자 화면(지연 로딩) — Vite + React. 다국어 메시지 원본(messages/ko·en)
   server/          # Fastify: API, WebSocket, 정적 파일, 시뮬레이션, 워커 풀
 packages/
   protocol/        # 실시간 메시지 타입, 버전, 코덱
@@ -113,12 +114,12 @@ packages/
   planet/          # 격자·ID·투영, 행성 생성기(서버 굽기 + 편집기 미리보기 공용)
   engine/          # Three.js 렌더러(행성 LOD, 2차맵, 유닛 표현) — React 비의존
   content/         # 콘텐츠 팩 스키마(Zod), 검증기
-  i18n/            # 메시지 원본(ko, en)
 content/           # 버전 붙은 콘텐츠 팩(JSON)
 docs/              # 계획서, ADR, 작업 기록, 보호 목록, design/(기획서 — 다른 세션이 관리)
-ops/               # compose, deploy.sh, 백업 스크립트, NAS 설정 문서
+ops/               # compose, deploy.sh, 실행기(runner) 설정, 백업 스크립트, NAS 설치 안내
+scripts/           # 검사 스크립트(모듈 경계·파일 크기·다국어·비밀값·문서 규칙), 작업 기록 목차 생성
 ```
-의존 방향(도구로 강제): `apps/* → packages/*`, `engine`은 `server`·`sim`을 import 금지, `sim`은 `engine`·DOM 금지, **`apps/game`은 `sim` import 금지**(판정 코드를 기기로 보내지 않음), `protocol`·`shared`는 아무것도 import하지 않는 최하층.
+의존 방향(도구로 강제: `scripts/check-boundaries.mjs`): `apps/* → packages/*`, `engine`은 `server`·`sim`을 import 금지, `sim`은 `engine`·DOM 금지, **`apps/game`은 `sim` import 금지**(판정 코드를 기기로 보내지 않음), `protocol`·`shared`는 아무것도 import하지 않는 최하층.
 
 관리자 화면 코드도 정적 파일이라 누구나 내려받을 수 있다. 비밀값·시드·숨김 데이터는 코드에 넣지 않고 서버가 권한 확인 후에만 보낸다.
 
@@ -311,13 +312,14 @@ ops/               # compose, deploy.sh, 백업 스크립트, NAS 설정 문서
 ### 9.1 NAS 배포
 - 이미지: GitHub Actions에서 amd64 이미지 빌드(기존과 같은 방식) → GHCR에 커밋 해시·버전 태그로 푸시. 기본 이미지는 Debian slim(glibc), Alpine 미사용.
 - 배포: NAS의 GitHub self-hosted runner가 `ops/deploy.sh <태그>` 실행 → 이미지 받기 → DB 백업 → 마이그레이션 1회 → 기동 → 헬스체크 → 실패 시 자동 롤백. 외부 포트를 열 필요 없음.
+- 새 스택 이름: 컨테이너 `tic-app`·`tic-db`·`tic-runner`, 네트워크 `tic-net`(기존 `terra-*`와 겹치지 않게). 앱은 NAS 안 `127.0.0.1:4100`에만 열고 외부 접속은 역방향 프록시가 맡는다. 설치 순서는 `ops/nas-setup.md`.
 - watchtower(개발 중단 [V])는 쓰지 않는다. 기존 watchtower가 새 스택을 건드리지 않도록 새 컨테이너에 제외 라벨을 붙인다. 기존 운영 환경은 건드리지 않는다.
 - ⚠️ 기존 watchtower는 필터 없이 NAS의 **모든 컨테이너**를 60초마다 확인·갱신한다(`--interval 60 --cleanup`) [V: 기존 compose]. 2026-10-28 13:15경 DB 컨테이너 4개가 한꺼번에 다시 만들어진 것도 이 동작으로 보인다 [A: 사용자 제공 화면의 생성 시각]. `postgres:latest`를 쓰는 DB(다른 프로젝트 DB 포함)는 PostgreSQL 19가 `latest`가 되면 새 메이저로 바뀌어 기동에 실패할 수 있다 [A] → 사용자 결정(2026-10-28): 기존 watchtower는 그대로 둔다. 새 스택만 제외 라벨과 이미지 버전 고정으로 보호한다. 다른 프로젝트 DB의 위험은 사용자에게 알렸다.
 - GHCR 비공개 이미지는 "현재 무료"(1개월 전 고지 후 변경 가능 [V]) → 이미지에 에셋을 넣지 않아 크기를 줄이고 오래된 태그는 정리한다.
 
 ### 9.2 NAS 사양 자동 수집 (M0 첫 작업)
 - 확인된 사실(2026-10-28 사용자 제공 화면) [V]: Synology Container Manager 사용. 같은 NAS에 다른 프로젝트 컨테이너(DB 2개, 문서 뷰어, 랜딩 페이지)도 있다 → 새 스택은 고유한 컨테이너 이름·네트워크·포트를 쓰고 다른 컨테이너를 건드리지 않는다.
-self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·여유, Docker·Compose 버전, `pg_test_fsync`(디스크 동기화 지연)를 수집해 `ops/nas-facts.md`에 기록한다. 커널이 Node 공식 지원 최소 버전(glibc 기준 4.18)보다 낮으면 대응을 ADR로 정한다(기존 서버도 같은 NAS에서 동작 중이라 실제 문제 가능성은 낮음 [A]).
+self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·여유, Docker·Compose 버전, `pg_test_fsync`(디스크 동기화 지연)를 수집해 `ops/nas-facts.md`에 기록한다(`nas-facts` 워크플로 수동 실행 → Actions 요약 화면 → 파일로 옮김). 커널이 Node 공식 지원 최소 버전(glibc 기준 4.18)보다 낮으면 대응을 ADR로 정한다(기존 서버도 같은 NAS에서 동작 중이라 실제 문제 가능성은 낮음 [A]).
 
 ### 9.3 네트워크
 - 외부에는 HTTPS 하나만 연다(DSM 역방향 프록시, Let's Encrypt). 새 스택은 기존 운영 주소와 겹치지 않게 별도 포트 또는 별도 호스트 이름으로 연결한다(M0에서 사용자와 설정).
@@ -326,7 +328,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 
 ### 9.4 DB
 - 기존 테스트 DB 컨테이너 `terra_testDB`: PostgreSQL 18.6(`postgres:latest` 이미지), 포트 5440, 데이터는 `/volume1/docker/terra-testDB/data`(바인드 마운트, PGDATA 직접 지정) [V: 사용자 제공 화면]. 버전이 이미 18이라 교체는 필요 없다.
-- 사용자 허가에 따라 이 자리를 비우고 새 스택 전용으로 쓴다. M0에서 새 스택 compose로 옮기면서 이미지를 `postgres:18.x`로 고정하고, 기존 데이터 폴더는 백업 후 정리한다.
+- 사용자 허가에 따라 이 자리를 비우고 새 스택 전용으로 쓴다. 새 DB는 `tic-db`(`postgres:18.6-trixie` 고정), **호스트 포트 없음**(내부 네트워크만, 관리는 `docker exec`), 데이터는 `/volume1/docker/terra-in-cognita/pgdata`. 기존 `terra_testDB`는 새 스택이 정상 동작하면 중지하고, 데이터 폴더는 확인 후 정리한다.
 - 기존 테스트 서버(`terra-test-server`)는 이 DB를 쓰므로 함께 중지한다.
 
 ### 9.5 백업·관측·알림
@@ -360,9 +362,9 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 | 시점 | 검사 |
 |---|---|
 | commit-msg | Conventional Commits 형식(commitlint) |
-| pre-commit | 포맷(Biome), 비밀값(gitleaks) — 빠르게 |
-| pre-push | 린트(oxlint), 타입 검사, 변경된 패키지 단위 테스트, 모듈 경계, 파일 크기, 문서 갱신 검사 |
-| main 푸시 CI | 위 전체 + 콘텐츠 검증 + 이미지 빌드 + 스테이징 배포 |
+| pre-commit | 포맷(Biome), 비밀값(자체 스크립트, 흔한 형태만) — 빠르게 |
+| pre-push | 린트(oxlint), 타입 검사, 단위 테스트, 모듈 경계, 파일 크기, 다국어, 문서 갱신 검사 (`pnpm check` + 문서 검사) |
+| main 푸시 CI | 위 전체 + 비밀값 전체 이력(gitleaks) + 콘텐츠 검증 + 이미지 빌드 + 스테이징 배포 |
 | 야간 CI | E2E, 생성기 해시, 복구 테스트, 성능 스모크 |
 
 ### 10.3 기록 체계
@@ -377,7 +379,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 
 ### 10.4 코드 규칙
 - 주석은 한국어, 이름(변수·함수·파일)은 영어.
-- 모듈 경계는 dependency-cruiser + 패키지 `exports`로 강제(4.1 의존 방향).
+- 모듈 경계는 `scripts/check-boundaries.mjs`(package.json 내부 의존 허용 목록 + 판정 코드 금지 API) + pnpm 엄격 의존성 + 패키지 `exports`로 강제(4.1 의존 방향, ADR 17).
 - 파일 크기: 600줄 초과 경고, 1,000줄 초과 CI 실패(자동 생성 파일 제외). 기존 프로젝트는 최대 4,765줄이었다 [V].
 - 복사해 쓴 코드·데이터의 출처와 라이선스는 `THIRD_PARTY_NOTICES.md`에 적는다(FastNoiseLite 등).
 - 보호 경로(`packages/protocol`, 원장, `packages/planet` 생성기, `packages/sim`)는 ADR 링크 없이 의미를 바꾸지 않는다.
@@ -454,7 +456,8 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 | 13 | 콘텐츠 팩과 검증 파이프라인 | `2026-10-28-content-packs.md` |
 | 14 | 다국어 | `2026-10-28-i18n.md` |
 | 15 | 배포·운영 | `2026-10-28-deploy-and-ops.md` |
-| 16 | 개발 방식 | `2026-10-28-dev-workflow.md` |
+| 16 | 개발 방식 (모듈 경계 도구는 17로 대체) | `2026-10-28-dev-workflow.md` |
+| 17 | M0 골격의 검사·빌드 도구 구성 | `2026-10-28-m0-toolchain.md` |
 
 ---
 

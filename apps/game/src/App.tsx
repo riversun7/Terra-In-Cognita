@@ -1,40 +1,36 @@
-// 첫 화면 — M0 단계: 서버 연결 상태, 시계 차이, 성능 오버레이(fps·프레임 시간 p95·메모리)와 새 버전 안내를 보여준다
-import { useEffect, useState } from "react";
-import { m } from "./paraglide/messages.js";
-import { getLocale, isLocale, locales, setLocale } from "./paraglide/runtime.js";
+// 앱 화면 — 로그인 상태에 따라 바꾼다(주소·라우터 없이 상태로).
+// - 확인 중 / 확인 못 함(다시 시도) / 로그인 화면들 / 로그인됨: 계정 줄 + 상태 화면(M0)
+// - 서버 연결과 새 버전 안내는 로그인과 상관없이 늘 켠다(옛 버전이면 로그인 전에도 새 버전으로 바꾼다)
+import { type ReactNode, useEffect, useState } from "react";
+import { AccountBar } from "./auth/AccountBar.tsx";
+import { AuthScreens } from "./auth/AuthScreens.tsx";
+import { refreshSession, retrySessionIfUnavailable, useSession } from "./auth/session.ts";
 import { type ConnectionStatus, connect } from "./net/connection.ts";
+import { m } from "./paraglide/messages.js";
 import type { FrameMonitor } from "./perf/frameMonitor.ts";
-import { usePerfStats } from "./perf/usePerfStats.ts";
 import { UpdateBanner } from "./pwa/UpdateBanner.tsx";
 import { checkForUpdate, forceUpdate } from "./pwa/updates.ts";
+import { RejectedNotice, StatusPanel } from "./StatusPanel.tsx";
+import { LanguageSelect } from "./ui/LanguageSelect.tsx";
+import { LiveMessage } from "./ui/LiveMessage.tsx";
 
-function statusText(status: ConnectionStatus): string {
-  switch (status.kind) {
-    case "connecting":
-      return m.status_connecting();
-    case "connected":
-      return m.status_connected();
-    case "disconnected":
-      return m.status_disconnected();
-    case "rejected":
-      return status.code === "protocol_unsupported"
-        ? m.status_rejected_protocol()
-        : m.status_rejected_other();
-    default: {
-      // 새 상태가 추가되면 여기서 타입 오류가 난다
-      const unhandled: never = status;
-      return unhandled;
-    }
-  }
-}
-
-function changeLocale(value: string): void {
-  if (isLocale(value)) void setLocale(value);
+function SessionUnavailable() {
+  return (
+    <section className="screen">
+      <h1 className="screen-title">{m.app_title()}</h1>
+      <LiveMessage tone="error" lines={[m.session_unavailable()]} />
+      <div className="form-actions">
+        <button type="button" onClick={() => void refreshSession()}>
+          {m.retry()}
+        </button>
+      </div>
+    </section>
+  );
 }
 
 export function App({ monitor }: { monitor: FrameMonitor }) {
   const [status, setStatus] = useState<ConnectionStatus>({ kind: "connecting" });
-  const perf = usePerfStats(monitor);
+  const session = useSession();
 
   useEffect(
     () =>
@@ -44,49 +40,44 @@ export function App({ monitor }: { monitor: FrameMonitor }) {
           // 서버와 버전이 안 맞으면 새 버전을 찾아 적용한다(없으면 새로고침). 되돌림 배포로 기기가 더 새 버전일 때도 같다
           if (next.kind === "rejected" && next.code === "protocol_unsupported") void forceUpdate("auto");
         },
-        // 배포하면 서버가 다시 시작되고 기기가 다시 접속한다 → welcome마다 새 버전 확인
-        { onWelcome: checkForUpdate },
+        {
+          onWelcome: () => {
+            // 배포하면 서버가 다시 시작되고 기기가 다시 접속한다 → welcome마다 새 버전 확인
+            checkForUpdate();
+            // 서버가 꺼져 있어 로그인 상태를 확인하지 못했다면 지금 다시 확인한다
+            retrySessionIfUnavailable();
+          },
+        },
       ),
     [],
   );
 
-  return (
-    <main className="shell">
-      <h1>{m.app_title()}</h1>
+  let content: ReactNode;
+  let statusShown = false;
+  if (session.kind === "loading") {
+    content = (
       <p className="status" role="status">
-        {statusText(status)}
+        {m.session_checking()}
       </p>
-      {status.kind === "connected" && status.clock ? (
-        <p className="metrics">
-          {m.clock_offset({
-            offset: Math.round(status.clock.offsetMs),
-            rtt: Math.round(status.clock.roundTripMs),
-          })}
-        </p>
-      ) : null}
-      {perf !== null ? (
-        <p className="metrics">
-          {m.fps({ fps: perf.fps })} · {m.frame_p95({ ms: perf.p95Ms })}
-          {perf.memoryMb === undefined ? null : ` · ${m.memory({ mb: perf.memoryMb })}`}
-        </p>
-      ) : null}
-      {status.kind === "rejected" ? (
-        // 자동 적용이 막혔을 때(1분 안에 이미 자동 새로고침함)를 위한 손 버튼. 그냥 새로고침하면 SW가 옛 화면을 다시 띄운다
-        <button type="button" onClick={() => void forceUpdate("manual")}>
-          {m.reload()}
-        </button>
-      ) : null}
-      <label className="metrics">
-        {m.language()}{" "}
-        <select value={getLocale()} onChange={(event) => changeLocale(event.target.value)}>
-          {locales.map((locale) => (
-            <option key={locale} value={locale}>
-              {locale === "ko" ? "한국어" : "English"}
-            </option>
-          ))}
-        </select>
-      </label>
+    );
+  } else if (session.kind === "unavailable") {
+    content = <SessionUnavailable />;
+  } else if (session.kind === "signed_out") {
+    content = <AuthScreens reason={session.reason} />;
+  } else {
+    statusShown = true;
+    content = <StatusPanel status={status} monitor={monitor} />;
+  }
+
+  return (
+    <>
+      {session.kind === "signed_in" ? <AccountBar user={session.user} onOpenAdmin={undefined} /> : null}
+      <main className="shell">
+        {content}
+        {statusShown ? null : <RejectedNotice status={status} />}
+        <LanguageSelect />
+      </main>
       <UpdateBanner />
-    </main>
+    </>
   );
 }

@@ -1,10 +1,10 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { PROTOCOL_VERSION, decodeServerMessage, encodeMessage } from "@terra/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { buildApp } from "./app.ts";
+import { IMMUTABLE_CACHE_CONTROL, buildApp } from "./app.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
 
 let app: FastifyInstance | undefined;
@@ -114,6 +114,63 @@ describe("정적 파일", () => {
       expect((await app.inject({ method: "GET", url: "/assets/missing-abc.js" })).statusCode).toBe(404);
       expect((await app.inject({ method: "GET", url: "/sw.js" })).statusCode).toBe(404);
       expect((await app.inject({ method: "GET", url: "/api/nope" })).statusCode).toBe(404);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("캐시: /assets/(해시 이름)는 1년 immutable, 나머지는 매번 확인(max-age=0)", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "terra-static-"));
+    try {
+      mkdirSync(path.join(dir, "assets", "nested"), { recursive: true });
+      writeFileSync(path.join(dir, "index.html"), "<!doctype html><title>t</title>");
+      writeFileSync(path.join(dir, "sw.js"), "self.x = 1;");
+      writeFileSync(path.join(dir, "theme-init.js"), "void 0;");
+      writeFileSync(path.join(dir, "favicon.svg"), "<svg/>");
+      writeFileSync(path.join(dir, "manifest.webmanifest"), "{}");
+      writeFileSync(path.join(dir, "assets", "index-Ab12Cd34.js"), "export {};");
+      writeFileSync(path.join(dir, "assets", "Pretendard-Regular.subset-Xy98Zw76.woff2"), "wOF2");
+      writeFileSync(path.join(dir, "assets", "nested", "chunk-Qq11Rr22.css"), "a{}");
+      // 이름만 비슷한 다른 폴더는 해당하지 않는다
+      mkdirSync(path.join(dir, "assets-old"));
+      writeFileSync(path.join(dir, "assets-old", "a.js"), "export {};");
+      app = await buildApp({ contentVersion: "test", logger: false, metricsIntervalMs: 0, staticDir: dir });
+      const cacheOf = async (url: string) => {
+        const res = await app?.inject({ method: "GET", url });
+        return { status: res?.statusCode, cache: res?.headers["cache-control"] };
+      };
+      for (const url of [
+        "/assets/index-Ab12Cd34.js",
+        "/assets/Pretendard-Regular.subset-Xy98Zw76.woff2",
+        "/assets/nested/chunk-Qq11Rr22.css",
+      ]) {
+        expect(await cacheOf(url), url).toEqual({ status: 200, cache: IMMUTABLE_CACHE_CONTROL });
+      }
+      for (const url of [
+        "/",
+        "/index.html",
+        "/sw.js",
+        "/theme-init.js",
+        "/favicon.svg",
+        "/manifest.webmanifest",
+        "/lobby",
+        "/assets-old/a.js",
+      ]) {
+        expect(await cacheOf(url), url).toEqual({ status: 200, cache: "public, max-age=0" });
+      }
+      // 없는 /assets/ 파일(404)에는 오래 캐시하라고 하지 않는다
+      const missing = await cacheOf("/assets/missing-Zz00.js");
+      expect(missing.status).toBe(404);
+      expect(missing.cache).not.toBe(IMMUTABLE_CACHE_CONTROL);
+      // 다시 확인 요청(304)에도 같은 머리글
+      const first = await app.inject({ method: "GET", url: "/assets/index-Ab12Cd34.js" });
+      const again = await app.inject({
+        method: "GET",
+        url: "/assets/index-Ab12Cd34.js",
+        headers: { "if-none-match": String(first.headers.etag) },
+      });
+      expect(again.statusCode).toBe(304);
+      expect(again.headers["cache-control"]).toBe(IMMUTABLE_CACHE_CONTROL);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

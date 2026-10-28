@@ -18,6 +18,13 @@ import { createContextFactory } from "./trpc/createContext.ts";
 import { registerTrpc } from "./trpc/plugin.ts";
 import { appRouter } from "./trpc/router.ts";
 
+/**
+ * 빌드 파일 중 이름에 내용 해시가 있는 것(/assets/: JS·CSS·글꼴)의 캐시. 한 번 받으면 다시 묻지 않는다.
+ * 해시가 없는 파일(index.html, sw.js, theme-init.js, 아이콘, manifest)은 @fastify/static 기본값(max-age=0, 매번 확인).
+ * ADR 2026-10-28-design-system "글꼴"
+ */
+export const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
+
 /** 인증 켜기(DB가 있을 때만). 없으면 /api/auth/*, /api/account/*는 404이고 tRPC는 늘 로그인하지 않은 상태 */
 export interface AppAuthOptions {
   settings: AuthSettings;
@@ -119,7 +126,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   if (options.staticDir) {
     const root = path.resolve(options.staticDir);
-    await app.register(fastifyStatic, { root, wildcard: false });
+    const hashedDir = path.join(root, "assets") + path.sep;
+    await app.register(fastifyStatic, {
+      root,
+      wildcard: false,
+      // 기본 머리글(max-age=0)을 보낸 다음에 불린다 → /assets/ 파일만 덮어쓴다
+      setHeaders: (reply, filePath) => {
+        if (filePath.startsWith(hashedDir)) reply.header("cache-control", IMMUTABLE_CACHE_CONTROL);
+      },
+    });
     // 화면 이동(SPA) 경로만 index.html로 보낸다. API·WebSocket과 파일처럼 보이는 경로(확장자 있음)는 404.
     // 없는 /assets/*.js에 HTML을 주면 브라우저가 형식 오류를 내고, 나중에 서비스 워커를 걷어낼 수도 없다.
     // 그래서 화면 경로 이름에는 점(.)을 쓰지 않는다.

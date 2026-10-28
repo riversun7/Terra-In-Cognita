@@ -20,6 +20,7 @@
 - 벤치마크(`bench/pathfinding.ts`, `pnpm --filter @terra/sim bench`, `pnpm test` 밖).
 - 프로필을 보고 A* 열린 목록을 위치 기억 힙으로 바꿨다(같은 결과, 약 1.5배 빠름).
 - `THIRD_PARTY_NOTICES.md`: lowbias32 구성(Unlicense) 출처 한 줄.
+- 병합(메인 세션, 2026-10-29): main 위로 다시 쌓았다(충돌은 목차뿐, 다시 생성). 문서를 고쳤다: `docs/PROTECTED.md`(packages/sim을 본 표로), PLAN 4.1(sim 설명), AGENTS 7장(벤치마크 명령), ADR 33("구현하며 정한 것"). Docker 이미지 설치(`pnpm install --frozen-lockfile`)는 `packages/sim/package.json` 없이도 통과한다(Verified: Dockerfile과 같은 파일만 두고 `--offline`으로 재현). 서버가 `@terra/sim`을 쓰게 되면 Dockerfile에 복사 줄을 더한다.
 
 ## 정한 것 (ADR 33에 없던 것 — ADR 33 확정 때 옮길 후보)
 | 항목 | 정한 값 | 이유 |
@@ -99,6 +100,7 @@
 | `packages/sim/bench/pathfinding.ts` | S1 서버 예산 벤치마크 |
 | `pnpm-lock.yaml` | 작업공간 묶음 `packages/sim` 추가(메인 세션이 합칠 때 다시 만든다) |
 | `THIRD_PARTY_NOTICES.md` | lowbias32 구성 출처(Unlicense) |
+| `docs/PROTECTED.md`, `docs/PLAN.md`, `AGENTS.md`, `docs/adr/2026-10-28-s1-second-map.md` | 병합 때: 보호 대상, 저장소 구조 설명, 명령 표, ADR 33 "구현하며 정한 것" |
 
 ## 함께 바꿔야 하는 파일
 - 판정 결과가 바뀌는 변경(비용·이웃 순서·동점·반올림·배치 규칙): `src/version.ts`의 `SIM_VERSION`과 `apps/server/src/config.ts`의 `SIM_VERSION`을 같이 올리고 골든 값(`astar.test.ts`)을 고친다.
@@ -121,7 +123,7 @@
 - 대형 유닛이 이전 경로 밖의 임의 위치에서 `planRoute`를 부르면 첫 반 칸 구간이 규칙을 어길 수 있다(유닛은 칸 중심에서 생기고 경로 위로만 움직인다고 본다).
 - 이벤트 큐 예약 번호는 큐마다 1부터다. 서버를 다시 켤 때 같은 시각끼리 순서를 지키려면 정해진 순서로 다시 예약하거나 번호를 저장한다.
 - 임시 지형은 이웃 2차맵과 경계가 이어지지 않는다. 높이는 해수면 기준 상대값이다(1차맵 고도 없음).
-- `SIM_VERSION`이 `apps/server/src/config.ts`와 `packages/sim/src/version.ts` 두 곳에 있다(서버가 sim 값을 가져다 쓰게 바꿀 것).
+- `SIM_VERSION`이 `apps/server/src/config.ts`와 `packages/sim/src/version.ts` 두 곳에 있다(서버가 sim 값을 가져다 쓰게 바꿀 것). 그때 Dockerfile에 `COPY packages/sim/package.json packages/sim/`도 더한다.
 - 커버리지 도구는 저장소에 넣지 않았다. 넣으려면 `@vitest/coverage-v8` 개발 의존성 + 설정.
 - 일시: 자정을 넘겨 파일 이름이 `29-0020`이다(KST 기준).
 

@@ -119,6 +119,7 @@
 | `pnpm check:contrast` | 디자인 값 검사만: 테마 4개의 대비 쌍, 화면 CSS에 직접 쓴 색·px 값. `--print`는 대비 표 출력 |
 | `pnpm format` | 포맷 자동 수정 |
 | `pnpm test` | 단위 테스트만 |
+| `pnpm --filter @terra/sim bench` | 판정 코어 벤치마크(임시 지형에서 경로 1,000개, 통과 폭·배치·이동 계산). `pnpm test`에는 없다. 공유 CPU에서는 값이 흔들린다 |
 | `pnpm build` | 전체 빌드 |
 | `pnpm docs:index` | 작업 기록을 추가한 뒤 `docs/WORKLOG.md` 목차를 다시 만든다 |
 | `pnpm check:docs` | 코드 변경 → 작업 기록(의존성 버전만 올린 변경은 제외), 새 런타임 의존성 → ADR, 올라간 마이그레이션 수정 금지 |

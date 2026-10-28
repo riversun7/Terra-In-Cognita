@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-28 17:25 | Matt Pocock 개발 흐름 스킬 추가 | Claude Code (클라우드 세션) | [28-1725-matt-pocock-skills](worklog/2026/10/28-1725-matt-pocock-skills.md) |
 | 2026-10-28 17:10 | 디자인 스킬 설치와 한국어 스킬 작성 | Claude Code (클라우드 세션) | [28-1710-design-skills](worklog/2026/10/28-1710-design-skills.md) |
 | 2026-10-28 16:45 | 외부 접속(역방향 프록시) 설정 확인 | Claude Code (클라우드 세션) | [28-1645-external-access](worklog/2026/10/28-1645-external-access.md) |
 | 2026-10-28 16:25 | 첫 NAS 배포: CPU 상한 오류 수정 | Claude Code (클라우드 세션) | [28-1625-first-deploy](worklog/2026/10/28-1625-first-deploy.md) |

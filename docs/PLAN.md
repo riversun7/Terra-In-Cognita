@@ -460,6 +460,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 | 17 | M0 골격의 검사·빌드 도구 구성 | `2026-10-28-m0-toolchain.md` |
 | 18 | NAS 커널 4.4 대응(실행 환경, CPU 상한) | `2026-10-28-nas-kernel-limits.md` |
 | 19 | AI 스킬 구성(디자인 스킬 설치, 한국어 스킬) | `2026-10-28-agent-skills.md` |
+| 20 | 개발 흐름 스킬(Matt Pocock) 추가와 문서 규칙 우선 | `2026-10-28-agent-skills-dev-flow.md` |
 
 ---
 

@@ -108,3 +108,14 @@ git 훅: 커밋 전(포맷·비밀값), 커밋 메시지(Conventional Commits), 
 - 스킬이 훅을 설치하거나 설정 파일(`.claude/settings.json` 등)을 바꾸려 하면 사용자 승인 뒤에만 한다(`hallmark`의 install-hook, `/impeccable hooks on`).
 - `impeccable`의 일부 명령은 처음 실행할 때 GitHub에서 실행 파일을 내려받는다(체크섬 검증). 환경이 막으면 그 명령은 건너뛰고 문서 기반 규칙만 쓴다.
 - 외부 스킬 폴더는 고치지 않는다(PROTECTED). 갱신은 원본에서 다시 복사하고 `THIRD_PARTY_NOTICES.md`의 커밋을 바꾼다.
+
+개발 흐름 스킬(Matt Pocock):
+- 새 판정·프로토콜·공용 로직은 `tdd`로 테스트부터 쓴다. 원인을 모르는 버그·성능 저하는 `diagnosing-bugs`.
+- 모듈 설계·경계는 `codebase-design`, 구조 개선 후보 찾기는 `/improve-codebase-architecture`.
+- 용어를 정리할 때는 `domain-modeling`, 계획을 다듬으며 결정·용어를 함께 남길 때는 `/grill-with-docs`(그냥 다듬을 때는 `/grill-me`).
+- 실험 코드는 `prototype`: main에 남기지 않고 버리는 브랜치에 두며, main에는 확정된 결정만 남긴다.
+- 출처가 필요한 조사는 `research`: 결과는 `docs/research/YYYY-MM-DD-<slug>.md`.
+- 기획 세션 등 다른 사람에게 물을 것은 `/to-questionnaire`: 파일은 `docs/questions/YYYY-MM-DD-<slug>.md`에 둔다.
+- 다른 에이전트에게 넘길 때 `/handoff`(임시 폴더에 저장). 작업 기록은 따로 남긴다.
+- 설명이 와닿지 않으면 사용자는 `/wait-what`으로 다시 설명을 요청한다. AGENTS.md·스킬을 고칠 때는 `writing-for-agents`.
+- **이 저장소 규칙이 우선한다.** ADR은 `docs/adr/README.md` 형식(파일명 `YYYY-MM-DD-<slug>.md`, 한국어 상태값)으로 쓰고, 스킬의 번호식 ADR(`0001-…`)은 쓰지 않는다. 용어집은 루트 `GLOSSARY.md`(처음 필요할 때 만든다. 한국어 용어와 코드 이름을 함께 적는다). 게임 규칙 용어는 `docs/design`이 기준이다.

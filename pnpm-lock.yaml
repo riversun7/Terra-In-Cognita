@@ -47,6 +47,12 @@ importers:
       '@terra/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@trpc/client':
+        specifier: 11.19.0
+        version: 11.19.0(@trpc/server@11.19.0(typescript@7.0.2))(typescript@7.0.2)
+      '@trpc/server':
+        specifier: 11.19.0
+        version: 11.19.0(typescript@7.0.2)
       react:
         specifier: 19.3.1
         version: 19.3.1
@@ -60,6 +66,9 @@ importers:
       '@inlang/plugin-message-format':
         specifier: 4.5.5
         version: 4.5.5
+      '@terra/server':
+        specifier: workspace:*
+        version: link:../server
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0

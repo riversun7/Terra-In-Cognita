@@ -7,3 +7,4 @@ docs
 !apps/**/README.md
 .claude
 .agent
+**/dist-types

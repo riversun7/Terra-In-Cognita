@@ -6,5 +6,7 @@
     "allowJs": true,
     "types": ["vite/client"]
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts"],
+  // 서버 API 타입(AppRouter)은 서버 소스가 아니라 이 참조가 만든 선언 파일로 읽는다 → typecheck는 `tsc -b`
+  "references": [{ "path": "../server/tsconfig.api.json" }]
 }

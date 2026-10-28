@@ -2,7 +2,7 @@
 // 이 타입은 AppRouter 타입에 들어가 게임 앱의 타입 검사에도 쓰인다.
 // 그래서 Node 전용 타입(fastify, pg, drizzle, better-auth 등)을 여기에 직접 넣지 않는다.
 // 넣으면 기기 코드에서 Node 전역(process, Buffer)이 타입 오류 없이 보이게 된다 — scripts/check-boundaries.mjs가 잡는다.
-import type { Role } from "@terra/shared";
+import type { Role, UserSettings } from "@terra/shared";
 
 /** 로그인한 사용자 */
 export interface Viewer {
@@ -34,6 +34,17 @@ export interface AdminServices {
   setRoles(input: { userId: string; roles: Role[] }): Promise<AdminUserRow>;
 }
 
+/** 화면 설정 중 바꿀 칸만. 없는 칸은 그대로 둔다 */
+export type UserSettingsPatch = { [K in keyof UserSettings]?: UserSettings[K] | undefined };
+
+/** 계정 화면 설정(user_settings) — 프로시저가 로그인한 본인 id로만 부른다 */
+export interface SettingsServices {
+  /** 저장한 설정. 아직 아무것도 저장하지 않았으면 null */
+  get(userId: string): Promise<UserSettings | null>;
+  /** 보낸 칸만 바꾼다(없으면 만든다). 저장한 뒤의 설정 */
+  set(userId: string, patch: UserSettingsPatch): Promise<UserSettings>;
+}
+
 export interface TrpcContext {
   /** 콘텐츠 팩 버전 */
   contentVersion: string;
@@ -43,6 +54,8 @@ export interface TrpcContext {
   viewer: () => Promise<Viewer | null>;
   /** 관리자 기능. 인증이 꺼져 있으면(DB 없음) 없다. 권한 검사는 프로시저 미들웨어가 먼저 한다 */
   admin: AdminServices | undefined;
+  /** 계정 화면 설정. 인증이 꺼져 있으면(DB 없음) 없다 */
+  settings: SettingsServices | undefined;
 }
 
 export interface TrpcContextOptions {

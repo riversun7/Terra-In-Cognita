@@ -3,12 +3,14 @@
 import { accountRouter } from "./account.ts";
 import { adminRouter } from "./admin.ts";
 import { router } from "./init.ts";
+import { settingsRouter } from "./settings.ts";
 import { systemRouter } from "./system.ts";
 
 export const appRouter = router({
   system: systemRouter,
   account: accountRouter,
   admin: adminRouter,
+  settings: settingsRouter,
 });
 
 export type AppRouter = typeof appRouter;

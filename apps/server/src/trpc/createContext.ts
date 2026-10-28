@@ -6,6 +6,7 @@ import type { TerraAuth } from "../auth/auth.ts";
 import { authHeaders } from "../auth/http.ts";
 import { parseRoleString } from "../auth/permissions.ts";
 import type { Database } from "../db/client.ts";
+import { createSettingsServices } from "../settings/store.ts";
 import type { TrpcContext, TrpcContextOptions, Viewer } from "./context.ts";
 
 export interface ContextFactoryOptions extends TrpcContextOptions {
@@ -40,6 +41,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       now: options.now,
       viewer,
       admin: authDeps && request ? createAdminServices({ ...authDeps, request, viewer }) : undefined,
+      settings: authDeps ? createSettingsServices(authDeps.db) : undefined,
     };
   };
 }

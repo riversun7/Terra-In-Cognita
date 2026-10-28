@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-29 00:22 | 기획서 미러 다시 동기화 (GDD v4, D-001~D-183) | Claude Code | [29-0022-design-mirror-sync](worklog/2026/10/29-0022-design-mirror-sync.md) |
 | 2026-10-28 23:40 | 새 앱 아이콘 PNG를 손실 없이 다시 압축 (736KB → 286KB) | Claude Code | [28-2340-icon-compress](worklog/2026/10/28-2340-icon-compress.md) |
 | 2026-10-28 23:40 | 디자인 시스템 구현: 후보 A(새싹 장난감), 테마 4개, 글꼴, 설정 화면(기기 + 계정) | Claude Code | [28-2340-design-system](worklog/2026/10/28-2340-design-system.md) |
 | 2026-10-28 23:27 | 파비콘과 앱 아이콘 새로 그리기 (정원 새싹·행성·궤도 정거장) | Antigravity | [28-2327-favicon-redesign](worklog/2026/10/28-2327-favicon-redesign.md) |

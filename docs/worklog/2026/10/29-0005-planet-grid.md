@@ -29,6 +29,9 @@
   - 다룬 것: 레벨 0~5(일부 0~6) 모든 면 전수 — 키 왕복, 힐베르트 일대일·이어지는 번호는 변 공유·면 사이 연속, 4·8이웃 = 기하 기준, 이웃 대칭, 꼭짓점 칸(7이웃), 부모·자식, 키 구간(지역 레벨 0~3 × 키 레벨 0~5). 레벨 22 경계·꼭짓점 표본, 가장 큰 키 ≤ `Number.MAX_SAFE_INTEGER`, 비트 배치 골든 값.
   - 투영 시험: S2 면 식, 왕복, 칸 중심이 그 칸에 들어감, 면을 넘는 이웃도 3D에서 꼭짓점 공유, 이웃 중심 거리 ≈ 칸 크기, 면적 합 = 4π, 면적 비, 지구 수치.
   - 시험이 틀린 코드를 잡는지 세 번 바꿔 봤다(변환표 뒤집힘 하나, 힐베르트 방향표, 면 시작 방향). 매번 시험 2개가 실패했고, 코드는 되돌렸다.
+- 병합(메인 세션, 2026-10-29): main(2e6cc3b, sim 병합 뒤) 위로 다시 쌓았다. 충돌은 목차뿐이라 다시 만들었고, 잠금 파일은 저절로 합쳐졌다.
+  - 키 배치를 ADR 34(`docs/adr/2026-10-29-cell-key-layout.md`)로 남겼다. PLAN 5.2(ID 행·잰 값)와 13장 표, PROTECTED(격자 계약), AGENTS 4장(정수·투영 진입점)을 고쳤다.
+  - `scripts/check-boundaries.mjs`의 결정성 검사를 `packages/planet/src`까지 넓혔다(`projection.ts`와 시험 파일은 뺀다). 일부러 `Math.sin`을 넣어 검사가 실패하는 것을 보고 되돌렸다(Verified).
 
 ## 잰 수치와 ADR (Verified: 패키지 코드와 따로 쓴 계산이 같은 값)
 | 항목 | ADR·PLAN | 잰 값 |
@@ -71,6 +74,8 @@
 | `packages/planet/src/index.ts`(새) | 정수 API 진입점 |
 | `packages/planet/src/*.test.ts`, `testOracle.ts`(새) | 시험과 독립 기준 |
 | `pnpm-lock.yaml` | 새 작업공간 패키지 항목(메인 세션이 합칠 때 다시 만든다) |
+| `scripts/check-boundaries.mjs` | 병합 때: 결정성 검사 대상에 행성 정수 모듈 추가 |
+| `docs/adr/2026-10-29-cell-key-layout.md`(새), `docs/PLAN.md`, `docs/PROTECTED.md`, `AGENTS.md` | 병합 때: 키 배치 ADR, 계획서·보호 목록·규칙 |
 
 ## 함께 바꿔야 하는 파일
 - 서버나 게임 앱이 `@terra/planet`을 쓰게 되면: 그 앱 `package.json`에 `"@terra/planet": "workspace:*"`. 서버라면 `Dockerfile` 설치 단계에 `COPY packages/planet/package.json packages/planet/`도. 지금은 아무도 쓰지 않아 넣지 않았다.
@@ -85,7 +90,7 @@
 
 ## 미검증·TODO·알려진 문제
 - 투영은 `Math.tan`·`Math.atan`을 쓴다. 브라우저·Node 버전마다 마지막 자리가 다를 수 있다(Unknown). 생성기의 고정 시드 결과 해시(PLAN 5.5)가 투영 값에 기대게 되면, 생성기를 만들 때 처리 방법을 정해야 한다.
-- 정수 모듈에 초월함수가 없다는 것을 지금은 검사 도구가 막지 않는다(`check-boundaries.mjs`의 결정성 검사는 `packages/sim`만 본다).
+- (풀림, 병합 때) 정수 모듈의 초월함수·현재 시각·`Math.random`은 이제 `check-boundaries.mjs`가 막는다.
 - 키로 부르는 이웃은 칸당 약 1µs다. 생성기가 157만 칸을 여러 번 돌면 면별 배열 + `wrapFaceIJ`가 더 빠를 것이다(Assumed, 미측정).
 - 칸 면적 식은 깊은 레벨에서 자리가 줄어든다. 잰 상대 오차: 레벨 17까지 약 1e-6 이하, 레벨 20 약 7e-5, 레벨 22 약 2e-3. 표시용이라 그대로 뒀다.
 - 지구 꼭짓점 8곳을 모두 바다에 두는 회전이 있는지는 아직 모른다(ADR, Unknown). 생성기 일이다.
@@ -93,4 +98,4 @@
 - 2차맵 칸 좌표 (x, y)의 축은 면의 i·j 축이라 면마다 방향이 다르다. 면 경계 너머 2차맵을 붙일 때는 `wrapFaceIJ`를 쓴다.
 
 ## 사용자 결정 대기
-- 없음. 메인 세션 검토 대기: 키 배치를 ADR 부록이나 PLAN 5.2에 적을지, PROTECTED에 격자 계약을 넣을지.
+- 없음. 메인 세션이 정했다: 키 배치는 새 ADR 34, PLAN 5.2에 요약, PROTECTED에 격자 계약.

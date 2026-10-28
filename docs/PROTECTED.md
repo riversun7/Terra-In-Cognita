@@ -12,6 +12,7 @@
 | `.claude/skills/`의 외부 스킬(frontend-design, ui-ux-pro-max, web-design-guidelines, react-best-practices, impeccable, hallmark, taste-skill, Emil Kowalski 스킬 8개, Matt Pocock 스킬 12개) | 수정 금지. 갱신은 원본에서 다시 복사하고 `THIRD_PARTY_NOTICES.md`의 커밋을 바꾼다 | 외부 원본, 출처·라이선스 추적(ADR 19). `korean-writing`은 이 프로젝트가 쓴 것이라 고쳐도 된다 |
 | `packages/protocol/` | 메시지 의미 변경 시 ADR + `PROTOCOL_VERSION` 올림(`src/version.ts`) | 기기·서버 호환성 |
 | `packages/sim/` | 판정 결과가 바뀌는 변경(비용·이웃 순서·동점·반올림·배치 규칙) 시 ADR + `SIM_VERSION` 올림(`src/version.ts`, 서버 `config.ts`도 같이). S1 임시 지형 출력이 바뀌면 `TEMP_TERRAIN_GENERATOR_VERSION` 올림. 골든 해시 시험을 함께 고친다 | 결과 재현·공정성 |
+| `packages/planet/` 격자 계약: 셀 키 비트 배치, 면 배치, 면별 힐베르트 방향, `FACE_EDGE_LINKS`·`CUBE_CORNERS` 표 | 바꾸지 않는다. 바꿔야 하면 새 ADR + 저장된 키를 옮기는 계획. 골든 값·전수 시험을 함께 본다 | DB·캐시·전송에 들어간 키가 모두 다른 칸을 가리킨다(ADR `2026-10-29-cell-key-layout.md`) |
 | `content/*/id-changes.json` | 기록 수정·삭제 금지, 뒤에 추가만(`scripts/check-content.mjs` 4b단계가 검사) | 운영 데이터와 이미 배포된 팩이 옛 ID를 쓴다. 기록을 고치면 옛 ID의 새 ID·보상이 조용히 바뀐다(ADR `2026-10-28-content-pack-format.md`) |
 | `content/*/` 팩 ID | 한 번 쓴 ID는 다시 쓰지 않는다. 지우거나 바꾸면 `id-changes.json`에 기록 | 같은 ID가 다른 것을 뜻하면 운영 데이터가 엉뚱한 항목을 가리킨다 |
 | `apps/server/drizzle/` (올라간 마이그레이션) | 수정·삭제·이름 변경 금지, 새 마이그레이션 추가만(`scripts/check-docs.mjs`가 검사) | Drizzle은 이름으로만 건너뛰어, 고친 내용이 운영 DB와 조용히 어긋난다(ADR `2026-10-28-db-access-and-migrations.md`) |

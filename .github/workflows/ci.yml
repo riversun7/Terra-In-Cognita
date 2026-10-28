@@ -24,10 +24,24 @@ jobs:
   check:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    outputs:
+      deploy: ${{ steps.changes.outputs.deploy }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - name: 배포가 필요한 변경인지 (문서·스킬만 바뀌면 이미지·배포 생략)
+        id: changes
+        run: |
+          before="${{ github.event.before }}"
+          if [ "${{ github.event_name }}" != "push" ] || ! git cat-file -e "${before}^{commit}" 2>/dev/null; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$before" "$GITHUB_SHA" | grep -q -v -E '^(docs/|\.claude/|\.agent/)|\.md$'; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "문서·스킬만 바뀌어 이미지 빌드와 배포를 건너뜁니다." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -54,8 +68,8 @@ jobs:
 
   image:
     needs: [check, secrets]
-    # main 푸시 또는 main에서 수동 실행(Run workflow)할 때만
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    # main 푸시 또는 main에서 수동 실행(Run workflow)할 때만. 문서·스킬만 바뀐 푸시는 건너뛴다
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && needs.check.outputs.deploy == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:

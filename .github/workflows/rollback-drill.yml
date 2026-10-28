@@ -1,0 +1,67 @@
+# 되돌림 훈련 — 일부러 뜨지 않는 이미지를 배포해, 직전 버전으로 자동 복귀하는지 확인한다 (M0 통과 기준)
+# 수동 실행만. 실행 중 약 2분간 새 스택 앱이 멈춘다. GHCR에 drill-broken 태그가 남는다(훈련용).
+name: rollback-drill
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  broken-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: GHCR 로그인
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: 켜지자마자 꺼지는 이미지 만들기·푸시 (태그 drill-broken)
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}:drill-broken"
+          printf 'FROM busybox:1.37\nCMD ["sh", "-c", "echo rollback drill image; exit 1"]\n' > Dockerfile.drill
+          docker build -f Dockerfile.drill \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            -t "$IMAGE" .
+          docker push "$IMAGE"
+
+  drill:
+    needs: broken-image
+    if: vars.NAS_DEPLOY_ENABLED == 'true'
+    runs-on: [self-hosted, nas]
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    # 일반 배포와 같은 줄에 서서 동시에 돌지 않게 한다
+    concurrency:
+      group: deploy-nas
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+      - name: GHCR 로그인
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: 고장 난 버전 배포 → 되돌림 확인
+        run: |
+          DATA_DIR=/volume1/docker/terra-in-cognita
+          PREV="$(cat "$DATA_DIR/deployed-tag")"
+          echo "훈련 전 배포 버전: $PREV"
+          if bash ops/deploy.sh drill-broken; then
+            echo "고장 난 버전의 배포가 성공으로 끝났습니다 — 되돌림이 동작하지 않았습니다"
+            exit 1
+          fi
+          # 되돌린 앱이 직전 버전으로 healthy가 되는지 확인 (최대 약 90초)
+          STATUS=none
+          for _ in $(seq 1 45); do
+            STATUS="$(docker inspect -f '{{.State.Health.Status}}' tic-app 2>/dev/null || echo none)"
+            [ "$STATUS" = healthy ] && break
+            sleep 2
+          done
+          IMAGE="$(docker inspect -f '{{.Config.Image}}' tic-app)"
+          echo "되돌린 뒤: $IMAGE ($STATUS)"
+          test "$STATUS" = healthy
+          test "$IMAGE" = "ghcr.io/${GITHUB_REPOSITORY,,}:$PREV"
+          test "$(cat "$DATA_DIR/deployed-tag")" = "$PREV"
+          echo "## 되돌림 훈련 통과: \`$PREV\`(으)로 복귀, healthy" >> "$GITHUB_STEP_SUMMARY"

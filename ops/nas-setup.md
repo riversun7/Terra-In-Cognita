@@ -53,6 +53,13 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
    - `docker/antigravt01` 폴더는 운영 서버가 쓰므로 지우지 않는다.
 3. 기존 로그인 화면의 "테스트 서버" 선택지는 남지만 누르면 접속되지 않는다(운영 서버 선택은 그대로).
 
+## 8. 백업과 훈련 (자동)
+- **매일 03:17**: DB 백업 → `docker/terra-in-cognita/backups/daily-*.dump`(14일 보관). 배포 직전 백업은 `pre-*.dump`.
+- **매주 월요일 03:43**: 복구 훈련. 가장 최근 백업을 임시 DB에 되살려 표 개수를 비교한다. 실패하면 GitHub 알림 메일이 온다.
+- 바로 실행하려면 Actions → **nas-backup** → Run workflow(`backup` 또는 `restore-check`).
+- **되돌림 훈련**: Actions → **rollback-drill** → Run workflow. 일부러 고장 난 버전을 배포해 직전 버전으로 돌아오는지 확인한다(약 2분간 새 스택 앱이 멈춘다).
+- **NAS 밖 보관(해 주실 일)**: 백업이 NAS 안에만 있으면 NAS가 고장 날 때 같이 잃는다. DSM → Hyper Backup → 백업 작업 생성 → 대상(USB·다른 NAS·클라우드) → 폴더 `docker/terra-in-cognita/backups` → 매일.
+
 ## 문제가 생기면
 - **실행기가 계속 다시 시작된다**(로그에 `DISABLE_AUTOMATIC_DEREGISTRATION should be set to true`): compose에 `DISABLE_AUTOMATIC_DEREGISTRATION: "true"`가 없거나 `tic-runner/config` 폴더가 없는 것이다. 프로젝트를 중지하고 YAML을 저장소의 `ops/runner/compose.yml`로 바꾼 뒤(토큰은 새로 받아 넣는다) 다시 빌드한다.
 

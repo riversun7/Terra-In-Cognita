@@ -1,0 +1,37 @@
+# NAS DB 백업(매일)과 복구 훈련(주 1회) — PLAN 9.5, docs/adr/2026-10-28-deploy-and-ops.md
+# 실패하면 GitHub가 저장소 주인에게 알림을 보낸다.
+name: nas-backup
+
+on:
+  schedule:
+    - cron: "17 18 * * *" # 매일 03:17 KST — 백업
+    - cron: "43 18 * * 0" # 매주 월요일 03:43 KST — 복구 훈련
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 할 일
+        type: choice
+        options: [backup, restore-check]
+        default: backup
+
+permissions:
+  contents: read
+
+# 배포(deploy-nas)와는 다른 줄. 같은 줄에 서면 대기 중인 배포가 취소될 수 있다.
+concurrency:
+  group: nas-backup
+  cancel-in-progress: false
+
+jobs:
+  run:
+    if: vars.NAS_DEPLOY_ENABLED == 'true'
+    runs-on: [self-hosted, nas]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: 백업
+        if: github.event.schedule == '17 18 * * *' || (github.event_name == 'workflow_dispatch' && inputs.task == 'backup')
+        run: bash ops/backup.sh
+      - name: 복구 훈련
+        if: github.event.schedule == '43 18 * * 0' || (github.event_name == 'workflow_dispatch' && inputs.task == 'restore-check')
+        run: bash ops/restore-check.sh

@@ -383,7 +383,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 - 파일 크기: 600줄 초과 경고, 1,000줄 초과 CI 실패(자동 생성 파일 제외). 기존 프로젝트는 최대 4,765줄이었다 [V].
 - 복사해 쓴 코드·데이터의 출처와 라이선스는 `THIRD_PARTY_NOTICES.md`에 적는다(FastNoiseLite 등).
 - 보호 경로(`packages/protocol`, 원장, `packages/planet` 생성기, `packages/sim`)는 ADR 링크 없이 의미를 바꾸지 않는다.
-- AI 지침: `AGENTS.md`가 원본, `CLAUDE.md`는 `@AGENTS.md`로 불러온다 [V: Claude Code 문서]. Antigravity는 `AGENTS.md`를 읽는 것으로 알려져 있다 [A: 3차 출처, IDE 버전 확인 필요].
+- AI 지침: `AGENTS.md`가 원본, `CLAUDE.md`는 `@AGENTS.md`로 불러온다 [V: Claude Code 문서]. Antigravity는 `AGENTS.md`를 읽는 것으로 알려져 있다 [A: 3차 출처, IDE 버전 확인 필요]. 스킬은 `.claude/skills/`에 두고 Antigravity는 같은 폴더를 `.agent/skills`(링크)로 읽는다. 구성·사용 순서는 ADR 19와 AGENTS.md 8장.
 
 ### 10.5 테스트 전략
 | 종류 | 대상 |
@@ -459,6 +459,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 | 16 | 개발 방식 (모듈 경계 도구는 17로 대체) | `2026-10-28-dev-workflow.md` |
 | 17 | M0 골격의 검사·빌드 도구 구성 | `2026-10-28-m0-toolchain.md` |
 | 18 | NAS 커널 4.4 대응(실행 환경, CPU 상한) | `2026-10-28-nas-kernel-limits.md` |
+| 19 | AI 스킬 구성(디자인 스킬 설치, 한국어 스킬) | `2026-10-28-agent-skills.md` |
 
 ---
 

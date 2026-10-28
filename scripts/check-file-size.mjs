@@ -5,8 +5,8 @@ import { fail, listFiles } from "./lib.mjs";
 const WARN_LINES = 600;
 const FAIL_LINES = 1000;
 const CODE = /\.(ts|tsx|js|mjs|cjs|css)$/;
-// 자동 생성 파일은 제외
-const GENERATED = [/\/src\/paraglide\//, /\/dist\//];
+// 자동 생성 파일과 외부에서 그대로 복사한 스킬은 제외
+const GENERATED = [/\/src\/paraglide\//, /\/dist\//, /^\.claude\/skills\//, /^\.agent\//];
 
 const errors = [];
 for (const file of listFiles()) {

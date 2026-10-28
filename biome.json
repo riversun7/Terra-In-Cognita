@@ -12,6 +12,8 @@
       "!**/src/paraglide/**",
       "!**/dist/**",
       "!docs/research/**",
+      "!.claude/**",
+      "!.agent/**",
       "!pnpm-lock.yaml"
     ]
   },

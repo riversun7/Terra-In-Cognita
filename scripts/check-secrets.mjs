@@ -1,6 +1,6 @@
 // 간단한 비밀값 검사 — 커밋 전에 흔한 유출 형태만 빠르게 잡는다.
 // 전체 검사는 CI의 gitleaks가 맡는다.
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { fail, git, listFiles } from "./lib.mjs";
 
 const staged = process.argv.includes("--staged");
@@ -24,7 +24,8 @@ for (const file of files) {
     errors.push(`${file}: .env 파일은 커밋하지 않습니다.`);
     continue;
   }
-  if (!existsSync(file) || file.startsWith("docs/research/")) continue;
+  // 일반 파일만 읽는다 (폴더를 가리키는 링크 `.agent/skills` 등은 건너뜀)
+  if (!existsSync(file) || !lstatSync(file).isFile() || file.startsWith("docs/research/")) continue;
   const text = readFileSync(file, "utf8");
   if (text.includes("\u0000")) continue; // 이진 파일 건너뜀
   text.split("\n").forEach((line, index) => {

@@ -6,3 +6,4 @@ docs
 *.md
 !apps/**/README.md
 .claude
+.agent

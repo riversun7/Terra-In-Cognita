@@ -89,3 +89,22 @@
 
 git 훅: 커밋 전(포맷·비밀값), 커밋 메시지(Conventional Commits), 푸시 전(`pnpm check` + 문서 규칙 + 목차 최신 여부).
 새 패키지를 만들면 `scripts/check-boundaries.mjs`의 `ALLOWED` 표에 넣는다. 배포·NAS는 `ops/nas-setup.md`.
+
+## 8. UI·디자인 작업과 스킬
+
+스킬은 `.claude/skills/`에 있다(Claude Code). Antigravity는 같은 폴더를 `.agent/skills`(링크)로 읽는다. 구성과 이유는 ADR `docs/adr/2026-10-28-agent-skills.md`.
+
+화면을 만들거나 고칠 때는 이 순서로 스킬을 쓴다.
+1. 방향: `frontend-design` — 분위기·글꼴·색의 방향을 코드보다 먼저 정한다.
+2. 디자인 시스템·규칙: `ui-ux-pro-max` — 스타일, 색 조합, 글꼴 조합, UX 규칙을 검색한다(스택은 `react`, `python3` 필요). 기본 스타일 엔진은 이것 하나다.
+3. 움직임: 새로 만들 때 `animate`, 끊길 때 `animation-performance`, 다듬을 때 `emil-design-eng`.
+4. React 코드: `react-best-practices`(Next.js 서버 전용 규칙은 해당 없음).
+5. 마무리 검토: `web-design-guidelines`(접근성·UX 규칙) → `impeccable`(audit·polish) → `review-animations` → `break-ui`(긴 한국어·영어, 빈 값, 큰 숫자).
+6. 한국어 문구·문서·보고: `korean-writing`.
+
+- `hallmark`, `taste-skill`은 다른 시각 방향을 시험할 때나 사용자가 이름을 말할 때만 쓴다. `find-animation-opportunities`, `improve-animations`, `animation-vocabulary`는 필요할 때.
+- 디자인 시스템(색·글꼴·간격 토큰)은 아직 정하지 않았다. 첫 본격 화면 작업 때 `ui-ux-pro-max`로 후보를 만들고, 사용자 확인 뒤 ADR로 정한다.
+- **스킬보다 이 문서가 우선한다.** 모바일 우선, 화면 문구는 메시지 키(ko·en 함께), 성능 기준(PLAN 11장). 스킬이 권하는 새 런타임 의존성(Tailwind, framer-motion, shadcn 등)은 ADR을 먼저 쓴다.
+- 스킬이 훅을 설치하거나 설정 파일(`.claude/settings.json` 등)을 바꾸려 하면 사용자 승인 뒤에만 한다(`hallmark`의 install-hook, `/impeccable hooks on`).
+- `impeccable`의 일부 명령은 처음 실행할 때 GitHub에서 실행 파일을 내려받는다(체크섬 검증). 환경이 막으면 그 명령은 건너뛰고 문서 기반 규칙만 쓴다.
+- 외부 스킬 폴더는 고치지 않는다(PROTECTED). 갱신은 원본에서 다시 복사하고 `THIRD_PARTY_NOTICES.md`의 커밋을 바꾼다.

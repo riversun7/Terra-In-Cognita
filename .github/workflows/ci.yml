@@ -26,6 +26,9 @@ jobs:
     timeout-minutes: 20
     outputs:
       deploy: ${{ steps.changes.outputs.deploy }}
+      # 검사를 통과한 서버 팩(content/core)의 버전·해시 — 이미지 점검과 배포 점검이 /health와 비교한다
+      content_version: ${{ steps.content.outputs.content_version }}
+      content_hash: ${{ steps.content.outputs.content_hash }}
     # DB 통합 테스트용 — 운영과 같은 PostgreSQL 이미지. 이 작업 안에서만 쓰고 버리므로 비밀번호 없이 연다
     services:
       postgres:
@@ -71,6 +74,9 @@ jobs:
             echo "::error::apps/server/src/db/schema.ts에 맞는 마이그레이션이 없습니다. pnpm --filter @terra/server db:generate 후 커밋하세요."
             exit 1
           fi
+      - name: 콘텐츠 검증 (content-check — 스키마·참조·ID 변경표 + 이전 버전 호환, 버전·해시를 작업 출력으로)
+        id: content
+        run: node scripts/check-content.mjs "${{ github.event.pull_request.base.sha || github.event.before }}" --print >> "$GITHUB_OUTPUT"
       - name: 작업 기록 목차 최신 여부
         run: pnpm docs:index --check
       - name: 문서 갱신 규칙 (코드 변경 → 작업 기록, 새 런타임 의존성 → ADR)
@@ -114,7 +120,10 @@ jobs:
             --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
             --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             -t "$IMAGE_REF" .
-      - name: 이미지 동작 확인 (컨테이너 실행 → /health, 첫 화면)
+      - name: 이미지 동작 확인 (컨테이너 실행 → /health, 첫 화면, 자동 점검)
+        env:
+          EXPECT_CONTENT_VERSION: ${{ needs.check.outputs.content_version }}
+          EXPECT_CONTENT_HASH: ${{ needs.check.outputs.content_hash }}
         run: |
           docker run -d --name smoke -p 127.0.0.1:4100:4100 "$IMAGE_REF"
           ok=""
@@ -124,12 +133,16 @@ jobs:
           done
           if [ -z "$ok" ]; then docker logs smoke; exit 1; fi
           curl -fsS http://127.0.0.1:4100/ | grep -q 'id="root"'
+          # 배포와 같은 점검(ops/smoke.mjs)을 컨테이너 안의 node로. DB 없이 띄웠으므로 db는 off
+          docker exec -i -e EXPECT_DB=off -e EXPECT_CONTENT_VERSION -e EXPECT_CONTENT_HASH smoke \
+            node --input-type=module - < ops/smoke.mjs || { docker logs smoke; exit 1; }
           docker rm -f smoke
       - name: 이미지 푸시
         run: docker push "$IMAGE_REF"
 
   deploy:
-    needs: image
+    # check: 콘텐츠 버전·해시(작업 출력)를 배포 점검에 넘긴다
+    needs: [check, image]
     # NAS에 실행기를 설치하고 저장소 변수 NAS_DEPLOY_ENABLED=true를 켜야 동작한다 (ops/nas-setup.md)
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && vars.NAS_DEPLOY_ENABLED == 'true'
     runs-on: [self-hosted, nas]
@@ -145,4 +158,4 @@ jobs:
       - name: GHCR 로그인
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: 배포
-        run: bash ops/deploy.sh "${{ needs.image.outputs.tag }}"
+        run: bash ops/deploy.sh "${{ needs.image.outputs.tag }}" "${{ needs.check.outputs.content_version }}" "${{ needs.check.outputs.content_hash }}"

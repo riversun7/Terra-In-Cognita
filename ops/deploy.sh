@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # NAS 배포 스크립트 — NAS의 self-hosted runner가 실행한다 (docs/adr/2026-10-28-deploy-and-ops.md)
-# 순서: 비밀값 준비 → 이미지 받기 → DB 기동·백업 → 마이그레이션 → 앱 교체 → 헬스체크 → 실패 시 이전 버전으로 되돌림
+# 순서: 비밀값 준비 → 이미지 받기 → DB 기동·백업 → 마이그레이션 → 앱 교체 → 헬스체크 + 자동 점검 → 실패 시 이전 버전으로 되돌림
+# 사용: deploy.sh <이미지 태그> [콘텐츠 버전] [콘텐츠 해시]
+#   콘텐츠 버전·해시는 CI가 검사한 팩의 값(check 작업 출력). 주면 새 앱의 /health가 같은지 본다(ops/smoke.mjs)
 set -euo pipefail
 
-TAG="${1:?사용법: deploy.sh <이미지 태그>}"
+TAG="${1:?사용법: deploy.sh <이미지 태그> [콘텐츠 버전] [콘텐츠 해시]}"
+EXPECT_CONTENT_VERSION="${2:-}"
+EXPECT_CONTENT_HASH="${3:-}"
 DATA_DIR="${TERRA_DATA_DIR:-/volume1/docker/terra-in-cognita}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="$DATA_DIR/.env"
@@ -21,6 +25,13 @@ wait_healthy() {
   echo "$1 헬스체크 실패 (상태: $status)"
   docker logs --tail 50 "$1" || true
   return 1
+}
+
+# 새 앱이 실제로 응답하는지 점검한다: /health(DB·콘텐츠 버전·해시) + WebSocket hello → welcome.
+# 실행기에 node가 없어도 되게 컨테이너 안의 node로 돌린다(스크립트는 표준 입력으로 넘김)
+smoke() {
+  docker exec -i -e EXPECT_DB=ok -e "EXPECT_CONTENT_VERSION=$EXPECT_CONTENT_VERSION" \
+    -e "EXPECT_CONTENT_HASH=$EXPECT_CONTENT_HASH" tic-app node --input-type=module - < "$HERE/smoke.mjs"
 }
 
 mkdir -p "$DATA_DIR/pgdata" "$DATA_DIR/backups"
@@ -54,8 +65,9 @@ fi
 #    → 마이그레이션은 직전 버전 앱이 그대로 돌 수 있게 만든다 (docs/adr/2026-10-28-db-access-and-migrations.md)
 compose run --rm --no-deps app node dist/migrate.js
 
-# 6) 앱 교체 → 7) 헬스체크 (최대 약 90초). 컨테이너 생성 실패든 헬스체크 실패든 이전 버전으로
-if ! compose up -d app || ! wait_healthy tic-app 45; then
+# 6) 앱 교체 → 7) 헬스체크(최대 약 90초) + 자동 점검. 컨테이너 생성·헬스체크·점검 중 하나라도 실패하면 이전 버전으로.
+#    콘텐츠 팩이 틀리면 앱이 시작하지 않아(코드 1) 헬스체크에서 걸린다
+if ! compose up -d app || ! wait_healthy tic-app 45 || ! smoke; then
   if [ -n "$PREV_TAG" ]; then
     echo "이전 버전으로 되돌립니다: $PREV_TAG"
     TERRA_TAG="$PREV_TAG" compose up -d app

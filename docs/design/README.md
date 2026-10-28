@@ -5,8 +5,8 @@
 읽는 순서(기획 세션 안내): `00_README.md` → `02_Decision_Log.md` → `10_Concept.md`·`20_Core_Loop.md`·`30_World.md`·`40_Systems/` → `03_Planning_Rules.md`. 기술 쪽 영향 범위를 볼 때는 `03_Planning_Rules.md` 10장(결합 지도)을 본다.
 
 - 원본: AntiGravt01 저장소, 브랜치 `claude/sweet-wright-4ubb2u`, 폴더 `docs/GDD_v4/`
-- 원본 커밋: `e83d6210010af04b0861f9b48cfa495f8e216487` (결정 로그 D-001~D-138)
-- 동기화 시각: 2026-10-28 22:15 (KST)
+- 원본 커밋: `3c2668b4bab223cce5acefe9401f11a829573953` (결정 로그 D-001~D-138)
+- 동기화 시각: 2026-10-28 22:22 (KST)
 
 ## 규칙
 - 기획 세션("0.기획서 개편")이 원본을 쓰고 관리한다.
@@ -16,7 +16,8 @@
   1. 원본 브랜치를 받는다: `git fetch origin claude/sweet-wright-4ubb2u`(AntiGravt01).
   2. `docs/GDD_v4/` 전체를 이 폴더에 복사한다. 원본에서 지운 파일은 여기서도 지운다. 이 `README.md`는 미러 정보 파일이라 덮어쓰지 않는다.
   3. 위의 원본 커밋과 동기화 시각을 고친다.
-  4. 작업 기록을 하나 쓰고 `pnpm docs:index`를 돌린다.
+  4. 작업 기록을 하나 쓰고 `pnpm docs:index`를 돌린다. 같은 날 다시 동기화하면 그날 기록에 한 줄을 더한다.
   5. `docs(design): …`로 커밋한다.
+- 기획 세션은 원본을 푸시하면 커밋 번호를 알려 준다(기획 규칙 03 §9.4). 그때 다시 복사한다.
 - 기획 세션이 기술 쪽에 알리는 결정은 `00_README.md`의 "3-1. 연계 저장소"에 있다.
 - 기술 쪽에서 기획에 넘긴 질문은 `docs/PLAN.md` 14장에 있다.

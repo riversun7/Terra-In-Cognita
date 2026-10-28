@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-28 16:45 | 외부 접속(역방향 프록시) 설정 확인 | Claude Code (클라우드 세션) | [28-1645-external-access](worklog/2026/10/28-1645-external-access.md) |
 | 2026-10-28 16:25 | 첫 NAS 배포: CPU 상한 오류 수정 | Claude Code (클라우드 세션) | [28-1625-first-deploy](worklog/2026/10/28-1625-first-deploy.md) |
 | 2026-10-28 16:10 | NAS 사양 수집 결과 기록 | Claude Code (클라우드 세션) | [28-1610-nas-facts](worklog/2026/10/28-1610-nas-facts.md) |
 | 2026-10-28 15:35 | NAS 실행기 무한 재시작 수정, NAS 컨테이너 정리 안내 | Claude Code (클라우드 세션) | [28-1535-runner-fix-nas-cleanup](worklog/2026/10/28-1535-runner-fix-nas-cleanup.md) |

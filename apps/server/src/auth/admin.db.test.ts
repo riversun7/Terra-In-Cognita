@@ -222,7 +222,12 @@ describe.skipIf(!TEST_DATABASE_URL)("관리자 기능·감사 기록·관리 명
       trpcMutation(app, "admin.users.setRoles", { userId: player, roles: ["player"] }, admin),
       trpcMutation(app, "admin.users.setRoles", { userId: root, roles: ["player"] }, second),
     ]);
-    expect(results.map((res) => res.statusCode).toSorted((a, b) => a - b)).toEqual([200, 412]);
+    // 진 쪽이 받는 답은 실행 순서에 따라 다르다. 둘 다 안전하다(admin은 한 명 남는다).
+    // - 412: 둘 다 권한 확인을 지난 뒤, 잠금 다음 차례에서 마지막 admin 규칙에 걸림
+    // - 403: 이긴 쪽이 먼저 내려서, 진 쪽이 권한 확인에서 막힘
+    const [winner, loser] = results.map((res) => res.statusCode).toSorted((a, b) => a - b);
+    expect(winner).toBe(200);
+    expect([403, 412]).toContain(loser);
     const admins = await rows(test.db, "select username from users where role ~ '(^|,)admin(,|$)'");
     expect(admins).toHaveLength(1);
   });

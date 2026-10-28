@@ -11,9 +11,45 @@ export {
   clientMessageSchema,
   serverMessageSchema,
   type ClientMessage,
+  type ClientMessageOf,
   type ServerMessage,
+  type ServerMessageOf,
 } from "./messages.ts";
-export { encodeMessage, decodeClientMessage, decodeServerMessage, ProtocolError } from "./codec.ts";
+export {
+  MAX_BUILDING_SIDE,
+  MAX_PATH_POINTS,
+  MAX_UNIT_SPEED,
+  POSITION_UNITS_PER_CELL,
+  RESULT_CODES,
+  S1_TEST_MAP_KEY,
+  SECOND_MAP_CELLS,
+  SECOND_MAP_PROTOCOL_VERSION,
+  SECOND_MAP_UNITS,
+  UNIT_SIZE_CLASSES,
+  buildingSchema,
+  unitMotionSchema,
+  type BuildingWire,
+  type ResultCode,
+  type UnitMotionWire,
+} from "./secondMap.ts";
+export {
+  TERRAIN_CACHE_CONTROL,
+  TERRAIN_FORMAT_VERSION,
+  TERRAIN_HEADER_BYTES,
+  TERRAIN_ROUTE,
+  TERRAIN_SURFACE,
+  decodeTerrain,
+  encodeTerrain,
+  terrainPath,
+  type TerrainData,
+} from "./terrain.ts";
+export {
+  encodeMessage,
+  decodeClientMessage,
+  decodeServerMessage,
+  ProtocolError,
+  utf8ByteLength,
+} from "./codec.ts";
 export {
   TELEMETRY_LIMITS,
   TELEMETRY_MAX_BODY_BYTES,

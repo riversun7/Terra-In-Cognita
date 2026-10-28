@@ -1,5 +1,7 @@
 // 메시지 정의 (Zod 스키마 = 런타임 검증 + 타입)
+// 2차맵 메시지(구독·명령·전송)는 secondMap.ts에 있다(프로토콜 2부터).
 import { z } from "zod";
+import { secondMapClientMessages, secondMapServerMessages } from "./secondMap.ts";
 
 const nonNegativeInt = z.number().int().nonnegative();
 const timestampMs = z.number().nonnegative();
@@ -20,7 +22,11 @@ const pingMessage = z.object({
   clientSendTime: timestampMs,
 });
 
-export const clientMessageSchema = z.discriminatedUnion("t", [helloMessage, pingMessage]);
+export const clientMessageSchema = z.discriminatedUnion("t", [
+  helloMessage,
+  pingMessage,
+  ...secondMapClientMessages,
+]);
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
 
 // ---------- 서버 → 기기 ----------
@@ -47,5 +53,14 @@ const pongMessage = z.object({
   serverTime: timestampMs,
 });
 
-export const serverMessageSchema = z.discriminatedUnion("t", [welcomeMessage, rejectMessage, pongMessage]);
+export const serverMessageSchema = z.discriminatedUnion("t", [
+  welcomeMessage,
+  rejectMessage,
+  pongMessage,
+  ...secondMapServerMessages,
+]);
 export type ServerMessage = z.infer<typeof serverMessageSchema>;
+
+/** `t`로 고른 메시지 타입 (예: `ClientMessageOf<"subscribe">`) */
+export type ClientMessageOf<T extends ClientMessage["t"]> = Extract<ClientMessage, { t: T }>;
+export type ServerMessageOf<T extends ServerMessage["t"]> = Extract<ServerMessage, { t: T }>;

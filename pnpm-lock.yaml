@@ -87,6 +87,9 @@ importers:
       '@terra/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@trpc/server':
+        specifier: 11.19.0
+        version: 11.19.0(typescript@7.0.2)
       drizzle-orm:
         specifier: 1.0.0-rc.5
         version: 1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.7)
@@ -96,7 +99,13 @@ importers:
       pg:
         specifier: 8.23.1
         version: 8.23.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
+      '@trpc/client':
+        specifier: 11.19.0
+        version: 11.19.0(@trpc/server@11.19.0(typescript@7.0.2))(typescript@7.0.2)
       '@types/pg':
         specifier: 8.23.1
         version: 8.23.1
@@ -1007,6 +1016,19 @@ packages:
   '@sindresorhus/merge-streams@4.0.0':
     resolution: {integrity: sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ==}
     engines: {node: '>=18'}
+
+  '@trpc/client@11.19.0':
+    resolution: {integrity: sha512-0MKkPq6MejsKB5Opca1Rl22KVIaqo2+A1EiXyZ8EGUsl9TLrPdpGn+Usux20TZKFwnSC2+wI/WilqNJaP4ODfw==}
+    hasBin: true
+    peerDependencies:
+      '@trpc/server': 11.19.0
+      typescript: '>=5.7.2'
+
+  '@trpc/server@11.19.0':
+    resolution: {integrity: sha512-7C1goiDurz82yFKtZUbEzjXd0Rg/jyisaIZQhdvus+1l7E6mwcEYZXjZ1US/HF8kOyz1LERL8UN3bcboJtjcyQ==}
+    hasBin: true
+    peerDependencies:
+      typescript: '>=5.7.2'
 
   '@tybys/wasm-util@0.10.4':
     resolution: {integrity: sha512-W3c4gRigFS0T/Ma4qIYF3GDAc5AQdHb1yL5znJT1Zv1YaD9Kitx656wBjvr19qbiosmZT8lWDM5BEMynUqX65A==}
@@ -2992,6 +3014,15 @@ snapshots:
   '@sinclair/typebox@0.31.30': {}
 
   '@sindresorhus/merge-streams@4.0.0': {}
+
+  '@trpc/client@11.19.0(@trpc/server@11.19.0(typescript@7.0.2))(typescript@7.0.2)':
+    dependencies:
+      '@trpc/server': 11.19.0(typescript@7.0.2)
+      typescript: 7.0.2
+
+  '@trpc/server@11.19.0(typescript@7.0.2)':
+    dependencies:
+      typescript: 7.0.2
 
   '@tybys/wasm-util@0.10.4':
     dependencies:

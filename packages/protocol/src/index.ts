@@ -24,3 +24,4 @@ export {
   type ClientErrorReport,
   type PerfReport,
 } from "./telemetry.ts";
+export { TRPC_PATH } from "./api.ts";

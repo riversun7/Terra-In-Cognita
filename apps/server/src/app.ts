@@ -9,6 +9,9 @@ import { type Database, pingDatabase } from "./db/client.ts";
 import { startServerMetrics } from "./metrics.ts";
 import { handleSession } from "./session.ts";
 import { registerTelemetry } from "./telemetry.ts";
+import { createContextFactory } from "./trpc/context.ts";
+import { registerTrpc } from "./trpc/plugin.ts";
+import { appRouter } from "./trpc/router.ts";
 
 export interface AppOptions {
   contentVersion: string;
@@ -27,6 +30,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     logger: options.logger ?? true,
     // DSM 역방향 프록시 뒤에서 실제 접속 주소를 읽기 위해
     trustProxy: true,
+    // tRPC 묶음 요청은 경로에 프로시저 이름을 쉼표로 잇는다(/api/trpc/a,b,c). 기본 100자는 짧다.
+    routerOptions: { maxParamLength: 5_000 },
   });
 
   await app.register(websocket, { options: { maxPayload: MAX_MESSAGE_BYTES } });
@@ -46,6 +51,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   });
 
   registerTelemetry(app, { db: options.db, now });
+  await registerTrpc(app, {
+    router: appRouter,
+    createContext: createContextFactory({ contentVersion: options.contentVersion, now }),
+  });
 
   let wsConnections = 0;
   await app.register(async (scope) => {

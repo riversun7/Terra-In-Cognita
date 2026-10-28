@@ -50,3 +50,22 @@ export {
   type CellRect,
   type PlacementGrid,
 } from "./grid/placementGrid.ts";
+export {
+  DEFAULT_NODE_BUDGET,
+  DIAGONAL_STEP,
+  STRAIGHT_STEP,
+  createPathfinder,
+  type CellPoint,
+  type PathRequest,
+  type PathResult,
+  type Pathfinder,
+} from "./path/astar.ts";
+export {
+  anchorAt,
+  anchorCenter,
+  cellPathToWaypoints,
+  planRoute,
+  simplifyCellPath,
+  type RouteRequest,
+  type RouteResult,
+} from "./path/waypoints.ts";

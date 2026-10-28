@@ -72,12 +72,16 @@
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
+/* 가운데 안내 — 양옆을 0으로 두고 가운데로 모은다(left: 50%면 쓸 수 있는 폭이 반이 되어 일찍 줄이 바뀐다) */
 .map-notice {
   position: absolute;
   top: 50%;
-  left: 50%;
+  left: 0;
+  right: 0;
+  width: fit-content;
   max-width: calc(100% - 2 * var(--space-6));
-  transform: translate(-50%, -50%);
+  margin-inline: auto;
+  transform: translateY(-50%);
   font-weight: var(--font-weight-strong);
   text-align: center;
 }

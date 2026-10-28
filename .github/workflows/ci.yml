@@ -41,7 +41,7 @@ jobs:
     env:
       TEST_DATABASE_URL: postgres://terra@127.0.0.1:5432/terra
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: 배포가 필요한 변경인지 (문서·스킬만 바뀌면 이미지·배포 생략)
@@ -56,7 +56,7 @@ jobs:
             echo "deploy=false" >> "$GITHUB_OUTPUT"
             echo "문서·스킬만 바뀌어 이미지 빌드와 배포를 건너뜁니다." >> "$GITHUB_STEP_SUMMARY"
           fi
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
       - run: npm install -g pnpm@${{ env.PNPM_VERSION }}
@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: gitleaks (저장소 전체 이력)
@@ -100,7 +100,7 @@ jobs:
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - id: meta
         run: |
           echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
@@ -141,7 +141,7 @@ jobs:
       group: deploy-nas
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: GHCR 로그인
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: 배포

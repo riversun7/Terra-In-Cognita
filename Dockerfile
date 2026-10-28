@@ -12,8 +12,11 @@ COPY apps/server/package.json apps/server/
 COPY packages/content/package.json packages/content/
 # 게임 앱이 쓰는 2차맵 엔진(three 포함). pnpm은 package.json이 없어도 잠금 파일대로 설치하지만(2026-10-29 확인), 쓰는 묶음은 적어 둔다
 COPY packages/engine/package.json packages/engine/
+# 서버가 쓰는 행성 격자(셀 키)·판정 코드(경로·이동·배치·임시 지형). 같은 이유로 적어 둔다
+COPY packages/planet/package.json packages/planet/
 COPY packages/protocol/package.json packages/protocol/
 COPY packages/shared/package.json packages/shared/
+COPY packages/sim/package.json packages/sim/
 RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY . .
 ARG APP_BUILD=dev

@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/src/paraglide
+.git
+docs
+*.md
+!apps/**/README.md
+.claude

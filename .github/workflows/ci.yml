@@ -1,0 +1,99 @@
+# CI — main 푸시마다 전체 검사 → 이미지 → (NAS 실행기가 있으면) 배포
+# docs/adr/2026-10-28-dev-workflow.md, docs/adr/2026-10-28-deploy-and-ops.md
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# PR은 새 푸시가 오면 이전 실행을 취소한다. main은 취소하지 않는다(배포 도중에 끊기지 않게).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: "24.22.1"
+  PNPM_VERSION: "11.28.9"
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm install -g pnpm@${{ env.PNPM_VERSION }}
+      - run: pnpm install --frozen-lockfile
+      - name: 검사 (포맷·린트·타입·경계·파일 크기·다국어·테스트)
+        run: pnpm check
+      - name: 작업 기록 목차 최신 여부
+        run: pnpm docs:index --check
+      - name: 문서 갱신 규칙 (코드 변경 → 작업 기록, 새 런타임 의존성 → ADR)
+        run: node scripts/check-docs.mjs "${{ github.event.pull_request.base.sha || github.event.before }}"
+      - name: 빌드
+        run: pnpm build
+
+  secrets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: gitleaks (저장소 전체 이력)
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git --no-banner --redact -v /repo
+
+  image:
+    needs: [check, secrets]
+    # main 푸시 또는 main에서 수동 실행(Run workflow)할 때만
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: meta
+        run: echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+      - name: GHCR 로그인
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: 이미지 빌드·푸시
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          # source 라벨: GHCR 패키지를 이 저장소에 연결한다(권한 상속)
+          docker build --build-arg APP_BUILD="${GITHUB_SHA::12}" \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            -t "$IMAGE:${{ steps.meta.outputs.tag }}" .
+          docker push "$IMAGE:${{ steps.meta.outputs.tag }}"
+
+  deploy:
+    needs: image
+    # NAS에 실행기를 설치하고 저장소 변수 NAS_DEPLOY_ENABLED=true를 켜야 동작한다 (ops/nas-setup.md)
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && vars.NAS_DEPLOY_ENABLED == 'true'
+    runs-on: [self-hosted, nas]
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    concurrency:
+      group: deploy-nas
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+      - name: GHCR 로그인
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: 배포
+        run: bash ops/deploy.sh "${{ needs.image.outputs.tag }}"

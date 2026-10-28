@@ -1,0 +1,26 @@
+# NAS용 GitHub Actions 실행기(self-hosted runner) — 설치 안내: ops/nas-setup.md
+# Container Manager → 프로젝트 → 생성 → 이 내용을 붙여넣고 RUNNER_TOKEN만 바꾼다.
+name: tic-runner
+
+services:
+  runner:
+    image: myoung34/github-runner:2.338.2-ubuntu-noble
+    container_name: tic-runner
+    restart: unless-stopped
+    environment:
+      REPO_URL: https://github.com/riversun7/Terra-In-Cognita
+      RUNNER_NAME: nas
+      LABELS: nas
+      # GitHub 저장소 Settings → Actions → Runners → New self-hosted runner 화면의 토큰 (1시간 유효)
+      RUNNER_TOKEN: "여기에_토큰_붙여넣기"
+      # 등록 정보를 저장해 재시작해도 다시 등록하지 않게 한다
+      CONFIGURED_ACTIONS_RUNNER_FILES_DIR: /volume1/docker/tic-runner/config
+      # 작업 폴더는 NAS와 같은 경로로 연결해야 컨테이너 안 도구가 파일을 찾는다
+      RUNNER_WORKDIR: /volume1/docker/tic-runner/work
+    volumes:
+      # Docker 제어 권한 — 이 실행기는 NAS의 컨테이너를 만들고 바꿀 수 있다 (main 브랜치 작업만 실행)
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /volume1/docker/tic-runner:/volume1/docker/tic-runner
+      - /volume1/docker/terra-in-cognita:/volume1/docker/terra-in-cognita
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"

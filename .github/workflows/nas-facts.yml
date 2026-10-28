@@ -1,0 +1,42 @@
+# NAS 사양 수집 — 실행기 설치 후 Actions 탭에서 수동 실행한다 (ops/nas-setup.md)
+name: nas-facts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  facts:
+    runs-on: [self-hosted, nas]
+    timeout-minutes: 10
+    steps:
+      - name: 사양 수집
+        run: |
+          DATA_DIR=/volume1/docker/terra-in-cognita
+          mkdir -p "$DATA_DIR/fsync-test"
+          {
+            echo "## NAS 사양 ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+            echo '```'
+            echo "kernel: $(uname -r)"
+            echo "arch:   $(uname -m)"
+            echo "cpu:    $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | xargs)"
+            echo "cores:  $(nproc)"
+            echo; free -m
+            echo; df -h "$DATA_DIR"
+            echo; echo "disks (rotational 1=HDD, 0=SSD):"
+            for d in /sys/block/*; do
+              case "${d##*/}" in loop*|ram*|zram*|dm-*|md*) continue ;; esac
+              if [ -r "$d/queue/rotational" ]; then echo "  ${d##*/}: $(cat "$d/queue/rotational")"; fi
+            done
+            echo; docker version --format 'docker engine: {{.Server.Version}}'
+            docker compose version
+            echo; echo "running containers:"; docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}'
+            echo '```'
+            echo "### 디스크 동기화 지연 (pg_test_fsync, 2초씩)"
+            echo '```'
+            docker run --rm -v "$DATA_DIR/fsync-test:/test" postgres:18.6-trixie pg_test_fsync -f /test/fsync.tmp -s 2
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          rm -rf "$DATA_DIR/fsync-test"

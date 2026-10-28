@@ -1,6 +1,7 @@
 // 관리자 화면 — 지연 로딩되는 별도 조각(App.tsx의 React.lazy). admin에게만 버튼이 보이고, 서버가 매 요청 권한을 본다.
 // 사용자 찾기(아이디 일부), 쪽 나누기 목록(admin.users.list), 사용자마다 역할 바꾸기(admin.users.setRoles).
 // 오류는 tRPC error.data.code → 메시지 키(adminErrors.ts). 로그인이 끝났으면(UNAUTHORIZED) 세션을 다시 확인한다.
+// 빽빽한 화면이라 촘촘 변형(data-density="compact": 버튼 턱 0, 모서리 작게, 조작부 44px)을 쓴다(ADR 2026-10-28-design-system).
 import type { AccountView } from "@terra/shared";
 import { type FormEvent, useEffect, useId, useState } from "react";
 import { refreshSession } from "../auth/session.ts";
@@ -98,12 +99,12 @@ export default function AdminPage({ viewer, onClose }: AdminPageProps) {
   const hasNext = list !== null && list.offset + list.users.length < list.total;
 
   return (
-    <section className="screen admin" aria-labelledby="admin-title">
-      <div className="admin-header">
+    <section className="screen admin" data-density="compact" aria-labelledby="admin-title">
+      <div className="screen-header">
         <h1 id="admin-title" className="screen-title" ref={headingRef} tabIndex={-1}>
           {m.admin_title()}
         </h1>
-        <button type="button" onClick={onClose}>
+        <button type="button" className="button-small" onClick={onClose}>
           {m.admin_back()}
         </button>
       </div>

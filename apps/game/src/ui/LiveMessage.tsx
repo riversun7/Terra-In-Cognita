@@ -1,9 +1,11 @@
 // 알림 영역 — 오류는 role="alert", 안내는 role="status". 영역은 늘 두고 문구만 바꾼다.
 // 읽기 프로그램은 처음부터 있던 영역의 변화만 잘 읽는다. 그래서 문구는 영역이 그려진 다음에 넣는다(첫 그림 뒤).
 // 같은 오류가 다시 나도 읽히게, version이 바뀌면 상자를 새로 만든다.
+// 상자에는 상태 아이콘을 함께 그린다(색만으로 알리지 않는다).
 import { useCallback, useEffect, useState } from "react";
+import { StatusIcon, type StatusTone } from "./StatusIcon.tsx";
 
-export type MessageTone = "error" | "success" | "info";
+export type MessageTone = StatusTone;
 
 export interface LiveLines {
   lines: readonly string[];
@@ -46,9 +48,12 @@ export function LiveMessage({ tone, lines, version = 0, className }: LiveMessage
     <div role={tone === "error" ? "alert" : "status"} className={className}>
       {show ? (
         <div key={version} className={`message message-${tone}`}>
-          {lines.map((line) => (
-            <p key={line}>{line}</p>
-          ))}
+          <StatusIcon tone={tone} />
+          <div className="message-body">
+            {lines.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
         </div>
       ) : null}
     </div>

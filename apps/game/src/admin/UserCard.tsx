@@ -84,7 +84,9 @@ export function UserCard({ row, isSelf, onSaved }: UserCardProps) {
   return (
     <li className="user-card">
       <p className="user-id" id={idElement}>
-        <span className="user-login-id">{row.loginId}</span>
+        <span className="user-login-id" translate="no">
+          {row.loginId}
+        </span>
         {isSelf ? <span className="badge">{m.admin_you()}</span> : null}
         {row.banned ? <span className="badge badge-warn">{m.admin_banned()}</span> : null}
       </p>

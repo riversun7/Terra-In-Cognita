@@ -3,8 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <!-- 임시 색: vite.config.ts의 THEME_COLOR와 같아야 한다(scripts/check-pwa.mjs가 확인). manifest 링크는 빌드 때 플러그인이 넣는다 -->
-    <meta name="theme-color" content="#0b1020" />
+    <!-- 주소창 색 = 기본(파스텔) 테마의 바탕색. vite.config.ts의 THEME_COLOR와 같아야 한다(scripts/check-pwa.mjs가 확인).
+         테마가 정해지면 theme-init.js와 src/settings/settings.ts가 바꾼다. manifest 링크는 빌드 때 플러그인이 넣는다 -->
+    <meta name="theme-color" content="#dff2fb" />
+    <!-- 테마 시작 스크립트: CSS보다 먼저 <html data-theme>와 주소창 색을 정한다(첫 화면이 다른 색으로 번쩍이지 않게).
+         인라인 스크립트는 쓰지 않는다(나중에 넣을 콘텐츠 보안 정책). public/theme-init.js -->
+    <script src="/theme-init.js"></script>
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />

@@ -1,0 +1,229 @@
+/*
+ * 설정 화면 — 지연 로딩 조각과 함께 따로 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 테마 고르기는 기본 라디오 단추(보이지 않게 둠) + 옆의 카드다. :has() 없이 형제 선택자(+)로 고른 표시·초점을 그린다
+ * (Firefox 115~120은 :has()가 없다). 미리 보기는 [data-theme-preview] 안에서 그 테마의 값을 그대로 쓴다.
+ */
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.settings-section > legend {
+  padding: 0;
+  margin-bottom: var(--space-3);
+}
+
+/* 테마 카드 4개(2×2) */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.theme-option {
+  position: relative;
+  display: block;
+  min-width: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: 100%;
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+}
+/* 고른 카드 — 테두리 + 안쪽 고리(초점 색). 그림자 토큰은 none일 수 있어 섞지 않는다 */
+.theme-radio:checked + .theme-card {
+  border-color: var(--color-focus);
+  box-shadow: inset 0 0 0 var(--border-w) var(--color-focus);
+}
+.theme-radio:focus-visible + .theme-card {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.theme-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  height: var(--preview-h);
+  padding: var(--space-2);
+  overflow: hidden;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg);
+  background-image: var(--color-bg-image);
+}
+.preview-dots {
+  display: flex;
+  gap: var(--space-1);
+}
+.preview-dots > span {
+  width: var(--preview-dot);
+  height: var(--preview-dot);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+}
+.preview-dots > span:nth-child(2) {
+  background-color: var(--color-highlight);
+}
+.preview-dots > span:nth-child(3) {
+  background-color: var(--color-danger);
+}
+.preview-panel {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+}
+.preview-line {
+  width: 45%;
+  height: var(--preview-line);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-text);
+}
+.preview-button {
+  width: 30%;
+  height: calc(var(--preview-line) * 2);
+  margin-left: auto;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+}
+.theme-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 var(--space-1);
+}
+.theme-name {
+  min-width: 0;
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.theme-note {
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+}
+.radio-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  border: var(--border-w) solid var(--color-field-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-field-bg);
+}
+.theme-radio:checked + .theme-card .radio-mark {
+  border-color: var(--color-focus);
+}
+.theme-radio:checked + .theme-card .radio-mark::after {
+  content: "";
+  width: calc(var(--icon-sm) / 2);
+  height: calc(var(--icon-sm) / 2);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-focus);
+}
+
+/* "기기 설정에 맞추기" — 줄 전체가 이름표라 어디를 눌러도 켜고 끈다 */
+.setting-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap-size);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.setting-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.setting-name {
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.setting-hint {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+}
+.switch-track {
+  --switch-inset: calc((var(--switch-h) - 2 * var(--field-border-w) - var(--switch-thumb)) / 2);
+  position: relative;
+  flex: none;
+  width: var(--switch-w);
+  height: var(--switch-h);
+  border: var(--field-border-w) solid var(--color-field-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+}
+.switch-track::after {
+  content: "";
+  position: absolute;
+  top: var(--switch-inset);
+  left: var(--switch-inset);
+  width: var(--switch-thumb);
+  height: var(--switch-thumb);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-field-border);
+  transition: transform var(--duration-base) var(--easing-out);
+}
+.switch-input:checked + .switch-track {
+  background-color: var(--color-primary);
+}
+.switch-input:checked + .switch-track::after {
+  transform: translateX(
+    calc(var(--switch-w) - 2 * var(--field-border-w) - var(--switch-thumb) - 2 * var(--switch-inset))
+  );
+  background-color: var(--color-on-primary);
+}
+.switch-input:focus-visible + .switch-track {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
+.settings-language select {
+  width: 100%;
+  min-height: var(--control-h);
+  border-radius: var(--radius-control);
+}
+
+/* 윈도 고대비(강제 색) — 배경색이 지워지므로 고른 표시·스위치는 시스템 색으로 그린다 */
+@media (forced-colors: active) {
+  .theme-radio:checked + .theme-card .radio-mark::after,
+  .switch-track::after {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+  .switch-input:checked + .switch-track {
+    forced-color-adjust: none;
+    background-color: Highlight;
+  }
+  .switch-input:checked + .switch-track::after {
+    background-color: Canvas;
+  }
+}

@@ -1,0 +1,23 @@
+/*
+ * 본문 글꼴 Pretendard — ADR 2026-10-28-design-system "글꼴"
+ * - 직접 배포(CDN 없음). 처음 쓸 때 받는다: 서비스 워커는 미리 캐시하지 않고(앱 껍데기만), 서버가 /assets/를 1년 캐시한다.
+ * - 제작자가 배포한 KS X 1001 부분 집합(한글 2,350자)을 그대로 쓴다. 굵기는 400·600 두 개(토큰도 이 둘만 쓴다).
+ *   파일은 정확히 고정한 npm 꾸러미(pretendard 1.3.9)에서 빌드할 때 /assets/<이름>-<해시>.woff2로 복사된다(인라인하지 않음, vite.config.ts).
+ * - 글꼴 파일을 고치거나 줄이지 않는다(예약 이름 "Pretendard"가 있다).
+ * 제목 글꼴 Jua(Fontsource 조각 파일)는 src/main.tsx에서 불러온다.
+ */
+@font-face {
+  font-family: "Pretendard";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("pretendard/dist/web/static/woff2-subset/Pretendard-Regular.subset.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Pretendard";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("pretendard/dist/web/static/woff2-subset/Pretendard-SemiBold.subset.woff2") format("woff2");
+}

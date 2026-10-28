@@ -2,6 +2,7 @@
 // 아이디는 보내기 전에 @terra/shared parseLoginId로 검사한다(서버와 같은 규칙).
 import { type FormEvent, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { Brand } from "../ui/Brand.tsx";
 import { Field } from "../ui/Field.tsx";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import type { PlainMessageKey } from "../ui/messageRef.ts";
@@ -67,56 +68,58 @@ export function LoginScreen({ initialId, notice, focus, onNewId, onForgot }: Log
 
   return (
     <section className="screen" aria-labelledby="login-title">
-      <p className="brand">{m.app_title()}</p>
-      <h1 id="login-title" className="screen-title" ref={headingRef} tabIndex={-1}>
-        {m.auth_login_title()}
-      </h1>
-      <p className="lead">{m.auth_login_lead()}</p>
-      {notice ? <LiveMessage tone={notice.tone} lines={[text({ key: notice.key })]} /> : null}
-      <form className="form" noValidate onSubmit={(event) => void submit(event)} aria-busy={pending}>
-        <Field
-          ref={idRef}
-          label={m.auth_id_label()}
-          hint={m.auth_id_hint()}
-          error={errors.id ? text({ key: errors.id }) : undefined}
-          name="username"
-          type="text"
-          autoComplete="username"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          enterKeyHint="next"
-          value={id}
-          onChange={(event) => setId(event.target.value)}
-        />
-        <Field
-          ref={passwordRef}
-          label={m.auth_password_label()}
-          hint={m.auth_password_hint()}
-          error={errors.password ? text({ key: errors.password }) : undefined}
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          enterKeyHint="go"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-        {/* 알림 영역은 비어 있어도 자리를 지킨다. 칸 사이 간격이 두 번 생기지 않게 버튼과 묶는다 */}
-        <div className="form-end">
-          <LiveMessage tone="error" lines={failure.lines} version={failure.version} />
-          <p className="visually-hidden" role="status">
-            {pending ? m.pending() : ""}
-          </p>
-          <div className="form-actions">
-            <button type="submit" className="button-primary" aria-disabled={pending}>
-              {m.auth_sign_in()}
-            </button>
+      <Brand size="large" />
+      <div className="panel">
+        <h1 id="login-title" className="screen-title" ref={headingRef} tabIndex={-1}>
+          {m.auth_login_title()}
+        </h1>
+        <p className="lead">{m.auth_login_lead()}</p>
+        {notice ? <LiveMessage tone={notice.tone} lines={[text({ key: notice.key })]} /> : null}
+        <form className="form" noValidate onSubmit={(event) => void submit(event)} aria-busy={pending}>
+          <Field
+            ref={idRef}
+            label={m.auth_id_label()}
+            hint={m.auth_id_hint()}
+            error={errors.id ? text({ key: errors.id }) : undefined}
+            name="username"
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="next"
+            value={id}
+            onChange={(event) => setId(event.target.value)}
+          />
+          <Field
+            ref={passwordRef}
+            label={m.auth_password_label()}
+            hint={m.auth_password_hint()}
+            error={errors.password ? text({ key: errors.password }) : undefined}
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            enterKeyHint="go"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+          {/* 알림 영역은 비어 있어도 자리를 지킨다. 칸 사이 간격이 두 번 생기지 않게 버튼과 묶는다 */}
+          <div className="form-end">
+            <LiveMessage tone="error" lines={failure.lines} version={failure.version} />
+            <p className="visually-hidden" role="status">
+              {pending ? m.pending() : ""}
+            </p>
+            <div className="form-actions">
+              <button type="submit" className="button-primary" aria-disabled={pending}>
+                {m.auth_sign_in()}
+              </button>
+            </div>
           </div>
-        </div>
-      </form>
-      <button type="button" className="button-text" onClick={() => onForgot(id)}>
-        {m.auth_forgot()}
-      </button>
+        </form>
+        <button type="button" className="button-text" onClick={() => onForgot(id)}>
+          {m.auth_forgot()}
+        </button>
+      </div>
     </section>
   );
 }

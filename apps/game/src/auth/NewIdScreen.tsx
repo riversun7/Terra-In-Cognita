@@ -4,6 +4,7 @@
 import { parseLoginId } from "@terra/shared";
 import { type FormEvent, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { Brand } from "../ui/Brand.tsx";
 import { Field } from "../ui/Field.tsx";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { text } from "../ui/text.ts";
@@ -95,66 +96,70 @@ export function NewIdScreen({ loginId, password, onBack }: NewIdScreenProps) {
 
   return (
     <section className="screen" aria-labelledby="new-id-title">
-      <p className="brand">{m.app_title()}</p>
-      <h1 id="new-id-title" className="screen-title" ref={headingRef} tabIndex={-1}>
-        {m.confirm_title()}
-      </h1>
-      <p className="lead">{m.confirm_lead()}</p>
-      <dl className="new-id-box">
-        <dt className="new-id-label">{m.confirm_id_label()}</dt>
-        <dd className="new-id">{loginId}</dd>
-      </dl>
-      <form className="form" noValidate onSubmit={(event) => void submit(event)} aria-busy={pending}>
-        {/* 비밀번호 관리자가 새 비밀번호를 이 아이디로 저장하게 한다 */}
-        <input type="text" name="username" autoComplete="username" value={loginId} readOnly hidden />
-        <Field
-          ref={confirmRef}
-          label={m.confirm_password_label()}
-          hint={m.confirm_password_hint()}
-          error={errors.passwordConfirm ? text({ key: errors.passwordConfirm }) : undefined}
-          name="password-confirm"
-          type="password"
-          autoComplete="new-password"
-          enterKeyHint="next"
-          value={passwordConfirm}
-          onChange={(event) => setPasswordConfirm(event.target.value)}
-        />
-        <Field
-          ref={emailRef}
-          label={m.confirm_email_label()}
-          error={errors.email ? text({ key: errors.email }) : undefined}
-          name="email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          enterKeyHint="done"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-        <ul className="info-list">
-          <li>{m.confirm_email_with()}</li>
-          <li>{m.confirm_email_no_mail()}</li>
-          <li>{m.confirm_email_without()}</li>
-        </ul>
-        {/* 알림 영역은 비어 있어도 자리를 지킨다. 칸 사이 간격이 두 번 생기지 않게 버튼과 묶는다 */}
-        <div className="form-end">
-          <LiveMessage tone="error" lines={failure.lines} version={failure.version} />
-          <p className="visually-hidden" role="status">
-            {pending ? m.pending() : ""}
-          </p>
-          <div className="form-actions">
-            <button type="submit" className="button-primary" aria-disabled={pending}>
-              {m.confirm_create()}
-            </button>
-            <button type="button" ref={backRef} onClick={onBack}>
-              {m.confirm_retype()}
-            </button>
+      <Brand size="small" />
+      <div className="panel">
+        <h1 id="new-id-title" className="screen-title" ref={headingRef} tabIndex={-1}>
+          {m.confirm_title()}
+        </h1>
+        <p className="lead">{m.confirm_lead()}</p>
+        <dl className="new-id-box">
+          <dt className="new-id-label">{m.confirm_id_label()}</dt>
+          <dd className="new-id" translate="no">
+            {loginId}
+          </dd>
+        </dl>
+        <form className="form" noValidate onSubmit={(event) => void submit(event)} aria-busy={pending}>
+          {/* 비밀번호 관리자가 새 비밀번호를 이 아이디로 저장하게 한다 */}
+          <input type="text" name="username" autoComplete="username" value={loginId} readOnly hidden />
+          <Field
+            ref={confirmRef}
+            label={m.confirm_password_label()}
+            hint={m.confirm_password_hint()}
+            error={errors.passwordConfirm ? text({ key: errors.passwordConfirm }) : undefined}
+            name="password-confirm"
+            type="password"
+            autoComplete="new-password"
+            enterKeyHint="next"
+            value={passwordConfirm}
+            onChange={(event) => setPasswordConfirm(event.target.value)}
+          />
+          <Field
+            ref={emailRef}
+            label={m.confirm_email_label()}
+            error={errors.email ? text({ key: errors.email }) : undefined}
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="done"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+          <ul className="info-list">
+            <li>{m.confirm_email_with()}</li>
+            <li>{m.confirm_email_no_mail()}</li>
+            <li>{m.confirm_email_without()}</li>
+          </ul>
+          {/* 알림 영역은 비어 있어도 자리를 지킨다. 칸 사이 간격이 두 번 생기지 않게 버튼과 묶는다 */}
+          <div className="form-end">
+            <LiveMessage tone="error" lines={failure.lines} version={failure.version} />
+            <p className="visually-hidden" role="status">
+              {pending ? m.pending() : ""}
+            </p>
+            <div className="form-actions">
+              <button type="submit" className="button-primary" aria-disabled={pending}>
+                {m.confirm_create()}
+              </button>
+              <button type="button" ref={backRef} onClick={onBack}>
+                {m.confirm_retype()}
+              </button>
+            </div>
           </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </section>
   );
 }

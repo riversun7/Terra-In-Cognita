@@ -52,26 +52,31 @@ export function StatusPanel({ status, monitor }: { status: ConnectionStatus; mon
   // 1초마다 바뀌는 성능 값은 이 화면만 다시 그리게 여기서 읽는다
   const perf = usePerfStats(monitor);
   return (
-    <>
-      <h1>{m.app_title()}</h1>
-      <p className="status" role="status">
-        {statusText(status)}
-      </p>
-      {status.kind === "connected" && status.clock ? (
-        <p className="metrics">
-          {m.clock_offset({
-            offset: Math.round(status.clock.offsetMs),
-            rtt: Math.round(status.clock.roundTripMs),
-          })}
+    <section className="screen" aria-labelledby="home-title">
+      <div className="panel">
+        <h1 id="home-title" className="screen-title">
+          {m.app_title()}
+        </h1>
+        {/* 연결 상태 알약 — 점 색은 꾸밈이고 상태는 글자로 읽는다 */}
+        <p className="status connection" role="status" data-state={status.kind}>
+          {statusText(status)}
         </p>
-      ) : null}
-      {perf !== null ? (
-        <p className="metrics">
-          {m.fps({ fps: perf.fps })} · {m.frame_p95({ ms: perf.p95Ms })}
-          {perf.memoryMb === undefined ? null : ` · ${m.memory({ mb: perf.memoryMb })}`}
-        </p>
-      ) : null}
-      {status.kind === "rejected" ? <ReloadButton /> : null}
-    </>
+        {status.kind === "connected" && status.clock ? (
+          <p className="metrics">
+            {m.clock_offset({
+              offset: Math.round(status.clock.offsetMs),
+              rtt: Math.round(status.clock.roundTripMs),
+            })}
+          </p>
+        ) : null}
+        {perf !== null ? (
+          <p className="metrics">
+            {m.fps({ fps: perf.fps })} · {m.frame_p95({ ms: perf.p95Ms })}
+            {perf.memoryMb === undefined ? null : ` · ${m.memory({ mb: perf.memoryMb })}`}
+          </p>
+        ) : null}
+        {status.kind === "rejected" ? <ReloadButton /> : null}
+      </div>
+    </section>
   );
 }

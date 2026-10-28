@@ -1,54 +1,268 @@
 /*
- * 디자인 값(토큰) — 색·글자·간격·모서리·그림자를 모두 여기에만 둔다. 화면 스타일은 var(--…)만 쓴다.
- * 지금 값은 임시 어두운 모양이다. 디자인 시스템은 따로 정한다(사용자 결정 2026-10-28 "화면은 임시 모양으로 먼저").
- * 테마(파스텔·다크 등, 설정 화면에서 고름)는 나중에 아래처럼 같은 이름의 값만 바꿔 끼운다. 컴포넌트는 고치지 않는다.
- *   :root[data-theme="pastel"] { color-scheme: light; --color-bg: …; … }
- * 주의: 주소창 색(index.html theme-color, vite.config.ts THEME_COLOR)은 CSS 변수를 못 써서 따로 맞춘다.
+ * 디자인 값(토큰) — 색·글자·간격·모서리·그림자·움직임을 모두 여기에만 둔다. 화면 스타일은 var(--…)만 쓴다.
+ * 디자인: 후보 A "새싹 장난감"(ADR 2026-10-28-design-system). 값의 원본은 조사 문서 부록(A-sprout/tokens.css)이다.
+ * 테마 4개: :root[data-theme="…"]에서 같은 이름의 색 값만 바꾼다. 스크립트가 없을 때도 파스텔이다(:root 기본값).
+ * - data-theme은 public/theme-init.js(첫 화면 전)와 src/settings/settings.ts(실행 중)가 정한다.
+ * - 설정 화면의 미리 보기는 [data-theme-preview="…"] 안에서 같은 값을 쓴다.
+ * 함께 바꿀 곳: --color-bg를 바꾸면 주소창 색(src/settings/theme.ts THEME_COLORS, public/theme-init.js,
+ * index.html theme-color, vite.config.ts THEME_COLOR)도 바꾼다(src/settings/themeSources.test.ts가 확인).
+ * 대비는 pnpm check(scripts/check-contrast.mjs)가 테마마다 잰다.
+ * 주의: 다른 토큰을 var()로 묶은 토큰은 만들지 않는다. 묶은 값은 :root에서 한 번 계산돼 테마·촘촘 변형의 바뀐 값을 따르지 않는다.
  */
+
+/* 테마와 상관없는 값: 글꼴, 크기, 간격, 모서리, 움직임 */
 :root {
-  color-scheme: dark;
+  /* 글꼴 — 제목 Jua, 본문 Pretendard(styles/fonts.css). 받기 전과 받지 못할 때는 기기 글꼴 */
+  --font-display:
+    "Jua", "Pretendard", -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui,
+    sans-serif;
+  --font-body:
+    "Pretendard", -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
 
-  /* 색 */
-  --color-bg: #0b1020;
-  --color-surface: #18203a;
-  --color-surface-raised: #222c4d;
-  --color-border: #3a4466;
-  --color-border-strong: #5a6690;
-  --color-text: #e6e9f2;
-  --color-text-muted: #b4bbd0;
-  --color-primary: #e6e9f2;
-  --color-on-primary: #0b1020;
-  --color-focus: #8fb4ff;
-  --color-danger: #ff9b9b;
-  --color-danger-surface: #3a1c26;
-  --color-success: #8fe3b0;
-  --color-success-surface: #17352a;
-  --color-badge: #5a3a1c;
-  --color-shadow: rgb(0 0 0 / 40%);
-
-  /* 글자 */
-  --font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-  --font-size-sm: 13px;
-  --font-size-md: 15px;
+  /* 크기 단계 — 약 1.2배씩. rem이라 브라우저 기본 글자 크기를 키운 사람에게는 함께 커진다(기본 16px일 때 괄호 값) */
+  --font-size-xs: 0.75rem; /* 12px */
+  --font-size-sm: 0.875rem; /* 14px */
+  --font-size-md: 1rem; /* 16px */
   /* 입력칸은 16px 이상: iOS 사파리가 16px보다 작은 입력칸을 누르면 화면을 확대한다 */
-  --font-size-input: 16px;
-  --font-size-lg: 20px;
-  --font-size-xl: 28px;
-  --font-weight-strong: 600;
+  --font-size-input: max(16px, 1rem);
+  --font-size-lg: 1.1875rem; /* 19px */
+  --font-size-xl: 1.4375rem; /* 23px */
+  --font-size-2xl: 1.75rem; /* 28px */
+  --font-size-3xl: 2.125rem; /* 34px */
 
-  /* 간격·크기 */
+  /* 굵기 — 본문 글꼴은 400·600 파일만 받는다. 다른 값은 가까운 굵기로 그려진다(500 → 400, 700 → 600) */
+  --font-weight-regular: 400;
+  --font-weight-strong: 600;
+  /* Jua는 굵기가 하나다 */
+  --font-weight-display: 400;
+
+  /* 줄 간격 — 한글 본문은 넉넉히 */
+  --line-height-tight: 1.2;
+  --line-height-snug: 1.35;
+  --line-height-body: 1.55;
+  --letter-spacing-display: 0;
+  --letter-spacing-body: -0.005em;
+
+  /* 간격 — 4px 단위 */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
-  --space-5: 24px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* 모서리 — 위계별로 다르게: 판 > 조작부 > 작은 칩 */
+  --radius-sm: 10px;
+  --radius-control: 16px;
+  --radius-panel: 26px;
+  --radius-pill: 999px;
+
+  /* 조작부 크기 */
+  --control-h: 52px;
+  --control-h-sm: 44px;
+  /* 나란한 버튼의 기본 너비(글자 크기 기준) */
+  --button-basis: 8em;
+  /* 누르는 영역의 최소 크기(가로·세로) */
   --tap-size: 44px;
+  /* 가는 선(미리 보기 테두리, 칩), 읽기 프로그램 전용 글의 크기 */
+  --hairline: 1px;
+  --border-w: 2px;
+  --field-border-w: 2px;
+  --focus-w: 3px;
+  --focus-offset: 2px;
+  /* 버튼 아래 턱 두께. 누르면 0 */
+  --lip: 4px;
+  --icon-sm: 20px;
+  --icon-md: 24px;
+  /* 앱 아이콘(이름표): 로그인 화면, 다른 화면 */
+  --mark-lg: 72px;
+  --mark-sm: 32px;
+  --status-dot: 10px;
+  --select-arrow: 5px;
+  --switch-w: 52px;
+  --switch-h: 32px;
+  --switch-thumb: 22px;
+  /* 새 버전 배너가 떠 있을 때 화면 아래에 비우는 높이(두 줄로 접힌 배너보다 조금 크게) */
+  --banner-reserve: 136px;
+  --preview-h: 64px;
+  --preview-dot: 8px;
+  --preview-line: 6px;
   --content-max: 480px;
 
-  /* 모서리·테두리·그림자 */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --focus-ring: 3px solid var(--color-focus);
-  --shadow-overlay: 0 8px 24px var(--color-shadow);
+  /* 움직임 — 누름 반응은 짧게. 기기의 "동작 줄이기"를 켜면 0(아래) */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --easing-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --easing-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 파스텔(기본) — 하늘에서 풀밭으로. 버튼은 밝은 잎색 + 짙은 글자 */
+:root,
+:root[data-theme="pastel"],
+[data-theme-preview="pastel"] {
+  color-scheme: light;
+  --color-bg: #dff2fb;
+  /* 맨 위 색 = --color-bg = 주소창 색 */
+  --color-bg-image: linear-gradient(180deg, #dff2fb 0%, #e6f6f1 58%, #dcf1d2 100%);
+  --color-surface: #ffffff;
+  --color-surface-2: #eef8e8;
+  --color-text: #22324a;
+  --color-text-muted: #4d5d74;
+  --color-primary: #8ed97f;
+  --color-on-primary: #14361b;
+  --color-primary-lip: #58a64a;
+  --color-highlight: #ffd66e;
+  --color-secondary-lip: #c3dcb8;
+  --color-success: #226b33;
+  --color-success-surface: #e6f5e1;
+  --color-warning: #7a4d00;
+  --color-warning-surface: #fff3d4;
+  --color-danger: #b8283f;
+  --color-danger-surface: #fdecef;
+  --color-focus: #1f63d6;
+  --color-border: #cfe3ee;
+  --color-field-bg: #f7fbff;
+  --color-field-border: #6f8aa0;
+  --color-overlay: rgb(34 50 74 / 45%);
+  --shadow-control: 0 2px 0 rgb(34 50 74 / 6%), 0 4px 10px rgb(34 50 74 / 8%);
+  --shadow-panel: inset 0 2px 0 rgb(255 255 255 / 80%), 0 10px 28px rgb(42 92 120 / 14%);
+  --shadow-heading: none;
+  --color-deco-1: #bfe3b0;
+  --color-deco-2: #9fd68c;
+  --color-deco-3: #6fbf63;
+  /* 파스텔: 해, 다크: 달 */
+  --color-deco-sun: #ffd66e;
+}
+
+/* 다크 — 밤의 들판. 잎색 버튼은 그대로 두어 톤을 잇는다. 세계(지도) 조명은 바꾸지 않는다(D-070) → 판은 불투명 */
+:root[data-theme="dark"],
+[data-theme-preview="dark"] {
+  color-scheme: dark;
+  --color-bg: #13203a;
+  --color-bg-image: linear-gradient(180deg, #13203a 0%, #15243d 62%, #17301f 100%);
+  --color-surface: #1c2b47;
+  --color-surface-2: #233756;
+  --color-text: #eef5ff;
+  --color-text-muted: #a9bad3;
+  --color-primary: #8ed97f;
+  --color-on-primary: #14361b;
+  --color-primary-lip: #4a8d3e;
+  --color-highlight: #ffd66e;
+  --color-secondary-lip: #142238;
+  --color-success: #86e08f;
+  --color-success-surface: #1a3a31;
+  --color-warning: #f5c56b;
+  --color-warning-surface: #3a3122;
+  --color-danger: #ff8b9b;
+  --color-danger-surface: #3b2236;
+  --color-focus: #8cc8ff;
+  --color-border: #33496b;
+  --color-field-bg: #15223b;
+  --color-field-border: #7d93b5;
+  --color-overlay: rgb(5 10 20 / 60%);
+  --shadow-control: 0 2px 0 rgb(0 0 0 / 20%), 0 6px 14px rgb(0 0 0 / 25%);
+  --shadow-panel: inset 0 1px 0 rgb(255 255 255 / 6%), 0 12px 30px rgb(0 0 0 / 35%);
+  --shadow-heading: none;
+  --color-deco-1: #1d3a2b;
+  --color-deco-2: #22472f;
+  --color-deco-3: #2d5a3a;
+  --color-deco-sun: #e9e2c0;
+}
+
+/* 선명 — 고대비(본문 7:1 이상) + 색각 배려(성공=파랑, 위험=주황빨강, 상태는 늘 아이콘·글자와 함께). 그림자 없음 */
+:root[data-theme="contrast"],
+[data-theme-preview="contrast"] {
+  color-scheme: light;
+  --color-bg: #ffffff;
+  --color-bg-image: none;
+  --color-surface: #ffffff;
+  --color-surface-2: #eef2f7;
+  --color-text: #0a1424;
+  --color-text-muted: #2e3b50;
+  --color-primary: #0b4fb3;
+  --color-on-primary: #ffffff;
+  --color-primary-lip: #062f6e;
+  --color-highlight: #ffd66e;
+  --color-secondary-lip: #0a1424;
+  --color-success: #084ca8;
+  --color-success-surface: #ffffff;
+  --color-warning: #7a3f00;
+  --color-warning-surface: #ffffff;
+  --color-danger: #a82a00;
+  --color-danger-surface: #ffffff;
+  --color-focus: #0a1424;
+  --color-border: #0a1424;
+  --color-field-bg: #ffffff;
+  --color-field-border: #0a1424;
+  --color-overlay: rgb(0 0 0 / 70%);
+  --shadow-control: none;
+  --shadow-panel: none;
+  --shadow-heading: none;
+  --color-deco-1: #e3e8ef;
+  --color-deco-2: #cfd7e2;
+  --color-deco-3: #b7c2d1;
+  --color-deco-sun: #dfe5ec;
+}
+/* 선명: 초점 표시를 4px로(테두리는 이미 2px). 굵기 값은 바꾸지 않는다(본문 글꼴은 400·600만 받는다) */
+:root[data-theme="contrast"] {
+  --focus-w: 4px;
+}
+
+/* 정거장 — 궤도 정거장 안 화면(홀로그램). 청록 빛 테두리, 불투명 판(흐림 효과 backdrop-filter는 쓰지 않는다) */
+:root[data-theme="station"],
+[data-theme-preview="station"] {
+  color-scheme: dark;
+  --color-bg: #061a22;
+  --color-bg-image:
+    repeating-linear-gradient(0deg, rgb(95 227 230 / 5%) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(90deg, rgb(95 227 230 / 5%) 0 1px, transparent 1px 28px),
+    radial-gradient(circle at 50% 115%, #0f4a55 0%, #061a22 62%);
+  --color-surface: #0c2a34;
+  --color-surface-2: #113844;
+  --color-text: #e4fbff;
+  --color-text-muted: #94c6d2;
+  --color-primary: #5fe3e6;
+  --color-on-primary: #03282d;
+  --color-primary-lip: #2a9ea4;
+  --color-highlight: #ffd66e;
+  --color-secondary-lip: #071f27;
+  --color-success: #7cf0b4;
+  --color-success-surface: #0e3833;
+  --color-warning: #ffd479;
+  --color-warning-surface: #2e2c1d;
+  --color-danger: #ff9080;
+  --color-danger-surface: #2d1b22;
+  --color-focus: #ffffff;
+  --color-border: #2b7584;
+  --color-field-bg: #08222b;
+  --color-field-border: #4fb7c6;
+  --color-overlay: rgb(0 10 14 / 65%);
+  --shadow-control: 0 0 0 1px rgb(95 227 230 / 25%);
+  --shadow-panel: 0 0 0 1px rgb(95 227 230 / 35%), 0 0 22px rgb(95 227 230 / 18%);
+  --shadow-heading: 0 0 14px rgb(95 227 230 / 45%);
+  --color-deco-1: #0d3a44;
+  --color-deco-2: #12505c;
+  --color-deco-3: #1d7380;
+  --color-deco-sun: #1d7380;
+}
+
+/* 촘촘 변형 — 관리자·거래창처럼 빽빽한 화면(data-density="compact"): 턱 0, 모서리 작게, 조작부 44px */
+[data-density="compact"] {
+  --lip: 0px;
+  --radius-control: 10px;
+  --radius-panel: 16px;
+  --control-h: 44px;
+}
+
+/* 움직임 줄이기 — 기기 설정(prefers-reduced-motion)을 따른다 */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+  }
 }

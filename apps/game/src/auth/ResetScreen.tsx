@@ -4,6 +4,7 @@
 import { type AccountErrorCode, parseLoginId } from "@terra/shared";
 import { type FormEvent, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { Brand } from "../ui/Brand.tsx";
 import { Field } from "../ui/Field.tsx";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { text } from "../ui/text.ts";
@@ -107,82 +108,84 @@ export function ResetScreen({ initialId, onDone, onCancel }: ResetScreenProps) {
 
   return (
     <section className="screen" aria-labelledby="reset-title">
-      <p className="brand">{m.app_title()}</p>
-      <h1 id="reset-title" className="screen-title" ref={headingRef} tabIndex={-1}>
-        {m.reset_title()}
-      </h1>
-      <p className="lead">{m.reset_lead()}</p>
-      <p className="lead">{m.reset_no_email()}</p>
-      <form className="form" noValidate onSubmit={(event) => void submit(event)} aria-busy={pending}>
-        <Field
-          ref={idRef}
-          label={m.auth_id_label()}
-          hint={m.auth_id_hint()}
-          error={errorText("id")}
-          name="username"
-          type="text"
-          autoComplete="username"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          enterKeyHint="next"
-          value={values.id}
-          onChange={(event) => change("id", event.target.value)}
-        />
-        <Field
-          ref={emailRef}
-          label={m.reset_email_label()}
-          error={errorText("email")}
-          name="email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          enterKeyHint="next"
-          value={values.email}
-          onChange={(event) => change("email", event.target.value)}
-        />
-        <Field
-          ref={newPasswordRef}
-          label={m.reset_new_password_label()}
-          hint={m.reset_new_password_hint()}
-          error={errorText("newPassword")}
-          name="new-password"
-          type="password"
-          autoComplete="new-password"
-          enterKeyHint="next"
-          value={values.newPassword}
-          onChange={(event) => change("newPassword", event.target.value)}
-        />
-        <Field
-          ref={confirmRef}
-          label={m.reset_confirm_label()}
-          error={errorText("newPasswordConfirm")}
-          name="new-password-confirm"
-          type="password"
-          autoComplete="new-password"
-          enterKeyHint="done"
-          value={values.newPasswordConfirm}
-          onChange={(event) => change("newPasswordConfirm", event.target.value)}
-        />
-        {/* 알림 영역은 비어 있어도 자리를 지킨다. 칸 사이 간격이 두 번 생기지 않게 버튼과 묶는다 */}
-        <div className="form-end">
-          <LiveMessage tone="error" lines={failure.lines} version={failure.version} />
-          <p className="visually-hidden" role="status">
-            {pending ? m.pending() : ""}
-          </p>
-          <div className="form-actions">
-            <button type="submit" className="button-primary" aria-disabled={pending}>
-              {m.reset_submit()}
-            </button>
-            <button type="button" onClick={() => onCancel(values.id)}>
-              {m.cancel()}
-            </button>
+      <Brand size="small" />
+      <div className="panel">
+        <h1 id="reset-title" className="screen-title" ref={headingRef} tabIndex={-1}>
+          {m.reset_title()}
+        </h1>
+        <p className="lead">{m.reset_lead()}</p>
+        <p className="lead">{m.reset_no_email()}</p>
+        <form className="form" noValidate onSubmit={(event) => void submit(event)} aria-busy={pending}>
+          <Field
+            ref={idRef}
+            label={m.auth_id_label()}
+            hint={m.auth_id_hint()}
+            error={errorText("id")}
+            name="username"
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="next"
+            value={values.id}
+            onChange={(event) => change("id", event.target.value)}
+          />
+          <Field
+            ref={emailRef}
+            label={m.reset_email_label()}
+            error={errorText("email")}
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="next"
+            value={values.email}
+            onChange={(event) => change("email", event.target.value)}
+          />
+          <Field
+            ref={newPasswordRef}
+            label={m.reset_new_password_label()}
+            hint={m.reset_new_password_hint()}
+            error={errorText("newPassword")}
+            name="new-password"
+            type="password"
+            autoComplete="new-password"
+            enterKeyHint="next"
+            value={values.newPassword}
+            onChange={(event) => change("newPassword", event.target.value)}
+          />
+          <Field
+            ref={confirmRef}
+            label={m.reset_confirm_label()}
+            error={errorText("newPasswordConfirm")}
+            name="new-password-confirm"
+            type="password"
+            autoComplete="new-password"
+            enterKeyHint="done"
+            value={values.newPasswordConfirm}
+            onChange={(event) => change("newPasswordConfirm", event.target.value)}
+          />
+          {/* 알림 영역은 비어 있어도 자리를 지킨다. 칸 사이 간격이 두 번 생기지 않게 버튼과 묶는다 */}
+          <div className="form-end">
+            <LiveMessage tone="error" lines={failure.lines} version={failure.version} />
+            <p className="visually-hidden" role="status">
+              {pending ? m.pending() : ""}
+            </p>
+            <div className="form-actions">
+              <button type="submit" className="button-primary" aria-disabled={pending}>
+                {m.reset_submit()}
+              </button>
+              <button type="button" onClick={() => onCancel(values.id)}>
+                {m.cancel()}
+              </button>
+            </div>
           </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </section>
   );
 }

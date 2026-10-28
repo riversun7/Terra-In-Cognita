@@ -1,26 +1,67 @@
-/* 기본 화면 스타일 — 모바일 우선. 색·글자·간격 값은 styles/tokens.css에만 두고 여기서는 var(--…)만 쓴다 */
+/*
+ * 기본 화면 스타일 — 모바일 우선. 디자인: 후보 A "새싹 장난감"(ADR 2026-10-28-design-system)
+ * 값은 styles/tokens.css에만 두고 여기서는 var(--…)만 쓴다(색·px 값을 직접 쓰면 pnpm check가 실패한다).
+ * 부품: 판(.panel), 턱 있는 버튼(button, .button-primary, .button-text), 입력칸(.input), 알림 상자(.message)
+ */
 @import "./styles/tokens.css";
+@import "./styles/fonts.css";
 
-:root {
-  font-family: var(--font-family);
-  background: var(--color-bg);
-  color: var(--color-text);
-  /* 한국어는 낱말 중간에서 줄을 바꾸지 않는다. 아주 긴 낱말(아이디 등)만 끊는다 */
-  word-break: keep-all;
-  overflow-wrap: break-word;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body);
+  letter-spacing: var(--letter-spacing-body);
+  /* 한국어는 낱말 중간에서 줄을 바꾸지 않는다. 그래도 넘치는 아주 긴 낱말(아이디 등)만 끊는다 */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  /* 누름 반응은 버튼 턱이 맡는다 */
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   margin: 0;
   min-height: 100dvh;
-  background: var(--color-bg);
+  background-color: var(--color-bg);
+  /* 맨 위 색은 --color-bg(주소창 색)와 같다 */
+  background-image: var(--color-bg-image);
+  font-size: var(--font-size-md);
+}
+
+button,
+input,
+select {
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+/* 고른 글자 — 버튼 색 쌍(대비 검사함). 브라우저 기본 파랑은 테마와 안 맞는다 */
+::selection {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
 }
 
 /* 보이지 않지만 읽기 프로그램은 읽는 글 */
 .visually-hidden {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
+  width: var(--hairline);
+  height: var(--hairline);
+  margin: calc(var(--hairline) * -1);
   padding: 0;
   overflow: hidden;
   clip-path: inset(50%);
@@ -28,138 +69,271 @@ body {
   border: 0;
 }
 
-/* 키보드 초점은 늘 보이게. 코드로 옮긴 초점(제목 등)은 마우스·터치 뒤에는 테두리를 그리지 않는다 */
+/* 키보드 초점은 늘 보이게(선명 테마는 4px). 코드로 옮긴 초점(제목 등)은 마우스·터치 뒤에는 테두리를 그리지 않는다 */
 :focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: 2px;
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
 }
 [tabindex="-1"]:focus:not(:focus-visible) {
   outline: none;
 }
 
+/* ── 화면 틀 ─────────────────────────────────────────── */
 .shell {
-  box-sizing: border-box;
   width: 100%;
   max-width: var(--content-max);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: max(var(--space-4), env(safe-area-inset-top)) var(--space-4) var(--space-4);
+  gap: var(--space-4);
+  padding: max(var(--space-4), env(safe-area-inset-top)) max(var(--space-4), env(safe-area-inset-right))
+    max(var(--space-6), env(safe-area-inset-bottom)) max(var(--space-4), env(safe-area-inset-left));
 }
 /* 계정 줄이 안전 영역(노치)을 이미 비웠다 */
 .account-bar + .shell {
-  padding-top: var(--space-4);
-}
-.shell h1 {
-  margin: 0;
-}
-.status {
-  font-size: var(--font-size-md);
-}
-.metrics {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
+  padding-top: var(--space-5);
 }
 
-button {
-  min-height: var(--tap-size);
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: inherit;
-  font: inherit;
-  font-size: var(--font-size-md);
-  /* 두 번 톡(확대) 기다림 없이 바로 */
-  touch-action: manipulation;
-  cursor: pointer;
-}
-/* 지금은 누를 수 없는 버튼. disabled 대신 aria-disabled를 쓰면 누른 버튼의 초점이 사라지지 않는다 */
-button:disabled,
-button[aria-disabled="true"] {
-  opacity: 0.5;
-  cursor: default;
-}
-.button-primary {
-  border-color: var(--color-primary);
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  font-weight: var(--font-weight-strong);
-}
-/* 글자만 있는 버튼(링크 모양). 누르는 영역은 다른 버튼과 같다 */
-.button-text {
-  align-self: flex-start;
-  padding: 0 var(--space-1);
-  border-color: transparent;
-  background: none;
-  color: var(--color-text-muted);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-select {
-  min-height: var(--tap-size);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border-strong);
-  background: var(--color-surface);
-  color: var(--color-text);
-  font: inherit;
-  font-size: var(--font-size-input);
-}
-.language {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-/* 화면 하나(로그인·새 아이디·비밀번호 찾기·관리자)와 입력 양식 */
-.screen,
-.form {
+/* 화면 하나(로그인·새 아이디·비밀번호 찾기·상태·관리자·설정) */
+.screen {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
+
+/* 판 — 흰 조약돌. 모서리: 판 > 조작부 > 작은 칩 */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-5);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+
+/* 제목 — 굵고 둥근 Jua. 정거장 테마는 빛이 번진다 */
+.screen-title {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-display);
+  text-shadow: var(--shadow-heading);
+  text-wrap: balance;
+}
+.screen-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.screen-header .screen-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.section-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+}
+.lead {
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-body);
+  color: var(--color-text-muted);
+}
+
+/* 이름표(앱 아이콘 + 게임 이름). 로그인은 크게, 다른 화면은 한 줄로 */
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+  padding-block: var(--space-4) var(--space-2);
+}
+.brand-mark {
+  display: block;
+  width: var(--mark-lg);
+  height: var(--mark-lg);
+}
+.brand-title {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-3xl);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-display);
+  text-shadow: var(--shadow-heading);
+  text-wrap: balance;
+}
+.brand-tag {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+}
+.brand-small {
+  flex-direction: row;
+  justify-content: flex-start;
+  text-align: start;
+  padding-block: 0;
+}
+.brand-small .brand-mark {
+  width: var(--mark-sm);
+  height: var(--mark-sm);
+}
+.brand-small .brand-title {
+  font-size: var(--font-size-lg);
+}
+
+/* ── 버튼 — 장난감처럼 아래 턱이 있고, 누르면 턱만큼 들어간다 ─────────── */
+button {
+  --button-lip: var(--color-secondary-lip);
+  --button-press: var(--lip);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: var(--tap-size);
+  min-height: var(--control-h);
+  padding: var(--space-2) var(--space-5);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  box-shadow: 0 var(--lip) 0 var(--button-lip);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  text-align: center;
+  cursor: pointer;
+  /* 두 번 톡(확대) 기다림 없이 바로 */
+  touch-action: manipulation;
+  /* 손을 떼면 살짝 튀며 올라온다 */
+  transition:
+    transform var(--duration-base) var(--easing-bounce),
+    box-shadow var(--duration-base) var(--easing-bounce);
+}
+button:active:not([aria-disabled="true"], :disabled) {
+  transform: translateY(var(--button-press));
+  box-shadow: 0 0 0 var(--button-lip);
+  /* 누를 때는 짧게 */
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--easing-out);
+}
+/* 마우스가 있는 기기(데스크톱)에서만: 올리면 조금 밝게. 터치는 누를 때 가짜 hover가 생겨서 뺀다 */
+@media (hover: hover) and (pointer: fine) {
+  button:hover:not([aria-disabled="true"], :disabled) {
+    filter: brightness(1.05);
+  }
+}
+/* 지금은 누를 수 없는 버튼. disabled 대신 aria-disabled를 쓰면 누른 버튼의 초점이 사라지지 않는다 */
+button:disabled,
+button[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: default;
+}
+.button-primary {
+  --button-lip: var(--color-primary-lip);
+  border-color: transparent;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+/* 작은 버튼(계정 줄, 새 버전 배너, 쪽 넘기기) — 누르는 영역은 그대로 44px */
+.button-small {
+  min-height: var(--control-h-sm);
+  padding: var(--space-1) var(--space-4);
+  font-size: var(--font-size-sm);
+}
+/* 글자만 있는 버튼(링크 모양). 누르는 영역은 44px */
+.button-text {
+  --button-lip: transparent;
+  --button-press: 0px;
+  align-self: center;
+  min-height: var(--tap-size);
+  padding: 0 var(--space-2);
+  border-color: transparent;
+  background: none;
+  font-size: var(--font-size-sm);
+  text-decoration: underline;
+  text-decoration-color: var(--color-focus);
+  text-decoration-thickness: var(--border-w);
+  text-underline-offset: var(--space-1);
+}
+
+/* ── 입력 ─────────────────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
 .field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 .field-label {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
 }
 .field-hint,
 .field-error {
-  margin: 0;
   font-size: var(--font-size-sm);
-  line-height: 1.4;
-  overflow-wrap: anywhere;
+  line-height: var(--line-height-snug);
 }
 .field-hint {
   color: var(--color-text-muted);
 }
 .field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
   color: var(--color-danger);
+  font-weight: var(--font-weight-strong);
 }
 .input {
-  box-sizing: border-box;
   width: 100%;
-  min-height: var(--tap-size);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border-strong);
-  background: var(--color-surface);
+  min-height: var(--control-h);
+  padding: 0 var(--space-4);
+  border: var(--field-border-w) solid var(--color-field-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-field-bg);
   color: var(--color-text);
-  font: inherit;
+  /* 글자 넣는 자리 표시(커서)는 초점 색으로 또렷하게 */
+  caret-color: var(--color-focus);
+  /* 16px 아래면 iOS가 확대한다 */
   font-size: var(--font-size-input);
+}
+.input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
 }
 .input[aria-invalid="true"] {
   border-color: var(--color-danger);
+}
+/* 고르기 — 알약 모양, 화살표는 두 삼각형(글자색)으로 그린다 */
+select {
+  appearance: none;
+  min-height: var(--tap-size);
+  padding: 0 calc(var(--space-8) + var(--space-1)) 0 var(--space-4);
+  border: var(--field-border-w) solid var(--color-field-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-field-bg);
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentcolor 50%),
+    linear-gradient(135deg, currentcolor 50%, transparent 50%);
+  background-position:
+    calc(100% - var(--space-4) - var(--select-arrow)) 50%,
+    calc(100% - var(--space-4)) 50%;
+  background-size: var(--select-arrow) var(--select-arrow);
+  background-repeat: no-repeat;
+  color: var(--color-text);
+  font-size: var(--font-size-input);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
 }
 .form-end {
   display: flex;
@@ -169,113 +343,167 @@ select {
 .form-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
+/* 나란한 버튼은 같은 너비. 글이 길면 그 버튼만 넓어지고, 한 줄에 안 들어가면 다음 줄로 */
 .form-actions > button {
-  flex: 1 1 8em;
+  flex: 1 1 var(--button-basis);
+  min-width: fit-content;
 }
 
-/* 알림 상자 — 바깥 영역(role=alert·status)은 늘 두고, 상자는 문구가 있을 때만 그린다 */
+/* ── 알림 상자 — 바깥 영역(role=alert·status)은 늘 두고, 상자는 문구가 있을 때만 그린다 ── */
 .message {
-  margin: 0;
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  border: 1px solid currentcolor;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-w) solid currentcolor;
+  border-radius: var(--radius-control);
   font-size: var(--font-size-md);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
+  line-height: var(--line-height-snug);
+}
+.message-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
 }
 .message-error {
   color: var(--color-danger);
-  background: var(--color-danger-surface);
+  background-color: var(--color-danger-surface);
 }
 .message-success {
   color: var(--color-success);
-  background: var(--color-success-surface);
+  background-color: var(--color-success-surface);
 }
 .message-info {
   color: var(--color-text);
-  background: var(--color-surface);
+  background-color: var(--color-surface);
   border-color: var(--color-border);
 }
-.message p {
-  margin: 0;
-}
-.message p + p {
-  margin-top: var(--space-1);
+/* 상태 아이콘 — 색만으로 알리지 않는다(선명 테마 규칙). 글자와 같은 색 */
+.status-icon {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 
-/* 로그인·새 아이디·비밀번호 찾기 */
-.brand {
-  margin: 0;
-  font-size: var(--font-size-md);
+/* ── 로그인·새 아이디·비밀번호 찾기 ───────────────────── */
+.new-id-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.new-id-label {
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-strong);
   color: var(--color-text-muted);
-}
-.screen-title {
-  margin: 0;
-  font-size: var(--font-size-xl);
-}
-.lead {
-  margin: 0;
-  font-size: var(--font-size-md);
-  line-height: 1.5;
-  color: var(--color-text-muted);
-}
-.new-id-box {
-  margin: 0;
 }
 .new-id {
   margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-strong);
-  overflow-wrap: anywhere;
-}
-.new-id-label {
-  margin: 0 0 var(--space-1);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  padding: var(--space-4);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-display);
+  text-align: center;
+  text-shadow: var(--shadow-heading);
 }
 .info-list {
   margin: 0;
-  padding-left: 1.2em;
+  padding-left: var(--space-5);
   font-size: var(--font-size-sm);
-  line-height: 1.5;
+  line-height: var(--line-height-body);
   color: var(--color-text-muted);
 }
 
-/* 계정 줄 — 로그인한 아이디, 관리자, 로그아웃 */
+/* ── 상태 화면(로그인한 뒤) ─────────────────────────── */
+.status {
+  font-size: var(--font-size-md);
+}
+/* 연결 상태 — 점은 꾸밈이다. 상태는 글자로 읽는다 */
+.connection {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-2);
+  min-height: var(--tap-size);
+  padding: 0 var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+  font-weight: var(--font-weight-strong);
+}
+.connection::before {
+  content: "";
+  flex: none;
+  width: var(--status-dot);
+  height: var(--status-dot);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-warning);
+}
+.connection[data-state="connected"]::before {
+  background-color: var(--color-success);
+}
+.connection[data-state="rejected"]::before {
+  background-color: var(--color-danger);
+}
+.metrics {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 계정 줄 — 로그인한 아이디, 관리자, 설정, 로그아웃 ─────────── */
 .account-bar {
-  padding: max(var(--space-2), env(safe-area-inset-top)) var(--space-4) var(--space-2);
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface);
+  padding: max(var(--space-2), env(safe-area-inset-top)) max(var(--space-4), env(safe-area-inset-right))
+    var(--space-2) max(var(--space-4), env(safe-area-inset-left));
+  border-bottom: var(--border-w) solid var(--color-border);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
 }
 .account-bar-row {
-  box-sizing: border-box;
   max-width: var(--content-max);
   margin: 0 auto;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.account-id {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: var(--font-weight-strong);
+}
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-2);
+  margin-left: auto;
 }
 .account-bar .message {
   max-width: var(--content-max);
   margin: var(--space-2) auto 0;
-  box-sizing: border-box;
-}
-.account-id {
-  flex: 1 1 8em;
-  min-width: 0;
-  margin: 0;
-  font-weight: var(--font-weight-strong);
-  overflow-wrap: anywhere;
 }
 
-/* 새 버전 안내 배너 — 화면 아래, 홈 표시줄(안전 영역) 위. 닫혀 있을 때도 알림 영역(role=status)은 남겨 둔다 */
+/* 언어 고르기 — 로그인 전 화면 아래 */
+.language {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+
+/* ── 새 버전 안내 배너 — 화면 아래, 홈 표시줄(안전 영역) 위. 닫혀 있을 때도 알림 영역(role=status)은 남겨 둔다 ── */
 .update-banner {
   position: fixed;
   left: max(var(--space-3), env(safe-area-inset-left));
@@ -284,36 +512,47 @@ select {
   z-index: 10;
   max-width: var(--content-max);
   margin: 0 auto;
-  box-sizing: border-box;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-3);
+  gap: var(--space-3);
   pointer-events: none;
 }
 .update-banner[data-open="true"] {
   padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-overlay);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
   pointer-events: auto;
 }
 .update-banner-text {
-  flex: 1 1 12em;
+  flex: 1 1 auto;
   min-width: 0;
-  margin: 0;
-  font-size: var(--font-size-md);
-  overflow-wrap: anywhere;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-strong);
 }
 .update-banner-actions {
   display: flex;
   gap: var(--space-2);
   margin-left: auto;
 }
-.update-banner-primary {
-  border-color: var(--color-primary);
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  font-weight: var(--font-weight-strong);
+/* 배너가 떠 있는 동안 화면 아래를 배너 높이만큼 비운다(맨 아래 칸·버튼이 배너에 가려 누를 수 없게 되지 않게) */
+:root[data-update-banner] {
+  scroll-padding-bottom: calc(var(--banner-reserve) + env(safe-area-inset-bottom));
+}
+:root[data-update-banner] body {
+  padding-bottom: calc(var(--banner-reserve) + env(safe-area-inset-bottom));
+}
+
+/* 윈도 고대비(강제 색) — 배경색이 지워지므로 상태 점·선택 표시는 시스템 색으로 */
+@media (forced-colors: active) {
+  .connection::before {
+    background-color: CanvasText;
+  }
+  button {
+    box-shadow: none;
+  }
 }

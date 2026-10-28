@@ -1,14 +1,11 @@
-/* 관리자 화면 — 지연 로딩 조각과 함께 따로 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다 */
-.admin-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
+/*
+ * 관리자 화면 — 지연 로딩 조각과 함께 따로 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 빽빽한 화면이라 촘촘 변형(section의 data-density="compact": 턱 0, 모서리 작게, 조작부 44px)을 쓴다.
+ */
 .admin-subtitle {
-  margin: 0;
   font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
 }
 .admin-search-row {
   display: flex;
@@ -22,7 +19,9 @@
   flex: none;
 }
 .admin > p.status {
-  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 .user-list {
   margin: 0;
@@ -37,40 +36,50 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
 }
 .user-id {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  margin: 0;
   font-size: var(--font-size-md);
 }
 .user-login-id {
+  min-width: 0;
   font-weight: var(--font-weight-strong);
-  overflow-wrap: anywhere;
 }
 .user-meta {
-  margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
 }
+/* 작은 칩 — "나", "정지됨". 정지는 색과 글자 둘 다로 알린다 */
 .badge {
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-raised);
-  font-size: var(--font-size-sm);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-body);
 }
 .badge-warn {
-  background: var(--color-badge);
+  border-color: currentcolor;
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
 }
 .role-set {
   display: flex;
   flex-wrap: wrap;
-  gap: 0 var(--space-2);
+  gap: 0 var(--space-3);
+  min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
@@ -85,11 +94,12 @@
   font-size: var(--font-size-md);
   cursor: pointer;
 }
+/* 기본 체크 상자를 쓴다(읽기 프로그램·윈도 고대비가 그대로 읽는다). 잎색이 밝으면 브라우저가 짙은 체크 표시를 고른다 */
 .role-option input {
-  width: 20px;
-  height: 20px;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
   margin: 0;
-  accent-color: var(--color-focus);
+  accent-color: var(--color-primary);
 }
 .user-actions {
   display: flex;
@@ -98,6 +108,6 @@
   gap: var(--space-2);
 }
 .user-message {
-  flex: 1 1 10em;
+  flex: 1 1 auto;
   min-width: 0;
 }

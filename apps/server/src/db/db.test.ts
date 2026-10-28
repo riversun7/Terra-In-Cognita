@@ -2,12 +2,15 @@
 // 테스트마다 새 데이터베이스를 만들고 끝나면 지운다(접속 계정에 CREATEDB 권한이 필요).
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { TELEMETRY_PATHS } from "@terra/protocol";
+import { eq } from "drizzle-orm";
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../app.ts";
+import { samplePerf } from "../testFixtures.ts";
 import { closeDatabase, createDatabase, type Database } from "./client.ts";
 import { appliedMigrations, runMigrations } from "./migrations.ts";
-import { clientErrors } from "./schema.ts";
+import { clientErrors, clientPerfSamples } from "./schema.ts";
 
 const baseUrl = process.env.TEST_DATABASE_URL;
 const MIGRATIONS = fileURLToPath(new URL("../../drizzle", import.meta.url));
@@ -54,6 +57,34 @@ describe.skipIf(!baseUrl)("DB (TEST_DATABASE_URL)", () => {
     expect(row?.id).toBeTypeOf("number");
     expect(row?.receivedAt).toBeInstanceOf(Date);
     expect(row?.stack).toBeNull();
+  });
+
+  it("텔레메트리 보고를 표에 남긴다 (접속 프로그램 정보는 요청 머리글에서)", async () => {
+    const app = await buildApp({ contentVersion: "test", logger: false, metricsIntervalMs: 0, db });
+    try {
+      const headers = { "user-agent": "vitest-db" };
+      const error = await app.inject({
+        method: "POST",
+        url: TELEMETRY_PATHS.errors,
+        headers,
+        payload: { clientBuild: "test", kind: "rejection", message: "nope", page: "/x" },
+      });
+      expect(error.statusCode).toBe(204);
+      const perf = await app.inject({
+        method: "POST",
+        url: TELEMETRY_PATHS.perf,
+        headers,
+        payload: samplePerf,
+      });
+      expect(perf.statusCode).toBe(204);
+    } finally {
+      await app.close();
+    }
+    const [errorRow] = await db.select().from(clientErrors).where(eq(clientErrors.kind, "rejection"));
+    expect(errorRow).toMatchObject({ message: "nope", page: "/x", userAgent: "vitest-db" });
+    const [perfRow] = await db.select().from(clientPerfSamples);
+    expect(perfRow).toMatchObject({ frames: 3_600, userAgent: "vitest-db", device: samplePerf.device });
+    expect(perfRow?.memoryMb).toBeNull();
   });
 
   it("헬스체크가 DB 상태를 알려준다", async () => {

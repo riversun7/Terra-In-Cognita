@@ -6,7 +6,9 @@ import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "@terra/protocol";
 import Fastify, { type FastifyInstance } from "fastify";
 import { SIM_VERSION } from "./config.ts";
 import { type Database, pingDatabase } from "./db/client.ts";
+import { startServerMetrics } from "./metrics.ts";
 import { handleSession } from "./session.ts";
+import { registerTelemetry } from "./telemetry.ts";
 
 export interface AppOptions {
   contentVersion: string;
@@ -15,6 +17,8 @@ export interface AppOptions {
   now?: () => number;
   /** 없으면 DB 없이 뜬다(헬스체크의 db는 "off") */
   db?: Database | undefined;
+  /** 서버 지표 기록 간격(ms). 0이면 기록하지 않는다 */
+  metricsIntervalMs?: number;
 }
 
 export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
@@ -41,11 +45,24 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     };
   });
 
+  registerTelemetry(app, { db: options.db, now });
+
+  let wsConnections = 0;
   await app.register(async (scope) => {
     scope.get("/ws", { websocket: true }, (socket) => {
+      wsConnections += 1;
+      socket.on("close", () => {
+        wsConnections -= 1;
+      });
       handleSession(socket, { simVersion: SIM_VERSION, contentVersion: options.contentVersion, now });
     });
   });
+
+  const metricsIntervalMs = options.metricsIntervalMs ?? 60_000;
+  if (metricsIntervalMs > 0) {
+    const stopMetrics = startServerMetrics(app.log, () => wsConnections, metricsIntervalMs);
+    app.addHook("onClose", async () => stopMetrics());
+  }
 
   if (options.staticDir) {
     const root = path.resolve(options.staticDir);

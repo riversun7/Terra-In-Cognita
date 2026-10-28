@@ -14,3 +14,13 @@ export {
   type ServerMessage,
 } from "./messages.ts";
 export { encodeMessage, decodeClientMessage, decodeServerMessage, ProtocolError } from "./codec.ts";
+export {
+  TELEMETRY_LIMITS,
+  TELEMETRY_MAX_BODY_BYTES,
+  TELEMETRY_PATHS,
+  clientErrorReportSchema,
+  perfReportSchema,
+  clip,
+  type ClientErrorReport,
+  type PerfReport,
+} from "./telemetry.ts";

@@ -22,6 +22,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/health": devServerTarget,
+      "/api": devServerTarget,
       "/ws": { target: devServerTarget.replace(/^http/, "ws"), ws: true },
     },
   },

@@ -8,6 +8,8 @@
   "status_rejected_other": "서버가 연결을 거절했습니다.",
   "clock_offset": "서버 시계 차이: {offset}ms (왕복 {rtt}ms)",
   "fps": "화면 갱신: {fps} fps",
+  "frame_p95": "프레임 p95: {ms}ms",
+  "memory": "메모리: {mb}MB",
   "reload": "새로고침",
   "language": "언어"
 }

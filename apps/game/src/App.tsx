@@ -1,9 +1,10 @@
-// 첫 화면 — M0 단계: 서버 연결 상태, 시계 차이, 화면 갱신 속도를 보여준다
+// 첫 화면 — M0 단계: 서버 연결 상태, 시계 차이, 성능 오버레이(fps·프레임 시간 p95·메모리)를 보여준다
 import { useEffect, useState } from "react";
 import { m } from "./paraglide/messages.js";
 import { getLocale, isLocale, locales, setLocale } from "./paraglide/runtime.js";
 import { type ConnectionStatus, connect } from "./net/connection.ts";
-import { useFps } from "./perf/useFps.ts";
+import type { FrameMonitor } from "./perf/frameMonitor.ts";
+import { usePerfStats } from "./perf/usePerfStats.ts";
 
 function statusText(status: ConnectionStatus): string {
   switch (status.kind) {
@@ -29,9 +30,9 @@ function changeLocale(value: string): void {
   if (isLocale(value)) void setLocale(value);
 }
 
-export function App() {
+export function App({ monitor }: { monitor: FrameMonitor }) {
   const [status, setStatus] = useState<ConnectionStatus>({ kind: "connecting" });
-  const fps = useFps();
+  const perf = usePerfStats(monitor);
 
   useEffect(() => connect(setStatus), []);
 
@@ -49,7 +50,12 @@ export function App() {
           })}
         </p>
       ) : null}
-      {fps !== null ? <p className="metrics">{m.fps({ fps })}</p> : null}
+      {perf !== null ? (
+        <p className="metrics">
+          {m.fps({ fps: perf.fps })} · {m.frame_p95({ ms: perf.p95Ms })}
+          {perf.memoryMb === undefined ? null : ` · ${m.memory({ mb: perf.memoryMb })}`}
+        </p>
+      ) : null}
       {status.kind === "rejected" ? (
         <button type="button" onClick={() => window.location.reload()}>
           {m.reload()}

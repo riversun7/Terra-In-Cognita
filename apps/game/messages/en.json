@@ -8,6 +8,8 @@
   "status_rejected_other": "The server rejected the connection.",
   "clock_offset": "Server clock offset: {offset}ms (round trip {rtt}ms)",
   "fps": "Frame rate: {fps} fps",
+  "frame_p95": "Frame p95: {ms} ms",
+  "memory": "Memory: {mb} MB",
   "reload": "Reload",
   "language": "Language"
 }

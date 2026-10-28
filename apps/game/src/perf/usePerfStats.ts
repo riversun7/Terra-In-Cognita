@@ -1,26 +1,29 @@
-// 화면 갱신 속도(fps) 측정 — 성능 오버레이용. 화면이 숨겨지면 측정하지 않는다.
+// 성능 오버레이용 — 프레임 측정기의 1초 요약(fps, 프레임 시간 p95)과 메모리를 화면 상태로 받는다
 import { useEffect, useState } from "react";
+import { readMemoryMb } from "./device.ts";
+import type { FrameMonitor } from "./frameMonitor.ts";
 
-export function useFps(): number | null {
-  const [fps, setFps] = useState<number | null>(null);
+export interface PerfStats {
+  fps: number;
+  p95Ms: number;
+  /** 크롬 계열에서만 값이 있다 */
+  memoryMb: number | undefined;
+}
 
-  useEffect(() => {
-    let frames = 0;
-    let windowStart = performance.now();
-    let handle = 0;
+export function usePerfStats(monitor: FrameMonitor): PerfStats | null {
+  const [stats, setStats] = useState<PerfStats | null>(null);
 
-    const tick = (now: number): void => {
-      frames += 1;
-      if (now - windowStart >= 1000) {
-        setFps(Math.round((frames * 1000) / (now - windowStart)));
-        frames = 0;
-        windowStart = now;
-      }
-      handle = requestAnimationFrame(tick);
-    };
-    handle = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(handle);
-  }, []);
+  useEffect(
+    () =>
+      monitor.subscribe((summary) =>
+        setStats({
+          fps: Math.round(summary.fps),
+          p95Ms: Math.round(summary.p95Ms),
+          memoryMb: readMemoryMb(),
+        }),
+      ),
+    [monitor],
+  );
 
-  return fps;
+  return stats;
 }

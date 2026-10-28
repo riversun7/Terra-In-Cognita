@@ -9,6 +9,7 @@ import { AuthScreens } from "./auth/AuthScreens.tsx";
 import { refreshSession, retrySessionIfUnavailable, useSession } from "./auth/session.ts";
 import { isAdmin } from "./auth/sessionState.ts";
 import { type ConnectionStatus, connect } from "./net/connection.ts";
+import { followIdentity } from "./net/serverLink.ts";
 import { m } from "./paraglide/messages.js";
 import type { FrameMonitor } from "./perf/frameMonitor.ts";
 import { UpdateBanner } from "./pwa/UpdateBanner.tsx";
@@ -101,6 +102,14 @@ export function App({ monitor }: { monitor: FrameMonitor }) {
       ),
     [],
   );
+
+  // 로그인한 사용자가 바뀌면(들어가기·로그아웃·다른 계정) 서버 연결을 다시 맺는다. 서버는 WebSocket 연결 요청에 실린
+  // 쿠키로만 사용자를 알고(2차맵 구독·명령), 앱을 켤 때 연결은 로그인보다 먼저 열린다. 확인 전(loading·unavailable)은 건너뛴다
+  const identity =
+    session.kind === "signed_in" ? session.user.id : session.kind === "signed_out" ? null : undefined;
+  useEffect(() => {
+    if (identity !== undefined) followIdentity(identity);
+  }, [identity]);
 
   const user = session.kind === "signed_in" ? session.user : null;
   const admin = isAdmin(session);

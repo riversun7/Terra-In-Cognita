@@ -1,6 +1,8 @@
 // 서버 연결 — 접속 핸드셰이크, 시계 차이 측정, 끊기면 다시 연결
+// 2차맵 같은 기능의 메시지는 기능 통로(serverLink.ts)로 넘긴다. 기능은 이 연결 하나를 함께 쓴다.
 import { PROTOCOL_VERSION, type ServerMessage, decodeServerMessage, encodeMessage } from "@terra/protocol";
 import { type ClockEstimate, type ClockSample, estimateClockOffset } from "@terra/shared";
+import { attachConnection } from "./serverLink.ts";
 
 export type ConnectionStatus =
   | { kind: "connecting" }
@@ -41,10 +43,19 @@ export function connect(
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   let samples: ClockSample[] = [];
   let pingTimers: ReturnType<typeof setTimeout>[] = [];
+  // 기능 통로에 이 연결을 붙인다. 로그인한 사용자가 바뀌면 통로가 reconnectNow를 부른다
+  const link = attachConnection({ reconnect: () => reconnectNow() });
 
   const clearPings = (): void => {
     for (const timer of pingTimers) clearTimeout(timer);
     pingTimers = [];
+  };
+
+  /** 기능 메시지 보내기 — 지금 소켓이 열려 있을 때만 */
+  const sendText = (text: string): boolean => {
+    if (socket?.readyState !== WebSocket.OPEN) return false;
+    socket.send(text);
+    return true;
   };
 
   // 시계 차이 측정: ping 여러 개를 간격을 두고 보낸다
@@ -62,12 +73,13 @@ export function connect(
     }
   };
 
-  const handle = (message: ServerMessage): void => {
+  const handle = (message: ServerMessage, size: number): void => {
     switch (message.t) {
       case "welcome":
         attempt = 0;
         onStatus({ kind: "connected", clock: null });
         syncClock();
+        link.ready(sendText);
         options.onWelcome?.();
         return;
       case "pong":
@@ -77,35 +89,46 @@ export function connect(
           clientReceiveTime: Date.now(),
         });
         if (samples.length === CLOCK_SAMPLE_COUNT) {
-          onStatus({ kind: "connected", clock: estimateClockOffset(samples) });
+          const clock = estimateClockOffset(samples);
+          link.clock(clock);
+          onStatus({ kind: "connected", clock });
         }
         return;
       case "reject":
         rejected = true;
+        link.down();
         onStatus({ kind: "rejected", code: message.code });
         return;
+      default:
+        // 2차맵 구독·명령 결과 같은 기능 메시지
+        link.message(message, size);
     }
   };
 
   const open = (): void => {
     if (stopped) return;
     onStatus({ kind: "connecting" });
-    socket = new WebSocket(socketUrl());
-    socket.addEventListener("open", () => {
-      socket?.send(
-        encodeMessage({ t: "hello", protocolVersion: PROTOCOL_VERSION, clientBuild: __APP_BUILD__ }),
-      );
+    const ws = new WebSocket(socketUrl());
+    socket = ws;
+    ws.addEventListener("open", () => {
+      ws.send(encodeMessage({ t: "hello", protocolVersion: PROTOCOL_VERSION, clientBuild: __APP_BUILD__ }));
     });
-    socket.addEventListener("message", (event) => {
-      if (typeof event.data !== "string") return;
+    ws.addEventListener("message", (event) => {
+      // 다시 맺느라 버린 옛 소켓의 메시지는 버린다
+      if (ws !== socket || typeof event.data !== "string") return;
+      let message: ServerMessage;
       try {
-        handle(decodeServerMessage(event.data));
+        message = decodeServerMessage(event.data);
       } catch {
         // 알 수 없는 메시지는 무시한다 (서버가 더 새 버전일 수 있음)
+        return;
       }
+      handle(message, event.data.length);
     });
-    socket.addEventListener("close", () => {
+    ws.addEventListener("close", () => {
+      if (ws !== socket) return;
       clearPings();
+      link.down();
       if (stopped || rejected) return;
       onStatus({ kind: "disconnected" });
       // 지수 백오프로 다시 연결
@@ -113,6 +136,20 @@ export function connect(
       attempt += 1;
       reconnectTimer = setTimeout(open, delay);
     });
+  };
+
+  // 지금 연결을 닫고 바로 새로 맺는다 — 로그인한 사용자가 바뀌었을 때(serverLink.ts followIdentity)
+  const reconnectNow = (): void => {
+    if (stopped || rejected) return;
+    const old = socket;
+    socket = undefined;
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    reconnectTimer = undefined;
+    clearPings();
+    attempt = 0;
+    link.down();
+    old?.close(1000, "reconnect");
+    open();
   };
 
   // 앱이 다시 보이면(iOS 등 백그라운드 복귀) 시계를 다시 맞춘다
@@ -129,6 +166,7 @@ export function connect(
     if (reconnectTimer) clearTimeout(reconnectTimer);
     document.removeEventListener("visibilitychange", onVisibility);
     reloadClosers.delete(closeNormally);
+    link.detach();
   };
   // 정상 종료(1000)를 알리고 끊는다. 코드 없이 close()하면 서버는 1005(코드 없음)를 받는다
   const closeNormally = (): void => {

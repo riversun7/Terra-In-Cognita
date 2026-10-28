@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-29 00:37 | 전투맵 인스턴스 ADR(35, 제안)과 기획 세션에 보낼 기술 제약 | Claude Code | [29-0037-combat-map-adr](worklog/2026/10/29-0037-combat-map-adr.md) |
 | 2026-10-29 00:22 | 기획서 미러 다시 동기화 (GDD v4, D-001~D-183) | Claude Code | [29-0022-design-mirror-sync](worklog/2026/10/29-0022-design-mirror-sync.md) |
 | 2026-10-29 00:20 | S1 판정 코어: packages/sim — 배치 격자·통과 폭, 8방향 A*, 경로 이동, 이벤트 큐, 건물 배치, 임시 지형 | Claude Code (클라우드 세션, 서브에이전트 worktree) | [29-0020-sim-core](worklog/2026/10/29-0020-sim-core.md) |
 | 2026-10-29 00:05 | 행성 격자 계약 구현: `@terra/planet` 셀 키·힐베르트 순서·면 경계·이웃·꼭짓점·탄젠트 투영 | Claude Code (서브에이전트, 작업 트리) | [29-0005-planet-grid](worklog/2026/10/29-0005-planet-grid.md) |

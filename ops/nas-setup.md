@@ -35,6 +35,8 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
 - DB 비밀번호는 첫 배포 때 자동으로 만들어져 `docker/terra-in-cognita/.env`에만 저장된다(git에는 없음).
 - 배포 중 헬스체크가 실패하면 직전 버전으로 자동으로 되돌린다. 배포 전 DB 백업은 `docker/terra-in-cognita/backups`에 14일 보관한다.
 - DB 구조 변경(마이그레이션)은 배포 로그에 `마이그레이션 적용: …` 또는 `적용할 마이그레이션 없음`으로 나온다. 실패하면 앱을 바꾸지 않고 멈춘다.
+- healthy가 된 뒤 자동 점검을 한다(`ops/smoke.mjs`): `/health`의 DB 상태·콘텐츠 버전·해시가 CI가 검사한 값과 같은지, WebSocket 접속이 되는지. 배포 로그에 `✓ 배포 점검 통과 — core@1 (…)`이 나오면 성공이다. 실패하면(`✗ 배포 점검 실패: …`) 직전 버전으로 되돌린다.
+- 콘텐츠 팩은 이미지 안에 있다(`/app/content/core`). 팩이 틀리면 앱이 뜨지 않고(로그에 `✗ [스키마] …`, `콘텐츠 팩 검증 실패`) 직전 버전으로 되돌린다. 지금 실행 중인 팩은 `/health`의 `contentVersion`·`contentHash`로 본다: `docker exec tic-app node -e "fetch('http://127.0.0.1:4100/health').then(r=>r.text()).then(console.log)"`
 
 ## 6. 외부 접속 (주소를 정할 때 같이 설정)
 앱은 NAS 안(`localhost:4100`)에만 열려 있다. 휴대폰에서 접속하려면 DSM 역방향 프록시를 만든다.
@@ -73,4 +75,4 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
 ## 참고
 - 실행기는 NAS의 Docker를 제어할 수 있다. 배포 작업은 main 브랜치 실행에서만 돈다. 저장소에 쓰기 권한을 가진 사람만 작업을 실행할 수 있으니 협업자를 추가할 때 주의한다.
 - 실행기를 다시 설치하려면 토큰을 새로 받아 2단계를 다시 한다.
-- 관련 파일: `ops/compose.yml`(게임 서버 + DB), `ops/deploy.sh`(배포 순서), `ops/runner/compose.yml`(실행기), `.github/workflows/ci.yml`, `.github/workflows/nas-facts.yml`.
+- 관련 파일: `ops/compose.yml`(게임 서버 + DB), `ops/deploy.sh`(배포 순서), `ops/smoke.mjs`(배포 자동 점검), `ops/runner/compose.yml`(실행기), `.github/workflows/ci.yml`, `.github/workflows/nas-facts.yml`.

@@ -296,6 +296,13 @@ scripts/           # 검사 스크립트(모듈 경계·파일 크기·다국어
   | 5 | 헤드리스 시뮬레이션 회귀: 테스트 행성에서 봇으로 N일 진행 → 불변 조건(원장 합계, 음수 재고, NaN), 인플레이션 등 지표를 이전 팩과 비교한 보고서 | 경제 규칙 정의 시 |
   | 6 | 기록된 전투·시나리오 재생 비교 | 전투 규칙 정의 시 |
   | 7 | 스테이징 배포 + 자동 점검 → 운영 반영 | M0 |
+- 구현(2026-10-28, ADR 24): 1·2·4·7단계.
+  - 팩은 `content/<팩 ID>/`에 `manifest.json`·`id-changes.json`·`<분류>.json`. ID는 영어 snake_case, 한 번 쓴 ID는 다시 쓰지 않는다. 지우거나 바꾼 ID는 `id-changes.json`에 뒤에 추가만 한다. 이름·설명은 ko·en **둘 다** 필수(ko 필수는 사용자가 바꿀 수 있다).
+  - 검증기는 `packages/content`, 검사는 `pnpm check:content`(`scripts/check-content.mjs`). `pnpm check`가 1·2·4a단계(팩 하나만), 푸시 전·CI가 4b단계(기준 커밋의 팩과 비교)까지 본다.
+  - 팩은 서버 이미지에 넣는다(`CONTENT_DIR`) → 코드와 팩이 함께 배포·되돌림된다(롤백 = 이전 이미지 = 이전 팩). 서버는 시작할 때 1·2·4a단계를 검사하고, 틀리면 뜨지 않는다.
+  - 7단계: `/health`의 `contentVersion`(`core@1` 형식)·`contentHash`와 WebSocket 접속 인사를 `ops/smoke.mjs`로 점검한다(CI 이미지 작업, NAS 배포). 배포는 healthy + 점검 통과여야 끝나고, 아니면 직전 버전으로 되돌린다.
+  - 스테이징: 따로 두지 않는다. 지금 NAS 새 스택(실유저 없음)이 스테이징이고 "운영 반영" 대상은 아직 없다. 실유저 전에 운영 스택 + promote 워크플로를 더할지, 기존 운영을 먼저 내릴지 사용자가 정한다.
+  - M0 팩 `content/core`는 형식 확인용 임시 데이터(`placeholder: true`)다. 운영 데이터 사용 여부(`LiveUsage`) 검사는 운영 데이터가 생기면 배포 단계에 더한다.
 
 ---
 
@@ -365,7 +372,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 |---|---|
 | commit-msg | Conventional Commits 형식(commitlint) |
 | pre-commit | 포맷(Biome), 비밀값(자체 스크립트, 흔한 형태만) — 빠르게 |
-| pre-push | 린트(oxlint), 타입 검사, 단위 테스트, 모듈 경계, 파일 크기, 다국어, 문서 갱신 검사 (`pnpm check` + 문서 검사) |
+| pre-push | 린트(oxlint), 타입 검사, 단위 테스트, 모듈 경계, 파일 크기, 다국어, 콘텐츠 검증, 문서 갱신 검사 (`pnpm check` + 문서 검사 + 콘텐츠 호환 검사) |
 | main 푸시 CI | 위 전체 + DB 통합 테스트(PostgreSQL 18.6 서비스 컨테이너)·표 정의와 마이그레이션 일치 + 비밀값 전체 이력(gitleaks) + 콘텐츠 검증 + 이미지 빌드 + 스테이징 배포. 문서·스킬만 바뀐 푸시는 이미지·배포 생략 |
 | 정기(NAS) | 매일 DB 백업, 주 1회 복구 훈련(`nas-backup`). 되돌림 훈련은 수동(`rollback-drill`) |
 | 정기(GitHub) | 매주 월요일 Dependabot PR(npm·Actions). 버전 올림만 있는 PR은 작업 기록 검사에서 빠진다(ADR 21) |
@@ -468,6 +475,7 @@ self-hosted runner로 `uname -r`, CPU, 코어 수, 메모리, 디스크 종류·
 | 21 | 의존성 자동 업데이트(Dependabot, cooldown, 문서 검사 예외) | `2026-10-28-dependency-updates.md` |
 | 22 | DB 접근(pg)과 마이그레이션(배포 5단계, 직전 버전 호환) | `2026-10-28-db-access-and-migrations.md` |
 | 23 | tRPC 도입과 서버 타입 공유(게임 앱 → 서버 타입 전용 예외, 프로젝트 참조), Zod 4 연동 확인 | `2026-10-28-trpc-type-sharing.md` |
+| 24 | 콘텐츠 팩 형식(ID·버전·변경표, ko·en 필수)과 검증 1·2·4·7단계, 팩을 서버 이미지에 포함, 배포 자동 점검 | `2026-10-28-content-pack-format.md` |
 
 ---
 

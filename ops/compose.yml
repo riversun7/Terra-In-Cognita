@@ -39,7 +39,8 @@ services:
       - ${TERRA_DATA_DIR:-/volume1/docker/terra-in-cognita}/pgdata:/var/lib/postgresql
     # 외부 포트는 열지 않는다. 관리할 때는 `docker exec -it tic-db psql -U terra terra`
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U terra -d terra"]
+      # TCP로 확인: 첫 기동 때의 초기화용 임시 서버(소켓만 받음)를 준비 완료로 착각하지 않게
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U terra -d terra"]
       interval: 5s
       timeout: 3s
       retries: 20

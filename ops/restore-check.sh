@@ -28,9 +28,11 @@ docker run -d --name "$NAME" --network none \
   -e POSTGRES_PASSWORD="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')" \
   -v "$TMP_DIR:/var/lib/postgresql" postgres:18.6-trixie > /dev/null
 
+# 첫 기동 때 이미지가 초기화용 임시 서버(소켓만 받음)를 띄웠다가 끈다.
+# TCP(127.0.0.1)로 확인해야 진짜 서버가 뜬 뒤에만 통과한다.
 ready=""
 for _ in $(seq 1 60); do
-  if docker exec "$NAME" pg_isready -U terra -d terra > /dev/null 2>&1; then
+  if docker exec "$NAME" pg_isready -h 127.0.0.1 -U terra -d terra > /dev/null 2>&1; then
     ready=1
     break
   fi

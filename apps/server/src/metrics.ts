@@ -3,9 +3,15 @@
 import { type ELDHistogram, monitorEventLoopDelay } from "node:perf_hooks";
 import type { FastifyBaseLogger } from "fastify";
 
+/**
+ * 이벤트 루프 지연을 재는 타이머 간격(ms). Node 히스토그램은 지연이 아니라 타이머 사이 간격을 적는다
+ * (쉬고 있을 때도 약 20.1ms — Verified 2026-10-29, Node 24.22.1). 그래서 지연 = 적힌 값 − 이 간격이다.
+ */
+export const EVENT_LOOP_RESOLUTION_MS = 20;
+
 export interface ServerMetrics {
   metric: "server";
-  /** 이벤트 루프 지연(ms) — S3 통과 기준은 p99 < 50ms */
+  /** 이벤트 루프 지연(ms, 측정 간격을 뺀 값) — S3 통과 기준은 p99 < 50ms */
   eventLoopP50Ms: number;
   eventLoopP99Ms: number;
   eventLoopMaxMs: number;
@@ -18,10 +24,17 @@ const round1 = (value: number): number => Math.round(value * 10) / 10;
 const NS_PER_MS = 1e6;
 const BYTES_PER_MB = 1024 * 1024;
 
+/** 지표에 쓰는 히스토그램 값(시험에서는 가짜를 넣는다) */
+export type DelayHistogram = Pick<ELDHistogram, "count" | "max" | "percentile">;
+
 /** 지금까지 모은 값으로 지표를 만든다 (기록이 없으면 지연은 0) */
-export function readServerMetrics(histogram: ELDHistogram, wsConnections: number): ServerMetrics {
+export function readServerMetrics(
+  histogram: DelayHistogram,
+  wsConnections: number,
+  resolutionMs = EVENT_LOOP_RESOLUTION_MS,
+): ServerMetrics {
   const delay = (ns: number): number =>
-    histogram.count > 0 && Number.isFinite(ns) ? round1(ns / NS_PER_MS) : 0;
+    histogram.count > 0 && Number.isFinite(ns) ? round1(Math.max(0, ns / NS_PER_MS - resolutionMs)) : 0;
   const memory = process.memoryUsage();
   return {
     metric: "server",
@@ -44,7 +57,7 @@ export function startServerMetrics(
   intervalMs = 60_000,
   extra?: () => Record<string, number>,
 ): () => void {
-  const histogram = monitorEventLoopDelay({ resolution: 20 });
+  const histogram = monitorEventLoopDelay({ resolution: EVENT_LOOP_RESOLUTION_MS });
   histogram.enable();
   const timer = setInterval(() => {
     log.info({ ...readServerMetrics(histogram, wsConnections()), ...extra?.() }, "server metrics");

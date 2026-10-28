@@ -18,13 +18,34 @@ describe("서버 지표", () => {
     expect(metrics.heapUsedMb).toBeGreaterThan(0);
   });
 
-  it("기록하면 ms 단위로 바꾼다", async () => {
+  it("나노초를 ms로 바꾸고 측정 간격을 뺀다(간격보다 짧은 값은 0)", () => {
+    // 히스토그램은 타이머 사이 간격을 적는다: 20ms 간격 + 지연
+    const values = new Map([
+      [50, 20.4e6],
+      [99, 25e6],
+    ]);
+    const histogram = { count: 3, max: 70e6, percentile: (p: number) => values.get(p) ?? 0 };
+    expect(readServerMetrics(histogram, 0, 20)).toMatchObject({
+      eventLoopP50Ms: 0.4,
+      eventLoopP99Ms: 5,
+      eventLoopMaxMs: 50,
+    });
+    expect(readServerMetrics({ ...histogram, max: 19e6 }, 0, 20).eventLoopMaxMs).toBe(0);
+  });
+
+  it("실제 히스토그램: 쉬면 거의 0, 루프를 막으면 막은 만큼", async () => {
     const histogram = monitorEventLoopDelay({ resolution: 10 });
     histogram.enable();
-    await new Promise((resolve) => setTimeout(resolve, 60));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    const end = performance.now() + 80;
+    while (performance.now() < end) {
+      // 이벤트 루프를 80ms 막는다
+    }
+    await new Promise((resolve) => setTimeout(resolve, 40));
     histogram.disable();
-    const metrics = readServerMetrics(histogram, 0);
-    expect(metrics.eventLoopMaxMs).toBeGreaterThan(0);
+    const metrics = readServerMetrics(histogram, 0, 10);
+    expect(metrics.eventLoopP50Ms).toBeLessThan(5);
+    expect(metrics.eventLoopMaxMs).toBeGreaterThanOrEqual(60);
     // 나노초를 그대로 냈다면 수백만이 된다
     expect(metrics.eventLoopMaxMs).toBeLessThan(10_000);
   });

@@ -1,0 +1,102 @@
+/*
+ * 2차맵 시험 화면 — 지연 로딩 조각과 함께 따로 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 지도는 화면 전체를 덮는다. 위아래 판(HUD)은 불투명하다: 세계(지도) 색은 테마와 상관없이 밝으므로
+ * 다크 테마에서도 판 위 글자가 읽혀야 한다(ADR 2026-10-28-design-system "결과", D-070).
+ */
+.map-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  /* 지도 위 끌기가 화면 당겨 새로고침·되튀기로 새지 않게 */
+  overscroll-behavior: none;
+  background-color: var(--color-bg);
+}
+.map-view {
+  position: absolute;
+  inset: 0;
+}
+
+/* 위아래 판 — 판 사이 빈 곳은 지도를 그대로 누를 수 있게 지나보낸다 */
+.map-hud {
+  position: absolute;
+  left: max(var(--space-3), env(safe-area-inset-left));
+  right: max(var(--space-3), env(safe-area-inset-right));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+.map-hud > * {
+  pointer-events: auto;
+}
+.map-hud-top {
+  top: max(var(--space-3), env(safe-area-inset-top));
+  align-items: flex-start;
+}
+.map-hud-bottom {
+  bottom: max(var(--space-3), env(safe-area-inset-bottom));
+  align-items: flex-end;
+}
+
+.map-panel {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+  color: var(--color-text);
+}
+.map-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
+}
+.map-title {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-display);
+  text-shadow: var(--shadow-heading);
+}
+/* 성능 숫자 — 작게, 자리 너비가 같은 숫자 */
+.map-perf {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.map-notice {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: calc(100% - 2 * var(--space-6));
+  transform: translate(-50%, -50%);
+  font-weight: var(--font-weight-strong);
+  text-align: center;
+}
+.map-hint {
+  flex: 1 1 12em;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.map-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+/* 눌린 토글(모두 멈춤) — 버튼 색 쌍(대비 검사함) */
+.map-actions button[aria-pressed="true"] {
+  --button-lip: var(--color-primary-lip);
+  border-color: transparent;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}

@@ -24,9 +24,11 @@
 | `ops/nas-setup.md` | 9장 관측: 보는 법, 관련 파일 목록 |
 | `AGENTS.md` | 7장 명령 표에 한 줄 |
 | `apps/server/src/metrics.ts`, `metrics.test.ts` | 지표 줄에 CPU 사용률(`cpuPercent`). S1의 남은 측정(서버 CPU 평균) |
+| `.github/workflows/nas-metrics.yml`(14:00) | 행성 준비 줄: S2 굽기의 단계별 시간·최대 메모리 |
 
 ## 함께 바꿔야 하는 파일
 - 서버 지표 줄의 필드를 바꾸면(`apps/server/src/metrics.ts`, `src/world/worldStats.ts`) 이 워크플로의 grep 기준(`"metric":"server"`)이 맞는지 본다.
+- 행성 로그 문구를 바꾸면(`apps/server/src/planet/service.ts`의 `"planet …"`) 이 워크플로의 grep 기준(`"msg":"planet `)이 맞는지 본다.
 - 기기 표의 열을 바꾸면(`apps/server/src/db/schema.ts`) 워크플로의 SQL을 함께 고친다.
 
 ## 건드리지 말 것
@@ -37,6 +39,7 @@
 - 09:27 서버 지표 줄에 `cpuPercent`를 더했다(구간 동안 쓴 CPU, 코어 하나 기준, 워커 스레드 포함 — `process.cpuUsage()` 차이 ÷ 걸린 시간). 배포 뒤 1시간쯤 지나 `nas-metrics`로 S1 서버 CPU 평균을 잰다.
 - 10:42 두 번째 실행(최근 80분, 09:30에 새로 배포한 컨테이너): CPU 1분 평균 1.4~1.8%(코어 하나 기준, 평균 1.54%), 이벤트 루프 p99 0.9~1.6ms, RSS 121~131MB. 휴대폰 접속은 없었다. ADR 33 "S1 측정"에 적었다.
 - 잰 값은 ADR 33 "S1 측정"에 더한다.
+- 14:00 행성 준비 줄(`"msg":"planet …"`, 컨테이너 시작 뒤 전체)을 더했다. 1분 지표에는 굽기 시간만 있고 단계별 시간·최대 메모리(`peakWorkerMb`·`peakRssMb`)는 이 줄에만 있다. main에 올리면 배포가 돌아 컨테이너가 바뀌고 그 줄이 없어지므로, 먼저 짧은 브랜치(`ops/nas-metrics-planet`)에서 실행해 S2 첫 굽기 값을 읽고 main에는 다음 배포 묶음과 함께 합친다.
 
 ## 사용자 결정 대기
 - 없음.

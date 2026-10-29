@@ -7,28 +7,27 @@
 // 겹침(서랍·편집 시트)만 열고 닫는 것은 화면이 바뀐 것이 아니다(라우터 version 그대로): 스크롤·제목·초점을 건드리지 않고,
 // 닫으면 <dialog>가 연 단추로 돌려준 초점을 그대로 둔다. 겹침이 열린 동안에는 스크롤을 기억하지 않는다.
 // 지금 화면을 다시 고르면(라우터 reselects) focusId 칸에 초점을 두거나 맨 위로 올린다.
-// 꽂는 줄 자리: 복귀 요약(W3)은 맨 아래 주석 줄이다. 종 배지는 TopBar.tsx, 화면은 routeViews.tsx.
+// 복귀 요약(W3, summary/ReturnSummary.tsx)은 틀 밖 겹침으로 맨 아래에 그린다. 종 배지는 TopBar.tsx, 화면은 routeViews.tsx.
 import { type AccountView, ROUTES, canOpenRoute } from "@terra/shared";
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useInboxMenuBadges } from "../inbox/store.ts";
 import { m } from "../paraglide/messages.js";
 import type { FrameMonitor } from "../perf/frameMonitor.ts";
+import { ReturnSummary } from "../summary/ReturnSummary.tsx";
 import { ConnectionNotice } from "./ConnectionNotice.tsx";
 import { MapSwitch } from "./MapSwitch.tsx";
 import { OrientationHint } from "./OrientationHint.tsx";
 import { RouteView, documentTitle } from "./routeViews.tsx";
 import type { RouterSnapshot } from "./router.ts";
 import { routeKind } from "./router.ts";
-import { closeOverlay, openOverlay, useRoute } from "./routerStore.ts";
+import { closeOverlay, navigate, openOverlay, useRoute } from "./routerStore.ts";
 import { setRailExpanded, useNavigation, useRailExpanded } from "./shellPrefs.ts";
 import { SIDE_NAV_ID, SideMenu } from "./SideMenu.tsx";
-import { type MenuBadges, TabBar } from "./TabBar.tsx";
+import { TabBar } from "./TabBar.tsx";
 import { TopBar } from "./TopBar.tsx";
 import { useLayout } from "./useLayout.ts";
 import "./shell.css";
 import "./overlays.css";
-
-/** 메뉴 항목 배지(처리할 일 inbox.list의 badges). 지금 배지를 거는 처리할 일 종류가 없다(ADR 37 4절) */
-const NO_BADGES: MenuBadges = {};
 
 /** 칸 열쇠 → 그 칸에서 보던 스크롤 위치(뒤로·앞으로) */
 const entryScroll = new Map<string, number>();
@@ -196,6 +195,8 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
   const layout = useLayout();
   const nav = useNavigation();
   const railExpanded = useRailExpanded();
+  // 메뉴 항목 배지(처리할 일 inbox.list의 badges, ADR 37 4·7절)
+  const badges = useInboxMenuBadges();
   const { match } = route;
   const current = match?.id ?? null;
   const allowed = match === null || canOpenRoute(match.id, user.roles);
@@ -263,7 +264,7 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
       >
         <SkipLink />
         <nav className="frame-side" id={SIDE_NAV_ID} aria-label={m.shell_menu()}>
-          <SideMenu variant="side" user={user} nav={nav} current={current} badges={NO_BADGES} />
+          <SideMenu variant="side" user={user} nav={nav} current={current} badges={badges} />
         </nav>
         <header className="frame-top">
           <TopBar
@@ -280,7 +281,7 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
           nav={nav}
           slots={layout.tabSlots[nav.layout]}
           current={current}
-          badges={NO_BADGES}
+          badges={badges}
           onMenu={onMenu}
         />
         <Drawer open={route.overlay === "drawer" && narrow}>
@@ -289,7 +290,7 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
             user={user}
             nav={nav}
             current={current}
-            badges={NO_BADGES}
+            badges={badges}
             onClose={() => closeOverlay()}
           />
         </Drawer>
@@ -300,7 +301,8 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
   return (
     <>
       {frame}
-      {/* 꽂는 줄(W3): 복귀 요약 <ReturnSummary />(어느 주소 위에도 뜨는 겹침, 기록 칸을 쌓지 않는다) */}
+      {/* 복귀 요약: 어느 주소 위에도 뜨는 겹침, 기록 칸을 쌓지 않는다. 숫자를 누르면 닫고 그 화면으로(쌓기) */}
+      <ReturnSummary onNavigate={navigate} />
     </>
   );
 }

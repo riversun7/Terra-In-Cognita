@@ -4,17 +4,12 @@
 // 아이콘만 있는 단추라 이름은 aria-label로 준다(배지는 숫자만 두지 않는다: "알림 3개").
 // ☰의 읽는 이름: 좁은 폭은 "메뉴 열기"(서랍 대화 상자를 연다), 중간 폭은 "메뉴" + aria-expanded·aria-controls(레일).
 // 중간 폭에서 이름까지 펼치기·접기로 바꾸면 같은 상태를 두 번 읽는다("메뉴 접기, 펼쳐짐").
+import { useInboxBellCount } from "../inbox/store.ts";
 import { m } from "../paraglide/messages.js";
 import { Icon } from "../ui/icons.tsx";
 import { AppLink } from "./AppLink.tsx";
 import { CountBadge } from "./CountBadge.tsx";
 import { SIDE_NAV_ID } from "./SideMenu.tsx";
-
-/**
- * 종 배지 수(완료를 뺀 처리할 일 줄 수, 묶음은 1줄 — ADR 37 7절). 0이면 배지를 그리지 않는다.
- * 꽂는 줄(W3): 이 줄을 처리할 일 저장소의 훅(inbox/store.ts)으로 바꾼다. 그 전에는 처리할 일이 없다
- */
-const useAlertCount = (): number => 0;
 
 interface TopBarProps {
   /** ☰를 눌렀을 때(서랍 열기 또는 레일 펴기·접기는 Shell이 폭 단계로 정한다) */
@@ -26,7 +21,8 @@ interface TopBarProps {
 }
 
 export function TopBar({ onMenu, railExpanded, current }: TopBarProps) {
-  const alerts = useAlertCount();
+  // 종 배지 수(완료를 뺀 처리할 일 줄 수, 묶음은 1줄 — ADR 37 7절). 0이면 배지를 그리지 않는다
+  const alerts = useInboxBellCount();
   const rail = railExpanded !== null;
   return (
     <div className="topbar">

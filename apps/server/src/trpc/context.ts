@@ -3,6 +3,8 @@
 // 그래서 Node 전용 타입(fastify, pg, drizzle, better-auth 등)을 여기에 직접 넣지 않는다.
 // 넣으면 기기 코드에서 Node 전역(process, Buffer)이 타입 오류 없이 보이게 된다 — scripts/check-boundaries.mjs가 잡는다.
 import type { Role, UserSettings } from "@terra/shared";
+import type { DashboardCardsResponse } from "@terra/shared/dashboard";
+import type { InboxListResponse, SummaryGetResponse } from "@terra/shared/inbox";
 import type {
   PlanetDraftRevisionInfo,
   PlanetDraftSaveInput,
@@ -80,6 +82,24 @@ export interface PlanetEditorServices {
   remove(viewer: Viewer, planetId: string): Promise<{ removed: boolean }>;
 }
 
+/** 홈 자료 조회의 조건. preview는 프로시저가 권한(home: preview, dev·admin)을 본 뒤에만 true다 */
+export interface HomeQuery {
+  readonly preview: boolean;
+  /** 서버 시각(UTC ms, ctx.now()) */
+  readonly now: number;
+}
+
+/**
+ * 홈 자료 — 처리할 일(inbox.list)·복귀 요약(summary.get)·서버 카드(dashboard.cards). ADR 2026-10-29-app-shell 6·7·8절.
+ * 프로시저가 로그인한 본인으로만 부른다. 요청 때 계정 상태에서 만든다(서버가 늘 들고 있지 않는다).
+ */
+export interface HomeServices {
+  inbox(viewer: Viewer, query: HomeQuery): Promise<InboxListResponse>;
+  summary(viewer: Viewer, query: HomeQuery): Promise<SummaryGetResponse>;
+  /** ids: 홈에 있는 카드 ID(모르는 ID·기기 카드는 빼고 답한다) */
+  cards(viewer: Viewer, ids: readonly string[], query: HomeQuery): Promise<DashboardCardsResponse>;
+}
+
 export interface TrpcContext {
   /** 콘텐츠 팩 버전 */
   contentVersion: string;
@@ -93,6 +113,8 @@ export interface TrpcContext {
   settings: SettingsServices | undefined;
   /** 행성 편집기. 인증이 꺼져 있거나 정의 조회 자료를 받지 않았으면 없다 */
   planetEditor: PlanetEditorServices | undefined;
+  /** 홈 자료. 늘 있다(지금 제공 함수가 0개라 DB가 필요 없다). 로그인 검사는 프로시저가 먼저 한다 */
+  home: HomeServices;
 }
 
 export interface TrpcContextOptions {

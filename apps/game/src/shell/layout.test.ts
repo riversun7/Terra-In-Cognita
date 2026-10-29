@@ -1,8 +1,10 @@
-// 폭 경계 시험 — 화면 틀 CSS(shell.css·tabbar.css)의 미디어 쿼리 숫자와 layout.ts의 값이 같다(ADR 2026-10-29-app-shell 3절),
+// 폭 경계 시험 — 화면 틀 CSS(shell.css·tabbar.css)와 복귀 요약 겹침(summary/summary.css)의 미디어 쿼리 숫자와
+// layout.ts의 값이 같다(ADR 2026-10-29-app-shell 3절),
 // 하단 탭 칸 수(D-265)·배치 C의 칸 나누기, C 지도 버튼이 솟는 만큼 비우는 여백
 import { NAV_ITEM_IDS, NAV_LAYOUTS, type NavLayout } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import tokensCss from "../styles/tokens.css?raw";
+import summaryCss from "../summary/summary.css?raw";
 import {
   MEDIUM_MIN_EM,
   MEDIUM_QUERY,
@@ -19,8 +21,8 @@ import {
 import shellCss from "./shell.css?raw";
 import tabbarCss from "./tabbar.css?raw";
 
-/** 폭 경계를 쓰는 화면 틀 CSS(vitest.config.ts test.css.include에도 넣는다) */
-const FRAME_CSS = { "shell.css": shellCss, "tabbar.css": tabbarCss };
+/** 폭 경계를 쓰는 CSS: 화면 틀 + 복귀 요약 겹침(vitest.config.ts test.css.include에도 넣는다) */
+const FRAME_CSS = { "shell.css": shellCss, "tabbar.css": tabbarCss, "summary.css": summaryCss };
 
 /** px → em(브라우저 기본 글자 크기 16px) */
 const px = (value: number): number => value / 16;

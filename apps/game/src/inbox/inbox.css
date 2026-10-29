@@ -1,0 +1,248 @@
+/*
+ * 처리함 화면·처리할 일 목록 — 목록 부품(InboxList.tsx)이 가져온다(처리함 화면도 함께). 그래서 홈이 InboxList만 써도
+ * 이 파일이 그 조각과 함께 내려온다. 첫 화면 묶음에는 들어가지 않는다. 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
+ * 분류 색은 이미 대비 검사를 받는 상태색만 쓴다(ADR 2026-10-29-app-shell 3절): 위협 danger, 돈·생존 warning, 완료 success,
+ * 멈춤·제안은 글자색. 분류는 늘 아이콘 + 이름과 함께 보인다(색만으로 알리지 않는다).
+ * 줄의 제목 링크가 카드 전체를 덮는다(::after). 바로 처리 버튼은 그 위에 놓아(z-index) 따로 누른다.
+ */
+.inbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ── 분류 ─────────────────────────────────────────── */
+.inbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.inbox-group-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  color: var(--color-text);
+}
+/* 분류 아이콘 자리: 동그란 칩. 위협·돈·생존·완료는 상태색 글자 + 그 알림 상자 바탕(대비 검사한 쌍) */
+.inbox-group-mark {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+}
+/* 화면 틀 아이콘(.icon = --icon-md, shell.css)보다 작게. 두 칸 선택자라 스타일 파일 순서와 상관없이 이긴다 */
+.icon.inbox-icon {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.inbox-group-name {
+  min-width: 0;
+}
+.inbox-group-count {
+  flex: none;
+  min-width: var(--badge-size);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.inbox-group[data-category="threat"] .inbox-group-mark {
+  color: var(--color-danger);
+  background-color: var(--color-danger-surface);
+}
+.inbox-group[data-category="money_survival"] .inbox-group-mark {
+  color: var(--color-warning);
+  background-color: var(--color-warning-surface);
+}
+.inbox-group[data-category="done"] .inbox-group-mark {
+  color: var(--color-success);
+  background-color: var(--color-success-surface);
+}
+
+/* ── 줄 ─────────────────────────────────────────── */
+.inbox-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.inbox-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: var(--tap-size);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  /* 왼쪽 띠: 분류 색(위협·돈·생존·완료) */
+  border-inline-start-width: calc(var(--border-w) * 3);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+}
+.inbox-group[data-category="threat"] .inbox-item {
+  border-inline-start-color: var(--color-danger);
+}
+.inbox-group[data-category="money_survival"] .inbox-item {
+  border-inline-start-color: var(--color-warning);
+}
+.inbox-group[data-category="done"] .inbox-item {
+  border-inline-start-color: var(--color-success);
+}
+/* 처리함의 ?item= 강조: 테두리 + 안쪽 고리(초점 색). 왼쪽 분류 띠는 그대로 둔다 */
+.inbox-item[data-highlight="true"] {
+  border-color: var(--color-focus);
+  box-shadow: inset 0 0 0 var(--border-w) var(--color-focus);
+}
+.inbox-item-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.inbox-item-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.inbox-item-title {
+  margin: 0;
+  color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.inbox-item-link {
+  text-decoration: none;
+}
+/* 카드 전체가 누르는 곳이다 */
+.inbox-item-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-control);
+}
+.inbox-item-link:focus-visible {
+  outline: none;
+}
+.inbox-item-link:focus-visible::after {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+@media (hover: hover) and (pointer: fine) {
+  .inbox-item-link:hover {
+    text-decoration: underline;
+    text-decoration-color: var(--color-focus);
+    text-decoration-thickness: var(--border-w);
+    text-underline-offset: var(--space-1);
+  }
+}
+.inbox-chevron {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+}
+.inbox-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.inbox-item-place {
+  font-weight: var(--font-weight-strong);
+}
+.inbox-item-due {
+  font-variant-numeric: tabular-nums;
+}
+/* 위협의 마감은 위험 색으로 한 번 더 알린다(판 바탕 위 대비 검사한 쌍) */
+.inbox-group[data-category="threat"] .inbox-item-due {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-strong);
+}
+/* "시험 자료" 표 — 작은 알약 */
+.inbox-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-body);
+  white-space: nowrap;
+}
+/* 바로 처리 버튼과 그 결과 알림은 카드를 덮는 링크 위에 둔다(따로 누르고, 알림 글을 눌러도 옮기지 않는다) */
+.inbox-item-actions {
+  position: relative;
+  z-index: 1;
+}
+.inbox-item-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+/* 결과 알림 영역은 늘 그려 두고(비면 높이 0) 글이 생기면 버튼 아래에 작은 상자로 보인다 */
+.inbox-item-feedback > .message {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-sm);
+}
+
+/* ── 화면 안내 ─────────────────────────────────────── */
+/* 시안 자료를 보는 중(dev·admin) */
+.inbox-notice {
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-w) dashed var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.inbox-missing {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.inbox-empty {
+  gap: var(--space-2);
+}
+.inbox-empty-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+
+/* 윈도 고대비(강제 색) — 배경색이 지워지므로 분류 띠·강조는 시스템 색으로 */
+@media (forced-colors: active) {
+  .inbox-item {
+    border-inline-start-color: CanvasText;
+  }
+  .inbox-item[data-highlight="true"] {
+    border-color: Highlight;
+  }
+}

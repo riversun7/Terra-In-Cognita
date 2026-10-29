@@ -21,6 +21,8 @@
 | `apps/server/drizzle/` (올라간 마이그레이션) | 수정·삭제·이름 변경 금지, 새 마이그레이션 추가만(`scripts/check-docs.mjs`가 검사) | Drizzle은 이름으로만 건너뛰어, 고친 내용이 운영 DB와 조용히 어긋난다(ADR `2026-10-28-db-access-and-migrations.md`) |
 | `apps/server/src/auth/bridge.ts`의 `/api/auth` 허용 목록(세션 조회·로그아웃) | 넓히려면 ADR | Better Auth 기본 경로(가입·로그인·비밀번호 재설정·관리자)는 우리 출처 확인·시도 제한을 거치지 않는다(ADR `2026-10-28-auth-and-accounts.md`) |
 | 감사 기록 추가만 트리거(`apps/server/drizzle/20261028112504_audit_log_append_only/`) | 지우거나 끄지 않는다. 바꾸려면 새 마이그레이션 + ADR | 감사 기록은 지울 수 없어야 한다(PLAN 4.8) |
+| 화면 주소 표 `packages/shared/src/routes.ts`(앱 뼈대 0단계 코드와 함께 생긴다) | 경로를 지우거나 바꾸면 옛 경로를 새 경로로 넘긴다 | 즐겨찾기와 나중의 푸시가 옛 주소를 가리킨다. 서버와 서비스 워커도 이 표로 화면 경로를 판정한다(ADR `2026-10-29-app-shell.md`) |
+| 계정에 저장되는 ID: 메뉴 항목(`packages/shared/src/navigation.ts`), 카드·템플릿(`dashboard.ts`), 처리할 일 종류(`inbox.ts`)(앱 뼈대 0단계 코드와 함께 생긴다) | 한 번 쓴 ID는 다시 쓰지 않는다 | 계정 설정(`user_settings`의 `nav`·`home`)과 처리할 일 항목 ID·주소(`?item=`)에 남는다. 같은 ID를 다른 뜻으로 다시 쓰면 저장된 값이 엉뚱한 것을 가리킨다(ADR `2026-10-29-app-shell.md`) |
 
 생성되면 추가할 보호 대상(PLAN 10.4):
 

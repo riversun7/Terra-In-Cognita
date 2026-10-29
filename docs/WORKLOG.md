@@ -6,6 +6,7 @@
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
 | 2026-10-29 17:10 | S2 다듬기 통합: 검토 반영 가지 넷 합치기, 생성기 출력 판 2를 서버에 맞추기, 통합 검토 지적 처리 | Claude Code (작업 트리 `.claude/worktrees/s2-polish`, 가지 `work/s2-polish`, main `e1e281b`에서 시작. 푸시하지 않음) | [29-1710-s2-polish-integration](worklog/2026/10/29-1710-s2-polish-integration.md) |
+| 2026-10-29 17:00 | 앱 뼈대 설계: ADR 37(제안) — 사용자 결정 반영, 조사 원본, 기획 질문 | Claude Code | [29-1700-app-shell-design](worklog/2026/10/29-1700-app-shell-design.md) |
 | 2026-10-29 16:40 | D-214 특수 지형 제안서 올림 (기획·사용자 확인용) | Claude Code | [29-1640-special-terrain-proposal](worklog/2026/10/29-1640-special-terrain-proposal.md) |
 | 2026-10-29 16:00 | S2 렌더러 검토 반영: 치마 바닥, 큰 행성 고르기, 받기 시간 제한, 타일 메모리, 가장 높은 땅, 가짜 행성 ADR 규칙 | Claude Code | [29-1600-s2-renderer-review](worklog/2026/10/29-1600-s2-renderer-review.md) |
 | 2026-10-29 15:05 | S2 셰이더 측정판 리뷰 반영: TSL 모델뷰 정밀도, 같은 일을 재는 컴파일, GPU 지연, 순서·멈춤, 다시 잰 헤드리스 수치 | Claude Code (서브에이전트, 작업 트리) | [29-1505-s2-webgpu-bench-review](worklog/2026/10/29-1505-s2-webgpu-bench-review.md) |

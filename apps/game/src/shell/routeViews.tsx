@@ -20,7 +20,7 @@ import { goBack, navigate } from "./routerStore.ts";
 
 // 꽂는 줄(W4): 홈 대시보드가 생기면 이 줄을 홈 화면 조각으로 바꾼다. 그 전에는 연결·성능 진단을 틀 안에 그린다
 const HomeScreen = lazy(() => import("../sections/HomeStatus.tsx"));
-// 처리할 일 화면(W3): ?item= 은 그 줄로 스크롤·초점, [뒤로]는 위 띠 끝에
+// 처리할 일 화면(W3): ?item= 은 그 줄을 강조한다(초점은 앱 안 이동일 때만 틀이 옮긴다). [뒤로]는 화면 제목 줄 끝에 둔다
 const InboxScreen = lazy(() => import("../inbox/InboxScreen.tsx"));
 const ComingSoon = lazy(() => import("../sections/ComingSoon.tsx"));
 const SettingsPage = lazy(() => import("../settings/SettingsPage.tsx"));

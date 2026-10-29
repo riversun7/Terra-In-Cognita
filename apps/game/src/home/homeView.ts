@@ -147,20 +147,35 @@ export function headItems(
 }
 
 /**
- * 타임라인 템플릿: 마감 없는 일("지금")은 받은 순서대로(서버 정렬 = 분류 순), 마감 있는 일은 마감 순서(같으면 받은 순서).
- * 마감 없는 항목도 빠지지 않는다.
+ * 가린 줄(처리함에서 더 보기)의 분류별 수 — 분류 순서대로, 0인 분류는 뺀다. 줄 수가 모자란 칸(격자의 2×1 카드 3줄 등)에서도
+ * 멈춤·완료처럼 마감 없는 줄이 많은 분류가 이름과 수로 보이게 한다(ADR 37 6절 "마감 없는 항목도 빠지지 않는다"의 기술 해석).
+ * 이 기기가 모르는 분류(더 새 서버)의 줄은 전체 수에만 든다.
+ */
+export function hiddenCounts(hidden: readonly InboxItem[]): { category: InboxCategory; count: number }[] {
+  return INBOX_CATEGORIES.map((category) => ({
+    category,
+    count: hidden.filter((item) => item.category === category).length,
+  })).filter((entry) => entry.count > 0);
+}
+
+/**
+ * 타임라인 템플릿: 마감 없는 할 일("지금")은 받은 순서대로(서버 정렬 = 분류 순), 마감 있는 일은 마감 순서(같으면 받은 순서),
+ * 완료(확인할 소식, D-6006)는 맨 끝에 따로 둔다. 마감 없는 항목도 빠지지 않는다.
  */
 export function splitTimeline(items: readonly InboxItem[]): {
   now: InboxItem[];
   upcoming: InboxItem[];
+  done: InboxItem[];
 } {
-  const now = items.filter((item) => item.deadlineAt === null);
-  const upcoming = items
+  const pending = items.filter((item) => item.category !== "done");
+  const now = pending.filter((item) => item.deadlineAt === null);
+  const upcoming = pending
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => item.deadlineAt !== null)
     .toSorted((a, b) => (a.item.deadlineAt ?? 0) - (b.item.deadlineAt ?? 0) || a.index - b.index)
     .map(({ item }) => item);
-  return { now, upcoming };
+  const done = items.filter((item) => item.category === "done");
+  return { now, upcoming, done };
 }
 
 /** 마감 있는 일만 마감 순서로(타임라인 카드) */

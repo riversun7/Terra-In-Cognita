@@ -1,14 +1,17 @@
 // 처리할 일 몸 — 불러오는 중·비었음·앞 몇 줄 + "처리함에서 n개 더 보기". 조합 템플릿의 위 고정 칸, 처리할 일 카드, 도시 템플릿이 쓴다.
 // 받지 못했으면 화면 위의 알림(HomeScreen)이 [다시 시도]와 함께 알리므로 여기서는 비워 둔다(앞 값이 있으면 앞 값을 그린다).
+// "더 보기"에는 가린 줄의 분류별 수를 함께 보인다: 줄 수가 모자란 칸에서도 마감 없는 줄이 많은 분류(멈춤·완료 등)가 보이게
+// (ADR 2026-10-29-app-shell 6절 "마감 없는 항목도 빠지지 않는다"의 기술 해석, homeView.ts hiddenCounts).
 import type { RouteTarget } from "@terra/shared";
 import type { InboxItem, InboxListResponse } from "@terra/shared/inbox";
 import { m } from "../paraglide/messages.js";
-import { CheckIcon, ChevronRightIcon } from "./cards/icons.tsx";
+import { CategoryIcon, CheckIcon, ChevronRightIcon } from "./cards/icons.tsx";
 import type { HomeData } from "./homeData.ts";
-import { headItems } from "./homeView.ts";
+import { headItems, hiddenCounts } from "./homeView.ts";
+import { CATEGORY_NAMES } from "./inboxParts.ts";
+import { formatCount } from "./numbers.ts";
 import { HomeLink } from "./shellParts.tsx";
 import { TodoList } from "./TodoList.tsx";
-import { formatCount } from "./numbers.ts";
 
 const INBOX_TARGET: RouteTarget = { route: "inbox" };
 
@@ -32,12 +35,27 @@ export function HomeEmpty({ text }: { text: string }) {
   );
 }
 
-/** 처리함으로 가는 "n개 더 보기" */
+/** 처리함으로 가는 "n개 더 보기" + 가린 줄의 분류별 수(아이콘 + 이름 + 수) */
 export function MoreInInbox({ hidden }: { hidden: readonly InboxItem[] }) {
+  const counts = hiddenCounts(hidden);
   return (
     <HomeLink to={INBOX_TARGET} className="home-more">
-      <span>{m.home_inbox_more({ count: formatCount(hidden.length) })}</span>
-      <ChevronRightIcon />
+      <span className="home-more-text">
+        <span>{m.home_inbox_more({ count: formatCount(hidden.length) })}</span>
+        <ChevronRightIcon />
+      </span>
+      {counts.length > 0 ? (
+        <span className="home-more-counts">
+          {counts.map(({ category, count }) => (
+            <span key={category} className="home-count-chip" data-category={category}>
+              <CategoryIcon category={category} />
+              <span>
+                {m.home_category_count({ category: CATEGORY_NAMES[category](), count: formatCount(count) })}
+              </span>
+            </span>
+          ))}
+        </span>
+      ) : null}
     </HomeLink>
   );
 }

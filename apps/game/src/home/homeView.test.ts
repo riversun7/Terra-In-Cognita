@@ -1,4 +1,4 @@
-// 홈 화면 규칙 시험 — 템플릿 고르기(역할·주소), 머리 카드·격자 카드, 받을 자료, 타임라인 나누기, 분류별 묶음
+// 홈 화면 규칙 시험 — 템플릿 고르기(역할·주소), 머리 카드·격자 카드, 받을 자료, 타임라인 나누기, 분류별 묶음, 가린 줄의 분류별 수
 import { DEFAULT_HOME_TEMPLATE, HOME_TEMPLATES, type HomeCardEntry } from "@terra/shared/dashboard";
 import type { InboxItem } from "@terra/shared/inbox";
 import { describe, expect, it } from "vitest";
@@ -9,6 +9,7 @@ import {
   groupByCategory,
   headItems,
   heroCards,
+  hiddenCounts,
   homeNeeds,
   listedIn,
   nonZeroCounts,
@@ -129,20 +130,17 @@ describe("처리할 일 나누기", () => {
     item("craft_done:e_9", { category: "done" }),
   ];
 
-  it("타임라인: 마감 없는 일은 받은 순서로 '지금'에, 마감 있는 일은 마감 순서(같으면 받은 순서)로", () => {
-    const { now, upcoming } = splitTimeline(items);
-    expect(now.map((entry) => entry.id)).toEqual([
-      "unit_injured:city_1",
-      "unit_idle:city_1",
-      "craft_done:e_9",
-    ]);
+  it("타임라인: 마감 없는 할 일은 받은 순서로 '지금'에, 마감 있는 일은 마감 순서(같으면 받은 순서)로, 완료는 맨 끝에", () => {
+    const { now, upcoming, done } = splitTimeline(items);
+    expect(now.map((entry) => entry.id)).toEqual(["unit_injured:city_1", "unit_idle:city_1"]);
     expect(upcoming.map((entry) => entry.id)).toEqual([
       "goods_spoiling:wh_1",
       "contract_match:c_7",
       "wave_incoming:city_1",
     ]);
+    expect(done.map((entry) => entry.id)).toEqual(["craft_done:e_9"]);
     // 마감 없는 항목도 빠지지 않는다
-    expect(now.length + upcoming.length).toBe(items.length);
+    expect(now.length + upcoming.length + done.length).toBe(items.length);
   });
 
   it("분류별 묶음은 분류 순서·받은 순서이고 빈 분류는 없다. 모르는 분류(더 새 서버)는 끝의 other 묶음", () => {
@@ -171,6 +169,19 @@ describe("처리할 일 나누기", () => {
       "craft_done:e_9",
     ]);
     expect(headItems(items, 10)).toEqual({ shown: items, hidden: [] });
+  });
+
+  it("가린 줄의 분류별 수: 분류 순서, 0인 분류는 빼고, 모르는 분류는 전체 수에만", () => {
+    const rumor = { ...item("rumor_heard:x_1"), category: JSON.parse('"rumor"') };
+    const { hidden } = headItems([...items, rumor], 2);
+    expect(hidden).toHaveLength(5);
+    expect(hiddenCounts(hidden)).toEqual([
+      { category: "money_survival", count: 1 },
+      { category: "stalled", count: 1 },
+      { category: "decision", count: 1 },
+      { category: "done", count: 1 },
+    ]);
+    expect(hiddenCounts([])).toEqual([]);
   });
 
   it("분류별 수(접은 처리할 일 머리)는 0이 아닌 분류만", () => {

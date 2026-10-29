@@ -64,3 +64,5 @@ export {
   type CubeCornerId,
   type CubeCornerOnFace,
 } from "./corners.ts";
+// 1차맵 타일(ADR 2026-10-29-s2-planet-lod): 생성기 출력 모양, 타일 ID, 단계별 모으기, 꼭짓점 높이, 타일 만들기
+export * from "./tiles/index.ts";

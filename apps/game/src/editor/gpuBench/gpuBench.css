@@ -1,20 +1,8 @@
 /*
- * 관리자 화면의 셰이더 측정 판(GpuBenchPanel) — 관리자 조각과 함께 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
- * 관리자 화면의 촘촘 변형(data-density="compact")을 그대로 따른다.
+ * 셰이더 측정 화면(GpuBenchPage, /dev/gpu-bench) — 화면 조각과 함께 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 화면(section.screen.bench)이 촘촘 변형(data-density="compact")을 쓴다. 관리자 화면 안에 있을 때와 같은 모양이다.
  * 재는 동안은 화면 전체를 덮는 창(dialog.bench-run)에 캔버스를 띄운다. 위 판은 불투명하다(그림 위 글자가 읽히게).
  */
-.bench {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding-top: var(--space-4);
-  border-top: var(--border-w) solid var(--color-border);
-}
-.bench-lead {
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-body);
-  color: var(--color-text-muted);
-}
 
 /* 방식 고르기 — 체크 상자 + 이름 + 설명. 누르는 영역은 글자까지 포함해 44px */
 .bench-modes {

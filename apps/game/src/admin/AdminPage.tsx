@@ -1,6 +1,6 @@
 // 관리자 화면 — 지연 로딩되는 별도 조각(App.tsx의 React.lazy). admin에게만 버튼이 보이고, 서버가 매 요청 권한을 본다.
 // 사용자 찾기(아이디 일부), 쪽 나누기 목록(admin.users.list), 사용자마다 역할 바꾸기(admin.users.setRoles).
-// 아래에 S2 셰이더 측정 판(GpuBenchPanel)이 있다. 측정 코드는 누를 때만 따로 받는다.
+// 계정·운영 기능만 둔다. 셰이더 측정 같은 개발자 도구는 개발자 영역(/dev, editor/)에 있다(ADR 2026-10-29-planet-editor-stage1 1절).
 // 오류는 tRPC error.data.code → 메시지 키(adminErrors.ts). 로그인이 끝났으면(UNAUTHORIZED) 세션을 다시 확인한다.
 // 빽빽한 화면이라 촘촘 변형(data-density="compact": 버튼 턱 0, 모서리 작게, 조작부 44px)을 쓴다(ADR 2026-10-28-design-system).
 import type { AccountView } from "@terra/shared";
@@ -12,7 +12,6 @@ import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { text } from "../ui/text.ts";
 import { useMountFocus } from "../ui/useMountFocus.ts";
 import { adminErrorInfo } from "./adminErrors.ts";
-import { GpuBenchPanel } from "./GpuBenchPanel.tsx";
 import { type AdminUserRow, UserCard } from "./UserCard.tsx";
 import "./admin.css";
 
@@ -176,8 +175,6 @@ export default function AdminPage({ viewer, onClose }: AdminPageProps) {
           {m.admin_next()}
         </button>
       </div>
-      {/* S2 셰이더 측정 — 누를 때만 측정 코드를 받는다(GpuBenchPanel.tsx) */}
-      <GpuBenchPanel />
     </section>
   );
 }

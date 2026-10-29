@@ -15,7 +15,10 @@ interface Section {
 }
 
 /** 준비 중으로 여는 화면(routeViews.tsx가 이 조각으로 보내는 주소) */
-type ComingSoonRoute = Exclude<RouteId, "home" | "map" | "map_planet" | "settings" | "admin">;
+type ComingSoonRoute = Exclude<
+  RouteId,
+  "home" | "map" | "map_planet" | "settings" | "admin" | "dev_gpu_bench"
+>;
 
 const SECTIONS = {
   units: { title: m.nav_units, desc: m.nav_units_desc, icon: "units" },
@@ -26,7 +29,6 @@ const SECTIONS = {
   mail: { title: m.shell_mail, icon: "mail" },
   dev: { title: m.shell_dev, icon: "dev" },
   dev_planet_editor: { title: m.shell_route_dev_planet_editor, icon: "globe" },
-  dev_gpu_bench: { title: m.shell_route_dev_gpu_bench, icon: "dev" },
 } satisfies Record<ComingSoonRoute, Section>;
 
 function isComingSoonRoute(id: RouteId): id is ComingSoonRoute {

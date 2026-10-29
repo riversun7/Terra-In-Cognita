@@ -25,6 +25,8 @@ const InboxScreen = lazy(() => import("../inbox/InboxScreen.tsx"));
 const ComingSoon = lazy(() => import("../sections/ComingSoon.tsx"));
 const SettingsPage = lazy(() => import("../settings/SettingsPage.tsx"));
 const AdminPage = lazy(() => import("../admin/AdminPage.tsx"));
+// 개발자 영역(ADR 38 1절). 셰이더 측정은 gpuBench…로 시작하는 진입 파일로 받는다(조각 이름 → 미리 캐시에서 빠짐)
+const GpuBenchPage = lazy(() => import("../editor/gpuBench/gpuBenchScreen.ts"));
 // 지도: Three.js·엔진은 이 조각들과 함께만 내려온다. 떠나면 내린다(ADR 37 11절). 화면은 { onClose, monitor }만 받는다
 const SecondaryMapScreen = lazy(() => import("../map/SecondaryMapScreen.tsx"));
 const PlanetMapScreen = lazy(() => import("../map/PlanetMapScreen.tsx"));
@@ -125,10 +127,11 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <SettingsPage onClose={goBack} />;
     case "admin":
       return <AdminPage viewer={user} onClose={goBack} />;
-    // 꽂는 줄(ADR 38 WP-H·WP-D): 개발자 홈·행성 편집기·셰이더 측정 화면이 생기면 그 조각으로 바꾼다
+    case "dev_gpu_bench":
+      return <GpuBenchPage />;
+    // 꽂는 줄(ADR 38 WP-H·WP-D): 개발자 홈·행성 편집기 화면이 생기면 그 조각으로 바꾼다
     case "dev":
     case "dev_planet_editor":
-    case "dev_gpu_bench":
     case "units":
     case "economy":
     case "faction":

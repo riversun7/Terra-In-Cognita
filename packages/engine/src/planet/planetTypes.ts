@@ -213,6 +213,8 @@ export interface PlanetStats {
   triangles: number;
   /** 마지막 프레임에 그린 타일 수(상한 budgets.visibleTiles) */
   tilesDrawn: number;
+  /** 마지막 프레임에 그린 타일 수를 1차맵 단계별로(차례대로 단계 1~5) — 레벨이 바뀌는 경계가 화면에 있는지 본다 */
+  tilesDrawnByLevel: readonly number[];
   /** 화면 오차로 고른 타일 수(아직 안 온 것 포함) */
   tilesSelected: number;
   /** GPU에 올린 타일 수 */

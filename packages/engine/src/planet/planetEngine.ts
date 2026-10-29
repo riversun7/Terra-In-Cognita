@@ -47,7 +47,7 @@ import { type DecodedLookup, cellAt, displayedHeightAt, rayHitsSurface } from ".
 import { createTileBuilder } from "./tileBuilder.ts";
 import { TilePipeline } from "./tilePipeline.ts";
 import { TileShapeCache, coarsestSagM, directionToFaceST, skirtDepthM } from "./tileShape.ts";
-import { nodeSTRange, primaryLevelOf, tileLayout } from "./tileTree.ts";
+import { PRIMARY_LEVELS, type TileLayout, nodeSTRange, primaryLevelOf, tileLayout } from "./tileTree.ts";
 import { type Vec3, length, normalize } from "./vec3.ts";
 
 const DEFAULT_EXAGGERATION = 6;
@@ -428,6 +428,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
         drawCalls: lastInfo.calls,
         triangles: lastInfo.triangles,
         tilesDrawn: lastSelection?.draw.length ?? 0,
+        tilesDrawnByLevel: drawnByLevel(lastSelection, layout),
         tilesSelected: lastSelection?.selected ?? 0,
         tilesLoaded: counts.loaded,
         tilesPending: counts.fetching + counts.building + counts.queued,
@@ -473,6 +474,16 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
   };
 }
 
+/** 마지막 고르기에서 그린 타일 수를 1차맵 단계(1~5)별로(차례대로) */
+function drawnByLevel(selection: Selection | null, layout: TileLayout): number[] {
+  const counts = Array.from({ length: PRIMARY_LEVELS }, () => 0);
+  for (const item of selection?.draw ?? []) {
+    const index = primaryLevelOf(layout, item.node.mapLevel) - 1;
+    if (index >= 0) counts[index] = (counts[index] ?? 0) + 1;
+  }
+  return counts;
+}
+
 /** WebGL을 못 쓸 때·그릴 수 없는 행성일 때: 아무것도 그리지 않는 엔진(화면은 안내를 띄운다) */
 function inertPlanetEngine(
   exaggeration: number,
@@ -487,6 +498,7 @@ function inertPlanetEngine(
     drawCalls: 0,
     triangles: 0,
     tilesDrawn: 0,
+    tilesDrawnByLevel: Array.from({ length: PRIMARY_LEVELS }, () => 0),
     tilesSelected: 0,
     tilesLoaded: 0,
     tilesPending: 0,

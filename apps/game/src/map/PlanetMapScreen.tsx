@@ -210,6 +210,7 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
       data-frames={stats?.renderedFrames}
       data-engine-p95={stats ? fixed(stats.renderP95Ms, 2) : undefined}
       data-tiles-drawn={stats?.tilesDrawn}
+      data-levels={stats ? stats.tilesDrawnByLevel.join(",") : undefined}
       data-tiles-selected={stats?.tilesSelected}
       data-tiles-loaded={stats?.tilesLoaded}
       data-tiles-pending={stats?.tilesPending}

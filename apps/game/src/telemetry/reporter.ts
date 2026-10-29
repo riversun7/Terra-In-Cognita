@@ -43,7 +43,9 @@ function describe(error: unknown, fallback: string): string {
   }
 }
 
-/** 주소가 바뀌지 않는 화면(2차맵 등)의 이름 — 보고의 page 뒤에 `#이름`으로 붙인다 */
+/** 지금 화면의 경로 패턴(예: `/units/:unitId`) — 라우터가 정한다(shell/routerStore.ts). 없으면 location.pathname */
+let currentPath: string | null = null;
+/** 같은 주소 안의 화면 이름(지도 모드 `second-map`·`planet-map`, 홈 템플릿 `home:dt_hybrid` 등) — 보고의 page 뒤에 `#이름`으로 붙인다 */
 let currentView: string | null = null;
 /** 지금 켜진 보고의 성능 구간 보내기(화면이 바뀌기 전 구간을 먼저 보낸다) */
 let flushActive: (() => void) | null = null;
@@ -58,8 +60,20 @@ export function setTelemetryView(view: string | null): void {
   currentView = view;
 }
 
-const currentPage = (): string =>
-  clip(currentView ? `${location.pathname}#${currentView}` : location.pathname, TELEMETRY_LIMITS.page);
+/**
+ * 지금 화면의 경로 패턴을 보고의 page로 쓴다(ADR 2026-10-29-app-shell 1절: ID는 보내지 않는다. 지도는 전처럼 `#second-map` 등이
+ * 붙어 전 측정과 비교된다). 바뀌기 전까지 모은 성능 구간은 이전 page로 먼저 보낸다.
+ */
+export function setTelemetryPage(path: string | null): void {
+  if (path === currentPath) return;
+  flushActive?.();
+  currentPath = path;
+}
+
+const currentPage = (): string => {
+  const path = currentPath ?? location.pathname;
+  return clip(currentView ? `${path}#${currentView}` : path, TELEMETRY_LIMITS.page);
+};
 
 /** 보고를 시작한다. 멈추는 함수를 돌려준다. */
 export function startTelemetry(monitor: FrameMonitor, clientBuild: string): () => void {

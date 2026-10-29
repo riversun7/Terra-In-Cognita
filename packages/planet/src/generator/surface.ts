@@ -11,17 +11,16 @@ import { CELL_DRY, CELL_FILLED, CELL_LAKE, type Rivers, potentialEvaporation } f
 import { fbm3 } from "./noise.ts";
 import { STREAM_FOREST, streamSeed } from "./random.ts";
 import {
-  DEPTH_CLASS_SHIFT,
   DEPTH_COASTAL,
   DEPTH_DEEP,
   DEPTH_SHELF,
-  type BiomeRange,
-  type PlanetBiome,
   WATER_COAST,
+  WATER_DEPTH_SHIFT,
   WATER_LAKE,
   WATER_OCEAN,
   WATER_RIVER,
-} from "./types.ts";
+} from "../tiles/fields.ts";
+import type { BiomeRange, PlanetBiome } from "./types.ts";
 import { clamp } from "./util.ts";
 
 /** 고도 축척: 저장 값(게임 m) × 12 = 실제 환산 m (ADR 36, 기획 확인 중) */
@@ -155,7 +154,7 @@ export function buildSurface(
       const depth = seaLevel - (elevation[c] ?? 0);
       const depthClass =
         depth < COASTAL_DEPTH_M ? DEPTH_COASTAL : depth < SHELF_DEPTH_M ? DEPTH_SHELF : DEPTH_DEEP;
-      bits |= depthClass << DEPTH_CLASS_SHIFT;
+      bits |= depthClass << WATER_DEPTH_SHIFT;
       humidity[c] = 255;
       biome[c] = table.ocean[depthClass] ?? 0;
       water[c] = bits;

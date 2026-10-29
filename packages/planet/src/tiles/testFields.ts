@@ -1,5 +1,6 @@
 // 시험 전용 — 작은 결정적 가짜 생성기 출력(PlanetFields). 생성기가 아니라 타일 시험용 무작위 값이다.
 // 같은 (면 레벨, 시드)면 늘 같은 값이 나온다. 다른 묶음 의존 없이 작은 난수(mulberry32)를 직접 둔다.
+import type { PlanetSettings } from "@terra/shared";
 import { cellsPerSide } from "../levels.ts";
 import {
   type PlanetFields,
@@ -12,6 +13,23 @@ import {
 
 /** 시험용 생성기 버전 */
 export const TEST_GENERATOR_VERSION = 7;
+
+/** 시험용 세부 수치(값은 아무것이나). 타일 만들기는 메타의 설정값을 읽지 않는다 */
+export const TEST_SETTINGS: PlanetSettings = {
+  landPercent: 30,
+  shelfPercent: 10,
+  plateCount: 12,
+  upliftPercent: 100,
+  ruggednessPercent: 100,
+  erosionPercent: 100,
+  hotspotCount: 8,
+  volcanismPercent: 100,
+  equatorTemperatureC: 27,
+  poleTemperatureC: -25,
+  precipitationPercent: 100,
+  riverDensityPercent: 100,
+  lakePercent: 100,
+};
 
 /** 0 이상 2^32 미만 정수를 내는 결정적 난수 */
 export function testRandom(seed: number): () => number {
@@ -43,7 +61,7 @@ export function randomPlanetFields(faceLevel: number, seed: number): PlanetField
       generatorVersion: TEST_GENERATOR_VERSION,
       seed,
       faceLevel,
-      settings: { test: true },
+      settings: TEST_SETTINGS,
       hash: "test",
     },
   };
@@ -80,7 +98,13 @@ export function flatPlanetFields(faceLevel: number, elevationM: number): PlanetF
     water: new Uint8Array(count),
     river: new Uint8Array(count),
     forest: new Uint8Array(count),
-    meta: { generatorVersion: TEST_GENERATOR_VERSION, seed: 0, faceLevel, settings: {}, hash: "flat" },
+    meta: {
+      generatorVersion: TEST_GENERATOR_VERSION,
+      seed: 0,
+      faceLevel,
+      settings: TEST_SETTINGS,
+      hash: "flat",
+    },
   };
 }
 

@@ -18,22 +18,25 @@ export { CELL_DRY, CELL_FILLED, CELL_LAKE, CELL_OPEN } from "./hydrology.ts";
 export { NORMAL_PRESETS, PLANET_PRESET_VALUES, presetValues, resolvePlanetSettings } from "./presets.ts";
 export { VERTICAL_SCALE } from "./surface.ts";
 export {
-  DEPTH_CLASS_MASK,
-  DEPTH_CLASS_SHIFT,
+  type BiomeRange,
+  type BiomeRule,
+  type GeneratorStage,
+  type PlanetBiome,
+  type PlanetGeneratorInput,
+} from "./types.ts";
+// 출력 모양·물 비트는 정수 진입점(@terra/planet)의 정의 하나를 다시 내보낸다(생성기만 가져오는 쪽도 쓰게)
+export {
   DEPTH_COASTAL,
   DEPTH_DEEP,
   DEPTH_NONE,
   DEPTH_SHELF,
   WATER_COAST,
+  WATER_DEPTH_MASK,
+  WATER_DEPTH_SHIFT,
   WATER_LAKE,
   WATER_OCEAN,
   WATER_RIVER,
-  type BiomeRange,
-  type BiomeRule,
-  type GeneratorStage,
-  type PlanetBiome,
   type PlanetFields,
-  type PlanetGeneratorInput,
-  type PlanetMeta,
-} from "./types.ts";
+  type PlanetFieldsMeta,
+} from "../tiles/fields.ts";
 export { GENERATOR_VERSION } from "./version.ts";

@@ -15,6 +15,7 @@ import {
   cellsPerSide,
   wrapFaceIJ,
 } from "@terra/planet";
+import { NORMAL_PRESETS, resolvePlanetSettings } from "@terra/planet/generator";
 
 /** 합성 행성 생성기 버전. 출력이 바뀌면 올린다(캐시·타일 주소가 바뀐다) */
 export const SYNTHETIC_GENERATOR_VERSION = 1;
@@ -258,7 +259,8 @@ export function generateSyntheticPlanet(params: SyntheticPlanetParams): PlanetFi
       generatorVersion: SYNTHETIC_GENERATOR_VERSION,
       seed,
       faceLevel,
-      settings: { kind: "synthetic", faceLevel, seed },
+      // 합성 원본은 세부 수치를 쓰지 않는다(메타 모양만 맞춘다)
+      settings: resolvePlanetSettings(NORMAL_PRESETS),
       hash: fnv1a(arrays),
     },
   };

@@ -17,7 +17,8 @@ import { erodeOnce, findRivers, runoffOf, waterBalance } from "./hydrology.ts";
 import { classifyOcean } from "./seaLevel.ts";
 import { buildSurface, compileBiomes } from "./surface.ts";
 import { buildTectonics } from "./tectonics.ts";
-import type { GeneratorStage, PlanetFields, PlanetGeneratorInput } from "./types.ts";
+import type { PlanetFields } from "../tiles/fields.ts";
+import type { GeneratorStage, PlanetGeneratorInput } from "./types.ts";
 import { GENERATOR_VERSION } from "./version.ts";
 
 /** 침식 반복 횟수(매번 흐름 방향을 다시 구한다) */

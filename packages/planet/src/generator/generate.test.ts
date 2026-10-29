@@ -8,7 +8,6 @@ import { areaOf, buildGrid } from "./grid.ts";
 import {
   CELL_DRY,
   CELL_LAKE,
-  DEPTH_CLASS_SHIFT,
   GENERATOR_VERSION,
   NORMAL_PRESETS,
   type BiomeRange,
@@ -18,6 +17,7 @@ import {
   type PlanetGeneratorInput,
   VERTICAL_SCALE,
   WATER_COAST,
+  WATER_DEPTH_SHIFT,
   WATER_LAKE,
   WATER_OCEAN,
   WATER_RIVER,
@@ -82,7 +82,7 @@ const inRange = (value: number, range: BiomeRange | undefined) =>
 function expectedBiome(fields: PlanetFields, c: number, table: readonly PlanetBiome[]): number {
   const water = fields.water[c] ?? 0;
   if (water & WATER_OCEAN) {
-    const depth = ["", "coastal", "shelf", "deep"][(water >> DEPTH_CLASS_SHIFT) & 3];
+    const depth = ["", "coastal", "shelf", "deep"][(water >> WATER_DEPTH_SHIFT) & 3];
     return table.findIndex((biome) => biome.rule.kind === "ocean" && biome.rule.depthClass === depth);
   }
   if (water & WATER_LAKE) return table.findIndex((biome) => biome.rule.kind === "lake");
@@ -247,7 +247,7 @@ describe("성질 (면 레벨 5·6)", () => {
     const { fields } = run(5, S2_TEST_PLANET_SEED);
     for (let c = 0; c < fields.water.length; c++) {
       const water = fields.water[c] ?? 0;
-      const depth = (water >> DEPTH_CLASS_SHIFT) & 3;
+      const depth = (water >> WATER_DEPTH_SHIFT) & 3;
       if (water & WATER_OCEAN) {
         expect(depth).toBeGreaterThan(0);
         expect(water & (WATER_COAST | WATER_RIVER | WATER_LAKE)).toBe(0);

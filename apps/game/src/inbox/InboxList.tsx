@@ -8,6 +8,7 @@
 // - 바로 처리 결과는 누른 버튼 바로 아래 그 줄의 알림 영역이 보이고 읽는다(긴 목록의 끝에서 눌러도 화면 안에 보인다).
 // - 앱 안 링크: onNavigate가 있으면 보통 왼쪽 누름을 앱 안 이동(화면, RouteTarget)으로 바꾼다. 보조 키·가운데 버튼은 브라우저에 맡긴다.
 //   화면 틀(W1)의 라우터 navigate를 그대로 받는다. W1이 합쳐진 뒤 AppLink로 바꿔도 된다(그때 onNavigate 칸을 지운다).
+// - 목록 CSS(inbox.css)는 이 파일이 가져온다. 홈이 이 부품만 써도 모양이 같다.
 import type { RouteTarget } from "@terra/shared";
 import type { InboxCategory, InboxItem } from "@terra/shared/inbox";
 import type { MouseEvent } from "react";
@@ -23,6 +24,7 @@ import {
   isKnownCategory,
 } from "./inboxText.ts";
 import { type QuickActionId, quickActionLabel, quickActionsFor } from "./quickActions.ts";
+import "./inbox.css";
 
 /** 앱 안 이동 — 화면 틀(W1) 라우터의 navigate(target, { focusId })와 같은 모양. focusId: 옮긴 뒤 초점을 둘 요소 id */
 export type InboxNavigate = (target: RouteTarget, options?: { readonly focusId?: string }) => void;

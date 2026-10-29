@@ -1,6 +1,6 @@
 /*
- * 처리함 화면·처리할 일 목록 — 처리함 조각(InboxScreen.tsx)과 함께 따로 내려온다. 홈이 InboxList를 쓰면 이 파일도 같이 가져간다.
- * 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
+ * 처리함 화면·처리할 일 목록 — 목록 부품(InboxList.tsx)이 가져온다(처리함 화면도 함께). 그래서 홈이 InboxList만 써도
+ * 이 파일이 그 조각과 함께 내려온다. 첫 화면 묶음에는 들어가지 않는다. 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
  * 분류 색은 이미 대비 검사를 받는 상태색만 쓴다(ADR 2026-10-29-app-shell 3절): 위협 danger, 돈·생존 warning, 완료 success,
  * 멈춤·제안은 글자색. 분류는 늘 아이콘 + 이름과 함께 보인다(색만으로 알리지 않는다).
  * 줄의 제목 링크가 카드 전체를 덮는다(::after). 바로 처리 버튼은 그 위에 놓아(z-index) 따로 누른다.

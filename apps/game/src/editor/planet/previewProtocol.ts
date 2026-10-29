@@ -62,33 +62,23 @@ export type PreviewReply =
       readonly message: string;
     };
 
-/** 결과를 넘길 버퍼 목록(겹침 없음). 공유 메모리(SharedArrayBuffer)는 넘길 수 없어 뺀다 */
+/** 값 하나가 배열 보기면 그 버퍼를 넣는다. 공유 메모리(SharedArrayBuffer)는 넘길 수 없어 뺀다 */
+function addBuffer(buffers: Set<ArrayBuffer>, value: unknown): void {
+  if (ArrayBuffer.isView(value) && value.buffer instanceof ArrayBuffer) buffers.add(value.buffer);
+}
+
+/**
+ * 결과를 넘길 버퍼 목록(겹침 없음). 생성 결과(fields)와 단계(levels)는 필드 이름을 적지 않고 맨 위 값 중 배열 보기를
+ * 모두 넣는다: 생성기가 출력 필드를 더해도(생성기 다양성 고침 등) 복사되지 않고 넘겨지며 outputBytes에 들어간다
+ */
 export function previewTransferables(result: PreviewResultData): ArrayBuffer[] {
-  const { fields, levels, corners } = result;
-  const views: ArrayBufferView[] = [
-    fields.elevationM,
-    fields.biome,
-    fields.temperatureC,
-    fields.precipitationMm,
-    fields.humidity,
-    fields.water,
-    fields.river,
-    fields.forest,
-    ...corners,
-  ];
-  for (const level of levels) {
-    views.push(
-      level.elevationM,
-      level.biome,
-      level.temperatureC,
-      level.humidity,
-      level.forest,
-      level.water,
-      level.river,
-    );
-  }
   const buffers = new Set<ArrayBuffer>();
-  for (const view of views) if (view.buffer instanceof ArrayBuffer) buffers.add(view.buffer);
+  const sources: readonly object[] = [result.fields, ...result.levels];
+  for (const source of sources) {
+    const values: readonly unknown[] = Object.values(source);
+    for (const value of values) addBuffer(buffers, value);
+  }
+  for (const corners of result.corners) addBuffer(buffers, corners);
   return [...buffers];
 }
 

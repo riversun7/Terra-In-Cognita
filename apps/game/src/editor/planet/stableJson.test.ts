@@ -19,6 +19,12 @@ describe("키를 정렬한 JSON", () => {
     expect(stableJson({ b: 1, B: 2, a: 3 })).toBe('{"B":2,"a":3,"b":1}');
   });
 
+  it("JSON.parse가 만든 자기 키 __proto__도 남긴다(원형을 바꾸지 않는다)", () => {
+    const parsed: unknown = JSON.parse('{"b":2,"__proto__":{"a":1}}');
+    expect(stableJson(parsed)).toBe('{"__proto__":{"a":1},"b":2}');
+    expect(stableJson(parsed)).not.toBe(stableJson({ b: 2 }));
+  });
+
   it("원시 값·null", () => {
     expect(stableJson(null)).toBe("null");
     expect(stableJson(7)).toBe("7");

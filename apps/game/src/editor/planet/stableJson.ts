@@ -16,14 +16,16 @@ function sorted(value: unknown): unknown {
     return items.map((item) => sorted(item));
   }
   if (value !== null && typeof value === "object") {
-    const result: Record<string, unknown> = {};
+    const entries: [string, unknown][] = [];
     // 지원 하한 브라우저(Firefox 114)에 toSorted가 없다. Object.keys가 방금 만든 배열이라 바로 정렬해도 된다
     // oxlint-disable-next-line unicorn/no-array-sort -- 방금 만든 배열이라 원본을 바꿔도 된다
     for (const key of Object.keys(value).sort(byCodeUnit)) {
       const item: unknown = Reflect.get(value, key);
-      if (item !== undefined) result[key] = sorted(item);
+      if (item !== undefined) entries.push([key, sorted(item)]);
     }
-    return result;
+    // Object.fromEntries는 자기 데이터 속성으로 만든다: JSON.parse가 만든 "__proto__" 키도 그대로 남는다
+    // (result[key] = …로 쓰면 원형을 바꾸고 키가 사라진다)
+    return Object.fromEntries(entries);
   }
   return value;
 }

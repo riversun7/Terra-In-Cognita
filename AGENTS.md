@@ -119,6 +119,11 @@
   - `@fastify/websocket` 11.3.4 `injectWS`의 가짜 요청에는 `socket`이 없어 `request.ip`가 오류를 낸다 → 시험은 `injectWS(path, { headers, socket })`에 `remoteAddress`를 단 `net.Socket`을 넣는다.
   - `Buffer#slice`는 복사가 아니라 보기를 돌려준다. 이진 해석기는 받은 값을 일반 `Uint8Array` 보기로 바꾼 뒤 자른다(`packages/protocol` `decodeTerrain`).
   - oxlint 1.89.0 `unicorn(require-post-message-target-origin)`은 worker_threads의 `worker.postMessage`도 잡는다(브라우저 window 규칙이라 해당 없음) → 보내는 도우미 하나에서만 끈다(`src/world/pathPool.ts`의 `post`).
+- **Node 24 워커 메모리·fetch** (2026-10-29 확인: S2 타일·서버 구현 중 시험 스크립트·빌드한 서버, Node 24.22.1)
+  - 워커 안 `process.memoryUsage()`의 `rss`는 프로세스 전체 값이고, `heapUsed`·`external`·`arrayBuffers`는 그 스레드 값이다(워커가 200MB 버퍼를 들면 워커는 arrayBuffers 200MB, 메인은 0).
+  - `resourceLimits.maxOldGenerationSizeMb`는 JS 객체 힙만 막는다. 타입 배열(ArrayBuffer)은 막지 않는다(상한 64MB 워커가 200MB 타입 배열은 만들고, 객체 500만 개에서는 `ERR_WORKER_OUT_OF_MEMORY`. 메인 스레드는 `error` 이벤트만 받는다).
+  - 전역 `fetch`는 `Content-Encoding: gzip` 응답을 스스로 푼다. `content-length`는 압축된 크기다(`ops/s2-probe.mjs`).
+- **docker compose 설정 검사** (클라이언트 29.9.2, 2026-10-29 확인): `docker compose -f ops/compose.yml config`는 데몬 없이 파일·변수 치환을 검사한다(필수 변수 `TERRA_TAG`·`POSTGRES_PASSWORD`·`BETTER_AUTH_SECRET`는 가짜 값을 준다).
 - **oxlint 1.89.0 규칙** (2026-10-28 확인: 시험 파일로 실행): 네임스페이스 import를 계산해서 읽으면(`m[key]`) `import(namespace)` 오류다. 키로 고르는 화면 문구는 `apps/game/src/ui/messageTable.ts` 표에 적는다. 효과(`useEffect`) 안에서 바로 setState하면 `react(set-state-in-effect)`, 그리는 중에 `ref.current`를 읽으면 `react(refs)` 오류다.
 - **결정적 계산** (2026-10-29 확인: tc39/ecma262 `spec.html` main, Node 24.22.1, TS 7.0.2, oxlint 1.89.0 — 행성 생성기 구현)
   - 명세가 결과를 정확히 정하는 것: 사칙연산(IEEE 754 배정밀도, 가장 가까운 값), `Math.sqrt`·`floor`·`ceil`·`round`·`trunc`·`abs`·`min`·`max`·`sign`·`fround`·`imul`. "구현이 근사한 값"(implementation-approximated)인 것: `Math.sin`·`cos`·`tan`·`asin`·`atan`·`atan2`·`exp`·`log`·`pow`·`hypot`·`cbrt` 등과 `**` 연산자(Number::exponentiate). `Math.PI`·`E`·`LN2`·`LOG2E`·`SQRT2` 등은 "가장 가까운 Number 값"으로 정한 상수라 써도 된다.
@@ -158,6 +163,8 @@
 | `NODE_ENV= PORT=4320 STATIC_DIR=apps/game/dist DATABASE_URL=… BETTER_AUTH_SECRET=… BETTER_AUTH_URL=http://127.0.0.1:4320 node apps/server/dist/main.js` | 빌드한 앱·서버로 화면 시험(Playwright 등). 운영 모드(`NODE_ENV=production`)는 https 주소를 요구하므로 비운다. 먼저 `pnpm build`, `DATABASE_URL=… node apps/server/dist/migrate.js`. 시험 계정은 `node apps/server/dist/cli.js create-user`(가짜 자료만) |
 | `S1_TEST_BOTS=1000 PATH_WORKERS=1 pnpm dev:server` | S1 시험 2차맵(키 `S1_TEST_MAP_KEY`)에 서버가 움직이는 봇 수(기본 0 = 봇 없음, 최대 20,000)와 경로 워커 스레드 수(기본 1, 최대 8). 2차맵·경로 워커는 늘 켜진다. 빌드한 서버(`node apps/server/dist/main.js`)도 같다. NAS는 `ops/compose.yml`에서 1,000 |
 | `S1_URL=http://127.0.0.1:4320 S1_ID=… S1_PASSWORD=… node ops/s1-probe.mjs` | S1 측정 클라이언트: 들어가기 → 구독 → 스냅샷 크기·받는 시간·갱신 양·경로 지연·rev 빠짐. `S1_SECONDS`(기본 60), `S1_CLIENTS`(동시 연결), `S1_MOVE_MS`(관리자 이동 명령 간격, admin 계정만). `S1_URL`은 서버 `BETTER_AUTH_URL`과 같아야 한다. 저장소에서 `pnpm install` 뒤 실행(가짜 계정만) |
+| `PLANET_CACHE_DIR=/경로 pnpm dev:server` | 1차맵 행성 타일 디스크 캐시 폴더(기본 `apps/server/.planet-cache`, 이미지 `/app/planet-cache`, NAS는 `ops/compose.yml` 볼륨). 시작하면 캐시를 읽거나 워커에서 굽는다([임시] 합성 행성 `s2_synthetic`, F = 9, 개발 컨테이너 약 4초). 지워도 된다(다음 시작 때 다시 굽는다). 빌드한 서버도 같다 |
+| `S2_URL=http://127.0.0.1:4320 S2_ID=… S2_PASSWORD=… node ops/s2-probe.mjs` | S2 타일 측정 클라이언트: 들어가기 → 목록 정보(준비까지 기다림) → 처음 화면 타일(맵 레벨 F−4·F−3) 시간·크기, 머리 값·이음매 확인(어긋나면 종료 코드 1). `S2_ALL=1`(모든 타일), `S2_CONCURRENCY`(기본 6), `S2_PLANET`(기본 `s2_synthetic`). `S2_URL`은 서버 `BETTER_AUTH_URL`과 같아야 한다(가짜 계정만) |
 
 git 훅: 커밋 전(포맷·비밀값), 커밋 메시지(Conventional Commits), 푸시 전(`pnpm check` + 문서 규칙 + 콘텐츠 호환 + 목차 최신 여부).
 새 패키지를 만들면 `scripts/check-boundaries.mjs`의 `ALLOWED` 표에 넣는다. 배포·NAS는 `ops/nas-setup.md`.

@@ -30,8 +30,12 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=4100 \
     STATIC_DIR=/app/public \
-    CONTENT_DIR=/app/content/core
+    CONTENT_DIR=/app/content/core \
+    PLANET_CACHE_DIR=/app/planet-cache
 WORKDIR /app
+# 1차맵 행성 타일 디스크 캐시(ADR 2026-10-29-s2-planet-lod). NAS는 이 자리에 볼륨을 붙인다(ops/compose.yml).
+# 볼륨이 없어도(CI 이미지 확인) 쓸 수 있게 node 사용자에게 준다
+RUN mkdir -p /app/planet-cache && chown node:node /app/planet-cache
 COPY --from=build /out/package.json ./package.json
 COPY --from=build /out/node_modules ./node_modules
 # dist/main.js(서버), dist/migrate.js(마이그레이션), dist/cli.js(관리 명령, .github/workflows/account-admin.yml), dist/assets/(공용 조각)

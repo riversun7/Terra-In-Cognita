@@ -4,6 +4,8 @@ import { buildApp } from "./app.ts";
 import { readConfig } from "./config.ts";
 import { loadServerContent } from "./content.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
+import { createWorkerBaker } from "./planet/baker.ts";
+import { TEMP_S2_PLANET, createPlanetSource } from "./planet/sources.ts";
 
 const config = readConfig();
 
@@ -15,6 +17,10 @@ const config = readConfig();
 const pathWorkerUrl = import.meta.url.endsWith(".ts")
   ? new URL("./world/pathWorker.ts", import.meta.url)
   : new URL("./pathWorker.js", import.meta.url);
+/** 행성 굽기 워커 진입 파일 (경로 워커와 같은 규칙: 개발 src/planet/bakeWorker.ts, 빌드 dist/planetBakeWorker.js) */
+const planetBakeWorkerUrl = import.meta.url.endsWith(".ts")
+  ? new URL("./planet/bakeWorker.ts", import.meta.url)
+  : new URL("./planetBakeWorker.js", import.meta.url);
 
 // 팩이 틀리면 DB에 붙기 전에 끝낸다(코드 1). 앱 로거가 아직 없어 표준 오류로 쓴다
 const loaded = loadServerContent(config.contentDir);
@@ -45,6 +51,12 @@ app = await buildApp({
   world: {
     testBots: config.s1.testBots,
     paths: { kind: "workers", workerUrl: pathWorkerUrl, workers: config.s1.pathWorkers },
+  },
+  // 1차맵 행성(ADR 36). [임시] 합성 행성 하나 — 실제 생성기와 콘텐츠 팩 행성(planets 분류)이 합쳐지면 그 원본으로 바꾼다
+  planets: {
+    sources: [createPlanetSource(TEMP_S2_PLANET)],
+    baker: createWorkerBaker({ workerUrl: planetBakeWorkerUrl }),
+    cacheDir: config.planetCacheDir,
   },
 });
 if (config.auth) {

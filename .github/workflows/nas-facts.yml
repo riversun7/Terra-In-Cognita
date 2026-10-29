@@ -58,6 +58,17 @@ jobs:
             echo; echo "uid 1000 쓰기 시험(임시 파일을 만들고 바로 지운다):"
             docker run --rm --user 1000:1000 -v "$DATA_DIR/planet-cache:/c" postgres:18.6-trixie \
               sh -c 'touch /c/.write-probe && rm /c/.write-probe && echo "쓰기 가능"' || echo "쓰기 불가"
+            # 시놀로지 공유 폴더는 root가 만든 새 폴더도 555로 보인다(2026-10-29 확인). chmod로 바뀌는지 빈 시험 폴더로 본다
+            echo; echo "새 폴더 시험(root가 만들고 chown 1000 → chmod 755 → uid 1000 쓰기, 끝나면 지운다):"
+            PERM_TEST="$DATA_DIR/perm-test"
+            mkdir -p "$PERM_TEST" && chown 1000:1000 "$PERM_TEST"
+            stat -c '만든 직후  소유 %u:%g  권한 %a (%A)' "$PERM_TEST"
+            chmod 0755 "$PERM_TEST"
+            stat -c 'chmod 뒤  소유 %u:%g  권한 %a (%A)' "$PERM_TEST"
+            docker run --rm --user 1000:1000 -v "$PERM_TEST:/c" postgres:18.6-trixie \
+              sh -c 'touch /c/.write-probe && stat -c "새 파일  소유 %u:%g  권한 %a" /c/.write-probe && rm /c/.write-probe && echo "쓰기 가능"' || echo "쓰기 불가"
+            rm -rf "$PERM_TEST"
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
-          rm -rf "$DATA_DIR/fsync-test"
+          # 중간에 멈춰도 시험 폴더는 지운다
+          rm -rf "$DATA_DIR/fsync-test" "$DATA_DIR/perm-test"

@@ -19,7 +19,7 @@ import { detAsin, detExp } from "@terra/shared";
 import type { PlanetSettings } from "@terra/shared";
 import { upwindNeighbors } from "./climateWind.ts";
 import { type PlanetGrid, neighbors8 } from "./grid.ts";
-import { octavesFor, offsetFbm3Pair } from "./noise.ts";
+import { amplitudeSum, octavesFor, offsetFbm3Pair } from "./noise.ts";
 import { distanceField } from "./queues.ts";
 import { STREAM_CLIMATE, STREAM_WIND, streamSeed } from "./random.ts";
 import { REFERENCE_RADIUS_KM, clamp, km } from "./util.ts";
@@ -85,17 +85,6 @@ export function zonalPrecipitation(latitudeDegrees: number): number {
   const tropics = a / 18;
   const midLatitude = (a - 50) / 13;
   return 120 + 2300 * detExp(-tropics * tropics) + 900 * detExp(-midLatitude * midLatitude);
-}
-
-/** 옥타브 octaves개의 세기 합(1 + gain + gain² + …, 노이즈 함수가 나누는 값과 같은 순서로 더한다) */
-function amplitudeSum(gain: number, octaves: number): number {
-  let sum = 0;
-  let amplitude = 1;
-  for (let octave = 0; octave < octaves; octave++) {
-    sum += amplitude;
-    amplitude *= gain;
-  }
-  return sum;
 }
 
 /**

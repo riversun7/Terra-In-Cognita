@@ -5,7 +5,10 @@
 // - 지각: 낮은 주파수 fBm + 판마다 치우침 → 면적 백분위로 대륙 지각(육지 + 대륙붕)을 정한다.
 // - 판 경계: 두 판의 상대 속도(오일러 극 회전)를 경계 법선에 비춰 수렴·발산을 보고, 지각 종류로
 //   충돌 산맥·안데스형 산맥·해구·섬 호·열곡을 정한다. 발산하는 바다 경계는 해령(바다 깊이가 해령에서 멀수록 깊어짐).
-// - 열점: 판 이동 반대 방향으로 이어지는 화산 사슬.
+// - 열점: 판 이동 반대 방향으로 이어지는 화산 사슬(사슬마다 길이·간격·굽음이 다르다, hotspots.ts).
+// - 지형 틀(출력 판 3, 다양성 고침 3단계, landforms.ts): 대륙 안쪽 고원·분지, 해수면 근처 해안 잔 모양, 경계를 따라
+//   바뀌는 산맥 단면. 산맥 무늬·섬 호 끊김·경계를 따라 바뀌는 세기는 노이즈 2판(격자점에서 꺼지지 않음)으로 바꿨다.
+//   판 흔들기·대륙성·기복은 1판 노이즈 그대로다(같은 시드는 같은 판·대륙 배치).
 // 높이는 실제 환산 m(해수면을 정하기 전 절대값)이다. 거리는 구 위 각도(라디안)라 해상도와 무관하다.
 import { detExp } from "@terra/shared";
 import type { PlanetSettings } from "@terra/shared";
@@ -21,7 +24,19 @@ import {
 } from "./boundaries.ts";
 import { type PlanetGrid, areaOf, neighbors8 } from "./grid.ts";
 import { addVolcanoes, hotspotVolcanoes } from "./hotspots.ts";
-import { fbm3, octavesFor, ridged3 } from "./noise.ts";
+import {
+  LANDFORM_JITTER,
+  MOUNTAIN_FRONT_WIGGLE,
+  alongStrength,
+  hillOctaves,
+  hillRelief,
+  inlandWeight,
+  interiorRelief,
+  mountainShape,
+  roughenCoasts,
+  softenPeaks,
+} from "./landforms.ts";
+import { fbm3, octavesFor, offsetFbm3, offsetRidged3 } from "./noise.ts";
 import {
   CONTINENT_FREQUENCY,
   CONTINENT_OCTAVES,
@@ -34,10 +49,12 @@ import {
 } from "./plates.ts";
 import { distanceField } from "./queues.ts";
 import {
+  STREAM_COAST,
   STREAM_CONTINENTS,
   STREAM_MOUNTAINS,
   STREAM_PLATE_WARP,
   STREAM_RELIEF,
+  STREAM_RELIEF_DETAIL,
   streamSeed,
 } from "./random.ts";
 import { areaPercentile, km, smoothstep } from "./util.ts";
@@ -52,6 +69,12 @@ const BOUNDARY_REACH = km(700);
  */
 const CORNER_PUSH_RADIUS = 0.035;
 const CORNER_PUSH = 0.3;
+/** 산맥 단면 노이즈 시드: streamSeed(시드, STREAM_MOUNTAINS) + 이 값(무늬 0, 경계 세기 7, 섬 호 11) */
+const MOUNTAIN_SHAPE_SEED_OFFSET = 3;
+/** 안데스형 혹 중심·충돌 산맥 폭(단면 채널 0)과 혹 폭(채널 1)이 바뀌는 비율(표준편차 1당) */
+const ANDEAN_CENTRE_VARIATION = 0.35;
+const ANDEAN_WIDTH_VARIATION = 0.3;
+const COLLISION_WIDTH_VARIATION = 0.3;
 
 export interface Tectonics {
   /** 칸마다 판 번호 */
@@ -205,10 +228,13 @@ export function buildTectonics(grid: PlanetGrid, seed: number, settings: PlanetS
   const elevation = new Float32Array(count);
   const reliefSeed = streamSeed(seed, STREAM_RELIEF);
   const mountainSeed = streamSeed(seed, STREAM_MOUNTAINS);
+  const highlandSeed = streamSeed(seed, STREAM_RELIEF_DETAIL);
   const reliefOctaves = octavesFor(5, grid.meanCellAngle, 8);
   const ridgeOctaves = octavesFor(7, grid.meanCellAngle, 6);
+  const hills = hillOctaves(grid.meanCellAngle);
   const halfCell = grid.meanCellAngle / 2;
   const shelfRank = settings.shelfPercent / Math.max(1, settings.landPercent + settings.shelfPercent);
+  const shape = new Float64Array(2);
   for (let c = 0; c < count; c++) {
     const x = sx[c] ?? 0;
     const y = sy[c] ?? 0;
@@ -223,6 +249,12 @@ export function buildTectonics(grid: PlanetGrid, seed: number, settings: PlanetS
         h = 900 * t * Math.sqrt(t);
       }
       h += rugged * (200 + 0.25 * Math.max(0, h)) * fbm3(reliefSeed, x, y, z, 5, reliefOctaves, 0.52);
+      // 지형 틀: 안쪽 고원·분지(안쪽 칸에서만 노이즈를 계산한다)
+      const inland = inlandWeight(r, shelfRank);
+      if (inland > 0) {
+        const highland = interiorRelief(highlandSeed, x, y, z, grid.z[c] ?? 0);
+        h += rugged * inland * (highland + hillRelief(highlandSeed, x, y, z, hills));
+      }
     } else {
       const age = Math.min(1, (ridgeDistance.angle[c] ?? 0) / km(2800));
       const floor = -2500 - 3000 * Math.sqrt(age);
@@ -233,25 +265,36 @@ export function buildTectonics(grid: PlanetGrid, seed: number, settings: PlanetS
     const source = boundary.source[c] ?? -1;
     const slot = source >= 0 ? (mix.slot[source] ?? -1) : -1;
     if (slot >= 0) {
-      const d = (boundary.angle[c] ?? 0) + halfCell;
+      // 단면이 경계를 따라 바뀐다: 채널 0 → 안데스형 혹 중심·충돌 산맥 폭, 채널 1 → 앞면 위치·혹 폭
+      mountainShape(mountainSeed + MOUNTAIN_SHAPE_SEED_OFFSET, x, y, z, shape);
+      const q0 = shape[0] ?? 0;
+      const q1 = shape[1] ?? 0;
+      const d = Math.max(0, (boundary.angle[c] ?? 0) + halfCell + MOUNTAIN_FRONT_WIGGLE * q1);
       // 경계를 따라 세기가 바뀐다(낮은 주파수): 높은 구간과 낮은 구간
-      const along = 0.35 + (0.5 + 0.5 * fbm3(mountainSeed + 7, x, y, z, 2.5, 3, 0.5)) * 1.3;
-      const texture = 0.45 + 1.1 * ridged3(mountainSeed, x, y, z, 7, ridgeOctaves, 0.55);
+      const along = alongStrength(mountainSeed + 7, x, y, z);
+      const texture =
+        0.45 + 1.1 * offsetRidged3(mountainSeed, x, y, z, 7, ridgeOctaves, 0.55, LANDFORM_JITTER);
       const at = slot * FEATURE_KINDS;
       const collision = (mix.weight[at] ?? 0) * along;
       const andean = (mix.weight[at + 1] ?? 0) * along;
       const trench = (mix.weight[at + 2] ?? 0) * along;
       const arc = (mix.weight[at + 3] ?? 0) * along;
       const rift = (mix.weight[at + 4] ?? 0) * along;
-      if (collision > 0) h += uplift * 4200 * collision * texture * (1 - smoothstep(km(130), km(480), d));
+      if (collision > 0) {
+        const width = 1 + COLLISION_WIDTH_VARIATION * q0;
+        h += uplift * 4200 * collision * texture * (1 - smoothstep(km(130) * width, km(480) * width, d));
+      }
       if (andean > 0) {
-        h += uplift * 3800 * andean * texture * bump(d, km(150), km(160));
-        h += volcanism * 900 * andean * texture * bump(d, km(190), km(60));
+        const centre = km(150) * (1 + ANDEAN_CENTRE_VARIATION * q0);
+        h += uplift * 3800 * andean * texture * bump(d, centre, km(160) * (1 + ANDEAN_WIDTH_VARIATION * q1));
+        // 화산 줄은 주 산줄기보다 40km 안쪽
+        h += volcanism * 900 * andean * texture * bump(d, centre + km(40), km(60));
       }
       if (trench > 0) h -= uplift * 3600 * trench * bump(d, km(30), km(80));
       if (arc > 0) {
         // 섬 호는 이어진 벽이 아니라 섬 사슬이다: 짧은 파장 노이즈로 끊는다
-        const islands = Math.min(1, Math.max(0, 3 * (fbm3(mountainSeed + 11, x, y, z, 16, 2, 0.5) + 0.12)));
+        const breaks = offsetFbm3(mountainSeed + 11, x, y, z, 16, 2, 0.5, LANDFORM_JITTER);
+        const islands = Math.min(1, Math.max(0, 3 * (breaks + 0.12)));
         h += volcanism * 3900 * arc * texture * islands * bump(d, km(160), km(75));
       }
       if (rift > 0) h -= uplift * 1700 * rift * bump(d, 0, km(90));
@@ -269,7 +312,10 @@ export function buildTectonics(grid: PlanetGrid, seed: number, settings: PlanetS
       return noise + plateOf(plates, owner).bias > threshold;
     },
   );
-  addVolcanoes(count, sx, sy, sz, elevation, hotspots);
+  addVolcanoes(grid, sx, sy, sz, elevation, hotspots);
+  // 지형 틀: 해안 잔 모양(모든 높이를 더한 뒤, 임시 해수면 근처에서)
+  roughenCoasts(grid, streamSeed(seed, STREAM_COAST), sx, sy, sz, elevation, settings.landPercent, rugged);
+  softenPeaks(elevation);
   return { plate, continental, elevation };
 }
 

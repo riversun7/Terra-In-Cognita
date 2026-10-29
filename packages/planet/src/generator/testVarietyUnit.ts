@@ -17,8 +17,6 @@ const LATTICE_NEAR = 0.1;
 /** 노이즈 2판 격자점 지표의 시드·흔들기(새 노이즈의 기본값. 1판 fbm3는 같은 시드로 보고만 한다) */
 const LATTICE_SEED = 777;
 const LATTICE_JITTER = 0.6;
-/** 열점 사슬 하나의 화산 수(출력 판 2 hotspots.ts의 고정값) */
-const HOTSPOT_CHAIN_LENGTH = 6;
 
 /** 모든 칸에서 생성기 바람 세기의 최솟값(0에 가까우면 그 칸은 바람길이 끊긴다) */
 export function windMinSpeed(ctx: VarietyContext, seed: number): number {
@@ -64,11 +62,17 @@ export function latticeRmsRatio(
   return Math.sqrt(near / nearCount) / Math.sqrt(all / LATTICE_SAMPLES);
 }
 
-/** 열점 사슬 안 이웃 화산 사이 거리(실제 환산 km)의 변동 계수(표준편차 ÷ 평균) */
+/** 열점 사슬 안 이웃 화산 사이 거리(실제 환산 km)의 변동 계수(표준편차 ÷ 평균)와 사슬 길이(화산 수) 범위 */
 export function hotspotSpacing(
   seed: number,
   settings: PlanetSettings,
-): { readonly cv: number; readonly chains: number; readonly meanGapKm: number } {
+): {
+  readonly cv: number;
+  readonly chains: number;
+  readonly meanGapKm: number;
+  readonly minCones: number;
+  readonly maxCones: number;
+} {
   const continentalShare = Math.min(0.97, (settings.landPercent + settings.shelfPercent) / 100);
   const plates = createPlates(seed, settings.plateCount, continentalShare);
   const volcanoes = hotspotVolcanoes(
@@ -80,21 +84,25 @@ export function hotspotSpacing(
     () => false,
   );
   const gaps: number[] = [];
-  for (let k = 1; k < volcanoes.length; k++) {
-    if (k % HOTSPOT_CHAIN_LENGTH === 0) continue;
-    const a = volcanoes[k - 1];
+  const cones = new Map<number, number>();
+  for (let k = 0; k < volcanoes.length; k++) {
     const b = volcanoes[k];
-    if (!a || !b) continue;
+    if (!b) continue;
+    cones.set(b.chain, (cones.get(b.chain) ?? 0) + 1);
+    const a = volcanoes[k - 1];
+    if (!a || a.chain !== b.chain) continue;
     const dx = a.x - b.x;
     const dy = a.y - b.y;
     const dz = a.z - b.z;
     gaps.push(Math.sqrt(dx * dx + dy * dy + dz * dz) * REFERENCE_RADIUS_KM);
   }
-  const chains = Math.floor(volcanoes.length / HOTSPOT_CHAIN_LENGTH);
-  if (gaps.length === 0) return { cv: 0, chains, meanGapKm: 0 };
+  const lengths = [...cones.values()];
+  const minCones = lengths.length > 0 ? Math.min(...lengths) : 0;
+  const maxCones = lengths.length > 0 ? Math.max(...lengths) : 0;
+  if (gaps.length === 0) return { cv: 0, chains: cones.size, meanGapKm: 0, minCones, maxCones };
   const mean = gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length;
   const variance = gaps.reduce((sum, gap) => sum + (gap - mean) * (gap - mean), 0) / gaps.length;
-  return { cv: Math.sqrt(variance) / mean, chains, meanGapKm: mean };
+  return { cv: Math.sqrt(variance) / mean, chains: cones.size, meanGapKm: mean, minCones, maxCones };
 }
 
 /** 생성기 단위 지표(시드·설정마다): 최소 풍속, 노이즈 격자점, 열점 간격 */
@@ -123,7 +131,7 @@ export function unitMetrics(ctx: VarietyContext, seed: number, settings: PlanetS
     varietyMetric(
       "unit.hotspotSpacingCv",
       hotspots.cv,
-      `${hotspots.chains} chains × ${HOTSPOT_CHAIN_LENGTH} cones, mean gap ${hotspots.meanGapKm.toFixed(0)} km (real-eq)`,
+      `${hotspots.chains} chains of ${hotspots.minCones}–${hotspots.maxCones} cones, mean gap ${hotspots.meanGapKm.toFixed(0)} km (real-eq)`,
     ),
   ];
 }

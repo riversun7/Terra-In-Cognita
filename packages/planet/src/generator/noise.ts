@@ -449,6 +449,17 @@ export function offsetFbm3Pair(
   out[1] = total > 0 ? sumB / total : 0;
 }
 
+/** 옥타브 octaves개의 세기 합(1 + gain + gain² + …, fBm 함수들이 나누는 값과 같은 순서로 더한다) */
+export function amplitudeSum(gain: number, octaves: number): number {
+  let sum = 0;
+  let amplitude = 1;
+  for (let octave = 0; octave < octaves; octave++) {
+    sum += amplitude;
+    amplitude *= gain;
+  }
+  return sum;
+}
+
 /**
  * 해상도에 맞는 옥타브 수: 가장 높은 옥타브의 격자 간격이 칸 2개보다 작아지지 않게(그보다 잘면 칸 하나가 못 담는다).
  * 낮은 옥타브는 해상도와 무관하게 같아서, 작은 면 레벨(미리보기)도 큰 모양이 같다.

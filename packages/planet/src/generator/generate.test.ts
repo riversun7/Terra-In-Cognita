@@ -146,19 +146,19 @@ describe("골든 해시 (값이 바뀌면 GENERATOR_VERSION을 올리고 새 값
   });
 
   // 2026-10-29 기록(Node 24.22.1). 결정성 규칙(사칙연산 + 명세가 정한 함수)상 다른 엔진에서도 같아야 한다.
-  // 출력 판 3, 다양성 고침 1단계(바람 굽이·바람이 오는 이웃 둘·오르막 75km·반올림 전 기온의 증발 가능량)와
-  // 2단계(기후 위도 흔들기·기온·강수의 중간 크기·잔 변이)에서 바꿨다.
-  // 같은 가지의 3단계는 판 번호를 다시 올리지 않고 이 값만 고친다(version.ts)
+  // 출력 판 3(다양성 고침 가지의 마지막 출력): 1단계(바람 굽이·바람이 오는 이웃 둘·오르막 75km·반올림 전 기온의
+  // 증발 가능량), 2단계(기후 위도 흔들기·기온·강수의 중간 크기·잔 변이), 3단계(지형 틀: 안쪽 고원·분지·구릉,
+  // 해안선 흔들기, 산맥 단면·세기, 열점 사슬 모양, 봉우리 다듬기)
   it("면 레벨 5, 시드 1, 프리셋 군도·더움·습윤·젊음·많음·많음", () => {
-    expect(run(5, 1, STRESS_PRESETS).fields.meta.hash).toBe("b3726b5f");
+    expect(run(5, 1, STRESS_PRESETS).fields.meta.hash).toBe("fe8068d6");
   });
 
   it("S2 시험 행성 설정(시드 20261029, 모두 보통)을 면 레벨 5로", () => {
-    expect(run(5, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("624e4b52");
+    expect(run(5, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("6c151e7f");
   });
 
   it("S2 시험 행성 설정을 면 레벨 6으로", () => {
-    expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("d79667d7");
+    expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("135bb111");
   });
 });
 
@@ -184,26 +184,43 @@ function fingerprint(arrays: readonly (Float32Array | Float64Array)[]): string {
   return state.toString(16).padStart(8, "0");
 }
 
+/** 판 구조의 판 번호·대륙 지각 바이트(plate, continental)의 FNV-1a 32비트: 판·대륙 배치가 그대로인지 본다 */
+function layout(faceLevel: number, seed: number, presets: PlanetPresets): string {
+  const { plate, continental } = buildTectonics(buildGrid(faceLevel), seed, resolvePlanetSettings(presets));
+  let state = 0x811c9dc5;
+  for (const bytes of [plate, continental]) {
+    for (const value of bytes) state = Math.imul(state ^ value, 0x01000193) >>> 0;
+  }
+  return state.toString(16).padStart(8, "0");
+}
+
 describe("실수 지문 (정수 필드로 반올림하기 전 값. 바뀌면 골든 해시처럼 GENERATOR_VERSION과 함께 고친다)", () => {
   // 골든 해시는 정수 출력만 본다. 정수로 반올림하면 실수의 마지막 비트 차이는 대개 사라지므로(Float32 저장 포함),
   // 64비트 값(격자·면적·해수면)은 마지막 비트까지, 32비트 중간 필드는 그 자릿수까지 여기서 고정한다
   it("격자(칸 중심·면적 = 투영 detTan·detAtan)와 해수면의 64비트 값", () => {
     const grid = buildGrid(5);
     expect(fingerprint([grid.x, grid.y, grid.z, grid.faceArea])).toBe("5e2f5aef");
-    expect(bitsOf(run(5, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c0043675a19f9000");
-    expect(bitsOf(run(5, 1, STRESS_PRESETS).seaLevelRealM)).toBe("40623b91fc7d4620");
-    expect(bitsOf(run(6, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c013df62c611b000");
+    expect(bitsOf(run(5, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c0222be6834f5400");
+    expect(bitsOf(run(5, 1, STRESS_PRESETS).seaLevelRealM)).toBe("405b828c5ad53d80");
+    expect(bitsOf(run(6, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c0301a9ce2a9d000");
   });
 
   it("판 구조 고도·기온·강수(Float32 중간값, 면 레벨 5, S2 시험 행성 설정)", () => {
     const grid = buildGrid(5);
     const settings = resolvePlanetSettings(NORMAL_PRESETS);
     const { elevation } = buildTectonics(grid, S2_TEST_PLANET_SEED, settings);
-    // 판 구조는 출력 판 2와 같다(다양성 고침 1·2단계는 기후만 바꾼다. 판·대륙 배치가 그대로인지 여기서 본다)
-    expect(fingerprint([elevation])).toBe("00edae93");
+    // 출력 판 3(다양성 고침 3단계 지형 틀)에서 바꿨다. 출력 판 2·1~2단계는 00edae93
+    expect(fingerprint([elevation])).toBe("7dbb771f");
     const { seaLevel, ocean } = classifyOcean(grid, elevation, settings.landPercent);
     const climate = computeClimate(grid, elevation, seaLevel, ocean, settings, S2_TEST_PLANET_SEED);
-    expect(fingerprint([climate.temperature, climate.precipitation])).toBe("c0e4d847");
+    expect(fingerprint([climate.temperature, climate.precipitation])).toBe("ec557c3a");
+  });
+
+  it("판 번호·대륙 지각 배치는 출력 판 2와 같다(지형 틀은 높이만 더하고 판·대륙은 1판 노이즈 그대로)", () => {
+    // 2026-10-29 출력 판 2(main 25b7ebc)와 이 판에서 같은 값(Verified)
+    expect(layout(5, S2_TEST_PLANET_SEED, NORMAL_PRESETS)).toBe("37b8c9f3");
+    expect(layout(5, 1, STRESS_PRESETS)).toBe("2e6487fc");
+    expect(layout(6, 42, NORMAL_PRESETS)).toBe("3aa02e85");
   });
 });
 
@@ -469,9 +486,9 @@ describe("해상도와 무관한 큰 모양 (편집기 미리보기 = 낮은 면
   it("육지 바이옴 면적 비율은 면 레벨 6(미리보기)과 8에서 바이옴마다 2.5%p 안, 평균 습도 3%·숲 밀도 6% 안", {
     timeout: 60_000,
   }, () => {
-    // 2026-10-29 잰 값(출력 판 3, 다양성 고침 2단계): 가장 큰 차이는 사막 1.17%p, 습도 1.4%, 숲 2.3%. 시험 밖
-    // 시드 1·42는 0.90·1.95%p(습도 −2.5·+2.5%, 숲 1.9·−0.4%). 2단계 잔 기후 변이는 F6에서 끄고 F8에서 2옥타브다
-    // (climate.ts). 1단계는 사바나 1.95%p, 습도 1.0%, 숲 4.9%, 판 2는 사바나 1.93%p, 습도 1.2%, 숲 3.5%였다.
+    // 2026-10-29 잰 값(출력 판 3, 다양성 고침 3단계까지): 가장 큰 차이는 초지 1.20%p, 습도 −0.2%, 숲 −0.3%. 시험 밖
+    // 시드 1·42는 0.82·1.13%p(습도 −1.2·+1.1%, 숲 −0.9·−3.5%). 잔 기후 변이(climate.ts)와 해안선 흔들기(landforms.ts)는
+    // F6에서 끈다. 2단계는 사막 1.17%p, 습도 1.4%, 숲 2.3%, 1단계는 사바나 1.95%p·1.0%·4.9%, 판 2는 1.93%p·1.2%·3.5%였다.
     // 강가 가산이 칸 크기를 따라가던 때는 사바나 6.1%p·열대우림 5.4%p, 습도 7.6%, 숲 20%였다(surface.ts·riparian.ts).
     const coarse = landSummary(6, run(6, S2_TEST_PLANET_SEED).fields);
     const fine = landSummary(8, run(8, S2_TEST_PLANET_SEED).fields);

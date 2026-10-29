@@ -5,6 +5,7 @@
 - 관련: ADR `2026-10-29-s2-planet-lod.md`(36, 제안 — 끝에 "구현하며 정한 것 (셰이더 측정)"을 덧붙임), 조사 `docs/research/2026-10-29-webgpu-vs-webgl2.md`, ADR `2026-10-28-s1-second-map.md`(33, 엔진), `2026-10-28-pwa-and-browser-baseline.md`, `2026-10-28-stack-baseline.md`, PLAN 5.7·11장
 - 의존성: `apps/game`에 `three` 0.186.1·`@types/three` 0.186.0을 직접 적었다. 엔진과 같은 판이라 새로 받는 꾸러미는 없다(잠금 파일은 `apps/game` 링크 6줄만). `check-docs`는 새 런타임 의존성으로 보므로 ADR 36에 적었다.
 - `packages/engine`·`apps/server`·`packages/protocol`·`packages/planet`·`packages/shared`·`packages/content`·`content/`·`apps/game/src/map/`·`App.tsx`·`AccountBar.tsx`는 바꾸지 않았다.
+- 바로잡음: 같은 날 리뷰 반영 기록 `2026/10/29-1505-s2-webgpu-bench-review.md`가 이 기록의 측정 방법과 수치(TSL 컴파일 5~8배, CPU 약 2배, 초기화 비교, 2차맵 +32KB만 센 비용)를 고쳤다. 지금 값은 그 기록과 조사 문서를 본다.
 
 ## 한 일
 - 측정판(`apps/game/src/admin/GpuBenchPanel.tsx`): 관리자 화면 아래 "셰이더 측정 (S2)".

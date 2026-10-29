@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-29 15:05 | S2 셰이더 측정판 리뷰 반영: TSL 모델뷰 정밀도, 같은 일을 재는 컴파일, GPU 지연, 순서·멈춤, 다시 잰 헤드리스 수치 | Claude Code (서브에이전트, 작업 트리) | [29-1505-s2-webgpu-bench-review](worklog/2026/10/29-1505-s2-webgpu-bench-review.md) |
 | 2026-10-29 12:10 | S2 셰이더 측정판: WebGL2 + GLSL과 WebGPU + TSL을 같은 행성 타일로 재기(관리자 화면), 헤드리스 측정, 조사 | Claude Code (서브에이전트, 작업 트리) | [29-1210-s2-webgpu-bench](worklog/2026/10/29-1210-s2-webgpu-bench.md) |
 | 2026-10-29 09:18 | 운영 지표 보기 워크플로(nas-metrics) — S1의 NAS 쪽 지표를 재려고 | Claude Code | [29-0918-nas-metrics](worklog/2026/10/29-0918-nas-metrics.md) |
 | 2026-10-29 08:50 | S2 계획: 결정적 생성기, 쿼드트리 타일, 서버 굽기, 렌더러 — ADR 36(제안) | Claude Code | [29-0850-s2-plan](worklog/2026/10/29-0850-s2-plan.md) |

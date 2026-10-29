@@ -55,6 +55,28 @@ const problems = (planets: unknown[], biomes?: unknown[]) =>
 /** 바이옴 표의 마지막 항목만 바꿨을 때의 문제 */
 const lastBiomeProblems = (entry: unknown) => problems([planet()], [...BIOMES.slice(0, 3), entry]);
 
+/** 극 기온 > 적도 기온 문제 한 건(덮어쓰지 않은 쪽은 기온 프리셋 값) */
+const temperatureProblem = (pole: number, equator: number, level: string) => [
+  [
+    "schema",
+    "planets.json",
+    "test_world",
+    "overrides",
+    `극 기온(poleTemperatureC ${pole}°C)이 적도 기온(equatorTemperatureC ${equator}°C)보다 높습니다. 덮어쓰지 않은 쪽은 기온 프리셋("${level}")의 값입니다. 극 ≤ 적도가 되게 고치세요.`,
+  ],
+];
+
+/** 행성 바이옴 표에 없는 규칙 종류 문제 한 건 */
+const missingKinds = (kinds: string, quoted: string) => [
+  [
+    "references",
+    "planets.json",
+    "test_world",
+    "biomes",
+    `행성 바이옴 표에 ${kinds} 규칙이 없습니다. 생성기는 칸마다 바다·호수·육지 규칙 가운데서 바이옴을 고르므로 세 종류가 하나씩은 있어야 합니다. 규칙 종류(rule.kind)가 ${quoted}인 바이옴을 biomes에 넣으세요.`,
+  ],
+];
+
 describe("행성·바이옴 분류", () => {
   it("올바른 행성과 바이옴은 통과하고, 행성의 바이옴 표는 순서대로 ID를 가리킨다", () => {
     const result = check([planet({ overrides: { landPercent: 35, poleTemperatureC: -30 } })]);
@@ -117,15 +139,27 @@ describe("행성·바이옴 분류", () => {
     ]);
   });
 
-  it("극 기온과 적도 기온을 함께 덮어쓰면 극이 적도보다 높을 수 없다", () => {
-    expect(problems([planet({ overrides: { equatorTemperatureC: 10, poleTemperatureC: 12 } })])).toEqual([
-      [
-        "schema",
-        "planets.json",
-        "test_world",
-        "overrides",
-        "극 기온(poleTemperatureC)이 적도 기온(equatorTemperatureC)보다 높습니다. 극 ≤ 적도로 고치세요.",
-      ],
+  it("극 기온 ≤ 적도 기온: 덮어쓰지 않은 쪽은 기온 프리셋 값으로 본다(생성기와 같은 표)", () => {
+    // 둘 다 덮어씀
+    expect(problems([planet({ overrides: { equatorTemperatureC: 10, poleTemperatureC: 12 } })])).toEqual(
+      temperatureProblem(12, 10, "normal"),
+    );
+    // 극만 덮어씀: 보통 프리셋의 적도 27°C, 추움 프리셋의 적도 20°C와 비교
+    expect(problems([planet({ overrides: { poleTemperatureC: 30 } })])).toEqual(
+      temperatureProblem(30, 27, "normal"),
+    );
+    expect(problems([planet({ overrides: { poleTemperatureC: 27 } })])).toEqual([]);
+    const cold = { ...PRESETS, temperature: "cold" };
+    expect(problems([planet({ presets: cold, overrides: { poleTemperatureC: 21 } })])).toEqual(
+      temperatureProblem(21, 20, "cold"),
+    );
+    // 적도만 덮어씀: 보통 프리셋의 극 −24°C와 비교
+    expect(problems([planet({ overrides: { equatorTemperatureC: -30 } })])).toEqual(
+      temperatureProblem(-24, -30, "normal"),
+    );
+    // 범위 밖 값은 범위 문구만 낸다(기온 비교 문구를 겹쳐 내지 않는다)
+    expect(problems([planet({ overrides: { poleTemperatureC: 41 } })])).toEqual([
+      ["schema", "planets.json", "test_world", "overrides.poleTemperatureC", "값이 너무 큽니다(최대 40)."],
     ]);
   });
 
@@ -162,6 +196,26 @@ describe("행성·바이옴 분류", () => {
     ]);
     expect(problems([planet({ biomes: [] })])).toEqual([
       ["schema", "planets.json", "test_world", "biomes", expect.stringContaining("1")],
+    ]);
+  });
+
+  it("행성 바이옴 표에는 바다·호수·육지 규칙이 하나씩은 있어야 한다(생성기가 받는 표)", () => {
+    expect(problems([planet({ biomes: ["ocean_deep", "taiga", "desert"] })])).toEqual(
+      missingKinds("호수", '"lake"'),
+    );
+    expect(problems([planet({ biomes: ["taiga", "desert"] })])).toEqual(
+      missingKinds("바다·호수", '"ocean"·"lake"'),
+    );
+    expect(problems([planet({ biomes: ["ocean_deep", "lake"] })])).toEqual(missingKinds("육지", '"land"'));
+    // 없는 바이옴을 가리키면 참조 오류 하나만 낸다(종류 검사는 건너뛴다)
+    expect(problems([planet({ biomes: ["ocean_deep", "taiga", "deserd"] })])).toEqual([
+      [
+        "references",
+        "planets.json",
+        "test_world",
+        "biomes[2]",
+        '없는 biomes ID "deserd"입니다. 혹시 "desert"?',
+      ],
     ]);
   });
 

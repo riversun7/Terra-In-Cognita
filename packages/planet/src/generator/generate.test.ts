@@ -1,6 +1,6 @@
 // 행성 생성기 시험 — 골든 해시(바뀌면 바로 잡는다), 결정성, 성질(해수면 비율·강은 내리막·바이옴 규칙·꼭짓점 바다),
 // 프리셋이 결과를 바꾸는 방향, 해상도가 달라도 큰 모양이 같은지, 콘텐츠 팩 행성이 생성되는지
-import type { PlanetPresets } from "@terra/shared";
+import { PLANET_GENERATOR_FACE_LEVELS, type PlanetPresets } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import biomesJson from "../../../../content/core/biomes.json";
 import planetsJson from "../../../../content/core/planets.json";
@@ -492,6 +492,18 @@ describe("입력 검사", () => {
 });
 
 describe("콘텐츠 팩 행성 (content/core) — 정의가 생성기 입력이 되는지 (해시는 보지 않는다)", () => {
+  it("팩의 모든 행성: 생성기가 받는 면 레벨이고, 정의가 입력이 되어 면 레벨 4로 생성된다", () => {
+    // 콘텐츠 검사(스키마·행성 바이옴 표)가 놓친 조건이 있으면 서버 굽기보다 먼저 여기서 드러난다
+    const [minLevel, maxLevel] = PLANET_GENERATOR_FACE_LEVELS;
+    expect(planetsJson.entries.length).toBeGreaterThan(0);
+    for (const planet of planetsJson.entries) {
+      expect(planet.faceLevel, planet.id).toBeGreaterThanOrEqual(minLevel);
+      expect(planet.faceLevel, planet.id).toBeLessThanOrEqual(maxLevel);
+      const definition = planetInputFromDefinition(planet, biomesJson.entries, 4);
+      expect(generatePlanet(definition).meta.faceLevel, planet.id).toBe(4);
+    }
+  });
+
   it("S2 시험 행성: 시드·바이옴 표가 시험 자료와 같고, 낮은 면 레벨로 생성된다", () => {
     const planet = planetsJson.entries.find((entry) => entry.id === "s2_test_planet");
     expect(planet).toBeDefined();

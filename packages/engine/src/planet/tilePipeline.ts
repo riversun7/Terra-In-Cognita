@@ -2,6 +2,8 @@
 // 한 타일의 길: 받기(TileSource, 동시 상한) → 모양 확인 → 메시 만들기(워커) → 올리기 대기 → 올리기(한 프레임 상한) → 그리기 가능.
 // 받은 이진(EncodedTile)은 메시 만들기(워커)가 풀므로 모양·요청 확인을 만든 뒤에 한다.
 // - 원하지 않게 된 받기는 잠시(ABORT_GRACE_MS) 뒤 취소한다(잠깐 흔들린 고르기 때문에 다시 받지 않게).
+// - 원천이 FETCH_TIMEOUT_MS 안에 답하지 않으면(멈춘 휴대폰 연결 등, 브라우저 fetch는 기본 시간 제한이 없다) 멈추고(abort)
+//   실패로 센다. 그래서 답 없는 요청이 받기 자리를 영영 차지하지 않는다. 시간은 원천을 부른 때부터다(원천 안의 기다림 포함).
 // - 실패하면 1초부터 두 배씩(30초까지) 기다렸다가 다시 받는다. 그동안은 부모 타일이 그 자리를 그린다.
 // - GPU 메모리 추정이 상한을 넘으면 이번 프레임에 안 쓴 타일을 오래된 것부터 버린다(꼭대기 타일은 지킨다: 늘 부모가 있게).
 import type { WantedTile } from "./lodSelect.ts";
@@ -44,6 +46,8 @@ interface TileEntry<G extends GpuTile> {
   tile: DecodedTile | null;
   mesh: TileMeshArrays | null;
   gpu: G | null;
+  /** 받기를 시작한 때(now 기준 ms) — 시간 제한용 */
+  fetchStartedAt: number;
   lastUsed: number;
   lastWanted: number;
   failures: number;
@@ -64,6 +68,8 @@ export interface PipelineOptions<G extends GpuTile> {
 
 /** 원하지 않게 된 받기를 이만큼 기다렸다가 취소한다(ms) */
 const ABORT_GRACE_MS = 500;
+/** 받기 하나의 시간 제한(ms) — 타일 하나는 압축해 수 KB라 4G에서도 1초 안쪽이다(Assumed). 넘으면 멈추고 실패로 센다 */
+export const FETCH_TIMEOUT_MS = 15_000;
 const RETRY_BASE_MS = 1000;
 const RETRY_MAX_MS = 30_000;
 
@@ -115,10 +121,17 @@ export class TilePipeline<G extends GpuTile> {
     }
   }
 
-  /** 받을 목록대로 받기 시작(동시 상한), 원하지 않게 된 받기 취소 */
+  /** 시간이 지난 받기를 멈추고, 받을 목록대로 받기 시작(동시 상한), 원하지 않게 된 받기 취소 */
   request(wanted: readonly WantedTile[], frame: number): void {
     if (this.disposed) return;
     const now = this.options.now();
+    // 답이 없는 받기를 먼저 멈춘다: 자리가 비어 이번에 다른 타일을 받는다. 그 타일은 실패 대기(1초~) 뒤 다시 받는다
+    for (const entry of this.entries.values()) {
+      if (entry.state === "fetching" && now - entry.fetchStartedAt >= FETCH_TIMEOUT_MS) {
+        entry.cancel?.();
+        this.fail(entry);
+      }
+    }
     const wantedKeys = new Set<number>();
     let waiting = false;
     for (const item of wanted) {
@@ -211,6 +224,7 @@ export class TilePipeline<G extends GpuTile> {
       tile: null,
       mesh: null,
       gpu: null,
+      fetchStartedAt: now,
       lastUsed: frame,
       lastWanted: now,
       failures: 0,
@@ -223,13 +237,19 @@ export class TilePipeline<G extends GpuTile> {
   private start(entry: TileEntry<G>): void {
     const controller = new AbortController();
     entry.state = "fetching";
+    entry.fetchStartedAt = this.options.now();
     this.fetching += 1;
     const request = tileRequestOf(entry.node);
     let settled = false;
-    // 받기 자리를 한 번만 돌려준다(끝났을 때 또는 취소했을 때)
+    // 화면이 멈춰 있어도 시간 제한을 보게 그때 한 번 더 그린다(그 프레임의 request가 멈춘다)
+    const wake = setTimeout(() => {
+      if (!this.disposed) this.options.onChange();
+    }, FETCH_TIMEOUT_MS + 10);
+    // 받기 자리를 한 번만 돌려준다(끝났을 때, 취소했을 때, 시간이 지났을 때)
     const release = (): void => {
       if (settled) return;
       settled = true;
+      clearTimeout(wake);
       this.fetching -= 1;
       entry.cancel = null;
     };

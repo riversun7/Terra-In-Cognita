@@ -1,6 +1,6 @@
 import { FACES } from "@terra/planet";
 import { encodePlanetTile } from "@terra/protocol";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { WantedTile } from "./lodSelect.ts";
 import {
   DEFAULT_PLANET_BUDGETS,
@@ -12,8 +12,8 @@ import {
 import { EARTH_RADIUS_M, makeTile } from "./testSupport.ts";
 import { decodeTileInput } from "./tileDecode.ts";
 import { buildTileMesh } from "./tileMesh.ts";
-import { type GpuTile, type TileMeshBuilder, TilePipeline } from "./tilePipeline.ts";
-import { type TileNode, tileKey, tileLayout } from "./tileTree.ts";
+import { FETCH_TIMEOUT_MS, type GpuTile, type TileMeshBuilder, TilePipeline } from "./tilePipeline.ts";
+import { type TileNode, tileKey, tileLayout, tileRequestOf } from "./tileTree.ts";
 
 const layout = tileLayout(9);
 
@@ -102,6 +102,10 @@ const level6 = (count: number): TileNode[] =>
     ty: Math.floor(k / 2) % 2,
   }));
 const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("타일 받기·올리기", () => {
   it("동시 받기 상한(2)을 지키고, 기다린 요청은 상한 횟수로 센다", () => {
@@ -255,5 +259,59 @@ describe("타일 받기·올리기", () => {
     expect(calls[1]?.signal.aborted).toBe(true);
     expect(created.every((gpu) => gpu.disposed)).toBe(true);
     expect(pipeline.counts().gpuBytes).toBe(0);
+  });
+});
+
+describe("받기 시간 제한", () => {
+  it("답하지 않는 받기는 시간 제한에 멈추고(abort) 실패로 센다 — 자리가 비어 다른 타일을 받고, 기다린 뒤 다시 받는다", () => {
+    vi.useFakeTimers();
+    const { pipeline, calls, advance, onChange } = setup({ concurrentFetches: 2 });
+    const nodes = level6(3);
+    pipeline.request(wanted(nodes), 1);
+    expect(calls).toHaveLength(2);
+    // 시간 제한 바로 전: 그대로 기다린다(세 번째는 자리가 없다)
+    advance(FETCH_TIMEOUT_MS - 1);
+    pipeline.request(wanted(nodes), 2);
+    expect(calls).toHaveLength(2);
+    expect(pipeline.errors).toBe(0);
+    // 화면이 멈춰 있어도 시간 제한 때 한 번 더 그리게 한다(그 프레임의 request가 멈춘다)
+    onChange.mockClear();
+    vi.advanceTimersByTime(FETCH_TIMEOUT_MS + 10);
+    expect(onChange).toHaveBeenCalled();
+    advance(1);
+    pipeline.request(wanted(nodes), 3);
+    expect(calls[0]?.signal.aborted).toBe(true);
+    expect(calls[1]?.signal.aborted).toBe(true);
+    expect(pipeline.errors).toBe(2);
+    // 빈 자리로 세 번째 타일을 받는다
+    expect(calls).toHaveLength(3);
+    const third = nodes[2];
+    if (!third) throw new Error("third node");
+    expect(calls[2]?.request).toEqual(tileRequestOf(third));
+    expect(pipeline.counts().fetching).toBe(1);
+    // 실패 대기(1초) 뒤 멈춘 두 타일을 다시 받는다
+    advance(1001);
+    pipeline.request(wanted(nodes), 4);
+    expect(calls).toHaveLength(4);
+    expect(pipeline.counts().fetching).toBe(2);
+    pipeline.dispose();
+  });
+
+  it("늦게 온 답(멈춘 뒤)은 쓰지 않는다", async () => {
+    vi.useFakeTimers();
+    const { pipeline, calls, advance } = setup({ concurrentFetches: 1 });
+    const node: TileNode = { face: 4, mapLevel: 6, tx: 1, ty: 0 };
+    pipeline.request(wanted([node]), 1);
+    advance(FETCH_TIMEOUT_MS);
+    pipeline.request(wanted([node]), 2);
+    expect(pipeline.errors).toBe(1);
+    const call = calls[0];
+    if (!call) throw new Error("call");
+    const { face, mapLevel, i0, j0, size } = call.request;
+    call.resolve(makeTile(face, mapLevel, i0, j0, size));
+    await vi.runAllTimersAsync();
+    expect(pipeline.counts().queued).toBe(0);
+    expect(pipeline.decoded(tileKey(node))).toBeNull();
+    pipeline.dispose();
   });
 });

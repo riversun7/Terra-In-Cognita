@@ -1,6 +1,6 @@
 // 콘텐츠 팩 불러오기 — 서버 시작 때 1·2·4a단계(스키마·참조·ID 변경표)를 검사한다 (PLAN 7장).
 // 하나라도 틀리면 시작하지 않는다 → 컨테이너가 healthy가 되지 않아 배포가 직전 버전으로 되돌린다(ops/deploy.sh 7단계).
-import { type ContentPack, formatIssue, hasErrors } from "@terra/content";
+import { type ContentPack, type PackSource, formatIssue, hasErrors, parseJson } from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
 
 export interface ServerContent {
@@ -12,15 +12,35 @@ export interface ServerContent {
   placeholder: boolean;
 }
 
+/** 팩 파일에 적힌 그대로의 항목(JSON) — 행성 편집기 정의 조회가 보낸다(ADR 38 11절 "원본 항목") */
+export interface RawPackEntries {
+  /** planets.json entries (파일 순서) */
+  planets: readonly unknown[];
+  /** biomes.json entries (파일 순서) */
+  biomes: readonly unknown[];
+}
+
 export type ContentLoadResult =
-  /** pack: 검증을 통과한 항목(행성 원본을 만든다, src/planet/sources.ts planetSpecsFromPack) */
-  | { ok: true; content: ServerContent; pack: ContentPack; warnings: string[] }
+  /** pack: 검증을 통과한 항목(행성 원본을 만든다, src/planet/sources.ts planetSpecsFromPack). raw: 같은 항목의 파일 JSON */
+  | { ok: true; content: ServerContent; pack: ContentPack; raw: RawPackEntries; warnings: string[] }
   | { ok: false; lines: string[] };
+
+/** 분류 파일의 entries(파일 JSON 그대로). 파일이 없으면 빈 배열. 검증을 통과한 팩이라 모양은 맞다 */
+function rawEntriesOf(source: PackSource, file: string): readonly unknown[] {
+  const text = source.files.get(file);
+  if (text === undefined) return [];
+  const parsed: unknown = parseJson(text);
+  const entries: unknown =
+    typeof parsed === "object" && parsed !== null ? Reflect.get(parsed, "entries") : undefined;
+  if (!Array.isArray(entries)) return [];
+  const list: readonly unknown[] = entries;
+  return list;
+}
 
 export function loadServerContent(dir: string): ContentLoadResult {
   const loaded = loadContentPack(dir);
   const lines = loaded.issues.map((issue) => formatIssue(issue, `${dir}/`));
-  if (hasErrors(loaded.issues) || !loaded.pack || !loaded.version || !loaded.hash) {
+  if (hasErrors(loaded.issues) || !loaded.pack || !loaded.version || !loaded.hash || !loaded.source) {
     return { ok: false, lines: [...lines, `콘텐츠 팩 검증 실패(${dir}) — 서버를 시작하지 않습니다`] };
   }
   return {
@@ -31,6 +51,10 @@ export function loadServerContent(dir: string): ContentLoadResult {
       placeholder: loaded.pack.manifest.placeholder === true,
     },
     pack: loaded.pack,
+    raw: {
+      planets: rawEntriesOf(loaded.source, "planets.json"),
+      biomes: rawEntriesOf(loaded.source, "biomes.json"),
+    },
     warnings: lines,
   };
 }

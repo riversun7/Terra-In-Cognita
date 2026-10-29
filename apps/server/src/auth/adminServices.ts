@@ -104,8 +104,8 @@ export function createAdminServices(deps: AdminServicesDeps): AdminServices {
   };
 }
 
-/** Better Auth 오류(401·403)를 tRPC 오류로. 그 밖의 오류는 그대로(500, 원문은 로그에만) */
-async function callBetterAuth<T>(call: () => Promise<T>): Promise<T> {
+/** Better Auth 오류(401·403)를 tRPC 오류로. 그 밖의 오류는 그대로(500, 원문은 로그에만). 행성 편집기 권한 확인도 쓴다 */
+export async function callBetterAuth<T>(call: () => Promise<T>): Promise<T> {
   try {
     return await call();
   } catch (error) {

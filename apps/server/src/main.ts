@@ -6,6 +6,12 @@ import { loadServerContent } from "./content.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
 import { createWorkerBaker } from "./planet/baker.ts";
 import { type PlanetSourceSpec, createPlanetSource, planetSpecsFromPack } from "./planet/sources.ts";
+import {
+  PLANET_EDITOR_READY_MESSAGE,
+  type PlanetEditorBuild,
+  buildPlanetEditorDefinitions,
+  planetEditorLogFields,
+} from "./planetEditor/definitions.ts";
 
 const config = readConfig();
 
@@ -37,6 +43,14 @@ try {
   console.error(`콘텐츠 팩 행성 정의를 생성기가 받지 않습니다(${config.contentDir}): ${String(error)}`);
   process.exit(1);
 }
+// 행성 편집기 정의 조회 자료(ADR 38 6·11절): 요청을 받기 전에 팩 행성마다 확인 해시(F5)를 만든다(행성마다 약 0.2~0.4초)
+let planetEditor: PlanetEditorBuild;
+try {
+  planetEditor = buildPlanetEditorDefinitions({ content, raw: loaded.raw, specs: planetSpecs });
+} catch (error) {
+  console.error(`행성 편집기 확인 해시를 만들지 못했습니다(${config.contentDir}): ${String(error)}`);
+  process.exit(1);
+}
 
 let app: FastifyInstance | undefined;
 const db = config.databaseUrl
@@ -66,6 +80,7 @@ app = await buildApp({
     baker: createWorkerBaker({ workerUrl: planetBakeWorkerUrl }),
     cacheDir: config.planetCacheDir,
   },
+  planetEditor: { definitions: planetEditor.definitions },
 });
 if (config.auth) {
   app.log.info(
@@ -77,6 +92,8 @@ app.log.info(
   { contentVersion: content.version, contentHash: content.hash, dir: config.contentDir },
   "content pack",
 );
+// 행성마다 확인 레벨·해시·걸린 시간(시작이 늘어난 만큼). 시드·항목은 남기지 않는다
+app.log.info(planetEditorLogFields(planetEditor), PLANET_EDITOR_READY_MESSAGE);
 for (const warning of loaded.warnings) app.log.warn(warning);
 if (content.placeholder) app.log.warn("임시 콘텐츠 팩(placeholder)입니다 — 기획 확정 전 형식 확인용");
 if (!db) app.log.warn("DATABASE_URL이 없어 DB 없이 시작합니다");

@@ -10,6 +10,11 @@ import { authHeaders } from "../auth/http.ts";
 import { parseRoleString } from "../auth/permissions.ts";
 import { isSameOriginRequest } from "../auth/requestGuard.ts";
 import type { Database } from "../db/client.ts";
+import {
+  type PlanetEditorShared,
+  betterAuthPermissionCheck,
+  createPlanetEditorServices,
+} from "../planetEditor/services.ts";
 import { createSettingsServices } from "../settings/store.ts";
 import type { TrpcContext, TrpcContextOptions, Viewer } from "./context.ts";
 import { reasonedError } from "./init.ts";
@@ -22,6 +27,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
    * 모든 쓰기가 UNAUTHORIZED다
    */
   appOrigin?: string | undefined;
+  /** 행성 편집기(서버가 켤 때 만든 정의 조회 자료). 인증이 켜져 있어야 쓴다 */
+  planetEditor?: PlanetEditorShared | undefined;
 }
 
 /** 읽기만 하는 요청(출처를 보지 않는다). tRPC 조회는 GET, 쓰기는 POST다 */
@@ -57,12 +64,22 @@ export function createContextFactory(options: ContextFactoryOptions) {
         authDeps && request ? loadViewer(authDeps.auth, authHeaders(request)) : Promise.resolve(null);
       return viewerPromise;
     };
+    const editor = options.planetEditor;
     return {
       contentVersion: options.contentVersion,
       now: options.now,
       viewer,
       admin: authDeps && request ? createAdminServices({ ...authDeps, request, viewer }) : undefined,
       settings: authDeps ? createSettingsServices(authDeps.db) : undefined,
+      planetEditor:
+        authDeps && request && editor
+          ? createPlanetEditorServices({
+              db: authDeps.db,
+              shared: editor,
+              ip: request.ip,
+              hasPermission: betterAuthPermissionCheck(authDeps.auth, request),
+            })
+          : undefined,
     };
   };
 }

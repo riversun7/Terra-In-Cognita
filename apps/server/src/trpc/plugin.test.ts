@@ -50,7 +50,7 @@ describe("tRPC 응답 캐시", () => {
       await server.inject({ method: "GET", url: `${TRPC_PATH}/account.me` }),
       await server.inject({ method: "GET", url: `${TRPC_PATH}/settings.get` }),
       await server.inject({ method: "GET", url: `${TRPC_PATH}/system.nope` }),
-      await server.inject({ method: "GET", url: `${TRPC_PATH}/admin.users.list` }),
+      await server.inject({ method: "GET", url: `${TRPC_PATH}/planetEditor.definitions` }),
       await post(server, "settings.set", SAME_ORIGIN, { theme: "dark" }),
       await post(server, "settings.set", CROSS_SITE, { theme: "dark" }),
       // 조회 프로시저에 POST(405), 로그인 확인이 형식 오류보다 먼저(401)
@@ -83,7 +83,12 @@ describe("tRPC 쓰기 같은 출처 확인", () => {
     ["Sec-Fetch-Site none(주소창 등)", { "sec-fetch-site": "none" }],
   ])("%s → 403 FORBIDDEN(data.reason cross_origin), 로그인 확인 전에 막는다", async (_name, headers) => {
     const server = await makeApp();
-    for (const path of ["settings.set", "admin.users.setRoles"]) {
+    for (const path of [
+      "settings.set",
+      "admin.users.setRoles",
+      "planetEditor.drafts.save",
+      "planetEditor.drafts.remove",
+    ]) {
       const res = await post(server, path, headers);
       expect(res.statusCode, path).toBe(403);
       expect(res.json(), path).toEqual({
@@ -114,13 +119,13 @@ describe("tRPC 쓰기 같은 출처 확인", () => {
     const server = await makeApp();
     const res = await server.inject({
       method: "POST",
-      url: `${TRPC_PATH}/settings.set,admin.users.setRoles?batch=1`,
+      url: `${TRPC_PATH}/settings.set,planetEditor.drafts.save?batch=1`,
       headers: { "content-type": "application/json", ...CROSS_SITE },
       payload: JSON.stringify({ 0: { theme: "dark" }, 1: {} }),
     });
     expect(res.statusCode).toBe(403);
     expect(res.json()).toEqual(
-      ["settings.set", "admin.users.setRoles"].map((path) => ({
+      ["settings.set", "planetEditor.drafts.save"].map((path) => ({
         error: {
           message: "CROSS_ORIGIN_REQUEST",
           code: TRPC_ERROR_CODES_BY_KEY.FORBIDDEN,

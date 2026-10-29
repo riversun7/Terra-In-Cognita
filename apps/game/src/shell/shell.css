@@ -44,15 +44,30 @@
   transform: none;
 }
 
-/* 위 띠·하단 탭이 초점 둔 요소를 가리지 않게 — 키보드로 옮길 때 브라우저가 이만큼 비우고 스크롤한다(Shell.tsx가 <html>에 표시) */
-:root[data-topbar] {
-  scroll-padding-top: calc(var(--topbar-h) + env(safe-area-inset-top) + var(--space-3));
+/*
+ * 위 띠·하단 탭이 초점 둔 본문 요소를 가리지 않게 — 초점·scrollIntoView로 스크롤할 때 본문 요소마다 이만큼 띄운다
+ * (Shell.tsx가 <html>에 data-topbar·data-tabbar="배치"를 붙인다). 문서 뿌리의 scroll-padding으로 두면 sticky인 위 띠·레일 안
+ * 단추에 초점이 갈 때 문서가 튄다(Chrome: 띠 밑 여백 안의 요소로 보고 스크롤, 2026-10-29 화면에서 잼) → 본문 요소의
+ * scroll-margin으로 둔다(:where — 화면이 더 띄울 요소는 제 규칙으로 덮는다). 새 버전 배너가 뜬 동안의 여백은
+ * styles.css :root[data-update-banner]가 더한다.
+ * 하단 탭이 있는 동안 새 버전 배너(styles.css .update-banner)는 탭 위에 뜬다.
+ * 배치 C는 가운데 지도 버튼이 띠 위로 솟는다(tabbar.css .tab-map-button의 음수 위 여백 --space-6, 실제로 솟는 높이는
+ * 그보다 조금 작다) → 아래 여백과 배너를 그만큼 더 띄운다(layout.test.ts가 두 파일의 값을 대 본다).
+ */
+:where(:root[data-topbar] .frame-main *) {
+  scroll-margin-top: calc(var(--topbar-h) + env(safe-area-inset-top) + var(--space-3));
 }
-:root[data-tabbar] {
-  scroll-padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3));
+:where(:root[data-tabbar] .frame-main *) {
+  scroll-margin-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3));
 }
-:root[data-tabbar][data-update-banner] {
-  scroll-padding-bottom: calc(var(--tabbar-h) + var(--banner-reserve) + env(safe-area-inset-bottom));
+:where(:root[data-tabbar="c"] .frame-main *) {
+  scroll-margin-bottom: calc(var(--tabbar-h) + var(--space-6) + env(safe-area-inset-bottom) + var(--space-3));
+}
+:root[data-tabbar] .update-banner {
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3));
+}
+:root[data-tabbar="c"] .update-banner {
+  bottom: calc(var(--tabbar-h) + var(--space-6) + env(safe-area-inset-bottom) + var(--space-3));
 }
 
 /* ── 위 띠 ─────────────────────────────────────────── */

@@ -209,17 +209,18 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
     if (route.overlay === "drawer" && (!narrow || hidden)) closeOverlay();
   }, [route.overlay, narrow, hidden]);
 
-  // 하단 탭이 있는 동안 새 버전 배너를 탭 위로 올리고(styles.css :root[data-tabbar]), 위 띠·하단 탭 높이만큼
-  // 스크롤 여백을 둔다(shell.css :root[data-topbar]·[data-tabbar] — 초점 둔 요소가 가려지지 않게)
+  // 하단 탭이 있는 동안 새 버전 배너를 탭 위로 올리고, 위 띠·하단 탭 높이만큼 본문 요소의 스크롤 여백(scroll-margin)을
+  // 둔다(shell.css :root[data-topbar]·[data-tabbar] — 초점 둔 요소가 가려지지 않게). 값은 배치(c·a): C는 지도 버튼이 띠 위로 솟는다
   useEffect(() => {
     const root = document.documentElement;
-    root.toggleAttribute("data-tabbar", tabsShown);
+    if (tabsShown) root.setAttribute("data-tabbar", nav.layout);
+    else root.removeAttribute("data-tabbar");
     root.toggleAttribute("data-topbar", !hidden);
     return () => {
       root.removeAttribute("data-tabbar");
       root.removeAttribute("data-topbar");
     };
-  }, [tabsShown, hidden]);
+  }, [tabsShown, hidden, nav.layout]);
 
   const view = (
     <RouteView

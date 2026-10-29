@@ -1,5 +1,5 @@
 // 폭 경계 시험 — 화면 틀 CSS(shell.css·tabbar.css)의 미디어 쿼리 숫자와 layout.ts의 값이 같다(ADR 2026-10-29-app-shell 3절),
-// 하단 탭 칸 수(D-265)
+// 하단 탭 칸 수(D-265)·배치 C의 칸 나누기, C 지도 버튼이 솟는 만큼 비우는 여백
 import { NAV_ITEM_IDS, NAV_LAYOUTS, type NavLayout } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import tokensCss from "../styles/tokens.css?raw";
@@ -36,6 +36,18 @@ function narrowestNeed(layout: NavLayout, slots: number): number {
 function tokenPx(name: string): number {
   const match = new RegExp(`${name}:\\s*(\\d+(?:\\.\\d+)?)px;`).exec(tokensCss);
   return Number(match?.[1] ?? Number.NaN);
+}
+
+/** CSS 규칙 하나의 선언 글(선택자 글자 그대로, 주석은 빼고 빈칸·줄바꿈은 한 칸으로). 없으면 빈 문자열 */
+function ruleBody(css: string, selector: string): string {
+  const text = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const at = text.indexOf(`${selector} {`);
+  if (at < 0) return "";
+  const open = text.indexOf("{", at);
+  return text
+    .slice(open + 1, text.indexOf("}", open))
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** CSS의 @media 머리글들(주석은 뺀다) */
@@ -141,6 +153,27 @@ describe("하단 탭 칸 수(D-265: 좁은 휴대폰은 4칸, 넓으면 더)", (
       right: ["economy", "faction", "cyborg"],
     });
     expect(splitCenterTabs([])).toEqual({ left: [], right: [] });
+  });
+
+  it("배치 C는 지도 버튼이 띠 위로 솟는 높이(음수 위 여백 --space-6)만큼 본문 아래 스크롤 여백·새 버전 배너를 더 띄운다", () => {
+    expect(ruleBody(tabbarCss, ".tab-map-button")).toContain("margin-top: calc(var(--space-6) * -1);");
+    for (const selector of [
+      ':where(:root[data-tabbar="c"] .frame-main *)',
+      ':root[data-tabbar="c"] .update-banner',
+    ]) {
+      expect(ruleBody(shellCss, selector), selector).toContain("var(--tabbar-h) + var(--space-6)");
+    }
+    // A(솟는 것 없음)는 하단 탭 높이만
+    for (const selector of [
+      ":where(:root[data-tabbar] .frame-main *)",
+      ":root[data-tabbar] .update-banner",
+    ]) {
+      const body = ruleBody(shellCss, selector);
+      expect(body, selector).toContain("var(--tabbar-h)");
+      expect(body, selector).not.toContain("--space-6");
+    }
+    // 문서 뿌리의 scroll-padding은 두지 않는다(sticky 위 띠·레일 단추에 초점이 가면 문서가 튄다)
+    expect(shellCss.replace(/\/\*[\s\S]*?\*\//g, "")).not.toMatch(/scroll-padding/);
   });
 
   it("JS가 듣는 칸 수 미디어 쿼리는 계단과 같은 em 값이다", () => {

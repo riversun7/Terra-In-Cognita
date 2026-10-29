@@ -508,10 +508,7 @@ select {
   gap: var(--space-2);
   margin-left: auto;
 }
-/* 하단 탭이 있는 동안(좁은 폭, shell/Shell.tsx가 <html data-tabbar>를 붙인다) 배너는 탭 위에 뜬다 — 탭을 가리지 않는다 */
-:root[data-tabbar] .update-banner {
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3));
-}
+/* 하단 탭이 있는 동안(좁은 폭) 배너를 탭 위로 올리는 규칙은 shell/shell.css에 있다(배치 C는 지도 버튼만큼 더 올린다) */
 /* 배너가 떠 있는 동안 화면 아래를 배너 높이만큼 비운다(맨 아래 칸·버튼이 배너에 가려 누를 수 없게 되지 않게) */
 :root[data-update-banner] {
   scroll-padding-bottom: calc(var(--banner-reserve) + env(safe-area-inset-bottom));

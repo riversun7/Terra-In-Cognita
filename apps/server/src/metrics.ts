@@ -18,20 +18,36 @@ export interface ServerMetrics {
   rssMb: number;
   heapUsedMb: number;
   wsConnections: number;
+  /** 구간 동안 쓴 CPU(%, 코어 하나 기준). 워커 스레드를 포함하므로 100을 넘을 수 있다. 구간이 없으면 0 */
+  cpuPercent: number;
+}
+
+/** CPU 구간: 쓴 CPU 시간(µs, 사용자 + 커널)과 걸린 실제 시간(ms) */
+export interface CpuWindow {
+  usedMicros: number;
+  elapsedMs: number;
 }
 
 const round1 = (value: number): number => Math.round(value * 10) / 10;
 const NS_PER_MS = 1e6;
+const MICROS_PER_MS = 1000;
 const BYTES_PER_MB = 1024 * 1024;
 
 /** 지표에 쓰는 히스토그램 값(시험에서는 가짜를 넣는다) */
 export type DelayHistogram = Pick<ELDHistogram, "count" | "max" | "percentile">;
+
+/** 코어 하나 기준 CPU 사용률(%). 걸린 시간이 0 이하이거나 값이 이상하면 0 */
+export function cpuPercentOf(window: CpuWindow | undefined): number {
+  if (!window || !(window.elapsedMs > 0) || !Number.isFinite(window.usedMicros)) return 0;
+  return round1(Math.max(0, (window.usedMicros / MICROS_PER_MS / window.elapsedMs) * 100));
+}
 
 /** 지금까지 모은 값으로 지표를 만든다 (기록이 없으면 지연은 0) */
 export function readServerMetrics(
   histogram: DelayHistogram,
   wsConnections: number,
   resolutionMs = EVENT_LOOP_RESOLUTION_MS,
+  cpu?: CpuWindow,
 ): ServerMetrics {
   const delay = (ns: number): number =>
     histogram.count > 0 && Number.isFinite(ns) ? round1(Math.max(0, ns / NS_PER_MS - resolutionMs)) : 0;
@@ -44,6 +60,7 @@ export function readServerMetrics(
     rssMb: round1(memory.rss / BYTES_PER_MB),
     heapUsedMb: round1(memory.heapUsed / BYTES_PER_MB),
     wsConnections,
+    cpuPercent: cpuPercentOf(cpu),
   };
 }
 
@@ -59,8 +76,19 @@ export function startServerMetrics(
 ): () => void {
   const histogram = monitorEventLoopDelay({ resolution: EVENT_LOOP_RESOLUTION_MS });
   histogram.enable();
+  // CPU는 프로세스 전체(경로 워커 스레드 포함) 값이다. 구간마다 앞 구간 끝과의 차이를 쓴다
+  let cpuMark = process.cpuUsage();
+  let wallMark = performance.now();
   const timer = setInterval(() => {
-    log.info({ ...readServerMetrics(histogram, wsConnections()), ...extra?.() }, "server metrics");
+    const used = process.cpuUsage(cpuMark);
+    const now = performance.now();
+    const cpu = { usedMicros: used.user + used.system, elapsedMs: now - wallMark };
+    cpuMark = process.cpuUsage();
+    wallMark = now;
+    log.info(
+      { ...readServerMetrics(histogram, wsConnections(), EVENT_LOOP_RESOLUTION_MS, cpu), ...extra?.() },
+      "server metrics",
+    );
     histogram.reset();
   }, intervalMs);
   // 이 타이머 때문에 프로세스가 안 꺼지는 일이 없게

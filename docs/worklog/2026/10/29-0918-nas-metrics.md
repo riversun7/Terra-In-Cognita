@@ -23,6 +23,7 @@
 | `.github/workflows/nas-metrics.yml`(새) | 운영 지표를 한 번에 보기(S1 NAS 쪽 측정, 뒤에 S3 측정에도 씀) |
 | `ops/nas-setup.md` | 9장 관측: 보는 법, 관련 파일 목록 |
 | `AGENTS.md` | 7장 명령 표에 한 줄 |
+| `apps/server/src/metrics.ts`, `metrics.test.ts` | 지표 줄에 CPU 사용률(`cpuPercent`). S1의 남은 측정(서버 CPU 평균) |
 
 ## 함께 바꿔야 하는 파일
 - 서버 지표 줄의 필드를 바꾸면(`apps/server/src/metrics.ts`, `src/world/worldStats.ts`) 이 워크플로의 grep 기준(`"metric":"server"`)이 맞는지 본다.
@@ -33,7 +34,7 @@
 
 ## 미검증·TODO·알려진 문제
 - 이 워크플로를 더한 커밋은 문서 밖 파일이 바뀌어 배포가 한 번 돈다. 배포로 앱 컨테이너가 새로 만들어지면 그 전의 서버 지표 줄은 없어진다. 그래서 배포가 NAS에 닿기 전에 한 번 실행해 두었다(09:20).
-- 서버 지표에 CPU가 없다. CPU 평균이 필요하면 지표 줄에 `process.cpuUsage()` 차이를 더한다(S3 측정 전에).
+- 09:27 서버 지표 줄에 `cpuPercent`를 더했다(구간 동안 쓴 CPU, 코어 하나 기준, 워커 스레드 포함 — `process.cpuUsage()` 차이 ÷ 걸린 시간). 배포 뒤 1시간쯤 지나 `nas-metrics`로 S1 서버 CPU 평균을 잰다(미실행).
 - 잰 값은 ADR 33 "S1 측정"에 더한다.
 
 ## 사용자 결정 대기

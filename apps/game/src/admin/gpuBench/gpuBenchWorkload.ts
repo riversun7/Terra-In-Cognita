@@ -102,11 +102,11 @@ function tileCenter(tile: TileKey): [number, number, number] {
 
 /**
  * 나눌 순서(클수록 먼저): 타일 크기 ÷ 카메라(초점 쪽, 반지름 2배)까지 거리 — 화면 오차와 비슷한 값.
- * 지평선 뒤(초점에서 약 60° 넘게)는 거의 나누지 않는다.
+ * 지평선 뒤(초점에서 약 60° 넘게)는 거의 나누지 않는다. focus는 길이 1인 초점 방향이다.
  */
-function splitPriority(tile: TileKey): number {
+function splitPriority(tile: TileKey, focus: Vec3): number {
   const center = tileCenter(tile);
-  const cosAngle = center[0] * BENCH_FOCUS[0] + center[1] * BENCH_FOCUS[1] + center[2] * BENCH_FOCUS[2];
+  const cosAngle = center[0] * focus[0] + center[1] * focus[1] + center[2] * focus[2];
   const angle = Math.acos(Math.min(1, Math.max(-1, cosAngle)));
   // 타일 대각선 반(라디안, 대략) — 타일 한쪽 끝이 보이면 보이는 타일로 친다
   const halfExtent = (Math.PI / 4) * 2 ** -tile.level * Math.SQRT2;
@@ -130,14 +130,20 @@ function compareTiles(a: { key: TileKey; priority: number }, b: { key: TileKey; 
 /**
  * 타일을 정확히 target개 고른다. 면 6개에서 시작해 화면 오차가 큰 타일부터 4개로 나눈다(나눌 때마다 +3개).
  * 넘친 1~2개는 가장 덜 중요한 타일(지평선 뒤)을 뺀다 — 카메라에서 안 보이는 곳이라 구멍이 보이지 않는다.
+ * focus(초점 방향, 길이로 나눠 쓴다) 가까이를 잘게 나눈다. 측정 카메라는 BENCH_FOCUS를 본다.
  */
-export function selectTiles(target: number, _focus: Vec3 = BENCH_FOCUS): TileKey[] {
+export function selectTiles(target: number, focus: Vec3 = BENCH_FOCUS): TileKey[] {
   if (!Number.isInteger(target) || target < FACES.length) {
     throw new RangeError(`타일은 ${FACES.length}개 이상 정수여야 합니다: ${target}`);
   }
+  const length = Math.hypot(focus[0], focus[1], focus[2]);
+  if (!(length > 0) || !Number.isFinite(length)) {
+    throw new RangeError(`초점 방향은 길이가 있는 유한한 값이어야 합니다: ${focus.join(",")}`);
+  }
+  const unit: Vec3 = [focus[0] / length, focus[1] / length, focus[2] / length];
   const leaves = FACES.map((_, face) => {
     const key = { face, level: 0, x: 0, y: 0 };
-    return { key, priority: splitPriority(key) };
+    return { key, priority: splitPriority(key, unit) };
   });
   while (leaves.length < target) {
     let best = -1;
@@ -155,7 +161,7 @@ export function selectTiles(target: number, _focus: Vec3 = BENCH_FOCUS): TileKey
         x: parent.x * 2 + (corner & 1),
         y: parent.y * 2 + (corner >> 1),
       };
-      return { key, priority: splitPriority(key) };
+      return { key, priority: splitPriority(key, unit) };
     });
     leaves.splice(best, 1, ...children);
   }

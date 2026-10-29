@@ -56,6 +56,19 @@ describe("측정용 타일 고르기(쿼드트리 LOD)", () => {
     expect(area).toBeCloseTo(6, 10);
   });
 
+  it("넘긴 초점 둘레를 잘게 나눈다(초점마다 고른 타일이 다르다)", () => {
+    const other: readonly [number, number, number] = [0, 0, -2];
+    const around = selectTiles(160, other);
+    expect(around).not.toEqual(selectTiles(160, BENCH_FOCUS));
+    // 가장 잘게 나눈 타일은 모두 −z 면(면 5)에 있다
+    const deepest = Math.max(...around.map((tile) => tile.level));
+    expect(deepest).toBeGreaterThanOrEqual(3);
+    for (const tile of around.filter((key) => key.level === deepest)) expect(tile.face).toBe(5);
+    // 길이만 다른 방향은 같은 결과
+    expect(selectTiles(40, [0, 0, -1])).toEqual(selectTiles(40, other));
+    expect(() => selectTiles(40, [0, 0, 0])).toThrow(RangeError);
+  });
+
   it("초점 가까운 타일이 가장 잘고, 반대편은 크다", () => {
     const { tiles } = buildWorkload(160);
     const facing = (tile: (typeof tiles)[number]): number =>

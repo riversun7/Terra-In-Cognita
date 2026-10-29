@@ -118,5 +118,8 @@ export type OceanDepthClass = (typeof OCEAN_DEPTH_CLASSES)[number];
 export const BIOME_RULE_KINDS = ["ocean", "lake", "land"] as const;
 export type BiomeRuleKind = (typeof BIOME_RULE_KINDS)[number];
 
-/** 생성기가 받는 면 레벨 범위(출력 해상도). 격자 계약(4~14)보다 좁다 — 레벨 11부터는 메모리가 모자란다(ADR 36) */
+/**
+ * 생성기가 받는 면 레벨 범위(출력 해상도). 격자 계약(4~14)보다 좁다: 레벨 10이 약 55초·최대 RSS 771MiB이고(개발 컨테이너
+ * 측정), 레벨이 하나 오를 때마다 칸이 4배라 11부터는 서버 굽기에 너무 크다고 본다(추정, ADR 36 "구현하며 정한 것")
+ */
 export const PLANET_GENERATOR_FACE_LEVELS = [4, 10] as const;

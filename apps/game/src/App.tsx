@@ -21,13 +21,14 @@ import { LiveMessage } from "./ui/LiveMessage.tsx";
 
 const AdminPage = lazy(() => import("./admin/AdminPage.tsx"));
 const SettingsPage = lazy(() => import("./settings/SettingsPage.tsx"));
-// [임시] 2차맵 시험 화면 — 앱 화면 흐름(홈·아래 탭)이 생기면 그 "지도" 탭으로 옮기고 여기 여는 곳(map)과 계정 줄 버튼을 지운다.
-// Three.js·엔진은 이 조각과 함께만 내려온다(첫 화면 묶음에 넣지 않는다)
+// [임시] 1차맵·2차맵 시험 화면 — 앱 화면 흐름(홈·아래 탭)이 생기면 그 "지도" 탭으로 옮기고 여기 여는 곳(planet·map)과 계정 줄 버튼을 지운다.
+// Three.js·엔진은 이 조각들과 함께만 내려온다(첫 화면 묶음에 넣지 않는다)
+const PlanetMapScreen = lazy(() => import("./map/PlanetMapScreen.tsx"));
 const SecondaryMapScreen = lazy(() => import("./map/SecondaryMapScreen.tsx"));
 
 /** 계정 줄에서 여는 화면. 연 사용자를 함께 둔다: 로그아웃하거나 다른 계정으로 들어오면 저절로 닫힌다 */
 interface OpenView {
-  kind: "admin" | "settings" | "map";
+  kind: "admin" | "settings" | "planet" | "map";
   userId: string;
 }
 
@@ -116,7 +117,8 @@ export function App({ monitor }: { monitor: FrameMonitor }) {
   const view = user !== null && openView?.userId === user.id ? openView.kind : null;
   const adminOpen = admin && view === "admin";
   const settingsOpen = view === "settings";
-  // [임시] 2차맵 시험 화면(화면 전체를 덮는다)
+  // [임시] 1차맵·2차맵 시험 화면(화면 전체를 덮는다)
+  const planetOpen = view === "planet";
   const mapOpen = view === "map";
   const open = (kind: OpenView["kind"]) => (user ? () => setOpenView({ kind, userId: user.id }) : undefined);
   const close = () => setOpenView(null);
@@ -145,6 +147,12 @@ export function App({ monitor }: { monitor: FrameMonitor }) {
         <SettingsPage onClose={close} />
       </LazyView>
     );
+  } else if (planetOpen) {
+    content = (
+      <LazyView loading={m.planet_loading()} failed={m.planet_load_failed()}>
+        <PlanetMapScreen onClose={close} monitor={monitor} />
+      </LazyView>
+    );
   } else if (mapOpen) {
     content = (
       <LazyView loading={m.map_loading()} failed={m.map_load_failed()}>
@@ -158,12 +166,13 @@ export function App({ monitor }: { monitor: FrameMonitor }) {
 
   return (
     <>
-      {/* 2차맵은 화면 전체를 덮으므로 그동안 계정 줄을 내린다(가려진 버튼으로 초점이 가지 않게) */}
-      {user && !mapOpen ? (
+      {/* 1차맵·2차맵은 화면 전체를 덮으므로 그동안 계정 줄을 내린다(가려진 버튼으로 초점이 가지 않게) */}
+      {user && !mapOpen && !planetOpen ? (
         <AccountBar
           user={user}
           onOpenAdmin={admin && !adminOpen ? open("admin") : undefined}
           onOpenSettings={settingsOpen ? undefined : open("settings")}
+          onOpenPlanet={open("planet")}
           onOpenMap={open("map")}
         />
       ) : null}

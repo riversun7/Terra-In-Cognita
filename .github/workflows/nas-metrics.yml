@@ -1,0 +1,49 @@
+# 운영 지표 보기 — Actions 탭에서 수동 실행한다. 읽기만 한다(컨테이너·DB를 바꾸지 않는다).
+# - 서버 지표: 1분마다 로그 한 줄(apps/server/src/metrics.ts, S1 값은 src/world/worldStats.ts). 앱 컨테이너를 다시 만들면 지난 줄은 없어진다.
+# - 기기 성능·오류: 기기가 1분마다 보낸 표(client_perf_samples, client_errors). DB에 남는다.
+# 컨테이너 환경 변수에는 비밀값이 있으므로 출력하지 않는다.
+name: nas-metrics
+
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: "최근 몇 분을 볼지 (1~1440)"
+        required: false
+        default: "60"
+
+permissions:
+  contents: read
+
+jobs:
+  metrics:
+    runs-on: [self-hosted, nas]
+    timeout-minutes: 5
+    steps:
+      - name: 지표 수집
+        env:
+          MINUTES: ${{ inputs.minutes }}
+        run: |
+          # 입력은 숫자만 받는다(그래야 SQL·명령에 넣어도 안전하다)
+          case "$MINUTES" in ''|*[!0-9]*) echo "minutes는 1~1440 사이 숫자여야 한다" >&2; exit 1 ;; esac
+          if [ "$MINUTES" -lt 1 ] || [ "$MINUTES" -gt 1440 ]; then echo "minutes는 1~1440 사이 숫자여야 한다" >&2; exit 1; fi
+          sql() { docker exec tic-db psql -U terra -d terra -P pager=off -c "$1"; }
+          {
+            echo "## 운영 지표 ($(date -u +%Y-%m-%dT%H:%M:%SZ), 최근 ${MINUTES}분)"
+            echo '```'
+            docker inspect -f 'tic-app 시작: {{.State.StartedAt}}, 이미지: {{.Config.Image}}' tic-app
+            echo; docker stats --no-stream --format '{{.Name}}\tCPU {{.CPUPerc}}\t메모리 {{.MemUsage}} ({{.MemPerc}})\t네트워크 {{.NetIO}}' tic-app tic-db
+            echo '```'
+            echo "### 서버 1분 지표"
+            echo '```'
+            docker logs --since "${MINUTES}m" tic-app 2>&1 | grep '"metric":"server"' | tail -n 1440
+            echo '```'
+            echo "### 기기 성능 (1분마다)"
+            echo '```'
+            sql "select received_at, page, window_sec, fps, frame_p50_ms, frame_p95_ms, frame_max_ms, long_frames, memory_mb, user_agent, device from client_perf_samples where received_at > now() - interval '${MINUTES} minutes' order by id limit 1440"
+            echo '```'
+            echo "### 기기 오류"
+            echo '```'
+            sql "select received_at, kind, page, left(message, 300) as message from client_errors where received_at > now() - interval '${MINUTES} minutes' order by id limit 200"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"

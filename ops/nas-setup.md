@@ -64,6 +64,7 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
 - **NAS 밖 보관(해 주실 일)**: 백업이 NAS 안에만 있으면 NAS가 고장 날 때 같이 잃는다. DSM → Hyper Backup → 백업 작업 생성 → 대상(USB·다른 NAS·클라우드) → 폴더 `docker/terra-in-cognita/backups` → 매일.
 
 ## 9. 관측 (보는 법)
+- 한 번에 보기: Actions → **nas-metrics** → Run workflow(최근 몇 분). 서버 1분 지표, 컨테이너 CPU·메모리, 기기 성능·오류를 Summary에 모아 보여 준다(읽기만 한다). 앱 컨테이너를 다시 만들면(배포) 그 전의 서버 지표 줄은 없어진다. 기기 표는 DB에 남는다.
 - 서버 지표(1분마다 로그 한 줄: 이벤트 루프 지연, 메모리, 접속 수): `docker logs tic-app 2>&1 | grep '"metric":"server"' | tail -5`
 - 기기 오류: `docker exec tic-db psql -U terra -d terra -c "select received_at, kind, message, page from client_errors order by id desc limit 20"`
 - 기기 성능 요약: `docker exec tic-db psql -U terra -d terra -c "select received_at, fps, frame_p95_ms, long_frames, memory_mb, device from client_perf_samples order by id desc limit 20"`
@@ -104,4 +105,4 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
 ## 참고
 - 실행기는 NAS의 Docker를 제어할 수 있다. 배포 작업은 main 브랜치 실행에서만 돈다. 저장소에 쓰기 권한을 가진 사람만 작업을 실행할 수 있으니 협업자를 추가할 때 주의한다.
 - 실행기를 다시 설치하려면 토큰을 새로 받아 2단계를 다시 한다.
-- 관련 파일: `ops/compose.yml`(게임 서버 + DB), `ops/deploy.sh`(배포 순서), `ops/smoke.mjs`(배포 자동 점검), `ops/runner/compose.yml`(실행기), `.github/workflows/ci.yml`, `.github/workflows/nas-facts.yml`, `.github/workflows/account-admin.yml`(계정 관리).
+- 관련 파일: `ops/compose.yml`(게임 서버 + DB), `ops/deploy.sh`(배포 순서), `ops/smoke.mjs`(배포 자동 점검), `ops/runner/compose.yml`(실행기), `.github/workflows/ci.yml`, `.github/workflows/nas-facts.yml`, `.github/workflows/nas-metrics.yml`(지표 보기), `.github/workflows/account-admin.yml`(계정 관리).

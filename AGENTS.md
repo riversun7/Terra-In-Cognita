@@ -146,6 +146,7 @@
 | `pnpm --filter @terra/server db:migrate` | 밀린 마이그레이션 적용(`DATABASE_URL` 필요) |
 | `TEST_DATABASE_URL=postgres://… pnpm test` | DB 통합 테스트 포함(없으면 DB 테스트는 건너뜀. 접속 계정에 CREATEDB 권한 필요) |
 | GitHub Actions `account-admin` (수동 실행) | NAS 운영 컨테이너에서 계정 만들기·역할 바꾸기·비밀번호 바꾸기(`dist/cli.js`, 감사 기록 남음). 비밀번호는 로그에 가려진다 |
+| GitHub Actions `nas-metrics` (수동 실행) | NAS 운영 지표를 Summary에 모은다(읽기만): 서버 1분 지표, 컨테이너 CPU·메모리, 기기 성능·오류. 입력은 최근 몇 분(1~1440). 배포로 앱 컨테이너가 바뀌면 그 전 서버 지표 줄은 없다 |
 | `BETTER_AUTH_URL=http://localhost:5173 pnpm dev:server` | 개발 중 로그인 시험(같은 출처 검사가 Vite 개발 서버 주소를 기준으로 하게). DB(`DATABASE_URL`)가 있어야 인증이 켜진다 |
 | `NODE_ENV= PORT=4320 STATIC_DIR=apps/game/dist DATABASE_URL=… BETTER_AUTH_SECRET=… BETTER_AUTH_URL=http://127.0.0.1:4320 node apps/server/dist/main.js` | 빌드한 앱·서버로 화면 시험(Playwright 등). 운영 모드(`NODE_ENV=production`)는 https 주소를 요구하므로 비운다. 먼저 `pnpm build`, `DATABASE_URL=… node apps/server/dist/migrate.js`. 시험 계정은 `node apps/server/dist/cli.js create-user`(가짜 자료만) |
 | `S1_TEST_BOTS=1000 PATH_WORKERS=1 pnpm dev:server` | S1 시험 2차맵(키 `S1_TEST_MAP_KEY`)에 서버가 움직이는 봇 수(기본 0 = 봇 없음, 최대 20,000)와 경로 워커 스레드 수(기본 1, 최대 8). 2차맵·경로 워커는 늘 켜진다. 빌드한 서버(`node apps/server/dist/main.js`)도 같다. NAS는 `ops/compose.yml`에서 1,000 |

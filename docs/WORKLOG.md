@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-29 09:18 | 운영 지표 보기 워크플로(nas-metrics) — S1의 NAS 쪽 지표를 재려고 | Claude Code | [29-0918-nas-metrics](worklog/2026/10/29-0918-nas-metrics.md) |
 | 2026-10-29 08:50 | S2 계획: 결정적 생성기, 쿼드트리 타일, 서버 굽기, 렌더러 — ADR 36(제안) | Claude Code | [29-0850-s2-plan](worklog/2026/10/29-0850-s2-plan.md) |
 | 2026-10-29 08:32 | S1 휴대폰 첫 측정 기록, S2로 넘어가기 | Claude Code | [29-0832-s1-phone-measure](worklog/2026/10/29-0832-s1-phone-measure.md) |
 | 2026-10-29 03:10 | S1 기기 연결: 2차맵 시험 화면을 서버 자료로(구독·조각·rev 규칙·다시 구독, 지형, 관리자 이동 명령, HUD 측정값) | Claude Code (서브에이전트, 작업 트리) | [29-0310-s1-client](worklog/2026/10/29-0310-s1-client.md) |

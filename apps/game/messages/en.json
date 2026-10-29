@@ -211,6 +211,7 @@
   "settings_menu_reset_done": "Menu reset to default.",
   "settings_menu_undo": "Undo",
   "settings_menu_undo_done": "Menu restored.",
+  "settings_menu_save_failed": "Couldn't save the menu settings, so nothing changed.",
   "map_title": "Local Map Test",
   "map_back": "Back",
   "map_loading": "Loading the local map…",

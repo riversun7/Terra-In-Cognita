@@ -4,7 +4,8 @@
 //   사이드 메뉴에는 6개가 모두 같은 순서로 나온다. 홈도 옮길 수 있다(앞에 고정하지 않는다, D-265).
 // - 미리 보기: 지금 화면 폭에서 하단 탭에 놓이는 항목(중간·넓음 폭은 하단 탭 없음 안내).
 // - [기본값으로]과 바로 뒤의 [되돌리기](다른 것을 바꾸기 전까지). 바꿀 때마다 바로 저장한다(shellPrefs.ts).
-//   알림 영역이 옮긴 결과를 읽는다("유닛: 6개 중 2번째").
+//   알림 영역이 옮긴 결과를 읽는다("유닛: 6개 중 2번째"). 저장하지 못하면(changeNavigation이 false) 아무것도 바꾸지 않고
+//   오류 알림만 띄운다.
 import {
   DEFAULT_NAV_LAYOUT,
   NAV_LAYOUTS,
@@ -93,6 +94,7 @@ export function NavigationSettings() {
   const inTabs = new Set<NavItemId>(tabs);
   const center = NAV_LAYOUT_CENTER_ITEM[nav.layout];
   const announce = useLiveLines();
+  const failure = useLiveLines();
   const listRef = useRef<HTMLOListElement>(null);
   const [focusAfterMove, setFocusAfterMove] = useState<PendingFocus | null>(null);
   /** [기본값으로] 바로 전의 설정([되돌리기]). 다른 것을 바꾸면 지운다 */
@@ -111,9 +113,19 @@ export function NavigationSettings() {
     target?.focus();
   }, [focusAfterMove]);
 
+  /** 바꿔 저장한다. 저장하지 못했으면 오류를 알리고 false(부른 쪽은 아무것도 바꾸지 않는다) */
+  function save(patch: Parameters<typeof changeNavigation>[0]): boolean {
+    if (changeNavigation(patch)) {
+      failure.clear();
+      return true;
+    }
+    failure.show([m.settings_menu_save_failed()]);
+    return false;
+  }
+
   function move(id: NavItemId, direction: "up" | "down"): void {
     const menu = moveNavItem(nav.menu, id, direction === "up" ? -1 : 1);
-    changeNavigation({ menu });
+    if (!save({ menu })) return;
     setUndo(null);
     const order = navMenuItems(parseNavigation({ menu }));
     announce.show([
@@ -127,19 +139,18 @@ export function NavigationSettings() {
   }
 
   function chooseLayout(layout: NavLayout): void {
-    changeNavigation({ layout });
-    setUndo(null);
+    if (save({ layout })) setUndo(null);
   }
 
   function reset(): void {
-    setUndo({ layout: nav.layout, menu: nav.menu });
-    changeNavigation({ layout: DEFAULT_NAV_LAYOUT, menu: resetNavMenu(nav.menu) });
+    const before = { layout: nav.layout, menu: nav.menu };
+    if (!save({ layout: DEFAULT_NAV_LAYOUT, menu: resetNavMenu(nav.menu) })) return;
+    setUndo(before);
     announce.show([m.settings_menu_reset_done()]);
   }
 
   function undoReset(): void {
-    if (undo === null) return;
-    changeNavigation(undo);
+    if (undo === null || !save(undo)) return;
     setUndo(null);
     announce.show([m.settings_menu_undo_done()]);
   }
@@ -234,6 +245,7 @@ export function NavigationSettings() {
         )}
       </div>
       <LiveMessage tone="info" lines={announce.lines} version={announce.version} />
+      <LiveMessage tone="error" lines={failure.lines} version={failure.version} />
     </section>
   );
 }

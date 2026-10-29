@@ -1,9 +1,10 @@
 // 화면 틀의 사람별 설정 — 메뉴 설정(nav: 배치·메뉴 순서)과 중간 폭 레일 접힘(ADR 2026-10-29-app-shell 4·5절, D-265).
 // - 레일 접힘은 이 기기에만 둔다(localStorage terra.shell). 저장소를 못 쓰면 이번 실행 동안만 기억한다.
 // - 메뉴 설정: 계정 설정 넓히기(W2)가 합쳐지기 전에는 @terra/shared 기본값에서 시작해 이번 실행 동안만 기억한다.
-//   [W2 뒤에 바꿀 곳 — 이 파일 안에서만] 읽기: useSettings().device.nav를 parseNavigation으로,
-//   쓰기: chooseNavigation(mergeNavigation(원래 값, 바꾼 칸)). 원래 값(모양을 모르는 JSON)에 바꾼 칸만 덮어 써서
-//   더 새 버전이 넣은 칸과 모르는 항목 ID가 남는다.
+//   [W2 뒤에 바꿀 곳 — 이 파일 안에서만, W1을 main 위로 옮길 때] 읽기: parseNavigation(useSettings().device.nav),
+//   쓰기: chooseNavigation(mergeNavigation(getSettingsSnapshot().device.nav, 바꾼 칸))의 결과를 그대로 돌려준다
+//   (false = 저장하지 않음: 4KB 넘음·JSON으로 못 바꿈·계정에 저장할 수 없는 글자). 원래 값(모양을 모르는 JSON)에 바꾼 칸만
+//   덮어 써서 더 새 버전이 넣은 칸과 모르는 항목 ID가 남는다.
 import {
   type NavigationPatch,
   type NavigationSettings,
@@ -66,11 +67,15 @@ export function useNavigation(): NavigationSettings {
   return useSyncExternalStore(subscribe, getNavigation);
 }
 
-/** 메뉴 설정을 바꾼다(설정 화면 "메뉴" 칸). 바꿀 때마다 바로 저장한다(되돌리기는 [기본값으로]) */
-export function changeNavigation(patch: NavigationPatch): void {
+/**
+ * 메뉴 설정을 바꾼다(설정 화면 "메뉴" 칸). 바꿀 때마다 바로 저장한다(되돌리기는 [기본값으로]).
+ * 저장하지 못했으면 false다(그때는 바꾸지 않는다 — W2 뒤의 chooseNavigation과 같은 뜻). 지금은 늘 true
+ */
+export function changeNavigation(patch: NavigationPatch): boolean {
   const now = current();
   const rawNav = mergeNavigation(now.rawNav, patch);
   set({ ...now, rawNav, nav: parseNavigation(rawNav) });
+  return true;
 }
 
 export function useRailExpanded(): boolean {

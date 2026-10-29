@@ -211,6 +211,7 @@
   "settings_menu_reset_done": "메뉴를 기본값으로 되돌렸습니다.",
   "settings_menu_undo": "되돌리기",
   "settings_menu_undo_done": "메뉴를 기본값으로 바꾸기 전으로 되돌렸습니다.",
+  "settings_menu_save_failed": "메뉴 설정을 저장하지 못해 바꾸지 않았습니다.",
   "map_title": "2차맵 시험",
   "map_back": "뒤로",
   "map_loading": "2차맵을 불러오는 중…",

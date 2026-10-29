@@ -147,6 +147,8 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
               onFailure: (reason) => {
                 if (reason === "sign_in" || reason === "not_found") setTileProblem(reason);
               },
+              // 로그인 안내는 다음 타일이 오면 지운다(잠깐 401이었다). 판이 바뀐 안내는 다시 시도할 때까지 둔다
+              onSuccess: () => setTileProblem((problem) => (problem === "sign_in" ? null : problem)),
             }),
             layer: layerRef.current,
             exaggeration: exaggerationRef.current,
@@ -186,10 +188,20 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
     };
   }, []);
 
-  // 로그인이 풀렸다고 하면 로그인 상태를 다시 확인한다(끝났으면 앱이 로그인 화면으로 바꾸며 이 화면을 닫는다)
+  // 로그인이 풀렸다고 하면 로그인 상태를 다시 확인한다(끝났으면 앱이 로그인 화면으로 바꾸며 이 화면을 닫는다).
+  // 아직 로그인한 채면(잠깐 401) 타일 로그인 안내를 지운다 — 엔진은 실패한 타일을 저절로 다시 받는다
   const signInLost = (load.kind === "failed" && load.reason === "sign_in") || tileProblem === "sign_in";
   useEffect(() => {
-    if (signInLost) void refreshSession();
+    if (!signInLost) return () => undefined;
+    let current = true;
+    void refreshSession().then((session) => {
+      if (current && session.kind === "signed_in") {
+        setTileProblem((problem) => (problem === "sign_in" ? null : problem));
+      }
+    });
+    return () => {
+      current = false;
+    };
   }, [signInLost]);
 
   const chooseLayer = (next: PlanetLayer): void => {
@@ -230,6 +242,7 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
       data-tiles-pending={stats?.tilesPending}
       data-tile-budget={stats?.budgets.visibleTiles}
       data-tile-errors={stats?.tileErrors}
+      data-tiles-failed={stats?.tilesFailed}
       data-hits={
         stats
           ? [
@@ -335,8 +348,9 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
             <p key={`${index}-${line}`}>{line}</p>
           ))}
           {layer === "climate" ? <p className="planet-legend">{m.planet_climate_legend()}</p> : null}
-          {stats && stats.tileErrors > 0 ? (
-            <p className="planet-legend">{m.planet_tile_errors({ count: stats.tileErrors })}</p>
+          {/* 지금 실패한 타일만(다시 받아 오면 사라진다). 판이 바뀐 안내가 떠 있으면 그 안내가 대신한다 */}
+          {stats && stats.tilesFailed > 0 && tileProblem !== "not_found" ? (
+            <p className="planet-legend">{m.planet_tile_errors({ count: stats.tilesFailed })}</p>
           ) : null}
         </div>
         <div className="map-panel planet-controls">

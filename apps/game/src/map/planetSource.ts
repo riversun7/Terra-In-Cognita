@@ -6,6 +6,8 @@
 //   타일 주소 = planetTilePath(목록 정보의 주소 틀, planetTileKey(맵 레벨, 면, i0, j0)). 버전이 붙은 불변 주소라
 //   다시 열면 브라우저 캐시에서 온다.
 // - 429·409(Retry-After)는 그 시간까지 새 타일 요청을 미룬다(엔진은 실패한 타일을 1~30초 뒤 다시 받는다).
+// - 타일 404(판이 바뀜: 정의·생성기·형식이 바뀌어 이 주소 틀은 다시 맞지 않는다) 뒤에는 서버에 묻지 않고 바로 거절한다.
+//   엔진은 실패한 타일을 계속 다시 받으므로, 그대로 두면 열린 화면마다 [다시 시도]를 누를 때까지 요청(로그인 조회 포함)이 이어진다.
 // 실패는 이유 코드로 알린다(화면이 문구를 고른다). 문장은 화면에 쓰지 않는다.
 import type { EncodedTile, PlanetDescription, TileSource } from "@terra/engine/planet";
 import { planetTileKey } from "@terra/planet";
@@ -180,6 +182,8 @@ export interface TileSourceOptions {
   now?: () => number;
   /** 화면이 알아야 할 타일 실패(로그인 풀림·판 바뀜·요청 많음). 엔진은 실패한 타일을 저절로 다시 받는다 */
   onFailure?: (reason: PlanetFailure) => void;
+  /** 타일 하나를 받았을 때(잠깐 실패했던 안내를 지우는 데 쓴다) */
+  onSuccess?: () => void;
 }
 
 /** 서버 타일 원천. 엔진이 동시에 몇 개씩 부르고, 원하지 않게 된 요청은 signal로 멈춘다 */
@@ -192,25 +196,33 @@ export function createServerTileSource(
   const now = options.now ?? Date.now;
   /** 이 시각(ms)까지 새 타일 요청을 미룬다(429·409의 Retry-After) */
   let blockedUntil = 0;
+  /** 타일 404를 받았다: 이 목록 정보의 주소 틀로는 더 받지 않는다(목록 정보부터 다시 받아야 한다) */
+  let outdated = false;
   return async (request, signal): Promise<EncodedTile> => {
+    const key = planetTileKey(request.mapLevel, request.face, request.i0, request.j0);
+    if (outdated)
+      throw new PlanetLoadError("not_found", `planet tiles are outdated (tile ${key} not requested)`);
     const wait = blockedUntil - now();
     if (wait > 0) await sleep(wait, signal);
-    const key = planetTileKey(request.mapLevel, request.face, request.i0, request.j0);
     const response = await send(fetchImpl, planetTilePath(manifest.tileUrlTemplate, key), signal);
     const failure = failureOf(response.status);
     if (failure === "rate_limited" || failure === "generating") {
       const delay = retryAfterMs(response.headers.get("retry-after"), now()) ?? DEFAULT_RETRY_AFTER_MS;
       blockedUntil = Math.max(blockedUntil, now() + delay);
     }
+    if (failure === "not_found") outdated = true;
     if (failure) {
       options.onFailure?.(failure);
       throw new PlanetLoadError(failure, `planet tile ${key} request failed: HTTP ${response.status}`);
     }
+    let bytes: ArrayBuffer;
     try {
-      return { kind: "encoded", bytes: await response.arrayBuffer() };
+      bytes = await response.arrayBuffer();
     } catch (error) {
       if (signal.aborted) throw error;
       throw new PlanetLoadError("network", error instanceof Error ? error.message : String(error));
     }
+    options.onSuccess?.();
+    return { kind: "encoded", bytes };
   };
 }

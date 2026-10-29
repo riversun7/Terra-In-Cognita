@@ -239,6 +239,35 @@ describe("타일 원천", () => {
   });
 });
 
+describe("타일 원천 — 판이 바뀐 뒤·다시 받은 뒤", () => {
+  const request: TileRequest = { face: 0, mapLevel: 6, i0: 32, j0: 0, size: 32 };
+
+  it("타일 404(판이 바뀜) 뒤에는 서버에 묻지 않고 바로 not_found로 거절한다", async () => {
+    const fetchImpl = vi.fn(tileStatus(404));
+    const onFailure = vi.fn();
+    const source = createServerTileSource(manifest, { fetch: fetchImpl, onFailure });
+    const signal = new AbortController().signal;
+    expect(await failure(source(request, signal))).toBe("not_found");
+    expect(await failure(source(request, signal))).toBe("not_found");
+    expect(await failure(source({ ...request, i0: 0 }, signal))).toBe("not_found");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(onFailure.mock.calls).toEqual([["not_found"]]);
+  });
+
+  it("401·429 뒤에는 계속 묻고, 받으면 onSuccess로 알린다(잠깐 실패한 안내를 지운다)", async () => {
+    const replies = [new Response(null, { status: 401 }), new Response(new Uint8Array([7]), { status: 200 })];
+    const fetchImpl = vi.fn(async () => replies.shift() ?? new Response(null, { status: 500 }));
+    const onSuccess = vi.fn();
+    const source = createServerTileSource(manifest, { fetch: fetchImpl, onSuccess });
+    const signal = new AbortController().signal;
+    expect(await failure(source(request, signal))).toBe("sign_in");
+    expect(onSuccess).not.toHaveBeenCalled();
+    await source(request, signal);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("도우미", () => {
   it("Retry-After: 초·HTTP 날짜, 읽지 못하면 undefined, 상한 2분", () => {
     const now = Date.parse("2026-10-29T00:00:00Z");

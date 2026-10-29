@@ -227,8 +227,10 @@ export interface PlanetStats {
   /** 지금까지 상한에 걸린 횟수: 타일 수(더 나누지 못한 고르기), 받기(자리가 없어 기다린 요청), 올리기(다음 프레임으로 미룬 타일), 메모리(버린 타일) */
   budgetHits: { tiles: number; fetches: number; uploads: number; memory: number };
   budgets: PlanetBudgets;
-  /** 받지 못한 타일 수(누적) */
+  /** 받지 못한 횟수(누적, 지표용 — 실패가 풀려도 줄지 않는다) */
   tileErrors: number;
+  /** 지금 원하는 타일 중 받지 못해 다시 받기를 기다리는 수(다시 받아 오면 줄어든다) — 화면 안내용 */
+  tilesFailed: number;
   /** GPU 메모리 추정(바이트) */
   gpuBytes: number;
   /** 타일 메모리 추정(바이트, 상한 budgets.memoryBytes): GPU 추정 + JS에 남는 배열·풀어 둔 타일 */

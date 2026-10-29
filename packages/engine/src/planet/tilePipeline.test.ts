@@ -186,6 +186,30 @@ describe("타일 받기·올리기", () => {
     expect(calls).toHaveLength(3);
   });
 
+  it("지금 실패한 타일 수(counts().failed): 원하는 동안만 세고, 다시 받아 오면 줄어든다(누적 errors는 그대로)", async () => {
+    const { pipeline, calls, answer, advance } = setup({ concurrentFetches: 4 });
+    const [first, second] = level6(2);
+    if (!first || !second) throw new Error("two nodes");
+    pipeline.request(wanted([first, second]), 1);
+    calls[0]?.reject(new Error("HTTP 401"));
+    calls[1]?.reject(new Error("HTTP 401"));
+    await settle();
+    expect(pipeline.counts().failed).toBe(2);
+    // 고르기가 하나만 원하면 그것만 센다(원하지 않게 된 실패는 안내에서 뺀다)
+    pipeline.request(wanted([first]), 2);
+    expect(pipeline.counts().failed).toBe(1);
+    // 기다린 뒤 다시 받아 오면 0이 된다
+    advance(1001);
+    pipeline.request(wanted([first]), 3);
+    expect(calls).toHaveLength(3);
+    expect(pipeline.counts().failed).toBe(0);
+    answer(2);
+    await settle();
+    pipeline.request(wanted([first]), 4);
+    expect(pipeline.counts()).toMatchObject({ failed: 0, queued: 1 });
+    expect(pipeline.errors).toBe(2);
+  });
+
   it("서버 이진(EncodedTile)은 만들 때 풀고, 푼 뒤 요청과 다르면 실패다", async () => {
     const { pipeline, calls, created } = setup({ concurrentFetches: 4 });
     const node: TileNode = { face: 2, mapLevel: 7, tx: 1, ty: 3 };

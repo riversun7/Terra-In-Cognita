@@ -57,6 +57,8 @@ interface TileEntry<G extends GpuTile> {
   fetchStartedAt: number;
   lastUsed: number;
   lastWanted: number;
+  /** 이 타일을 원한 마지막 request() 번호(지금 실패한 타일 셈에 쓴다) */
+  wantedIn: number;
   failures: number;
   retryAt: number;
 }
@@ -91,8 +93,10 @@ export class TilePipeline<G extends GpuTile> {
   private memoryBytes = 0;
   /** 만든 타일 중 가장 높은 꼭짓점(게임 m). 없으면 −∞ */
   private highestM = Number.NEGATIVE_INFINITY;
+  /** request()를 부른 횟수 — 마지막 request()가 원한 타일(wantedIn이 이 값)만 "지금 실패한 타일"로 센다 */
+  private requests = 0;
   private disposed = false;
-  /** 상한에 걸린 횟수·실패 수(누적) */
+  /** 상한에 걸린 횟수·실패 수(누적, 지표용). 화면 안내는 counts().failed(지금 실패한 타일)를 쓴다 */
   readonly hits = { fetches: 0, uploads: 0, memory: 0 };
   errors = 0;
 
@@ -118,20 +122,25 @@ export class TilePipeline<G extends GpuTile> {
     fetching: number;
     building: number;
     queued: number;
+    /** 마지막 고르기가 원한 타일 중 실패해 다시 받기를 기다리는 수(다시 받아 오면 줄어든다) */
+    failed: number;
     gpuBytes: number;
     memoryBytes: number;
   } {
     let loaded = 0;
     let queued = 0;
+    let failed = 0;
     for (const entry of this.entries.values()) {
       if (entry.state === "ready") loaded += 1;
       else if (entry.state === "built") queued += 1;
+      else if (entry.state === "failed" && entry.wantedIn === this.requests) failed += 1;
     }
     return {
       loaded,
       fetching: this.fetching,
       building: this.building,
       queued,
+      failed,
       gpuBytes: this.gpuBytes,
       memoryBytes: this.memoryBytes,
     };
@@ -154,6 +163,7 @@ export class TilePipeline<G extends GpuTile> {
   request(wanted: readonly WantedTile[], frame: number): void {
     if (this.disposed) return;
     const now = this.options.now();
+    this.requests += 1;
     // 답이 없는 받기를 먼저 멈춘다: 자리가 비어 이번에 다른 타일을 받는다. 그 타일은 실패 대기(1초~) 뒤 다시 받는다
     for (const entry of this.entries.values()) {
       if (entry.state === "fetching" && now - entry.fetchStartedAt >= FETCH_TIMEOUT_MS) {
@@ -169,6 +179,7 @@ export class TilePipeline<G extends GpuTile> {
       if (entry) {
         entry.lastWanted = now;
         entry.lastUsed = frame;
+        entry.wantedIn = this.requests;
         if (entry.state !== "failed" || now < entry.retryAt) continue;
       }
       if (this.fetching >= this.options.budgets.concurrentFetches) {
@@ -264,6 +275,7 @@ export class TilePipeline<G extends GpuTile> {
       fetchStartedAt: now,
       lastUsed: frame,
       lastWanted: now,
+      wantedIn: this.requests,
       failures: 0,
       retryAt: 0,
     };

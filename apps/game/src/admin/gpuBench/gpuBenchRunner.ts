@@ -1,8 +1,11 @@
 // 셰이더 측정 실행기 — [측정 시작]을 누를 때만 받는 지연 조각(GpuBenchPanel이 import()한다).
-// 타일 수마다 자료를 한 번 만들고, 고른 방식을 차례로 잰다. 방식 코드(three, three/webgpu)는 그 방식을 처음 잴 때 받는다.
+// 타일 수마다 자료를 한 번 만들고, 고른 방식을 잰다. 방식 순서는 타일 수마다 한 칸씩 돌린다(gpuBenchPlan.ts modeOrder).
+// 방식 코드(three, three/webgpu)는 그 조각을 처음 쓸 때 받는다(두 TSL 방식은 같은 조각).
 // 한 번 재기: 코드 받기 → 렌더러 만들기·초기화 → 장면 → 셰이더 컴파일 → 첫 프레임 → 몸풀기 1초 → 재기 6초 → 버리기.
+// 기다리는 단계(어댑터 확인·초기화·컴파일·첫 프레임)는 시간 상한과 [멈춤]으로 그만둘 수 있다. 늦게 생긴 렌더러도 버린다.
 // 결과는 휴대폰 화면에서 보고 복사한다(서버로 보내지 않는다). 프레임 측정은 앱의 프레임 측정기와 같은 계산(frameStats.ts)이다.
 import { summarizeFrames } from "../../perf/frameStats.ts";
+import { addNote, guard, modeOrder, startNotes } from "./gpuBenchPlan.ts";
 import {
   BENCH_MEASURE_SEC,
   BENCH_WARMUP_SEC,
@@ -14,16 +17,25 @@ import {
   type FrameCost,
   type ModeSession,
   type RunResult,
+  type SessionInfo,
   type StopReason,
   type WebGpuProbe,
 } from "./gpuBenchTypes.ts";
 import { type BenchWorkload, buildWorkload } from "./gpuBenchWorkload.ts";
 
-/** 방식 코드 — 따로 받는 조각. WebGPU·WebGL2 + TSL은 같은 코드다 */
-const LOADERS: Record<BenchModeId, () => Promise<{ createSession: CreateSession }>> = {
-  "webgl-glsl": () => import("./gpuBenchGlsl.ts"),
-  "webgpu-tsl": () => import("./gpuBenchTsl.ts"),
-  "webgl2-tsl": () => import("./gpuBenchTsl.ts"),
+type ModeModule = { createSession: CreateSession };
+type ChunkId = "glsl" | "tsl";
+
+/** 방식 코드 — 따로 받는 조각 */
+const CHUNKS: Record<ChunkId, () => Promise<ModeModule>> = {
+  glsl: () => import("./gpuBenchGlsl.ts"),
+  tsl: () => import("./gpuBenchTsl.ts"),
+};
+/** WebGPU·WebGL2 + TSL은 같은 조각이다. 받기 시간·크기는 그 조각을 처음 쓴 줄에만 적는다 */
+const MODE_CHUNK: Record<BenchModeId, ChunkId> = {
+  "webgl-glsl": "glsl",
+  "webgpu-tsl": "tsl",
+  "webgl2-tsl": "tsl",
 };
 
 /** 단계별 시간 상한(ms) — 넘으면 그 측정은 실패로 친다(멈춘 기기에서 끝없이 기다리지 않게) */
@@ -51,6 +63,10 @@ const now = (): number => performance.now();
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 const nextFrame = (): Promise<number> => new Promise((resolve) => requestAnimationFrame(resolve));
 const round1 = (value: number): number => Math.round(value * 10) / 10;
+/** 늦게 생긴 렌더러를 버린다(three 내부 rAF 반복·GPU 장치가 남지 않게) */
+const disposeLate = (late: ModeSession): void => {
+  void late.dispose().catch(() => undefined);
+};
 
 /** JS 힙(MB, 소수 1자리). 크롬 계열만 있는 값(performance.memory) */
 function readHeapMb(): number | null {
@@ -64,25 +80,21 @@ function maxPixelRatio(): number {
   return coarse && Math.min(screen.width, screen.height) <= 600 ? 1.5 : 2;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(label)), ms);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
-
 /** 오류를 짧은 문장으로(화면·요약에 그대로 보인다) */
 function shortError(error: unknown): string {
   const text = error instanceof Error ? error.message || error.name : String(error);
   return text.replace(/\s+/g, " ").slice(0, 120);
 }
 
-/** WebGPU를 쓸 수 있는지 본다: API, 어댑터(three와 같은 요청), 어댑터 정보 */
-async function probeWebGpu(): Promise<WebGpuProbe> {
+/**
+ * WebGPU를 쓸 수 있는지 본다: API, 어댑터(three와 같은 요청), 어댑터 정보, 첫 어댑터 요청 시간.
+ * 이 요청이 브라우저의 WebGPU를 데우므로 뒤 WebGPU 초기화(initMs)는 데운 뒤 값이다 → adapterMs를 따로 적는다.
+ */
+async function probeWebGpu(signal: AbortSignal): Promise<WebGpuProbe> {
   const probe: WebGpuProbe = {
     api: false,
     adapter: "no",
+    adapterMs: null,
     vendor: null,
     architecture: null,
     description: null,
@@ -94,11 +106,13 @@ async function probeWebGpu(): Promise<WebGpuProbe> {
   try {
     // three(WebGPUBackend)와 같이 호환 단계도 받는다. featureLevel은 TS DOM 타입에 아직 없다
     const options: GPURequestAdapterOptions & { featureLevel: string } = { featureLevel: "compatibility" };
-    const adapter = await withTimeout(
-      navigator.gpu.requestAdapter(options),
-      INIT_TIMEOUT_MS,
-      "adapter_timeout",
-    );
+    const start = now();
+    const adapter = await guard(navigator.gpu.requestAdapter(options), {
+      ms: INIT_TIMEOUT_MS,
+      label: "adapter_timeout",
+      signal,
+    });
+    probe.adapterMs = round1(now() - start);
     if (!adapter) return probe;
     probe.adapter = "yes";
     probe.core = adapter.features.has("core-features-and-limits");
@@ -109,7 +123,7 @@ async function probeWebGpu(): Promise<WebGpuProbe> {
       probe.fallbackAdapter = adapter.info.isFallbackAdapter ?? null;
     }
   } catch {
-    probe.adapter = "error";
+    probe.adapter = signal.aborted ? "unknown" : "error";
   }
   return probe;
 }
@@ -295,8 +309,10 @@ interface RunContext {
   warmupSec: number;
   measureSec: number;
   progress: (phase: BenchProgress["phase"], remainingSec?: number | null) => void;
-  /** 처음 받은 방식 코드(다시 받지 않는다) */
-  loaded: Map<BenchModeId, Promise<{ createSession: CreateSession }>>;
+  /** 처음 받은 방식 코드 조각(다시 받지 않는다) */
+  loaded: Map<ChunkId, Promise<ModeModule>>;
+  /** 이 쪽에서 이미 켠 그래픽 API — 처음 켠 줄에는 first_use를 붙인다(한 번뿐인 시작 비용이 초기화에 든다) */
+  seen: Set<SessionInfo["backend"]>;
 }
 
 /** 한 방식 × 한 타일 수를 잰다. 실패해도 예외를 던지지 않고 결과에 적는다 */
@@ -310,12 +326,13 @@ async function runOne(context: RunContext, mode: BenchModeId, workload: BenchWor
   let session: ModeSession | null = null;
   try {
     context.progress("load");
-    let loading = context.loaded.get(mode);
+    const chunk = MODE_CHUNK[mode];
+    let loading = context.loaded.get(chunk);
     if (!loading) {
       const scripts = watchScripts();
       const start = now();
-      loading = LOADERS[mode]();
-      context.loaded.set(mode, loading);
+      loading = CHUNKS[chunk]();
+      context.loaded.set(chunk, loading);
       await loading;
       result.loadMs = round1(now() - start);
       Object.assign(result, scripts());
@@ -325,7 +342,8 @@ async function runOne(context: RunContext, mode: BenchModeId, workload: BenchWor
 
     context.progress("init");
     const initStart = now();
-    session = await withTimeout(
+    // 시간이 넘거나 멈춰도 만들기는 뒤에서 계속된다 → 늦게 생긴 렌더러는 disposeLate가 버린다
+    session = await guard(
       createSession({
         canvas,
         width: env.canvasW,
@@ -333,17 +351,20 @@ async function runOne(context: RunContext, mode: BenchModeId, workload: BenchWor
         pixelRatio: env.pixelRatio,
         forceWebGL: mode === "webgl2-tsl",
       }),
-      INIT_TIMEOUT_MS,
-      "init_timeout",
+      { ms: INIT_TIMEOUT_MS, label: "init_timeout", signal, onLate: disposeLate },
     );
     result.initMs = round1(now() - initStart);
-    result.backend = session.info.backend;
-    result.samples = session.info.samples;
-    result.compatibilityMode = session.info.compatibilityMode;
-    env.glRenderer ??= session.info.glRenderer;
-    if (mode === "webgpu-tsl" && session.info.backend !== "webgpu") {
+    const { info } = session;
+    result.backend = info.backend;
+    result.samples = info.samples;
+    result.compatibilityMode = info.compatibilityMode;
+    env.glRenderer ??= info.glRenderer;
+    const firstOfBackend = !context.seen.has(info.backend);
+    context.seen.add(info.backend);
+    for (const note of startNotes(info, firstOfBackend)) result.note = addNote(result.note, note);
+    if (mode === "webgpu-tsl" && info.backend !== "webgpu") {
       // WebGPU를 못 써 three가 WebGL2로 바꿨다. 그 길은 "WebGL2 + TSL"이 따로 잰다
-      return { ...result, status: "fallback", note: "webgl2_backend" };
+      return { ...result, status: "fallback", note: addNote(result.note, "webgl2_backend") };
     }
 
     const sceneStart = now();
@@ -352,14 +373,13 @@ async function runOne(context: RunContext, mode: BenchModeId, workload: BenchWor
 
     context.progress("compile");
     const compileStart = now();
-    await withTimeout(session.compile(), COMPILE_TIMEOUT_MS, "compile_timeout");
+    await guard(session.compile(), { ms: COMPILE_TIMEOUT_MS, label: "compile_timeout", signal });
     result.compileMs = round1(now() - compileStart);
-    if (signal.aborted) return { ...result, status: "stopped" };
 
     const firstStart = now();
     session.render(0);
     result.firstRenderMs = round1(now() - firstStart);
-    await withTimeout(nextFrame(), FRAME_TIMEOUT_MS, "frame_timeout");
+    await guard(nextFrame(), { ms: FRAME_TIMEOUT_MS, label: "frame_timeout", signal });
     result.firstFrameMs = round1(now() - firstStart);
 
     context.progress("measure", context.warmupSec + context.measureSec);
@@ -381,23 +401,26 @@ async function runOne(context: RunContext, mode: BenchModeId, workload: BenchWor
     result.heapPeakMb = loop.heapPeakMb;
     const lost = session.lostReason();
     const error = session.firstError();
-    if (lost !== null) return { ...result, status: "failed", note: `lost: ${lost}` };
+    if (lost !== null) return { ...result, status: "failed", note: addNote(result.note, `lost: ${lost}`) };
     if (signal.aborted) return { ...result, status: "stopped" };
-    if (error !== null) result.note = error;
+    if (error !== null) result.note = addNote(result.note, error);
     // GPU 완료 알림이 실패했으면(헤드리스 SwiftShader WebGPU: 캔버스에 아무것도 안 그려졌다) 프레임 수치를 믿을 수 없다.
     // 숫자는 두고 이유를 적는다. 하나도 안 끝났으면 실패로 친다
     if (gpuFailures.count > 0) {
-      result.note = `gpu_done_failed ×${gpuFailures.count}: ${gpuFailures.last ?? ""}`;
+      result.note = addNote(result.note, `gpu_done_failed ×${gpuFailures.count}: ${gpuFailures.last ?? ""}`);
       if (loop.gpu.length === 0) result.status = "failed";
     }
-    if (result.frames === null) return { ...result, status: "failed", note: "no_frames" };
+    if (result.frames === null)
+      return { ...result, status: "failed", note: addNote(result.note, "no_frames") };
     return result;
   } catch (error) {
-    return { ...result, status: signal.aborted ? "stopped" : "failed", note: shortError(error) };
+    if (signal.aborted) return { ...result, status: "stopped" };
+    return { ...result, status: "failed", note: addNote(result.note, shortError(error)) };
   } finally {
     context.progress("dispose");
     try {
-      if (session) await drainGpu(session);
+      // 멈췄으면 GPU 비우기를 기다리지 않는다(다음 측정이 없다). 컴파일이 아직 돌고 있어도 버린다
+      if (session && !signal.aborted) await drainGpu(session);
       await session?.dispose();
     } catch {
       // 버리다 난 오류는 결과에 영향이 없다
@@ -448,7 +471,7 @@ export async function runGpuBench(options: RunBenchOptions): Promise<BenchReport
     bufferH: Math.round(canvasH * pixelRatio),
     cores: nav.hardwareConcurrency || null,
     memoryGb: nav.deviceMemory ?? null,
-    webgpu: await probeWebGpu(),
+    webgpu: await probeWebGpu(internal.signal),
     glRenderer: null,
     warmupSec,
     measureSec,
@@ -460,14 +483,17 @@ export async function runGpuBench(options: RunBenchOptions): Promise<BenchReport
   let index = 0;
   let webGpuMissing = env.webgpu.adapter !== "yes";
   let webGpuTried = false;
-  const loaded = new Map<BenchModeId, Promise<{ createSession: CreateSession }>>();
+  const loaded = new Map<ChunkId, Promise<ModeModule>>();
+  const seen = new Set<SessionInfo["backend"]>();
   try {
-    for (const tiles of tileCounts) {
+    for (const [round, tiles] of tileCounts.entries()) {
       if (internal.signal.aborted) break;
+      // 타일 수마다 한 칸씩 돌린 순서(방식마다 한 번은 맨 앞). 결과 줄도 잰 순서다
+      const order = modeOrder(modes, round);
       options.onProgress({
         index: index + 1,
         total,
-        mode: modes[0] ?? "webgl-glsl",
+        mode: order[0] ?? "webgl-glsl",
         tiles,
         phase: "workload",
         remainingSec: null,
@@ -477,7 +503,7 @@ export async function runGpuBench(options: RunBenchOptions): Promise<BenchReport
       const workloadStart = now();
       const workload = buildWorkload(tiles);
       workloadMs[tiles] = round1(now() - workloadStart);
-      for (const mode of modes) {
+      for (const mode of order) {
         if (internal.signal.aborted) break;
         index += 1;
         const position = index;
@@ -488,6 +514,7 @@ export async function runGpuBench(options: RunBenchOptions): Promise<BenchReport
           warmupSec,
           measureSec,
           loaded,
+          seen,
           progress: (phase, remainingSec = null) =>
             options.onProgress({ index: position, total, mode, tiles, phase, remainingSec }),
         };

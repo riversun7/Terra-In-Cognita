@@ -8,7 +8,7 @@ export interface SummaryLabels {
   device: (userAgent: string) => string;
   screen: (values: { w: number; h: number; dpr: number; ratio: number; bw: number; bh: number }) => string;
   hardware: (values: { cores: string; memory: string }) => string;
-  webgpu: (values: { api: string; adapter: string; gpu: string; level: string }) => string;
+  webgpu: (values: { api: string; adapter: string; ms: string; gpu: string; level: string }) => string;
   webgl: (gpu: string) => string;
   timing: (values: { warmup: number; measure: number; total: string }) => string;
   workload: (list: string) => string;
@@ -36,9 +36,12 @@ export function formatMs(value: number | null | undefined): string {
 const fixed1 = (value: number | null | undefined): string =>
   value === null || value === undefined || !Number.isFinite(value) ? DASH : value.toFixed(1);
 
-/** 처음 그림까지 걸린 시간 합(받기 + 초기화 + 장면 + 컴파일 + 첫 프레임). 하나도 없으면 null */
+/**
+ * 처음 그림까지 걸린 시간 합(초기화 + 장면 + 컴파일 + 첫 프레임). 하나도 없으면 null.
+ * 코드 받기는 뺀다: 조각마다 처음 쓴 줄만 받고(두 TSL 방식은 같은 조각), 네트워크에 따라 달라진다. 받기는 따로 적는다.
+ */
 export function readyMs(run: RunResult): number | null {
-  const parts = [run.loadMs, run.initMs, run.sceneMs, run.compileMs, run.firstFrameMs];
+  const parts = [run.initMs, run.sceneMs, run.compileMs, run.firstFrameMs];
   if (parts.every((part) => part === null)) return null;
   return parts.reduce<number>((sum, part) => sum + (part ?? 0), 0);
 }
@@ -108,8 +111,9 @@ export function buildSummaryText(report: BenchReport, labels: SummaryLabels): st
   const webgpu = env.webgpu;
   const gpu = [webgpu.vendor, webgpu.architecture, webgpu.description].filter(Boolean).join(" / ") || DASH;
   const level = webgpu.core === null ? DASH : webgpu.core ? labels.core : labels.compatibility;
-  const adapter =
-    webgpu.adapter === "yes" ? labels.yes : webgpu.adapter === "error" ? labels.error : labels.no;
+  const adapter = { yes: labels.yes, no: labels.no, error: labels.error, unknown: labels.unknown }[
+    webgpu.adapter
+  ];
   const workload = Object.entries(report.workloadMs)
     .map(([tiles, ms]) => `${tiles}=${formatMs(ms)}`)
     .join(" · ");
@@ -129,7 +133,13 @@ export function buildSummaryText(report: BenchReport, labels: SummaryLabels): st
       cores: env.cores === null ? labels.unknown : String(env.cores),
       memory: env.memoryGb === null ? labels.unknown : String(env.memoryGb),
     }),
-    labels.webgpu({ api: webgpu.api ? labels.yes : labels.no, adapter, gpu, level }),
+    labels.webgpu({
+      api: webgpu.api ? labels.yes : labels.no,
+      adapter,
+      ms: formatMs(webgpu.adapterMs),
+      gpu,
+      level,
+    }),
     labels.webgl(env.glRenderer ?? DASH),
     labels.timing({ warmup: env.warmupSec, measure: env.measureSec, total: fixed1(report.totalSec) }),
     labels.workload(workload || DASH),

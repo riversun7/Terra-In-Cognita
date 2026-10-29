@@ -74,9 +74,9 @@ export interface RunResult {
   backend: SessionInfo["backend"] | null;
   samples: number | null;
   compatibilityMode: boolean | null;
-  /** 방식 코드 받기(처음 한 번만 받는다) */
+  /** 방식 코드 받기(조각마다 처음 한 번만 받는다. 두 TSL 방식은 같은 조각이라 뒤에 잰 쪽은 –) */
   loadMs: number | null;
-  /** 렌더러 만들기 + 초기화(WebGPU: 어댑터·장치) */
+  /** 렌더러 만들기 + 초기화(WebGPU: 어댑터·장치. 첫 어댑터 요청은 확인 단계에서 따로 잰다 — WebGpuProbe.adapterMs) */
   initMs: number | null;
   /** 장면 객체 만들기 */
   sceneMs: number | null;
@@ -105,7 +105,7 @@ export interface RunResult {
   jsTransferKb: number | null;
   jsDecodedKb: number | null;
   jsFiles: number | null;
-  /** 실패·대체 이유(짧게) */
+  /** 실패·대체 이유와 메모(짧게, "; "로 잇는다): first_use(이 쪽에서 그 API를 처음 켬), no_msaa(WebGPU 호환 모드) 등 */
   note: string | null;
 }
 
@@ -113,7 +113,10 @@ export interface RunResult {
 export interface WebGpuProbe {
   /** navigator.gpu가 있나 */
   api: boolean;
-  adapter: "yes" | "no" | "error";
+  /** unknown = 확인하는 중에 멈췄다 */
+  adapter: "yes" | "no" | "error" | "unknown";
+  /** 이 쪽의 첫 어댑터 요청 시간(ms). 뒤 WebGPU 초기화에는 이 시간이 빠진다(브라우저가 데워 둔다) */
+  adapterMs: number | null;
   vendor: string | null;
   architecture: string | null;
   description: string | null;

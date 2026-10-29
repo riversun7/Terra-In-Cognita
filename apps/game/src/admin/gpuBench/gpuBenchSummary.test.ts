@@ -9,7 +9,8 @@ const LABELS: SummaryLabels = {
   device: (ua) => `device ${ua}`,
   screen: ({ w, h, dpr, ratio, bw, bh }) => `screen ${w}x${h} dpr ${dpr} -> ${ratio} buffer ${bw}x${bh}`,
   hardware: ({ cores, memory }) => `cores ${cores} memory ${memory}`,
-  webgpu: ({ api, adapter, gpu, level }) => `webgpu api ${api} adapter ${adapter} ${gpu} ${level}`,
+  webgpu: ({ api, adapter, ms, gpu, level }) =>
+    `webgpu api ${api} adapter ${adapter} ${ms}ms ${gpu} ${level}`,
   webgl: (gpu) => `webgl ${gpu}`,
   timing: ({ warmup, measure, total }) => `time ${warmup}+${measure}s total ${total}s`,
   workload: (list) => `workload ${list}`,
@@ -107,6 +108,7 @@ const REPORT: BenchReport = {
     webgpu: {
       api: true,
       adapter: "no",
+      adapterMs: 3.04,
       vendor: null,
       architecture: null,
       description: null,
@@ -131,8 +133,9 @@ describe("셰이더 측정 요약 글", () => {
     expect(formatMs(Number.NaN)).toBe("–");
   });
 
-  it("준비 합계 = 받기 + 초기화 + 장면 + 컴파일 + 첫 프레임(없는 값은 뺀다)", () => {
-    expect(readyMs(RUN_OK)).toBeCloseTo(120.4 + 12.3 + 2.06 + 45 + 48.25, 6);
+  it("준비 합계 = 초기화 + 장면 + 컴파일 + 첫 프레임(받기는 빼고, 없는 값도 뺀다)", () => {
+    expect(readyMs(RUN_OK)).toBeCloseTo(12.3 + 2.06 + 45 + 48.25, 6);
+    expect(readyMs({ ...RUN_OK, loadMs: null })).toBeCloseTo(12.3 + 2.06 + 45 + 48.25, 6);
     expect(readyMs(RUN_FALLBACK)).toBeCloseTo(12.3, 6);
     expect(readyMs({ ...RUN_FALLBACK, initMs: null })).toBeNull();
   });
@@ -144,15 +147,23 @@ describe("셰이더 측정 요약 글", () => {
       "device TestAgent/1.0",
       "screen 412x892 dpr 3.5 -> 1.5 buffer 618x1338",
       "cores 8 memory ?",
-      "webgpu api yes adapter no – –",
+      "webgpu api yes adapter no 3.0ms – –",
       "webgl ANGLE (Test GPU)",
       "time 1+6s total 21.5s",
       "workload 40=143 · 160=370",
       "HEADER",
-      "GL+GLSL | 160 | ok | webgl2 ×4 | 120 | 12.3 | 2.1 | 45.0 | 30.5 | 48.3 | 228 | 59.9 | 16.7 | 33.3 | 50.1 | 1 | 0.6 | 1.2 | 20.0 | 40.0 | 58.2 | 2 | 161 | 378k | 9.1→14.3 | 160/641 |",
+      "GL+GLSL | 160 | ok | webgl2 ×4 | 120 | 12.3 | 2.1 | 45.0 | 30.5 | 48.3 | 108 | 59.9 | 16.7 | 33.3 | 50.1 | 1 | 0.6 | 1.2 | 20.0 | 40.0 | 58.2 | 2 | 161 | 378k | 9.1→14.3 | 160/641 |",
       "GPU+TSL | 160 | fallback | webgl2 ×4 | – | 12.3 | – | – | – | – | 12.3 | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | webgl2_backend",
       "NOTE",
     ]);
+  });
+
+  it("어댑터 확인 중에 멈췄으면 어댑터는 모름, 시간은 –", () => {
+    const report: BenchReport = {
+      ...REPORT,
+      env: { ...REPORT.env, webgpu: { ...REPORT.env.webgpu, adapter: "unknown", adapterMs: null } },
+    };
+    expect(buildSummaryText(report, LABELS).split("\n")[5]).toBe("webgpu api yes adapter ? –ms – –");
   });
 
   it("멈췄으면 이유 줄을 표 앞에 넣는다", () => {

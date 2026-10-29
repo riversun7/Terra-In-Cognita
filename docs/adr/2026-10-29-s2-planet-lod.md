@@ -127,3 +127,28 @@
 - 서버에 행성 굽기 워커와 디스크 캐시가 생긴다. NAS compose에 캐시 볼륨이 필요하다.
 - 기획에 묻는다: 바이옴 목록(ko·en, 기온·습도 범위), 고도 축척 1:12 확인.
 - S2가 끝나면 측정 수치와 결론을 이 ADR에 더하고 확정한다.
+
+## 구현하며 정한 것 (셰이더 측정)
+2026-10-29 셰이더 측정판(작업 기록 `2026/10/29-1210-s2-webgpu-bench.md`, 조사 `docs/research/2026-10-29-webgpu-vs-webgl2.md`). 상태는 제안 그대로다. 셰이더 언어는 휴대폰 값을 본 뒤 사용자가 정한다.
+
+### 측정판
+- 관리자 화면 아래 "셰이더 측정 (S2)". [측정 시작]을 누를 때만 측정 코드(`three`·`three/webgpu`·`three/tsl`)를 받는다(지연 조각). 서비스 워커 미리 캐시에서 뺐고(`assets/gpuBench*.js`), `check-pwa`가 막는다. 결과는 표와 복사할 요약 글이다. 서버로 보내지 않는다.
+- 방식 3개: WebGL2 + GLSL(`WebGLRenderer` + `ShaderMaterial`), WebGPU + TSL(`WebGPURenderer`), WebGL2 + TSL(`forceWebGL`). WebGPU가 없으면 three가 WebGL2로 바꾼다. 판은 "WebGL2로 바뀜"으로 적고 뒤의 WebGPU 측정은 건너뛴다.
+- 일감: 33×33 정점 타일(치마 포함 정점 1,221개·삼각형 2,304개, 인덱스 공유, 정점 색, 셰이더 빛) 40·160·320개 + 바다 구. 타일 원점은 메시 위치(카메라 기준 좌표와 같은 꼴). 카메라는 12초에 한 바퀴, 반지름 1.75~4.25배를 오간다. 몸풀기 1초 + 재기 6초. 픽셀 비율 상한은 엔진과 같다.
+- 잰 값: 받기·초기화·장면·컴파일·첫 프레임, 프레임 간격 p50·p95, `render()` CPU 시간, GPU 완료 시간(WebGL2 fence, WebGPU `onSubmittedWorkDone`)과 GPU 완료/초, 그리기 수, JS 힙, 받은 JS 크기(전송/원본). GPU 완료 알림이 하나도 안 오면 "실패"다(헤드리스 WebGPU가 그렇다).
+- `apps/game`이 `three` 0.186.1과 `@types/three` 0.186.0을 직접 적는다. 엔진과 같은 판이라 새 꾸러미는 없다(잠금 파일은 링크만 바뀜). 엔진과 판을 함께 올린다.
+
+### 헤드리스 결과와 권고 (휴대폰 값이 아니다)
+- 화면 있는 Chromium 153 + SwiftShader(두 API 모두), 390×844 → 그리기 585×1266, MSAA 4, 4번 실행.
+- GPU 쪽은 세 방식이 오차 안에서 같다(GPU 완료/초 ≈ fps, 소프트웨어 GPU가 병목). 실행마다 fps가 약 2배까지 흔들렸다.
+- TSL 컴파일은 GLSL의 약 5~8배(중앙값 15~21ms 대 72~160ms), `render()` CPU 시간은 약 2배(160타일 1.1ms 대 2.2~2.7ms)다. 준비 합계는 세 방식 모두 100~200ms대다.
+- 묶음: 같은 일을 하는 코드가 gzip 130.5KB 대 241.1KB(+110.6KB, brotli +85.3KB).
+- 권고: 지금은 WebGL2 + GLSL 유지(이 ADR의 렌더러 계획 그대로). 가까운 판단이라 휴대폰 값으로 사용자가 정한다. 휴대폰에서 잴 것과 다시 볼 조건은 조사 문서 6·7장.
+
+### WebGPU를 고르면 (렌더러 하나라 S1 엔진도 옮긴다)
+- `render/sharedRenderer.ts`(비동기 `init()`, 장치 잃음), `secondMapEngine.ts`(`webglcontextlost` 대신 `onDeviceLost`, three가 되살리지 않음), `units/unitMaterials.ts`(GLSL `ShaderMaterial` 2개 → TSL), `units/unitView.ts`(WebGPU는 1px 점만 → 아이콘을 `Sprite` + 인스턴싱으로).
+- 이 ADR 렌더러의 `ShaderMaterial`·`onBeforeCompile`도 TSL로 바꾼다. troika-three-text(지도 라벨)는 `onBeforeCompile`을 써서 `WebGPURenderer`에서 못 쓴다.
+
+### 측정판이 남기는 것
+- 같은 빌드에 TSL 길이 있어 `three.core` 공용 조각이 두 길의 합이 된다. 2차맵 화면이 +32KB(gzip +7.5KB) 더 받는다(Verified: TSL 길을 뺀 실험 빌드). 첫 화면 묶음은 그대로다(368.17KB, 측정 코드 없음).
+- 결정이 나면 측정판(`apps/game/src/admin/gpuBench/`, `GpuBenchPanel.tsx`, 문구 `gpu_bench_*`, `vite.config.ts`의 `globIgnores` 줄)을 지운다. 그때 위 +32KB도 사라진다. `apps/game`에서 `three`를 직접 쓰는 곳은 측정판뿐이라 `three`·`@types/three` 표기도 함께 뺀다.

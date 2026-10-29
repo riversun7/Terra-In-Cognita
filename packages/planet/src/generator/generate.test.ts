@@ -142,11 +142,11 @@ function landSummary(faceLevel: number, fields: PlanetFields) {
 
 describe("골든 해시 (값이 바뀌면 GENERATOR_VERSION을 올리고 새 값으로 고친다)", () => {
   it("생성기 버전", () => {
-    expect(GENERATOR_VERSION).toBe(1);
+    expect(GENERATOR_VERSION).toBe(2);
   });
 
   // 2026-10-29 기록(Node 24.22.1). 결정성 규칙(사칙연산 + 명세가 정한 함수)상 다른 엔진에서도 같아야 한다.
-  // 강가·호숫가 가산을 해상도와 무관하게 고치며 바꿨다(1판은 아직 내보낸 적이 없어 버전은 1 그대로)
+  // 출력 판 2(강가·호숫가 가산을 면 레벨과 무관하게)에서 바꿨다
   it("면 레벨 5, 시드 1, 프리셋 군도·더움·습윤·젊음·많음·많음", () => {
     expect(run(5, 1, STRESS_PRESETS).fields.meta.hash).toBe("005378e0");
   });

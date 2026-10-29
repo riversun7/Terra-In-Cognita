@@ -1,16 +1,18 @@
 // 지형 메시 만들기 — 순수 함수. Web Worker(terrainWorker.ts)에서 돌고, 워커를 못 쓰면 화면 스레드에서 돈다.
 // three.js를 쓰지 않는다(워커 조각을 작게): 타입 배열만 만들어 돌려주고, 화면 스레드가 BufferGeometry로 감싼다.
 // - 윗면: 꼭짓점 129×129를 함께 쓴다. 칸은 대각선 a–d로 나눈다(terrainData.ts의 sampleHeightM과 같은 삼각형).
-// - 색: 꼭짓점에 닿은 칸(최대 4개)의 지표 색 평균 × 높이에 따른 밝기. 지표 경계가 부드럽게 섞인다.
+// - 색: 꼭짓점에 닿은 칸(최대 4개)의 지표 색 평균 × 높이에 따른 밝기. 윗면은 지형 재질(terrainMaterial.ts)이 칸 자료
+//   텍스처로 조각마다 다시 칠하므로, 윗면 꼭짓점 색은 예비용이다(가장자리 벽 색은 그대로 쓴다).
 // - 가장자리 벽(치마): 2차맵 밖은 그리지 않고, 네 변에 아래로 내린 벽을 붙여 경계를 보인다(장난감 블록 모양).
+//   벽 꼭짓점의 법선 y는 0이다 — 지형 재질이 이것으로 벽과 윗면을 가른다.
 import {
   type TerrainInput,
-  SURFACE,
   TERRAIN_CELLS,
   TERRAIN_VERTICES,
   terrainProblem,
   vertexHeightM,
 } from "./terrainData.ts";
+import { HEIGHT_SHADE, surfaceRgb, toByte } from "./terrainTextures.ts";
 
 export interface TerrainMeshArrays {
   /** 꼭짓점 위치 xyz(m) */
@@ -27,15 +29,6 @@ export interface TerrainMeshArrays {
   hasWater: boolean;
 }
 
-/** 지표 색(0~1). 파스텔 장난감 톤. 세계 색은 화면 테마와 상관없이 같다(D-070) */
-const SURFACE_RGB: Record<number, readonly [number, number, number]> = {
-  [SURFACE.water]: [0.56, 0.74, 0.72],
-  [SURFACE.grass]: [0.56, 0.8, 0.45],
-  [SURFACE.dirt]: [0.79, 0.67, 0.49],
-  [SURFACE.rock]: [0.63, 0.63, 0.67],
-};
-/** 모르는 지표 코드 */
-const UNKNOWN_RGB = [0.8, 0.8, 0.8] as const;
 /** 가장자리 벽 색(흙 단면) */
 const SKIRT_RGB = [0.55, 0.42, 0.3] as const;
 /** 가장자리 벽을 가장 낮은 땅보다 얼마나 아래까지 내릴지(m) */
@@ -44,12 +37,6 @@ const SKIRT_DEPTH_M = 20;
 const SURFACE_VERTEX_COUNT = TERRAIN_VERTICES * TERRAIN_VERTICES;
 /** 가장자리 벽: 네 변 × 변마다 꼭짓점 129개 × (위, 아래) */
 const SKIRT_VERTEX_COUNT = 4 * TERRAIN_VERTICES * 2;
-
-function surfaceRgb(code: number | undefined): readonly [number, number, number] {
-  return (code === undefined ? undefined : SURFACE_RGB[code]) ?? UNKNOWN_RGB;
-}
-
-const toByte = (value: number): number => Math.max(0, Math.min(255, Math.round(value * 255)));
 
 export function buildTerrainMesh(input: TerrainInput): TerrainMeshArrays {
   const problem = terrainProblem(input);
@@ -112,8 +99,10 @@ export function buildTerrainMesh(input: TerrainInput): TerrainMeshArrays {
           n += 1;
         }
       }
-      // 높을수록 조금 밝게(깊이감). 물 아래는 조금 어둡게
-      const shade = (0.9 + 0.18 * ((h - minHeightM) / range)) * (h < input.waterLevelM ? 0.85 : 1);
+      // 높을수록 조금 밝게(깊이감). 물 아래는 조금 어둡게 — 지형 재질도 같은 값으로 조각마다 계산한다
+      const shade =
+        (HEIGHT_SHADE.base + HEIGHT_SHADE.span * ((h - minHeightM) / range)) *
+        (h < input.waterLevelM ? HEIGHT_SHADE.underwater : 1);
       colors[v * 3] = toByte((r / n) * shade);
       colors[v * 3 + 1] = toByte((g / n) * shade);
       colors[v * 3 + 2] = toByte((b / n) * shade);

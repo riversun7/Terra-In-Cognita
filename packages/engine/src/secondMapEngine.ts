@@ -317,7 +317,7 @@ export function createSecondMapEngine(
       maxHeight = built.mesh.maxHeightM;
       mapSize = mapSizeM(input);
       cellM = placementCellM(input);
-      terrainView.set(built.mesh, mapSize, input.waterLevelM);
+      terrainView.set(built.mesh, input, built.noise);
       unitView.group.visible = true;
       limits = cameraLimitsFor(mapSize, viewport);
       if (!cameraPlaced) {

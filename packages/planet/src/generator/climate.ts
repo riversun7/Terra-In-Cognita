@@ -170,10 +170,12 @@ export function computeClimate(
   const latitude = new Float32Array(count);
   for (let c = 0; c < count; c++) latitude[c] = detAsin(clamp(grid.z[c] ?? 0, -1, 1)) * DEGREES_PER_RADIAN;
   const upwind = upwindNeighbors(grid, latitude, streamSeed(seed, STREAM_WIND), latitude);
+  // 습기를 먼저 구한다(두 배 뛰기 배열이 풀린 뒤에 기온·강수·바다까지 거리 배열을 만들어 한꺼번에 들고 있는 메모리를 줄인다)
+  const { arriving, rise } = arrivingMoisture(grid, upwind, elevation, seaLevel, ocean, latitude);
 
-  // 바다까지 거리(기온 변이가 내륙으로 커진다, 해안 습기)
-  const coast = distanceField(grid, (c) => ocean[c] === 1, km(2500));
-  // 기온과 강수 변이 지수(강수 배열에 먼저 담고, 마지막에 배율로 곱한다)
+  // 바다까지 거리(기온 변이가 내륙으로 커진다, 해안 습기). 가장 가까운 바다 칸 번호는 쓰지 않는다
+  const oceanDistance = distanceField(grid, (c) => ocean[c] === 1, km(2500)).angle;
+  // 기온과 강수 변이 지수(강수 배열에 먼저 담고, 아래에서 배율로 곱한다)
   const temperature = new Float32Array(count);
   const precipitation = new Float32Array(count);
   climateVariation(
@@ -184,12 +186,44 @@ export function computeClimate(
     elevation,
     seaLevel,
     ocean,
-    coast.angle,
+    oceanDistance,
     temperature,
     precipitation,
   );
+  const scale = settings.precipitationPercent / 100;
+  for (let c = 0; c < count; c++) {
+    const coastal = 0.55 * detExp(-(oceanDistance[c] ?? 0) / COASTAL_REACH);
+    const moisture = Math.max(arriving[c] ?? 0, coastal);
+    const lift = ocean[c] === 1 ? 0 : Math.min(OROGRAPHIC_MAX, OROGRAPHIC_GAIN * (rise[c] ?? 0));
+    // 습기와 무관한 몫(대류성 비): 적도 근처에서 크다
+    const lat = latitude[c] ?? 0;
+    const equatorial = lat / 12;
+    const base = 0.12 + 0.3 * detExp(-equatorial * equatorial);
+    const value =
+      scale *
+      zonalPrecipitation(lat) *
+      (base + (1 - base) * moisture) *
+      (1 + lift) *
+      detExp(precipitation[c] ?? 0);
+    precipitation[c] = clamp(value, 0, 12_000);
+  }
+  return { temperature, precipitation, oceanDistance };
+}
 
-  // 칸마다 습기 일차식: 나가는 습기 = a × 들어온 습기 + b
+/**
+ * 바람길을 따라 칸에 들어오는 습기(0 ~ 1, 이웃 평균으로 누그러뜨림)와 바람받이 오르막(높이 ÷ 거리).
+ * 칸마다 습기 일차식(나가는 습기 = a × 들어온 습기 + b)을 2^K칸 바람길로 두 배 뛰기 합성한다
+ * @param latitude 칸마다 기후 위도(도)
+ */
+function arrivingMoisture(
+  grid: PlanetGrid,
+  upwind: Int32Array,
+  elevation: Float32Array,
+  seaLevel: number,
+  ocean: Uint8Array,
+  latitude: Float32Array,
+): { readonly arriving: Float32Array; readonly rise: Float32Array } {
+  const count = grid.cellCount;
   let mapA = new Float32Array(count);
   let mapB = new Float32Array(count);
   const rise = new Float32Array(count);
@@ -242,30 +276,12 @@ export function computeClimate(
   }
 
   // 이 칸에 들어오는 습기 = 바람이 오는 칸에서 나간 습기. 바람길이 칸 단위로 끊겨 생기는 줄무늬를 이웃 평균으로 누그러뜨린다
-  let arriving = new Float32Array(count);
+  const arriving = new Float32Array(count);
   for (let c = 0; c < count; c++) {
     const from = upwind[c] ?? c;
     arriving[c] = from === c ? (mapB[c] ?? 0) : (mapB[from] ?? 0);
   }
-  arriving = blur(grid, arriving, Math.max(1, 2 * (grid.faceLevel - 5)));
-  const scale = settings.precipitationPercent / 100;
-  for (let c = 0; c < count; c++) {
-    const coastal = 0.55 * detExp(-(coast.angle[c] ?? 0) / COASTAL_REACH);
-    const moisture = Math.max(arriving[c] ?? 0, coastal);
-    const lift = ocean[c] === 1 ? 0 : Math.min(OROGRAPHIC_MAX, OROGRAPHIC_GAIN * (rise[c] ?? 0));
-    // 습기와 무관한 몫(대류성 비): 적도 근처에서 크다
-    const lat = latitude[c] ?? 0;
-    const equatorial = lat / 12;
-    const base = 0.12 + 0.3 * detExp(-equatorial * equatorial);
-    const value =
-      scale *
-      zonalPrecipitation(lat) *
-      (base + (1 - base) * moisture) *
-      (1 + lift) *
-      detExp(precipitation[c] ?? 0);
-    precipitation[c] = clamp(value, 0, 12_000);
-  }
-  return { temperature, precipitation, oceanDistance: coast.angle };
+  return { arriving: blur(grid, arriving, Math.max(1, 2 * (grid.faceLevel - 5))), rise };
 }
 
 /** 이웃 평균(자기 + 8이웃)을 passes번 */

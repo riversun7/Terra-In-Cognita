@@ -144,6 +144,7 @@
   "map_perf_memory": "Memory {mb} MB",
   "map_perf_scene": "Units {units} · {calls} draws",
   "map_perf_engine": "Engine {ms} ms",
+  "map_perf_pixels": "Pixel ratio {ratio} · buffer {width}×{height}",
   "map_mode_model": "Real size",
   "map_mode_icon": "Icons",
   "map_selected_view": "Unit {id} selected.",

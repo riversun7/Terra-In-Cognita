@@ -6,9 +6,12 @@ import {
   afterUpload,
   applyChange,
   canReloadForLocale,
+  groupPatch,
+  hasGroup,
   parseLocaleReloadMark,
   pendingPatch,
   planSignIn,
+  splitByGroup,
 } from "./syncRules.ts";
 
 const ME = "user-me";
@@ -141,5 +144,118 @@ describe("계정 언어로 새로고침", () => {
     expect(parseLocaleReloadMark(null)).toBeNull();
     expect(parseLocaleReloadMark("{bad")).toBeNull();
     expect(parseLocaleReloadMark(JSON.stringify({ locale: "en", at: "5" }))).toBeNull();
+  });
+});
+
+// ── 메뉴(nav)·홈(home) 묶음(ADR 2026-10-29-app-shell 5절): 화면·언어와 같은 규칙, 값은 모양을 모르는 JSON 객체 ──
+
+/** 더 새 버전이 넣은 칸(extra)·목록에 없는 항목 ID(future_item)가 든 메뉴 값 */
+const NAV = { layout: "a", menu: ["future_item", "home", "map"], extra: { x: 1 } };
+const NAV_ACCOUNT = { layout: "c", menu: ["cyborg", "home"] };
+/** 모르는 카드·카드 안의 모르는 칸이 든 홈 값 */
+const HOME = {
+  template: "dt_hybrid",
+  cards: [
+    { id: "inbox", size: "2x1" },
+    { id: "future_card", size: "3x3", pin: true },
+  ],
+};
+const HOME_ACCOUNT = { template: "dt_hybrid", cards: [] };
+
+describe("메뉴·홈 묶음", () => {
+  it("묶음 표: 값이 없으면 정하지 않음, 고르면 그 칸만", () => {
+    expect(hasGroup(account(), "nav")).toBe(false);
+    expect(hasGroup(account({ nav: {} }), "nav")).toBe(true);
+    expect(hasGroup(account({ home: HOME }), "home")).toBe(true);
+    expect(groupPatch(account({ nav: NAV, home: HOME }), "nav")).toEqual({ nav: NAV });
+    expect(groupPatch(account(), "home")).toEqual({});
+  });
+
+  it("바꾸면 그 묶음만 '올릴 것'이고, 값은 고치지 않고 그대로 옮긴다(안쪽 모르는 칸 포함)", () => {
+    const changed = applyChange(device({ theme: "dark" }), { nav: NAV }, ME);
+    expect(changed.pending).toEqual({ nav: { by: ME } });
+    expect(changed.nav).toBe(NAV);
+    expect(pendingPatch(changed, ME)).toEqual({ nav: NAV });
+  });
+
+  it("계정 값이 덮는다(이 기기에서 바꾸지 않은 묶음)", () => {
+    const plan = planSignIn(
+      device({ nav: NAV, home: HOME }),
+      account({ nav: NAV_ACCOUNT, home: HOME_ACCOUNT }),
+      ME,
+    );
+    expect(plan.upload).toBeNull();
+    expect(plan.device).toMatchObject({ nav: NAV_ACCOUNT, home: HOME_ACCOUNT, pending: {} });
+  });
+
+  it("로그인 전에 바꾼 값은 로그인할 때 올리고 기기 값을 지킨다", () => {
+    const changed = applyChange(device(), { home: HOME }, null);
+    expect(changed.pending).toEqual({ home: { by: null } });
+    const plan = planSignIn(changed, account({ home: HOME_ACCOUNT }), ME);
+    expect(plan.upload).toEqual({ home: HOME });
+    expect(plan.device.home).toBe(HOME);
+    expect(plan.device.pending).toEqual({ home: { by: ME } });
+  });
+
+  it("다른 계정이 바꾸고 못 올린 값은 버린다(계정 값이 덮고 표시도 지운다)", () => {
+    const changed = applyChange(device(), { nav: NAV }, OTHER);
+    expect(pendingPatch(changed, ME)).toBeNull();
+    const plan = planSignIn(changed, account({ nav: NAV_ACCOUNT }), ME);
+    expect(plan.upload).toBeNull();
+    expect(plan.device).toMatchObject({ nav: NAV_ACCOUNT, pending: {} });
+  });
+
+  it("계정에 값이 없으면 기기 값을 올린다(옛 서버도 같다: 응답에 칸이 없다)", () => {
+    const plan = planSignIn(device({ nav: NAV }), account({ theme: "dark" }), ME);
+    expect(plan.upload).toEqual({ nav: NAV });
+    expect(plan.device).toMatchObject({ theme: "dark", nav: NAV, pending: { nav: { by: ME } } });
+  });
+
+  it("묶음 4개가 따로 맞춰진다: 화면은 계정, 언어는 로그인 전 바꿈, 메뉴는 못 올린 바꿈, 홈은 계정", () => {
+    let local = device({ theme: "station", locale: "ko", home: HOME });
+    local = applyChange(local, { locale: "en" }, null);
+    local = applyChange(local, { nav: NAV }, ME);
+    const plan = planSignIn(
+      local,
+      account({ theme: "dark", locale: "ko", nav: NAV_ACCOUNT, home: HOME_ACCOUNT }),
+      ME,
+    );
+    expect(plan.device).toEqual({
+      theme: "dark",
+      followSystem: false,
+      locale: "en",
+      nav: NAV,
+      home: HOME_ACCOUNT,
+      pending: { locale: { by: ME }, nav: { by: ME } },
+    });
+    expect(plan.upload).toEqual({ locale: "en", nav: NAV });
+  });
+
+  it("올릴 값을 묶음마다 나눈다(묶음 표 순서, 묶음 안의 칸은 함께)", () => {
+    expect(splitByGroup({ home: HOME, locale: "en", followSystem: false, theme: "dark", nav: NAV })).toEqual([
+      { theme: "dark", followSystem: false },
+      { locale: "en" },
+      { nav: NAV },
+      { home: HOME },
+    ]);
+    expect(splitByGroup({ followSystem: true })).toEqual([{ followSystem: true }]);
+    expect(splitByGroup({})).toEqual([]);
+  });
+
+  it("올린 뒤: 다시 읽어 다른 객체여도 JSON이 같으면 표시를 지우고, 그새 바꿨으면 남긴다", () => {
+    const changed = applyChange(device(), { nav: NAV }, ME);
+    const sent = { nav: structuredClone(NAV) };
+    expect(afterUpload(changed, sent).pending).toEqual({});
+    const again = applyChange(changed, { nav: { ...NAV, layout: "c" } }, ME);
+    expect(afterUpload(again, sent).pending).toEqual({ nav: { by: ME } });
+  });
+
+  it("값이 없는 메뉴·홈 표시(다른 판이 남긴 것)는 올리지 않고, 계정 값을 막지 않는다", () => {
+    const dangling = device({ pending: { nav: { by: ME }, home: { by: null } } });
+    expect(pendingPatch(dangling, ME)).toBeNull();
+    const plan = planSignIn(dangling, account({ nav: NAV_ACCOUNT }), ME);
+    expect(plan.upload).toBeNull();
+    expect(plan.device).toMatchObject({ nav: NAV_ACCOUNT, pending: {} });
+    expect(Object.hasOwn(plan.device, "home")).toBe(false);
   });
 });

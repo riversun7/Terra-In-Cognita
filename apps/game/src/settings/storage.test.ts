@@ -4,6 +4,7 @@ import {
   EMPTY_DEVICE_SETTINGS,
   parseDeviceSettings,
   serializeDeviceSettings,
+  storableSettingsObject,
 } from "./storage.ts";
 
 describe("기기 저장 모양", () => {
@@ -38,5 +39,82 @@ describe("기기 저장 모양", () => {
       pending: { appearance: { by: 42 }, locale: "yes", other: { by: null } },
     });
     expect(parseDeviceSettings(raw)).toEqual(EMPTY_DEVICE_SETTINGS);
+  });
+});
+
+describe("기기 저장: 메뉴(nav)·홈(home)", () => {
+  // 더 새 버전이 넣은 칸(extra), 목록에 없는 항목 ID(future_item), 모르는 카드와 카드 안의 모르는 칸
+  const nav = { layout: "c", menu: ["home", "future_item"], extra: [1, "a"] };
+  const home = {
+    template: "dt_grid",
+    cards: [{ id: "future_card", size: "3x3", pin: { at: 2 } }],
+    extra: null,
+  };
+
+  it("쓰고 다시 읽으면 같다(안쪽 모르는 칸·묶음 4개의 올릴 것 표시 포함). 판은 1 그대로", () => {
+    const settings: DeviceSettings = {
+      theme: "dark",
+      followSystem: false,
+      locale: null,
+      nav,
+      home,
+      pending: {
+        appearance: { by: "user-1" },
+        locale: { by: null },
+        nav: { by: "user-1" },
+        home: { by: null },
+      },
+    };
+    const raw = serializeDeviceSettings(settings);
+    expect(JSON.parse(raw)).toMatchObject({ v: 1, theme: "dark", followSystem: false });
+    expect(parseDeviceSettings(raw)).toEqual(settings);
+  });
+
+  it("값이 없으면 저장 문자열에 칸이 생기지 않는다(전과 같은 모양)", () => {
+    const raw = serializeDeviceSettings({ ...EMPTY_DEVICE_SETTINGS, theme: "station" });
+    expect(Object.keys(JSON.parse(raw))).toEqual(["v", "theme", "followSystem", "locale", "pending"]);
+  });
+
+  it("JSON 객체가 아닌 값(배열·문자열·null)은 정하지 않은 것으로 읽는다. 다른 칸은 그대로", () => {
+    const raw = JSON.stringify({
+      v: 1,
+      theme: "dark",
+      followSystem: false,
+      locale: "en",
+      nav: ["c"],
+      home: "dt_grid",
+    });
+    expect(parseDeviceSettings(raw)).toEqual({ ...EMPTY_DEVICE_SETTINGS, theme: "dark", locale: "en" });
+  });
+
+  it("저장할 모양으로: 새 객체(나누지 않음), JSON에 없는 것은 빠진다", () => {
+    const value = { a: 1, gone: undefined, list: [{ b: 2 }] };
+    const copy = storableSettingsObject(value);
+    expect(copy).toEqual({ a: 1, list: [{ b: 2 }] });
+    expect(copy).not.toBe(value);
+    expect(Object.hasOwn(copy ?? {}, "gone")).toBe(false);
+    value.list[0] = { b: 3 };
+    expect(copy).toEqual({ a: 1, list: [{ b: 2 }] });
+  });
+
+  it("4KB(UTF-8 4096바이트)까지 저장하고, 넘거나 JSON으로 못 바꾸면 null", () => {
+    // {"s":"…"} = 8바이트 + 글자
+    expect(storableSettingsObject({ s: "x".repeat(4096 - 8) })).not.toBeNull();
+    expect(storableSettingsObject({ s: "x".repeat(4096 - 7) })).toBeNull();
+    // 한글은 3바이트: 1362자 = 4086 + 8 = 4094바이트(통과), 1363자 = 4097바이트(넘음)
+    expect(storableSettingsObject({ s: "가".repeat(1362) })).not.toBeNull();
+    expect(storableSettingsObject({ s: "가".repeat(1363) })).toBeNull();
+    expect(storableSettingsObject({ big: 1n })).toBeNull();
+  });
+
+  it("계정 jsonb가 받지 않는 글자(NUL·짝 없는 대리 문자)가 칸 이름·값에 있으면 null(서버도 400). 그림 문자는 저장한다", () => {
+    // 저장하면 올리기가 늘 실패해 "올릴 것"이 남고, 로그인 때 그 묶음의 계정 값이 이 기기에 다시 오지 않는다
+    for (const text of ["\u0000", "\uD800", "a\uDC00"]) {
+      expect(storableSettingsObject({ extra: text }), JSON.stringify(text)).toBeNull();
+      expect(storableSettingsObject({ [`k${text}`]: 1 }), JSON.stringify(text)).toBeNull();
+    }
+    // 저장할 모양(toJSON을 거친 복사본)을 본다
+    expect(storableSettingsObject({ when: { toJSON: () => "\u0000" } })).toBeNull();
+    expect(storableSettingsObject({ extra: "😀가" })).toEqual({ extra: "😀가" });
   });
 });

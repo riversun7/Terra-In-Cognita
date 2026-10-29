@@ -2,6 +2,7 @@
 // 적용된 마이그레이션(apps/server/drizzle/)은 고치지 않고 새로 추가만 한다 (docs/PROTECTED.md).
 // Drizzle 1.0 RC에는 열 이름 자동 변환(casing) 설정이 없어서 열 이름을 직접 적는다.
 import type { PerfReport } from "@terra/protocol";
+import type { SettingsObject } from "@terra/shared";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -201,9 +202,11 @@ export const auditLog = pgTable(
 );
 
 /**
- * 화면 설정(계정) — 사용자당 한 줄: 테마, 기기 설정 따르기, 언어(docs/adr/2026-10-28-design-system.md).
+ * 계정 설정 — 사용자당 한 줄: 테마, 기기 설정 따르기, 언어(docs/adr/2026-10-28-design-system.md), 메뉴·홈(ADR 2026-10-29-app-shell 5절).
  * null은 "정하지 않음"(기기 규칙을 따른다). 목록(@terra/shared THEMES·LOCALES)은 검사 조건에 넣지 않는다:
  * 더 새 버전이 저장한 값도 옛 버전 앱이 그대로 읽게 한다(모르는 값은 읽을 때 null로 본다).
+ * nav·home은 묶음마다 jsonb 하나다(모양을 모르는 JSON 객체, 입력 검사는 src/trpc/settings.ts). 열 더하기만 한 마이그레이션이라
+ * 직전 판 서버는 이 두 열을 모른 채 그대로 읽고 쓴다.
  */
 export const userSettings = pgTable(
   "user_settings",
@@ -215,6 +218,10 @@ export const userSettings = pgTable(
     followSystem: boolean("follow_system").notNull().default(false),
     locale: text("locale"),
     updatedAt: updatedAt(),
+    /** 메뉴 설정(@terra/shared navigation.ts의 nav). null이면 정하지 않음 */
+    nav: jsonb("nav").$type<SettingsObject>(),
+    /** 홈 설정(@terra/shared/dashboard의 home). null이면 정하지 않음 */
+    home: jsonb("home").$type<SettingsObject>(),
   },
   (table) => [
     check("user_settings_theme_format", sql`${table.theme} ~ '^[a-z][a-z0-9_]{0,31}$'`),

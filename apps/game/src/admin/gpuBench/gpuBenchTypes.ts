@@ -90,7 +90,7 @@ export interface RunResult {
   frames: FrameSummary | null;
   /** render() 호출 시간 요약(fps는 뜻이 없다) */
   cpu: FrameSummary | null;
-  /** 제출 → GPU 완료 지연 요약(fps는 뜻이 없다) */
+  /** 제출 → GPU 완료를 본 프레임 시작까지의 지연 요약(두 API 모두 프레임 단위로 올림, fps는 뜻이 없다) */
   gpu: FrameSummary | null;
   /** 재는 동안 GPU가 끝낸 프레임 수/초 — 실제로 그린 양. 프레임 간격 fps보다 낮으면 GPU가 못 따라온다 */
   gpuDonePerSec: number | null;

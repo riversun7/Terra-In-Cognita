@@ -106,4 +106,15 @@ describe("기기 저장: 메뉴(nav)·홈(home)", () => {
     expect(storableSettingsObject({ s: "가".repeat(1363) })).toBeNull();
     expect(storableSettingsObject({ big: 1n })).toBeNull();
   });
+
+  it("계정 jsonb가 받지 않는 글자(NUL·짝 없는 대리 문자)가 칸 이름·값에 있으면 null(서버도 400). 그림 문자는 저장한다", () => {
+    // 저장하면 올리기가 늘 실패해 "올릴 것"이 남고, 로그인 때 그 묶음의 계정 값이 이 기기에 다시 오지 않는다
+    for (const text of ["\u0000", "\uD800", "a\uDC00"]) {
+      expect(storableSettingsObject({ extra: text }), JSON.stringify(text)).toBeNull();
+      expect(storableSettingsObject({ [`k${text}`]: 1 }), JSON.stringify(text)).toBeNull();
+    }
+    // 저장할 모양(toJSON을 거친 복사본)을 본다
+    expect(storableSettingsObject({ when: { toJSON: () => "\u0000" } })).toBeNull();
+    expect(storableSettingsObject({ extra: "😀가" })).toEqual({ extra: "😀가" });
+  });
 });

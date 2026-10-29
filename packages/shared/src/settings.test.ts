@@ -4,6 +4,7 @@ import {
   LOCALES,
   SETTINGS_OBJECT_MAX_BYTES,
   THEMES,
+  hasUnstorableText,
   isSettingsObject,
   isSupportedLocale,
   isTheme,
@@ -104,5 +105,37 @@ describe("메뉴·홈 설정(nav·home): 모양을 모르는 JSON 객체", () =>
     cycle["self"] = cycle;
     expect(settingsObjectBytes(cycle)).toBe(Number.POSITIVE_INFINITY);
     expect(settingsObjectBytes({ big: 1n })).toBe(Number.POSITIVE_INFINITY);
+  });
+});
+
+describe("저장할 수 없는 글자(hasUnstorableText): 계정 jsonb 열이 받지 않는 NUL·짝 없는 대리 문자", () => {
+  /** NUL, 짝 없는 앞쪽·뒤쪽 대리 문자, 순서가 바뀐 쌍 */
+  const BAD = ["\u0000", "a\u0000b", "\uD800", "\uDC00", "a\uD83D", "\uDE00b", "\uDC00\uD800"];
+
+  it("칸 이름·글자 값 어디에 있어도, 깊이 있어도 찾는다", () => {
+    for (const text of BAD) {
+      const label = JSON.stringify(text);
+      expect(hasUnstorableText({ extra: text }), label).toBe(true);
+      expect(hasUnstorableText({ [`k${text}`]: 1 }), label).toBe(true);
+      expect(hasUnstorableText({ deep: [1, [{ x: ["ok", text] }]] }), label).toBe(true);
+      expect(hasUnstorableText({ deep: { [text]: null } }), label).toBe(true);
+    }
+  });
+
+  it("JSON에 들어가는 값을 본다: toJSON이 돌려준 글자는 보고, 빠지는 칸(undefined)의 이름은 보지 않는다", () => {
+    expect(hasUnstorableText({ when: { toJSON: () => "\u0000" } })).toBe(true);
+    expect(hasUnstorableText({ "\u0000": undefined })).toBe(false);
+  });
+
+  it("짝이 맞는 대리 문자(그림 문자)·한글·NUL이 아닌 제어 문자는 저장할 수 있다", () => {
+    expect(hasUnstorableText({})).toBe(false);
+    expect(hasUnstorableText({ a: "가😀", "키😀": [1, null, true, { b: "\t\n\u0001\uFFFF" }] })).toBe(false);
+  });
+
+  it("JSON으로 바꿀 수 없는 값은 저장할 수 없다", () => {
+    const cycle: Record<string, unknown> = {};
+    cycle["self"] = cycle;
+    expect(hasUnstorableText(cycle)).toBe(true);
+    expect(hasUnstorableText({ big: 1n })).toBe(true);
   });
 });

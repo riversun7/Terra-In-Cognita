@@ -95,10 +95,12 @@ describe("메뉴·홈 바꾸기", () => {
     expect(mocks.uploads[0]?.userId).toBe("user-me");
   });
 
-  it("상한(4KB)을 넘거나 JSON으로 못 바꾸는 값은 저장하지 않고 false다(요청도 없다)", async () => {
+  it("상한(4KB)을 넘거나 JSON으로 못 바꾸거나 계정에 저장할 수 없는 글자가 든 값은 저장하지 않고 false다(요청도 없다)", async () => {
     const settings = await import("./settings.ts");
     expect(settings.chooseHome({ extra: "x".repeat(4096) })).toBe(false);
     expect(settings.chooseNavigation({ big: 1n })).toBe(false);
+    expect(settings.chooseNavigation({ extra: "\u0000" })).toBe(false);
+    expect(settings.chooseHome({ "k\uD800": 1 })).toBe(false);
     expect(settings.getSettingsSnapshot().device).not.toHaveProperty("home");
     expect(stored.size).toBe(0);
     await settle();

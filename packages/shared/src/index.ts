@@ -97,6 +97,7 @@ export {
   LOCALES,
   SETTINGS_OBJECT_MAX_BYTES,
   THEMES,
+  hasUnstorableText,
   isSettingsObject,
   isSupportedLocale,
   isTheme,

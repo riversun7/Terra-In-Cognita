@@ -52,6 +52,34 @@ export function settingsObjectBytes(value: SettingsObject): number {
   }
 }
 
+/** 짝 없는 대리 문자(UTF-16 반쪽). u 플래그라 짝이 맞는 둘(그림 문자 등)은 한 글자(코드 포인트)로 읽혀 걸리지 않는다 */
+const LONE_SURROGATE = /[\uD800-\uDFFF]/u;
+
+/** PostgreSQL jsonb가 받지 않는 글자: NUL(U+0000)과 짝 없는 대리 문자 */
+const isUnstorableText = (text: string): boolean => text.includes("\u0000") || LONE_SURROGATE.test(text);
+
+/**
+ * 메뉴·홈 값의 칸 이름·글자 값에 계정에 저장할 수 없는 글자(NUL, 짝 없는 대리 문자)가 있는지. JSON으로 바꿀 수 없어도 true.
+ * 계정 jsonb 열이 받지 않아서, 서버는 받지 않고(BAD_REQUEST. 전에는 DB 오류라 500) 기기는 저장하지 않는다.
+ * JSON.stringify가 쓰는 값을 본다(toJSON을 거친 값, 값이 undefined라 빠지는 칸의 이름은 보지 않는다).
+ * String.prototype.isWellFormed는 Firefox 119부터라 쓰지 않는다(기기 하한 브라우저에 없다).
+ */
+export function hasUnstorableText(value: SettingsObject): boolean {
+  let found = false;
+  try {
+    JSON.stringify(value, (key: string, item: unknown) => {
+      const written = item !== undefined && typeof item !== "function" && typeof item !== "symbol";
+      if ((written && isUnstorableText(key)) || (typeof item === "string" && isUnstorableText(item))) {
+        found = true;
+      }
+      return item;
+    });
+  } catch {
+    return true;
+  }
+  return found;
+}
+
 /** 계정(user_settings 표)과 기기에 저장하는 설정 */
 export interface UserSettings {
   /** 고른 테마. null이면 정하지 않음 */

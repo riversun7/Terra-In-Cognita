@@ -307,6 +307,28 @@ describe.skipIf(!TEST_DATABASE_URL)("계정 설정: 메뉴·홈 (DB)", () => {
     expect((await trpcMutation(app, "settings.set", ok, player)).statusCode).toBe(200);
   });
 
+  it("jsonb가 받지 않는 글자(NUL·짝 없는 대리 문자)는 칸 이름·값 어디에 있어도 400이고 저장하지 않는다(DB 오류 500이 아니다)", async () => {
+    const before = await stored("fake_navplayer");
+    for (const bad of ["\u0000", "a\u0000b", "\uD800", "\uDC00"]) {
+      for (const input of [
+        { nav: { extra: bad } },
+        { nav: { menu: ["home"], extra: [{ deep: bad }] } },
+        { home: { [`k${bad}`]: 1 } },
+        { home: { cards: [{ id: "inbox", note: bad }] } },
+      ]) {
+        const res = await trpcMutation(app, "settings.set", input, player);
+        expect(res.statusCode, JSON.stringify(input)).toBe(400);
+        expect(res.json()).toMatchObject({ error: { data: { code: "BAD_REQUEST" } } });
+      }
+    }
+    expect(await stored("fake_navplayer")).toEqual(before);
+    // 짝이 맞는 대리 문자(그림 문자)·NUL이 아닌 제어 문자·U+FFFF는 받고 그대로 읽는다
+    const nav = { extra: "😀가\t\u0001\uFFFF", "키😀": 1 };
+    expect((await trpcMutation(app, "settings.set", { nav }, player)).statusCode).toBe(200);
+    expect((await stored("fake_navplayer"))?.nav).toEqual(nav);
+    expect(data(await trpcQuery(app, "settings.get", undefined, player))).toMatchObject({ nav });
+  });
+
   it("템플릿 저장 규칙: player가 보낸 기본값이 아닌 템플릿은 dt_hybrid로 바뀌어 저장된다(거절 없음). cards와 모르는 칸은 그대로", async () => {
     for (const template of ["dt_city", "dt_grid", "dt_future"]) {
       const home = { ...HOME, template };

@@ -8,6 +8,7 @@ import {
   SETTINGS_OBJECT_MAX_BYTES,
   type SettingsObject,
   type UserSettings,
+  hasUnstorableText,
   isSettingsObject,
   parseUserSettings,
   utf8ByteLength,
@@ -65,8 +66,9 @@ export function serializeDeviceSettings(settings: DeviceSettings): string {
 
 /**
  * 메뉴·홈 값을 기기에 저장할 모양으로: JSON으로 한 번 바꿔 새 객체를 만든다(부른 쪽 객체와 나누지 않고, undefined 칸 등
- * JSON에 없는 것은 빠진다 = 저장한 뒤 다시 읽은 값과 같다). 크기 상한(4KB)을 넘거나 JSON으로 바꿀 수 없으면 null.
- * 안쪽 모양은 보지 않는다(모르는 칸도 남는다).
+ * JSON에 없는 것은 빠진다 = 저장한 뒤 다시 읽은 값과 같다). 안쪽 모양은 보지 않는다(모르는 칸도 남는다).
+ * 서버가 받지 않는 값이면 null: 크기 상한(4KB)을 넘음, JSON으로 바꿀 수 없음, 계정에 저장할 수 없는 글자(NUL·짝 없는
+ * 대리 문자)가 듦. 그런 값을 저장하면 올리기가 늘 실패해 "올릴 것"이 남고, 그 묶음의 계정 값이 이 기기에 다시 오지 않는다.
  */
 export function storableSettingsObject(value: SettingsObject): SettingsObject | null {
   let text: string;
@@ -78,5 +80,5 @@ export function storableSettingsObject(value: SettingsObject): SettingsObject | 
   // toJSON이 객체가 아닌 값을 돌려주면 stringify가 undefined를 낸다(타입은 string)
   if (typeof text !== "string" || utf8ByteLength(text) > SETTINGS_OBJECT_MAX_BYTES) return null;
   const copy: unknown = JSON.parse(text);
-  return isSettingsObject(copy) ? copy : null;
+  return isSettingsObject(copy) && !hasUnstorableText(copy) ? copy : null;
 }

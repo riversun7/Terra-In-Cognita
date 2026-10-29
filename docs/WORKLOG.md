@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-29 19:20 | 행성 편집기 1단계: 사용자 결정 반영(ADR 38) | Claude Code | [29-1920-planet-editor-decisions](worklog/2026/10/29-1920-planet-editor-decisions.md) |
 | 2026-10-29 19:10 | NAS 행성 캐시 고침 확인(판 2 배포 뒤) | Claude Code | [29-1910-nas-planet-cache-verified](worklog/2026/10/29-1910-nas-planet-cache-verified.md) |
 | 2026-10-29 17:10 | S2 다듬기 통합: 검토 반영 가지 넷 합치기, 생성기 출력 판 2를 서버에 맞추기, 통합 검토 지적 처리 | Claude Code (작업 트리 `.claude/worktrees/s2-polish`, 가지 `work/s2-polish`, main `e1e281b`에서 시작. 푸시하지 않음) | [29-1710-s2-polish-integration](worklog/2026/10/29-1710-s2-polish-integration.md) |
 | 2026-10-29 17:00 | 앱 뼈대 설계: ADR 37(제안) — 사용자 결정 반영, 조사 원본, 기획 질문 | Claude Code | [29-1700-app-shell-design](worklog/2026/10/29-1700-app-shell-design.md) |

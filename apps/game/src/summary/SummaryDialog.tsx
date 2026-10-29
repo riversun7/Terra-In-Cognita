@@ -3,41 +3,39 @@
 // - <dialog>.showModal()로 연다(초점을 가두고, 닫으면 연 자리로 돌려준다). 좁으면 화면 전체, 넓으면 가운데 판.
 // - 기록 칸을 쌓지 않는다. [확인]·Esc(브라우저 닫기 요청)로 닫는다. 닫으면 보던 화면에 남는다(D-266).
 // - 숫자를 누르면 그 화면으로 가고 확인한 것으로 친다(닫는다). 갈 화면이 없는 칸(세계 소식 등)은 수만 보인다.
-// - 모르는 칸 종류(더 새 서버)는 그리지 않는다. 시안 자료 칸에는 "시험 자료"를 붙인다.
+// - 모르는 칸 종류(더 새 서버)는 그리지 않는다. 그릴 칸이 하나도 없으면 열지 않고 바로 닫힌 것으로 알린다.
+//   시안 자료 칸에는 "시험 자료"를 붙인다.
 import { isRouteTarget, targetPath } from "@terra/shared";
-import type { SummaryGetResponse, SummarySection, SummarySectionKind } from "@terra/shared/inbox";
+import type { SummaryGetResponse, SummarySection } from "@terra/shared/inbox";
 import { type MouseEvent, useEffect, useId, useRef } from "react";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
-import { formatWait } from "../ui/messageRef.ts";
+import { SECTION_LABELS, formatSpan, visibleSections } from "./summaryText.ts";
 import "./summary.css";
-
-/** 칸 종류 → 이름. 칸 종류가 늘면 satisfies가 빠진 이름을 알려 준다 */
-const SECTION_LABELS = {
-  production: m.summary_section_production,
-  raid: m.summary_section_raid,
-  injury: m.summary_section_injury,
-  world_news: m.summary_section_world_news,
-} satisfies Record<SummarySectionKind, () => string>;
-
-function isKnownSection(kind: string): kind is SummarySectionKind {
-  return Object.hasOwn(SECTION_LABELS, kind);
-}
-
-/** 그릴 칸: 아는 종류이고 사건이 있는 칸 */
-function visibleSections(summary: SummaryGetResponse): (SummarySection & { kind: SummarySectionKind })[] {
-  const result: (SummarySection & { kind: SummarySectionKind })[] = [];
-  for (const section of summary.sections) {
-    const { kind } = section;
-    if (isKnownSection(kind) && section.count > 0) result.push({ ...section, kind });
-  }
-  return result;
-}
 
 /** 칸을 누르면 갈 주소. 이 기기가 아는 화면이 아니면 null */
 function sectionHref(section: SummarySection): string | null {
   const target: unknown = section.target;
   return isRouteTarget(target) ? targetPath(target) : null;
+}
+
+/** 누르면 그 화면으로 간다는 표시(꾸밈) */
+function Chevron() {
+  return (
+    <svg
+      className="summary-chevron"
+      viewBox="0 0 20 20"
+      aria-hidden="true"
+      focusable="false"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m7.5 4.5 5.5 5.5-5.5 5.5" />
+    </svg>
+  );
 }
 
 export interface SummaryDialogProps {
@@ -54,18 +52,24 @@ export default function SummaryDialog({ summary, navigate, onClose }: SummaryDia
   const locale = getLocale();
   const count = new Intl.NumberFormat(locale);
   const sections = visibleSections(summary);
+  const nothing = sections.length === 0;
   const period =
     summary.since === null
       ? null
-      : m.summary_period({ duration: formatWait((summary.until - summary.since) / 1_000, locale) });
+      : m.summary_period({ duration: formatSpan(summary.until - summary.since, locale) });
   const anyLink = sections.some((section) => sectionHref(section) !== null);
 
   useEffect(() => {
+    // 보일 칸이 없다(모르는 칸 종류뿐): 열지 않는다
+    if (nothing) {
+      onClose();
+      return;
+    }
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
     // 읽기 프로그램이 제목부터 읽게 한다(첫 링크로 바로 가지 않게)
     headingRef.current?.focus();
-  }, []);
+  }, [nothing, onClose]);
 
   const close = (): void => {
     dialogRef.current?.close();
@@ -79,6 +83,7 @@ export default function SummaryDialog({ summary, navigate, onClose }: SummaryDia
     navigate(path);
   };
 
+  if (nothing) return null;
   return (
     <dialog ref={dialogRef} className="summary-dialog" aria-labelledby={titleId} onClose={onClose}>
       <div className="summary-panel">
@@ -94,10 +99,12 @@ export default function SummaryDialog({ summary, navigate, onClose }: SummaryDia
             const body = (
               <>
                 <span className="summary-count">{count.format(section.count)}</span>
-                <span className="summary-label">{SECTION_LABELS[section.kind]()}</span>
-                {section.preview === true ? (
-                  <span className="summary-tag">{m.inbox_preview_tag()}</span>
-                ) : null}
+                <span className="summary-text">
+                  <span className="summary-label">{SECTION_LABELS[section.kind]()}</span>
+                  {section.preview === true ? (
+                    <span className="summary-tag">{m.inbox_preview_tag()}</span>
+                  ) : null}
+                </span>
               </>
             );
             return (
@@ -111,6 +118,7 @@ export default function SummaryDialog({ summary, navigate, onClose }: SummaryDia
                     onClick={(event) => follow(event, href)}
                   >
                     {body}
+                    <Chevron />
                   </a>
                 )}
               </li>

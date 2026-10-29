@@ -44,6 +44,10 @@
   flex-direction: column;
   gap: var(--space-2);
 }
+/* 제목은 열 때 읽기 프로그램이 처음부터 읽게 초점만 받는다(누르는 곳이 아니라 테두리를 그리지 않는다) */
+.summary-title:focus {
+  outline: none;
+}
 .summary-title {
   margin: 0;
   font-family: var(--font-display);
@@ -62,7 +66,7 @@
   padding: 0;
   list-style: none;
 }
-/* 칸 한 줄: 큰 수 + 이름(+ 시험 자료). 링크면 줄 전체가 누르는 곳 */
+/* 칸 한 줄: 큰 수 + 이름(+ 시험 자료) + 화살표. 링크면 줄 전체가 누르는 곳. 좁으면 시험 자료 표가 이름 아래로 간다 */
 .summary-row {
   display: flex;
   align-items: center;
@@ -96,8 +100,15 @@
   text-align: end;
   font-variant-numeric: tabular-nums;
 }
-.summary-label {
+.summary-text {
   flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+.summary-label {
   min-width: 0;
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-snug);
@@ -112,7 +123,12 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-body);
-  white-space: nowrap;
+}
+.summary-chevron {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  color: var(--color-text-muted);
 }
 .summary-hint {
   color: var(--color-text-muted);

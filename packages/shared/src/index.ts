@@ -49,6 +49,8 @@ export {
   isRouteParamValue,
   isRouteTarget,
   matchPath,
+  parentTarget,
+  replaceSearch,
   routePathExamples,
   targetPath,
   type PathParamNames,

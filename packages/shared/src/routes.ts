@@ -229,6 +229,28 @@ function formatQuery(entries: readonly (readonly [string, string])[]): string {
   return entries.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join("&");
 }
 
+/** 검색어 쌍("a=1")의 이름(% 글자를 푼 것, + = 빈칸). 잘못된 % 글자면 null */
+function pairName(pair: string): string | null {
+  const equals = pair.indexOf("=");
+  try {
+    return decodeURIComponent((equals < 0 ? pair : pair.slice(0, equals)).replaceAll("+", " "));
+  } catch {
+    return null;
+  }
+}
+
+/** 주소 → 경로, 검색어(? 뒤, ? 없이), #조각(# 포함). 없는 것은 빈 문자열 */
+function splitUrl(url: string): { pathname: string; query: string; hash: string } {
+  const hashAt = url.indexOf("#");
+  const withoutHash = hashAt < 0 ? url : url.slice(0, hashAt);
+  const queryAt = withoutHash.indexOf("?");
+  return {
+    pathname: queryAt < 0 ? withoutHash : withoutHash.slice(0, queryAt),
+    query: queryAt < 0 ? "" : withoutHash.slice(queryAt + 1),
+    hash: hashAt < 0 ? "" : url.slice(hashAt),
+  };
+}
+
 /** 매개변수 값이 그 주소의 규칙에 맞는지 */
 export function isRouteParamValue(kind: RouteParamKind, value: unknown): value is string {
   if (typeof value !== "string" || !PARAM_VALUE[kind].test(value)) return false;
@@ -285,10 +307,8 @@ function moreSpecific(a: readonly number[], b: readonly number[]): boolean {
  * - 검색어는 표에 있는 것만 결과에 넣는다(같은 이름이 여럿이면 처음 것). 모르는 검색어는 무시한다.
  */
 export function matchPathIn(table: RouteTable, url: string): LooseRouteMatch | null {
-  const withoutHash = url.split("#", 1)[0] ?? "";
-  const queryAt = withoutHash.indexOf("?");
-  let pathname = queryAt < 0 ? withoutHash : withoutHash.slice(0, queryAt);
-  const query = queryAt < 0 ? "" : withoutHash.slice(queryAt + 1);
+  const { pathname: rawPathname, query } = splitUrl(url);
+  let pathname = rawPathname;
   if (!pathname.startsWith("/")) return null;
   if (pathname.length > 1 && pathname.endsWith("/")) pathname = pathname.slice(0, -1);
   const parts = patternSegments(pathname);
@@ -320,6 +340,75 @@ export function matchPathIn(table: RouteTable, url: string): LooseRouteMatch | n
     if (value !== undefined) search[key] = value;
   }
   return { id: best.id, params: best.params, search };
+}
+
+/**
+ * 주소의 검색어 몇 개만 바꾼다(제자리 바꾸기. 예: 지도 안 `?at=`, ADR 37 1절 "지도 주소").
+ * 경로·#조각과 다른 검색어(이 기기가 모르는 것 포함)는 글자 그대로 둔다(ADR 37 1절 "모르는 검색어는 무시하되 지우지 않는다").
+ * buildPath·targetPath로 주소를 다시 만들면 표에 없는 검색어가 빠지므로, 지금 주소를 고쳐 쓸 때는 이 함수를 쓴다.
+ * - 문자열 값: 그 이름의 첫 쌍 자리에 넣고 같은 이름의 뒤 쌍은 지운다. 그 이름이 없으면 끝에 붙인다.
+ * - null·undefined: 그 이름의 쌍을 모두 지운다.
+ * - 이름은 % 글자를 푼 뒤 비교한다(matchPath와 같다). 빈 쌍(`&&`)은 뺀다. 검색어가 다 빠지면 `?`도 뺀다.
+ */
+export function replaceSearch(
+  url: string,
+  changes: { readonly [name: string]: string | null | undefined },
+): string {
+  const { pathname, query, hash } = splitUrl(url);
+  const pairs: string[] = [];
+  const placed = new Set<string>();
+  for (const pair of query.split("&")) {
+    if (pair === "") continue;
+    const name = pairName(pair);
+    if (name === null || !Object.hasOwn(changes, name)) {
+      pairs.push(pair);
+      continue;
+    }
+    if (placed.has(name)) continue;
+    placed.add(name);
+    const value = changes[name];
+    if (typeof value === "string") pairs.push(formatQuery([[name, value]]));
+  }
+  for (const [name, value] of Object.entries(changes)) {
+    if (!placed.has(name) && typeof value === "string") pairs.push(formatQuery([[name, value]]));
+  }
+  return `${pathname}${pairs.length === 0 ? "" : `?${pairs.join("&")}`}${hash}`;
+}
+
+/** 가리키는 화면의 느슨한 모양(표를 모르는 함수의 값) */
+export interface LooseRouteTarget {
+  readonly route: string;
+  readonly params?: { readonly [name: string]: string };
+}
+
+/**
+ * 표 T에서 맞춘 주소의 부모 화면(시험·검사용. 화면 코드는 parentTarget을 쓴다). 부모가 없으면(홈) null.
+ * 부모 경로의 매개변수 값은 자식 주소의 같은 이름 값을 쓴다. 표 규칙(routes.test.ts): 부모 경로의 매개변수는 모두
+ * 자식 경로에 같은 이름·같은 값 규칙으로 있다(예: `/economy/market/:itemId/:cityId`의 부모 `/economy/market/:itemId`).
+ * 검색어는 넘기지 않는다. 값이 없거나 규칙에 맞지 않으면 예외다(표가 틀렸다).
+ */
+export function parentTargetIn(
+  table: RouteTable,
+  match: { readonly id: string; readonly params: { readonly [name: string]: string } },
+): LooseRouteTarget | null {
+  const route = routeIn(table, match.id);
+  if (!route) throw new Error(`unknown route id: ${match.id}`);
+  if (route.parent === null) return null;
+  const parent = routeIn(table, route.parent);
+  if (!parent) throw new Error(`route ${match.id}: unknown parent route id: ${route.parent}`);
+  const names = paramNames(parent);
+  if (names.length === 0) return { route: route.parent };
+  const params: Record<string, string> = {};
+  for (const name of names) {
+    const value = ownField(match.params, name);
+    if (!isRouteParamValue(paramKind(parent, name), value)) {
+      throw new RangeError(
+        `route ${match.id}: parent param ${name} does not match the value rule: ${String(value)}`,
+      );
+    }
+    params[name] = value;
+  }
+  return { route: route.parent, params };
 }
 
 /**
@@ -369,6 +458,18 @@ export function matchPath(url: string): LooseRouteMatch | null {
 /** 다른 곳이 가리키는 화면(target)의 주소 */
 export function targetPath(target: RouteTarget): string {
   return buildPathIn(ROUTES, target.route, target);
+}
+
+/**
+ * 맞춘 주소(matchPath 결과)의 부모 화면. 홈이면 null.
+ * 바로 연 주소(푸시·즐겨찾기)라 앱 안에서 쌓은 기록이 없을 때 화면 안 [뒤로]가 이리로 바꾼다(replace, ADR 37 2절).
+ */
+export function parentTarget(match: RouteMatch): RouteTarget | null {
+  const target = parentTargetIn(ROUTES, match);
+  if (target === null) return null;
+  // 표 규칙을 지키면 늘 맞다. 타입을 좁히려고 다시 본다
+  if (!isRouteTarget(target)) throw new Error(`route ${match.id}: parent target does not fit the table`);
+  return target;
 }
 
 /**

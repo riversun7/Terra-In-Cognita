@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import { ROLES, type Role } from "./roles.ts";
 import {
   type LoosePathOptions,
+  type LooseRouteMatch,
   type PathParamNames,
   ROUTES,
   type RouteId,
@@ -18,6 +19,9 @@ import {
   isRouteTargetIn,
   matchPath,
   matchPathIn,
+  parentTarget,
+  parentTargetIn,
+  replaceSearch,
   routePathExamples,
   routePathExamplesIn,
   targetPath,
@@ -60,6 +64,18 @@ function routeTableProblems(table: RouteTable): string[] {
     const other = shapes.get(shape);
     if (other) problems.push(`${id}: ${other}와 같은 경로`);
     shapes.set(shape, id);
+    // 부모 경로의 매개변수는 모두 이 경로에 같은 이름·같은 값 규칙으로 있다(parentTarget이 이 주소의 값으로 부모 주소를 만든다)
+    const parentRoute =
+      route.parent !== null && Object.hasOwn(table, route.parent) ? table[route.parent] : undefined;
+    for (const segment of parentRoute?.path.split("/") ?? []) {
+      if (!segment.startsWith(":") || parentRoute === undefined) continue;
+      const name = segment.slice(1);
+      if (!names.includes(name))
+        problems.push(`${id}: 부모 ${route.parent}의 매개변수 ${name}가 경로에 없음`);
+      else if ((parentRoute.params?.[name] ?? "id") !== (route.params?.[name] ?? "id")) {
+        problems.push(`${id}: 부모 ${route.parent}의 매개변수 ${name}와 값 규칙이 다름`);
+      }
+    }
     // 부모: 홈(/)만 없다. 따라가면 홈에 닿는다(돌지 않는다)
     if (route.parent === null) {
       if (path !== "/") problems.push(`${id}: 부모 없음`);
@@ -146,10 +162,18 @@ const FIXTURE = {
     access: "everyone",
   },
   market: { path: "/economy/market", search: ["band"], parent: "home", frame: "shown", access: "everyone" },
+  market_item: {
+    path: "/economy/market/:itemId",
+    search: [],
+    parent: "market",
+    frame: "shown",
+    access: "everyone",
+  },
+  // 부모(market_item)에 매개변수가 있다: 부모 주소는 이 주소의 itemId로 만든다
   market_city: {
     path: "/economy/market/:itemId/:cityId",
     search: [],
-    parent: "market",
+    parent: "market_item",
     frame: "shown",
     access: "everyone",
   },
@@ -197,6 +221,16 @@ describe("주소 표", () => {
       same_a: { path: "/a/:x", search: [], parent: "home", frame: "shown", access: "everyone" },
       same_b: { path: "/a/:y", search: ["Tab"], parent: "nowhere", frame: "shown", access: "everyone" },
       Bad: { path: "/b", search: [], parent: "home", frame: "shown", access: "everyone" },
+      p_parent: { path: "/p/:pid", search: [], parent: "home", frame: "shown", access: "everyone" },
+      p_lost: { path: "/q/:qid", search: [], parent: "p_parent", frame: "shown", access: "everyone" },
+      p_kind: {
+        path: "/p/:pid/k",
+        search: [],
+        parent: "p_parent",
+        frame: "shown",
+        access: "everyone",
+        params: { pid: "digits" },
+      },
     } as const satisfies RouteTable;
     expect(routeTableProblems(bad)).toEqual([
       "dot: 점",
@@ -211,6 +245,8 @@ describe("주소 표", () => {
       "same_b: same_a와 같은 경로",
       "same_b: 부모 nowhere에서 홈에 닿지 않음",
       "Bad: 주소 ID 모양",
+      "p_lost: 부모 p_parent의 매개변수 pid가 경로에 없음",
+      "p_kind: 부모 p_parent의 매개변수 pid와 값 규칙이 다름",
     ]);
   });
 
@@ -365,6 +401,76 @@ describe("matchPath", () => {
   });
 });
 
+describe("검색어 제자리 바꾸기(replaceSearch)", () => {
+  it("바꾼 검색어만 고치고 경로·#조각·다른 검색어(모르는 것도)는 글자 그대로 둔다", () => {
+    expect(replaceSearch("/map?at=1&foo=bar#h", { at: "2" })).toBe("/map?at=2&foo=bar#h");
+    expect(replaceSearch("/map?foo=bar", { at: "x y:z" })).toBe("/map?foo=bar&at=x%20y%3Az");
+    expect(replaceSearch("/map", { at: "1" })).toBe("/map?at=1");
+    // 모르는 검색어의 + 글자·잘못된 % 글자도 그대로다
+    expect(replaceSearch("/map?q=a+b&bad=%E0%A4%A&at=1", { at: "2" })).toBe("/map?q=a+b&bad=%E0%A4%A&at=2");
+    expect(replaceSearch("/units/?x=1", { y: "2" })).toBe("/units/?x=1&y=2");
+    expect(replaceSearch("/map?at=1", {})).toBe("/map?at=1");
+  });
+
+  it("같은 이름은 첫 자리에 하나만 남고, null·undefined는 지우고, 빈 검색어는 ?도 뺀다", () => {
+    expect(replaceSearch("/inbox?item=a&x=1&item=b", { item: "c" })).toBe("/inbox?item=c&x=1");
+    expect(replaceSearch("/map?at=1&foo=bar&at=2", { at: null })).toBe("/map?foo=bar");
+    expect(replaceSearch("/units?item=x#top", { item: undefined })).toBe("/units#top");
+    expect(replaceSearch("/map?&&at=1&", {})).toBe("/map?at=1");
+    // 이름은 % 글자를 푼 뒤 비교한다(matchPath와 같다)
+    expect(replaceSearch("/map?%61t=1", { at: "2" })).toBe("/map?at=2");
+  });
+
+  it("바꾼 주소를 다시 맞추면 새 값을 읽고, 표에 없는 검색어는 남아 있다", () => {
+    const url = replaceSearch("/inbox?item=a&future=1", { item: "unit_idle:city_12" });
+    expect(url).toBe("/inbox?item=unit_idle%3Acity_12&future=1");
+    expect(matchPath(url)?.search).toEqual({ item: "unit_idle:city_12" });
+  });
+});
+
+/** 시험용: 맞는 주소만 쓴다 */
+function mustMatch(table: RouteTable, url: string): LooseRouteMatch {
+  const match = matchPathIn(table, url);
+  if (match === null) throw new Error(`no route: ${url}`);
+  return match;
+}
+
+describe("부모 화면(parentTarget)", () => {
+  it("부모 경로의 매개변수는 자식 주소의 같은 이름 값을 쓰고, 검색어는 넘기지 않는다", () => {
+    const city = mustMatch(FIXTURE, "/economy/market/iron_ore/city_12?x=1");
+    const item = parentTargetIn(FIXTURE, city);
+    expect(item).toEqual({ route: "market_item", params: { itemId: "iron_ore" } });
+    expect(item && buildPathIn(FIXTURE, item.route, item)).toBe("/economy/market/iron_ore");
+    expect(parentTargetIn(FIXTURE, mustMatch(FIXTURE, "/economy/market/iron_ore"))).toEqual({
+      route: "market",
+    });
+    expect(parentTargetIn(FIXTURE, mustMatch(FIXTURE, "/economy/market?band=b2"))).toEqual({ route: "home" });
+    expect(parentTargetIn(FIXTURE, mustMatch(FIXTURE, "/"))).toBeNull();
+  });
+
+  it("값이 없거나 규칙에 맞지 않으면·모르는 주소 ID면 예외다(표가 틀렸다)", () => {
+    expect(() => parentTargetIn(FIXTURE, { id: "market_city", params: { cityId: "c1" } })).toThrow(
+      RangeError,
+    );
+    expect(() => parentTargetIn(FIXTURE, { id: "market_city", params: { itemId: "a.b" } })).toThrow(
+      RangeError,
+    );
+    expect(() => parentTargetIn(FIXTURE, { id: "nope", params: {} })).toThrow("unknown route id");
+  });
+
+  it("주소 표의 모든 줄: 부모는 표의 부모 칸이고, 홈만 null이다", () => {
+    for (const path of routePathExamples()) {
+      const match = matchPath(path);
+      if (match === null) throw new Error(path);
+      const target = parentTarget(match);
+      expect(target?.route ?? null, path).toBe(ROUTES[match.id].parent);
+      if (target !== null) expect(isRouteTarget(target), path).toBe(true);
+    }
+    const editor = matchPath("/dev/planet-editor");
+    expect(editor && parentTarget(editor)).toEqual({ route: "dev" });
+  });
+});
+
 describe("경로 예", () => {
   it("주소마다 하나, 검색어를 받는 주소는 검색어를 붙인 것 하나 더(점·쌍점이 든 값)", () => {
     const examples = routePathExamples();
@@ -389,6 +495,7 @@ describe("경로 예", () => {
       "/economy/sample_1",
       "/economy/market",
       "/economy/market?band=x.1%3Ay_2",
+      "/economy/market/sample_1",
       "/economy/market/sample_1/sample_1",
       "/x/sample_1/c",
       "/x/b/sample_1",

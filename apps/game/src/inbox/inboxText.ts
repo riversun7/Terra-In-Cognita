@@ -69,7 +69,9 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
 /**
- * 마감 문구. 남은 시간: 1시간 안은 분(올림, 1분부터), 48시간 안은 시간, 그 뒤는 날(반올림). 지났으면 "마감 지남". 없으면 null.
+ * 마감 문구. 남은 시간을 내림해서 보인다(마감을 늘려 말하지 않는다. 위협·대출 마감을 놓치지 않게):
+ * 1분 안은 "1분 안에 마감", 1시간 안은 분, 48시간 안은 시간, 그 뒤는 날. 지났으면 "마감 지남". 없으면 null.
+ * 예: 2일 12시간 → "2일 후", 1시간 31분 → "1시간 후", 59분 30초 → "59분 후".
  * now는 목록을 만든 서버 시각(generatedAt)이다. 화면을 오래 열어 두면 늦은 값이 된다(주기 타이머 없음, 다시 받을 때 고쳐진다).
  */
 export function formatDue(
@@ -80,11 +82,12 @@ export function formatDue(
   if (deadlineAt === null) return null;
   const left = deadlineAt - now;
   if (left <= 0) return m.inbox_overdue({}, { locale });
+  if (left < MINUTE) return m.inbox_deadline_soon({}, { locale });
   const format = new Intl.RelativeTimeFormat(locale, { numeric: "always" });
   let time: string;
-  if (left < HOUR) time = format.format(Math.max(1, Math.ceil(left / MINUTE)), "minute");
-  else if (left < 2 * DAY) time = format.format(Math.round(left / HOUR), "hour");
-  else time = format.format(Math.round(left / DAY), "day");
+  if (left < HOUR) time = format.format(Math.floor(left / MINUTE), "minute");
+  else if (left < 2 * DAY) time = format.format(Math.floor(left / HOUR), "hour");
+  else time = format.format(Math.floor(left / DAY), "day");
   return m.inbox_deadline({ time }, { locale });
 }
 

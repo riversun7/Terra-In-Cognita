@@ -37,6 +37,7 @@
   "inbox_preview_notice": "시험 자료를 보고 있습니다. 바로 처리 버튼은 명령을 보내지 않습니다.",
   "inbox_action_preview_done": "시험 자료라서 명령을 보내지 않았습니다.",
   "inbox_deadline": "{time} 마감",
+  "inbox_deadline_soon": "1분 안에 마감",
   "inbox_overdue": "마감 지남",
   "inbox_kind_unknown": "새 알림",
   "inbox_group_other": "그 밖의 알림",

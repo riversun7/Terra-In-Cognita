@@ -32,16 +32,17 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
 /**
- * 요약이 덮는 길이(마지막 확인 → 지금): 1시간 안은 분(올림, 1분부터), 48시간 안은 시간, 그 뒤는 날(반올림).
- * 며칠 비운 뒤에도 "1,284시간"처럼 보이지 않게 날로 올린다. 단위 이름은 Intl이 언어에 맞게 붙인다.
+ * 요약이 덮는 길이(마지막 확인 → 지금): 분(올림, 1분부터) → 60분이 되면 시간(반올림) → 48시간이 되면 날(반올림).
+ * 단위 경계에서 "60분"·"48시간"으로 보이지 않고 다음 단위로 넘어간다. 며칠 비운 뒤에도 "1,284시간"처럼 보이지 않는다.
+ * 지난 길이라 반올림한다(남은 시간인 마감은 inboxText.ts formatDue가 내림한다). 단위 이름은 Intl이 언어에 맞게 붙인다.
  */
 export function formatSpan(ms: number, locale: string): string {
   const span = Number.isFinite(ms) ? Math.max(0, ms) : 0;
-  const [value, unit] =
-    span < HOUR
-      ? [Math.max(1, Math.ceil(span / MINUTE)), "minute"]
-      : span < 2 * DAY
-        ? [Math.round(span / HOUR), "hour"]
-        : [Math.round(span / DAY), "day"];
-  return new Intl.NumberFormat(locale, { style: "unit", unit, unitDisplay: "long" }).format(value);
+  const unitText = (value: number, unit: "minute" | "hour" | "day") =>
+    new Intl.NumberFormat(locale, { style: "unit", unit, unitDisplay: "long" }).format(value);
+  const minutes = Math.max(1, Math.ceil(span / MINUTE));
+  if (minutes < 60) return unitText(minutes, "minute");
+  const hours = Math.max(1, Math.round(span / HOUR));
+  if (hours < 48) return unitText(hours, "hour");
+  return unitText(Math.round(span / DAY), "day");
 }

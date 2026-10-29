@@ -1,4 +1,5 @@
-// 처리할 일 문구·링크 시험 — 종류마다 제목, 모르는 종류(더 새 서버)는 "새 알림" + 처리함으로, 마감·개수 표시(ADR 2026-10-29-app-shell 7·12절)
+// 처리할 일 문구·링크 시험 — 종류마다 제목, 모르는 종류(더 새 서버)는 "새 알림" + 처리함으로, 마감(내림)·개수 표시
+// (ADR 2026-10-29-app-shell 7·12절)
 import { INBOX_CATEGORIES, type InboxItem } from "@terra/shared/inbox";
 import { describe, expect, it } from "vitest";
 import {
@@ -85,11 +86,26 @@ describe("처리할 일 링크", () => {
 describe("마감", () => {
   it("남은 시간: 1시간 안은 분, 48시간 안은 시간, 그 뒤는 날", () => {
     expect(formatDue(NOW + 20 * MIN, NOW, "ko")).toBe("20분 후 마감");
-    expect(formatDue(NOW + 30 * 1_000, NOW, "ko")).toBe("1분 후 마감");
     expect(formatDue(NOW + 26 * HOUR, NOW, "ko")).toBe("26시간 후 마감");
     expect(formatDue(NOW + 72 * HOUR, NOW, "ko")).toBe("3일 후 마감");
     expect(formatDue(NOW + 2 * HOUR, NOW, "en")).toBe("Due in 2 hours");
     expect(formatDue(NOW + MIN, NOW, "en")).toBe("Due in 1 minute");
+  });
+
+  it("내림해서 남은 시간을 늘려 말하지 않는다(위협·대출 마감을 놓치지 않게). 1분 안은 '1분 안에 마감'", () => {
+    // 2일 12시간 → 2일(반올림이면 3일)
+    expect(formatDue(NOW + 60 * HOUR, NOW, "ko")).toBe("2일 후 마감");
+    expect(formatDue(NOW + 60 * HOUR, NOW, "en")).toBe("Due in 2 days");
+    // 1시간 31분 → 1시간(반올림이면 2시간)
+    expect(formatDue(NOW + 91 * MIN, NOW, "ko")).toBe("1시간 후 마감");
+    // 59분 30초 → 59분(올림이면 "60분")
+    expect(formatDue(NOW + 59.5 * MIN, NOW, "ko")).toBe("59분 후 마감");
+    // 47시간 59분 → 47시간, 48시간부터 날
+    expect(formatDue(NOW + 48 * HOUR - MIN, NOW, "ko")).toBe("47시간 후 마감");
+    expect(formatDue(NOW + 48 * HOUR, NOW, "ko")).toBe("2일 후 마감");
+    expect(formatDue(NOW + 30 * 1_000, NOW, "ko")).toBe("1분 안에 마감");
+    expect(formatDue(NOW + 1, NOW, "en")).toBe("Due in under a minute");
+    expect(formatDue(NOW + 90 * 1_000, NOW, "ko")).toBe("1분 후 마감");
   });
 
   it("지났으면 '마감 지남', 마감이 없으면 null", () => {

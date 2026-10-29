@@ -37,6 +37,7 @@
   "inbox_preview_notice": "You're viewing sample data. Quick actions won't send commands.",
   "inbox_action_preview_done": "Sample data: no command was sent.",
   "inbox_deadline": "Due {time}",
+  "inbox_deadline_soon": "Due in under a minute",
   "inbox_overdue": "Overdue",
   "inbox_kind_unknown": "New alert",
   "inbox_group_other": "Other alerts",

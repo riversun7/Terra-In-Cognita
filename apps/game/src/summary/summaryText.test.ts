@@ -1,4 +1,4 @@
-// 복귀 요약 문구 시험 — 덮는 길이(분·시간·날로 올림), 그릴 칸(아는 종류·사건 있음)
+// 복귀 요약 문구 시험 — 덮는 길이(분·시간·날로 올림, 단위 경계), 그릴 칸(아는 종류·사건 있음)
 import type { SummaryGetResponse } from "@terra/shared/inbox";
 import { describe, expect, it } from "vitest";
 import { formatSpan, visibleSections } from "./summaryText.ts";
@@ -15,6 +15,14 @@ describe("덮는 길이", () => {
     expect(formatSpan(72 * HOUR, "ko")).toBe("3일");
     expect(formatSpan(1_284 * HOUR, "en")).toBe("54 days");
     expect(formatSpan(1 * HOUR, "en")).toBe("1 hour");
+  });
+
+  it("단위 경계에서 '60분'·'48시간'이 아니라 다음 단위로 넘어간다", () => {
+    expect(formatSpan(59 * MIN, "ko")).toBe("59분");
+    expect(formatSpan(59.5 * MIN, "ko")).toBe("1시간");
+    expect(formatSpan(59.5 * MIN, "en")).toBe("1 hour");
+    expect(formatSpan(47.4 * HOUR, "ko")).toBe("47시간");
+    expect(formatSpan(47.6 * HOUR, "ko")).toBe("2일");
   });
 
   it("0 이하·수가 아닌 값도 견딘다(1분)", () => {

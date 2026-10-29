@@ -9,7 +9,9 @@
     "./generator": "./src/generator/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p bench/tsconfig.json",
+    "bench": "node bench/generator.ts",
+    "render": "node bench/render.ts"
   },
   "dependencies": {
     "@terra/shared": "workspace:*"

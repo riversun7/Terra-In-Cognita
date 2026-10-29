@@ -1,0 +1,117 @@
+/*
+ * 화면 틀의 전역 층 — 연결 줄·서버 거절 안내(틀 안·틀 밖), 지도 위 1차맵/2차맵 전환과 방향 안내(ADR 2026-10-29-app-shell 3절).
+ * shell.css와 같이 첫 화면 묶음으로 내려온다(Shell.tsx가 가져온다). 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 층 순서(z-index): 지도 화면 1 < 지도 위 단추 5 < 방향 안내 6 < 새 버전 배너 10 < 연결 줄 20 < 건너뛰기 링크 30
+ */
+/* ── 연결 줄·서버 거절 안내 ─────────────────────────────── */
+.connection-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) max(var(--space-4), env(safe-area-inset-right)) var(--space-2)
+    max(var(--space-4), env(safe-area-inset-left));
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.connection-line[data-tone="error"] {
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+.connection-line-text {
+  flex: 1 1 12em;
+  min-width: 0;
+}
+.connection-line button {
+  color: var(--color-text);
+}
+/* 틀을 숨긴 화면(지도 등): 화면 맨 위(안전 영역 아래)의 전역 층 */
+.connection-notice-floating {
+  position: fixed;
+  top: max(var(--space-2), env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  padding: 0 var(--space-3);
+  pointer-events: none;
+}
+.connection-notice-floating .connection-line {
+  max-width: var(--content-max);
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-w) solid currentcolor;
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-control);
+  pointer-events: auto;
+}
+
+/* ── 지도 위 전역 층: 1차맵/2차맵 전환(오른쪽 가운데)과 방향 안내 ───────── */
+.map-switch {
+  position: fixed;
+  top: 50%;
+  right: max(var(--space-3), env(safe-area-inset-right));
+  z-index: 5;
+  transform: translateY(-50%);
+}
+.map-switch-button {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-tight);
+  text-decoration: none;
+  touch-action: manipulation;
+}
+.map-switch-button:active {
+  background-color: var(--color-surface-2);
+}
+/* 화면 위쪽 1/3쯤: 가운데의 지도 안내(지형을 만드는 중…)와 오른쪽 가운데의 전환 단추를 가리지 않게 */
+.orientation-hint {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: start center;
+  padding: 28dvh var(--space-6) var(--space-6);
+  pointer-events: none;
+}
+.orientation-hint-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: var(--content-max);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+  font-weight: var(--font-weight-strong);
+  text-align: start;
+  pointer-events: auto;
+  touch-action: manipulation;
+  animation: shell-hint-in var(--duration-base) var(--easing-out);
+  transition: opacity var(--duration-base) var(--easing-out);
+}
+/* 사라질 때: 흐려진 뒤 내린다(OrientationHint.tsx가 이 시간 뒤에 지운다) */
+.orientation-hint[data-leaving="true"] .orientation-hint-button {
+  opacity: 0;
+}
+@keyframes shell-hint-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}

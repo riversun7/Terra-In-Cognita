@@ -11,7 +11,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p bench/tsconfig.json",
     "bench": "node bench/generator.ts",
-    "render": "node bench/render.ts"
+    "render": "node bench/render.ts",
+    "variety": "node bench/variety.ts"
   },
   "dependencies": {
     "@terra/shared": "workspace:*"

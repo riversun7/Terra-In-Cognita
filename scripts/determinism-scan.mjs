@@ -112,3 +112,25 @@ export function findDeterminismViolations(source) {
     });
   return violations;
 }
+
+/** 상대 경로로 시험 도우미(이름이 test + 대문자로 시작하는 파일)를 가리키는 import·export … from·import() */
+const TEST_HELPER_SPECIFIER =
+  /(?:\bfrom\s*|\bimport\s*\(\s*)["'](\.{1,2}\/(?:[^"'\n]*\/)?test[A-Z][^"'\n]*)["']/;
+
+/**
+ * 시험 도우미(testFixtures.ts·testVariety.ts 등)를 가져오는 줄 [{ line, reason }].
+ * 시험 도우미는 결정성 검사 밖이라(기준값을 Math 함수로 만들어도 된다), 판정·생성 코드가 가져오면 검사를 피한다.
+ * 주석 안은 보지 않는다(주석을 지운 줄에 from·import가 남아 있어야 한다).
+ */
+export function findTestHelperImports(source) {
+  const violations = [];
+  const code = blankCommentsAndStrings(source).split("\n");
+  source.split("\n").forEach((text, index) => {
+    if (!/\b(from|import)\b/.test(code[index] ?? "")) return;
+    const match = TEST_HELPER_SPECIFIER.exec(text);
+    if (match) {
+      violations.push({ line: index + 1, reason: `시험 도우미 가져오기 ${match[1]} (시험 파일에서만 쓴다)` });
+    }
+  });
+  return violations;
+}

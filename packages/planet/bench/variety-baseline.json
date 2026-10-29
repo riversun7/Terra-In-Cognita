@@ -1,0 +1,218 @@
+{
+  "generatorVersion": 2,
+  "faceLevel": 9,
+  "seeds": [20261029, 1, 42],
+  "hashes": {
+    "1": "96d7a0e3",
+    "42": "8b995d7c",
+    "20261029": "ac761e56"
+  },
+  "perSeed": {
+    "1": {
+      "zonal.biomeInfoExplainedByAbsLat": 0.5851,
+      "zonal.dominantBiomeShare": 0.665072,
+      "zonal.openOceanPrecipR2": 0.999211,
+      "zonal.oceanTempR2": 0.999199,
+      "zonal.lowlandTempR2": 0.994524,
+      "lines.humidityStepAtIntegerIsotherms": 4.9014,
+      "lines.windStreakAnisotropyExcess": 0.136063,
+      "coast.boxDimension": 1.01601,
+      "patches.top10ShareOfLand": 0.581417,
+      "patches.top10ShareOfLandWithoutIce": 0.551129,
+      "patches.singleBiomeWindowShare": 0.557649,
+      "patches.largestShareOfLand": 0.161025,
+      "patches.count": 1040,
+      "patches.boundaryCellShare": 0.0215594,
+      "features.gapP90GameKm": 22.1349,
+      "biomes.largestShareOfLand": 0.233779,
+      "biomes.brownClusterShare": 0.409064,
+      "seams.faceEdgeChangeRatio": 1.00176,
+      "unit.windMinSpeed": 0.0000124148,
+      "unit.noiseLatticeRmsRatio": 0.368151,
+      "unit.hotspotSpacingCv": 0.0101293
+    },
+    "42": {
+      "zonal.biomeInfoExplainedByAbsLat": 0.549895,
+      "zonal.dominantBiomeShare": 0.685038,
+      "zonal.openOceanPrecipR2": 0.999263,
+      "zonal.oceanTempR2": 0.99938,
+      "zonal.lowlandTempR2": 0.993448,
+      "lines.humidityStepAtIntegerIsotherms": 7.13875,
+      "lines.windStreakAnisotropyExcess": 0.0504558,
+      "coast.boxDimension": 1.01235,
+      "patches.top10ShareOfLand": 0.555766,
+      "patches.top10ShareOfLandWithoutIce": 0.581634,
+      "patches.singleBiomeWindowShare": 0.528744,
+      "patches.largestShareOfLand": 0.102194,
+      "patches.count": 1681,
+      "patches.boundaryCellShare": 0.0295874,
+      "features.gapP90GameKm": 24.0108,
+      "biomes.largestShareOfLand": 0.254306,
+      "biomes.brownClusterShare": 0.560619,
+      "seams.faceEdgeChangeRatio": 2.84428,
+      "unit.windMinSpeed": 0.0000124148,
+      "unit.noiseLatticeRmsRatio": 0.368151,
+      "unit.hotspotSpacingCv": 0.0101293
+    },
+    "20261029": {
+      "zonal.biomeInfoExplainedByAbsLat": 0.604229,
+      "zonal.dominantBiomeShare": 0.694699,
+      "zonal.openOceanPrecipR2": 0.999287,
+      "zonal.oceanTempR2": 0.999313,
+      "zonal.lowlandTempR2": 0.993533,
+      "lines.humidityStepAtIntegerIsotherms": 5.8645,
+      "lines.windStreakAnisotropyExcess": 0.117289,
+      "coast.boxDimension": 1.01406,
+      "patches.top10ShareOfLand": 0.428009,
+      "patches.top10ShareOfLandWithoutIce": 0.481529,
+      "patches.singleBiomeWindowShare": 0.486631,
+      "patches.largestShareOfLand": 0.0784832,
+      "patches.count": 1201,
+      "patches.boundaryCellShare": 0.0261784,
+      "features.gapP90GameKm": 18.3833,
+      "biomes.largestShareOfLand": 0.190801,
+      "biomes.brownClusterShare": 0.446058,
+      "seams.faceEdgeChangeRatio": 0.968946,
+      "unit.windMinSpeed": 0.0000124148,
+      "unit.noiseLatticeRmsRatio": 0.368151,
+      "unit.hotspotSpacingCv": 0.0101293
+    }
+  },
+  "landShares": {
+    "1": {
+      "ice_sheet": 0.233779,
+      "alpine": 0.0114793,
+      "wetland": 0.000682629,
+      "tundra": 0.118116,
+      "taiga": 0.16432,
+      "temperate_forest": 0.0406748,
+      "grassland": 0.13132,
+      "desert": 0.128712,
+      "savanna": 0.150756,
+      "tropical_rainforest": 0.0201595
+    },
+    "42": {
+      "ice_sheet": 0.132574,
+      "alpine": 0.0401966,
+      "wetland": 0.00101714,
+      "tundra": 0.0799126,
+      "taiga": 0.0953852,
+      "temperate_forest": 0.0382028,
+      "grassland": 0.149086,
+      "desert": 0.186203,
+      "savanna": 0.254306,
+      "tropical_rainforest": 0.0231159
+    },
+    "20261029": {
+      "ice_sheet": 0.135488,
+      "alpine": 0.0243057,
+      "wetland": 0.00180741,
+      "tundra": 0.138328,
+      "taiga": 0.184015,
+      "temperate_forest": 0.0596389,
+      "grassland": 0.141742,
+      "desert": 0.0926244,
+      "savanna": 0.190801,
+      "tropical_rainforest": 0.0312504
+    }
+  },
+  "cross": {
+    "seeds.sameBandOverAdjacentBandJs": 0.27301
+  },
+  "targets": {
+    "zonal.biomeInfoExplainedByAbsLat": {
+      "op": "<=",
+      "limit": 0.5,
+      "gate": false
+    },
+    "zonal.dominantBiomeShare": {
+      "op": "<=",
+      "limit": 0.55,
+      "gate": false
+    },
+    "zonal.openOceanPrecipR2": {
+      "op": "<=",
+      "limit": 0.9,
+      "gate": false
+    },
+    "zonal.oceanTempR2": {
+      "op": "<=",
+      "limit": 0.97,
+      "gate": false
+    },
+    "zonal.lowlandTempR2": {
+      "op": "<=",
+      "limit": 0.96,
+      "gate": false
+    },
+    "lines.humidityStepAtIntegerIsotherms": {
+      "op": "<=",
+      "limit": 1.5,
+      "gate": false
+    },
+    "lines.windStreakAnisotropyExcess": {
+      "op": "<=",
+      "limit": 0.05,
+      "gate": false
+    },
+    "coast.boxDimension": {
+      "op": ">=",
+      "limit": 1.12,
+      "gate": false
+    },
+    "patches.top10ShareOfLand": {
+      "op": "<=",
+      "limit": 0.35,
+      "gate": false
+    },
+    "patches.top10ShareOfLandWithoutIce": {
+      "op": "<=",
+      "limit": 0.3,
+      "gate": false
+    },
+    "patches.singleBiomeWindowShare": {
+      "op": "<=",
+      "limit": 0.35,
+      "gate": false
+    },
+    "features.gapP90GameKm": {
+      "op": "<=",
+      "limit": 8,
+      "gate": false
+    },
+    "seeds.sameBandOverAdjacentBandJs": {
+      "op": ">=",
+      "limit": 0.5,
+      "gate": false
+    },
+    "unit.windMinSpeed": {
+      "op": ">=",
+      "limit": 0.2,
+      "gate": false
+    },
+    "unit.noiseLatticeRmsRatio": {
+      "op": ">=",
+      "limit": 0.8,
+      "gate": false
+    },
+    "unit.hotspotSpacingCv": {
+      "op": ">=",
+      "limit": 0.15,
+      "gate": false
+    }
+  },
+  "ms": {
+    "1": {
+      "generate": 17299,
+      "metrics": 3001
+    },
+    "42": {
+      "generate": 16270,
+      "metrics": 2977
+    },
+    "20261029": {
+      "generate": 15758,
+      "metrics": 3386
+    }
+  }
+}

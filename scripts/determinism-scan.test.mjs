@@ -1,7 +1,11 @@
 // 결정성 검사 시험 — 판정·생성 코드의 엔진 의존 API 찾기 (scripts/determinism-scan.mjs, AGENTS.md 4장)
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { blankCommentsAndStrings, findDeterminismViolations } from "./determinism-scan.mjs";
+import {
+  blankCommentsAndStrings,
+  findDeterminismViolations,
+  findTestHelperImports,
+} from "./determinism-scan.mjs";
 
 /** 위반 줄 번호 */
 const lines = (source) => findDeterminismViolations(source).map((violation) => violation.line);
@@ -108,5 +112,23 @@ describe("findDeterminismViolations", () => {
         expect.stringContaining("초월함수"),
       ]);
     }
+  });
+});
+
+describe("findTestHelperImports", () => {
+  it("판정·생성 코드가 시험 도우미(test + 대문자로 시작하는 파일)를 가져오면 잡는다", () => {
+    const source = [
+      'import { TEST_BIOMES } from "./testFixtures.ts";',
+      'export { fieldMetrics } from "../generator/testVariety.ts";',
+      'const unit = await import("./testVarietyUnit.ts");',
+      "import {",
+      "  a,",
+      '} from "./testOracle.ts";',
+      'import { buildGrid } from "./grid.ts";',
+      '// import { x } from "./testFixtures.ts";',
+      'import { testing } from "./testing.ts";',
+      'const note = "from ./testFixtures.ts";',
+    ].join("\n");
+    expect(findTestHelperImports(source).map((violation) => violation.line)).toEqual([1, 2, 3, 6]);
   });
 });

@@ -5,7 +5,7 @@
 // 3) 판정 코드(packages/sim)·행성 코드(packages/planet)·@terra/shared 결정적 모듈에서 결정성을 깨는 API 사용을 막는다.
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { findDeterminismViolations } from "./determinism-scan.mjs";
+import { findDeterminismViolations, findTestHelperImports } from "./determinism-scan.mjs";
 import { fail, listFiles } from "./lib.mjs";
 import { findValueImports } from "./type-only-imports.mjs";
 
@@ -69,13 +69,14 @@ for (const file of files.filter((f) => /^(apps|packages)\/[^/]+\/package\.json$/
 // 검사 대상: 판정 코드(packages/sim), 행성 코드(packages/planet: 격자·투영·생성기), 그리고 그 둘이 쓰는 @terra/shared의
 // 결정적 모듈(결정적 수학 detMath·시드 난수 rng·행성 정의 어휘와 프리셋 수치). 투영도 결정적 근사를 쓰므로 예외가 없다
 // (ADR 2026-10-29-s2-planet-lod). 시험 파일(*.test.ts)과 시험 도우미(test로 시작하는 파일: testOracle.ts·testFixtures.ts)는
-// 뺀다 — 기준값을 Math 함수로 만들어도 된다
+// 뺀다 — 기준값을 Math 함수로 만들어도 된다. 대신 시험이 아닌 파일은 시험 도우미를 가져오지 않는다(검사를 피하지 않게)
 const DETERMINISTIC_SOURCE =
   /^packages\/(sim|planet)\/src\/.*\.ts$|^packages\/shared\/src\/(detMath|rng|planetDefinition|planetPresets)\.ts$/;
 const TEST_ONLY = /(\.test\.ts|\/test[A-Z][^/]*\.ts)$/;
 for (const file of files.filter((f) => DETERMINISTIC_SOURCE.test(f) && !TEST_ONLY.test(f))) {
   if (!existsSync(file)) continue;
-  for (const { line, reason } of findDeterminismViolations(readFileSync(file, "utf8"))) {
+  const source = readFileSync(file, "utf8");
+  for (const { line, reason } of [...findDeterminismViolations(source), ...findTestHelperImports(source)]) {
     errors.push(`${path.normalize(file)}:${line}: ${reason}`);
   }
 }

@@ -1,18 +1,25 @@
-// 초안 내보내기·가져오기 시험 — 묶음 모양, 왕복, 64KiB 상한(UTF-8 바이트), 코드(too_large·not_json·unknown_format·invalid_entry),
-// 항목 하나 붙여 넣기, 파일 이름
-import { PLANET_GENERATOR_FACE_LEVELS, PLANET_SETTING_RANGES } from "@terra/shared";
+// 초안 내보내기·가져오기 시험 — 묶음 모양, 왕복, 64KiB 상한(UTF-8 바이트), 코드(too_large·not_json·unknown_format·invalid_entry·
+// entry_too_large), 항목 하나 붙여 넣기, 파일 이름, 팩과 견주기(서버 drafts.save와 같은 차례·코드)
+import {
+  PLANET_DRAFT_ENTRY_MAX_BYTES,
+  PLANET_GENERATOR_FACE_LEVELS,
+  PLANET_SETTING_RANGES,
+  planetDraftEntryBytes,
+} from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import {
   DRAFT_EXPORT_FORMAT,
   DRAFT_IMPORT_MAX_BYTES,
   buildDraftExport,
+  checkDraftForPack,
   draftExportFileName,
+  entryProblem,
   isImportableEntry,
   parseDraftImport,
   serializeDraftExport,
 } from "./draftExport.ts";
 import { type DraftEntry, entryPresets, withSetting } from "./editorModel.ts";
-import { TEST_PLANET } from "./testDefinitions.ts";
+import { PACK_BIOMES, TEST_PLANET } from "./testDefinitions.ts";
 
 const BASE = { contentVersion: "core@2", definitionHash: "ab".repeat(32), generatorVersion: 2 };
 const AT = new Date(Date.UTC(2026, 9, 29, 12, 34, 56));
@@ -150,5 +157,44 @@ describe("가져오기", () => {
     expect(code(JSON.stringify({ ...TEST_PLANET, seed: "x" }))).toBe("invalid_entry");
     // presets가 없는 모르는 객체는 묶음으로 읽고 모양이 틀린다
     expect(code(JSON.stringify({ hello: 1 }))).toBe("unknown_format");
+  });
+});
+
+/** 직렬화한 크기가 bytes 이상이 되게 이름을 늘린 항목 */
+function bigEntry(bytes: number): DraftEntry {
+  return { ...planet, name: { ko: "가".repeat(Math.ceil(bytes / 3)), en: "big" } };
+}
+
+describe("항목 크기(서버 drafts.save와 같은 8KiB)", () => {
+  it("직렬화한 항목이 8KiB를 넘으면 entry_too_large(묶음·항목 하나 모두)", () => {
+    const big = bigEntry(PLANET_DRAFT_ENTRY_MAX_BYTES + 1);
+    expect(planetDraftEntryBytes(big)).toBeGreaterThan(PLANET_DRAFT_ENTRY_MAX_BYTES);
+    expect(entryProblem(big)).toBe("entry_too_large");
+    expect(code(bundleText({ planet: big }))).toBe("entry_too_large");
+    expect(code(JSON.stringify(big))).toBe("entry_too_large");
+    // 상한 안이면 받는다
+    const fits = bigEntry(PLANET_DRAFT_ENTRY_MAX_BYTES - 2000);
+    expect(planetDraftEntryBytes(fits)).toBeLessThanOrEqual(PLANET_DRAFT_ENTRY_MAX_BYTES);
+    expect(code(bundleText({ planet: fits }))).toBe("ok");
+  });
+});
+
+describe("팩과 견주기(초안을 바꾸기 전에)", () => {
+  const pack = { planetIds: ["s2_test_planet", "s2_editor_planet"], biomes: PACK_BIOMES };
+
+  it("팩 행성·바이옴이고 생성기가 받으면 null", () => {
+    expect(checkDraftForPack(planet, pack)).toBeNull();
+  });
+
+  it("서버와 같은 차례·코드: 크기·모양 → 바이옴 → 행성 ID → 생성기 입력", () => {
+    expect(checkDraftForPack(bigEntry(PLANET_DRAFT_ENTRY_MAX_BYTES + 1), pack)).toBe("entry_too_large");
+    expect(checkDraftForPack({ ...planet, seed: -1 }, pack)).toBe("invalid_entry");
+    expect(checkDraftForPack({ ...planet, biomes: ["desert", "no_such_biome"] }, pack)).toBe("unknown_biome");
+    expect(checkDraftForPack({ ...planet, id: "other_planet" }, pack)).toBe("unknown_planet");
+    // 바다·호수 규칙이 없는 바이옴 표는 생성기가 받지 않는다(모양은 맞다)
+    expect(checkDraftForPack({ ...planet, biomes: ["desert", "savanna"] }, pack)).toBe("generator_rejected");
+    expect(checkDraftForPack({ ...planet, biomes: ["no_such_biome"], id: "other_planet" }, pack)).toBe(
+      "unknown_biome",
+    );
   });
 });

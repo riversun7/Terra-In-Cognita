@@ -27,6 +27,14 @@ export {
   presetValues,
   resolvePlanetSettings,
 } from "./planetPresets.ts";
+export {
+  PLANET_DRAFT_ENTRY_MAX_BYTES,
+  PLANET_DRAFT_REJECT_CODES,
+  isPlanetDraftRejectCode,
+  planetDraftEntryBytes,
+  utf8ByteLength,
+  type PlanetDraftRejectCode,
+} from "./planetDraftApi.ts";
 export { estimateClockOffset, type ClockSample, type ClockEstimate } from "./clock.ts";
 export {
   LOGIN_ID_MAX_LENGTH,

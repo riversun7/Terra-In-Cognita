@@ -157,6 +157,7 @@
 | `pnpm --filter @terra/planet bench [면 레벨 …]` | 행성 생성기 벤치마크(콘텐츠 팩의 S2 시험 행성, 기본 6 7 9): 단계별 시간·RSS·타입 배열·최대 RSS. 레벨마다 새 프로세스로 잰다. `pnpm test`에는 없다 |
 | `pnpm --filter @terra/planet render <출력 폴더> [면 레벨] [시드]` | 생성 결과 그림(S2 시험 행성, 기본 면 레벨 7, 시드는 팩 값): 면마다 고도·바이옴·기온 PNG, 경위도 전체 5장(고도·바이옴·기온·강수·습도), 요약 수치. 출력 폴더는 저장소 밖 절대 경로로 준다(명령은 `packages/planet`에서 돈다) |
 | `pnpm build` | 전체 빌드 |
+| `pnpm check:bundle` | 첫 화면 JS 크기 검사(빌드한 뒤에. CI는 빌드 다음 단계): 빌드한 `index.html`의 모듈 + modulepreload 조각, 파일마다 gzip 9단계 합 ≤ `apps/game/bundle-budget.json`. 상한을 올리면 늘어난 까닭과 잰 값을 작업 기록에 적는다(ADR `2026-10-29-app-shell.md` 11절) |
 | `pnpm docs:index` | 작업 기록을 추가한 뒤 `docs/WORKLOG.md` 목차를 다시 만든다 |
 | `pnpm check:docs` | 코드 변경 → 작업 기록(의존성 버전만 올린 변경은 제외), 새 런타임 의존성 → ADR, 올라간 마이그레이션 수정 금지 |
 | `pnpm check:content [기준 커밋]` | 콘텐츠 팩 검증: 스키마·참조·ID 변경표 + 기준 커밋(기본 upstream)의 팩과 호환. `--no-compat`은 호환 검사 빼기, `--print`는 서버 팩의 버전·해시 출력 |
@@ -168,6 +169,7 @@
 | GitHub Actions `account-admin` (수동 실행) | NAS 운영 컨테이너에서 계정 만들기·역할 바꾸기·비밀번호 바꾸기(`dist/cli.js`, 감사 기록 남음). 비밀번호는 로그에 가려진다 |
 | GitHub Actions `nas-metrics` (수동 실행) | NAS 운영 지표를 Summary에 모은다(읽기만): 서버 1분 지표, 컨테이너 CPU·메모리, 기기 성능·오류. 입력은 최근 몇 분(1~1440). 배포로 앱 컨테이너가 바뀌면 그 전 서버 지표 줄은 없다 |
 | `BETTER_AUTH_URL=http://localhost:5173 pnpm dev:server` | 개발 중 로그인 시험(같은 출처 검사가 Vite 개발 서버 주소를 기준으로 하게). DB(`DATABASE_URL`)가 있어야 인증이 켜진다 |
+| `TEST_DATABASE_URL=postgres://… pnpm e2e [시험 파일·--grep …]` | 화면 시험(Playwright, `e2e/`). 화면을 고친 줄기가 돌리고 결과(통과·실패, 잰 값)를 작업 기록에 적는다. CI 밖이다(ADR `2026-10-29-app-shell.md` [결정 3]). 전역 준비가 빌드(없거나 소스보다 오래되면 `pnpm build`) → 새 DB → 가짜 계정 player·admin → 빌드한 서버(빈 포트 4400~4599)를 만들고 끝나면 지운다. 브라우저는 개발 환경에 있는 것만 쓴다(`PLAYWRIGHT_BROWSERS_PATH`, `@playwright/test` 1.63.0 = chromium-1243. 내려받지 않는다). 시험 쓰는 법은 `e2e/helpers/test.ts` 머리 주석, 사진 폴더는 `E2E_SHOTS_DIR` |
 | `NODE_ENV= PORT=4320 STATIC_DIR=apps/game/dist DATABASE_URL=… BETTER_AUTH_SECRET=… BETTER_AUTH_URL=http://127.0.0.1:4320 node apps/server/dist/main.js` | 빌드한 앱·서버로 화면 시험(Playwright 등). 운영 모드(`NODE_ENV=production`)는 https 주소를 요구하므로 비운다. 먼저 `pnpm build`, `DATABASE_URL=… node apps/server/dist/migrate.js`. 시험 계정은 `node apps/server/dist/cli.js create-user`(가짜 자료만) |
 | `S1_TEST_BOTS=1000 PATH_WORKERS=1 pnpm dev:server` | S1 시험 2차맵(키 `S1_TEST_MAP_KEY`)에 서버가 움직이는 봇 수(기본 0 = 봇 없음, 최대 20,000)와 경로 워커 스레드 수(기본 1, 최대 8). 2차맵·경로 워커는 늘 켜진다. 빌드한 서버(`node apps/server/dist/main.js`)도 같다. NAS는 `ops/compose.yml`에서 1,000 |
 | `S1_URL=http://127.0.0.1:4320 S1_ID=… S1_PASSWORD=… node ops/s1-probe.mjs` | S1 측정 클라이언트: 들어가기 → 구독 → 스냅샷 크기·받는 시간·갱신 양·경로 지연·rev 빠짐. `S1_SECONDS`(기본 60), `S1_CLIENTS`(동시 연결), `S1_MOVE_MS`(관리자 이동 명령 간격, admin 계정만). `S1_URL`은 서버 `BETTER_AUTH_URL`과 같아야 한다. 저장소에서 `pnpm install` 뒤 실행(가짜 계정만) |

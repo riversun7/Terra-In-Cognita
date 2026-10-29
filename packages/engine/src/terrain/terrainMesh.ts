@@ -12,7 +12,7 @@ import {
   terrainProblem,
   vertexHeightM,
 } from "./terrainData.ts";
-import { HEIGHT_SHADE, surfaceRgb, toByte } from "./terrainTextures.ts";
+import { HEIGHT_SHADE, heightShadeScale, surfaceRgb, toByte } from "./terrainTextures.ts";
 
 export interface TerrainMeshArrays {
   /** 꼭짓점 위치 xyz(m) */
@@ -57,7 +57,7 @@ export function buildTerrainMesh(input: TerrainInput): TerrainMeshArrays {
       if (h > maxHeightM) maxHeightM = h;
     }
   }
-  const range = Math.max(1e-6, maxHeightM - minHeightM);
+  const heightScale = heightShadeScale(minHeightM, maxHeightM);
   const hasWater = minHeightM < input.waterLevelM;
 
   // 윗면 꼭짓점
@@ -101,7 +101,7 @@ export function buildTerrainMesh(input: TerrainInput): TerrainMeshArrays {
       }
       // 높을수록 조금 밝게(깊이감). 물 아래는 조금 어둡게 — 지형 재질도 같은 값으로 조각마다 계산한다
       const shade =
-        (HEIGHT_SHADE.base + HEIGHT_SHADE.span * ((h - minHeightM) / range)) *
+        (HEIGHT_SHADE.base + HEIGHT_SHADE.span * ((h - minHeightM) * heightScale)) *
         (h < input.waterLevelM ? HEIGHT_SHADE.underwater : 1);
       colors[v * 3] = toByte((r / n) * shade);
       colors[v * 3 + 1] = toByte((g / n) * shade);

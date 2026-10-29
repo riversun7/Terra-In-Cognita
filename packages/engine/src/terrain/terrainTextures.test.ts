@@ -4,9 +4,12 @@ import { SURFACE, TERRAIN_CELLS, TERRAIN_VERTICES } from "./terrainData.ts";
 import { buildTerrainMesh } from "./terrainMesh.ts";
 import { NOISE_TEXTURE_SIZE, buildNoiseTextureData } from "./terrainNoise.ts";
 import {
+  HEIGHT_SHADE,
+  HEIGHT_SHADE_MIN_RANGE_M,
   SURFACE_TEXTURE_BYTES,
   UNKNOWN_SURFACE_RGB,
   buildSurfaceTextureData,
+  heightShadeScale,
   surfaceRgb,
   toByte,
 } from "./terrainTextures.ts";
@@ -76,6 +79,37 @@ describe("buildSurfaceTextureData", () => {
     const blue = mesh.colors[v * 3 + 2] ?? 0;
     expect(red / green).toBeCloseTo(r / g, 1);
     expect(blue / green).toBeCloseTo(b / g, 1);
+  });
+});
+
+describe("heightShadeScale", () => {
+  it("1 / 높이 폭이고, 폭이 0.01m보다 작으면 0.01m로 본다", () => {
+    expect(heightShadeScale(0, 300)).toBeCloseTo(1 / 300, 12);
+    // 높이는 0.1m 단위 — 가장 작은 실제 높낮이도 그대로다
+    expect(heightShadeScale(60, 60.1)).toBeCloseTo(10, 6);
+    expect(heightShadeScale(60, 60)).toBeCloseTo(1 / HEIGHT_SHADE_MIN_RANGE_M, 9);
+    expect(heightShadeScale(1000, 1000.004)).toBeCloseTo(1 / HEIGHT_SHADE_MIN_RANGE_M, 9);
+  });
+
+  it("평평한 2차맵: 조각마다 보간한 높이의 오차(1ulp의 몇 배)가 밝기를 바꾸지 않는다", () => {
+    // 60m에서 float32 1ulp ≈ 3.8e-6m. 전 배율(1 / 1e-6)이면 이 오차가 높이 비율 15 → 잘려서 밝기가 0.9 ↔ 1.08로 뛰었다(검토)
+    const interpolationErrorM = 4 * 3.8e-6;
+    expect(interpolationErrorM * 1e6).toBeGreaterThan(1);
+    // 지금 배율로는 8비트 색 0.1단계도 안 된다
+    const shadeChange = HEIGHT_SHADE.span * interpolationErrorM * heightShadeScale(60, 60);
+    expect(shadeChange * 255).toBeLessThan(0.1);
+  });
+
+  it("꼭짓점 색도 같은 배율을 쓴다: 평평한 지형은 모든 윗면 꼭짓점 색이 같다", () => {
+    const terrain = createMockTerrain(9);
+    terrain.heights.fill(600);
+    terrain.surface.fill(SURFACE.grass);
+    terrain.waterLevelM = -100;
+    const mesh = buildTerrainMesh(terrain);
+    const [r, g, b] = surfaceRgb(SURFACE.grass).map((value) => toByte(value * HEIGHT_SHADE.base));
+    for (let v = 0; v < TERRAIN_VERTICES * TERRAIN_VERTICES; v += 97) {
+      expect([...mesh.colors.subarray(v * 3, v * 3 + 3)]).toEqual([r, g, b]);
+    }
   });
 });
 

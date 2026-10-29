@@ -11,7 +11,8 @@
 //   네 채널 평균은 경계를 흔드는 채널 차이와 상관이 없어 잔결 밝기가 경계 모양을 따라가지 않는다.
 //   잡음 자료는 지형 워커가 처음 한 번 만들어 지형과 함께 준다(terrainBuilder.ts).
 // - 조각 하나: 칸 자료 texelFetch 4번 + 잡음 읽기(삼선형·이방성) 3번 + 계산 약 100번.
-// - 높이 밝기·물 아래 어둡게는 꼭짓점 색과 같은 식(terrainTextures.ts HEIGHT_SHADE)을 조각마다 계산한다.
+// - 높이 밝기·물 아래 어둡게는 꼭짓점 색과 같은 식(terrainTextures.ts HEIGHT_SHADE·heightShadeScale)을 조각마다 계산한다.
+//   배율은 높이 폭 0.01m에서 멈춘다(평평한 2차맵에서 보간 오차가 커져 점무늬가 되지 않게).
 // - 가장자리 벽(법선 y = 0)은 꼭짓점 색 그대로다. 빛은 MeshLambertMaterial 그대로 쓰고 색 단계만 바꾼다(onBeforeCompile).
 // - 텍스처는 CPU 배열을 그대로 들고 있다: 컨텍스트를 잃었다 돌아오면 three가 다시 올린다.
 import {
@@ -27,7 +28,12 @@ import {
 } from "three";
 import { TERRAIN_CELLS, type TerrainInput } from "./terrainData.ts";
 import { NOISE_TEXTURE_SIZE, NOISE_TILE_FEATURES } from "./terrainNoise.ts";
-import { HEIGHT_SHADE, SURFACE_TEXTURE_BYTES, buildSurfaceTextureData } from "./terrainTextures.ts";
+import {
+  HEIGHT_SHADE,
+  SURFACE_TEXTURE_BYTES,
+  buildSurfaceTextureData,
+  heightShadeScale,
+} from "./terrainTextures.ts";
 
 /** three 프로그램 캐시 키 — 다른 MeshLambertMaterial(유닛 몸통 등)과 프로그램을 나눠 쓰지 않게 따로 준다 */
 const PROGRAM_KEY = "terra-terrain-surface";
@@ -257,11 +263,8 @@ export class TerrainMaterial {
     buildSurfaceTextureData(input.surface, this.surfaceData);
     this.surfaceTexture.needsUpdate = true;
     this.uniforms.uCellSize.value = input.cellSizeM;
-    this.uniforms.uHeight.value.set(
-      minHeightM,
-      1 / Math.max(1e-6, maxHeightM - minHeightM),
-      input.waterLevelM,
-    );
+    // 높이 비율 배율은 꼭짓점 색과 같은 함수(폭이 0에 가까워도 0.01m로 본다 — 평평한 2차맵의 점무늬 막기)
+    this.uniforms.uHeight.value.set(minHeightM, heightShadeScale(minHeightM, maxHeightM), input.waterLevelM);
   }
 
   dispose(): void {

@@ -24,6 +24,19 @@ export const UNKNOWN_SURFACE_RGB: Rgb = [0.8, 0.8, 0.8];
  */
 export const HEIGHT_SHADE = { base: 0.9, span: 0.18, underwater: 0.85 } as const;
 
+/** 높이 밝기에서 높이 폭(가장 높은 땅 − 가장 낮은 땅)을 이보다 작게 보지 않는다(m) */
+export const HEIGHT_SHADE_MIN_RANGE_M = 0.01;
+
+/**
+ * 높이 비율 배율 = 1 / 높이 폭(높이 비율 = (높이 − 가장 낮은 땅) × 배율). 꼭짓점 색과 지형 재질이 같은 값을 쓴다.
+ * 폭은 HEIGHT_SHADE_MIN_RANGE_M보다 작게 보지 않는다: 아주 평평한 2차맵(폭 0)에서 1 / 1e-6을 쓰면 조각마다 보간한
+ * 높이의 오차(약 1ulp, 60m에서 약 4e-6m)가 10⁶배로 커져 밝기가 점마다 0.9와 1.08 사이를 뛰었다(점무늬·줄무늬, 검토 확인).
+ * 높이는 0.1m 단위라 높낮이가 있는 지형은 값이 그대로다
+ */
+export function heightShadeScale(minHeightM: number, maxHeightM: number): number {
+  return 1 / Math.max(HEIGHT_SHADE_MIN_RANGE_M, maxHeightM - minHeightM);
+}
+
 export function surfaceRgb(code: number | undefined): Rgb {
   return (code === undefined ? undefined : SURFACE_RGB[code]) ?? UNKNOWN_SURFACE_RGB;
 }

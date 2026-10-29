@@ -50,6 +50,13 @@ const NOISE_LAYERS = [
 ] as const;
 /** 경계 폭: 화면 한 점 사이 무게 차이 변화(fwidth)에 곱한다. 작을수록 날카롭다(약 0.25 → 10~90% 폭 1.3점) */
 const EDGE_SOFTNESS = 0.25;
+/**
+ * 경계 폭의 아래·위 한계(화면 한 점이 덮는 칸 수 pxCells에 곱한다). 보통 경계는 무게 차이가 칸마다 약 2~3 바뀌어
+ * 폭이 약 0.5~0.75 × pxCells다. 위 한계가 크면(전 2.5) 칸 가운데 줄에서 탭 창이 바뀌며 무게 0인 이웃 지표가 들어와
+ * 차이가 +1 → −1로 뛸 때(미분이 튄다) 폭이 커져, 그 이웃 색이 1점 직선으로 비쳤다(먼 화면, 검토 확인)
+ */
+const EDGE_TAU_MIN_CELLS = 0.2;
+const EDGE_TAU_MAX_CELLS = 0.75;
 const GRAIN_STRENGTH = 0.17;
 /** 이방성 거르기 배수(기기 상한으로 자른다) */
 const NOISE_ANISOTROPY = 4;
@@ -162,7 +169,7 @@ vec3 terrainSurfaceColor(vec3 world) {
   // 경계를 가로지르며 부호가 바뀌는 차이(코드가 작은 쪽 − 큰 쪽). 지표 하나뿐이면 1(경계에서 멀다)
   float margin = rank.w < 0.0 ? 1.0 : (rank.y < rank.w ? rank.x - rank.z : rank.z - rank.x);
   // 경계 폭(무게 단위): 화면 한 점 사이 변화에 맞춘다. 칸 기울기로 위아래를 묶는다(세 지표가 만나는 곳 등 미분이 튀는 곳)
-  float tau = clamp(fwidth(margin) * ${glslFloat(EDGE_SOFTNESS)}, pxCells * 0.2, pxCells * 2.5) + 1e-5;
+  float tau = clamp(fwidth(margin) * ${glslFloat(EDGE_SOFTNESS)}, pxCells * ${glslFloat(EDGE_TAU_MIN_CELLS)}, pxCells * ${glslFloat(EDGE_TAU_MAX_CELLS)}) + 1e-5;
   float e0 = exp((v0 - rank.x) / tau);
   float e1 = u1 * exp((v1 - rank.x) / tau);
   float e2 = u2 * exp((v2 - rank.x) / tau);

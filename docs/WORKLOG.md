@@ -5,6 +5,8 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-29 23:15 | 행성 편집기 서버(WP-B) 검토 고침: 지적 14개 확인·처리 | Claude Code | [29-2315-planet-editor-server-review](worklog/2026/10/29-2315-planet-editor-server-review.md) |
+| 2026-10-29 22:10 | 행성 편집기 서버(WP-B): 초안 표·planetEditor tRPC·확인 해시·fieldsHash·편집 전용 행성·tRPC 같은 출처 확인 | Claude Code | [29-2210-planet-editor-server](worklog/2026/10/29-2210-planet-editor-server.md) |
 | 2026-10-29 21:40 | 기획 원본 f0e0e71(D-260~D-271·Step 5 D-5029~D-5048·Step 6 D-6039~D-6049·Step 7 D-7026~D-7035) → ADR 35·36·38·PLAN 14장·특수 지형 제안서 | Claude Code | [29-2140-planning-f0e0e71](worklog/2026/10/29-2140-planning-f0e0e71.md) |
 | 2026-10-29 21:00 | 단위 시험 제한 시간 30초(공유 개발 컨테이너 부하) | Claude Code | [29-2100-bake-test-timeout](worklog/2026/10/29-2100-bake-test-timeout.md) |
 | 2026-10-29 21:00 | 앱 뼈대 0단계 검토 반영: 주소 표 타입·값 규칙, 부모 화면·검색어 바꾸기, 설정 쓰기 도우미, 완료 종류, ADR 37 문장 | Claude Code | [29-2100-app-shell-stage0-review](worklog/2026/10/29-2100-app-shell-stage0-review.md) |

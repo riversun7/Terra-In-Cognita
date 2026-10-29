@@ -65,6 +65,7 @@ export {
   type PlanetTileData,
 } from "./planetTile.ts";
 export {
+  PLANET_FIELDS_HASH_PATTERN,
   PLANET_ID_PATTERN,
   PLANET_STATUSES,
   canReadPlanetTiles,
@@ -91,4 +92,4 @@ export {
   type ClientErrorReport,
   type PerfReport,
 } from "./telemetry.ts";
-export { TRPC_PATH } from "./api.ts";
+export { TRPC_MAX_BATCH_SIZE, TRPC_PATH } from "./api.ts";

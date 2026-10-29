@@ -4,8 +4,10 @@
 // 가져오기는 두 단계다. 코드는 메시지 키로 바꾼다(문장을 보이지 않는다).
 //   1. parseDraftImport(글): 64KiB 상한 → JSON 읽기 → 바깥 모양을 손으로 확인 → 항목 크기(8KiB)·생성기가 받을 수 있는 모양.
 //      코드: 기기만 too_large(글 64KiB 넘음)·not_json·unknown_format, 서버와 같은 entry_too_large·invalid_entry.
-//   2. checkDraftForPack(항목, 팩): 서버 drafts.save와 같은 차례로 바이옴 참조(unknown_biome) → 행성 ID(unknown_planet) →
-//      생성기 입력 확인(generator_rejected). 화면(WP-D)이 정의 조회 결과로 부르고, 통과해야 초안을 바꾼다.
+//   2. checkDraftForPack(항목, 팩, 열린 행성 ID): 서버 drafts.save와 같은 차례로 항목 id = 열린 행성(아니면 invalid_entry:
+//      다른 행성에서 내보낸 것) → 바이옴 참조(unknown_biome) → 행성 ID(unknown_planet) → 생성기 입력 확인(generator_rejected).
+//      화면(WP-D)이 정의 조회 결과로 부르고, 통과해야 초안을 바꾼다. 다른 행성의 것이라고 따로 알리려면 화면이 먼저
+//      항목 id와 열린 행성 ID를 견준다(서버는 이때 invalid_entry만 준다).
 //   서버와 같은 코드·상한은 @terra/shared planetDraftApi.ts 한 곳에 있다. 콘텐츠 형식 전체 검사(planetEntrySchema)는 서버만
 //   한다(게임 앱은 zod·콘텐츠 패키지를 가져오지 않는다): 기기 검사를 통과해도 서버가 invalid_entry를 줄 수 있다.
 //   내보낸 묶음 말고 항목 하나만 붙여 넣어도 받는다(planets.json에서 바로 복사한 경우: 기준 없음, 해시 없음).
@@ -166,12 +168,19 @@ export interface DraftPackContext {
 }
 
 /**
- * 가져온 항목을 서버 drafts.save와 같은 차례로 본다(초안을 바꾸기 전에): 크기·모양 → 바이옴 참조 → 행성 ID → 생성기 입력.
- * 문제가 없으면 null. 콘텐츠 형식 전체(planetEntrySchema)는 서버만 보므로 통과해도 서버가 invalid_entry를 줄 수 있다
+ * 가져온 항목을 서버 drafts.save와 같은 차례로 본다(초안을 바꾸기 전에): 크기·모양 → 항목 id = planetId(저장할 행성,
+ * 서버 저장의 planetId) → 바이옴 참조 → 행성 ID → 생성기 입력. 문제가 없으면 null.
+ * 콘텐츠 형식 전체(planetEntrySchema)는 서버만 보므로 통과해도 서버가 invalid_entry를 줄 수 있다
  */
-export function checkDraftForPack(entry: DraftEntry, pack: DraftPackContext): PlanetDraftRejectCode | null {
+export function checkDraftForPack(
+  entry: DraftEntry,
+  pack: DraftPackContext,
+  planetId: string,
+): PlanetDraftRejectCode | null {
   const shape = entryProblem(entry);
   if (shape) return shape;
+  // 서버도 같은 칸(invalid_entry)에서 본다: 열린 행성과 다른 항목이 이 행성 초안에 말없이 들어가지 않게
+  if (entry.id !== planetId) return "invalid_entry";
   const known = new Set<string>();
   for (const biome of pack.biomes) {
     const id = isDraftEntry(biome) ? biome.id : undefined;

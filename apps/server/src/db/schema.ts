@@ -10,12 +10,15 @@ import {
   index,
   integer,
   jsonb,
+  pgSequence,
   pgTable,
   real,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { PlanetDraftBase } from "../planetEditor/types.ts";
 
 /** 기기 오류 기록 (PLAN 9.5 "기기 오류 수집"). 기기가 보낸 오류를 받은 그대로 남긴다. */
 export const clientErrors = pgTable("client_errors", {
@@ -216,6 +219,75 @@ export const userSettings = pgTable(
   (table) => [
     check("user_settings_theme_format", sql`${table.theme} ~ '^[a-z][a-z0-9_]{0,31}$'`),
     check("user_settings_locale_format", sql`${table.locale} ~ '^[a-z]{2,3}(-[A-Za-z0-9]{2,8}){0,3}$'`),
+  ],
+);
+
+// ── 행성 편집기 초안 — docs/adr/2026-10-29-planet-editor-stage1.md 9절 ───────────────────────────────
+// 사람마다·팩 행성마다 초안 하나와 그 판 기록(최근 50개). 초안 항목(entry)은 planets.json 항목 그대로(시드 포함)라
+// 이 표 밖(감사 기록·로그)으로 내보내지 않는다. 쓰기·검사는 src/planetEditor/(store.ts·validate.ts).
+// 행성 ID는 콘텐츠 ID 규칙만 검사 조건에 넣는다: 팩에 있는지는 앱이 본다(팩이 바뀌어도 옛 버전 앱이 그대로 읽게).
+
+/**
+ * 초안 판 번호 — 모든 초안이 함께 쓰는 번호(저장·되돌리기마다 다음 값). 한 번 쓴 번호는 다시 나오지 않는다:
+ * 지운 뒤 다시 만든 초안도 옛 판 번호를 쓰지 않아서, 옛 판을 들고 있던 기기의 저장은 늘 CONFLICT다(ADR 38 WP-B).
+ * 판 열(integer)에 맞춰 상한을 둔다. 다 쓰면 저장이 실패한다(한 기기가 쉬지 않고 2초마다 저장해도 약 136년)
+ */
+export const PLANET_DRAFT_REVISION_SEQ = "planet_draft_revision_seq";
+export const planetDraftRevisionSeq = pgSequence(PLANET_DRAFT_REVISION_SEQ, {
+  startWith: 1,
+  minValue: 1,
+  maxValue: 2_147_483_647,
+  increment: 1,
+  cache: 1,
+  cycle: false,
+});
+
+/** 행성 초안 — (owner_id, planet_id)마다 하나. revision은 저장할 때마다 커진다(planet_draft_revision_seq, 띄엄띄엄) */
+export const planetDrafts = pgTable(
+  "planet_drafts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** 콘텐츠 팩 행성 ID */
+    planetId: text("planet_id").notNull(),
+    /** 지금 판(가장 최근 판 기록과 같다) */
+    revision: integer("revision").notNull(),
+    /** 초안을 시작한 공개본(팩 버전·정의 해시·생성기 판). 모르면 null(항목만 가져온 경우) */
+    base: jsonb("base").$type<PlanetDraftBase>(),
+    /** planets.json 항목 모양(시드 포함) */
+    entry: jsonb("entry").$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /** 마지막 저장 시각(저장하는 쪽이 now()로 쓴다) */
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("planet_drafts_owner_planet_idx").on(table.ownerId, table.planetId),
+    check("planet_drafts_planet_id_format", sql`${table.planetId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+    check("planet_drafts_revision_positive", sql`${table.revision} >= 1`),
+  ],
+);
+
+/** 초안 판 기록 — 저장·되돌리기마다 한 줄. 초안마다 최근 50개만 남긴다(저장할 때 오래된 것을 지운다) */
+export const planetDraftRevisions = pgTable(
+  "planet_draft_revisions",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    draftId: uuid("draft_id")
+      .notNull()
+      .references(() => planetDrafts.id, { onDelete: "cascade" }),
+    revision: integer("revision").notNull(),
+    entry: jsonb("entry").$type<Record<string, unknown>>().notNull(),
+    base: jsonb("base").$type<PlanetDraftBase>(),
+    /** 항목 크기(바이트, @terra/shared planetDraftEntryBytes). 판 목록이 항목을 읽지 않게 저장할 때 잰다 */
+    bytes: integer("bytes").notNull(),
+    savedAt: timestamp("saved_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("planet_draft_revisions_draft_revision_idx").on(table.draftId, table.revision),
+    check("planet_draft_revisions_revision_positive", sql`${table.revision} >= 1`),
+    check("planet_draft_revisions_bytes_nonnegative", sql`${table.bytes} >= 0`),
   ],
 );
 

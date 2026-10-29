@@ -1,5 +1,5 @@
 // 행성 서비스 시험 — 굽는 중 → 완료, 디스크 캐시로 다시 켜기, 틀린 캐시·쓸 수 없는 폴더, 실패 뒤 다시 굽기
-import { readdir, writeFile } from "node:fs/promises";
+import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
 import { planetTileIds } from "@terra/planet";
@@ -7,6 +7,7 @@ import { decodePlanetTile, planetManifestSchema, planetTileVersion } from "@terr
 import { afterEach, describe, expect, it } from "vitest";
 import { DEFAULT_PLANET_CACHE_DIR, readConfig } from "../config.ts";
 import { createInlineBaker } from "./baker.ts";
+import { planetCacheIndexSchema } from "./cache.ts";
 import { type PlanetService, createPlanetService } from "./service.ts";
 import { controlledSource, recordingLog, smallSource, temporaryDir } from "./testSupport.ts";
 
@@ -55,8 +56,9 @@ describe("행성 서비스", () => {
     await Promise.resolve();
     const first = planetTileIds(5)[0]?.key ?? 0;
     expect(service.manifest("test_planet")?.status).toBe("generating");
-    // 가장 높은 땅은 구운 뒤에만 안다
+    // 가장 높은 땅·결과 해시는 구운 뒤에만 안다
     expect(service.manifest("test_planet")).not.toHaveProperty("maxElevationM");
+    expect(service.manifest("test_planet")).not.toHaveProperty("fieldsHash");
     expect(service.tile("test_planet", first, version)).toEqual({ kind: "not_ready" });
     // 이 행성의 타일 ID가 아니면 굽는 중이어도 없는 타일, 버전이 틀리면 먼저 그것
     expect(service.tile("test_planet", 12_345, version)).toEqual({ kind: "unknown_tile" });
@@ -73,6 +75,8 @@ describe("행성 서비스", () => {
     });
     const fields = await smallSource().generate();
     expect(manifest?.maxElevationM).toBe(Math.max(0, ...fields.elevationM));
+    // 생성 결과 해시는 구운 결과의 meta.hash(값은 생성기 판에 따라 바뀌므로 적지 않고 견준다, ADR 38 4절)
+    expect(manifest?.fieldsHash).toBe(fields.meta.hash);
     const found = service.tile("test_planet", first, version);
     if (found.kind !== "ok") throw new Error(`expected a tile, got ${found.kind}`);
     expect(decodePlanetTile(gunzipSync(found.gzip))).toMatchObject({ faceLevel: 5, mapLevel: 1, face: 0 });
@@ -104,9 +108,15 @@ describe("행성 서비스", () => {
     await second.service.whenIdle();
     expect(second.source.calls).toBe(0);
     expect(second.service.manifest("test_planet")?.status).toBe("ready");
-    // 가장 높은 땅은 캐시 목록에서 온다(구운 값과 같다)
+    // 가장 높은 땅·결과 해시는 캐시 목록에서 온다(구운 값과 같다)
     expect(second.service.manifest("test_planet")?.maxElevationM).toBe(
       first.service.manifest("test_planet")?.maxElevationM,
+    );
+    const baked = await smallSource().generate();
+    expect(first.service.manifest("test_planet")?.fieldsHash).toBe(baked.meta.hash);
+    expect(second.service.manifest("test_planet")?.fieldsHash).toBe(baked.meta.hash);
+    expect(planetManifestSchema.parse(second.service.manifest("test_planet"))).toEqual(
+      second.service.manifest("test_planet"),
     );
     const metrics = second.service.takeMetrics();
     expect(metrics).toMatchObject({
@@ -142,6 +152,23 @@ describe("행성 서비스", () => {
     const third = start({ cacheDir: dir });
     await third.service.whenIdle();
     expect(third.source.calls).toBe(0);
+  });
+
+  it("캐시 목록의 결과 해시가 목록 정보 모양이 아니면 캐시를 쓰지 않고 다시 굽는다", async () => {
+    const dir = await cacheDir();
+    const first = start({ cacheDir: dir });
+    await first.service.whenIdle();
+    const indexName = (await readdir(dir)).find((name) => name.endsWith(".index.json")) ?? "";
+    const indexPath = path.join(dir, indexName);
+    const index = planetCacheIndexSchema.parse(JSON.parse(await readFile(indexPath, "utf8")));
+    await writeFile(indexPath, JSON.stringify({ ...index, fieldsHash: "NOT-A-HASH" }));
+    const second = start({ cacheDir: dir });
+    await second.service.whenIdle();
+    expect(second.source.calls).toBe(1);
+    expect(second.log.messages("warn")).toContain("planet cache is invalid, baking again");
+    expect(second.service.manifest("test_planet")?.fieldsHash).toBe(
+      first.service.manifest("test_planet")?.fieldsHash,
+    );
   });
 
   it("캐시를 쓸 수 없으면(폴더 자리에 파일) 경고만 남기고 메모리로 준다", async () => {

@@ -1,0 +1,605 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "b322ea4a-3713-4055-b63f-3d23a4f26fda",
+  "prevIds": [
+    "52ee1e81-61ea-4902-8b4c-e77591323d78"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_sequence",
+      "statementTarget": [
+        "sequence",
+        "public",
+        "planet_draft_revision_seq"
+      ],
+      "writes": [
+        "s|seq|public.planet_draft_revision_seq",
+        "n|seq|public.planet_draft_revision_seq",
+        "e|seq|public.planet_draft_revision_seq",
+        "n|rel|public.planet_draft_revision_seq"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "planet_draft_revisions"
+      ],
+      "writes": [
+        "s|tbl|public.planet_draft_revisions",
+        "n|tbl|public.planet_draft_revisions",
+        "e|tbl|public.planet_draft_revisions",
+        "n|rel|public.planet_draft_revisions",
+        "n|type|public.planet_draft_revisions",
+        "n|rel|public.planet_draft_revisions_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "planet_drafts"
+      ],
+      "writes": [
+        "s|tbl|public.planet_drafts",
+        "n|tbl|public.planet_drafts",
+        "e|tbl|public.planet_drafts",
+        "n|rel|public.planet_drafts",
+        "n|type|public.planet_drafts",
+        "n|rel|public.planet_drafts_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "planet_draft_revisions",
+        "planet_draft_revisions_draft_revision_idx"
+      ],
+      "writes": [
+        "s|idx|public.planet_draft_revisions_draft_revision_idx",
+        "n|idx|public.planet_draft_revisions_draft_revision_idx",
+        "e|idx|public.planet_draft_revisions_draft_revision_idx",
+        "n|rel|public.planet_draft_revisions_draft_revision_idx"
+      ],
+      "reads": [
+        "n|tbl|public.planet_draft_revisions",
+        "n|sch|public",
+        "n|col|public.planet_draft_revisions.draft_id",
+        "n|col|public.planet_draft_revisions.revision"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "planet_drafts",
+        "planet_drafts_owner_planet_idx"
+      ],
+      "writes": [
+        "s|idx|public.planet_drafts_owner_planet_idx",
+        "n|idx|public.planet_drafts_owner_planet_idx",
+        "e|idx|public.planet_drafts_owner_planet_idx",
+        "n|rel|public.planet_drafts_owner_planet_idx"
+      ],
+      "reads": [
+        "n|tbl|public.planet_drafts",
+        "n|sch|public",
+        "n|col|public.planet_drafts.owner_id",
+        "n|col|public.planet_drafts.planet_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "planet_draft_revisions"
+      ],
+      "writes": [
+        "s|fk|public.planet_draft_revisions.planet_draft_revisions_draft_id_planet_drafts_id_fkey",
+        "n|fk|public.planet_draft_revisions.planet_draft_revisions_draft_id_planet_drafts_id_fkey",
+        "e|fk|public.planet_draft_revisions.planet_draft_revisions_draft_id_planet_drafts_id_fkey",
+        "n|con|public.planet_draft_revisions.planet_draft_revisions_draft_id_planet_drafts_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.planet_draft_revisions",
+        "n|sch|public",
+        "n|tbl|public.planet_drafts",
+        "n|sch|public",
+        "n|col|public.planet_draft_revisions.draft_id",
+        "n|col|public.planet_drafts.id",
+        "e|uniqueness|public.planet_drafts.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "planet_drafts"
+      ],
+      "writes": [
+        "s|fk|public.planet_drafts.planet_drafts_owner_id_users_id_fkey",
+        "n|fk|public.planet_drafts.planet_drafts_owner_id_users_id_fkey",
+        "e|fk|public.planet_drafts.planet_drafts_owner_id_users_id_fkey",
+        "n|con|public.planet_drafts.planet_drafts_owner_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.planet_drafts",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.planet_drafts.owner_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "planet_draft_revisions",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "planet_drafts",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_draft_revisions",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "planet_draft_revisions_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "9223372036854775807",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_draft_revisions",
+        "name": "draft_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_draft_revisions",
+        "name": "revision",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_draft_revisions",
+        "name": "entry",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_draft_revisions",
+        "name": "base",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_draft_revisions",
+        "name": "bytes",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_draft_revisions",
+        "name": "saved_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_drafts",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "gen_random_uuid()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_drafts",
+        "name": "owner_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_drafts",
+        "name": "planet_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_drafts",
+        "name": "revision",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_drafts",
+        "name": "base",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_drafts",
+        "name": "entry",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_drafts",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_drafts",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_draft_revisions",
+        "name": "planet_draft_revisions_draft_revision_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "draft_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "revision",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_drafts",
+        "name": "planet_drafts_owner_planet_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "owner_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "planet_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_draft_revisions",
+        "name": "planet_draft_revisions_draft_id_planet_drafts_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "draft_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "planet_drafts",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_drafts",
+        "name": "planet_drafts_owner_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "owner_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_draft_revisions",
+        "name": "planet_draft_revisions_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_drafts",
+        "name": "planet_drafts_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_draft_revisions",
+        "name": "planet_draft_revisions_revision_positive",
+        "value": "\"revision\" >= 1",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_draft_revisions",
+        "name": "planet_draft_revisions_bytes_nonnegative",
+        "value": "\"bytes\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_drafts",
+        "name": "planet_drafts_planet_id_format",
+        "value": "\"planet_id\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_drafts",
+        "name": "planet_drafts_revision_positive",
+        "value": "\"revision\" >= 1",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "planet_draft_revision_seq",
+        "incrementBy": "1",
+        "minValue": "1",
+        "maxValue": "2147483647",
+        "startWith": "1",
+        "cacheSize": 1,
+        "cycle": false,
+        "entityType": "sequences"
+      }
+    }
+  ]
+}

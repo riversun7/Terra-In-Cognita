@@ -3,6 +3,13 @@
 // 그래서 Node 전용 타입(fastify, pg, drizzle, better-auth 등)을 여기에 직접 넣지 않는다.
 // 넣으면 기기 코드에서 Node 전역(process, Buffer)이 타입 오류 없이 보이게 된다 — scripts/check-boundaries.mjs가 잡는다.
 import type { Role, UserSettings } from "@terra/shared";
+import type {
+  PlanetDraftRevisionInfo,
+  PlanetDraftSaveInput,
+  PlanetDraftSaved,
+  PlanetDraftView,
+  PlanetEditorDefinitions,
+} from "../planetEditor/types.ts";
 
 /** 로그인한 사용자 */
 export interface Viewer {
@@ -45,6 +52,34 @@ export interface SettingsServices {
   set(userId: string, patch: UserSettingsPatch): Promise<UserSettings>;
 }
 
+/** 행성 편집기 권한 동작(권한 문장 planetEditor, src/auth/permissions.ts) */
+export type PlanetEditorAction = "read" | "write";
+
+/** 속도 제한의 호출 종류: 정의 조회(감사 기록이 남는다)는 따로 한 번 더 센다 */
+export type PlanetEditorCallKind = "definitions" | "drafts";
+
+/**
+ * 행성 편집기(ADR 2026-10-29-planet-editor-stage1 9·11절) — 프로시저가 권한 미들웨어(우리 권한 표)를 거친 뒤 부른다.
+ * 실패는 tRPC 오류로 던진다: BAD_REQUEST(data.reason = 받지 않음 코드), CONFLICT(기대 판), NOT_FOUND(되돌릴 판·초안 없음),
+ * TOO_MANY_REQUESTS(속도 제한)
+ */
+export interface PlanetEditorServices {
+  /**
+   * 두 번째 권한 확인: Better Auth userHasPermission(요청한 사람의 세션, 세션을 늘리지 않는다). 아니면 FORBIDDEN·UNAUTHORIZED.
+   * 한 요청 안에서는 동작마다 한 번만 묻는다
+   */
+  ensurePermission(action: PlanetEditorAction): Promise<void>;
+  /** 사용자별 속도 제한. 넘으면 TOO_MANY_REQUESTS(data.reason "rate_limited") */
+  admit(viewer: Viewer, kind: PlanetEditorCallKind): void;
+  /** 정의 조회. 감사 기록을 쓴 뒤에만 돌려준다(못 쓰면 실패) */
+  definitions(viewer: Viewer): Promise<PlanetEditorDefinitions>;
+  getDraft(viewer: Viewer, planetId: string): Promise<PlanetDraftView | null>;
+  revisions(viewer: Viewer, planetId: string): Promise<PlanetDraftRevisionInfo[]>;
+  save(viewer: Viewer, input: PlanetDraftSaveInput): Promise<PlanetDraftSaved>;
+  restore(viewer: Viewer, input: { planetId: string; revision: number }): Promise<PlanetDraftView>;
+  remove(viewer: Viewer, planetId: string): Promise<{ removed: boolean }>;
+}
+
 export interface TrpcContext {
   /** 콘텐츠 팩 버전 */
   contentVersion: string;
@@ -56,6 +91,8 @@ export interface TrpcContext {
   admin: AdminServices | undefined;
   /** 계정 화면 설정. 인증이 꺼져 있으면(DB 없음) 없다 */
   settings: SettingsServices | undefined;
+  /** 행성 편집기. 인증이 꺼져 있거나 정의 조회 자료를 받지 않았으면 없다 */
+  planetEditor: PlanetEditorServices | undefined;
 }
 
 export interface TrpcContextOptions {

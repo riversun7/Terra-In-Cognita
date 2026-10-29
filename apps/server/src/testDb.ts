@@ -99,11 +99,24 @@ export function trpcQuery(app: FastifyInstance, path: string, input: unknown, co
   });
 }
 
-export function trpcMutation(app: FastifyInstance, path: string, input: unknown, cookie?: string) {
+/** 같은 출처 화면(브라우저)이 보내는 쓰기 머리글. tRPC 쓰기는 같은 출처만 받는다(src/trpc/createContext.ts) */
+export const SAME_ORIGIN_HEADERS = { origin: TEST_ORIGIN, "sec-fetch-site": "same-origin" };
+
+/**
+ * tRPC 쓰기. 기본은 같은 출처 브라우저처럼 보낸다. headers를 주면 출처 머리글을 그것으로 바꾼다
+ * (다른 사이트 흉내: { origin: "https://evil.example", "sec-fetch-site": "cross-site" }, 머리글 없음: {})
+ */
+export function trpcMutation(
+  app: FastifyInstance,
+  path: string,
+  input: unknown,
+  cookie?: string,
+  headers: Record<string, string> = SAME_ORIGIN_HEADERS,
+) {
   return app.inject({
     method: "POST",
     url: `/api/trpc/${path}`,
-    headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+    headers: { "content-type": "application/json", ...headers, ...(cookie ? { cookie } : {}) },
     payload: JSON.stringify(input),
   });
 }

@@ -10,7 +10,7 @@ import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/p
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
 import { planetTileIds } from "@terra/planet";
-import { PLANET_TILE_FORMAT_VERSION, decodePlanetTile } from "@terra/protocol";
+import { PLANET_FIELDS_HASH_PATTERN, PLANET_TILE_FORMAT_VERSION, decodePlanetTile } from "@terra/protocol";
 import { z } from "zod";
 
 /**
@@ -38,7 +38,11 @@ export const planetCacheIndexSchema = z.strictObject({
   packBytes: z.number().int().nonnegative(),
   packSha256: z.string().regex(/^[0-9a-f]{64}$/),
   rawBytes: z.number().int().nonnegative(),
-  fieldsHash: z.string(),
+  /**
+   * 생성 결과 해시(생성기 meta.hash) — 목록 정보 fieldsHash(ADR 38 4절). 목록 정보와 같은 모양만 받는다: 틀린 값이면 캐시를
+   * 쓰지 않고 다시 굽는다(틀린 값을 목록 정보에 실으면 기기가 목록 정보 전체를 거절한다)
+   */
+  fieldsHash: z.string().regex(PLANET_FIELDS_HASH_PATTERN),
   /** 가장 높은 땅(게임 m, 0 이상) — 목록 정보 maxElevationM */
   maxElevationM: z.number().int().min(0),
   /** 구운 시각(ISO 8601, 참고용) */

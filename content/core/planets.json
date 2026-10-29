@@ -33,6 +33,40 @@
         "savanna",
         "tropical_rainforest"
       ]
+    },
+    {
+      "id": "s2_editor_planet",
+      "name": { "ko": "S2 편집 행성", "en": "S2 editor planet" },
+      "description": {
+        "ko": "행성 편집기 전용 행성(면 레벨 9). 처음 값은 S2 시험 행성과 같고 시드만 다릅니다. 임시 데이터입니다.",
+        "en": "Planet for the planet editor (face level 9). Starts with the S2 test planet values and another seed. Placeholder data."
+      },
+      "faceLevel": 9,
+      "seed": 2718281828,
+      "presets": {
+        "seaLevel": "normal",
+        "temperature": "normal",
+        "precipitation": "normal",
+        "mountains": "normal",
+        "plates": "normal",
+        "volcanism": "normal"
+      },
+      "biomes": [
+        "ocean_deep",
+        "ocean_shelf",
+        "ocean_coastal",
+        "lake",
+        "ice_sheet",
+        "alpine",
+        "wetland",
+        "tundra",
+        "taiga",
+        "temperate_forest",
+        "grassland",
+        "desert",
+        "savanna",
+        "tropical_rainforest"
+      ]
     }
   ]
 }

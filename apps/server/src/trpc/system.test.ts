@@ -1,5 +1,5 @@
 // tRPC 앱 라우터 시험 — 실제 앱(buildApp)에 붙은 /api/trpc 경로와, 게임 앱이 쓰는 것과 같은 클라이언트로 부른다
-import { PROTOCOL_VERSION, TRPC_PATH } from "@terra/protocol";
+import { PROTOCOL_VERSION, TRPC_MAX_BATCH_SIZE, TRPC_PATH } from "@terra/protocol";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import type { FastifyInstance } from "fastify";
 import { afterEach, describe, expect, expectTypeOf, it } from "vitest";
@@ -52,15 +52,27 @@ describe("tRPC system.info", () => {
     const address = app.server.address();
     if (!address || typeof address === "string") throw new Error("listen address missing");
 
+    const url = `http://127.0.0.1:${address.port}${TRPC_PATH}`;
+    // 게임 앱(src/net/api.ts)과 같이 묶음 상한에서 요청을 나눈다
     const client = createTRPCClient<AppRouter>({
-      links: [httpBatchLink({ url: `http://127.0.0.1:${address.port}${TRPC_PATH}` })],
+      links: [httpBatchLink({ url, maxItems: TRPC_MAX_BATCH_SIZE })],
     });
-    // 같은 틱에 부른 요청은 HTTP 요청 하나(/system.info,system.info,…)로 묶인다.
-    // 12개면 경로 조각이 100자를 넘는다 → Fastify 기본 maxParamLength(100)였다면 실패한다.
-    const results = await Promise.all(Array.from({ length: 12 }, () => client.system.info.query()));
-    expect(results).toEqual(Array.from({ length: 12 }, () => expectedInfo));
-    expect(urls).toHaveLength(1);
-    expect(urls[0]).toContain(`${TRPC_PATH}/system.info,system.info,`);
+    // 같은 틱에 부른 요청은 HTTP 요청 하나(/system.info,system.info,…)로 묶인다. 상한(10개)을 넘으면 나뉜다.
+    // 10개면 경로 조각이 100자를 넘는다 → Fastify 기본 maxParamLength(100)였다면 실패한다.
+    const count = TRPC_MAX_BATCH_SIZE + 2;
+    const results = await Promise.all(Array.from({ length: count }, () => client.system.info.query()));
+    expect(results).toEqual(Array.from({ length: count }, () => expectedInfo));
+    expect(urls).toHaveLength(2);
+    expect(urls[0]).toContain(
+      `${TRPC_PATH}/${Array.from({ length: TRPC_MAX_BATCH_SIZE }, () => "system.info").join(",")}?`,
+    );
+    expect(urls[0]?.split("?")[0]?.length).toBeGreaterThan(TRPC_PATH.length + 100);
+
+    // 나누지 않는 클라이언트가 상한을 넘겨 보내면 서버가 거절한다
+    const unsplit = createTRPCClient<AppRouter>({ links: [httpBatchLink({ url })] });
+    await expect(
+      Promise.all(Array.from({ length: count }, () => unsplit.system.info.query())),
+    ).rejects.toThrow("Batch call exceeds maximum size");
 
     // 클라이언트 쪽 출력 타입이 서버 프로시저에서 추론된다
     expectTypeOf(await client.system.info.query()).toEqualTypeOf<{

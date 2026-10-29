@@ -16,6 +16,8 @@
 - 빌드한 앱 + 서버를 Playwright로 한 번 돌렸다(아래 "확인").
 
 ## WP-D가 쓸 약속 (tRPC 프로시저 이름·타입)
+> 검토 고침(`29-2315-planet-editor-server-review.md`)에서 바뀐 것이 있다(판 번호, 속도 제한, 되돌리기 오류 맞춤, 지우기, 가져오기 ID 검사). 그 기록의 "WP-D가 쓸 약속"이 지금 약속이다.
+
 모두 dev·admin만(권한 `planetEditor:read`·`write`). 타입은 `apps/server/src/planetEditor/types.ts`, 기기 쪽 추론은 `trpc/planetEditor.test.ts`가 고정한다.
 
 | 프로시저 | 종류 | 입력 | 출력 |
@@ -29,7 +31,7 @@
 
 - `PlanetDraftBase` = `{ contentVersion: "<팩 ID>@<판>"; definitionHash: 16진수 64자; generatorVersion: u32 }` = 기기 `DraftBase`. 정의 조회의 `contentVersion`·행성 `definitionHash`·`generatorVersion`으로 만든다.
 - 오류(`TRPCClientError.data.code`, 이유는 `data.reason`): 로그인 안 함·정지 → `UNAUTHORIZED`. 권한 없음 → `FORBIDDEN`. 다른 사이트에서 보낸 쓰기 → `FORBIDDEN`(`reason: "cross_origin"`). 저장의 기대 판 불일치(초안이 지워진 경우 포함) → `CONFLICT`(`"revision_conflict"`). 저장 검사 → `BAD_REQUEST`(`reason` = `PLANET_DRAFT_REJECT_CODES` 하나, message `PLANET_DRAFT_REJECTED`). 조회·되돌리기·지우기의 팩에 없는 행성 → `BAD_REQUEST`(`"unknown_planet"`). 되돌리기의 초안·판 없음 → `NOT_FOUND`(`"draft_not_found"`·`"revision_not_found"`). 되돌릴 항목이 지금 팩으로 틀림 → `BAD_REQUEST`(받지 않음 코드). 입력 형식(zod) → 이유 없는 `BAD_REQUEST`. 편집기 자료 없이 띄운 서버 → `NOT_FOUND`(message `PLANET_EDITOR_UNAVAILABLE`).
-- WP-C `DraftClient` 맞춤(`editorApi.ts`): `get` → 뷰를 `{ revision, document: { entry, base }, updatedAt }`로. `save` → `CONFLICT`면 `{ kind: "conflict" }`, `BAD_REQUEST`면 `{ kind: "rejected", code: data.reason ?? <화면이 정할 일반 코드> }`. `restore`의 `NOT_FOUND`는 던진다(판 목록을 다시 읽게), `BAD_REQUEST`는 `DraftAccessError("invalid_request")`. `UNAUTHORIZED`·`FORBIDDEN` → `DraftAccessError`.
+- WP-C `DraftClient` 맞춤(`editorApi.ts`): `get` → 뷰를 `{ revision, document: { entry, base }, updatedAt }`로. `save` → `CONFLICT`면 `{ kind: "conflict" }`, `BAD_REQUEST`면 `{ kind: "rejected", code: data.reason ?? <화면이 정할 일반 코드> }`. `restore`의 `NOT_FOUND`는 던진다(판 목록을 다시 읽게). `restore`의 `BAD_REQUEST`는 검토 고침에서 바꿨다: 받지 않음 코드면 보통 오류로 던지고(앞 상태로 돌아간다), `DraftAccessError("invalid_request")`는 `unknown_planet`일 때만이다. `UNAUTHORIZED`·`FORBIDDEN` → `DraftAccessError`.
 - 확인 해시는 `check.faceLevel`(= min(5, 행성 면 레벨))로 만든 것이다. 기기는 같은 레벨의 공개본 결과 해시와 견준다. 굽기 결과는 목록 정보의 `fieldsHash`(행성 면 레벨, 굽기가 끝난 뒤)와 견준다.
 
 ## 구현하며 정한 것 (ADR 38에 없던 것)
@@ -40,7 +42,7 @@
 5. 되돌리기도 저장과 같은 검사를 지금 팩으로 한다. 지금 초안은 늘 검사를 통과한 것이 된다. 옛 판이 지금 팩에 없는 바이옴을 쓰면 되돌리지 않는다.
 6. 두 겹 권한은 6개 프로시저 모두에 건다(ADR은 정의 조회에 적었다). 두 겹 모두 입력 검사보다 먼저 돈다: 로그인 안 함·권한 없음이 형식 오류보다 먼저 나온다.
 7. 같은 출처 확인은 tRPC 맥락을 만들 때 한다. 모든 프로시저(앞으로 생길 것 포함)를 덮고, 묶음 요청은 프로시저마다 같은 오류를 받는다. GET·HEAD(조회)는 보지 않는다. 앱 출처를 모르는 서버(인증 꺼짐)는 보지 않는다. 세션이 없어 모든 쓰기가 `UNAUTHORIZED`이기 때문이다.
-8. `no-store`는 tRPC 범위의 Fastify 훅으로 붙인다. 오류·없는 프로시저(404)·조회에 POST(405)·형식 오류에도 붙는다.
+8. `no-store`는 tRPC 범위의 Fastify 훅으로 붙인다. 오류·없는 프로시저(404)·조회에 POST(405)·형식 오류에도 붙는다. (검토 고침: 처음에는 tRPC 경로 밖의 404(`/api/trpc`, `/api/trpc/a/b`)에는 붙지 않았다. 지금은 범위 404 처리기가 있어 붙는다.)
 9. 감사 기록 행위자는 `user`다(자기 초안·팩 정의를 다루는 계정). 그때의 역할은 `meta.roles`에 둔다. 항목·시드는 넣지 않는다: 정의 조회 `after {contentVersion, generatorVersion, planetIds}`, 만들기 `after {planetId, revision: 1, base}`, 되돌리기 `before {planetId, revision}`·`after {planetId, revision, restoredFrom}`, 지우기 `before {planetId, revision}`.
 10. 확인 해시는 기기와 같은 길로 만든다: 원본 항목 + 원본 바이옴 항목 → `planetInputFromDefinition(…, 확인 레벨)` → 생성기. 원본 항목은 팩 파일 JSON이다(`loadServerContent`가 `raw`로 준다). 확인 레벨 상수 `PLANET_EDITOR_CHECK_FACE_LEVEL = 5`는 기기 빠른 줄(`previewJobs.ts` `QUICK_LEVEL`)과 같아야 한다. 응답에 레벨이 함께 가므로 달라져도 잘못 견주지는 않는다.
 11. jsonb는 키 순서를 지키지 않는다. 읽은 항목의 키 순서는 보낸 것과 다를 수 있다(같은지는 키를 정렬해 본다: 기기 `sameDocument`). 판 목록의 크기는 저장한 항목을 `planetDraftEntryBytes`로 다시 잰다. 키 순서가 바뀌어도 직렬화 길이는 같다.
@@ -51,7 +53,7 @@
 ## 잰 값 (Verified: 개발 컨테이너 4코어 공유, Node 24.22.1, 생성기 판 2)
 - 시작 때 확인 해시(F5) — 새 프로세스 5번(스크립트, 1분 부하 4~6): `s2_test_planet` 185~288ms(처음 생성이라 JIT 데우기 포함), `s2_editor_planet` 90~123ms, 합계(복사 포함) 276~402ms. 이만큼 시작이 늘어난다(요청을 받기 전에 같은 스레드에서 한다).
 - 빌드한 서버(`node apps/server/dist/main.js`) 시작 로그: 빈 캐시 첫 시작 412 + 204ms = 618ms(부하 약 5), 다시 시작 598 + 327ms = 940ms(부하 약 6). `Server listening`은 프로세스 시작 뒤 2.0초·2.7초.
-- 정의 조회 응답 본문(JSON) 4,044바이트(행성 2개 + 바이옴 14개).
+- 정의 조회 응답 본문 4,359바이트(UTF-8, tRPC 응답 전체. 행성 2개 + 바이옴 14개). 처음 적은 4,044는 자료만의 글자 수였다(검토 고침에서 다시 잼: 자료만 4,339바이트·4,044자, 응답 4,064자).
 - 같은 서버의 빈 캐시 굽기(F9, 워커, 차례로): `s2_test_planet` 19.5초(생성 18.7초, 워커 최대 216.5MB, RSS 최대 434MB), `s2_editor_planet` 20.9초(생성 20.2초, 187.8MB, 445MB). 시작 뒤 42.7초에 둘 다 준비. 캐시로 다시 켜면 시작 뒤 2.7초에 준비(캐시 읽기 192.5ms·27ms). NAS는 재지 않았다(Unknown, ADR 38 10절 추정 약 37초).
 
 ## 확인 (Verified: 이 작업 트리)
@@ -107,8 +109,8 @@
 - 화면(WP-D)과 실제로 이어 보지 않았다(미실행). 기기 `draftSync.ts`의 충돌 처리와 서버 CONFLICT는 위 약속으로만 맞췄다.
 - Safari·Firefox의 `Origin`·`Sec-Fetch-Site`는 돌려 보지 않았다(Unknown). 명세대로면 같은 출처 fetch에 Origin이 붙는다(Assumed). NAS DSM 역방향 프록시가 `Origin`을 그대로 넘기는지는 계정 경로가 같은 규칙으로 NAS에서 되므로 같다고 본다(Assumed).
 - 직전 버전 앱이 이 마이그레이션을 적용한 DB에서 도는 것은 돌려 보지 않았다(표를 더하기만 해서 영향이 없다고 본다, Assumed).
-- 지운 뒤 다시 만든 초안은 판 번호가 1부터라, 지우기 전 판을 들고 있던 다른 기기의 저장이 우연히 같은 판이면 충돌 없이 들어간다(ABA). 판 기록에 남아 되돌릴 수 있다. 여러 기기에서 지우기와 편집을 함께 할 때만 생긴다.
-- 정의 조회·저장에 속도 제한이 없다. dev·admin만 부르고 자동 저장은 2초 간격이다. 고장 난 기기가 정의 조회를 되풀이하면 감사 기록이 는다.
+- (검토 고침에서 고침) 지운 뒤 다시 만든 초안은 판 번호가 1부터라, 지우기 전 판을 들고 있던 다른 기기의 저장이 우연히 같은 판이면 충돌 없이 들어간다(ABA). → 판 번호를 표 전체 시퀀스로 바꿨다.
+- (검토 고침에서 고침) 정의 조회·저장에 속도 제한이 없다. → 사용자별 속도 제한과 묶음 상한을 넣었다.
 - Better Auth 두 번째 확인이 우리 권한 표와 다른 답을 내는 경우는 만들 수 없었다(두 겹이 같은 역할 표를 쓴다). 가짜 거절로 FORBIDDEN만 시험했다.
 - NAS 시작 시간(확인 해시)·굽기 시간은 재지 않았다(Unknown).
 

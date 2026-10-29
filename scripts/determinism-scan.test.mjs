@@ -22,8 +22,9 @@ describe("findDeterminismViolations", () => {
       "g **= 3;",
       "const h = Math.atan2(y, x) + Math.exp(x) + Math.pow(2, x) + Math.hypot(x, y);",
       "const i = crypto.getRandomValues(buffer);",
+      "const j = globalThis.__sin(x);",
     ].join("\n");
-    expect(lines(source)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(lines(source)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
 
   it("명세가 정확히 정한 Math 함수·상수는 통과한다", () => {
@@ -128,7 +129,10 @@ describe("findTestHelperImports", () => {
       '// import { x } from "./testFixtures.ts";',
       'import { testing } from "./testing.ts";',
       'const note = "from ./testFixtures.ts";',
+      'import "./testSneaky.ts";',
+      "import'../planet/testHelpers.ts';",
+      'import "./grid.ts";',
     ].join("\n");
-    expect(findTestHelperImports(source).map((violation) => violation.line)).toEqual([1, 2, 3, 6]);
+    expect(findTestHelperImports(source).map((violation) => violation.line)).toEqual([1, 2, 3, 6, 11, 12]);
   });
 });

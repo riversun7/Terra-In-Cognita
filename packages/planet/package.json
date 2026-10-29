@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p bench/tsconfig.json",
     "bench": "node bench/generator.ts",
     "render": "node bench/render.ts",
-    "variety": "node bench/variety.ts"
+    "variety": "node bench/variety.ts",
+    "test": "vitest run --root ../.. packages/planet"
   },
   "dependencies": {
     "@terra/shared": "workspace:*"

@@ -18,6 +18,8 @@ export const FORBIDDEN = [
   ],
   // 명세가 거듭제곱을 "구현이 근사한 값"으로 둔다(Math.pow와 같다). 주석·문자열을 지웠으니 남은 **는 연산자다
   [/\*\*/, "거듭제곱 연산자 ** (곱셈 또는 정확한 2의 거듭제곱 표 사용)"],
+  // 다른 모듈이 전역에 걸어 둔 함수(예: 엔진 Math.sin)를 읽으면 위 검사를 피한다
+  [/\bglobalThis\b/, "globalThis (전역에 건 함수·값을 읽지 않는다. 가져올 것은 import로)"],
 ];
 
 /**
@@ -113,9 +115,12 @@ export function findDeterminismViolations(source) {
   return violations;
 }
 
-/** 상대 경로로 시험 도우미(이름이 test + 대문자로 시작하는 파일)를 가리키는 import·export … from·import() */
+/**
+ * 상대 경로로 시험 도우미(이름이 test + 대문자로 시작하는 파일)를 가리키는 import·export … from·import()와
+ * 이름 없이 부르기만 하는 import "./testX.ts"(모듈을 실행만 해도 전역에 엔진 함수를 걸 수 있다)
+ */
 const TEST_HELPER_SPECIFIER =
-  /(?:\bfrom\s*|\bimport\s*\(\s*)["'](\.{1,2}\/(?:[^"'\n]*\/)?test[A-Z][^"'\n]*)["']/;
+  /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*)["'](\.{1,2}\/(?:[^"'\n]*\/)?test[A-Z][^"'\n]*)["']/;
 
 /**
  * 시험 도우미(testFixtures.ts·testVariety.ts 등)를 가져오는 줄 [{ line, reason }].

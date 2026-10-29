@@ -172,9 +172,10 @@ for (let face = 0; face < 6; face++) {
         const i = Math.floor(x / scale);
         const [r, g, b] = colorOf(layer, face * n * n + j * n + i, fields);
         const at = (y * size + x) * 3;
-        rgb[at] = r;
-        rgb[at + 1] = g;
-        rgb[at + 2] = b;
+        // 언덕 그림자(× 최대 1.4)로 255를 넘으면 바이트에 넣을 때 돌아가 엉뚱한 색이 된다: 자른다
+        rgb[at] = Math.min(255, r);
+        rgb[at + 1] = Math.min(255, g);
+        rgb[at + 2] = Math.min(255, b);
       }
     }
     save(`face${face}-${layer}.png`, size, size, rgb);

@@ -385,7 +385,7 @@ describe("성질 (면 레벨 5·6)", () => {
     }
   });
 
-  it("기온: 적도 바다는 적도 설정 근처, 위도 띠 평균은 극으로 갈수록 내려가고, 극에 가장 가까운 칸은 시드 16개 평균으로 극 쪽 띠 식 ±2°C", {
+  it("기온: 적도 바다는 적도 설정 근처, 위도 띠 평균은 극으로 갈수록 내려가고, 극에 가장 가까운 칸은 시드 16개 평균으로 극 쪽 띠 식 ±2°C, 칸마다 ±10°C", {
     timeout: 60_000,
   }, () => {
     const { fields } = run(5, S2_TEST_PLANET_SEED);
@@ -415,23 +415,32 @@ describe("성질 (면 레벨 5·6)", () => {
     const means = sums.map((sum, k) => sum / (counts[k] ?? 1));
     for (let k = 1; k < means.length; k++) expect(means[k] ?? 0).toBeLessThan(means[k - 1] ?? 0);
     // 극에 가장 가까운 칸(위도 88°): 저장 기온 + 고도 냉각을 그 위도의 띠 식(극 설정으로 끝나는 식)과 견준다.
-    // 출력 판 3부터 기온에 지역 변이(바다 표준편차 2°C, 내륙 3.5°C, climate.ts)가 있어 칸 하나는 ±7°C까지 벗어난다
-    // (2026-10-29 잰 값). 그래서 칸 하나 대신 시드 16개 × 남북 평균을 본다(잰 평균 +0.01°C). 출력 판 2까지는 팩 시드의
-    // 칸 하나가 극 설정 + 2°C 이하인지 봤다
+    // 출력 판 3부터 기온에 지역 변이(바다 표준편차 2°C, 내륙 3.5°C, climate.ts)가 있어 칸 하나는 ±8°C까지 벗어난다
+    // (2026-10-29 잰 값, 시드 64개: −7.95 ~ +7.26°C, 저장 기온 − 극 설정 최대 8°C). 그래서 시드 16개 × 남북 평균이 ±2°C
+    // 안인지 보고(잰 평균 +0.01°C), 칸마다는 넉넉히 ±10°C·극 설정 + 10°C를 본다(극 칸 몇 개만 15°C 더워지는 결함도
+    // 잡게, 검토 지적). 출력 판 2까지는 팩 시드의 칸 하나가 극 설정 + 2°C 이하인지 봤다
     const span = settings.equatorTemperatureC - settings.poleTemperatureC;
     let residual = 0;
     let samples = 0;
+    let worstResidual = 0;
+    let warmest = Number.NEGATIVE_INFINITY;
     for (let seed = 1; seed <= 16; seed++) {
       const polar = run(5, seed).fields;
       for (const c of [north, south]) {
         const t = Math.abs(detAsin(grid.z[c] ?? 0) * (180 / Math.PI)) / 90;
         const cooling = LAPSE_RATE_PER_M * Math.max(0, (polar.elevationM[c] ?? 0) * VERTICAL_SCALE);
         const zonal = settings.equatorTemperatureC - span * t * Math.sqrt(t);
-        residual += (polar.temperatureC[c] ?? 0) + cooling - zonal;
+        const stored = polar.temperatureC[c] ?? 0;
+        const cellResidual = stored + cooling - zonal;
+        residual += cellResidual;
         samples++;
+        if (Math.abs(cellResidual) > Math.abs(worstResidual)) worstResidual = cellResidual;
+        warmest = Math.max(warmest, stored - settings.poleTemperatureC);
       }
     }
     expect(Math.abs(residual / samples)).toBeLessThan(2);
+    expect(Math.abs(worstResidual)).toBeLessThanOrEqual(10);
+    expect(warmest).toBeLessThanOrEqual(10);
   });
 });
 

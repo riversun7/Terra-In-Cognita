@@ -139,9 +139,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     });
   }
 
+  // 쓰기 요청의 출처 확인 기준 = 계정 경로와 같은 앱 출처(인증이 꺼지면 세션이 없어 보지 않는다)
   await registerTrpc(app, {
     router: appRouter,
-    createContext: createContextFactory({ contentVersion: options.contentVersion, now, auth }),
+    createContext: createContextFactory({
+      contentVersion: options.contentVersion,
+      now,
+      auth,
+      appOrigin: options.auth?.settings.baseUrl,
+    }),
   });
 
   // 로그인 사용자 조회: HTTP 요청은 쿠키로 바로, WebSocket은 연결 요청의 출처가 앱 출처일 때만 쿠키를 믿는다

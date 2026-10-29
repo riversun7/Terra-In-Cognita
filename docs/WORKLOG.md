@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-29 20:30 | 행성 편집기 핵심(WP-C): 미리보기 워커·작업 줄·결과 기억·타일·칸 정보·초안 동기화 | Claude Code (작업 트리 `.claude/worktrees/editor-core`, 가지 `work/editor-core`, main `5b37544`에서 시작. 푸시·머지하지 않음) | [29-2030-planet-editor-core](worklog/2026/10/29-2030-planet-editor-core.md) |
 | 2026-10-29 19:20 | 행성 편집기 1단계: 사용자 결정 반영(ADR 38) | Claude Code | [29-1920-planet-editor-decisions](worklog/2026/10/29-1920-planet-editor-decisions.md) |
 | 2026-10-29 19:10 | NAS 행성 캐시 고침 확인(판 2 배포 뒤) | Claude Code | [29-1910-nas-planet-cache-verified](worklog/2026/10/29-1910-nas-planet-cache-verified.md) |
 | 2026-10-29 17:10 | S2 다듬기 통합: 검토 반영 가지 넷 합치기, 생성기 출력 판 2를 서버에 맞추기, 통합 검토 지적 처리 | Claude Code (작업 트리 `.claude/worktrees/s2-polish`, 가지 `work/s2-polish`, main `e1e281b`에서 시작. 푸시하지 않음) | [29-1710-s2-polish-integration](worklog/2026/10/29-1710-s2-polish-integration.md) |

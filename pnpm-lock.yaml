@@ -183,7 +183,11 @@ importers:
         specifier: 0.186.0
         version: 0.186.0
 
-  packages/planet: {}
+  packages/planet:
+    dependencies:
+      '@terra/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/protocol:
     dependencies:

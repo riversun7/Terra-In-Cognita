@@ -34,13 +34,13 @@
   - `apps/*` → `packages/*` 방향만 허용(예외는 아래 게임 앱 → 서버 타입 하나).
   - `packages/engine`은 `apps/server`·`packages/sim`을 import하지 않는다.
   - `packages/sim`은 `packages/engine`·DOM API를 쓰지 않는다.
-  - `@terra/planet`은 정수 진입점(`.`)과 실수 투영(`./projection`, `Math.tan` 사용)을 나눈다. 판정 코드는 투영을 쓰지 않는다. 정수 모듈의 결정성은 경계 검사가 본다(ADR `2026-10-29-cell-key-layout.md`).
+  - `@terra/planet`은 정수 진입점(`.`)과 실수 투영(`./projection`)을 나눈다. 투영은 `@terra/shared`의 결정적 근사(`detTan`·`detAtan`)를 써서 엔진과 무관하게 같은 값을 낸다. 패키지 전체(격자·투영·생성기)의 결정성을 경계 검사가 본다(ADR `2026-10-29-cell-key-layout.md`, `2026-10-29-s2-planet-lod.md`). 판정 코드는 칸 키·이웃(정수 진입점)을 쓴다.
   - `apps/game`은 `packages/sim`을 import하지 않는다(판정 코드를 기기로 보내지 않음).
   - `packages/protocol`·`packages/shared`는 다른 내부 패키지를 import하지 않는다.
   - `apps/game`은 `apps/server`를 **타입으로만** 가져온다(tRPC 라우터 타입): `import type { AppRouter } from "@terra/server/trpc"`. 값 import, `import { type X }`, 동적 `import()`는 검사에서 실패한다. `@terra/server`는 게임 앱 `devDependencies`에만 둔다(ADR `2026-10-28-trpc-type-sharing.md`).
   - 게임 앱 코드(`apps/game/src`)는 Node 전역(`process`, `Buffer` 등)과 Node 내장 모듈을 쓰지 않는다. 타입 검사로는 못 막아서(`@trpc/client` 타입이 `@types/node`를 불러온다) oxlint가 막는다.
 - **서버 권위**: 자원 획득, 전투 결과, 거래·잔고, 아이템 생성, 조우, 소유권 판정은 서버만 한다.
-- 판정 코드(`packages/sim` 등)에서는 `Math.random`, `Date.now`, `Math.sin/cos/tan/exp/log/pow` 같은 초월함수를 쓰지 않는다. 시드 난수와 `packages/shared`의 결정적 수학 함수를 쓴다.
+- 판정 코드(`packages/sim` 등)에서는 `Math.random`, `Date.now`, `Math.sin/cos/tan/exp/log/pow` 같은 초월함수와 `**` 연산자를 쓰지 않는다. 시드 난수(`createRng`)와 `packages/shared`의 결정적 수학 함수(`detSin`·`detCos`·`detTan`·`detAtan`·`detAtan2`·`detAsin`·`detExp`, 오차 1~3ulp)를 쓴다.
 - 금액은 최소 단위 정수(`BigInt`, DB `int8`). 소수점 실수 계산 금지.
 - DB 표 정의는 `apps/server/src/db/schema.ts`. 바꾸면 `pnpm --filter @terra/server db:generate`로 마이그레이션을 만들어 함께 커밋한다. 마이그레이션은 **직전 버전 앱이 그대로 돌 수 있게** 만든다(추가 → 코드 전환 → 다음 배포에서 정리). 올라간 마이그레이션은 고치지 않는다(ADR `2026-10-28-db-access-and-migrations.md`).
 - 게임 상태를 바꾸는 명령은 WebSocket 프로토콜(`packages/protocol`)로만 보낸다. tRPC는 조회와 비실시간 기능용(프로시저는 `apps/server/src/trpc/`, 기기 클라이언트는 `apps/game/src/net/api.ts`).

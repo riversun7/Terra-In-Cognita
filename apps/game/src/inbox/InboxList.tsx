@@ -4,12 +4,14 @@
 // - 분류는 아이콘 + 이름 + 줄 수로 보인다. 색은 상태색만 쓴다(위협 danger, 돈·생존 warning, 완료 success, 멈춤·제안은 글자색).
 // - 모르는 분류(더 새 서버)의 줄은 끝의 "그 밖의 알림" 묶음에 그린다. 처리함에는 늘 모든 항목이 나오고(D-6011), 종 배지도 센다.
 //   모르는 종류는 "새 알림"으로 그린다(inboxText.ts).
+// - 바로 처리 결과는 누른 버튼 바로 아래 그 줄의 알림 영역이 보이고 읽는다(긴 목록의 끝에서 눌러도 화면 안에 보인다).
 // - 앱 안 링크: onNavigate가 있으면 보통 왼쪽 누름을 앱 안 이동(화면, RouteTarget)으로 바꾼다. 보조 키·가운데 버튼은 브라우저에 맡긴다.
 //   화면 틀(W1)의 라우터 navigate를 그대로 받는다. W1이 합쳐진 뒤 AppLink로 바꿔도 된다(그때 onNavigate 칸을 지운다).
 import type { RouteTarget } from "@terra/shared";
 import type { InboxCategory, InboxItem } from "@terra/shared/inbox";
 import { type MouseEvent, useId } from "react";
 import { m } from "../paraglide/messages.js";
+import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { CategoryIcon, ChevronIcon, type InboxGroupKind } from "./icons.tsx";
 import {
   CATEGORY_NAMES,
@@ -34,8 +36,6 @@ export interface InboxListProps {
   readonly onInboxScreen: boolean;
   /** 앱 안 이동(라우터). 없으면 보통 링크다 */
   readonly onNavigate?: InboxNavigate | undefined;
-  /** 바로 처리 버튼을 눌렀다 */
-  readonly onQuickAction: (item: InboxItem, action: QuickActionId) => void;
   /** 분류 제목의 단계(처리함 화면 2, 홈 카드 안 3) */
   readonly headingLevel?: 2 | 3;
 }
@@ -82,21 +82,50 @@ function followInApp(
   onNavigate(target);
 }
 
+/** 강조한 줄이 처음 그려지면 화면 가운데로 */
+function scrollIntoViewOnce(element: HTMLLIElement | null): void {
+  element?.scrollIntoView({ block: "center" });
+}
+
+/**
+ * 바로 처리 버튼과 그 결과 알림 영역(버튼 바로 아래, 늘 그려 둔다). 지금 버튼은 시안 자료 항목에만 있고(quickActions.ts)
+ * 누르면 명령을 보내지 않고 그렇다고 알린다. inbox_action(WebSocket)을 만들면 여기서 보내고 결과를 같은 영역에 보인다
+ */
+function QuickActions({ actions }: { actions: readonly QuickActionId[] }) {
+  const notice = useLiveLines();
+  return (
+    <div className="inbox-item-actions">
+      <div className="inbox-item-buttons">
+        {actions.map((action) => (
+          <button
+            key={action}
+            type="button"
+            className="button-small"
+            onClick={() => notice.show([m.inbox_action_preview_done()])}
+          >
+            {quickActionLabel(action)}
+          </button>
+        ))}
+      </div>
+      <LiveMessage
+        tone="info"
+        lines={notice.lines}
+        version={notice.version}
+        className="inbox-item-feedback"
+      />
+    </div>
+  );
+}
+
 interface RowProps {
   readonly item: InboxItem;
   readonly now: number;
   readonly highlighted: boolean;
   readonly onInboxScreen: boolean;
   readonly onNavigate: InboxNavigate | undefined;
-  readonly onQuickAction: (item: InboxItem, action: QuickActionId) => void;
 }
 
-/** 강조한 줄이 처음 그려지면 화면 가운데로 */
-function scrollIntoViewOnce(element: HTMLLIElement | null): void {
-  element?.scrollIntoView({ block: "center" });
-}
-
-function InboxRow({ item, now, highlighted, onInboxScreen, onNavigate, onQuickAction }: RowProps) {
+function InboxRow({ item, now, highlighted, onInboxScreen, onNavigate }: RowProps) {
   const view = describeItem(item, { now, onInboxScreen });
   const actions = quickActionsFor(item);
   const { target, href } = view;
@@ -133,20 +162,7 @@ function InboxRow({ item, now, highlighted, onInboxScreen, onNavigate, onQuickAc
         </div>
         {href === null ? null : <ChevronIcon />}
       </div>
-      {actions.length > 0 ? (
-        <div className="inbox-item-actions">
-          {actions.map((action) => (
-            <button
-              key={action}
-              type="button"
-              className="button-small"
-              onClick={() => onQuickAction(item, action)}
-            >
-              {quickActionLabel(action)}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      {actions.length > 0 ? <QuickActions actions={actions} /> : null}
     </li>
   );
 }
@@ -188,7 +204,6 @@ export function InboxList({
   highlightId = null,
   onInboxScreen,
   onNavigate,
-  onQuickAction,
   headingLevel = 2,
 }: InboxListProps) {
   return (
@@ -198,7 +213,7 @@ export function InboxList({
           key={group.kind}
           group={group}
           headingLevel={headingLevel}
-          rowProps={{ now, onInboxScreen, onNavigate, onQuickAction, highlightId }}
+          rowProps={{ now, onInboxScreen, onNavigate, highlightId }}
         />
       ))}
     </div>

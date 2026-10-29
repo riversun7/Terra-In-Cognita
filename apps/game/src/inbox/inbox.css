@@ -193,13 +193,22 @@
   line-height: var(--line-height-body);
   white-space: nowrap;
 }
-/* 바로 처리 버튼은 카드를 덮는 링크 위에 둔다 */
+/* 바로 처리 버튼과 그 결과 알림은 카드를 덮는 링크 위에 둔다(따로 누르고, 알림 글을 눌러도 옮기지 않는다) */
 .inbox-item-actions {
   position: relative;
   z-index: 1;
+}
+.inbox-item-buttons {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+/* 결과 알림 영역은 늘 그려 두고(비면 높이 0) 글이 생기면 버튼 아래에 작은 상자로 보인다 */
+.inbox-item-feedback > .message {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-sm);
 }
 
 /* ── 화면 안내 ─────────────────────────────────────── */

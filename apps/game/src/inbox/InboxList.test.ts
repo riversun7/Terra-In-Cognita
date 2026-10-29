@@ -1,5 +1,5 @@
 // 처리할 일 목록 그리기 시험 — 모르는 종류·분류·동작·주소가 와도 깨지지 않고 모든 줄이 보인다(ADR 2026-10-29-app-shell 7·13절,
-// W3 통과 기준 5, D-6011)
+// W3 통과 기준 5, D-6011), 바로 처리 결과 자리는 그 줄 안에 있다
 // react-dom/server로 HTML을 만들어 본다(브라우저 없이). 화면 확인은 저장소 밖 Playwright 스크립트(작업 기록).
 import type { InboxItem } from "@terra/shared/inbox";
 import { createElement } from "react";
@@ -24,9 +24,7 @@ const item = (extra: Partial<InboxItem>): InboxItem => ({
 });
 
 function render(items: readonly InboxItem[], extra: Partial<InboxListProps> = {}): string {
-  return renderToStaticMarkup(
-    createElement(InboxList, { items, now: NOW, onInboxScreen: true, onQuickAction: () => {}, ...extra }),
-  );
+  return renderToStaticMarkup(createElement(InboxList, { items, now: NOW, onInboxScreen: true, ...extra }));
 }
 
 /** 태그를 지운 글(읽는 차례) */
@@ -67,6 +65,8 @@ describe("처리할 일 목록 그리기", () => {
     // 분류 아이콘은 꾸밈이다(읽기 프로그램에 숨김)
     expect(html.match(/<svg class="inbox-icon"[^>]*aria-hidden="true"/g)).toHaveLength(2);
     expect(html.match(/<button/g)).toHaveLength(2);
+    // 바로 처리 결과 알림 영역: 버튼이 있는 줄마다 그 줄 안에 늘 그려 둔다(비어 있음)
+    expect(html.match(/<div role="status" class="inbox-item-feedback"><\/div>/g)).toHaveLength(2);
   });
 
   it("모르는 종류는 '새 알림'이고 값·버튼을 보이지 않는다. 모르는 동작은 그리지 않고, 모르는 분류의 줄은 끝의 '그 밖의 알림'에", () => {

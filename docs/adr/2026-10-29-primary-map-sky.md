@@ -478,3 +478,25 @@ export interface PlanetSkyFeatures {
 | M10 기획 질문·사용자 결정 | 달력 4개를 따로 묶음, 사진은 글로 묘사, 질문 12에 천구·불개, U3 추가(질문 문서) |
 | L1~L14 | 껍질 큐브 읽기 2번, HUD 줄 하나로 정함, 550줄, 월식·일식 숫자, "29바퀴"는 행성 항성일, RGBA8 대체 경로·이중 버퍼 삭제, 달 z = 0.5·w, 숨긴 달 미리 컴파일, `gl.readPixels` 직접, fixed에서 시계 끔, D-142 주석·PROTECTED `SIM_VERSION`, 검색 요약 = Assumed, 조사 문서 "ADR과 다른 점", HUD 숫자만, 0.5화소 시계, 구름 시드는 의도, 첫 사진 시각 |
 
+## 구현하며 정한 것 (공용 달력·하늘 계산, 2026-10-29)
+작업 가지 `work/planet-sky`(작업 기록 `docs/worklog/2026/10/` 아래 1차맵 하늘 세 개). 화면·엔진에는 아직 잇지 않았다(WP3부터, sharpness 가지를 합친 뒤).
+
+### 공용 달력 (`@terra/shared/planetCalendar`)
+- 내보내는 것: 상수(`PLANET_DAY_MS`·`PLANET_DAYS_PER_SEASON`·`PLANET_SEASONS_PER_YEAR`·`PLANET_DAYS_PER_YEAR`·`PLANET_SEASON_MS`·`PLANET_YEAR_MS`·`[임시]` `PLANET_CALENDAR_EPOCH_MS`), `PlanetCalendar`·`PlanetSeason`(0~3) 타입, `planetCalendarAt`(판정 쪽, 던짐), `planetCalendarForDisplay`(화면 쪽, 내림·null), `isPlanetCalendarTime`, `southernSeason`.
+- `PlanetCalendar.msSinceEpoch`를 더했다: 기원에서 잰 정수 ms다. 달 위상과 구름 날씨 창 번호가 이것의 정수 나머지·몫을 쓴다.
+- 받는 시각 = 안전 정수이고, 기원에서 잰 ms도 안전 정수다. 그래서 `Number.MIN_SAFE_INTEGER`처럼 기원을 빼면 안전 정수를 벗어나는 값도 던진다(조사 메모는 입력만 봤다).
+- 결정성 검사가 이 파일을 본다(Verified: `Math.sin`·`**`를 넣은 사본에서 `check-boundaries`가 실패, 2026-10-29).
+- 시험 14개(Verified: Vitest 5.0.5): 기획 값, 기원·기원 1ms 전·하루·계절·한 해 경계, 2300년, BigInt로 따로 센 값과 2,005개 시각(±2^53 근처 포함) 비교, 소수·NaN·무한대·범위 밖 던지기, 남반구 계절, 화면 쪽 입구의 x.5ms 500개·null. 바꾼 코드 4가지(나머지 식, 남반구 +1, 내림 → 반올림, 기원 +1ms)에서 시험이 실패했다(Verified).
+
+### 하늘 계산 (`packages/engine/src/planet/sky.ts`)
+- 타입(`PlanetSkyMode`·`PlanetSkyFeatures`·`PlanetSkyDescription`·`PlanetMoonDescription`·`SunState`·`MoonState`·`PlanetSkyState`)은 `planetTypes.ts`가 아니라 `sky.ts`에 두었다. sharpness 가지가 `planetTypes.ts`를 고치고 있어서다. WP3에서 `planetTypes.ts`·`index.ts`가 다시 내보낸다.
+- `skyAt(utcMs, sky)`가 엔진의 입구다: 화면 쪽 달력 입구로 내리고, 항성(`sunAt`)·달(`moonAt`)을 함께 낸다. 시각이 수가 아니면 null이다(낮으로 그린다).
+- `moonAt`은 달 방향·궤도 극·위상·밝은 비율을 낸다. `moonPhaseMs`는 `msSinceEpoch`의 정수 나머지다.
+- 화면 쪽 계산: `nightStrength`(U1 (나)), `cloudFade`(6절 걷히기), `skyOnScreen`·`moonOnScreen`(5절), `sunCosRangeOnScreen`·`skyClockIntervalMs`(7절). 값은 `DAY_NIGHT_BAND`·`CLOSE_NIGHT_RULE`·`CLIMATE_NIGHT_FACTOR`·`CLOUD_FADE`·`SKY_CLOCK` 상수 한곳에 있다.
+- 달 보임에 "행성 원판 뒤에 다 가리면 그리지 않는다"를 더했다. 가린 달을 그리면 비용만 들고, 하늘 시계가 달 걸음(0.33~0.5초)으로 돌기 때문이다. 가장자리에 반쯤 걸친 달은 그린다.
+- 하늘 시계는 U1 (나) 때문에 다시 정했다(7절). 초안은 "가까운 거리는 밤 0이라 시계가 돌지 않는다"였다.
+- 시험 51개(Verified: Vitest 5.0.5): 알려진 시각의 항성(기원 경도 180°·적위 −16.34°, +15·30·45분, 계절 가운데 적위), 고도 식 = 내적(2,000곳), 항성 빠르기 0.1°/s, 지역 정오, 경계 이어짐, 반구별 계절 부호·정오 고도·극야·백야, 기울기 0, 달 위상·2300년·삭·보름 이각·순행(상현 +90°)·밝은 비율·기울기 0 삭에서 달 = 항성·적위 상한·궤도 극 29바퀴, 낮밤 세기(0.6·1·로그 가운데 0.8·기후 0.35·F4), 구름 걷힘, 하늘·달 보임(세로·가로 휴대폰, 가드 6.94R·3.36R), 항성 고도 범위, 하늘 시계 간격. 바꾼 코드 11가지(항성 경도·계절 위상·θ의 부호, 회전, 달이 도는 쪽, 0.5R, 원판 뒤 가림, 띠 조건, 가장자리 점, 지역 시각, 구름 문턱)에서 모두 실패했다. 처음에 살아남은 둘(달이 도는 쪽, 반쯤 걸친 달)은 시험을 더해 잡았다(Verified).
+
+### 남은 것 (WP3부터)
+- 엔진 연결(`skyController.ts`, `setSky`, uniform, 오류 가두기), 셰이더 3판, 화면 `planetSky.ts`·주소 표, 달·구름. sharpness 가지(상한 2, `PlanetStats` 그리기 버퍼, `?pixel-ratio=`, HUD 줄)를 먼저 합친다.
+- 하늘 시계 간격(1.7초 ÷ 밤 세기, 낮 쪽 4초)과 밝기 걸음(0.5~1.3%)은 휴대폰에서 보고 다듬는다(Unknown).

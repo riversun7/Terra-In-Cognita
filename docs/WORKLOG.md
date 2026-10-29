@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-29 23:50 | 1차맵 하늘 계산 `packages/engine/src/planet/sky.ts` — 항성·달·낮밤 세기·구름 걷힘·보임·하늘 시계 (WP2) | Claude Code | [29-2350-sky-math](worklog/2026/10/29-2350-sky-math.md) |
 | 2026-10-29 23:45 | 공용 행성 달력 `@terra/shared/planetCalendar` — 정수·결정성 검사·화면 쪽 내림 입구 (1차맵 하늘 WP1) | Claude Code | [29-2345-planet-calendar](worklog/2026/10/29-2345-planet-calendar.md) |
 | 2026-10-29 23:40 | 1차맵 하늘 문서 — ADR(제안)·조사·기획 질문 두 묶음, PLAN·ADR 36, 사용자 결정 U1~U3 반영 (WP0) | Claude Code | [29-2340-primary-map-sky-docs](worklog/2026/10/29-2340-primary-map-sky-docs.md) |
 | 2026-10-29 23:15 | 행성 편집기 서버(WP-B) 검토 고침: 지적 14개 확인·처리 | Claude Code | [29-2315-planet-editor-server-review](worklog/2026/10/29-2315-planet-editor-server-review.md) |

@@ -2,6 +2,8 @@
 // 화면에 프레임 측정(monitor)·[뒤로](onClose = 화면 안 뒤로)·로그인한 사람을 넘기는 길도 여기다.
 // 꽂는 줄: 다른 줄기가 자기 화면을 만들면 아래 lazy 한 줄만 바꾼다(홈 W4, 처리함 W3, 개발자 영역 ADR 38 WP-H·WP-D).
 // 그 화면들은 { match } (+ 홈은 monitor)를 받는다: 검색어(?template=, ?item=)는 match.search에 있다.
+// 화면 안 useMountFocus(ui/useMountFocus.ts)는 앱 안에서 옮겨 연 화면에서만 초점을 옮긴다(MountFocusContext):
+// 주소로 바로 열거나 새로고침한 화면은 옮기지 않는다(ADR 37 1절). 앱 안 이동의 초점은 틀(Shell.tsx)도 새 화면 제목에 둔다.
 // 주소 표에 줄이 늘면 ROUTE_TITLES·renderRoute에서 타입 오류가 난다.
 import type { AccountView, RouteId, RouteMatch } from "@terra/shared";
 import { type ReactNode, Suspense, lazy, useEffect } from "react";
@@ -10,6 +12,7 @@ import type { FrameMonitor } from "../perf/frameMonitor.ts";
 import { forceUpdate } from "../pwa/updates.ts";
 import { ChunkErrorBoundary } from "../ui/ChunkErrorBoundary.tsx";
 import { LiveMessage } from "../ui/LiveMessage.tsx";
+import { MountFocusContext } from "../ui/useMountFocus.ts";
 import { NoPermission } from "./NoPermission.tsx";
 import { NotFound } from "./NotFound.tsx";
 import { goBack } from "./routerStore.ts";
@@ -102,6 +105,8 @@ interface RouteViewProps {
   user: AccountView;
   monitor: FrameMonitor;
   version: number;
+  /** 앱 안에서 옮겨 연 화면인지(라우터 via가 initial이 아님). 아니면 화면이 마운트 때 초점을 옮기지 않는다 */
+  openedInApp: boolean;
   onSettled: (version: number) => void;
 }
 
@@ -138,7 +143,15 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
 }
 
 /** 지금 주소의 화면. 없는 화면·권한 없음은 첫 화면 묶음의 작은 화면이라 바로 그린다 */
-export function RouteView({ match, allowed, user, monitor, version, onSettled }: RouteViewProps) {
+export function RouteView({
+  match,
+  allowed,
+  user,
+  monitor,
+  version,
+  openedInApp,
+  onSettled,
+}: RouteViewProps) {
   if (match === null || !allowed) {
     return (
       <>
@@ -149,17 +162,19 @@ export function RouteView({ match, allowed, user, monitor, version, onSettled }:
   }
   const text = lazyText(match.id);
   return (
-    <ChunkErrorBoundary key={match.id} fallback={<ChunkLoadFailed message={text.failed} />}>
-      <Suspense
-        fallback={
-          <p className="status shell-loading" role="status">
-            {text.loading}
-          </p>
-        }
-      >
-        {renderRoute(match, user, monitor)}
-        <RouteSettled version={version} onSettled={onSettled} />
-      </Suspense>
-    </ChunkErrorBoundary>
+    <MountFocusContext value={openedInApp}>
+      <ChunkErrorBoundary key={match.id} fallback={<ChunkLoadFailed message={text.failed} />}>
+        <Suspense
+          fallback={
+            <p className="status shell-loading" role="status">
+              {text.loading}
+            </p>
+          }
+        >
+          {renderRoute(match, user, monitor)}
+          <RouteSettled version={version} onSettled={onSettled} />
+        </Suspense>
+      </ChunkErrorBoundary>
+    </MountFocusContext>
   );
 }

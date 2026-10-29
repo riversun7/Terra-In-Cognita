@@ -228,6 +228,7 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
       user={user}
       monitor={monitor}
       version={route.version}
+      openedInApp={route.via !== "initial"}
       onSettled={onSettled}
     />
   );

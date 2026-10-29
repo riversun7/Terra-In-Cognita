@@ -1,0 +1,469 @@
+// 화면 시험 전역 준비 — ADR 2026-10-29-app-shell 13절·[결정 3](CI에서 돌리지 않는다. 화면을 고친 에이전트가 돌려 작업 기록에 남긴다)
+// 1. 브라우저: 개발 환경에 이미 있는 Chromium(PLAYWRIGHT_BROWSERS_PATH, @playwright/test 1.63.0 = chromium-1243). 내려받지 않는다.
+// 2. 빌드: 결과가 없거나 소스보다 오래되었으면 pnpm build.
+// 3. 새 DB(TEST_DATABASE_URL 계정에 CREATEDB 필요) → 마이그레이션(apps/server/dist/migrate.js).
+// 4. 가짜 계정 player·admin(dist/cli.js create-user, 이번 실행에서 만든 무작위 비밀번호).
+// 5. 빌드한 서버(dist/main.js): NODE_ENV 비움(운영 모드는 https 주소를 요구한다), STATIC_DIR=apps/game/dist,
+//    127.0.0.1의 빈 포트(4400~4599, E2E_PORT로 정할 수 있다).
+// 6. 계정마다 한 번 들어가 세션(쿠키)을 파일로 남긴다 → 시험이 test.use({ account })로 쓴다(helpers/test.ts).
+// 7. 콘텐츠 팩 행성이 준비될 때까지 기다린다. 타일 캐시는 서버 기본 폴더(apps/server/.planet-cache)라 첫 실행만 굽는다.
+// 돌려주는 함수가 전역 정리다: 서버를 끄고 DB를 지운다. 서버 기록은 e2e/test-results/server.log에 남는다.
+// 중단된 실행(도구 시간 초과·Ctrl+C)이 남긴 서버·DB·임시 폴더는 다음 실행이 처음에 정리한다(실행 기록 파일).
+import { type ChildProcess, execFile, execFileSync, spawn, spawnSync } from "node:child_process";
+import { createHash, randomBytes } from "node:crypto";
+import {
+  copyFileSync,
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { createRequire } from "node:module";
+import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+import { type FullConfig, chromium, request } from "@playwright/test";
+import {
+  ACCOUNT_NAMES,
+  type AccountName,
+  HARNESS_ENV,
+  type Harness,
+  type HarnessAccount,
+} from "./helpers/harness.ts";
+
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const run = promisify(execFile);
+
+/** 가짜 계정(버리는 DB에만 있다). 아이디 규칙: 영문·숫자·_ 3~20자 */
+const ACCOUNTS = {
+  player: { id: "e2e_player", roles: "player" },
+  admin: { id: "e2e_admin", roles: "player,admin" },
+} as const satisfies Record<AccountName, { id: string; roles: string }>;
+
+/** 빌드 결과 — 가장 오래된 것보다 새 소스가 있으면 다시 빌드한다 */
+const BUILD_OUTPUTS = [
+  "apps/game/dist/index.html",
+  "apps/server/dist/main.js",
+  "apps/server/dist/migrate.js",
+  "apps/server/dist/cli.js",
+];
+const BUILD_INPUTS = ["apps/game", "apps/server", "packages", "pnpm-lock.yaml"];
+/** 빌드에 들어가지 않는 파일: 시험·문서, 마이그레이션 SQL(dist/migrate.js가 실행 중에 ../drizzle을 읽는다) */
+const NOT_BUILT = /\.test\.[cm]?[jt]sx?$|\.md$|^apps\/server\/drizzle\//;
+const PORT_RANGE = { from: 4400, to: 4600 };
+const SERVER_START_MS = 90_000;
+const SERVER_STOP_MS = 10_000;
+/** 행성 굽기를 기다리는 상한. 처음 한 번 약 15~20초(기계 부하에 따라 더), 캐시가 있으면 약 1초(AGENTS.md 7장) */
+const PLANET_READY_MS = 180_000;
+/** 이번 실행이 만든 것(작업 트리마다 하나). 정리를 마치면 지운다. 남아 있으면 앞 실행이 정리하지 못한 것이다 */
+const RUN_STATE_FILE = path.join(
+  tmpdir(),
+  `terra-e2e-run-${createHash("sha256").update(ROOT).digest("hex").slice(0, 12)}.json`,
+);
+const DB_NAME = /^terra_e2e_[0-9a-f]{8}$/;
+
+interface RunState {
+  runnerPid: number;
+  runDir: string | null;
+  dbName: string | null;
+  serverPid: number | null;
+}
+
+const log = (line: string): void => console.log(`[e2e] ${line}`);
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** 브라우저가 있는지(실제로 띄워 본다). 없으면 내려받지 말고 개발 환경 설정을 보라고 알린다 */
+async function checkBrowser(): Promise<void> {
+  try {
+    const browser = await chromium.launch();
+    await browser.close();
+  } catch (error) {
+    throw new Error(
+      `Chromium을 띄우지 못했습니다. 개발 환경에 미리 설치한 브라우저를 씁니다(내려받지 않는다): ` +
+        `PLAYWRIGHT_BROWSERS_PATH(지금 ${process.env.PLAYWRIGHT_BROWSERS_PATH ?? "없음"})가 chromium-1243이 있는 폴더(/opt/pw-browsers)인지 보세요. ` +
+        `@playwright/test 판을 바꿨다면 그 판의 브라우저가 있어야 합니다.`,
+      { cause: error },
+    );
+  }
+}
+
+/** 다시 빌드해야 하는 까닭. 최신이면 null */
+function staleBuild(): string | null {
+  const missing = BUILD_OUTPUTS.filter((file) => !existsSync(path.join(ROOT, file)));
+  if (missing.length > 0) return `빌드 결과가 없습니다(${missing.join(", ")})`;
+  const builtAt = Math.min(...BUILD_OUTPUTS.map((file) => statSync(path.join(ROOT, file)).mtimeMs));
+  let files: string[];
+  try {
+    files = execFileSync(
+      "git",
+      ["ls-files", "--cached", "--others", "--exclude-standard", "--", ...BUILD_INPUTS],
+      {
+        cwd: ROOT,
+        encoding: "utf8",
+        maxBuffer: 64 * 1024 * 1024,
+      },
+    )
+      .split("\n")
+      .filter(Boolean);
+  } catch {
+    log("git으로 소스 목록을 읽지 못해 빌드 결과가 있는지만 봤습니다");
+    return null;
+  }
+  for (const file of files) {
+    if (NOT_BUILT.test(file)) continue;
+    const full = path.join(ROOT, file);
+    if (existsSync(full) && statSync(full).mtimeMs > builtAt) return `빌드보다 새 소스가 있습니다(${file})`;
+  }
+  return null;
+}
+
+function buildIfStale(): void {
+  const reason = staleBuild();
+  if (!reason) {
+    log("빌드 결과가 최신입니다");
+    return;
+  }
+  log(`${reason} → pnpm build`);
+  const result = spawnSync("pnpm", ["build"], { cwd: ROOT, stdio: "inherit" });
+  if (result.error) throw new Error(`pnpm을 실행하지 못했습니다: ${result.error.message}`);
+  if (result.status !== 0) throw new Error(`pnpm build가 실패했습니다(코드 ${String(result.status)})`);
+}
+
+/** 127.0.0.1의 그 포트를 쓸 수 있는지 */
+function canListen(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = createServer();
+    server.once("error", () => resolve(false));
+    server.listen({ port, host: "127.0.0.1", exclusive: true }, () => server.close(() => resolve(true)));
+  });
+}
+
+/** 서버 포트: E2E_PORT, 없으면 4400~4599에서 빈 포트(다른 작업 트리의 시험·서버와 겹치지 않게) */
+async function choosePort(): Promise<number> {
+  const fixed = process.env.E2E_PORT;
+  if (fixed) {
+    const port = Number(fixed);
+    if (!Number.isInteger(port) || port <= 0 || port > 65_535)
+      throw new Error(`E2E_PORT가 틀렸습니다: ${fixed}`);
+    if (!(await canListen(port))) throw new Error(`E2E_PORT ${port}를 이미 쓰고 있습니다`);
+    return port;
+  }
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const port = PORT_RANGE.from + Math.floor(Math.random() * (PORT_RANGE.to - PORT_RANGE.from));
+    if (await canListen(port)) return port;
+  }
+  throw new Error(`빈 포트를 찾지 못했습니다(${PORT_RANGE.from}~${PORT_RANGE.to - 1}). E2E_PORT로 정하세요`);
+}
+
+interface PgClient {
+  connect(): Promise<unknown>;
+  query(text: string): Promise<unknown>;
+  end(): Promise<unknown>;
+}
+interface PgModule {
+  Client: new (config: { connectionString: string }) => PgClient;
+}
+const isPgModule = (value: unknown): value is PgModule =>
+  typeof value === "object" && value !== null && typeof Reflect.get(value, "Client") === "function";
+
+/** 관리 접속(TEST_DATABASE_URL)으로 문장 하나. pg는 서버 꾸러미의 것을 쓴다(루트에 따로 두지 않는다) */
+async function adminQuery(adminUrl: string, text: string): Promise<void> {
+  const pg: unknown = createRequire(path.join(ROOT, "apps/server/package.json"))("pg");
+  if (!isPgModule(pg)) throw new Error("apps/server의 pg 꾸러미를 읽지 못했습니다(pnpm install)");
+  const client = new pg.Client({ connectionString: adminUrl });
+  await client.connect();
+  try {
+    await client.query(text);
+  } finally {
+    await client.end();
+  }
+}
+
+/** 서버 기록의 끝 몇 줄(실패 안내용) */
+function logTail(file: string, lines = 30): string {
+  try {
+    return readFileSync(file, "utf8").trimEnd().split("\n").slice(-lines).join("\n");
+  } catch {
+    return "";
+  }
+}
+
+/** 서버가 /health에 db ok로 답할 때까지. 실패하면 기록 끝 줄을 붙인다(전체는 정리 때 e2e/test-results/server.log로 옮긴다) */
+async function waitForServer(baseURL: string, server: ChildProcess, logFile: string): Promise<void> {
+  const until = Date.now() + SERVER_START_MS;
+  while (Date.now() < until) {
+    if (server.exitCode !== null) {
+      throw new Error(`서버가 꺼졌습니다(코드 ${server.exitCode}). 기록 끝:\n${logTail(logFile)}`);
+    }
+    try {
+      const response = await fetch(`${baseURL}/health`, { signal: AbortSignal.timeout(2_000) });
+      const body: unknown = await response.json();
+      if (response.ok && typeof body === "object" && body !== null && Reflect.get(body, "db") === "ok")
+        return;
+    } catch {
+      // 아직 뜨는 중
+    }
+    await sleep(250);
+  }
+  throw new Error(`서버가 ${SERVER_START_MS / 1000}초 안에 뜨지 않았습니다. 기록 끝:\n${logTail(logFile)}`);
+}
+
+async function stopServer(server: ChildProcess): Promise<void> {
+  if (server.exitCode !== null || server.signalCode !== null) return;
+  const exited = new Promise((resolve) => server.once("exit", resolve));
+  server.kill("SIGTERM");
+  const stopped = await Promise.race([exited.then(() => true), sleep(SERVER_STOP_MS).then(() => false)]);
+  if (!stopped) {
+    server.kill("SIGKILL");
+    await exited;
+  }
+}
+
+/** 계정으로 한 번 들어가 세션 쿠키를 파일로 남긴다(같은 출처 검사: origin 머리글 = BETTER_AUTH_URL) */
+async function saveSession(baseURL: string, id: string, password: string, file: string): Promise<void> {
+  const context = await request.newContext({ baseURL });
+  try {
+    const response = await context.post("/api/account/enter", {
+      data: { id, password },
+      headers: { origin: baseURL },
+    });
+    const body: unknown = await response.json().catch(() => null);
+    const status = typeof body === "object" && body !== null ? Reflect.get(body, "status") : undefined;
+    if (response.status() !== 200 || status !== "signed_in") {
+      throw new Error(`${id} 세션을 만들지 못했습니다: HTTP ${response.status()}, status ${String(status)}`);
+    }
+    await context.storageState({ path: file });
+  } finally {
+    await context.dispose();
+  }
+}
+
+/** 서버가 싣는 콘텐츠 팩의 행성 ID(planets.json의 entries[].id). 서버와 같이 CONTENT_DIR를 따른다 */
+function planetIds(): string[] {
+  const dir = process.env.CONTENT_DIR
+    ? path.resolve(ROOT, process.env.CONTENT_DIR)
+    : path.join(ROOT, "content/core");
+  const file = path.join(dir, "planets.json");
+  if (!existsSync(file)) return [];
+  const data: unknown = JSON.parse(readFileSync(file, "utf8"));
+  const entries: unknown =
+    typeof data === "object" && data !== null ? Reflect.get(data, "entries") : undefined;
+  const list: unknown[] = Array.isArray(entries) ? entries : [];
+  return list
+    .map((entry) => (typeof entry === "object" && entry !== null ? Reflect.get(entry, "id") : undefined))
+    .filter((id): id is string => typeof id === "string");
+}
+
+/**
+ * 행성이 준비될 때까지(목록 정보 status "ready") 기다린다. 서버는 켤 때 행성을 뒤에서 굽는데(캐시가 없으면),
+ * 짧은 실행은 굽기가 끝나기 전에 서버를 꺼서 캐시가 남지 않고 시험 동안 CPU만 쓴다. 기다리면 첫 실행에 한 번
+ * 굽고 캐시를 남긴다(다음 실행부터 약 1초). 지도 시험도 늘 준비된 행성에서 시작한다.
+ * 상한을 넘으면 알리고 계속한다(지도가 아닌 시험까지 막지 않는다).
+ */
+async function waitForPlanets(baseURL: string, storageState: string): Promise<void> {
+  const ids = planetIds();
+  if (ids.length === 0) return;
+  const context = await request.newContext({ baseURL, storageState });
+  const started = Date.now();
+  try {
+    for (const id of ids) {
+      for (;;) {
+        const response = await context.get(`/api/planets/${id}`);
+        const body: unknown = await response.json().catch(() => null);
+        if (
+          response.ok() &&
+          typeof body === "object" &&
+          body !== null &&
+          Reflect.get(body, "status") === "ready"
+        ) {
+          break;
+        }
+        if (Date.now() - started > PLANET_READY_MS) {
+          log(
+            `행성 ${id}이(가) ${PLANET_READY_MS / 1000}초 안에 준비되지 않았습니다. 지도 시험은 실패할 수 있습니다`,
+          );
+          return;
+        }
+        // 목록 정보는 사용자마다 분당 60번까지다(apps/server/src/planet/routes.ts)
+        await sleep(1_500);
+      }
+    }
+    log(`행성 ${ids.join(", ")} 준비(${((Date.now() - started) / 1000).toFixed(1)}초)`);
+  } finally {
+    await context.dispose();
+  }
+}
+
+const isNumber = (value: unknown): value is number => Number.isSafeInteger(value);
+const isString = (value: unknown): value is string => typeof value === "string";
+
+function readRunState(): RunState | null {
+  try {
+    const data: unknown = JSON.parse(readFileSync(RUN_STATE_FILE, "utf8"));
+    if (typeof data !== "object" || data === null) return null;
+    const pick = <T>(key: string, check: (value: unknown) => value is T): T | null => {
+      const value: unknown = Reflect.get(data, key);
+      return check(value) ? value : null;
+    };
+    const runnerPid = pick("runnerPid", isNumber);
+    if (runnerPid === null) return null;
+    return {
+      runnerPid,
+      runDir: pick("runDir", isString),
+      dbName: pick("dbName", isString),
+      serverPid: pick("serverPid", isNumber),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** 살아 있고 명령줄에 그 글자가 있는 프로세스인지(리눅스 /proc). 끝난 프로세스의 번호를 다른 프로세스가 받았을 수 있다 */
+function isProcess(pid: number, marker: string): boolean {
+  try {
+    process.kill(pid, 0);
+    return readFileSync(`/proc/${pid}/cmdline`, "utf8").includes(marker);
+  } catch {
+    return false;
+  }
+}
+
+/** 앞 실행이 정리하지 못한 서버·DB·임시 폴더를 정리한다. 같은 작업 트리에서 다른 실행이 돌고 있으면 멈춘다 */
+async function cleanPreviousRun(adminUrl: string): Promise<void> {
+  const state = readRunState();
+  if (!state) return;
+  if (isProcess(state.runnerPid, "playwright")) {
+    throw new Error(
+      `이 작업 트리에서 다른 화면 시험이 돌고 있습니다(pid ${state.runnerPid}). 끝난 뒤 다시 돌리세요`,
+    );
+  }
+  if (state.serverPid !== null && isProcess(state.serverPid, "apps/server/dist/main.js")) {
+    process.kill(state.serverPid, "SIGKILL");
+  }
+  if (state.dbName !== null && DB_NAME.test(state.dbName)) {
+    await adminQuery(adminUrl, `drop database if exists ${state.dbName} with (force)`);
+  }
+  if (state.runDir !== null && path.basename(state.runDir).startsWith("terra-e2e-")) {
+    rmSync(state.runDir, { recursive: true, force: true });
+  }
+  rmSync(RUN_STATE_FILE, { force: true });
+  log(`앞 실행이 남긴 것을 정리했습니다(서버 pid ${String(state.serverPid)}, DB ${String(state.dbName)})`);
+}
+
+export default async function globalSetup(config: FullConfig): Promise<() => Promise<void>> {
+  const adminUrl = process.env.TEST_DATABASE_URL;
+  if (!adminUrl) {
+    throw new Error(
+      "TEST_DATABASE_URL이 없습니다. CREATEDB 권한이 있는 PostgreSQL 접속 주소를 줍니다(예: TEST_DATABASE_URL=postgres://terra@127.0.0.1:55432/postgres pnpm e2e).",
+    );
+  }
+  const outputDir = config.projects[0]?.outputDir ?? path.join(ROOT, "e2e", "test-results");
+  const cleanups: (() => Promise<void> | void)[] = [];
+  const cleanup = async (): Promise<void> => {
+    for (const step of cleanups.toReversed()) {
+      try {
+        await step();
+      } catch (error) {
+        console.error(`[e2e] 정리 실패: ${String(error)}`);
+      }
+    }
+  };
+
+  try {
+    await cleanPreviousRun(adminUrl);
+    await checkBrowser();
+    buildIfStale();
+
+    const state: RunState = { runnerPid: process.pid, runDir: null, dbName: null, serverPid: null };
+    const saveState = (): void => writeFileSync(RUN_STATE_FILE, JSON.stringify(state));
+    // 맨 처음 넣으므로 정리 때 맨 마지막에 돈다
+    cleanups.push(() => rmSync(RUN_STATE_FILE, { force: true }));
+    const runDir = mkdtempSync(path.join(tmpdir(), "terra-e2e-"));
+    state.runDir = runDir;
+    saveState();
+    const logFile = path.join(runDir, "server.log");
+    cleanups.push(() => rmSync(runDir, { recursive: true, force: true }));
+    cleanups.push(() => {
+      if (!existsSync(logFile)) return;
+      mkdirSync(outputDir, { recursive: true });
+      copyFileSync(logFile, path.join(outputDir, "server.log"));
+    });
+
+    const dbName = `terra_e2e_${randomBytes(4).toString("hex")}`;
+    const dbUrl = new URL(adminUrl);
+    dbUrl.pathname = `/${dbName}`;
+    state.dbName = dbName;
+    saveState();
+    await adminQuery(adminUrl, `create database ${dbName}`);
+    cleanups.push(() => adminQuery(adminUrl, `drop database if exists ${dbName} with (force)`));
+
+    const port = await choosePort();
+    const baseURL = `http://127.0.0.1:${port}`;
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      NODE_ENV: "",
+      HOST: "127.0.0.1",
+      PORT: String(port),
+      STATIC_DIR: path.join(ROOT, "apps/game/dist"),
+      DATABASE_URL: dbUrl.toString(),
+      BETTER_AUTH_SECRET: randomBytes(32).toString("hex"),
+      BETTER_AUTH_URL: baseURL,
+    };
+    await run(process.execPath, ["apps/server/dist/migrate.js"], { cwd: ROOT, env });
+
+    const createAccount = async (name: AccountName): Promise<HarnessAccount> => {
+      const { id, roles } = ACCOUNTS[name];
+      // 비밀번호 규칙(8자 이상, 아이디와 다름, 흔한 비밀번호 아님)을 지키는 무작위 값
+      const password = `e2e-${randomBytes(12).toString("base64url")}`;
+      await run(process.execPath, ["apps/server/dist/cli.js", "create-user", "--id", id, "--roles", roles], {
+        cwd: ROOT,
+        env: { ...env, TIC_PASSWORD: password, TIC_ACTOR: "e2e global-setup" },
+      });
+      return { id, password, storageState: path.join(runDir, `session-${name}.json`) };
+    };
+    const [player, admin] = await Promise.all([createAccount("player"), createAccount("admin")]);
+    const accounts: Record<AccountName, HarnessAccount> = { player, admin };
+
+    const logStream = createWriteStream(logFile);
+    const server = spawn(process.execPath, ["apps/server/dist/main.js"], {
+      cwd: ROOT,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    state.serverPid = server.pid ?? null;
+    saveState();
+    server.stdout.pipe(logStream);
+    server.stderr.pipe(logStream);
+    // 시험 프로세스가 정리 없이 끝나도(중단 등) 서버를 남기지 않는다
+    const killOnExit = (): void => {
+      server.kill("SIGKILL");
+    };
+    process.once("exit", killOnExit);
+    cleanups.push(async () => {
+      process.off("exit", killOnExit);
+      await stopServer(server);
+      await new Promise<void>((resolve) => logStream.end(resolve));
+    });
+    const started = Date.now();
+    await waitForServer(baseURL, server, logFile);
+    log(`서버 ${baseURL} (DB ${dbName}, ${((Date.now() - started) / 1000).toFixed(1)}초, 기록 ${logFile})`);
+
+    for (const name of ACCOUNT_NAMES) {
+      const account = accounts[name];
+      await saveSession(baseURL, account.id, account.password, account.storageState);
+    }
+    await waitForPlanets(baseURL, accounts.admin.storageState);
+    const harness: Harness = { baseURL, accounts };
+    process.env[HARNESS_ENV] = JSON.stringify(harness);
+  } catch (error) {
+    await cleanup();
+    throw error;
+  }
+  return cleanup;
+}

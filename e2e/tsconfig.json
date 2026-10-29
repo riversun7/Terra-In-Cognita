@@ -1,0 +1,10 @@
+{
+  // 화면 시험(e2e/) 타입 검사 — 루트 pnpm typecheck가 tsc -p e2e/tsconfig.json으로 본다. 작업공간 꾸러미가 아니다.
+  // page.evaluate 안은 브라우저에서 돌므로 DOM 타입도 넣는다
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "types": ["node"]
+  },
+  "include": ["**/*.ts"]
+}

@@ -5,8 +5,9 @@
 // - 서버는 값(params: 이름·수)만 보낸다. 문장은 여기서 만든다. 이름 뒤에 조사를 붙이지 않게 이름은 따로 보인다(place).
 // - 모르는 종류(더 새 서버)는 "새 알림"이고 처리함으로 간다. 값은 뜻을 모르므로 보이지 않는다. 마감은 보인다.
 // - 모르는 분류(더 새 서버)의 줄은 목록 끝 "그 밖의 알림" 묶음에 보인다(처리함에는 늘 모든 항목이 나온다, D-6011).
+// - 줄이 가리키는 곳은 화면(RouteTarget)으로 돌려준다. 앱 안 이동은 화면 틀(W1) 라우터가 화면으로 받는다.
 // 종류 표 값(INBOX_KINDS)은 가져오지 않는다. 화면에 필요한 것(분류·이동 화면·동작)은 항목에 실려 온다.
-import { buildPath, isRouteTarget, targetPath } from "@terra/shared";
+import { type RouteTarget, isRouteTarget, targetPath } from "@terra/shared";
 import type { InboxCategory, InboxItem, InboxKindId } from "@terra/shared/inbox";
 import { m } from "../paraglide/messages.js";
 import { type Locale, getLocale } from "../paraglide/runtime.js";
@@ -87,19 +88,19 @@ export function formatDue(
   return m.inbox_deadline({ time }, { locale });
 }
 
-/** 처리함에서 이 항목을 강조하는 주소 */
-function inboxPath(item: InboxItem): string {
-  return buildPath("inbox", { search: { item: item.id } });
+/** 처리함에서 이 항목을 강조하는 화면(/inbox?item=<항목 ID>) */
+export function inboxItemTarget(item: InboxItem): RouteTarget {
+  return { route: "inbox", search: { item: item.id } };
 }
 
 /**
- * 줄을 누르면 갈 주소. 아는 종류이고 이동 화면이 이 기기가 아는 화면이면 그 화면, 아니면 처리함(?item=).
+ * 줄을 누르면 갈 화면. 아는 종류이고 이동 화면이 이 기기가 아는 화면이면 그 화면, 아니면 처리함(?item=).
  * 처리함 화면 안(onInboxScreen)에서는 처리함으로 가는 링크를 두지 않는다(null): 그 줄이 이미 여기 있다.
  */
-export function itemHref(item: InboxItem, onInboxScreen: boolean): string | null {
+export function itemTarget(item: InboxItem, onInboxScreen: boolean): RouteTarget | null {
   const target: unknown = item.target;
-  if (isKnownKind(item.kind) && isRouteTarget(target)) return targetPath(target);
-  return onInboxScreen ? null : inboxPath(item);
+  if (isKnownKind(item.kind) && isRouteTarget(target)) return target;
+  return onInboxScreen ? null : inboxItemTarget(item);
 }
 
 /** 줄 하나를 그리는 데 필요한 값 */
@@ -108,6 +109,9 @@ export interface ItemView {
   /** 곳 이름(params.place, 유저가 지은 이름은 번역하지 않는다). 없으면 null */
   readonly place: string | null;
   readonly due: string | null;
+  /** 누르면 갈 화면. 없으면 링크가 없다 */
+  readonly target: RouteTarget | null;
+  /** target의 주소(링크의 href) */
   readonly href: string | null;
   readonly preview: boolean;
   /** 기기가 아는 종류인지(모르면 값·바로 처리를 보이지 않는다) */
@@ -121,11 +125,13 @@ export function describeItem(
   const locale = options.locale ?? getLocale();
   const known = isKnownKind(item.kind);
   const place = known ? item.params["place"] : undefined;
+  const target = itemTarget(item, options.onInboxScreen);
   return {
     title: inboxItemTitle(item, locale),
     place: typeof place === "string" && place !== "" ? place : null,
     due: formatDue(item.deadlineAt, options.now, locale),
-    href: itemHref(item, options.onInboxScreen),
+    target,
+    href: target === null ? null : targetPath(target),
     preview: item.preview === true,
     known,
   };

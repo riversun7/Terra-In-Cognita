@@ -5,7 +5,7 @@
 // - 숫자를 누르면 그 화면으로 가고 확인한 것으로 친다(닫는다). 갈 화면이 없는 칸(세계 소식 등)은 수만 보인다.
 // - 모르는 칸 종류(더 새 서버)는 그리지 않는다. 그릴 칸이 하나도 없으면 열지 않고 바로 닫힌 것으로 알린다.
 //   시안 자료 칸에는 "시험 자료"를 붙인다.
-import { isRouteTarget, targetPath } from "@terra/shared";
+import { type RouteTarget, isRouteTarget, targetPath } from "@terra/shared";
 import type { SummaryGetResponse, SummarySection } from "@terra/shared/inbox";
 import { type MouseEvent, useEffect, useId, useRef } from "react";
 import { m } from "../paraglide/messages.js";
@@ -13,10 +13,10 @@ import { getLocale } from "../paraglide/runtime.js";
 import { SECTION_LABELS, formatSpan, visibleSections } from "./summaryText.ts";
 import "./summary.css";
 
-/** 칸을 누르면 갈 주소. 이 기기가 아는 화면이 아니면 null */
-function sectionHref(section: SummarySection): string | null {
+/** 칸을 누르면 갈 화면. 이 기기가 아는 화면이 아니면 null */
+function sectionTarget(section: SummarySection): RouteTarget | null {
   const target: unknown = section.target;
-  return isRouteTarget(target) ? targetPath(target) : null;
+  return isRouteTarget(target) ? target : null;
 }
 
 /** 누르면 그 화면으로 간다는 표시(꾸밈) */
@@ -40,12 +40,13 @@ function Chevron() {
 
 export interface SummaryDialogProps {
   readonly summary: SummaryGetResponse;
-  readonly navigate: ((path: string) => void) | undefined;
+  /** 앱 안 이동(ReturnSummary.tsx). 없으면 보통 링크다 */
+  readonly onNavigate: ((target: RouteTarget) => void) | undefined;
   /** 대화상자가 닫혔다([확인]·Esc·숫자 눌러 이동) */
   readonly onClose: () => void;
 }
 
-export default function SummaryDialog({ summary, navigate, onClose }: SummaryDialogProps) {
+export default function SummaryDialog({ summary, onNavigate, onClose }: SummaryDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const titleId = useId();
@@ -57,7 +58,7 @@ export default function SummaryDialog({ summary, navigate, onClose }: SummaryDia
     summary.since === null
       ? null
       : m.summary_period({ duration: formatSpan(summary.until - summary.since, locale) });
-  const anyLink = sections.some((section) => sectionHref(section) !== null);
+  const anyLink = sections.some((section) => sectionTarget(section) !== null);
 
   useEffect(() => {
     // 보일 칸이 없다(모르는 칸 종류뿐): 열지 않는다
@@ -75,12 +76,13 @@ export default function SummaryDialog({ summary, navigate, onClose }: SummaryDia
     dialogRef.current?.close();
   };
 
-  const follow = (event: MouseEvent<HTMLAnchorElement>, path: string): void => {
-    if (!navigate || event.defaultPrevented || event.button !== 0) return;
+  // 보통 왼쪽 누름만 앱 안 이동으로 바꾼다(보조 키·가운데 버튼은 브라우저에 맡긴다). 요약을 먼저 닫는다(기록 칸이 없으니 이동이 쌓기다)
+  const follow = (event: MouseEvent<HTMLAnchorElement>, target: RouteTarget): void => {
+    if (!onNavigate || event.defaultPrevented || event.button !== 0) return;
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     close();
-    navigate(path);
+    onNavigate(target);
   };
 
   if (nothing) return null;
@@ -95,7 +97,7 @@ export default function SummaryDialog({ summary, navigate, onClose }: SummaryDia
         </div>
         <ul className="summary-sections">
           {sections.map((section) => {
-            const href = sectionHref(section);
+            const target = sectionTarget(section);
             const body = (
               <>
                 <span className="summary-count">{count.format(section.count)}</span>
@@ -109,13 +111,13 @@ export default function SummaryDialog({ summary, navigate, onClose }: SummaryDia
             );
             return (
               <li key={section.kind}>
-                {href === null ? (
+                {target === null ? (
                   <div className="summary-row">{body}</div>
                 ) : (
                   <a
                     className="summary-row summary-link"
-                    href={href}
-                    onClick={(event) => follow(event, href)}
+                    href={targetPath(target)}
+                    onClick={(event) => follow(event, target)}
                   >
                     {body}
                     <Chevron />

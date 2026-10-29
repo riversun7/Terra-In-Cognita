@@ -4,6 +4,7 @@
 //   대화상자는 SummaryDialog.tsx(지연. 보일 요약이 있을 때만 받는다. 지금 플레이어는 늘 show: false라 받지 않는다).
 // - 기록 칸을 쌓지 않는다. [확인]·Esc(닫기 요청)로 닫으면 보던 화면에 남는다: /로 켰으면 홈, 바로 연 주소면 그 화면(D-266).
 // - 대화상자 조각을 받지 못하면 조용히 넘긴다(다음에 켤 때 다시 묻는다).
+import type { RouteTarget } from "@terra/shared";
 import { Suspense, lazy } from "react";
 import { ChunkErrorBoundary } from "../ui/ChunkErrorBoundary.tsx";
 import { dismissReturnSummary, useReturnSummary } from "./summaryGate.ts";
@@ -11,17 +12,20 @@ import { dismissReturnSummary, useReturnSummary } from "./summaryGate.ts";
 const SummaryDialog = lazy(() => import("./SummaryDialog.tsx"));
 
 export interface ReturnSummaryProps {
-  /** 앱 안 이동(라우터의 쌓기). 숫자를 누르면 그 화면으로 가며 요약을 닫는다. 없으면 보통 링크다 */
-  readonly navigate?: ((path: string) => void) | undefined;
+  /**
+   * 앱 안 이동(화면 틀 W1 라우터의 navigate를 그대로 넘긴다). 숫자를 누르면 요약을 닫은 뒤 그 화면으로 간다(쌓기).
+   * 없으면 보통 링크다
+   */
+  readonly onNavigate?: ((target: RouteTarget) => void) | undefined;
 }
 
-export function ReturnSummary({ navigate }: ReturnSummaryProps) {
+export function ReturnSummary({ onNavigate }: ReturnSummaryProps) {
   const pending = useReturnSummary();
   if (pending === null) return null;
   return (
     <ChunkErrorBoundary fallback={null}>
       <Suspense fallback={null}>
-        <SummaryDialog summary={pending.summary} navigate={navigate} onClose={dismissReturnSummary} />
+        <SummaryDialog summary={pending.summary} onNavigate={onNavigate} onClose={dismissReturnSummary} />
       </Suspense>
     </ChunkErrorBoundary>
   );

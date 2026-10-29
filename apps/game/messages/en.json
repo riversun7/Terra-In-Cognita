@@ -37,7 +37,6 @@
   "inbox_action_preview_done": "Sample data: no command was sent.",
   "inbox_deadline": "Due {time}",
   "inbox_overdue": "Overdue",
-  "inbox_bell_count": "Alerts: {count}",
   "inbox_kind_unknown": "New alert",
   "inbox_group_other": "Other alerts",
   "inbox_wave_incoming_title": "Wave incoming",

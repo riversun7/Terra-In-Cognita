@@ -37,7 +37,6 @@
   "inbox_action_preview_done": "시험 자료라서 명령을 보내지 않았습니다.",
   "inbox_deadline": "{time} 마감",
   "inbox_overdue": "마감 지남",
-  "inbox_bell_count": "알림 {count}개",
   "inbox_kind_unknown": "새 알림",
   "inbox_group_other": "그 밖의 알림",
   "inbox_wave_incoming_title": "웨이브가 다가옵니다",

@@ -9,20 +9,20 @@ import { type ReactNode, useCallback, useEffect } from "react";
 import { m } from "../paraglide/messages.js";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { text } from "../ui/text.ts";
-import { InboxList } from "./InboxList.tsx";
+import { InboxList, type InboxNavigate } from "./InboxList.tsx";
 import { ensureInbox, refreshInbox, useInbox } from "./store.ts";
 import "./inbox.css";
 
 export interface InboxScreenProps {
   /** ?item= 값(강조할 항목 ID). 없으면 undefined */
   readonly itemId?: string | undefined;
-  /** 앱 안 이동(라우터의 쌓기). 없으면 보통 링크다 */
-  readonly navigate?: ((path: string) => void) | undefined;
+  /** 앱 안 이동(화면 틀 W1 라우터의 navigate를 그대로 넘긴다). 없으면 보통 링크다 */
+  readonly onNavigate?: InboxNavigate | undefined;
   /** 제목 줄 끝에 둘 것(화면 틀의 [뒤로] 등) */
   readonly headerEnd?: ReactNode;
 }
 
-export default function InboxScreen({ itemId, navigate, headerEnd }: InboxScreenProps) {
+export default function InboxScreen({ itemId, onNavigate, headerEnd }: InboxScreenProps) {
   const inbox = useInbox();
   const { lines: noticeLines, version: noticeVersion, show: showNotice } = useLiveLines();
 
@@ -65,7 +65,7 @@ export default function InboxScreen({ itemId, navigate, headerEnd }: InboxScreen
         now={data.generatedAt}
         highlightId={itemId}
         onInboxScreen
-        navigate={navigate}
+        onNavigate={onNavigate}
         onQuickAction={onQuickAction}
       />
     );

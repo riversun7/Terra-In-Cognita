@@ -1,7 +1,7 @@
 // 처리할 일 문구·링크 시험 — 종류마다 제목, 모르는 종류(더 새 서버)는 "새 알림" + 처리함으로, 마감·개수 표시(ADR 2026-10-29-app-shell 7·12절)
 import { INBOX_CATEGORIES, type InboxItem } from "@terra/shared/inbox";
 import { describe, expect, it } from "vitest";
-import { CATEGORY_ORDER, describeItem, formatDue, inboxItemTitle, itemHref } from "./inboxText.ts";
+import { CATEGORY_ORDER, describeItem, formatDue, inboxItemTitle, itemTarget } from "./inboxText.ts";
 
 const NOW = 1_761_700_000_000;
 const MIN = 60_000;
@@ -47,13 +47,14 @@ describe("처리할 일 제목", () => {
 
 describe("처리할 일 링크", () => {
   it("아는 종류는 이동 화면(target)으로", () => {
-    expect(itemHref(item(), true)).toBe("/units");
-    expect(itemHref(item({ target: { route: "inbox", search: { item: "x:y" } } }), false)).toBe(
-      "/inbox?item=x%3Ay",
-    );
+    expect(itemTarget(item(), true)).toEqual({ route: "units" });
+    expect(itemTarget(item({ target: { route: "inbox", search: { item: "x:y" } } }), false)).toEqual({
+      route: "inbox",
+      search: { item: "x:y" },
+    });
   });
 
-  it("이동 화면이 없거나 모르는 화면·모르는 종류면 처리함으로(처리함 화면 안에서는 링크 없음)", () => {
+  it("이동 화면이 없거나 모르는 화면·모르는 종류면 처리함(?item=)으로(처리함 화면 안에서는 링크 없음)", () => {
     for (const odd of [
       item({ target: null }),
       item({ kind: "brand_new_kind" }),
@@ -61,8 +62,8 @@ describe("처리할 일 링크", () => {
       { ...item(), target: JSON.parse('{"route":"guild_hall"}') },
       { ...item(), target: JSON.parse('{"route":"units","search":[]}') },
     ]) {
-      expect(itemHref(odd, false)).toBe("/inbox?item=unit_idle%3Acity_1");
-      expect(itemHref(odd, true)).toBeNull();
+      expect(itemTarget(odd, false)).toEqual({ route: "inbox", search: { item: "unit_idle:city_1" } });
+      expect(itemTarget(odd, true)).toBeNull();
     }
   });
 });
@@ -92,6 +93,7 @@ describe("줄 하나의 모습", () => {
       title: "명령 없는 유닛 6",
       place: "Nova",
       due: "5시간 후 마감",
+      target: { route: "units" },
       href: "/units",
       preview: true,
       known: true,
@@ -108,6 +110,7 @@ describe("줄 하나의 모습", () => {
       title: "새 알림",
       place: null,
       due: null,
+      target: { route: "inbox", search: { item: "unit_idle:city_1" } },
       href: "/inbox?item=unit_idle%3Acity_1",
       preview: false,
       known: false,

@@ -75,6 +75,18 @@ describe("행성 목록 정보", () => {
     }
   });
 
+  it("생성 결과 해시(fieldsHash)는 선택이고, 있으면 소문자 16진수 8~64자다", () => {
+    for (const fieldsHash of ["0123abcd", "f".repeat(64)]) {
+      expect(planetManifestSchema.parse({ ...manifest(), fieldsHash }).fieldsHash).toBe(fieldsHash);
+    }
+    expect(planetManifestSchema.parse(manifest()).fieldsHash).toBeUndefined();
+    for (const fieldsHash of ["", "0123abc", "0123ABCD", "g".repeat(8), "f".repeat(65), 12_345_678]) {
+      expect(planetManifestSchema.safeParse({ ...manifest(), fieldsHash }).success, `${fieldsHash}`).toBe(
+        false,
+      );
+    }
+  });
+
   it("기기가 아는 타일 형식 버전이어야 타일을 읽는다", () => {
     expect(canReadPlanetTiles(manifest())).toBe(true);
     expect(canReadPlanetTiles({ tileFormatVersion: PLANET_TILE_FORMAT_VERSION + 1 })).toBe(false);

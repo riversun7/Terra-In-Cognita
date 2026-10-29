@@ -72,6 +72,8 @@ interface ReadyPlanet {
   bytes: number;
   /** 가장 높은 땅(게임 m) — 준비된 목록 정보에 싣는다 */
   maxElevationM: number;
+  /** 생성 결과 해시(생성기 meta.hash) — 준비된 목록 정보에 싣는다(ADR 38 4절: 편집기 "굽기와 같음") */
+  fieldsHash: string;
 }
 
 interface PlanetEntry {
@@ -134,7 +136,7 @@ function cacheKey(source: PlanetSource): PlanetCacheKey {
 function makeReady(
   tiles: readonly (readonly [number, number])[],
   pack: Uint8Array,
-  maxElevationM: number,
+  summary: { maxElevationM: number; fieldsHash: string },
 ): ReadyPlanet {
   const map = new Map<number, Uint8Array>();
   let offset = 0;
@@ -142,7 +144,13 @@ function makeReady(
     map.set(key, pack.subarray(offset, offset + length));
     offset += length;
   }
-  return { tiles: map, bytes: pack.byteLength, maxElevationM };
+  // 필드를 골라 담는다(캐시 목록·굽기 결과를 통째로 펼치면 tiles 같은 다른 칸이 덮인다)
+  return {
+    tiles: map,
+    bytes: pack.byteLength,
+    maxElevationM: summary.maxElevationM,
+    fieldsHash: summary.fieldsHash,
+  };
 }
 
 export function createPlanetService(options: PlanetServiceOptions): PlanetService {
@@ -173,7 +181,7 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
       const result = await readPlanetCache(cacheDir, cacheKey(entry.source));
       if (result.ok) {
         const { index } = result.cached;
-        entry.ready = makeReady(index.tiles, result.cached.pack, index.maxElevationM);
+        entry.ready = makeReady(index.tiles, result.cached.pack, index);
         const loadMs = performance.now() - started;
         counts.cacheHits += 1;
         counts.cacheLoadMsMax = Math.max(counts.cacheLoadMsMax, loadMs);
@@ -282,7 +290,7 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
       fail(entry, new Error("baked tiles do not match the planet tile list"));
       return;
     }
-    entry.ready = makeReady(output.tiles, output.pack, output.maxElevationM);
+    entry.ready = makeReady(output.tiles, output.pack, output);
     entry.failures = 0;
     counts.bakes += 1;
     counts.bakeMsMax = Math.max(counts.bakeMsMax, output.totalMs);
@@ -322,9 +330,10 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
     manifest(planetId) {
       const entry = entries.get(planetId);
       if (!entry) return undefined;
-      // 가장 높은 땅은 구운 뒤에만 안다(굽는 중 목록 정보에는 없다)
+      // 가장 높은 땅·결과 해시는 구운 뒤에만 안다(굽는 중 목록 정보에는 없다)
       if (!entry.ready) return { ...entry.manifest, status: "generating" };
-      return { ...entry.manifest, status: "ready", maxElevationM: entry.ready.maxElevationM };
+      const { maxElevationM, fieldsHash } = entry.ready;
+      return { ...entry.manifest, status: "ready", maxElevationM, fieldsHash };
     },
     tile(planetId, tileKey, version) {
       const entry = entries.get(planetId);

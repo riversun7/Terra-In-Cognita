@@ -65,6 +65,7 @@ export {
   type PlanetTileData,
 } from "./planetTile.ts";
 export {
+  PLANET_FIELDS_HASH_PATTERN,
   PLANET_ID_PATTERN,
   PLANET_STATUSES,
   canReadPlanetTiles,

@@ -17,6 +17,12 @@ export const PLANET_ID_PATTERN = /^[a-z][a-z0-9_]{1,47}$/;
 export const PLANET_STATUSES = ["generating", "ready"] as const;
 export type PlanetStatus = (typeof PLANET_STATUSES)[number];
 
+/**
+ * 생성 결과 해시 모양(소문자 16진수 8~64자). 지금 생성기는 FNV-1a 32비트(8자)를 쓴다. 길이를 넉넉히 받는 것은 생성기 판이
+ * 해시를 바꿔도 이 형식을 고치지 않으려는 것이다(행성 편집기 내보내기 검사와 같은 폭, ADR 38 4절)
+ */
+export const PLANET_FIELDS_HASH_PATTERN = /^[0-9a-f]{8,64}$/;
+
 const contentIdSchema = z.string().regex(PLANET_ID_PATTERN);
 const localizedNameSchema = z.object({ ko: z.string().min(1).max(200), en: z.string().min(1).max(200) });
 
@@ -56,6 +62,11 @@ export const planetManifestSchema = z.object({
    * 기기는 시야 거르기·지평선·누르기 경계에 쓴다(없으면 렌더러 기본값). 옛 서버는 보내지 않는다(선택 필드)
    */
   maxElevationM: z.number().int().min(0).max(32_767).optional(),
+  /**
+   * 생성 결과 해시(생성기 meta.hash) = 서버가 구운 결과. 구운 뒤(status "ready")에만 있다. 행성 편집기가 기기에서 같은 면
+   * 레벨로 만든 결과 해시와 견줘 "굽기와 같음"을 보인다(ADR 38 4절). 옛 서버는 보내지 않는다(선택 필드, 프로토콜 판은 그대로)
+   */
+  fieldsHash: z.string().regex(PLANET_FIELDS_HASH_PATTERN).optional(),
   /** 바이옴 범례(index·ID가 겹치지 않는다) */
   biomes: z
     .array(planetBiomeSchema)

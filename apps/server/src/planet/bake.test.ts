@@ -138,8 +138,8 @@ describe("콘텐츠 팩 행성 원본", () => {
     const spec = packTestPlanetSpec();
     const fields = await createPlanetSource({ ...spec, input: { ...spec.input, faceLevel: 5 } }).generate();
     expect(() => assertPlanetFields(fields)).not.toThrow();
-    // packages/planet generator/generate.test.ts "S2 시험 행성 설정" F5 골든 값(출력 판 2)
-    expect(fields.meta.hash).toBe("5c984c77");
+    // packages/planet generator/generate.test.ts "S2 시험 행성 설정" F5 골든 값(출력 판 3)
+    expect(fields.meta.hash).toBe("3da7da3a");
     expect(fields.meta).toMatchObject({
       generatorVersion: GENERATOR_VERSION,
       faceLevel: 5,

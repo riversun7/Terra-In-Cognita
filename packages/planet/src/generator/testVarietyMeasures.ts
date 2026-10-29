@@ -461,9 +461,10 @@ export function windStreakExcess(
   ctx: VarietyContext,
   fields: PlanetFields,
   wind: CellWind,
+  lagKm = 54,
 ): { readonly excess: number; readonly raw: number; readonly reference: number } {
   const count = ctx.grid.cellCount;
-  const k = Math.max(2, Math.round(54 / ctx.cellKm));
+  const k = Math.max(2, Math.round(lagKm / ctx.cellKm));
   const bins = 360;
   const weight = new Float64Array(bins);
   const sum = new Float64Array(bins);

@@ -1,7 +1,7 @@
 // 생성 6~8단계: 수심 등급 → 습도 → 바이옴 → 숲 밀도, 그리고 저장 값(정수)으로 바꾸기
 // - 저장 고도(게임 m) = (실제 환산 고도 − 해수면) ÷ 12, 반올림(ADR 36 고도 1:12). 메운 평지·마른 분지는 채운 높이.
 // - 수심 등급(바다만): 실제 환산 깊이 60m 미만 연안, 200m 미만 대륙붕, 그 밖은 심해.
-// - 습도(0~255) = 255 × AI / (AI + 0.75), AI = 강수 ÷ 증발 가능량. 바다·호수는 255.
+// - 습도(0~255) = 255 × AI / (AI + 0.75), AI = 강수 ÷ 증발 가능량(반올림 전 기온으로, 출력 판 3). 바다·호수는 255.
 //   강가·호숫가 가산: 물가에서 RIPARIAN_REACH(실제 환산 km) 안쪽 땅에 더한다. 칸이 그 띠보다 크면 칸 면적 중 띠가
 //   차지하는 몫만큼만 더한다(riverShare·lakeShare). 강은 칸 안에서 강이 차지하는 길이 몫(Rivers.length)도 곱한다.
 //   그래서 가산을 받는 땅의 면적이 면 레벨과 무관하다(편집기 미리보기 F6~7의 바이옴 면적 ≈ 굽기 F9, 시험).
@@ -106,6 +106,15 @@ function landBiome(
   return table.landFallback;
 }
 
+/**
+ * 땅 칸의 저장 습도(0~255): 255 × AI ÷ (AI + 0.75) + 강가·호숫가 가산, AI = 강수 ÷ 증발 가능량(반올림 전 기온).
+ * 반올림한 기온을 쓰면 정수 등온선마다 증발 가능량이 45mm씩 뛰어 습도에 계단이 생긴다(출력 판 2까지)
+ */
+export function landHumidity(precipitationMm: number, temperatureC: number, nearWater: number): number {
+  const aridity = precipitationMm / potentialEvaporation(temperatureC);
+  return clamp(Math.round((255 * aridity) / (aridity + 0.75) + nearWater), 0, 255);
+}
+
 export interface SurfaceFields {
   readonly elevationM: Int16Array;
   readonly biome: Uint8Array;
@@ -196,8 +205,7 @@ export function buildSurface(
     if ((nearLake.source[c] ?? -1) >= 0) {
       nearWater = Math.max(nearWater, LAKE_SHORE_BONUS * lakeShare(nearLake.angle[c] ?? 0, size));
     }
-    const aridity = p / potentialEvaporation(t);
-    const h = clamp(Math.round((255 * aridity) / (aridity + 0.75) + nearWater), 0, 255);
+    const h = landHumidity(p, temperature[c] ?? 0, nearWater);
     humidity[c] = h;
     const index = landBiome(table, t, h, stored * VERTICAL_SCALE);
     biome[c] = index;

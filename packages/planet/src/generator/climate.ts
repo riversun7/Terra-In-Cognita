@@ -1,15 +1,20 @@
 // 생성 4단계: 기후 — 연평균 기온·강수 (ADR 31 순서, ADR 36)
 // - 위도: 단위 구 위 점의 z = sin(위도). 위도(도)는 결정적 아크사인(@terra/shared detAsin).
 // - 기온: 해수면 기온 = 적도 − (적도 − 극) × (|위도|/90)^1.5, 고도에 따라 6.5°C/km(실제 환산 고도 = 게임 m × 12).
-// - 바람: 위도 띠(무역풍·편서풍·극동풍). 칸마다 바람을 거슬러 가는 이웃 하나를 고른다.
-// - 습기: 바람길을 따라 바다 위에서 차고, 땅 위에서 비로 빠지며, 오르막에서 크게 빠진다(비그늘).
+// - 바람(출력 판 3): 위도 띠 바람(무역풍·편서풍·극동풍) + 방향이 천천히 바뀌는 굽이 성분(노이즈 2판 각도, 세기 0.3).
+//   어디서도 0.2 밑으로 약해지지 않는다(멈추는 위도가 없다). 칸마다 바람이 오는 방향을 가장 잘 끼는 이웃 둘 중
+//   하나를 칸 해시로 고른다(두 이웃 방향으로 바람을 나눈 몫이 확률). 그래서 바람길이 격자선을 따라 곧게 뻗지 않는다.
+// - 습기: 바람길을 따라 바다 위에서 차고, 땅 위에서 비로 빠지며, 오르막에서 크게 빠진다(비그늘). 오르막은 바람길
+//   약 75km(칸 하나 이상) 위와 견준다. 칸이 작은 굽기 해상도에서도 75km보다 짧은 잔 기복마다 습기가 빠지지 않는다.
 //   길이 2^K칸의 바람길을 포인터 두 배 뛰기(doubling)로 한 번에 접는다(칸마다 일차식 m → a·m + b를 합성).
 // - 강수 = 위도 띠 기본값 × 습기 × (1 + 바람받이 오르막) × 설정 배율. 바다까지 거리로 해안 습기를 보탠다.
 // 모든 길이는 구 위 각도(라디안)다. 수치는 S2 임시값이다(지구 연평균 분포를 대략 따른다).
 import { detAsin, detCos, detExp, detSin } from "@terra/shared";
 import type { PlanetSettings } from "@terra/shared";
 import { type PlanetGrid, neighbors8 } from "./grid.ts";
+import { offsetFbm3Pair } from "./noise.ts";
 import { distanceField } from "./queues.ts";
+import { STREAM_WIND, mix32, streamSeed } from "./random.ts";
 import { REFERENCE_RADIUS_KM, clamp, km } from "./util.ts";
 
 const DEGREES_PER_RADIAN = 180 / Math.PI;
@@ -31,6 +36,16 @@ const OROGRAPHIC_MAX = 2.5;
 const COASTAL_REACH = km(450);
 /** 바람길 길이 상한(이만큼을 덮도록 두 배 뛰기 횟수를 고른다) */
 const WIND_PATH = km(4500);
+/** 오르막을 재는 바람길 길이: 이만큼(칸 수로 반올림, 1칸 이상) 위 칸과 견준다 */
+const OROGRAPHIC_SPAN = km(75);
+/** 바람 굽이: 세기(띠 바람 최대 약 1에 더한다), 각도 노이즈(노이즈 2판 채널 B, 해상도와 무관하게 옥타브 고정) */
+const WIND_MEANDER = 0.3;
+const WIND_FREQUENCY = 1.6;
+const WIND_OCTAVES = 2;
+/** 가장 약한 바람: 이보다 약하면 굽이 방향으로 이 세기 */
+const MIN_WIND_SPEED = 0.2;
+/** 바람이 오는 이웃: 가장 잘 맞는 이웃의 방향 cos가 이보다 커야 한다(아니면 습기 길이 끊긴다) */
+const UPWIND_MIN_SCORE = 0.3;
 
 export interface Climate {
   /** 연평균 기온(°C) */
@@ -67,28 +82,68 @@ export function windAt(latitudeDegrees: number): { u: number; v: number } {
   return { u: -0.6 * s, v: -toward * 0.2 * s };
 }
 
-export function computeClimate(
-  grid: PlanetGrid,
-  elevation: Float32Array,
-  seaLevel: number,
-  ocean: Uint8Array,
-  settings: PlanetSettings,
-): Climate {
-  const count = grid.cellCount;
-  const temperature = new Float32Array(count);
-  const latitude = new Float32Array(count);
-  const equator = settings.equatorTemperatureC;
-  const span = settings.equatorTemperatureC - settings.poleTemperatureC;
-  for (let c = 0; c < count; c++) {
-    const degrees = detAsin(clamp(grid.z[c] ?? 0, -1, 1)) * DEGREES_PER_RADIAN;
-    latitude[c] = degrees;
-    const t = Math.abs(degrees) / 90;
-    const seaLevelTemperature = equator - span * t * Math.sqrt(t);
-    const altitude = Math.max(0, (elevation[c] ?? 0) - seaLevel);
-    temperature[c] = seaLevelTemperature - LAPSE_RATE_PER_M * altitude;
-  }
+/** 바람 굽이 노이즈 두 채널(A는 2단계 위도 흔들기에 남겨 둔다, B = 굽이 각도). 한 스레드 안에서만 쓰는 임시 칸 */
+const windNoise = new Float64Array(2);
 
-  // 바람을 거슬러 가는 이웃(바람이 오는 칸). 바람이 거의 없으면 자기 자신
+/**
+ * 칸 위치의 바람(동쪽 u, 북쪽 v): 위도 띠 바람 + WIND_MEANDER × (cos θ, sin θ), θ = 4π × 노이즈 2판 채널 B.
+ * 세기가 MIN_WIND_SPEED보다 작으면 θ 방향으로 그 세기다(멈추는 곳이 없다).
+ * @param windSeed streamSeed(시드, STREAM_WIND)
+ * @param x 단위 구 위 점(돌리지 않은 좌표, z = 자전축)
+ */
+export function windVectorAt(
+  windSeed: number,
+  x: number,
+  y: number,
+  z: number,
+  latitudeDegrees: number,
+): { u: number; v: number } {
+  offsetFbm3Pair(windSeed, x, y, z, WIND_FREQUENCY, WIND_OCTAVES, 0.5, 0, windNoise);
+  const theta = 4 * Math.PI * (windNoise[1] ?? 0);
+  const eu = detCos(theta);
+  const ev = detSin(theta);
+  const band = windAt(latitudeDegrees);
+  const u = band.u + WIND_MEANDER * eu;
+  const v = band.v + WIND_MEANDER * ev;
+  if (u * u + v * v >= MIN_WIND_SPEED * MIN_WIND_SPEED) return { u, v };
+  return { u: MIN_WIND_SPEED * eu, v: MIN_WIND_SPEED * ev };
+}
+
+/**
+ * 바람이 오는 방향 w를 두 이웃 방향 a·b로 나눈 몫(a를 고를 확률): w ≈ α·a + β·b(2×2 최소제곱)에서 α, β를 0 이상으로
+ * 자르고 α ÷ (α + β). 두 방향이 거의 나란하거나 둘 다 0이면 1(a만)
+ */
+export function upwindShare(
+  ax: number,
+  ay: number,
+  az: number,
+  bx: number,
+  by: number,
+  bz: number,
+  wx: number,
+  wy: number,
+  wz: number,
+): number {
+  const aa = ax * ax + ay * ay + az * az;
+  const bb = bx * bx + by * by + bz * bz;
+  const ab = ax * bx + ay * by + az * bz;
+  const aw = ax * wx + ay * wy + az * wz;
+  const bw = bx * wx + by * wy + bz * wz;
+  const determinant = aa * bb - ab * ab;
+  if (!(determinant > 1e-9 * aa * bb)) return 1;
+  const alpha = Math.max(0, (aw * bb - bw * ab) / determinant);
+  const beta = Math.max(0, (bw * aa - aw * ab) / determinant);
+  return alpha + beta > 0 ? alpha / (alpha + beta) : 1;
+}
+
+/**
+ * 칸마다 바람이 오는 이웃(습기를 받는 칸). 바람이 오는 방향(−바람)과 방향 cos가 가장 큰 이웃 둘(같으면 앞 번호) 중
+ * 첫째를 upwindShare 확률로 고른다(칸 번호 해시 r = mix32(windSeed ^ c·0x9e3779b1) ÷ 2³²). 첫째의 cos가
+ * UPWIND_MIN_SCORE 이하이거나 바람이 없으면 자기 자신이다.
+ * @param latitude 칸마다 위도(도)
+ */
+export function upwindNeighbors(grid: PlanetGrid, latitude: Float32Array, windSeed: number): Int32Array {
+  const count = grid.cellCount;
   const upwind = new Int32Array(count);
   const out = new Int32Array(8);
   for (let c = 0; c < count; c++) {
@@ -104,16 +159,18 @@ export function computeClimate(
     const nx = -z * ey;
     const ny = z * ex;
     const nz = x * ey - y * ex;
-    const { u, v } = windAt(latitude[c] ?? 0);
+    const { u, v } = windVectorAt(windSeed, x, y, z, latitude[c] ?? 0);
     // 바람이 오는 쪽 = −바람
     const wx = -(u * ex + v * nx);
     const wy = -(u * ey + v * ny);
     const wz = -v * nz;
     const strength = Math.sqrt(wx * wx + wy * wy + wz * wz);
-    if (strength < 0.05) continue;
+    if (strength < 1e-9) continue;
     neighbors8(grid, c, out);
     let best = -1;
-    let bestScore = 0.3;
+    let bestScore = Number.NEGATIVE_INFINITY;
+    let second = -1;
+    let secondScore = Number.NEGATIVE_INFINITY;
     for (let k = 0; k < 8; k++) {
       const next = out[k] ?? -1;
       if (next < 0) continue;
@@ -123,17 +180,64 @@ export function computeClimate(
       const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
       const score = (dx * wx + dy * wy + dz * wz) / (length * strength);
       if (score > bestScore) {
-        bestScore = score;
+        second = best;
+        secondScore = bestScore;
         best = next;
+        bestScore = score;
+      } else if (score > secondScore) {
+        second = next;
+        secondScore = score;
       }
     }
-    if (best >= 0) upwind[c] = best;
+    if (best < 0 || !(bestScore > UPWIND_MIN_SCORE)) continue;
+    upwind[c] = best;
+    if (second < 0 || !(secondScore > 0)) continue;
+    const share = upwindShare(
+      (grid.x[best] ?? 0) - x,
+      (grid.y[best] ?? 0) - y,
+      (grid.z[best] ?? 0) - z,
+      (grid.x[second] ?? 0) - x,
+      (grid.y[second] ?? 0) - y,
+      (grid.z[second] ?? 0) - z,
+      wx,
+      wy,
+      wz,
+    );
+    if (mix32(windSeed ^ Math.imul(c, 0x9e3779b1)) / 4_294_967_296 >= share) upwind[c] = second;
   }
+  return upwind;
+}
+
+export function computeClimate(
+  grid: PlanetGrid,
+  elevation: Float32Array,
+  seaLevel: number,
+  ocean: Uint8Array,
+  settings: PlanetSettings,
+  seed: number,
+): Climate {
+  const count = grid.cellCount;
+  const temperature = new Float32Array(count);
+  const latitude = new Float32Array(count);
+  const equator = settings.equatorTemperatureC;
+  const span = settings.equatorTemperatureC - settings.poleTemperatureC;
+  for (let c = 0; c < count; c++) {
+    const degrees = detAsin(clamp(grid.z[c] ?? 0, -1, 1)) * DEGREES_PER_RADIAN;
+    latitude[c] = degrees;
+    const t = Math.abs(degrees) / 90;
+    const seaLevelTemperature = equator - span * t * Math.sqrt(t);
+    const altitude = Math.max(0, (elevation[c] ?? 0) - seaLevel);
+    temperature[c] = seaLevelTemperature - LAPSE_RATE_PER_M * altitude;
+  }
+
+  // 바람을 거슬러 가는 이웃(바람이 오는 칸)
+  const upwind = upwindNeighbors(grid, latitude, streamSeed(seed, STREAM_WIND));
 
   // 칸마다 습기 일차식: 나가는 습기 = a × 들어온 습기 + b
   let mapA = new Float32Array(count);
   let mapB = new Float32Array(count);
   const rise = new Float32Array(count);
+  const orographicSteps = Math.max(1, Math.round(OROGRAPHIC_SPAN / grid.meanCellAngle));
   for (let c = 0; c < count; c++) {
     const from = upwind[c] ?? c;
     if (from === c) {
@@ -147,14 +251,19 @@ export function computeClimate(
       mapA[c] = keep;
       mapB[c] = 1 - keep;
     } else {
+      // 오르막: 바람길 orographicSteps칸 위와 견준다. 기울기 = 그 높이 차 ÷ 거리, 칸마다 빠지는 몫은 높이 차 ÷ 칸 수
+      // (바람길을 따라 더하면 그 길이로 매끈하게 한 지형의 오르막 합이 된다)
+      let far = c;
+      for (let k = 0; k < orographicSteps; k++) far = upwind[far] ?? far;
       const here = Math.max(seaLevel, elevation[c] ?? 0);
-      const there = Math.max(seaLevel, elevation[from] ?? 0);
+      const there = Math.max(seaLevel, elevation[far] ?? 0);
       const climb = Math.max(0, here - there);
-      rise[c] = climb / (step * REFERENCE_RADIUS_M);
+      const distance = chord(grid, c, far);
+      rise[c] = distance > 0 ? climb / (distance * REFERENCE_RADIUS_M) : 0;
       // 열대 숲은 증발산으로 습기를 되살려 더 멀리 간다
       const tropics = (latitude[c] ?? 0) / 14;
       const reach = LAND_DEPLETION * (1 + 1.5 * detExp(-tropics * tropics));
-      mapA[c] = detExp(-step / reach - (OROGRAPHIC_DEPLETION_PER_KM * climb) / 1000);
+      mapA[c] = detExp(-step / reach - (OROGRAPHIC_DEPLETION_PER_KM * climb) / orographicSteps / 1000);
       mapB[c] = 0;
     }
   }

@@ -59,3 +59,9 @@ export const STREAM_MOUNTAINS = 5;
 export const STREAM_HOTSPOTS = 6;
 export const STREAM_FOREST = 7;
 export const STREAM_ROTATION = 8;
+// 출력 판 3(생성기 다양성 고침, ADR 2026-10-29-planet-generator-variety)에서 더한 번호. 특수 지형은 14부터 쓴다
+export const STREAM_WIND = 9;
+export const STREAM_CLIMATE = 10;
+export const STREAM_RELIEF_DETAIL = 11;
+export const STREAM_COAST = 12;
+export const STREAM_HOTSPOT_SHAPE = 13;

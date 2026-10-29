@@ -109,7 +109,7 @@ export function runPlanetGenerator(
   let flow = priorityFlood(grid, elevation, ocean);
   onStage("flowDirections");
 
-  const climate = computeClimate(grid, elevation, seaLevel, ocean, settings);
+  const climate = computeClimate(grid, elevation, seaLevel, ocean, settings, seed);
   assertFinite("temperature", climate.temperature);
   assertFinite("precipitation", climate.precipitation);
   const runoff = runoffOf(climate.precipitation, climate.temperature, ocean);

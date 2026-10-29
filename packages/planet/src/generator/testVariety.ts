@@ -5,7 +5,7 @@
 // - Node API를 쓰지 않는다(src 안). 명령줄·파일은 bench/variety.ts가 맡는다.
 // - 문턱(VARIETY_TARGETS)은 생성기 고침을 위한 임시값이다(문서 4.1, 기획 확인 전). 지금은 보고만 한다(gate: false).
 //   막는 시험으로 바꾸면(gate: true) 그때의 GENERATOR_VERSION과 문턱을 ADR에 적는다.
-import { windAt } from "./climate.ts";
+import { windAt, windVectorAt } from "./climate.ts";
 import type { GeneratorDetails } from "./generate.ts";
 import {
   type CellWind,
@@ -29,6 +29,7 @@ import {
   zonalBiomeMetrics,
 } from "./testVarietyMeasures.ts";
 import { distanceField } from "./queues.ts";
+import { STREAM_WIND, streamSeed } from "./random.ts";
 import { VERTICAL_SCALE } from "./surface.ts";
 import type { PlanetGeneratorInput } from "./types.ts";
 import { km } from "./util.ts";
@@ -100,9 +101,11 @@ export function varietyMetric(name: string, value: number, note: string): Variet
   return { name, value, note };
 }
 
-/** 생성기가 습기 길을 고를 때 쓰는 바람(출력 판 2: 위도 띠 바람 windAt) */
-export function generatorWind(ctx: VarietyContext): CellWind {
-  return (c) => windAt(ctx.latitude[c] ?? 0);
+/** 생성기가 습기 길을 고를 때 쓰는 바람(출력 판 3: 띠 바람 + 굽이, climate.ts windVectorAt) */
+export function generatorWind(ctx: VarietyContext, seed: number): CellWind {
+  const windSeed = streamSeed(seed, STREAM_WIND);
+  const { x, y, z } = ctx.grid;
+  return (c) => windVectorAt(windSeed, x[c] ?? 0, y[c] ?? 0, z[c] ?? 0, ctx.latitude[c] ?? 0);
 }
 
 /** 위도 띠 표의 5° 띠 하나(1° 띠 5개 합) */
@@ -227,7 +230,10 @@ export function fieldMetrics(
   );
 
   // 곧은 줄
-  const streak = windStreakExcess(ctx, fields, generatorWind(ctx));
+  // 줄무늬는 생성기의 실제 바람을 따라 잰다. 위도 띠 바람으로 잰 값(시제품 정의)도 함께 낸다: 바람길이 굽으면
+  // 실제 바람 쪽 값에는 매끈한 습기 띠의 자연스러운 늘어짐도 들어가고, 기준(고도) 방향성도 바람 방향에 따라 바뀐다
+  const streak = windStreakExcess(ctx, fields, generatorWind(ctx, input.seed));
+  const zonalStreak = windStreakExcess(ctx, fields, (c) => windAt(ctx.latitude[c] ?? 0));
   metrics.push(
     varietyMetric(
       "lines.humidityStepAtIntegerIsotherms",
@@ -237,7 +243,17 @@ export function fieldMetrics(
     varietyMetric(
       "lines.windStreakAnisotropyExcess",
       streak.excess,
-      `(cross/along of zonal-residual log P) − (same for elevation): raw ${streak.raw.toFixed(2)}, ref ${streak.reference.toFixed(2)}`,
+      `along the generator wind: (cross/along of zonal-residual log P) − (same for elevation), ref ${streak.reference.toFixed(2)}`,
+    ),
+    varietyMetric(
+      "lines.windStreakRawAnisotropy",
+      streak.raw,
+      "cross/along of zonal-residual log P along the generator wind (isotropic = 1)",
+    ),
+    varietyMetric(
+      "lines.windStreakZonalExcess",
+      zonalStreak.excess,
+      "same excess along the latitude-band wind windAt (the prototype's definition, comparable with its E2 runs)",
     ),
   );
 

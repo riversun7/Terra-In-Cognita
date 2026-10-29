@@ -142,21 +142,22 @@ function landSummary(faceLevel: number, fields: PlanetFields) {
 
 describe("골든 해시 (값이 바뀌면 GENERATOR_VERSION을 올리고 새 값으로 고친다)", () => {
   it("생성기 버전", () => {
-    expect(GENERATOR_VERSION).toBe(2);
+    expect(GENERATOR_VERSION).toBe(3);
   });
 
   // 2026-10-29 기록(Node 24.22.1). 결정성 규칙(사칙연산 + 명세가 정한 함수)상 다른 엔진에서도 같아야 한다.
-  // 출력 판 2(강가·호숫가 가산을 면 레벨과 무관하게)에서 바꿨다
+  // 출력 판 3, 다양성 고침 1단계(바람 굽이·바람이 오는 이웃 둘·오르막 75km·반올림 전 기온의 증발 가능량)에서 바꿨다.
+  // 같은 가지의 2·3단계는 판 번호를 다시 올리지 않고 이 값만 고친다(version.ts)
   it("면 레벨 5, 시드 1, 프리셋 군도·더움·습윤·젊음·많음·많음", () => {
-    expect(run(5, 1, STRESS_PRESETS).fields.meta.hash).toBe("005378e0");
+    expect(run(5, 1, STRESS_PRESETS).fields.meta.hash).toBe("bfa3418c");
   });
 
   it("S2 시험 행성 설정(시드 20261029, 모두 보통)을 면 레벨 5로", () => {
-    expect(run(5, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("5c984c77");
+    expect(run(5, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("3da7da3a");
   });
 
   it("S2 시험 행성 설정을 면 레벨 6으로", () => {
-    expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("215d9b32");
+    expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("34e39153");
   });
 });
 
@@ -197,10 +198,11 @@ describe("실수 지문 (정수 필드로 반올림하기 전 값. 바뀌면 골
     const grid = buildGrid(5);
     const settings = resolvePlanetSettings(NORMAL_PRESETS);
     const { elevation } = buildTectonics(grid, S2_TEST_PLANET_SEED, settings);
+    // 판 구조는 출력 판 2와 같다(다양성 고침 1단계는 기후만 바꾼다. 판·대륙 배치가 그대로인지 여기서 본다)
     expect(fingerprint([elevation])).toBe("00edae93");
     const { seaLevel, ocean } = classifyOcean(grid, elevation, settings.landPercent);
-    const climate = computeClimate(grid, elevation, seaLevel, ocean, settings);
-    expect(fingerprint([climate.temperature, climate.precipitation])).toBe("5e5ca05d");
+    const climate = computeClimate(grid, elevation, seaLevel, ocean, settings, S2_TEST_PLANET_SEED);
+    expect(fingerprint([climate.temperature, climate.precipitation])).toBe("891b7c21");
   });
 });
 
@@ -448,9 +450,10 @@ describe("해상도와 무관한 큰 모양 (편집기 미리보기 = 낮은 면
   it("육지 바이옴 면적 비율은 면 레벨 6(미리보기)과 8에서 바이옴마다 2.5%p 안, 평균 습도 3%·숲 밀도 6% 안", {
     timeout: 60_000,
   }, () => {
-    // 2026-10-29 잰 값: 가장 큰 차이는 사바나 1.93%p, 습도 1.2%, 숲 3.5%. 사바나 차이는 강가 가산을 꺼도 1.9%p라
-    // 기후 쪽에서 온다(원인 미확인). 강가 가산이 칸 크기를 따라가던 때는 사바나 6.1%p·열대우림 5.4%p, 습도 7.6%,
-    // 숲 20%였다(surface.ts·riparian.ts).
+    // 2026-10-29 잰 값(출력 판 3, 다양성 고침 1단계): 가장 큰 차이는 사바나 1.95%p, 습도 1.0%, 숲 4.9%. 시험 밖
+    // 시드 1·42는 0.90·2.24%p(습도 −3.0·+3.2%). 판 2는 사바나 1.93%p, 습도 1.2%, 숲 3.5%였고 사바나 차이는 강가 가산을
+    // 꺼도 1.9%p라 기후 쪽에서 온다(원인 미확인). 강가 가산이 칸 크기를 따라가던 때는 사바나 6.1%p·열대우림 5.4%p,
+    // 습도 7.6%, 숲 20%였다(surface.ts·riparian.ts).
     const coarse = landSummary(6, run(6, S2_TEST_PLANET_SEED).fields);
     const fine = landSummary(8, run(8, S2_TEST_PLANET_SEED).fields);
     TEST_BIOMES.forEach((biome, index) => {

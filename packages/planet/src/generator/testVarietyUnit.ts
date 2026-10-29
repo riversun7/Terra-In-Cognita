@@ -21,8 +21,8 @@ const LATTICE_JITTER = 0.6;
 const HOTSPOT_CHAIN_LENGTH = 6;
 
 /** 모든 칸에서 생성기 바람 세기의 최솟값(0에 가까우면 그 칸은 바람길이 끊긴다) */
-export function windMinSpeed(ctx: VarietyContext): number {
-  const wind = generatorWind(ctx);
+export function windMinSpeed(ctx: VarietyContext, seed: number): number {
+  const wind = generatorWind(ctx, seed);
   let minimum = Number.POSITIVE_INFINITY;
   for (let c = 0; c < ctx.grid.cellCount; c++) {
     const { u, v } = wind(c);
@@ -104,7 +104,7 @@ export function unitMetrics(ctx: VarietyContext, seed: number, settings: PlanetS
   return [
     varietyMetric(
       "unit.windMinSpeed",
-      windMinSpeed(ctx),
+      windMinSpeed(ctx, seed),
       "minimum generator wind speed over all cells (calm → upwind = self → moisture reset)",
     ),
     varietyMetric(

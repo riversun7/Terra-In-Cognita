@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-29 21:30 | 행성 생성기 다양성 고침 1단계: 노이즈 2판, 굽이치는 바람·바람이 오는 이웃 둘, 오르막 75km, 증발 가능량(출력 판 3) | Claude Code | [29-2130-generator-variety-stage1](worklog/2026/10/29-2130-generator-variety-stage1.md) |
 | 2026-10-29 20:35 | 행성 생성기 반복·단조로움 검사를 보고 모드로 넣기(출력 판 2 기준값) | Claude Code | [29-2035-generator-variety-check](worklog/2026/10/29-2035-generator-variety-check.md) |
 | 2026-10-29 19:10 | NAS 행성 캐시 고침 확인(판 2 배포 뒤) | Claude Code | [29-1910-nas-planet-cache-verified](worklog/2026/10/29-1910-nas-planet-cache-verified.md) |
 | 2026-10-29 17:10 | S2 다듬기 통합: 검토 반영 가지 넷 합치기, 생성기 출력 판 2를 서버에 맞추기, 통합 검토 지적 처리 | Claude Code (작업 트리 `.claude/worktrees/s2-polish`, 가지 `work/s2-polish`, main `e1e281b`에서 시작. 푸시하지 않음) | [29-1710-s2-polish-integration](worklog/2026/10/29-1710-s2-polish-integration.md) |

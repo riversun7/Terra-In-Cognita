@@ -124,10 +124,14 @@ describe("행성 디스크 캐시", () => {
 
   it("다른 버전은 가장 최근 하나만 남기고 지운다. 지금 것과 다른 행성은 남기고, 10분 넘은 임시 파일은 지운다", async () => {
     const { dir, index, pack } = await prepared();
-    const versions = [3, 4, 5].map((generatorVersion) => ({ ...index, generatorVersion }));
+    // 지금 판(GENERATOR_VERSION)과 겹치지 않는 다른 판 셋: 지금 + 1·2·3
+    const older = index.generatorVersion + 1;
+    const middle = index.generatorVersion + 2;
+    const newest = index.generatorVersion + 3;
+    const versions = [older, middle, newest].map((generatorVersion) => ({ ...index, generatorVersion }));
     for (const [at, version] of versions.entries()) {
       await writePlanetCache(dir, version, pack);
-      // 바뀐 시각을 차례로(3 < 4 < 5)
+      // 바뀐 시각을 차례로(older < middle < newest)
       const stem = path.join(dir, cacheFileStem(version));
       const when = new Date(Date.UTC(2026, 9, 29, 0, at));
       await utimes(`${stem}.index.json`, when, when);
@@ -143,16 +147,16 @@ describe("행성 디스크 캐시", () => {
     const stemOf = (generatorVersion: number) => cacheFileStem({ ...index, generatorVersion });
     expect(removed.toSorted()).toEqual(
       [
-        `${stemOf(3)}.index.json`,
-        `${stemOf(3)}.pack`,
-        `${stemOf(4)}.index.json`,
-        `${stemOf(4)}.pack`,
+        `${stemOf(older)}.index.json`,
+        `${stemOf(older)}.pack`,
+        `${stemOf(middle)}.index.json`,
+        `${stemOf(middle)}.pack`,
         `${cacheFileStem(index)}.pack.tmp-1-old`,
       ].toSorted(),
     );
     const left = await readdir(dir);
     expect(left).toContain(`${cacheFileStem(index)}.pack`);
-    expect(left).toContain(`${stemOf(5)}.pack`);
+    expect(left).toContain(`${stemOf(newest)}.pack`);
     expect(left).toContain(`${cacheFileStem({ ...index, planetId: "other_planet" })}.pack`);
     expect(left).toContain(`${cacheFileStem(index)}.pack.tmp-2-new`);
   });

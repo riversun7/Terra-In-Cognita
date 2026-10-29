@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-30 00:30 | 앱 뼈대 W3 검토 반영: 바로 처리 결과 자리, 모르는 분류·종 배지, 멈춘 조각 받기, 요청 묶음, 화면 이동, 마감 내림, 강조 줄 알림 | Claude Code | [30-0030-app-shell-w3-review](worklog/2026/10/30-0030-app-shell-w3-review.md) |
 | 2026-10-29 22:40 | 앱 뼈대 W3: 처리할 일·복귀 요약 — 서버 조회, 기기 저장소, 처리함 화면, 복귀 요약 대화상자 | Claude Code | [29-2240-app-shell-w3](worklog/2026/10/29-2240-app-shell-w3.md) |
 | 2026-10-29 21:00 | 단위 시험 제한 시간 30초(공유 개발 컨테이너 부하) | Claude Code | [29-2100-bake-test-timeout](worklog/2026/10/29-2100-bake-test-timeout.md) |
 | 2026-10-29 21:00 | 앱 뼈대 0단계 검토 반영: 주소 표 타입·값 규칙, 부모 화면·검색어 바꾸기, 설정 쓰기 도우미, 완료 종류, ADR 37 문장 | Claude Code | [29-2100-app-shell-stage0-review](worklog/2026/10/29-2100-app-shell-stage0-review.md) |

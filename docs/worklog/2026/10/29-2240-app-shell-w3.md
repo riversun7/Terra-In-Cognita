@@ -4,6 +4,7 @@
 - 작업 도구: Claude Code
 - 관련: ADR `2026-10-29-app-shell.md`(37, 제안) 6·7·8·10·11·12절과 "구현하며 정한 것 (0단계)", 저장소 밖 계획서의 W3 절, 작업 기록 `29-2015-app-shell-stage0.md`·`29-2100-app-shell-stage0-review.md`, 기획 D-6006·D-6009·D-6014·D-6015·D-265·D-266(미러 `docs/design/60_UX_FTUE.md` 3.1·`02_Decision_Log.md`)
 - 작업 자리: 작업 트리 `.claude/worktrees/app-shell-w3`, 가지 `work/app-shell-w3`, main `507e645`에서 시작했다. push·merge는 하지 않았다(통합 세션 몫).
+- 검토 반영(2026-10-30, 작업 기록 `30-0030-app-shell-w3-review.md`): 아래 "꽂는 줄"·"W4(홈)가 쓸 것"·"정한 것"의 바뀐 줄, 메시지 키 수, "함께 바꿔야 하는 파일"·"건드리지 말 것"·"미검증"의 해당 줄을 고친 판으로 바꿨다(바뀐 줄에 "검토 반영"이라고 적었다).
 
 ## 한 일
 - 서버(커밋 `a72977f`)
@@ -13,32 +14,31 @@
   - `inbox/order.ts`(정렬·묶기, 순수 함수): 정렬 키 (분류 순위, 마감(없으면 분류 끝), 처음 생긴 시각, 항목 ID). 묶는 종류는 같은 (종류, 키)를 한 줄로 묶고 건 수·가장 이른 마감·가장 이른 처음 생긴 시각을 갖는다. `counts`(분류별 줄 수)·`badges`(메뉴 항목 → 줄 수)도 여기서 센다.
   - `inbox/registry.ts`: 종류마다 제공 함수(지금 0개), 모두 불러 묶고 정렬한다. `inbox/preview.ts`: 시안 자료(종류 표 8종류, 복귀 요약 칸 4종). `summary/summary.ts`: 사건 출처가 없어 실제 계정은 늘 `show: false`. `home/cards.ts`: 서버 카드 4장은 제공 함수가 없어 모두 `not_ready`.
 - 기기(커밋 `7fa0c2e`, 화면 확인 뒤 고침 `6ea24cd`·`cc4ffbd`)
-  - `inbox/store.ts`(첫 화면): 처리할 일 목록 하나를 종 배지·메뉴 배지·처리함·홈이 같이 쓴다. 겹친 요청은 하나로 묶는다. 요청은 `inbox/inboxClient.ts`를 동적 `import()`로 불러서 한다.
+  - `inbox/store.ts`(첫 화면): 처리할 일 목록 하나를 종 배지·메뉴 배지·처리함·홈이 같이 쓴다. 겹친 요청은 하나로 묶는다. 요청은 `inbox/inboxClient.ts`를 동적 `import()`로 불러서 한다(검토 반영: 복귀 요약 요청과 함께 `net/homeQueries.ts` 하나로 합쳤다).
   - `inbox/preview.ts`(첫 화면): 시안 자료 보기 기기 표시(`localStorage` `terra.preview`). 켠 계정이고 dev·admin일 때만 켜진다. 켜는 곳은 W4의 홈 [편집]이다(`setPreviewOn`).
   - 처리함 화면 `InboxScreen.tsx`(지연 조각)와 목록 `InboxList.tsx`(홈도 쓸 수 있다), 문구 `inboxText.ts`, 바로 처리 `quickActions.ts`, 분류 아이콘 `icons.tsx`, `inbox.css`.
-  - 복귀 요약: `summaryGate.ts`(첫 화면, 물을 때·보일지), `ReturnSummary.tsx`(첫 화면, 틀이 한 줄로 그린다), `SummaryDialog.tsx`(지연 조각, `<dialog>`), `summaryText.ts`, `summaryClient.ts`(지연), `summary.css`.
+  - 복귀 요약: `summaryGate.ts`(첫 화면, 물을 때·보일지), `ReturnSummary.tsx`(첫 화면, 틀이 한 줄로 그린다), `SummaryDialog.tsx`(지연 조각, `<dialog>`), `summaryText.ts`, `summaryClient.ts`(지연, 검토 반영: `net/homeQueries.ts`로 합침), `summary.css`.
   - `net/apiErrors.ts`: 조회 오류 코드 → 이미 있는 문구 키(관리자 화면과 같은 방식).
-  - 메시지 키 37개(ko·en 함께, `session_unavailable` 바로 뒤 W3 자리): `inbox_` 27개, `summary_` 10개. 다국어 검사 360개 키.
+  - 메시지 키 35개(ko·en 함께, `session_unavailable` 바로 뒤 W3 자리): `inbox_` 27개, `summary_` 8개. 다국어 검사 360개 키(main 325개). 검토 반영 뒤 37개(`inbox_` 29개, `summary_` 8개: `inbox_bell_count`를 지우고 `inbox_item_opened`·`inbox_deadline_soon`·`inbox_group_other`를 더함), 362개 키.
 - 화면 틀(W1)이 main에 없어 처리함·복귀 요약은 따로 선 부품으로 두었다. 틀에 붙이는 줄 3개는 아래 "꽂는 줄"에 적었다. W1 파일은 건드리지 않았다.
 - 화면 확인은 저장소 밖 Playwright 스크립트로 했다(W5 `e2e/`가 아직 없다). 시험 틀: `App.tsx`에 꽂는 줄 3개 대신 임시 패치를 넣고 빌드한 뒤 되돌렸다(저장소에 올리지 않음).
 
-## 꽂는 줄 (W1이 합쳐진 뒤 통합 세션이 넣는다)
-1. `shell/routeViews.tsx`의 `/inbox` 한 줄
-   - `const InboxScreen = lazy(() => import("../inbox/InboxScreen.tsx"));`
-   - `inbox: (match) => <InboxScreen itemId={match.search.item} navigate={navigate} headerEnd={<BackButton />} />`
-   - `navigate(path)`는 라우터의 쌓기(push)다. [뒤로]를 틀이 따로 그리면 `headerEnd`는 뺀다. 제목 `h1#inbox-title`은 `tabIndex={-1}`이라 라우터가 초점을 옮길 수 있다.
-2. `shell/TopBar.tsx`의 종 배지 한 줄
-   - `const bell = useInboxBellCount();`(`../inbox/store.ts`). 0이면 배지를 그리지 않는다. 읽기 프로그램용 이름은 `m.inbox_bell_count({ count: bell })`("알림 3개" / "Alerts: 3").
-   - 메뉴 항목 배지가 필요하면 `useInboxMenuBadges()[navItemId]`(서버 `badges`, 지금 실제 계정은 늘 비어 있다).
-3. `shell/Shell.tsx`의 복귀 요약 한 줄
-   - `<ReturnSummary navigate={navigate} />`(`../summary/ReturnSummary.tsx`). 로그인한 모든 화면에서 그려야 한다(틀을 숨긴 지도·행성 편집기 포함, "어느 주소 위에도 뜨는 겹침").
-   - 기록 칸을 쌓지 않는다. [확인]·Esc로 닫으면 보던 화면에 남는다(D-266).
-- 통합 뒤 W1의 `ui/icons.tsx`에 분류 아이콘 5개가 생기면 `inbox/icons.tsx`의 `CategoryIcon`을 그것으로 바꾼다. `InboxList.tsx`의 앱 안 링크 처리(`followInApp`)도 W1의 `AppLink`로 바꿔도 된다.
+## 꽂는 줄 (W1이 합쳐진 뒤 통합 세션이 넣는다. 검토 반영: W1 `571d8a9`의 실제 자리·모양에 맞춘 판, 자세한 것은 `30-0030-app-shell-w3-review.md`)
+W1 라우터는 주소 글자가 아니라 화면(`RouteTarget`)을 받는다(`navigate(target, options)`, `AppLink`의 `to`). 그래서 W3 부품은 `onNavigate(target)`를 받고, 꽂는 줄은 W1의 `navigate`를 그대로 넘긴다. W1+W3을 합친 복제본에 아래 줄을 넣어 타입 검사·린트·포맷·빌드·화면 확인을 통과했다(검토 반영 기록).
+1. `shell/routeViews.tsx`
+   - `const InboxScreen = lazy(() => import("../inbox/InboxScreen.tsx"));`(위의 "꽂는 줄(W3)" 주석과 `ComingSoon` 줄 대신)
+   - `case "inbox": return <InboxScreen itemId={match.search.item} onNavigate={navigate} headerEnd={<BackButton />} />;`
+   - 가져오기: `import { BackButton } from "./BackButton.tsx";`, `import { goBack, navigate } from "./routerStore.ts";`
+2. `shell/TopBar.tsx`: `const useAlertCount = (): number => 0;`(와 그 위 주석)를 지우고 `const alerts = useInboxBellCount();`(`import { useInboxBellCount } from "../inbox/store.ts";`). 이름은 W1의 `shell_alerts_count` 그대로다(W3의 `inbox_bell_count`는 지웠다).
+3. `shell/Shell.tsx`
+   - 끝의 "꽂는 줄(W3)" 주석 줄 → `<ReturnSummary onNavigate={navigate} />`(`import { ReturnSummary } from "../summary/ReturnSummary.tsx";`, `routerStore.ts` 가져오기에 `navigate`). 로그인한 모든 화면에서 그린다(틀을 숨긴 지도·행성 편집기 포함). 기록 칸을 쌓지 않는다. [확인]·Esc로 닫으면 보던 화면에 남는다(D-266).
+   - 메뉴 항목 배지: `NO_BADGES` 상수를 지우고 `Shell` 안에서 `const badges = useInboxMenuBadges();`(`../inbox/store.ts`), `badges={NO_BADGES}` 세 곳 → `badges={badges}`. `import { type MenuBadges, TabBar }`의 `type MenuBadges`를 지운다(안 지우면 린트 실패).
+- 통합 뒤 할 수 있는 것: `inbox/icons.tsx`의 `CategoryIcon`을 W1 `ui/icons.tsx`의 `<Icon name={분류} className="inbox-icon" />`으로("그 밖의 알림"은 `bell`), `InboxList`·`SummaryDialog`의 `followInApp`·`follow`를 W1 `AppLink`로(그때 `onNavigate` 칸을 지운다. 복귀 요약은 `onClick`에서 먼저 닫는다). W1 `sections/ComingSoon.tsx`의 `inbox` 줄은 쓰이지 않게 된다.
 
-## W4(홈)가 쓸 것
-- 처리할 일: `useInbox()`(상태 전체), `ensureInbox()`(홈을 열 때: 없거나 60초 지났으면 받기), `refreshInbox()`, `InboxList`(`onInboxScreen={false}`, `headingLevel={3}`, 마감 기준 `now={data.generatedAt}`).
-- 복귀 요약 자료(부관 보고 카드): `(await import("../summary/summaryClient.ts")).loadSummary(isPreviewOn())`. 같은 계정·같은 시안 여부로 동시에 부르면 요청 하나를 함께 기다린다.
-- 시안 자료 칸(dev·admin [편집]): `usePreviewOn()`·`setPreviewOn(on)`(`inbox/preview.ts`). `dashboard.cards`의 `preview`도 `isPreviewOn()`으로 묻는다. 오류 문구는 `net/apiErrors.ts`의 `apiErrorInfo`.
+## W4(홈)가 쓸 것 (검토 반영)
+- 처리할 일: `useInbox()`(상태 전체), `ensureInbox()`(홈을 열 때: 없거나 60초 지났으면 받기), `refreshInbox()`, `InboxList`(`onInboxScreen={false}`, `headingLevel={3}`, 마감 기준 `now={data.generatedAt}`, `onNavigate={navigate}`). `InboxList`가 `inbox.css`를 가져오고 바로 처리 결과도 그 줄 안에 보인다(홈이 따로 처리할 것 없음).
+- 복귀 요약 자료(부관 보고 카드)·홈 카드: 홈 자료 조회는 `net/homeQueries.ts` 한 모듈이다. `(await import("../net/homeQueries.ts")).loadSummary(isPreviewOn())`. `dashboard.cards`도 이 모듈에 `loadCards`로 더한다(같은 조각이라 처리할 일·복귀 요약과 같은 틱이면 한 요청).
+- 시안 자료 칸(dev·admin [편집]): `usePreviewOn()`·`setPreviewOn(on)`(`inbox/preview.ts`, 기기 `localStorage` `terra.preview` = `{ v: 1, user }`). W4의 `homePrefs.ts` 시안 표시(sessionStorage)는 지우고 이것을 쓴다(표시가 둘이면 홈과 종 배지·복귀 요약이 어긋난다). 오류 문구는 `net/apiErrors.ts`의 `apiErrorInfo`.
 
 ## 정한 것 (ADR 37·계획서가 정하지 않은 것. 통합 세션이 ADR "구현하며 정한 것"으로 옮긴다)
 - 서버
@@ -51,15 +51,15 @@
   - `dashboard.cards` 입력: `ids`는 1~64자 문자열 24개(`HOME_CARDS_MAX`)까지, 모르는 ID·기기 카드는 빼고 요청 순서대로 답한다. 시안 자료에서도 네 카드는 준비 중이지만 권한은 같게 본다.
 - 기기
   - 시안 자료 보기 표시는 기기에만 둔다(`localStorage` `terra.preview` = `{ v: 1, user }`). 새로고침 뒤에도 남아야 켤 때 뜨는 복귀 요약을 시안 자료로 볼 수 있다. 다른 계정·dev·admin이 아닌 역할이면 꺼진 것으로 본다(플레이어가 403을 받지 않게).
-  - 처리할 일 저장소가 다시 받는 때: 로그인한 계정·시안 여부가 바뀔 때, 서버 연결이 끊긴 뒤 다시 맺어질 때(`serverLink`의 down → ready. 처음 연결은 받지 않는다), 화면이 다시 보일 때 마지막으로 받은 지 60초가 넘었을 때, 화면을 열 때 `ensureInbox()`, `refreshInbox()`. 응답이 10초 없으면 끊는다. 로그인 직후에는 계정이 바뀌어 서버 연결도 다시 맺으므로(`followIdentity`) 한 번 더 받을 수 있다(감수).
+  - 처리할 일 저장소가 다시 받는 때: 로그인한 계정·시안 여부가 바뀔 때, 서버 연결이 끊긴 뒤 다시 맺어질 때(`serverLink`의 down → ready. 처음 연결은 받지 않는다), 화면이 다시 보일 때 마지막으로 받은 지 60초가 넘었을 때, 화면을 열 때 `ensureInbox()`, `refreshInbox()`. 응답이 10초 없으면 끊는다. 검토 반영: 다시 연결됐을 때 5초 안에 시작한 받기(받는 중이거나 그 요청으로 받은 목록)가 있으면 다시 받지 않는다(로그인 직후 계정이 바뀌어 다시 맺은 연결로 또 받던 것을 없앴다). 10초 끊기는 요청 조각 받기가 멈춰도 실패로 끝낸다.
   - 저장소는 처음 쓸 때 켜진다(종 배지가 `useInbox…`를 부를 때). `main.tsx`(W1 파일)를 고치지 않으려는 것이다.
-  - 종 배지 = `counts`에서 완료를 뺀 합(ADR 7절). 종류 표 값(`INBOX_KINDS`)은 기기 묶음 어디에도 없다. 화면에 필요한 분류·이동 화면·동작은 항목에 실려 온다. 분류 순서는 `inboxText.ts` `CATEGORY_ORDER`에 따로 적고 공용 목록과 같은지 시험이 본다.
-  - 목록은 분류마다 모아 분류 순서대로 그린다. 분류 안은 받은 차례 그대로다(받은 차례가 섞여도 분류 제목이 두 번 나오지 않는다). 모르는 분류의 줄은 그리지 않는다.
+  - 종 배지 = `counts`에서 완료를 뺀 합(ADR 7절, 검토 반영: 모르는 분류도 센다. 0 이하·정수가 아닌 값은 뺀다). 종류 표 값(`INBOX_KINDS`)은 기기 묶음 어디에도 없다. 화면에 필요한 분류·이동 화면·동작은 항목에 실려 온다. 분류 순서는 `inboxText.ts` `CATEGORY_ORDER`에 따로 적고 공용 목록과 같은지 시험이 본다.
+  - 목록은 분류마다 모아 분류 순서대로 그린다. 분류 안은 받은 차례 그대로다(받은 차례가 섞여도 분류 제목이 두 번 나오지 않는다). 모르는 분류의 줄은 그리지 않는다 → 검토 반영: 끝의 "그 밖의 알림" 묶음에 그린다(D-6011, 처리함에는 늘 모든 항목).
   - 모르는 종류: 제목 "새 알림", 값(`params`)·바로 처리 버튼을 보이지 않고, 마감은 보인다. 누르면 처리함(`?item=`)으로, 처리함 안에서는 링크가 없다.
-  - 바로 처리 버튼: 시안 자료 항목에만 그린다. 누르면 명령을 보내지 않고 알림 영역에 "시험 자료라서 명령을 보내지 않았습니다"를 읽어 준다. 실제 항목은 `inbox_action` 메시지가 생길 때까지 버튼이 없다(줄을 눌러 그 화면에서 처리한다). 기획(D-6015)의 "1~2개 버튼"은 그 메시지를 만들 때 실제 항목에 켠다.
-  - 마감 문구: 남은 시간 1시간 안은 분(올림, 1분부터), 48시간 안은 시간, 그 뒤는 날. 지났으면 "마감 지남". 기준은 목록을 만든 서버 시각(`generatedAt`)이다. 주기 타이머가 없어 화면을 오래 열어 두면 늦은 값이 된다(다시 받을 때 고쳐진다).
+  - 바로 처리 버튼: 시안 자료 항목에만 그린다. 누르면 명령을 보내지 않고 알림 영역에 "시험 자료라서 명령을 보내지 않았습니다"를 읽어 준다(검토 반영: 그 줄 안, 버튼 바로 아래 알림 영역이 보이고 읽는다). 실제 항목은 `inbox_action` 메시지가 생길 때까지 버튼이 없다(줄을 눌러 그 화면에서 처리한다). 기획(D-6015)의 "1~2개 버튼"은 그 메시지를 만들 때 실제 항목에 켠다.
+  - 마감 문구: 남은 시간 1시간 안은 분(올림, 1분부터), 48시간 안은 시간, 그 뒤는 날. 지났으면 "마감 지남". 검토 반영: 분·시간·날 모두 내림, 1분 안은 "1분 안에 마감"(늘려 말하지 않는다). 기준은 목록을 만든 서버 시각(`generatedAt`)이다. 주기 타이머가 없어 화면을 오래 열어 두면 늦은 값이 된다(다시 받을 때 고쳐진다).
   - 이름 뒤에 조사를 붙이지 않게 이름(`place`)은 제목과 따로 보인다. 개수는 "명령 없는 유닛 6" / "Idle units: 6"처럼 복수형이 필요 없는 꼴이다.
-  - `?item=` 항목은 테두리로 강조하고 화면 가운데로 옮긴다. 목록에 없으면 "찾는 항목이 목록에 없습니다…"를 보인다(넣은 값은 되풀이하지 않는다).
+  - `?item=` 항목은 테두리로 강조하고 화면 가운데로 옮긴다(검토 반영: `aria-current`, 제목 앞 숨은 글 "찾는 항목:", 제목 id `inbox-highlight`로 앱 안 이동 때 초점). 목록에 없으면 "찾는 항목이 목록에 없습니다…"를 보인다(넣은 값은 되풀이하지 않는다).
   - 복귀 요약을 묻는 때: 로그인한 계정이 정해질 때(앱을 켤 때와 새로 로그인할 때), 30분 넘게 숨겼다가 다시 볼 때(`pwa/updatePolicy.ts`의 숨김·보임 규칙 그대로). 같은 계정이면 로그인 상태를 다시 확인해도 다시 묻지 않는다.
   - 복귀 요약 대화상자: 열 때 제목에 초점을 둔다(읽기 프로그램이 처음부터 읽게). 제목은 누르는 곳이 아니라 초점 테두리를 그리지 않는다. 숫자를 누르면 닫고 그 화면으로 간다. 그릴 칸이 없으면(모르는 칸 종류뿐) 열지 않는다. 며칠 비우면 길이를 날로 보인다("지난 3일 동안").
   - 조회 오류 문구는 이미 있는 키를 다시 쓴다: UNAUTHORIZED `auth_notice_session_ended`(세션을 다시 확인), FORBIDDEN `admin_err_forbidden`, BAD_REQUEST `admin_err_bad_request`, INTERNAL_SERVER_ERROR `err_server`, 응답 없음 `err_network`, 나머지 `err_unknown`. 키 이름에 `admin_`이 남는다(문장은 일반 문장이다).
@@ -119,13 +119,13 @@
 | `apps/server/src/trpc/router.ts`·`context.ts`·`createContext.ts` | 라우터 연결, `HomeQuery`·`HomeServices`, 맥락의 `home` |
 | `apps/game/src/inbox/store.ts`·`store.test.ts` | 처리할 일 저장소(첫 화면) |
 | `apps/game/src/inbox/preview.ts`·`preview.test.ts` | 시안 자료 보기 기기 표시(첫 화면) |
-| `apps/game/src/inbox/inboxClient.ts` | `inbox.list` 요청(지연) |
+| `apps/game/src/inbox/inboxClient.ts` | `inbox.list` 요청(지연). 검토 반영으로 `net/homeQueries.ts`에 합치고 지웠다 |
 | `apps/game/src/inbox/inboxText.ts`·`inboxText.test.ts`, `quickActions.ts`·`quickActions.test.ts` | 종류·분류·마감 문구, 링크, 바로 처리 버튼 |
 | `apps/game/src/inbox/InboxList.tsx`·`InboxList.test.ts`, `InboxScreen.tsx`, `icons.tsx`, `inbox.css` | 처리함 화면과 목록 |
 | `apps/game/src/summary/summaryGate.ts`·`summaryGate.test.ts`, `ReturnSummary.tsx` | 복귀 요약을 물을 때·보일지(첫 화면) |
 | `apps/game/src/summary/SummaryDialog.tsx`, `summaryText.ts`·`summaryText.test.ts`, `summaryClient.ts`, `summary.css` | 복귀 요약 대화상자(지연)와 요청 |
 | `apps/game/src/net/apiErrors.ts`·`apiErrors.test.ts` | 조회 오류 → 문구 키 |
-| `apps/game/messages/ko.json`·`en.json` | W3 자리 메시지 키 37개 |
+| `apps/game/messages/ko.json`·`en.json` | W3 자리 메시지 키 35개(검토 반영 뒤 37개) |
 | `docs/worklog/2026/10/29-2240-app-shell-w3.md`, `docs/WORKLOG.md` | 이 기록, 목차(`pnpm docs:index`) |
 
 ## 함께 바꿔야 하는 파일
@@ -135,19 +135,20 @@
 - 복귀 요약 칸 종류를 더하면 `summaryText.ts` `SECTION_LABELS`와 `summary_section_<칸>` 키.
 - `inbox_action`(바로 처리 명령)을 만들 때: `quickActions.ts`의 "실제 항목은 버튼 없음"을 바꾸고, 결과를 받으면 `refreshInbox()`를 부른다. 프로토콜 ADR과 `PROTOCOL_VERSION`.
 - 첫 사건 출처(S3 오프라인 정산·생산)를 만들 때: 확인 시각 표 + `summary.ack`, `summary/summary.ts`의 `since`, 기기 `summaryGate.ts`의 닫음 → 확인 보내기.
-- W2(계정 설정)가 `apps/server/src/trpc/context.ts`의 `SettingsServices`를 바꾸면 이 가지의 `HomeServices` 추가와 겹친다(줄이 달라 손으로 합치기 쉽다). 합치는 순서는 W2 → W5 → W1 → W3 → W4다.
+- W2(계정 설정)가 `apps/server/src/trpc/context.ts`의 `SettingsServices`를 바꾸면 이 가지의 `HomeServices` 추가와 겹친다(줄이 달라 손으로 합치기 쉽다). 합치는 순서는 W2 → W5 → W1 → W3 → W4다. 검토 반영 때 다시 봄: W2(`b9b790d`)는 `context.ts`를 고치지 않았다(Verified: `git diff --name-only`). 겹치는 파일은 W1·W4와 `messages`·`docs/WORKLOG.md`뿐이다.
+- 복귀 요약 CSS `summary/summary.css`의 폭 경계 `37.5em`은 W1 `shell/layout.ts`의 좁음 경계와 같아야 한다(검토 반영). W1이 합쳐진 뒤 W1 `layout.test.ts`가 대 보는 CSS 목록에 이 파일을 더한다(루트 `vitest.config.ts`의 `css.include`에도).
 
 ## 건드리지 말 것
-- 첫 화면 모듈(`inbox/store.ts`·`inbox/preview.ts`·`summary/summaryGate.ts`·`summary/ReturnSummary.tsx`)에서 `net/api.ts`·`@trpc/client`를 정적으로 가져오지 않는다. `@terra/shared/inbox`는 타입만 가져온다(값을 가져오면 종류 표가 첫 화면 묶음에 들어간다).
+- 첫 화면 모듈(`inbox/store.ts`·`inbox/preview.ts`·`summary/summaryGate.ts`·`summary/ReturnSummary.tsx`)에서 `net/api.ts`·`@trpc/client`를 정적으로 가져오지 않는다. `@terra/shared/inbox`는 타입만 가져온다(값을 가져오면 종류 표가 첫 화면 묶음에 들어간다). 검토 반영: `net/homeQueries.ts`·지연 조각·CSS도 같고, `inbox/firstScreen.test.ts`가 소스로 본다(`import { type X }`도 잡는다).
 - 시안 자료 키의 `preview_` 앞머리를 지우지 않는다(실제 항목 ID와 겹친다).
 - 바로 처리 버튼이 실제 항목에서 명령 없이 동작하게 만들지 않는다. 게임 상태를 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS 4장).
 
 ## 미검증·TODO·알려진 문제
-- W1 틀에 꽂은 모습은 보지 못했다(Unknown). 사진의 위 띠는 옛 계정 줄이다. 첫 화면 크기 차이(+5,500B, gzip +392B)는 시험 틀 기준이다.
+- W1 틀에 꽂은 모습은 보지 못했다(Unknown). 사진의 위 띠는 옛 계정 줄이다. 첫 화면 크기 차이(+5,500B, gzip +392B)는 시험 틀 기준이다. → 검토 반영 때 W1+W3 복제본에 꽂아 보았다(검토 반영 기록의 확인·사진).
 - 휴대폰에서 보지 않았다: 안드로이드 뒤로(닫기 요청)로 복귀 요약이 닫히는지, 아이폰 홈 화면 앱·사파리에서 Esc가 없는 길(Unknown). 사파리 하한(iOS 16.4)에서 `::backdrop`이 문서의 CSS 변수를 물려받지 않아 넓은 화면에서 바탕 어둡게가 투명할 수 있다(Assumed, 좁은 화면은 대화상자가 다 덮는다).
 - 화면 확인은 헤드리스 Chromium만이다. Firefox·사파리는 미실행.
 - Fragile(break-ui): 처리할 일 줄 수에 상한이 없다(서버 응답에 상한·"더 있음"이 없다. 지금 제공 함수 0개라 문제없음). 이름 값(`place`) 길이도 서버에 상한이 없다(제공 함수가 생길 때 그 시스템의 이름 규칙을 따른다). 200% 글자에서 아이콘·분류 칩(px 토큰)은 그대로라 글자보다 작아 보인다.
-- 로그인 직후에는 처리할 일을 두 번 받을 수 있다(로그인 때 한 번, 계정이 바뀌어 다시 맺은 연결의 ready 때 한 번). 요청이 작아 감수했다(Assumed).
+- 로그인 직후에는 처리할 일을 두 번 받을 수 있다(로그인 때 한 번, 계정이 바뀌어 다시 맺은 연결의 ready 때 한 번). 요청이 작아 감수했다(Assumed). → 검토 반영으로 고쳤다(한 번, Verified: W1+W3 복제본 화면 확인).
 - 복귀 요약은 확인 기록이 없어 닫아도 다음에 켤 때 다시 뜬다(시안 자료만 해당, 실제 계정은 늘 show: false).
 - 마감 문구는 목록을 만든 서버 시각 기준이다. 화면을 오래 열어 두면 늦은 값이 된다(주기 타이머 없음, ADR 6절).
 - 스타일을 없앤 목록(`ul`)을 사파리 VoiceOver가 목록으로 읽는지는 확인하지 않았다(Unknown).

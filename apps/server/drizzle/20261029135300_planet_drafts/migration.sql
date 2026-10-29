@@ -1,11 +1,14 @@
+CREATE SEQUENCE "public"."planet_draft_revision_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1;--> statement-breakpoint
 CREATE TABLE "planet_draft_revisions" (
 	"id" bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "planet_draft_revisions_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
 	"draft_id" uuid NOT NULL,
 	"revision" integer NOT NULL,
 	"entry" jsonb NOT NULL,
 	"base" jsonb,
+	"bytes" integer NOT NULL,
 	"saved_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "planet_draft_revisions_revision_positive" CHECK ("revision" >= 1)
+	CONSTRAINT "planet_draft_revisions_revision_positive" CHECK ("revision" >= 1),
+	CONSTRAINT "planet_draft_revisions_bytes_nonnegative" CHECK ("bytes" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "planet_drafts" (

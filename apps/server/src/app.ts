@@ -17,8 +17,8 @@ import type { PlanetBaker } from "./planet/baker.ts";
 import { type PlanetRouteLimits, registerPlanetRoutes } from "./planet/routes.ts";
 import { type PlanetServiceOptions, createPlanetService } from "./planet/service.ts";
 import type { PlanetSource } from "./planet/sources.ts";
+import { type PlanetEditorLimits, createPlanetEditorShared } from "./planetEditor/services.ts";
 import type { PlanetEditorDefinitions } from "./planetEditor/types.ts";
-import { draftPackContext } from "./planetEditor/validate.ts";
 import { handleSession } from "./session.ts";
 import { isPagePath } from "./spaFallback.ts";
 import { registerTelemetry } from "./telemetry.ts";
@@ -86,9 +86,11 @@ export interface AppOptions {
   planets?: AppPlanetsOptions | undefined;
   /**
    * 행성 편집기(ADR 38): 서버가 켤 때 만든 정의 조회 자료(src/planetEditor/definitions.ts). 인증이 켜져 있어야 쓴다.
-   * 없으면 planetEditor.* 는 권한 확인 뒤 NOT_FOUND(PLANET_EDITOR_UNAVAILABLE)
+   * 없으면 planetEditor.* 는 권한 확인 뒤 NOT_FOUND(PLANET_EDITOR_UNAVAILABLE). limits는 시험용(속도 제한 숫자 바꾸기)
    */
-  planetEditor?: { definitions: PlanetEditorDefinitions } | undefined;
+  planetEditor?:
+    | { definitions: PlanetEditorDefinitions; limits?: Partial<PlanetEditorLimits> | undefined }
+    | undefined;
   /**
    * 시험용: 요청의 로그인 사용자를 직접 정한다(DB 없는 시험). 주면 인증 세션 조회와 WebSocket 출처 검사를 하지 않는다.
    * 운영 코드는 쓰지 않는다.
@@ -146,8 +148,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     });
   }
 
-  // 쓰기 요청의 출처 확인 기준 = 계정 경로와 같은 앱 출처(인증이 꺼지면 세션이 없어 보지 않는다)
-  const editorDefinitions = options.planetEditor?.definitions;
+  // 요청의 출처 확인 기준 = 계정 경로와 같은 앱 출처(인증이 꺼지면 세션이 없어 보지 않는다)
+  const editor = options.planetEditor;
   await registerTrpc(app, {
     router: appRouter,
     createContext: createContextFactory({
@@ -155,8 +157,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       now,
       auth,
       appOrigin: options.auth?.settings.baseUrl,
-      planetEditor: editorDefinitions
-        ? { definitions: editorDefinitions, pack: draftPackContext(editorDefinitions) }
+      planetEditor: editor
+        ? createPlanetEditorShared(editor.definitions, { now, limits: editor.limits })
         : undefined,
     }),
   });

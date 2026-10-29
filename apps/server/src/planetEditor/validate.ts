@@ -31,7 +31,8 @@ export function draftPackContext(definitions: PlanetEditorDefinitions): DraftPac
 }
 
 export type DraftEntryCheck =
-  | { readonly ok: true; readonly entry: JsonObject }
+  /** bytes = 직렬화 크기(planetDraftEntryBytes, 판 기록에 저장한다) */
+  | { readonly ok: true; readonly entry: JsonObject; readonly bytes: number }
   | { readonly ok: false; readonly code: PlanetDraftRejectCode };
 
 function isJsonObject(value: unknown): value is JsonObject {
@@ -70,20 +71,23 @@ function isStorableJson(value: unknown): boolean {
 }
 
 /**
- * 직렬화 크기가 상한을 넘는지. 직렬화하지 못하면(본문 상한 1MiB 안에서 아주 깊게 겹친 배열 등 — JSON.stringify는 재귀라
- * 호출 스택이 넘친다) 넘는 것으로 본다: 그런 항목은 상한 안에 들 수 없다
+ * 직렬화 크기(바이트). 상한을 넘거나 직렬화하지 못하면(본문 상한 1MiB 안에서 아주 깊게 겹친 배열 등 — JSON.stringify는
+ * 재귀라 호출 스택이 넘친다) null: 그런 항목은 상한 안에 들 수 없다
  */
-function isTooLarge(entry: unknown): boolean {
+function sizeWithinLimit(entry: unknown): number | null {
+  let bytes: number;
   try {
-    return planetDraftEntryBytes(entry) > PLANET_DRAFT_ENTRY_MAX_BYTES;
+    bytes = planetDraftEntryBytes(entry);
   } catch {
-    return true;
+    return null;
   }
+  return bytes > PLANET_DRAFT_ENTRY_MAX_BYTES ? null : bytes;
 }
 
 /** 초안 항목 하나를 검사한다. planetId = 요청한 행성(초안 열쇠). 항목의 id가 다르면 invalid_entry */
 export function checkDraftEntry(entry: unknown, planetId: string, pack: DraftPackContext): DraftEntryCheck {
-  if (isTooLarge(entry)) return { ok: false, code: "entry_too_large" };
+  const bytes = sizeWithinLimit(entry);
+  if (bytes === null) return { ok: false, code: "entry_too_large" };
   if (!isJsonObject(entry) || !isStorableJson(entry)) return { ok: false, code: "invalid_entry" };
   const parsed = planetEntrySchema.safeParse(entry);
   if (!parsed.success || parsed.data.id !== planetId) return { ok: false, code: "invalid_entry" };
@@ -95,5 +99,5 @@ export function checkDraftEntry(entry: unknown, planetId: string, pack: DraftPac
   } catch {
     return { ok: false, code: "generator_rejected" };
   }
-  return { ok: true, entry };
+  return { ok: true, entry, bytes };
 }

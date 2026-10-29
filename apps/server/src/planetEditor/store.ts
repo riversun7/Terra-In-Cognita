@@ -1,16 +1,19 @@
 // 행성 초안 DB 작업 — planetEditor.drafts.*(ADR 2026-10-29-planet-editor-stage1 9절). 모든 조회·쓰기는 owner_id로 거른다:
 // 다른 사람의 초안은 보이지도 바뀌지도 않는다.
+// - 판 번호: 저장·되돌리기마다 모든 초안이 함께 쓰는 번호(planet_draft_revision_seq)의 다음 값이다. 초안 안에서는 늘 커지고
+//   띄엄띄엄이다. 한 번 쓴 번호는 다시 나오지 않는다: 지운 뒤 다시 만든 초안이 옛 판 번호에 닿아 옛 판을 든 기기의 저장이
+//   충돌 없이 들어가는 일(ABA)이 없다.
 // - 저장: 기대 판이 지금 판과 같을 때만 바꾼다(조건부 UPDATE 한 번이라 동시에 보낸 저장 중 하나만 이긴다). 기대 판 0 = 초안 없음
 //   → 새로 만든다(같은 초안을 동시에 만들면 (owner_id, planet_id) 하나뿐 규칙으로 하나만 이긴다). 지면 conflict.
-// - 판 기록: 저장·되돌리기마다 한 줄. 같은 트랜잭션에서 최근 PLANET_DRAFT_REVISIONS_KEPT개만 남기고 지운다.
+// - 판 기록: 저장·되돌리기마다 한 줄(항목·기준·크기). 같은 트랜잭션에서 최근 PLANET_DRAFT_REVISIONS_KEPT개만 남기고 지운다.
+//   판 목록은 저장할 때 잰 크기 열을 읽는다(항목을 읽지 않는다).
 // - 감사 기록: 만들기·되돌리기·지우기는 바꾸는 일과 같은 트랜잭션에 쓴다(감사 기록을 못 쓰면 바뀌지 않고 요청이 실패한다).
 //   자동 저장(있는 초안 저장)은 쓰지 않는다: 감사 표는 추가만 되는 표라 끝없이 는다. 누가·언제는 판 기록에 남는다.
 //   감사 기록에는 항목(시드)을 넣지 않는다. 행성 ID·판·기준(팩 버전·정의 해시·생성기 판)만.
-import { planetDraftEntryBytes } from "@terra/shared";
-import { and, desc, eq, lte, sql } from "drizzle-orm";
+import { and, desc, eq, lt, sql } from "drizzle-orm";
 import { type AuditActor, type Transaction, writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
-import { planetDraftRevisions, planetDrafts } from "../db/schema.ts";
+import { PLANET_DRAFT_REVISION_SEQ, planetDraftRevisions, planetDrafts } from "../db/schema.ts";
 import type {
   JsonObject,
   PlanetDraftBase,
@@ -30,6 +33,9 @@ export const PLANET_EDITOR_AUDIT_ACTIONS = {
   restore: "planet_draft.restore",
   remove: "planet_draft.remove",
 } as const;
+
+/** 다음 판 번호(모든 초안이 함께 쓰는 번호. nextval은 bigint라 판 열 integer로 바꾼다: 상한은 시퀀스가 지킨다) */
+const nextRevision = () => sql<number>`nextval(${PLANET_DRAFT_REVISION_SEQ}::regclass)::integer`;
 
 const draftColumns = {
   id: planetDrafts.id,
@@ -75,7 +81,7 @@ export async function readDraft(
   return row ? toView(row) : null;
 }
 
-/** 내 초안의 판 기록(새 판부터). 초안이 없으면 빈 목록 */
+/** 내 초안의 판 기록(새 판부터). 초안이 없으면 빈 목록. 항목은 읽지 않는다(크기는 저장할 때 잰 열) */
 export async function listDraftRevisions(
   db: Database,
   ownerId: string,
@@ -85,7 +91,7 @@ export async function listDraftRevisions(
     .select({
       revision: planetDraftRevisions.revision,
       savedAt: planetDraftRevisions.savedAt,
-      entry: planetDraftRevisions.entry,
+      bytes: planetDraftRevisions.bytes,
     })
     .from(planetDraftRevisions)
     .innerJoin(planetDrafts, eq(planetDrafts.id, planetDraftRevisions.draftId))
@@ -95,16 +101,16 @@ export async function listDraftRevisions(
   return rows.map((row) => ({
     revision: row.revision,
     savedAt: row.savedAt.toISOString(),
-    // 크기는 기기와 같은 함수로 잰다. jsonb는 키 순서를 바꾸지만 직렬화 길이는 같다
-    bytes: planetDraftEntryBytes(row.entry),
+    bytes: row.bytes,
   }));
 }
 
 export interface SaveDraftInput {
   ownerId: string;
   planetId: string;
-  /** 검사를 통과한 항목(validate.ts checkDraftEntry) */
+  /** 검사를 통과한 항목과 그 크기(validate.ts checkDraftEntry) */
   entry: JsonObject;
+  bytes: number;
   base: PlanetDraftBase | null;
   expectedRevision: number;
   actor: AuditActor;
@@ -114,33 +120,47 @@ export type SaveDraftOutcome =
   | ({ kind: "saved"; created: boolean } & PlanetDraftSaved)
   | { kind: "conflict" };
 
-/** 판 기록 한 줄을 넣고, 이 초안의 오래된 판 기록을 지운다(최근 PLANET_DRAFT_REVISIONS_KEPT개만 남긴다) */
-async function recordRevision(
-  tx: Transaction,
-  draftId: string,
-  revision: number,
-  entry: JsonObject,
-  base: PlanetDraftBase | null,
-): Promise<void> {
-  await tx.insert(planetDraftRevisions).values({ draftId, revision, entry, base });
+/** 판 기록 한 줄 */
+interface RevisionRecord {
+  draftId: string;
+  revision: number;
+  entry: JsonObject;
+  base: PlanetDraftBase | null;
+  bytes: number;
+}
+
+/**
+ * 판 기록 한 줄을 넣고, 이 초안의 오래된 판 기록을 지운다(최근 PLANET_DRAFT_REVISIONS_KEPT개만 남긴다).
+ * 판 번호가 띄엄띄엄이라 남길 것 중 가장 오래된 판 번호(새 판부터 KEPT번째)를 찾아 그보다 앞을 지운다.
+ * 기록이 KEPT개보다 적으면 그 번호가 없어(NULL) 아무것도 지우지 않는다
+ */
+async function recordRevision(tx: Transaction, record: RevisionRecord): Promise<void> {
+  await tx.insert(planetDraftRevisions).values(record);
+  const oldestKept = tx
+    .select({ revision: planetDraftRevisions.revision })
+    .from(planetDraftRevisions)
+    .where(eq(planetDraftRevisions.draftId, record.draftId))
+    .orderBy(desc(planetDraftRevisions.revision))
+    .limit(1)
+    .offset(PLANET_DRAFT_REVISIONS_KEPT - 1);
   await tx
     .delete(planetDraftRevisions)
     .where(
       and(
-        eq(planetDraftRevisions.draftId, draftId),
-        lte(planetDraftRevisions.revision, revision - PLANET_DRAFT_REVISIONS_KEPT),
+        eq(planetDraftRevisions.draftId, record.draftId),
+        lt(planetDraftRevisions.revision, sql`(${oldestKept})`),
       ),
     );
 }
 
 /** 초안 저장(기대 판 0이면 만들기). 기대 판이 지금 판과 다르면 conflict(아무것도 바꾸지 않는다) */
 export async function saveDraft(db: Database, input: SaveDraftInput): Promise<SaveDraftOutcome> {
-  const { ownerId, planetId, entry, base, expectedRevision } = input;
+  const { ownerId, planetId, entry, bytes, base, expectedRevision } = input;
   return db.transaction(async (tx): Promise<SaveDraftOutcome> => {
     if (expectedRevision === 0) {
       const [created] = await tx
         .insert(planetDrafts)
-        .values({ ownerId, planetId, revision: 1, entry, base })
+        .values({ ownerId, planetId, revision: nextRevision(), entry, base })
         .onConflictDoNothing({ target: [planetDrafts.ownerId, planetDrafts.planetId] })
         .returning({
           id: planetDrafts.id,
@@ -148,7 +168,7 @@ export async function saveDraft(db: Database, input: SaveDraftInput): Promise<Sa
           updatedAt: planetDrafts.updatedAt,
         });
       if (!created) return { kind: "conflict" };
-      await recordRevision(tx, created.id, created.revision, entry, base);
+      await recordRevision(tx, { draftId: created.id, revision: created.revision, entry, base, bytes });
       await writeAudit(tx, {
         actor: input.actor,
         action: PLANET_EDITOR_AUDIT_ACTIONS.create,
@@ -162,14 +182,15 @@ export async function saveDraft(db: Database, input: SaveDraftInput): Promise<Sa
         updatedAt: created.updatedAt.toISOString(),
       };
     }
-    // 조건부 UPDATE: 다른 저장이 먼저 판을 올렸으면(또는 초안이 지워졌으면) 0줄 → conflict
+    // 조건부 UPDATE: 다른 저장이 먼저 판을 올렸으면(또는 초안이 지워졌으면) 0줄 → conflict.
+    // 맞는 줄이 없으면 nextval도 부르지 않는다(번호를 쓰지 않는다)
     const [updated] = await tx
       .update(planetDrafts)
-      .set({ revision: sql`${planetDrafts.revision} + 1`, entry, base, updatedAt: sql`now()` })
+      .set({ revision: nextRevision(), entry, base, updatedAt: sql`now()` })
       .where(and(ownDraft(ownerId, planetId), eq(planetDrafts.revision, expectedRevision)))
       .returning({ id: planetDrafts.id, revision: planetDrafts.revision, updatedAt: planetDrafts.updatedAt });
     if (!updated) return { kind: "conflict" };
-    await recordRevision(tx, updated.id, updated.revision, entry, base);
+    await recordRevision(tx, { draftId: updated.id, revision: updated.revision, entry, base, bytes });
     return {
       kind: "saved",
       created: false,
@@ -219,11 +240,17 @@ export async function restoreDraft(db: Database, input: RestoreDraftInput): Prom
     if (!checked.ok) return { kind: "rejected", code: checked.code };
     const [updated] = await tx
       .update(planetDrafts)
-      .set({ revision: draft.revision + 1, entry: target.entry, base: target.base, updatedAt: sql`now()` })
+      .set({ revision: nextRevision(), entry: target.entry, base: target.base, updatedAt: sql`now()` })
       .where(eq(planetDrafts.id, draft.id))
       .returning(draftColumns);
     if (!updated) return { kind: "no_draft" };
-    await recordRevision(tx, updated.id, updated.revision, target.entry, target.base);
+    await recordRevision(tx, {
+      draftId: updated.id,
+      revision: updated.revision,
+      entry: target.entry,
+      base: target.base,
+      bytes: checked.bytes,
+    });
     await writeAudit(tx, {
       actor: input.actor,
       action: PLANET_EDITOR_AUDIT_ACTIONS.restore,

@@ -10,6 +10,7 @@ import {
   index,
   integer,
   jsonb,
+  pgSequence,
   pgTable,
   real,
   text,
@@ -226,7 +227,22 @@ export const userSettings = pgTable(
 // 이 표 밖(감사 기록·로그)으로 내보내지 않는다. 쓰기·검사는 src/planetEditor/(store.ts·validate.ts).
 // 행성 ID는 콘텐츠 ID 규칙만 검사 조건에 넣는다: 팩에 있는지는 앱이 본다(팩이 바뀌어도 옛 버전 앱이 그대로 읽게).
 
-/** 행성 초안 — (owner_id, planet_id)마다 하나. revision은 저장할 때마다 1씩 는다(1부터) */
+/**
+ * 초안 판 번호 — 모든 초안이 함께 쓰는 번호(저장·되돌리기마다 다음 값). 한 번 쓴 번호는 다시 나오지 않는다:
+ * 지운 뒤 다시 만든 초안도 옛 판 번호를 쓰지 않아서, 옛 판을 들고 있던 기기의 저장은 늘 CONFLICT다(ADR 38 WP-B).
+ * 판 열(integer)에 맞춰 상한을 둔다. 다 쓰면 저장이 실패한다(한 기기가 쉬지 않고 2초마다 저장해도 약 136년)
+ */
+export const PLANET_DRAFT_REVISION_SEQ = "planet_draft_revision_seq";
+export const planetDraftRevisionSeq = pgSequence(PLANET_DRAFT_REVISION_SEQ, {
+  startWith: 1,
+  minValue: 1,
+  maxValue: 2_147_483_647,
+  increment: 1,
+  cache: 1,
+  cycle: false,
+});
+
+/** 행성 초안 — (owner_id, planet_id)마다 하나. revision은 저장할 때마다 커진다(planet_draft_revision_seq, 띄엄띄엄) */
 export const planetDrafts = pgTable(
   "planet_drafts",
   {
@@ -264,11 +280,14 @@ export const planetDraftRevisions = pgTable(
     revision: integer("revision").notNull(),
     entry: jsonb("entry").$type<Record<string, unknown>>().notNull(),
     base: jsonb("base").$type<PlanetDraftBase>(),
+    /** 항목 크기(바이트, @terra/shared planetDraftEntryBytes). 판 목록이 항목을 읽지 않게 저장할 때 잰다 */
+    bytes: integer("bytes").notNull(),
     savedAt: timestamp("saved_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("planet_draft_revisions_draft_revision_idx").on(table.draftId, table.revision),
     check("planet_draft_revisions_revision_positive", sql`${table.revision} >= 1`),
+    check("planet_draft_revisions_bytes_nonnegative", sql`${table.bytes} >= 0`),
   ],
 );
 

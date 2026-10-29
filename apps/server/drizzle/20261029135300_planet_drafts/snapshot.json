@@ -2,11 +2,28 @@
   "type": "diff",
   "version": "9",
   "dialect": "postgres",
-  "id": "dee2ea7c-d23a-416d-815d-ff7f4e51f574",
+  "id": "b322ea4a-3713-4055-b63f-3d23a4f26fda",
   "prevIds": [
     "52ee1e81-61ea-4902-8b4c-e77591323d78"
   ],
   "footprints": [
+    {
+      "statementType": "create_sequence",
+      "statementTarget": [
+        "sequence",
+        "public",
+        "planet_draft_revision_seq"
+      ],
+      "writes": [
+        "s|seq|public.planet_draft_revision_seq",
+        "n|seq|public.planet_draft_revision_seq",
+        "e|seq|public.planet_draft_revision_seq",
+        "n|rel|public.planet_draft_revision_seq"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
     {
       "statementType": "create_table",
       "statementTarget": [
@@ -235,6 +252,22 @@
         "type": "jsonb",
         "typeSchema": null,
         "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_draft_revisions",
+        "name": "bytes",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
         "dimensions": 0,
         "default": null,
         "generated": null,
@@ -528,6 +561,16 @@
       "op": "create",
       "row": {
         "schema": "public",
+        "table": "planet_draft_revisions",
+        "name": "planet_draft_revisions_bytes_nonnegative",
+        "value": "\"bytes\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
         "table": "planet_drafts",
         "name": "planet_drafts_planet_id_format",
         "value": "\"planet_id\" ~ '^[a-z][a-z0-9_]{1,47}$'",
@@ -542,6 +585,20 @@
         "name": "planet_drafts_revision_positive",
         "value": "\"revision\" >= 1",
         "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "planet_draft_revision_seq",
+        "incrementBy": "1",
+        "minValue": "1",
+        "maxValue": "2147483647",
+        "startWith": "1",
+        "cacheSize": 1,
+        "cycle": false,
+        "entityType": "sequences"
       }
     }
   ]

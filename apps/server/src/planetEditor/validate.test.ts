@@ -58,7 +58,11 @@ describe("초안 항목 검사", () => {
   it("팩 행성 항목은 그대로 통과하고, 받은 JSON을 그대로 돌려준다", () => {
     for (const id of [EDITOR_PLANET_ID, TEST_PLANET_ID]) {
       const entry = rawPlanet(loaded, id);
-      expect(checkDraftEntry(entry, id, pack)).toEqual({ ok: true, entry });
+      expect(checkDraftEntry(entry, id, pack)).toEqual({
+        ok: true,
+        entry,
+        bytes: planetDraftEntryBytes(entry),
+      });
     }
     // 덮어쓰기·이모지 이름(4바이트 글자)도 된다
     expect(
@@ -66,9 +70,25 @@ describe("초안 항목 검사", () => {
     ).toBeNull();
   });
 
+  it("면 레벨·바이옴 표는 팩과 달라도 지금 팩으로 맞으면 받는다(ADR 38 WP-B: 화면은 둘을 읽기만, 서버는 막지 않는다)", () => {
+    // 팩이 바뀐 뒤의 옛 초안·옛 판도 저장·되돌리기가 막히지 않게 하려는 결정이다. 반영할 때 팩과 견준다
+    const faceLevel = valid().faceLevel;
+    expect(typeof faceLevel).toBe("number");
+    expect(code({ ...valid(), faceLevel: Number(faceLevel) - 1 })).toBeNull();
+    const biomes = validBiomes();
+    const reordered = [...biomes.slice(0, -2), ...biomes.slice(-2).toReversed()];
+    expect(reordered).not.toEqual(biomes);
+    expect(code({ ...valid(), biomes: reordered })).toBeNull();
+  });
+
   it("크기 상한: 직렬화 8KiB까지 받고 넘으면 entry_too_large", () => {
     expect(planetDraftEntryBytes(sized(PLANET_DRAFT_ENTRY_MAX_BYTES))).toBe(PLANET_DRAFT_ENTRY_MAX_BYTES);
     expect(code(sized(PLANET_DRAFT_ENTRY_MAX_BYTES))).toBeNull();
+    // 통과하면 잰 크기를 함께 준다(판 기록 크기 열)
+    expect(checkDraftEntry(sized(PLANET_DRAFT_ENTRY_MAX_BYTES), EDITOR_PLANET_ID, pack)).toMatchObject({
+      ok: true,
+      bytes: PLANET_DRAFT_ENTRY_MAX_BYTES,
+    });
     expect(code(sized(PLANET_DRAFT_ENTRY_MAX_BYTES + 1))).toBe("entry_too_large");
     // 직렬화하다 호출 스택이 넘치는 항목(아주 깊게 겹친 배열, JSON 본문으로는 1MiB 안에 든다)도 entry_too_large
     const deep: unknown = JSON.parse(`${"[".repeat(200_000)}${"]".repeat(200_000)}`);

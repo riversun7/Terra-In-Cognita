@@ -19,6 +19,7 @@ import {
   trpcQuery,
 } from "../testDb.ts";
 import { type PlanetEditorBuild, buildPlanetEditorDefinitions } from "./definitions.ts";
+import type { PlanetEditorLimits } from "./services.ts";
 import type { JsonObject } from "./types.ts";
 
 export type LoadedContent = Extract<ContentLoadResult, { ok: true }>;
@@ -81,8 +82,19 @@ export interface EditorTestApp {
   close(): Promise<void>;
 }
 
+/** 속도 제한을 사실상 끈 값(짧은 동안 많이 부르는 시험) */
+export const RELAXED_LIMITS: Partial<PlanetEditorLimits> = {
+  callsPerUser: { capacity: 100_000, refillPerMinute: 100_000 },
+  definitionsPerUser: { capacity: 100_000, refillPerMinute: 100_000 },
+};
+
+export interface EditorTestAppOptions {
+  /** 편집기 속도 제한 숫자 바꾸기(기본은 운영 값) */
+  limits?: Partial<PlanetEditorLimits>;
+}
+
 /** 새 시험 DB + 인증·편집기를 켠 앱 + 시험 계정(세션 쿠키). 정의 조회 자료는 저장소 팩으로 만든다 */
-export async function startEditorTestApp(): Promise<EditorTestApp> {
+export async function startEditorTestApp(options: EditorTestAppOptions = {}): Promise<EditorTestApp> {
   const loaded = loadPack();
   const build = packEditorBuild(loaded);
   const test = await createTestDatabase();
@@ -92,7 +104,7 @@ export async function startEditorTestApp(): Promise<EditorTestApp> {
     metricsIntervalMs: 0,
     db: test.db,
     auth: { settings: TEST_SETTINGS, openSignup: true },
-    planetEditor: { definitions: build.definitions },
+    planetEditor: { definitions: build.definitions, limits: options.limits },
   });
   await app.ready();
   const auth = createAuth({ db: test.db, settings: TEST_SETTINGS });
@@ -154,6 +166,22 @@ export function editorMutation(
   headers?: Record<string, string>,
 ) {
   return trpcMutation(app, `planetEditor.${path}`, input, cookie, headers);
+}
+
+/** 세션 쿠키("tic.session_token=<토큰>.<서명>") → DB sessions.token */
+export function sessionTokenOf(cookie: string): string {
+  return decodeURIComponent(cookie.split("=")[1] ?? "").split(".")[0] ?? "";
+}
+
+/** 그 세션의 만료 시각(ms) */
+export async function sessionExpiresAt(test: TestDatabase, cookie: string): Promise<number> {
+  const [row] = await rows<{ expires_at: Date }>(
+    test.db,
+    "select expires_at from sessions where token = $1",
+    [sessionTokenOf(cookie)],
+  );
+  if (!row) throw new Error("session missing");
+  return row.expires_at.getTime();
 }
 
 /** tRPC 응답의 결과 값 */

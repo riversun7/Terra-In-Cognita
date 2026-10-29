@@ -55,13 +55,22 @@ export interface SettingsServices {
 /** 행성 편집기 권한 동작(권한 문장 planetEditor, src/auth/permissions.ts) */
 export type PlanetEditorAction = "read" | "write";
 
+/** 속도 제한의 호출 종류: 정의 조회(감사 기록이 남는다)는 따로 한 번 더 센다 */
+export type PlanetEditorCallKind = "definitions" | "drafts";
+
 /**
  * 행성 편집기(ADR 2026-10-29-planet-editor-stage1 9·11절) — 프로시저가 권한 미들웨어(우리 권한 표)를 거친 뒤 부른다.
- * 실패는 tRPC 오류로 던진다: BAD_REQUEST(data.reason = 받지 않음 코드), CONFLICT(기대 판), NOT_FOUND(되돌릴 판·초안 없음)
+ * 실패는 tRPC 오류로 던진다: BAD_REQUEST(data.reason = 받지 않음 코드), CONFLICT(기대 판), NOT_FOUND(되돌릴 판·초안 없음),
+ * TOO_MANY_REQUESTS(속도 제한)
  */
 export interface PlanetEditorServices {
-  /** 두 번째 권한 확인: Better Auth userHasPermission(요청한 사람의 세션). 아니면 FORBIDDEN·UNAUTHORIZED */
+  /**
+   * 두 번째 권한 확인: Better Auth userHasPermission(요청한 사람의 세션, 세션을 늘리지 않는다). 아니면 FORBIDDEN·UNAUTHORIZED.
+   * 한 요청 안에서는 동작마다 한 번만 묻는다
+   */
   ensurePermission(action: PlanetEditorAction): Promise<void>;
+  /** 사용자별 속도 제한. 넘으면 TOO_MANY_REQUESTS(data.reason "rate_limited") */
+  admit(viewer: Viewer, kind: PlanetEditorCallKind): void;
   /** 정의 조회. 감사 기록을 쓴 뒤에만 돌려준다(못 쓰면 실패) */
   definitions(viewer: Viewer): Promise<PlanetEditorDefinitions>;
   getDraft(viewer: Viewer, planetId: string): Promise<PlanetDraftView | null>;

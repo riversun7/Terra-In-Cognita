@@ -6,7 +6,7 @@
 //   응답은 다른 사이트가 읽을 수 없지만, 다른 사이트의 링크 하나로 감사 기록(정의 조회)이 쌓이지 않게.
 // 맥락을 만들 때 던지면 묶음 요청의 프로시저마다 같은 오류가 간다(FORBIDDEN, data.reason "cross_origin").
 // 프로시저는 하나도 돌지 않는다.
-import type { FastifyRequest } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { createAdminServices } from "../auth/adminServices.ts";
 import type { TerraAuth } from "../auth/auth.ts";
 import { authHeaders } from "../auth/http.ts";
@@ -30,7 +30,7 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
    * 로그인이 필요한 프로시저는 모두 UNAUTHORIZED다
    */
   appOrigin?: string | undefined;
-  /** 행성 편집기(서버가 켤 때 만든 정의 조회 자료). 인증이 켜져 있어야 쓴다 */
+  /** 행성 편집기(서버가 켤 때 만든 정의 조회 자료·속도 제한기, createPlanetEditorShared). 인증이 켜져 있어야 쓴다 */
   planetEditor?: PlanetEditorShared | undefined;
 }
 
@@ -45,7 +45,7 @@ function isAllowedOrigin(request: FastifyRequest, appOrigin: string): boolean {
 }
 
 /**
- * 세션 조회. tRPC 응답으로는 쿠키를 새로 줄 수 없어 세션 연장(refresh)은 끈다.
+ * 세션 조회. 이 조회는 새 쿠키를 응답에 싣지 않으므로 세션 연장(refresh)은 끈다(늘리면 DB 만료만 늘고 쿠키는 그대로 끝난다).
  * 연장은 기기가 GET /api/auth/get-session을 부를 때 한다(쿠키 만료도 함께 늘어난다).
  * 정지된 계정은 로그인하지 않은 것으로 본다(기본 거부).
  */
@@ -57,7 +57,7 @@ export async function loadViewer(auth: TerraAuth, headers: Headers): Promise<Vie
 
 /** 요청마다 맥락을 만드는 함수. req가 없으면(서버 안 호출·시험) 로그인하지 않은 맥락 */
 export function createContextFactory(options: ContextFactoryOptions) {
-  return (opts?: { req: FastifyRequest }): TrpcContext => {
+  return (opts?: { req: FastifyRequest; res?: FastifyReply }): TrpcContext => {
     const authDeps = options.auth;
     const request = opts?.req;
     if (request && options.appOrigin !== undefined && !isAllowedOrigin(request, options.appOrigin)) {
@@ -74,7 +74,10 @@ export function createContextFactory(options: ContextFactoryOptions) {
       contentVersion: options.contentVersion,
       now: options.now,
       viewer,
-      admin: authDeps && request ? createAdminServices({ ...authDeps, request, viewer }) : undefined,
+      admin:
+        authDeps && request
+          ? createAdminServices({ ...authDeps, request, reply: opts?.res, viewer })
+          : undefined,
       settings: authDeps ? createSettingsServices(authDeps.db) : undefined,
       planetEditor:
         authDeps && request && editor

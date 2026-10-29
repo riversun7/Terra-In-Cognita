@@ -12,6 +12,7 @@
      - main 쪽 후속을 이 머지에 넣었다(가지 작업 기록의 "함께 바꿔야 하는 파일"): `apps/server/src/planet/bake.test.ts` 팩 행성 F5 해시 `3321d859` → `5c984c77`, `cache.test.ts`가 생성기 버전 1을 가정하던 곳(파일 이름 → `GENERATOR_VERSION`, "다른 생성기 버전" → 지금 버전 + 1).
    - `worktree-wf_855dd1b7-352-4` @ `f3bb7e4`(셰이더 측정판, main보다 42커밋 뒤) → `26c2f09`. 충돌은 `apps/game/messages/{ko,en}.json`(양쪽이 끝에 덧붙인 키를 모두 남김)과 목차. ADR 36의 "셰이더 측정" 절이 "결과" 뒤에 붙어 "결과" 앞으로 옮겼다.
    - 머지마다 타입 검사·시험을, 셋째·넷째 머지 뒤에는 포맷·린트·경계·크기·다국어·콘텐츠·빌드·`check-pwa`까지 돌렸다.
+   - 작업 중에 main이 문서 커밋 8개만큼 나아갔다(`e1e281b..c33f1a4`: 앱 뼈대 ADR 37 제안·조사·기획 질문·PLAN·PROTECTED, 기획 미러 동기화 D-232~D-259). 그래서 main을 다시 머지했다(`b22efa6`). 충돌은 PLAN ADR 목록 줄(36은 이 가지, 37은 main)과 목차. 코드 변경은 없다.
 2. 서버와 기기를 생성기 출력 판 2에 맞췄다. 기기는 생성기 버전을 직접 보지 않고 목록 정보의 타일 주소 틀만 쓰므로 서버 쪽(위 시험 두 개)만 고치면 됐다. 화면 타일 요청이 모두 `?v=1.2.e04dd3cb58134c67`인 것을 확인했다.
 3. 통합 검토 지적 17개(같은 내용 묶음 포함)를 처리했다. 지적별 처리는 ADR 36 "구현하며 정한 것 (다듬기 통합)"의 표에 있다.
    - 고침: 목록 정보 429 안내(`6e35008`), 엔진 만들기 실패 잡기(`6e35008`), 타일 실패 안내가 남던 것·404 뒤 다시 묻던 것(`6501445`), 목록 정보 `maxElevationM`(`d9e42f2`), 타일 ID 앞자리 0(`3494012`), 첫 화면 묶음(`6f71ea6`), 고도 축척 주석(`afcc018`), 문서 사소 지적(AGENTS·PLAN·ADR, 문서 커밋).
@@ -75,7 +76,7 @@
 - 윗 단계 모으기 규칙(`packages/planet/src/tiles/aggregate.ts`)을 바꾸면 `PLANET_TILE_FORMAT_VERSION`(`packages/protocol/src/planetTile.ts`), 타일 골든(`buildTiles.test.ts` `52d326ee`), ADR 36 타일 절. 바이옴 모으기 고침은 타일 형식 2판과 함께 한다.
 - 캐시 목록 모양(`apps/server/src/planet/cache.ts` `planetCacheIndexSchema`)을 바꾸면 `PLANET_CACHE_FORMAT`을 올린다(옛 목록은 스키마에서 틀려 다시 굽는다).
 - 목록 정보 필드를 더하면 `packages/protocol/src/planetManifest.ts`(선택 필드로), 서버 `service.ts` `manifest()`, 기기 `planetSource.ts`. 스키마는 strict가 아니라 옛 기기는 모르는 필드를 버린다.
-- `@terra/protocol`·`@terra/shared`에 모듈을 더하면 맨 위에서 부르는 코드를 두지 않는다(`sideEffects: false`, 두면 가져오지 않는 묶음에서 말없이 빠진다).
+- `@terra/protocol`·`@terra/shared`에 모듈을 더하면 맨 위에서 부르는 코드를 두지 않는다(`sideEffects: false`, 두면 가져오지 않는 묶음에서 말없이 빠진다). 앱 뼈대(ADR 37)가 `packages/shared`에 더할 화면 주소 표·메뉴·카드 ID 모듈도 같다.
 - 1차맵 실패 안내를 바꾸면 `PlanetMapScreen.tsx` `screenNotice`와 HUD 줄, `planetSource.ts`의 이유 코드, 문구 ko·en.
 
 ## 건드리지 말 것

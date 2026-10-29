@@ -1,0 +1,116 @@
+// 처리할 일 문구 — 종류·분류·마감 → 지금 언어의 문장, 줄을 누르면 갈 주소(ADR 2026-10-29-app-shell 7·12절).
+// 처리함 화면과 홈 조각에만 들어간다(첫 화면 묶음의 종 배지는 수만 쓴다).
+// - 키로 고르는 문구는 정적 표에 둔다(m[키]는 oxlint가 막는다). 종류가 늘면 satisfies가 빠진 종류를 알려 준다.
+//   새 종류를 더하는 순서는 ADR 37 7절: 종류 표 → messages의 inbox_<종류>_title(ko·en) → 이 표 한 줄.
+// - 서버는 값(params: 이름·수)만 보낸다. 문장은 여기서 만든다. 이름 뒤에 조사를 붙이지 않게 이름은 따로 보인다(place).
+// - 모르는 종류(더 새 서버)는 "새 알림"이고 처리함으로 간다. 값은 뜻을 모르므로 보이지 않는다. 마감은 보인다.
+// 종류 표 값(INBOX_KINDS)은 가져오지 않는다. 화면에 필요한 것(분류·이동 화면·동작)은 항목에 실려 온다.
+import { buildPath, isRouteTarget, targetPath } from "@terra/shared";
+import type { InboxCategory, InboxItem, InboxKindId } from "@terra/shared/inbox";
+import { m } from "../paraglide/messages.js";
+import { type Locale, getLocale } from "../paraglide/runtime.js";
+
+/** 종류 → 제목(count = 언어에 맞게 자리를 나눈 개수) */
+const KIND_TITLES = {
+  wave_incoming: (_count, locale) => m.inbox_wave_incoming_title({}, { locale }),
+  siege_declared: (_count, locale) => m.inbox_siege_declared_title({}, { locale }),
+  goods_spoiling: (count, locale) => m.inbox_goods_spoiling_title({ count }, { locale }),
+  unit_injured: (count, locale) => m.inbox_unit_injured_title({ count }, { locale }),
+  unit_idle: (count, locale) => m.inbox_unit_idle_title({ count }, { locale }),
+  building_stopped: (count, locale) => m.inbox_building_stopped_title({ count }, { locale }),
+  contract_match: (_count, locale) => m.inbox_contract_match_title({}, { locale }),
+  craft_done: (_count, locale) => m.inbox_craft_done_title({}, { locale }),
+} satisfies Record<InboxKindId, (count: string, locale: Locale) => string>;
+
+/** 분류 이름(0단계 키 inbox_category_<분류>) */
+export const CATEGORY_NAMES = {
+  threat: m.inbox_category_threat,
+  money_survival: m.inbox_category_money_survival,
+  stalled: m.inbox_category_stalled,
+  decision: m.inbox_category_decision,
+  done: m.inbox_category_done,
+} satisfies Record<InboxCategory, () => string>;
+
+/** 기기가 아는 종류인지(문구 표에 있는지) */
+export function isKnownKind(kind: string): kind is InboxKindId {
+  return Object.hasOwn(KIND_TITLES, kind);
+}
+
+/** 기기가 아는 분류인지. 분류는 닫힌 목록이지만 받은 값은 다시 본다 */
+export function isKnownCategory(category: string): category is InboxCategory {
+  return Object.hasOwn(CATEGORY_NAMES, category);
+}
+
+/** 줄 제목. 모르는 종류는 "새 알림" */
+export function inboxItemTitle(item: InboxItem, locale: Locale = getLocale()): string {
+  if (!isKnownKind(item.kind)) return m.inbox_kind_unknown({}, { locale });
+  return KIND_TITLES[item.kind](new Intl.NumberFormat(locale).format(item.count), locale);
+}
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+/**
+ * 마감 문구. 남은 시간: 1시간 안은 분(올림, 1분부터), 48시간 안은 시간, 그 뒤는 날(반올림). 지났으면 "마감 지남". 없으면 null.
+ * now는 목록을 만든 서버 시각(generatedAt)이다. 화면을 오래 열어 두면 늦은 값이 된다(주기 타이머 없음, 다시 받을 때 고쳐진다).
+ */
+export function formatDue(
+  deadlineAt: number | null,
+  now: number,
+  locale: Locale = getLocale(),
+): string | null {
+  if (deadlineAt === null) return null;
+  const left = deadlineAt - now;
+  if (left <= 0) return m.inbox_overdue({}, { locale });
+  const format = new Intl.RelativeTimeFormat(locale, { numeric: "always" });
+  let time: string;
+  if (left < HOUR) time = format.format(Math.max(1, Math.ceil(left / MINUTE)), "minute");
+  else if (left < 2 * DAY) time = format.format(Math.round(left / HOUR), "hour");
+  else time = format.format(Math.round(left / DAY), "day");
+  return m.inbox_deadline({ time }, { locale });
+}
+
+/** 처리함에서 이 항목을 강조하는 주소 */
+function inboxPath(item: InboxItem): string {
+  return buildPath("inbox", { search: { item: item.id } });
+}
+
+/**
+ * 줄을 누르면 갈 주소. 아는 종류이고 이동 화면이 이 기기가 아는 화면이면 그 화면, 아니면 처리함(?item=).
+ * 처리함 화면 안(onInboxScreen)에서는 처리함으로 가는 링크를 두지 않는다(null): 그 줄이 이미 여기 있다.
+ */
+export function itemHref(item: InboxItem, onInboxScreen: boolean): string | null {
+  const target: unknown = item.target;
+  if (isKnownKind(item.kind) && isRouteTarget(target)) return targetPath(target);
+  return onInboxScreen ? null : inboxPath(item);
+}
+
+/** 줄 하나를 그리는 데 필요한 값 */
+export interface ItemView {
+  readonly title: string;
+  /** 곳 이름(params.place, 유저가 지은 이름은 번역하지 않는다). 없으면 null */
+  readonly place: string | null;
+  readonly due: string | null;
+  readonly href: string | null;
+  readonly preview: boolean;
+  /** 기기가 아는 종류인지(모르면 값·바로 처리를 보이지 않는다) */
+  readonly known: boolean;
+}
+
+export function describeItem(
+  item: InboxItem,
+  options: { readonly now: number; readonly onInboxScreen: boolean; readonly locale?: Locale },
+): ItemView {
+  const locale = options.locale ?? getLocale();
+  const known = isKnownKind(item.kind);
+  const place = known ? item.params["place"] : undefined;
+  return {
+    title: inboxItemTitle(item, locale),
+    place: typeof place === "string" && place !== "" ? place : null,
+    due: formatDue(item.deadlineAt, options.now, locale),
+    href: itemHref(item, options.onInboxScreen),
+    preview: item.preview === true,
+    known,
+  };
+}

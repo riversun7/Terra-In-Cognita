@@ -1,8 +1,13 @@
-// [임시] 가짜 행성 타일 원천 — 타일을 워커에서 만든다(한 타일에 노이즈 수만 번이라 화면 스레드를 막지 않게).
+// [임시] 가짜 행성 타일 원천(엔진 단위 시험용) — 타일을 워커에서 만든다(처음 타일에 행성 전체 칸 값을 만들어 화면 스레드를 막지 않게).
 // 워커를 못 쓰면(시험·옛 브라우저) 화면 스레드에서 만든다. 결과 배열은 워커가 넘겨준다(transfer).
-// 서버 타일 원천도 같은 모양(TileSource)이다: 시험 화면에서 이 원천을 서버 원천으로 바꾸면 된다.
+// 서버 타일 원천(apps/game planetSource.ts)과 같은 모양(TileSource)이다. 칸 값·타일 규칙은 mockPlanet.ts 머리말.
 import type { DecodedTile, PlanetDescription, TileRequest, TileSource } from "../planet/planetTypes.ts";
-import { MOCK_PLANET_BIOMES, generateMockTile, mockPlanetDescription } from "./mockPlanet.ts";
+import {
+  MOCK_PLANET_BIOMES,
+  type MockTileMaker,
+  createMockTileMaker,
+  mockPlanetDescription,
+} from "./mockPlanet.ts";
 
 export interface MockPlanetRequest {
   id: number;
@@ -48,6 +53,8 @@ export function createMockPlanet(options: MockPlanetOptions = {}): MockPlanet {
   let disposed = false;
   let nextId = 1;
   let count = 0;
+  /** 워커를 못 쓸 때 화면 스레드에서 쓰는 타일 만들기(칸 값을 한 번 만든다) */
+  let mainMaker: MockTileMaker | null = null;
   const pending = new Map<number, Pending>();
 
   const breakWorker = (): void => {
@@ -86,7 +93,8 @@ export function createMockPlanet(options: MockPlanetOptions = {}): MockPlanet {
     const target = ensureWorker();
     if (!target) {
       try {
-        return Promise.resolve(generateMockTile(request, seed, faceLevel));
+        mainMaker ??= createMockTileMaker(seed, faceLevel);
+        return Promise.resolve(mainMaker.tile(request));
       } catch (error) {
         return Promise.reject(error instanceof Error ? error : new Error(String(error)));
       }

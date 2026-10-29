@@ -1,19 +1,39 @@
-// [임시] 1차맵 시험 화면용 가짜 행성 — 진짜 행성은 서버가 굽는다(ADR 36 "서버 굽기·전송", 생성기는 packages/planet).
-// 서버 타일이 이어지면 이 파일·mockPlanetSource.ts·mockPlanetWorker.ts와 시험 화면의 사용처를 함께 지운다.
-// 같은 시드·요청이면 늘 같은 타일이다. 모양은 진짜 타일과 같다(DecodedTile: 꼭짓점 높이 (size+1)², 칸 자료 size²).
-// - 꼭짓점 높이는 그 꼭짓점 방향만의 함수다 → 같은 레벨 이웃(면 경계 너머 포함)과 위·아래 레벨이 같은 꼭짓점에서 같은 높이다.
-// - 대륙: 낮은 주파수 노이즈의 문턱(땅 약 35~40%). 산맥: 능선 노이즈. 바다: 문턱에서 멀수록 깊다(연안 → 대륙붕 → 심해).
-// - 기온: 위도(z = sin 위도) + 고도 감소(실제 고도 = 게임 m × 12, 6.5°C/km). 습도: 위도 띠(적도 습함, 30° 건조, 50° 습함) + 내륙 건조 + 노이즈.
-// - 바이옴: 기온 × 습도 표(ADR 36의 1판 목록과 같은 종류, 번호는 이 가짜 자료만의 것), 호수·강은 노이즈 무늬.
-import { planetRadiusMeters } from "@terra/planet/projection";
-import { faceSTDirection } from "../planet/tileShape.ts";
+// [임시] 가짜 행성 — 엔진 단위 시험용(1차맵 화면은 서버가 실제 생성기로 구운 타일을 그린다, ADR 36 "서버 굽기·전송").
+// 시드 노이즈로 면 레벨 F의 칸 값(PlanetFields)을 만들고, 타일은 서버 굽기와 같은 코드(@terra/planet의
+// aggregatePlanetLevels·planetCornerHeights·buildPlanetTile)로 만든다. 그래서 진짜 타일과 규칙이 같다(ADR 36 "타일"):
+// - 윗 레벨 칸 = 아래 2×2칸에서 모은다(고도·기온·습도·숲 평균, 바이옴 최빈, 물·하천 규칙).
+// - 꼭짓점 높이 = 그 꼭짓점을 나누는 칸들의 평균(면 경계 너머 칸 포함, 큐브 꼭짓점은 3칸).
+//   → 같은 레벨 이웃은 맞닿은 변 높이가 같고, 레벨이 다른 타일은 같은 자리 꼭짓점이라도 높이가 다르다(치마가 막아야 하는 차이).
+// 처음 타일을 만들 때 행성 전체 칸 값을 한 번 만든다(면 레벨 9 = 157만 칸, 이 컨테이너에서 몇 초 — 시험은 작은 면 레벨을 쓴다).
+// 칸 값: 대륙(낮은 주파수 노이즈의 문턱, 땅 약 35~40%)·산맥(능선)·언덕, 바다 수심 등급(얕을수록 연안),
+// 기온(위도 z = sin 위도 + 고도 감소: 게임 m × 12, 6.5°C/km), 습도(위도 띠 + 내륙 건조 + 노이즈), 바이옴(기온 × 습도 표),
+// 호수·강(노이즈 무늬), 해안(바다와 맞닿은 8이웃 칸). 같은 시드·면 레벨이면 늘 같은 값이다.
 import {
-  type DecodedTile,
-  type PlanetDescription,
-  type TileRequest,
-  WATER_BITS,
+  DEPTH_COASTAL,
+  DEPTH_DEEP,
+  DEPTH_SHELF,
+  type Face,
+  FACES,
+  type PlanetFields,
+  type PlanetFieldsMeta,
+  type PlanetLevel,
+  WATER_COAST,
   WATER_DEPTH_SHIFT,
-} from "../planet/planetTypes.ts";
+  WATER_LAKE,
+  WATER_OCEAN,
+  WATER_RIVER,
+  aggregatePlanetLevels,
+  buildPlanetTile,
+  planetCellCount,
+  planetCornerHeights,
+  planetTileKey,
+  planetTileSize,
+  wrapFaceIJ,
+} from "@terra/planet";
+import { planetRadiusMeters } from "@terra/planet/projection";
+import type { PlanetSettings } from "@terra/shared";
+import type { DecodedTile, PlanetDescription, TileRequest } from "../planet/planetTypes.ts";
+import { faceSTDirection } from "../planet/tileShape.ts";
 import { fbm3, noise3 } from "./mockNoise.ts";
 
 /** [임시] 가짜 바이옴 표(번호 = 순서). 이름·색은 표시용 */
@@ -67,6 +87,28 @@ const MIN_ELEVATION_M = -950;
 /** 대륙 문턱: 이보다 크면 땅 */
 const LAND_THRESHOLD = 0.04;
 
+/** 생성기 메타의 세부 수치 자리(타일 만들기는 읽지 않는다 — 가짜 행성은 노이즈만 쓴다) */
+const MOCK_SETTINGS: PlanetSettings = {
+  landPercent: 38,
+  shelfPercent: 0,
+  plateCount: 2,
+  upliftPercent: 0,
+  ruggednessPercent: 100,
+  erosionPercent: 0,
+  hotspotCount: 0,
+  volcanismPercent: 0,
+  equatorTemperatureC: 27,
+  poleTemperatureC: -25,
+  precipitationPercent: 100,
+  riverDensityPercent: 100,
+  lakePercent: 100,
+};
+
+/** 생성기 메타 자리(가짜): 타일 만들기는 면 레벨만 읽는다 */
+export function mockFieldsMeta(seed: number, faceLevel: number): PlanetFieldsMeta {
+  return { generatorVersion: 0, seed, faceLevel, settings: MOCK_SETTINGS, hash: "00000000" };
+}
+
 export function mockPlanetDescription(faceLevel = 9): PlanetDescription {
   return {
     faceLevel,
@@ -82,9 +124,9 @@ function continentAt(x: number, y: number, z: number, seed: number): number {
   return fbm3(x * 1.15 + warp, y * 1.15 - warp, z * 1.15 + warp, seed, 5);
 }
 
-/** 방향 (x, y, z)의 높이(게임 m) */
-export function mockHeightAt(x: number, y: number, z: number, seed: number): number {
-  const c = continentAt(x, y, z, seed) - LAND_THRESHOLD;
+/** 방향 (x, y, z)의 높이(게임 m). continent = continentAt(같은 방향) */
+function heightAt(x: number, y: number, z: number, seed: number, continent: number): number {
+  const c = continent - LAND_THRESHOLD;
   if (c < 0) return Math.max(MIN_ELEVATION_M, c * 3600 - 4);
   const ridge = 1 - Math.abs(noise3(x * 5.2, y * 5.2, z * 5.2, seed + 7));
   const mountainMask = Math.max(0, fbm3(x * 1.7, y * 1.7, z * 1.7, seed + 13, 2) + 0.12);
@@ -134,95 +176,163 @@ function landBiome(temperature: number, humidity: number, height: number): numbe
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
-/** 가짜 타일 하나(같은 시드·요청이면 같은 값) */
-export function generateMockTile(request: TileRequest, seed: number, faceLevel: number): DecodedTile {
-  const { face, mapLevel, i0, j0, size } = request;
-  const cellsPerFace = 2 ** mapLevel;
-  const row = size + 1;
-  const heightsM = new Int16Array(row * row);
-  for (let cj = 0; cj < row; cj++) {
-    for (let ci = 0; ci < row; ci++) {
-      const d = faceSTDirection(face, (i0 + ci) / cellsPerFace, (j0 + cj) / cellsPerFace);
-      heightsM[cj * row + ci] = Math.round(mockHeightAt(d[0], d[1], d[2], seed));
+/** 8이웃(면 경계 너머 포함, 큐브 꼭짓점 너머는 없다) 중 바다가 있는지 */
+function touchesOcean(water: Uint8Array, faceLevel: number, face: Face, i: number, j: number): boolean {
+  const n = 1 << faceLevel;
+  for (let dj = -1; dj <= 1; dj++) {
+    for (let di = -1; di <= 1; di++) {
+      if (di === 0 && dj === 0) continue;
+      const target = wrapFaceIJ(face, faceLevel, i + di, j + dj);
+      if (!target) continue;
+      if (((water[target.face * n * n + target.j * n + target.i] ?? 0) & WATER_OCEAN) !== 0) return true;
     }
   }
-  const cells = size * size;
-  const biome = new Uint8Array(cells);
-  const water = new Uint8Array(cells);
-  const temperatureC = new Int8Array(cells);
-  const humidity = new Uint8Array(cells);
-  const forest = new Uint8Array(cells);
-  const river = new Uint8Array(cells);
-  for (let cj = 0; cj < size; cj++) {
-    for (let ci = 0; ci < size; ci++) {
-      const c = cj * size + ci;
-      const h00 = heightsM[cj * row + ci] ?? 0;
-      const h10 = heightsM[cj * row + ci + 1] ?? 0;
-      const h01 = heightsM[(cj + 1) * row + ci] ?? 0;
-      const h11 = heightsM[(cj + 1) * row + ci + 1] ?? 0;
-      const mean = (h00 + h10 + h01 + h11) / 4;
-      const low = Math.min(h00, h10, h01, h11);
-      const high = Math.max(h00, h10, h01, h11);
-      const [x, y, z] = faceSTDirection(face, (i0 + ci + 0.5) / cellsPerFace, (j0 + cj + 0.5) / cellsPerFace);
-      const latitude = Math.abs(z);
-      const ocean = mean < 0;
-      // 해수면 기온: 적도 27°C, 30° 약 24°C, 45° 약 14°C, 60° 약 −3°C, 극 −25°C(z⁴ 꼴)
-      const z2 = z * z;
-      const seaTemperature = 27 - 52 * z2 * z2 + noise3(x * 4, y * 4, z * 4, seed + 41) * 3;
-      const temperature = ocean ? seaTemperature : seaTemperature - 0.078 * Math.max(0, mean);
-      const inland = clamp((continentAt(x, y, z, seed) - LAND_THRESHOLD) * 3.2, 0, 1);
-      let wet =
-        band(latitude) + fbm3(x * 3.4, y * 3.4, z * 3.4, seed + 53, 2) * 0.45 - (ocean ? 0 : inland * 0.38);
-      wet = clamp(wet, 0, 1);
-      let bits = 0;
-      let kind: number;
-      let riverGrade = 0;
-      if (ocean) {
-        bits |= WATER_BITS.ocean;
-        const depthClass = mean > -45 ? 1 : mean > -160 ? 2 : 3;
-        bits |= depthClass << WATER_DEPTH_SHIFT;
-        kind = depthClass === 1 ? BIOME.oceanCoastal : depthClass === 2 ? BIOME.oceanShelf : BIOME.oceanDeep;
-        wet = 1;
-      } else {
-        const lake = noise3(x * 23, y * 23, z * 23, seed + 61) > 0.46 && mean < 160 && wet > 0.35;
-        if (lake) {
-          bits |= WATER_BITS.lake;
+  return false;
+}
+
+/**
+ * 면 레벨 faceLevel의 칸 값 전부(생성기 출력과 같은 모양 PlanetFields, 칸 순서 = 면 × n² + j × n + i).
+ * 칸 값은 칸 가운데 방향의 노이즈다. 강수는 타일에 넣지 않으므로 0이다.
+ */
+export function generateMockFields(seed: number, faceLevel: number): PlanetFields {
+  const n = 1 << faceLevel;
+  const count = planetCellCount(faceLevel);
+  const elevationM = new Int16Array(count);
+  const biome = new Uint8Array(count);
+  const temperatureC = new Int8Array(count);
+  const humidity = new Uint8Array(count);
+  const water = new Uint8Array(count);
+  const river = new Uint8Array(count);
+  const forest = new Uint8Array(count);
+  for (const face of FACES) {
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const index = face * n * n + j * n + i;
+        const [x, y, z] = faceSTDirection(face, (i + 0.5) / n, (j + 0.5) / n);
+        const continent = continentAt(x, y, z, seed);
+        const height = Math.round(heightAt(x, y, z, seed, continent));
+        elevationM[index] = height;
+        // 해수면 기온: 적도 27°C, 30° 약 24°C, 45° 약 14°C, 60° 약 −3°C, 극 −25°C(z⁴ 꼴)
+        const z2 = z * z;
+        const seaTemperature = 27 - 52 * z2 * z2 + noise3(x * 4, y * 4, z * 4, seed + 41) * 3;
+        if (height < 0) {
+          const depthClass = height > -45 ? DEPTH_COASTAL : height > -160 ? DEPTH_SHELF : DEPTH_DEEP;
+          water[index] = WATER_OCEAN | (depthClass << WATER_DEPTH_SHIFT);
+          biome[index] =
+            depthClass === DEPTH_COASTAL
+              ? BIOME.oceanCoastal
+              : depthClass === DEPTH_SHELF
+                ? BIOME.oceanShelf
+                : BIOME.oceanDeep;
+          temperatureC[index] = Math.round(clamp(seaTemperature, -60, 50));
+          humidity[index] = 255;
+          continue;
+        }
+        const temperature = seaTemperature - 0.078 * height;
+        const inland = clamp((continent - LAND_THRESHOLD) * 3.2, 0, 1);
+        const wet = clamp(
+          band(Math.abs(z)) + fbm3(x * 3.4, y * 3.4, z * 3.4, seed + 53, 2) * 0.45 - inland * 0.38,
+          0,
+          1,
+        );
+        let kind: number;
+        let bits = 0;
+        let grade = 0;
+        if (noise3(x * 23, y * 23, z * 23, seed + 61) > 0.46 && height < 160 && wet > 0.35) {
+          bits |= WATER_LAKE;
           kind = BIOME.lake;
         } else {
-          kind = landBiome(temperature, wet, mean);
+          kind = landBiome(temperature, wet, height);
           const meander = Math.abs(noise3(x * 9.5, y * 9.5, z * 9.5, seed + 71));
           const width = 0.03 * (0.5 + wet);
-          if (meander < width && mean < 520 && kind !== BIOME.iceSheet && kind !== BIOME.desert) {
-            riverGrade = meander < width / 3 ? 3 : meander < (width * 2) / 3 ? 2 : 1;
-            bits |= WATER_BITS.river;
+          if (meander < width && height < 520 && kind !== BIOME.iceSheet && kind !== BIOME.desert) {
+            grade = meander < width / 3 ? 3 : meander < (width * 2) / 3 ? 2 : 1;
+            bits |= WATER_RIVER;
           }
         }
+        water[index] = bits;
+        biome[index] = kind;
+        river[index] = grade;
+        temperatureC[index] = Math.round(clamp(temperature, -60, 50));
+        humidity[index] = Math.round(wet * 255);
+        const base = FOREST_BASE[kind] ?? 0;
+        forest[index] = Math.round(
+          clamp(base * (0.8 + noise3(x * 15, y * 15, z * 15, seed + 83) * 0.5), 0, 1) * 255,
+        );
       }
-      if (low < 0 && high >= 0) bits |= WATER_BITS.coast;
-      biome[c] = kind;
-      water[c] = bits;
-      temperatureC[c] = Math.round(clamp(temperature, -60, 50));
-      humidity[c] = Math.round(wet * 255);
-      const base = FOREST_BASE[kind] ?? 0;
-      forest[c] = Math.round(
-        clamp(base * (0.8 + noise3(x * 15, y * 15, z * 15, seed + 83) * 0.5), 0, 1) * 255,
-      );
-      river[c] = riverGrade;
+    }
+  }
+  // 해안: 바다와 맞닿은(8이웃) 바다가 아닌 칸 — 바다를 모두 정한 뒤에 본다(@terra/planet fields.ts의 뜻)
+  for (const face of FACES) {
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const index = face * n * n + j * n + i;
+        const bits = water[index] ?? 0;
+        if ((bits & WATER_OCEAN) === 0 && touchesOcean(water, faceLevel, face, i, j)) {
+          water[index] = bits | WATER_COAST;
+        }
+      }
     }
   }
   return {
-    faceLevel,
-    mapLevel,
-    face,
-    i0,
-    j0,
-    size,
-    heightsM,
+    elevationM,
     biome,
-    water,
     temperatureC,
+    precipitationMm: new Uint16Array(count),
     humidity,
-    forest,
+    water,
     river,
+    forest,
+    meta: mockFieldsMeta(seed, faceLevel),
+  };
+}
+
+/** 가짜 행성 타일 만들기 — 칸 값은 처음 쓸 때 한 번 만들고, 꼭짓점 높이는 맵 레벨마다 한 번 만든다 */
+export interface MockTileMaker {
+  readonly seed: number;
+  readonly faceLevel: number;
+  /** 맵 레벨 하나의 칸 값(ADR 36 모으기 결과, 행성 전체) — 시험이 규칙을 본다 */
+  level(mapLevel: number): PlanetLevel;
+  /** 타일 하나(서버 굽기와 같은 코드: buildPlanetTile). 요청이 타일 경계와 맞지 않으면 RangeError */
+  tile(request: TileRequest): DecodedTile;
+}
+
+/** 시드 노이즈 가짜 행성의 타일 만들기 */
+export function createMockTileMaker(seed: number, faceLevel: number): MockTileMaker {
+  return createTileMaker(seed, faceLevel, () => generateMockFields(seed, faceLevel));
+}
+
+/** 칸 값(처음 쓸 때 makeFields로 한 번 만든다) → 타일 만들기. 시험이 정한 칸 값으로도 쓴다 */
+export function createTileMaker(
+  seed: number,
+  faceLevel: number,
+  makeFields: () => PlanetFields,
+): MockTileMaker {
+  let levels: Map<number, PlanetLevel> | null = null;
+  const corners = new Map<number, Int16Array>();
+  const levelOf = (mapLevel: number): PlanetLevel => {
+    levels ??= new Map(aggregatePlanetLevels(makeFields()).map((level) => [level.level, level]));
+    const level = levels.get(mapLevel);
+    if (!level)
+      throw new RangeError(`map level ${mapLevel} is not a 1st-map level of face level ${faceLevel}`);
+    return level;
+  };
+  return {
+    seed,
+    faceLevel,
+    level: levelOf,
+    tile(request) {
+      const { face, mapLevel, i0, j0, size } = request;
+      if (size !== planetTileSize(mapLevel))
+        throw new RangeError(`tile size must be ${planetTileSize(mapLevel)}`);
+      const level = levelOf(mapLevel);
+      let levelCorners = corners.get(mapLevel);
+      if (!levelCorners) {
+        levelCorners = planetCornerHeights(level);
+        corners.set(mapLevel, levelCorners);
+      }
+      const key = planetTileKey(mapLevel, face, i0, j0);
+      return buildPlanetTile(faceLevel, level, levelCorners, { key, mapLevel, face, i0, j0, size });
+    },
   };
 }

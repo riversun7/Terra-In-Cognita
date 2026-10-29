@@ -212,7 +212,7 @@
   "planet_water_river": "River",
   "planet_water_coast": "Coast",
   "planet_perf_tiles": "Tiles {drawn}/{budget} · loaded {loaded} · pending {pending}",
-  "planet_perf_gpu": "Draws {calls} · triangles {tris}k · GPU {mb} MB",
+  "planet_perf_gpu": "Draws {calls} · triangles {tris}k · GPU {mb} MB · tile memory {memory} MB",
   "planet_perf_hits": "Budget hits: tiles {tiles} · fetches {fetches} · uploads {uploads} · memory {memory}",
   "planet_perf_first": "First display {ms} ms",
   "planet_tile_errors": "{count} tiles failed — retrying soon.",

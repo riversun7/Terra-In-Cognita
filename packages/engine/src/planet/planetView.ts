@@ -185,10 +185,13 @@ export class PlanetView {
     this.tiles.add(object);
     const textures: Texture[] = [cellTexture, extraTexture];
     const shared = this.index;
+    const bytes = tileGpuBytes(mesh);
     const gpu: PlanetTileGpu = {
       mesh: object,
       origin: mesh.origin,
-      bytes: tileGpuBytes(mesh),
+      bytes,
+      // three는 올린 뒤에도 속성·텍스처 배열(= 메시 배열)을 들고 있다(컨텍스트를 잃었다가 복구되면 그것으로 다시 올린다)
+      retainedBytes: bytes,
       dispose: () => {
         object.removeFromParent();
         this.shown.delete(gpu);

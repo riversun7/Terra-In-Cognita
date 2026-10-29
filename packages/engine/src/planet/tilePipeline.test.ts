@@ -11,7 +11,7 @@ import {
 } from "./planetTypes.ts";
 import { EARTH_RADIUS_M, makeTile } from "./testSupport.ts";
 import { decodeTileInput } from "./tileDecode.ts";
-import { buildTileMesh } from "./tileMesh.ts";
+import { buildTileMesh, decodedTileBytes, tileGpuBytes } from "./tileMesh.ts";
 import { FETCH_TIMEOUT_MS, type GpuTile, type TileMeshBuilder, TilePipeline } from "./tilePipeline.ts";
 import { type TileNode, tileKey, tileLayout, tileRequestOf } from "./tileTree.ts";
 
@@ -61,6 +61,9 @@ interface FakeGpu extends GpuTile {
   disposed: boolean;
 }
 
+/** 가짜 GPU 타일이 JS에 남긴다고 치는 바이트(three는 메시 배열을 들고 있다 — 시험은 값만 본다) */
+const RETAINED_BYTES = 100;
+
 function setup(overrides: Partial<typeof DEFAULT_PLANET_BUDGETS> = {}) {
   let clock = 0;
   const { source, calls, answer } = manualSource();
@@ -75,6 +78,7 @@ function setup(overrides: Partial<typeof DEFAULT_PLANET_BUDGETS> = {}) {
     createGpu: (mesh) => {
       const gpu: FakeGpu = {
         bytes: mesh.positions.byteLength + mesh.cellData.byteLength,
+        retainedBytes: RETAINED_BYTES,
         disposed: false,
         dispose() {
           gpu.disposed = true;
@@ -232,8 +236,13 @@ describe("타일 받기·올리기", () => {
     pipeline.upload(100, new Map());
     const each = created[0]?.bytes ?? 0;
     expect(pipeline.counts().gpuBytes).toBe(each * 7);
+    // 타일 하나 = GPU 추정 + JS 사본 + 풀어 둔 타일(32칸 타일은 모두 같은 크기)
+    const tile = pipeline.decoded(tileKey(leaves[0] ?? roots[0] ?? { face: 0, mapLevel: 6, tx: 0, ty: 0 }));
+    if (!tile) throw new Error("decoded tile");
+    const perTile = each + RETAINED_BYTES + decodedTileBytes(tile);
+    expect(pipeline.counts().memoryBytes).toBe(perTile * 7);
     // 상한을 타일 4개 크기로 줄이고, 2번 프레임에 잎 하나만 썼다
-    const small = setup({ concurrentFetches: 10, gpuMemoryBytes: each * 4 });
+    const small = setup({ concurrentFetches: 10, memoryBytes: perTile * 4 });
     small.pipeline.request(wanted([...roots, ...leaves]), 1);
     for (let i = 0; i < small.calls.length; i++) small.answer(i);
     await settle();
@@ -242,7 +251,8 @@ describe("타일 받기·올리기", () => {
     if (!used) return;
     small.pipeline.touch([tileKey(used)], 2);
     small.pipeline.evict(2, (node) => node.mapLevel === 5);
-    expect(small.pipeline.counts().gpuBytes).toBeLessThanOrEqual(each * 4);
+    expect(small.pipeline.counts().memoryBytes).toBeLessThanOrEqual(perTile * 4);
+    expect(small.pipeline.counts().gpuBytes).toBe(each * 4);
     for (const root of roots) expect(small.pipeline.drawable(tileKey(root))).toBe(true);
     expect(small.pipeline.drawable(tileKey(used))).toBe(true);
     expect(small.pipeline.hits.memory).toBe(3);
@@ -259,6 +269,25 @@ describe("타일 받기·올리기", () => {
     expect(calls[1]?.signal.aborted).toBe(true);
     expect(created.every((gpu) => gpu.disposed)).toBe(true);
     expect(pipeline.counts().gpuBytes).toBe(0);
+    expect(pipeline.counts().memoryBytes).toBe(0);
+  });
+
+  it("메모리 추정: 올리기 전 = 풀어 둔 타일 + 메시 배열, 올린 뒤 = 풀어 둔 타일 + GPU 추정 + JS 사본", async () => {
+    const { pipeline, answer, created } = setup();
+    const node: TileNode = { face: 1, mapLevel: 8, tx: 3, ty: 5 };
+    pipeline.request(wanted([node]), 1);
+    answer(0);
+    await settle();
+    const tile = pipeline.decoded(tileKey(node));
+    if (!tile) throw new Error("decoded tile");
+    const mesh = buildTileMesh(tile, EARTH_RADIUS_M);
+    expect(pipeline.counts().memoryBytes).toBe(decodedTileBytes(tile) + tileGpuBytes(mesh));
+    pipeline.upload(1, new Map());
+    const gpu = created[0];
+    if (!gpu) throw new Error("gpu tile");
+    expect(pipeline.counts().memoryBytes).toBe(decodedTileBytes(tile) + gpu.bytes + RETAINED_BYTES);
+    // 풀어 둔 32칸 타일 = 꼭짓점 높이 33² × 2바이트 + 칸 값 6가지 × 32²
+    expect(decodedTileBytes(tile)).toBe(33 * 33 * 2 + 6 * 32 * 32);
   });
 });
 

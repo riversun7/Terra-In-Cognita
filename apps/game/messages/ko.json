@@ -212,7 +212,7 @@
   "planet_water_river": "강",
   "planet_water_coast": "해안",
   "planet_perf_tiles": "타일 {drawn}/{budget} · 올림 {loaded} · 대기 {pending}",
-  "planet_perf_gpu": "그리기 {calls}회 · 삼각형 {tris}k · GPU {mb}MB",
+  "planet_perf_gpu": "그리기 {calls}회 · 삼각형 {tris}k · GPU {mb}MB · 타일 메모리 {memory}MB",
   "planet_perf_hits": "상한 도달: 타일 {tiles} · 받기 {fetches} · 올리기 {uploads} · 메모리 {memory}",
   "planet_perf_first": "첫 표시 {ms}ms",
   "planet_tile_errors": "받지 못한 타일 {count}개 — 잠시 뒤 다시 받습니다.",

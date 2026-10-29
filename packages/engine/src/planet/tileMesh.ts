@@ -315,6 +315,21 @@ export function meshTransferables(mesh: TileMeshArrays): ArrayBuffer[] {
   ].filter((buffer): buffer is ArrayBuffer => buffer instanceof ArrayBuffer);
 }
 
+/** 풀어 둔 타일이 쥔 배열 바이트(꼭짓점 높이 + 칸 값 6가지) — 엔진이 누르기·높이 읽기용으로 들고 있는 것 */
+export function decodedTileBytes(
+  tile: Pick<DecodedTile, "heightsM" | "biome" | "water" | "temperatureC" | "humidity" | "forest" | "river">,
+): number {
+  return (
+    tile.heightsM.byteLength +
+    tile.biome.byteLength +
+    tile.water.byteLength +
+    tile.temperatureC.byteLength +
+    tile.humidity.byteLength +
+    tile.forest.byteLength +
+    tile.river.byteLength
+  );
+}
+
 /** GPU 메모리 추정(바이트): 꼭짓점 속성 + 칸 텍스처 2장(인덱스는 모든 타일이 함께 쓰므로 뺀다) */
 export function tileGpuBytes(
   mesh: Pick<TileMeshArrays, "positions" | "grads" | "heights" | "uvs" | "cellData" | "cellExtra">,

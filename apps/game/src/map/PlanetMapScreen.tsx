@@ -228,6 +228,7 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
       data-draw-calls={stats?.drawCalls}
       data-triangles={stats?.triangles}
       data-gpu-bytes={stats?.gpuBytes}
+      data-memory-bytes={stats?.memoryBytes}
       data-level={stats?.primaryLevel}
       data-map-level={stats?.mapLevel}
       data-incomplete={stats ? String(stats.incomplete) : undefined}
@@ -281,6 +282,7 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
                   calls: stats.drawCalls,
                   tris: fixed(stats.triangles / 1000, 1),
                   mb: fixed(stats.gpuBytes / (1024 * 1024), 1),
+                  memory: fixed(stats.memoryBytes / (1024 * 1024), 1),
                 })}
               </span>
               {/* 엔진 몫(고르기·올리기·그리기 명령, 최근 1초 p95). 위 줄의 프레임 시간은 화면 전체(브라우저 합성 포함)다 */}

@@ -1,50 +1,44 @@
-// 메뉴 항목·하단 탭 설정 시험 — 기본값, 모르는 ID 남기기, 칸 채우기, 겹침 지우기(ADR 2026-10-29-app-shell 4·13절)
+// 메뉴 순서·하단 탭 설정 시험 — 기본값, 모르는 ID 남기기, 겹침 지우기, 폭에 맞춘 탭(D-265), 옮기기(ADR 2026-10-29-app-shell 4·13절)
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_NAV_LAYOUT,
-  DEFAULT_NAV_TABS,
   NAV_ITEM_IDS,
   NAV_LAYOUTS,
-  NAV_LAYOUT_FIXED_ITEM,
+  NAV_LAYOUT_CENTER_ITEM,
   NAV_MENU_MAX,
-  NAV_TAB_SLOTS,
   type NavigationSettings,
   isNavItemId,
   isNavLayout,
   mergeNavigation,
+  moveNavItem,
+  navMenuItems,
   parseNavigation,
+  resetNavMenu,
   visibleTabs,
 } from "./navigation.ts";
 import { SAVED_ID_PATTERN } from "./savedId.ts";
 
 const DEFAULTS: NavigationSettings = {
   layout: "c",
-  tabs: { c: ["home", "units", "economy", "faction"], a: ["home", "map", "units", "economy"] },
   menu: ["home", "map", "units", "economy", "faction", "cyborg"],
 };
 
 describe("메뉴 항목 목록", () => {
-  it("항목 6개(D-6008·D-6010), 배치 C·A(기본 C), 칸 4개", () => {
+  it("항목 6개(D-6008·D-6010), 배치 C·A(기본 C), 순서 상한 32", () => {
     expect(NAV_ITEM_IDS).toEqual(["home", "map", "units", "economy", "faction", "cyborg"]);
     expect(NAV_LAYOUTS).toEqual(["c", "a"]);
     expect(DEFAULT_NAV_LAYOUT).toBe("c");
-    expect(NAV_TAB_SLOTS).toBe(4);
     expect(NAV_MENU_MAX).toBe(32);
+    expect(NAV_LAYOUT_CENTER_ITEM).toEqual({ c: "map", a: null });
   });
 
   it("항목 ID는 저장되는 ID 모양이다", () => {
     for (const id of NAV_ITEM_IDS) expect(id).toMatch(SAVED_ID_PATTERN);
   });
 
-  it("기본 탭: C = 홈·유닛·경제·세력(가운데 지도는 배치의 일부), A = 홈·지도·유닛·경제", () => {
-    expect(DEFAULT_NAV_TABS).toEqual(DEFAULTS.tabs);
-    expect(NAV_LAYOUT_FIXED_ITEM).toEqual({ c: "map", a: null });
-    for (const layout of NAV_LAYOUTS) {
-      const tabs = DEFAULT_NAV_TABS[layout];
-      expect(tabs).toHaveLength(NAV_TAB_SLOTS);
-      expect(new Set(tabs).size).toBe(tabs.length);
-      expect(tabs).not.toContain(NAV_LAYOUT_FIXED_ITEM[layout]);
-    }
+  it("기본 순서의 앞 4칸이 기획의 기본 탭이다(D-6010): C = 홈·유닛·경제·세력(+ 가운데 지도), A = 홈·지도·유닛·경제", () => {
+    expect(visibleTabs(DEFAULTS, 4, "c")).toEqual(["home", "units", "economy", "faction"]);
+    expect(visibleTabs(DEFAULTS, 4, "a")).toEqual(["home", "map", "units", "economy"]);
   });
 
   it("isNavItemId·isNavLayout은 목록의 문자열만 받는다", () => {
@@ -59,62 +53,28 @@ describe("메뉴 항목 목록", () => {
 
 describe("parseNavigation", () => {
   it("값이 없거나 객체가 아니면 기본값", () => {
-    for (const value of [undefined, null, "c", 3, [], { layout: 1, tabs: "x", menu: {} }]) {
+    for (const value of [undefined, null, "c", 3, [], { layout: 1, menu: {} }]) {
       expect(parseNavigation(value), JSON.stringify(value)).toEqual(DEFAULTS);
     }
   });
 
   it("맞는 값은 그대로 읽는다", () => {
-    const value = {
-      layout: "a",
-      tabs: { c: ["cyborg", "home", "faction", "units"], a: ["map", "home", "faction", "cyborg"] },
-      menu: ["cyborg", "faction", "economy", "units", "map", "home"],
-    };
+    const value = { layout: "a", menu: ["cyborg", "faction", "economy", "units", "map", "home"] };
     expect(parseNavigation(value)).toEqual(value);
   });
 
-  it("모르는 항목 ID(더 새 버전이 저장한 값)는 제자리에 남는다. 모양이 틀린 값은 빈 칸이 된다", () => {
-    const parsed = parseNavigation({
-      tabs: { a: ["home", "trade_desk", "units", "economy"] },
-      menu: ["trade_desk", "home", "Bad ID", 7, "map"],
-    });
-    expect(parsed.tabs.a).toEqual(["home", "trade_desk", "units", "economy"]);
+  it("메뉴 순서 하나만 읽는다: 0단계의 배치별 탭 목록(tabs)은 보지 않는다(D-265)", () => {
+    const parsed = parseNavigation({ layout: "a", tabs: { a: ["cyborg", "home", "map", "units"] } });
+    expect(parsed).toEqual({ layout: "a", menu: DEFAULTS.menu });
+    expect(Object.keys(parsed).toSorted()).toEqual(["layout", "menu"]);
+  });
+
+  it("모르는 항목 ID(더 새 버전이 저장한 값)는 제자리에 남는다. 모양이 틀린 값은 지운다", () => {
+    const parsed = parseNavigation({ menu: ["trade_desk", "home", "Bad ID", 7, "map"] });
     expect(parsed.menu).toEqual(["trade_desk", "home", "map", "units", "economy", "faction", "cyborg"]);
   });
 
-  it("빈 칸은 그 배치의 기본 탭 중 없는 것으로, 그래도 모자라면 목록 순서로 채운다", () => {
-    // 짧은 목록: 뒤 칸이 빈다
-    expect(parseNavigation({ tabs: { c: ["cyborg"] } }).tabs.c).toEqual([
-      "cyborg",
-      "home",
-      "units",
-      "economy",
-    ]);
-    // 기본 탭이 모두 다른 칸에 있으면 목록 순서로
-    expect(parseNavigation({ tabs: { a: [null, "home", "map", "units"] } }).tabs.a).toEqual([
-      "economy",
-      "home",
-      "map",
-      "units",
-    ]);
-    expect(parseNavigation({ tabs: { a: ["home", "map", "units", "economy", "faction"] } }).tabs.a).toEqual(
-      DEFAULTS.tabs.a,
-    );
-  });
-
-  it("겹친 항목은 앞의 것만 남고, C 칸에는 지도를 넣지 않는다(가운데 버튼)", () => {
-    expect(parseNavigation({ tabs: { c: ["units", "units", "map", "home"] } }).tabs.c).toEqual([
-      "units",
-      "economy",
-      "faction",
-      "home",
-    ]);
-    expect(parseNavigation({ tabs: { a: ["map", "map", "map", "map"] } }).tabs.a).toEqual([
-      "map",
-      "home",
-      "units",
-      "economy",
-    ]);
+  it("겹친 항목은 앞의 것만 남고, 빠진 아는 항목은 기본 순서로 끝에 붙는다", () => {
     expect(parseNavigation({ menu: ["units", "units", "home"] }).menu).toEqual([
       "units",
       "home",
@@ -125,7 +85,7 @@ describe("parseNavigation", () => {
     ]);
   });
 
-  it("사이드 메뉴는 늘 모든 항목을 보인다. 길이 상한을 넘으면 모르는 ID를 뒤에서부터 뺀다", () => {
+  it("아는 항목은 늘 모두 남는다. 길이 상한을 넘으면 모르는 ID를 뒤에서부터 뺀다", () => {
     const unknown = Array.from({ length: 40 }, (_, i) => `future_${i}`);
     const menu = parseNavigation({ menu: ["cyborg", ...unknown] }).menu;
     expect(menu).toHaveLength(NAV_MENU_MAX);
@@ -144,7 +104,7 @@ describe("parseNavigation", () => {
   });
 
   it("기기에 저장된 아주 긴 목록도 값을 한 번씩만 본다(겹침 확인이 목록 길이에 비례하지 않는다)", () => {
-    // 전에는 겹침을 배열 includes로 봐서 4만 개에 약 2.6초였다(이 시험의 5초 상한에 걸린다)
+    // 전에는 겹침을 배열 includes로 봐서 4만 개에 약 2.6초였다
     const many = Array.from({ length: 50_000 }, (_, i) => `future_${i % 40_000}`);
     const menu = parseNavigation({ menu: ["units", ...many] }).menu;
     expect(menu).toHaveLength(NAV_MENU_MAX);
@@ -157,70 +117,114 @@ describe("parseNavigation", () => {
     expect(parseNavigation(Object.create({ layout: "a" })).layout).toBe("c");
   });
 
-  it("visibleTabs: 모르는 ID 칸은 그 배치의 기본 탭 중 없는 것으로 채워 보인다(저장값은 그대로)", () => {
-    // 되돌림 배포 뒤: 더 새 버전이 C 칸 4개를 모두 모르는 ID로 채웠다
-    const rolledBack = parseNavigation({ tabs: { c: ["trade_desk", "x_y", "z_w", "q_q"] } });
-    expect(rolledBack.tabs.c).toEqual(["trade_desk", "x_y", "z_w", "q_q"]);
-    expect(visibleTabs(rolledBack)).toEqual(DEFAULT_NAV_TABS.c);
-    const mixed = parseNavigation({ layout: "a", tabs: { a: ["cyborg", "trade_desk", "home", "q_q"] } });
-    expect(visibleTabs(mixed)).toEqual(["cyborg", "map", "home", "units"]);
-    expect(visibleTabs(mixed, "c")).toEqual(DEFAULT_NAV_TABS.c);
-    expect(mixed.tabs.a).toEqual(["cyborg", "trade_desk", "home", "q_q"]);
-    // 아는 항목만 있으면 그대로다
-    expect(visibleTabs(DEFAULTS)).toEqual(DEFAULTS.tabs.c);
-    expect(visibleTabs(DEFAULTS, "a")).toEqual(DEFAULTS.tabs.a);
+  it("돌려준 목록은 기본값 목록과 따로다(고쳐 써도 기본값이 바뀌지 않는다)", () => {
+    expect(parseNavigation(undefined).menu).not.toBe(NAV_ITEM_IDS);
+  });
+});
+
+describe("하단 탭과 사이드 메뉴(D-265)", () => {
+  const custom = parseNavigation({ menu: ["cyborg", "trade_desk", "map", "faction", "home"] });
+
+  it("사이드 메뉴는 메뉴 순서의 아는 항목 6개를 모두 같은 순서로 보인다(모르는 ID는 건너뛴다)", () => {
+    expect(custom.menu).toEqual(["cyborg", "trade_desk", "map", "faction", "home", "units", "economy"]);
+    expect(navMenuItems(custom)).toEqual(["cyborg", "map", "faction", "home", "units", "economy"]);
   });
 
-  it("돌려준 목록은 기본값 목록과 따로다(고쳐 써도 기본값이 바뀌지 않는다)", () => {
-    const parsed = parseNavigation(undefined);
-    expect(parsed.tabs.c).not.toBe(DEFAULT_NAV_TABS.c);
-    expect(parsed.tabs.a).not.toBe(DEFAULT_NAV_TABS.a);
-    expect(parsed.menu).not.toBe(NAV_ITEM_IDS);
+  it("탭은 같은 순서의 앞에서부터 칸 수만큼이다. 칸 수는 화면 폭이 정한다(좁은 휴대폰 4, 넓으면 더)", () => {
+    expect(visibleTabs(custom, 4, "a")).toEqual(["cyborg", "map", "faction", "home"]);
+    expect(visibleTabs(custom, 5, "a")).toEqual(["cyborg", "map", "faction", "home", "units"]);
+    expect(visibleTabs(custom, 6, "a")).toEqual(navMenuItems(custom));
+  });
+
+  it("C는 지도가 가운데 버튼이라 지도를 빼고 센다(어디에 두든). 그래서 C의 칸은 5개가 최대다", () => {
+    expect(visibleTabs(custom, 4, "c")).toEqual(["cyborg", "faction", "home", "units"]);
+    expect(visibleTabs(custom, 6, "c")).toEqual(["cyborg", "faction", "home", "units", "economy"]);
+  });
+
+  it("홈도 앞에 고정하지 않는다: 뒤로 옮기면 좁은 폭의 탭에서 빠진다(사이드 메뉴에는 남는다)", () => {
+    const homeLast = parseNavigation({ menu: ["map", "units", "economy", "faction", "cyborg", "home"] });
+    expect(visibleTabs(homeLast, 4, "c")).toEqual(["units", "economy", "faction", "cyborg"]);
+    expect(navMenuItems(homeLast).at(-1)).toBe("home");
+  });
+
+  it("배치를 적지 않으면 설정의 배치를 쓰고, 칸 수가 0 이하·소수면 내려서 센다", () => {
+    expect(visibleTabs({ ...DEFAULTS, layout: "a" }, 4)).toEqual(["home", "map", "units", "economy"]);
+    expect(visibleTabs(DEFAULTS, 0)).toEqual([]);
+    expect(visibleTabs(DEFAULTS, -2)).toEqual([]);
+    expect(visibleTabs(DEFAULTS, 4.9)).toHaveLength(4);
+  });
+});
+
+describe("moveNavItem·resetNavMenu", () => {
+  it("아는 항목 사이에서 한 칸 옮긴다. 모르는 ID는 제자리다", () => {
+    const menu = ["home", "trade_desk", "map", "units", "economy", "faction", "cyborg"];
+    expect(moveNavItem(menu, "map", -1)).toEqual([
+      "map",
+      "trade_desk",
+      "home",
+      "units",
+      "economy",
+      "faction",
+      "cyborg",
+    ]);
+    expect(moveNavItem(menu, "home", 1)).toEqual([
+      "map",
+      "trade_desk",
+      "home",
+      "units",
+      "economy",
+      "faction",
+      "cyborg",
+    ]);
+    expect(moveNavItem(menu, "units", 1)).toEqual([
+      "home",
+      "trade_desk",
+      "map",
+      "economy",
+      "units",
+      "faction",
+      "cyborg",
+    ]);
+    // 원래 목록은 고치지 않는다
+    expect(menu[0]).toBe("home");
+  });
+
+  it("끝에서 더 갈 곳이 없거나 목록에 없는 항목이면 같은 순서(새 배열)", () => {
+    const menu = [...NAV_ITEM_IDS];
+    expect(moveNavItem(menu, "home", -1)).toEqual(menu);
+    expect(moveNavItem(menu, "cyborg", 1)).toEqual(menu);
+    expect(moveNavItem(["home", "map"], "cyborg", 1)).toEqual(["home", "map"]);
+    expect(moveNavItem(menu, "home", -1)).not.toBe(menu);
+  });
+
+  it("기본값으로: 아는 항목은 기본 순서, 모르는 ID는 원래 차례대로 뒤에", () => {
+    expect(resetNavMenu(["q_q", "cyborg", "trade_desk", "home"])).toEqual([
+      ...NAV_ITEM_IDS,
+      "q_q",
+      "trade_desk",
+    ]);
+    expect(resetNavMenu(DEFAULTS.menu)).toEqual(DEFAULTS.menu);
   });
 });
 
 describe("mergeNavigation", () => {
-  it("읽은 원래 값에 바꾼 칸만 덮어 쓴다: 더 새 버전의 칸·모르는 배치의 탭·바꾸지 않은 칸이 남는다", () => {
-    const raw = {
-      layout: "b",
-      tabs: { c: ["units", "home", "economy", "faction"], b: ["home"] },
-      menu: ["trade_desk", "home"],
-      extra: { pinned: true },
-    };
+  it("읽은 원래 값에 바꾼 칸만 덮어 쓴다: 더 새 버전의 칸·바꾸지 않은 칸이 남는다", () => {
+    const raw = { layout: "b", menu: ["trade_desk", "home"], extra: { pinned: true } };
     const saved = JSON.stringify(raw);
-    expect(mergeNavigation(raw, { tabs: { a: ["map", "home", "units", "economy"] } })).toEqual({
-      layout: "b",
-      tabs: {
-        c: ["units", "home", "economy", "faction"],
-        b: ["home"],
-        a: ["map", "home", "units", "economy"],
-      },
-      menu: ["trade_desk", "home"],
-      extra: { pinned: true },
-    });
-    expect(mergeNavigation(raw, { layout: "a", menu: ["home", "map"] })).toEqual({
-      ...raw,
-      layout: "a",
-      menu: ["home", "map"],
-    });
+    expect(mergeNavigation(raw, { layout: "a" })).toEqual({ ...raw, layout: "a" });
+    expect(mergeNavigation(raw, { menu: ["home", "map"] })).toEqual({ ...raw, menu: ["home", "map"] });
     // 원래 값은 고치지 않는다
     expect(JSON.stringify(raw)).toBe(saved);
   });
 
-  it("원래 값이 객체가 아니거나 tabs가 객체가 아니면 빈 객체에서 시작한다", () => {
+  it("원래 값이 객체가 아니면 빈 객체에서 시작한다. 읽고 옮겨 다시 쓰면 모르는 ID도 남는다", () => {
     expect(mergeNavigation(undefined, { layout: "c" })).toEqual({ layout: "c" });
     expect(mergeNavigation([1], { menu: ["home"] })).toEqual({ menu: ["home"] });
-    expect(
-      mergeNavigation({ tabs: ["x"] }, { tabs: { c: ["home", "units", "economy", "faction"] } }),
-    ).toEqual({
-      tabs: { c: ["home", "units", "economy", "faction"] },
-    });
-    // 읽고(parseNavigation) 고쳐서 다시 쓰는 길: 모르는 ID도 그대로 남는다
-    const raw = { tabs: { a: ["home", "trade_desk", "units", "economy"] }, extra: 1 };
+    const raw = { menu: ["home", "trade_desk", "map"], extra: 1 };
     const parsed = parseNavigation(raw);
-    expect(mergeNavigation(raw, { layout: "a", tabs: { a: parsed.tabs.a } })).toEqual({
-      ...raw,
-      layout: "a",
+    expect(mergeNavigation(raw, { menu: moveNavItem(parsed.menu, "map", -1) })).toEqual({
+      extra: 1,
+      menu: ["map", "trade_desk", "home", "units", "economy", "faction", "cyborg"],
     });
   });
 });

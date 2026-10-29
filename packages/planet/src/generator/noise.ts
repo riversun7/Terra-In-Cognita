@@ -11,37 +11,16 @@ function fade(t: number): number {
   return t * t * t * (t * (t * 6 - 15) + 10);
 }
 
-/** 해시 아래 4비트로 고른 기울기와 (x, y, z)의 내적 (모서리 방향 12개 + 겹치는 4개) */
+// 기울기 표: 해시 아래 4비트(0~15) → 기울기 (GX, GY, GZ). 정육면체 모서리 방향 12개 + 겹치는 4개(12~15 = 0·1·9·11번).
+// 분기 없이 표로 읽는다(switch보다 빠르다). 값은 예전 switch와 같아서 결과가 비트까지 같다(골든 해시·실수 지문 시험)
+const GRADIENT_X = new Float64Array([1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, -1, 0, 0]);
+const GRADIENT_Y = new Float64Array([1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, 1, -1, -1]);
+const GRADIENT_Z = new Float64Array([0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 0, 1, -1]);
+
+/** 해시 아래 4비트로 고른 기울기와 (x, y, z)의 내적 */
 function gradDot(hash: number, x: number, y: number, z: number): number {
-  switch (hash & 15) {
-    case 0:
-    case 12:
-      return x + y;
-    case 1:
-    case 13:
-      return -x + y;
-    case 2:
-      return x - y;
-    case 3:
-      return -x - y;
-    case 4:
-      return x + z;
-    case 5:
-      return -x + z;
-    case 6:
-      return x - z;
-    case 7:
-      return -x - z;
-    case 8:
-      return y + z;
-    case 9:
-    case 14:
-      return -y + z;
-    case 10:
-      return y - z;
-    default:
-      return -y - z;
-  }
+  const k = hash & 15;
+  return (GRADIENT_X[k] ?? 0) * x + (GRADIENT_Y[k] ?? 0) * y + (GRADIENT_Z[k] ?? 0) * z;
 }
 
 /** 격자점 (x, y, z) 해시의 마지막 단계: 위 4비트만 쓰므로 곱 한 번으로 충분하다 */

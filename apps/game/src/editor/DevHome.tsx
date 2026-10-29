@@ -1,0 +1,91 @@
+// 개발자 홈(/dev) — 개발자 도구 목록(ADR 2026-10-29-planet-editor-stage1 1절 "개발자 도구 한곳").
+// - dev·admin만 연다(주소 표 access. 다른 역할은 틀이 권한 없음 화면을 그린다). 화면에서 가리는 것은 편의이고,
+//   서버 자료를 쓰는 도구는 서버가 요청마다 권한을 본다.
+// - 도구마다 한 줄: 아이콘, 이름(주소 표의 화면 이름과 같은 키), 한 줄 설명. 누르면 그 도구 화면을 쌓는다(부모 dev, ADR 37 2절).
+// - 도구 목록은 주소 표에서 부모가 dev인 줄과 같다. 줄이 늘면 DEV_TOOLS에서 타입 오류가 난다(나중 도구도 한 줄씩 더한다).
+// - 이 조각은 미리 캐시된다(작은 목록이다). 도구 조각은 이름 앞머리(gpuBench·planetEditor)로 미리 캐시에서 빠진다.
+import { ROUTES, type RouteId } from "@terra/shared";
+import type { ReactNode } from "react";
+import { m } from "../paraglide/messages.js";
+import { AppLink } from "../shell/AppLink.tsx";
+import { BackButton } from "../shell/BackButton.tsx";
+import { Icon } from "../ui/icons.tsx";
+import { ForwardIcon, GaugeIcon } from "./devIcons.tsx";
+import "./devHome.css";
+
+/** 개발자 도구 주소 = 주소 표에서 부모가 dev인 줄 */
+type DevToolRoute = {
+  [Id in RouteId]: (typeof ROUTES)[Id]["parent"] extends "dev" ? Id : never;
+}[RouteId];
+
+interface DevTool {
+  readonly name: () => string;
+  readonly desc: () => string;
+  readonly mark: ReactNode;
+  /** false: 화면이 아직 준비 중 화면이다(줄에 "준비 중"을 붙인다). 그 도구 화면을 붙이면 true로 바꾼다 */
+  readonly ready: boolean;
+}
+
+/** 도구마다 이름·설명·아이콘. 보이는 차례는 주소 표 차례다(TOOL_ROUTES) */
+const DEV_TOOLS = {
+  // 행성 편집기 화면은 ADR 38 WP-D가 붙인다. 그때 ready를 true로
+  dev_planet_editor: {
+    name: m.shell_route_dev_planet_editor,
+    desc: m.dev_tool_planet_editor_desc,
+    mark: <Icon name="globe" />,
+    ready: false,
+  },
+  dev_gpu_bench: {
+    name: m.shell_route_dev_gpu_bench,
+    desc: m.dev_tool_gpu_bench_desc,
+    mark: <GaugeIcon />,
+    ready: true,
+  },
+} satisfies Record<DevToolRoute, DevTool>;
+
+const TOOL_ROUTES = Object.keys(ROUTES).filter((id): id is DevToolRoute => Object.hasOwn(DEV_TOOLS, id));
+
+function DevToolRow({ route }: { route: DevToolRoute }) {
+  const tool: DevTool = DEV_TOOLS[route];
+  return (
+    <li>
+      <AppLink to={{ route }} className="dev-tool">
+        <span className="dev-tool-mark">{tool.mark}</span>
+        <span className="dev-tool-text">
+          <span className="dev-tool-name">
+            {tool.name()}
+            {tool.ready ? null : (
+              <>
+                {" "}
+                <span className="dev-tool-badge">{m.dev_tool_soon()}</span>
+              </>
+            )}
+          </span>
+          <span className="dev-tool-desc">{tool.desc()}</span>
+        </span>
+        <span className="dev-tool-go">
+          <ForwardIcon />
+        </span>
+      </AppLink>
+    </li>
+  );
+}
+
+export default function DevHome() {
+  return (
+    <section className="screen" aria-labelledby="dev-home-title">
+      <div className="screen-header">
+        <h1 id="dev-home-title" className="screen-title" tabIndex={-1}>
+          {m.shell_dev()}
+        </h1>
+        <BackButton />
+      </div>
+      <p className="lead">{m.dev_home_lead()}</p>
+      <ul className="dev-tools" aria-label={m.dev_home_tools()}>
+        {TOOL_ROUTES.map((route) => (
+          <DevToolRow key={route} route={route} />
+        ))}
+      </ul>
+    </section>
+  );
+}

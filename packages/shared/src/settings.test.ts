@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   EMPTY_SETTINGS,
   LOCALES,
+  SETTINGS_OBJECT_MAX_BYTES,
   THEMES,
+  isSettingsObject,
   isSupportedLocale,
   isTheme,
   parseUserSettings,
+  settingsObjectBytes,
 } from "./settings.ts";
 
 describe("화면 설정 목록", () => {
@@ -48,5 +51,58 @@ describe("parseUserSettings", () => {
     const parsed = parseUserSettings(undefined);
     parsed.theme = "dark";
     expect(EMPTY_SETTINGS.theme).toBeNull();
+  });
+});
+
+describe("메뉴·홈 설정(nav·home): 모양을 모르는 JSON 객체", () => {
+  it("JSON 객체면 안쪽을 보지 않고 그대로 남긴다(모르는 칸·모르는 ID 포함)", () => {
+    const nav = { layout: "a", menu: ["future_item", "home"], extra: { x: 1 } };
+    const home = {
+      template: "dt_future",
+      cards: [{ id: "future_card", size: "3x3", note: "n" }],
+      extra: [1],
+    };
+    const parsed = parseUserSettings({ theme: "dark", followSystem: false, locale: null, nav, home });
+    expect(parsed).toEqual({ theme: "dark", followSystem: false, locale: null, nav, home });
+    // 고치지 않은 같은 값이다(복사하지 않는다)
+    expect(parsed.nav).toBe(nav);
+    expect(parsed.home).toBe(home);
+  });
+
+  it("칸이 없거나 JSON 객체가 아니면(배열·null·문자열) 칸을 두지 않는다 = 정하지 않음", () => {
+    for (const value of [undefined, null, [], ["home"], "c", 1, true]) {
+      const parsed = parseUserSettings({
+        theme: null,
+        followSystem: false,
+        locale: null,
+        nav: value,
+        home: value,
+      });
+      expect(parsed, JSON.stringify(value)).toEqual(EMPTY_SETTINGS);
+      expect(Object.hasOwn(parsed, "nav") || Object.hasOwn(parsed, "home")).toBe(false);
+    }
+  });
+
+  it("isSettingsObject: 배열·null이 아닌 객체", () => {
+    expect(isSettingsObject({})).toBe(true);
+    expect(isSettingsObject({ a: [1] })).toBe(true);
+    expect(isSettingsObject([])).toBe(false);
+    expect(isSettingsObject(null)).toBe(false);
+    expect(isSettingsObject("{}")).toBe(false);
+  });
+
+  it("크기는 JSON.stringify의 UTF-8 바이트로 잰다. 상한은 4KB", () => {
+    expect(SETTINGS_OBJECT_MAX_BYTES).toBe(4096);
+    expect(settingsObjectBytes({})).toBe(2);
+    // {"a":"가"} = ASCII 8바이트 + 한글 한 자 3바이트, 그림 문자(대리 쌍)는 4바이트
+    expect(settingsObjectBytes({ a: "가" })).toBe(11);
+    expect(settingsObjectBytes({ a: "😀" })).toBe(12);
+  });
+
+  it("JSON으로 바꿀 수 없는 값은 무한대(상한을 넘는 것으로 본다)", () => {
+    const cycle: Record<string, unknown> = {};
+    cycle["self"] = cycle;
+    expect(settingsObjectBytes(cycle)).toBe(Number.POSITIVE_INFINITY);
+    expect(settingsObjectBytes({ big: 1n })).toBe(Number.POSITIVE_INFINITY);
   });
 });

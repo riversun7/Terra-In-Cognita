@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-30 00:20 | 앱 뼈대 W2 검토 고침: 계정이 바뀐 뒤의 계정 요청, 저장할 수 없는 글자, 마이그레이션 갈래 다시 확인 | Claude Code | [30-0020-app-shell-w2-review](worklog/2026/10/30-0020-app-shell-w2-review.md) |
 | 2026-10-29 22:20 | 앱 뼈대 W2: 계정 설정에 메뉴(nav)·홈(home) 묶음 — 기기 저장·맞추기·서버 저장·템플릿 저장 규칙 | Claude Code | [29-2220-app-shell-w2](worklog/2026/10/29-2220-app-shell-w2.md) |
 | 2026-10-29 21:00 | 단위 시험 제한 시간 30초(공유 개발 컨테이너 부하) | Claude Code | [29-2100-bake-test-timeout](worklog/2026/10/29-2100-bake-test-timeout.md) |
 | 2026-10-29 21:00 | 앱 뼈대 0단계 검토 반영: 주소 표 타입·값 규칙, 부모 화면·검색어 바꾸기, 설정 쓰기 도우미, 완료 종류, ADR 37 문장 | Claude Code | [29-2100-app-shell-stage0-review](worklog/2026/10/29-2100-app-shell-stage0-review.md) |

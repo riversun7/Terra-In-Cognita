@@ -4,6 +4,7 @@
 - 작업 도구: Claude Code
 - 관련: ADR `2026-10-29-app-shell.md`(37, 제안) 5절·6절(템플릿 저장 규칙)·"구현하며 정한 것 (0단계)", ADR `2026-10-28-design-system.md`("맞추는 규칙"), ADR `2026-10-28-db-access-and-migrations.md`, 작업 기록 `29-2015-app-shell-stage0.md`·`29-2100-app-shell-stage0-review.md`, 기획 D-6001·D-6005·D-6007·D-6008·D-265
 - 작업 자리: 작업 트리 `.claude/worktrees/app-shell-w2`, 가지 `work/app-shell-w2`, main `507e645`에서 시작했다. 푸시하지 않았다.
+- 검토 고침: `30-0020-app-shell-w2-review.md`(지적 4개 처리, 계정 요청 줄·저장할 수 없는 글자 고침, 마이그레이션 갈래 확인). 아래 "정한 것"·꽂는 줄·통합 세션 줄은 그 기록에 맞춰 고쳤다.
 
 ## 한 일
 - 계정 설정에 묶음 두 개를 더했다: 메뉴(`nav`)와 홈(`home`). 화면(테마·기기 설정 따르기)·언어와 같은 길로 기기와 계정에 저장한다(ADR 37 5절).
@@ -72,12 +73,15 @@
 - 정하지 않음 = 칸 없음. `nav`·`home`에 `null`을 보내 지우는 길은 두지 않았다(서버가 400). [기본값으로]는 기본값을 적은 값을 저장한다(W1 `resetNavMenu`, W4 `mergeHome`). 읽기 응답에도 저장한 적이 있을 때만 칸이 있다. 그래서 옛 기기·전에 있던 시험이 그대로다.
 - 크기 상한(4096바이트, `settingsObjectBytes`)은 쓸 때만 본다. 서버는 받는 값을 보고(400), 기기는 `chooseNavigation`·`chooseHome`에서 본다(저장하지 않고 `false`). 읽을 때(기기 저장소·DB)는 보지 않는다. 더 새 판이 상한을 올려 저장한 값을 되돌림 배포 동안 버리지 않으려고다.
   - 템플릿 저장 규칙은 값을 2바이트까지 늘릴 수 있다(`dt_grid`·`dt_city` 7자 → `dt_hybrid` 9자). 그래서 저장값이 4096바이트를 조금 넘을 수 있다. 읽을 때 크기를 보지 않으므로 지워지지 않는다. 다만 그 값을 기기가 받아 다시 바꾸면 `chooseHome`이 `false`를 줄 수 있다(카드 24장이 약 0.9KB라 닿기 어렵다, Assumed).
+- 칸 이름·글자 값의 NUL(U+0000)과 짝 없는 대리 문자도 쓸 때만 본다(`hasUnstorableText`, 검토 반영). 계정 jsonb 열이 받지 않아서다(전에는 DB 오류로 500). 서버는 400, 기기는 저장하지 않고 `false`. 짝이 맞는 그림 문자·NUL이 아닌 제어 문자·U+FFFF는 받는다.
 - 메뉴 입력 검사의 아는 칸은 `layout`·`menu`뿐이다. 0단계 `navigation.ts`의 탭 칸(`tabs`, 탭 4개)은 검사하지 않는다. D-265로 W1이 `tabs`와 `NAV_TAB_SLOTS`를 없애는 중이라서다(Verified: W1 작업 트리 `navigation.ts` 바꾼 내용 읽기, 22:00 무렵). 그래서 이 가지는 `NAV_TAB_SLOTS`를 가져오지 않는다. `tabs`가 오면 모르는 칸처럼 그대로 저장한다.
 - 짧은 값(배치·카드 크기) 모양: `^[a-z0-9][a-z0-9_]{0,15}$`. 카드 `size`는 없어도 된다(`parseHome`이 아는 카드는 기본 크기로 읽는다). 카드 `id`는 있어야 한다.
 - 템플릿 칸이 없으면 규칙이 칸을 더하지 않는다(읽을 때 기본값이다). 목록에 없는 템플릿 값(`dt_future`)도 기본값이 아니므로 바꾼다.
 - 서버가 템플릿을 바꿔 저장해도 기기 값은 바로 바꾸지 않는다. 올리기가 성공하면 표시가 지워지고, 다음 로그인 때 계정 값이 기기를 덮는다. 플레이어 화면은 저장값과 상관없이 DT-HYBRID라 그사이 보이는 차이는 없다(ADR 37 6절).
 - 올리기는 묶음마다 `settings.set`을 따로 부르고 `AbortSignal` 하나를 같이 쓴다(묶음 전체가 함께 시간 넘음).
 - 계정 요청 줄(`settings.ts`): 로그인 맞추기와 올리기를 앞의 것이 끝난 뒤 보낸다. 줄에서 기다리는 올리기는 하나만 둔다. 차례가 오면 그때의 "올릴 것"을 모두 보낸다. 빨리 잇달아 바꿀 때(홈 편집의 ↑·↓) 먼저 보낸 값이 늦게 저장되어 나중 값을 덮는 일을 막으려는 것이다. 바꿀 때마다 저장하는 홈 편집(ADR 37 6절)의 "다른 기기에도 남는다"가 여기에 기댄다.
+  - 차례가 왔을 때(조각을 불러온 뒤, 보내기 바로 앞) 그 요청의 사용자가 지금 로그인한 사용자가 아니면 보내지 않는다(검토 반영). 쿠키는 보낼 때의 계정 것이라 앞 계정의 바꿈이 지금 계정에 저장되기 때문이다. "올릴 것" 표시는 남고 지금 계정의 로그인 맞추기가 정한다(다른 계정 표시는 버리거나, 그 계정에 값이 없으면 기기 값을 올린다 — 전과 같은 규칙). 그 맞추기는 로그인한 때 줄에 서므로 늘 건너뛴 요청 뒤에 돈다.
+  - 로그인 맞추기 안에서도 계정 값을 읽은 뒤 계정이 바뀌었으면 읽은 값을 버린다(기기를 덮지 않고 올리지 않는다). main부터 있던 좁은 틈(읽기 요청 하나의 시간)이다. settings.ts가 기기 저장소와 함께 지금 로그인한 사용자를 넘긴다(`DeviceStore.signedInUserId`).
 - 메뉴·홈 값은 JSON 글자가 같으면 같은 값으로 본다(`afterUpload`). 다른 탭이 저장소를 바꾸면 기기 값이 새 객체가 되어서다.
 - 값이 없는 메뉴·홈 "올릴 것" 표시(다른 판이 남긴 것 등)는 보지 않는다. 그런 표시가 계정 값을 막지 않게.
 - DB 열에 검사 조건을 두지 않았다(열 더하기만). 읽을 때 JSON 객체가 아니면 칸 없이 읽는다.
@@ -102,26 +106,30 @@
 ## 함께 바꿔야 하는 파일 (꽂는 줄)
 - W1(`shell/shellPrefs.ts`, W2가 합쳐진 뒤)
   - 읽기: `parseNavigation(useSettings().device.nav)`(`../settings/settings.ts`의 `useSettings`).
-  - 쓰기: `chooseNavigation(mergeNavigation(getSettingsSnapshot().device.nav, 바꾼 칸))`. [기본값으로]도 같은 길로 값을 저장한다. 돌려준 값이 `false`면 저장하지 않은 것이다(4KB 넘음).
+  - 쓰기: `chooseNavigation(mergeNavigation(getSettingsSnapshot().device.nav, 바꾼 칸))`. [기본값으로]도 같은 길로 값을 저장한다. 돌려준 값이 `false`면 저장하지 않은 것이다(4KB 넘음, JSON으로 못 바꿈, 계정에 저장할 수 없는 글자(NUL·짝 없는 대리 문자)가 듦).
   - 메뉴에 검사할 아는 칸이 새로 생기면(`layout`·`menu` 밖) `apps/server/src/trpc/settings.ts`의 `navInput` 한 곳을 고치고 `settings.db.test.ts`에 400 경우를 더한다.
 - W4(홈 조각)
-  - 읽기: `parseHome(useSettings().device.home, 역할)`. 쓰기: `chooseHome(mergeHome(getSettingsSnapshot().device.home, 바꾼 칸))`.
+  - 읽기: `parseHome(useSettings().device.home, 역할)`. 쓰기: `chooseHome(mergeHome(getSettingsSnapshot().device.home, 바꾼 칸))`. `false`의 뜻은 W1과 같다.
   - 홈 카드 아는 칸(`template`·`cards`의 `id`·`size`)을 바꾸면 `homeInput`을 함께 본다. 카드 상한(`HOME_CARDS_MAX`)을 바꾸면 서버 검사도 따라간다(같은 상수).
+- W1·W4 공통(검토 반영): `mergeNavigation`·`mergeHome`이 만든, 아는 칸이 서버 모양(`navInput`·`homeInput`)에 맞는 값만 넘긴다. 새 서버가 400을 주는 값은 옛 서버의 400(모르는 바깥 칸)과 기기가 구별하지 못한다. 그래서 "올릴 것"이 영영 남고, 로그인 때 그 묶음의 계정 값이 그 기기에 다시 오지 않는다(`planSignIn`의 mine 갈래). 기기는 크기·글자만 미리 막는다(`storableSettingsObject`).
 - 통합 세션
-  - 마이그레이션: 가지 `work/editor-server`도 `user_settings` 스냅샷(`52ee1e81-…`)을 부모로 하는 마이그레이션(`20261029123713_planet_drafts`, 그 가지 커밋 `1c8be96`. 부모가 같은 것은 22:20 무렵 그 작업 트리의 스냅샷에서 확인)을 만들고 있다. 그쪽이 먼저 main에 들어가면 이 가지의 `apps/server/drizzle/20261029125339_user_settings_nav_home/`를 지우고 main 위에서 `pnpm --filter @terra/server db:generate --name user_settings_nav_home`으로 다시 만든다. SQL은 같아야 한다(`ADD COLUMN` 두 줄). 같은 부모를 둔 스냅샷 둘을 Drizzle 1.0 RC가 받는지는 확인하지 않았다(Unknown, 계획서와 같다).
+  - 마이그레이션(검토 반영으로 고침): main에 `work/editor-server`가 합쳐져(`2dd483a`, 지금 main `dbe87c2`) `20261029135300_planet_drafts`가 있다. 부모가 이 가지와 같은 `user_settings` 스냅샷(`52ee1e81-…`)이고, 이름은 이 가지의 `20261029125339_user_settings_nav_home`보다 뒤다. 다시 만들지 않고 그대로 합쳐도 된다(Verified: 이 가지 `be5c273` + main `dbe87c2`를 합친 저장소 밖 트리, 검토 고침 기록 "마이그레이션 갈래"). `db:generate`는 "No schema changes"(CI의 표 정의·마이그레이션 일치 단계가 통과한다), 다음 마이그레이션의 `prevIds`는 두 갈래를 모두 담는다, 적용은 이름으로만 판단해 배포 순서와 상관없다(main을 먼저 적용한 DB에도 앞 이름인 이 가지 마이그레이션이 적용된다). 줄을 곧게 하려면 main 위에서 이 가지 폴더를 지우고 `pnpm --filter @terra/server db:generate --name user_settings_nav_home`으로 다시 만든다(SQL은 같은 `ADD COLUMN` 두 줄, 부모는 planet_drafts). 다만 그러면 이 가지 마이그레이션을 이미 적용한 DB(이 가지로 띄운 개발 DB)는 새 이름을 적용하다 `column "nav" of relation "user_settings" already exists`로 실패하고, 밀린 마이그레이션 전체가 한 트랜잭션이라 함께 되돌려진다(Verified). 운영 DB에는 이 가지가 올라간 적이 없다. 그래서 다시 만들지 않는 쪽을 권한다.
   - `schema.ts`는 두 가지 모두 고친다. 이 가지는 `user_settings` 정의 안과 `import` 한 줄만 바꿨다.
-  - `work/editor-server`의 tRPC 쓰기 같은 출처 확인(`ac2c7f2`)이 들어오면: 이 가지의 DB 시험은 `trpcMutation`(그쪽이 같은 출처 머리글을 넣는다)과 `JSON_HEADERS`(`origin` 있음)로 쓰기를 보내므로 그대로 돌 것이다(Assumed: 합친 뒤 돌려 보지 않음). 기기 쪽 `accountSync.test.ts`는 가짜 서버라 상관없다.
+  - main의 tRPC 요청 지키기(쓰기는 같은 출처·JSON 본문만, 묶음 10개까지, `ac2c7f2`·`3ed35af`) 아래에서도 이 가지 시험이 그대로 돈다(Verified: 합친 트리에서 서버 시험 36파일 전부와 기기·공용 설정 시험, DB 포함 43파일 428개 통과, 타입 검사 통과). 기기 올리기 묶음은 많아야 4개라 기기 `maxItems: TRPC_MAX_BATCH_SIZE`(10)에 걸리지 않는다. 합칠 때 겹치는 파일은 `docs/WORKLOG.md` 하나다(`pnpm docs:index`로 다시 만든다). `schema.ts`·`packages/shared/src/index.ts`는 저절로 합쳐진다(`git merge-tree`).
+  - `packages/shared/src/settings.ts`가 `utf8ByteLength`를 `./planetDraftApi.ts`(행성 편집기 초안 API 약속 파일, 이 가지 파일이 아님)에서 가져온다. 그 파일 주인이나 통합 세션이 중립 모듈(예: `packages/shared/src/utf8.ts`)로 옮기고 두 곳이 거기서 가져오게 한다(`index.ts` 내보내기 이름은 그대로). 세는 규칙이 바뀌면 설정 시험(한글 3바이트·그림 문자 4바이트·4096/4097바이트 경계)이 실패하므로 말없이 바뀌지는 않는다.
   - ADR 37 "구현하며 정한 것"에 위 "정한 것"을 옮긴다. 5절의 "목록 길이 상한(탭 4, …)"은 D-265 뒤 "메뉴 32, 카드 24"가 된다.
-  - AGENTS.md 6장에 더할 만한 확인 사항(모두 2026-10-29 이 작업에서 실행으로 확인)
-    - tRPC 11.19.0 묶음 요청: 묶음 안의 부르기는 함께 돈다(차례를 보장하지 않는다). 성공과 실패가 섞이면 응답은 207이고, 기기에서는 부른 것마다 따로 끝난다(fetch 어댑터·Fastify 어댑터 둘 다).
-    - tRPC 11.19.0 출력 타입: `{ readonly [key: string]: unknown }`은 기기 쪽 출력 타입에서 `Record<string | number, unknown>`이 된다. 입력 타입은 Zod 입력 타입 그대로다(`z.custom<T>().pipe(…)`면 `T`).
-    - Zod 4.6.7 `z.looseObject`: 이름이 `__proto__`인 칸은 출력에서 빠진다(원형은 바뀌지 않는다). 그래서 서버는 그 칸을 저장하지 않는다.
-    - Drizzle 1.0.0-rc.5 마이그레이터: 더 새 마이그레이션이 적용된 DB에 직전 판 폴더로 돌려도 "적용할 것 없음"으로 끝난다(오류 없음).
+  - AGENTS.md 6장에 더할 만한 확인 사항(이 작업과 검토 고침에서 실행으로 확인, 날짜는 줄마다)
+    - tRPC 11.19.0 묶음 요청(2026-10-29): 묶음 안의 부르기는 함께 돈다(차례를 보장하지 않는다). 성공과 실패가 섞이면 응답은 207이고, 기기에서는 부른 것마다 따로 끝난다(fetch 어댑터·Fastify 어댑터 둘 다).
+    - tRPC 11.19.0 출력 타입(2026-10-29): `{ readonly [key: string]: unknown }`은 기기 쪽 출력 타입에서 `Record<string | number, unknown>`이 된다. 입력 타입은 Zod 입력 타입 그대로다(`z.custom<T>().pipe(…)`면 `T`).
+    - Zod 4.6.7 `z.looseObject`(2026-10-29): 이름이 `__proto__`인 칸은 출력에서 빠진다(원형은 바뀌지 않는다). 그래서 서버는 그 칸을 저장하지 않는다.
+    - Drizzle 1.0.0-rc.5 마이그레이터(2026-10-29): 더 새 마이그레이션이 적용된 DB에 직전 판 폴더로 돌려도 "적용할 것 없음"으로 끝난다(오류 없음).
+    - Drizzle 1.0.0-rc.5(drizzle-kit 같은 판, 2026-10-30 확인: 실행·패키지 코드 `migrator.js`·`migrator.utils.js`): 같은 부모를 둔 마이그레이션 둘(갈래)을 받는다. `generate`는 두 끝 스냅샷을 합쳐 보고(바뀐 것이 없으면 "No schema changes") 다음 마이그레이션 `prevIds`에 둘 다 적는다. 마이그레이터는 폴더를 이름 차례로 읽고 적용 기록에 없는 이름을 모두 적용한다(뒤 이름이 이미 적용된 DB에도 앞 이름을 적용한다). 같은 내용을 새 이름으로 다시 만들면 옛 이름을 적용한 DB는 다시 적용하다 실패하고, 밀린 것 전체가 한 트랜잭션이라 함께 되돌려진다.
+    - PostgreSQL 16 jsonb(2026-10-30 확인: DB 시험): 글자 값·칸 이름의 `\u0000`과 짝 없는 대리 문자(`\ud800` 등)는 받지 않는다(오류). 짝이 맞는 대리 문자, NUL이 아닌 제어 문자, U+FFFF, 4KB 안의 2,040단 중첩 배열은 받는다.
 
 ## 건드리지 말 것
 - 기기 저장 판 `v: 1`과 `public/theme-init.js`(판을 올리면 저장된 테마를 버린다). `themeSources.test.ts`가 지킨다.
 - 바깥 입력 검사 `z.strictObject`(옛 서버가 새 칸을 막는 것이 묶음마다 올리기의 전제다).
-- 마이그레이션 `20261029125339_user_settings_nav_home`은 main에 올라간 뒤에는 고치지 않는다(PROTECTED). 올라가기 전에는 위처럼 다시 만들 수 있다.
+- 마이그레이션 `20261029125339_user_settings_nav_home`은 main에 올라간 뒤에는 고치지 않는다(PROTECTED). 올라가기 전에는 다시 만들 수 있지만 권하지 않는다(위 통합 세션 줄).
 - `settings.ts`가 `@terra/shared/dashboard`를 가져오지 않는 것(첫 화면 묶음).
 
 ## 미검증·TODO·알려진 문제

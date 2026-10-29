@@ -1,15 +1,17 @@
 // 처리할 일 저장소 — 위 띠 종 배지·메뉴 배지·처리함 화면·홈이 함께 쓰는 목록 하나(ADR 2026-10-29-app-shell 6·7절).
-// 첫 화면 묶음에 들어간다. 그래서 요청은 inboxClient.ts를 동적 import()로 불러서 한다(tRPC 클라이언트와 종류 표는 이 묶음에 없다.
-// @terra/shared/inbox는 타입만 가져온다). 로그인한 뒤에만 받는다.
+// 첫 화면 묶음에 들어간다. 그래서 요청은 net/homeQueries.ts를 동적 import()로 불러서 한다(tRPC 클라이언트와 종류 표는 이 묶음에 없다.
+// @terra/shared/inbox는 타입만 가져온다, firstScreen.test.ts가 본다). 로그인한 뒤에만 받는다.
 // - 겹친 요청은 하나로: 받는 중에 또 부르면 같은 요청을 기다린다. refresh()는 끝난 뒤 한 번 더 받는다.
 // - 받는 때: 로그인(계정이 바뀜)·시안 자료를 켜고 끔, 서버 연결이 다시 맺어졌을 때(끊긴 뒤 welcome),
 //   화면이 다시 보일 때(마지막으로 받은 지 60초 넘음), 화면이 열 때 ensureInbox(), 바로 처리 결과를 받은 뒤 refreshInbox().
 //   주기 타이머는 두지 않는다(ADR 37 6절 "자료 받기").
-// - 로그인 직후에는 계정이 바뀌어 서버 연결도 다시 맺는다(net/serverLink.ts followIdentity). 그 다시 연결 때 한 번 더 받을 수 있다.
+// - 다시 연결됐을 때는 5초 안에 시작한 받기가 있으면(받는 중이거나 막 받음) 다시 받지 않는다. 로그인 직후가 그렇다:
+//   계정이 바뀌어 받기를 시작하고, 곧이어 서버 연결도 새 계정으로 다시 맺는다(net/serverLink.ts followIdentity).
 // - 저장소는 처음 쓸 때 켜진다(종 배지 등이 useInbox…를 부를 때). 켜진 뒤에는 앱이 끝날 때까지 듣는다.
 import type { InboxListResponse } from "@terra/shared/inbox";
 import { useSyncExternalStore } from "react";
 import { getSessionState, refreshSession } from "../auth/session.ts";
+import type { HomeQueryResult } from "../net/homeQueries.ts";
 import { serverLink } from "../net/serverLink.ts";
 import type { PlainMessageKey } from "../ui/messageRef.ts";
 import { isPreviewOn, subscribePreview } from "./preview.ts";
@@ -30,10 +32,8 @@ export interface InboxState {
   readonly receivedAt: number | null;
 }
 
-/** 요청 결과. 실패도 값으로 받는다(문구 키는 inboxClient.ts가 apiErrors.ts로 고른다) */
-export type InboxLoadResult =
-  | { readonly ok: true; readonly data: InboxListResponse }
-  | { readonly ok: false; readonly error: PlainMessageKey; readonly sessionEnded: boolean };
+/** 요청 결과. 실패도 값으로 받는다(문구 키는 net/homeQueries.ts가 apiErrors.ts로 고른다) */
+export type InboxLoadResult = HomeQueryResult<InboxListResponse>;
 
 export interface InboxStoreDeps {
   /** inbox.list 요청. signal이 끊기면 실패로 끝난다 */
@@ -63,6 +63,8 @@ export interface InboxStore {
 export const INBOX_STALE_MS = 60_000;
 /** 응답이 오지 않으면 끊는 시간 */
 const REQUEST_TIMEOUT_MS = 10_000;
+/** 다시 연결됐을 때 이만큼 안에 시작한 받기가 있으면 그 답을 쓴다(로그인 직후 계정이 바뀌어 다시 맺은 연결) */
+export const INBOX_RECONNECT_FRESH_MS = 5_000;
 
 const IDLE: InboxState = {
   userId: null,
@@ -87,11 +89,18 @@ export function createInboxStore(deps: InboxStoreDeps): InboxStore {
   let state: InboxState = IDLE;
   const listeners = new Set<() => void>();
   /** 지금 받는 요청. 계정·시안 자료가 바뀌면 끊고 버린다 */
-  let inflight: { token: object; controller: AbortController; done: Promise<void> } | null = null;
+  let inflight: {
+    token: object;
+    controller: AbortController;
+    done: Promise<void>;
+    startedAt: number;
+  } | null = null;
+  /** 지금 목록(state.data)을 받은 요청을 시작한 시각 */
+  let dataStartedAt: number | null = null;
   /** 받는 중에 refresh()가 왔다 → 끝난 뒤 한 번 더 */
   let again: Promise<void> | null = null;
   let againResolve: (() => void) | null = null;
-  /** 끊긴 뒤 아직 다시 받지 않았다 */
+  /** 끊긴 뒤 아직 다시 연결되지 않았다 */
   let missedConnection = false;
 
   const setState = (next: InboxState): void => {
@@ -118,6 +127,7 @@ export function createInboxStore(deps: InboxStoreDeps): InboxStore {
   const start = (preview: boolean, base: InboxState = state): Promise<void> => {
     const token = {};
     const controller = new AbortController();
+    const startedAt = deps.now();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     setState({ ...base, status: "loading" });
     const done = deps
@@ -129,6 +139,7 @@ export function createInboxStore(deps: InboxStoreDeps): InboxStore {
         if (inflight?.token !== token) return;
         inflight = null;
         if (result.ok) {
+          dataStartedAt = startedAt;
           setState({ ...state, status: "ready", data: result.data, error: null, receivedAt: deps.now() });
         } else {
           setState({ ...state, status: "failed", error: result.error });
@@ -140,7 +151,7 @@ export function createInboxStore(deps: InboxStoreDeps): InboxStore {
         againResolve = null;
         void startFresh().then(resolveAgain);
       });
-    inflight = { token, controller, done };
+    inflight = { token, controller, done, startedAt };
     return done;
   };
 
@@ -155,6 +166,7 @@ export function createInboxStore(deps: InboxStoreDeps): InboxStore {
     const viewer = deps.viewer();
     if (sameViewer(viewer)) return;
     dropInflight();
+    dataStartedAt = null;
     if (viewer === null) {
       setState(IDLE);
       return;
@@ -182,6 +194,12 @@ export function createInboxStore(deps: InboxStoreDeps): InboxStore {
     return again;
   }
 
+  /** 막 시작한 받기가 끊긴 동안의 바뀜을 덮는지(받는 중이거나, 지금 목록을 받은 요청) */
+  function recentlyStarted(): boolean {
+    const startedAt = inflight ? inflight.startedAt : state.status === "ready" ? dataStartedAt : null;
+    return startedAt !== null && deps.now() - startedAt <= INBOX_RECONNECT_FRESH_MS;
+  }
+
   return {
     getState: () => state,
     subscribe(listener) {
@@ -199,6 +217,7 @@ export function createInboxStore(deps: InboxStoreDeps): InboxStore {
     connectionReady() {
       if (!missedConnection) return;
       missedConnection = false;
+      if (recentlyStarted()) return;
       void refresh();
     },
   };
@@ -206,13 +225,13 @@ export function createInboxStore(deps: InboxStoreDeps): InboxStore {
 
 // ── 앱에 하나 ────────────────────────────────────────────────
 
-const loadClient = () => import("./inboxClient.ts");
+const loadQueries = () => import("../net/homeQueries.ts");
 
 const store = createInboxStore({
   async load(preview, signal) {
     try {
-      const client = await loadClient();
-      return await client.loadInbox(preview, signal);
+      const queries = await loadQueries();
+      return await queries.loadInbox(preview, signal);
     } catch {
       // 조각을 받지 못함(오프라인, 배포 뒤 옛 조각)
       return { ok: false, error: "err_network", sessionEnded: false };

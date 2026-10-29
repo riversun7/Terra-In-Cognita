@@ -2,13 +2,16 @@
 // 30분은 PWA의 "켤 때" 기준과 같다(pwa/updatePolicy.ts의 숨김·보임 규칙을 그대로 쓴다).
 // 보일지(show)는 서버가 정한다. show면 그 계정의 요약을 두고 ReturnSummary.tsx가 대화상자를 띄운다. 닫으면 지운다.
 // 확인 기록(summary.ack)은 아직 없다(첫 사건 출처와 함께 만든다). 그래서 닫은 요약은 다음에 켤 때 다시 뜰 수 있다.
-// 첫 화면 묶음에 들어간다. 요청은 summaryClient.ts를 동적 import()로 불러서 한다.
+// 첫 화면 묶음에 들어간다. 요청은 net/homeQueries.ts를 동적 import()로 불러서 한다(처리할 일 저장소와 같은 조각이라 같은 틱의
+// 조회가 HTTP 요청 하나로 묶인다).
 import type { SummaryGetResponse } from "@terra/shared/inbox";
 import { useSyncExternalStore } from "react";
 import { getSessionState, refreshSession, subscribe as subscribeSession } from "../auth/session.ts";
 import { isPreviewOn } from "../inbox/preview.ts";
+import type { HomeQueryResult } from "../net/homeQueries.ts";
 import { INITIAL_VISIBILITY, type VisibilityTracker, onHidden, onVisible } from "../pwa/updatePolicy.ts";
-import type { SummaryLoadResult } from "./summaryClient.ts";
+
+export type SummaryLoadResult = HomeQueryResult<SummaryGetResponse>;
 
 /** 띄울 요약과 그 계정 */
 export interface PendingSummary {
@@ -100,8 +103,8 @@ export function createSummaryGate(deps: SummaryGateDeps): SummaryGate {
 const gate = createSummaryGate({
   async load(preview) {
     try {
-      const client = await import("./summaryClient.ts");
-      return await client.loadSummary(preview);
+      const queries = await import("../net/homeQueries.ts");
+      return await queries.loadSummary(preview);
     } catch {
       // 조각을 받지 못함(오프라인 등): 이번에는 띄우지 않는다
       return { ok: false, error: "err_network", sessionEnded: false };

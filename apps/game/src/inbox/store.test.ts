@@ -1,7 +1,7 @@
 // 처리할 일 저장소 시험 — 겹친 요청 하나로, 다시 받는 때(다시 연결·60초·바로 처리 뒤), 계정·시안 자료가 바뀔 때(ADR 2026-10-29-app-shell 6·7절)
 import type { InboxListResponse } from "@terra/shared/inbox";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type InboxLoadResult, bellCount, createInboxStore } from "./store.ts";
+import { INBOX_RECONNECT_FRESH_MS, type InboxLoadResult, bellCount, createInboxStore } from "./store.ts";
 
 const EMPTY: InboxListResponse = {
   generatedAt: 1,
@@ -124,6 +124,7 @@ describe("처리할 일 저장소", () => {
     await vi.runAllTimersAsync();
     t.store.connectionReady();
     expect(t.calls).toHaveLength(1);
+    t.advance(INBOX_RECONNECT_FRESH_MS + 1);
     t.store.connectionDown();
     t.store.connectionDown();
     t.store.connectionReady();
@@ -132,6 +133,47 @@ describe("처리할 일 저장소", () => {
     await vi.runAllTimersAsync();
     t.store.connectionReady();
     expect(t.calls).toHaveLength(2);
+  });
+
+  it("로그인 직후처럼 5초 안에 시작한 받기가 있으면(받는 중·막 받음) 다시 맺은 연결로 또 받지 않는다", async () => {
+    const t = setup();
+    // 받는 중에 끊김 → 준비(계정이 바뀌어 연결을 다시 맺음): 받는 중인 요청 하나뿐
+    t.store.sync();
+    t.advance(200);
+    t.store.connectionDown();
+    t.store.connectionReady();
+    expect(t.calls).toHaveLength(1);
+    t.calls[0]?.resolve({ ok: true, data: list(5) });
+    await vi.runAllTimersAsync();
+    expect(t.calls).toHaveLength(1);
+    // 막 받은 뒤(그 요청을 시작한 지 5초 안)의 다시 연결도 받지 않는다
+    t.advance(INBOX_RECONNECT_FRESH_MS - 200);
+    t.store.connectionDown();
+    t.store.connectionReady();
+    expect(t.calls).toHaveLength(1);
+    // 5초가 지난 뒤의 끊김은 진짜 끊김으로 본다
+    t.advance(1);
+    t.store.connectionDown();
+    t.store.connectionReady();
+    expect(t.calls).toHaveLength(2);
+  });
+
+  it("다시 연결됐을 때 마지막 받기가 실패였거나 오래 멈춘 요청이면 다시 받는다", async () => {
+    const t = setup();
+    void t.store.ensure();
+    t.calls[0]?.resolve({ ok: false, error: "err_network", sessionEnded: false });
+    await vi.advanceTimersByTimeAsync(0);
+    t.store.connectionDown();
+    t.store.connectionReady();
+    expect(t.calls).toHaveLength(2);
+    // 6초째 받는 중인 요청: 끝난 뒤 한 번 더 받는다
+    t.advance(6_000);
+    t.store.connectionDown();
+    t.store.connectionReady();
+    expect(t.calls).toHaveLength(2);
+    t.calls[1]?.resolve({ ok: true, data: list(5) });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(t.calls).toHaveLength(3);
   });
 
   it("계정이 바뀌면 비우고 새 계정 것을 받는다. 늦게 온 옛 계정 응답은 버린다", async () => {

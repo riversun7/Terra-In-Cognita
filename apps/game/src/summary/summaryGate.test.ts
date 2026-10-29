@@ -1,8 +1,7 @@
 // 복귀 요약을 물을 때 시험 — 로그인한 계정이 정해질 때 한 번, 30분 넘게 숨겼다가 다시 볼 때, 닫으면 지운다(ADR 2026-10-29-app-shell 8절, D-6014·D-266)
 import type { SummaryGetResponse } from "@terra/shared/inbox";
 import { describe, expect, it } from "vitest";
-import type { SummaryLoadResult } from "./summaryClient.ts";
-import { createSummaryGate } from "./summaryGate.ts";
+import { type SummaryLoadResult, createSummaryGate } from "./summaryGate.ts";
 
 const SHOW: SummaryGetResponse = {
   show: true,

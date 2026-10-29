@@ -2,6 +2,7 @@
 // 처리함 화면(InboxScreen.tsx)과 홈(처리할 일 카드·템플릿)이 함께 쓴다. ADR 2026-10-29-app-shell 7절, D-6006·D-6009·D-6011·D-6015
 // - 줄 = 제목(누르면 그 화면, 링크가 카드 전체를 덮는다) + 곳·마감·"시험 자료" + 바로 처리 버튼(0~2개).
 // - 분류는 아이콘 + 이름 + 줄 수로 보인다. 색은 상태색만 쓴다(위협 danger, 돈·생존 warning, 완료 success, 멈춤·제안은 글자색).
+//   분류 묶음은 표지(region)가 아니라 제목(h2·h3)이 나눈다(표지 목록이 분류 수만큼 늘지 않게).
 // - 모르는 분류(더 새 서버)의 줄은 끝의 "그 밖의 알림" 묶음에 그린다. 처리함에는 늘 모든 항목이 나오고(D-6011), 종 배지도 센다.
 //   모르는 종류는 "새 알림"으로 그린다(inboxText.ts).
 // - 바로 처리 결과는 누른 버튼 바로 아래 그 줄의 알림 영역이 보이고 읽는다(긴 목록의 끝에서 눌러도 화면 안에 보인다).
@@ -9,7 +10,7 @@
 //   화면 틀(W1)의 라우터 navigate를 그대로 받는다. W1이 합쳐진 뒤 AppLink로 바꿔도 된다(그때 onNavigate 칸을 지운다).
 import type { RouteTarget } from "@terra/shared";
 import type { InboxCategory, InboxItem } from "@terra/shared/inbox";
-import { type MouseEvent, useId } from "react";
+import type { MouseEvent } from "react";
 import { m } from "../paraglide/messages.js";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { CategoryIcon, ChevronIcon, type InboxGroupKind } from "./icons.tsx";
@@ -18,12 +19,16 @@ import {
   CATEGORY_ORDER,
   OTHER_GROUP_NAME,
   describeItem,
+  isInboxItemTarget,
   isKnownCategory,
 } from "./inboxText.ts";
 import { type QuickActionId, quickActionLabel, quickActionsFor } from "./quickActions.ts";
 
 /** 앱 안 이동 — 화면 틀(W1) 라우터의 navigate(target, { focusId })와 같은 모양. focusId: 옮긴 뒤 초점을 둘 요소 id */
 export type InboxNavigate = (target: RouteTarget, options?: { readonly focusId?: string }) => void;
+
+/** ?item=으로 강조한 줄 제목의 id. 처리함의 그 줄로 옮길 때 초점을 이리로 둔다(줄이 아직 없으면 화면 틀이 화면 제목에 둔다) */
+export const INBOX_HIGHLIGHT_ID = "inbox-highlight";
 
 export interface InboxListProps {
   /** 서버가 정렬한 줄들 */
@@ -70,7 +75,7 @@ function groupByCategory(items: readonly InboxItem[]): Group[] {
   return groups;
 }
 
-/** 보통 왼쪽 누름만 앱 안 이동으로 바꾼다 */
+/** 보통 왼쪽 누름만 앱 안 이동으로 바꾼다. 처리함의 한 줄로 가면 그 줄 제목에 초점을 둔다 */
 function followInApp(
   event: MouseEvent<HTMLAnchorElement>,
   target: RouteTarget,
@@ -79,7 +84,8 @@ function followInApp(
   if (event.defaultPrevented || event.button !== 0) return;
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   event.preventDefault();
-  onNavigate(target);
+  if (isInboxItemTarget(target)) onNavigate(target, { focusId: INBOX_HIGHLIGHT_ID });
+  else onNavigate(target);
 }
 
 /** 강조한 줄이 처음 그려지면 화면 가운데로 */
@@ -129,23 +135,35 @@ function InboxRow({ item, now, highlighted, onInboxScreen, onNavigate }: RowProp
   const view = describeItem(item, { now, onInboxScreen });
   const actions = quickActionsFor(item);
   const { target, href } = view;
+  // 강조한 줄: 보이는 테두리와 함께 읽기 프로그램에도 알린다(aria-current + 제목 앞 숨은 글)
+  const titleId = highlighted ? INBOX_HIGHLIGHT_ID : undefined;
+  const title = (
+    <>
+      {highlighted ? <span className="visually-hidden">{m.inbox_item_opened()} </span> : null}
+      {view.title}
+    </>
+  );
   return (
     <li
       className="inbox-item"
       data-highlight={highlighted ? "true" : undefined}
+      aria-current={highlighted ? "true" : undefined}
       ref={highlighted ? scrollIntoViewOnce : undefined}
     >
       <div className="inbox-item-head">
         <div className="inbox-item-main">
           {target === null || href === null ? (
-            <p className="inbox-item-title">{view.title}</p>
+            <p className="inbox-item-title" id={titleId}>
+              {title}
+            </p>
           ) : (
             <a
               className="inbox-item-title inbox-item-link"
+              id={titleId}
               href={href}
               onClick={onNavigate ? (event) => followInApp(event, target, onNavigate) : undefined}
             >
-              {view.title}
+              {title}
             </a>
           )}
           {view.place !== null || view.due !== null || view.preview ? (
@@ -167,7 +185,7 @@ function InboxRow({ item, now, highlighted, onInboxScreen, onNavigate }: RowProp
   );
 }
 
-function GroupSection({
+function GroupBlock({
   group,
   headingLevel,
   rowProps,
@@ -176,13 +194,12 @@ function GroupSection({
   headingLevel: 2 | 3;
   rowProps: Omit<RowProps, "item" | "highlighted"> & { highlightId: string | null };
 }) {
-  const headingId = useId();
   const Heading = headingLevel === 2 ? "h2" : "h3";
   const { highlightId, ...shared } = rowProps;
   const name = group.kind === "other" ? OTHER_GROUP_NAME() : CATEGORY_NAMES[group.kind]();
   return (
-    <section className="inbox-group" data-category={group.kind} aria-labelledby={headingId}>
-      <Heading className="inbox-group-title" id={headingId}>
+    <div className="inbox-group" data-category={group.kind}>
+      <Heading className="inbox-group-title">
         <span className="inbox-group-mark">
           <CategoryIcon category={group.kind} />
         </span>
@@ -194,7 +211,7 @@ function GroupSection({
           <InboxRow key={item.id} item={item} highlighted={item.id === highlightId} {...shared} />
         ))}
       </ul>
-    </section>
+    </div>
   );
 }
 
@@ -209,7 +226,7 @@ export function InboxList({
   return (
     <div className="inbox-list">
       {groupByCategory(items).map((group) => (
-        <GroupSection
+        <GroupBlock
           key={group.kind}
           group={group}
           headingLevel={headingLevel}

@@ -1,7 +1,14 @@
 // 처리할 일 문구·링크 시험 — 종류마다 제목, 모르는 종류(더 새 서버)는 "새 알림" + 처리함으로, 마감·개수 표시(ADR 2026-10-29-app-shell 7·12절)
 import { INBOX_CATEGORIES, type InboxItem } from "@terra/shared/inbox";
 import { describe, expect, it } from "vitest";
-import { CATEGORY_ORDER, describeItem, formatDue, inboxItemTitle, itemTarget } from "./inboxText.ts";
+import {
+  CATEGORY_ORDER,
+  describeItem,
+  formatDue,
+  inboxItemTitle,
+  isInboxItemTarget,
+  itemTarget,
+} from "./inboxText.ts";
 
 const NOW = 1_761_700_000_000;
 const MIN = 60_000;
@@ -65,6 +72,13 @@ describe("처리할 일 링크", () => {
       expect(itemTarget(odd, false)).toEqual({ route: "inbox", search: { item: "unit_idle:city_1" } });
       expect(itemTarget(odd, true)).toBeNull();
     }
+  });
+
+  it("처리함의 한 줄을 가리키는지(그리로 옮기면 그 줄에 초점)", () => {
+    expect(isInboxItemTarget({ route: "inbox", search: { item: "unit_idle:city_1" } })).toBe(true);
+    expect(isInboxItemTarget({ route: "inbox" })).toBe(false);
+    expect(isInboxItemTarget({ route: "inbox", search: { item: undefined } })).toBe(false);
+    expect(isInboxItemTarget({ route: "units" })).toBe(false);
   });
 });
 

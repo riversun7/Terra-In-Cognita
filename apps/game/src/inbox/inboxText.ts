@@ -93,6 +93,11 @@ export function inboxItemTarget(item: InboxItem): RouteTarget {
   return { route: "inbox", search: { item: item.id } };
 }
 
+/** 처리함의 한 줄을 가리키는 화면인지(그리로 옮기면 초점을 그 줄에 둔다) */
+export function isInboxItemTarget(target: RouteTarget): boolean {
+  return target.route === "inbox" && target.search?.item !== undefined;
+}
+
 /**
  * 줄을 누르면 갈 화면. 아는 종류이고 이동 화면이 이 기기가 아는 화면이면 그 화면, 아니면 처리함(?item=).
  * 처리함 화면 안(onInboxScreen)에서는 처리함으로 가는 링크를 두지 않는다(null): 그 줄이 이미 여기 있다.

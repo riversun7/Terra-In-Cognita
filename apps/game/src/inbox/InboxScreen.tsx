@@ -3,7 +3,8 @@
 // - 자료는 처리할 일 저장소(store.ts) 하나다. 위 띠 종 배지와 같다. 화면을 열면 없거나 60초가 지났을 때만 받는다.
 // - 플레이어는 늘 빈 처리함이다(지금 제공 함수 0개). dev·admin이 시안 자료를 켜면 항목마다 "시험 자료"가 붙는다.
 // - 바로 처리 결과는 목록(InboxList.tsx)이 누른 줄 안에 보인다(시안 자료는 명령을 보내지 않는다).
-// - 제목(h1)은 tabIndex=-1이다. 앱 안 이동 때 초점은 화면 틀(라우터)이 옮긴다. 이 화면은 스스로 옮기지 않는다.
+// - 제목(h1)은 tabIndex=-1이다. 앱 안 이동 때 초점은 화면 틀(라우터)이 옮긴다(?item=으로 오면 그 줄 제목, INBOX_HIGHLIGHT_ID).
+//   이 화면은 스스로 옮기지 않는다.
 import { type ReactNode, useEffect } from "react";
 import { m } from "../paraglide/messages.js";
 import { LiveMessage } from "../ui/LiveMessage.tsx";

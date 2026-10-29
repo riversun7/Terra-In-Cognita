@@ -1,5 +1,5 @@
 // 처리할 일 목록 그리기 시험 — 모르는 종류·분류·동작·주소가 와도 깨지지 않고 모든 줄이 보인다(ADR 2026-10-29-app-shell 7·13절,
-// W3 통과 기준 5, D-6011), 바로 처리 결과 자리는 그 줄 안에 있다
+// W3 통과 기준 5, D-6011), 강조한 줄을 읽기 프로그램에도 알린다, 바로 처리 결과 자리는 그 줄 안에 있다
 // react-dom/server로 HTML을 만들어 본다(브라우저 없이). 화면 확인은 저장소 밖 Playwright 스크립트(작업 기록).
 import type { InboxItem } from "@terra/shared/inbox";
 import { createElement } from "react";
@@ -67,6 +67,10 @@ describe("처리할 일 목록 그리기", () => {
     expect(html.match(/<button/g)).toHaveLength(2);
     // 바로 처리 결과 알림 영역: 버튼이 있는 줄마다 그 줄 안에 늘 그려 둔다(비어 있음)
     expect(html.match(/<div role="status" class="inbox-item-feedback"><\/div>/g)).toHaveLength(2);
+    // 분류 묶음은 표지(region)가 아니다: 제목이 나눈다
+    expect(html).not.toContain("<section");
+    expect(html).not.toContain("aria-labelledby");
+    expect(html.match(/<h2 class="inbox-group-title">/g)).toHaveLength(2);
   });
 
   it("모르는 종류는 '새 알림'이고 값·버튼을 보이지 않는다. 모르는 동작은 그리지 않고, 모르는 분류의 줄은 끝의 '그 밖의 알림'에", () => {
@@ -116,16 +120,26 @@ describe("처리할 일 목록 그리기", () => {
     expect(html).toContain('href="/inbox?item=contract_match%3Ac1"');
   });
 
-  it("?item=의 항목을 강조한다, 실제 항목에는 바로 처리 버튼이 없다(명령을 보낼 길이 아직 없다)", () => {
+  it("?item=의 항목을 강조한다(테두리 + aria-current + 제목 앞 숨은 글, 초점 자리 id), 실제 항목에는 바로 처리 버튼이 없다", () => {
     const html = render(
       [
         item({ id: "unit_idle:city_1", actions: ["auto_assign"] }),
-        item({ id: "unit_idle:city_2", actions: ["auto_assign"] }),
+        item({ id: "unit_idle:city_2", actions: ["auto_assign"], target: { route: "units" } }),
       ],
       { highlightId: "unit_idle:city_2" },
     );
     expect(html.match(/data-highlight="true"/g)).toHaveLength(1);
+    expect(html.match(/aria-current="true"/g)).toHaveLength(1);
+    expect(html).toContain(
+      '<a class="inbox-item-title inbox-item-link" id="inbox-highlight" href="/units"><span class="visually-hidden">찾는 항목: </span>명령 없는 유닛 1</a>',
+    );
+    expect(html.match(/id="inbox-highlight"/g)).toHaveLength(1);
     expect(html).not.toContain("<button");
+    // 링크 없는 줄(갈 화면 없음)을 강조해도 제목에 초점 자리를 둔다
+    const plain = render([item({ id: "unit_idle:city_1" })], { highlightId: "unit_idle:city_1" });
+    expect(plain).toContain(
+      '<p class="inbox-item-title" id="inbox-highlight"><span class="visually-hidden">찾는 항목: </span>',
+    );
   });
 
   it("모르는 분류가 여럿이어도 '그 밖의 알림' 하나에 받은 차례로, 알려진 분류 뒤에", () => {

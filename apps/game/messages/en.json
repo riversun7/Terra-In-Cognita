@@ -32,6 +32,7 @@
   "inbox_empty": "Nothing to do right now.",
   "inbox_empty_hint": "New to-dos will show up here, most urgent first.",
   "inbox_item_missing": "That item isn't on the list. It may already be done.",
+  "inbox_item_opened": "Item you opened:",
   "inbox_preview_tag": "Sample data",
   "inbox_preview_notice": "You're viewing sample data. Quick actions won't send commands.",
   "inbox_action_preview_done": "Sample data: no command was sent.",

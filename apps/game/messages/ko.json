@@ -32,6 +32,7 @@
   "inbox_empty": "지금 처리할 일이 없습니다.",
   "inbox_empty_hint": "처리할 일이 생기면 여기에 급한 순서로 보입니다.",
   "inbox_item_missing": "찾는 항목이 목록에 없습니다. 이미 처리했거나 끝난 일일 수 있습니다.",
+  "inbox_item_opened": "찾는 항목:",
   "inbox_preview_tag": "시험 자료",
   "inbox_preview_notice": "시험 자료를 보고 있습니다. 바로 처리 버튼은 명령을 보내지 않습니다.",
   "inbox_action_preview_done": "시험 자료라서 명령을 보내지 않았습니다.",

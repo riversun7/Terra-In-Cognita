@@ -26,6 +26,9 @@ updates:
       # Node 24를 쓰므로 타입도 24에 맞춘다
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # 화면 시험 꾸러미는 개발 환경에 미리 설치한 브라우저(1.63.0 = chromium-1243)와 함께 손으로 올린다.
+      # 판만 바뀌면 브라우저를 찾지 못해 pnpm e2e가 멈춘다(ADR 2026-10-29-app-shell 13절)
+      - dependency-name: "@playwright/test"
     commit-message:
       prefix: build
       include: scope

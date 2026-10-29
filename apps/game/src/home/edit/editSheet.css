@@ -1,0 +1,414 @@
+/*
+ * 홈 편집 시트 — 편집 조각과 함께 따로 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 좁은 폭(37.5em 미만): 화면 아래에 붙는 시트. 넓으면 가운데 뜬다(최대 --sheet-max). 몸만 넘어간다(머리는 그대로).
+ * 바탕은 겹침 색(--color-overlay). 주의: ::backdrop이 사용자 정의 속성을 물려받는 것은 Chrome 122·Safari 17.4·
+ * Firefox 120부터라 그 전 판(지원 하한 iOS 16.4·Chrome 111)에서는 바탕이 어두워지지 않는다(시트는 그대로 쓴다, Assumed: 확인하지 않음).
+ */
+.home-sheet {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  max-height: calc(100dvh - var(--space-8));
+  margin: auto 0 0;
+  padding: 0;
+  overflow: hidden;
+  border: var(--border-w) solid var(--color-border);
+  border-bottom: 0;
+  border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+  color: var(--color-text);
+}
+.home-sheet[open] {
+  display: flex;
+  flex-direction: column;
+  animation: home-sheet-in var(--duration-slow) var(--easing-out);
+}
+.home-sheet::backdrop {
+  background-color: var(--color-overlay);
+}
+@keyframes home-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-8));
+  }
+}
+@media (min-width: 37.5em) {
+  .home-sheet {
+    width: min(100% - var(--space-8), var(--sheet-max));
+    max-height: calc(100dvh - var(--space-12));
+    margin: auto;
+    border-bottom: var(--border-w) solid var(--color-border);
+    border-radius: var(--radius-panel);
+  }
+}
+
+.home-sheet-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5);
+  border-bottom: var(--hairline) solid var(--color-border);
+}
+.home-sheet-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-wrap: balance;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-display);
+  text-shadow: var(--shadow-heading);
+}
+.home-sheet-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 0;
+  padding: var(--space-4) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--color-field-border) transparent;
+}
+/* 넘어가는 몸의 칸은 줄어들지 않는다(줄면 글이 칸 밖으로 넘친다) */
+.home-sheet-body > * {
+  flex-shrink: 0;
+}
+@media (min-width: 37.5em) {
+  .home-sheet-body {
+    padding-inline: var(--space-5);
+  }
+}
+
+.sheet-hint {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.sheet-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.sheet-section > legend {
+  padding: 0;
+  margin-bottom: var(--space-3);
+}
+.sheet-section-title {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+
+/* 아이콘만 있는 작은 단추(누르는 곳 44px) */
+.sheet-icon-button {
+  flex: none;
+  min-width: var(--tap-size);
+  min-height: var(--control-h-sm);
+  padding: 0;
+}
+.sheet-icon-button .home-icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+/* 카드 이름(아이콘 + 이름) */
+.sheet-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+
+/* 위 고정 카드 — 옮기기·빼기 없음 */
+.sheet-pinned-list,
+.sheet-list,
+.sheet-add-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sheet-pinned {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-size);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) dashed var(--color-border);
+  border-radius: var(--radius-control);
+}
+.sheet-pinned .sheet-name {
+  flex: 1 1 auto;
+}
+.sheet-tag {
+  flex: none;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+
+/* 카드 줄: 손잡이 | 이름 | 빼기 / 손잡이 | 크기 · 옮기기 */
+.sheet-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--tap-size) minmax(0, 1fr) auto;
+  grid-template-areas:
+    "handle name remove"
+    "handle controls controls";
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-1);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+}
+.sheet-row .sheet-name {
+  grid-area: name;
+}
+.sheet-remove {
+  grid-area: remove;
+}
+.sheet-handle {
+  grid-area: handle;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  min-height: var(--tap-size);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.sheet-controls {
+  grid-area: controls;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.sheet-move {
+  display: flex;
+  gap: var(--space-1);
+}
+/* 끄는 줄은 떠 보이고, 다른 줄은 비켜 준다(transform은 useReorder.ts가 건다) */
+.sheet-row[data-dragging="true"] {
+  z-index: 1;
+  box-shadow: var(--shadow-panel);
+}
+.sheet-row[data-dragging="true"] .sheet-handle {
+  cursor: grabbing;
+}
+.sheet-list[data-dragging="true"] .sheet-row:not([data-dragging="true"]) {
+  transition: transform var(--duration-fast) var(--easing-out);
+}
+
+/* 크기 고르기 — 라디오 단추(보이지 않게) + 옆의 칸. 형제 선택자(+)로 고른 표시·초점을 그린다 */
+.sheet-sizes {
+  display: flex;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.sheet-size {
+  position: relative;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.sheet-size-face,
+.sheet-size-fixed {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  padding: 0 var(--space-2);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+.sheet-size-fixed {
+  border-style: dashed;
+  color: var(--color-text-muted);
+}
+.sheet-size-input:checked + .sheet-size-face {
+  border-color: var(--color-focus);
+  box-shadow: inset 0 0 0 var(--border-w) var(--color-focus);
+  background-color: var(--color-surface-2);
+}
+.sheet-size-input:focus-visible + .sheet-size-face {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
+/* 템플릿 고르기(dev·admin) — 2열 */
+.sheet-templates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.sheet-choice {
+  position: relative;
+  display: block;
+  min-width: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.sheet-choice-face {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--tap-size);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.sheet-radio-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  border: var(--border-w) solid var(--color-field-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-field-bg);
+}
+.sheet-choice-input:checked + .sheet-choice-face {
+  border-color: var(--color-focus);
+  box-shadow: inset 0 0 0 var(--border-w) var(--color-focus);
+}
+.sheet-choice-input:checked + .sheet-choice-face .sheet-radio-mark {
+  border-color: var(--color-focus);
+}
+.sheet-choice-input:checked + .sheet-choice-face .sheet-radio-mark::after {
+  content: "";
+  width: calc(var(--icon-sm) / 2);
+  height: calc(var(--icon-sm) / 2);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-focus);
+}
+.sheet-choice-input:focus-visible + .sheet-choice-face {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
+/* 시안 자료 스위치(dev·admin) — 줄 전체가 이름표 */
+.sheet-switch-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap-size);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.sheet-switch-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.sheet-switch-name {
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.sheet-switch-track {
+  --switch-inset: calc((var(--switch-h) - 2 * var(--field-border-w) - var(--switch-thumb)) / 2);
+  position: relative;
+  flex: none;
+  width: var(--switch-w);
+  height: var(--switch-h);
+  border: var(--field-border-w) solid var(--color-field-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+}
+.sheet-switch-track::after {
+  content: "";
+  position: absolute;
+  top: var(--switch-inset);
+  left: var(--switch-inset);
+  width: var(--switch-thumb);
+  height: var(--switch-thumb);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-field-border);
+  transition: transform var(--duration-base) var(--easing-out);
+}
+.sheet-switch-input:checked + .sheet-switch-track {
+  background-color: var(--color-primary);
+}
+.sheet-switch-input:checked + .sheet-switch-track::after {
+  transform: translateX(
+    calc(var(--switch-w) - 2 * var(--field-border-w) - var(--switch-thumb) - 2 * var(--switch-inset))
+  );
+  background-color: var(--color-on-primary);
+}
+.sheet-switch-input:focus-visible + .sheet-switch-track {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
+/* 카드 더하기 */
+.sheet-add {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--tap-size);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border: var(--border-w) dashed var(--color-border);
+  border-radius: var(--radius-control);
+}
+.sheet-add .home-icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.sheet-actions {
+  padding-top: var(--space-2);
+}
+
+/* 윈도 고대비(강제 색) — 고른 표시·스위치는 시스템 색으로 */
+@media (forced-colors: active) {
+  .sheet-choice-input:checked + .sheet-choice-face .sheet-radio-mark::after,
+  .sheet-switch-track::after {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+  .sheet-switch-input:checked + .sheet-switch-track {
+    forced-color-adjust: none;
+    background-color: Highlight;
+  }
+  .sheet-size-input:checked + .sheet-size-face {
+    outline: var(--border-w) solid Highlight;
+  }
+}

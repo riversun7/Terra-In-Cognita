@@ -45,12 +45,13 @@ export const TAB_MAP_CELL_EM = 4.75;
 
 /**
  * 좁은 단계의 하단 탭 칸 수 계단(D-265 "좁은 휴대폰은 4칸, 넓으면 더") — 배치마다 다르다. 첫 계단은 늘 4칸이다.
- * 계단의 시작 폭은 가장 좁은 칸이 TAB_CELL_MIN_EM이 되는 폭이다(띠 안쪽 여백 0.5em은 셈에 넣지 않는다. 시작 폭에서
- * 실제 칸은 약 70.7px).
+ * 계단의 시작 폭은 폭 전체를 칸으로 나눴을 때 가장 좁은 칸이 TAB_CELL_MIN_EM이 되는 폭이다. 띠 안쪽 여백(양옆 합 0.5em)은
+ * 셈에 넣지 않아서, 시작 폭의 실제 가장 좁은 칸은 약 4.42em(70.7px)이다(영어 "Economy"는 들어간다 — W1 화면 측정).
  * - A: 칸과 끝칸 ☰가 모두 같은 너비 → (칸 수 + 1) × 4.5em. 5칸 27em(432px), 6칸 31.5em(504px).
- * - C: 지도 버튼을 늘 가운데 두므로 양쪽 너비가 같다. 칸이 홀수면 많은 쪽(왼쪽) 칸이 좁아지므로 그쪽 칸도 4.5em이
- *   되는 폭부터 는다 → 2 × ⌈칸 수 ÷ 2⌉ × 4.5em + 지도 칸 4.75em. 5칸 31.75em(508px). 지도를 뺀 항목이 5개라 5칸이 최대다.
- *   (27em부터 5칸으로 두면 432~507px에서 왼쪽 칸이 58~70px가 되어 영어 "Economy"가 잘렸다 — 2026-10-29 화면에서 잼.)
+ * - C: 지도 버튼을 늘 가운데 두므로 양쪽 너비가 같다. 칸이 홀수면 많은 쪽(오른쪽, splitCenterTabs) 칸이 좁아지므로 그쪽
+ *   칸도 4.5em이 되는 폭부터 는다 → 2 × ⌈칸 수 ÷ 2⌉ × 4.5em + 지도 칸 4.75em. 5칸 31.75em(508px). 지도를 뺀 항목이
+ *   5개라 5칸이 최대다. (27em부터 5칸으로 두면 432~507px에서 많은 쪽 칸이 58~70px가 되어 영어 "Economy"가 잘렸다
+ *   — 2026-10-29 화면에서 잼.)
  * 그래서 휴대폰 세로(360~440px)는 C 4칸, A 4~5칸이다.
  */
 export const TAB_SLOT_STEPS: { readonly [L in NavLayout]: readonly TabSlotStep[] } = {
@@ -64,6 +65,15 @@ export const TAB_SLOT_STEPS: { readonly [L in NavLayout]: readonly TabSlotStep[]
     { minEm: 31.75, slots: 5 },
   ],
 };
+
+/**
+ * 배치 C의 칸 나누기: 가운데 지도 버튼의 왼쪽·오른쪽. 칸이 홀수면 남는 칸을 오른쪽에 둔다 — 폭이 넓어져 칸이 늘어도
+ * 앞 칸들의 자리가 그대로다(4칸 홈·유닛 | 지도 | 경제·세력 → 5칸 홈·유닛 | 지도 | 경제·세력·사이보그). 기술 해석이다
+ */
+export function splitCenterTabs<T>(items: readonly T[]): { readonly left: T[]; readonly right: T[] } {
+  const half = Math.floor(items.length / 2);
+  return { left: items.slice(0, half), right: items.slice(half) };
+}
 
 /** 좁은 단계 폭(em)의 하단 탭 칸 수. 중간·넓음 단계에는 하단 탭이 없어 0 */
 export function tabSlotsForWidth(widthEm: number, layout: NavLayout): number {

@@ -21,6 +21,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { Icon } from "../ui/icons.tsx";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
+import { splitCenterTabs } from "./layout.ts";
 import { MENU_ITEMS } from "./menuItems.ts";
 import { changeNavigation, useNavigation } from "./shellPrefs.ts";
 import { NAV_SETTINGS_ID } from "./SideMenu.tsx";
@@ -251,8 +252,8 @@ function previewCell(id: NavItemId) {
 function TabPreview({ items, layout, slots }: { items: NavItemId[]; layout: NavLayout; slots: number }) {
   if (slots === 0) return <p className="field-hint nav-preview-none">{m.settings_menu_preview_none()}</p>;
   const names = items.map((id) => MENU_ITEMS[id].name());
-  const left = layout === "c" ? items.slice(0, Math.ceil(items.length / 2)) : items;
-  const right = layout === "c" ? items.slice(left.length) : [];
+  // 하단 탭(TabBar.tsx)과 같은 나누기: C는 지도 양쪽(홀수면 오른쪽이 하나 더), A는 칸 + 끝칸 ☰
+  const { left, right } = layout === "c" ? splitCenterTabs(items) : { left: items, right: [] };
   return (
     <figure className="nav-preview">
       <figcaption className="field-label">{m.settings_menu_preview_label()}</figcaption>

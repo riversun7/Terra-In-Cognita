@@ -13,6 +13,7 @@ import {
   WIDE_MIN_EM,
   WIDE_QUERY,
   layoutStage,
+  splitCenterTabs,
   tabSlotsForWidth,
 } from "./layout.ts";
 import shellCss from "./shell.css?raw";
@@ -87,7 +88,7 @@ describe("하단 탭 칸 수(D-265: 좁은 휴대폰은 4칸, 넓으면 더)", (
     expect(tabSlotsForWidth(px(440), "a")).toBe(5);
     expect(tabSlotsForWidth(px(504), "a")).toBe(6);
     expect(tabSlotsForWidth(px(599), "a")).toBe(6);
-    // C: 지도를 가운데 둔 채 5칸(왼쪽 3칸)이 들어가는 508px부터
+    // C: 지도를 가운데 둔 채 5칸(오른쪽 3칸)이 들어가는 508px부터
     expect(tabSlotsForWidth(px(440), "c")).toBe(4);
     expect(tabSlotsForWidth(px(507), "c")).toBe(4);
     expect(tabSlotsForWidth(px(508), "c")).toBe(5);
@@ -128,6 +129,18 @@ describe("하단 탭 칸 수(D-265: 좁은 휴대폰은 4칸, 넓으면 더)", (
       /\.tab-map \{\s*min-width: calc\(var\(--tabbar-map-size\) \+ var\(--space-4\)\);/,
     );
     expect((tokenPx("--tabbar-map-size") + tokenPx("--space-4")) / 16).toBe(TAB_MAP_CELL_EM);
+  });
+
+  it("배치 C의 칸 나누기: 홀수면 남는 칸을 오른쪽에 둔다(칸이 늘어도 앞 칸 자리가 그대로)", () => {
+    expect(splitCenterTabs(["home", "units", "economy", "faction"])).toEqual({
+      left: ["home", "units"],
+      right: ["economy", "faction"],
+    });
+    expect(splitCenterTabs(["home", "units", "economy", "faction", "cyborg"])).toEqual({
+      left: ["home", "units"],
+      right: ["economy", "faction", "cyborg"],
+    });
+    expect(splitCenterTabs([])).toEqual({ left: [], right: [] });
   });
 
   it("JS가 듣는 칸 수 미디어 쿼리는 계단과 같은 em 값이다", () => {

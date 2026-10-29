@@ -1,5 +1,6 @@
 // 하단 탭(좁은 폭만, D-6007·D-6010·D-265) — 메뉴 순서의 앞에서부터 화면 폭에 맞는 칸 수만큼(useLayout().tabSlots[배치]).
-// - 배치 C: 칸을 가운데 큰 지도 버튼의 양쪽에 나눈다(왼쪽이 하나 더 많다). 지도는 메뉴 순서와 상관없이 가운데다.
+// - 배치 C: 칸을 가운데 큰 지도 버튼의 양쪽에 나눈다(홀수면 오른쪽이 하나 더 많다 — 칸이 늘어도 앞 칸 자리가 그대로,
+//   layout.ts splitCenterTabs). 지도는 메뉴 순서와 상관없이 가운데다.
 // - 배치 A: 칸 + 끝칸 ☰(서랍 열기).
 // 이름은 늘 보인다(아이콘만 두지 않는다). 지금 화면은 aria-current="page"(같은 탭을 다시 누르면 맨 위로 — 라우터).
 // DOM 순서 = 보이는 순서 = 초점 순서다. 중간·넓음 폭에서는 CSS가 숨긴다(사이드 메뉴만 쓴다).
@@ -8,6 +9,7 @@ import { m } from "../paraglide/messages.js";
 import { Icon } from "../ui/icons.tsx";
 import { AppLink } from "./AppLink.tsx";
 import { CountBadge } from "./CountBadge.tsx";
+import { splitCenterTabs } from "./layout.ts";
 import { MENU_ITEMS } from "./menuItems.ts";
 import "./tabbar.css";
 
@@ -48,8 +50,7 @@ export function TabBar({ nav, slots, current, badges, onMenu }: TabBarProps) {
   const items = visibleTabs(nav, slots);
   const link = (id: NavItemId) => <TabLink key={id} id={id} current={current} badge={badges[id] ?? 0} />;
   if (nav.layout === "c") {
-    const left = items.slice(0, Math.ceil(items.length / 2));
-    const right = items.slice(left.length);
+    const { left, right } = splitCenterTabs(items);
     const mapHere = current === "map" || current === "map_planet";
     return (
       <nav className="tabbar" data-layout="c" aria-label={m.shell_tabbar_label()}>

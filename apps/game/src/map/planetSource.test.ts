@@ -83,13 +83,13 @@ describe("목록 정보 받기", () => {
     ];
     const fetchImpl = vi.fn(async () => replies.shift() ?? json(manifest));
     const { waits, sleep } = instantSleep();
-    const onGenerating = vi.fn();
+    const onWaiting = vi.fn();
     const signal = new AbortController().signal;
     const loaded = await loadPlanetManifest("s2_test_planet", {
       signal,
       fetch: fetchImpl,
       sleep,
-      onGenerating,
+      onWaiting,
     });
     expect(loaded).toEqual(manifest);
     expect(fetchImpl).toHaveBeenCalledTimes(3);
@@ -98,19 +98,32 @@ describe("목록 정보 받기", () => {
       signal,
     });
     expect(waits).toEqual([GENERATING_POLL_MS, 2000]);
-    expect(onGenerating).toHaveBeenNthCalledWith(1, GENERATING_POLL_MS);
+    expect(onWaiting.mock.calls).toEqual([
+      ["generating", GENERATING_POLL_MS],
+      ["generating", 2000],
+    ]);
   });
 
-  it("429는 Retry-After 뒤 다시, 401·404·5xx·네트워크는 이유 코드로 실패", async () => {
+  it("429는 Retry-After 뒤 다시(굽는 중이 아니라 요청 많음으로 알린다), 401·404·5xx·네트워크는 이유 코드로 실패", async () => {
     const { waits, sleep } = instantSleep();
-    const replies = [json({ error: "RATE_LIMITED" }, 429, { "retry-after": "3" }), json(manifest)];
+    const replies = [
+      json({ error: "RATE_LIMITED" }, 429, { "retry-after": "3" }),
+      json({ error: "RATE_LIMITED" }, 429),
+      json(manifest),
+    ];
     const signal = new AbortController().signal;
+    const onWaiting = vi.fn();
     await loadPlanetManifest("s2_test_planet", {
       signal,
       sleep,
       fetch: async () => replies.shift() ?? json(manifest),
+      onWaiting,
     });
-    expect(waits).toEqual([3000]);
+    expect(waits).toEqual([3000, 5000]);
+    expect(onWaiting.mock.calls).toEqual([
+      ["rate_limited", 3000],
+      ["rate_limited", 5000],
+    ]);
     expect(await failure(loadPlanetManifest("p_x", { signal, fetch: jsonStatus(401) }))).toBe("sign_in");
     expect(await failure(loadPlanetManifest("p_x", { signal, fetch: jsonStatus(404) }))).toBe("not_found");
     expect(await failure(loadPlanetManifest("p_x", { signal, fetch: jsonStatus(503) }))).toBe("server");

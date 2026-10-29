@@ -1,6 +1,7 @@
 // 1차맵 서버 원천 — 목록 정보(GET /api/planets/<ID>)로 행성 설명을 만들고, 타일(GET …/tiles/<타일 ID>?v=…)을 받는
 // 타일 원천(TileSource). ADR 2026-10-29-s2-planet-lod "서버 굽기·전송". 같은 출처 쿠키로 받는다(로그인 필요).
-// - 목록 정보가 굽는 중(status "generating")이면 몇 초 뒤 다시 묻는다(Retry-After가 있으면 그 시간, 없으면 5초).
+// - 목록 정보가 굽는 중(status "generating")이거나 429면 몇 초 뒤 다시 묻는다(Retry-After가 있으면 그 시간, 없으면 5초).
+//   화면이 알맞은 안내를 고르게 기다리는 이유를 함께 알린다(onWaiting).
 // - 타일은 받은 이진을 그대로 엔진에 넘긴다(EncodedTile): 엔진의 메시 워커가 packages/protocol 해석기로 푼다.
 //   타일 주소 = planetTilePath(목록 정보의 주소 틀, planetTileKey(맵 레벨, 면, i0, j0)). 버전이 붙은 불변 주소라
 //   다시 열면 브라우저 캐시에서 온다.
@@ -101,13 +102,20 @@ async function send(fetchImpl: FetchLike, url: string, signal: AbortSignal): Pro
   }
 }
 
+/** 목록 정보를 다시 묻기 전에 기다리는 이유 */
+export type ManifestWait =
+  /** 서버가 아직 굽는 중(status "generating") */
+  | "generating"
+  /** 요청이 너무 많음(429) */
+  | "rate_limited";
+
 export interface ManifestOptions {
   signal: AbortSignal;
   fetch?: FetchLike;
   sleep?: Sleep;
   now?: () => number;
-  /** 굽는 중이라 기다릴 때마다(다음에 묻기까지 ms) */
-  onGenerating?: (retryInMs: number) => void;
+  /** 다시 묻기 전에 기다릴 때마다(이유, 다음에 묻기까지 ms) */
+  onWaiting?: (reason: ManifestWait, retryInMs: number) => void;
 }
 
 /**
@@ -128,7 +136,7 @@ export async function loadPlanetManifest(
     const failure = failureOf(response.status);
     if (failure === "rate_limited") {
       const wait = retryAfterMs(response.headers.get("retry-after"), now()) ?? DEFAULT_RETRY_AFTER_MS;
-      options.onGenerating?.(wait);
+      options.onWaiting?.("rate_limited", wait);
       await sleep(wait, signal);
       continue;
     }
@@ -154,7 +162,7 @@ export async function loadPlanetManifest(
     }
     if (manifest.status === "ready") return manifest;
     const wait = retryAfterMs(response.headers.get("retry-after"), now()) ?? GENERATING_POLL_MS;
-    options.onGenerating?.(wait);
+    options.onWaiting?.("generating", wait);
     await sleep(wait, signal);
   }
 }

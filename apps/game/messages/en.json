@@ -224,6 +224,7 @@
   "planet_invalid": "Couldn't read the planet data. Reload the app and open it again.",
   "planet_busy_generating": "The server is generating the planet. Try again in a moment.",
   "planet_tiles_outdated": "The planet was updated. Try again to load the new version.",
+  "planet_rate_limited": "Too many requests. Checking again in {seconds} s.",
   "gpu_bench_title": "Shader benchmark (S2)",
   "gpu_bench_lead": "Draws the same planet tiles with WebGL2 and WebGPU and times them. The graphics code downloads only after you start, and the test fills the screen for about 2 minutes.",
   "gpu_bench_modes": "Renderers to test",

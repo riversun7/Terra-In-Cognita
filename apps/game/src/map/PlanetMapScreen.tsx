@@ -53,6 +53,8 @@ type LoadPhase =
   | { kind: "manifest" }
   /** 서버가 굽는 중(다시 묻기까지 ms) */
   | { kind: "generating"; retryInMs: number }
+  /** 목록 정보 요청이 너무 많다(429, 다시 묻기까지 ms) */
+  | { kind: "rate_limited"; retryInMs: number }
   /** 엔진을 만들었다(그 뒤 상태는 엔진 status) */
   | { kind: "ready" }
   | { kind: "failed"; reason: PlanetFailure };
@@ -76,9 +78,11 @@ function screenNotice(load: LoadPhase, tiles: TileProblem | null, status: Planet
   if (tiles === "sign_in") return { tone: "alert", lines: [m.map_code_sign_in_required()], retry: false };
   if (tiles === "not_found") return { tone: "alert", lines: [m.planet_tiles_outdated()], retry: true };
   if (load.kind === "manifest") return { tone: "status", lines: [m.planet_manifest_loading()], retry: false };
-  if (load.kind === "generating") {
+  if (load.kind === "generating" || load.kind === "rate_limited") {
     const seconds = Math.max(1, Math.round(load.retryInMs / 1000));
-    return { tone: "status", lines: [m.planet_generating({ seconds })], retry: false };
+    const line =
+      load.kind === "generating" ? m.planet_generating({ seconds }) : m.planet_rate_limited({ seconds });
+    return { tone: "status", lines: [line], retry: false };
   }
   switch (status.kind) {
     case "loading":
@@ -127,36 +131,46 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
     setTelemetryView(TELEMETRY_VIEW);
     loadPlanetManifest(PLANET_ID, {
       signal: controller.signal,
-      onGenerating: (retryInMs) => setLoad({ kind: "generating", retryInMs }),
+      onWaiting: (reason, retryInMs) => setLoad({ kind: reason, retryInMs }),
     }).then(
       (manifest) => {
         if (controller.signal.aborted) return;
-        // 바이옴 이름은 서버 범례(자료, ko·en)에서
-        const english = getLocale() === "en";
-        const names = new Map(
-          manifest.biomes.map((biome) => [biome.index, english ? biome.name.en : biome.name.ko]),
-        );
-        const created = createPlanetEngine(host, {
-          planet: planetDescriptionOf(manifest),
-          tileSource: createServerTileSource(manifest, {
-            onFailure: (reason) => {
-              if (reason === "sign_in" || reason === "not_found") setTileProblem(reason);
-            },
-          }),
-          layer: layerRef.current,
-          exaggeration: exaggerationRef.current,
-          debugCracks: new URLSearchParams(window.location.search).get("planet-debug") === "cracks",
-          onStatus: setStatus,
-          onPick: (cell) =>
-            setPicked({
-              cell,
-              lines: cell ? cellLines(cell, (id) => names.get(id) ?? null) : [m.planet_cell_none()],
+        try {
+          // 바이옴 이름은 서버 범례(자료, ko·en)에서
+          const english = getLocale() === "en";
+          const names = new Map(
+            manifest.biomes.map((biome) => [biome.index, english ? biome.name.en : biome.name.ko]),
+          );
+          const created = createPlanetEngine(host, {
+            planet: planetDescriptionOf(manifest),
+            tileSource: createServerTileSource(manifest, {
+              onFailure: (reason) => {
+                if (reason === "sign_in" || reason === "not_found") setTileProblem(reason);
+              },
             }),
-        });
-        engine = created;
-        engineRef.current = created;
-        setLoad({ kind: "ready" });
-        timer = setInterval(() => setStats(created.stats()), 1000);
+            layer: layerRef.current,
+            exaggeration: exaggerationRef.current,
+            debugCracks: new URLSearchParams(window.location.search).get("planet-debug") === "cracks",
+            onStatus: setStatus,
+            onPick: (cell) =>
+              setPicked({
+                cell,
+                lines: cell ? cellLines(cell, (id) => names.get(id) ?? null) : [m.planet_cell_none()],
+              }),
+          });
+          engine = created;
+          engineRef.current = created;
+          setLoad({ kind: "ready" });
+          timer = setInterval(() => setStats(created.stats()), 1000);
+        } catch (error) {
+          // 엔진을 만들지 못했다(이 기기가 읽지 못한 자료 등): 만든 것을 버리고 [다시 시도]를 띄운다.
+          // 잡지 않으면 처리 안 된 거절이 되어 화면이 "받는 중"에 멈춘다. 오류는 기기 오류 보고로 보낸다
+          engine?.dispose();
+          engine = null;
+          engineRef.current = null;
+          reportError(error);
+          setLoad({ kind: "failed", reason: "invalid" });
+        }
       },
       (error: unknown) => {
         if (controller.signal.aborted) return;

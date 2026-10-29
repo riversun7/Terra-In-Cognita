@@ -1,6 +1,6 @@
 // 행성 정의의 공용 어휘 — 콘텐츠 팩(@terra/content 스키마)과 생성기(@terra/planet/generator)가 함께 쓴다
 // (ADR 2026-10-29-s2-planet-lod "행성 정의"). 두 패키지는 서로를 가져올 수 없어서 이름·범위를 여기 한 곳에 둔다.
-// - 프리셋 축과 단계 이름(기획 D-154): 단계가 어떤 수치가 되는지는 생성기(PLANET_PRESET_VALUES)가 정한다.
+// - 프리셋 축과 단계 이름(기획 D-154): 단계가 어떤 수치가 되는지는 planetPresets.ts(PLANET_PRESET_VALUES)가 정한다.
 // - 세부 수치의 이름과 정수 범위: 프리셋으로 정한 값을 행성 정의의 overrides가 덮어쓴다.
 // - 바이옴 규칙의 종류와 바다 수심 등급.
 // 모든 수치는 S2 임시값이다(placeholder). 기온은 절대 °C다(기획 D-154).
@@ -52,7 +52,7 @@ export function isPlanetPresetLevel<A extends PlanetPresetAxis>(
   return levels.includes(value);
 }
 
-/** 세부 수치 이름 → 정수 범위 [최소, 최대] (둘 다 포함). 뜻과 단위는 생성기 presets.ts에 적는다 */
+/** 세부 수치 이름 → 정수 범위 [최소, 최대] (둘 다 포함). 뜻과 단위는 planetPresets.ts에 적는다 */
 export const PLANET_SETTING_RANGES = {
   /** 육지 비율(%, 면적) — 해수면을 이 백분위로 정한다 */
   landPercent: [5, 95],

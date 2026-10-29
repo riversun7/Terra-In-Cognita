@@ -15,7 +15,8 @@ export {
   planetInputFromDefinition,
 } from "./definition.ts";
 export { CELL_DRY, CELL_FILLED, CELL_LAKE, CELL_OPEN } from "./hydrology.ts";
-export { NORMAL_PRESETS, PLANET_PRESET_VALUES, presetValues, resolvePlanetSettings } from "./presets.ts";
+// 프리셋 수치표와 풀기는 콘텐츠 검증과 같이 쓰려고 @terra/shared(planetPresets.ts)에 있다. 생성기 진입점도 내보낸다
+export { NORMAL_PRESETS, PLANET_PRESET_VALUES, presetValues, resolvePlanetSettings } from "@terra/shared";
 export { VERTICAL_SCALE } from "./surface.ts";
 export {
   DEPTH_CLASS_MASK,

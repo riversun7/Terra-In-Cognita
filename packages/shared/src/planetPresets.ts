@@ -1,6 +1,8 @@
 // 세계 설정 프리셋 → 세부 수치 (기획 D-154, ADR 2026-10-29-s2-planet-lod "행성 정의")
-// 이름·범위는 @terra/shared planetDefinition(콘텐츠 팩 스키마와 같은 어휘)이고, 단계별 수치는 여기서 정한다.
-// 모든 값은 S2 임시값이다(placeholder). 바꾸면 생성 결과가 바뀌므로 GENERATOR_VERSION을 올린다.
+// 콘텐츠 팩 검증(@terra/content 스키마)과 행성 생성기(@terra/planet/generator)가 같은 표·같은 함수를 쓴다:
+// 검증이 생성기와 같은 값으로 풀어 보고(극 기온 ≤ 적도 기온) 막을 수 있게 여기 둔다. 이름·범위는 planetDefinition.ts.
+// 모든 값은 S2 임시값이다(placeholder). 값을 바꾸면 같은 정의의 생성 결과가 바뀌므로 @terra/planet GENERATOR_VERSION을
+// 올리고 생성기 골든 해시와 이 표의 고정 시험(planetPresets.test.ts)을 함께 고친다(PROTECTED).
 //
 // 세부 수치의 뜻(단위)
 // - landPercent(%): 육지 면적 비율. 해수면을 고도 분포의 이 백분위로 정한다.
@@ -21,7 +23,7 @@ import {
   type PlanetSettingKey,
   type PlanetSettingOverrides,
   type PlanetSettings,
-} from "@terra/shared";
+} from "./planetDefinition.ts";
 
 /** 모든 축 "보통" */
 export const NORMAL_PRESETS: PlanetPresets = {
@@ -88,7 +90,8 @@ export function presetValues<A extends PlanetPresetAxis>(
 
 /**
  * 프리셋 + 덮어쓰기 → 세부 수치(모든 이름). 값은 정수이고 공용 범위 안이어야 하며, 극 기온 ≤ 적도 기온이다.
- * 틀리면 RangeError(콘텐츠 팩 검사가 먼저 막지만, 편집기·시험 입력도 여기서 한 번 더 본다).
+ * 틀리면 RangeError. 콘텐츠 팩 검증(@terra/content planets.ts)이 같은 표로 범위와 극 ≤ 적도를 먼저 막는다.
+ * 생성기는 팩을 거치지 않는 입력(편집기 슬라이더·시험)도 받으므로 여기서 한 번 더 본다.
  */
 export function resolvePlanetSettings(
   presets: PlanetPresets,

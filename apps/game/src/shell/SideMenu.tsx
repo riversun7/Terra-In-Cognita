@@ -6,7 +6,7 @@
 //   화면에서 가리는 것은 편의다. 서버가 매 요청 권한을 본다.
 // 같은 내용을 두 곳에 그린다: 좁은 폭의 서랍(Drawer, <dialog>)과 중간·넓음 폭의 레일·사이드 메뉴(Shell의 <nav>).
 import type { AccountView, NavItemId, NavigationSettings, RouteId, RouteTarget } from "@terra/shared";
-import { navMenuItems } from "@terra/shared";
+import { canOpenRoute, navMenuItems } from "@terra/shared";
 import { type ReactNode, useState } from "react";
 import { signOut } from "../auth/session.ts";
 import { m } from "../paraglide/messages.js";
@@ -101,8 +101,9 @@ interface SideMenuProps {
 }
 
 export function SideMenu({ variant, user, nav, current, badges, onClose }: SideMenuProps) {
-  const dev = user.roles.includes("dev") || user.roles.includes("admin");
-  const admin = user.roles.includes("admin");
+  // 여는 역할은 주소 표 한 곳(access)에서 본다 — 권한 없음 화면(Shell.tsx)과 같은 판단
+  const dev = canOpenRoute("dev", user.roles);
+  const admin = canOpenRoute("admin", user.roles);
   const item = (id: NavItemId): ReactNode => {
     const entry = MENU_ITEMS[id];
     return (

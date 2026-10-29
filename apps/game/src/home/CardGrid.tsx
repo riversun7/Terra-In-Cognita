@@ -20,9 +20,10 @@ export function CardGrid({ cards, variant = "grid", ...view }: CardGridProps) {
       ))}
     </ul>
   );
-  // 가로로 넘기는 줄: 카드 머리 링크로 초점이 옮겨 가면 브라우저가 그 카드까지 넘겨 보인다
+  // 가로로 넘기는 줄은 이 칸이 넘긴다. 초점을 받는다(tabIndex 0): 링크가 없는 카드(타임라인·브리핑·연결)도 화살표 키로 넘겨 볼 수 있게.
+  // 카드 머리 링크로 초점이 옮겨 가면 브라우저가 그 카드까지 넘겨 보인다
   return variant === "strip" ? (
-    <section className="home-strip-region" aria-label={m.home_strip_label()}>
+    <section className="home-strip-region" aria-label={m.home_strip_label()} tabIndex={0}>
       {list}
     </section>
   ) : (

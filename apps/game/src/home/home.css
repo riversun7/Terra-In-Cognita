@@ -449,8 +449,9 @@
   .home {
     gap: var(--space-6);
   }
+  /* auto-fit: 카드가 다 채우지 못한 빈 열은 접고 남은 열이 넓어진다(오른쪽에 빈 열이 남지 않게) */
   .home-grid {
-    grid-template-columns: repeat(auto-fill, minmax(var(--card-min-wide), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(var(--card-min-wide), 1fr));
   }
 }
 

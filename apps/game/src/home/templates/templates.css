@@ -34,21 +34,24 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* 처리함 템플릿의 요약 카드 한 줄 — 이 줄만 가로로 넘긴다 */
+/* 처리함 템플릿의 요약 카드 한 줄 — 이 칸만 가로로 넘긴다. 칸이 초점을 받아 화살표 키로도 넘긴다(CardGrid.tsx) */
 .home-strip-region {
   min-width: 0;
-}
-.home-strip {
-  display: flex;
-  gap: var(--card-gap);
-  margin: 0;
-  padding: 0 0 var(--space-2);
-  list-style: none;
+  padding-bottom: var(--space-2);
+  border-radius: var(--radius-sm);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-color: var(--color-field-border) transparent;
   scrollbar-width: thin;
   scroll-snap-type: x proximity;
+}
+.home-strip {
+  display: flex;
+  gap: var(--card-gap);
+  width: max-content;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .home-strip > .home-cell {
   flex: none;

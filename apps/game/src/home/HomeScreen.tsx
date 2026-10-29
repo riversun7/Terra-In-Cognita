@@ -6,7 +6,7 @@
 //   조합은 이 조각에 함께 넣고, 나머지 다섯은 템플릿마다 따로 받는다.
 // - 자료는 템플릿과 따로다(같은 훅 useHomeData). 카드 고르기·순서·크기는 user_settings.home(homeSettings.ts)이다.
 //   시안 자료 스위치는 처리함·종 배지·복귀 요약과 같은 하나다(inboxParts.ts usePreviewOn, W3 inbox/preview.ts).
-// - 편집 시트는 [편집]을 누를 때 받는다(따로 된 조각). 가리키거나 초점이 가면 미리 받는다.
+// - 편집 시트는 [편집]을 누를 때 받는다(따로 된 조각). 가리키거나 초점이 가면 미리 받는다. 받는 중·실패 안내는 [편집] 바로 아래에 보이고 읽힌다.
 // - 원격 측정 화면 이름: home:<템플릿>(ADR 37 6절 "D-6005 판단 자료"). 홈을 떠나면 지운다.
 import type { Role, RouteMatch } from "@terra/shared";
 import { type HomeTemplate, parseHome } from "@terra/shared/dashboard";
@@ -58,8 +58,11 @@ function preloadEditor(): void {
 /** 로그인하지 않았을 때(틀이 홈을 그리지 않지만 타입상 필요) */
 const NO_ROLES: readonly Role[] = [];
 
-/** 지연 조각을 못 받았을 때. [다시 시도]는 강제 적용(새 버전, 없으면 새로고침)이다(App.tsx와 같다) */
-function ChunkFailed({ message }: { message: string }) {
+/**
+ * 지연 조각을 못 받았을 때. [다시 시도]는 강제 적용(새 버전, 없으면 새로고침)이다(App.tsx와 같다).
+ * onDismiss가 있으면 [닫기]도 둔다(편집 시트: 홈은 그대로 쓸 수 있다)
+ */
+function ChunkFailed({ message, onDismiss }: { message: string; onDismiss?: () => void }) {
   return (
     <div className="home-chunk-failed">
       <LiveMessage tone="error" lines={[message]} />
@@ -67,6 +70,11 @@ function ChunkFailed({ message }: { message: string }) {
         <button type="button" onClick={() => void forceUpdate("manual")}>
           {m.retry()}
         </button>
+        {onDismiss === undefined ? null : (
+          <button type="button" onClick={onDismiss}>
+            {m.home_edit_close()}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -75,8 +83,9 @@ function ChunkFailed({ message }: { message: string }) {
 function TemplateView({ template, ...props }: TemplateProps & { template: HomeTemplate }) {
   if (template === "dt_hybrid") return <HybridTemplate {...props} />;
   const Template = LAZY_TEMPLATES[template];
+  // 템플릿마다 새 경계: 한 템플릿 조각을 못 받아도(오프라인) 다른 템플릿으로 바꾸면 다시 받는다
   return (
-    <ChunkErrorBoundary fallback={<ChunkFailed message={m.home_template_failed()} />}>
+    <ChunkErrorBoundary key={template} fallback={<ChunkFailed message={m.home_template_failed()} />}>
       <Suspense fallback={<p className="home-muted">{m.home_template_loading()}</p>}>
         <Template {...props} />
       </Suspense>
@@ -153,6 +162,22 @@ export default function HomeScreen({ match, monitor }: HomeScreenProps) {
           </p>
         ) : null}
       </div>
+      {sheet.open ? (
+        // 편집 조각을 받는 동안·못 받았을 때의 안내는 [편집] 바로 아래(시트 자체는 맨 위 층에 뜬다)
+        <ChunkErrorBoundary fallback={<ChunkFailed message={m.home_edit_failed()} onDismiss={sheet.hide} />}>
+          <Suspense fallback={<LiveMessage tone="info" lines={[m.home_edit_loading()]} />}>
+            <EditSheet
+              template={template}
+              savedTemplate={home.template}
+              templateFromAddress={choice.from === "address"}
+              cards={home.cards}
+              roles={roles}
+              preview={preview}
+              onClose={sheet.hide}
+            />
+          </Suspense>
+        </ChunkErrorBoundary>
+      ) : null}
       {preview ? (
         <p className="home-note">
           <StatusIcon tone="info" />
@@ -168,21 +193,6 @@ export default function HomeScreen({ match, monitor }: HomeScreenProps) {
         </div>
       ) : null}
       <TemplateView template={template} cards={cards} data={data} monitor={monitor} />
-      {sheet.open ? (
-        <ChunkErrorBoundary fallback={<ChunkFailed message={m.home_edit_failed()} />}>
-          <Suspense fallback={<p className="home-muted">{m.home_edit_loading()}</p>}>
-            <EditSheet
-              template={template}
-              savedTemplate={home.template}
-              templateFromAddress={choice.from === "address"}
-              cards={home.cards}
-              roles={roles}
-              preview={preview}
-              onClose={sheet.hide}
-            />
-          </Suspense>
-        </ChunkErrorBoundary>
-      ) : null}
     </section>
   );
 }

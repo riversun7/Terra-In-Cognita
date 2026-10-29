@@ -90,8 +90,6 @@ const PATHS = {
   up: <path d="m6 14.5 6-6 6 6" />,
   down: <path d="m6 9.5 6 6 6-6" />,
   close: <path d="m6.5 6.5 11 11M17.5 6.5l-11 11" />,
-  collapse: <path d="m11 7-5 5 5 5M18 7l-5 5 5 5" />,
-  expand: <path d="m13 7 5 5-5 5M6 7l5 5-5 5" />,
   globe: (
     <>
       <circle cx="12" cy="12" r="8.5" />

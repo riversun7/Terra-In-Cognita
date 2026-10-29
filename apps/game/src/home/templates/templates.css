@@ -102,7 +102,8 @@
 /* 비어 있는 터(점선) — 거점이 생기면 건물과 말풍선이 들어설 자리 */
 .city-lot {
   bottom: 22%;
-  width: 18%;
+  /* 판 폭의 18%. 넓은 화면에서는 판 높이(--card-row)를 넘지 않게 줄인다: 높이 = 폭 × 3/4 ≤ 판 높이의 45%(가장 높은 터도 판 안) */
+  width: min(18%, calc(var(--card-row) * 0.6));
   aspect-ratio: 4 / 3;
   border: var(--border-w) dashed var(--color-deco-3);
   border-radius: var(--radius-sm);

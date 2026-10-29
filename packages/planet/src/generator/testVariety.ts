@@ -5,7 +5,7 @@
 // - Node API를 쓰지 않는다(src 안). 명령줄·파일은 bench/variety.ts가 맡는다.
 // - 문턱(VARIETY_TARGETS)은 생성기 고침을 위한 임시값이다(문서 4.1, 기획 확인 전). 지금은 보고만 한다(gate: false).
 //   막는 시험으로 바꾸면(gate: true) 그때의 GENERATOR_VERSION과 문턱을 ADR에 적는다.
-import { windAt, windVectorAt } from "./climate.ts";
+import { windAt, windVectorAt } from "./climateWind.ts";
 import type { GeneratorDetails } from "./generate.ts";
 import {
   type CellWind,
@@ -101,7 +101,7 @@ export function varietyMetric(name: string, value: number, note: string): Variet
   return { name, value, note };
 }
 
-/** 생성기가 습기 길을 고를 때 쓰는 바람(출력 판 3: 띠 바람 + 굽이, climate.ts windVectorAt) */
+/** 생성기가 습기 길을 고를 때 쓰는 바람(출력 판 3: 띠 바람 + 굽이, climateWind.ts windVectorAt) */
 export function generatorWind(ctx: VarietyContext, seed: number): CellWind {
   const windSeed = streamSeed(seed, STREAM_WIND);
   const { x, y, z } = ctx.grid;

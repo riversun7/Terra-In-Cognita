@@ -2,7 +2,7 @@
 // 하나인지, 고른 비율이 바람을 나눈 몫과 맞는지, 저장 습도가 실수 기온에 연속인지(정수 등온선 계단이 없는지)
 import { detAsin } from "@terra/shared";
 import { describe, expect, it } from "vitest";
-import { upwindNeighbors, upwindShare, windAt, windVectorAt } from "./climate.ts";
+import { upwindNeighbors, upwindShare, windAt, windVectorAt } from "./climateWind.ts";
 import { type PlanetGrid, buildGrid, neighbors8 } from "./grid.ts";
 import { STREAM_WIND, streamSeed } from "./random.ts";
 import { landHumidity } from "./surface.ts";

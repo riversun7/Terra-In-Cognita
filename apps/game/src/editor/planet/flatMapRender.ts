@@ -1,10 +1,10 @@
 // 편집기 평면 미니맵 그리기(순수 함수) — ADR 2026-10-29-planet-editor-stage1(38) "평면 미니맵"(사용자 D1).
 // 미리보기 결과(칸 배열)를 등장방형 그림으로 칠한다: 가로 = 경도 −180° → 180°, 세로 = 위도 90° → −90°.
 // - 픽셀 → 칸 번호 표: 픽셀 중심의 위도·경도 → 방향(엔진 globeCamera.ts directionOfLatLon과 같은 식) → 면·(u, v)
-//   (xyzToFaceUV와 같은 규칙) → 칸 (i, j)(uvToST).
-//   @terra/planet/projection의 xyzToCell과 같은 계산이다(시험이 비교한다). 칸 정보창도 같은 함수(flatMapCellIndex)를 쓰면
-//   누른 픽셀에 칠한 칸과 정보창의 칸이 늘 같다.
+//   (xyzToFaceUV와 같은 규칙) → 칸 (i, j)(uvToST). @terra/planet/projection의 xyzToCell과 같은 계산이다(시험이 모든 픽셀로 본다).
 //   칸 번호 = 면 × n² + j × n + i (생성기 출력 배열 순서, @terra/planet tiles/fields.ts).
+// - 누른 점은 그 픽셀 중심의 위도·경도다(flatMapPointAt). 칸 정보창은 그 점으로 칸을 따로 찾는다(같은 길: 엔진 방향 식 → xyzToCell).
+//   그래서 누른 픽셀에 칠한 칸이 정보창의 칸이다. 위도·경도 → 칸 함수는 칸 정보창 쪽 하나만 둔다(여기에는 표만 있다).
 // - 표 만들기(삼각함수·uvToST)는 픽셀마다 같은 일이라 시간이 면 레벨과 상관없다. 그래서 크기마다 기준 표(한 변 2^14칸) 하나만
 //   그렇게 만들고, 면 레벨 F 표는 i, j를 (14 − F)비트 밀어 끌어낸다(FlatMapLookupCache). 바로 만든 표와 비트까지 같다(시험).
 // - 칠하기(결과마다): 픽셀마다 그 칸의 바이옴 색(행성 설명과 같은 바이옴 번호별 0xRRGGBB 표) × 고도 음영.
@@ -276,21 +276,6 @@ function cellIndexOf(x: number, y: number, z: number, n: number): number {
 }
 
 /**
- * 위도·경도(°)가 든 면 레벨 `faceLevel` 칸의 배열 번호(면 × n² + j × n + i).
- * 방향은 엔진과 같은 식(x = cos 위도·cos 경도, y = cos 위도·sin 경도, z = sin 위도)이다. 칸 정보창도 이것을 쓴다
- */
-export function flatMapCellIndex(point: LatLon, faceLevel: number): number {
-  assertFaceLevel(faceLevel);
-  if (!Number.isFinite(point.latDeg) || !Number.isFinite(point.lonDeg)) {
-    throw new RangeError(`latitude and longitude must be finite: ${point.latDeg}, ${point.lonDeg}`);
-  }
-  const lat = point.latDeg * DEG;
-  const lon = point.lonDeg * DEG;
-  const cosLat = Math.cos(lat);
-  return cellIndexOf(cosLat * Math.cos(lon), cosLat * Math.sin(lon), Math.sin(lat), cellsPerSide(faceLevel));
-}
-
-/**
  * 픽셀마다 한 변 n칸 면의 칸 번호. 방향은 엔진과 같은 식(x = cos 위도·cos 경도, y = cos 위도·sin 경도, z = sin 위도)이고,
  * 위도·경도의 삼각함수는 줄·열마다 한 번만 잰다(곱은 엔진 식과 같은 값이다)
  */
@@ -335,7 +320,7 @@ function deriveCells(base: Int32Array, faceLevel: number): Int32Array {
   return cells;
 }
 
-/** 픽셀 → 칸 번호 표를 바로 만든다(픽셀마다 flatMapCellIndex(픽셀 중심)와 같은 값. 부품은 FlatMapLookupCache가 기준 표에서 끌어낸다) */
+/** 픽셀 → 칸 번호 표를 바로 만든다(시험의 기준. 부품은 FlatMapLookupCache가 기준 표에서 끌어낸다) */
 export function buildFlatMapLookup(faceLevel: number, size: FlatMapSize): FlatMapLookup {
   assertFaceLevel(faceLevel);
   assertSize(size);

@@ -24,7 +24,6 @@ import {
   buildFlatMapLookup,
   createFlatMapPalette,
   flatMapBackingSize,
-  flatMapCellIndex,
   flatMapFraction,
   flatMapPixelAt,
   flatMapPixelCenter,
@@ -37,8 +36,11 @@ import {
 
 const DEG = Math.PI / 180;
 
-/** 기대값: 엔진 식의 방향 → 격자 계약 xyzToCell → 배열 번호 */
-function expectedIndex(latDeg: number, lonDeg: number, faceLevel: number): number {
+/**
+ * 기대값: 칸 정보창과 같은 길(엔진 방향 식 → 격자 계약 xyzToCell → decodeCellKey → 배열 번호).
+ * 편집기 핵심(칸 정보창 cellReport.ts)과 합치면 cellAtLatLon(faceLevel, latDeg, lonDeg).index로 바꾼다(같은 인자 순서)
+ */
+function expectedIndex(faceLevel: number, latDeg: number, lonDeg: number): number {
   const lat = latDeg * DEG;
   const lon = lonDeg * DEG;
   const key = xyzToCell(
@@ -92,12 +94,16 @@ function pixel(image: { width: number; data: Uint8ClampedArray }, x: number, y: 
 }
 
 describe("평면 미니맵 픽셀 → 칸 표", () => {
-  it("모든 픽셀이 격자 계약(xyzToCell)과 같은 칸이고, flatMapCellIndex(픽셀 중심)와도 같다", () => {
+  it("모든 픽셀이 칸 정보창과 같은 길(엔진 방향 식 → xyzToCell)의 칸이다 — 홀수 높이(가운데 줄이 적도)도", () => {
+    // 538×269는 휴대폰 흉내의 그림 크기다. 높이가 홀수면 가운데 줄이 정확히 위도 0°라 x·y가 같은 방향(±45°·±135°) 근처를 지난다
     for (const [faceLevel, width] of [
       [4, 64],
       [5, 200],
+      [5, 538],
       [7, 256],
+      [7, 302],
       [9, 128],
+      [9, 538],
     ] as const) {
       const size = { width, height: width / 2 };
       const lookup = buildFlatMapLookup(faceLevel, size);
@@ -105,51 +111,40 @@ describe("평면 미니맵 픽셀 → 칸 표", () => {
       for (let y = 0; y < size.height; y++) {
         for (let x = 0; x < size.width; x++) {
           const center = flatMapPixelCenter(x, y, size);
-          const cell = lookup.cells[y * size.width + x];
-          if (cell !== expectedIndex(center.latDeg, center.lonDeg, faceLevel)) differ++;
-          if (cell !== flatMapCellIndex(center, faceLevel)) differ++;
+          if (lookup.cells[y * size.width + x] !== expectedIndex(faceLevel, center.latDeg, center.lonDeg)) {
+            differ++;
+          }
         }
       }
       expect(differ, `F${faceLevel} ${width}`).toBe(0);
     }
   });
 
-  it("알려진 방향: 적도·극·날짜변경선은 그 면의 가운데(면 중심은 칸 넷의 꼭짓점이라 가운데 2×2 중 하나)", () => {
-    const faceLevel = 6;
-    const n = cellsPerSide(faceLevel);
-    // 위도 0·경도 0은 (u, v) = (0, 0)이 정확해 가운데 2×2의 (n/2, n/2)
-    expect(flatMapCellIndex({ latDeg: 0, lonDeg: 0 }, faceLevel)).toBe((n / 2) * n + n / 2);
-    for (const [latDeg, lonDeg, face] of [
-      [0, 90, 1],
-      [90, 37, 2],
-      [0, 180, 3],
-      [0, -180, 3],
-      [0, -90, 4],
-      [-90, -120, 5],
-    ] as const) {
-      const index = flatMapCellIndex({ latDeg, lonDeg }, faceLevel);
-      const cell = cellOf(index, faceLevel);
-      expect(cell.face, `${latDeg}, ${lonDeg}`).toBe(face);
-      expect([n / 2 - 1, n / 2]).toContain(cell.i);
-      expect([n / 2 - 1, n / 2]).toContain(cell.j);
-      expect(index).toBe(expectedIndex(latDeg, lonDeg, faceLevel));
+  it("알려진 방향(표): 적도의 경도 ±90° 픽셀은 면 1·4의 가운데 2×2(면 중심은 칸 넷의 꼭짓점), 날짜변경선 양 끝은 면 3", () => {
+    // 538×269: 가운데 줄(y = 134)의 위도가 정확히 0°, x = 134·403의 경도가 정확히 −90°·90°
+    const size = { width: 538, height: 269 };
+    expect(flatMapPixelCenter(134, 134, size)).toEqual({ latDeg: 0, lonDeg: -90 });
+    expect(flatMapPixelCenter(403, 134, size)).toEqual({ latDeg: 0, lonDeg: 90 });
+    for (const faceLevel of [4, 6, 9]) {
+      const n = cellsPerSide(faceLevel);
+      const lookup = buildFlatMapLookup(faceLevel, size);
+      const at = (x: number) => cellOf(lookup.cells[134 * size.width + x] ?? -1, faceLevel);
+      for (const [x, face] of [
+        [134, 4],
+        [403, 1],
+      ] as const) {
+        const cell = at(x);
+        expect(cell.face, `F${faceLevel} x ${x}`).toBe(face);
+        expect([n / 2 - 1, n / 2]).toContain(cell.i);
+        expect([n / 2 - 1, n / 2]).toContain(cell.j);
+      }
+      expect(at(0).face).toBe(3);
+      expect(at(size.width - 1).face).toBe(3);
     }
-    // 가운데에서 비킨 점: 한 칸 안쪽(경계가 아닌 곳)은 그 칸 하나
-    const nudge = 0.4 * (90 / n);
-    expect(cellOf(flatMapCellIndex({ latDeg: nudge, lonDeg: 90 + nudge }, faceLevel), faceLevel)).toEqual({
-      face: 1,
-      i: n / 2,
-      j: n / 2,
-    });
-    for (const [lat, lon] of [
-      [12.5, -33.25],
-      [-61, 145],
-      [44.4, 179.9],
-    ] as const) {
-      expect(flatMapCellIndex({ latDeg: lat, lonDeg: lon }, faceLevel)).toBe(
-        expectedIndex(lat, lon, faceLevel),
-      );
-    }
+    // 2×1: 두 픽셀의 중심이 (0°, −90°)·(0°, 90°)
+    const tiny = buildFlatMapLookup(6, { width: 2, height: 1 });
+    expect(cellOf(tiny.cells[0] ?? -1, 6).face).toBe(4);
+    expect(cellOf(tiny.cells[1] ?? -1, 6).face).toBe(1);
   });
 
   it("극: 맨 위 줄은 모두 면 2(+z), 맨 아래 줄은 모두 면 5(−z)의 가운데 근처", () => {
@@ -209,7 +204,6 @@ describe("평면 미니맵 픽셀 → 칸 표", () => {
     expect(() =>
       buildFlatMapLookup(5, { width: FLAT_MAP_MAX_WIDTH + 2, height: FLAT_MAP_MAX_WIDTH / 2 + 1 }),
     ).toThrow(RangeError);
-    expect(() => flatMapCellIndex({ latDeg: Number.NaN, lonDeg: 0 }, 5)).toThrow(RangeError);
     const cache = new FlatMapLookupCache();
     expect(() => cache.get(3, { width: 64, height: 32 })).toThrow(RangeError);
     expect(() => cache.get(5, { width: 64, height: 31 })).toThrow(RangeError);

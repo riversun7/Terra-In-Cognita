@@ -38,6 +38,7 @@ import {
   type PlanetStats,
   type PlanetStatus,
   type PlanetView as PlanetViewOption,
+  planetDescriptionProblem,
 } from "./planetTypes.ts";
 import { type PlanetTileGpu, PlanetView } from "./planetView.ts";
 import { type DecodedLookup, cellAt, displayedHeightAt, rayHitsSurface } from "./surfaceLookup.ts";
@@ -82,11 +83,6 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
   const owner = {};
   const createdAt = performance.now();
   const planet = options.planet;
-  if (!(Number.isFinite(planet.radiusM) && planet.radiusM > 0))
-    throw new RangeError("planet radiusM must be > 0");
-  const layout = tileLayout(planet.faceLevel);
-  const radiusM = planet.radiusM;
-  const maxElevationM = Math.max(1, planet.maxElevationM ?? DEFAULT_MAX_ELEVATION_M);
   const budgets = { ...DEFAULT_PLANET_BUDGETS, ...options.budgets };
   const maxScreenErrorPx = options.maxScreenErrorPx ?? DEFAULT_MAX_SCREEN_ERROR_PX;
   const maxPixelRatio = options.maxPixelRatio ?? defaultMaxPixelRatio();
@@ -96,6 +92,15 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
   const emit = (status: PlanetStatus): void => {
     if (!disposed) options.onStatus?.(status);
   };
+  // 그릴 수 없는 행성(면 레벨 12 이상 등, 목록 정보에서 올 수 있다)은 던지지 않고 오류 상태로 알린다(화면이 안내를 띄운다)
+  const problem = planetDescriptionProblem(planet);
+  if (problem) {
+    emit({ kind: "error", message: problem });
+    return inertPlanetEngine(exaggeration, layer, budgets);
+  }
+  const layout = tileLayout(planet.faceLevel);
+  const radiusM = planet.radiusM;
+  const maxElevationM = Math.max(1, planet.maxElevationM ?? DEFAULT_MAX_ELEVATION_M);
 
   let renderer: WebGLRenderer;
   try {
@@ -463,7 +468,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
   };
 }
 
-/** WebGL을 못 쓸 때: 아무것도 그리지 않는 엔진(화면은 안내를 띄운다) */
+/** WebGL을 못 쓸 때·그릴 수 없는 행성일 때: 아무것도 그리지 않는 엔진(화면은 안내를 띄운다) */
 function inertPlanetEngine(
   exaggeration: number,
   layer: PlanetLayer,

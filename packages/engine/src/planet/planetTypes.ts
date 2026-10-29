@@ -5,6 +5,7 @@
 // 타일 모양(DecodedTile)과 물 비트는 다른 꾸러미의 정의 하나를 쓴다: 타일 = protocol PlanetTileData, 물 비트 = @terra/planet.
 import {
   type Face,
+  MIN_FACE_LEVEL,
   WATER_COAST,
   WATER_DEPTH_MASK,
   WATER_DEPTH_SHIFT,
@@ -63,7 +64,7 @@ export type TileSource = (request: TileRequest, signal: AbortSignal) => Promise<
 
 /** 행성 설명 — 목록 정보(GET /api/planets/<ID>)에서 오는 값 */
 export interface PlanetDescription {
-  /** 면 레벨 F(지구 9). 1차맵 5단계 = 맵 레벨 F − 4 ~ F */
+  /** 면 레벨 F(지구 9). 1차맵 5단계 = 맵 레벨 F − 4 ~ F. 렌더러는 4 ~ MAX_RENDER_FACE_LEVEL만 그린다 */
   readonly faceLevel: number;
   /** 해수면 반지름(m, 표시용) — @terra/planet/projection의 planetRadiusMeters(F) */
   readonly radiusM: number;
@@ -71,6 +72,27 @@ export interface PlanetDescription {
   readonly biomeColors: readonly number[];
   /** 가장 높은 땅(게임 m) — 화면 경계·누르기·카메라 높이 계산에 쓴다. 모르면 1,000 */
   readonly maxElevationM?: number;
+}
+
+/**
+ * 렌더러가 그리는 면 레벨 상한. 자료 없는 마디(맵 레벨 5 ~ F−5)는 늘 나누므로 가장 거친 1차맵 단계(맵 레벨 F−4)가
+ * 화면을 덮는다. 면 레벨 11은 그 단계가 면마다 16개(행성 96개)라 보이는 타일 상한(160)을 넘지 않는다.
+ * 12부터는 그 단계만으로 상한을 넘는다(고르기만 돌려 잰 값: 면 레벨 12, 가장 먼 거리에서 198개). 더 거친 자료를 ADR로 정할 때까지
+ * 받지 않는다. 생성기는 4~10을 만든다(ADR 36 "행성 정의").
+ */
+export const MAX_RENDER_FACE_LEVEL = 11;
+
+/** 행성 설명이 틀린 이유(문장, 화면에 쓰지 않는다). 맞으면 null */
+export function planetDescriptionProblem(planet: PlanetDescription): string | null {
+  const { faceLevel, radiusM, maxElevationM } = planet;
+  if (!(Number.isInteger(faceLevel) && faceLevel >= MIN_FACE_LEVEL && faceLevel <= MAX_RENDER_FACE_LEVEL)) {
+    return `face level must be an integer in [${MIN_FACE_LEVEL}, ${MAX_RENDER_FACE_LEVEL}]: ${faceLevel}`;
+  }
+  if (!(Number.isFinite(radiusM) && radiusM > 0)) return `planet radiusM must be > 0: ${radiusM}`;
+  if (maxElevationM !== undefined && !(Number.isFinite(maxElevationM) && maxElevationM >= 0)) {
+    return `planet maxElevationM must be >= 0: ${maxElevationM}`;
+  }
+  return null;
 }
 
 /** 그리는 레이어: 지형(고도·해수면·바이옴 색), 기후(기온·습도 색) */

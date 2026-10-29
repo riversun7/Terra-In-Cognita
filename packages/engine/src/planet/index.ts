@@ -4,6 +4,7 @@
 export { createPlanetEngine } from "./planetEngine.ts";
 export {
   DEFAULT_PLANET_BUDGETS,
+  MAX_RENDER_FACE_LEVEL,
   WATER_BITS,
   WATER_DEPTH_SHIFT,
   isEncodedTile,

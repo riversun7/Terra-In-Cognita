@@ -2,9 +2,12 @@
 // 1) 나누기: 꼭대기(면마다 하나)에서 시작해 화면 오차(칸 한 변이 화면에서 차지하는 CSS px)가 가장 큰 마디부터 나눈다.
 //    화면 오차 = 칸 평균 변(m) × 화면 계수 ÷ (카메라에서 마디를 감싼 구까지 거리). 문턱 이하이거나 가장 고운 단계면 멈춘다.
 //    나누면 그릴 타일 수가 (보이는 자식 수 − 1)만큼 는다. 상한(visibleTiles)을 넘으면 그 마디는 나누지 않는다.
+//    자료 없는 마디(큰 행성의 꼭대기 쪽)는 상한과 상관없이 늘 나눈다: 가장 거친 1차맵 단계가 화면을 덮어야 한다.
+//    그래서 그 단계만으로 상한을 넘으면(면 레벨 12 이상, 엔진은 받지 않는다 — MAX_RENDER_FACE_LEVEL) 상한 도달로 알린다.
 //    시야(절두체) 밖·지평선 뒤 마디는 버린다.
 // 2) 그리기 목록(부모 먼저): 나눈 마디는 보이는 자식이 모두 그릴 수 있을 때만 자식으로 바꾼다. 아니면 마디 자신을 그린다.
 //    마디도 아직 없으면 그 위 부모가 대신 그린다. 그래서 그리기 목록은 서로 겹치지 않고 화면 구멍도 없다(꼭대기가 있으면).
+//    자료 없는 마디는 그릴 수 없으므로 자식 중 그릴 수 있는 것을 모두 넘긴다(못 그린 곳만 바탕 구가 보인다).
 // 3) 받을 목록: 고른 나무의 마디 중 아직 그릴 수 없는 것. 거친 레벨 먼저(부모 먼저), 같은 레벨은 화면 오차 큰 것 먼저.
 import { aboveHorizon, sphereInFrustum } from "./culling.ts";
 import { type TileShape, boundingSphere } from "./tileShape.ts";
@@ -54,7 +57,7 @@ export interface Selection {
   readonly wanted: readonly WantedTile[];
   /** 고른 잎 마디 수(화면 오차로 원하는 타일 수, 상한 이하) */
   readonly selected: number;
-  /** 상한 때문에 나누지 못한 마디가 있다 */
+  /** 상한 때문에 나누지 못한 마디가 있다, 또는 가장 거친 단계만으로 상한을 넘었다 */
   readonly budgetHit: boolean;
   /** 보이는 곳 중 그릴 것이 없는 마디가 있다(바탕 구가 보인다) */
   readonly incomplete: boolean;
@@ -185,6 +188,8 @@ export function selectTiles(
     count += extra;
     for (const child of children) heap.push(child);
   }
+  // 자료 없는 마디를 늘 나누므로 상한을 넘을 수 있다(위 머리말). 숨기지 않고 알린다
+  if (count > params.maxTiles) budgetHit = true;
 
   // 2) 그리기 목록(부모 먼저) 3) 받을 목록
   const wanted: WantedTile[] = [];
@@ -205,7 +210,11 @@ export function selectTiles(
     }
     const lists = work.children.map(resolve);
     if (lists.every((list): list is Work[] => list !== null)) return lists.flat();
-    return drawable ? [work] : null;
+    if (drawable) return [work];
+    if (work.data) return null;
+    // 자료 없는 마디: 대신 그릴 수 없으므로 그릴 수 있는 자식만 넘긴다(한 자식이 없다고 면 전체를 버리지 않는다)
+    incomplete = true;
+    return lists.flatMap((list) => list ?? []);
   };
   const draw: Work[] = [];
   for (const root of roots) {

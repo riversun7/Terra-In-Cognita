@@ -70,7 +70,7 @@ export interface FlatMapPalette {
 /** 키보드로 옮기는 방향 */
 export type FlatMapDirection = "left" | "right" | "up" | "down";
 
-/** 픽셀 비율 상한(엔진 1차맵 render/sharedRenderer.ts defaultMaxPixelRatio와 같은 규칙, PLAN 5.7 "1.5~2") */
+/** 픽셀 비율 상한(PLAN 5.7 "1.5~2"). 미니맵만의 규칙이다: 엔진(지도 둘)은 2026-10-29부터 휴대폰도 2지만, 미니맵은 2D 캔버스에 칸마다 칠하는 값이 픽셀 수를 따르고 행성 전체를 작게 보이므로 휴대폰 1.5를 둔다 */
 export const FLAT_MAP_MAX_PIXEL_RATIO = 2;
 /** 휴대폰(굵은 포인터, 짧은 변 600px 이하)의 픽셀 비율 상한 */
 export const FLAT_MAP_PHONE_PIXEL_RATIO = 1.5;

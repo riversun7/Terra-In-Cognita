@@ -9,11 +9,16 @@ ColorManagement.enabled = false;
 let shared: WebGLRenderer | null = null;
 let owner: object | null = null;
 
-/** 휴대폰이면 1.5, 그 밖에는 2 — 픽셀 비율 상한(PLAN 5.7 "1.5~2") */
+/** 픽셀 비율 상한 — 휴대폰도 2(PLAN 5.7 "1.5~2"의 위쪽). 화면은 ?pixel-ratio=<1~4>로 시험 삼아 바꿀 수 있다 */
+export const DEFAULT_MAX_PIXEL_RATIO = 2;
+
+/**
+ * 두 지도(1차맵·2차맵) 엔진의 기본 픽셀 비율 상한. 실제 값은 min(기기 픽셀 비율, 상한)이다.
+ * 2026-10-29까지 휴대폰(거친 포인터 + 짧은 변 600px 이하)은 1.5였다. 픽셀 비율 3.5 휴대폰에서 2.3배로 늘여 보여
+ * 뿌옇다는 의견에 2로 올렸다(ADR 2026-10-28-s1-second-map "2차맵 선명도"). 2를 넘기는 것은 휴대폰 측정 뒤 정한다.
+ */
 export function defaultMaxPixelRatio(): number {
-  const coarse = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
-  const shortSide = typeof screen === "undefined" ? 1024 : Math.min(screen.width, screen.height);
-  return coarse && shortSide <= 600 ? 1.5 : 2;
+  return DEFAULT_MAX_PIXEL_RATIO;
 }
 
 /**

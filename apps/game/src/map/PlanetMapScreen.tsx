@@ -4,6 +4,7 @@
 // 앱 화면 흐름(홈·아래 탭)이 정해지면 이 화면을 그곳으로 옮긴다: onClose·monitor만 받는다.
 // 고빈도 상태는 엔진 안에 있고, 이 화면은 1초마다 요약(stats)만 읽는다(PLAN 5.7). 시험(Playwright)은 data-* 값을 읽는다.
 // 틈 찾기: 주소에 ?planet-debug=cracks를 붙이면 엔진이 바탕 구·하늘을 자홍색으로 칠한다(시험용, 타일 사이 틈이 자홍색 점으로 보인다).
+// 픽셀 비율 재기: ?pixel-ratio=<1~4>를 붙이면 엔진 상한을 바꾼다(시험용, pixelRatioParam.ts). HUD에 쓰는 값·그리기 버퍼가 보인다.
 import {
   type PickedCell,
   type PlanetEngine,
@@ -27,6 +28,7 @@ import {
   loadPlanetManifest,
   planetDescriptionOf,
 } from "./planetSource.ts";
+import { formatPixelRatio, pixelRatioOption } from "./pixelRatioParam.ts";
 import { cellLines, planetFailureText } from "./planetText.ts";
 import "./map.css";
 import "./planetMap.css";
@@ -153,6 +155,7 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
             layer: layerRef.current,
             exaggeration: exaggerationRef.current,
             debugCracks: new URLSearchParams(window.location.search).get("planet-debug") === "cracks",
+            ...pixelRatioOption(window.location.search),
             onStatus: setStatus,
             onPick: (cell) =>
               setPicked({
@@ -263,6 +266,8 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
       data-incomplete={stats ? String(stats.incomplete) : undefined}
       data-first-ms={firstMs === null ? undefined : fixed(firstMs, 0)}
       data-context-lost={stats ? String(stats.contextLost) : undefined}
+      data-pixel-ratio={stats?.pixelRatio}
+      data-buffer={stats ? `${stats.drawingBufferWidth}x${stats.drawingBufferHeight}` : undefined}
       data-camera={
         camera
           ? [
@@ -325,6 +330,14 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
                 })}
               </span>
               <span>{m.planet_perf_first({ ms: firstMs === null ? "–" : fixed(firstMs, 0) })}</span>
+              {/* 쓰는 픽셀 비율 = min(기기, 상한)과 그리기 버퍼(실제 픽셀) — 선명도·비용 재기용 */}
+              <span>
+                {m.map_perf_pixels({
+                  ratio: formatPixelRatio(stats.pixelRatio),
+                  width: stats.drawingBufferWidth,
+                  height: stats.drawingBufferHeight,
+                })}
+              </span>
             </>
           ) : null}
         </p>

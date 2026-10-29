@@ -92,6 +92,7 @@ export function createSecondMapEngine(
     return inertEngine();
   }
   const canvas = renderer.domElement;
+  const gl = renderer.getContext();
   canvas.style.width = "100%";
   canvas.style.height = "100%";
   container.append(canvas);
@@ -316,7 +317,7 @@ export function createSecondMapEngine(
       maxHeight = built.mesh.maxHeightM;
       mapSize = mapSizeM(input);
       cellM = placementCellM(input);
-      terrainView.set(built.mesh, mapSize, input.waterLevelM);
+      terrainView.set(built.mesh, input, built.noise);
       unitView.group.visible = true;
       limits = cameraLimitsFor(mapSize, viewport);
       if (!cameraPlaced) {
@@ -409,6 +410,8 @@ export function createSecondMapEngine(
         drawnUnits: unitView.mode === "model" ? unitView.drawnModels : motion.size,
         unitMode: unitView.mode,
         pixelRatio,
+        drawingBufferWidth: gl.drawingBufferWidth,
+        drawingBufferHeight: gl.drawingBufferHeight,
         pixelsPerMetre: pixelsPerMetre(state.distance, viewport),
         viewSpanM: spanForDistance(state.distance, viewport),
         terrainBuildMs,
@@ -457,6 +460,8 @@ function inertEngine(): SecondMapEngine {
     drawnUnits: 0,
     unitMode: "model",
     pixelRatio: 1,
+    drawingBufferWidth: 0,
+    drawingBufferHeight: 0,
     pixelsPerMetre: 0,
     viewSpanM: 0,
     terrainBuildMs: null,

@@ -3,6 +3,7 @@
 // 자료는 서버에서 온다(mapFeed.ts, ADR 2026-10-28-s1-second-map "전송"). 연결·시계 차이는 앱의 연결 하나를 함께 쓴다(serverLink).
 // 고빈도 상태(유닛 위치)는 엔진 안 타입 배열에 있고, 이 화면은 1초마다 요약(stats)만 읽는다(PLAN 5.7).
 // 이동 명령은 관리자만 보낸다. 보기 전용이면 안내만 하고 보내지 않는다(서버도 명령마다 확인한다).
+// 픽셀 비율 재기: 주소에 ?pixel-ratio=<1~4>를 붙이면 엔진 상한을 바꾼다(시험용, pixelRatioParam.ts). HUD에 쓰는 값·그리기 버퍼가 보인다.
 import {
   type EngineStats,
   type EngineStatus,
@@ -28,6 +29,7 @@ import {
 } from "./feedTypes.ts";
 import { startMapFeed } from "./mapFeed.ts";
 import { resultText, terrainFailureText } from "./mapMessages.ts";
+import { formatPixelRatio, pixelRatioOption } from "./pixelRatioParam.ts";
 import { fetchTerrain } from "./terrainLoader.ts";
 import "./map.css";
 
@@ -151,6 +153,7 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
     const engine = createSecondMapEngine(host, {
       serverNow,
       unitCapacity: UNIT_CAPACITY,
+      ...pixelRatioOption(window.location.search),
       onStatus: setStatus,
       onSelect: (id) => {
         selectedRef.current = id;
@@ -252,6 +255,8 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
       data-feed={feedStatus.phase.kind}
       data-terrain={feedStatus.terrain.kind}
       data-unit-mode={stats?.unitMode}
+      data-pixel-ratio={stats?.pixelRatio}
+      data-buffer={stats ? `${stats.drawingBufferWidth}x${stats.drawingBufferHeight}` : undefined}
       data-frames={stats?.renderedFrames}
       data-engine-p95={stats?.renderP95Ms.toFixed(2)}
       data-units={stats?.units}
@@ -301,6 +306,16 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
           ) : null}
           {/* 엔진 몫(갱신 + 그리기 명령, 최근 1초 p95). 위 줄의 프레임 시간은 화면 전체(브라우저 합성 포함)다 */}
           {stats ? <span>{m.map_perf_engine({ ms: stats.renderP95Ms.toFixed(1) })}</span> : null}
+          {/* 쓰는 픽셀 비율 = min(기기, 상한)과 그리기 버퍼(실제 픽셀) — 선명도·비용 재기용 */}
+          {stats ? (
+            <span>
+              {m.map_perf_pixels({
+                ratio: formatPixelRatio(stats.pixelRatio),
+                width: stats.drawingBufferWidth,
+                height: stats.drawingBufferHeight,
+              })}
+            </span>
+          ) : null}
           {/* 서버 자료: 스냅샷 크기·연 때부터 준비까지·다시 구독 수, 최근 1초 갱신 양·움직임 지연(S1 측정) */}
           {feed ? (
             <span>

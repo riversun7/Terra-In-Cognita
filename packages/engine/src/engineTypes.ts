@@ -36,7 +36,7 @@ export interface SecondMapEngineOptions {
   serverNow?: () => number;
   /** 원거리 아이콘으로 바꾸는 기준: 키 1.8m 유닛이 이 CSS 픽셀보다 작게 보이면(기본 8) */
   iconThresholdPx?: number;
-  /** 픽셀 비율 상한(기본: 휴대폰 1.5, 그 밖 2) */
+  /** 픽셀 비율 상한(기본 2, 휴대폰도). 실제 값 = min(기기 픽셀 비율, 상한) */
   maxPixelRatio?: number;
   /** 유닛 수 상한(기본 2,048) */
   unitCapacity?: number;
@@ -64,7 +64,11 @@ export interface EngineStats {
   /** 마지막 프레임에 그린 유닛 수 — 실제 크기 단계는 화면 안 유닛만, 아이콘 단계는 모두 */
   drawnUnits: number;
   unitMode: UnitDisplayMode;
+  /** 쓰는 픽셀 비율 = min(기기 픽셀 비율, 상한) */
   pixelRatio: number;
+  /** 그리기 버퍼 크기(실제 픽셀, WebGL drawingBuffer) — 화면 CSS 크기 × pixelRatio. 브라우저가 줄였으면 그 값 */
+  drawingBufferWidth: number;
+  drawingBufferHeight: number;
   /** 목표점에서 1m의 CSS 픽셀, 화면 짧은 변에 보이는 길이(m) */
   pixelsPerMetre: number;
   viewSpanM: number;

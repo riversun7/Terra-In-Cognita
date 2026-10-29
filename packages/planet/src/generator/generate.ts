@@ -45,7 +45,11 @@ export interface GeneratorDetails {
   readonly seaLevelRealM: number;
 }
 
-function validateInput(input: PlanetGeneratorInput): void {
+/**
+ * 입력이 생성할 수 있는 정의인지 본다(면 레벨·시드·세부 수치 범위·바이옴 표). 틀리면 RangeError.
+ * 생성기가 맨 처음 부르고, 서버는 시작할 때 콘텐츠 팩 행성마다 먼저 불러 굽기 전에 막는다.
+ */
+export function validatePlanetInput(input: PlanetGeneratorInput): void {
   const [minLevel, maxLevel] = PLANET_GENERATOR_FACE_LEVELS;
   if (!Number.isInteger(input.faceLevel) || input.faceLevel < minLevel || input.faceLevel > maxLevel) {
     throw new RangeError(`faceLevel must be an integer in [${minLevel}, ${maxLevel}]: ${input.faceLevel}`);
@@ -81,7 +85,7 @@ export function runPlanetGenerator(
   input: PlanetGeneratorInput,
   options: GeneratorOptions = {},
 ): GeneratorDetails {
-  validateInput(input);
+  validatePlanetInput(input);
   const onStage = options.onStage ?? (() => {});
   const { faceLevel, seed, biomes } = input;
   // 설정값을 복사해 둔다(호출한 쪽이 나중에 고쳐도 메타가 바뀌지 않게)

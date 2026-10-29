@@ -14,7 +14,10 @@ const BYTES_PER_MB = 1024 * 1024;
 let peakWorker = 0;
 let peakRss = 0;
 
-/** 단계 끝마다 메모리를 잰다. worker_threads에서 rss는 프로세스 전체, 나머지는 이 스레드 값이다(Node 문서) */
+/**
+ * 단계 끝마다 메모리를 잰다(생성기 단계마다 + 생성 뒤 + 타일 뒤). worker_threads에서 rss는 프로세스 전체, 나머지는
+ * 이 스레드 값이다(Node 문서). 단계 안의 순간 최대는 놓친다(워커가 계산 중이라 타이머가 돌지 않는다)
+ */
 function sample(): void {
   const memory = process.memoryUsage();
   peakWorker = Math.max(peakWorker, memory.heapUsed + memory.external);
@@ -44,7 +47,7 @@ async function bake(request: BakeRequestMessage): Promise<void> {
       `planet source ${source.id} differs in the worker (generator ${source.generatorVersion}, definition ${source.definitionHash})`,
     );
   }
-  const fields = await source.generate();
+  const fields = await source.generate(sample);
   const generateMs = performance.now() - started;
   sample();
   const baked = bakePlanetTiles(fields, {

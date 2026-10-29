@@ -5,7 +5,7 @@
 //
 //   S2_URL=http://127.0.0.1:4320 S2_ID=<아이디> S2_PASSWORD=<비밀번호> node ops/s2-probe.mjs
 //
-// 선택: S2_PLANET(행성 ID, 기본 s2_synthetic), S2_ALL=1(모든 타일, 기본은 처음 화면 것만),
+// 선택: S2_PLANET(행성 ID, 기본 s2_test_planet = 콘텐츠 팩 S2 시험 행성), S2_ALL=1(모든 타일, 기본은 처음 화면 것만),
 //       S2_CONCURRENCY(동시 받기, 기본 6 = 렌더러 상한), S2_WAIT_SECONDS(굽기를 기다리는 시간, 기본 300)
 // 들어가기는 같은 출처 검사를 하므로 S2_URL은 서버의 BETTER_AUTH_URL과 같아야 한다. 비밀번호는 출력하지 않는다(가짜 계정만).
 import { FACE_FRAMES, planetTileIds } from "../packages/planet/src/index.ts";
@@ -19,7 +19,7 @@ import {
 const baseUrl = (process.env.S2_URL || "http://127.0.0.1:4100").replace(/\/+$/, "");
 const loginId = process.env.S2_ID;
 const password = process.env.S2_PASSWORD;
-const planetId = process.env.S2_PLANET || "s2_synthetic";
+const planetId = process.env.S2_PLANET || "s2_test_planet";
 const fetchAll = process.env.S2_ALL === "1";
 const concurrency = Number(process.env.S2_CONCURRENCY || "6");
 const waitSeconds = Number(process.env.S2_WAIT_SECONDS || "300");

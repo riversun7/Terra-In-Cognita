@@ -7,6 +7,7 @@ export {
   type GeneratorOptions,
   generatePlanet,
   runPlanetGenerator,
+  validatePlanetInput,
 } from "./generate.ts";
 export {
   parsePlanetBiome,

@@ -2,8 +2,15 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { loadContentPack } from "@terra/content/node";
 import type { PlanetFields } from "@terra/planet";
-import { type PlanetSource, createPlanetSource } from "./sources.ts";
+import { DEFAULT_CONTENT_DIR } from "../config.ts";
+import {
+  type PlanetSource,
+  type PlanetSourceSpec,
+  createPlanetSource,
+  planetSpecsFromPack,
+} from "./sources.ts";
 
 /** 남긴 로그를 모으는 로거 */
 export function recordingLog() {
@@ -18,14 +25,31 @@ export function recordingLog() {
   };
 }
 
-/** 작은 합성 행성 원본(면 레벨 5 = 타일 30개) */
+/** 저장소 팩(content/core)의 행성 설명들 — 실제 서버 시작과 같은 길(planetSpecsFromPack)로 만든다 */
+export function packPlanetSpecs(): PlanetSourceSpec[] {
+  const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
+  if (!loaded.pack) throw new Error("content/core does not validate");
+  return planetSpecsFromPack(loaded.pack);
+}
+
+/** 저장소 팩의 S2 시험 행성(s2_test_planet) 설명 */
+export function packTestPlanetSpec(): PlanetSourceSpec {
+  const spec = packPlanetSpecs().find((item) => item.id === "s2_test_planet");
+  if (!spec) throw new Error("content/core has no s2_test_planet");
+  return spec;
+}
+
+/**
+ * 작은 시험 행성 원본: 팩 S2 시험 행성의 정의(세부 수치·바이옴 표)를 작은 면 레벨로 생성한다
+ * (면 레벨 5 = 타일 30개, 생성 약 0.1초. 실제 생성기를 그대로 돌린다)
+ */
 export function smallSource(options: { id?: string; faceLevel?: number; seed?: number } = {}): PlanetSource {
+  const base = packTestPlanetSpec();
   return createPlanetSource({
-    kind: "synthetic",
+    ...base,
     id: options.id ?? "test_planet",
     name: { ko: "시험 행성", en: "Test planet" },
-    faceLevel: options.faceLevel ?? 5,
-    seed: options.seed ?? 7,
+    input: { ...base.input, faceLevel: options.faceLevel ?? 5, seed: options.seed ?? 7 },
   });
 }
 

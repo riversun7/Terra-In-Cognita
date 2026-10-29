@@ -3,6 +3,8 @@
 // - WebGPU: 기본. 브라우저에 WebGPU가 없거나 어댑터를 못 얻으면 three가 스스로 WebGL2 백엔드로 바꾼다(대체).
 // - WebGL2: forceWebGL — 같은 TSL을 GLSL로 바꿔 WebGL2로 그린다(WebGPU가 없는 기기가 쓰는 길).
 // 셰이더 식은 GLSL 방식(gpuBenchGlsl.ts)과 같다. TSL 코드는 실행 중에 WGSL·GLSL 글로 바뀐다(그 시간도 컴파일 시간에 든다).
+// 카메라 기준 좌표(ADR 36): highPrecision을 켜서 모델뷰 행렬을 CPU에서 64비트로 곱한다(WebGLRenderer와 같은 일).
+// 끄면(three 기본) 셰이더가 cameraViewMatrix × modelWorldMatrix를 GPU에서 32비트로 곱한다(ModelNode.js mediumpModelViewMatrix).
 import { dot, float, max, normalView, uniform, vec3, vec4, vertexColor } from "three/tsl";
 import {
   BufferAttribute,
@@ -50,6 +52,9 @@ export const createSession: CreateSession = async ({ canvas, width, height, pixe
     depth: true,
     forceWebGL: forceWebGL === true,
   });
+  // 셰이더를 만들기 전에 켠다(만들어지는 셰이더가 바뀐다). 렌더러 전체 설정이라 InstancedMesh·SkinnedMesh와는
+  // 함께 쓸 수 없다(three 설명). 측정 장면에는 둘 다 없다. 재질마다 켜는 길은 조사 문서 2장
+  renderer.highPrecision = true;
   // 색 공간 변환·톤 매핑을 끈다 → 중간 버퍼 없이 화면에 바로 그린다(GLSL 방식과 같은 일)
   renderer.outputColorSpace = LinearSRGBColorSpace;
   renderer.toneMapping = NoToneMapping;

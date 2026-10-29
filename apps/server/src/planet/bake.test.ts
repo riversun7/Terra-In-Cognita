@@ -22,7 +22,7 @@ import {
 } from "@terra/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
-import { bakePlanetTiles } from "./bake.ts";
+import { bakePlanetTiles, highestCell } from "./bake.ts";
 import { type PlanetBaker, createInlineBaker, createWorkerBaker } from "./baker.ts";
 import {
   type PlanetSourceSpec,
@@ -150,6 +150,8 @@ describe("타일 덩어리 굽기", () => {
     expect(baked.tiles.map(([key]) => key)).toEqual(planetTileIds(6).map((id) => id.key));
     expect(baked.tiles.reduce((sum, [, length]) => sum + length, 0)).toBe(baked.pack.byteLength);
     expect(baked.fieldsHash).toBe(fields.meta.hash);
+    expect(baked.maxElevationM).toBe(Math.max(0, ...fields.elevationM));
+    expect(baked.maxElevationM).toBeGreaterThan(0);
     let offset = 0;
     let raw = 0;
     const built = [...buildPlanetTiles(fields)];
@@ -160,6 +162,14 @@ describe("타일 덩어리 굽기", () => {
       expect(decodePlanetTile(bytes)).toEqual({ ...built[at]?.tile, ...header });
     });
     expect(raw).toBe(baked.rawBytes);
+  });
+});
+
+describe("가장 높은 땅", () => {
+  it("가장 높은 칸 높이, 모두 해수면 아래면 0", () => {
+    expect(highestCell(Int16Array.from([-30, 12, 830, 5]))).toBe(830);
+    expect(highestCell(Int16Array.from([-300, -1]))).toBe(0);
+    expect(highestCell(new Int16Array(0))).toBe(0);
   });
 });
 

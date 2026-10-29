@@ -72,7 +72,7 @@ export interface PlanetDescription {
   readonly biomeColors: readonly number[];
   /**
    * 가장 높은 땅(게임 m) — 시야 거르기 경계구·지평선·누르기·먼 자르기 면에 쓴다.
-   * 목록 정보에는 아직 없다(서버가 구울 때 셀 수 있다 — 타일·서버 작업과 맞출 이음매). 없으면 DEFAULT_MAX_ELEVATION_M이고,
+   * 목록 정보의 maxElevationM(서버가 구울 때 센 가장 높은 칸)이다. 없으면(옛 서버) DEFAULT_MAX_ELEVATION_M이고,
    * 받은 타일이 그보다 높으면 엔진이 그 높이로 늘린다(낮추지는 않는다).
    */
   readonly maxElevationM?: number;
@@ -85,7 +85,7 @@ export const DEFAULT_MAX_ELEVATION_M = 1000;
  * 렌더러가 그리는 면 레벨 상한. 자료 없는 마디(맵 레벨 5 ~ F−5)는 늘 나누므로 가장 거친 1차맵 단계(맵 레벨 F−4)가
  * 화면을 덮는다. 면 레벨 11은 그 단계가 면마다 16개(행성 96개)라 보이는 타일 상한(160)을 넘지 않는다.
  * 12부터는 그 단계만으로 상한을 넘는다(고르기만 돌려 잰 값: 면 레벨 12, 가장 먼 거리에서 198개). 더 거친 자료를 ADR로 정할 때까지
- * 받지 않는다. 생성기는 4~10을 만든다(ADR 36 "행성 정의").
+ * 받지 않는다. 생성기는 4~9를 만든다(ADR 36 "행성 정의").
  */
 export const MAX_RENDER_FACE_LEVEL = 11;
 

@@ -10,13 +10,13 @@ import { planetRadiusMeters } from "@terra/planet/projection";
 import {
   PLANET_TILE_FORMAT_VERSION,
   type PlanetManifest,
-  type PlanetStatus,
   planetManifestSchema,
   planetTileUrlTemplate,
   planetTileVersion,
 } from "@terra/protocol";
 import type { BakeOutput, PlanetBaker } from "./baker.ts";
 import {
+  PLANET_CACHE_FORMAT,
   type PlanetCacheKey,
   cacheFileStem,
   prunePlanetCache,
@@ -70,6 +70,8 @@ export interface PlanetService {
 interface ReadyPlanet {
   tiles: Map<number, Uint8Array>;
   bytes: number;
+  /** 가장 높은 땅(게임 m) — 준비된 목록 정보에 싣는다 */
+  maxElevationM: number;
 }
 
 interface PlanetEntry {
@@ -129,14 +131,18 @@ function cacheKey(source: PlanetSource): PlanetCacheKey {
 }
 
 /** pack + [키, 길이] 목록 → 메모리 타일(복사하지 않고 pack을 나눠 본다) */
-function makeReady(tiles: readonly (readonly [number, number])[], pack: Uint8Array): ReadyPlanet {
+function makeReady(
+  tiles: readonly (readonly [number, number])[],
+  pack: Uint8Array,
+  maxElevationM: number,
+): ReadyPlanet {
   const map = new Map<number, Uint8Array>();
   let offset = 0;
   for (const [key, length] of tiles) {
     map.set(key, pack.subarray(offset, offset + length));
     offset += length;
   }
-  return { tiles: map, bytes: pack.byteLength };
+  return { tiles: map, bytes: pack.byteLength, maxElevationM };
 }
 
 export function createPlanetService(options: PlanetServiceOptions): PlanetService {
@@ -166,7 +172,8 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
     try {
       const result = await readPlanetCache(cacheDir, cacheKey(entry.source));
       if (result.ok) {
-        entry.ready = makeReady(result.cached.index.tiles, result.cached.pack);
+        const { index } = result.cached;
+        entry.ready = makeReady(index.tiles, result.cached.pack, index.maxElevationM);
         const loadMs = performance.now() - started;
         counts.cacheHits += 1;
         counts.cacheLoadMsMax = Math.max(counts.cacheLoadMsMax, loadMs);
@@ -174,9 +181,10 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
           {
             planetId: entry.source.id,
             from: "cache",
-            tiles: result.cached.index.tileCount,
-            rawBytes: result.cached.index.rawBytes,
-            packBytes: result.cached.index.packBytes,
+            tiles: index.tileCount,
+            rawBytes: index.rawBytes,
+            packBytes: index.packBytes,
+            maxElevationM: index.maxElevationM,
             cacheLoadMs: round1(loadMs),
           },
           "planet ready",
@@ -217,7 +225,7 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
       await writePlanetCache(
         cacheDir,
         {
-          format: 1,
+          format: PLANET_CACHE_FORMAT,
           ...cacheKey(source),
           tileFormatVersion: PLANET_TILE_FORMAT_VERSION,
           tileCount: output.tiles.length,
@@ -225,6 +233,7 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
           packSha256: output.packSha256,
           rawBytes: output.rawBytes,
           fieldsHash: output.fieldsHash,
+          maxElevationM: output.maxElevationM,
           bakedAt: new Date(wallClock()).toISOString(),
           bakeMs: round1(output.totalMs),
           tiles: output.tiles,
@@ -273,7 +282,7 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
       fail(entry, new Error("baked tiles do not match the planet tile list"));
       return;
     }
-    entry.ready = makeReady(output.tiles, output.pack);
+    entry.ready = makeReady(output.tiles, output.pack, output.maxElevationM);
     entry.failures = 0;
     counts.bakes += 1;
     counts.bakeMsMax = Math.max(counts.bakeMsMax, output.totalMs);
@@ -284,6 +293,7 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
         tiles: output.tiles.length,
         rawBytes: output.rawBytes,
         packBytes: output.pack.byteLength,
+        maxElevationM: output.maxElevationM,
         generateMs: round1(output.generateMs),
         tilesMs: round1(output.tilesMs),
         gzipMs: round1(output.gzipMs),
@@ -312,8 +322,9 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
     manifest(planetId) {
       const entry = entries.get(planetId);
       if (!entry) return undefined;
-      const status: PlanetStatus = entry.ready ? "ready" : "generating";
-      return { ...entry.manifest, status };
+      // 가장 높은 땅은 구운 뒤에만 안다(굽는 중 목록 정보에는 없다)
+      if (!entry.ready) return { ...entry.manifest, status: "generating" };
+      return { ...entry.manifest, status: "ready", maxElevationM: entry.ready.maxElevationM };
     },
     tile(planetId, tileKey, version) {
       const entry = entries.get(planetId);

@@ -24,6 +24,8 @@ export interface BakedTiles {
   packSha256: string;
   /** 생성기 결과 해시(meta.hash) */
   fieldsHash: string;
+  /** 가장 높은 땅(게임 m, 0 이상) = 가장 높은 칸의 elevationM(바다뿐이면 0). 목록 정보로 기기에 알린다 */
+  maxElevationM: number;
   /** 타일 만들기·이진 쓰기(ms) */
   tilesMs: number;
   /** gzip(ms) */
@@ -33,6 +35,13 @@ export interface BakedTiles {
 export interface TileHeaderValues {
   generatorVersion: number;
   definitionHash: string;
+}
+
+/** 가장 높은 칸 높이(게임 m). 0보다 낮으면 0(보이는 높이는 해수면 아래로 내려가지 않는다) */
+export function highestCell(elevationM: Int16Array): number {
+  let highest = 0;
+  for (const value of elevationM) if (value > highest) highest = value;
+  return highest;
 }
 
 /** 생성기 출력 → 압축한 타일 덩어리 */
@@ -68,6 +77,7 @@ export function bakePlanetTiles(fields: PlanetFields, header: TileHeaderValues):
     rawBytes,
     packSha256: createHash("sha256").update(pack).digest("hex"),
     fieldsHash: fields.meta.hash,
+    maxElevationM: highestCell(fields.elevationM),
     tilesMs,
     gzipMs,
   };

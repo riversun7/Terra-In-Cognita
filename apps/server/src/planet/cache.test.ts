@@ -5,6 +5,7 @@ import { GENERATOR_VERSION } from "@terra/planet/generator";
 import { afterEach, describe, expect, it } from "vitest";
 import { createInlineBaker } from "./baker.ts";
 import {
+  PLANET_CACHE_FORMAT,
   type PlanetCacheIndex,
   type PlanetCacheKey,
   cacheFileStem,
@@ -32,7 +33,7 @@ async function prepared() {
     definitionHash: source.definitionHash,
   };
   const index: PlanetCacheIndex = {
-    format: 1,
+    format: PLANET_CACHE_FORMAT,
     ...key,
     tileFormatVersion: 1,
     tileCount: output.tiles.length,
@@ -40,6 +41,7 @@ async function prepared() {
     packSha256: output.packSha256,
     rawBytes: output.rawBytes,
     fieldsHash: output.fieldsHash,
+    maxElevationM: output.maxElevationM,
     bakedAt: "2026-10-29T00:00:00.000Z",
     bakeMs: 12.3,
     tiles: output.tiles,
@@ -81,6 +83,12 @@ describe("행성 디스크 캐시", () => {
     [
       "목록 모양이 틀림",
       async (stem: string) => editIndex(stem, (index) => ({ ...index, extra: 1 })),
+      "schema",
+    ],
+    [
+      "옛 목록 형식(가장 높은 땅이 없는 1판)",
+      async (stem: string) =>
+        editIndex(stem, ({ maxElevationM: _dropped, ...index }) => ({ ...index, format: 1 })),
       "schema",
     ],
     [

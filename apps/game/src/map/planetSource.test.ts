@@ -163,6 +163,9 @@ describe("행성 설명", () => {
     expect(description.biomeColors[0]).toBe(0x1c3d6e);
     expect(description.biomeColors[1]).toBeUndefined();
     expect(description.biomeColors[2]).toBe(0xa0b0a8);
+    // 가장 높은 땅: 목록 정보에 있으면 넘기고, 없으면(옛 서버) 넣지 않는다(엔진 기본값)
+    expect(description).not.toHaveProperty("maxElevationM");
+    expect(planetDescriptionOf({ ...manifest, maxElevationM: 1092 }).maxElevationM).toBe(1092);
   });
 });
 

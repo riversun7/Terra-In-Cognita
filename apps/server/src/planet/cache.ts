@@ -13,8 +13,11 @@ import { planetTileIds } from "@terra/planet";
 import { PLANET_TILE_FORMAT_VERSION, decodePlanetTile } from "@terra/protocol";
 import { z } from "zod";
 
-/** 캐시 목록 형식 버전(목록 JSON 모양이 바뀌면 올린다) */
-export const PLANET_CACHE_FORMAT = 1;
+/**
+ * 캐시 목록 형식 버전(목록 JSON 모양이 바뀌면 올린다). 2: maxElevationM을 더했다.
+ * 옛 형식 목록은 스키마에서 틀려 다시 굽는다(목록에 없는 값을 지어내지 않는다)
+ */
+export const PLANET_CACHE_FORMAT = 2;
 
 export interface PlanetCacheKey {
   planetId: string;
@@ -36,6 +39,8 @@ export const planetCacheIndexSchema = z.strictObject({
   packSha256: z.string().regex(/^[0-9a-f]{64}$/),
   rawBytes: z.number().int().nonnegative(),
   fieldsHash: z.string(),
+  /** 가장 높은 땅(게임 m, 0 이상) — 목록 정보 maxElevationM */
+  maxElevationM: z.number().int().min(0),
   /** 구운 시각(ISO 8601, 참고용) */
   bakedAt: z.string(),
   /** 굽기 잰 값(ms, 참고용) */

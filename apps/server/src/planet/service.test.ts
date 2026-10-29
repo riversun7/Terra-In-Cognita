@@ -55,6 +55,8 @@ describe("행성 서비스", () => {
     await Promise.resolve();
     const first = planetTileIds(5)[0]?.key ?? 0;
     expect(service.manifest("test_planet")?.status).toBe("generating");
+    // 가장 높은 땅은 구운 뒤에만 안다
+    expect(service.manifest("test_planet")).not.toHaveProperty("maxElevationM");
     expect(service.tile("test_planet", first, version)).toEqual({ kind: "not_ready" });
     // 이 행성의 타일 ID가 아니면 굽는 중이어도 없는 타일, 버전이 틀리면 먼저 그것
     expect(service.tile("test_planet", 12_345, version)).toEqual({ kind: "unknown_tile" });
@@ -69,6 +71,8 @@ describe("행성 서비스", () => {
       faceLevel: 5,
       tileUrlTemplate: `/api/planets/test_planet/tiles/{tileKey}?v=${version}`,
     });
+    const fields = await smallSource().generate();
+    expect(manifest?.maxElevationM).toBe(Math.max(0, ...fields.elevationM));
     const found = service.tile("test_planet", first, version);
     if (found.kind !== "ok") throw new Error(`expected a tile, got ${found.kind}`);
     expect(decodePlanetTile(gunzipSync(found.gzip))).toMatchObject({ faceLevel: 5, mapLevel: 1, face: 0 });
@@ -100,6 +104,10 @@ describe("행성 서비스", () => {
     await second.service.whenIdle();
     expect(second.source.calls).toBe(0);
     expect(second.service.manifest("test_planet")?.status).toBe("ready");
+    // 가장 높은 땅은 캐시 목록에서 온다(구운 값과 같다)
+    expect(second.service.manifest("test_planet")?.maxElevationM).toBe(
+      first.service.manifest("test_planet")?.maxElevationM,
+    );
     const metrics = second.service.takeMetrics();
     expect(metrics).toMatchObject({
       planetBakes: 0,

@@ -51,6 +51,11 @@ export const planetManifestSchema = z.object({
       (value) =>
         value.startsWith("/") && !value.startsWith("//") && value.includes(PLANET_TILE_KEY_PLACEHOLDER),
     ),
+  /**
+   * 가장 높은 땅(게임 m, 해수면 0 기준, 0 이상) = 생성기 출력의 가장 높은 칸. 서버가 구운 뒤(status "ready")에만 있다.
+   * 기기는 시야 거르기·지평선·누르기 경계에 쓴다(없으면 렌더러 기본값). 옛 서버는 보내지 않는다(선택 필드)
+   */
+  maxElevationM: z.number().int().min(0).max(32_767).optional(),
   /** 바이옴 범례(index·ID가 겹치지 않는다) */
   biomes: z
     .array(planetBiomeSchema)

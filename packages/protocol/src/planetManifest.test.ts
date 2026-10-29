@@ -64,6 +64,17 @@ describe("행성 목록 정보", () => {
     expect(planetManifestSchema.safeParse({ ...manifest(), ...patch }).success).toBe(false);
   });
 
+  it("가장 높은 땅(maxElevationM)은 선택이고, 있으면 0 이상 정수다", () => {
+    expect(planetManifestSchema.parse({ ...manifest(), maxElevationM: 830 }).maxElevationM).toBe(830);
+    expect(planetManifestSchema.parse(manifest()).maxElevationM).toBeUndefined();
+    for (const maxElevationM of [-1, 1.5, 40_000]) {
+      expect(
+        planetManifestSchema.safeParse({ ...manifest(), maxElevationM }).success,
+        `${maxElevationM}`,
+      ).toBe(false);
+    }
+  });
+
   it("기기가 아는 타일 형식 버전이어야 타일을 읽는다", () => {
     expect(canReadPlanetTiles(manifest())).toBe(true);
     expect(canReadPlanetTiles({ tileFormatVersion: PLANET_TILE_FORMAT_VERSION + 1 })).toBe(false);

@@ -169,11 +169,15 @@ export async function loadPlanetManifest(
   }
 }
 
-/** 목록 정보 → 엔진 행성 설명(면 레벨·반지름·바이옴 번호별 색). 범례에 없는 번호는 엔진이 회색으로 그린다 */
+/**
+ * 목록 정보 → 엔진 행성 설명(면 레벨·반지름·바이옴 번호별 색·가장 높은 땅). 범례에 없는 번호는 엔진이 회색으로 그린다.
+ * 가장 높은 땅이 없으면(옛 서버) 엔진 기본값을 쓰고, 받은 타일이 더 높으면 엔진이 늘린다
+ */
 export function planetDescriptionOf(manifest: PlanetManifest): PlanetDescription {
   const biomeColors: number[] = [];
   for (const biome of manifest.biomes) biomeColors[biome.index] = Number.parseInt(biome.colour.slice(1), 16);
-  return { faceLevel: manifest.faceLevel, radiusM: manifest.radiusM, biomeColors };
+  const base = { faceLevel: manifest.faceLevel, radiusM: manifest.radiusM, biomeColors };
+  return manifest.maxElevationM === undefined ? base : { ...base, maxElevationM: manifest.maxElevationM };
 }
 
 export interface TileSourceOptions {

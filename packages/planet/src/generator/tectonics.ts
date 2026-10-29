@@ -85,6 +85,13 @@ export interface Tectonics {
   readonly elevation: Float32Array;
 }
 
+/** 해안선 흔들기 전의 판 구조 높이와 무늬 공간 좌표(tectonicRelief). 시험이 해안선 흔들기를 따로 본다 */
+export interface TectonicRelief extends Tectonics {
+  readonly sx: Float64Array;
+  readonly sy: Float64Array;
+  readonly sz: Float64Array;
+}
+
 /** 꼭짓점 8곳 주변을 바다로 두려는 치우침(0 ~ 1): 꼭짓점에서 가까울수록 크다. (x, y, z)는 격자 좌표 */
 function cornerProximity(x: number, y: number, z: number, radius: number): number {
   let best = 0;
@@ -104,7 +111,32 @@ function bump(d: number, center: number, halfWidth: number): number {
   return s * s;
 }
 
+/**
+ * 판 구조 → 기본 고도. 판 구조 높이(tectonicRelief) → 봉우리 다듬기 → 해안선 흔들기 순서다. 해안선 흔들기는 끝에서
+ * 해수면 백분위를 다시 재므로(landforms.ts) 그 뒤에 높이를 바꾸지 않는다(바다 판정 classifyOcean이 같은 높이를 받게)
+ */
 export function buildTectonics(grid: PlanetGrid, seed: number, settings: PlanetSettings): Tectonics {
+  const relief = tectonicRelief(grid, seed, settings);
+  const { elevation } = relief;
+  softenPeaks(elevation);
+  roughenCoasts(
+    grid,
+    streamSeed(seed, STREAM_COAST),
+    relief.sx,
+    relief.sy,
+    relief.sz,
+    elevation,
+    settings.landPercent,
+    settings.ruggednessPercent / 100,
+  );
+  return { plate: relief.plate, continental: relief.continental, elevation };
+}
+
+/**
+ * 판 구조 높이: 판·지각·판 경계 지형·안쪽 고원·분지·구릉·열점까지(봉우리 다듬기·해안선 흔들기 전).
+ * 함수가 끝나면 거리장 같은 큰 중간 배열이 풀린다(해안선 흔들기가 메모리를 더 쓴다)
+ */
+export function tectonicRelief(grid: PlanetGrid, seed: number, settings: PlanetSettings): TectonicRelief {
   const count = grid.cellCount;
   const continentalShare = Math.min(0.97, (settings.landPercent + settings.shelfPercent) / 100);
   const plates = createPlates(seed, settings.plateCount, continentalShare);
@@ -313,10 +345,7 @@ export function buildTectonics(grid: PlanetGrid, seed: number, settings: PlanetS
     },
   );
   addVolcanoes(grid, sx, sy, sz, elevation, hotspots);
-  // 지형 틀: 해안 잔 모양(모든 높이를 더한 뒤, 임시 해수면 근처에서)
-  roughenCoasts(grid, streamSeed(seed, STREAM_COAST), sx, sy, sz, elevation, settings.landPercent, rugged);
-  softenPeaks(elevation);
-  return { plate, continental, elevation };
+  return { plate, continental, elevation, sx, sy, sz };
 }
 
 /** 대륙 칸마다 대륙성 값의 면적 순위(0 ~ 1). 4096칸 히스토그램의 누적 면적으로 정한다(정렬 없이, 결정적) */

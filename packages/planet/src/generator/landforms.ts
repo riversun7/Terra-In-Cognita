@@ -13,6 +13,7 @@ import { detExp } from "@terra/shared";
 import { type PlanetGrid, neighbors8 } from "./grid.ts";
 import { amplitudeSum, octavesFor, offsetFbm3, offsetFbm3Pair, offsetRidged3 } from "./noise.ts";
 import { distanceField } from "./queues.ts";
+import { cornerSeaMask, oceanComponents } from "./seaLevel.ts";
 import { REFERENCE_RADIUS_KM, areaPercentile, clamp, km, smoothstep } from "./util.ts";
 
 // ── 대륙 안쪽 고원·분지 ──
@@ -90,13 +91,17 @@ export function hillOctaves(cellAngle: number): number {
 }
 
 // ── 해안 잔 모양 ──
-// 해안선을 노이즈만큼 앞뒤로 옮긴다(해안선 흔들기): 임시 해수면(육지 비율 백분위)으로 땅·바다를 나누고, 칸마다 해안선
-// 까지의 부호 있는 거리(땅 +, 바다 −) + 옮김 거리 × 노이즈의 부호로 새 땅·바다를 정한다. 그래서 만·곶·섬이 노이즈
+// 해안선을 노이즈만큼 앞뒤로 옮긴다(해안선 흔들기): 임시 해수면(육지 비율 백분위)에서 진짜 바다(classifyOcean과 같은
+// 규칙: 넓거나 꼭짓점을 품은 해수면 아래 덩어리)와 그 밖(땅, 바다와 이어지지 않은 낮은 웅덩이 포함)을 나누고, 칸마다
+// 해안선까지의 부호 있는 거리(땅 +, 바다 −) + 옮김 거리 × 노이즈의 부호로 새 땅·바다를 정한다. 그래서 만·곶·섬이 노이즈
 // 크기의 덩어리로 생기고, 해안이 평평하든 가파르든 같은 거리만큼 굽는다.
 // - 옮김 거리는 지역마다 다르다(낮은 주파수 노이즈 × 0.15 ~ 2): 매끈한 해안과 들쭉날쭉한 해안이 섞인다.
-// - 바뀌는 칸은 낮은 해안 땅(해수면 + 300m 아래)과 얕은 바다(−300m 위)뿐이다: 산맥 해안·깊은 바다는 그대로다.
-// - 땅 → 바다는 원래 바다와 (바뀐 칸을 거쳐) 이어질 때만 바꾼다(만·후미). 해안에서 떨어진 땅 안에 구멍(작은 호수)이
-//   잔뜩 생기지 않게. 바다 → 땅은 그대로 둔다(곶·섬).
+// - 바뀌는 칸은 낮은 해안 땅(해수면 + 300m 아래)과 얕은 바다(−300m 위)뿐이다: 산맥 해안·깊은 바다·꼭짓점 둘레는 그대로다.
+// - 해안선은 진짜 바다와 맞닿은 곳뿐이다: 웅덩이 가장자리는 흔들지 않는다.
+// - 땅 → 바다는 진짜 바다 중 땅이 되지 않는 칸과 (바뀐 칸을 거쳐) 이어질 때만 바꾼다(만·후미). 바다 → 땅은 그대로(곶·섬).
+// - 바꾼 뒤 해수면 백분위를 다시 재고 바다를 다시 판정해서, 바다가 되지 못한 새 바다 칸(웅덩이와만 이어지거나 해수면이
+//   움직여 끊긴 만)은 원래 높이로 되돌린다. 되돌릴 칸이 없을 때까지 되풀이한다. 그래서 바다 판정(classifyOcean)이 같은
+//   높이에서 새 바다 칸을 모두 바다로 본다(시험). 땅 안에 구멍(웅덩이 → 호수)처럼 박힌 새 바다가 없다.
 // - 바뀐 칸의 높이는 새 해안선에서 완만하게(0.5m/km) 오르내린다. 그 밖의 칸은 그대로라 해안 평야에 새 웅덩이가 없다.
 // 높이에 노이즈를 그대로 더하면 해안선이 거의 움직이지 않거나(가파른 해안), 평평한 해안 평야에 작은 호수가 잔뜩
 // 생긴다(Verified: F7·F9 팩 시드, 해안 칸 기울기 중앙값 1.3m/km).
@@ -121,9 +126,14 @@ const COAST_REACH = 2.5;
 /** 바뀔 수 있는 칸: 임시 해수면 위 이 높이 아래의 땅, 이 깊이 위의 바다(실제 환산 m) */
 const COAST_HEIGHT_LIMIT_M = 300;
 const COAST_DEPTH_LIMIT_M = 300;
-/** 바뀐 칸의 높이: 새 해안선에서 이 기울기(실제 환산 m/km)로, 해수면에서 적어도 이만큼 떨어지게 */
+/**
+ * 바뀐 칸의 높이: 새 해안선에서 이 기울기(실제 환산 m/km)로, 해수면에서 적어도 이만큼 떨어지게. 바꾼 뒤 다시 잰 해수면은
+ * 임시 해수면에서 몇 m 움직인다(F7 시드 6개에서 +1.2 ~ +4.4m, Verified). 여유가 그보다 커야 바뀐 칸이 제 편에 남는다
+ */
 const COAST_NEW_SLOPE = 0.5;
-const COAST_NEW_MARGIN_M = 5;
+const COAST_NEW_MARGIN_M = 20;
+/** 바다 다시 판정 → 되돌리기를 되풀이하는 상한(보통 2번이면 되돌릴 칸이 없다) */
+const COAST_CHECK_ROUNDS = 8;
 
 /** 해안 노이즈 옥타브 수(칸이 그 격자의 반보다 크면 0 = 끈다) */
 export function coastOctaves(cellAngle: number): number {
@@ -131,9 +141,15 @@ export function coastOctaves(cellAngle: number): number {
   return octavesFor(COAST_FREQUENCY, cellAngle, COAST_OCTAVES);
 }
 
+/** 바다 → 땅(1), 땅 → 바다 후보(2), 진짜 바다와 이어진 땅 → 바다(3) */
+const FLIP_TO_LAND = 1;
+const FLIP_CANDIDATE = 2;
+const FLIP_TO_SEA = 3;
+
 /**
  * 해안선을 흔든다(elevation을 고친다). 노이즈 좌표는 무늬 공간(sx, sy, sz), 거리는 8이웃 길(distanceField).
- * 칸이 해안 노이즈 격자의 반보다 크면 아무것도 하지 않는다.
+ * 칸이 해안 노이즈 격자의 반보다 크면 아무것도 하지 않는다. 바다 판정(classifyOcean) 바로 앞에 부른다: 끝에서 같은
+ * 높이로 해수면·바다를 다시 재어 확인하기 때문이다(그 사이에 높이를 바꾸면 확인이 어긋난다).
  * @param landPercent 육지 비율(%): 임시 해수면 = 고도의 (100 − 이 값) 면적 백분위(seaLevel.ts와 같은 식)
  * @param rugged 기복 설정(1 = 보통): 옮김 거리에 곱한다
  */
@@ -151,23 +167,28 @@ export function roughenCoasts(
   const shift = COAST_SHIFT * rugged;
   if (octaves === 0 || !(shift > 0)) return;
   const count = grid.cellCount;
-  const seaLevel = areaPercentile(grid, elevation, 1 - landPercent / 100);
+  const below = 1 - landPercent / 100;
+  const seaLevel = areaPercentile(grid, elevation, below);
   // 노이즈를 표준편차 1로(가장 많은 옥타브 기준: 낮은 면 레벨은 잔 옥타브만 빠진다)
   const scale = amplitudeSum(COAST_GAIN, octaves) / amplitudeSum(COAST_GAIN, COAST_OCTAVES) / COAST_SD;
   const reach = COAST_REACH * COAST_REGION_MAX * shift;
   const half = grid.meanCellAngle / 2;
-  // 땅(1)·바다(0)와 바뀔 수 있는 칸(낮은 해안 땅·얕은 바다)
+  // 진짜 바다(꼭짓점 둘레는 classifyOcean이 바다로 누르므로 미리 바다로 본다)와 그 밖(땅 1)
+  const forced = cornerSeaMask(grid);
+  const sea = oceanComponents(grid, (c) => forced[c] === 1 || (elevation[c] ?? 0) < seaLevel, forced);
   const land = new Uint8Array(count);
   const movable = new Uint8Array(count);
   for (let c = 0; c < count; c++) {
     const h = elevation[c] ?? 0;
-    land[c] = h > seaLevel ? 1 : 0;
-    movable[c] = (h > seaLevel ? h - seaLevel <= COAST_HEIGHT_LIMIT_M : seaLevel - h <= COAST_DEPTH_LIMIT_M)
+    const isLand = sea[c] !== 1;
+    land[c] = isLand ? 1 : 0;
+    if (forced[c] === 1) continue;
+    movable[c] = (isLand ? h - seaLevel <= COAST_HEIGHT_LIMIT_M : seaLevel - h <= COAST_DEPTH_LIMIT_M)
       ? 1
       : 0;
   }
-  // 해안선까지 거리: 해안선 양쪽 칸(이웃이 반대편인 칸)에서 시작해 바뀔 수 있는 칸으로만 퍼진다(한 번에, 높은 땅·깊은
-  // 바다로는 퍼지지 않아 싸다). 해안선 양쪽 칸 가운데는 해안선에서 반 칸이다
+  // 해안선까지 거리: 해안선 양쪽 칸(진짜 바다와 그 밖이 맞닿은 칸)에서 시작해 바뀔 수 있는 칸으로만 퍼진다(한 번에,
+  // 높은 땅·깊은 바다로는 퍼지지 않아 싸다). 해안선 양쪽 칸 가운데는 해안선에서 반 칸이다
   const out = new Int32Array(8);
   const edge = (c: number): boolean => {
     if (movable[c] !== 1) return false;
@@ -179,7 +200,7 @@ export function roughenCoasts(
     return false;
   };
   const toCoast = distanceField(grid, edge, reach, (_from, to) => movable[to] === 1);
-  // 바뀔 칸(1 = 바다 → 땅, 2 = 땅 → 바다 후보)과 새 해안선까지의 부호 있는 거리
+  // 바뀔 칸과 새 해안선까지의 부호 있는 거리
   const flip = new Uint8Array(count);
   const warpedDistance = new Float32Array(count);
   const regionSeed = seed + COAST_REGION_SEED_OFFSET;
@@ -197,19 +218,20 @@ export function roughenCoasts(
     const noise = offsetFbm3(seed, x, y, z, COAST_FREQUENCY, octaves, COAST_GAIN, LANDFORM_JITTER);
     const warped = (isLand ? distance : -distance) + local * scale * noise;
     if (warped > 0 === isLand) continue;
-    flip[c] = isLand ? 2 : 1;
+    flip[c] = isLand ? FLIP_CANDIDATE : FLIP_TO_LAND;
     warpedDistance[c] = warped;
   }
-  // 땅 → 바다 후보는 원래 바다와 이어진 것만(8이웃, 후보 칸을 거쳐): 원래 바다 옆 후보에서 시작해 후보로만 퍼진다
+  // 땅 → 바다 후보는 진짜 바다 중 땅이 되지 않는 칸과 이어진 것만(8이웃, 후보 칸을 거쳐): 그런 바다 칸 옆 후보에서
+  // 시작해 후보로만 퍼진다
   const queue = new Int32Array(count);
   let tail = 0;
   for (let c = 0; c < count; c++) {
-    if (flip[c] !== 2) continue;
+    if (flip[c] !== FLIP_CANDIDATE) continue;
     neighbors8(grid, c, out);
     for (let k = 0; k < 8; k++) {
       const next = out[k] ?? -1;
-      if (next >= 0 && land[next] === 0) {
-        flip[c] = 3;
+      if (next >= 0 && sea[next] === 1 && flip[next] !== FLIP_TO_LAND) {
+        flip[c] = FLIP_TO_SEA;
         queue[tail++] = c;
         break;
       }
@@ -219,18 +241,43 @@ export function roughenCoasts(
     neighbors8(grid, queue[head] ?? 0, out);
     for (let k = 0; k < 8; k++) {
       const next = out[k] ?? -1;
-      if (next < 0 || flip[next] !== 2) continue;
-      flip[next] = 3;
+      if (next < 0 || flip[next] !== FLIP_CANDIDATE) continue;
+      flip[next] = FLIP_TO_SEA;
       queue[tail++] = next;
     }
   }
-  // 바꾸기: 새 땅(1)·이어진 새 바다(3). 이어지지 않은 후보(2)는 그대로 땅
+  // 바꾸기: 새 땅·이어진 새 바다. 원래 높이는 warpedDistance 자리에 남긴다(되돌릴 때 쓴다). 웅덩이 칸이 새 바다가
+  // 되면 원래 깊이를 지킨다(min)
   const slope = COAST_NEW_SLOPE * REFERENCE_RADIUS_KM;
   for (let c = 0; c < count; c++) {
     const kind = flip[c] ?? 0;
-    if (kind !== 1 && kind !== 3) continue;
+    if (kind !== FLIP_TO_LAND && kind !== FLIP_TO_SEA) continue;
+    const original = elevation[c] ?? 0;
     const offset = Math.max(COAST_NEW_MARGIN_M, slope * Math.abs(warpedDistance[c] ?? 0));
-    elevation[c] = kind === 1 ? seaLevel + offset : seaLevel - offset;
+    elevation[c] = kind === FLIP_TO_LAND ? seaLevel + offset : Math.min(original, seaLevel - offset);
+    warpedDistance[c] = original;
+  }
+  // 확인: 바꾼 높이로 해수면을 다시 재고 바다를 다시 판정한다(고칠 칸이 없을 때까지).
+  // - 바다가 못 된 새 바다 칸(웅덩이와만 이어지거나, 해수면이 움직여 끊긴 만)은 원래 높이로 되돌린다.
+  // - 원래 바다였는데 새 땅(곶·섬)에 갇혀 바다가 아니게 된 칸(웅덩이 → 호수 후보)은 새 땅 높이로 메운다(메워진 석호)
+  for (let round = 0; round < COAST_CHECK_ROUNDS; round++) {
+    const level = areaPercentile(grid, elevation, below);
+    const ocean = oceanComponents(grid, (c) => forced[c] === 1 || (elevation[c] ?? 0) < level, forced);
+    const filledHeight = Math.max(seaLevel, level) + COAST_NEW_MARGIN_M;
+    let fixed = 0;
+    for (let c = 0; c < count; c++) {
+      if (ocean[c] === 1) continue;
+      if (flip[c] === FLIP_TO_SEA) {
+        elevation[c] = warpedDistance[c] ?? 0;
+        flip[c] = FLIP_CANDIDATE;
+        fixed++;
+      } else if (sea[c] === 1 && (elevation[c] ?? 0) < level) {
+        elevation[c] = filledHeight;
+        flip[c] = FLIP_TO_LAND;
+        fixed++;
+      }
+    }
+    if (fixed === 0) break;
   }
 }
 

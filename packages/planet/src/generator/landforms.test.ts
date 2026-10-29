@@ -1,7 +1,9 @@
 // 지형 틀 시험(출력 판 3, 다양성 고침 3단계) — 고원·분지·구릉·산맥 단면 값의 범위, 해안선 흔들기가 바꾸는 칸
-// (낮은 해안 땅·얕은 바다만, 땅·바다가 뒤바뀌는 칸만, 새 바다는 원래 바다와 이어짐), 봉우리 다듬기
+// (낮은 해안 땅·얕은 바다만, 땅·바다가 뒤바뀌는 칸만, 새 바다는 바다 판정에서 모두 바다, 웅덩이 해안은 그대로),
+// 봉우리 다듬기
 import { describe, expect, it } from "vitest";
-import { buildGrid, neighbors8 } from "./grid.ts";
+import { NORMAL_PRESETS, resolvePlanetSettings } from "@terra/shared";
+import { buildGrid } from "./grid.ts";
 import {
   HIGHLAND_RISE_M,
   HILL_RISE_M,
@@ -14,7 +16,10 @@ import {
   roughenCoasts,
   softenPeaks,
 } from "./landforms.ts";
-import { mix32 } from "./random.ts";
+import { STREAM_COAST, mix32, streamSeed } from "./random.ts";
+import { classifyOcean, cornerSeaMask, oceanComponents } from "./seaLevel.ts";
+import { buildTectonics, tectonicRelief } from "./tectonics.ts";
+import { S2_TEST_PLANET_SEED } from "./testFixtures.ts";
 import { areaPercentile } from "./util.ts";
 
 /** 면 레벨의 평균 칸 각도(grid.ts와 같은 식, 큰 격자를 만들지 않고) */
@@ -135,7 +140,6 @@ describe("해안선 흔들기", () => {
     let changed = 0;
     let newLand = 0;
     let newSea = 0;
-    const out = new Int32Array(8);
     for (let c = 0; c < grid.cellCount; c++) {
       const old = before[c] ?? 0;
       const now = elevation[c] ?? 0;
@@ -151,28 +155,89 @@ describe("해안선 흔들기", () => {
     expect(newLand).toBeGreaterThan(20);
     expect(newSea).toBeGreaterThan(20);
     expect(changed).toBe(newLand + newSea);
-    // 새 바다 칸은 원래 바다와(새 바다 칸을 거쳐) 이어진다: 원래 바다에서 새 바다 칸으로만 퍼져 모두 닿아야 한다
-    const reached = new Uint8Array(grid.cellCount);
-    const queue: number[] = [];
+    // 새 바다 칸은 바다 판정(classifyOcean, 바꾼 높이로 해수면을 다시 잰다)에서 모두 바다다
+    const { ocean } = classifyOcean(grid, Float32Array.from(elevation), landPercent);
     for (let c = 0; c < grid.cellCount; c++) {
-      if ((before[c] ?? 0) <= seaLevel) {
-        reached[c] = 1;
-        queue.push(c);
-      }
+      if ((elevation[c] ?? 0) < (before[c] ?? 0)) expect(ocean[c], `cell ${c}`).toBe(1);
     }
-    for (let head = 0; head < queue.length; head++) {
-      neighbors8(grid, queue[head] ?? 0, out);
-      for (const next of out) {
-        if (next < 0 || reached[next] === 1) continue;
-        if ((before[next] ?? 0) > seaLevel && (elevation[next] ?? 0) <= seaLevel) {
-          reached[next] = 1;
-          queue.push(next);
+  });
+
+  it("웅덩이(바다와 이어지지 않은 해수면 아래 땅) 가장자리는 흔들지 않고, 새 바다가 웅덩이로만 이어지지 않는다", () => {
+    const { grid, elevation } = testTerrain(7);
+    const landPercent = 40;
+    const seaLevel = areaPercentile(grid, elevation, 1 - landPercent / 100);
+    // 해안 평야(동반구, 해수면 + 0 ~ 300m) 안쪽에 해수면 아래 웅덩이를 판다: 해안에서 칸 두 개쯤 떨어진 가는 띠
+    const pit: number[] = [];
+    for (let c = 0; c < grid.cellCount; c++) {
+      const h = elevation[c] ?? 0;
+      if ((grid.x[c] ?? 0) > 0.6 && h > seaLevel + 100 && h < seaLevel + 160) pit.push(c);
+    }
+    expect(pit.length).toBeGreaterThan(20);
+    for (const c of pit) elevation[c] = seaLevel - 50;
+    const before = Float32Array.from(elevation);
+    const forced = cornerSeaMask(grid);
+    const sea = oceanComponents(grid, (c) => forced[c] === 1 || (before[c] ?? 0) < seaLevel, forced);
+    roughenCoasts(grid, 123, grid.x, grid.y, grid.z, elevation, landPercent, 1);
+    const { ocean } = classifyOcean(grid, Float32Array.from(elevation), landPercent);
+    let pitShore = 0;
+    for (const c of pit) {
+      // 웅덩이 칸은 진짜 바다가 아니었다
+      expect(sea[c]).toBe(0);
+      // 웅덩이 칸이 바뀌었다면(낮아짐) 진짜 바다와 이어져 바다가 된 것이다
+      if (!Object.is(before[c], elevation[c])) {
+        expect(elevation[c] ?? 0).toBeLessThanOrEqual(before[c] ?? 0);
+        expect(ocean[c]).toBe(1);
+      } else pitShore++;
+    }
+    expect(pitShore).toBeGreaterThan(0);
+  });
+
+  it("생성기 판 구조(F7 시드 3개): 땅 → 바다 칸은 모두 바다, 바다 → 땅 칸은 모두 땅, 원래 바다가 웅덩이로 갇히지 않는다", {
+    timeout: 60_000,
+  }, () => {
+    const grid = buildGrid(7);
+    const settings = resolvePlanetSettings(NORMAL_PRESETS);
+    for (const seed of [S2_TEST_PLANET_SEED, 1, 42]) {
+      const relief = tectonicRelief(grid, seed, settings);
+      softenPeaks(relief.elevation);
+      const before = Float32Array.from(relief.elevation);
+      const tmpLevel = areaPercentile(grid, before, 1 - settings.landPercent / 100);
+      const forced = cornerSeaMask(grid);
+      const sea = oceanComponents(grid, (c) => forced[c] === 1 || (before[c] ?? 0) < tmpLevel, forced);
+      roughenCoasts(
+        grid,
+        streamSeed(seed, STREAM_COAST),
+        relief.sx,
+        relief.sy,
+        relief.sz,
+        relief.elevation,
+        settings.landPercent,
+        settings.ruggednessPercent / 100,
+      );
+      // 시험이 부른 순서가 생성기(buildTectonics)와 같다
+      if (seed === S2_TEST_PLANET_SEED) {
+        expect(buildTectonics(grid, seed, settings).elevation).toEqual(relief.elevation);
+      }
+      const { seaLevel, ocean } = classifyOcean(grid, relief.elevation, settings.landPercent);
+      let lowered = 0;
+      let raised = 0;
+      const wrong: string[] = [];
+      for (let c = 0; c < grid.cellCount; c++) {
+        const a = before[c] ?? 0;
+        const b = relief.elevation[c] ?? 0;
+        if (b < a) {
+          lowered++;
+          if (ocean[c] !== 1) wrong.push(`land→sea ${c}`);
+        } else if (b > a) {
+          raised++;
+          if (ocean[c] === 1 || b < seaLevel) wrong.push(`sea→land ${c}`);
+        } else if (sea[c] === 1 && ocean[c] !== 1 && b < seaLevel) {
+          wrong.push(`trapped sea ${c}`);
         }
       }
-    }
-    for (let c = 0; c < grid.cellCount; c++) {
-      if ((before[c] ?? 0) > seaLevel && (elevation[c] ?? 0) <= seaLevel)
-        expect(reached[c], `cell ${c}`).toBe(1);
+      expect(lowered, `seed ${seed}`).toBeGreaterThan(300);
+      expect(raised, `seed ${seed}`).toBeGreaterThan(300);
+      expect(wrong.slice(0, 5), `seed ${seed}`).toEqual([]);
     }
   });
 

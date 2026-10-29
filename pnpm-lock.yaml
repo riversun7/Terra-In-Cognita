@@ -175,6 +175,9 @@ importers:
 
   packages/engine:
     dependencies:
+      '@terra/planet':
+        specifier: workspace:*
+        version: link:../planet
       '@terra/shared':
         specifier: workspace:*
         version: link:../shared

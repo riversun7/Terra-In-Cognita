@@ -1,0 +1,136 @@
+/*
+ * 1차맵 시험 화면 — map.css(2차맵 HUD: 화면 전체 지도, 위아래 판)를 함께 쓰고 1차맵만의 판을 더한다:
+ * 누른 칸 안내, 단계 표시, 레이어(지형·기후), 고도 과장 막대. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 판은 불투명하다: 세계(행성) 색은 테마와 상관없으므로 다크 테마에서도 판 위 글자가 읽혀야 한다(D-070).
+ */
+
+/* 아래 판: 누른 칸 안내 위에 조작 판 */
+.planet-bottom {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.planet-readout {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  font-variant-numeric: tabular-nums;
+}
+.planet-readout p {
+  margin: 0;
+}
+/* 첫 줄(자리 또는 안내)은 굵게 */
+.planet-readout p:first-child {
+  font-weight: var(--font-weight-strong);
+}
+/* 범례·받기 실패 안내 — 작게 */
+.planet-readout .planet-legend {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+}
+
+.planet-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.planet-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+
+/* 단계 표시: "단계 3/5" + 점 5개(장식, 읽기 프로그램은 글만 읽는다) */
+.planet-level {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+  font-variant-numeric: tabular-nums;
+}
+.planet-level-dots {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+.planet-level-dot {
+  width: var(--status-dot);
+  height: var(--status-dot);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+}
+.planet-level-dot[data-on="true"] {
+  border-color: var(--color-primary-lip);
+  background-color: var(--color-primary);
+}
+
+/* 레이어 고르기: 두 버튼 중 고른 것을 잎색으로(aria-pressed) */
+.planet-segment {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+.planet-segment button[aria-pressed="true"] {
+  --button-lip: var(--color-primary-lip);
+  border-color: transparent;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+/* 고도 과장 막대 — 누르는 높이는 44px 이상. 홈은 옅은 판색, 손잡이는 잎색 버튼처럼 */
+.planet-slider label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+.planet-slider input[type="range"] {
+  flex: 1 1 10em;
+  min-width: 0;
+  min-height: var(--tap-size);
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  cursor: pointer;
+}
+.planet-slider input[type="range"]::-webkit-slider-runnable-track {
+  height: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+}
+.planet-slider input[type="range"]::-moz-range-track {
+  height: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+}
+.planet-slider input[type="range"]::-moz-range-progress {
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+}
+.planet-slider input[type="range"]::-webkit-slider-thumb {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  /* 홈 가운데에 오게(홈 높이 − 손잡이) ÷ 2, 홈 테두리만큼 더 올린다 */
+  margin-top: calc((var(--space-2) - var(--icon-md)) / 2 - var(--hairline));
+  border: var(--border-w) solid var(--color-primary-lip);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  box-shadow: var(--shadow-control);
+  appearance: none;
+}
+.planet-slider input[type="range"]::-moz-range-thumb {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  border: var(--border-w) solid var(--color-primary-lip);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  box-shadow: var(--shadow-control);
+}

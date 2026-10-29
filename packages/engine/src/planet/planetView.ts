@@ -1,0 +1,222 @@
+// 1차맵 장면 — three.js 물체를 만들고 놓는다(타일 메시, 바탕 구, 대기 띠, 카메라).
+// 카메라 기준 좌표(ADR 36, PLAN 5.7): three 카메라는 원점에 두고 회전만 준다. 타일은 position = 타일 원점 − 카메라 위치(실수 64비트로 뺀다).
+// three는 모델뷰 = 보기 회전 × 이동을 실수 64비트(JS 수)로 곱한 뒤 32비트로 올린다 → 가까운 타일의 이동 값이 작아 떨림이 없다.
+import {
+  BufferAttribute,
+  BufferGeometry,
+  Color,
+  Group,
+  Matrix4,
+  Mesh,
+  MeshBasicMaterial,
+  PerspectiveCamera,
+  Scene,
+  type ShaderMaterial,
+  Sphere,
+  SphereGeometry,
+  type Texture,
+  Vector3,
+} from "three";
+import { cameraRelative } from "./cameraRelative.ts";
+import type { GlobePose } from "./globeCamera.ts";
+import {
+  DEBUG_CRACK_COLOR,
+  type SharedTileUniforms,
+  createAtmosphereMaterial,
+  createBaseGlobeMaterial,
+  createCellTexture,
+  createSharedTileUniforms,
+  createTileMaterial,
+} from "./planetMaterials.ts";
+import type { PickedCell } from "./planetTypes.ts";
+import { type TileMeshArrays, tileGpuBytes, tileIndices } from "./tileMesh.ts";
+import type { GpuTile } from "./tilePipeline.ts";
+import { tileShape } from "./tileShape.ts";
+import { type TileNode, nodeSTRange } from "./tileTree.ts";
+import type { Vec3 } from "./vec3.ts";
+
+/** 우주(행성 밖) 색 — 세계 색은 화면 테마와 상관없다(D-070) */
+const SPACE_COLOR = 0x1e2a4a;
+/** 바탕 구는 해수면보다 이만큼 아래(타일이 있으면 늘 가린다) */
+const BASE_GLOBE_DEPTH_M = 1500;
+/** 대기 띠 두께(반지름 비) */
+const ATMOSPHERE_SCALE = 1.018;
+/** 치마 여유(m) */
+const SKIRT_MARGIN_M = 30;
+
+export interface PlanetTileGpu extends GpuTile {
+  readonly mesh: Mesh<BufferGeometry, ShaderMaterial>;
+  readonly origin: Vec3;
+  /** 치마 깊이 계산용: 메시 활꼴 깊이, 보이는 높이 범위(게임 m) */
+  readonly sagM: number;
+  readonly shownRangeM: number;
+}
+
+export class PlanetView {
+  readonly scene = new Scene();
+  readonly camera: PerspectiveCamera;
+  readonly shared: SharedTileUniforms;
+  private readonly tiles = new Group();
+  private readonly baseGlobe: Mesh<SphereGeometry, ShaderMaterial>;
+  private readonly atmosphere: Mesh<SphereGeometry, ShaderMaterial>;
+  private readonly index: BufferAttribute;
+  /**
+   * 함께 쓰는 인덱스를 들고 있는 보이지 않는 메시. 타일 지오메트리는 버리기 전에 인덱스를 뗀다(three는 지오메트리를 버릴 때
+   * 그 인덱스 버퍼도 지운다). 이 메시는 늘 장면에 있어 three가 알고 있으므로, 화면을 닫을 때 이것을 버리면 인덱스 버퍼가 지워진다.
+   */
+  private readonly indexKeeper: Mesh<BufferGeometry, MeshBasicMaterial>;
+  private readonly debug: boolean;
+  private readonly radiusM: number;
+  private readonly basis = new Matrix4();
+  private readonly shown = new Set<PlanetTileGpu>();
+
+  constructor(radiusM: number, biomeColors: readonly number[], fovRad: number, debugCracks: boolean) {
+    this.radiusM = radiusM;
+    this.debug = debugCracks;
+    this.scene.background = new Color(debugCracks ? DEBUG_CRACK_COLOR : SPACE_COLOR);
+    this.camera = new PerspectiveCamera((fovRad * 180) / Math.PI, 1, 1, 10);
+    this.camera.matrixAutoUpdate = true;
+    this.shared = createSharedTileUniforms(biomeColors);
+    this.index = new BufferAttribute(tileIndices(32), 1);
+    const keeperGeometry = new BufferGeometry();
+    keeperGeometry.setAttribute("position", new BufferAttribute(new Float32Array(3), 3));
+    keeperGeometry.setIndex(this.index);
+    this.indexKeeper = new Mesh(keeperGeometry, new MeshBasicMaterial({ visible: false }));
+    this.indexKeeper.frustumCulled = false;
+    this.baseGlobe = new Mesh(
+      new SphereGeometry(radiusM - BASE_GLOBE_DEPTH_M, 96, 48),
+      createBaseGlobeMaterial(this.shared, debugCracks),
+    );
+    this.baseGlobe.frustumCulled = false;
+    this.atmosphere = new Mesh(
+      new SphereGeometry(radiusM * ATMOSPHERE_SCALE, 96, 48),
+      createAtmosphereMaterial(),
+    );
+    this.atmosphere.frustumCulled = false;
+    this.atmosphere.visible = !debugCracks;
+    // 그리는 차례: 타일(가까운 것 먼저) → 바탕 구 → 대기 띠(투명)
+    this.baseGlobe.renderOrder = 1_000_000;
+    this.scene.add(this.tiles, this.baseGlobe, this.atmosphere, this.indexKeeper);
+  }
+
+  /** 카메라: 원점에 두고 회전만. near·far는 엔진이 정한다 */
+  applyCamera(pose: GlobePose, aspect: number, near: number, far: number): void {
+    const camera = this.camera;
+    camera.position.set(0, 0, 0);
+    this.basis.makeBasis(
+      new Vector3(pose.right[0], pose.right[1], pose.right[2]),
+      new Vector3(pose.up[0], pose.up[1], pose.up[2]),
+      new Vector3(pose.back[0], pose.back[1], pose.back[2]),
+    );
+    camera.quaternion.setFromRotationMatrix(this.basis);
+    camera.aspect = aspect;
+    camera.near = near;
+    camera.far = far;
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+    // 바탕 구·대기 띠의 원점 = 행성 중심
+    const center = cameraRelative([0, 0, 0], pose.position);
+    this.baseGlobe.position.set(center[0], center[1], center[2]);
+    this.atmosphere.position.set(center[0], center[1], center[2]);
+  }
+
+  /** 대기 띠를 보일지(가까우면 끈다) */
+  setAtmosphere(visible: boolean): void {
+    this.atmosphere.visible = visible && !this.debug;
+  }
+
+  /** 그릴 타일을 놓는다(나머지는 숨긴다). order = 가까운 것 먼저 */
+  showTiles(tiles: readonly PlanetTileGpu[], cameraPosition: Vec3): void {
+    for (const gpu of this.shown) gpu.mesh.visible = false;
+    this.shown.clear();
+    tiles.forEach((gpu, order) => {
+      const relative = cameraRelative(gpu.origin, cameraPosition);
+      gpu.mesh.position.set(relative[0], relative[1], relative[2]);
+      gpu.mesh.renderOrder = order;
+      gpu.mesh.visible = true;
+      this.shown.add(gpu);
+    });
+  }
+
+  setExaggeration(value: number): void {
+    this.shared.uExaggeration.value = value;
+  }
+
+  /** 치마 깊이(표시 m) = 메시 활꼴 깊이 + 과장 × 높이 범위 + 여유 — 레벨이 다른 이웃 사이 틈보다 깊게 */
+  updateSkirt(gpu: PlanetTileGpu, exaggeration: number): void {
+    const uniform = gpu.mesh.material.uniforms.uSkirtDrop;
+    if (uniform) uniform.value = gpu.sagM + exaggeration * gpu.shownRangeM + SKIRT_MARGIN_M;
+  }
+
+  setLayer(layer: "terrain" | "climate"): void {
+    this.shared.uLayer.value = layer === "climate" ? 1 : 0;
+  }
+
+  /** 고른 칸 표시(없으면 지운다) */
+  setPick(cell: PickedCell | null): void {
+    if (!cell) {
+      this.shared.uPick.value.set(0, 0, 0, -1);
+      return;
+    }
+    const n = 2 ** cell.mapLevel;
+    this.shared.uPick.value.set(cell.i / n, cell.j / n, 1 / n, cell.face);
+  }
+
+  createTile(mesh: TileMeshArrays, node: TileNode, exaggeration: number): PlanetTileGpu {
+    const geometry = new BufferGeometry();
+    geometry.setAttribute("position", new BufferAttribute(mesh.positions, 3));
+    geometry.setAttribute("grad", new BufferAttribute(mesh.grads, 3));
+    geometry.setAttribute("hs", new BufferAttribute(mesh.heights, 2));
+    geometry.setAttribute("uv", new BufferAttribute(mesh.uvs, 2, true));
+    // 인덱스는 모든 타일이 하나를 함께 쓴다(GPU 버퍼 하나). 32마디가 아니면(큰 타일) 따로 만든다
+    geometry.setIndex(mesh.segments === 32 ? this.index : new BufferAttribute(tileIndices(mesh.segments), 1));
+    const shape = tileShape(node, this.radiusM);
+    geometry.boundingSphere = new Sphere(new Vector3(0, 0, 0), shape.angularRadius * this.radiusM * 1.5);
+    const cellTexture = createCellTexture(mesh.cellData, mesh.cells, 4);
+    const extraTexture = createCellTexture(mesh.cellExtra, mesh.cells, 2);
+    const { s0, t0, span } = nodeSTRange(node);
+    const material = createTileMaterial(this.shared, cellTexture, extraTexture, mesh.cells, mesh.origin, [
+      s0,
+      t0,
+      span,
+      node.face,
+    ]);
+    const object = new Mesh(geometry, material);
+    object.frustumCulled = false;
+    object.visible = false;
+    object.matrixAutoUpdate = true;
+    this.tiles.add(object);
+    const textures: Texture[] = [cellTexture, extraTexture];
+    const shared = this.index;
+    const gpu: PlanetTileGpu = {
+      mesh: object,
+      origin: mesh.origin,
+      bytes: tileGpuBytes(mesh),
+      sagM: shape.sagM,
+      shownRangeM: Math.max(0, mesh.maxHeightM) - Math.max(0, mesh.minHeightM),
+      dispose: () => {
+        object.removeFromParent();
+        this.shown.delete(gpu);
+        // 함께 쓰는 인덱스는 떼고 버린다(지오메트리를 버리면 three가 인덱스 버퍼도 지운다)
+        if (geometry.index === shared) geometry.setIndex(null);
+        geometry.dispose();
+        material.dispose();
+        for (const texture of textures) texture.dispose();
+      },
+    };
+    this.updateSkirt(gpu, exaggeration);
+    return gpu;
+  }
+
+  /** 타일은 먼저(파이프라인이) 버린다. 그다음 장면과 함께 쓰는 자원을 버린다 */
+  dispose(): void {
+    this.scene.clear();
+    this.indexKeeper.geometry.dispose();
+    this.indexKeeper.material.dispose();
+    this.baseGlobe.geometry.dispose();
+    this.baseGlobe.material.dispose();
+    this.atmosphere.geometry.dispose();
+    this.atmosphere.material.dispose();
+    this.shared.uPalette.value.dispose();
+  }
+}

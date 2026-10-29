@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-29 20:15 | 앱 뼈대 0단계: 주소 표·메뉴·홈 카드·처리할 일 계약, 개발 도구 권한, 화면 경로 대조 | Claude Code (작업 트리 `.claude/worktrees/app-shell-stage0`, 가지 `work/app-shell-stage0`, main `5b37544`에서 시작. 푸시·합치기 안 함) | [29-2015-app-shell-stage0](worklog/2026/10/29-2015-app-shell-stage0.md) |
 | 2026-10-29 19:20 | 행성 편집기 1단계: 사용자 결정 반영(ADR 38) | Claude Code | [29-1920-planet-editor-decisions](worklog/2026/10/29-1920-planet-editor-decisions.md) |
 | 2026-10-29 19:10 | NAS 행성 캐시 고침 확인(판 2 배포 뒤) | Claude Code | [29-1910-nas-planet-cache-verified](worklog/2026/10/29-1910-nas-planet-cache-verified.md) |
 | 2026-10-29 17:10 | S2 다듬기 통합: 검토 반영 가지 넷 합치기, 생성기 출력 판 2를 서버에 맞추기, 통합 검토 지적 처리 | Claude Code (작업 트리 `.claude/worktrees/s2-polish`, 가지 `work/s2-polish`, main `e1e281b`에서 시작. 푸시하지 않음) | [29-1710-s2-polish-integration](worklog/2026/10/29-1710-s2-polish-integration.md) |

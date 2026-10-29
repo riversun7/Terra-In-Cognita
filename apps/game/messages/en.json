@@ -39,6 +39,7 @@
   "inbox_overdue": "Overdue",
   "inbox_bell_count": "Alerts: {count}",
   "inbox_kind_unknown": "New alert",
+  "inbox_group_other": "Other alerts",
   "inbox_wave_incoming_title": "Wave incoming",
   "inbox_siege_declared_title": "Siege declared",
   "inbox_goods_spoiling_title": "Spoiling soon: {count}",

@@ -4,6 +4,7 @@
 //   새 종류를 더하는 순서는 ADR 37 7절: 종류 표 → messages의 inbox_<종류>_title(ko·en) → 이 표 한 줄.
 // - 서버는 값(params: 이름·수)만 보낸다. 문장은 여기서 만든다. 이름 뒤에 조사를 붙이지 않게 이름은 따로 보인다(place).
 // - 모르는 종류(더 새 서버)는 "새 알림"이고 처리함으로 간다. 값은 뜻을 모르므로 보이지 않는다. 마감은 보인다.
+// - 모르는 분류(더 새 서버)의 줄은 목록 끝 "그 밖의 알림" 묶음에 보인다(처리함에는 늘 모든 항목이 나온다, D-6011).
 // 종류 표 값(INBOX_KINDS)은 가져오지 않는다. 화면에 필요한 것(분류·이동 화면·동작)은 항목에 실려 온다.
 import { buildPath, isRouteTarget, targetPath } from "@terra/shared";
 import type { InboxCategory, InboxItem, InboxKindId } from "@terra/shared/inbox";
@@ -42,6 +43,9 @@ export const CATEGORY_NAMES = {
   decision: m.inbox_category_decision,
   done: m.inbox_category_done,
 } satisfies Record<InboxCategory, () => string>;
+
+/** 모르는 분류(더 새 서버)의 줄을 모은 묶음 이름. 목록 끝에 둔다(순위를 모른다) */
+export const OTHER_GROUP_NAME = m.inbox_group_other;
 
 /** 기기가 아는 종류인지(문구 표에 있는지) */
 export function isKnownKind(kind: string): kind is InboxKindId {

@@ -1,4 +1,5 @@
-// 처리할 일 목록 그리기 시험 — 모르는 종류·분류·동작·주소가 와도 깨지지 않는다(ADR 2026-10-29-app-shell 7·13절, W3 통과 기준 5)
+// 처리할 일 목록 그리기 시험 — 모르는 종류·분류·동작·주소가 와도 깨지지 않고 모든 줄이 보인다(ADR 2026-10-29-app-shell 7·13절,
+// W3 통과 기준 5, D-6011)
 // react-dom/server로 HTML을 만들어 본다(브라우저 없이). 화면 확인은 저장소 밖 Playwright 스크립트(작업 기록).
 import type { InboxItem } from "@terra/shared/inbox";
 import { createElement } from "react";
@@ -68,7 +69,7 @@ describe("처리할 일 목록 그리기", () => {
     expect(html.match(/<button/g)).toHaveLength(2);
   });
 
-  it("모르는 종류는 '새 알림'이고 값·버튼을 보이지 않는다. 모르는 동작·모르는 분류의 줄은 그리지 않는다", () => {
+  it("모르는 종류는 '새 알림'이고 값·버튼을 보이지 않는다. 모르는 동작은 그리지 않고, 모르는 분류의 줄은 끝의 '그 밖의 알림'에", () => {
     const odd = [
       item({
         id: "brand_new:k1",
@@ -90,8 +91,11 @@ describe("처리할 일 목록 그리기", () => {
     ];
     const html = render(odd);
     expect(textOf(html)).toBe(
-      "위협 1 새 알림 시험 자료 멈춤 1 명령 없는 유닛 1 제안·결정 1 조건에 맞는 의뢰 시험 자료 수락",
+      "위협 1 새 알림 시험 자료 멈춤 1 명령 없는 유닛 1 제안·결정 1 조건에 맞는 의뢰 시험 자료 수락 그 밖의 알림 1 명령 없는 유닛 1",
     );
+    // 처리함에는 늘 모든 항목이 나온다(D-6011): 받은 줄 수 = 그린 줄 수
+    expect(html.match(/<li /g)).toHaveLength(odd.length);
+    expect(html).toContain('data-category="other"');
     expect(html).not.toContain("Secret");
     expect(html).not.toContain("guild_hall");
     // 처리함 안에서는 갈 화면이 없는 줄에 링크를 두지 않는다
@@ -122,6 +126,16 @@ describe("처리할 일 목록 그리기", () => {
     );
     expect(html.match(/data-highlight="true"/g)).toHaveLength(1);
     expect(html).not.toContain("<button");
+  });
+
+  it("모르는 분류가 여럿이어도 '그 밖의 알림' 하나에 받은 차례로, 알려진 분류 뒤에", () => {
+    const html = render([
+      { ...item({ id: "unit_idle:a" }), category: JSON.parse('"urgent"') },
+      item({ id: "craft_done:e1", kind: "craft_done", category: "done" }),
+      { ...item({ id: "unit_idle:b", count: 2 }), category: JSON.parse('"__proto__"') },
+    ]);
+    expect(textOf(html)).toBe("완료 1 제작 완료 그 밖의 알림 2 명령 없는 유닛 1 명령 없는 유닛 2");
+    expect(html.match(/data-category="other"/g)).toHaveLength(1);
   });
 
   it("받은 차례가 섞여 와도 분류 제목은 한 번씩, 분류 순서대로(분류 안은 받은 차례)", () => {

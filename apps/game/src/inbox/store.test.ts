@@ -306,4 +306,17 @@ describe("종 배지", () => {
     expect(bellCount(list(1, { threat: 2, money_survival: 1, stalled: 3, decision: 1, done: 4 }))).toBe(7);
     expect(bellCount(list(1, { done: 4 }))).toBe(0);
   });
+
+  it("모르는 분류(더 새 서버)의 줄도 센다: 처리함이 '그 밖의 알림'으로 보인다. 수가 아닌 값은 뺀다", () => {
+    const counts: Record<string, number> = { ...list(1, { threat: 1 }).counts, urgent_new: 5 };
+    expect(bellCount({ ...EMPTY, counts: { ...EMPTY.counts, ...counts } })).toBe(6);
+    const odd: Record<string, number> = {
+      ...EMPTY.counts,
+      stalled: 2,
+      weird: Number.NaN,
+      minus: -3,
+      half: 0.5,
+    };
+    expect(bellCount({ ...EMPTY, counts: { ...EMPTY.counts, ...odd } })).toBe(2);
+  });
 });

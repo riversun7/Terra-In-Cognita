@@ -1,8 +1,12 @@
-// 처리할 일 분류 아이콘 5개 — 분류는 늘 아이콘 + 이름과 함께 보인다(색만으로 알리지 않는다, ADR 2026-10-29-app-shell 3·10절).
+// 처리할 일 분류 아이콘 5개 + "그 밖의 알림" — 분류는 늘 아이콘 + 이름과 함께 보인다(색만으로 알리지 않는다, ADR 2026-10-29-app-shell 3·10절).
 // 꾸밈이라 읽기 프로그램에는 숨긴다(이름은 옆 글자가 알린다). 글자와 같은 색(currentColor), 크기는 inbox.css의 .inbox-icon.
-// 통합 때: 화면 틀(W1)의 ui/icons.tsx에도 분류 아이콘 5개가 생긴다. 그쪽이 합쳐지면 이 파일의 CategoryIcon을 그것으로 바꾸고 지운다.
+// 통합 때: 화면 틀(W1)의 ui/icons.tsx에 분류 아이콘 5개(분류 ID와 같은 이름)가 있다. W1이 합쳐지면 CategoryIcon을
+// <Icon name={분류} className="inbox-icon" />로 바꾸고("그 밖의 알림"은 W1의 bell) 이 파일의 분류 그림을 지운다.
 import type { InboxCategory } from "@terra/shared/inbox";
 import type { ReactElement } from "react";
+
+/** 그릴 묶음: 분류 5개 + 이 기기가 모르는 분류를 모은 묶음 */
+export type InboxGroupKind = InboxCategory | "other";
 
 const PATHS = {
   // 위협: 세모 경고
@@ -41,9 +45,17 @@ const PATHS = {
       <path d="m6.4 10.2 2.5 2.5 4.8-5" strokeWidth={2} />
     </>
   ),
-} satisfies Record<InboxCategory, ReactElement>;
+  // 그 밖의 알림(모르는 분류): 동그라미 안의 i
+  other: (
+    <>
+      <circle cx="10" cy="10" r="7.6" />
+      <path d="M10 9.2v4.6" strokeWidth={2} />
+      <path d="M10 6.3h.01" strokeWidth={2.4} />
+    </>
+  ),
+} satisfies Record<InboxGroupKind, ReactElement>;
 
-export function CategoryIcon({ category }: { category: InboxCategory }) {
+export function CategoryIcon({ category }: { category: InboxGroupKind }) {
   return (
     <svg
       className="inbox-icon"

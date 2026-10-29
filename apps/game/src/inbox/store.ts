@@ -79,12 +79,15 @@ const IDLE: InboxState = {
 const TIMED_OUT: InboxLoadResult = { ok: false, error: "err_network", sessionEnded: false };
 const LOAD_THREW: InboxLoadResult = { ok: false, error: "err_unknown", sessionEnded: false };
 
-/** 종 배지 = 완료를 뺀 줄 수(묶음은 1줄. 해석: 완료는 "확인할 소식", D-6006). 목록이 없으면 0 */
+/**
+ * 종 배지 = 완료를 뺀 줄 수(묶음은 1줄. 해석: 완료는 "확인할 소식", D-6006). 목록이 없으면 0.
+ * 이 기기가 모르는 분류(더 새 서버)의 줄도 센다: 처리함은 그 줄을 "그 밖의 알림"으로 늘 보인다(D-6011, InboxList.tsx)
+ */
 export function bellCount(data: InboxListResponse | null): number {
   if (data === null) return 0;
   let total = 0;
   for (const [category, count] of Object.entries(data.counts)) {
-    if (category !== "done") total += count;
+    if (category !== "done" && Number.isSafeInteger(count) && count > 0) total += count;
   }
   return total;
 }

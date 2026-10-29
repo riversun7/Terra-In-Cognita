@@ -388,4 +388,19 @@ describe("콘텐츠 팩 행성 (content/core) — 정의가 생성기 입력이 
     expect(definition.settings).toEqual(resolvePlanetSettings(NORMAL_PRESETS));
     expect(generatePlanet(definition).meta.faceLevel).toBe(4);
   });
+
+  it("콘텐츠 팩 검증 결과(바이옴 참조가 id 필드가 있는 객체)도 JSON과 같은 입력이 된다", () => {
+    const planet = planetsJson.entries.find((entry) => entry.id === "s2_test_planet");
+    // @terra/content의 ContentRef와 같은 모양(이 패키지는 @terra/content를 가져올 수 없다)
+    const parsed = {
+      ...planet,
+      biomes: planet?.biomes.map((id) => ({ category: "biomes", id, toJSON: () => id })),
+    };
+    expect(planetInputFromDefinition(parsed, biomesJson.entries, 4)).toEqual(
+      planetInputFromDefinition(planet, biomesJson.entries, 4),
+    );
+    expect(() =>
+      planetInputFromDefinition({ ...parsed, biomes: [{ category: "biomes", id: 7 }] }, biomesJson.entries),
+    ).toThrow(RangeError);
+  });
 });

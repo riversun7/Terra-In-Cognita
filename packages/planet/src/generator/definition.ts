@@ -1,5 +1,6 @@
-// 행성 정의(JSON 모양) → 생성기 입력 — 타입이 없는 값(파일에서 읽은 JSON, 편집기 가져오기)을 확인하며 바꾼다.
-// 콘텐츠 팩 검증(@terra/content, Zod)을 거친 값이면 이 함수 없이 바로 넘겨도 된다. 모양은 팩 planets.json·biomes.json과 같다.
+// 행성 정의(JSON 모양) → 생성기 입력 — 타입이 없는 값을 확인하며 바꾼다. 모양은 팩 planets.json·biomes.json과 같다.
+// 받는 것: 파일에서 읽은 JSON, 편집기 가져오기, 콘텐츠 팩 검증 결과 항목(@terra/content `pack.entries`의 planets·biomes).
+// 검증 결과에서는 바이옴 참조가 ID 문자열이 아니라 참조 객체(ContentRef, `id` 필드)라 둘 다 받는다.
 import { OCEAN_DEPTH_CLASSES, PLANET_PRESET_AXES, isPlanetPresetLevel } from "@terra/shared";
 import type { OceanDepthClass, PlanetPresets, PlanetSettingKey, PlanetSettingOverrides } from "@terra/shared";
 import { PLANET_SETTING_KEYS } from "@terra/shared";
@@ -104,8 +105,15 @@ export function parsePlanetBiome(value: unknown): PlanetBiome {
   };
 }
 
+/** 바이옴 참조 → ID: JSON의 ID 문자열, 또는 콘텐츠 팩 검증 결과의 참조 객체(ContentRef처럼 `id`가 문자열인 객체) */
+function referenceId(value: unknown): string {
+  if (isRecord(value)) return text(value.id, "planet.biomes[].id");
+  return text(value, "planet.biomes[]");
+}
+
 /**
  * 행성 항목(planets.json entries[]) + 팩의 바이옴 항목들 → 생성기 입력. 바이옴 표는 행성의 biomes 순서다.
+ * 서버 굽기는 콘텐츠 팩 검증 결과를 그대로 넘긴다: `planetInputFromDefinition(행성, pack.entries.get("biomes") ?? [])`.
  * @param faceLevel 주면 그 해상도로 생성한다(편집기 미리보기). 없으면 행성의 면 레벨
  */
 export function planetInputFromDefinition(
@@ -118,10 +126,11 @@ export function planetInputFromDefinition(
   for (const entry of biomeEntries) byId.set(text(record(entry, "biome").id, "biome.id"), entry);
   const list: unknown = raw.biomes;
   if (!Array.isArray(list)) throw new RangeError("planet.biomes must be an array");
-  const ids: readonly unknown[] = list;
-  const biomes = ids.map((id) => {
-    const entry = byId.get(text(id, "planet.biomes[]"));
-    if (entry === undefined) throw new RangeError(`planet.biomes refers to a missing biome "${String(id)}"`);
+  const refs: readonly unknown[] = list;
+  const biomes = refs.map((reference) => {
+    const id = referenceId(reference);
+    const entry = byId.get(id);
+    if (entry === undefined) throw new RangeError(`planet.biomes refers to a missing biome "${id}"`);
     return parsePlanetBiome(entry);
   });
   return {

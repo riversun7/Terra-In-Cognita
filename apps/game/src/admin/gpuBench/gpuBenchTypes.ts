@@ -49,7 +49,7 @@ export interface ModeSession {
   gpuDone: GpuDoneTracker | null;
   /** 장면을 만든다(GPU에 올리기 전, 지오메트리 객체만) */
   setScene(workload: BenchWorkload): void;
-  /** 셰이더·파이프라인을 미리 만든다(three compileAsync) */
+  /** 셰이더·파이프라인을 미리 만든다(재질마다 하나로 three compileAsync, WebGL은 링크 확인까지). 끝나면 나머지 타일을 넣는다 */
   compile(): Promise<void>;
   /** timeSec초의 카메라로 한 번 그린다 */
   render(timeSec: number): FrameCost;
@@ -80,9 +80,9 @@ export interface RunResult {
   initMs: number | null;
   /** 장면 객체 만들기 */
   sceneMs: number | null;
-  /** 셰이더·파이프라인 만들기(compileAsync) */
+  /** 셰이더·파이프라인 만들기(재질마다 하나로 compileAsync, WebGL은 링크 확인까지) */
   compileMs: number | null;
-  /** 첫 render() 호출(버퍼 올리기 포함) */
+  /** 첫 render() 호출(모든 타일의 버퍼 올리기·물체 준비 포함) */
   firstRenderMs: number | null;
   /** 첫 render() 시작부터 다음 프레임까지 */
   firstFrameMs: number | null;

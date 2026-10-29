@@ -6,6 +6,10 @@
 // - 타일은 원점 = 메시 위치(실수 64비트), 꼭짓점 = 원점 기준(카메라 기준 좌표, ADR 36).
 //   모델뷰 행렬을 CPU에서 64비트로 곱하는 것은 렌더러 몫이다: WebGLRenderer는 늘 그렇게 하고,
 //   WebGPURenderer는 기본이 GPU 32비트 곱셈이라 gpuBenchTsl.ts가 highPrecision을 켠다(three 0.186.1 ModelNode.js).
+// - 처음에는 재질마다 하나(타일 1개 + 바다)만 장면에 넣는다. 셰이더 준비(compileAsync)는 이것만 하고, fill()로 나머지를 넣는다.
+//   이유: three WebGPURenderer.compileAsync는 물체마다 한 번씩 쉬어 간다(scheduler.yield, 없으면 requestAnimationFrame —
+//   사파리에는 scheduler.yield가 없다, MDN BCD). 타일 160개를 다 넣으면 사파리에서 160프레임을 기다리는 시간이 컴파일로 잡힌다.
+//   모든 타일은 같은 재질·같은 정점 모양이라 같은 프로그램·파이프라인을 쓴다(three 캐시 키에 물체 번호가 없다).
 import type {
   BufferAttribute,
   BufferGeometry,
@@ -45,6 +49,8 @@ export interface BenchScene {
   camera: PerspectiveCamera;
   /** timeSec초의 카메라로 옮기고, 화면 좌표계의 빛 방향(lightView)을 맞춘다 */
   update: (timeSec: number) => void;
+  /** 나머지 타일을 장면에 넣는다(셰이더 준비 뒤). 여러 번 불러도 한 번만 넣는다 */
+  fill: () => void;
   /** 지오메트리를 버린다(재질은 방식 모듈이 버린다) */
   dispose: () => void;
 }
@@ -52,6 +58,7 @@ export interface BenchScene {
 /**
  * 장면을 만든다. lightView는 셰이더가 읽는 화면(뷰) 좌표계 빛 방향이다 — update가 매 프레임 고쳐 쓴다.
  * 지오메트리는 workload의 배열을 그대로 감싼다(복사 없음). 같은 배열을 다른 방식이 다시 쓸 수 있다.
+ * 장면에는 처음에 첫 타일과 바다만 있다. 나머지 타일은 fill()이 넣는다(위 머리 주석).
  */
 export function buildBenchScene(
   kit: SceneKit,
@@ -64,6 +71,8 @@ export function buildBenchScene(
   scene.matrixWorldAutoUpdate = true;
   const index = new kit.BufferAttribute(workload.index, 1);
   const geometries: BufferGeometry[] = [];
+  /** 셰이더 준비 뒤에 넣을 타일(첫 타일 빼고 모두) */
+  const rest: Mesh[] = [];
   for (const tile of workload.tiles) {
     const geometry = new kit.BufferGeometry();
     geometry.setIndex(index);
@@ -77,7 +86,8 @@ export function buildBenchScene(
     // 움직이지 않는다: 행렬을 한 번만 만든다
     mesh.matrixAutoUpdate = false;
     mesh.updateMatrix();
-    scene.add(mesh);
+    if (geometries.length === 1) scene.add(mesh);
+    else rest.push(mesh);
   }
   const seaGeometry = new kit.SphereGeometry(PLANET_RADIUS_M, SEA_SEGMENTS.width, SEA_SEGMENTS.height);
   geometries.push(seaGeometry);
@@ -109,10 +119,18 @@ export function buildBenchScene(
   };
   update(0);
 
+  let filled = false;
+  const fill = (): void => {
+    if (filled) return;
+    filled = true;
+    for (const mesh of rest) scene.add(mesh);
+  };
+
   return {
     scene,
     camera,
     update,
+    fill,
     dispose: () => {
       for (const geometry of geometries) geometry.dispose();
       scene.clear();

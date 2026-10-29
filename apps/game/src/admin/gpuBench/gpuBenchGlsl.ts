@@ -128,11 +128,18 @@ export const createSession: CreateSession = async ({ canvas, width, height, pixe
       );
     },
     async compile() {
-      const { scene, camera } = requireScene();
-      await renderer.compileAsync(scene, camera);
+      const active = requireScene();
+      // 장면에는 재질마다 하나(첫 타일 + 바다)만 있다. 나머지 타일은 같은 프로그램을 쓴다(gpuBenchScene.ts)
+      await renderer.compileAsync(active.scene, active.camera);
+      // KHR_parallel_shader_compile이 없으면 compileAsync는 10ms 뒤 "준비됨"으로 풀리고, 링크 확인(LINK_STATUS)과
+      // uniform 위치 읽기는 첫 그리기에서 멈춰 기다린다(three WebGLProgram isReady·onFirstUse). TSL의 WebGL2 백엔드는
+      // 같은 일을 compileAsync 안에서 끝낸다. 여기서 끝내야 두 방식의 "컴파일"이 같은 일을 잰다(리뷰 지적, 2026-10-29)
+      for (const program of renderer.info.programs ?? []) program.getUniforms();
+      active.fill();
     },
     render(timeSec): FrameCost {
-      const { scene, camera, update } = requireScene();
+      const { scene, camera, update, fill } = requireScene();
+      fill();
       update(timeSec);
       const start = performance.now();
       renderer.render(scene, camera);

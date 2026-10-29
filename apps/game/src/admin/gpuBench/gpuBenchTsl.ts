@@ -119,11 +119,15 @@ export const createSession: CreateSession = async ({ canvas, width, height, pixe
       );
     },
     async compile() {
-      const { scene, camera } = requireScene();
-      await renderer.compileAsync(scene, camera);
+      const active = requireScene();
+      // 장면에는 재질마다 하나(첫 타일 + 바다)만 있다. compileAsync는 물체마다 한 번씩 쉬어 가므로(사파리는 한 프레임씩)
+      // 타일을 다 넣고 부르면 그 기다림이 컴파일로 잡힌다(gpuBenchScene.ts). 나머지 타일은 같은 파이프라인을 쓴다
+      await renderer.compileAsync(active.scene, active.camera);
+      active.fill();
     },
     render(timeSec): FrameCost {
-      const { scene, camera, update } = requireScene();
+      const { scene, camera, update, fill } = requireScene();
+      fill();
       update(timeSec);
       const start = performance.now();
       renderer.render(scene, camera);

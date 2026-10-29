@@ -1,7 +1,8 @@
 // 역할별 권한 표 — Better Auth 관리자 플러그인과 우리 tRPC 권한 검사가 같은 표를 쓴다.
 // 기본 거부: 표에 없는 동작은 할 수 없다. 여러 역할이면 하나라도 허용하면 허용한다.
 // 지금 정한 것(ADR 2026-10-28-auth-and-accounts): 역할 바꾸기·계정 관리는 admin만.
-// gm·dev는 이름만 있고 계정 관리 권한이 없다. 게임·콘텐츠 권한은 그 기능을 만들 때 문장(statement)을 늘린다.
+// gm은 이름만 있다. dev는 계정 관리 권한 없이 개발 도구 권한(home·planetEditor)만 있다.
+// 게임·콘텐츠 권한은 그 기능을 만들 때 문장(statement)을 늘린다.
 import { ROLES, type Role, isRole } from "@terra/shared";
 import { createAccessControl } from "better-auth/plugins/access";
 import { defaultStatements } from "better-auth/plugins/admin/access";
@@ -9,10 +10,17 @@ import { defaultStatements } from "better-auth/plugins/admin/access";
 /**
  * 권한 문장 — Better Auth 관리자 플러그인 기본(user·session 동작) + 게임 기능.
  * secondMap: S1 시험 2차맵 명령(WebSocket, src/world/gateway.ts). 지금은 admin만 한다(ADR 2026-10-28-s1-second-map).
+ * home: 홈 대시보드 시험(ADR 2026-10-29-app-shell 6절, 사용자 결정 2). dev·admin만.
+ *   - preview: 처리할 일·복귀 요약의 시안 자료를 받는다(inbox.list·summary.get의 preview). 다른 역할은 403
+ *   - template: 기본값(dt_hybrid)이 아닌 템플릿을 저장한다(settings.set). 다른 역할이 보낸 값은 거절하지 않고 dt_hybrid로 바꿔 저장한다
+ * planetEditor: 개발자 영역의 행성 편집기(ADR 2026-10-29-planet-editor-stage1 1·9절). dev·admin만.
+ *   - read: 행성 정의·내 초안·판 목록 조회 / write: 초안 저장·되돌리기·지우기
  */
 export const statements = {
   ...defaultStatements,
   secondMap: ["move-unit", "place-building", "remove-building"],
+  home: ["preview", "template"],
+  planetEditor: ["read", "write"],
 } as const;
 
 export const ac = createAccessControl(statements);
@@ -24,11 +32,19 @@ export const ac = createAccessControl(statements);
 export const roles = {
   player: ac.newRole({ user: [], session: [] }),
   gm: ac.newRole({ user: [], session: [] }),
-  dev: ac.newRole({ user: [], session: [] }),
+  // 개발자: 계정 관리 권한 없이 개발 도구(홈 시험, 행성 편집기)만 쓴다(ADR 2026-10-29-planet-editor-stage1 사용자 결정 D8)
+  dev: ac.newRole({
+    user: [],
+    session: [],
+    home: ["preview", "template"],
+    planetEditor: ["read", "write"],
+  }),
   admin: ac.newRole({
     user: ["create", "list", "get", "set-role", "ban", "set-password"],
     session: ["list", "revoke"],
     secondMap: ["move-unit", "place-building", "remove-building"],
+    home: ["preview", "template"],
+    planetEditor: ["read", "write"],
   }),
 } satisfies Record<Role, unknown>;
 

@@ -1,9 +1,10 @@
 // PWA 빌드 결과 검사 — 게임 앱을 빌드한 뒤 dist를 본다(CI 빌드 단계 다음). 규칙은 pwa-build.mjs
+// 빌드된 sw.js의 화면 이동 대체 제외 목록(denylist)에 화면 주소 표의 모든 경로 예를 대 본다(ADR 2026-10-29-app-shell 1절)
 // 사용: node scripts/check-pwa.mjs [dist 폴더]  (기본: apps/game/dist)
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fail } from "./lib.mjs";
-import { findPwaProblems } from "./pwa-build.mjs";
+import { ROUTE_NAVIGATIONS, findPwaProblems } from "./pwa-build.mjs";
 
 const dist = path.resolve(process.argv[2] ?? "apps/game/dist");
 if (!existsSync(path.join(dist, "index.html"))) {
@@ -32,5 +33,5 @@ const problems = findPwaProblems({
 if (problems.length > 0) fail(problems);
 const fonts = files.filter((file) => file.endsWith(".woff2")).length;
 console.log(
-  `✓ PWA 빌드 결과 통과 — manifest·아이콘·sw.js·theme-init.js·글꼴 ${fonts}개(WOFF2, 미리 캐시 안 함) (${path.relative(process.cwd(), dist) || "."})`,
+  `✓ PWA 빌드 결과 통과 — manifest·아이콘·sw.js(화면 주소 경로 예 ${ROUTE_NAVIGATIONS.length}개를 index.html로 엶)·theme-init.js·글꼴 ${fonts}개(WOFF2, 미리 캐시 안 함) (${path.relative(process.cwd(), dist) || "."})`,
 );

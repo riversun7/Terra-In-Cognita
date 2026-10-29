@@ -18,6 +18,7 @@ import { type PlanetRouteLimits, registerPlanetRoutes } from "./planet/routes.ts
 import { type PlanetServiceOptions, createPlanetService } from "./planet/service.ts";
 import type { PlanetSource } from "./planet/sources.ts";
 import { handleSession } from "./session.ts";
+import { isPagePath } from "./spaFallback.ts";
 import { registerTelemetry } from "./telemetry.ts";
 import type { Viewer } from "./trpc/context.ts";
 import { createContextFactory, loadViewer } from "./trpc/createContext.ts";
@@ -224,17 +225,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         if (filePath.startsWith(hashedDir)) reply.header("cache-control", IMMUTABLE_CACHE_CONTROL);
       },
     });
-    // 화면 이동(SPA) 경로만 index.html로 보낸다. API·WebSocket과 파일처럼 보이는 경로(확장자 있음)는 404.
-    // 없는 /assets/*.js에 HTML을 주면 브라우저가 형식 오류를 내고, 나중에 서비스 워커를 걷어낼 수도 없다.
-    // 그래서 화면 경로 이름에는 점(.)을 쓰지 않는다.
+    // 화면 이동(SPA) 경로만 index.html로 보낸다. API·WebSocket·상태 경로와 파일처럼 보이는 경로(확장자 있음)는 404.
+    // 판정 규칙은 src/spaFallback.ts(화면 주소 표 packages/shared/src/routes.ts와 짝)
     app.setNotFoundHandler((request, reply) => {
-      const pathname = request.url.split("?", 1)[0] ?? "";
-      const isPage =
-        request.method === "GET" &&
-        !pathname.startsWith("/api") &&
-        !pathname.startsWith("/ws") &&
-        !/\.[^/]*$/.test(pathname);
-      if (isPage) return reply.sendFile("index.html");
+      if (isPagePath(request.method, request.url)) return reply.sendFile("index.html");
       return reply.code(404).send({ error: "not_found" });
     });
   }

@@ -21,7 +21,8 @@ const TWO_OVER_PI = 0.6366197723675814;
 // π/2·π를 가장 가까운 실수(HI)와 나머지(LO)로
 const PIO2_HI = 1.5707963267948966;
 const PIO2_LO = 6.123233995736766e-17;
-const PI_HI = 3.141592653589793;
+// Math.PI·Math.LOG2E는 함수가 아니라 명세가 정한 상수(가장 가까운 실수)다
+const PI_HI = Math.PI;
 const PI_LO = 1.2246467991473532e-16;
 
 // sin r = r - r³/3! + … + r¹⁷/17! (|r| ≤ π/4에서 자르기 오차 < 1e-19)
@@ -186,7 +187,7 @@ export function detAsin(x: number): number {
 // ln 2 = LN2_HI + LN2_LO. LN2_HI는 유효 비트 33개라 정수 k(|k| < 2^20)를 곱해도 정확하다
 const LN2_HI = 0.6931471804855391;
 const LN2_LO = 7.440617110012397e-11;
-const LOG2E = 1.4426950408889634;
+const LOG2E = Math.LOG2E;
 // e^r = 1 + r + r²/2! + … + r¹³/13! (|r| ≤ ln2/2에서 자르기 오차 < 5e-18)
 const E2 = 0.5;
 const E3 = 0.16666666666666666;

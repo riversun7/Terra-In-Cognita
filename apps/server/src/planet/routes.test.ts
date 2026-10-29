@@ -169,6 +169,15 @@ describe("행성 타일 경로", () => {
     expect(await get(manifest.tileUrlTemplate.replace("{tileKey}", "99999999999999999"))).toEqual({
       error: "TILE_NOT_FOUND",
     });
+    // 앞에 0을 붙인 표기는 같은 타일이어도 받지 않는다(타일마다 주소 하나)
+    expect(
+      (await server.inject({ method: "GET", url: planetTilePath(manifest.tileUrlTemplate, key) })).statusCode,
+    ).toBe(200);
+    for (const padded of [`0${key}`, `00${key}`, "00"]) {
+      expect(await get(manifest.tileUrlTemplate.replace("{tileKey}", padded)), padded).toEqual({
+        error: "TILE_NOT_FOUND",
+      });
+    }
     expect(
       await get(planetTilePath(manifest.tileUrlTemplate.replace("test_planet", "other_planet"), key)),
     ).toEqual({

@@ -49,9 +49,12 @@ export interface PlanetRouteOptions {
   limits?: Partial<PlanetRouteLimits> | undefined;
 }
 
-/** 경로 매개변수 → 타일 ID(10진수 숫자만, 안전 정수). 아니면 undefined */
+/**
+ * 경로 매개변수 → 타일 ID(10진수 숫자만, 안전 정수). 아니면 undefined.
+ * 앞에 0을 붙인 표기("00", "012")는 받지 않는다: 타일마다 주소가 하나여야 한다(캐시·지표가 같은 타일을 여러 주소로 세지 않게)
+ */
 function parseTileKey(value: string): number | undefined {
-  if (!/^\d{1,16}$/.test(value)) return undefined;
+  if (!/^(0|[1-9]\d{0,15})$/.test(value)) return undefined;
   const key = Number(value);
   return Number.isSafeInteger(key) ? key : undefined;
 }

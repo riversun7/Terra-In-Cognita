@@ -48,8 +48,9 @@ export interface WorkerBakerOptions {
 }
 
 /**
- * 워커 V8 힙 상한(MB) 기본값. 합성 행성(F = 9)은 힙 약 20MB + 버퍼 약 60MB였다(작업 기록).
- * 실제 생성기가 더 쓰면 올린다. 컨테이너 전체 상한은 1GB다(ops/compose.yml).
+ * 워커 V8 힙 상한(MB) 기본값. 생성기 1판 S2 시험 행성(F = 9)은 워커 힙 + 외부 버퍼가 생성 단계 끝마다 잰 최대
+ * 173~191MB, 프로세스 RSS 최대 약 418MiB(봇 1,000개, 개발 컨테이너)였다(작업 기록 2026/10/29 s2-integration).
+ * 대부분 타입 배열이라 이 상한에 들지 않는다. 컨테이너 전체 상한은 1GB다(ops/compose.yml).
  */
 export const DEFAULT_BAKE_WORKER_HEAP_MB = 512;
 

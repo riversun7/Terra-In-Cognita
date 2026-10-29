@@ -2,8 +2,11 @@
 // 게임 앱은 이 파일의 AppRouter 타입만 가져간다(`import type`). 값 import는 scripts/check-boundaries.mjs가 막는다.
 import { accountRouter } from "./account.ts";
 import { adminRouter } from "./admin.ts";
+import { dashboardRouter } from "./dashboard.ts";
+import { inboxRouter } from "./inbox.ts";
 import { router } from "./init.ts";
 import { settingsRouter } from "./settings.ts";
+import { summaryRouter } from "./summary.ts";
 import { systemRouter } from "./system.ts";
 
 export const appRouter = router({
@@ -11,6 +14,10 @@ export const appRouter = router({
   account: accountRouter,
   admin: adminRouter,
   settings: settingsRouter,
+  // 홈 자료(앱 뼈대 W3, ADR 2026-10-29-app-shell 6·7·8절)
+  inbox: inboxRouter,
+  summary: summaryRouter,
+  dashboard: dashboardRouter,
 });
 
 export type AppRouter = typeof appRouter;

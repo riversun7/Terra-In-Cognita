@@ -3,8 +3,9 @@
 // - 파일 이름이 test로 시작해 결정성 검사 대상 밖이다(scripts/check-boundaries.mjs). 생성기 코드는 이 파일들을 가져오지
 //   않는다(같은 검사가 막는다). 측정 도우미는 testVarietyMeasures.ts, 생성기 단위 지표는 testVarietyUnit.ts.
 // - Node API를 쓰지 않는다(src 안). 명령줄·파일은 bench/variety.ts가 맡는다.
-// - 문턱(VARIETY_TARGETS)은 생성기 고침을 위한 임시값이다(문서 4.1, 기획 확인 전). 지금은 보고만 한다(gate: false).
-//   막는 시험으로 바꾸면(gate: true) 그때의 GENERATOR_VERSION과 문턱을 ADR에 적는다.
+// - 문턱(VARIETY_TARGETS)은 생성기 고침을 위한 임시값이다(문서 4.1, 기획 확인 전). 출력 판 3부터 일부를 막는다
+//   (gate: true, F7 × 시드 3개, variety.test.ts). 막는 지표와 문턱은 ADR 2026-10-29-planet-generator-variety에 적었다.
+//   문턱이나 막는 지표를 바꾸면 GENERATOR_VERSION과 함께 ADR에 적는다.
 import { windAt, windVectorAt } from "./climateWind.ts";
 import type { GeneratorDetails } from "./generate.ts";
 import {
@@ -47,20 +48,29 @@ export type VarietyOp = "<=" | ">=";
 export interface VarietyTarget {
   readonly op: VarietyOp;
   readonly limit: number;
-  /** true면 시험이 막는다. 지금은 모두 false(보고 모드, 문서 4.4) */
+  /** true면 시험(F7 × 시드 3개)이 막는다. false는 보고만 한다 */
   readonly gate: boolean;
 }
 
-/** 지표 이름 → 임시 문턱(문서 4.1). 여기 없는 지표는 보고만 한다 */
+/**
+ * 지표 이름 → 임시 문턱(문서 4.1). 여기 없는 지표는 보고만 한다.
+ * 막는 지표(출력 판 3, 2026-10-29): 위도 띠 4개(문서 표), 습도 계단, 행성끼리 구별, 최소 풍속, 노이즈 격자점, 열점 간격.
+ * 보고만 하는 것과 까닭
+ * - 저지대 기온 R²: 문서 표 밖(1단계에서 더함). F7 시드 1이 0.957로 문턱 0.96에 너무 가깝다
+ * - 바람 줄무늬: 정의 문제(원시 비는 등방 1에 가까운데 초과분이 시드 1에서 0.08~0.10, ADR)
+ * - 해안선 거칠기·24km 창: F9는 계획 목표 안(해안 1.10 이상, 창 0.35 이하)이지만 F7 한 시드가 문서 문턱을 조금 넘는다
+ *   (해안 팩 1.119, 창 시드 1 0.362). F7 칸(약 78km)은 해안 잔 모양을 다 담지 못하고 창이 4×4칸뿐이다
+ * - 큰 덩어리 10개·특징까지 거리: 특수 지형 층·2차맵이 채울 몫(문서 4.2·4.3)
+ */
 export const VARIETY_TARGETS: Readonly<Record<string, VarietyTarget>> = {
   // 위도 띠: 바이옴·기후가 위도만의 함수인지
-  "zonal.biomeInfoExplainedByAbsLat": { op: "<=", limit: 0.5, gate: false },
-  "zonal.dominantBiomeShare": { op: "<=", limit: 0.55, gate: false },
-  "zonal.openOceanPrecipR2": { op: "<=", limit: 0.9, gate: false },
-  "zonal.oceanTempR2": { op: "<=", limit: 0.97, gate: false },
+  "zonal.biomeInfoExplainedByAbsLat": { op: "<=", limit: 0.5, gate: true },
+  "zonal.dominantBiomeShare": { op: "<=", limit: 0.55, gate: true },
+  "zonal.openOceanPrecipR2": { op: "<=", limit: 0.9, gate: true },
+  "zonal.oceanTempR2": { op: "<=", limit: 0.97, gate: true },
   "zonal.lowlandTempR2": { op: "<=", limit: 0.96, gate: false },
   // 곧은 줄: 정수 등온선 계단, 바람 방향 줄무늬
-  "lines.humidityStepAtIntegerIsotherms": { op: "<=", limit: 1.5, gate: false },
+  "lines.humidityStepAtIntegerIsotherms": { op: "<=", limit: 1.5, gate: true },
   "lines.windStreakAnisotropyExcess": { op: "<=", limit: 0.05, gate: false },
   // 해안선 거칠기
   "coast.boxDimension": { op: ">=", limit: 1.12, gate: false },
@@ -70,11 +80,11 @@ export const VARIETY_TARGETS: Readonly<Record<string, VarietyTarget>> = {
   "patches.singleBiomeWindowShare": { op: "<=", limit: 0.35, gate: false },
   "features.gapP90GameKm": { op: "<=", limit: 8, gate: false },
   // 행성끼리 구별
-  "seeds.sameBandOverAdjacentBandJs": { op: ">=", limit: 0.5, gate: false },
+  "seeds.sameBandOverAdjacentBandJs": { op: ">=", limit: 0.5, gate: true },
   // 생성기 단위(testVarietyUnit.ts)
-  "unit.windMinSpeed": { op: ">=", limit: 0.2, gate: false },
-  "unit.noiseLatticeRmsRatio": { op: ">=", limit: 0.8, gate: false },
-  "unit.hotspotSpacingCv": { op: ">=", limit: 0.15, gate: false },
+  "unit.windMinSpeed": { op: ">=", limit: 0.2, gate: true },
+  "unit.noiseLatticeRmsRatio": { op: ">=", limit: 0.8, gate: true },
+  "unit.hotspotSpacingCv": { op: ">=", limit: 0.15, gate: true },
 };
 
 /** 지표 하나 */
@@ -374,7 +384,7 @@ export function formatVarietyReport(
         (id) => `${id} ${perSeed.map((result) => (100 * (result.landShares[id] ?? 0)).toFixed(1)).join("/")}`,
       )
       .join(", ")}`,
-    `${failing} of ${judged} judged checks fail (report mode: nothing is gated yet)`,
+    `${failing} of ${judged} judged checks fail (gated: ${Object.values(VARIETY_TARGETS).filter((target) => target.gate).length} metrics, see VARIETY_TARGETS)`,
   );
   return lines.join("\n");
 }

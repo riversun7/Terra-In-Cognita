@@ -1,7 +1,8 @@
 // 반복·단조로움 검사 측정 — 면 레벨(기본 9) × 시드(기본 팩·1·42)의 지표를 표와 JSON으로 내고, 기준 JSON과 비교한다.
 // 실행: pnpm --filter @terra/planet variety [면 레벨] [시드 목록] [--json <경로>] [--compare <경로>] [--strict]
 //   예: pnpm --filter @terra/planet variety 9 pack,1,42 --compare bench/variety-baseline.json
-//   명령은 packages/planet에서 돈다: 상대 경로는 packages/planet 기준이다. 기준 파일은 bench/variety-baseline.json.
+//   명령은 packages/planet에서 돈다: 상대 경로는 packages/planet 기준이다. 기준 파일은 bench/variety-baseline.json
+//   (출력 판 3, F9 × 팩·1·42). 출력 판 2의 같은 측정은 bench/variety-baseline-v2.json에 남겨 둔다.
 // - 지표 계산은 시험(src/generator/variety.test.ts, F7 보고 모드)과 같은 코드다(testVariety*.ts). pnpm test에 넣지 않는다:
 //   F9 × 시드 3개는 약 1분 걸린다.
 // - --compare: 같은 시드의 문턱 있는 지표를 기준과 비교해 문턱 쪽으로 10%(기준이 0 근처면 0.01) 넘게 나빠진 것을 알린다.

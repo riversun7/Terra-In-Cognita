@@ -1,6 +1,6 @@
-// 반복·단조로움 검사(보고 모드) — F7 × 시드 3개(S2 시험 행성 설정)의 지표를 표로 찍는다. 문턱은 아직 막지 않는다
-// (문서 docs/questions/2026-10-29-special-terrain.md 4.4: 기후 고침이 들어올 때까지 보고만, 그 뒤 막을 지표를 정한다).
-// 여기서 막는 것: 지표가 모두 있고 유한한지, 측정 도우미가 답을 아는 경우에 맞는 값을 내는지.
+// 반복·단조로움 검사 — F7 × 시드 3개(S2 시험 행성 설정)의 지표를 표로 찍고, 막는 지표(VARIETY_TARGETS의 gate)는
+// 문턱을 넘으면 실패한다(출력 판 3부터, 문서 docs/questions/2026-10-29-special-terrain.md 4.4). 그 밖의 지표는 보고만 한다.
+// 그리고 지표가 모두 있고 유한한지, 측정 도우미가 답을 아는 경우에 맞는 값을 내는지 본다.
 // F9 값과 기준 비교는 측정 스크립트(pnpm --filter @terra/planet variety)가 한다.
 import { NORMAL_PRESETS, resolvePlanetSettings } from "@terra/shared";
 import { describe, expect, it } from "vitest";
@@ -14,6 +14,7 @@ import {
   crossSeedMetrics,
   fieldMetrics,
   formatVarietyReport,
+  judgeMetric,
   varietyContext,
 } from "./testVariety.ts";
 import { boxDimension, jsDivergence, latitudeR2, singleBiomeWindowShare } from "./testVarietyMeasures.ts";
@@ -26,8 +27,8 @@ declare const console: { info(message: string): void };
 const SEEDS = [S2_TEST_PLANET_SEED, 1, 42];
 const everyCell = (): boolean => true;
 
-describe("반복·단조로움 검사 (보고 모드: 값을 찍고 문턱은 막지 않는다)", () => {
-  it("F7 × 시드 3개: 문턱이 있는 지표가 모두 있고 모든 값이 유한하다", { timeout: 120_000 }, () => {
+describe("반복·단조로움 검사 (막는 지표는 문턱, 나머지는 보고)", () => {
+  it("F7 × 시드 3개: 지표가 모두 있고 유한하며, 막는 지표가 모두 문턱 안이다", { timeout: 120_000 }, () => {
     const ctx = varietyContext(7);
     const base: PlanetGeneratorInput = {
       faceLevel: 7,
@@ -52,8 +53,10 @@ describe("반복·단조로움 검사 (보고 모드: 값을 찍고 문턱은 �
     for (const entry of all) expect(Number.isFinite(entry.value), entry.name).toBe(true);
     const names = new Set(all.map((entry) => entry.name));
     for (const name of Object.keys(VARIETY_TARGETS)) expect(names.has(name), name).toBe(true);
-    // 보고 모드: 막는 문턱이 아직 없다(gate를 켜면 이 줄을 지우고 문턱 시험을 더한다)
-    expect(Object.values(VARIETY_TARGETS).filter((target) => target.gate)).toEqual([]);
+    // 막는 지표: 시드마다(시드끼리 지표는 한 번) 문턱 안
+    const gated = all.filter((entry) => VARIETY_TARGETS[entry.name]?.gate === true);
+    expect(gated.length).toBeGreaterThan(0);
+    for (const entry of gated) expect(judgeMetric(entry), `${entry.name} = ${entry.value}`).toBe("PASS");
   });
 
   it("측정 도우미: 곧은 경계 상자 차원 1·면을 채우면 2, 칸마다 무작위 바이옴이면 단일 바이옴 창이 없다", () => {

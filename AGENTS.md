@@ -156,7 +156,7 @@
 | `pnpm --filter @terra/sim bench` | 판정 코어 벤치마크(임시 지형에서 경로 1,000개, 통과 폭·배치·이동 계산). `pnpm test`에는 없다. 공유 CPU에서는 값이 흔들린다 |
 | `pnpm --filter @terra/planet bench [면 레벨 …]` | 행성 생성기 벤치마크(콘텐츠 팩의 S2 시험 행성, 기본 6 7 9): 단계별 시간·RSS·타입 배열·최대 RSS. 레벨마다 새 프로세스로 잰다. `pnpm test`에는 없다 |
 | `pnpm --filter @terra/planet render <출력 폴더> [면 레벨] [시드]` | 생성 결과 그림(S2 시험 행성, 기본 면 레벨 7, 시드는 팩 값): 면마다 고도·바이옴·기온 PNG, 경위도 전체 5장(고도·바이옴·기온·강수·습도), 요약 수치. 출력 폴더는 저장소 밖 절대 경로로 준다(명령은 `packages/planet`에서 돈다) |
-| `pnpm --filter @terra/planet variety [면 레벨] [시드 목록] [--json <경로>] [--compare bench/variety-baseline.json] [--strict]` | 행성 생성 결과의 반복·단조로움 검사(S2 시험 행성 설정, 기본 F9 × 시드 `pack,1,42`): 지표 표(문서 `docs/questions/2026-10-29-special-terrain.md` 4.1의 14개 + 보고용), 땅 바이옴 몫. `--json`은 결과 파일, `--compare`는 기준(출력 판 2, F9)보다 문턱 쪽으로 10% 넘게 나빠진 지표와 바이옴 몫 차이(%p)를 알린다(`--strict`면 종료 코드 1). F9 × 3은 약 1분. 상대 경로는 `packages/planet` 기준. `pnpm test`에는 F7 보고 모드 시험(`variety.test.ts`)만 있다 |
+| `pnpm --filter @terra/planet variety [면 레벨] [시드 목록] [--json <경로>] [--compare bench/variety-baseline.json] [--strict]` | 행성 생성 결과의 반복·단조로움 검사(S2 시험 행성 설정, 기본 F9 × 시드 `pack,1,42`): 지표 표(문서 `docs/questions/2026-10-29-special-terrain.md` 4.1의 14개 + 보고용), 땅 바이옴 몫. `--json`은 결과 파일, `--compare`는 기준(출력 판 3, F9. 출력 판 2는 `bench/variety-baseline-v2.json`)보다 문턱 쪽으로 10% 넘게 나빠진 지표와 바이옴 몫 차이(%p)를 알린다(`--strict`면 종료 코드 1). F9 × 3은 약 1분. 상대 경로는 `packages/planet` 기준. `pnpm test`의 `variety.test.ts`(F7 × 3)는 막는 지표 9개(`VARIETY_TARGETS`의 `gate`)가 문턱을 넘으면 실패하고 나머지는 보고만 한다 |
 | `pnpm build` | 전체 빌드 |
 | `pnpm docs:index` | 작업 기록을 추가한 뒤 `docs/WORKLOG.md` 목차를 다시 만든다 |
 | `pnpm check:docs` | 코드 변경 → 작업 기록(의존성 버전만 올린 변경은 제외), 새 런타임 의존성 → ADR, 올라간 마이그레이션 수정 금지 |

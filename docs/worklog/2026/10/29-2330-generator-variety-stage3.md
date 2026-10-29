@@ -3,7 +3,7 @@
 - 일시: 2026-10-29 23:30 (KST)
 - 작업 도구: Claude Code
 - 가지: `work/generator-variety`(작업 트리 `.claude/worktrees/generator-variety`, 서브에이전트, 푸시하지 않음). 앞 기록 `29-2200-generator-variety-stage2.md`(2단계, 커밋 `b1b845d`)
-- 관련: ADR `2026-10-29-planet-generator-variety.md`(제안, "3단계" 절), ADR `2026-10-29-s2-planet-lod.md`(36, 버전·시험 절 한 줄), `docs/questions/2026-10-29-special-terrain.md` 4.3 3단계. 커밋 `59ac58c`(노이즈 펼치기, 출력 그대로), 이 기록의 커밋(지형 틀), 다음 커밋(막는 지표·출력 판 3 기준값)
+- 관련: ADR `2026-10-29-planet-generator-variety.md`(제안, "3단계"·"반복 검사" 절), ADR `2026-10-29-s2-planet-lod.md`(36, 버전·시험 절 한 줄), `docs/questions/2026-10-29-special-terrain.md` 4.3 3단계. 커밋 `59ac58c`(노이즈 펼치기, 출력 그대로), `f02b6b8`(지형 틀), 그다음 커밋(막는 지표·출력 판 3 기준값)
 
 ## 한 일
 1. 노이즈 속도(`59ac58c`, 출력 비트까지 같음): `gradientNoise3`·두 채널 노이즈 안의 해시·격자점 해시·기울기 내적·보간을 손으로 펼쳤다. V8이 작은 함수 호출 25번을 다 펼치지 않아 느렸다. F9 CPU 약 −30%라 3단계를 더하고도 출력 판 2보다 빠르다.
@@ -20,7 +20,8 @@
    - `generate.test.ts`: 골든 3개·판 구조 지문·기후 지문·해수면 비트, 판 번호·대륙 지각 해시가 판 2와 같다(새 시험), F6·F8 잰 값 주석.
    - `testVarietyUnit.ts`: 열점 간격 지표가 사슬 번호를 쓴다. 서버 `bake.test.ts` F5 고정값.
 5. 문서: ADR 3단계 절·측정·결과, ADR 36 한 줄, PLAN 5.3 1번 줄, 이 기록, 목차.
-6. 다음 커밋: 반복 검사 막는 지표 9개 켜기, F9 기준값을 출력 판 3으로(`bench/variety-baseline.json`, 판 2는 `variety-baseline-v2.json`), AGENTS.md 명령 줄.
+6. 막는 지표·기준값(`f02b6b8` 다음 커밋): 반복 검사 지표 9개를 막는다(위도 띠 4개, 습도 계단, 행성끼리 구별, 최소 풍속, 노이즈 격자점, 열점 간격. `testVariety.ts` `VARIETY_TARGETS`, `variety.test.ts`). F9 기준값을 출력 판 3으로 바꿨다(`bench/variety-baseline.json`, 판 2는 `bench/variety-baseline-v2.json`으로 이름만 바꿈). AGENTS.md 명령 줄, ADR "반복 검사" 절.
+   - 보고만 하는 것: 저지대 기온 R²(F7 시드 1 0.957, 문턱 0.96에 너무 가깝다), 바람 줄무늬(정의 문제), 해안선·24km 창(F9는 목표 안, F7 한 시드가 조금 넘는다), 큰 덩어리 10개·특징까지 거리(특수 지형·2차맵 몫).
 
 ## 잰 값 (Verified: 이 작업 트리, Node 24.22.1, S2 시험 행성 설정, 시드 팩 20261029·1·42)
 ### 반복 검사
@@ -89,9 +90,12 @@
 | `docs/adr/2026-10-29-planet-generator-variety.md` | 3단계 절·측정·결과, 노이즈 펼치기 한 줄, 상태 줄 |
 | `docs/adr/2026-10-29-s2-planet-lod.md` | 버전·시험 절 한 줄에 지형 틀 |
 | `docs/PLAN.md` | 5.3 1번 줄: 지형 틀 |
+| `packages/planet/src/generator/testVariety.ts`, `variety.test.ts` | 막는 지표 9개(`gate: true`)와 그 시험 |
+| `packages/planet/bench/variety-baseline.json`, `variety-baseline-v2.json` | F9 기준값을 출력 판 3으로, 판 2 값은 이름을 바꿔 남김 |
+| `packages/planet/bench/variety.ts`, `AGENTS.md` | 기준 파일 설명, 명령 줄(막는 지표) |
 
 ## 함께 바꿔야 하는 파일
-- 생성기 출력이 바뀌면: 골든 3개·판 구조·기후 지문·해수면 비트(`generate.test.ts`), `apps/server/src/planet/bake.test.ts` F5 고정값, `bench/variety-baseline.json`(다음 커밋부터 출력 판 3 기준).
+- 생성기 출력이 바뀌면: 골든 3개·판 구조·기후 지문·해수면 비트(`generate.test.ts`), `apps/server/src/planet/bake.test.ts` F5 고정값, `bench/variety-baseline.json`(`pnpm --filter @terra/planet variety 9 pack,1,42 --json bench/variety-baseline.json`). 막는 지표가 실패하면 문턱을 고치기 전에 무엇이 나빠졌는지 그림으로 본다.
 - 고원·해안·산맥 단면 노이즈의 주파수·옥타브·gain을 바꾸면 `landforms.ts`의 표준편차 상수(0.165·0.2·0.177, 노이즈 0.17 문턱)를 다시 잰다(F6 칸 × 시드 32개, 면적 가중).
 - 판 흔들기·대륙성·기복·회전 고르기 노이즈를 바꾸면 판 번호·대륙 지각 해시 시험이 깨진다(판·대륙 배치가 바뀐다는 뜻).
 

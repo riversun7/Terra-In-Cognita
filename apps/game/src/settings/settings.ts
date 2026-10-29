@@ -1,11 +1,15 @@
-// 화면 설정(테마·기기 설정 따르기·고른 언어) — 화면(React) 밖에 하나만 둔다. 화면은 useSettings()로 읽는다.
-// ADR 2026-10-28-design-system "처음 테마와 기기 설정", "설정 화면과 저장"
+// 설정(테마·기기 설정 따르기·고른 언어·메뉴·홈) — 화면(React) 밖에 하나만 둔다. 화면은 useSettings()로 읽는다.
+// ADR 2026-10-28-design-system "처음 테마와 기기 설정", "설정 화면과 저장", ADR 2026-10-29-app-shell 5절
 // - 기기: localStorage(열쇠·모양은 storage.ts). 언어 자체는 Paraglide가 저장한다. 저장소를 못 쓰면 이번 실행 동안만 기억한다.
 // - 화면: <html data-theme>와 주소창 색(<meta name="theme-color">). 첫 화면은 public/theme-init.js가 먼저 걸어 둔다.
 //   기기 설정(다크·고대비)이 바뀌면 바로 다시 고른다. 다른 탭에서 바꾸면 그 값을 따른다(storage 이벤트).
 // - 계정: 로그인 상태가 되면 accountSync.ts를 불러(동적 import) 맞춘다. tRPC 클라이언트를 첫 화면 묶음에 넣지 않으려고다.
+//   계정 요청(맞추기·올리기)은 한 줄로 세워 하나씩 보낸다: 빨리 잇달아 바꿔도 먼저 보낸 값이 나중 값을 덮지 않게.
 // - 테마를 고르면 "기기 설정에 맞추기"는 꺼진다. 스위치를 끄면 지금 보이는 테마를 그대로 남긴다(화면이 갑자기 바뀌지 않게).
-import type { Locale, Theme } from "@terra/shared";
+// - 메뉴(nav)·홈(home)은 모양을 모르는 JSON 객체다. 읽기는 쓰는 곳이 한다: 틀은 parseNavigation(device.nav),
+//   홈 조각은 parseHome(device.home, 역할). 바꿀 때는 mergeNavigation·mergeHome으로 지금 값에 바꾼 칸만 덮어 만든 값을 넘긴다
+//   (chooseNavigation·chooseHome). 그래서 이 파일은 @terra/shared/dashboard를 가져오지 않는다(첫 화면 묶음).
+import type { Locale, SettingsObject, Theme } from "@terra/shared";
 import { useSyncExternalStore } from "react";
 import { getSessionState, subscribe as subscribeSession } from "../auth/session.ts";
 import { setLocale } from "../paraglide/runtime.js";
@@ -14,6 +18,7 @@ import {
   SETTINGS_STORAGE_KEY,
   parseDeviceSettings,
   serializeDeviceSettings,
+  storableSettingsObject,
 } from "./storage.ts";
 import { type SettingsPatch, applyChange } from "./syncRules.ts";
 import { CONTRAST_QUERY, DARK_QUERY, type DevicePreferences, THEME_COLORS, resolveTheme } from "./theme.ts";
@@ -111,15 +116,37 @@ const signedInUserId = (): string | null => {
 
 const loadAccountSync = () => import("./accountSync.ts");
 
-/** 계정에 올린다. 조각을 못 불러오거나 실패하면 "올릴 것" 표시가 남아 다음 로그인 때 올린다 */
-async function upload(userId: string, timeoutMs?: number): Promise<void> {
-  try {
+/** 계정 요청 줄: 앞의 요청(맞추기·올리기)이 끝난 뒤 다음을 보낸다. 실패는 삼킨다("올릴 것" 표시가 남는다) */
+let accountQueue: Promise<void> = Promise.resolve();
+/** 줄에서 차례를 기다리는(아직 보내지 않은) 올리기. 그동안 바꾼 값은 이 올리기가 함께 보낸다 */
+let waitingUpload: Promise<void> | null = null;
+
+function enqueue(task: () => Promise<void>): Promise<void> {
+  const run = accountQueue.then(task).catch(() => {
+    // 조각을 못 불러옴(오프라인 등)·요청 실패: 다음 로그인 때 다시
+  });
+  accountQueue = run;
+  return run;
+}
+
+/**
+ * 계정에 올린다. 차례가 오면 그때의 "올릴 것"을 모두 보낸다. 보내는 동안 또 바꾸면 끝난 뒤 한 번 더 보낸다.
+ * 실패하면 "올릴 것" 표시가 남아 다음 로그인 때 올린다.
+ */
+function upload(userId: string, timeoutMs?: number): Promise<void> {
+  waitingUpload ??= enqueue(async () => {
+    waitingUpload = null;
     const sync = await loadAccountSync();
     await sync.uploadPending(deviceStore, userId, timeoutMs);
-  } catch {
-    // 다음 로그인 때 다시
-  }
+  });
+  return waitingUpload;
 }
+
+/** 정한 시간만큼 기다린다 */
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 /** 바꾼 값을 기기에 저장하고 "올릴 것"으로 표시한다. 로그인한 사용자 id(없으면 null)를 돌려준다 */
 function change(patch: SettingsPatch): string | null {
@@ -140,11 +167,44 @@ export function setFollowSystem(on: boolean): void {
   if (by !== null) void upload(by);
 }
 
-/** 언어 바꾸기 — 로그인했으면 계정에 올린 뒤(최대 3초) Paraglide로 바꾼다(새로고침) */
+/** 언어 바꾸기 — 로그인했으면 계정에 올린 뒤(최대 3초, 줄에서 기다리는 시간 포함) Paraglide로 바꾼다(새로고침) */
 export async function chooseLocale(locale: Locale): Promise<void> {
   const by = change({ locale });
-  if (by !== null) await upload(by, LOCALE_UPLOAD_TIMEOUT_MS);
+  if (by !== null) {
+    await Promise.race([upload(by, LOCALE_UPLOAD_TIMEOUT_MS), wait(LOCALE_UPLOAD_TIMEOUT_MS)]);
+  }
   await setLocale(locale);
+}
+
+/**
+ * 메뉴·홈 값 바꾸기 — chooseTheme와 같은 길(기기에 저장 → 로그인했으면 계정에 올림).
+ * JSON으로 복사해 저장한다(부른 쪽 객체를 나중에 고쳐도 저장값은 그대로, 다시 읽은 값과 같다).
+ * 크기 상한(4KB)을 넘거나 JSON으로 바꿀 수 없으면 저장하지 않고 false다(서버도 받지 않는 값이다).
+ */
+function chooseObject(key: "nav" | "home", value: SettingsObject): boolean {
+  const copy = storableSettingsObject(value);
+  if (copy === null) return false;
+  const by = change(key === "nav" ? { nav: copy } : { home: copy });
+  if (by !== null) void upload(by);
+  return true;
+}
+
+/**
+ * 메뉴 설정 바꾸기(ADR 2026-10-29-app-shell 4·5절). 값은 지금 값에 바꾼 칸만 덮어 만든다:
+ * `chooseNavigation(mergeNavigation(getSettingsSnapshot().device.nav, 바꾼 칸))` — 더 새 버전이 넣은 칸이 남는다.
+ * 저장하지 않았으면(상한을 넘음) false
+ */
+export function chooseNavigation(nav: SettingsObject): boolean {
+  return chooseObject("nav", nav);
+}
+
+/**
+ * 홈 설정 바꾸기(ADR 2026-10-29-app-shell 5·6절). 값은 홈 조각이 지금 값에 바꾼 칸만 덮어 만든다:
+ * `chooseHome(mergeHome(getSettingsSnapshot().device.home, 바꾼 칸))`(@terra/shared/dashboard). 저장하지 않았으면 false.
+ * dev·admin이 아닌 계정이 기본값이 아닌 템플릿을 보내면 서버가 그 칸만 기본값으로 바꿔 저장한다(다음 로그인 때 기기에도 온다)
+ */
+export function chooseHome(home: SettingsObject): boolean {
+  return chooseObject("home", home);
 }
 
 /** 로그인 상태가 되면(앱을 켰을 때 이미 로그인돼 있던 경우 포함) 계정과 한 번 맞춘다 */
@@ -153,11 +213,10 @@ function onSessionChange(): void {
   if (userId === syncedUser) return;
   syncedUser = userId;
   if (userId === null) return;
-  loadAccountSync()
-    .then((sync) => sync.syncAtSignIn(deviceStore, userId))
-    .catch(() => {
-      // 조각을 못 불러옴(오프라인 등): 다음 로그인 때 다시
-    });
+  void enqueue(async () => {
+    const sync = await loadAccountSync();
+    await sync.syncAtSignIn(deviceStore, userId);
+  });
 }
 
 /** 앱 시작 때 한 번 부른다(main.tsx) */

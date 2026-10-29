@@ -1,5 +1,7 @@
 // 실시간 프로토콜 진입점 — 기기·서버가 같은 정의를 쓴다.
 // 의미를 바꾸면 PROTOCOL_VERSION을 올리고 ADR을 남긴다 (docs/PROTECTED.md).
+// package.json "sideEffects": false: 쓰지 않는 모듈(1차맵 타일 형식 등)은 첫 화면 묶음에서 빠진다. 그래서 이 꾸러미
+// 모듈은 맨 위에서 부르는 코드(전역 등록 등)를 두지 않는다(ADR 2026-10-29-s2-planet-lod "다듬기 통합", AGENTS.md 6장)
 export {
   PROTOCOL_VERSION,
   MIN_SUPPORTED_PROTOCOL_VERSION,

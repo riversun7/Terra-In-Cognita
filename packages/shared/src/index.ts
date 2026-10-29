@@ -1,4 +1,6 @@
 // 공용 유틸리티 진입점 — 다른 내부 패키지를 import하지 않는 최하층 패키지
+// package.json "sideEffects": false: 쓰지 않는 모듈은 묶음(첫 화면 등)에서 빠진다. 그래서 이 꾸러미 모듈은 맨 위에서
+// 부르는 코드(전역 등록 등)를 두지 않는다(ADR 2026-10-29-s2-planet-lod "다듬기 통합", AGENTS.md 6장)
 export { createRng, type Rng } from "./rng.ts";
 export { detAsin, detAtan, detAtan2, detCos, detExp, detSin, detTan } from "./detMath.ts";
 export {

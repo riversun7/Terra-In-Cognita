@@ -23,6 +23,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
@@ -146,6 +147,11 @@ function buildIfStale(): void {
   const result = spawnSync("pnpm", ["build"], { cwd: ROOT, stdio: "inherit" });
   if (result.error) throw new Error(`pnpm을 실행하지 못했습니다: ${result.error.message}`);
   if (result.status !== 0) throw new Error(`pnpm build가 실패했습니다(코드 ${String(result.status)})`);
+  // 빌드가 도중에 다시 쓰는 입력이 있다: 작업 트리의 첫 빌드에서 Paraglide(inlang)가 apps/game/project.inlang/settings.json을
+  // 같은 내용으로 다시 쓴다(서버 결과를 쓴 뒤, 2026-10-29 확인). 그대로 두면 다음 실행이 그 파일을 "새 소스"로 보고 또 빌드한다.
+  // 그래서 결과 시각을 빌드가 끝난 때로 맞춘다. 빌드하는 동안 손으로 고친 소스는 다음 실행이 보지 못한다(감수)
+  const builtAt = new Date();
+  for (const file of BUILD_OUTPUTS) utimesSync(path.join(ROOT, file), builtAt, builtAt);
 }
 
 /** 127.0.0.1의 그 포트를 쓸 수 있는지 */

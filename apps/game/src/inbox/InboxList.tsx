@@ -1,4 +1,4 @@
-// 처리할 일 목록 — 분류마다 묶어(위협 → 돈·생존 → 멈춤 → 제안·결정 → 완료, 서버가 정렬한 차례 그대로) 줄을 그린다.
+// 처리할 일 목록 — 분류마다 묶어(위협 → 돈·생존 → 멈춤 → 제안·결정 → 완료, 분류 안은 서버가 정렬한 차례 그대로) 줄을 그린다.
 // 처리함 화면(InboxScreen.tsx)과 홈(처리할 일 카드·템플릿)이 함께 쓴다. ADR 2026-10-29-app-shell 7절, D-6006·D-6009·D-6015
 // - 줄 = 제목(누르면 그 화면, 링크가 카드 전체를 덮는다) + 곳·마감·"시험 자료" + 바로 처리 버튼(0~2개).
 // - 분류는 아이콘 + 이름 + 줄 수로 보인다. 색은 상태색만 쓴다(위협 danger, 돈·생존 warning, 완료 success, 멈춤·제안은 글자색).
@@ -9,7 +9,7 @@ import type { InboxCategory, InboxItem } from "@terra/shared/inbox";
 import { type MouseEvent, useId } from "react";
 import { m } from "../paraglide/messages.js";
 import { CategoryIcon, ChevronIcon } from "./icons.tsx";
-import { CATEGORY_NAMES, describeItem, isKnownCategory } from "./inboxText.ts";
+import { CATEGORY_NAMES, CATEGORY_ORDER, describeItem, isKnownCategory } from "./inboxText.ts";
 import { type QuickActionId, quickActionLabel, quickActionsFor } from "./quickActions.ts";
 
 export interface InboxListProps {
@@ -34,17 +34,23 @@ interface Group {
   readonly items: InboxItem[];
 }
 
-/** 차례를 지키며 분류마다 묶는다(서버가 분류 순서로 정렬해 보낸다). 모르는 분류는 뺀다 */
+/**
+ * 분류마다 묶는다: 분류 순서(위협 → … → 완료)대로, 분류 안에서는 받은 차례 그대로(서버가 마감 순으로 정렬해 보낸다).
+ * 받은 차례가 섞여 와도 분류 제목이 두 번 나오지 않는다. 모르는 분류는 뺀다
+ */
 function groupByCategory(items: readonly InboxItem[]): Group[] {
-  const groups: Group[] = [];
+  const byCategory = new Map<InboxCategory, InboxItem[]>();
   for (const item of items) {
     const category: string = item.category;
     if (!isKnownCategory(category)) continue;
-    const last = groups.at(-1);
-    if (last?.category === category) last.items.push(item);
-    else groups.push({ category, items: [item] });
+    const list = byCategory.get(category);
+    if (list) list.push(item);
+    else byCategory.set(category, [item]);
   }
-  return groups;
+  return CATEGORY_ORDER.flatMap((category) => {
+    const list = byCategory.get(category);
+    return list ? [{ category, items: list }] : [];
+  });
 }
 
 /** 보통 왼쪽 누름만 앱 안 이동으로 바꾼다 */

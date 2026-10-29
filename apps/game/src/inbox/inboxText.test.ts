@@ -1,7 +1,7 @@
 // 처리할 일 문구·링크 시험 — 종류마다 제목, 모르는 종류(더 새 서버)는 "새 알림" + 처리함으로, 마감·개수 표시(ADR 2026-10-29-app-shell 7·12절)
-import type { InboxItem } from "@terra/shared/inbox";
+import { INBOX_CATEGORIES, type InboxItem } from "@terra/shared/inbox";
 import { describe, expect, it } from "vitest";
-import { describeItem, formatDue, inboxItemTitle, itemHref } from "./inboxText.ts";
+import { CATEGORY_ORDER, describeItem, formatDue, inboxItemTitle, itemHref } from "./inboxText.ts";
 
 const NOW = 1_761_700_000_000;
 const MIN = 60_000;
@@ -18,6 +18,12 @@ const item = (extra: Partial<InboxItem> = {}): InboxItem => ({
   target: { route: "units" },
   actions: ["auto_assign"],
   ...extra,
+});
+
+describe("분류 순서", () => {
+  it("공용 분류 목록(정렬 순위)과 같다", () => {
+    expect(CATEGORY_ORDER).toEqual(INBOX_CATEGORIES);
+  });
 });
 
 describe("처리할 일 제목", () => {

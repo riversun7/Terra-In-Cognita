@@ -22,6 +22,18 @@ const KIND_TITLES = {
   craft_done: (_count, locale) => m.inbox_craft_done_title({}, { locale }),
 } satisfies Record<InboxKindId, (count: string, locale: Locale) => string>;
 
+/**
+ * 분류 순서(정렬 순위, D-6009). @terra/shared/inbox INBOX_CATEGORIES와 같다(inboxText.test.ts가 본다).
+ * 공용 값을 가져오지 않고 따로 적는다: 그 모듈에 든 종류 표를 기기 묶음에 넣지 않으려고다
+ */
+export const CATEGORY_ORDER = [
+  "threat",
+  "money_survival",
+  "stalled",
+  "decision",
+  "done",
+] as const satisfies readonly InboxCategory[];
+
 /** 분류 이름(0단계 키 inbox_category_<분류>) */
 export const CATEGORY_NAMES = {
   threat: m.inbox_category_threat,

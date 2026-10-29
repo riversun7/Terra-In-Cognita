@@ -90,7 +90,7 @@ describe("처리할 일 목록 그리기", () => {
     ];
     const html = render(odd);
     expect(textOf(html)).toBe(
-      "위협 1 새 알림 시험 자료 제안·결정 1 조건에 맞는 의뢰 시험 자료 수락 멈춤 1 명령 없는 유닛 1",
+      "위협 1 새 알림 시험 자료 멈춤 1 명령 없는 유닛 1 제안·결정 1 조건에 맞는 의뢰 시험 자료 수락",
     );
     expect(html).not.toContain("Secret");
     expect(html).not.toContain("guild_hall");
@@ -122,6 +122,19 @@ describe("처리할 일 목록 그리기", () => {
     );
     expect(html.match(/data-highlight="true"/g)).toHaveLength(1);
     expect(html).not.toContain("<button");
+  });
+
+  it("받은 차례가 섞여 와도 분류 제목은 한 번씩, 분류 순서대로(분류 안은 받은 차례)", () => {
+    const html = render([
+      item({ id: "craft_done:e1", kind: "craft_done", category: "done" }),
+      item({ id: "unit_idle:a", count: 2 }),
+      item({ id: "wave_incoming:w1", kind: "wave_incoming", category: "threat" }),
+      item({ id: "unit_idle:b", count: 3 }),
+    ]);
+    expect(textOf(html)).toBe(
+      "위협 1 웨이브가 다가옵니다 멈춤 2 명령 없는 유닛 2 명령 없는 유닛 3 완료 1 제작 완료",
+    );
+    expect(html.match(/data-category="stalled"/g)).toHaveLength(1);
   });
 
   it("빈 목록은 아무 분류도 그리지 않는다(빈 문구는 화면이 그린다)", () => {

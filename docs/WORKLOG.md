@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-30 01:20 | 앱 뼈대 W1 검토 고침: 겹침·다시 고름을 화면 이동과 나눔, 처음 켤 때 초점, C 지도 버튼 여백, 화면 시험 e2e/shell.spec.ts | Claude Code | [30-0120-app-shell-w1-review](worklog/2026/10/30-0120-app-shell-w1-review.md) |
 | 2026-10-29 23:10 | 앱 뼈대 W1: 화면 길·틀(라우터·위 띠·하단 탭·사이드 메뉴), 메뉴 순서 하나(D-265) | Claude Code | [29-2310-app-shell-w1](worklog/2026/10/29-2310-app-shell-w1.md) |
 | 2026-10-29 21:00 | 단위 시험 제한 시간 30초(공유 개발 컨테이너 부하) | Claude Code | [29-2100-bake-test-timeout](worklog/2026/10/29-2100-bake-test-timeout.md) |
 | 2026-10-29 21:00 | 앱 뼈대 0단계 검토 반영: 주소 표 타입·값 규칙, 부모 화면·검색어 바꾸기, 설정 쓰기 도우미, 완료 종류, ADR 37 문장 | Claude Code | [29-2100-app-shell-stage0-review](worklog/2026/10/29-2100-app-shell-stage0-review.md) |

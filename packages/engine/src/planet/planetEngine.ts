@@ -3,6 +3,7 @@
 // 한 프레임: 움직임(두 번 누르기) → 목표점 높이 맞추기 → 카메라(가장 낮은 고도) → 올리기(상한) → 고르기(화면 오차·시야·상한)
 //          → 받기(동시 상한, 원하지 않게 된 것 취소) → 그리기 목록 놓기(카메라 기준 좌표) → 그리기 → 메모리 상한.
 // 화면 변화가 없으면 그리지 않는다. 받기·만들기가 끝나면 다시 그린다. 컨텍스트를 잃으면 멈췄다가 복구되면 다시 그린다.
+// 가장 높은 땅(시야 거르기 경계구·지평선·누르기·먼 자르기 면): 행성 설명 값(없으면 1,000m)과 받은 타일 중 높은 것.
 import { averageCellEdgeMeters } from "@terra/planet/projection";
 import type { WebGLRenderer } from "three";
 import { FrameScheduler } from "../render/frameScheduler.ts";
@@ -29,6 +30,7 @@ import {
 import { attachGlobeControls } from "./globeControls.ts";
 import { type Selection, selectTiles } from "./lodSelect.ts";
 import {
+  DEFAULT_MAX_ELEVATION_M,
   DEFAULT_PLANET_BUDGETS,
   type PickedCell,
   type PlanetCameraView,
@@ -52,7 +54,6 @@ const DEFAULT_EXAGGERATION = 6;
 const MIN_EXAGGERATION = 1;
 const MAX_EXAGGERATION = 50;
 const DEFAULT_MAX_SCREEN_ERROR_PX = 4;
-const DEFAULT_MAX_ELEVATION_M = 1000;
 /** 처음 거리 = 가장 먼 거리 × 이 값 */
 const INITIAL_DISTANCE_FACTOR = 0.9;
 /** 처음 볼 곳(위도·경도) */
@@ -100,7 +101,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
   }
   const layout = tileLayout(planet.faceLevel);
   const radiusM = planet.radiusM;
-  const maxElevationM = Math.max(1, planet.maxElevationM ?? DEFAULT_MAX_ELEVATION_M);
+  const describedMaxElevationM = Math.max(1, planet.maxElevationM ?? DEFAULT_MAX_ELEVATION_M);
 
   let renderer: WebGLRenderer;
   try {
@@ -157,6 +158,8 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     now: () => performance.now(),
   });
   const lookup: DecodedLookup = (key) => pipeline.decoded(key);
+  /** 가장 높은 땅(게임 m): 설명 값보다 높은 타일이 오면 그 높이(목록 정보에 값이 없거나 틀려도 경계가 땅을 자르지 않게) */
+  const maxElevationM = (): number => Math.max(describedMaxElevationM, pipeline.highestHeightM());
   const shownHeight = (direction: Vec3): number => displayedHeightAt(direction, layout, lookup, exaggeration);
 
   /** 카메라가 아래 땅보다 낮으면 거리를 늘린다(가장 낮은 고도) */
@@ -179,7 +182,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     const ground = shownHeight(normalize(pose.position));
     const clearance = Math.max(1, cameraRadius - radiusM - ground);
     const near = Math.max(1, Math.min(clearance * 0.5, state.distance * 0.25));
-    const outer = radiusM + maxElevationM * exaggeration;
+    const outer = radiusM + maxElevationM() * exaggeration;
     const horizon =
       Math.sqrt(Math.max(0, cameraRadius * cameraRadius - occluderRadiusM * occluderRadiusM)) +
       Math.sqrt(Math.max(0, outer * outer - occluderRadiusM * occluderRadiusM));
@@ -253,7 +256,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
       {
         layout,
         innerRadiusM: radiusM,
-        outerRadiusM: radiusM + maxElevationM * exaggeration,
+        outerRadiusM: radiusM + maxElevationM() * exaggeration,
         occluderRadiusM,
         maxScreenErrorPx,
         maxTiles: budgets.visibleTiles,
@@ -315,7 +318,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
       ray.origin,
       ray.dir,
       radiusM,
-      maxElevationM * exaggeration,
+      maxElevationM() * exaggeration,
       shownHeight,
       finestCellM / 2,
     );
@@ -441,6 +444,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
         tileErrors: pipeline.errors,
         gpuBytes: counts.gpuBytes,
         memoryBytes: counts.memoryBytes,
+        maxElevationM: maxElevationM(),
         primaryLevel: center.primaryLevel,
         mapLevel: center.mapLevel,
         incomplete: lastSelection?.incomplete ?? true,
@@ -494,6 +498,7 @@ function inertPlanetEngine(
     tileErrors: 0,
     gpuBytes: 0,
     memoryBytes: 0,
+    maxElevationM: 0,
     primaryLevel: 0,
     mapLevel: 0,
     incomplete: true,

@@ -3,6 +3,7 @@
 // 이 진입점은 @terra/shared·@terra/protocol·@terra/planet만 가져온다(AGENTS.md 4장, scripts/check-boundaries.mjs).
 export { createPlanetEngine } from "./planetEngine.ts";
 export {
+  DEFAULT_MAX_ELEVATION_M,
   DEFAULT_PLANET_BUDGETS,
   MAX_RENDER_FACE_LEVEL,
   WATER_BITS,

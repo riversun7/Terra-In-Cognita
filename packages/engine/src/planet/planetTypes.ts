@@ -70,9 +70,16 @@ export interface PlanetDescription {
   readonly radiusM: number;
   /** 바이옴 번호별 색(0xRRGGBB, 0~255번). 없는 번호는 회색으로 그린다 */
   readonly biomeColors: readonly number[];
-  /** 가장 높은 땅(게임 m) — 화면 경계·누르기·카메라 높이 계산에 쓴다. 모르면 1,000 */
+  /**
+   * 가장 높은 땅(게임 m) — 시야 거르기 경계구·지평선·누르기·먼 자르기 면에 쓴다.
+   * 목록 정보에는 아직 없다(서버가 구울 때 셀 수 있다 — 타일·서버 작업과 맞출 이음매). 없으면 DEFAULT_MAX_ELEVATION_M이고,
+   * 받은 타일이 그보다 높으면 엔진이 그 높이로 늘린다(낮추지는 않는다).
+   */
   readonly maxElevationM?: number;
 }
+
+/** 행성 설명에 가장 높은 땅이 없을 때 쓰는 값(게임 m). 지구 에베레스트 8,849m ÷ 12 ≈ 737m보다 조금 높게 */
+export const DEFAULT_MAX_ELEVATION_M = 1000;
 
 /**
  * 렌더러가 그리는 면 레벨 상한. 자료 없는 마디(맵 레벨 5 ~ F−5)는 늘 나누므로 가장 거친 1차맵 단계(맵 레벨 F−4)가
@@ -224,6 +231,8 @@ export interface PlanetStats {
   gpuBytes: number;
   /** 타일 메모리 추정(바이트, 상한 budgets.memoryBytes): GPU 추정 + JS에 남는 배열·풀어 둔 타일 */
   memoryBytes: number;
+  /** 시야 거르기·누르기에 쓰는 가장 높은 땅(게임 m): 행성 설명 값과 받은 타일 중 높은 것 */
+  maxElevationM: number;
   /** 화면 가운데에 그린 타일의 1차맵 단계(1~5, 없으면 0)와 맵 레벨 */
   primaryLevel: number;
   mapLevel: number;

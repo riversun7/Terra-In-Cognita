@@ -111,6 +111,9 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+/** 꼭짓점 높이가 모두 height인 타일 높이 함수 */
+const flat = (height: number) => (): number => height;
+
 describe("타일 받기·올리기", () => {
   it("동시 받기 상한(2)을 지키고, 기다린 요청은 상한 횟수로 센다", () => {
     const { pipeline, calls } = setup({ concurrentFetches: 2 });
@@ -288,6 +291,27 @@ describe("타일 받기·올리기", () => {
     expect(pipeline.counts().memoryBytes).toBe(decodedTileBytes(tile) + gpu.bytes + RETAINED_BYTES);
     // 풀어 둔 32칸 타일 = 꼭짓점 높이 33² × 2바이트 + 칸 값 6가지 × 32²
     expect(decodedTileBytes(tile)).toBe(33 * 33 * 2 + 6 * 32 * 32);
+  });
+
+  it("만든 타일 중 가장 높은 꼭짓점을 기억한다(버려도 낮추지 않는다)", async () => {
+    const { pipeline, calls } = setup();
+    expect(pipeline.highestHeightM()).toBe(Number.NEGATIVE_INFINITY);
+    const low: TileNode = { face: 0, mapLevel: 7, tx: 1, ty: 1 };
+    const high: TileNode = { face: 0, mapLevel: 7, tx: 2, ty: 1 };
+    pipeline.request(wanted([low, high]), 1);
+    for (const [index, height] of [
+      [0, 250],
+      [1, 1234],
+    ] as const) {
+      const call = calls[index];
+      if (!call) throw new Error(`call ${index}`);
+      const { face, mapLevel, i0, j0, size } = call.request;
+      call.resolve(makeTile(face, mapLevel, i0, j0, size, flat(height)));
+    }
+    await settle();
+    expect(pipeline.highestHeightM()).toBe(1234);
+    pipeline.dispose();
+    expect(pipeline.highestHeightM()).toBe(1234);
   });
 });
 

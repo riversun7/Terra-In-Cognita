@@ -7,6 +7,7 @@
 // - 실패하면 1초부터 두 배씩(30초까지) 기다렸다가 다시 받는다. 그동안은 부모 타일이 그 자리를 그린다.
 // - 메모리 추정(GPU에 올린 것 + JS에 남는 배열 사본 + 풀어 둔 타일)이 상한을 넘으면 이번 프레임에 안 쓴 타일을 오래된 것부터
 //   버린다(꼭대기 타일은 지킨다: 늘 부모가 있게).
+// - 만든 타일 중 가장 높은 땅을 기억한다(highestHeightM): 엔진이 시야 거르기·누르기 높이를 그만큼 늘린다.
 import type { WantedTile } from "./lodSelect.ts";
 import {
   type DecodedTile,
@@ -88,6 +89,8 @@ export class TilePipeline<G extends GpuTile> {
   private gpuBytes = 0;
   /** 모든 타일이 쥔 메모리 추정(TileEntry.bytes의 합) — 상한과 견준다 */
   private memoryBytes = 0;
+  /** 만든 타일 중 가장 높은 꼭짓점(게임 m). 없으면 −∞ */
+  private highestM = Number.NEGATIVE_INFINITY;
   private disposed = false;
   /** 상한에 걸린 횟수·실패 수(누적) */
   readonly hits = { fetches: 0, uploads: 0, memory: 0 };
@@ -132,6 +135,11 @@ export class TilePipeline<G extends GpuTile> {
       gpuBytes: this.gpuBytes,
       memoryBytes: this.memoryBytes,
     };
+  }
+
+  /** 지금까지 만든 타일 중 가장 높은 꼭짓점(게임 m, 버린 타일 포함). 아직 없으면 −∞ */
+  highestHeightM(): number {
+    return this.highestM;
   }
 
   /** 고른 나무에서 쓴 마디 표시(오래 안 쓴 것을 버릴 때 본다) */
@@ -339,6 +347,7 @@ export class TilePipeline<G extends GpuTile> {
         entry.tile = built.tile;
         entry.mesh = built.mesh;
         this.setBytes(entry, this.tileBytes(entry) + tileGpuBytes(built.mesh));
+        this.highestM = Math.max(this.highestM, built.mesh.maxHeightM);
         entry.state = "built";
         entry.failures = 0;
         this.options.onChange();

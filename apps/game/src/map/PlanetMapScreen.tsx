@@ -229,6 +229,7 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
       data-triangles={stats?.triangles}
       data-gpu-bytes={stats?.gpuBytes}
       data-memory-bytes={stats?.memoryBytes}
+      data-max-elevation={stats?.maxElevationM}
       data-level={stats?.primaryLevel}
       data-map-level={stats?.mapLevel}
       data-incomplete={stats ? String(stats.incomplete) : undefined}

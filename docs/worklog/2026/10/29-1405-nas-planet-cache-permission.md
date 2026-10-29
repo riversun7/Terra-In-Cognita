@@ -15,13 +15,20 @@
 - 14:08 첫 실행 결과(Verified, `nas-facts` 브랜치 실행):
   - `planet-cache`는 소유 1000:1000인데 권한이 555(`dr-xr-xr-x`)다. 그래서 소유자인 uid 1000도 쓰지 못한다(쓰기 시험 "Permission denied").
   - 같은 데이터 폴더의 `pgdata`(0:0)·`backups`(0:0)·데이터 폴더 자체(1026:100)도 모두 555다. 확장 속성 이름은 보이지 않았다(빈 목록).
-  - root(실행기·DB 컨테이너 시작 스크립트)는 권한 검사를 건너뛰어서 지금까지 문제가 드러나지 않았다. DB는 시작 스크립트가 데이터 폴더를 `chmod 700`·`chown`한 뒤 postgres 사용자로 쓴다.
+  - root(실행기·DB 컨테이너 시작 스크립트)는 권한 검사를 건너뛰어서 지금까지 문제가 드러나지 않았다. DB는 공식 이미지 시작 스크립트가 데이터 폴더를 `chmod 700`·`chown`한 뒤 postgres 사용자로 쓰는 것으로 안다(Assumed, 이 세션에서 스크립트를 읽지 않음).
   - 그래서 `chmod`로 권한을 바꾸면 쓸 수 있을 것으로 본다(Assumed). 빈 시험 폴더(`perm-test`)를 만들어 chown 1000 → chmod 755 → uid 1000 쓰기를 확인하는 항목을 더했다(끝나면 지운다).
+- 14:11 시험 폴더 결과(Verified, `nas-facts` 브랜치 실행): 만든 직후 555 → `chmod 0755` 뒤 755(`drwxr-xr-x`) → uid 1000이 파일을 만들었다(소유 1000:1000, 권한 644) → "쓰기 가능". 시험 폴더는 지웠다.
+- 고침: `ops/deploy.sh`가 `planet-cache`에 소유자(1000)와 함께 권한 755도 준다. 앱을 바꾼 뒤 앱 사용자로 쓸 수 있는지(`test -w`) 보고, 못 쓰면 경고만 찍는다(배포는 그대로).
+  - 다음 배포에서 적용된다. 이 브랜치는 문서 밖 파일(`deploy.sh`·워크플로)이 바뀌어 main에 합치면 배포가 돈다. 그래서 다음 배포 묶음(S2 다듬기)과 함께 합친다. 그 배포는 생성기를 고쳐 어차피 다시 굽는다.
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
 |---|---|
 | `.github/workflows/nas-facts.yml` | 데이터 폴더 권한 확인(캐시 쓰기 실패 원인) |
+| `ops/deploy.sh` | 캐시 폴더에 권한 755도 준다. 앱을 바꾼 뒤 쓰기 가능 여부를 경고로 알린다 |
+| `ops/compose.yml` | 볼륨 주석(소유자·권한) |
+| `ops/nas-setup.md` | "문제가 생기면"에 캐시 쓰기 실패 대처, 9장 보는 법 |
+| `docs/adr/2026-10-29-s2-planet-lod.md` | "NAS에서 잰 값" 절, "남은 위험"의 NAS 굽기·캐시 줄 |
 
 ## 함께 바꿔야 하는 파일
 - 캐시 폴더 자리를 바꾸면 `ops/compose.yml`(볼륨), `ops/deploy.sh`(폴더 만들기·소유자), `Dockerfile`(`PLANET_CACHE_DIR`), `ops/nas-setup.md`를 함께 고친다.
@@ -30,7 +37,8 @@
 - `pgdata`·`backups` 폴더의 소유자·권한은 바꾸지 않는다(DB와 백업이 쓰고 있다).
 
 ## 미검증·TODO·알려진 문제
-- 원인 확인 전이다. 확인되면 고치는 방법을 정한다(권한 바꾸기 또는 Docker 이름 볼륨).
+- 고친 `deploy.sh`는 아직 NAS에서 돌지 않았다(미실행). 다음 배포 뒤 `nas-metrics`의 행성 준비 줄에 "planet cache write failed"가 없는지, 그다음 배포에서 `planetCacheHits` 1인지 본다.
+- 다른 데이터 폴더(`pgdata`·`backups`)도 555지만 root·DB 시작 스크립트가 쓰므로 그대로 둔다.
 - `ops/nas-metrics-planet` 브랜치는 main에 합친 뒤 지운다.
 
 ## 사용자 결정 대기

@@ -24,7 +24,7 @@
 - `pgdata`·`backups` 폴더 권한(작업 기록 29-1405와 같다).
 
 ## 미검증·TODO·알려진 문제
-- 캐시로 켜기(`planetCacheHits` 1, 굽기 0)는 생성기·정의가 그대로인 다음 배포 뒤 `nas-metrics`로 본다.
+- 캐시로 켜기는 배포 sha-2dd483a0f918(CI 96) 뒤 확인했다: `s2_test_planet` 캐시 읽기 155.5ms, `planetCacheHits` 1(Verified, ADR 36 "NAS에서 잰 값").
 - 원격 가지 `ops/nas-metrics-planet`은 main에 들어갔다. 이 환경에서 원격 가지 지우기는 403이라 남겨 둔다.
 
 ## 사용자 결정 대기

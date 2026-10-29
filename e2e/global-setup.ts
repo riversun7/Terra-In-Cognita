@@ -8,9 +8,10 @@
 // 6. 계정마다 한 번 들어가 세션(쿠키)을 파일로 남긴다 → 시험이 test.use({ account })로 쓴다(helpers/test.ts).
 // 7. 콘텐츠 팩 행성이 준비될 때까지 기다린다. 타일 캐시는 서버 기본 폴더(apps/server/.planet-cache)라 첫 실행만 굽는다.
 // 돌려주는 함수가 전역 정리다: 서버를 끄고 DB를 지운다. 서버 기록은 e2e/test-results/server.log에 남는다.
+// 같은 작업 트리에서는 한 번에 하나만 돈다: 설정 파일을 읽을 때 잠금을 잡는다(helpers/runLock.ts).
 // 중단된 실행(도구 시간 초과·Ctrl+C)이 남긴 서버·DB·임시 폴더는 다음 실행이 처음에 정리한다(실행 기록 파일).
 import { type ChildProcess, execFile, execFileSync, spawn, spawnSync } from "node:child_process";
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import {
   copyFileSync,
   createWriteStream,
@@ -26,7 +27,6 @@ import { createRequire } from "node:module";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { type FullConfig, chromium, request } from "@playwright/test";
 import {
@@ -36,8 +36,15 @@ import {
   type Harness,
   type HarnessAccount,
 } from "./helpers/harness.ts";
+import {
+  type ProcessRef,
+  ROOT,
+  RUN_STATE_FILE,
+  isAlive,
+  parseProcessRef,
+  processRef,
+} from "./helpers/runLock.ts";
 
-const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const run = promisify(execFile);
 
 /** 가짜 계정(버리는 DB에만 있다). 아이디 규칙: 영문·숫자·_ 3~20자 */
@@ -59,20 +66,22 @@ const NOT_BUILT = /\.test\.[cm]?[jt]sx?$|\.md$|^apps\/server\/drizzle\//;
 const PORT_RANGE = { from: 4400, to: 4600 };
 const SERVER_START_MS = 90_000;
 const SERVER_STOP_MS = 10_000;
-/** 행성 굽기를 기다리는 상한. 처음 한 번 약 15~20초(기계 부하에 따라 더), 캐시가 있으면 약 1초(AGENTS.md 7장) */
+/**
+ * 행성 굽기를 기다리는 상한. 빈 캐시면 행성마다 약 20초를 차례로 굽는다(행성 2개면 약 40초, 기계 부하에 따라 더).
+ * 캐시가 있으면 몇 초(AGENTS.md 7장 PLANET_CACHE_DIR 줄)
+ */
 const PLANET_READY_MS = 180_000;
-/** 이번 실행이 만든 것(작업 트리마다 하나). 정리를 마치면 지운다. 남아 있으면 앞 실행이 정리하지 못한 것이다 */
-const RUN_STATE_FILE = path.join(
-  tmpdir(),
-  `terra-e2e-run-${createHash("sha256").update(ROOT).digest("hex").slice(0, 12)}.json`,
-);
 const DB_NAME = /^terra_e2e_[0-9a-f]{8}$/;
+/** 이번 실행의 임시 폴더: tmpdir() 바로 아래 mkdtemp("terra-e2e-") = 앞머리 + 6글자 */
+const RUN_DIR_PREFIX = "terra-e2e-";
+const RUN_DIR_NAME = /^terra-e2e-[A-Za-z0-9]{6}$/;
 
+/** 실행 기록(RUN_STATE_FILE): 이번 실행이 만든 것. 정리를 마치면 지운다 */
 interface RunState {
-  runnerPid: number;
+  runner: ProcessRef | null;
   runDir: string | null;
   dbName: string | null;
-  serverPid: number | null;
+  server: ProcessRef | null;
 }
 
 const log = (line: string): void => console.log(`[e2e] ${line}`);
@@ -300,60 +309,56 @@ async function waitForPlanets(baseURL: string, storageState: string): Promise<vo
   }
 }
 
-const isNumber = (value: unknown): value is number => Number.isSafeInteger(value);
-const isString = (value: unknown): value is string => typeof value === "string";
-
 function readRunState(): RunState | null {
   try {
     const data: unknown = JSON.parse(readFileSync(RUN_STATE_FILE, "utf8"));
     if (typeof data !== "object" || data === null) return null;
-    const pick = <T>(key: string, check: (value: unknown) => value is T): T | null => {
+    const text = (key: string): string | null => {
       const value: unknown = Reflect.get(data, key);
-      return check(value) ? value : null;
+      return typeof value === "string" ? value : null;
     };
-    const runnerPid = pick("runnerPid", isNumber);
-    if (runnerPid === null) return null;
     return {
-      runnerPid,
-      runDir: pick("runDir", isString),
-      dbName: pick("dbName", isString),
-      serverPid: pick("serverPid", isNumber),
+      runner: parseProcessRef(Reflect.get(data, "runner")),
+      runDir: text("runDir"),
+      dbName: text("dbName"),
+      server: parseProcessRef(Reflect.get(data, "server")),
     };
   } catch {
     return null;
   }
 }
 
-/** 살아 있고 명령줄에 그 글자가 있는 프로세스인지(리눅스 /proc). 끝난 프로세스의 번호를 다른 프로세스가 받았을 수 있다 */
-function isProcess(pid: number, marker: string): boolean {
-  try {
-    process.kill(pid, 0);
-    return readFileSync(`/proc/${pid}/cmdline`, "utf8").includes(marker);
-  } catch {
-    return false;
-  }
-}
+/** 이 틀이 만드는 모양의 임시 폴더인지(지우기 전에 본다): tmpdir() 바로 아래, 이름은 RUN_DIR_NAME */
+const isRunDir = (dir: string): boolean =>
+  path.dirname(dir) === tmpdir() && RUN_DIR_NAME.test(path.basename(dir));
 
-/** 앞 실행이 정리하지 못한 서버·DB·임시 폴더를 정리한다. 같은 작업 트리에서 다른 실행이 돌고 있으면 멈춘다 */
+/**
+ * 앞 실행이 정리하지 못한 서버·DB·임시 폴더를 정리한다. 서버는 적어 둔 번호·시작 시각이 같을 때만 끈다
+ * (번호만 같은 다른 프로세스, 예를 들어 다른 작업 트리의 서버는 건드리지 않는다).
+ */
 async function cleanPreviousRun(adminUrl: string): Promise<void> {
   const state = readRunState();
   if (!state) return;
-  if (isProcess(state.runnerPid, "playwright")) {
+  // 잠금(설정을 읽을 때)이 실행을 하나로 막는다. 여기서 살아 있는 다른 실행기를 보면 잠금을 함께 가져간 드문 경우다
+  if (isAlive(state.runner) && state.runner.pid !== process.pid) {
     throw new Error(
-      `이 작업 트리에서 다른 화면 시험이 돌고 있습니다(pid ${state.runnerPid}). 끝난 뒤 다시 돌리세요`,
+      `이 작업 트리에서 다른 화면 시험이 돌고 있습니다(실행기 pid ${state.runner.pid}, 실행 기록 ${RUN_STATE_FILE}). 끝난 뒤 다시 돌리세요`,
     );
   }
-  if (state.serverPid !== null && isProcess(state.serverPid, "apps/server/dist/main.js")) {
-    process.kill(state.serverPid, "SIGKILL");
+  let server = "서버 기록 없음";
+  if (state.server !== null) {
+    const stopped = isAlive(state.server);
+    if (stopped) process.kill(state.server.pid, "SIGKILL");
+    server = `서버 pid ${state.server.pid} ${stopped ? "끔" : "이미 없음"}`;
   }
   if (state.dbName !== null && DB_NAME.test(state.dbName)) {
     await adminQuery(adminUrl, `drop database if exists ${state.dbName} with (force)`);
   }
-  if (state.runDir !== null && path.basename(state.runDir).startsWith("terra-e2e-")) {
+  if (state.runDir !== null && isRunDir(state.runDir)) {
     rmSync(state.runDir, { recursive: true, force: true });
   }
   rmSync(RUN_STATE_FILE, { force: true });
-  log(`앞 실행이 남긴 것을 정리했습니다(서버 pid ${String(state.serverPid)}, DB ${String(state.dbName)})`);
+  log(`앞 실행이 남긴 것을 정리했습니다(${server}, DB ${String(state.dbName)}, 실행 기록 ${RUN_STATE_FILE})`);
 }
 
 export default async function globalSetup(config: FullConfig): Promise<() => Promise<void>> {
@@ -380,11 +385,11 @@ export default async function globalSetup(config: FullConfig): Promise<() => Pro
     await checkBrowser();
     buildIfStale();
 
-    const state: RunState = { runnerPid: process.pid, runDir: null, dbName: null, serverPid: null };
+    const state: RunState = { runner: processRef(process.pid), runDir: null, dbName: null, server: null };
     const saveState = (): void => writeFileSync(RUN_STATE_FILE, JSON.stringify(state));
     // 맨 처음 넣으므로 정리 때 맨 마지막에 돈다
     cleanups.push(() => rmSync(RUN_STATE_FILE, { force: true }));
-    const runDir = mkdtempSync(path.join(tmpdir(), "terra-e2e-"));
+    const runDir = mkdtempSync(path.join(tmpdir(), RUN_DIR_PREFIX));
     state.runDir = runDir;
     saveState();
     const logFile = path.join(runDir, "server.log");
@@ -436,7 +441,7 @@ export default async function globalSetup(config: FullConfig): Promise<() => Pro
       env,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    state.serverPid = server.pid ?? null;
+    state.server = server.pid === undefined ? null : processRef(server.pid);
     saveState();
     server.stdout.pipe(logStream);
     server.stderr.pipe(logStream);

@@ -93,6 +93,13 @@ describe("콘텐츠 팩 행성 원본", () => {
     expect(() => planetSpecsFromPack(broken)).toThrow(/ocean, one lake and one land/);
   });
 
+  it("면 레벨 10 행성은 시작하지 않게 던진다(생성기 상한 9 — NAS 앱 컨테이너 1GiB 안에서 굽게, ADR 36)", () => {
+    const content = pack();
+    const planets = (content.entries.get("planets") ?? []).map((planet) => ({ ...planet, faceLevel: 10 }));
+    const broken = { ...content, entries: new Map([...content.entries, ["planets", planets]]) };
+    expect(() => planetSpecsFromPack(broken)).toThrow(/faceLevel must be an integer in \[4, 9\]/);
+  });
+
   it("원본: 생성기 버전 = GENERATOR_VERSION, 정의 해시는 이름·색과 무관하고 타일 내용을 정하는 값에 달려 있다", () => {
     const spec = packTestPlanetSpec();
     const source = createPlanetSource(spec);

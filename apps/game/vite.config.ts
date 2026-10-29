@@ -110,6 +110,9 @@ export default defineConfig({
         // 화면 이동 대체에서 뺀다: 소셜 로그인 콜백(/api/auth/callback/*)이 화면 이동이다.
         // scripts/check-pwa.mjs가 빌드된 sw.js에서 이 규칙을 확인한다
         navigateFallbackDenylist: [/^\/(api|ws|health)(\/|\?|$)/],
+        // 관리자 셰이더 측정 조각(three/webgpu 약 690kB)은 미리 캐시하지 않는다 — 관리자가 누를 때만 받는다.
+        // 앞 항목은 Workbox 기본값이다(덮어쓰므로 함께 적는다). scripts/check-pwa.mjs가 확인한다
+        globIgnores: ["**/node_modules/**/*", "**/assets/gpuBench*.js"],
       },
       // 개발 서버에서는 SW를 쓰지 않는다(virtual:pwa-register는 아무것도 하지 않는 대체 코드)
       devOptions: { enabled: false },

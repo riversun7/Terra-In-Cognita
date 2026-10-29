@@ -26,6 +26,7 @@
 - PLAN·PROTECTED·디자인 시스템 ADR 상태 줄을 고쳤다(아래 표).
 - 독립 검증 뒤 고친 것
   - 개발 방식 ADR(16, 확정)의 "야간에 E2E"가 결정 3(CI에서 돌리지 않음)과 어긋났다. 그 ADR은 상태 줄에 일부 대체만 적고, ADR 37 13절·"관련" 줄·"결과" 끝, PLAN 13장 37번 줄에 같은 내용을 더했다.
+  - PLAN 3장의 Playwright 1.64.1은 chromium-1248을 쓴다(Verified: npm `playwright-core` 1.64.1의 `browsers.json`). 개발 환경은 1.63.0·chromium-1243이라 결정 3(내려받는 단계 없음)과 맞지 않았다. ADR 13절과 PLAN 3장을 1.63.0 고정으로 고쳤다.
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
@@ -34,7 +35,7 @@
 | `docs/research/2026-10-29-legacy-menu-flow.md`(새) | 옛 프로젝트 화면 흐름 조사 원본 |
 | `docs/research/2026-10-29-router-dnd-webpush.md`(새) | 라우터·끌어 옮기기·웹 푸시 조사 원본(한국어판) |
 | `docs/questions/2026-10-29-app-shell.md`(새) | 기획 질문 2개 |
-| `docs/PLAN.md` | 3장 화면 이동(자체 라우터)·TanStack Query·Zustand 줄, 4.8 계정 줄, 10.2·10.5 화면 시험, 11장 "앱 뼈대" 줄(2주, S3 앞)과 총 기간 주석, 13장 ADR 37, 14장 화면 흐름 줄 |
+| `docs/PLAN.md` | 3장 화면 이동(자체 라우터)·TanStack Query·Zustand 줄·테스트 줄(Playwright 1.63.0 고정), 4.8 계정 줄, 10.2·10.5 화면 시험, 11장 "앱 뼈대" 줄(2주, S3 앞)과 총 기간 주석, 13장 ADR 37, 14장 화면 흐름 줄 |
 | `docs/adr/2026-10-28-design-system.md` | 상태 줄만: 설정 화면을 여는 곳(계정 줄 → 사이드 메뉴)이 일부 대체됨 |
 | `docs/adr/2026-10-28-dev-workflow.md` | 상태 줄만: 야간 CI의 E2E가 일부 대체됨(결정 3, 화면 시험은 CI 밖) |
 | `docs/PROTECTED.md` | 화면 주소 표, 계정에 저장되는 ID(0단계 코드와 함께 생긴다) |
@@ -54,7 +55,7 @@
 ## 미검증·TODO·알려진 문제
 - 코드는 아직 없다(미실행). ADR의 크기·줄 수는 추정이거나 스케치를 잰 값이다. 자체 라우터 1.5KB와 끌어 옮기기 1.2KB는 실행한 적 없는 스케치의 크기다. 첫 화면 JS 상한 136,000바이트는 Assumed이고, W1을 합친 뒤 잰 값 + 8,000바이트로 다시 정한다.
 - tRPC 묶음 응답이 부른 것마다 따로 오는지(옛 서버가 새 칸을 400으로 막을 때)는 W2 시험으로 확인한다(Assumed).
-- 개발 환경의 Playwright는 1.63.0이고 브라우저는 `/opt/pw-browsers`의 chromium-1243이다(Verified: 2026-10-29 설치 파일 확인). PLAN 3장에는 1.64.1로 적혀 있다. W5가 `@playwright/test` 판을 고를 때 이미 있는 브라우저와 맞는지 확인한다(내려받는 단계는 두지 않는다).
+- 개발 환경의 Playwright는 1.63.0이고 브라우저는 `/opt/pw-browsers`의 chromium-1243이다(Verified: 2026-10-29 설치 파일 확인). 1.64.1은 chromium-1248을 쓴다(Verified: npm `playwright-core` 1.64.1의 `browsers.json`). 그래서 W5는 `@playwright/test` 1.63.0을 쓴다(ADR 13절, PLAN 3장). 개발 환경의 Playwright 판이 바뀌면 함께 바꾼다(내려받는 단계는 두지 않는다).
 - 기간 상한 2주(0단계~W5)는 Assumed다. 넘으면 멈추고 보고한다.
 - 기획 답 대기: Q1(하단 탭 규칙), Q2(복귀 요약 [확인] 뒤 화면).
 

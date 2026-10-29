@@ -87,7 +87,7 @@
 | 인증 | Better Auth | 1.7.14 | 이메일·비밀번호 + 카카오·네이버·라인 등 소셜, 관리자 플러그인 내장 [V: 패키지 내용] |
 | 린트 | oxlint + oxlint-tsgolint | 1.89.0 / 7.0.2005 | TS 7과 같은 타입 검사기 기반 타입 인식 규칙(빠뜨린 await 등) |
 | 포맷 | Biome | 2.6.3 | 포맷 전용. Markdown은 제외(보호 문서가 바뀌지 않게) |
-| 테스트 | Vitest + Playwright | 5.0.x / 1.64.1 | 10.5 테스트 전략 |
+| 테스트 | Vitest + Playwright | 5.0.x / 1.63.0 | 10.5 테스트 전략. Playwright는 개발 환경에 이미 있는 브라우저(chromium-1243)와 같은 판으로 고정한다. 1.64.1은 chromium-1248을 받아야 한다(ADR 37) |
 | 격자 교차 검증 | s2js | 1.44.0 (Apache-2.0) | 테스트에서만 사용(자체 격자 구현 결과와 비교) |
 | 웹 푸시 | web-push | 3.6.7 (MPL-2.0, 2024-01 이후 갱신 없음) | VAPID 푸시 발송. 수정 없이 의존성으로만 사용 |
 | 모듈 경계 | 자체 검사 스크립트 + pnpm 엄격 의존성 | — | `scripts/check-boundaries.mjs`: 패키지 간 금지된 의존, 판정 코드의 금지 API를 실패 처리. dependency-cruiser는 TS 7 작업공간 import를 해석하지 못해 제외(ADR 17) |

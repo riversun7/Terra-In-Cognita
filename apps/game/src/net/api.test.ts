@@ -1,6 +1,6 @@
 // tRPC 클라이언트 시험 — 서버 없이 가짜 fetch로 요청 주소, 응답 해석, 출력 타입 추론을 본다.
 // 서버와 실제로 주고받는 시험은 apps/server/src/trpc/system.test.ts에 있다(같은 httpBatchLink 사용).
-import { TRPC_PATH } from "@terra/protocol";
+import { TRPC_MAX_BATCH_SIZE, TRPC_PATH } from "@terra/protocol";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { createApiClient } from "./api.ts";
 
@@ -35,6 +35,27 @@ describe("API 클라이언트", () => {
       contentVersion: string;
       serverTime: number;
     }>();
+  });
+
+  it(`같은 틱의 요청은 서버 묶음 상한(${TRPC_MAX_BATCH_SIZE}개)에서 나눠 보낸다`, async () => {
+    const urls: string[] = [];
+    const client = createApiClient({
+      url: `http://game.test${TRPC_PATH}`,
+      fetch: async (url) => {
+        const href = urlOf(url);
+        urls.push(href);
+        const count = (href.split("?")[0]?.split("/").at(-1) ?? "").split(",").length;
+        return new Response(
+          JSON.stringify(Array.from({ length: count }, () => ({ result: { data: info } }))),
+        );
+      },
+    });
+    const count = TRPC_MAX_BATCH_SIZE * 2 + 1;
+    const results = await Promise.all(Array.from({ length: count }, () => client.system.info.query()));
+    expect(results).toHaveLength(count);
+    expect(urls).toHaveLength(3);
+    const sizes = urls.map((href) => (href.split("?")[0]?.split("/").at(-1) ?? "").split(",").length);
+    expect(sizes).toEqual([TRPC_MAX_BATCH_SIZE, TRPC_MAX_BATCH_SIZE, 1]);
   });
 
   it("기본 주소는 같은 출처의 /api/trpc", async () => {

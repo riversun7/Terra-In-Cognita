@@ -291,13 +291,22 @@ describe.skipIf(!TEST_DATABASE_URL)("행성 편집기 (DB) — 판 기록·되�
     expect(resultOf(roles)).toMatchObject({ roles: ["player", "gm"] });
     const settings = await trpcMutation(env.app, "settings.set", { theme: "dark" }, env.cookie.dev);
     expect(resultOf(settings)).toMatchObject({ theme: "dark" });
-    // 조회는 다른 사이트에서 와도 막지 않는다(읽기만, 응답을 읽을 수 없다)
+    // 조회도 다른 사이트에서 온 것은 막는다(감사 기록이 남는 조회가 있다). 같은 출처·주소창은 된다
     const read = await env.app.inject({
       method: "GET",
       url: "/api/trpc/settings.get",
       headers: { cookie: env.cookie.dev, ...CROSS_SITE },
     });
-    expect(resultOf(read)).toMatchObject({ theme: "dark" });
+    expect(read.statusCode).toBe(403);
+    expect(errorOf(read)).toMatchObject({ code: "FORBIDDEN", reason: "cross_origin" });
+    for (const site of ["same-origin", "none"]) {
+      const allowed = await env.app.inject({
+        method: "GET",
+        url: "/api/trpc/settings.get",
+        headers: { cookie: env.cookie.dev, "sec-fetch-site": site },
+      });
+      expect(resultOf(allowed), site).toMatchObject({ theme: "dark" });
+    }
   });
 
   it("편집기 자료 없이 띄운 서버: 권한 확인 뒤 NOT_FOUND(PLANET_EDITOR_UNAVAILABLE)", async () => {

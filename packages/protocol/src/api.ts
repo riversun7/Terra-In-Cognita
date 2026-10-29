@@ -4,3 +4,9 @@
 
 /** tRPC 경로 앞부분. 프로시저 `system.info`는 `/api/trpc/system.info`가 된다 */
 export const TRPC_PATH = "/api/trpc";
+
+/**
+ * 묶음 요청(httpBatchLink) 하나에 담을 수 있는 프로시저 수. 서버는 넘으면 BAD_REQUEST로 거절하고(맥락을 만들기 전),
+ * 기기는 이 수에서 요청을 나눈다(maxItems). 요청 하나가 프로시저 수백 개를 돌리지 못하게 한다
+ */
+export const TRPC_MAX_BATCH_SIZE = 10;

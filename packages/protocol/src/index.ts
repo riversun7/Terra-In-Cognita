@@ -92,4 +92,4 @@ export {
   type ClientErrorReport,
   type PerfReport,
 } from "./telemetry.ts";
-export { TRPC_PATH } from "./api.ts";
+export { TRPC_MAX_BATCH_SIZE, TRPC_PATH } from "./api.ts";

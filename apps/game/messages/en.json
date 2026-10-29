@@ -257,6 +257,8 @@
   "planet_busy_generating": "The server is generating the planet. Try again in a moment.",
   "planet_tiles_outdated": "The planet was updated. Try again to load the new version.",
   "planet_rate_limited": "Too many requests. Checking again in {seconds} s.",
+  "planet_editor_flat_map_label": "Flat mini-map",
+  "planet_editor_flat_map_hint": "The whole planet, unrolled. Tap a spot to inspect its cell. Arrow keys move about one cell, Shift+arrow about eight, and Enter selects the current spot.",
   "gpu_bench_title": "Shader benchmark (S2)",
   "gpu_bench_lead": "Draws the same planet tiles with WebGL2 and WebGPU and times them. The graphics code downloads only after you start, and the test fills the screen for about 2 minutes.",
   "gpu_bench_modes": "Renderers to test",

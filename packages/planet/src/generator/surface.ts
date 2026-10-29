@@ -28,7 +28,7 @@ import {
 import type { BiomeRange, PlanetBiome } from "./types.ts";
 import { clamp } from "./util.ts";
 
-/** 고도 축척: 저장 값(게임 m) × 12 = 실제 환산 m (ADR 36, 기획 확인 중) */
+/** 고도 축척: 저장 값(게임 m) × 12 = 실제 환산 m (ADR 36, 기획 D-215 확정) */
 export const VERTICAL_SCALE = 12;
 /** 수심 등급 경계(실제 환산 m) */
 const COASTAL_DEPTH_M = 60;

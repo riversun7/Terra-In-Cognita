@@ -17,7 +17,7 @@
 //  꼭짓점 높이 i32 × (N + 1)²  (cm, 해수면 0 기준, 행 우선 y × (N + 1) + x)
 //  지표 종류   u8  × N²        (TERRAIN_SURFACE, 행 우선 y × N + x)
 // 숨김 정보(자원·크리쳐)는 넣지 않는다(ADR 2026-10-28-fog-and-map-visibility).
-import { ProtocolError } from "./codec.ts";
+import { ProtocolError } from "./errors.ts";
 
 export const TERRAIN_FORMAT_VERSION = 1;
 export const TERRAIN_HEADER_BYTES = 32;

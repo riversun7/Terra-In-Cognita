@@ -13,5 +13,11 @@
     "tsBuildInfoFile": "dist-types/.tsbuildinfo"
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/testFixtures.ts", "src/testDb.ts", "src/world/testSupport.ts"]
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/testFixtures.ts",
+    "src/testDb.ts",
+    "src/world/testSupport.ts",
+    "src/planet/testSupport.ts"
+  ]
 }

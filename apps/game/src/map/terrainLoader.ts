@@ -3,6 +3,7 @@
 // 실패는 이유 코드로 알린다(화면이 문구를 고른다). 문장은 화면에 쓰지 않는다.
 import { decodeTerrain } from "@terra/protocol";
 import type { TerrainInput } from "@terra/engine";
+import { isSameOriginPath } from "../net/sameOrigin.ts";
 import { toTerrainInput } from "./mapWire.ts";
 
 export type TerrainFailure =
@@ -27,10 +28,8 @@ export class TerrainLoadError extends Error {
   }
 }
 
-/** 같은 출처의 경로만 받는다("/api/…"). "//다른곳"처럼 출처가 바뀌는 주소는 거절한다 */
-export function isSameOriginPath(url: string): boolean {
-  return url.startsWith("/") && !url.startsWith("//") && !url.startsWith("/\\");
-}
+/** 같은 출처의 경로만 받는다(net/sameOrigin.ts, 1차맵 타일 주소 틀과 같은 규칙) */
+export { isSameOriginPath };
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 

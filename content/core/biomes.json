@@ -1,0 +1,117 @@
+{
+  "entries": [
+    {
+      "id": "ocean_deep",
+      "name": { "ko": "심해", "en": "Deep ocean" },
+      "description": {
+        "ko": "실제 환산 수심 200m 이상의 바다",
+        "en": "Ocean deeper than 200 m (real-equivalent)"
+      },
+      "color": "#1c3d6e",
+      "forestDensity": 0,
+      "rule": { "kind": "ocean", "depthClass": "deep" }
+    },
+    {
+      "id": "ocean_shelf",
+      "name": { "ko": "대륙붕", "en": "Continental shelf" },
+      "description": { "ko": "실제 환산 수심 60~200m의 바다", "en": "Ocean 60–200 m deep (real-equivalent)" },
+      "color": "#2e63a3",
+      "forestDensity": 0,
+      "rule": { "kind": "ocean", "depthClass": "shelf" }
+    },
+    {
+      "id": "ocean_coastal",
+      "name": { "ko": "연안", "en": "Coastal water" },
+      "description": {
+        "ko": "실제 환산 수심 60m 미만의 바다",
+        "en": "Ocean shallower than 60 m (real-equivalent)"
+      },
+      "color": "#4a8cca",
+      "forestDensity": 0,
+      "rule": { "kind": "ocean", "depthClass": "coastal" }
+    },
+    {
+      "id": "lake",
+      "name": { "ko": "호수", "en": "Lake" },
+      "color": "#5b9fd6",
+      "forestDensity": 0,
+      "rule": { "kind": "lake" }
+    },
+    {
+      "id": "ice_sheet",
+      "name": { "ko": "빙상", "en": "Ice sheet" },
+      "color": "#edf2f6",
+      "forestDensity": 0,
+      "rule": { "kind": "land", "temperatureC": { "max": -11 } }
+    },
+    {
+      "id": "alpine",
+      "name": { "ko": "고산", "en": "Alpine" },
+      "description": { "ko": "나무가 자라지 못하는 높은 산", "en": "High mountains above the tree line" },
+      "color": "#9d958b",
+      "forestDensity": 10,
+      "rule": { "kind": "land", "temperatureC": { "max": 3 }, "realElevationM": { "min": 1800 } }
+    },
+    {
+      "id": "wetland",
+      "name": { "ko": "습지", "en": "Wetland" },
+      "color": "#4d7c63",
+      "forestDensity": 90,
+      "rule": {
+        "kind": "land",
+        "temperatureC": { "min": -3 },
+        "humidity": { "min": 205 },
+        "realElevationM": { "max": 300 }
+      }
+    },
+    {
+      "id": "tundra",
+      "name": { "ko": "툰드라", "en": "Tundra" },
+      "color": "#b5b78e",
+      "forestDensity": 8,
+      "rule": { "kind": "land", "temperatureC": { "max": -3 } }
+    },
+    {
+      "id": "taiga",
+      "name": { "ko": "타이가", "en": "Taiga" },
+      "color": "#3d6a4f",
+      "forestDensity": 175,
+      "rule": { "kind": "land", "temperatureC": { "max": 5 }, "humidity": { "min": 70 } }
+    },
+    {
+      "id": "temperate_forest",
+      "name": { "ko": "온대림", "en": "Temperate forest" },
+      "color": "#4e8e3d",
+      "forestDensity": 200,
+      "rule": { "kind": "land", "temperatureC": { "max": 19 }, "humidity": { "min": 135 } }
+    },
+    {
+      "id": "grassland",
+      "name": { "ko": "초지", "en": "Grassland" },
+      "color": "#a8c169",
+      "forestDensity": 25,
+      "rule": { "kind": "land", "temperatureC": { "max": 19 }, "humidity": { "min": 55 } }
+    },
+    {
+      "id": "desert",
+      "name": { "ko": "사막", "en": "Desert" },
+      "color": "#e0c88a",
+      "forestDensity": 0,
+      "rule": { "kind": "land", "humidity": { "max": 55 } }
+    },
+    {
+      "id": "savanna",
+      "name": { "ko": "사바나", "en": "Savanna" },
+      "color": "#c7b159",
+      "forestDensity": 55,
+      "rule": { "kind": "land", "humidity": { "max": 160 } }
+    },
+    {
+      "id": "tropical_rainforest",
+      "name": { "ko": "열대우림", "en": "Tropical rainforest" },
+      "color": "#1f6a2c",
+      "forestDensity": 245,
+      "rule": { "kind": "land" }
+    }
+  ]
+}

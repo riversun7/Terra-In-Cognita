@@ -4,6 +4,8 @@ import { buildApp } from "./app.ts";
 import { readConfig } from "./config.ts";
 import { loadServerContent } from "./content.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
+import { createWorkerBaker } from "./planet/baker.ts";
+import { type PlanetSourceSpec, createPlanetSource, planetSpecsFromPack } from "./planet/sources.ts";
 
 const config = readConfig();
 
@@ -15,6 +17,10 @@ const config = readConfig();
 const pathWorkerUrl = import.meta.url.endsWith(".ts")
   ? new URL("./world/pathWorker.ts", import.meta.url)
   : new URL("./pathWorker.js", import.meta.url);
+/** 행성 굽기 워커 진입 파일 (경로 워커와 같은 규칙: 개발 src/planet/bakeWorker.ts, 빌드 dist/planetBakeWorker.js) */
+const planetBakeWorkerUrl = import.meta.url.endsWith(".ts")
+  ? new URL("./planet/bakeWorker.ts", import.meta.url)
+  : new URL("./planetBakeWorker.js", import.meta.url);
 
 // 팩이 틀리면 DB에 붙기 전에 끝낸다(코드 1). 앱 로거가 아직 없어 표준 오류로 쓴다
 const loaded = loadServerContent(config.contentDir);
@@ -23,6 +29,14 @@ if (!loaded.ok) {
   process.exit(1);
 }
 const { content } = loaded;
+// 1차맵 행성 = 팩의 planets 분류(ADR 36). 생성기가 받지 않는 정의면 팩이 틀린 것과 같이 시작하지 않는다
+let planetSpecs: PlanetSourceSpec[];
+try {
+  planetSpecs = planetSpecsFromPack(loaded.pack);
+} catch (error) {
+  console.error(`콘텐츠 팩 행성 정의를 생성기가 받지 않습니다(${config.contentDir}): ${String(error)}`);
+  process.exit(1);
+}
 
 let app: FastifyInstance | undefined;
 const db = config.databaseUrl
@@ -45,6 +59,12 @@ app = await buildApp({
   world: {
     testBots: config.s1.testBots,
     paths: { kind: "workers", workerUrl: pathWorkerUrl, workers: config.s1.pathWorkers },
+  },
+  // 1차맵 행성(ADR 36): 콘텐츠 팩 행성마다 원본 하나(생성기 1판). 캐시에 없으면 워커에서 굽는다
+  planets: {
+    sources: planetSpecs.map((spec) => createPlanetSource(spec)),
+    baker: createWorkerBaker({ workerUrl: planetBakeWorkerUrl }),
+    cacheDir: config.planetCacheDir,
   },
 });
 if (config.auth) {

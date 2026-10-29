@@ -1,6 +1,6 @@
 // 콘텐츠 팩 불러오기 — 서버 시작 때 1·2·4a단계(스키마·참조·ID 변경표)를 검사한다 (PLAN 7장).
 // 하나라도 틀리면 시작하지 않는다 → 컨테이너가 healthy가 되지 않아 배포가 직전 버전으로 되돌린다(ops/deploy.sh 7단계).
-import { formatIssue, hasErrors } from "@terra/content";
+import { type ContentPack, formatIssue, hasErrors } from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
 
 export interface ServerContent {
@@ -13,7 +13,8 @@ export interface ServerContent {
 }
 
 export type ContentLoadResult =
-  | { ok: true; content: ServerContent; warnings: string[] }
+  /** pack: 검증을 통과한 항목(행성 원본을 만든다, src/planet/sources.ts planetSpecsFromPack) */
+  | { ok: true; content: ServerContent; pack: ContentPack; warnings: string[] }
   | { ok: false; lines: string[] };
 
 export function loadServerContent(dir: string): ContentLoadResult {
@@ -29,6 +30,7 @@ export function loadServerContent(dir: string): ContentLoadResult {
       hash: loaded.hash,
       placeholder: loaded.pack.manifest.placeholder === true,
     },
+    pack: loaded.pack,
     warnings: lines,
   };
 }

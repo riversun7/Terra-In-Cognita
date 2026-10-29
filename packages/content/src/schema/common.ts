@@ -78,8 +78,12 @@ export const koreanErrorMap: z.core.$ZodErrorMap = (issue) => {
       return `형식이 다릅니다(필요: ${issue.expected}, 받은 값: ${preview(issue.input)}).`;
     case "unrecognized_keys":
       return `모르는 필드입니다: ${issue.keys.join(", ")}. 이름에 오타가 없는지 확인하세요.`;
-    case "invalid_value":
-      return `허용하지 않는 값입니다(허용: ${issue.values.map((value) => preview(value)).join(", ")}).`;
+    case "invalid_value": {
+      const allowed = issue.values.map((value) => preview(value)).join(", ");
+      // 정해진 값 중 하나만 받는 필드(z.enum)가 빠진 경우
+      if (issue.input === undefined) return `값이 없습니다. 꼭 적어야 하는 필드입니다(허용: ${allowed}).`;
+      return `허용하지 않는 값입니다(허용: ${allowed}).`;
+    }
     case "too_small":
       if (issue.origin !== "number") return koLocale(issue);
       return issue.inclusive

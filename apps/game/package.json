@@ -12,6 +12,7 @@
   "dependencies": {
     "@fontsource/jua": "5.3.0",
     "@terra/engine": "workspace:*",
+    "@terra/planet": "workspace:*",
     "@terra/protocol": "workspace:*",
     "@terra/shared": "workspace:*",
     "@trpc/client": "11.19.0",

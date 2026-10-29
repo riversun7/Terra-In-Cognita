@@ -44,7 +44,10 @@ ensure_secret() {
   echo "비밀값을 추가했습니다: $name ($ENV_FILE)"
 }
 
-mkdir -p "$DATA_DIR/pgdata" "$DATA_DIR/backups"
+mkdir -p "$DATA_DIR/pgdata" "$DATA_DIR/backups" "$DATA_DIR/planet-cache"
+# 행성 타일 캐시는 앱 컨테이너의 node 사용자(uid 1000)가 쓴다. 바꾸지 못해도 배포는 계속한다
+# (앱은 캐시를 쓰지 못하면 경고만 남기고 메모리로 준다 — 다음 시작 때 다시 굽는다)
+chown 1000:1000 "$DATA_DIR/planet-cache" 2>/dev/null || echo "경고: $DATA_DIR/planet-cache 소유자를 1000으로 바꾸지 못했습니다"
 
 # 1) 비밀값 파일 준비 (git에는 절대 넣지 않음). 없으면 만들고, 빠진 키만 덧붙인다
 #    - POSTGRES_PASSWORD: DB 비밀번호(24바이트)

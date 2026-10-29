@@ -1,0 +1,38 @@
+{
+  "entries": [
+    {
+      "id": "s2_test_planet",
+      "name": { "ko": "S2 시험 행성", "en": "S2 test planet" },
+      "description": {
+        "ko": "S2 LOD·타일 시험용 지구 크기(면 레벨 9) 행성. 임시 데이터입니다.",
+        "en": "Earth-sized (face level 9) planet for S2 LOD and tile tests. Placeholder data."
+      },
+      "faceLevel": 9,
+      "seed": 20261029,
+      "presets": {
+        "seaLevel": "normal",
+        "temperature": "normal",
+        "precipitation": "normal",
+        "mountains": "normal",
+        "plates": "normal",
+        "volcanism": "normal"
+      },
+      "biomes": [
+        "ocean_deep",
+        "ocean_shelf",
+        "ocean_coastal",
+        "lake",
+        "ice_sheet",
+        "alpine",
+        "wetland",
+        "tundra",
+        "taiga",
+        "temperate_forest",
+        "grassland",
+        "desert",
+        "savanna",
+        "tropical_rainforest"
+      ]
+    }
+  ]
+}

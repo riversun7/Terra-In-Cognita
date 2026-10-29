@@ -6,11 +6,10 @@ import {
   clientMessageSchema,
   serverMessageSchema,
 } from "./messages.ts";
+import { ProtocolError } from "./errors.ts";
 import { MAX_MESSAGE_BYTES } from "./version.ts";
 
-export class ProtocolError extends Error {
-  override readonly name = "ProtocolError";
-}
+export { ProtocolError };
 
 export function encodeMessage(message: ClientMessage | ServerMessage): string {
   return JSON.stringify(message);

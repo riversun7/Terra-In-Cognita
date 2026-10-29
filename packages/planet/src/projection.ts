@@ -1,10 +1,11 @@
 // 탄젠트 투영: 칸 ↔ 구 위 방향, 칸 중심·꼭짓점, 칸 면적·크기(미터) — ADR 2026-10-28-planet-grid-contract
 //
-// ⚠ 표시·생성 전용이다. Math.tan·Math.atan 같은 초월함수를 쓴다.
-//   초월함수는 엔진(브라우저·Node 버전)마다 마지막 자리가 다를 수 있어서 판정 코드(packages/sim, 서버 판정)에서
-//   쓰지 않는다(AGENTS.md 4장). 칸 키·이웃·계층은 정수 연산만 쓰는 패키지 본체(@terra/planet)를 쓴다.
+// 실수 계산이다. 탄젠트·아크탄젠트는 @terra/shared의 결정적 근사(detTan·detAtan, 사칙연산만 쓰는 다항식)를 쓴다.
+//   그래서 엔진(브라우저·Node 버전)과 무관하게 같은 값이 나오고, 생성기와 화면이 같은 위치를 쓴다(ADR 2026-10-29-s2-planet-lod).
+//   패키지 전체가 결정성 검사(scripts/check-boundaries.mjs) 대상이다.
+//   판정 보조 코드는 칸 키·이웃·계층(정수 연산만 쓰는 패키지 본체 @terra/planet)을 쓴다.
 //   이 파일은 따로 들여온다: import { … } from "@terra/planet/projection".
-//   미터도 표시용이다. 이동·사거리·건물 크기 같은 규칙은 칸 수로 정한다(ADR).
+//   미터는 표시용이다. 이동·사거리·건물 크기 같은 규칙은 칸 수로 정한다(ADR).
 //
 // 좌표 이름
 // - (s, t) ∈ [0, 1]: 면 위 칸 좌표를 정규화한 값. 칸이 균등하다: 레벨 L 칸 (i, j)는 s ∈ [i/2^L, (i+1)/2^L].
@@ -12,6 +13,7 @@
 // - (x, y, z): 구 위 방향(단위 벡터).
 // 탄젠트 투영 u = tan(π/2·s - π/4)는 s를 면 중심에서 본 각도에 비례하게 한다.
 // 그래서 같은 레벨 칸의 면적 차이가 최대 약 √2배다(측정: 레벨 9에서 1.412배, 기본 이차 투영은 2.087배).
+import { detAtan, detTan } from "@terra/shared";
 import { type CellKey, cellKey, decodeCellKey } from "./cellKey.ts";
 import { FACE_FRAMES, type Face } from "./faces.ts";
 import { EARTH_FACE_LEVEL, assertFaceLevel, cellsPerSide, pow2 } from "./levels.ts";
@@ -29,7 +31,7 @@ export function stToUV(s: number): number {
   const x = s - 0.5;
   if (x >= 0.5) return 1;
   if (x <= -0.5) return -1;
-  const u = Math.tan(HALF_PI * Math.abs(x));
+  const u = detTan(HALF_PI * Math.abs(x));
   return x < 0 ? -u : u;
 }
 
@@ -37,7 +39,7 @@ export function stToUV(s: number): number {
 export function uvToST(u: number): number {
   if (u >= 1) return 1;
   if (u <= -1) return 0;
-  const a = Math.atan(Math.abs(u)) / HALF_PI;
+  const a = detAtan(Math.abs(u)) / HALF_PI;
   return u < 0 ? 0.5 - a : 0.5 + a;
 }
 
@@ -125,7 +127,7 @@ export function cellAreaSteradians(key: CellKey): number {
 }
 
 function cornerSolidAngle(u: number, v: number): number {
-  return Math.atan((u * v) / Math.sqrt(1 + u * u + v * v));
+  return detAtan((u * v) / Math.sqrt(1 + u * u + v * v));
 }
 
 /** 칸 크기(미터, 표시용) = √(칸 면적) — 한 변 길이의 근사. 칸은 정사각형이 아니다(면 가장자리 가운데에서 약 1.4 : 1) */

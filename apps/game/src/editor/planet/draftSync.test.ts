@@ -1,9 +1,12 @@
 // 서버 초안 동기화 시험 — 가짜 서버(판·기대 판 충돌)와 가짜 시계로: 열기, 2초 자동 저장, 보내는 저장 하나, 다시 시도(1초부터
-// 두 배), 충돌(그쪽 불러오기·이걸로 덮기), 받지 않음, 되돌리기·지우기, 바로 저장, 읽기 실패, 버림
+// 두 배), 충돌(그쪽 불러오기·이걸로 덮기), 답을 잃은 저장(거짓 충돌 없음), 받지 않음(보내는 동안의 새 편집은 이어서 보냄),
+// 다시 해도 같은 실패(denied), 되돌리기·지우기, 바로 저장, 읽기 실패, 버림
 import { describe, expect, it } from "vitest";
 import {
   AUTOSAVE_DELAY_MS,
+  DraftAccessError,
   type DraftClient,
+  type DraftDeniedReason,
   type DraftSaveResult,
   type DraftTimers,
   type ServerDraft,
@@ -55,16 +58,28 @@ function fakeTimers() {
   return { timers, advance, pending: () => queue.size, now: () => now };
 }
 
-/** 가짜 서버: 판·기대 판 충돌을 흉내 낸다. fail로 닿지 못함을, hold로 답을 늦춘다 */
+/**
+ * 가짜 서버: 판·기대 판 충돌을 흉내 낸다. fail로 닿지 못함을, hold로 답을 늦춘다. loseNextResponse는 다음 호출을 서버에서
+ * 처리한 뒤 답만 잃는다(모바일 망 바뀜). deny는 다시 해도 같은 실패(DraftAccessError)를 던진다
+ */
 function fakeServer(initial: ServerDraft | null = null) {
   let draft = initial;
   let failures = 0;
   let held: (() => void)[] | null = null;
+  let loseResponse = false;
+  let denied: DraftDeniedReason | null = null;
+  let getFailures = 0;
   const calls: string[] = [];
   const reply = <T>(work: () => T): Promise<T> => {
+    if (denied) return Promise.reject(new DraftAccessError(denied));
     if (failures > 0) {
       failures -= 1;
       return Promise.reject(new TypeError("Failed to fetch"));
+    }
+    if (loseResponse) {
+      loseResponse = false;
+      work();
+      return Promise.reject(new TypeError("network changed after the server committed"));
     }
     if (held) {
       const queue = held;
@@ -76,6 +91,10 @@ function fakeServer(initial: ServerDraft | null = null) {
   const client: DraftClient = {
     get(planetId) {
       calls.push(`get ${planetId}`);
+      if (getFailures > 0) {
+        getFailures -= 1;
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
       return reply(() => draft);
     },
     save({ document, expectedRevision }) {
@@ -118,6 +137,16 @@ function fakeServer(initial: ServerDraft | null = null) {
     },
     fail(count: number) {
       failures = count;
+    },
+    loseNextResponse() {
+      loseResponse = true;
+    },
+    /** 다음 읽기 count번만 닿지 못한다 */
+    failGets(count: number) {
+      getFailures = count;
+    },
+    deny(reason: DraftDeniedReason | null) {
+      denied = reason;
     },
     reject(code: string | null) {
       rejectWith = code;
@@ -361,5 +390,127 @@ describe("버림·기다림 시간", () => {
       1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000,
     ]);
     expect(retryDelayMs(0)).toBe(1000);
+  });
+});
+
+describe("답을 잃은 저장", () => {
+  it("서버에 들어갔는데 답만 잃으면 다시 보낼 때 충돌이 아니라 그 판을 받아들이고 새 편집을 이어 저장한다", async () => {
+    const t = await open({ revision: 1, document: doc(1), updatedAt: "t1" });
+    t.sync.edit(doc(2));
+    t.server.loseNextResponse();
+    await t.clock.advance(AUTOSAVE_DELAY_MS);
+    expect(t.server.current()?.revision).toBe(2);
+    expect(t.snapshot()).toMatchObject({ status: "retrying", revision: 1, unsaved: true });
+    // 다시 시도를 기다리는 동안 더 고친다
+    t.sync.edit(doc(3));
+    await t.clock.advance(AUTOSAVE_DELAY_MS * 2);
+    expect(t.server.calls).toEqual([`get ${PLANET}`, "save 1", "save 1", `get ${PLANET}`, "save 2"]);
+    expect(t.snapshot()).toMatchObject({ status: "saved", revision: 3, unsaved: false, document: doc(3) });
+    expect(t.server.current()?.document).toEqual(doc(3));
+  });
+
+  it("답을 잃은 뒤 저장한 것으로 되돌려도 서버를 확인할 때까지 저장 안 됨이고, 확인한 뒤 되돌린 것을 저장한다", async () => {
+    const t = await open({ revision: 1, document: doc(1), updatedAt: "t1" });
+    let notified = 0;
+    t.sync.subscribe(() => {
+      notified += 1;
+    });
+    t.sync.edit(doc(2));
+    t.server.loseNextResponse();
+    await t.clock.advance(AUTOSAVE_DELAY_MS);
+    t.sync.edit(doc(1));
+    expect(t.snapshot()).toMatchObject({ status: "retrying", unsaved: true });
+    const before = notified;
+    await t.clock.advance(AUTOSAVE_DELAY_MS * 3);
+    expect(notified).toBeGreaterThan(before);
+    expect(t.snapshot()).toMatchObject({ status: "saved", unsaved: false, retryAt: null, document: doc(1) });
+    expect(t.server.current()?.document).toEqual(doc(1));
+    expect(t.clock.pending()).toBe(0);
+  });
+
+  it("충돌을 확인하려는 읽기가 실패하면 다시 시도하고, 그동안 되돌리면 다시 시도를 지운다", async () => {
+    const t = await open({ revision: 1, document: doc(1), updatedAt: "t1" });
+    t.server.saveElsewhere(doc(9));
+    t.sync.edit(doc(2));
+    // 저장은 충돌, 확인 읽기는 닿지 못함
+    t.server.failGets(1);
+    await t.clock.advance(AUTOSAVE_DELAY_MS);
+    expect(t.snapshot()).toMatchObject({ status: "retrying", failures: 1 });
+    t.sync.edit(doc(1));
+    expect(t.snapshot()).toMatchObject({ status: "saved", retryAt: null });
+    expect(t.clock.pending()).toBe(0);
+  });
+});
+
+describe("받지 않음과 새 편집", () => {
+  it("보내는 동안 더 바꿨는데 보낸 것을 서버가 받지 않으면 멈추지 않고 새 것을 보낸다", async () => {
+    const t = await open({ revision: 1, document: doc(1), updatedAt: "t1" });
+    t.sync.edit(doc(2));
+    t.server.hold();
+    t.server.reject("generator_rejected");
+    await t.clock.advance(AUTOSAVE_DELAY_MS);
+    t.sync.edit(doc(3));
+    t.server.release();
+    await settle();
+    t.server.reject(null);
+    await t.clock.advance(AUTOSAVE_DELAY_MS);
+    expect(t.server.calls.filter((call) => call.startsWith("save"))).toEqual(["save 1", "save 1"]);
+    expect(t.snapshot()).toMatchObject({
+      status: "saved",
+      revision: 2,
+      rejectedCode: null,
+      document: doc(3),
+    });
+  });
+});
+
+describe("다시 해도 같은 실패(denied)", () => {
+  it("읽기가 로그인 만료면 다시 시도하지 않고 멈춘다. 편집은 받지 않고, 다시 들어온 뒤 retryNow로 읽는다", async () => {
+    const clock = fakeTimers();
+    const server = fakeServer({ revision: 2, document: doc(2), updatedAt: "t2" });
+    server.deny("unauthorized");
+    const sync = createDraftSync({
+      planetId: PLANET,
+      client: server.client,
+      fallback: FALLBACK,
+      timers: clock.timers,
+    });
+    sync.start();
+    await settle();
+    expect(sync.getSnapshot()).toMatchObject({
+      status: "denied",
+      deniedReason: "unauthorized",
+      retryAt: null,
+    });
+    expect(clock.pending()).toBe(0);
+    expect(sync.edit(doc(5))).toBe(false);
+    await clock.advance(60_000);
+    expect(server.calls).toEqual([`get ${PLANET}`]);
+    server.deny(null);
+    sync.retryNow();
+    await settle();
+    expect(sync.getSnapshot()).toMatchObject({ status: "saved", revision: 2, deniedReason: null });
+  });
+
+  it("저장이 권한 없음이면 멈추고 편집은 받아 두며, retryNow로 이어 저장한다", async () => {
+    const t = await open({ revision: 1, document: doc(1), updatedAt: "t1" });
+    t.server.deny("forbidden");
+    t.sync.edit(doc(2));
+    await t.clock.advance(AUTOSAVE_DELAY_MS);
+    expect(t.snapshot()).toMatchObject({ status: "denied", deniedReason: "forbidden", unsaved: true });
+    expect(t.sync.edit(doc(3))).toBe(true);
+    await t.clock.advance(60_000);
+    expect(t.server.calls.filter((call) => call.startsWith("save"))).toEqual(["save 1"]);
+    t.server.deny(null);
+    t.sync.retryNow();
+    await settle();
+    expect(t.snapshot()).toMatchObject({ status: "saved", revision: 2, document: doc(3) });
+  });
+
+  it("바쁜 일(되돌리기)이 로그인 만료면 denied로 멈춘다", async () => {
+    const t = await open({ revision: 1, document: doc(1), updatedAt: "t1" });
+    t.server.deny("unauthorized");
+    await expect(t.sync.restore(1)).resolves.toBe(false);
+    expect(t.snapshot()).toMatchObject({ status: "denied", deniedReason: "unauthorized" });
   });
 });

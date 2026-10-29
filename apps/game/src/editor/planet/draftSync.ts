@@ -4,8 +4,14 @@
 // - 자동 저장: 마지막으로 바꾼 뒤 2초. 보내는 중인 저장은 하나뿐이다(그동안 바뀐 것은 끝난 뒤 이어서 보낸다).
 // - 저장에 기대 판(이 기기가 마지막으로 본 판)을 함께 보낸다. 다른 기기가 먼저 저장했으면 서버가 CONFLICT → 충돌 상태:
 //   자동 저장을 멈추고 [그쪽 불러오기](서버 것으로 바꿈) 또는 [이걸로 덮기](서버의 지금 판을 기대 판으로 다시 저장)를 고른다.
-// - 서버가 받지 않으면(BAD_REQUEST 코드) 받지 않음 상태(코드). 다음에 바꾸면 다시 보낸다.
+// - CONFLICT가 오면 먼저 서버 것을 읽어 본다: 이 기기가 보낸 것(답을 잃은 저장 포함)이나 지금 초안과 같으면 내 저장이
+//   들어간 것이다(모바일 망 바뀜 등으로 답만 잃음). 그 판을 조용히 받아들이고 이어 간다. 다를 때만 충돌을 띄운다.
+//   그래서 결과를 모르는 저장(던진 저장)의 초안은 서버가 확인할 때까지 "저장 안 됨"으로 센다(unsaved).
+// - 서버가 받지 않으면(BAD_REQUEST 코드) 받지 않음 상태(코드). 다음에 바꾸면 다시 보낸다. 보내는 동안 더 바꿨으면 받지 않음에
+//   멈추지 않고 새 것을 이어서 보낸다(새 편집이 고쳤을 수 있다).
 // - 닿지 못하면 "저장 안 됨"(retrying)을 띄우고 1초부터 두 배씩(최대 30초) 기다렸다 다시 보낸다(늘 가장 새 초안을).
+// - 다시 해도 같은 실패(로그인 만료·권한 없음: client가 DraftAccessError를 던짐)는 다시 시도하지 않고 denied로 멈춘다.
+//   화면은 이유를 보이고, 다시 들어온 뒤 [다시 시도](retryNow)로 잇는다. 그동안의 편집은 받아 둔다(읽기 전이면 받지 않는다).
 // - 저장하지 않은 변경(unsaved)이 있으면 화면이 떠날 때 묻는다.
 // 서버 호출은 주입한 client로 한다(화면이 tRPC를 이 모양에 맞춘다). 시계·타이머도 주입한다(시험).
 import { type DraftDocument, sameDocument } from "./editorModel.ts";
@@ -33,7 +39,27 @@ export type DraftSaveResult =
   /** 서버 검사에서 틀림(코드만, 문장은 쓰지 않는다) */
   | { readonly kind: "rejected"; readonly code: string };
 
-/** 서버 초안 호출(planetEditor.drafts.*). 닿지 못함·서버 오류는 던진다 */
+/**
+ * 다시 해도 같은 실패: unauthorized = 로그인 안 됨·만료(tRPC UNAUTHORIZED), forbidden = 편집기 권한 없음(FORBIDDEN),
+ * invalid_request = 저장 말고 다른 호출을 서버가 받지 않음(BAD_REQUEST, 예: 팩에 없는 행성)
+ */
+export type DraftDeniedReason = "unauthorized" | "forbidden" | "invalid_request";
+
+/** client가 던지는 "다시 시도하지 말 것" 실패. 다른 것을 던지면 닿지 못한 것으로 보고 다시 시도한다 */
+export class DraftAccessError extends Error {
+  readonly reason: DraftDeniedReason;
+
+  constructor(reason: DraftDeniedReason) {
+    super(`planet draft request denied: ${reason}`);
+    this.name = "DraftAccessError";
+    this.reason = reason;
+  }
+}
+
+/**
+ * 서버 초안 호출(planetEditor.drafts.*). 닿지 못함·서버 오류는 던진다(다시 시도한다). 로그인·권한·잘못된 요청은
+ * DraftAccessError를 던진다(다시 시도하지 않는다). 저장의 충돌·받지 않음은 던지지 않고 결과로 돌려준다
+ */
 export interface DraftClient {
   get(planetId: string): Promise<ServerDraft | null>;
   /** expectedRevision: 이 기기가 마지막으로 본 판(0 = 서버에 초안 없음) */
@@ -71,6 +97,8 @@ export type DraftSyncStatus =
   | "conflict"
   /** 서버가 받지 않음(rejectedCode) */
   | "rejected"
+  /** 다시 해도 같은 실패(deniedReason): 다시 시도하지 않는다. 다시 들어온 뒤 retryNow */
+  | "denied"
   /** 불러오기·덮기·되돌리기·지우기 중 */
   | "busy";
 
@@ -84,6 +112,8 @@ export interface DraftSyncSnapshot {
   /** 서버에 아직 없는 변경이 있다 */
   readonly unsaved: boolean;
   readonly rejectedCode: string | null;
+  /** denied일 때 이유 */
+  readonly deniedReason: DraftDeniedReason | null;
   /** 잇달은 실패 횟수 */
   readonly failures: number;
   /** 다음 다시 시도 시각(now 기준 ms, 기다리는 중이 아니면 null) */
@@ -106,7 +136,7 @@ export interface DraftSync {
   /** 서버 초안을 지우고 공개본으로 돌아간다 */
   remove(): Promise<boolean>;
   revisions(): Promise<readonly DraftRevisionInfo[]>;
-  /** 기다리는 다시 시도(읽기·저장)를 바로 한다 */
+  /** 기다리는 다시 시도(읽기·저장)를 바로 한다. denied면 멈춘 곳(읽기·저장)부터 다시 한다 */
   retryNow(): void;
   subscribe(listener: () => void): () => void;
   getSnapshot(): DraftSyncSnapshot;
@@ -126,6 +156,8 @@ export interface DraftSyncOptions {
 export const AUTOSAVE_DELAY_MS = 2000;
 const RETRY_FIRST_MS = 1000;
 const RETRY_MAX_MS = 30_000;
+/** 결과를 모르는 저장(던진 저장)의 초안을 기억하는 수. 넘으면 첫 것을 남기고 오래된 것부터 버린다 */
+const IN_DOUBT_LIMIT = 16;
 
 /** n번째(1부터) 잇단 실패 뒤 기다림: 1초부터 두 배씩, 최대 30초 */
 export function retryDelayMs(failures: number): number {
@@ -141,8 +173,12 @@ const browserTimers: DraftTimers = {
   now: () => Date.now(),
 };
 
-type Phase = "loading" | "load_failed" | "ready" | "conflict" | "rejected" | "busy";
+type Phase = "loading" | "load_failed" | "ready" | "conflict" | "rejected" | "denied" | "busy";
 type TimerKind = "debounce" | "retry" | "load";
+
+function deniedReasonOf(error: unknown): DraftDeniedReason | null {
+  return error instanceof DraftAccessError ? error.reason : null;
+}
 
 export function createDraftSync(options: DraftSyncOptions): DraftSync {
   const { planetId, client, fallback } = options;
@@ -156,6 +192,12 @@ export function createDraftSync(options: DraftSyncOptions): DraftSync {
   let revision = 0;
   let updatedAt: string | null = null;
   let rejectedCode: string | null = null;
+  let deniedReason: DraftDeniedReason | null = null;
+  /**
+   * 결과를 모르는 저장(던진 저장)의 초안들: 서버에 들어갔는데 답만 잃었을 수 있다. 서버가 판을 확인하면 비운다.
+   * 비어 있지 않으면 저장하지 않은 것으로 센다(되돌려 같아져도 서버에는 그 초안이 있을 수 있다)
+   */
+  let inDoubt: DraftDocument[] = [];
   let failures = 0;
   let cancelTimer: (() => void) | null = null;
   let timerKind: TimerKind | null = null;
@@ -165,7 +207,8 @@ export function createDraftSync(options: DraftSyncOptions): DraftSync {
   let started = false;
   let disposed = false;
 
-  const unsaved = (): boolean => local !== null && saved !== null && !sameDocument(local, saved);
+  const unsaved = (): boolean =>
+    local !== null && saved !== null && (inDoubt.length > 0 || !sameDocument(local, saved));
 
   function status(): DraftSyncStatus {
     if (phase !== "ready") return phase;
@@ -183,6 +226,7 @@ export function createDraftSync(options: DraftSyncOptions): DraftSync {
       updatedAt,
       unsaved: unsaved(),
       rejectedCode,
+      deniedReason: phase === "denied" ? deniedReason : null,
       failures,
       retryAt,
     };
@@ -222,8 +266,24 @@ export function createDraftSync(options: DraftSyncOptions): DraftSync {
     revision = draft ? draft.revision : 0;
     updatedAt = draft ? draft.updatedAt : null;
     rejectedCode = null;
+    deniedReason = null;
+    inDoubt = [];
     failures = 0;
     phase = "ready";
+  }
+
+  /** 다시 해도 같은 실패로 멈춘다(타이머를 지운다) */
+  function deny(reason: DraftDeniedReason): void {
+    clearTimer();
+    phase = "denied";
+    deniedReason = reason;
+  }
+
+  /** 결과를 모르는 저장의 초안을 기억한다(같은 것은 한 번, 넘치면 첫 것을 남기고 오래된 것부터) */
+  function rememberInDoubt(payload: DraftDocument): void {
+    if (inDoubt.some((item) => sameDocument(item, payload))) return;
+    inDoubt.push(payload);
+    if (inDoubt.length > IN_DOUBT_LIMIT) inDoubt.splice(1, 1);
   }
 
   async function load(): Promise<void> {
@@ -233,11 +293,16 @@ export function createDraftSync(options: DraftSyncOptions): DraftSync {
       const draft = await client.get(planetId);
       if (disposed) return;
       adopt(draft);
-    } catch {
+    } catch (error) {
       if (disposed) return;
-      failures += 1;
-      phase = "load_failed";
-      schedule("load", retryDelayMs(failures), () => void load());
+      const reason = deniedReasonOf(error);
+      if (reason) {
+        deny(reason);
+      } else {
+        failures += 1;
+        phase = "load_failed";
+        schedule("load", retryDelayMs(failures), () => void load());
+      }
     }
     notify();
   }
@@ -249,14 +314,51 @@ export function createDraftSync(options: DraftSyncOptions): DraftSync {
     schedule("debounce", wait, () => void save());
   }
 
+  /** 닿지 못함: 다시 시도를 잡는다. 다시 해도 같은 실패면 멈춘다 */
+  function failSend(error: unknown): void {
+    const reason = deniedReasonOf(error);
+    if (reason) {
+      deny(reason);
+      return;
+    }
+    failures += 1;
+    if (phase === "ready") schedule("retry", retryDelayMs(failures), () => void save());
+  }
+
+  /**
+   * CONFLICT: 서버 것이 이 기기가 보낸 것(결과를 모르는 저장 포함)이나 지금 초안과 같으면 내 저장이 들어간 것이다.
+   * 그 판을 받아들이고 이어 간다(true). 서버 것을 읽지 못하면 다시 시도를 잡는다(true). 다르면 false(충돌)
+   */
+  async function settleConflict(payload: DraftDocument): Promise<boolean> {
+    let found: ServerDraft | null;
+    try {
+      found = await client.get(planetId);
+    } catch (error) {
+      if (!disposed) failSend(error);
+      return true;
+    }
+    const server = found;
+    if (disposed) return true;
+    if (!server) return false;
+    const mine = [payload, ...inDoubt, ...(local ? [local] : [])];
+    if (!mine.some((item) => sameDocument(item, server.document))) return false;
+    saved = server.document;
+    revision = server.revision;
+    updatedAt = server.updatedAt;
+    inDoubt = [];
+    failures = 0;
+    return true;
+  }
+
   async function sendOnce(payload: DraftDocument, expected: number): Promise<void> {
     let result: DraftSaveResult;
     try {
       result = await client.save({ planetId, document: payload, expectedRevision: expected });
-    } catch {
+    } catch (error) {
       if (disposed) return;
-      failures += 1;
-      if (phase === "ready") schedule("retry", retryDelayMs(failures), () => void save());
+      // 서버에 들어갔는데 답만 잃었을 수 있다(다음 CONFLICT에서 견준다)
+      if (!deniedReasonOf(error)) rememberInDoubt(payload);
+      failSend(error);
       return;
     }
     if (disposed) return;
@@ -264,10 +366,16 @@ export function createDraftSync(options: DraftSyncOptions): DraftSync {
       saved = payload;
       revision = result.revision;
       updatedAt = result.updatedAt;
+      inDoubt = [];
       failures = 0;
     } else if (result.kind === "conflict") {
+      if (await settleConflict(payload)) return;
       clearTimer();
+      inDoubt = [];
       phase = "conflict";
+    } else if (local && !sameDocument(local, payload)) {
+      // 받지 않은 것보다 새 편집이 있다: 받지 않음에 멈추지 않고 새 것을 이어서 보낸다(scheduleAutosave)
+      rejectedCode = null;
     } else {
       clearTimer();
       phase = "rejected";
@@ -280,7 +388,11 @@ export function createDraftSync(options: DraftSyncOptions): DraftSync {
       await saving;
       return;
     }
-    if (disposed || phase !== "ready" || !local || !unsaved()) return;
+    if (disposed || phase !== "ready" || !local || !unsaved()) {
+      // 타이머가 불렀다면 타이머 상태(retrying 등)가 바뀌었으니 알린다
+      notify();
+      return;
+    }
     const run = sendOnce(local, revision);
     saving = run;
     notify();
@@ -293,7 +405,10 @@ export function createDraftSync(options: DraftSyncOptions): DraftSync {
     notify();
   }
 
-  /** 바쁜 일(불러오기·덮기·되돌리기·지우기): 보내는 저장을 기다린 뒤 한다. 실패하면 앞 상태로 돌아간다 */
+  /**
+   * 바쁜 일(불러오기·덮기·되돌리기·지우기): 보내는 저장을 기다린 뒤 한다. 실패하면 앞 상태로 돌아간다
+   * (다시 해도 같은 실패면 denied로 멈춘다)
+   */
   async function exclusive(work: () => Promise<void>): Promise<boolean> {
     if (phase === "loading" || phase === "load_failed" || phase === "busy" || disposed) return false;
     const before = phase;
@@ -303,11 +418,16 @@ export function createDraftSync(options: DraftSyncOptions): DraftSync {
     if (saving) await saving.catch(() => undefined);
     try {
       await work();
-    } catch {
+    } catch (error) {
       if (!disposed) {
-        phase = before;
-        // 멈춰 둔 자동 저장을 다시 잡는다(바꾼 것이 남아 있으면)
-        scheduleAutosave();
+        const reason = deniedReasonOf(error);
+        if (reason) {
+          deny(reason);
+        } else {
+          phase = before;
+          // 멈춰 둔 자동 저장을 다시 잡는다(바꾼 것이 남아 있으면)
+          scheduleAutosave();
+        }
         notify();
       }
       return false;
@@ -325,16 +445,24 @@ export function createDraftSync(options: DraftSyncOptions): DraftSync {
     },
     edit(document) {
       if (disposed || phase === "loading" || phase === "load_failed" || phase === "busy") return false;
+      // 읽기에서 멈췄으면(denied, 초안 없음) 받지 않는다. 저장에서 멈췄으면 받아 두고 다시 시도 때 보낸다
+      if (phase === "denied" && local === null) return false;
       local = document;
       lastEditAt = timers.now();
       if (phase === "rejected") {
         phase = "ready";
         rejectedCode = null;
       }
-      // 보내는 중이면 끝난 뒤(scheduleAutosave), 다시 시도를 기다리면 그때 가장 새 것을 보낸다
-      if (phase === "ready" && timerKind !== "retry" && !saving) {
-        if (unsaved()) schedule("debounce", debounceMs, () => void save());
-        else clearTimer();
+      // 보내는 중이면 끝난 뒤(scheduleAutosave), 다시 시도를 기다리면 그때 가장 새 것을 보낸다.
+      // 다시 시도를 기다리는데 보낼 것이 없어졌으면(되돌림) 그 다시 시도를 지운다
+      if (phase === "ready" && !saving) {
+        if (timerKind === "retry") {
+          if (!unsaved()) clearTimer();
+        } else if (unsaved()) {
+          schedule("debounce", debounceMs, () => void save());
+        } else {
+          clearTimer();
+        }
       }
       notify();
       return true;
@@ -374,7 +502,16 @@ export function createDraftSync(options: DraftSyncOptions): DraftSync {
     revisions: () => client.revisions(planetId),
     retryNow() {
       if (disposed) return;
-      if (timerKind === "load") {
+      if (phase === "denied") {
+        // 다시 들어온 뒤: 읽기에서 멈췄으면 다시 읽고, 저장에서 멈췄으면 이어서 저장한다
+        deniedReason = null;
+        if (local === null) {
+          void load();
+          return;
+        }
+        phase = "ready";
+        void save();
+      } else if (timerKind === "load") {
         clearTimer();
         void load();
       } else if (timerKind === "retry") {

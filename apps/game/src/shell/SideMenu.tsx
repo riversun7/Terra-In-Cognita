@@ -21,6 +21,9 @@ import type { MenuBadges } from "./TabBar.tsx";
 /** 설정 화면 "메뉴" 칸의 id — [메뉴 편집]이 옮긴 뒤 이 칸에 초점을 둔다(NavigationSettings.tsx) */
 export const NAV_SETTINGS_ID = "nav-settings";
 
+/** 레일·사이드 메뉴(Shell의 <nav>) id — 중간 폭 위 띠 ☰의 aria-controls(TopBar.tsx) */
+export const SIDE_NAV_ID = "side-nav";
+
 interface SideLinkProps {
   to: RouteTarget;
   icon: IconName;

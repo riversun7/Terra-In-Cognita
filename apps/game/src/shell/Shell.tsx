@@ -20,7 +20,7 @@ import type { RouterSnapshot } from "./router.ts";
 import { routeKind } from "./router.ts";
 import { closeOverlay, openOverlay, useRoute } from "./routerStore.ts";
 import { setRailExpanded, useNavigation, useRailExpanded } from "./shellPrefs.ts";
-import { SideMenu } from "./SideMenu.tsx";
+import { SIDE_NAV_ID, SideMenu } from "./SideMenu.tsx";
 import { type MenuBadges, TabBar } from "./TabBar.tsx";
 import { TopBar } from "./TopBar.tsx";
 import { useLayout } from "./useLayout.ts";
@@ -262,7 +262,7 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
         data-rail={layout.stage === "medium" && !railExpanded ? "collapsed" : "expanded"}
       >
         <SkipLink />
-        <nav className="frame-side" aria-label={m.shell_menu()}>
+        <nav className="frame-side" id={SIDE_NAV_ID} aria-label={m.shell_menu()}>
           <SideMenu variant="side" user={user} nav={nav} current={current} badges={NO_BADGES} />
         </nav>
         <header className="frame-top">

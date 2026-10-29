@@ -2,10 +2,13 @@
 // 왼쪽: [☰](좁음 + 배치 C는 서랍 열기, 중간은 레일 펴기·접기, 넓음·좁음 + 배치 A에는 없다 — CSS), 사이보그 얼굴(→ /cyborg).
 // 오른쪽: 알림 종(배지, → /inbox), 우편(→ /mail). 사이보그가 없어서 얼굴은 기본 실루엣이다. 아이디는 사이드 메뉴 머리에만 보인다.
 // 아이콘만 있는 단추라 이름은 aria-label로 준다(배지는 숫자만 두지 않는다: "알림 3개").
+// ☰의 읽는 이름: 좁은 폭은 "메뉴 열기"(서랍 대화 상자를 연다), 중간 폭은 "메뉴" + aria-expanded·aria-controls(레일).
+// 중간 폭에서 이름까지 펼치기·접기로 바꾸면 같은 상태를 두 번 읽는다("메뉴 접기, 펼쳐짐").
 import { m } from "../paraglide/messages.js";
 import { Icon } from "../ui/icons.tsx";
 import { AppLink } from "./AppLink.tsx";
 import { CountBadge } from "./CountBadge.tsx";
+import { SIDE_NAV_ID } from "./SideMenu.tsx";
 
 /**
  * 종 배지 수(완료를 뺀 처리할 일 줄 수, 묶음은 1줄 — ADR 37 7절). 0이면 배지를 그리지 않는다.
@@ -24,21 +27,17 @@ interface TopBarProps {
 
 export function TopBar({ onMenu, railExpanded, current }: TopBarProps) {
   const alerts = useAlertCount();
-  const menuLabel =
-    railExpanded === null
-      ? m.shell_menu_open()
-      : railExpanded
-        ? m.shell_rail_collapse()
-        : m.shell_rail_expand();
+  const rail = railExpanded !== null;
   return (
     <div className="topbar">
       <button
         type="button"
         className="topbar-button topbar-menu"
         onClick={onMenu}
-        aria-label={menuLabel}
+        aria-label={rail ? m.shell_menu() : m.shell_menu_open()}
         aria-expanded={railExpanded ?? undefined}
-        aria-haspopup={railExpanded === null ? "dialog" : undefined}
+        aria-controls={rail ? SIDE_NAV_ID : undefined}
+        aria-haspopup={rail ? undefined : "dialog"}
       >
         <Icon name="menu" />
       </button>

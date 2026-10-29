@@ -33,7 +33,7 @@ import { type TileMeshArrays, tileGpuBytes, tileIndices } from "./tileMesh.ts";
 import type { GpuTile } from "./tilePipeline.ts";
 import { tileShape } from "./tileShape.ts";
 import { type TileNode, nodeSTRange } from "./tileTree.ts";
-import type { Vec3 } from "./vec3.ts";
+import { type Vec3, dot } from "./vec3.ts";
 
 /** 우주(행성 밖) 색 — 세계 색은 화면 테마와 상관없다(D-070) */
 const SPACE_COLOR = 0x1e2a4a;
@@ -125,6 +125,19 @@ export class PlanetView {
   /** 대기 띠를 보일지(가까우면 끈다) */
   setAtmosphere(visible: boolean): void {
     this.atmosphere.visible = visible && !this.debug;
+  }
+
+  /**
+   * 하늘 빛(프레임마다 한 번, ADR 2026-10-29-primary-map-sky 4절): blend 0 = 지금 빛(카메라), 1 = 항성 낮밤, 사이 = 켜지는 중.
+   * sun = 항성 방향(행성 좌표, 단위), strength = 낮밤 세기. 보기 공간 방향 = 카메라 축(오른쪽·위·뒤)과의 내적(카메라는 회전만 있다).
+   * 틈 찾기는 늘 지금 빛이다.
+   */
+  setSkyLight(blend: number, sun: Vec3, strength: number, pose: GlobePose): void {
+    const u = this.shared;
+    u.uSkyBlend.value = this.debug ? 0 : blend;
+    u.uSunDir.value.set(sun[0], sun[1], sun[2]);
+    u.uSunDirView.value.set(dot(sun, pose.right), dot(sun, pose.up), dot(sun, pose.back));
+    u.uNight.value.w = this.debug ? 0 : strength;
   }
 
   /** 그릴 타일을 놓는다(나머지는 숨긴다). order = 가까운 것 먼저 */

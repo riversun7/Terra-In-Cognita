@@ -500,3 +500,21 @@ export interface PlanetSkyFeatures {
 ### 남은 것 (WP3부터)
 - 엔진 연결(`skyController.ts`, `setSky`, uniform, 오류 가두기), 셰이더 3판, 화면 `planetSky.ts`·주소 표, 달·구름. sharpness 가지(상한 2, `PlanetStats` 그리기 버퍼, `?pixel-ratio=`, HUD 줄)를 먼저 합친다.
 - 하늘 시계 간격(1.7초 ÷ 밤 세기, 낮 쪽 4초)과 밝기 걸음(0.5~1.3%)은 휴대폰에서 보고 다듬는다(Unknown).
+
+## 구현하며 정한 것 (낮밤·달·구름 연결, 2026-10-30)
+작업 가지 `work/planet-sky`(main `dbe87c2` 위, sharpness 가지를 합친 뒤). 수치는 모두 헤드리스 Chromium + SwiftShader(소프트웨어 그리기, 4 vCPU 공유)라 휴대폰 값이 아니다(WP7에서 잰다).
+
+### 낮밤 (WP3)
+- 공용 uniform 이름은 `uSkyMode` 대신 `uSkyBlend`다: 0 = 지금 빛(카메라, 하늘 끔·시계 전), 1 = 항성 낮밤, 사이 = 켜지는 중. 시계 전의 "낮으로 그린다"는 지금 모습 그대로이고, 시계를 잰 뒤 0.5초 동안 두 빛을 섞어 켠다(세기만 0에서 올리면 지금 빛과 다른 평평한 낮이 먼저 보인다). fixed는 바로 켠다(사진·동작 줄이기). fixed → clock으로 바뀌면 켜진 채다.
+- 늦게 잰 값이 1분 넘게 다르면 시각이 아니라 항성·달 방향을 큰 원을 따라 0.5초에 옮긴다(시각을 섞으면 몇 시간 차이에서 하늘이 몇 바퀴씩 돈다).
+- `PlanetSkyMode`의 clock에 선택 필드 `source?: () => "server" | "device"`를 더했다(통계의 시계 상태용). 화면 `planetSky.ts`가 서버 시계를 쟀으면 server, 5초 뒤 기기 시계면 device를 낸다.
+- 타일 조각 셰이더: 끔 길(`uSkyBlend <= 0`)은 하늘 전 식 그대로 `cameraLight(applyPick(base))`다. 켬 길은 `skyLight` 뒤에 고른 칸을 얹는다(밤에도 밝다). 끔 모드 사진은 main 빌드와 화소가 같았다(채널 차이 최대 0, 세로 390×844·데스크톱 1440×900 두 장, Verified: 헤드리스, HUD를 숨기고 캔버스만).
+- 셰이더 식의 JS판(`skyShade.ts` `shadeColor`)으로 밤 바닥을 시험한다: 인접 바이옴 12쌍의 (밤 대비 ÷ 낮 대비) 최솟값 0.813(초지/온대림, 열대우림/심해), 가까운 거리 세기 0.6에서 0.898, 흰 땅 밤 휘도 0.320·L* 0.630(Verified: 계산, 4절 값과 같다).
+- `setSky`로 모드를 바꿔도 셰이더 프로그램이 늘지 않았다: 동작 줄이기 켬·끔을 네 번 바꾸는 동안 `renderer.info.programs` 3개 그대로(Verified: 헤드리스 `data-programs`). 그래서 `PlanetStats.shaderPrograms`를 더했다.
+- 오류 가두기: 하늘 갱신(시계 읽기·달력·달·구름)이 던지면 하늘만 끄고 전역 `reportError`로 한 번 알린다. 끄기마저 던지면 그대로 둔다(지도 프레임이 먼저). 범위 밖 시각(달력 null)도 같은 길이다(시험).
+- 하늘 시계: 시계 전에는 그리지 않고 250ms마다 `serverNow()`만 본다. 이미 걸린 예약이 더 이르면 다시 걸지 않는다(움직이는 동안 프레임마다 타이머를 다시 만들지 않는다). 시계 길 세션(`?planet-time` 없음)에서 `data-sky-clock=server`, 지구본 간격 1,700ms, 콘솔 오류 0(Verified: 헤드리스).
+- 주소 표 `map_planet.search`에 `pixel-ratio`·`planet-time`·`planet-sky`·`planet-sky-skip`·`planet-sky-bench`와 새 `planet-view`(`<위도>,<경도>[,<거리 km>]`, 처음 볼 곳 — 사진·휴대폰 측정을 같은 자리에서 하려고)를 넣었다. `?planet-time=`은 정수 ms와 ISO 8601만 받는다(브라우저 `Date.parse`는 "12.5"도 날짜로 읽는다).
+- 성능 보고 화면 이름에 `planet-map:sky-skip`을 더했다(요소 끔 비교가 기본 값에 섞이지 않게). 재기 모드가 먼저다.
+- HUD 하늘 줄(재기 모드에서만)에 GPU 값(그리기 + 1화소 읽기 중앙값 × k)을 넣었다: 재기 모드의 주된 값인데 9절 문구에 없었다. 단위·구분점 앞은 줄바꿈 없는 공백으로 묶었다(390px 영어에서 "· 0.0 MB"가 줄 앞에 남았다, break-ui). 재기 모드의 1화소 읽기는 드라이버 경고("GPU stall due to ReadPixels")를 콘솔에 남긴다(재기 모드만, 예상한 것).
+- `inertPlanetEngine`을 따로 뺐다(`inertPlanetEngine.ts`). `planetEngine.ts`는 528줄이다.
+- 묶음(Verified: 빌드): 1차맵 조각 62.49 → 80.27kB(gzip 23.95 → 30.37kB). 첫 화면 JS 합은 368,388 → 368,316바이트로 그대로다(`reporter`·`useMountFocus` 조각이 첫 화면 조각에 합쳐졌다. 1차맵 화면이 첫 화면 모듈 `serverLink`를 가져와서로 본다, Assumed). 조각 증가의 큰 몫은 `skyController.ts` 약 6.0kB, `sky.ts` 3.1kB, `planetSky.ts` 1.6kB다(소스 맵 어림).

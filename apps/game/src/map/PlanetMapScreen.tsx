@@ -5,6 +5,9 @@
 // 고빈도 상태는 엔진 안에 있고, 이 화면은 1초마다 요약(stats)만 읽는다(PLAN 5.7). 시험(Playwright)은 data-* 값을 읽는다.
 // 틈 찾기: 주소에 ?planet-debug=cracks를 붙이면 엔진이 바탕 구·하늘을 자홍색으로 칠한다(시험용, 타일 사이 틈이 자홍색 점으로 보인다).
 // 픽셀 비율 재기: ?pixel-ratio=<1~4>를 붙이면 엔진 상한을 바꾼다(시험용, pixelRatioParam.ts). HUD에 쓰는 값·그리기 버퍼가 보인다.
+// 하늘(ADR 2026-10-29-primary-map-sky 9절): 서버 시계로 낮밤·달·구름(planetSky.ts). 동작 줄이기면 연 시각에 멈춘다(바뀌면 setSky).
+// 시험·측정 주소: ?planet-time= 시각 멈춤, ?planet-sky=off, ?planet-sky-skip=night,moon,clouds, ?planet-sky-bench=<1|2|4>(HUD 하늘 줄),
+// ?planet-view=<위도>,<경도>[,<거리 km>] 처음 볼 곳(planetViewParam.ts).
 import {
   type PickedCell,
   type PlanetEngine,
@@ -15,6 +18,7 @@ import {
 } from "@terra/engine/planet";
 import { useEffect, useRef, useState } from "react";
 import { refreshSession } from "../auth/session.ts";
+import { serverLink } from "../net/serverLink.ts";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import type { FrameMonitor } from "../perf/frameMonitor.ts";
@@ -29,6 +33,8 @@ import {
   planetDescriptionOf,
 } from "./planetSource.ts";
 import { formatPixelRatio, pixelRatioOption } from "./pixelRatioParam.ts";
+import { createSkyClock, planetSkyMode, planetTelemetryView, readPlanetSkyParams } from "./planetSky.ts";
+import { planetViewOption } from "./planetViewParam.ts";
 import { cellLines, planetFailureText } from "./planetText.ts";
 import "./map.css";
 import "./planetMap.css";
@@ -101,6 +107,10 @@ function screenNotice(load: LoadPhase, tiles: TileProblem | null, status: Planet
 }
 
 const fixed = (value: number, digits: number): string => value.toFixed(digits);
+/** 기기의 동작 줄이기(없으면 null) */
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+const reducedMotionList = (): MediaQueryList | null =>
+  typeof matchMedia === "function" ? matchMedia(REDUCED_MOTION_QUERY) : null;
 
 /** 다시 시도하면 화면 안쪽을 새로 만든다(목록 정보부터 다시 받고 엔진·상태를 모두 새로) */
 export default function PlanetMapScreen(props: PlanetMapScreenProps) {
@@ -130,7 +140,17 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
     const controller = new AbortController();
     let engine: PlanetEngine | null = null;
     let timer: ReturnType<typeof setInterval> | undefined;
-    setTelemetryView(TELEMETRY_VIEW);
+    // 하늘: 시계는 화면을 연 때부터 센다(5초 안에 못 재면 기기 시계). 주소 매개변수는 시험·측정용
+    const search = window.location.search;
+    const skyParams = readPlanetSkyParams(search);
+    const debugCracks = new URLSearchParams(search).get("planet-debug") === "cracks";
+    const skyClock = createSkyClock(serverLink);
+    const reduced = reducedMotionList();
+    const skyMode = () =>
+      planetSkyMode(skyParams, skyClock, { reducedMotion: reduced?.matches ?? false, debugCracks });
+    const onReducedMotion = (): void => engine?.setSky(skyMode());
+    reduced?.addEventListener("change", onReducedMotion);
+    setTelemetryView(planetTelemetryView(TELEMETRY_VIEW, skyParams));
     loadPlanetManifest(PLANET_ID, {
       signal: controller.signal,
       onWaiting: (reason, retryInMs) => setLoad({ kind: reason, retryInMs }),
@@ -154,8 +174,11 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
             }),
             layer: layerRef.current,
             exaggeration: exaggerationRef.current,
-            debugCracks: new URLSearchParams(window.location.search).get("planet-debug") === "cracks",
-            ...pixelRatioOption(window.location.search),
+            debugCracks,
+            ...pixelRatioOption(search),
+            ...planetViewOption(search),
+            sky: skyMode(),
+            ...(skyParams.benchRepeat === null ? {} : { gpuBenchRepeat: skyParams.benchRepeat }),
             onStatus: setStatus,
             onPick: (cell) =>
               setPicked({
@@ -184,6 +207,7 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
     );
     return () => {
       controller.abort(new DOMException("planet screen closed", "AbortError"));
+      reduced?.removeEventListener("change", onReducedMotion);
       clearInterval(timer);
       engine?.dispose();
       engineRef.current = null;
@@ -223,6 +247,9 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
   const camera = stats?.camera;
   const cell = picked?.cell ?? null;
   const firstMs = stats?.firstDisplayMs ?? null;
+  const sky = stats?.sky;
+  const oneDecimal = (value: number | null | undefined): string =>
+    value === null || value === undefined ? "–" : fixed(value, 1);
 
   return (
     <section
@@ -258,6 +285,7 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
       }
       data-draw-calls={stats?.drawCalls}
       data-triangles={stats?.triangles}
+      data-programs={stats?.shaderPrograms}
       data-gpu-bytes={stats?.gpuBytes}
       data-memory-bytes={stats?.memoryBytes}
       data-max-elevation={stats?.maxElevationM}
@@ -268,6 +296,22 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
       data-context-lost={stats ? String(stats.contextLost) : undefined}
       data-pixel-ratio={stats?.pixelRatio}
       data-buffer={stats ? `${stats.drawingBufferWidth}x${stats.drawingBufferHeight}` : undefined}
+      data-sky={sky?.mode}
+      data-sky-clock={sky?.clock}
+      data-sky-blend={sky ? fixed(sky.blend, 2) : undefined}
+      data-sun={
+        sky && sky.subsolarLatDeg !== null && sky.subsolarLonDeg !== null
+          ? `${fixed(sky.subsolarLatDeg, 3)},${fixed(sky.subsolarLonDeg, 3)}`
+          : undefined
+      }
+      data-night={sky ? fixed(sky.nightStrength, 3) : undefined}
+      data-sky-interval={sky?.clockIntervalMs ?? undefined}
+      data-moons={sky?.moonsDrawn}
+      data-cloud-opacity={sky ? fixed(sky.cloudOpacity, 3) : undefined}
+      data-cloud-bakes={sky?.cloudBakes}
+      data-cloud-bake-ms={sky?.cloudBakeMaxMs == null ? undefined : fixed(sky.cloudBakeMaxMs, 2)}
+      data-sky-bytes={sky?.gpuBytes}
+      data-gpu-ms={stats?.gpuBench ? fixed(stats.gpuBench.medianMs, 2) : undefined}
       data-camera={
         camera
           ? [
@@ -338,6 +382,20 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
                   height: stats.drawingBufferHeight,
                 })}
               </span>
+              {/* 하늘 줄은 재기 모드(?planet-sky-bench=)에서만: 항성 바로 아래 위도·경도, 그리기 + 1화소 읽기 중앙값, 구름 면 굽기 최대, 달, 하늘 GPU 메모리 */}
+              {stats.gpuBench ? (
+                <span>
+                  {m.planet_perf_sky({
+                    lat: oneDecimal(stats.sky.subsolarLatDeg),
+                    lon: oneDecimal(stats.sky.subsolarLonDeg),
+                    gpu: fixed(stats.gpuBench.medianMs, 1),
+                    repeat: stats.gpuBench.repeat,
+                    bake: oneDecimal(stats.sky.cloudBakeMaxMs),
+                    moons: stats.sky.moonsDrawn,
+                    mb: fixed(stats.sky.gpuBytes / (1024 * 1024), 1),
+                  })}
+                </span>
+              ) : null}
             </>
           ) : null}
         </p>

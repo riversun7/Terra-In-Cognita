@@ -8,6 +8,7 @@
 | 2026-10-29 21:00 | 단위 시험 제한 시간 30초(공유 개발 컨테이너 부하) | Claude Code | [29-2100-bake-test-timeout](worklog/2026/10/29-2100-bake-test-timeout.md) |
 | 2026-10-29 21:00 | 앱 뼈대 0단계 검토 반영: 주소 표 타입·값 규칙, 부모 화면·검색어 바꾸기, 설정 쓰기 도우미, 완료 종류, ADR 37 문장 | Claude Code | [29-2100-app-shell-stage0-review](worklog/2026/10/29-2100-app-shell-stage0-review.md) |
 | 2026-10-29 20:15 | 앱 뼈대 0단계: 주소 표·메뉴·홈 카드·처리할 일 계약, 개발 도구 권한, 화면 경로 대조 | Claude Code | [29-2015-app-shell-stage0](worklog/2026/10/29-2015-app-shell-stage0.md) |
+| 2026-10-29 20:13 | 행성 편집기 핵심(WP-C): 미리보기 워커·작업 줄·결과 기억·타일·칸 정보·초안 동기화 | Claude Code | [29-2013-planet-editor-core](worklog/2026/10/29-2013-planet-editor-core.md) |
 | 2026-10-29 19:45 | 기획 D-248~D-259·Step 5 D-5022~D-5028(원본 61a7d96) → ADR 35·PLAN 14장 | Claude Code | [29-1945-planning-d248-d259](worklog/2026/10/29-1945-planning-d248-d259.md) |
 | 2026-10-29 19:20 | 행성 편집기 1단계: 사용자 결정 반영(ADR 38) | Claude Code | [29-1920-planet-editor-decisions](worklog/2026/10/29-1920-planet-editor-decisions.md) |
 | 2026-10-29 19:10 | NAS 행성 캐시 고침 확인(판 2 배포 뒤) | Claude Code | [29-1910-nas-planet-cache-verified](worklog/2026/10/29-1910-nas-planet-cache-verified.md) |

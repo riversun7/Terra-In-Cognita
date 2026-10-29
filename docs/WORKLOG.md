@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-30 01:40 | 앱 뼈대 W2·W5·W1 main 합치기 | Claude Code | [30-0140-app-shell-w125-integration](worklog/2026/10/30-0140-app-shell-w125-integration.md) |
 | 2026-10-30 01:20 | 앱 뼈대 W1 검토 고침: 겹침·다시 고름을 화면 이동과 나눔, 처음 켤 때 초점, C 지도 버튼 여백, 화면 시험 e2e/shell.spec.ts | Claude Code | [30-0120-app-shell-w1-review](worklog/2026/10/30-0120-app-shell-w1-review.md) |
 | 2026-10-30 00:45 | 앱 뼈대 W5 검토 고침: 같은 트리의 두 번째 실행, 계정 메뉴·홈, 신호, 프로세스 확인, 누르는 곳 검사, 크기 값 출처 | Claude Code | [30-0045-app-shell-w5-review](worklog/2026/10/30-0045-app-shell-w5-review.md) |
 | 2026-10-30 00:20 | 앱 뼈대 W2 검토 고침: 계정이 바뀐 뒤의 계정 요청, 저장할 수 없는 글자, 마이그레이션 갈래 다시 확인 | Claude Code | [30-0020-app-shell-w2-review](worklog/2026/10/30-0020-app-shell-w2-review.md) |

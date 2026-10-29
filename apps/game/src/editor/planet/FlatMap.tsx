@@ -3,15 +3,17 @@
 // 이 부품은 받은 결과를 칠하고, 누른 점의 위도·경도만 알린다(칸 정보창은 그 점으로 칸을 찾는다: flatMapCellIndex).
 // - 크기는 CSS가 정한다(flatMap.css: 담는 판의 폭, 가로세로 2 : 1, 토큰만). 그림 버퍼 = CSS 폭 × 픽셀 비율, 폭 상한 1,024.
 //   픽셀 비율 상한은 엔진 1차맵과 같은 규칙이다(휴대폰 1.5, 그 밖 2 — PLAN 5.7).
-// - 결과·색표·크기가 바뀌면 다시 칠한다. 픽셀 → 칸 표는 면 레벨·크기마다 한 번 만들고 이 부품이 기억한다(닫으면 버린다).
+// - 결과·색표·크기가 바뀌면 다시 칠한다. 픽셀 → 칸 표는 이 부품이 기억한다(크기마다 기준 표 하나, 면 레벨 표는 거기서 끌어낸다.
+//   닫으면 버린다).
 // - 크기가 바뀌는 동안(창 끌기, 판 폭이 움직이는 동안)은 옛 그림 버퍼를 CSS가 늘려 보이고, 멈춘 뒤(150ms) 새 크기로 한 번 칠한다.
 // - 숨겨져 폭이 0이면(접힌 판) 칠하지 않는다. 그동안 온 결과는 다시 보일 때 마지막 것만 칠한다(처음부터 숨긴 판도 같다).
 //   두 규칙은 flatMapView.ts가 정한다.
 // - 누르면(마우스·터치·펜) 그 픽셀 중심의 위도·경도를 onPick으로 알린다. 고른 점(selected)은 부모가 들고 여기서는 표시만 한다.
 // - 키보드: 초점을 받으면 화살표로 적도 칸 하나쯤, Shift와 함께 8칸쯤 옮긴다. Enter·Space는 지금 점(없으면 가운데)을 고른다.
 //   고른 칸을 읽어 주는 것은 칸 정보창(부모의 status 영역)이 한다. onPick이 없으면 보기만 하는 그림(role="img", 초점 없음)이다.
-// - 시험·측정용 data-*(캔버스): data-face-level, data-backing(폭x높이), data-paint-ms, data-lookup-ms(그 칠하기에서 표를 만들었을
-//   때만). 판을 비우면 모두 지운다(data-backing만 남는다).
+// - 시험·측정용 data-*(캔버스): data-face-level, data-backing(폭x높이), data-paint-ms, 그리고 그 칠하기에서 표를 새로 얻었을 때만
+//   data-lookup-ms·data-lookup("derived" = 기준 표에서 끌어냄, "base" = 그 크기의 기준 표부터 만듦). 판을 비우면 모두 지운다
+//   (data-backing만 남는다).
 import { type KeyboardEvent, type MouseEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import {
@@ -117,6 +119,7 @@ export function FlatMap({ fields, biomeColors, selected = null, onPick, label }:
       delete canvas.dataset.faceLevel;
       delete canvas.dataset.paintMs;
       delete canvas.dataset.lookupMs;
+      delete canvas.dataset.lookup;
     };
     canvas.dataset.backing = `${size.width}x${size.height}`;
     if (!fields) {
@@ -126,7 +129,7 @@ export function FlatMap({ fields, biomeColors, selected = null, onPick, label }:
     try {
       const started = performance.now();
       cacheRef.current ??= new FlatMapLookupCache();
-      const { lookup, built } = cacheRef.current.get(fields.meta.faceLevel, size);
+      const { lookup, source } = cacheRef.current.get(fields.meta.faceLevel, size);
       const painting = performance.now();
       let image = imageRef.current;
       if (!image || image.width !== size.width || image.height !== size.height) {
@@ -137,8 +140,13 @@ export function FlatMap({ fields, biomeColors, selected = null, onPick, label }:
       context.putImageData(image, 0, 0);
       canvas.dataset.faceLevel = String(fields.meta.faceLevel);
       canvas.dataset.paintMs = (performance.now() - painting).toFixed(1);
-      if (built) canvas.dataset.lookupMs = (painting - started).toFixed(1);
-      else delete canvas.dataset.lookupMs;
+      if (source === "cached") {
+        delete canvas.dataset.lookupMs;
+        delete canvas.dataset.lookup;
+      } else {
+        canvas.dataset.lookupMs = (painting - started).toFixed(1);
+        canvas.dataset.lookup = source;
+      }
     } catch (error) {
       // 결과와 표가 맞지 않음(면 레벨·배열 길이) 등 코드 오류: 화면을 멈추지 않고 비운 뒤 기기 오류 보고로 보낸다
       clear();

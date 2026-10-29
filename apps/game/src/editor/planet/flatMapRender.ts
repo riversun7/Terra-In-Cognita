@@ -1,11 +1,12 @@
 // 편집기 평면 미니맵 그리기(순수 함수) — ADR 2026-10-29-planet-editor-stage1(38) "평면 미니맵"(사용자 D1).
 // 미리보기 결과(칸 배열)를 등장방형 그림으로 칠한다: 가로 = 경도 −180° → 180°, 세로 = 위도 90° → −90°.
-// - 픽셀 → 칸 번호 표: 면 레벨·그림 크기마다 한 번 만들고 기억한다(FlatMapLookupCache).
-//   픽셀 중심의 위도·경도 → 방향(엔진 globeCamera.ts directionOfLatLon과 같은 식) → 면·(u, v)(xyzToFaceUV와 같은 규칙)
-//   → 칸 (i, j)(uvToST).
+// - 픽셀 → 칸 번호 표: 픽셀 중심의 위도·경도 → 방향(엔진 globeCamera.ts directionOfLatLon과 같은 식) → 면·(u, v)
+//   (xyzToFaceUV와 같은 규칙) → 칸 (i, j)(uvToST).
 //   @terra/planet/projection의 xyzToCell과 같은 계산이다(시험이 비교한다). 칸 정보창도 같은 함수(flatMapCellIndex)를 쓰면
 //   누른 픽셀에 칠한 칸과 정보창의 칸이 늘 같다.
 //   칸 번호 = 면 × n² + j × n + i (생성기 출력 배열 순서, @terra/planet tiles/fields.ts).
+// - 표 만들기(삼각함수·uvToST)는 픽셀마다 같은 일이라 시간이 면 레벨과 상관없다. 그래서 크기마다 기준 표(한 변 2^14칸) 하나만
+//   그렇게 만들고, 면 레벨 F 표는 i, j를 (14 − F)비트 밀어 끌어낸다(FlatMapLookupCache). 바로 만든 표와 비트까지 같다(시험).
 // - 칠하기(결과마다): 픽셀마다 그 칸의 바이옴 색(행성 설명과 같은 바이옴 번호별 0xRRGGBB 표) × 고도 음영.
 //   땅만 높을수록 밝게 한다. 바다·호수는 바이옴 색 그대로다(지구본도 수면을 평평하게 그리고 수심은 등급 색으로만 보인다.
 //   바다 밑 높이까지 칠해 보니 넓은 바다의 수심 기울기가 땅·바이옴 무늬보다 눈에 띄었다 — 작업 기록 참고).
@@ -72,7 +73,10 @@ export const FLAT_MAP_MAX_PIXEL_RATIO = 2;
 export const FLAT_MAP_PHONE_PIXEL_RATIO = 1.5;
 /** 휴대폰으로 보는 화면 짧은 변(CSS px) 상한 */
 const PHONE_SHORT_SIDE = 600;
-/** 그림 폭 상한(점). 1,024 × 512 = 약 52만 점: 칸 번호 표 2MiB(Int32) + 그림 버퍼 2MiB */
+/**
+ * 그림 폭 상한(점). 1,024 × 512 = 약 52만 점: 칸 번호 표 하나 2MiB(Int32) — 부품은 레벨 표 3개 + 기준 표 1개를 기억한다 —
+ * + 그림 버퍼 2MiB
+ */
 export const FLAT_MAP_MAX_WIDTH = 1024;
 /** 그림 폭 하한(점) */
 const MIN_WIDTH = 2;
@@ -236,7 +240,14 @@ export function flatMapFraction(point: LatLon): { readonly x: number; readonly y
   return { x: (wrapLonDeg(point.lonDeg) + 180) / 360, y: (90 - clamp(point.latDeg, -90, 90)) / 180 };
 }
 
+// ── 픽셀 → 칸 표 ──
 const DEG = Math.PI / 180;
+
+/**
+ * 기준 표의 레벨: 칸 번호(면 × 4^L + …)가 Int32에 드는 가장 높은 레벨(6 × 4^14 ≈ 16.1억 < 2^31). 격자 상한(MAX_FACE_LEVEL)도 14다.
+ * 면 레벨이 이보다 높으면(지금 격자에는 없다) 표를 바로 만든다
+ */
+export const FLAT_MAP_LOOKUP_BASE_LEVEL = 14;
 
 /** 면 레벨(@terra/planet 격자 범위)인지 본다. 아니면 RangeError */
 function assertFaceLevel(faceLevel: number): void {
@@ -244,7 +255,7 @@ function assertFaceLevel(faceLevel: number): void {
 }
 
 /**
- * 단위 방향 (x, y, z)가 든 면 레벨 n칸 면의 칸 번호 — xyzToCell(@terra/planet/projection)과 같은 계산(키 대신 배열 번호).
+ * 단위 방향 (x, y, z)가 든 한 변 n칸 면의 칸 번호 — xyzToCell(@terra/planet/projection)과 같은 계산(키 대신 배열 번호).
  * 면 고르기·(u, v)는 xyzToFaceUV와 같은 규칙·같은 곱셈 순서로 FACE_FRAMES에서 바로 읽는다.
  * 픽셀마다 배열·객체를 만들지 않으려고 풀어 썼다(xyzToFaceUV를 부르면 F7 표가 Node에서 중앙값 약 1.3~1.5배 느리고
  * GC로 더 흔들렸다). 같은 값인지는 시험이 모든 픽셀로 본다
@@ -279,12 +290,12 @@ export function flatMapCellIndex(point: LatLon, faceLevel: number): number {
   return cellIndexOf(cosLat * Math.cos(lon), cosLat * Math.sin(lon), Math.sin(lat), cellsPerSide(faceLevel));
 }
 
-/** 픽셀 → 칸 번호 표를 만든다(픽셀마다 flatMapCellIndex(픽셀 중심)와 같은 값) */
-export function buildFlatMapLookup(faceLevel: number, size: FlatMapSize): FlatMapLookup {
-  assertFaceLevel(faceLevel);
-  assertSize(size);
+/**
+ * 픽셀마다 한 변 n칸 면의 칸 번호. 방향은 엔진과 같은 식(x = cos 위도·cos 경도, y = cos 위도·sin 경도, z = sin 위도)이고,
+ * 위도·경도의 삼각함수는 줄·열마다 한 번만 잰다(곱은 엔진 식과 같은 값이다)
+ */
+function buildCells(n: number, size: FlatMapSize): Int32Array {
   const { width, height } = size;
-  const n = cellsPerSide(faceLevel);
   const cosLon = new Float64Array(width);
   const sinLon = new Float64Array(width);
   for (let x = 0; x < width; x++) {
@@ -302,42 +313,113 @@ export function buildFlatMapLookup(faceLevel: number, size: FlatMapSize): FlatMa
       cells[row + x] = cellIndexOf(cosLat * (cosLon[x] ?? 0), cosLat * (sinLon[x] ?? 0), sinLat, n);
     }
   }
-  return { faceLevel, width, height, cells };
+  return cells;
 }
 
-/** 픽셀 → 칸 번호 표 기억(최근에 쓴 것부터 `limit`개. 크기가 바뀌면 옛 크기의 표는 차례로 밀려난다) */
+/**
+ * 기준 표(한 변 2^14칸) → 면 레벨 F 표: i, j를 (14 − F)비트 민다.
+ * s = uvToST(u)는 [0, 1]이고(±1 밖은 끝값) 2의 거듭제곱 곱은 정확하므로 floor(s × 2^14) >> (14 − F) = floor(s × 2^F)다.
+ * s = 1은 둘 다 끝 칸(n − 1)에서 멈춘다. 그래서 바로 만든 표와 비트까지 같다(시험이 모든 픽셀로 본다)
+ */
+function deriveCells(base: Int32Array, faceLevel: number): Int32Array {
+  const shift = FLAT_MAP_LOOKUP_BASE_LEVEL - faceLevel;
+  const faceShift = 2 * FLAT_MAP_LOOKUP_BASE_LEVEL;
+  const mask = (1 << FLAT_MAP_LOOKUP_BASE_LEVEL) - 1;
+  const cells = new Int32Array(base.length);
+  for (let k = 0; k < base.length; k++) {
+    const index = base[k] ?? 0;
+    const j = ((index >>> FLAT_MAP_LOOKUP_BASE_LEVEL) & mask) >>> shift;
+    const i = (index & mask) >>> shift;
+    cells[k] = ((((index >>> faceShift) << faceLevel) | j) << faceLevel) | i;
+  }
+  return cells;
+}
+
+/** 픽셀 → 칸 번호 표를 바로 만든다(픽셀마다 flatMapCellIndex(픽셀 중심)와 같은 값. 부품은 FlatMapLookupCache가 기준 표에서 끌어낸다) */
+export function buildFlatMapLookup(faceLevel: number, size: FlatMapSize): FlatMapLookup {
+  assertFaceLevel(faceLevel);
+  assertSize(size);
+  return {
+    faceLevel,
+    width: size.width,
+    height: size.height,
+    cells: buildCells(cellsPerSide(faceLevel), size),
+  };
+}
+
+/** 표를 얻은 길: 기억(cached) · 기준 표에서 끌어냄(derived) · 그 크기의 기준 표부터 만듦(base, 삼각함수를 도는 비싼 길) */
+export type FlatMapLookupSource = "cached" | "derived" | "base";
+
+export interface FlatMapLookupResult {
+  readonly lookup: FlatMapLookup;
+  readonly source: FlatMapLookupSource;
+}
+
+/**
+ * 픽셀 → 칸 번호 표 기억. 면 레벨 표는 최근에 쓴 것부터 `limit`개, 기준 표는 마지막에 쓴 크기 하나.
+ * 크기가 바뀌면 새 크기의 기준 표를 만들고, 옛 크기의 레벨 표는 차례로 밀려난다
+ */
 export class FlatMapLookupCache {
   readonly #limit: number;
   readonly #entries: FlatMapLookup[] = [];
+  #base: FlatMapLookup | null = null;
 
   constructor(limit = 3) {
     if (!Number.isInteger(limit) || limit < 1) throw new RangeError(`cache limit must be ≥ 1: ${limit}`);
     this.#limit = limit;
   }
 
-  /** 표를 돌려준다. 없으면 만든다(built = 이번에 만들었는지) */
-  get(faceLevel: number, size: FlatMapSize): { readonly lookup: FlatMapLookup; readonly built: boolean } {
+  /** 표를 돌려준다. 없으면 기준 표에서 끌어낸다(그 크기의 기준 표가 없으면 먼저 만든다) */
+  get(faceLevel: number, size: FlatMapSize): FlatMapLookupResult {
     const index = this.#entries.findIndex(
       (entry) => entry.faceLevel === faceLevel && entry.width === size.width && entry.height === size.height,
     );
     const found = index >= 0 ? this.#entries.splice(index, 1)[0] : undefined;
-    const lookup = found ?? buildFlatMapLookup(faceLevel, size);
-    this.#entries.unshift(lookup);
+    const result: FlatMapLookupResult =
+      found === undefined ? this.#make(faceLevel, size) : { lookup: found, source: "cached" };
+    this.#entries.unshift(result.lookup);
     this.#entries.length = Math.min(this.#entries.length, this.#limit);
-    return { lookup, built: found === undefined };
+    return result;
   }
 
-  /** 기억한 표의 바이트 수 */
+  #make(faceLevel: number, size: FlatMapSize): FlatMapLookupResult {
+    assertFaceLevel(faceLevel);
+    assertSize(size);
+    if (faceLevel > FLAT_MAP_LOOKUP_BASE_LEVEL) {
+      return { lookup: buildFlatMapLookup(faceLevel, size), source: "base" };
+    }
+    const { width, height } = size;
+    let base = this.#base;
+    let source: FlatMapLookupSource = "derived";
+    if (base === null || base.width !== width || base.height !== height) {
+      base = {
+        faceLevel: FLAT_MAP_LOOKUP_BASE_LEVEL,
+        width,
+        height,
+        cells: buildCells(1 << FLAT_MAP_LOOKUP_BASE_LEVEL, size),
+      };
+      this.#base = base;
+      source = "base";
+    }
+    return { lookup: { faceLevel, width, height, cells: deriveCells(base.cells, faceLevel) }, source };
+  }
+
+  /** 기억한 표(레벨 표 + 기준 표)의 바이트 수 */
   get bytes(): number {
-    return this.#entries.reduce((sum, entry) => sum + entry.cells.byteLength, 0);
+    return this.#entries.reduce(
+      (sum, entry) => sum + entry.cells.byteLength,
+      this.#base?.cells.byteLength ?? 0,
+    );
   }
 
+  /** 기억한 레벨 표 수(기준 표는 세지 않는다) */
   get size(): number {
     return this.#entries.length;
   }
 
   clear(): void {
     this.#entries.length = 0;
+    this.#base = null;
   }
 }
 

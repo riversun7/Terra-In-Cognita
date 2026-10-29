@@ -1,5 +1,7 @@
-// 평면 미니맵 그리기 시험 — 픽셀 → 칸 표(격자 계약의 xyzToCell과 같은지, 극·날짜변경선), 색, 음영 범위, 크기·좌표, 키보드
+// 평면 미니맵 그리기 시험 — 픽셀 → 칸 표(격자 계약의 xyzToCell과 같은지, 기준 표에서 끌어낸 표, 극·날짜변경선), 색,
+// 음영 범위, 크기·좌표, 키보드
 import {
+  MAX_FACE_LEVEL,
   WATER_LAKE,
   WATER_OCEAN,
   cellKey,
@@ -12,6 +14,7 @@ import {
 import { xyzToCell } from "@terra/planet/projection";
 import { describe, expect, it } from "vitest";
 import {
+  FLAT_MAP_LOOKUP_BASE_LEVEL,
   FLAT_MAP_MAX_WIDTH,
   FLAT_MAP_SHADE_RANGE,
   FLAT_MAP_UNKNOWN_COLOR,
@@ -200,31 +203,69 @@ describe("평면 미니맵 픽셀 → 칸 표", () => {
     expect(Math.max(...seen)).toBe(planetCellCount(5) - 1);
   });
 
-  it("틀린 면 레벨·크기는 RangeError", () => {
+  it("틀린 면 레벨·크기는 RangeError(바로 만들기·기억 모두)", () => {
     expect(() => buildFlatMapLookup(3, { width: 64, height: 32 })).toThrow(RangeError);
     expect(() => buildFlatMapLookup(5, { width: 64, height: 31 })).toThrow(RangeError);
     expect(() =>
       buildFlatMapLookup(5, { width: FLAT_MAP_MAX_WIDTH + 2, height: FLAT_MAP_MAX_WIDTH / 2 + 1 }),
     ).toThrow(RangeError);
     expect(() => flatMapCellIndex({ latDeg: Number.NaN, lonDeg: 0 }, 5)).toThrow(RangeError);
+    const cache = new FlatMapLookupCache();
+    expect(() => cache.get(3, { width: 64, height: 32 })).toThrow(RangeError);
+    expect(() => cache.get(5, { width: 64, height: 31 })).toThrow(RangeError);
+    expect(cache.size).toBe(0);
   });
 
-  it("표 기억: 같은 레벨·크기는 다시 만들지 않고, 최근 3개만 남긴다", () => {
+  it("기준 표: 격자의 모든 면 레벨을 끌어낼 수 있고, 칸 번호가 Int32에 든다", () => {
+    expect(MAX_FACE_LEVEL).toBeLessThanOrEqual(FLAT_MAP_LOOKUP_BASE_LEVEL);
+    expect(planetCellCount(FLAT_MAP_LOOKUP_BASE_LEVEL)).toBeLessThanOrEqual(2 ** 31);
+  });
+
+  it("기준 표에서 끌어낸 표는 바로 만든 표와 모든 픽셀이 같다(홀수 높이·폭 상한 포함)", () => {
+    for (const [width, levels] of [
+      [2, [4, 5, 6, 7, 8, 9, 14]],
+      [6, [4, 5, 6, 7, 8, 9, 14]],
+      [302, [4, 5, 6, 7, 8, 9]],
+      [538, [4, 5, 6, 7, 8, 9]],
+      [1024, [7]],
+    ] as const) {
+      const size = { width, height: width / 2 };
+      const cache = new FlatMapLookupCache(levels.length);
+      for (const faceLevel of levels) {
+        const derived = cache.get(faceLevel, size).lookup.cells;
+        const direct = buildFlatMapLookup(faceLevel, size).cells;
+        let differ = 0;
+        for (let k = 0; k < direct.length; k++) if (derived[k] !== direct[k]) differ++;
+        expect(differ, `F${faceLevel} ${width}`).toBe(0);
+      }
+    }
+  });
+
+  it("표 기억: 같은 레벨·크기는 그대로, 다른 레벨은 기준 표에서 끌어내고, 레벨 표는 최근 3개 + 기준 표는 크기 하나", () => {
     const cache = new FlatMapLookupCache(3);
     const size = { width: 64, height: 32 };
-    expect(cache.get(5, size).built).toBe(true);
-    expect(cache.get(5, size).built).toBe(false);
-    cache.get(6, size);
+    const table = 64 * 32 * 4;
+    expect(cache.get(5, size).source).toBe("base");
+    expect(cache.get(5, size).source).toBe("cached");
+    expect(cache.get(6, size).source).toBe("derived");
     cache.get(7, size);
     cache.get(8, size);
     expect(cache.size).toBe(3);
-    expect(cache.bytes).toBe(3 * 64 * 32 * 4);
-    // 5가 가장 오래되어 밀려났다
-    expect(cache.get(5, size).built).toBe(true);
-    // 크기가 바뀌면 새 표
-    expect(cache.get(5, { width: 128, height: 64 }).built).toBe(true);
+    expect(cache.bytes).toBe(4 * table);
+    // 5가 가장 오래되어 밀려났다: 같은 크기의 기준 표에서 다시 끌어낸다
+    expect(cache.get(5, size).source).toBe("derived");
+    // 크기가 바뀌면 새 크기의 기준 표부터
+    const bigger = { width: 128, height: 64 };
+    expect(cache.get(5, bigger).source).toBe("base");
+    expect(cache.get(7, bigger).source).toBe("derived");
+    // 옛 크기 표는 남아 있으면 그대로 쓰고, 없는 레벨은 그 크기의 기준 표부터 다시 만든다
+    expect(cache.get(5, size).source).toBe("cached");
+    expect(cache.get(6, size).source).toBe("base");
+    // 64×32 표 셋(레벨 6·5 + 기준 표) + 128×64 레벨 7 표 하나(64×32의 4배)
+    expect(cache.bytes).toBe(3 * table + 4 * table);
     cache.clear();
     expect(cache.size).toBe(0);
+    expect(cache.bytes).toBe(0);
   });
 });
 

@@ -1,0 +1,379 @@
+// 화면 주소 표 시험 — 표 규칙(점 없음·소문자·앞머리), 만들기·맞추기, 경로 예, 여는 역할(ADR 2026-10-29-app-shell 1·13절)
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { ROLES, type Role } from "./roles.ts";
+import {
+  type PathParamNames,
+  ROUTES,
+  type RouteId,
+  type RouteTable,
+  buildPath,
+  buildPathIn,
+  canOpenRoute,
+  isRouteId,
+  isRouteTarget,
+  isRouteTargetIn,
+  matchPath,
+  matchPathIn,
+  routePathExamples,
+  routePathExamplesIn,
+  targetPath,
+} from "./routes.ts";
+import { SAVED_ID_PATTERN } from "./savedId.ts";
+
+/** 서버·서비스 워커가 화면 경로로 보지 않는 앞머리(글자 앞부분만 본다) */
+const RESERVED_PREFIXES = ["/api", "/ws", "/health"];
+const STATIC_SEGMENT = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const PARAM_SEGMENT = /^:[a-z][a-zA-Z0-9]*$/;
+const SEARCH_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+
+/** 표 규칙 위반 목록(ADR 37 1절 "경로 규칙"). 빈 목록이면 통과 */
+function routeTableProblems(table: RouteTable): string[] {
+  const problems: string[] = [];
+  const shapes = new Map<string, string>();
+  for (const [id, route] of Object.entries(table)) {
+    if (!SAVED_ID_PATTERN.test(id)) problems.push(`${id}: 주소 ID 모양`);
+    const { path } = route;
+    if (path.includes(".")) problems.push(`${id}: 점`);
+    if (!path.startsWith("/")) problems.push(`${id}: / 로 시작하지 않음`);
+    if (RESERVED_PREFIXES.some((prefix) => path.startsWith(prefix))) problems.push(`${id}: 서버 앞머리`);
+    if (path !== "/" && path.endsWith("/")) problems.push(`${id}: 끝의 /`);
+    const segments = path === "/" ? [] : path.slice(1).split("/");
+    const names: string[] = [];
+    for (const segment of segments) {
+      if (PARAM_SEGMENT.test(segment)) names.push(segment.slice(1));
+      else if (!STATIC_SEGMENT.test(segment)) problems.push(`${id}: 조각 "${segment}"`);
+    }
+    if (new Set(names).size !== names.length) problems.push(`${id}: 매개변수 이름 겹침`);
+    for (const name of Object.keys(route.params ?? {})) {
+      if (!names.includes(name)) problems.push(`${id}: 경로에 없는 매개변수 ${name}`);
+    }
+    for (const name of route.search) {
+      if (!SEARCH_NAME.test(name)) problems.push(`${id}: 검색어 "${name}"`);
+    }
+    if (new Set(route.search).size !== route.search.length) problems.push(`${id}: 검색어 겹침`);
+    // 매개변수 이름만 다른 두 경로는 같은 주소다
+    const shape = segments.map((segment) => (segment.startsWith(":") ? ":" : segment)).join("/");
+    const other = shapes.get(shape);
+    if (other) problems.push(`${id}: ${other}와 같은 경로`);
+    shapes.set(shape, id);
+    // 부모: 홈(/)만 없다. 따라가면 홈에 닿는다(돌지 않는다)
+    if (route.parent === null) {
+      if (path !== "/") problems.push(`${id}: 부모 없음`);
+      continue;
+    }
+    let parent: string | null = route.parent;
+    for (let step = 0; parent !== null; step++) {
+      const next: RouteTable[string] | undefined = Object.hasOwn(table, parent) ? table[parent] : undefined;
+      if (!next || step > Object.keys(table).length) {
+        problems.push(`${id}: 부모 ${route.parent}에서 홈에 닿지 않음`);
+        break;
+      }
+      parent = next.parent;
+    }
+  }
+  return problems;
+}
+
+/** 타입 검사(pnpm typecheck)만 하는 함수 — 실행하지 않는다. @ts-expect-error 줄에 타입 오류가 없으면 타입 검사가 실패한다 */
+function buildPathTypeErrors(): void {
+  // @ts-expect-error 없는 주소 ID
+  buildPath("nope");
+  // @ts-expect-error 검색어를 받지 않는 주소
+  buildPath("units", { search: { item: "x" } });
+  // @ts-expect-error inbox가 받지 않는 검색어
+  buildPath("inbox", { search: { tab: "x" } });
+  // @ts-expect-error 매개변수가 없는 주소에 매개변수
+  buildPath("units", { params: { unitId: "u1" } });
+}
+
+/** 시험용 표: 매개변수 주소와 정적 주소가 겹친다(ADR 37 1절 예약 주소 모양) */
+const FIXTURE = {
+  home: { path: "/", search: [], parent: null, frame: "shown", access: "everyone" },
+  // 매개변수 줄을 정적 줄보다 먼저 둔다: 표 순서와 상관없이 정적 조각이 이겨야 한다
+  map_key: {
+    path: "/map/:mapKey",
+    search: [],
+    parent: "home",
+    frame: "hidden",
+    access: "everyone",
+    params: { mapKey: "digits" },
+  },
+  map_planet: { path: "/map/planet", search: [], parent: "home", frame: "hidden", access: "everyone" },
+  economy_section: {
+    path: "/economy/:section",
+    search: [],
+    parent: "home",
+    frame: "shown",
+    access: "everyone",
+  },
+  market: { path: "/economy/market", search: ["band"], parent: "home", frame: "shown", access: "everyone" },
+  market_city: {
+    path: "/economy/market/:itemId/:cityId",
+    search: [],
+    parent: "market",
+    frame: "shown",
+    access: "everyone",
+  },
+  left_param: { path: "/x/:a/c", search: [], parent: "home", frame: "shown", access: "everyone" },
+  right_param: { path: "/x/b/:z", search: [], parent: "home", frame: "shown", access: "everyone" },
+} as const satisfies RouteTable;
+
+describe("주소 표", () => {
+  it("ADR 37 1절 표 + 개발자 영역 3줄(ADR 38 1절)과 같다", () => {
+    const rows = Object.fromEntries(
+      Object.entries(ROUTES).map(([id, r]) => [id, [r.path, r.parent, r.frame, r.access, r.search]]),
+    );
+    expect(rows).toEqual({
+      home: ["/", null, "shown", "everyone", ["template"]],
+      map: ["/map", "home", "hidden", "everyone", []],
+      map_planet: ["/map/planet", "home", "hidden", "everyone", ["planet-debug"]],
+      units: ["/units", "home", "shown", "everyone", []],
+      economy: ["/economy", "home", "shown", "everyone", []],
+      faction: ["/faction", "home", "shown", "everyone", []],
+      cyborg: ["/cyborg", "home", "shown", "everyone", []],
+      inbox: ["/inbox", "home", "shown", "everyone", ["item"]],
+      mail: ["/mail", "home", "shown", "everyone", []],
+      settings: ["/settings", "home", "shown", "everyone", []],
+      admin: ["/admin", "home", "shown", "admin", []],
+      dev: ["/dev", "home", "shown", "dev_admin", []],
+      dev_planet_editor: ["/dev/planet-editor", "dev", "hidden", "dev_admin", []],
+      dev_gpu_bench: ["/dev/gpu-bench", "dev", "shown", "dev_admin", []],
+    });
+  });
+
+  it("경로 규칙을 지킨다: 소문자, 점 없음, 서버 앞머리 없음, 겹침 없음, 부모가 홈에 닿음", () => {
+    expect(routeTableProblems(ROUTES)).toEqual([]);
+    expect(routeTableProblems(FIXTURE)).toEqual([]);
+  });
+
+  it("규칙 검사가 틀린 줄을 잡는다", () => {
+    const bad = {
+      home: { path: "/", search: [], parent: null, frame: "shown", access: "everyone" },
+      dot: { path: "/units.json", search: [], parent: "home", frame: "shown", access: "everyone" },
+      upper: { path: "/Units", search: [], parent: "home", frame: "shown", access: "everyone" },
+      apiary: { path: "/apiary", search: [], parent: "home", frame: "shown", access: "everyone" },
+      healthy: { path: "/healthy", search: [], parent: "home", frame: "shown", access: "everyone" },
+      wsx: { path: "/wsx", search: [], parent: "home", frame: "shown", access: "everyone" },
+      slash: { path: "/mail/", search: [], parent: "home", frame: "shown", access: "everyone" },
+      same_a: { path: "/a/:x", search: [], parent: "home", frame: "shown", access: "everyone" },
+      same_b: { path: "/a/:y", search: ["Tab"], parent: "nowhere", frame: "shown", access: "everyone" },
+      Bad: { path: "/b", search: [], parent: "home", frame: "shown", access: "everyone" },
+    } as const satisfies RouteTable;
+    expect(routeTableProblems(bad)).toEqual([
+      "dot: 점",
+      'dot: 조각 "units.json"',
+      'upper: 조각 "Units"',
+      "apiary: 서버 앞머리",
+      "healthy: 서버 앞머리",
+      "wsx: 서버 앞머리",
+      "slash: 끝의 /",
+      'slash: 조각 ""',
+      'same_b: 검색어 "Tab"',
+      "same_b: same_a와 같은 경로",
+      "same_b: 부모 nowhere에서 홈에 닿지 않음",
+      "Bad: 주소 ID 모양",
+    ]);
+  });
+
+  it("isRouteId는 표의 주소 ID만 받는다", () => {
+    expect(isRouteId("dev_gpu_bench")).toBe(true);
+    expect(isRouteId("toString")).toBe(false);
+    expect(isRouteId("Home")).toBe(false);
+    expect(isRouteId(undefined)).toBe(false);
+  });
+});
+
+describe("buildPath", () => {
+  it("검색어는 표 순서로, 값은 % 글자로 바꿔 넣고 undefined는 뺀다", () => {
+    expect(buildPath("home")).toBe("/");
+    expect(buildPath("dev_planet_editor")).toBe("/dev/planet-editor");
+    expect(buildPath("inbox", { search: { item: "unit_idle:city_12" } })).toBe(
+      "/inbox?item=unit_idle%3Acity_12",
+    );
+    expect(buildPath("map_planet", { search: { "planet-debug": "cracks" } })).toBe(
+      "/map/planet?planet-debug=cracks",
+    );
+    expect(buildPath("home", { search: {} })).toBe("/");
+    expect(buildPathIn(FIXTURE, "market", { search: { band: "a b&c" } })).toBe(
+      "/economy/market?band=a%20b%26c",
+    );
+  });
+
+  it("매개변수 값은 숫자·영문 소문자·_만. 점·대문자·/·빈 값·너무 긴 값·숫자 규칙 위반은 예외", () => {
+    expect(buildPathIn(FIXTURE, "market_city", { params: { itemId: "iron_ore", cityId: "city_12" } })).toBe(
+      "/economy/market/iron_ore/city_12",
+    );
+    expect(buildPathIn(FIXTURE, "map_key", { params: { mapKey: "40213" } })).toBe("/map/40213");
+    for (const itemId of ["iron.ore", "Iron", "a/b", "", "a".repeat(65), "a-b", "a%2Eb"]) {
+      expect(() => buildPathIn(FIXTURE, "market_city", { params: { itemId, cityId: "c1" } }), itemId).toThrow(
+        RangeError,
+      );
+    }
+    expect(() => buildPathIn(FIXTURE, "market_city", { params: { itemId: "x" } })).toThrow(RangeError);
+    expect(() => buildPathIn(FIXTURE, "map_key", { params: { mapKey: "planet" } })).toThrow(RangeError);
+    expect(() => buildPathIn(FIXTURE, "nope")).toThrow("unknown route id");
+  });
+
+  it("틀린 주소 ID·검색어·매개변수는 타입 검사가 잡는다(pnpm typecheck)", () => {
+    expect(buildPathTypeErrors).toBeTypeOf("function");
+    expectTypeOf<PathParamNames<"/economy/market/:itemId/:cityId">>().toEqualTypeOf<"itemId" | "cityId">();
+    expectTypeOf<PathParamNames<"/units">>().toEqualTypeOf<never>();
+  });
+});
+
+describe("matchPath", () => {
+  it("모든 경로 예가 제 주소로 돌아온다", () => {
+    for (const [id] of Object.entries(ROUTES)) {
+      const examples = routePathExamples().filter((path) => matchPath(path)?.id === id);
+      expect(examples.length, id).toBeGreaterThan(0);
+    }
+    for (const path of routePathExamples()) expect(matchPath(path), path).not.toBeNull();
+  });
+
+  it("검색어: 표에 있는 것만, 같은 이름은 처음 것, +는 빈칸, 잘못된 %는 그 검색어만 버린다", () => {
+    expect(matchPath("/inbox?item=unit_idle%3Acity_12&tab=x")).toEqual({
+      id: "inbox",
+      params: {},
+      search: { item: "unit_idle:city_12" },
+    });
+    expect(matchPath("/inbox?item=a+b&item=c")?.search).toEqual({ item: "a b" });
+    expect(matchPath("/inbox?item=%E0%A4%A")?.search).toEqual({});
+    expect(matchPath("/inbox?item")?.search).toEqual({ item: "" });
+    // 받지 않는 주소의 검색어는 무시한다(주소에서 지우지는 않는다 — matchPath는 주소를 고치지 않는다)
+    expect(matchPath("/units?item=x")).toEqual({ id: "units", params: {}, search: {} });
+  });
+
+  it("경로는 글자 그대로 비교하고 끝의 / 하나와 #조각은 무시한다", () => {
+    expect(matchPath("/units/")?.id).toBe("units");
+    expect(matchPath("/units#top")?.id).toBe("units");
+    expect(matchPath("/units?x=1#h")?.id).toBe("units");
+    expect(matchPath("/")?.id).toBe("home");
+    expect(matchPath("/?template=dt_city")?.search).toEqual({ template: "dt_city" });
+    for (const path of [
+      "/Units",
+      "/units//",
+      "/unit",
+      "/units/x",
+      "/%75nits",
+      "units",
+      "",
+      "/dev/planet_editor",
+    ]) {
+      expect(matchPath(path), path).toBeNull();
+    }
+  });
+
+  it("정적 조각이 매개변수 조각보다 먼저다(표 순서와 상관없이, 왼쪽 조각부터)", () => {
+    expect(matchPathIn(FIXTURE, "/map/planet")?.id).toBe("map_planet");
+    expect(matchPathIn(FIXTURE, "/map/40213")).toEqual({
+      id: "map_key",
+      params: { mapKey: "40213" },
+      search: {},
+    });
+    // mapKey는 숫자만
+    expect(matchPathIn(FIXTURE, "/map/abc")).toBeNull();
+    expect(matchPathIn(FIXTURE, "/economy/market?band=b2")).toEqual({
+      id: "market",
+      params: {},
+      search: { band: "b2" },
+    });
+    expect(matchPathIn(FIXTURE, "/economy/orders")?.id).toBe("economy_section");
+    expect(matchPathIn(FIXTURE, "/economy/market/iron_ore/city_12")?.params).toEqual({
+      itemId: "iron_ore",
+      cityId: "city_12",
+    });
+    expect(matchPathIn(FIXTURE, "/x/b/c")?.id).toBe("right_param");
+    expect(matchPathIn(FIXTURE, "/x/q/c")?.id).toBe("left_param");
+    // 매개변수 값에 점·대문자가 있으면 맞지 않는다
+    expect(matchPathIn(FIXTURE, "/economy/market/iron.ore/c1")).toBeNull();
+    expect(matchPathIn(FIXTURE, "/economy/Orders")).toBeNull();
+  });
+
+  it("주소 ID로 좁히면 검색어 타입이 따라온다", () => {
+    const match = matchPath("/inbox?item=a%3Ab");
+    if (match?.id === "inbox") expectTypeOf(match.search.item).toEqualTypeOf<string | undefined>();
+    expect(match?.id).toBe("inbox");
+    expectTypeOf<NonNullable<ReturnType<typeof matchPath>>["id"]>().toEqualTypeOf<RouteId>();
+  });
+});
+
+describe("경로 예", () => {
+  it("주소마다 하나, 검색어를 받는 주소는 검색어를 붙인 것 하나 더(점·쌍점이 든 값)", () => {
+    const examples = routePathExamples();
+    const withSearch = Object.values(ROUTES).filter((route) => route.search.length > 0).length;
+    expect(examples).toHaveLength(Object.keys(ROUTES).length + withSearch);
+    expect(examples).toContain("/inbox?item=x.1%3Ay_2");
+    for (const path of examples) {
+      const pathname = path.split("?", 1)[0] ?? "";
+      expect(pathname, path).not.toContain(".");
+      expect(
+        RESERVED_PREFIXES.some((prefix) => pathname.startsWith(prefix)),
+        path,
+      ).toBe(false);
+    }
+  });
+
+  it("매개변수 주소는 규칙에 맞는 값을 넣는다", () => {
+    expect(routePathExamplesIn(FIXTURE)).toEqual([
+      "/",
+      "/map/12",
+      "/map/planet",
+      "/economy/sample_1",
+      "/economy/market",
+      "/economy/market?band=x.1%3Ay_2",
+      "/economy/market/sample_1/sample_1",
+      "/x/sample_1/c",
+      "/x/b/sample_1",
+    ]);
+    for (const path of routePathExamplesIn(FIXTURE)) expect(matchPathIn(FIXTURE, path), path).not.toBeNull();
+  });
+});
+
+describe("여는 역할", () => {
+  const OPENS: Record<"everyone" | "dev_admin" | "admin", Record<Role, boolean>> = {
+    everyone: { player: true, gm: true, dev: true, admin: true },
+    dev_admin: { player: false, gm: false, dev: true, admin: true },
+    admin: { player: false, gm: false, dev: false, admin: true },
+  };
+
+  it("누구나 / dev·admin / admin만", () => {
+    for (const [id, route] of Object.entries(ROUTES)) {
+      if (!isRouteId(id)) throw new Error(id);
+      for (const role of ROLES)
+        expect(canOpenRoute(id, [role]), `${id} ${role}`).toBe(OPENS[route.access][role]);
+    }
+    expect(canOpenRoute("dev", ["player", "dev"])).toBe(true);
+    expect(canOpenRoute("admin", ["dev", "gm"])).toBe(false);
+    expect(canOpenRoute("home", [])).toBe(true);
+    expect(canOpenRoute("dev_planet_editor", [])).toBe(false);
+  });
+});
+
+describe("가리키는 화면(target)", () => {
+  it("아는 주소·맞는 매개변수만 받고, 모르는 검색어는 무시한다", () => {
+    expect(isRouteTarget({ route: "inbox", search: { item: "unit_idle:city_12" } })).toBe(true);
+    expect(isRouteTarget({ route: "units" })).toBe(true);
+    expect(isRouteTarget({ route: "units", search: { focus: "x" } })).toBe(true);
+    expect(isRouteTarget({ route: "inbox", search: { item: 3 } })).toBe(false);
+    expect(isRouteTarget({ route: "inbox", search: "item=x" })).toBe(false);
+    expect(isRouteTarget({ route: "battle" })).toBe(false);
+    expect(isRouteTarget({ route: "toString" })).toBe(false);
+    expect(isRouteTarget("/units")).toBe(false);
+    expect(isRouteTarget(null)).toBe(false);
+    expect(isRouteTargetIn(FIXTURE, { route: "market_city", params: { itemId: "a", cityId: "b" } })).toBe(
+      true,
+    );
+    expect(isRouteTargetIn(FIXTURE, { route: "market_city", params: { itemId: "a" } })).toBe(false);
+    expect(isRouteTargetIn(FIXTURE, { route: "market_city", params: { itemId: "a.b", cityId: "c" } })).toBe(
+      false,
+    );
+    expect(isRouteTargetIn(FIXTURE, { route: "market_city" })).toBe(false);
+  });
+
+  it("targetPath는 buildPath와 같은 주소를 만든다", () => {
+    const target = { route: "inbox", search: { item: "craft_done:4012" } } as const;
+    expect(isRouteTarget(target)).toBe(true);
+    expect(targetPath(target)).toBe(buildPath("inbox", { search: { item: "craft_done:4012" } }));
+    expect(matchPath(targetPath(target))?.search).toEqual({ item: "craft_done:4012" });
+  });
+});

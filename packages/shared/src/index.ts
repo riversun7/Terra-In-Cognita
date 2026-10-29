@@ -38,6 +38,46 @@ export {
 } from "./loginId.ts";
 export { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "./passwordRules.ts";
 export { DEFAULT_ROLE, ROLES, isRole, type Role } from "./roles.ts";
+export { SAVED_ID_PATTERN, isSavedId } from "./savedId.ts";
+// 화면 주소 표·메뉴 항목(앱 뼈대, ADR 2026-10-29-app-shell). 홈 카드·처리할 일은 진입점이 따로다:
+// @terra/shared/dashboard, @terra/shared/inbox(첫 화면 묶음에 넣지 않는다)
+export {
+  ROUTES,
+  buildPath,
+  canOpenRoute,
+  isRouteId,
+  isRouteParamValue,
+  isRouteTarget,
+  matchPath,
+  routePathExamples,
+  targetPath,
+  type PathParamNames,
+  type RouteAccess,
+  type RouteDefinition,
+  type RouteFrame,
+  type RouteId,
+  type RouteMatch,
+  type RouteParamKind,
+  type RouteParams,
+  type RoutePathArgs,
+  type RouteSearch,
+  type RouteTarget,
+} from "./routes.ts";
+export {
+  DEFAULT_NAV_LAYOUT,
+  DEFAULT_NAV_TABS,
+  NAV_ITEM_IDS,
+  NAV_LAYOUTS,
+  NAV_LAYOUT_FIXED_ITEM,
+  NAV_MENU_MAX,
+  NAV_TAB_SLOTS,
+  isNavItemId,
+  isNavLayout,
+  parseNavigation,
+  type NavItemId,
+  type NavLayout,
+  type NavigationSettings,
+} from "./navigation.ts";
 export {
   DEFAULT_THEME,
   EMPTY_SETTINGS,

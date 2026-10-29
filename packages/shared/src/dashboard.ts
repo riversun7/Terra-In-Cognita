@@ -1,0 +1,181 @@
+// 홈 대시보드: 카드·크기·템플릿 ID, 기본 카드, 유저 설정 `home` 읽기, 카드 상태 전송 타입(ADR 2026-10-29-app-shell 6절, D-6001·D-6005).
+// 진입점은 @terra/shared/dashboard다. 첫 화면 묶음에 들어가지 않게 index.ts에서 내보내지 않는다(ADR 37 6절·11절).
+// 카드를 그리는 부품과 이름 키는 게임 앱 home/cards/에 둔다.
+// 카드·템플릿 ID는 계정에 저장된다(user_settings.home). 한 번 쓴 ID는 다시 쓰지 않는다(docs/PROTECTED.md).
+import type { Role } from "./roles.ts";
+import { isSavedId } from "./savedId.ts";
+
+/** 카드 크기 = 가로×세로 칸 수 */
+export const CARD_SIZES = ["1x1", "2x1", "2x2"] as const;
+
+export type CardSize = (typeof CARD_SIZES)[number];
+
+/** 카드 자료 출처: server = dashboard.cards(카드 제공 함수), inbox = inbox.list·summary.get, device = 기기 */
+export type CardSource = "server" | "inbox" | "device";
+
+export interface CardDefinition {
+  /** 고를 수 있는 크기 */
+  readonly sizes: readonly CardSize[];
+  readonly defaultSize: CardSize;
+  readonly source: CardSource;
+}
+
+/**
+ * 카드 목록. 줄 순서는 [편집]의 "카드 더하기" 순서다. 지금 모든 카드는 누구나 더할 수 있다(ADR 37 6절).
+ * 크기는 처음 값이다. 바꿔도 저장값은 깨지지 않는다(고를 수 없는 크기는 읽을 때 기본 크기가 된다).
+ */
+export const HOME_CARDS = {
+  inbox: { sizes: ["2x1", "2x2"], defaultSize: "2x1", source: "inbox" },
+  cyborg: { sizes: ["1x1", "2x1"], defaultSize: "1x1", source: "server" },
+  units: { sizes: ["1x1", "2x1"], defaultSize: "1x1", source: "server" },
+  assets: { sizes: ["1x1", "2x1"], defaultSize: "1x1", source: "server" },
+  faction: { sizes: ["1x1", "2x1"], defaultSize: "1x1", source: "server" },
+  timeline: { sizes: ["2x1", "2x2"], defaultSize: "2x1", source: "inbox" },
+  briefing: { sizes: ["2x1", "2x2"], defaultSize: "2x1", source: "inbox" },
+  // [임시] 2차맵·1차맵 여는 버튼
+  maps: { sizes: ["2x1"], defaultSize: "2x1", source: "device" },
+  // 연결·성능(ui/DiagnosticsPanel.tsx). dev·admin의 기본 카드에만 들어간다
+  diagnostics: { sizes: ["2x1", "2x2"], defaultSize: "2x1", source: "device" },
+} as const satisfies { readonly [id: string]: CardDefinition };
+
+export type CardId = keyof typeof HOME_CARDS;
+
+/** 서버의 카드 제공 함수가 상태를 주는 카드(dashboard.cards) */
+export type ServerCardId = {
+  [K in CardId]: (typeof HOME_CARDS)[K]["source"] extends "server" ? K : never;
+}[CardId];
+
+/** 템플릿(D-6005). 6개 모두 시안이다. 바꿔 보는 것은 dev·admin만 한다(사용자 결정 2) */
+export const HOME_TEMPLATES = [
+  "dt_grid",
+  "dt_inbox",
+  "dt_timeline",
+  "dt_city",
+  "dt_brief",
+  "dt_hybrid",
+] as const;
+
+export type HomeTemplate = (typeof HOME_TEMPLATES)[number];
+
+/** 기본 템플릿 = 플레이어가 늘 보는 템플릿(조합, 사용자 결정 2). 첫 기본값이고 확정이 아니다(D-6005) */
+export const DEFAULT_HOME_TEMPLATE: HomeTemplate = "dt_hybrid";
+
+/** 카드 목록 길이 상한(서버 입력 검사, ADR 37 5절) */
+export const HOME_CARDS_MAX = 24;
+
+/** 홈의 카드 한 장. 모르는 카드(더 새 버전이 넣은 것)도 그대로 남는다 — 그릴 때 isCardId로 거른다 */
+export interface HomeCardEntry {
+  readonly id: string;
+  readonly size: string;
+}
+
+export interface HomeSettings {
+  /** 저장한 템플릿. 모르는 값이면 기본값. 플레이어 화면은 이 값과 상관없이 기본 템플릿을 그린다 */
+  readonly template: HomeTemplate;
+  /** 카드 순서(= 보이는 순서 = 초점 순서)와 크기 */
+  readonly cards: readonly HomeCardEntry[];
+}
+
+export function isCardId(value: unknown): value is CardId {
+  return typeof value === "string" && Object.hasOwn(HOME_CARDS, value);
+}
+
+export function isCardSize(value: unknown): value is CardSize {
+  return typeof value === "string" && (CARD_SIZES as readonly string[]).includes(value);
+}
+
+export function isHomeTemplate(value: unknown): value is HomeTemplate {
+  return typeof value === "string" && (HOME_TEMPLATES as readonly string[]).includes(value);
+}
+
+/** 그 카드가 고를 수 있는 크기인지 */
+export function isCardSizeAllowed(id: CardId, size: unknown): size is CardSize {
+  const sizes: readonly CardSize[] = HOME_CARDS[id].sizes;
+  return isCardSize(size) && sizes.includes(size);
+}
+
+/** 기본 카드에 연결·성능을 더하는 역할 */
+const DIAGNOSTICS_DEFAULT_ROLES: readonly Role[] = ["dev", "admin"];
+
+/** 처음 카드 순서: 처리할 일(위 고정), 내 사이보그·보유 유닛·자산·세력(1×1), 지도(2×1). dev·admin은 연결·성능을 끝에 더한다 */
+export function defaultHomeCards(roles: readonly Role[]): HomeCardEntry[] {
+  const ids: CardId[] = ["inbox", "cyborg", "units", "assets", "faction", "maps"];
+  if (roles.some((role) => DIAGNOSTICS_DEFAULT_ROLES.includes(role))) ids.push("diagnostics");
+  return ids.map((id) => ({ id, size: HOME_CARDS[id].defaultSize }));
+}
+
+/** 객체의 자기 칸(배열·원형의 칸은 보지 않는다) */
+function ownField(value: unknown, key: string): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  return Object.hasOwn(value, key) ? Reflect.get(value, key) : undefined;
+}
+
+/**
+ * 저장된 `home`(모양을 모르는 JSON 값)을 읽는다. 홈 조각이 그릴 때 부른다(ADR 37 5절).
+ * - template: 모르는 값이면 기본 템플릿.
+ * - cards: 배열이 아니면(저장한 적 없음) 그 역할의 기본 카드. 빈 배열은 유저가 모두 뺀 것이라 그대로 둔다.
+ *   카드 하나는 { id: 저장 ID 모양, size: 문자열 }이어야 한다(아니면 버린다). 아는 카드의 고를 수 없는 크기는 기본 크기로 바꾼다.
+ *   모르는 카드와 카드 안의 모르는 칸은 지우지 않는다. 겹친 카드는 앞의 것만 남기고, 상한(24장)을 넘으면 뒤를 버린다.
+ * - 저장할 때는 읽은 값에 바꾼 칸만 덮어 쓴다(더 새 버전이 넣은 칸이 남게).
+ */
+export function parseHome(value: unknown, roles: readonly Role[]): HomeSettings {
+  const template = ownField(value, "template");
+  const rawCards = ownField(value, "cards");
+  if (!Array.isArray(rawCards)) {
+    return {
+      template: isHomeTemplate(template) ? template : DEFAULT_HOME_TEMPLATE,
+      cards: defaultHomeCards(roles),
+    };
+  }
+  const cards: HomeCardEntry[] = [];
+  const seen = new Set<string>();
+  for (const raw of rawCards) {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) continue;
+    const id = ownField(raw, "id");
+    const size = ownField(raw, "size");
+    if (!isSavedId(id) || typeof size !== "string" || seen.has(id)) continue;
+    seen.add(id);
+    // 카드 안의 모르는 칸(더 새 버전이 넣은 것)도 남긴다
+    const fixedSize = isCardId(id) && !isCardSizeAllowed(id, size) ? HOME_CARDS[id].defaultSize : size;
+    cards.push({ ...raw, id, size: fixedSize });
+    if (cards.length === HOME_CARDS_MAX) break;
+  }
+  return { template: isHomeTemplate(template) ? template : DEFAULT_HOME_TEMPLATE, cards };
+}
+
+// ── 카드 상태 전송(tRPC dashboard.cards, ADR 37 6절) ──
+
+/** 카드 상태: not_ready = 그 시스템이 아직 없음, empty = 시스템은 있고 보일 것이 없음, ready = 카드별 자료 */
+export const CARD_STATUSES = ["not_ready", "empty", "ready"] as const;
+
+export type CardStatus = (typeof CARD_STATUSES)[number];
+
+/**
+ * 카드별 ready 자료. 그 시스템이 카드 제공 함수를 등록할 때 모양을 정한다. 지금은 모두 없다(never = ready를 보낼 수 없다).
+ * 금액은 최소 단위 정수를 문자열로 보낸다(PLAN 4.7). 칸은 ServerCardId와 같아야 한다(시험이 확인).
+ */
+export interface ServerCardData {
+  readonly cyborg: never;
+  readonly units: never;
+  readonly assets: never;
+  readonly faction: never;
+}
+
+/** 서버 카드 하나의 상태 */
+export type CardState<Id extends ServerCardId = ServerCardId> = {
+  [K in Id]:
+    | { readonly id: K; readonly status: "not_ready" }
+    | { readonly id: K; readonly status: "empty" }
+    | { readonly id: K; readonly status: "ready"; readonly data: ServerCardData[K] };
+}[Id];
+
+/** dashboard.cards 입력. ids는 홈에 있는 서버 카드(모르는 ID는 서버가 빼고 답한다). preview는 dev·admin만(권한 home: preview) */
+export interface DashboardCardsRequest {
+  readonly ids: readonly string[];
+  readonly preview?: boolean;
+}
+
+/** dashboard.cards 응답. 시안 자료에서도 사이보그·보유 유닛·자산·세력 카드는 "준비 중"이다(사용자 결정 2) */
+export interface DashboardCardsResponse {
+  readonly cards: readonly CardState[];
+}

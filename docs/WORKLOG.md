@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-30 01:40 | 1차맵 달 — 배경 구 달, 보임 판정, 미리 컴파일 (WP4) | Claude Code | [30-0140-sky-moon](worklog/2026/10/30-0140-sky-moon.md) |
 | 2026-10-30 01:00 | 1차맵 하늘 낮밤 연결 — 항성 기준 셰이더, 하늘 조절기, 화면 시계·주소 매개변수, 재기 모드 (WP3) | Claude Code | [30-0100-sky-day-night](worklog/2026/10/30-0100-sky-day-night.md) |
 | 2026-10-29 23:50 | 1차맵 하늘 계산 `packages/engine/src/planet/sky.ts` — 항성·달·낮밤 세기·구름 걷힘·보임·하늘 시계 (WP2) | Claude Code | [29-2350-sky-math](worklog/2026/10/29-2350-sky-math.md) |
 | 2026-10-29 23:50 | 2차맵 선명도 검토 고침: 평평한 지형 점무늬, 칸 가운데 줄, 점 테두리, 잡음 먼저, 시험 | Claude Code | [29-2350-second-map-sharpness-review](worklog/2026/10/29-2350-second-map-sharpness-review.md) |

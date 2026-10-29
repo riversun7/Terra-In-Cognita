@@ -16,6 +16,7 @@ import {
   SphereGeometry,
   type Texture,
   Vector3,
+  type WebGLRenderer,
 } from "three";
 import { cameraRelative } from "./cameraRelative.ts";
 import type { GlobePose } from "./globeCamera.ts";
@@ -35,12 +36,25 @@ import { tileShape } from "./tileShape.ts";
 import { type TileNode, nodeSTRange } from "./tileTree.ts";
 import { type Vec3, dot } from "./vec3.ts";
 
-/** 우주(행성 밖) 색 — 세계 색은 화면 테마와 상관없다(D-070) */
-const SPACE_COLOR = 0x1e2a4a;
+/** 우주(행성 밖) 색 — 세계 색은 화면 테마와 상관없다(D-070). 달은 켜지는 동안 이 색에서 나타난다 */
+export const SPACE_COLOR = 0x1e2a4a;
 /** 바탕 구는 해수면보다 이만큼 아래(타일이 있으면 늘 가린다) */
 const BASE_GLOBE_DEPTH_M = 1500;
-/** 대기 띠 두께(반지름 비) */
-const ATMOSPHERE_SCALE = 1.018;
+/** 대기 띠 두께(반지름 비). 달 보임 판정은 이 원판을 행성으로 본다(띠 바깥쪽은 거의 불투명하게 빛난다) */
+export const ATMOSPHERE_SCALE = 1.018;
+
+/**
+ * 숨긴 채 만든 하늘 물체(달·구름)의 셰이더를 미리 컴파일한다(처음 보일 때 멈칫하지 않게). three 0.186.1 compile은 숨긴 메시의
+ * 재질도 모은다. 병렬 컴파일 확장(KHR_parallel_shader_compile)이 있으면 기다리지 않고, 없으면 바로 컴파일한다
+ * (없을 때 compileAsync는 콘솔 경고를 남긴다 — 헤드리스 SwiftShader에서 확인)
+ */
+export function precompile(renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera): void {
+  if (renderer.extensions.has("KHR_parallel_shader_compile")) {
+    renderer.compileAsync(scene, camera).catch(() => undefined);
+  } else {
+    renderer.compile(scene, camera);
+  }
+}
 
 export interface PlanetTileGpu extends GpuTile {
   readonly mesh: Mesh<BufferGeometry, ShaderMaterial>;

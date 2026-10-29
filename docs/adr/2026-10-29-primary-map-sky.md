@@ -518,3 +518,12 @@ export interface PlanetSkyFeatures {
 - HUD 하늘 줄(재기 모드에서만)에 GPU 값(그리기 + 1화소 읽기 중앙값 × k)을 넣었다: 재기 모드의 주된 값인데 9절 문구에 없었다. 단위·구분점 앞은 줄바꿈 없는 공백으로 묶었다(390px 영어에서 "· 0.0 MB"가 줄 앞에 남았다, break-ui). 재기 모드의 1화소 읽기는 드라이버 경고("GPU stall due to ReadPixels")를 콘솔에 남긴다(재기 모드만, 예상한 것).
 - `inertPlanetEngine`을 따로 뺐다(`inertPlanetEngine.ts`). `planetEngine.ts`는 528줄이다.
 - 묶음(Verified: 빌드): 1차맵 조각 62.49 → 80.27kB(gzip 23.95 → 30.37kB). 첫 화면 JS 합은 368,388 → 368,316바이트로 그대로다(`reporter`·`useMountFocus` 조각이 첫 화면 조각에 합쳐졌다. 1차맵 화면이 첫 화면 모듈 `serverLink`를 가져와서로 본다, Assumed). 조각 증가의 큰 몫은 `skyController.ts` 약 6.0kB, `sky.ts` 3.1kB, `planetSky.ts` 1.6kB다(소스 맵 어림).
+
+### 달 (WP4)
+- `moon.ts` `MoonLayer`: 달마다 재질 하나(모습이 다르다), 32×16 구 지오메트리 하나를 함께 쓴다(약 24KB). 바다 3개·크레이터 15개의 자리·크기는 `createRng`(달의 `lookSeed`)로 정한다(시제품은 자체 LCG였다). 그리기 상태(깊이 끔·renderOrder < 0·시야 거르기 끔·z = 0.5·w)·먼 달부터·버리기를 시험한다(시험 6개).
+- 보임 판정의 "행성 원판"은 대기 띠 원판(1.018R)이다. 해수면 원판으로 보면 대기 띠 뒤에 다 든 달도 보이는 것으로 쳐서 그리기 1회와 달 걸음 하늘 시계를 썼다(Verified: 헤드리스 데스크톱 초승달 사진에서 가장자리 빛만 겨우 보였다. 고친 뒤 같은 자리 `data-moons=0`).
+- 켜지는 동안 달은 우주색에서 나타난다(`uFade` = 하늘 섞기, 깊이 없이 우주색 위에 그려 알파 없이 섞는다).
+- 미리 컴파일: 첫 표시 뒤 숨긴 채 만들고 병렬 컴파일 확장(`KHR_parallel_shader_compile`)이 있으면 `compileAsync`, 없으면 `compile`(확장이 없을 때 `compileAsync`는 콘솔 경고를 남긴다, Verified: SwiftShader). 휴대폰의 확장 지원은 Unknown.
+- 그리기 호출: 달이 보일 때만 +1(같은 자리 62회, 달 끔 61회, Verified: 헤드리스). 300km·틈 찾기에서는 달이 없다(Verified).
+- 사진(Verified: 헤드리스): 보름·볼록·반달(다크)·초승(세로 390×844), 보름(다크)·볼록·초승(데스크톱 1440×900), 반달(가로 892×412). 위상은 항성 방향에서 저절로 맞고 어두운 쪽에 라벤더 윤곽이 남는다. 세로 화면에서는 지구본과 아래 안내 사이 좁은 하늘(약 55 CSS px)에만 달이 든다.
+- 묶음(Verified: 빌드): 1차맵 조각 80.27 → 84.48kB(gzip 30.37 → 31.90kB).

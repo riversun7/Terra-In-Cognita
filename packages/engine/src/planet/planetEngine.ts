@@ -44,7 +44,8 @@ import {
   type PlanetView as PlanetViewOption,
   planetDescriptionProblem,
 } from "./planetTypes.ts";
-import { type PlanetTileGpu, PlanetView } from "./planetView.ts";
+import { MoonLayer } from "./moon.ts";
+import { ATMOSPHERE_SCALE, type PlanetTileGpu, PlanetView, SPACE_COLOR, precompile } from "./planetView.ts";
 import type { PlanetSkyMode } from "./sky.ts";
 import { SkyController } from "./skyController.ts";
 import { type DecodedLookup, cellAt, displayedHeightAt, rayHitsSurface } from "./surfaceLookup.ts";
@@ -316,10 +317,18 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     options.debugCracks || !mode ? { kind: "off" } : mode;
   const sky = new SkyController({
     radiusM,
-    occluderRadiusM,
+    // 달을 가리는 원판 = 대기 띠까지(그 안에 다 들면 보이지 않으므로 그리지 않는다)
+    occluderRadiusM: radiusM * ATMOSPHERE_SCALE,
     ...(planet.sky ? { sky: planet.sky } : {}),
     setSkyLight: (blend, sun, strength, at) => view.setSkyLight(blend, sun, strength, at),
     requestFrame: () => scheduler.request(),
+    // 달은 첫 표시 뒤 숨긴 채 만들고 미리 컴파일한다(처음 보일 때 멈칫하지 않게. three compile은 숨긴 메시의 재질도 모은다)
+    createMoons: (moons) => {
+      const moonLayer = new MoonLayer(view.shared, moons, SPACE_COLOR);
+      view.scene.add(...moonLayer.meshes);
+      precompile(renderer, view.scene, view.camera);
+      return moonLayer;
+    },
   });
   sky.setMode(skyModeOf(options.sky));
   const bench = options.gpuBenchRepeat ? new GpuBench(options.gpuBenchRepeat, renderer.getContext()) : null;

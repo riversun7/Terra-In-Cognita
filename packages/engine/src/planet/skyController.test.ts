@@ -341,6 +341,19 @@ describe("하늘 조절기: 오류 가두기(검토 H1)", () => {
 });
 
 describe("하늘 조절기: 달 놓기", () => {
+  it("시계 전(시각 모름)·off에서는 달을 만들지 않는다", () => {
+    const moons = fakeMoons();
+    const create = vi.fn(() => moons.layer);
+    const { controller } = setup({ createMoons: create });
+    const pose = poseLooking(terminator, GLOBE_DISTANCE);
+    controller.setMode({ kind: "clock", serverNow: () => null });
+    controller.update(frameAt(0, pose, GLOBE_DISTANCE));
+    controller.setMode({ kind: "off" });
+    controller.update(frameAt(16, pose, GLOBE_DISTANCE));
+    expect(create).not.toHaveBeenCalled();
+    expect(controller.stats().moonsDrawn).toBe(0);
+  });
+
   it("첫 표시 전에는 만들지 않고, 하늘이 화면에 없으면 숨긴다", () => {
     const moons = fakeMoons();
     const create = vi.fn(() => moons.layer);

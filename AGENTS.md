@@ -34,13 +34,13 @@
   - `apps/*` → `packages/*` 방향만 허용(예외는 아래 게임 앱 → 서버 타입 하나).
   - `packages/engine`은 `apps/server`·`packages/sim`을 import하지 않는다.
   - `packages/sim`은 `packages/engine`·DOM API를 쓰지 않는다.
-  - `@terra/planet`은 정수 진입점(`.`)과 실수 투영(`./projection`, `Math.tan` 사용)을 나눈다. 판정 코드는 투영을 쓰지 않는다. 정수 모듈의 결정성은 경계 검사가 본다(ADR `2026-10-29-cell-key-layout.md`).
+  - `@terra/planet`은 정수 진입점(`.`)과 실수 투영(`./projection`)을 나눈다. 투영은 `@terra/shared`의 결정적 근사(`detTan`·`detAtan`)를 써서 엔진과 무관하게 같은 값을 낸다. 패키지 전체(격자·투영·생성기)의 결정성을 경계 검사가 본다(ADR `2026-10-29-cell-key-layout.md`, `2026-10-29-s2-planet-lod.md`). 판정 코드는 칸 키·이웃(정수 진입점)을 쓴다.
   - `apps/game`은 `packages/sim`을 import하지 않는다(판정 코드를 기기로 보내지 않음).
   - `packages/protocol`·`packages/shared`는 다른 내부 패키지를 import하지 않는다.
   - `apps/game`은 `apps/server`를 **타입으로만** 가져온다(tRPC 라우터 타입): `import type { AppRouter } from "@terra/server/trpc"`. 값 import, `import { type X }`, 동적 `import()`는 검사에서 실패한다. `@terra/server`는 게임 앱 `devDependencies`에만 둔다(ADR `2026-10-28-trpc-type-sharing.md`).
   - 게임 앱 코드(`apps/game/src`)는 Node 전역(`process`, `Buffer` 등)과 Node 내장 모듈을 쓰지 않는다. 타입 검사로는 못 막아서(`@trpc/client` 타입이 `@types/node`를 불러온다) oxlint가 막는다.
 - **서버 권위**: 자원 획득, 전투 결과, 거래·잔고, 아이템 생성, 조우, 소유권 판정은 서버만 한다.
-- 판정 코드(`packages/sim` 등)에서는 `Math.random`, `Date.now`, `Math.sin/cos/tan/exp/log/pow` 같은 초월함수를 쓰지 않는다. 시드 난수와 `packages/shared`의 결정적 수학 함수를 쓴다.
+- 판정 코드(`packages/sim` 등)에서는 `Math.random`, `Date.now`, `Math.sin/cos/tan/exp/log/pow` 같은 초월함수와 `**` 연산자를 쓰지 않는다. 시드 난수(`createRng`)와 `packages/shared`의 결정적 수학 함수(`detSin`·`detCos`·`detTan`·`detAtan`·`detAtan2`·`detAsin`·`detExp`, 오차 1~3ulp)를 쓴다.
 - 금액은 최소 단위 정수(`BigInt`, DB `int8`). 소수점 실수 계산 금지.
 - DB 표 정의는 `apps/server/src/db/schema.ts`. 바꾸면 `pnpm --filter @terra/server db:generate`로 마이그레이션을 만들어 함께 커밋한다. 마이그레이션은 **직전 버전 앱이 그대로 돌 수 있게** 만든다(추가 → 코드 전환 → 다음 배포에서 정리). 올라간 마이그레이션은 고치지 않는다(ADR `2026-10-28-db-access-and-migrations.md`).
 - 게임 상태를 바꾸는 명령은 WebSocket 프로토콜(`packages/protocol`)로만 보낸다. tRPC는 조회와 비실시간 기능용(프로시저는 `apps/server/src/trpc/`, 기기 클라이언트는 `apps/game/src/net/api.ts`).
@@ -120,6 +120,11 @@
   - `Buffer#slice`는 복사가 아니라 보기를 돌려준다. 이진 해석기는 받은 값을 일반 `Uint8Array` 보기로 바꾼 뒤 자른다(`packages/protocol` `decodeTerrain`).
   - oxlint 1.89.0 `unicorn(require-post-message-target-origin)`은 worker_threads의 `worker.postMessage`도 잡는다(브라우저 window 규칙이라 해당 없음) → 보내는 도우미 하나에서만 끈다(`src/world/pathPool.ts`의 `post`).
 - **oxlint 1.89.0 규칙** (2026-10-28 확인: 시험 파일로 실행): 네임스페이스 import를 계산해서 읽으면(`m[key]`) `import(namespace)` 오류다. 키로 고르는 화면 문구는 `apps/game/src/ui/messageTable.ts` 표에 적는다. 효과(`useEffect`) 안에서 바로 setState하면 `react(set-state-in-effect)`, 그리는 중에 `ref.current`를 읽으면 `react(refs)` 오류다.
+- **결정적 계산** (2026-10-29 확인: tc39/ecma262 `spec.html` main, Node 24.22.1, TS 7.0.2, oxlint 1.89.0 — 행성 생성기 구현)
+  - 명세가 결과를 정확히 정하는 것: 사칙연산(IEEE 754 배정밀도, 가장 가까운 값), `Math.sqrt`·`floor`·`ceil`·`round`·`trunc`·`abs`·`min`·`max`·`sign`·`fround`·`imul`. "구현이 근사한 값"(implementation-approximated)인 것: `Math.sin`·`cos`·`tan`·`asin`·`atan`·`atan2`·`exp`·`log`·`pow`·`hypot`·`cbrt` 등과 `**` 연산자(Number::exponentiate). `Math.PI`·`E`·`LN2`·`LOG2E`·`SQRT2` 등은 "가장 가까운 Number 값"으로 정한 상수라 써도 된다.
+  - Node 24.22.1의 `Math.sin`·`cos`·`tan`·`atan`·`exp`는 잰 점에서 4배 정밀도 값과 1ulp 이내였다. 브라우저 엔진은 재지 않았다(Unknown). 판정·생성 코드는 `@terra/shared` `det*` 함수를 쓴다.
+  - TS 7.0.2: 타입 인수 없는 `Float32Array`는 `Float32Array<ArrayBufferLike>`이고 `new Float32Array(n)`은 `Float32Array<ArrayBuffer>`다. 두 배열을 맞바꿔 쓰는 코드(`[a, b] = [b, a]`)는 `Float32Array<ArrayBuffer>`로 적는다.
+  - `pnpm check`의 oxlint는 `--deny-warnings`라 경고도 실패다. 자주 걸리는 것: `typescript(no-unsafe-type-assertion)`(`unknown`을 `as`로 좁힘 → 타입 가드나 `satisfies`), `unicorn(consistent-function-scoping)`(바깥 변수를 쓰지 않는 안쪽 함수 → 밖으로), `oxc(approx-constant)`(π 리터럴 → `Math.PI`), `unicorn(no-new-array)`(`new Array(n)` → `Array.from({ length: n })`).
 - **Paraglide JS 2** (2.29.2): 메시지 원본은 `apps/game/messages/{ko,en}.json`. 코드에서는 `import { m } from "./paraglide/messages.js"` 후 `m.app_title()`, 변수는 `m.fps({ fps })`. 언어는 `./paraglide/runtime.js`의 `getLocale`·`setLocale`·`isLocale`. `src/paraglide/`는 생성 파일(git 제외)이라 `pnpm --filter @terra/game typecheck`·`dev`·`build` 때 다시 만들어진다. 메시지 플러그인은 CDN이 아니라 설치된 `@inlang/plugin-message-format`에서 읽는다(2026-10-28 확인).
 
 ## 7. 명령어
@@ -136,6 +141,8 @@
 | `pnpm format` | 포맷 자동 수정 |
 | `pnpm test` | 단위 테스트만 |
 | `pnpm --filter @terra/sim bench` | 판정 코어 벤치마크(임시 지형에서 경로 1,000개, 통과 폭·배치·이동 계산). `pnpm test`에는 없다. 공유 CPU에서는 값이 흔들린다 |
+| `pnpm --filter @terra/planet bench [면 레벨 …]` | 행성 생성기 벤치마크(콘텐츠 팩의 S2 시험 행성, 기본 6 7 9): 단계별 시간·RSS·타입 배열·최대 RSS. 레벨마다 새 프로세스로 잰다. `pnpm test`에는 없다 |
+| `pnpm --filter @terra/planet render <출력 폴더> [면 레벨] [시드]` | 생성 결과 그림(S2 시험 행성, 기본 면 레벨 7, 시드는 팩 값): 면마다 고도·바이옴·기온 PNG, 경위도 전체 5장(고도·바이옴·기온·강수·습도), 요약 수치. 출력 폴더는 저장소 밖 절대 경로로 준다(명령은 `packages/planet`에서 돈다) |
 | `pnpm build` | 전체 빌드 |
 | `pnpm docs:index` | 작업 기록을 추가한 뒤 `docs/WORKLOG.md` 목차를 다시 만든다 |
 | `pnpm check:docs` | 코드 변경 → 작업 기록(의존성 버전만 올린 변경은 제외), 새 런타임 의존성 → ADR, 올라간 마이그레이션 수정 금지 |

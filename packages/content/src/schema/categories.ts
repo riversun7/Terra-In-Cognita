@@ -1,7 +1,9 @@
 // 분류 목록 — 분류 하나가 팩 폴더의 파일 하나(<분류>.json, 내용은 {"entries": [...]})다.
 // 실제 분류와 필드는 기획(docs/design/)이 정한다. M0는 형식 확인용 items 하나, 기본 필드만 둔다.
+// S2: 행성 정의(planets)와 바이옴 표(biomes)를 더했다(ADR 2026-10-29-s2-planet-lod, 임시 데이터).
 import { z } from "zod";
 import { contentId, localizedText } from "./common.ts";
+import { biomeEntrySchema, planetEntrySchema } from "./planets.ts";
 
 export interface CategoryDefinition {
   /** 항목 하나의 스키마. id 필드(contentId)를 꼭 가진다. 다른 항목 참조는 ref("<분류>")로 선언한다 */
@@ -30,4 +32,6 @@ export type ItemEntry = z.output<typeof itemEntrySchema>;
 
 export const CATEGORIES: CategoryRegistry = {
   items: { entry: itemEntrySchema },
+  biomes: { entry: biomeEntrySchema },
+  planets: { entry: planetEntrySchema },
 };

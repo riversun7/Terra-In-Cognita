@@ -74,11 +74,12 @@ function readHeapMb(): number | null {
   return memory ? round1(memory.usedJSHeapSize / 1_048_576) : null;
 }
 
-/** 엔진(packages/engine sharedRenderer.ts의 defaultMaxPixelRatio)과 같은 픽셀 비율 상한: 휴대폰 1.5, 그 밖 2 */
-function maxPixelRatio(): number {
-  const coarse = matchMedia("(pointer: coarse)").matches;
-  return coarse && Math.min(screen.width, screen.height) <= 600 ? 1.5 : 2;
-}
+/**
+ * 엔진(packages/engine sharedRenderer.ts의 DEFAULT_MAX_PIXEL_RATIO)과 같은 픽셀 비율 상한: 2(휴대폰도).
+ * 2026-10-29까지 휴대폰은 1.5였다 — 그 전 기록의 bufferW·bufferH와 견줄 때 조심한다(ADR 2026-10-28-s1-second-map "2차맵 선명도").
+ * 엔진을 가져오지 않고 값을 옮겨 적는다(관리자 조각에 엔진이 묶이지 않게)
+ */
+const MAX_PIXEL_RATIO = 2;
 
 /** 오류를 짧은 문장으로(화면·요약에 그대로 보인다) */
 function shortError(error: unknown): string {
@@ -453,7 +454,7 @@ export async function runGpuBench(options: RunBenchOptions): Promise<BenchReport
   signal.addEventListener("abort", onAbort);
   document.addEventListener("visibilitychange", onVisibility);
 
-  const pixelRatio = Math.min(window.devicePixelRatio || 1, maxPixelRatio());
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
   const canvasW = Math.max(1, Math.round(host.clientWidth));
   const canvasH = Math.max(1, Math.round(host.clientHeight));
   const nav = navigator as Navigator & { deviceMemory?: number };

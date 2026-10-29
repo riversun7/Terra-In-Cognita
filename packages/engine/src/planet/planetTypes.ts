@@ -191,7 +191,7 @@ export interface PlanetEngineOptions {
   /** 화면 오차 문턱(CSS px): 칸 하나가 이보다 크게 보이면 타일을 나눈다. 기본 4 */
   maxScreenErrorPx?: number;
   budgets?: Partial<PlanetBudgets>;
-  /** 픽셀 비율 상한(기본: 휴대폰 1.5, 그 밖 2) */
+  /** 픽셀 비율 상한(기본 2, 휴대폰도 — 2차맵과 같다). 실제 값 = min(기기 픽셀 비율, 상한) */
   maxPixelRatio?: number;
   initialView?: PlanetView;
   onStatus?: (status: PlanetStatus) => void;
@@ -246,7 +246,11 @@ export interface PlanetStats {
   firstDisplayMs: number | null;
   exaggeration: number;
   layer: PlanetLayer;
+  /** 쓰는 픽셀 비율 = min(기기 픽셀 비율, 상한) */
   pixelRatio: number;
+  /** 그리기 버퍼 크기(실제 픽셀, WebGL drawingBuffer) — 화면 CSS 크기 × pixelRatio. 브라우저가 줄였으면 그 값 */
+  drawingBufferWidth: number;
+  drawingBufferHeight: number;
   contextLost: boolean;
   camera: PlanetCameraView;
 }

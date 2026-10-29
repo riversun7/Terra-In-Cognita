@@ -111,6 +111,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     return inertPlanetEngine(exaggeration, layer, budgets);
   }
   const canvas = renderer.domElement;
+  const gl = renderer.getContext();
   canvas.style.width = "100%";
   canvas.style.height = "100%";
   container.append(canvas);
@@ -454,6 +455,8 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
         exaggeration,
         layer,
         pixelRatio,
+        drawingBufferWidth: gl.drawingBufferWidth,
+        drawingBufferHeight: gl.drawingBufferHeight,
         contextLost,
         camera: cameraView(),
       };
@@ -520,6 +523,8 @@ function inertPlanetEngine(
     exaggeration,
     layer,
     pixelRatio: 1,
+    drawingBufferWidth: 0,
+    drawingBufferHeight: 0,
     contextLost: false,
     camera: { latDeg: 0, lonDeg: 0, distanceM: 0, altitudeM: 0, headingDeg: 0, tiltDeg: 0 },
   };

@@ -17,6 +17,7 @@
 // - 텍스처는 CPU 배열을 그대로 들고 있다: 컨텍스트를 잃었다 돌아오면 three가 다시 올린다.
 import {
   DataTexture,
+  type IUniform,
   LinearFilter,
   LinearMipmapLinearFilter,
   MeshLambertMaterial,
@@ -199,6 +200,33 @@ const FRAGMENT_COLOR = /* glsl */ `
 }
 `;
 
+/** onBeforeCompile이 주는 셰이더 중 이 재질이 고치는 부분(three의 WebGLProgramParametersWithUniforms와 맞는 모양) */
+export interface TerrainShaderSource {
+  vertexShader: string;
+  fragmentShader: string;
+  uniforms: Record<string, IUniform>;
+}
+
+/**
+ * 끼울 자리(three 셰이더 단계의 #include 줄)와 그 바로 뒤에 넣을 코드. 자리마다 원본에 한 번씩 있어야 한다.
+ * three를 올려 자리 이름이 바뀌면 replace는 말없이 아무것도 하지 않는다(컴파일 실패 또는 흐린 꼭짓점 색으로 돌아감) —
+ * 단위 시험(terrainMaterial.test.ts)이 설치된 three의 Lambert 셰이더로 확인한다
+ */
+export const TERRAIN_SHADER_INSERTS = {
+  vertex: [
+    ["#include <common>", VERTEX_PARS],
+    ["#include <begin_vertex>", VERTEX_MAIN],
+  ],
+  fragment: [
+    ["#include <common>", FRAGMENT_PARS],
+    ["#include <color_fragment>", FRAGMENT_COLOR],
+  ],
+} as const;
+
+/** 자리마다 그 줄 바로 뒤에 코드를 넣는다(첫 자리 하나만) */
+const insertAfterAnchors = (source: string, inserts: readonly (readonly [string, string])[]): string =>
+  inserts.reduce((text, [anchor, code]) => text.replace(anchor, `${anchor}\n${code}`), source);
+
 function createSurfaceTexture(data: Uint8Array): DataTexture {
   const texture = new DataTexture(data, TERRAIN_CELLS, TERRAIN_CELLS, RGBAFormat, UnsignedByteType);
   // texelFetch로만 읽는다(거르기 없음)
@@ -245,17 +273,15 @@ export class TerrainMaterial {
   };
 
   constructor() {
-    const uniforms = this.uniforms;
-    this.material.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, uniforms);
-      shader.vertexShader = shader.vertexShader
-        .replace("#include <common>", `#include <common>\n${VERTEX_PARS}`)
-        .replace("#include <begin_vertex>", `#include <begin_vertex>\n${VERTEX_MAIN}`);
-      shader.fragmentShader = shader.fragmentShader
-        .replace("#include <common>", `#include <common>\n${FRAGMENT_PARS}`)
-        .replace("#include <color_fragment>", `#include <color_fragment>\n${FRAGMENT_COLOR}`);
-    };
+    this.material.onBeforeCompile = (shader) => this.patchShader(shader);
     this.material.customProgramCacheKey = () => PROGRAM_KEY;
+  }
+
+  /** three가 프로그램을 만들기 전에 부른다(onBeforeCompile): 유니폼을 잇고 색 단계를 끼운다. 단위 시험도 이것을 부른다 */
+  patchShader(shader: TerrainShaderSource): void {
+    Object.assign(shader.uniforms, this.uniforms);
+    shader.vertexShader = insertAfterAnchors(shader.vertexShader, TERRAIN_SHADER_INSERTS.vertex);
+    shader.fragmentShader = insertAfterAnchors(shader.fragmentShader, TERRAIN_SHADER_INSERTS.fragment);
   }
 
   /**

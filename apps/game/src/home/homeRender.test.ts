@@ -5,7 +5,7 @@ import { HOME_CARDS, type HomeCardEntry, type HomeTemplate, isCardId } from "@te
 import type { InboxItem, InboxListResponse, SummaryGetResponse } from "@terra/shared/inbox";
 import { type ComponentType, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { FrameMonitor } from "../perf/frameMonitor.ts";
 import { cardTitle } from "./cards/registry.tsx";
 import type { HomeData } from "./homeData.ts";
@@ -18,6 +18,10 @@ import HybridTemplate from "./templates/HybridTemplate.tsx";
 import InboxTemplate from "./templates/InboxTemplate.tsx";
 import TimelineTemplate from "./templates/TimelineTemplate.tsx";
 import { TodoList } from "./TodoList.tsx";
+
+// 연결·성능 카드(W1 DiagnosticsPanel → shell/ConnectionNotice.tsx)가 SW 등록(virtual:pwa-register, Vite 전용 모듈)을 가져온다.
+// 그리기 시험에는 필요 없어 비운다([새로고침]을 누르지 않는다)
+vi.mock("../pwa/updates.ts", () => ({ forceUpdate: () => undefined }));
 
 const NOW = 1_761_700_000_000;
 const HOUR = 3_600_000;

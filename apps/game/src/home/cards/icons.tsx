@@ -1,9 +1,11 @@
 // 홈 아이콘 — 인라인 SVG(아이콘 꾸러미 없음, ADR 2026-10-29-app-shell 11절). 꾸밈이라 읽기 프로그램에는 숨긴다(이름은 옆 글자가 알린다).
 // 글자와 같은 색(currentColor)이고 크기는 home.css의 .home-icon(--icon-md)이다. 좌표는 소수 한 자리까지만 쓴다.
-// [임시] 처리할 일 분류 아이콘(CategoryIcon)은 W1의 ui/icons.tsx가 맡는다(이름 threat·money_survival·stalled·decision·done, 기본은 bell).
-// W1이 합쳐지면 CategoryIcon의 몸을 `<Icon name={아는 분류 ? category : "bell"} className="home-icon" />`로 바꾼다(꽂는 줄).
+// 처리할 일 분류 아이콘(CategoryIcon)은 화면 틀 아이콘(ui/icons.tsx, 분류 ID와 같은 이름, 모르는 분류는 bell)을 쓴다:
+// 처리함 화면(inbox/InboxList.tsx)과 같은 그림이다.
 import type { CardId } from "@terra/shared/dashboard";
 import type { ReactNode } from "react";
+import { isKnownCategory } from "../inboxParts.ts";
+import { Icon as ShellIcon } from "../../ui/icons.tsx";
 
 function Icon({ children }: { children: ReactNode }) {
   return (
@@ -222,57 +224,10 @@ export function CheckIcon() {
   );
 }
 
-/** 모르는 분류(더 새 서버)·그 밖의 알림 묶음의 기본 아이콘(종) */
-function BellIcon() {
-  return (
-    <Icon>
-      <path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z" />
-      <path d="M10 20.5h4" />
-    </Icon>
-  );
-}
-
 /**
- * [임시] 처리할 일 분류 아이콘. 분류는 늘 아이콘 + 이름과 함께 보인다(색만으로 알리지 않는다). W1 뒤: ui/icons.tsx.
- * 받은 값은 글자로 받는다: 분류는 닫힌 목록이지만 더 새 서버가 모르는 분류를 보낼 수 있다 → 기본 아이콘(그 밖의 알림 묶음도 같다)
+ * 처리할 일 분류 아이콘. 분류는 늘 아이콘 + 이름과 함께 보인다(색만으로 알리지 않는다).
+ * 받은 값은 글자로 받는다: 분류는 닫힌 목록이지만 더 새 서버가 모르는 분류를 보낼 수 있다 → 종(그 밖의 알림 묶음도 같다)
  */
 export function CategoryIcon({ category }: { category: string }) {
-  switch (category) {
-    case "threat":
-      return (
-        <Icon>
-          <path d="M12 3.5l7 2.8v5.2c0 4.3-2.9 7.6-7 9-4.1-1.4-7-4.7-7-9V6.3z" />
-          <path d="M12 8.5V13M12 16.2h.01" />
-        </Icon>
-      );
-    case "money_survival":
-      return (
-        <Icon>
-          <path d="M12 19.5s-7.5-4.4-7.5-9.8A4.2 4.2 0 0 1 12 7.2a4.2 4.2 0 0 1 7.5 2.5c0 5.4-7.5 9.8-7.5 9.8z" />
-        </Icon>
-      );
-    case "stalled":
-      return (
-        <Icon>
-          <circle cx="12" cy="12" r="8.5" />
-          <path d="M10 9v6M14 9v6" />
-        </Icon>
-      );
-    case "decision":
-      return (
-        <Icon>
-          <path d="M12 4v15.5M7.5 19.5h9M5 7.5h14" />
-          <path d="M5 7.5 2.8 13a2.3 2.3 0 0 0 4.4 0zM19 7.5 16.8 13a2.3 2.3 0 0 0 4.4 0z" />
-        </Icon>
-      );
-    case "done":
-      return (
-        <Icon>
-          <circle cx="12" cy="12" r="8.5" />
-          <path d="M8.3 12.3l2.6 2.6 4.9-5.2" />
-        </Icon>
-      );
-    default:
-      return <BellIcon />;
-  }
+  return <ShellIcon name={isKnownCategory(category) ? category : "bell"} className="home-icon" />;
 }

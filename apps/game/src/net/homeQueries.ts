@@ -6,6 +6,7 @@
 // - tRPC 클라이언트(net/api.ts)가 첫 화면 묶음에 들어가지 않게 늘 동적으로만 부른다(settings/accountSync.ts와 같은 방식, ADR 37 7·11절).
 //   첫 화면 모듈은 이 파일에서 타입만 가져온다(inbox/firstScreen.test.ts가 본다).
 // - 실패는 값으로 돌려준다(문구 키는 net/apiErrors.ts).
+import type { DashboardCardsResponse } from "@terra/shared/dashboard";
 import type { InboxListResponse, SummaryGetResponse } from "@terra/shared/inbox";
 import { getSessionState } from "../auth/session.ts";
 import type { PlainMessageKey } from "../ui/messageRef.ts";
@@ -58,4 +59,20 @@ export function loadSummary(preview: boolean): Promise<HomeQueryResult<SummaryGe
     });
   summaryInflight.set(key, request);
   return request;
+}
+
+/** 홈의 서버 카드 상태(dashboard.cards). 모르는 ID·기기 카드는 서버가 빼고 요청 순서대로 돌려준다 */
+export async function loadCards(
+  ids: readonly string[],
+  preview: boolean,
+): Promise<HomeQueryResult<DashboardCardsResponse>> {
+  try {
+    const data = await api.dashboard.cards.query(
+      { ids: [...ids], ...(preview ? { preview: true } : {}) },
+      { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
+    );
+    return { ok: true, data };
+  } catch (error) {
+    return failure(error);
+  }
 }

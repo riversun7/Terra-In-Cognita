@@ -1,0 +1,128 @@
+/*
+ * 시안 템플릿 전용(처리함·도시) — 그 템플릿 조각과 함께만 내려온다(dev·admin만 본다). 값은 styles/tokens.css의 var(--…)만 쓴다.
+ */
+
+/* ── 처리함 템플릿: 분류별 묶음(처리함 화면 W3의 .inbox-group*과 겹치지 않는 이름) ─────────── */
+.home-inbox-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.home-inbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.home-inbox-group-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+}
+.home-inbox-group-icon {
+  display: inline-grid;
+}
+.home-inbox-group-icon .home-icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.home-inbox-group-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 처리함 템플릿의 요약 카드 한 줄 — 이 칸만 가로로 넘긴다. 칸이 초점을 받아 화살표 키로도 넘긴다(CardGrid.tsx) */
+.home-strip-region {
+  min-width: 0;
+  padding-bottom: var(--space-2);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-color: var(--color-field-border) transparent;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+}
+.home-strip {
+  display: flex;
+  gap: var(--card-gap);
+  width: max-content;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-strip > .home-cell {
+  flex: none;
+  width: var(--card-min);
+  min-height: var(--card-row);
+  scroll-snap-align: start;
+}
+.home-strip > .home-cell[data-size="2x1"],
+.home-strip > .home-cell[data-size="2x2"] {
+  width: calc(var(--card-min) * 2 + var(--card-gap));
+}
+
+/* ── 도시 화면: 빈 땅 그림(꾸밈, 위) + 안내(아래) ─────────── */
+.city-plate {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+.city-scene {
+  position: relative;
+  height: var(--card-row);
+  background-color: var(--color-surface-2);
+}
+.city-sun,
+.city-ground,
+.city-lot {
+  position: absolute;
+}
+.city-sun {
+  top: var(--space-4);
+  right: var(--space-6);
+  width: var(--card-icon);
+  height: var(--card-icon);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-deco-sun);
+}
+.city-ground {
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 40%;
+  background-color: var(--color-deco-1);
+}
+/* 비어 있는 터(점선) — 거점이 생기면 건물과 말풍선이 들어설 자리 */
+.city-lot {
+  bottom: 22%;
+  /* 판 폭의 18%. 넓은 화면에서는 판 높이(--card-row)를 넘지 않게 줄인다: 높이 = 폭 × 3/4 ≤ 판 높이의 45%(가장 높은 터도 판 안) */
+  width: min(18%, calc(var(--card-row) * 0.6));
+  aspect-ratio: 4 / 3;
+  border: var(--border-w) dashed var(--color-deco-3);
+  border-radius: var(--radius-sm);
+}
+.city-lot-1 {
+  left: 10%;
+}
+.city-lot-2 {
+  left: 41%;
+  bottom: 30%;
+}
+.city-lot-3 {
+  right: 10%;
+}
+.city-message {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  text-align: center;
+  text-wrap: balance;
+}

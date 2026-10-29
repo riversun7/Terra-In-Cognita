@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@terra/planet": "workspace:*",
+    "@terra/protocol": "workspace:*",
     "@terra/shared": "workspace:*",
     "three": "0.186.1"
   },

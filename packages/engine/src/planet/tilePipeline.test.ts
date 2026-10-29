@@ -1,13 +1,16 @@
 import { FACES } from "@terra/planet";
+import { encodePlanetTile } from "@terra/protocol";
 import { describe, expect, it, vi } from "vitest";
 import type { WantedTile } from "./lodSelect.ts";
 import {
   DEFAULT_PLANET_BUDGETS,
   type DecodedTile,
+  type EncodedTile,
   type TileRequest,
   type TileSource,
 } from "./planetTypes.ts";
 import { EARTH_RADIUS_M, makeTile } from "./testSupport.ts";
+import { decodeTileInput } from "./tileDecode.ts";
 import { buildTileMesh } from "./tileMesh.ts";
 import { type GpuTile, type TileMeshBuilder, TilePipeline } from "./tilePipeline.ts";
 import { type TileNode, tileKey, tileLayout } from "./tileTree.ts";
@@ -19,11 +22,11 @@ function manualSource() {
   const calls: {
     request: TileRequest;
     signal: AbortSignal;
-    resolve: (tile: DecodedTile) => void;
+    resolve: (tile: DecodedTile | EncodedTile) => void;
     reject: (e: Error) => void;
   }[] = [];
   const source: TileSource = (request, signal) =>
-    new Promise<DecodedTile>((resolve, reject) => {
+    new Promise<DecodedTile | EncodedTile>((resolve, reject) => {
       calls.push({ request, signal, resolve, reject });
     });
   const answer = (index: number): void => {
@@ -35,11 +38,24 @@ function manualSource() {
   return { source, calls, answer };
 }
 
-/** 화면 스레드에서 바로 만드는 만들기(워커 없이) */
+/** 화면 스레드에서 바로 만드는 만들기(워커 없이). 받은 이진은 워커처럼 먼저 푼다 */
 const mainBuilder: TileMeshBuilder = {
-  build: (tile, radiusM) => Promise.resolve({ mesh: buildTileMesh(tile, radiusM), tile }),
+  build: (input, radiusM) => {
+    try {
+      const tile = decodeTileInput(input);
+      return Promise.resolve({ mesh: buildTileMesh(tile, radiusM), tile });
+    } catch (error) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  },
   dispose: () => undefined,
 };
+
+/** 서버가 보내는 이진(TCPT) — 풀어 둔 시험 타일 + 머리 값 */
+function encodedTile(tile: DecodedTile): EncodedTile {
+  const bytes = encodePlanetTile({ ...tile, generatorVersion: 1, definitionHash: "ab".repeat(32) });
+  return { kind: "encoded", bytes: Uint8Array.from(bytes).buffer };
+}
 
 interface FakeGpu extends GpuTile {
   disposed: boolean;
@@ -157,6 +173,44 @@ describe("타일 받기·올리기", () => {
     advance(600);
     pipeline.request(wanted([node]), 5);
     expect(calls).toHaveLength(3);
+  });
+
+  it("서버 이진(EncodedTile)은 만들 때 풀고, 푼 뒤 요청과 다르면 실패다", async () => {
+    const { pipeline, calls, created } = setup({ concurrentFetches: 4 });
+    const node: TileNode = { face: 2, mapLevel: 7, tx: 1, ty: 3 };
+    const other: TileNode = { face: 2, mapLevel: 7, tx: 0, ty: 0 };
+    pipeline.request(wanted([node, other]), 1);
+    const [first, second] = calls;
+    if (!first || !second) throw new Error("two calls");
+    const { face, mapLevel, i0, j0, size } = first.request;
+    first.resolve(encodedTile(makeTile(face, mapLevel, i0, j0, size)));
+    // 두 번째 요청에는 첫 요청의 칸 범위 이진을 준다(머리 값이 요청과 다르다)
+    second.resolve(encodedTile(makeTile(face, mapLevel, i0, j0, size)));
+    await settle();
+    expect(pipeline.errors).toBe(1);
+    expect(pipeline.counts().queued).toBe(1);
+    pipeline.upload(4, new Map());
+    expect(created).toHaveLength(1);
+    expect(pipeline.drawable(tileKey(node))).toBe(true);
+    expect(pipeline.drawable(tileKey(other))).toBe(false);
+    // 풀어 둔 타일은 해석기 결과(머리 값 포함)를 그대로 들고 있다
+    expect(pipeline.decoded(tileKey(node))).toMatchObject({
+      face,
+      mapLevel,
+      i0,
+      j0,
+      size,
+      generatorVersion: 1,
+    });
+  });
+
+  it("읽을 수 없는 이진(마법 값·길이)은 실패로 센다", async () => {
+    const { pipeline, calls } = setup();
+    pipeline.request(wanted([{ face: 0, mapLevel: 6, tx: 0, ty: 0 }]), 1);
+    calls[0]?.resolve({ kind: "encoded", bytes: new Uint8Array(64).buffer });
+    await settle();
+    expect(pipeline.errors).toBe(1);
+    expect(pipeline.counts().queued).toBe(0);
   });
 
   it("메모리 상한: 이번 프레임에 안 쓴 것을 오래된 것부터 버리고, 지킬 것(꼭대기)은 남긴다", async () => {

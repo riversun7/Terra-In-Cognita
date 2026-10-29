@@ -1,8 +1,18 @@
 // 1차맵(행성) 엔진의 바깥 모양(타입) — 게임 앱은 이것만 보고 쓴다. React와 상관없다.
 // ADR 2026-10-29-s2-planet-lod "렌더러": 면별 쿼드트리 LOD, 타일 = 맵 레벨의 32×32칸, 서버가 구운 타일을 받는다.
-// 타일은 "타일 원천"(TileSource)에서 받는다. 지금은 가짜 원천(@terra/engine/mock의 createMockPlanet)이고,
-// 서버 타일(GET /api/planets/<ID>/tiles/<타일 ID>)은 메인 세션이 같은 모양으로 잇는다.
-import type { Face } from "@terra/planet";
+// 타일은 "타일 원천"(TileSource)에서 받는다. 게임 앱은 서버 타일(GET /api/planets/<ID>/tiles/<타일 ID>)의 이진을
+// 그대로 넘기고(EncodedTile), 엔진의 메시 워커가 packages/protocol 해석기로 푼다. 시험은 풀어 둔 타일을 바로 준다.
+// 타일 모양(DecodedTile)과 물 비트는 다른 꾸러미의 정의 하나를 쓴다: 타일 = protocol PlanetTileData, 물 비트 = @terra/planet.
+import {
+  type Face,
+  WATER_COAST,
+  WATER_DEPTH_MASK,
+  WATER_DEPTH_SHIFT,
+  WATER_LAKE,
+  WATER_OCEAN,
+  WATER_RIVER,
+} from "@terra/planet";
+import type { PlanetTileData } from "@terra/protocol";
 
 /** 타일 요청: 맵 레벨 mapLevel에서 면 face의 칸 [i0, i0 + size) × [j0, j0 + size) */
 export interface TileRequest {
@@ -14,50 +24,42 @@ export interface TileRequest {
 }
 
 /**
- * 풀어 둔 타일 — packages/protocol의 타일 해석기가 돌려주는 모양과 같다(타일 작업과 정한 모양).
- * 칸 배열은 모두 size²개, 행 우선(j, 그다음 i)이다. 물 비트는 WATER_BITS.
+ * 풀어 둔 타일 = packages/protocol 타일 해석기(decodePlanetTile)가 돌려주는 PlanetTileData에서 머리의 생성기 버전·
+ * 정의 해시를 뺀 것. 그래서 해석기 결과를 바꾸지 않고 그대로 넘겨도 된다(필드 뜻은 PlanetTileData 주석).
+ * 칸 배열은 모두 size²개, 꼭짓점 높이는 (size + 1)²개이고 행 우선(j, 그다음 i)이다. 물 비트는 WATER_BITS.
  */
-export interface DecodedTile {
-  readonly faceLevel: number;
-  readonly mapLevel: number;
-  readonly face: number;
-  readonly i0: number;
-  readonly j0: number;
-  readonly size: number;
-  /**
-   * 꼭짓점 높이 (size + 1)²개(게임 m, 해수면 0), 행 우선(j, 그다음 i).
-   * 꼭짓점 (ci, cj)는 면 칸 좌표 st = ((i0 + ci) / 2^mapLevel, (j0 + cj) / 2^mapLevel)에 있다.
-   * 같은 레벨 이웃 타일은 맞닿은 변의 높이가 같다(꼭짓점을 나누는 칸들의 평균, ADR 36).
-   */
-  readonly heightsM: Int16Array;
-  /** 바이옴 표 번호 */
-  readonly biome: Uint8Array;
-  /** 물 비트(WATER_BITS) + 4~5비트 수심 등급 */
-  readonly water: Uint8Array;
-  /** 연평균 기온(°C) */
-  readonly temperatureC: Int8Array;
-  /** 습도 0~255 */
-  readonly humidity: Uint8Array;
-  /** 숲 밀도 0~255 */
-  readonly forest: Uint8Array;
-  /** 하천 등급(0 없음) */
-  readonly river: Uint8Array;
+export type DecodedTile = Readonly<Omit<PlanetTileData, "generatorVersion" | "definitionHash">>;
+
+/** 받은 그대로의 서버 타일(압축을 푼 TCPT 이진). 엔진이 메시 워커에서 풀고 모양을 확인한다 */
+export interface EncodedTile {
+  readonly kind: "encoded";
+  readonly bytes: ArrayBuffer;
 }
 
-/** 물 비트 — 1 바다, 2 호수, 4 강, 8 해안. 4~5비트는 수심 등급(1 연안, 2 대륙붕, 3 심해, 0 모름) */
-export const WATER_BITS = { ocean: 1, lake: 2, river: 4, coast: 8 } as const;
-export const WATER_DEPTH_SHIFT = 4;
+/** 원천이 준 것이 받은 이진인지(아니면 풀어 둔 타일) */
+export function isEncodedTile(tile: DecodedTile | EncodedTile): tile is EncodedTile {
+  return "kind" in tile && tile.kind === "encoded";
+}
+
+/** 물 비트 — @terra/planet 정의(WATER_*)를 이름으로 묶은 것. 4~5비트는 수심 등급(1 연안, 2 대륙붕, 3 심해, 0 모름) */
+export const WATER_BITS = {
+  ocean: WATER_OCEAN,
+  lake: WATER_LAKE,
+  river: WATER_RIVER,
+  coast: WATER_COAST,
+} as const;
+export { WATER_DEPTH_SHIFT };
 
 /** 수심 등급(물 비트 4~5) */
 export function waterDepthClass(water: number): number {
-  return (water >> WATER_DEPTH_SHIFT) & 0b11;
+  return (water & WATER_DEPTH_MASK) >> WATER_DEPTH_SHIFT;
 }
 
 /**
- * 타일 원천: 요청 하나에 풀어 둔 타일 하나. signal이 멈추면(abort) 받기를 그만두고 거절해도 된다.
- * 엔진은 동시에 budgets.concurrentFetches개까지만 부른다.
+ * 타일 원천: 요청 하나에 타일 하나(풀어 둔 것 또는 받은 이진). signal이 멈추면(abort) 받기를 그만두고 거절해도 된다.
+ * 엔진은 동시에 budgets.concurrentFetches개까지만 부른다. 받은 타일이 요청과 다르면 실패로 센다(부모가 그린다).
  */
-export type TileSource = (request: TileRequest, signal: AbortSignal) => Promise<DecodedTile>;
+export type TileSource = (request: TileRequest, signal: AbortSignal) => Promise<DecodedTile | EncodedTile>;
 
 /** 행성 설명 — 목록 정보(GET /api/planets/<ID>)에서 오는 값 */
 export interface PlanetDescription {

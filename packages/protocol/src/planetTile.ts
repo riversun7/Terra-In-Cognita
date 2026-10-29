@@ -2,6 +2,7 @@
 // WebSocket 메시지가 아니라서 PROTOCOL_VERSION과 무관하다. 바이트 배치나 타일 값 규칙(모으기·꼭짓점 높이,
 // packages/planet tiles)이 바뀌면 PLANET_TILE_FORMAT_VERSION을 올린다(타일 주소의 버전도 함께 바뀐다).
 // 브라우저·Node 공통 코드(DataView만 쓴다). 모든 수는 작은 끝(little-endian)이다.
+// 진입점 "@terra/protocol/planetTile"로도 가져올 수 있다: zod(메시지 스키마) 없이 이 파일만 묶인다(1차맵 메시 워커).
 //
 // 머리(56바이트)
 //   0  u8×4  마법 값 "TCPT"
@@ -22,7 +23,7 @@
 //                                꼭짓점 (ci, cj) = 그 면의 st 점 ((i0+ci)/2^L, (j0+cj)/2^L))
 //  칸 값 size²씩 차례로(행 우선 j × size + i): 바이옴 u8, 물 비트 u8, 기온 i8(°C), 습도 u8, 숲 u8, 하천 등급 u8
 // 숨김 정보(자원·크리쳐)는 넣지 않는다(ADR 2026-10-28-fog-and-map-visibility).
-import { ProtocolError } from "./codec.ts";
+import { ProtocolError } from "./errors.ts";
 
 export const PLANET_TILE_FORMAT_VERSION = 1;
 export const PLANET_TILE_HEADER_BYTES = 56;
@@ -71,6 +72,7 @@ export function planetTilePath(template: string, tileKey: number): string {
 
 /**
  * 타일 하나 — 렌더러가 받는 모양(이름을 바꾸지 않는다. packages/planet PlanetTile과 같은 필드 + 머리 값).
+ * 렌더러(@terra/engine/planet DecodedTile)는 이 모양에서 머리 값 두 개(생성기 버전·정의 해시)만 빼고 그대로 쓴다.
  * 배열은 모두 행 우선(j 다음 i)이다.
  */
 export interface PlanetTileData {
@@ -80,14 +82,22 @@ export interface PlanetTileData {
   i0: number;
   j0: number;
   size: number;
-  /** 꼭짓점 높이(게임 m) (size+1)² */
+  /**
+   * 꼭짓점 높이(게임 m, 해수면 0) (size+1)². 꼭짓점 (ci, cj)는 그 면의 st 점 ((i0+ci)/2^L, (j0+cj)/2^L)에 있다.
+   * 같은 레벨 이웃 타일은 맞닿은 변의 높이가 같다(꼭짓점을 나누는 칸들의 평균, ADR 36).
+   */
   heightsM: Int16Array;
-  /** 칸 값 size² */
+  /** 바이옴 표 번호 size² */
   biome: Uint8Array;
+  /** 물 비트(@terra/planet WATER_*) + 4~5비트 수심 등급 size² */
   water: Uint8Array;
+  /** 연평균 기온(°C) size² */
   temperatureC: Int8Array;
+  /** 습도 0~255 size² */
   humidity: Uint8Array;
+  /** 숲 밀도 0~255 size² */
   forest: Uint8Array;
+  /** 하천 등급(0 없음) size² */
   river: Uint8Array;
   /** 생성기 버전(u32) */
   generatorVersion: number;

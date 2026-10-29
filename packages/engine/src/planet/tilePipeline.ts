@@ -1,10 +1,18 @@
 // 타일 받기·만들기·올리기·버리기 — 화면 스레드 쪽 관리자(three.js를 직접 쓰지 않는다: GPU 쪽은 createGpu로 받는다).
 // 한 타일의 길: 받기(TileSource, 동시 상한) → 모양 확인 → 메시 만들기(워커) → 올리기 대기 → 올리기(한 프레임 상한) → 그리기 가능.
+// 받은 이진(EncodedTile)은 메시 만들기(워커)가 풀므로 모양·요청 확인을 만든 뒤에 한다.
 // - 원하지 않게 된 받기는 잠시(ABORT_GRACE_MS) 뒤 취소한다(잠깐 흔들린 고르기 때문에 다시 받지 않게).
 // - 실패하면 1초부터 두 배씩(30초까지) 기다렸다가 다시 받는다. 그동안은 부모 타일이 그 자리를 그린다.
 // - GPU 메모리 추정이 상한을 넘으면 이번 프레임에 안 쓴 타일을 오래된 것부터 버린다(꼭대기 타일은 지킨다: 늘 부모가 있게).
 import type { WantedTile } from "./lodSelect.ts";
-import type { DecodedTile, PlanetBudgets, TileSource } from "./planetTypes.ts";
+import {
+  type DecodedTile,
+  type EncodedTile,
+  type PlanetBudgets,
+  type TileRequest,
+  type TileSource,
+  isEncodedTile,
+} from "./planetTypes.ts";
 import { type TileMeshArrays, decodedTileProblem, tileGpuBytes } from "./tileMesh.ts";
 import { type TileLayout, type TileNode, tileRequestOf } from "./tileTree.ts";
 
@@ -19,9 +27,9 @@ export interface BuiltTile {
   tile: DecodedTile;
 }
 
-/** 메시 만들기(워커 또는 화면 스레드) */
+/** 메시 만들기(워커 또는 화면 스레드). 받은 이진이면 풀어서 만들고, 푼 타일을 답에 넣는다 */
 export interface TileMeshBuilder {
-  build(tile: DecodedTile, radiusM: number): Promise<BuiltTile>;
+  build(input: DecodedTile | EncodedTile, radiusM: number): Promise<BuiltTile>;
   dispose(): void;
 }
 
@@ -236,26 +244,23 @@ export class TilePipeline<G extends GpuTile> {
     };
     // 취소했거나 버렸거나 엔진을 닫았으면 결과를 쓰지 않는다
     const current = (): boolean => !this.disposed && this.entries.get(entry.key) === entry;
-    let pending: Promise<DecodedTile>;
+    let pending: Promise<DecodedTile | EncodedTile>;
     try {
       pending = this.options.source(request, controller.signal);
     } catch (error) {
       pending = Promise.reject(error instanceof Error ? error : new Error(String(error)));
     }
     pending.then(
-      (tile) => {
+      (received) => {
         if (settled) return;
         release();
         if (!current()) return;
-        const problem =
-          decodedTileProblem(tile) ??
-          requestMismatch(tile, request) ??
-          (tile.faceLevel === this.options.layout.faceLevel ? null : "tile is for another planet size");
-        if (problem) {
+        // 풀어 둔 타일은 바로 확인한다. 받은 이진은 메시 만들기가 푼 뒤에 확인한다(build)
+        if (!isEncodedTile(received) && this.tileProblem(received, request)) {
           this.fail(entry);
           return;
         }
-        this.build(entry, tile);
+        this.build(entry, received, request);
       },
       () => {
         if (settled) return;
@@ -265,14 +270,27 @@ export class TilePipeline<G extends GpuTile> {
     );
   }
 
-  private build(entry: TileEntry<G>, tile: DecodedTile): void {
+  /** 받은 타일이 틀린 이유(모양·요청한 칸 범위·행성 크기). 맞으면 null */
+  private tileProblem(tile: DecodedTile, request: TileRequest): string | null {
+    return (
+      decodedTileProblem(tile) ??
+      requestMismatch(tile, request) ??
+      (tile.faceLevel === this.options.layout.faceLevel ? null : "tile is for another planet size")
+    );
+  }
+
+  private build(entry: TileEntry<G>, input: DecodedTile | EncodedTile, request: TileRequest): void {
     entry.state = "building";
-    entry.tile = tile;
+    entry.tile = isEncodedTile(input) ? null : input;
     this.building += 1;
-    this.options.builder.build(tile, this.options.radiusM).then(
+    this.options.builder.build(input, this.options.radiusM).then(
       (built) => {
         this.building -= 1;
         if (this.disposed || this.entries.get(entry.key) !== entry) return;
+        if (isEncodedTile(input) && this.tileProblem(built.tile, request)) {
+          this.fail(entry);
+          return;
+        }
         entry.tile = built.tile;
         entry.mesh = built.mesh;
         this.queuedBytes += tileGpuBytes(built.mesh);
@@ -315,7 +333,7 @@ export class TilePipeline<G extends GpuTile> {
 }
 
 /** 받은 타일이 요청한 칸 범위와 같은지 */
-function requestMismatch(tile: DecodedTile, request: ReturnType<typeof tileRequestOf>): string | null {
+function requestMismatch(tile: DecodedTile, request: TileRequest): string | null {
   if (
     tile.face !== request.face ||
     tile.mapLevel !== request.mapLevel ||

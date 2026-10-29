@@ -18,6 +18,16 @@ import {
   Vector3,
   Vector4,
 } from "three";
+// 물 비트는 @terra/planet 정의 하나를 셰이더 문자열에 넣는다(값을 따로 적지 않는다)
+import {
+  DEPTH_COASTAL,
+  DEPTH_DEEP,
+  WATER_DEPTH_MASK,
+  WATER_DEPTH_SHIFT,
+  WATER_LAKE,
+  WATER_OCEAN,
+  WATER_RIVER,
+} from "@terra/planet";
 
 /** 바다 수심 색(연안·대륙붕·심해), 호수·강 색 — 파스텔 장난감 톤 */
 const COLORS = {
@@ -163,15 +173,15 @@ void main() {
   float humidity = data.a;
   float forest = extra.r;
   float river = floor(extra.g * 255.0 + 0.5);
-  bool ocean = (water & 1) != 0;
-  bool lake = (water & 2) != 0;
-  bool riverBit = (water & 4) != 0;
-  int depthClass = (water >> 4) & 3;
+  bool ocean = (water & ${WATER_OCEAN}) != 0;
+  bool lake = (water & ${WATER_LAKE}) != 0;
+  bool riverBit = (water & ${WATER_RIVER}) != 0;
+  int depthClass = (water & ${WATER_DEPTH_MASK}) >> ${WATER_DEPTH_SHIFT};
 
   vec3 base;
   if (uLayer < 0.5) {
     if (ocean) {
-      base = depthClass == 1 ? ${glslColor(COLORS.coastal)} : depthClass == 3 ? ${glslColor(COLORS.deep)} : ${glslColor(COLORS.shelf)};
+      base = depthClass == ${DEPTH_COASTAL} ? ${glslColor(COLORS.coastal)} : depthClass == ${DEPTH_DEEP} ? ${glslColor(COLORS.deep)} : ${glslColor(COLORS.shelf)};
     } else if (lake) {
       base = ${glslColor(COLORS.lake)};
     } else {

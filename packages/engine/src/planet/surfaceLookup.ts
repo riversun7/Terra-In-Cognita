@@ -1,8 +1,9 @@
 // 받은 타일로 땅 읽기 — 순수 계산(시험 대상). 누르기(칸 고르기)와 카메라(목표점 높이·가장 낮은 고도)가 쓴다.
 // 한 방향에서 "받은 타일 중 가장 고운 것"을 찾아 꼭짓점 높이를 이중선형으로 읽는다(메시 삼각형과 거의 같다).
-// 보이는 높이 = max(높이, 0) × 과장(바다는 해수면 구 위, tileMesh.ts와 같다).
+// 보이는 높이 = max(높이, 0) × 과장(바다는 해수면 구 위) — 셰이더와 같은 식 하나(tileMesh.ts vertexLiftM)를 쓴다.
 import { type Face, cellKey } from "@terra/planet";
 import type { DecodedTile, PickedCell } from "./planetTypes.ts";
+import { vertexLiftM } from "./tileMesh.ts";
 import { directionToFaceST } from "./tileShape.ts";
 import { type TileLayout, type TileNode, nodeAt, primaryLevelOf, tileKey } from "./tileTree.ts";
 import { type Vec3, addScaled, dot, length, normalize } from "./vec3.ts";
@@ -56,7 +57,7 @@ export function displayedHeightAt(
 ): number {
   const hit = finestTileAt(direction, layout, lookup);
   if (!hit) return 0;
-  return Math.max(0, heightInTile(hit.tile, hit.s, hit.t)) * exaggeration;
+  return vertexLiftM(heightInTile(hit.tile, hit.s, hit.t), false, exaggeration, 0);
 }
 
 /**

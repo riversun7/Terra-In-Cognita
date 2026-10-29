@@ -6,7 +6,8 @@
 //   해수면 아래는 해수면 구에 그린다 = 바다는 해수면 높이의 구다(타일이 그 자리를 그린다, 따로 겹친 구가 없어 해안이 어긋나지 않는다).
 // - 법선: 꼭짓점마다 높이 기울기(접평면 위 벡터, m/m)를 둔다. 셰이더가 법선 = 정규화(위쪽 − 과장 × 기울기)로 만든다(과장을 바꿔도 다시 만들지 않는다).
 //   타일 가장자리는 한쪽 차분이다(이웃 타일 자료가 없다).
-// - 치마(skirt): 네 변마다 같은 꼭짓점을 하나 더 두고(치마 표시 1) 셰이더가 아래로 내린다. 레벨이 다른 이웃 사이 틈을 막는다.
+// - 치마(skirt): 네 변마다 같은 꼭짓점을 하나 더 두고(치마 표시 1) 셰이더가 모든 타일에 같은 바닥(해수면 − skirtDepthM)까지
+//   내린다. 레벨이 다른 이웃 사이 틈을 막는다(바닥이 어느 이웃 변보다 낮다 — tileShape.ts skirtDepthM).
 // - 칸 자료: RGBA(바이옴, 물 비트, 기온 + 128, 습도)와 RG(숲, 하천) 텍스처. 셰이더가 칸마다 그대로 읽는다(texelFetch, 칸 경계가 또렷하다).
 // - 삼각형 인덱스는 모든 타일이 같다(tileIndices, 하나를 함께 쓴다). 밖에서 보면 반시계(모든 면에서 uAxis × vAxis = 바깥).
 import { FACES } from "@terra/planet";
@@ -35,6 +36,19 @@ export interface TileMeshArrays {
   /** 꼭짓점 높이 범위(게임 m) */
   minHeightM: number;
   maxHeightM: number;
+}
+
+/**
+ * 꼭짓점을 해수면 구에서 위쪽으로 옮기는 양(m) — 타일 셰이더(planetMaterials.ts TILE_VERTEX)와 같은 식이다.
+ * 보이는 땅은 max(높이, 0) × 과장(바다는 해수면 구 위), 치마는 바닥(−skirtDepthM). 하나를 바꾸면 다른 하나도 바꾼다.
+ */
+export function vertexLiftM(
+  heightM: number,
+  skirt: boolean,
+  exaggeration: number,
+  skirtDepthM: number,
+): number {
+  return skirt ? -skirtDepthM : Math.max(0, heightM) * exaggeration;
 }
 
 /** 꼭짓점 수: 격자 (segments + 1)² + 치마 4 × (segments + 1) */

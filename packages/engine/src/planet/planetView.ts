@@ -41,15 +41,10 @@ const SPACE_COLOR = 0x1e2a4a;
 const BASE_GLOBE_DEPTH_M = 1500;
 /** 대기 띠 두께(반지름 비) */
 const ATMOSPHERE_SCALE = 1.018;
-/** 치마 여유(m) */
-const SKIRT_MARGIN_M = 30;
 
 export interface PlanetTileGpu extends GpuTile {
   readonly mesh: Mesh<BufferGeometry, ShaderMaterial>;
   readonly origin: Vec3;
-  /** 치마 깊이 계산용: 메시 활꼴 깊이, 보이는 높이 범위(게임 m) */
-  readonly sagM: number;
-  readonly shownRangeM: number;
 }
 
 export class PlanetView {
@@ -70,13 +65,20 @@ export class PlanetView {
   private readonly basis = new Matrix4();
   private readonly shown = new Set<PlanetTileGpu>();
 
-  constructor(radiusM: number, biomeColors: readonly number[], fovRad: number, debugCracks: boolean) {
+  /** skirtDepthM = 치마 바닥 깊이(tileShape.ts skirtDepthM, 모든 타일이 같이 쓴다) */
+  constructor(
+    radiusM: number,
+    biomeColors: readonly number[],
+    fovRad: number,
+    skirtDepthM: number,
+    debugCracks: boolean,
+  ) {
     this.radiusM = radiusM;
     this.debug = debugCracks;
     this.scene.background = new Color(debugCracks ? DEBUG_CRACK_COLOR : SPACE_COLOR);
     this.camera = new PerspectiveCamera((fovRad * 180) / Math.PI, 1, 1, 10);
     this.camera.matrixAutoUpdate = true;
-    this.shared = createSharedTileUniforms(biomeColors);
+    this.shared = createSharedTileUniforms(biomeColors, skirtDepthM);
     this.index = new BufferAttribute(tileIndices(32), 1);
     const keeperGeometry = new BufferGeometry();
     keeperGeometry.setAttribute("position", new BufferAttribute(new Float32Array(3), 3));
@@ -138,14 +140,9 @@ export class PlanetView {
     });
   }
 
+  /** 고도 과장(셰이더 uniform 하나). 치마 바닥은 과장과 상관없어 타일마다 고칠 것이 없다 */
   setExaggeration(value: number): void {
     this.shared.uExaggeration.value = value;
-  }
-
-  /** 치마 깊이(표시 m) = 메시 활꼴 깊이 + 과장 × 높이 범위 + 여유 — 레벨이 다른 이웃 사이 틈보다 깊게 */
-  updateSkirt(gpu: PlanetTileGpu, exaggeration: number): void {
-    const uniform = gpu.mesh.material.uniforms.uSkirtDrop;
-    if (uniform) uniform.value = gpu.sagM + exaggeration * gpu.shownRangeM + SKIRT_MARGIN_M;
   }
 
   setLayer(layer: "terrain" | "climate"): void {
@@ -162,7 +159,7 @@ export class PlanetView {
     this.shared.uPick.value.set(cell.i / n, cell.j / n, 1 / n, cell.face);
   }
 
-  createTile(mesh: TileMeshArrays, node: TileNode, exaggeration: number): PlanetTileGpu {
+  createTile(mesh: TileMeshArrays, node: TileNode): PlanetTileGpu {
     const geometry = new BufferGeometry();
     geometry.setAttribute("position", new BufferAttribute(mesh.positions, 3));
     geometry.setAttribute("grad", new BufferAttribute(mesh.grads, 3));
@@ -192,8 +189,6 @@ export class PlanetView {
       mesh: object,
       origin: mesh.origin,
       bytes: tileGpuBytes(mesh),
-      sagM: shape.sagM,
-      shownRangeM: Math.max(0, mesh.maxHeightM) - Math.max(0, mesh.minHeightM),
       dispose: () => {
         object.removeFromParent();
         this.shown.delete(gpu);
@@ -204,7 +199,6 @@ export class PlanetView {
         for (const texture of textures) texture.dispose();
       },
     };
-    this.updateSkirt(gpu, exaggeration);
     return gpu;
   }
 

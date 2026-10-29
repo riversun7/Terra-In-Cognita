@@ -107,11 +107,6 @@ export class TilePipeline<G extends GpuTile> {
     return { loaded, fetching: this.fetching, building: this.building, queued, gpuBytes: this.gpuBytes };
   }
 
-  /** GPU 타일 모두(과장 배율을 바꿀 때 치마 깊이를 고친다) */
-  forEachGpu(callback: (gpu: G, node: TileNode) => void): void {
-    for (const entry of this.entries.values()) if (entry.gpu) callback(entry.gpu, entry.node);
-  }
-
   /** 고른 나무에서 쓴 마디 표시(오래 안 쓴 것을 버릴 때 본다) */
   touch(keys: readonly number[], frame: number): void {
     for (const key of keys) {

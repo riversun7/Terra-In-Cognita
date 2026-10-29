@@ -43,7 +43,7 @@ import { type PlanetTileGpu, PlanetView } from "./planetView.ts";
 import { type DecodedLookup, cellAt, displayedHeightAt, rayHitsSurface } from "./surfaceLookup.ts";
 import { createTileBuilder } from "./tileBuilder.ts";
 import { TilePipeline } from "./tilePipeline.ts";
-import { TileShapeCache, directionToFaceST, tileShape } from "./tileShape.ts";
+import { TileShapeCache, coarsestSagM, directionToFaceST, skirtDepthM } from "./tileShape.ts";
 import { nodeSTRange, primaryLevelOf, tileLayout } from "./tileTree.ts";
 import { type Vec3, length, normalize } from "./vec3.ts";
 
@@ -109,14 +109,19 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
   canvas.style.height = "100%";
   container.append(canvas);
 
-  const view = new PlanetView(radiusM, planet.biomeColors, GLOBE_FOV_RAD, options.debugCracks ?? false);
+  const view = new PlanetView(
+    radiusM,
+    planet.biomeColors,
+    GLOBE_FOV_RAD,
+    skirtDepthM(layout, radiusM),
+    options.debugCracks ?? false,
+  );
   view.setExaggeration(exaggeration);
   view.setLayer(layer);
   const shapes = new TileShapeCache(radiusM);
   const finestCellM = averageCellEdgeMeters(layout.lastLevel, radiusM);
   // 행성 몸(가리는 구): 가장 거친 타일 메시의 활꼴 깊이만큼 안쪽
-  const occluderRadiusM =
-    radiusM - tileShape({ face: 0, mapLevel: layout.firstLevel, tx: 0, ty: 0 }, radiusM).sagM;
+  const occluderRadiusM = radiusM - coarsestSagM(layout, radiusM);
 
   let viewport: Viewport = { width: 1, height: 1 };
   let limits: GlobeLimits = globeLimits(radiusM, finestCellM, viewport);
@@ -142,7 +147,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     layout,
     radiusM,
     budgets,
-    createGpu: (mesh, node) => view.createTile(mesh, node, exaggeration),
+    createGpu: (mesh, node) => view.createTile(mesh, node),
     onChange: () => scheduler.request(),
     now: () => performance.now(),
   });
@@ -388,8 +393,8 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     setExaggeration(value) {
       if (!Number.isFinite(value)) return;
       exaggeration = clamp(value, MIN_EXAGGERATION, MAX_EXAGGERATION);
+      // 치마 바닥은 과장과 상관없다(모든 타일이 같은 바닥) — uniform 하나만 바꾼다
       view.setExaggeration(exaggeration);
-      pipeline.forEachGpu((gpu) => view.updateSkirt(gpu, exaggeration));
       scheduler.request();
     },
 

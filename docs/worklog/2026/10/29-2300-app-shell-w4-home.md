@@ -4,21 +4,21 @@
 - 작업 도구: Claude Code
 - 관련: ADR `2026-10-29-app-shell.md`(37, 제안) 2·5·6·7·10·11절과 사용자 결정 2, 작업 기록 `29-2015-app-shell-stage0.md`·`29-2100-app-shell-stage0-review.md`, 기획 D-6001·D-6005·D-6006·D-6014·D-6015, 커밋 `68fb9eb`(대비 검사)·`a3801ca`(홈)
 - 작업 자리: 작업 트리 `.claude/worktrees/app-shell-w4`, 가지 `work/app-shell-w4`, main `507e645`에서 시작했다. W1(화면 틀)·W2(설정 넓히기)·W3(처리할 일)이 아직 없어서 그 줄기가 줄 부품은 임시 대신 것으로 두었다(아래 "함께 바꿔야 하는 파일").
+- 고침(2026-10-30, 검토 반영 `30-0150-app-shell-w4-review.md`): 이 기록의 꽂는 줄·임시 부품 설명·"다섯 곳"이 틀렸거나 바뀌어 고쳤다. 바뀐 결정은 줄마다 "(바뀜)"으로 적었다.
 
 ## 한 일
 - 홈 화면을 `apps/game/src/home/`에 만들었다. 아직 `/`에 꽂지 않았다(W1 `shell/routeViews.tsx`의 한 줄). 그래서 지금 빌드에는 홈 조각이 없다.
-  - `HomeScreen.tsx`(기본 내보내기, 받는 값 `{ monitor, search }`): 템플릿 고르기, 원격 측정 화면 이름 `home:<템플릿>`, 자료 실패 알림과 [다시 시도], 편집 시트 지연 로딩(가리키거나 초점이 가면 미리 받는다). 제목 `h1#home-title`(tabIndex -1)부터 그린다.
+  - `HomeScreen.tsx`(기본 내보내기, 받는 값 `{ match, monitor }` — 검토 반영 전에는 `{ monitor, search }`였다): 템플릿 고르기, 원격 측정 화면 이름 `home:<템플릿>`, 자료 실패 알림과 [다시 시도], 편집 시트 지연 로딩(가리키거나 초점이 가면 미리 받는다). 제목 `h1#home-title`(tabIndex -1)부터 그린다.
   - 템플릿 6개(`templates/`): 조합(DT-HYBRID)은 홈 조각에 함께 넣고, 나머지 다섯은 따로 받는다. 템플릿은 "머리"(처리할 일 위 고정·처리함 목록·타임라인·도시 판과 처리할 일·부관 브리핑)와 카드 격자를 그린다. 격자 템플릿만 머리가 없다.
   - 카드 9장(`cards/registry.tsx` 표와 카드 부품): 처리할 일·다가올 일·부관 보고는 처리할 일 자료를 쓴다. 서버 카드 4장(사이보그·보유 유닛·자산·세력)은 늘 "준비 중"이고 숫자가 없다. 지도(2차맵·1차맵 링크), 연결·성능. 아이콘은 `cards/icons.tsx`(인라인 SVG).
   - 편집 시트(`edit/`): `<dialog>.showModal()`. 카드 더하기·빼기(빼면 [실행 취소])·↑·↓·맨 위로·크기·[카드 기본값으로], 손잡이 끌기(마우스·터치, Pointer Events로 직접 만듦). dev·admin에게만 템플릿 칸 6개와 시안 자료 스위치가 있다. 바꿀 때마다 바로 저장한다. 알림 영역(polite)이 결과를 읽는다. 순서 계산은 순수 함수(`reorder.ts`)다.
-  - 자료(`homeData.ts`·`useHomeData.ts`): 필요한 조회를 같은 틱에 한 번씩 부른다. 보이는 서버 카드가 없으면 `dashboard.cards`를, 부관 보고가 없으면 `summary.get`을 부르지 않는다. 바뀐 부분만 다시 받고, 늦게 온 답은 버리고, 다시 받는 동안 앞 값을 그린다. 다시 받는 때: 연결이 끊겼다가 다시 맺어질 때(또는 실패한 부분이 있을 때), 다시 보일 때(마지막으로 받은 지 60초 넘음), [다시 시도]. 주기 타이머는 없다.
+  - 자료(`homeData.ts`·`useHomeData.ts`): 필요한 조회를 같은 틱에 한 번씩 부른다. 보이는 서버 카드가 없으면 `dashboard.cards`를, 부관 보고가 없으면 `summary.get`을 부르지 않는다. 처리할 일은 위 띠 배지와 같은 W3 저장소를 쓴다(홈은 열 때 `ensureInbox()`만, 검토 반영). 바뀐 부분만 다시 받고, 늦게 온 답은 버리고, 다시 받는 동안 앞 값을 그린다. 다시 받는 때: 연결이 끊겼다가 다시 맺어질 때(또는 실패한 부분이 있을 때), 다시 보일 때(마지막으로 받은 지 60초 넘음), [다시 시도]. 주기 타이머는 없다.
   - 화면 규칙(`homeView.ts`, 순수 함수): 템플릿 고르기, 머리·격자 카드, 받을 자료, 타임라인 나누기, 분류 묶음, 항목 주소, 마감 글자 모양.
-  - 기기에만 두는 값(`homePrefs.ts`): 처리할 일 접기(`localStorage` `terra.home` `{ v: 1, inboxCollapsed }`), 시안 자료 켜기(`sessionStorage` `terra.home.preview`, 탭을 닫으면 꺼진다).
+  - 기기에만 두는 값(`homePrefs.ts`): 처리할 일 접기(`localStorage` `terra.home` `{ v: 1, inboxCollapsed }`). 시안 자료 켜기는 (바뀜) W3과 같은 `terra.preview`(`inboxParts.ts`)다.
 - 임시로 둔 것. 그 줄기가 합쳐지면 몸만 바꾼다.
   - `homeSettings.ts`(W2 전): `useStoredHome()`·`patchHome(patch)` 두 함수. 지금은 이 기기의 `localStorage` `terra.home.settings.tmp`에만 저장한다. 읽기는 `parseHome`, 쓰기는 `mergeHome`(0단계)이다.
-  - `source/tempSource.ts`·`source/previewSample.ts`(W3 전): 0단계 전송 타입 그대로 답하는 가짜 출처. 처리할 일은 비었고, 서버 카드 4장은 `not_ready`, 복귀 요약은 `show: false`다. 시안 자료는 dev·admin만 받는다(다른 역할은 `FORBIDDEN`). 시안 자료 표는 켤 때만 따로 받는다(종류 8개, 모든 항목 `preview: true`).
-  - `itemText.ts`(W3 전): 시안 자료 종류 8개·동작 6개·복귀 요약 칸 4개의 문구를 W4 자리 임시 키 `home_tmp_*` 19개로 그린다.
-  - `shellParts.tsx`(W1 전): `HomeLink`(보통 `<a>`), `DiagnosticsBody`(연결 여부와 fps·p95·메모리), `useOverlayEntry`(비어 있다. 뒤로 → 닫기 없음).
+  - (바뀜, 검토 반영) `inboxParts.ts`(W3 전): W3 부품의 이름·모양 그대로 내보내는 자리. 지금은 `source/standIn.ts`·`standInQueries.ts`·`previewSample.ts`(대신 것)를 가리킨다. 처음에 둔 `source/tempSource.ts`·`itemText.ts`·`dueText.ts`는 지웠다. 임시 키 `home_tmp_*`는 26개다.
+  - `shellParts.tsx`(W1 전): `HomeLink`(보통 `<a>`, 받는 값 `{ to: RouteTarget }`), `DiagnosticsBody`(연결 여부와 fps·p95·메모리), `useSheetOverlay`(편집 시트 열림. 지금은 화면 상태라 뒤로 → 닫기 없음). 처음의 `useOverlayEntry`는 바꿨다(검토 기록 "찾은 것" 2).
 - 메시지 키 82개(ko·en 함께, W4 자리 `status_rejected_other` 뒤): `home_*` 56개, `home_tmp_*` 19개(W3 뒤 지움), `card_*_empty` 7개.
 - `tokens.css` "홈 카드" 블록: `--card-min-wide` 176px(64em 이상), `--card-icon` 32px, `--aide-size` 40px, `--timeline-dot` 12px, `--sheet-max` 560px. `--card-row` 주석을 "가장 낮은 높이"로 고쳤다(글이 길면 줄이 늘어난다).
 - 대비 검사(`scripts/design-tokens.mjs`): 상태색(성공·경고·위험) 글자를 둘째 판(`--color-surface-2`) 위에서도 잰다(부관 말풍선, 처리할 일 분류 이름). 136쌍 → 148쌍, 모두 통과(최저 글자 5.29).
@@ -34,14 +34,14 @@
 ## 정한 것 (ADR 37·계획서가 정하지 않은 것)
 1. 템플릿의 머리: 머리가 된 카드는 격자에서 빼고, 편집 목록에는 "맨 위 고정"으로만 보인다(옮기기·빼기 없음). 조합·처리함·도시 = 처리할 일, 타임라인 = 처리할 일 + 다가올 일, 브리핑 = 처리할 일 + 부관 보고. 격자 템플릿은 머리가 없고, 저장 목록에 처리할 일이 없으면 맨 앞에 기본 크기(2×1)로 넣어 그린다(저장값은 그대로).
 2. 처리할 일 카드는 뺄 수 없다(D-6001 "처리할 일 먼저"의 기술 해석).
-3. 도시 템플릿은 도시 판(약 180px)이 처리할 일 위에 있다. 처리할 일 칸은 390×844에서 첫 화면 안이다(위에서 470~578px, 지금 앱의 위 띠 기준). 거점이 생기면 건물 위의 할 일이 맨 위가 된다(그 시스템 몫).
+3. (바뀜, 검토 반영) 도시 템플릿은 처리할 일 판이 먼저이고 그 아래가 도시 판이다. 거점이 생기면 건물 위의 할 일이 맨 위가 된다(그 시스템 몫).
 4. 줄 수: 조합 위 고정·도시 6줄, 처리할 일·다가올 일 카드 2×1 3줄·2×2 6줄, 처리함 템플릿 30줄. 넘는 것은 "처리함에서 n개 더 보기"다. 서버 순서(ADR 37 7절: 분류 순위 → 마감 → 처음 생긴 시각, 마감 없음은 그 분류의 끝)는 바꾸지 않는다.
-5. 마감 글자: 남은 시간이 아니라 시각으로 쓴다("오후 8:30까지", "Due Fri 9:00 PM"). 화면을 켜 둔 채 시간이 지나도 글자가 틀리지 않아서 다시 그리는 타이머가 필요 없다. 오늘이면 시각, 6일 안이면 요일, 같은 해면 날짜, 다른 해면 연도까지 쓴다. 서버 시각은 `serverLink.clockOffsetMs()`로 기기 시각으로 옮긴다.
+5. (바뀜, 검토 반영) 마감 글자는 W3 `formatDue`(남은 시간을 내려 씀: "2시간 후 마감", 1분 안이면 "1분 안에 마감", "마감 지남")다. 처리함 화면과 글이 같아야 해서다. 처음에는 시각으로 썼다("오후 8:30까지"). `<time dateTime>`은 서버 시각을 `serverLink.clockOffsetMs()`로 기기 시각으로 옮긴다.
 6. 처리할 일 수는 완료를 뺀 수다(종 배지와 같다).
 7. 편집: 끌다가 Esc를 누르면 끌기만 되돌리고 시트는 열어 둔다. `pointercancel`도 되돌린다. 바탕을 누르면 닫힌다. 손잡이는 44px, 시트 가장자리 48px 안이면 한 프레임에 12px씩 넘긴다. 좁은 폭(37.5em 미만)은 아래에 붙는 시트, 넓으면 가운데(최대 560px)다.
-8. 시안 자료 켜기는 탭 단위(`sessionStorage`)다. 켠 채로 잊지 않게 하려는 것이다. 시안 자료의 바로 처리 단추는 명령을 보내지 않고 "시험 자료라 명령을 보내지 않았습니다"를 알린다.
+8. (바뀜, 검토 반영) 시안 자료 켜기는 W3 `terra.preview`(켠 계정 id, `localStorage`) 하나를 홈·처리함·종 배지·복귀 요약이 함께 쓴다. 처음에는 탭 단위(`sessionStorage`)였다. 시안 자료의 바로 처리 단추는 명령을 보내지 않고 누른 줄 바로 아래에 "시험 자료라서 명령을 보내지 않았습니다."를 알린다. 실제 항목에는 명령을 보낼 길이 생길 때까지 단추가 없다.
 9. dev·admin 머리에 템플릿 이름("템플릿 · 조합")을, 주소로 볼 때는 "주소로 봄 · 저장 안 함"을 보인다. 주소로 볼 때 편집 시트의 템플릿 칸은 저장값을 고른 채 안내를 붙인다. 모르는 `?template=` 값이면 저장값이다.
-10. 격자: 줄 높이는 `minmax(var(--card-row), auto)`다(글을 자르지 않는다). 64em 이상은 열의 가장 좁은 너비가 `--card-min-wide`다(본문 1120px이면 6열).
+10. 격자: 줄 높이는 `minmax(var(--card-row), auto)`다(글을 자르지 않는다). 64em 이상은 열의 가장 좁은 너비가 `--card-min-wide`다. (바뀜, 검토 반영) `auto-fit`이라 카드가 다 채우지 못한 빈 열은 접힌다.
 11. 다시 받기: 앱을 켠 뒤 처음 맺은 연결로는 다시 받지 않는다(홈을 열 때 이미 받는다).
 12. 영어 문구: "Coming Soon"(준비 중), "Pinned to top"(맨 위 고정), "Reset Cards"(카드 기본값으로), "Past due {time}", "{count} more in Inbox".
 
@@ -103,22 +103,13 @@
 | `docs/worklog/2026/10/29-2300-app-shell-w4-home.md`, `docs/WORKLOG.md` | 이 기록, 목차(`pnpm docs:index`) |
 
 ## 함께 바꿔야 하는 파일 (꽂는 줄)
-- W1(화면 틀)
-  - `shell/routeViews.tsx`의 `/` 한 줄: `const HomeScreen = lazy(() => import("../home/HomeScreen.tsx"));`, 홈 줄은 `<HomeScreen monitor={monitor} search={match.search} />`(`search.template`은 `string | undefined`). 홈 조각은 지금 화면이 홈일 때만 바로 받는다(ADR 37 11절).
-  - 틀이 `<main>`·위 띠·하단 탭과 넓은 본문(`--content-max-wide`)을 그린다. 홈은 `section.screen.home`부터 그린다. 앱 안에서 옮겨 오면 `#home-title`에 초점을 둔다.
-  - `home/shellParts.tsx`는 몸만 바꾼다: `HomeLink` → `<AppLink>`, `DiagnosticsBody` → `<DiagnosticsPanel status={useConnectionStatus()} monitor={monitor} />`, `useOverlayEntry(open, onClose)` → 라우터 겹침 도우미(편집 시트를 열 때 기록 한 칸, 뒤로 → 닫힘).
-  - `home/cards/icons.tsx`의 분류 아이콘(`CategoryIcon`)과 틀과 겹치는 아이콘은 `ui/icons.tsx`로 옮기고 가져오는 곳을 바꾼다.
-- W2(설정 넓히기): `home/homeSettings.ts`의 두 함수 몸을 `useStoredHome()` → `return useSettings().device.home;`, `patchHome(patch)` → `chooseHome(mergeHome(getSettingsSnapshot().device.home, patch));`로 바꾼다. 임시 열쇠 `terra.home.settings.tmp`와 저장 코드는 지운다(값은 옮기지 않는다).
-- W3(처리할 일·복귀 요약)
-  - `home/useHomeData.ts`의 `homeSource`: 처리할 일은 `inbox/store.ts`(위 띠 배지와 같은 저장소), 카드·요약은 `api.dashboard.cards.query(request)`·`api.summary.get.query(request)`(같은 틱 → 묶음 1번). 그 뒤 `home/source/tempSource.ts`·`previewSample.ts`를 지운다(시안 자료는 서버 `apps/server/src/inbox/preview.ts`가 만든다).
-  - `home/itemText.ts`의 `itemTitle`·`actionLabel`·`summaryLine` 몸 → `inbox/inboxText.ts`. `KIND_TEXT`·`ACTION_TEXT`·`SUMMARY_TEXT`, 메시지 키 `home_tmp_*` 19개, `homeMessages.test.ts`의 [임시] 시험을 지운다.
-  - `HomeScreen.tsx` `onQuickAction`: 시안 자료가 아니면 `inbox/quickActions.ts`로 보내고(WebSocket `inbox_action`), 결과를 받으면 `refresh()`.
-- W5(시험 틀): 합쳐진 뒤 이번 확인(편집·역할·주소 템플릿·초점 순서·빈 상태·사진)을 `e2e/home.spec.ts`로 옮긴다.
+- (바뀜) 처음 이 자리에 적은 꽂는 줄은 W1·W3 실제 이름과 어긋났다(`useConnectionStatus()`를 그대로 넘김, 홈 받는 값 `{ monitor, search }`, W3 저장소 대신 직접 조회 등). 맞는 꽂는 줄은 `30-0150-app-shell-w4-review.md` "함께 바꿔야 하는 파일"에 있다(합친 리허설에서 걸고 확인한 그대로).
+- W5(시험 틀): main에 합쳐졌다. W4를 합친 뒤 이번 확인(편집·역할·주소 템플릿·초점 순서·빈 상태·사진)을 `e2e/home.spec.ts`로 옮긴다.
 - 카드 크기·기본값을 바꾸면 `packages/shared/src/dashboard.ts`와 그 시험, `homeView.ts`의 머리 표(`HERO_CARDS`)를 함께 본다.
 - 템플릿을 더하면 `HomeScreen.tsx` `LAZY_TEMPLATES`, `homeView.ts` `HERO_CARDS`, `templateText.ts`, 0단계 `template_*` 키를 함께 고친다.
 
 ## 건드리지 말 것
-- 홈 파일이 W1·W2·W3 모듈을 가져오는 곳은 `shellParts.tsx`·`homeSettings.ts`·`useHomeData.ts`·`itemText.ts`·`HomeScreen.tsx`의 `onQuickAction` 다섯 곳뿐이다. 다른 홈 파일에서 직접 가져오지 않는다(꽂는 곳을 모아 둔다).
+- (바뀜) 홈 파일이 W1·W2·W3 모듈을 가져오는 곳은 자리 파일 셋(`shellParts.tsx`·`homeSettings.ts`·`inboxParts.ts`)뿐이다. 다른 홈 파일에서 직접 가져오지 않는다(꽂는 곳을 모아 둔다). 처음에 적은 "다섯 곳"은 맞지 않았다(그 무렵에도 `HomeScreen.tsx`·`TodoList.tsx` 등이 시안 자료 스위치·문구를 따로 가져왔다).
 - 격자에 `grid-auto-flow: dense`·`order`를 쓰지 않는다(DOM 순서 = 보이는 순서 = 초점 순서, ADR 37 6절).
 - 시안 자료에 서버 카드 4장의 수를 넣지 않는다(사용자 결정 2).
 - 시안 자료 표를 홈 조각에 정적으로 가져오지 않는다(플레이어 묶음에 들어간다).
@@ -126,10 +117,10 @@
 
 ## 미검증·TODO·알려진 문제
 - 통과 기준 2 "다른 기기에도 남는다": W2 전이라 미실행이다. 지금은 이 기기의 `localStorage`에만 남는다(새로고침 뒤 남는 것은 Verified).
-- 통과 기준 2 "뒤로로 닫는다": W1 라우터 전이라 뒤로로 닫히지 않는다(`useOverlayEntry`가 비어 있다). Esc·닫기·바탕 누르기로는 닫히고 값이 남는다(Verified).
-- 통과 기준 6 "홈을 열 때 새 요청은 묶음 1번": 진짜 출처가 없어 HTTP로 재지 못했다(미실행). 같은 틱에 조회를 한 번씩 부르는 것은 단위 시험으로 확인했다(Verified). `httpBatchLink`가 하나로 묶는지는 W3 뒤에 본다.
+- 통과 기준 2 "뒤로로 닫는다": 이 가지만으로는 W1 라우터가 없어 뒤로로 닫히지 않는다. W1과 합친 리허설에서 꽂는 줄을 걸면 뒤로로 닫히고 초점이 [편집]으로 돌아온다(Verified, 검토 기록). Esc·닫기·바탕 누르기로는 닫히고 값이 남는다(Verified).
+- 통과 기준 6 "홈을 열 때 새 요청은 묶음 1번": 합친 리허설에서 쟀다(검토 기록). 앱 안에서 홈을 다시 열면 한 요청(`inbox.list,dashboard.cards`)이고, 앱을 켤 때는 처리할 일·복귀 요약이 먼저 나가서 `dashboard.cards`가 한 요청 더다(Verified).
 - 계획대로 통과 기준 1·2·6은 W1·W2·W3이 모두 합쳐진 뒤 다시 본다.
-- 격자 템플릿의 처리할 일 카드(기본 2×1, 3줄)는 서버 순서의 앞 3줄만 보인다. 시안 자료에서는 마감 있는 위협 2개·돈 1개가 앞서서, 마감 없는 항목은 "처리함에서 5개 더 보기" 뒤에 있다(Verified). 템플릿이 마감 없는 항목을 빼지는 않는다. 카드를 2×2(6줄)로 키우면 보인다(Assumed: 같은 목록 부품, 실행하지 않음). 줄 하나를 마감 없는 항목에 남길지는 기획 판단(D-6005 해석)이라 바꾸지 않았다.
+- 격자 템플릿의 처리할 일 카드(기본 2×1, 3줄)는 서버 순서의 앞 3줄만 보인다. (바뀜, 검토 반영) 가린 줄은 "처리함에서 n개 더 보기" 아래 분류별 수(예: 멈춤 1·완료 1)로 보인다. 줄 순서는 바꾸지 않았다(기획 판단, D-6005 해석).
 - 읽기 프로그램(VoiceOver·TalkBack)으로 듣지 않았다(Unknown). 알림 영역 글자와 단추 이름은 Playwright로 확인했다.
 - `::backdrop` 어두운 바탕: 사용자 정의 속성을 물려받는 것은 Chrome 122·Safari 17.4·Firefox 120부터라 그 전 판에서는 바탕이 어두워지지 않는다(Assumed, 확인하지 않음). 시트는 그대로 쓸 수 있다.
 - 큰 글자(뿌리 글자 32px): `--card-min`이 px라 글자를 키워도 열이 넓어지지 않아 1×1 카드 글줄이 짧다(넘침은 없다, Verified). em으로 바꿀지는 W1과 함께 본다.

@@ -129,26 +129,38 @@
 - S2가 끝나면 측정 수치와 결론을 이 ADR에 더하고 확정한다.
 
 ## 구현하며 정한 것 (셰이더 측정)
-2026-10-29 셰이더 측정판(작업 기록 `2026/10/29-1210-s2-webgpu-bench.md`, 조사 `docs/research/2026-10-29-webgpu-vs-webgl2.md`). 상태는 제안 그대로다. 셰이더 언어는 휴대폰 값을 본 뒤 사용자가 정한다.
+2026-10-29 셰이더 측정판(작업 기록 `2026/10/29-1210-s2-webgpu-bench.md`, 리뷰 반영 `2026/10/29-1505-s2-webgpu-bench-review.md`, 조사 `docs/research/2026-10-29-webgpu-vs-webgl2.md`). 상태는 제안 그대로다. 셰이더 언어는 휴대폰 값을 본 뒤 사용자가 정한다.
 
 ### 측정판
-- 관리자 화면 아래 "셰이더 측정 (S2)". [측정 시작]을 누를 때만 측정 코드(`three`·`three/webgpu`·`three/tsl`)를 받는다(지연 조각). 서비스 워커 미리 캐시에서 뺐고(`assets/gpuBench*.js`), `check-pwa`가 막는다. 결과는 표와 복사할 요약 글이다. 서버로 보내지 않는다.
+- 관리자 화면 아래 "셰이더 측정 (S2)". [측정 시작]을 누를 때만 측정 코드(`three`·`three/webgpu`·`three/tsl`)를 받는다(지연 조각). 측정 조각은 서비스 워커 미리 캐시에서 뺐고(`assets/gpuBench*.js`), `check-pwa`가 막는다. 결과는 표와 복사할 요약 글이다. 서버로 보내지 않는다.
 - 방식 3개: WebGL2 + GLSL(`WebGLRenderer` + `ShaderMaterial`), WebGPU + TSL(`WebGPURenderer`), WebGL2 + TSL(`forceWebGL`). WebGPU가 없으면 three가 WebGL2로 바꾼다. 판은 "WebGL2로 바뀜"으로 적고 뒤의 WebGPU 측정은 건너뛴다.
-- 일감: 33×33 정점 타일(치마 포함 정점 1,221개·삼각형 2,304개, 인덱스 공유, 정점 색, 셰이더 빛) 40·160·320개 + 바다 구. 타일 원점은 메시 위치(카메라 기준 좌표와 같은 꼴). 카메라는 12초에 한 바퀴, 반지름 1.75~4.25배를 오간다. 몸풀기 1초 + 재기 6초. 픽셀 비율 상한은 엔진과 같다.
-- 잰 값: 받기·초기화·장면·컴파일·첫 프레임, 프레임 간격 p50·p95, `render()` CPU 시간, GPU 완료 시간(WebGL2 fence, WebGPU `onSubmittedWorkDone`)과 GPU 완료/초, 그리기 수, JS 힙, 받은 JS 크기(전송/원본). GPU 완료 알림이 하나도 안 오면 "실패"다(헤드리스 WebGPU가 그렇다).
+- 일감: 33×33 정점 타일(치마 포함 정점 1,221개·삼각형 2,304개, 인덱스 공유, 정점 색, 셰이더 빛) 40·160·320개 + 바다 구. 타일 원점은 메시 위치(카메라 기준 좌표). 카메라는 12초에 한 바퀴, 반지름 1.75~4.25배를 오간다. 몸풀기 1초 + 재기 6초. 픽셀 비율 상한은 엔진과 같다.
+- 같은 일을 재게 한 것(리뷰 반영)
+  - TSL 두 방식은 `renderer.highPrecision = true`로 모델뷰를 CPU에서 64비트로 곱한다(이 ADR의 카메라 기준 좌표 규칙). three 기본은 셰이더에서 32비트로 곱한다.
+  - 컴파일은 재질마다 물체 하나(첫 타일 + 바다)로 한다. WebGL은 링크 확인까지 컴파일 단계에서 끝낸다(`getUniforms()`). 나머지 타일은 그 뒤 넣는다. 비교는 "컴파일 + 첫 그리기"로 한다(버퍼 올리기 단계가 렌더러마다 달라서).
+  - 방식 순서는 타일 수마다 한 칸씩 돌린다. 그 API를 처음 켠 줄에 `first_use`, WebGPU 호환 모드라 MSAA가 꺼진 줄에 `no_msaa`를 붙인다. 첫 어댑터 요청 시간을 따로 적는다.
+  - GPU 완료 지연은 두 API 모두 프레임 시작에서 확인한다(프레임 단위로 올린 값). API끼리는 GPU 완료/초로 비교한다.
+  - 어댑터 확인·초기화·컴파일·첫 프레임 기다림은 시간 상한과 [멈춤]으로 그만두고, 늦게 생긴 렌더러는 버린다.
+- 잰 값: 받기·초기화·장면·컴파일·첫 그리기·첫 프레임, 프레임 간격 p50·p95, `render()` CPU 시간, GPU 완료 지연과 GPU 완료/초, 그리기 수, JS 힙, 받은 JS 크기(전송/원본). 준비 합계 = 초기화 + 장면 + 컴파일 + 첫 프레임(받기 뺌). GPU 완료 알림이 하나도 안 오면 "실패"다(헤드리스 WebGPU가 그렇다).
 - `apps/game`이 `three` 0.186.1과 `@types/three` 0.186.0을 직접 적는다. 엔진과 같은 판이라 새 꾸러미는 없다(잠금 파일은 링크만 바뀜). 엔진과 판을 함께 올린다.
 
 ### 헤드리스 결과와 권고 (휴대폰 값이 아니다)
-- 화면 있는 Chromium 153 + SwiftShader(두 API 모두), 390×844 → 그리기 585×1266, MSAA 4, 4번 실행.
-- GPU 쪽은 세 방식이 오차 안에서 같다(GPU 완료/초 ≈ fps, 소프트웨어 GPU가 병목). 실행마다 fps가 약 2배까지 흔들렸다.
-- TSL 컴파일은 GLSL의 약 5~8배(중앙값 15~21ms 대 72~160ms), `render()` CPU 시간은 약 2배(160타일 1.1ms 대 2.2~2.7ms)다. 준비 합계는 세 방식 모두 100~200ms대다.
+- 화면 있는 Chromium 153 + SwiftShader(두 API 모두), 390×844 → 그리기 585×1266, MSAA 4, 6번 실행(고친 측정판).
+- 셰이더 준비는 비슷하다: 컴파일 + 첫 그리기 중앙값 65~169ms, 순위가 타일 수마다 바뀐다. 앞 판의 "TSL 컴파일 5~8배"는 측정 방법 탓이었다(GLSL의 링크 확인·버퍼 올리기가 첫 그리기에 있었다).
+- `render()` CPU 시간은 TSL이 약 2.5~3배다(160타일 1.2ms 대 2.9~3.1ms, 320타일 2.2ms 대 6.3~6.6ms, 둘 다 카메라 기준 좌표를 지킨 조건).
+- GPU 쪽은 세 방식이 오차 안에서 같다(GPU 완료/초 ≈ fps, 소프트웨어 GPU가 병목). 초기화 비교는 순서·데움에 따라 달라 근거로 쓰지 않는다.
 - 묶음: 같은 일을 하는 코드가 gzip 130.5KB 대 241.1KB(+110.6KB, brotli +85.3KB).
-- 권고: 지금은 WebGL2 + GLSL 유지(이 ADR의 렌더러 계획 그대로). 가까운 판단이라 휴대폰 값으로 사용자가 정한다. 휴대폰에서 잴 것과 다시 볼 조건은 조사 문서 6·7장.
+- 권고: 지금은 WebGL2 + GLSL 유지(이 ADR의 렌더러 계획 그대로). 헤드리스로는 이쪽이 더 분명해졌지만 GPU 쪽은 휴대폰에서만 알 수 있어, 휴대폰 값이 나오기 전까지 가까운 판단으로 두고 사용자가 정한다. 휴대폰에서 잴 것과 다시 볼 조건은 조사 문서 6·7장.
 
 ### WebGPU를 고르면 (렌더러 하나라 S1 엔진도 옮긴다)
 - `render/sharedRenderer.ts`(비동기 `init()`, 장치 잃음), `secondMapEngine.ts`(`webglcontextlost` 대신 `onDeviceLost`, three가 되살리지 않음), `units/unitMaterials.ts`(GLSL `ShaderMaterial` 2개 → TSL), `units/unitView.ts`(WebGPU는 1px 점만 → 아이콘을 `Sprite` + 인스턴싱으로).
+- 카메라 기준 좌표: 전역 `renderer.highPrecision`은 three 설명에 `InstancedMesh`·`SkinnedMesh`와 함께 못 쓴다고 되어 있고, S1 엔진의 유닛(`units/unitView.ts`)·건물(`buildings/buildingView.ts`)이 `InstancedMesh`를 쓴다. 그래서 행성 타일·바다 재질마다 `material.contextNode = context({ modelViewMatrix: highpModelViewMatrix, modelNormalViewMatrix: highpModelNormalViewMatrix })`로 켠다(셰이더 글로 확인함, `InstancedMesh`와 함께 그려 보지는 않음).
+- `compileAsync`는 재질마다 대표 물체 하나로 부른다(three가 물체마다 쉬어 가고, 사파리에는 `scheduler.yield`가 없어 한 프레임씩 기다린다).
 - 이 ADR 렌더러의 `ShaderMaterial`·`onBeforeCompile`도 TSL로 바꾼다. troika-three-text(지도 라벨)는 `onBeforeCompile`을 써서 `WebGPURenderer`에서 못 쓴다.
 
 ### 측정판이 남기는 것
-- 같은 빌드에 TSL 길이 있어 `three.core` 공용 조각이 두 길의 합이 된다. 2차맵 화면이 +32KB(gzip +7.5KB) 더 받는다(Verified: TSL 길을 뺀 실험 빌드). 첫 화면 묶음은 그대로다(368.17KB, 측정 코드 없음).
-- 결정이 나면 측정판(`apps/game/src/admin/gpuBench/`, `GpuBenchPanel.tsx`, 문구 `gpu_bench_*`, `vite.config.ts`의 `globIgnores` 줄)을 지운다. 그때 위 +32KB도 사라진다. `apps/game`에서 `three`를 직접 쓰는 곳은 측정판뿐이라 `three`·`@types/three` 표기도 함께 뺀다.
+- 서비스 워커 미리 캐시가 커진다: main 1,035.94KiB → 1,088.62KiB(+52.7KiB, gzip 약 +14.6KB). 모든 사용자가 서비스 워커를 설치·갱신할 때 받는다(2차맵을 열지 않아도).
+  - 2차맵 화면 +33.2KB: 같은 빌드에 TSL 길이 있어 `three.core` 공용 조각이 두 길의 합이 된다(Verified: TSL 길을 뺀 실험 빌드).
+  - 관리자 조각 +17.3KB(측정판 화면·문구), CSS +3.7KB.
+  - 첫 화면 묶음은 그대로다(368,176B, 측정 코드 없음).
+- 결정이 나면 측정판(`apps/game/src/admin/gpuBench/`, `GpuBenchPanel.tsx`, 문구 `gpu_bench_*`, `vite.config.ts`의 `globIgnores` 줄)을 지운다. 그때 위 증가분도 사라진다. `apps/game`에서 `three`를 직접 쓰는 곳은 측정판뿐이라 `three`·`@types/three` 표기도 함께 뺀다.

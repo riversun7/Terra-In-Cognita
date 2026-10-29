@@ -2,6 +2,7 @@
 // - 카드 더하기·빼기, ↑·↓·맨 위로, 크기 고르기, 손잡이로 끌어 옮기기(보조). 템플릿 칸·시안 자료 켜기는 dev·admin만(사용자 결정 2).
 //   시안 자료 스위치는 처리함·종 배지·복귀 요약과 같은 하나다(inboxParts.ts setPreviewOn, W3 inbox/preview.ts).
 // - 바꿀 때마다 바로 저장한다(homeSettings.ts의 patchHome). 그래서 닫기·Esc·뒤로로 닫아도 잃는 것이 없다. 되돌리기는 [카드 기본값으로].
+//   저장하지 못하면(계정 설정 상한 4KB 넘음 등, W2 chooseHome의 false) 아무것도 바꾸지 않고 시트 위에 오류를 보인다.
 // - 알림 영역(polite)이 결과를 읽는다("7개 중 3번째로 옮겼습니다"). 옮긴 뒤에도 누른 단추에 초점이 남는다(줄이 DOM에서 옮겨져도).
 // - 머리 카드(조합의 처리할 일 등)는 "맨 위 고정"으로만 보인다. 처리할 일 카드는 뺄 수 없다(homeView.ts isRemovable).
 // - 이 기기가 모르는 카드(더 새 버전)는 보이지 않지만 제자리에 남는다(reorder.ts).
@@ -15,11 +16,13 @@ import {
   HOME_CARDS_MAX,
   HOME_TEMPLATES,
   type HomeCardEntry,
+  type HomePatch,
   type HomeTemplate,
   isCardId,
 } from "@terra/shared/dashboard";
 import { type MouseEvent, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { m } from "../../paraglide/messages.js";
+import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
 import { cardTitle } from "../cards/registry.tsx";
 import {
   ArrowDownIcon,
@@ -159,6 +162,17 @@ export default function EditSheet({
     setAnnouncement((previous) => ({ text, version: previous.version + 1 }));
   };
 
+  /** 저장하지 못했을 때의 오류(그때는 바꾸지 않았다). 다음에 저장하면 지운다 */
+  const saveFailure = useLiveLines();
+  const save = (patch: HomePatch): boolean => {
+    if (patchHome(patch)) {
+      saveFailure.clear();
+      return true;
+    }
+    saveFailure.show([m.home_edit_save_failed()]);
+    return false;
+  };
+
   // 처음 그려지면 모달로 연다(초점이 시트 안에 갇힌다). 화면에서 내려가면 DOM에서 빠지며 저절로 닫힌다
   // (여기서 close()를 부르지 않는다: 개발 모드의 효과 두 번 돌리기에서 close 알림이 늦게 와 시트가 바로 닫힌다)
   useLayoutEffect(() => {
@@ -190,15 +204,14 @@ export default function EditSheet({
     undoable = false,
   ): boolean => {
     if (change === null) return false;
-    if (change.cards !== cards) patchHome({ cards: change.cards });
+    if (change.cards !== cards && !save({ cards: change.cards })) return false;
     setUndo(undoable && change.cards !== cards ? cards : null);
     announce(message(change));
     return true;
   };
 
   const undoLast = (): void => {
-    if (undo === null) return;
-    patchHome({ cards: undo });
+    if (undo === null || !save({ cards: undo })) return;
     setUndo(null);
     announce(m.home_edit_undone());
     // 누른 단추가 사라지므로 시트 제목으로 초점을 옮긴다(시트 밖으로 빠지지 않게)
@@ -251,8 +264,7 @@ export default function EditSheet({
   };
 
   const pickTemplate = (next: HomeTemplate): void => {
-    if (next === savedTemplate) return;
-    patchHome({ template: next });
+    if (next === savedTemplate || !save({ template: next })) return;
     setUndo(null);
     announce(m.home_edit_template_done({ name: templateName(next) }));
   };
@@ -299,6 +311,7 @@ export default function EditSheet({
         <p id={noteId} className="sheet-hint">
           {m.home_edit_saved_note()}
         </p>
+        <LiveMessage tone="error" lines={saveFailure.lines} version={saveFailure.version} />
 
         {tools ? (
           <fieldset className="sheet-section">

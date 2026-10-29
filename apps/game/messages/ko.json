@@ -66,6 +66,7 @@
   "home_edit_template_done": "템플릿: {name}",
   "home_edit_undo": "실행 취소",
   "home_edit_undone": "실행 취소했습니다.",
+  "home_edit_save_failed": "홈 설정을 저장하지 못해 바꾸지 않았습니다.",
   "home_tmp_kind_wave_incoming": "웨이브가 다가옵니다",
   "home_tmp_kind_siege_declared": "공성 선포",
   "home_tmp_kind_goods_spoiling": "곧 썩는 물건 {count}",

@@ -50,6 +50,9 @@ importers:
       '@terra/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      '@terra/planet':
+        specifier: workspace:*
+        version: link:../../packages/planet
       '@terra/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

@@ -1,7 +1,7 @@
 // 1차맵 누른 칸 문구 시험 — 바다·땅·물 비트를 문장으로(기본 언어 한국어)
 import type { PickedCell } from "@terra/engine/planet";
 import { describe, expect, it } from "vitest";
-import { cellLines, seaName, waterNames } from "./planetText.ts";
+import { cellLines, planetFailureText, seaName, waterNames } from "./planetText.ts";
 
 const base: PickedCell = {
   face: 2,
@@ -43,5 +43,17 @@ describe("1차맵 누른 칸 문구", () => {
     expect(cellLines({ ...base, water: 4 | 8, biome: 99 }, () => null)[1]).toBe(
       "바이옴 99 · 높이 120m · 강 · 해안",
     );
+  });
+});
+
+describe("1차맵 받기 실패 문구", () => {
+  it("이유마다 문장이 있다(로그인·판 바뀜·읽지 못함·요청 많음)", () => {
+    expect(planetFailureText("sign_in")).toBe("로그인이 필요합니다.");
+    expect(planetFailureText("not_found")).toBe("행성이 없거나 새로 만들어졌습니다. 다시 시도해 주세요.");
+    expect(planetFailureText("invalid")).toContain("앱을 새로 고친");
+    expect(planetFailureText("rate_limited")).toContain("요청이 너무 많습니다");
+    for (const reason of ["network", "generating", "server"] as const) {
+      expect(planetFailureText(reason).length).toBeGreaterThan(5);
+    }
   });
 });

@@ -1,7 +1,32 @@
-// 1차맵 시험 화면 문구 — 누른 칸(PickedCell)을 지금 언어의 문장으로. 1차맵 조각에만 들어간다.
-// 바이옴 이름은 화면 문구가 아니라 자료(행성 범례, 지금은 [임시] 가짜 행성 표)라 부르는 쪽이 넘긴다.
+// 1차맵 시험 화면 문구 — 누른 칸(PickedCell)과 행성 받기 실패 이유를 지금 언어의 문장으로. 1차맵 조각에만 들어간다.
+// 바이옴 이름은 화면 문구가 아니라 자료(서버 목록 정보의 바이옴 범례, ko·en)라 부르는 쪽이 넘긴다.
 import { type PickedCell, WATER_BITS, waterDepthClass } from "@terra/engine/planet";
 import { m } from "../paraglide/messages.js";
+import type { PlanetFailure } from "./planetSource.ts";
+
+/** 행성 받기 실패 이유 → 문장 */
+export function planetFailureText(reason: PlanetFailure): string {
+  switch (reason) {
+    case "network":
+      return m.err_network();
+    case "sign_in":
+      return m.map_code_sign_in_required();
+    case "not_found":
+      return m.planet_not_found();
+    case "rate_limited":
+      return m.map_code_rate_limited();
+    case "generating":
+      return m.planet_busy_generating();
+    case "server":
+      return m.err_server();
+    case "invalid":
+      return m.planet_invalid();
+    default: {
+      const unhandled: never = reason;
+      return unhandled;
+    }
+  }
+}
 
 /** 바다 칸의 수심 등급 이름(물 비트 4~5: 1 연안, 2 대륙붕, 3 심해, 0 모름) */
 export function seaName(water: number): string {

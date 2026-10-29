@@ -214,7 +214,14 @@
   "planet_perf_tiles": "Tiles {drawn}/{budget} · loaded {loaded} · pending {pending}",
   "planet_perf_gpu": "Draws {calls} · triangles {tris}k · GPU {mb} MB",
   "planet_perf_hits": "Budget hits: tiles {tiles} · fetches {fetches} · uploads {uploads} · memory {memory}",
-  "planet_perf_first": "First display {ms} ms · synthetic planet [temporary]",
+  "planet_perf_first": "First display {ms} ms",
   "planet_tile_errors": "{count} tiles failed — retrying soon.",
-  "planet_cell_sea": "{name} · depth {depth} m"
+  "planet_cell_sea": "{name} · depth {depth} m",
+  "planet_manifest_loading": "Loading planet info…",
+  "planet_generating": "The server is generating the planet. Checking again in {seconds} s.",
+  "planet_failed": "Couldn't load the planet.",
+  "planet_not_found": "The planet is missing or was regenerated. Please try again.",
+  "planet_invalid": "Couldn't read the planet data. Reload the app and open it again.",
+  "planet_busy_generating": "The server is generating the planet. Try again in a moment.",
+  "planet_tiles_outdated": "The planet was updated. Try again to load the new version."
 }

@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-29 16:00 | S2 렌더러 검토 반영: 치마 바닥, 큰 행성 고르기, 받기 시간 제한, 타일 메모리, 가장 높은 땅, 가짜 행성 ADR 규칙 | Claude Code | [29-1600-s2-renderer-review](worklog/2026/10/29-1600-s2-renderer-review.md) |
 | 2026-10-29 14:05 | NAS 행성 캐시 쓰기 실패(EACCES) 원인 찾기 | Claude Code | [29-1405-nas-planet-cache-permission](worklog/2026/10/29-1405-nas-planet-cache-permission.md) |
 | 2026-10-29 12:50 | S2 통합: 생성기·타일·서버·렌더러 합치기, 이음매 하나로, 실제 생성기 → 서버 굽기 → 타일 HTTP → 1차맵 화면 | Claude Code (작업 트리 `worktree-wf_cf86e8da-f84-1`, main `e16b47e`에서 시작) | [29-1250-s2-integration](worklog/2026/10/29-1250-s2-integration.md) |
 | 2026-10-29 11:30 | S2 렌더러: 1차맵 행성 LOD 엔진, 가짜 행성, 임시 1차맵 시험 화면 | Claude Code (서브에이전트, 작업 트리) | [29-1130-s2-renderer](worklog/2026/10/29-1130-s2-renderer.md) |

@@ -3,8 +3,7 @@
 // 검증 결과에서는 바이옴 참조가 ID 문자열이 아니라 참조 객체(ContentRef, `id` 필드)라 둘 다 받는다.
 import { OCEAN_DEPTH_CLASSES, PLANET_PRESET_AXES, isPlanetPresetLevel } from "@terra/shared";
 import type { OceanDepthClass, PlanetPresets, PlanetSettingKey, PlanetSettingOverrides } from "@terra/shared";
-import { PLANET_SETTING_KEYS } from "@terra/shared";
-import { resolvePlanetSettings } from "./presets.ts";
+import { PLANET_SETTING_KEYS, resolvePlanetSettings } from "@terra/shared";
 import type { BiomeRange, BiomeRule, PlanetBiome, PlanetGeneratorInput } from "./types.ts";
 
 type Json = Readonly<Record<string, unknown>>;

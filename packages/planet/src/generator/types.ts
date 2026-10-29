@@ -36,7 +36,8 @@ export interface PlanetBiome {
 /** 생성기 입력 = 풀어 쓴 행성 정의 */
 export interface PlanetGeneratorInput {
   /**
-   * 출력 해상도(면 레벨, 4~10): 면당 2^F × 2^F칸. 모양은 해상도와 무관하게 정해진다(길이는 모두 구 위 각도).
+   * 출력 해상도(면 레벨, @terra/shared PLANET_GENERATOR_FACE_LEVELS = 4~9): 면당 2^F × 2^F칸. 모양은 해상도와 무관하게
+   * 정해진다(길이는 모두 구 위 각도).
    * 그래서 편집기 미리보기는 같은 정의를 작은 면 레벨로 생성한다(ADR 36).
    */
   readonly faceLevel: number;

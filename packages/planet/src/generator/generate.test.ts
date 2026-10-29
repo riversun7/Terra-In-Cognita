@@ -1,6 +1,6 @@
 // 행성 생성기 시험 — 골든 해시(바뀌면 바로 잡는다), 결정성, 성질(해수면 비율·강은 내리막·바이옴 규칙·꼭짓점 바다),
 // 프리셋이 결과를 바꾸는 방향, 해상도가 달라도 큰 모양이 같은지, 콘텐츠 팩 행성이 생성되는지
-import type { PlanetPresets } from "@terra/shared";
+import { PLANET_GENERATOR_FACE_LEVELS, type PlanetPresets } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import biomesJson from "../../../../content/core/biomes.json";
 import planetsJson from "../../../../content/core/planets.json";
@@ -26,7 +26,9 @@ import {
   resolvePlanetSettings,
   runPlanetGenerator,
 } from "./index.ts";
-import { cornerCells } from "./seaLevel.ts";
+import { computeClimate } from "./climate.ts";
+import { classifyOcean, cornerCells } from "./seaLevel.ts";
+import { buildTectonics } from "./tectonics.ts";
 import { S2_TEST_PLANET_SEED, TEST_BIOMES } from "./testFixtures.ts";
 
 const input = (
@@ -115,22 +117,90 @@ function mean(values: ArrayLike<number>): number {
 const highest = (fields: PlanetFields) =>
   fields.elevationM.reduce((max, value) => Math.max(max, value), -32768);
 
+/** 육지(바다·호수가 아닌 칸) 면적으로 잰 바이옴 비율(바이옴 번호 순서)과 평균 습도·숲 밀도 */
+function landSummary(faceLevel: number, fields: PlanetFields) {
+  const grid = buildGrid(faceLevel);
+  const shares = new Float64Array(TEST_BIOMES.length);
+  let land = 0;
+  let humidity = 0;
+  let forest = 0;
+  for (let c = 0; c < grid.cellCount; c++) {
+    if ((fields.water[c] ?? 0) & (WATER_OCEAN | WATER_LAKE)) continue;
+    const area = areaOf(grid, c);
+    const biome = fields.biome[c] ?? 0;
+    land += area;
+    shares[biome] = (shares[biome] ?? 0) + area;
+    humidity += area * (fields.humidity[c] ?? 0);
+    forest += area * (fields.forest[c] ?? 0);
+  }
+  return {
+    shares: Array.from(shares, (value) => value / land),
+    humidity: humidity / land,
+    forest: forest / land,
+  };
+}
+
 describe("골든 해시 (값이 바뀌면 GENERATOR_VERSION을 올리고 새 값으로 고친다)", () => {
   it("생성기 버전", () => {
-    expect(GENERATOR_VERSION).toBe(1);
+    expect(GENERATOR_VERSION).toBe(2);
   });
 
-  // 2026-10-29 기록(Node 24.22.1). 결정성 규칙(사칙연산 + 명세가 정한 함수)상 다른 엔진에서도 같아야 한다
+  // 2026-10-29 기록(Node 24.22.1). 결정성 규칙(사칙연산 + 명세가 정한 함수)상 다른 엔진에서도 같아야 한다.
+  // 출력 판 2(강가·호숫가 가산을 면 레벨과 무관하게)에서 바꿨다
   it("면 레벨 5, 시드 1, 프리셋 군도·더움·습윤·젊음·많음·많음", () => {
-    expect(run(5, 1, STRESS_PRESETS).fields.meta.hash).toBe("52614b12");
+    expect(run(5, 1, STRESS_PRESETS).fields.meta.hash).toBe("005378e0");
   });
 
   it("S2 시험 행성 설정(시드 20261029, 모두 보통)을 면 레벨 5로", () => {
-    expect(run(5, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("3321d859");
+    expect(run(5, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("5c984c77");
   });
 
   it("S2 시험 행성 설정을 면 레벨 6으로", () => {
-    expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("e04b0413");
+    expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("215d9b32");
+  });
+});
+
+/** 64비트 실수의 비트(16진수 16자리) */
+function bitsOf(value: number): string {
+  const view = new DataView(new ArrayBuffer(8));
+  view.setFloat64(0, value);
+  return view.getBigUint64(0).toString(16).padStart(16, "0");
+}
+
+/** 실수 배열들의 FNV-1a 32비트: 값마다 작은 끝 바이트(64비트 배열은 8바이트, 32비트는 4바이트). 기기 바이트 순서와 무관 */
+function fingerprint(arrays: readonly (Float32Array | Float64Array)[]): string {
+  const view = new DataView(new ArrayBuffer(8));
+  let state = 0x811c9dc5;
+  for (const array of arrays) {
+    const width = array instanceof Float64Array ? 8 : 4;
+    for (const value of array) {
+      if (width === 8) view.setFloat64(0, value, true);
+      else view.setFloat32(0, value, true);
+      for (let k = 0; k < width; k++) state = Math.imul(state ^ view.getUint8(k), 0x01000193) >>> 0;
+    }
+  }
+  return state.toString(16).padStart(8, "0");
+}
+
+describe("실수 지문 (정수 필드로 반올림하기 전 값. 바뀌면 골든 해시처럼 GENERATOR_VERSION과 함께 고친다)", () => {
+  // 골든 해시는 정수 출력만 본다. 정수로 반올림하면 실수의 마지막 비트 차이는 대개 사라지므로(Float32 저장 포함),
+  // 64비트 값(격자·면적·해수면)은 마지막 비트까지, 32비트 중간 필드는 그 자릿수까지 여기서 고정한다
+  it("격자(칸 중심·면적 = 투영 detTan·detAtan)와 해수면의 64비트 값", () => {
+    const grid = buildGrid(5);
+    expect(fingerprint([grid.x, grid.y, grid.z, grid.faceArea])).toBe("5e2f5aef");
+    expect(bitsOf(run(5, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c0043675a19f9000");
+    expect(bitsOf(run(5, 1, STRESS_PRESETS).seaLevelRealM)).toBe("40623b91fc7d4620");
+    expect(bitsOf(run(6, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c013df62c611b000");
+  });
+
+  it("판 구조 고도·기온·강수(Float32 중간값, 면 레벨 5, S2 시험 행성 설정)", () => {
+    const grid = buildGrid(5);
+    const settings = resolvePlanetSettings(NORMAL_PRESETS);
+    const { elevation } = buildTectonics(grid, S2_TEST_PLANET_SEED, settings);
+    expect(fingerprint([elevation])).toBe("00edae93");
+    const { seaLevel, ocean } = classifyOcean(grid, elevation, settings.landPercent);
+    const climate = computeClimate(grid, elevation, seaLevel, ocean, settings);
+    expect(fingerprint([climate.temperature, climate.precipitation])).toBe("5e5ca05d");
   });
 });
 
@@ -260,6 +330,33 @@ describe("성질 (면 레벨 5·6)", () => {
     }
   });
 
+  it("호수 수면: 호수 칸만 값이 있고 바닥 이상이며, 한 호수는 평평하다(넘치는 곳의 저장 고도와 같다)", () => {
+    for (const [faceLevel, seed] of [
+      [5, S2_TEST_PLANET_SEED],
+      [6, S2_TEST_PLANET_SEED],
+      [5, 1],
+    ] as const) {
+      const { fields, receiver, basinKind, lakeSurfaceM } = run(faceLevel, seed);
+      const problems: string[] = [];
+      let lakes = 0;
+      for (let c = 0; c < lakeSurfaceM.length; c++) {
+        const surface = lakeSurfaceM[c] ?? 0;
+        if (basinKind[c] !== CELL_LAKE) {
+          if (surface !== 0) problems.push(`not a lake ${c}`);
+          continue;
+        }
+        lakes++;
+        if (surface < (fields.elevationM[c] ?? 0)) problems.push(`below bottom ${c}`);
+        // 호수 칸의 물길은 같은 호수 안 칸이거나, 호수 밖 넘치는 곳(그 칸의 저장 고도 = 수면)이다
+        const next = receiver[c] ?? -1;
+        const expected = basinKind[next] === CELL_LAKE ? lakeSurfaceM[next] : fields.elevationM[next];
+        if (next < 0 || surface !== expected) problems.push(`uneven ${c} → ${next}`);
+      }
+      expect(lakes, `호수 칸 수 F${faceLevel}`).toBeGreaterThan(0);
+      expect(problems.slice(0, 5)).toEqual([]);
+    }
+  });
+
   it("정육면체 꼭짓점 8곳의 칸(24칸)은 모두 바다다", () => {
     const corners = cornerCells(buildGrid(5));
     for (const seed of [S2_TEST_PLANET_SEED, 1, 2, 3]) {
@@ -347,12 +444,28 @@ describe("해상도와 무관한 큰 모양 (편집기 미리보기 = 낮은 면
     }
     expect(same / (6 * 32 * 32)).toBeGreaterThan(0.9);
   });
+
+  it("육지 바이옴 면적 비율은 면 레벨 6(미리보기)과 8에서 바이옴마다 2.5%p 안, 평균 습도 3%·숲 밀도 6% 안", {
+    timeout: 60_000,
+  }, () => {
+    // 2026-10-29 잰 값: 가장 큰 차이는 사바나 1.93%p, 습도 1.2%, 숲 3.5%. 사바나 차이는 강가 가산을 꺼도 1.9%p라
+    // 기후 쪽에서 온다(원인 미확인). 강가 가산이 칸 크기를 따라가던 때는 사바나 6.1%p·열대우림 5.4%p, 습도 7.6%,
+    // 숲 20%였다(surface.ts·riparian.ts).
+    const coarse = landSummary(6, run(6, S2_TEST_PLANET_SEED).fields);
+    const fine = landSummary(8, run(8, S2_TEST_PLANET_SEED).fields);
+    TEST_BIOMES.forEach((biome, index) => {
+      const difference = Math.abs((coarse.shares[index] ?? 0) - (fine.shares[index] ?? 0));
+      expect(difference, biome.id).toBeLessThan(0.025);
+    });
+    expect(Math.abs(coarse.humidity / fine.humidity - 1)).toBeLessThan(0.03);
+    expect(Math.abs(coarse.forest / fine.forest - 1)).toBeLessThan(0.06);
+  });
 });
 
 describe("입력 검사", () => {
-  it("면 레벨 4~10, u32 시드, 범위 안 설정, 바다·호수·육지 규칙이 있는 바이옴 표만 받는다", () => {
+  it("면 레벨 4~9, u32 시드, 범위 안 설정, 바다·호수·육지 규칙이 있는 바이옴 표만 받는다", () => {
     expect(() => generatePlanet(input(3, 1))).toThrow(RangeError);
-    expect(() => generatePlanet(input(11, 1))).toThrow(RangeError);
+    expect(() => generatePlanet(input(10, 1))).toThrow(RangeError);
     expect(() => generatePlanet({ ...input(4, 1), seed: -1 })).toThrow(RangeError);
     expect(() => generatePlanet({ ...input(4, 1), seed: 2 ** 32 })).toThrow(RangeError);
     const settings = { ...resolvePlanetSettings(NORMAL_PRESETS), landPercent: 99 };
@@ -379,6 +492,18 @@ describe("입력 검사", () => {
 });
 
 describe("콘텐츠 팩 행성 (content/core) — 정의가 생성기 입력이 되는지 (해시는 보지 않는다)", () => {
+  it("팩의 모든 행성: 생성기가 받는 면 레벨이고, 정의가 입력이 되어 면 레벨 4로 생성된다", () => {
+    // 콘텐츠 검사(스키마·행성 바이옴 표)가 놓친 조건이 있으면 서버 굽기보다 먼저 여기서 드러난다
+    const [minLevel, maxLevel] = PLANET_GENERATOR_FACE_LEVELS;
+    expect(planetsJson.entries.length).toBeGreaterThan(0);
+    for (const planet of planetsJson.entries) {
+      expect(planet.faceLevel, planet.id).toBeGreaterThanOrEqual(minLevel);
+      expect(planet.faceLevel, planet.id).toBeLessThanOrEqual(maxLevel);
+      const definition = planetInputFromDefinition(planet, biomesJson.entries, 4);
+      expect(generatePlanet(definition).meta.faceLevel, planet.id).toBe(4);
+    }
+  });
+
   it("S2 시험 행성: 시드·바이옴 표가 시험 자료와 같고, 낮은 면 레벨로 생성된다", () => {
     const planet = planetsJson.entries.find((entry) => entry.id === "s2_test_planet");
     expect(planet).toBeDefined();

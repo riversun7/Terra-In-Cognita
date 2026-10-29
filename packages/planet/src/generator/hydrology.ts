@@ -161,6 +161,12 @@ export const CELL_DRY = 3;
 export interface Rivers {
   /** 하천 등급(Strahler, 0 = 강 없음) */
   readonly order: Uint8Array;
+  /**
+   * 강 칸에서 강이 차지하는 길이 몫(0~1, 강이 아니면 0). 위에서 들어온 유량이 이미 문턱 이상이면 1이고, 이 칸에서
+   * 문턱을 넘으면 (유량 − 문턱) ÷ 이 칸 자신의 유출이다(강이 칸 중간에서 시작한다). 칸이 클수록 칸 하나의 유출만으로
+   * 문턱을 넘는 강 머리가 많아지므로, 강가 가산은 이 몫을 곱해 해상도와 무관하게 한다(surface.ts)
+   */
+  readonly length: Float32Array;
   /** 칸마다 CELL_OPEN·CELL_LAKE·CELL_FILLED·CELL_DRY. 메운 평지·마른 분지의 저장 고도 = 채운 높이 */
   readonly basinKind: Uint8Array;
 }
@@ -168,6 +174,7 @@ export interface Rivers {
 /**
  * 강·호수: 호수 = 넘치는 웅덩이의 물 아래 칸, 강 = 유량 문턱 이상인 땅 칸(호수·마른 분지 제외).
  * 강은 바다·호수·마른 분지에서 끝난다.
+ * @param runoff 칸마다 유출(mm/년, runoffOf) — 강 길이 몫(Rivers.length)을 구할 때 쓴다
  */
 export function findRivers(
   grid: PlanetGrid,
@@ -175,6 +182,7 @@ export function findRivers(
   elevation: Float32Array,
   balance: WaterBalance,
   ocean: Uint8Array,
+  runoff: Float32Array,
   riverDensityPercent: number,
 ): Rivers {
   const count = grid.cellCount;
@@ -189,21 +197,21 @@ export function findRivers(
   const threshold =
     riverDensityPercent > 0 ? (RIVER_THRESHOLD_KM3 * 100) / riverDensityPercent : Number.POSITIVE_INFINITY;
   const order = new Uint8Array(count);
+  const length = new Float32Array(count);
   const childMax = new Uint8Array(count);
   const childMaxCount = new Uint8Array(count);
   for (let k = orderLength - 1; k >= 0; k--) {
     const c = flowOrder[k] ?? 0;
     const kind = basinKind[c] ?? CELL_OPEN;
     let carried = 0;
-    if (
-      kind !== CELL_LAKE &&
-      kind !== CELL_DRY &&
-      ocean[c] !== 1 &&
-      (balance.discharge[c] ?? 0) >= threshold
-    ) {
+    const discharge = balance.discharge[c] ?? 0;
+    if (kind !== CELL_LAKE && kind !== CELL_DRY && ocean[c] !== 1 && discharge >= threshold) {
       const top = childMax[c] ?? 0;
       carried = top === 0 ? 1 : (childMaxCount[c] ?? 0) >= 2 ? Math.min(255, top + 1) : top;
       order[c] = carried;
+      // 이 칸 자신의 유출(km³/년). 들어온 유량(유량 − 자신)이 이미 문턱 이상이면 칸 전체가 강이다
+      const own = (runoff[c] ?? 0) * areaOf(grid, c) * KM3_PER_MM_SR;
+      length[c] = discharge - own >= threshold || own <= 0 ? 1 : Math.min(1, (discharge - threshold) / own);
     } else if (kind === CELL_LAKE) {
       // 호수를 지나는 강은 등급을 그대로 들고 나간다
       carried = childMax[c] ?? 0;
@@ -218,5 +226,5 @@ export function findRivers(
       childMaxCount[r] = Math.min(255, (childMaxCount[r] ?? 0) + 1);
     }
   }
-  return { order, basinKind };
+  return { order, length, basinKind };
 }

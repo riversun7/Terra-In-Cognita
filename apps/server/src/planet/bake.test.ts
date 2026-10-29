@@ -1,4 +1,4 @@
-// 행성 굽기 시험 — 콘텐츠 팩 행성 원본(생성기 1판), 정의 해시, 타일 덩어리(pack), 실제 워커 스레드(src/planet/bakeWorker.ts를 그대로 띄운다)
+// 행성 굽기 시험 — 콘텐츠 팩 행성 원본(생성기, 출력 판 = GENERATOR_VERSION), 정의 해시, 타일 덩어리(pack), 실제 워커 스레드(src/planet/bakeWorker.ts를 그대로 띄운다)
 import { gunzipSync } from "node:zlib";
 import { ID_PATTERN } from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
@@ -131,8 +131,8 @@ describe("콘텐츠 팩 행성 원본", () => {
     const spec = packTestPlanetSpec();
     const fields = await createPlanetSource({ ...spec, input: { ...spec.input, faceLevel: 5 } }).generate();
     expect(() => assertPlanetFields(fields)).not.toThrow();
-    // packages/planet generator/generate.test.ts "S2 시험 행성 설정" F5 골든 값
-    expect(fields.meta.hash).toBe("3321d859");
+    // packages/planet generator/generate.test.ts "S2 시험 행성 설정" F5 골든 값(출력 판 2)
+    expect(fields.meta.hash).toBe("5c984c77");
     expect(fields.meta).toMatchObject({
       generatorVersion: GENERATOR_VERSION,
       faceLevel: 5,

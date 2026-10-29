@@ -1,4 +1,9 @@
 {
+  // @terra/content(검사 스크립트 scripts/check-content.mjs가 빌드 없이 node로 바로 실행, 타입 지우기)와 행성 생성기
+  // 측정·그림 스크립트가 이 패키지를 가져온다. 그래서 지울 수 있는 문법만 쓴다: enum·namespace·생성자 매개변수 속성 금지.
   "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "erasableSyntaxOnly": true
+  },
   "include": ["src"]
 }

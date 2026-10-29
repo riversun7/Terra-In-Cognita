@@ -1,6 +1,6 @@
 // 행성 정의의 공용 어휘 — 콘텐츠 팩(@terra/content 스키마)과 생성기(@terra/planet/generator)가 함께 쓴다
 // (ADR 2026-10-29-s2-planet-lod "행성 정의"). 두 패키지는 서로를 가져올 수 없어서 이름·범위를 여기 한 곳에 둔다.
-// - 프리셋 축과 단계 이름(기획 D-154): 단계가 어떤 수치가 되는지는 생성기(PLANET_PRESET_VALUES)가 정한다.
+// - 프리셋 축과 단계 이름(기획 D-154): 단계가 어떤 수치가 되는지는 planetPresets.ts(PLANET_PRESET_VALUES)가 정한다.
 // - 세부 수치의 이름과 정수 범위: 프리셋으로 정한 값을 행성 정의의 overrides가 덮어쓴다.
 // - 바이옴 규칙의 종류와 바다 수심 등급.
 // 모든 수치는 S2 임시값이다(placeholder). 기온은 절대 °C다(기획 D-154).
@@ -52,7 +52,7 @@ export function isPlanetPresetLevel<A extends PlanetPresetAxis>(
   return levels.includes(value);
 }
 
-/** 세부 수치 이름 → 정수 범위 [최소, 최대] (둘 다 포함). 뜻과 단위는 생성기 presets.ts에 적는다 */
+/** 세부 수치 이름 → 정수 범위 [최소, 최대] (둘 다 포함). 뜻과 단위는 planetPresets.ts에 적는다 */
 export const PLANET_SETTING_RANGES = {
   /** 육지 비율(%, 면적) — 해수면을 이 백분위로 정한다 */
   landPercent: [5, 95],
@@ -119,7 +119,8 @@ export const BIOME_RULE_KINDS = ["ocean", "lake", "land"] as const;
 export type BiomeRuleKind = (typeof BIOME_RULE_KINDS)[number];
 
 /**
- * 생성기가 받는 면 레벨 범위(출력 해상도). 격자 계약(4~14)보다 좁다: 레벨 10이 약 55초·최대 RSS 771MiB이고(개발 컨테이너
- * 측정), 레벨이 하나 오를 때마다 칸이 4배라 11부터는 서버 굽기에 너무 크다고 본다(추정, ADR 36 "구현하며 정한 것")
+ * 생성기가 받는 면 레벨 범위(출력 해상도). 격자 계약(4~14)보다 좁다. 상한 9: 레벨 10은 생성 하나만으로 최대 RSS 약
+ * 770MiB(개발 컨테이너 측정)인데 NAS 앱 컨테이너 상한이 1GiB이고 서버가 이미 그 일부를 쓴다(ops/compose.yml,
+ * ADR 33). 그래서 NAS에서 굽기를 재기 전에는 9까지만 받는다(ADR 36 "구현하며 정한 것 (생성기)")
  */
-export const PLANET_GENERATOR_FACE_LEVELS = [4, 10] as const;
+export const PLANET_GENERATOR_FACE_LEVELS = [4, 9] as const;

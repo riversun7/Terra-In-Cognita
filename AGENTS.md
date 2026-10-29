@@ -34,7 +34,7 @@
   - `apps/*` → `packages/*` 방향만 허용(예외는 아래 게임 앱 → 서버 타입 하나).
   - `packages/engine`은 `apps/server`·`packages/sim`을 import하지 않는다.
   - `packages/sim`은 `packages/engine`·DOM API를 쓰지 않는다.
-  - `@terra/planet`은 정수 진입점(`.`)과 실수 투영(`./projection`)을 나눈다. 투영은 `@terra/shared`의 결정적 근사(`detTan`·`detAtan`)를 써서 엔진과 무관하게 같은 값을 낸다. 패키지 전체(격자·투영·생성기)의 결정성을 경계 검사가 본다(ADR `2026-10-29-cell-key-layout.md`, `2026-10-29-s2-planet-lod.md`). 판정 코드는 칸 키·이웃(정수 진입점)을 쓴다.
+  - `@terra/planet`은 정수 진입점(`.`)과 실수 투영(`./projection`)을 나눈다. 투영은 `@terra/shared`의 결정적 근사(`detTan`·`detAtan`)를 써서 엔진과 무관하게 같은 값을 낸다. 패키지 전체(격자·투영·생성기)와 `@terra/shared`의 결정적 모듈(`detMath`·`rng`·`planetDefinition`·`planetPresets`)의 결정성을 경계 검사가 본다(주석·문자열 안은 보지 않는다, `scripts/determinism-scan.mjs`. ADR `2026-10-29-cell-key-layout.md`, `2026-10-29-s2-planet-lod.md`). 판정 코드는 칸 키·이웃(정수 진입점)을 쓴다.
   - `apps/game`은 `packages/sim`을 import하지 않는다(판정 코드를 기기로 보내지 않음).
   - `packages/protocol`·`packages/shared`는 다른 내부 패키지를 import하지 않는다.
   - `apps/game`은 `apps/server`를 **타입으로만** 가져온다(tRPC 라우터 타입): `import type { AppRouter } from "@terra/server/trpc"`. 값 import, `import { type X }`, 동적 `import()`는 검사에서 실패한다. `@terra/server`는 게임 앱 `devDependencies`에만 둔다(ADR `2026-10-28-trpc-type-sharing.md`).
@@ -50,7 +50,7 @@
   - 이름·설명은 `{"ko": …, "en": …}` 둘 다 적는다.
   - 내용을 바꾸면 `manifest.json`의 `version`을 올린다. ID를 지우거나 바꾸면 `id-changes.json`에 기록을 **뒤에 추가만** 한다(고치거나 지우지 않음).
   - 게임 규칙·수치는 기획(`docs/design/`)에서 정한 것만 넣는다. 지금 팩은 형식 확인용 임시 데이터(`placeholder: true`)다.
-  - 형식(스키마)은 `packages/content`. 이 패키지는 빌드 없이 `node`로 바로 실행되므로 지울 수 있는 TS 문법만 쓰고(`erasableSyntaxOnly`), Node API는 `src/node/`에서만 쓴다.
+  - 형식(스키마)은 `packages/content`. 이 패키지는 빌드 없이 `node`로 바로 실행되므로 지울 수 있는 TS 문법만 쓰고(`erasableSyntaxOnly`), Node API는 `src/node/`에서만 쓴다. 이 패키지가 실행 중에 가져오는 `packages/shared`도 `erasableSyntaxOnly`다.
 - 비밀값(비밀번호, 토큰, `.env`)을 커밋하지 않는다. 관리자 화면 코드에도 비밀값·시드를 넣지 않는다.
 
 ## 5. 기록 규칙
@@ -76,6 +76,7 @@
 - **Drizzle ORM**: 1.0 RC(`1.0.0-rc.x`)로 시작한다. 0.x 문서의 관계형 쿼리 예제는 1.0에서 바뀌었으니 1.0 문서를 본다. 1.0.0-rc.5에서 확인한 것(2026-10-28, 패키지 코드): 마이그레이션은 폴더 하나에 하나(`drizzle/<시각>_<이름>/migration.sql`)이고, 밀린 것은 트랜잭션 하나로 적용되며, 적용 여부는 이름으로만 판단한다. 연결 설정에 `casing`·`schema` 옵션이 없다(열 이름을 직접 쓴다). `db.execute` 결과 타입이 여러 문장용이라 단순 조회는 `db.$client.query`로 한다.
 - **tRPC 11** (11.19.0, 2026-10-28 확인: 패키지 코드·시험): Fastify 어댑터는 Fastify 5 이상이 필요하다. `fastifyTRPCPlugin`을 `prefix: "/api/trpc"`로 등록한다. 묶음 요청은 경로에 프로시저 이름을 쉼표로 이어서 Fastify 기본 상한(경로 매개변수 100자)에 걸린다 → `Fastify({ routerOptions: { maxParamLength: 5000 } })`. 최상위 `maxParamLength`는 Fastify 5.12에서 사용 중단 경고(FSTDEP022)가 난다. 어댑터는 자기 플러그인 범위에서만 JSON 파서를 바꾼다(다른 경로는 그대로). `@trpc/client`는 실행 중에 `@trpc/server`를 import하므로 게임 앱에도 `@trpc/server`가 필요하다. `httpBatchLink`의 `fetch` 옵션 타입은 `typeof fetch`와 맞지 않는다(`exactOptionalPropertyTypes`) → `Parameters<typeof httpBatchLink<AppRouter>>[0]["fetch"]`를 쓴다.
 - **Zod 4 + tRPC 11** (zod 4.6.7, 2026-10-28 확인: 패키지 코드·시험): 입력·출력 타입은 Standard Schema로 추론된다(`transform`이 있으면 입력과 출력 타입이 다르다). 실행 검사는 Standard Schema가 아니라 Zod `parseAsync`를 쓰므로 `error.cause`는 `ZodError`다. 틀린 입력은 HTTP 400 `BAD_REQUEST`. 오류 메시지는 Zod의 영어 문제 목록(JSON 문자열)이라 화면에 쓰지 않는다(`error.data.code`로 판단).
+- **Zod 4.6.7 객체 검사 순서** (2026-10-29 확인: 실행): 객체 스키마의 `superRefine`은 필드 검사가 실패해도 불리고, 틀린 값을 그대로 받는다(타입은 출력 타입이지만 믿을 수 없다). 여러 필드를 함께 보는 검사는 값의 모양·범위를 다시 확인하고 틀리면 건너뛴다(필드 검사가 따로 알린다, `packages/content/src/schema/planets.ts`).
 - **TS 7 프로젝트 참조** (7.0.2, 2026-10-28 확인): `tsc -b`, composite, pnpm 링크를 거친 참조가 동작한다. composite는 가져오는 파일을 모두 `include`해야 한다(TS6307). `node_modules`를 거쳐 읽는 작업공간 패키지(`@terra/protocol` 등)는 넣지 않아도 된다. 게임 앱 `typecheck`는 `tsc -b`라서 서버 선언 파일(`apps/server/dist-types/`, 저장소에 올리지 않음)을 필요할 때 만든다. oxlint 타입 인식 린트는 선언 파일이 없어도 참조를 따라 서버 소스를 읽는다.
 - **Node 24 타입 지우기** (24.22.1, 2026-10-28 확인): `node`가 `.ts`를 바로 실행한다(경고 없음). `.mjs` 검사 스크립트가 작업공간 패키지(`@terra/content`)의 `.ts`를 pnpm 링크로 가져와도 된다. enum·namespace·생성자 매개변수 속성은 안 된다 → tsconfig `erasableSyntaxOnly`(TS 7.0.2가 TS1294로 막는 것 확인). `JSON.parse` 오류 문구에는 `(line N column M)`이 있을 때도 없을 때도 있다.
 - **vite-plugin-pwa 2.0.0 + workbox-window 7.4.1** (2026-10-28 확인: 패키지 코드·빌드·Playwright):
@@ -136,6 +137,7 @@
   - Node 24.22.1의 `Math.sin`·`cos`·`tan`·`atan`·`exp`는 잰 점에서 4배 정밀도 값과 1ulp 이내였다. 브라우저 엔진은 재지 않았다(Unknown). 판정·생성 코드는 `@terra/shared` `det*` 함수를 쓴다.
   - TS 7.0.2: 타입 인수 없는 `Float32Array`는 `Float32Array<ArrayBufferLike>`이고 `new Float32Array(n)`은 `Float32Array<ArrayBuffer>`다. 두 배열을 맞바꿔 쓰는 코드(`[a, b] = [b, a]`)는 `Float32Array<ArrayBuffer>`로 적는다.
   - `pnpm check`의 oxlint는 `--deny-warnings`라 경고도 실패다. 자주 걸리는 것: `typescript(no-unsafe-type-assertion)`(`unknown`을 `as`로 좁힘 → 타입 가드나 `satisfies`), `unicorn(consistent-function-scoping)`(바깥 변수를 쓰지 않는 안쪽 함수 → 밖으로), `oxc(approx-constant)`(π 리터럴 → `Math.PI`), `unicorn(no-new-array)`(`new Array(n)` → `Array.from({ length: n })`).
+  - det 함수를 엔진 `Math`로 바꿔도 생성기 정수 출력(골든 해시)은 그대로였다(일곱 함수 모두, 2026-10-29 실행). Float32 저장과 정수 반올림이 1ulp 차이를 흡수한다. 그래서 det 값의 변경은 골든 비트(엔진 `Math`와 다른 점을 넣었다)와 64비트 실수 지문(`generate.test.ts`)이 잡고, 엔진 `Math`를 쓰는 것은 경계 검사가 막는다.
 - **Paraglide JS 2** (2.29.2): 메시지 원본은 `apps/game/messages/{ko,en}.json`. 코드에서는 `import { m } from "./paraglide/messages.js"` 후 `m.app_title()`, 변수는 `m.fps({ fps })`. 언어는 `./paraglide/runtime.js`의 `getLocale`·`setLocale`·`isLocale`. `src/paraglide/`는 생성 파일(git 제외)이라 `pnpm --filter @terra/game typecheck`·`dev`·`build` 때 다시 만들어진다. 메시지 플러그인은 CDN이 아니라 설치된 `@inlang/plugin-message-format`에서 읽는다(2026-10-28 확인).
 
 ## 7. 명령어

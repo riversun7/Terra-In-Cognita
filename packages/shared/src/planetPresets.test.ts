@@ -1,3 +1,5 @@
+// 프리셋 → 세부 수치 시험 — 범위·순서·축 소유·덮어쓰기·오류, 그리고 수치표 고정(바뀌면 생성 결과가 바뀐다)
+import { describe, expect, it } from "vitest";
 import {
   PLANET_PRESET_AXES,
   PLANET_PRESET_LEVELS,
@@ -6,9 +8,13 @@ import {
   type PlanetPresetAxis,
   type PlanetPresets,
   type PlanetSettings,
-} from "@terra/shared";
-import { describe, expect, it } from "vitest";
-import { NORMAL_PRESETS, presetValues, resolvePlanetSettings } from "./presets.ts";
+} from "./planetDefinition.ts";
+import {
+  NORMAL_PRESETS,
+  PLANET_PRESET_VALUES,
+  presetValues,
+  resolvePlanetSettings,
+} from "./planetPresets.ts";
 
 /** "보통"에서 한 축만 바꾼 프리셋으로 풀어 쓴 수치 */
 function at(axis: PlanetPresetAxis, level: string): PlanetSettings {
@@ -95,5 +101,39 @@ describe("프리셋 → 세부 수치", () => {
     expect(() => resolvePlanetSettings(NORMAL_PRESETS, { plateCount: 3.5 })).toThrow(RangeError);
     expect(() => at("plates", "lots")).toThrow(RangeError);
     expect(() => resolvePlanetSettings(NORMAL_PRESETS, { equatorTemperatureC: -30 })).toThrow(RangeError);
+  });
+
+  it("수치표 고정: 값을 바꾸면 생성 결과가 바뀐다 → @terra/planet GENERATOR_VERSION을 올리고 이 값을 고친다", () => {
+    expect(PLANET_PRESET_VALUES).toEqual({
+      seaLevel: {
+        archipelago: { landPercent: 15, shelfPercent: 11 },
+        normal: { landPercent: 30, shelfPercent: 8 },
+        continent: { landPercent: 45, shelfPercent: 7 },
+      },
+      temperature: {
+        cold: { equatorTemperatureC: 20, poleTemperatureC: -38 },
+        normal: { equatorTemperatureC: 27, poleTemperatureC: -24 },
+        hot: { equatorTemperatureC: 34, poleTemperatureC: -8 },
+      },
+      precipitation: {
+        dry: { precipitationPercent: 55 },
+        normal: { precipitationPercent: 100 },
+        wet: { precipitationPercent: 160 },
+      },
+      mountains: {
+        young: { upliftPercent: 135, ruggednessPercent: 125, erosionPercent: 55 },
+        normal: { upliftPercent: 100, ruggednessPercent: 100, erosionPercent: 100 },
+        old: { upliftPercent: 60, ruggednessPercent: 75, erosionPercent: 190 },
+      },
+      plates: { few: { plateCount: 7 }, normal: { plateCount: 13 }, many: { plateCount: 24 } },
+      volcanism: {
+        low: { hotspotCount: 2, volcanismPercent: 50 },
+        normal: { hotspotCount: 5, volcanismPercent: 100 },
+        high: { hotspotCount: 12, volcanismPercent: 175 },
+      },
+    });
+    // 프리셋 축이 정하지 않는 수치의 기본값
+    const base = resolvePlanetSettings(NORMAL_PRESETS);
+    expect([base.riverDensityPercent, base.lakePercent]).toEqual([100, 100]);
   });
 });

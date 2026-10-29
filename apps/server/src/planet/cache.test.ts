@@ -1,6 +1,7 @@
 // 행성 디스크 캐시 시험 — 쓰고 읽기, 틀린 캐시 알아보기, 다른 버전 지우기
 import { readFile, readdir, rm, utimes, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { GENERATOR_VERSION } from "@terra/planet/generator";
 import { afterEach, describe, expect, it } from "vitest";
 import { createInlineBaker } from "./baker.ts";
 import {
@@ -54,7 +55,11 @@ describe("행성 디스크 캐시", () => {
       `${cacheFileStem(key)}.index.json`,
       `${cacheFileStem(key)}.pack`,
     ]);
-    expect(cacheFileStem(key)).toBe(`test_planet-g1-t1-${key.definitionHash.slice(0, 16)}`);
+    // 키의 생성기 버전은 원본 값(= 지금 GENERATOR_VERSION)이다. 버전이 오르면 파일 이름이 바뀌어 옛 캐시를 읽지 않는다
+    expect(key.generatorVersion).toBe(GENERATOR_VERSION);
+    expect(cacheFileStem(key)).toBe(
+      `test_planet-g${GENERATOR_VERSION}-t1-${key.definitionHash.slice(0, 16)}`,
+    );
     const result = await readPlanetCache(dir, key);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -80,7 +85,8 @@ describe("행성 디스크 캐시", () => {
     ],
     [
       "다른 생성기 버전의 목록",
-      async (stem: string) => editIndex(stem, (index) => ({ ...index, generatorVersion: 2 })),
+      async (stem: string) =>
+        editIndex(stem, (index) => ({ ...index, generatorVersion: index.generatorVersion + 1 })),
       "another",
     ],
     [

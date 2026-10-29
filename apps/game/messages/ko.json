@@ -225,6 +225,8 @@
   "planet_busy_generating": "서버가 행성을 만드는 중입니다. 잠시 뒤 다시 해 주세요.",
   "planet_tiles_outdated": "행성이 새 판으로 바뀌었습니다. 다시 시도하면 새 판을 받습니다.",
   "planet_rate_limited": "요청이 너무 많습니다. {seconds}초 뒤에 다시 확인합니다.",
+  "planet_editor_flat_map_label": "평면 미니맵",
+  "planet_editor_flat_map_hint": "행성 전체를 펼친 그림입니다. 누르면 그 칸을 봅니다. 화살표 키는 한 칸쯤, Shift와 함께 누르면 여덟 칸쯤 옮기고, Enter는 지금 자리를 고릅니다.",
   "gpu_bench_title": "셰이더 측정 (S2)",
   "gpu_bench_lead": "WebGL2와 WebGPU로 같은 행성 타일을 그려 빠르기를 잽니다. 누른 뒤에만 그래픽 코드를 받고, 약 2분 동안 화면 전체를 씁니다.",
   "gpu_bench_modes": "잴 방식",

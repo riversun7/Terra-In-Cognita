@@ -1,0 +1,42 @@
+/*
+ * 편집기 평면 미니맵(FlatMap.tsx) — 폭은 담는 판을 따르고(상한 --content-max), 가로세로 2 : 1(등장방형: 경도 360° × 위도 180°).
+ * 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * - 그림 버퍼가 화면 픽셀보다 작을 수 있다(픽셀 비율 상한 2, 폭 상한 1,024점). 칸 경계가 흐려지지 않게 확대는 픽셀 그대로.
+ * - 세계(행성) 색은 테마와 상관없다(D-070). 테두리는 자리를 차지하지 않는 그림자 선이라 누른 곳 계산이 캔버스 크기와 같다.
+ * - 고른 점: 강조색 고리 + 안팎 어두운 선(모든 테마의 --color-overlay가 어둡다) — 밝은 빙상·어두운 심해 위에서 다 보이게.
+ */
+.flat-map {
+  position: relative;
+  width: 100%;
+  max-width: var(--content-max);
+}
+
+.flat-map-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 1;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 var(--hairline) var(--color-border);
+  background-color: var(--color-surface-2);
+  image-rendering: pixelated;
+}
+
+/* 누를 수 있을 때(onPick): 십자 커서, 두 번 눌러 확대하지 않게(빠른 누름). 끌어서 판을 넘기는 것은 그대로 */
+.flat-map-canvas[data-interactive="true"] {
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+
+.flat-map-marker {
+  position: absolute;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  border: var(--border-w) solid var(--color-highlight);
+  border-radius: var(--radius-pill);
+  box-shadow:
+    0 0 0 var(--hairline) var(--color-overlay),
+    inset 0 0 0 var(--hairline) var(--color-overlay);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}

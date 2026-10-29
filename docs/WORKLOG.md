@@ -5,10 +5,12 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-30 02:10 | 앱 뼈대 W3 합치기(처리할 일·종 배지·받은 편지 화면·돌아오면 요약) | Claude Code | [30-0210-app-shell-w3-integration](worklog/2026/10/30-0210-app-shell-w3-integration.md) |
 | 2026-10-30 01:55 | 기획 질문 94·95(휴대폰 내 주문 자리, 회유 알림 분류) | Claude Code | [30-0155-planning-questions-94-95](worklog/2026/10/30-0155-planning-questions-94-95.md) |
 | 2026-10-30 01:40 | 앱 뼈대 W2·W5·W1 main 합치기 | Claude Code | [30-0140-app-shell-w125-integration](worklog/2026/10/30-0140-app-shell-w125-integration.md) |
 | 2026-10-30 01:20 | 앱 뼈대 W1 검토 고침: 겹침·다시 고름을 화면 이동과 나눔, 처음 켤 때 초점, C 지도 버튼 여백, 화면 시험 e2e/shell.spec.ts | Claude Code | [30-0120-app-shell-w1-review](worklog/2026/10/30-0120-app-shell-w1-review.md) |
 | 2026-10-30 00:45 | 앱 뼈대 W5 검토 고침: 같은 트리의 두 번째 실행, 계정 메뉴·홈, 신호, 프로세스 확인, 누르는 곳 검사, 크기 값 출처 | Claude Code | [30-0045-app-shell-w5-review](worklog/2026/10/30-0045-app-shell-w5-review.md) |
+| 2026-10-30 00:30 | 앱 뼈대 W3 검토 반영: 바로 처리 결과 자리, 모르는 분류·종 배지, 멈춘 조각 받기, 요청 묶음, 화면 이동, 마감 내림, 강조 줄 알림 | Claude Code | [30-0030-app-shell-w3-review](worklog/2026/10/30-0030-app-shell-w3-review.md) |
 | 2026-10-30 00:20 | 앱 뼈대 W2 검토 고침: 계정이 바뀐 뒤의 계정 요청, 저장할 수 없는 글자, 마이그레이션 갈래 다시 확인 | Claude Code | [30-0020-app-shell-w2-review](worklog/2026/10/30-0020-app-shell-w2-review.md) |
 | 2026-10-29 23:50 | 1차맵 하늘 계산 `packages/engine/src/planet/sky.ts` — 항성·달·낮밤 세기·구름 걷힘·보임·하늘 시계 (WP2) | Claude Code | [29-2350-sky-math](worklog/2026/10/29-2350-sky-math.md) |
 | 2026-10-29 23:50 | 2차맵 선명도 검토 고침: 평평한 지형 점무늬, 칸 가운데 줄, 점 테두리, 잡음 먼저, 시험 | Claude Code | [29-2350-second-map-sharpness-review](worklog/2026/10/29-2350-second-map-sharpness-review.md) |
@@ -17,6 +19,7 @@
 | 2026-10-29 23:15 | 행성 편집기 서버(WP-B) 검토 고침: 지적 14개 확인·처리 | Claude Code | [29-2315-planet-editor-server-review](worklog/2026/10/29-2315-planet-editor-server-review.md) |
 | 2026-10-29 23:10 | 앱 뼈대 W1: 화면 길·틀(라우터·위 띠·하단 탭·사이드 메뉴), 메뉴 순서 하나(D-265) | Claude Code | [29-2310-app-shell-w1](worklog/2026/10/29-2310-app-shell-w1.md) |
 | 2026-10-29 23:00 | 앱 뼈대 W5: 화면 시험 틀(e2e/)과 첫 화면 JS 크기 검사 | Claude Code | [29-2300-app-shell-w5](worklog/2026/10/29-2300-app-shell-w5.md) |
+| 2026-10-29 22:40 | 앱 뼈대 W3: 처리할 일·복귀 요약 — 서버 조회, 기기 저장소, 처리함 화면, 복귀 요약 대화상자 | Claude Code | [29-2240-app-shell-w3](worklog/2026/10/29-2240-app-shell-w3.md) |
 | 2026-10-29 22:20 | 앱 뼈대 W2: 계정 설정에 메뉴(nav)·홈(home) 묶음 — 기기 저장·맞추기·서버 저장·템플릿 저장 규칙 | Claude Code | [29-2220-app-shell-w2](worklog/2026/10/29-2220-app-shell-w2.md) |
 | 2026-10-29 22:10 | 행성 편집기 서버(WP-B): 초안 표·planetEditor tRPC·확인 해시·fieldsHash·편집 전용 행성·tRPC 같은 출처 확인 | Claude Code | [29-2210-planet-editor-server](worklog/2026/10/29-2210-planet-editor-server.md) |
 | 2026-10-29 21:40 | 기획 원본 f0e0e71(D-260~D-271·Step 5 D-5029~D-5048·Step 6 D-6039~D-6049·Step 7 D-7026~D-7035) → ADR 35·36·38·PLAN 14장·특수 지형 제안서 | Claude Code | [29-2140-planning-f0e0e71](worklog/2026/10/29-2140-planning-f0e0e71.md) |

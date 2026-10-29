@@ -13,6 +13,7 @@ import { authHeaders } from "../auth/http.ts";
 import { parseRoleString } from "../auth/permissions.ts";
 import { isAllowedReadRequest, isSameOriginRequest } from "../auth/requestGuard.ts";
 import type { Database } from "../db/client.ts";
+import { createHomeServices } from "../home/services.ts";
 import {
   type PlanetEditorShared,
   betterAuthPermissionCheck,
@@ -57,6 +58,8 @@ export async function loadViewer(auth: TerraAuth, headers: Headers): Promise<Vie
 
 /** 요청마다 맥락을 만드는 함수. req가 없으면(서버 안 호출·시험) 로그인하지 않은 맥락 */
 export function createContextFactory(options: ContextFactoryOptions) {
+  // 홈 자료(처리할 일·복귀 요약·서버 카드)는 요청마다 만들지 않고 앱에 하나다(제공 함수 목록을 한 번 만든다)
+  const home = createHomeServices();
   return (opts?: { req: FastifyRequest; res?: FastifyReply }): TrpcContext => {
     const authDeps = options.auth;
     const request = opts?.req;
@@ -88,6 +91,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
               hasPermission: betterAuthPermissionCheck(authDeps.auth, request),
             })
           : undefined,
+      home,
     };
   };
 }

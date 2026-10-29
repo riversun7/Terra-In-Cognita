@@ -9,7 +9,9 @@
 // 7. 콘텐츠 팩 행성이 준비될 때까지 기다린다. 타일 캐시는 서버 기본 폴더(apps/server/.planet-cache)라 첫 실행만 굽는다.
 // 돌려주는 함수가 전역 정리다: 서버를 끄고 DB를 지운다. 서버 기록은 e2e/test-results/server.log에 남는다.
 // 같은 작업 트리에서는 한 번에 하나만 돈다: 설정 파일을 읽을 때 잠금을 잡는다(helpers/runLock.ts).
-// 중단된 실행(도구 시간 초과·Ctrl+C)이 남긴 서버·DB·임시 폴더는 다음 실행이 처음에 정리한다(실행 기록 파일).
+// 끊긴 실행(2026-10-29 확인): SIGINT(Ctrl+C)는 Playwright가 받아 전역 정리를 끝까지 돌린다. SIGTERM·SIGHUP은 Node 기본
+// 동작이 정리 없이 끝나는 것이라 여기서 받아 서버를 바로 끄고 같은 신호로 끝난다. SIGKILL은 받을 수 없다.
+// 남은 서버(SIGKILL)·DB·임시 폴더는 다음 실행이 처음에 정리한다(실행 기록 파일).
 import { type ChildProcess, execFile, execFileSync, spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import {
@@ -75,6 +77,8 @@ const DB_NAME = /^terra_e2e_[0-9a-f]{8}$/;
 /** 이번 실행의 임시 폴더: tmpdir() 바로 아래 mkdtemp("terra-e2e-") = 앞머리 + 6글자 */
 const RUN_DIR_PREFIX = "terra-e2e-";
 const RUN_DIR_NAME = /^terra-e2e-[A-Za-z0-9]{6}$/;
+/** 서버를 남기지 않으려고 받는 신호. SIGINT는 Playwright가 받아 전역 정리를 돌리므로 넣지 않는다 */
+const STOP_SIGNALS = ["SIGTERM", "SIGHUP"] as const;
 
 /** 실행 기록(RUN_STATE_FILE): 이번 실행이 만든 것. 정리를 마치면 지운다 */
 interface RunState {
@@ -445,13 +449,22 @@ export default async function globalSetup(config: FullConfig): Promise<() => Pro
     saveState();
     server.stdout.pipe(logStream);
     server.stderr.pipe(logStream);
-    // 시험 프로세스가 정리 없이 끝나도(중단 등) 서버를 남기지 않는다
-    const killOnExit = (): void => {
+    // 실행기가 전역 정리 없이 끝나도 서버를 남기지 않는다: 오류 등으로 끝날 때(exit), SIGTERM·SIGHUP을 받을 때
+    const killServer = (): void => {
       server.kill("SIGKILL");
     };
-    process.once("exit", killOnExit);
+    const onStopSignal = (signal: NodeJS.Signals): void => {
+      killServer();
+      // 듣는 함수를 모두 떼고 같은 신호로 다시: Node 기본 동작대로 끝난다(종료 코드 128 + 신호 번호)
+      process.off("exit", killServer);
+      for (const other of STOP_SIGNALS) process.off(other, onStopSignal);
+      process.kill(process.pid, signal);
+    };
+    process.once("exit", killServer);
+    for (const signal of STOP_SIGNALS) process.once(signal, onStopSignal);
     cleanups.push(async () => {
-      process.off("exit", killOnExit);
+      process.off("exit", killServer);
+      for (const signal of STOP_SIGNALS) process.off(signal, onStopSignal);
       await stopServer(server);
       await new Promise<void>((resolve) => logStream.end(resolve));
     });

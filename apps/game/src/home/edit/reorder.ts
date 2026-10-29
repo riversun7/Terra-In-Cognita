@@ -131,3 +131,21 @@ export function addableCards(cards: readonly HomeCardEntry[]): CardId[] {
     .filter(isCardId)
     .filter((id) => !present.has(id));
 }
+
+/**
+ * 줄 하나를 뺀 뒤 초점을 옮길 줄: 빠진 줄(index)에서 가장 가까운 줄 중 accept를 만족하는 것. 거리가 같으면 뒤(아래) 줄이 먼저다.
+ * 없으면 null(편집 시트는 시트 제목으로 옮긴다). rows는 빼기 전의 편집 목록이다.
+ */
+export function nearestRemovable<T>(
+  rows: readonly T[],
+  index: number,
+  accept: (row: T) => boolean,
+): T | null {
+  for (let distance = 1; distance < rows.length; distance += 1) {
+    const after = rows[index + distance];
+    if (after !== undefined && accept(after)) return after;
+    const before = rows[index - distance];
+    if (before !== undefined && accept(before)) return before;
+  }
+  return null;
+}

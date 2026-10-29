@@ -1,7 +1,16 @@
-// 홈 카드 목록 바꾸기 시험 — 보이는 카드끼리만 옮기기, 모르는 카드·고정 카드 제자리, 자리 알림 값, 크기·더하기·빼기·기본값
+// 홈 카드 목록 바꾸기 시험 — 보이는 카드끼리만 옮기기, 모르는 카드·고정 카드 제자리, 자리 알림 값, 크기·더하기·빼기·기본값,
+// 뺀 뒤 초점을 옮길 줄
 import { HOME_CARDS_MAX, type HomeCardEntry, defaultHomeCards, isCardId } from "@terra/shared/dashboard";
 import { describe, expect, it } from "vitest";
-import { addCard, addableCards, moveCard, removeCard, resetCards, resizeCard } from "./reorder.ts";
+import {
+  addCard,
+  addableCards,
+  moveCard,
+  nearestRemovable,
+  removeCard,
+  resetCards,
+  resizeCard,
+} from "./reorder.ts";
 
 const card = (id: string, size = "1x1", extra: Record<string, unknown> = {}): HomeCardEntry => ({
   id,
@@ -137,5 +146,28 @@ describe("resetCards·addableCards", () => {
   it("홈에 없는 아는 카드를 카드 목록 순서로 돌려준다", () => {
     expect(addableCards(defaultHomeCards(["player"]))).toEqual(["timeline", "briefing", "diagnostics"]);
     expect(addableCards([card("future_card")])).toHaveLength(9);
+  });
+});
+
+/** 처리할 일 카드만 뺄 수 없다(편집 시트와 같다) */
+const removable = (entry: HomeCardEntry): boolean => entry.id !== "inbox";
+
+describe("nearestRemovable", () => {
+  const rows = [card("inbox", "2x1"), card("cyborg"), card("units"), card("assets")];
+
+  it("가장 가까운 줄, 거리가 같으면 뒤 줄이 먼저다", () => {
+    expect(nearestRemovable(rows, 2, removable)?.id).toBe("assets");
+    expect(nearestRemovable(rows, 3, removable)?.id).toBe("units");
+  });
+
+  it("가까운 줄이 뺄 수 없는 카드(처리할 일)면 건너뛴다 — 처리할 일 바로 뒤 줄을 뺄 때(검토 지적)", () => {
+    // 처리할 일을 아래로 옮긴 목록: 사이보그 · 처리할 일 · 보유 유닛
+    const moved = [card("cyborg"), card("inbox", "2x1"), card("units")];
+    expect(nearestRemovable(moved, 0, removable)?.id).toBe("units");
+  });
+
+  it("뺄 수 있는 줄이 없으면 null(시트 제목으로)", () => {
+    expect(nearestRemovable([card("cyborg"), card("inbox", "2x1")], 0, removable)).toBeNull();
+    expect(nearestRemovable([card("cyborg")], 0, removable)).toBeNull();
   });
 });

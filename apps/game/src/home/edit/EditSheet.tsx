@@ -41,6 +41,7 @@ import {
   addCard,
   addableCards,
   moveCard,
+  nearestRemovable,
   removeCard,
   resetCards,
   resizeCard,
@@ -62,6 +63,11 @@ export interface EditSheetProps {
   readonly onClose: () => void;
 }
 
+/** 빼기 단추가 있는 줄(아는 카드이고 뺄 수 있는 카드) */
+function isRemovableEntry(entry: HomeCardEntry): boolean {
+  return isCardId(entry.id) && isRemovable(entry.id);
+}
+
 /** 크기 글자("2×1")와 읽기 프로그램용 이름("가로 2칸, 세로 1칸") */
 function sizeParts(size: CardSize): { w: string; h: string } {
   const [w = "1", h = "1"] = size.split("x");
@@ -71,10 +77,8 @@ function sizeParts(size: CardSize): { w: string; h: string } {
 /** 단추를 누른 뒤 다시 초점을 둘 곳 */
 type FocusControl = "top" | "up" | "down" | "remove";
 
-interface FocusRequest {
-  readonly id: string;
-  readonly control: FocusControl;
-}
+/** 줄의 단추, 또는 시트 제목(돌아갈 단추가 없을 때) */
+type FocusRequest = { readonly id: string; readonly control: FocusControl } | { readonly title: true };
 
 function SizePicker({
   id,
@@ -162,16 +166,21 @@ export default function EditSheet({
     if (dialog !== null && !dialog.open) dialog.showModal();
   }, []);
 
-  // 옮긴 줄이 DOM에서 자리를 바꿔 초점을 잃었으면 같은 단추로 돌려준다
+  // 옮긴 줄이 DOM에서 자리를 바꿔 초점을 잃었으면 같은 단추로 돌려준다. 단추가 없으면(줄이 빠짐 등) 시트 제목으로 —
+  // 초점이 시트 밖(문서 몸)으로 빠지지 않게
   useLayoutEffect(() => {
     const request = focusRequest.current;
     const list = listRef.current;
     if (request === null || list === null) return;
     focusRequest.current = null;
-    const target = list.querySelector<HTMLElement>(
-      `[data-reorder-id="${request.id}"] [data-control="${request.control}"]`,
-    );
-    if (target !== null && document.activeElement !== target) target.focus();
+    const target =
+      "title" in request
+        ? null
+        : list.querySelector<HTMLElement>(
+            `[data-reorder-id="${request.id}"] [data-control="${request.control}"]`,
+          );
+    const next = target ?? titleRef.current;
+    if (next !== null && document.activeElement !== next) next.focus();
   });
 
   /** 바뀐 목록을 바로 저장하고 결과를 읽어 준다. undoable이면 [실행 취소]로 앞 목록을 되살릴 수 있다 */
@@ -215,9 +224,10 @@ export default function EditSheet({
     const name = cardTitle(id);
     const done = commit(removeCard(cards, listed, id), () => m.home_edit_removed({ name }), true);
     if (!done) return;
-    // 빠진 줄 대신 다음 줄(없으면 앞 줄)의 빼기 단추로 초점을 옮긴다
-    const next = rows[index + 1] ?? rows[index - 1];
-    if (next !== undefined) focusRequest.current = { id: next.id, control: "remove" };
+    // 빠진 줄 대신 가장 가까운(뒤 → 앞) 뺄 수 있는 줄의 빼기 단추로 초점을 옮긴다. 뺄 수 없는 처리할 일 줄은 건너뛰고,
+    // 그런 줄이 없으면 시트 제목으로(초점이 시트 밖으로 빠지지 않게)
+    const next = nearestRemovable(rows, index, isRemovableEntry);
+    focusRequest.current = next === null ? { title: true } : { id: next.id, control: "remove" };
   };
 
   const add = (id: CardId): void => {

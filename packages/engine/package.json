@@ -5,12 +5,14 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./planet": "./src/planet/index.ts",
     "./mock": "./src/mock/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@terra/planet": "workspace:*",
     "@terra/shared": "workspace:*",
     "three": "0.186.1"
   },

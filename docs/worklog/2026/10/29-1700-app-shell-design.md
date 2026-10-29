@@ -27,11 +27,12 @@
 - 독립 검증 뒤 고친 것
   - 개발 방식 ADR(16, 확정)의 "야간에 E2E"가 결정 3(CI에서 돌리지 않음)과 어긋났다. 그 ADR은 상태 줄에 일부 대체만 적고, ADR 37 13절·"관련" 줄·"결과" 끝, PLAN 13장 37번 줄에 같은 내용을 더했다.
   - PLAN 3장의 Playwright 1.64.1은 chromium-1248을 쓴다(Verified: npm `playwright-core` 1.64.1의 `browsers.json`). 개발 환경은 1.63.0·chromium-1243이라 결정 3(내려받는 단계 없음)과 맞지 않았다. ADR 13절과 PLAN 3장을 1.63.0 고정으로 고쳤다.
+  - 이 가지는 main `e1e281b`에서 시작했고, 그 뒤 main에 기획 미러 동기화 2개(`755f202`·`7c004e3`)가 들어왔다(합쳐도 충돌 없음, `git merge-tree`로 확인). 새 미러에서 ADR 두 곳이 낡았다. 생활 자동 복귀·관리인은 기획 메인이 정했다(D-245·D-246). 처리할 일 "제안·결정"에서 휴먼 이적 1:1 협상은 유닛 경매(D-242·D-7023)로 바뀌었고, 포로 몸값은 원래 주인하고만 협상한다(D-244). ADR 배경(범위 밖)과 7절 예약안(`transfer_offer` → `unit_auction`)을 고쳤다. 이 가지의 `docs/design/`에는 아직 없는 결정이라 미러 커밋을 함께 적었다.
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
 |---|---|
-| `docs/adr/2026-10-29-app-shell.md`(새) | 앱 뼈대 결정(제안). 사용자 결정 3개 반영, 구현 순서(14절) |
+| `docs/adr/2026-10-29-app-shell.md`(새) | 앱 뼈대 결정(제안). 사용자 결정 3개 반영, 구현 순서(14절). 검증 뒤: 야간 E2E 대체, Playwright 1.63.0, 미러 `755f202`의 D-242·D-244·D-7023·D-245·D-246 |
 | `docs/research/2026-10-29-legacy-menu-flow.md`(새) | 옛 프로젝트 화면 흐름 조사 원본 |
 | `docs/research/2026-10-29-router-dnd-webpush.md`(새) | 라우터·끌어 옮기기·웹 푸시 조사 원본(한국어판) |
 | `docs/questions/2026-10-29-app-shell.md`(새) | 기획 질문 2개 |
@@ -45,6 +46,7 @@
 - 0단계 코드(통합 세션): `packages/shared`의 `routes.ts`·`navigation.ts`·`dashboard.ts`·`inbox.ts`와 시험, `packages/shared/package.json`(진입점 `./dashboard`·`./inbox`)·`tsconfig.json`(`erasableSyntaxOnly`), `apps/server/src/spaFallback.ts`(`isPagePath`), `scripts/pwa-build.mjs` 경로 대조, `apps/server/src/auth/permissions.ts`(`home: ["preview", "template"]` → dev·admin), `tokens.css` 블록, 메시지 키 자리.
 - 그 뒤 W1~W5(ADR 14절). W5가 `pnpm e2e`와 크기 검사 명령을 만들 때 AGENTS.md 7장을 고친다. PLAN 3장 "웹 푸시" 줄은 W6 ADR 때 고친다.
 - 기획 답이 오면: ADR 4절·8절, `navigation.ts`·`parseNavigation`, PLAN 14장.
+- main에 합치기 전에 이 가지를 main 위로 옮긴다(rebase). 앞선 것은 기획 미러 동기화 2개뿐이다.
 - ADR 번호: 다른 설계(행성 편집기 1단계 등)가 먼저 main에 37을 쓰면 이 ADR을 다음 번호로 바꾼다(PLAN 3장·4.8·10.2·10.5·11장·13장·14장, ADR "결과" 끝, 이 기록).
 
 ## 건드리지 말 것
@@ -57,7 +59,8 @@
 - tRPC 묶음 응답이 부른 것마다 따로 오는지(옛 서버가 새 칸을 400으로 막을 때)는 W2 시험으로 확인한다(Assumed).
 - 개발 환경의 Playwright는 1.63.0이고 브라우저는 `/opt/pw-browsers`의 chromium-1243이다(Verified: 2026-10-29 설치 파일 확인). 1.64.1은 chromium-1248을 쓴다(Verified: npm `playwright-core` 1.64.1의 `browsers.json`). 그래서 W5는 `@playwright/test` 1.63.0을 쓴다(ADR 13절, PLAN 3장). 개발 환경의 Playwright 판이 바뀌면 함께 바꾼다(내려받는 단계는 두지 않는다).
 - 기간 상한 2주(0단계~W5)는 Assumed다. 넘으면 멈추고 보고한다.
-- 기획 답 대기: Q1(하단 탭 규칙), Q2(복귀 요약 [확인] 뒤 화면).
+- 기획 답 대기: Q1(하단 탭 규칙), Q2(복귀 요약 [확인] 뒤 화면). 미러 `755f202`·`7c004e3`에도 답은 없다(Verified: 60_UX·결정 로그 대조).
+- 기획 6-3~6-5(D-6017~D-6038)가 미러 `755f202`에 들어왔다. ADR 범위 밖이지만 틀에 닿는 것이 있다: 지도 진입(D-6017·D-6018, `map_planet`의 부모)과 어느 화면에서든 뜨는 전투 배너(D-6023). 6-3·6-4 화면을 설계할 때 본다(ADR "다시 볼 조건"에는 6-3만 있다).
 
 ## 사용자 결정 대기
 - 없음. 웹 푸시(발송·서비스 워커·문구)는 W6 ADR 때 묻는다.

@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-29 21:40 | 기획 원본 f0e0e71(D-260~D-271·Step 5 D-5029~D-5048·Step 6 D-6039~D-6049·Step 7 D-7026~D-7035) → ADR 35·36·38·PLAN 14장·특수 지형 제안서 | Claude Code | [29-2140-planning-f0e0e71](worklog/2026/10/29-2140-planning-f0e0e71.md) |
 | 2026-10-29 19:45 | 기획 D-248~D-259·Step 5 D-5022~D-5028(원본 61a7d96) → ADR 35·PLAN 14장 | Claude Code | [29-1945-planning-d248-d259](worklog/2026/10/29-1945-planning-d248-d259.md) |
 | 2026-10-29 19:20 | 행성 편집기 1단계: 사용자 결정 반영(ADR 38) | Claude Code | [29-1920-planet-editor-decisions](worklog/2026/10/29-1920-planet-editor-decisions.md) |
 | 2026-10-29 19:10 | NAS 행성 캐시 고침 확인(판 2 배포 뒤) | Claude Code | [29-1910-nas-planet-cache-verified](worklog/2026/10/29-1910-nas-planet-cache-verified.md) |

@@ -52,6 +52,11 @@ export function createOutlineMaterial(color: number, widthPx: number): ShaderMat
   });
 }
 
+/** 점 가장자리를 섞을 자리: 원(지름 uSize)보다 양쪽으로 이만큼(그리기 버퍼 점) 크게 그린다 */
+const DOT_EDGE_PX = 1;
+/** 채움 반지름(지름 = 1 기준). 0.33~0.5가 테두리 — 테두리 두께는 지름의 0.17 */
+const DOT_FILL_RADIUS = 0.33;
+
 const DOT_VERTEX = /* glsl */ `
 attribute vec3 aColor;
 uniform float uSize;
@@ -59,22 +64,26 @@ varying vec3 vColor;
 void main() {
   vColor = aColor;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  gl_PointSize = uSize;
+  gl_PointSize = uSize + ${2 * DOT_EDGE_PX}.0;
 }
 `;
 
 // 가장자리·테두리 경계를 화면 한 점 폭으로 부드럽게 한다(MSAA는 discard로 자른 가장자리를 다듬지 못해 계단이 보였다).
+// 섞는 띠는 원래 경계(바깥 r = 0.5, 채움 r = 0.33)의 가운데에 둔다. 띠의 바깥 반이 들어갈 자리를 두려고 점을 양쪽
+// DOT_EDGE_PX씩 크게 그린다. 그래서 보이는 크기와 테두리 두께가 계단 있던 때와 같다
+// (띠를 원 안쪽에만 두었더니 진한 테두리가 상한 2에서 약 2.4 → 0.6점, 상한 1.5에서 거의 0이 됐다, 검토 확인).
 // 반투명 목록에서 그린다(재질 transparent): 가장자리는 알파로 섞인다
 const DOT_FRAGMENT = /* glsl */ `
+uniform float uSize;
 uniform vec3 uOutline;
 varying vec3 vColor;
 void main() {
-  vec2 c = gl_PointCoord - vec2(0.5);
-  float r = length(c);
+  // r: 원 지름(uSize)을 1로 본 중심 거리 — 0.5가 원 가장자리다(그린 점은 원보다 양쪽 ${DOT_EDGE_PX}점 크다)
+  float r = length(gl_PointCoord - vec2(0.5)) * (uSize + ${2 * DOT_EDGE_PX}.0) / max(uSize, 1.0);
   float aa = max(fwidth(r), 1e-4);
-  float alpha = 1.0 - smoothstep(0.5 - aa, 0.5, r);
+  float alpha = 1.0 - smoothstep(0.5 - aa * 0.5, 0.5 + aa * 0.5, r);
   if (alpha <= 0.0) discard;
-  vec3 color = mix(vColor, uOutline, smoothstep(0.33 - aa * 0.5, 0.33 + aa * 0.5, r));
+  vec3 color = mix(vColor, uOutline, smoothstep(${DOT_FILL_RADIUS} - aa * 0.5, ${DOT_FILL_RADIUS} + aa * 0.5, r));
   gl_FragColor = vec4(color, alpha);
   #include <colorspace_fragment>
 }

@@ -3,7 +3,7 @@
 // 바람·노이즈·열점을 바꾸면 여기서 부르는 함수도 함께 바꾼다.
 import type { PlanetSettings } from "@terra/shared";
 import { hotspotVolcanoes } from "./hotspots.ts";
-import { fbm3 } from "./noise.ts";
+import { fbm3, noiseOctaveLattice, offsetFbm3 } from "./noise.ts";
 import { createPlates } from "./plates.ts";
 import { STREAM_PLATE_WARP, mix32, streamSeed } from "./random.ts";
 import { type VarietyMetric, generatorWind, varietyMetric } from "./testVariety.ts";
@@ -14,6 +14,9 @@ import { REFERENCE_RADIUS_KM } from "./util.ts";
 const LATTICE_SAMPLES = 200_000;
 const LATTICE_BOX = 40;
 const LATTICE_NEAR = 0.1;
+/** 노이즈 2판 격자점 지표의 시드·흔들기(새 노이즈의 기본값. 1판 fbm3는 같은 시드로 보고만 한다) */
+const LATTICE_SEED = 777;
+const LATTICE_JITTER = 0.6;
 /** 열점 사슬 하나의 화산 수(출력 판 2 hotspots.ts의 고정값) */
 const HOTSPOT_CHAIN_LENGTH = 6;
 
@@ -97,6 +100,7 @@ export function hotspotSpacing(
 /** 생성기 단위 지표(시드·설정마다): 최소 풍속, 노이즈 격자점, 열점 간격 */
 export function unitMetrics(ctx: VarietyContext, seed: number, settings: PlanetSettings): VarietyMetric[] {
   const hotspots = hotspotSpacing(seed, settings);
+  const [ox, oy, oz] = noiseOctaveLattice(LATTICE_SEED, 0);
   return [
     varietyMetric(
       "unit.windMinSpeed",
@@ -105,8 +109,16 @@ export function unitMetrics(ctx: VarietyContext, seed: number, settings: PlanetS
     ),
     varietyMetric(
       "unit.noiseLatticeRmsRatio",
-      latticeRmsRatio((x, y, z) => fbm3(777, x, y, z, 1, 6, 0.52)),
-      "fbm3 RMS within 0.1 of its lattice vertices ÷ global (octave lattices nested → all octaves 0 there)",
+      latticeRmsRatio(
+        (x, y, z) => offsetFbm3(LATTICE_SEED, x, y, z, 1, 6, 0.52, LATTICE_JITTER),
+        [ox, oy, oz],
+      ),
+      `noise v2 (offsetFbm3, jitter ${LATTICE_JITTER}) RMS within 0.1 of its octave-0 lattice vertices ÷ global`,
+    ),
+    varietyMetric(
+      "unit.legacyFbmLatticeRmsRatio",
+      latticeRmsRatio((x, y, z) => fbm3(LATTICE_SEED, x, y, z, 1, 6, 0.52)),
+      "legacy fbm3 (plates, continents, relief, forest) — octave lattices nested → all octaves 0 at vertices",
     ),
     varietyMetric(
       "unit.hotspotSpacingCv",

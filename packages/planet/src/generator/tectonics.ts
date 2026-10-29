@@ -305,8 +305,9 @@ export function tectonicRelief(grid: PlanetGrid, seed: number, settings: PlanetS
       // 지형 틀: 안쪽 고원·분지(안쪽 칸에서만 노이즈를 계산한다)
       const inland = inlandWeight(r, shelfRank);
       if (inland > 0) {
-        const highland = interiorRelief(highlandSeed, x, y, z, grid.z[c] ?? 0);
-        h += rugged * inland * (highland + hillRelief(highlandSeed, x, y, z, hills));
+        const polarZ = grid.z[c] ?? 0;
+        const highland = interiorRelief(highlandSeed, x, y, z, polarZ);
+        h += rugged * inland * (highland + hillRelief(highlandSeed, x, y, z, hills, polarZ));
       }
     } else {
       const age = Math.min(1, (ridgeDistance.angle[c] ?? 0) / km(2800));

@@ -3,7 +3,8 @@
 // 회전·좌표 흔들기 NOISE_JITTER, noise.ts)으로 높이를 더한다. 좌표는 무늬 공간(돌린 격자), 높이는 실제 환산 m, 거리는
 // 구 위 각도. 노이즈 설정은 NoiseSetup 하나씩이고(LANDFORM_NOISES) 부르는 곳이 그 값을 그대로 쓴다.
 // - 대륙 안쪽 고원·분지: 해안에서 떨어진 대륙 지각에 고원(최대 +1000m, 기온 약 −6.5°C)과 얕은 분지(최대 −250m).
-//   더운 대륙 안쪽에 시원한(그래서 습도가 높은) 섬이 생기고, 분지에는 호수·마른 분지가 생긴다.
+//   더운 대륙 안쪽에 시원한(그래서 습도가 높은) 섬이 생기고, 분지에는 호수·마른 분지가 생긴다. 고원·구릉은 극 쪽
+//   (위도 약 50° → 70°)에서 0까지 줄인다(빙상이 넓어지고 한 덩어리가 되지 않게).
 // - 해안 잔 모양: 해안선을 짧은 파장 노이즈(격자 약 160km, F9에서 약 40km까지)만큼 앞뒤로 옮겨 거칠게 하고
 //   만·곶·섬을 만든다. 칸이 그 격자의 반보다 크면(F ≤ 6) 끈다(미리보기가 얼룩지지 않게).
 // - 구릉: 대륙 안쪽에 능선 노이즈 2판(격자 약 640km ~ 160km)으로 낮은 구릉(최대 +350m). 지역마다 많고 적다.
@@ -39,11 +40,14 @@ const HIGHLAND_NOISE: NoiseSetup = {
 export const HIGHLAND_RISE_M = 1000;
 export const BASIN_DEPTH_M = 250;
 /**
- * 극 쪽 고원 줄이기: 자전축 성분 |z|가 0.82(위도 약 55°)에서 0.97(약 76°)로 가며 고원 높이에서 이 몫을 뺀다.
- * 극 쪽 고원은 기온을 낮춰 빙상을 늘린다. F7 시드 1·42·팩 땅 빙상(Verified): 0이면 27.1·15.2·21.0%(출력 판 2
- * 23.9·13.8·13.9%), 0.5면 26.8·13.9·20.1%, 0.7이면 26.5·13.2·19.8%. 줄인 만큼 툰드라가 는다(0.5: +0.4·+1.2·+0.7%p)
+ * 극 쪽 고원·구릉 줄이기: 자전축 성분 |z|가 0.77(위도 약 50°)에서 0.94(약 70°)로 가며 고원·구릉 높이를 0까지 줄인다.
+ * 극 쪽 고원은 기온을 낮춰 빙상을 넓히고 한 덩어리로 잇는다(가장 큰 땅 바이옴 덩어리가 빙상이 됐다). F7 시드 6개
+ * (팩·1·42·2718281828·7·123456789) 땅 빙상(Verified, 2026-10-29): 출력 판 2 13.9·23.9·13.8·9.8·22.5·10.6%,
+ * 고원만 절반 줄일 때(55° → 76°) 21.3·29.0·14.6·11.2·24.6·12.3%, 고원·구릉 모두 50° → 70°에서 0까지 18.8·26.3·11.8·
+ * 10.6·21.8·11.4%. 줄인 만큼 툰드라가 는다. 분지(−)는 줄이지 않는다
  */
-const HIGHLAND_POLAR_TAPER = 0.5;
+const POLAR_RELIEF_START_Z = 0.77;
+const POLAR_RELIEF_END_Z = 0.94;
 /** 안쪽 정도: 대륙 지각 순위가 해안(대륙붕 끝 순위) + 0.04에서 0, + 0.30에서 1 */
 const INLAND_START = 0.04;
 const INLAND_FULL = 0.3;
@@ -53,6 +57,11 @@ export function inlandWeight(rank: number, shelfRank: number): number {
   return smoothstep(shelfRank + INLAND_START, shelfRank + INLAND_FULL, rank);
 }
 
+/** 극 쪽에서 고원·구릉에 곱하는 값(1 → 0). polarZ는 자전축 성분(돌리지 않은 격자의 z, 기후와 같은 축) */
+export function polarReliefFactor(polarZ: number): number {
+  return 1 - smoothstep(POLAR_RELIEF_START_Z, POLAR_RELIEF_END_Z, Math.abs(polarZ));
+}
+
 /**
  * 고원(+)·분지(−) 높이(실제 환산 m, 안쪽 정도·기복 설정을 곱하기 전). (x, y, z)는 무늬 공간, polarZ는 자전축 성분
  * (돌리지 않은 격자의 z, 기후와 같은 축)
@@ -60,8 +69,10 @@ export function inlandWeight(rank: number, shelfRank: number): number {
 export function interiorRelief(seed: number, x: number, y: number, z: number, polarZ: number): number {
   const { frequency, octaves, gain, jitter } = HIGHLAND_NOISE;
   const n = offsetFbm3(seed, x, y, z, frequency, octaves, gain, jitter);
-  const polar = 1 - HIGHLAND_POLAR_TAPER * smoothstep(0.82, 0.97, Math.abs(polarZ));
-  return HIGHLAND_RISE_M * polar * smoothstep(0.02, 0.16, n) - BASIN_DEPTH_M * smoothstep(0.05, 0.2, -n);
+  return (
+    HIGHLAND_RISE_M * polarReliefFactor(polarZ) * smoothstep(0.02, 0.16, n) -
+    BASIN_DEPTH_M * smoothstep(0.05, 0.2, -n)
+  );
 }
 
 // ── 구릉(중간 크기 기복) ──
@@ -92,8 +103,18 @@ const HILL_REGION_HIGH = 0.15;
 /** 구릉 노이즈 시드: 고원 시드 + 이 값(지역 노이즈는 + 1 더) */
 const HILL_SEED_OFFSET = 2;
 
-/** 구릉 높이(실제 환산 m, 안쪽 정도·기복 설정을 곱하기 전). octaves = hillOctaves(칸 크기) */
-export function hillRelief(seed: number, x: number, y: number, z: number, octaves: number): number {
+/**
+ * 구릉 높이(실제 환산 m, 안쪽 정도·기복 설정을 곱하기 전). octaves = hillOctaves(칸 크기). polarZ는 자전축 성분:
+ * 극 쪽에서 줄인다(polarReliefFactor)
+ */
+export function hillRelief(
+  seed: number,
+  x: number,
+  y: number,
+  z: number,
+  octaves: number,
+  polarZ: number,
+): number {
   const region = HILL_REGION_NOISE;
   const regional = offsetFbm3(
     seed + HILL_SEED_OFFSET + 1,
@@ -105,7 +126,7 @@ export function hillRelief(seed: number, x: number, y: number, z: number, octave
     region.gain,
     region.jitter,
   );
-  const amount = smoothstep(HILL_REGION_LOW, HILL_REGION_HIGH, regional);
+  const amount = smoothstep(HILL_REGION_LOW, HILL_REGION_HIGH, regional) * polarReliefFactor(polarZ);
   if (!(amount > 0)) return 0;
   const { frequency, gain, jitter } = HILL_NOISE;
   const ridge = offsetRidged3(seed + HILL_SEED_OFFSET, x, y, z, frequency, octaves, gain, jitter);

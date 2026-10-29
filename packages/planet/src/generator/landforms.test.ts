@@ -13,6 +13,7 @@ import {
   hillRelief,
   interiorRelief,
   mountainShape,
+  polarReliefFactor,
   roughenCoasts,
   softenPeaks,
 } from "./landforms.ts";
@@ -35,30 +36,41 @@ function unitPoint(k: number): [number, number, number] {
 }
 
 describe("값의 범위", () => {
-  it("고원·분지 −250 ~ +1000m, 극 쪽(|z| ≥ 0.97)은 고원이 절반, 구릉 0 ~ 350m", () => {
+  it("고원·분지 −250 ~ +1000m, 구릉 0 ~ 350m, 극 쪽(|z| ≥ 0.94, 위도 약 70°)은 고원·구릉이 없고 분지만", () => {
     let highest = Number.NEGATIVE_INFINITY;
     let lowest = Number.POSITIVE_INFINITY;
     let polarHighest = Number.NEGATIVE_INFINITY;
+    let polarLowest = Number.POSITIVE_INFINITY;
     let hills = 0;
     for (let k = 0; k < 20_000; k++) {
       const [x, y, z] = unitPoint(k);
-      const relief = interiorRelief(77, x, y, z, z);
+      // 적도(자전축 성분 0)에서 잰다
+      const relief = interiorRelief(77, x, y, z, 0);
       highest = Math.max(highest, relief);
       lowest = Math.min(lowest, relief);
-      polarHighest = Math.max(polarHighest, interiorRelief(77, x, y, z, 0.98));
-      const hill = hillRelief(77, x, y, z, 3);
+      const polar = interiorRelief(77, x, y, z, 0.95);
+      polarHighest = Math.max(polarHighest, polar);
+      polarLowest = Math.min(polarLowest, polar);
+      const hill = hillRelief(77, x, y, z, 3, 0);
       expect(hill).toBeGreaterThanOrEqual(0);
       expect(hill).toBeLessThanOrEqual(HILL_RISE_M);
       if (hill > 0) hills++;
+      expect(hillRelief(77, x, y, z, 3, -0.95)).toBe(0);
     }
     expect(highest).toBeLessThanOrEqual(HIGHLAND_RISE_M);
     expect(highest).toBeGreaterThan(0.99 * HIGHLAND_RISE_M);
     expect(lowest).toBeGreaterThanOrEqual(-250);
     expect(lowest).toBeLessThan(-240);
-    expect(polarHighest).toBeLessThanOrEqual(HIGHLAND_RISE_M / 2);
+    expect(polarHighest).toBeLessThanOrEqual(0);
+    expect(polarLowest).toBeLessThan(-240);
     // 구릉은 지역마다 있고 없다
     expect(hills / 20_000).toBeGreaterThan(0.2);
     expect(hills / 20_000).toBeLessThan(0.8);
+    // 극 쪽 줄이기: 위도 약 50°(|z| 0.77)까지 1, 약 70°(0.94)부터 0, 그 사이는 줄어든다
+    expect([0, 0.77, 0.85, 0.94, 1].map(polarReliefFactor)).toEqual([1, 1, expect.any(Number), 0, 0]);
+    expect(polarReliefFactor(0.85)).toBeGreaterThan(0);
+    expect(polarReliefFactor(0.85)).toBeLessThan(1);
+    expect(polarReliefFactor(-0.85)).toBe(polarReliefFactor(0.85));
   });
 
   it("산맥 단면 두 채널은 표준편차 약 1이고 ±2.5 안, 경계를 따라 바뀌는 세기는 0.3 ~ 1.4이고 표준편차 약 0.3", () => {

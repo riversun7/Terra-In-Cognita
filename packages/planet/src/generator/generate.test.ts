@@ -150,15 +150,15 @@ describe("골든 해시 (값이 바뀌면 GENERATOR_VERSION을 올리고 새 값
   // 증발 가능량), 2단계(기후 위도 흔들기·기온·강수의 중간 크기·잔 변이), 3단계(지형 틀: 안쪽 고원·분지·구릉,
   // 해안선 흔들기, 산맥 단면·세기, 열점 사슬 모양, 봉우리 다듬기)
   it("면 레벨 5, 시드 1, 프리셋 군도·더움·습윤·젊음·많음·많음", () => {
-    expect(run(5, 1, STRESS_PRESETS).fields.meta.hash).toBe("92835647");
+    expect(run(5, 1, STRESS_PRESETS).fields.meta.hash).toBe("22051c78");
   });
 
   it("S2 시험 행성 설정(시드 20261029, 모두 보통)을 면 레벨 5로", () => {
-    expect(run(5, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("477f01eb");
+    expect(run(5, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("884e2b28");
   });
 
   it("S2 시험 행성 설정을 면 레벨 6으로", () => {
-    expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("659f6be7");
+    expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("6d0b4b25");
   });
 });
 
@@ -200,9 +200,9 @@ describe("실수 지문 (정수 필드로 반올림하기 전 값. 바뀌면 골
   it("격자(칸 중심·면적 = 투영 detTan·detAtan)와 해수면의 64비트 값", () => {
     const grid = buildGrid(5);
     expect(fingerprint([grid.x, grid.y, grid.z, grid.faceArea])).toBe("5e2f5aef");
-    expect(bitsOf(run(5, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c028f10defb0f600");
-    expect(bitsOf(run(5, 1, STRESS_PRESETS).seaLevelRealM)).toBe("405edee0c5912f80");
-    expect(bitsOf(run(6, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c02b257af9a5f800");
+    expect(bitsOf(run(5, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c02a977f25529800");
+    expect(bitsOf(run(5, 1, STRESS_PRESETS).seaLevelRealM)).toBe("4059154410661300");
+    expect(bitsOf(run(6, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c02cf72e496bd000");
   });
 
   it("판 구조 고도·기온·강수(Float32 중간값, 면 레벨 5, S2 시험 행성 설정)", () => {
@@ -210,10 +210,10 @@ describe("실수 지문 (정수 필드로 반올림하기 전 값. 바뀌면 골
     const settings = resolvePlanetSettings(NORMAL_PRESETS);
     const { elevation } = buildTectonics(grid, S2_TEST_PLANET_SEED, settings);
     // 출력 판 3(다양성 고침 3단계 지형 틀)에서 바꿨다. 출력 판 2·1~2단계는 00edae93
-    expect(fingerprint([elevation])).toBe("2f2e88f1");
+    expect(fingerprint([elevation])).toBe("49da3268");
     const { seaLevel, ocean } = classifyOcean(grid, elevation, settings.landPercent);
     const climate = computeClimate(grid, elevation, seaLevel, ocean, settings, S2_TEST_PLANET_SEED);
-    expect(fingerprint([climate.temperature, climate.precipitation])).toBe("791d26d1");
+    expect(fingerprint([climate.temperature, climate.precipitation])).toBe("d82bcd13");
   });
 
   it("판 번호·대륙 지각 배치는 출력 판 2와 같다(지형 틀은 높이만 더하고 판·대륙은 1판 노이즈 그대로)", () => {

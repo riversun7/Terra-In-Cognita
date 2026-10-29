@@ -15,7 +15,7 @@ import { buildGrid } from "./grid.ts";
 import { hashPlanetFields } from "./hash.ts";
 import { erodeOnce, findRivers, runoffOf, waterBalance } from "./hydrology.ts";
 import { classifyOcean } from "./seaLevel.ts";
-import { buildSurface, compileBiomes } from "./surface.ts";
+import { buildSurface, compileBiomes, lakeSurfaceHeights } from "./surface.ts";
 import { buildTectonics } from "./tectonics.ts";
 import type { GeneratorStage, PlanetFields, PlanetGeneratorInput } from "./types.ts";
 import { GENERATOR_VERSION } from "./version.ts";
@@ -40,6 +40,11 @@ export interface GeneratorDetails {
   readonly receiver: Int32Array;
   /** 칸마다 웅덩이 처리(hydrology.ts CELL_OPEN·CELL_LAKE·CELL_FILLED·CELL_DRY) */
   readonly basinKind: Uint8Array;
+  /**
+   * 호수 수면 높이(게임 m, 해수면 0, surface.ts lakeSurfaceHeights). 호수 칸만 값이 있고(그 밖은 0), 한 호수는 평평하다.
+   * PlanetFields의 호수 칸 고도는 바닥이라, 타일·화면이 수면을 그리려면 이것을 쓴다(타일 형식에 넣을지는 ADR 36 남은 것)
+   */
+  readonly lakeSurfaceM: Int16Array;
   /** 해수면(실제 환산 m, 내부 고도 척도). 저장 고도는 이것을 0으로 둔 값이다 */
   readonly seaLevelRealM: number;
 }
@@ -140,6 +145,7 @@ export function runPlanetGenerator(
     fields: { ...surface, meta: { generatorVersion: GENERATOR_VERSION, seed, faceLevel, settings, hash } },
     receiver: flow.receiver,
     basinKind: rivers.basinKind,
+    lakeSurfaceM: lakeSurfaceHeights(rivers.basinKind, flow.filled, seaLevel),
     seaLevelRealM: seaLevel,
   };
 }

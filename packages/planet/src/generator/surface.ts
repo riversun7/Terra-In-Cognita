@@ -213,3 +213,22 @@ export function buildSurface(
   }
   return { elevationM, biome, temperatureC, precipitationMm, humidity, water, river, forest };
 }
+
+/**
+ * 호수 수면 높이(게임 m, 해수면 0): 호수 칸은 넘치는 높이(Priority-Flood 채운 높이)를 저장 고도와 같은 식으로
+ * 반올림한 값이고, 호수가 아닌 칸은 0이다(쓰지 않는다). 호수 칸의 elevationM은 바닥 높이라, 수면을 평평하게
+ * 그리려면 이 값을 쓴다. 한 웅덩이의 호수 칸은 모두 같은 값이고, 넘치는 곳(호수 밖 첫 칸)의 저장 고도와 같다.
+ * 해수면보다 낮은 호수(바다와 이어지지 않은 낮은 땅)는 음수다.
+ */
+export function lakeSurfaceHeights(
+  basinKind: Uint8Array,
+  filled: Float32Array,
+  seaLevel: number,
+): Int16Array {
+  const surface = new Int16Array(basinKind.length);
+  for (let c = 0; c < basinKind.length; c++) {
+    if (basinKind[c] !== CELL_LAKE) continue;
+    surface[c] = clamp(Math.round(((filled[c] ?? 0) - seaLevel) / VERTICAL_SCALE), -32_768, 32_767);
+  }
+  return surface;
+}

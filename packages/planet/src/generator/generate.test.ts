@@ -284,6 +284,33 @@ describe("성질 (면 레벨 5·6)", () => {
     }
   });
 
+  it("호수 수면: 호수 칸만 값이 있고 바닥 이상이며, 한 호수는 평평하다(넘치는 곳의 저장 고도와 같다)", () => {
+    for (const [faceLevel, seed] of [
+      [5, S2_TEST_PLANET_SEED],
+      [6, S2_TEST_PLANET_SEED],
+      [5, 1],
+    ] as const) {
+      const { fields, receiver, basinKind, lakeSurfaceM } = run(faceLevel, seed);
+      const problems: string[] = [];
+      let lakes = 0;
+      for (let c = 0; c < lakeSurfaceM.length; c++) {
+        const surface = lakeSurfaceM[c] ?? 0;
+        if (basinKind[c] !== CELL_LAKE) {
+          if (surface !== 0) problems.push(`not a lake ${c}`);
+          continue;
+        }
+        lakes++;
+        if (surface < (fields.elevationM[c] ?? 0)) problems.push(`below bottom ${c}`);
+        // 호수 칸의 물길은 같은 호수 안 칸이거나, 호수 밖 넘치는 곳(그 칸의 저장 고도 = 수면)이다
+        const next = receiver[c] ?? -1;
+        const expected = basinKind[next] === CELL_LAKE ? lakeSurfaceM[next] : fields.elevationM[next];
+        if (next < 0 || surface !== expected) problems.push(`uneven ${c} → ${next}`);
+      }
+      expect(lakes, `호수 칸 수 F${faceLevel}`).toBeGreaterThan(0);
+      expect(problems.slice(0, 5)).toEqual([]);
+    }
+  });
+
   it("정육면체 꼭짓점 8곳의 칸(24칸)은 모두 바다다", () => {
     const corners = cornerCells(buildGrid(5));
     for (const seed of [S2_TEST_PLANET_SEED, 1, 2, 3]) {

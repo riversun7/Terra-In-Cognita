@@ -44,6 +44,9 @@ export interface UnitLook {
 /** 기본 캡슐: 반지름 0.5m, 전체 키 2m(가운데 1m + 위아래 반구). 유닛마다 크기를 늘리고 줄인다 */
 const BASE_RADIUS = 0.5;
 const BASE_HEIGHT = 2;
+/** 캡슐 반구 단 수·둘레 조각 수 */
+const CAPSULE_CAP_SEGMENTS = 6;
+const CAPSULE_RADIAL_SEGMENTS = 20;
 /** 외곽선 두께(CSS px) */
 const OUTLINE_PX = 1.25;
 const HIGHLIGHT_PX = 3;
@@ -71,7 +74,13 @@ export class UnitView {
   private readonly matrixAttribute: InstancedBufferAttribute;
   private readonly instanceColors: Float32Array;
   private readonly colorAttribute: InstancedBufferAttribute;
-  private readonly geometry = new CapsuleGeometry(BASE_RADIUS, BASE_HEIGHT - 2 * BASE_RADIUS, 3, 10);
+  // 반구 6단 × 둘레 20(꼭짓점 약 300개): 가까이 보면 3 × 10은 각이 보였다. 인스턴스라 화면 안 유닛만 그려 부담이 작다
+  private readonly geometry = new CapsuleGeometry(
+    BASE_RADIUS,
+    BASE_HEIGHT - 2 * BASE_RADIUS,
+    CAPSULE_CAP_SEGMENTS,
+    CAPSULE_RADIAL_SEGMENTS,
+  );
   private readonly bodyMaterial = new MeshLambertMaterial({ color: 0xffffff });
   private readonly outlineMaterial = createOutlineMaterial(OUTLINE_COLOR, OUTLINE_PX);
   private readonly highlightMaterial = createOutlineMaterial(HIGHLIGHT_COLOR, HIGHLIGHT_PX);

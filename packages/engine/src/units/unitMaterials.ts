@@ -63,19 +63,24 @@ void main() {
 }
 `;
 
+// 가장자리·테두리 경계를 화면 한 점 폭으로 부드럽게 한다(MSAA는 discard로 자른 가장자리를 다듬지 못해 계단이 보였다).
+// 반투명 목록에서 그린다(재질 transparent): 가장자리는 알파로 섞인다
 const DOT_FRAGMENT = /* glsl */ `
 uniform vec3 uOutline;
 varying vec3 vColor;
 void main() {
   vec2 c = gl_PointCoord - vec2(0.5);
   float r = length(c);
-  if (r > 0.5) discard;
-  gl_FragColor = vec4(r > 0.33 ? uOutline : vColor, 1.0);
+  float aa = max(fwidth(r), 1e-4);
+  float alpha = 1.0 - smoothstep(0.5 - aa, 0.5, r);
+  if (alpha <= 0.0) discard;
+  vec3 color = mix(vColor, uOutline, smoothstep(0.33 - aa * 0.5, 0.33 + aa * 0.5, r));
+  gl_FragColor = vec4(color, alpha);
   #include <colorspace_fragment>
 }
 `;
 
-/** 점 재질. sizePx는 CSS 픽셀. 늘 위에 보이게 깊이 검사를 하지 않는다(아이콘) */
+/** 점 재질. sizePx는 CSS 픽셀. 늘 위에 보이게 깊이 검사를 하지 않는다(아이콘). 가장자리를 알파로 섞으려면 transparent를 켠다 */
 export function createDotMaterial(sizePx: number): ShaderMaterial {
   return new ShaderMaterial({
     uniforms: {

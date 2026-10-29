@@ -101,8 +101,9 @@ export const CONTRAST_PAIRS = [
   ...TEXT_BACKGROUNDS.map((bg) => ({ fg: "--color-text", bg, kind: "body" })),
   ...TEXT_BACKGROUNDS.map((bg) => ({ fg: "--color-text-muted", bg, kind: "text" })),
   { fg: "--color-on-primary", bg: "--color-primary", kind: "text" },
+  // 둘째 판(--color-surface-2) 위의 상태색: 홈의 부관 말풍선·처리할 일 분류 이름(apps/game/src/home/todo.css)
   ...["success", "warning", "danger"].flatMap((status) =>
-    ["--color-bg", "--color-surface", `--color-${status}-surface`].map((bg) => ({
+    ["--color-bg", "--color-surface", "--color-surface-2", `--color-${status}-surface`].map((bg) => ({
       fg: `--color-${status}`,
       bg,
       kind: "text",

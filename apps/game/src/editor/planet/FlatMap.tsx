@@ -4,11 +4,14 @@
 // - 크기는 CSS가 정한다(flatMap.css: 담는 판의 폭, 가로세로 2 : 1, 토큰만). 그림 버퍼 = CSS 폭 × 픽셀 비율, 폭 상한 1,024.
 //   픽셀 비율 상한은 엔진 1차맵과 같은 규칙이다(휴대폰 1.5, 그 밖 2 — PLAN 5.7).
 // - 결과·색표·크기가 바뀌면 다시 칠한다. 픽셀 → 칸 표는 면 레벨·크기마다 한 번 만들고 이 부품이 기억한다(닫으면 버린다).
+// - 크기가 바뀌는 동안(창 끌기, 판 폭이 움직이는 동안)은 옛 그림 버퍼를 CSS가 늘려 보이고, 멈춘 뒤(150ms) 새 크기로 한 번 칠한다.
+// - 숨겨져 폭이 0이면(접힌 판) 칠하지 않는다. 그동안 온 결과는 다시 보일 때 마지막 것만 칠한다(처음부터 숨긴 판도 같다).
+//   두 규칙은 flatMapView.ts가 정한다.
 // - 누르면(마우스·터치·펜) 그 픽셀 중심의 위도·경도를 onPick으로 알린다. 고른 점(selected)은 부모가 들고 여기서는 표시만 한다.
 // - 키보드: 초점을 받으면 화살표로 적도 칸 하나쯤, Shift와 함께 8칸쯤 옮긴다. Enter·Space는 지금 점(없으면 가운데)을 고른다.
 //   고른 칸을 읽어 주는 것은 칸 정보창(부모의 status 영역)이 한다. onPick이 없으면 보기만 하는 그림(role="img", 초점 없음)이다.
-// - 숨겨져 폭이 0이면 칠하지 않는다(접힌 판). 다시 보이면 크기 관찰이 알려 준다.
-// - 시험·측정용 data-*(캔버스): data-face-level, data-backing(폭x높이), data-paint-ms, data-lookup-ms(이번에 표를 만들었을 때만).
+// - 시험·측정용 data-*(캔버스): data-face-level, data-backing(폭x높이), data-paint-ms, data-lookup-ms(그 칠하기에서 표를 만들었을
+//   때만). 판을 비우면 모두 지운다(data-backing만 남는다).
 import { type KeyboardEvent, type MouseEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import {
@@ -17,13 +20,13 @@ import {
   FlatMapLookupCache,
   type LatLon,
   createFlatMapPalette,
-  flatMapBackingSize,
   flatMapFraction,
   flatMapPixelRatioLimit,
   flatMapPointAt,
   moveFlatMapPoint,
   paintFlatMap,
 } from "./flatMapRender.ts";
+import { type FlatMapView, createFlatMapViewTracker } from "./flatMapView.ts";
 import "./flatMap.css";
 
 export interface FlatMapProps {
@@ -71,22 +74,19 @@ export function FlatMap({ fields, biomeColors, selected = null, onPick, label }:
   const cacheRef = useRef<FlatMapLookupCache | null>(null);
   const imageRef = useRef<ImageData | null>(null);
   const hintId = useId();
-  /** CSS 폭(px)과 픽셀 비율(상한을 건 값) — 크기가 바뀌면(돌리기·창 크기·확대) 다시 잰다 */
-  const [box, setBox] = useState<{ width: number; ratio: number } | null>(null);
+  /** 그림 버퍼 폭과 보이는지 — 크기 관찰·창 크기(돌리기·확대)로 다시 잰다(flatMapView.ts) */
+  const [view, setView] = useState<FlatMapView | null>(null);
   const palette = useMemo(() => createFlatMapPalette(biomeColors), [biomeColors]);
-  const backing = box ? flatMapBackingSize(box.width, box.ratio) : null;
-  const backingWidth = backing?.width ?? 0;
+  const backingWidth = view?.backingWidth ?? 0;
+  const visible = view?.visible ?? false;
+  // 지금 캔버스에 칠한 그림 버퍼 크기: 크기가 멈추기를 기다리는 동안에도 누른 곳은 보이는 그림 기준이다
+  const backing = view ? { width: view.backingWidth, height: view.backingWidth / 2 } : null;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
-    const measure = (): void => {
-      const width = canvas.clientWidth;
-      const ratio = pixelRatio();
-      setBox((old) =>
-        width <= 0 || (old !== null && old.width === width && old.ratio === ratio) ? old : { width, ratio },
-      );
-    };
+    const tracker = createFlatMapViewTracker(setView);
+    const measure = (): void => tracker.measure(canvas.clientWidth, pixelRatio());
     // 처음 값은 다음 프레임에(그리는 중에 상태를 바꾸지 않는다). 그 뒤는 크기 관찰·창 크기(확대하면 픽셀 비율이 바뀐다)
     const frame = requestAnimationFrame(measure);
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
@@ -96,12 +96,14 @@ export function FlatMap({ fields, biomeColors, selected = null, onPick, label }:
       cancelAnimationFrame(frame);
       observer?.disconnect();
       window.removeEventListener("resize", measure);
+      tracker.dispose();
     };
   }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || backingWidth === 0) return;
+    // 숨겨진 동안은 칠하지 않는다: 다시 보이면 visible이 바뀌어 그때 결과로 칠한다(표는 기억에서)
+    if (!canvas || backingWidth === 0 || !visible) return;
     const size = { width: backingWidth, height: backingWidth / 2 };
     // 버퍼 크기를 바꾸면 그린 것이 지워진다: 바뀔 때만
     if (canvas.width !== size.width || canvas.height !== size.height) {
@@ -114,6 +116,7 @@ export function FlatMap({ fields, biomeColors, selected = null, onPick, label }:
       context.clearRect(0, 0, size.width, size.height);
       delete canvas.dataset.faceLevel;
       delete canvas.dataset.paintMs;
+      delete canvas.dataset.lookupMs;
     };
     canvas.dataset.backing = `${size.width}x${size.height}`;
     if (!fields) {
@@ -141,7 +144,7 @@ export function FlatMap({ fields, biomeColors, selected = null, onPick, label }:
       clear();
       reportError(error);
     }
-  }, [fields, palette, backingWidth]);
+  }, [fields, palette, backingWidth, visible]);
 
   const pickAt = (event: MouseEvent<HTMLCanvasElement>): void => {
     if (!onPick || !backing) return;

@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-29 12:50 | S2 통합: 생성기·타일·서버·렌더러 합치기, 이음매 하나로, 실제 생성기 → 서버 굽기 → 타일 HTTP → 1차맵 화면 | Claude Code (작업 트리 `worktree-wf_cf86e8da-f84-1`, main `e16b47e`에서 시작) | [29-1250-s2-integration](worklog/2026/10/29-1250-s2-integration.md) |
 | 2026-10-29 11:30 | S2 렌더러: 1차맵 행성 LOD 엔진, 가짜 행성, 임시 1차맵 시험 화면 | Claude Code (서브에이전트, 작업 트리) | [29-1130-s2-renderer](worklog/2026/10/29-1130-s2-renderer.md) |
 | 2026-10-29 10:20 | S2 행성 생성기 1판: 결정적 수학·투영, 행성·바이옴 콘텐츠, `generatePlanet`, 벤치마크·그림 | Claude Code | [29-1020-s2-generator](worklog/2026/10/29-1020-s2-generator.md) |
 | 2026-10-29 09:50 | S2 행성 타일·서버 굽기·전송: 타일 만들기, TCPT 형식, 굽기 워커, 디스크 캐시, 목록 정보·타일 경로 | Claude Code (서브에이전트, 작업 트리) | [29-0950-s2-tiles-server](worklog/2026/10/29-0950-s2-tiles-server.md) |

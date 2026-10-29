@@ -463,9 +463,9 @@ describe("해상도와 무관한 큰 모양 (편집기 미리보기 = 낮은 면
 });
 
 describe("입력 검사", () => {
-  it("면 레벨 4~10, u32 시드, 범위 안 설정, 바다·호수·육지 규칙이 있는 바이옴 표만 받는다", () => {
+  it("면 레벨 4~9, u32 시드, 범위 안 설정, 바다·호수·육지 규칙이 있는 바이옴 표만 받는다", () => {
     expect(() => generatePlanet(input(3, 1))).toThrow(RangeError);
-    expect(() => generatePlanet(input(11, 1))).toThrow(RangeError);
+    expect(() => generatePlanet(input(10, 1))).toThrow(RangeError);
     expect(() => generatePlanet({ ...input(4, 1), seed: -1 })).toThrow(RangeError);
     expect(() => generatePlanet({ ...input(4, 1), seed: 2 ** 32 })).toThrow(RangeError);
     const settings = { ...resolvePlanetSettings(NORMAL_PRESETS), landPercent: 99 };

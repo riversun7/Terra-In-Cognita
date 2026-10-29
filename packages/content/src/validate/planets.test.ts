@@ -163,9 +163,9 @@ describe("행성·바이옴 분류", () => {
     ]);
   });
 
-  it("면 레벨은 4~10(생성기가 받는 범위), 시드는 u32 정수", () => {
-    expect(problems([planet({ faceLevel: 11 })])).toEqual([
-      ["schema", "planets.json", "test_world", "faceLevel", "값이 너무 큽니다(최대 10)."],
+  it("면 레벨은 4~9(생성기가 받는 범위), 시드는 u32 정수", () => {
+    expect(problems([planet({ faceLevel: 10 })])).toEqual([
+      ["schema", "planets.json", "test_world", "faceLevel", "값이 너무 큽니다(최대 9)."],
     ]);
     expect(problems([planet({ seed: -1 })])).toEqual([
       ["schema", "planets.json", "test_world", "seed", "값이 너무 작습니다(최소 0)."],

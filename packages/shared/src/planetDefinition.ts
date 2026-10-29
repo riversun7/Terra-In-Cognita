@@ -119,7 +119,8 @@ export const BIOME_RULE_KINDS = ["ocean", "lake", "land"] as const;
 export type BiomeRuleKind = (typeof BIOME_RULE_KINDS)[number];
 
 /**
- * 생성기가 받는 면 레벨 범위(출력 해상도). 격자 계약(4~14)보다 좁다: 레벨 10이 약 55초·최대 RSS 771MiB이고(개발 컨테이너
- * 측정), 레벨이 하나 오를 때마다 칸이 4배라 11부터는 서버 굽기에 너무 크다고 본다(추정, ADR 36 "구현하며 정한 것")
+ * 생성기가 받는 면 레벨 범위(출력 해상도). 격자 계약(4~14)보다 좁다. 상한 9: 레벨 10은 생성 하나만으로 최대 RSS 약
+ * 770MiB(개발 컨테이너 측정)인데 NAS 앱 컨테이너 상한이 1GiB이고 서버가 이미 그 일부를 쓴다(ops/compose.yml,
+ * ADR 33). 그래서 NAS에서 굽기를 재기 전에는 9까지만 받는다(ADR 36 "구현하며 정한 것 (생성기)")
  */
-export const PLANET_GENERATOR_FACE_LEVELS = [4, 10] as const;
+export const PLANET_GENERATOR_FACE_LEVELS = [4, 9] as const;

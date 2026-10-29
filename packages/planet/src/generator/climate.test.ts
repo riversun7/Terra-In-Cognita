@@ -2,7 +2,7 @@
 // 하나인지, 고른 비율이 바람을 나눈 몫과 맞는지, 저장 습도가 실수 기온에 연속인지(정수 등온선 계단이 없는지)
 import { detAsin } from "@terra/shared";
 import { describe, expect, it } from "vitest";
-import { upwindNeighbors, upwindShare, windAt, windVectorAt } from "./climateWind.ts";
+import { climateLatitudeAt, upwindNeighbors, upwindShare, windAt, windVectorAt } from "./climateWind.ts";
 import { type PlanetGrid, buildGrid, neighbors8 } from "./grid.ts";
 import { STREAM_WIND, streamSeed } from "./random.ts";
 import { landHumidity } from "./surface.ts";
@@ -10,7 +10,7 @@ import { S2_TEST_PLANET_SEED } from "./testFixtures.ts";
 
 const SEEDS = [S2_TEST_PLANET_SEED, 1, 42];
 
-/** 칸마다 위도(도): 생성기(climate.ts)와 같은 식 */
+/** 칸마다 지리 위도(도): 생성기(climate.ts)와 같은 식 */
 function latitudes(grid: PlanetGrid): Float32Array {
   return Float32Array.from(grid.z, (z) => detAsin(Math.min(1, Math.max(-1, z))) * (180 / Math.PI));
 }
@@ -61,7 +61,8 @@ describe("바람 (띠 바람 + 굽이)", () => {
     for (let c = 0; c < grid.cellCount; c++) {
       const lat = latitude[c] ?? 0;
       const wind = windVectorAt(windSeed, grid.x[c] ?? 0, grid.y[c] ?? 0, grid.z[c] ?? 0, lat);
-      const band = windAt(lat);
+      // 띠 바람은 기후 위도(흔든 위도, 2단계)의 것이다
+      const band = windAt(climateLatitudeAt(windSeed, grid.x[c] ?? 0, grid.y[c] ?? 0, grid.z[c] ?? 0, lat));
       deviation += Math.sqrt((wind.u - band.u) * (wind.u - band.u) + (wind.v - band.v) * (wind.v - band.v));
       if (Math.abs(lat) < 40 || Math.abs(lat) > 50) continue;
       eastward += wind.u;

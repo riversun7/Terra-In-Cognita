@@ -101,7 +101,7 @@ export function varietyMetric(name: string, value: number, note: string): Variet
   return { name, value, note };
 }
 
-/** 생성기가 습기 길을 고를 때 쓰는 바람(출력 판 3: 띠 바람 + 굽이, climateWind.ts windVectorAt) */
+/** 생성기가 습기 길을 고를 때 쓰는 바람(출력 판 3: 기후 위도의 띠 바람 + 굽이, climateWind.ts windVectorAt) */
 export function generatorWind(ctx: VarietyContext, seed: number): CellWind {
   const windSeed = streamSeed(seed, STREAM_WIND);
   const { x, y, z } = ctx.grid;

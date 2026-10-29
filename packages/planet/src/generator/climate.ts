@@ -1,18 +1,27 @@
 // 생성 4단계: 기후 — 연평균 기온·강수 (ADR 31 순서, ADR 36)
 // - 위도: 단위 구 위 점의 z = sin(위도). 위도(도)는 결정적 아크사인(@terra/shared detAsin).
-// - 기온: 해수면 기온 = 적도 − (적도 − 극) × (|위도|/90)^1.5, 고도에 따라 6.5°C/km(실제 환산 고도 = 게임 m × 12).
-// - 바람·바람이 오는 이웃: climateWind.ts(출력 판 3, 위도 띠 바람 + 굽이, 바람을 끼는 이웃 둘 중 하나).
+// - 기후 위도·바람·바람이 오는 이웃: climateWind.ts(출력 판 3). 띠 식은 모두 기후 위도(흔든 위도)를 쓴다.
+// - 기온: 해수면 기온 = 적도 − (적도 − 극) × (|기후 위도|/90)^1.5, 고도에 따라 6.5°C/km(실제 환산 고도 = 게임 m × 12).
+//   여기에 변이를 더한다(출력 판 3, 다양성 고침 2단계, climateVariation): 중간 크기(주파수 3, 격자 약 2,100km ~
+//   5옥타브 약 130km) 표준편차 바다 2°C·내륙 3.5°C, 땅만 잔 변이(주파수 40, 격자 약 160km ~ 40km) 1.2°C.
+//   그래서 기후 띠 경계가 굽이치고, 경계 둘레에 덩어리·섞이는 띠가 생긴다.
 // - 습기: 바람길을 따라 바다 위에서 차고, 땅 위에서 비로 빠지며, 오르막에서 크게 빠진다(비그늘). 오르막은 바람길
 //   약 75km(칸 하나 이상) 위와 견준다. 칸이 작은 굽기 해상도에서도 75km보다 짧은 잔 기복마다 습기가 빠지지 않는다.
 //   길이 2^K칸의 바람길을 포인터 두 배 뛰기(doubling)로 한 번에 접는다(칸마다 일차식 m → a·m + b를 합성).
-// - 강수 = 위도 띠 기본값 × 습기 × (1 + 바람받이 오르막) × 설정 배율. 바다까지 거리로 해안 습기를 보탠다.
+// - 강수 = 위도 띠 기본값 × 습기 × (1 + 바람받이 오르막) × 설정 배율 × 변이 배율. 바다까지 거리로 해안 습기를 보탠다.
+//   변이 배율 = e^(0.4 × 중간 크기 채널 B + 0.3 × 잔 변이 채널 B(땅만), 채널은 표준편차 1로 맞춘 값). 중간 크기만으로
+//   로그 표준편차 0.4(5~95%가 약 ×0.5 ~ ×1.9).
+// - 변이는 저장하는 기온·강수에 들어간다(바이옴은 여전히 저장한 기온·습도·고도로만 판정한다). 노이즈 세기는 해상도와
+//   무관하게 가장 많은 옥타브의 세기 합으로 나눈다: 낮은 면 레벨(미리보기)은 잔 옥타브만 빠지고 큰 모양은 같다.
+//   잔 변이는 칸이 그 격자의 반보다 크면(F ≤ 6) 끈다(미리보기가 얼룩지지 않게).
 // 모든 길이는 구 위 각도(라디안)다. 수치는 S2 임시값이다(지구 연평균 분포를 대략 따른다).
 import { detAsin, detExp } from "@terra/shared";
 import type { PlanetSettings } from "@terra/shared";
 import { upwindNeighbors } from "./climateWind.ts";
 import { type PlanetGrid, neighbors8 } from "./grid.ts";
+import { octavesFor, offsetFbm3Pair } from "./noise.ts";
 import { distanceField } from "./queues.ts";
-import { STREAM_WIND, streamSeed } from "./random.ts";
+import { STREAM_CLIMATE, STREAM_WIND, streamSeed } from "./random.ts";
 import { REFERENCE_RADIUS_KM, clamp, km } from "./util.ts";
 
 const DEGREES_PER_RADIAN = 180 / Math.PI;
@@ -36,6 +45,31 @@ const WIND_PATH = km(4500);
 /** 오르막을 재는 바람길 길이: 이만큼(칸 수로 반올림, 1칸 이상) 위 칸과 견준다 */
 const OROGRAPHIC_SPAN = km(75);
 
+// ── 기후 변이(출력 판 3, 2단계). 표준편차는 F6 칸(면적 가중) × 시드 64개 × 두 채널로 잰 값이다(가장 많은 옥타브의 세기
+//    합으로 나눈 노이즈, 2026-10-29). 노이즈 식이나 주파수·옥타브·gain을 바꾸면 다시 잰다 ──
+/** 중간 크기 변이: 두 채널(A = 기온, B = 강수), 주파수 3(격자 약 2,100km)에서 5옥타브까지 */
+const ANOMALY_FREQUENCY = 3;
+const ANOMALY_OCTAVES = 5;
+const ANOMALY_GAIN = 0.65;
+const ANOMALY_SD = 0.139;
+/** 기온 변이 표준편차(°C): 바다 위, 그리고 내륙에서 더하는 몫(해안에서 600km에 1 − 1/e) */
+const ANOMALY_TEMPERATURE_OCEAN = 2;
+const ANOMALY_TEMPERATURE_INLAND = 1.5;
+const ANOMALY_INLAND_REACH = km(600);
+/** 강수 변이: 로그 표준편차 */
+const ANOMALY_PRECIPITATION_LOG = 0.4;
+/** 잔 변이(땅만): 두 채널, 주파수 40(격자 약 160km)에서 3옥타브까지 */
+const ROUGH_FREQUENCY = 40;
+const ROUGH_OCTAVES = 3;
+const ROUGH_GAIN = 0.6;
+const ROUGH_SD = 0.168;
+/** 잔 변이 세기: 기온 표준편차(°C), 강수 로그 표준편차 */
+const ROUGH_TEMPERATURE = 1.2;
+const ROUGH_PRECIPITATION_LOG = 0.3;
+/** 변이 노이즈 시드: streamSeed(시드, STREAM_CLIMATE) + 이 값 */
+const ANOMALY_SEED_OFFSET = 1;
+const ROUGH_SEED_OFFSET = 2;
+
 export interface Climate {
   /** 연평균 기온(°C) */
   readonly temperature: Float32Array;
@@ -53,6 +87,87 @@ export function zonalPrecipitation(latitudeDegrees: number): number {
   return 120 + 2300 * detExp(-tropics * tropics) + 900 * detExp(-midLatitude * midLatitude);
 }
 
+/** 옥타브 octaves개의 세기 합(1 + gain + gain² + …, 노이즈 함수가 나누는 값과 같은 순서로 더한다) */
+function amplitudeSum(gain: number, octaves: number): number {
+  let sum = 0;
+  let amplitude = 1;
+  for (let octave = 0; octave < octaves; octave++) {
+    sum += amplitude;
+    amplitude *= gain;
+  }
+  return sum;
+}
+
+/**
+ * 변이 노이즈를 표준편차 1로 맞추는 배율: 쓰는 옥타브의 세기 합 ÷ 가장 많은 옥타브의 세기 합 ÷ 표준편차.
+ * 노이즈 함수는 쓰는 옥타브의 세기 합으로 나누므로, 이것을 곱하면 낮은 옥타브의 세기가 해상도와 무관하게 같다
+ */
+function unitScale(gain: number, octaves: number, maxOctaves: number, sd: number): number {
+  return amplitudeSum(gain, octaves) / amplitudeSum(gain, maxOctaves) / sd;
+}
+
+/**
+ * 잔 변이 옥타브 수: 칸이 잔 변이 격자의 반보다 크면(1 ÷ (2 × 칸) < 주파수 40, F ≤ 6) 0(끈다). 그보다 작으면
+ * 해상도에 맞게 3옥타브까지(F7 1, F8 2, F9 3)
+ */
+export function roughnessOctaves(meanCellAngle: number): number {
+  if (1 / (2 * meanCellAngle) < ROUGH_FREQUENCY) return 0;
+  return octavesFor(ROUGH_FREQUENCY, meanCellAngle, ROUGH_OCTAVES);
+}
+
+/** 기후 변이 두 채널(기온 쪽 A, 강수 쪽 B). 한 스레드 안에서만 쓰는 임시 칸 */
+const anomalyNoise = new Float64Array(2);
+
+/**
+ * 기온(띠 식 + 고도 냉각 + 변이)과 강수 변이 지수(강수에 곱할 e^x의 x)를 칸마다 쓴다.
+ * 중간 크기 변이는 모든 칸, 잔 변이는 땅 칸만(roughnessOctaves가 0이면 없음). 노이즈 2판 두 채널 한 번씩.
+ * @param latitude 칸마다 기후 위도(도)
+ * @param oceanDistance 바다까지 거리(라디안): 기온 변이가 내륙으로 커진다
+ */
+function climateVariation(
+  grid: PlanetGrid,
+  seed: number,
+  settings: PlanetSettings,
+  latitude: Float32Array,
+  elevation: Float32Array,
+  seaLevel: number,
+  ocean: Uint8Array,
+  oceanDistance: Float32Array,
+  temperature: Float32Array,
+  precipitationLog: Float32Array,
+): void {
+  const equator = settings.equatorTemperatureC;
+  const span = settings.equatorTemperatureC - settings.poleTemperatureC;
+  const climateSeed = streamSeed(seed, STREAM_CLIMATE);
+  const anomalySeed = climateSeed + ANOMALY_SEED_OFFSET;
+  const roughSeed = climateSeed + ROUGH_SEED_OFFSET;
+  const anomalyOctaves = octavesFor(ANOMALY_FREQUENCY, grid.meanCellAngle, ANOMALY_OCTAVES);
+  const anomalyScale = unitScale(ANOMALY_GAIN, anomalyOctaves, ANOMALY_OCTAVES, ANOMALY_SD);
+  const roughOctaves = roughnessOctaves(grid.meanCellAngle);
+  const roughScale = roughOctaves > 0 ? unitScale(ROUGH_GAIN, roughOctaves, ROUGH_OCTAVES, ROUGH_SD) : 0;
+  for (let c = 0; c < grid.cellCount; c++) {
+    const x = grid.x[c] ?? 0;
+    const y = grid.y[c] ?? 0;
+    const z = grid.z[c] ?? 0;
+    const t = Math.min(1, Math.abs(latitude[c] ?? 0) / 90);
+    const altitude = Math.max(0, (elevation[c] ?? 0) - seaLevel);
+    let value = equator - span * t * Math.sqrt(t) - LAPSE_RATE_PER_M * altitude;
+    offsetFbm3Pair(anomalySeed, x, y, z, ANOMALY_FREQUENCY, anomalyOctaves, ANOMALY_GAIN, 0, anomalyNoise);
+    const isOcean = ocean[c] === 1;
+    const inland = isOcean ? 0 : 1 - detExp(-(oceanDistance[c] ?? 0) / ANOMALY_INLAND_REACH);
+    const strength = ANOMALY_TEMPERATURE_OCEAN + ANOMALY_TEMPERATURE_INLAND * inland;
+    value += strength * anomalyScale * (anomalyNoise[0] ?? 0);
+    let logFactor = ANOMALY_PRECIPITATION_LOG * anomalyScale * (anomalyNoise[1] ?? 0);
+    if (roughOctaves > 0 && !isOcean) {
+      offsetFbm3Pair(roughSeed, x, y, z, ROUGH_FREQUENCY, roughOctaves, ROUGH_GAIN, 0, anomalyNoise);
+      value += ROUGH_TEMPERATURE * roughScale * (anomalyNoise[0] ?? 0);
+      logFactor += ROUGH_PRECIPITATION_LOG * roughScale * (anomalyNoise[1] ?? 0);
+    }
+    temperature[c] = value;
+    precipitationLog[c] = logFactor;
+  }
+}
+
 export function computeClimate(
   grid: PlanetGrid,
   elevation: Float32Array,
@@ -62,21 +177,28 @@ export function computeClimate(
   seed: number,
 ): Climate {
   const count = grid.cellCount;
-  const temperature = new Float32Array(count);
+  // 기후 위도: 먼저 지리 위도를 넣고, 바람이 오는 이웃을 고르면서 같은 배열에 흔든 위도를 덮어쓴다
   const latitude = new Float32Array(count);
-  const equator = settings.equatorTemperatureC;
-  const span = settings.equatorTemperatureC - settings.poleTemperatureC;
-  for (let c = 0; c < count; c++) {
-    const degrees = detAsin(clamp(grid.z[c] ?? 0, -1, 1)) * DEGREES_PER_RADIAN;
-    latitude[c] = degrees;
-    const t = Math.abs(degrees) / 90;
-    const seaLevelTemperature = equator - span * t * Math.sqrt(t);
-    const altitude = Math.max(0, (elevation[c] ?? 0) - seaLevel);
-    temperature[c] = seaLevelTemperature - LAPSE_RATE_PER_M * altitude;
-  }
+  for (let c = 0; c < count; c++) latitude[c] = detAsin(clamp(grid.z[c] ?? 0, -1, 1)) * DEGREES_PER_RADIAN;
+  const upwind = upwindNeighbors(grid, latitude, streamSeed(seed, STREAM_WIND), latitude);
 
-  // 바람을 거슬러 가는 이웃(바람이 오는 칸)
-  const upwind = upwindNeighbors(grid, latitude, streamSeed(seed, STREAM_WIND));
+  // 바다까지 거리(기온 변이가 내륙으로 커진다, 해안 습기)
+  const coast = distanceField(grid, (c) => ocean[c] === 1, km(2500));
+  // 기온과 강수 변이 지수(강수 배열에 먼저 담고, 마지막에 배율로 곱한다)
+  const temperature = new Float32Array(count);
+  const precipitation = new Float32Array(count);
+  climateVariation(
+    grid,
+    seed,
+    settings,
+    latitude,
+    elevation,
+    seaLevel,
+    ocean,
+    coast.angle,
+    temperature,
+    precipitation,
+  );
 
   // 칸마다 습기 일차식: 나가는 습기 = a × 들어온 습기 + b
   let mapA = new Float32Array(count);
@@ -137,17 +259,21 @@ export function computeClimate(
     arriving[c] = from === c ? (mapB[c] ?? 0) : (mapB[from] ?? 0);
   }
   arriving = blur(grid, arriving, Math.max(1, 2 * (grid.faceLevel - 5)));
-  const coast = distanceField(grid, (c) => ocean[c] === 1, km(2500));
-  const precipitation = new Float32Array(count);
   const scale = settings.precipitationPercent / 100;
   for (let c = 0; c < count; c++) {
     const coastal = 0.55 * detExp(-(coast.angle[c] ?? 0) / COASTAL_REACH);
     const moisture = Math.max(arriving[c] ?? 0, coastal);
     const lift = ocean[c] === 1 ? 0 : Math.min(OROGRAPHIC_MAX, OROGRAPHIC_GAIN * (rise[c] ?? 0));
     // 습기와 무관한 몫(대류성 비): 적도 근처에서 크다
-    const equatorial = (latitude[c] ?? 0) / 12;
+    const lat = latitude[c] ?? 0;
+    const equatorial = lat / 12;
     const base = 0.12 + 0.3 * detExp(-equatorial * equatorial);
-    const value = scale * zonalPrecipitation(latitude[c] ?? 0) * (base + (1 - base) * moisture) * (1 + lift);
+    const value =
+      scale *
+      zonalPrecipitation(lat) *
+      (base + (1 - base) * moisture) *
+      (1 + lift) *
+      detExp(precipitation[c] ?? 0);
     precipitation[c] = clamp(value, 0, 12_000);
   }
   return { temperature, precipitation, oceanDistance: coast.angle };

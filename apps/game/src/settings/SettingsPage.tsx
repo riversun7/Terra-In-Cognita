@@ -1,10 +1,13 @@
-// 설정 화면 — 계정 줄의 [설정]으로 연다(지연 로딩되는 별도 조각, App.tsx의 React.lazy). ADR 2026-10-28-design-system
-// 테마 4개(미리 보기), "기기 설정에 맞추기", 언어. 바꾸면 바로 걸고 기기에 저장한 뒤 계정에도 올린다(settings.ts).
+// 설정 화면 — 사이드 메뉴의 [설정]·주소 /settings로 연다(지연 로딩되는 별도 조각, shell/routeViews.tsx의 React.lazy).
+// ADR 2026-10-28-design-system, 2026-10-29-app-shell 4절
+// 테마 4개(미리 보기), "기기 설정에 맞추기", 언어, 메뉴(하단 탭 모양·메뉴 순서 — shell/NavigationSettings.tsx).
+// 바꾸면 바로 걸고 기기에 저장한 뒤 계정에도 올린다(settings.ts).
 // - 테마는 기본 라디오 단추 묶음이다(화살표 키로 옮기고 고른다). 고른 표시는 지금 화면에 걸린 테마다(기기를 따르는 중이어도).
 // - 테마를 고르면 "기기 설정에 맞추기"는 꺼진다. 스위치를 끄면 지금 보이는 테마가 그대로 남는다.
 import { THEMES, type Theme } from "@terra/shared";
 import { useId } from "react";
 import { m } from "../paraglide/messages.js";
+import { NavigationSettings } from "../shell/NavigationSettings.tsx";
 import { LanguageSelect } from "../ui/LanguageSelect.tsx";
 import { useMountFocus } from "../ui/useMountFocus.ts";
 import { chooseTheme, setFollowSystem, useSettings } from "./settings.ts";
@@ -108,6 +111,7 @@ export default function SettingsPage({ onClose }: { onClose: () => void }) {
         <span className="switch-track" aria-hidden="true" />
       </label>
       <LanguageSelect variant="field" />
+      <NavigationSettings />
     </section>
   );
 }

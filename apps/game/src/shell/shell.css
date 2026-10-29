@@ -1,0 +1,519 @@
+/*
+ * 화면 틀 — 위 띠·사이드 메뉴(레일·서랍)·본문(ADR 2026-10-29-app-shell 3·10절). 첫 화면 묶음과 함께 내려온다.
+ * 하단 탭은 tabbar.css, 연결 줄·지도 위 단추·방향 안내는 overlays.css다.
+ * 값은 styles/tokens.css의 var(--…)만 쓴다("화면 틀" 블록). 폭 3단계 경계는 미디어 쿼리에 em 숫자로 쓴다:
+ * 37.5em(600px)·64em(1024px). 같은 값이 shell/layout.ts에 있고 layout.test.ts가 이 파일의 숫자와 같은지 본다.
+ * 좁음 = 하단 탭 + ☰ 서랍, 중간 = 접는 레일(접힘은 data-rail), 넓음 = 늘 펼친 사이드 메뉴. 문서 전체가 스크롤된다
+ * (위 띠는 sticky, 하단 탭은 fixed): 주소창이 줄고 늘어나는 휴대폰 브라우저와 스크롤 되돌리기(window.scrollY)에 맞다.
+ */
+
+/* 아이콘(ui/icons.tsx) — 글자와 같은 색 */
+.icon {
+  flex: none;
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+/* ── 틀 격자 — 좁음: 위 띠 / 본문(하단 탭은 화면 아래에 붙는다) ───────────── */
+.frame {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "top"
+    "main";
+}
+
+/* 본문으로 건너뛰기 — 키보드로 처음 초점이 왔을 때만 보인다 */
+.skip-link {
+  position: fixed;
+  top: max(var(--space-2), env(safe-area-inset-top));
+  left: max(var(--space-2), env(safe-area-inset-left));
+  z-index: 30;
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+  transform: translateY(-300%);
+}
+.skip-link:focus {
+  transform: none;
+}
+
+/*
+ * 위 띠·하단 탭이 초점 둔 본문 요소를 가리지 않게 — 초점·scrollIntoView로 스크롤할 때 본문 요소마다 이만큼 띄운다
+ * (Shell.tsx가 <html>에 data-topbar·data-tabbar="배치"를 붙인다). 문서 뿌리의 scroll-padding으로 두면 sticky인 위 띠·레일 안
+ * 단추에 초점이 갈 때 문서가 튄다(Chrome: 띠 밑 여백 안의 요소로 보고 스크롤, 2026-10-29 화면에서 잼) → 본문 요소의
+ * scroll-margin으로 둔다(:where — 화면이 더 띄울 요소는 제 규칙으로 덮는다). 새 버전 배너가 뜬 동안의 여백은
+ * styles.css :root[data-update-banner]가 더한다.
+ * 하단 탭이 있는 동안 새 버전 배너(styles.css .update-banner)는 탭 위에 뜬다.
+ * 배치 C는 가운데 지도 버튼이 띠 위로 솟는다(tabbar.css .tab-map-button의 음수 위 여백 --space-6, 실제로 솟는 높이는
+ * 그보다 조금 작다) → 아래 여백과 배너를 그만큼 더 띄운다(layout.test.ts가 두 파일의 값을 대 본다).
+ */
+:where(:root[data-topbar] .frame-main *) {
+  scroll-margin-top: calc(var(--topbar-h) + env(safe-area-inset-top) + var(--space-3));
+}
+:where(:root[data-tabbar] .frame-main *) {
+  scroll-margin-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3));
+}
+:where(:root[data-tabbar="c"] .frame-main *) {
+  scroll-margin-bottom: calc(var(--tabbar-h) + var(--space-6) + env(safe-area-inset-bottom) + var(--space-3));
+}
+:root[data-tabbar] .update-banner {
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3));
+}
+:root[data-tabbar="c"] .update-banner {
+  bottom: calc(var(--tabbar-h) + var(--space-6) + env(safe-area-inset-bottom) + var(--space-3));
+}
+
+/* ── 위 띠 ─────────────────────────────────────────── */
+.frame-top {
+  grid-area: top;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  min-width: 0;
+  background-color: var(--color-surface);
+  border-bottom: var(--border-w) solid var(--color-border);
+  box-shadow: var(--shadow-control);
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: calc(var(--topbar-h) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) max(var(--space-2), env(safe-area-inset-right)) 0
+    max(var(--space-2), env(safe-area-inset-left));
+}
+.topbar-spacer {
+  flex: 1 1 auto;
+}
+/* 아이콘 단추(☰·종·우편) — 턱 없는 둥근 단추. 누르는 곳은 44px */
+.topbar-button,
+.topbar-face {
+  --button-lip: transparent;
+  --button-press: 0px;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  box-shadow: none;
+  color: var(--color-text);
+  text-decoration: none;
+  touch-action: manipulation;
+}
+.topbar-button[aria-current="page"] {
+  background-color: var(--color-surface-2);
+}
+.topbar-button:active,
+.topbar-face:active {
+  background-color: var(--color-surface-2);
+}
+/* 사이보그 얼굴 — 기본 실루엣(사이보그가 생기면 얼굴 그림) */
+.topbar-face-ring {
+  display: grid;
+  place-items: center;
+  width: calc(var(--tap-size) - var(--space-1));
+  height: calc(var(--tap-size) - var(--space-1));
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+}
+.topbar-face[aria-current="page"] .topbar-face-ring {
+  border-color: var(--color-focus);
+}
+/* 좁음 + 배치 A: ☰는 하단 탭 끝칸에 있다 */
+.frame[data-nav-layout="a"] .topbar-menu {
+  display: none;
+}
+
+/*
+ * 숫자 배지 — 위험 상태색 쌍(대비 검사함). 판 색 테두리로 아이콘과 떼어 놓는다.
+ * 아이콘의 가운데에서 오른쪽으로 자란다(두 자리·"99+"가 아이콘을 덮지 않게). 크기는 rem이라 글자를 키우면 함께 큰다
+ */
+.count-badge {
+  position: absolute;
+  top: calc(var(--space-1) * -1);
+  left: 55%;
+  min-width: var(--badge-size);
+  height: var(--badge-size);
+  padding: 0 var(--space-1);
+  border: var(--border-w) solid var(--color-surface);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-danger);
+  color: var(--color-danger-surface);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: calc(var(--badge-size) - 2 * var(--border-w));
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.topbar-button .count-badge {
+  top: var(--space-1);
+  left: 50%;
+}
+
+/* ── 본문 ──────────────────────────────────────────── */
+.frame-main {
+  grid-area: main;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5) max(var(--space-4), env(safe-area-inset-right))
+    calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-8))
+    max(var(--space-4), env(safe-area-inset-left));
+}
+/* 본문은 건너뛰기 링크·초점 옮기기의 도착점일 뿐이라 테두리를 그리지 않는다(안의 단추는 그대로 보인다) */
+.frame-main:focus {
+  outline: none;
+}
+/* 화면 하나의 너비: 글·칸 화면은 좁게(--content-max), 홈 격자처럼 넓게 쓰는 화면은 .screen-wide */
+.frame-main > .screen,
+.frame-main > .shell-loading {
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+}
+.frame-main > .screen-wide {
+  max-width: var(--content-max-wide);
+}
+/* 틀을 숨긴 화면의 본문(지도는 화면 전체를 덮는다) */
+.bare-main {
+  min-height: 100dvh;
+}
+.shell-loading {
+  padding-block: var(--space-6);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+.back-button .icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+/* ── 사이드 메뉴 내용(서랍·레일·넓은 폭 공통) ─────────────────── */
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 100%;
+  padding: var(--space-4) var(--space-3);
+}
+.side-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2) var(--space-2);
+  border-bottom: var(--border-w) solid var(--color-border);
+}
+/* 메뉴 머리의 이름표는 본문 크기(좁은 서랍에서 영어 이름이 두 줄로 꺾이지 않게).
+   styles.css의 .brand-small .brand-title보다 뒤에 오지 않으므로(묶음 순서) 선택자를 하나 더 붙인다 */
+.side .side-head .brand-title {
+  font-size: var(--font-size-md);
+}
+.side-account {
+  grid-column: 1 / -1;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-snug);
+}
+.side-close {
+  --button-lip: transparent;
+  --button-press: 0px;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  box-shadow: none;
+}
+.side-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.side-item {
+  --button-lip: transparent;
+  --button-press: 0px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--tap-size);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  box-shadow: none;
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-regular);
+  text-align: start;
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: background-color var(--duration-base) var(--easing-out);
+}
+.side-item:active {
+  background-color: var(--color-surface-2);
+}
+.side-item[aria-current="page"] {
+  background-color: var(--color-surface-2);
+  box-shadow: inset 0 0 0 var(--border-w) var(--color-border);
+}
+.side-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+/* 펼친 메뉴의 배지는 줄 끝에 둔다(아이콘을 덮지 않게). 접은 레일은 아래에서 항목 오른쪽 위 */
+.side-item .count-badge {
+  position: static;
+  flex: none;
+  margin-left: auto;
+}
+.side-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.side-name {
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.side-desc {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+}
+/* 지도 밑 작은 링크(1차맵 [임시]) */
+.side-sub {
+  min-height: var(--tap-size);
+  padding-block: var(--space-1);
+  padding-inline-start: calc(var(--space-3) + var(--space-6));
+  font-size: var(--font-size-sm);
+}
+.side-sub .icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.side-sub .side-name {
+  font-weight: var(--font-weight-regular);
+}
+/* [메뉴 편집] — 글자 링크 */
+.side-edit {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-size);
+  padding: 0 var(--space-3);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  text-decoration: underline;
+  text-decoration-color: var(--color-focus);
+  text-decoration-thickness: var(--border-w);
+  text-underline-offset: var(--space-1);
+}
+/* 시스템 묶음(설정·개발자·관리자·로그아웃)은 맨 아래 */
+.side-system {
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: var(--border-w) solid var(--color-border);
+}
+.side-button {
+  cursor: pointer;
+}
+.side-message:empty {
+  display: none;
+}
+
+/* ── ☰ 서랍(좁음) ─────────────────────────────────────── */
+.frame-drawer {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: min(calc(var(--sidebar-w) + env(safe-area-inset-left)), 88vw);
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+  border: 0;
+  border-right: var(--border-w) solid var(--color-border);
+  border-radius: 0 var(--radius-panel) var(--radius-panel) 0;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-panel);
+}
+.frame-drawer::backdrop {
+  background-color: var(--color-overlay);
+}
+/* 여는 움직임만 둔다(닫기는 바로 — 시스템 응답은 짧게). 동작 줄이기면 토큰이 0이다 */
+.frame-drawer[open] {
+  animation: shell-drawer-in var(--duration-base) var(--easing-out);
+}
+.frame-drawer[open]::backdrop {
+  animation: shell-fade-in var(--duration-base) var(--easing-out);
+}
+.frame-drawer .side {
+  padding: max(var(--space-4), env(safe-area-inset-top)) var(--space-3)
+    max(var(--space-4), env(safe-area-inset-bottom)) max(var(--space-3), env(safe-area-inset-left));
+}
+@keyframes shell-drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+@keyframes shell-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 레일·사이드 메뉴(중간·넓음)는 좁음에서 숨긴다 */
+.frame-side {
+  display: none;
+}
+
+/* ── 중간(37.5em 이상): 접는 레일 + 위 띠, 하단 탭 없음 ───────────── */
+@media (min-width: 37.5em) {
+  .frame {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "side top aside"
+      "side main aside";
+  }
+  .frame-side {
+    grid-area: side;
+    position: sticky;
+    top: 0;
+    display: block;
+    width: calc(var(--sidebar-w) + env(safe-area-inset-left));
+    height: 100dvh;
+    padding-left: env(safe-area-inset-left);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-right: var(--border-w) solid var(--color-border);
+    background-color: var(--color-surface);
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+  .frame[data-rail="collapsed"] .frame-side {
+    width: calc(var(--rail-w) + env(safe-area-inset-left));
+  }
+  /* 중간 폭에서는 배치와 상관없이 ☰가 레일을 펴고 접는다 */
+  .frame[data-nav-layout="a"] .topbar-menu {
+    display: inline-grid;
+  }
+  .frame-main {
+    padding: var(--space-6) max(var(--space-6), env(safe-area-inset-right))
+      max(var(--space-8), env(safe-area-inset-bottom)) var(--space-6);
+  }
+  /* 접은 레일: 아이콘 + 짧은 이름(세로로), 한 줄 설명·아이디·작은 링크는 숨긴다 */
+  .frame[data-rail="collapsed"] .side {
+    padding: var(--space-3) var(--space-1);
+  }
+  .frame[data-rail="collapsed"] .side-head {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    padding: 0 0 var(--space-2);
+  }
+  .frame[data-rail="collapsed"] .side-head .brand-title,
+  .frame[data-rail="collapsed"] .side-account,
+  .frame[data-rail="collapsed"] .side-desc,
+  .frame[data-rail="collapsed"] .side-sub,
+  .frame[data-rail="collapsed"] .side-edit {
+    display: none;
+  }
+  .frame[data-rail="collapsed"] .side-item {
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-1);
+    padding: var(--space-2) var(--space-1);
+    text-align: center;
+  }
+  .frame[data-rail="collapsed"] .side-item .count-badge {
+    position: absolute;
+    top: var(--space-1);
+    left: 55%;
+    margin-left: 0;
+  }
+  .frame[data-rail="collapsed"] .side-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-size-xs);
+  }
+}
+
+/* ── 넓음(64em 이상): 사이드 메뉴는 늘 펼친다(☰ 없음), 본문은 가운데 ───────── */
+@media (min-width: 64em) {
+  .topbar-menu,
+  .frame[data-nav-layout="a"] .topbar-menu {
+    display: none;
+  }
+  .frame-main {
+    padding-inline: max(var(--space-8), env(safe-area-inset-right)) var(--space-8);
+  }
+}
+
+/* 마우스가 있는 기기에서만: 올리면 둘째 판 색. 터치는 누를 때 가짜 hover가 생겨서 뺀다 */
+@media (hover: hover) and (pointer: fine) {
+  .topbar-button:hover,
+  .topbar-face:hover .topbar-face-ring,
+  .side-item:hover,
+  .side-close:hover {
+    background-color: var(--color-surface-2);
+  }
+  .side-edit:hover {
+    text-decoration-thickness: calc(var(--border-w) * 1.5);
+  }
+}
+
+/* 키가 낮은 화면(휴대폰 가로 등)의 접은 레일: 항목을 촘촘히(레일 안 스크롤을 줄인다) */
+@media (max-height: 30em) {
+  .frame[data-rail="collapsed"] .side {
+    gap: var(--space-2);
+  }
+  .frame[data-rail="collapsed"] .side-item {
+    gap: 0;
+    padding-block: var(--space-1);
+  }
+}
+
+/* 윈도 고대비(강제 색) — 바탕색이 지워지므로 지금 화면 표시를 테두리로 */
+@media (forced-colors: active) {
+  .side-item[aria-current="page"],
+  .topbar-button[aria-current="page"] {
+    outline: var(--border-w) solid CanvasText;
+  }
+  .count-badge {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+    color: Canvas;
+  }
+}

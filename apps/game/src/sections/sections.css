@@ -1,0 +1,33 @@
+/*
+ * 준비 중 화면 — 지연 로딩 조각과 함께 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ */
+.coming-soon {
+  align-items: center;
+  text-align: center;
+}
+/* 화면 아이콘 — 둥근 칩 안 */
+.coming-soon-mark {
+  display: grid;
+  place-items: center;
+  width: var(--mark-lg);
+  height: var(--mark-lg);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+}
+.coming-soon-mark .icon {
+  width: var(--space-10);
+  height: var(--space-10);
+}
+.coming-soon-title {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-display);
+  text-shadow: var(--shadow-heading);
+}
+.coming-soon-desc {
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}

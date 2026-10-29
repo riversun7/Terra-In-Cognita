@@ -9,7 +9,13 @@ export default defineConfig({
     // 무거운 시험(굽기 두 번, 이웃 전수 비교, 경로 해시 등)이 5~8.5초가 되어 실패했다(2026-10-29). 따로 돌리면 통과한다
     testTimeout: 30_000,
     hookTimeout: 30_000,
-    // CSS는 기본으로 빈 문자열이 된다. 디자인 값(토큰) 파일만 실제 내용을 읽게 한다(?raw, settings/themeSources.test.ts)
-    css: { include: [/[\\/]apps[\\/]game[\\/]src[\\/]styles[\\/]tokens\.css/] },
+    // CSS는 기본으로 빈 문자열이 된다. 디자인 값(토큰) 파일과 화면 틀 파일만 실제 내용을 읽게 한다
+    // (?raw, settings/themeSources.test.ts·shell/layout.test.ts: shell.css·tabbar.css의 폭 경계가 shell/layout.ts와 같은지)
+    css: {
+      include: [
+        /[\\/]apps[\\/]game[\\/]src[\\/]styles[\\/]tokens\.css/,
+        /[\\/]apps[\\/]game[\\/]src[\\/]shell[\\/](?:shell|tabbar)\.css/,
+      ],
+    },
   },
 });

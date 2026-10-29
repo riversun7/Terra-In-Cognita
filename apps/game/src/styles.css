@@ -78,8 +78,8 @@ p {
   outline: none;
 }
 
-/* ── 화면 틀 ─────────────────────────────────────────── */
-.shell {
+/* ── 틀 없는 쪽 — 로그인 화면들·로그인 확인 중, 틀을 숨긴 준비 중 화면. 로그인한 뒤의 틀은 shell/shell.css ── */
+.page {
   width: 100%;
   max-width: var(--content-max);
   margin: 0 auto;
@@ -89,12 +89,8 @@ p {
   padding: max(var(--space-4), env(safe-area-inset-top)) max(var(--space-4), env(safe-area-inset-right))
     max(var(--space-6), env(safe-area-inset-bottom)) max(var(--space-4), env(safe-area-inset-left));
 }
-/* 계정 줄이 안전 영역(노치)을 이미 비웠다 */
-.account-bar + .shell {
-  padding-top: var(--space-5);
-}
 
-/* 화면 하나(로그인·새 아이디·비밀번호 찾기·상태·관리자·설정) */
+/* 화면 하나(로그인·새 아이디·비밀번호 찾기·홈·관리자·설정·준비 중) */
 .screen {
   display: flex;
   flex-direction: column;
@@ -420,7 +416,7 @@ select {
   color: var(--color-text-muted);
 }
 
-/* ── 상태 화면(로그인한 뒤) ─────────────────────────── */
+/* ── 상태 글·연결·성능 진단(ui/DiagnosticsPanel.tsx) ─────────────── */
 .status {
   font-size: var(--font-size-md);
 }
@@ -457,38 +453,11 @@ select {
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
-
-/* ── 계정 줄 — 로그인한 아이디, 관리자, 설정, 로그아웃 ─────────── */
-.account-bar {
-  padding: max(var(--space-2), env(safe-area-inset-top)) max(var(--space-4), env(safe-area-inset-right))
-    var(--space-2) max(var(--space-4), env(safe-area-inset-left));
-  border-bottom: var(--border-w) solid var(--color-border);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-control);
-}
-.account-bar-row {
-  max-width: var(--content-max);
-  margin: 0 auto;
+.diagnostics {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-}
-.account-id {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-weight: var(--font-weight-strong);
-}
-.account-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  margin-left: auto;
-}
-.account-bar .message {
-  max-width: var(--content-max);
-  margin: var(--space-2) auto 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
 }
 
 /* 언어 고르기 — 로그인 전 화면 아래 */
@@ -539,6 +508,7 @@ select {
   gap: var(--space-2);
   margin-left: auto;
 }
+/* 하단 탭이 있는 동안(좁은 폭) 배너를 탭 위로 올리는 규칙은 shell/shell.css에 있다(배치 C는 지도 버튼만큼 더 올린다) */
 /* 배너가 떠 있는 동안 화면 아래를 배너 높이만큼 비운다(맨 아래 칸·버튼이 배너에 가려 누를 수 없게 되지 않게) */
 :root[data-update-banner] {
   scroll-padding-bottom: calc(var(--banner-reserve) + env(safe-area-inset-bottom));

@@ -1,4 +1,4 @@
 {
   "$comment": "첫 화면 JS 상한(바이트) — 빌드한 index.html의 모듈 + modulepreload 조각, 파일마다 gzip 9단계 크기의 합. 검사: scripts/check-bundle.mjs(CI 빌드 단계 다음). 올릴 때는 늘어난 까닭과 잰 값을 작업 기록에 적는다(ADR 2026-10-29-app-shell 11절).",
-  "firstScreenJsGzipBytes": 136000
+  "firstScreenJsGzipBytes": 131416
 }

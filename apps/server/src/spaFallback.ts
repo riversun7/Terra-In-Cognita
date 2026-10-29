@@ -5,7 +5,14 @@
 //   나중에 서비스 워커를 걷어낼 수도 없다. 그래서 화면 경로에는 점을 쓰지 않는다.
 // - 검색어(? 뒤)는 보지 않는다. 검색어 값에는 점이 있어도 된다.
 
-/** 화면이 아닌 경로 앞머리(서버 API, WebSocket, 상태 확인). 서비스 워커 제외 목록(vite.config.ts navigateFallbackDenylist)과 같은 셋 */
+/**
+ * 화면이 아닌 경로 앞머리(서버 API, WebSocket, 상태 확인).
+ * 앞머리 셋은 서비스 워커 제외 목록(apps/game/vite.config.ts navigateFallbackDenylist)과 같지만 맞추는 법이 다르다.
+ * 서버는 글자 앞부분을 본다(`/healthz`·`/apiary`도 화면이 아니다 → 404). 서비스 워커는 조각 단위로 본다
+ * (`/healthz`는 index.html). 주소 표의 경로는 두 규칙을 모두 피한다(packages/shared routes.test.ts가 앞머리를 막는다).
+ * 같은 앞머리가 네 곳에 적혀 있어 함께 고친다: 이 목록, vite.config.ts 제외 규칙, scripts/pwa-build.mjs
+ * DENIED_NAVIGATIONS(경로 예), packages/shared/src/routes.test.ts RESERVED_PREFIXES.
+ */
 export const NON_PAGE_PREFIXES = ["/api", "/ws", "/health"] as const;
 
 /** 요청(메서드, 요청 주소 = 경로 + 검색어)이 화면 이동이면 true → index.html */

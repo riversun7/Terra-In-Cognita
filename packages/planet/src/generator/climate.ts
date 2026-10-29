@@ -19,7 +19,7 @@ import { detAsin, detExp } from "@terra/shared";
 import type { PlanetSettings } from "@terra/shared";
 import { upwindNeighbors } from "./climateWind.ts";
 import { type PlanetGrid, neighbors8 } from "./grid.ts";
-import { amplitudeSum, octavesFor, offsetFbm3Pair } from "./noise.ts";
+import { NOISE_JITTER, type NoiseSetup, amplitudeSum, octavesFor, offsetFbm3Pair } from "./noise.ts";
 import { distanceField } from "./queues.ts";
 import { STREAM_CLIMATE, STREAM_WIND, streamSeed } from "./random.ts";
 import { REFERENCE_RADIUS_KM, clamp, km } from "./util.ts";
@@ -46,11 +46,17 @@ const WIND_PATH = km(4500);
 const OROGRAPHIC_SPAN = km(75);
 
 // ── 기후 변이(출력 판 3, 2단계). 표준편차는 F6 칸(면적 가중) × 시드 64개 × 두 채널로 잰 값이다(가장 많은 옥타브의 세기
-//    합으로 나눈 노이즈, 2026-10-29). 노이즈 식이나 주파수·옥타브·gain을 바꾸면 다시 잰다 ──
+//    합으로 나눈 노이즈, 2026-10-29. 흔들기 0과 0.8에서 0.1% 안으로 같다). 노이즈 식이나 주파수·옥타브·gain을 바꾸면
+//    다시 잰다 ──
 /** 중간 크기 변이: 두 채널(A = 기온, B = 강수), 주파수 3(격자 약 2,100km)에서 5옥타브까지 */
-const ANOMALY_FREQUENCY = 3;
-const ANOMALY_OCTAVES = 5;
-const ANOMALY_GAIN = 0.65;
+const ANOMALY_NOISE: NoiseSetup = {
+  name: "climate anomaly",
+  frequency: 3,
+  octaves: 5,
+  gain: 0.65,
+  jitter: NOISE_JITTER,
+  kind: "pair",
+};
 const ANOMALY_SD = 0.139;
 /** 기온 변이 표준편차(°C): 바다 위, 그리고 내륙에서 더하는 몫(해안에서 600km에 1 − 1/e) */
 const ANOMALY_TEMPERATURE_OCEAN = 2;
@@ -59,10 +65,17 @@ const ANOMALY_INLAND_REACH = km(600);
 /** 강수 변이: 로그 표준편차 */
 const ANOMALY_PRECIPITATION_LOG = 0.4;
 /** 잔 변이(땅만): 두 채널, 주파수 40(격자 약 160km)에서 3옥타브까지 */
-const ROUGH_FREQUENCY = 40;
-const ROUGH_OCTAVES = 3;
-const ROUGH_GAIN = 0.6;
+const ROUGH_NOISE: NoiseSetup = {
+  name: "climate roughness",
+  frequency: 40,
+  octaves: 3,
+  gain: 0.6,
+  jitter: NOISE_JITTER,
+  kind: "pair",
+};
 const ROUGH_SD = 0.168;
+/** 이 파일의 노이즈 2판 설정(반복 검사 "노이즈 격자점"이 잰다) */
+export const CLIMATE_NOISES: readonly NoiseSetup[] = [ANOMALY_NOISE, ROUGH_NOISE];
 /** 잔 변이 세기: 기온 표준편차(°C), 강수 로그 표준편차 */
 const ROUGH_TEMPERATURE = 1.2;
 const ROUGH_PRECIPITATION_LOG = 0.3;
@@ -100,8 +113,8 @@ function unitScale(gain: number, octaves: number, maxOctaves: number, sd: number
  * 해상도에 맞게 3옥타브까지(F7 1, F8 2, F9 3)
  */
 export function roughnessOctaves(meanCellAngle: number): number {
-  if (1 / (2 * meanCellAngle) < ROUGH_FREQUENCY) return 0;
-  return octavesFor(ROUGH_FREQUENCY, meanCellAngle, ROUGH_OCTAVES);
+  if (1 / (2 * meanCellAngle) < ROUGH_NOISE.frequency) return 0;
+  return octavesFor(ROUGH_NOISE.frequency, meanCellAngle, ROUGH_NOISE.octaves);
 }
 
 /** 기후 변이 두 채널(기온 쪽 A, 강수 쪽 B). 한 스레드 안에서만 쓰는 임시 칸 */
@@ -130,10 +143,12 @@ function climateVariation(
   const climateSeed = streamSeed(seed, STREAM_CLIMATE);
   const anomalySeed = climateSeed + ANOMALY_SEED_OFFSET;
   const roughSeed = climateSeed + ROUGH_SEED_OFFSET;
-  const anomalyOctaves = octavesFor(ANOMALY_FREQUENCY, grid.meanCellAngle, ANOMALY_OCTAVES);
-  const anomalyScale = unitScale(ANOMALY_GAIN, anomalyOctaves, ANOMALY_OCTAVES, ANOMALY_SD);
+  const anomaly = ANOMALY_NOISE;
+  const rough = ROUGH_NOISE;
+  const anomalyOctaves = octavesFor(anomaly.frequency, grid.meanCellAngle, anomaly.octaves);
+  const anomalyScale = unitScale(anomaly.gain, anomalyOctaves, anomaly.octaves, ANOMALY_SD);
   const roughOctaves = roughnessOctaves(grid.meanCellAngle);
-  const roughScale = roughOctaves > 0 ? unitScale(ROUGH_GAIN, roughOctaves, ROUGH_OCTAVES, ROUGH_SD) : 0;
+  const roughScale = roughOctaves > 0 ? unitScale(rough.gain, roughOctaves, rough.octaves, ROUGH_SD) : 0;
   for (let c = 0; c < grid.cellCount; c++) {
     const x = grid.x[c] ?? 0;
     const y = grid.y[c] ?? 0;
@@ -141,14 +156,34 @@ function climateVariation(
     const t = Math.min(1, Math.abs(latitude[c] ?? 0) / 90);
     const altitude = Math.max(0, (elevation[c] ?? 0) - seaLevel);
     let value = equator - span * t * Math.sqrt(t) - LAPSE_RATE_PER_M * altitude;
-    offsetFbm3Pair(anomalySeed, x, y, z, ANOMALY_FREQUENCY, anomalyOctaves, ANOMALY_GAIN, 0, anomalyNoise);
+    offsetFbm3Pair(
+      anomalySeed,
+      x,
+      y,
+      z,
+      anomaly.frequency,
+      anomalyOctaves,
+      anomaly.gain,
+      anomaly.jitter,
+      anomalyNoise,
+    );
     const isOcean = ocean[c] === 1;
     const inland = isOcean ? 0 : 1 - detExp(-(oceanDistance[c] ?? 0) / ANOMALY_INLAND_REACH);
     const strength = ANOMALY_TEMPERATURE_OCEAN + ANOMALY_TEMPERATURE_INLAND * inland;
     value += strength * anomalyScale * (anomalyNoise[0] ?? 0);
     let logFactor = ANOMALY_PRECIPITATION_LOG * anomalyScale * (anomalyNoise[1] ?? 0);
     if (roughOctaves > 0 && !isOcean) {
-      offsetFbm3Pair(roughSeed, x, y, z, ROUGH_FREQUENCY, roughOctaves, ROUGH_GAIN, 0, anomalyNoise);
+      offsetFbm3Pair(
+        roughSeed,
+        x,
+        y,
+        z,
+        rough.frequency,
+        roughOctaves,
+        rough.gain,
+        rough.jitter,
+        anomalyNoise,
+      );
       value += ROUGH_TEMPERATURE * roughScale * (anomalyNoise[0] ?? 0);
       logFactor += ROUGH_PRECIPITATION_LOG * roughScale * (anomalyNoise[1] ?? 0);
     }

@@ -1,6 +1,7 @@
 // 생성 1단계의 지형 틀(출력 판 3, 다양성 고침 3단계, ADR 2026-10-29-planet-generator-variety) — tectonics.ts가 쓴다.
 // 판·대륙 배치를 정하는 1판 노이즈(판 흔들기·대륙성·기복)는 그대로 두고, 그 위에 노이즈 2판(옥타브마다 격자 옮기기·
-// 회전·좌표 흔들기, noise.ts)으로 높이를 더한다. 좌표는 무늬 공간(돌린 격자), 높이는 실제 환산 m, 거리는 구 위 각도.
+// 회전·좌표 흔들기 NOISE_JITTER, noise.ts)으로 높이를 더한다. 좌표는 무늬 공간(돌린 격자), 높이는 실제 환산 m, 거리는
+// 구 위 각도. 노이즈 설정은 NoiseSetup 하나씩이고(LANDFORM_NOISES) 부르는 곳이 그 값을 그대로 쓴다.
 // - 대륙 안쪽 고원·분지: 해안에서 떨어진 대륙 지각에 고원(최대 +1000m, 기온 약 −6.5°C)과 얕은 분지(최대 −250m).
 //   더운 대륙 안쪽에 시원한(그래서 습도가 높은) 섬이 생기고, 분지에는 호수·마른 분지가 생긴다.
 // - 해안 잔 모양: 해안선을 짧은 파장 노이즈(격자 약 160km, F9에서 약 40km까지)만큼 앞뒤로 옮겨 거칠게 하고
@@ -11,18 +12,29 @@
 // - 봉우리 다듬기: 8,000m 위는 부드럽게 눌러 10,000m를 넘지 않게(고원·구릉 위에 산맥이 겹쳐도).
 import { detExp } from "@terra/shared";
 import { type PlanetGrid, neighbors8 } from "./grid.ts";
-import { amplitudeSum, octavesFor, offsetFbm3, offsetFbm3Pair, offsetRidged3 } from "./noise.ts";
+import {
+  NOISE_JITTER,
+  type NoiseSetup,
+  amplitudeSum,
+  octavesFor,
+  offsetFbm3,
+  offsetFbm3Pair,
+  offsetRidged3,
+} from "./noise.ts";
 import { distanceField } from "./queues.ts";
 import { cornerSeaMask, oceanComponents } from "./seaLevel.ts";
 import { REFERENCE_RADIUS_KM, areaPercentile, clamp, km, smoothstep } from "./util.ts";
 
 // ── 대륙 안쪽 고원·분지 ──
 /** 고원·분지 노이즈: 주파수 3.2(격자 약 2,000km)에서 4옥타브(약 250km), 해상도와 무관하게 고정 */
-const HIGHLAND_FREQUENCY = 3.2;
-const HIGHLAND_OCTAVES = 4;
-const HIGHLAND_GAIN = 0.5;
-/** 좌표 흔들기(격자 단위): 격자점에서 꺼지지 않게(반복 검사 "노이즈 격자점"이 이 값으로 잰다) */
-export const LANDFORM_JITTER = 0.6;
+const HIGHLAND_NOISE: NoiseSetup = {
+  name: "highland",
+  frequency: 3.2,
+  octaves: 4,
+  gain: 0.5,
+  jitter: NOISE_JITTER,
+  kind: "fbm",
+};
 /** 고원 높이·분지 깊이(실제 환산 m). 노이즈(표준편차 약 0.17)가 0.02 → 0.16이면 고원, −0.05 → −0.2면 분지 */
 export const HIGHLAND_RISE_M = 1000;
 export const BASIN_DEPTH_M = 250;
@@ -46,22 +58,35 @@ export function inlandWeight(rank: number, shelfRank: number): number {
  * (돌리지 않은 격자의 z, 기후와 같은 축)
  */
 export function interiorRelief(seed: number, x: number, y: number, z: number, polarZ: number): number {
-  const n = offsetFbm3(seed, x, y, z, HIGHLAND_FREQUENCY, HIGHLAND_OCTAVES, HIGHLAND_GAIN, LANDFORM_JITTER);
+  const { frequency, octaves, gain, jitter } = HIGHLAND_NOISE;
+  const n = offsetFbm3(seed, x, y, z, frequency, octaves, gain, jitter);
   const polar = 1 - HIGHLAND_POLAR_TAPER * smoothstep(0.82, 0.97, Math.abs(polarZ));
   return HIGHLAND_RISE_M * polar * smoothstep(0.02, 0.16, n) - BASIN_DEPTH_M * smoothstep(0.05, 0.2, -n);
 }
 
 // ── 구릉(중간 크기 기복) ──
 /** 구릉 노이즈: 능선 노이즈 2판, 주파수 10(격자 약 640km)에서 3옥타브(약 160km), 능선 쪽만 구릉이 된다 */
-const HILL_FREQUENCY = 10;
-const HILL_OCTAVES = 3;
-const HILL_GAIN = 0.5;
+const HILL_NOISE: NoiseSetup = {
+  name: "hill ridges",
+  frequency: 10,
+  octaves: 3,
+  gain: 0.5,
+  jitter: NOISE_JITTER,
+  kind: "ridged",
+};
 /** 구릉 높이(실제 환산 m): 능선 값 0.45 → 0.9에서 0 → 이 값(문턱이 높으면 가는 주름처럼 보인다, 2026-10-29 그림) */
 export const HILL_RISE_M = 350;
 const HILL_START = 0.45;
 const HILL_FULL = 0.9;
 /** 구릉이 많은 곳·평평한 곳: 지역 노이즈(주파수 2, 2옥타브, 표준편차 0.2)가 −0.1 → 0.15면 0 → 1 */
-const HILL_REGION_FREQUENCY = 2;
+const HILL_REGION_NOISE: NoiseSetup = {
+  name: "hill region",
+  frequency: 2,
+  octaves: 2,
+  gain: 0.5,
+  jitter: NOISE_JITTER,
+  kind: "fbm",
+};
 const HILL_REGION_LOW = -0.1;
 const HILL_REGION_HIGH = 0.15;
 /** 구릉 노이즈 시드: 고원 시드 + 이 값(지역 노이즈는 + 1 더) */
@@ -69,25 +94,27 @@ const HILL_SEED_OFFSET = 2;
 
 /** 구릉 높이(실제 환산 m, 안쪽 정도·기복 설정을 곱하기 전). octaves = hillOctaves(칸 크기) */
 export function hillRelief(seed: number, x: number, y: number, z: number, octaves: number): number {
-  const region = offsetFbm3(seed + HILL_SEED_OFFSET + 1, x, y, z, HILL_REGION_FREQUENCY, 2, 0.5);
-  const amount = smoothstep(HILL_REGION_LOW, HILL_REGION_HIGH, region);
-  if (!(amount > 0)) return 0;
-  const ridge = offsetRidged3(
-    seed + HILL_SEED_OFFSET,
+  const region = HILL_REGION_NOISE;
+  const regional = offsetFbm3(
+    seed + HILL_SEED_OFFSET + 1,
     x,
     y,
     z,
-    HILL_FREQUENCY,
-    octaves,
-    HILL_GAIN,
-    LANDFORM_JITTER,
+    region.frequency,
+    region.octaves,
+    region.gain,
+    region.jitter,
   );
+  const amount = smoothstep(HILL_REGION_LOW, HILL_REGION_HIGH, regional);
+  if (!(amount > 0)) return 0;
+  const { frequency, gain, jitter } = HILL_NOISE;
+  const ridge = offsetRidged3(seed + HILL_SEED_OFFSET, x, y, z, frequency, octaves, gain, jitter);
   return HILL_RISE_M * amount * smoothstep(HILL_START, HILL_FULL, ridge);
 }
 
 /** 구릉 노이즈 옥타브 수(해상도에 맞게, 3개까지) */
 export function hillOctaves(cellAngle: number): number {
-  return octavesFor(HILL_FREQUENCY, cellAngle, HILL_OCTAVES);
+  return octavesFor(HILL_NOISE.frequency, cellAngle, HILL_NOISE.octaves);
 }
 
 // ── 해안 잔 모양 ──
@@ -106,15 +133,27 @@ export function hillOctaves(cellAngle: number): number {
 // 높이에 노이즈를 그대로 더하면 해안선이 거의 움직이지 않거나(가파른 해안), 평평한 해안 평야에 작은 호수가 잔뜩
 // 생긴다(Verified: F7·F9 팩 시드, 해안 칸 기울기 중앙값 1.3m/km).
 /** 해안 노이즈: 주파수 40(격자 약 160km), 옥타브는 해상도에 맞게 3개까지(F7 1, F8 2, F9 3, F9 가장 잔 격자 약 40km) */
-const COAST_FREQUENCY = 40;
-const COAST_OCTAVES = 3;
-const COAST_GAIN = 0.65;
+const COAST_NOISE: NoiseSetup = {
+  name: "coast",
+  frequency: 40,
+  octaves: 3,
+  gain: 0.65,
+  jitter: NOISE_JITTER,
+  kind: "fbm",
+};
 /** 3옥타브 노이즈의 표준편차(F6 칸 × 시드 32개, 잰 값): 노이즈를 표준편차 1로 맞춘다 */
 const COAST_SD = 0.165;
 /** 해안선을 옮기는 거리(노이즈 표준편차 1당, 실제 환산). 지역 배율과 기복 설정을 곱한다 */
 export const COAST_SHIFT = km(100);
 /** 지역 배율 노이즈: 주파수 2.5(격자 약 2,500km), 2옥타브, 표준편차 0.2로 나눠 1 + 0.7 × 값, 0.15 ~ 2로 자른다 */
-const COAST_REGION_FREQUENCY = 2.5;
+const COAST_REGION_NOISE: NoiseSetup = {
+  name: "coast region",
+  frequency: 2.5,
+  octaves: 2,
+  gain: 0.5,
+  jitter: NOISE_JITTER,
+  kind: "fbm",
+};
 const COAST_REGION_SD = 0.2;
 const COAST_REGION_VARIATION = 0.7;
 const COAST_REGION_MIN = 0.15;
@@ -137,8 +176,8 @@ const COAST_CHECK_ROUNDS = 8;
 
 /** 해안 노이즈 옥타브 수(칸이 그 격자의 반보다 크면 0 = 끈다) */
 export function coastOctaves(cellAngle: number): number {
-  if (1 / (2 * cellAngle) < COAST_FREQUENCY) return 0;
-  return octavesFor(COAST_FREQUENCY, cellAngle, COAST_OCTAVES);
+  if (1 / (2 * cellAngle) < COAST_NOISE.frequency) return 0;
+  return octavesFor(COAST_NOISE.frequency, cellAngle, COAST_NOISE.octaves);
 }
 
 /** 바다 → 땅(1), 땅 → 바다 후보(2), 진짜 바다와 이어진 땅 → 바다(3) */
@@ -170,7 +209,9 @@ export function roughenCoasts(
   const below = 1 - landPercent / 100;
   const seaLevel = areaPercentile(grid, elevation, below);
   // 노이즈를 표준편차 1로(가장 많은 옥타브 기준: 낮은 면 레벨은 잔 옥타브만 빠진다)
-  const scale = amplitudeSum(COAST_GAIN, octaves) / amplitudeSum(COAST_GAIN, COAST_OCTAVES) / COAST_SD;
+  const coast = COAST_NOISE;
+  const region = COAST_REGION_NOISE;
+  const scale = amplitudeSum(coast.gain, octaves) / amplitudeSum(coast.gain, coast.octaves) / COAST_SD;
   const reach = COAST_REACH * COAST_REGION_MAX * shift;
   const half = grid.meanCellAngle / 2;
   // 진짜 바다(꼭짓점 둘레는 classifyOcean이 바다로 누르므로 미리 바다로 본다)와 그 밖(땅 1)
@@ -212,10 +253,12 @@ export function roughenCoasts(
     const x = sx[c] ?? 0;
     const y = sy[c] ?? 0;
     const z = sz[c] ?? 0;
-    const region = offsetFbm3(regionSeed, x, y, z, COAST_REGION_FREQUENCY, 2, 0.5) / COAST_REGION_SD;
-    const local = shift * clamp(1 + COAST_REGION_VARIATION * region, COAST_REGION_MIN, COAST_REGION_MAX);
+    const regional =
+      offsetFbm3(regionSeed, x, y, z, region.frequency, region.octaves, region.gain, region.jitter) /
+      COAST_REGION_SD;
+    const local = shift * clamp(1 + COAST_REGION_VARIATION * regional, COAST_REGION_MIN, COAST_REGION_MAX);
     if (distance >= COAST_REACH * local) continue;
-    const noise = offsetFbm3(seed, x, y, z, COAST_FREQUENCY, octaves, COAST_GAIN, LANDFORM_JITTER);
+    const noise = offsetFbm3(seed, x, y, z, coast.frequency, octaves, coast.gain, coast.jitter);
     const warped = (isLand ? distance : -distance) + local * scale * noise;
     if (warped > 0 === isLand) continue;
     flip[c] = isLand ? FLIP_CANDIDATE : FLIP_TO_LAND;
@@ -283,9 +326,14 @@ export function roughenCoasts(
 
 // ── 산맥 단면 ──
 /** 단면 노이즈: 두 채널, 주파수 4(격자 약 1,600km), 2옥타브. 표준편차(잰 값 0.2006·0.2023)로 나눠 쓴다 */
-const SHAPE_FREQUENCY = 4;
-const SHAPE_OCTAVES = 2;
-const SHAPE_GAIN = 0.5;
+const SHAPE_NOISE: NoiseSetup = {
+  name: "mountain shape",
+  frequency: 4,
+  octaves: 2,
+  gain: 0.5,
+  jitter: NOISE_JITTER,
+  kind: "pair",
+};
 const SHAPE_SD = 0.2;
 /** 표준편차 단위 값의 상한(±): 폭·중심 배율이 0 이하로 가지 않게 */
 const SHAPE_LIMIT = 2.5;
@@ -293,9 +341,14 @@ const SHAPE_LIMIT = 2.5;
 export const MOUNTAIN_FRONT_WIGGLE = km(40);
 
 /** 경계를 따라 바뀌는 세기: 주파수 2.5(격자 약 2,500km), 3옥타브, 표준편차(잰 값 0.177)로 나눠 쓴다 */
-const ALONG_FREQUENCY = 2.5;
-const ALONG_OCTAVES = 3;
-const ALONG_GAIN = 0.5;
+const ALONG_NOISE: NoiseSetup = {
+  name: "mountain along-strength",
+  frequency: 2.5,
+  octaves: 3,
+  gain: 0.5,
+  jitter: NOISE_JITTER,
+  kind: "fbm",
+};
 const ALONG_SD = 0.177;
 /**
  * 세기 = 1 + 이 값 × 노이즈(표준편차 1), 범위 안으로 자른다(높은 산괴와 낮은 고개). 출력 판 2는 같은 식으로 약 0.115라
@@ -307,7 +360,8 @@ const ALONG_MAX = 1.4;
 
 /** 경계 지형 세기 배율(경계를 따라 바뀐다, 평균 약 1) */
 export function alongStrength(seed: number, x: number, y: number, z: number): number {
-  const n = offsetFbm3(seed, x, y, z, ALONG_FREQUENCY, ALONG_OCTAVES, ALONG_GAIN) / ALONG_SD;
+  const { frequency, octaves, gain, jitter } = ALONG_NOISE;
+  const n = offsetFbm3(seed, x, y, z, frequency, octaves, gain, jitter) / ALONG_SD;
   return clamp(1 + ALONG_VARIATION * n, ALONG_MIN, ALONG_MAX);
 }
 
@@ -316,10 +370,22 @@ export function alongStrength(seed: number, x: number, y: number, z: number): nu
  * out[1]은 앞면 위치·혹 폭에 쓴다(tectonics.ts)
  */
 export function mountainShape(seed: number, x: number, y: number, z: number, out: Float64Array): void {
-  offsetFbm3Pair(seed, x, y, z, SHAPE_FREQUENCY, SHAPE_OCTAVES, SHAPE_GAIN, 0, out);
+  const { frequency, octaves, gain, jitter } = SHAPE_NOISE;
+  offsetFbm3Pair(seed, x, y, z, frequency, octaves, gain, jitter, out);
   out[0] = clamp((out[0] ?? 0) / SHAPE_SD, -SHAPE_LIMIT, SHAPE_LIMIT);
   out[1] = clamp((out[1] ?? 0) / SHAPE_SD, -SHAPE_LIMIT, SHAPE_LIMIT);
 }
+
+/** 이 파일의 노이즈 2판 설정(반복 검사 "노이즈 격자점"이 잰다) */
+export const LANDFORM_NOISES: readonly NoiseSetup[] = [
+  HIGHLAND_NOISE,
+  HILL_NOISE,
+  HILL_REGION_NOISE,
+  COAST_NOISE,
+  COAST_REGION_NOISE,
+  SHAPE_NOISE,
+  ALONG_NOISE,
+];
 
 // ── 봉우리 높이 다듬기 ──
 /** 이 높이(실제 환산 m)까지는 그대로, 그 위는 PEAK_ROOM 안으로 부드럽게 눌러 PEAK_START + PEAK_ROOM에 다가간다 */

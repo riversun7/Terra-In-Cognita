@@ -13,14 +13,16 @@ const MIX_B = 0x846ca68b;
 const CORNER = 0x27d4eb2d;
 
 // 기울기 표: 해시 아래 4비트(0~15) → 기울기 (GX, GY, GZ). 정육면체 모서리 방향 12개 + 겹치는 4개(12~15 = 0·1·9·11번).
-// 분기 없이 표로 읽는다(switch보다 빠르다). 값은 예전 switch와 같아서 결과가 비트까지 같다(골든 해시·실수 지문 시험)
+// 분기 없이 표로 읽는다(switch보다 빠르다). 값은 예전 switch와 같다(골든 해시·실수 지문 시험). 단 좌표가 모두 정수인
+// 격자점에서는 0의 부호가 다를 수 있다: 예전 식(−x − y 등)은 −0, 표 식(0·dz를 더함)은 +0이다(=== 로는 같고 출력은 그대로)
 const GRADIENT_X = new Float64Array([1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, -1, 0, 0]);
 const GRADIENT_Y = new Float64Array([1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, 1, -1, -1]);
 const GRADIENT_Z = new Float64Array([0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 0, 1, -1]);
 
 // 아래 두 함수는 해시(mix32: x ^= x>>>16, ×A, x ^= x>>>15, ×B, x ^= x>>>16)·격자점 해시·기울기 내적·보간
 // 6t⁵ − 15t⁴ + 10t³을 손으로 펼쳤다. 작은 함수 호출 25번을 V8이 다 펼치지 않아 3배쯤 느렸다(Verified: 2026-10-29,
-// Node 24.22.1, 호출당 약 190ns → 55ns). 연산과 순서는 예전 함수들과 같아 결과가 비트까지 같다(골든 해시·실수 지문 시험).
+// Node 24.22.1, 호출당 약 190ns → 55ns). 연산과 순서는 예전 함수들과 같아 값이 같다(골든 해시·실수 지문 시험. 정수
+// 격자점의 0 부호는 위 표 설명처럼 다를 수 있다: 72만 표본 중 59곳, Node·Bun 같음).
 
 /** 3차원 그라디언트 노이즈. 결과는 대략 -1 ~ 1, 격자점에서 0 */
 export function gradientNoise3(seed: number, x: number, y: number, z: number): number {
@@ -167,6 +169,31 @@ export function ridged3(
 // 옮기기만 하면 첫 옥타브의 0점이 옮긴 격자에 그대로 남는다. jitter > 0이면 입력 좌표를 기본 주파수 노이즈 세 개
 // (각자 옮긴 격자)로 흔든다: 격자 단위로 jitter × 노이즈(실제 좌표로는 jitter ÷ 주파수 × 노이즈).
 // 1판 함수는 그대로 둔다: 판 흔들기·대륙·회전 고르기·기복·숲이 쓰고, 바꾸면 판·대륙 배치가 바뀐다.
+
+/**
+ * 노이즈 2판 설정 하나. 생성기가 노이즈 2판을 쓰는 곳마다 하나씩 두고 부르는 곳이 이 값을 그대로 쓴다. 반복 검사
+ * "노이즈 격자점"(testVarietyUnit.ts)이 같은 설정으로 잰다(설정을 바꾸면 검사도 따라간다)
+ */
+export interface NoiseSetup {
+  /** 보고에 쓰는 이름 */
+  readonly name: string;
+  /** 기본 주파수(단위 구 좌표에 곱한다) */
+  readonly frequency: number;
+  /** 가장 많은 옥타브 수(해상도에 맞춰 줄이는 곳은 octavesFor로 줄인다) */
+  readonly octaves: number;
+  readonly gain: number;
+  /** 좌표 흔들기(기본 격자 단위) */
+  readonly jitter: number;
+  /** fBm(offsetFbm3)·두 채널(offsetFbm3Pair)·능선(offsetRidged3) */
+  readonly kind: "fbm" | "pair" | "ridged";
+}
+
+/**
+ * 노이즈 2판의 좌표 흔들기(기본 격자 단위): 생성기의 모든 노이즈 2판이 쓴다. 옥타브 0 격자점 0.1 안 RMS ÷ 전체 RMS가
+ * 0.8이면 2옥타브(gain 0.5) 설정까지 0.865 이상, 0.6이면 2옥타브 0.78·4옥타브 0.80이었다(2026-10-29 잰 값, 표본 20만 개).
+ * 흔들기는 노이즈 표준편차를 바꾸지 않는다(F6 칸 × 시드 64개에서 0.5% 안, 잰 값)
+ */
+export const NOISE_JITTER = 0.8;
 
 const OCTAVE_SALT = 0x632be5ab;
 const OFFSET_SALT = 0x5bd1e995;

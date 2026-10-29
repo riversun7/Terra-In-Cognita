@@ -8,16 +8,23 @@
 //   나눈 몫이 확률). 그래서 바람길이 격자선을 따라 곧게 뻗지 않는다.
 import { detCos, detSin } from "@terra/shared";
 import { type PlanetGrid, neighbors8 } from "./grid.ts";
-import { offsetFbm3Pair } from "./noise.ts";
+import { NOISE_JITTER, type NoiseSetup, offsetFbm3Pair } from "./noise.ts";
 import { mix32 } from "./random.ts";
 import { clamp, smoothstep } from "./util.ts";
 
 const RADIANS_PER_DEGREE = Math.PI / 180;
 
-/** 바람 굽이: 세기(띠 바람 최대 약 1에 더한다), 각도 노이즈(노이즈 2판 채널 B, 해상도와 무관하게 옥타브 고정) */
+/** 바람 굽이 세기(띠 바람 최대 약 1에 더한다) */
 const WIND_MEANDER = 0.3;
-const WIND_FREQUENCY = 1.6;
-const WIND_OCTAVES = 2;
+/** 바람 노이즈: 노이즈 2판 두 채널(A = 위도 흔들기, B = 굽이 각도), 해상도와 무관하게 옥타브 고정 */
+export const WIND_NOISE: NoiseSetup = {
+  name: "wind",
+  frequency: 1.6,
+  octaves: 2,
+  gain: 0.5,
+  jitter: NOISE_JITTER,
+  kind: "pair",
+};
 /** 가장 약한 바람: 이보다 약하면 굽이 방향으로 이 세기 */
 const MIN_WIND_SPEED = 0.2;
 /** 바람이 오는 이웃: 가장 잘 맞는 이웃의 방향 cos가 이보다 커야 한다(아니면 습기 길이 끊긴다) */
@@ -26,8 +33,8 @@ const UPWIND_MIN_SCORE = 0.3;
 const LATITUDE_WARP = 4;
 const LATITUDE_WARP_TAPER = 75;
 /**
- * 바람 노이즈(주파수 1.6, 2옥타브, gain 0.5) 채널의 표준편차: F6 칸(면적 가중) × 시드 64개 × 두 채널로 잰 값
- * 0.2007(2026-10-29). 노이즈 식이나 주파수·옥타브를 바꾸면 다시 잰다
+ * 바람 노이즈(WIND_NOISE) 채널의 표준편차: F6 칸(면적 가중) × 시드 64개 × 두 채널로 잰 값 0.2007(흔들기 0),
+ * 0.1995(흔들기 0.8)(2026-10-29). 노이즈 식이나 주파수·옥타브를 바꾸면 다시 잰다
  */
 const WIND_NOISE_SD = 0.2;
 
@@ -55,13 +62,14 @@ const windNoise = new Float64Array(2);
 const windResult = new Float64Array(3);
 
 /**
- * 칸 위치의 바람과 기후 위도를 windResult에 쓴다. 노이즈 2판 두 채널 한 번(주파수 1.6, 2옥타브):
+ * 칸 위치의 바람과 기후 위도를 windResult에 쓴다. 노이즈 2판 두 채널 한 번(WIND_NOISE: 주파수 1.6, 2옥타브):
  * 기후 위도 = 위도 + LATITUDE_WARP × A ÷ WIND_NOISE_SD × (1 − smoothstep(75°, 90°, |위도|)), ±90°로 자른다.
  * 바람 = 기후 위도의 띠 바람 + WIND_MEANDER × (cos θ, sin θ), θ = 4π × B. 세기가 MIN_WIND_SPEED보다 작으면 θ 방향으로
  * 그 세기다(멈추는 곳이 없다).
  */
 function windAndLatitude(windSeed: number, x: number, y: number, z: number, latitudeDegrees: number): void {
-  offsetFbm3Pair(windSeed, x, y, z, WIND_FREQUENCY, WIND_OCTAVES, 0.5, 0, windNoise);
+  const { frequency, octaves, gain, jitter } = WIND_NOISE;
+  offsetFbm3Pair(windSeed, x, y, z, frequency, octaves, gain, jitter, windNoise);
   const taper = 1 - smoothstep(LATITUDE_WARP_TAPER, 90, Math.abs(latitudeDegrees));
   const warp = ((LATITUDE_WARP * (windNoise[0] ?? 0)) / WIND_NOISE_SD) * taper;
   const latitude = clamp(latitudeDegrees + warp, -90, 90);

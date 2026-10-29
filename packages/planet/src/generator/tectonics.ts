@@ -25,7 +25,6 @@ import {
 import { type PlanetGrid, areaOf, neighbors8 } from "./grid.ts";
 import { addVolcanoes, hotspotVolcanoes } from "./hotspots.ts";
 import {
-  LANDFORM_JITTER,
   MOUNTAIN_FRONT_WIGGLE,
   alongStrength,
   hillOctaves,
@@ -36,7 +35,7 @@ import {
   roughenCoasts,
   softenPeaks,
 } from "./landforms.ts";
-import { fbm3, octavesFor, offsetFbm3, offsetRidged3 } from "./noise.ts";
+import { NOISE_JITTER, type NoiseSetup, fbm3, octavesFor, offsetFbm3, offsetRidged3 } from "./noise.ts";
 import {
   CONTINENT_FREQUENCY,
   CONTINENT_OCTAVES,
@@ -71,6 +70,26 @@ const CORNER_PUSH_RADIUS = 0.035;
 const CORNER_PUSH = 0.3;
 /** 산맥 단면 노이즈 시드: streamSeed(시드, STREAM_MOUNTAINS) + 이 값(무늬 0, 경계 세기 7, 섬 호 11) */
 const MOUNTAIN_SHAPE_SEED_OFFSET = 3;
+/** 산맥 무늬: 능선 노이즈 2판, 주파수 7, 해상도에 맞게 6옥타브까지 */
+const MOUNTAIN_TEXTURE_NOISE: NoiseSetup = {
+  name: "mountain texture",
+  frequency: 7,
+  octaves: 6,
+  gain: 0.55,
+  jitter: NOISE_JITTER,
+  kind: "ridged",
+};
+/** 섬 호 끊김: 주파수 16, 2옥타브 */
+const ARC_BREAK_NOISE: NoiseSetup = {
+  name: "island-arc breaks",
+  frequency: 16,
+  octaves: 2,
+  gain: 0.5,
+  jitter: NOISE_JITTER,
+  kind: "fbm",
+};
+/** 이 파일의 노이즈 2판 설정(반복 검사 "노이즈 격자점"이 잰다) */
+export const TECTONIC_NOISES: readonly NoiseSetup[] = [MOUNTAIN_TEXTURE_NOISE, ARC_BREAK_NOISE];
 /** 안데스형 혹 중심·충돌 산맥 폭(단면 채널 0)과 혹 폭(채널 1)이 바뀌는 비율(표준편차 1당) */
 const ANDEAN_CENTRE_VARIATION = 0.35;
 const ANDEAN_WIDTH_VARIATION = 0.3;
@@ -262,7 +281,9 @@ export function tectonicRelief(grid: PlanetGrid, seed: number, settings: PlanetS
   const mountainSeed = streamSeed(seed, STREAM_MOUNTAINS);
   const highlandSeed = streamSeed(seed, STREAM_RELIEF_DETAIL);
   const reliefOctaves = octavesFor(5, grid.meanCellAngle, 8);
-  const ridgeOctaves = octavesFor(7, grid.meanCellAngle, 6);
+  const texture = MOUNTAIN_TEXTURE_NOISE;
+  const arcNoise = ARC_BREAK_NOISE;
+  const ridgeOctaves = octavesFor(texture.frequency, grid.meanCellAngle, texture.octaves);
   const hills = hillOctaves(grid.meanCellAngle);
   const halfCell = grid.meanCellAngle / 2;
   const shelfRank = settings.shelfPercent / Math.max(1, settings.landPercent + settings.shelfPercent);
@@ -304,8 +325,10 @@ export function tectonicRelief(grid: PlanetGrid, seed: number, settings: PlanetS
       const d = Math.max(0, (boundary.angle[c] ?? 0) + halfCell + MOUNTAIN_FRONT_WIGGLE * q1);
       // 경계를 따라 세기가 바뀐다(낮은 주파수): 높은 구간과 낮은 구간
       const along = alongStrength(mountainSeed + 7, x, y, z);
-      const texture =
-        0.45 + 1.1 * offsetRidged3(mountainSeed, x, y, z, 7, ridgeOctaves, 0.55, LANDFORM_JITTER);
+      const ridges =
+        0.45 +
+        1.1 *
+          offsetRidged3(mountainSeed, x, y, z, texture.frequency, ridgeOctaves, texture.gain, texture.jitter);
       const at = slot * FEATURE_KINDS;
       const collision = (mix.weight[at] ?? 0) * along;
       const andean = (mix.weight[at + 1] ?? 0) * along;
@@ -314,20 +337,29 @@ export function tectonicRelief(grid: PlanetGrid, seed: number, settings: PlanetS
       const rift = (mix.weight[at + 4] ?? 0) * along;
       if (collision > 0) {
         const width = 1 + COLLISION_WIDTH_VARIATION * q0;
-        h += uplift * 4200 * collision * texture * (1 - smoothstep(km(130) * width, km(480) * width, d));
+        h += uplift * 4200 * collision * ridges * (1 - smoothstep(km(130) * width, km(480) * width, d));
       }
       if (andean > 0) {
         const centre = km(150) * (1 + ANDEAN_CENTRE_VARIATION * q0);
-        h += uplift * 3800 * andean * texture * bump(d, centre, km(160) * (1 + ANDEAN_WIDTH_VARIATION * q1));
+        h += uplift * 3800 * andean * ridges * bump(d, centre, km(160) * (1 + ANDEAN_WIDTH_VARIATION * q1));
         // 화산 줄은 주 산줄기보다 40km 안쪽
-        h += volcanism * 900 * andean * texture * bump(d, centre + km(40), km(60));
+        h += volcanism * 900 * andean * ridges * bump(d, centre + km(40), km(60));
       }
       if (trench > 0) h -= uplift * 3600 * trench * bump(d, km(30), km(80));
       if (arc > 0) {
         // 섬 호는 이어진 벽이 아니라 섬 사슬이다: 짧은 파장 노이즈로 끊는다
-        const breaks = offsetFbm3(mountainSeed + 11, x, y, z, 16, 2, 0.5, LANDFORM_JITTER);
+        const breaks = offsetFbm3(
+          mountainSeed + 11,
+          x,
+          y,
+          z,
+          arcNoise.frequency,
+          arcNoise.octaves,
+          arcNoise.gain,
+          arcNoise.jitter,
+        );
         const islands = Math.min(1, Math.max(0, 3 * (breaks + 0.12)));
-        h += volcanism * 3900 * arc * texture * islands * bump(d, km(160), km(75));
+        h += volcanism * 3900 * arc * ridges * islands * bump(d, km(160), km(75));
       }
       if (rift > 0) h -= uplift * 1700 * rift * bump(d, 0, km(90));
     }

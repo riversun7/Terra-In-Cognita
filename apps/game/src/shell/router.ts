@@ -9,6 +9,9 @@
 // - 지도·상세 화면: 쌓는다. 지도 모드 전환(1차맵 ↔ 2차맵)은 부르는 쪽이 replace를 준다(뒤로 = 지도를 떠남).
 // - 화면 안 [뒤로]: 앱이 쌓은 칸이 아래에 있으면 history.back(), 없으면 부모 화면(주소 표)으로 바꾼다.
 // - 겹침(☰ 서랍·편집 시트): 열 때 같은 주소로 한 칸 쌓는다. 그 칸이 빠지면 닫힌다. 새로고침 때 겹침 칸이면 바로 뺀다.
+//   겹침만 열고 닫는 것은 화면이 바뀐 것이 아니다: version·via를 두고 overlay만 바꾼다(틀이 스크롤·제목·초점을 건드리지 않게).
+//   겹침 칸은 그 아래 칸(겹침을 연 화면 칸)의 열쇠를 base로 들고 있어, 새로고침·앞으로 가기 뒤에도 같은 화면인지 안다.
+// - 지금 화면을 다시 고름(탭·메뉴·서랍에서 지금 화면): 기록은 그대로, reselects만 는다(틀이 맨 위로 또는 focusId 칸으로).
 // - history.go 뒤에 할 일(서랍에서 고름, 상세에서 탭)은 popstate를 받은 뒤 한다. 중간 칸은 화면에 내보내지 않는다.
 import {
   ROUTES,
@@ -41,6 +44,8 @@ export interface EntryState {
   readonly top: number | null;
   /** 겹침 칸이면 그 겹침 */
   readonly overlay?: OverlayKind;
+  /** 겹침 칸이면 그 아래 칸(겹침을 연 화면 칸)의 열쇠 — 겹침만 열고 닫을 때 화면이 그대로인지 본다 */
+  readonly base?: string;
 }
 
 /** 라우터가 쓰는 브라우저 기능(시험은 가짜를 넣는다) */
@@ -72,12 +77,16 @@ export interface RouterSnapshot {
   readonly entry: EntryState;
   /** 열린 겹침(사람이 연 것). 새로고침 때 남은 겹침 칸이면 null(다시 열지 않는다) */
   readonly overlay: OverlayKind | null;
+  /** 지금 화면에 온 길. 겹침만 열고 닫으면 그대로다 */
   readonly via: NavigationVia;
-  /** 화면이 바뀔 때마다 는다 */
+  /** 화면(겹침 아래 칸의 주소·열쇠)이 바뀔 때마다 는다. 겹침만 열고 닫으면 그대로다 — 틀은 이때만 제목·스크롤·초점을 맞춘다 */
   readonly version: number;
-  /** "지금 화면을 다시 누름"(맨 위로 스크롤)마다 는다 */
-  readonly scrollTopRequests: number;
-  /** 옮긴 뒤 초점을 둘 요소 id(없으면 새 화면 제목). 예: 사이드 메뉴 [메뉴 편집] → 설정의 메뉴 칸 */
+  /** 지금 화면을 다시 고름(탭·메뉴·서랍에서 지금 화면)마다 는다 — 틀은 focusId 칸에 초점을 두거나 맨 위로 올린다 */
+  readonly reselects: number;
+  /**
+   * 화면을 옮긴 뒤(version) 또는 다시 고른 뒤(reselects) 초점을 둘 요소 id. 없으면 옮길 때는 새 화면 제목, 다시 고를 때는 맨 위로.
+   * 예: 사이드 메뉴 [메뉴 편집] → 설정의 메뉴 칸
+   */
   readonly focusId: string | null;
 }
 
@@ -97,11 +106,14 @@ export interface Router {
   navigate(target: RouteTarget, options?: NavigateOptions): boolean;
   /** 화면 안 [뒤로] */
   back(): void;
-  /** 겹침을 연다(같은 주소로 한 칸 쌓는다) */
+  /** 겹침을 연다(같은 주소로 한 칸 쌓는다). 화면은 그대로다(version·via가 바뀌지 않는다) */
   openOverlay(kind: OverlayKind): void;
   /** 겹침 칸을 뺀다(닫기 버튼·Esc·닫기 요청). 겹침 칸이 아니면 아무것도 하지 않고 false */
   closeOverlay(): boolean;
-  /** 로그아웃·다른 계정: 겹침 칸을 빼고 지금 칸을 홈으로 바꾼다(ADR 37 2절) */
+  /**
+   * 로그아웃·다른 계정(ADR 37 2절 "/로 바꾼다"): 사슬 안 앱 홈 칸(없으면 사슬의 첫 칸)까지 돌아가 새 열쇠의 홈으로 바꾼다.
+   * 겹침 칸도 함께 빠진다. 기록에 홈이 한 칸만 남아 뒤로 → 앱 닫힘이 같다
+   */
   resetToHome(): void;
 }
 
@@ -141,8 +153,17 @@ export function readEntryState(value: unknown): EntryState | null {
   if (home !== null && !(isIndex(home) && home >= root && home <= index)) return null;
   if (top !== null && !(isIndex(top) && top >= root && top <= index)) return null;
   if (overlay !== undefined && !isOverlayKind(overlay)) return null;
-  const base = { terra: 1 as const, key, index, root, home, top };
-  return overlay === undefined ? base : { ...base, overlay };
+  const base: unknown = Reflect.get(value, "base");
+  // 아래 칸 열쇠는 겹침 칸에만 있다(앞 판의 겹침 칸에는 없을 수 있다: 그때는 겹침을 닫으면 화면이 바뀐 것으로 본다)
+  if (base !== undefined && (overlay === undefined || typeof base !== "string" || base === "")) return null;
+  const entry = { terra: 1 as const, key, index, root, home, top };
+  if (overlay === undefined) return entry;
+  return base === undefined ? { ...entry, overlay } : { ...entry, overlay, base };
+}
+
+/** 칸이 보이는 화면의 열쇠: 겹침 칸이면 그 아래 칸, 아니면 자기 */
+function screenKey(entry: EntryState): string {
+  return entry.overlay !== undefined && entry.base !== undefined ? entry.base : entry.key;
 }
 
 /** 주소에서 #조각을 뺀다 */
@@ -168,7 +189,10 @@ function stateAt(chain: Chain, kind: RouteKind, key: string): EntryState {
   return { terra: 1, key, index, root, home, top };
 }
 
-/** 할 일: 아무것도 안 함(같은 화면: 맨 위로) / 쌓기 / 바꾸기 / 몇 칸 돌아간 뒤 다시 정하기 */
+/** 돌아간 칸에서 다시 정할 일. null을 돌려주면 돌아간 칸이 끝이다(그 칸의 화면을 보인다) */
+export type AfterLanding = (landed: EntryState, landedUrl: string) => NavigationPlan | null;
+
+/** 할 일: 지금 화면을 다시 고름(기록 그대로) / 쌓기 / 바꾸기 / 몇 칸 돌아간 뒤 다시 정하기 */
 export type NavigationPlan =
   | { readonly kind: "none" }
   | { readonly kind: "push"; readonly url: string; readonly state: EntryState }
@@ -177,7 +201,7 @@ export type NavigationPlan =
       readonly kind: "go";
       readonly delta: number;
       /** 돌아간 칸에서 다시 정할 일. null이면 돌아간 칸이 끝이다 */
-      readonly after: ((landed: EntryState, landedUrl: string) => NavigationPlan) | null;
+      readonly after: AfterLanding | null;
     };
 
 /**
@@ -212,19 +236,19 @@ export function planNavigation(
 
   const hereMatch = matchPath(here);
   const sameRoute = hereMatch !== null && targetMatch !== null && hereMatch.id === targetMatch.id;
-  // 같은 화면을 다시 누름: 맨 위로. 같은 화면의 다른 검색어(예: /inbox?item= → /inbox)는 바꾼다
+  // 같은 화면을 다시 누름: 다시 고름(맨 위로·초점 칸). 같은 화면의 다른 검색어(예: /inbox?item= → /inbox)는 바꾼다
   if (target === here) return { kind: "none" };
   if (sameRoute && kind !== "push") return replaceHere();
 
   if (kind === "home") {
     if (current.home !== null && current.home < current.index) {
-      // 사슬 안의 앱 홈 칸으로 돌아간다. 그 칸의 주소가 다르면(예: ?template=) 돌아간 뒤 바꾼다
+      // 사슬 안의 앱 홈 칸으로 돌아간다(그 칸에서 보던 곳으로). 그 칸의 주소가 다르면(예: ?template=) 돌아간 뒤 바꾼다
       return {
         kind: "go",
         delta: current.home - current.index,
         after: (landed, landedUrl) =>
           withoutHash(landedUrl) === target
-            ? { kind: "none" }
+            ? null
             : { kind: "replace", url: target, state: stateAt(landed, "home", newKey()) },
       };
     }
@@ -316,7 +340,7 @@ export function rootState(url: string, key: string, index = 0): EntryState {
 interface Pending {
   readonly expectIndex: number;
   readonly at: number;
-  readonly after: ((landed: EntryState, landedUrl: string) => NavigationPlan) | null;
+  readonly after: AfterLanding | null;
   readonly focusId: string | null;
 }
 
@@ -326,52 +350,57 @@ export function createRouter(env: RouterEnv): Router {
   let pending: Pending | null = null;
   let stopPop: (() => void) | null = null;
   let version = 0;
-  let scrollTopRequests = 0;
+  let reselects = 0;
 
   const current = (): RouterSnapshot => {
     if (snapshot === null) throw new Error("router not started");
     return snapshot;
   };
 
-  /** 새 화면을 내보낸다. overlay를 null로 주면 겹침 칸이어도 겹침을 닫힌 것으로 둔다(곧 뺄 칸) */
-  const emit = (
+  /** 새 상태를 내보낸다 */
+  const commit = (next: RouterSnapshot): void => {
+    snapshot = next;
+    for (const listener of listeners) listener();
+  };
+
+  /**
+   * 칸에 도착한 뒤의 상태. 주소와 화면 열쇠(겹침 칸이면 그 아래 칸)가 앞 상태와 같으면 화면은 그대로다:
+   * 겹침만 열고 닫았다 → version·via·focusId를 두고 칸·겹침만 바꾼다. overlay를 null로 주면 겹침 칸이어도 닫힌 것으로 둔다(곧 뺄 칸)
+   */
+  const arrived = (
     entry: EntryState,
     via: NavigationVia,
     focusId: string | null,
     overlay: OverlayKind | null = entry.overlay ?? null,
-  ): void => {
+  ): RouterSnapshot => {
     const url = withoutHash(env.currentUrl());
+    const previous = snapshot;
+    if (previous !== null && previous.url === url && screenKey(previous.entry) === screenKey(entry)) {
+      return { ...previous, entry, overlay };
+    }
     version += 1;
-    snapshot = {
-      url,
-      match: matchPath(url),
-      entry,
-      overlay,
-      via,
-      version,
-      scrollTopRequests,
-      focusId,
-    };
-    for (const listener of listeners) listener();
+    return { url, match: matchPath(url), entry, overlay, via, version, reselects, focusId };
+  };
+
+  /** 지금 화면을 다시 고름 — reselects를 올린다(틀이 focusId 칸으로 또는 맨 위로) */
+  const reselected = (state: RouterSnapshot, focusId: string | null): RouterSnapshot => {
+    reselects += 1;
+    return { ...state, reselects, focusId };
   };
 
   /** 할 일을 한다. go면 기다리는 일로 두고 popstate를 기다린다 */
   const apply = (plan: NavigationPlan, focusId: string | null, from: EntryState): void => {
     switch (plan.kind) {
-      case "none": {
-        scrollTopRequests += 1;
-        const now = current();
-        snapshot = { ...now, scrollTopRequests };
-        for (const listener of listeners) listener();
+      case "none":
+        commit(reselected(current(), focusId));
         return;
-      }
       case "push":
         env.history.pushState(plan.state, "", plan.url);
-        emit(plan.state, "push", focusId);
+        commit(arrived(plan.state, "push", focusId));
         return;
       case "replace":
         env.history.replaceState(plan.state, "", plan.url);
-        emit(plan.state, "replace", focusId);
+        commit(arrived(plan.state, "replace", focusId));
         return;
       case "go":
         pending = { expectIndex: from.index + plan.delta, at: env.now(), after: plan.after, focusId };
@@ -402,30 +431,34 @@ export function createRouter(env: RouterEnv): Router {
       pending = null;
       entry = rootState(url, env.newKey());
       env.history.replaceState(entry, "", url);
-      emit(entry, "pop", null);
+      commit(arrived(entry, "pop", null));
       return;
     }
     const waiting = pending;
     pending = null;
     if (waiting !== null && waiting.expectIndex === entry.index) {
       const next = waiting.after === null ? null : waiting.after(entry, url);
-      if (next !== null && next.kind !== "none") {
-        apply(next, waiting.focusId, entry);
+      if (next === null) {
+        // 돌아간 칸이 끝이다(겹침 닫기·[뒤로]·홈으로): 그 칸의 화면. 겹침만 닫았으면 화면은 그대로다
+        commit(arrived(entry, "pop", waiting.focusId));
         return;
       }
-      // 서랍에서 지금 화면을 다시 고름: 겹침 칸을 뺀 뒤 맨 위로(탭을 다시 누른 것과 같다)
-      if (next !== null) scrollTopRequests += 1;
-      emit(entry, "pop", waiting.focusId);
+      if (next.kind === "none") {
+        // 서랍에서 지금 화면을 다시 고름: 겹침 칸을 뺀 뒤 다시 고름(탭을 다시 누른 것과 같다)
+        commit(reselected(arrived(entry, "pop", null), waiting.focusId));
+        return;
+      }
+      apply(next, waiting.focusId, entry);
       return;
     }
     if (entry.overlay !== undefined) {
-      // 앞으로 가기로 겹침 칸에 왔다: 겹침은 사람이 누를 때만 연다 → 그 칸을 다시 뺀다
+      // 앞으로 가기로 겹침 칸에 왔다: 겹침은 사람이 누를 때만 연다 → 그 칸을 다시 뺀다(화면은 그대로)
       pending = { expectIndex: entry.index - 1, at: env.now(), after: null, focusId: null };
-      emit(entry, "pop", null, null);
+      commit(arrived(entry, "pop", null, null));
       env.history.go(-1);
       return;
     }
-    emit(entry, "pop", null);
+    commit(arrived(entry, "pop", null));
   };
 
   return {
@@ -437,11 +470,11 @@ export function createRouter(env: RouterEnv): Router {
       if (saved === null) {
         const entry = rootState(url, env.newKey());
         env.history.replaceState(entry, "", url);
-        emit(entry, "initial", null);
+        commit(arrived(entry, "initial", null));
         return;
       }
-      emit(saved, "initial", null, null);
-      // 새로고침했는데 겹침 칸이다: 그 칸을 바로 뺀다(겹침은 다시 열지 않는다, ADR 37 2절)
+      commit(arrived(saved, "initial", null, null));
+      // 새로고침했는데 겹침 칸이다: 그 칸을 바로 뺀다(겹침은 다시 열지 않는다, ADR 37 2절). 화면은 그대로라 처음 켠 것으로 남는다
       if (saved.overlay !== undefined) apply({ kind: "go", delta: -1, after: null }, null, saved);
     },
     stop() {
@@ -476,10 +509,11 @@ export function createRouter(env: RouterEnv): Router {
         key: env.newKey(),
         index: now.entry.index + 1,
         overlay: kind,
+        base: now.entry.key,
       };
-      // 같은 주소(#조각 포함)로 한 칸
+      // 같은 주소(#조각 포함)로 한 칸. 화면은 그대로다(version·via를 두고 겹침만 바뀐다)
       env.history.pushState(state, "", env.currentUrl());
-      emit(state, "push", null);
+      commit(arrived(state, "push", null));
     },
     closeOverlay() {
       const now = current();
@@ -490,21 +524,28 @@ export function createRouter(env: RouterEnv): Router {
     resetToHome() {
       pending = null;
       const now = current();
+      const { entry } = now;
       const home = targetPath({ route: "home" });
-      if (now.entry.overlay !== undefined) {
-        apply(
-          {
-            kind: "go",
-            delta: -1,
-            after: (landed) => ({ kind: "replace", url: home, state: stateAt(landed, "home", env.newKey()) }),
-          },
-          null,
-          now.entry,
-        );
+      if (
+        entry.overlay === undefined &&
+        withoutHash(env.currentUrl()) === home &&
+        entry.home === entry.index
+      ) {
         return;
       }
-      if (withoutHash(env.currentUrl()) === home && now.entry.home === now.entry.index) return;
-      apply({ kind: "replace", url: home, state: stateAt(now.entry, "home", env.newKey()) }, null, now.entry);
+      // 사슬 안 앱 홈 칸(없으면 사슬의 첫 칸)까지 돌아가 새 열쇠의 홈으로 바꾼다: 기록에 홈이 한 칸만 남아
+      // 뒤로 → 앱 닫힘이 같다(겹침 칸이면 그 칸도 함께 빠진다). 새 열쇠라 앞 계정이 보던 스크롤을 되돌리지 않는다
+      const landing = entry.home ?? entry.root;
+      const toHome = (landed: EntryState): NavigationPlan => ({
+        kind: "replace",
+        url: home,
+        state: stateAt(landed, "home", env.newKey()),
+      });
+      apply(
+        landing === entry.index ? toHome(entry) : { kind: "go", delta: landing - entry.index, after: toHome },
+        null,
+        entry,
+      );
     },
   };
 }

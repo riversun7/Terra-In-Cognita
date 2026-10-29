@@ -140,6 +140,17 @@ describe("앱을 켬", () => {
     expect(units.router.getSnapshot().match?.id).toBe("units");
   });
 
+  it("겹침 칸의 아래 칸 열쇠(base)는 겹침 칸에만 있다", () => {
+    const overlay = { terra: 1, key: "b", index: 2, root: 0, home: 0, top: 1, overlay: "drawer", base: "a" };
+    expect(readEntryState(overlay)).toEqual(overlay);
+    // 앞 판의 겹침 칸(아래 칸 열쇠 없음)도 읽는다
+    const { base: _base, ...older } = overlay;
+    expect(readEntryState(older)).toEqual(older);
+    expect(readEntryState({ terra: 1, key: "a", index: 1, root: 0, home: 0, top: 1, base: "x" })).toBeNull();
+    expect(readEntryState({ ...overlay, base: "" })).toBeNull();
+    expect(readEntryState({ ...overlay, base: 3 })).toBeNull();
+  });
+
   it("모양이 틀린 state(다른 판·다른 앱)는 앱 칸이 아니다", () => {
     expect(readEntryState(null)).toBeNull();
     expect(readEntryState({ terra: 2, key: "a", index: 0, root: 0, home: null, top: null })).toBeNull();
@@ -201,17 +212,52 @@ describe("2절 표: 탭·메뉴로 옮기기", () => {
     expect(history.urls()).toEqual(["/", "/units"]);
   });
 
-  it("지금 화면을 다시 누름: 기록은 그대로, 맨 위로 요청만 는다", async () => {
+  it("지금 화면을 다시 누름: 기록은 그대로, 다시 고름(맨 위로)만 는다", async () => {
     const { history, go, router, seen } = setup("/");
     await go({ route: "units" });
     const before = router.getSnapshot();
     await go({ route: "units" });
     const after = router.getSnapshot();
     expect(history.urls()).toEqual(["/", "/units"]);
-    expect(after.scrollTopRequests).toBe(before.scrollTopRequests + 1);
-    expect(after.version).toBe(before.version);
-    // 켤 때 "/" 한 번, 쌓을 때 한 번, 맨 위로 요청 한 번
+    expect(after.reselects).toBe(before.reselects + 1);
+    expect(after).toMatchObject({ version: before.version, via: before.via, focusId: null });
+    // 켤 때 "/" 한 번, 쌓을 때 한 번, 다시 고름 한 번
     expect(seen).toEqual(["/", "/units", "/units"]);
+  });
+
+  it("지금 화면을 초점 칸과 함께 다시 고름(넓은 폭 [메뉴 편집] — 설정에서 설정의 메뉴 칸): 다시 고름에 칸 id가 실린다", async () => {
+    const { history, router } = setup("/");
+    router.navigate({ route: "settings" });
+    await settle();
+    const before = router.getSnapshot();
+    router.navigate({ route: "settings" }, { focusId: "nav-settings" });
+    await settle();
+    const after = router.getSnapshot();
+    expect(history.urls()).toEqual(["/", "/settings"]);
+    expect(after).toMatchObject({
+      version: before.version,
+      reselects: before.reselects + 1,
+      focusId: "nav-settings",
+    });
+    // 다른 화면에서 누르면 옮긴 뒤 그 칸이다(화면이 바뀜)
+    router.navigate({ route: "units" });
+    await settle();
+    router.navigate({ route: "settings" }, { focusId: "nav-settings" });
+    await settle();
+    expect(router.getSnapshot()).toMatchObject({ version: after.version + 2, focusId: "nav-settings" });
+  });
+
+  it("탭으로 홈(앞 칸이 앱 홈): 다시 고름이 아니라 홈 칸으로 돌아간다(그 칸에서 보던 곳)", async () => {
+    const { go, router } = setup("/");
+    await go({ route: "units" });
+    const before = router.getSnapshot();
+    await go({ route: "home" });
+    expect(router.getSnapshot()).toMatchObject({
+      url: "/",
+      via: "pop",
+      version: before.version + 1,
+      reselects: before.reselects,
+    });
   });
 
   it("같은 화면의 다른 검색어는 바꾼다(예: /inbox?item= → /inbox)", async () => {
@@ -330,6 +376,33 @@ describe("2절 표: 화면 안 [뒤로]", () => {
 });
 
 describe("2절 표: 겹침(서랍·편집 시트)", () => {
+  it("겹침만 열고 닫으면 화면은 그대로다: version·via가 바뀌지 않는다(닫기 단추·뒤로 둘 다)", async () => {
+    const { history, go, router } = setup("/");
+    await go({ route: "units" });
+    const screen = router.getSnapshot();
+    router.openOverlay("drawer");
+    expect(router.getSnapshot()).toMatchObject({ overlay: "drawer", version: screen.version, via: "push" });
+    expect(router.getSnapshot().entry).toMatchObject({ index: 2, overlay: "drawer", base: screen.entry.key });
+    router.closeOverlay();
+    await settle();
+    expect(router.getSnapshot()).toMatchObject({ overlay: null, version: screen.version, via: "push" });
+    expect(router.getSnapshot().entry).toEqual(screen.entry);
+    router.openOverlay("sheet");
+    history.press(-1);
+    await settle();
+    expect(router.getSnapshot()).toMatchObject({
+      overlay: null,
+      version: screen.version,
+      reselects: screen.reselects,
+    });
+    // 바로 연 화면(처음 켬) 위에서 열고 닫아도 처음 켠 것으로 남는다(틀이 초점을 옮기지 않는다)
+    const direct = setup("/settings");
+    direct.router.openOverlay("drawer");
+    direct.router.closeOverlay();
+    await settle();
+    expect(direct.router.getSnapshot()).toMatchObject({ via: "initial", version: 1, overlay: null });
+  });
+
   it("열면 같은 주소로 한 칸 쌓고, 닫기 버튼·Esc·닫기 요청이면 그 칸을 history.back()으로 뺀다", async () => {
     const { history, go, router } = setup("/");
     await go({ route: "units" });
@@ -344,13 +417,13 @@ describe("2절 표: 겹침(서랍·편집 시트)", () => {
     expect(router.closeOverlay()).toBe(false);
   });
 
-  it("뒤로를 누르면 그 칸이 빠지며 닫힌다(남는 칸 없음)", async () => {
+  it("뒤로를 누르면 그 칸이 빠지며 닫힌다(남는 칸 없음). 화면은 그대로라 온 길도 그대로다", async () => {
     const { history, go, router } = setup("/");
     await go({ route: "units" });
     router.openOverlay("drawer");
     history.press(-1);
     await settle();
-    expect(router.getSnapshot()).toMatchObject({ overlay: null, url: "/units", via: "pop" });
+    expect(router.getSnapshot()).toMatchObject({ overlay: null, url: "/units", via: "push" });
     expect(history.at).toBe(1);
   });
 
@@ -367,6 +440,30 @@ describe("2절 표: 겹침(서랍·편집 시트)", () => {
     expect(seen).toEqual(["/economy"]);
   });
 
+  it("서랍에서 지금 화면을 다시 고름: 겹침 칸을 빼고 다시 고름(화면은 그대로). 초점 칸 id도 실린다", async () => {
+    const { history, go, router } = setup("/");
+    await go({ route: "settings" });
+    const screen = router.getSnapshot();
+    router.openOverlay("drawer");
+    await go({ route: "settings" });
+    expect(history.at).toBe(1);
+    expect(router.getSnapshot()).toMatchObject({
+      overlay: null,
+      version: screen.version,
+      reselects: screen.reselects + 1,
+      focusId: null,
+    });
+    router.openOverlay("drawer");
+    router.navigate({ route: "settings" }, { focusId: "nav-settings" });
+    await settle();
+    expect(router.getSnapshot()).toMatchObject({
+      overlay: null,
+      version: screen.version,
+      reselects: screen.reselects + 2,
+      focusId: "nav-settings",
+    });
+  });
+
   it("서랍에서 홈을 고름(첫 단계 화면에서): 겹침 칸을 빼고 홈 칸까지 돌아간다", async () => {
     const { history, go, router } = setup("/");
     await go({ route: "faction" });
@@ -377,7 +474,7 @@ describe("2절 표: 겹침(서랍·편집 시트)", () => {
     expect(router.getSnapshot()).toMatchObject({ url: "/", overlay: null });
   });
 
-  it("새로고침했는데 지금 칸이 겹침 칸: 그 칸을 바로 빼고 겹침은 다시 열지 않는다", async () => {
+  it("새로고침했는데 지금 칸이 겹침 칸: 그 칸을 바로 빼고 겹침은 다시 열지 않는다(처음 켠 화면 그대로)", async () => {
     const first = setup("/");
     await first.go({ route: "units" });
     first.router.openOverlay("drawer");
@@ -388,19 +485,29 @@ describe("2절 표: 겹침(서랍·편집 시트)", () => {
     expect(first.history.goCalls).toEqual([-1]);
     await settle();
     expect(first.history.at).toBe(1);
-    expect(again.router.getSnapshot()).toMatchObject({ overlay: null, url: "/units" });
+    // 아래 칸은 겹침이 연 화면이라 화면이 바뀐 것이 아니다: 처음 켠 것으로 남는다(틀이 초점·스크롤을 건드리지 않는다)
+    expect(again.router.getSnapshot()).toMatchObject({
+      overlay: null,
+      url: "/units",
+      via: "initial",
+      version: 1,
+    });
   });
 
-  it("앞으로 가기로 겹침 칸에 오면 다시 뺀다(겹침은 누를 때만 연다)", async () => {
-    const { history, go, router } = setup("/");
+  it("앞으로 가기로 겹침 칸에 오면 다시 뺀다(겹침은 누를 때만 연다). 화면은 그대로다", async () => {
+    const { history, go, router, seen } = setup("/");
     await go({ route: "units" });
     router.openOverlay("sheet");
     router.closeOverlay();
     await settle();
+    const screen = router.getSnapshot();
+    seen.length = 0;
     history.press(1);
     await settle();
-    expect(router.getSnapshot()).toMatchObject({ overlay: null, url: "/units" });
+    expect(router.getSnapshot()).toMatchObject({ overlay: null, url: "/units", version: screen.version });
     expect(history.at).toBe(1);
+    // 겹침은 한 번도 열린 것으로 내보내지 않았다
+    expect(seen).toEqual(["/units", "/units"]);
   });
 
   it("겹침 칸 위에서 또 열지 않는다", async () => {
@@ -412,21 +519,49 @@ describe("2절 표: 겹침(서랍·편집 시트)", () => {
 });
 
 describe("로그아웃·다른 계정, 기다리는 일", () => {
-  it("resetToHome: 지금 칸을 홈으로 바꾼다. 겹침 칸이면 먼저 뺀다", async () => {
+  it("resetToHome: 사슬 안 앱 홈 칸까지 돌아가 새 열쇠의 홈으로 바꾼다(기록에 홈은 한 칸, 뒤로 = 앱 닫힘)", async () => {
     const plain = setup("/");
     await plain.go({ route: "units" });
+    await plain.go({ route: "admin" });
+    const homeKey = plain.history.entries[0]?.state;
     plain.router.resetToHome();
-    expect(plain.history.urls()).toEqual(["/", "/"]);
-    expect(plain.entry()).toMatchObject({ index: 1, home: 1, top: null });
+    await settle();
+    expect(plain.history.goCalls).toEqual([-1]);
+    expect(plain.history.at).toBe(0);
+    expect(plain.history.urls()[0]).toBe("/");
+    expect(plain.entry()).toMatchObject({ index: 0, root: 0, home: 0, top: null });
+    // 새 열쇠(앞 계정이 보던 스크롤을 되돌리지 않는다), 바꾸기로 온 홈
+    expect(plain.entry().key).not.toBe(readEntryState(homeKey)?.key);
+    expect(plain.router.getSnapshot()).toMatchObject({ url: "/", via: "replace", overlay: null });
 
+    // 겹침 칸 위: 그 칸도 함께 빠진다
     const drawer = setup("/");
     await drawer.go({ route: "mail" });
     drawer.router.openOverlay("drawer");
     drawer.router.resetToHome();
     await settle();
-    expect(drawer.history.urls().slice(0, 2)).toEqual(["/", "/"]);
-    expect(drawer.history.at).toBe(1);
-    expect(drawer.router.getSnapshot().overlay).toBeNull();
+    expect(drawer.history.goCalls).toEqual([-2]);
+    expect(drawer.history.at).toBe(0);
+    expect(drawer.router.getSnapshot()).toMatchObject({ url: "/", overlay: null });
+
+    // 바로 연 주소(앱 홈 칸이 없음): 사슬의 첫 칸을 홈으로 바꾼다
+    const direct = setup("/units");
+    await direct.go({ route: "map" });
+    direct.router.resetToHome();
+    await settle();
+    expect(direct.history.at).toBe(0);
+    expect(direct.history.urls()[0]).toBe("/");
+    expect(direct.entry()).toMatchObject({ index: 0, root: 0, home: 0 });
+
+    // 이미 홈(그 주소 그대로)이면 아무것도 하지 않는다. 홈의 다른 주소(?template=)는 바꾼다
+    const home = setup("/");
+    home.router.resetToHome();
+    await settle();
+    expect(home.history.goCalls).toEqual([]);
+    expect(home.router.getSnapshot().version).toBe(1);
+    const template = setup("/?template=dt_city");
+    template.router.resetToHome();
+    expect(template.history.urls()).toEqual(["/"]);
   });
 
   it("history.go 뒤 popstate를 기다리는 동안 다른 이동은 무시한다. 너무 오래되면 버린다", async () => {

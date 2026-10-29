@@ -6,7 +6,7 @@
 //   편집기 워커 핵심(previewWork.ts runPreviewJob)을 콘텐츠 팩 s2_test_planet 정의로 레벨마다 새 프로세스에서 돌렸다.
 //   workerPeakMiB = 단계 끝마다 잰 process.memoryUsage().arrayBuffers(GC 전, 시작 값 뺌)의 최댓값.
 //   keptBytes = 같은 실행의 outputBytes(넘긴 버퍼 합, 결과 해시는 생성기 골든 해시와 같았다).
-//   스크립트: 저장소 밖 임시(작업 기록 docs/worklog/2026/10/29-2030-planet-editor-core.md에 수치와 조건).
+//   스크립트: 저장소 밖 임시(작업 기록 docs/worklog/2026/10/29-2013-planet-editor-core.md에 수치와 조건).
 //   JS 힙·워커 자체 몫은 들어 있지 않다. 생성기 판이 바뀌면(출력·중간 배열) 다시 잰다.
 
 export interface MemoryEstimate {

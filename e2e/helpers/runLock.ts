@@ -67,7 +67,9 @@ function readLockHolder(): ProcessRef | null {
   }
 }
 
-const isMe = (ref: ProcessRef | null): boolean => ref !== null && ref.pid === process.pid;
+/** 이 프로세스인지(번호와 시작 시각 둘 다. 죽은 실행기의 번호를 이 프로세스가 다시 받았을 수 있다) */
+const isMe = (ref: ProcessRef | null): boolean =>
+  ref !== null && ref.pid === process.pid && ref.start === startTime(process.pid);
 
 function releaseRunLock(): void {
   if (isMe(readLockHolder())) rmSync(RUN_LOCK_FILE, { force: true });

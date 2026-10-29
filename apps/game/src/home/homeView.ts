@@ -5,7 +5,6 @@
 //   편집 목록에서는 "맨 위 고정"으로 보인다. 카드 고르기·순서(D-6001)는 어느 템플릿이든 격자에서 지킨다(D-6005 해석).
 // - 처리할 일은 어느 템플릿이든 첫 화면 맨 위(격자 템플릿은 첫 카드)에 있고, 마감 없는 항목도 빠지지 않는다(ADR 37 6절).
 import type { Role } from "@terra/shared";
-import { buildPath, isRouteTarget, targetPath } from "@terra/shared";
 import {
   type CardId,
   type CardSize,
@@ -23,6 +22,7 @@ import {
   type InboxCategory,
   type InboxItem,
   type InboxListResponse,
+  isInboxCategory,
 } from "@terra/shared/inbox";
 
 /** 템플릿 바꾸기·시안 자료를 쓰는 역할. 서버도 이 역할에만 허용한다(권한 home: template·preview) */
@@ -138,12 +138,12 @@ export function sameNeeds(a: HomeNeeds, b: HomeNeeds): boolean {
   );
 }
 
-/** 앞 limit줄과 남은 줄 수 */
+/** 앞 limit줄과 나머지(처리함에서 더 보기) */
 export function headItems(
   items: readonly InboxItem[],
   limit: number,
-): { shown: readonly InboxItem[]; rest: number } {
-  return { shown: items.slice(0, limit), rest: Math.max(0, items.length - limit) };
+): { shown: readonly InboxItem[]; hidden: readonly InboxItem[] } {
+  return { shown: items.slice(0, limit), hidden: items.slice(limit) };
 }
 
 /**
@@ -168,14 +168,17 @@ export function upcomingItems(items: readonly InboxItem[]): InboxItem[] {
   return splitTimeline(items).upcoming;
 }
 
-/** 분류별 묶음(처리함 템플릿). 받은 순서를 지키고 빈 분류는 뺀다 */
-export function groupByCategory(
-  items: readonly InboxItem[],
-): { category: InboxCategory; items: InboxItem[] }[] {
-  return INBOX_CATEGORIES.map((category) => ({
-    category,
+/** 처리함 템플릿의 묶음 열쇠: 아는 분류, 또는 이 기기가 모르는 분류(더 새 서버)를 모은 "그 밖의 알림" */
+export type InboxGroupKey = InboxCategory | "other";
+
+/** 분류별 묶음(처리함 템플릿). 분류 순서대로, 분류 안은 받은 순서, 빈 분류는 뺀다. 모르는 분류의 줄은 끝의 "other" 묶음에 */
+export function groupByCategory(items: readonly InboxItem[]): { key: InboxGroupKey; items: InboxItem[] }[] {
+  const groups: { key: InboxGroupKey; items: InboxItem[] }[] = INBOX_CATEGORIES.map((category) => ({
+    key: category,
     items: items.filter((item) => item.category === category),
-  })).filter((group) => group.items.length > 0);
+  }));
+  groups.push({ key: "other", items: items.filter((item) => !isInboxCategory(item.category)) });
+  return groups.filter((group) => group.items.length > 0);
 }
 
 /** 분류별 줄 수 중 0이 아닌 것(접은 처리할 일 머리). 서버가 센 값(counts)을 쓴다 */
@@ -185,31 +188,4 @@ export function nonZeroCounts(
   return INBOX_CATEGORIES.map((category) => ({ category, count: counts[category] })).filter(
     (entry) => entry.count > 0,
   );
-}
-
-/** 종 배지와 같은 수: 완료를 뺀 줄 수(ADR 37 7절) */
-export function pendingCount(counts: InboxListResponse["counts"]): number {
-  return INBOX_CATEGORIES.filter((category) => category !== "done").reduce(
-    (sum, category) => sum + counts[category],
-    0,
-  );
-}
-
-/** 처리할 일 한 줄을 누르면 갈 곳. 모르는 화면(더 새 서버)이거나 없으면 처리함에서 그 항목을 강조한다 */
-export function itemHref(item: InboxItem): string {
-  return isRouteTarget(item.target)
-    ? targetPath(item.target)
-    : buildPath("inbox", { search: { item: item.id } });
-}
-
-/** 마감 표시 모양: 오늘이면 시각만, 6일 안이면 요일 + 시각, 그 밖이면 날짜 + 시각, 해가 다르면 연도까지(기기 시간대) */
-export type DueStyle = "time" | "weekday" | "date" | "year";
-
-const DAY_MS = 86_400_000;
-
-export function dueStyle(deadline: Date, now: Date): DueStyle {
-  if (deadline.toDateString() === now.toDateString()) return "time";
-  const days = Math.abs(deadline.getTime() - now.getTime()) / DAY_MS;
-  if (days < 6) return "weekday";
-  return deadline.getFullYear() === now.getFullYear() ? "date" : "year";
 }

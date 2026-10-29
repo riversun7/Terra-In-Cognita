@@ -59,9 +59,14 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
+/** 화면을 서버에서 그릴 때(시험)는 저장소를 읽지 않는다(저장한 적 없음) */
+function loadOnServer(): unknown {
+  return undefined;
+}
+
 /** 저장된 home 값(모양을 모르는 JSON). W2 뒤: useSettings().device.home */
 export function useStoredHome(): unknown {
-  return useSyncExternalStore(subscribe, load);
+  return useSyncExternalStore(subscribe, load, loadOnServer);
 }
 
 /**

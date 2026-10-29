@@ -2,18 +2,18 @@
  * 시안 템플릿 전용(처리함·도시) — 그 템플릿 조각과 함께만 내려온다(dev·admin만 본다). 값은 styles/tokens.css의 var(--…)만 쓴다.
  */
 
-/* ── 처리함 템플릿: 분류별 묶음 ─────────── */
-.inbox-groups {
+/* ── 처리함 템플릿: 분류별 묶음(처리함 화면 W3의 .inbox-group*과 겹치지 않는 이름) ─────────── */
+.home-inbox-groups {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
-.inbox-group {
+.home-inbox-group {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
-.inbox-group-title {
+.home-inbox-group-title {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -23,14 +23,14 @@
   line-height: var(--line-height-snug);
   color: var(--color-text-muted);
 }
-.inbox-group-icon {
+.home-inbox-group-icon {
   display: inline-grid;
 }
-.inbox-group-icon .home-icon {
+.home-inbox-group-icon .home-icon {
   width: var(--icon-sm);
   height: var(--icon-sm);
 }
-.inbox-group-count {
+.home-inbox-group-count {
   font-variant-numeric: tabular-nums;
 }
 

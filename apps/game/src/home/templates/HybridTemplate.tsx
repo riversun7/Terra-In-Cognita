@@ -7,7 +7,7 @@ import { PinnedTodo } from "../PinnedTodo.tsx";
 export default function HybridTemplate(props: TemplateProps) {
   return (
     <>
-      <PinnedTodo data={props.data} onQuickAction={props.onQuickAction} />
+      <PinnedTodo data={props.data} />
       <CardGrid {...props} />
     </>
   );

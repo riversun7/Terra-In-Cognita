@@ -1,10 +1,12 @@
 // 홈 편집 시트 — 지연 로딩되는 따로 된 조각. [편집]을 누르면 <dialog>.showModal()로 연다(초점이 시트 안에 갇힌다, ADR 2026-10-29-app-shell 2·6·10절).
 // - 카드 더하기·빼기, ↑·↓·맨 위로, 크기 고르기, 손잡이로 끌어 옮기기(보조). 템플릿 칸·시안 자료 켜기는 dev·admin만(사용자 결정 2).
+//   시안 자료 스위치는 처리함·종 배지·복귀 요약과 같은 하나다(inboxParts.ts setPreviewOn, W3 inbox/preview.ts).
 // - 바꿀 때마다 바로 저장한다(homeSettings.ts의 patchHome). 그래서 닫기·Esc·뒤로로 닫아도 잃는 것이 없다. 되돌리기는 [카드 기본값으로].
 // - 알림 영역(polite)이 결과를 읽는다("7개 중 3번째로 옮겼습니다"). 옮긴 뒤에도 누른 단추에 초점이 남는다(줄이 DOM에서 옮겨져도).
 // - 머리 카드(조합의 처리할 일 등)는 "맨 위 고정"으로만 보인다. 처리할 일 카드는 뺄 수 없다(homeView.ts isRemovable).
 // - 이 기기가 모르는 카드(더 새 버전)는 보이지 않지만 제자리에 남는다(reorder.ts).
-// - 닫으면 연 단추로 초점을 돌려준다(HomeScreen). 기록 칸(뒤로 → 닫힘)은 화면 틀(W1)의 겹침 도우미가 맡는다(shellParts.tsx).
+// - 닫으면 연 단추로 초점을 돌려준다(HomeScreen). 열림과 기록 칸(뒤로 → 닫힘)은 HomeScreen이 화면 틀(W1)의 겹침 칸으로 정한다(shellParts.tsx
+//   useSheetOverlay). 뒤로로 닫히면 이 부품이 화면에서 내려간다(<dialog>가 DOM에서 빠지며 닫힌다).
 import type { Role } from "@terra/shared";
 import {
   type CardId,
@@ -29,10 +31,9 @@ import {
   RemoveIcon,
   ToTopIcon,
 } from "../cards/icons.tsx";
-import { setPreviewOn } from "../homePrefs.ts";
 import { patchHome } from "../homeSettings.ts";
 import { canUseHomeTools, heroCards, isRemovable, listedIn } from "../homeView.ts";
-import { useOverlayEntry } from "../shellParts.tsx";
+import { setPreviewOn } from "../inboxParts.ts";
 import { templateName } from "../templateText.ts";
 import {
   type ListChange,
@@ -160,8 +161,6 @@ export default function EditSheet({
     const dialog = dialogRef.current;
     if (dialog !== null && !dialog.open) dialog.showModal();
   }, []);
-
-  useOverlayEntry(true, onClose);
 
   // 옮긴 줄이 DOM에서 자리를 바꿔 초점을 잃었으면 같은 단추로 돌려준다
   useLayoutEffect(() => {

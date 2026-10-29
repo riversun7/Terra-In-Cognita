@@ -4,7 +4,7 @@ import type { CardSize } from "@terra/shared/dashboard";
 import { m } from "../../paraglide/messages.js";
 import { BriefConversation, summaryRows } from "../BriefConversation.tsx";
 import type { CardBodyProps } from "../homeTypes.ts";
-import { HomeEmpty, HomeLoading, inboxItemsOf } from "../InboxBody.tsx";
+import { HomeEmpty, HomeLoading, inboxOf } from "../InboxBody.tsx";
 
 const LIMITS: { readonly [S in CardSize]: { summary: number; items: number } } = {
   "1x1": { summary: 1, items: 1 },
@@ -12,13 +12,13 @@ const LIMITS: { readonly [S in CardSize]: { summary: number; items: number } } =
   "2x2": { summary: 4, items: 3 },
 };
 
-export function BriefingCardBody({ data, size, onQuickAction }: CardBodyProps) {
-  const items = inboxItemsOf(data);
+export function BriefingCardBody({ data, size }: CardBodyProps) {
+  const response = inboxOf(data);
   const summary = data.summary.value;
   const waiting = data.inbox.status === "loading" || data.summary.status === "loading";
-  if (items === null && summary === null) return waiting ? <HomeLoading /> : null;
+  if (response === null && summary === null) return waiting ? <HomeLoading /> : null;
   const limit = LIMITS[size];
-  const shown = (items ?? []).slice(0, limit.items);
+  const shown = (response?.items ?? []).slice(0, limit.items);
   if (shown.length === 0 && summaryRows(summary).length === 0) {
     return waiting ? <HomeLoading /> : <HomeEmpty text={m.card_briefing_empty()} />;
   }
@@ -27,7 +27,7 @@ export function BriefingCardBody({ data, size, onQuickAction }: CardBodyProps) {
       summary={summary}
       summaryRowLimit={limit.summary}
       items={shown}
-      onQuickAction={onQuickAction}
+      now={response?.generatedAt ?? 0}
       actions={false}
     />
   );

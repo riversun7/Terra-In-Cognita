@@ -1,7 +1,7 @@
 // 홈 아이콘 — 인라인 SVG(아이콘 꾸러미 없음, ADR 2026-10-29-app-shell 11절). 꾸밈이라 읽기 프로그램에는 숨긴다(이름은 옆 글자가 알린다).
 // 글자와 같은 색(currentColor)이고 크기는 home.css의 .home-icon(--icon-md)이다. 좌표는 소수 한 자리까지만 쓴다.
-// [임시] 처리할 일 분류 아이콘(CategoryIcon)은 W1의 ui/icons.tsx가 맡는다. W1이 합쳐지면 CategoryIcon의 몸을 그 아이콘으로 바꾼다(꽂는 줄).
-import type { InboxCategory } from "@terra/shared/inbox";
+// [임시] 처리할 일 분류 아이콘(CategoryIcon)은 W1의 ui/icons.tsx가 맡는다(이름 threat·money_survival·stalled·decision·done, 기본은 bell).
+// W1이 합쳐지면 CategoryIcon의 몸을 `<Icon name={아는 분류 ? category : "bell"} className="home-icon" />`로 바꾼다(꽂는 줄).
 import type { CardId } from "@terra/shared/dashboard";
 import type { ReactNode } from "react";
 
@@ -222,8 +222,21 @@ export function CheckIcon() {
   );
 }
 
-/** [임시] 처리할 일 분류 아이콘. 분류는 늘 아이콘 + 이름과 함께 보인다(색만으로 알리지 않는다). W1 뒤: ui/icons.tsx */
-export function CategoryIcon({ category }: { category: InboxCategory }) {
+/** 모르는 분류(더 새 서버)·그 밖의 알림 묶음의 기본 아이콘(종) */
+function BellIcon() {
+  return (
+    <Icon>
+      <path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z" />
+      <path d="M10 20.5h4" />
+    </Icon>
+  );
+}
+
+/**
+ * [임시] 처리할 일 분류 아이콘. 분류는 늘 아이콘 + 이름과 함께 보인다(색만으로 알리지 않는다). W1 뒤: ui/icons.tsx.
+ * 받은 값은 글자로 받는다: 분류는 닫힌 목록이지만 더 새 서버가 모르는 분류를 보낼 수 있다 → 기본 아이콘(그 밖의 알림 묶음도 같다)
+ */
+export function CategoryIcon({ category }: { category: string }) {
   switch (category) {
     case "threat":
       return (
@@ -259,9 +272,7 @@ export function CategoryIcon({ category }: { category: InboxCategory }) {
           <path d="M8.3 12.3l2.6 2.6 4.9-5.2" />
         </Icon>
       );
-    default: {
-      const unhandled: never = category;
-      return unhandled;
-    }
+    default:
+      return <BellIcon />;
   }
 }

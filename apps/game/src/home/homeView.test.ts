@@ -1,20 +1,17 @@
-// 홈 화면 규칙 시험 — 템플릿 고르기(역할·주소), 머리 카드·격자 카드, 받을 자료, 타임라인 나누기, 갈 곳, 마감 모양
+// 홈 화면 규칙 시험 — 템플릿 고르기(역할·주소), 머리 카드·격자 카드, 받을 자료, 타임라인 나누기, 분류별 묶음
 import { DEFAULT_HOME_TEMPLATE, HOME_TEMPLATES, type HomeCardEntry } from "@terra/shared/dashboard";
 import type { InboxItem } from "@terra/shared/inbox";
 import { describe, expect, it } from "vitest";
 import {
   canUseHomeTools,
   chooseTemplate,
-  dueStyle,
   gridCards,
   groupByCategory,
   headItems,
   heroCards,
   homeNeeds,
-  itemHref,
   listedIn,
   nonZeroCounts,
-  pendingCount,
   sameNeeds,
   splitTimeline,
 } from "./homeView.ts";
@@ -148,8 +145,8 @@ describe("처리할 일 나누기", () => {
     expect(now.length + upcoming.length).toBe(items.length);
   });
 
-  it("분류별 묶음은 분류 순서·받은 순서이고 빈 분류는 없다", () => {
-    expect(groupByCategory(items).map((group) => [group.category, group.items.length])).toEqual([
+  it("분류별 묶음은 분류 순서·받은 순서이고 빈 분류는 없다. 모르는 분류(더 새 서버)는 끝의 other 묶음", () => {
+    expect(groupByCategory(items).map((group) => [group.key, group.items.length])).toEqual([
       ["threat", 1],
       ["money_survival", 2],
       ["stalled", 1],
@@ -157,14 +154,26 @@ describe("처리할 일 나누기", () => {
       ["done", 1],
     ]);
     expect(groupByCategory([])).toEqual([]);
+    const rumor = { ...item("rumor_heard:x_1"), category: JSON.parse('"rumor"') };
+    expect(groupByCategory([rumor, ...items]).map((group) => group.key)).toEqual([
+      "threat",
+      "money_survival",
+      "stalled",
+      "decision",
+      "done",
+      "other",
+    ]);
   });
 
-  it("앞 몇 줄과 남은 수", () => {
-    expect(headItems(items, 4).rest).toBe(2);
-    expect(headItems(items, 10)).toEqual({ shown: items, rest: 0 });
+  it("앞 몇 줄과 가린 줄", () => {
+    expect(headItems(items, 4).hidden.map((entry) => entry.id)).toEqual([
+      "contract_match:c_7",
+      "craft_done:e_9",
+    ]);
+    expect(headItems(items, 10)).toEqual({ shown: items, hidden: [] });
   });
 
-  it("분류별 수와 종 배지 수(완료 뺌)", () => {
+  it("분류별 수(접은 처리할 일 머리)는 0이 아닌 분류만", () => {
     const counts = { threat: 1, money_survival: 2, stalled: 0, decision: 1, done: 3 };
     expect(nonZeroCounts(counts).map((entry) => entry.category)).toEqual([
       "threat",
@@ -172,30 +181,5 @@ describe("처리할 일 나누기", () => {
       "decision",
       "done",
     ]);
-    expect(pendingCount(counts)).toBe(4);
-  });
-});
-
-describe("itemHref", () => {
-  it("아는 화면은 그 주소, 모르는 화면·없음은 처리함에서 그 항목을 강조한다", () => {
-    expect(itemHref(item("unit_idle:city_1", { target: { route: "units" } }))).toBe("/units");
-    expect(itemHref(item("unit_idle:city_1"))).toBe("/inbox?item=unit_idle%3Acity_1");
-    // 더 새 서버가 보낸 모르는 주소
-    const unknownTarget = JSON.parse('{"route":"guild_hall"}');
-    expect(itemHref(item("guild_call:g_1", { target: unknownTarget }))).toBe("/inbox?item=guild_call%3Ag_1");
-  });
-});
-
-describe("dueStyle", () => {
-  it("오늘이면 시각만, 6일 안이면 요일, 그 밖이면 날짜", () => {
-    const now = new Date(2026, 9, 29, 9, 0);
-    expect(dueStyle(new Date(2026, 9, 29, 21, 30), now)).toBe("time");
-    expect(dueStyle(new Date(2026, 9, 30, 8, 0), now)).toBe("weekday");
-    expect(dueStyle(new Date(2026, 10, 3, 8, 0), now)).toBe("weekday");
-    expect(dueStyle(new Date(2026, 10, 12, 8, 0), now)).toBe("date");
-    // 해가 다르면 연도까지
-    expect(dueStyle(new Date(2027, 0, 12, 8, 0), now)).toBe("year");
-    // 지난 마감도 같은 규칙(오늘이면 시각만)
-    expect(dueStyle(new Date(2026, 9, 29, 8, 0), now)).toBe("time");
   });
 });

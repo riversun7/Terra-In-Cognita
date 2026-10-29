@@ -7,30 +7,27 @@ import { InboxIcon } from "../cards/icons.tsx";
 import { PendingCount } from "../cards/InboxCard.tsx";
 import type { TemplateProps } from "../homeTypes.ts";
 import { splitTimeline } from "../homeView.ts";
-import { HomeEmpty, HomeLoading, inboxItemsOf } from "../InboxBody.tsx";
+import { HomeEmpty, HomeLoading, inboxOf } from "../InboxBody.tsx";
 import { TimelineList } from "../TimelineList.tsx";
 import { TodoList } from "../TodoList.tsx";
 
-function TimelineBody({ data, onQuickAction }: Pick<TemplateProps, "data" | "onQuickAction">) {
-  const items = inboxItemsOf(data);
-  if (items === null) return data.inbox.status === "failed" ? null : <HomeLoading />;
-  const { now, upcoming } = splitTimeline(items);
+function TimelineBody({ data }: Pick<TemplateProps, "data">) {
+  const response = inboxOf(data);
+  if (response === null) return data.inbox.status === "failed" ? null : <HomeLoading />;
+  const { now, upcoming } = splitTimeline(response.items);
+  const at = response.generatedAt;
   return (
     <>
       <section className="timeline-section">
         <h3 className="timeline-section-title">{m.home_timeline_now()}</h3>
-        {now.length === 0 ? (
-          <HomeEmpty text={m.card_inbox_empty()} />
-        ) : (
-          <TodoList items={now} onQuickAction={onQuickAction} />
-        )}
+        {now.length === 0 ? <HomeEmpty text={m.card_inbox_empty()} /> : <TodoList items={now} now={at} />}
       </section>
       <section className="timeline-section">
         <h3 className="timeline-section-title">{m.card_timeline()}</h3>
         {upcoming.length === 0 ? (
           <HomeEmpty text={m.card_timeline_empty()} />
         ) : (
-          <TimelineList items={upcoming} onQuickAction={onQuickAction} />
+          <TimelineList items={upcoming} now={at} />
         )}
       </section>
     </>
@@ -50,7 +47,7 @@ export default function TimelineTemplate(props: TemplateProps) {
             {m.card_inbox()} <PendingCount data={props.data} />
           </h2>
         </div>
-        <TimelineBody data={props.data} onQuickAction={props.onQuickAction} />
+        <TimelineBody data={props.data} />
       </section>
       <CardGrid {...props} />
     </>

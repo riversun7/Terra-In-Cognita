@@ -33,7 +33,7 @@ export default function CityTemplate(props: TemplateProps) {
             {m.card_inbox()} <PendingCount data={props.data} />
           </h2>
         </div>
-        <InboxBody data={props.data} limit={PINNED_ROWS} onQuickAction={props.onQuickAction} />
+        <InboxBody data={props.data} limit={PINNED_ROWS} />
       </section>
       <CardGrid {...props} />
     </>

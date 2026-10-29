@@ -9,7 +9,7 @@ import { setInboxCollapsed, useInboxCollapsed } from "./homePrefs.ts";
 import type { HomeViewProps } from "./homeTypes.ts";
 import { nonZeroCounts } from "./homeView.ts";
 import { InboxBody } from "./InboxBody.tsx";
-import { categoryName } from "./itemText.ts";
+import { CATEGORY_NAMES } from "./inboxParts.ts";
 import { formatCount } from "./numbers.ts";
 
 /** 위 고정 칸에 보이는 줄 수. 나머지는 처리함에서(묶은 줄이라 보통 이 안에 든다, 기술 해석) */
@@ -23,7 +23,7 @@ export function CategoryCounts({ counts }: { counts: InboxListResponse["counts"]
         <li key={category} className="home-count-chip" data-category={category}>
           <CategoryIcon category={category} />
           <span>
-            {m.home_category_count({ category: categoryName(category), count: formatCount(count) })}
+            {m.home_category_count({ category: CATEGORY_NAMES[category](), count: formatCount(count) })}
           </span>
         </li>
       ))}
@@ -31,7 +31,7 @@ export function CategoryCounts({ counts }: { counts: InboxListResponse["counts"]
   );
 }
 
-export function PinnedTodo({ data, onQuickAction }: Pick<HomeViewProps, "data" | "onQuickAction">) {
+export function PinnedTodo({ data }: Pick<HomeViewProps, "data">) {
   const collapsed = useInboxCollapsed();
   const titleId = useId();
   const bodyId = useId();
@@ -64,7 +64,7 @@ export function PinnedTodo({ data, onQuickAction }: Pick<HomeViewProps, "data" |
       </div>
       {folded && response !== null ? <CategoryCounts counts={response.counts} /> : null}
       <div id={bodyId} className="home-panel-body" hidden={folded}>
-        <InboxBody data={data} limit={PINNED_ROWS} onQuickAction={onQuickAction} />
+        <InboxBody data={data} limit={PINNED_ROWS} />
       </div>
     </section>
   );

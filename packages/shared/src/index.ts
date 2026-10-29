@@ -75,9 +75,12 @@ export {
   NAV_TAB_SLOTS,
   isNavItemId,
   isNavLayout,
+  mergeNavigation,
   parseNavigation,
+  visibleTabs,
   type NavItemId,
   type NavLayout,
+  type NavigationPatch,
   type NavigationSettings,
 } from "./navigation.ts";
 export {

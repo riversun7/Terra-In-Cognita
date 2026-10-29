@@ -16,6 +16,7 @@ import {
   isCardSize,
   isCardSizeAllowed,
   isHomeTemplate,
+  mergeHome,
   parseHome,
 } from "./dashboard.ts";
 import { ROLES } from "./roles.ts";
@@ -136,6 +137,24 @@ describe("parseHome", () => {
     expect(parseHome({ cards: [] }, ["player"]).cards).toEqual([]);
   });
 
+  it("비지 않은 목록에 남는 카드가 없으면 저장한 적 없는 것으로 본다(그 역할의 기본 카드)", () => {
+    expect(parseHome({ cards: [null] }, ["player"]).cards).toEqual(PLAYER_DEFAULT);
+    expect(parseHome({ template: "dt_city", cards: ["inbox", 3] }, ["dev"])).toEqual({
+      template: "dt_city",
+      cards: defaultHomeCards(["dev"]),
+    });
+  });
+
+  it("아는 카드의 크기가 문자열이 아니거나 없으면 기본 크기로 읽는다(카드가 사라지지 않는다)", () => {
+    expect(parseHome({ cards: [{ id: "inbox", size: 2 }] }, ["player"]).cards).toEqual([
+      { id: "inbox", size: "2x1" },
+    ]);
+    expect(parseHome({ cards: [{ id: "maps", size: null }, { id: "units" }] }, ["player"]).cards).toEqual([
+      { id: "maps", size: "2x1" },
+      { id: "units", size: "1x1" },
+    ]);
+  });
+
   it("모르는 템플릿은 기본값으로 읽는다", () => {
     expect(parseHome({ template: "dt_space", cards: [] }, ["dev"]).template).toBe("dt_hybrid");
     expect(parseHome({ template: 3, cards: [] }, ["dev"]).template).toBe("dt_hybrid");
@@ -176,6 +195,7 @@ describe("parseHome", () => {
           { id: "inbox", size: "2x1" },
           { id: "Bad Id", size: "1x1" },
           { id: "units" },
+          { id: "trade_watch" },
           "faction",
           null,
           { id: "assets", size: "1x1", extra: true },
@@ -183,15 +203,48 @@ describe("parseHome", () => {
       },
       ["player"],
     );
-    // 카드 안의 모르는 칸(extra)은 남는다
+    // 아는 카드의 크기가 없으면 기본 크기, 모르는 카드는 크기가 문자열이어야 남는다. 카드 안의 모르는 칸(extra)은 남는다
     expect(parsed.cards).toEqual([
       { id: "inbox", size: "2x2" },
+      { id: "units", size: "1x1" },
       { id: "assets", size: "1x1", extra: true },
     ]);
     const many = Array.from({ length: 30 }, (_, i) => ({ id: `card_${i}`, size: "1x1" }));
     const capped = parseHome({ cards: many }, ["player"]).cards;
     expect(capped).toHaveLength(HOME_CARDS_MAX);
     expect(capped.at(-1)).toEqual({ id: "card_23", size: "1x1" });
+  });
+});
+
+describe("mergeHome", () => {
+  it("읽은 원래 값에 바꾼 칸만 덮어 쓴다: 더 새 버전의 칸·모르는 템플릿 값이 남는다", () => {
+    const raw = { template: "dt_space", cards: [{ id: "units", size: "1x1" }], layout: { dense: true } };
+    const saved = JSON.stringify(raw);
+    const parsed = parseHome(raw, ["player"]);
+    const cards = [...parsed.cards, { id: "assets", size: "1x1" }];
+    expect(mergeHome(raw, { cards })).toEqual({ template: "dt_space", cards, layout: { dense: true } });
+    expect(mergeHome(raw, { template: "dt_grid" })).toEqual({ ...raw, template: "dt_grid" });
+    // 원래 값은 고치지 않고, 넘긴 카드 객체도 새로 만든다
+    expect(JSON.stringify(raw)).toBe(saved);
+    const merged = mergeHome(raw, { cards });
+    expect(merged["cards"]).not.toBe(cards);
+  });
+
+  it("모르는 카드와 카드 안의 모르는 칸은 읽고 다시 써도 남는다", () => {
+    const raw = {
+      cards: [
+        { id: "trade_watch", size: "3x1", pinned: 1 },
+        { id: "inbox", size: "2x2" },
+      ],
+    };
+    const parsed = parseHome(raw, ["player"]);
+    expect(mergeHome(raw, { cards: parsed.cards.toReversed() })).toEqual({
+      cards: [
+        { id: "inbox", size: "2x2" },
+        { id: "trade_watch", size: "3x1", pinned: 1 },
+      ],
+    });
+    expect(mergeHome("x", { template: "dt_hybrid" })).toEqual({ template: "dt_hybrid" });
   });
 });
 

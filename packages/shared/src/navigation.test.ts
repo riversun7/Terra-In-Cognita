@@ -11,7 +11,9 @@ import {
   type NavigationSettings,
   isNavItemId,
   isNavLayout,
+  mergeNavigation,
   parseNavigation,
+  visibleTabs,
 } from "./navigation.ts";
 import { SAVED_ID_PATTERN } from "./savedId.ts";
 
@@ -129,6 +131,24 @@ describe("parseNavigation", () => {
     expect(menu).toHaveLength(NAV_MENU_MAX);
     for (const id of NAV_ITEM_IDS) expect(menu).toContain(id);
     expect(menu.slice(0, 3)).toEqual(["cyborg", "future_0", "future_1"]);
+    // 모르는 ID 뒤에 둔 아는 항목도 제 순서로 남는다(모르는 ID는 앞의 26개만)
+    expect(parseNavigation({ menu: [...unknown, "faction", "cyborg"] }).menu).toEqual([
+      ...unknown.slice(0, NAV_MENU_MAX - NAV_ITEM_IDS.length),
+      "faction",
+      "cyborg",
+      "home",
+      "map",
+      "units",
+      "economy",
+    ]);
+  });
+
+  it("기기에 저장된 아주 긴 목록도 값을 한 번씩만 본다(겹침 확인이 목록 길이에 비례하지 않는다)", () => {
+    // 전에는 겹침을 배열 includes로 봐서 4만 개에 약 2.6초였다(이 시험의 5초 상한에 걸린다)
+    const many = Array.from({ length: 50_000 }, (_, i) => `future_${i % 40_000}`);
+    const menu = parseNavigation({ menu: ["units", ...many] }).menu;
+    expect(menu).toHaveLength(NAV_MENU_MAX);
+    expect(menu.slice(0, 2)).toEqual(["units", "future_0"]);
   });
 
   it("모르는 배치 값은 기본 배치로 읽는다(저장값은 쓰는 쪽이 덮어 쓰지 않는 한 남는다)", () => {
@@ -137,10 +157,70 @@ describe("parseNavigation", () => {
     expect(parseNavigation(Object.create({ layout: "a" })).layout).toBe("c");
   });
 
+  it("visibleTabs: 모르는 ID 칸은 그 배치의 기본 탭 중 없는 것으로 채워 보인다(저장값은 그대로)", () => {
+    // 되돌림 배포 뒤: 더 새 버전이 C 칸 4개를 모두 모르는 ID로 채웠다
+    const rolledBack = parseNavigation({ tabs: { c: ["trade_desk", "x_y", "z_w", "q_q"] } });
+    expect(rolledBack.tabs.c).toEqual(["trade_desk", "x_y", "z_w", "q_q"]);
+    expect(visibleTabs(rolledBack)).toEqual(DEFAULT_NAV_TABS.c);
+    const mixed = parseNavigation({ layout: "a", tabs: { a: ["cyborg", "trade_desk", "home", "q_q"] } });
+    expect(visibleTabs(mixed)).toEqual(["cyborg", "map", "home", "units"]);
+    expect(visibleTabs(mixed, "c")).toEqual(DEFAULT_NAV_TABS.c);
+    expect(mixed.tabs.a).toEqual(["cyborg", "trade_desk", "home", "q_q"]);
+    // 아는 항목만 있으면 그대로다
+    expect(visibleTabs(DEFAULTS)).toEqual(DEFAULTS.tabs.c);
+    expect(visibleTabs(DEFAULTS, "a")).toEqual(DEFAULTS.tabs.a);
+  });
+
   it("돌려준 목록은 기본값 목록과 따로다(고쳐 써도 기본값이 바뀌지 않는다)", () => {
     const parsed = parseNavigation(undefined);
     expect(parsed.tabs.c).not.toBe(DEFAULT_NAV_TABS.c);
     expect(parsed.tabs.a).not.toBe(DEFAULT_NAV_TABS.a);
     expect(parsed.menu).not.toBe(NAV_ITEM_IDS);
+  });
+});
+
+describe("mergeNavigation", () => {
+  it("읽은 원래 값에 바꾼 칸만 덮어 쓴다: 더 새 버전의 칸·모르는 배치의 탭·바꾸지 않은 칸이 남는다", () => {
+    const raw = {
+      layout: "b",
+      tabs: { c: ["units", "home", "economy", "faction"], b: ["home"] },
+      menu: ["trade_desk", "home"],
+      extra: { pinned: true },
+    };
+    const saved = JSON.stringify(raw);
+    expect(mergeNavigation(raw, { tabs: { a: ["map", "home", "units", "economy"] } })).toEqual({
+      layout: "b",
+      tabs: {
+        c: ["units", "home", "economy", "faction"],
+        b: ["home"],
+        a: ["map", "home", "units", "economy"],
+      },
+      menu: ["trade_desk", "home"],
+      extra: { pinned: true },
+    });
+    expect(mergeNavigation(raw, { layout: "a", menu: ["home", "map"] })).toEqual({
+      ...raw,
+      layout: "a",
+      menu: ["home", "map"],
+    });
+    // 원래 값은 고치지 않는다
+    expect(JSON.stringify(raw)).toBe(saved);
+  });
+
+  it("원래 값이 객체가 아니거나 tabs가 객체가 아니면 빈 객체에서 시작한다", () => {
+    expect(mergeNavigation(undefined, { layout: "c" })).toEqual({ layout: "c" });
+    expect(mergeNavigation([1], { menu: ["home"] })).toEqual({ menu: ["home"] });
+    expect(
+      mergeNavigation({ tabs: ["x"] }, { tabs: { c: ["home", "units", "economy", "faction"] } }),
+    ).toEqual({
+      tabs: { c: ["home", "units", "economy", "faction"] },
+    });
+    // 읽고(parseNavigation) 고쳐서 다시 쓰는 길: 모르는 ID도 그대로 남는다
+    const raw = { tabs: { a: ["home", "trade_desk", "units", "economy"] }, extra: 1 };
+    const parsed = parseNavigation(raw);
+    expect(mergeNavigation(raw, { layout: "a", tabs: { a: parsed.tabs.a } })).toEqual({
+      ...raw,
+      layout: "a",
+    });
   });
 });

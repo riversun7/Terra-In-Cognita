@@ -50,10 +50,30 @@ export function isNavLayout(value: unknown): value is NavLayout {
   return typeof value === "string" && (NAV_LAYOUTS as readonly string[]).includes(value);
 }
 
+/** 배열이 아닌 객체인지(JSON 객체) */
+function isRecord(value: unknown): value is object {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /** 객체의 자기 칸(배열·원형의 칸은 보지 않는다) */
 function ownField(value: unknown, key: string): unknown {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
-  return Object.hasOwn(value, key) ? Reflect.get(value, key) : undefined;
+  return isRecord(value) && Object.hasOwn(value, key) ? Reflect.get(value, key) : undefined;
+}
+
+/** 빈 칸(null)을 그 배치의 기본 탭 중 칸에 없는 것 → 항목 목록 순서로 채운다. 칸 밖에 두는 항목은 넣지 않는다 */
+function fillSlots<T extends string>(slots: readonly (T | null)[], layout: NavLayout): (T | NavItemId)[] {
+  const fixed = NAV_LAYOUT_FIXED_ITEM[layout];
+  const taken = new Set<string | null>(slots);
+  const fill = [...new Set([...DEFAULT_NAV_TABS[layout], ...NAV_ITEM_IDS])].filter(
+    (id) => id !== fixed && !taken.has(id),
+  );
+  return slots.map((slot) => {
+    if (slot !== null) return slot;
+    const next = fill.shift();
+    // 아는 항목이 칸보다 많아서(6개 − 고정 1개 ≥ 4) 늘 채워진다
+    if (next === undefined) throw new Error("not enough navigation items to fill the tab slots");
+    return next;
+  });
 }
 
 /**
@@ -68,41 +88,42 @@ function parseTabs(raw: unknown, layout: NavLayout): string[] {
     const id = list[i];
     slots.push(isSavedId(id) && id !== fixed && !slots.includes(id) ? id : null);
   }
-  // 기본 탭 → 항목 목록 순서(겹침 없이), 이미 칸에 있는 것과 칸 밖에 두는 항목은 뺀다
-  const fill = [...new Set([...DEFAULT_NAV_TABS[layout], ...NAV_ITEM_IDS])].filter(
-    (id) => id !== fixed && !slots.includes(id),
-  );
-  return slots.map((slot) => {
-    if (slot !== null) return slot;
-    const next = fill.shift();
-    // 아는 항목이 칸보다 많아서(6개 − 고정 1개 ≥ 4) 늘 채워진다
-    if (next === undefined) throw new Error("not enough navigation items to fill the tab slots");
-    return next;
-  });
+  return fillSlots(slots, layout);
 }
+
+/** 사이드 메뉴에 남는 모르는 항목 수의 상한(아는 항목은 늘 모두 남는다) */
+const NAV_MENU_UNKNOWN_MAX = NAV_MENU_MAX - NAV_ITEM_IDS.length;
 
 /**
  * 사이드 메뉴 순서. 모양이 틀린 값과 겹친 항목(뒤의 것)을 지우고, 빠진 아는 항목을 기본 순서로 끝에 붙인다.
- * 길이 상한을 넘으면 모르는 항목을 뒤에서부터 뺀다(아는 항목은 늘 남는다).
+ * 길이 상한을 넘지 않게 모르는 항목은 앞에서부터 상한까지만 남긴다(= 뒤에서부터 뺀다. 아는 항목은 늘 남는다).
+ * 값 하나를 한 번만 본다(기기에 저장된 긴 목록도 선형 시간).
  */
 function parseMenu(raw: unknown): string[] {
   const menu: string[] = [];
+  const seen = new Set<string>();
+  let unknown = 0;
   for (const id of Array.isArray(raw) ? raw : []) {
-    if (isSavedId(id) && !menu.includes(id)) menu.push(id);
+    if (!isSavedId(id) || seen.has(id)) continue;
+    if (!isNavItemId(id)) {
+      if (unknown === NAV_MENU_UNKNOWN_MAX) continue;
+      unknown++;
+    }
+    seen.add(id);
+    menu.push(id);
   }
   for (const id of NAV_ITEM_IDS) {
-    if (!menu.includes(id)) menu.push(id);
-  }
-  for (let i = menu.length - 1; i >= 0 && menu.length > NAV_MENU_MAX; i--) {
-    if (!isNavItemId(menu[i])) menu.splice(i, 1);
+    if (!seen.has(id)) menu.push(id);
   }
   return menu;
 }
 
 /**
  * 저장된 `nav`(기기 terra.settings·계정 user_settings.nav, 모양을 모르는 JSON 값)를 읽는다. 틀린 값은 기본값으로 바꾼다.
- * - 모르는 항목 ID는 지우지 않는다(보이지 않게 두기는 그리는 쪽). 빈 칸은 기본값으로 채운다. 겹친 항목은 앞의 것만 남는다.
- * - 저장할 때는 읽은 값에 바꾼 칸만 덮어 쓴다. 그래야 더 새 버전이 넣은 칸(예: nav.extra)과 모르는 배치 값이 남는다.
+ * - 모르는 항목 ID는 지우지 않는다(그릴 때는 visibleTabs·isNavItemId로 거른다). 빈 칸은 기본값으로 채운다.
+ *   겹친 항목은 앞의 것만 남는다.
+ * - 저장할 때는 mergeNavigation으로 읽은 원래 값에 바꾼 칸만 덮어 쓴다. 그래야 더 새 버전이 넣은 칸(예: nav.extra)과
+ *   모르는 배치의 탭(예: tabs.b)이 남는다.
  */
 export function parseNavigation(value: unknown): NavigationSettings {
   const layout = ownField(value, "layout");
@@ -112,4 +133,48 @@ export function parseNavigation(value: unknown): NavigationSettings {
     tabs: { c: parseTabs(ownField(tabs, "c"), "c"), a: parseTabs(ownField(tabs, "a"), "a") },
     menu: parseMenu(ownField(value, "menu")),
   };
+}
+
+/**
+ * 하단 탭에 그릴 칸 4개(그리는 데만 쓴다. 저장값은 바꾸지 않는다).
+ * 모르는 항목 ID(되돌림 배포 뒤 더 새 버전이 저장한 값)의 칸은 그 배치의 기본 탭 중 없는 것 → 항목 목록 순서로 채워 보인다.
+ * 그래서 모르는 ID가 칸을 모두 채워도 하단 탭이 빈 띠(C는 지도 버튼만)가 되지 않는다.
+ */
+export function visibleTabs(settings: NavigationSettings, layout: NavLayout = settings.layout): NavItemId[] {
+  const fixed = NAV_LAYOUT_FIXED_ITEM[layout];
+  const list = settings.tabs[layout];
+  const slots: (NavItemId | null)[] = [];
+  for (let i = 0; i < NAV_TAB_SLOTS; i++) {
+    const id = list[i];
+    slots.push(isNavItemId(id) && id !== fixed && !slots.includes(id) ? id : null);
+  }
+  return fillSlots(slots, layout);
+}
+
+/** mergeNavigation에 줄 바꾼 칸. 적은 칸만 덮어 쓴다(탭은 배치마다) */
+export interface NavigationPatch {
+  readonly layout?: NavLayout;
+  readonly tabs?: { readonly [L in NavLayout]?: readonly string[] };
+  readonly menu?: readonly string[];
+}
+
+/**
+ * 저장할 `nav` 값을 만든다: 읽은 원래 값(모양을 모르는 JSON)에 바꾼 칸만 덮어 쓴다(ADR 37 4·5절).
+ * 더 새 버전이 넣은 칸(nav.extra)과 모르는 배치의 탭(tabs.b), 바꾸지 않은 칸은 그대로 남는다.
+ * 원래 값이 객체가 아니면 빈 객체에서 시작한다. 돌려준 값은 새 객체다(원래 값을 고치지 않는다).
+ */
+export function mergeNavigation(raw: unknown, patch: NavigationPatch): { readonly [key: string]: unknown } {
+  const merged: Record<string, unknown> = isRecord(raw) ? { ...raw } : {};
+  if (patch.layout !== undefined) merged["layout"] = patch.layout;
+  if (patch.tabs !== undefined) {
+    const oldTabs = merged["tabs"];
+    const tabs: Record<string, unknown> = isRecord(oldTabs) ? { ...oldTabs } : {};
+    for (const layout of NAV_LAYOUTS) {
+      const list = patch.tabs[layout];
+      if (list !== undefined) tabs[layout] = [...list];
+    }
+    merged["tabs"] = tabs;
+  }
+  if (patch.menu !== undefined) merged["menu"] = [...patch.menu];
+  return merged;
 }

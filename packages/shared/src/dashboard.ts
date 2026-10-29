@@ -104,43 +104,76 @@ export function defaultHomeCards(roles: readonly Role[]): HomeCardEntry[] {
   return ids.map((id) => ({ id, size: HOME_CARDS[id].defaultSize }));
 }
 
+/** 배열이 아닌 객체인지(JSON 객체) */
+function isRecord(value: unknown): value is object {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /** 객체의 자기 칸(배열·원형의 칸은 보지 않는다) */
 function ownField(value: unknown, key: string): unknown {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
-  return Object.hasOwn(value, key) ? Reflect.get(value, key) : undefined;
+  return isRecord(value) && Object.hasOwn(value, key) ? Reflect.get(value, key) : undefined;
+}
+
+/** 카드 한 장 읽기. 버릴 카드면 null */
+function parseCard(raw: unknown): HomeCardEntry | null {
+  if (!isRecord(raw)) return null;
+  const id = ownField(raw, "id");
+  const size = ownField(raw, "size");
+  if (!isSavedId(id)) return null;
+  // 아는 카드: 고를 수 없는 크기(없음·문자열 아님 포함)는 기본 크기로 바꾼다
+  if (isCardId(id)) {
+    return { ...raw, id, size: isCardSizeAllowed(id, size) ? size : HOME_CARDS[id].defaultSize };
+  }
+  // 모르는 카드(더 새 버전이 넣은 것): 크기를 모르므로 문자열이어야 남긴다
+  return typeof size === "string" ? { ...raw, id, size } : null;
 }
 
 /**
  * 저장된 `home`(모양을 모르는 JSON 값)을 읽는다. 홈 조각이 그릴 때 부른다(ADR 37 5절).
  * - template: 모르는 값이면 기본 템플릿.
  * - cards: 배열이 아니면(저장한 적 없음) 그 역할의 기본 카드. 빈 배열은 유저가 모두 뺀 것이라 그대로 둔다.
- *   카드 하나는 { id: 저장 ID 모양, size: 문자열 }이어야 한다(아니면 버린다). 아는 카드의 고를 수 없는 크기는 기본 크기로 바꾼다.
+ *   카드 하나는 { id: 저장 ID 모양, size }이다. 아는 카드는 고를 수 없는 크기(없음·문자열 아님 포함)를 기본 크기로 바꾼다.
+ *   모르는 카드는 size가 문자열이어야 남는다. 아니면 그 카드를 버린다.
  *   모르는 카드와 카드 안의 모르는 칸은 지우지 않는다. 겹친 카드는 앞의 것만 남기고, 상한(24장)을 넘으면 뒤를 버린다.
- * - 저장할 때는 읽은 값에 바꾼 칸만 덮어 쓴다(더 새 버전이 넣은 칸이 남게).
+ *   비지 않은 배열인데 남는 카드가 하나도 없으면 저장한 적 없는 것으로 본다(그 역할의 기본 카드). 모양이 다른 값을
+ *   "유저가 모두 뺀 것"과 같게 읽지 않으려는 것이다.
+ * - 저장할 때는 mergeHome으로 읽은 원래 값에 바꾼 칸만 덮어 쓴다(더 새 버전이 넣은 칸이 남게).
  */
 export function parseHome(value: unknown, roles: readonly Role[]): HomeSettings {
-  const template = ownField(value, "template");
+  const rawTemplate = ownField(value, "template");
+  const template = isHomeTemplate(rawTemplate) ? rawTemplate : DEFAULT_HOME_TEMPLATE;
   const rawCards = ownField(value, "cards");
-  if (!Array.isArray(rawCards)) {
-    return {
-      template: isHomeTemplate(template) ? template : DEFAULT_HOME_TEMPLATE,
-      cards: defaultHomeCards(roles),
-    };
-  }
+  if (!Array.isArray(rawCards)) return { template, cards: defaultHomeCards(roles) };
   const cards: HomeCardEntry[] = [];
   const seen = new Set<string>();
   for (const raw of rawCards) {
-    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) continue;
-    const id = ownField(raw, "id");
-    const size = ownField(raw, "size");
-    if (!isSavedId(id) || typeof size !== "string" || seen.has(id)) continue;
-    seen.add(id);
-    // 카드 안의 모르는 칸(더 새 버전이 넣은 것)도 남긴다
-    const fixedSize = isCardId(id) && !isCardSizeAllowed(id, size) ? HOME_CARDS[id].defaultSize : size;
-    cards.push({ ...raw, id, size: fixedSize });
+    const card = parseCard(raw);
+    if (card === null || seen.has(card.id)) continue;
+    seen.add(card.id);
+    cards.push(card);
     if (cards.length === HOME_CARDS_MAX) break;
   }
-  return { template: isHomeTemplate(template) ? template : DEFAULT_HOME_TEMPLATE, cards };
+  if (cards.length === 0 && rawCards.length > 0) return { template, cards: defaultHomeCards(roles) };
+  return { template, cards };
+}
+
+/** mergeHome에 줄 바꾼 칸. 적은 칸만 덮어 쓴다 */
+export interface HomePatch {
+  readonly template?: HomeTemplate;
+  /** 카드 전체 목록(순서·크기). parseHome이 남긴 모르는 카드와 카드 안의 칸을 그대로 넘기면 그것도 남는다 */
+  readonly cards?: readonly HomeCardEntry[];
+}
+
+/**
+ * 저장할 `home` 값을 만든다: 읽은 원래 값(모양을 모르는 JSON)에 바꾼 칸만 덮어 쓴다(ADR 37 5·6절).
+ * 더 새 버전이 넣은 칸과 바꾸지 않은 칸(예: 이 기기가 모르는 template 값)은 그대로 남는다.
+ * 원래 값이 객체가 아니면 빈 객체에서 시작한다. 돌려준 값은 새 객체다(원래 값을 고치지 않는다).
+ */
+export function mergeHome(raw: unknown, patch: HomePatch): { readonly [key: string]: unknown } {
+  const merged: Record<string, unknown> = isRecord(raw) ? { ...raw } : {};
+  if (patch.template !== undefined) merged["template"] = patch.template;
+  if (patch.cards !== undefined) merged["cards"] = patch.cards.map((card) => ({ ...card }));
+  return merged;
 }
 
 // ── 카드 상태 전송(tRPC dashboard.cards, ADR 37 6절) ──

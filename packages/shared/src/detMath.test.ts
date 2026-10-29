@@ -171,33 +171,78 @@ describe("특별한 값", () => {
 
 describe("골든 비트: 결과가 한 자리라도 바뀌면 실패한다 (바꾸면 이 값을 쓰는 생성기 GENERATOR_VERSION도 올린다)", () => {
   it("고정 입력의 출력 비트", () => {
+    // 줄마다 뒤의 두 점(exp는 1도)은 Node 24.22.1(V8) Math 함수와 마지막 비트가 다른 점이다(2026-10-29 확인).
+    // 그래서 det 함수를 엔진 Math 함수로 바꾸면 이 시험이 실패한다. 다른 엔진이 어디서 다른지는 모른다(Unknown).
+    // 이 시험은 적어 둔 점만 본다: 다른 입력에서만 값이 바뀌는 변경은 잡지 못한다(정확도 시험·생성기 골든 값이 함께 본다)
     const outputs = {
-      sin: [0.5, 2, -3.7, 100].map(detSin),
-      cos: [0.5, 2, -3.7, 100].map(detCos),
-      tan: [0.3, Math.PI / 8, 1.2, -2.5].map(detTan),
-      atan: [0.05, 0.3, 0.9, 3, -1e7].map(detAtan),
-      atan2: [detAtan2(1, -2), detAtan2(-0.3, 0.4), detAtan2(-5, -5)],
-      asin: [0.3, -0.999, 0.5].map(detAsin),
-      exp: [1, -2.5, 0.123, 300].map(detExp),
+      sin: [0.5, 2, -3.7, 100, 0.75, 0.81].map(detSin),
+      cos: [0.5, 2, -3.7, 100, 0.49, 0.8].map(detCos),
+      tan: [0.3, Math.PI / 8, 1.2, -2.5, 0.01, 0.12].map(detTan),
+      atan: [0.05, 0.3, 0.9, 3, -1e7, 0.1, 0.36].map(detAtan),
+      atan2: [detAtan2(1, -2), detAtan2(-0.3, 0.4), detAtan2(-5, -5), detAtan2(-5, -3.5), detAtan2(-5, 3.25)],
+      asin: [0.3, -0.999, 0.5, 0.001, 0.01].map(detAsin),
+      exp: [1, -2.5, 0.123, 300, 0.37, 0.92].map(detExp),
     };
     const bits = Object.fromEntries(
       Object.entries(outputs).map(([name, values]) => [name, values.map(bitsOf)]),
     );
     // 2026-10-29 기록. 4배 정밀도 기준과 비교: sin(0.5)·cos(0.5)·atan(0.3)은 정확히 반올림한 값, exp(1)·tan(0.3)은 1ulp 차이
     expect(bits).toEqual({
-      sin: ["3fdeaee8744b05f0", "3fed18f6ead1b446", "3fe0f46aec2e1b41", "bfe03425b78c4db8"],
-      cos: ["3fec1528065b7d50", "bfdaa22657537205", "bfeb23a2ad7dd937", "3feb981dbf665fe0"],
-      tan: ["3fd3cc2a44e29997", "3fda827999fcef33", "400493c43acb164c", "3fe7e79b4e00bb14"],
+      sin: [
+        "3fdeaee8744b05f0",
+        "3fed18f6ead1b446",
+        "3fe0f46aec2e1b41",
+        "bfe03425b78c4db8",
+        "3fe5cffc16bf8f0e",
+        "3fe72d5c4bda9fd6",
+      ],
+      cos: [
+        "3fec1528065b7d50",
+        "bfdaa22657537205",
+        "bfeb23a2ad7dd937",
+        "3feb981dbf665fe0",
+        "3fec3c121e7d5550",
+        "3fe64b6bde719866",
+      ],
+      tan: [
+        "3fd3cc2a44e29997",
+        "3fda827999fcef33",
+        "400493c43acb164c",
+        "3fe7e79b4e00bb14",
+        "3f847b0e05625f96",
+        "3fbede4995e55a80",
+      ],
       atan: [
         "3fa9942597929f27",
         "3fd2a73a661eaf06",
         "3fe77338a80603be",
         "3ff3fc176b7a8560",
         "bff921fb396c3a7e",
+        "3fb983e282e2cc4c",
+        "3fd61d9527631ea9",
       ],
-      atan2: ["40056c6e7397f5ae", "bfe4978fa3269ee1", "c002d97c7f3321d2"],
-      asin: ["3fd380159e14f6ff", "bff86ac9ad18f803", "3fe0c152382d7366"],
-      exp: ["4005bf0a8b14576a", "3fb50385c094f425", "3ff2181a433867e4", "5afc05c0a7166b4a"],
+      atan2: [
+        "40056c6e7397f5ae",
+        "bfe4978fa3269ee1",
+        "c002d97c7f3321d2",
+        "c00173c1f5810bb7",
+        "bfefd24c36331b5d",
+      ],
+      asin: [
+        "3fd380159e14f6ff",
+        "bff86ac9ad18f803",
+        "3fe0c152382d7366",
+        "3f50624e00c1cb17",
+        "3f847af7a68f8eee",
+      ],
+      exp: [
+        "4005bf0a8b14576a",
+        "3fb50385c094f425",
+        "3ff2181a433867e4",
+        "5afc05c0a7166b4a",
+        "3ff729ebc574421d",
+        "40041306d7078c43",
+      ],
     });
   });
 });

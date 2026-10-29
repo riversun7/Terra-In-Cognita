@@ -26,7 +26,9 @@ import {
   resolvePlanetSettings,
   runPlanetGenerator,
 } from "./index.ts";
-import { cornerCells } from "./seaLevel.ts";
+import { computeClimate } from "./climate.ts";
+import { classifyOcean, cornerCells } from "./seaLevel.ts";
+import { buildTectonics } from "./tectonics.ts";
 import { S2_TEST_PLANET_SEED, TEST_BIOMES } from "./testFixtures.ts";
 
 const input = (
@@ -155,6 +157,50 @@ describe("골든 해시 (값이 바뀌면 GENERATOR_VERSION을 올리고 새 값
 
   it("S2 시험 행성 설정을 면 레벨 6으로", () => {
     expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("215d9b32");
+  });
+});
+
+/** 64비트 실수의 비트(16진수 16자리) */
+function bitsOf(value: number): string {
+  const view = new DataView(new ArrayBuffer(8));
+  view.setFloat64(0, value);
+  return view.getBigUint64(0).toString(16).padStart(16, "0");
+}
+
+/** 실수 배열들의 FNV-1a 32비트: 값마다 작은 끝 바이트(64비트 배열은 8바이트, 32비트는 4바이트). 기기 바이트 순서와 무관 */
+function fingerprint(arrays: readonly (Float32Array | Float64Array)[]): string {
+  const view = new DataView(new ArrayBuffer(8));
+  let state = 0x811c9dc5;
+  for (const array of arrays) {
+    const width = array instanceof Float64Array ? 8 : 4;
+    for (const value of array) {
+      if (width === 8) view.setFloat64(0, value, true);
+      else view.setFloat32(0, value, true);
+      for (let k = 0; k < width; k++) state = Math.imul(state ^ view.getUint8(k), 0x01000193) >>> 0;
+    }
+  }
+  return state.toString(16).padStart(8, "0");
+}
+
+describe("실수 지문 (정수 필드로 반올림하기 전 값. 바뀌면 골든 해시처럼 GENERATOR_VERSION과 함께 고친다)", () => {
+  // 골든 해시는 정수 출력만 본다. 정수로 반올림하면 실수의 마지막 비트 차이는 대개 사라지므로(Float32 저장 포함),
+  // 64비트 값(격자·면적·해수면)은 마지막 비트까지, 32비트 중간 필드는 그 자릿수까지 여기서 고정한다
+  it("격자(칸 중심·면적 = 투영 detTan·detAtan)와 해수면의 64비트 값", () => {
+    const grid = buildGrid(5);
+    expect(fingerprint([grid.x, grid.y, grid.z, grid.faceArea])).toBe("5e2f5aef");
+    expect(bitsOf(run(5, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c0043675a19f9000");
+    expect(bitsOf(run(5, 1, STRESS_PRESETS).seaLevelRealM)).toBe("40623b91fc7d4620");
+    expect(bitsOf(run(6, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c013df62c611b000");
+  });
+
+  it("판 구조 고도·기온·강수(Float32 중간값, 면 레벨 5, S2 시험 행성 설정)", () => {
+    const grid = buildGrid(5);
+    const settings = resolvePlanetSettings(NORMAL_PRESETS);
+    const { elevation } = buildTectonics(grid, S2_TEST_PLANET_SEED, settings);
+    expect(fingerprint([elevation])).toBe("00edae93");
+    const { seaLevel, ocean } = classifyOcean(grid, elevation, settings.landPercent);
+    const climate = computeClimate(grid, elevation, seaLevel, ocean, settings);
+    expect(fingerprint([climate.temperature, climate.precipitation])).toBe("5e5ca05d");
   });
 });
 

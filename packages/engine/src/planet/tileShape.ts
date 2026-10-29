@@ -2,7 +2,7 @@
 // 방향은 @terra/planet/projection의 탄젠트 투영(stToUV, faceUVToXYZ)으로 구한다. 생성기·서버와 같은 투영이다.
 import type { Face } from "@terra/planet";
 import { averageCellEdgeMeters, faceUVToXYZ, stToUV, uvToST, xyzToFaceUV } from "@terra/planet/projection";
-import { type TileNode, nodeSTRange } from "./tileTree.ts";
+import { type TileLayout, type TileNode, nodeSTRange } from "./tileTree.ts";
 import { type Vec3, angleBetween, normalize } from "./vec3.ts";
 
 /** 면 칸 좌표(정규화) (s, t) → 구 위 단위 벡터 */
@@ -63,6 +63,27 @@ export function tileShape(node: TileNode, radiusM: number): TileShape {
     cellEdgeM: averageCellEdgeMeters(node.mapLevel, radiusM),
     sagM: (radiusM * segmentAngle * segmentAngle) / 8,
   };
+}
+
+/**
+ * 가장 거친 1차맵 단계(맵 레벨 F − 4) 마디의 활꼴 깊이(m). 메시 마디는 고운 단계일수록 작으므로 어떤 타일 메시도
+ * 해수면 구에서 이보다 깊이 들어가지 않는다(보이는 높이는 0 아래로 내려가지 않는다). 행성 몸(가리는 구)·치마 바닥이 쓴다.
+ */
+export function coarsestSagM(layout: TileLayout, radiusM: number): number {
+  return tileShape({ face: 0, mapLevel: layout.firstLevel, tx: 0, ty: 0 }, radiusM).sagM;
+}
+
+/** 치마 바닥 여유(m): 활꼴 깊이 상한 위에 더 내린다 */
+export const SKIRT_MARGIN_M = 30;
+
+/**
+ * 치마 바닥 깊이(해수면 아래 m) — 모든 타일이 같은 값을 쓴다(ADR 36 "치마").
+ * 치마는 변 꼭짓점에서 해수면 − 이 깊이까지 내려간다. 어느 레벨의 이웃 변도 해수면 − 가장 거친 활꼴 깊이보다 낮지 않으므로
+ * 이웃 변이 아무리 낮아도(고운 고원 옆 거친 해안, 부모가 대신 그리는 동안) 두 변 사이 높이 차를 늘 막는다.
+ * 과장 배율과 상관없다(보이는 높이 ≥ 0이라 바닥은 위로 올라가지 않는다). 치마는 행성 안쪽이라 깊어도 보이지 않는다.
+ */
+export function skirtDepthM(layout: TileLayout, radiusM: number): number {
+  return coarsestSagM(layout, radiusM) + SKIRT_MARGIN_M;
 }
 
 /**

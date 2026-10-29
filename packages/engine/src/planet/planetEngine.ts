@@ -3,6 +3,7 @@
 // 한 프레임: 움직임(두 번 누르기) → 목표점 높이 맞추기 → 카메라(가장 낮은 고도) → 올리기(상한) → 고르기(화면 오차·시야·상한)
 //          → 받기(동시 상한, 원하지 않게 된 것 취소) → 그리기 목록 놓기(카메라 기준 좌표) → 그리기 → 메모리 상한.
 // 화면 변화가 없으면 그리지 않는다. 받기·만들기가 끝나면 다시 그린다. 컨텍스트를 잃으면 멈췄다가 복구되면 다시 그린다.
+// 가장 높은 땅(시야 거르기 경계구·지평선·누르기·먼 자르기 면): 행성 설명 값(없으면 1,000m)과 받은 타일 중 높은 것.
 import { averageCellEdgeMeters } from "@terra/planet/projection";
 import type { WebGLRenderer } from "three";
 import { FrameScheduler } from "../render/frameScheduler.ts";
@@ -29,6 +30,7 @@ import {
 import { attachGlobeControls } from "./globeControls.ts";
 import { type Selection, selectTiles } from "./lodSelect.ts";
 import {
+  DEFAULT_MAX_ELEVATION_M,
   DEFAULT_PLANET_BUDGETS,
   type PickedCell,
   type PlanetCameraView,
@@ -38,20 +40,20 @@ import {
   type PlanetStats,
   type PlanetStatus,
   type PlanetView as PlanetViewOption,
+  planetDescriptionProblem,
 } from "./planetTypes.ts";
 import { type PlanetTileGpu, PlanetView } from "./planetView.ts";
 import { type DecodedLookup, cellAt, displayedHeightAt, rayHitsSurface } from "./surfaceLookup.ts";
 import { createTileBuilder } from "./tileBuilder.ts";
 import { TilePipeline } from "./tilePipeline.ts";
-import { TileShapeCache, directionToFaceST, tileShape } from "./tileShape.ts";
-import { nodeSTRange, primaryLevelOf, tileLayout } from "./tileTree.ts";
+import { TileShapeCache, coarsestSagM, directionToFaceST, skirtDepthM } from "./tileShape.ts";
+import { PRIMARY_LEVELS, type TileLayout, nodeSTRange, primaryLevelOf, tileLayout } from "./tileTree.ts";
 import { type Vec3, length, normalize } from "./vec3.ts";
 
 const DEFAULT_EXAGGERATION = 6;
 const MIN_EXAGGERATION = 1;
 const MAX_EXAGGERATION = 50;
 const DEFAULT_MAX_SCREEN_ERROR_PX = 4;
-const DEFAULT_MAX_ELEVATION_M = 1000;
 /** 처음 거리 = 가장 먼 거리 × 이 값 */
 const INITIAL_DISTANCE_FACTOR = 0.9;
 /** 처음 볼 곳(위도·경도) */
@@ -82,11 +84,6 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
   const owner = {};
   const createdAt = performance.now();
   const planet = options.planet;
-  if (!(Number.isFinite(planet.radiusM) && planet.radiusM > 0))
-    throw new RangeError("planet radiusM must be > 0");
-  const layout = tileLayout(planet.faceLevel);
-  const radiusM = planet.radiusM;
-  const maxElevationM = Math.max(1, planet.maxElevationM ?? DEFAULT_MAX_ELEVATION_M);
   const budgets = { ...DEFAULT_PLANET_BUDGETS, ...options.budgets };
   const maxScreenErrorPx = options.maxScreenErrorPx ?? DEFAULT_MAX_SCREEN_ERROR_PX;
   const maxPixelRatio = options.maxPixelRatio ?? defaultMaxPixelRatio();
@@ -96,6 +93,15 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
   const emit = (status: PlanetStatus): void => {
     if (!disposed) options.onStatus?.(status);
   };
+  // 그릴 수 없는 행성(면 레벨 12 이상 등, 목록 정보에서 올 수 있다)은 던지지 않고 오류 상태로 알린다(화면이 안내를 띄운다)
+  const problem = planetDescriptionProblem(planet);
+  if (problem) {
+    emit({ kind: "error", message: problem });
+    return inertPlanetEngine(exaggeration, layer, budgets);
+  }
+  const layout = tileLayout(planet.faceLevel);
+  const radiusM = planet.radiusM;
+  const describedMaxElevationM = Math.max(1, planet.maxElevationM ?? DEFAULT_MAX_ELEVATION_M);
 
   let renderer: WebGLRenderer;
   try {
@@ -109,14 +115,19 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
   canvas.style.height = "100%";
   container.append(canvas);
 
-  const view = new PlanetView(radiusM, planet.biomeColors, GLOBE_FOV_RAD, options.debugCracks ?? false);
+  const view = new PlanetView(
+    radiusM,
+    planet.biomeColors,
+    GLOBE_FOV_RAD,
+    skirtDepthM(layout, radiusM),
+    options.debugCracks ?? false,
+  );
   view.setExaggeration(exaggeration);
   view.setLayer(layer);
   const shapes = new TileShapeCache(radiusM);
   const finestCellM = averageCellEdgeMeters(layout.lastLevel, radiusM);
   // 행성 몸(가리는 구): 가장 거친 타일 메시의 활꼴 깊이만큼 안쪽
-  const occluderRadiusM =
-    radiusM - tileShape({ face: 0, mapLevel: layout.firstLevel, tx: 0, ty: 0 }, radiusM).sagM;
+  const occluderRadiusM = radiusM - coarsestSagM(layout, radiusM);
 
   let viewport: Viewport = { width: 1, height: 1 };
   let limits: GlobeLimits = globeLimits(radiusM, finestCellM, viewport);
@@ -142,11 +153,13 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     layout,
     radiusM,
     budgets,
-    createGpu: (mesh, node) => view.createTile(mesh, node, exaggeration),
+    createGpu: (mesh, node) => view.createTile(mesh, node),
     onChange: () => scheduler.request(),
     now: () => performance.now(),
   });
   const lookup: DecodedLookup = (key) => pipeline.decoded(key);
+  /** 가장 높은 땅(게임 m): 설명 값보다 높은 타일이 오면 그 높이(목록 정보에 값이 없거나 틀려도 경계가 땅을 자르지 않게) */
+  const maxElevationM = (): number => Math.max(describedMaxElevationM, pipeline.highestHeightM());
   const shownHeight = (direction: Vec3): number => displayedHeightAt(direction, layout, lookup, exaggeration);
 
   /** 카메라가 아래 땅보다 낮으면 거리를 늘린다(가장 낮은 고도) */
@@ -169,7 +182,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     const ground = shownHeight(normalize(pose.position));
     const clearance = Math.max(1, cameraRadius - radiusM - ground);
     const near = Math.max(1, Math.min(clearance * 0.5, state.distance * 0.25));
-    const outer = radiusM + maxElevationM * exaggeration;
+    const outer = radiusM + maxElevationM() * exaggeration;
     const horizon =
       Math.sqrt(Math.max(0, cameraRadius * cameraRadius - occluderRadiusM * occluderRadiusM)) +
       Math.sqrt(Math.max(0, outer * outer - occluderRadiusM * occluderRadiusM));
@@ -243,7 +256,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
       {
         layout,
         innerRadiusM: radiusM,
-        outerRadiusM: radiusM + maxElevationM * exaggeration,
+        outerRadiusM: radiusM + maxElevationM() * exaggeration,
         occluderRadiusM,
         maxScreenErrorPx,
         maxTiles: budgets.visibleTiles,
@@ -305,7 +318,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
       ray.origin,
       ray.dir,
       radiusM,
-      maxElevationM * exaggeration,
+      maxElevationM() * exaggeration,
       shownHeight,
       finestCellM / 2,
     );
@@ -388,8 +401,8 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     setExaggeration(value) {
       if (!Number.isFinite(value)) return;
       exaggeration = clamp(value, MIN_EXAGGERATION, MAX_EXAGGERATION);
+      // 치마 바닥은 과장과 상관없다(모든 타일이 같은 바닥) — uniform 하나만 바꾼다
       view.setExaggeration(exaggeration);
-      pipeline.forEachGpu((gpu) => view.updateSkirt(gpu, exaggeration));
       scheduler.request();
     },
 
@@ -415,6 +428,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
         drawCalls: lastInfo.calls,
         triangles: lastInfo.triangles,
         tilesDrawn: lastSelection?.draw.length ?? 0,
+        tilesDrawnByLevel: drawnByLevel(lastSelection, layout),
         tilesSelected: lastSelection?.selected ?? 0,
         tilesLoaded: counts.loaded,
         tilesPending: counts.fetching + counts.building + counts.queued,
@@ -430,6 +444,8 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
         budgets: { ...budgets },
         tileErrors: pipeline.errors,
         gpuBytes: counts.gpuBytes,
+        memoryBytes: counts.memoryBytes,
+        maxElevationM: maxElevationM(),
         primaryLevel: center.primaryLevel,
         mapLevel: center.mapLevel,
         incomplete: lastSelection?.incomplete ?? true,
@@ -458,7 +474,17 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
   };
 }
 
-/** WebGL을 못 쓸 때: 아무것도 그리지 않는 엔진(화면은 안내를 띄운다) */
+/** 마지막 고르기에서 그린 타일 수를 1차맵 단계(1~5)별로(차례대로) */
+function drawnByLevel(selection: Selection | null, layout: TileLayout): number[] {
+  const counts = Array.from({ length: PRIMARY_LEVELS }, () => 0);
+  for (const item of selection?.draw ?? []) {
+    const index = primaryLevelOf(layout, item.node.mapLevel) - 1;
+    if (index >= 0) counts[index] = (counts[index] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/** WebGL을 못 쓸 때·그릴 수 없는 행성일 때: 아무것도 그리지 않는 엔진(화면은 안내를 띄운다) */
 function inertPlanetEngine(
   exaggeration: number,
   layer: PlanetLayer,
@@ -472,6 +498,7 @@ function inertPlanetEngine(
     drawCalls: 0,
     triangles: 0,
     tilesDrawn: 0,
+    tilesDrawnByLevel: Array.from({ length: PRIMARY_LEVELS }, () => 0),
     tilesSelected: 0,
     tilesLoaded: 0,
     tilesPending: 0,
@@ -482,6 +509,8 @@ function inertPlanetEngine(
     budgets,
     tileErrors: 0,
     gpuBytes: 0,
+    memoryBytes: 0,
+    maxElevationM: 0,
     primaryLevel: 0,
     mapLevel: 0,
     incomplete: true,

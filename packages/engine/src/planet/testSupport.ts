@@ -1,6 +1,10 @@
-// 시험 도우미(시험 파일만 쓴다) — 꼭짓점 높이가 방향만의 함수인 타일을 만든다(같은 꼭짓점 = 같은 높이).
-import type { Face } from "@terra/planet";
+// 시험 도우미(시험 파일만 쓴다)
+// - makeTile: 꼭짓점 높이가 방향만의 함수인 타일(같은 꼭짓점 = 같은 높이, 레벨이 달라도 같다).
+// - adrTiles: 진짜 타일과 같은 규칙(ADR 36: 면 레벨 F 칸 → 2×2 모으기 → 꼭짓점 = 나누는 칸 평균)으로 만든 타일.
+//   레벨이 다른 이웃 사이 높이 차(치마가 막을 것)를 시험할 때 쓴다.
+import { type Face, FACES, type PlanetFields, planetCellCount } from "@terra/planet";
 import { planetRadiusMeters } from "@terra/planet/projection";
+import { type MockTileMaker, createTileMaker, mockFieldsMeta } from "../mock/mockPlanet.ts";
 import type { DecodedTile } from "./planetTypes.ts";
 import { faceSTDirection } from "./tileShape.ts";
 import type { Vec3 } from "./vec3.ts";
@@ -60,4 +64,37 @@ export function makeTile(
     forest,
     river,
   };
+}
+
+/**
+ * 면 레벨 F의 칸 고도를 elevation(면, i, j)으로 정하고(다른 칸 값은 0) 서버 굽기와 같은 코드로 타일을 만든다.
+ * 물 비트가 0이라 모두 땅으로 칠하지만, 보이는 높이는 고도만 본다(max(높이, 0) × 과장).
+ */
+export function adrTiles(
+  faceLevel: number,
+  elevation: (face: Face, i: number, j: number) => number,
+): MockTileMaker {
+  return createTileMaker(0, faceLevel, () => {
+    const n = 1 << faceLevel;
+    const count = planetCellCount(faceLevel);
+    const elevationM = new Int16Array(count);
+    for (const face of FACES) {
+      for (let j = 0; j < n; j++) {
+        for (let i = 0; i < n; i++) elevationM[face * n * n + j * n + i] = elevation(face, i, j);
+      }
+    }
+    const zeros = (): Uint8Array => new Uint8Array(count);
+    const fields: PlanetFields = {
+      elevationM,
+      biome: zeros(),
+      temperatureC: new Int8Array(count),
+      precipitationMm: new Uint16Array(count),
+      humidity: zeros(),
+      water: zeros(),
+      river: zeros(),
+      forest: zeros(),
+      meta: mockFieldsMeta(0, faceLevel),
+    };
+    return fields;
+  });
 }

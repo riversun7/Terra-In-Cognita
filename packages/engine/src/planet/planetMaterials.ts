@@ -1,9 +1,10 @@
 // 1차맵 재질 — WebGL2 + 짧은 GLSL(three ShaderMaterial, ADR 36 "셰이더 언어: 지금은 WebGL2 + GLSL").
-// - 타일: 꼭짓점 셰이더가 높이를 올리고(max(높이, 0) × 과장, 치마는 아래로), 법선 = 정규화(위쪽 − 과장 × 기울기).
+// - 타일: 꼭짓점 셰이더가 높이를 올리고(max(높이, 0) × 과장), 치마는 모든 타일이 같은 바닥(해수면 − uSkirtDepth)까지 내린다.
+//   법선 = 정규화(위쪽 − 과장 × 기울기). 올리는 식은 tileMesh.ts vertexLiftM과 같다(시험은 그 함수로 본다).
 //   조각 셰이더가 칸 자료 텍스처를 칸마다 그대로 읽어(texelFetch) 레이어 색을 고르고, 보기 공간 빛으로 음영을 넣는다.
 // - 빛은 카메라에 붙인다(화면 왼쪽 위에서): 어느 쪽을 돌려 봐도 밝다(지도라서 밤이 없다).
 // - 세계 색은 화면 테마와 상관없다(D-070). 색 관리를 끈 렌더러(sharedRenderer.ts)라 적은 값이 그대로 보인다.
-// - 모든 타일 재질은 같은 셰이더(프로그램 하나)이고, 함께 쓰는 값(레이어·과장·빛·바이옴 색·고른 칸)은 같은 uniform 객체를 나눠 쓴다.
+// - 모든 타일 재질은 같은 셰이더(프로그램 하나)이고, 함께 쓰는 값(레이어·과장·치마 바닥·빛·바이옴 색·고른 칸)은 같은 uniform 객체를 나눠 쓴다.
 import {
   BackSide,
   Color,
@@ -57,6 +58,8 @@ const glslColor = (hex: number): string => {
 /** 모든 타일이 함께 쓰는 uniform(같은 객체를 나눠 쓴다) */
 export interface SharedTileUniforms {
   uExaggeration: { value: number };
+  /** 치마 바닥 깊이(해수면 아래 m, tileShape.ts skirtDepthM) — 행성마다 하나, 과장과 상관없다 */
+  uSkirtDepth: { value: number };
   /** 0 지형, 1 기후 */
   uLayer: { value: number };
   uLightDir: { value: Vector3 };
@@ -65,9 +68,13 @@ export interface SharedTileUniforms {
   uPick: { value: Vector4 };
 }
 
-export function createSharedTileUniforms(biomeColors: readonly number[]): SharedTileUniforms {
+export function createSharedTileUniforms(
+  biomeColors: readonly number[],
+  skirtDepthM: number,
+): SharedTileUniforms {
   return {
     uExaggeration: { value: 1 },
+    uSkirtDepth: { value: skirtDepthM },
     uLayer: { value: 0 },
     uLightDir: { value: LIGHT_DIRECTION.clone() },
     uPalette: { value: createPaletteTexture(biomeColors) },
@@ -116,7 +123,7 @@ export function createCellTexture(data: Uint8Array, cells: number, channels: 2 |
 const TILE_VERTEX = /* glsl */ `
 uniform vec3 uOrigin;
 uniform float uExaggeration;
-uniform float uSkirtDrop;
+uniform float uSkirtDepth;
 attribute vec3 grad;
 attribute vec2 hs;
 varying vec2 vUv;
@@ -126,7 +133,8 @@ varying vec3 vViewPosition;
 void main() {
   // 위쪽 = 행성 중심에서 이 점으로(원점 + 위치, 32비트로도 방향은 충분히 정확하다)
   vec3 up = normalize(uOrigin + position);
-  float lift = max(hs.x, 0.0) * uExaggeration - hs.y * uSkirtDrop;
+  // 치마(hs.y = 1)는 바닥까지, 나머지는 보이는 높이까지(vertexLiftM과 같은 식)
+  float lift = hs.y > 0.5 ? -uSkirtDepth : max(hs.x, 0.0) * uExaggeration;
   vec3 local = position + up * lift;
   vec3 n = normalize(up - uExaggeration * grad);
   vec4 viewPosition = modelViewMatrix * vec4(local, 1.0);
@@ -235,7 +243,6 @@ export function createTileMaterial(
     uniforms: {
       ...shared,
       uOrigin: { value: new Vector3(origin[0], origin[1], origin[2]) },
-      uSkirtDrop: { value: 0 },
       uCellData: { value: cellData },
       uCellExtra: { value: cellExtra },
       uCells: { value: cells },

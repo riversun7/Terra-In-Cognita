@@ -5,6 +5,7 @@
 // 타일 모양(DecodedTile)과 물 비트는 다른 꾸러미의 정의 하나를 쓴다: 타일 = protocol PlanetTileData, 물 비트 = @terra/planet.
 import {
   type Face,
+  MIN_FACE_LEVEL,
   WATER_COAST,
   WATER_DEPTH_MASK,
   WATER_DEPTH_SHIFT,
@@ -63,14 +64,42 @@ export type TileSource = (request: TileRequest, signal: AbortSignal) => Promise<
 
 /** 행성 설명 — 목록 정보(GET /api/planets/<ID>)에서 오는 값 */
 export interface PlanetDescription {
-  /** 면 레벨 F(지구 9). 1차맵 5단계 = 맵 레벨 F − 4 ~ F */
+  /** 면 레벨 F(지구 9). 1차맵 5단계 = 맵 레벨 F − 4 ~ F. 렌더러는 4 ~ MAX_RENDER_FACE_LEVEL만 그린다 */
   readonly faceLevel: number;
   /** 해수면 반지름(m, 표시용) — @terra/planet/projection의 planetRadiusMeters(F) */
   readonly radiusM: number;
   /** 바이옴 번호별 색(0xRRGGBB, 0~255번). 없는 번호는 회색으로 그린다 */
   readonly biomeColors: readonly number[];
-  /** 가장 높은 땅(게임 m) — 화면 경계·누르기·카메라 높이 계산에 쓴다. 모르면 1,000 */
+  /**
+   * 가장 높은 땅(게임 m) — 시야 거르기 경계구·지평선·누르기·먼 자르기 면에 쓴다.
+   * 목록 정보에는 아직 없다(서버가 구울 때 셀 수 있다 — 타일·서버 작업과 맞출 이음매). 없으면 DEFAULT_MAX_ELEVATION_M이고,
+   * 받은 타일이 그보다 높으면 엔진이 그 높이로 늘린다(낮추지는 않는다).
+   */
   readonly maxElevationM?: number;
+}
+
+/** 행성 설명에 가장 높은 땅이 없을 때 쓰는 값(게임 m). 지구 에베레스트 8,849m ÷ 12 ≈ 737m보다 조금 높게 */
+export const DEFAULT_MAX_ELEVATION_M = 1000;
+
+/**
+ * 렌더러가 그리는 면 레벨 상한. 자료 없는 마디(맵 레벨 5 ~ F−5)는 늘 나누므로 가장 거친 1차맵 단계(맵 레벨 F−4)가
+ * 화면을 덮는다. 면 레벨 11은 그 단계가 면마다 16개(행성 96개)라 보이는 타일 상한(160)을 넘지 않는다.
+ * 12부터는 그 단계만으로 상한을 넘는다(고르기만 돌려 잰 값: 면 레벨 12, 가장 먼 거리에서 198개). 더 거친 자료를 ADR로 정할 때까지
+ * 받지 않는다. 생성기는 4~10을 만든다(ADR 36 "행성 정의").
+ */
+export const MAX_RENDER_FACE_LEVEL = 11;
+
+/** 행성 설명이 틀린 이유(문장, 화면에 쓰지 않는다). 맞으면 null */
+export function planetDescriptionProblem(planet: PlanetDescription): string | null {
+  const { faceLevel, radiusM, maxElevationM } = planet;
+  if (!(Number.isInteger(faceLevel) && faceLevel >= MIN_FACE_LEVEL && faceLevel <= MAX_RENDER_FACE_LEVEL)) {
+    return `face level must be an integer in [${MIN_FACE_LEVEL}, ${MAX_RENDER_FACE_LEVEL}]: ${faceLevel}`;
+  }
+  if (!(Number.isFinite(radiusM) && radiusM > 0)) return `planet radiusM must be > 0: ${radiusM}`;
+  if (maxElevationM !== undefined && !(Number.isFinite(maxElevationM) && maxElevationM >= 0)) {
+    return `planet maxElevationM must be >= 0: ${maxElevationM}`;
+  }
+  return null;
 }
 
 /** 그리는 레이어: 지형(고도·해수면·바이옴 색), 기후(기온·습도 색) */
@@ -84,15 +113,19 @@ export interface PlanetBudgets {
   concurrentFetches: number;
   /** 한 프레임에 GPU로 올리는 새 타일 수 */
   uploadsPerFrame: number;
-  /** GPU 메모리 추정 상한(바이트) — 넘으면 오래 안 쓴 타일부터 버린다 */
-  gpuMemoryBytes: number;
+  /**
+   * 타일 메모리 추정 상한(바이트) — 넘으면 오래 안 쓴 타일부터 버린다.
+   * GPU 추정(정점 배열 + 칸 텍스처)에 JS에 남는 것을 더해 센다: three는 올린 뒤에도 그 배열을 들고 있고(컨텍스트 복구 때
+   * 다시 올린다), 엔진은 누르기용으로 풀어 둔 타일을 들고 있다. 그래서 올린 타일 하나가 약 108KB다(GPU 50KB + JS 58KB).
+   */
+  memoryBytes: number;
 }
 
 export const DEFAULT_PLANET_BUDGETS: PlanetBudgets = {
   visibleTiles: 160,
   concurrentFetches: 6,
   uploadsPerFrame: 4,
-  gpuMemoryBytes: 64 * 1024 * 1024,
+  memoryBytes: 64 * 1024 * 1024,
 };
 
 export type PlanetStatus =
@@ -180,6 +213,8 @@ export interface PlanetStats {
   triangles: number;
   /** 마지막 프레임에 그린 타일 수(상한 budgets.visibleTiles) */
   tilesDrawn: number;
+  /** 마지막 프레임에 그린 타일 수를 1차맵 단계별로(차례대로 단계 1~5) — 레벨이 바뀌는 경계가 화면에 있는지 본다 */
+  tilesDrawnByLevel: readonly number[];
   /** 화면 오차로 고른 타일 수(아직 안 온 것 포함) */
   tilesSelected: number;
   /** GPU에 올린 타일 수 */
@@ -196,6 +231,10 @@ export interface PlanetStats {
   tileErrors: number;
   /** GPU 메모리 추정(바이트) */
   gpuBytes: number;
+  /** 타일 메모리 추정(바이트, 상한 budgets.memoryBytes): GPU 추정 + JS에 남는 배열·풀어 둔 타일 */
+  memoryBytes: number;
+  /** 시야 거르기·누르기에 쓰는 가장 높은 땅(게임 m): 행성 설명 값과 받은 타일 중 높은 것 */
+  maxElevationM: number;
   /** 화면 가운데에 그린 타일의 1차맵 단계(1~5, 없으면 0)와 맵 레벨 */
   primaryLevel: number;
   mapLevel: number;

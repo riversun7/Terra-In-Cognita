@@ -1,4 +1,4 @@
-import { averageCellEdgeMeters } from "@terra/planet/projection";
+import { averageCellEdgeMeters, planetRadiusMeters } from "@terra/planet/projection";
 import { describe, expect, it } from "vitest";
 import { frustumPlanes, multiplyMatrices, perspectiveMatrix, viewRotationMatrix } from "./culling.ts";
 import {
@@ -12,9 +12,10 @@ import {
   screenRay,
 } from "./globeCamera.ts";
 import { type Selection, type SelectionParams, selectTiles } from "./lodSelect.ts";
+import { MAX_RENDER_FACE_LEVEL, planetDescriptionProblem } from "./planetTypes.ts";
 import { EARTH_RADIUS_M } from "./testSupport.ts";
-import { TileShapeCache, directionToFaceST, tileShape } from "./tileShape.ts";
-import { type TileNode, nodeSTRange, parentNode, tileKey, tileLayout } from "./tileTree.ts";
+import { TileShapeCache, coarsestSagM, directionToFaceST, tileShape } from "./tileShape.ts";
+import { type TileNode, isDataLevel, nodeSTRange, parentNode, tileKey, tileLayout } from "./tileTree.ts";
 import { addScaled, normalize } from "./vec3.ts";
 
 const R = EARTH_RADIUS_M;
@@ -212,5 +213,105 @@ describe("부모 먼저", () => {
     expect(selection.draw).toHaveLength(0);
     expect(selection.incomplete).toBe(true);
     expect(selection.wanted[0]?.node.mapLevel).toBe(5);
+  });
+});
+
+/** 다른 크기 행성(면 레벨 F)의 고르기 — 휴대폰 화면, 처음 볼 곳, 거리 distance(없으면 가장 멀리) */
+function selectPlanet(faceLevel: number, drawable: (node: TileNode) => boolean, distance?: number) {
+  const radius = planetRadiusMeters(faceLevel);
+  const planetLayout = tileLayout(faceLevel);
+  const planetLimits = globeLimits(radius, averageCellEdgeMeters(faceLevel, radius), PHONE);
+  const state = initialGlobe(20, 30, distance ?? planetLimits.maxDistance, planetLimits);
+  const pose = globePose(state, radius, planetLimits);
+  const frustum = frustumPlanes(
+    multiplyMatrices(
+      perspectiveMatrix(GLOBE_FOV_RAD, PHONE.width / PHONE.height, 1, 1e9),
+      viewRotationMatrix(pose.right, pose.up, pose.back),
+    ),
+  );
+  const planetShapes = new TileShapeCache(radius);
+  const nodes = new Map<number, TileNode>();
+  const selection = selectTiles(
+    {
+      position: pose.position,
+      frustum,
+      pixelsPerMeterAtUnitDistance: PHONE.height / (2 * Math.tan(GLOBE_FOV_RAD / 2)),
+    },
+    {
+      layout: planetLayout,
+      innerRadiusM: radius,
+      outerRadiusM: radius + 760 * 6,
+      occluderRadiusM: radius - coarsestSagM(planetLayout, radius),
+      maxScreenErrorPx: 4,
+      maxTiles: 160,
+    },
+    {
+      shape: (key, node) => {
+        nodes.set(key, node);
+        return planetShapes.get(key, node);
+      },
+      drawable: (key) => {
+        const node = nodes.get(key);
+        return node ? drawable(node) : false;
+      },
+    },
+  );
+  return { selection, layout: planetLayout };
+}
+
+const keysOf = (selection: Selection): Set<number> => new Set(selection.draw.map((item) => item.key));
+/** 면 레벨 10의 첫 1차맵 단계(맵 레벨 6) 타일만 받았다 */
+const firstLevelOf10 = (node: TileNode): boolean => node.mapLevel === 6;
+/** 면 레벨만 바꾼 행성 설명 */
+const planet = (faceLevel: number) => ({ faceLevel, radiusM: EARTH_RADIUS_M, biomeColors: [] });
+
+describe("큰 행성(자료 없는 꼭대기 마디)", () => {
+  it("면 레벨 10: 첫 단계 타일 하나가 없어도 같은 면의 다른 타일은 그린다(면 전체를 버리지 않는다)", () => {
+    const full = selectPlanet(10, firstLevelOf10).selection;
+    expect(full.incomplete).toBe(false);
+    const victim = full.draw.find((item) => item.node.face === 0) ?? full.draw[0];
+    if (!victim) throw new Error("nothing drawn");
+    const sameFace = full.draw.filter((item) => item.node.face === victim.node.face);
+    expect(sameFace.length).toBeGreaterThan(1);
+    const missing = selectPlanet(
+      10,
+      (node) => firstLevelOf10(node) && tileKey(node) !== victim.key,
+    ).selection;
+    const drawn = keysOf(missing);
+    expect(drawn.has(victim.key)).toBe(false);
+    // 빠진 하나만 빼고 나머지는 그대로 그린다
+    for (const item of full.draw) if (item.key !== victim.key) expect(drawn.has(item.key)).toBe(true);
+    expect(missing.draw).toHaveLength(full.draw.length - 1);
+    expect(missing.incomplete).toBe(true);
+    expect(missing.wanted.map((item) => item.key)).toContain(victim.key);
+  });
+
+  it.each([10, 11])("면 레벨 %i: 가장 먼 거리·처음 거리에서도 타일 상한(160) 이하", (faceLevel) => {
+    const radius = planetRadiusMeters(faceLevel);
+    const planetLimits = globeLimits(radius, averageCellEdgeMeters(faceLevel, radius), PHONE);
+    for (const distance of [planetLimits.maxDistance, planetLimits.maxDistance * 0.9]) {
+      const { selection, layout: planetLayout } = selectPlanet(faceLevel, everything, distance);
+      expect(selection.draw.length).toBeLessThanOrEqual(160);
+      expect(selection.budgetHit).toBe(false);
+      for (const item of selection.draw) expect(isDataLevel(planetLayout, item.node.mapLevel)).toBe(true);
+    }
+  });
+
+  it("면 레벨 12(엔진은 받지 않는다): 가장 거친 단계만으로 상한을 넘으면 상한 도달로 알린다", () => {
+    const { selection } = selectPlanet(12, everything);
+    expect(selection.draw.length).toBeGreaterThan(160);
+    expect(selection.budgetHit).toBe(true);
+  });
+
+  it("행성 설명 검사: 렌더러는 면 레벨 4~11만 받는다", () => {
+    expect(MAX_RENDER_FACE_LEVEL).toBe(11);
+    expect(planetDescriptionProblem(planet(4))).toBeNull();
+    expect(planetDescriptionProblem(planet(11))).toBeNull();
+    expect(planetDescriptionProblem(planet(12))).toMatch(/face level/);
+    expect(planetDescriptionProblem(planet(3))).toMatch(/face level/);
+    expect(planetDescriptionProblem(planet(9.5))).toMatch(/face level/);
+    expect(planetDescriptionProblem({ ...planet(9), radiusM: 0 })).toMatch(/radiusM/);
+    expect(planetDescriptionProblem({ ...planet(9), maxElevationM: -1 })).toMatch(/maxElevationM/);
+    expect(planetDescriptionProblem({ ...planet(9), maxElevationM: 1238 })).toBeNull();
   });
 });

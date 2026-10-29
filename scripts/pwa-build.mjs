@@ -95,6 +95,12 @@ export function precacheUrls(sw) {
 }
 
 /**
+ * 관리자 셰이더 측정 조각(apps/game/src/admin/gpuBench/) — [측정 시작]을 누를 때만 받는다(three/webgpu 약 690kB).
+ * 미리 캐시하면 모든 사용자가 서비스 워커 설치 때 받는다. vite.config.ts의 workbox.globIgnores가 뺀다
+ */
+export const ADMIN_ONLY_CHUNK = /^assets\/gpuBench[^/]*\.js$/;
+
+/**
  * 디자인 시스템 규칙(ADR 2026-10-28-design-system)
  * - 테마 시작 스크립트(theme-init.js): <head>에서 CSS·앱 스크립트보다 먼저, 외부 파일로(인라인 아님). 앱 껍데기로 미리 캐시한다.
  * - 글꼴: WOFF2만, /assets/<이름>-<해시>.woff2로 내보낸다. CSS에 인라인하지 않고, 서비스 워커가 미리 캐시하지 않는다.
@@ -129,6 +135,9 @@ function findDesignProblems({ indexHtml, sw, files, readFile }) {
     if (!urls.includes("theme-init.js")) problems.push("sw.js가 theme-init.js를 미리 캐시하지 않습니다.");
     for (const url of urls.filter((u) => FONT_FILE.test(u))) {
       problems.push(`sw.js가 글꼴을 미리 캐시합니다(처음 쓸 때 받아야 함): ${url}`);
+    }
+    for (const url of urls.filter((u) => ADMIN_ONLY_CHUNK.test(u))) {
+      problems.push(`sw.js가 관리자 측정 조각을 미리 캐시합니다(누를 때만 받아야 함): ${url}`);
     }
   }
   const fonts = files.filter((file) => FONT_FILE.test(file));

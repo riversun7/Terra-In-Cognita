@@ -216,4 +216,17 @@ describe("디자인 시스템 규칙(테마 시작 스크립트·글꼴)", () =>
   it("미리 캐시 주소 목록 읽기", () => {
     expect(precacheUrls(SW)).toEqual(["theme-init.js", "index.html", "assets/index-Cvbx1a8l.css"]);
   });
+
+  it("관리자 셰이더 측정 조각을 미리 캐시하면 실패(누를 때만 받는다)", () => {
+    const sw = SW.replace(
+      '{url:"index.html",revision:"3580"}',
+      '{url:"index.html",revision:"3580"},{url:"assets/gpuBenchTsl-Acw_2DfU.js",revision:null}',
+    );
+    expect(findPwaProblems(build({ sw }))).toEqual([expect.stringContaining("관리자 측정 조각")]);
+    const other = SW.replace(
+      '{url:"index.html",revision:"3580"}',
+      '{url:"index.html",revision:"3580"},{url:"assets/AdminPage-DFRSzlZB.js",revision:null}',
+    );
+    expect(findPwaProblems(build({ sw: other }))).toEqual([]);
+  });
 });

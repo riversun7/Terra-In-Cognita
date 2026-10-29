@@ -150,15 +150,15 @@ describe("골든 해시 (값이 바뀌면 GENERATOR_VERSION을 올리고 새 값
   // 증발 가능량), 2단계(기후 위도 흔들기·기온·강수의 중간 크기·잔 변이), 3단계(지형 틀: 안쪽 고원·분지·구릉,
   // 해안선 흔들기, 산맥 단면·세기, 열점 사슬 모양, 봉우리 다듬기)
   it("면 레벨 5, 시드 1, 프리셋 군도·더움·습윤·젊음·많음·많음", () => {
-    expect(run(5, 1, STRESS_PRESETS).fields.meta.hash).toBe("fe8068d6");
+    expect(run(5, 1, STRESS_PRESETS).fields.meta.hash).toBe("a0240674");
   });
 
   it("S2 시험 행성 설정(시드 20261029, 모두 보통)을 면 레벨 5로", () => {
-    expect(run(5, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("6c151e7f");
+    expect(run(5, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("9809be95");
   });
 
   it("S2 시험 행성 설정을 면 레벨 6으로", () => {
-    expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("135bb111");
+    expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("d8b900f2");
   });
 });
 

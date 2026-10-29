@@ -5,7 +5,7 @@
 //
 // 경로 규칙(routes.test.ts가 표 전체를 본다)
 // - 조각은 영어 소문자·숫자·`-`다. 점(.)을 쓰지 않는다. 서버는 점 있는 경로를 파일로 보고 404를 준다.
-// - 매개변수(`:이름`) 값에도 점을 넣지 않는다. 값은 숫자·영문 소문자·`_`다(digits는 숫자만).
+// - 매개변수(`:이름`) 값에도 점을 넣지 않는다. 값 규칙은 RouteParamKind다(id = 숫자·영문 소문자·`_`, digits = 10진수).
 // - `/api`·`/ws`·`/health`로 시작하지 않는다. 서버는 글자 앞부분만 본다(`/apiary`도 화면이 아니다).
 // - 경로에 언어를 넣지 않는다. 화면 제목은 메시지 키다.
 // - 모르는 검색어는 무시하되 주소에서 지우지 않는다. matchPath는 주소를 고치지 않는다.
@@ -18,7 +18,13 @@ export type RouteFrame = "shown" | "hidden";
 /** 누가 여는지. 화면에서 가리는 것은 편의이고, 서버가 요청마다 권한을 본다 */
 export type RouteAccess = "everyone" | "dev_admin" | "admin";
 
-/** 매개변수 값 규칙: id = 숫자·영문 소문자·_ 1~64자, digits = 숫자 1~16자 */
+/**
+ * 매개변수 값 규칙
+ * - id: 숫자·영문 소문자·_ 1~64자(기본). `-`·대문자가 든 ID(uuid, base64url 토큰)는 못 쓴다. 그런 ID를 주소에 넣는 화면을
+ *   만들 때 종류를 더하거나 ID 모양을 맞춘다.
+ * - digits: 0 또는 0으로 시작하지 않는 10진수이고 안전 정수(2^53 − 1) 이하다. 그래서 한 값에 주소가 하나다(`/x/007` 없음).
+ *   셀 키 같은 숫자 ID용이다(셀 키는 16자리까지 간다: packages/planet MAX_CELL_KEY = 6 × 2^49 − 10).
+ */
 export type RouteParamKind = "id" | "digits";
 
 export interface RouteDefinition {
@@ -39,8 +45,8 @@ export type RouteTable = { readonly [id: string]: RouteDefinition };
 
 /**
  * 화면 주소 표. 줄 순서는 메뉴 순서와 상관없다(메뉴는 navigation.ts).
- * 예약만 한 주소(`/start`, `/units/:unitId`, `/map/:mapKey`, `/battle/:battleId`, `/dev/:tool` 등)는 ADR 37 1절에 있다.
- * 그 화면을 만들 때 여기에 줄을 더한다.
+ * 예약만 한 주소(`/start`, `/units/:unitId`, `/economy/market/:itemId`, `/battle/:battleId` 등)는 ADR 37 1절에 있다.
+ * 그 화면을 만들 때 여기에 줄을 더한다. 개발자 도구는 도구마다 정적 줄(`/dev/<도구>`, 조각은 영어 소문자·`-`)이다.
  */
 export const ROUTES = {
   // ?template=: 저장하지 않고 다른 템플릿을 본다(검토·사진용). dev·admin에게만 듣는다(ADR 37 6절)
@@ -97,14 +103,15 @@ export type RouteParamsIn<T extends RouteTable, Id extends keyof T> = {
 };
 
 /**
- * 표 T의 주소 Id가 받는 검색어. 모두 넣지 않아도 된다.
+ * 표 T의 주소 Id가 받는 검색어. 모두 넣지 않아도 된다. 값이 undefined인 검색어는 주소에 넣지 않으므로(buildPathIn)
+ * `string | undefined` 값(지금 주소에서 읽은 값 등)을 그대로 넘겨도 된다(exactOptionalPropertyTypes).
  * 검색어를 받지 않는 주소는 어떤 이름도 받지 않는 모양이다(빈 객체 타입 {}은 아무 객체나 받아서 틀린 검색어를 못 잡는다)
  */
 export type RouteSearchIn<T extends RouteTable, Id extends keyof T> = [T[Id]["search"][number]] extends [
   never,
 ]
   ? { readonly [name: string]: never }
-  : { readonly [K in T[Id]["search"][number]]?: string };
+  : { readonly [K in T[Id]["search"][number]]?: string | undefined };
 
 /** 주소를 만들 때 줄 값: 매개변수가 있는 주소는 params가 꼭 있어야 한다 */
 export type RoutePathOptionsIn<T extends RouteTable, Id extends keyof T> = [
@@ -152,10 +159,10 @@ export interface LooseRouteMatch {
   readonly search: { readonly [name: string]: string | undefined };
 }
 
-/** 매개변수 값 규칙(ADR 37 1절 "매개변수 값에도 점을 넣지 않는다") */
+/** 매개변수 값 규칙(ADR 37 1절 "매개변수 값에도 점을 넣지 않는다"). digits는 안전 정수인지도 본다(isRouteParamValue) */
 const PARAM_VALUE: { readonly [K in RouteParamKind]: RegExp } = {
   id: /^[a-z0-9_]{1,64}$/,
-  digits: /^[0-9]{1,16}$/,
+  digits: /^(?:0|[1-9][0-9]{0,15})$/,
 };
 
 /** 경로 예에 넣는 매개변수 값 */
@@ -178,6 +185,23 @@ function routeIn(table: RouteTable, id: string): RouteDefinition | undefined {
 
 function paramKind(route: RouteDefinition, name: string): RouteParamKind {
   return route.params?.[name] ?? "id";
+}
+
+/** 배열이 아닌 객체인지(JSON 객체) */
+function isRecord(value: unknown): value is object {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** 객체의 자기 칸(배열·원형의 칸은 보지 않는다). 객체가 아니면 undefined */
+function ownField(value: unknown, key: string): unknown {
+  return isRecord(value) && Object.hasOwn(value, key) ? Reflect.get(value, key) : undefined;
+}
+
+/** 경로 패턴의 매개변수 이름들(왼쪽부터) */
+function paramNames(route: RouteDefinition): string[] {
+  return patternSegments(route.path)
+    .filter((segment) => segment.startsWith(":"))
+    .map((segment) => segment.slice(1));
 }
 
 // 검색어 읽기·쓰기 — URLSearchParams는 이 꾸러미의 타입(ES만, DOM·Node 타입 없음)에 없어서 같은 규칙을 직접 쓴다.
@@ -207,13 +231,16 @@ function formatQuery(entries: readonly (readonly [string, string])[]): string {
 
 /** 매개변수 값이 그 주소의 규칙에 맞는지 */
 export function isRouteParamValue(kind: RouteParamKind, value: unknown): value is string {
-  return typeof value === "string" && PARAM_VALUE[kind].test(value);
+  if (typeof value !== "string" || !PARAM_VALUE[kind].test(value)) return false;
+  // 16자리 수는 안전 정수(9007199254740991)를 넘을 수 있다. 넘으면 JS 숫자로 정확히 읽지 못한다
+  return kind !== "digits" || Number.isSafeInteger(Number(value));
 }
 
 /**
  * 표 T로 주소를 만든다(시험·검사용. 화면 코드는 buildPath를 쓴다).
  * 매개변수 값이 규칙에 맞지 않거나 없는 주소 ID면 예외다(점 든 경로를 만들지 않는다).
- * 검색어는 표에 있는 것만 표 순서로 넣는다. undefined는 넣지 않는다.
+ * 검색어는 표에 있는 것만 표 순서로 넣는다. undefined(와 문자열이 아닌 값)는 넣지 않는다.
+ * params·search는 자기 칸만 읽는다(isRouteTargetIn과 같다).
  */
 export function buildPathIn(table: RouteTable, id: string, options: LoosePathOptions = {}): string {
   const route = routeIn(table, id);
@@ -221,7 +248,7 @@ export function buildPathIn(table: RouteTable, id: string, options: LoosePathOpt
   const segments = patternSegments(route.path).map((segment) => {
     if (!segment.startsWith(":")) return segment;
     const name = segment.slice(1);
-    const value = options.params?.[name];
+    const value = ownField(options.params, name);
     if (!isRouteParamValue(paramKind(route, name), value)) {
       throw new RangeError(`route ${id}: param ${name} does not match the value rule: ${String(value)}`);
     }
@@ -229,8 +256,8 @@ export function buildPathIn(table: RouteTable, id: string, options: LoosePathOpt
   });
   const entries: [string, string][] = [];
   for (const key of route.search) {
-    const value = options.search?.[key];
-    if (value !== undefined) entries.push([key, value]);
+    const value = ownField(options.search, key);
+    if (typeof value === "string") entries.push([key, value]);
   }
   const path = `/${segments.join("/")}`;
   return entries.length === 0 ? path : `${path}?${formatQuery(entries)}`;
@@ -253,7 +280,8 @@ function moreSpecific(a: readonly number[], b: readonly number[]): boolean {
 /**
  * 표 T에서 주소(경로 + 검색어 + #조각)를 찾는다(시험·검사용. 화면 코드는 matchPath를 쓴다). 없으면 null.
  * - 경로는 글자 그대로 비교한다(대문자·%로 바꾼 글자는 맞지 않는다). 끝의 `/` 하나는 무시한다(`/units/` = `/units`).
- * - 같은 주소에 여러 줄이 맞으면 왼쪽 조각부터 정적 조각이 있는 줄이 이긴다(`/map/planet` > `/map/:mapKey`). 그래도 같으면 표 순서.
+ * - 같은 주소에 여러 줄이 맞으면 왼쪽 조각부터 정적 조각이 있는 줄이 이긴다(`/economy/market` > `/economy/:section`).
+ *   그래도 같으면 표 순서다. 그런 두 줄은 모양이 같은 경로라서 표 규칙 시험(routes.test.ts)이 막는다.
  * - 검색어는 표에 있는 것만 결과에 넣는다(같은 이름이 여럿이면 처음 것). 모르는 검색어는 무시한다.
  */
 export function matchPathIn(table: RouteTable, url: string): LooseRouteMatch | null {
@@ -320,7 +348,13 @@ export function isRouteId(value: unknown): value is RouteId {
   return typeof value === "string" && Object.hasOwn(ROUTES, value);
 }
 
-/** 주소를 만든다. 틀린 주소 ID·매개변수·검색어는 타입 검사가 잡는다 */
+/**
+ * 주소를 만든다. 틀린 주소 ID·매개변수·검색어는 타입 검사가 잡는다.
+ * 주소 ID는 글자 그대로(주소 하나) 넣는다. 주소 ID가 값으로 정해지는 곳(메뉴 표·처리할 일 등)은 RouteTarget과 targetPath를 쓴다.
+ * 주소 ID 타입이 여러 주소의 합(union)이면 모든 주소의 검색어 이름이 열리고(맞지 않는 것은 말없이 빠진다),
+ * 매개변수 주소가 하나라도 섞이면 모든 주소에 params를 요구하기 때문이다.
+ * 합을 타입으로 막지는 않았다. 막으면 Id를 받아 그대로 넘기는 제네릭 감싸기 함수도 막힌다.
+ */
 export function buildPath<Id extends RouteId>(id: Id, ...args: RoutePathArgs<Id>): string;
 export function buildPath(id: RouteId, options?: LoosePathOptions): string {
   return buildPathIn(ROUTES, id, options);
@@ -339,28 +373,24 @@ export function targetPath(target: RouteTarget): string {
 
 /**
  * 받은 값이 표 T의 화면을 가리키는지(시험·검사용. 화면 코드는 isRouteTarget을 쓴다).
- * 주소 ID가 표에 있고, 매개변수가 모두 규칙에 맞고, 표에 있는 검색어는 문자열이어야 한다. 모르는 검색어는 무시한다.
+ * - 자기 칸만 읽는다(원형의 칸은 보지 않는다). 값·params·search는 배열이 아닌 객체여야 한다.
+ * - 주소 ID가 표에 있고, 매개변수가 모두 규칙에 맞고, 표에 있는 검색어는 문자열(또는 undefined)이어야 한다.
+ * - 표에 없는 검색어·매개변수 칸은 받는다(더 새 서버). targetPath가 넣지 않으므로 무시된다.
  */
 export function isRouteTargetIn(table: RouteTable, value: unknown): boolean {
-  if (typeof value !== "object" || value === null) return false;
-  const routeId: unknown = Reflect.get(value, "route");
+  const routeId = ownField(value, "route");
   const route = typeof routeId === "string" ? routeIn(table, routeId) : undefined;
   if (!route) return false;
-  const names = patternSegments(route.path)
-    .filter((segment) => segment.startsWith(":"))
-    .map((segment) => segment.slice(1));
-  if (names.length > 0) {
-    const params: unknown = Reflect.get(value, "params");
-    if (typeof params !== "object" || params === null) return false;
-    if (!names.every((name) => isRouteParamValue(paramKind(route, name), Reflect.get(params, name)))) {
-      return false;
-    }
+  const params = ownField(value, "params");
+  if (params !== undefined && !isRecord(params)) return false;
+  if (!paramNames(route).every((name) => isRouteParamValue(paramKind(route, name), ownField(params, name)))) {
+    return false;
   }
-  const search: unknown = Reflect.get(value, "search");
+  const search = ownField(value, "search");
   if (search === undefined) return true;
-  if (typeof search !== "object" || search === null) return false;
+  if (!isRecord(search)) return false;
   return route.search.every((key) => {
-    const given: unknown = Reflect.get(search, key);
+    const given = ownField(search, key);
     return given === undefined || typeof given === "string";
   });
 }
@@ -368,7 +398,7 @@ export function isRouteTargetIn(table: RouteTable, value: unknown): boolean {
 /**
  * 받은 값이 이 기기가 아는 화면을 가리키는지(처리할 일·복귀 요약의 target).
  * 더 새 서버는 이 기기가 모르는 주소를 보낼 수 있다. 맞지 않으면 처리함으로 보낸다(ADR 37 7절).
- * 모르는 검색어는 무시한다(targetPath가 넣지 않는다).
+ * 표에 없는 검색어·매개변수 칸은 받되 무시한다(targetPath가 넣지 않는다). 좁힌 타입(RouteTarget)에는 그 칸이 없다.
  */
 export function isRouteTarget(value: unknown): value is RouteTarget {
   return isRouteTargetIn(ROUTES, value);

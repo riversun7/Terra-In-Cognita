@@ -2,14 +2,18 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { ROLES, type Role } from "./roles.ts";
 import {
+  type LoosePathOptions,
   type PathParamNames,
   ROUTES,
   type RouteId,
+  type RoutePathArgsIn,
   type RouteTable,
+  type RouteTargetIn,
   buildPath,
   buildPathIn,
   canOpenRoute,
   isRouteId,
+  isRouteParamValue,
   isRouteTarget,
   isRouteTargetIn,
   matchPath,
@@ -75,18 +79,53 @@ function routeTableProblems(table: RouteTable): string[] {
 }
 
 /** 타입 검사(pnpm typecheck)만 하는 함수 — 실행하지 않는다. @ts-expect-error 줄에 타입 오류가 없으면 타입 검사가 실패한다 */
-function buildPathTypeErrors(): void {
+function buildPathTypeErrors(maybe: string | undefined): void {
+  // 지금 주소에서 읽은 값처럼 없을 수 있는 값은 그대로 넘긴다(undefined는 넣지 않는다)
+  buildPath("inbox", { search: { item: maybe } });
   // @ts-expect-error 없는 주소 ID
   buildPath("nope");
   // @ts-expect-error 검색어를 받지 않는 주소
   buildPath("units", { search: { item: "x" } });
+  // @ts-expect-error 검색어를 받지 않는 주소(undefined 값도)
+  buildPath("units", { search: { item: maybe } });
   // @ts-expect-error inbox가 받지 않는 검색어
   buildPath("inbox", { search: { tab: "x" } });
   // @ts-expect-error 매개변수가 없는 주소에 매개변수
   buildPath("units", { params: { unitId: "u1" } });
 }
 
-/** 시험용 표: 매개변수 주소와 정적 주소가 겹친다(ADR 37 1절 예약 주소 모양) */
+/** 시험용 표의 buildPath. 타입은 buildPath와 같은 모양(RoutePathArgsIn)이라 매개변수 주소의 타입 검사를 여기서 본다 */
+function buildFixturePath<Id extends keyof typeof FIXTURE>(
+  id: Id,
+  ...args: RoutePathArgsIn<typeof FIXTURE, Id>
+): string;
+function buildFixturePath(id: string, options?: LoosePathOptions): string {
+  return buildPathIn(FIXTURE, id, options);
+}
+
+/** 타입 검사만 하는 함수(실행하지 않는다): 매개변수 주소의 params·검색어와 가리키는 화면(target) */
+function fixtureTypeErrors(): RouteTargetIn<typeof FIXTURE>[] {
+  // @ts-expect-error 매개변수 주소에 params가 없다
+  buildFixturePath("market_city");
+  // @ts-expect-error cityId가 빠졌다
+  buildFixturePath("market_city", { params: { itemId: "iron_ore" } });
+  // @ts-expect-error 경로에 없는 매개변수
+  buildFixturePath("market_city", { params: { itemId: "iron_ore", cityId: "c1", tab: "x" } });
+  // @ts-expect-error 매개변수 이름 오타
+  buildFixturePath("map_key", { params: { mapkey: "12" } });
+  // @ts-expect-error 받지 않는 검색어(이름 오타)
+  buildFixturePath("market", { search: { bnad: "b2" } });
+  // @ts-expect-error 매개변수가 없는 주소에 params
+  buildFixturePath("market", { params: { itemId: "iron_ore" } });
+  // @ts-expect-error 매개변수 주소를 가리키는데 params가 없다
+  const missing: RouteTargetIn<typeof FIXTURE> = { route: "market_city" };
+  // @ts-expect-error 가리키는 화면의 params에 cityId가 빠졌다
+  const partial: RouteTargetIn<typeof FIXTURE> = { route: "market_city", params: { itemId: "a" } };
+  const full: RouteTargetIn<typeof FIXTURE> = { route: "market_city", params: { itemId: "a", cityId: "b" } };
+  return [missing, partial, full, { route: "market", search: { band: undefined } }];
+}
+
+/** 시험용 표: 매개변수 주소와 정적 주소가 겹친다(ADR 37 1절 예약 주소 모양과 매개변수 값 규칙 digits) */
 const FIXTURE = {
   home: { path: "/", search: [], parent: null, frame: "shown", access: "everyone" },
   // 매개변수 줄을 정적 줄보다 먼저 둔다: 표 순서와 상관없이 정적 조각이 이겨야 한다
@@ -194,6 +233,7 @@ describe("buildPath", () => {
       "/map/planet?planet-debug=cracks",
     );
     expect(buildPath("home", { search: {} })).toBe("/");
+    expect(buildPath("inbox", { search: { item: undefined } })).toBe("/inbox");
     expect(buildPathIn(FIXTURE, "market", { search: { band: "a b&c" } })).toBe(
       "/economy/market?band=a%20b%26c",
     );
@@ -214,10 +254,38 @@ describe("buildPath", () => {
     expect(() => buildPathIn(FIXTURE, "nope")).toThrow("unknown route id");
   });
 
+  it("digits 값은 0으로 시작하지 않는 10진수이고 안전 정수 이하다(한 값에 주소 하나, 셀 키 16자리까지)", () => {
+    // 셀 키(packages/planet)의 가장 큰 값 = 6 × 2^49 − 10. 16자리다
+    for (const value of ["0", "7", "40213", "3377699720527862", String(Number.MAX_SAFE_INTEGER)]) {
+      expect(isRouteParamValue("digits", value), value).toBe(true);
+    }
+    for (const value of [
+      "007",
+      "00",
+      "-1",
+      "1e3",
+      "9007199254740992",
+      "9999999999999999",
+      "1".repeat(17),
+      "",
+    ]) {
+      expect(isRouteParamValue("digits", value), value).toBe(false);
+    }
+    expect(matchPathIn(FIXTURE, "/map/007")).toBeNull();
+    expect(matchPathIn(FIXTURE, "/map/7")?.params).toEqual({ mapKey: "7" });
+    expect(isRouteParamValue("id", "007")).toBe(true);
+  });
+
   it("틀린 주소 ID·검색어·매개변수는 타입 검사가 잡는다(pnpm typecheck)", () => {
     expect(buildPathTypeErrors).toBeTypeOf("function");
+    expect(fixtureTypeErrors).toBeTypeOf("function");
     expectTypeOf<PathParamNames<"/economy/market/:itemId/:cityId">>().toEqualTypeOf<"itemId" | "cityId">();
     expectTypeOf<PathParamNames<"/units">>().toEqualTypeOf<never>();
+    // 시험용 표의 만들기(타입은 buildPath와 같은 모양)
+    expect(buildFixturePath("market_city", { params: { itemId: "iron_ore", cityId: "c1" } })).toBe(
+      "/economy/market/iron_ore/c1",
+    );
+    expect(buildFixturePath("market", { search: { band: "b2" } })).toBe("/economy/market?band=b2");
   });
 });
 
@@ -350,10 +418,13 @@ describe("여는 역할", () => {
 });
 
 describe("가리키는 화면(target)", () => {
-  it("아는 주소·맞는 매개변수만 받고, 모르는 검색어는 무시한다", () => {
+  it("아는 주소·맞는 매개변수만 받고, 모르는 검색어·매개변수 칸은 무시한다", () => {
     expect(isRouteTarget({ route: "inbox", search: { item: "unit_idle:city_12" } })).toBe(true);
+    expect(isRouteTarget({ route: "inbox", search: { item: undefined } })).toBe(true);
     expect(isRouteTarget({ route: "units" })).toBe(true);
+    // 더 새 서버가 넣은 칸: 받되 targetPath가 넣지 않는다
     expect(isRouteTarget({ route: "units", search: { focus: "x" } })).toBe(true);
+    expect(isRouteTarget({ route: "units", params: { unitId: "u1" } })).toBe(true);
     expect(isRouteTarget({ route: "inbox", search: { item: 3 } })).toBe(false);
     expect(isRouteTarget({ route: "inbox", search: "item=x" })).toBe(false);
     expect(isRouteTarget({ route: "battle" })).toBe(false);
@@ -370,10 +441,29 @@ describe("가리키는 화면(target)", () => {
     expect(isRouteTargetIn(FIXTURE, { route: "market_city" })).toBe(false);
   });
 
-  it("targetPath는 buildPath와 같은 주소를 만든다", () => {
+  it("자기 칸만 읽고, 값·params·search는 배열이 아닌 객체여야 한다", () => {
+    expect(isRouteTarget(Object.create({ route: "units" }))).toBe(false);
+    expect(isRouteTarget(["units"])).toBe(false);
+    expect(isRouteTarget({ route: "inbox", search: ["x"] })).toBe(false);
+    expect(isRouteTarget({ route: "units", params: "x" })).toBe(false);
+    expect(isRouteTarget({ route: "units", params: null })).toBe(false);
+    expect(isRouteTarget({ route: "units", params: [] })).toBe(false);
+    const params = Object.create({ itemId: "a", cityId: "b" });
+    expect(isRouteTargetIn(FIXTURE, { route: "market_city", params })).toBe(false);
+    expect(() => buildPathIn(FIXTURE, "market_city", { params })).toThrow(RangeError);
+    // 원형에만 있는 검색어는 없는 것이다(읽기·만들기 모두)
+    const search = Object.create({ item: 3 });
+    expect(isRouteTarget({ route: "inbox", search })).toBe(true);
+    expect(buildPathIn(ROUTES, "inbox", { search })).toBe("/inbox");
+  });
+
+  it("targetPath는 buildPath와 같은 주소를 만들고, 표에 없는 칸은 넣지 않는다", () => {
     const target = { route: "inbox", search: { item: "craft_done:4012" } } as const;
     expect(isRouteTarget(target)).toBe(true);
     expect(targetPath(target)).toBe(buildPath("inbox", { search: { item: "craft_done:4012" } }));
     expect(matchPath(targetPath(target))?.search).toEqual({ item: "craft_done:4012" });
+    const newer: unknown = { route: "units", params: { unitId: "u1" }, search: { focus: "x" } };
+    if (!isRouteTarget(newer)) throw new Error("newer target");
+    expect(targetPath(newer)).toBe("/units");
   });
 });

@@ -64,9 +64,9 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
 - **NAS 밖 보관(해 주실 일)**: 백업이 NAS 안에만 있으면 NAS가 고장 날 때 같이 잃는다. DSM → Hyper Backup → 백업 작업 생성 → 대상(USB·다른 NAS·클라우드) → 폴더 `docker/terra-in-cognita/backups` → 매일.
 
 ## 9. 관측 (보는 법)
-- 한 번에 보기: Actions → **nas-metrics** → Run workflow(최근 몇 분). 서버 1분 지표, 컨테이너 CPU·메모리, 기기 성능·오류를 Summary에 모아 보여 준다(읽기만 한다). 앱 컨테이너를 다시 만들면(배포) 그 전의 서버 지표 줄은 없어진다. 기기 표는 DB에 남는다.
+- 한 번에 보기: Actions → **nas-metrics** → Run workflow(최근 몇 분). 서버 1분 지표, 컨테이너 CPU·메모리, 행성 준비 줄(컨테이너 시작 뒤 전체), 기기 성능·오류를 Summary에 모아 보여 준다(읽기만 한다). 앱 컨테이너를 다시 만들면(배포) 그 전의 서버 지표 줄은 없어진다. 기기 표는 DB에 남는다.
 - 서버 지표(1분마다 로그 한 줄: 이벤트 루프 지연, 메모리, 접속 수, CPU %(코어 하나 기준, 워커 스레드 포함)): `docker logs tic-app 2>&1 | grep '"metric":"server"' | tail -5`
-- 행성 굽기·캐시(시작할 때 한 줄: 굽기 시간·타일 수·크기 또는 캐시 읽기 시간, 1분 지표의 `planet*` 값): `docker logs tic-app 2>&1 | grep '"msg":"planet ready"'`
+- 행성 굽기·캐시(시작할 때 한 줄: 굽기 시간·단계별 시간·최대 메모리·타일 수·크기 또는 캐시 읽기 시간, 1분 지표의 `planet*` 값): `docker logs tic-app 2>&1 | grep '"msg":"planet ready"'`
 - 기기 오류: `docker exec tic-db psql -U terra -d terra -c "select received_at, kind, message, page from client_errors order by id desc limit 20"`
 - 기기 성능 요약: `docker exec tic-db psql -U terra -d terra -c "select received_at, fps, frame_p95_ms, long_frames, memory_mb, device from client_perf_samples order by id desc limit 20"`
 - 관리자 화면이 생기면 이 내용을 화면에서 본다(PLAN 9.5).
@@ -102,6 +102,8 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
 
 ## 문제가 생기면
 - **실행기가 계속 다시 시작된다**(로그에 `DISABLE_AUTOMATIC_DEREGISTRATION should be set to true`): compose에 `DISABLE_AUTOMATIC_DEREGISTRATION: "true"`가 없거나 `tic-runner/config` 폴더가 없는 것이다. 프로젝트를 중지하고 YAML을 저장소의 `ops/runner/compose.yml`로 바꾼 뒤(토큰은 새로 받아 넣는다) 다시 빌드한다.
+
+- **행성 캐시를 쓰지 못한다**(로그에 `planet cache write failed`, `EACCES`, 배포 로그에 "행성 캐시 폴더에 쓰지 못합니다"): 시놀로지 공유 폴더 아래 새 폴더는 root가 만들어도 권한이 555(쓰기 없음)다. `deploy.sh`가 `planet-cache`에 소유자 1000과 권한 755를 준다. 손으로 고치려면 SSH에서 `sudo chown 1000:1000 /volume1/docker/terra-in-cognita/planet-cache && sudo chmod 755 /volume1/docker/terra-in-cognita/planet-cache`. 확인은 Actions → **nas-facts**의 "데이터 폴더 권한". 앱은 캐시 없이도 돈다(다시 켤 때마다 약 18초 굽는다).
 
 ## 참고
 - 실행기는 NAS의 Docker를 제어할 수 있다. 배포 작업은 main 브랜치 실행에서만 돈다. 저장소에 쓰기 권한을 가진 사람만 작업을 실행할 수 있으니 협업자를 추가할 때 주의한다.

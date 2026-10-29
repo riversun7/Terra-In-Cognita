@@ -1,7 +1,14 @@
-// 처리할 일 저장소 시험 — 겹친 요청 하나로, 다시 받는 때(다시 연결·60초·바로 처리 뒤), 계정·시안 자료가 바뀔 때(ADR 2026-10-29-app-shell 6·7절)
+// 처리할 일 저장소 시험 — 겹친 요청 하나로, 다시 받는 때(다시 연결·60초·바로 처리 뒤), 계정·시안 자료가 바뀔 때,
+// 멈춘 요청 끊기(ADR 2026-10-29-app-shell 6·7절)
 import type { InboxListResponse } from "@terra/shared/inbox";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { INBOX_RECONNECT_FRESH_MS, type InboxLoadResult, bellCount, createInboxStore } from "./store.ts";
+import {
+  INBOX_RECONNECT_FRESH_MS,
+  INBOX_REQUEST_TIMEOUT_MS,
+  type InboxLoadResult,
+  bellCount,
+  createInboxStore,
+} from "./store.ts";
 
 const EMPTY: InboxListResponse = {
   generatedAt: 1,
@@ -29,13 +36,13 @@ function fakeLoads() {
   return { calls, load };
 }
 
-function setup() {
+function setup(load?: (preview: boolean, signal: AbortSignal) => Promise<InboxLoadResult>) {
   const loads = fakeLoads();
   let viewer: { userId: string; preview: boolean } | null = { userId: "user_1", preview: false };
   let now = 1_000_000;
   let sessionChecks = 0;
   const store = createInboxStore({
-    load: loads.load,
+    load: load ?? loads.load,
     viewer: () => viewer,
     now: () => now,
     onSessionEnded: () => {
@@ -244,6 +251,40 @@ describe("처리할 일 저장소", () => {
     expect(t.store.getState()).toMatchObject({ status: "failed", error: "err_network" });
     void t.store.ensure();
     expect(t.calls).toHaveLength(2);
+  });
+
+  it("load가 끊김 신호를 듣지 않고 끝나지 않아도(요청 조각 받기가 멈춤) 10초에 실패로 끝나고 기다리던 쪽도 끝난다", async () => {
+    let starts = 0;
+    // 신호를 무시하고 영영 끝나지 않는 요청
+    const t = setup(() => {
+      starts += 1;
+      return new Promise<InboxLoadResult>(() => {});
+    });
+    let ensured = false;
+    void t.store.ensure().then(() => {
+      ensured = true;
+    });
+    await vi.advanceTimersByTimeAsync(INBOX_REQUEST_TIMEOUT_MS - 1);
+    expect(t.store.getState().status).toBe("loading");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(ensured).toBe(true);
+    expect(t.store.getState()).toMatchObject({ status: "failed", error: "err_network" });
+    // [다시 시도]는 새 요청을 시작한다. 받는 중에 건 "한 번 더"(refresh)도 같은 길로 끝난다
+    let refreshed = 0;
+    void t.store.refresh().then(() => (refreshed += 1));
+    void t.store.refresh().then(() => (refreshed += 1));
+    expect(starts).toBe(2);
+    await vi.advanceTimersByTimeAsync(INBOX_REQUEST_TIMEOUT_MS);
+    expect(starts).toBe(3);
+    await vi.advanceTimersByTimeAsync(INBOX_REQUEST_TIMEOUT_MS);
+    expect(refreshed).toBe(2);
+    expect(t.store.getState().status).toBe("failed");
+  });
+
+  it("load가 던지면 알 수 없는 오류로 둔다", async () => {
+    const t = setup(() => Promise.reject(new Error("boom")));
+    await t.store.ensure();
+    expect(t.store.getState()).toMatchObject({ status: "failed", error: "err_unknown" });
   });
 
   it("바뀔 때마다 듣는 쪽에 알린다", async () => {

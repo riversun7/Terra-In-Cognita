@@ -7,6 +7,7 @@
 //   주기 타이머는 두지 않는다(ADR 37 6절 "자료 받기").
 // - 다시 연결됐을 때는 5초 안에 시작한 받기가 있으면(받는 중이거나 막 받음) 다시 받지 않는다. 로그인 직후가 그렇다:
 //   계정이 바뀌어 받기를 시작하고, 곧이어 서버 연결도 새 계정으로 다시 맺는다(net/serverLink.ts followIdentity).
+// - 응답이 10초 없으면 끊고 실패로 둔다. 요청 조각 받기가 멈춰 load가 신호를 듣지 못해도 저장소가 끝낸다([다시 시도]가 보인다).
 // - 저장소는 처음 쓸 때 켜진다(종 배지 등이 useInbox…를 부를 때). 켜진 뒤에는 앱이 끝날 때까지 듣는다.
 import type { InboxListResponse } from "@terra/shared/inbox";
 import { useSyncExternalStore } from "react";
@@ -36,7 +37,7 @@ export interface InboxState {
 export type InboxLoadResult = HomeQueryResult<InboxListResponse>;
 
 export interface InboxStoreDeps {
-  /** inbox.list 요청. signal이 끊기면 실패로 끝난다 */
+  /** inbox.list 요청. signal이 끊기면 실패로 끝나야 하지만, 끝나지 않아도 저장소가 끊긴 때 실패로 둔다 */
   load(preview: boolean, signal: AbortSignal): Promise<InboxLoadResult>;
   /** 지금 로그인한 계정과 시안 자료 여부. 로그인하지 않았으면 null */
   viewer(): { readonly userId: string; readonly preview: boolean } | null;
@@ -61,8 +62,8 @@ export interface InboxStore {
 
 /** 화면이 다시 보일 때 다시 받는 기준(마지막으로 받은 뒤) */
 export const INBOX_STALE_MS = 60_000;
-/** 응답이 오지 않으면 끊는 시간 */
-const REQUEST_TIMEOUT_MS = 10_000;
+/** 응답이 오지 않으면 끊는 시간(요청 조각 받기 포함) */
+export const INBOX_REQUEST_TIMEOUT_MS = 10_000;
 /** 다시 연결됐을 때 이만큼 안에 시작한 받기가 있으면 그 답을 쓴다(로그인 직후 계정이 바뀌어 다시 맺은 연결) */
 export const INBOX_RECONNECT_FRESH_MS = 5_000;
 
@@ -74,6 +75,9 @@ const IDLE: InboxState = {
   error: null,
   receivedAt: null,
 };
+
+const TIMED_OUT: InboxLoadResult = { ok: false, error: "err_network", sessionEnded: false };
+const LOAD_THREW: InboxLoadResult = { ok: false, error: "err_unknown", sessionEnded: false };
 
 /** 종 배지 = 완료를 뺀 줄 수(묶음은 1줄. 해석: 완료는 "확인할 소식", D-6006). 목록이 없으면 0 */
 export function bellCount(data: InboxListResponse | null): number {
@@ -128,29 +132,33 @@ export function createInboxStore(deps: InboxStoreDeps): InboxStore {
     const token = {};
     const controller = new AbortController();
     const startedAt = deps.now();
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), INBOX_REQUEST_TIMEOUT_MS);
+    // 끊기면(10초, 계정이 바뀜) load가 신호를 듣지 않아도 바로 끝낸다. 요청 조각 받기(동적 import)는 신호를 받지 못한다
+    const aborted = new Promise<InboxLoadResult>((resolve) => {
+      controller.signal.addEventListener("abort", () => resolve(TIMED_OUT), { once: true });
+    });
     setState({ ...base, status: "loading" });
-    const done = deps
-      .load(preview, controller.signal)
-      .catch((): InboxLoadResult => ({ ok: false, error: "err_unknown", sessionEnded: false }))
-      .then((result) => {
-        clearTimeout(timer);
-        // 그사이 계정·시안 자료가 바뀌어 버린 요청이다
-        if (inflight?.token !== token) return;
-        inflight = null;
-        if (result.ok) {
-          dataStartedAt = startedAt;
-          setState({ ...state, status: "ready", data: result.data, error: null, receivedAt: deps.now() });
-        } else {
-          setState({ ...state, status: "failed", error: result.error });
-          if (result.sessionEnded) deps.onSessionEnded();
-        }
-        const resolveAgain = againResolve;
-        if (resolveAgain === null) return;
-        again = null;
-        againResolve = null;
-        void startFresh().then(resolveAgain);
-      });
+    const done = Promise.race([
+      deps.load(preview, controller.signal).catch((): InboxLoadResult => LOAD_THREW),
+      aborted,
+    ]).then((result) => {
+      clearTimeout(timer);
+      // 그사이 계정·시안 자료가 바뀌어 버린 요청이다
+      if (inflight?.token !== token) return;
+      inflight = null;
+      if (result.ok) {
+        dataStartedAt = startedAt;
+        setState({ ...state, status: "ready", data: result.data, error: null, receivedAt: deps.now() });
+      } else {
+        setState({ ...state, status: "failed", error: result.error });
+        if (result.sessionEnded) deps.onSessionEnded();
+      }
+      const resolveAgain = againResolve;
+      if (resolveAgain === null) return;
+      again = null;
+      againResolve = null;
+      void startFresh().then(resolveAgain);
+    });
     inflight = { token, controller, done, startedAt };
     return done;
   };

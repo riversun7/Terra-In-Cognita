@@ -3,7 +3,7 @@
 // 보일지(show)는 서버가 정한다. show면 그 계정의 요약을 두고 ReturnSummary.tsx가 대화상자를 띄운다. 닫으면 지운다.
 // 확인 기록(summary.ack)은 아직 없다(첫 사건 출처와 함께 만든다). 그래서 닫은 요약은 다음에 켤 때 다시 뜰 수 있다.
 // 첫 화면 묶음에 들어간다. 요청은 net/homeQueries.ts를 동적 import()로 불러서 한다(처리할 일 저장소와 같은 조각이라 같은 틱의
-// 조회가 HTTP 요청 하나로 묶인다).
+// 조회가 HTTP 요청 하나로 묶인다). 묻기는 10초를 넘기면 그만둔다(조각 받기가 멈춰도 다음 물을 때 다시 묻게).
 import type { SummaryGetResponse } from "@terra/shared/inbox";
 import { useSyncExternalStore } from "react";
 import { getSessionState, refreshSession, subscribe as subscribeSession } from "../auth/session.ts";
@@ -12,6 +12,23 @@ import type { HomeQueryResult } from "../net/homeQueries.ts";
 import { INITIAL_VISIBILITY, type VisibilityTracker, onHidden, onVisible } from "../pwa/updatePolicy.ts";
 
 export type SummaryLoadResult = HomeQueryResult<SummaryGetResponse>;
+
+/** 묻기(요청 조각 받기 + 요청)를 기다리는 시간. 넘으면 이번에는 띄우지 않는다 */
+export const SUMMARY_ASK_TIMEOUT_MS = 10_000;
+
+const TIMED_OUT: SummaryLoadResult = { ok: false, error: "err_network", sessionEnded: false };
+const LOAD_THREW: SummaryLoadResult = { ok: false, error: "err_unknown", sessionEnded: false };
+
+/** load를 ms까지만 기다린다. load가 끝나지 않거나(조각 받기가 멈춤) 던져도 실패 값으로 끝난다 */
+function settleWithin(load: Promise<SummaryLoadResult>, ms: number): Promise<SummaryLoadResult> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<SummaryLoadResult>((resolve) => {
+    timer = setTimeout(() => resolve(TIMED_OUT), ms);
+  });
+  return Promise.race([load.catch((): SummaryLoadResult => LOAD_THREW), timeout]).finally(() => {
+    clearTimeout(timer);
+  });
+}
 
 /** 띄울 요약과 그 계정 */
 export interface PendingSummary {
@@ -58,7 +75,7 @@ export function createSummaryGate(deps: SummaryGateDeps): SummaryGate {
     const viewer = deps.viewer();
     if (viewer === null || asking === viewer.userId) return;
     asking = viewer.userId;
-    const result = await deps.load(viewer.preview);
+    const result = await settleWithin(deps.load(viewer.preview), SUMMARY_ASK_TIMEOUT_MS);
     if (asking === viewer.userId) asking = null;
     // 그사이 다른 계정으로 바뀌었거나 로그아웃했다
     if (deps.viewer()?.userId !== viewer.userId) return;

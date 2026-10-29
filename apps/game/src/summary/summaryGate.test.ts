@@ -1,7 +1,8 @@
-// 복귀 요약을 물을 때 시험 — 로그인한 계정이 정해질 때 한 번, 30분 넘게 숨겼다가 다시 볼 때, 닫으면 지운다(ADR 2026-10-29-app-shell 8절, D-6014·D-266)
+// 복귀 요약을 물을 때 시험 — 로그인한 계정이 정해질 때 한 번, 30분 넘게 숨겼다가 다시 볼 때, 닫으면 지운다,
+// 멈춘 묻기는 10초에 그만둔다(ADR 2026-10-29-app-shell 8절, D-6014·D-266)
 import type { SummaryGetResponse } from "@terra/shared/inbox";
-import { describe, expect, it } from "vitest";
-import { type SummaryLoadResult, createSummaryGate } from "./summaryGate.ts";
+import { describe, expect, it, vi } from "vitest";
+import { SUMMARY_ASK_TIMEOUT_MS, type SummaryLoadResult, createSummaryGate } from "./summaryGate.ts";
 
 const SHOW: SummaryGetResponse = {
   show: true,
@@ -159,6 +160,60 @@ describe("복귀 요약을 물을 때", () => {
     await flush();
     expect(t.gate.getPending()).toBeNull();
     expect(t.sessionChecks()).toBe(1);
+  });
+
+  it("묻기가 끝나지 않으면(요청 조각 받기가 멈춤) 10초에 그만두고, 다음 물을 때(30분 숨김 뒤) 다시 묻는다", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const t = setup();
+      t.manual();
+      t.gate.sessionChanged();
+      expect(t.asked).toHaveLength(1);
+      // 묻는 중: 같은 계정으로 다시 물을 때가 와도 하나로
+      t.gate.hidden();
+      t.at(31 * MIN);
+      t.gate.visible();
+      expect(t.asked).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(SUMMARY_ASK_TIMEOUT_MS);
+      expect(t.gate.getPending()).toBeNull();
+      // 그만둔 뒤에는 다음 물을 때 다시 묻는다(예전에는 묻는 중 표시가 남아 다시 묻지 않았다)
+      t.gate.hidden();
+      t.at(62 * MIN);
+      t.gate.visible();
+      expect(t.asked).toHaveLength(2);
+      t.waiting[1]?.({ ok: true, data: SHOW });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(t.gate.getPending()?.userId).toBe("user_1");
+      // 늦게 온 첫 답은 버린다(이미 그만뒀다)
+      t.gate.dismiss();
+      t.waiting[0]?.({ ok: true, data: SHOW });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(t.gate.getPending()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("load가 던져도 띄우지 않고, 다음 물을 때 다시 묻는다", async () => {
+    let calls = 0;
+    let now = 0;
+    const gate = createSummaryGate({
+      load: () => {
+        calls += 1;
+        return Promise.reject(new Error("boom"));
+      },
+      viewer: () => ({ userId: "user_1", preview: false }),
+      now: () => now,
+      onSessionEnded: () => {},
+    });
+    gate.sessionChanged();
+    await flush();
+    expect(gate.getPending()).toBeNull();
+    gate.hidden();
+    now = 31 * MIN;
+    gate.visible();
+    await flush();
+    expect(calls).toBe(2);
   });
 
   it("바뀔 때마다 듣는 쪽에 알린다", async () => {

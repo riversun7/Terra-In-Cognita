@@ -117,7 +117,7 @@ export function runPlanetGenerator(
   onStage("erosion");
 
   const balance = waterBalance(grid, flow, elevation, runoff, climate.temperature, settings.lakePercent);
-  const rivers = findRivers(grid, flow, elevation, balance, ocean, settings.riverDensityPercent);
+  const rivers = findRivers(grid, flow, elevation, balance, ocean, runoff, settings.riverDensityPercent);
   onStage("hydrology");
 
   const surface = buildSurface(

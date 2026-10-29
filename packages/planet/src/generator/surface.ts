@@ -1,15 +1,20 @@
 // 생성 6~8단계: 수심 등급 → 습도 → 바이옴 → 숲 밀도, 그리고 저장 값(정수)으로 바꾸기
 // - 저장 고도(게임 m) = (실제 환산 고도 − 해수면) ÷ 12, 반올림(ADR 36 고도 1:12). 메운 평지·마른 분지는 채운 높이.
 // - 수심 등급(바다만): 실제 환산 깊이 60m 미만 연안, 200m 미만 대륙붕, 그 밖은 심해.
-// - 습도(0~255) = 255 × AI / (AI + 0.75), AI = 강수 ÷ 증발 가능량. 강·호수 옆은 더한다. 바다·호수는 255.
+// - 습도(0~255) = 255 × AI / (AI + 0.75), AI = 강수 ÷ 증발 가능량. 바다·호수는 255.
+//   강가·호숫가 가산: 물가에서 RIPARIAN_REACH(실제 환산 km) 안쪽 땅에 더한다. 칸이 그 띠보다 크면 칸 면적 중 띠가
+//   차지하는 몫만큼만 더한다(riverShare·lakeShare). 강은 칸 안에서 강이 차지하는 길이 몫(Rivers.length)도 곱한다.
+//   그래서 가산을 받는 땅의 면적이 면 레벨과 무관하다(편집기 미리보기 F6~7의 바이옴 면적 ≈ 굽기 F9, 시험).
 // - 바이옴: 저장한 기온·습도·고도로 고른다(그래서 출력만 보고도 판정을 다시 할 수 있다).
 // - 숲 밀도 = 바이옴 기본값 × 습도 비율 × 노이즈(0.85 ~ 1.15).
 import type { OceanDepthClass } from "@terra/shared";
 import type { FlowNetwork } from "./flood.ts";
-import { type PlanetGrid, neighbors8 } from "./grid.ts";
+import { type PlanetGrid, areaOf, neighbors8 } from "./grid.ts";
 import { CELL_DRY, CELL_FILLED, CELL_LAKE, type Rivers, potentialEvaporation } from "./hydrology.ts";
 import { fbm3 } from "./noise.ts";
+import { distanceField } from "./queues.ts";
 import { STREAM_FOREST, streamSeed } from "./random.ts";
+import { LAKE_SHORE_BONUS, RIPARIAN_REACH, lakeShare, riverBonus, riverShare } from "./riparian.ts";
 import {
   DEPTH_CLASS_SHIFT,
   DEPTH_COASTAL,
@@ -137,6 +142,11 @@ export function buildSurface(
   const forest = new Uint8Array(count);
   const forestSeed = streamSeed(seed, STREAM_FOREST);
   const out = new Int32Array(8);
+  // 강·호수까지 거리(8이웃 길, 라디안). 가산 띠 밖(닿는 거리 + 칸 두 개)은 볼 필요가 없다. 바다로는 넘어가지 않는다
+  const reach = RIPARIAN_REACH + 2 * grid.meanCellAngle;
+  const overLand = (_from: number, to: number) => ocean[to] !== 1;
+  const nearRiver = distanceField(grid, (c) => (rivers.order[c] ?? 0) > 0, reach, overLand);
+  const nearLake = distanceField(grid, (c) => rivers.basinKind[c] === CELL_LAKE, reach, overLand);
   for (let c = 0; c < count; c++) {
     const kind = rivers.basinKind[c] ?? 0;
     const ground = kind === CELL_FILLED || kind === CELL_DRY ? (flow.filled[c] ?? 0) : (elevation[c] ?? 0);
@@ -161,27 +171,31 @@ export function buildSurface(
       water[c] = bits;
       continue;
     }
-    // 바다가 아닌 칸: 해안, 강·호수 옆
+    // 바다가 아닌 칸: 해안(8이웃에 바다), 강, 호수
     neighbors8(grid, c, out);
-    let nearWater = isLake ? 30 : 0;
     for (let k = 0; k < 8; k++) {
       const next = out[k] ?? -1;
-      if (next < 0) continue;
-      if (ocean[next] === 1) bits |= WATER_COAST;
-      if (rivers.basinKind[next] === CELL_LAKE) nearWater = Math.max(nearWater, 24);
-      const order = rivers.order[next] ?? 0;
-      if (order > 0) nearWater = Math.max(nearWater, 14 + 5 * Math.min(order, 6));
+      if (next >= 0 && ocean[next] === 1) bits |= WATER_COAST;
     }
-    if ((river[c] ?? 0) > 0) {
-      bits |= WATER_RIVER;
-      nearWater = Math.max(nearWater, 14 + 5 * Math.min(river[c] ?? 0, 6));
-    }
+    if ((river[c] ?? 0) > 0) bits |= WATER_RIVER;
     if (isLake) bits |= WATER_LAKE;
     water[c] = bits;
     if (isLake) {
       humidity[c] = 255;
       biome[c] = table.lake;
       continue;
+    }
+    // 강가·호숫가 가산: 띠가 이 칸 면적에서 차지하는 몫만큼 (칸 폭 = √면적)
+    const size = Math.sqrt(areaOf(grid, c));
+    let nearWater = 0;
+    const riverCell = nearRiver.source[c] ?? -1;
+    if (riverCell >= 0) {
+      // 가장 가까운 강 칸에서 강이 차지하는 길이 몫을 곱한다(칸 중간에서 시작하는 강 머리)
+      const share = riverShare(nearRiver.angle[c] ?? 0, size) * (rivers.length[riverCell] ?? 0);
+      nearWater = riverBonus(rivers.order[riverCell] ?? 0) * share;
+    }
+    if ((nearLake.source[c] ?? -1) >= 0) {
+      nearWater = Math.max(nearWater, LAKE_SHORE_BONUS * lakeShare(nearLake.angle[c] ?? 0, size));
     }
     const aridity = p / potentialEvaporation(t);
     const h = clamp(Math.round((255 * aridity) / (aridity + 0.75) + nearWater), 0, 255);

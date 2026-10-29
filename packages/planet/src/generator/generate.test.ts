@@ -115,22 +115,46 @@ function mean(values: ArrayLike<number>): number {
 const highest = (fields: PlanetFields) =>
   fields.elevationM.reduce((max, value) => Math.max(max, value), -32768);
 
+/** 육지(바다·호수가 아닌 칸) 면적으로 잰 바이옴 비율(바이옴 번호 순서)과 평균 습도·숲 밀도 */
+function landSummary(faceLevel: number, fields: PlanetFields) {
+  const grid = buildGrid(faceLevel);
+  const shares = new Float64Array(TEST_BIOMES.length);
+  let land = 0;
+  let humidity = 0;
+  let forest = 0;
+  for (let c = 0; c < grid.cellCount; c++) {
+    if ((fields.water[c] ?? 0) & (WATER_OCEAN | WATER_LAKE)) continue;
+    const area = areaOf(grid, c);
+    const biome = fields.biome[c] ?? 0;
+    land += area;
+    shares[biome] = (shares[biome] ?? 0) + area;
+    humidity += area * (fields.humidity[c] ?? 0);
+    forest += area * (fields.forest[c] ?? 0);
+  }
+  return {
+    shares: Array.from(shares, (value) => value / land),
+    humidity: humidity / land,
+    forest: forest / land,
+  };
+}
+
 describe("골든 해시 (값이 바뀌면 GENERATOR_VERSION을 올리고 새 값으로 고친다)", () => {
   it("생성기 버전", () => {
     expect(GENERATOR_VERSION).toBe(1);
   });
 
-  // 2026-10-29 기록(Node 24.22.1). 결정성 규칙(사칙연산 + 명세가 정한 함수)상 다른 엔진에서도 같아야 한다
+  // 2026-10-29 기록(Node 24.22.1). 결정성 규칙(사칙연산 + 명세가 정한 함수)상 다른 엔진에서도 같아야 한다.
+  // 강가·호숫가 가산을 해상도와 무관하게 고치며 바꿨다(1판은 아직 내보낸 적이 없어 버전은 1 그대로)
   it("면 레벨 5, 시드 1, 프리셋 군도·더움·습윤·젊음·많음·많음", () => {
-    expect(run(5, 1, STRESS_PRESETS).fields.meta.hash).toBe("52614b12");
+    expect(run(5, 1, STRESS_PRESETS).fields.meta.hash).toBe("005378e0");
   });
 
   it("S2 시험 행성 설정(시드 20261029, 모두 보통)을 면 레벨 5로", () => {
-    expect(run(5, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("3321d859");
+    expect(run(5, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("5c984c77");
   });
 
   it("S2 시험 행성 설정을 면 레벨 6으로", () => {
-    expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("e04b0413");
+    expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("215d9b32");
   });
 });
 
@@ -346,6 +370,22 @@ describe("해상도와 무관한 큰 모양 (편집기 미리보기 = 낮은 면
       }
     }
     expect(same / (6 * 32 * 32)).toBeGreaterThan(0.9);
+  });
+
+  it("육지 바이옴 면적 비율은 면 레벨 6(미리보기)과 8에서 바이옴마다 2.5%p 안, 평균 습도 3%·숲 밀도 6% 안", {
+    timeout: 60_000,
+  }, () => {
+    // 2026-10-29 잰 값: 가장 큰 차이는 사바나 1.93%p, 습도 1.2%, 숲 3.5%. 사바나 차이는 강가 가산을 꺼도 1.9%p라
+    // 기후 쪽에서 온다(원인 미확인). 강가 가산이 칸 크기를 따라가던 때는 사바나 6.1%p·열대우림 5.4%p, 습도 7.6%,
+    // 숲 20%였다(surface.ts·riparian.ts).
+    const coarse = landSummary(6, run(6, S2_TEST_PLANET_SEED).fields);
+    const fine = landSummary(8, run(8, S2_TEST_PLANET_SEED).fields);
+    TEST_BIOMES.forEach((biome, index) => {
+      const difference = Math.abs((coarse.shares[index] ?? 0) - (fine.shares[index] ?? 0));
+      expect(difference, biome.id).toBeLessThan(0.025);
+    });
+    expect(Math.abs(coarse.humidity / fine.humidity - 1)).toBeLessThan(0.03);
+    expect(Math.abs(coarse.forest / fine.forest - 1)).toBeLessThan(0.06);
   });
 });
 

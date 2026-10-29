@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-30 00:45 | 앱 뼈대 W5 검토 고침: 같은 트리의 두 번째 실행, 계정 메뉴·홈, 신호, 프로세스 확인, 누르는 곳 검사, 크기 값 출처 | Claude Code | [30-0045-app-shell-w5-review](worklog/2026/10/30-0045-app-shell-w5-review.md) |
 | 2026-10-29 23:00 | 앱 뼈대 W5: 화면 시험 틀(e2e/)과 첫 화면 JS 크기 검사 | Claude Code | [29-2300-app-shell-w5](worklog/2026/10/29-2300-app-shell-w5.md) |
 | 2026-10-29 21:00 | 단위 시험 제한 시간 30초(공유 개발 컨테이너 부하) | Claude Code | [29-2100-bake-test-timeout](worklog/2026/10/29-2100-bake-test-timeout.md) |
 | 2026-10-29 21:00 | 앱 뼈대 0단계 검토 반영: 주소 표 타입·값 규칙, 부모 화면·검색어 바꾸기, 설정 쓰기 도우미, 완료 종류, ADR 37 문장 | Claude Code | [29-2100-app-shell-stage0-review](worklog/2026/10/29-2100-app-shell-stage0-review.md) |

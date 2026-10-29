@@ -30,6 +30,7 @@ export {
 export {
   PLANET_DRAFT_ENTRY_MAX_BYTES,
   PLANET_DRAFT_REJECT_CODES,
+  PLANET_EDITOR_CHECK_FACE_LEVEL,
   isPlanetDraftRejectCode,
   planetDraftEntryBytes,
   utf8ByteLength,

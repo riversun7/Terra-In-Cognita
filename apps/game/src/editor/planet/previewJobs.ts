@@ -9,7 +9,7 @@
 //   다시 세운다. 초안이 공개본과 같아 공개본 청이 초안 일에 합쳐졌다가 초안이 바뀌어도 공개본 결과를 잃지 않게(검토 지적).
 // - 원하지 않게 된 도는 일(초안·공개본)도 기후 전이면 끝낸다(retainWanted): 보지 않을 F9 공개본이 초안 일을 막지 않게.
 // 이 파일은 상태와 "할 일"만 계산한다. 워커를 다루는 일은 previewController.ts가 한다.
-import { PLANET_GENERATOR_FACE_LEVELS } from "@terra/shared";
+import { PLANET_EDITOR_CHECK_FACE_LEVEL, PLANET_GENERATOR_FACE_LEVELS } from "@terra/shared";
 import type { GeneratorStage, PlanetGeneratorInput } from "@terra/planet/generator";
 import type { PreviewStage } from "./previewProtocol.ts";
 import { stableJson } from "./stableJson.ts";
@@ -17,8 +17,8 @@ import { stableJson } from "./stableJson.ts";
 export type PreviewLane = "quick" | "final";
 export type PreviewRole = "base" | "draft";
 
-/** 빠른 줄 면 레벨(ADR 38: 빠른 F5) */
-export const QUICK_LEVEL = 5;
+/** 빠른 줄 면 레벨(ADR 38: 빠른 F5) = 서버 확인 해시 레벨(공용 값 하나: 열 때 공개본을 이 레벨로 만들어 서버와 견준다) */
+export const QUICK_LEVEL = PLANET_EDITOR_CHECK_FACE_LEVEL;
 /** 본 줄 기본 면 레벨(ADR 38: 기본 F7) */
 export const DEFAULT_FINAL_LEVEL = 7;
 /** 본 줄에서 고를 수 있는 가장 낮은 면 레벨(F6) */

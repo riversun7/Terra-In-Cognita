@@ -3,15 +3,22 @@
 // 서버는 틀리면 BAD_REQUEST와 아래 코드 하나를 준다(문장은 주지 않는다). 화면은 코드를 메시지 키로 바꾼다(ko·en).
 // 기기 가져오기는 초안을 바꾸기 전에 같은 검사를 먼저 해서 같은 코드를 낸다. 콘텐츠 형식 전체 검사(planetEntrySchema: 이름 등)는
 // 서버만 한다(게임 앱은 콘텐츠 패키지를 가져오지 않는다). 그래서 기기 검사를 통과해도 서버가 invalid_entry를 줄 수 있다.
+// 저장은 행성 ID(초안 열쇠)를 따로 받는다. 항목의 id가 그 행성과 다르면 invalid_entry다(다른 행성에서 내보낸 것을 가져올 때).
 
 /** 직렬화한 행성 항목(planetDraftEntryBytes)의 상한(바이트) */
 export const PLANET_DRAFT_ENTRY_MAX_BYTES = 8 * 1024;
 
 /**
+ * 편집기 확인 면 레벨 = 기기 빠른 미리보기 레벨(행성이 더 작으면 그 면 레벨). 서버는 켤 때 팩 행성마다 이 레벨로 만든 결과
+ * 해시를 정의 조회(check)로 주고, 기기는 열 때 공개본을 같은 레벨로 만들어 견준다(ADR 38 3·6절). 서버·기기가 이 값 하나를 쓴다
+ */
+export const PLANET_EDITOR_CHECK_FACE_LEVEL = 5;
+
+/**
  * 받지 않음 코드(검사 차례대로):
- * entry_too_large = 직렬화한 항목이 상한을 넘음, invalid_entry = 항목 모양이 틀림(콘텐츠 형식·생성기 입력 모양),
- * unknown_biome = 팩에 없는 바이옴 참조, unknown_planet = 팩에 없는 행성 ID, generator_rejected = 생성기 입력 확인
- * (validatePlanetInput) 실패
+ * entry_too_large = 직렬화한 항목이 상한을 넘음, invalid_entry = 항목 모양이 틀림(콘텐츠 형식·생성기 입력 모양, 항목 id가
+ * 저장할 행성 ID와 다름), unknown_biome = 팩에 없는 바이옴 참조, unknown_planet = 팩에 없는 행성 ID,
+ * generator_rejected = 생성기 입력 확인(validatePlanetInput) 실패
  */
 export const PLANET_DRAFT_REJECT_CODES = [
   "entry_too_large",

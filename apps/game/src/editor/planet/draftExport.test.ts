@@ -182,19 +182,37 @@ describe("항목 크기(서버 drafts.save와 같은 8KiB)", () => {
 describe("팩과 견주기(초안을 바꾸기 전에)", () => {
   const pack = { planetIds: ["s2_test_planet", "s2_editor_planet"], biomes: PACK_BIOMES };
 
+  const open = String(planet.id);
+
   it("팩 행성·바이옴이고 생성기가 받으면 null", () => {
-    expect(checkDraftForPack(planet, pack)).toBeNull();
+    expect(checkDraftForPack(planet, pack, open)).toBeNull();
   });
 
-  it("서버와 같은 차례·코드: 크기·모양 → 바이옴 → 행성 ID → 생성기 입력", () => {
-    expect(checkDraftForPack(bigEntry(PLANET_DRAFT_ENTRY_MAX_BYTES + 1), pack)).toBe("entry_too_large");
-    expect(checkDraftForPack({ ...planet, seed: -1 }, pack)).toBe("invalid_entry");
-    expect(checkDraftForPack({ ...planet, biomes: ["desert", "no_such_biome"] }, pack)).toBe("unknown_biome");
-    expect(checkDraftForPack({ ...planet, id: "other_planet" }, pack)).toBe("unknown_planet");
-    // 바다·호수 규칙이 없는 바이옴 표는 생성기가 받지 않는다(모양은 맞다)
-    expect(checkDraftForPack({ ...planet, biomes: ["desert", "savanna"] }, pack)).toBe("generator_rejected");
-    expect(checkDraftForPack({ ...planet, biomes: ["no_such_biome"], id: "other_planet" }, pack)).toBe(
+  it("서버와 같은 차례·코드: 크기·모양 → 항목 id = 열린 행성 → 바이옴 → 행성 ID → 생성기 입력", () => {
+    expect(checkDraftForPack(bigEntry(PLANET_DRAFT_ENTRY_MAX_BYTES + 1), pack, open)).toBe("entry_too_large");
+    expect(checkDraftForPack({ ...planet, seed: -1 }, pack, open)).toBe("invalid_entry");
+    expect(checkDraftForPack({ ...planet, biomes: ["desert", "no_such_biome"] }, pack, open)).toBe(
       "unknown_biome",
     );
+    // 팩에 없는 행성을 열었을 때(항목 id도 그것)
+    expect(checkDraftForPack({ ...planet, id: "other_planet" }, pack, "other_planet")).toBe("unknown_planet");
+    // 바다·호수 규칙이 없는 바이옴 표는 생성기가 받지 않는다(모양은 맞다)
+    expect(checkDraftForPack({ ...planet, biomes: ["desert", "savanna"] }, pack, open)).toBe(
+      "generator_rejected",
+    );
+    expect(
+      checkDraftForPack({ ...planet, biomes: ["no_such_biome"], id: "other_planet" }, pack, "other_planet"),
+    ).toBe("unknown_biome");
+  });
+
+  it("다른 행성의 항목(id가 열린 행성과 다름)은 invalid_entry: 팩에 있는 행성이어도, 바이옴 문제보다 먼저", () => {
+    const other = open === "s2_editor_planet" ? "s2_test_planet" : "s2_editor_planet";
+    expect(checkDraftForPack({ ...planet, id: other }, pack, open)).toBe("invalid_entry");
+    expect(checkDraftForPack({ ...planet, id: "other_planet" }, pack, open)).toBe("invalid_entry");
+    expect(checkDraftForPack({ ...planet, id: other, biomes: ["no_such_biome"] }, pack, open)).toBe(
+      "invalid_entry",
+    );
+    // 열린 행성이 그 행성이면 받는다
+    expect(checkDraftForPack({ ...planet, id: other }, pack, other)).toBeNull();
   });
 });

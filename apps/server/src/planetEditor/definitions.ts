@@ -6,14 +6,15 @@
 // 이 자료에는 시드가 들어 있다: 권한(planetEditor:read)을 본 뒤 감사 기록을 쓰고 나서만 보낸다(trpc/planetEditor.ts).
 import { performance } from "node:perf_hooks";
 import { GENERATOR_VERSION, generatePlanet, planetInputFromDefinition } from "@terra/planet/generator";
+import { PLANET_EDITOR_CHECK_FACE_LEVEL } from "@terra/shared";
 import type { RawPackEntries, ServerContent } from "../content.ts";
 import { type PlanetSourceSpec, createPlanetSource } from "../planet/sources.ts";
 import type { JsonObject, PlanetEditorDefinitions, PlanetEditorPlanet } from "./types.ts";
 
-/** 확인 해시를 만드는 면 레벨 = 편집기 빠른 미리보기 레벨(apps/game previewJobs.ts의 빠른 줄, ADR 38 3·6절) */
-export const PLANET_EDITOR_CHECK_FACE_LEVEL = 5;
-
-/** 행성 면 레벨 → 확인 레벨. 행성이 더 작으면 그 레벨(기기 빠른 줄도 min(5, 상한)이다) */
+/**
+ * 행성 면 레벨 → 확인 레벨. 확인 레벨 = 편집기 빠른 미리보기 레벨(@terra/shared PLANET_EDITOR_CHECK_FACE_LEVEL, 기기
+ * previewJobs.ts의 빠른 줄도 같은 값). 행성이 더 작으면 그 레벨(기기 빠른 줄도 min(그 값, 상한)이다)
+ */
 export function checkFaceLevelOf(planetFaceLevel: number): number {
   return Math.min(PLANET_EDITOR_CHECK_FACE_LEVEL, planetFaceLevel);
 }

@@ -1,13 +1,13 @@
 // 행성 편집기 정의 조회 자료 시험 — 저장소 팩, 확인 해시(기기와 같은 길), 정의 해시(목록 정보와 같은 값), 시작 로그 한 줄.
 // 해시·시드 값은 적지 않는다(생성기 판이 바뀌어도 그대로 돈다): 같은 값을 다른 길로 다시 만들어 견준다.
 import { GENERATOR_VERSION, generatePlanet, planetInputFromDefinition } from "@terra/planet/generator";
+import { PLANET_EDITOR_CHECK_FACE_LEVEL } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import { createInlineBaker } from "../planet/baker.ts";
 import { createPlanetService } from "../planet/service.ts";
 import { createPlanetSource, planetSpecsFromPack } from "../planet/sources.ts";
 import { recordingLog } from "../planet/testSupport.ts";
 import {
-  PLANET_EDITOR_CHECK_FACE_LEVEL,
   PLANET_EDITOR_READY_MESSAGE,
   buildPlanetEditorDefinitions,
   checkFaceLevelOf,

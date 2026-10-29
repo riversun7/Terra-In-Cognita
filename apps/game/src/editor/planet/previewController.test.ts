@@ -1,115 +1,15 @@
 // 미리보기 관리자 시험 — 가짜 워커로: 열 때 순서, 줄마다 하나 + 기다림, 낡은 본 일(기후 전 다시 띄움), 결과 기억·고정·F9 버림,
 // 꺼짐 감지 표시, 워커 죽음·못 씀, 멈춤, 입력 틀림. 결과는 가짜(관리자는 면 레벨·해시·바이트만 읽는다)
-import { PLANET_GENERATOR_FACE_LEVELS, resolvePlanetSettings, NORMAL_PRESETS } from "@terra/shared";
+import { PLANET_GENERATOR_FACE_LEVELS } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import { withSeed, withSetting } from "./editorModel.ts";
-import { createPreviewController } from "./previewController.ts";
-import type { PreviewRequest, PreviewResultData, PreviewStage } from "./previewProtocol.ts";
-import type { PreviewWorkerFactory, PreviewWorkerHandlers } from "./previewTypes.ts";
+import { controllerKit as setup } from "./previewTestKit.ts";
 import { TEST_PLANET, definitionOf } from "./testDefinitions.ts";
 
 const HIGHEST = PLANET_GENERATOR_FACE_LEVELS[1];
 const BASE = definitionOf(TEST_PLANET);
 const DRAFT = definitionOf(withSetting(TEST_PLANET, "landPercent", 40));
 const OTHER = definitionOf(withSeed(TEST_PLANET, 7));
-
-interface FakeWorker {
-  readonly handlers: PreviewWorkerHandlers;
-  readonly posted: PreviewRequest[];
-  terminated: boolean;
-}
-
-/** 가짜 결과(관리자가 읽는 것만 의미 있다) */
-function fakeResult(level: number, outputBytes = 1000): PreviewResultData {
-  const one = 1;
-  return {
-    fields: {
-      elevationM: new Int16Array(one),
-      biome: new Uint8Array(one),
-      temperatureC: new Int8Array(one),
-      precipitationMm: new Uint16Array(one),
-      humidity: new Uint8Array(one),
-      water: new Uint8Array(one),
-      river: new Uint8Array(one),
-      forest: new Uint8Array(one),
-      meta: {
-        generatorVersion: 1,
-        seed: 1,
-        faceLevel: level,
-        settings: resolvePlanetSettings(NORMAL_PRESETS),
-        hash: `0000000${level}`,
-      },
-    },
-    levels: [],
-    corners: [],
-    summary: null,
-    seaLevelRealM: 0,
-    maxElevationM: 0,
-    generateMs: 1,
-    workerMs: 2,
-    outputBytes,
-  };
-}
-
-function setup(options: { cacheBytes?: number; deviceMaxLevel?: number | null; failCreate?: boolean } = {}) {
-  const workers: FakeWorker[] = [];
-  const sentinel: string[] = [];
-  let clock = 1000;
-  const factory: PreviewWorkerFactory = (handlers) => {
-    if (options.failCreate) throw new Error("no workers here");
-    const worker: FakeWorker = { handlers, posted: [], terminated: false };
-    workers.push(worker);
-    return {
-      post: (request) => worker.posted.push(request),
-      terminate: () => {
-        worker.terminated = true;
-      },
-    };
-  };
-  const controller = createPreviewController({
-    createWorker: factory,
-    now: () => clock,
-    sentinel: { begin: (level) => sentinel.push(`begin ${level}`), end: () => sentinel.push("end") },
-    ...(options.cacheBytes === undefined ? {} : { cacheBytes: options.cacheBytes }),
-    ...(options.deviceMaxLevel === undefined ? {} : { deviceMaxLevel: options.deviceMaxLevel }),
-  });
-  /** 살아 있는 워커 중 마지막으로 이 레벨 일을 받은 것 */
-  const workerAt = (level: number): FakeWorker => {
-    const found = workers.filter((w) => !w.terminated && w.posted.at(-1)?.input.faceLevel === level).at(-1);
-    if (!found) throw new Error(`no live worker is running a level-${level} job`);
-    return found;
-  };
-  const last = (worker: FakeWorker): PreviewRequest => {
-    const request = worker.posted.at(-1);
-    if (!request) throw new Error("worker has no job");
-    return request;
-  };
-  const finish = (worker: FakeWorker, outputBytes?: number): PreviewRequest => {
-    const request = last(worker);
-    worker.handlers.onReply({
-      kind: "result",
-      id: request.id,
-      key: request.key,
-      result: fakeResult(request.input.faceLevel, outputBytes),
-    });
-    return request;
-  };
-  const stage = (worker: FakeWorker, name: PreviewStage): void => {
-    worker.handlers.onReply({ kind: "stage", id: last(worker).id, stage: name });
-  };
-  return {
-    controller,
-    workers,
-    sentinel,
-    workerAt,
-    last,
-    finish,
-    stage,
-    tick: (ms: number) => {
-      clock += ms;
-    },
-  };
-}
 
 describe("미리보기 관리자: 열기", () => {
   it("빠른 줄 공개본 F5 → 본 줄 초안 F7, 공개본 F7은 뒤에 선다", () => {
@@ -227,7 +127,7 @@ describe("미리보기 관리자: 줄과 낡은 일", () => {
     expect(snapshot.lanes.final.running).toBeNull();
   });
 
-  it("본 줄 레벨을 바꾸면 초안·공개본을 그 레벨로 청하고 꺼짐 감지 표시를 남긴다", () => {
+  it("본 줄 레벨을 바꾸면 그 레벨로 청하고(F8 이상은 공개본을 미룬다) 꺼짐 감지 표시를 남긴다", () => {
     const t = setup();
     t.controller.open(BASE, BASE);
     t.finish(t.workerAt(7));
@@ -280,7 +180,7 @@ describe("미리보기 관리자: 결과 기억", () => {
     t.finish(t.workerAt(HIGHEST));
     t.controller.setDraft(DRAFT, "final");
     t.finish(t.workerAt(HIGHEST));
-    // 공개본 F9는 고정이라 남고, 초안 F9가 보인다
+    // 공개본 F9(초안 = 공개본일 때 만든 것)는 공개본 자리 열쇠라 고정으로 남고, 초안 F9가 보인다
     expect(t.controller.lookup(BASE, HIGHEST)).toBeDefined();
     expect(t.controller.lookup(DRAFT, HIGHEST)).toBeDefined();
     t.controller.setDraft(OTHER, "final");

@@ -1,10 +1,13 @@
 // 미리보기 작업 줄(순수) — ADR 38 3절, 설계 D.3 "Lanes"·"Stale final run"
 // 줄은 둘이다: 빠른 줄(F5, 열 때와 슬라이더를 끄는 동안)과 본 줄(기본 F7, F6·F8·F9는 고를 때). 줄마다 워커 하나.
 // - 줄마다 도는 일 하나 + 기다리는 초안 일 하나. 새 초안 일이 오면 기다리던 것을 바꾼다(가장 새 것만 남는다).
-// - 공개본 일(차이 열·번갈아 보기용)은 뒤에 줄 선다: 초안 일이 없을 때 돈다. 초안 일 때문에 끝내지 않는다.
-// - 본 줄의 낡은 일: 새 초안 일이 왔을 때 도는 초안 일이 기후 단계(climate)를 아직 알리지 않았으면 워커를 끝내고
+// - 공개본 일(차이 열·번갈아 보기용)은 뒤에 줄 선다: 기다리는 초안 일이 없을 때 돈다.
+// - 본 줄의 낡은 일: 새 초안 일이 왔을 때 도는 일(초안·공개본)이 기후 단계(climate)를 아직 알리지 않았으면 워커를 끝내고
 //   다시 띄워 새 일을 바로 시작한다(다시 띄우는 값 F7 약 0.3~0.4초). 기후를 지났으면 끝까지 두고(남은 일 약 12~17%)
 //   결과는 기억한다. 빠른 줄은 늘 끝까지 둔다(F5는 짧다).
+// - 밀려난 일(끝낸 도는 일, 바뀐 기다리는 일)의 열쇠를 아직 누가 청하고 있으면(needed) 공개본 일로 공개본 차례 맨 앞에
+//   다시 세운다. 초안이 공개본과 같아 공개본 청이 초안 일에 합쳐졌다가 초안이 바뀌어도 공개본 결과를 잃지 않게(검토 지적).
+// - 원하지 않게 된 도는 일(초안·공개본)도 기후 전이면 끝낸다(retainWanted): 보지 않을 F9 공개본이 초안 일을 막지 않게.
 // 이 파일은 상태와 "할 일"만 계산한다. 워커를 다루는 일은 previewController.ts가 한다.
 import { PLANET_GENERATOR_FACE_LEVELS } from "@terra/shared";
 import type { GeneratorStage, PlanetGeneratorInput } from "@terra/planet/generator";
@@ -20,6 +23,11 @@ export const QUICK_LEVEL = 5;
 export const DEFAULT_FINAL_LEVEL = 7;
 /** 본 줄에서 고를 수 있는 가장 낮은 면 레벨(F6) */
 export const MIN_FINAL_LEVEL = 6;
+/**
+ * 무거운 면 레벨(F8 이상): 시작 전에 꺼짐 감지 표시를 남기고(crashSentinel.ts), 공개본 본 결과는 화면이 청할 때만 만든다
+ * (previewController requestBaseFinal). F9는 데스크톱에서도 약 15초, 워커 타입 배열 최대 약 165MiB다(memoryEstimate.ts)
+ */
+export const HEAVY_PREVIEW_LEVEL = 8;
 
 /** 미리보기 면 레벨들 */
 export interface PreviewLevels {
@@ -86,14 +94,17 @@ export interface LaneState {
   readonly running: RunningJob | null;
   /** 기다리는 초안 일(가장 새 것 하나) */
   readonly pending: PreviewJob | null;
-  /** 기다리는 공개본 일(차례대로, 초안 일보다 뒤) */
+  /** 기다리는 공개본 일(차례대로, 초안 일보다 뒤). 밀려났지만 아직 필요한 일도 공개본 일로 여기에 선다 */
   readonly background: readonly PreviewJob[];
 }
 
 export interface LanePolicy {
-  /** 도는 초안 일이 이 단계를 알리기 전이면 새 초안 일에 자리를 내준다(워커를 끝내고 다시 띄움). null이면 늘 끝까지 둔다 */
+  /** 도는 일이 이 단계를 알리기 전이면 새 초안 일에 자리를 내준다(워커를 끝내고 다시 띄움). null이면 늘 끝까지 둔다 */
   readonly restartBefore: GeneratorStage | null;
 }
+
+/** 일이 아직 필요한가(청하는 자리가 있고 기억하지 않은 것). 관리자가 넘긴다 */
+export type JobNeeded = (job: PreviewJob) => boolean;
 
 export const QUICK_POLICY: LanePolicy = { restartBefore: null };
 export const FINAL_POLICY: LanePolicy = { restartBefore: "climate" satisfies GeneratorStage };
@@ -115,9 +126,29 @@ function start(job: PreviewJob): RunningJob {
   return { job, stage: null, pastRestartPoint: false };
 }
 
-/** 도는 일이 새 초안 일에 자리를 내줄 수 있는가(초안 일이고 문턱 단계 전) */
+/** 도는 일이 자리를 내줄 수 있는가(줄 정책이 있고 문턱 단계 전). 초안 일·공개본 일 모두 */
 function yieldable(running: RunningJob, policy: LanePolicy): boolean {
-  return policy.restartBefore !== null && running.job.role === "draft" && !running.pastRestartPoint;
+  return policy.restartBefore !== null && !running.pastRestartPoint;
+}
+
+/**
+ * 밀려난 일 중 아직 필요한 것을 공개본 일로 공개본 차례 맨 앞에 다시 세운다. 새 일(by)과 같은 열쇠, 이미 선 열쇠는 그대로 둔다
+ */
+function requeue(
+  state: LaneState,
+  by: PreviewJob,
+  displaced: readonly (PreviewJob | null)[],
+  needed: JobNeeded,
+): readonly PreviewJob[] {
+  const { background } = state;
+  const front: PreviewJob[] = [];
+  for (const job of displaced) {
+    if (!job || job.key === by.key || !needed(job)) continue;
+    if (front.some((item) => item.key === job.key) || background.some((item) => item.key === job.key))
+      continue;
+    front.push(job.role === "base" ? job : { ...job, role: "base" });
+  }
+  return front.length === 0 ? background : [...front, ...background];
 }
 
 /** 이 열쇠의 일이 줄에 이미 있는가(돌거나 기다리는) */
@@ -129,27 +160,47 @@ function queued(state: LaneState, key: string): boolean {
   );
 }
 
-/** 일을 줄에 넣는다 */
-export function submitJob(state: LaneState, job: PreviewJob, policy: LanePolicy): LaneStep {
+/** 일을 줄에 넣는다. 초안 일이 밀어낸 일(끝낸 도는 일, 바꾼 기다리는 일)은 needed면 공개본 일로 다시 선다 */
+export function submitJob(
+  state: LaneState,
+  job: PreviewJob,
+  policy: LanePolicy,
+  needed: JobNeeded,
+): LaneStep {
   if (job.role === "base") {
     if (queued(state, job.key)) return { state, commands: [] };
     if (!state.running)
       return { state: { ...state, running: start(job) }, commands: [{ kind: "post", job }] };
     return { state: { ...state, background: [...state.background, job] }, commands: [] };
   }
-  const { running } = state;
+  const { running, pending } = state;
   if (!running) {
-    return { state: { ...state, running: start(job), pending: null }, commands: [{ kind: "post", job }] };
+    return {
+      state: { running: start(job), pending: null, background: requeue(state, job, [pending], needed) },
+      commands: [{ kind: "post", job }],
+    };
   }
-  // 도는 일이 바로 이 일이면 기다리던 낡은 일만 버린다
-  if (running.job.key === job.key) return { state: { ...state, pending: null }, commands: [] };
+  // 도는 일이 바로 이 일이면 기다리던 낡은 일만 뺀다
+  if (running.job.key === job.key) {
+    return {
+      state: { ...state, pending: null, background: requeue(state, job, [pending], needed) },
+      commands: [],
+    };
+  }
   if (yieldable(running, policy)) {
     return {
-      state: { ...state, running: start(job), pending: null },
+      state: {
+        running: start(job),
+        pending: null,
+        background: requeue(state, job, [running.job, pending], needed),
+      },
       commands: [{ kind: "restart", dropped: running.job, job }],
     };
   }
-  return { state: { ...state, pending: job }, commands: [] };
+  return {
+    state: { ...state, pending: job, background: requeue(state, job, [pending], needed) },
+    commands: [],
+  };
 }
 
 /** 워커가 단계를 알렸다(도는 일이 아니면 그대로) */
@@ -192,8 +243,8 @@ export function cancelLane(state: LaneState): LaneStep {
 }
 
 /**
- * 더 원하지 않는 일을 뺀다: 기다리는 일 중 wanted가 false인 것은 버리고, 도는 일이 원하지 않는 초안 일이고
- * 자리를 내줄 수 있으면(본 줄, 기후 전) 워커를 끝내고 다음 원하는 일을 시작한다.
+ * 더 원하지 않는 일을 뺀다: 기다리는 일 중 wanted가 false인 것은 버리고, 도는 일(초안·공개본)을 원하지 않고
+ * 자리를 내줄 수 있으면(본 줄, 기후 전) 워커를 끝내고 다음 원하는 일을 시작한다. 기후를 지난 일은 끝까지 둔다.
  */
 export function retainWanted(
   state: LaneState,

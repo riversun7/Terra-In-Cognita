@@ -73,7 +73,11 @@ export interface PreviewEntry {
   readonly sequence: number;
 }
 
-export type RoleStatus = "idle" | "queued" | "running" | "ready" | "failed" | "cancelled";
+/**
+ * 자리 상태. deferred = 열쇠는 정했지만 화면이 청할 때까지 만들지 않음(무거운 레벨 F8·F9의 공개본 본 결과,
+ * requestBaseFinal로 청한다. 초안이 공개본과 같으면 초안 결과로 바로 ready가 된다)
+ */
+export type RoleStatus = "idle" | "queued" | "running" | "ready" | "failed" | "cancelled" | "deferred";
 
 /** 자리 하나(공개본·초안 × 빠른·본)의 상태 */
 export interface RoleView {
@@ -117,15 +121,23 @@ export interface PreviewController {
   open(base: PreviewDefinition, draft: PreviewDefinition): void;
   /** 초안이 바뀌었다: quick = 슬라이더를 끄는 중(F5), final = 놓음·프리셋·시드(본 줄 레벨) */
   setDraft(draft: PreviewDefinition, lane: PreviewLane): void;
-  /** 본 줄 레벨(F6~상한, 고를 수 있는 값으로 맞춘다) */
+  /** 본 줄 레벨(F6~상한, 고를 수 있는 값으로 맞춘다). F8 이상이면 공개본 본 결과는 deferred(requestBaseFinal) */
   setFinalLevel(level: number): void;
+  /**
+   * 무거운 레벨(F8·F9)에서 공개본 본 결과를 만든다(번갈아 보기·면적 차이 열을 그 레벨로 보려 할 때. 화면이 확인 창을 띄운다).
+   * 그 레벨에 있는 동안만 유효하다: 레벨을 바꾸거나 멈추거나 다시 열면 다시 deferred가 된다
+   */
+  requestBaseFinal(): void;
   /** 기기 상한을 바꾼다([다시 허용] 등) */
   setDeviceMaxLevel(level: number | null): void;
   /** 본 줄을 멈춘다(F8·F9 [멈춤]): 도는 일은 워커를 끝내 버리고 기다리는 일도 버린다 */
   cancelFinal(): void;
   /** 기억한 결과(정의와 면 레벨). 없거나 입력이 틀렸으면 undefined */
   lookup(definition: PreviewDefinition, level: number): PreviewEntry | undefined;
-  /** 이 정의로 만든 결과의 해시(면 레벨 오름차순) — 내보내기 checks */
+  /**
+   * 이 정의로 만든 결과의 해시(면 레벨 오름차순) — 내보내기 checks. 결과 기억에서 버린 결과(F9 등)의 해시도 남는다
+   * (최근 HASH_MEMO_LIMIT개 열쇠)
+   */
   checks(definition: PreviewDefinition): { faceLevel: number; hash: string }[];
   subscribe(listener: () => void): () => void;
   getSnapshot(): PreviewSnapshot;

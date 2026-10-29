@@ -85,6 +85,8 @@ jobs:
         run: pnpm build
       - name: PWA 빌드 결과 (manifest·아이콘·theme-color, sw.js의 화면 이동 제외 경로·SKIP_WAITING)
         run: node scripts/check-pwa.mjs
+      - name: 첫 화면 JS 크기 (빌드한 index.html의 모듈 + modulepreload, 파일마다 gzip 9단계 합 ≤ apps/game/bundle-budget.json)
+        run: pnpm check:bundle
 
   secrets:
     runs-on: ubuntu-24.04

@@ -103,6 +103,8 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
 ## 문제가 생기면
 - **실행기가 계속 다시 시작된다**(로그에 `DISABLE_AUTOMATIC_DEREGISTRATION should be set to true`): compose에 `DISABLE_AUTOMATIC_DEREGISTRATION: "true"`가 없거나 `tic-runner/config` 폴더가 없는 것이다. 프로젝트를 중지하고 YAML을 저장소의 `ops/runner/compose.yml`로 바꾼 뒤(토큰은 새로 받아 넣는다) 다시 빌드한다.
 
+- **행성 캐시를 쓰지 못한다**(로그에 `planet cache write failed`, `EACCES`, 배포 로그에 "행성 캐시 폴더에 쓰지 못합니다"): 시놀로지 공유 폴더 아래 새 폴더는 root가 만들어도 권한이 555(쓰기 없음)다. `deploy.sh`가 `planet-cache`에 소유자 1000과 권한 755를 준다. 손으로 고치려면 SSH에서 `sudo chown 1000:1000 /volume1/docker/terra-in-cognita/planet-cache && sudo chmod 755 /volume1/docker/terra-in-cognita/planet-cache`. 확인은 Actions → **nas-facts**의 "데이터 폴더 권한". 앱은 캐시 없이도 돈다(다시 켤 때마다 약 18초 굽는다).
+
 ## 참고
 - 실행기는 NAS의 Docker를 제어할 수 있다. 배포 작업은 main 브랜치 실행에서만 돈다. 저장소에 쓰기 권한을 가진 사람만 작업을 실행할 수 있으니 협업자를 추가할 때 주의한다.
 - 실행기를 다시 설치하려면 토큰을 새로 받아 2단계를 다시 한다.

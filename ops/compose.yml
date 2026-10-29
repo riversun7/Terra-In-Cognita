@@ -25,7 +25,7 @@ services:
       S1_TEST_BOTS: "1000"
     volumes:
       # 1차맵 행성 타일 캐시(PLANET_CACHE_DIR=/app/planet-cache, Dockerfile). 다시 켤 때 굽지 않고 읽는다.
-      # 지워도 된다(다음 시작 때 다시 굽는다). deploy.sh가 폴더를 만들고 컨테이너 node 사용자(1000)에게 준다
+      # 지워도 된다(다음 시작 때 다시 굽는다). deploy.sh가 폴더를 만들고 컨테이너 node 사용자(1000)에게 소유자·권한(755)을 준다
       - ${TERRA_DATA_DIR:-/volume1/docker/terra-in-cognita}/planet-cache:/app/planet-cache
     ports:
       # NAS 안에서만 열고, 외부 접속은 DSM 역방향 프록시(HTTPS)가 맡는다

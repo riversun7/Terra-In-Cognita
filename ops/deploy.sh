@@ -45,9 +45,11 @@ ensure_secret() {
 }
 
 mkdir -p "$DATA_DIR/pgdata" "$DATA_DIR/backups" "$DATA_DIR/planet-cache"
-# 행성 타일 캐시는 앱 컨테이너의 node 사용자(uid 1000)가 쓴다. 바꾸지 못해도 배포는 계속한다
-# (앱은 캐시를 쓰지 못하면 경고만 남기고 메모리로 준다 — 다음 시작 때 다시 굽는다)
-chown 1000:1000 "$DATA_DIR/planet-cache" 2>/dev/null || echo "경고: $DATA_DIR/planet-cache 소유자를 1000으로 바꾸지 못했습니다"
+# 행성 타일 캐시는 앱 컨테이너의 node 사용자(uid 1000)가 쓴다. 시놀로지 공유 폴더 아래 새 폴더는 root가 만들어도
+# 권한이 555(쓰기 없음)라서 소유자와 함께 권한도 준다(2026-10-29 NAS에서 확인, docs/worklog/2026/10/29-1405-nas-planet-cache-permission.md).
+# 바꾸지 못해도 배포는 계속한다(앱은 캐시를 쓰지 못하면 경고만 남기고 메모리로 준다 — 다음 시작 때 다시 굽는다)
+{ chown 1000:1000 "$DATA_DIR/planet-cache" && chmod 0755 "$DATA_DIR/planet-cache"; } 2>/dev/null \
+  || echo "경고: $DATA_DIR/planet-cache 소유자·권한을 바꾸지 못했습니다(앱이 캐시를 쓰지 못함)"
 
 # 1) 비밀값 파일 준비 (git에는 절대 넣지 않음). 없으면 만들고, 빠진 키만 덧붙인다
 #    - POSTGRES_PASSWORD: DB 비밀번호(24바이트)
@@ -91,6 +93,10 @@ if ! compose up -d app || ! wait_healthy tic-app 45 || ! smoke; then
   fi
   exit 1
 fi
+
+# 캐시를 쓸 수 있는지 앱 사용자로 확인한다(못 써도 배포는 그대로 — 다시 켤 때마다 굽는다)
+docker exec tic-app sh -c 'test -w "$PLANET_CACHE_DIR"' \
+  || echo "경고: 앱이 행성 캐시 폴더에 쓰지 못합니다 — 다시 켤 때마다 굽습니다 ($DATA_DIR/planet-cache)"
 
 echo "$TAG" > "$DATA_DIR/deployed-tag"
 # 8) 14일 지난 배포 전 백업 정리

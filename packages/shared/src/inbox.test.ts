@@ -65,6 +65,12 @@ describe("종류 표", () => {
     }
   });
 
+  it("완료 분류 종류는 묶지 않는다(항목 ID가 사건 ID이고 확인도 사건마다다)", () => {
+    const done = kinds.filter(([, definition]) => definition.category === "done");
+    expect(done.length).toBeGreaterThan(0);
+    for (const [kind, definition] of done) expect(definition.grouped, kind).toBe(false);
+  });
+
   it("묶는 종류와 묶지 않는 종류, 바로 처리 0·1·2개가 모두 있다(시안 자료가 모든 모양을 보인다)", () => {
     const grouped = kinds.map(([, definition]) => definition.grouped);
     expect(grouped).toContain(true);

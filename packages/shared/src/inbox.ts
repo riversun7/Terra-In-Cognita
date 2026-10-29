@@ -23,11 +23,18 @@ export function inboxCategoryRank(category: InboxCategory): number {
 /** 종류 표의 한 줄 */
 export interface InboxKindDefinition {
   readonly category: InboxCategory;
-  /** 같은 종류·같은 묶음 키를 한 줄로 묶는다(예: "명령 없는 유닛 6"). 묶은 줄은 개수와 가장 이른 마감을 갖는다 */
+  /**
+   * 같은 종류·같은 묶음 키를 한 줄로 묶는다(예: "명령 없는 유닛 6"). 묶은 줄은 개수와 가장 이른 마감을 갖는다.
+   * 완료 분류는 묶지 않는다: 항목 ID가 사건 ID이고 확인(inbox.ack)도 사건마다 한다(시험이 본다)
+   */
   readonly grouped: boolean;
   /** 누르면 갈 화면의 주소 ID. 매개변수·검색어 값은 항목마다 다르므로 항목의 target에 싣는다. null이면 처리함 */
   readonly route: RouteId | null;
-  /** 바로 처리 동작 ID(0~2개, D-6015). 동작 ID는 자료라 더해도 프로토콜 판을 올리지 않는다 */
+  /**
+   * 바로 처리 동작 ID 0~2개. 기획(D-6015)은 항목마다 1~2개다. 0개는 기술 해석이다: 완료(확인만 한다)와
+   * 그 화면에서만 처리하는 종류(예: 공성 방어 시각 고르기)는 줄을 눌러 화면으로 간다(ADR 37 "구현하며 정한 것").
+   * 동작 ID는 자료라 더해도 프로토콜 판을 올리지 않는다
+   */
   readonly actions: readonly string[];
   /** 줄 수를 배지로 걸 메뉴 항목(예: 명령 없는 유닛 → 유닛). 없으면 null */
   readonly badge: NavItemId | null;
@@ -105,10 +112,10 @@ export const INBOX_KINDS = {
     badge: null,
     planned: true,
   },
-  // 완료: 제작 완료(D-114). 확인하면 사라진다(inbox.ack, 첫 완료 종류와 함께 만든다)
+  // 완료: 제작 완료(D-114). 사건마다 한 줄이고 확인하면 사라진다(inbox.ack, 첫 완료 종류와 함께 만든다)
   craft_done: {
     category: "done",
-    grouped: true,
+    grouped: false,
     route: "economy",
     actions: [],
     badge: null,
@@ -123,8 +130,9 @@ export function isInboxKindId(value: unknown): value is InboxKindId {
 }
 
 /**
- * 항목 ID = `<종류>:<묶음 키>`(예: `unit_idle:city_12`), 완료는 `<종류>:<사건 ID>`.
+ * 항목 ID = `<종류>:<묶음 키>`(예: `unit_idle:city_12`), 묶지 않는 종류는 대상 하나의 키, 완료는 `<종류>:<사건 ID>`.
  * 키는 숫자·영문 소문자·_ 1~64자다. 계정에 하나뿐인 종류는 고정 키(`all`)를 쓴다.
+ * uuid처럼 `-`가 든 ID는 키가 될 수 없다. 그런 ID를 쓰는 종류를 만들 때 키 규칙을 넓히거나 숫자 ID를 쓴다.
  * 서버는 늘 상태에서 같은 ID를 만든다. 처리함의 ?item=, 바로 처리, 확인이 모두 이 ID를 쓰고, 서버는 그때 상태를 다시 만들어 확인한다.
  */
 export const INBOX_ITEM_ID_PATTERN = /^([a-z][a-z0-9_]{1,47}):([a-z0-9_]{1,64})$/;

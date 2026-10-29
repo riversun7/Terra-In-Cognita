@@ -7,9 +7,11 @@
 |---|---|---|---|
 | 2026-10-29 16:40 | D-214 특수 지형 제안서 올림 (기획·사용자 확인용) | Claude Code | [29-1640-special-terrain-proposal](worklog/2026/10/29-1640-special-terrain-proposal.md) |
 | 2026-10-29 16:00 | S2 렌더러 검토 반영: 치마 바닥, 큰 행성 고르기, 받기 시간 제한, 타일 메모리, 가장 높은 땅, 가짜 행성 ADR 규칙 | Claude Code | [29-1600-s2-renderer-review](worklog/2026/10/29-1600-s2-renderer-review.md) |
+| 2026-10-29 15:05 | S2 셰이더 측정판 리뷰 반영: TSL 모델뷰 정밀도, 같은 일을 재는 컴파일, GPU 지연, 순서·멈춤, 다시 잰 헤드리스 수치 | Claude Code (서브에이전트, 작업 트리) | [29-1505-s2-webgpu-bench-review](worklog/2026/10/29-1505-s2-webgpu-bench-review.md) |
 | 2026-10-29 14:15 | S2 행성 생성기 리뷰 고침: 해상도와 무관한 강가 가산, 결정성 검사 범위, 콘텐츠 검사, 면 레벨 상한, 호수 수면 | Claude Code | [29-1415-s2-generator-review-fixes](worklog/2026/10/29-1415-s2-generator-review-fixes.md) |
 | 2026-10-29 14:05 | NAS 행성 캐시 쓰기 실패(EACCES) 원인 찾기 | Claude Code | [29-1405-nas-planet-cache-permission](worklog/2026/10/29-1405-nas-planet-cache-permission.md) |
 | 2026-10-29 12:50 | S2 통합: 생성기·타일·서버·렌더러 합치기, 이음매 하나로, 실제 생성기 → 서버 굽기 → 타일 HTTP → 1차맵 화면 | Claude Code (작업 트리 `worktree-wf_cf86e8da-f84-1`, main `e16b47e`에서 시작) | [29-1250-s2-integration](worklog/2026/10/29-1250-s2-integration.md) |
+| 2026-10-29 12:10 | S2 셰이더 측정판: WebGL2 + GLSL과 WebGPU + TSL을 같은 행성 타일로 재기(관리자 화면), 헤드리스 측정, 조사 | Claude Code (서브에이전트, 작업 트리) | [29-1210-s2-webgpu-bench](worklog/2026/10/29-1210-s2-webgpu-bench.md) |
 | 2026-10-29 11:30 | S2 렌더러: 1차맵 행성 LOD 엔진, 가짜 행성, 임시 1차맵 시험 화면 | Claude Code (서브에이전트, 작업 트리) | [29-1130-s2-renderer](worklog/2026/10/29-1130-s2-renderer.md) |
 | 2026-10-29 10:20 | S2 행성 생성기 1판: 결정적 수학·투영, 행성·바이옴 콘텐츠, `generatePlanet`, 벤치마크·그림 | Claude Code | [29-1020-s2-generator](worklog/2026/10/29-1020-s2-generator.md) |
 | 2026-10-29 09:50 | S2 행성 타일·서버 굽기·전송: 타일 만들기, TCPT 형식, 굽기 워커, 디스크 캐시, 목록 정보·타일 경로 | Claude Code (서브에이전트, 작업 트리) | [29-0950-s2-tiles-server](worklog/2026/10/29-0950-s2-tiles-server.md) |

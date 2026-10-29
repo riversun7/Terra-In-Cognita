@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 import { climateLatitudeAt, upwindNeighbors, upwindShare, windAt, windVectorAt } from "./climateWind.ts";
 import { type PlanetGrid, buildGrid, neighbors8 } from "./grid.ts";
 import { STREAM_WIND, streamSeed } from "./random.ts";
-import { landHumidity } from "./surface.ts";
-import { S2_TEST_PLANET_SEED } from "./testFixtures.ts";
+import { buildSurface, landHumidity } from "./surface.ts";
+import { S2_TEST_PLANET_SEED, TEST_BIOMES } from "./testFixtures.ts";
 
 const SEEDS = [S2_TEST_PLANET_SEED, 1, 42];
 
@@ -147,5 +147,55 @@ describe("습도", () => {
       }
     }
     expect(roundedJumps).toBeGreaterThan(50);
+  });
+
+  it("지표 단계(buildSurface)가 습도를 실수 기온으로 낸다: x.5°C 양쪽 칸의 저장 습도가 1 넘게 다르지 않다", () => {
+    // 모두 땅(해수면 위 100m), 강·호수 없음, 강수는 같고 기온만 x.5°C를 사이에 두고 번갈아 놓는다
+    const grid = buildGrid(4);
+    const count = grid.cellCount;
+    const elevation = new Float32Array(count).fill(100);
+    const flow = {
+      receiver: new Int32Array(count).fill(-1),
+      filled: Float32Array.from(elevation),
+      order: new Int32Array(count),
+      orderLength: 0,
+      basin: new Int32Array(count).fill(-1),
+      basinExit: new Int32Array(1),
+      basinCount: 0,
+    };
+    const rivers = {
+      order: new Uint8Array(count),
+      length: new Float32Array(count),
+      basinKind: new Uint8Array(count),
+    };
+    // 칸 둘씩 짝(2k, 2k + 1): 정수 부분 2 + (k mod 25)는 같고 소수 부분만 .49와 .51
+    const temperature = Float32Array.from(
+      { length: count },
+      (_, c) => 2 + (Math.floor(c / 2) % 25) + (c % 2 === 0 ? 0.49 : 0.51),
+    );
+    const precipitation = new Float32Array(count).fill(800);
+    const surface = buildSurface(
+      grid,
+      7,
+      elevation,
+      0,
+      new Uint8Array(count),
+      flow,
+      rivers,
+      temperature,
+      precipitation,
+      TEST_BIOMES,
+    );
+    let checked = 0;
+    for (let c = 0; c + 1 < count; c += 2) {
+      // 같은 정수 부분에서 .49와 .51: 반올림 기온이 1 다르다
+      expect(surface.temperatureC[c + 1]).toBe((surface.temperatureC[c] ?? 0) + 1);
+      expect(
+        Math.abs((surface.humidity[c + 1] ?? 0) - (surface.humidity[c] ?? 0)),
+        `cell ${c}`,
+      ).toBeLessThanOrEqual(1);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(100);
   });
 });

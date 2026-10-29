@@ -3,7 +3,8 @@
 // - 기후 위도·바람·바람이 오는 이웃: climateWind.ts(출력 판 3). 띠 식은 모두 기후 위도(흔든 위도)를 쓴다.
 // - 기온: 해수면 기온 = 적도 − (적도 − 극) × (|기후 위도|/90)^1.5, 고도에 따라 6.5°C/km(실제 환산 고도 = 게임 m × 12).
 //   여기에 변이를 더한다(출력 판 3, 다양성 고침 2단계, climateVariation): 중간 크기(주파수 3, 격자 약 2,100km ~
-//   5옥타브 약 130km) 표준편차 바다 2°C·내륙 3.5°C, 땅만 잔 변이(주파수 40, 격자 약 160km ~ 40km) 1.2°C.
+//   5옥타브 약 130km) 표준편차 바다 2°C·내륙 3.5°C, 땅만 잔 변이(주파수 40, 격자 약 160km ~ 80km, 파장이 칸 3개
+//   이상인 옥타브만) 1.2°C.
 //   그래서 기후 띠 경계가 굽이치고, 경계 둘레에 덩어리·섞이는 띠가 생긴다.
 // - 습기: 바람길을 따라 바다 위에서 차고, 땅 위에서 비로 빠지며, 오르막에서 크게 빠진다(비그늘). 오르막은 바람길
 //   약 75km(칸 하나 이상) 위와 견준다. 칸이 작은 굽기 해상도에서도 75km보다 짧은 잔 기복마다 습기가 빠지지 않는다.
@@ -13,7 +14,7 @@
 //   로그 표준편차 0.4(5~95%가 약 ×0.5 ~ ×1.9).
 // - 변이는 저장하는 기온·강수에 들어간다(바이옴은 여전히 저장한 기온·습도·고도로만 판정한다). 노이즈 세기는 해상도와
 //   무관하게 가장 많은 옥타브의 세기 합으로 나눈다: 낮은 면 레벨(미리보기)은 잔 옥타브만 빠지고 큰 모양은 같다.
-//   잔 변이는 칸이 그 격자의 반보다 크면(F ≤ 6) 끈다(미리보기가 얼룩지지 않게).
+//   잔 변이는 파장이 칸 3개보다 짧은 옥타브를 뺀다(F ≤ 7은 끈다. 미리보기가 얼룩지지 않게).
 // 모든 길이는 구 위 각도(라디안)다. 수치는 S2 임시값이다(지구 연평균 분포를 대략 따른다).
 import { detAsin, detExp } from "@terra/shared";
 import type { PlanetSettings } from "@terra/shared";
@@ -108,13 +109,19 @@ function unitScale(gain: number, octaves: number, maxOctaves: number, sd: number
   return amplitudeSum(gain, octaves) / amplitudeSum(gain, maxOctaves) / sd;
 }
 
+/** 잔 변이 옥타브의 가장 짧은 파장(칸 수): 이보다 짧은 옥타브는 뺀다 */
+const ROUGH_MIN_WAVELENGTH_CELLS = 3;
+
 /**
- * 잔 변이 옥타브 수: 칸이 잔 변이 격자의 반보다 크면(1 ÷ (2 × 칸) < 주파수 40, F ≤ 6) 0(끈다). 그보다 작으면
- * 해상도에 맞게 3옥타브까지(F7 1, F8 2, F9 3)
+ * 잔 변이 옥타브 수: 파장(격자 간격)이 칸 3개 이상인 옥타브만, 3옥타브까지(F ≤ 7 0 = 끈다, F8 1, F9 2).
+ * 파장이 칸 2개 남짓인 옥타브는 칸마다 값이 뒤바뀌어 바이옴이 점점이 튀었다(F7 미리보기에서 덩어리가 아니라
+ * 소금·후추처럼 보였다, 2026-10-29 그림. F7은 땅의 5.4~7.1%가 5칸 미만 덩어리였다)
  */
 export function roughnessOctaves(meanCellAngle: number): number {
-  if (1 / (2 * meanCellAngle) < ROUGH_NOISE.frequency) return 0;
-  return octavesFor(ROUGH_NOISE.frequency, meanCellAngle, ROUGH_NOISE.octaves);
+  const highest = 1 / (ROUGH_MIN_WAVELENGTH_CELLS * meanCellAngle);
+  let octaves = 0;
+  for (let f = ROUGH_NOISE.frequency; f <= highest && octaves < ROUGH_NOISE.octaves; f *= 2) octaves++;
+  return octaves;
 }
 
 /** 기후 변이 두 채널(기온 쪽 A, 강수 쪽 B). 한 스레드 안에서만 쓰는 임시 칸 */

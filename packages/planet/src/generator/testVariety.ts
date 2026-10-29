@@ -54,8 +54,12 @@ export interface VarietyTarget {
 
 /**
  * 지표 이름 → 임시 문턱(문서 4.1). 여기 없는 지표는 보고만 한다.
- * 막는 지표(출력 판 3, 2026-10-29): 위도 띠 4개(문서 표), 습도 계단, 행성끼리 구별, 최소 풍속, 노이즈 격자점, 열점 간격.
+ * 막는 지표(출력 판 3, 2026-10-29): 위도 띠 4개(문서 표), 행성끼리 구별, 최소 풍속, 노이즈 격자점(생성기 노이즈 2판
+ * 설정 전부), 열점 간격.
  * 보고만 하는 것과 까닭
+ * - 습도 계단: 위도 띠·기온 기울기와 섞인 지표라 이름의 결함(반올림 기온으로 습도 계산)을 잡지 못하고(검토 돌연변이:
+ *   그 결함을 되살려도 1.25~1.37로 통과), F7 잔 변이를 끄자(파장 칸 3개 규칙) 결함 없이 1.6~1.8로 올랐다. 그 결함은
+ *   climate.test.ts의 지표 단계 시험(x.5°C 양쪽 칸 습도 차 ≤ 1)이 막는다
  * - 저지대 기온 R²: 문서 표 밖(1단계에서 더함). F7 시드 1이 0.957로 문턱 0.96에 너무 가깝다
  * - 바람 줄무늬: 정의 문제(원시 비는 등방 1에 가까운데 초과분이 시드 1에서 0.08~0.10, ADR)
  * - 해안선 거칠기·24km 창: F9는 계획 목표 안(해안 1.10 이상, 창 0.35 이하)이지만 F7 한 시드가 문서 문턱을 조금 넘는다
@@ -70,7 +74,7 @@ export const VARIETY_TARGETS: Readonly<Record<string, VarietyTarget>> = {
   "zonal.oceanTempR2": { op: "<=", limit: 0.97, gate: true },
   "zonal.lowlandTempR2": { op: "<=", limit: 0.96, gate: false },
   // 곧은 줄: 정수 등온선 계단, 바람 방향 줄무늬
-  "lines.humidityStepAtIntegerIsotherms": { op: "<=", limit: 1.5, gate: true },
+  "lines.humidityStepAtIntegerIsotherms": { op: "<=", limit: 1.5, gate: false },
   "lines.windStreakAnisotropyExcess": { op: "<=", limit: 0.05, gate: false },
   // 해안선 거칠기
   "coast.boxDimension": { op: ">=", limit: 1.12, gate: false },

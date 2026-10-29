@@ -184,8 +184,8 @@ describe("기온·강수 변이", () => {
     expect(sd).toBeLessThan(0.5);
   });
 
-  it("잔 변이는 칸이 그 격자(약 160km)의 반보다 작을 때만: F4~6 끔, F7 1·F8 2·F9 3옥타브", () => {
-    expect([4, 5, 6, 7, 8, 9].map((level) => roughnessOctaves(cellAngle(level)))).toEqual([0, 0, 0, 1, 2, 3]);
+  it("잔 변이는 파장(격자 간격)이 칸 3개 이상인 옥타브만: F4~7 끔, F8 1·F9 2옥타브", () => {
+    expect([4, 5, 6, 7, 8, 9].map((level) => roughnessOctaves(cellAngle(level)))).toEqual([0, 0, 0, 0, 1, 2]);
     // 생성기 격자의 평균 칸 크기와 같은 식이다
     expect(buildGrid(5).meanCellAngle).toBeCloseTo(cellAngle(5), 12);
   });

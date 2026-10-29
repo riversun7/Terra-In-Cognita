@@ -1,0 +1,199 @@
+/*
+ * 설정 화면 "메뉴" 칸(NavigationSettings.tsx) — 설정 조각(지연 로딩)과 함께 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 배치 고르기는 테마 고르기와 같은 모양(보이지 않는 라디오 단추 + 옆의 카드, 형제 선택자로 고른 표시)이다.
+ */
+/* 설정의 다른 칸(테마·언어)과 떼어 놓는다: 위 여백 + 가는 선 */
+.nav-settings {
+  margin-top: var(--space-2);
+  padding-top: var(--space-5);
+  border-top: var(--border-w) solid var(--color-border);
+  scroll-margin-top: calc(var(--topbar-h) + var(--space-4));
+}
+.nav-settings:focus {
+  outline: none;
+}
+
+/* 하단 탭 모양 카드 2개 */
+.nav-layout-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.nav-layout-option {
+  position: relative;
+  display: block;
+  min-width: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.nav-layout-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: 100%;
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+}
+.nav-layout-radio:checked + .nav-layout-card {
+  border-color: var(--color-focus);
+  box-shadow: inset 0 0 0 var(--border-w) var(--color-focus);
+}
+.nav-layout-radio:focus-visible + .nav-layout-card {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.nav-layout-radio:checked + .nav-layout-card .radio-mark {
+  border-color: var(--color-focus);
+}
+.nav-layout-radio:checked + .nav-layout-card .radio-mark::after {
+  content: "";
+  width: calc(var(--icon-sm) / 2);
+  height: calc(var(--icon-sm) / 2);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-focus);
+}
+/* 모양 그림: 칸 다섯(가운데가 C의 지도 원, A는 끝칸이 ☰) */
+.nav-layout-sketch {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: end;
+  gap: var(--space-1);
+  height: var(--preview-h);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg);
+}
+.nav-layout-sketch > span {
+  height: calc(var(--preview-line) * 2);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-border);
+}
+.nav-layout-sketch[data-layout="c"] .nav-layout-sketch-special {
+  justify-self: center;
+  width: calc(var(--preview-line) * 5);
+  height: calc(var(--preview-line) * 5);
+  background-color: var(--color-primary);
+}
+/* A: 특별한 칸(☰)을 끝으로 보낸다 */
+.nav-layout-sketch[data-layout="a"] .nav-layout-sketch-special {
+  order: 1;
+  background-color: var(--color-text-muted);
+}
+.nav-layout-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.nav-layout-name {
+  min-width: 0;
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.nav-layout-note {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+}
+
+/* 메뉴 순서 — 줄마다 아이콘·이름·자리(하단 탭·가운데 버튼)·↑↓ */
+.nav-order {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.nav-order-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-h);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+}
+.nav-order-row[data-in-tabs="true"] {
+  background-color: var(--color-surface-2);
+}
+.nav-order-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.nav-order-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+}
+.nav-order-name {
+  font-weight: var(--font-weight-strong);
+}
+.nav-order-where {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.nav-order-actions {
+  display: flex;
+  gap: var(--space-1);
+  flex: none;
+}
+.nav-order-move {
+  padding: 0;
+  min-width: var(--tap-size);
+}
+
+/* 미리 보기: 지금 화면 폭의 하단 탭(꾸밈) */
+.nav-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+.nav-preview-bar {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: end;
+  padding: var(--space-2) var(--space-1);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+}
+.nav-preview-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.nav-preview-cell > span:last-child {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-preview-map {
+  color: var(--color-text);
+}
+.nav-preview-map-button {
+  display: grid;
+  place-items: center;
+  width: calc(var(--icon-md) + var(--space-4));
+  height: calc(var(--icon-md) + var(--space-4));
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}

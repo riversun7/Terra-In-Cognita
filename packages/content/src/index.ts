@@ -30,6 +30,7 @@ export {
   type CategoryRegistry,
   type ItemEntry,
 } from "./schema/categories.ts";
+export { biomeEntrySchema, planetEntrySchema, type BiomeEntry, type PlanetEntry } from "./schema/planets.ts";
 export { validatePack, type ValidationResult } from "./validate/pack.ts";
 export {
   assumeAllUsed,

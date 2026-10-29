@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-29 14:15 | S2 행성 생성기 리뷰 고침: 해상도와 무관한 강가 가산, 결정성 검사 범위, 콘텐츠 검사, 면 레벨 상한, 호수 수면 | Claude Code | [29-1415-s2-generator-review-fixes](worklog/2026/10/29-1415-s2-generator-review-fixes.md) |
 | 2026-10-29 10:20 | S2 행성 생성기 1판: 결정적 수학·투영, 행성·바이옴 콘텐츠, `generatePlanet`, 벤치마크·그림 | Claude Code | [29-1020-s2-generator](worklog/2026/10/29-1020-s2-generator.md) |
 | 2026-10-29 08:50 | S2 계획: 결정적 생성기, 쿼드트리 타일, 서버 굽기, 렌더러 — ADR 36(제안) | Claude Code | [29-0850-s2-plan](worklog/2026/10/29-0850-s2-plan.md) |
 | 2026-10-29 08:32 | S1 휴대폰 첫 측정 기록, S2로 넘어가기 | Claude Code | [29-0832-s1-phone-measure](worklog/2026/10/29-0832-s1-phone-measure.md) |

@@ -272,6 +272,15 @@
 - F8·F9에서는 미니맵 픽셀이 칸보다 적어 일부 칸만 보인다.
 - 잰 값(Verified: 헤드리스, 부하 5~8): 휴대폰 크기(538×269) 첫 표 49~77ms, 같은 크기의 새 레벨 0.7~1.3ms, F5 다시 그리기 0.3~2.5ms. 데스크톱(960×480) 첫 표 108~113ms. 휴대폰은 재지 않았다(Unknown).
 
+#### WP-B 서버 (작업 기록 `2026/10/29-2210-planet-editor-server.md`)
+- 저장 입력에 행성 ID를 따로 받는다(`{ planetId, entry, base, expectedRevision }`). 항목 `id`가 다르면 `invalid_entry`다. `invalid_entry`에는 DB(jsonb)가 담지 못하는 글자(U+0000, 짝 없는 대리 문자)도 든다. 직렬화하지 못하는 항목은 `entry_too_large`다.
+- 이유 코드는 오류 `data.reason`에 싣는다. 받지 않음 코드 말고도 `cross_origin`(FORBIDDEN), `revision_conflict`(CONFLICT), `draft_not_found`·`revision_not_found`(되돌리기 NOT_FOUND), `unknown_planet`(조회·판 목록·되돌리기·지우기, BAD_REQUEST)이 같은 칸을 쓴다. 입력 형식(zod) 오류는 이유 없는 BAD_REQUEST다.
+- 되돌리기도 저장과 같은 검사를 지금 팩으로 한다. 지우기는 초안이 없으면 `{ removed: false }`(감사 기록 없음)다.
+- 두 겹 권한은 6개 프로시저 모두에 걸고, 입력 검사보다 먼저 돈다. 같은 출처 확인은 tRPC 맥락을 만들 때 GET·HEAD가 아닌 요청 모두에 한다(묶음은 프로시저마다 같은 오류). 앱 출처가 없는 서버(인증 꺼짐)는 보지 않는다. `no-store`는 tRPC 범위 훅이라 오류 응답에도 붙는다.
+- 감사 기록 행위자는 `user`(역할은 `meta.roles`)다. 항목·시드는 넣지 않고 행성 ID·판·기준·팩 버전만 넣는다.
+- 확인 해시는 기기와 같은 길(팩 파일의 원본 항목 + 원본 바이옴 항목 → `planetInputFromDefinition`)로, 레벨 min(5, 행성 면 레벨)에서 만든다. jsonb라 초안 항목의 키 순서는 지키지 않는다(같은지는 키를 정렬해 본다).
+- 잰 값(Verified: 개발 컨테이너, 부하 4~6): 시작 때 확인 해시 행성마다 90~600ms(첫 행성은 JIT 데우기 포함), 두 행성 합계 276~940ms. 정의 조회 응답 4,044바이트. 빈 캐시 F9 굽기 행성마다 19.5~20.9초(차례로 둘, 42.7초).
+
 ### 사용자 결정 (2026-10-29)
 | ID | 묻는 것 | 추천 | 사용자 답(원문) |
 |---|---|---|---|

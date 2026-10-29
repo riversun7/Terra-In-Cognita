@@ -180,6 +180,29 @@ describe("계정 요청 줄: 기다리는 동안 계정이 바뀜", () => {
     expect(settings.getSettingsSnapshot().device.pending).toEqual({ nav: { by: "user-a" } });
   });
 
+  it("A의 올리기가 기다리는 동안 B가 바꾼 값은 B의 로그인 맞추기에 맡긴다(A의 id로 함께 보내지 않는다)", async () => {
+    mocks.session.current = { kind: "signed_in", user: { id: "user-a" } };
+    const settings = await import("./settings.ts");
+    settings.startSettings();
+    await vi.waitFor(() => expect(mocks.syncs).toHaveLength(1));
+    settings.chooseNavigation({ menu: ["units"] });
+    setSession(null);
+    setSession("user-b");
+    // B의 바꿈은 줄에서 기다리는 올리기(A의 것)에 합쳐진다. 그 올리기는 건너뛰고,
+    // 뒤에 선 B의 로그인 맞추기가 B 표시("mine")를 올린다(accountSync.ts syncAtSignIn → planSignIn)
+    settings.chooseHome({ cards: [] });
+    mocks.syncs[0]?.resolve();
+    await vi.waitFor(() => expect(mocks.syncs).toHaveLength(2));
+    expect(mocks.syncs[1]?.userId).toBe("user-b");
+    mocks.syncs[1]?.resolve();
+    await settle();
+    expect(mocks.uploads).toHaveLength(0);
+    expect(settings.getSettingsSnapshot().device.pending).toEqual({
+      nav: { by: "user-a" },
+      home: { by: "user-b" },
+    });
+  });
+
   it("로그인 맞추기가 기다리는 동안 그 계정이 로그아웃하면 하지 않는다. 다시 로그인하면 맞춘다", async () => {
     const settings = await import("./settings.ts");
     settings.startSettings();

@@ -30,6 +30,8 @@ assets-src/
 apps/game/src/paraglide/
 # 서버 API 타입 선언 — 게임 앱의 tsc -b가 만든다 (apps/server/tsconfig.api.json)
 apps/server/dist-types/
+# 1차맵 행성 타일 디스크 캐시(개발 기본 폴더, PLANET_CACHE_DIR) — 지워도 서버가 다시 굽는다
+.planet-cache/
 
 # 서브에이전트가 쓰는 임시 작업 트리(git worktree) — 커밋하지 않는다
 .claude/worktrees/

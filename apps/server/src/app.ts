@@ -13,6 +13,10 @@ import { isAllowedSocketOrigin } from "./auth/requestGuard.ts";
 import { DEFAULT_TRUST_PROXY, SIM_VERSION } from "./config.ts";
 import { type Database, pingDatabase } from "./db/client.ts";
 import { startServerMetrics } from "./metrics.ts";
+import type { PlanetBaker } from "./planet/baker.ts";
+import { type PlanetRouteLimits, registerPlanetRoutes } from "./planet/routes.ts";
+import { type PlanetServiceOptions, createPlanetService } from "./planet/service.ts";
+import type { PlanetSource } from "./planet/sources.ts";
 import { handleSession } from "./session.ts";
 import { registerTelemetry } from "./telemetry.ts";
 import type { Viewer } from "./trpc/context.ts";
@@ -35,6 +39,18 @@ const signedOut = (): Promise<Viewer | null> => Promise.resolve(null);
  * ADR 2026-10-28-design-system "글꼴"
  */
 export const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
+
+/** 1차맵 행성(ADR 36): 원본마다 디스크 캐시를 읽거나 굽고 목록 정보·타일 경로를 연다 */
+export interface AppPlanetsOptions {
+  sources: readonly PlanetSource[];
+  /** 굽는 곳. 운영은 워커(createWorkerBaker), 시험은 같은 스레드(createInlineBaker) */
+  baker: PlanetBaker;
+  /** 디스크 캐시 폴더(PLANET_CACHE_DIR). 없으면 캐시 없이 */
+  cacheDir?: string | undefined;
+  /** 시험용: 다시 굽기 지연, 속도 제한 */
+  retryDelayMs?: PlanetServiceOptions["retryDelayMs"];
+  limits?: Partial<PlanetRouteLimits> | undefined;
+}
 
 /** 인증 켜기(DB가 있을 때만). 없으면 /api/auth/*, /api/account/*는 404이고 tRPC는 늘 로그인하지 않은 상태 */
 export interface AppAuthOptions {
@@ -63,6 +79,8 @@ export interface AppOptions {
   auth?: AppAuthOptions | undefined;
   /** S1 2차맵(시험 2차맵 + 경로 워커 + 시험용 봇). 없으면 2차맵 요청에 unknown_map, 지형 경로 없음 */
   world?: WorldConfig | undefined;
+  /** 1차맵 행성(굽기·캐시·목록 정보·타일). 없으면 행성 경로 없음 */
+  planets?: AppPlanetsOptions | undefined;
   /**
    * 시험용: 요청의 로그인 사용자를 직접 정한다(DB 없는 시험). 주면 인증 세션 조회와 WebSocket 출처 검사를 하지 않는다.
    * 운영 코드는 쓰지 않는다.
@@ -149,6 +167,22 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   }
   const gateway = world ? createWorldGateway({ world, now, log: app.log }) : undefined;
 
+  // 행성: 준비(캐시 읽기·굽기)는 기다리지 않고 시작한다. 그동안 목록 정보는 generating, 타일은 409
+  const planets = options.planets
+    ? createPlanetService({
+        sources: options.planets.sources,
+        baker: options.planets.baker,
+        cacheDir: options.planets.cacheDir,
+        retryDelayMs: options.planets.retryDelayMs,
+        log: app.log,
+      })
+    : undefined;
+  if (planets && options.planets) {
+    registerPlanetRoutes(app, { planets, viewer: httpViewer, now, limits: options.planets.limits });
+    app.addHook("onClose", async () => planets.close());
+    planets.start();
+  }
+
   let wsConnections = 0;
   await app.register(async (scope) => {
     scope.get("/ws", { websocket: true }, (socket, request) => {
@@ -168,11 +202,13 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   const metricsIntervalMs = options.metricsIntervalMs ?? 60_000;
   if (metricsIntervalMs > 0) {
+    // 지표 한 줄에 붙일 값: S1 2차맵(src/world/worldStats.ts), 행성(src/planet/service.ts)
+    const extras = (): Record<string, number> => ({ ...world?.takeMetrics(), ...planets?.takeMetrics() });
     const stopMetrics = startServerMetrics(
       app.log,
       () => wsConnections,
       metricsIntervalMs,
-      world ? () => world.takeMetrics() : undefined,
+      world || planets ? extras : undefined,
     );
     app.addHook("onClose", async () => stopMetrics());
   }

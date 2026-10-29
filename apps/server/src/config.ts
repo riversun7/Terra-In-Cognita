@@ -33,6 +33,13 @@ export const DEFAULT_TRUST_PROXY = "loopback, uniquelocal";
  */
 export const DEFAULT_CONTENT_DIR = fileURLToPath(new URL("../../../content/core", import.meta.url));
 
+/**
+ * 1차맵 행성 타일 디스크 캐시 기본값: apps/server/.planet-cache (개발 실행 src/, 빌드 dist/ 모두. 저장소에 올리지 않는다).
+ * 이미지는 PLANET_CACHE_DIR=/app/planet-cache를 주고(Dockerfile), NAS는 그 자리에 볼륨을 붙인다(ops/compose.yml).
+ * 지워도 된다: 다음 시작 때 다시 굽는다(ADR 2026-10-29-s2-planet-lod).
+ */
+export const DEFAULT_PLANET_CACHE_DIR = fileURLToPath(new URL("../.planet-cache", import.meta.url));
+
 export interface ServerConfig {
   host: string;
   port: number;
@@ -47,6 +54,8 @@ export interface ServerConfig {
   /** 인증 설정. DB가 없으면 인증을 켜지 않는다(undefined) — CI 이미지 확인은 DB 없이 돈다 */
   auth: AuthConfig | undefined;
   s1: S1Config;
+  /** 1차맵 행성 타일 디스크 캐시 폴더 (PLANET_CACHE_DIR) */
+  planetCacheDir: string;
 }
 
 /** 비어 있으면 기본값, 아니면 [min, max] 정수여야 한다 */
@@ -83,5 +92,6 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       testBots: readInteger(env.S1_TEST_BOTS, 0, 0, MAX_TEST_BOTS, "S1_TEST_BOTS"),
       pathWorkers: readInteger(env.PATH_WORKERS, 1, 1, MAX_PATH_WORKERS, "PATH_WORKERS"),
     },
+    planetCacheDir: env.PLANET_CACHE_DIR || DEFAULT_PLANET_CACHE_DIR,
   };
 }

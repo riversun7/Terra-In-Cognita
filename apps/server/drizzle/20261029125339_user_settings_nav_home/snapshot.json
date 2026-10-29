@@ -1,0 +1,81 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "ccf9558d-dd0f-4ee6-a781-fab47b24f9bc",
+  "prevIds": [
+    "52ee1e81-61ea-4902-8b4c-e77591323d78"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "user_settings",
+        "nav"
+      ],
+      "writes": [
+        "s|col|public.user_settings.nav",
+        "n|col|public.user_settings.nav",
+        "e|col|public.user_settings.nav"
+      ],
+      "reads": [
+        "n|tbl|public.user_settings",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "user_settings",
+        "home"
+      ],
+      "writes": [
+        "s|col|public.user_settings.home",
+        "n|col|public.user_settings.home",
+        "e|col|public.user_settings.home"
+      ],
+      "reads": [
+        "n|tbl|public.user_settings",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_settings",
+        "name": "nav",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "user_settings",
+        "name": "home",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

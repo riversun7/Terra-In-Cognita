@@ -16,10 +16,23 @@ import {
   splitByGroup,
 } from "./syncRules.ts";
 
-/** 기기 설정 읽기·쓰기 — settings.ts가 넘긴다. 이 파일이 settings.ts를 가져오지 않아 서로 가져오는 고리(순환 import)가 없다 */
+/**
+ * 기기 설정 읽기·쓰기와 지금 로그인한 사용자 — settings.ts가 넘긴다.
+ * 이 파일이 settings.ts를 가져오지 않아 서로 가져오는 고리(순환 import)가 없다.
+ */
 export interface DeviceStore {
   get(): DeviceSettings;
   replace(next: DeviceSettings): void;
+  /** 지금 로그인한 사용자 id(로그아웃이면 null). 없으면(시험) 로그인한 사용자가 바뀌지 않는 것으로 본다 */
+  signedInUserId?(): string | null;
+}
+
+/**
+ * 이 사용자가 아직 로그인해 있는지. 요청의 쿠키는 보낼 때의 계정 것이라, 바뀌었으면 이 사용자 몫의 요청을 보내지 않는다.
+ * 줄에서 기다리는 동안 바뀐 것은 settings.ts가 보내기 전에 본다. 여기서는 요청 사이(읽기 → 올리기)만 본다.
+ */
+function stillSignedIn(store: DeviceStore, userId: string): boolean {
+  return store.signedInUserId === undefined || store.signedInUserId() === userId;
 }
 
 /** 계정 설정 요청에 쓰는 클라이언트. 기본은 앱 전체 클라이언트(api), 시험은 가짜 fetch를 넣은 클라이언트를 준다 */
@@ -89,6 +102,9 @@ export async function syncAtSignIn(
   } catch {
     return;
   }
+  // 읽는 사이에 로그아웃했거나 다른 계정으로 바뀌었으면 읽은 값을 버린다: 기기를 앞 계정 값으로 덮게 되고,
+  // 올리기는 그때의 쿠키(지금 계정)로 가서 앞 계정 몫의 값이 지금 계정에 저장된다. 지금 계정의 맞추기는 줄에서 뒤에 선다
+  if (!stillSignedIn(store, userId)) return;
   // 읽는 사이에 바꾼 값도 반영되게 지금 기기 값으로 계획한다
   const plan = planSignIn(store.get(), account, userId);
   store.replace(plan.device);

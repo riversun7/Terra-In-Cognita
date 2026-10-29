@@ -48,6 +48,13 @@ const settle = () =>
     setTimeout(resolve, 20);
   });
 
+/** 로그인 상태를 바꾸고 구독자에게 바로 알린다(session.ts의 setState와 같다). null이면 로그아웃 */
+function setSession(userId: string | null): void {
+  mocks.session.current =
+    userId === null ? { kind: "signed_out" } : { kind: "signed_in", user: { id: userId } };
+  for (const listener of mocks.listeners) listener();
+}
+
 let stored: Map<string, string>;
 
 beforeEach(() => {
@@ -148,5 +155,42 @@ describe("계정 요청 줄", () => {
     settings.chooseNavigation({ menu: ["units"] });
     mocks.uploads[0]?.reject(new Error("offline"));
     await vi.waitFor(() => expect(mocks.uploads).toHaveLength(2));
+  });
+});
+
+describe("계정 요청 줄: 기다리는 동안 계정이 바뀜", () => {
+  // 쿠키는 차례가 왔을 때의 계정 것이다. 앞 계정 id로 보내면 앞 계정의 바꿈이 지금 계정에 저장된다(검토 지적)
+  it("A의 올리기가 기다리는 동안 A 로그아웃 → B 로그인: A의 id로 올리지 않고 B의 로그인 맞추기가 돈다", async () => {
+    mocks.session.current = { kind: "signed_in", user: { id: "user-a" } };
+    const settings = await import("./settings.ts");
+    settings.startSettings();
+    // A의 로그인 맞추기가 걸려 있는 동안(느린 네트워크) A가 바꾼다 → 올리기가 줄에서 기다린다
+    await vi.waitFor(() => expect(mocks.syncs).toHaveLength(1));
+    settings.chooseNavigation({ menu: ["units", "home"] });
+    setSession(null);
+    setSession("user-b");
+    mocks.syncs[0]?.resolve();
+    await vi.waitFor(() => expect(mocks.syncs).toHaveLength(2));
+    expect(mocks.syncs[1]?.userId).toBe("user-b");
+    await settle();
+    expect(mocks.uploads).toHaveLength(0);
+    // A의 "올릴 것" 표시는 남는다. B의 로그인 맞추기가 정한다(다른 계정 표시는 버림, syncRules.ts planSignIn)
+    expect(settings.getSettingsSnapshot().device.pending).toEqual({ nav: { by: "user-a" } });
+  });
+
+  it("로그인 맞추기가 기다리는 동안 그 계정이 로그아웃하면 하지 않는다. 다시 로그인하면 맞춘다", async () => {
+    const settings = await import("./settings.ts");
+    settings.startSettings();
+    await vi.waitFor(() => expect(mocks.syncs).toHaveLength(1));
+    // 첫 맞추기가 걸려 있는 동안: 로그아웃 → B 로그인(맞추기가 줄에 선다) → B 로그아웃
+    setSession(null);
+    setSession("user-b");
+    setSession(null);
+    mocks.syncs[0]?.resolve();
+    await settle();
+    expect(mocks.syncs).toHaveLength(1);
+    setSession("user-b");
+    await vi.waitFor(() => expect(mocks.syncs).toHaveLength(2));
+    expect(mocks.syncs[1]?.userId).toBe("user-b");
   });
 });

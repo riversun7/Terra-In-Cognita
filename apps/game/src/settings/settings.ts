@@ -106,17 +106,22 @@ export function replaceDeviceSettings(next: DeviceSettings): void {
   refresh();
 }
 
-/** accountSync.ts에 넘기는 기기 설정 읽기·쓰기(그 조각이 이 파일을 정적으로 가져오지 않게) */
-const deviceStore = { get: getDeviceSettings, replace: replaceDeviceSettings };
-
 const signedInUserId = (): string | null => {
   const session = getSessionState();
   return session.kind === "signed_in" ? session.user.id : null;
 };
 
+/** accountSync.ts에 넘기는 기기 설정 읽기·쓰기와 지금 로그인한 사용자(그 조각이 이 파일을 정적으로 가져오지 않게) */
+const deviceStore = { get: getDeviceSettings, replace: replaceDeviceSettings, signedInUserId };
+
 const loadAccountSync = () => import("./accountSync.ts");
 
-/** 계정 요청 줄: 앞의 요청(맞추기·올리기)이 끝난 뒤 다음을 보낸다. 실패는 삼킨다("올릴 것" 표시가 남는다) */
+/**
+ * 계정 요청 줄: 앞의 요청(맞추기·올리기)이 끝난 뒤 다음을 보낸다. 실패는 삼킨다("올릴 것" 표시가 남는다).
+ * 차례가 왔을 때 그 요청의 사용자가 로그아웃했거나 다른 계정으로 바뀌었으면 보내지 않는다. 쿠키는 보낼 때의 계정 것이라
+ * 앞 계정의 바꿈이 지금 계정에 저장되기 때문이다. "올릴 것" 표시는 남고, 지금 계정의 로그인 맞추기가 정한다
+ * (그 맞추기는 로그인한 때 줄에 섰으므로 늘 건너뛴 요청 뒤에 돈다).
+ */
 let accountQueue: Promise<void> = Promise.resolve();
 /** 줄에서 차례를 기다리는(아직 보내지 않은) 올리기. 그동안 바꾼 값은 이 올리기가 함께 보낸다 */
 let waitingUpload: Promise<void> | null = null;
@@ -137,6 +142,8 @@ function upload(userId: string, timeoutMs?: number): Promise<void> {
   waitingUpload ??= enqueue(async () => {
     waitingUpload = null;
     const sync = await loadAccountSync();
+    // 조각을 불러온 뒤(보내기 바로 앞)에 본다: 줄에서 기다린 시간과 조각을 받는 시간 모두에 계정이 바뀔 수 있다
+    if (signedInUserId() !== userId) return;
     await sync.uploadPending(deviceStore, userId, timeoutMs);
   });
   return waitingUpload;
@@ -215,6 +222,8 @@ function onSessionChange(): void {
   if (userId === null) return;
   void enqueue(async () => {
     const sync = await loadAccountSync();
+    // 기다리는 동안 로그아웃했거나 다른 계정으로 바뀌었으면 맞추지 않는다(다시 로그인하면 새로 줄에 선다)
+    if (signedInUserId() !== userId) return;
     await sync.syncAtSignIn(deviceStore, userId);
   });
 }

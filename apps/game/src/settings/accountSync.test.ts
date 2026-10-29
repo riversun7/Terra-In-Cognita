@@ -72,8 +72,12 @@ function newSetInput(input: unknown): object {
   return input;
 }
 
-/** 가짜 서버: 받은 칸을 계정 값에 덮어 저장한다 */
-function fakeServer(kind: "old" | "new", initial: UserSettings | null = null) {
+/** 가짜 서버: 받은 칸을 계정 값에 덮어 저장한다. onAnswered는 요청마다 답한 뒤 불린다(그사이 로그인 바꾸기 흉내) */
+function fakeServer(
+  kind: "old" | "new",
+  initial: UserSettings | null = null,
+  onAnswered?: (method: string) => void,
+) {
   let account: UserSettings | null = initial;
   const requests: SeenRequest[] = [];
   const save = (patch: object): UserSettings => {
@@ -100,6 +104,7 @@ function fakeServer(kind: "old" | "new", initial: UserSettings | null = null) {
       });
       const response = await fetchRequestHandler({ endpoint: "/api/trpc", req: request, router });
       requests.push({ url: href, method: request.method, status: response.status });
+      onAnswered?.(request.method);
       return response;
     },
   });
@@ -210,5 +215,32 @@ describe("새 서버에 올리기", () => {
     expectTypeOf<Read["nav"]>().toExtend<SettingsObject | undefined>();
     expectTypeOf<Read["home"]>().toExtend<SettingsObject | undefined>();
     expectTypeOf<Read>().toExtend<UserSettings>();
+  });
+});
+
+describe("로그인한 계정이 바뀜", () => {
+  it("로그인 맞추기: 계정 값을 읽는 사이에 다른 계정으로 바뀌면 읽은 값을 버린다(기기를 덮지 않고 올리지 않는다)", async () => {
+    // 읽기는 앞 계정 쿠키로 갔지만, 올리기는 그때의 쿠키(지금 계정)로 간다 → 앞 계정의 기기 값이 지금 계정에 저장된다
+    let signedIn: string | null = ME;
+    const server = fakeServer("new", { theme: "station", followSystem: false, locale: "ko" }, (method) => {
+      if (method === "GET") signedIn = "user-other";
+    });
+    const device = changedDevice();
+    const store = { ...storageStore(device), signedInUserId: () => signedIn };
+    await syncAtSignIn(store, ME, server.client);
+
+    expect(server.requests.map(({ method }) => method)).toEqual(["GET"]);
+    expect(store.get()).toEqual(device);
+    expect(server.account()).toEqual({ theme: "station", followSystem: false, locale: "ko" });
+  });
+
+  it("계정이 그대로면 그대로 맞춘다(지금 로그인한 사용자를 함께 넘겨도)", async () => {
+    const server = fakeServer("new", { theme: "station", followSystem: false, locale: "ko" });
+    const store = { ...storageStore(changedDevice()), signedInUserId: () => ME };
+    await syncAtSignIn(store, ME, server.client);
+
+    expect(server.requests.map(({ method }) => method)).toEqual(["GET", "POST"]);
+    expect(store.get().pending).toEqual({});
+    expect(server.account()).toMatchObject({ theme: "dark", locale: "en", nav: NAV, home: HOME });
   });
 });

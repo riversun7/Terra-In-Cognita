@@ -44,6 +44,35 @@ export {
   type TerrainData,
 } from "./terrain.ts";
 export {
+  PLANET_FACE_LEVEL_MAX,
+  PLANET_FACE_LEVEL_MIN,
+  PLANET_MANIFEST_ROUTE,
+  PLANET_TILE_CACHE_CONTROL,
+  PLANET_TILE_FORMAT_VERSION,
+  PLANET_TILE_HEADER_BYTES,
+  PLANET_TILE_KEY_PLACEHOLDER,
+  PLANET_TILE_MAX_CELLS,
+  PLANET_TILE_ROUTE,
+  decodePlanetTile,
+  encodePlanetTile,
+  planetManifestPath,
+  planetTileByteLength,
+  planetTilePath,
+  planetTileUrlTemplate,
+  planetTileVersion,
+  type PlanetTileData,
+} from "./planetTile.ts";
+export {
+  PLANET_ID_PATTERN,
+  PLANET_STATUSES,
+  canReadPlanetTiles,
+  planetBiomeSchema,
+  planetManifestSchema,
+  type PlanetBiome,
+  type PlanetManifest,
+  type PlanetStatus,
+} from "./planetManifest.ts";
+export {
   encodeMessage,
   decodeClientMessage,
   decodeServerMessage,

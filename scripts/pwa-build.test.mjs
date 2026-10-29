@@ -1,6 +1,13 @@
 // PWA 빌드 결과 검사 시험 — 실제 빌드(vite-plugin-pwa 2.0.0 + Workbox 7.4.1)와 같은 모양의 가짜 결과로 본다
 import { describe, expect, it } from "vitest";
-import { extractDenylist, findPwaProblems, pngSize, precacheUrls } from "./pwa-build.mjs";
+import {
+  ALLOWED_NAVIGATIONS,
+  ROUTE_NAVIGATIONS,
+  extractDenylist,
+  findPwaProblems,
+  pngSize,
+  precacheUrls,
+} from "./pwa-build.mjs";
 
 /** 가로·세로만 맞춘 PNG 머리(검사는 IHDR까지만 읽는다) */
 function fakePng(width, height) {
@@ -138,6 +145,24 @@ describe("PWA 빌드 결과 검사", () => {
     expect(findPwaProblems(build({ sw: tooWide }))).toEqual(
       expect.arrayContaining([expect.stringContaining("/apiary")]),
     );
+  });
+
+  it("화면 주소 표(packages/shared/src/routes.ts)의 모든 경로 예를 화면 이동 대체에 맡긴다", () => {
+    expect(ROUTE_NAVIGATIONS).toEqual(
+      expect.arrayContaining(["/", "/map/planet", "/inbox", "/dev/planet-editor"]),
+    );
+    // 검색어(값에 점·쌍점)를 붙인 경로도 대 본다
+    expect(ROUTE_NAVIGATIONS.some((path) => path.includes("?") && path.includes("."))).toBe(true);
+    for (const path of ROUTE_NAVIGATIONS) expect(ALLOWED_NAVIGATIONS).toContain(path);
+    // 제외 목록이 화면(지도)까지 빼면 그 경로 예마다 실패
+    const blocksMap = SW.replace("(api|ws|health)(\\/|\\?|$)", "(api|ws|health|map)(\\/|\\?|$)");
+    const problems = findPwaProblems(build({ sw: blocksMap }));
+    expect(problems).toEqual(
+      ROUTE_NAVIGATIONS.filter((path) => path.startsWith("/map")).map((path) =>
+        expect.stringContaining(`화면 경로 ${path}를`),
+      ),
+    );
+    expect(problems.length).toBeGreaterThanOrEqual(2);
   });
 });
 

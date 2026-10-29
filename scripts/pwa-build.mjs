@@ -1,5 +1,8 @@
 // PWA 빌드 결과 검사 — 순수 함수(시험: pwa-build.test.mjs). 파일 읽기는 check-pwa.mjs가 한다.
 // ADR 2026-10-28-pwa-and-browser-baseline: 설치 조건(manifest·아이콘), 화면 이동 대체에서 뺄 경로, 새 버전 적용 메시지
+// 화면 주소 표는 TS 원본을 상대 경로로 바로 읽는다(Node 24 타입 지우기. packages/shared는 지울 수 있는 문법만 쓴다,
+// ADR 2026-10-29-app-shell 1절). 표에 화면을 더하면 이 검사가 저절로 그 경로를 본다.
+import { routePathExamples } from "../packages/shared/src/routes.ts";
 
 /** 서비스 워커가 화면 이동 대체(index.html)를 하면 안 되는 경로 — 소셜 로그인 콜백 등 */
 export const DENIED_NAVIGATIONS = [
@@ -10,8 +13,17 @@ export const DENIED_NAVIGATIONS = [
   "/ws",
   "/health",
 ];
-/** 화면 이동 대체가 맡아야 하는 화면 경로 */
-export const ALLOWED_NAVIGATIONS = ["/", "/game", "/apiary", "/healthy", "/wsx", "/settings/api"];
+/** 화면 주소 표의 모든 경로 예(검색어를 붙인 것 포함) — 서비스 워커가 index.html로 열어야 한다 */
+export const ROUTE_NAVIGATIONS = routePathExamples();
+/** 화면 이동 대체가 맡아야 하는 화면 경로: 주소 표의 경로 예 + 앞머리만 닮은 경로(제외 목록이 너무 넓지 않은지) */
+export const ALLOWED_NAVIGATIONS = [
+  ...ROUTE_NAVIGATIONS,
+  "/game",
+  "/apiary",
+  "/healthy",
+  "/wsx",
+  "/settings/api",
+];
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 

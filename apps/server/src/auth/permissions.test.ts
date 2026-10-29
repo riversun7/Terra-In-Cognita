@@ -1,7 +1,14 @@
 // 역할별 권한 표 시험 — 기본 거부, 역할 조합, 모르는 역할
-import { ROLES } from "@terra/shared";
+import { ROLES, type Role } from "@terra/shared";
 import { describe, expect, it } from "vitest";
-import { type PermissionRequest, parseRoleString, roles, rolesAllow, sortRoles } from "./permissions.ts";
+import {
+  type PermissionRequest,
+  parseRoleString,
+  roles,
+  rolesAllow,
+  sortRoles,
+  statements,
+} from "./permissions.ts";
 
 const ADMIN_ACTIONS: PermissionRequest[] = [
   { user: ["list"] },
@@ -60,6 +67,47 @@ describe("역할 표", () => {
   it("여러 동작은 모두 허용돼야 한다", () => {
     expect(rolesAllow(["admin"], { user: ["list", "set-role"] })).toBe(true);
     expect(rolesAllow(["admin"], { user: ["list", "delete"] })).toBe(false);
+  });
+});
+
+// 개발 도구 권한: 홈 시험(ADR 2026-10-29-app-shell 6절)과 행성 편집기(ADR 2026-10-29-planet-editor-stage1). dev·admin만
+describe("개발 도구 권한(home·planetEditor)", () => {
+  const DEV_TOOL_ACTIONS: PermissionRequest[] = [
+    { home: ["preview"] },
+    { home: ["template"] },
+    { home: ["preview", "template"] },
+    { planetEditor: ["read"] },
+    { planetEditor: ["write"] },
+    { planetEditor: ["read", "write"] },
+  ];
+  // 역할마다 기대값. 표에 역할이 늘면 이 표도 늘려야 한다(아래 시험이 확인)
+  const EXPECTED: Record<Role, boolean> = { player: false, gm: false, dev: true, admin: true };
+
+  it("문장은 home: preview·template, planetEditor: read·write다", () => {
+    expect(statements.home).toEqual(["preview", "template"]);
+    expect(statements.planetEditor).toEqual(["read", "write"]);
+  });
+
+  it("역할마다: player·gm은 못 하고 dev·admin은 한다", () => {
+    expect(Object.keys(EXPECTED).toSorted()).toEqual([...ROLES].toSorted());
+    for (const role of ROLES) {
+      for (const request of DEV_TOOL_ACTIONS) {
+        expect(rolesAllow([role], request), `${role} ${JSON.stringify(request)}`).toBe(EXPECTED[role]);
+      }
+    }
+  });
+
+  it("다른 역할과 함께 가진 dev는 한다. 역할이 없으면 못 한다", () => {
+    expect(rolesAllow(["player", "dev"], { home: ["template"] })).toBe(true);
+    expect(rolesAllow(["player", "gm"], { planetEditor: ["read"] })).toBe(false);
+    expect(rolesAllow([], { home: ["preview"] })).toBe(false);
+  });
+
+  it("dev는 개발 도구 권한이 있어도 계정 관리·2차맵 명령은 못 한다", () => {
+    expect(rolesAllow(["dev"], { user: ["list"] })).toBe(false);
+    expect(rolesAllow(["dev"], { secondMap: ["move-unit"] })).toBe(false);
+    // 한 요청에 섞으면 모두 허용돼야 한다
+    expect(rolesAllow(["dev"], { home: ["preview"], user: ["list"] })).toBe(false);
   });
 });
 

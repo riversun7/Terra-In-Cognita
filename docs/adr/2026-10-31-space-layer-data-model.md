@@ -13,7 +13,7 @@
   - 출시는 지구 + 모항 강하이고 우주층은 나중이다. 행성 ID와 영역 4종 구조만 처음부터 둔다(D-372).
 - 지금 코드(Verified: 이 가지 `cd121ac`)
   - 세계 표 `world_units`·`world_buildings`·`world_exploration`: `planet_id`(text, 콘텐츠 ID 모양 `^[a-z][a-z0-9_]{1,47}$`, 기본 `s2_test_planet`), `domain`(`space`·`sky`·`land`·`sea`, 기본 `land`), `map_key`(bigint, NOT NULL). 위치는 (행성, 2차맵 셀 키, 2차맵 로컬 좌표)뿐이다(`apps/server/src/db/schema.ts`).
-  - 최소 원장의 시스템 계정은 자산마다 하나다(`issue:`·`sink:`·`reserve:<자산>`). 창고 계정 = (주체, 자산)이고 위치가 없다(S3 ADR 4절 "구현하며 정한 것 WP-C").
+  - 최소 원장의 시스템 계정은 자산마다 하나다(`issue:`·`sink:`·`reserve:<자산>`). 창고 계정 = (주체, 자산)이고 위치가 없다(S3 ADR 4절, "구현하며 정한 것 (WP-C 오프라인 정산·원장)").
   - 항성계 편집기 정의 판 1: `{ v: 1, star: { type }, orbits: [{ distanceMilliAu, body }] }`. 천체 = `planet`(행성 보관함 uuid)·`empty`·`asteroid_belt`·`structure`. 위성·스타게이트·천체 ID·이름은 없다(항성계 편집기 ADR 2절).
   - 콘텐츠 팩 `planets`는 격자가 있는 행성만 담는다. 1차맵 타일 주소는 `/api/planets/:planetId`다(`packages/protocol/src/planetTile.ts`). 2차맵 구독 메시지에는 행성이 없다(시험 행성 하나, S3 ADR "행성 ID·영역").
 - 지금 정할 것: 우주층을 만들지는 않는다(D-372). 다만 S3 세계 표·원장·항성계 편집기 자료·프로토콜이 지금 모양으로 굳으면 나중에 마이그레이션·형식 판이 커진다. 그래서 골격과 제약만 적는다. 구현 계획·일정은 적지 않는다.

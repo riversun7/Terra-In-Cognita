@@ -57,14 +57,17 @@ export function varietyContext(faceLevel: number): VarietyContext {
 /** 칸마다 바람(동쪽 u, 북쪽 v) */
 export type CellWind = (c: number) => { readonly u: number; readonly v: number };
 
-export const waterOf = (fields: PlanetFields, c: number): number => fields.water[c] ?? 0;
+/** 물 비트만 있으면 되는 곳(모은 맵 레벨 PlanetLevel도 받는다) */
+type WithWater = Pick<PlanetFields, "water">;
+
+export const waterOf = (fields: WithWater, c: number): number => fields.water[c] ?? 0;
 
 /** 땅: 바다도 호수도 아닌 칸 */
-export function isLandCell(fields: PlanetFields, c: number): boolean {
+export function isLandCell(fields: WithWater, c: number): boolean {
   return (waterOf(fields, c) & (WATER_OCEAN | WATER_LAKE)) === 0;
 }
 
-export function isOceanCell(fields: PlanetFields, c: number): boolean {
+export function isOceanCell(fields: WithWater, c: number): boolean {
   return (waterOf(fields, c) & WATER_OCEAN) !== 0;
 }
 
@@ -195,14 +198,17 @@ export interface LandPatches {
   readonly area: readonly number[];
   /** 덩어리마다 바이옴 번호 */
   readonly biome: readonly number[];
+  /** 덩어리마다 칸 수 */
+  readonly cells: readonly number[];
 }
 
-export function landPatches(ctx: VarietyContext, fields: PlanetFields): LandPatches {
+export function landPatches(ctx: VarietyContext, fields: Pick<PlanetFields, "water" | "biome">): LandPatches {
   const count = ctx.grid.cellCount;
   const label = new Int32Array(count).fill(-1);
   const queue = new Int32Array(count);
   const area: number[] = [];
   const biome: number[] = [];
+  const cells: number[] = [];
   for (let start = 0; start < count; start++) {
     if ((label[start] ?? 0) !== -1 || !isLandCell(fields, start)) continue;
     const id = area.length;
@@ -225,8 +231,9 @@ export function landPatches(ctx: VarietyContext, fields: PlanetFields): LandPatc
     }
     area.push(sum);
     biome.push(kind);
+    cells.push(tail);
   }
-  return { label, area, biome };
+  return { label, area, biome, cells };
 }
 
 /** 큰 것부터 n개 덩어리 넓이 합 ÷ 고른 덩어리 넓이 합 */

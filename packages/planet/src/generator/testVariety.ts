@@ -3,14 +3,16 @@
 // - 파일 이름이 test로 시작해 결정성 검사 대상 밖이다(scripts/check-boundaries.mjs). 생성기 코드는 이 파일들을 가져오지
 //   않는다(같은 검사가 막는다). 측정 도우미는 testVarietyMeasures.ts, 생성기 단위 지표는 testVarietyUnit.ts.
 // - Node API를 쓰지 않는다(src 안). 명령줄·파일은 bench/variety.ts가 맡는다.
-// - 문턱(VARIETY_TARGETS)은 생성기 고침을 위한 임시값이다(문서 4.1, 기획 확인 전). 출력 판 3부터 일부를 막는다
-//   (gate: true, F7 × 시드 3개, variety.test.ts). 막는 지표와 문턱은 ADR 2026-10-29-planet-generator-variety에 적었다.
-//   문턱이나 막는 지표를 바꾸면 GENERATOR_VERSION과 함께 ADR에 적는다.
+// - 문턱(VARIETY_TARGETS)은 생성기 고침을 위한 임시값이다(문서 4.1·4.3, 기획 확인 전). 출력 판 3부터 일부를 막는다
+//   (gate: true, F7 × 시드 3개, variety.test.ts). 막는 지표와 문턱은 ADR 2026-10-29-generator-variety에 적었다.
+//   문턱이나 막는 지표를 바꾸면 ADR에 적는다(출력이 바뀌면 GENERATOR_VERSION도).
+// - 물 지표는 testVarietyWater.ts, 모은 맵 레벨 지표(측정 스크립트만)는 testVarietyLevels.ts.
 import { windAt, windVectorAt } from "./climateWind.ts";
 import type { GeneratorDetails } from "./generate.ts";
 import {
   type CellWind,
   GAME_SCALE,
+  type LandPatches,
   type VarietyContext,
   boundaryCellShare,
   boxDimension,
@@ -31,6 +33,7 @@ import {
 } from "./testVarietyMeasures.ts";
 import { distanceField } from "./queues.ts";
 import { STREAM_WIND, streamSeed } from "./random.ts";
+import { waterMetrics } from "./testVarietyWater.ts";
 import { VERTICAL_SCALE } from "./surface.ts";
 import type { PlanetGeneratorInput } from "./types.ts";
 import { km } from "./util.ts";
@@ -41,6 +44,9 @@ export { type VarietyContext, varietyContext } from "./testVarietyMeasures.ts";
 /** 갈색 무리(사바나·사막·툰드라·고산): 바탕 색이 ΔE 16~20으로 가까워 화면에서 한 덩어리로 보인다(보고용) */
 const BROWN_CLUSTER: readonly string[] = ["savanna", "desert", "tundra", "alpine"];
 const ICE_SHEET = "ice_sheet";
+const DESERT = "desert";
+/** 작은 덩어리: 이 칸 수보다 작은 땅 바이옴 덩어리(점점이 튀는 바이옴) */
+const SMALL_PATCH_CELLS = 5;
 
 export type VarietyOp = "<=" | ">=";
 
@@ -54,8 +60,10 @@ export interface VarietyTarget {
 
 /**
  * 지표 이름 → 임시 문턱(문서 4.1). 여기 없는 지표는 보고만 한다.
- * 막는 지표(출력 판 3, 2026-10-29): 위도 띠 4개(문서 표), 행성끼리 구별, 최소 풍속, 노이즈 격자점(생성기 노이즈 2판
- * 설정 전부), 열점 간격.
+ * 막는 지표(출력 판 3, 2026-10-29): 위도 띠 4개(문턱은 문서 4.3의 2단계 목표: 기후 변이를 반만 줄여도 먼 바다 강수·
+ * 바다 기온 R²가 넘는다, 검토 돌연변이 시험), 행성끼리 구별, 최소 풍속, 노이즈 격자점(생성기 노이즈 2판 설정 전부),
+ * 사슬마다 열점 간격, 물 3개(가장 긴 강·마른 분지·빙상 기후 호수: 3단계 지형 틀이 큰 강을 끊고 마른 분지·얼음 위 호수를
+ * 늘렸던 것).
  * 보고만 하는 것과 까닭
  * - 습도 계단: 위도 띠·기온 기울기와 섞인 지표라 이름의 결함(반올림 기온으로 습도 계산)을 잡지 못하고(검토 돌연변이:
  *   그 결함을 되살려도 1.25~1.37로 통과), F7 잔 변이를 끄자(파장 칸 3개 규칙) 결함 없이 1.6~1.8로 올랐다. 그 결함은
@@ -67,11 +75,11 @@ export interface VarietyTarget {
  * - 큰 덩어리 10개·특징까지 거리: 특수 지형 층·2차맵이 채울 몫(문서 4.2·4.3)
  */
 export const VARIETY_TARGETS: Readonly<Record<string, VarietyTarget>> = {
-  // 위도 띠: 바이옴·기후가 위도만의 함수인지
-  "zonal.biomeInfoExplainedByAbsLat": { op: "<=", limit: 0.5, gate: true },
+  // 위도 띠: 바이옴·기후가 위도만의 함수인지(문서 4.3 2단계 목표)
+  "zonal.biomeInfoExplainedByAbsLat": { op: "<=", limit: 0.47, gate: true },
   "zonal.dominantBiomeShare": { op: "<=", limit: 0.55, gate: true },
-  "zonal.openOceanPrecipR2": { op: "<=", limit: 0.9, gate: true },
-  "zonal.oceanTempR2": { op: "<=", limit: 0.97, gate: true },
+  "zonal.openOceanPrecipR2": { op: "<=", limit: 0.8, gate: true },
+  "zonal.oceanTempR2": { op: "<=", limit: 0.96, gate: true },
   "zonal.lowlandTempR2": { op: "<=", limit: 0.96, gate: false },
   // 곧은 줄: 정수 등온선 계단, 바람 방향 줄무늬
   "lines.humidityStepAtIntegerIsotherms": { op: "<=", limit: 1.5, gate: false },
@@ -88,7 +96,14 @@ export const VARIETY_TARGETS: Readonly<Record<string, VarietyTarget>> = {
   // 생성기 단위(testVarietyUnit.ts)
   "unit.windMinSpeed": { op: ">=", limit: 0.2, gate: true },
   "unit.noiseLatticeRmsRatio": { op: ">=", limit: 0.8, gate: true },
-  "unit.hotspotSpacingCv": { op: ">=", limit: 0.15, gate: true },
+  "unit.hotspotSpacingCv": { op: ">=", limit: 0.15, gate: false },
+  "unit.hotspotChainCvMean": { op: ">=", limit: 0.15, gate: true },
+  // 물(F7 문턱): 대륙을 가로지르는 큰 강이 있고, 마른 분지·얼음 위 호수가 넘치지 않는다
+  "rivers.longestKm": { op: ">=", limit: 2000, gate: true },
+  "water.dryBasinShare": { op: "<=", limit: 0.05, gate: true },
+  "water.iceClimateLakeShare": { op: "<=", limit: 0.05, gate: true },
+  // 모은 맵 레벨(측정 스크립트, F9면 L5): 바이옴 몫이 모으기에서 크게 바뀌지 않는다(보고)
+  "levels.F-4.maxShareShift": { op: "<=", limit: 0.05, gate: false },
 };
 
 /** 지표 하나 */
@@ -304,6 +319,22 @@ export function fieldMetrics(
       `24 game km windows (${windowCells}×${windowCells} cells, ${windows.windows} land windows) holding one biome`,
     ),
     varietyMetric("patches.largestShareOfLand", topShare(patches.area, 1), "largest single patch"),
+    varietyMetric(
+      "patches.largestDesertShareOfLand",
+      largestOf(
+        patches,
+        input.biomes.findIndex((biome) => biome.id === DESERT),
+      ) / totalOf(patches),
+      "largest single desert patch",
+    ),
+    varietyMetric(
+      "patches.smallPatchShareOfLand",
+      patches.area.reduce(
+        (sum, area, k) => sum + ((patches.cells[k] ?? 0) < SMALL_PATCH_CELLS ? area : 0),
+        0,
+      ) / totalOf(patches),
+      `land in patches of fewer than ${SMALL_PATCH_CELLS} cells (salt-and-pepper speckle)`,
+    ),
     varietyMetric("patches.count", patches.area.length, "land biome patches (8-neighbour)"),
     varietyMetric(
       "patches.boundaryCellShare",
@@ -314,6 +345,24 @@ export function fieldMetrics(
       "features.gapP90GameKm",
       featureGapP90GameKm(ctx, fields, details.basinKind),
       "p90 distance from land to the nearest 1st-map feature (game km)",
+    ),
+  );
+
+  // 물
+  const water = waterMetrics(ctx, details);
+  metrics.push(
+    varietyMetric(
+      "rivers.longestKm",
+      water.longestRiverKm,
+      "longest river (real-eq km) from its source to the sea, a lake or a dry basin",
+    ),
+    varietyMetric("rivers.order3PlusShare", water.order3PlusShare, "land with Strahler order ≥ 3"),
+    varietyMetric("water.dryBasinShare", water.dryBasinShare, "dry-basin (playa) area ÷ non-ocean area"),
+    varietyMetric("water.lakeShare", water.lakeShare, "lake area ÷ non-ocean area"),
+    varietyMetric(
+      "water.iceClimateLakeShare",
+      water.iceClimateLakeShare,
+      "lakes among non-ocean cells with stored temperature in ice-sheet climate (holes in the ice)",
     ),
   );
 
@@ -335,6 +384,7 @@ export function fieldMetrics(
   const brown = BROWN_CLUSTER.reduce((sum, id) => sum + (landShares[id] ?? 0), 0);
   metrics.push(
     varietyMetric("biomes.largestShareOfLand", Math.max(0, ...shares), "most common land biome"),
+    varietyMetric("biomes.desertShareOfLand", landShares[DESERT] ?? 0, "desert share of land"),
     varietyMetric("biomes.brownClusterShare", brown, `${BROWN_CLUSTER.join(" + ")} (palette ΔE 16–20)`),
     varietyMetric(
       "seams.faceEdgeChangeRatio",
@@ -343,6 +393,19 @@ export function fieldMetrics(
     ),
   );
   return { metrics, landShares, bandTable };
+}
+
+/** 덩어리 넓이 합 */
+function totalOf(patches: LandPatches): number {
+  return patches.area.reduce((sum, area) => sum + area, 0);
+}
+
+/** 바이옴 하나의 가장 큰 덩어리 넓이(없으면 0) */
+function largestOf(patches: LandPatches, biome: number): number {
+  return patches.area.reduce(
+    (best, area, k) => (patches.biome[k] === biome ? Math.max(best, area) : best),
+    0,
+  );
 }
 
 /** 값 표시: 큰 값은 소수 1자리, 나머지는 3자리 */

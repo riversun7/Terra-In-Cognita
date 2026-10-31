@@ -52,7 +52,10 @@ describe("반복·단조로움 검사 (막는 지표는 문턱, 나머지는 보
     const all: VarietyMetric[] = [...perSeed.flatMap((result) => result.metrics), ...cross];
     for (const entry of all) expect(Number.isFinite(entry.value), entry.name).toBe(true);
     const names = new Set(all.map((entry) => entry.name));
-    for (const name of Object.keys(VARIETY_TARGETS)) expect(names.has(name), name).toBe(true);
+    // 모은 맵 레벨 지표(levels.*)는 측정 스크립트만 잰다(F9 → L5·L6·L7. F7을 모은 L3는 칸이 너무 적다)
+    for (const name of Object.keys(VARIETY_TARGETS).filter((key) => !key.startsWith("levels."))) {
+      expect(names.has(name), name).toBe(true);
+    }
     // 막는 지표: 시드마다(시드끼리 지표는 한 번) 문턱 안
     const gated = all.filter((entry) => VARIETY_TARGETS[entry.name]?.gate === true);
     expect(gated.length).toBeGreaterThan(0);

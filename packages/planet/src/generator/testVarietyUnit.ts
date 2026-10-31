@@ -4,7 +4,7 @@
 import type { PlanetSettings } from "@terra/shared";
 import { CLIMATE_NOISES } from "./climate.ts";
 import { WIND_NOISE } from "./climateWind.ts";
-import { hotspotVolcanoes } from "./hotspots.ts";
+import { type Volcano, hotspotVolcanoes } from "./hotspots.ts";
 import { LANDFORM_NOISES } from "./landforms.ts";
 import {
   type NoiseSetup,
@@ -158,17 +158,38 @@ export function generatorLattice(): LatticeSummary {
   return latticeCache;
 }
 
-/** 열점 사슬 안 이웃 화산 사이 거리(실제 환산 km)의 변동 계수(표준편차 ÷ 평균)와 사슬 길이(화산 수) 범위 */
-export function hotspotSpacing(
-  seed: number,
-  settings: PlanetSettings,
-): {
+export interface HotspotSpacing {
+  /** 모든 사슬의 이웃 화산 사이 거리를 한데 모은 변동 계수 */
   readonly cv: number;
+  /** 사슬마다(간격 2개 이상) 변동 계수의 평균: 사슬 하나가 고르게 늘어서면 작다 */
+  readonly chainCvMean: number;
+  /** 사슬마다(화산 3개 이상) 첫 화산 → 끝 화산 현 길이 ÷ 걸음 길이 합의 평균(1 = 곧은 줄) */
+  readonly straightness: number;
   readonly chains: number;
   readonly meanGapKm: number;
   readonly minCones: number;
   readonly maxCones: number;
-} {
+}
+
+const chordKm = (a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }): number => {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  const dz = a.z - b.z;
+  return Math.sqrt(dx * dx + dy * dy + dz * dz) * REFERENCE_RADIUS_KM;
+};
+
+const coefficientOfVariation = (values: readonly number[]): number => {
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const variance = values.reduce((sum, value) => sum + (value - mean) * (value - mean), 0) / values.length;
+  return mean > 0 ? Math.sqrt(variance) / mean : 0;
+};
+
+/** 평균(빈 목록은 0) */
+const meanOf = (values: readonly number[]): number =>
+  values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+
+/** 열점 사슬 안 이웃 화산 사이 거리(실제 환산 km)의 다양성, 사슬 모양, 사슬 길이(화산 수) 범위 */
+export function hotspotSpacing(seed: number, settings: PlanetSettings): HotspotSpacing {
   const continentalShare = Math.min(0.97, (settings.landPercent + settings.shelfPercent) / 100);
   const plates = createPlates(seed, settings.plateCount, continentalShare);
   const volcanoes = hotspotVolcanoes(
@@ -179,29 +200,37 @@ export function hotspotSpacing(
     settings.volcanismPercent / 100,
     () => false,
   );
-  const gaps: number[] = [];
-  const cones = new Map<number, number>();
-  for (let k = 0; k < volcanoes.length; k++) {
-    const b = volcanoes[k];
-    if (!b) continue;
-    cones.set(b.chain, (cones.get(b.chain) ?? 0) + 1);
-    const a = volcanoes[k - 1];
-    if (!a || a.chain !== b.chain) continue;
-    const dx = a.x - b.x;
-    const dy = a.y - b.y;
-    const dz = a.z - b.z;
-    gaps.push(Math.sqrt(dx * dx + dy * dy + dz * dz) * REFERENCE_RADIUS_KM);
+  const byChain = new Map<number, Volcano[]>();
+  for (const volcano of volcanoes) {
+    const chain = byChain.get(volcano.chain);
+    if (chain) chain.push(volcano);
+    else byChain.set(volcano.chain, [volcano]);
   }
-  const lengths = [...cones.values()];
-  const minCones = lengths.length > 0 ? Math.min(...lengths) : 0;
-  const maxCones = lengths.length > 0 ? Math.max(...lengths) : 0;
-  if (gaps.length === 0) return { cv: 0, chains: cones.size, meanGapKm: 0, minCones, maxCones };
-  const mean = gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length;
-  const variance = gaps.reduce((sum, gap) => sum + (gap - mean) * (gap - mean), 0) / gaps.length;
-  return { cv: Math.sqrt(variance) / mean, chains: cones.size, meanGapKm: mean, minCones, maxCones };
+  const gaps: number[] = [];
+  const chainCvs: number[] = [];
+  const straight: number[] = [];
+  for (const chain of byChain.values()) {
+    const steps = chain.slice(1).map((volcano, k) => chordKm(chain[k] ?? volcano, volcano));
+    gaps.push(...steps);
+    if (steps.length >= 2) chainCvs.push(coefficientOfVariation(steps));
+    const path = steps.reduce((sum, step) => sum + step, 0);
+    const first = chain[0];
+    const last = chain[chain.length - 1];
+    if (chain.length >= 3 && first && last && path > 0) straight.push(chordKm(first, last) / path);
+  }
+  const lengths = [...byChain.values()].map((chain) => chain.length);
+  return {
+    cv: gaps.length > 0 ? coefficientOfVariation(gaps) : 0,
+    chainCvMean: meanOf(chainCvs),
+    straightness: meanOf(straight),
+    chains: byChain.size,
+    meanGapKm: meanOf(gaps),
+    minCones: lengths.length > 0 ? Math.min(...lengths) : 0,
+    maxCones: lengths.length > 0 ? Math.max(...lengths) : 0,
+  };
 }
 
-/** 생성기 단위 지표(시드·설정마다): 최소 풍속, 노이즈 격자점(생성기 설정 전부), 열점 간격 */
+/** 생성기 단위 지표(시드·설정마다): 최소 풍속, 노이즈 격자점(생성기 설정 전부), 열점 간격·모양 */
 export function unitMetrics(ctx: VarietyContext, seed: number, settings: PlanetSettings): VarietyMetric[] {
   const hotspots = hotspotSpacing(seed, settings);
   const lattice = generatorLattice();
@@ -229,7 +258,17 @@ export function unitMetrics(ctx: VarietyContext, seed: number, settings: PlanetS
     varietyMetric(
       "unit.hotspotSpacingCv",
       hotspots.cv,
-      `${hotspots.chains} chains of ${hotspots.minCones}–${hotspots.maxCones} cones, mean gap ${hotspots.meanGapKm.toFixed(0)} km (real-eq)`,
+      `${hotspots.chains} chains of ${hotspots.minCones}–${hotspots.maxCones} cones, mean gap ${hotspots.meanGapKm.toFixed(0)} km (real-eq), all gaps pooled`,
+    ),
+    varietyMetric(
+      "unit.hotspotChainCvMean",
+      hotspots.chainCvMean,
+      "mean over chains (≥ 2 gaps) of the gap CV inside one chain",
+    ),
+    varietyMetric(
+      "unit.hotspotChainStraightness",
+      hotspots.straightness,
+      "mean over chains (≥ 3 cones) of end-to-end chord ÷ path length (1 = straight row)",
     ),
   ];
 }

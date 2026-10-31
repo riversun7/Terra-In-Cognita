@@ -1,10 +1,13 @@
-// 반복·단조로움 검사 측정 — 면 레벨(기본 9) × 시드(기본 팩·1·42)의 지표를 표와 JSON으로 내고, 기준 JSON과 비교한다.
+// 반복·단조로움 검사 측정 — 면 레벨(기본 9) × 시드(기본 팩·1·42·2718281828)의 지표를 표와 JSON으로 내고, 기준 JSON과
+// 비교한다.
 // 실행: pnpm --filter @terra/planet variety [면 레벨] [시드 목록] [--json <경로>] [--compare <경로>] [--strict]
-//   예: pnpm --filter @terra/planet variety 9 pack,1,42 --compare bench/variety-baseline.json
+//   예: pnpm --filter @terra/planet variety 9 pack,1,42,2718281828 --compare bench/variety-baseline.json
 //   명령은 packages/planet에서 돈다: 상대 경로는 packages/planet 기준이다. 기준 파일은 bench/variety-baseline.json
-//   (출력 판 3, F9 × 팩·1·42). 출력 판 2의 같은 측정은 bench/variety-baseline-v2.json에 남겨 둔다.
-// - 지표 계산은 시험(src/generator/variety.test.ts, F7 보고 모드)과 같은 코드다(testVariety*.ts). pnpm test에 넣지 않는다:
-//   F9 × 시드 3개는 약 1분 걸린다.
+//   (출력 판 3, F9 × 팩·1·42·2718281828). 시드 1·42는 생성기를 맞출 때 본 시드, 2718281828은 맞출 때 보지 않은 시드
+//   (main의 편집 전용 행성 s2_editor_planet과 같은 시드)다. 출력 판 2의 같은 측정은 bench/variety-baseline-v2.json.
+// - 지표 계산은 시험(src/generator/variety.test.ts, F7)과 같은 코드다(testVariety*.ts). 모은 맵 레벨 지표(F−4·F−3·F−2,
+//   F9면 L5·L6·L7: 기기가 실제로 보는 타일 값)는 여기서만 잰다(testVarietyLevels.ts). pnpm test에 넣지 않는다:
+//   F9 × 시드 4개는 약 2분 걸린다.
 // - --compare: 같은 시드의 문턱 있는 지표를 기준과 비교해 문턱 쪽으로 10%(기준이 0 근처면 0.01) 넘게 나빠진 것을 알린다.
 //   땅 바이옴 몫이 기준과 얼마나 다른지(%p)도 찍는다. 종료 코드는 0이다(--strict면 나빠진 지표가 있을 때 1).
 import { readFileSync, writeFileSync } from "node:fs";
@@ -19,6 +22,7 @@ import {
   formatVarietyReport,
   varietyContext,
 } from "../src/generator/testVariety.ts";
+import { levelMetrics } from "../src/generator/testVarietyLevels.ts";
 import { unitMetrics } from "../src/generator/testVarietyUnit.ts";
 import { loadPackPlanet } from "./testPlanet.ts";
 
@@ -44,7 +48,7 @@ function parseOptions(args: readonly string[]): Options {
   }
   return {
     faceLevel: Number(rest[0] ?? 9),
-    seeds: (rest[1] ?? "pack,1,42").split(","),
+    seeds: (rest[1] ?? "pack,1,42,2718281828").split(","),
     json,
     compare,
     strict,
@@ -66,13 +70,24 @@ const ctx = varietyContext(options.faceLevel);
 const perSeed: SeedVariety[] = [];
 const hashes: Record<string, string> = {};
 const ms: Record<string, { generate: number; metrics: number }> = {};
+const levelShares: Record<string, unknown> = {};
 for (const seed of seeds) {
   const input = { ...planet.input, seed };
   const started = performance.now();
   const details = runPlanetGenerator(input);
   const generated = performance.now();
   const result = fieldMetrics(ctx, details, input);
-  perSeed.push({ ...result, metrics: [...result.metrics, ...unitMetrics(ctx, seed, input.settings)] });
+  const levels = levelMetrics(ctx, details.fields, input.biomes);
+  levelShares[String(seed)] = Object.fromEntries(
+    Object.entries(levels.shares).map(([level, shares]) => [
+      level,
+      Object.fromEntries(Object.entries(shares).map(([id, share]) => [id, round6(share)])),
+    ]),
+  );
+  perSeed.push({
+    ...result,
+    metrics: [...result.metrics, ...levels.metrics, ...unitMetrics(ctx, seed, input.settings)],
+  });
   const done = performance.now();
   hashes[String(seed)] = details.fields.meta.hash;
   ms[String(seed)] = { generate: Math.round(generated - started), metrics: Math.round(done - generated) };
@@ -100,6 +115,7 @@ const report = {
       ),
     ]),
   ),
+  levelShares,
   cross: record(cross),
   targets: VARIETY_TARGETS,
   ms,

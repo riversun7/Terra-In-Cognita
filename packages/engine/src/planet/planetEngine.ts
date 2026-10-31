@@ -44,10 +44,11 @@ import {
   type PlanetView as PlanetViewOption,
   planetDescriptionProblem,
 } from "./planetTypes.ts";
-import { MoonLayer } from "./moon.ts";
-import { ATMOSPHERE_SCALE, type PlanetTileGpu, PlanetView, SPACE_COLOR, precompile } from "./planetView.ts";
+import { cloudLiftM } from "./cloudSchedule.ts";
+import { ATMOSPHERE_SCALE, type PlanetTileGpu, PlanetView } from "./planetView.ts";
 import type { PlanetSkyMode } from "./sky.ts";
 import { SkyController } from "./skyController.ts";
+import { skyLayerFactories } from "./skyLayers.ts";
 import { type DecodedLookup, cellAt, displayedHeightAt, rayHitsSurface } from "./surfaceLookup.ts";
 import { createTileBuilder } from "./tileBuilder.ts";
 import { TilePipeline } from "./tilePipeline.ts";
@@ -142,6 +143,8 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
   let cameraPlaced = false;
   let pose: GlobePose = globePose(state, radiusM, limits);
   let gestureActive = false;
+  /** 마지막 손가락 동작이 끝난 때(performance.now) — 구름은 300ms 뒤부터 굽는다 */
+  let gestureEndedAt = Number.NEGATIVE_INFINITY;
   let animation: ZoomAnimation | null = null;
   let lastSelection: Selection | null = null;
   let tileBudgetHits = 0;
@@ -188,7 +191,8 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     const ground = shownHeight(normalize(pose.position));
     const clearance = Math.max(1, cameraRadius - radiusM - ground);
     const near = Math.max(1, Math.min(clearance * 0.5, state.distance * 0.25));
-    const outer = radiusM + maxElevationM() * exaggeration;
+    // 먼 자르기 면: 가장 높은 땅 또는 구름 껍질 중 높은 것까지
+    const outer = radiusM + Math.max(maxElevationM() * exaggeration, cloudLiftM(radiusM, exaggeration));
     const horizon =
       Math.sqrt(Math.max(0, cameraRadius * cameraRadius - occluderRadiusM * occluderRadiusM)) +
       Math.sqrt(Math.max(0, outer * outer - occluderRadiusM * occluderRadiusM));
@@ -292,6 +296,8 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
       exaggeration,
       firstDisplayed: firstDisplayMs !== null,
       gestureActive,
+      msSinceGesture: started - gestureEndedAt,
+      cameraMoving: animating,
       tilesBusy: busy.fetching + busy.building + busy.queued > 0,
       nowMs: started,
     });
@@ -315,23 +321,28 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
   // 하늘: 옵션이 없으면 off = 지금 모습(편집기·지금 시험). 틈 찾기는 늘 끈다
   const skyModeOf = (mode: PlanetSkyMode | undefined): PlanetSkyMode =>
     options.debugCracks || !mode ? { kind: "off" } : mode;
+  const bench = options.gpuBenchRepeat ? new GpuBench(options.gpuBenchRepeat, renderer.getContext()) : null;
+  const requestFrame = (): void => scheduler.request();
   const sky = new SkyController({
     radiusM,
     // 달을 가리는 원판 = 대기 띠까지(그 안에 다 들면 보이지 않으므로 그리지 않는다)
     occluderRadiusM: radiusM * ATMOSPHERE_SCALE,
     ...(planet.sky ? { sky: planet.sky } : {}),
     setSkyLight: (blend, sun, strength, at) => view.setSkyLight(blend, sun, strength, at),
-    requestFrame: () => scheduler.request(),
-    // 달은 첫 표시 뒤 숨긴 채 만들고 미리 컴파일한다(처음 보일 때 멈칫하지 않게. three compile은 숨긴 메시의 재질도 모은다)
-    createMoons: (moons) => {
-      const moonLayer = new MoonLayer(view.shared, moons, SPACE_COLOR);
-      view.scene.add(...moonLayer.meshes);
-      precompile(renderer, view.scene, view.camera);
-      return moonLayer;
-    },
+    requestFrame,
+    // 달·구름: 첫 표시 뒤 숨긴 채 만들고 미리 컴파일한다(skyLayers.ts)
+    ...skyLayerFactories({
+      renderer,
+      view,
+      pipeline,
+      layout,
+      radiusM,
+      seed: planet.skySeed ?? 0,
+      requestFrame,
+      bench,
+    }),
   });
   sky.setMode(skyModeOf(options.sky));
-  const bench = options.gpuBenchRepeat ? new GpuBench(options.gpuBenchRepeat, renderer.getContext()) : null;
 
   const resize = (): void => {
     const rect = container.getBoundingClientRect();
@@ -382,7 +393,10 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     onGestureChange: (active) => {
       gestureActive = active;
       if (active) animation = null;
-      else scheduler.request();
+      else {
+        gestureEndedAt = performance.now();
+        scheduler.request();
+      }
     },
     onTap: (point) => options.onPick?.(pick(point)),
     onDoubleTap: (point) => {

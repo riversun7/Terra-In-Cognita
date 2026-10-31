@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-31 09:10 | 1차맵 구름 — GPU 굽기 큐브, 기후 치우침, 날씨 창, 껍질·걷히기·고른 칸 둘레 (WP5) | Claude Code | [31-0910-sky-clouds](worklog/2026/10/31-0910-sky-clouds.md) |
 | 2026-10-30 01:40 | 1차맵 달 — 배경 구 달, 보임 판정, 미리 컴파일 (WP4) | Claude Code | [30-0140-sky-moon](worklog/2026/10/30-0140-sky-moon.md) |
 | 2026-10-30 01:00 | 1차맵 하늘 낮밤 연결 — 항성 기준 셰이더, 하늘 조절기, 화면 시계·주소 매개변수, 재기 모드 (WP3) | Claude Code | [30-0100-sky-day-night](worklog/2026/10/30-0100-sky-day-night.md) |
 | 2026-10-29 23:50 | 1차맵 하늘 계산 `packages/engine/src/planet/sky.ts` — 항성·달·낮밤 세기·구름 걷힘·보임·하늘 시계 (WP2) | Claude Code | [29-2350-sky-math](worklog/2026/10/29-2350-sky-math.md) |

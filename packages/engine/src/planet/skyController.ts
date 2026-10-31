@@ -69,6 +69,10 @@ export interface SkyFrame {
   readonly firstDisplayed: boolean;
   /** 손가락 동작 중 */
   readonly gestureActive: boolean;
+  /** 마지막 손가락 동작이 끝난 뒤 지난 시간(ms, 없었으면 무한대) — 구름은 300ms 뒤부터 굽는다 */
+  readonly msSinceGesture: number;
+  /** 카메라가 움직이는 중(두 번 누르기 움직임·목표점 높이 맞추기) */
+  readonly cameraMoving: boolean;
   /** 타일 받기·만들기·올리기 중 */
   readonly tilesBusy: boolean;
   /** performance.now() */
@@ -93,12 +97,10 @@ export interface SkyMoonLayer {
   dispose(): void;
 }
 
-/** 구름이 프레임마다 받는 것 */
+/** 구름이 프레임마다 받는 것(fixed는 날씨 창이 바뀌지 않아 한 번만 굽는다) */
 export interface CloudFrame {
   readonly frame: SkyFrame;
   readonly sky: PlanetSkyState;
-  /** 시각이 멈춰 있다(fixed): 한 번만 굽는다 */
-  readonly frozen: boolean;
 }
 
 /** 구름 그리기(clouds.ts) */
@@ -149,7 +151,8 @@ const smooth = (u: number): number => {
   return x * x * (3 - 2 * x);
 };
 
-function defaultReport(error: unknown): void {
+/** 하늘 오류 알리기(기본): 전역 reportError → 기기 오류 보고. 없으면(시험 등) 다음 마이크로태스크에서 던진다 */
+export function reportSkyError(error: unknown): void {
   if (typeof reportError === "function") reportError(error);
   else
     queueMicrotask(() => {
@@ -416,7 +419,7 @@ export class SkyController {
       return false;
     }
     this.clouds ??= create();
-    return this.clouds.update({ frame, sky, frozen: this.mode.kind === "fixed" });
+    return this.clouds.update({ frame, sky });
   }
 
   /** 하늘 시계를 예약한다(ADR 7절). 다음 간격(ms), 돌지 않으면 null */
@@ -494,7 +497,7 @@ export class SkyController {
     }
     if (this.reported) return;
     this.reported = true;
-    (this.options.report ?? defaultReport)(error);
+    (this.options.report ?? reportSkyError)(error);
   }
 
   private disposeMoons(): void {

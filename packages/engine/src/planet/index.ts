@@ -34,5 +34,6 @@ export {
   type TileSource,
 } from "./planetTypes.ts";
 export { MAX_BENCH_REPEAT, MIN_BENCH_REPEAT } from "./gpuBench.ts";
+export { skySeedOfHash } from "./cloudNoise.ts";
 export { PRIMARY_LEVELS, TILE_CELLS } from "./tileTree.ts";
 export { disposeSharedRenderer } from "../render/sharedRenderer.ts";

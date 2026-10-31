@@ -114,6 +114,49 @@ afterEach(() => {
 /** 꼭짓점 높이가 모두 height인 타일 높이 함수 */
 const flat = (height: number) => (): number => height;
 
+describe("늘 원하는 타일(pin)", () => {
+  it("고르기가 원하지 않아도 남은 자리로 받고, 원하는 받기가 먼저다. 취소하지 않는다", () => {
+    const { pipeline, calls, advance } = setup({ concurrentFetches: 2 });
+    const pinned = level6(3);
+    pipeline.pin(wanted(pinned));
+    const regular: TileNode = { face: 5, mapLevel: 7, tx: 3, ty: 3 };
+    pipeline.request(wanted([regular]), 1);
+    // 원하는 1개 + 늘 원하는 1개(자리 2). 상한에 걸려도 받기 상한 횟수로 세지 않는다
+    expect(calls.map((call) => call.request.mapLevel)).toEqual([7, 6]);
+    expect(pipeline.hits.fetches).toBe(0);
+    advance(10_000);
+    pipeline.request([], 2);
+    expect(calls[1]?.signal.aborted).toBe(false);
+    expect(calls[0]?.signal.aborted).toBe(true);
+    // 원하던 것이 취소되어 자리가 나면 다음 프레임에 다음 늘 원하는 타일을 받는다
+    expect(calls).toHaveLength(2);
+    pipeline.request([], 3);
+    expect(calls).toHaveLength(3);
+    expect(calls[2]?.request.mapLevel).toBe(6);
+  });
+
+  it("다 받아 풀리면 pinnedReady. 실패는 다시 받되 화면의 '지금 실패한 타일'에는 넣지 않는다", async () => {
+    const { pipeline, calls, answer, advance } = setup({ concurrentFetches: 6 });
+    const pinned = level6(2);
+    expect(pipeline.pinnedReady()).toBe(true);
+    pipeline.pin(wanted(pinned));
+    expect(pipeline.pinnedReady()).toBe(false);
+    pipeline.request([], 1);
+    answer(0);
+    calls[1]?.reject(new Error("network"));
+    await settle();
+    expect(pipeline.pinnedReady()).toBe(false);
+    pipeline.request([], 2);
+    expect(pipeline.counts().failed).toBe(0);
+    advance(1001);
+    pipeline.request([], 3);
+    expect(calls).toHaveLength(3);
+    answer(2);
+    await settle();
+    expect(pipeline.pinnedReady()).toBe(true);
+  });
+});
+
 describe("타일 받기·올리기", () => {
   it("동시 받기 상한(2)을 지키고, 기다린 요청은 상한 횟수로 센다", () => {
     const { pipeline, calls } = setup({ concurrentFetches: 2 });

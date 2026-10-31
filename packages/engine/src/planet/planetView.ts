@@ -4,11 +4,13 @@
 import {
   BufferAttribute,
   BufferGeometry,
+  type Camera,
   Color,
   Group,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
+  type Object3D,
   PerspectiveCamera,
   Scene,
   type ShaderMaterial,
@@ -16,10 +18,12 @@ import {
   SphereGeometry,
   type Texture,
   Vector3,
+  Vector4,
   type WebGLRenderer,
 } from "three";
 import { cameraRelative } from "./cameraRelative.ts";
-import type { GlobePose } from "./globeCamera.ts";
+import type { PickClearUniforms } from "./clouds.ts";
+import { type GlobePose, directionOfLatLon } from "./globeCamera.ts";
 import {
   DEBUG_CRACK_COLOR,
   type SharedTileUniforms,
@@ -40,19 +44,31 @@ import { type Vec3, dot } from "./vec3.ts";
 export const SPACE_COLOR = 0x1e2a4a;
 /** 바탕 구는 해수면보다 이만큼 아래(타일이 있으면 늘 가린다) */
 const BASE_GLOBE_DEPTH_M = 1500;
+/** 고른 칸 둘레 구름 비우기: 칸 각 크기의 2.5배(1° 아래로는 줄이지 않는다), 바깥 가장자리는 1.6배까지 옅게 */
+const PICK_CLEAR_CELLS = 2.5;
+const PICK_CLEAR_MIN_RAD = Math.PI / 180;
+const PICK_CLEAR_EDGE = 1.6;
+
 /** 대기 띠 두께(반지름 비). 달 보임 판정은 이 원판을 행성으로 본다(띠 바깥쪽은 거의 불투명하게 빛난다) */
 export const ATMOSPHERE_SCALE = 1.018;
 
 /**
- * 숨긴 채 만든 하늘 물체(달·구름)의 셰이더를 미리 컴파일한다(처음 보일 때 멈칫하지 않게). three 0.186.1 compile은 숨긴 메시의
- * 재질도 모은다. 병렬 컴파일 확장(KHR_parallel_shader_compile)이 있으면 기다리지 않고, 없으면 바로 컴파일한다
+ * 숨긴 채 만든 하늘 물체(달·구름)의 셰이더를 미리 컴파일한다(처음 보일 때 멈칫하지 않게). three 0.186.1 compile은 넘긴 물체 아래
+ * 숨긴 메시의 재질도 모은다. 그래서 장면 전체가 아니라 새 물체만 넘긴다(장면을 넘기면 그리지 않는 색인 지킴이의
+ * MeshBasicMaterial까지 컴파일했다 — 프로그램 하나 더, 헤드리스에서 확인). 빛·환경은 targetScene(장면) 것을 쓴다.
+ * 병렬 컴파일 확장(KHR_parallel_shader_compile)이 있으면 기다리지 않고, 없으면 바로 컴파일한다
  * (없을 때 compileAsync는 콘솔 경고를 남긴다 — 헤드리스 SwiftShader에서 확인)
  */
-export function precompile(renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera): void {
+export function precompile(
+  renderer: WebGLRenderer,
+  object: Object3D,
+  camera: Camera,
+  targetScene?: Scene,
+): void {
   if (renderer.extensions.has("KHR_parallel_shader_compile")) {
-    renderer.compileAsync(scene, camera).catch(() => undefined);
+    renderer.compileAsync(object, camera, targetScene ?? null).catch(() => undefined);
   } else {
-    renderer.compile(scene, camera);
+    renderer.compile(object, camera, targetScene ?? null);
   }
 }
 
@@ -65,6 +81,11 @@ export class PlanetView {
   readonly scene = new Scene();
   readonly camera: PerspectiveCamera;
   readonly shared: SharedTileUniforms;
+  /** 고른 칸 둘레 구름 비우기(구름 껍질이 나눠 쓴다). 고른 칸이 없으면 cos 3·2(닿지 않음) */
+  readonly pickClear: PickClearUniforms = {
+    uPickClear: { value: new Vector4(0, 0, 1, 3) },
+    uPickEdge: { value: 2 },
+  };
   private readonly tiles = new Group();
   private readonly baseGlobe: Mesh<SphereGeometry, ShaderMaterial>;
   private readonly atmosphere: Mesh<SphereGeometry, ShaderMaterial>;
@@ -180,10 +201,17 @@ export class PlanetView {
   setPick(cell: PickedCell | null): void {
     if (!cell) {
       this.shared.uPick.value.set(0, 0, 0, -1);
+      this.pickClear.uPickClear.value.set(0, 0, 1, 3);
+      this.pickClear.uPickEdge.value = 2;
       return;
     }
     const n = 2 ** cell.mapLevel;
     this.shared.uPick.value.set(cell.i / n, cell.j / n, 1 / n, cell.face);
+    // 구름 비우기: 칸 가운데 방향, 면 하나(약 90°)를 n칸으로 나눈 각의 2.5배
+    const [x, y, z] = directionOfLatLon(cell.latDeg, cell.lonDeg);
+    const inner = Math.max(PICK_CLEAR_MIN_RAD, (PICK_CLEAR_CELLS * Math.PI) / 2 / n);
+    this.pickClear.uPickClear.value.set(x, y, z, Math.cos(inner));
+    this.pickClear.uPickEdge.value = Math.cos(inner * PICK_CLEAR_EDGE);
   }
 
   createTile(mesh: TileMeshArrays, node: TileNode): PlanetTileGpu {

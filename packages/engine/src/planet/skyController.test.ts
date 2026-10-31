@@ -17,12 +17,14 @@ import {
   skyAt,
 } from "./sky.ts";
 import {
+  type CloudFrame,
   type MoonPlacement,
   SKY_FADE_MS,
   SKY_RETIME_MS,
   SKY_WAIT_POLL_MS,
   SkyController,
   type SkyControllerOptions,
+  type SkyCloudLayer,
   type SkyFrame,
   type SkyMoonLayer,
 } from "./skyController.ts";
@@ -52,6 +54,8 @@ function frameAt(nowMs: number, pose: GlobePose, distanceM: number, extra: Parti
     exaggeration: 6,
     firstDisplayed: true,
     gestureActive: false,
+    msSinceGesture: Number.POSITIVE_INFINITY,
+    cameraMoving: false,
     tilesBusy: false,
     nowMs,
     ...extra,
@@ -116,6 +120,28 @@ function fakeMoons() {
     dispose,
   };
   return { layer, placed, dispose, hiddenCount: () => hidden };
+}
+
+/** 가짜 구름 그리기: 받은 프레임을 적고, animating을 돌려준다 */
+function fakeClouds(animating: boolean) {
+  const frames: CloudFrame[] = [];
+  const dispose = vi.fn();
+  const invalidate = vi.fn();
+  const hide = vi.fn();
+  const layer: SkyCloudLayer = {
+    update: (input) => {
+      frames.push(input);
+      return animating;
+    },
+    hide,
+    invalidate,
+    opacity: 0.8,
+    bakes: 1,
+    bakeMaxMs: 3.5,
+    gpuBytes: 2_740_768,
+    dispose,
+  };
+  return { layer, frames, dispose, invalidate, hide };
 }
 
 beforeEach(() => {
@@ -405,5 +431,71 @@ describe("하늘 조절기: 달 놓기", () => {
     controller.update(frameAt(0, poseLooking(terminator, GLOBE_DISTANCE), GLOBE_DISTANCE));
     controller.setMode({ kind: "fixed", utcMs: T0, features: { moon: false } });
     expect(moons.dispose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("하늘 조절기: 구름", () => {
+  it("첫 표시 전·시계 전·off에서는 만들지 않는다. 첫 표시 뒤 만들고 프레임마다 넘긴다(굽는 중이면 다음 프레임도)", () => {
+    const clouds = fakeClouds(true);
+    const create = vi.fn(() => clouds.layer);
+    const { controller } = setup({ createClouds: create });
+    const pose = poseLooking(terminator, GLOBE_DISTANCE);
+    controller.setMode({ kind: "clock", serverNow: () => null });
+    controller.update(frameAt(0, pose, GLOBE_DISTANCE));
+    controller.setMode({ kind: "fixed", utcMs: T0 });
+    controller.update(frameAt(16, pose, GLOBE_DISTANCE, { firstDisplayed: false }));
+    controller.setMode({ kind: "off" });
+    controller.update(frameAt(32, pose, GLOBE_DISTANCE));
+    expect(create).not.toHaveBeenCalled();
+
+    controller.setMode({ kind: "fixed", utcMs: T0 });
+    expect(controller.update(frameAt(48, pose, GLOBE_DISTANCE, { layer: "climate" }))).toBe(true);
+    expect(controller.update(frameAt(64, pose, GLOBE_DISTANCE))).toBe(true);
+    expect(create).toHaveBeenCalledTimes(1);
+    // 레이어·거리 판단은 구름 쪽(clouds.ts)이 한다: 조절기는 프레임과 하늘 시각을 그대로 넘긴다
+    expect(clouds.frames.map((input) => input.frame.layer)).toEqual(["climate", "terrain"]);
+    expect(clouds.frames[1]?.sky.calendar.msSinceEpoch).toBe(T0 - 1_790_812_800_000);
+    const stats = controller.stats();
+    expect(stats).toMatchObject({
+      cloudOpacity: 0.8,
+      cloudBakes: 1,
+      cloudBakeMaxMs: 3.5,
+      gpuBytes: 2_740_768,
+    });
+  });
+
+  it("요소 끔·off로 바꾸면 버리고, 컨텍스트 복구는 다시 굽게 한다. 한 번 잰 시계가 null이 돼도 이어 간다(숨기지 않는다)", () => {
+    const clouds = fakeClouds(false);
+    let now: number | null = T0;
+    const { controller } = setup({ createClouds: () => clouds.layer });
+    controller.setMode(clockMode(() => now));
+    const pose = poseLooking(terminator, GLOBE_DISTANCE);
+    controller.update(frameAt(0, pose, GLOBE_DISTANCE));
+    controller.contextRestored();
+    expect(clouds.invalidate).toHaveBeenCalledTimes(1);
+    now = null;
+    controller.update(frameAt(16, pose, GLOBE_DISTANCE));
+    expect(clouds.hide).not.toHaveBeenCalled();
+    controller.setMode({ kind: "fixed", utcMs: T0, features: { clouds: false } });
+    expect(clouds.dispose).toHaveBeenCalledTimes(1);
+    controller.update(frameAt(32, pose, GLOBE_DISTANCE));
+    expect(controller.stats().cloudBakes).toBe(0);
+  });
+
+  it("구름이 던지면 하늘만 끄고 한 번 알린다", () => {
+    const { controller, report } = setup({
+      createClouds: () => ({
+        ...fakeClouds(false).layer,
+        update: () => {
+          throw new Error("bake failed");
+        },
+      }),
+    });
+    controller.setMode({ kind: "fixed", utcMs: T0 });
+    const pose = poseLooking(terminator, GLOBE_DISTANCE);
+    expect(controller.update(frameAt(0, pose, GLOBE_DISTANCE))).toBe(false);
+    expect(controller.update(frameAt(16, pose, GLOBE_DISTANCE))).toBe(false);
+    expect(report).toHaveBeenCalledTimes(1);
+    expect(controller.stats().failed).toBe(true);
   });
 });

@@ -93,6 +93,8 @@ export interface PlanetDescription {
    * (ADR 2026-10-29-primary-map-sky 8·11절).
    */
   readonly sky?: PlanetSkyDescription;
+  /** 구름 시드(u32). 화면이 목록 정보 정의 해시 앞 8자리로 만든다(skySeedOfHash). 없으면 0 */
+  readonly skySeed?: number;
 }
 
 /** 행성 설명에 가장 높은 땅이 없을 때 쓰는 값(게임 m). 지구 에베레스트 8,849m ÷ 12 ≈ 737m보다 조금 높게 */

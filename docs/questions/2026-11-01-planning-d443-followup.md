@@ -4,6 +4,7 @@
 
 - 받는 곳: 기획 세션(Step 4-6 세력, Step 9 수치, Step 5 설정값).
 - PLAN 14장 번호: 163~167.
+- 상태: 답 받음(D-444, 원본 e14ecc8, 2026-11-01): 163 나, 164 다, 165 가, 166 가, 167 다. [임시] 값은 설정값 출발값(D-5032).
 - 원문 위치: 163~166은 ADR `docs/adr/2026-10-31-faction-society-core.md` "바뀜 (2026-11-01)" 8절, 167은 `docs/questions/2026-10-31-ui-faction-mail.md` 끝(선택지·장면 포함).
 - 답이 오면 기술 세션이 `packages/sim/src/society/`(배당·환생), 팩 `content/core/tuning.json`, 세력·사이보그 화면에 반영한다.
 

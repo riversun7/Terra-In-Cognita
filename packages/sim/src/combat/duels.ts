@@ -1,7 +1,8 @@
 // 반복 대결 — docs/adr/2026-10-31-combat-core.md "개발자 페이지 재사용"
 // 개발자 페이지 전투 시뮬레이터(D-414: 설정한 유닛끼리 반복 전투, 특정 스탯이 무조건 이기지 않는지)가 쓸 순수 함수다.
 // 같은 판정(runBattle)을 시드만 바꿔 여러 번 돌려 편마다 이긴 수를 낸다. 화면은 개발자 페이지 단계(D1·D2)에서 만든다.
-import { type BattleInit, type CombatUnitSpec, runBattle } from "./battle.ts";
+import { runBattle } from "./battle.ts";
+import type { BattleInit, CombatUnitSpec } from "./battleTypes.ts";
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "./coefficients.ts";
 import { mix32 } from "../math/hash.ts";
 

@@ -1,5 +1,5 @@
 // 시험 도우미: 작은 전투맵·유닛 사양을 만든다(판정 코드가 아닌 시험 전용)
-import type { BattleInit, CombatUnitSpec } from "./battle.ts";
+import type { BattleInit, CombatUnitSpec } from "./battleTypes.ts";
 import type { BattleMapInput } from "./battleMap.ts";
 
 export function openMap(size = 32): BattleMapInput {
@@ -65,6 +65,8 @@ export function unit(
     commandCap: 0,
     cyborg: false,
     buildingMulPm: 1000,
+    primaries: [0, 0, 0, 0, 0, 0],
+    skills: [],
     ...extra,
   };
 }

@@ -3,7 +3,8 @@
 // 확률로 조우 전투를 연다. 모든 전투는 무관측 빨리감기(같은 판정, D-189)로 끝까지 돌린다.
 // [임시] 전투 유닛 사양은 기술 단계에서 만든 시험값이다(스탯·종 데이터는 기획 Step 5·9). 유닛 부상·포로는 R4가 세계에 붙인다.
 import { mix32 } from "../math/hash.ts";
-import { type BattleInit, type BattleResult, type CombatUnitSpec, runBattle } from "../combat/battle.ts";
+import { runBattle } from "../combat/battle.ts";
+import type { BattleInit, BattleResult, CombatUnitSpec } from "../combat/battleTypes.ts";
 import type { BattleMapInput } from "../combat/battleMap.ts";
 import { type StatRow, TEST_STAT_TABLE, computeSecondary } from "../combat/stats.ts";
 import { type WeaponSpec, specFromStats } from "../combat/unitSpec.ts";

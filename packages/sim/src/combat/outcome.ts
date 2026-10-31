@@ -2,7 +2,7 @@
 // D-187(전쟁 포로)·D-225·D-231·D-351(사이보그 즉시 귀환)·질문 108 기본안(D-381: 진 유닛은 같은 때 가까운 안전 도시로, 전쟁이면 포로)
 // 판정 밖의 정리다(같은 결과 상태 → 같은 처리). 세계(서버·시뮬)가 이 결과대로 유닛과 원장을 바꾼다.
 import type { LedgerBook, LedgerEntry } from "../ledger/ledgerBook.ts";
-import type { BattleState } from "./battle.ts";
+import type { BattleState } from "./battleTypes.ts";
 
 /** 유닛 하나의 결과. injured = 쓰러졌었다(HP 0) → 지면 부상(D-099·D-145) */
 export type UnitOutcome =

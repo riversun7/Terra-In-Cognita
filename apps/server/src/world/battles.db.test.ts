@@ -62,6 +62,8 @@ function fighter(id: number, side: number, party: number, x: number, y: number) 
     commandCap: 0,
     cyborg: false,
     buildingMulPm: 1000,
+    primaries: [0, 0, 0, 0, 0, 0],
+    skills: [],
   };
 }
 

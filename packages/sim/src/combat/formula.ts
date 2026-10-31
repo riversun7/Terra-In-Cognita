@@ -7,6 +7,7 @@
 //   피해는 0 아래로 내려가지 않는다(무력화 가능). 게임 상한은 없다.
 // - 넘침 방지(기술 보호, D-421): 곱은 BigInt로 하고, 결과가 안전 정수(2^53 − 1)를 넘으면 그 값으로 자른다(게임 규칙이 아님).
 import type { CombatCoefficients } from "./coefficients.ts";
+import type { Modifiers } from "./effects.ts";
 
 /** 속성 12칸 차례(D-167 코드): water frost fire blaze wind lightning earth crystal light holy dark necro. 계열 = ⌊칸 ÷ 2⌋ */
 export const ELEMENT_COUNT = 12;
@@ -143,4 +144,56 @@ export function buildingDamage(attack: AttackProfile, buildingMulPm: number, _c:
 export function sightRadius(statSight: number, heightDiff: number, c: CombatCoefficients): number {
   const bonus = heightDiff > 0 ? Math.min(c.sight.heightCap, Math.floor(heightDiff / c.sight.heightUnit)) : 0;
   return statSight + bonus;
+}
+
+/** 버프·디버프를 얹은 공격 사양(D-425 효과 사전의 수치 바꿈). 공격 배율은 버프 항에 곱한다(0 아래 없음) */
+export function withAttackModifiers(attack: AttackProfile, mods: Modifiers): AttackProfile {
+  if (mods.attackPm === 0 && mods.penetrationPm === 0 && mods.critMulPm === 0) return attack;
+  return {
+    ...attack,
+    buffPm: Math.max(0, Math.floor((attack.buffPm * (1000 + mods.attackPm)) / 1000)),
+    penetrationPm: attack.penetrationPm + mods.penetrationPm,
+    critMulPm: Math.max(0, attack.critMulPm + mods.critMulPm),
+  };
+}
+
+/** 버프·디버프를 얹은 방어 사양(방어율·회피는 ‰ 더하기, 0 아래 없음) */
+export function withDefenseModifiers(defense: DefenseProfile, mods: Modifiers): DefenseProfile {
+  if (mods.defenseRatePm === 0 && mods.evadePm === 0) return defense;
+  return {
+    ...defense,
+    defenseRatePm: Math.max(0, defense.defenseRatePm + mods.defenseRatePm),
+    evadePm: Math.max(0, defense.evadePm + mods.evadePm),
+  };
+}
+
+/** 스킬 공식 부품(D-428)이 바꾸는 공격 칸 */
+export interface SkillFormula {
+  readonly damage: "physical" | "elemental" | "none";
+  /** 공격력 × 배율(‰, 스킬 배율 칸) */
+  readonly attackMulPm: number;
+  /** 무기 공격력 가산 */
+  readonly weaponAdd: number;
+  /** 방어 관통 더하기(‰) */
+  readonly penetrationPm: number;
+  /** 속성 공격 계수(12칸, 속성값 1점당 ‰). 속성 스킬은 이 계수를 쓴다 */
+  readonly elementPm: readonly number[];
+}
+
+/** 스킬 한 번의 공격 사양: 기본 공격 사양에 공식 부품을 얹는다 */
+export function skillAttack(base: AttackProfile, skill: SkillFormula): AttackProfile {
+  const kind = skill.damage === "elemental" ? "elemental" : "physical";
+  return {
+    ...base,
+    kind,
+    weaponAttack: base.weaponAttack + skill.weaponAdd,
+    skillMulPm: skill.attackMulPm,
+    penetrationPm: base.penetrationPm + skill.penetrationPm,
+    skillElementsPm: kind === "elemental" ? skill.elementPm : base.skillElementsPm,
+  };
+}
+
+/** 회복량 = 최대 체력 × ‰(공식 부품 heal) */
+export function healAmount(maxHp: number, healPm: number): number {
+  return toSafe((BigInt(maxHp) * BigInt(Math.max(0, healPm))) / 1000n);
 }

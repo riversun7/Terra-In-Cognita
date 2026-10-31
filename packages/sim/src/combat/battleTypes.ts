@@ -1,6 +1,8 @@
 // 전투 판정 타입 — battle.ts가 쓰는 사양·상태·결과 모양(직렬화할 수 있는 값만). docs/adr/2026-10-31-combat-core.md
 import type { BattleMapInput } from "./battleMap.ts";
+import type { ActiveEffect } from "./effects.ts";
 import type { AttackProfile, DefenseProfile } from "./formula.ts";
+import type { CastState, CombatSkill } from "./skills.ts";
 
 /** 편의 가장자리(들어오는 변): 0 북(y 작음), 1 동, 2 남, 3 서 */
 export type Edge = 0 | 1 | 2 | 3;
@@ -39,6 +41,10 @@ export interface CombatUnitSpec {
   readonly cyborg: boolean;
   /** 건물 피해 배율(천분율, C32) */
   readonly buildingMulPm: number;
+  /** 1차 스탯 6개(STR·DEX·AGI·VIT·INT·WIS, 장비 포함): 상태이상 저항(D-429)에 쓴다 */
+  readonly primaries: readonly number[];
+  /** 쓸 수 있는 스킬(고유 + 장비, 슬롯 수 안, D-426·D-427). 목록 차례가 AI 우선순위다([임시]) */
+  readonly skills: readonly CombatSkill[];
 }
 
 export interface BattleSideSpec {
@@ -100,6 +106,12 @@ export interface UnitState extends CombatUnitSpec {
   revealUntilMs: number;
   /** 퇴각 구역에 들어간 시각(밖이면 −1) */
   bandSinceMs: number;
+  /** 걸린 효과(D-425) */
+  effects: ActiveEffect[];
+  /** 스킬마다 다시 쓸 수 있는 시각(ms, skills와 같은 차례) */
+  skillReadyMs: number[];
+  /** 시전 중인 스킬 */
+  cast: CastState | null;
   command: Command | null;
   lastCommandMs: number;
 }
@@ -107,6 +119,8 @@ export interface UnitState extends CombatUnitSpec {
 export interface PartyState extends BattlePartySpec {
   /** 들어올 때 모든 유닛의 최대 HP 합(파티 HP % 분모) */
   maxHpSum: number;
+  /** 퇴각 중(퇴각 명령 또는 ⑦ 기준선, D-434). 퇴각 중인 파티만 가장자리 구역으로 빠진다 */
+  retreating: boolean;
   retreated: boolean;
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { type BattleInput, createBattle, restoreBattle, runBattle, snapshotBattle } from "./battle.ts";
+import { createBattle, restoreBattle, runBattle, snapshotBattle } from "./battle.ts";
+import type { BattleInput } from "./battleTypes.ts";
 import { COVER_BLOCK } from "./battleMap.ts";
 import { TEST_COMBAT_COEFFICIENTS } from "./coefficients.ts";
 import { duel, openMap, unit } from "./testBattle.ts";
@@ -86,12 +87,35 @@ describe("전투 틱(100ms, 정수, 시드 굴림)", () => {
     };
     const at = (dwellMs: number, ticks: number) => {
       const battle = createBattle(init, { ...TEST_COMBAT_COEFFICIENTS, retreatDwellMs: dwellMs });
-      battle.runToEnd([], ticks);
+      battle.runToEnd([{ tick: 0, kind: "command", unit: 1, command: { kind: "retreat" } }], ticks);
       return battle.state.parties.find((p) => p.side === 1)?.retreated;
     };
     expect(at(0, 1)).toBe(true);
     expect(at(2000, 15)).toBe(false);
     expect(at(2000, 25)).toBe(true);
+  });
+
+  it("퇴각 중이 아닌 파티는 구역에 서 있거나 쫓아 들어와도 빠지지 않는다(D-434)", () => {
+    const base = duel(1, 1);
+    // 수비 쪽은 동쪽 가장자리 구역(x = 31)에 서서 움직이지 않고, 공격 쪽은 쫓아가 구역(x ≥ 30) 안에서 싸운다.
+    // 둘 다 체력이 커서 오래 싸운다.
+    const init = {
+      ...base,
+      units: base.units.map((spec) =>
+        spec.side === 1
+          ? { ...spec, x: 22, y: 10, maxHp: 100_000 }
+          : { ...spec, x: 31, y: 10, maxHp: 100_000 },
+      ),
+    };
+    const battle = createBattle(init);
+    const holder = battle.state.units.find((u) => u.side === 2);
+    if (holder) holder.nextMoveMs = Number.MAX_SAFE_INTEGER;
+    battle.runToEnd([], 200);
+    const [chaser, standing] = battle.state.units;
+    expect(chaser?.x).toBeGreaterThanOrEqual(30);
+    expect(standing?.x).toBeGreaterThanOrEqual(30);
+    expect(battle.state.parties.every((p) => !p.retreated)).toBe(true);
+    expect(battle.state.result).toBeNull();
   });
 
   it("같은 유닛의 명령은 1초(10틱) 안에 다시 넣으면 거절한다(D-180·C5)", () => {

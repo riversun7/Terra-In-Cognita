@@ -4,11 +4,15 @@
 // 고빈도 상태(유닛 위치)는 엔진 안 타입 배열에 있고, 이 화면은 1초마다 요약(stats)만 읽는다(PLAN 5.7).
 // 이동 명령은 관리자만 보낸다. 보기 전용이면 안내만 하고 보내지 않는다(서버도 명령마다 확인한다).
 // 픽셀 비율 재기: 주소에 ?pixel-ratio=<1~4>를 붙이면 엔진 상한을 바꾼다(시험용, pixelRatioParam.ts). HUD에 쓰는 값·그리기 버퍼가 보인다.
+// 낮밤(secondMapSky.ts): 1차맵과 같은 서버 시계·달력으로 이 2차맵 자리의 빛을 바꾼다. 동작 줄이기면 연 시각에 멈춘다(바뀌면 setSky).
+// 시험·사진 주소: ?second-map-time=<0~24> 지역 시각에 멈춤, ?second-map-sky=off 낮밤 끔. HUD에 지역 시각·항성·달 줄이 보인다.
 import {
   type EngineStats,
   type EngineStatus,
   type SecondMapEngine,
   createSecondMapEngine,
+  secondMapPlace,
+  utcMsForLocalHour,
 } from "@terra/engine";
 import { S1_TEST_MAP_KEY } from "@terra/protocol";
 import { useEffect, useRef, useState } from "react";
@@ -30,6 +34,8 @@ import {
 import { startMapFeed } from "./mapFeed.ts";
 import { resultText, terrainFailureText } from "./mapMessages.ts";
 import { formatPixelRatio, pixelRatioOption } from "./pixelRatioParam.ts";
+import { createSkyClock, reducedMotionList } from "./planetSky.ts";
+import { formatLocalTime, readSecondMapSkyParams, secondMapSkyMode } from "./secondMapSky.ts";
 import { fetchTerrain } from "./terrainLoader.ts";
 import "./map.css";
 
@@ -159,9 +165,21 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
     if (!host) return () => undefined;
     // 서버 시계 = 기기 시계 + 앱 연결이 잰 차이(다시 잴 때까지 앞의 값)
     const serverNow = (): number => Date.now() + serverLink.clockOffsetMs();
+    // 낮밤: 그 2차맵 자리(위도·경도)의 지역 시각. 하늘 시계는 시계를 재기 전엔 null(엔진은 낮으로 그린다)
+    const skyParams = readSecondMapSkyParams(window.location.search);
+    const place = secondMapPlace(S1_TEST_MAP_KEY);
+    const skyClock = createSkyClock(serverLink);
+    const reduced = reducedMotionList();
+    const skyMode = () =>
+      secondMapSkyMode(skyParams, skyClock, {
+        reducedMotion: reduced?.matches ?? false,
+        utcForHour: (hour) => (place ? utcMsForLocalHour(place.lonDeg, hour) : null),
+      });
     const engine = createSecondMapEngine(host, {
       serverNow,
       unitCapacity: UNIT_CAPACITY,
+      mapKey: S1_TEST_MAP_KEY,
+      sky: skyMode(),
       ...pixelRatioOption(window.location.search),
       onStatus: setStatus,
       onSelect: (id) => {
@@ -178,6 +196,8 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
       },
     });
     engineRef.current = engine;
+    const onReducedMotion = (): void => engine.setSky(skyMode());
+    reduced?.addEventListener("change", onReducedMotion);
     setTelemetryView(TELEMETRY_VIEW);
     const feed = startMapFeed({
       link: serverLink,
@@ -220,6 +240,7 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
 
     return () => {
       clearInterval(timer);
+      reduced?.removeEventListener("change", onReducedMotion);
       // 해제를 먼저 보내고(엔진을 버린 뒤에는 자료를 넣지 않는다) 엔진을 버린다
       feed.stop();
       feedRef.current = null;
@@ -271,6 +292,7 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
 
   const notice = screenNotice(status, feedStatus);
   const stats = snapshot?.stats ?? null;
+  const light = stats?.light ?? null;
   const feed = snapshot?.feed ?? null;
   const hint =
     selected === null
@@ -312,6 +334,14 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
       data-command-ms={command?.kind === "result" ? command.report.elapsedMs.toFixed(0) : undefined}
       data-camera={snapshot?.camera}
       data-selected-at={snapshot?.selectedAt}
+      data-light-clock={light?.clock}
+      data-light-day={light ? fixed(light.day, 3) : undefined}
+      data-light-source={light?.source}
+      data-light-flat={light ? fixed(light.flat, 3) : undefined}
+      data-light-hour={light?.localHours == null ? undefined : fixed(light.localHours, 2)}
+      data-sun-elevation={light?.sunElevationDeg == null ? undefined : fixed(light.sunElevationDeg, 1)}
+      data-moon-elevation={light?.moonElevationDeg == null ? undefined : fixed(light.moonElevationDeg, 1)}
+      data-light-changes={light?.changes}
     >
       <div ref={hostRef} className="map-view" role="img" aria-label={m.map_view_label()} />
       <header className="map-hud map-hud-top">
@@ -345,6 +375,16 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
                 ratio: formatPixelRatio(stats.pixelRatio),
                 width: stats.drawingBufferWidth,
                 height: stats.drawingBufferHeight,
+              })}
+            </span>
+          ) : null}
+          {/* 낮밤: 그 2차맵의 지역 시각, 항성 고도, 달 밝은 비율(낮밤을 끄거나 시각을 모르면 줄이 없다) */}
+          {light && light.localHours !== null ? (
+            <span>
+              {m.map_perf_light({
+                time: formatLocalTime(light.localHours),
+                sun: roundOrDash(light.sunElevationDeg),
+                moon: light.moonLit === null ? "–" : Math.round(light.moonLit * 100),
               })}
             </span>
           ) : null}

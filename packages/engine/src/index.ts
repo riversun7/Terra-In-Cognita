@@ -4,6 +4,7 @@
 // 1차맵(행성 LOD) 엔진은 다른 진입점 `@terra/engine/planet`이다(화면 조각마다 쓰는 엔진만 묶이게).
 export { createSecondMapEngine } from "./secondMapEngine.ts";
 export type {
+  EngineLightStats,
   EngineStats,
   EngineStatus,
   SecondMapEngine,
@@ -24,3 +25,11 @@ export { FIXED_POINT_SCALE, type UnitPath } from "./units/unitMotion.ts";
 export type { UnitDisplayMode, UnitLook } from "./units/unitView.ts";
 export type { BuildingFootprint, QuarterTurns } from "./buildings/footprint.ts";
 export { disposeSharedRenderer } from "./render/sharedRenderer.ts";
+export type { PlanetSkyFeatures, PlanetSkyMode, SkyClockSource } from "./planet/sky.ts";
+export {
+  PREVIEW_DAY_INDEX,
+  secondMapPlace,
+  utcMsForLocalHour,
+  type SecondMapPlace,
+} from "./lighting/secondMapLight.ts";
+export type { SecondMapClockState } from "./lighting/secondMapSky.ts";

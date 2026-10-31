@@ -2,6 +2,8 @@
 // 엔진 안의 고빈도 상태(유닛 위치 등)는 타입 배열에 두고, 바깥에는 요약(stats)만 준다(PLAN 5.7).
 import type { BuildingFootprint } from "./buildings/footprint.ts";
 import type { CameraState } from "./camera/cameraMath.ts";
+import type { SecondMapClockState } from "./lighting/secondMapSky.ts";
+import type { PlanetSkyMode } from "./planet/sky.ts";
 import type { TerrainInput } from "./terrain/terrainData.ts";
 import type { UnitPath } from "./units/unitMotion.ts";
 import type { UnitDisplayMode, UnitLook } from "./units/unitView.ts";
@@ -40,6 +42,12 @@ export interface SecondMapEngineOptions {
   maxPixelRatio?: number;
   /** 유닛 수 상한(기본 2,048) */
   unitCapacity?: number;
+  /**
+   * 이 2차맵의 키(1차맵 최소 칸의 셀 키). 낮밤 빛의 자리(위도·경도·세계 축)를 정한다. 없거나 셀 키가 아니면 늘 낮(고정 빛)
+   */
+  mapKey?: number;
+  /** 하늘(낮밤) 모드 — 1차맵과 같은 모양(구름은 쓰지 않는다). 없으면 끔 = 지금 고정 빛 */
+  sky?: PlanetSkyMode;
   onStatus?: (status: EngineStatus) => void;
   /** 유닛을 눌러 골랐을 때(엔진이 고른 표시를 한다) */
   onSelect?: (unitId: number | null) => void;
@@ -76,6 +84,27 @@ export interface EngineStats {
   terrainBuildMs: number | null;
   terrainSource: "worker" | "main" | null;
   contextLost: boolean;
+  /** 낮밤 빛 요약(시험·HUD) */
+  light: EngineLightStats;
+}
+
+/** 낮밤 빛 요약 */
+export interface EngineLightStats {
+  /** 시계 상태: 끔·기다림(낮으로 그림)·서버·기기·멈춘 시각 */
+  clock: SecondMapClockState;
+  /** 낮 정도(0 밤 ~ 1 낮) */
+  day: number;
+  /** 방향광: 항성·달·없음 */
+  source: "sun" | "moon" | "none";
+  /** 위를 보는 흰 면의 밝기 ÷ 낮 기준(지금 고정 빛). 채널 평균 */
+  flat: number;
+  /** 지역 시각(시), 항성·달 고도(°), 달 밝은 비율 — 하늘이 없으면 null */
+  localHours: number | null;
+  sunElevationDeg: number | null;
+  moonElevationDeg: number | null;
+  moonLit: number | null;
+  /** 빛을 바꾼 횟수(쉬는 동안 다시 그린 원인) */
+  changes: number;
 }
 
 export interface SecondMapEngine {
@@ -98,6 +127,8 @@ export interface SecondMapEngine {
   stats(): EngineStats;
   /** 지금 카메라(시험·표시용) */
   camera(): Readonly<CameraState>;
+  /** 하늘(낮밤) 모드를 바꾼다(동작 줄이기 등). 0.5초에 걸쳐 옮긴다. 셰이더는 다시 만들지 않는다 */
+  setSky(mode: PlanetSkyMode): void;
   /** 모두 버린다: 그리기 멈춤, 입력·워커·지오메트리·재질 정리, 캔버스 떼기(렌더러는 다음 화면이 다시 쓴다) */
   dispose(): void;
 }

@@ -93,6 +93,13 @@ function resultData(entry: unknown): unknown {
   return typeof result === "object" && result !== null ? Reflect.get(result, "data") : undefined;
 }
 
+/** summary.get data → 보일 것 없음(show: false). 복귀 요약 대화상자를 띄우지 않을 시험용(rewriteTrpc에 넘긴다) */
+export function hideSummary(data: unknown): void {
+  if (typeof data !== "object" || data === null) throw new Error("summary.get 응답 모양이 다릅니다");
+  Reflect.set(data, "show", false);
+  Reflect.set(data, "sections", []);
+}
+
 /**
  * 프로시저 → data를 고치는 함수. 그 프로시저가 든 요청마다(다시 받기 포함) 서버 답을 받아 data를 고쳐 돌려준다.
  * 화면 하나에 한 번 부른다(고칠 프로시저를 모두 한 번에 준다): 한 묶음에 든 두 프로시저를 다른 처리기가 나눠 고칠 수 없다.

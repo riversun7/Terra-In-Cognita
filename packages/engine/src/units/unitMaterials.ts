@@ -2,7 +2,9 @@
 // - 외곽선: 같은 모양을 뒷면만 그리며 법선 방향으로 화면에서 N픽셀 밀어낸다(inverted hull). 거리와 상관없이 두께가 같다.
 //   유닛 인스턴스 행렬을 그대로 쓴다(USE_INSTANCING). 선택 표시(하나)는 인스턴스 없이 같은 재질을 쓴다.
 // - 점: gl_PointSize로 화면 픽셀 크기가 같은 동그라미 + 테두리. 색은 유닛마다(aColor).
-import { BackSide, Color, ShaderMaterial } from "three";
+// - 몸: MeshLambertMaterial(인스턴스 색). 밤에는 자기 색의 일부를 스스로 낸다(밤 빛, 2차맵 낮밤) — 땅보다 밝게 남아 유닛이 먼저 보인다.
+//   외곽선·점·고른 표시는 빛을 받지 않아 밤에도 그대로다.
+import { BackSide, Color, type IUniform, MeshLambertMaterial, ShaderMaterial } from "three";
 
 /** 외곽선·점 테두리 색 — 화면 글자색과 같은 짙은 남색(파스텔 위에서 잘 보인다) */
 export const OUTLINE_COLOR = 0x22324a;
@@ -102,6 +104,48 @@ export function createDotMaterial(sizePx: number): ShaderMaterial {
     depthWrite: false,
     userData: { sizeCssPx: sizePx },
   });
+}
+
+/**
+ * 유닛 몸 셰이더에 끼울 자리(three Lambert 조각 셰이더의 #include 줄)와 그 뒤에 넣을 코드. diffuseColor에는 이미 인스턴스 색이
+ * 곱해져 있다(color_fragment). three를 올려 자리 이름이 바뀌면 replace가 말없이 아무것도 하지 않으므로 시험이 확인한다
+ */
+export const UNIT_BODY_SHADER_INSERT = {
+  anchor: "#include <emissivemap_fragment>",
+  code: "totalEmissiveRadiance += diffuseColor.rgb * uNightLift;",
+  pars: ["#include <common>", "uniform float uNightLift;"],
+} as const;
+
+/** three 프로그램 캐시 키 — 건물·물 판(같은 Lambert)과 프로그램을 나눠 쓰지 않게 따로 준다 */
+const UNIT_BODY_PROGRAM_KEY = "terra-unit-body";
+
+/** 유닛 몸 재질: 인스턴스 색 Lambert + 밤 빛(uNightLift, 0이면 지금과 같다) */
+export class UnitBodyMaterial {
+  readonly material = new MeshLambertMaterial({ color: 0xffffff });
+  private readonly uniforms: { uNightLift: IUniform<number> } = { uNightLift: { value: 0 } };
+
+  constructor() {
+    this.material.onBeforeCompile = (shader) => this.patchShader(shader);
+    this.material.customProgramCacheKey = () => UNIT_BODY_PROGRAM_KEY;
+  }
+
+  /** onBeforeCompile: 유니폼을 잇고 밤 빛 줄을 끼운다(단위 시험도 이것을 부른다) */
+  patchShader(shader: { fragmentShader: string; uniforms: Record<string, IUniform> }): void {
+    Object.assign(shader.uniforms, this.uniforms);
+    const { anchor, code, pars } = UNIT_BODY_SHADER_INSERT;
+    shader.fragmentShader = shader.fragmentShader
+      .replace(pars[0], `${pars[0]}\n${pars[1]}`)
+      .replace(anchor, `${anchor}\n${code}`);
+  }
+
+  /** 밤 빛(자기 색 × 값). 0 이상 */
+  setNightLift(value: number): void {
+    this.uniforms.uNightLift.value = Math.max(0, value);
+  }
+
+  get nightLift(): number {
+    return this.uniforms.uNightLift.value;
+  }
 }
 
 /** 그리기 버퍼 크기·픽셀 비율이 바뀌면 화면 픽셀 기준 값을 다시 넣는다 */

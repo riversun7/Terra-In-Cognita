@@ -78,6 +78,11 @@ export function skyFeaturesOf(skipped: readonly SkySkip[]): PlanetSkyFeatures {
   };
 }
 
+/** 기기의 동작 줄이기 설정(matchMedia가 없으면 null). 1차맵·2차맵 화면이 같이 쓴다 */
+export const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+export const reducedMotionList = (): MediaQueryList | null =>
+  typeof matchMedia === "function" ? matchMedia(REDUCED_MOTION_QUERY) : null;
+
 /** 시계 차이를 아는 쪽(앱의 serverLink) */
 export interface SkyClockLink {
   clockMeasured(): boolean;

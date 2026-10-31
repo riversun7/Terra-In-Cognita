@@ -33,7 +33,13 @@ import {
   planetDescriptionOf,
 } from "./planetSource.ts";
 import { formatPixelRatio, pixelRatioOption } from "./pixelRatioParam.ts";
-import { createSkyClock, planetSkyMode, planetTelemetryView, readPlanetSkyParams } from "./planetSky.ts";
+import {
+  createSkyClock,
+  planetSkyMode,
+  planetTelemetryView,
+  readPlanetSkyParams,
+  reducedMotionList,
+} from "./planetSky.ts";
 import { planetViewOption } from "./planetViewParam.ts";
 import { cellLines, planetFailureText } from "./planetText.ts";
 import "./map.css";
@@ -107,10 +113,6 @@ function screenNotice(load: LoadPhase, tiles: TileProblem | null, status: Planet
 }
 
 const fixed = (value: number, digits: number): string => value.toFixed(digits);
-/** 기기의 동작 줄이기(없으면 null) */
-const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
-const reducedMotionList = (): MediaQueryList | null =>
-  typeof matchMedia === "function" ? matchMedia(REDUCED_MOTION_QUERY) : null;
 
 /** 다시 시도하면 화면 안쪽을 새로 만든다(목록 정보부터 다시 받고 엔진·상태를 모두 새로) */
 export default function PlanetMapScreen(props: PlanetMapScreenProps) {

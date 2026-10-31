@@ -2,7 +2,7 @@
 // 적용된 마이그레이션(apps/server/drizzle/)은 고치지 않고 새로 추가만 한다 (docs/PROTECTED.md).
 // Drizzle 1.0 RC에는 열 이름 자동 변환(casing) 설정이 없어서 열 이름을 직접 적는다.
 import type { PerfReport } from "@terra/protocol";
-import type { PlanetLibraryBase, SettingsObject } from "@terra/shared";
+import type { PlanetLibraryBase, SettingsObject, StarSystemDefinition } from "@terra/shared";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -350,6 +350,33 @@ export const planetLibraryVersions = pgTable(
     uniqueIndex("planet_library_versions_planet_revision_idx").on(table.planetId, table.revision),
     check("planet_library_versions_revision_positive", sql`${table.revision} >= 1`),
     check("planet_library_versions_bytes_nonnegative", sql`${table.bytes} >= 0`),
+  ],
+);
+
+/**
+ * 항성계 보관함 — 개발자 항성계 편집기의 팀 공용 목록(ADR 2026-10-31-star-system-editor). 행성 보관함과 같은 모양:
+ * [저장]만 쓰고(판 기록 표는 두지 않는다), 판으로 충돌을 보고, 지우기는 표시만 한다. 게임 실행에는 쓰지 않는다(기획 질문 100~103)
+ */
+export const starSystems = pgTable(
+  "star_systems",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** 이름(1~60 코드 포인트 — @terra/shared normalizeStarSystemName) */
+    name: text("name").notNull(),
+    /** 항성계 정의(항성 종류, 궤도 목록 — @terra/shared parseStarSystemDefinition). 행성은 보관함 행성 id로 가리킨다 */
+    definition: jsonb("definition").$type<StarSystemDefinition>().notNull(),
+    revision: integer("revision").notNull(),
+    authorId: uuid("author_id").references(() => users.id, { onDelete: "set null" }),
+    updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    index("star_systems_updated_idx").on(table.updatedAt),
+    check("star_systems_revision_positive", sql`${table.revision} >= 1`),
+    check("star_systems_name_length", sql`char_length(${table.name}) between 1 and 60`),
   ],
 );
 

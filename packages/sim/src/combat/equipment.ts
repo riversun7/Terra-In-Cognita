@@ -3,7 +3,7 @@
 // - 장비 하나 = 칸 종류 + 스탯 목록 {스탯 코드, 값}(팩에는 {최소, 최대}, 값은 만들 때 정한다) + (무기면) 무기 사양 + 장비 스킬.
 // - 무기·방어구(무기·보조·머리·몸·안장)는 2차 수치, 장신구·인공장기·부품은 1차 스탯을 올린다(D-423). 칸과 스탯 묶음이 맞지 않으면 거절한다.
 // - 착용에 스탯 요구가 없다(D-424). 성능은 판정 때 무기 틀 min(2, 유닛 값 ÷ 적정치)으로 준다(formula.ts weaponScaled).
-// [임시] 칸 이름·안장의 스탯 묶음·장비 스킬(소켓 인챈트 전 단계)은 기획 본문 48을 받기 전 기술 기본안이다.
+// 기획 48 §5와 맞췄다(안장 = 1차, 2차 공격력은 장비가 올리지 않음). [임시] 칸 이름(코드)·장비 스킬(소켓 인챈트 전 단계).
 import { type Primaries, type StatRow, computeSecondary } from "./stats.ts";
 import type { WeaponSpec } from "./unitSpec.ts";
 
@@ -22,8 +22,11 @@ export const SLOT_KINDS = [
 ] as const;
 export type SlotKind = (typeof SLOT_KINDS)[number];
 
-/** 1차 스탯을 올리는 칸(D-423). 나머지 칸은 2차 수치 */
-export const PRIMARY_SLOTS: ReadonlySet<SlotKind> = new Set(["accessory", "organ", "part"]);
+/** 1차 스탯을 올리는 칸(D-423, 48 §5.2: 장신구·인공장기·부품·크리쳐 안장). 나머지 칸은 2차 수치 */
+export const PRIMARY_SLOTS: ReadonlySet<SlotKind> = new Set(["accessory", "organ", "part", "saddle"]);
+
+/** 장비가 올리지 않는 2차 행: 2차 공격력은 1차·장신구·버프만으로 계산한다(D-438 1, 무기 공격력은 무기 사양) */
+export const GEAR_FORBIDDEN_ROWS: ReadonlySet<string> = new Set(["physical_attack", "elemental_attack"]);
 
 export interface StatRange {
   readonly stat: string;
@@ -58,7 +61,8 @@ export function wrongStatGroup(
   stats: readonly { readonly stat: string }[],
 ): string | undefined {
   const wantPrimary = PRIMARY_SLOTS.has(slot);
-  return stats.find((entry) => isPrimary(entry.stat) !== wantPrimary)?.stat;
+  return stats.find((entry) => isPrimary(entry.stat) !== wantPrimary || GEAR_FORBIDDEN_ROWS.has(entry.stat))
+    ?.stat;
 }
 
 /** 장비를 만든다: 스탯마다 [최소, 최대]에서 하나(roll(n) = 0..n−1, 서버 시드 난수) */

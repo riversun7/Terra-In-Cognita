@@ -65,7 +65,8 @@ export function computeSecondary(
         throw new RangeError(`weight out of range in ${row.id}`);
       weighted += (p[i] ?? 0) * weight;
     }
-    const extra = (gear[row.id] ?? 0) + (buffs[row.id] ?? 0);
+    // 양 모양 = 기본 + 가중합 + 장비 + 버프, 확률 모양 점수 = 가중합 + 장비(버프는 넣지 않는다, 48 §3.1)
+    const extra = (gear[row.id] ?? 0) + (row.shape === "quantity" ? (buffs[row.id] ?? 0) : 0);
     check(extra, `gear+buff ${row.id}`);
     const score = Math.floor(weighted / 1000) + extra;
     if (row.shape === "quantity") out[row.id] = row.base + score;

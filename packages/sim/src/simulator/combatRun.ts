@@ -64,7 +64,7 @@ function kitOf(catalog: CombatCatalog) {
   const known = new Set(catalog.skills.map((skill) => skill.id));
   const innate = LOADOUT.skills.filter((id) => known.has(id));
   const skillSlots = kind ? skillSlotCount(kind.skillSlots.base, 0, kind.skillSlots.max) : 0;
-  return { slots, equipped, innate, skillSlots };
+  return { slots, equipped, innate, skillSlots, unarmed: kind?.naturalWeapon ?? UNARMED };
 }
 
 /** [임시] 1차 스탯 = 10 + 기술 단계 × 2(모두 같게), 장비·스킬은 kitOf, 2차는 스탯 계산기(가중치 표) */
@@ -82,7 +82,7 @@ function specOf(
     slots: kit.slots,
     equipped: kit.equipped,
     table: catalog.statTable,
-    unarmed: UNARMED,
+    unarmed: kit.unarmed,
     innateSkills: kit.innate,
     skillSlots: kit.skillSlots,
   });

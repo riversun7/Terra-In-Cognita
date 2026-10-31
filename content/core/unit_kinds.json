@@ -12,6 +12,21 @@
         "perRebirth": 1,
         "max": 10
       },
+      "naturalWeapon": {
+        "kind": "physical",
+        "attack": 5,
+        "attackAppropriate": 20,
+        "hitPm": 850,
+        "hitAppropriate": 500,
+        "critPm": 50,
+        "critAppropriate": 200,
+        "intervalMs": 1000,
+        "speedAppropriate": 100,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 2,
+        "mpCost": 0
+      },
       "enabled": true
     },
     {
@@ -25,6 +40,21 @@
         "base": 3,
         "perRebirth": 1,
         "max": 10
+      },
+      "naturalWeapon": {
+        "kind": "physical",
+        "attack": 5,
+        "attackAppropriate": 20,
+        "hitPm": 850,
+        "hitAppropriate": 500,
+        "critPm": 50,
+        "critAppropriate": 200,
+        "intervalMs": 1000,
+        "speedAppropriate": 100,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 2,
+        "mpCost": 0
       },
       "enabled": true
     },
@@ -40,6 +70,21 @@
         "perRebirth": 1,
         "max": 10
       },
+      "naturalWeapon": {
+        "kind": "physical",
+        "attack": 5,
+        "attackAppropriate": 20,
+        "hitPm": 850,
+        "hitAppropriate": 500,
+        "critPm": 50,
+        "critAppropriate": 200,
+        "intervalMs": 1000,
+        "speedAppropriate": 100,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 2,
+        "mpCost": 0
+      },
       "enabled": true
     },
     {
@@ -53,6 +98,21 @@
         "base": 4,
         "perRebirth": 1,
         "max": 10
+      },
+      "naturalWeapon": {
+        "kind": "physical",
+        "attack": 12,
+        "attackAppropriate": 30,
+        "hitPm": 850,
+        "hitAppropriate": 500,
+        "critPm": 100,
+        "critAppropriate": 200,
+        "intervalMs": 900,
+        "speedAppropriate": 100,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 2,
+        "mpCost": 0
       },
       "enabled": true
     }

@@ -92,6 +92,11 @@ export function combatCatalogFrom(pack: {
   );
   const unitKinds = pack.unitKinds
     .filter((entry) => entry.enabled)
-    .map((entry) => ({ id: entry.id, slots: entry.slots, skillSlots: entry.skillSlots }));
+    .map((entry) => ({
+      id: entry.id,
+      slots: entry.slots,
+      skillSlots: entry.skillSlots,
+      naturalWeapon: entry.naturalWeapon,
+    }));
   return { statTable, effects, skills, equipment, unitKinds };
 }

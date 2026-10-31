@@ -2,6 +2,7 @@
 // 2차 스탯(stats.ts computeSecondary 결과)과 무기에서 전투 사양을 만든다. 서버·시뮬·(나중의) 개발자 페이지 전투 시뮬레이터가 같이 쓴다.
 // 공격 간격 = 무기 간격 × 1000 ÷ min(2000, 행동 속도 × 1000 ÷ 무기 적정 속도)(D-418 행동 속도, D-420 같은 틀).
 import type { CombatUnitSpec } from "./battleTypes.ts";
+import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS, staminaScore } from "./coefficients.ts";
 import { ELEMENT_COUNT } from "./formula.ts";
 import type { CombatSkill } from "./skills.ts";
 import type { Primaries } from "./stats.ts";
@@ -52,7 +53,12 @@ export interface UnitBody {
 
 const ZERO = Array.from({ length: ELEMENT_COUNT }, () => 0);
 
-export function specFromStats(body: UnitBody): CombatUnitSpec {
+export function specFromStats(
+  body: UnitBody,
+  c: CombatCoefficients = TEST_COMBAT_COEFFICIENTS,
+): CombatUnitSpec {
+  const p = body.primaries;
+  const primaries = p ? [p.str, p.dex, p.agi, p.vit, p.int, p.wis] : [0, 0, 0, 0, 0, 0];
   const s = (id: string): number => body.stats[id] ?? 0;
   const w = body.weapon;
   const speedRatio = Math.min(
@@ -80,6 +86,7 @@ export function specFromStats(body: UnitBody): CombatUnitSpec {
       critStat: s("crit_chance"),
       critAppropriate: w.critAppropriate,
       critMulPm: s("crit_multiplier"),
+      agi: primaries[2],
       penetrationPm: body.penetrationPm ?? 0,
       skillMulPm: 1000,
       buffPm: 1000,
@@ -90,6 +97,7 @@ export function specFromStats(body: UnitBody): CombatUnitSpec {
       defenseRatePm: s("defense_rate"),
       defenseFlat: body.defenseFlat ?? 0,
       evadePm: s("evade"),
+      agi: primaries[2],
       elements: body.elements ?? ZERO,
       resistPm: body.resistPm ?? ZERO,
     },
@@ -99,6 +107,8 @@ export function specFromStats(body: UnitBody): CombatUnitSpec {
     moveIntervalMs: body.moveIntervalMs,
     staminaMax: Math.max(0, s("stamina")),
     staminaCost: w.staminaCost,
+    // 1차가 없으면(시험) 적정 점수로 본다: 소모·회복 배율 1
+    staminaScore: p ? staminaScore(primaries, c) : c.stamina.appropriateScore,
     mpMax: Math.max(0, s("mp")),
     mpCost: w.mpCost,
     sight: Math.max(0, s("sight")),
@@ -107,16 +117,7 @@ export function specFromStats(body: UnitBody): CombatUnitSpec {
     commandCap: body.commandCap ?? 0,
     cyborg: body.cyborg ?? false,
     buildingMulPm: body.buildingMulPm ?? 1000,
-    primaries: body.primaries
-      ? [
-          body.primaries.str,
-          body.primaries.dex,
-          body.primaries.agi,
-          body.primaries.vit,
-          body.primaries.int,
-          body.primaries.wis,
-        ]
-      : [0, 0, 0, 0, 0, 0],
+    primaries,
     skills: body.skills ?? [],
   };
 }

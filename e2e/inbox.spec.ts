@@ -5,7 +5,8 @@
 //   8종류·5분류, 묶음 줄(명령 없는 유닛 6 등), 바로 처리 0~2개(apps/server/src/inbox/preview.ts).
 //   시안 자료를 켜면 앱을 켤 때마다 복귀 요약이 뜬다 → 처리함을 보는 시험은 먼저 닫는다(closeSummary).
 // - 서버가 아직 보내지 않는 값(모르는 분류·긴 이름·마감 시각)은 inbox.list 응답을 고쳐 넣는다(helpers/trpc.ts rewriteTrpc).
-// - 문구는 메시지 원본에서 읽고(helpers/messages.ts), 자리는 목록 부품의 class·aria로 찾는다
+// - 문구는 메시지 원본에서 읽고(helpers/messages.ts), 자리는 처리함 화면(section.inbox) 안의 class·aria로 찾는다(홈 대시보드 W4도
+//   처리할 일을 그리지만 이 파일은 /inbox만 본다. 홈의 묶음은 home-inbox-group* 클래스다)
 //   (apps/game/src/inbox/InboxList.tsx·InboxScreen.tsx, 위 띠 종은 shell/TopBar.tsx).
 import type { Locator, Page, Route } from "@playwright/test";
 import { login } from "./helpers/auth.ts";
@@ -91,7 +92,9 @@ function titles(language: Language) {
 
 /** 제목으로 처리할 일 줄 찾기 */
 const rowOf = (page: Page, title: string): Locator =>
-  page.locator(".inbox-item").filter({ has: page.locator(".inbox-item-title", { hasText: title }) });
+  page
+    .locator("section.inbox .inbox-item")
+    .filter({ has: page.locator(".inbox-item-title", { hasText: title }) });
 
 /** 위 띠의 종(→ /inbox). 이름이 "알림 3개"처럼 수를 읽는다 */
 const bellOf = (page: Page): Locator => page.locator('header.frame-top a[href="/inbox"]');
@@ -225,7 +228,7 @@ test.describe("시안 자료(dev)", () => {
     expect(band.top, JSON.stringify(band)).toBeGreaterThanOrEqual(band.bandTop);
     expect(band.bottom, JSON.stringify(band)).toBeLessThanOrEqual(band.bandBottom);
     // 다른 줄에는 결과가 없다
-    await expect(page.locator(".inbox-item-feedback .message")).toHaveCount(1);
+    await expect(page.locator("section.inbox .inbox-item-feedback .message")).toHaveCount(1);
     // 시안 자료는 명령을 보내지 않는다(바로 처리는 WebSocket으로만 보낸다, ADR 37 7절)
     expect(commands).toEqual([]);
     expect(deviceErrors).toEqual([]);
@@ -257,7 +260,7 @@ test.describe("시안 자료(dev)", () => {
           }),
         });
         await openInbox(page);
-        const groups = page.locator(".inbox-group");
+        const groups = page.locator("section.inbox .inbox-group");
         const other = groups.last();
         await expect(other).toHaveAttribute("data-category", "other");
         await expect(other.locator(".inbox-group-name")).toHaveText(message(language, "inbox_group_other"));
@@ -265,7 +268,7 @@ test.describe("시안 자료(dev)", () => {
           message(language, "inbox_unit_idle_title", { count: 3 }),
         );
         // 받은 줄이 모두 보인다(시안 자료 8줄 + 1)
-        const rows = page.locator(".inbox-item");
+        const rows = page.locator("section.inbox .inbox-item");
         await expect(rows).toHaveCount(9);
         // 분류마다 줄 수 칩 = 그 분류의 줄 수
         for (const group of await groups.all()) {
@@ -273,7 +276,9 @@ test.describe("시안 자료(dev)", () => {
           await expect(group.locator(".inbox-group-count")).toHaveText(String(count));
         }
         // 종 배지: 보이는 줄에서 완료 줄을 뺀 수(묶음 줄은 개수와 상관없이 한 줄)
-        const done = await page.locator('.inbox-group[data-category="done"] .inbox-item').count();
+        const done = await page
+          .locator('section.inbox .inbox-group[data-category="done"] .inbox-item')
+          .count();
         const expected = (await rows.count()) - done;
         expect(done).toBe(1);
         await expect(bellOf(page)).toHaveAttribute(
@@ -373,7 +378,7 @@ test.describe("시안 자료(dev)", () => {
     );
     await page.goto(`/inbox?${new URLSearchParams({ item: ITEM.idle }).toString()}`);
     await summaryAnswered;
-    const current = page.locator('.inbox-item[aria-current="true"]');
+    const current = page.locator('section.inbox .inbox-item[aria-current="true"]');
     await expect(current).toHaveCount(1);
     await expect(current.locator(".inbox-item-title")).toHaveId("inbox-highlight");
     await expect(current.locator(".inbox-item-title .visually-hidden")).toHaveText(opened);
@@ -404,9 +409,9 @@ test.describe("시안 자료(dev)", () => {
     const regions = page.locator("#main").getByRole("region");
     await expect(regions).toHaveCount(1);
     await expect(regions).toHaveAccessibleName(message("ko", "inbox_title"));
-    const groups = await page.locator(".inbox-group").count();
+    const groups = await page.locator("section.inbox .inbox-group").count();
     expect(groups).toBe(5);
-    await expect(page.locator(".inbox-group > h2.inbox-group-title")).toHaveCount(groups);
+    await expect(page.locator("section.inbox .inbox-group > h2.inbox-group-title")).toHaveCount(groups);
   });
 });
 
@@ -481,7 +486,7 @@ test.describe("플레이어", () => {
     await summaryAnswered;
     await expect(bellOf(page)).toHaveAttribute("aria-label", message("ko", "shell_alerts"));
     await expect(page.locator(".count-badge")).toHaveCount(0);
-    await expect(page.locator(".inbox-notice")).toHaveCount(0);
+    await expect(page.locator("section.inbox .inbox-notice")).toHaveCount(0);
     await trpcQuiet(calls);
     await expect(page.locator("dialog.summary-dialog")).toHaveCount(0);
     expect(calls.filter((call) => call.inputs.some(isPreviewInput)).map((call) => call.procedures)).toEqual(
@@ -553,7 +558,9 @@ function worstCase(data: InboxListData): void {
 function textProblems(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const problems: string[] = [];
-    for (const box of document.querySelectorAll(".inbox-item, .inbox-group-title")) {
+    for (const box of document.querySelectorAll(
+      "section.inbox .inbox-item, section.inbox .inbox-group-title",
+    )) {
       const outer = box.getBoundingClientRect();
       for (const element of box.querySelectorAll("*")) {
         const rect = element.getBoundingClientRect();
@@ -593,7 +600,7 @@ test.describe("배치(긴 글)", () => {
       }) => {
         await rewriteTrpc(page, { "inbox.list": editInbox(worstCase) });
         await openInbox(page, `/inbox?${new URLSearchParams({ item: BIG_ITEM }).toString()}`);
-        const highlighted = page.locator('.inbox-item[aria-current="true"]');
+        const highlighted = page.locator('section.inbox .inbox-item[aria-current="true"]');
         await expect(highlighted.locator(".inbox-item-title")).toHaveText(
           `${message(language, "inbox_item_opened")} ${message(language, "inbox_unit_idle_title", {
             count: new Intl.NumberFormat(language).format(1284),
@@ -610,8 +617,10 @@ test.describe("배치(긴 글)", () => {
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
 
         // 모르는 분류 2가지는 "그 밖의 알림" 한 묶음(3줄), 종 배지는 완료를 뺀 줄 수(11 − 1)
-        await expect(page.locator('.inbox-group[data-category="other"] .inbox-item')).toHaveCount(3);
-        await expect(page.locator(".inbox-item")).toHaveCount(11);
+        await expect(
+          page.locator('section.inbox .inbox-group[data-category="other"] .inbox-item'),
+        ).toHaveCount(3);
+        await expect(page.locator("section.inbox .inbox-item")).toHaveCount(11);
         await expect(bellOf(page)).toHaveAttribute(
           "aria-label",
           message(language, "shell_alerts_count", { count: 10 }),

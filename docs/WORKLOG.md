@@ -8,6 +8,7 @@
 | 2026-10-31 09:45 | 개발자 홈(WP-H)·생성기 다양성 고침(출력 판 3) 합치기 | Claude Code | [31-0945-devhome-generator-integration](worklog/2026/10/31-0945-devhome-generator-integration.md) |
 | 2026-10-31 09:30 | 1차맵 하늘 2부 합치기(낮밤·달·구름) — 조각 상한 조정 | Claude Code | [31-0930-sky-integration](worklog/2026/10/31-0930-sky-integration.md) |
 | 2026-10-31 09:10 | 1차맵 구름 — GPU 굽기 큐브, 기후 치우침, 날씨 창, 껍질·걷히기·고른 칸 둘레 (WP5) | Claude Code | [31-0910-sky-clouds](worklog/2026/10/31-0910-sky-clouds.md) |
+| 2026-10-31 09:10 | 앱 뼈대 W3 화면 시험: 처리할 일·종 배지·복귀 요약을 저장소 e2e로 | Claude Code | [31-0910-inbox-e2e](worklog/2026/10/31-0910-inbox-e2e.md) |
 | 2026-10-31 09:10 | 행성 생성기 다양성 고침: 검토 지적 고침·마무리(출력 판 3) | Claude Code | [31-0910-generator-variety](worklog/2026/10/31-0910-generator-variety.md) |
 | 2026-10-31 09:10 | 기획 미러 동기화 — 원본 aadab42(D-272~D-324, Step 5 D-5049·D-5050, Step 7 D-7036~D-7054) | Claude Code | [31-0910-design-mirror-aadab42](worklog/2026/10/31-0910-design-mirror-aadab42.md) |
 | 2026-10-31 09:10 | 앱 뼈대 W3·W4 문서 정리: ADR 37 "구현하며 정한 것" W3·W4, 0단계 남은 것 표시, PLAN 14장 줄 | Claude Code | [31-0910-app-shell-notes-2](worklog/2026/10/31-0910-app-shell-notes-2.md) |

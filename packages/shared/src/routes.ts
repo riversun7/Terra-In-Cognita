@@ -52,10 +52,11 @@ export const ROUTES = {
   // ?template=: 저장하지 않고 다른 템플릿을 본다(검토·사진용). dev·admin에게만 듣는다(ADR 37 6절)
   home: { path: "/", search: ["template"], parent: null, frame: "shown", access: "everyone" },
   // 시험·측정용(map/SecondaryMapScreen.tsx): ?pixel-ratio= 픽셀 비율 상한, 2차맵 낮밤(map/secondMapSky.ts,
-  // ADR 2026-10-28-s1-second-map "2차맵 낮밤"): ?second-map-time= 지역 시각 멈춤, ?second-map-sky=off 낮밤 끔
+  // ADR 2026-10-28-s1-second-map "2차맵 낮밤"): ?second-map-time= 지역 시각 멈춤, ?second-map-sky=off 낮밤 끔,
+  // ?second-map-neighbours=all 이웃 8장을 처음부터(개발자 3×3 이어 보기, ADR 2026-10-31-second-map-from-planet WP-4)
   map: {
     path: "/map",
-    search: ["pixel-ratio", "second-map-time", "second-map-sky"],
+    search: ["pixel-ratio", "second-map-time", "second-map-sky", "second-map-neighbours"],
     parent: "home",
     frame: "hidden",
     access: "everyone",

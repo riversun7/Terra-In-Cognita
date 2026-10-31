@@ -27,7 +27,8 @@ import {
   UnsignedByteType,
   Vector3,
 } from "three";
-import { TERRAIN_CELLS, type TerrainInput } from "./terrainData.ts";
+import { PROP_TEXTURE_BYTES, buildPropTextureData } from "../props/propLook.ts";
+import { PLACEMENT_CELLS, TERRAIN_CELLS, type TerrainInput } from "./terrainData.ts";
 import { NOISE_TEXTURE_SIZE, NOISE_TILE_FEATURES } from "./terrainNoise.ts";
 import {
   HEIGHT_SHADE,
@@ -84,17 +85,23 @@ const FOG_UNEXPLORED = 0.06;
 
 const VERTEX_PARS = /* glsl */ `
 varying vec3 vTerrainPos;
+varying vec3 vTerrainLocal;
 varying float vTerrainUp;
 `;
 
+// 세계 자리(잡음·높이)와 이 2차맵 안 자리(칸 자료·안개·소품). 이웃 2차맵은 돌려 놓으므로(경계 너머 보기) 둘이 다르다
 const VERTEX_MAIN = /* glsl */ `
 vTerrainPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+vTerrainLocal = transformed;
 vTerrainUp = normal.y;
 `;
 
 const FRAGMENT_PARS = /* glsl */ `
 varying vec3 vTerrainPos;
+varying vec3 vTerrainLocal;
 varying float vTerrainUp;
+uniform sampler2D uProps;
+uniform float uPropsOn;
 uniform sampler2D uSurface;
 uniform sampler2D uNoise;
 uniform float uCellSize;
@@ -118,15 +125,16 @@ void terrainRank(float value, float code, float unique, inout vec4 rank) {
   else if (value > rank.z) rank.zw = vec2(value, code);
 }
 
-// 윗면 색(빛 전): 지표 경계 + 잔결 + 높이 밝기. 미분(fwidth)·밉맵 읽기가 있어 분기 밖에서 부른다
-vec3 terrainSurfaceColor(vec3 world) {
+// 윗면 색(빛 전): 지표 경계 + 잔결 + 높이 밝기 + 소품 색. 미분(fwidth)·밉맵 읽기가 있어 분기 밖에서 부른다.
+// 칸 자료·소품은 이 2차맵 안 자리(local), 잡음은 세계 자리(world: 이웃 2차맵과 무늬가 이어진다)로 읽는다
+vec3 terrainSurfaceColor(vec3 world, vec3 local) {
   vec2 xz = world.xz;
   // 화면 한 점이 덮는 땅(m, 칸)
   float pxM = max(length(fwidth(xz)), 1e-4);
   float pxCells = pxM / uCellSize;
 
   // 둘레 칸 4개(칸 가운데가 정수인 좌표). 2차맵 밖은 가장자리 칸
-  vec2 p = xz / uCellSize - 0.5;
+  vec2 p = local.xz / uCellSize - 0.5;
   vec2 base = floor(p);
   vec2 f = p - base;
   ivec2 lo = clamp(ivec2(base), ivec2(0), ivec2(${TERRAIN_CELLS - 1}));
@@ -182,6 +190,9 @@ vec3 terrainSurfaceColor(vec3 world) {
   float e2 = u2 * exp((v2 - rank.x) / tau);
   float e3 = u3 * exp((v3 - rank.x) / tau);
   vec3 color = (t0.rgb * e0 + t1.rgb * e1 + t2.rgb * e2 + t3.rgb * e3) / (e0 + e1 + e2 + e3);
+  // 소품 색(숲·바위 등, 배치 칸 256²): 멀리서도 숲이 보인다(밉맵으로 거른다). 모델은 가까이만 선다(propView.ts)
+  vec4 prop = texture(uProps, local.xz / (uCellSize * ${glslFloat(TERRAIN_CELLS)}));
+  color = mix(color, prop.rgb, prop.a * uPropsOn);
 
   // 잔결(밝기): 겹마다 네 채널 평균(× 2 → 한 채널과 같은 퍼짐). 경계를 흔드는 채널 차이와 상관이 없다
   float grain =
@@ -201,11 +212,11 @@ vec3 terrainSurfaceColor(vec3 world) {
 const FRAGMENT_COLOR = /* glsl */ `
 {
   // 윗면만 칠한다(가장자리 벽은 법선 y = 0이라 꼭짓점 색 그대로). 계산은 분기 밖(미분이 정의되게)
-  vec3 terrainColor = terrainSurfaceColor(vTerrainPos);
+  vec3 terrainColor = terrainSurfaceColor(vTerrainPos, vTerrainLocal);
   diffuseColor.rgb = vTerrainUp > 0.01 ? terrainColor : diffuseColor.rgb;
   // 안개(S3 시야 전송): 탐사하지 않은 시야 칸은 검게. 시야 칸 32×32 = 지형 칸 4×4, 경계는 선형 거르기로 부드럽게
   if (uFogOn > 0.5) {
-    float explored = texture(uFog, vTerrainPos.xz / (uCellSize * ${glslFloat(TERRAIN_CELLS)})).r;
+    float explored = texture(uFog, vTerrainLocal.xz / (uCellSize * ${glslFloat(TERRAIN_CELLS)})).r;
     diffuseColor.rgb *= mix(${glslFloat(FOG_UNEXPLORED)}, 1.0, explored);
   }
 }
@@ -249,6 +260,17 @@ function createSurfaceTexture(data: Uint8Array): DataTexture {
   return texture;
 }
 
+/** 소품 색 텍스처: 배치 칸 256², (r, g, b, 세기). 멀리서 거르게 밉맵을 만든다 */
+function createPropTexture(data: Uint8Array): DataTexture {
+  const texture = new DataTexture(data, PLACEMENT_CELLS, PLACEMENT_CELLS, RGBAFormat, UnsignedByteType);
+  texture.magFilter = LinearFilter;
+  texture.minFilter = LinearMipmapLinearFilter;
+  texture.generateMipmaps = true;
+  texture.flipY = false;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 /** 안개 텍스처: 시야 칸 32×32, 빨강 = 탐사함(255) */
 function createFogTexture(data: Uint8Array): DataTexture {
   const texture = new DataTexture(data, FOG_SIDE, FOG_SIDE, RGBAFormat, UnsignedByteType);
@@ -282,6 +304,8 @@ export class TerrainMaterial {
   private noiseTexture: DataTexture | null = null;
   private readonly fogData = new Uint8Array(FOG_SIDE * FOG_SIDE * 4);
   private readonly fogTexture = createFogTexture(this.fogData);
+  private readonly propData = new Uint8Array(PROP_TEXTURE_BYTES);
+  private readonly propTexture = createPropTexture(this.propData);
   /** 셰이더와 같은 객체를 나눠 쓴다(값만 바꾸면 다음 그리기에 들어간다) */
   private readonly uniforms: {
     uSurface: { value: DataTexture };
@@ -290,6 +314,8 @@ export class TerrainMaterial {
     uHeight: { value: Vector3 };
     uFog: { value: DataTexture };
     uFogOn: { value: number };
+    uProps: { value: DataTexture };
+    uPropsOn: { value: number };
   } = {
     uSurface: { value: this.surfaceTexture },
     uNoise: { value: null },
@@ -298,6 +324,8 @@ export class TerrainMaterial {
     uHeight: { value: new Vector3(0, 1, 0) },
     uFog: { value: this.fogTexture },
     uFogOn: { value: 0 },
+    uProps: { value: this.propTexture },
+    uPropsOn: { value: 0 },
   };
 
   constructor() {
@@ -326,6 +354,13 @@ export class TerrainMaterial {
     this.uniforms.uCellSize.value = input.cellSizeM;
     // 높이 비율 배율은 꼭짓점 색과 같은 함수(폭이 0에 가까워도 0.01m로 본다 — 평평한 2차맵의 점무늬 막기)
     this.uniforms.uHeight.value.set(minHeightM, heightShadeScale(minHeightM, maxHeightM), input.waterLevelM);
+    if (input.art && input.cover) {
+      buildPropTextureData(input.art, input.cover, this.propData);
+      this.propTexture.needsUpdate = true;
+      this.uniforms.uPropsOn.value = 1;
+    } else {
+      this.uniforms.uPropsOn.value = 0;
+    }
   }
 
   /**
@@ -347,6 +382,7 @@ export class TerrainMaterial {
   dispose(): void {
     this.material.dispose();
     this.fogTexture.dispose();
+    this.propTexture.dispose();
     this.surfaceTexture.dispose();
     this.noiseTexture?.dispose();
   }

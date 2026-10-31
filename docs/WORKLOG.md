@@ -6,6 +6,7 @@
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
 | 2026-10-31 22:00 | S3 뒤: 월드 표에 행성 ID·영역(D-372) | Claude Code | [31-2200-s3-planet-domain](worklog/2026/10/31-2200-s3-planet-domain.md) |
+| 2026-10-31 21:40 | 2차맵 생성 WP-4: 기기 그림·미리보기 — 소품 모델·땅 색, 나침반, 경계 너머 보기(이웃 2차맵), 편집기 2차맵 미리보기 | Claude Code | [31-2140-second-map-wp4](worklog/2026/10/31-2140-second-map-wp4.md) |
 | 2026-10-31 21:00 | S3 WP-E: kill -9 복구 하네스, 규모 계단 시험 작업(NAS), 개발 컨테이너 계단 | Claude Code | [31-2100-s3-wp-e-measure](worklog/2026/10/31-2100-s3-wp-e-measure.md) |
 | 2026-10-31 20:47 | R4a: 장비·효과 사전·스킬 부품(Step 9-3·9-4), 전투 결과의 세계 반영, 퇴각 중인 파티만 빠짐(D-434) | Claude Code | [31-2047-combat-r4a](worklog/2026/10/31-2047-combat-r4a.md) |
 | 2026-10-31 20:27 | 2차맵 생성 WP-3: 서버 연결 — 행성 값 파일, 지형 워커·캐시, 고정본, 시험 2차맵을 땅으로, 이웃 지형, 빠른 no_path | Claude Code | [31-2027-second-map-wp3](worklog/2026/10/31-2027-second-map-wp3.md) |

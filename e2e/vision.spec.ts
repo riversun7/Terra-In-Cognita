@@ -185,6 +185,123 @@ test.describe("2차맵 낮밤", () => {
   }
 });
 
+test.describe("경계 너머 보기", () => {
+  test.use({ account: "dev" });
+  test.beforeEach(async ({ page }) => {
+    await rewriteTrpc(page, { "summary.get": hideSummary });
+  });
+
+  // ADR 2026-10-31-second-map-from-planet WP-4: 이웃 2차맵 지형을 받아 둘레에 그리고, 화면을 경계 너머로 옮긴다.
+  // 사용자 요구 "다음 맵 이동 때 연결이 자연스러운지": 경계에서 지형이 끊기지 않는지 사진으로 본다(유닛은 아직 넘지 않는다)
+  test("이웃 8장(3×3 이어 보기)을 받고, 끌어서 경계 너머 이웃 2차맵 위로 화면을 옮긴다. 나침반이 있다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(120_000);
+    await openMap(page, "?second-map-neighbours=all&second-map-sky=off");
+    const screen = page.locator(".map-screen");
+    await expect(screen).toHaveAttribute("data-neighbours", "8", { timeout: 30_000 });
+    await expect(page.locator(".map-compass")).toHaveAttribute("aria-label", /./);
+    await page.waitForTimeout(1200);
+    await shot(page, "second-map-neighbours-3x3");
+
+    // 오른쪽 경계 쪽으로 끈다(손가락 아래 땅이 따라온다: 왼쪽으로 끌면 화면이 동쪽으로 간다)
+    const box = await page.locator(".map-view canvas").boundingBox();
+    if (!box) throw new Error("no canvas");
+    const y = box.y + box.height * 0.55;
+    // 처음 화면은 가까이 본다: 멀리 본 뒤 끈다(한 번 끌 때 더 멀리 간다)
+    await page.mouse.move(box.x + box.width / 2, y);
+    for (let k = 0; k < 6; k++) {
+      await page.mouse.wheel(0, 400);
+      await page.waitForTimeout(150);
+    }
+    for (let k = 0; k < 16; k++) {
+      if ((await screen.getAttribute("data-view-map")) === "1,0") break;
+      await page.mouse.move(box.x + box.width * 0.85, y);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * 0.15, y, { steps: 8 });
+      await page.mouse.up();
+      await page.waitForTimeout(1100);
+    }
+    await expect(screen).toHaveAttribute("data-view-map", "1,0", { timeout: 5_000 });
+    // 경계를 걸친 자리로 조금 되돌려 사진(경계가 화면 가운데쯤)
+    await page.mouse.move(box.x + box.width * 0.3, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.75, y, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(1200);
+    await shot(page, "second-map-neighbour-edge");
+
+    // 이 거리(화면 짧은 변 420m 아래)에서는 지금 2차맵의 소품 모델(나무 등)이 선다(멀리서는 땅 색만)
+    expect(Number(await screen.getAttribute("data-props"))).toBeGreaterThan(0);
+    expect(deviceErrors).toEqual([]);
+  });
+
+  // 측정(E2E_MEASURE=1일 때만, 작업 기록용): 이웃 8장·소품 모델이 엔진 한 프레임 시간에 더하는 몫. 처음 화면(가까이, 소품 모델)과
+  // 멀리(바퀴 6번, 땅 색만)에서 좌우로 끄는 동안 1초마다 엔진 p95를 읽는다. 헤드리스 Chromium(SwiftShader) 값이라 휴대폰 값이 아니다
+  test("측정: 이웃 0장·8장 × 가까이·멀리, 끄는 동안 엔진 p95(E2E_MEASURE=1)", async ({ page }) => {
+    test.skip(process.env.E2E_MEASURE !== "1", "E2E_MEASURE=1일 때만 돈다");
+    test.setTimeout(240_000);
+    const rows: Record<string, unknown>[] = [];
+    for (const neighbours of [false, true]) {
+      await openMap(
+        page,
+        neighbours ? "?second-map-neighbours=all&second-map-sky=off" : "?second-map-sky=off",
+      );
+      const screen = page.locator(".map-screen");
+      if (neighbours) await expect(screen).toHaveAttribute("data-neighbours", "8", { timeout: 30_000 });
+      const box = await page.locator(".map-view canvas").boundingBox();
+      if (!box) throw new Error("no canvas");
+      const y = box.y + box.height * 0.5;
+      for (const far of [false, true]) {
+        if (far) {
+          await page.mouse.move(box.x + box.width / 2, y);
+          for (let k = 0; k < 6; k++) {
+            await page.mouse.wheel(0, 400);
+            await page.waitForTimeout(150);
+          }
+        }
+        await page.waitForTimeout(1500);
+        const framesBefore = Number(await screen.getAttribute("data-frames"));
+        const samples: number[] = [];
+        const started = Date.now();
+        let lastRead = started;
+        let flip = false;
+        await page.mouse.move(box.x + box.width * 0.4, y);
+        await page.mouse.down();
+        while (Date.now() - started < 6000) {
+          flip = !flip;
+          await page.mouse.move(box.x + box.width * (flip ? 0.6 : 0.4), y, { steps: 10 });
+          if (Date.now() - lastRead >= 1000) {
+            samples.push(Number(await screen.getAttribute("data-engine-p95")));
+            lastRead = Date.now();
+          }
+        }
+        await page.mouse.up();
+        await page.waitForTimeout(1100);
+        const seconds = (Date.now() - started) / 1000;
+        const sorted = samples.toSorted((a, b) => a - b);
+        rows.push({
+          neighbours: Number(await screen.getAttribute("data-neighbours")),
+          view: far ? "far" : "near",
+          props: Number(await screen.getAttribute("data-props")),
+          engineP95MedianMs: sorted[Math.floor(sorted.length / 2)] ?? null,
+          engineP95MaxMs: sorted.at(-1) ?? null,
+          framesPerSecond: Math.round(
+            (Number(await screen.getAttribute("data-frames")) - framesBefore) / seconds,
+          ),
+        });
+      }
+    }
+    // 작업 기록에 옮겨 적는다(표준 출력)
+    console.log(`[measure] ${JSON.stringify(rows)}`);
+    await test.info().attach("second-map-neighbour-measure", {
+      body: JSON.stringify(rows, null, 2),
+      contentType: "application/json",
+    });
+  });
+});
+
 test.describe("player", () => {
   test.use({ account: "player" });
 

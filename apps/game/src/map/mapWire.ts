@@ -24,6 +24,8 @@ import type {
 
 /** 엔진 지형 칸 수(한 변) = @terra/engine TERRAIN_CELLS */
 export const ENGINE_TERRAIN_CELLS = 128;
+/** 엔진 배치 칸 수(한 변) = @terra/engine PLACEMENT_CELLS */
+export const ENGINE_PLACEMENT_CELLS = 256;
 /** 엔진 높이 단위(m) = @terra/engine HEIGHT_UNIT_M */
 export const ENGINE_HEIGHT_UNIT_M = 0.1;
 /**
@@ -81,6 +83,8 @@ export function toTerrainInput(data: TerrainData): TerrainInput {
     // 해수면(0m). 2판은 꼭짓점 물 높이(waterLevels)로 그린다
     waterLevelM: 0,
     waterLevels: data.waterLevels ? waterUnits(data.waterLevels, base) : undefined,
+    // 소품 그림·엄폐(배치 칸 256²): 엔진이 가까이 모델을 세우고 멀리 땅 색에 섞는다. 크기가 다르면 넘기지 않는다
+    ...(data.placementSize === ENGINE_PLACEMENT_CELLS ? { art: data.art, cover: data.cover } : {}),
   };
 }
 

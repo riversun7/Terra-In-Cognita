@@ -50,6 +50,12 @@ export interface TerrainInput {
    * (강·호수 수면이 해수면과 다르다, 행성 값에서 만든 2차맵 = 지형 파일 TCTR 2판)
    */
   waterLevels?: Int16Array | undefined;
+  /**
+   * 배치 칸 256² 소품 그림 번호(@terra/shared MAP_PROP_ARTS)와 엄폐 값(0·1·2). 있으면 가까이 소품 모델을 세우고,
+   * 멀리서는 땅 색에 소품 색을 섞는다(TCTR 2판, ADR 2026-10-31-second-map-from-planet U5)
+   */
+  art?: Uint8Array | undefined;
+  cover?: Uint8Array | undefined;
 }
 
 /** 입력이 모양에 맞는지 — 맞지 않으면 무엇이 틀렸는지 문장을 돌려준다(없으면 null) */
@@ -70,6 +76,15 @@ export function terrainProblem(input: TerrainInput): string | null {
     (!(input.waterLevels instanceof Int16Array) || input.waterLevels.length !== vertices)
   ) {
     return `waterLevels must be Int16Array(${vertices})`;
+  }
+  const placement = PLACEMENT_CELLS * PLACEMENT_CELLS;
+  for (const [name, layer] of [
+    ["art", input.art],
+    ["cover", input.cover],
+  ] as const) {
+    if (layer !== undefined && (!(layer instanceof Uint8Array) || layer.length !== placement)) {
+      return `${name} must be Uint8Array(${placement})`;
+    }
   }
   return null;
 }

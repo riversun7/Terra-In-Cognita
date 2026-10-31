@@ -115,3 +115,38 @@
   gap: var(--space-2);
   margin-left: auto;
 }
+
+/*
+ * 나침반(2차맵은 면 격자 틀이라 북쪽이 2차맵마다 돌아가 있다, ADR 2026-10-31-second-map-from-planet U1).
+ * 바늘은 화면이 프레임마다 직접 돌린다(transform). 글자 쪽 끝이 북쪽이다
+ */
+.map-compass {
+  position: relative;
+  flex: none;
+  inline-size: var(--tap-size);
+  block-size: var(--tap-size);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+}
+.map-compass-needle {
+  position: absolute;
+  inset: var(--space-1);
+  display: flex;
+  justify-content: center;
+}
+.map-compass-needle::after {
+  content: "";
+  position: absolute;
+  inset-block: 35%;
+  inset-inline-start: calc(50% - var(--border-w));
+  inline-size: calc(var(--border-w) * 2);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-text-muted);
+}
+.map-compass-north {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-display);
+  line-height: 1;
+  color: var(--color-danger);
+}

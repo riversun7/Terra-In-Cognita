@@ -1,6 +1,7 @@
 // 행성 편집기 정의 조회 자료 시험 — 저장소 팩, 확인 해시(기기와 같은 길), 정의 해시(목록 정보와 같은 값), 시작 로그 한 줄.
 // 해시·시드 값은 적지 않는다(생성기 판이 바뀌어도 그대로 돈다): 같은 값을 다른 길로 다시 만들어 견준다.
 import { GENERATOR_VERSION, generatePlanet, planetInputFromDefinition } from "@terra/planet/generator";
+import { compileMapProps, mapPropInputsFromJson } from "@terra/planet/secondMap";
 import { PLANET_EDITOR_CHECK_FACE_LEVEL } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import { createInlineBaker } from "../planet/baker.ts";
@@ -12,6 +13,7 @@ import {
   planetSpecsFromPack,
 } from "../planet/sources.ts";
 import { recordingLog } from "../planet/testSupport.ts";
+import { mapPropInputsFromPack } from "../world/mapProps.ts";
 import {
   PLANET_EDITOR_READY_MESSAGE,
   buildPlanetEditorDefinitions,
@@ -87,6 +89,16 @@ describe("행성 편집기 정의 조회 자료", () => {
     }
   });
 
+  it("2차맵 소품 규칙(map_props): 팩 파일 그대로이고, 기기가 원본 항목으로 푼 규칙이 서버 지형 워커 규칙과 같다", () => {
+    expect(definitions.mapProps).toEqual(loaded.raw.mapProps);
+    expect(definitions.mapProps.length).toBe((loaded.pack.entries.get("map_props") ?? []).length);
+    const biomeIds = definitions.biomes.map((biome) => String(biome.id));
+    // 기기 편집기 워커(apps/game secondMapPreviewWork.ts)와 서버 지형 서비스(world/mapProps.ts)의 길
+    const device = compileMapProps(mapPropInputsFromJson(definitions.mapProps), biomeIds);
+    const server = compileMapProps(mapPropInputsFromPack(loaded.pack), biomeIds);
+    expect(device.hash).toBe(server.hash);
+  });
+
   it("서버는 표본을 굽지 않는다: 굽는 원본(planetSpecsFromPack)은 planets 분류뿐이고 표본 ID와 겹치지 않는다", () => {
     const baked = planetSpecsFromPack(loaded.pack).map((spec) => spec.id);
     expect(baked).toEqual(definitions.planets.map((planet) => planet.id));
@@ -112,7 +124,7 @@ describe("행성 편집기 정의 조회 자료", () => {
     const raw = { ...rawPlanet(loaded, spec.id), faceLevel: 4 };
     const small = buildPlanetEditorDefinitions({
       content: loaded.content,
-      raw: { planets: [raw], biomes: loaded.raw.biomes, planetTemplates: [] },
+      raw: { planets: [raw], biomes: loaded.raw.biomes, planetTemplates: [], mapProps: [] },
       specs: [{ ...spec, input: { ...spec.input, faceLevel: 4 } }],
     });
     expect(small.definitions.planets[0]?.check).toEqual({
@@ -137,7 +149,7 @@ describe("행성 편집기 정의 조회 자료", () => {
     expect(() =>
       buildPlanetEditorDefinitions({
         content: loaded.content,
-        raw: { planets: [], biomes: loaded.raw.biomes, planetTemplates: [] },
+        raw: { planets: [], biomes: loaded.raw.biomes, planetTemplates: [], mapProps: [] },
         specs,
       }),
     ).toThrow(/no entry for planet/);
@@ -150,6 +162,7 @@ describe("행성 편집기 정의 조회 자료", () => {
           planets: [{ ...rawPlanet(loaded, spec.id), biomes: ["ocean_deep", "tundra"] }],
           biomes: loaded.raw.biomes,
           planetTemplates: [],
+          mapProps: [],
         },
         specs: [spec],
       }),

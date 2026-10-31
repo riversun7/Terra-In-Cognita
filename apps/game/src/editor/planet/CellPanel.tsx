@@ -18,6 +18,7 @@ import { type CellStory, cellStory } from "./cellStory.ts";
 import { CONDITION_LABELS, DEPTH_LABELS, formatNumber, localName } from "./editorMessages.ts";
 import type { LatLon } from "./flatMapRender.ts";
 import type { PreviewEntry } from "./previewTypes.ts";
+import type { SecondMapOpener } from "./useSecondMapPreview.tsx";
 
 /** 설명 묶음(지금은 바이옴 판정 하나) */
 export type CellSection = { readonly kind: "biome"; readonly explanation: BiomeExplanation };
@@ -58,6 +59,8 @@ export interface CellPanelProps {
   readonly contentVersion: string;
   /** 공개본 정의 해시(공개본만 보인다) */
   readonly definitionHash: string;
+  /** [2차맵 미리보기] 단추(행성 진짜 면 레벨의 이 칸, ADR 2026-10-31-second-map-from-planet 9절). 없으면 숨긴다 */
+  readonly secondMap?: SecondMapOpener | null;
 }
 
 function biomeName(biomes: readonly PlanetBiome[], entries: readonly unknown[], index: number): string {
@@ -296,6 +299,30 @@ function storyLines(story: CellStory, values: CellValues, name: (index: number) 
   return lines;
 }
 
+/** [2차맵 미리보기] 단추와 한 줄 안내. 꺼짐 감지로 막혔으면 누를 수 없고 까닭을 적는다 */
+function SecondMapButton({ opener }: { opener: SecondMapOpener }) {
+  const level = String(opener.level);
+  return (
+    <div className="pe-second-map-open">
+      <button
+        type="button"
+        className="button-small pe-second-map-button"
+        aria-disabled={opener.blocked}
+        onClick={() => {
+          if (!opener.blocked) opener.onOpen();
+        }}
+      >
+        {m.planet_editor_second_map_open()}
+      </button>
+      <p className="field-hint">
+        {opener.blocked
+          ? m.planet_editor_second_map_blocked({ level })
+          : m.planet_editor_second_map_hint({ level })}
+      </p>
+    </div>
+  );
+}
+
 export function CellPanel({
   report,
   entry,
@@ -304,6 +331,7 @@ export function CellPanel({
   biomeEntries,
   contentVersion,
   definitionHash,
+  secondMap = null,
 }: CellPanelProps) {
   if (!report || !entry) {
     return <p className="status pe-cell-none">{m.planet_editor_cell_none()}</p>;
@@ -366,6 +394,7 @@ export function CellPanel({
           ))}
         </div>
       ) : null}
+      {secondMap ? <SecondMapButton opener={secondMap} /> : null}
       <details className="pe-details">
         <summary className="pe-details-summary">{m.planet_editor_details_toggle()}</summary>
         <dl className="pe-facts pe-cell-values">

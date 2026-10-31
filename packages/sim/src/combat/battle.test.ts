@@ -18,7 +18,7 @@ describe("전투 틱(200ms, 정수, 시드 굴림)", () => {
     const init = {
       ...base,
       units: base.units.map((spec) =>
-        spec.side === 1 ? { ...spec, attack: { ...spec.attack, attack: 200 } } : spec,
+        spec.side === 1 ? { ...spec, attack: { ...spec.attack, weaponAttack: 200 } } : spec,
       ),
     };
     const { result } = runBattle(init, []);
@@ -33,7 +33,7 @@ describe("전투 틱(200ms, 정수, 시드 굴림)", () => {
       init.map.passable[y * 32 + 16] = 0;
       init.map.cover[y * 32 + 16] = COVER_BLOCK;
     }
-    init.limitTicks = 300;
+    init.limitMs = 30_000;
     const { result, state } = runBattle(init, []);
     expect(result).toMatchObject({ winner: 2, reason: "timeout", endTick: 300 });
     expect(state.units.filter((u) => u.side === 1).every((u) => u.status === "retreated")).toBe(true);
@@ -52,7 +52,7 @@ describe("전투 틱(200ms, 정수, 시드 굴림)", () => {
         { id: 2, faction: 2, defender: true, edge: 1 as const },
       ],
       parties: [{ id: 1, side: 1, retreatHpPct: 0 }],
-      units: [unit(1, 1, 1, 12, 16, { attack: { ...unit(0, 0, 0, 0, 0).attack, attack: 30 } })],
+      units: [unit(1, 1, 1, 12, 16, { attack: { ...unit(0, 0, 0, 0, 0).attack, weaponAttack: 30 } })],
     };
     const { result } = runBattle(init, []);
     expect(result).toMatchObject({ winner: 1, reason: "nexus" });
@@ -77,23 +77,23 @@ describe("전투 틱(200ms, 정수, 시드 굴림)", () => {
     expect(side1.map((u) => u.status)).toEqual(["retreated", "retreated"]);
   });
 
-  it("같은 유닛의 명령은 5틱 안에 다시 넣으면 거절한다(D-180)", () => {
+  it("같은 유닛의 명령은 1초(10틱) 안에 다시 넣으면 거절한다(D-180·C5)", () => {
     const battle = createBattle(duel(1, 1));
     const result = battle.runToEnd(
       [
         { tick: 0, kind: "command", unit: 1, command: { kind: "move", cell: 5 * 32 + 5 } },
-        { tick: 3, kind: "command", unit: 1, command: { kind: "move", cell: 6 * 32 + 6 } },
-        { tick: 5, kind: "command", unit: 1, command: { kind: "move", cell: 7 * 32 + 7 } },
+        { tick: 5, kind: "command", unit: 1, command: { kind: "move", cell: 6 * 32 + 6 } },
+        { tick: 10, kind: "command", unit: 1, command: { kind: "move", cell: 7 * 32 + 7 } },
       ],
-      6,
+      11,
     );
     expect(result.rejected).toBe(1);
   });
 
-  it("스냅숏(150틱)에서 다시 켜고 남은 입력을 넣으면 끝 상태가 바이트까지 같다", () => {
+  it("스냅숏(30초 = 300틱)에서 다시 켜고 남은 입력을 넣으면 끝 상태가 바이트까지 같다", () => {
     const base = duel(6, 11);
     // 오래 싸우게 HP를 크게(스냅숏 150틱을 넘긴다)
-    const init = { ...base, units: base.units.map((spec) => ({ ...spec, maxHp: 3000 })) };
+    const init = { ...base, units: base.units.map((spec) => ({ ...spec, maxHp: 6000 })) };
     const inputs: BattleInput[] = [
       { tick: 20, kind: "command", unit: 1, command: { kind: "move", cell: 3 * 32 + 3 } },
       { tick: 200, kind: "command", unit: 101, command: { kind: "retreat" } },
@@ -103,7 +103,7 @@ describe("전투 틱(200ms, 정수, 시드 굴림)", () => {
     expect(snapshots.length).toBeGreaterThan(0);
     const restored = restoreBattle(init, snapshots[0] ?? "");
     const tick = restored.state.tick;
-    expect(tick).toBe(150);
+    expect(tick).toBe(300);
     const resumed = restored.runToEnd(inputs.filter((input) => input.tick >= tick));
     expect(snapshotBattle(resumed.state)).toBe(full.finalState);
     expect(resumed.result).toEqual(full.result);
@@ -136,9 +136,9 @@ function wallDuel(arc: boolean) {
     ],
     units: [
       ranged(unit(1, 1, 1, 10, 10), arc),
-      unit(2, 2, 2, 14, 10, { attack: { ...unit(0, 0, 0, 0, 0).attack, attack: 0 } }),
+      unit(2, 2, 2, 14, 10, { attack: { ...unit(0, 0, 0, 0, 0).attack, weaponAttack: 0 } }),
     ],
-    limitTicks: 50,
+    limitMs: 5_000,
   };
 }
 
@@ -147,7 +147,7 @@ function arcRun(arc: boolean) {
   const [shooter, target] = init.units;
   if (!shooter || !target) throw new Error("fixture");
   // 벽 너머의 정찰 유닛(공격력 0)이 목표를 본다
-  const spotter = unit(3, 1, 1, 13, 12, { attack: { ...unit(0, 0, 0, 0, 0).attack, attack: 0 } });
+  const spotter = unit(3, 1, 1, 13, 12, { attack: { ...unit(0, 0, 0, 0, 0).attack, weaponAttack: 0 } });
   return runBattle({ ...init, units: [shooter, target, spotter] }, []);
 }
 

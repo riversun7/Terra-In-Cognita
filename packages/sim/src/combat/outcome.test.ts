@@ -20,7 +20,7 @@ describe("전투 결과 되돌리기", () => {
       ...base,
       units: base.units.map((spec) =>
         spec.side === 1
-          ? { ...spec, attack: { ...spec.attack, attack: 200 } }
+          ? { ...spec, attack: { ...spec.attack, weaponAttack: 200 } }
           : spec.id === 101
             ? { ...spec, cyborg: true }
             : spec,

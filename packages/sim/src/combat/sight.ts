@@ -15,11 +15,11 @@ export interface Sighted {
   readonly side: number;
   readonly x: number;
   readonly y: number;
-  readonly wis: number;
-  readonly agi: number;
+  /** 스탯 시야(칸) */
+  readonly sight: number;
   readonly eye: number;
   readonly air: boolean;
-  readonly revealUntil: number;
+  readonly revealUntilMs: number;
 }
 
 /** 편 side에 보이는 적 ID(오름차순). observers·targets는 살아 있고 빠지지 않은 유닛만 넘긴다 */
@@ -28,7 +28,7 @@ export function visibleEnemies(
   side: number,
   observers: readonly Sighted[],
   targets: readonly Sighted[],
-  tick: number,
+  nowMs: number,
   destroyed: ReadonlySet<number>,
   c: CombatCoefficients,
 ): number[] {
@@ -37,7 +37,7 @@ export function visibleEnemies(
   for (const target of targets) {
     if (target.side === side) continue;
     const hidden =
-      !target.air && map.cover[target.y * size + target.x] === COVER_BUSH && target.revealUntil < tick;
+      !target.air && map.cover[target.y * size + target.x] === COVER_BUSH && target.revealUntilMs < nowMs;
     const gTarget = map.height[target.y * size + target.x] ?? 0;
     for (const observer of observers) {
       if (observer.side !== side) continue;
@@ -46,7 +46,7 @@ export function visibleEnemies(
       const cheb = Math.max(dx < 0 ? -dx : dx, dy < 0 ? -dy : dy);
       if (hidden && cheb > c.bushSenseCells) continue;
       const heightDiff = observer.air ? 0 : (map.height[observer.y * size + observer.x] ?? 0) - gTarget;
-      const r = sightRadius(observer.wis, observer.agi, heightDiff, c);
+      const r = sightRadius(observer.sight, heightDiff, c);
       if (dx * dx + dy * dy > r * r + r) continue;
       if (!lineClear(map, observer, target, destroyed)) continue;
       seen.push(target.id);

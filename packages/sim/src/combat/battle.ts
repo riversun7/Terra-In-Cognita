@@ -1,14 +1,16 @@
 // 전투 판정 코어 — docs/adr/2026-10-31-combat-core.md, ADR 35(전투맵 인스턴스)
-// 한 틱(200ms) = 입력 적용 → 편마다 시야(틱 시작 위치) → 흐름장(fieldTicks마다) → 파티 퇴각 기준 → 유닛마다(ID 차례) 행동
-// (공격 또는 한 걸음) → 퇴각 판정 → 끝 판정. 정수·시드 굴림만 쓴다(굴림 하나 = 0~9999, (시드, 틱)마다 새 흐름).
+// 한 틱(tickMs, 100ms) = 입력 적용 → 편마다 시야(틱 시작 위치) → 흐름장(fieldMs마다) → 파티 퇴각 기준 → 유닛마다(ID 차례) 행동
+// (공격 또는 한 걸음) → 퇴각 판정 → 끝 판정. 행동 시각은 ms로 들고, 그 시각이 된 첫 틱 경계에서 한다(D-418 실시간).
+// 공격 = 다음 행동 시각이 됐고 스태미나(속성이면 MP도)가 충분할 때. 걷기는 자원이 없다. 자원은 틱마다 조금씩 찬다.
+// 정수·시드 굴림만 쓴다(굴림 하나 = 0~9999, (시드, 틱)마다 새 흐름, 공격마다 셋: 명중·회피·크리, D-419).
 // 실시간·빨리감기·재생이 같은 함수다. 상태는 직렬화할 수 있는 값만 들고(스냅숏), 흐름장은 상태에서 다시 나오는 캐시다.
 // [임시] 파티 AI는 "보이는 가장 가까운 적"과 퇴각 기준선(⑦)만 한다. 작전 슬라이더 ①~⑥은 R5(D-5040).
 import { createRng } from "@terra/shared";
 import { mix32 } from "../math/hash.ts";
 import { type BattleMap, type BattleMapInput, createBattleMap } from "./battleMap.ts";
-import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "./coefficients.ts";
+import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS, msToTicks } from "./coefficients.ts";
 import { NEIGHBORS, UNREACHABLE, distanceField, stepAllowed } from "./fields.ts";
-import { type AttackProfile, type DefenseProfile, buildingDamage, computeDamage } from "./formula.ts";
+import { type AttackProfile, type DefenseProfile, buildingDamage, resolveAttack } from "./formula.ts";
 import { lineClear } from "./los.ts";
 import { visibleEnemies } from "./sight.ts";
 
@@ -30,11 +32,17 @@ export interface CombatUnitSpec {
   readonly range: number;
   /** 곡사(질문 96: 차폐를 넘는다) */
   readonly arc: boolean;
-  readonly attackTicks: number;
-  /** 한 칸 가는 틱(전투 속도, C28 [임시] 1칸/초 이하 = 5틱 이상) */
-  readonly moveTicks: number;
-  readonly wis: number;
-  readonly agi: number;
+  /** 공격 간격(ms, 행동 속도에서, unitSpec.ts) */
+  readonly attackIntervalMs: number;
+  /** 한 칸 가는 시간(ms, 전투 속도 C28) */
+  readonly moveIntervalMs: number;
+  /** 스태미나·MP 최대와 공격 한 번에 드는 양(D-415·D-418) */
+  readonly staminaMax: number;
+  readonly staminaCost: number;
+  readonly mpMax: number;
+  readonly mpCost: number;
+  /** 스탯 시야(칸, 가중치 표 sight 행) */
+  readonly sight: number;
   /** 시선 높이(16배 cm) */
   readonly eye: number;
   readonly air: boolean;
@@ -67,8 +75,8 @@ export interface BattleInit {
   readonly sides: readonly BattleSideSpec[];
   readonly parties: readonly BattlePartySpec[];
   readonly units: readonly CombatUnitSpec[];
-  /** 제한 시간(틱). 없으면 종류 기본값(C2) */
-  limitTicks?: number | undefined;
+  /** 제한 시간(ms). 없으면 종류 기본값(C2) */
+  limitMs?: number | undefined;
 }
 
 export type Command =
@@ -95,12 +103,15 @@ export interface UnitState extends CombatUnitSpec {
   hp: number;
   armor: number;
   shield: number;
+  /** 스태미나·MP 지금 값(×1000, 틱마다 조금씩 차게) */
+  staminaMilli: number;
+  mpMilli: number;
   status: UnitStatus;
-  cooldown: number;
-  moveWait: number;
-  revealUntil: number;
+  nextActionMs: number;
+  nextMoveMs: number;
+  revealUntilMs: number;
   command: Command | null;
-  lastCommandTick: number;
+  lastCommandMs: number;
 }
 
 export interface PartyState extends BattlePartySpec {
@@ -159,18 +170,36 @@ function active(unit: UnitState): boolean {
   return unit.status === "alive";
 }
 
+/** 행동할 수 있나: 다음 행동 시각이 됐고 자원이 충분(D-418) */
+function ready(unit: UnitState, nowMs: number): boolean {
+  return (
+    nowMs >= unit.nextActionMs &&
+    unit.staminaMilli >= unit.staminaCost * 1000 &&
+    (unit.attack.kind !== "elemental" || unit.mpMilli >= unit.mpCost * 1000)
+  );
+}
+
+/** 행동을 쓴다: 자원을 쓰고 다음 행동 시각을 정한다(빗나가도 쓴다) */
+function spend(unit: UnitState, nowMs: number): void {
+  unit.staminaMilli -= unit.staminaCost * 1000;
+  if (unit.attack.kind === "elemental") unit.mpMilli -= unit.mpCost * 1000;
+  unit.nextActionMs = nowMs + unit.attackIntervalMs;
+}
+
 function unitFrom(spec: CombatUnitSpec): UnitState {
   return {
     ...spec,
     hp: spec.maxHp,
     armor: spec.armorHp,
     shield: spec.shieldHp,
+    staminaMilli: spec.staminaMax * 1000,
+    mpMilli: spec.mpMax * 1000,
     status: "alive",
-    cooldown: 0,
-    moveWait: 0,
-    revealUntil: -1,
+    nextActionMs: 0,
+    nextMoveMs: 0,
+    revealUntilMs: -1,
     command: null,
-    lastCommandTick: -1_000_000,
+    lastCommandMs: -1_000_000_000,
   };
 }
 
@@ -193,9 +222,10 @@ export function snapshotBattle(state: BattleState): string {
 }
 
 function initialState(init: BattleInit, c: CombatCoefficients): BattleState {
-  const limit = init.limitTicks ?? (init.kind === "siege" ? c.limitTicks.siege : c.limitTicks.normal);
-  if (!Number.isInteger(limit) || limit < 1 || limit > c.limitTicks.max)
-    throw new RangeError(`limitTicks must be in [1, ${c.limitTicks.max}]`);
+  const limitMs = init.limitMs ?? (init.kind === "siege" ? c.limitMs.siege : c.limitMs.normal);
+  if (!Number.isInteger(limitMs) || limitMs < c.tickMs || limitMs > c.limitMs.max)
+    throw new RangeError(`limitMs must be in [${c.tickMs}, ${c.limitMs.max}]`);
+  const limit = msToTicks(limitMs, c);
   const units = init.units.map(unitFrom).toSorted((a, b) => a.id - b.id);
   const parties = init.parties
     .map((party) => ({
@@ -293,7 +323,7 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
       return;
     }
     const unit = unitById(input.unit);
-    if (!unit || !active(unit) || state.tick - unit.lastCommandTick < c.commandLockTicks) {
+    if (!unit || !active(unit) || state.tick * c.tickMs - unit.lastCommandMs < c.commandLockMs) {
       state.rejected += 1;
       return;
     }
@@ -306,13 +336,13 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
       }
     }
     unit.command = input.command;
-    unit.lastCommandTick = state.tick;
+    unit.lastCommandMs = state.tick * c.tickMs;
   };
 
   const computeSight = (gone: ReadonlySet<number>): void => {
     const live = state.units.filter(active);
     for (const side of state.sides) {
-      side.visible = visibleEnemies(map, side.id, live, live, state.tick, gone, c);
+      side.visible = visibleEnemies(map, side.id, live, live, state.tick * c.tickMs, gone, c);
       const memory = new Set(side.lastSeen);
       for (const id of side.visible) {
         const enemy = unitById(id);
@@ -379,7 +409,7 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     }
     unit.x = bestCell % size;
     unit.y = (bestCell - unit.x) / size;
-    unit.moveWait = unit.moveTicks;
+    unit.nextMoveMs = state.tick * c.tickMs + unit.moveIntervalMs;
   };
 
   const inRangeOfBuilding = (unit: UnitState, buildingId: number): boolean =>
@@ -391,13 +421,19 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
   const attackUnit = (
     attacker: UnitState,
     target: UnitState,
-    roll: number,
+    rng: { nextInt(n: number): number },
     gone: ReadonlySet<number>,
+    nowMs: number,
   ): boolean => {
     if (chebyshev(attacker.x, attacker.y, target.x, target.y) > attacker.range) return false;
     if (attacker.range > 1 && !attacker.arc && !lineClear(map, attacker, target, gone)) return false;
-    const hit = computeDamage(attacker.attack, target.defense, roll, c);
+    const rolls = { hit: rng.nextInt(10_000), evade: rng.nextInt(10_000), crit: rng.nextInt(10_000) };
+    const hit = resolveAttack(attacker.attack, target.defense, rolls, c);
+    spend(attacker, nowMs);
+    if (!attacker.air && map.cover[attacker.y * size + attacker.x] === 1)
+      attacker.revealUntilMs = nowMs + c.bushRevealMs;
     let left = hit.amount;
+    if (left <= 0) return true;
     if (attacker.attack.kind === "physical") {
       const absorbed = Math.min(target.armor, left);
       target.armor -= absorbed;
@@ -413,18 +449,15 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
       target.status = "down";
       target.command = null;
     }
-    if (!attacker.air && map.cover[attacker.y * size + attacker.x] === 1)
-      attacker.revealUntil = state.tick + c.bushRevealTicks;
-    attacker.cooldown = attacker.attackTicks;
     return true;
   };
 
-  const attackBuilding = (attacker: UnitState, buildingId: number): boolean => {
+  const attackBuilding = (attacker: UnitState, buildingId: number, nowMs: number): boolean => {
     if (!inRangeOfBuilding(attacker, buildingId)) return false;
     const building = state.buildings.find((entry) => entry.id === buildingId);
     if (!building || building.durability <= 0) return false;
     building.durability -= buildingDamage(attacker.attack, attacker.buildingMulPm, c);
-    attacker.cooldown = attacker.attackTicks;
+    spend(attacker, nowMs);
     return true;
   };
 
@@ -450,17 +483,17 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     occupied: Int32Array,
     gone: ReadonlySet<number>,
   ): void => {
-    if (unit.cooldown > 0) unit.cooldown -= 1;
-    if (unit.moveWait > 0) unit.moveWait -= 1;
+    const nowMs = state.tick * c.tickMs;
+    const canMove = nowMs >= unit.nextMoveMs;
     const command = unit.command;
     if (command?.kind === "retreat") {
-      if (unit.moveWait === 0)
+      if (canMove)
         stepAlong(unit, staticField(`retreat:${unit.side}`, edgeCells, unit.side, gone), occupied, gone);
       return;
     }
     if (command?.kind === "move") {
       if (unit.y * size + unit.x === command.cell) unit.command = null;
-      else if (unit.moveWait === 0)
+      else if (canMove)
         stepAlong(
           unit,
           staticField(`cell:${unit.side}:${command.cell}`, () => [command.cell], unit.side, gone),
@@ -478,18 +511,15 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     }
     target ??= nearestVisible(unit);
     if (target) {
-      if (unit.cooldown === 0 && attackUnit(unit, target, rng.nextInt(10_000), gone)) return;
-      if (unit.moveWait === 0 && chebyshev(unit.x, unit.y, target.x, target.y) > unit.range) {
-        const own =
+      const goal = target;
+      if (ready(unit, nowMs) && attackUnit(unit, goal, rng, gone, nowMs)) return;
+      if (canMove && chebyshev(unit.x, unit.y, goal.x, goal.y) > unit.range) {
+        const cell = goal.y * size + goal.x;
+        const field =
           command?.kind === "attack"
-            ? staticField(
-                `cell:${unit.side}:${target.y * size + target.x}`,
-                () => [target.y * size + target.x],
-                unit.side,
-                gone,
-              )
+            ? staticField(`cell:${unit.side}:${cell}`, () => [cell], unit.side, gone)
             : (attackFields.get(unit.side) ?? null);
-        stepAlong(unit, own, occupied, gone);
+        stepAlong(unit, field, occupied, gone);
       }
       return;
     }
@@ -497,9 +527,21 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     const side = state.sides.find((entry) => entry.id === unit.side);
     if (state.kind === "siege" && side && !side.defender) {
       const nexus = nexusOf(gone);
-      if (nexus !== undefined && unit.cooldown === 0 && attackBuilding(unit, nexus)) return;
+      if (nexus !== undefined && ready(unit, nowMs) && attackBuilding(unit, nexus, nowMs)) return;
     }
-    if (unit.moveWait === 0) stepAlong(unit, attackFields.get(unit.side) ?? null, occupied, gone);
+    if (canMove) stepAlong(unit, attackFields.get(unit.side) ?? null, occupied, gone);
+  };
+
+  /** 자원이 틱마다 찬다(초당 최대값의 ‰) */
+  const regen = (unit: UnitState): void => {
+    unit.staminaMilli = Math.min(
+      unit.staminaMax * 1000,
+      unit.staminaMilli + Math.floor((unit.staminaMax * c.staminaRegenPmPerSec * c.tickMs) / 1000),
+    );
+    unit.mpMilli = Math.min(
+      unit.mpMax * 1000,
+      unit.mpMilli + Math.floor((unit.mpMax * c.mpRegenPmPerSec * c.tickMs) / 1000),
+    );
   };
 
   const partyHpLow = (party: PartyState): boolean => {
@@ -566,7 +608,7 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
       staticFields.clear();
     }
     computeSight(gone);
-    if (state.tick % c.fieldTicks === 0 || attackFields.size === 0) refreshAttackFields(gone);
+    if (state.tick % msToTicks(c.fieldMs, c) === 0 || attackFields.size === 0) refreshAttackFields(gone);
     // 파티 퇴각 기준선(⑦): 파티 ID 차례
     for (const party of state.parties)
       if (partyHpLow(party))
@@ -575,7 +617,11 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     const occupied = new Int32Array(size * size);
     for (const unit of state.units) if (active(unit) && !unit.air) occupied[unit.y * size + unit.x] = unit.id;
     const rng = createRng(mix32(state.seed ^ Math.imul(state.tick + 1, 0x9e37_79b1)));
-    for (const unit of state.units) if (active(unit)) act(unit, rng, occupied, gone);
+    for (const unit of state.units)
+      if (active(unit)) {
+        regen(unit);
+        act(unit, rng, occupied, gone);
+      }
     checkRetreats();
     state.tick += 1;
     checkEnd(destroyed());
@@ -593,7 +639,7 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
       }
       let ran = 0;
       while (!state.result && ran < maxTicks) {
-        if (onSnapshot && state.tick > 0 && state.tick % c.snapshotTicks === 0)
+        if (onSnapshot && state.tick > 0 && state.tick % msToTicks(c.snapshotMs, c) === 0)
           onSnapshot(snapshotBattle(state), state.tick);
         step(byTick.get(state.tick) ?? []);
         ran += 1;

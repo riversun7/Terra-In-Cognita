@@ -1,0 +1,162 @@
+{
+  "entries": [
+    {
+      "id": "hp",
+      "name": {
+        "ko": "HP",
+        "en": "HP"
+      },
+      "shape": "quantity",
+      "base": 50,
+      "weights": [300, 200, 200, 3000, 200, 300],
+      "enabled": true
+    },
+    {
+      "id": "armor_hp",
+      "name": {
+        "ko": "아머 HP",
+        "en": "Armor HP"
+      },
+      "shape": "quantity",
+      "base": 0,
+      "weights": [500, 0, 0, 1000, 0, 0],
+      "enabled": true
+    },
+    {
+      "id": "shield_hp",
+      "name": {
+        "ko": "쉴드 HP",
+        "en": "Shield HP"
+      },
+      "shape": "quantity",
+      "base": 0,
+      "weights": [0, 0, 0, 0, 500, 1500],
+      "enabled": true
+    },
+    {
+      "id": "defense_rate",
+      "name": {
+        "ko": "방어율",
+        "en": "Defense rate"
+      },
+      "shape": "probability",
+      "cap": 700,
+      "halfConstant": 100,
+      "weights": [600, 0, 0, 1200, 0, 0],
+      "enabled": true
+    },
+    {
+      "id": "physical_attack",
+      "name": {
+        "ko": "물리 공격력",
+        "en": "Physical attack"
+      },
+      "shape": "quantity",
+      "base": 0,
+      "weights": [2000, 600, 0, 0, 0, 0],
+      "enabled": true
+    },
+    {
+      "id": "elemental_attack",
+      "name": {
+        "ko": "속성 공격력",
+        "en": "Elemental attack"
+      },
+      "shape": "quantity",
+      "base": 0,
+      "weights": [0, 0, 0, 0, 2000, 600],
+      "enabled": true
+    },
+    {
+      "id": "hit",
+      "name": {
+        "ko": "명중",
+        "en": "Hit"
+      },
+      "shape": "probability",
+      "cap": 950,
+      "halfConstant": 20,
+      "weights": [0, 1200, 600, 0, 0, 0],
+      "enabled": true
+    },
+    {
+      "id": "evade",
+      "name": {
+        "ko": "회피",
+        "en": "Evade"
+      },
+      "shape": "probability",
+      "cap": 600,
+      "halfConstant": 150,
+      "weights": [0, 0, 1500, 0, 0, 0],
+      "enabled": true
+    },
+    {
+      "id": "crit_chance",
+      "name": {
+        "ko": "크리 확률",
+        "en": "Crit chance"
+      },
+      "shape": "probability",
+      "cap": 500,
+      "halfConstant": 200,
+      "weights": [0, 1500, 0, 0, 0, 0],
+      "enabled": true
+    },
+    {
+      "id": "crit_multiplier",
+      "name": {
+        "ko": "크리 배율",
+        "en": "Crit multiplier"
+      },
+      "shape": "quantity",
+      "base": 1300,
+      "weights": [0, 15000, 0, 0, 0, 0],
+      "enabled": true
+    },
+    {
+      "id": "action_speed",
+      "name": {
+        "ko": "행동 속도",
+        "en": "Action speed"
+      },
+      "shape": "quantity",
+      "base": 50,
+      "weights": [0, 300, 2000, 0, 0, 0],
+      "enabled": true
+    },
+    {
+      "id": "stamina",
+      "name": {
+        "ko": "스태미나",
+        "en": "Stamina"
+      },
+      "shape": "quantity",
+      "base": 50,
+      "weights": [0, 0, 1500, 3000, 0, 0],
+      "enabled": true
+    },
+    {
+      "id": "mp",
+      "name": {
+        "ko": "MP",
+        "en": "MP"
+      },
+      "shape": "quantity",
+      "base": 20,
+      "weights": [0, 0, 0, 0, 2500, 3000],
+      "enabled": true
+    },
+    {
+      "id": "sight",
+      "name": {
+        "ko": "시야",
+        "en": "Sight"
+      },
+      "shape": "quantity",
+      "base": 10,
+      "weights": [0, 0, 50, 0, 0, 100],
+      "enabled": true
+    }
+  ]
+}

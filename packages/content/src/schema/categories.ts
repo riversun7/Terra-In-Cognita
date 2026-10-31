@@ -12,6 +12,7 @@ import {
   recipeEntrySchema,
 } from "./economy.ts";
 import { biomeEntrySchema, planetEntrySchema, planetTemplateEntrySchema } from "./planets.ts";
+import { statRowEntrySchema } from "./stats.ts";
 
 export interface CategoryDefinition {
   /** 항목 하나의 스키마. id 필드(contentId)를 꼭 가진다. 다른 항목 참조는 ref("<분류>")로 선언한다 */
@@ -39,6 +40,7 @@ export const CATEGORIES: CategoryRegistry = {
   recipes: { entry: recipeEntrySchema },
   necessities: { entry: necessityEntrySchema },
   nation_presets: { entry: nationPresetEntrySchema },
+  stat_rows: { entry: statRowEntrySchema },
   biomes: { entry: biomeEntrySchema },
   planets: { entry: planetEntrySchema },
   planet_templates: { entry: planetTemplateEntrySchema },

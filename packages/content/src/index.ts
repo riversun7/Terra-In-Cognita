@@ -43,6 +43,7 @@ export {
   type NecessityEntry,
   type RecipeEntry,
 } from "./schema/economy.ts";
+export { statRowEntrySchema, type StatRowEntry } from "./schema/stats.ts";
 export { validatePack, type ValidationResult } from "./validate/pack.ts";
 export {
   assumeAllUsed,

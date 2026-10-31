@@ -5,7 +5,8 @@
 import { mix32 } from "../math/hash.ts";
 import { type BattleInit, type BattleResult, type CombatUnitSpec, runBattle } from "../combat/battle.ts";
 import type { BattleMapInput } from "../combat/battleMap.ts";
-import { ELEMENT_COUNT } from "../combat/formula.ts";
+import { type StatRow, TEST_STAT_TABLE, computeSecondary } from "../combat/stats.ts";
+import { type WeaponSpec, specFromStats } from "../combat/unitSpec.ts";
 import type { MetricsRecorder } from "./metrics.ts";
 import type { ScenarioCombat } from "./scenario.ts";
 import type { SimFaction, SimUnit, SimWorld } from "./world.ts";
@@ -28,7 +29,6 @@ export interface CombatRun {
   summary(): CombatSummary;
 }
 
-const ZERO = Array.from({ length: ELEMENT_COUNT }, () => 0);
 const PARTY_SIZE = 6;
 
 function openMap(size: number): BattleMapInput {
@@ -42,54 +42,69 @@ function openMap(size: number): BattleMapInput {
   };
 }
 
-/** [임시] 기술 단계가 오를수록 조금 세다 */
+/** [임시] 시험 무기(근접 물리). 무기·종 데이터는 기획 Step 5·9-3 */
+const TEST_WEAPON: WeaponSpec = {
+  kind: "physical",
+  attack: 20,
+  attackAppropriate: 40,
+  hitPm: 900,
+  hitAppropriate: 500,
+  critPm: 100,
+  critAppropriate: 200,
+  intervalMs: 1000,
+  speedAppropriate: 100,
+  range: 1,
+  arc: false,
+  staminaCost: 5,
+  mpCost: 0,
+};
+
+/** [임시] 1차 스탯 = 10 + 기술 단계 × 2(모두 같게), 2차는 스탯 계산기(가중치 표) */
 function specOf(
   unit: SimUnit,
   tech: number,
+  table: readonly StatRow[],
   side: number,
   party: number,
   x: number,
   y: number,
 ): CombatUnitSpec {
-  return {
+  const p = 10 + tech * 2;
+  const stats = computeSecondary({ str: p, dex: p, agi: p, vit: p, int: p, wis: p }, table);
+  return specFromStats({
     id: unit.id,
     side,
     party,
     x,
     y,
-    maxHp: 100 + tech * 10,
-    armorHp: 10,
-    shieldHp: 0,
-    attack: {
-      attack: 18 + tech * 2,
-      kind: "physical",
-      penetrationPm: 0,
-      critChanceBp: 1000,
-      critMulPm: 1500,
-      skillMulPm: 1000,
-      buffPm: 1000,
-      elements: ZERO,
-      skillElementsPm: ZERO,
-    },
-    defense: { defenseRatioPm: 100, defenseFlat: 1, elements: ZERO },
-    range: 1,
-    arc: false,
-    attackTicks: 5,
-    moveTicks: 5,
-    wis: 20,
-    agi: 10,
-    eye: 16 * 180,
-    air: false,
-    commandCap: 0,
-    cyborg: false,
+    stats,
+    weapon: TEST_WEAPON,
+    moveIntervalMs: 1000,
     buildingMulPm: 2000,
-  };
+  });
+}
+
+/** 공격 쪽 = 편 1(서쪽 변), 수비 쪽 = 편 2(동쪽 변) */
+function sides(attacker: SimFaction, defender: SimFaction) {
+  return [
+    { id: 1, faction: attacker.id, defender: false, edge: 3 as const },
+    { id: 2, faction: defender.id, defender: true, edge: 1 as const },
+  ] as const;
+}
+
+function partiesOf(units: readonly CombatUnitSpec[]) {
+  return [...new Set(units.map((unit) => unit.party))].map((id) => ({
+    id,
+    side: units.find((unit) => unit.party === id)?.side ?? 1,
+    retreatHpPct: 0,
+  }));
 }
 
 export function attachCombat(
   world: SimWorld,
   settings: ScenarioCombat,
   recorder: MetricsRecorder,
+  table: readonly StatRow[] = TEST_STAT_TABLE,
 ): CombatRun {
   let battles = 0;
   let sieges = 0;
@@ -124,6 +139,7 @@ export function attachCombat(
       return specOf(
         unit,
         tech,
+        table,
         side,
         partyBase + Math.floor(index / PARTY_SIZE),
         x + Math.floor(index / 24),
@@ -161,19 +177,6 @@ export function attachCombat(
     });
     return result;
   };
-
-  const sides = (attacker: SimFaction, defender: SimFaction) =>
-    [
-      { id: 1, faction: attacker.id, defender: false, edge: 3 as const },
-      { id: 2, faction: defender.id, defender: true, edge: 1 as const },
-    ] as const;
-
-  const partiesOf = (units: readonly CombatUnitSpec[]) =>
-    [...new Set(units.map((unit) => unit.party))].map((id) => ({
-      id,
-      side: units.find((unit) => unit.party === id)?.side ?? 1,
-      retreatHpPct: 0,
-    }));
 
   return {
     siege(attacker, defender, cityId, nowMs) {

@@ -4,95 +4,122 @@ import {
   type AttackProfile,
   type DefenseProfile,
   buildingDamage,
-  computeDamage,
+  resolveAttack,
   sightRadius,
+  weaponScaled,
 } from "./formula.ts";
 
-const NO_ELEMENTS = Array.from({ length: 12 }, () => 0);
+const NO = Array.from({ length: 12 }, () => 0);
 const attacker: AttackProfile = {
-  attack: 100,
   kind: "physical",
-  penetrationPm: 0,
-  critChanceBp: 0,
+  weaponAttack: 100,
+  attackStat: 50,
+  attackAppropriate: 50,
+  weaponHitPm: 900,
+  hitStat: 500,
+  hitAppropriate: 500,
+  weaponCritPm: 200,
+  critStat: 100,
+  critAppropriate: 100,
   critMulPm: 1500,
+  penetrationPm: 0,
   skillMulPm: 1000,
   buffPm: 1000,
-  elements: NO_ELEMENTS,
-  skillElementsPm: NO_ELEMENTS,
+  elements: NO,
+  skillElementsPm: NO,
 };
-const defender: DefenseProfile = { defenseRatioPm: 200, defenseFlat: 5, elements: NO_ELEMENTS };
+const defender: DefenseProfile = {
+  defenseRatePm: 200,
+  defenseFlat: 5,
+  evadePm: 100,
+  elements: NO,
+  resistPm: NO,
+};
+const c = TEST_COMBAT_COEFFICIENTS;
+/** 맞고, 피하지 못하고, 크리 없음 */
+const HIT = { hit: 0, evade: 9999, crit: 9999 };
 
-describe("피해 공식(D-178 6축 곱, 천분율 정수)", () => {
-  it("물리: 비율 방어(관통이 줄임) → 고정 방어 → 크리·스킬·버프 곱", () => {
-    // 100 × (1000 − 200)/1000 = 80 → − 5 = 75
-    expect(computeDamage(attacker, defender, 9999, TEST_COMBAT_COEFFICIENTS)).toEqual({
-      amount: 75,
-      crit: false,
+describe("무기 틀(D-420): 무기 값 × min(2, 유닛 값 ÷ 적정치)", () => {
+  it("적정치면 1배, 넘으면 2배까지, 모자라면 약하다", () => {
+    expect(weaponScaled(100, 50, 50)).toBe(100);
+    expect(weaponScaled(100, 500, 50)).toBe(200);
+    expect(weaponScaled(100, 25, 50)).toBe(50);
+  });
+});
+
+describe("공격 한 번(D-419 두 번 굴림, D-421 상한 없음)", () => {
+  it("물리: 실제 공격력 × (1 − 방어율) − 고정 방어", () => {
+    // 100 × (1000 − 200)/1000 = 80 − 5 = 75
+    expect(resolveAttack(attacker, defender, HIT, c)).toEqual({ outcome: "hit", crit: false, amount: 75 });
+  });
+
+  it("명중 굴림 → 회피 굴림: 명중 확률(무기 틀) 밖이면 빗나가고, 회피 확률 안이면 피한다", () => {
+    // 명중 900‰ → 굴림 < 9000이면 맞음
+    expect(resolveAttack(attacker, defender, { ...HIT, hit: 9000 }, c).outcome).toBe("miss");
+    expect(resolveAttack(attacker, defender, { ...HIT, hit: 8999 }, c).outcome).toBe("hit");
+    // 회피 100‰ → 굴림 < 1000이면 피함
+    expect(resolveAttack(attacker, defender, { ...HIT, evade: 999 }, c).outcome).toBe("evaded");
+    expect(resolveAttack(attacker, defender, { ...HIT, evade: 999 }, c).amount).toBe(0);
+  });
+
+  it("크리 확률도 무기 틀, 크리 배율에 상한이 없다", () => {
+    expect(resolveAttack(attacker, defender, { ...HIT, crit: 1999 }, c)).toEqual({
+      outcome: "hit",
+      crit: true,
+      amount: 115,
     });
-    // 관통 150 → 비율 50 → 95 − 5 = 90
-    expect(
-      computeDamage({ ...attacker, penetrationPm: 150 }, defender, 9999, TEST_COMBAT_COEFFICIENTS).amount,
-    ).toBe(90);
-    // 크리(굴림 < 확률): 75 기준 곱은 고정 방어 앞(공격 쪽 배율)이라 100 × 0.8 × 1.5 = 120 − 5 = 115
-    expect(
-      computeDamage({ ...attacker, critChanceBp: 5000 }, defender, 4999, TEST_COMBAT_COEFFICIENTS),
-    ).toEqual({ amount: 115, crit: true });
-    expect(
-      computeDamage({ ...attacker, critChanceBp: 5000 }, defender, 5000, TEST_COMBAT_COEFFICIENTS).crit,
-    ).toBe(false);
-  });
-
-  it("최소 피해는 1이고, 배율은 축마다 상한(하드캡)이 있다", () => {
-    expect(
-      computeDamage(
-        { ...attacker, attack: 3 },
-        { ...defender, defenseFlat: 50 },
-        9999,
-        TEST_COMBAT_COEFFICIENTS,
-      ).amount,
-    ).toBe(1);
-    const capped = computeDamage(
-      { ...attacker, skillMulPm: 1_000_000 },
-      { ...defender, defenseRatioPm: 0, defenseFlat: 0 },
-      9999,
-      TEST_COMBAT_COEFFICIENTS,
+    const huge = resolveAttack(
+      { ...attacker, critMulPm: 1_000_000 },
+      { ...defender, defenseRatePm: 0, defenseFlat: 0 },
+      { ...HIT, crit: 0 },
+      c,
     );
-    expect(capped.amount).toBe((100 * TEST_COMBAT_COEFFICIENTS.caps.skillPm) / 1000);
+    expect(huge.amount).toBe(100_000);
   });
 
-  it("속성: 공격 가산 + 방어 상성(계열 표), 하한 0.25배", () => {
-    const fire = [...NO_ELEMENTS];
-    fire[2] = 5; // 불(기본형) 5점
-    const skill = [...NO_ELEMENTS];
-    skill[2] = 100; // 불 1점당 +10%
+  it("속성: 저항이 1000‰이면 0으로 무력화되고, 계산은 넘치지 않는다", () => {
+    const fire = [...NO];
+    fire[2] = 5;
+    const skill = [...NO];
+    skill[2] = 100;
     const elemental: AttackProfile = {
       ...attacker,
       kind: "elemental",
       elements: fire,
       skillElementsPm: skill,
     };
-    // 속성 항 = 1000 + 5 × 100 = 1500, 방어자 속성 없음 → 100 × 1.5 = 150 (속성 공격은 비율·고정 방어를 거치지 않는다)
-    expect(computeDamage(elemental, defender, 9999, TEST_COMBAT_COEFFICIENTS).amount).toBe(150);
-    // 방어자 바람 계열 4점(바람 2 + 번개 1 × 2): 불 → 바람 rate +50 → +200 → 1700
-    const wind = [...NO_ELEMENTS];
-    wind[4] = 2;
-    wind[5] = 1;
-    expect(
-      computeDamage(elemental, { ...defender, elements: wind }, 9999, TEST_COMBAT_COEFFICIENTS).amount,
-    ).toBe(170);
-  });
-
-  it("건물은 물리 피해 × 건물 배율만 받는다(D-5043)", () => {
-    expect(buildingDamage(attacker, 2000, TEST_COMBAT_COEFFICIENTS)).toBe(200);
-    expect(buildingDamage({ ...attacker, kind: "elemental" }, 2000, TEST_COMBAT_COEFFICIENTS)).toBe(0);
-  });
-
-  it("시야 반지름 = 기본 + ⌊(WIS × a + AGI × b) ÷ 1000⌋ + 높이 보너스(상한)", () => {
-    const c = TEST_COMBAT_COEFFICIENTS;
-    expect(sightRadius(20, 10, 0, c)).toBe(
-      c.sight.base + Math.floor((20 * c.sight.wisPm + 10 * c.sight.agiPm) / 1000),
+    // 속성 항 1500 → 150, 저항 500‰ → 75, 1000‰ → 0
+    const resist = (pm: number) => {
+      const r = [...NO];
+      r[2] = pm;
+      return { ...defender, resistPm: r };
+    };
+    expect(resolveAttack(elemental, defender, HIT, c).amount).toBe(150);
+    expect(resolveAttack(elemental, resist(500), HIT, c).amount).toBe(75);
+    expect(resolveAttack(elemental, resist(1000), HIT, c).amount).toBe(0);
+    // 아주 큰 값도 안전 정수 안에서 끝난다
+    const giant = resolveAttack(
+      {
+        ...elemental,
+        weaponAttack: 10_000_000,
+        skillMulPm: 1_000_000,
+        buffPm: 1_000_000,
+        critMulPm: 1_000_000,
+      },
+      defender,
+      { ...HIT, crit: 0 },
+      c,
     );
-    expect(sightRadius(0, 0, c.sight.heightUnit * 100, c)).toBe(c.sight.base + c.sight.heightCap);
-    expect(sightRadius(0, 0, -5, c)).toBe(c.sight.base);
+    expect(Number.isSafeInteger(giant.amount)).toBe(true);
+  });
+
+  it("건물은 물리 실제 공격력 × 건물 배율만 받는다(D-5043)", () => {
+    expect(buildingDamage(attacker, 2000, c)).toBe(200);
+    expect(buildingDamage({ ...attacker, kind: "elemental" }, 2000, c)).toBe(0);
+  });
+
+  it("시야 = 스탯 시야 + 높이 보너스(상한)", () => {
+    expect(sightRadius(12, 0, c)).toBe(12);
+    expect(sightRadius(12, c.sight.heightUnit * 100, c)).toBe(12 + c.sight.heightCap);
   });
 });

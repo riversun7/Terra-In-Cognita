@@ -241,16 +241,29 @@ export {
   type CentralBankRule,
   type CentralBankStep,
 } from "./economy/centralBank.ts";
-export { TEST_COMBAT_COEFFICIENTS, type CombatCoefficients } from "./combat/coefficients.ts";
+export { TEST_COMBAT_COEFFICIENTS, msToTicks, type CombatCoefficients } from "./combat/coefficients.ts";
 export {
   ELEMENT_COUNT,
   buildingDamage,
-  computeDamage,
   elementTermPm,
+  resolveAttack,
   sightRadius,
+  weaponScaled,
+  type AttackOutcome,
   type AttackProfile,
   type DefenseProfile,
+  type Rolls,
 } from "./combat/formula.ts";
+export {
+  MAX_STAT_INPUT,
+  MAX_WEIGHT_PM,
+  TEST_STAT_TABLE,
+  computeSecondary,
+  primaryAtLevel,
+  type Primaries,
+  type StatRow,
+} from "./combat/stats.ts";
+export { specFromStats, type UnitBody, type WeaponSpec } from "./combat/unitSpec.ts";
 export {
   COVER_BLOCK,
   COVER_BUSH,

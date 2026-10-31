@@ -1047,7 +1047,7 @@
   "cyborg_inventory_empty": "You're not carrying anything.",
   "cyborg_rebirth_title": "Rebirth",
   "cyborg_rebirth_changes": "Changes",
-  "cyborg_rebirth_changes_body": "Your level goes back to 1 and experience to 0 (no experience boost). You pick a temperament and reroll your stat spread as at creation ({rerolls} rerolls, no manual allocation). Growth is rerolled too.",
+  "cyborg_rebirth_changes_body": "Your level goes back to 1 and experience to 0 (no experience boost). You can keep your stat spread, or pick a temperament and reroll it as at creation ({rerolls} rerolls, no manual allocation). Growth is always rerolled, even if you keep your spread.",
   "cyborg_rebirth_keeps": "Keeps",
   "cyborg_rebirth_keeps_body": "Artificial organs stay installed. Skill slots and max skill grade gained from earlier rebirths stay too.",
   "cyborg_rebirth_gains": "Gains",

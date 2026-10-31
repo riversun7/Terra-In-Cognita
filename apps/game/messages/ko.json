@@ -1047,7 +1047,7 @@
   "cyborg_inventory_empty": "지닌 물건이 없습니다.",
   "cyborg_rebirth_title": "환생",
   "cyborg_rebirth_changes": "바뀌는 것",
-  "cyborg_rebirth_changes_body": "레벨이 1로, 경험치가 0으로 돌아갑니다(경험치 가속 없음). 스탯 분포는 생성 때처럼 성향을 골라 다시 굴립니다(다시 굴리기 {rerolls}번, 직접 나누지 않음). 성장값도 다시 굴립니다.",
+  "cyborg_rebirth_changes_body": "레벨이 1로, 경험치가 0으로 돌아갑니다(경험치 가속 없음). 스탯 분포는 그대로 두거나, 생성 때처럼 성향을 골라 다시 굴릴 수 있습니다(다시 굴리기 {rerolls}번, 직접 나누지 않음). 성장값은 분포를 그대로 둬도 늘 다시 굴립니다.",
   "cyborg_rebirth_keeps": "남는 것",
   "cyborg_rebirth_keeps_body": "인공장기는 그대로 달고 있습니다. 앞선 환생으로 늘어난 스킬 칸과 스킬 최대 등급도 남습니다.",
   "cyborg_rebirth_gains": "얻는 것",

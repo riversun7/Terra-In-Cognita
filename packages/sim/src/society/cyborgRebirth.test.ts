@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { skillSlotCount } from "../combat/equipment.ts";
 import { TEST_SOCIETY_COEFFICIENTS as c } from "./coefficients.ts";
 import { rebirthBlockers, rebirthCyborg, skillGradeCap } from "./cyborgRebirth.ts";
-import { firstStatRoll, rerollStats } from "./cyborgStats.ts";
+import { firstStatRoll, kFromRolls, rerollStats } from "./cyborgStats.ts";
 
 const even = { str: 10, dex: 10, agi: 10, vit: 10, int: 10, wis: 10 };
 const flatK = { str: 1000, dex: 1000, agi: 1000, vit: 1000, int: 1000, wis: 1000 };
@@ -67,6 +67,9 @@ describe("사이보그 환생(D-440·D-441)", () => {
   it("분포를 안 굴리면 그대로, 굴린 값이 합 60·칸 1~20(N9)·아는 성향·다시 굴리기 횟수 안이 아니면 막는다", () => {
     const keep = rebirthCyborg(ready, rich, { kRolls: [0, 0, 0, 0, 0, 0] }, c);
     expect(keep.ok && keep.state.initial).toEqual(even);
+    // 분포를 그대로 둬도 K는 늘 다시 굴린다(사용자 결정 2026-11-01, D-026·D-446): 굴림 0 → N6 하한
+    expect(keep.ok && keep.state.kPm).toEqual(kFromRolls([0, 0, 0, 0, 0, 0], c));
+    expect(keep.ok && keep.state.kPm).not.toEqual(ready.kPm);
     const rolled = firstStatRoll("trade", createRng(3), c);
     const wrongSum = { ...rolled, spread: { str: 20, dex: 20, agi: 10, vit: 10, int: 10, wis: 10 } };
     const outOfRange = { ...rolled, spread: { str: 25, dex: 15, agi: 5, vit: 5, int: 5, wis: 5 } };

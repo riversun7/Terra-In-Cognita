@@ -8,10 +8,13 @@ import { contentId, localizedText, ref } from "./schema/common.ts";
 /** 파일 이름 → 내용. 객체는 JSON으로 쓰고, 문자열은 그대로(문법 오류 시험), null은 파일 없음 */
 export type FixtureFiles = Record<string, unknown>;
 
+/** 아이템 항목의 경제 칸(대분류·티어·기준 가치·켬/끔) — 형식 시험이 이름·ID만 볼 때 붙인다 */
+export const ITEM_FIELDS = { category: "raw", tier: 0, baseValue: 1, enabled: true } as const;
+
 /** 기본 팩의 items 항목 */
 export const BASE_ITEMS = [
-  { id: "iron_ore", name: { ko: "철광석", en: "Iron ore" } },
-  { id: "copper_ore", name: { ko: "구리광석", en: "Copper ore" } },
+  { id: "iron_ore", name: { ko: "철광석", en: "Iron ore" }, ...ITEM_FIELDS },
+  { id: "copper_ore", name: { ko: "구리광석", en: "Copper ore" }, ...ITEM_FIELDS },
 ] as const;
 
 export function baseFiles(packId = "core"): FixtureFiles {
@@ -46,6 +49,9 @@ export const testRegistry: CategoryRegistry = {
   },
   tags: { entry: z.strictObject({ id: contentId, name: localizedText }), mustBeReferenced: true },
 };
+
+/** 이름과 경제 칸을 가진 items 항목 */
+export const itemNamed = (id: string) => ({ ...named(id), ...ITEM_FIELDS });
 
 /** 한국어·영어 이름 */
 export const named = (id: string): { id: string; name: { ko: string; en: string } } => ({

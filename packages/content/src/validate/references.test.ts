@@ -1,7 +1,7 @@
 // 2단계(참조 무결성) 시험 — 중복 ID, 없는 참조(오타 제안), 모르는 파일, 고아 항목
 import { describe, expect, it } from "vitest";
 import { formatIssue } from "../issue.ts";
-import { fixture, named, testRegistry } from "../testFixtures.ts";
+import { fixture, itemNamed, named, testRegistry } from "../testFixtures.ts";
 import { validatePack } from "./pack.ts";
 import { editDistance, suggestId } from "./references.ts";
 
@@ -24,7 +24,7 @@ describe("2단계: 참조 무결성", () => {
 
   it("중복 ID는 실패한다", () => {
     const issues = check({
-      "items.json": { entries: [named("iron_ore"), named("copper_ore"), named("iron_ore")] },
+      "items.json": { entries: [itemNamed("iron_ore"), itemNamed("copper_ore"), itemNamed("iron_ore")] },
       "kits.json": { entries: [kit("starter_kit", [], "shiny")] },
     });
     expect(issues).toEqual([

@@ -2,12 +2,29 @@
   "entries": [
     {
       "id": "sample_tool",
-      "name": { "ko": "시험 도구", "en": "Sample tool" },
-      "description": { "ko": "시험용 항목", "en": "Test entry" }
+      "name": {
+        "ko": "시험 도구",
+        "en": "Sample tool"
+      },
+      "description": {
+        "ko": "시험용 항목",
+        "en": "Test entry"
+      },
+      "category": "raw",
+      "tier": 0,
+      "baseValue": 1,
+      "enabled": true
     },
     {
       "id": "sample_ore",
-      "name": { "ko": "시험 광석", "en": "Sample ore" }
+      "name": {
+        "ko": "시험 광석",
+        "en": "Sample ore"
+      },
+      "category": "raw",
+      "tier": 0,
+      "baseValue": 1,
+      "enabled": true
     }
   ]
 }

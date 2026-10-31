@@ -29,7 +29,16 @@ function writePack({ version = 1, ids = ["iron_ore", "copper_ore"], removed = []
   writeFileSync(path.join(dir, "manifest.json"), json({ formatVersion: 1, packId: "core", version }));
   writeFileSync(
     path.join(dir, "items.json"),
-    json({ entries: ids.map((id) => ({ id, name: { ko: `이름 ${id}`, en: `Name ${id}` } })) }),
+    json({
+      entries: ids.map((id) => ({
+        id,
+        name: { ko: `이름 ${id}`, en: `Name ${id}` },
+        category: "raw",
+        tier: 0,
+        baseValue: 1,
+        enabled: true,
+      })),
+    }),
   );
   writeFileSync(path.join(dir, "id-changes.json"), json({ renamed: [], removed }));
 }

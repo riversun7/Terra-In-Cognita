@@ -31,6 +31,18 @@ export {
   type ItemEntry,
 } from "./schema/categories.ts";
 export { biomeEntrySchema, planetEntrySchema, type BiomeEntry, type PlanetEntry } from "./schema/planets.ts";
+export {
+  FACILITY_STAGES,
+  ITEM_CATEGORIES,
+  facilityEntrySchema,
+  nationPresetEntrySchema,
+  necessityEntrySchema,
+  recipeEntrySchema,
+  type FacilityEntry,
+  type NationPresetEntry,
+  type NecessityEntry,
+  type RecipeEntry,
+} from "./schema/economy.ts";
 export { validatePack, type ValidationResult } from "./validate/pack.ts";
 export {
   assumeAllUsed,

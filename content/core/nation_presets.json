@@ -1,0 +1,260 @@
+{
+  "entries": [
+    {
+      "id": "placeholder_nation_01",
+      "name": {
+        "ko": "임시 국가 1",
+        "en": "Placeholder nation 1"
+      },
+      "currency": {
+        "code": "placeholder_cur_01",
+        "name": {
+          "ko": "임시 화폐 1",
+          "en": "Placeholder currency 1"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    },
+    {
+      "id": "placeholder_nation_02",
+      "name": {
+        "ko": "임시 국가 2",
+        "en": "Placeholder nation 2"
+      },
+      "currency": {
+        "code": "placeholder_cur_02",
+        "name": {
+          "ko": "임시 화폐 2",
+          "en": "Placeholder currency 2"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    },
+    {
+      "id": "placeholder_nation_03",
+      "name": {
+        "ko": "임시 국가 3",
+        "en": "Placeholder nation 3"
+      },
+      "currency": {
+        "code": "placeholder_cur_03",
+        "name": {
+          "ko": "임시 화폐 3",
+          "en": "Placeholder currency 3"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    },
+    {
+      "id": "placeholder_nation_04",
+      "name": {
+        "ko": "임시 국가 4",
+        "en": "Placeholder nation 4"
+      },
+      "currency": {
+        "code": "placeholder_cur_04",
+        "name": {
+          "ko": "임시 화폐 4",
+          "en": "Placeholder currency 4"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    },
+    {
+      "id": "placeholder_nation_05",
+      "name": {
+        "ko": "임시 국가 5",
+        "en": "Placeholder nation 5"
+      },
+      "currency": {
+        "code": "placeholder_cur_05",
+        "name": {
+          "ko": "임시 화폐 5",
+          "en": "Placeholder currency 5"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    },
+    {
+      "id": "placeholder_nation_06",
+      "name": {
+        "ko": "임시 국가 6",
+        "en": "Placeholder nation 6"
+      },
+      "currency": {
+        "code": "placeholder_cur_06",
+        "name": {
+          "ko": "임시 화폐 6",
+          "en": "Placeholder currency 6"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    },
+    {
+      "id": "placeholder_nation_07",
+      "name": {
+        "ko": "임시 국가 7",
+        "en": "Placeholder nation 7"
+      },
+      "currency": {
+        "code": "placeholder_cur_07",
+        "name": {
+          "ko": "임시 화폐 7",
+          "en": "Placeholder currency 7"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    },
+    {
+      "id": "placeholder_nation_08",
+      "name": {
+        "ko": "임시 국가 8",
+        "en": "Placeholder nation 8"
+      },
+      "currency": {
+        "code": "placeholder_cur_08",
+        "name": {
+          "ko": "임시 화폐 8",
+          "en": "Placeholder currency 8"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    },
+    {
+      "id": "placeholder_nation_09",
+      "name": {
+        "ko": "임시 국가 9",
+        "en": "Placeholder nation 9"
+      },
+      "currency": {
+        "code": "placeholder_cur_09",
+        "name": {
+          "ko": "임시 화폐 9",
+          "en": "Placeholder currency 9"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    },
+    {
+      "id": "placeholder_nation_10",
+      "name": {
+        "ko": "임시 국가 10",
+        "en": "Placeholder nation 10"
+      },
+      "currency": {
+        "code": "placeholder_cur_10",
+        "name": {
+          "ko": "임시 화폐 10",
+          "en": "Placeholder currency 10"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    },
+    {
+      "id": "placeholder_nation_11",
+      "name": {
+        "ko": "임시 국가 11",
+        "en": "Placeholder nation 11"
+      },
+      "currency": {
+        "code": "placeholder_cur_11",
+        "name": {
+          "ko": "임시 화폐 11",
+          "en": "Placeholder currency 11"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    },
+    {
+      "id": "placeholder_nation_12",
+      "name": {
+        "ko": "임시 국가 12",
+        "en": "Placeholder nation 12"
+      },
+      "currency": {
+        "code": "placeholder_cur_12",
+        "name": {
+          "ko": "임시 화폐 12",
+          "en": "Placeholder currency 12"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    },
+    {
+      "id": "placeholder_nation_13",
+      "name": {
+        "ko": "임시 국가 13",
+        "en": "Placeholder nation 13"
+      },
+      "currency": {
+        "code": "placeholder_cur_13",
+        "name": {
+          "ko": "임시 화폐 13",
+          "en": "Placeholder currency 13"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    },
+    {
+      "id": "placeholder_nation_14",
+      "name": {
+        "ko": "임시 국가 14",
+        "en": "Placeholder nation 14"
+      },
+      "currency": {
+        "code": "placeholder_cur_14",
+        "name": {
+          "ko": "임시 화폐 14",
+          "en": "Placeholder currency 14"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    },
+    {
+      "id": "placeholder_nation_15",
+      "name": {
+        "ko": "임시 국가 15",
+        "en": "Placeholder nation 15"
+      },
+      "currency": {
+        "code": "placeholder_cur_15",
+        "name": {
+          "ko": "임시 화폐 15",
+          "en": "Placeholder currency 15"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    },
+    {
+      "id": "placeholder_nation_16",
+      "name": {
+        "ko": "임시 국가 16",
+        "en": "Placeholder nation 16"
+      },
+      "currency": {
+        "code": "placeholder_cur_16",
+        "name": {
+          "ko": "임시 화폐 16",
+          "en": "Placeholder currency 16"
+        }
+      },
+      "tradeTaxBp": 200,
+      "enabled": true
+    }
+  ]
+}

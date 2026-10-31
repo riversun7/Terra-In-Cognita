@@ -1,0 +1,64 @@
+{
+  "entries": [
+    {
+      "id": "farm",
+      "name": {
+        "ko": "농장",
+        "en": "Farm"
+      },
+      "stage": "gather",
+      "slotsPerLevel": 10,
+      "enabled": true
+    },
+    {
+      "id": "lumber_camp",
+      "name": {
+        "ko": "벌목장",
+        "en": "Lumber camp"
+      },
+      "stage": "gather",
+      "slotsPerLevel": 10,
+      "enabled": true
+    },
+    {
+      "id": "mine",
+      "name": {
+        "ko": "광산",
+        "en": "Mine"
+      },
+      "stage": "gather",
+      "slotsPerLevel": 10,
+      "enabled": true
+    },
+    {
+      "id": "smelter",
+      "name": {
+        "ko": "제련소",
+        "en": "Smelter"
+      },
+      "stage": "process",
+      "slotsPerLevel": 10,
+      "enabled": true
+    },
+    {
+      "id": "kitchen",
+      "name": {
+        "ko": "주방",
+        "en": "Kitchen"
+      },
+      "stage": "finish",
+      "slotsPerLevel": 10,
+      "enabled": true
+    },
+    {
+      "id": "workshop",
+      "name": {
+        "ko": "공방",
+        "en": "Workshop"
+      },
+      "stage": "finish",
+      "slotsPerLevel": 10,
+      "enabled": true
+    }
+  ]
+}

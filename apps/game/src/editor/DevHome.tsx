@@ -28,12 +28,12 @@ interface DevTool {
 
 /** 도구마다 이름·설명·아이콘. 보이는 차례는 주소 표 차례다(TOOL_ROUTES) */
 const DEV_TOOLS = {
-  // 행성 편집기 화면은 ADR 38 WP-D가 붙인다. 그때 ready를 true로
+  // 행성 편집기 화면(ADR 38 WP-D)
   dev_planet_editor: {
     name: m.shell_route_dev_planet_editor,
     desc: m.dev_tool_planet_editor_desc,
     mark: <Icon name="globe" />,
-    ready: false,
+    ready: true,
   },
   dev_gpu_bench: {
     name: m.shell_route_dev_gpu_bench,

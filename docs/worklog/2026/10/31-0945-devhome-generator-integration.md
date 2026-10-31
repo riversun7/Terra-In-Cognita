@@ -31,6 +31,12 @@
 ## 건드리지 말 것
 - `DEV_ONLY_CHUNK` 정규식과 개발자 도구 진입 파일 이름 앞머리(`gpuBench`·`planetEditor`)는 함께 바뀌어야 한다(ADR 38 1절).
 
+## 배포 확인 (2026-10-31 09:35 KST)
+- CI 104(`2d0e546`)·105(`79f0cde`) 모두 성공, NAS에 `sha-79f0cde14ea3`가 올라갔다(Verified: 배포 작업).
+- `nas-metrics`(최근 15분): 생성기 판 3(`generatorVersion` 3), 두 행성 모두 캐시로 켬(앞 배포 CI 104의 컨테이너가 다시 구워 쓴 캐시, 캐시 읽기 142.7ms·15.1ms). 확인 해시 `s2_test_planet` 884e2b28(생성기 가지의 F5 고정값과 같음)·`s2_editor_planet` 95709b4b. 타일 덩어리 4,020,978B·4,044,910B(판 2보다 약 +36%). 기기 오류 0건(Verified: 작업 로그).
+- 다시 굽기 시간·워커 메모리는 CI 104 컨테이너가 남겼지만 CI 105가 컨테이너를 바꿔 로그가 없다(Unknown). 다음에 생성기가 바뀌면 배포 바로 뒤 `nas-metrics`를 먼저 돌린다.
+- 사용자 휴대폰(웨일, Android, dpr 3.5)이 00:23 UTC에 1차맵 116.6fps·p95 8.4ms, 2차맵 118.8fps를 보냈다. 새 배포(00:27 이후) 전 판이다.
+
 ## 미검증·TODO·알려진 문제
 - NAS: 출력 판 3이라 배포 뒤 두 행성(`s2_test_planet`·`s2_editor_planet`)을 처음부터 다시 굽는다(캐시 이름 `-g3-`, 타일 주소 판 바뀜). 배포 뒤 `nas-metrics`로 굽기 시간·메모리·오류를 본다. 여러 번 구우면 RSS가 느는 것(glibc arena)은 이 가지 전부터다(`MALLOC_ARENA_MAX`는 따로 할 일).
 - 편집기 메모리 추정표(`apps/game/src/editor/planet/memoryEstimate.ts`)는 출력 판 3에서 다시 재야 한다(검토가 F9 워커 최대 170.0 → 174.9MiB를 쟀다).

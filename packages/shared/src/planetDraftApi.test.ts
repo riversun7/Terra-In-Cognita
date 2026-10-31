@@ -1,4 +1,4 @@
-// 행성 초안 API 약속 시험 — UTF-8 바이트 세기, 항목 크기, 받지 않음 코드
+// 행성 초안 API 약속 시험 — 항목 크기, 받지 않음 코드. UTF-8 바이트 세기는 utf8.test.ts
 import { describe, expect, it } from "vitest";
 import {
   PLANET_DRAFT_ENTRY_MAX_BYTES,
@@ -7,16 +7,11 @@ import {
   planetDraftEntryBytes,
   utf8ByteLength,
 } from "./planetDraftApi.ts";
+import { utf8ByteLength as utf8ByteLengthFromUtf8 } from "./utf8.ts";
 
 describe("행성 초안 API 약속", () => {
-  it("UTF-8 바이트: 1·2·3·4바이트 문자, 짝 없는 대리 문자는 3바이트", () => {
-    expect(utf8ByteLength("a")).toBe(1);
-    expect(utf8ByteLength("é")).toBe(2);
-    expect(utf8ByteLength("가")).toBe(3);
-    expect(utf8ByteLength("😀")).toBe(4);
-    expect(utf8ByteLength("\ud800")).toBe(3);
-    expect(utf8ByteLength("\udc00a")).toBe(4);
-    expect(utf8ByteLength("")).toBe(0);
+  it("utf8ByteLength는 utf8.ts의 것을 그대로 다시 내보낸다(전에 이 파일에서 가져가던 코드용)", () => {
+    expect(utf8ByteLength).toBe(utf8ByteLengthFromUtf8);
   });
 
   it("항목 크기 = 들여쓰기 없는 JSON의 UTF-8 바이트, 상한 8KiB", () => {

@@ -33,9 +33,9 @@ export {
   PLANET_EDITOR_CHECK_FACE_LEVEL,
   isPlanetDraftRejectCode,
   planetDraftEntryBytes,
-  utf8ByteLength,
   type PlanetDraftRejectCode,
 } from "./planetDraftApi.ts";
+export { utf8ByteLength } from "./utf8.ts";
 export { estimateClockOffset, type ClockSample, type ClockEstimate } from "./clock.ts";
 export {
   LOGIN_ID_MAX_LENGTH,

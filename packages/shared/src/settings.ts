@@ -5,7 +5,7 @@
 // - 메뉴(nav)·홈(home)은 모양을 모르는 JSON 객체로 다룬다. 칸이 없으면 정하지 않은 것이다(기본 메뉴·역할의 기본 카드).
 //   안쪽을 읽는 일(parseNavigation·parseHome)은 쓰는 곳(틀·홈 조각)이 한다. 그래서 더 새 버전이 넣은 칸이 지워지지 않고,
 //   홈 카드 모듈(@terra/shared/dashboard)이 첫 화면 묶음에 들어가지 않는다.
-import { utf8ByteLength } from "./planetDraftApi.ts";
+import { utf8ByteLength } from "./utf8.ts";
 
 /** 화면 테마. 순서는 설정 화면에 보이는 순서다 */
 export const THEMES = ["pastel", "dark", "contrast", "station"] as const;

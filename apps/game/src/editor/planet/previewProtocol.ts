@@ -4,16 +4,21 @@
 // 같은 버퍼가 두 번 나온다 → 넘길 목록은 Set으로 겹침을 뺀다(같은 버퍼가 두 번 있으면 넘기기가 실패한다).
 // 이 파일은 타입과 넘길 목록 도우미만 둔다(생성기를 가져오지 않는다): 화면 쪽 조각에 생성기 본체가 들어가지 않게.
 import type { PlanetLevel } from "@terra/planet";
-import type { GeneratorStage, PlanetFields, PlanetGeneratorInput } from "@terra/planet/generator";
+import type {
+  GeneratorStage,
+  PlanetFields,
+  PlanetGeneratorInput,
+  PlanetSummary,
+} from "@terra/planet/generator";
 
 /** 미리보기 일의 단계: 생성기 단계 + 요약 + 단계별 모으기(맵 레벨 F−4~F와 꼭짓점 높이) */
 export type PreviewStage = GeneratorStage | "summary" | "levels";
 
 /**
- * 결과 요약 자리 — 생성기 도우미(WP-A)의 면적 가중 요약(summarizePlanet)이 들어오면 그 결과 타입으로 바꾼다.
- * 지금 워커는 요약을 만들지 않는다(null). 구조화 복제로 넘길 수 있는 값이어야 한다
+ * 결과 요약 = 생성기 도우미의 면적 가중 요약(summarizePlanet, ADR 38 8·12절). 워커가 만들어 결과와 함께 보낸다
+ * (구조화 복제로 넘기는 작은 객체: 바이옴 수만큼의 줄 + 몇 개 수)
  */
-export type PreviewSummary = Readonly<Record<string, unknown>>;
+export type PreviewSummary = PlanetSummary;
 
 /** 화면 → 워커: 생성기 입력 하나를 미리보기 결과로 */
 export interface PreviewRequest {
@@ -33,7 +38,7 @@ export interface PreviewResultData {
   readonly levels: readonly PlanetLevel[];
   /** 단계마다의 꼭짓점 높이(levels와 같은 순서, planetCornerHeights) */
   readonly corners: readonly Int16Array[];
-  /** 면적 가중 요약(WP-A 전에는 null) */
+  /** 면적 가중 요약(요약 훅이 없으면 null — 편집기 워커는 늘 만든다) */
   readonly summary: PreviewSummary | null;
   /** 해수면(실제 환산 m) */
   readonly seaLevelRealM: number;

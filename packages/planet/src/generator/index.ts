@@ -16,6 +16,19 @@ export {
   planetInputFromDefinition,
 } from "./definition.ts";
 export { CELL_DRY, CELL_FILLED, CELL_LAKE, CELL_OPEN } from "./hydrology.ts";
+// 편집기 도우미(ADR 38 12절): 바이옴 판정 설명·면적 가중 요약·칸 면적 표. 저장 필드와 바이옴 표만 읽는다(출력 변경 없음)
+export {
+  BIOME_AXES,
+  BIOME_NEAR_MISS,
+  type BiomeAxis,
+  type BiomeCellInput,
+  type BiomeConditionCheck,
+  type BiomeExplanation,
+  type BiomeRuleCheck,
+  explainBiome,
+} from "./explain.ts";
+export { faceAreaTable } from "./grid.ts";
+export { type PlanetBiomeArea, type PlanetSummary, summarizePlanet } from "./summary.ts";
 // 프리셋 수치표와 풀기는 콘텐츠 검증과 같이 쓰려고 @terra/shared(planetPresets.ts)에 있다. 생성기 진입점도 내보낸다
 export { NORMAL_PRESETS, PLANET_PRESET_VALUES, presetValues, resolvePlanetSettings } from "@terra/shared";
 export { VERTICAL_SCALE } from "./surface.ts";

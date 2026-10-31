@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-31 10:05 | 행성 편집기 1단계 화면(WP-D)과 생성기 도우미(WP-A) | Claude Code | [31-1005-editor-screen](worklog/2026/10/31-1005-editor-screen.md) |
 | 2026-10-31 09:45 | 개발자 홈(WP-H)·생성기 다양성 고침(출력 판 3) 합치기 | Claude Code | [31-0945-devhome-generator-integration](worklog/2026/10/31-0945-devhome-generator-integration.md) |
 | 2026-10-31 09:30 | 1차맵 하늘 2부 합치기(낮밤·달·구름) — 조각 상한 조정 | Claude Code | [31-0930-sky-integration](worklog/2026/10/31-0930-sky-integration.md) |
 | 2026-10-31 09:25 | 기획 반영 — 원본 aadab42·fa164da(D-272~D-329, Step 5 D-5049·D-5050, Step 7 D-7036~D-7054) | Claude Code | [31-0925-planning-aadab42](worklog/2026/10/31-0925-planning-aadab42.md) |

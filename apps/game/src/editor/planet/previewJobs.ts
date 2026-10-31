@@ -25,7 +25,7 @@ export const DEFAULT_FINAL_LEVEL = 7;
 export const MIN_FINAL_LEVEL = 6;
 /**
  * 무거운 면 레벨(F8 이상): 시작 전에 꺼짐 감지 표시를 남기고(crashSentinel.ts), 공개본 본 결과는 화면이 청할 때만 만든다
- * (previewController requestBaseFinal). F9는 데스크톱에서도 약 15초, 워커 타입 배열 최대 약 165MiB다(memoryEstimate.ts)
+ * (previewController requestBaseFinal). F9는 데스크톱에서도 약 15초, 워커 타입 배열 최대 약 180MiB다(출력 판 3)(memoryEstimate.ts)
  */
 export const HEAVY_PREVIEW_LEVEL = 8;
 

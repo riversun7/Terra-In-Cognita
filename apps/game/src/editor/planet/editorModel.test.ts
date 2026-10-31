@@ -20,6 +20,7 @@ import {
   entrySeed,
   entrySettings,
   isSeed,
+  pendingChangeCount,
   presetRows,
   presetSettings,
   sameEntry,
@@ -184,5 +185,23 @@ describe("무작위로 고쳐도", () => {
       const overrides = settingRows(entry).filter((row) => row.overridden);
       for (const row of overrides) expect(row.value).not.toBe(preset[row.key]);
     }
+  });
+});
+
+describe("적용 전 변경 수", () => {
+  it("프리셋 축·덮어쓰기·시드마다 하나씩 센다(되돌리면 0)", () => {
+    expect(pendingChangeCount(TEST_PLANET, TEST_PLANET)).toBe(0);
+    const land = withSetting(TEST_PLANET, "landPercent", entrySettings(TEST_PLANET).landPercent + 3);
+    expect(pendingChangeCount(TEST_PLANET, land)).toBe(1);
+    const both = withSeed(withSetting(land, "plateCount", 30), 7);
+    expect(pendingChangeCount(TEST_PLANET, both)).toBe(3);
+    // 해수면 프리셋을 바꾸면 그 축의 덮어쓰기(육지 비율)가 지워진다 → 프리셋 1 + 지워진 덮어쓰기 1
+    expect(pendingChangeCount(land, withPreset(land, "seaLevel", "continent"))).toBe(2);
+    expect(pendingChangeCount(TEST_PLANET, withoutSetting(land, "landPercent"))).toBe(0);
+  });
+
+  it("틀린 항목이면 다른 키 수를 센다", () => {
+    const broken: DraftEntry = { ...TEST_PLANET, presets: { seaLevel: "nope" } };
+    expect(pendingChangeCount(TEST_PLANET, broken)).toBe(1);
   });
 });

@@ -1,8 +1,11 @@
 // 행성 하나의 편집 화면 — 지구본 + 판(설정·면적·칸·초안 탭). ADR 38 2~13절
 // 흐름: 세션(꺼짐 감지·서버 초안·미리보기) → 초안을 읽으면 미리보기를 연다(공개본 F5 → 초안 F7 → 공개본 F7)
-// → 고칠 때마다 초안 동기화(edit, 2초 뒤 자동 저장)와 미리보기(끄는 동안 F5, 놓으면 본 레벨)에 같이 알린다.
+// → 설정 판의 변경은 적용 전 변경으로 모으고, [적용]을 누를 때 초안 동기화(edit, 2초 뒤 자동 저장)와 미리보기(빠른 F5 → 미니맵,
+//   본 레벨 → 지구본)에 같이 알린다(사용자 의견 2026-10-31: 슬라이더를 움직일 때마다 다시 만들지 않는다).
 // 밖에서 초안이 바뀌면(되돌리기·가져오기·그쪽 불러오기·지우기) 본 레벨로 다시 만든다(lastSent로 내 편집과 가른다).
 // - 휴대폰 세로: 지구본 + 아래 판, 가로·넓은 화면: 옆 판(폭 경계 37.5em, planetEditor.css). 판은 탭 넷이고 모두 그려 둔다(숨김).
+// - 평면 미니맵: 넓고 높은 화면(37.5em 이상 × 높이 40em 이상)은 지구본 아래에 늘 보인다. 그 밖(휴대폰)은 지구본 자리 위
+//   [지구본·평면] 단추로 바꿔 본다(사용자 의견 2026-10-31 "한번에 보기 힘듬").
 // - 열 때 확인(editorView deviceCheck): 생성기 판이 다르거나 공개본 F5 해시가 서버와 다르면 알리고 내보내기를 막는다.
 // - 저장하지 않은 변경이 있으면 [뒤로]에서 묻고, 창을 닫을 때(beforeunload) 브라우저가 묻게 한다.
 import { GENERATOR_VERSION } from "@terra/planet/generator";
@@ -23,11 +26,12 @@ import { CellPanel, reportAt } from "./CellPanel.tsx";
 import { ConfirmDialog, type ConfirmRequest } from "./ConfirmDialog.tsx";
 import { DraftPanel } from "./DraftPanel.tsx";
 import { EditorGlobe } from "./EditorGlobe.tsx";
+import { FlatMap } from "./FlatMap.tsx";
 import { SettingsPanel } from "./SettingsPanel.tsx";
 import { buildDraftExport, draftExportFileName, serializeDraftExport } from "./draftExport.ts";
 import type { DraftImport } from "./draftExport.ts";
 import { formatBytes, formatNumber, previewErrorText, saveStatusText } from "./editorMessages.ts";
-import type { DraftDocument, DraftEntry } from "./editorModel.ts";
+import { type DraftDocument, type DraftEntry, pendingChangeCount } from "./editorModel.ts";
 import {
   CONFIRM_PREVIEW_LEVEL,
   type ServerCheck,
@@ -42,7 +46,7 @@ import {
 } from "./editorView.ts";
 import type { LatLon } from "./flatMapRender.ts";
 import { memoryEstimate } from "./memoryEstimate.ts";
-import { HEAVY_PREVIEW_LEVEL, type PreviewLane } from "./previewJobs.ts";
+import { HEAVY_PREVIEW_LEVEL } from "./previewJobs.ts";
 import type { PreviewStage } from "./previewProtocol.ts";
 import { biomeColoursOf } from "./previewTiles.ts";
 import type { PreviewDefinition, PreviewSnapshot } from "./previewTypes.ts";
@@ -191,6 +195,10 @@ function Workspace({
   const [focus, setFocus] = useState<LatLon | null>(null);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const [deviceCap, setDeviceCap] = useState<number | null>(() => sentinel.maxLevel());
+  /** 적용 전 변경(설정 판). base = 그때 적용돼 있던 초안: 밖에서 초안이 바뀌면(되돌리기·가져오기) 낡은 것으로 보고 버린다 */
+  const [pending, setPending] = useState<{ base: DraftEntry; entry: DraftEntry } | null>(null);
+  /** 휴대폰(좁거나 낮은 화면)의 지구본 자리 보기: 지구본 또는 평면 미니맵. 넓은 화면은 둘 다 늘 보인다(CSS) */
+  const [stageView, setStageView] = useState<"globe" | "flat">("globe");
   const openedRef = useRef(false);
   /** 미리보기에 마지막으로 보낸 초안 항목(내 편집) — 밖에서 바뀐 초안과 가른다 */
   const lastSentRef = useRef<DraftEntry | null>(null);
@@ -202,6 +210,8 @@ function Workspace({
   const draftDoc = syncSnap?.document ?? null;
   const draftEntry = draftDoc?.entry ?? null;
   const faceLevel = typeof baseEntry.faceLevel === "number" ? baseEntry.faceLevel : 0;
+  const activePending = pending !== null && pending.base === draftEntry ? pending.entry : null;
+  const pendingCount = activePending && draftEntry ? pendingChangeCount(draftEntry, activePending) : 0;
 
   // 초안을 읽으면 미리보기를 연다(한 번). 그 뒤 밖에서 바뀐 초안은 본 레벨로 다시 만든다
   useEffect(() => {
@@ -217,8 +227,8 @@ function Workspace({
     preview.setDraft(definitionOf(draftEntry, biomes), "final");
   }, [draftEntry, preview, baseDef, biomes]);
 
-  // 저장하지 않은 변경이 있으면 창을 닫을 때 브라우저가 묻는다
-  const unsaved = syncSnap?.unsaved ?? false;
+  // 저장하지 않은 변경(적용 전 변경 포함)이 있으면 창을 닫을 때 브라우저가 묻는다
+  const unsaved = (syncSnap?.unsaved ?? false) || pendingCount > 0;
   useEffect(() => {
     if (!unsaved) return () => undefined;
     const ask = (event: BeforeUnloadEvent): void => event.preventDefault();
@@ -226,21 +236,23 @@ function Workspace({
     return () => window.removeEventListener("beforeunload", ask);
   }, [unsaved]);
 
+  /** 설정 판의 변경은 적용 전 변경에만 둔다(미리보기·자동 저장 없음) */
   const edit = useCallback(
-    (next: DraftEntry, lane: PreviewLane | "both") => {
-      const current = sync.getSnapshot().document;
-      if (!current || !sync.edit({ entry: next, base: current.base })) return;
-      lastSentRef.current = next;
-      const definition = definitionOf(next, biomes);
-      if (lane !== "final") preview.setDraft(definition, "quick");
-      if (lane !== "quick") preview.setDraft(definition, "final");
+    (next: DraftEntry) => {
+      if (draftEntry) setPending({ base: draftEntry, entry: next });
     },
-    [sync, preview, biomes],
+    [draftEntry],
   );
-  const commit = useCallback(() => {
+  /** [적용]: 초안 동기화(2초 뒤 자동 저장)와 미리보기(빠른 F5 → 미니맵, 본 레벨 → 지구본)에 같이 알린다 */
+  const apply = useCallback(() => {
     const current = sync.getSnapshot().document;
-    if (current) preview.setDraft(definitionOf(current.entry, biomes), "final");
-  }, [sync, preview, biomes]);
+    if (!activePending || !current || !sync.edit({ entry: activePending, base: current.base })) return;
+    lastSentRef.current = activePending;
+    const definition = definitionOf(activePending, biomes);
+    preview.setDraft(definition, "quick");
+    preview.setDraft(definition, "final");
+    setPending(null);
+  }, [activePending, sync, preview, biomes]);
 
   /** F9 이상은 확인 창 뒤에 한다(ADR 38 4절) */
   const confirmHeavy = (level: number, run: () => void): void => {
@@ -293,7 +305,7 @@ function Workspace({
     setFocus(point);
   };
   const back = (): void => {
-    if (!sync.getSnapshot().unsaved) {
+    if (!sync.getSnapshot().unsaved && pendingCount === 0) {
       onClose();
       return;
     }
@@ -343,6 +355,9 @@ function Workspace({
     tabRefs.current.get(next.id)?.focus();
   };
   const estimate = globe ? memoryEstimate(globe.level) : null;
+  const mapLabel = `${m.planet_editor_flat_map_label()} · ${
+    shown === "draft" ? m.planet_editor_role_draft() : m.planet_editor_role_base()
+  }`;
   const doneText = globe
     ? m.planet_editor_job_done({
         level: String(globe.level),
@@ -370,36 +385,61 @@ function Workspace({
         </div>
       ) : null}
       <div className="pe-body">
-        <div className="pe-stage">
-          <EditorGlobe
-            entry={globe}
-            definitionFaceLevel={faceLevel}
-            biomeColors={biomeColors}
-            onPick={pickFromGlobe}
-            focus={focus}
-            stale={globe !== null && !isCurrentEntry(shownRole, globe)}
-          />
-          <div className="pe-statusbar">
-            <span className="pe-chip pe-job-chip" data-running={running !== null}>
-              {running ?? doneText ?? m.planet_editor_idle()}
-            </span>
-            {estimate ? (
-              <span className="pe-chip">
-                {m.planet_editor_memory_estimate({ size: formatBytes(estimate.workerPeakBytes) })}
+        <div className="pe-stage" data-view={stageView}>
+          <div className="pe-globe-area">
+            <EditorGlobe
+              entry={globe}
+              definitionFaceLevel={faceLevel}
+              biomeColors={biomeColors}
+              onPick={pickFromGlobe}
+              focus={focus}
+              stale={globe !== null && !isCurrentEntry(shownRole, globe)}
+            />
+            <div className="pe-statusbar">
+              <span className="pe-chip pe-job-chip" data-running={running !== null}>
+                {running ?? doneText ?? m.planet_editor_idle()}
               </span>
-            ) : null}
-            <span className="pe-chip pe-check-chip" data-check={check}>
-              {check === "match"
-                ? m.planet_editor_check_match({ level: String(planet.check.faceLevel) })
-                : check === "pending"
-                  ? m.planet_editor_check_pending()
-                  : (blockText ?? "")}
-            </span>
-            {!previewSnap.available || error ? (
-              <span className="pe-chip pe-chip-error" role="alert">
-                {previewErrorText(previewSnap.available ? (error ?? "failed") : "unavailable")}
+              {estimate ? (
+                <span className="pe-chip">
+                  {m.planet_editor_memory_estimate({ size: formatBytes(estimate.workerPeakBytes) })}
+                </span>
+              ) : null}
+              <span className="pe-chip pe-check-chip" data-check={check}>
+                {check === "match"
+                  ? m.planet_editor_check_match({ level: String(planet.check.faceLevel) })
+                  : check === "pending"
+                    ? m.planet_editor_check_pending()
+                    : (blockText ?? "")}
               </span>
-            ) : null}
+              {!previewSnap.available || error ? (
+                <span className="pe-chip pe-chip-error" role="alert">
+                  {previewErrorText(previewSnap.available ? (error ?? "failed") : "unavailable")}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <div className="pe-stage-map">
+            <FlatMap
+              fields={mapEntry?.result.fields ?? null}
+              biomeColors={biomeColors}
+              selected={picked}
+              onPick={pickFromMap}
+              label={mapLabel}
+            />
+          </div>
+          <div className="pe-segment pe-view-toggle" role="group" aria-label={m.planet_editor_stage_view()}>
+            {(["globe", "flat"] as const).map((view) => (
+              <button
+                key={view}
+                type="button"
+                className="button-small"
+                data-view={view}
+                aria-pressed={stageView === view}
+                onClick={() => setStageView(view)}
+              >
+                {view === "globe" ? m.planet_editor_view_globe() : m.planet_editor_view_flat()}
+              </button>
+            ))}
           </div>
         </div>
         <div className="pe-panel">
@@ -423,6 +463,9 @@ function Workspace({
                 onKeyDown={(event) => onTabKey(event, index)}
               >
                 {item.label()}
+                {item.id === "settings" && pendingCount > 0 ? (
+                  <span className="pe-tab-badge">{formatNumber(pendingCount)}</span>
+                ) : null}
               </button>
             ))}
           </div>
@@ -438,7 +481,7 @@ function Workspace({
             >
               {item.id === "settings" ? (
                 <SettingsPanel
-                  entry={draftEntry}
+                  entry={activePending ?? draftEntry}
                   faceLevel={faceLevel}
                   biomeCount={Array.isArray(baseEntry.biomes) ? baseEntry.biomes.length : 0}
                   levels={previewSnap.levels}
@@ -447,7 +490,9 @@ function Workspace({
                   deviceCap={deviceCap}
                   tripped={session.tripped}
                   onEdit={edit}
-                  onCommit={commit}
+                  pendingCount={pendingCount}
+                  onApply={apply}
+                  onDiscard={() => setPending(null)}
                   onFinalLevel={(level) => confirmHeavy(level, () => preview.setFinalLevel(level))}
                   onCancelRun={() => preview.cancelFinal()}
                   onAllowAgain={() => {

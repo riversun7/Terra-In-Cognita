@@ -263,3 +263,27 @@ export function sameEntry(a: DraftEntry, b: DraftEntry): boolean {
 export function sameDocument(a: DraftDocument, b: DraftDocument): boolean {
   return stableJson(a) === stableJson(b);
 }
+
+/**
+ * 적용 전 변경 수(설정 판의 "바뀐 값 N개") — 적용한 초안(applied)과 적용 전 초안(pending)에서 다른 조작부 수:
+ * 프리셋 축마다 단계, 세부 수치마다 덮어쓰기(값·있고 없음), 시드. 프리셋 단계를 바꿔 그 축의 덮어쓰기가 지워지면 그 줄도 센다.
+ * 둘 중 하나가 틀린 항목이면(서버에 남은 옛 초안 등) 다른 키 수를 센다(0이 아니면 적용할 것이 있다)
+ */
+export function pendingChangeCount(applied: DraftEntry, pending: DraftEntry): number {
+  try {
+    const presetsA = entryPresets(applied);
+    const presetsB = entryPresets(pending);
+    const overridesA = entryOverrides(applied);
+    const overridesB = entryOverrides(pending);
+    let count = 0;
+    for (const axis of PLANET_PRESET_AXES) if (presetsA[axis] !== presetsB[axis]) count++;
+    for (const key of PLANET_SETTING_KEYS) if (overridesA[key] !== overridesB[key]) count++;
+    if (applied.seed !== pending.seed) count++;
+    return count;
+  } catch {
+    const keys = new Set([...Object.keys(applied), ...Object.keys(pending)]);
+    let count = 0;
+    for (const key of keys) if (stableJson(applied[key]) !== stableJson(pending[key])) count++;
+    return count;
+  }
+}

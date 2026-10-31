@@ -1,7 +1,8 @@
 // 행성 편집기 화면 시험 — ADR 2026-10-29-planet-editor-stage1(38) WP-D: /dev/planet-editor(틀 숨김).
 // - admin·dev가 개발자 홈에서 열고, 기기 워커 미리보기(공개본 F5 확인 → 초안 F7)가 지구본에 나온다.
 // - 열 때 확인: 이 기기의 공개본 F5 해시가 서버 확인 해시와 같다(헤드리스 Chromium, 해시 값은 적지 않는다).
-// - 슬라이더 하나를 바꾸면 새 미리보기와 자동 저장 판(서버 초안)이 생기고, 판 되돌리기·JSON 내보내기·가져오기가 돈다.
+// - 슬라이더를 바꾸면 "바뀐 값 N개"만 생기고(미리보기·자동 저장 없음), [적용]을 누르면 새 미리보기와 자동 저장 판(서버 초안)이
+//   생긴다(사용자 의견 2026-10-31). 판 되돌리기·JSON 내보내기·가져오기, 칸 쉬운 설명, 지구본 옆 평면 미니맵도 본다.
 // - player는 권한 없음 화면이다(서버도 매 요청 권한을 본다: 단위·DB 시험).
 // F8·F9는 느려서 넣지 않는다. 초안은 계정마다·행성마다 하나이고 실행마다 새 DB라, admin·dev 시험은 서로 섞이지 않는다.
 // 표지(class·data-*)로 본다: 지구본 .pe-globe-view[data-face-level·data-sequence·data-status], 확인 칩 .pe-check-chip[data-check],
@@ -38,14 +39,21 @@ async function savedAfter(page: Page, previous: number): Promise<number> {
   return Number(await saveLine(page).getAttribute("data-revision"));
 }
 
-/** 슬라이더를 키보드로 한 칸 옮긴다(누름 = 빠른 줄, 뗌 = 본 줄). 새 값을 돌려준다 */
+/** 슬라이더를 키보드로 한 칸 옮긴다(적용 전 변경만 생긴다). 새 값을 돌려준다 */
 async function nudge(page: Page, key: string, direction: "ArrowRight" | "ArrowLeft"): Promise<number> {
   const input = slider(page, key);
   const before = Number(await input.inputValue());
   await input.focus();
   await input.press(direction);
   await expect.poll(async () => Number(await input.inputValue())).not.toBe(before);
+  await expect(page.locator(".pe-apply-bar")).toBeVisible();
   return Number(await input.inputValue());
+}
+
+/** [적용]: 적용 줄이 사라진다 */
+async function applyEdits(page: Page): Promise<void> {
+  await page.locator(".pe-apply").click();
+  await expect(page.locator(".pe-apply-bar")).toHaveCount(0);
 }
 
 /** 확인 창의 확인 버튼 */
@@ -90,14 +98,23 @@ test.describe("관리자", () => {
     await expect(saveLine(page)).toHaveAttribute("data-save-status", "saved");
     await expect(saveLine(page)).toHaveAttribute("data-revision", "0");
 
-    // 슬라이더 → 새 F7 미리보기 + 자동 저장(판 1개)
+    // 슬라이더 → 바뀐 값 1개, 미리보기·자동 저장은 하지 않는다(Enter도 적용하지 않는다)
     const first = await nudge(page, "landPercent", "ArrowRight");
+    await expect(page.locator(".pe-apply-bar")).toHaveAttribute("data-pending", "1");
+    await expect(tab(page, "settings").locator(".pe-tab-badge")).toHaveText("1");
+    await slider(page, "landPercent").press("Enter");
+    await page.waitForTimeout(2_500);
+    await expect(globe(page)).toHaveAttribute("data-sequence", String(sequence));
+    await expect(saveLine(page)).toHaveAttribute("data-revision", "0");
+    // [적용] → 새 F7 미리보기 + 자동 저장(판 1개)
+    await applyEdits(page);
     sequence = await globeReady(page, 7, sequence);
     const firstSequence = sequence;
     const revision1 = await savedAfter(page, 0);
     // 두 번째 변경 → 새 판
     const second = await nudge(page, "landPercent", "ArrowRight");
     expect(second).toBe(first + 1);
+    await applyEdits(page);
     await globeReady(page, 7, sequence);
     const revision2 = await savedAfter(page, revision1);
 
@@ -134,6 +151,7 @@ test.describe("관리자", () => {
     // 값을 바꿔 저장한 뒤, 내보낸 것을 가져오면 그 값으로 돌아온다(새 판)
     await tab(page, "settings").click();
     await nudge(page, "landPercent", "ArrowLeft");
+    await applyEdits(page);
     const revision4 = await savedAfter(page, revision3);
     await tab(page, "draft").click();
     await page.locator(".pe-import-text").fill(exported);
@@ -147,10 +165,23 @@ test.describe("관리자", () => {
 
     // 칸 정보: 미니맵을 누르면 칸 값과 바이옴 판정 설명(저장 바이옴과 같음)
     await tab(page, "area").click();
-    await page.locator(".flat-map-canvas").click({ position: { x: 40, y: 30 } });
+    await page.locator(".pe-area-map .flat-map-canvas").click({ position: { x: 40, y: 30 } });
     await tab(page, "cell").click();
     await expect(page.locator(".pe-cell")).toBeVisible();
+    // 쉬운 설명이 먼저, 날것의 표는 [자세히 보기] 아래(처음 접힘)
+    await expect(page.locator(".pe-story p").first()).not.toBeEmpty();
+    await expect(page.locator(".pe-details")).not.toHaveAttribute("open", "");
+    await expect(page.locator(".pe-cell-values")).toBeHidden();
+    await page.locator(".pe-details-summary").click();
+    await expect(page.locator(".pe-cell-values")).toBeVisible();
     await expect(page.locator(".pe-explain-stored")).toHaveAttribute("data-matches", "true");
+
+    // 휴대폰: 지구본 자리를 [평면]으로 바꾸면 평면 미니맵이 덮는다
+    await expect(page.locator(".pe-stage-map")).toBeHidden();
+    await page.locator('.pe-view-toggle button[data-view="flat"]').click();
+    await expect(page.locator(".pe-stage-map .flat-map-canvas")).toBeVisible();
+    await page.locator('.pe-view-toggle button[data-view="globe"]').click();
+    await expect(page.locator(".pe-stage-map")).toBeHidden();
 
     // [뒤로]: 저장이 끝났으니 묻지 않고 개발자 홈으로
     await page.locator(".pe-back").click();
@@ -172,6 +203,13 @@ test.describe("관리자", () => {
           expect(await panelOverflow(page)).toEqual([]);
           expect(await smallTapTargets(page)).toEqual([]);
           await shot(page, `planet-editor-390-${theme}-${language}-settings`);
+          // 값을 바꾸면 적용 줄이 판 아래에 붙는다
+          await nudge(page, "precipitationPercent", "ArrowRight");
+          await shot(page, `planet-editor-390-${theme}-${language}-pending`);
+          await page.locator(".pe-discard").click();
+          await expect(page.locator(".pe-apply-bar")).toHaveCount(0);
+          await page.locator('.pe-view-toggle button[data-view="flat"]').click();
+          await shot(page, `planet-editor-390-${theme}-${language}-flat`);
           await tab(page, "area").click();
           await expect(page.locator(".pe-area-table")).toBeVisible();
           expect(await panelOverflow(page)).toEqual([]);
@@ -188,9 +226,18 @@ test.describe("관리자", () => {
             test.setTimeout(120_000);
             await page.goto("/dev/planet-editor");
             await globeReady(page, 7);
+            // 넓은 화면: 설정 탭에서도 지구본 아래에 평면 미니맵이 있고, 보기 단추·면적 탭 미니맵은 없다
+            await expect(page.locator(".pe-stage-map .flat-map-canvas")).toBeVisible();
+            await expect(page.locator(".pe-view-toggle")).toBeHidden();
+            await shot(page, `planet-editor-1440-${theme}-${language}-settings`);
             await tab(page, "area").click();
             await expect(page.locator(".pe-area-table")).toBeVisible();
-            await page.locator(".flat-map-canvas").click({ position: { x: 200, y: 60 } });
+            await expect(page.locator(".pe-area-map")).toBeHidden();
+            // 땅 쪽 한 점(팩 편집 전용 행성의 서쪽 대륙)을 골라 칸 쉬운 설명을 찍는다
+            const canvas = page.locator(".pe-stage-map .flat-map-canvas");
+            const box = await canvas.boundingBox();
+            if (!box) throw new Error("미니맵 캔버스가 없습니다");
+            await canvas.click({ position: { x: box.width * 0.25, y: box.height * 0.5 } });
             expect(await panelOverflow(page)).toEqual([]);
             await shot(page, `planet-editor-1440-${theme}-${language}-area`);
             await tab(page, "cell").click();
@@ -217,6 +264,7 @@ test.describe("개발자(dev)", () => {
     });
     const sequence = await globeReady(page, 7);
     await nudge(page, "precipitationPercent", "ArrowRight");
+    await applyEdits(page);
     await globeReady(page, 7, sequence);
     await savedAfter(page, 0);
     expect(deviceErrors).toEqual([]);

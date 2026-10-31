@@ -371,3 +371,45 @@ export {
   type InnateSkill,
   type SocketedItem,
 } from "./combat/gems.ts";
+export {
+  allocateShares,
+  burnShares,
+  holdingsOf,
+  issueShares,
+  payDividends,
+  rulerHasMajority,
+  shareAsset,
+  totalShares,
+  transferShares,
+  type Holding,
+  type Regime,
+  type TransferResult,
+} from "./society/shares.ts";
+export {
+  makeOffers,
+  occupationShifts,
+  resolveOffer,
+  settleShares,
+  type IncorporationOffer,
+  type OccupationResult,
+  type OfferState,
+  type ShareChoice,
+  type Treatment,
+} from "./society/occupation.ts";
+export {
+  capitalistIndependence,
+  democraticIndependence,
+  independenceAllowed,
+  rebelsOf,
+  type IndependenceVote,
+} from "./society/uprising.ts";
+export { birthRoll, canBirth, deathFate, inherit, lifespanMs, type DeathFate } from "./society/population.ts";
+export {
+  advanceTech,
+  researchCost,
+  techCeiling,
+  type ResearchSite,
+  type TechChange,
+  type TechState,
+} from "./society/tech.ts";
+export * from "./society/labor.ts";

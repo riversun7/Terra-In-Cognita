@@ -13,6 +13,7 @@ import { isAllowedSocketOrigin } from "./auth/requestGuard.ts";
 import { writeAudit } from "./auth/store.ts";
 import { DEFAULT_TRUST_PROXY, SIM_VERSION } from "./config.ts";
 import { type Database, pingDatabase } from "./db/client.ts";
+import { createWorldFactionSource } from "./factionScreen/source.ts";
 import { startServerMetrics } from "./metrics.ts";
 import type { PlanetBaker } from "./planet/baker.ts";
 import { type PlanetRouteLimits, registerPlanetRoutes } from "./planet/routes.ts";
@@ -226,6 +227,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         : undefined,
       // 복귀 요약: 오프라인 정산의 생산 + 확인 시각(DB가 있는 월드만)
       summary: world && options.db ? createWorldSummaryBackend(world) : undefined,
+      factionSource: world && options.db ? createWorldFactionSource(world) : undefined,
     }),
   });
 

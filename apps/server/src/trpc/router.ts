@@ -3,8 +3,10 @@
 import { accountRouter } from "./account.ts";
 import { adminRouter } from "./admin.ts";
 import { dashboardRouter } from "./dashboard.ts";
+import { factionRouter } from "./faction.ts";
 import { inboxRouter } from "./inbox.ts";
 import { router } from "./init.ts";
+import { mailRouter } from "./mail.ts";
 import { planetEditorRouter } from "./planetEditor.ts";
 import { settingsRouter } from "./settings.ts";
 import { summaryRouter } from "./summary.ts";
@@ -20,6 +22,9 @@ export const appRouter = router({
   inbox: inboxRouter,
   summary: summaryRouter,
   dashboard: dashboardRouter,
+  // 세력·우편 화면(조회만, D-439·D-270)
+  faction: factionRouter,
+  mail: mailRouter,
 });
 
 export type AppRouter = typeof appRouter;

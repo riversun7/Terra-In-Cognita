@@ -4,7 +4,9 @@
 // 넣으면 기기 코드에서 Node 전역(process, Buffer)이 타입 오류 없이 보이게 된다 — scripts/check-boundaries.mjs가 잡는다.
 import type { Role, UserSettings } from "@terra/shared";
 import type { DashboardCardsResponse } from "@terra/shared/dashboard";
+import type { FactionOverviewResponse } from "@terra/shared/faction";
 import type { InboxListResponse, SummaryGetResponse } from "@terra/shared/inbox";
+import type { MailListResponse } from "@terra/shared/mail";
 import type { PlanetLibraryBase } from "@terra/shared";
 import type {
   PlanetDraftRevisionInfo,
@@ -151,6 +153,19 @@ export interface HomeServices {
   cards(viewer: Viewer, ids: readonly string[], query: HomeQuery): Promise<DashboardCardsResponse>;
 }
 
+/**
+ * 세력 화면(faction.overview, D-439) — 내 몫·소속 세력은 실제 자료, 도시·외교·전쟁·정권·지분·점령은 규칙(R4b) 전이라
+ * 준비 중이고 dev·admin의 시안 자료(preview)로만 채운다. 프로시저가 로그인한 본인으로만 부른다(src/factionScreen/overview.ts)
+ */
+export interface FactionScreenServices {
+  overview(viewer: Viewer, query: HomeQuery): Promise<FactionOverviewResponse>;
+}
+
+/** 우편(mail.list, D-270) — 조회만. 보내기·받기는 WebSocket 명령으로 만든다(src/mail/list.ts) */
+export interface MailServices {
+  list(viewer: Viewer, query: HomeQuery): Promise<MailListResponse>;
+}
+
 export interface TrpcContext {
   /** 콘텐츠 팩 버전 */
   contentVersion: string;
@@ -166,6 +181,10 @@ export interface TrpcContext {
   planetEditor: PlanetEditorServices | undefined;
   /** 홈 자료. 늘 있다(지금 제공 함수가 0개라 DB가 필요 없다). 로그인 검사는 프로시저가 먼저 한다 */
   home: HomeServices;
+  /** 세력 화면. 늘 있다(DB·월드가 없으면 실제 자료가 빈 값이다) */
+  faction: FactionScreenServices;
+  /** 우편. 늘 있다(우편 표가 아직 없어 실제 우편함은 비어 있다) */
+  mail: MailServices;
 }
 
 export interface TrpcContextOptions {

@@ -1,0 +1,88 @@
+/*
+ * 사이보그 화면 — 본체 머리 판, 두 열(넓은 폭), 환생·랭킹. 공용 부품은 roster/roster.css. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ */
+
+.cyborg {
+  width: 100%;
+  min-width: 0;
+}
+.cyborg-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+.cyborg-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* ── 본체 머리 판 ──────────────────────────────── */
+.cyborg-profile {
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+.cyborg-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.cyborg-names {
+  display: flex;
+  flex: 1 1 10em;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.cyborg-name {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+.cyborg-meters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--space-3);
+}
+.cyborg-units {
+  display: flex;
+}
+/* 유닛 화면으로 가는 링크 — 작은 버튼 모양(누르는 곳 44px) */
+.cyborg-units-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h-sm);
+  padding: var(--space-1) var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  box-shadow: 0 var(--lip) 0 var(--color-secondary-lip);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+}
+
+/* ── 환생·랭킹 ────────────────────────────────── */
+.cyborg-rebirth {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+}
+.cyborg-rank {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (min-width: 64em) {
+  .cyborg-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}

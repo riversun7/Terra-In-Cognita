@@ -4,6 +4,7 @@
 import { TRPCError } from "@trpc/server";
 import { describe, expect, it } from "vitest";
 import { createHomeServices } from "../home/services.ts";
+import { createRosterServices } from "../roster/services.ts";
 import type {
   PlanetEditorAction,
   PlanetEditorCallKind,
@@ -86,6 +87,8 @@ function callerFor(viewer: Viewer, editor: PlanetEditorServices) {
     planetEditor: editor,
     // 홈 자료(앱 뼈대 W3): 이 시험은 쓰지 않는다. 실제 것(제공 함수 0개)을 넣는다
     home: createHomeServices(),
+    // 유닛·사이보그 화면 자료: 이 시험은 쓰지 않는다(시험 자료, 실제 유닛 없음)
+    roster: createRosterServices(),
   };
   return createCallerFactory(appRouter)(ctx);
 }

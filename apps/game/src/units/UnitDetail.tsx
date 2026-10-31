@@ -1,0 +1,226 @@
+// 유닛 상세 — 상태(직무·피로/배터리·부상·포로·이동·만족도), 스탯(서버 계산), 장비 칸, 스킬, 화물, 동작(곧 열림).
+// 좁은 폭은 목록 대신 보이고 [목록으로]가 닫는다. 넓은 폭은 목록 옆 판이다(UnitList.tsx).
+import type { RosterUnit, UnitsListResponse } from "@terra/shared/roster";
+import { useEffect, useId, useRef } from "react";
+import { m } from "../paraglide/messages.js";
+import { Meter, PreviewTag, Section, SkillList, SlotList, SoonButton, StatBlock } from "../roster/parts.tsx";
+import {
+  assetLabel,
+  formatAmount,
+  formatNumber,
+  injuryLabel,
+  jobLabel,
+  localName,
+  remaining,
+  typeLabel,
+  unitLabel,
+} from "../roster/rosterText.ts";
+
+/** [임시] 피로 경고 몫(한도 120의 80%), 배터리 경고 몫(20%). 기획 피로 구간(D-430)이 정해지면 그 값 */
+const FATIGUE_WARN = 0.8;
+const BATTERY_WARN = 0.2;
+/** 만족도가 이보다 낮으면 회유 위험 표시(D-253·D-257: 낮을수록 회유가 싸다). [임시] 문턱 */
+const SATISFACTION_WARN = 30;
+
+const DOMAIN_LABELS = {
+  space: m.roster_domain_space,
+  sky: m.roster_domain_sky,
+  land: m.roster_domain_land,
+  sea: m.roster_domain_sea,
+} as const;
+
+/** 이름 첫 글자 동그라미(종류마다 색) */
+export function UnitAvatar({
+  unit,
+  large = false,
+}: {
+  unit: Pick<RosterUnit, "id" | "name" | "type">;
+  large?: boolean;
+}) {
+  const label = unitLabel(unit);
+  return (
+    <span
+      className={large ? "roster-avatar roster-avatar-lg" : "roster-avatar"}
+      data-type={unit.type}
+      aria-hidden="true"
+    >
+      {Array.from(label)[0] ?? "?"}
+    </span>
+  );
+}
+
+export function UnitDetail({
+  unit,
+  data,
+  onClose,
+}: {
+  unit: RosterUnit;
+  data: UnitsListResponse;
+  onClose: () => void;
+}) {
+  const id = useId();
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const names = data.names;
+  const now = data.generatedAt;
+  const injury = injuryLabel(unit.injury.stage);
+  const heal = unit.injury.untilMs === null ? null : remaining(unit.injury.untilMs, now);
+  const place = unit.place;
+
+  // 연 유닛의 이름으로 초점을 옮긴다(좁은 폭에서 목록이 사라지므로). 다른 유닛을 열면 key가 바뀌어 다시 돈다
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, []);
+
+  return (
+    <article className="units-detail" aria-labelledby={`${id}-name`}>
+      <div className="panel units-detail-head">
+        <button type="button" className="button-small units-detail-back" onClick={onClose}>
+          {m.units_detail_back()}
+        </button>
+        <div className="units-detail-who">
+          <UnitAvatar unit={unit} large />
+          <div className="units-detail-names">
+            <h2 id={`${id}-name`} ref={titleRef} tabIndex={-1} className="units-detail-name">
+              {unitLabel(unit)}
+            </h2>
+            <p className="roster-meta">
+              {[
+                typeLabel(unit.type),
+                unit.level === null ? null : m.roster_level({ level: formatNumber(unit.level) }),
+                unit.rebirths > 0 ? m.roster_rebirths({ count: formatNumber(unit.rebirths) }) : null,
+              ]
+                .filter((part) => part !== null)
+                .join(" · ")}
+            </p>
+            {place ? (
+              <p className="roster-meta">
+                {m.roster_place({
+                  place: place.base ?? localName(names.planets[place.planetId], place.planetId),
+                  domain: DOMAIN_LABELS[place.domain](),
+                })}
+              </p>
+            ) : null}
+          </div>
+          {unit.preview ? <PreviewTag /> : null}
+        </div>
+      </div>
+
+      <Section id={`${id}-state`} title={m.units_section_state()}>
+        <dl className="roster-facts">
+          <div>
+            <dt>{m.units_fact_job()}</dt>
+            <dd>
+              {unit.job
+                ? m.units_job_phase({
+                    job: jobLabel(unit.job, names),
+                    phase: unit.job.phase === "rest" ? m.units_status_resting() : m.units_status_working(),
+                  })
+                : m.units_status_idle()}
+            </dd>
+          </div>
+          <div>
+            <dt>{m.units_fact_injury()}</dt>
+            <dd data-tone={injury ? "injured" : undefined}>
+              {injury
+                ? heal
+                  ? m.roster_injury_heal({ stage: injury, time: heal })
+                  : injury
+                : m.units_fact_none()}
+            </dd>
+          </div>
+          {unit.captive ? (
+            <div>
+              <dt>{m.units_fact_captive()}</dt>
+              <dd data-tone="captive">{m.units_captive_body()}</dd>
+            </div>
+          ) : null}
+          {unit.moving ? (
+            <div>
+              <dt>{m.units_fact_moving()}</dt>
+              <dd>{m.roster_moving()}</dd>
+            </div>
+          ) : null}
+        </dl>
+        {unit.energy.kind === "battery" ? (
+          <Meter
+            label={m.roster_battery()}
+            value={unit.energy.value}
+            max={unit.energy.max}
+            valueText={m.roster_value_of({
+              value: formatNumber(unit.energy.value),
+              max: formatNumber(unit.energy.max),
+            })}
+            warnAt={BATTERY_WARN}
+            lowIsBad
+          />
+        ) : (
+          <Meter
+            label={m.roster_fatigue()}
+            value={unit.energy.value}
+            max={unit.energy.max}
+            valueText={m.roster_value_of({
+              value: formatNumber(unit.energy.value),
+              max: formatNumber(unit.energy.max),
+            })}
+            warnAt={FATIGUE_WARN}
+          />
+        )}
+        {unit.satisfaction !== null ? (
+          <>
+            <Meter
+              label={m.roster_satisfaction()}
+              value={unit.satisfaction}
+              max={100}
+              valueText={m.roster_value_of({
+                value: formatNumber(unit.satisfaction),
+                max: formatNumber(100),
+              })}
+              warnAt={SATISFACTION_WARN / 100}
+              lowIsBad
+            />
+            {unit.satisfaction < SATISFACTION_WARN ? (
+              <p className="roster-note">{m.units_satisfaction_low()}</p>
+            ) : null}
+          </>
+        ) : null}
+      </Section>
+
+      <Section id={`${id}-stats`} title={m.roster_stats_title()}>
+        <StatBlock stats={unit.stats} names={names} />
+      </Section>
+
+      <Section
+        id={`${id}-gear`}
+        title={m.roster_gear_title()}
+        end={<SoonButton label={m.roster_action_equip()} />}
+      >
+        <SlotList slots={unit.slots} names={names} />
+      </Section>
+
+      <Section id={`${id}-skills`} title={m.roster_skills_title()}>
+        <SkillList skills={unit.skills} names={names} />
+      </Section>
+
+      <Section id={`${id}-cargo`} title={m.roster_cargo_title()}>
+        {unit.cargo.length === 0 ? (
+          <p className="roster-empty">{m.roster_cargo_empty()}</p>
+        ) : (
+          <ul className="roster-list">
+            {unit.cargo.map((line) => (
+              <li key={line.asset} className="roster-list-row">
+                <span>{assetLabel(line.asset, names)}</span>
+                <span className="roster-num">{formatAmount(line.amount)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <div className="units-detail-actions">
+        <SoonButton label={m.units_action_assign_job()} small={false} />
+        <SoonButton label={m.units_action_add_party()} small={false} />
+        {unit.injury.stage > 0 ? <SoonButton label={m.units_action_treat()} small={false} /> : null}
+      </div>
+    </article>
+  );
+}

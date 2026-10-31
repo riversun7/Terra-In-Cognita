@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { buildApp } from "./app.ts";
 import { readConfig } from "./config.ts";
 import { loadServerContent } from "./content.ts";
+import { rosterCatalogOf } from "./roster/catalog.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
 import { createWorkerBaker } from "./planet/baker.ts";
 import { type PlanetSourceSpec, createPlanetSource, planetSpecsFromPack } from "./planet/sources.ts";
@@ -87,6 +88,8 @@ app = await buildApp({
     cacheDir: config.planetCacheDir,
   },
   planetEditor: { definitions: planetEditor.definitions },
+  // 유닛·사이보그 화면의 스탯 표·장비·스킬·이름(팩이 검증을 통과했으므로 다시 읽기는 실패하지 않는다)
+  roster: rosterCatalogOf(loaded.source),
   // 시험 2차맵 지형 = 행성 값에서 만든 2차맵(ADR 46 WP-3). 지형 워커가 만들고 행성 캐시 폴더 아래 second-maps/에 둔다
   secondMaps: {
     props: mapPropInputsFromPack(loaded.pack),

@@ -206,6 +206,61 @@
 }
 
 /* 만족도 막대 + 반란 문턱 눈금 */
+/* 발전도 내역(D-254): 숫자를 누르면 7요소가 펼쳐진다(details). 누르는 곳은 44px */
+.faction-dev {
+  min-width: 0;
+}
+/* 펼치면 그 칸이 한 줄을 다 쓴다(:has를 모르는 브라우저는 칸 너비 그대로) */
+.fact:has(> .fact-value > .faction-dev[open]) {
+  grid-column: 1 / -1;
+}
+.faction-dev-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--tap-size);
+  min-inline-size: var(--tap-size);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.faction-dev-summary::after {
+  content: "▾";
+  color: var(--color-text-muted);
+  transition: transform var(--duration-fast) var(--easing-out);
+}
+.faction-dev[open] > .faction-dev-summary::after {
+  transform: rotate(180deg);
+}
+.faction-dev-summary:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius-control);
+}
+.faction-dev-value {
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+}
+.faction-dev-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.faction-dev-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+}
+.faction-dev-score {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
 .faction-satisfaction {
   display: flex;
   flex-direction: column;
@@ -340,6 +395,9 @@
 .faction-step-bar {
   flex-basis: 100%;
 }
+.faction-step-note {
+  flex-basis: 100%;
+}
 .faction-offer {
   display: flex;
   flex-direction: column;
@@ -427,6 +485,13 @@
 }
 .faction-gardener {
   border-style: dashed;
+}
+/* 정원사 줄: 띠·점수 칸 없이 글 한 줄(D-321) */
+.faction-gardener td {
+  grid-template-columns: minmax(0, 1fr);
+}
+.faction-gardener td::before {
+  content: none;
 }
 @container faction-main (min-width: 40em) {
   .faction-table {

@@ -6,6 +6,8 @@ import type {
   AssetBalance,
   CasusBelli,
   CityPolicy,
+  DevelopmentFactor,
+  DividendRecipient,
   FactionKind,
   FactionStage,
   IndependencePath,
@@ -15,6 +17,7 @@ import type {
   OfficialState,
   Regime,
   RelationBand,
+  SiegeSide,
   StepState,
   TreatyKind,
   UnrestLevel,
@@ -66,8 +69,33 @@ export const LOCK_NAMES = {
 export const UNREST_NAMES = {
   calm: m.faction_unrest_calm,
   slowdown: m.faction_unrest_slowdown,
+  warning: m.faction_unrest_warning,
   rebellion: m.faction_unrest_rebellion,
 } satisfies Record<UnrestLevel, Text>;
+
+export const DEVELOPMENT_NAMES = {
+  population: m.faction_dev_population,
+  buildings: m.faction_dev_buildings,
+  economy: m.faction_dev_economy,
+  culture_faith: m.faction_dev_culture_faith,
+  education: m.faction_dev_education,
+  health: m.faction_dev_health,
+  environment: m.faction_dev_environment,
+} satisfies Record<DevelopmentFactor, Text>;
+
+export const SIDE_NAMES = {
+  north: m.faction_war_side_north,
+  east: m.faction_war_side_east,
+  south: m.faction_war_side_south,
+  west: m.faction_war_side_west,
+} satisfies Record<SiegeSide, Text>;
+
+/** 지분대로 나누지 않는 체제의 배당 글(지분대로면 최근 배당 값을 보인다) */
+export const DIVIDEND_ELSEWHERE = {
+  shareholders: null,
+  treasury: m.faction_share_dividend_treasury,
+  ruling_family: m.faction_share_dividend_ruling,
+} satisfies Record<DividendRecipient, Text | null>;
 
 export const POLICY_NAMES = {
   growth: m.faction_policy_growth,
@@ -134,6 +162,7 @@ export const AGENDA_NAMES = {
   city_sale: m.faction_agenda_city_sale,
   independence: m.faction_agenda_independence,
   accept_vassal: m.faction_agenda_accept_vassal,
+  mayor_appointment: m.faction_agenda_mayor_appointment,
 } satisfies Record<AgendaKind, Text>;
 
 export const PATH_TEXT = {

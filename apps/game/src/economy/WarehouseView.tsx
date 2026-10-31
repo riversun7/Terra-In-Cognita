@@ -157,6 +157,9 @@ export default function WarehouseView() {
               ))}
             </div>
           )}
+          {data.places.some((place) => place.capacity) ? (
+            <p className="eco-footnote">{m.economy_capacity_unit_note()}</p>
+          ) : null}
         </div>
       )}
     </Loaded>

@@ -138,6 +138,19 @@ test.describe("dev + 시안 자료", () => {
     await expect(page.locator(".roster-slot").filter({ hasText: "시험용 인공 심장" })).toBeVisible();
     await expect(page.getByText("곡물")).toBeVisible();
     await expect(page.locator(".cyborg-rank")).toHaveCount(4);
+    // 환생(D-440·D-441): 레벨 1·가속 없음, 비용 = 최고 레벨 + 신앙도 + 화폐(양은 설정값), 종교 아이템은 추가 조건,
+    // 단추는 가장 가까운 환생 시설로 가는 길(곧 열림). 신앙도는 시안 값
+    const rebirth = page.locator(".cyborg-rebirth");
+    await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_changes_body"));
+    await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_faith_value", { value: 340 }));
+    await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_currency_value"));
+    await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_items_value"));
+    await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_place"));
+    const route = rebirth.getByRole("button", {
+      name: new RegExp(message("ko", "cyborg_action_rebirth_route")),
+    });
+    await expect(route).toHaveAttribute("aria-disabled", "true");
+    await expect(page.locator(".cyborg-faith")).toContainText(message("ko", "cyborg_faith"));
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);
     await page.locator(".roster-preview-switch").click();

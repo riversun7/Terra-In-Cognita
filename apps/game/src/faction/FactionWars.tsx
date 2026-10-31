@@ -1,10 +1,11 @@
-// 전쟁 탭 — 전쟁·선포 목록(46 §4.2~4.4, 45 §10.2): 상대, 누가 선포했는지, 명분, 단계, 공성 대상·시각(또는 방어 시각을 고를 기한),
-// 참전 동맹. 선전포고·강화·참전 요청·방어 시각 고르기는 명령이라 곧 열림.
+// 전쟁 탭 — 전쟁·선포 목록(46 §4.2~4.4, 45 §10.2): 상대, 누가 선포했는지, 명분, 단계, 공성 대상·공성 선포 시각·공격 변(D-233),
+// 공성 시각(또는 방어 시각을 고를 기한 = 공성 선포 + 24시간, D-200), 참전 동맹. 선전포고·강화·참전 요청·방어 시각 고르기는 명령이라
+// 곧 열림.
 import type { WarRow } from "@terra/shared/faction";
 import { m } from "../paraglide/messages.js";
 import { ActionRow, Fact, SoonButton, StateChip } from "../sections/screenParts.tsx";
 import { dateText, relativeText } from "../sections/screenText.ts";
-import { CASUS_NAMES, WAR_STAGE_NAMES } from "./factionText.ts";
+import { CASUS_NAMES, SIDE_NAMES, WAR_STAGE_NAMES } from "./factionText.ts";
 
 /** 시각 칸: "20시간 뒤"(마우스를 올리면 날짜) */
 function When({ at, now }: { at: number; now: number }) {
@@ -49,6 +50,14 @@ function WarCard({ war, now }: { war: WarRow; now: number }) {
             <When at={war.declaredAt} now={now} />
           </Fact>
           {war.targetCity === null ? null : <Fact label={m.faction_war_target()}>{war.targetCity}</Fact>}
+          {war.siegeDeclaredAt === null ? null : (
+            <Fact label={m.faction_war_siege_declared()}>
+              <When at={war.siegeDeclaredAt} now={now} />
+            </Fact>
+          )}
+          {war.attackSide === null ? null : (
+            <Fact label={m.faction_war_side()}>{SIDE_NAMES[war.attackSide]()}</Fact>
+          )}
           {war.siegeAt === null ? null : (
             <Fact label={m.faction_war_siege_at()}>
               <When at={war.siegeAt} now={now} />
@@ -56,7 +65,10 @@ function WarCard({ war, now }: { war: WarRow; now: number }) {
           )}
           {war.deadlineAt === null ? null : (
             <Fact label={m.faction_war_deadline()}>
-              <When at={war.deadlineAt} now={now} />
+              <span className="faction-stack">
+                <When at={war.deadlineAt} now={now} />
+                <span className="faction-muted">{m.faction_war_deadline_rule()}</span>
+              </span>
             </Fact>
           )}
           <Fact label={m.faction_war_allies()}>

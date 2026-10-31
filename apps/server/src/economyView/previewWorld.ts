@@ -33,7 +33,7 @@ export interface PreviewCity {
   readonly inSight: boolean;
   /** 내 창고 종류(없으면 null) */
   readonly store: StoreKind | null;
-  /** [임시] 창고 용량(물건 개수) */
+  /** [임시] 창고 용량(물건 개수). 최종 단위는 무게(kg, 43 §7.1, 질문 143 → D-443) — 아이템 무게 칸이 생기면 바꾼다 */
   readonly capacity: bigint;
   /** 그 나라 화폐 가치 배율(천분율): 같은 물건이라도 화폐마다 값이 다르게 */
   readonly currencyPm: number;
@@ -104,7 +104,10 @@ export function cityTaxBp(catalog: EconomyCatalogResponse, city: PreviewCity): n
   return list.length === 0 ? 0 : (list[city.nation % list.length]?.tradeTaxBp ?? 0);
 }
 
-/** 호가창(연속 체결)으로 사고파는 물건인지. 장비 같은 완제품은 경매 매물 목록(D-282), 문서는 거래하지 않음(D-152) [임시] */
+/**
+ * 호가창(연속 체결)으로 사고파는 물건인지. 장비 같은 완제품은 경매 매물 목록(D-282), 문서는 거래하지 않음(D-152).
+ * 보석은 종류·티어·등급이 옵션을 정해 같은 것끼리 바꿔 쓸 수 있으므로 호가창이다(질문 148 → D-443)
+ */
 export function tradesOnBook(item: CatalogItemView): boolean {
   return item.category !== "equipment" && item.category !== "document";
 }

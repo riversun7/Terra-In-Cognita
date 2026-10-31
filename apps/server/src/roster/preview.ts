@@ -413,6 +413,8 @@ export function previewCyborg(catalog: RosterCatalog): CyborgBody {
     exp: { into: 6120, span: 15_460 },
     rebirths,
     skillGradeCap: 3 + rebirths,
+    // 신앙도(D-441). 화면을 채우려는 값이다(신앙 활동·환생 비용 양 N34는 아직 없다)
+    faith: 340,
     ...body,
     fatigue: { value: 30, max: FATIGUE_MAX },
     inventory: [

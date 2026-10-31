@@ -1,5 +1,7 @@
-// 지분 탭 — 도시 지분(46 §3, D-130 도시마다 1000주): 내 지분, 최대 주주, 독립하는 길(체제마다, §3.2)과 열린 독립 투표.
-// 그 아래 점령 처리(46 §5.1 다섯 가지): 우리가 점령한 도시, 내 자산이 있는 도시에 온 편입 제안. 고르기·답·모금은 곧 열림.
+// 지분 탭 — 도시 지분(46 §3, D-130 도시마다 1000주): 내 지분, 최대 주주, 최근 배당(D-304·D-338: 이자 소각 → 운영비 → 남은 이익을
+// 체제대로, 민주주의 = 국고라 배당 없음), 독립하는 길(체제마다, §3.2)과 열린 독립 투표.
+// 그 아래 점령 처리(46 §5.1 다섯 가지): 우리가 점령한 도시, 내 자산이 있는 도시에 온 편입 제안(거부 = 빼앗김·쫓겨남·적대, D-342·D-348),
+// 복원 모금(낸 돈만큼 지분, D-339·D-343). 고르기·답·모금은 곧 열림.
 import {
   type CityShareRow,
   OCCUPATION_STEPS,
@@ -11,13 +13,27 @@ import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import { ActionRow, Fact, SoonButton, StateChip } from "../sections/screenParts.tsx";
 import { amountText, dateText, relativeText } from "../sections/screenText.ts";
-import { OFFER_NAMES, PATH_TEXT, STEP_NAMES, STEP_STATE_NAMES } from "./factionText.ts";
+import { DIVIDEND_ELSEWHERE, OFFER_NAMES, PATH_TEXT, STEP_NAMES, STEP_STATE_NAMES } from "./factionText.ts";
 import { barWidth, formatPermille, sharePermille } from "./factionView.ts";
 
 function sharesText(shares: number): string {
   return m.faction_share_value({
     shares: formatCount(shares),
     percent: formatPermille(sharePermille(shares, SHARES_PER_CITY), getLocale()),
+  });
+}
+
+/** 최근 배당 글: 지분대로면 내 몫·전체·시각, 아니면 남은 이익이 가는 곳 */
+function dividendText(row: CityShareRow, now: number): string {
+  const elsewhere = DIVIDEND_ELSEWHERE[row.dividend.to];
+  if (elsewhere !== null) return elsewhere();
+  const last = row.dividend.last;
+  if (last === null) return m.faction_share_dividend_none_yet();
+  return m.faction_share_dividend_value({
+    mine: amountText(last.mine),
+    currency: last.currency,
+    total: amountText(last.total),
+    time: relativeText(last.paidAt, now),
   });
 }
 
@@ -32,6 +48,7 @@ function ShareCard({ row, now }: { row: CityShareRow; now: number }) {
           <h3 id={titleId} className="faction-item-title">
             {row.cityName}
           </h3>
+          <span className="faction-muted">{m.faction_share_owner({ name: row.owner.name })}</span>
           {row.listed ? null : <StateChip tone="warn" label={m.faction_share_delisted()} />}
         </div>
         {row.listed ? (
@@ -47,6 +64,7 @@ function ShareCard({ row, now }: { row: CityShareRow; now: number }) {
                 </span>
               )}
             </Fact>
+            <Fact label={m.faction_share_dividend()}>{dividendText(row, now)}</Fact>
           </dl>
         ) : null}
         <div className="faction-path">
@@ -155,9 +173,24 @@ function OccupationCard({ row, now }: { row: OccupationRow; now: number }) {
                 <StateChip tone={STEP_TONES[state]} label={STEP_STATE_NAMES[state]()} />
                 {detail === null ? null : <span className="faction-step-detail">{detail}</span>}
                 {step === "restoration" && row.restoration !== null ? (
-                  <span className="faction-vote-bar faction-step-bar" aria-hidden="true">
-                    <span className="faction-vote-yes" style={{ inlineSize: barWidth(restorationPm(row)) }} />
-                  </span>
+                  <>
+                    <span className="faction-vote-bar faction-step-bar" aria-hidden="true">
+                      <span
+                        className="faction-vote-yes"
+                        style={{ inlineSize: barWidth(restorationPm(row)) }}
+                      />
+                    </span>
+                    <span className="faction-step-detail faction-step-note">
+                      {m.faction_occ_restoration_mine({
+                        amount: amountText(row.restoration.mine),
+                        currency: row.restoration.currency,
+                        shares: formatCount(row.restoration.expectedShares),
+                      })}
+                    </span>
+                    <span className="faction-muted faction-step-note">
+                      {m.faction_occ_restoration_hint({ count: formatCount(SHARES_PER_CITY) })}
+                    </span>
+                  </>
                 ) : null}
               </li>
             );
@@ -197,6 +230,7 @@ export function FactionShares({ shares, now }: { shares: readonly CityShareRow[]
   return (
     <>
       <p className="faction-muted">{m.faction_shares_hint({ count: formatCount(SHARES_PER_CITY) })}</p>
+      <p className="faction-muted">{m.faction_dividend_rule()}</p>
       <ul className="faction-grid">
         {shares.map((row) => (
           <ShareCard key={row.cityId} row={row} now={now} />

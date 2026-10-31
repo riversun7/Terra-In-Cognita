@@ -6,6 +6,7 @@
 // - 계정: 로그인 상태가 되면 accountSync.ts를 불러(동적 import) 맞춘다. tRPC 클라이언트를 첫 화면 묶음에 넣지 않으려고다.
 //   계정 요청(맞추기·올리기)은 한 줄로 세워 하나씩 보낸다: 빨리 잇달아 바꿔도 먼저 보낸 값이 나중 값을 덮지 않게.
 // - 테마를 고르면 "기기 설정에 맞추기"는 꺼진다. 스위치를 끄면 지금 보이는 테마를 그대로 남긴다(화면이 갑자기 바뀌지 않게).
+// - 시세 색(D-442)은 기기에만 저장한다(계정 칸 없음): chooseMarketColors. 화면은 resolveMarketColors(device.marketColors, 언어).
 // - 메뉴(nav)·홈(home)은 모양을 모르는 JSON 객체다. 읽기는 쓰는 곳이 한다: 틀은 parseNavigation(device.nav),
 //   홈 조각은 parseHome(device.home, 역할). 바꿀 때는 mergeNavigation·mergeHome으로 지금 값에 바꾼 칸만 덮어 만든 값을 넘긴다
 //   (chooseNavigation·chooseHome). 그래서 이 파일은 @terra/shared/dashboard를 가져오지 않는다(첫 화면 묶음).
@@ -21,6 +22,7 @@ import {
   storableSettingsObject,
 } from "./storage.ts";
 import { type SettingsPatch, applyChange } from "./syncRules.ts";
+import type { MarketColorChoice } from "./marketColors.ts";
 import { CONTRAST_QUERY, DARK_QUERY, type DevicePreferences, THEME_COLORS, resolveTheme } from "./theme.ts";
 
 export interface SettingsSnapshot {
@@ -172,6 +174,11 @@ export function chooseTheme(theme: Theme): void {
 export function setFollowSystem(on: boolean): void {
   const by = change(on ? { followSystem: true } : { followSystem: false, theme: snapshot.theme });
   if (by !== null) void upload(by);
+}
+
+/** 시세 색 고르기(D-442) — 기기에만 저장한다(계정에 올리지 않는다, "올릴 것" 표시도 없다) */
+export function chooseMarketColors(choice: MarketColorChoice): void {
+  replaceDeviceSettings({ ...device, marketColors: choice });
 }
 
 /** 언어 바꾸기 — 로그인했으면 계정에 올린 뒤(최대 3초, 줄에서 기다리는 시간 포함) Paraglide로 바꾼다(새로고침) */

@@ -230,6 +230,8 @@ export interface CyborgBody {
   readonly rebirths: number;
   /** 스킬 최대 등급 = 3 + 환생(D-031) */
   readonly skillGradeCap: number;
+  /** 신앙도(D-441: 사이보그 환생 비용의 하나. 신앙 활동 46 §7로 쌓인다). 단위는 점 */
+  readonly faith: number;
   readonly stats: RosterStats;
   readonly slots: readonly RosterSlot[];
   readonly skills: RosterSkills;

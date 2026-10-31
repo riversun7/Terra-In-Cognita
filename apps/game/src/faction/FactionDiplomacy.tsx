@@ -1,4 +1,5 @@
-// 외교 탭 — 세 층(46 §4.1): 관계 점수(호감)와 띠·신뢰, 공식 상태(동맹·중립·전쟁), 조약 카드. 정원사는 늘 적대(외교 없음, §8).
+// 외교 탭 — 세 층(46 §4.1): 관계 점수(호감, 세력 쌍마다)와 띠, 세력 신뢰(세력마다 하나, 모두가 보는 값 — D-255·D-443),
+// 공식 상태(동맹·중립·전쟁), 조약 카드. 정원사는 늘 적대이고 외교가 없어(D-321) 띠·점수 없이 글 한 줄만 보인다.
 // 표다(빽빽해서 data-density="compact"). 좁은 화면에서는 줄마다 카드처럼 쌓는다(칸 이름을 앞에 보인다, faction.css).
 import type { DiplomacyRow, TreatyCard } from "@terra/shared/faction";
 import { m } from "../paraglide/messages.js";
@@ -84,38 +85,35 @@ function Row({ row, now }: { row: DiplomacyRow; now: number }) {
 
 export function FactionDiplomacy({ rows, now }: { rows: readonly DiplomacyRow[]; now: number }) {
   return (
-    <div className="faction-table-wrap" data-density="compact">
-      <table className="faction-table">
-        <caption className="visually-hidden">{m.faction_diplomacy_title()}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{m.faction_dip_col_faction()}</th>
-            <th scope="col">{m.faction_dip_col_relation()}</th>
-            <th scope="col">{m.faction_dip_col_trust()}</th>
-            <th scope="col">{m.faction_dip_col_state()}</th>
-            <th scope="col">{m.faction_dip_col_treaties()}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <Row key={row.faction.id} row={row} now={now} />
-          ))}
-          <tr className="faction-gardener">
-            <th scope="row" data-label={m.faction_dip_col_faction()}>
-              <span className="faction-row-name">{m.faction_gardener_name()}</span>
-            </th>
-            <td data-label={m.faction_dip_col_relation()}>
-              <StateChip tone="bad" label={BAND_NAMES.hostile()} />
-            </td>
-            <td data-label={m.faction_dip_col_trust()}>
-              <span className="faction-muted">—</span>
-            </td>
-            <td data-label={m.faction_dip_col_state()} colSpan={2}>
-              <span className="faction-muted">{m.faction_gardener_note()}</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <>
+      <p className="faction-muted">{m.faction_dip_scores_hint()}</p>
+      <div className="faction-table-wrap" data-density="compact">
+        <table className="faction-table">
+          <caption className="visually-hidden">{m.faction_diplomacy_title()}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{m.faction_dip_col_faction()}</th>
+              <th scope="col">{m.faction_dip_col_relation()}</th>
+              <th scope="col">{m.faction_dip_col_trust()}</th>
+              <th scope="col">{m.faction_dip_col_state()}</th>
+              <th scope="col">{m.faction_dip_col_treaties()}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <Row key={row.faction.id} row={row} now={now} />
+            ))}
+            <tr className="faction-gardener">
+              <th scope="row" data-label={m.faction_dip_col_faction()}>
+                <span className="faction-row-name">{m.faction_gardener_name()}</span>
+              </th>
+              <td colSpan={4}>
+                <span className="faction-muted">{m.faction_gardener_note()}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

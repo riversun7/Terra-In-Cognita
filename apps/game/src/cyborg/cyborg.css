@@ -75,6 +75,12 @@
   align-items: stretch;
   gap: var(--space-3);
 }
+/* 환생 비용 소제목(D-441) */
+.cyborg-rebirth-cost {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
 .cyborg-rank {
   display: flex;
   align-items: center;

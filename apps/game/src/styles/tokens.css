@@ -168,6 +168,8 @@
   --color-warning-surface: #fff3d4;
   --color-danger: #b8283f;
   --color-danger-surface: #fdecef;
+  /* 시세 파랑 — 한국식 시세 색의 내림·매도(D-442). 오름·매수는 위험색(빨강), 서양식은 성공색·위험색 */
+  --color-market-blue: #1d56b8;
   --color-focus: #1f63d6;
   --color-border: #cfe3ee;
   --color-field-bg: #f7fbff;
@@ -204,6 +206,8 @@
   --color-warning-surface: #3a3122;
   --color-danger: #ff8b9b;
   --color-danger-surface: #3b2236;
+  /* 시세 파랑 — 한국식 시세 색의 내림·매도(D-442). 오름·매수는 위험색(빨강), 서양식은 성공색·위험색 */
+  --color-market-blue: #8ab8ff;
   --color-focus: #8cc8ff;
   --color-border: #33496b;
   --color-field-bg: #15223b;
@@ -239,6 +243,8 @@
   --color-warning-surface: #ffffff;
   --color-danger: #a82a00;
   --color-danger-surface: #ffffff;
+  /* 시세 파랑 — 한국식 시세 색의 내림·매도(D-442). 오름·매수는 위험색(빨강), 서양식은 성공색·위험색 */
+  --color-market-blue: #0a46a0;
   --color-focus: #0a1424;
   --color-border: #0a1424;
   --color-field-bg: #ffffff;
@@ -281,6 +287,8 @@
   --color-warning-surface: #2e2c1d;
   --color-danger: #ff9080;
   --color-danger-surface: #2d1b22;
+  /* 시세 파랑 — 한국식 시세 색의 내림·매도(D-442). 오름·매수는 위험색(빨강), 서양식은 성공색·위험색 */
+  --color-market-blue: #8fc1ff;
   --color-focus: #ffffff;
   --color-border: #2b7584;
   --color-field-bg: #08222b;

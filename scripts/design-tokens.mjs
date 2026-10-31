@@ -109,6 +109,12 @@ export const CONTRAST_PAIRS = [
       kind: "text",
     })),
   ),
+  // 시세 파랑(한국식 내림·매도, D-442): 경제 화면의 판·둘째 판·바탕 위 글자(호가·체결·오르내림)
+  ...["--color-bg", "--color-surface", "--color-surface-2"].map((bg) => ({
+    fg: "--color-market-blue",
+    bg,
+    kind: "text",
+  })),
   { fg: "--color-focus", bg: "--color-bg", kind: "ui" },
   { fg: "--color-focus", bg: "--color-surface", kind: "ui" },
   // 고른 라디오 점(초점 색)은 입력칸 바탕 위에 그린다

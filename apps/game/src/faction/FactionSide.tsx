@@ -1,4 +1,5 @@
 // 세력 화면 옆 판 — 내 세력·가문 요약(46 §1), 내 몫(실제 자료), 잠긴 메뉴(D-5055). 넓은 화면은 왼쪽 옆 판, 좁으면 맨 위.
+// 고정 NPC 국가(D-324)는 표를 붙인다. 공물은 주마다 국고의 비율이다(D-443 설정값).
 import type {
   FactionOverviewResponse,
   FactionSummary,
@@ -44,6 +45,7 @@ function FactionCard({ faction }: { faction: FactionSummary }) {
       <p className="faction-chips">
         <StateChip tone="good" label={STAGE_NAMES[faction.stage]()} />
         <StateChip tone="plain" label={KIND_NAMES[faction.kind]()} />
+        {faction.fixed ? <StateChip tone="plain" label={m.faction_fixed()} /> : null}
       </p>
       <dl className="facts">
         <Fact label={m.faction_field_regime()}>
@@ -96,14 +98,7 @@ function FactionCard({ faction }: { faction: FactionSummary }) {
             </ul>
           )}
         </Fact>
-        <Fact label={m.faction_field_currency()}>
-          {faction.currency === null
-            ? m.faction_currency_none()
-            : m.faction_currency_value({
-                name: faction.currency.name,
-                amount: amountText(faction.currency.issued),
-              })}
-        </Fact>
+        <Fact label={m.faction_field_currency()}>{currencyText(faction)}</Fact>
         <Fact label={m.faction_field_treasury()}>
           {faction.treasury.length === 0 ? (
             m.faction_none_value()
@@ -120,6 +115,16 @@ function FactionCard({ faction }: { faction: FactionSummary }) {
       </dl>
     </section>
   );
+}
+
+/** 세력 화폐 칸: 발행했으면 이름·발행량, 아니면 도시가 없을 때만 "도시가 있어야 발행"(도시가 있으면 아직 자료 없음) */
+function currencyText(faction: FactionSummary): string {
+  if (faction.currency !== null)
+    return m.faction_currency_value({
+      name: faction.currency.name,
+      amount: amountText(faction.currency.issued),
+    });
+  return faction.cityCount > 0 ? m.faction_currency_unknown() : m.faction_currency_none();
 }
 
 /** 세력이 없을 때(개인) */

@@ -1,5 +1,5 @@
 // 유닛 목록 칸 — 걸러 보기(종류·상태·거점)·다중 선택(D-6016)·상세. 좁은 폭은 목록 ↔ 상세, 넓은 폭은 목록 옆 상세 판.
-// 정렬은 손이 필요한 순이다([임시] 질문 137 기본안, rosterText.ts sortUnits). 고른 유닛에 줄 명령은 아직 "곧 열림"이다.
+// 정렬은 손이 필요한 순이다(질문 137 기본안 → D-443, rosterText.ts sortUnits). 고른 유닛에 줄 명령은 아직 "곧 열림"이다.
 import type { RosterUnit, UnitsListResponse } from "@terra/shared/roster";
 import { useMemo, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";

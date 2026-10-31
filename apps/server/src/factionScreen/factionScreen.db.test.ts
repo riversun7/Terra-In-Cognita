@@ -1,4 +1,5 @@
-// 세력·우편 화면 조회 시험(DB) — 실제 자료 읽기(소유 주체·유닛·건물·잔고, 세력 소속·국고·위 세력), tRPC 로그인·시안 자료 권한.
+// 세력·우편 화면 조회 시험(DB) — 실제 자료 읽기(소유 주체·유닛·건물·잔고, 세력 소속·국고·위 세력·체제·고정·도시 수),
+// tRPC 로그인·시안 자료 권한.
 // TEST_DATABASE_URL이 있을 때만 돈다. 아이디·비밀번호는 모두 시험용 가짜 값이다.
 import type { inferRouterOutputs } from "@trpc/server";
 import type { FastifyInstance, LightMyRequestResponse } from "fastify";
@@ -101,7 +102,7 @@ describe.skipIf(!TEST_DATABASE_URL)("세력·우편 화면 조회 (DB)", () => {
     await sql(`insert into factions (kind, code) values ('npc', 'test_crown'), ('npc', 'test_house')`);
     const crown = Number((await sql(`select id from factions where code = 'test_crown'`)).rows[0]?.id);
     const house = Number((await sql(`select id from factions where code = 'test_house'`)).rows[0]?.id);
-    await sql(`update factions set parent_id = $1 where id = $2`, [crown, house]);
+    await sql(`update factions set parent_id = $1, regime = 'capitalism' where id = $2`, [crown, house]);
     await sql(`insert into faction_members (user_id, faction_id) values ($1, $2)`, [userId, house]);
     await sql(`insert into world_owners (id, user_id, settled_at_ms) values (101, $1, 0)`, [userId]);
     await sql(`insert into world_owners (id, faction_id, settled_at_ms) values (102, $1, 0)`, [house]);
@@ -132,8 +133,25 @@ describe.skipIf(!TEST_DATABASE_URL)("세력·우편 화면 조회 (DB)", () => {
       code: "test_house",
       parent: { id: crown, kind: "npc", code: "test_crown" },
       memberCount: 1,
+      regime: "capitalism",
+      fixed: false,
+      cityCount: 0,
       treasury: [{ asset: "s3_test_credit", name: null, amount: "9000000000000" }],
     });
     expect(real.faction?.joinedAt).toBeGreaterThan(0);
+  });
+
+  it("도시를 가진 고정 NPC 국가의 시민: 도시 수(world_cities)·고정 표시(factions.fixed)를 읽는다(C8)", async () => {
+    const userId = await userIdOf("fake_faction1");
+    const house = Number((await sql(`select id from factions where code = 'test_house'`)).rows[0]?.id);
+    const crown = Number((await sql(`select id from factions where code = 'test_crown'`)).rows[0]?.id);
+    await sql(`update factions set fixed = true where id = $1`, [house]);
+    await sql(
+      `insert into world_cities (id, faction_id, map_key, cell_x, cell_y, start, founded_at_ms) values
+         (1, $1, 7, 10, 10, true, 0), (2, $1, 8, 20, 20, false, 0), (3, $2, 9, 5, 5, true, 0)`,
+      [house, crown],
+    );
+    const real = await readFactionReal(test.db.$client, userId);
+    expect(real.faction).toMatchObject({ id: house, regime: "capitalism", fixed: true, cityCount: 2 });
   });
 });

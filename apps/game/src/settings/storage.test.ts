@@ -18,6 +18,15 @@ describe("기기 저장 모양", () => {
     expect(parseDeviceSettings(serializeDeviceSettings(settings))).toEqual(settings);
   });
 
+  it("시세 색(기기에만, D-442): 쓰고 다시 읽으면 같고, 모르는 값은 버린다(칸이 없으면 언어 기본)", () => {
+    const settings: DeviceSettings = { ...EMPTY_DEVICE_SETTINGS, marketColors: "western" };
+    expect(parseDeviceSettings(serializeDeviceSettings(settings))).toEqual(settings);
+    expect(parseDeviceSettings(JSON.stringify({ v: 1, marketColors: "rainbow" }))).toEqual(
+      EMPTY_DEVICE_SETTINGS,
+    );
+    expect(JSON.parse(serializeDeviceSettings(EMPTY_DEVICE_SETTINGS))).not.toHaveProperty("marketColors");
+  });
+
   it("theme-init.js가 읽는 모양: v·theme·followSystem", () => {
     const data = JSON.parse(serializeDeviceSettings({ ...EMPTY_DEVICE_SETTINGS, theme: "dark" }));
     expect(data).toMatchObject({ v: 1, theme: "dark", followSystem: false });

@@ -4,24 +4,25 @@
 // - 모든 이동의 감시(D-7019·D-7025)는 서버 규칙이라 화면에 보이지 않는다.
 // - 보내기는 게임 상태를 바꾸는 명령이라 WebSocket으로만 간다(AGENTS 4장). 지금은 곧 열림: 기기는 칸 검사만 한다.
 //   검사는 화면 안내용이다. 서버가 받을 때 다시 본다(서버 권위).
-// [임시] 길이·개수 상한은 기획 값이 없어 기술이 정했다(docs/questions/2026-10-31-ui-faction-mail.md 질문 158).
+// - 시스템 우편은 없다(질문 162 → D-443). 보상·안내는 처리할 일·푸시로만 온다. 보낸 사람은 늘 사이보그다.
+// - 길이·개수 상한은 기술 기본안이다(질문 160 → D-443이 받음). 수치는 설정값으로 옮길 값이다(출발값 = 아래 상수).
 import type { LocalizedName } from "./faction.ts";
 import { hasUnstorableText } from "./settings.ts";
 
-/** [임시] 받는 사람 이름(사이보그 이름) 글자 수 */
+/** 받는 사람 이름(사이보그 이름) 글자 수. 사이보그 이름은 서버에서 하나뿐이다(질문 159 → D-443, EVE식 단일 세계) */
 export const MAIL_RECIPIENT_MIN = 2;
 export const MAIL_RECIPIENT_MAX = 24;
-/** [임시] 제목·본문 글자 수(유니코드 코드 포인트) */
+/** 제목·본문 글자 수(유니코드 코드 포인트, 질문 160 기본안) */
 export const MAIL_SUBJECT_MAX = 60;
 export const MAIL_BODY_MAX = 2000;
-/** [임시] 우편 하나의 첨부 수 */
+/** 우편 하나의 첨부 수(질문 160 기본안) */
 export const MAIL_ATTACHMENTS_MAX = 5;
 
 /** 우편함 */
 export const MAIL_FOLDERS = ["inbox", "sent"] as const;
 export type MailFolder = (typeof MAIL_FOLDERS)[number];
 
-/** 보내거나 받은 사람(사이보그 이름 + 세력 태그). 로그인 아이디는 남에게 보이지 않는다 */
+/** 보내거나 받은 사람(사이보그 이름 + 세력 태그). 사이보그 이름은 서버 고유다(D-443). 로그인 아이디는 남에게 보이지 않는다 */
 export interface MailParty {
   readonly name: string;
   readonly factionTag: string | null;

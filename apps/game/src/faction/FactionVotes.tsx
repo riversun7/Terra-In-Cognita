@@ -8,10 +8,13 @@ import { dateText, relativeText } from "../sections/screenText.ts";
 import { AGENDA_NAMES, REGIME_NAMES, RULE_TEXT } from "./factionText.ts";
 import { barWidth, formatPermille, voteBar } from "./factionView.ts";
 
-/** 안건 값 → 한 줄(세율 바꾸기는 도시·전·후, 그 밖은 대상 세력·도시 이름). 모르는 값이면 null */
+/** 안건 값 → 한 줄(세율 바꾸기는 도시·전·후, 시장 임명은 도시·후보, 그 밖은 대상 세력·도시 이름). 모르는 값이면 null */
 function agendaDetail(vote: VoteRow): string | null {
   const { params } = vote;
   const city = typeof params.city === "string" ? params.city : null;
+  if (vote.agenda === "mayor_appointment" && city !== null && typeof params.candidate === "string") {
+    return m.faction_vote_mayor_detail({ city, name: params.candidate });
+  }
   if (
     vote.agenda === "tax_change" &&
     city !== null &&

@@ -199,7 +199,7 @@ export function createEconomyServices(options: {
     return { open, done };
   };
 
-  /** 남은 주문 수 [임시](질문 149 기본안): 걸린 주문 수. 한도에 닿으면 다시 되는 시각 = 가장 이른 만료 */
+  /** 남은 주문 수(질문 149 기본안 → D-443, 출발값 [임시]): 걸린 주문 수. 한도에 닿으면 다시 되는 시각 = 가장 이른 만료 */
   const orderLimit = (now: number) => {
     const open = myOrders(now).open;
     const used = Math.min(PREVIEW_ORDER_MAX, open.length);

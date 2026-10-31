@@ -7,6 +7,7 @@ import {
   STATE_TONES,
   UNREST_TONES,
   barWidth,
+  decidesByVote,
   formatPermille,
   sectionData,
   sectionKind,
@@ -104,9 +105,20 @@ describe("투표 막대", () => {
   });
 });
 
+describe("투표로 정하는 체제(기획 검토 C4)", () => {
+  it("독재만 바로 정하고, 민주주의·자본주의·모름은 안건으로 올린다", () => {
+    expect(decidesByVote("dictatorship")).toBe(false);
+    expect(decidesByVote("democracy")).toBe(true);
+    expect(decidesByVote("capitalism")).toBe(true);
+    expect(decidesByVote(null)).toBe(true);
+  });
+});
+
 describe("표 색 갈래", () => {
   it("나쁜 상태는 bad, 좋은 상태는 good", () => {
     expect(UNREST_TONES.rebellion).toBe("bad");
+    expect(UNREST_TONES.warning).toBe("bad");
+    expect(UNREST_TONES.slowdown).toBe("warn");
     expect(BAND_TONES.hostile).toBe("bad");
     expect(BAND_TONES.trusted).toBe("good");
     expect(STATE_TONES.war).toBe("bad");

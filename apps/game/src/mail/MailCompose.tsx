@@ -160,6 +160,7 @@ export function MailCompose({
         autoComplete="off"
         spellCheck={false}
         enterKeyHint="next"
+        hint={m.mail_recipient_hint()}
         onChange={(event) => patch({ recipient: event.target.value })}
         error={attempted ? problemMessage(recipientProblem(check.recipient)) : undefined}
       />

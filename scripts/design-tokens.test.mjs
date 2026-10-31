@@ -25,6 +25,7 @@ const GOOD = {
   "--color-warning-surface": "#ffffff",
   "--color-danger": "#9a1c00",
   "--color-danger-surface": "#ffffff",
+  "--color-market-blue": "#1a4aa6",
   "--color-focus": "#1f4fd0",
   "--color-field-bg": "#ffffff",
   "--color-field-border": "#555555",

@@ -3,6 +3,7 @@
 // 언어 자체는 Paraglide가 따로 저장한다. 여기의 locale은 "사용자가 고른 언어"다(Paraglide는 처음 정한 언어도 저장해서 구분이 안 된다).
 // 메뉴(nav)·홈(home)은 모양을 모르는 JSON 객체 그대로 쓰고 읽는다(ADR 2026-10-29-app-shell 5절). 판(v)은 1 그대로다:
 // 올리면 theme-init.js가 저장된 테마를 버린다. 칸을 더하기만 하므로 옛 앱은 모르는 칸을 무시한다(다시 쓸 때 지운다, ADR 37 5절 감수).
+// 시세 색(marketColors, D-442)은 기기에만 둔다(계정 설정 표에 칸이 없다). 계정과 맞추는 묶음(SETTINGS_GROUPS)에 넣지 않는다.
 import {
   EMPTY_SETTINGS,
   SETTINGS_OBJECT_MAX_BYTES,
@@ -14,6 +15,7 @@ import {
   utf8ByteLength,
 } from "@terra/shared";
 import { field } from "../net/json.ts";
+import { type MarketColorChoice, isMarketColorChoice } from "./marketColors.ts";
 
 export const SETTINGS_STORAGE_KEY = "terra.settings";
 /** 저장 모양이 바뀌면 올린다. 모르는 판은 아무것도 정하지 않은 것으로 읽는다 */
@@ -28,6 +30,8 @@ export type PendingChanges = Partial<Record<SettingsGroup, { by: string | null }
 
 export interface DeviceSettings extends UserSettings {
   pending: PendingChanges;
+  /** 시세 색(기기에만). 칸이 없으면 언어 기본 */
+  marketColors?: MarketColorChoice;
 }
 
 export const EMPTY_DEVICE_SETTINGS: DeviceSettings = { ...EMPTY_SETTINGS, pending: {} };
@@ -48,7 +52,10 @@ export function parseDeviceSettings(raw: string | null): DeviceSettings {
     const by = field(field(pendingData, group), "by");
     if (by === null || typeof by === "string") pending[group] = { by };
   }
-  return { ...parseUserSettings(data), pending };
+  const marketColors = field(data, "marketColors");
+  const settings: DeviceSettings = { ...parseUserSettings(data), pending };
+  if (isMarketColorChoice(marketColors)) settings.marketColors = marketColors;
+  return settings;
 }
 
 export function serializeDeviceSettings(settings: DeviceSettings): string {
@@ -60,6 +67,7 @@ export function serializeDeviceSettings(settings: DeviceSettings): string {
     locale: settings.locale,
     nav: settings.nav,
     home: settings.home,
+    marketColors: settings.marketColors,
     pending: settings.pending,
   });
 }

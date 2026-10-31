@@ -65,6 +65,8 @@ test.describe("플레이어(실제 우편함)", () => {
     const screen = page.locator("section.mail");
     await expect(screen.locator("h1")).toHaveText(message("ko", "shell_mail"));
     await expect(screen.locator(".mail-empty")).toContainText(message("ko", "mail_empty_inbox"));
+    // 시스템 우편은 없다(D-443): 보상·안내는 처리할 일로 온다고 알린다
+    await expect(screen.locator(".mail-empty")).toContainText(message("ko", "mail_empty_inbox_hint"));
     await tabOf(page, "ko", "sent").click();
     await expect(screen.locator(".mail-empty")).toContainText(message("ko", "mail_empty_sent"));
 
@@ -78,6 +80,8 @@ test.describe("플레이어(실제 우편함)", () => {
     await expect(form).toContainText(message("ko", "mail_send_invalid"));
     const recipient = form.getByLabel(message("ko", "mail_field_recipient"));
     await expect(recipient).toBeFocused();
+    // 사이보그 이름은 서버 고유(D-443)라는 안내가 받는 사람 칸 설명이다
+    await expect(recipient).toHaveAccessibleDescription(new RegExp(message("ko", "mail_recipient_hint")));
     await expect(recipient).toHaveAttribute("aria-invalid", "true");
 
     await recipient.fill("M");

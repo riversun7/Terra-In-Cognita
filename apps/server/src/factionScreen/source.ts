@@ -1,9 +1,10 @@
-// 세력 화면의 실제 자료 — 로그인한 사용자의 소유 주체(world_owners)·유닛·건물 수·원장 잔고, 세력 소속(factions·faction_members, S3 최소 표).
-// 읽기만 한다. 세력·도시·외교 규칙(R4b)이 생기기 전이라 지금 DB에 있는 것만 읽는다(도시 수는 0으로 본다: 도시 표가 아직 없다).
+// 세력 화면의 실제 자료 — 로그인한 사용자의 소유 주체(world_owners)·유닛·건물 수·원장 잔고, 세력 소속(factions·faction_members),
+// 그 세력의 체제·고정 표시(factions.regime·fixed)와 도시 수(world_cities, R4b). 읽기만 한다.
+// - 외교·전쟁·지분 같은 칸은 세계가 아직 돌리지 않아(R5) 읽지 않는다. 도시 수·체제만 있어도 NPC 국가 시민에게 "국가"가 보인다(C8).
 // - 월드가 있으면 읽기 전에 그 사용자 주체를 지금까지 정산하고 쓰기 대기열이 비기를 기다린다(복귀 요약과 같은 방식,
 //   src/world/summarySources.ts). 주체를 새로 만들지는 않는다(findOwnerOfUser).
 // - 잔고는 위치 없는 계정(화폐 등)만, 0이 아닌 것만 보인다. 금액은 BigInt → 10진 글자.
-import type { AssetBalance, FactionKind } from "@terra/shared/faction";
+import { type AssetBalance, type FactionKind, REGIMES, type Regime } from "@terra/shared/faction";
 import type { World } from "../world/world.ts";
 
 /** pg Pool·Client 모양(query만). 시험은 시험 DB 연결을 넣는다 */
@@ -20,6 +21,11 @@ export interface FactionMembership {
   readonly parent: { readonly id: number; readonly kind: FactionKind; readonly code: string | null } | null;
   readonly joinedAt: number;
   readonly memberCount: number;
+  /** 체제(factions.regime, D-217)와 고정 세력 표시(factions.fixed, D-324) */
+  readonly regime: Regime;
+  readonly fixed: boolean;
+  /** 그 세력이 가진 도시 수(world_cities) */
+  readonly cityCount: number;
   /** 그 세력 소유 주체의 잔고(국고) */
   readonly treasury: readonly AssetBalance[];
 }
@@ -43,6 +49,8 @@ export interface FactionSource {
 const asNumber = (value: unknown): number => (typeof value === "string" ? Number(value) : Number(value ?? 0));
 const asKind = (value: unknown): FactionKind => (value === "player" ? "player" : "npc");
 const asCode = (value: unknown): string | null => (typeof value === "string" ? value : null);
+/** DB 검사 조건이 세 값만 받지만, 더 새 버전이 넣은 값이면 기본값(민주주의, 표의 default)으로 읽는다 */
+const asRegime = (value: unknown): Regime => REGIMES.find((regime) => regime === value) ?? "democracy";
 
 /** 주체의 위치 없는 계정 잔고(0 아닌 것, 자산 코드 순) */
 async function balancesOf(db: Queryable, ownerId: number): Promise<AssetBalance[]> {
@@ -78,9 +86,10 @@ async function ownerPart(db: Queryable, userId: string): Promise<FactionReal["ow
 
 async function factionPart(db: Queryable, userId: string): Promise<FactionMembership | null> {
   const found = await db.query(
-    `select f.id, f.kind, f.code, m.joined_at,
+    `select f.id, f.kind, f.code, f.regime, f.fixed, m.joined_at,
             p.id as parent_id, p.kind as parent_kind, p.code as parent_code,
             (select count(*)::int from faction_members x where x.faction_id = f.id) as members,
+            (select count(*)::int from world_cities c where c.faction_id = f.id) as cities,
             (select o.id from world_owners o where o.faction_id = f.id) as owner_id
        from faction_members m
        join factions f on f.id = m.faction_id
@@ -103,6 +112,9 @@ async function factionPart(db: Queryable, userId: string): Promise<FactionMember
         : { id: asNumber(row.parent_id), kind: asKind(row.parent_kind), code: asCode(row.parent_code) },
     joinedAt: Number.isFinite(joined) ? joined : 0,
     memberCount: asNumber(row.members),
+    regime: asRegime(row.regime),
+    fixed: row.fixed === true,
+    cityCount: asNumber(row.cities),
     treasury,
   };
 }

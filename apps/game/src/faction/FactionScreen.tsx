@@ -4,6 +4,7 @@
 //   dev·admin이 시안 자료를 켜면(홈과 같은 스위치) 여섯 칸을 시안 장면으로 채우고 칸마다 "시험 자료"를 붙인다.
 // - 배치: 좁으면(모바일) 요약 판 → 탭 → 고른 탭. 넓으면(64em 이상) 왼쪽 옆 판(요약·내 몫·잠긴 메뉴) + 오른쪽 탭.
 // - 선전포고·투표·편입 답 같은 명령은 WebSocket으로만 보낸다(AGENTS 4장). 지금은 곧 열림 단추(누르면 알림만).
+// - 독재가 아니면 시장 임명·선전포고·조약 제안은 바로 실행이 아니라 [안건 올리기]다(기획 검토 C4, decidesByVote).
 // - 제목(h1)은 tabIndex=-1. 앱 안 이동 때 초점은 화면 틀이 옮긴다.
 import type { FactionOverviewResponse } from "@terra/shared/faction";
 import { useState } from "react";
@@ -31,7 +32,7 @@ import { FactionVotes } from "./FactionVotes.tsx";
 import { FactionWars } from "./FactionWars.tsx";
 import { loadFactionOverview } from "./factionQueries.ts";
 import { TAB_NAMES } from "./factionText.ts";
-import { FACTION_TABS, type FactionTab, sectionKind, tabCount } from "./factionView.ts";
+import { FACTION_TABS, type FactionTab, decidesByVote, sectionKind, tabCount } from "./factionView.ts";
 import "../sections/screenParts.css";
 import "./faction.css";
 
@@ -40,6 +41,7 @@ const TAB_PREFIX = "faction";
 /** 고른 탭의 몸 */
 function TabBody({ tab, view }: { tab: FactionTab; view: FactionOverviewResponse }) {
   const now = view.generatedAt;
+  const byVote = decidesByVote(view.faction?.regime ?? null);
   switch (tab) {
     case "cities": {
       const section = view.cities;
@@ -50,7 +52,11 @@ function TabBody({ tab, view }: { tab: FactionTab; view: FactionOverviewResponse
             title={m.faction_cities_title()}
             preview={sectionKind(section) === "preview"}
           />
-          {section.status === "ready" ? <FactionCities cities={section.data} /> : <SoonPanel />}
+          {section.status === "ready" ? (
+            <FactionCities cities={section.data} byVote={byVote} />
+          ) : (
+            <SoonPanel />
+          )}
         </>
       );
     }
@@ -62,7 +68,7 @@ function TabBody({ tab, view }: { tab: FactionTab; view: FactionOverviewResponse
             id="faction-diplomacy-title"
             title={m.faction_diplomacy_title()}
             preview={sectionKind(section) === "preview"}
-            end={<SoonButton label={m.faction_dip_propose()} />}
+            end={<SoonButton label={byVote ? m.faction_dip_propose_vote() : m.faction_dip_propose()} />}
           />
           {section.status === "ready" ? <FactionDiplomacy rows={section.data} now={now} /> : <SoonPanel />}
         </>
@@ -76,7 +82,7 @@ function TabBody({ tab, view }: { tab: FactionTab; view: FactionOverviewResponse
             id="faction-wars-title"
             title={m.faction_wars_title()}
             preview={sectionKind(section) === "preview"}
-            end={<SoonButton label={m.faction_war_declare()} />}
+            end={<SoonButton label={byVote ? m.faction_war_declare_vote() : m.faction_war_declare()} />}
           />
           {section.status === "ready" ? <FactionWars wars={section.data} now={now} /> : <SoonPanel />}
         </>

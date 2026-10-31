@@ -5,11 +5,15 @@
 // - 자료는 서버 조회(queries.ts)다. 플레이어는 실제 자료(팩 목록·원장 잔고)만 보고, 서버가 아직 돌리지 않는 거래소·생산·환전은
 //   "곧 열림"이다. dev·admin이 시안 자료를 켜면(홈 [편집], inbox/preview.ts) 시험 거래소가 보이고 화면이 "시험 자료"를 알린다.
 // - 거래창은 촘촘하다(data-density="compact", AGENTS 8장).
+// - 시세 색(D-442): 뿌리에 data-market-colors(한국식·서양식)를 건다. 설정 "시세 색"이 없으면 언어 기본(economy.css가 색을 고른다).
 import type { AccountView, RouteMatch, RouteTarget } from "@terra/shared";
 import { Suspense, lazy, useEffect, useRef } from "react";
 import { usePreviewOn } from "../inbox/preview.ts";
 import { m } from "../paraglide/messages.js";
 import { AppLink } from "../shell/AppLink.tsx";
+import { getLocale } from "../paraglide/runtime.js";
+import { resolveMarketColors } from "../settings/marketColors.ts";
+import { useSettings } from "../settings/settings.ts";
 import { BackButton } from "../shell/BackButton.tsx";
 import { itemName, indexCatalog } from "./economyText.ts";
 import { NO_ARGS, useCatalog } from "./queries.ts";
@@ -168,6 +172,8 @@ function EconomyFrame({
   preview: boolean;
 }) {
   const title = useTitle(match);
+  const { device } = useSettings();
+  const marketColors = resolveMarketColors(device.marketColors, getLocale());
   const canPreview = user.roles.includes("dev") || user.roles.includes("admin");
   const compact = match.id === "economy_market_city" || match.id === "economy_exchange";
   return (
@@ -175,6 +181,7 @@ function EconomyFrame({
       className="screen screen-wide economy"
       aria-labelledby="economy-title"
       data-density={compact ? "compact" : undefined}
+      data-market-colors={marketColors}
     >
       <div className="screen-header">
         <h1 id="economy-title" className="screen-title" tabIndex={-1}>

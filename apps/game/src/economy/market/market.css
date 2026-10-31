@@ -76,11 +76,11 @@
   min-inline-size: 0;
 }
 .eco-city-quotes [data-side="buy"] {
-  color: var(--color-success);
+  color: var(--color-rise);
   font-weight: var(--font-weight-strong);
 }
 .eco-city-quotes [data-side="sell"] {
-  color: var(--color-danger);
+  color: var(--color-fall);
   font-weight: var(--font-weight-strong);
 }
 
@@ -240,10 +240,10 @@
   vector-effect: non-scaling-stroke;
 }
 [data-trend="up"] > .eco-chart-wick {
-  stroke: var(--color-success);
+  stroke: var(--color-rise);
 }
 [data-trend="down"] > .eco-chart-wick {
-  stroke: var(--color-danger);
+  stroke: var(--color-fall);
 }
 /* 오름 = 빈 봉(테두리), 내림 = 찬 봉: 색 말고 모양으로도 가른다 */
 .eco-chart-candle {
@@ -252,11 +252,11 @@
 }
 [data-trend="up"] > .eco-chart-candle {
   fill: var(--color-surface);
-  stroke: var(--color-success);
+  stroke: var(--color-rise);
 }
 [data-trend="down"] > .eco-chart-candle {
-  fill: var(--color-danger);
-  stroke: var(--color-danger);
+  fill: var(--color-fall);
+  stroke: var(--color-fall);
 }
 .eco-chart-volume {
   fill: var(--color-surface-2);
@@ -347,10 +347,10 @@ button.eco-level {
   pointer-events: none;
 }
 .eco-level[data-side="sell"] .eco-level-bar {
-  background-color: color-mix(in srgb, var(--color-danger) 16%, transparent);
+  background-color: color-mix(in srgb, var(--color-fall) 16%, transparent);
 }
 .eco-level[data-side="buy"] .eco-level-bar {
-  background-color: color-mix(in srgb, var(--color-success) 16%, transparent);
+  background-color: color-mix(in srgb, var(--color-rise) 16%, transparent);
 }
 .eco-level-price,
 .eco-level-qty {
@@ -362,10 +362,10 @@ button.eco-level {
   font-weight: var(--font-weight-strong);
 }
 .eco-level[data-side="sell"] .eco-level-price {
-  color: var(--color-danger);
+  color: var(--color-fall);
 }
 .eco-level[data-side="buy"] .eco-level-price {
-  color: var(--color-success);
+  color: var(--color-rise);
 }
 .eco-level-mine {
   position: absolute;
@@ -436,7 +436,7 @@ button.eco-level {
   font-weight: var(--font-weight-strong);
 }
 .eco-form[data-side="sell"] .eco-submit {
-  --button-lip: var(--color-danger);
+  --button-lip: var(--color-fall);
 }
 
 /* 체결 표 */
@@ -461,11 +461,11 @@ button.eco-level {
   text-align: start;
 }
 .eco-table tr[data-side="buy"] .eco-trade-price {
-  color: var(--color-success);
+  color: var(--color-rise);
   font-weight: var(--font-weight-strong);
 }
 .eco-table tr[data-side="sell"] .eco-trade-price {
-  color: var(--color-danger);
+  color: var(--color-fall);
   font-weight: var(--font-weight-strong);
 }
 /* 최근 체결은 좁은 폭 12건, 넓은 폭 20건만 보인다(내 주문·옆 패널이 멀리 밀리지 않게) */

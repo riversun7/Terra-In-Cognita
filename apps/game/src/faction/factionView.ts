@@ -5,6 +5,7 @@ import type {
   FactionOverviewResponse,
   FactionSection,
   OfficialState,
+  Regime,
   RelationBand,
   UnrestLevel,
   VoteRow,
@@ -17,9 +18,11 @@ export type FactionTab = (typeof FACTION_TABS)[number];
 /** 표 색 갈래(screenParts.css .state-chip[data-tone]) */
 export type Tone = "good" | "warn" | "bad" | "plain";
 
+/** 민심 네 단계(D-443). 반란 예고와 반란 중은 같은 색이고 글자로 가른다 */
 export const UNREST_TONES = {
   calm: "good",
   slowdown: "warn",
+  warning: "bad",
   rebellion: "bad",
 } as const satisfies Record<UnrestLevel, Tone>;
 
@@ -37,6 +40,14 @@ export const STATE_TONES = {
   neutral: "plain",
   war: "bad",
 } as const satisfies Record<OfficialState, Tone>;
+
+/**
+ * 시장 임명·선전포고·조약 제안을 투표 안건으로 올리는 체제인지(46 §2.1 해석, D-5057, 기획 검토 C4).
+ * 독재만 지배 가문의 장이 바로 정한다. 체제를 모르면(null) 투표 쪽으로 본다(바로 실행처럼 보이지 않게)
+ */
+export function decidesByVote(regime: Regime | null): boolean {
+  return regime !== "dictatorship";
+}
 
 /** 칸 상태: 준비 중(곧 열림) / 실제 자료 / 시안 자료 */
 export function sectionKind<T>(section: FactionSection<T>): "soon" | "real" | "preview" {

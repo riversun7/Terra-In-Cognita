@@ -4,7 +4,8 @@
 //   서버가 같은 모양으로 갈아 끼운다(기기는 그대로).
 // - 판정은 서버가 한다. 띠 이름·민심 단계·잠금 결과도 서버가 정해 보낸다. 기기는 그리기만 한다.
 // - 시안 자료(preview)는 보기 전용이다. 판정·잔고·소유에 쓰지 않는다(D-439, 서버 권위).
-// [임시] 표시가 있는 값은 기획에 값이 없어 기술이 정한 기본안이다(docs/questions/2026-10-31-ui-faction-mail.md).
+// [임시] 표시가 있는 값은 기획에 값이 없어 기술이 정한 기본안이다(docs/questions/2026-10-31-ui-faction-mail.md, 질문 153~162).
+// 기획 답 D-443(2026-10-31)이 기본안(가)을 받았다. 수치는 설정값(49)이고, 값이 없는 것만 [임시]로 남긴다.
 
 /** 사람이 지은 이름이 아닌 것(아이템 등)의 두 언어 이름 — 콘텐츠 팩 이름과 같은 모양 */
 export interface LocalizedName {
@@ -61,7 +62,10 @@ export const CASUS_BELLI = [
 ] as const;
 export type CasusBelli = (typeof CASUS_BELLI)[number];
 
-/** 투표 안건(D-5057). 목록은 열려 있다(데이터로 더한다) */
+/**
+ * 투표 안건(D-5057). 목록은 열려 있다(데이터로 더한다). 시장 임명은 독재가 아니면 투표 안건이다
+ * (46 §2.1 해석, 기획 세력 화면 검토 C4, 2026-11-01)
+ */
 export const AGENDA_KINDS = [
   "leader_election",
   "leader_removal",
@@ -76,11 +80,14 @@ export const AGENDA_KINDS = [
   "city_sale",
   "independence",
   "accept_vassal",
+  "mayor_appointment",
 ] as const;
 export type AgendaKind = (typeof AGENDA_KINDS)[number];
 
 /**
- * [임시] 관계 점수 띠 6단계(46 §4.1 "점수 구간에 이름, 기존 6단계"). 옛 6단계 이름표가 미러에 없어 기술이 정했다(질문 153).
+ * 관계 점수(호감) 띠 6단계(46 §4.1, 질문 154 기본안 → D-443). 이름은 적대·경고·보통·호감·우호·굳건이다. 옛 6단계
+ * (동맹·우호·중립·경고·적대·전쟁)는 동맹·중립·전쟁이 공식 상태(D-255)와 겹쳐 쓰지 않는다. 문턱은 기본안 값이다(설정값).
+ * 호감은 세력 쌍마다, 세력 신뢰는 세력마다 하나이고 모두가 본다(D-255, D-443 해석). 개인 신뢰도(D-315)와 다른 값이다.
  * 점수는 −100~100. 줄마다 [띠, 이 점수 이상]이고 위에서부터 맞는 첫 줄이다
  */
 export const RELATION_BANDS = ["hostile", "wary", "neutral", "cordial", "friendly", "trusted"] as const;
@@ -103,25 +110,54 @@ export function relationBand(score: number): RelationBand {
   return "hostile";
 }
 
-/** 도시 민심 단계(46 §2.4): 안정 / 태업(만족도가 낮을수록) / 반란(도시 평균이 문턱 이하) */
-export const UNREST_LEVELS = ["calm", "slowdown", "rebellion"] as const;
+/**
+ * 도시 민심 단계(46 §2.4, 질문 155 → D-443): 안정 · 태업 조짐 · 반란 예고(반란 문턱 바로 위 구간) · 반란 중.
+ * 반란 문턱(S26) 이하는 이미 반란이 일어나는 상태다(D-253). 구간 값은 설정값 49 N35다
+ */
+export const UNREST_LEVELS = ["calm", "slowdown", "warning", "rebellion"] as const;
 export type UnrestLevel = (typeof UNREST_LEVELS)[number];
 /** 반란 문턱 예시값(S26 "예시 40") */
 export const REBELLION_THRESHOLD_EXAMPLE = 40;
-/** [임시] 태업이 보이기 시작하는 만족도(기획은 "낮을수록"만 정했다, 질문 154) */
-export const SLOWDOWN_BELOW = 60;
 
-/** 만족도(0~100) → 민심 단계. rebellionThreshold 이하면 반란, SLOWDOWN_BELOW 미만이면 태업 */
-export function unrestLevel(satisfaction: number, rebellionThreshold: number): UnrestLevel {
-  if (satisfaction <= rebellionThreshold) return "rebellion";
-  return satisfaction < SLOWDOWN_BELOW ? "slowdown" : "calm";
+/** 민심 표 구간(설정값 S26·N35). 서버가 값을 정해 넘긴다 */
+export interface UnrestBands {
+  /** 반란 문턱(S26): 도시 평균 만족도가 이 값 이하면 반란 중 */
+  readonly rebellionThreshold: number;
+  /** 반란 예고 구간 너비(N35): 문턱 + 이 값 이하면 반란 예고 */
+  readonly warningBand: number;
+  /** 태업 조짐 문턱(N35): 이 값 미만이면 태업 조짐 */
+  readonly slowdownBelow: number;
 }
+
+/** 반란 예고가 시작되는 만족도(이 값 이하 = 예고, 문턱 이하 = 반란 중) */
+export function rebellionWarningAt(bands: UnrestBands): number {
+  return bands.rebellionThreshold + Math.max(0, bands.warningBand);
+}
+
+/** 만족도(0~100) → 민심 단계. 반란 문턱 이하면 반란 중, 예고 구간이면 반란 예고, 태업 문턱 미만이면 태업 조짐 */
+export function unrestLevel(satisfaction: number, bands: UnrestBands): UnrestLevel {
+  if (satisfaction <= bands.rebellionThreshold) return "rebellion";
+  if (satisfaction <= rebellionWarningAt(bands)) return "warning";
+  return satisfaction < bands.slowdownBelow ? "slowdown" : "calm";
+}
+
+/** 도시 발전도 7요소(D-254). 발전도 = Σ(요소 점수 × 가중치), 가중치는 설정값 */
+export const DEVELOPMENT_FACTORS = [
+  "population",
+  "buildings",
+  "economy",
+  "culture_faith",
+  "education",
+  "health",
+  "environment",
+] as const;
+export type DevelopmentFactor = (typeof DEVELOPMENT_FACTORS)[number];
 
 /** 시장·관리인 자동 운영 방침(D-5062) */
 export const CITY_POLICIES = ["growth", "defense", "production", "balance"] as const;
 export type CityPolicy = (typeof CITY_POLICIES)[number];
 
-/** 잠긴 메뉴(D-5055, S32): 기능마다 조건 목록. 조건 값은 설정값이다 */
+/** 잠긴 메뉴(D-5055, S32): 기능마다 조건 목록. 조건 값은 설정값이다(질문 156 → D-443) */
 export const LOCKABLE_FEATURES = ["currency_issue", "tax_rate", "national_bond"] as const;
 export type LockableFeature = (typeof LOCKABLE_FEATURES)[number];
 /** 조건 종류. 신용도 조건은 값이 정해지면 더한다(질문 156) */
@@ -151,6 +187,21 @@ export const OCCUPATION_STEPS = [
 ] as const;
 export type OccupationStep = (typeof OCCUPATION_STEPS)[number];
 export type StepState = "done" | "pending" | "skipped";
+
+/** 공성 공격 변(D-233): 공격 쪽이 선포할 때 고르고, 방어자는 이것을 보고 공성 시각을 고른다 */
+export const SIEGE_SIDES = ["north", "east", "south", "west"] as const;
+export type SiegeSide = (typeof SIEGE_SIDES)[number];
+/** 방어자가 공성 시각을 고르는 기한 = 공성 선포 + 실제 1일(D-200). 고르지 않으면 이 시각에 공성이 열린다 */
+export const SIEGE_DEFENSE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** 도시 배당이 가는 곳(D-304·D-338): 자본주의 = 지분대로, 민주주의 = 국고, 독재 = 지배 가문 금고 */
+export const DIVIDEND_RECIPIENTS = ["shareholders", "treasury", "ruling_family"] as const;
+export type DividendRecipient = (typeof DIVIDEND_RECIPIENTS)[number];
+export const DIVIDEND_BY_REGIME = {
+  capitalism: "shareholders",
+  democracy: "treasury",
+  dictatorship: "ruling_family",
+} as const satisfies Record<Regime, DividendRecipient>;
 
 /** 전쟁의 지금 단계(46 §4.2~4.4, 45 §10.2) */
 export const WAR_STAGES = ["declared", "defense_time_pending", "siege_scheduled", "peace_talks"] as const;
@@ -197,8 +248,10 @@ export interface FactionSummary {
   readonly tag: string | null;
   readonly kind: FactionKind;
   readonly stage: Exclude<FactionStage, "individual">;
-  /** 체제(국가만 있다. 도시 없는 세력·실제 자료는 아직 null) */
+  /** 체제(D-217). 모르면 null(실제 자료는 DB factions.regime) */
   readonly regime: Regime | null;
+  /** 고정 세력(D-324: 기본 NPC 국가, 멸망하지 않는다) */
+  readonly fixed: boolean;
   readonly leader: string | null;
   readonly memberCount: number;
   readonly cityCount: number;
@@ -206,9 +259,9 @@ export interface FactionSummary {
   readonly joinedAt: number;
   /** 나라 안의 내 가문(46 §1.1). 없으면 null */
   readonly family: { readonly name: string; readonly memberCount: number; readonly head: boolean } | null;
-  /** 이 세력이 종속국(봉신)이면 상위 세력과 공물 비율(D-5056, ‰. 아직 모르면 null) */
+  /** 이 세력이 종속국(봉신)이면 상위 세력과 주마다 내는 공물 비율(국고의 ‰, D-5056·D-443 설정값. 아직 모르면 null) */
   readonly overlord: { readonly faction: FactionRef; readonly tributePm: number | null } | null;
-  /** 이 세력의 종속국들 */
+  /** 이 세력의 종속국들(공물 비율은 위와 같은 뜻) */
   readonly vassals: readonly { readonly faction: FactionRef; readonly tributePm: number }[];
   /** 세력 화폐(도시 없는 세력은 발행하지 못한다, D-299). 발행량은 최소 단위 정수 글자 */
   readonly currency: { readonly code: string; readonly name: string; readonly issued: string } | null;
@@ -240,10 +293,14 @@ export interface CityRow {
   /** 도시 평균 만족도 0~100(D-219, D-253 충성도와 같은 값) */
   readonly satisfaction: number;
   readonly unrest: UnrestLevel;
-  /** 반란 문턱(S26) */
+  /** 반란 문턱(S26): 이 값 이하면 반란 중 */
   readonly rebellionThreshold: number;
+  /** 반란 예고 문턱(S26 + N35): 이 값 이하면 반란 예고 */
+  readonly rebellionWarning: number;
   /** 발전도 점수(D-254, 42 §2.3) */
   readonly development: number;
+  /** 발전도 7요소 내역(요소마다 가중치를 곱한 점수, 합 = development). 모르면 null */
+  readonly developmentParts: Readonly<Record<DevelopmentFactor, number>> | null;
   /** 도시 세율 ‰(시장이 정한다, 상한 없음 D-128) */
   readonly taxRatePm: number;
   /** 자동 운영 방침과 하루 예산 한도(D-5062, 화폐 최소 단위 글자) */
@@ -272,7 +329,7 @@ export interface DiplomacyRow {
   /** 관계 점수(호감) −100~100과 띠 */
   readonly score: number;
   readonly band: RelationBand;
-  /** 신뢰 −100~100(조약을 어기면 모두가 보는 신뢰가 떨어진다, D-255) */
+  /** 그 세력의 세력 신뢰 −100~100. 세력마다 하나이고 모두가 같은 값을 본다(조약을 어기면 떨어진다, D-255·D-443) */
   readonly trust: number;
   readonly state: OfficialState;
   readonly treaties: readonly TreatyCard[];
@@ -291,7 +348,11 @@ export interface WarRow {
   readonly stage: WarStage;
   /** 공성 대상 도시 이름 */
   readonly targetCity: string | null;
-  /** 공성 시각(정해졌으면) 또는 방어 시각을 고를 기한(defense_time_pending) */
+  /** 공성 선포 시각(선전포고와 다르다. 공성을 선포하지 않았으면 null) */
+  readonly siegeDeclaredAt: number | null;
+  /** 공격 변(D-233). 공성을 선포할 때 정한다 */
+  readonly attackSide: SiegeSide | null;
+  /** 공성 시각(정해졌으면) 또는 방어 시각을 고를 기한(defense_time_pending, = 공성 선포 + 24시간 D-200) */
   readonly siegeAt: number | null;
   readonly deadlineAt: number | null;
   /** 우리 편 참가자(동맹 합류, D-291) */
@@ -329,11 +390,26 @@ export interface RegimeView {
 export interface CityShareRow {
   readonly cityId: string;
   readonly cityName: string;
+  /** 그 도시를 가진 세력(도시 주식은 누구나 산다 D-130, 다른 나라 도시일 수 있다) */
+  readonly owner: FactionRef;
   /** 상장폐지(46 §5.1 ③)면 false — 주식이 없다 */
   readonly listed: boolean;
   readonly myShares: number;
   readonly top: { readonly holder: string; readonly shares: number } | null;
   readonly path: IndependencePath;
+  /**
+   * 배당(D-304·D-338): 도시 세금에서 발행 이자 소각 → 운영비 → 남은 이익을 체제대로 나눈다(to). 주기는 설정값.
+   * last = 최근 배당(지분대로 나눴을 때만, 내 몫·전체). 민주주의는 국고로 가서 배당이 없다
+   */
+  readonly dividend: {
+    readonly to: DividendRecipient;
+    readonly last: {
+      readonly paidAt: number;
+      readonly mine: string;
+      readonly total: string;
+      readonly currency: string;
+    } | null;
+  };
   /** 열려 있는 독립 투표(자본주의 = 찬성 지분 ‰, 민주주의 = 찬성 가문 ‰). 문턱은 S27 */
   readonly independenceVote: {
     readonly openedBy: string;
@@ -367,8 +443,17 @@ export interface OccupationRow {
     /** offer_to_me: 그 도시 안 내 건물 수(답할 때까지 동결) */
     readonly myBuildings: number;
   };
-  /** ⑤ 복원 모금(누구나 낸다, D-343). 화폐 최소 단위 글자 */
-  readonly restoration: { readonly raised: string; readonly goal: string; readonly currency: string } | null;
+  /**
+   * ⑤ 복원 모금(누구나 낸다, D-343). 낸 돈만큼 도시 지분을 받는다(D-339, 도시마다 SHARES_PER_CITY주).
+   * 금액은 화폐 최소 단위 글자. mine = 내가 낸 돈, expectedShares = 목표를 채우면 내가 받을 지분(서버가 규칙 함수로 계산)
+   */
+  readonly restoration: {
+    readonly raised: string;
+    readonly goal: string;
+    readonly currency: string;
+    readonly mine: string;
+    readonly expectedShares: number;
+  } | null;
 }
 
 /** 아직 자료가 없는 칸은 not_ready(화면은 "곧 열림"). 시안 자료면 preview */

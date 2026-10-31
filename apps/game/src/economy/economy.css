@@ -1,11 +1,19 @@
 /*
  * 경제 화면 — 칸 띠, 한눈에 카드, 창고·생산·내 주문·환전 줄, 공용 주문 칸. 거래창(호가·차트)은 market/market.css.
- * 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast). 오름·매수 = 성공색, 내림·매도 = 위험색 [임시](질문 141).
- * 색만으로 알리지 않는다: 쪽은 글(매수·매도)·화살표·자리와 함께 보인다. 거래창·환전은 data-density="compact"(틀이 단다).
+ * 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
+ * 시세 색(D-442): 오름·매수 = --color-rise, 내림·매도 = --color-fall. 화면 뿌리의 data-market-colors(설정 "시세 색",
+ * 기본은 언어: 한국어 = 한국식, 영어 = 서양식)가 고른다. 서양식 = 성공색(초록)·위험색(빨강), 한국식 = 위험색(빨강)·시세 파랑.
+ * 색만으로 알리지 않는다: 쪽은 글(매수·매도)·화살표(▲▼)·자리와 함께 보인다. 거래창·환전은 data-density="compact"(틀이 단다).
  * 폭 경계는 shell/layout.ts와 같은 em 숫자(37.5em·64em)를 쓴다.
  */
 .economy {
   gap: var(--space-4);
+  --color-rise: var(--color-success);
+  --color-fall: var(--color-danger);
+}
+.economy[data-market-colors="korean"] {
+  --color-rise: var(--color-danger);
+  --color-fall: var(--color-market-blue);
 }
 .eco-stack {
   display: flex;
@@ -154,11 +162,11 @@
 .eco-change[data-trend="up"],
 [data-side="buy"] > .eco-order-side,
 .eco-order-side[data-side="buy"] {
-  color: var(--color-success);
+  color: var(--color-rise);
 }
 .eco-change[data-trend="down"],
 .eco-order-side[data-side="sell"] {
-  color: var(--color-danger);
+  color: var(--color-fall);
 }
 .icon.eco-change-icon {
   width: var(--font-size-md);
@@ -175,10 +183,10 @@
   stroke-linejoin: round;
 }
 .eco-spark[data-trend="up"] {
-  stroke: var(--color-success);
+  stroke: var(--color-rise);
 }
 .eco-spark[data-trend="down"] {
-  stroke: var(--color-danger);
+  stroke: var(--color-fall);
 }
 .eco-spark path {
   vector-effect: non-scaling-stroke;
@@ -522,10 +530,10 @@
   box-shadow: var(--shadow-control);
 }
 .eco-side[data-side="buy"] input:checked + span {
-  color: var(--color-success);
+  color: var(--color-rise);
 }
 .eco-side[data-side="sell"] input:checked + span {
-  color: var(--color-danger);
+  color: var(--color-fall);
 }
 .eco-side input:focus-visible + span {
   outline: var(--focus-w) solid var(--color-focus);
@@ -640,10 +648,10 @@
   gap: var(--space-2);
 }
 .eco-fx-side[data-side="buy"] .eco-fx-price {
-  color: var(--color-success);
+  color: var(--color-rise);
 }
 .eco-fx-side[data-side="sell"] .eco-fx-price {
-  color: var(--color-danger);
+  color: var(--color-fall);
 }
 .eco-fx-form {
   gap: var(--space-3);

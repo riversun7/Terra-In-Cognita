@@ -2,7 +2,8 @@
 // ADR 37 "구현하며 정한 것 (유닛·사이보그 화면)". 위 띠의 사이보그 얼굴이 여는 화면이다(D-6010).
 // - 실제: 계정 이름, 보유 유닛 수. 본체(레벨·스탯·장비·인공장기·스킬·인벤토리·환생·랭킹)는 세계에 아직 없어 dev·admin 시안 자료로만 보인다.
 //   플레이어에게는 판마다 "생기면 보입니다" 안내다(가짜 숫자 없음, ADR 37 6절 원칙).
-// - 바꾸는 동작(장착·인공장기 시술·환생)은 "곧 열림"이다.
+// - 바꾸는 동작(장착·인공장기 시술·환생)은 "곧 열림"이다. 환생 단추는 "가장 가까운 환생 시설로 가는 길"이다(D-441: 환생은
+//   환생 시설(신전)에서 하고 모항의 몸 교체는 연출, 질문 135 기본안).
 // - 좁은 폭은 판을 위에서 아래로, 넓은 폭(64em 이상)은 두 열(왼쪽 본체·스탯, 오른쪽 장비·인벤토리·환생·랭킹).
 // 지연 로딩 조각(routeViews.tsx).
 import type { CyborgBody, CyborgGetResponse } from "@terra/shared/roster";
@@ -145,6 +146,14 @@ function Profile({ data }: { data: CyborgGetResponse }) {
         {body ? <PreviewTag /> : null}
       </div>
       {body ? (
+        <dl className="roster-facts cyborg-faith">
+          <div>
+            <dt>{m.cyborg_faith()}</dt>
+            <dd className="roster-num">{formatNumber(body.faith)}</dd>
+          </div>
+        </dl>
+      ) : null}
+      {body ? (
         <div className="cyborg-meters">
           <Meter
             label={m.cyborg_exp()}
@@ -189,16 +198,14 @@ function Inventory({ body, data }: { body: CyborgBody; data: CyborgGetResponse }
   );
 }
 
-/** 환생(D-026·D-031·D-352·D-427): 조건·바뀌는 것·남는 것. 비용은 정해지지 않았다(질문 135) */
+/**
+ * 환생(D-026·D-031·D-352·D-427·D-440·D-441): 바뀌는 것(레벨 1·경험치 0, 가속 없음)·남는 것·얻는 것, 비용.
+ * 비용 = 최고 레벨 + 신앙도 + 화폐(그 신전 도시의 화폐). 양은 설정값 49 N34라 정해지면 보인다(출발값 없음).
+ * 진로별 종교 아이템은 특수 스킬 같은 추가 조건에만 쓴다. 신앙도 지금 값은 시안 자료다
+ */
 function Rebirth({ body }: { body: CyborgBody | null }) {
-  const ready = body !== null && body.level >= body.maxLevel;
   return (
     <div className="cyborg-rebirth">
-      {body ? (
-        <p className="roster-meta">
-          {m.cyborg_rebirth_condition({ level: formatNumber(body.level), max: formatNumber(body.maxLevel) })}
-        </p>
-      ) : null}
       <dl className="roster-facts">
         <div>
           <dt>{m.cyborg_rebirth_changes()}</dt>
@@ -213,10 +220,38 @@ function Rebirth({ body }: { body: CyborgBody | null }) {
           <dd>{m.cyborg_rebirth_gains_body()}</dd>
         </div>
       </dl>
-      <SoonButton
-        label={ready ? m.cyborg_action_rebirth() : m.cyborg_action_rebirth_locked()}
-        small={false}
-      />
+      <h3 className="cyborg-rebirth-cost">{m.cyborg_rebirth_cost()}</h3>
+      <dl className="roster-facts">
+        <div>
+          <dt>{m.cyborg_rebirth_cost_level()}</dt>
+          <dd>
+            {body
+              ? m.cyborg_rebirth_level_value({
+                  level: formatNumber(body.level),
+                  max: formatNumber(body.maxLevel),
+                })
+              : m.cyborg_rebirth_amount_unset()}
+          </dd>
+        </div>
+        <div>
+          <dt>{m.cyborg_rebirth_cost_faith()}</dt>
+          <dd>
+            {body
+              ? m.cyborg_rebirth_faith_value({ value: formatNumber(body.faith) })
+              : m.cyborg_rebirth_amount_unset()}
+          </dd>
+        </div>
+        <div>
+          <dt>{m.cyborg_rebirth_cost_currency()}</dt>
+          <dd>{m.cyborg_rebirth_currency_value()}</dd>
+        </div>
+        <div>
+          <dt>{m.cyborg_rebirth_cost_items()}</dt>
+          <dd>{m.cyborg_rebirth_items_value()}</dd>
+        </div>
+      </dl>
+      <p className="roster-note">{m.cyborg_rebirth_place()}</p>
+      <SoonButton label={m.cyborg_action_rebirth_route()} small={false} />
     </div>
   );
 }

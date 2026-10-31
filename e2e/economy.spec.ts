@@ -4,6 +4,8 @@
 // - admin + 시안 자료: 서버가 sim 거래소로 만든 시험 호가·체결(apps/server/src/economyView/). 앱을 켤 때 뜨는 복귀 요약은
 //   summary.get 응답을 고쳐 띄우지 않는다(helpers/trpc.ts hideSummary).
 // - 주문표: 호가 줄을 누르면 값이 들어가고, 거래세·묶이는 돈 미리 보기가 바뀌며, [주문]은 "곧 열림"으로 잠겨 있다(명령 없음).
+// - 시세 색(D-442): 한국어 = 한국식(매수 빨강·매도 파랑), 영어 = 서양식(매수 초록·매도 빨강), 설정 "시세 색"이 바꾼다.
+//   색은 토큰 값과 계산된 글자 색을 견준다(파스텔: 위험 #b8283f, 성공 #226b33, 시세 파랑 #1d56b8 — styles/tokens.css).
 // - 사진: 390·1440 × 파스텔·다크 × 한국어·영어, 화면마다(E2E_SHOTS_DIR).
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
@@ -190,6 +192,119 @@ test.describe("admin 시안 자료(시험 거래소)", () => {
     await fullShot(page, "economy-book-huge-pastel-ko-390");
     expect(deviceErrors).toEqual([]);
   });
+});
+
+/** 파스텔 테마 토큰(styles/tokens.css)의 계산된 색 */
+const PASTEL = {
+  danger: "rgb(184, 40, 63)",
+  success: "rgb(34, 107, 51)",
+  marketBlue: "rgb(29, 86, 184)",
+} as const;
+
+/** 호가창의 가장 좋은 매수·매도 값 글자 색 */
+async function bookColors(page: Page): Promise<{ buy: string; sell: string }> {
+  const color = (side: "buy" | "sell") =>
+    economy(page)
+      .locator(`.eco-level[data-side="${side}"] .eco-level-price`)
+      .first()
+      .evaluate((element) => getComputedStyle(element).color);
+  return { buy: await color("buy"), sell: await color("sell") };
+}
+
+test.describe("시세 색(D-442)", () => {
+  test.use({ account: "admin", preview: "admin" });
+
+  test("한국어 기본은 한국식(매수 빨강·매도 파랑), 설정에서 서양식을 고르면 매수 초록·매도 빨강", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await openPreview(page, "/economy/market/iron_ore/101");
+    await expect(economy(page).locator(".eco-level").first()).toBeVisible();
+    await expect(economy(page)).toHaveAttribute("data-market-colors", "korean");
+    expect(await bookColors(page)).toEqual({ buy: PASTEL.danger, sell: PASTEL.marketBlue });
+
+    await page.goto("/settings");
+    const select = page.getByLabel(message("ko", "settings_market_colors"));
+    await expect(select).toHaveValue("language");
+    await expect(select.locator("option").first()).toHaveText(
+      message("ko", "settings_market_colors_language", {
+        style: message("ko", "settings_market_colors_korean_short"),
+      }),
+    );
+    await select.selectOption("western");
+    await page.goto("/economy/market/iron_ore/101");
+    await expect(economy(page).locator(".eco-level").first()).toBeVisible();
+    await expect(economy(page)).toHaveAttribute("data-market-colors", "western");
+    expect(await bookColors(page)).toEqual({ buy: PASTEL.success, sell: PASTEL.danger });
+    // 새로고침해도 기기에 남는다
+    await page.reload();
+    await expect(economy(page)).toHaveAttribute("data-market-colors", "western");
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test.describe("영어", () => {
+    test.use({ language: "en" });
+
+    test("영어 기본은 서양식, 한국식을 고르면 한국식", async ({ page, deviceErrors }) => {
+      await openPreview(page, "/economy/market/iron_ore/101");
+      await expect(economy(page).locator(".eco-level").first()).toBeVisible();
+      await expect(economy(page)).toHaveAttribute("data-market-colors", "western");
+      expect(await bookColors(page)).toEqual({ buy: PASTEL.success, sell: PASTEL.danger });
+      await page.goto("/settings");
+      await page.getByLabel(message("en", "settings_market_colors")).selectOption("korean");
+      await page.goto("/economy/market/iron_ore/101");
+      await expect(economy(page)).toHaveAttribute("data-market-colors", "korean");
+      expect(await bookColors(page)).toEqual({ buy: PASTEL.danger, sell: PASTEL.marketBlue });
+      expect(deviceErrors).toEqual([]);
+    });
+  });
+});
+
+test.describe("창고 단위·보석 안내(D-443)", () => {
+  test.use({ account: "admin", preview: "admin" });
+
+  test("창고 용량은 지금 개수, 최종 단위는 무게(kg)라고 알린다. 보석은 호가창이라고 알린다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await openPreview(page, "/economy/warehouse");
+    await expect(economy(page).locator(".eco-place").first()).toBeVisible();
+    await expect(economy(page).getByText(message("ko", "economy_capacity_unit_note"))).toBeVisible();
+    await page.goto("/economy/market");
+    await expect(economy(page).getByText(message("ko", "economy_market_auction_note"))).toBeVisible();
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+const SETTINGS_LAYOUTS: readonly { theme: Theme; language: Language }[] = [
+  { theme: "pastel", language: "ko" },
+  { theme: "pastel", language: "en" },
+  { theme: "dark", language: "ko" },
+  { theme: "dark", language: "en" },
+];
+
+test.describe("시세 색 사진(390)", () => {
+  test.use({ account: "admin", preview: "admin" });
+  for (const { theme, language } of SETTINGS_LAYOUTS) {
+    test.describe(`${theme}·${language}`, () => {
+      test.use({ theme, language, viewport: { width: 390, height: 844 } });
+
+      test("설정 칸과 언어 기본 호가창, 사진", async ({ page, deviceErrors }) => {
+        await rewriteTrpc(page, { "summary.get": hideSummary });
+        await page.goto("/settings");
+        const select = page.getByLabel(message(language, "settings_market_colors"));
+        await select.scrollIntoViewIfNeeded();
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await shot(page, `settings-market-colors-${theme}-${language}-390`);
+        await page.goto("/economy/market/iron_ore/101");
+        await expect(economy(page).locator(".eco-level").first()).toBeVisible();
+        await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        await shot(page, `economy-book-colors-${theme}-${language}-390`);
+        expect(deviceErrors).toEqual([]);
+      });
+    });
+  }
 });
 
 const SCREENS: readonly { path: string; name: string; ready: string }[] = [

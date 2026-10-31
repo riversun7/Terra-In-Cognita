@@ -9,7 +9,8 @@ export const tuningEntrySchema = z.strictObject({
   /** 기획 설정 칸 코드(예: N13, S26, C5). 칸이 없으면 빈 문자열 */
   code: z.string().regex(/^([A-Z][0-9]{1,2})?$/),
   name: localizedText,
-  value: z.int().min(-1_000_000_000).max(1_000_000_000),
+  /** 정수 하나(시각은 ms라 크다: 수명 몇 달 ≈ 10^10) */
+  value: z.int().min(-1_000_000_000_000).max(1_000_000_000_000),
   /** 구조 값(D-5054: 바꿀 때 확인 창) */
   structural: z.boolean(),
 });

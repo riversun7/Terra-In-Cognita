@@ -659,6 +659,236 @@
       },
       "value": 700,
       "structural": false
+    },
+    {
+      "id": "d130_shares_per_city",
+      "code": "",
+      "name": {
+        "ko": "도시 지분 수(D-130)",
+        "en": "Shares per city (D-130)"
+      },
+      "value": 1000,
+      "structural": true
+    },
+    {
+      "id": "d130_dividend_every",
+      "code": "",
+      "name": {
+        "ko": "배당 주기(ms)",
+        "en": "Dividend period (ms)"
+      },
+      "value": 604800000,
+      "structural": false
+    },
+    {
+      "id": "s22_inheritance_tax",
+      "code": "S22",
+      "name": {
+        "ko": "상속세(만분율)",
+        "en": "Inheritance tax (bp)"
+      },
+      "value": 5000,
+      "structural": false
+    },
+    {
+      "id": "s23_dictatorship_drop",
+      "code": "S23",
+      "name": {
+        "ko": "독재 점령 만족도 감소",
+        "en": "Dictatorship occupation drop"
+      },
+      "value": 20,
+      "structural": false
+    },
+    {
+      "id": "s26_rebellion",
+      "code": "S26",
+      "name": {
+        "ko": "반란 문턱(도시 평균 만족도)",
+        "en": "Rebellion threshold"
+      },
+      "value": 40,
+      "structural": false
+    },
+    {
+      "id": "s27_independence",
+      "code": "S27",
+      "name": {
+        "ko": "독립 통과 문턱(‰)",
+        "en": "Independence pass (‰)"
+      },
+      "value": 500,
+      "structural": true
+    },
+    {
+      "id": "s30_offer_deadline",
+      "code": "S30",
+      "name": {
+        "ko": "편입 제안 기한(ms)",
+        "en": "Incorporation offer deadline (ms)"
+      },
+      "value": 259200000,
+      "structural": false
+    },
+    {
+      "id": "s31_delist_satisfaction",
+      "code": "S31",
+      "name": {
+        "ko": "상장폐지 만족도 감소",
+        "en": "Delisting satisfaction drop"
+      },
+      "value": 15,
+      "structural": false
+    },
+    {
+      "id": "s31_delist_relation",
+      "code": "S31",
+      "name": {
+        "ko": "상장폐지 관계 점수 감소",
+        "en": "Delisting relation drop"
+      },
+      "value": 20,
+      "structural": false
+    },
+    {
+      "id": "d186_loot_drop",
+      "code": "",
+      "name": {
+        "ko": "약탈 만족도 감소",
+        "en": "Loot satisfaction drop"
+      },
+      "value": 25,
+      "structural": false
+    },
+    {
+      "id": "d186_integrate_drop",
+      "code": "",
+      "name": {
+        "ko": "통합 만족도 감소",
+        "en": "Integration satisfaction drop"
+      },
+      "value": 5,
+      "structural": false
+    },
+    {
+      "id": "d186_loot_take",
+      "code": "",
+      "name": {
+        "ko": "약탈이 가져가는 금고 몫(만분율)",
+        "en": "Loot take (bp)"
+      },
+      "value": 5000,
+      "structural": false
+    },
+    {
+      "id": "t4_lifespan_min",
+      "code": "T4",
+      "name": {
+        "ko": "휴먼 수명 최소(ms)",
+        "en": "Human lifespan min (ms)"
+      },
+      "value": 5184000000,
+      "structural": false
+    },
+    {
+      "id": "t4_lifespan_max",
+      "code": "T4",
+      "name": {
+        "ko": "휴먼 수명 최대(ms)",
+        "en": "Human lifespan max (ms)"
+      },
+      "value": 7776000000,
+      "structural": false
+    },
+    {
+      "id": "d395_rebirth",
+      "code": "",
+      "name": {
+        "ko": "수명 끝 환생 확률(‰)",
+        "en": "Rebirth chance at end of life (‰)"
+      },
+      "value": 100,
+      "structural": false
+    },
+    {
+      "id": "d395_deify",
+      "code": "",
+      "name": {
+        "ko": "수명 끝 신격화 확률(‰)",
+        "en": "Deification chance at end of life (‰)"
+      },
+      "value": 10,
+      "structural": false
+    },
+    {
+      "id": "s39_birth_every",
+      "code": "S39",
+      "name": {
+        "ko": "출생 판정 주기(ms)",
+        "en": "Birth roll period (ms)"
+      },
+      "value": 21600000,
+      "structural": false
+    },
+    {
+      "id": "s39_birth_chance",
+      "code": "S39",
+      "name": {
+        "ko": "출생 확률(‰)",
+        "en": "Birth chance (‰)"
+      },
+      "value": 250,
+      "structural": false
+    },
+    {
+      "id": "s39_birth_satisfaction",
+      "code": "S39",
+      "name": {
+        "ko": "출생 만족도 문턱",
+        "en": "Birth satisfaction threshold"
+      },
+      "value": 50,
+      "structural": false
+    },
+    {
+      "id": "q121_tech_max",
+      "code": "",
+      "name": {
+        "ko": "지상 기술 단계 상한",
+        "en": "Ground tech max"
+      },
+      "value": 5,
+      "structural": true
+    },
+    {
+      "id": "q121_research_work",
+      "code": "",
+      "name": {
+        "ko": "단계당 연구 작업량",
+        "en": "Research work per level"
+      },
+      "value": 48000,
+      "structural": false
+    },
+    {
+      "id": "q121_development",
+      "code": "",
+      "name": {
+        "ko": "단계당 발전도 문턱",
+        "en": "Development per tech level"
+      },
+      "value": 20,
+      "structural": false
+    },
+    {
+      "id": "d396_blueprint",
+      "code": "",
+      "name": {
+        "ko": "설계도 할인(만분율)",
+        "en": "Blueprint discount (bp)"
+      },
+      "value": 5000,
+      "structural": false
     }
   ]
 }

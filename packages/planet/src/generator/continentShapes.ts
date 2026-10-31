@@ -2,14 +2,17 @@
 // (덩어리 중심 = 북극)의 꽃잎(타원) 몇 개다. 꽃잎 값 g = 1 − ρ(ρ = 꽃잎 중심에서 잰 현 길이 ÷ 그 방향의 현 반경: 경계 0,
 // 중심 1)이고, 한 덩어리 안 꽃잎은 부드러운 최댓값으로 잇는다. 넓이는 몬테카를로 점으로 재어 배율로 맞춘다.
 // 계산은 사칙연산·Math.sqrt와 @terra/shared 결정적 근사만 쓴다.
-import { detAtan2, detCos, detSin } from "@terra/shared";
+import { detAsin, detAtan2, detCos, detSin } from "@terra/shared";
 import { randomUnitVector, type streamRng, uniform, unitFloat } from "./random.ts";
 
 export type Rng = ReturnType<typeof streamRng>;
 export type Vec3 = [number, number, number];
 
-/** 꽃잎 값의 바닥(먼 바다): 백분위 히스토그램 범위를 좁게 두려고 자른다 */
-export const FIELD_FLOOR = -1;
+/**
+ * 꽃잎 값의 바닥(먼 바다, ρ = 1.65): 그보다 먼 칸은 이 값이다. 백분위 히스토그램 범위를 좁히고, 꽃잎·덩어리의 영향
+ * 범위를 줄여 칸마다 재는 꽃잎 수를 아낀다(대륙 배치의 먼 바다 문턱 −0.6보다 조금 낮게)
+ */
+export const FIELD_FLOOR = -0.65;
 /** 한 덩어리 안 꽃잎을 잇는 부드러운 최댓값의 폭(꽃잎 값 단위) */
 const SMOOTH_UNION = 0.35;
 /** 넓이 맞추기 몬테카를로 점 수(덩어리 하나, 둘레 원 안에 고르게) */
@@ -221,6 +224,12 @@ export function lobeAt(lobes: Float64Array, o: number, x: number, y: number, z: 
   const weight =
     tangent > 1e-18 ? (du * du * inverseMajor2 + dv * dv * (lobes[o + 10] ?? 0)) / tangent : inverseMajor2;
   return 1 - Math.sqrt(Math.max(0, 2 - 2 * pc) * weight);
+}
+
+/** 꽃잎 중심에서 꽃잎 값이 바닥이 되는 각도(현 = (1 − 바닥) × 긴 현 반경). π 이상이면 π */
+export function lobeReachAngle(majorChord: number): number {
+  const half = ((1 - FIELD_FLOOR) * majorChord) / 2;
+  return half >= 1 ? Math.PI : 2 * detAsin(half);
 }
 
 /** 꽃잎 하나를 배열에 쓴다 */

@@ -31,6 +31,7 @@ import {
   fragmentLobes,
   intBetween,
   lobeAt,
+  lobeReachAngle,
   lobesExtent,
   normalize,
   placeLobe,
@@ -53,24 +54,33 @@ import {
 } from "./random.ts";
 import { km } from "./util.ts";
 
-/** 잔 노이즈: 주파수 3(격자 약 2,100km)에서 5옥타브까지(해상도에 맞게), 경계를 대륙 크기에 비례해 앞뒤로 옮긴다 */
+/**
+ * 잔 노이즈: 주파수 3(격자 약 2,100km)에서 4옥타브까지(해상도에 맞게, 가장 잔 격자 약 260km. 더 잔 해안은 해안선
+ * 흔들기 landforms.ts 몫), 경계를 대륙 크기에 비례해 앞뒤로 옮긴다
+ */
 const DETAIL_NOISE: NoiseSetup = {
   name: "continent detail",
   frequency: 3,
-  octaves: 5,
+  octaves: 4,
   gain: 0.5,
   jitter: NOISE_JITTER,
   kind: "fbm",
 };
 /** 잔 노이즈 세기(노이즈 값 그대로에 곱한다. 노이즈 표준편차 약 0.18이면 꽃잎 값으로 약 0.08) */
 const DETAIL_AMOUNT = 0.45;
+/**
+ * 먼 바다: 꽃잎 모양 값이 이보다 낮으면 잔 노이즈를 재지 않는다(F9에서 칸마다 노이즈 7번을 아낀다). 잔 노이즈는 ±0.3
+ * 안이라 그런 칸은 노이즈가 있어도 대륙 지각(문턱 약 0)이 못 되고, 판 끌림(plates.ts, 대륙성 −0.3에서 다 참)도 같다
+ */
+const DEEP_OCEAN = -0.6;
 /** 이 파일의 노이즈 2판 설정(반복 검사 "노이즈 격자점"이 잰다) */
 export const CONTINENT_NOISES: readonly NoiseSetup[] = [DETAIL_NOISE];
 /**
- * 큰 모양 흔들기: 1판 fBm 세 개(주파수 1.6, 2옥타브, 판 흔들기와 같은 종류)를 벡터로 써서 점을 이 값 × 노이즈(표준편차
- * 약 0.15)만큼 옮긴 뒤 꽃잎을 잰다. 모든 덩어리가 같은 흔들기라 배치 전체를 한 번 휘는 것과 같다. 배율이 작아 공간이
+ * 큰 모양 흔들기: 1판 fBm 세 개(주파수 1.6, 2옥타브, 판 흔들기와 같은 종류)를 벡터로 써서 점을 이 값 × 노이즈
+ * (표준편차 약 0.15)만큼 옮긴 뒤 꽃잎을 잰다. 모든 덩어리가 같은 흔들기라 배치 전체를 한 번 휘는 것과 같다. 배율이 작아 공간이
  * 접히지 않으므로(노이즈 기울기 × 배율 < 1) 대륙 사이 바다는 늘거나 줄 뿐 메워지지 않는다. 세게 휘면(0.5) 공간이 접혀
- * 대륙이 이어지거나 팔이 떨어져 나갔다(2026-10-31 F6 시드 6개)
+ * 대륙이 이어지거나 팔이 떨어져 나갔고, 1옥타브로 줄이면 대륙 수가 어긋나는 경우가 3 → 9번(F6, 배치 넷 × 대륙 수 일곱 ×
+ * 시드 여덟 = 224번 중)으로 늘었다(2026-10-31)
  */
 const WARP_FREQUENCY = 1.6;
 const WARP_OCTAVES = 2;
@@ -436,10 +446,16 @@ export function buildContinentModel(
   let index = 0;
   placed.forEach((mass, g) => {
     const start = index;
-    for (const lobe of mass.lobes)
-      writeLobe(lobes, index++, placeLobe(lobe, mass.scale, mass.centre, mass.east));
-    // 영향 끝: 꽃잎 바닥(ρ = 2)까지 = 둘레의 두 배
-    const reach = 2 * mass.extent + 0.05;
+    // 영향 끝: 꽃잎마다 (덩어리 중심에서 꽃잎 중심까지 + 꽃잎 바닥까지 각도)의 최댓값. 그 밖은 모든 꽃잎이 바닥이다
+    let reach = 0;
+    for (const lobe of mass.lobes) {
+      const placedLobe = placeLobe(lobe, mass.scale, mass.centre, mass.east);
+      writeLobe(lobes, index++, placedLobe);
+      reach = Math.max(
+        reach,
+        angleBetween(mass.centre, placedLobe.c) + lobeReachAngle(placedLobe.majorChord),
+      );
+    }
     groups.set([...mass.centre, reach >= Math.PI ? -2 : detCos(reach), start, index], g * GROUP_STRIDE);
   });
   const layoutSeed = streamSeed(seed, STREAM_CONTINENT_LAYOUT);
@@ -550,9 +566,11 @@ export function continentDetailOctaves(cellAngle: number): number {
 function valueInLayout(model: ContinentModel, x: number, y: number, z: number, octaves: number): number {
   const { frequency, gain, jitter } = DETAIL_NOISE;
   // 옥타브 합이 아니라 가장 많은 옥타브의 합으로 나눈다: 낮은 면 레벨은 잔 옥타브만 빠지고 낮은 옥타브 세기는 같다
+  const shape = shapeAt(model, x, y, z);
+  if (shape < DEEP_OCEAN) return shape;
   const scale = amplitudeSum(gain, octaves) / amplitudeSum(gain, DETAIL_NOISE.octaves);
   const noise = offsetFbm3(model.detailSeed, x, y, z, frequency, octaves, gain, jitter) * scale;
-  return shapeAt(model, x, y, z) + DETAIL_AMOUNT * noise;
+  return shape + DETAIL_AMOUNT * noise;
 }
 
 /**

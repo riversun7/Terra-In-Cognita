@@ -107,10 +107,14 @@ export function precacheUrls(sw) {
 }
 
 /**
- * 관리자 셰이더 측정 조각(apps/game/src/admin/gpuBench/) — [측정 시작]을 누를 때만 받는다(three/webgpu 약 690kB).
- * 미리 캐시하면 모든 사용자가 서비스 워커 설치 때 받는다. vite.config.ts의 workbox.globIgnores가 뺀다
+ * 개발자 도구 조각(ADR 2026-10-29-planet-editor-stage1 1절) — 셰이더 측정(gpuBench…)과 행성 편집기(planetEditor…)의
+ * 화면·코드·워커·CSS. 개발자 도구를 열 때만 받는다(셰이더 측정의 three/webgpu는 약 690kB).
+ * 미리 캐시하면 모든 플레이어가 서비스 워커 설치 때 받는다. vite.config.ts의 workbox.globIgnores가 같은 파일을 뺀다.
+ * 조각 이름은 진입 파일 이름을 따른다: 개발자 도구의 지연 로딩·워커 진입 파일은 이 앞머리로 짓는다
+ * (대문자로 시작하는 화면 파일 PlanetEditorScreen.tsx도 걸리게 [Pp]. 시험이 진입 파일 이름을 본다).
+ * 개발자 홈(DevHome)은 작은 목록이라 이 규칙 밖이다(미리 캐시된다).
  */
-export const ADMIN_ONLY_CHUNK = /^assets\/gpuBench[^/]*\.js$/;
+export const DEV_ONLY_CHUNK = /^assets\/(gpuBench|[Pp]lanetEditor)[^/]*\.(js|css)$/;
 
 /**
  * 디자인 시스템 규칙(ADR 2026-10-28-design-system)
@@ -148,8 +152,8 @@ function findDesignProblems({ indexHtml, sw, files, readFile }) {
     for (const url of urls.filter((u) => FONT_FILE.test(u))) {
       problems.push(`sw.js가 글꼴을 미리 캐시합니다(처음 쓸 때 받아야 함): ${url}`);
     }
-    for (const url of urls.filter((u) => ADMIN_ONLY_CHUNK.test(u))) {
-      problems.push(`sw.js가 관리자 측정 조각을 미리 캐시합니다(누를 때만 받아야 함): ${url}`);
+    for (const url of urls.filter((u) => DEV_ONLY_CHUNK.test(u))) {
+      problems.push(`sw.js가 개발자 도구 조각을 미리 캐시합니다(도구를 열 때만 받아야 함): ${url}`);
     }
   }
   const fonts = files.filter((file) => FONT_FILE.test(file));

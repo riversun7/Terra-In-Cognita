@@ -305,6 +305,16 @@
 - 알려진 문제(따로 정한다): 공개 정의 해시(목록 정보 `definitionHash`, 타일 주소 버전의 앞 16자, 타일 머리 32바이트)는 키 없는 SHA-256이다. 시드 말고 나머지 정의를 아는 사람은 시드(2^32가지)를 찾을 수 있다(검토에서 찾음). 막으려면 정의 해시를 서버 비밀 키로 만들어야 하고, 타일 머리·주소·디스크 캐시 열쇠가 함께 바뀐다(ADR 36 전송). 지금은 시드로 숨기는 게임 자료(자원·조우 등)가 없어(생성 결과는 지형·기후 값이고 강수 말고는 타일로 이미 나간다) 1단계를 막지 않는다. 플레이어에게 처음 공개하는 행성 전에 새 ADR로 정한다.
 - 잰 값(Verified: 개발 컨테이너, 부하 4~6): 시작 때 확인 해시 행성마다 90~600ms(첫 행성은 JIT 데우기 포함), 두 행성 합계 276~940ms. 정의 조회 응답 4,359바이트(UTF-8, tRPC 응답 전체. 자료만 4,339바이트). 빈 캐시 F9 굽기 행성마다 19.5~20.9초(차례로 둘, 42.7초).
 
+#### WP-H 개발자 홈 (2026-10-30, 작업 기록 `2026/10/30-0220-editor-devhome.md`)
+- 개발자 홈(`editor/DevHome.tsx`)의 도구 목록은 주소 표에서 부모가 `dev`인 줄과 같다. 차례는 주소 표 차례다. 그런 줄을 더하면 도구 표(`DEV_TOOLS`)에서 타입 오류가 난다. 도구 줄 = 아이콘·이름(주소 표 화면 이름 키 `shell_route_dev_*`)·한 줄 설명. 화면이 아직 준비 중 화면인 도구는 "준비 중" 칩을 붙인다(`ready: false`. 지금 행성 편집기. WP-D가 화면을 붙일 때 true로 바꾼다).
+- 셰이더 측정은 `admin/GpuBenchPanel.tsx`를 `editor/GpuBenchPage.tsx`로 옮겨 화면으로 만들었다(`git mv`). 제목(h1)은 주소 표 화면 이름이고, 측정판 제목 키(`gpu_bench_title`)는 지웠다. 촘촘 변형은 관리자 화면 안에 있을 때와 같다.
+- 셰이더 측정 화면 조각의 진입은 `editor/gpuBench/gpuBenchScreen.ts`(GpuBenchPage를 다시 내보내기만 함)다. 1절 정규식은 소문자 `gpuBench`만 맞는데, 화면 파일 `GpuBenchPage.tsx`를 바로 `import()`하면 조각이 `GpuBenchPage-*.js`(대문자 G)가 되어 모든 플레이어에게 미리 캐시되기 때문이다. 정규식은 바꾸지 않고 1절의 "진입 파일 이름 앞머리를 지킨다"로 맞췄다(Verified: 빌드 조각 `gpuBenchScreen-*.js`·`.css`에 GpuBenchPage 코드·CSS가 든다).
+- 개발자 홈 조각(`DevHome-*.js`·`.css`, gzip 약 1.2KB + 0.6KB)은 1절 이름 규칙 밖이라 미리 캐시된다. 작은 목록이라 그대로 둔다.
+- 미리 캐시: `DEV_ONLY_CHUNK`는 1절 정규식 그대로다. `globIgnores`는 `assets/gpuBench*.{js,css}`·`assets/[Pp]lanetEditor*.{js,css}`다. 빌드 뒤 `check-pwa.mjs`가 정규식에 걸리는 파일이 미리 캐시되지 않았는지 본다. 시험(`scripts/pwa-build.test.mjs`)은 개발자 도구 폴더와 `shell/routeViews.tsx`의 지연 로딩·워커 진입 파일(`import("…")`, `new URL("…", import.meta.url)`) 이름이 정규식에 걸리는지 본다(개발자 홈만 뺀다).
+  - 남은 틈(Assumed): 개발자 조각 둘이 함께 쓰는 모듈은 rolldown이 따로 묶고, 그 조각 이름은 안의 모듈 이름을 따른다(지금 `gpuBenchScene-*.js`). 앞머리가 없는 모듈만 든 공용 조각이 생기면 미리 캐시된다. 시험은 진입 파일만 본다. WP-D는 빌드 뒤 미리 캐시 목록(`dist/sw.js`)에 편집기 모듈이 없는지 소스 맵으로 본다.
+- 화면 문구 키 앞머리는 `dev_`다(`dev_home_lead`·`dev_home_tools`·`dev_tool_<도구>_desc`·`dev_tool_soon`). 홈 제목은 `shell_dev`를 다시 쓴다.
+- 잰 값(Verified: 개발 컨테이너, 부하 5~15, main `acd651d`을 합친 뒤): 첫 화면 JS 125,940 → 126,754B(+814B, 상한 131,416B 그대로). 첫 화면 소스 모듈은 243개 그대로이고 조각 나눔만 바뀌었다(3개 → 5개: 공용 조각 `routes`·`reporter`가 따로 나옴, 소스 맵 비교). 미리 캐시 53개 1,341.31KiB → 57개 1,326.17KiB(개발자 홈 JS·CSS와 위 공용 조각 둘을 더함, `gpuBench*` 0개). 관리자 조각 JS 23.87 → 6.55kB, CSS 5.57 → 1.91kB. 셰이더 측정 화면 조각 JS 17.58kB(gzip 6.79kB), CSS 3.40kB.
+
 ### 사용자 결정 (2026-10-29)
 | ID | 묻는 것 | 추천 | 사용자 답(원문) |
 |---|---|---|---|

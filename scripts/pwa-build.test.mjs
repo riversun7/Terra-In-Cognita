@@ -1,7 +1,11 @@
 // PWA 빌드 결과 검사 시험 — 실제 빌드(vite-plugin-pwa 2.0.0 + Workbox 7.4.1)와 같은 모양의 가짜 결과로 본다
+import { readFileSync, readdirSync } from "node:fs";
+import nodePath from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   ALLOWED_NAVIGATIONS,
+  DEV_ONLY_CHUNK,
   ROUTE_NAVIGATIONS,
   extractDenylist,
   findPwaProblems,
@@ -45,6 +49,14 @@ const MANIFEST = {
 
 // 빌드된 sw.js(압축됨)에서 검사가 보는 부분
 const SW = `define(["./workbox-2178cfdb"],function(e){"use strict";self.addEventListener("message",e=>{e.data&&"SKIP_WAITING"===e.data.type&&self.skipWaiting()}),e.precacheAndRoute([{url:"theme-init.js",revision:"daa4"},{url:"index.html",revision:"3580"},{url:"assets/index-Cvbx1a8l.css",revision:null}],{}),e.cleanupOutdatedCaches(),e.registerRoute(new e.NavigationRoute(e.createHandlerBoundToURL("index.html"),{denylist:[/^\\/(api|ws|health)(\\/|\\?|$)/]}))});`;
+
+/** 가짜 sw.js에 미리 캐시 주소 하나를 더한 것 */
+function swPrecaching(url) {
+  return SW.replace(
+    '{url:"index.html",revision:"3580"}',
+    `{url:"index.html",revision:"3580"},{url:"${url}",revision:null}`,
+  );
+}
 
 /** 빌드된 CSS(글꼴은 파일 주소로) */
 const CSS = new TextEncoder().encode(
@@ -242,16 +254,90 @@ describe("디자인 시스템 규칙(테마 시작 스크립트·글꼴)", () =>
     expect(precacheUrls(SW)).toEqual(["theme-init.js", "index.html", "assets/index-Cvbx1a8l.css"]);
   });
 
-  it("관리자 셰이더 측정 조각을 미리 캐시하면 실패(누를 때만 받는다)", () => {
-    const sw = SW.replace(
-      '{url:"index.html",revision:"3580"}',
-      '{url:"index.html",revision:"3580"},{url:"assets/gpuBenchTsl-Acw_2DfU.js",revision:null}',
+  it("개발자 도구 조각(셰이더 측정·행성 편집기의 JS·CSS)을 미리 캐시하면 실패(도구를 열 때만 받는다)", () => {
+    const devChunks = [
+      "assets/gpuBenchTsl-Acw_2DfU.js",
+      "assets/gpuBenchScreen-B1c2D3e4.js",
+      "assets/gpuBenchScreen-B1c2D3e4.css",
+      "assets/planetEditorWorker-C9d8E7f6.js",
+      "assets/PlanetEditorScreen-D5e6F7g8.js",
+      "assets/PlanetEditorScreen-D5e6F7g8.css",
+    ];
+    for (const url of devChunks) {
+      expect(findPwaProblems(build({ sw: swPrecaching(url) })), url).toEqual([
+        expect.stringContaining(`개발자 도구 조각을 미리 캐시합니다(도구를 열 때만 받아야 함): ${url}`),
+      ]);
+    }
+    // 관리자·개발자 홈·다른 화면 조각, 다른 폴더·확장자는 미리 캐시해도 된다
+    for (const url of [
+      "assets/AdminPage-DFRSzlZB.js",
+      "assets/DevHome-E1f2G3h4.js",
+      "assets/DevHome-E1f2G3h4.css",
+      "assets/sub/gpuBench-F1g2H3i4.js",
+      "assets/gpuBenchTsl-Acw_2DfU.wasm",
+      "gpuBench.js",
+    ]) {
+      expect(DEV_ONLY_CHUNK.test(url), url).toBe(false);
+    }
+  });
+});
+
+/** 저장소 뿌리(이 시험 파일의 위 폴더) */
+const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
+/** 개발자 도구 소스 폴더(ADR 2026-10-29-planet-editor-stage1 1절) */
+const EDITOR_DIR = "apps/game/src/editor";
+/** 화면 지연 로딩 표 — 개발자 도구 화면도 여기서 import()한다 */
+const ROUTE_VIEWS = "apps/game/src/shell/routeViews.tsx";
+/** 미리 캐시하는 개발자 화면: 개발자 홈(작은 목록, ADR 38 1절의 조각 이름 규칙 밖) */
+const PRECACHED_DEV_ENTRIES = ["apps/game/src/editor/DevHome.tsx"];
+
+/** 소스 글의 지연 로딩·워커 진입 대상(상대 경로): import("…"), new URL("…", import.meta.url) */
+function entryTargets(source) {
+  const pattern = /\bimport\(\s*"([^"]+)"\s*\)|\bnew URL\(\s*"([^"]+)"\s*,\s*import\.meta\.url\s*\)/g;
+  return [...source.matchAll(pattern)].map((match) => match[1] ?? match[2]);
+}
+
+/** 진입 파일(저장소 기준 경로)이 만드는 조각의 이름 꼴: 진입 파일 이름(확장자 뺌) + 해시 */
+function chunkOf(entry) {
+  return `assets/${nodePath.posix.basename(entry).replace(/\.[^.]+$/, "")}-AbCd1234.js`;
+}
+
+/** 개발자 도구 소스(시험 파일 빼고)와 화면 지연 로딩 표가 개발자 도구 폴더 안에서 가리키는 진입 대상(저장소 기준 경로) */
+function devEntries() {
+  const sources = [
+    ...readdirSync(nodePath.join(REPO_ROOT, EDITOR_DIR), { recursive: true })
+      .map((file) => nodePath.posix.join(EDITOR_DIR, String(file).split(nodePath.sep).join("/")))
+      .filter((file) => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file)),
+    ROUTE_VIEWS,
+  ];
+  const entries = sources.flatMap((file) =>
+    entryTargets(readFileSync(nodePath.join(REPO_ROOT, file), "utf8"))
+      .filter((target) => target.startsWith("."))
+      .map((target) => nodePath.posix.join(nodePath.posix.dirname(file), target))
+      .filter((target) => target.startsWith(`${EDITOR_DIR}/`)),
+  );
+  return [...new Set(entries)];
+}
+
+describe("개발자 도구 조각 이름(DEV_ONLY_CHUNK가 기대는 규칙)", () => {
+  it("진입 대상을 찾는다(셰이더 측정 화면·실행기·방식 모듈, 행성 편집기 워커, 개발자 홈)", () => {
+    expect(devEntries()).toEqual(
+      expect.arrayContaining([
+        "apps/game/src/editor/DevHome.tsx",
+        "apps/game/src/editor/gpuBench/gpuBenchScreen.ts",
+        "apps/game/src/editor/gpuBench/gpuBenchRunner.ts",
+        "apps/game/src/editor/gpuBench/gpuBenchGlsl.ts",
+        "apps/game/src/editor/gpuBench/gpuBenchTsl.ts",
+        "apps/game/src/editor/planet/planetEditorWorker.ts",
+      ]),
     );
-    expect(findPwaProblems(build({ sw }))).toEqual([expect.stringContaining("관리자 측정 조각")]);
-    const other = SW.replace(
-      '{url:"index.html",revision:"3580"}',
-      '{url:"index.html",revision:"3580"},{url:"assets/AdminPage-DFRSzlZB.js",revision:null}',
+  });
+
+  it("개발자 도구의 지연 로딩·워커 진입 파일은 이름이 DEV_ONLY_CHUNK에 걸린다(개발자 홈만 빼고)", () => {
+    // 화면 파일(GpuBenchPage.tsx, 대문자 G)을 바로 import()하면 여기서 걸린다(gpuBench/gpuBenchScreen.ts를 거친다)
+    const missed = devEntries().filter(
+      (entry) => !PRECACHED_DEV_ENTRIES.includes(entry) && !DEV_ONLY_CHUNK.test(chunkOf(entry)),
     );
-    expect(findPwaProblems(build({ sw: other }))).toEqual([]);
+    expect(missed).toEqual([]);
   });
 });

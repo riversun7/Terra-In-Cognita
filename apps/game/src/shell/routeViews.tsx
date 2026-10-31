@@ -1,6 +1,6 @@
 // 주소 → 화면 표(ADR 2026-10-29-app-shell 1·11절). 화면은 모두 지연 로딩 조각이다(첫 화면 묶음에 넣지 않는다).
 // 화면에 프레임 측정(monitor)·[뒤로](onClose = 화면 안 뒤로)·로그인한 사람을 넘기는 길도 여기다.
-// 꽂는 줄: 다른 줄기가 자기 화면을 만들면 아래 lazy 한 줄만 바꾼다(개발자 영역 ADR 38 WP-H·WP-D).
+// 꽂는 줄: 다른 줄기가 자기 화면을 만들면 아래 lazy 한 줄만 바꾼다(행성 편집기 ADR 38 WP-D).
 // 그 화면들은 { match } (+ 홈은 monitor)를 받는다: 검색어(?template=, ?item=)는 match.search에 있다.
 // 화면 안 useMountFocus(ui/useMountFocus.ts)는 앱 안에서 옮겨 연 화면에서만 초점을 옮긴다(MountFocusContext):
 // 주소로 바로 열거나 새로고침한 화면은 옮기지 않는다(ADR 37 1절). 앱 안 이동의 초점은 틀(Shell.tsx)도 새 화면 제목에 둔다.
@@ -25,6 +25,9 @@ const InboxScreen = lazy(() => import("../inbox/InboxScreen.tsx"));
 const ComingSoon = lazy(() => import("../sections/ComingSoon.tsx"));
 const SettingsPage = lazy(() => import("../settings/SettingsPage.tsx"));
 const AdminPage = lazy(() => import("../admin/AdminPage.tsx"));
+// 개발자 영역(ADR 38 1절). 셰이더 측정은 gpuBench…로 시작하는 진입 파일로 받는다(조각 이름 → 미리 캐시에서 빠짐)
+const DevHome = lazy(() => import("../editor/DevHome.tsx"));
+const GpuBenchPage = lazy(() => import("../editor/gpuBench/gpuBenchScreen.ts"));
 // 지도: Three.js·엔진은 이 조각들과 함께만 내려온다. 떠나면 내린다(ADR 37 11절). 화면은 { onClose, monitor }만 받는다
 const SecondaryMapScreen = lazy(() => import("../map/SecondaryMapScreen.tsx"));
 const PlanetMapScreen = lazy(() => import("../map/PlanetMapScreen.tsx"));
@@ -125,10 +128,12 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <SettingsPage onClose={goBack} />;
     case "admin":
       return <AdminPage viewer={user} onClose={goBack} />;
-    // 꽂는 줄(ADR 38 WP-H·WP-D): 개발자 홈·행성 편집기·셰이더 측정 화면이 생기면 그 조각으로 바꾼다
     case "dev":
-    case "dev_planet_editor":
+      return <DevHome />;
     case "dev_gpu_bench":
+      return <GpuBenchPage />;
+    // 꽂는 줄(ADR 38 WP-D): 행성 편집기 화면이 생기면 그 조각으로 바꾼다
+    case "dev_planet_editor":
     case "units":
     case "economy":
     case "faction":

@@ -1,4 +1,4 @@
-// 셰이더 측정 실행기 — [측정 시작]을 누를 때만 받는 지연 조각(GpuBenchPanel이 import()한다).
+// 셰이더 측정 실행기 — [측정 시작]을 누를 때만 받는 지연 조각(GpuBenchPage가 import()한다).
 // 타일 수마다 자료를 한 번 만들고, 고른 방식을 잰다. 방식 순서는 타일 수마다 한 칸씩 돌린다(gpuBenchPlan.ts modeOrder).
 // 방식 코드(three, three/webgpu)는 그 조각을 처음 쓸 때 받는다(두 TSL 방식은 같은 조각).
 // 한 번 재기: 코드 받기 → 렌더러 만들기·초기화 → 장면 → 셰이더 컴파일 → 첫 프레임 → 몸풀기 1초 → 재기 6초 → 버리기.
@@ -77,7 +77,7 @@ function readHeapMb(): number | null {
 /**
  * 엔진(packages/engine sharedRenderer.ts의 DEFAULT_MAX_PIXEL_RATIO)과 같은 픽셀 비율 상한: 2(휴대폰도).
  * 2026-10-29까지 휴대폰은 1.5였다 — 그 전 기록의 bufferW·bufferH와 견줄 때 조심한다(ADR 2026-10-28-s1-second-map "2차맵 선명도").
- * 엔진을 가져오지 않고 값을 옮겨 적는다(관리자 조각에 엔진이 묶이지 않게)
+ * 엔진을 가져오지 않고 값을 옮겨 적는다(측정 조각에 엔진이 묶이지 않게)
  */
 const MAX_PIXEL_RATIO = 2;
 

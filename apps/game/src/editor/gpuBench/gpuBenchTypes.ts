@@ -1,4 +1,4 @@
-// 셰이더 측정의 공용 모양 — 화면(GpuBenchPanel), 실행기(gpuBenchRunner), 방식 모듈(gpuBenchGlsl·gpuBenchTsl)이 함께 쓴다.
+// 셰이더 측정의 공용 모양 — 화면(GpuBenchPage), 실행기(gpuBenchRunner), 방식 모듈(gpuBenchGlsl·gpuBenchTsl)이 함께 쓴다.
 // 타입과 작은 상수만 둔다(three를 가져오지 않는다). 화면 조각에는 이 파일만 정적으로 들어간다.
 import type { FrameSummary } from "../../perf/frameStats.ts";
 import type { GpuDoneTracker } from "./gpuBenchGpuDone.ts";

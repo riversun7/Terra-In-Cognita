@@ -1,10 +1,15 @@
-// 관리자 화면의 셰이더 측정 판(S2, ADR 2026-10-29-s2-planet-lod "셰이더 언어") — WebGL2 + GLSL과 WebGPU + TSL을
-// 같은 행성 타일로 그려 잰다(PLAN 5.7 "WebGPU는 S2 1주차에 측정해 셰이더 언어를 확정한다").
+// 셰이더 측정 화면(/dev/gpu-bench, 개발자 영역 — ADR 2026-10-29-planet-editor-stage1 1절). 관리자 화면에서 옮겼다.
+// S2 측정(ADR 2026-10-29-s2-planet-lod "셰이더 언어"): WebGL2 + GLSL과 WebGPU + TSL을 같은 행성 타일로 그려 잰다
+// (PLAN 5.7 "WebGPU는 S2 1주차에 측정해 셰이더 언어를 확정한다").
+// - 이 화면은 서버 자료를 쓰지 않는다. 그래서 dev·admin이 아니면 기기에서만 가린다(주소 표 access, 권한 없음 화면).
+// - 화면 조각은 gpuBench/gpuBenchScreen.ts를 거쳐 받는다: 조각 이름이 gpuBench…라 서비스 워커 미리 캐시에서 빠진다.
 // - 측정 코드(three, three/webgpu)는 [측정 시작]을 누를 때만 받는다(지연 조각). 누르기 전에는 아무것도 재지 않는다.
 // - 재는 동안 화면 전체를 덮는 창(dialog)에 캔버스를 띄운다. 결과는 표와 복사할 요약 글로만 보여 준다(서버로 보내지 않음).
 // - 성능 보고(텔레메트리)에는 이 구간을 "#gpu-bench"로 붙인다(다른 화면 수치에 섞이지 않게).
+// - 빽빽한 화면이라 촘촘 변형(data-density="compact")을 쓴다(관리자 화면 안에 있을 때와 같은 모양).
 import { useEffect, useId, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { BackButton } from "../shell/BackButton.tsx";
 import { setTelemetryView } from "../telemetry/reporter.ts";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { type SummaryLabels, buildSummaryText, formatMs, readyMs } from "./gpuBench/gpuBenchSummary.ts";
@@ -98,7 +103,7 @@ const fixed1 = (value: number | undefined): string => (value === undefined ? "�
 /** 누른 뒤 상태: 코드 받는 중 / 재는 중 / 쉼 */
 type Busy = "loading" | "running" | null;
 
-export function GpuBenchPanel() {
+export default function GpuBenchPage() {
   const headingId = useId();
   const runTitleId = useId();
   const captionId = useId();
@@ -208,11 +213,14 @@ export function GpuBenchPanel() {
   }
 
   return (
-    <section className="bench" aria-labelledby={headingId}>
-      <h2 id={headingId} className="admin-subtitle">
-        {m.gpu_bench_title()}
-      </h2>
-      <p className="bench-lead">{m.gpu_bench_lead()}</p>
+    <section className="screen bench" data-density="compact" aria-labelledby={headingId}>
+      <div className="screen-header">
+        <h1 id={headingId} className="screen-title" tabIndex={-1}>
+          {m.shell_route_dev_gpu_bench()}
+        </h1>
+        <BackButton />
+      </div>
+      <p className="lead">{m.gpu_bench_lead()}</p>
       <fieldset className="bench-modes">
         <legend className="field-label">{m.gpu_bench_modes()}</legend>
         {BENCH_MODES.map((mode) => (
@@ -252,7 +260,7 @@ export function GpuBenchPanel() {
 
       {report && summary !== null ? (
         <div className="bench-results">
-          <h3 className="bench-heading">{m.gpu_bench_results()}</h3>
+          <h2 className="bench-heading">{m.gpu_bench_results()}</h2>
           {/* 표 설명은 밀리는 영역 밖에 둔다(좁은 화면에서 잘리지 않게). 표와 영역의 이름으로 쓴다 */}
           <p id={captionId} className="bench-caption">
             {m.gpu_bench_table_caption()}
@@ -293,7 +301,7 @@ export function GpuBenchPanel() {
               </tbody>
             </table>
           </div>
-          <h3 className="bench-heading">{m.gpu_bench_summary_title()}</h3>
+          <h2 className="bench-heading">{m.gpu_bench_summary_title()}</h2>
           <pre ref={summaryRef} className="bench-summary" data-testid="gpu-bench-summary">
             {summary}
           </pre>

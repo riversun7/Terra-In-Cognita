@@ -1,0 +1,95 @@
+/*
+ * 개발자 홈(/dev) — 개발자 홈 조각과 함께 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 도구 줄은 장난감 버튼처럼 아래 턱이 있고, 누르면 턱만큼 들어간다(styles.css의 button과 같은 움직임).
+ */
+.dev-tools {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.dev-tool {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-h);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  box-shadow: 0 var(--lip) 0 var(--color-secondary-lip);
+  color: var(--color-text);
+  text-decoration: none;
+  /* 두 번 톡(확대) 기다림 없이 바로 */
+  touch-action: manipulation;
+  /* 손을 떼면 살짝 튀며 올라온다 */
+  transition:
+    transform var(--duration-base) var(--easing-bounce),
+    box-shadow var(--duration-base) var(--easing-bounce);
+}
+.dev-tool:active {
+  transform: translateY(var(--lip));
+  box-shadow: 0 0 0 var(--color-secondary-lip);
+  /* 누를 때는 짧게 */
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--easing-out);
+}
+/* 도구 아이콘 — 둥근 칩 안 */
+.dev-tool-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--tap-size);
+  height: var(--tap-size);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+}
+.dev-tool-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.dev-tool-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.dev-tool-desc {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+}
+/* "준비 중" 칩 — 색만으로 알리지 않는다(글자가 있다) */
+.dev-tool-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-body);
+  white-space: nowrap;
+}
+.dev-tool-go {
+  display: grid;
+  flex: none;
+  color: var(--color-text-muted);
+}
+/* 마우스가 있는 기기(데스크톱)에서만: 올리면 둘째 판 색. 터치는 누를 때 가짜 hover가 생겨서 뺀다 */
+@media (hover: hover) and (pointer: fine) {
+  .dev-tool:hover {
+    background-color: var(--color-surface-2);
+  }
+  .dev-tool:hover .dev-tool-mark {
+    background-color: var(--color-surface);
+  }
+}

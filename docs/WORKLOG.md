@@ -9,6 +9,7 @@
 | 2026-10-31 09:10 | 1차맵 구름 — GPU 굽기 큐브, 기후 치우침, 날씨 창, 껍질·걷히기·고른 칸 둘레 (WP5) | Claude Code | [31-0910-sky-clouds](worklog/2026/10/31-0910-sky-clouds.md) |
 | 2026-10-31 09:10 | 기획 미러 동기화 — 원본 aadab42(D-272~D-324, Step 5 D-5049·D-5050, Step 7 D-7036~D-7054) | Claude Code | [31-0910-design-mirror-aadab42](worklog/2026/10/31-0910-design-mirror-aadab42.md) |
 | 2026-10-31 09:10 | 앱 뼈대 W3·W4 문서 정리: ADR 37 "구현하며 정한 것" W3·W4, 0단계 남은 것 표시, PLAN 14장 줄 | Claude Code | [31-0910-app-shell-notes-2](worklog/2026/10/31-0910-app-shell-notes-2.md) |
+| 2026-10-30 02:20 | 행성 편집기 1단계 WP-H: 개발자 홈(/dev), 셰이더 측정판을 /dev/gpu-bench로 옮김, 미리 캐시 규칙 DEV_ONLY_CHUNK | Claude Code | [30-0220-editor-devhome](worklog/2026/10/30-0220-editor-devhome.md) |
 | 2026-10-30 02:20 | 앱 뼈대 W4 합치기(홈 대시보드) — 앱 뼈대 W1~W5가 모두 main에 | Claude Code | [30-0220-app-shell-w4-integration](worklog/2026/10/30-0220-app-shell-w4-integration.md) |
 | 2026-10-30 02:10 | 앱 뼈대 W3 합치기(처리할 일·종 배지·받은 편지 화면·돌아오면 요약) | Claude Code | [30-0210-app-shell-w3-integration](worklog/2026/10/30-0210-app-shell-w3-integration.md) |
 | 2026-10-30 01:55 | 기획 질문 94·95(휴대폰 내 주문 자리, 회유 알림 분류) | Claude Code | [30-0155-planning-questions-94-95](worklog/2026/10/30-0155-planning-questions-94-95.md) |

@@ -4,6 +4,7 @@
 // - 무기·방어구(무기·보조·머리·몸·안장)는 2차 수치, 장신구·인공장기·부품은 1차 스탯을 올린다(D-423). 칸과 스탯 묶음이 맞지 않으면 거절한다.
 // - 착용에 스탯 요구가 없다(D-424). 성능은 판정 때 무기 틀 min(2, 유닛 값 ÷ 적정치)으로 준다(formula.ts weaponScaled).
 // 기획 48 §5와 맞췄다(안장 = 1차, 2차 공격력은 장비가 올리지 않음). [임시] 칸 이름(코드)·장비 스킬(소켓 인챈트 전 단계).
+import type { GemRef } from "./gems.ts";
 import { type Primaries, type StatRow, computeSecondary } from "./stats.ts";
 import type { WeaponSpec } from "./unitSpec.ts";
 
@@ -51,6 +52,8 @@ export interface EquippedItem {
   readonly values: readonly { readonly stat: string; readonly value: number }[];
   readonly weapon?: WeaponSpec | undefined;
   readonly skills: readonly string[];
+  /** 소켓에 끼운 보석(D-435): 스킬 보석 = 장비 스킬, 스탯 보석 = 1차 스탯(D-423) */
+  readonly gems?: readonly GemRef[] | undefined;
 }
 
 const isPrimary = (stat: string): stat is PrimaryCode => (PRIMARY_CODES as readonly string[]).includes(stat);
@@ -141,6 +144,10 @@ export function loadoutOf(options: {
     }
     if (item.slot === "weapon" && item.weapon) weapon = item.weapon;
     equipSkills.push(...item.skills);
+    for (const gem of item.gems ?? []) {
+      if (gem.kind === "skill") equipSkills.push(gem.skill);
+      else if (isPrimary(gem.stat)) primary[gem.stat] += gem.value;
+    }
   }
   const skills = [...new Set([...(options.innateSkills ?? []), ...equipSkills])];
   return {

@@ -359,3 +359,15 @@ export {
   type TuningKey,
 } from "./tuning.ts";
 export { TEST_SOCIETY_COEFFICIENTS, type SocietyCoefficients } from "./society/coefficients.ts";
+export {
+  PROTECTOR_ASSET,
+  TEST_GEM_RULES,
+  enchant,
+  extractGene,
+  gemAsset,
+  type EnchantOutcome,
+  type GemRef,
+  type GemRules,
+  type InnateSkill,
+  type SocketedItem,
+} from "./combat/gems.ts";

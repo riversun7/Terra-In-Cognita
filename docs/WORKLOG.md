@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-31 13:40 | 사용자 결정: 행성 목록·대륙 모양·태양계 샘플·항성계·은하지도, S3 10만 개 시험 빼기 | Claude Code | [31-1340-user-decisions-library-space](worklog/2026/10/31-1340-user-decisions-library-space.md) |
 | 2026-10-31 13:30 | 행성 편집기: 적용 줄 자리 옮김, 누르는 조작은 바로 적용 | Claude Code | [31-1330-editor-ux2](worklog/2026/10/31-1330-editor-ux2.md) |
 | 2026-10-31 11:15 | 행성 편집기 사용성 고침: 적용 단추, 칸 쉬운 설명, 지구본 옆 평면 미니맵 | Claude Code | [31-1115-editor-ux](worklog/2026/10/31-1115-editor-ux.md) |
 | 2026-10-31 10:30 | 사용자 확인 — 1차맵·홈 메뉴 좋음, 편집기 고칠 것 셋 | Claude Code | [31-1030-user-review-editor](worklog/2026/10/31-1030-user-review-editor.md) |

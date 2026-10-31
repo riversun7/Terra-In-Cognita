@@ -1,15 +1,15 @@
-# 세력·우편 화면 초안(`/faction`·`/mail`): 실제 자료 + 시안 자료, 곧 열림 동작, 기획 질문 151~160
+# 세력·우편 화면 초안(`/faction`·`/mail`): 실제 자료 + 시안 자료, 곧 열림 동작, 기획 질문 153~162
 
 - 일시: 2026-10-31 22:10 (KST)
 - 작업 도구: Claude Code
-- 관련: 기획 D-439(질문 131 기술 기본안 가, 기획 커밋 ee6d808 — 미러 전), D-270, 기획 `docs/design/40_Systems/46_Faction_Society.md`, ADR 37 `2026-10-29-app-shell.md` "구현하며 정한 것 (세력·우편 화면)", 질문 `docs/questions/2026-10-31-ui-faction-mail.md`(151~160), 가지 `work/ui-faction-mail`(main `f38e088`에서)
+- 관련: 기획 D-439(질문 131 기술 기본안 가, 기획 커밋 ee6d808 — 미러 전), D-270, 기획 `docs/design/40_Systems/46_Faction_Society.md`, ADR 37 `2026-10-29-app-shell.md` "구현하며 정한 것 (세력·우편 화면)", 질문 `docs/questions/2026-10-31-ui-faction-mail.md`(153~162), 가지 `work/ui-faction-mail`(main `f38e088`에서)
 
 ## 한 일
 - 세력 화면(`/faction`): 기획 46을 따라 기술이 먼저 만든 초안. 요약 판(세력·가문·체제·지도자·구성원·도시·위 세력·종속국·세력 화폐·국고) + 내 몫(실제 자료) + 잠긴 메뉴(D-5055) + 탭 다섯(도시 내정 · 외교 표 · 전쟁·선포 · 정권·투표 · 도시 지분과 점령 처리 다섯). 아직 규칙이 없는 칸은 "곧 열림".
 - 우편 화면(`/mail`): 받은 우편·보낸 우편·쓰기. 첨부는 물건·세력 화폐(D-270). 쓰기는 칸 검사만 하고 보내기는 곧 열림. 감시는 화면에 없다.
 - 서버 조회 둘(`faction.overview`, `mail.list`, 쓰기 없음)과 시안 자료. dev·admin의 시안 스위치(홈과 같은 하나)를 두 화면에도 두었다.
 - 게임 상태를 바꾸는 동작(선전포고·투표·편입 답·보내기·받기 등)은 모두 곧 열림 단추(`aria-disabled`, 누르면 "아무 명령도 보내지 않았다"를 읽는다).
-- 기획 질문 10개(151~160)를 [임시] 기본안과 함께 적었다.
+- 기획 질문 10개(153~162)를 [임시] 기본안과 함께 적었다.
 
 ## 실제 자료와 시안 자료
 | 칸 | 지금 | 출처 |
@@ -52,11 +52,11 @@
 | `apps/game/messages/{ko,en}.json` | 화면 문구 293개(ko·en, 끝에 더함) |
 | `e2e/faction.spec.ts`·`e2e/mail.spec.ts`(새) | 화면 시험·사진 |
 | `docs/adr/2026-10-29-app-shell.md` | 구현하며 정한 것 (세력·우편 화면) |
-| `docs/questions/2026-10-31-ui-faction-mail.md`(새) | 기획 질문 151~160 |
+| `docs/questions/2026-10-31-ui-faction-mail.md`(새) | 기획 질문 153~162 |
 
 ## 함께 바꿔야 하는 파일
 - R4b가 도시·외교·전쟁·정권·지분·점령 자료를 만들면 `apps/server/src/factionScreen/overview.ts`의 `buildFactionOverview`에서 그 칸을 `{ status: "ready", data }`로 채운다(모양은 `@terra/shared/faction`). 기기는 그대로다. 세력 이름·태그 칸이 생기면 `factionRef`를 바꾼다.
-- 기획 답(151~160)이 오면: 띠 이름·문턱(`RELATION_BANDS`·`relationBand`), 태업 문턱(`SLOWDOWN_BELOW`), 잠긴 메뉴(`LOCK_RULES`), 우편 상한(`MAIL_*`), 탭 구성(`FACTION_TABS`)과 메시지.
+- 기획 답(153~162)이 오면: 띠 이름·문턱(`RELATION_BANDS`·`relationBand`), 태업 문턱(`SLOWDOWN_BELOW`), 잠긴 메뉴(`LOCK_RULES`), 우편 상한(`MAIL_*`), 탭 구성(`FACTION_TABS`)과 메시지.
 - 보내기·받기·투표 등 명령을 만들 때 `SoonButton`을 실제 단추로 바꾸고 프로토콜(`packages/protocol`, `PROTOCOL_VERSION`)·ADR을 함께.
 - 우편 표를 만들면 `apps/server/src/mail/list.ts`의 `EMPTY_MAILBOX` 자리에 실제 우편을 넣는다(쪽 나누기도 그때).
 
@@ -72,4 +72,4 @@
 - 세력 이름이 서버 코드(`s3_test_npc`)로 보인다 [임시](S3 최소 표에 이름 칸이 없다).
 
 ## 사용자 결정 대기
-- 없음. 기획 질문 151~160은 리드가 기획 세션에 넘긴다.
+- 없음. 기획 질문 153~162는 리드가 기획 세션에 넘긴다.

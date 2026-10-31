@@ -5,9 +5,10 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-31 22:45 | 화면 셋(유닛·사이보그, 경제·거래창, 세력·우편)과 R4b 합치기 | Claude Code | [31-2245-merge-ui-r4b](worklog/2026/10/31-2245-merge-ui-r4b.md) |
 | 2026-10-31 22:30 | 유닛 화면·사이보그 화면(그럴듯한 첫 판) | Claude Code | [31-2230-ui-units-cyborg](worklog/2026/10/31-2230-ui-units-cyborg.md) |
 | 2026-10-31 22:30 | 경제 화면: 창고·생산·거래창(호가 + 주문표 + 차트)·내 주문·환전 | Claude Code | [31-2230-ui-economy](worklog/2026/10/31-2230-ui-economy.md) |
-| 2026-10-31 22:10 | 세력·우편 화면 초안(`/faction`·`/mail`): 실제 자료 + 시안 자료, 곧 열림 동작, 기획 질문 151~160 | Claude Code | [31-2210-ui-faction-mail](worklog/2026/10/31-2210-ui-faction-mail.md) |
+| 2026-10-31 22:10 | 세력·우편 화면 초안(`/faction`·`/mail`): 실제 자료 + 시안 자료, 곧 열림 동작, 기획 질문 153~162 | Claude Code | [31-2210-ui-faction-mail](worklog/2026/10/31-2210-ui-faction-mail.md) |
 | 2026-10-31 22:10 | R4b 세력·사회 코어: 지분·점령·반란·독립·인구·기술·노동 규칙, 시뮬이 진짜 규칙으로 돈다, 설정 칸 값(tuning), 기획 48 대조 | Claude Code | [31-2210-faction-society-r4b](worklog/2026/10/31-2210-faction-society-r4b.md) |
 | 2026-10-31 22:00 | S3 뒤: 월드 표에 행성 ID·영역(D-372) | Claude Code | [31-2200-s3-planet-domain](worklog/2026/10/31-2200-s3-planet-domain.md) |
 | 2026-10-31 21:40 | 2차맵 생성 WP-4: 기기 그림·미리보기 — 소품 모델·땅 색, 나침반, 경계 너머 보기(이웃 2차맵), 편집기 2차맵 미리보기 | Claude Code | [31-2140-second-map-wp4](worklog/2026/10/31-2140-second-map-wp4.md) |

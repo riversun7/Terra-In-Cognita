@@ -26,7 +26,7 @@ import { type FactionMembership, type FactionReal, type FactionSource, NO_FACTIO
 /**
  * 잠긴 메뉴 조건(S32 "기능별 잠금 조건"). [임시] 출발값:
  * - 화폐 발행·세율: 도시 1개 이상(D-213 해석 "도시가 없으면 화폐 발행·세율 메뉴가 잠긴다", D-299)
- * - 국가 채권: 도시 5개 이상(D-5055 해석, D-130 출발값). 신용도 조건은 값이 없어 아직 넣지 않았다(질문 156)
+ * - 국가 채권: 도시 5개 이상(D-5055 해석, D-130 출발값). 신용도 조건은 값이 없어 아직 넣지 않았다(질문 158)
  */
 export const LOCK_RULES: readonly { readonly feature: LockableFeature; readonly citiesMin: number }[] = [
   { feature: "currency_issue", citiesMin: 1 },

@@ -1,9 +1,11 @@
 // 예약 이벤트 큐 (시뮬레이션 ADR "이벤트 예약": 도착 같은 일은 그 시각에만 처리한다)
-// - 순서: (시각, 예약 번호). 같은 시각이면 먼저 예약한 것이 먼저다. 같은 입력이면 항상 같은 순서다.
+// - 순서: (시각, [차례 함수], 예약 번호). 차례 함수가 없으면 같은 시각은 먼저 예약한 것이 먼저다.
+//   차례 함수(예: eventKey.ts compareEventKeys)를 주면 같은 시각은 그 차례, 그것도 같으면 예약 번호다.
+//   어느 쪽이든 같은 입력이면 항상 같은 순서다.
 // - 취소는 지연 삭제: 살아 있는 목록에서만 지우고, 힙의 항목은 꺼낼 때 버린다.
 //   취소가 쌓여 힙이 살아 있는 수의 2배를 넘으면 살아 있는 항목만으로 다시 만든다.
-// - 예약 번호는 큐마다 1부터 센다. 서버를 다시 켜서 이벤트를 다시 걸 때 같은 시각끼리의 순서를 지키려면
-//   정해진 순서(예: 시각, 유닛 ID)로 다시 예약한다.
+// - 예약 번호는 큐마다 1부터 센다. 차례 함수 없이 쓰면서 서버를 다시 켜서 이벤트를 다시 걸 때 같은 시각끼리의 순서를
+//   지키려면 정해진 순서(예: 시각, 유닛 ID)로 다시 예약한다. 차례 함수를 주면 넣는 차례는 상관없다.
 
 export interface ScheduledEvent<T> {
   /** 예약 번호(취소할 때 쓴다) */
@@ -31,11 +33,18 @@ export interface EventQueue<T> {
 /** 이 크기보다 작은 힙은 다시 만들지 않는다 */
 const COMPACT_MIN = 64;
 
-function before<T>(a: ScheduledEvent<T>, b: ScheduledEvent<T>): boolean {
-  return a.timeMs < b.timeMs || (a.timeMs === b.timeMs && a.id < b.id);
-}
-
-export function createEventQueue<T>(): EventQueue<T> {
+/**
+ * order: 같은 시각끼리의 차례(음수면 a가 먼저). 없으면 예약한 차례다.
+ */
+export function createEventQueue<T>(order?: (a: T, b: T) => number): EventQueue<T> {
+  const before = (a: ScheduledEvent<T>, b: ScheduledEvent<T>): boolean => {
+    if (a.timeMs !== b.timeMs) return a.timeMs < b.timeMs;
+    if (order) {
+      const byKey = order(a.payload, b.payload);
+      if (byKey !== 0) return byKey < 0;
+    }
+    return a.id < b.id;
+  };
   let heap: ScheduledEvent<T>[] = [];
   const live = new Map<number, ScheduledEvent<T>>();
   let nextId = 1;

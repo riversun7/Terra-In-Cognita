@@ -41,6 +41,7 @@ import {
   placementCostsFromTerrain,
   positionAt,
   positionAtDistance,
+  compareEventKeys,
   removeBuilding,
   terrainHash,
   validatePlacement,
@@ -149,7 +150,8 @@ interface UnitState {
   readonly bot: boolean;
 }
 
-type MapEvent = { kind: "arrive" | "wake"; unitId: number };
+/** 2차맵 예약: 같은 시각이면 (종류, 유닛 ID) 차례다(@terra/sim compareEventKeys, S3 ADR 1절) */
+type MapEvent = { kind: "arrive" | "wake"; subject: number };
 
 export interface MapLog {
   warn(obj: object, message: string): void;
@@ -373,6 +375,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
   const scheduler: Scheduler<MapEvent> = createScheduler<MapEvent>({
     now,
     handle: (event) => onEvent(event.payload),
+    order: compareEventKeys,
     onError: (error) => log.error({ err: error, mapKey }, "map event failed"),
   });
 
@@ -414,7 +417,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
 
   const scheduleEvent = (unit: UnitState, kind: MapEvent["kind"], timeMs: number): void => {
     cancelEvent(unit);
-    unit.eventId = scheduler.schedule(timeMs, { kind, unitId: unit.id });
+    unit.eventId = scheduler.schedule(timeMs, { kind, subject: unit.id });
     if (kind === "wake") {
       unit.wakeAtMs = timeMs;
       save(unit);
@@ -511,7 +514,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
   };
 
   const onEvent = (event: MapEvent): void => {
-    const unit = units.get(event.unitId);
+    const unit = units.get(event.subject);
     if (!unit) return;
     unit.eventId = undefined;
     if (event.kind === "wake") unit.wakeAtMs = undefined;
@@ -715,12 +718,9 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
         if (row.wakeAtMs !== null) events.push({ at: row.wakeAtMs, kind: "wake", unit });
         else if (unit.bot) events.push({ at: arrivalAt(motion), kind: "arrive", unit });
       }
-      // 같은 시각끼리는 (시각, 종류, 유닛 ID) 차례로 다시 건다(예약 큐는 넣은 차례를 지킨다)
-      const ordered = events.toSorted(
-        (a, b) => a.at - b.at || a.kind.localeCompare(b.kind) || a.unit.id - b.unit.id,
-      );
-      for (const event of ordered) {
-        event.unit.eventId = scheduler.schedule(event.at, { kind: event.kind, unitId: event.unit.id });
+      // 같은 시각끼리의 차례는 큐가 (시각, 종류, 유닛 ID) 키로 정한다 → 넣는 차례는 상관없다
+      for (const event of events) {
+        event.unit.eventId = scheduler.schedule(event.at, { kind: event.kind, subject: event.unit.id });
         if (event.kind === "wake") event.unit.wakeAtMs = event.at;
       }
       return { badUnits, badBuildings };

@@ -44,6 +44,7 @@ export {
   type RecipeEntry,
 } from "./schema/economy.ts";
 export { mapPropEntrySchema, type MapPropEntry } from "./schema/mapProps.ts";
+export { statRowEntrySchema, type StatRowEntry } from "./schema/stats.ts";
 export { validatePack, type ValidationResult } from "./validate/pack.ts";
 export {
   assumeAllUsed,

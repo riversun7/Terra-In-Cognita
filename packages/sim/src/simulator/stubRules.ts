@@ -5,6 +5,7 @@
 import { WALK_SPEED } from "../units.ts";
 import { arrivalAt, createMotion } from "../motion/motion.ts";
 import type { EventKey } from "../events/eventKey.ts";
+import type { CombatRun } from "./combatRun.ts";
 import type { MetricsRecorder } from "./metrics.ts";
 import type { ScenarioStub, ScenarioTrips } from "./scenario.ts";
 import type { SimLoop } from "./loop.ts";
@@ -48,6 +49,9 @@ export interface StubContext {
   readonly stub: ScenarioStub;
   readonly trips: ScenarioTrips | undefined;
   readonly hooks?: StubHooks | undefined;
+  /** 있으면 도시 빼앗기를 공성 전투로 정하고 조우 전투를 연다 */
+  readonly combat?: CombatRun | undefined;
+  readonly encounterPerMille?: number | undefined;
 }
 
 /** 다음 판단 시각: 간격 ±25% */
@@ -108,6 +112,8 @@ function conquer(
   if (!target || targets.length === 0) return;
   const cityId = pickCity(target, rollCity);
   if (cityId === undefined) return;
+  // 전투가 켜져 있으면 공성 전투에서 이겨야 도시가 넘어간다
+  if (ctx.combat && !ctx.combat.siege(attacker, target, cityId, nowMs)) return;
   ctx.hooks?.beforeCityTransfer(cityId, target, attacker, nowMs);
   transferCity(world, cityId, attacker, nowMs);
   if (rollCity % 2 === 0) setTech(ctx, target, target.tech - 1, "city_lost", nowMs);
@@ -167,6 +173,8 @@ export function decide(ctx: StubContext, factionId: number, nowMs: number): void
   const rollB = rng.nextInt(0x1_0000);
   if (action < ctx.stub.conquerPerMille) conquer(ctx, faction, rollA, rollB, nowMs);
   else if (action < ctx.stub.conquerPerMille + ctx.stub.rebelPerMille) rebel(ctx, faction, rollA, nowMs);
+  if (ctx.combat && rng.nextInt(1000) < (ctx.encounterPerMille ?? 0))
+    ctx.combat.encounter(faction, rng.nextInt(0x1_0000), nowMs);
   if (tech < ctx.stub.techUpPerMille) setTech(ctx, faction, faction.tech + 1, "research", nowMs);
   else if (tech < ctx.stub.techUpPerMille + ctx.stub.techDownPerMille)
     setTech(ctx, faction, faction.tech - 1, "setback", nowMs);

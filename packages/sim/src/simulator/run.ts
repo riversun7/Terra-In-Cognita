@@ -9,6 +9,8 @@ import { DAY_MS, type FactionDay, type MetricsSummary, createMetricsRecorder } f
 import type { Scenario } from "./scenario.ts";
 import type { EconomyCatalog } from "./catalog.ts";
 import { type EconomyRun, type EconomySummary, attachEconomy, systemRule } from "./economyRun.ts";
+import { type CombatSummary, attachCombat } from "./combatRun.ts";
+import type { StatRow } from "../combat/stats.ts";
 import {
   EVENT_ARRIVE,
   EVENT_DECIDE,
@@ -27,8 +29,8 @@ import {
   totalOwnerAsset,
 } from "./world.ts";
 
-/** 출력 형식 판(줄·요약의 모양이 바뀌면 올린다. 관전판·관리자 화면이 읽는다). 2: econ 줄·요약 economy 칸(R2) */
-export const SIM_OUTPUT_FORMAT = 2;
+/** 출력 형식 판(줄·요약의 모양이 바뀌면 올린다. 관전판·관리자 화면이 읽는다). 2: econ 줄·요약 economy 칸(R2), 3: battle 줄·요약 combat 칸(R3) */
+export const SIM_OUTPUT_FORMAT = 3;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 요약에 남기는 불변 조건 위반 문장 수 */
@@ -45,6 +47,8 @@ export interface RunOptions {
   readonly sink?: ((line: string) => void) | undefined;
   /** 불변 조건 검사 간격(날, 기본 1). 끝에서도 한 번 한다 */
   readonly checkEveryDays?: number | undefined;
+  /** 스탯 가중치 표(콘텐츠 팩 stat_rows). 없으면 TEST_STAT_TABLE */
+  readonly statTable?: readonly StatRow[] | undefined;
   /** 경제 목록(시나리오에 economy 칸이 있으면 꼭 준다. 실행 도구가 콘텐츠 팩에서 만든다) */
   readonly catalog?: EconomyCatalog | undefined;
   /** 하루가 끝날 때마다(진행 표시용, 판정에 영향 없음) */
@@ -70,6 +74,8 @@ export interface RunSummary {
   readonly events: { processed: number; byKind: Record<string, number> };
   /** 경제(시나리오에 economy 칸이 없으면 null) */
   readonly economy: EconomySummary | null;
+  /** 전투(시나리오에 combat 칸이 없으면 null) */
+  readonly combat: CombatSummary | null;
   readonly ledger: { transactions: number; accounts: number };
   readonly invariants: { checks: number; violations: number; first: string[] };
   /** 요약 앞까지 쓴 줄 수와 그 줄들의 FNV-1a 해시(지표 해시) */
@@ -132,6 +138,8 @@ export function runSimulation(options: RunOptions): RunSummary {
     stub: scenario.stub,
     trips: scenario.trips,
     hooks: econ?.hooks,
+    combat: scenario.combat ? attachCombat(world, scenario.combat, recorder, options.statTable) : undefined,
+    encounterPerMille: scenario.combat?.encounterPerMille,
   };
   ctxRef.ctx = ctx;
 
@@ -209,6 +217,7 @@ export function runSimulation(options: RunOptions): RunSummary {
     },
     events: { processed: loop.processed, byKind: kinds },
     economy: econ ? econ.summary() : null,
+    combat: ctx.combat ? ctx.combat.summary() : null,
     ledger: { transactions: world.audit.transactions, accounts: [...world.book.accounts()].length },
     invariants: { checks, violations, first },
     lines: lineCount,

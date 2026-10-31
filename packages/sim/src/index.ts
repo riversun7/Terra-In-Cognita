@@ -108,3 +108,23 @@ export {
   terrainHash,
   type TempTerrain,
 } from "./terrain/tempTerrain.ts";
+export {
+  JOB_GATHER,
+  JOB_HUNT,
+  JOB_NONE,
+  OFFLINE_WORK_MS,
+  PHASE_REST,
+  PHASE_WORK,
+  TEST_JOB_RULES,
+  TEST_UPKEEP_PER_UNIT,
+  UPKEEP_PERIOD_MS,
+  advanceJob,
+  jobCutoffMs,
+  settleJob,
+  settleUpkeep,
+  upkeepBoundaries,
+  type JobAdvance,
+  type JobRules,
+  type JobState,
+  type UpkeepResult,
+} from "./settle/settle.ts";

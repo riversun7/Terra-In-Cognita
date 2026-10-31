@@ -1,7 +1,8 @@
 // 복귀 요약을 물을 때 — 로그인한 계정이 정해질 때(앱을 켤 때·로그인)와 30분 넘게 숨겼다가 다시 볼 때(ADR 2026-10-29-app-shell 8절, D-6014).
 // 30분은 PWA의 "켤 때" 기준과 같다(pwa/updatePolicy.ts의 숨김·보임 규칙을 그대로 쓴다).
 // 보일지(show)는 서버가 정한다. show면 그 계정의 요약을 두고 ReturnSummary.tsx가 대화상자를 띄운다. 닫으면 지운다.
-// 확인 기록(summary.ack)은 아직 없다(첫 사건 출처와 함께 만든다). 그래서 닫은 요약은 다음에 켤 때 다시 뜰 수 있다.
+// 닫으면 확인 기록(summary.ack, 그 요약의 until까지)을 보낸다. 다음 요약은 그 뒤 사건만 센다(S3 오프라인 정산이 첫 사건 출처).
+// 시안 자료는 확인 기록을 보내지 않는다. 보내기가 실패하면 다음에 켤 때 같은 요약이 다시 뜰 수 있다(감수).
 // 첫 화면 묶음에 들어간다. 요청은 net/homeQueries.ts를 동적 import()로 불러서 한다(처리할 일 저장소와 같은 조각이라 같은 틱의
 // 조회가 HTTP 요청 하나로 묶인다). 묻기는 10초를 넘기면 그만둔다(조각 받기가 멈춰도 다음 물을 때 다시 묻게).
 import type { SummaryGetResponse } from "@terra/shared/inbox";
@@ -43,6 +44,8 @@ export interface SummaryGateDeps {
   now(): number;
   /** 서버가 로그인이 끝났다고 했다 */
   onSessionEnded(): void;
+  /** 확인 기록을 보낸다(요약의 until). 없으면 보내지 않는다 */
+  ack?(until: number): void;
 }
 
 export interface SummaryGate {
@@ -110,6 +113,9 @@ export function createSummaryGate(deps: SummaryGateDeps): SummaryGate {
       if (outcome.resumed) void ask();
     },
     dismiss() {
+      if (pending !== null && !pending.summary.sections.some((section) => section.preview)) {
+        deps.ack?.(pending.summary.until);
+      }
       setPending(null);
     },
   };
@@ -133,6 +139,9 @@ const gate = createSummaryGate({
   },
   now: () => Date.now(),
   onSessionEnded: () => void refreshSession(),
+  ack(until) {
+    void import("../net/homeQueries.ts").then((queries) => queries.ackSummary(until)).catch(() => undefined);
+  },
 });
 
 let started = false;

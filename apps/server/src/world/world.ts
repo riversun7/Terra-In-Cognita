@@ -8,18 +8,20 @@ import { performance } from "node:perf_hooks";
 import { EARTH_FACE_LEVEL, cellKey } from "@terra/planet";
 import { generateTempTerrain, seedFromCellKey } from "@terra/sim";
 import type { WorldDirectory } from "./gateway.ts";
+import { type Ledger, createLedger } from "../economy/ledger.ts";
 import { type MemoryChecks, checkMemoryInvariants, checkSqlInvariants } from "./invariants.ts";
-import {
-  type AccountRow,
-  type OwnerRow,
-  type QueryPool,
-  ensureTestNpcOwner,
-  loadWorld,
-} from "./persist/load.ts";
+import { type OwnerRow, type QueryPool, ensureTestNpcOwner, loadWorld } from "./persist/load.ts";
 import { type WorldWriter, type WriterPool, createWorldWriter } from "./persist/writer.ts";
 import { createWorkerPathService } from "./pathPool.ts";
 import { type PathService, createInlinePathService } from "./pathService.ts";
 import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
+import {
+  ASSET_CREDIT,
+  NPC_START_CREDIT,
+  SYSTEM_ISSUE_CREDIT,
+  type Settlement,
+  createSettlement,
+} from "./settlement.ts";
 import { emptyWorldStats, resetWorldStats, summarizeWorldStats } from "./worldStats.ts";
 
 /**
@@ -73,8 +75,10 @@ export interface WorldPersistence {
   };
   /** 소유 주체(메모리 캐시, 원본은 world_owners) */
   readonly owners: Map<number, OwnerRow>;
-  /** 부팅 때 읽은 원장 계정(원장 모듈이 가져간다) */
-  readonly bootAccounts: readonly AccountRow[];
+  /** 원장(메모리 캐시 + 쓰기 대기열) */
+  readonly ledger: Ledger;
+  /** 정산·접속 상태 */
+  readonly settlement: Settlement;
   /** 시험 NPC 세력의 소유 주체 */
   readonly npcOwnerId: number;
 }
@@ -248,8 +252,37 @@ export function startWorld(
         }),
       removeBuilding: (id) => writer.remove("buildings", { id }),
     };
-    persistence = { writer, pool: db, nextId, owners, bootAccounts: loaded.accounts, npcOwnerId };
+    const ledger = createLedger({
+      writer,
+      nextAccountId: nextId.account,
+      nextTxId: nextId.tx,
+      accounts: loaded.accounts,
+    });
     createMaps(persist, nextId, npcOwnerId);
+    const settlement = createSettlement({
+      maps,
+      owners,
+      ledger,
+      writer,
+      nextOwnerId: nextId.owner,
+      nextUnitId: nextId.unit,
+      presence: loaded.presence,
+      now,
+    });
+    persistence = { writer, pool: db, nextId, owners, ledger, settlement, npcOwnerId };
+    // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)
+    if (
+      !loaded.accounts.some((account) => account.ownerId === npcOwnerId && account.asset === ASSET_CREDIT)
+    ) {
+      ledger.post({
+        kind: "issue",
+        atMs: now(),
+        entries: [
+          { account: ledger.systemAccount(SYSTEM_ISSUE_CREDIT, ASSET_CREDIT), amount: -NPC_START_CREDIT },
+          { account: ledger.ownerAccount(npcOwnerId, ASSET_CREDIT), amount: NPC_START_CREDIT },
+        ],
+      });
+    }
 
     let badUnits = 0;
     let badBuildings = 0;
@@ -354,6 +387,7 @@ export function startWorld(
       stopped = true;
       await ready.catch(() => undefined);
       if (heartbeat) clearInterval(heartbeat);
+      persistence?.settlement.stop();
       for (const map of maps.values()) map.stop();
       if (persistence) {
         persistence.writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
@@ -365,6 +399,7 @@ export function startWorld(
       stopped = true;
       await ready.catch(() => undefined);
       await persistence?.writer.crash(inFlight);
+      persistence?.settlement.stop();
       if (heartbeat) clearInterval(heartbeat);
       for (const map of maps.values()) map.stop();
       await paths.close();

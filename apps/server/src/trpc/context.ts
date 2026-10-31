@@ -125,6 +125,8 @@ export interface HomeQuery {
 export interface HomeServices {
   inbox(viewer: Viewer, query: HomeQuery): Promise<InboxListResponse>;
   summary(viewer: Viewer, query: HomeQuery): Promise<SummaryGetResponse>;
+  /** 복귀 요약 확인: until(그 요약의 끝)까지 본 것으로 적는다 */
+  ackSummary(viewer: Viewer, until: number, now: number): Promise<void>;
   /** ids: 홈에 있는 카드 ID(모르는 ID·기기 카드는 빼고 답한다) */
   cards(viewer: Viewer, ids: readonly string[], query: HomeQuery): Promise<DashboardCardsResponse>;
 }

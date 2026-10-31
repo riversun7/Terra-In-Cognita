@@ -25,6 +25,11 @@ export interface SessionContext {
   world?: WorldGateway | undefined;
   /** 이 연결의 로그인 사용자(쿠키). 로그인하지 않았거나 인증이 꺼져 있으면 null */
   viewer?: (() => Promise<Viewer | null>) | undefined;
+  /**
+   * 접속 상태(S3 ADR 4절, D-136): 인사한 로그인 연결마다 connect, 끊기면 돌려받은 함수를 부른다.
+   * 모든 연결이 끊긴 시각부터 오프라인 24시간을 센다
+   */
+  presence?: { connect(userId: string): () => void } | undefined;
 }
 
 // 정책 위반으로 닫을 때 쓰는 WebSocket 종료 코드
@@ -43,7 +48,9 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let greeted = false;
   let protocolVersion = 0;
   let alive = true;
+  let closed = false;
   let worldSocket: WorldSocket | undefined;
+  let releasePresence: (() => void) | undefined;
 
   const sendText = (text: string): void => {
     if (socket.readyState === socket.OPEN) socket.send(text);
@@ -70,8 +77,10 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
     alive = true;
   });
   socket.on("close", () => {
+    closed = true;
     clearInterval(heartbeat);
     worldSocket?.close();
+    releasePresence?.();
   });
 
   socket.on("message", (data, isBinary) => {
@@ -108,6 +117,15 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         contentVersion: context.contentVersion,
         serverTime: context.now(),
       });
+      const { presence, viewer } = context;
+      if (presence && viewer) {
+        void viewer().then(
+          (found) => {
+            if (found && !closed) releasePresence = presence.connect(found.id);
+          },
+          () => undefined,
+        );
+      }
       return;
     }
 

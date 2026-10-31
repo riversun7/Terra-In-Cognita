@@ -22,6 +22,7 @@ import {
   type TestDatabase,
   createTestDatabase,
   enter,
+  rows,
   sessionCookie,
 } from "../testDb.ts";
 
@@ -102,6 +103,21 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 로그인·권한 (DB)", () => {
     const messages = await request({ cookie: adminCookie, origin: TEST_ORIGIN }, subscribe);
     expect(resultOf(messages)).toEqual({ t: "result", id: 1, ok: true });
     expect(messages.some((m) => m.t === "map_snapshot")).toBe(true);
+    // 접속 상태(S3 ADR 4절): 로그인 연결이 인사하면 접속 기록이 생기고, 끊긴 뒤에는 끊긴 시각이 적힌다
+    for (let i = 0; i < 50; i++) {
+      const found = await rows<{ offline_since_ms: string | null }>(
+        test.db,
+        "select offline_since_ms from world_presence",
+      );
+      if (found.length > 0 && found[0]?.offline_since_ms !== null) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    const presence = await rows<{ offline_since_ms: string | null }>(
+      test.db,
+      "select offline_since_ms from world_presence",
+    );
+    expect(presence).toHaveLength(1);
+    expect(presence[0]?.offline_since_ms).not.toBeNull();
   });
 
   it("다른 출처에서 연 연결은 쿠키가 있어도 로그인하지 않은 것으로 본다", async () => {

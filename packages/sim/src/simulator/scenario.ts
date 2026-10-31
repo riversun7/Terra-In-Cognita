@@ -17,6 +17,35 @@ export interface ScenarioFaction {
   readonly credit: bigint;
   /** 처음 기술 단계 */
   readonly tech: number;
+  /** 경제: 도시마다 놓는 시설(같은 도시의 일꾼을 앞에서부터 배치) */
+  readonly cityPlan?: readonly ScenarioFacilityPlan[] | undefined;
+  /** 경제: 도시마다 처음 창고 재고 */
+  readonly stock?: readonly { readonly item: string; readonly qty: bigint }[] | undefined;
+}
+
+export interface ScenarioFacilityPlan {
+  readonly facility: string;
+  readonly recipe: string;
+  readonly level: number;
+  readonly workers: number;
+}
+
+/** 경제 손잡이(있으면 경제를 돌린다). [임시] 값은 시나리오 시험값이다 */
+export interface ScenarioEconomy {
+  /** 세력의 거래 판단 간격 */
+  readonly tradeEveryMs: number;
+  /** 환전 동시호가 회차 간격(E8 기존 환율 1시간) */
+  readonly fxEveryMs: number;
+  /** 운송 걸리는 시간(고정 속도 하나, 기술 순서 ADR 1절 N1 최소판) */
+  readonly shipMs: number;
+  /** 걸어 둔 물자 주문의 수명(E10 기획 잠정 실제 7일) */
+  readonly orderLifeMs: number;
+  /** 처음 발행량의 1인당 하루 거래액(E6) */
+  readonly perCapitaDaily: bigint;
+  /** 기준 통화가 아닌 나라가 처음 받는 기준 통화 준비금(처음 발행량의 만분율) */
+  readonly baseReserveBp: number;
+  /** 환전 로트 크기(화폐 최소 단위) */
+  readonly fxLot: bigint;
 }
 
 /** [임시] 대리 규칙 손잡이(천분율·ms). R4·R5의 진짜 규칙이 대신한다 */
@@ -45,6 +74,7 @@ export interface Scenario {
   readonly factions: readonly ScenarioFaction[];
   readonly stub: ScenarioStub;
   readonly trips?: ScenarioTrips | undefined;
+  readonly economy?: ScenarioEconomy | undefined;
 }
 
 const ID = /^[a-z][a-z0-9_]{1,47}$/;
@@ -96,6 +126,16 @@ export function parseScenario(value: unknown): Scenario {
       workers: int(field(item, "workers"), `${at}.workers`, 0, 1_000_000),
       credit: amount(field(item, "credit"), `${at}.credit`),
       tech: int(field(item, "tech"), `${at}.tech`, 1, 1000),
+      cityPlan: optionalList(field(item, "cityPlan"), `${at}.cityPlan`, (plan, path) => ({
+        facility: text(field(plan, "facility"), `${path}.facility`),
+        recipe: text(field(plan, "recipe"), `${path}.recipe`),
+        level: int(field(plan, "level"), `${path}.level`, 1, 5),
+        workers: int(field(plan, "workers"), `${path}.workers`, 0, 100_000),
+      })),
+      stock: optionalList(field(item, "stock"), `${at}.stock`, (entry, path) => ({
+        item: text(field(entry, "item"), `${path}.item`),
+        qty: amount(field(entry, "qty"), `${path}.qty`),
+      })),
     };
   });
   const stubValue = field(value, "stub");
@@ -117,5 +157,30 @@ export function parseScenario(value: unknown): Scenario {
     const idleMinMs = int(field(tripsValue, "idleMinMs"), "trips.idleMinMs", 0);
     trips = { idleMinMs, idleMaxMs: int(field(tripsValue, "idleMaxMs"), "trips.idleMaxMs", idleMinMs) };
   }
-  return { id, planet, factions, stub, trips };
+  const economyValue = field(value, "economy");
+  const economy: ScenarioEconomy | undefined =
+    economyValue === undefined
+      ? undefined
+      : {
+          tradeEveryMs: int(field(economyValue, "tradeEveryMs"), "economy.tradeEveryMs", 60_000),
+          fxEveryMs: int(field(economyValue, "fxEveryMs"), "economy.fxEveryMs", 60_000),
+          shipMs: int(field(economyValue, "shipMs"), "economy.shipMs", 0),
+          orderLifeMs: int(field(economyValue, "orderLifeMs"), "economy.orderLifeMs", 60_000),
+          perCapitaDaily: amount(field(economyValue, "perCapitaDaily"), "economy.perCapitaDaily"),
+          baseReserveBp: int(field(economyValue, "baseReserveBp"), "economy.baseReserveBp", 0, 1_000_000),
+          fxLot: amount(field(economyValue, "fxLot"), "economy.fxLot"),
+        };
+  if (economy && economy.fxLot <= 0n) throw new ScenarioError("economy.fxLot: positive expected");
+  return { id, planet, factions, stub, trips, economy };
+}
+
+function optionalList<T>(
+  value: unknown,
+  path: string,
+  read: (item: unknown, path: string) => T,
+): T[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new ScenarioError(`${path}: array expected`);
+  const items: readonly unknown[] = value;
+  return items.map((item, index) => read(item, `${path}[${index}]`));
 }

@@ -96,6 +96,8 @@ export interface MetricsRecorder {
   tech(atMs: number, faction: number, from: number, to: number, cause: string): void;
   /** day일째가 끝났을 때 살아 있는 세력들의 값 */
   day(day: number, factions: readonly FactionDay[]): void;
+  /** day일째 경제 조정용 줄(시세·통화량·환율·모자람 등, 내용은 부르는 쪽이 정한다) */
+  econ(day: number, data: Record<string, unknown>): void;
   summary(endMs: number): MetricsSummary;
 }
 
@@ -262,6 +264,9 @@ export function createMetricsRecorder(options: MetricsOptions): MetricsRecorder 
           return treasury === undefined ? rest : { ...rest, treasury: treasury.toString() };
         }),
       });
+    },
+    econ(day, data) {
+      write({ t: "econ", day, ...data });
     },
     summary(endMs) {
       const days = Math.floor((endMs - startMs) / DAY_MS);

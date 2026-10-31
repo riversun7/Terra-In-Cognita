@@ -1,13 +1,14 @@
 // 시뮬레이터 속도 측정 — docs/adr/2026-10-31-rules-simulator.md "속도"
 // 사용: pnpm --filter @terra/sim sim:speed [--units 1000,10000,100000] [--days 30,7,2] [--seed N]
 //   synthetic 시나리오(유닛마다 이동 예약: 걷기 도착 + 30~90분 쉼, 세력 16의 판단, 하루마다 정산·기록·불변 조건)를 유닛 수별로
-//   새 프로세스에서 돌려 걸린 시간·예약 수/초·가상 시간/실제 초·배속·최대 RSS를 표로 낸다. stub16(빈 세계) 180일도 한 줄 넣는다.
+//   새 프로세스에서 돌려 걸린 시간·예약 수/초·가상 시간/실제 초·배속·최대 RSS를 표로 낸다. stub16(빈 세계) 180일과
+//   econ16(경제: 생산·유지비·거래소·환전·중앙은행) 180일도 한 줄씩 넣는다.
 //   pnpm test에 넣지 않는다(기계·부하에 따라 값이 다르다).
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { DAY_MS, runSimulation } from "../src/index.ts";
-import { fmt, readScenario, withUnits } from "./common.ts";
+import { DEFAULT_PACK_DIR, fmt, readPack, readScenario, withUnits } from "./common.ts";
 
 const { values } = parseArgs({
   options: {
@@ -35,10 +36,12 @@ function measure(spec: string): Row {
   let scenario = readScenario(name);
   if (Number(unitsText) > 0) scenario = withUnits(scenario, Number(unitsText));
   const days = Number(daysText);
+  const catalog = scenario.economy ? readPack(DEFAULT_PACK_DIR, scenario).catalog : undefined;
   let peak = process.memoryUsage().rss;
   const started = performance.now();
   const summary = runSimulation({
     scenario,
+    catalog,
     seed: Number(values.seed),
     days,
     onDay: () => {
@@ -64,6 +67,7 @@ if (values.one !== undefined) {
   const dayList = values.days.split(",").map(Number);
   const specs = [
     "stub16:0:180",
+    "econ16:0:180",
     ...sizes.map((units, index) => `synthetic:${units}:${dayList[index] ?? dayList.at(-1) ?? 1}`),
   ];
   const self = fileURLToPath(import.meta.url);

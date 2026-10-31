@@ -31,7 +31,7 @@ if (!name) {
 }
 let scenario = readScenario(name);
 if (values.units !== undefined) scenario = withUnits(scenario, Number(values.units));
-const content = readPack(values.pack, scenario);
+const { catalog, ...content } = readPack(values.pack, scenario);
 const days = Number(values.days);
 const lines: string[] = [];
 const started = performance.now();
@@ -40,6 +40,7 @@ const summary = runSimulation({
   seed: Number(values.seed),
   days,
   content,
+  catalog,
   checkEveryDays: Number(values["check-every"]),
   sink: values.out === undefined ? undefined : (line) => lines.push(line),
 });

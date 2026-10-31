@@ -58,6 +58,8 @@ export interface SimWorld {
   readonly units: Map<number, SimUnit>;
   readonly book: LedgerBook;
   readonly audit: LedgerAudit;
+  /** 시험 직무 정산(S3 settle)을 돌리나. 경제를 돌리는 시나리오는 끈다(일꾼은 시설에서 일한다) */
+  readonly testJobs: boolean;
   nextFactionId(): number;
 }
 
@@ -89,8 +91,13 @@ function counter(): () => number {
 const FRESH_JOB: JobState = { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 0 };
 
 /** 시나리오에서 세계를 차린다. 처음 화폐는 발행 계정에서 준다(원장에 남는다) */
-export function createWorld(scenario: Scenario, seed: number, startMs: number): SimWorld {
-  const audit = createLedgerAudit();
+export function createWorld(
+  scenario: Scenario,
+  seed: number,
+  startMs: number,
+  options: { systemRule?: (code: string, kind: string) => boolean } = {},
+): SimWorld {
+  const audit = createLedgerAudit([], options.systemRule);
   const book = createLedgerBook({ nextAccountId: counter(), nextTxId: counter(), hooks: audit.hooks });
   const nextFactionId = counter();
   const nextCityId = counter();
@@ -152,11 +159,24 @@ export function createWorld(scenario: Scenario, seed: number, startMs: number): 
         });
     }
   }
-  return { seed, factions, cities, units, book, audit, nextFactionId };
+  return {
+    seed,
+    factions,
+    cities,
+    units,
+    book,
+    audit,
+    testJobs: scenario.economy === undefined,
+    nextFactionId,
+  };
 }
 
 /** 세력 하나를 toMs까지 정산한다(공용 정산 함수, 서버 settlement.ts와 같은 판정) */
 export function settleFaction(world: SimWorld, faction: SimFaction, toMs: number): void {
+  if (!world.testJobs) {
+    faction.settledAtMs = Math.max(faction.settledAtMs, toMs);
+    return;
+  }
   if (toMs <= faction.settledAtMs) return;
   const list = [...faction.units].map((id) => world.units.get(id)).filter((unit) => unit !== undefined);
   const result = settleOwnerPeriod(

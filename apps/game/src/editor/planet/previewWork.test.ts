@@ -2,7 +2,7 @@
 // vitest는 모듈 워커를 띄우지 않으므로 planetEditorWorker.ts가 부르는 순수 함수를 바로 부른다. 면 레벨 4(빠름).
 // 해시 값을 적지 않는다: 같은 입력을 생성기에 바로 넣은 결과와 견준다(생성기 판이 바뀌어도 깨지지 않게).
 import { aggregatePlanetLevels, planetCornerHeights, planetMapLevels } from "@terra/planet";
-import { generatePlanet, planetInputFromDefinition } from "@terra/planet/generator";
+import { generatePlanet, planetInputFromDefinition, summarizePlanet } from "@terra/planet/generator";
 import { describe, expect, it } from "vitest";
 import { memoryEstimate } from "./memoryEstimate.ts";
 import { previewTransferables, transferredBytes } from "./previewProtocol.ts";
@@ -60,9 +60,11 @@ describe("미리보기 워커 핵심", () => {
     () => {
       const { reply } = runPreviewJob(
         { kind: "generate", id: 1, key: "k", input },
-        { summarize: (details) => ({ cells: details.fields.biome.length }) },
+        { summarize: (details, job) => summarizePlanet(details.fields, job.biomes) },
       );
-      expect(reply.kind === "result" ? reply.result.summary : null).toEqual({ cells: 6 * 4 ** LEVEL });
+      const summary = reply.kind === "result" ? reply.result.summary : null;
+      expect(summary?.cellCount).toBe(6 * 4 ** LEVEL);
+      expect(summary?.biomes.length).toBe(input.biomes.length);
     },
     SLOW,
   );

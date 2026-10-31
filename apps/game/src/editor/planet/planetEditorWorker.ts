@@ -2,9 +2,10 @@
 // `new Worker(new URL("./planetEditorWorker.ts", import.meta.url), { type: "module" })`로 띄운다(ADR 38 3절).
 // 파일 이름 앞머리 planetEditor를 지킨다: Vite가 조각 이름을 진입 파일 이름으로 짓고, 서비스 워커 미리 캐시 규칙
 // (DEV_ONLY_CHUNK, ADR 38 1절)이 이 이름으로 개발자 조각을 뺀다.
-// 일 하나를 받으면 단계마다 알리고, 결과 배열은 복사하지 않고 넘긴다(previewWork.ts). 일은 한 번에 하나씩 온다
+// 일 하나를 받으면 단계마다 알리고, 면적 가중 요약(summarizePlanet)을 붙여 결과 배열은 복사하지 않고 넘긴다(previewWork.ts). 일은 한 번에 하나씩 온다
 // (화면이 하나가 끝나야 다음을 보낸다). 도중에 멈출 수 없어서, 낡은 일은 화면이 워커를 끝내고 다시 띄운다.
 // 타입은 DOM 기준으로 검사한다(게임 앱 tsconfig).
+import { summarizePlanet } from "@terra/planet/generator";
 import type { PreviewReply, PreviewRequest, PreviewStage } from "./previewProtocol.ts";
 import { runPreviewJob } from "./previewWork.ts";
 
@@ -18,6 +19,8 @@ self.addEventListener("message", (event: MessageEvent<PreviewRequest>) => {
   if (request.kind !== "generate") return;
   const { reply, transfer } = runPreviewJob(request, {
     onStage: (stage: PreviewStage) => send({ kind: "stage", id: request.id, stage }, []),
+    // 바이옴 면적표·아래 줄(ADR 38 8절): 칸 면적 가중 요약. F9에서도 수십 ms다
+    summarize: (details, input) => summarizePlanet(details.fields, input.biomes),
   });
   send(reply, transfer);
 });

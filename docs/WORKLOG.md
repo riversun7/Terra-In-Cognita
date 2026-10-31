@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-31 14:00 | S3 서버 단계 설계 (ADR 제안, 구현 전) | Claude Code | [31-1400-s3-design](worklog/2026/10/31-1400-s3-design.md) |
 | 2026-10-31 13:40 | 사용자 결정: 행성 목록·대륙 모양·태양계 샘플·항성계·은하지도, S3 10만 개 시험 빼기 | Claude Code | [31-1340-user-decisions-library-space](worklog/2026/10/31-1340-user-decisions-library-space.md) |
 | 2026-10-31 13:30 | 행성 편집기: 적용 줄 자리 옮김, 누르는 조작은 바로 적용 | Claude Code | [31-1330-editor-ux2](worklog/2026/10/31-1330-editor-ux2.md) |
 | 2026-10-31 11:15 | 행성 편집기 사용성 고침: 적용 단추, 칸 쉬운 설명, 지구본 옆 평면 미니맵 | Claude Code | [31-1115-editor-ux](worklog/2026/10/31-1115-editor-ux.md) |

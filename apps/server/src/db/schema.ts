@@ -613,5 +613,46 @@ export const starSystems = pgTable(
   ],
 );
 
+/**
+ * 전투 인스턴스(docs/adr/2026-10-31-combat-core.md "서버"). 시작 자료(init)·입력 기록·결과를 둔다.
+ * 판정은 결정적이라 시작 자료 + 입력으로 다시 계산한다(ADR 35 "복구"). 예약(결과 적용 시각)은 ends_at_ms 열이다(S3 ADR 1절).
+ */
+export const worldBattles = pgTable(
+  "world_battles",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey(),
+    kind: text("kind").notNull(),
+    /** running(진행·결과 예약) · ended(결과 적용됨) */
+    status: text("status").notNull(),
+    seed: bigint("seed", { mode: "number" }).notNull(),
+    simVersion: integer("sim_version").notNull(),
+    war: boolean("war").notNull().default(false),
+    startedAtMs: bigint("started_at_ms", { mode: "number" }).notNull(),
+    /** 실시간으로 했을 때 끝나는 시각(빨리감기 결과를 이때 적용, D-189) */
+    endsAtMs: bigint("ends_at_ms", { mode: "number" }).notNull(),
+    init: jsonb("init").notNull(),
+    inputs: jsonb("inputs").notNull().default(sql`'[]'::jsonb`),
+    result: jsonb("result"),
+  },
+  (table) => [
+    index("world_battles_status_idx").on(table.status),
+    check("world_battles_status", sql`${table.status} in ('running', 'ended')`),
+  ],
+);
+
+/** 전투 스냅숏(30초마다). 다시 켤 때 가장 가까운 스냅숏 + 그 뒤 입력으로 이어 계산한다(ADR 35) */
+export const worldBattleSnapshots = pgTable(
+  "world_battle_snapshots",
+  {
+    battleId: bigint("battle_id", { mode: "number" })
+      .notNull()
+      .references(() => worldBattles.id, { onDelete: "cascade" }),
+    tick: integer("tick").notNull(),
+    /** 판정 상태 JSON 그대로(바이트를 지킨다: jsonb는 칸 차례를 바꾼다) */
+    state: text("state").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.battleId, table.tick] })],
+);
+
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

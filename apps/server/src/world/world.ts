@@ -16,6 +16,7 @@ import { type WorldWriter, type WriterPool, createWorldWriter } from "./persist/
 import { createWorkerPathService } from "./pathPool.ts";
 import { type PathService, createInlinePathService } from "./pathService.ts";
 import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
+import { type BattleService, createBattleService } from "./battles.ts";
 import type { ExploredStore } from "./vision.ts";
 import {
   ASSET_CREDIT,
@@ -86,6 +87,8 @@ export interface WorldPersistence {
   readonly settlement: Settlement;
   /** 시험 NPC 세력의 소유 주체 */
   readonly npcOwnerId: number;
+  /** 전투 인스턴스(R3 최소: 빨리감기 + 끝 시각에 결과 적용. 유닛 부상·귀환은 R4) */
+  readonly battles: BattleService;
 }
 
 export interface WorldStatus {
@@ -301,7 +304,16 @@ export function startWorld(
       presence: loaded.presence,
       now,
     });
-    persistence = { writer, pool: db, nextId, owners, ledger, settlement, npcOwnerId };
+    const battles = createBattleService({
+      pool: db,
+      now,
+      // [R3] 결과는 전투 행(result)에 남긴다. 유닛 부상(D-099)·귀환·포로(질문 108)·탈취를 세계에 적용하는 일은 R4(부상·수명 열과 함께)
+      onResult: (battleId, outcome) =>
+        log.info({ battleId, winner: outcome.result.winner, reason: outcome.result.reason }, "battle ended"),
+      onError: (error) => log.error({ err: error }, "battle failed"),
+    });
+    await battles.restore();
+    persistence = { writer, pool: db, nextId, owners, ledger, settlement, npcOwnerId, battles };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)
     if (
       !loaded.accounts.some((account) => account.ownerId === npcOwnerId && account.asset === ASSET_CREDIT)
@@ -434,6 +446,7 @@ export function startWorld(
       await ready.catch(() => undefined);
       if (heartbeat) clearInterval(heartbeat);
       persistence?.settlement.stop();
+      persistence?.battles.stop();
       for (const map of maps.values()) map.stop();
       if (persistence) {
         persistence.writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
@@ -446,6 +459,7 @@ export function startWorld(
       await ready.catch(() => undefined);
       await persistence?.writer.crash(inFlight);
       persistence?.settlement.stop();
+      persistence?.battles.stop();
       if (heartbeat) clearInterval(heartbeat);
       for (const map of maps.values()) map.stop();
       await paths.close();

@@ -9,7 +9,7 @@
 import { type CityRevenue, payCityProfit, profitRecipient, settleCityTaxes } from "../society/dividends.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
 import type { StubHooks } from "./stubRules.ts";
-import type { SimFaction, SimWorld } from "./world.ts";
+import { type SimFaction, type SimWorld, rulingFamilyOf } from "./world.ts";
 
 export interface PayoutCounts {
   /** 이익이 난 도시·기간 */
@@ -83,7 +83,7 @@ export function createSocietyPayouts(
             asset,
             regime: faction.regime,
             treasury: faction.id,
-            rulingFamily: faction.id,
+            rulingFamily: rulingFamilyOf(faction),
             profit: city.profit,
             atMs: nowMs,
           });

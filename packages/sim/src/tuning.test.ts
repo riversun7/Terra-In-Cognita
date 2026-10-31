@@ -29,6 +29,16 @@ describe("설정 칸 값 → 계수표", () => {
       25_000, 50, 100,
     ]);
     expect(TEST_SOCIETY_COEFFICIENTS.cyborg.rebirthCurrency).toBe(10_000);
+    // D-444: 독재 재발행 충성 보상 몫, 다시 굴리기 횟수(생성·환생 같은 칸)
+    const d444 = societyCoefficientsFrom(
+      new Map([
+        ["d444_delist_loyalty", 300],
+        ["n9_initial_rerolls", 5],
+      ]),
+    );
+    expect([d444.delistLoyaltyPm, d444.cyborg.initialRerolls, d444.cyborg.temperaments.length]).toEqual([
+      300, 5, 3,
+    ]);
   });
 
   it("모든 키는 계수표의 숫자 칸을 가리키고, ID는 겹치지 않는다", () => {

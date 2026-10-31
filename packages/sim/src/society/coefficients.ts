@@ -1,17 +1,23 @@
 // 세력·사회 계수표 — docs/adr/2026-10-31-faction-society-core.md "계수 한 곳"
 // 세력·도시·인구·기술·노동 규칙의 수치를 이 표 하나에 모은다. 기획 설정 칸(49 §6.5 N·§7 S·T)에 출발값이 있으면 그 값, 없으면 [임시].
 // 노동 공식(labor.ts)의 정본은 기획 48 §7이다. 시각은 실제 시간 ms, 배율은 ‰. N·S 코드 ↔ 칸 대응은 ADR faction-society-core.
+import type { CyborgTemperament } from "./cyborgStats.ts";
 
 export interface SocietyCoefficients {
   /** 도시 주식 수(D-130) */
   readonly sharesPerCity: number;
   /** 배당(도시 세금 정산) 주기(D-130 7일, D-443 설정값). 시뮬은 하루 끝에서 날 수로 내림해 돈다 */
   readonly dividendEveryMs: number;
-  /** 상장폐지 뒤 점령 세력 국고에 다시 내는 주식 수(D-298·D-443 설정값, 출발값 = 도시 주식 수) */
+  /** 상장폐지 뒤 다시 내는 주식 수(D-298·D-443 설정값, 출발값 = 도시 주식 수). 받는 곳은 점령국 체제대로(D-444) */
   readonly delistReissueShares: number;
+  /**
+   * 독재 점령국의 재발행에서 지배 가문이 충성 보상으로 나눠 주는 몫(‰, D-344·D-444 설정값. 기획 값이 없어 출발값은 기술 기본안
+   * 200 = 20%). 지배 가문 과반을 넘겨 줄 수는 없다
+   */
+  readonly delistLoyaltyPm: number;
   /** 반란 문턱: 도시 평균 만족도(S26 예시 40). 이하면 반란 중(D-253) */
   readonly rebellionThreshold: number;
-  /** [임시] 민심 표 반란 예고 문턱(N35 출발값 없음): 반란 문턱 위 ~ 이 값 이하 = 반란 예고(D-443 155) */
+  /** 민심 표 반란 예고 문턱(N35 설정값, 출발값 50 — D-444·D-5032): 반란 문턱 위 ~ 이 값 이하 = 반란 예고(D-443 155) */
   readonly rebellionWarningAt: number;
   /** [임시] 민심 표 태업 조짐 문턱(N35 출발값 = 기술 [임시] 60): 반란 예고 위 ~ 이 값 이하 = 태업 조짐 */
   readonly sabotageAt: number;
@@ -102,7 +108,7 @@ export interface SocietyCoefficients {
   };
   /** [임시] 목표값으로 다가가는 속도(N29 복원 속도, 하루에 차이의 ‰) */
   readonly satisfactionRestorePmPerDay: number;
-  /** [임시] 속국·봉신 공물(기획 값 없음, D-443: 출발값 기술 [임시] 주 5%, ‰): 상위 세력에 내는 국고 몫. 세력 화면도 이 값을 보인다 */
+  /** 속국·봉신 공물(S33 설정값 ‰, 출발값 주 5% — D-443·D-444·D-5032): 상위 세력에 내는 국고 몫. 세력 화면도 이 값을 보인다 */
   readonly tributePm: number;
   /** 공물 주기(주마다). 시뮬은 하루 끝에서 날 수로 내림해 돈다 */
   readonly tributeEveryMs: number;
@@ -113,14 +119,28 @@ export interface SocietyCoefficients {
     /** K 범위(N6 800~1200‰, 생성·환생 리롤 때 균등) */
     readonly kMinPm: number;
     readonly kMaxPm: number;
-    /** 초기 스탯 합·칸 범위(N9 합 60, 칸 1~20). 환생 분포 변경도 이 안 */
+    /** 초기 스탯 합·칸 범위(N9 합 60, 칸 1~20). 환생 분포 변경(다시 굴림, D-444)도 이 안 */
     readonly initialSum: number;
     readonly initialMin: number;
     readonly initialMax: number;
+    /**
+     * 성향 목록(N9, D-6039): 고르면 그 칸의 평균이 오른다. 출발값은 D-6039 예시 셋(전투형 STR·VIT, 기술형 INT·DEX, 교역형
+     * INT·WIS). 팩 tuning은 정수 칸만이라 목록은 이 표에 둔다(개발자 설정 D1이 생기면 옮긴다)
+     */
+    readonly temperaments: readonly CyborgTemperament[];
+    /** 다시 굴리기 횟수(N9 출발값 3). 생성과 환생이 같은 값을 쓴다(D-444 164) */
+    readonly initialRerolls: number;
+    /** 성향 칸 평균을 올리는 양(밀리점, 기술 기본안 3000 = +3). 나머지 칸 평균은 합이 그대로가 되게 내려간다 */
+    readonly initialFavorMilli: number;
+    /** 칸마다 정규분포 표준편차(밀리점, 옛 CHR-1 §4.2 "약 3" → 3000) */
+    readonly initialSpreadMilli: number;
     /** 스킬 최대 등급 = min(기본 + 환생 횟수, 상한)(D-031 기본 3, D-5001 상한 10) */
     readonly skillGradeBase: number;
     readonly skillGradeMax: number;
-    /** [임시] 환생 비용(N34 출발값 없음): 신앙도(0~100 척도), 화폐(신전 도시 화폐 최소 단위) */
+    /**
+     * 환생 비용(N34 설정값, 출발값 신앙도 50·화폐 10,000 — D-444·D-5032): 신앙도(0~100, 써서 줄어든다 D-444 165),
+     * 화폐(신전 도시 화폐 최소 단위)
+     */
     readonly rebirthFaith: number;
     readonly rebirthCurrency: number;
   };
@@ -133,6 +153,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   sharesPerCity: 1000,
   dividendEveryMs: 7 * DAY,
   delistReissueShares: 1000,
+  delistLoyaltyPm: 200,
   rebellionThreshold: 40,
   rebellionWarningAt: 50,
   sabotageAt: 60,
@@ -204,6 +225,14 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     initialSum: 60,
     initialMin: 1,
     initialMax: 20,
+    temperaments: [
+      { id: "combat", favored: ["str", "vit"] },
+      { id: "tech", favored: ["int", "dex"] },
+      { id: "trade", favored: ["int", "wis"] },
+    ],
+    initialRerolls: 3,
+    initialFavorMilli: 3000,
+    initialSpreadMilli: 3000,
     skillGradeBase: 3,
     skillGradeMax: 10,
     rebirthFaith: 50,

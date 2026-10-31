@@ -79,6 +79,14 @@ describe("도시 지분(원장 자산)", () => {
   });
 });
 
+/** 점령 세력: 국고 주체·체제·지배 가문 주체(독재)·충성 보상을 받을 가문 */
+const occupier = (
+  treasury: number,
+  regime: "dictatorship" | "democracy" | "capitalism",
+  rulingFamily = treasury,
+  loyalists: readonly number[] = [],
+) => ({ treasury, regime, rulingFamily, loyalists });
+
 describe("점령(46 §5.1)", () => {
   it("지분 유지 = 옛 통치자 몫 → 점령 국고, 독재 점령국이 과반이 안 되면 상장폐지 + 새 1000주", () => {
     const { book } = setup();
@@ -91,24 +99,77 @@ describe("점령(46 §5.1)", () => {
       ],
       0,
     );
-    expect(settleShares(book, 5, 1, 2, "capitalism", "keep", 1, c)).toBe("keep");
+    expect(settleShares(book, 5, 1, occupier(2, "capitalism"), "keep", 1, c)).toBe("keep");
     expect(holdingsOf(book, 5)).toEqual([
       { owner: 2, amount: 400n },
       { owner: 7, amount: 600n },
     ]);
-    // 독재 점령국 3이 몰수로 과반이 안 된다 → 상장폐지, 새 지분은 점령자에게
-    expect(settleShares(book, 5, 2, 3, "dictatorship", "keep", 2, c)).toBe("delist");
+    // 독재 점령국 3이 몰수로 과반이 안 된다 → 상장폐지, 새 지분은 지배 가문에게(충성 보상 받을 가문이 없으면 전부)
+    expect(settleShares(book, 5, 2, occupier(3, "dictatorship"), "keep", 2, c)).toBe("delist");
     expect(holdingsOf(book, 5)).toEqual([{ owner: 3, amount: 1000n }]);
     expect(book.balanceOf(7, shareAsset(5))).toBe(0n);
   });
 
-  it("상장폐지 뒤 재발행 주식은 점령 세력 국고로, 주식 수는 설정값(D-298·D-443)", () => {
+  it("상장폐지 뒤 재발행 주식 수는 설정값이고, 자본주의·민주주의 점령국은 국고로 받는다(D-298·D-443·D-444)", () => {
     const { book } = setup();
     issueShares(book, 6, [{ owner: 1, amount: 1000n }], 0);
     const tuned = { ...c, delistReissueShares: 400 };
-    expect(settleShares(book, 6, 1, 2, "capitalism", "delist", 1, tuned)).toBe("delist");
+    // 지배 가문·충성 가문을 줘도 독재가 아니면 국고만 받는다
+    expect(settleShares(book, 6, 1, occupier(2, "capitalism", 20, [21]), "delist", 1, tuned)).toBe("delist");
     expect(holdingsOf(book, 6)).toEqual([{ owner: 2, amount: 400n }]);
+    expect(settleShares(book, 6, 2, occupier(4, "democracy", 40, [41]), "delist", 2, c)).toBe("delist");
+    expect(holdingsOf(book, 6)).toEqual([{ owner: 4, amount: 1000n }]);
     expect(c.delistReissueShares).toBe(1000);
+  });
+
+  it("독재 점령국의 재발행 = 지배 가문 과반 + 나머지는 충성 보상으로 가문들에 고르게(D-338·D-344·D-444, 비율 설정값)", () => {
+    const { book } = setup();
+    issueShares(book, 8, [{ owner: 1, amount: 1000n }], 0);
+    expect(c.delistLoyaltyPm).toBe(200);
+    // 충성 보상 200주를 세 가문에: 66주씩 + 남는 2주는 주체 ID 작은 쪽부터
+    expect(settleShares(book, 8, 1, occupier(3, "dictatorship", 30, [43, 41, 42]), "delist", 1, c)).toBe(
+      "delist",
+    );
+    expect(holdingsOf(book, 8)).toEqual([
+      { owner: 30, amount: 800n },
+      { owner: 41, amount: 67n },
+      { owner: 42, amount: 67n },
+      { owner: 43, amount: 66n },
+    ]);
+    // 국고는 받지 않는다(독재 지분 = 지배 가문 사유 자산, D-338)
+    expect(book.balanceOf(3, shareAsset(8))).toBe(0n);
+    expect(rulerHasMajority(holdingsOf(book, 8), 30)).toBe(true);
+  });
+
+  it("충성 보상 비율이 커도 지배 가문은 과반을 지킨다, 받을 가문이 없으면 지배 가문이 다 가진다", () => {
+    const { book } = setup();
+    issueShares(book, 9, [{ owner: 1, amount: 1000n }], 0);
+    const greedy = { ...c, delistLoyaltyPm: 700 };
+    settleShares(book, 9, 1, occupier(3, "dictatorship", 30, [41]), "delist", 1, greedy);
+    expect(holdingsOf(book, 9)).toEqual([
+      { owner: 30, amount: 501n },
+      { owner: 41, amount: 499n },
+    ]);
+    settleShares(book, 9, 30, occupier(5, "dictatorship", 50), "delist", 2, c);
+    expect(holdingsOf(book, 9)).toEqual([{ owner: 50, amount: 1000n }]);
+  });
+
+  it("독재 점령국의 지분 유지: 몰수 몫은 지배 가문으로 가고, 과반은 지배 가문 기준으로 본다(D-346)", () => {
+    const { book } = setup();
+    issueShares(
+      book,
+      10,
+      [
+        { owner: 1, amount: 700n },
+        { owner: 7, amount: 300n },
+      ],
+      0,
+    );
+    expect(settleShares(book, 10, 1, occupier(3, "dictatorship", 30, [41]), "keep", 1, c)).toBe("keep");
+    expect(holdingsOf(book, 10)).toEqual([
+      { owner: 7, amount: 300n },
+      { owner: 30, amount: 700n },
+    ]);
   });
 
   it("만족도·관계 사건: 약탈·통합, 상장폐지, 독재로 바뀜", () => {

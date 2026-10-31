@@ -360,6 +360,14 @@ export const TUNING_KEYS: readonly TuningKey[] = [
     "Shares reissued after delisting (D-298)",
   ),
   k(
+    "d444_delist_loyalty",
+    "",
+    "society",
+    "delistLoyaltyPm",
+    "독재 재발행 충성 보상 몫(‰, D-444)",
+    "Dictatorship reissue loyalty share (‰, D-444)",
+  ),
+  k(
     "s33_tribute_rate",
     "S33",
     "society",
@@ -490,6 +498,16 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ),
   k("n9_initial_min", "N9", "society", "cyborg.initialMin", "초기 스탯 칸 최소", "Initial stat min per stat"),
   k("n9_initial_max", "N9", "society", "cyborg.initialMax", "초기 스탯 칸 최대", "Initial stat max per stat"),
+  k("n9_initial_rerolls", "N9", "society", "cyborg.initialRerolls", "다시 굴리기 횟수", "Initial rerolls"),
+  k("n9_initial_favor", "N9", "society", "cyborg.initialFavorMilli", "성향 평균 올림", "Temperament boost"),
+  k(
+    "n9_initial_spread",
+    "N9",
+    "society",
+    "cyborg.initialSpreadMilli",
+    "스탯 표준편차",
+    "Initial stat spread",
+  ),
   k(
     "n34_rebirth_faith",
     "N34",

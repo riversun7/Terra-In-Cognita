@@ -1,6 +1,6 @@
 # 출시까지의 기술 순서: N1 NPC 시뮬레이션이 길목
 
-- 상태: 확정 (2026-10-31 사용자 결정 RU1~RU6, 5절 끝 "사용자 결정 결과". 크기는 여전히 어림값이다)
+- 상태: 확정 (2026-10-31 사용자 결정 RU1~RU6, 5절 끝 "사용자 결정 결과". 크기는 여전히 어림값이다) (일부 대체됨: `2026-10-31-n1-real-time-gate.md` — N1 출시 관문은 실제 시간 몇 달, 4절 배속 목표)
 - 날짜: 2026-10-31
 - 관련: docs/PLAN.md 1.4·4.4·4.7·7장(5단계 헤드리스 회귀)·9.9·11장·14장(질문 119~123), ADR `2026-10-28-npc-scale-and-stage.md`(27, N1), `2026-10-28-simulation-model.md`(5), `2026-10-28-economy-ledger.md`(8), `2026-10-28-unit-cap-housing.md`(32), `2026-10-29-combat-map-instances.md`(35), `2026-10-31-s3-server-stage.md`(40), `2026-10-29-planet-editor-stage1.md`(38), `2026-10-31-space-layer-data-model.md`(43), 기획 D-013·D-044·D-389~D-399(원본 befdfb3, 미러 `dc9f54f`), 질문 `docs/questions/2026-10-31-planning-launch.md`, 작업 기록 `docs/worklog/2026/10/31-1710-planning-launch.md`
 

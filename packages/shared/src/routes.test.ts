@@ -188,7 +188,7 @@ describe("주소 표", () => {
     );
     expect(rows).toEqual({
       home: ["/", null, "shown", "everyone", ["template"]],
-      map: ["/map", "home", "hidden", "everyone", []],
+      map: ["/map", "home", "hidden", "everyone", ["pixel-ratio", "second-map-time", "second-map-sky"]],
       map_planet: [
         "/map/planet",
         "home",

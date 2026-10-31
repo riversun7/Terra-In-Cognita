@@ -13,7 +13,7 @@ import { login } from "./helpers/auth.ts";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
-import { rewriteTrpc, trpcProcedures, trpcQuiet, watchTrpc } from "./helpers/trpc.ts";
+import { hideSummary, rewriteTrpc, trpcProcedures, trpcQuiet, watchTrpc } from "./helpers/trpc.ts";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -191,13 +191,6 @@ const relativeTime = (
       new Intl.RelativeTimeFormat(locale, { numeric: "always" }).format(amount, timeUnit),
     [language, value, unit] as const,
   );
-
-/** summary.get data → 보일 것 없음(show: false). 복귀 요약 대화상자를 띄우지 않을 시험용 */
-function hideSummary(data: unknown): void {
-  if (typeof data !== "object" || data === null) throw new Error("summary.get 응답 모양이 다릅니다");
-  Reflect.set(data, "show", false);
-  Reflect.set(data, "sections", []);
-}
 
 /** tRPC 입력이 시안 자료를 묻는지({ preview: true }) */
 const isPreviewInput = (input: unknown): boolean =>

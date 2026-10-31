@@ -1,7 +1,8 @@
 // 2차맵 엔진 — Three.js 장면 하나를 화면 요소(container)에 붙이고 지형·건물·유닛을 그린다. React와 나눈 모듈이다.
 // ADR 2026-10-28-s1-second-map "렌더링": 렌더러 하나 재사용, 화면 변화가 없으면 그리기 멈춤, 컨텍스트 손실 뒤 복구, 픽셀 비율 상한.
-// 한 프레임: 목표점 높이 맞추기 → 카메라 → 유닛 위치(서버 시계로 보간) → 표현 단계(실제 크기/아이콘) → 그리기.
+// 한 프레임: 목표점 높이 맞추기 → 카메라 → 유닛 위치(서버 시계로 보간) → 표현 단계(실제 크기/아이콘) → 빛 → 그리기.
 // 유닛이 가는 중이거나 카메라가 움직이면 다음 프레임을 예약하고, 아니면 멈춘다(FrameScheduler).
+// 낮밤(lighting/): 1차맵과 같은 하늘 모드·달력으로 그 2차맵 자리의 빛을 1초마다 계산하고, 눈에 띄게 바뀔 때만 한 번 그린다.
 import {
   Color,
   DirectionalLight,
@@ -31,6 +32,7 @@ import {
 } from "./camera/cameraMath.ts";
 import { attachControls } from "./camera/controls.ts";
 import type {
+  EngineLightStats,
   EngineStats,
   EngineStatus,
   SecondMapEngine,
@@ -38,6 +40,15 @@ import type {
   UnitSpawn,
   UnitState,
 } from "./engineTypes.ts";
+import {
+  REFERENCE_FLAT_LIGHT,
+  type SecondMapLight,
+  UNIT_NIGHT_LIFT,
+  flatLight,
+  nightAmount,
+  secondMapPlace,
+} from "./lighting/secondMapLight.ts";
+import { SKY_TICK_MS, SecondMapSky } from "./lighting/secondMapSky.ts";
 import { pickNearest, rayHitsTerrain } from "./picking.ts";
 import { FrameScheduler } from "./render/frameScheduler.ts";
 import { RenderTimer } from "./render/renderStats.ts";
@@ -55,8 +66,6 @@ import { TerrainView } from "./terrain/terrainView.ts";
 import { type UnitPath, UnitMotionStore } from "./units/unitMotion.ts";
 import { UnitView } from "./units/unitView.ts";
 
-/** 하늘(2차맵 밖) 색 — 세계 색은 화면 테마와 상관없다(D-070) */
-const SKY_COLOR = 0xd6eef7;
 /** 지형이 오기 전 2차맵 크기(평균 칸 11.7m) */
 const DEFAULT_CELL_M = 11.7;
 /** 아이콘 전환 기준 유닛 키(m)와 기본 픽셀 — 이유는 ADR 33 "구현하며 정한 것" */
@@ -97,13 +106,19 @@ export function createSecondMapEngine(
   canvas.style.height = "100%";
   container.append(canvas);
 
+  // 하늘(2차맵 밖) 색과 빛은 낮밤 빛(applyLight)이 정한다 — 세계 색은 화면 테마와 상관없다(D-070)
   const scene = new Scene();
-  scene.background = new Color(SKY_COLOR);
+  const background = new Color();
+  scene.background = background;
   const camera = new PerspectiveCamera((CAMERA_FOV_RAD * 180) / Math.PI, 1, 1, 10_000);
-  const hemisphere = new HemisphereLight(0xffffff, 0xb59f86, 1.7);
-  const sun = new DirectionalLight(0xffffff, 2.1);
-  sun.position.set(0.55, 1, 0.4);
+  // 빛 수는 늘 둘이다(반구 하나 + 방향 하나: 낮에는 항성, 밤에는 달) — 바뀌지 않아 셰이더를 다시 만들지 않는다
+  const hemisphere = new HemisphereLight();
+  const sun = new DirectionalLight();
   scene.add(hemisphere, sun);
+  const sky = new SecondMapSky(
+    options.mapKey === undefined ? null : secondMapPlace(options.mapKey),
+    options.sky ?? { kind: "off" },
+  );
 
   const terrainView = new TerrainView();
   const buildingView = new BuildingView();
@@ -146,6 +161,18 @@ export function createSecondMapEngine(
 
   const groundAt = (x: number, z: number): number => (terrain ? sampleHeightM(terrain, x, z) : 0);
 
+  // 빛을 three 빛·하늘 색·유닛 밤 빛에 넣는다(숫자 몇 개라 프레임마다 넣어도 싸다)
+  const applyLight = (light: SecondMapLight): void => {
+    hemisphere.color.setRGB(...light.hemisphereSky);
+    hemisphere.groundColor.setRGB(...light.hemisphereGround);
+    hemisphere.intensity = light.hemisphereIntensity;
+    sun.color.setRGB(...light.directColor);
+    sun.intensity = light.directIntensity;
+    sun.position.set(...light.direction);
+    background.setRGB(...light.background);
+    unitView.setNightLift(UNIT_NIGHT_LIFT * nightAmount(light));
+  };
+
   const applyCamera = (): void => {
     const position = cameraPosition(state);
     camera.position.set(position.x, position.y, position.z);
@@ -181,6 +208,8 @@ export function createSecondMapEngine(
       }
     }
     applyCamera();
+    const blending = sky.frame(performance.now());
+    applyLight(sky.light);
     moving = motion.update(serverNow());
     const ppm = pixelsPerMetre(state.distance, viewport);
     chooseUnitMode(ppm);
@@ -189,9 +218,26 @@ export function createSecondMapEngine(
     const info = renderer.info.render;
     lastInfo = { calls: info.calls, triangles: info.triangles, points: info.points };
     timer.record(started, performance.now() - started);
-    return moving > 0 || animating;
+    return moving > 0 || animating || blending;
   };
   const scheduler = new FrameScheduler(frame);
+
+  // 하늘 시계: 시계 모드면 1초마다 빛을 다시 계산하고, 눈에 띄게 바뀌었을 때만 그린다(숨긴 탭에서는 쉰다)
+  let skyTimer: ReturnType<typeof setInterval> | null = null;
+  const skyTick = (): void => {
+    if (document.visibilityState === "hidden") return;
+    if (sky.tick(performance.now())) scheduler.request();
+  };
+  const syncSkyTimer = (): void => {
+    if (sky.ticking && skyTimer === null) skyTimer = setInterval(skyTick, SKY_TICK_MS);
+    if (!sky.ticking && skyTimer !== null) {
+      clearInterval(skyTimer);
+      skyTimer = null;
+    }
+  };
+  sky.tick(performance.now());
+  applyLight(sky.light);
+  syncSkyTimer();
 
   const resize = (): void => {
     const rect = container.getBoundingClientRect();
@@ -286,7 +332,9 @@ export function createSecondMapEngine(
   canvas.addEventListener("webglcontextrestored", onContextRestored);
   // 숨겨졌다 돌아오면 유닛이 그동안 움직였으니 한 번은 그린다
   const onVisibility = (): void => {
-    if (document.visibilityState === "visible") scheduler.request();
+    if (document.visibilityState !== "visible") return;
+    sky.tick(performance.now());
+    scheduler.request();
   };
   document.addEventListener("visibilitychange", onVisibility);
 
@@ -421,6 +469,7 @@ export function createSecondMapEngine(
         terrainBuildMs,
         terrainSource,
         contextLost,
+        light: lightStats(sky),
       };
     },
 
@@ -428,10 +477,16 @@ export function createSecondMapEngine(
       return state;
     },
 
+    setSky(mode) {
+      if (sky.setMode(mode, performance.now())) scheduler.request();
+      syncSkyTimer();
+    },
+
     dispose() {
       if (disposed) return;
       disposed = true;
       scheduler.stop();
+      if (skyTimer !== null) clearInterval(skyTimer);
       detachControls();
       resizeObserver?.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
@@ -446,6 +501,23 @@ export function createSecondMapEngine(
       scene.clear();
       releaseRenderer(owner);
     },
+  };
+}
+
+/** 통계용 빛 요약: 평지 밝기는 낮 기준(지금 고정 빛)에 견준 세 채널 평균 */
+function lightStats(sky: SecondMapSky): EngineLightStats {
+  const light = sky.light;
+  const [r, g, b] = flatLight(light);
+  return {
+    clock: sky.clockState,
+    day: light.day,
+    source: light.source,
+    flat: (r + g + b) / 3 / REFERENCE_FLAT_LIGHT,
+    localHours: light.localHours,
+    sunElevationDeg: light.sunElevationDeg,
+    moonElevationDeg: light.moonElevationDeg,
+    moonLit: light.moonLit,
+    changes: sky.changeCount,
   };
 }
 
@@ -471,6 +543,7 @@ function inertEngine(): SecondMapEngine {
     terrainBuildMs: null,
     terrainSource: null,
     contextLost: false,
+    light: lightStats(new SecondMapSky(null)),
   };
   const camera: CameraState = { targetX: 0, targetY: 0, targetZ: 0, yaw: 0, pitch: 0, distance: 0 };
   return {
@@ -485,6 +558,7 @@ function inertEngine(): SecondMapEngine {
     selected: () => null,
     stats: () => empty,
     camera: () => camera,
+    setSky: () => undefined,
     dispose: () => undefined,
   };
 }

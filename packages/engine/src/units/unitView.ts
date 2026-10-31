@@ -16,7 +16,6 @@ import {
   InstancedMesh,
   Mesh,
   MeshBasicMaterial,
-  MeshLambertMaterial,
   Points,
   RingGeometry,
   type ShaderMaterial,
@@ -25,6 +24,7 @@ import {
 import {
   HIGHLIGHT_COLOR,
   OUTLINE_COLOR,
+  UnitBodyMaterial,
   applyPixelScale,
   createDotMaterial,
   createOutlineMaterial,
@@ -81,7 +81,7 @@ export class UnitView {
     CAPSULE_CAP_SEGMENTS,
     CAPSULE_RADIAL_SEGMENTS,
   );
-  private readonly bodyMaterial = new MeshLambertMaterial({ color: 0xffffff });
+  private readonly body = new UnitBodyMaterial();
   private readonly outlineMaterial = createOutlineMaterial(OUTLINE_COLOR, OUTLINE_PX);
   private readonly highlightMaterial = createOutlineMaterial(HIGHLIGHT_COLOR, HIGHLIGHT_PX);
   private readonly bodies: InstancedMesh;
@@ -117,7 +117,7 @@ export class UnitView {
     this.matrixAttribute = new InstancedBufferAttribute(this.matrices, 16).setUsage(DynamicDrawUsage);
     this.instanceColors = new Float32Array(capacity * 3);
     this.colorAttribute = new InstancedBufferAttribute(this.instanceColors, 3).setUsage(DynamicDrawUsage);
-    this.bodies = new InstancedMesh(this.geometry, this.bodyMaterial, capacity);
+    this.bodies = new InstancedMesh(this.geometry, this.body.material, capacity);
     this.bodies.instanceMatrix = this.matrixAttribute;
     this.bodies.instanceColor = this.colorAttribute;
     this.outlines = new InstancedMesh(this.geometry, this.outlineMaterial, capacity);
@@ -210,6 +210,11 @@ export class UnitView {
     this.applyMode();
   }
 
+  /** 밤 빛: 몸이 자기 색 × 값만큼 스스로 낸다(2차맵 낮밤. 0이면 낮과 같다) */
+  setNightLift(value: number): void {
+    this.body.setNightLift(value);
+  }
+
   /** 그리기 버퍼 크기·픽셀 비율이 바뀌면(외곽선 두께·점 크기를 화면 픽셀로 맞춘다) */
   setPixelScale(drawingWidth: number, drawingHeight: number, pixelRatio: number): void {
     const materials: ShaderMaterial[] = [
@@ -286,7 +291,7 @@ export class UnitView {
     this.ringGeometry.dispose();
     this.selectedDotGeometry.dispose();
     for (const material of [
-      this.bodyMaterial,
+      this.body.material,
       this.outlineMaterial,
       this.highlightMaterial,
       this.dotMaterial,

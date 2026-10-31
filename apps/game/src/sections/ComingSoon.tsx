@@ -1,4 +1,4 @@
-// 준비 중 화면 — 유닛·경제·세력·사이보그·우편과(그 화면을 만들 때까지) 처리함·행성 편집기(ADR 2026-10-29-app-shell 1절 "지금",
+// 준비 중 화면 — 유닛·경제·세력·사이보그·우편과(그 화면을 만들 때까지) 행성 편집기(ADR 2026-10-29-app-shell 1절 "지금",
 // ADR 2026-10-29-planet-editor-stage1 1절). 잠그지 않고 무엇이 올지만 말한다(빈 카드 문구와 같은 원칙, 내부 단계 이름은 쓰지 않는다).
 // 지연 로딩 조각 하나다(routeViews.tsx). 틀을 숨기는 주소(행성 편집기)면 화면 전체 쪽으로 그린다.
 import { ROUTES, type RouteId, type RouteMatch } from "@terra/shared";
@@ -17,7 +17,7 @@ interface Section {
 /** 준비 중으로 여는 화면(routeViews.tsx가 이 조각으로 보내는 주소) */
 type ComingSoonRoute = Exclude<
   RouteId,
-  "home" | "map" | "map_planet" | "settings" | "admin" | "dev" | "dev_gpu_bench"
+  "home" | "map" | "map_planet" | "settings" | "admin" | "inbox" | "dev" | "dev_gpu_bench"
 >;
 
 const SECTIONS = {
@@ -25,7 +25,6 @@ const SECTIONS = {
   economy: { title: m.nav_economy, desc: m.nav_economy_desc, icon: "economy" },
   faction: { title: m.nav_faction, desc: m.nav_faction_desc, icon: "faction" },
   cyborg: { title: m.nav_cyborg, desc: m.nav_cyborg_desc, icon: "cyborg" },
-  inbox: { title: m.shell_route_inbox, icon: "bell" },
   mail: { title: m.shell_mail, icon: "mail" },
   dev_planet_editor: { title: m.shell_route_dev_planet_editor, icon: "globe" },
 } satisfies Record<ComingSoonRoute, Section>;

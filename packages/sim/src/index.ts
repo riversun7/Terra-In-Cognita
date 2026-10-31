@@ -247,3 +247,4 @@ export {
   type CentralBankRule,
   type CentralBankStep,
 } from "./economy/centralBank.ts";
+export { componentLabels } from "./grid/components.ts";

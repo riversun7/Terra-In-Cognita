@@ -2,12 +2,14 @@
 import {
   FIXED_POINT_SCALE,
   HEIGHT_UNIT_M,
+  NO_WATER_UNITS,
   TERRAIN_CELLS,
   TERRAIN_VERTICES,
   type TerrainInput,
 } from "@terra/engine";
 import {
   POSITION_UNITS_PER_CELL,
+  TERRAIN_NO_WATER,
   TERRAIN_SURFACE,
   type TerrainData,
   decodeTerrain,
@@ -16,6 +18,7 @@ import {
 import { describe, expect, it } from "vitest";
 import {
   ENGINE_HEIGHT_UNIT_M,
+  ENGINE_NO_WATER,
   ENGINE_TERRAIN_CELLS,
   TERRAIN_CELL_M,
   TerrainFormatError,
@@ -71,6 +74,22 @@ describe("지형", () => {
     const input = toTerrainInput(decodeTerrain(encodeTerrain(data)));
     expect(input.heights[5]).toBe(Math.round(((5 * 37) % 9_000) / 10));
     expect(Array.from(input.surface.slice(0, 6))).toEqual([0, 1, 2, 3, 4, 0]);
+  });
+
+  it("2판: 머리의 실제 칸 크기(mm → m), 꼭짓점 물 높이(cm → 0.1m, 물 없음은 엔진 값)", () => {
+    const base = terrainData(() => 500);
+    const waterLevels = new Int32Array(129 * 129).fill(TERRAIN_NO_WATER);
+    waterLevels[10] = 1_234;
+    const input = toTerrainInput(
+      decodeTerrain(encodeTerrain({ ...base, cellSizeMm: 11_250, waterLevels, planetGeneratorVersion: 3 })),
+    );
+    expect(input.cellSizeM).toBe(11.25);
+    expect(input.waterLevels?.length).toBe(129 * 129);
+    expect(input.waterLevels?.[10]).toBe(123);
+    expect(input.waterLevels?.[0]).toBe(ENGINE_NO_WATER);
+    expect(ENGINE_NO_WATER).toBe(NO_WATER_UNITS);
+    // 1판은 물 높이가 없다
+    expect(toTerrainInput(base).waterLevels).toBeUndefined();
   });
 
   it("int16을 넘는 높이는 가운데를 기준으로 옮긴다", () => {

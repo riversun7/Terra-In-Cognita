@@ -150,7 +150,10 @@ describe("콘텐츠 팩 행성 원본", () => {
 
   it("팩 행성 정의를 면 레벨 5로 생성하면 생성기 골든 해시와 같다(팩 → 원본 → 생성기 입력이 맞다)", async () => {
     const spec = packTestPlanetSpec();
-    const fields = await createPlanetSource({ ...spec, input: { ...spec.input, faceLevel: 5 } }).generate();
+    const { fields } = await createPlanetSource({
+      ...spec,
+      input: { ...spec.input, faceLevel: 5 },
+    }).generate();
     expect(() => assertPlanetFields(fields)).not.toThrow();
     // packages/planet generator/generate.test.ts "S2 시험 행성 설정" F5 골든 값(출력 판 3)
     expect(fields.meta.hash).toBe("884e2b28");
@@ -164,7 +167,7 @@ describe("콘텐츠 팩 행성 원본", () => {
 
 describe("타일 덩어리 굽기", () => {
   it("타일마다 gzip을 planetTileIds 순서로 잇고, 풀면 타일 만들기 결과 + 머리 값이다", async () => {
-    const fields = await smallSource({ faceLevel: 6, seed: 3 }).generate();
+    const { fields } = await smallSource({ faceLevel: 6, seed: 3 }).generate();
     const header = { generatorVersion: 1, definitionHash: "cd".repeat(32) };
     const baked = bakePlanetTiles(fields, header);
     expect(baked.tiles).toHaveLength(planetTileCount(6));

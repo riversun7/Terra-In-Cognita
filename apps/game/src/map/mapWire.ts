@@ -1,13 +1,15 @@
 // 서버가 보낸 2차맵 자료(packages/protocol) → 엔진 입력(@terra/engine) 바꾸기 — 순수 코드(시험 대상)
 // 규칙은 작업 기록 2026/10/29-0205-s1-server.md "엔진 연결 메모"와 ADR 2026-10-28-s1-second-map을 따른다.
 // - 위치·속도: 서버 고정소수점(배치 칸 하나 = 1024단위) ÷ 1024 = 배치 칸. 출발 시각은 서버 시계 ms 그대로.
-// - 지형: 꼭짓점 높이 cm(i32) ÷ 10 → 0.1m 정수(Int16), 지표 코드는 그대로(같은 번호), 칸 크기는 행성 격자 평균.
+// - 지형: 꼭짓점 높이 cm(i32) ÷ 10 → 0.1m 정수(Int16), 지표 코드는 그대로(같은 번호).
+//   칸 크기는 지형 파일 2판 머리의 실제 값(mm), 1판이면 행성 격자 평균. 2판 꼭짓점 물 높이는 같은 단위로 바꿔 넘긴다.
 // - 건물: rotation ÷ 90 = 엔진 4분의 1 바퀴, height(세로 칸 수) → depth. 기준 칸(왼쪽 위)·홀수 회전에 가로세로 바꿈은 같은 규칙.
 // 엔진 값(상수)은 가져오지 않고 같은 값을 여기 둔다(엔진 진입점은 three를 함께 불러온다). 시험이 엔진 값과 같은지 본다.
 import {
   type BuildingWire,
   POSITION_UNITS_PER_CELL,
   SECOND_MAP_CELLS,
+  TERRAIN_NO_WATER,
   type TerrainData,
   type UnitMotionWire,
 } from "@terra/protocol";
@@ -25,10 +27,12 @@ export const ENGINE_TERRAIN_CELLS = 128;
 /** 엔진 높이 단위(m) = @terra/engine HEIGHT_UNIT_M */
 export const ENGINE_HEIGHT_UNIT_M = 0.1;
 /**
- * 지형 칸 한 변(m, 표시용). 행성 격자 지형 칸 평균(ADR 2026-10-29-cell-key-layout, PLAN 5.2: 약 11.7m, 위치마다 ±10%).
- * [임시] 2차맵마다 실제 칸 크기는 행성 생성기(S2) 때 서버가 함께 보낸다.
+ * 지형 칸 한 변(m, 표시용) — 1판 지형 파일(S1 임시 지형)일 때. 행성 격자 지형 칸 평균(ADR 2026-10-29-cell-key-layout,
+ * PLAN 5.2: 약 11.7m, 위치마다 ±10%). 2판은 머리의 실제 칸 크기를 쓴다.
  */
 export const TERRAIN_CELL_M = 11.72;
+/** 엔진 "물 없음" 값 = @terra/engine NO_WATER_UNITS */
+export const ENGINE_NO_WATER = -32_768;
 
 const INT16_MIN = -32_768;
 const INT16_MAX = 32_767;
@@ -66,15 +70,31 @@ export function toTerrainInput(data: TerrainData): TerrainInput {
   }
   const heights = new Int16Array(units.length);
   for (let i = 0; i < units.length; i++) heights[i] = (units[i] ?? 0) - base;
+  const cellSizeM =
+    data.cellSizeMm !== undefined && data.cellSizeMm > 0 ? data.cellSizeMm / 1000 : TERRAIN_CELL_M;
   return {
     heights,
-    // 같은 번호(물 0·풀 1·흙 2·바위 3). 모르는 번호는 엔진이 회색으로 그린다
+    // 같은 번호(물 0·풀 1·흙 2·바위 3·…·얕은 물 10). 모르는 번호는 엔진이 회색으로 그린다
     surface: data.surface,
     baseHeightM: base * ENGINE_HEIGHT_UNIT_M,
-    cellSizeM: TERRAIN_CELL_M,
-    // 해수면(0m)
+    cellSizeM,
+    // 해수면(0m). 2판은 꼭짓점 물 높이(waterLevels)로 그린다
     waterLevelM: 0,
+    waterLevels: data.waterLevels ? waterUnits(data.waterLevels, base) : undefined,
   };
+}
+
+/** 꼭짓점 물 높이 cm → 0.1m(기준 base만큼 옮김, int16로 자름). 물 없음(TERRAIN_NO_WATER)은 엔진 "물 없음" */
+function waterUnits(levels: Int32Array, base: number): Int16Array {
+  const out = new Int16Array(levels.length);
+  for (let i = 0; i < levels.length; i++) {
+    const level = levels[i] ?? TERRAIN_NO_WATER;
+    out[i] =
+      level === TERRAIN_NO_WATER
+        ? ENGINE_NO_WATER
+        : Math.max(INT16_MIN + 1, Math.min(INT16_MAX, Math.round(level / CM_PER_HEIGHT_UNIT) - base));
+  }
+  return out;
 }
 
 /** 유닛 움직임 → 엔진 경로(배치 칸, 칸/초). 점 하나면 서 있다 */

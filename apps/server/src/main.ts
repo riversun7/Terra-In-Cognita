@@ -6,6 +6,7 @@ import { loadServerContent } from "./content.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
 import { createWorkerBaker } from "./planet/baker.ts";
 import { type PlanetSourceSpec, createPlanetSource, planetSpecsFromPack } from "./planet/sources.ts";
+import { mapPropInputsFromPack } from "./world/mapProps.ts";
 import {
   PLANET_EDITOR_READY_MESSAGE,
   type PlanetEditorBuild,
@@ -23,6 +24,10 @@ const config = readConfig();
 const pathWorkerUrl = import.meta.url.endsWith(".ts")
   ? new URL("./world/pathWorker.ts", import.meta.url)
   : new URL("./pathWorker.js", import.meta.url);
+/** 2차맵 지형 워커 진입 파일 (같은 규칙: 개발 src/world/terrainWorker.ts, 빌드 dist/terrainWorker.js) */
+const terrainWorkerUrl = import.meta.url.endsWith(".ts")
+  ? new URL("./world/terrainWorker.ts", import.meta.url)
+  : new URL("./terrainWorker.js", import.meta.url);
 /** 행성 굽기 워커 진입 파일 (경로 워커와 같은 규칙: 개발 src/planet/bakeWorker.ts, 빌드 dist/planetBakeWorker.js) */
 const planetBakeWorkerUrl = import.meta.url.endsWith(".ts")
   ? new URL("./planet/bakeWorker.ts", import.meta.url)
@@ -82,6 +87,11 @@ app = await buildApp({
     cacheDir: config.planetCacheDir,
   },
   planetEditor: { definitions: planetEditor.definitions },
+  // 시험 2차맵 지형 = 행성 값에서 만든 2차맵(ADR 46 WP-3). 지형 워커가 만들고 행성 캐시 폴더 아래 second-maps/에 둔다
+  secondMaps: {
+    props: mapPropInputsFromPack(loaded.pack),
+    runner: { kind: "worker", workerUrl: terrainWorkerUrl },
+  },
 });
 if (config.auth) {
   app.log.info(

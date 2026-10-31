@@ -1,0 +1,155 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "75acf8b8-823d-48ed-9013-09f616fa66e6",
+  "prevIds": [
+    "a20d9b49-0f55-4120-b480-81beff9b487b"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "second_map_pins"
+      ],
+      "writes": [
+        "s|tbl|public.second_map_pins",
+        "n|tbl|public.second_map_pins",
+        "e|tbl|public.second_map_pins",
+        "n|rel|public.second_map_pins",
+        "n|type|public.second_map_pins",
+        "n|rel|public.second_map_pins_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "second_map_pins",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "second_map_pins",
+        "name": "planet_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "second_map_pins",
+        "name": "map_key",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "second_map_pins",
+        "name": "terrain_version",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "second_map_pins",
+        "name": "tctr_gzip",
+        "type": "bytea",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "second_map_pins",
+        "name": "pinned_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "second_map_pins",
+        "name": "second_map_pins_pkey",
+        "columns": [
+          "planet_id",
+          "map_key"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "second_map_pins",
+        "name": "second_map_pins_planet_id_format",
+        "value": "\"planet_id\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "second_map_pins",
+        "name": "second_map_pins_size",
+        "value": "octet_length(\"tctr_gzip\") between 32 and 4194304",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

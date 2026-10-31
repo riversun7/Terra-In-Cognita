@@ -11,7 +11,9 @@
 //   (+x,−y), (−x,−y))로 본다.
 //   같은 값의 경로가 여러 개면 먼저 찾은 부모를 유지한다. 그래서 같은 입력이면 항상 같은 경로다.
 // - 노드 예산: 펼친 칸 수의 상한. 넘으면 "budget_exceeded"(길이 있는지 모름), 다 봤는데 없으면 "no_path".
+// - 출발과 목표가 다른 연결 영역(grid/components.ts)이면 펼치지 않고 바로 "no_path"(펼친 칸 0).
 import { type SizeClass, isSizeClass } from "../grid/clearance.ts";
+import { componentLabels } from "../grid/components.ts";
 import { ROAD_COST } from "../grid/costs.ts";
 import { type PlacementGrid, cheapestCellCost, footprintCost, isInside } from "../grid/placementGrid.ts";
 import { type CellPoint, PLACEMENT_CELLS, PLACEMENT_SIZE } from "../units.ts";
@@ -105,6 +107,9 @@ export function createPathfinder(): Pathfinder {
     if ((clearance[startIndex] ?? 0) < size) return { status: "start_blocked" };
     if ((clearance[goalIndex] ?? 0) < size) return { status: "goal_blocked" };
     if (startIndex === goalIndex) return { status: "found", cells: [startIndex], cost: 0, expanded: 0 };
+    // 다른 연결 영역이면 펼치지 않고 바로 길 없음(components.ts)
+    const labels = componentLabels(grid, size);
+    if (labels[startIndex] !== labels[goalIndex]) return { status: "no_path", expanded: 0 };
 
     const unitCost = cheapestCellCost(grid);
     const { terrainCost, road } = grid;

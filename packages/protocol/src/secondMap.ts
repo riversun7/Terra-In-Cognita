@@ -28,11 +28,11 @@ export const MAX_BUILDING_SIDE = 32;
 export const UNIT_SIZE_CLASSES = [1, 2, 3] as const;
 
 /**
- * S1 시험 2차맵의 키: 지구(면 레벨 9) 면 0의 (i, j) = (256, 256) 칸.
- * = @terra/planet `cellKey(0, EARTH_FACE_LEVEL, 256, 256)` = 2^48 + 9 (서버 시험이 같은 값인지 본다).
- * 기기는 S1 동안 이 2차맵 하나를 구독한다. 행성 ID는 아직 없다(행성 생성기, S2).
+ * 시험 2차맵의 키: S2 시험 행성(면 레벨 9) 면 0의 (i, j) = (282, 328) 칸(초지, ADR 2026-10-31-second-map-from-planet 8절).
+ * = @terra/planet `cellKey(0, EARTH_FACE_LEVEL, 282, 328)` (서버 시험이 같은 값인지 본다). 기기는 이 2차맵을 구독한다.
+ * 옛 값(S1 임시 지형 시절, (256, 256) = 281_474_976_710_665)은 S2 시험 행성에서 깊은 바다 위라 옮겼다.
  */
-export const S1_TEST_MAP_KEY = 281_474_976_710_665;
+export const S1_TEST_MAP_KEY = 312_905_547_382_793;
 
 /** 2차맵 메시지에 필요한 가장 낮은 프로토콜 버전(시야 전송, S3). 더 낮게 인사한 연결이 보내면 invalid_message로 거절한다 */
 export const SECOND_MAP_PROTOCOL_VERSION = 3;

@@ -5,6 +5,7 @@
 import { createHash } from "node:crypto";
 import { type ContentPack, biomeEntrySchema, localizedText, sortKeys } from "@terra/content";
 import type { PlanetFields } from "@terra/planet";
+import { type PlanetValues, planetValuesFromGeneration } from "@terra/planet/secondMap";
 import {
   GENERATOR_VERSION,
   type PlanetGeneratorInput,
@@ -40,6 +41,12 @@ export interface PlanetSourceSpec {
   readonly biomes: readonly PlanetBiomeLegend[];
 }
 
+/** 생성 결과: 타일을 굽는 필드 + 2차맵 생성기 입력(행성 값, ADR 2026-10-31-second-map-from-planet 1절) */
+export interface PlanetGeneration {
+  readonly fields: PlanetFields;
+  readonly values: PlanetValues;
+}
+
 export interface PlanetSource {
   /** 행성 ID = 콘텐츠 ID(영어 snake_case) */
   readonly id: string;
@@ -53,8 +60,8 @@ export interface PlanetSource {
   readonly biomes: readonly PlanetBiomeLegend[];
   /** 워커 굽기용 설명. 없으면 같은 스레드에서만 굽는다(시험) */
   readonly spec?: PlanetSourceSpec | undefined;
-  /** 생성기 출력. onStage는 생성 단계가 끝날 때마다 불린다(워커가 그때 메모리를 잰다) */
-  generate(onStage?: () => void): Promise<PlanetFields>;
+  /** 생성기 출력과 행성 값. onStage는 생성 단계가 끝날 때마다 불린다(워커가 그때 메모리를 잰다) */
+  generate(onStage?: () => void): Promise<PlanetGeneration>;
 }
 
 /** 정의 해시: 키를 정렬한 JSON의 SHA-256 (키 순서만 다르면 같은 값) */
@@ -96,7 +103,15 @@ export function createPlanetSource(spec: PlanetSourceSpec): PlanetSource {
     definitionHash: definitionHashOf(planetDefinitionForHash(input)),
     biomes,
     spec,
-    generate: (onStage) => Promise.resolve(runPlanetGenerator(input, { onStage: () => onStage?.() }).fields),
+    generate: (onStage) => {
+      const details = runPlanetGenerator(input, { onStage: () => onStage?.() });
+      const values = planetValuesFromGeneration(
+        details.fields,
+        details,
+        input.biomes.map((biome) => biome.id),
+      );
+      return Promise.resolve({ fields: details.fields, values });
+    },
   };
 }
 

@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { gzipSync } from "node:zlib";
 import { type PlanetFields, buildPlanetTiles } from "@terra/planet";
+import { type PlanetValues, encodePlanetValues } from "@terra/planet/secondMap";
 import { encodePlanetTile } from "@terra/protocol";
 
 /**
@@ -42,6 +43,20 @@ export function highestCell(elevationM: Int16Array): number {
   let highest = 0;
   for (const value of elevationM) if (value > highest) highest = value;
   return highest;
+}
+
+/** 행성 값 파일(TCPV, 2차맵 생성기 입력) — 캐시 파일 .values와 2차맵 지형 워커가 받는 바이트 */
+export interface BakedValues {
+  values: Uint8Array<ArrayBuffer>;
+  /** values의 SHA-256 (디스크 캐시 무결성 확인) */
+  valuesSha256: string;
+}
+
+export function bakePlanetValues(values: PlanetValues): BakedValues {
+  const encoded = encodePlanetValues(values);
+  const bytes = new Uint8Array(encoded.byteLength);
+  bytes.set(encoded);
+  return { values: bytes, valuesSha256: createHash("sha256").update(bytes).digest("hex") };
 }
 
 /** 생성기 출력 → 압축한 타일 덩어리 */

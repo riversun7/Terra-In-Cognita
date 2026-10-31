@@ -1,9 +1,11 @@
 // 행성 타일 디스크 캐시 (PLANET_CACHE_DIR, NAS는 볼륨) — ADR 2026-10-29-s2-planet-lod "서버 굽기·전송"
-// (행성 ID, generatorVersion, 정의 해시, 타일 형식 버전)마다 파일 두 개:
+// (행성 ID, generatorVersion, 정의 해시, 타일 형식 버전)마다 파일 셋:
 //   <이름>.pack        압축한 타일을 이은 것(굽기 결과 그대로)
-//   <이름>.index.json  타일 목록([타일 ID, 압축 길이], pack 순서)·pack SHA-256·잰 값
-// 쓰기: 임시 파일에 쓴 뒤 이름을 바꾼다(pack 먼저, 목록 나중). 목록이 있으면 다 쓴 것이다.
-// 읽기: 목록 형식·키·타일 목록(이 행성의 planetTileIds와 같은 순서)·길이 합·pack 크기·SHA-256·첫 타일 머리를 확인한다.
+//   <이름>.values      행성 값 파일(TCPV, 2차맵 생성기 입력, ADR 2026-10-31-second-map-from-planet 1절)
+//   <이름>.index.json  타일 목록([타일 ID, 압축 길이], pack 순서)·pack·values SHA-256·잰 값
+// 쓰기: 임시 파일에 쓴 뒤 이름을 바꾼다(pack·values 먼저, 목록 나중). 목록이 있으면 다 쓴 것이다.
+// 읽기: 목록 형식·키·타일 목록(이 행성의 planetTileIds와 같은 순서)·길이 합·pack 크기·SHA-256·첫 타일 머리,
+// values 크기·SHA-256을 확인한다.
 // 하나라도 틀리면 쓰지 않고 다시 굽는다. 캐시는 지워도 된다(다시 굽는다). 숨김 정보는 없다(ADR 26).
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
@@ -14,10 +16,10 @@ import { PLANET_FIELDS_HASH_PATTERN, PLANET_TILE_FORMAT_VERSION, decodePlanetTil
 import { z } from "zod";
 
 /**
- * 캐시 목록 형식 버전(목록 JSON 모양이 바뀌면 올린다). 2: maxElevationM을 더했다.
+ * 캐시 목록 형식 버전(목록 JSON 모양이 바뀌면 올린다). 2: maxElevationM을 더했다. 3: 행성 값 파일(values)을 더했다.
  * 옛 형식 목록은 스키마에서 틀려 다시 굽는다(목록에 없는 값을 지어내지 않는다)
  */
-export const PLANET_CACHE_FORMAT = 2;
+export const PLANET_CACHE_FORMAT = 3;
 
 export interface PlanetCacheKey {
   planetId: string;
@@ -38,6 +40,9 @@ export const planetCacheIndexSchema = z.strictObject({
   packBytes: z.number().int().nonnegative(),
   packSha256: z.string().regex(/^[0-9a-f]{64}$/),
   rawBytes: z.number().int().nonnegative(),
+  /** 행성 값 파일 크기·SHA-256 */
+  valuesBytes: z.number().int().positive(),
+  valuesSha256: z.string().regex(/^[0-9a-f]{64}$/),
   /**
    * 생성 결과 해시(생성기 meta.hash) — 목록 정보 fieldsHash(ADR 38 4절). 목록 정보와 같은 모양만 받는다: 틀린 값이면 캐시를
    * 쓰지 않고 다시 굽는다(틀린 값을 목록 정보에 실으면 기기가 목록 정보 전체를 거절한다)
@@ -56,6 +61,7 @@ export type PlanetCacheIndex = z.output<typeof planetCacheIndexSchema>;
 export interface CachedPlanet {
   index: PlanetCacheIndex;
   pack: Uint8Array;
+  values: Uint8Array;
 }
 
 export type CacheReadResult =
@@ -69,6 +75,7 @@ export function cacheFileStem(key: PlanetCacheKey): string {
 }
 
 const PACK_SUFFIX = ".pack";
+const VALUES_SUFFIX = ".values";
 const INDEX_SUFFIX = ".index.json";
 
 function isMissing(error: unknown): boolean {
@@ -144,7 +151,18 @@ export async function readPlanetCache(dir: string, key: PlanetCacheKey): Promise
       return invalid("first tile does not decode");
     }
   }
-  return { ok: true, cached: { index, pack } };
+  let values: Uint8Array;
+  try {
+    values = await readFile(`${stem}${VALUES_SUFFIX}`);
+  } catch (error) {
+    if (isMissing(error)) return invalid("values file is missing");
+    throw error;
+  }
+  if (values.byteLength !== index.valuesBytes) return invalid("values size differs from the index");
+  if (createHash("sha256").update(values).digest("hex") !== index.valuesSha256) {
+    return invalid("values SHA-256 differs from the index");
+  }
+  return { ok: true, cached: { index, pack, values } };
 }
 
 /** 임시 파일에 쓰고 이름을 바꾼다(같은 폴더 안이라 원자적이다) */
@@ -159,11 +177,12 @@ async function writeAtomically(target: string, data: string | Uint8Array): Promi
   }
 }
 
-/** 캐시를 쓴다(폴더가 없으면 만든다). pack 먼저, 목록 나중 */
+/** 캐시를 쓴다(폴더가 없으면 만든다). pack·values 먼저, 목록 나중 */
 export async function writePlanetCache(
   dir: string,
   index: PlanetCacheIndex,
   pack: Uint8Array,
+  values: Uint8Array,
 ): Promise<void> {
   await mkdir(dir, { recursive: true });
   const stem = path.join(
@@ -176,6 +195,7 @@ export async function writePlanetCache(
     }),
   );
   await writeAtomically(`${stem}${PACK_SUFFIX}`, pack);
+  await writeAtomically(`${stem}${VALUES_SUFFIX}`, values);
   await writeAtomically(`${stem}${INDEX_SUFFIX}`, `${JSON.stringify(index)}\n`);
 }
 
@@ -217,11 +237,8 @@ export async function prunePlanetCache(
   ]);
   const removed = names.filter((name) => {
     if (temporary.includes(name)) return true;
-    const stem = name.endsWith(INDEX_SUFFIX)
-      ? name.slice(0, -INDEX_SUFFIX.length)
-      : name.endsWith(PACK_SUFFIX)
-        ? name.slice(0, -PACK_SUFFIX.length)
-        : undefined;
+    const suffix = [INDEX_SUFFIX, PACK_SUFFIX, VALUES_SUFFIX].find((end) => name.endsWith(end));
+    const stem = suffix === undefined ? undefined : name.slice(0, -suffix.length);
     return stem !== undefined && !keep.has(stem);
   });
   await Promise.all(removed.map((name) => rm(path.join(dir, name), { force: true })));

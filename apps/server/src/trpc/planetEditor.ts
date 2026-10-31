@@ -39,6 +39,21 @@ const saveInput = z.strictObject({
 
 const restoreInput = z.strictObject({ planetId, revision: z.int().min(1).max(REVISION_MAX) });
 
+// ── 행성 보관함 입력(이름·정의는 서버가 이유 코드 차례로 본다: 여기서는 받기만 한다) ──
+const libraryId = z.uuid();
+const libraryIdInput = z.strictObject({ id: libraryId });
+/** 시작점: 지금은 팩 행성뿐(@terra/shared PLANET_LIBRARY_BASE_KINDS. 표본을 더하면 종류를 늘린다) */
+const libraryBase = z.strictObject({ kind: z.literal("pack"), id: planetId });
+const libraryCreateInput = z.strictObject({ name: z.unknown(), base: libraryBase, definition: z.unknown() });
+const librarySaveInput = z.strictObject({
+  id: libraryId,
+  definition: z.unknown(),
+  /** 이 기기의 작업 사본이 시작한 판. 지금 판과 다르면 CONFLICT */
+  expectedRevision: z.int().min(1).max(REVISION_MAX),
+});
+const libraryRenameInput = z.strictObject({ id: libraryId, name: z.unknown() });
+const libraryVersionInput = z.strictObject({ id: libraryId, revision: z.int().min(1).max(REVISION_MAX) });
+
 /** 권한 표 확인(미들웨어) → Better Auth 확인 → 속도 제한 → 편집기 서비스를 ctx.editor로 */
 function editorProcedure(action: PlanetEditorAction, kind: PlanetEditorCallKind = "drafts") {
   return permissionProcedure({ planetEditor: [action] }).use(async ({ ctx, next }) => {
@@ -51,7 +66,47 @@ function editorProcedure(action: PlanetEditorAction, kind: PlanetEditorCallKind 
   });
 }
 
+/** 보관함 프로시저: 권한·속도 제한 뒤 ctx.editor.library */
+const libraryRead = editorProcedure("read", "library");
+const libraryWrite = editorProcedure("write", "library");
+
 export const planetEditorRouter = router({
+  /**
+   * 행성 보관함 — 팀 공용 목록(dev·admin 모두 같은 목록, 만든 사람 표시). [저장]·[다른 이름으로 저장]만 쓴다.
+   * 저장은 서버가 굽지 않는다(정의만 보관). ID(uuid)는 바뀌지 않는다
+   */
+  library: router({
+    /** 목록(지운 것 빼고, 최근에 바뀐 것부터). 정의는 싣지 않는다 */
+    list: libraryRead.query(({ ctx }) => ctx.editor.library.list(ctx.viewer)),
+    /** 행성 하나(정의 포함) */
+    get: libraryRead
+      .input(libraryIdInput)
+      .query(({ ctx, input }) => ctx.editor.library.get(ctx.viewer, input.id)),
+    /** 저장 판 목록(새 판부터) */
+    versions: libraryRead
+      .input(libraryIdInput)
+      .query(({ ctx, input }) => ctx.editor.library.versions(ctx.viewer, input.id)),
+    /** 저장 판 하나(정의 포함) — 기기가 작업 사본으로 불러온다(불러오기만으로는 저장하지 않는다) */
+    version: libraryRead
+      .input(libraryVersionInput)
+      .query(({ ctx, input }) => ctx.editor.library.version(ctx.viewer, input)),
+    /** 새 행성(판 1). [새 행성]의 첫 [저장]과 [다른 이름으로 저장] */
+    create: libraryWrite
+      .input(libraryCreateInput)
+      .mutation(({ ctx, input }) => ctx.editor.library.create(ctx.viewer, input)),
+    /** [저장]: 판 +1. 기대 판이 지금 판과 다르면 CONFLICT */
+    save: libraryWrite
+      .input(librarySaveInput)
+      .mutation(({ ctx, input }) => ctx.editor.library.save(ctx.viewer, input)),
+    /** 이름 바꾸기(판 그대로) */
+    rename: libraryWrite
+      .input(libraryRenameInput)
+      .mutation(({ ctx, input }) => ctx.editor.library.rename(ctx.viewer, input)),
+    /** 지우기(표시만, 만든 사람·admin) */
+    remove: libraryWrite
+      .input(libraryIdInput)
+      .mutation(({ ctx, input }) => ctx.editor.library.remove(ctx.viewer, input.id)),
+  }),
   /**
    * 팩 버전·임시 여부·서버 생성기 판, 행성마다 원본 항목·정의 해시·확인 해시, 바이옴 항목. 부를 때마다 감사 기록
    * (그래서 속도 제한을 따로 한 번 더 센다)

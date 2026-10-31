@@ -5,12 +5,18 @@
 import type { Role, UserSettings } from "@terra/shared";
 import type { DashboardCardsResponse } from "@terra/shared/dashboard";
 import type { InboxListResponse, SummaryGetResponse } from "@terra/shared/inbox";
+import type { PlanetLibraryBase } from "@terra/shared";
 import type {
   PlanetDraftRevisionInfo,
   PlanetDraftSaveInput,
   PlanetDraftSaved,
   PlanetDraftView,
   PlanetEditorDefinitions,
+  PlanetLibraryPlanet,
+  PlanetLibrarySaved,
+  PlanetLibrarySummary,
+  PlanetLibraryVersion,
+  PlanetLibraryVersionInfo,
 } from "../planetEditor/types.ts";
 
 /** 로그인한 사용자 */
@@ -58,7 +64,29 @@ export interface SettingsServices {
 export type PlanetEditorAction = "read" | "write";
 
 /** 속도 제한의 호출 종류: 정의 조회(감사 기록이 남는다)는 따로 한 번 더 센다 */
-export type PlanetEditorCallKind = "definitions" | "drafts";
+export type PlanetEditorCallKind = "definitions" | "drafts" | "library";
+
+/**
+ * 행성 보관함(팀 공용 목록, ADR 38 "바뀜: 행성 보관함"). 실패: BAD_REQUEST(data.reason = 정의 받지 않음 코드·invalid_name·
+ * unknown_base), NOT_FOUND(planet_not_found·version_not_found), CONFLICT(revision_conflict, 지금 판은 다시 읽는다),
+ * FORBIDDEN(not_author: 지우기는 만든 사람·admin만)
+ */
+export interface PlanetLibraryServices {
+  list(viewer: Viewer): Promise<PlanetLibrarySummary[]>;
+  get(viewer: Viewer, id: string): Promise<PlanetLibraryPlanet>;
+  create(
+    viewer: Viewer,
+    input: { name: unknown; base: PlanetLibraryBase; definition: unknown },
+  ): Promise<PlanetLibraryPlanet>;
+  save(
+    viewer: Viewer,
+    input: { id: string; definition: unknown; expectedRevision: number },
+  ): Promise<PlanetLibrarySaved>;
+  rename(viewer: Viewer, input: { id: string; name: unknown }): Promise<{ name: string }>;
+  remove(viewer: Viewer, id: string): Promise<{ removed: true }>;
+  versions(viewer: Viewer, id: string): Promise<PlanetLibraryVersionInfo[]>;
+  version(viewer: Viewer, input: { id: string; revision: number }): Promise<PlanetLibraryVersion>;
+}
 
 /**
  * 행성 편집기(ADR 2026-10-29-planet-editor-stage1 9·11절) — 프로시저가 권한 미들웨어(우리 권한 표)를 거친 뒤 부른다.
@@ -80,6 +108,7 @@ export interface PlanetEditorServices {
   save(viewer: Viewer, input: PlanetDraftSaveInput): Promise<PlanetDraftSaved>;
   restore(viewer: Viewer, input: { planetId: string; revision: number }): Promise<PlanetDraftView>;
   remove(viewer: Viewer, planetId: string): Promise<{ removed: boolean }>;
+  library: PlanetLibraryServices;
 }
 
 /** 홈 자료 조회의 조건. preview는 프로시저가 권한(home: preview, dev·admin)을 본 뒤에만 true다 */

@@ -84,20 +84,45 @@ function sizeWithinLimit(entry: unknown): number | null {
   return bytes > PLANET_DRAFT_ENTRY_MAX_BYTES ? null : bytes;
 }
 
-/** 초안 항목 하나를 검사한다. planetId = 요청한 행성(초안 열쇠). 항목의 id가 다르면 invalid_entry */
-export function checkDraftEntry(entry: unknown, planetId: string, pack: DraftPackContext): DraftEntryCheck {
+/**
+ * 항목 검사의 바탕(초안·보관함 정의 공통): 크기 → 모양·글자 → 콘텐츠 형식(planetEntrySchema) → 바이옴 참조 → 생성기 입력.
+ * id 규칙(idCheck)만 쓰는 곳마다 다르다: 초안은 요청한 행성과 같고 팩에 있어야 하고, 보관함은 형식만 맞으면 된다
+ */
+function checkEntry(
+  entry: unknown,
+  pack: DraftPackContext,
+  idCheck: (id: string) => PlanetDraftRejectCode | null,
+): DraftEntryCheck {
   const bytes = sizeWithinLimit(entry);
   if (bytes === null) return { ok: false, code: "entry_too_large" };
   if (!isJsonObject(entry) || !isStorableJson(entry)) return { ok: false, code: "invalid_entry" };
   const parsed = planetEntrySchema.safeParse(entry);
-  if (!parsed.success || parsed.data.id !== planetId) return { ok: false, code: "invalid_entry" };
+  if (!parsed.success) return { ok: false, code: "invalid_entry" };
+  // 초안: 요청한 행성과 다른 id는 모양 문제(invalid_entry)라 바이옴보다 먼저 본다. 팩에 없는 행성(unknown_planet)은 바이옴 뒤
+  const idProblem = idCheck(parsed.data.id);
+  if (idProblem === "invalid_entry") return { ok: false, code: idProblem };
   if (!parsed.data.biomes.every((ref) => pack.biomeIds.has(ref.id)))
     return { ok: false, code: "unknown_biome" };
-  if (!pack.planetIds.has(parsed.data.id)) return { ok: false, code: "unknown_planet" };
+  if (idProblem) return { ok: false, code: idProblem };
   try {
     validatePlanetInput(planetInputFromDefinition(entry, pack.biomes));
   } catch {
     return { ok: false, code: "generator_rejected" };
   }
   return { ok: true, entry, bytes };
+}
+
+/** 초안 항목 하나를 검사한다. planetId = 요청한 행성(초안 열쇠). 항목의 id가 다르면 invalid_entry */
+export function checkDraftEntry(entry: unknown, planetId: string, pack: DraftPackContext): DraftEntryCheck {
+  return checkEntry(entry, pack, (id) =>
+    id !== planetId ? "invalid_entry" : pack.planetIds.has(id) ? null : "unknown_planet",
+  );
+}
+
+/**
+ * 보관함 행성 정의 하나를 검사한다(ADR 38 "바뀜: 행성 보관함"). 초안과 같은 차례·코드이고, 항목 id는 콘텐츠 ID 형식이면 된다
+ * (시작한 팩 행성의 ID를 그대로 둔다. 팩에 반영할 때 새 ID를 정한다). 새 세부 수치는 콘텐츠 형식·생성기를 따라 그대로 받는다
+ */
+export function checkLibraryDefinition(definition: unknown, pack: DraftPackContext): DraftEntryCheck {
+  return checkEntry(definition, pack, () => null);
 }

@@ -35,6 +35,16 @@ export {
   planetDraftEntryBytes,
   type PlanetDraftRejectCode,
 } from "./planetDraftApi.ts";
+export {
+  PLANET_LIBRARY_BASE_KINDS,
+  PLANET_LIBRARY_NAME_MAX,
+  PLANET_LIBRARY_REASONS,
+  isPlanetLibraryBase,
+  normalizePlanetLibraryName,
+  type PlanetLibraryBase,
+  type PlanetLibraryBaseKind,
+  type PlanetLibraryReason,
+} from "./planetLibraryApi.ts";
 export { utf8ByteLength } from "./utf8.ts";
 export { estimateClockOffset, type ClockSample, type ClockEstimate } from "./clock.ts";
 export {

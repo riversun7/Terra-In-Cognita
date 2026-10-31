@@ -1,0 +1,744 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "621f1ea3-74d0-4df0-acbb-567a8ac96ed8",
+  "prevIds": [
+    "b322ea4a-3713-4055-b63f-3d23a4f26fda",
+    "ccf9558d-dd0f-4ee6-a781-fab47b24f9bc"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "planet_library"
+      ],
+      "writes": [
+        "s|tbl|public.planet_library",
+        "n|tbl|public.planet_library",
+        "e|tbl|public.planet_library",
+        "n|rel|public.planet_library",
+        "n|type|public.planet_library",
+        "n|rel|public.planet_library_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "planet_library_versions"
+      ],
+      "writes": [
+        "s|tbl|public.planet_library_versions",
+        "n|tbl|public.planet_library_versions",
+        "e|tbl|public.planet_library_versions",
+        "n|rel|public.planet_library_versions",
+        "n|type|public.planet_library_versions",
+        "n|rel|public.planet_library_versions_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "planet_library",
+        "planet_library_updated_idx"
+      ],
+      "writes": [
+        "s|idx|public.planet_library_updated_idx",
+        "n|idx|public.planet_library_updated_idx",
+        "e|idx|public.planet_library_updated_idx",
+        "n|rel|public.planet_library_updated_idx"
+      ],
+      "reads": [
+        "n|tbl|public.planet_library",
+        "n|sch|public",
+        "n|col|public.planet_library.updated_at"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "planet_library_versions",
+        "planet_library_versions_planet_revision_idx"
+      ],
+      "writes": [
+        "s|idx|public.planet_library_versions_planet_revision_idx",
+        "n|idx|public.planet_library_versions_planet_revision_idx",
+        "e|idx|public.planet_library_versions_planet_revision_idx",
+        "n|rel|public.planet_library_versions_planet_revision_idx"
+      ],
+      "reads": [
+        "n|tbl|public.planet_library_versions",
+        "n|sch|public",
+        "n|col|public.planet_library_versions.planet_id",
+        "n|col|public.planet_library_versions.revision"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "planet_library"
+      ],
+      "writes": [
+        "s|fk|public.planet_library.planet_library_author_id_users_id_fkey",
+        "n|fk|public.planet_library.planet_library_author_id_users_id_fkey",
+        "e|fk|public.planet_library.planet_library_author_id_users_id_fkey",
+        "n|con|public.planet_library.planet_library_author_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.planet_library",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.planet_library.author_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "planet_library"
+      ],
+      "writes": [
+        "s|fk|public.planet_library.planet_library_updated_by_users_id_fkey",
+        "n|fk|public.planet_library.planet_library_updated_by_users_id_fkey",
+        "e|fk|public.planet_library.planet_library_updated_by_users_id_fkey",
+        "n|con|public.planet_library.planet_library_updated_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.planet_library",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.planet_library.updated_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "planet_library"
+      ],
+      "writes": [
+        "s|fk|public.planet_library.planet_library_deleted_by_users_id_fkey",
+        "n|fk|public.planet_library.planet_library_deleted_by_users_id_fkey",
+        "e|fk|public.planet_library.planet_library_deleted_by_users_id_fkey",
+        "n|con|public.planet_library.planet_library_deleted_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.planet_library",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.planet_library.deleted_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "planet_library_versions"
+      ],
+      "writes": [
+        "s|fk|public.planet_library_versions.planet_library_versions_planet_id_planet_library_id_fkey",
+        "n|fk|public.planet_library_versions.planet_library_versions_planet_id_planet_library_id_fkey",
+        "e|fk|public.planet_library_versions.planet_library_versions_planet_id_planet_library_id_fkey",
+        "n|con|public.planet_library_versions.planet_library_versions_planet_id_planet_library_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.planet_library_versions",
+        "n|sch|public",
+        "n|tbl|public.planet_library",
+        "n|sch|public",
+        "n|col|public.planet_library_versions.planet_id",
+        "n|col|public.planet_library.id",
+        "e|uniqueness|public.planet_library.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "planet_library_versions"
+      ],
+      "writes": [
+        "s|fk|public.planet_library_versions.planet_library_versions_saved_by_users_id_fkey",
+        "n|fk|public.planet_library_versions.planet_library_versions_saved_by_users_id_fkey",
+        "e|fk|public.planet_library_versions.planet_library_versions_saved_by_users_id_fkey",
+        "n|con|public.planet_library_versions.planet_library_versions_saved_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.planet_library_versions",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.planet_library_versions.saved_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "planet_library",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "planet_library_versions",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "gen_random_uuid()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "base",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "definition",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "revision",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "author_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "updated_by",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "deleted_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "deleted_by",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library_versions",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "planet_library_versions_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "9223372036854775807",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library_versions",
+        "name": "planet_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library_versions",
+        "name": "revision",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library_versions",
+        "name": "definition",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library_versions",
+        "name": "bytes",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library_versions",
+        "name": "saved_by",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library_versions",
+        "name": "saved_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "planet_library_updated_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "updated_at",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library_versions",
+        "name": "planet_library_versions_planet_revision_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "planet_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "revision",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "planet_library_author_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "author_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "planet_library_updated_by_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "updated_by"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "planet_library_deleted_by_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "deleted_by"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library_versions",
+        "name": "planet_library_versions_planet_id_planet_library_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "planet_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "planet_library",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library_versions",
+        "name": "planet_library_versions_saved_by_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "saved_by"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "planet_library_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library_versions",
+        "name": "planet_library_versions_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "planet_library_revision_positive",
+        "value": "\"revision\" >= 1",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library",
+        "name": "planet_library_name_length",
+        "value": "char_length(\"name\") between 1 and 60",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library_versions",
+        "name": "planet_library_versions_revision_positive",
+        "value": "\"revision\" >= 1",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "planet_library_versions",
+        "name": "planet_library_versions_bytes_nonnegative",
+        "value": "\"bytes\" >= 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

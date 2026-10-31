@@ -1,13 +1,15 @@
-// 행성 하나의 편집 화면 — 지구본 + 판(설정·면적·칸·초안 탭). ADR 38 2~13절
-// 흐름: 세션(꺼짐 감지·서버 초안·미리보기) → 초안을 읽으면 미리보기를 연다(공개본 F5 → 초안 F7 → 공개본 F7)
-// → 설정 판의 변경은 적용 전 변경으로 모으고, [적용]을 누를 때 초안 동기화(edit, 2초 뒤 자동 저장)와 미리보기(빠른 F5 → 미니맵,
-//   본 레벨 → 지구본)에 같이 알린다(사용자 의견 2026-10-31: 슬라이더를 움직일 때마다 다시 만들지 않는다).
-// 밖에서 초안이 바뀌면(되돌리기·가져오기·그쪽 불러오기·지우기) 본 레벨로 다시 만든다(lastSent로 내 편집과 가른다).
+// 보관함 행성 하나의 편집 화면 — 지구본 + 판(설정·면적·칸·행성 탭). ADR 38 2~13절, "바뀜: 행성 보관함"
+// 흐름: 미리보기 세션(꺼짐 감지·미리보기) + 보관함 문서(useLibraryDocument: 저장한 정의 + 이 기기의 작업 사본)
+// → 미리보기를 연다(기준 팩 행성 F5 → 작업 사본 F7 → 기준 F7)
+// → 슬라이더 변경은 적용 전 변경으로 모으고, [적용]이나 누르는 조작(프리셋·시드·[되돌리기])을 쓸 때 작업 사본을 바꾸고
+//   미리보기(빠른 F5 → 미니맵, 본 레벨 → 지구본)를 다시 만든다. 서버에는 [저장]·[다른 이름으로 저장]만 쓴다(사용자 결정 2026-10-31).
+// 밖에서 작업 사본이 바뀌면(저장 판 불러오기·가져오기) 본 레벨로 다시 만든다(lastSent로 내 편집과 가른다).
 // - 휴대폰 세로: 지구본 + 아래 판, 가로·넓은 화면: 옆 판(폭 경계 37.5em, planetEditor.css). 판은 탭 넷이고 모두 그려 둔다(숨김).
 // - 평면 미니맵: 넓고 높은 화면(37.5em 이상 × 높이 40em 이상)은 지구본 아래에 늘 보인다. 그 밖(휴대폰)은 지구본 자리 위
-//   [지구본·평면] 단추로 바꿔 본다(사용자 의견 2026-10-31 "한번에 보기 힘듬").
-// - 열 때 확인(editorView deviceCheck): 생성기 판이 다르거나 공개본 F5 해시가 서버와 다르면 알리고 내보내기를 막는다.
-// - 저장하지 않은 변경이 있으면 [뒤로]에서 묻고, 창을 닫을 때(beforeunload) 브라우저가 묻게 한다.
+//   [지구본·평면] 단추로 바꿔 본다.
+// - 열 때 확인(editorView deviceCheck): 생성기 판이 다르거나 기준 팩 행성 F5 해시가 서버와 다르면 알리고 내보내기를 막는다.
+// - 저장하지 않은 변경(작업 사본·적용 전 변경)이 있으면 [뒤로]에서 묻고, 창을 닫을 때(beforeunload) 브라우저가 묻게 한다.
+//   작업 사본은 이 기기에 남아 다시 열면 이어서 고친다.
 import { GENERATOR_VERSION } from "@terra/planet/generator";
 import {
   type KeyboardEvent,
@@ -19,19 +21,21 @@ import {
   useRef,
   useState,
 } from "react";
+import { useSession } from "../../auth/session.ts";
 import { m } from "../../paraglide/messages.js";
 import { forceUpdate } from "../../pwa/updates.ts";
 import { AreaPanel, type ShownRole } from "./AreaPanel.tsx";
 import { CellPanel, reportAt } from "./CellPanel.tsx";
 import { ConfirmDialog, type ConfirmRequest } from "./ConfirmDialog.tsx";
-import { DraftPanel } from "./DraftPanel.tsx";
 import { EditorGlobe } from "./EditorGlobe.tsx";
 import { FlatMap } from "./FlatMap.tsx";
+import { LibraryPanel } from "./LibraryPanel.tsx";
+import { type PromptRequest, PromptDialog } from "./PromptDialog.tsx";
 import { SettingsPanel } from "./SettingsPanel.tsx";
 import { buildDraftExport, draftExportFileName, serializeDraftExport } from "./draftExport.ts";
 import type { DraftImport } from "./draftExport.ts";
-import { formatBytes, formatNumber, previewErrorText, saveStatusText } from "./editorMessages.ts";
-import { type DraftDocument, type DraftEntry, pendingChangeCount } from "./editorModel.ts";
+import { docStatusText, formatBytes, formatNumber, localName, previewErrorText } from "./editorMessages.ts";
+import { type DraftEntry, pendingChangeCount } from "./editorModel.ts";
 import {
   CONFIRM_PREVIEW_LEVEL,
   type ServerCheck,
@@ -47,99 +51,56 @@ import {
 import type { LatLon } from "./flatMapRender.ts";
 import { memoryEstimate } from "./memoryEstimate.ts";
 import { HEAVY_PREVIEW_LEVEL } from "./previewJobs.ts";
-import type { PreviewStage } from "./previewProtocol.ts";
 import { biomeColoursOf } from "./previewTiles.ts";
-import type { PreviewDefinition, PreviewSnapshot } from "./previewTypes.ts";
 import { type EditorSession, useEditorSession, useStore } from "./useEditorSession.ts";
+import {
+  type LibraryDocActions,
+  type LibraryDocDeps,
+  type LibraryDocState,
+  type OpenedPlanet,
+  useLibraryDocument,
+} from "./useLibraryDocument.ts";
+import {
+  type EditorDefinitions,
+  type EditorPlanet,
+  Frame,
+  biomesInPlanetOrder,
+  definitionOf,
+  runningText,
+} from "./workspaceParts.tsx";
 
-/** 정의 조회의 행성 하나에서 쓰는 것 */
-export interface EditorPlanet {
-  readonly id: string;
-  readonly entry: DraftEntry;
-  readonly definitionHash: string;
-  readonly check: { readonly faceLevel: number; readonly hash: string };
-}
-
-export interface EditorDefinitions {
-  readonly contentVersion: string;
-  readonly generatorVersion: number;
-  readonly planets: readonly EditorPlanet[];
-  readonly biomes: readonly unknown[];
-}
+export type { EditorDefinitions, EditorPlanet } from "./workspaceParts.tsx";
 
 interface WorkspaceProps {
-  readonly planet: EditorPlanet;
+  /** 연 행성(보관함 행성 또는 저장하지 않은 새 행성) */
+  readonly opened: OpenedPlanet;
+  /** 시작한 팩 행성(미리보기 기준·열 때 확인·바이옴 색) */
+  readonly basePlanet: EditorPlanet;
   readonly definitions: EditorDefinitions;
+  /** 보관함 호출·작업 사본·목록 갱신 */
+  readonly library: LibraryDocDeps;
+  /** [새 행성](이름·시작점을 묻는 창은 부모가 연다) */
+  readonly onNewPlanet: () => void;
   readonly onClose: () => void;
   /** 머리 줄 앞쪽(제목·행성 고르기) */
   readonly heading: ReactNode;
 }
 
-type TabId = "settings" | "area" | "cell" | "draft";
+type TabId = "settings" | "area" | "cell" | "planet";
 const TABS: readonly { id: TabId; label: () => string }[] = [
   { id: "settings", label: m.planet_editor_tab_settings },
   { id: "area", label: m.planet_editor_tab_area },
   { id: "cell", label: m.planet_editor_tab_cell },
-  { id: "draft", label: m.planet_editor_tab_draft },
+  { id: "planet", label: m.planet_editor_tab_planet },
 ];
 
-/** 일 단계 차례(진행 칩의 n/전체) */
-const STAGES: readonly PreviewStage[] = [
-  "grid",
-  "tectonics",
-  "seaLevel",
-  "flowDirections",
-  "climate",
-  "erosion",
-  "hydrology",
-  "surface",
-  "hash",
-  "summary",
-  "levels",
-];
-
-/** 지금 도는 일 한 줄(본 줄 먼저). 없으면 null */
-function runningText(snapshot: PreviewSnapshot): string | null {
-  const running = snapshot.lanes.final.running ?? snapshot.lanes.quick.running;
-  if (!running) return null;
-  const step = running.stage === null ? 0 : STAGES.indexOf(running.stage) + 1;
-  return m.planet_editor_job_running({
-    level: String(running.level),
-    role: running.role === "draft" ? m.planet_editor_role_draft() : m.planet_editor_role_base(),
-    step: String(step),
-    total: String(STAGES.length),
-  });
-}
-
-function definitionOf(entry: DraftEntry, biomes: readonly unknown[]): PreviewDefinition {
-  return { entry, biomes };
-}
-
-export function EditorWorkspace({ planet, definitions, onClose, heading }: WorkspaceProps) {
-  const { biomes } = definitions;
-  const fallback = useMemo<DraftDocument>(
-    () => ({
-      entry: planet.entry,
-      base: {
-        contentVersion: definitions.contentVersion,
-        definitionHash: planet.definitionHash,
-        generatorVersion: definitions.generatorVersion,
-      },
-    }),
-    [planet, definitions.contentVersion, definitions.generatorVersion],
-  );
-  const session = useEditorSession(planet.id, fallback);
+export function EditorWorkspace(props: WorkspaceProps) {
+  const session = useEditorSession();
+  const [doc, actions] = useLibraryDocument(props.opened, props.library);
   return session ? (
-    <Workspace
-      session={session}
-      planet={planet}
-      definitions={definitions}
-      biomes={biomes}
-      onClose={onClose}
-      heading={heading}
-    />
+    <Workspace {...props} session={session} doc={doc} actions={actions} />
   ) : (
-    <Frame heading={heading} onBack={onClose} saveLine={null}>
+    <Frame heading={props.heading} onBack={props.onClose} save={null}>
       <p className="status pe-loading" role="status">
         {m.planet_editor_loading()}
       </p>
@@ -147,47 +108,21 @@ export function EditorWorkspace({ planet, definitions, onClose, heading }: Works
   );
 }
 
-/** 머리 줄 + 본문 틀(세션 전에도 같은 모양) */
-function Frame({
-  heading,
-  onBack,
-  saveLine,
-  children,
-}: {
-  heading: ReactNode;
-  onBack: () => void;
-  saveLine: { text: string; status: string } | null;
-  children: ReactNode;
-}) {
-  return (
-    <>
-      <header className="pe-header">
-        <button type="button" className="button-small pe-back" onClick={onBack}>
-          {m.planet_editor_back()}
-        </button>
-        {heading}
-        {saveLine ? (
-          <span className="pe-chip pe-save-chip" data-save-status={saveLine.status}>
-            {saveLine.text}
-          </span>
-        ) : null}
-      </header>
-      {children}
-    </>
-  );
-}
-
 function Workspace({
   session,
-  planet,
+  doc,
+  actions,
+  basePlanet: planet,
   definitions,
-  biomes,
+  onNewPlanet,
   onClose,
   heading,
-}: WorkspaceProps & { session: EditorSession; biomes: readonly unknown[] }) {
-  const { sync, preview, sentinel } = session;
+}: WorkspaceProps & { session: EditorSession; doc: LibraryDocState; actions: LibraryDocActions }) {
+  const { preview, sentinel } = session;
+  const { biomes } = definitions;
   const previewSnap = useStore(preview);
-  const syncSnap = useStore(sync);
+  const viewer = useSession();
+  const [prompt, setPrompt] = useState<PromptRequest | null>(null);
   const tabsId = useId();
   const [tab, setTab] = useState<TabId>("settings");
   const [shown, setShown] = useState<ShownRole>("draft");
@@ -207,15 +142,13 @@ function Workspace({
   const baseEntry = planet.entry;
   const baseDef = useMemo(() => definitionOf(baseEntry, biomes), [baseEntry, biomes]);
   const biomeColors = useMemo(() => biomeColoursOf(baseEntry, biomes), [baseEntry, biomes]);
-  const draftDoc = syncSnap?.document ?? null;
-  const draftEntry = draftDoc?.entry ?? null;
+  const draftEntry = doc.working;
   const faceLevel = typeof baseEntry.faceLevel === "number" ? baseEntry.faceLevel : 0;
   const activePending = pending !== null && pending.base === draftEntry ? pending.entry : null;
   const pendingCount = activePending && draftEntry ? pendingChangeCount(draftEntry, activePending) : 0;
 
-  // 초안을 읽으면 미리보기를 연다(한 번). 그 뒤 밖에서 바뀐 초안은 본 레벨로 다시 만든다
+  // 미리보기를 연다(한 번). 그 뒤 밖에서 바뀐 작업 사본은 본 레벨로 다시 만든다
   useEffect(() => {
-    if (!draftEntry) return;
     if (!openedRef.current) {
       openedRef.current = true;
       lastSentRef.current = draftEntry;
@@ -227,8 +160,8 @@ function Workspace({
     preview.setDraft(definitionOf(draftEntry, biomes), "final");
   }, [draftEntry, preview, baseDef, biomes]);
 
-  // 저장하지 않은 변경(적용 전 변경 포함)이 있으면 창을 닫을 때 브라우저가 묻는다
-  const unsaved = (syncSnap?.unsaved ?? false) || pendingCount > 0;
+  // 저장하지 않은 변경(작업 사본·적용 전 변경)이 있으면 창을 닫을 때 브라우저가 묻는다
+  const unsaved = doc.dirty || pendingCount > 0;
   useEffect(() => {
     if (!unsaved) return () => undefined;
     const ask = (event: BeforeUnloadEvent): void => event.preventDefault();
@@ -236,23 +169,27 @@ function Workspace({
     return () => window.removeEventListener("beforeunload", ask);
   }, [unsaved]);
 
-  /** 설정 판의 변경은 적용 전 변경에만 둔다(미리보기·자동 저장 없음) */
-  const edit = useCallback(
+  /** 슬라이더 변경은 적용 전 변경에만 둔다(미리보기 없음) */
+  const edit = useCallback((next: DraftEntry) => setPending({ base: draftEntry, entry: next }), [draftEntry]);
+  /**
+   * 바로 적용: 작업 사본(이 기기)을 바꾸고 미리보기(빠른 F5 → 미니맵, 본 레벨 → 지구본)를 다시 만들고 적용 전 변경을 비운다.
+   * [적용]과 누르는 조작(프리셋·시드·[되돌리기])이 쓴다. 누르는 조작의 항목은 적용 전 슬라이더 변경을 이미 담고 있다
+   */
+  const { setWorking } = actions;
+  const commitEntry = useCallback(
     (next: DraftEntry) => {
-      if (draftEntry) setPending({ base: draftEntry, entry: next });
+      setWorking(next);
+      lastSentRef.current = next;
+      const definition = definitionOf(next, biomes);
+      preview.setDraft(definition, "quick");
+      preview.setDraft(definition, "final");
+      setPending(null);
     },
-    [draftEntry],
+    [setWorking, preview, biomes],
   );
-  /** [적용]: 초안 동기화(2초 뒤 자동 저장)와 미리보기(빠른 F5 → 미니맵, 본 레벨 → 지구본)에 같이 알린다 */
-  const apply = useCallback(() => {
-    const current = sync.getSnapshot().document;
-    if (!activePending || !current || !sync.edit({ entry: activePending, base: current.base })) return;
-    lastSentRef.current = activePending;
-    const definition = definitionOf(activePending, biomes);
-    preview.setDraft(definition, "quick");
-    preview.setDraft(definition, "final");
-    setPending(null);
-  }, [activePending, sync, preview, biomes]);
+  const apply = (): void => {
+    if (activePending) commitEntry(activePending);
+  };
 
   /** F9 이상은 확인 창 뒤에 한다(ADR 38 4절) */
   const confirmHeavy = (level: number, run: () => void): void => {
@@ -274,7 +211,7 @@ function Workspace({
     });
   };
 
-  if (!previewSnap || !syncSnap) return null;
+  if (!previewSnap) return null;
   const finalLevel = previewSnap.finalLevel;
   const shownRole = previewSnap[shown];
   const globe = globeEntry(shownRole);
@@ -285,7 +222,7 @@ function Workspace({
   const baseDeferred = previewSnap.base.final.status === "deferred";
   const serverCheck: ServerCheck = { generatorVersion: definitions.generatorVersion, check: planet.check };
   const check = deviceCheck(serverCheck, GENERATOR_VERSION, previewSnap.base.quick);
-  const block = exportBlock(check, draftDoc !== null);
+  const block = exportBlock(check, true);
   const report = globe && picked ? reportAt(globe, picked) : null;
   const heavyRunning = (previewSnap.lanes.final.running?.level ?? 0) >= HEAVY_PREVIEW_LEVEL;
   const error = roleError(shownRole);
@@ -305,7 +242,7 @@ function Workspace({
     setFocus(point);
   };
   const back = (): void => {
-    if (!sync.getSnapshot().unsaved && pendingCount === 0) {
+    if (!unsaved) {
       onClose();
       return;
     }
@@ -314,12 +251,40 @@ function Workspace({
       body: [m.planet_editor_leave_body()],
       confirmLabel: m.planet_editor_leave_confirm(),
       cancelLabel: m.planet_editor_stay(),
-      onConfirm: () => {
-        void sync.flush();
-        onClose();
-      },
+      onConfirm: onClose,
     });
   };
+  const askName = (
+    title: string,
+    initialName: string,
+    confirmLabel: string,
+    run: (name: string) => void,
+  ): void => setPrompt({ title, initialName, confirmLabel, onConfirm: (name) => run(name) });
+  const saveAs = (): void =>
+    askName(
+      m.planet_editor_library_save_as(),
+      m.planet_editor_library_copy_name({ name: doc.name }),
+      m.planet_editor_library_save(),
+      (name) => void actions.saveAs(name),
+    );
+  /** [저장]: 충돌이면 [덮어쓰기]·[다른 이름으로 저장]·[취소]를 묻는다 */
+  const save = (): void => {
+    void actions.save().then((outcome) => {
+      if (outcome !== "conflict") return;
+      setConfirm({
+        title: m.planet_editor_conflict_title(),
+        body: [m.planet_editor_conflict_body()],
+        confirmLabel: m.planet_editor_conflict_overwrite(),
+        extra: { label: m.planet_editor_library_save_as(), onClick: saveAs },
+        onConfirm: () => void actions.overwrite(),
+      });
+    });
+  };
+  const viewerUser = viewer.kind === "signed_in" ? viewer.user : null;
+  const canRemove =
+    doc.saved === null ||
+    (viewerUser !== null && (viewerUser.roles.includes("admin") || doc.saved.author?.id === viewerUser.id));
+  const status = docStatusText(doc);
   const blockText = (() => {
     switch (block) {
       case "generator_mismatch":
@@ -333,8 +298,6 @@ function Workspace({
         return m.planet_editor_check_pending();
       case "failed":
         return m.planet_editor_check_failed();
-      case "no_draft":
-        return m.planet_editor_export_no_draft();
       default:
         return null;
     }
@@ -370,7 +333,7 @@ function Workspace({
     <Frame
       heading={heading}
       onBack={back}
-      saveLine={{ text: saveStatusText(syncSnap), status: syncSnap.status }}
+      save={{ ...status, canSave: (doc.dirty || doc.saved === null) && !doc.busy, onSave: save }}
     >
       {check === "generator_mismatch" || check === "mismatch" ? (
         <div className="message message-error pe-banner" role="alert" data-check={check}>
@@ -441,6 +404,20 @@ function Workspace({
               </button>
             ))}
           </div>
+          {/* 적용 줄: 슬라이더 목록 밖(지구본·미니맵 아래, 휴대폰은 아래 판 바로 위)에 한 줄로 둔다. 판을 가리지 않는다 */}
+          {pendingCount > 0 ? (
+            <div className="pe-apply-bar" data-pending={pendingCount}>
+              <p className="pe-apply-count" role="status">
+                {m.planet_editor_pending({ count: formatNumber(pendingCount) })}
+              </p>
+              <button type="button" className="button-small pe-discard" onClick={() => setPending(null)}>
+                {m.planet_editor_cancel()}
+              </button>
+              <button type="button" className="button-small button-primary pe-apply" onClick={apply}>
+                {m.planet_editor_apply()}
+              </button>
+            </div>
+          ) : null}
         </div>
         <div className="pe-panel">
           <div className="pe-tabs" role="tablist" aria-label={m.planet_editor_tabs_label()}>
@@ -490,9 +467,7 @@ function Workspace({
                   deviceCap={deviceCap}
                   tripped={session.tripped}
                   onEdit={edit}
-                  pendingCount={pendingCount}
-                  onApply={apply}
-                  onDiscard={() => setPending(null)}
+                  onCommit={commitEntry}
                   onFinalLevel={(level) => confirmHeavy(level, () => preview.setFinalLevel(level))}
                   onCancelRun={() => preview.cancelFinal()}
                   onAllowAgain={() => {
@@ -529,66 +504,82 @@ function Workspace({
                   definitionHash={planet.definitionHash}
                 />
               ) : null}
-              {item.id === "draft" ? (
-                <DraftPanel
-                  planetId={planet.id}
-                  sync={syncSnap}
-                  pack={{ planetIds: definitions.planets.map((known) => known.id), biomes }}
-                  baseEntry={baseEntry}
-                  deviceGeneratorVersion={GENERATOR_VERSION}
-                  exportBlocked={blockText}
-                  buildExport={() => {
-                    const current = sync.getSnapshot().document;
-                    if (!current) return null;
-                    const exportedAt = new Date();
-                    const bundle = buildDraftExport({
-                      planet: current.entry,
-                      base: current.base,
-                      checks: preview.checks(definitionOf(current.entry, biomes)),
-                      generatorVersion: GENERATOR_VERSION,
-                      exportedAt,
-                    });
-                    return {
-                      text: serializeDraftExport(bundle),
-                      fileName: draftExportFileName(planet.id, exportedAt),
-                    };
-                  }}
-                  loadRevisions={() => sync.revisions()}
-                  onRestore={(revision) =>
+              {item.id === "planet" ? (
+                <LibraryPanel
+                  doc={doc}
+                  baseName={localName(planet.entry.name, planet.id)}
+                  canRemove={canRemove}
+                  loadVersions={actions.versions}
+                  onLoadVersion={(revision) =>
                     setConfirm({
-                      title: m.planet_editor_restore_title({ revision: String(revision) }),
-                      body: [
-                        m.planet_editor_restore_body(),
-                        ...(sync.getSnapshot().unsaved ? [m.planet_editor_restore_unsaved()] : []),
-                      ],
-                      confirmLabel: m.planet_editor_restore(),
-                      onConfirm: () => void sync.restore(revision),
+                      title: m.planet_editor_library_load_title({ revision: String(revision) }),
+                      body: [m.planet_editor_library_load_body()],
+                      confirmLabel: m.planet_editor_library_load_version(),
+                      onConfirm: () => void actions.loadVersion(revision),
                     })
                   }
-                  onImport={(draft: DraftImport, warnings) =>
-                    setConfirm({
-                      title: m.planet_editor_import_title(),
-                      body: [m.planet_editor_import_body(), ...warnings],
-                      confirmLabel: m.planet_editor_import_confirm(),
-                      onConfirm: () => {
-                        const current = sync.getSnapshot().document;
-                        const base = draft.base ?? current?.base ?? null;
-                        if (sync.edit({ entry: draft.planet, base })) void sync.flush();
-                      },
-                    })
+                  onSaveAs={saveAs}
+                  onRename={() =>
+                    askName(
+                      m.planet_editor_library_rename(),
+                      doc.name,
+                      m.planet_editor_library_rename(),
+                      (name) => void actions.rename(name),
+                    )
                   }
+                  onNewPlanet={onNewPlanet}
                   onRemove={() =>
                     setConfirm({
-                      title: m.planet_editor_remove_title(),
-                      body: [m.planet_editor_remove_body()],
-                      confirmLabel: m.planet_editor_remove_confirm(),
+                      title: doc.saved
+                        ? m.planet_editor_library_remove_title({ name: doc.name })
+                        : m.planet_editor_library_discard_title(),
+                      body: [
+                        doc.saved
+                          ? m.planet_editor_library_remove_body()
+                          : m.planet_editor_library_discard_body(),
+                      ],
+                      confirmLabel: doc.saved
+                        ? m.planet_editor_library_remove()
+                        : m.planet_editor_library_discard_new(),
                       danger: true,
-                      onConfirm: () => void sync.remove(),
+                      onConfirm: () => void actions.remove(),
                     })
                   }
-                  onLoadTheirs={() => void sync.loadTheirs()}
-                  onOverwrite={() => void sync.overwrite()}
-                  onRetry={() => sync.retryNow()}
+                  transfer={{
+                    planetId: planet.id,
+                    pack: { planetIds: definitions.planets.map((known) => known.id), biomes },
+                    baseEntry,
+                    deviceGeneratorVersion: GENERATOR_VERSION,
+                    exportBlocked: blockText,
+                    buildExport: () => {
+                      const exportedAt = new Date();
+                      const bundle = buildDraftExport({
+                        planet: doc.working,
+                        base: {
+                          contentVersion: definitions.contentVersion,
+                          definitionHash: planet.definitionHash,
+                          generatorVersion: definitions.generatorVersion,
+                        },
+                        checks: preview.checks(definitionOf(doc.working, biomes)),
+                        generatorVersion: GENERATOR_VERSION,
+                        exportedAt,
+                        library: doc.saved
+                          ? { id: doc.saved.id, name: doc.name, revision: doc.saved.revision }
+                          : null,
+                      });
+                      return {
+                        text: serializeDraftExport(bundle),
+                        fileName: draftExportFileName(planet.id, exportedAt),
+                      };
+                    },
+                    onImport: (draft: DraftImport, warnings) =>
+                      setConfirm({
+                        title: m.planet_editor_import_title(),
+                        body: [m.planet_editor_import_body(), ...warnings],
+                        confirmLabel: m.planet_editor_import_confirm(),
+                        onConfirm: () => actions.setWorking(draft.planet),
+                      }),
+                  }}
                 />
               ) : null}
             </div>
@@ -596,17 +587,7 @@ function Workspace({
         </div>
       </div>
       <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} />
+      <PromptDialog request={prompt} onClose={() => setPrompt(null)} />
     </Frame>
   );
-}
-
-/** 행성 biomes 순서(= 결과 바이옴 번호)의 바이옴 항목들. 없는 ID는 그 ID만 든 자리 */
-function biomesInPlanetOrder(entry: DraftEntry, biomes: readonly unknown[]): unknown[] {
-  const refs: readonly unknown[] = Array.isArray(entry.biomes) ? entry.biomes : [];
-  return refs.map((ref) => {
-    const found = biomes.find(
-      (biome) => typeof biome === "object" && biome !== null && Reflect.get(biome, "id") === ref,
-    );
-    return found ?? { id: ref };
-  });
 }

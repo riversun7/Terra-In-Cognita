@@ -118,6 +118,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     return {
       status: db === "error" ? "degraded" : "ok",
       db,
+      // 월드 부팅 상태와 부팅 뒤 불변 조건 위반 수(S3 ADR 2절). 2차맵을 켜지 않으면 off
+      world: world ? world.status().state : "off",
+      worldIssues: world?.status().issues,
+      worldBootMs: world?.status().bootMs,
       protocolVersion: PROTOCOL_VERSION,
       simVersion: SIM_VERSION,
       contentVersion: options.contentVersion,
@@ -180,8 +184,12 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     return cacheViewer(() => loadViewer(deps.auth, headers), now, SOCKET_VIEWER_TTL_MS);
   };
 
-  const world = options.world ? startWorld({ ...options.world, now, log: app.log }) : undefined;
+  // 월드: DB가 있으면 저장·부팅 복구(S3 ADR 1·2절). 준비(listen·ready)는 부팅 복구가 끝날 때까지 기다린다
+  const world = options.world
+    ? startWorld({ ...options.world, now, log: app.log, pool: options.db?.$client })
+    : undefined;
   if (world) {
+    app.addHook("onReady", async () => world.ready);
     app.addHook("onClose", async () => world.stop());
     registerTerrainRoute(app, { world, viewer: httpViewer });
   }

@@ -644,30 +644,29 @@
   line-height: var(--line-height-snug);
 }
 
-/* ── 적용 줄(설정 판 아래에 붙음) ── */
+/* ── 적용 줄: 지구본 자리 맨 아래 한 줄(휴대폰은 아래 판 바로 위 띠). 슬라이더 목록을 가리지 않는다 ── */
 .pe-apply-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
+  position: relative;
+  z-index: 2;
   display: flex;
-  flex-wrap: wrap;
+  flex: none;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-2);
-  margin: 0 calc(var(--space-3) * -1);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-3);
   border-top: var(--border-w) solid var(--color-border);
   background-color: var(--color-surface);
-  box-shadow: var(--shadow-control);
 }
 .pe-apply-count {
-  flex: 1 1 10em;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.pe-apply-actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: var(--space-2);
+.pe-apply-bar > button {
+  flex: none;
 }
 
 /* ── 칸: 쉬운 설명 + 자세히 보기 ── */
@@ -697,4 +696,32 @@
 }
 .pe-details[open] > .pe-details-summary {
   margin-bottom: var(--space-2);
+}
+
+/* ── 보관함: 머리 줄 [저장], 행성 판, 빈 보관함, 이름 창 ── */
+.pe-save-group {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.pe-library-name {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.pe-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: var(--content-max);
+}
+.pe-empty-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+}
+.pe-base-select {
+  width: 100%;
 }

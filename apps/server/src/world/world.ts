@@ -1,12 +1,25 @@
-// S1 월드 — 시험 2차맵 하나 + 경로 서비스 + 시험용 봇 (메모리에만. DB 저장·복구는 S3, 상태 저장 ADR)
-// 서버가 켜질 때 만들고(app.ts), 끌 때 워커를 끝낸다.
+// 월드 — 시험 2차맵(들) + 경로 서비스 + 시험 봇, DB가 있으면 저장·부팅 복구까지
+// ADR 2026-10-28-s1-second-map.md(S1), 2026-10-31-s3-server-stage.md 1·2절(S3 저장·복구)
+// - DB가 없으면 S1처럼 메모리에만 둔다(시험·DB 없는 서버).
+// - DB가 있으면 부팅 때 DB에서 건물·유닛을 다시 놓고 예약을 다시 건 뒤 준비 완료(ready)다. 그 뒤 바뀜은 월드 쓰기
+//   대기열이 0.25초마다 묶어 커밋하고, 10초마다 생존 시각을 쓴다. 끌 때 대기열을 비운다.
+import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { EARTH_FACE_LEVEL, cellKey } from "@terra/planet";
 import { generateTempTerrain, seedFromCellKey } from "@terra/sim";
 import type { WorldDirectory } from "./gateway.ts";
+import { type MemoryChecks, checkMemoryInvariants, checkSqlInvariants } from "./invariants.ts";
+import {
+  type AccountRow,
+  type OwnerRow,
+  type QueryPool,
+  ensureTestNpcOwner,
+  loadWorld,
+} from "./persist/load.ts";
+import { type WorldWriter, type WriterPool, createWorldWriter } from "./persist/writer.ts";
 import { createWorkerPathService } from "./pathPool.ts";
 import { type PathService, createInlinePathService } from "./pathService.ts";
-import { type MapLog, type SecondMap, createSecondMap } from "./secondMap.ts";
+import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
 import { emptyWorldStats, resetWorldStats, summarizeWorldStats } from "./worldStats.ts";
 
 /**
@@ -16,28 +29,100 @@ import { emptyWorldStats, resetWorldStats, summarizeWorldStats } from "./worldSt
  */
 export const TEST_MAP_KEY: number = cellKey(0, EARTH_FACE_LEVEL, 256, 256);
 
+/** 시험 2차맵 k번째(0 = TEST_MAP_KEY). 규모 시험(S1_TEST_MAPS)은 오른쪽으로 나란히 둔다 */
+export function testMapKey(index: number): number {
+  return cellKey(0, EARTH_FACE_LEVEL, 256 + index, 256);
+}
+
+/** 생존 시각을 쓰는 간격(ms). kill -9 뒤 접속 상태를 고칠 때의 오차 상한이다 */
+export const HEARTBEAT_MS = 10_000;
+/** 부팅 때 DB를 기다리는 횟수·간격(배포 때 DB가 늦게 켜질 수 있다) */
+const BOOT_ATTEMPTS = 30;
+const BOOT_RETRY_MS = 2_000;
+
 /** 경로 서비스 고르기: 운영은 워커, 시험은 같은 스레드 */
 export type WorldPathsConfig = { kind: "workers"; workerUrl: URL; workers: number } | { kind: "inline" };
 
 export interface WorldConfig {
-  /** 시험용 봇 수(S1_TEST_BOTS). 0이면 봇 없이 2차맵만 */
+  /** 시험용 봇 수(S1_TEST_BOTS, 시험 2차맵들에 나눈다). 0이면 봇 없이 2차맵만 */
   testBots: number;
+  /** 시험 2차맵 수(S1_TEST_MAPS, 기본 1). 규모 시험용 */
+  testMaps?: number | undefined;
   paths: WorldPathsConfig;
+  /** 쓰기가 오래 실패할 때(기본: 프로세스 종료 → 컨테이너가 다시 켜서 복구). 시험이 바꾼다 */
+  onFatal?: ((error: unknown) => void) | undefined;
+  /** 쓰기 묶음 간격(ms, 기본 250). 시험용 */
+  writeIntervalMs?: number | undefined;
 }
 
 export interface WorldLog extends MapLog {
   info(obj: object, message: string): void;
 }
 
-export interface World extends WorldDirectory {
-  readonly testMap: SecondMap;
-  /** 지난 호출 뒤 구간의 S1 지표(지표 한 줄에 붙인다). 부르면 구간을 비운다 */
-  takeMetrics(): Record<string, number>;
-  stop(): Promise<void>;
+/** 저장이 켜진 월드의 자료(정산·원장 모듈이 쓴다) */
+export interface WorldPersistence {
+  readonly writer: WorldWriter;
+  readonly pool: QueryPool;
+  /** 새 ID(쓰는 프로세스가 하나라 메모리로 센다) */
+  readonly nextId: {
+    owner: () => number;
+    unit: () => number;
+    building: () => number;
+    account: () => number;
+    tx: () => number;
+  };
+  /** 소유 주체(메모리 캐시, 원본은 world_owners) */
+  readonly owners: Map<number, OwnerRow>;
+  /** 부팅 때 읽은 원장 계정(원장 모듈이 가져간다) */
+  readonly bootAccounts: readonly AccountRow[];
+  /** 시험 NPC 세력의 소유 주체 */
+  readonly npcOwnerId: number;
 }
 
-export function startWorld(config: WorldConfig & { now: () => number; log: WorldLog }): World {
-  const { now, log } = config;
+export interface WorldStatus {
+  state: "recovering" | "ready" | "failed";
+  /** 부팅 뒤 불변 조건 위반 수(0이어야 한다) */
+  issues: number;
+  /** 부팅에 걸린 시간(ms) */
+  bootMs: number | undefined;
+}
+
+export interface World extends WorldDirectory {
+  readonly maps: ReadonlyMap<number, SecondMap>;
+  /** 부팅 복구가 끝나면 풀린다(실패하면 거부) */
+  readonly ready: Promise<void>;
+  status(): WorldStatus;
+  /** DB가 있을 때만 */
+  readonly persistence: WorldPersistence | undefined;
+  /** 불변 조건 검사(메모리 + DB). 위반 목록 */
+  checkInvariants(): Promise<string[]>;
+  /** 지난 호출 뒤 구간의 지표(지표 한 줄에 붙인다). 부르면 구간을 비운다 */
+  takeMetrics(): Record<string, number>;
+  stop(): Promise<void>;
+  /**
+   * 시험용 kill -9 흉내: 대기열의 쌓인 바뀜을 버리고(진행 중인 커밋은 inFlight대로) 타이머·워커를 멈춘다.
+   * 마지막 생존 시각도 쓰지 않는다. 같은 DB로 새 월드를 띄워 복구를 본다.
+   */
+  crashForTest(inFlight: "commit" | "rollback"): Promise<void>;
+}
+
+/** DB 연결 풀(pg Pool)에서 월드가 쓰는 것 */
+export type WorldPool = QueryPool & WriterPool;
+
+function counter(start: number): () => number {
+  let last = start;
+  return () => {
+    last += 1;
+    return last;
+  };
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export function startWorld(
+  config: WorldConfig & { now: () => number; log: WorldLog; pool?: WorldPool | undefined },
+): World {
+  const { now, log, pool } = config;
   const stats = emptyWorldStats();
   const maps = new Map<number, SecondMap>();
   const sources = () => [...maps.values()].map((map) => map.replicaInit());
@@ -50,39 +135,237 @@ export function startWorld(config: WorldConfig & { now: () => number; log: World
           log,
         })
       : createInlinePathService(sources, () => performance.now());
+  const mapCount = Math.max(1, config.testMaps ?? 1);
+  const status: WorldStatus = { state: "recovering", issues: 0, bootMs: undefined };
+  let persistence: WorldPersistence | undefined;
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
+  let stopped = false;
+  const bootId = randomUUID();
 
-  const terrain = generateTempTerrain(seedFromCellKey(TEST_MAP_KEY));
-  const testMap = createSecondMap({ mapKey: TEST_MAP_KEY, terrain, paths, now, stats, log });
-  maps.set(TEST_MAP_KEY, testMap);
-  paths.start();
-  testMap.spawnBots(config.testBots);
-  log.info(
-    {
-      mapKey: TEST_MAP_KEY,
-      testBots: config.testBots,
-      pathWorkers: config.paths.kind === "workers" ? config.paths.workers : 0,
-      generatorVersion: terrain.generatorVersion,
-    },
-    "s1 world started",
-  );
+  const createMaps = (
+    persist: MapPersist | undefined,
+    ids: WorldPersistence["nextId"] | undefined,
+    npcOwnerId: number,
+  ) => {
+    for (let index = 0; index < mapCount; index++) {
+      const mapKey = testMapKey(index);
+      const terrain = generateTempTerrain(seedFromCellKey(mapKey));
+      maps.set(
+        mapKey,
+        createSecondMap({
+          mapKey,
+          terrain,
+          paths,
+          now,
+          stats,
+          log,
+          persist,
+          botOwnerId: npcOwnerId,
+          allocateUnitId: ids?.unit,
+          allocateBuildingId: ids?.building,
+        }),
+      );
+    }
+  };
+
+  /** 봇을 2차맵마다 고르게 나눈다(앞 2차맵부터 하나씩 더) */
+  const spawnBots = (): void => {
+    let index = 0;
+    for (const map of maps.values()) {
+      const share = Math.floor(config.testBots / mapCount) + (index < config.testBots % mapCount ? 1 : 0);
+      map.spawnBots(share);
+      index += 1;
+    }
+  };
+
+  const memoryChecks = (extra: Partial<MemoryChecks>): MemoryChecks => {
+    let missingEvents = 0;
+    let unitsInBuildings = 0;
+    for (const map of maps.values()) {
+      missingEvents += map.missingEvents();
+      unitsInBuildings += map.unitsInBuildings();
+    }
+    return { missingEvents, unitsInBuildings, badUnits: 0, badBuildings: 0, ...extra };
+  };
+
+  const bootWithDb = async (db: WorldPool): Promise<void> => {
+    const started = performance.now();
+    let loaded: Awaited<ReturnType<typeof loadWorld>> | undefined;
+    let npcOwnerId = 0;
+    for (let attempt = 1; !loaded; attempt++) {
+      try {
+        npcOwnerId = await ensureTestNpcOwner(db, now());
+        loaded = await loadWorld(db, now());
+      } catch (error) {
+        if (attempt >= BOOT_ATTEMPTS || stopped) throw error;
+        log.warn({ err: error, attempt }, "world boot: database not ready, retrying");
+        await sleep(BOOT_RETRY_MS);
+      }
+    }
+    const writer = createWorldWriter({
+      pool: db,
+      log,
+      intervalMs: config.writeIntervalMs,
+      onFatal:
+        config.onFatal ??
+        ((error) => {
+          log.error({ err: error }, "world writer failed: exiting to recover from the database");
+          process.exit(1);
+        }),
+    });
+    const nextId = {
+      owner: counter(loaded.maxIds.owner),
+      unit: counter(loaded.maxIds.unit),
+      building: counter(loaded.maxIds.building),
+      account: counter(loaded.maxIds.account),
+      tx: counter(loaded.maxIds.tx),
+    };
+    const owners = new Map(loaded.owners.map((owner) => [owner.id, owner]));
+    const persist: MapPersist = {
+      saveUnit: (row) =>
+        writer.upsert("units", {
+          id: row.id,
+          owner_id: row.ownerId,
+          kind: row.kind,
+          size: row.size,
+          speed: row.speed,
+          map_key: row.mapKey,
+          path: row.path,
+          depart_at_ms: row.departAtMs,
+          wake_at_ms: row.wakeAtMs,
+          ai_step: row.aiStep,
+          job: row.job.job,
+          job_phase: row.job.phase,
+          job_progress_ms: row.job.progressMs,
+          fatigue: row.job.fatigue,
+        }),
+      saveBuilding: (row) =>
+        writer.upsert("buildings", {
+          id: row.id,
+          map_key: row.mapKey,
+          owner_id: row.ownerId,
+          ...row.placement,
+        }),
+      removeBuilding: (id) => writer.remove("buildings", { id }),
+    };
+    persistence = { writer, pool: db, nextId, owners, bootAccounts: loaded.accounts, npcOwnerId };
+    createMaps(persist, nextId, npcOwnerId);
+
+    let badUnits = 0;
+    let badBuildings = 0;
+    let orphanUnits = 0;
+    for (const [mapKey, map] of maps) {
+      const result = map.restore(
+        loaded.units.filter((unit) => unit.mapKey === mapKey),
+        loaded.buildings.filter((building) => building.mapKey === mapKey),
+      );
+      badUnits += result.badUnits.length;
+      badBuildings += result.badBuildings.length;
+    }
+    for (const unit of loaded.units) if (!maps.has(unit.mapKey)) orphanUnits += 1;
+    paths.start();
+    spawnBots();
+
+    const writeHeartbeat = () => writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
+    writeHeartbeat();
+    heartbeat = setInterval(writeHeartbeat, HEARTBEAT_MS);
+    heartbeat.unref();
+
+    const problems = [
+      ...checkMemoryInvariants(memoryChecks({ badUnits, badBuildings })),
+      ...(await checkSqlInvariants(db, now())),
+    ];
+    status.issues = problems.length;
+    status.bootMs = Math.round(performance.now() - started);
+    log.info(
+      {
+        bootMs: status.bootMs,
+        units: loaded.units.length,
+        buildings: loaded.buildings.length,
+        owners: loaded.owners.length,
+        lastAliveMs: loaded.lastAliveMs,
+        downMs: loaded.lastAliveMs === null ? null : now() - loaded.lastAliveMs,
+        presenceFixed: loaded.presenceFixed,
+        orphanUnits,
+        problems,
+      },
+      problems.length === 0 ? "world recovered" : "world recovered with invariant problems",
+    );
+  };
+
+  const ready = (async () => {
+    if (pool) {
+      await bootWithDb(pool);
+    } else {
+      createMaps(undefined, undefined, 0);
+      paths.start();
+      spawnBots();
+      status.bootMs = 0;
+    }
+    status.state = "ready";
+    log.info(
+      {
+        maps: maps.size,
+        testBots: config.testBots,
+        pathWorkers: config.paths.kind === "workers" ? config.paths.workers : 0,
+        persistence: Boolean(pool),
+      },
+      "world started",
+    );
+  })();
+  ready.catch((error: unknown) => {
+    status.state = "failed";
+    log.error({ err: error }, "world boot failed");
+  });
 
   let windowStart = now();
   return {
     stats,
-    testMap,
-    map: (mapKey) => maps.get(mapKey),
+    maps,
+    ready,
+    status: () => ({ ...status }),
+    get persistence() {
+      return persistence;
+    },
+    isReady: () => status.state === "ready",
+    map: (mapKey) => (status.state === "ready" ? maps.get(mapKey) : undefined),
+    async checkInvariants() {
+      const memory = checkMemoryInvariants(memoryChecks({}));
+      if (!persistence) return memory;
+      await persistence.writer.durable();
+      return [...memory, ...(await checkSqlInvariants(persistence.pool, now()))];
+    },
     takeMetrics() {
       const at = now();
-      const summary = summarizeWorldStats(
-        stats,
-        { ...testMap.gauges(), subscribers: testMap.stream.subscriberCount, pathQueue: paths.queued() },
-        at - windowStart,
-      );
+      const gauges = { units: 0, moving: 0, planning: 0, subscribers: 0, pathQueue: paths.queued() };
+      for (const map of maps.values()) {
+        const g = map.gauges();
+        gauges.units += g.units;
+        gauges.moving += g.moving;
+        gauges.planning += g.planning;
+        gauges.subscribers += map.stream.subscriberCount;
+      }
+      const summary = summarizeWorldStats(stats, gauges, at - windowStart);
       resetWorldStats(stats);
       windowStart = at;
-      return summary;
+      return { ...summary, ...persistence?.writer.takeMetrics() };
     },
     async stop() {
+      stopped = true;
+      await ready.catch(() => undefined);
+      if (heartbeat) clearInterval(heartbeat);
+      for (const map of maps.values()) map.stop();
+      if (persistence) {
+        persistence.writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
+        await persistence.writer.drain();
+      }
+      await paths.close();
+    },
+    async crashForTest(inFlight) {
+      stopped = true;
+      await ready.catch(() => undefined);
+      await persistence?.writer.crash(inFlight);
+      if (heartbeat) clearInterval(heartbeat);
       for (const map of maps.values()) map.stop();
       await paths.close();
     },

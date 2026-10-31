@@ -7,8 +7,13 @@ export type { AuthConfig };
 /** 판정 규칙 버전 — packages/sim의 값을 그대로 쓴다(규칙이 바뀌면 그쪽에서 올린다) */
 export { SIM_VERSION } from "@terra/sim";
 
-/** 시험용 봇 수 상한(S1_TEST_BOTS). 스냅샷이 유닛 1만 개면 약 2.5MB다 */
-export const MAX_TEST_BOTS = 20_000;
+/**
+ * 시험용 봇 수 상한(S1_TEST_BOTS). 스냅샷이 유닛 1만 개면 약 2.5MB다.
+ * 10만은 규모 계단 시험(S3 ADR 7절, GitHub Actions s3-ramp)용이다. 운영은 ops/compose.yml의 1,000이다.
+ */
+export const MAX_TEST_BOTS = 100_000;
+/** 시험 2차맵 수 상한(S1_TEST_MAPS). 봇을 2차맵마다 나눈다(한 2차맵 256×256칸에 몰리지 않게) */
+export const MAX_TEST_MAPS = 64;
 /** 경로 워커 수 상한(PATH_WORKERS). NAS는 2코어 4스레드(ops/nas-facts.md) */
 export const MAX_PATH_WORKERS = 8;
 
@@ -18,6 +23,8 @@ export interface S1Config {
   testBots: number;
   /** 경로탐색 워커 스레드 수 (PATH_WORKERS, 기본 1) */
   pathWorkers: number;
+  /** 시험 2차맵 수 (S1_TEST_MAPS, 기본 1) */
+  testMaps: number;
 }
 
 /**
@@ -91,6 +98,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     s1: {
       testBots: readInteger(env.S1_TEST_BOTS, 0, 0, MAX_TEST_BOTS, "S1_TEST_BOTS"),
       pathWorkers: readInteger(env.PATH_WORKERS, 1, 1, MAX_PATH_WORKERS, "PATH_WORKERS"),
+      testMaps: readInteger(env.S1_TEST_MAPS, 1, 1, MAX_TEST_MAPS, "S1_TEST_MAPS"),
     },
     planetCacheDir: env.PLANET_CACHE_DIR || DEFAULT_PLANET_CACHE_DIR,
   };

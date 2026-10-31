@@ -1,0 +1,2511 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "a09bb6b2-bc9f-4139-9d5e-3aef64ba7ee5",
+  "prevIds": [
+    "b322ea4a-3713-4055-b63f-3d23a4f26fda",
+    "ccf9558d-dd0f-4ee6-a781-fab47b24f9bc"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "faction_members"
+      ],
+      "writes": [
+        "s|tbl|public.faction_members",
+        "n|tbl|public.faction_members",
+        "e|tbl|public.faction_members",
+        "n|rel|public.faction_members",
+        "n|type|public.faction_members",
+        "n|rel|public.faction_members_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "factions"
+      ],
+      "writes": [
+        "s|tbl|public.factions",
+        "n|tbl|public.factions",
+        "e|tbl|public.factions",
+        "n|rel|public.factions",
+        "n|type|public.factions",
+        "n|rel|public.factions_pkey",
+        "n|rel|public.factions_code_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "ledger_accounts"
+      ],
+      "writes": [
+        "s|tbl|public.ledger_accounts",
+        "n|tbl|public.ledger_accounts",
+        "e|tbl|public.ledger_accounts",
+        "n|rel|public.ledger_accounts",
+        "n|type|public.ledger_accounts",
+        "n|rel|public.ledger_accounts_pkey",
+        "n|rel|public.ledger_accounts_system_code_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "ledger_entries"
+      ],
+      "writes": [
+        "s|tbl|public.ledger_entries",
+        "n|tbl|public.ledger_entries",
+        "e|tbl|public.ledger_entries",
+        "n|rel|public.ledger_entries",
+        "n|type|public.ledger_entries",
+        "n|rel|public.ledger_entries_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "ledger_transactions"
+      ],
+      "writes": [
+        "s|tbl|public.ledger_transactions",
+        "n|tbl|public.ledger_transactions",
+        "e|tbl|public.ledger_transactions",
+        "n|rel|public.ledger_transactions",
+        "n|type|public.ledger_transactions",
+        "n|rel|public.ledger_transactions_pkey",
+        "n|rel|public.ledger_transactions_idempotency_key_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "summary_acks"
+      ],
+      "writes": [
+        "s|tbl|public.summary_acks",
+        "n|tbl|public.summary_acks",
+        "e|tbl|public.summary_acks",
+        "n|rel|public.summary_acks",
+        "n|type|public.summary_acks",
+        "n|rel|public.summary_acks_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_buildings"
+      ],
+      "writes": [
+        "s|tbl|public.world_buildings",
+        "n|tbl|public.world_buildings",
+        "e|tbl|public.world_buildings",
+        "n|rel|public.world_buildings",
+        "n|type|public.world_buildings",
+        "n|rel|public.world_buildings_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_exploration"
+      ],
+      "writes": [
+        "s|tbl|public.world_exploration",
+        "n|tbl|public.world_exploration",
+        "e|tbl|public.world_exploration",
+        "n|rel|public.world_exploration",
+        "n|type|public.world_exploration",
+        "n|rel|public.world_exploration_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_heartbeat"
+      ],
+      "writes": [
+        "s|tbl|public.world_heartbeat",
+        "n|tbl|public.world_heartbeat",
+        "e|tbl|public.world_heartbeat",
+        "n|rel|public.world_heartbeat",
+        "n|type|public.world_heartbeat",
+        "n|rel|public.world_heartbeat_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_owners"
+      ],
+      "writes": [
+        "s|tbl|public.world_owners",
+        "n|tbl|public.world_owners",
+        "e|tbl|public.world_owners",
+        "n|rel|public.world_owners",
+        "n|type|public.world_owners",
+        "n|rel|public.world_owners_pkey",
+        "n|rel|public.world_owners_user_id_key",
+        "n|rel|public.world_owners_faction_id_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_presence"
+      ],
+      "writes": [
+        "s|tbl|public.world_presence",
+        "n|tbl|public.world_presence",
+        "e|tbl|public.world_presence",
+        "n|rel|public.world_presence",
+        "n|type|public.world_presence",
+        "n|rel|public.world_presence_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_units"
+      ],
+      "writes": [
+        "s|tbl|public.world_units",
+        "n|tbl|public.world_units",
+        "e|tbl|public.world_units",
+        "n|rel|public.world_units",
+        "n|type|public.world_units",
+        "n|rel|public.world_units_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ledger_accounts",
+        "ledger_accounts_owner_asset_idx"
+      ],
+      "writes": [
+        "s|idx|public.ledger_accounts_owner_asset_idx",
+        "n|idx|public.ledger_accounts_owner_asset_idx",
+        "e|idx|public.ledger_accounts_owner_asset_idx",
+        "n|rel|public.ledger_accounts_owner_asset_idx"
+      ],
+      "reads": [
+        "n|tbl|public.ledger_accounts",
+        "n|sch|public",
+        "n|col|public.ledger_accounts.owner_id",
+        "n|col|public.ledger_accounts.asset"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ledger_entries",
+        "ledger_entries_tx_idx"
+      ],
+      "writes": [
+        "s|idx|public.ledger_entries_tx_idx",
+        "n|idx|public.ledger_entries_tx_idx",
+        "e|idx|public.ledger_entries_tx_idx",
+        "n|rel|public.ledger_entries_tx_idx"
+      ],
+      "reads": [
+        "n|tbl|public.ledger_entries",
+        "n|sch|public",
+        "n|col|public.ledger_entries.tx_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ledger_entries",
+        "ledger_entries_account_idx"
+      ],
+      "writes": [
+        "s|idx|public.ledger_entries_account_idx",
+        "n|idx|public.ledger_entries_account_idx",
+        "e|idx|public.ledger_entries_account_idx",
+        "n|rel|public.ledger_entries_account_idx"
+      ],
+      "reads": [
+        "n|tbl|public.ledger_entries",
+        "n|sch|public",
+        "n|col|public.ledger_entries.account_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "world_buildings",
+        "world_buildings_map_idx"
+      ],
+      "writes": [
+        "s|idx|public.world_buildings_map_idx",
+        "n|idx|public.world_buildings_map_idx",
+        "e|idx|public.world_buildings_map_idx",
+        "n|rel|public.world_buildings_map_idx"
+      ],
+      "reads": [
+        "n|tbl|public.world_buildings",
+        "n|sch|public",
+        "n|col|public.world_buildings.map_key"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "world_units",
+        "world_units_owner_idx"
+      ],
+      "writes": [
+        "s|idx|public.world_units_owner_idx",
+        "n|idx|public.world_units_owner_idx",
+        "e|idx|public.world_units_owner_idx",
+        "n|rel|public.world_units_owner_idx"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public",
+        "n|col|public.world_units.owner_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "world_units",
+        "world_units_map_idx"
+      ],
+      "writes": [
+        "s|idx|public.world_units_map_idx",
+        "n|idx|public.world_units_map_idx",
+        "e|idx|public.world_units_map_idx",
+        "n|rel|public.world_units_map_idx"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public",
+        "n|col|public.world_units.map_key"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "faction_members"
+      ],
+      "writes": [
+        "s|fk|public.faction_members.faction_members_user_id_users_id_fkey",
+        "n|fk|public.faction_members.faction_members_user_id_users_id_fkey",
+        "e|fk|public.faction_members.faction_members_user_id_users_id_fkey",
+        "n|con|public.faction_members.faction_members_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.faction_members",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.faction_members.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "faction_members"
+      ],
+      "writes": [
+        "s|fk|public.faction_members.faction_members_faction_id_factions_id_fkey",
+        "n|fk|public.faction_members.faction_members_faction_id_factions_id_fkey",
+        "e|fk|public.faction_members.faction_members_faction_id_factions_id_fkey",
+        "n|con|public.faction_members.faction_members_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.faction_members",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.faction_members.faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "factions"
+      ],
+      "writes": [
+        "s|fk|public.factions.factions_parent_id_factions_id_fkey",
+        "n|fk|public.factions.factions_parent_id_factions_id_fkey",
+        "e|fk|public.factions.factions_parent_id_factions_id_fkey",
+        "n|con|public.factions.factions_parent_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.factions.parent_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "ledger_accounts"
+      ],
+      "writes": [
+        "s|fk|public.ledger_accounts.ledger_accounts_owner_id_world_owners_id_fkey",
+        "n|fk|public.ledger_accounts.ledger_accounts_owner_id_world_owners_id_fkey",
+        "e|fk|public.ledger_accounts.ledger_accounts_owner_id_world_owners_id_fkey",
+        "n|con|public.ledger_accounts.ledger_accounts_owner_id_world_owners_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.ledger_accounts",
+        "n|sch|public",
+        "n|tbl|public.world_owners",
+        "n|sch|public",
+        "n|col|public.ledger_accounts.owner_id",
+        "n|col|public.world_owners.id",
+        "e|uniqueness|public.world_owners.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "ledger_entries"
+      ],
+      "writes": [
+        "s|fk|public.ledger_entries.ledger_entries_tx_id_ledger_transactions_id_fkey",
+        "n|fk|public.ledger_entries.ledger_entries_tx_id_ledger_transactions_id_fkey",
+        "e|fk|public.ledger_entries.ledger_entries_tx_id_ledger_transactions_id_fkey",
+        "n|con|public.ledger_entries.ledger_entries_tx_id_ledger_transactions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.ledger_entries",
+        "n|sch|public",
+        "n|tbl|public.ledger_transactions",
+        "n|sch|public",
+        "n|col|public.ledger_entries.tx_id",
+        "n|col|public.ledger_transactions.id",
+        "e|uniqueness|public.ledger_transactions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "ledger_entries"
+      ],
+      "writes": [
+        "s|fk|public.ledger_entries.ledger_entries_account_id_ledger_accounts_id_fkey",
+        "n|fk|public.ledger_entries.ledger_entries_account_id_ledger_accounts_id_fkey",
+        "e|fk|public.ledger_entries.ledger_entries_account_id_ledger_accounts_id_fkey",
+        "n|con|public.ledger_entries.ledger_entries_account_id_ledger_accounts_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.ledger_entries",
+        "n|sch|public",
+        "n|tbl|public.ledger_accounts",
+        "n|sch|public",
+        "n|col|public.ledger_entries.account_id",
+        "n|col|public.ledger_accounts.id",
+        "e|uniqueness|public.ledger_accounts.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "summary_acks"
+      ],
+      "writes": [
+        "s|fk|public.summary_acks.summary_acks_user_id_users_id_fkey",
+        "n|fk|public.summary_acks.summary_acks_user_id_users_id_fkey",
+        "e|fk|public.summary_acks.summary_acks_user_id_users_id_fkey",
+        "n|con|public.summary_acks.summary_acks_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.summary_acks",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.summary_acks.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_buildings"
+      ],
+      "writes": [
+        "s|fk|public.world_buildings.world_buildings_owner_id_world_owners_id_fkey",
+        "n|fk|public.world_buildings.world_buildings_owner_id_world_owners_id_fkey",
+        "e|fk|public.world_buildings.world_buildings_owner_id_world_owners_id_fkey",
+        "n|con|public.world_buildings.world_buildings_owner_id_world_owners_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_buildings",
+        "n|sch|public",
+        "n|tbl|public.world_owners",
+        "n|sch|public",
+        "n|col|public.world_buildings.owner_id",
+        "n|col|public.world_owners.id",
+        "e|uniqueness|public.world_owners.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_exploration"
+      ],
+      "writes": [
+        "s|fk|public.world_exploration.world_exploration_user_id_users_id_fkey",
+        "n|fk|public.world_exploration.world_exploration_user_id_users_id_fkey",
+        "e|fk|public.world_exploration.world_exploration_user_id_users_id_fkey",
+        "n|con|public.world_exploration.world_exploration_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_exploration",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.world_exploration.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_owners"
+      ],
+      "writes": [
+        "s|fk|public.world_owners.world_owners_user_id_users_id_fkey",
+        "n|fk|public.world_owners.world_owners_user_id_users_id_fkey",
+        "e|fk|public.world_owners.world_owners_user_id_users_id_fkey",
+        "n|con|public.world_owners.world_owners_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_owners",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.world_owners.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_owners"
+      ],
+      "writes": [
+        "s|fk|public.world_owners.world_owners_faction_id_factions_id_fkey",
+        "n|fk|public.world_owners.world_owners_faction_id_factions_id_fkey",
+        "e|fk|public.world_owners.world_owners_faction_id_factions_id_fkey",
+        "n|con|public.world_owners.world_owners_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_owners",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.world_owners.faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_presence"
+      ],
+      "writes": [
+        "s|fk|public.world_presence.world_presence_user_id_users_id_fkey",
+        "n|fk|public.world_presence.world_presence_user_id_users_id_fkey",
+        "e|fk|public.world_presence.world_presence_user_id_users_id_fkey",
+        "n|con|public.world_presence.world_presence_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_presence",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.world_presence.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_units"
+      ],
+      "writes": [
+        "s|fk|public.world_units.world_units_owner_id_world_owners_id_fkey",
+        "n|fk|public.world_units.world_units_owner_id_world_owners_id_fkey",
+        "e|fk|public.world_units.world_units_owner_id_world_owners_id_fkey",
+        "n|con|public.world_units.world_units_owner_id_world_owners_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public",
+        "n|tbl|public.world_owners",
+        "n|sch|public",
+        "n|col|public.world_units.owner_id",
+        "n|col|public.world_owners.id",
+        "e|uniqueness|public.world_owners.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "faction_members",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "factions",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "ledger_accounts",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "ledger_entries",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "ledger_transactions",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "summary_acks",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "world_buildings",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "world_exploration",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "world_heartbeat",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "world_owners",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "world_presence",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "world_units",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_members",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_members",
+        "name": "faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_members",
+        "name": "joined_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "factions_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "9223372036854775807",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "kind",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "parent_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "code",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_accounts",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_accounts",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_accounts",
+        "name": "system_code",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_accounts",
+        "name": "asset",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_accounts",
+        "name": "balance",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_entries",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": {
+          "type": "always",
+          "name": "ledger_entries_id_seq",
+          "increment": "1",
+          "startWith": "1",
+          "minValue": "1",
+          "maxValue": "9223372036854775807",
+          "cache": 1,
+          "cycle": false
+        },
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_entries",
+        "name": "tx_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_entries",
+        "name": "account_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_entries",
+        "name": "amount",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_transactions",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_transactions",
+        "name": "kind",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_transactions",
+        "name": "at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_transactions",
+        "name": "idempotency_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "summary_acks",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "summary_acks",
+        "name": "acked_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_buildings",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_buildings",
+        "name": "map_key",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_buildings",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_buildings",
+        "name": "x",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_buildings",
+        "name": "y",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_buildings",
+        "name": "width",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_buildings",
+        "name": "height",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_buildings",
+        "name": "rotation",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_exploration",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_exploration",
+        "name": "map_key",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_exploration",
+        "name": "cells",
+        "type": "bytea",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_exploration",
+        "name": "updated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_heartbeat",
+        "name": "id",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_heartbeat",
+        "name": "boot_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_heartbeat",
+        "name": "alive_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_owners",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_owners",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_owners",
+        "name": "faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_owners",
+        "name": "settled_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_owners",
+        "name": "upkeep_arrears",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_presence",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_presence",
+        "name": "offline_since_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_presence",
+        "name": "updated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "kind",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "size",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "speed",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "map_key",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "path",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "depart_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "wake_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "ai_step",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "job",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "job_phase",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "job_progress_ms",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "fatigue",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_accounts",
+        "name": "ledger_accounts_owner_asset_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "owner_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "asset",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_entries",
+        "name": "ledger_entries_tx_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "tx_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_entries",
+        "name": "ledger_entries_account_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "account_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_buildings",
+        "name": "world_buildings_map_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "map_key",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "world_units_owner_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "owner_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "world_units_map_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "map_key",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_members",
+        "name": "faction_members_user_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_members",
+        "name": "faction_members_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "factions_parent_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "parent_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_accounts",
+        "name": "ledger_accounts_owner_id_world_owners_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "owner_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_owners",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_entries",
+        "name": "ledger_entries_tx_id_ledger_transactions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "tx_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "ledger_transactions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_entries",
+        "name": "ledger_entries_account_id_ledger_accounts_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "account_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "ledger_accounts",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "summary_acks",
+        "name": "summary_acks_user_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_buildings",
+        "name": "world_buildings_owner_id_world_owners_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "owner_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_owners",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_exploration",
+        "name": "world_exploration_user_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_owners",
+        "name": "world_owners_user_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_owners",
+        "name": "world_owners_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_presence",
+        "name": "world_presence_user_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "world_units_owner_id_world_owners_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "owner_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_owners",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_exploration",
+        "name": "world_exploration_pkey",
+        "columns": [
+          "user_id",
+          "map_key"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_members",
+        "name": "faction_members_pkey",
+        "columns": [
+          "user_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "factions_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_accounts",
+        "name": "ledger_accounts_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_entries",
+        "name": "ledger_entries_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_transactions",
+        "name": "ledger_transactions_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "summary_acks",
+        "name": "summary_acks_pkey",
+        "columns": [
+          "user_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_buildings",
+        "name": "world_buildings_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_heartbeat",
+        "name": "world_heartbeat_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_owners",
+        "name": "world_owners_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_presence",
+        "name": "world_presence_pkey",
+        "columns": [
+          "user_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "world_units_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "factions_code_key",
+        "nameExplicit": false,
+        "columns": [
+          "code"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_accounts",
+        "name": "ledger_accounts_system_code_key",
+        "nameExplicit": false,
+        "columns": [
+          "system_code"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_transactions",
+        "name": "ledger_transactions_idempotency_key_key",
+        "nameExplicit": false,
+        "columns": [
+          "idempotency_key"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_owners",
+        "name": "world_owners_user_id_key",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_owners",
+        "name": "world_owners_faction_id_key",
+        "nameExplicit": false,
+        "columns": [
+          "faction_id"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "factions_kind",
+        "value": "\"kind\" in ('npc', 'player')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "factions_code_format",
+        "value": "\"code\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_accounts",
+        "name": "ledger_accounts_one_kind",
+        "value": "num_nonnulls(\"owner_id\", \"system_code\") = 1",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_accounts",
+        "name": "ledger_accounts_owner_nonnegative",
+        "value": "\"system_code\" is not null or \"balance\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_accounts",
+        "name": "ledger_accounts_asset_format",
+        "value": "\"asset\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_entries",
+        "name": "ledger_entries_amount_nonzero",
+        "value": "\"amount\" <> 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_exploration",
+        "name": "world_exploration_cells",
+        "value": "octet_length(\"cells\") = 128",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_heartbeat",
+        "name": "world_heartbeat_single",
+        "value": "\"id\" = 1",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_owners",
+        "name": "world_owners_one_kind",
+        "value": "num_nonnulls(\"user_id\", \"faction_id\") = 1",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "world_units_size",
+        "value": "\"size\" between 1 and 3",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "world_units_speed",
+        "value": "\"speed\" > 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "world_units_path",
+        "value": "cardinality(\"path\") >= 2 and cardinality(\"path\") % 2 = 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

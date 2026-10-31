@@ -18,7 +18,12 @@ import { authHeaders } from "../auth/http.ts";
 import type { AuditActor } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
-import type { PlanetEditorAction, PlanetEditorServices, Viewer } from "../trpc/context.ts";
+import type {
+  PlanetEditorAction,
+  PlanetEditorServices,
+  PlanetLibraryServices,
+  Viewer,
+} from "../trpc/context.ts";
 import { reasonedError } from "../trpc/init.ts";
 import {
   listDraftRevisions,
@@ -29,7 +34,23 @@ import {
   saveDraft,
 } from "./store.ts";
 import type { PlanetEditorDefinitions } from "./types.ts";
-import { type DraftPackContext, checkDraftEntry, draftPackContext } from "./validate.ts";
+import { normalizePlanetLibraryName } from "@terra/shared";
+import {
+  createLibraryPlanet,
+  listLibrary,
+  listLibraryVersions,
+  readLibraryPlanet,
+  readLibraryVersion,
+  removeLibraryPlanet,
+  renameLibraryPlanet,
+  saveLibraryPlanet,
+} from "./library.ts";
+import {
+  type DraftPackContext,
+  checkDraftEntry,
+  checkLibraryDefinition,
+  draftPackContext,
+} from "./validate.ts";
 
 /** 받지 않은 요청(BAD_REQUEST)의 message. 무엇이 틀렸는지는 data.reason */
 export const PLANET_DRAFT_REJECTED = "PLANET_DRAFT_REJECTED";
@@ -109,8 +130,96 @@ function rateLimited(): TRPCError {
   return reasonedError("TOO_MANY_REQUESTS", "RATE_LIMITED", "rate_limited");
 }
 
-function actorOf(viewer: Viewer, ip: string | null): AuditActor {
+function actorOf(viewer: Viewer, ip: string | null): AuditActor & { id: string } {
   return { kind: "user", id: viewer.id, ip, meta: { roles: viewer.roles } };
+}
+
+/** 보관함 받지 않음(BAD_REQUEST, data.reason = 코드) */
+const libraryRejected = (reason: string) => reasonedError("BAD_REQUEST", "PLANET_LIBRARY_REJECTED", reason);
+const planetNotFound = () => reasonedError("NOT_FOUND", "PLANET_NOT_FOUND", "planet_not_found");
+
+/** 보관함 이름 규칙(@terra/shared). 틀리면 BAD_REQUEST invalid_name */
+function checkName(raw: unknown): string {
+  const name = normalizePlanetLibraryName(raw);
+  if (name === null) throw libraryRejected("invalid_name");
+  return name;
+}
+
+/** 행성 보관함 처리(ADR 38 "바뀜: 행성 보관함"). 팀 공용이라 만든 사람으로 거르지 않는다. 지우기만 만든 사람·admin */
+function createLibraryServices(
+  db: Database,
+  shared: PlanetEditorShared,
+  ip: string | null,
+): PlanetLibraryServices {
+  const checkDefinition = (definition: unknown) => {
+    const checked = checkLibraryDefinition(definition, shared.pack);
+    if (!checked.ok) throw libraryRejected(checked.code);
+    return checked;
+  };
+  return {
+    list: () => listLibrary(db),
+    async get(_viewer, id) {
+      const planet = await readLibraryPlanet(db, id);
+      if (!planet) throw planetNotFound();
+      return planet;
+    },
+    async create(viewer, input) {
+      const name = checkName(input.name);
+      // 시작점: 지금은 팩 행성뿐(표본은 나중에 종류를 더한다)
+      if (input.base.kind !== "pack" || !shared.pack.planetIds.has(input.base.id)) {
+        throw libraryRejected("unknown_base");
+      }
+      const checked = checkDefinition(input.definition);
+      return createLibraryPlanet(db, {
+        name,
+        base: input.base,
+        definition: checked.entry,
+        bytes: checked.bytes,
+        actor: actorOf(viewer, ip),
+      });
+    },
+    async save(viewer, input) {
+      const checked = checkDefinition(input.definition);
+      const outcome = await saveLibraryPlanet(db, {
+        id: input.id,
+        definition: checked.entry,
+        bytes: checked.bytes,
+        expectedRevision: input.expectedRevision,
+        actor: actorOf(viewer, ip),
+      });
+      if (outcome.kind === "not_found") throw planetNotFound();
+      if (outcome.kind === "conflict")
+        throw reasonedError("CONFLICT", "REVISION_CONFLICT", "revision_conflict");
+      return { revision: outcome.revision, updatedAt: outcome.updatedAt, updatedBy: outcome.updatedBy };
+    },
+    async rename(viewer, input) {
+      const name = checkName(input.name);
+      if (!(await renameLibraryPlanet(db, { id: input.id, name, actor: actorOf(viewer, ip) })))
+        throw planetNotFound();
+      return { name };
+    },
+    async remove(viewer, id) {
+      const outcome = await removeLibraryPlanet(db, {
+        id,
+        canRemoveAny: viewer.roles.includes("admin"),
+        actor: actorOf(viewer, ip),
+      });
+      if (outcome === "not_found") throw planetNotFound();
+      if (outcome === "not_author") throw reasonedError("FORBIDDEN", "NOT_AUTHOR", "not_author");
+      return { removed: true };
+    },
+    async versions(_viewer, id) {
+      const list = await listLibraryVersions(db, id);
+      if (!list) throw planetNotFound();
+      return list;
+    },
+    async version(_viewer, input) {
+      const found = await readLibraryVersion(db, input.id, input.revision);
+      if (found === "planet") throw planetNotFound();
+      if (found === "version") throw reasonedError("NOT_FOUND", "VERSION_NOT_FOUND", "version_not_found");
+      return found;
+    },
+  };
 }
 
 export function createPlanetEditorServices(deps: PlanetEditorServicesDeps): PlanetEditorServices {
@@ -126,6 +235,7 @@ export function createPlanetEditorServices(deps: PlanetEditorServicesDeps): Plan
   };
 
   return {
+    library: createLibraryServices(db, shared, deps.ip),
     ensurePermission(action) {
       let check = permissionChecks.get(action);
       if (!check) {

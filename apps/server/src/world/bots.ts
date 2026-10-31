@@ -1,5 +1,6 @@
 // S1 시험용 봇 — 서버가 움직이는 유닛 1,000개(S1_TEST_BOTS). 게임 규칙이 아니라 부하·화면 시험용이다(ADR 33 "측정").
-// - 유닛마다 따로 시드 난수를 쓴다(2차맵 시드 + 유닛 ID). 그래서 처리 순서가 달라도 한 유닛이 고르는 값의 순서는 같다.
+// - 크기·속도는 (2차맵 시드, 유닛 ID)로 정한다. 판단마다의 난수는 (2차맵 시드, 유닛 ID, 판단 횟수)로 새로 뽑는다(botRng).
+//   판단 횟수(ai_step)를 유닛과 함께 저장하므로 서버를 다시 켜도 같은 유닛은 이어서 같은 차례의 값을 쓴다(S3 ADR 1절).
 //   (워커 결과가 오는 시각은 매번 달라서 전체 움직임이 똑같이 되풀이되지는 않는다.)
 // - 크기 등급 1·2·3 = 90·8·2%, 속도는 걷기 85%·차 15%(packages/sim 출발값).
 // - 목적지는 지금 자리 둘레 TRIP_RADIUS_CELLS칸 안에서 그 등급이 설 수 있는 칸. 도착하면 2~6초 쉬고 다시 간다.
@@ -32,12 +33,18 @@ const PICK_ATTEMPTS = 16;
 const SPAWN_ATTEMPTS = 4_096;
 
 export interface BotPlan {
+  /** 처음 자리 고르기에 쓰는 난수(판단 횟수 0) */
   rng: Rng;
   size: SizeClass;
   speed: number;
 }
 
-/** 봇 하나의 난수·크기·속도 (유닛 ID와 2차맵 시드로 정해진다) */
+/** 봇 하나의 판단 step번째 난수 — (2차맵 시드, 유닛 ID, 판단 횟수)로 정해진다 */
+export function botRng(mapSeed: number, unitId: number, step: number): Rng {
+  return createRng(mix32(mapSeed ^ Math.imul(unitId, 0x9e37_79b1) ^ Math.imul(step + 1, 0x85eb_ca6b)));
+}
+
+/** 봇 하나의 크기·속도 (유닛 ID와 2차맵 시드로 정해진다)와 처음 자리 난수 */
 export function botPlan(mapSeed: number, unitId: number): BotPlan {
   const rng = createRng(mix32(mapSeed ^ Math.imul(unitId, 0x9e37_79b1)));
   const sizeRoll = rng.nextInt(100);

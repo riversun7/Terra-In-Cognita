@@ -32,7 +32,7 @@
 | synthetic | 100,000 | 2 | 14.27 | 4,369,632 | 306,186 | 65.9 | 3.4 h | 12,108 | 406 |
 
 - 어림(Assumed: 위 값에서 산술): 1만 유닛 180일 ≈ 1.4분, 10만 유닛 180일 ≈ 21분. 진짜 규칙의 예약은 더 무겁다. R2~R5마다 같은 도구로 다시 잰다.
-- 검사: `TEST_DATABASE_URL=postgres://terra@127.0.0.1:55432/postgres pnpm check` 통과(시험 파일 217개, 시험 2,083개, 건너뜀 없음 = DB 시험 포함). 리베이스(main `c4c5457`) 뒤 다시 돌린 결과는 아래 "미검증" 참고.
+- 검사: `TEST_DATABASE_URL=postgres://terra@127.0.0.1:55432/postgres pnpm check` 통과(시험 파일 217개, 시험 2,083개, 건너뜀 없음 = DB 시험 포함). main `c4c5457`로 리베이스한 뒤 푸시 전 훅의 `pnpm check`(DB 포함)도 통과했다(시험 파일 221개, 시험 2,115개). 리베이스 직후 첫 푸시는 린트가 2차맵 새 메시지 키를 못 찾아 멈췄다: 생성 파일 `apps/game/src/paraglide/`가 옛것이었다 → `pnpm --filter @terra/game typecheck`로 다시 만들고 통과.
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
@@ -62,7 +62,7 @@
 - `packages/sim/src/`에 실제 시각·Node API를 넣지 않는다(결정성 검사). 시간 재기·파일은 `cli/`.
 
 ## 미검증·TODO·알려진 문제
-- 리베이스 뒤 전체 검사는 푸시 전 훅(`pnpm check`)으로 다시 돈다. main과 겹치는 파일은 없었다(Verified: `git diff --name-only`).
+- main과 겹치는 파일은 없었다(Verified: `git diff --name-only`).
 - NAS에서는 재지 않았다(Unknown). 조정용이라 개발 컨테이너면 된다(ADR `n1-real-time-gate`).
 - 관전판 화면(`/dev` 밑)은 만들지 않았다. 출력 형식만 그래프용으로 맞췄다(ADR 6절).
 - 콘텐츠 팩 분류(국가 프리셋·아이템·레시피·시설)는 미뤘다(R2·R4, ADR 4절). 기술 순서 ADR R1 행과 다르다.

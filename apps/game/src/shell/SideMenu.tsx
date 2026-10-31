@@ -162,7 +162,12 @@ export function SideMenu({ variant, user, nav, current, badges, onClose }: SideM
               to={{ route: "dev" }}
               icon="dev"
               name={m.shell_dev()}
-              current={current === "dev" || current === "dev_planet_editor" || current === "dev_gpu_bench"}
+              current={
+                current === "dev" ||
+                current === "dev_planet_editor" ||
+                current === "dev_star_system" ||
+                current === "dev_gpu_bench"
+              }
             />
           </li>
         ) : null}

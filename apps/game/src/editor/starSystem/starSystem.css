@@ -1,0 +1,223 @@
+/*
+ * 항성계 편집기 화면(StarSystemScreen) — 틀 숨김, 화면 전체. 뿌리·머리 줄·빈 화면·확인 창은 행성 편집기 CSS(pe-*)를 같이 쓴다.
+ * 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * - 휴대폰(48em 미만): 한 줄로 내려 읽는다 — 이름·[저장] 줄, 그림(정사각), 고른 궤도 카드, 항성·궤도 판. 본문 전체가 스크롤된다.
+ * - 넓은 화면(48em 이상): 왼쪽 그림(높이에 맞춘 정사각), 오른쪽 판(카드 + 항성·궤도). 둘은 따로 스크롤된다.
+ */
+.ss-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-w) solid var(--color-border);
+  background-color: var(--color-surface);
+}
+.ss-toolbar-name {
+  flex: 1 1 10em;
+  min-width: 0;
+}
+.ss-name {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
+}
+.ss-meta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+.ss-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.ss-notice {
+  flex: 1 1 100%;
+}
+
+.ss-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom));
+}
+.ss-stage {
+  justify-self: center;
+  width: 100%;
+  max-width: 32em;
+  padding: var(--space-2);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface-2);
+}
+.ss-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* ── 고른 궤도 카드 ── */
+.ss-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+.ss-card[data-zone="habitable"] {
+  border-color: var(--color-success);
+}
+.ss-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.ss-card-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
+}
+.ss-card-kicker {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: normal;
+}
+.ss-card-zone {
+  font-weight: var(--font-weight-strong);
+}
+.ss-suggest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: var(--border-w) solid var(--color-border);
+}
+.ss-suggest-title {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.ss-suggest-temps {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+.ss-error {
+  color: var(--color-danger);
+}
+.ss-card-actions {
+  flex-wrap: wrap;
+}
+
+/* ── 항성·궤도 판 ── */
+.ss-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.ss-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.ss-section-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+}
+.ss-star-select,
+.ss-kind,
+.ss-planet,
+.ss-distance {
+  width: 100%;
+}
+.ss-orbits {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+  padding: 0;
+}
+.ss-orbit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+}
+.ss-orbit[data-selected] {
+  border-color: var(--color-focus);
+}
+.ss-orbit-pick {
+  min-height: var(--tap-size);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  box-shadow: none;
+  color: var(--color-text);
+  font: inherit;
+  font-weight: normal;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.ss-orbit-pick[aria-pressed="true"] {
+  font-weight: var(--font-weight-strong);
+}
+.ss-orbit-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-3);
+}
+.ss-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+@media (min-width: 48em) {
+  .ss-main {
+    grid-template-columns: minmax(0, 1fr) minmax(20em, 26em);
+    overflow: hidden;
+    padding-bottom: var(--space-3);
+  }
+  .ss-stage {
+    container-type: size;
+    display: grid;
+    place-items: center;
+    max-width: none;
+    height: 100%;
+    min-height: 0;
+  }
+  .ss-stage .ssv {
+    width: min(100cqw, 100cqh);
+  }
+  .ss-side {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

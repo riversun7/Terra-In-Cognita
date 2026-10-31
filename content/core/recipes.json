@@ -1,0 +1,125 @@
+{
+  "entries": [
+    {
+      "id": "farm_grain",
+      "name": {
+        "ko": "곡물 재배",
+        "en": "Grow grain"
+      },
+      "facility": "farm",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "grain",
+          "qty": 20
+        }
+      ],
+      "work": 1000,
+      "enabled": true
+    },
+    {
+      "id": "cut_timber",
+      "name": {
+        "ko": "원목 베기",
+        "en": "Cut timber"
+      },
+      "facility": "lumber_camp",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "timber",
+          "qty": 10
+        }
+      ],
+      "work": 1000,
+      "enabled": true
+    },
+    {
+      "id": "mine_iron_ore",
+      "name": {
+        "ko": "철광석 캐기",
+        "en": "Mine iron ore"
+      },
+      "facility": "mine",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "iron_ore",
+          "qty": 10
+        }
+      ],
+      "work": 1000,
+      "enabled": true
+    },
+    {
+      "id": "smelt_iron",
+      "name": {
+        "ko": "철 제련",
+        "en": "Smelt iron"
+      },
+      "facility": "smelter",
+      "inputs": [
+        {
+          "item": "iron_ore",
+          "qty": 10
+        }
+      ],
+      "outputs": [
+        {
+          "item": "iron_ingot",
+          "qty": 7
+        }
+      ],
+      "work": 1000,
+      "enabled": true
+    },
+    {
+      "id": "cook_ration",
+      "name": {
+        "ko": "배급 식량 조리",
+        "en": "Cook rations"
+      },
+      "facility": "kitchen",
+      "inputs": [
+        {
+          "item": "grain",
+          "qty": 20
+        }
+      ],
+      "outputs": [
+        {
+          "item": "ration",
+          "qty": 30
+        }
+      ],
+      "work": 1000,
+      "enabled": true
+    },
+    {
+      "id": "make_household_goods",
+      "name": {
+        "ko": "생활용품 만들기",
+        "en": "Make household goods"
+      },
+      "facility": "workshop",
+      "inputs": [
+        {
+          "item": "iron_ingot",
+          "qty": 2
+        },
+        {
+          "item": "timber",
+          "qty": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "household_goods",
+          "qty": 1
+        }
+      ],
+      "work": 500,
+      "enabled": true
+    }
+  ]
+}

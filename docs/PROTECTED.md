@@ -29,4 +29,4 @@
 
 | 대상 | 규칙 | 이유 |
 |---|---|---|
-| 원장·거래소 코드 | 변경 시 ADR + 불변 조건 테스트 통과 | 경제 무결성 |
+| 원장·거래소 코드(`packages/sim/src/ledger/`, `packages/sim/src/economy/`, 서버 `apps/server/src/economy/`) | 변경 시 ADR + 불변 조건 테스트 통과 | 경제 무결성 |

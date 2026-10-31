@@ -7,6 +7,8 @@ import { SIM_VERSION } from "../version.ts";
 import { createSimLoop } from "./loop.ts";
 import { DAY_MS, type FactionDay, type MetricsSummary, createMetricsRecorder } from "./metrics.ts";
 import type { Scenario } from "./scenario.ts";
+import type { EconomyCatalog } from "./catalog.ts";
+import { type EconomyRun, type EconomySummary, attachEconomy, systemRule } from "./economyRun.ts";
 import {
   EVENT_ARRIVE,
   EVENT_DECIDE,
@@ -25,8 +27,8 @@ import {
   totalOwnerAsset,
 } from "./world.ts";
 
-/** 출력 형식 판(줄·요약의 모양이 바뀌면 올린다. 관전판·관리자 화면이 읽는다) */
-export const SIM_OUTPUT_FORMAT = 1;
+/** 출력 형식 판(줄·요약의 모양이 바뀌면 올린다. 관전판·관리자 화면이 읽는다). 2: econ 줄·요약 economy 칸(R2) */
+export const SIM_OUTPUT_FORMAT = 2;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 요약에 남기는 불변 조건 위반 문장 수 */
@@ -43,6 +45,8 @@ export interface RunOptions {
   readonly sink?: ((line: string) => void) | undefined;
   /** 불변 조건 검사 간격(날, 기본 1). 끝에서도 한 번 한다 */
   readonly checkEveryDays?: number | undefined;
+  /** 경제 목록(시나리오에 economy 칸이 있으면 꼭 준다. 실행 도구가 콘텐츠 팩에서 만든다) */
+  readonly catalog?: EconomyCatalog | undefined;
   /** 하루가 끝날 때마다(진행 표시용, 판정에 영향 없음) */
   readonly onDay?: ((day: number, processed: number) => void) | undefined;
 }
@@ -64,6 +68,8 @@ export interface RunSummary {
     upkeepArrears: number;
   };
   readonly events: { processed: number; byKind: Record<string, number> };
+  /** 경제(시나리오에 economy 칸이 없으면 null) */
+  readonly economy: EconomySummary | null;
   readonly ledger: { transactions: number; accounts: number };
   readonly invariants: { checks: number; violations: number; first: string[] };
   /** 요약 앞까지 쓴 줄 수와 그 줄들의 FNV-1a 해시(지표 해시) */
@@ -98,7 +104,8 @@ export function runSimulation(options: RunOptions): RunSummary {
     }),
   );
 
-  const world = createWorld(scenario, seed, SIM_START_MS);
+  if (scenario.economy && !options.catalog) throw new Error("scenario with economy needs a catalog");
+  const world = createWorld(scenario, seed, SIM_START_MS, { systemRule });
   const recorder = createMetricsRecorder({ startMs: SIM_START_MS, sink: emit });
   const byKind = new Map<string, number>();
   const ctxRef: { ctx?: StubContext } = {};
@@ -108,11 +115,24 @@ export function runSimulation(options: RunOptions): RunSummary {
       const ctx = ctxRef.ctx;
       if (!ctx) return;
       byKind.set(event.payload.kind, (byKind.get(event.payload.kind) ?? 0) + 1);
+      if (econ?.handle(event, sim.nowMs)) return;
       if (event.payload.kind === EVENT_DECIDE) decide(ctx, event.payload.subject, sim.nowMs);
       else if (event.payload.kind === EVENT_ARRIVE) scheduleTrip(ctx, event.payload.subject, sim.nowMs);
     },
   });
-  const ctx: StubContext = { world, loop, recorder, stub: scenario.stub, trips: scenario.trips };
+  // 경제: 사건 처리기가 쓰기 전에 붙인다(예약은 아직 돌지 않는다)
+  const econ: EconomyRun | undefined =
+    scenario.economy && options.catalog
+      ? attachEconomy(world, scenario, options.catalog, loop, SIM_START_MS)
+      : undefined;
+  const ctx: StubContext = {
+    world,
+    loop,
+    recorder,
+    stub: scenario.stub,
+    trips: scenario.trips,
+    hooks: econ?.hooks,
+  };
   ctxRef.ctx = ctx;
 
   recorder.start(
@@ -131,7 +151,7 @@ export function runSimulation(options: RunOptions): RunSummary {
   const first: string[] = [];
   const check = (nowMs: number): void => {
     checks += 1;
-    const problems = checkWorld(world, nowMs, scenario.trips !== undefined);
+    const problems = [...checkWorld(world, nowMs, scenario.trips !== undefined), ...(econ?.check() ?? [])];
     violations += problems.length;
     for (const problem of problems) if (first.length < FIRST_PROBLEMS) first.push(`${nowMs}: ${problem}`);
   };
@@ -139,6 +159,7 @@ export function runSimulation(options: RunOptions): RunSummary {
   for (let day = 1; day <= days; day++) {
     const endMs = SIM_START_MS + day * DAY_MS;
     loop.runUntil(endMs);
+    econ?.endOfDay(endMs);
     const rows: FactionDay[] = [];
     for (const faction of world.factions.values()) {
       if (!faction.alive) continue;
@@ -148,10 +169,14 @@ export function runSimulation(options: RunOptions): RunSummary {
         cities: faction.cities.size,
         population: faction.units.size,
         tech: faction.tech,
-        treasury: world.book.balanceOf(faction.id, TEST_ASSET_CREDIT),
+        treasury: world.book.balanceOf(
+          faction.id,
+          econ ? econ.hooks.treasuryAsset(faction) : TEST_ASSET_CREDIT,
+        ),
       });
     }
     recorder.day(day, rows);
+    if (econ) recorder.econ(day, econ.dayLine());
     if (day % checkEvery === 0 || day === days) check(endMs);
     options.onDay?.(day, loop.processed);
   }
@@ -183,6 +208,7 @@ export function runSimulation(options: RunOptions): RunSummary {
       upkeepArrears: arrears,
     },
     events: { processed: loop.processed, byKind: kinds },
+    economy: econ ? econ.summary() : null,
     ledger: { transactions: world.audit.transactions, accounts: [...world.book.accounts()].length },
     invariants: { checks, violations, first },
     lines: lineCount,

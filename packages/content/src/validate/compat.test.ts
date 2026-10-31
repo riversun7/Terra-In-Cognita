@@ -1,7 +1,7 @@
 // 4b단계(이전 버전 호환) 시험 — 기준 팩과 지금 팩을 비교한다
 import { describe, expect, it } from "vitest";
 import { formatIssue } from "../issue.ts";
-import { BASE_ITEMS, fixture, named } from "../testFixtures.ts";
+import { BASE_ITEMS, ITEM_FIELDS, fixture, named } from "../testFixtures.ts";
 import { type LiveUsage, comparePacks } from "./compat.ts";
 
 const manifest = (version: number) => ({ "manifest.json": { formatVersion: 1, packId: "core", version } });
@@ -95,8 +95,8 @@ describe("4b단계: 이전 버전 호환", () => {
     const reordered = {
       "items.json": JSON.stringify({
         entries: [
-          { name: { en: "Copper ore", ko: "구리광석" }, id: "copper_ore" },
-          { id: "iron_ore", name: { ko: "철광석", en: "Iron ore" } },
+          { name: { en: "Copper ore", ko: "구리광석" }, id: "copper_ore", ...ITEM_FIELDS },
+          { ...ITEM_FIELDS, id: "iron_ore", name: { ko: "철광석", en: "Iron ore" } },
         ],
       }),
     };

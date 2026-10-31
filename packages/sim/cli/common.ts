@@ -1,9 +1,19 @@
 // 실행 도구 공용 — 시나리오·콘텐츠 팩 읽기 (docs/adr/2026-10-31-rules-simulator.md "실행 도구")
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { formatIssue, hasErrors } from "@terra/content";
+import {
+  type PackSource,
+  facilityEntrySchema,
+  formatIssue,
+  hasErrors,
+  itemEntrySchema,
+  nationPresetEntrySchema,
+  necessityEntrySchema,
+  parseJson,
+  recipeEntrySchema,
+} from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
-import { type Scenario, parseScenario } from "../src/index.ts";
+import { type EconomyCatalog, type Scenario, parseScenario } from "../src/index.ts";
 
 /** 저장소의 기본 콘텐츠 팩 */
 export const DEFAULT_PACK_DIR = fileURLToPath(new URL("../../../content/core", import.meta.url));
@@ -17,10 +27,76 @@ export function readScenario(nameOrPath: string): Scenario {
   return parseScenario(value);
 }
 
-/** 콘텐츠 팩을 읽고 시나리오가 가리키는 행성이 팩에 있는지 본다. 판·해시를 돌려준다 */
-export function readPack(dir: string, scenario: Scenario): { version: string; hash: string } {
+/** 팩 파일 하나를 그 분류 스키마로 읽는다(이미 검증한 팩이라 실패하지 않는다. 파일이 없으면 빈 목록) */
+function parseFile<T>(source: PackSource, file: string, parse: (raw: unknown) => T): T[] {
+  const text = source.files.get(file);
+  if (text === undefined) return [];
+  const value: unknown = parseJson(text);
+  const entries: unknown =
+    typeof value === "object" && value !== null ? Reflect.get(value, "entries") : undefined;
+  if (!Array.isArray(entries)) return [];
+  const list: readonly unknown[] = entries;
+  return list.map(parse);
+}
+
+/** 참조 → ID 문자열 */
+function id(ref: { id: string }): string {
+  return ref.id;
+}
+
+/** 팩의 경제 분류 → 시뮬 경제 목록(참조는 ID 문자열로) */
+function catalogOf(source: PackSource): EconomyCatalog {
+  return {
+    items: parseFile(source, "items.json", (raw) => itemEntrySchema.parse(raw)).map((item) => ({
+      id: item.id,
+      tier: item.tier,
+      category: item.category,
+      baseValue: BigInt(item.baseValue),
+      enabled: item.enabled,
+    })),
+    recipes: parseFile(source, "recipes.json", (raw) => recipeEntrySchema.parse(raw)).map((recipe) => ({
+      id: recipe.id,
+      facility: id(recipe.facility),
+      inputs: recipe.inputs.map((stack) => ({ item: id(stack.item), qty: BigInt(stack.qty) })),
+      outputs: recipe.outputs.map((stack) => ({ item: id(stack.item), qty: BigInt(stack.qty) })),
+      work: recipe.work,
+      enabled: recipe.enabled,
+    })),
+    facilities: parseFile(source, "facilities.json", (raw) => facilityEntrySchema.parse(raw)).map(
+      (facility) => ({
+        id: facility.id,
+        stage: facility.stage,
+        slotsPerLevel: facility.slotsPerLevel,
+        enabled: facility.enabled,
+      }),
+    ),
+    necessities: parseFile(source, "necessities.json", (raw) => necessityEntrySchema.parse(raw)).map(
+      (necessity) => ({
+        id: necessity.id,
+        item: id(necessity.item),
+        perUnit: BigInt(necessity.perUnit),
+        periodHours: necessity.periodHours,
+        enabled: necessity.enabled,
+      }),
+    ),
+    presets: parseFile(source, "nation_presets.json", (raw) => nationPresetEntrySchema.parse(raw)).map(
+      (preset) => ({
+        id: preset.id,
+        currency: preset.currency.code,
+        tradeTaxBp: preset.tradeTaxBp,
+        enabled: preset.enabled,
+      }),
+    ),
+  };
+}
+
+/** 콘텐츠 팩을 읽고 시나리오가 가리키는 행성이 팩에 있는지 본다. 판·해시와 경제 목록을 돌려준다 */
+export function readPack(
+  dir: string,
+  scenario: Scenario,
+): { version: string; hash: string; catalog: EconomyCatalog } {
   const loaded = loadContentPack(dir);
-  if (hasErrors(loaded.issues) || !loaded.pack || !loaded.version || !loaded.hash) {
+  if (hasErrors(loaded.issues) || !loaded.pack || !loaded.version || !loaded.hash || !loaded.source) {
     throw new Error(
       [`콘텐츠 팩 검증 실패(${dir})`, ...loaded.issues.map((issue) => formatIssue(issue, `${dir}/`))].join(
         "\n",
@@ -32,7 +108,7 @@ export function readPack(dir: string, scenario: Scenario): { version: string; ha
     if (!planets.some((entry) => entry.id === scenario.planet))
       throw new Error(`시나리오 ${scenario.id}의 행성 ${scenario.planet}이(가) 팩에 없습니다`);
   }
-  return { version: loaded.version, hash: loaded.hash };
+  return { version: loaded.version, hash: loaded.hash, catalog: catalogOf(loaded.source) };
 }
 
 /** 세력마다 일꾼 수를 바꿔 전체 유닛이 약 total개가 되게 한다(속도 측정용) */

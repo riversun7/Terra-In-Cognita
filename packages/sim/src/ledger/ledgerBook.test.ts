@@ -176,8 +176,30 @@ describe("원장 장부(메모리, 서버·시뮬 공용)", () => {
     ]);
   });
 
+  it("같은 주체·자산이라도 위치(창고)가 다르면 다른 계정이다", () => {
+    const book = newBook();
+    const source = book.systemAccount("source:ore", "ore");
+    const here = book.ownerAccount(1, "ore", 10);
+    const there = book.ownerAccount(1, "ore", 20);
+    expect(here).not.toBe(there);
+    expect(book.ownerAccount(1, "ore")).not.toBe(here);
+    book.post({
+      kind: "produce",
+      atMs: 1,
+      entries: [
+        { account: source, amount: -5n },
+        { account: here, amount: 5n },
+      ],
+    });
+    expect(book.balanceOf(1, "ore", 10)).toBe(5n);
+    expect(book.balanceOf(1, "ore", 20)).toBe(0n);
+    expect(book.balanceOf(1, "ore")).toBe(0n);
+  });
+
   it("처음 잔고(부팅 때 읽은 계정)에서 시작할 수 있다", () => {
-    const accounts: LedgerAccount[] = [{ id: 4, ownerId: 9, systemCode: null, asset: "gold", balance: 12n }];
+    const accounts: LedgerAccount[] = [
+      { id: 4, ownerId: 9, systemCode: null, asset: "gold", location: null, balance: 12n },
+    ];
     const book = createLedgerBook({ accounts, nextAccountId: () => 5, nextTxId: counter() });
     expect(book.balanceOf(9, "gold")).toBe(12n);
     expect([...book.accounts()].map((acc) => acc.id)).toEqual([4]);
@@ -227,8 +249,8 @@ describe("원장 감사(메모리 불변 조건 I1·I2·I6)", () => {
     });
     // 장부 밖에서 잔고가 틀어진 경우(버그·잘못 읽은 부팅 값)를 흉내 낸다
     const tampered: LedgerAccount[] = [
-      { id: issue, ownerId: null, systemCode: "issue:gold", asset: "gold", balance: -9n },
-      { id: a, ownerId: 1, systemCode: null, asset: "gold", balance: -1n },
+      { id: issue, ownerId: null, systemCode: "issue:gold", asset: "gold", location: null, balance: -9n },
+      { id: a, ownerId: 1, systemCode: null, asset: "gold", location: null, balance: -1n },
     ];
     expect(audit.check(tampered)).toEqual([
       "I2 accounts whose balance differs from their entries: 1",
@@ -238,7 +260,14 @@ describe("원장 감사(메모리 불변 조건 I1·I2·I6)", () => {
 
   it("자산별 합이 0이 아닌 거래가 들어오면 알린다(장부 버그 흉내: 고리에 바로 넣는다)", () => {
     const audit = createLedgerAudit();
-    const a: LedgerAccount = { id: 1, ownerId: 1, systemCode: null, asset: "gold", balance: 3n };
+    const a: LedgerAccount = {
+      id: 1,
+      ownerId: 1,
+      systemCode: null,
+      asset: "gold",
+      location: null,
+      balance: 3n,
+    };
     audit.hooks.posted?.(1, { kind: "bug", atMs: 1, entries: [{ account: 1, amount: 3n }] }, [a]);
     expect(audit.check([a])).toEqual([
       "I1 assets whose entries do not sum to zero: 1",

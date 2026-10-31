@@ -9,6 +9,8 @@ export const INVARIANT_I1_TRANSACTIONS = "I1 transactions not balanced per asset
 export const INVARIANT_I2_BALANCE = "I2 accounts whose balance differs from their entries";
 export const INVARIANT_I2_NEGATIVE = "I2 owner accounts below zero";
 export const INVARIANT_I6_KEYS = "I6 duplicate idempotency keys";
+export const INVARIANT_I1_SYSTEM_KIND =
+  "I1 system accounts touched by a transaction kind that may not create or destroy";
 
 export interface LedgerAudit {
   /** 장부에 넘길 고리 */
@@ -19,8 +21,15 @@ export interface LedgerAudit {
   check(accounts: Iterable<Readonly<LedgerAccount>>): string[];
 }
 
-/** initial: 장부가 처음 잔고를 가진 계정(부팅 값)이면 그 잔고를 항목 합의 시작으로 둔다 */
-export function createLedgerAudit(initial: Iterable<Readonly<LedgerAccount>> = []): LedgerAudit {
+/**
+ * initial: 장부가 처음 잔고를 가진 계정(부팅 값)이면 그 잔고를 항목 합의 시작으로 둔다.
+ * systemRule: 시스템 계정(발행·소멸·생산원·에스크로 등)을 건드려도 되는 거래 종류인지(있으면 본다). 물건·돈은 정한 사건으로만
+ * 생기고 사라진다는 것을 거래마다 본다.
+ */
+export function createLedgerAudit(
+  initial: Iterable<Readonly<LedgerAccount>> = [],
+  systemRule?: (code: string, kind: string) => boolean,
+): LedgerAudit {
   const sums = new Map<number, bigint>();
   const assetOf = new Map<number, string>();
   for (const account of initial) {
@@ -30,6 +39,7 @@ export function createLedgerAudit(initial: Iterable<Readonly<LedgerAccount>> = [
   const keys = new Set<string>();
   let duplicateKeys = 0;
   let unbalancedTx = 0;
+  let badKinds = 0;
   let transactions = 0;
 
   const hooks: LedgerHooks = {
@@ -39,6 +49,11 @@ export function createLedgerAudit(initial: Iterable<Readonly<LedgerAccount>> = [
     posted(_txId, tx, changed) {
       transactions += 1;
       for (const account of changed) assetOf.set(account.id, account.asset);
+      if (
+        systemRule &&
+        changed.some((account) => account.systemCode !== null && !systemRule(account.systemCode, tx.kind))
+      )
+        badKinds += 1;
       const perAsset = new Map<string, bigint>();
       for (const entry of tx.entries) {
         sums.set(entry.account, (sums.get(entry.account) ?? 0n) + entry.amount);
@@ -86,6 +101,7 @@ export function createLedgerAudit(initial: Iterable<Readonly<LedgerAccount>> = [
       add(INVARIANT_I2_BALANCE, badBalances);
       add(INVARIANT_I2_NEGATIVE, negative);
       add(INVARIANT_I6_KEYS, duplicateKeys);
+      add(INVARIANT_I1_SYSTEM_KIND, badKinds);
       return problems;
     },
   };

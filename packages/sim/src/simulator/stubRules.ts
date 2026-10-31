@@ -29,12 +29,25 @@ export type SimEvent = EventKey;
 /** 합성 이동의 목적지 범위(2차맵 한 변, 단위) */
 const TRIP_SPAN = 0x4_0000;
 
+/** 경제를 돌리면 대리 규칙의 자산 옮기기를 경제가 맡는다(simulator/run.ts가 붙인다) */
+export interface StubHooks {
+  /** 국고 자산(세력 화폐) */
+  treasuryAsset(faction: SimFaction): string;
+  /** 도시 주인이 바뀌기 바로 전(옛 주인을 아직 안다) */
+  beforeCityTransfer(cityId: number, from: SimFaction, to: SimFaction, nowMs: number): void;
+  /** 반란으로 새 세력이 생긴 바로 뒤(국고 몫을 옮기기 전) */
+  factionBorn(child: SimFaction, parent: SimFaction): void;
+  /** 사라지는 세력의 남은 자산을 이긴 쪽으로 */
+  factionDied(target: SimFaction, attacker: SimFaction, nowMs: number): void;
+}
+
 export interface StubContext {
   readonly world: SimWorld;
   readonly loop: SimLoop<SimEvent>;
   readonly recorder: MetricsRecorder;
   readonly stub: ScenarioStub;
   readonly trips: ScenarioTrips | undefined;
+  readonly hooks?: StubHooks | undefined;
 }
 
 /** 다음 판단 시각: 간격 ±25% */
@@ -95,12 +108,16 @@ function conquer(
   if (!target || targets.length === 0) return;
   const cityId = pickCity(target, rollCity);
   if (cityId === undefined) return;
+  ctx.hooks?.beforeCityTransfer(cityId, target, attacker, nowMs);
   transferCity(world, cityId, attacker, nowMs);
   if (rollCity % 2 === 0) setTech(ctx, target, target.tech - 1, "city_lost", nowMs);
   if (target.cities.size > 0) return;
   // 도시가 없는 유동 세력은 사라진다: 남은 자산은 이긴 세력이 가져간다
-  transferAsset(world, target, attacker, TEST_ASSET_CREDIT, 1n, nowMs);
-  transferAsset(world, target, attacker, TEST_ASSET_ORE, 1n, nowMs);
+  if (ctx.hooks) ctx.hooks.factionDied(target, attacker, nowMs);
+  else {
+    transferAsset(world, target, attacker, TEST_ASSET_CREDIT, 1n, nowMs);
+    transferAsset(world, target, attacker, TEST_ASSET_ORE, 1n, nowMs);
+  }
   target.alive = false;
   if (target.eventId !== undefined) ctx.loop.cancel(target.eventId);
   target.eventId = undefined;
@@ -129,8 +146,10 @@ function rebel(ctx: StubContext, parent: SimFaction, rollCity: number, nowMs: nu
     eventId: undefined,
   };
   world.factions.set(id, child);
+  ctx.hooks?.factionBorn(child, parent);
   // 갈라진 도시 몫만큼 국고를 가져간다
-  transferAsset(world, parent, child, TEST_ASSET_CREDIT, share, nowMs);
+  transferAsset(world, parent, child, ctx.hooks?.treasuryAsset(parent) ?? TEST_ASSET_CREDIT, share, nowMs);
+  ctx.hooks?.beforeCityTransfer(cityId, parent, child, nowMs);
   transferCity(world, cityId, child, nowMs);
   ctx.recorder.born(nowMs, id, "rebellion", { parent: parent.id, tech: child.tech });
   scheduleDecide(ctx, child, nowMs);

@@ -2,7 +2,9 @@
 // 서버(apps/server/src/economy/ledger.ts: 이 장부 + DB 쓰기 고리)와 시뮬레이터(docs/adr/2026-10-31-rules-simulator.md)가
 // 같은 장부를 쓴다. 판단(거절·잔고 계산)은 여기 한 곳이고, 저장은 고리(hooks)로 바깥이 한다.
 // - 복식부기: 거래 하나의 항목 합은 자산마다 0이다. 소유 주체 계정은 0 아래로 내려가지 않는다(시스템 계정은 된다).
-// - 화폐와 쌓이는 자원을 같은 장부에 자산 코드로 적는다. 계정 = (소유 주체, 자산) 또는 시스템 계정(발행·소멸·매장량).
+// - 화폐와 쌓이는 자원을 같은 장부에 자산 코드로 적는다. 계정 = (소유 주체, 자산, 위치) 또는 시스템 계정(발행·소멸·매장량·
+//   에스크로·운송 중). 위치는 창고가 있는 곳(도시 등, ADR 2026-10-31-space-layer-data-model 5절)이고, 화폐처럼 장부에만 있는
+//   자산은 위치가 없다(null). 같은 주체·자산이라도 위치가 다르면 다른 계정이다(물건은 실제로 어딘가에 있다, D-117).
 // - 틀린 거래는 LedgerError를 던지고 아무것도 바꾸지 않는다. 금액은 BigInt다.
 
 export interface LedgerEntry {
@@ -34,6 +36,8 @@ export interface LedgerAccount {
   readonly ownerId: number | null;
   readonly systemCode: string | null;
   readonly asset: string;
+  /** 창고 위치(도시 등). 장부에만 있는 자산(화폐)은 null */
+  readonly location: number | null;
   balance: bigint;
 }
 
@@ -45,17 +49,22 @@ export interface LedgerHooks {
 }
 
 export interface LedgerBook {
-  /** (소유 주체, 자산) 계정 ID. 없으면 만든다 */
-  ownerAccount(ownerId: number, asset: string): number;
-  /** 시스템 계정 ID(code는 예: "issue:s3_test_credit"). 없으면 만든다 */
-  systemAccount(code: string, asset: string): number;
+  /** (소유 주체, 자산, 위치) 계정 ID. 없으면 만든다. 위치를 빼면 위치 없는 계정(화폐) */
+  ownerAccount(ownerId: number, asset: string, location?: number | null): number;
+  /** 시스템 계정 ID(code는 예: "issue:s3_test_credit", 코드가 계정 하나를 가리킨다). 없으면 만든다 */
+  systemAccount(code: string, asset: string, location?: number | null): number;
   /** 계정이 없으면 0 */
-  balanceOf(ownerId: number, asset: string): bigint;
+  balanceOf(ownerId: number, asset: string, location?: number | null): bigint;
   balance(accountId: number): bigint;
   /** 거래를 넣고 거래 ID를 돌려준다. 틀리면 LedgerError(아무것도 바꾸지 않는다) */
   post(tx: LedgerPost): number;
   /** 모든 계정(만든 차례) */
   accounts(): IterableIterator<Readonly<LedgerAccount>>;
+}
+
+/** 주체 계정 찾기 열쇠 */
+function ownerKey(ownerId: number, asset: string, location: number | null): string {
+  return `${ownerId}|${asset}|${location ?? ""}`;
 }
 
 export function createLedgerBook(options: {
@@ -71,27 +80,40 @@ export function createLedgerBook(options: {
   const bySystem = new Map<string, LedgerAccount>();
   const index = (account: LedgerAccount): void => {
     byId.set(account.id, account);
-    if (account.ownerId !== null) byOwner.set(`${account.ownerId}:${account.asset}`, account);
+    if (account.ownerId !== null)
+      byOwner.set(ownerKey(account.ownerId, account.asset, account.location), account);
     if (account.systemCode !== null) bySystem.set(account.systemCode, account);
   };
   for (const row of options.accounts ?? []) index({ ...row });
 
-  const create = (ownerId: number | null, systemCode: string | null, asset: string): LedgerAccount => {
-    const account: LedgerAccount = { id: options.nextAccountId(), ownerId, systemCode, asset, balance: 0n };
+  const create = (
+    ownerId: number | null,
+    systemCode: string | null,
+    asset: string,
+    location: number | null,
+  ): LedgerAccount => {
+    const account: LedgerAccount = {
+      id: options.nextAccountId(),
+      ownerId,
+      systemCode,
+      asset,
+      location,
+      balance: 0n,
+    };
     index(account);
     hooks.accountCreated?.(account);
     return account;
   };
 
   return {
-    ownerAccount(ownerId, asset) {
-      return (byOwner.get(`${ownerId}:${asset}`) ?? create(ownerId, null, asset)).id;
+    ownerAccount(ownerId, asset, location = null) {
+      return (byOwner.get(ownerKey(ownerId, asset, location)) ?? create(ownerId, null, asset, location)).id;
     },
-    systemAccount(code, asset) {
-      return (bySystem.get(code) ?? create(null, code, asset)).id;
+    systemAccount(code, asset, location = null) {
+      return (bySystem.get(code) ?? create(null, code, asset, location)).id;
     },
-    balanceOf(ownerId, asset) {
-      return byOwner.get(`${ownerId}:${asset}`)?.balance ?? 0n;
+    balanceOf(ownerId, asset, location = null) {
+      return byOwner.get(ownerKey(ownerId, asset, location))?.balance ?? 0n;
     },
     balance(accountId) {
       return byId.get(accountId)?.balance ?? 0n;

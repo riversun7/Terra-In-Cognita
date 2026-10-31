@@ -1,13 +1,15 @@
 // 1단계(스키마) 시험 — 실패 경우마다 한 건씩
 import { describe, expect, it } from "vitest";
 import { formatIssue } from "../issue.ts";
-import { fixture } from "../testFixtures.ts";
+import { ITEM_FIELDS, fixture } from "../testFixtures.ts";
 import { validatePack } from "./pack.ts";
 
 const issuesOf = (overrides: Record<string, unknown>, packId?: string) =>
   validatePack(fixture(overrides, packId)).issues;
 
-const items = (...entries: unknown[]) => ({ "items.json": { entries } });
+const items = (...entries: Record<string, unknown>[]) => ({
+  "items.json": { entries: entries.map((entry) => ({ ...ITEM_FIELDS, ...entry })) },
+});
 
 describe("1단계: 스키마", () => {
   it("올바른 팩은 통과하고 파싱 결과를 돌려준다", () => {

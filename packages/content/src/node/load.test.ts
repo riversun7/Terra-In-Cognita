@@ -51,7 +51,7 @@ describe("hashPack", () => {
     const original = fixture().files;
     const reformatted = fixture({
       "items.json":
-        '{"entries":[{"name":{"en":"Copper ore","ko":"구리광석"},"id":"copper_ore"},{"id":"iron_ore","name":{"ko":"철광석","en":"Iron ore"}}]}',
+        '{"entries":[{"name":{"en":"Copper ore","ko":"구리광석"},"id":"copper_ore","category":"raw","tier":0,"baseValue":1,"enabled":true},{"enabled":true,"baseValue":1,"tier":0,"category":"raw","id":"iron_ore","name":{"ko":"철광석","en":"Iron ore"}}]}',
     }).files;
     const changed = fixture({ "manifest.json": { formatVersion: 1, packId: "core", version: 2 } }).files;
     expect(hashPack(reformatted)).toBe(hashPack(original));

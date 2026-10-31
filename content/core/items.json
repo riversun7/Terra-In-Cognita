@@ -2,7 +2,80 @@
   "entries": [
     {
       "id": "dev_placeholder",
-      "name": { "ko": "임시 아이템", "en": "Placeholder item" }
+      "name": {
+        "ko": "임시 아이템",
+        "en": "Placeholder item"
+      },
+      "category": "document",
+      "tier": 0,
+      "baseValue": 1,
+      "enabled": false
+    },
+    {
+      "id": "grain",
+      "name": {
+        "ko": "곡물",
+        "en": "Grain"
+      },
+      "category": "raw",
+      "tier": 0,
+      "baseValue": 4,
+      "enabled": true
+    },
+    {
+      "id": "timber",
+      "name": {
+        "ko": "원목",
+        "en": "Timber"
+      },
+      "category": "raw",
+      "tier": 0,
+      "baseValue": 5,
+      "enabled": true
+    },
+    {
+      "id": "iron_ore",
+      "name": {
+        "ko": "철광석",
+        "en": "Iron ore"
+      },
+      "category": "raw",
+      "tier": 1,
+      "baseValue": 8,
+      "enabled": true
+    },
+    {
+      "id": "iron_ingot",
+      "name": {
+        "ko": "철 주괴",
+        "en": "Iron ingot"
+      },
+      "category": "processed",
+      "tier": 1,
+      "baseValue": 14,
+      "enabled": true
+    },
+    {
+      "id": "ration",
+      "name": {
+        "ko": "배급 식량",
+        "en": "Ration"
+      },
+      "category": "consumable",
+      "tier": 0,
+      "baseValue": 4,
+      "enabled": true
+    },
+    {
+      "id": "household_goods",
+      "name": {
+        "ko": "생활용품",
+        "en": "Household goods"
+      },
+      "category": "consumable",
+      "tier": 1,
+      "baseValue": 40,
+      "enabled": true
     }
   ]
 }

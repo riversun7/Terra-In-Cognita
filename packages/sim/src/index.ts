@@ -159,6 +159,7 @@ export {
   INVARIANT_I1_TRANSACTIONS,
   INVARIANT_I2_BALANCE,
   INVARIANT_I2_NEGATIVE,
+  INVARIANT_I1_SYSTEM_KIND,
   INVARIANT_I6_KEYS,
   createLedgerAudit,
   type LedgerAudit,
@@ -193,3 +194,50 @@ export {
   type RunOptions,
   type RunSummary,
 } from "./simulator/run.ts";
+export {
+  currencyAsset,
+  itemAsset,
+  prepareCatalog,
+  type CatalogFacility,
+  type CatalogItem,
+  type CatalogNecessity,
+  type CatalogPreset,
+  type CatalogRecipe,
+  type EconomyCatalog,
+  type PreparedCatalog,
+} from "./simulator/catalog.ts";
+export {
+  type BookFill,
+  type BookOrder,
+  type OrderBook,
+  type OrderInput,
+  type Side,
+  createOrderBook,
+} from "./economy/orderBook.ts";
+export {
+  type GoodsMarket,
+  type GoodsMarketConfig,
+  type PlaceResult,
+  createGoodsMarket,
+} from "./economy/goodsMarket.ts";
+export { type AuctionOrder, type AuctionResult, clearCallAuction } from "./economy/callAuction.ts";
+export { type FxMarket, type FxPair, createFxMarket } from "./economy/fxMarket.ts";
+export {
+  BASE_EFFICIENCY,
+  HOUR_MS,
+  batchDurationMs,
+  maxTierForLevel,
+  runRecipe,
+  type ProductionAccounts,
+  type RecipeSpec,
+  type Stack,
+} from "./economy/production.ts";
+export { dueNecessities, payNecessities, type NecessitySpec, type UpkeepPaid } from "./economy/upkeep.ts";
+export {
+  TEST_CENTRAL_BANK_RULE,
+  centralBankStep,
+  initialMint,
+  type CentralBankInput,
+  type CentralBankRule,
+  type CentralBankStep,
+} from "./economy/centralBank.ts";

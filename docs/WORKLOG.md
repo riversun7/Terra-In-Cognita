@@ -11,6 +11,7 @@
 | 2026-10-31 16:50 | S3 WP-C: 오프라인 정산·최소 원장·접속 상태·복귀 요약 생산 칸 | Claude Code | [31-1650-s3-wp-c-settlement](worklog/2026/10/31-1650-s3-wp-c-settlement.md) |
 | 2026-10-31 16:10 | 행성 표본: 태양계 암석 행성 다섯(편집기 시작점, 서버는 굽지 않음) | Claude Code | [31-1610-planet-samples](worklog/2026/10/31-1610-planet-samples.md) |
 | 2026-10-31 16:00 | S3 계단 시험: 시험 DB를 전용 컨테이너로 바꿈 | Claude Code | [31-1600-s3-ramp-db](worklog/2026/10/31-1600-s3-ramp-db.md) |
+| 2026-10-31 16:00 | 기획 반영 — 원본 fd3ffeb(D-354~D-388 우주, Step 5 D-5055~D-5062), 우주층 데이터 모델 골격 ADR, 질문 115~118 | Claude Code | [31-1600-planning-space](worklog/2026/10/31-1600-planning-space.md) |
 | 2026-10-31 15:25 | S3 WP-A: 월드 저장·부팅 복구, 불변 조건, 사용자 결정 반영 | Claude Code | [31-1525-s3-wp-a-persistence](worklog/2026/10/31-1525-s3-wp-a-persistence.md) |
 | 2026-10-31 15:10 | 항성계 편집기: 궤도 배치, 생명 가능 지대, 기온 제안을 행성 작업 사본으로 | Claude Code | [31-1510-star-system](worklog/2026/10/31-1510-star-system.md) |
 | 2026-10-31 15:00 | 대륙 배치: 초대륙·대륙 몇 개·여러 대륙·군도·한쪽 반구와 대륙 수 | Claude Code | [31-1500-continent-layouts](worklog/2026/10/31-1500-continent-layouts.md) |

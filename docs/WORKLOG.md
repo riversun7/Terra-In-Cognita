@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-31 09:25 | 기획 반영 — 원본 aadab42·fa164da(D-272~D-329, Step 5 D-5049·D-5050, Step 7 D-7036~D-7054) | Claude Code | [31-0925-planning-aadab42](worklog/2026/10/31-0925-planning-aadab42.md) |
 | 2026-10-31 09:10 | 기획 미러 동기화 — 원본 aadab42(D-272~D-324, Step 5 D-5049·D-5050, Step 7 D-7036~D-7054) | Claude Code | [31-0910-design-mirror-aadab42](worklog/2026/10/31-0910-design-mirror-aadab42.md) |
 | 2026-10-31 09:10 | 앱 뼈대 W3·W4 문서 정리: ADR 37 "구현하며 정한 것" W3·W4, 0단계 남은 것 표시, PLAN 14장 줄 | Claude Code | [31-0910-app-shell-notes-2](worklog/2026/10/31-0910-app-shell-notes-2.md) |
 | 2026-10-30 02:20 | 앱 뼈대 W4 합치기(홈 대시보드) — 앱 뼈대 W1~W5가 모두 main에 | Claude Code | [30-0220-app-shell-w4-integration](worklog/2026/10/30-0220-app-shell-w4-integration.md) |

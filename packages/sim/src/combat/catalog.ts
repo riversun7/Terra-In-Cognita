@@ -12,6 +12,8 @@ export interface UnitKindDef {
   readonly id: string;
   readonly slots: readonly SlotKind[];
   readonly skillSlots: { readonly base: number; readonly perRebirth: number; readonly max: number };
+  /** 타고난 무기(D-436, 사람형은 맨손). 무기 칸이 비었을 때 */
+  readonly naturalWeapon: WeaponSpec;
 }
 
 export interface CombatCatalog {
@@ -22,7 +24,7 @@ export interface CombatCatalog {
   readonly unitKinds: readonly UnitKindDef[];
 }
 
-/** [임시] 맨손(무기 칸이 비었을 때) */
+/** [임시] 사람형 맨손 무기(D-436 "맨손 무기" 데이터. 값은 기획 전 시험값) */
 export const UNARMED: WeaponSpec = {
   kind: "physical",
   attack: 5,
@@ -35,8 +37,18 @@ export const UNARMED: WeaponSpec = {
   speedAppropriate: 100,
   range: 1,
   arc: false,
-  staminaCost: 2,
+  staminaCost: 10,
   mpCost: 0,
+};
+
+/** [임시] 크리쳐 타고난 무기(D-436, 종 데이터 전 단계) */
+const CLAWS: WeaponSpec = {
+  ...UNARMED,
+  attack: 12,
+  attackAppropriate: 30,
+  hitPm: 850,
+  critPm: 100,
+  intervalMs: 900,
 };
 
 const ELEMENTS = 12;
@@ -65,7 +77,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       tickMs: 0,
       stacking: "refresh",
       maxStacks: 1,
-      resist: { cap: 800, halfConstant: 100, weights: [0, 0, 0, 1000, 0, 200] },
+      resist: { cap: 600, halfConstant: 100, weights: [0, 0, 0, 1000, 0, 200] },
     },
     {
       id: "attack_up",
@@ -228,7 +240,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
         speedAppropriate: 100,
         range: 1,
         arc: false,
-        staminaCost: 5,
+        staminaCost: 10,
         mpCost: 0,
       },
       skills: [],
@@ -249,7 +261,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
         speedAppropriate: 100,
         range: 6,
         arc: false,
-        staminaCost: 2,
+        staminaCost: 10,
         mpCost: 5,
         skillElementsPm: fireOnly,
       },
@@ -273,14 +285,21 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       id: "cyborg",
       slots: [...COMMON, "organ", "organ", "organ"],
       skillSlots: { base: 3, perRebirth: 1, max: 10 },
+      naturalWeapon: UNARMED,
     },
-    { id: "human", slots: COMMON, skillSlots: { base: 3, perRebirth: 1, max: 10 } },
+    { id: "human", slots: COMMON, skillSlots: { base: 3, perRebirth: 1, max: 10 }, naturalWeapon: UNARMED },
     {
       id: "android",
       slots: [...COMMON, "part", "part", "part"],
       skillSlots: { base: 3, perRebirth: 1, max: 10 },
+      naturalWeapon: UNARMED,
     },
-    { id: "creature", slots: ["accessory", "saddle"], skillSlots: { base: 4, perRebirth: 1, max: 10 } },
+    {
+      id: "creature",
+      slots: ["accessory", "saddle"],
+      skillSlots: { base: 4, perRebirth: 1, max: 10 },
+      naturalWeapon: CLAWS,
+    },
   ],
 };
 

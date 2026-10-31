@@ -31,7 +31,7 @@ if (!name) {
 }
 let scenario = readScenario(name);
 if (values.units !== undefined) scenario = withUnits(scenario, Number(values.units));
-const { catalog, combat, ...content } = readPack(values.pack, scenario);
+const { catalog, combat, tuning, ...content } = readPack(values.pack, scenario);
 const days = Number(values.days);
 const lines: string[] = [];
 const started = performance.now();
@@ -42,6 +42,7 @@ const summary = runSimulation({
   content,
   catalog,
   combatCatalog: combat,
+  tuning,
   checkEveryDays: Number(values["check-every"]),
   sink: values.out === undefined ? undefined : (line) => lines.push(line),
 });
@@ -58,6 +59,6 @@ console.error(
     `wall=${fmt(wallMs)}ms events=${fmt(events)} (${fmt(events / (wallMs / 1000))}/s) ` +
     `sim=${fmt(simHours / (wallMs / 1000), 1)} h/s (×${fmt((days * DAY_MS) / wallMs)}) ` +
     `hash=${summary.linesHash} violations=${summary.invariants.violations} ` +
-    `D-391(stub)=${summary.metrics.monopoly.pass ? "M" : "m"}${summary.metrics.churn.pass ? "C" : "c"}${summary.metrics.tech.pass ? "T" : "t"}`,
+    `D-391=${summary.metrics.monopoly.pass ? "M" : "m"}${summary.metrics.churn.pass ? "C" : "c"}${summary.metrics.tech.pass ? "T" : "t"}`,
 );
 if (summary.invariants.violations > 0) process.exit(3);

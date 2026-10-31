@@ -17,6 +17,7 @@ import { mapPropEntrySchema } from "./mapProps.ts";
 import { effectEntrySchema, skillEntrySchema, unitKindEntrySchema } from "./combat.ts";
 import { biomeEntrySchema, planetEntrySchema, planetTemplateEntrySchema } from "./planets.ts";
 import { statRowEntrySchema } from "./stats.ts";
+import { tuningEntrySchema } from "./tuning.ts";
 
 export interface CategoryDefinition {
   /** 항목 하나의 스키마. id 필드(contentId)를 꼭 가진다. 다른 항목 참조는 ref("<분류>")로 선언한다 */
@@ -48,6 +49,7 @@ export const CATEGORIES: CategoryRegistry = {
   effects: { entry: effectEntrySchema },
   skills: { entry: skillEntrySchema },
   unit_kinds: { entry: unitKindEntrySchema },
+  tuning: { entry: tuningEntrySchema },
   biomes: { entry: biomeEntrySchema },
   planets: { entry: planetEntrySchema },
   planet_templates: { entry: planetTemplateEntrySchema },

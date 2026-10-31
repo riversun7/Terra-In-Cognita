@@ -8,7 +8,12 @@
 import { createRng } from "@terra/shared";
 import { mix32 } from "../math/hash.ts";
 import { type BattleMap, createBattleMap } from "./battleMap.ts";
-import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS, msToTicks } from "./coefficients.ts";
+import {
+  type CombatCoefficients,
+  TEST_COMBAT_COEFFICIENTS,
+  msToTicks,
+  staminaRegenMilli,
+} from "./coefficients.ts";
 import { NEIGHBORS, UNREACHABLE, distanceField, stepAllowed } from "./fields.ts";
 import { hasStatus, modifiersOf, tickEffects } from "./effects.ts";
 import { buildingDamage, resolveAttack, withAttackModifiers, withDefenseModifiers } from "./formula.ts";
@@ -230,14 +235,19 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
   ): boolean => {
     if (chebyshev(attacker.x, attacker.y, target.x, target.y) > attacker.range) return false;
     if (attacker.range > 1 && !attacker.arc && !lineClear(map, attacker, target, gone)) return false;
-    const rolls = { hit: rng.nextInt(10_000), evade: rng.nextInt(10_000), crit: rng.nextInt(10_000) };
+    const rolls = {
+      hit: rng.nextInt(10_000),
+      evade: rng.nextInt(10_000),
+      crit: rng.nextInt(10_000),
+      critPos: rng.nextInt(10_000),
+    };
     const hit = resolveAttack(
       withAttackModifiers(attacker.attack, modifiersOf(attacker)),
       withDefenseModifiers(target.defense, modifiersOf(target)),
       rolls,
       c,
     );
-    spend(attacker, nowMs);
+    spend(attacker, nowMs, c);
     if (!attacker.air && map.cover[attacker.y * size + attacker.x] === 1)
       attacker.revealUntilMs = nowMs + c.bushRevealMs;
     takeDamage(target, hit.amount, attacker.attack.kind);
@@ -249,7 +259,7 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     const building = state.buildings.find((entry) => entry.id === buildingId);
     if (!building || building.durability <= 0) return false;
     building.durability -= buildingDamage(attacker.attack, attacker.buildingMulPm, c);
-    spend(attacker, nowMs);
+    spend(attacker, nowMs, c);
     return true;
   };
 
@@ -296,9 +306,9 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     nowMs: number,
   ): boolean => {
     if (unit.skills.length === 0) return false;
-    const index = pickSkill(unit, goal, nowMs, reach(unit, goal, gone));
+    const index = pickSkill(unit, goal, nowMs, reach(unit, goal, gone), c);
     if (index < 0) return false;
-    if (startSkill(unit, index, goal.id, nowMs)) fire(unit, index, goal, rng, nowMs);
+    if (startSkill(unit, index, goal.id, nowMs, c)) fire(unit, index, goal, rng, nowMs);
     return true;
   };
 
@@ -362,7 +372,7 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     if (target) {
       const goal = target;
       if (useSkill(unit, goal, rng, gone, nowMs)) return;
-      if (ready(unit, nowMs) && attackUnit(unit, goal, rng, gone, nowMs)) return;
+      if (ready(unit, nowMs, c) && attackUnit(unit, goal, rng, gone, nowMs)) return;
       if (canMove && chebyshev(unit.x, unit.y, goal.x, goal.y) > unit.range) {
         const cell = goal.y * size + goal.x;
         const field =
@@ -377,7 +387,7 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     const side = state.sides.find((entry) => entry.id === unit.side);
     if (state.kind === "siege" && side && !side.defender) {
       const nexus = nexusOf(gone);
-      if (nexus !== undefined && ready(unit, nowMs) && attackBuilding(unit, nexus, nowMs)) return;
+      if (nexus !== undefined && ready(unit, nowMs, c) && attackBuilding(unit, nexus, nowMs)) return;
     }
     if (canMove) stepAlong(unit, attackFields.get(unit.side) ?? null, occupied, gone);
   };
@@ -386,11 +396,11 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
   const regen = (unit: UnitState): void => {
     unit.staminaMilli = Math.min(
       unit.staminaMax * 1000,
-      unit.staminaMilli + Math.floor((unit.staminaMax * c.staminaRegenPmPerSec * c.tickMs) / 1000),
+      unit.staminaMilli + staminaRegenMilli(unit.staminaScore, c),
     );
     unit.mpMilli = Math.min(
       unit.mpMax * 1000,
-      unit.mpMilli + Math.floor((unit.mpMax * c.mpRegenPmPerSec * c.tickMs) / 1000),
+      unit.mpMilli + Math.floor(((unit.primaries[5] ?? 0) * c.mpRegenMilliPerWisPerSec * c.tickMs) / 1000),
     );
   };
 

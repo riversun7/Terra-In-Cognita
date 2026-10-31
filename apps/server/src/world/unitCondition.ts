@@ -2,6 +2,7 @@
 // D-145(부상 3단계 + 자연 회복)·D-187(포로, 주인은 그대로)·D-351·질문 108 기본안(D-381)
 // 2차맵 유닛 줄(world_units)에 함께 저장한다. 움직임(경로)과 따로라 "유닛은 한 곳에만"(I4)은 그대로다.
 // [임시] 단계별 회복 시간(T6 출발값 없음), 쓰러진 유닛의 단계(중상), 단계가 시간에 따라 내려가는 일은 하지 않는다.
+// 돌아갈 곳은 가장 가까운 안전 도시(cities.ts, R4b)이고, 도시가 없는 2차맵은 가운데 칸.
 import {
   PLACEMENT_SIZE,
   type PlacementGrid,
@@ -53,17 +54,22 @@ export function injure(condition: UnitCondition, stage: number, atMs: number): U
 }
 
 /**
- * [임시] 돌아갈 안전한 곳 = 그 2차맵 가운데에서 가장 가까운 설 수 있는 칸(R4b에서 가장 가까운 안전 도시로 바꾼다).
- * 가운데부터 사각 고리로 넓혀 찾는다(정해진 차례). 없으면 undefined
+ * 돌아갈 자리: 기준 칸(가장 가까운 안전 도시의 시청 칸, cities.ts)에서 가장 가까운 설 수 있는 칸.
+ * 기준이 없으면 2차맵 가운데(도시가 없는 2차맵의 대비책). 사각 고리로 넓혀 찾는다(정해진 차례). 없으면 undefined
  */
-export function safePoint(grid: PlacementGrid, size: SizeClass): Point | undefined {
-  const center = PLACEMENT_SIZE >> 1;
-  for (let radius = 0; radius < center; radius++)
+export function safePoint(
+  grid: PlacementGrid,
+  size: SizeClass,
+  near: { readonly x: number; readonly y: number } = { x: PLACEMENT_SIZE >> 1, y: PLACEMENT_SIZE >> 1 },
+): Point | undefined {
+  for (let radius = 0; radius < PLACEMENT_SIZE; radius++)
     for (let dy = -radius; dy <= radius; dy++)
       for (let dx = -radius; dx <= radius; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
-        if (isPassable(grid, center + dx, center + dy, size))
-          return anchorCenter(center + dx, center + dy, size);
+        const x = near.x + dx;
+        const y = near.y + dy;
+        if (x < 0 || y < 0 || x >= PLACEMENT_SIZE || y >= PLACEMENT_SIZE) continue;
+        if (isPassable(grid, x, y, size)) return anchorCenter(x, y, size);
       }
   return undefined;
 }

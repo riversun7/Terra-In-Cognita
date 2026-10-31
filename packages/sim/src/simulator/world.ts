@@ -15,6 +15,7 @@ import {
   testSettleAccounts,
 } from "../settle/owner.ts";
 import { JOB_GATHER, PHASE_WORK, type JobState } from "../settle/settle.ts";
+import type { Regime } from "../society/shares.ts";
 import type { Scenario } from "./scenario.ts";
 
 export interface SimFaction {
@@ -23,6 +24,14 @@ export interface SimFaction {
   readonly fixed: boolean;
   tech: number;
   alive: boolean;
+  /** 정권 체제(D-217) */
+  regime: Regime;
+  /** 상위 세력(봉신 관계 D-216). 없으면 null */
+  overlord: number | null;
+  /** 전쟁 중인 세력(반란 세력은 원래 세력과 전쟁으로 시작, D-256) */
+  readonly wars: Set<number>;
+  /** 연구 작업 진행·설계도(가장 높았던 단계, D-396) */
+  research: { progress: number; blueprint: number };
   /** 도시 ID(넣은 차례) */
   readonly cities: Set<number>;
   /** 유닛 ID(넣은 차례) */
@@ -38,6 +47,16 @@ export interface SimFaction {
 export interface SimCity {
   readonly id: number;
   owner: number;
+  /** 기본 NPC 국가의 시작 도시(D-341: 주인이 바뀌지 않는다) */
+  readonly start: boolean;
+  /** 휴먼 주거 수(출생 상한, 넘으면 노숙) */
+  housing: number;
+  /** 연구 시설 레벨(0~5, 질문 121) */
+  researchLevel: number;
+  /** 발전도(0~100, [임시] 인구·만족도로 계산) */
+  development: number;
+  /** 다음 반란 판정을 할 수 있는 시각(반란 뒤 쉬는 시간) */
+  nextRebellionMs: number;
 }
 
 export interface SimUnit {
@@ -49,6 +68,15 @@ export interface SimUnit {
   /** 이동 판단 횟수 */
   tripStep: number;
   eventId: number | undefined;
+  /** 휴먼 만족도(밀리점 0~100 × 1000, D-219·D-433) */
+  satisfactionMilli: number;
+  /** 태어난 시각·수명(D-021·T4). 환생하면 다시 센다 */
+  bornAtMs: number;
+  lifespanMs: number;
+  /** 부모(태어날 때 기록, 상속 D-332) */
+  readonly parents: readonly number[];
+  /** 그 유닛의 환생 횟수(D-438 4) */
+  rebirths: number;
 }
 
 export interface SimWorld {
@@ -61,7 +89,36 @@ export interface SimWorld {
   /** 시험 직무 정산(S3 settle)을 돌리나. 경제를 돌리는 시나리오는 끈다(일꾼은 시설에서 일한다) */
   readonly testJobs: boolean;
   nextFactionId(): number;
+  nextCityId(): number;
+  nextUnitId(): number;
 }
+
+/** 새 세력(기본 칸). 부르는 쪽이 factions에 넣는다 */
+export function newFaction(
+  id: number,
+  code: string,
+  fields: { fixed: boolean; tech: number; regime: Regime; settledAtMs: number; overlord?: number | null },
+): SimFaction {
+  return {
+    id,
+    code,
+    fixed: fields.fixed,
+    tech: fields.tech,
+    alive: true,
+    regime: fields.regime,
+    overlord: fields.overlord ?? null,
+    wars: new Set(),
+    research: { progress: 0, blueprint: fields.tech },
+    cities: new Set(),
+    units: new Set(),
+    settledAtMs: fields.settledAtMs,
+    upkeepArrears: 0,
+    aiStep: 0,
+    eventId: undefined,
+  };
+}
+
+const REGIMES: readonly Regime[] = ["dictatorship", "democracy", "capitalism"];
 
 /** 난수 흐름(세계 시드 하나에서 갈라 쓴다, 기술 순서 ADR 4절 "결정성") */
 export const STREAM_SETUP = 1;
@@ -110,23 +167,29 @@ export function createWorld(
     for (let n = 1; n <= group.count; n++) {
       const id = nextFactionId();
       const code = group.count === 1 ? group.code : `${group.code}_${String(n).padStart(2, "0")}`;
-      const faction: SimFaction = {
-        id,
-        code,
+      // [임시] "mixed"면 세력 ID 차례로 세 체제를 돌린다(NPC 성향 D-327 전)
+      const regime =
+        group.regime === "mixed" ? (REGIMES[(id - 1) % REGIMES.length] ?? "democracy") : group.regime;
+      const faction = newFaction(id, code, {
         fixed: group.fixed,
         tech: group.tech,
-        alive: true,
-        cities: new Set(),
-        units: new Set(),
+        regime,
         settledAtMs: startMs,
-        upkeepArrears: 0,
-        aiStep: 0,
-        eventId: undefined,
-      };
+      });
       factions.set(id, faction);
       const own: number[] = [];
       for (let c = 0; c < group.cities; c++) {
-        const city = { id: nextCityId(), owner: id };
+        const city: SimCity = {
+          id: nextCityId(),
+          owner: id,
+          // 고정 세력의 첫 도시가 시작 도시(D-341, [임시] 수도 하나)
+          start: group.fixed && c === 0,
+          housing: group.housing,
+          // 첫 도시에 처음 기술 단계만큼의 연구 시설, 나머지는 하나 낮게
+          researchLevel: Math.max(0, group.researchLevel - (c === 0 ? 0 : 1)),
+          development: 0,
+          nextRebellionMs: startMs,
+        };
         cities.set(city.id, city);
         faction.cities.add(city.id);
         own.push(city.id);
@@ -141,6 +204,12 @@ export function createWorld(
           pos: { x: setup.nextInt(0x4_0000), y: setup.nextInt(0x4_0000) },
           tripStep: 0,
           eventId: undefined,
+          satisfactionMilli: 60_000,
+          // 나이·수명은 세력·사회(society.ts)가 차릴 때 흩는다
+          bornAtMs: startMs,
+          lifespanMs: 0,
+          parents: [],
+          rebirths: 0,
         };
         units.set(unit.id, unit);
         faction.units.add(unit.id);
@@ -168,6 +237,8 @@ export function createWorld(
     audit,
     testJobs: scenario.economy === undefined,
     nextFactionId,
+    nextCityId,
+    nextUnitId,
   };
 }
 

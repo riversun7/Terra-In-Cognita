@@ -8,6 +8,7 @@ import {
   parseJson,
   skillEntrySchema,
   statRowEntrySchema,
+  tuningEntrySchema,
   unitKindEntrySchema,
 } from "@terra/content";
 import { type CombatCatalog, combatCatalogFrom } from "@terra/sim";
@@ -31,4 +32,14 @@ export function combatCatalogOf(source: PackSource): CombatCatalog {
     items: entriesOf(source, "items.json", (raw) => itemEntrySchema.parse(raw)),
     unitKinds: entriesOf(source, "unit_kinds.json", (raw) => unitKindEntrySchema.parse(raw)),
   });
+}
+
+/** 팩 `tuning`(설정 칸 값): 항목 ID → 정수. 계수표는 @terra/sim combatCoefficientsFrom·societyCoefficientsFrom이 만든다 */
+export function tuningOf(source: PackSource): Map<string, number> {
+  return new Map(
+    entriesOf(source, "tuning.json", (raw) => tuningEntrySchema.parse(raw)).map((entry) => [
+      entry.id,
+      entry.value,
+    ]),
+  );
 }

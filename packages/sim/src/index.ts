@@ -351,3 +351,66 @@ export {
   type UnitKindDef,
 } from "./combat/catalog.ts";
 export { combatCatalogFrom } from "./combat/packCatalog.ts";
+export {
+  TUNING_KEYS,
+  combatCoefficientsFrom,
+  societyCoefficientsFrom,
+  tuningValue,
+  type TuningKey,
+} from "./tuning.ts";
+export { TEST_SOCIETY_COEFFICIENTS, type SocietyCoefficients } from "./society/coefficients.ts";
+export {
+  PROTECTOR_ASSET,
+  TEST_GEM_RULES,
+  enchant,
+  extractGene,
+  gemAsset,
+  type EnchantOutcome,
+  type GemRef,
+  type GemRules,
+  type InnateSkill,
+  type SocketedItem,
+} from "./combat/gems.ts";
+export {
+  allocateShares,
+  burnShares,
+  holdingsOf,
+  issueShares,
+  payDividends,
+  rulerHasMajority,
+  shareAsset,
+  totalShares,
+  transferShares,
+  type Holding,
+  type Regime,
+  type TransferResult,
+} from "./society/shares.ts";
+export {
+  makeOffers,
+  occupationShifts,
+  resolveOffer,
+  settleShares,
+  type IncorporationOffer,
+  type OccupationResult,
+  type OfferState,
+  type ShareChoice,
+  type Treatment,
+} from "./society/occupation.ts";
+export {
+  capitalistIndependence,
+  democraticIndependence,
+  independenceAllowed,
+  rebelsOf,
+  type IndependenceVote,
+} from "./society/uprising.ts";
+export { birthRoll, canBirth, deathFate, inherit, lifespanMs, type DeathFate } from "./society/population.ts";
+export {
+  advanceTech,
+  researchCost,
+  techCeiling,
+  type ResearchSite,
+  type TechChange,
+  type TechState,
+} from "./society/tech.ts";
+export * from "./society/labor.ts";
+export { attachSociety, WALLET_BASE, type SocietyRun, type SocietySummary } from "./simulator/society.ts";

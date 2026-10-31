@@ -4,7 +4,7 @@
 // 판정 쪽: 쓸 수 있는 스킬을 목록 차례로 고르고(pickSkill), 자원·쿨을 쓰고(startSkill), 시전이 끝나면 대상에게 푼다(resolveSkill).
 // [임시] 부품 종류·등급 표 적용 방식·AI(목록 앞 스킬부터)는 기획 본문 48을 받기 전 기술 기본안이다.
 // 스킬석 인챈트·유전자 추출·스킬 생성기 화면은 뒤 단계(D2)다.
-import type { CombatCoefficients } from "./coefficients.ts";
+import { type CombatCoefficients, staminaCostMilli } from "./coefficients.ts";
 import { type EffectDef, applyEffect, hasEffect, hasStatus, modifiersOf, statusResistPm } from "./effects.ts";
 import {
   type SkillFormula,
@@ -152,8 +152,13 @@ function conditionsMet(unit: UnitState, target: UnitState | undefined, skill: Co
   return true;
 }
 
-function affordable(unit: UnitState, skill: CombatSkill): boolean {
-  return (skill.resource === "mp" ? unit.mpMilli : unit.staminaMilli) >= skill.cost * 1000;
+/** 스킬 비용(밀리점): MP 스킬은 그대로, 스태미나 스킬은 STA 점수 배율(N13) */
+function costMilli(unit: UnitState, skill: CombatSkill, c: CombatCoefficients): number {
+  return skill.resource === "mp" ? skill.cost * 1000 : staminaCostMilli(skill.cost, unit.staminaScore, c);
+}
+
+function affordable(unit: UnitState, skill: CombatSkill, c: CombatCoefficients): boolean {
+  return (skill.resource === "mp" ? unit.mpMilli : unit.staminaMilli) >= costMilli(unit, skill, c);
 }
 
 /** 지금 쓸 스킬(목록 차례로 첫 번째), 없으면 −1. reach = 사거리·시선 확인 */
@@ -162,12 +167,13 @@ export function pickSkill(
   target: UnitState,
   nowMs: number,
   reach: (range: number) => boolean,
+  c: CombatCoefficients,
 ): number {
   if (nowMs < unit.nextActionMs || hasStatus(unit, "silence")) return -1;
   for (let i = 0; i < unit.skills.length; i++) {
     const skill = unit.skills[i];
     if (!skill || skill.trigger !== "active" || nowMs < (unit.skillReadyMs[i] ?? 0)) continue;
-    if (!affordable(unit, skill) || !conditionsMet(unit, target, skill)) continue;
+    if (!affordable(unit, skill, c) || !conditionsMet(unit, target, skill)) continue;
     if (skill.target === "enemy" && !reach(skill.range)) continue;
     return i;
   }
@@ -175,11 +181,17 @@ export function pickSkill(
 }
 
 /** 자원·쿨을 쓰고 행동 시각을 민다. 시전이 있으면 시전 상태로 둔다. 바로 풀어야 하면 true */
-export function startSkill(unit: UnitState, index: number, targetId: number, nowMs: number): boolean {
+export function startSkill(
+  unit: UnitState,
+  index: number,
+  targetId: number,
+  nowMs: number,
+  c: CombatCoefficients,
+): boolean {
   const skill = unit.skills[index];
   if (!skill) return false;
-  if (skill.resource === "mp") unit.mpMilli -= skill.cost * 1000;
-  else unit.staminaMilli -= skill.cost * 1000;
+  if (skill.resource === "mp") unit.mpMilli -= costMilli(unit, skill, c);
+  else unit.staminaMilli -= costMilli(unit, skill, c);
   unit.skillReadyMs[index] = nowMs + skill.cooldownMs;
   unit.nextActionMs = nowMs + Math.max(skill.castMs, unit.attackIntervalMs);
   if (skill.castMs <= 0) return true;
@@ -257,7 +269,12 @@ export function resolveSkill(
       applyParts(skill, target, rng, nowMs);
       continue;
     }
-    const rolls = { hit: rng.nextInt(10_000), evade: rng.nextInt(10_000), crit: rng.nextInt(10_000) };
+    const rolls = {
+      hit: rng.nextInt(10_000),
+      evade: rng.nextInt(10_000),
+      crit: rng.nextInt(10_000),
+      critPos: rng.nextInt(10_000),
+    };
     const hit = resolveAttack(attack, withDefenseModifiers(target.defense, modifiersOf(target)), rolls, c);
     if (hit.outcome !== "hit") continue;
     takeDamage(target, hit.amount + Math.max(0, skill.flat), attack.kind);

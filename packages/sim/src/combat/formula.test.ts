@@ -5,6 +5,7 @@ import {
   type DefenseProfile,
   buildingDamage,
   elementTermPm,
+  evadeRelativePm,
   resolveAttack,
   sightRadius,
   weaponScaled,
@@ -38,7 +39,7 @@ const defender: DefenseProfile = {
 };
 const c = TEST_COMBAT_COEFFICIENTS;
 /** 맞고, 피하지 못하고, 크리 없음 */
-const HIT = { hit: 0, evade: 9999, crit: 9999 };
+const HIT = { hit: 0, evade: 9999, crit: 9999, critPos: 0 };
 
 describe("무기 틀(D-420): 무기 값 × min(2, 유닛 값 ÷ 적정치)", () => {
   it("적정치면 1배, 넘으면 2배까지, 모자라면 약하다", () => {
@@ -61,6 +62,35 @@ describe("공격 한 번(D-419 두 번 굴림, D-421 상한 없음)", () => {
     // 회피 100‰ → 굴림 < 1000이면 피함
     expect(resolveAttack(attacker, defender, { ...HIT, evade: 999 }, c).outcome).toBe("evaded");
     expect(resolveAttack(attacker, defender, { ...HIT, evade: 999 }, c).amount).toBe(0);
+  });
+
+  it("물리는 맞으면 최소 1(D-438 2), 속성은 저항으로 0까지", () => {
+    const tank = { ...defender, defenseRatePm: 1000, defenseFlat: 1000 };
+    expect(resolveAttack(attacker, tank, HIT, c)).toEqual({ outcome: "hit", crit: false, amount: 1 });
+    expect(resolveAttack({ ...attacker, weaponAttack: 0 }, defender, HIT, c).amount).toBe(1);
+    // 빗나가면 0 그대로
+    expect(resolveAttack(attacker, tank, { ...HIT, hit: 9999 }, c).amount).toBe(0);
+  });
+
+  it("크리 배율은 범위형: 최소~최소 + 500‰ 사이를 자리 굴림으로(N12)", () => {
+    const open = { ...defender, defenseRatePm: 0, defenseFlat: 0 };
+    const at = (critPos: number) => resolveAttack(attacker, open, { ...HIT, crit: 0, critPos }, c).amount;
+    expect(at(0)).toBe(150);
+    expect(at(5000)).toBe(175);
+    expect(at(9999)).toBe(199);
+  });
+
+  it("회피 상대 보정(N11): 빠른 쪽이 더 피하고, 끝값에서 멈춘다", () => {
+    expect(evadeRelativePm(60, 50, c)).toBe(60);
+    expect(evadeRelativePm(500, 50, c)).toBe(400);
+    expect(evadeRelativePm(25, 50, c)).toBe(-200);
+    expect(evadeRelativePm(0, 50, c)).toBe(-300);
+    expect(evadeRelativePm(10, 0, c)).toBe(400);
+    // 회피 100‰ + 보정 60‰ = 160‰ → 굴림 1599까지 피함
+    const quick = { ...defender, agi: 60 };
+    const slow = { ...attacker, agi: 50 };
+    expect(resolveAttack(slow, quick, { ...HIT, evade: 1599 }, c).outcome).toBe("evaded");
+    expect(resolveAttack(slow, quick, { ...HIT, evade: 1600 }, c).outcome).toBe("hit");
   });
 
   it("크리 확률도 무기 틀, 크리 배율에 상한이 없다", () => {

@@ -125,4 +125,23 @@ describe("장비 칸과 스탯(D-422~D-424)", () => {
     expect(low.values.map((v) => v.value)).toEqual([30, 20]);
     expect(high.values.map((v) => v.value)).toEqual([60, 40]);
   });
+
+  it("소켓 보석: 스킬 보석은 장비 스킬, 스탯 보석은 1차 스탯(D-435·D-423)", () => {
+    const vest = {
+      ...itemAt(def("test_vest"), 0),
+      gems: [
+        { kind: "skill" as const, skill: "war_cry", grade: 2 },
+        { kind: "stat" as const, stat: "agi", value: 4, grade: 1 },
+      ],
+    };
+    const out = loadoutOf({
+      base,
+      slots: kind("human").slots,
+      equipped: [null, null, null, vest],
+      table,
+      unarmed: UNARMED,
+    });
+    expect(out.skills).toEqual(["war_cry"]);
+    expect(out.primaries.agi).toBe(14);
+  });
 });

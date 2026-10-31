@@ -14,11 +14,14 @@
   ],
   "stub": {
     "decideEveryMs": 21600000,
-    "conquerPerMille": 40,
-    "rebelPerMille": 20,
-    "techUpPerMille": 60,
-    "techDownPerMille": 40,
-    "techMax": 10
+    "conquerPerMille": 12,
+    "foundPerMille": 10,
+    "shareSalePerMille": 20,
+    "researchBuildPerMille": 120,
+    "vassalBreakPerMille": 10
   },
-  "trips": { "idleMinMs": 1800000, "idleMaxMs": 5400000 }
+  "trips": {
+    "idleMinMs": 1800000,
+    "idleMaxMs": 5400000
+  }
 }

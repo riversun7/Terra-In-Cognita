@@ -36,6 +36,8 @@ export interface LoadedWorld {
   maxIds: { owner: number; unit: number; building: number; account: number; tx: number };
   /** 접속 중으로 남아 있어 끊긴 것으로 고친 사용자 수 */
   presenceFixed: number;
+  /** 고친 뒤의 접속 상태(모두 끊김) */
+  presence: { userId: string; offlineSinceMs: number | null }[];
 }
 
 const num = (value: unknown): number => Number(value);
@@ -78,6 +80,7 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
     [fixedAt],
   );
 
+  const presence = await pool.query(`select user_id, offline_since_ms from world_presence`);
   const owners = await pool.query(
     `select id, user_id, faction_id, settled_at_ms, upkeep_arrears from world_owners`,
   );
@@ -99,6 +102,10 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
   return {
     lastAliveMs,
     presenceFixed: fixed.rows.length,
+    presence: presence.rows.map((row) => ({
+      userId: String(row.user_id),
+      offlineSinceMs: numOrNull(row.offline_since_ms),
+    })),
     owners: owners.rows.map((row) => ({
       id: num(row.id),
       userId: typeof row.user_id === "string" ? row.user_id : null,

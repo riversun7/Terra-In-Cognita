@@ -27,6 +27,7 @@ import { createContextFactory, loadViewer } from "./trpc/createContext.ts";
 import { registerTrpc } from "./trpc/plugin.ts";
 import { appRouter } from "./trpc/router.ts";
 import { cacheViewer, createWorldGateway } from "./world/gateway.ts";
+import { createWorldSummaryBackend } from "./world/summarySources.ts";
 import { registerTerrainRoute } from "./world/terrainRoute.ts";
 import { type WorldConfig, startWorld } from "./world/world.ts";
 
@@ -152,6 +153,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     });
   }
 
+  // 월드: DB가 있으면 저장·부팅 복구(S3 ADR 1·2절). 준비(listen·ready)는 부팅 복구가 끝날 때까지 기다린다
+  const world = options.world
+    ? startWorld({ ...options.world, now, log: app.log, pool: options.db?.$client })
+    : undefined;
+  if (world) {
+    app.addHook("onReady", async () => world.ready);
+    app.addHook("onClose", async () => world.stop());
+  }
+
   // 요청의 출처 확인 기준 = 계정 경로와 같은 앱 출처(인증이 꺼지면 세션이 없어 보지 않는다)
   const editor = options.planetEditor;
   await registerTrpc(app, {
@@ -164,6 +174,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       planetEditor: editor
         ? createPlanetEditorShared(editor.definitions, { now, limits: editor.limits })
         : undefined,
+      // 복귀 요약: 오프라인 정산의 생산 + 확인 시각(DB가 있는 월드만)
+      summary: world && options.db ? createWorldSummaryBackend(world) : undefined,
     }),
   });
 
@@ -184,15 +196,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     return cacheViewer(() => loadViewer(deps.auth, headers), now, SOCKET_VIEWER_TTL_MS);
   };
 
-  // 월드: DB가 있으면 저장·부팅 복구(S3 ADR 1·2절). 준비(listen·ready)는 부팅 복구가 끝날 때까지 기다린다
-  const world = options.world
-    ? startWorld({ ...options.world, now, log: app.log, pool: options.db?.$client })
-    : undefined;
-  if (world) {
-    app.addHook("onReady", async () => world.ready);
-    app.addHook("onClose", async () => world.stop());
-    registerTerrainRoute(app, { world, viewer: httpViewer });
-  }
+  if (world) registerTerrainRoute(app, { world, viewer: httpViewer });
   const gateway = world ? createWorldGateway({ world, now, log: app.log }) : undefined;
 
   // 행성: 준비(캐시 읽기·굽기)는 기다리지 않고 시작한다. 그동안 목록 정보는 generating, 타일은 409
@@ -224,6 +228,12 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         now,
         world: gateway,
         viewer: socketViewer(request),
+        // 접속 상태(D-136): 월드가 DB에 저장할 때만. 연결은 부팅 복구가 끝난 뒤에만 들어온다(listen이 기다린다)
+        presence: world
+          ? {
+              connect: (userId: string) => world.persistence?.settlement.connect(userId, now) ?? (() => {}),
+            }
+          : undefined,
       });
     });
   });

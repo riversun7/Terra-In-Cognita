@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-31 16:50 | S3 WP-C: 오프라인 정산·최소 원장·접속 상태·복귀 요약 생산 칸 | Claude Code | [31-1650-s3-wp-c-settlement](worklog/2026/10/31-1650-s3-wp-c-settlement.md) |
 | 2026-10-31 15:25 | S3 WP-A: 월드 저장·부팅 복구, 불변 조건, 사용자 결정 반영 | Claude Code | [31-1525-s3-wp-a-persistence](worklog/2026/10/31-1525-s3-wp-a-persistence.md) |
 | 2026-10-31 15:00 | 대륙 배치: 초대륙·대륙 몇 개·여러 대륙·군도·한쪽 반구와 대륙 수 | Claude Code | [31-1500-continent-layouts](worklog/2026/10/31-1500-continent-layouts.md) |
 | 2026-10-31 14:10 | 행성 보관함: 팀 공용 목록, [저장]만 서버에, 작업 사본은 기기에 | Claude Code | [31-1410-planet-library](worklog/2026/10/31-1410-planet-library.md) |

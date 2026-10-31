@@ -1,15 +1,20 @@
 // 복귀 요약 시험(summary.get, ADR 2026-10-29-app-shell 8절, D-6014·D-266)
 import { describe, expect, it } from "vitest";
 import type { InboxAccount } from "../inbox/types.ts";
-import { type SummarySource, collectSummary, createSummarySources } from "./summary.ts";
+import { EMPTY_SUMMARY_BACKEND, type SummaryBackend, type SummarySource, collectSummary } from "./summary.ts";
+
+const withSources = (sources: SummarySource[], lastAck: number | null = null): SummaryBackend => ({
+  ...EMPTY_SUMMARY_BACKEND,
+  sources,
+  lastAck: () => Promise.resolve(lastAck),
+});
 
 const NOW = 1_761_700_000_000;
 const ACCOUNT: InboxAccount = { userId: "user_1", roles: ["player"] };
 
 describe("복귀 요약", () => {
   it("사건 출처가 없으면 늘 건너뛴다: show false, 확인한 적 없음, 칸 없음", async () => {
-    expect(createSummarySources()).toEqual([]);
-    expect(await collectSummary(createSummarySources(), ACCOUNT, NOW, false)).toEqual({
+    expect(await collectSummary(EMPTY_SUMMARY_BACKEND, ACCOUNT, NOW, false)).toEqual({
       show: false,
       since: null,
       until: NOW,
@@ -18,7 +23,7 @@ describe("복귀 요약", () => {
   });
 
   it("시안 자료: 8시간 전부터 지금까지, 칸 4종, 보인다", async () => {
-    const summary = await collectSummary([], ACCOUNT, NOW, true);
+    const summary = await collectSummary(EMPTY_SUMMARY_BACKEND, ACCOUNT, NOW, true);
     expect(summary.show).toBe(true);
     expect(summary.since).toBe(NOW - 8 * 3_600_000);
     expect(summary.until).toBe(NOW);
@@ -39,12 +44,21 @@ describe("복귀 요약", () => {
         return { kind, count, params: {}, target: null };
       },
     });
-    const empty = await collectSummary([source("production", 0)], ACCOUNT, NOW, false);
+    const empty = await collectSummary(withSources([source("production", 0)]), ACCOUNT, NOW, false);
     expect(empty).toEqual({ show: false, since: null, until: NOW, sections: [] });
-    const some = await collectSummary([source("production", 0), source("raid", 2)], ACCOUNT, NOW, false);
+    const some = await collectSummary(
+      withSources([source("production", 0), source("raid", 2)]),
+      ACCOUNT,
+      NOW,
+      false,
+    );
     expect(some.show).toBe(true);
     expect(some.sections).toEqual([{ kind: "raid", count: 2, params: {}, target: null }]);
-    // 확인 시각 표가 없어 since는 null이다(첫 사건 출처와 함께 만든다)
+    // 확인한 적이 없으면 since는 null이다
     expect(calls.every(([since, until]) => since === null && until === NOW)).toBe(true);
+    // 확인한 적이 있으면 그 시각부터 센다
+    const after = await collectSummary(withSources([source("raid", 1)], NOW - 5_000), ACCOUNT, NOW, false);
+    expect(after.since).toBe(NOW - 5_000);
+    expect(calls.at(-1)).toEqual([NOW - 5_000, NOW]);
   });
 });

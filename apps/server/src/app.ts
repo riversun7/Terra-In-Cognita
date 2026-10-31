@@ -15,6 +15,7 @@ import { DEFAULT_TRUST_PROXY, SIM_VERSION } from "./config.ts";
 import { type Database, pingDatabase } from "./db/client.ts";
 import { createEconomyServices } from "./economyView/services.ts";
 import { worldEconomySource } from "./economyView/worldSource.ts";
+import { createWorldFactionSource } from "./factionScreen/source.ts";
 import { startServerMetrics } from "./metrics.ts";
 import type { PlanetBaker } from "./planet/baker.ts";
 import { type PlanetRouteLimits, registerPlanetRoutes } from "./planet/routes.ts";
@@ -247,6 +248,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
             world: world ? worldEconomySource(world) : undefined,
           })
         : undefined,
+      factionSource: world && options.db ? createWorldFactionSource(world) : undefined,
     }),
   });
 

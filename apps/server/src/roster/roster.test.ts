@@ -3,7 +3,11 @@ import { loadContentPack } from "@terra/content/node";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import type { HomeQuery, TrpcContext, Viewer } from "../trpc/context.ts";
+import { emptyEconomyCatalog } from "../economyView/catalog.ts";
+import { createEconomyServices } from "../economyView/services.ts";
+import { createFactionScreenServices } from "../factionScreen/overview.ts";
 import { createHomeServices } from "../home/services.ts";
+import { createMailServices } from "../mail/list.ts";
 import { createCallerFactory } from "../trpc/init.ts";
 import { appRouter } from "../trpc/router.ts";
 import { BASELINE_PRIMARY, baselineBody, bodyView } from "./body.ts";
@@ -243,6 +247,10 @@ function callerFor(viewer: Viewer) {
     planetEditor: undefined,
     home: createHomeServices(),
     roster: createRosterServices({ catalog }),
+    // 다른 화면 자료: 이 시험은 쓰지 않는다
+    economy: createEconomyServices({ catalog: emptyEconomyCatalog("test") }),
+    faction: createFactionScreenServices(),
+    mail: createMailServices(),
   };
   return createCallerFactory(appRouter)(ctx);
 }

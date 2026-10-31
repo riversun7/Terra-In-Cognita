@@ -1,0 +1,484 @@
+/*
+ * 세력 화면(/faction) — 지연 로딩 조각과 함께 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 배치는 화면 폭이 아니라 본문 너비(@container)로 정한다: 넓은 화면도 사이드 메뉴가 펼쳐져 있으면 본문이 좁다.
+ * - 본문 56em 이상: 왼쪽 옆 판(요약·내 몫·잠긴 메뉴) + 오른쪽 탭. 그보다 좁으면 한 줄로 쌓는다(모바일 390 기준).
+ * - 외교 표는 탭 칸 40em 이상에서 표, 좁으면 줄마다 카드로 쌓고 칸 이름을 앞에 보인다.
+ */
+.faction {
+  container-type: inline-size;
+  container-name: faction;
+}
+.faction-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.faction-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.faction-main {
+  container-type: inline-size;
+  container-name: faction-main;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.faction-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.faction-panel:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+@container faction (min-width: 56em) {
+  .faction-layout {
+    display: grid;
+    grid-template-columns: minmax(16rem, 21rem) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+/* 옆 판 */
+.faction-card,
+.faction-me,
+.faction-locks {
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+.faction-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--card-icon);
+  height: var(--card-icon);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+}
+.faction-mark .icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.faction-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  text-shadow: var(--shadow-heading);
+}
+.faction-name-text {
+  overflow-wrap: anywhere;
+}
+.faction-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-start: var(--space-1);
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-body);
+  letter-spacing: var(--letter-spacing-body);
+  vertical-align: middle;
+}
+.faction-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.faction-muted {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+.faction-warn-text {
+  color: var(--color-danger);
+}
+.faction-inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.faction-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.faction-plain-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.faction-amount {
+  font-variant-numeric: tabular-nums;
+}
+.faction-lock-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.faction-lock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+.faction-lock-name {
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.faction-lock-need {
+  flex-basis: 100%;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+}
+
+/* 탭 안 카드 */
+.faction-grid,
+.faction-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-3);
+}
+.faction-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+}
+.faction-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 100%;
+  padding: var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+}
+.faction-item[data-side="defender"] {
+  border-color: var(--color-danger);
+}
+.faction-item[data-closed="true"] {
+  background-color: var(--color-surface-2);
+  box-shadow: none;
+}
+.faction-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.faction-item-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
+}
+
+/* 만족도 막대 + 반란 문턱 눈금 */
+.faction-satisfaction {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.faction-satisfaction-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.faction-satisfaction-label strong {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.faction-meter,
+.faction-vote-bar {
+  position: relative;
+  display: flex;
+  height: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  overflow: hidden;
+}
+.faction-meter-fill {
+  display: block;
+  height: 100%;
+  background-color: var(--color-success);
+}
+.faction-meter[data-tone="warn"] .faction-meter-fill {
+  background-color: var(--color-warning);
+}
+.faction-meter[data-tone="bad"] .faction-meter-fill {
+  background-color: var(--color-danger);
+}
+.faction-meter-mark {
+  position: absolute;
+  inset-block: 0;
+  width: var(--border-w);
+  background-color: var(--color-text);
+}
+.faction-vote-yes {
+  display: block;
+  height: 100%;
+  background-color: var(--color-success);
+}
+.faction-vote-no {
+  display: block;
+  height: 100%;
+  background-color: var(--color-danger);
+}
+.faction-vote-detail {
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
+}
+.faction-vote-numbers,
+.faction-vote-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  font-variant-numeric: tabular-nums;
+}
+.faction-vote-meta {
+  color: var(--color-text-muted);
+}
+.faction-regime {
+  padding: var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+}
+.faction-rule {
+  font-weight: var(--font-weight-regular);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+}
+
+/* 지분·독립 길·점령 처리 */
+.faction-path {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+}
+.faction-indep {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.faction-indep-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.faction-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.faction-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding-block-end: var(--space-2);
+  border-bottom: var(--hairline) solid var(--color-border);
+}
+.faction-step:last-child {
+  border-bottom: none;
+  padding-block-end: 0;
+}
+.faction-step-name {
+  flex: 1 1 10em;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+.faction-step-detail {
+  flex-basis: 100%;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.faction-step-bar {
+  flex-basis: 100%;
+}
+.faction-offer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--border-w) dashed var(--color-warning);
+  border-radius: var(--radius-control);
+  background-color: var(--color-warning-surface);
+}
+
+/* 외교 표 — 좁은 칸에서는 줄마다 카드 */
+.faction-table-wrap {
+  min-width: 0;
+}
+.faction-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 var(--space-2);
+}
+.faction-table thead {
+  position: absolute;
+  width: var(--hairline);
+  height: var(--hairline);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.faction-table tr {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-block-end: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.faction-table th,
+.faction-table td {
+  display: grid;
+  grid-template-columns: minmax(6em, 7.5em) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2);
+  padding: 0;
+  text-align: start;
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-snug);
+}
+.faction-table th::before,
+.faction-table td::before {
+  content: attr(data-label);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-body);
+}
+.faction-row-name {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.faction-score {
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+.faction-treaties {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.faction-treaty {
+  display: flex;
+  flex-direction: column;
+}
+.faction-treaty-name {
+  font-weight: var(--font-weight-strong);
+  font-size: var(--font-size-sm);
+}
+.faction-treaty-terms {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.faction-gardener {
+  border-style: dashed;
+}
+@container faction-main (min-width: 40em) {
+  .faction-table {
+    border-collapse: collapse;
+    border-spacing: 0;
+  }
+  .faction-table thead {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+  .faction-table tr {
+    display: table-row;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background-color: transparent;
+  }
+  .faction-table th,
+  .faction-table td {
+    display: table-cell;
+    padding: var(--space-3) var(--space-2);
+    border-bottom: var(--hairline) solid var(--color-border);
+    vertical-align: top;
+  }
+  .faction-table th::before,
+  .faction-table td::before {
+    content: none;
+  }
+  .faction-table thead th {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-strong);
+    color: var(--color-text-muted);
+  }
+  .faction-table tbody tr {
+    background-color: var(--color-surface);
+  }
+  .faction-gardener th,
+  .faction-gardener td {
+    border-bottom: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .faction-meter-fill,
+  .faction-vote-yes,
+  .faction-vote-no,
+  .faction-meter-mark {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+}

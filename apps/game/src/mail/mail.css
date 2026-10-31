@@ -1,0 +1,347 @@
+/*
+ * 우편 화면(/mail) — 지연 로딩 조각과 함께 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 배치는 본문 너비(@container)로 정한다: 48em 이상이면 왼쪽 목록 + 오른쪽 읽기 칸, 좁으면 목록과 읽기 칸을 번갈아 보인다.
+ */
+.mail {
+  container-type: inline-size;
+  container-name: mail;
+}
+.mail-main,
+.mail-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.mail-muted {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+}
+
+/* 목록 ↔ 읽기 칸 */
+.mail-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.mail-layout[data-reading="true"] .mail-list-pane,
+.mail-layout[data-reading="false"] .mail-reader-pane {
+  display: none;
+}
+@container mail (min-width: 48em) {
+  .mail-layout {
+    display: grid;
+    grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+    align-items: start;
+  }
+  .mail-layout[data-reading="true"] .mail-list-pane,
+  .mail-layout[data-reading="false"] .mail-reader-pane {
+    display: block;
+  }
+  .mail-back {
+    display: none;
+  }
+}
+.mail-list-pane,
+.mail-reader-pane {
+  min-width: 0;
+}
+
+/* 목록 */
+.mail-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.mail-row {
+  --button-press: 0px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border-width: var(--border-w);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+  font-weight: var(--font-weight-regular);
+  text-align: start;
+}
+.mail-row[aria-current="true"] {
+  border-color: var(--color-focus);
+  background-color: var(--color-surface-2);
+}
+.mail-row-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.mail-dot {
+  flex: none;
+  width: var(--status-dot);
+  height: var(--status-dot);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-focus);
+}
+.mail-row-who {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.mail-row-time {
+  flex: none;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.mail-row-subject {
+  overflow-wrap: anywhere;
+  line-height: var(--line-height-snug);
+}
+.mail-row[data-unread="true"] .mail-row-subject,
+.mail-row[data-unread="true"] .mail-row-who {
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text);
+}
+.mail-row-snippet {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.mail-row-attach {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.mail-count {
+  min-width: var(--badge-size);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  line-height: var(--badge-size);
+  text-align: center;
+}
+.mail-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  border: var(--border-w) dashed var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  text-align: center;
+}
+.mail-empty-mark {
+  display: grid;
+  place-items: center;
+  width: var(--mark-sm);
+  height: var(--mark-sm);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+}
+.mail-empty-mark .icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.mail-empty-title {
+  font-weight: var(--font-weight-strong);
+}
+.mail-pick {
+  padding: var(--space-6) var(--space-4);
+  border: var(--border-w) dashed var(--color-border);
+  border-radius: var(--radius-panel);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* 읽기 칸 */
+.mail-reader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+.mail-back {
+  align-self: flex-start;
+}
+.mail-reader-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.mail-reader-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  text-shadow: var(--shadow-heading);
+  overflow-wrap: anywhere;
+}
+.mail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.mail-meta div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.mail-meta dt {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-strong);
+}
+.mail-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.mail-body {
+  padding-block: var(--space-2);
+  border-block: var(--hairline) solid var(--color-border);
+  line-height: var(--line-height-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mail-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.mail-section-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.mail-attachment-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.mail-attachment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+.mail-attachment-kind {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.mail-attachment-text {
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* 쓰기 */
+.mail-compose-wrap {
+  max-width: var(--sheet-max);
+}
+.mail-compose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+.mail-textarea {
+  min-height: calc(var(--control-h) * 3);
+  padding: var(--space-3) var(--space-4);
+  line-height: var(--line-height-body);
+  resize: vertical;
+  font-family: inherit;
+}
+.mail-attach {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+.mail-attach-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 7em);
+  align-items: start;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+.mail-attach-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+/* 고르기도 입력칸과 같은 높이·모서리(이름표 줄이 나란하게) */
+.mail-attach-cell select {
+  width: 100%;
+  min-height: var(--control-h);
+  border-radius: var(--radius-control);
+}
+.mail-attach-cell select[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+.mail-attach-remove {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.mail-attach-have,
+.mail-attach-error {
+  grid-column: 1 / -1;
+}
+@container mail (min-width: 30em) {
+  .mail-attach-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 8em) auto;
+  }
+  .mail-attach-remove {
+    grid-column: auto;
+  }
+}
+.mail-send {
+  flex: 0 1 auto;
+}

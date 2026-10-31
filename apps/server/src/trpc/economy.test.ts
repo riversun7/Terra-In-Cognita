@@ -16,7 +16,10 @@ import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { loadServerContent } from "../content.ts";
 import { economyCatalogFromPack } from "../economyView/catalog.ts";
 import { createEconomyServices } from "../economyView/services.ts";
+import { createFactionScreenServices } from "../factionScreen/overview.ts";
 import { createHomeServices } from "../home/services.ts";
+import { createMailServices } from "../mail/list.ts";
+import { createRosterServices } from "../roster/services.ts";
 import type { TrpcContext, Viewer } from "./context.ts";
 import { createCallerFactory } from "./init.ts";
 import { type AppRouter, appRouter } from "./router.ts";
@@ -38,6 +41,10 @@ function callerFor(viewer: Viewer | null, accounts = new Map<string, number>()) 
     settings: undefined,
     planetEditor: undefined,
     home: createHomeServices(),
+    // 다른 화면 자료: 이 시험은 쓰지 않는다
+    roster: createRosterServices(),
+    faction: createFactionScreenServices(),
+    mail: createMailServices(),
     economy: createEconomyServices({
       catalog,
       world: {

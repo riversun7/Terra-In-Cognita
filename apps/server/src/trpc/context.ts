@@ -16,6 +16,8 @@ import type {
 } from "@terra/shared/economy";
 import type { InboxListResponse, SummaryGetResponse } from "@terra/shared/inbox";
 import type { CyborgGetResponse, UnitsListResponse } from "@terra/shared/roster";
+import type { FactionOverviewResponse } from "@terra/shared/faction";
+import type { MailListResponse } from "@terra/shared/mail";
 import type { PlanetLibraryBase } from "@terra/shared";
 import type {
   PlanetDraftRevisionInfo,
@@ -194,6 +196,19 @@ export interface EconomyServices {
   exchange(viewer: Viewer, query: EconomyQuery): EconomyExchangeResponse;
 }
 
+/**
+ * 세력 화면(faction.overview, D-439) — 내 몫·소속 세력은 실제 자료, 도시·외교·전쟁·정권·지분·점령은 규칙(R4b) 전이라
+ * 준비 중이고 dev·admin의 시안 자료(preview)로만 채운다. 프로시저가 로그인한 본인으로만 부른다(src/factionScreen/overview.ts)
+ */
+export interface FactionScreenServices {
+  overview(viewer: Viewer, query: HomeQuery): Promise<FactionOverviewResponse>;
+}
+
+/** 우편(mail.list, D-270) — 조회만. 보내기·받기는 WebSocket 명령으로 만든다(src/mail/list.ts) */
+export interface MailServices {
+  list(viewer: Viewer, query: HomeQuery): Promise<MailListResponse>;
+}
+
 export interface TrpcContext {
   /** 콘텐츠 팩 버전 */
   contentVersion: string;
@@ -213,6 +228,10 @@ export interface TrpcContext {
   roster: RosterServices;
   /** 경제 화면 자료. 늘 있다(팩이 없으면 빈 목록, 월드가 없으면 잔고 없음) */
   economy: EconomyServices;
+  /** 세력 화면. 늘 있다(DB·월드가 없으면 실제 자료가 빈 값이다) */
+  faction: FactionScreenServices;
+  /** 우편. 늘 있다(우편 표가 아직 없어 실제 우편함은 비어 있다) */
+  mail: MailServices;
 }
 
 export interface TrpcContextOptions {

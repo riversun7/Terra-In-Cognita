@@ -8,7 +8,9 @@
     ".": "./src/index.ts",
     "./dashboard": "./src/dashboard.ts",
     "./economy": "./src/economy.ts",
+    "./faction": "./src/faction.ts",
     "./inbox": "./src/inbox.ts",
+    "./mail": "./src/mail.ts",
     "./planetCalendar": "./src/planetCalendar.ts",
     "./roster": "./src/roster.ts"
   },

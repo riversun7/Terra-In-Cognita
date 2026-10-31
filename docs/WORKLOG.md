@@ -5,7 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
-| 2026-10-31 22:30 | 경제 화면: 창고·생산·거래창(호가 + 주문표 + 차트)·내 주문·환전 | Claude Code | [31-2230-ui-economy](worklog/2026/10/31-2230-ui-economy.md) |
+| 2026-10-31 22:10 | 세력·우편 화면 초안(`/faction`·`/mail`): 실제 자료 + 시안 자료, 곧 열림 동작, 기획 질문 151~160 | Claude Code | [31-2210-ui-faction-mail](worklog/2026/10/31-2210-ui-faction-mail.md) |
 | 2026-10-31 22:00 | S3 뒤: 월드 표에 행성 ID·영역(D-372) | Claude Code | [31-2200-s3-planet-domain](worklog/2026/10/31-2200-s3-planet-domain.md) |
 | 2026-10-31 21:00 | S3 WP-E: kill -9 복구 하네스, 규모 계단 시험 작업(NAS), 개발 컨테이너 계단 | Claude Code | [31-2100-s3-wp-e-measure](worklog/2026/10/31-2100-s3-wp-e-measure.md) |
 | 2026-10-31 20:47 | R4a: 장비·효과 사전·스킬 부품(Step 9-3·9-4), 전투 결과의 세계 반영, 퇴각 중인 파티만 빠짐(D-434) | Claude Code | [31-2047-combat-r4a](worklog/2026/10/31-2047-combat-r4a.md) |

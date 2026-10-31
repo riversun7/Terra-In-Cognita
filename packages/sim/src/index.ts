@@ -241,3 +241,50 @@ export {
   type CentralBankRule,
   type CentralBankStep,
 } from "./economy/centralBank.ts";
+export { TEST_COMBAT_COEFFICIENTS, type CombatCoefficients } from "./combat/coefficients.ts";
+export {
+  ELEMENT_COUNT,
+  buildingDamage,
+  computeDamage,
+  elementTermPm,
+  sightRadius,
+  type AttackProfile,
+  type DefenseProfile,
+} from "./combat/formula.ts";
+export {
+  COVER_BLOCK,
+  COVER_BUSH,
+  COVER_NONE,
+  MAX_BATTLE_SIZE,
+  MIN_BATTLE_SIZE,
+  createBattleMap,
+  type BattleBuildingInput,
+  type BattleMap,
+  type BattleMapInput,
+} from "./combat/battleMap.ts";
+export { BLOCK_HEIGHT, lineClear, type SightEnd } from "./combat/los.ts";
+export {
+  createBattle,
+  restoreBattle,
+  runBattle,
+  snapshotBattle,
+  type Battle,
+  type BattleInit,
+  type BattleInput,
+  type BattlePartySpec,
+  type BattleResult,
+  type BattleSideSpec,
+  type BattleState,
+  type CombatUnitSpec,
+  type Command,
+  type Edge,
+  type UnitState,
+  type UnitStatus,
+} from "./combat/battle.ts";
+export {
+  postLoot,
+  resolveOutcomes,
+  type CargoHolding,
+  type UnitOutcome,
+  type UnitResult,
+} from "./combat/outcome.ts";

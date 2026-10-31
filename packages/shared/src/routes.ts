@@ -52,10 +52,20 @@ export const ROUTES = {
   // ?template=: 저장하지 않고 다른 템플릿을 본다(검토·사진용). dev·admin에게만 듣는다(ADR 37 6절)
   home: { path: "/", search: ["template"], parent: null, frame: "shown", access: "everyone" },
   map: { path: "/map", search: [], parent: "home", frame: "hidden", access: "everyone" },
-  // ?planet-debug=cracks: 타일 틈 찾기(시험용, map/PlanetMapScreen.tsx)
+  // 시험·측정용(map/PlanetMapScreen.tsx): ?planet-debug=cracks 타일 틈 찾기, ?pixel-ratio= 픽셀 비율 상한(pixelRatioParam.ts),
+  // 1차맵 하늘(map/planetSky.ts, ADR 2026-10-29-primary-map-sky 9절): ?planet-time= 시각 멈춤, ?planet-sky=off 하늘 끔,
+  // ?planet-sky-skip= 요소 끔, ?planet-sky-bench= GPU 몫 재기, ?planet-view= 처음 볼 곳(map/planetViewParam.ts)
   map_planet: {
     path: "/map/planet",
-    search: ["planet-debug"],
+    search: [
+      "planet-debug",
+      "pixel-ratio",
+      "planet-time",
+      "planet-sky",
+      "planet-sky-skip",
+      "planet-sky-bench",
+      "planet-view",
+    ],
     parent: "home",
     frame: "hidden",
     access: "everyone",

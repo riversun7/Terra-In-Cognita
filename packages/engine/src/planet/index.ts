@@ -12,6 +12,7 @@ export {
   waterDepthClass,
   type DecodedTile,
   type EncodedTile,
+  type GpuBenchStats,
   type PickedCell,
   type PlanetBudgets,
   type PlanetCameraView,
@@ -19,11 +20,20 @@ export {
   type PlanetEngine,
   type PlanetEngineOptions,
   type PlanetLayer,
+  type PlanetMoonDescription,
+  type PlanetSkyDescription,
+  type PlanetSkyFeatures,
+  type PlanetSkyMode,
+  type PlanetSkyStats,
   type PlanetStats,
   type PlanetStatus,
   type PlanetView,
+  type SkyClockSource,
+  type SkyClockState,
   type TileRequest,
   type TileSource,
 } from "./planetTypes.ts";
+export { MAX_BENCH_REPEAT, MIN_BENCH_REPEAT } from "./gpuBench.ts";
+export { skySeedOfHash } from "./cloudNoise.ts";
 export { PRIMARY_LEVELS, TILE_CELLS } from "./tileTree.ts";
 export { disposeSharedRenderer } from "../render/sharedRenderer.ts";

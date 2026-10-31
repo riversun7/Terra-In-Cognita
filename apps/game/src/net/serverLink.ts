@@ -27,6 +27,8 @@ export interface ServerLink {
   isReady(): boolean;
   /** 서버 시계 − 기기 시계(ms). 마지막으로 잰 값이고, 아직 못 쟀으면 0 */
   clockOffsetMs(): number;
+  /** 시계 차이를 한 번이라도 쟀나(clockOffsetMs의 0이 잰 값인지 가른다 — 1차맵 하늘, ADR 2026-10-29-primary-map-sky 2절) */
+  clockMeasured(): boolean;
   listen(listener: (event: LinkEvent) => void): () => void;
   /** 연결을 끊고 바로 다시 맺는다(로그인 상태가 연결과 어긋났을 때) */
   reconnect(): void;
@@ -89,6 +91,7 @@ export function createLinkHub(onListenerError: (error: unknown) => void = report
     },
     isReady: () => Boolean(current?.send),
     clockOffsetMs: () => lastClock?.offsetMs ?? 0,
+    clockMeasured: () => lastClock !== null,
     listen(listener) {
       listeners.add(listener);
       return () => {

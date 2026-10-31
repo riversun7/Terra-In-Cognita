@@ -53,6 +53,18 @@ export function rotateAround(v: Vec3, axis: Vec3, angle: number): Vec3 {
   ];
 }
 
+/**
+ * 두 단위 벡터 사이를 큰 원을 따라 잇는다(u = 0이면 a, 1이면 b). 거의 같으면 b, 정반대면 a에 수직인 아무 축으로 돈다.
+ * 하늘 시각을 늦게 맞출 때 항성·달 방향을 0.5초에 걸쳐 옮기는 데 쓴다(몇 바퀴씩 돌지 않는다).
+ */
+export function slerpUnit(a: Vec3, b: Vec3, u: number): Vec3 {
+  const angle = angleBetween(a, b);
+  if (angle < 1e-12) return b;
+  let axis = cross(a, b);
+  if (length(axis) < 1e-12) axis = cross(a, Math.abs(a[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0]);
+  return normalize(rotateAround(a, normalize(axis), angle * u));
+}
+
 /** 단위 벡터 from을 to로 옮기는 회전을 v에 건다(가장 짧은 회전). 둘이 거의 같으면 v 그대로 */
 export function rotateFromTo(v: Vec3, from: Vec3, to: Vec3): Vec3 {
   const axis = cross(from, to);

@@ -189,7 +189,21 @@ describe("주소 표", () => {
     expect(rows).toEqual({
       home: ["/", null, "shown", "everyone", ["template"]],
       map: ["/map", "home", "hidden", "everyone", []],
-      map_planet: ["/map/planet", "home", "hidden", "everyone", ["planet-debug"]],
+      map_planet: [
+        "/map/planet",
+        "home",
+        "hidden",
+        "everyone",
+        [
+          "planet-debug",
+          "pixel-ratio",
+          "planet-time",
+          "planet-sky",
+          "planet-sky-skip",
+          "planet-sky-bench",
+          "planet-view",
+        ],
+      ],
       units: ["/units", "home", "shown", "everyone", []],
       economy: ["/economy", "home", "shown", "everyone", []],
       faction: ["/faction", "home", "shown", "everyone", []],
@@ -268,6 +282,12 @@ describe("buildPath", () => {
     expect(buildPath("map_planet", { search: { "planet-debug": "cracks" } })).toBe(
       "/map/planet?planet-debug=cracks",
     );
+    // 1차맵 하늘 시험 주소: 표 순서로, 시각의 ":"·"+"는 % 글자로
+    expect(
+      buildPath("map_planet", {
+        search: { "planet-sky-skip": "moon,clouds", "planet-time": "2026-10-01T06:00:00+09:00" },
+      }),
+    ).toBe("/map/planet?planet-time=2026-10-01T06%3A00%3A00%2B09%3A00&planet-sky-skip=moon%2Cclouds");
     expect(buildPath("home", { search: {} })).toBe("/");
     expect(buildPath("inbox", { search: { item: undefined } })).toBe("/inbox");
     expect(buildPathIn(FIXTURE, "market", { search: { band: "a b&c" } })).toBe(

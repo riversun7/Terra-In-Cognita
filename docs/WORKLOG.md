@@ -5,6 +5,8 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-31 09:30 | 1차맵 하늘 2부 합치기(낮밤·달·구름) — 조각 상한 조정 | Claude Code | [31-0930-sky-integration](worklog/2026/10/31-0930-sky-integration.md) |
+| 2026-10-31 09:10 | 1차맵 구름 — GPU 굽기 큐브, 기후 치우침, 날씨 창, 껍질·걷히기·고른 칸 둘레 (WP5) | Claude Code | [31-0910-sky-clouds](worklog/2026/10/31-0910-sky-clouds.md) |
 | 2026-10-31 09:10 | 기획 미러 동기화 — 원본 aadab42(D-272~D-324, Step 5 D-5049·D-5050, Step 7 D-7036~D-7054) | Claude Code | [31-0910-design-mirror-aadab42](worklog/2026/10/31-0910-design-mirror-aadab42.md) |
 | 2026-10-31 09:10 | 앱 뼈대 W3·W4 문서 정리: ADR 37 "구현하며 정한 것" W3·W4, 0단계 남은 것 표시, PLAN 14장 줄 | Claude Code | [31-0910-app-shell-notes-2](worklog/2026/10/31-0910-app-shell-notes-2.md) |
 | 2026-10-30 02:20 | 앱 뼈대 W4 합치기(홈 대시보드) — 앱 뼈대 W1~W5가 모두 main에 | Claude Code | [30-0220-app-shell-w4-integration](worklog/2026/10/30-0220-app-shell-w4-integration.md) |
@@ -12,8 +14,10 @@
 | 2026-10-30 01:55 | 기획 질문 94·95(휴대폰 내 주문 자리, 회유 알림 분류) | Claude Code | [30-0155-planning-questions-94-95](worklog/2026/10/30-0155-planning-questions-94-95.md) |
 | 2026-10-30 01:55 | 앱 뼈대 W2·W5·W1 문서 정리: ADR 37 "구현하며 정한 것", AGENTS 6장 두 줄, utf8ByteLength 옮기기 | Claude Code | [30-0155-app-shell-notes](worklog/2026/10/30-0155-app-shell-notes.md) |
 | 2026-10-30 01:50 | 홈 대시보드(W4) 검토 고침 — 지적 11개 처리, W3·W1 부품 자리, 합친 나무 리허설 | Claude Code | [30-0150-app-shell-w4-review](worklog/2026/10/30-0150-app-shell-w4-review.md) |
+| 2026-10-30 01:40 | 1차맵 달 — 배경 구 달, 보임 판정, 미리 컴파일 (WP4) | Claude Code | [30-0140-sky-moon](worklog/2026/10/30-0140-sky-moon.md) |
 | 2026-10-30 01:40 | 앱 뼈대 W2·W5·W1 main 합치기 | Claude Code | [30-0140-app-shell-w125-integration](worklog/2026/10/30-0140-app-shell-w125-integration.md) |
 | 2026-10-30 01:20 | 앱 뼈대 W1 검토 고침: 겹침·다시 고름을 화면 이동과 나눔, 처음 켤 때 초점, C 지도 버튼 여백, 화면 시험 e2e/shell.spec.ts | Claude Code | [30-0120-app-shell-w1-review](worklog/2026/10/30-0120-app-shell-w1-review.md) |
+| 2026-10-30 01:00 | 1차맵 하늘 낮밤 연결 — 항성 기준 셰이더, 하늘 조절기, 화면 시계·주소 매개변수, 재기 모드 (WP3) | Claude Code | [30-0100-sky-day-night](worklog/2026/10/30-0100-sky-day-night.md) |
 | 2026-10-30 00:45 | 앱 뼈대 W5 검토 고침: 같은 트리의 두 번째 실행, 계정 메뉴·홈, 신호, 프로세스 확인, 누르는 곳 검사, 크기 값 출처 | Claude Code | [30-0045-app-shell-w5-review](worklog/2026/10/30-0045-app-shell-w5-review.md) |
 | 2026-10-30 00:30 | 앱 뼈대 W3 검토 반영: 바로 처리 결과 자리, 모르는 분류·종 배지, 멈춘 조각 받기, 요청 묶음, 화면 이동, 마감 내림, 강조 줄 알림 | Claude Code | [30-0030-app-shell-w3-review](worklog/2026/10/30-0030-app-shell-w3-review.md) |
 | 2026-10-30 00:20 | 앱 뼈대 W2 검토 고침: 계정이 바뀐 뒤의 계정 요청, 저장할 수 없는 글자, 마이그레이션 갈래 다시 확인 | Claude Code | [30-0020-app-shell-w2-review](worklog/2026/10/30-0020-app-shell-w2-review.md) |

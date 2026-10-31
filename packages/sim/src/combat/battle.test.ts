@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { type BattleInput, createBattle, restoreBattle, runBattle, snapshotBattle } from "./battle.ts";
 import { COVER_BLOCK } from "./battleMap.ts";
+import { TEST_COMBAT_COEFFICIENTS } from "./coefficients.ts";
 import { duel, openMap, unit } from "./testBattle.ts";
 
-describe("전투 틱(200ms, 정수, 시드 굴림)", () => {
+describe("전투 틱(100ms, 정수, 시드 굴림)", () => {
   it("같은 시작·입력이면 결과와 끝 상태가 바이트까지 같다", () => {
     const a = runBattle(duel(6, 7), []);
     const b = runBattle(duel(6, 7), []);
@@ -75,6 +76,22 @@ describe("전투 틱(200ms, 정수, 시드 굴림)", () => {
     const { state } = battle.runToEnd(inputs, 400);
     const side1 = state.units.filter((u) => u.side === 1);
     expect(side1.map((u) => u.status)).toEqual(["retreated", "retreated"]);
+  });
+
+  it("퇴각 구역에 머무는 시간(C23)을 채운 뒤에야 빠진다", () => {
+    const base = duel(1, 1);
+    const init = {
+      ...base,
+      units: base.units.map((spec) => (spec.side === 1 ? { ...spec, x: 1 } : { ...spec, x: 27 })),
+    };
+    const at = (dwellMs: number, ticks: number) => {
+      const battle = createBattle(init, { ...TEST_COMBAT_COEFFICIENTS, retreatDwellMs: dwellMs });
+      battle.runToEnd([], ticks);
+      return battle.state.parties.find((p) => p.side === 1)?.retreated;
+    };
+    expect(at(0, 1)).toBe(true);
+    expect(at(2000, 15)).toBe(false);
+    expect(at(2000, 25)).toBe(true);
   });
 
   it("같은 유닛의 명령은 1초(10틱) 안에 다시 넣으면 거절한다(D-180·C5)", () => {

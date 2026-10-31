@@ -301,3 +301,4 @@ export {
   type UnitOutcome,
   type UnitResult,
 } from "./combat/outcome.ts";
+export { duelInit, runDuels, type DuelReport } from "./combat/duels.ts";

@@ -4,6 +4,8 @@
 // - 느린 연결: 보내기 전 bufferedAmount가 MAX_BUFFERED_BYTES를 넘으면 그 연결에는 더 보내지 않고 "다시 맞춤"
 //   표시를 한다. 버퍼가 RESYNC_BELOW_BYTES 밑으로 내려가면 새 스냅샷을 보낸다(오래된 갱신을 쌓지 않는다, ADR 7).
 // - 스냅샷은 rev가 같으면 인코딩한 조각을 다시 쓴다(서버를 다시 켠 뒤 여럿이 한꺼번에 들어올 때).
+// - 시야 전송(S3 ADR 3절): 시야 묶음마다 이 전송을 하나씩 쓴다. 시야에서 사라진 유닛은 같은 묶음의 hidden으로 보낸다
+//   (마지막 것만: 바뀌고 사라지면 사라짐만, 사라지고 다시 보이면 움직임만).
 import {
   type BuildingWire,
   MAX_MESSAGE_BYTES,
@@ -17,6 +19,8 @@ export const BATCH_INTERVAL_MS = 100;
 export const MAX_BUFFERED_BYTES = 1024 * 1024;
 export const RESYNC_BELOW_BYTES = 64 * 1024;
 export const RESYNC_CHECK_MS = 500;
+/** hidden 목록의 유닛 ID 하나 크기 상한(u32 10자리 + 쉼표) */
+const HIDDEN_ID_BYTES = 11;
 
 /** 구독자 하나(WebSocket 연결 하나) */
 export interface StreamSubscriber {
@@ -63,6 +67,8 @@ export interface MapStream {
   readonly subscriberCount: number;
   /** 유닛 움직임이 바뀌었다(rev = 이 변화의 번호) */
   unitChanged(rev: number, entry: SizedEntry<UnitMotionWire>): void;
+  /** 유닛이 시야에서 사라졌다(rev = 이 변화의 번호) */
+  unitHidden(rev: number, unitId: number): void;
   buildingPlaced(rev: number, building: BuildingWire): void;
   buildingRemoved(rev: number, buildingId: number): void;
   /** 모아 둔 유닛 움직임을 지금 보낸다 */
@@ -79,6 +85,7 @@ export function createMapStream(options: MapStreamOptions): MapStream {
   const subscribers = new Map<StreamSubscriber, SubscriberState>();
   const pathsHeader = unitPathsHeaderBytes(mapKey);
   const pending = new Map<number, SizedEntry<UnitMotionWire>>();
+  const pendingHidden = new Set<number>();
   let pendingFromRev = 0;
   let pendingRev = 0;
   let pendingBytes = 0;
@@ -156,15 +163,17 @@ export function createMapStream(options: MapStreamOptions): MapStream {
   const flush = (): void => {
     if (batchTimer) clearTimeout(batchTimer);
     batchTimer = undefined;
-    if (pending.size === 0) return;
+    if (pending.size === 0 && pendingHidden.size === 0) return;
     const message: ServerMessageOf<"unit_paths"> = {
       t: "unit_paths",
       mapKey,
       fromRev: pendingFromRev,
       rev: pendingRev,
       units: [...pending.values()].map((entry) => entry.value),
+      ...(pendingHidden.size > 0 ? { hidden: [...pendingHidden] } : {}),
     };
     pending.clear();
+    pendingHidden.clear();
     pendingBytes = 0;
     if (subscribers.size > 0) broadcast(checkedEncode(message));
   };
@@ -183,13 +192,35 @@ export function createMapStream(options: MapStreamOptions): MapStream {
       return subscribers.size;
     },
     unitChanged(rev, entry) {
-      if (pending.size === 0) pendingFromRev = rev - 1;
+      if (pending.size === 0 && pendingHidden.size === 0) pendingFromRev = rev - 1;
+      if (pendingHidden.delete(entry.value.id)) pendingBytes -= HIDDEN_ID_BYTES;
       const previous = pending.get(entry.value.id);
       if (previous) pendingBytes -= previous.bytes + 1;
       pending.set(entry.value.id, entry);
       pendingBytes += entry.bytes + 1;
       pendingRev = rev;
       // 다음 항목이 상한을 넘길 수 있으면 지금 보낸다(가장 큰 항목도 들어갈 여유를 남긴다)
+      if (pathsHeader + pendingBytes > MAX_MESSAGE_BYTES - 16 * 1024) {
+        flush();
+        return;
+      }
+      if (!batchTimer) {
+        batchTimer = setTimeout(flush, BATCH_INTERVAL_MS);
+        batchTimer.unref();
+      }
+    },
+    unitHidden(rev, unitId) {
+      if (pending.size === 0 && pendingHidden.size === 0) pendingFromRev = rev - 1;
+      const previous = pending.get(unitId);
+      if (previous) {
+        pendingBytes -= previous.bytes + 1;
+        pending.delete(unitId);
+      }
+      if (!pendingHidden.has(unitId)) {
+        pendingHidden.add(unitId);
+        pendingBytes += HIDDEN_ID_BYTES;
+      }
+      pendingRev = rev;
       if (pathsHeader + pendingBytes > MAX_MESSAGE_BYTES - 16 * 1024) {
         flush();
         return;
@@ -215,6 +246,7 @@ export function createMapStream(options: MapStreamOptions): MapStream {
       resyncTimer = undefined;
       subscribers.clear();
       pending.clear();
+      pendingHidden.clear();
     },
   };
 }

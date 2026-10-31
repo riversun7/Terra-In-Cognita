@@ -110,8 +110,19 @@ describe("2차맵 서버 → 기기 메시지", () => {
     expect(serverOk(pathsWith({ speed: 1.5 }))).toBe(false);
   });
 
-  it("빈 unit_paths는 보내지 않는다(스키마가 거부)", () => {
+  it("빈 unit_paths는 보내지 않는다(스키마가 거부). 사라진 유닛(hidden)만 있으면 된다", () => {
     expect(serverOk({ t: "unit_paths", mapKey: 9, fromRev: 1, rev: 2, units: [] })).toBe(false);
+    expect(serverOk({ t: "unit_paths", mapKey: 9, fromRev: 1, rev: 2, units: [], hidden: [] })).toBe(false);
+    expect(serverOk({ t: "unit_paths", mapKey: 9, fromRev: 1, rev: 2, units: [], hidden: [3] })).toBe(true);
+  });
+
+  it("시야 메시지(탐사 칸 128바이트 base64)와 자른 경로(until)", () => {
+    // 0x01 128바이트의 base64(3바이트 = "AQEB", 남는 2바이트 = "AQE=")
+    const explored = `${"AQEB".repeat(42)}AQE=`;
+    expect(serverOk({ t: "vision", mapKey: 9, explored })).toBe(true);
+    expect(serverOk({ t: "vision", mapKey: 9, explored: explored.slice(4) })).toBe(false);
+    const clipped = { id: 1, size: 1, speed: 437, departAtMs: 5, path: [0, 0, 1024, 0], until: 2_000 };
+    expect(serverOk({ t: "unit_paths", mapKey: 9, fromRev: 1, rev: 2, units: [clipped] })).toBe(true);
   });
 
   it("건물 놓임·치움을 왕복 변환한다", () => {

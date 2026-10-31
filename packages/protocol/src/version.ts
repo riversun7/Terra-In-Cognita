@@ -3,15 +3,17 @@
 /**
  * 현재 프로토콜 버전. 메시지 형식이나 의미가 바뀌면 올린다.
  * 2: 2차맵 구독·명령·전송 메시지(secondMap.ts, ADR 2026-10-28-s1-second-map.md "구현하며 정한 것 (서버 연결)").
+ * 3: 2차맵 시야 전송(S3 ADR 3절) — 남의 유닛은 자른 경로(until)·사라짐(hidden), 탐사 칸(vision), 관리자 전체 보기(observe),
+ *    개발 시험 명령(dev_spawn_units).
  */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /**
- * 서버가 받아주는 가장 낮은 기기 프로토콜 버전 (현재 + 직전 1개 지원 원칙).
- * 1로 인사한 기기는 2차맵 메시지를 보내지 않으므로(1에는 없다) 새 서버 메시지도 받지 않는다.
- * 1로 인사한 연결이 2차맵 메시지를 보내면 서버는 invalid_message로 거절한다.
+ * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7).
+ * 3에서 예외로 2를 받지 않는다: 2판 기기는 걸러지지 않은 2차맵 흐름(남의 경로 전체)을 기대하는데, 시야 전송은 보안 규칙이라
+ * 그 흐름을 남기지 않는다(S3 ADR 3절). 2판 기기는 인사에서 protocol_unsupported를 받고 새 앱을 받는다(PWA 강제 적용).
  */
-export const MIN_SUPPORTED_PROTOCOL_VERSION = 1;
+export const MIN_SUPPORTED_PROTOCOL_VERSION = 3;
 
 /** WebSocket 메시지 1개의 최대 크기 (바이트) */
 export const MAX_MESSAGE_BYTES = 64 * 1024;

@@ -58,7 +58,9 @@ export function snapshotHeaderBytes(
 
 /** unit_paths의 머리(빈 배열일 때) 크기 상한 */
 export function unitPathsHeaderBytes(mapKey: number): number {
-  return utf8ByteLength(encodeMessage({ t: "unit_paths", mapKey, fromRev: LARGE, rev: LARGE, units: [] }));
+  return utf8ByteLength(
+    encodeMessage({ t: "unit_paths", mapKey, fromRev: LARGE, rev: LARGE, units: [], hidden: [] }),
+  );
 }
 
 export interface ChunkPlan<U, B> {

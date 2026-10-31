@@ -128,3 +128,18 @@ export {
   type JobState,
   type UpkeepResult,
 } from "./settle/settle.ts";
+export {
+  BUILDING_VISION_CELLS,
+  UNIT_VISION_CELLS,
+  VISION_BYTES,
+  VISION_CELL,
+  VISION_CELLS,
+  VISION_SIDE,
+  addCoverBits,
+  hasBit,
+  stampVision,
+  truncateMotion,
+  visibleUntil,
+  visionCellOf,
+  visionRadius,
+} from "./vision/vision.ts";

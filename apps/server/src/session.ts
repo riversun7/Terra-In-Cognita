@@ -145,7 +145,8 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "unsubscribe":
       case "move_unit":
       case "place_building":
-      case "remove_building": {
+      case "remove_building":
+      case "dev_spawn_units": {
         if (protocolVersion < SECOND_MAP_PROTOCOL_VERSION) {
           reject("invalid_message");
           return;

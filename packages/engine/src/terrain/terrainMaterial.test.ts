@@ -1,4 +1,4 @@
-import { ShaderLib, Vector3 } from "three";
+import { DataTexture, ShaderLib, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 import { createMockTerrain } from "../mock/mockTerrain.ts";
 import { TERRAIN_SHADER_INSERTS, TerrainMaterial, type TerrainShaderSource } from "./terrainMaterial.ts";
@@ -26,7 +26,7 @@ describe("TerrainMaterial 셰이더 끼우기", () => {
     }
   });
 
-  it("자리마다 코드를 끼우고 유니폼 네 개를 잇는다", () => {
+  it("자리마다 코드를 끼우고 유니폼 여섯 개(안개 둘 포함)를 잇는다", () => {
     const material = new TerrainMaterial();
     const shader = lambertSource();
     material.patchShader(shader);
@@ -35,7 +35,14 @@ describe("TerrainMaterial 셰이더 끼우기", () => {
     for (const [anchor, code] of TERRAIN_SHADER_INSERTS.fragment) {
       expect(shader.fragmentShader).toContain(`${anchor}\n${code}`);
     }
-    expect(Object.keys(shader.uniforms).toSorted()).toEqual(["uCellSize", "uHeight", "uNoise", "uSurface"]);
+    expect(Object.keys(shader.uniforms).toSorted()).toEqual([
+      "uCellSize",
+      "uFog",
+      "uFogOn",
+      "uHeight",
+      "uNoise",
+      "uSurface",
+    ]);
     // 선언은 main 앞, 색 단계는 main 안(Lambert 기본 색 단계 뒤)
     for (const text of [shader.vertexShader, shader.fragmentShader]) {
       expect(text.indexOf("varying vec3 vTerrainPos;")).toBeLessThan(text.indexOf("void main"));
@@ -87,6 +94,26 @@ describe("TerrainMaterial 유니폼 값", () => {
     const firstNoise: unknown = shader.uniforms["uNoise"]?.value;
     material.setTerrain(terrain, 0, 10, new Uint8Array(noise.length));
     expect(shader.uniforms["uNoise"]?.value).toBe(firstNoise);
+    material.dispose();
+  });
+});
+
+describe("안개(S3 시야 전송)", () => {
+  it("탐사 칸 비트를 텍스처 빨강으로 옮기고 켠다. null이면 끈다", () => {
+    const material = new TerrainMaterial();
+    const shader = lambertSource();
+    material.patchShader(shader);
+    const bits = new Uint8Array(128);
+    bits[0] = 0b0000_0101;
+    material.setExplored(bits);
+    const fog: unknown = shader.uniforms.uFog?.value;
+    if (!(fog instanceof DataTexture)) throw new Error("fog texture missing");
+    const data: unknown = fog.image.data;
+    if (!(data instanceof Uint8Array)) throw new Error("fog data missing");
+    expect([data[0], data[4], data[8]]).toEqual([255, 0, 255]);
+    expect(shader.uniforms.uFogOn?.value).toBe(1);
+    material.setExplored(null);
+    expect(shader.uniforms.uFogOn?.value).toBe(0);
     material.dispose();
   });
 });

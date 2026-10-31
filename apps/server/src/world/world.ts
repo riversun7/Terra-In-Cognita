@@ -15,6 +15,7 @@ import { type WorldWriter, type WriterPool, createWorldWriter } from "./persist/
 import { createWorkerPathService } from "./pathPool.ts";
 import { type PathService, createInlinePathService } from "./pathService.ts";
 import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
+import type { ExploredStore } from "./vision.ts";
 import {
   ASSET_CREDIT,
   NPC_START_CREDIT,
@@ -150,6 +151,7 @@ export function startWorld(
     persist: MapPersist | undefined,
     ids: WorldPersistence["nextId"] | undefined,
     npcOwnerId: number,
+    exploredStore?: (mapKey: number) => ExploredStore,
   ) => {
     for (let index = 0; index < mapCount; index++) {
       const mapKey = testMapKey(index);
@@ -164,6 +166,7 @@ export function startWorld(
           stats,
           log,
           persist,
+          explored: exploredStore?.(mapKey),
           botOwnerId: npcOwnerId,
           allocateUnitId: ids?.unit,
           allocateBuildingId: ids?.building,
@@ -258,7 +261,26 @@ export function startWorld(
       nextTxId: nextId.tx,
       accounts: loaded.accounts,
     });
-    createMaps(persist, nextId, npcOwnerId);
+    // 탐사 기록: 구독할 때 읽고, 시야 틱이 바뀐 것을 쓰기 대기열로 쓴다
+    const exploredStore = (mapKey: number): ExploredStore => ({
+      async load(userId) {
+        const found = await db.query(
+          `select cells from world_exploration where user_id = $1 and map_key = $2`,
+          [userId, mapKey],
+        );
+        const cells = found.rows[0]?.cells;
+        return cells instanceof Uint8Array ? new Uint8Array(cells) : null;
+      },
+      save(userId, bits) {
+        writer.upsert("exploration", {
+          user_id: userId,
+          map_key: mapKey,
+          cells: Buffer.from(bits),
+          updated_at_ms: now(),
+        });
+      },
+    });
+    createMaps(persist, nextId, npcOwnerId, exploredStore);
     const settlement = createSettlement({
       maps,
       owners,
@@ -361,6 +383,18 @@ export function startWorld(
       return persistence;
     },
     isReady: () => status.state === "ready",
+    ownerOfUser: (userId) => persistence?.settlement.findOwnerOfUser(userId),
+    devSpawn(userId, mapKey, count) {
+      if (!persistence || status.state !== "ready") return 0;
+      const at = now();
+      const made = persistence.settlement.giveWorkers(userId, mapKey, count, at);
+      // [임시] 시험 일꾼 유지비를 낼 시험 화폐(일꾼 하나에 하루치)
+      if (made.length > 0) {
+        const owner = persistence.settlement.ownerOfUser(userId, at);
+        persistence.settlement.grantCredit(owner.id, BigInt(made.length * 24), at);
+      }
+      return made.length;
+    },
     map: (mapKey) => (status.state === "ready" ? maps.get(mapKey) : undefined),
     async checkInvariants() {
       const memory = checkMemoryInvariants(memoryChecks({}));

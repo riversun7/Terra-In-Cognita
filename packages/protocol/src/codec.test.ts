@@ -54,9 +54,10 @@ describe("utf8ByteLength", () => {
 describe("isProtocolSupported", () => {
   it("현재 버전은 지원하고 범위 밖은 거부한다", () => {
     expect(isProtocolSupported(PROTOCOL_VERSION)).toBe(true);
-    // 직전 버전(1)도 받는다: 1로 인사한 기기는 2차맵 메시지를 보내지 않는다(version.ts)
+    // 3은 예외로 직전 버전(2)을 받지 않는다: 시야 전송은 보안 규칙이라 걸러지지 않은 2판 흐름을 남기지 않는다(version.ts)
     expect(isProtocolSupported(MIN_SUPPORTED_PROTOCOL_VERSION)).toBe(true);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION);
+    expect(isProtocolSupported(PROTOCOL_VERSION - 1)).toBe(false);
     expect(isProtocolSupported(PROTOCOL_VERSION + 1)).toBe(false);
     expect(isProtocolSupported(0)).toBe(false);
     expect(isProtocolSupported(1.5)).toBe(false);

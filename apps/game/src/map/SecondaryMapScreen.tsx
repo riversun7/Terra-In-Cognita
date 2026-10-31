@@ -13,7 +13,7 @@ import {
 import { S1_TEST_MAP_KEY } from "@terra/protocol";
 import { useEffect, useRef, useState } from "react";
 import { refreshSession, useSession } from "../auth/session.ts";
-import { isAdmin } from "../auth/sessionState.ts";
+import { hasDevTools, isAdmin } from "../auth/sessionState.ts";
 import { serverLink } from "../net/serverLink.ts";
 import { m } from "../paraglide/messages.js";
 import type { FrameMonitor } from "../perf/frameMonitor.ts";
@@ -126,14 +126,23 @@ function commandState(notice: CommandNotice | null): string | undefined {
 const fixed = (value: number, digits: number): string => value.toFixed(digits);
 const roundOrDash = (value: number | null): string | number => (value === null ? "–" : Math.round(value));
 
+/** 개발 시험 명령 한 번에 받는 시험 일꾼 수 */
+const DEV_SPAWN_COUNT = 5;
+
 export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScreenProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const engineRef = useRef<SecondMapEngine | null>(null);
   const feedRef = useRef<MapFeed | null>(null);
   const selectedRef = useRef<number | null>(null);
-  const admin = isAdmin(useSession());
+  const session = useSession();
+  const admin = isAdmin(session);
+  const devTools = hasDevTools(session);
   const adminRef = useRef(admin);
+  // 관리자 전체 보기(시야로 거르지 않음, dev·admin). 바꾸면 다시 구독한다(S3 시야 전송)
+  const [observe, setObserve] = useState(false);
+  const observeRef = useRef(false);
+  const [devNotice, setDevNotice] = useState<string | null>(null);
   const [status, setStatus] = useState<EngineStatus>({ kind: "loading" });
   const [feedStatus, setFeedStatus] = useState<FeedStatus>(INITIAL_FEED_STATUS);
   const [selected, setSelected] = useState<number | null>(null);
@@ -176,6 +185,11 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
       sink: engine,
       loadTerrain: (url) => fetchTerrain(url),
       canCommand: () => adminRef.current,
+      observe: () => observeRef.current,
+      onDevSpawn: (outcome) =>
+        setDevNotice(
+          outcome.ok ? m.map_vision_spawned() : `${m.map_vision_spawn_failed()} ${resultText(outcome.code)}`,
+        ),
       now: () => performance.now(),
       serverNow,
       unitCapacity: UNIT_CAPACITY,
@@ -229,6 +243,24 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
   useEffect(() => {
     if (signInLost) void refreshSession();
   }, [signInLost]);
+
+  // 시험 일꾼 안내도 잠시 보이고 지운다
+  useEffect(() => {
+    if (devNotice === null) return () => undefined;
+    const timer = setTimeout(() => setDevNotice(null), COMMAND_NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [devNotice]);
+
+  const toggleObserve = (): void => {
+    const next = !observeRef.current;
+    observeRef.current = next;
+    setObserve(next);
+    feedRef.current?.refresh();
+  };
+
+  const spawnWorkers = (): void => {
+    if (!feedRef.current?.devSpawn(DEV_SPAWN_COUNT)) setDevNotice(m.map_vision_spawn_failed());
+  };
 
   const deselect = (): void => {
     selectedRef.current = null;
@@ -361,6 +393,26 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
             </button>
           </div>
         )}
+        {devTools ? (
+          <div className="map-actions" data-observe={observe ? "on" : "off"}>
+            {devNotice ? (
+              <p className="map-panel map-command" role="status">
+                {devNotice}
+              </p>
+            ) : null}
+            <button type="button" className="button-small map-dev-spawn" onClick={spawnWorkers}>
+              {m.map_vision_spawn()}
+            </button>
+            <button
+              type="button"
+              className="button-small map-dev-observe"
+              aria-pressed={observe}
+              onClick={toggleObserve}
+            >
+              {m.map_vision_observe()}
+            </button>
+          </div>
+        ) : null}
       </footer>
     </section>
   );

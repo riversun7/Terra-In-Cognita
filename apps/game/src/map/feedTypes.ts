@@ -8,7 +8,7 @@ import type { TerrainFailure } from "./terrainLoader.ts";
 /** 엔진 쪽 — SecondMapEngine이 그대로 맞는다(시험은 가짜를 넣는다) */
 export type FeedSink = Pick<
   SecondMapEngine,
-  "setTerrain" | "setUnits" | "setUnitPath" | "setBuildings" | "select" | "selected"
+  "setTerrain" | "setUnits" | "setUnitPath" | "setBuildings" | "setExplored" | "select" | "selected"
 >;
 
 export type FeedPhase =
@@ -96,8 +96,10 @@ export interface MapFeedOptions {
   mapKey: number;
   sink: FeedSink;
   loadTerrain: (url: string) => Promise<TerrainInput>;
-  /** 명령을 보내도 되는가(관리자). 서버가 따로 확인한다 */
+  /** 모든 유닛에 명령을 보내도 되는가(관리자). 내 유닛(own)은 늘 된다. 서버가 따로 확인한다 */
   canCommand: () => boolean;
+  /** 관리자 전체 보기로 구독할까(dev·admin, S3 시야 전송). 없으면 시야로 거른 구독 */
+  observe?: () => boolean;
   /** 측정용 시각(ms, performance.now) */
   now: () => number;
   /** 서버 시계(ms) — 움직임의 늦음을 잰다 */
@@ -108,6 +110,8 @@ export interface MapFeedOptions {
   unitCapacity?: number;
   onStatus?: (status: FeedStatus) => void;
   onCommand?: (report: CommandReport) => void;
+  /** 개발 시험 명령(시험 일꾼 받기)의 결과 */
+  onDevSpawn?: (outcome: CommandOutcome) => void;
 }
 
 export interface MapFeed {
@@ -117,6 +121,10 @@ export interface MapFeed {
   moveUnit(unitId: number, cell: { x: number; y: number }): MoveAttempt;
   /** [다시 시도] — 실패한 구독·지형을 다시 */
   retry(): void;
+  /** 지금 다시 구독한다(전체 보기를 켜고 끌 때) */
+  refresh(): void;
+  /** 개발 시험 명령: 내 시험 일꾼 count개(dev·admin). 보냈으면 true. 되면 다시 구독한다 */
+  devSpawn(count: number): boolean;
   /** 해제를 보내고 모두 멈춘다 */
   stop(): void;
 }

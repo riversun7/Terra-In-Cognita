@@ -90,6 +90,8 @@ export interface SecondMapEngine {
   /** 지금 시각의 위치(배치 칸)와 가는 중인지. 없는 유닛이면 null */
   unitState(id: number): UnitState | null;
   setBuildings(buildings: readonly BuildingFootprint[]): void;
+  /** 안개: 탐사 칸(시야 칸 32×32 비트, 128바이트). null이면 끈다(S3 시야 전송) */
+  setExplored(bits: Uint8Array | null): void;
   /** 고르기(엔진 안 표시만 바꾼다. onSelect는 부르지 않는다) */
   select(id: number | null): void;
   selected(): number | null;

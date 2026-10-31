@@ -377,6 +377,10 @@ export function createSecondMapEngine(
       return { x: motion.x[slot] ?? 0, y: motion.y[slot] ?? 0, moving: isMoving };
     },
 
+    setExplored(bits) {
+      terrainView.setExplored(bits);
+      scheduler.request();
+    },
     setBuildings(buildings) {
       if (!terrain) {
         pendingBuildings = buildings;
@@ -476,6 +480,7 @@ function inertEngine(): SecondMapEngine {
     stopUnit: () => undefined,
     unitState: () => null,
     setBuildings: () => undefined,
+    setExplored: () => undefined,
     select: () => undefined,
     selected: () => null,
     stats: () => empty,

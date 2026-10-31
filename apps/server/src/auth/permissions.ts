@@ -9,7 +9,9 @@ import { defaultStatements } from "better-auth/plugins/admin/access";
 
 /**
  * 권한 문장 — Better Auth 관리자 플러그인 기본(user·session 동작) + 게임 기능.
- * secondMap: S1 시험 2차맵 명령(WebSocket, src/world/gateway.ts). 지금은 admin만 한다(ADR 2026-10-28-s1-second-map).
+ * secondMap: 시험 2차맵 명령(WebSocket, src/world/gateway.ts). 이동·건물은 admin만 한다(ADR 2026-10-28-s1-second-map).
+ *   자기 유닛 이동은 권한 없이 소유로 된다(S3). observe = 관리자 전체 보기(시야로 거르지 않음, 감사 기록),
+ *   dev-spawn = 개발 시험 명령(내 시험 일꾼 받기). 둘 다 dev·admin(S3 ADR 3절).
  * home: 홈 대시보드 시험(ADR 2026-10-29-app-shell 6절, 사용자 결정 2). dev·admin만.
  *   - preview: 처리할 일·복귀 요약의 시안 자료를 받는다(inbox.list·summary.get의 preview). 다른 역할은 403
  *   - template: 기본값(dt_hybrid)이 아닌 템플릿을 저장한다(settings.set). 다른 역할이 보낸 값은 거절하지 않고 dt_hybrid로 바꿔 저장한다
@@ -18,7 +20,7 @@ import { defaultStatements } from "better-auth/plugins/admin/access";
  */
 export const statements = {
   ...defaultStatements,
-  secondMap: ["move-unit", "place-building", "remove-building"],
+  secondMap: ["move-unit", "place-building", "remove-building", "observe", "dev-spawn"],
   home: ["preview", "template"],
   planetEditor: ["read", "write"],
 } as const;
@@ -36,13 +38,14 @@ export const roles = {
   dev: ac.newRole({
     user: [],
     session: [],
+    secondMap: ["observe", "dev-spawn"],
     home: ["preview", "template"],
     planetEditor: ["read", "write"],
   }),
   admin: ac.newRole({
     user: ["create", "list", "get", "set-role", "ban", "set-password"],
     session: ["list", "revoke"],
-    secondMap: ["move-unit", "place-building", "remove-building"],
+    secondMap: ["move-unit", "place-building", "remove-building", "observe", "dev-spawn"],
     home: ["preview", "template"],
     planetEditor: ["read", "write"],
   }),

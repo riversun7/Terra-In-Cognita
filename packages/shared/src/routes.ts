@@ -80,6 +80,58 @@ export const ROUTES = {
   },
   units: { path: "/units", search: [], parent: "home", frame: "shown", access: "everyone" },
   economy: { path: "/economy", search: [], parent: "home", frame: "shown", access: "everyone" },
+  // 경제 칸(ADR 37 1절 "경제", 끝의 "구현하며 정한 것 (경제·거래창 화면)"): 예약한 /economy/:section을 칸마다 정적 줄로 둔다.
+  // 칸끼리는 바꾸기(replace, 화면이 replace를 준다), 거래창은 물건 → 도시 차례로 쌓고 부모도 그 차례다
+  economy_warehouse: {
+    path: "/economy/warehouse",
+    search: [],
+    parent: "economy",
+    frame: "shown",
+    access: "everyone",
+  },
+  economy_production: {
+    path: "/economy/production",
+    search: [],
+    parent: "economy",
+    frame: "shown",
+    access: "everyone",
+  },
+  economy_market: {
+    path: "/economy/market",
+    search: [],
+    parent: "economy",
+    frame: "shown",
+    access: "everyone",
+  },
+  economy_market_item: {
+    path: "/economy/market/:itemId",
+    search: [],
+    parent: "economy_market",
+    frame: "shown",
+    access: "everyone",
+  },
+  economy_market_city: {
+    path: "/economy/market/:itemId/:cityId",
+    search: [],
+    parent: "economy_market_item",
+    frame: "shown",
+    access: "everyone",
+  },
+  // 내 주문(휴대폰 자리, D-329 = 질문 94 가). 처리할 일 order_filled·order_expired도 이리로 온다
+  economy_orders: {
+    path: "/economy/orders",
+    search: [],
+    parent: "economy",
+    frame: "shown",
+    access: "everyone",
+  },
+  economy_exchange: {
+    path: "/economy/exchange",
+    search: [],
+    parent: "economy",
+    frame: "shown",
+    access: "everyone",
+  },
   faction: { path: "/faction", search: [], parent: "home", frame: "shown", access: "everyone" },
   cyborg: { path: "/cyborg", search: [], parent: "home", frame: "shown", access: "everyone" },
   // ?item=<항목 ID>: 한 항목을 강조한다(inbox.ts 항목 ID 규칙)
@@ -534,6 +586,21 @@ export function isRouteTarget(value: unknown): value is RouteTarget {
 /** 주소 표의 모든 경로 예(routePathExamplesIn 참고) */
 export function routePathExamples(): string[] {
   return routePathExamplesIn(ROUTES);
+}
+
+/**
+ * 메뉴(하단 탭·사이드 메뉴)에서 이 주소가 속한 첫 단계 화면: 부모를 따라 올라가 부모가 홈인 주소. 홈은 홈이다.
+ * 예: /economy/market/:itemId → economy. 하위 화면에서도 그 메뉴 항목을 지금 화면(aria-current)으로 보인다
+ */
+export function menuRoute(id: RouteId): RouteId {
+  let current: RouteId = id;
+  // 표 규칙(routes.test.ts)이 부모가 홈에 닿는 것을 보장한다. 틀린 표에서도 끝나게 줄 수만큼만 오른다
+  for (let step = 0; step < Object.keys(ROUTES).length; step += 1) {
+    const parent: string | null = ROUTES[current].parent;
+    if (parent === null || parent === "home" || !isRouteId(parent)) return current;
+    current = parent;
+  }
+  return current;
 }
 
 /** 누가 여는지 → 역할. null은 누구나 */

@@ -13,6 +13,8 @@ import { isAllowedSocketOrigin } from "./auth/requestGuard.ts";
 import { writeAudit } from "./auth/store.ts";
 import { DEFAULT_TRUST_PROXY, SIM_VERSION } from "./config.ts";
 import { type Database, pingDatabase } from "./db/client.ts";
+import { createEconomyServices } from "./economyView/services.ts";
+import { worldEconomySource } from "./economyView/worldSource.ts";
 import { startServerMetrics } from "./metrics.ts";
 import type { PlanetBaker } from "./planet/baker.ts";
 import { type PlanetRouteLimits, registerPlanetRoutes } from "./planet/routes.ts";
@@ -31,6 +33,7 @@ import { cacheViewer, createWorldGateway } from "./world/gateway.ts";
 import { createWorldSummaryBackend } from "./world/summarySources.ts";
 import { registerTerrainRoute } from "./world/terrainRoute.ts";
 import type { MapPropInput } from "@terra/planet/secondMap";
+import type { EconomyCatalogResponse } from "@terra/shared/economy";
 import { createTerrainService } from "./world/terrainService.ts";
 import { TEST_PLANET_ID, type WorldConfig, startWorld } from "./world/world.ts";
 
@@ -102,6 +105,8 @@ export interface AppOptions {
   planetEditor?:
     | { definitions: PlanetEditorDefinitions; limits?: Partial<PlanetEditorLimits> | undefined }
     | undefined;
+  /** 경제 화면 목록(팩 items·recipes 등, src/economyView/catalog.ts). 없으면 빈 목록 */
+  economyCatalog?: EconomyCatalogResponse | undefined;
   /**
    * 시험용: 요청의 로그인 사용자를 직접 정한다(DB 없는 시험). 주면 인증 세션 조회와 WebSocket 출처 검사를 하지 않는다.
    * 운영 코드는 쓰지 않는다.
@@ -226,6 +231,13 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         : undefined,
       // 복귀 요약: 오프라인 정산의 생산 + 확인 시각(DB가 있는 월드만)
       summary: world && options.db ? createWorldSummaryBackend(world) : undefined,
+      // 경제 화면: 팩 목록 + 월드 원장 잔고(읽기만) + 시안 자료
+      economy: options.economyCatalog
+        ? createEconomyServices({
+            catalog: options.economyCatalog,
+            world: world ? worldEconomySource(world) : undefined,
+          })
+        : undefined,
     }),
   });
 

@@ -19,6 +19,7 @@ import {
   isRouteTargetIn,
   matchPath,
   matchPathIn,
+  menuRoute,
   parentTarget,
   parentTargetIn,
   replaceSearch,
@@ -206,6 +207,19 @@ describe("주소 표", () => {
       ],
       units: ["/units", "home", "shown", "everyone", []],
       economy: ["/economy", "home", "shown", "everyone", []],
+      economy_warehouse: ["/economy/warehouse", "economy", "shown", "everyone", []],
+      economy_production: ["/economy/production", "economy", "shown", "everyone", []],
+      economy_market: ["/economy/market", "economy", "shown", "everyone", []],
+      economy_market_item: ["/economy/market/:itemId", "economy_market", "shown", "everyone", []],
+      economy_market_city: [
+        "/economy/market/:itemId/:cityId",
+        "economy_market_item",
+        "shown",
+        "everyone",
+        [],
+      ],
+      economy_orders: ["/economy/orders", "economy", "shown", "everyone", []],
+      economy_exchange: ["/economy/exchange", "economy", "shown", "everyone", []],
       faction: ["/faction", "home", "shown", "everyone", []],
       cyborg: ["/cyborg", "home", "shown", "everyone", []],
       inbox: ["/inbox", "home", "shown", "everyone", ["item"]],
@@ -594,5 +608,16 @@ describe("가리키는 화면(target)", () => {
     const newer: unknown = { route: "units", params: { unitId: "u1" }, search: { focus: "x" } };
     if (!isRouteTarget(newer)) throw new Error("newer target");
     expect(targetPath(newer)).toBe("/units");
+  });
+});
+
+describe("menuRoute", () => {
+  it("하위 화면은 부모를 따라 올라가 메뉴 항목(부모가 홈인 주소)이 된다", () => {
+    expect(menuRoute("home")).toBe("home");
+    expect(menuRoute("economy")).toBe("economy");
+    expect(menuRoute("economy_market")).toBe("economy");
+    expect(menuRoute("economy_market_city")).toBe("economy");
+    expect(menuRoute("map_planet")).toBe("map_planet");
+    expect(menuRoute("dev_planet_editor")).toBe("dev");
   });
 });

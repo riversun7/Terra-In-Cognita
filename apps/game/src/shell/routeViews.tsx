@@ -23,6 +23,8 @@ const HomeScreen = lazy(() => import("../home/HomeScreen.tsx"));
 // 처리할 일 화면(W3): ?item= 은 그 줄을 강조한다(초점은 앱 안 이동일 때만 틀이 옮긴다). [뒤로]는 화면 제목 줄 끝에 둔다
 const InboxScreen = lazy(() => import("../inbox/InboxScreen.tsx"));
 const ComingSoon = lazy(() => import("../sections/ComingSoon.tsx"));
+// 경제(창고·생산·거래창·환전, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)"): 칸마다 다시 따로 조각이다
+const EconomyScreen = lazy(() => import("../economy/EconomyScreen.tsx"));
 const SettingsPage = lazy(() => import("../settings/SettingsPage.tsx"));
 const AdminPage = lazy(() => import("../admin/AdminPage.tsx"));
 // 개발자 영역(ADR 38 1절). 셰이더 측정은 gpuBench…로 시작하는 진입 파일로 받는다(조각 이름 → 미리 캐시에서 빠짐)
@@ -43,6 +45,13 @@ export const ROUTE_TITLES = {
   map_planet: m.planet_title,
   units: m.nav_units,
   economy: m.nav_economy,
+  economy_warehouse: m.economy_tab_warehouse,
+  economy_production: m.economy_tab_production,
+  economy_market: m.economy_market_title,
+  economy_market_item: m.economy_market_title,
+  economy_market_city: m.economy_market_title,
+  economy_orders: m.economy_my_orders,
+  economy_exchange: m.economy_tab_exchange,
   faction: m.nav_faction,
   cyborg: m.nav_cyborg,
   inbox: m.shell_route_inbox,
@@ -141,8 +150,16 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <PlanetEditorScreen onClose={goBack} monitor={monitor} />;
     case "dev_star_system":
       return <StarSystemScreen onClose={goBack} onNavigate={navigate} />;
-    case "units":
     case "economy":
+    case "economy_warehouse":
+    case "economy_production":
+    case "economy_market":
+    case "economy_market_item":
+    case "economy_market_city":
+    case "economy_orders":
+    case "economy_exchange":
+      return <EconomyScreen match={match} user={user} />;
+    case "units":
     case "faction":
     case "cyborg":
     case "mail":

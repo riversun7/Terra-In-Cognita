@@ -3,6 +3,7 @@
 import { accountRouter } from "./account.ts";
 import { adminRouter } from "./admin.ts";
 import { dashboardRouter } from "./dashboard.ts";
+import { economyRouter } from "./economy.ts";
 import { inboxRouter } from "./inbox.ts";
 import { router } from "./init.ts";
 import { planetEditorRouter } from "./planetEditor.ts";
@@ -20,6 +21,8 @@ export const appRouter = router({
   inbox: inboxRouter,
   summary: summaryRouter,
   dashboard: dashboardRouter,
+  // 경제 화면(창고·생산·거래창·환전) 조회(ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)")
+  economy: economyRouter,
 });
 
 export type AppRouter = typeof appRouter;

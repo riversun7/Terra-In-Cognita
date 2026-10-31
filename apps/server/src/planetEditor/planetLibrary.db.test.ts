@@ -71,6 +71,29 @@ describe.skipIf(!TEST_DATABASE_URL)("행성 보관함 (DB)", () => {
     expect(field(row, "definition")).toBeUndefined();
   });
 
+  it("행성 표본(planet_templates)에서 시작한 행성: 시작점 종류 template, 정의는 표본 항목 그대로 저장된다", async () => {
+    const mars = env.loaded.raw.planetTemplates.find((entry) => field(entry, "id") === "solar_mars");
+    if (!isJsonObject(mars)) throw new Error("content/core has no solar_mars template");
+    const res = await editorMutation(
+      env.app,
+      "library.create",
+      { name: "화성 1", base: { kind: "template", id: "solar_mars" }, definition: mars },
+      env.cookie.dev,
+    );
+    const created = resultOf(res);
+    expect(created).toMatchObject({
+      name: "화성 1",
+      revision: 1,
+      base: { kind: "template", id: "solar_mars" },
+      definition: mars,
+    });
+    const id = field(created, "id");
+    const listed = list(resultOf(await editorQuery(env.app, "library.list", {}, env.cookie.dev2)));
+    expect(listed.find((item) => field(item, "id") === id)).toMatchObject({
+      base: { kind: "template", id: "solar_mars" },
+    });
+  });
+
   it("[저장]마다 판이 하나 늘고, 기대 판이 다르면 CONFLICT(바뀌지 않음). 판 목록·판 하나", async () => {
     const id = await createdId(env.cookie.dev, "지구형 행성 2");
     const save = (cookie: string, seed: number, expectedRevision: number) =>
@@ -118,6 +141,19 @@ describe.skipIf(!TEST_DATABASE_URL)("행성 보관함 (DB)", () => {
       env.cookie.dev,
     );
     expect(errorOf(unknownBase)).toMatchObject({ code: "BAD_REQUEST", reason: "unknown_base" });
+    // 표본 ID를 팩 행성 종류로(또는 그 반대로) 적으면 그 분류에 없어 받지 않는다
+    for (const base of [
+      { kind: "pack", id: "solar_mars" },
+      { kind: "template", id: EDITOR_PLANET_ID },
+    ]) {
+      const wrongKind = await editorMutation(
+        env.app,
+        "library.create",
+        { name: "ok", base, definition: definition() },
+        env.cookie.dev,
+      );
+      expect(errorOf(wrongKind)).toMatchObject({ code: "BAD_REQUEST", reason: "unknown_base" });
+    }
     // 이름 바꾸기도 같은 규칙. 판은 그대로
     const id = await createdId(env.cookie.dev, "바꿀 이름");
     expect(

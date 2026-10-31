@@ -723,6 +723,8 @@
   "planet_editor_library_name_hint": "1~{max}자. 같은 이름도 됩니다.",
   "planet_editor_library_name_invalid": "이름은 1~{max}자로, 줄바꿈 없이 적어 주세요.",
   "planet_editor_library_start_from": "시작할 행성",
+  "planet_editor_library_group_pack": "팩 행성",
+  "planet_editor_library_group_template": "태양계 표본(굽지 않음)",
   "planet_editor_library_meta": "만든 사람 {author} · 시작 {base}",
   "planet_editor_library_meta_new": "새 행성 · 시작 {base} · 아직 저장하지 않았습니다",
   "planet_editor_library_saved_meta": "판 {revision} · {time} · {person}",

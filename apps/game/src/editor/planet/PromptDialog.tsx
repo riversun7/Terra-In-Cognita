@@ -8,6 +8,22 @@ import { m } from "../../paraglide/messages.js";
 export interface PromptChoice {
   readonly value: string;
   readonly label: string;
+  /** 묶음 이름(있으면 같은 묶음끼리 optgroup으로 모은다) */
+  readonly group?: string | undefined;
+  /** 고른 것 아래에 보이는 한 줄 설명(행성 표본의 특징) */
+  readonly note?: string | null | undefined;
+}
+
+/** 고르기 목록을 차례를 지켜 묶음으로 나눈다(묶음이 없으면 이름 없는 묶음 하나) */
+function groupChoices(options: readonly PromptChoice[]): { group: string; options: PromptChoice[] }[] {
+  const groups: { group: string; options: PromptChoice[] }[] = [];
+  for (const option of options) {
+    const group = option.group ?? "";
+    const last = groups.at(-1);
+    if (last && last.group === group) last.options.push(option);
+    else groups.push({ group, options: [option] });
+  }
+  return groups;
 }
 
 export interface PromptRequest {
@@ -24,6 +40,7 @@ function PromptForm({ request, onClose }: { request: PromptRequest; onClose: () 
   const [name, setName] = useState(request.initialName);
   const [choice, setChoice] = useState(request.choices?.initial ?? null);
   const [invalid, setInvalid] = useState(false);
+  const chosenNote = request.choices?.options.find((option) => option.value === choice)?.note ?? null;
   const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     const normalized = normalizePlanetLibraryName(name);
@@ -72,14 +89,32 @@ function PromptForm({ request, onClose }: { request: PromptRequest; onClose: () 
             id={`${id}-base`}
             className="pe-base-select"
             value={choice ?? ""}
+            aria-describedby={chosenNote ? `${id}-base-note` : undefined}
             onChange={(event) => setChoice(event.target.value)}
           >
-            {request.choices.options.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
+            {groupChoices(request.choices.options).map((group) =>
+              group.group === "" ? (
+                group.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))
+              ) : (
+                <optgroup key={group.group} label={group.group}>
+                  {group.options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ),
+            )}
           </select>
+          {chosenNote ? (
+            <p id={`${id}-base-note`} className="field-hint pe-base-note">
+              {chosenNote}
+            </p>
+          ) : null}
         </div>
       ) : null}
       <div className="form-actions">

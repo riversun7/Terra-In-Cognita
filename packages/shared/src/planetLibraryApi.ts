@@ -4,27 +4,27 @@
 //   (나중 항성계 편집기가 ID로 가리킨다).
 // - 정의(definition)는 지금 편집기가 고치는 콘텐츠 팩 행성 항목 모양 그대로다. 서버가 콘텐츠 형식·생성기 입력으로 검사한다
 //   (새 세부 수치가 생겨도 보관함은 고칠 것이 없다).
-// - 시작점(base): 지금은 팩 행성("pack")뿐이다. 나중에 정의만 있는 표본(태양계 암석 행성 등, 서버가 굽지 않음)을 "template"로
-//   더한다 — 그때 이 표와 서버 검사에 종류를 더한다.
+// - 시작점(base): 팩 행성("pack", 서버가 굽는 planets 분류)과 행성 표본("template", 팩 planet_templates 분류: 정의만 있고
+//   서버가 굽지 않는 태양계 암석 행성 등, ADR 2026-10-29-planet-editor-stage1 "행성 표본").
 import { hasUnstorableText } from "./settings.ts";
 
 /** 이름 상한(코드 포인트, 앞뒤 빈칸을 뗀 뒤). DB 검사(char_length)와 같은 단위 */
 export const PLANET_LIBRARY_NAME_MAX = 60;
 
-/** 시작점 종류(지금은 팩 행성뿐. 표본을 더할 때 "template"를 더한다) */
-export const PLANET_LIBRARY_BASE_KINDS = ["pack"] as const;
+/** 시작점 종류: 팩 행성(pack)·행성 표본(template) */
+export const PLANET_LIBRARY_BASE_KINDS = ["pack", "template"] as const;
 export type PlanetLibraryBaseKind = (typeof PLANET_LIBRARY_BASE_KINDS)[number];
 
 /** 보관함 행성이 시작한 곳 */
 export interface PlanetLibraryBase {
   readonly kind: PlanetLibraryBaseKind;
-  /** 팩 행성 ID(콘텐츠 ID 규칙) */
+  /** 팩 행성 ID 또는 행성 표본 ID(콘텐츠 ID 규칙, 분류는 kind로 가른다) */
   readonly id: string;
 }
 
 /**
  * 받지 않음·실패 이유 코드(오류 data.reason). 정의 검사는 초안과 같은 코드를 쓴다(entry_too_large·invalid_entry·
- * unknown_biome·generator_rejected). 그 밖: invalid_name(이름 규칙), unknown_base(팩에 없는 시작점),
+ * unknown_biome·generator_rejected). 그 밖: invalid_name(이름 규칙), unknown_base(팩에 없는 시작점: 그 종류의 분류에 없는 ID),
  * planet_not_found(없거나 지운 행성), version_not_found, not_author(지우기는 만든 사람·admin만), revision_conflict
  * (다른 사람이 먼저 저장함)
  */

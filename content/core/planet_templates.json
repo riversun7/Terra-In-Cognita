@@ -1,0 +1,254 @@
+{
+  "entries": [
+    {
+      "id": "solar_mercury",
+      "name": {
+        "ko": "수성 표본",
+        "en": "Mercury sample"
+      },
+      "description": {
+        "ko": "작고 메마른 바위 행성. 적도는 덥고 극은 얼었으며, 바다는 작은 내해뿐입니다.",
+        "en": "Small, dry rocky world: hot equator, frozen poles, only small inland seas."
+      },
+      "faceLevel": 8,
+      "seed": 1031104,
+      "presets": {
+        "seaLevel": "continent",
+        "temperature": "hot",
+        "precipitation": "dry",
+        "mountains": "old",
+        "plates": "few",
+        "volcanism": "low"
+      },
+      "overrides": {
+        "landPercent": 82,
+        "shelfPercent": 4,
+        "plateCount": 3,
+        "upliftPercent": 80,
+        "ruggednessPercent": 190,
+        "erosionPercent": 25,
+        "equatorTemperatureC": 42,
+        "poleTemperatureC": -40,
+        "precipitationPercent": 30,
+        "riverDensityPercent": 60,
+        "lakePercent": 60
+      },
+      "biomes": [
+        "ocean_deep",
+        "ocean_shelf",
+        "ocean_coastal",
+        "lake",
+        "ice_sheet",
+        "alpine",
+        "wetland",
+        "tundra",
+        "taiga",
+        "temperate_forest",
+        "grassland",
+        "desert",
+        "savanna",
+        "tropical_rainforest"
+      ]
+    },
+    {
+      "id": "solar_venus",
+      "name": {
+        "ko": "금성 표본",
+        "en": "Venus sample"
+      },
+      "description": {
+        "ko": "덥고 비가 많은 행성. 고원 대륙 둘, 화산이 많고 판 움직임은 약합니다.",
+        "en": "Hot, rainy world: two highland continents, many volcanoes, weak plate motion."
+      },
+      "faceLevel": 9,
+      "seed": 1031102,
+      "presets": {
+        "seaLevel": "normal",
+        "temperature": "hot",
+        "precipitation": "wet",
+        "mountains": "young",
+        "plates": "few",
+        "volcanism": "high"
+      },
+      "overrides": {
+        "landPercent": 24,
+        "shelfPercent": 10,
+        "plateCount": 4,
+        "upliftPercent": 55,
+        "hotspotCount": 24,
+        "volcanismPercent": 170,
+        "equatorTemperatureC": 35,
+        "poleTemperatureC": 22,
+        "precipitationPercent": 300
+      },
+      "continents": {
+        "layout": "earthlike",
+        "count": 2
+      },
+      "biomes": [
+        "ocean_deep",
+        "ocean_shelf",
+        "ocean_coastal",
+        "lake",
+        "ice_sheet",
+        "alpine",
+        "wetland",
+        "tundra",
+        "taiga",
+        "temperate_forest",
+        "grassland",
+        "desert",
+        "savanna",
+        "tropical_rainforest"
+      ]
+    },
+    {
+      "id": "solar_earth",
+      "name": {
+        "ko": "지구 표본",
+        "en": "Earth sample"
+      },
+      "description": {
+        "ko": "기준 행성. 큰 대륙 넷과 섬, 보통 기후입니다.",
+        "en": "Reference world: four large continents and islands, temperate climate."
+      },
+      "faceLevel": 9,
+      "seed": 1031107,
+      "presets": {
+        "seaLevel": "normal",
+        "temperature": "normal",
+        "precipitation": "normal",
+        "mountains": "normal",
+        "plates": "normal",
+        "volcanism": "normal"
+      },
+      "continents": {
+        "layout": "earthlike",
+        "count": 4
+      },
+      "biomes": [
+        "ocean_deep",
+        "ocean_shelf",
+        "ocean_coastal",
+        "lake",
+        "ice_sheet",
+        "alpine",
+        "wetland",
+        "tundra",
+        "taiga",
+        "temperate_forest",
+        "grassland",
+        "desert",
+        "savanna",
+        "tropical_rainforest"
+      ]
+    },
+    {
+      "id": "solar_mars",
+      "name": {
+        "ko": "화성 표본",
+        "en": "Mars sample"
+      },
+      "description": {
+        "ko": "춥고 마른 행성. 한쪽 반구의 고지대 대륙과 반대쪽 저지대 바다, 큰 화산 몇 개, 극관.",
+        "en": "Cold, dry world: a highland continent on one side, a lowland ocean on the other, a few huge volcanoes, polar caps."
+      },
+      "faceLevel": 8,
+      "seed": 1031105,
+      "presets": {
+        "seaLevel": "continent",
+        "temperature": "cold",
+        "precipitation": "dry",
+        "mountains": "old",
+        "plates": "few",
+        "volcanism": "high"
+      },
+      "overrides": {
+        "landPercent": 62,
+        "shelfPercent": 5,
+        "plateCount": 3,
+        "upliftPercent": 40,
+        "ruggednessPercent": 150,
+        "erosionPercent": 40,
+        "hotspotCount": 3,
+        "volcanismPercent": 260,
+        "equatorTemperatureC": 18,
+        "poleTemperatureC": -32,
+        "precipitationPercent": 40,
+        "riverDensityPercent": 70
+      },
+      "continents": {
+        "layout": "hemisphere",
+        "count": 1
+      },
+      "biomes": [
+        "ocean_deep",
+        "ocean_shelf",
+        "ocean_coastal",
+        "lake",
+        "ice_sheet",
+        "alpine",
+        "wetland",
+        "tundra",
+        "taiga",
+        "temperate_forest",
+        "grassland",
+        "desert",
+        "savanna",
+        "tropical_rainforest"
+      ]
+    },
+    {
+      "id": "solar_pluto",
+      "name": {
+        "ko": "명왕성 표본",
+        "en": "Pluto sample"
+      },
+      "description": {
+        "ko": "아주 작고 차가운 얼음 행성. 땅이 넓고 바다는 한쪽에 모여 있습니다.",
+        "en": "Tiny, very cold icy world: mostly land, with the sea gathered on one side."
+      },
+      "faceLevel": 7,
+      "seed": 1031106,
+      "presets": {
+        "seaLevel": "continent",
+        "temperature": "cold",
+        "precipitation": "dry",
+        "mountains": "young",
+        "plates": "few",
+        "volcanism": "low"
+      },
+      "overrides": {
+        "landPercent": 70,
+        "shelfPercent": 5,
+        "plateCount": 2,
+        "upliftPercent": 90,
+        "hotspotCount": 2,
+        "volcanismPercent": 80,
+        "equatorTemperatureC": 6,
+        "poleTemperatureC": -42,
+        "precipitationPercent": 50
+      },
+      "continents": {
+        "layout": "hemisphere",
+        "count": 1
+      },
+      "biomes": [
+        "ocean_deep",
+        "ocean_shelf",
+        "ocean_coastal",
+        "lake",
+        "ice_sheet",
+        "alpine",
+        "wetland",
+        "tundra",
+        "taiga",
+        "temperate_forest",
+        "grassland",
+        "desert",
+        "savanna",
+        "tropical_rainforest"
+      ]
+    }
+  ]
+}

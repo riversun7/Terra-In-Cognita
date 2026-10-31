@@ -12,7 +12,7 @@ import type { LibraryDocState } from "./useLibraryDocument.ts";
 
 export interface LibraryPanelProps {
   readonly doc: LibraryDocState;
-  /** 시작한 팩 행성 이름 */
+  /** 시작점(팩 행성 또는 행성 표본) 이름 */
   readonly baseName: string;
   readonly canRemove: boolean;
   readonly loadVersions: () => Promise<readonly LibraryVersionInfo[]>;

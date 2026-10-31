@@ -145,43 +145,56 @@ function checkTemperatures(planet: unknown, context: z.RefinementCtx): void {
 
 const [MIN_FACE_LEVEL, MAX_FACE_LEVEL] = PLANET_GENERATOR_FACE_LEVELS;
 
-export const planetEntrySchema = z
-  .strictObject({
-    /** 행성 ID = DB에서 칸을 (행성 ID, 셀 키)로 가리킬 때의 행성 ID (ADR 36) */
-    id: contentId,
-    name: localizedText,
-    description: localizedText.optional(),
-    /** 면 레벨(행성 크기: 지구 = 9, 반지름 = 지구 ÷ 12 × 2^(면 레벨 − 9)). 생성기가 받는 범위만(PLANET_GENERATOR_FACE_LEVELS) */
-    faceLevel: z.int().min(MIN_FACE_LEVEL).max(MAX_FACE_LEVEL),
-    /** 생성 시드(u32) */
-    seed: z.int().min(0).max(0xffff_ffff),
-    /** 세계 설정 프리셋(기획 D-154) */
-    presets: presetsSchema,
-    /** 프리셋으로 정한 세부 수치를 덮어쓴다(편집기 슬라이더) */
-    overrides: overridesSchema.optional(),
-    /** 대륙 배치(선택). 없으면 노이즈 배치 */
-    continents: continentsSchema.optional(),
-    /**
-     * 바이옴 표: 생성 결과의 바이옴 번호 = 이 배열의 위치. 바다·호수·육지 규칙이 하나씩은 있어야 생성된다
-     * (참조가 풀린 뒤 validate/planets.ts가 본다)
-     */
-    biomes: z
-      .array(ref("biomes"))
-      .min(1)
-      .max(255)
-      .superRefine((list, context) => {
-        const seen = new Set<string>();
-        for (const item of list) {
-          if (seen.has(item.id)) {
-            context.addIssue({
-              code: "custom",
-              message: `바이옴 "${item.id}"가 두 번 있습니다. 바이옴 번호는 이 표의 위치라 한 번씩만 씁니다.`,
-            });
-            return;
-          }
-          seen.add(item.id);
+/** 행성 항목의 필드(행성 planets와 표본 planet_templates가 같이 쓴다) */
+const planetShape = {
+  /** 행성 ID = DB에서 칸을 (행성 ID, 셀 키)로 가리킬 때의 행성 ID (ADR 36) */
+  id: contentId,
+  name: localizedText,
+  description: localizedText.optional(),
+  /** 면 레벨(행성 크기: 지구 = 9, 반지름 = 지구 ÷ 12 × 2^(면 레벨 − 9)). 생성기가 받는 범위만(PLANET_GENERATOR_FACE_LEVELS) */
+  faceLevel: z.int().min(MIN_FACE_LEVEL).max(MAX_FACE_LEVEL),
+  /** 생성 시드(u32) */
+  seed: z.int().min(0).max(0xffff_ffff),
+  /** 세계 설정 프리셋(기획 D-154) */
+  presets: presetsSchema,
+  /** 프리셋으로 정한 세부 수치를 덮어쓴다(편집기 슬라이더) */
+  overrides: overridesSchema.optional(),
+  /** 대륙 배치(선택). 없으면 노이즈 배치 */
+  continents: continentsSchema.optional(),
+  /**
+   * 바이옴 표: 생성 결과의 바이옴 번호 = 이 배열의 위치. 바다·호수·육지 규칙이 하나씩은 있어야 생성된다
+   * (참조가 풀린 뒤 validate/planets.ts가 본다)
+   */
+  biomes: z
+    .array(ref("biomes"))
+    .min(1)
+    .max(255)
+    .superRefine((list, context) => {
+      const seen = new Set<string>();
+      for (const item of list) {
+        if (seen.has(item.id)) {
+          context.addIssue({
+            code: "custom",
+            message: `바이옴 "${item.id}"가 두 번 있습니다. 바이옴 번호는 이 표의 위치라 한 번씩만 씁니다.`,
+          });
+          return;
         }
-      }),
-  })
+        seen.add(item.id);
+      }
+    }),
+};
+
+export const planetEntrySchema = z
+  .strictObject(planetShape)
   .superRefine((planet, context) => checkTemperatures(planet, context));
 export type PlanetEntry = z.output<typeof planetEntrySchema>;
+
+/**
+ * 행성 표본(planet_templates, ADR 2026-10-29-planet-editor-stage1 "행성 표본"): 편집기 [새 행성]의 시작점. 서버는 굽지 않는다
+ * (서버가 굽는 것은 planets 분류뿐). 모양은 행성 항목과 같고(편집기가 그대로 작업 사본으로 쓴다), 목록에 보이는 한 줄 특징
+ * (description)을 꼭 적는다
+ */
+export const planetTemplateEntrySchema = z
+  .strictObject({ ...planetShape, description: localizedText })
+  .superRefine((planet, context) => checkTemperatures(planet, context));
+export type PlanetTemplateEntry = z.output<typeof planetTemplateEntrySchema>;

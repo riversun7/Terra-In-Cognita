@@ -5,6 +5,9 @@
 // - 기기 워커 미리보기(기준 팩 행성 F5 확인 → 작업 사본 F7), 슬라이더는 [적용]을 기다리고 누르는 조작은 바로 적용된다.
 // - dev는 admin이 만든 행성을 보고(만든 사람 표시) 고쳐 저장할 수 있지만 지울 수는 없다. player는 권한 없음 화면이다.
 // - 대륙 모양(ADR 2026-10-31-continent-layouts): 누르면 바로 적용, 대륙 수 슬라이더는 [적용]을 기다린다.
+// - 행성 표본(ADR 38 "행성 표본"): [새 행성]의 시작점에 태양계 암석 행성 표본이 팩 행성 아래 묶음으로 있고, 고르면 한 줄 특징이
+//   보인다. 화성 표본에서 시작해 저장하면 보관함에 시작점 종류 template로 남는다. 확인한 뒤 지워 다른 시험의 첫 행성을 그대로 둔다.
+// 고르기 값은 "종류:ID"(pack:s2_editor_planet, template:solar_mars).
 // F8·F9는 느려서 넣지 않는다. 실행마다 새 DB라 보관함은 빈 채로 시작한다(admin 시험이 먼저 돈다).
 // 표지(class·data-*)로 본다: 지구본 .pe-globe-view[data-face-level·data-sequence·data-status], 확인 칩 .pe-check-chip[data-check],
 // 저장 상태 칩 .pe-save-chip[data-save-status: new·dirty·saved·saving·failed], 행성 판의 판 번호 .pe-library-info [data-revision].
@@ -98,6 +101,27 @@ async function confirmDialog(page: Page): Promise<void> {
   await expect(openConfirm(page)).toHaveCount(0);
 }
 
+/**
+ * [새 행성] 창(열린 채)의 사진 둘: 화성 표본을 고른 모습(특징 줄), 시작점 목록 모양. 기본 고르기의 펼친 목록은 브라우저가
+ * 따로 그려 사진에 남지 않아서, 목록 사진만 size를 주어 목록 상자로 펼친다(사진용, 화면 코드는 그대로).
+ */
+async function pickerShots(page: Page, prefix: string): Promise<void> {
+  const select = page.locator("dialog.pe-prompt[open] .pe-base-select");
+  await select.selectOption("template:solar_mars");
+  await expect(page.locator("dialog.pe-prompt[open] .pe-base-note")).toBeVisible();
+  await shot(page, `${prefix}-new-template`);
+  // 둥근 알약 모양 그대로 펼치면 글이 잘려 보여 사진에서만 모서리를 편다
+  await select.evaluate((element) => {
+    element.setAttribute("size", "9");
+    element.setAttribute("style", "border-radius: 0");
+  });
+  await shot(page, `${prefix}-new-list`);
+  await select.evaluate((element) => {
+    element.removeAttribute("size");
+    element.removeAttribute("style");
+  });
+}
+
 /** 편집기 판 안이 가로로 넘치지 않는다(판은 세로 스크롤 상자라 문서 넘침 검사로는 보이지 않는다) */
 async function panelOverflow(page: Page): Promise<string[]> {
   return page.evaluate(() => {
@@ -126,7 +150,7 @@ test.describe("관리자", () => {
     await expect(page.locator(".frame")).toHaveCount(0);
     // 빈 보관함 → [새 행성](이름·시작점) → 저장하지 않은 작업 사본
     await page.locator(".pe-empty .pe-new-planet").click();
-    await expect(page.locator("dialog.pe-prompt[open] .pe-base-select")).toHaveValue("s2_editor_planet");
+    await expect(page.locator("dialog.pe-prompt[open] .pe-base-select")).toHaveValue("pack:s2_editor_planet");
     await answerName(page, "지구형 행성 1");
     await expect(saveChip(page)).toHaveAttribute("data-save-status", "new");
     await expect(page.locator(".pe-check-chip")).toHaveAttribute("data-check", "match", {
@@ -246,6 +270,60 @@ test.describe("관리자", () => {
     expect(deviceErrors.filter((error) => !conflictLog.test(error.text))).toEqual([]);
   });
 
+  test("행성 표본: [새 행성]에서 화성 표본을 고르면 특징이 보이고, [저장]하면 보관함에 시작점 종류 template로 남는다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(150_000);
+    const calls = watchTrpc(page);
+    await openSomePlanet(page);
+    await globeReady(page, 7);
+    await tab(page, "planet").click();
+    await page.locator(".pe-tabpanel .pe-new-planet").click();
+    const dialog = page.locator("dialog.pe-prompt[open]");
+    // 팩 행성 묶음, 그다음 표본 묶음(수성·금성·지구·화성·명왕성). 팩 행성을 고른 동안은 특징 줄이 없다
+    await expect(dialog.locator(".pe-base-select optgroup")).toHaveCount(2);
+    await expect(dialog.locator('.pe-base-select optgroup option[value^="template:"]')).toHaveCount(5);
+    await expect(dialog.locator(".pe-base-note")).toHaveCount(0);
+    await dialog.locator(".pe-base-select").selectOption("template:solar_mars");
+    await expect(dialog.locator(".pe-base-note")).toContainText("춥고 마른 행성");
+    await answerName(page, "화성에서 시작");
+    await expect(saveChip(page)).toHaveAttribute("data-save-status", "new");
+    // 표본도 서버가 F5 확인 해시를 준다(굽지 않음): 기기 F5 결과와 같다
+    await expect(page.locator(".pe-check-chip")).toHaveAttribute("data-check", "match", {
+      timeout: PREVIEW_TIMEOUT,
+    });
+    await globeReady(page, 7);
+    // 화성 표본은 대륙 모양이 한쪽 반구다(정의를 그대로 가져왔다)
+    await tab(page, "settings").click();
+    await expect(page.locator('.pe-choice-input[value="hemisphere"]')).toBeChecked();
+    await tab(page, "planet").click();
+    await saveAndExpect(page, 1);
+    await expect(page.locator(".pe-library-info")).toContainText("화성 표본");
+    const create = calls.find((call) => call.procedures.includes("planetEditor.library.create"));
+    expect(create?.inputs[create.procedures.indexOf("planetEditor.library.create")]).toMatchObject({
+      name: "화성에서 시작",
+      base: { kind: "template", id: "solar_mars" },
+    });
+    // 서버 보관함 목록에도 시작점 종류 template로 있다
+    const response = await page.request.get("/api/trpc/planetEditor.library.list");
+    expect(response.ok()).toBe(true);
+    const listed: unknown = await response.json();
+    expect(listed).toMatchObject({
+      result: {
+        data: expect.arrayContaining([
+          expect.objectContaining({ name: "화성에서 시작", base: { kind: "template", id: "solar_mars" } }),
+        ]),
+      },
+    });
+    // 지운다(만든 사람): 남은 행성을 연다. 저장한 새 행성은 보관함 행성으로 옮겨 화면을 새로 만든다(설정 탭부터)
+    await tab(page, "planet").click();
+    await page.locator(".pe-remove").click();
+    await confirmDialog(page);
+    await expect(page.locator(".pe-library-name")).toHaveText("지구형 행성 1", { timeout: PREVIEW_TIMEOUT });
+    expect(deviceErrors).toEqual([]);
+  });
+
   test("대륙 모양: 누르면 바로 적용하고 대륙 수 슬라이더는 [적용]을 기다린다. 노이즈로 돌아오면 대륙 수가 없다", async ({
     page,
     deviceErrors,
@@ -317,6 +395,7 @@ test.describe("관리자", () => {
           await page.locator(".pe-tabpanel .pe-new-planet").click();
           await expect(page.locator("dialog.pe-prompt[open]")).toHaveCount(1);
           await shot(page, `planet-editor-390-${theme}-${language}-new`);
+          await pickerShots(page, `planet-editor-390-${theme}-${language}`);
           await page.keyboard.press("Escape");
           // 대륙 모양: 지구형(대륙 몇 개)을 고르면 대륙 수 슬라이더가 나온다
           await tab(page, "settings").click();
@@ -358,6 +437,13 @@ test.describe("관리자", () => {
             await shot(page, `planet-editor-1440-${theme}-${language}-area`);
             await tab(page, "cell").click();
             await shot(page, `planet-editor-1440-${theme}-${language}-cell`);
+            // [새 행성] 시작점: 화성 표본을 고른 모습 + 목록 모양
+            await tab(page, "planet").click();
+            await page.locator(".pe-tabpanel .pe-new-planet").click();
+            await expect(page.locator("dialog.pe-prompt[open]")).toHaveCount(1);
+            await pickerShots(page, `planet-editor-1440-${theme}-${language}`);
+            await page.keyboard.press("Escape");
+            await expect(page.locator("dialog.pe-prompt[open]")).toHaveCount(0);
             // 대륙 모양: 초대륙
             await tab(page, "settings").click();
             const sequence = Number(await globe(page).getAttribute("data-sequence"));

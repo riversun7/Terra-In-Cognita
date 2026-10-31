@@ -10,6 +10,7 @@ import { registerAuthBridge } from "./auth/bridge.ts";
 import { authHeaders, createProxyChainLogger } from "./auth/http.ts";
 import { type AccountLimitName, type LimitSetting, createAccountLimiters } from "./auth/limits.ts";
 import { isAllowedSocketOrigin } from "./auth/requestGuard.ts";
+import { writeAudit } from "./auth/store.ts";
 import { DEFAULT_TRUST_PROXY, SIM_VERSION } from "./config.ts";
 import { type Database, pingDatabase } from "./db/client.ts";
 import { startServerMetrics } from "./metrics.ts";
@@ -197,7 +198,25 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   };
 
   if (world) registerTerrainRoute(app, { world, viewer: httpViewer });
-  const gateway = world ? createWorldGateway({ world, now, log: app.log }) : undefined;
+  // 관리자 전체 보기를 켜면 감사 기록을 남긴다(S3 ADR 3절). DB가 없으면 로그만
+  const auditDb = options.db;
+  const gateway = world
+    ? createWorldGateway({
+        world,
+        now,
+        log: app.log,
+        onObserve: (viewer, mapKey) => {
+          app.log.info({ userId: viewer.id, mapKey }, "second map observe");
+          if (!auditDb) return;
+          void writeAudit(auditDb, {
+            actor: { kind: "admin", id: viewer.id, ip: null },
+            action: "second_map.observe",
+            targetId: viewer.id,
+            after: { mapKey },
+          }).catch((error: unknown) => app.log.warn({ err: error }, "observe audit failed"));
+        },
+      })
+    : undefined;
 
   // 행성: 준비(캐시 읽기·굽기)는 기다리지 않고 시작한다. 그동안 목록 정보는 generating, 타일은 409
   const planets = options.planets

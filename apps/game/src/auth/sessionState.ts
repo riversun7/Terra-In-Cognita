@@ -65,3 +65,10 @@ export function shouldRecheck(lastCheckedAt: number | null, now: number): boolea
 export function isAdmin(state: SessionState): boolean {
   return state.kind === "signed_in" && state.user.roles.includes("admin");
 }
+
+/** 개발 시험 도구(dev·admin). 서버가 요청마다 다시 확인한다 */
+export function hasDevTools(state: SessionState): boolean {
+  return (
+    state.kind === "signed_in" && (state.user.roles.includes("admin") || state.user.roles.includes("dev"))
+  );
+}

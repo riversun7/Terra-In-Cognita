@@ -467,3 +467,42 @@ describe("측정값", () => {
     expect(random()).toBe((first + 1) >>> 0);
   });
 });
+
+describe("시야 전송(S3)", () => {
+  it("hidden 유닛은 지우고, vision은 안개로 넘긴다. 전체 보기 구독은 observe를 보내고 안개를 끈다", async () => {
+    const { net, engine, live, setObserve, feed } = setup();
+    await live(snapshot({ rev: 5, units: [unit(1), unit(2)] }));
+    net.receive({ t: "unit_paths", mapKey: MAP, fromRev: 5, rev: 6, units: [], hidden: [2] });
+    expect(engine.state.units.map((spawn) => spawn.id)).toEqual([1]);
+    const bits = new Uint8Array(128);
+    bits[3] = 9;
+    net.receive({ t: "vision", mapKey: MAP, explored: btoa(String.fromCharCode(...bits)) });
+    expect(engine.state.explored?.[3]).toBe(9);
+    setObserve(true);
+    feed.refresh();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(net.of("subscribe").at(-1)).toMatchObject({ observe: true });
+    await live(snapshot({ rev: 9, units: [unit(1)], snapshotId: 2 }));
+    expect(engine.state.explored).toBeNull();
+  });
+
+  it("관리자가 아니어도 내 유닛(own)은 움직일 수 있다", async () => {
+    const { net, feed, live } = setup({ admin: false });
+    await live(snapshot({ rev: 1, units: [unit(1, { own: true }), unit(2)] }));
+    expect(feed.moveUnit(2, { x: 1, y: 1 })).toEqual({ kind: "view_only" });
+    expect(feed.moveUnit(1, { x: 1, y: 1 }).kind).toBe("sent");
+    expect(net.of("move_unit")).toHaveLength(1);
+  });
+
+  it("시험 일꾼 받기: 보내고, 되면 알리고 다시 구독한다", async () => {
+    const { net, feed, live, devSpawns } = setup();
+    await live(snapshot({ rev: 1 }));
+    expect(feed.devSpawn(3)).toBe(true);
+    const sent = net.of("dev_spawn_units").at(-1);
+    expect(sent).toMatchObject({ mapKey: MAP, count: 3 });
+    net.receive({ t: "result", id: sent?.id ?? -1, ok: true });
+    expect(devSpawns).toEqual([{ ok: true }]);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(net.of("subscribe")).toHaveLength(2);
+  });
+});

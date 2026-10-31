@@ -28,7 +28,7 @@ import {
 
 const PASSWORD = "fake pass phrase 1";
 
-type RequestMessage = ClientMessageOf<"subscribe" | "remove_building">;
+type RequestMessage = ClientMessageOf<"subscribe" | "remove_building" | "dev_spawn_units">;
 
 function resultOf(messages: ServerMessage[]): ServerMessage | undefined {
   return messages.find((m) => m.t === "result");
@@ -120,6 +120,34 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 로그인·권한 (DB)", () => {
     expect(presence[0]?.offline_since_ms).not.toBeNull();
   });
 
+  it("시험 일꾼 받기(dev·admin) → 시야 구독에 내 유닛과 탐사 칸이 오고, 끊으면 탐사 기록이 저장된다(S3 ADR 3절)", async () => {
+    const forbidden = await request(
+      { cookie: playerCookie, origin: TEST_ORIGIN },
+      { t: "dev_spawn_units", id: 3, mapKey: S1_TEST_MAP_KEY, count: 2 },
+    );
+    expect(resultOf(forbidden)).toEqual({ t: "result", id: 3, ok: false, code: "forbidden" });
+    const spawned = await request(
+      { cookie: adminCookie, origin: TEST_ORIGIN },
+      { t: "dev_spawn_units", id: 4, mapKey: S1_TEST_MAP_KEY, count: 3 },
+    );
+    expect(resultOf(spawned)).toEqual({ t: "result", id: 4, ok: true });
+    const messages = await request({ cookie: adminCookie, origin: TEST_ORIGIN }, subscribe);
+    const units = messages.flatMap((m) => (m.t === "map_snapshot" ? m.units : []));
+    // 내 유닛 3개는 경로 전체(until 없음). 봇(남의 유닛)은 시야 안에 있을 때만 온다
+    expect(units.filter((unit) => unit.until === undefined).length).toBeGreaterThanOrEqual(3);
+    const vision = messages.find((m) => m.t === "vision");
+    expect(vision?.t === "vision" && Buffer.from(vision.explored, "base64").some((byte) => byte !== 0)).toBe(
+      true,
+    );
+    for (let i = 0; i < 50; i++) {
+      if ((await rows(test.db, "select 1 from world_exploration")).length > 0) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    expect(await rows(test.db, "select octet_length(cells) as n from world_exploration")).toEqual([
+      { n: 128 },
+    ]);
+  });
+
   it("다른 출처에서 연 연결은 쿠키가 있어도 로그인하지 않은 것으로 본다", async () => {
     const messages = await request({ cookie: adminCookie, origin: "https://evil.example.test" }, subscribe);
     expect(resultOf(messages)).toEqual({ t: "result", id: 1, ok: false, code: "sign_in_required" });
@@ -146,11 +174,12 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 로그인·권한 (DB)", () => {
     });
   });
 
-  it("지형 파일: 쿠키가 있으면 200, 없으면 401", async () => {
+  it("지형 파일: 로그인하지 않으면 401, 탐사하지 않은 플레이어는 404(U3), 전체 보기 권한(admin)은 200", async () => {
     const url = terrainPath(S1_TEST_MAP_KEY, 1);
-    expect((await app.inject({ method: "GET", url, headers: { cookie: playerCookie } })).statusCode).toBe(
-      200,
-    );
     expect((await app.inject({ method: "GET", url })).statusCode).toBe(401);
+    expect((await app.inject({ method: "GET", url, headers: { cookie: playerCookie } })).statusCode).toBe(
+      404,
+    );
+    expect((await app.inject({ method: "GET", url, headers: { cookie: adminCookie } })).statusCode).toBe(200);
   });
 });

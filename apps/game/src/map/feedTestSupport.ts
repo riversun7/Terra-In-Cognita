@@ -4,7 +4,7 @@ import type { BuildingFootprint, TerrainInput, UnitPath, UnitSpawn } from "@terr
 import type { BuildingWire, ServerMessageOf, UnitMotionWire } from "@terra/protocol";
 import { vi } from "vitest";
 import type { FeatureClientMessage, FeatureServerMessage, LinkEvent } from "../net/serverLink.ts";
-import type { CommandReport, FeedSink, FeedStatus, MapFeedOptions } from "./feedTypes.ts";
+import type { CommandOutcome, CommandReport, FeedSink, FeedStatus, MapFeedOptions } from "./feedTypes.ts";
 import { createRequestIds, startMapFeed } from "./mapFeed.ts";
 
 export const MAP = 2 ** 48 + 9;
@@ -135,6 +135,8 @@ export function fakeEngine() {
     units: [] as UnitSpawn[],
     paths: new Map<number, UnitPath>(),
     buildings: [] as BuildingFootprint[],
+    /** 안개(탐사 칸). undefined = 받은 적 없음, null = 끔 */
+    explored: undefined as Uint8Array | null | undefined,
     selected: null as number | null,
     setUnitsCalls: 0,
     pathCalls: 0,
@@ -159,6 +161,9 @@ export function fakeEngine() {
     setBuildings: (buildings) => {
       state.buildings = [...buildings];
     },
+    setExplored: (bits) => {
+      state.explored = bits;
+    },
     select: (id) => {
       state.selected = id;
     },
@@ -181,6 +186,8 @@ export async function settle(): Promise<void> {
 export interface SetupOptions {
   ready?: boolean;
   admin?: boolean;
+  /** 전체 보기로 구독(시야 전송) */
+  observe?: boolean;
   capacity?: number;
   loadTerrain?: MapFeedOptions["loadTerrain"];
 }
@@ -192,6 +199,8 @@ export function setup(options: SetupOptions = {}) {
   const reports: CommandReport[] = [];
   const loadTerrain = vi.fn(options.loadTerrain ?? (async () => TERRAIN));
   let admin = options.admin ?? true;
+  let observe = options.observe ?? false;
+  const devSpawns: CommandOutcome[] = [];
   let serverClock = 10_050;
   if (options.ready ?? true) net.up();
   const feed = startMapFeed({
@@ -200,6 +209,8 @@ export function setup(options: SetupOptions = {}) {
     sink: engine.sink,
     loadTerrain,
     canCommand: () => admin,
+    observe: () => observe,
+    onDevSpawn: (outcome) => devSpawns.push(outcome),
     now: () => Date.now(),
     serverNow: () => serverClock,
     nextRequestId: createRequestIds(100),
@@ -220,6 +231,10 @@ export function setup(options: SetupOptions = {}) {
     setAdmin: (value: boolean) => {
       admin = value;
     },
+    setObserve: (value: boolean) => {
+      observe = value;
+    },
+    devSpawns,
     setServerClock: (value: number) => {
       serverClock = value;
     },

@@ -78,6 +78,10 @@ const noiseUv = (index: number, sizeM: number): string =>
 /** 화면 한 점이 덮는 땅(pxM)이 무늬 크기의 반을 넘으면 줄이기 시작해 무늬 크기에서 0 */
 const fadeBySize = (sizeM: number): string => `clamp(2.0 - pxM / ${glslFloat(sizeM / 2)}, 0.0, 1.0)`;
 
+/** 안개: 시야 칸 한 변의 수(서버 시야 칸 32×32, packages/sim VISION_SIDE와 같다)와 탐사하지 않은 곳의 밝기 */
+const FOG_SIDE = 32;
+const FOG_UNEXPLORED = 0.06;
+
 const VERTEX_PARS = /* glsl */ `
 varying vec3 vTerrainPos;
 varying float vTerrainUp;
@@ -95,6 +99,8 @@ uniform sampler2D uSurface;
 uniform sampler2D uNoise;
 uniform float uCellSize;
 uniform vec3 uHeight;
+uniform sampler2D uFog;
+uniform float uFogOn;
 
 // 지표 코드마다 잡음 채널: 0~3은 한 채널씩(서로 다르다), 그 밖의 코드는 두 채널을 섞는다(새 코드도 경계가 흔들린다)
 vec4 terrainNoiseMix(float code) {
@@ -197,6 +203,11 @@ const FRAGMENT_COLOR = /* glsl */ `
   // 윗면만 칠한다(가장자리 벽은 법선 y = 0이라 꼭짓점 색 그대로). 계산은 분기 밖(미분이 정의되게)
   vec3 terrainColor = terrainSurfaceColor(vTerrainPos);
   diffuseColor.rgb = vTerrainUp > 0.01 ? terrainColor : diffuseColor.rgb;
+  // 안개(S3 시야 전송): 탐사하지 않은 시야 칸은 검게. 시야 칸 32×32 = 지형 칸 4×4, 경계는 선형 거르기로 부드럽게
+  if (uFogOn > 0.5) {
+    float explored = texture(uFog, vTerrainPos.xz / (uCellSize * ${glslFloat(TERRAIN_CELLS)})).r;
+    diffuseColor.rgb *= mix(${glslFloat(FOG_UNEXPLORED)}, 1.0, explored);
+  }
 }
 `;
 
@@ -238,6 +249,17 @@ function createSurfaceTexture(data: Uint8Array): DataTexture {
   return texture;
 }
 
+/** 안개 텍스처: 시야 칸 32×32, 빨강 = 탐사함(255) */
+function createFogTexture(data: Uint8Array): DataTexture {
+  const texture = new DataTexture(data, FOG_SIDE, FOG_SIDE, RGBAFormat, UnsignedByteType);
+  texture.minFilter = LinearFilter;
+  texture.magFilter = LinearFilter;
+  texture.generateMipmaps = false;
+  texture.flipY = false;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function createNoiseTexture(data: Uint8Array): DataTexture {
   const texture = new DataTexture(data, NOISE_TEXTURE_SIZE, NOISE_TEXTURE_SIZE, RGBAFormat, UnsignedByteType);
   texture.wrapS = RepeatWrapping;
@@ -258,18 +280,24 @@ export class TerrainMaterial {
   private readonly surfaceTexture = createSurfaceTexture(this.surfaceData);
   /** 잡음 텍스처(처음 setTerrain 때 만든다 — 자료는 지형 워커가 만든다) */
   private noiseTexture: DataTexture | null = null;
+  private readonly fogData = new Uint8Array(FOG_SIDE * FOG_SIDE * 4);
+  private readonly fogTexture = createFogTexture(this.fogData);
   /** 셰이더와 같은 객체를 나눠 쓴다(값만 바꾸면 다음 그리기에 들어간다) */
   private readonly uniforms: {
     uSurface: { value: DataTexture };
     uNoise: { value: DataTexture | null };
     uCellSize: { value: number };
     uHeight: { value: Vector3 };
+    uFog: { value: DataTexture };
+    uFogOn: { value: number };
   } = {
     uSurface: { value: this.surfaceTexture },
     uNoise: { value: null },
     uCellSize: { value: 1 },
     /** (가장 낮은 땅 m, 1 / 높이 폭, 물 높이 m) */
     uHeight: { value: new Vector3(0, 1, 0) },
+    uFog: { value: this.fogTexture },
+    uFogOn: { value: 0 },
   };
 
   constructor() {
@@ -300,8 +328,25 @@ export class TerrainMaterial {
     this.uniforms.uHeight.value.set(minHeightM, heightShadeScale(minHeightM, maxHeightM), input.waterLevelM);
   }
 
+  /**
+   * 탐사 칸(시야 칸 32×32 비트, 128바이트, 칸 번호 = y × 32 + x, 비트 = 번호 & 7). null이면 안개를 끈다(관리자 전체 보기)
+   */
+  setExplored(bits: Uint8Array | null): void {
+    if (!bits) {
+      this.uniforms.uFogOn.value = 0;
+      return;
+    }
+    for (let index = 0; index < FOG_SIDE * FOG_SIDE; index++) {
+      const on = ((bits[index >> 3] ?? 0) & (1 << (index & 7))) !== 0;
+      this.fogData[index * 4] = on ? 255 : 0;
+    }
+    this.fogTexture.needsUpdate = true;
+    this.uniforms.uFogOn.value = 1;
+  }
+
   dispose(): void {
     this.material.dispose();
+    this.fogTexture.dispose();
     this.surfaceTexture.dispose();
     this.noiseTexture?.dispose();
   }

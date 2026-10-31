@@ -15,6 +15,11 @@ export class TerrainView {
   private readonly surface = new TerrainMaterial();
   private water: Mesh<PlaneGeometry, MeshLambertMaterial> | null = null;
 
+  /** 탐사 칸(안개). null이면 끈다 */
+  setExplored(bits: Uint8Array | null): void {
+    this.surface.setExplored(bits);
+  }
+
   /** 메시(워커 결과)와 그 메시를 만든 지형 입력(칸 지표·칸 크기·물 높이), 지형 재질의 잡음 자료(terrainBuilder.ts) */
   set(mesh: TerrainMeshArrays, terrain: TerrainInput, noise: Uint8Array): void {
     this.clear();

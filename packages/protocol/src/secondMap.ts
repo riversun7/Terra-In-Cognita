@@ -34,8 +34,12 @@ export const UNIT_SIZE_CLASSES = [1, 2, 3] as const;
  */
 export const S1_TEST_MAP_KEY = 281_474_976_710_665;
 
-/** 2차맵 메시지에 필요한 가장 낮은 프로토콜 버전. 1로 인사한 연결이 보내면 invalid_message로 거절한다 */
-export const SECOND_MAP_PROTOCOL_VERSION = 2;
+/** 2차맵 메시지에 필요한 가장 낮은 프로토콜 버전(시야 전송, S3). 더 낮게 인사한 연결이 보내면 invalid_message로 거절한다 */
+export const SECOND_MAP_PROTOCOL_VERSION = 3;
+/** 탐사 칸 비트 모음 바이트 수(시야 칸 32×32, packages/sim VISION_BYTES와 같다) */
+export const VISION_BYTES = 128;
+/** 개발 시험 명령 한 번에 받는 시험 일꾼 상한 */
+export const MAX_DEV_SPAWN_UNITS = 20;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 /** 기기가 정하는 요청 번호. 명령은 같은 사용자 안에서 10분 동안 겹치지 않게 쓴다(중복 방지 키) */
@@ -62,12 +66,20 @@ const timestampMs = z.number().int().nonnegative();
 
 // ---------- 기기 → 서버 ----------
 
-/** 2차맵 구독. 이미 구독 중이면 스냅샷을 새로 보낸다(빠진 것이 있을 때 다시 받는 방법) */
-export const subscribeMessage = z.object({ t: z.literal("subscribe"), id: requestId, mapKey });
+/**
+ * 2차맵 구독. 이미 구독 중이면 스냅샷을 새로 보낸다(빠진 것이 있을 때 다시 받는 방법).
+ * observe: 관리자 전체 보기(dev·admin, 시야로 거르지 않는다. 서버가 감사 기록을 남긴다)
+ */
+export const subscribeMessage = z.object({
+  t: z.literal("subscribe"),
+  id: requestId,
+  mapKey,
+  observe: z.literal(true).optional(),
+});
 
 export const unsubscribeMessage = z.object({ t: z.literal("unsubscribe"), id: requestId, mapKey });
 
-/** 관리자 시험 명령: 유닛을 목표 위치(고정소수점)로 보낸다. 서버가 경로를 찾는다 */
+/** 이동 명령: 유닛을 목표 위치(고정소수점)로 보낸다. 서버가 경로를 찾는다. 자기 유닛이거나 관리자(S3) */
 export const moveUnitMessage = z.object({
   t: z.literal("move_unit"),
   id: requestId,
@@ -99,6 +111,14 @@ export const removeBuildingMessage = z.object({
   buildingId,
 });
 
+/** 개발 시험 명령(dev·admin): 내 시험 일꾼 count개를 이 2차맵에 받는다(채집 직무, 오프라인 정산 시험용) */
+export const devSpawnUnitsMessage = z.object({
+  t: z.literal("dev_spawn_units"),
+  id: requestId,
+  mapKey,
+  count: z.number().int().min(1).max(MAX_DEV_SPAWN_UNITS),
+});
+
 // ---------- 서버 → 기기 ----------
 
 /** 유닛 하나의 지금 움직임. 위치는 경로를 따라 기기가 계산한다(packages/sim motion.ts와 같은 반올림 규칙) */
@@ -115,6 +135,13 @@ export const unitMotionSchema = z.object({
     .min(2)
     .max(MAX_PATH_POINTS * 2)
     .refine((values) => values.length % 2 === 0, "path needs x, y pairs"),
+  /**
+   * 남의 유닛: 경로를 보이는 구간에서 자른 끝 시각(서버 ms). 경로의 마지막 점이 그 시각의 위치다.
+   * 그 뒤는 서버가 다음 구간이나 hidden을 보낸다. 내 유닛은 없다(경로 전체)
+   */
+  until: timestampMs.optional(),
+  /** 내 유닛(시야 전송, S3): 내가 움직일 수 있다. 전체 보기와 남의 유닛은 없다 */
+  own: z.literal(true).optional(),
 });
 export type UnitMotionWire = z.infer<typeof unitMotionSchema>;
 
@@ -151,13 +178,29 @@ const mapSnapshotMessage = z.object({
   buildings: z.array(buildingSchema),
 });
 
-/** 바뀐 유닛 움직임 묶음(약 100ms마다). (fromRev, rev] 사이 바뀐 유닛의 마지막 움직임만 담는다 */
-const unitPathsMessage = z.object({
-  t: z.literal("unit_paths"),
+/**
+ * 바뀐 유닛 움직임 묶음(약 100ms마다). (fromRev, rev] 사이 바뀐 유닛의 마지막 움직임만 담는다.
+ * hidden: 그 사이 시야에서 사라진 유닛(지운다). units를 먼저 적용하고 hidden을 지운다. 둘 다 비지 않는다(하나는 있다)
+ */
+const unitPathsMessage = z
+  .object({
+    t: z.literal("unit_paths"),
+    mapKey,
+    fromRev: revision,
+    rev: revision,
+    units: z.array(unitMotionSchema),
+    hidden: z.array(unitId).optional(),
+  })
+  .refine((message) => message.units.length > 0 || (message.hidden?.length ?? 0) > 0, "empty unit_paths");
+
+/** 탐사 칸(시야 칸 32×32 비트, base64). 구독할 때와 바뀔 때. 통째 바꾸기라 순서 번호가 없다. 기기는 탐사하지 않은 곳을 검게 칠한다 */
+const visionMessage = z.object({
+  t: z.literal("vision"),
   mapKey,
-  fromRev: revision,
-  rev: revision,
-  units: z.array(unitMotionSchema).min(1),
+  explored: z
+    .string()
+    .length(Math.ceil(VISION_BYTES / 3) * 4)
+    .regex(/^[A-Za-z0-9+/]*={0,2}$/),
 });
 
 const buildingPlacedMessage = z.object({
@@ -230,11 +273,13 @@ export const secondMapClientMessages = [
   moveUnitMessage,
   placeBuildingMessage,
   removeBuildingMessage,
+  devSpawnUnitsMessage,
 ] as const;
 
 export const secondMapServerMessages = [
   mapSnapshotMessage,
   unitPathsMessage,
+  visionMessage,
   buildingPlacedMessage,
   buildingRemovedMessage,
   resultMessage,

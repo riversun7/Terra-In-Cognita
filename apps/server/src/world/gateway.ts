@@ -1,9 +1,11 @@
 // WebSocket 연결 하나의 2차맵 메시지 처리 (src/session.ts가 넘긴다) — ADR 33 "전송", ADR 7 "명령"
 // - 한 연결의 요청은 받은 순서대로 하나씩 처리한다(명령의 순서 보장). 밀린 요청이 MAX_PENDING을 넘으면 busy.
-// - 보기(구독)는 로그인한 사용자만, 명령은 권한 표의 secondMap 동작(지금 admin만)이 있어야 한다. 명령마다 서버가 확인한다.
+// - 보기(구독)는 로그인한 사용자만. 플레이어는 시야로 거른 전송(map.vision), 전체 보기(observe, dev·admin)는 거르지 않은
+//   전송(map.stream)을 받는다(S3 ADR 3절). 이동 명령은 자기 유닛이거나 권한 표의 move-unit(admin), 건물 명령은 admin,
+//   개발 시험 명령(dev_spawn_units)은 dev-spawn(dev·admin). 명령마다 서버가 확인한다.
 // - 사용자별 속도 제한, 명령 중복 방지(같은 사용자·같은 요청 번호면 10분 동안 같은 결과를 다시 준다 —
 //   끊긴 뒤 다시 보낸 명령이 두 번 실행되지 않게).
-// - 볼 수 있는지는 canViewSecondMap(ADR 26 자리, S1은 모두 통과)이 정한다.
+// - 볼 수 있는지는 canViewSecondMap(ADR 26, 내 유닛·건물 또는 탐사한 칸)이 정한다.
 import { isCellKey } from "@terra/planet";
 import { type ClientMessageOf, type ResultCode, encodeMessage } from "@terra/protocol";
 import { rolesAllow } from "../auth/permissions.ts";
@@ -11,11 +13,11 @@ import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { StreamSubscriber } from "./mapStream.ts";
 import type { CommandResult, SecondMap } from "./secondMap.ts";
-import { canViewSecondMap } from "./visibility.ts";
+import { canObserve, canViewSecondMap } from "./visibility.ts";
 import type { WorldStats } from "./worldStats.ts";
 
 export type SecondMapClientMessage = ClientMessageOf<
-  "subscribe" | "unsubscribe" | "move_unit" | "place_building" | "remove_building"
+  "subscribe" | "unsubscribe" | "move_unit" | "place_building" | "remove_building" | "dev_spawn_units"
 >;
 type CommandMessage = ClientMessageOf<"move_unit" | "place_building" | "remove_building">;
 
@@ -44,6 +46,10 @@ export interface WorldDirectory {
   readonly stats: WorldStats;
   /** 부팅 복구가 끝났는가(없으면 늘 준비됨). 끝나기 전 요청은 busy */
   isReady?(): boolean;
+  /** 사용자의 소유 주체(저장하는 월드만). 없으면 내 유닛 없음 */
+  ownerOfUser?(userId: string): number | undefined;
+  /** 개발 시험 명령: 내 시험 일꾼 count개. 만든 수(저장하는 월드만) */
+  devSpawn?(userId: string, mapKey: number, count: number): number;
 }
 
 /** 연결 하나가 게이트웨이에 주는 것 */
@@ -66,6 +72,9 @@ export interface WorldGateway {
 export interface GatewayLog {
   error(obj: object, message: string): void;
 }
+
+/** 관리자 전체 보기를 켠 기록(감사 기록, app.ts가 DB에 쓴다) */
+export type ObserveAudit = (viewer: Viewer, mapKey: number) => void;
 
 /** 명령 중복 방지 — 같은 키면 처음 결과(진행 중이면 그 약속)를 돌려준다 */
 export function createCommandDedup(now: () => number, ttlMs = DEDUP_TTL_MS, maxEntries = DEDUP_MAX_ENTRIES) {
@@ -140,6 +149,7 @@ export function createWorldGateway(options: {
   world: WorldDirectory;
   now: () => number;
   log: GatewayLog;
+  onObserve?: ObserveAudit | undefined;
 }): WorldGateway {
   const { world, now, log } = options;
   const commandLimiter: RateLimiter = createRateLimiter({ ...COMMAND_LIMIT, now });
@@ -164,7 +174,9 @@ export function createWorldGateway(options: {
         const mapKey = message.mapKey;
         // 구독 해제는 로그인 여부와 상관없이 늘 된다
         if (message.t === "unsubscribe") {
-          subscribed.get(mapKey)?.stream.unsubscribe(subscriber);
+          const map = subscribed.get(mapKey);
+          map?.stream.unsubscribe(subscriber);
+          map?.vision.unsubscribe(subscriber);
           subscribed.delete(mapKey);
           reply(message.id, { ok: true });
           return;
@@ -175,9 +187,13 @@ export function createWorldGateway(options: {
         if (world.isReady && !world.isReady()) return reply(message.id, fail("busy"));
         const map = isCellKey(mapKey) ? world.map(mapKey) : undefined;
         if (!map) return reply(message.id, fail("unknown_map"));
-        if (!canViewSecondMap(viewer, mapKey)) return reply(message.id, fail("not_visible"));
 
         if (message.t === "subscribe") {
+          const observe = message.observe === true;
+          if (observe && !canObserve(viewer)) return reply(message.id, fail("forbidden"));
+          if (!observe && !(await canViewSecondMap(world, viewer, map)))
+            return reply(message.id, fail("not_visible"));
+          if (closed) return;
           if (!subscribed.has(mapKey) && subscribed.size >= MAX_MAPS_PER_SOCKET) {
             return reply(message.id, fail("too_many_maps"));
           }
@@ -185,11 +201,30 @@ export function createWorldGateway(options: {
           // 결과를 먼저 보내고 스냅샷을 보낸다(기기는 ok 다음에 조각들이 온다고 안다)
           reply(message.id, { ok: true });
           subscribed.set(mapKey, map);
-          map.stream.subscribe(subscriber);
+          if (observe) {
+            map.vision.unsubscribe(subscriber);
+            map.stream.subscribe(subscriber);
+            options.onObserve?.(viewer, mapKey);
+          } else {
+            map.stream.unsubscribe(subscriber);
+            map.vision.subscribe(subscriber, { userId: viewer.id, ownerId: world.ownerOfUser?.(viewer.id) });
+          }
           return;
         }
 
-        if (!rolesAllow(viewer.roles, { secondMap: [COMMAND_ACTIONS[message.t]] })) {
+        if (message.t === "dev_spawn_units") {
+          if (!rolesAllow(viewer.roles, { secondMap: ["dev-spawn"] }))
+            return reply(message.id, fail("forbidden"));
+          if (!commandLimiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
+          const made = world.devSpawn?.(viewer.id, mapKey, message.count) ?? 0;
+          return reply(message.id, made > 0 ? { ok: true } : fail("busy"));
+        }
+
+        const ownUnit =
+          message.t === "move_unit" &&
+          world.ownerOfUser !== undefined &&
+          map.unitInfo(message.unitId)?.ownerId === world.ownerOfUser(viewer.id);
+        if (!ownUnit && !rolesAllow(viewer.roles, { secondMap: [COMMAND_ACTIONS[message.t]] })) {
           return reply(message.id, fail("forbidden"));
         }
         if (!commandLimiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
@@ -218,7 +253,10 @@ export function createWorldGateway(options: {
         },
         close() {
           closed = true;
-          for (const map of subscribed.values()) map.stream.unsubscribe(subscriber);
+          for (const map of subscribed.values()) {
+            map.stream.unsubscribe(subscriber);
+            map.vision.unsubscribe(subscriber);
+          }
           subscribed.clear();
         },
       };

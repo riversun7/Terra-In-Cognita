@@ -74,13 +74,14 @@ async function greet(server: FastifyInstance, protocolVersion = PROTOCOL_VERSION
 }
 
 describe("WebSocket 2차맵 메시지", () => {
-  it("프로토콜 1로 인사한 연결이 2차맵 메시지를 보내면 invalid_message로 거절한다", async () => {
+  it("프로토콜 2로 인사하면 protocol_unsupported로 거절한다(시야 전송 3판부터, 걸러지지 않은 흐름을 남기지 않는다)", async () => {
     const server = await makeApp({ viewer: ADMIN });
-    const { ws, inbox } = await greet(server, 1);
-    ws.send(encodeMessage({ t: "subscribe", id: 1, mapKey: S1_TEST_MAP_KEY }));
+    const ws = await server.injectWS("/ws");
+    const inbox = collector(ws);
+    ws.send(encodeMessage({ t: "hello", protocolVersion: 2, clientBuild: "test" }));
     await inbox.until((m) => m.some((x) => x.t === "reject"));
-    expect(inbox.messages.at(-1)).toMatchObject({ t: "reject", code: "invalid_message" });
-    expect(inbox.messages.some((x) => x.t === "map_snapshot" || x.t === "result")).toBe(false);
+    expect(inbox.messages.at(-1)).toMatchObject({ t: "reject", code: "protocol_unsupported" });
+    expect(inbox.messages.some((x) => x.t === "welcome")).toBe(false);
     ws.terminate();
   });
 
@@ -105,7 +106,7 @@ describe("WebSocket 2차맵 메시지", () => {
   it("구독하면 시험 2차맵 스냅샷(봇 30개·지형 주소)을 받는다", async () => {
     const server = await makeApp({ viewer: ADMIN, bots: 30 });
     const { ws, inbox } = await greet(server);
-    ws.send(encodeMessage({ t: "subscribe", id: 1, mapKey: S1_TEST_MAP_KEY }));
+    ws.send(encodeMessage({ t: "subscribe", id: 1, mapKey: S1_TEST_MAP_KEY, observe: true }));
     await inbox.until(snapshotDone);
     expect(inbox.messages.find((x) => x.t === "result")).toEqual({ t: "result", id: 1, ok: true });
     const snapshot = inbox.messages.filter((x) => x.t === "map_snapshot");
@@ -123,7 +124,7 @@ describe("WebSocket 2차맵 메시지", () => {
     const a = await greet(server);
     const b = await greet(server);
     for (const peer of [a, b])
-      peer.ws.send(encodeMessage({ t: "subscribe", id: 1, mapKey: S1_TEST_MAP_KEY }));
+      peer.ws.send(encodeMessage({ t: "subscribe", id: 1, mapKey: S1_TEST_MAP_KEY, observe: true }));
     await Promise.all([a.inbox.until(snapshotDone), b.inbox.until(snapshotDone)]);
     // 임시 지형에서 막히지 않은 첫 칸
     const costs = placementCostsFromTerrain(generateTempTerrain(seedFromCellKey(S1_TEST_MAP_KEY)));

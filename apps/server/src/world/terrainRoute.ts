@@ -39,7 +39,7 @@ export function registerTerrainRoute(
         return reply.code(401).header("cache-control", "no-store").send({ error: "SIGN_IN_REQUIRED" });
       const mapKey = parseMapKey(request.params.mapKey);
       const map = mapKey === undefined ? undefined : options.world.map(mapKey);
-      if (!map || mapKey === undefined || !canViewSecondMap(viewer, mapKey)) {
+      if (!map || mapKey === undefined || !(await canViewSecondMap(options.world, viewer, map))) {
         return reply.code(404).header("cache-control", "no-store").send({ error: "MAP_NOT_FOUND" });
       }
       if (request.query.v !== String(map.generatorVersion)) {

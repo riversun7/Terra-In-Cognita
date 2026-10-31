@@ -4,7 +4,9 @@
 //   rev ≤ 내 rev면 버리고, 빠졌으면(unit_paths는 fromRev > 내 rev, 건물은 rev − 1 > 내 rev) 다시 구독한다(= 새 스냅샷).
 //   다시 구독한 뒤 새 스냅샷이 올 때까지 오는 변화는 버린다(순서가 이미 끊겼다).
 // - 지형은 스냅샷의 주소를 HTTP로 받는다(첫 조각이 오면 바로 시작). 주소가 바뀌거나 앞서 실패했을 때만 다시 받는다.
-// - 관리자 시험 명령(유닛 이동)은 canCommand일 때만 보낸다. 보기 전용이면 보내지 않는다(서버도 명령마다 권한을 본다).
+// - 이동 명령은 내 유닛(own)이거나 canCommand(관리자)일 때만 보낸다(서버도 명령마다 권한·소유를 본다).
+// - 시야 전송(S3 ADR 3절): 남의 유닛은 자른 경로가 오고, 시야에서 사라지면 unit_paths.hidden으로 지운다. 탐사 칸(vision)은
+//   onExplored로 넘긴다(화면이 안개를 칠한다). 전체 보기(observe, dev·admin)로 구독하면 안개를 끈다.
 //   결과 전에 끊기면 다시 연결된 뒤 같은 요청 번호로 다시 보낸다 — 서버 중복 방지가 두 번 실행을 막는다(ADR 7).
 // - 고빈도 상태(유닛 움직임)는 엔진에 바로 넣고, 화면에는 요약(status·stats)만 준다(PLAN 5.7). 타입은 feedTypes.ts.
 import type { BuildingFootprint } from "@terra/engine";
@@ -98,6 +100,10 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
   let subscribedOnLink = false;
   /** 결과를 기다리는 구독의 요청 번호 */
   let subscribeId: number | null = null;
+  /** 지금 구독이 전체 보기인가 */
+  let observing = false;
+  /** 결과를 기다리는 개발 시험 명령 */
+  const devSpawns = new Map<number, ReturnType<typeof setTimeout>>();
   /** 구독을 보냈고 그 스냅샷을 아직 못 받았다 */
   let awaitingSnapshot = false;
   let subscribeSentAt: number | null = null;
@@ -167,7 +173,10 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
     clearSnapshotTimer();
     if (stopped || !link.isReady()) return;
     const id = nextId();
-    if (!link.send({ t: "subscribe", id, mapKey })) return;
+    const observe = options.observe?.() === true;
+    if (!link.send(observe ? { t: "subscribe", id, mapKey, observe: true } : { t: "subscribe", id, mapKey }))
+      return;
+    observing = observe;
     subscribedOnLink = true;
     subscribeId = id;
     awaitingSnapshot = true;
@@ -179,7 +188,7 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
   }
 
   /** 새 스냅샷을 다시 받는다. 앞 구독과 너무 가까우면 조금 뒤에 */
-  const resubscribe = (reason: "gap" | "terrain"): void => {
+  const resubscribe = (reason: "gap" | "terrain" | "refresh"): void => {
     if (reason === "gap") counts.gaps += 1;
     assembler.reset();
     awaitingSnapshot = true;
@@ -284,6 +293,8 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
     rev = snapshot.rev;
     pushUnits();
     sink.setBuildings(footprints());
+    // 전체 보기는 안개가 없다(시야로 거른 구독은 스냅샷 뒤 vision이 온다)
+    if (observing) sink.setExplored(null);
     last.snapshotBytes = snapshot.bytes;
     last.snapshotParts = snapshot.parts;
     if (!requested) counts.serverResyncs += 1;
@@ -347,8 +358,19 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       units.set(unit.id, unit);
       if (!added) sink.setUnitPath(unit.id, toUnitPath(unit));
     }
-    if (added) pushUnits();
+    // 시야에서 사라진 유닛(시야 전송) — 엔진은 하나씩 빼지 않아서 목록을 다시 넣는다
+    let removed = false;
+    for (const id of message.hidden ?? []) {
+      dropped.delete(id);
+      if (units.delete(id)) removed = true;
+    }
+    if (added || removed) pushUnits();
     rev = message.rev;
+  };
+
+  const onVision = (message: ServerMessageOf<"vision">): void => {
+    if (observing) return;
+    sink.setExplored(Uint8Array.from(atob(message.explored), (char) => char.charCodeAt(0)));
   };
 
   const onBuildingChange = (changeRev: number, apply: () => void): void => {
@@ -371,6 +393,15 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
   };
 
   const onResult = (message: ServerMessageOf<"result">): void => {
+    const devTimer = devSpawns.get(message.id);
+    if (devTimer !== undefined) {
+      clearTimeout(devTimer);
+      devSpawns.delete(message.id);
+      options.onDevSpawn?.(message.ok ? { ok: true } : { ok: false, code: message.code });
+      // 내 유닛이 생겼다 → 새 스냅샷(시야 묶음이 바뀐다)
+      if (message.ok) resubscribe("refresh");
+      return;
+    }
     if (message.id === subscribeId) {
       subscribeId = null;
       if (!message.ok) onSubscribeFailed(message.code);
@@ -396,6 +427,9 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
     switch (message.t) {
       case "unit_paths":
         onUnitPaths(message);
+        return;
+      case "vision":
+        onVision(message);
         return;
       case "building_placed":
         onBuildingChange(message.rev, () => buildings.set(message.building.id, message.building));
@@ -455,7 +489,7 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       };
     },
     moveUnit(unitId, cell) {
-      if (!options.canCommand()) return { kind: "view_only" };
+      if (!options.canCommand() && units.get(unitId)?.own !== true) return { kind: "view_only" };
       if (stopped || !hasSnapshot || !link.isReady()) return { kind: "offline" };
       const id = nextId();
       const message: ClientMessageOf<"move_unit"> = {
@@ -493,6 +527,24 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       }
       if (phase.kind === "failed" || phase.kind === "retrying") subscribe();
     },
+    refresh() {
+      if (stopped) return;
+      failures = 0;
+      resubscribe("refresh");
+    },
+    devSpawn(count) {
+      if (stopped || !link.isReady()) return false;
+      const id = nextId();
+      if (!link.send({ t: "dev_spawn_units", id, mapKey, count })) return false;
+      devSpawns.set(
+        id,
+        setTimeout(() => {
+          devSpawns.delete(id);
+          options.onDevSpawn?.({ ok: false, code: "no_reply" });
+        }, COMMAND_TIMEOUT_MS),
+      );
+      return true;
+    },
     stop() {
       if (stopped) return;
       stopped = true;
@@ -501,6 +553,8 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       clearSnapshotTimer();
       for (const command of pending.values()) clearTimeout(command.timer);
       pending.clear();
+      for (const timer of devSpawns.values()) clearTimeout(timer);
+      devSpawns.clear();
       if (subscribedOnLink && link.isReady()) link.send({ t: "unsubscribe", id: nextId(), mapKey });
       subscribedOnLink = false;
     },

@@ -53,6 +53,7 @@ import type { MapReplicaInit } from "./pathMessages.ts";
 import type { PathOutcome, PathPriority, PathService } from "./pathService.ts";
 import { type Scheduler, createScheduler } from "./scheduler.ts";
 import { UNIT_KIND_BOT, UNIT_KIND_TEST } from "./unitKinds.ts";
+import { type ExploredStore, type MapVision, createMapVision } from "./vision.ts";
 import { type SizedEntry, buildingToWire, motionToWire, sized } from "./wire.ts";
 import { type WorldStats, recordPathOutcome } from "./worldStats.ts";
 
@@ -162,6 +163,8 @@ export interface SecondMapOptions {
   allocateUnitId?: (() => number) | undefined;
   /** 새 건물 ID. 기본은 이 2차맵 안에서 1부터 */
   allocateBuildingId?: (() => number) | undefined;
+  /** 탐사 기록 저장(시야 전송). 없으면 메모리에만 */
+  explored?: ExploredStore | undefined;
 }
 
 export interface TerrainFile {
@@ -172,7 +175,10 @@ export interface TerrainFile {
 export interface SecondMap {
   readonly mapKey: number;
   readonly generatorVersion: number;
+  /** 거르지 않은 전송(관리자 전체 보기) */
   readonly stream: MapStream;
+  /** 시야로 거른 전송(플레이어) — S3 ADR 3절 */
+  readonly vision: MapVision;
   /** 경로 워커가 사본을 만들 때 쓰는 지금 상태 */
   replicaInit(): MapReplicaInit;
   /** 지형 이진 파일(처음 부를 때 만들고 계속 쓴다) */
@@ -207,7 +213,7 @@ export interface SecondMap {
   removeBuilding(buildingId: number): CommandResult;
   gauges(): { units: number; moving: number; planning: number };
   /** 시험·확인용: 유닛의 크기 등급·속도·지금 움직임 */
-  unitInfo(unitId: number): { size: SizeClass; speed: number; motion: Motion } | undefined;
+  unitInfo(unitId: number): { size: SizeClass; speed: number; motion: Motion; ownerId: number } | undefined;
   stop(): void;
 }
 
@@ -305,7 +311,10 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     });
   const grid = createPlacementGrid(placementCostsFromTerrain(terrain));
   const units = new Map<number, UnitState>();
-  const buildings = new Map<number, { placement: BuildingPlacement; entry: SizedEntry<BuildingWire> }>();
+  const buildings = new Map<
+    number,
+    { id: number; ownerId: number | null; placement: BuildingPlacement; entry: SizedEntry<BuildingWire> }
+  >();
   let rev = 0;
   let gridVersion = 0;
   /** 마지막으로 칸을 막은 편집의 격자 버전. 이보다 옛 격자로 푼 결과는 다시 찾는다 */
@@ -333,6 +342,19 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       units: [...units.values()].map((unit) => unit.entry),
       buildings: [...buildings.values()].map((building) => building.entry),
     }),
+  });
+
+  const vision = createMapVision({
+    mapKey,
+    terrain: terrainInfo,
+    now,
+    stats: stats.stream,
+    explored: options.explored,
+    source: {
+      units: () => units.values(),
+      unit: (id) => units.get(id),
+      buildings: () => buildings.values(),
+    },
   });
 
   const scheduler: Scheduler<MapEvent> = createScheduler<MapEvent>({
@@ -365,6 +387,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     unit.entry = sized(motionToWire(unit.id, unit.size, motion));
     rev += 1;
     stream.unitChanged(rev, unit.entry);
+    vision.unitChanged(unit);
     save(unit);
   };
 
@@ -542,6 +565,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     units.set(unit.id, unit);
     rev += 1;
     stream.unitChanged(rev, unit.entry);
+    vision.unitChanged(unit);
     return unit;
   };
 
@@ -549,15 +573,17 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     createMotion({ waypoints: [at], departAtMs: now(), speed });
 
   /** 건물 하나를 격자에 놓고 기억한다(검사는 부르는 쪽이 했다) */
-  const putBuilding = (id: number, placement: BuildingPlacement): void => {
+  const putBuilding = (id: number, placement: BuildingPlacement, ownerId: number | null): void => {
     applyPlacement(grid, id, placement);
     gridVersion += 1;
     blockingVersion = gridVersion;
     paths.edit(mapKey, gridVersion, { op: "place", id, placement });
     const entry = sized(buildingToWire(id, placement));
-    buildings.set(id, { placement, entry });
+    const building = { id, ownerId, placement, entry };
+    buildings.set(id, building);
     rev += 1;
     stream.buildingPlaced(rev, entry.value);
+    vision.buildingPlaced(building);
   };
 
   const view = (unit: UnitState): UnitView => ({
@@ -575,6 +601,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     mapKey,
     generatorVersion: terrain.generatorVersion,
     stream,
+    vision,
     replicaInit: () => ({
       mapKey,
       version: gridVersion,
@@ -648,7 +675,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
           badBuildings.push(row.id);
           continue;
         }
-        putBuilding(row.id, row.placement);
+        putBuilding(row.id, row.placement, row.ownerId);
       }
       const events: { at: number; kind: MapEvent["kind"]; unit: UnitState }[] = [];
       for (const row of unitRows) {
@@ -723,7 +750,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
         return { ok: false, code: check.problem === "invalid_input" ? "invalid_request" : check.problem };
       if (unitInRect(check.rect)) return { ok: false, code: "overlaps_unit" };
       const id = allocateBuildingId();
-      putBuilding(id, placement);
+      putBuilding(id, placement, null);
       persist?.saveBuilding({ id, mapKey, ownerId: null, placement });
       replanBlockedUnits();
       return { ok: true, buildingId: id };
@@ -737,6 +764,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       persist?.removeBuilding(buildingId);
       rev += 1;
       stream.buildingRemoved(rev, buildingId);
+      vision.buildingRemoved(buildingId);
       return { ok: true };
     },
     gauges() {
@@ -751,11 +779,14 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     },
     unitInfo(unitId) {
       const unit = units.get(unitId);
-      return unit ? { size: unit.size, speed: unit.speed, motion: unit.motion } : undefined;
+      return unit
+        ? { size: unit.size, speed: unit.speed, motion: unit.motion, ownerId: unit.ownerId }
+        : undefined;
     },
     stop() {
       scheduler.stop();
       stream.close();
+      vision.close();
     },
   };
 }

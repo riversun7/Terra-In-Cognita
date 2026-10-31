@@ -313,7 +313,7 @@
 - 미리 캐시: `DEV_ONLY_CHUNK`는 1절 정규식 그대로다. `globIgnores`는 `assets/gpuBench*.{js,css}`·`assets/[Pp]lanetEditor*.{js,css}`다. 빌드 뒤 `check-pwa.mjs`가 정규식에 걸리는 파일이 미리 캐시되지 않았는지 본다. 시험(`scripts/pwa-build.test.mjs`)은 개발자 도구 폴더와 `shell/routeViews.tsx`의 지연 로딩·워커 진입 파일(`import("…")`, `new URL("…", import.meta.url)`) 이름이 정규식에 걸리는지 본다(개발자 홈만 뺀다).
   - 남은 틈(Assumed): 개발자 조각 둘이 함께 쓰는 모듈은 rolldown이 따로 묶고, 그 조각 이름은 안의 모듈 이름을 따른다(지금 `gpuBenchScene-*.js`). 앞머리가 없는 모듈만 든 공용 조각이 생기면 미리 캐시된다. 시험은 진입 파일만 본다. WP-D는 빌드 뒤 미리 캐시 목록(`dist/sw.js`)에 편집기 모듈이 없는지 소스 맵으로 본다.
 - 화면 문구 키 앞머리는 `dev_`다(`dev_home_lead`·`dev_home_tools`·`dev_tool_<도구>_desc`·`dev_tool_soon`). 홈 제목은 `shell_dev`를 다시 쓴다.
-- 잰 값(Verified: 개발 컨테이너, 부하 5~15, main `51a14e5` 위): 첫 화면 JS 126,188 → 126,051B(−137B, 상한 131,416B 그대로). 첫 화면 소스 모듈은 243개 그대로이고 조각 나눔만 바뀌었다(5개 → 4개: Paraglide `runtime` 조각이 `index`에 들어감, 소스 맵 비교). 미리 캐시 42개 1,265.40KiB → 43개 1,248.97KiB(개발자 홈 JS·CSS를 더함, `gpuBench*` 0개). 관리자 조각 JS 23.87 → 6.59kB, CSS 5.57 → 1.91kB. 셰이더 측정 화면 조각 JS 17.56kB(gzip 6.78kB), CSS 3.40kB.
+- 잰 값(Verified: 개발 컨테이너, 부하 5~15, main `acd651d`을 합친 뒤): 첫 화면 JS 125,940 → 126,754B(+814B, 상한 131,416B 그대로). 첫 화면 소스 모듈은 243개 그대로이고 조각 나눔만 바뀌었다(3개 → 5개: 공용 조각 `routes`·`reporter`가 따로 나옴, 소스 맵 비교). 미리 캐시 53개 1,341.31KiB → 57개 1,326.17KiB(개발자 홈 JS·CSS와 위 공용 조각 둘을 더함, `gpuBench*` 0개). 관리자 조각 JS 23.87 → 6.55kB, CSS 5.57 → 1.91kB. 셰이더 측정 화면 조각 JS 17.58kB(gzip 6.79kB), CSS 3.40kB.
 
 ### 사용자 결정 (2026-10-29)
 | ID | 묻는 것 | 추천 | 사용자 답(원문) |

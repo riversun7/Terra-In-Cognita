@@ -3,7 +3,7 @@
 - 일시: 2026-10-30 02:20 (KST)
 - 작업 도구: Claude Code
 - 관련: ADR `2026-10-29-planet-editor-stage1.md`(38, 제안) 1절(개발자 도구 한곳)·15절 WP-H 줄, ADR `2026-10-29-app-shell.md`(37, 제안) 1~3절(주소 표·뒤로·틀·사이드 메뉴), 작업 기록 `29-2310-app-shell-w1.md`(W1의 꽂는 줄)·`30-0120-app-shell-w1-review.md`·`30-0140-app-shell-w125-integration.md`, `29-2013-planet-editor-core.md`·`29-2010-editor-flatmap.md`(미리 캐시 대소문자)
-- 작업 자리: 작업 트리 `.claude/worktrees/editor-devhome`, 가지 `work/editor-devhome`. main `51ddd5f`에서 시작했고, 끝내기 전에 main `51a14e5`(W3 합치기 뒤) 위로 옮겼다(`git rebase`, 충돌 없음). 푸시·합치기는 하지 않았다.
+- 작업 자리: 작업 트리 `.claude/worktrees/editor-devhome`, 가지 `work/editor-devhome`. main `51ddd5f`에서 시작해 main `51a14e5`(W3 합치기 뒤) 위로 옮겼고(`git rebase`, 충돌 없음), 문서 커밋 뒤 main `acd651d`(W3·W4 합치기 뒤)를 합쳤다(`git merge main`, 충돌 없음). 합친 뒤 준비 중 화면 표의 쓰지 않는 처리함 줄을 뺐다. 푸시·main에 합치기는 하지 않았다.
 
 ## 한 일
 - 개발자 홈 `/dev`(주소 `dev`, 틀 있음, 부모 `home`, dev·admin): `apps/game/src/editor/DevHome.tsx`.
@@ -14,8 +14,8 @@
   - `git mv`: `admin/gpuBench/*` → `editor/gpuBench/*`, `admin/GpuBenchPanel.tsx` → `editor/GpuBenchPage.tsx`. 측정 코드 파일 이름(앞머리 `gpuBench`)은 그대로다. 시험 4개 파일(`gpuBench*.test.ts`)도 그대로 통과한다.
   - 화면 `/dev/gpu-bench`(주소 `dev_gpu_bench`, 틀 있음, 부모 `dev`): 제목(h1)은 주소 표 화면 이름, [뒤로], 촘촘 변형. 측정판 제목 키 `gpu_bench_title`을 지우고 결과 소제목을 h3 → h2로 올렸다. 판을 가르던 위 선(관리자 화면 안에서 쓰던 것)을 뺐다.
   - 화면 조각 진입은 `editor/gpuBench/gpuBenchScreen.ts`(GpuBenchPage를 다시 내보내기만 함)다. 아래 "정한 것" 참고.
-  - 관리자 화면(`/admin`)에는 계정·운영 기능만 남았다. 준비 중 화면 표(`sections/ComingSoon.tsx`)에서 개발자 홈·셰이더 측정 줄을 뺐다(행성 편집기만 남음).
-- 주소 → 화면 표(`shell/routeViews.tsx`)에는 `dev`·`dev_gpu_bench` 줄과 지연 로딩 두 줄만 고쳤다(머리 주석·처리함·홈 줄은 건드리지 않았다).
+  - 관리자 화면(`/admin`)에는 계정·운영 기능만 남았다. 준비 중 화면 표(`sections/ComingSoon.tsx`)에서 개발자 홈·셰이더 측정 줄과, W3가 남긴 쓰지 않는 처리함 줄을 뺐다(행성 편집기만 남음).
+- 주소 → 화면 표(`shell/routeViews.tsx`)에는 `dev`·`dev_gpu_bench` 줄과 지연 로딩 두 줄만 고쳤다. W3·W4를 합친 뒤 머리 주석의 꽂는 줄을 WP-D만으로 줄였다(처리함·홈 줄은 그대로).
 - 미리 캐시 규칙: `ADMIN_ONLY_CHUNK` → `DEV_ONLY_CHUNK` = `/^assets\/(gpuBench|[Pp]lanetEditor)[^/]*\.(js|css)$/`(ADR 38 1절 그대로). `vite.config.ts` `workbox.globIgnores`에 `assets/gpuBench*.{js,css}`·`assets/[Pp]lanetEditor*.{js,css}`. `scripts/pwa-build.test.mjs`를 고치고 시험 2개를 더했다(개발자 도구 진입 파일 이름).
 - 화면 시험 `e2e/dev.spec.ts` 12개(W5 시험 틀).
 - 문서: ADR 38 "구현하며 정한 것" WP-H, AGENTS.md 6장(Vite 조각 이름 확인 사항), 이 기록, 목차.
@@ -32,12 +32,14 @@
 | 명령 | 결과 |
 |---|---|
 | `pnpm check`(main `51a14e5` 위로 옮긴 뒤, 2분 17초) | 통과: 포맷·린트·타입·경계·크기·다국어 418개 키·대비 136쌍(화면 CSS 16개)·콘텐츠 `core@3 (ca75451a06b5)`, 시험 파일 166개 통과·9개 건너뜀, 시험 1,638개 통과·81개 건너뜀(DB 없이) |
+| `pnpm --filter @terra/game typecheck`, `pnpm check`(main `acd651d`을 합친 뒤) | 통과: 다국어 477개 키, 시험 파일 171개 통과·9개 건너뜀, 시험 1,696개 통과·81개 건너뜀(DB 없이) |
 | 중간 커밋 3개(`51ddd5f` 위 처음 커밋들: 측정판 옮김·개발자 홈·미리 캐시 규칙) | 커밋마다 게임 앱 `typecheck`·`oxlint --type-aware --deny-warnings apps/game/src scripts`·`vitest run scripts/pwa-build.test.mjs apps/game/src/editor apps/game/src/shell`·`check-i18n` 통과(저장소 밖 작업 트리에서 커밋을 차례로 꺼내 돌림) |
-| `pnpm --filter @terra/game build` + `node scripts/check-pwa.mjs` | 통과. 미리 캐시 43개 1,248.97KiB(main `51a14e5`: 42개 1,265.40KiB). 더한 것은 `DevHome-*.js`·`.css`, 빠진 것은 Paraglide `runtime` 조각(`index`에 들어감). `gpuBench*`는 0개(조각 `gpuBenchScreen`·`gpuBenchRunner`·`gpuBenchGlsl`·`gpuBenchScene`·`gpuBenchTsl`·`gpuBenchScreen.css` 모두 빠짐) |
-| `pnpm check:bundle` | 126,051B / 131,416B(남음 5,365B). main `51a14e5` 126,188B(−137B). 첫 화면 소스 모듈 243개 그대로(소스 맵 비교, 개발자·관리자 모듈 없음). 조각 5개 → 4개(`runtime` 조각이 `index`로). 처음 바탕 `51ddd5f` 위에서는 123,416 → 123,847B(+431B, `index` + `device` → `index` + `jsx-runtime`, 모듈 237개 그대로). 상한은 올리지 않았다 |
-| 조각 크기(main `51a14e5` 위) | `gpuBenchScreen` JS 17.56kB(gzip 6.78kB)·CSS 3.40kB, `DevHome` JS 2.52kB(gzip 1.22kB)·CSS 1.90kB(0.59kB), `AdminPage` JS 23.87 → 6.59kB·CSS 5.57 → 1.91kB, `gpuBenchRunner` 13.30kB, `gpuBenchTsl` 687.94kB |
+| `pnpm --filter @terra/game build` + `node scripts/check-pwa.mjs`(main `acd651d`을 합친 뒤) | 통과. 미리 캐시 57개 1,326.17KiB(main `acd651d`: 53개 1,341.31KiB). 더한 것은 `DevHome-*.js`·`.css`와 공용 조각 `routes`·`reporter`. `gpuBench*`·`planetEditor*`는 0개(조각 `gpuBenchScreen`·`gpuBenchRunner`·`gpuBenchGlsl`·`gpuBenchScene`·`gpuBenchTsl`·`gpuBenchScreen.css` 모두 빠짐). `51a14e5` 위에서는 43개 1,248.97KiB(main 42개 1,265.40KiB) |
+| `pnpm check:bundle`(`acd651d`을 합친 뒤) | 126,754B / 131,416B(남음 4,662B). main `acd651d` 125,940B(+814B). 첫 화면 소스 모듈 243개 그대로(소스 맵 비교, 개발자·관리자 모듈 없음). 조각 3개 → 5개: `routes`(1,734B)·`reporter`(1,358B)가 따로 나왔다(rolldown 공용 조각 나눔. DevHome의 주소 표 값 가져오기를 타입으로 바꿔 다시 재 봐도 그대로라 되돌렸다). 상한은 올리지 않았다. 앞 바탕들: `51a14e5` 126,188 → 126,051B(−137B), `51ddd5f` 123,416 → 123,847B(+431B) |
+| 조각 크기(`acd651d`을 합친 뒤) | `gpuBenchScreen` JS 17.58kB(gzip 6.79kB)·CSS 3.40kB, `DevHome` JS 2.51kB(gzip 1.22kB)·CSS 1.90kB(0.59kB), `AdminPage` JS 23.87 → 6.55kB·CSS 5.57 → 1.91kB, `gpuBenchRunner` 13.30kB, `gpuBenchTsl` 687.94kB |
 | `TEST_DATABASE_URL=… pnpm e2e`(`51ddd5f` 위, 02:03 KST) | 29개 통과(3.1분: dev 12 + shell 15 + smoke 2). 빈 캐시 행성 굽기 59.7초 |
 | `TEST_DATABASE_URL=… pnpm e2e`(main `51a14e5` 위로 옮긴 뒤) | 29개 통과(1.0분, 행성 캐시 있음) |
+| `TEST_DATABASE_URL=… pnpm e2e`(main `acd651d`을 합친 뒤) | 29개 통과(1.6분: dev 12 + shell 15 + smoke 2) |
 | break-ui 임시 시험(저장소 밖 `zz-breakui.spec.ts`, 시험 틀 위에서 돌리고 지움) | 9개 통과. 390·320px × 한국어·영어 × 글자 100%·200%, 셰이더 측정 진행 창(재는 중)과 멈춘 결과(빈 값 "–" 포함), 다크 결과 |
 
 ### 화면 시험 `e2e/dev.spec.ts` (12개)
@@ -51,7 +53,7 @@
 
 ## 사진 (저장소 밖)
 - `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/editor-devhome/shots/` — `dev-home-390-{pastel,dark}-{ko,en}.png`, `dev-gpu-bench-390-{pastel,dark}-{ko,en}.png`(8장, `51ddd5f` 위 빌드)
-- `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/editor-devhome/shots-rebased/` — 같은 8장(main `51a14e5` 위로 옮긴 뒤)
+- `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/editor-devhome/shots-merged/` — 같은 8장(main `acd651d`을 합친 뒤)
 - `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/editor-devhome/breakui/` — `bu-home-{390,320}-{ko,en}-200.png`, `bu-bench-hud-{390,320}-{ko,en}.png`(재는 중), `bu-bench-result-{390,320}-{ko,en}.png`·`-200.png`, `bu-bench-result-390-dark-en.png`(17장)
 
 ## 스킬 검토
@@ -73,8 +75,8 @@
 | `apps/game/src/editor/gpuBench/*`(← `admin/gpuBench/*`) | 옮김. 실행기·공용 모양 주석, CSS 머리 주석과 관리자용 위 선 지움 |
 | `apps/game/src/editor/gpuBench/gpuBenchScreen.ts`(새로) | 화면 조각 진입(조각 이름 `gpuBench…` → 미리 캐시에서 빠짐) |
 | `apps/game/src/admin/AdminPage.tsx` | 측정판을 뺌(계정·운영 기능만) |
-| `apps/game/src/shell/routeViews.tsx` | `dev`·`dev_gpu_bench` 줄과 지연 로딩 두 줄(꽂는 줄) |
-| `apps/game/src/sections/ComingSoon.tsx` | 준비 중 화면 표에서 개발자 홈·셰이더 측정 줄을 뺌 |
+| `apps/game/src/shell/routeViews.tsx` | `dev`·`dev_gpu_bench` 줄과 지연 로딩 두 줄(꽂는 줄), 머리 주석의 꽂는 줄을 WP-D만으로 |
+| `apps/game/src/sections/ComingSoon.tsx` | 준비 중 화면 표에서 개발자 홈·셰이더 측정 줄과 쓰지 않는 처리함 줄(W3 뒤)을 뺌 |
 | `apps/game/messages/ko.json`·`en.json` | `dev_` 키 5개 더함, `gpu_bench_title` 지움 |
 | `scripts/pwa-build.mjs`·`pwa-build.test.mjs` | `DEV_ONLY_CHUNK`와 시험(JS·CSS·대문자 편집기 화면, 진입 파일 이름) |
 | `apps/game/vite.config.ts` | `workbox.globIgnores`를 같은 파일로 |
@@ -90,7 +92,7 @@
   - `sections/ComingSoon.tsx`: `ComingSoonRoute`의 Exclude에 `dev_planet_editor`를 더하고 SECTIONS 줄을 뺀다(틀을 숨기는 화면 쪽 갈래도 그때 정리).
   - 빌드 뒤 `dist/sw.js` 미리 캐시 목록에 편집기 모듈이 든 조각이 없는지 소스 맵으로 본다(공용 조각 이름은 진입 파일 이름이 아니다, ADR 38 WP-H "남은 틈").
 - 나중 도구(`/dev/<도구>`): 주소 표에 줄(부모 `dev`, dev_admin)을 더하면 `DEV_TOOLS`에서 타입 오류가 난다 → 한 줄(이름 `shell_route_dev_<도구>`, 설명 `dev_tool_<도구>_desc`, ko·en). 그 도구 조각을 미리 캐시에서 빼려면 진입 파일 앞머리와 `DEV_ONLY_CHUNK`·`globIgnores`를 함께 고친다(지금 식은 두 앞머리만이고 ADR 38 1절 문장이다).
-- 통합: `shell/routeViews.tsx` 머리 주석 셋째 줄의 "개발자 영역 ADR 38 WP-H·WP-D"는 WP-D만 남겨도 된다. W4 합치기가 같은 줄("홈 W4")을 고칠 것이라 이 가지는 건드리지 않았다.
+- 처리함·홈 화면(W3·W4)과는 `routeViews.tsx`에서 겹치지 않았다(`git merge main` 충돌 없음).
 - 합칠 때 `docs/WORKLOG.md`는 main이 더 움직였으면 `pnpm docs:index`로 다시 만든다.
 
 ## 건드리지 말 것

@@ -1,5 +1,5 @@
 // 도시 지분 — docs/adr/2026-10-31-faction-society-core.md "지분", 기획 46 §1.3·§5.1·§5.3, D-130·D-338·D-344·D-346·D-349·D-409
-// 도시마다 지분(1000주, D-130)을 원장 자산 `share:<도시 ID>`로 둔다(1:1 양도·배당·의결이 같은 원장으로 풀린다, D-409).
+// 도시마다 지분(1000주, D-130)을 원장 자산 `share_<도시 ID>`로 둔다(1:1 양도·배당·의결이 같은 원장으로 풀린다, D-409).
 // - 발행·소각은 시스템 계정 issue:/sink:(자산마다 하나). 양도는 주체 사이 이체.
 // - 독재 도시는 지배 주체가 과반(> 50%)을 늘 지킨다(D-338·D-349): 그 아래로 내려가는 양도는 거절한다.
 // - 배당은 지분 비례(내림), 남는 몫은 내는 쪽에 남는다. 지배 주체 자기 몫은 옮기지 않는다.
@@ -7,7 +7,8 @@ import type { LedgerBook, LedgerEntry } from "../ledger/ledgerBook.ts";
 
 export type Regime = "dictatorship" | "democracy" | "capitalism";
 
-export const shareAsset = (cityId: number): string => `share:${cityId}`;
+/** 서버 원장 자산 형식(^[a-z][a-z0-9_]{1,47}$)을 따른다 */
+export const shareAsset = (cityId: number): string => `share_${cityId}`;
 const issueCode = (asset: string) => `issue:${asset}`;
 const sinkCode = (asset: string) => `sink:${asset}`;
 

@@ -1,0 +1,561 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "4e0e38ce-edb8-4d0f-8ee1-3df4b68c454f",
+  "prevIds": [
+    "236be0fc-340e-45bd-ab96-71eb315a2a2f",
+    "75acf8b8-823d-48ed-9013-09f616fa66e6"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_cities"
+      ],
+      "writes": [
+        "s|tbl|public.world_cities",
+        "n|tbl|public.world_cities",
+        "e|tbl|public.world_cities",
+        "n|rel|public.world_cities",
+        "n|type|public.world_cities",
+        "n|rel|public.world_cities_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "factions",
+        "regime"
+      ],
+      "writes": [
+        "s|col|public.factions.regime",
+        "n|col|public.factions.regime",
+        "e|col|public.factions.regime"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "factions",
+        "fixed"
+      ],
+      "writes": [
+        "s|col|public.factions.fixed",
+        "n|col|public.factions.fixed",
+        "e|col|public.factions.fixed"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "factions",
+        "tech_level"
+      ],
+      "writes": [
+        "s|col|public.factions.tech_level",
+        "n|col|public.factions.tech_level",
+        "e|col|public.factions.tech_level"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "factions",
+        "tech_blueprint"
+      ],
+      "writes": [
+        "s|col|public.factions.tech_blueprint",
+        "n|col|public.factions.tech_blueprint",
+        "e|col|public.factions.tech_blueprint"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "world_cities",
+        "world_cities_map_idx"
+      ],
+      "writes": [
+        "s|idx|public.world_cities_map_idx",
+        "n|idx|public.world_cities_map_idx",
+        "e|idx|public.world_cities_map_idx",
+        "n|rel|public.world_cities_map_idx"
+      ],
+      "reads": [
+        "n|tbl|public.world_cities",
+        "n|sch|public",
+        "n|col|public.world_cities.map_key"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "world_cities",
+        "world_cities_faction_idx"
+      ],
+      "writes": [
+        "s|idx|public.world_cities_faction_idx",
+        "n|idx|public.world_cities_faction_idx",
+        "e|idx|public.world_cities_faction_idx",
+        "n|rel|public.world_cities_faction_idx"
+      ],
+      "reads": [
+        "n|tbl|public.world_cities",
+        "n|sch|public",
+        "n|col|public.world_cities.faction_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_cities"
+      ],
+      "writes": [
+        "s|fk|public.world_cities.world_cities_faction_id_factions_id_fkey",
+        "n|fk|public.world_cities.world_cities_faction_id_factions_id_fkey",
+        "e|fk|public.world_cities.world_cities_faction_id_factions_id_fkey",
+        "n|con|public.world_cities.world_cities_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_cities",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.world_cities.faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "factions"
+      ],
+      "writes": [
+        "s|ck|public.factions.factions_regime",
+        "n|ck|public.factions.factions_regime",
+        "e|ck|public.factions.factions_regime",
+        "n|con|public.factions.factions_regime"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.factions.regime"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "factions"
+      ],
+      "writes": [
+        "s|ck|public.factions.factions_tech",
+        "n|ck|public.factions.factions_tech",
+        "e|ck|public.factions.factions_tech",
+        "n|con|public.factions.factions_tech"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.factions.tech_level",
+        "n|col|public.factions.tech_blueprint"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "world_cities",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "regime",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'democracy'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "fixed",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "tech_level",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "tech_blueprint",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "planet_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'s2_test_planet'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "map_key",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "cell_x",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "cell_y",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "start",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "housing",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "research_level",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "founded_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "world_cities_map_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "map_key",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "world_cities_faction_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "faction_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "world_cities_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "world_cities_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "factions_regime",
+        "value": "\"regime\" in ('dictatorship', 'democracy', 'capitalism')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "factions_tech",
+        "value": "\"tech_level\" >= 1 and \"tech_blueprint\" >= \"tech_level\"",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "world_cities_research",
+        "value": "\"research_level\" between 0 and 5",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "world_cities_planet_id_format",
+        "value": "\"planet_id\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

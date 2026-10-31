@@ -147,8 +147,8 @@ describe("시뮬 세력·사회", () => {
       kind: "transfer",
       atMs: 0,
       entries: [
-        { account: world.book.ownerAccount(2, "share:5"), amount: -600n },
-        { account: world.book.ownerAccount(3, "share:5"), amount: 600n },
+        { account: world.book.ownerAccount(2, "share_5"), amount: -600n },
+        { account: world.book.ownerAccount(3, "share_5"), amount: 600n },
       ],
     });
     society.endOfDay(DAY_MS);

@@ -8,7 +8,7 @@ import { performance } from "node:perf_hooks";
 import { gunzipSync } from "node:zlib";
 import { type CellKey, EARTH_FACE_LEVEL, cellKey, stepCell } from "@terra/planet";
 import { DEFAULT_WORLD_PLANET_ID } from "../db/schema.ts";
-import { generateTempTerrain, seedFromCellKey } from "@terra/sim";
+import { CELL_UNITS, generateTempTerrain, positionAt, seedFromCellKey } from "@terra/sim";
 import type { WorldDirectory } from "./gateway.ts";
 import { type Ledger, createLedger } from "../economy/ledger.ts";
 import { type MemoryChecks, checkMemoryInvariants, checkSqlInvariants } from "./invariants.ts";
@@ -18,6 +18,8 @@ import { createWorkerPathService } from "./pathPool.ts";
 import { type PathService, createInlinePathService } from "./pathService.ts";
 import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
 import { type BattleWorld, applyBattleOutcome } from "./battleResults.ts";
+import { type CityRow, ensureTestStartCities, loadCities, nearestSafeCity } from "./cities.ts";
+import { TEST_NPC_FACTION_CODE } from "./unitKinds.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
 import { type MapTerrain, mapTerrainFromBuilt, mapTerrainFromTemp, terrainFromFile } from "./mapTerrain.ts";
 import { type MapPin, loadPins, retireTestMaps, savePin } from "./pins.ts";
@@ -280,6 +282,7 @@ export function startWorld(
     const started = performance.now();
     let loaded: Awaited<ReturnType<typeof loadWorld>> | undefined;
     let npcOwnerId = 0;
+    let cities: CityRow[] = [];
     for (let attempt = 1; !loaded; attempt++) {
       try {
         // 옛 시험 2차맵(깊은 바다 위)의 행을 지운다(지울 것이 없으면 그대로). U4 (가)
@@ -292,6 +295,8 @@ export function startWorld(
           log.info(retired, "world boot: retired the old test maps");
         }
         npcOwnerId = await ensureTestNpcOwner(db, now());
+        await ensureTestStartCities(db, TEST_NPC_FACTION_CODE, TEST_PLANET_ID, mapKeys, now());
+        cities = await loadCities(db);
         loaded = await loadWorld(db, now());
       } catch (error) {
         if (attempt >= BOOT_ATTEMPTS || stopped) throw error;
@@ -391,6 +396,19 @@ export function startWorld(
     });
     const battleWorld: BattleWorld = {
       mapOf: (unitId) => [...maps.values()].find((map) => map.unitInfo(unitId) !== undefined),
+      safeCellFor: (unitId, ownerId, map) => {
+        const at = map.unitInfo(unitId)?.motion;
+        if (!at) return undefined;
+        const point = positionAt(at, now());
+        const city = nearestSafeCity(
+          cities,
+          map.planetId,
+          map.mapKey,
+          { x: Math.floor(point.x / CELL_UNITS), y: Math.floor(point.y / CELL_UNITS) },
+          owners.get(ownerId)?.factionId ?? null,
+        );
+        return city ? { x: city.cellX, y: city.cellY } : undefined;
+      },
       ownerExists: (ownerId) => owners.has(ownerId) || ownerId === npcOwnerId,
       ledger,
     };

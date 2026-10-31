@@ -386,9 +386,18 @@ export const factions = pgTable(
     /** 서버가 찾는 이름(예: s3_test_npc). 유저 세력은 비운다 */
     code: text("code").unique(),
     createdAt: createdAt(),
+    /** 정권 체제(D-217, docs/adr/2026-10-31-faction-society-core.md) */
+    regime: text("regime").notNull().default("democracy"),
+    /** 고정 세력(D-324: 해산·멸망 처리를 하지 않는다) */
+    fixed: boolean("fixed").notNull().default(false),
+    /** 기술 단계·설계도(가장 높았던 단계, 질문 121·D-396) */
+    techLevel: smallint("tech_level").notNull().default(1),
+    techBlueprint: smallint("tech_blueprint").notNull().default(1),
   },
   (table) => [
     check("factions_kind", sql`${table.kind} in ('npc', 'player')`),
+    check("factions_regime", sql`${table.regime} in ('dictatorship', 'democracy', 'capitalism')`),
+    check("factions_tech", sql`${table.techLevel} >= 1 and ${table.techBlueprint} >= ${table.techLevel}`),
     check("factions_code_format", sql`${table.code} ~ '^[a-z][a-z0-9_]{1,47}$'`),
   ],
 );
@@ -421,6 +430,36 @@ export const worldOwners = pgTable(
     upkeepArrears: integer("upkeep_arrears").notNull().default(0),
   },
   (table) => [check("world_owners_one_kind", sql`num_nonnulls(${table.userId}, ${table.factionId}) = 1`)],
+);
+
+/**
+ * 도시(docs/adr/2026-10-31-faction-society-core.md "서버"). 주인 세력·자리(2차맵 칸)·시작 도시 표시(D-341)·주거·연구 시설.
+ * 도시 지분은 원장 자산 share_<도시 ID>(D-130·D-409). 지금 서버는 시험 NPC 세력의 시작 도시만 둔다(안전한 곳)
+ */
+export const worldCities = pgTable(
+  "world_cities",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey(),
+    factionId: bigint("faction_id", { mode: "number" })
+      .notNull()
+      .references(() => factions.id),
+    planetId: planetIdColumn(),
+    mapKey: bigint("map_key", { mode: "number" }).notNull(),
+    /** 시청 칸(배치 칸) */
+    cellX: integer("cell_x").notNull(),
+    cellY: integer("cell_y").notNull(),
+    /** 기본 NPC 국가의 시작 도시(주인이 바뀌지 않는다, D-341) */
+    start: boolean("start").notNull().default(false),
+    housing: integer("housing").notNull().default(0),
+    researchLevel: smallint("research_level").notNull().default(0),
+    foundedAtMs: bigint("founded_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("world_cities_map_idx").on(table.mapKey),
+    index("world_cities_faction_idx").on(table.factionId),
+    check("world_cities_research", sql`${table.researchLevel} between 0 and 5`),
+    check("world_cities_planet_id_format", sql`${table.planetId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+  ],
 );
 
 /** 2차맵 유닛. 위치는 저장하지 않고 경로·출발 시각·속도로 계산한다(ADR 5) */

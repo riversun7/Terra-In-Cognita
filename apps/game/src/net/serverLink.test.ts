@@ -69,6 +69,18 @@ describe("기능 통로", () => {
     expect(hub.link.clockOffsetMs()).toBe(40);
   });
 
+  it("clockMeasured: 처음 잴 때까지 false(0은 잰 값이 아니다), 잰 뒤에는 끊겨도 true", () => {
+    const { hub, driver, send } = setup();
+    expect(hub.link.clockMeasured()).toBe(false);
+    driver.ready(send);
+    expect(hub.link.clockMeasured()).toBe(false);
+    driver.clock(clock(0));
+    expect(hub.link.clockMeasured()).toBe(true);
+    expect(hub.link.clockOffsetMs()).toBe(0);
+    driver.down();
+    expect(hub.link.clockMeasured()).toBe(true);
+  });
+
   it("새 연결이 붙으면 앞 연결의 알림은 무시하고, 앞이 준비된 채였으면 끊김으로 알린다", () => {
     const { hub, driver, send, events } = setup();
     driver.ready(send);

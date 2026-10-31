@@ -8,6 +8,8 @@
 // - 메모리 추정(GPU에 올린 것 + JS에 남는 배열 사본 + 풀어 둔 타일)이 상한을 넘으면 이번 프레임에 안 쓴 타일을 오래된 것부터
 //   버린다(꼭대기 타일은 지킨다: 늘 부모가 있게).
 // - 만든 타일 중 가장 높은 땅을 기억한다(highestHeightM): 엔진이 시야 거르기·누르기 높이를 그만큼 늘린다.
+// - 늘 원하는 타일(pin): 고르기가 원하지 않아도 낮은 우선으로 받고 취소하지 않는다(구름 기후 큐브가 쓰는 첫 단계 타일,
+//   ADR 2026-10-29-primary-map-sky 6절). 고르기가 원하는 받기가 먼저 자리를 쓴다.
 import type { WantedTile } from "./lodSelect.ts";
 import {
   type DecodedTile,
@@ -95,6 +97,8 @@ export class TilePipeline<G extends GpuTile> {
   private highestM = Number.NEGATIVE_INFINITY;
   /** request()를 부른 횟수 — 마지막 request()가 원한 타일(wantedIn이 이 값)만 "지금 실패한 타일"로 센다 */
   private requests = 0;
+  /** 늘 원하는 타일(키 → 마디) */
+  private readonly pinned = new Map<number, WantedTile>();
   private disposed = false;
   /** 상한에 걸린 횟수·실패 수(누적, 지표용). 화면 안내는 counts().failed(지금 실패한 타일)를 쓴다 */
   readonly hits = { fetches: 0, uploads: 0, memory: 0 };
@@ -151,6 +155,17 @@ export class TilePipeline<G extends GpuTile> {
     return this.highestM;
   }
 
+  /** 늘 원하는 타일로 둔다(낮은 우선, 취소하지 않음). 이미 둔 것은 그대로 */
+  pin(items: readonly WantedTile[]): void {
+    for (const item of items) this.pinned.set(item.key, item);
+  }
+
+  /** 늘 원하는 타일이 모두 풀려 있나(받기·만들기가 끝났다). 둔 것이 없으면 true */
+  pinnedReady(): boolean {
+    for (const key of this.pinned.keys()) if (!this.entries.get(key)?.tile) return false;
+    return true;
+  }
+
   /** 고른 나무에서 쓴 마디 표시(오래 안 쓴 것을 버릴 때 본다) */
   touch(keys: readonly number[], frame: number): void {
     for (const key of keys) {
@@ -190,6 +205,17 @@ export class TilePipeline<G extends GpuTile> {
       this.start(entry);
     }
     if (waiting) this.hits.fetches += 1;
+    // 늘 원하는 타일: 남은 자리로 받는다(상한에 걸려도 세지 않는다). 지금 실패한 타일 수(화면 안내)에는 넣지 않는다
+    for (const item of this.pinned.values()) {
+      wantedKeys.add(item.key);
+      const entry = this.entries.get(item.key);
+      if (entry) {
+        entry.lastWanted = now;
+        if (entry.state !== "failed" || now < entry.retryAt) continue;
+      }
+      if (this.fetching >= this.options.budgets.concurrentFetches) continue;
+      this.start(entry ?? this.createEntry(item.key, item.node, now, frame, false));
+    }
     for (const entry of this.entries.values()) {
       if (entry.state !== "fetching" || wantedKeys.has(entry.key)) continue;
       if (now - entry.lastWanted > ABORT_GRACE_MS) {
@@ -262,7 +288,7 @@ export class TilePipeline<G extends GpuTile> {
     return entry.tile ? decodedTileBytes(entry.tile) : 0;
   }
 
-  private createEntry(key: number, node: TileNode, now: number, frame: number): TileEntry<G> {
+  private createEntry(key: number, node: TileNode, now: number, frame: number, wanted = true): TileEntry<G> {
     const entry: TileEntry<G> = {
       key,
       node,
@@ -275,7 +301,7 @@ export class TilePipeline<G extends GpuTile> {
       fetchStartedAt: now,
       lastUsed: frame,
       lastWanted: now,
-      wantedIn: this.requests,
+      wantedIn: wanted ? this.requests : 0,
       failures: 0,
       retryAt: 0,
     };

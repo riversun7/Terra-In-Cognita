@@ -166,6 +166,9 @@ describe("행성 설명", () => {
     // 가장 높은 땅: 목록 정보에 있으면 넘기고, 없으면(옛 서버) 넣지 않는다(엔진 기본값)
     expect(description).not.toHaveProperty("maxElevationM");
     expect(planetDescriptionOf({ ...manifest, maxElevationM: 1092 }).maxElevationM).toBe(1092);
+    // 구름 시드 = 정의 해시 앞 8자리("abababab")
+    expect(description.skySeed).toBe(0xabababab);
+    expect(planetDescriptionOf({ ...manifest, definitionHash: "01".repeat(32) }).skySeed).toBe(0x01010101);
   });
 });
 

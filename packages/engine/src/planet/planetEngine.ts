@@ -28,6 +28,8 @@ import {
   screenRay,
 } from "./globeCamera.ts";
 import { attachGlobeControls } from "./globeControls.ts";
+import { inertPlanetEngine } from "./inertPlanetEngine.ts";
+import { GpuBench } from "./gpuBench.ts";
 import { type Selection, selectTiles } from "./lodSelect.ts";
 import {
   DEFAULT_MAX_ELEVATION_M,
@@ -42,7 +44,11 @@ import {
   type PlanetView as PlanetViewOption,
   planetDescriptionProblem,
 } from "./planetTypes.ts";
-import { type PlanetTileGpu, PlanetView } from "./planetView.ts";
+import { cloudLiftM } from "./cloudSchedule.ts";
+import { ATMOSPHERE_SCALE, type PlanetTileGpu, PlanetView } from "./planetView.ts";
+import type { PlanetSkyMode } from "./sky.ts";
+import { SkyController } from "./skyController.ts";
+import { skyLayerFactories } from "./skyLayers.ts";
 import { type DecodedLookup, cellAt, displayedHeightAt, rayHitsSurface } from "./surfaceLookup.ts";
 import { createTileBuilder } from "./tileBuilder.ts";
 import { TilePipeline } from "./tilePipeline.ts";
@@ -137,6 +143,8 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
   let cameraPlaced = false;
   let pose: GlobePose = globePose(state, radiusM, limits);
   let gestureActive = false;
+  /** 마지막 손가락 동작이 끝난 때(performance.now) — 구름은 300ms 뒤부터 굽는다 */
+  let gestureEndedAt = Number.NEGATIVE_INFINITY;
   let animation: ZoomAnimation | null = null;
   let lastSelection: Selection | null = null;
   let tileBudgetHits = 0;
@@ -183,7 +191,8 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     const ground = shownHeight(normalize(pose.position));
     const clearance = Math.max(1, cameraRadius - radiusM - ground);
     const near = Math.max(1, Math.min(clearance * 0.5, state.distance * 0.25));
-    const outer = radiusM + maxElevationM() * exaggeration;
+    // 먼 자르기 면: 가장 높은 땅 또는 구름 껍질 중 높은 것까지
+    const outer = radiusM + Math.max(maxElevationM() * exaggeration, cloudLiftM(radiusM, exaggeration));
     const horizon =
       Math.sqrt(Math.max(0, cameraRadius * cameraRadius - occluderRadiusM * occluderRadiusM)) +
       Math.sqrt(Math.max(0, outer * outer - occluderRadiusM * occluderRadiusM));
@@ -276,7 +285,24 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     view.showTiles(drawn, pose.position);
     updateCenterLevel(selection);
 
-    renderer.render(view.scene, view.camera);
+    // 하늘(낮밤 uniform·달·구름 굽기): 그리기 바로 앞. 켜지는 중·굽는 중이면 다음 프레임도 그린다
+    const busy = pipeline.counts();
+    const skyMoving = sky.update({
+      pose,
+      viewport,
+      distanceM: state.distance,
+      minDistanceM: limits.minDistance,
+      layer,
+      exaggeration,
+      firstDisplayed: firstDisplayMs !== null,
+      gestureActive,
+      msSinceGesture: started - gestureEndedAt,
+      cameraMoving: animating,
+      tilesBusy: busy.fetching + busy.building + busy.queued > 0,
+      nowMs: started,
+    });
+    if (bench) bench.measure(() => renderer.render(view.scene, view.camera));
+    else renderer.render(view.scene, view.camera);
     const info = renderer.info.render;
     lastInfo = { calls: info.calls, triangles: info.triangles };
     pipeline.evict(frameNo, (node) => node.mapLevel <= layout.firstLevel);
@@ -289,9 +315,34 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
       }
     }
     timer.record(started, performance.now() - started);
-    return animating || moreUploads;
+    return animating || moreUploads || skyMoving;
   };
   const scheduler = new FrameScheduler(frame);
+  // 하늘: 옵션이 없으면 off = 지금 모습(편집기·지금 시험). 틈 찾기는 늘 끈다
+  const skyModeOf = (mode: PlanetSkyMode | undefined): PlanetSkyMode =>
+    options.debugCracks || !mode ? { kind: "off" } : mode;
+  const bench = options.gpuBenchRepeat ? new GpuBench(options.gpuBenchRepeat, renderer.getContext()) : null;
+  const requestFrame = (): void => scheduler.request();
+  const sky = new SkyController({
+    radiusM,
+    // 달을 가리는 원판 = 대기 띠까지(그 안에 다 들면 보이지 않으므로 그리지 않는다)
+    occluderRadiusM: radiusM * ATMOSPHERE_SCALE,
+    ...(planet.sky ? { sky: planet.sky } : {}),
+    setSkyLight: (blend, sun, strength, at) => view.setSkyLight(blend, sun, strength, at),
+    requestFrame,
+    // 달·구름: 첫 표시 뒤 숨긴 채 만들고 미리 컴파일한다(skyLayers.ts)
+    ...skyLayerFactories({
+      renderer,
+      view,
+      pipeline,
+      layout,
+      radiusM,
+      seed: planet.skySeed ?? 0,
+      requestFrame,
+      bench,
+    }),
+  });
+  sky.setMode(skyModeOf(options.sky));
 
   const resize = (): void => {
     const rect = container.getBoundingClientRect();
@@ -342,7 +393,10 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     onGestureChange: (active) => {
       gestureActive = active;
       if (active) animation = null;
-      else scheduler.request();
+      else {
+        gestureEndedAt = performance.now();
+        scheduler.request();
+      }
     },
     onTap: (point) => options.onPick?.(pick(point)),
     onDoubleTap: (point) => {
@@ -367,6 +421,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
   };
   const onContextRestored = (): void => {
     contextLost = false;
+    sky.contextRestored();
     scheduler.resume();
     emit(firstDisplayMs === null ? { kind: "loading" } : { kind: "ready" });
   };
@@ -399,6 +454,10 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
       scheduler.request();
     },
 
+    setSky(mode) {
+      sky.setMode(skyModeOf(mode));
+    },
+
     setExaggeration(value) {
       if (!Number.isFinite(value)) return;
       exaggeration = clamp(value, MIN_EXAGGERATION, MAX_EXAGGERATION);
@@ -428,6 +487,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
         renderMaxMs: summary.maxMs,
         drawCalls: lastInfo.calls,
         triangles: lastInfo.triangles,
+        shaderPrograms: renderer.info.programs?.length ?? 0,
         tilesDrawn: lastSelection?.draw.length ?? 0,
         tilesDrawnByLevel: drawnByLevel(lastSelection, layout),
         tilesSelected: lastSelection?.selected ?? 0,
@@ -459,6 +519,8 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
         drawingBufferHeight: gl.drawingBufferHeight,
         contextLost,
         camera: cameraView(),
+        sky: sky.stats(),
+        gpuBench: bench?.summary() ?? null,
       };
     },
 
@@ -471,6 +533,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
       document.removeEventListener("visibilitychange", onVisibility);
       canvas.removeEventListener("webglcontextlost", onContextLost);
       canvas.removeEventListener("webglcontextrestored", onContextRestored);
+      sky.dispose();
       pipeline.dispose();
       view.dispose();
       releaseRenderer(owner);
@@ -486,54 +549,4 @@ function drawnByLevel(selection: Selection | null, layout: TileLayout): number[]
     if (index >= 0) counts[index] = (counts[index] ?? 0) + 1;
   }
   return counts;
-}
-
-/** WebGL을 못 쓸 때·그릴 수 없는 행성일 때: 아무것도 그리지 않는 엔진(화면은 안내를 띄운다) */
-function inertPlanetEngine(
-  exaggeration: number,
-  layer: PlanetLayer,
-  budgets: PlanetStats["budgets"],
-): PlanetEngine {
-  const stats: PlanetStats = {
-    renderedFrames: 0,
-    framesLastSecond: 0,
-    renderP95Ms: 0,
-    renderMaxMs: 0,
-    drawCalls: 0,
-    triangles: 0,
-    tilesDrawn: 0,
-    tilesDrawnByLevel: Array.from({ length: PRIMARY_LEVELS }, () => 0),
-    tilesSelected: 0,
-    tilesLoaded: 0,
-    tilesPending: 0,
-    fetching: 0,
-    building: 0,
-    uploadQueue: 0,
-    budgetHits: { tiles: 0, fetches: 0, uploads: 0, memory: 0 },
-    budgets,
-    tileErrors: 0,
-    tilesFailed: 0,
-    gpuBytes: 0,
-    memoryBytes: 0,
-    maxElevationM: 0,
-    primaryLevel: 0,
-    mapLevel: 0,
-    incomplete: true,
-    firstDisplayMs: null,
-    exaggeration,
-    layer,
-    pixelRatio: 1,
-    drawingBufferWidth: 0,
-    drawingBufferHeight: 0,
-    contextLost: false,
-    camera: { latDeg: 0, lonDeg: 0, distanceM: 0, altitudeM: 0, headingDeg: 0, tiltDeg: 0 },
-  };
-  return {
-    setLayer: () => undefined,
-    setExaggeration: () => undefined,
-    pickAt: () => null,
-    lookAt: () => undefined,
-    stats: () => stats,
-    dispose: () => undefined,
-  };
 }

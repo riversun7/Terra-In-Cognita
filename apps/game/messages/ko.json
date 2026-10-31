@@ -395,6 +395,7 @@
   "planet_perf_gpu": "그리기 {calls}회 · 삼각형 {tris}k · GPU {mb}MB · 타일\u00a0메모리\u00a0{memory}MB",
   "planet_perf_hits": "상한 도달: 타일 {tiles} · 받기 {fetches} · 올리기 {uploads} · 메모리 {memory}",
   "planet_perf_first": "첫 표시 {ms}ms",
+  "planet_perf_sky": "하늘 {lat}°, {lon}°\u00a0· GPU\u00a0{gpu}ms\u00a0×{repeat}\u00a0· 굽기\u00a0{bake}ms\u00a0· 달\u00a0{moons}\u00a0· {mb}MB",
   "planet_tile_errors": "받지 못한 타일 {count}개 — 잠시 뒤 다시 받습니다.",
   "planet_cell_sea": "{name} · 수심 {depth}m",
   "planet_manifest_loading": "행성 정보를 받는 중…",

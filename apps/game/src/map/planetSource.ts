@@ -9,7 +9,12 @@
 // - 타일 404(판이 바뀜: 정의·생성기·형식이 바뀌어 이 주소 틀은 다시 맞지 않는다) 뒤에는 서버에 묻지 않고 바로 거절한다.
 //   엔진은 실패한 타일을 계속 다시 받으므로, 그대로 두면 열린 화면마다 [다시 시도]를 누를 때까지 요청(로그인 조회 포함)이 이어진다.
 // 실패는 이유 코드로 알린다(화면이 문구를 고른다). 문장은 화면에 쓰지 않는다.
-import type { EncodedTile, PlanetDescription, TileSource } from "@terra/engine/planet";
+import {
+  type EncodedTile,
+  type PlanetDescription,
+  type TileSource,
+  skySeedOfHash,
+} from "@terra/engine/planet";
 import { planetTileKey } from "@terra/planet";
 import {
   type PlanetManifest,
@@ -170,13 +175,19 @@ export async function loadPlanetManifest(
 }
 
 /**
- * 목록 정보 → 엔진 행성 설명(면 레벨·반지름·바이옴 번호별 색·가장 높은 땅). 범례에 없는 번호는 엔진이 회색으로 그린다.
- * 가장 높은 땅이 없으면(옛 서버) 엔진 기본값을 쓰고, 받은 타일이 더 높으면 엔진이 늘린다
+ * 목록 정보 → 엔진 행성 설명(면 레벨·반지름·바이옴 번호별 색·가장 높은 땅·구름 시드). 범례에 없는 번호는 엔진이 회색으로 그린다.
+ * 가장 높은 땅이 없으면(옛 서버) 엔진 기본값을 쓰고, 받은 타일이 더 높으면 엔진이 늘린다.
+ * 구름 시드 = 정의 해시 앞 8자리(ADR 2026-10-29-primary-map-sky 6절): 정의가 바뀌면 지형과 함께 구름도 다시 섞인다(의도)
  */
 export function planetDescriptionOf(manifest: PlanetManifest): PlanetDescription {
   const biomeColors: number[] = [];
   for (const biome of manifest.biomes) biomeColors[biome.index] = Number.parseInt(biome.colour.slice(1), 16);
-  const base = { faceLevel: manifest.faceLevel, radiusM: manifest.radiusM, biomeColors };
+  const base = {
+    faceLevel: manifest.faceLevel,
+    radiusM: manifest.radiusM,
+    biomeColors,
+    skySeed: skySeedOfHash(manifest.definitionHash),
+  };
   return manifest.maxElevationM === undefined ? base : { ...base, maxElevationM: manifest.maxElevationM };
 }
 

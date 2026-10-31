@@ -14,6 +14,9 @@ import { GLOBE_FOV_RAD, type GlobePose, type Viewport, raySphere, screenRay } fr
 import type { PlanetLayer } from "./planetTypes.ts";
 import { type Vec3, add, addScaled, angleBetween, dot, length, normalize, scale, sub } from "./vec3.ts";
 
+/** 시계의 출처: 서버 시계로 맞춘 기기 시각, 또는 못 맞춰 기기 시계를 그대로 쓴 것(통계·시험 표시용) */
+export type SkyClockSource = "server" | "device";
+
 /** 하늘 보기(화면이 정한다). 없으면 off = 지금 모습(카메라 빛, 밤·달·구름 없음) */
 export type PlanetSkyMode =
   | { readonly kind: "off" }
@@ -21,6 +24,8 @@ export type PlanetSkyMode =
       readonly kind: "clock";
       /** 서버 시각(ms). null이면 시계를 아직 못 쟀다(낮으로 그린다). 소수여도 된다(엔진이 내림한다) */
       readonly serverNow: () => number | null;
+      /** 지금 시각의 출처(없으면 "server"). 엔진은 통계에만 쓴다 */
+      readonly source?: () => SkyClockSource;
       readonly features?: PlanetSkyFeatures;
     }
   | { readonly kind: "fixed"; readonly utcMs: number; readonly features?: PlanetSkyFeatures };

@@ -395,6 +395,7 @@
   "planet_perf_gpu": "Draws {calls} · triangles {tris}k · GPU {mb}\u00a0MB · tile\u00a0memory\u00a0{memory}\u00a0MB",
   "planet_perf_hits": "Budget hits: tiles {tiles} · fetches {fetches} · uploads {uploads} · memory {memory}",
   "planet_perf_first": "First display {ms} ms",
+  "planet_perf_sky": "Sky {lat}°, {lon}°\u00a0· GPU\u00a0{gpu}\u00a0ms\u00a0×{repeat}\u00a0· bake\u00a0{bake}\u00a0ms\u00a0· moons\u00a0{moons}\u00a0· {mb}\u00a0MB",
   "planet_tile_errors": "{count} tiles failed — retrying soon.",
   "planet_cell_sea": "{name} · depth {depth} m",
   "planet_manifest_loading": "Loading planet info…",

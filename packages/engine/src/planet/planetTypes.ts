@@ -14,6 +14,18 @@ import {
   WATER_RIVER,
 } from "@terra/planet";
 import type { PlanetTileData } from "@terra/protocol";
+import type { PlanetSkyDescription, PlanetSkyMode } from "./sky.ts";
+import type { PlanetSkyStats } from "./skyController.ts";
+
+// 1차맵 하늘 타입(ADR 2026-10-29-primary-map-sky 8절) — 정의는 sky.ts·skyController.ts, 게임 앱은 여기서 받는다
+export type {
+  PlanetMoonDescription,
+  PlanetSkyDescription,
+  PlanetSkyFeatures,
+  PlanetSkyMode,
+  SkyClockSource,
+} from "./sky.ts";
+export type { PlanetSkyStats, SkyClockState } from "./skyController.ts";
 
 /** 타일 요청: 맵 레벨 mapLevel에서 면 face의 칸 [i0, i0 + size) × [j0, j0 + size) */
 export interface TileRequest {
@@ -76,6 +88,13 @@ export interface PlanetDescription {
    * 받은 타일이 그보다 높으면 엔진이 그 높이로 늘린다(낮추지는 않는다).
    */
   readonly maxElevationM?: number;
+  /**
+   * 하늘 값(자전축 기울기·계절 위상·달). 없으면 엔진의 [임시] PLACEHOLDER_PLANET_SKY다. 기획 답 뒤 목록 정보의 선택 필드에서 온다
+   * (ADR 2026-10-29-primary-map-sky 8·11절).
+   */
+  readonly sky?: PlanetSkyDescription;
+  /** 구름 시드(u32). 화면이 목록 정보 정의 해시 앞 8자리로 만든다(skySeedOfHash). 없으면 0 */
+  readonly skySeed?: number;
 }
 
 /** 행성 설명에 가장 높은 땅이 없을 때 쓰는 값(게임 m). 지구 에베레스트 8,849m ÷ 12 ≈ 737m보다 조금 높게 */
@@ -197,8 +216,28 @@ export interface PlanetEngineOptions {
   onStatus?: (status: PlanetStatus) => void;
   /** 칸을 눌렀을 때(타일이 없는 곳이나 행성 밖이면 null) */
   onPick?: (cell: PickedCell | null) => void;
-  /** [시험용] 틈 찾기: 바탕 구와 하늘을 자홍색으로 칠한다. 타일 사이에 틈이 있으면 자홍색 점이 보인다 */
+  /** [시험용] 틈 찾기: 바탕 구와 하늘을 자홍색으로 칠한다. 타일 사이에 틈이 있으면 자홍색 점이 보인다(하늘은 늘 끈다) */
   debugCracks?: boolean;
+  /**
+   * 하늘(낮밤·달·구름, ADR 2026-10-29-primary-map-sky). 없으면 off = 지금 모습이다(편집기·지금 시험).
+   * 실행 중에는 setSky로 바꾼다(엔진을 다시 만들지 않는다)
+   */
+  sky?: PlanetSkyMode;
+  /**
+   * [재기 모드] 프레임마다 장면을 이 횟수(1 ~ 4)만큼 그리고 1화소 읽기로 GPU 끝을 기다린 시간을 잰다(stats().gpuBench).
+   * 휴대폰 GPU 몫을 재는 데만 쓴다(화면 주소 ?planet-sky-bench=). 없으면 재지 않는다
+   */
+  gpuBenchRepeat?: number;
+}
+
+/** [재기 모드] 그리기 + 1화소 읽기 시간(최근 프레임들, ms) */
+export interface GpuBenchStats {
+  /** 한 프레임에 장면을 그린 횟수 */
+  readonly repeat: number;
+  readonly medianMs: number;
+  readonly minMs: number;
+  /** 잰 프레임 수 */
+  readonly samples: number;
 }
 
 export interface PlanetStats {
@@ -211,6 +250,8 @@ export interface PlanetStats {
   renderMaxMs: number;
   drawCalls: number;
   triangles: number;
+  /** 렌더러가 들고 있는 셰이더 프로그램 수(three renderer.info.programs) — 하늘 모드를 바꿔도 타일 프로그램이 늘지 않는지 본다 */
+  shaderPrograms: number;
   /** 마지막 프레임에 그린 타일 수(상한 budgets.visibleTiles) */
   tilesDrawn: number;
   /** 마지막 프레임에 그린 타일 수를 1차맵 단계별로(차례대로 단계 1~5) — 레벨이 바뀌는 경계가 화면에 있는지 본다 */
@@ -253,10 +294,16 @@ export interface PlanetStats {
   drawingBufferHeight: number;
   contextLost: boolean;
   camera: PlanetCameraView;
+  /** 하늘(모드·시계·항성·낮밤 세기·달·구름·하늘 GPU 메모리) */
+  sky: PlanetSkyStats;
+  /** [재기 모드] 그리기 + 1화소 읽기 시간. 재기 모드가 아니면 null */
+  gpuBench: GpuBenchStats | null;
 }
 
 export interface PlanetEngine {
   setLayer(layer: PlanetLayer): void;
+  /** 하늘 모드·요소를 바꾼다(동작 줄이기·설정). 엔진을 다시 만들지 않고 타일 셰이더도 다시 컴파일하지 않는다 */
+  setSky(mode: PlanetSkyMode): void;
   /** 고도 과장 배율(1 ~ 50으로 묶는다) */
   setExaggeration(value: number): void;
   /** 화면 점(CSS px)의 칸. 고르기 표시도 바꾼다 */

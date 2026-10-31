@@ -2,7 +2,7 @@
 // 적용된 마이그레이션(apps/server/drizzle/)은 고치지 않고 새로 추가만 한다 (docs/PROTECTED.md).
 // Drizzle 1.0 RC에는 열 이름 자동 변환(casing) 설정이 없어서 열 이름을 직접 적는다.
 import type { PerfReport } from "@terra/protocol";
-import type { SettingsObject } from "@terra/shared";
+import type { PlanetLibraryBase, SettingsObject } from "@terra/shared";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -295,6 +295,61 @@ export const planetDraftRevisions = pgTable(
     uniqueIndex("planet_draft_revisions_draft_revision_idx").on(table.draftId, table.revision),
     check("planet_draft_revisions_revision_positive", sql`${table.revision} >= 1`),
     check("planet_draft_revisions_bytes_nonnegative", sql`${table.bytes} >= 0`),
+  ],
+);
+
+/**
+ * 행성 보관함 — 팀 공용 목록(dev·admin 모두 같은 목록, 만든 사람 표시). [저장]·[다른 이름으로 저장]만 쓴다(ADR 38 "바뀜:
+ * 행성 보관함"). id는 바뀌지 않는다(나중 항성계 편집기가 가리킨다). 지우기는 표시만 한다(deleted_at, 줄은 남는다: 가리키던 것이
+ * "지운 행성"으로 남게). revision은 행성마다 1부터 [저장]마다 1씩(id를 다시 쓰지 않아 띄엄띄엄일 까닭이 없다)
+ */
+export const planetLibrary = pgTable(
+  "planet_library",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** 이름(자유 글, 앞뒤 빈칸 뗌, 1~60 코드 포인트 — @terra/shared normalizePlanetLibraryName) */
+    name: text("name").notNull(),
+    /** 시작한 곳({ kind: "pack", id: 팩 행성 ID }. 나중에 표본 "template") */
+    base: jsonb("base").$type<PlanetLibraryBase>().notNull(),
+    /** 행성 정의(콘텐츠 팩 행성 항목 모양, 시드 포함). 지금 판의 정의 = 가장 최근 판 기록의 정의 */
+    definition: jsonb("definition").$type<Record<string, unknown>>().notNull(),
+    revision: integer("revision").notNull(),
+    /** 만든 사람(계정을 지우면 비운다: 행성은 팀 것이라 남긴다) */
+    authorId: uuid("author_id").references(() => users.id, { onDelete: "set null" }),
+    /** 마지막으로 저장(또는 이름을 바꾼) 사람 */
+    updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    /** 지운 때·지운 사람(지우지 않았으면 null). 지운 행성은 목록·열기에서 빠진다 */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    index("planet_library_updated_idx").on(table.updatedAt),
+    check("planet_library_revision_positive", sql`${table.revision} >= 1`),
+    check("planet_library_name_length", sql`char_length(${table.name}) between 1 and 60`),
+  ],
+);
+
+/** 보관함 행성의 저장 판 — [저장]마다 한 줄(자동 저장 없음). 모두 남긴다(저장은 손으로 하는 일이라 드물다) */
+export const planetLibraryVersions = pgTable(
+  "planet_library_versions",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    planetId: uuid("planet_id")
+      .notNull()
+      .references(() => planetLibrary.id, { onDelete: "cascade" }),
+    revision: integer("revision").notNull(),
+    definition: jsonb("definition").$type<Record<string, unknown>>().notNull(),
+    /** 정의 크기(바이트, @terra/shared planetDraftEntryBytes). 판 목록이 정의를 읽지 않게 저장할 때 잰다 */
+    bytes: integer("bytes").notNull(),
+    savedBy: uuid("saved_by").references(() => users.id, { onDelete: "set null" }),
+    savedAt: timestamp("saved_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("planet_library_versions_planet_revision_idx").on(table.planetId, table.revision),
+    check("planet_library_versions_revision_positive", sql`${table.revision} >= 1`),
+    check("planet_library_versions_bytes_nonnegative", sql`${table.bytes} >= 0`),
   ],
 );
 

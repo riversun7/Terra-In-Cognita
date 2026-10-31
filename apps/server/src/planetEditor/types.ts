@@ -1,6 +1,7 @@
 // 행성 편집기 서버 API의 모양 — tRPC planetEditor.*(src/trpc/planetEditor.ts)가 주고받는 값(ADR 2026-10-29-planet-editor-stage1 9·11절).
 // AppRouter 타입에 들어가 게임 앱 타입 검사에도 쓰인다: Node 전용 타입(fastify, pg, drizzle 등)을 넣지 않는다(context.ts와 같은 규칙).
-// 받지 않음 코드·항목 상한은 기기와 같이 쓰는 @terra/shared planetDraftApi.ts에 있다.
+// 받지 않음 코드·항목 상한은 기기와 같이 쓰는 @terra/shared planetDraftApi.ts에 있다. 보관함 이름·시작점 규칙은 planetLibraryApi.ts.
+import type { PlanetLibraryBase } from "@terra/shared";
 
 /** JSON 객체(콘텐츠 팩 항목 모양). 키 순서는 지키지 않는다(DB jsonb) */
 export type JsonObject = Record<string, unknown>;
@@ -82,4 +83,52 @@ export interface PlanetDraftSaved {
   revision: number;
   /** 저장 시각(ISO 8601, UTC) */
   updatedAt: string;
+}
+
+// ── 행성 보관함(planetEditor.library.*, ADR 38 "바뀜: 행성 보관함") ──
+
+/** 사람 표시(로그인 아이디. 계정을 지웠으면 null) */
+export interface PlanetLibraryPerson {
+  id: string;
+  name: string;
+}
+
+/** 목록 한 줄(정의는 싣지 않는다) */
+export interface PlanetLibrarySummary {
+  /** uuid, 바뀌지 않는다 */
+  id: string;
+  name: string;
+  base: PlanetLibraryBase;
+  revision: number;
+  author: PlanetLibraryPerson | null;
+  updatedBy: PlanetLibraryPerson | null;
+  /** ISO 8601, UTC */
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 행성 하나(정의 포함) */
+export interface PlanetLibraryPlanet extends PlanetLibrarySummary {
+  definition: JsonObject;
+}
+
+/** 저장 판 목록 한 줄(새 판부터) */
+export interface PlanetLibraryVersionInfo {
+  revision: number;
+  savedAt: string;
+  savedBy: PlanetLibraryPerson | null;
+  bytes: number;
+}
+
+/** 저장 판 하나(정의 포함) */
+export interface PlanetLibraryVersion extends PlanetLibraryVersionInfo {
+  definition: JsonObject;
+}
+
+/** library.save 결과 */
+export interface PlanetLibrarySaved {
+  revision: number;
+  updatedAt: string;
+  /** 저장한 사람(기기가 목록·판 정보를 다시 읽지 않고 맞춘다) */
+  updatedBy: PlanetLibraryPerson | null;
 }

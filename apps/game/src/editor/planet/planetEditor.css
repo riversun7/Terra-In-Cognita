@@ -91,13 +91,48 @@
 }
 .pe-stage {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   overflow: hidden;
+}
+.pe-globe-area {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .pe-globe,
 .pe-globe-view {
   position: absolute;
   inset: 0;
+}
+/* 평면 미니맵 자리: 휴대폰은 [평면]을 고를 때만 지구본 위를 덮는다. 진행 칩·보기 단추는 위에 남긴다 */
+.pe-stage-map {
+  display: none;
+}
+.pe-stage[data-view="flat"] .pe-stage-map {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--tap-size) + var(--space-3)) var(--space-3) var(--space-12);
+  background-color: var(--color-surface-2);
+}
+.pe-stage-map .flat-map {
+  width: 100%;
+}
+.pe-view-toggle {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 2;
+}
+.pe-view-toggle > button {
+  flex: none;
+  padding-inline: var(--space-3);
+  white-space: nowrap;
 }
 .pe-globe-notice {
   position: absolute;
@@ -129,6 +164,7 @@
 }
 .pe-statusbar {
   position: absolute;
+  z-index: 2;
   left: var(--space-2);
   right: var(--space-2);
   bottom: var(--space-2);
@@ -176,6 +212,20 @@
   color: var(--color-text);
   box-shadow: inset 0 calc(var(--border-w) * -3) 0 var(--color-primary);
 }
+.pe-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--badge-size);
+  height: var(--badge-size);
+  margin-left: var(--space-1);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
 .pe-tab:focus-visible {
   outline-offset: calc(var(--focus-w) * -1);
 }
@@ -203,6 +253,28 @@
 @media (min-width: 64em) {
   .pe-body {
     grid-template-columns: minmax(0, 1fr) 28rem;
+  }
+}
+/* 넓고 높은 화면: 지구본 아래에 평면 미니맵을 늘 둔다(어느 탭이든). 면적 탭 안의 같은 미니맵과 보기 단추는 숨긴다 */
+@media (min-width: 37.5em) and (min-height: 40em) {
+  /* .pe-segment(뒤에 정의, display: flex)보다 앞서게 선택자를 한 단계 높인다 */
+  .pe-stage .pe-view-toggle,
+  .pe-area-map {
+    display: none;
+  }
+  .pe-stage-map,
+  .pe-stage[data-view="flat"] .pe-stage-map {
+    position: static;
+    display: flex;
+    flex: none;
+    justify-content: center;
+    padding: var(--space-2) var(--space-3);
+    border-top: var(--border-w) solid var(--color-border);
+    background-color: var(--color-surface);
+  }
+  .pe-stage-map .flat-map {
+    width: min(100%, 72dvh);
+    max-width: none;
   }
 }
 
@@ -570,4 +642,59 @@
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-snug);
+}
+
+/* ── 적용 줄(설정 판 아래에 붙음) ── */
+.pe-apply-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0 calc(var(--space-3) * -1);
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-w) solid var(--color-border);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+}
+.pe-apply-count {
+  flex: 1 1 10em;
+  font-weight: var(--font-weight-strong);
+}
+.pe-apply-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-2);
+}
+
+/* ── 칸: 쉬운 설명 + 자세히 보기 ── */
+.pe-story {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  line-height: var(--line-height-body);
+}
+.pe-story p:first-child {
+  font-weight: var(--font-weight-strong);
+}
+.pe-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.pe-details-summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap-size);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+.pe-details[open] > .pe-details-summary {
+  margin-bottom: var(--space-2);
 }

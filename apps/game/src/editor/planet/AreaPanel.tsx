@@ -67,13 +67,16 @@ export function AreaPanel(props: AreaPanelProps) {
           </button>
         ))}
       </div>
-      <FlatMap
-        fields={props.mapEntry?.result.fields ?? null}
-        biomeColors={props.biomeColors}
-        selected={props.picked}
-        onPick={props.onPick}
-        label={mapLabel}
-      />
+      {/* 넓은 화면은 지구본 옆 자리에 같은 미니맵이 늘 있어 여기서는 숨긴다(planetEditor.css) */}
+      <div className="pe-area-map">
+        <FlatMap
+          fields={props.mapEntry?.result.fields ?? null}
+          biomeColors={props.biomeColors}
+          selected={props.picked}
+          onPick={props.onPick}
+          label={mapLabel}
+        />
+      </div>
       {summary ? (
         <>
           <div className="pe-table-wrap">

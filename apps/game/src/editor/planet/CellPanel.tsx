@@ -2,6 +2,8 @@
 // - 값은 cellReport.ts(결과 배열), 바이옴 판정 설명은 생성기 도우미 explainBiome(설명 묶음 하나로 붙인다).
 // - 창은 칸 값과 설명 묶음 목록만 받는다: 특수 지형 설명이 오면 묶음을 더한다(ADR 38 7절).
 // - 출처: 팩 버전, 생성기 판, 바이옴 ID. 정의 해시는 공개본만, 초안은 "초안(굽지 않음)".
+// - 맨 위는 쉬운 문장 두세 개(cellStory.ts: 고른 바이옴, 정한 조건, 아깝게 놓친 바이옴). 값 표·판정 표·출처는
+//   [자세히 보기](details, 처음 접힘) 아래에 둔다(사용자 의견 2026-10-31 "날것의 데이터").
 import {
   BIOME_NEAR_MISS,
   type BiomeConditionCheck,
@@ -12,6 +14,7 @@ import {
 } from "@terra/planet/generator";
 import { m } from "../../paraglide/messages.js";
 import { type CellExplainer, type CellReport, type CellValues, cellReport } from "./cellReport.ts";
+import { type CellStory, cellStory } from "./cellStory.ts";
 import { CONDITION_LABELS, DEPTH_LABELS, formatNumber, localName } from "./editorMessages.ts";
 import type { LatLon } from "./flatMapRender.ts";
 import type { PreviewEntry } from "./previewTypes.ts";
@@ -178,6 +181,121 @@ function Explanation({
   );
 }
 
+/** 습도 0~255 → % 정수 */
+const humidityPercent = (value: number): number => Math.round((value / 255) * 100);
+
+/** 조건 축의 값 + 단위(습도는 %, 고도는 실제 m) */
+function axisValue(axis: BiomeConditionCheck["axis"], value: number): string {
+  switch (axis) {
+    case "temperatureC":
+      return m.planet_editor_value_celsius({ value: formatNumber(value) });
+    case "humidity":
+      return m.planet_editor_value_percent({ value: formatNumber(humidityPercent(value)) });
+    case "realElevationM":
+      return m.planet_editor_value_meters({ value: formatNumber(value) });
+    default:
+      return formatNumber(value);
+  }
+}
+
+/** 바꿀 양 + 단위(습도는 % 한 자리 반올림, 1% 아래는 1%) */
+function amountText(axis: BiomeConditionCheck["axis"], amount: number): string {
+  if (axis === "humidity") {
+    return m.planet_editor_value_percent({ value: formatNumber(Math.max(1, humidityPercent(amount))) });
+  }
+  return axisValue(axis, amount);
+}
+
+function storyRange(condition: BiomeConditionCheck): string {
+  const axis = CONDITION_LABELS[condition.axis]();
+  const min = condition.min === null ? null : axisValue(condition.axis, condition.min);
+  const max = condition.max === null ? null : axisValue(condition.axis, condition.max);
+  if (min !== null && max !== null) return m.planet_editor_story_range_both({ axis, min, max });
+  if (min !== null) return m.planet_editor_story_range_min({ axis, min });
+  return m.planet_editor_story_range_max({ axis, max: max ?? "" });
+}
+
+const NEAR_TEXT = {
+  temperatureC: {
+    higher: m.planet_editor_story_near_temperature_higher,
+    lower: m.planet_editor_story_near_temperature_lower,
+  },
+  humidity: {
+    higher: m.planet_editor_story_near_humidity_higher,
+    lower: m.planet_editor_story_near_humidity_lower,
+  },
+  realElevationM: {
+    higher: m.planet_editor_story_near_elevation_higher,
+    lower: m.planet_editor_story_near_elevation_lower,
+  },
+} as const;
+
+/** 조건 값 목록 "기온 12°C, 습도 65%" */
+function conditionValues(items: readonly BiomeConditionCheck[]): string {
+  return items
+    .map((condition) =>
+      m.planet_editor_story_value({
+        axis: CONDITION_LABELS[condition.axis](),
+        value: axisValue(condition.axis, condition.value),
+      }),
+    )
+    .join(", ");
+}
+
+/** 쉬운 문장들(고른 바이옴 → 정한 조건 → 아깝게 놓친 바이옴) */
+function storyLines(story: CellStory, values: CellValues, name: (index: number) => string): string[] {
+  const biome = name(story.biome);
+  const lines = [m.planet_editor_story_biome({ biome })];
+  if (story.kind === "ocean") {
+    lines.push(
+      m.planet_editor_story_ocean({ depth: story.depthClass ? DEPTH_LABELS[story.depthClass]() : "–" }),
+    );
+    return lines;
+  }
+  if (story.kind === "lake") {
+    lines.push(m.planet_editor_story_lake());
+    return lines;
+  }
+
+  if (story.deciding) {
+    lines.push(
+      m.planet_editor_story_fit({
+        values: conditionValues(story.deciding),
+        biome,
+        ranges: story.deciding.map(storyRange).join(", "),
+      }),
+    );
+  } else {
+    const facts = [
+      m.planet_editor_story_value({
+        axis: CONDITION_LABELS.temperatureC(),
+        value: axisValue("temperatureC", values.temperatureC),
+      }),
+      m.planet_editor_story_value({
+        axis: CONDITION_LABELS.humidity(),
+        value: axisValue("humidity", values.humidity),
+      }),
+      m.planet_editor_story_value({
+        axis: CONDITION_LABELS.realElevationM(),
+        value: axisValue("realElevationM", values.realElevationM),
+      }),
+    ];
+    lines.push(m.planet_editor_story_fallback({ values: facts.join(", ") }));
+  }
+  const near = story.nearMiss;
+  if (near?.kind === "one") {
+    lines.push(
+      NEAR_TEXT[near.condition.axis][near.direction]({
+        amount: amountText(near.condition.axis, near.amount),
+        biome: name(near.biome),
+      }),
+    );
+  } else if (near?.kind === "many") {
+    lines.push(m.planet_editor_story_near_many({ biome: name(near.biome) }));
+  }
+  return lines;
+}
+
 export function CellPanel({
   report,
   entry,
@@ -191,6 +309,8 @@ export function CellPanel({
     return <p className="status pe-cell-none">{m.planet_editor_cell_none()}</p>;
   }
   const { values } = report;
+  const biomeSection = report.sections.find((section) => section.kind === "biome");
+  const story = biomeSection ? cellStory(biomeSection.explanation) : null;
   const biomes = entry.input.biomes;
   const { location } = values;
   const rows: [string, string][] = [
@@ -239,35 +359,50 @@ export function CellPanel({
         })}
         {stale ? ` · ${m.planet_editor_stale()}` : ""}
       </p>
-      <dl className="pe-facts pe-cell-values">
-        {rows.map(([name, value]) => (
-          <div key={name}>
-            <dt>{name}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-      </dl>
-      {values.water.ocean ? <p className="field-hint">{m.planet_editor_depth_note()}</p> : null}
-      {report.sections.map((section) =>
-        section.kind === "biome" ? (
-          <Explanation key="biome" explanation={section.explanation} biomes={biomes} entries={biomeEntries} />
-        ) : null,
-      )}
-      <section className="pe-section">
-        <h2 className="section-title">{m.planet_editor_source()}</h2>
-        <p className="pe-source" translate="no">
-          {m.planet_editor_source_value({
-            content: contentVersion,
-            generator: String(values.generatorVersion),
-            biome: values.biomeId ?? "–",
-          })}
-        </p>
-        <p className="pe-source" translate="no">
-          {role === "base"
-            ? m.planet_editor_source_hash({ hash: definitionHash })
-            : m.planet_editor_source_draft()}
-        </p>
-      </section>
+      {story ? (
+        <div className="pe-story" data-story={story.kind}>
+          {storyLines(story, values, (index) => biomeName(biomes, biomeEntries, index)).map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </div>
+      ) : null}
+      <details className="pe-details">
+        <summary className="pe-details-summary">{m.planet_editor_details_toggle()}</summary>
+        <dl className="pe-facts pe-cell-values">
+          {rows.map(([name, value]) => (
+            <div key={name}>
+              <dt>{name}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+        {values.water.ocean ? <p className="field-hint">{m.planet_editor_depth_note()}</p> : null}
+        {report.sections.map((section) =>
+          section.kind === "biome" ? (
+            <Explanation
+              key="biome"
+              explanation={section.explanation}
+              biomes={biomes}
+              entries={biomeEntries}
+            />
+          ) : null,
+        )}
+        <section className="pe-section">
+          <h2 className="section-title">{m.planet_editor_source()}</h2>
+          <p className="pe-source" translate="no">
+            {m.planet_editor_source_value({
+              content: contentVersion,
+              generator: String(values.generatorVersion),
+              biome: values.biomeId ?? "–",
+            })}
+          </p>
+          <p className="pe-source" translate="no">
+            {role === "base"
+              ? m.planet_editor_source_hash({ hash: definitionHash })
+              : m.planet_editor_source_draft()}
+          </p>
+        </section>
+      </details>
     </div>
   );
 }

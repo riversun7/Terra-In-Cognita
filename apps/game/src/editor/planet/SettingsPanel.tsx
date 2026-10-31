@@ -1,7 +1,8 @@
 // 설정 판 — 프리셋 6축 × 3단계, 세부 수치 슬라이더, 시드, 본 미리보기 해상도(ADR 38 2·3·4절)
 // - 프리셋 단계마다 정하는 값을 함께 보인다(editorModel presetRows). 단계를 고르면 그 축의 덮어쓰기를 지운다.
 // - 슬라이더 범위는 생성기 입력 확인과 같은 표(editorModel settingRows ← PLANET_SETTING_RANGES)에서 읽는다.
-//   끄는 동안은 빠른 줄(F5, 미니맵), 놓으면(포인터·키를 뗌, 초점을 잃음) 본 줄(onCommit)로 만든다.
+// - 값을 바꾸면 "적용 전 변경"(부모가 든다)만 바뀐다. 미리보기·자동 저장은 [적용]을 누를 때 한다(사용자 의견 2026-10-31,
+//   "슬라이더 조정시마다 렌더링이 되어 비효율적이다"). [적용]·[취소] 줄은 판 아래에 붙어 늘 보인다(sticky).
 // - "배치 바뀜" 표시: 바꾸면 땅·바다 배치가 새로 바뀌는 값.
 // - 해상도: F6~상한. F9는 확인 창(부모), F8 이상이 도는 동안 [멈춤]. 꺼짐 감지가 낮춘 기기 상한과 [다시 허용].
 import { PLANET_GENERATOR_FACE_LEVELS } from "@terra/shared";
@@ -19,12 +20,7 @@ import {
   withoutSetting,
 } from "./editorModel.ts";
 import { parseSeedText, randomSeed } from "./editorView.ts";
-import {
-  DEFAULT_FINAL_LEVEL,
-  HEAVY_PREVIEW_LEVEL,
-  type PreviewLane,
-  type PreviewLevels,
-} from "./previewJobs.ts";
+import { DEFAULT_FINAL_LEVEL, HEAVY_PREVIEW_LEVEL, type PreviewLevels } from "./previewJobs.ts";
 
 export interface SettingsPanelProps {
   readonly entry: DraftEntry | null;
@@ -37,8 +33,12 @@ export interface SettingsPanelProps {
   readonly heavyRunning: boolean;
   readonly deviceCap: number | null;
   readonly tripped: number | null;
-  readonly onEdit: (next: DraftEntry, lane: PreviewLane | "both") => void;
-  readonly onCommit: () => void;
+  /** 적용 전 변경을 바꾼다(미리보기·저장은 하지 않는다) */
+  readonly onEdit: (next: DraftEntry) => void;
+  /** 적용 전 변경 수(0이면 [적용] 줄을 숨긴다) */
+  readonly pendingCount: number;
+  readonly onApply: () => void;
+  readonly onDiscard: () => void;
   readonly onFinalLevel: (level: number) => void;
   readonly onCancelRun: () => void;
   readonly onAllowAgain: () => void;
@@ -73,7 +73,7 @@ function PresetGroup({
                 name={name}
                 value={choice.level}
                 checked={axis.level === choice.level}
-                onChange={() => onEdit(withPreset(entry, axis.axis, choice.level), "both")}
+                onChange={() => onEdit(withPreset(entry, axis.axis, choice.level))}
               />
               <span className="pe-choice-face">
                 <span className="pe-choice-name">{levelLabel(choice.level)}</span>
@@ -97,7 +97,7 @@ function isSettingKey(key: string): key is keyof typeof SETTING_LABELS {
   return Object.hasOwn(SETTING_LABELS, key);
 }
 
-/** 시드 입력: 글로 받고 [적용]·Enter로 바꾼다(u32라 숫자 입력칸의 범위 문제를 피한다) */
+/** 시드 입력: 글로 받는다(u32라 숫자 입력칸의 범위 문제를 피한다). 맞는 수면 적용 전 변경으로 바로 넘긴다 */
 function SeedField({ entry, onEdit }: { entry: DraftEntry; onEdit: SettingsPanelProps["onEdit"] }) {
   const current = (() => {
     try {
@@ -116,9 +116,9 @@ function SeedField({ entry, onEdit }: { entry: DraftEntry; onEdit: SettingsPanel
   }
   const parsed = parseSeedText(text);
   const invalid = text.trim() !== "" && parsed === null;
-  const apply = (value: number | null): void => {
+  const change = (value: number | null): void => {
     if (value === null || value === current) return;
-    onEdit(withSeed(entry, value), "both");
+    onEdit(withSeed(entry, value));
   };
   return (
     <div className="field pe-seed">
@@ -136,15 +136,12 @@ function SeedField({ entry, onEdit }: { entry: DraftEntry; onEdit: SettingsPanel
           value={text}
           aria-invalid={invalid}
           aria-describedby={`${id}-hint`}
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") apply(parsed);
+          onChange={(event) => {
+            setText(event.target.value);
+            change(parseSeedText(event.target.value));
           }}
         />
-        <button type="button" className="button-small" onClick={() => apply(parsed)} aria-disabled={invalid}>
-          {m.planet_editor_seed_apply()}
-        </button>
-        <button type="button" className="button-small" onClick={() => apply(randomSeed())}>
+        <button type="button" className="button-small" onClick={() => change(randomSeed())}>
           {m.planet_editor_seed_random()}
         </button>
       </div>
@@ -164,7 +161,7 @@ function levelOptionText(level: number, levels: PreviewLevels): string {
 }
 
 export function SettingsPanel(props: SettingsPanelProps) {
-  const { entry, levels, finalLevel, onEdit, onCommit } = props;
+  const { entry, levels, finalLevel, onEdit } = props;
   const levelId = useId();
   const rows = entry ? safeRows(entry) : null;
   return (
@@ -235,9 +232,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
             <h2 id={`${levelId}-details`} className="section-title">
               {m.planet_editor_details()}
             </h2>
-            <p className="field-hint">
-              {m.planet_editor_details_hint({ level: String(finalLevel), quick: String(levels.quick) })}
-            </p>
+            <p className="field-hint">{m.planet_editor_details_hint({ level: String(finalLevel) })}</p>
             {rows.settings.map((row) => {
               const id = `${levelId}-${row.key}`;
               const name = SETTING_LABELS[row.key].name();
@@ -262,12 +257,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                     value={row.value}
                     data-key={row.key}
                     aria-valuetext={settingValue(row.key, row.value)}
-                    onChange={(event) =>
-                      onEdit(withSetting(entry, row.key, Number(event.target.value)), "quick")
-                    }
-                    onPointerUp={onCommit}
-                    onKeyUp={onCommit}
-                    onBlur={onCommit}
+                    onChange={(event) => onEdit(withSetting(entry, row.key, Number(event.target.value)))}
                   />
                   <div className="pe-slider-foot">
                     <span className="field-hint">
@@ -278,7 +268,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                         type="button"
                         className="button-text"
                         aria-label={m.planet_editor_reset_label({ name })}
-                        onClick={() => onEdit(withoutSetting(entry, row.key), "both")}
+                        onClick={() => onEdit(withoutSetting(entry, row.key))}
                       >
                         {m.planet_editor_reset()}
                       </button>
@@ -289,6 +279,21 @@ export function SettingsPanel(props: SettingsPanelProps) {
             })}
           </section>
         </>
+      ) : null}
+      {props.pendingCount > 0 ? (
+        <div className="pe-apply-bar" data-pending={props.pendingCount}>
+          <p className="pe-apply-count" role="status">
+            {m.planet_editor_pending({ count: formatNumber(props.pendingCount) })}
+          </p>
+          <div className="pe-apply-actions">
+            <button type="button" className="button-small pe-discard" onClick={props.onDiscard}>
+              {m.planet_editor_cancel()}
+            </button>
+            <button type="button" className="button-small button-primary pe-apply" onClick={props.onApply}>
+              {m.planet_editor_apply()}
+            </button>
+          </div>
+        </div>
       ) : null}
     </div>
   );

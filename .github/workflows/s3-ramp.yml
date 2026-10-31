@@ -1,0 +1,54 @@
+# S3 규모 계단 시험 — 봇 수를 올리며 처음 무너지는 계단을 찾는다(docs/adr/2026-10-31-s3-server-stage.md 6·7절).
+# 수동 실행만. 운영 컨테이너(tic-app·tic-db)는 건드리지 않는다: 같은 이미지로 tic-s3-ramp를 따로 띄우고,
+# DB는 시험 전용 PostgreSQL 컨테이너(tic-s3-ramp-db, 전용 네트워크)를 잠깐 띄웠다가 끝나면 지운다.
+# 공개 포트를 열지 않는다. 비밀값(DB 비밀번호·인증 비밀값)은 실행할 때 만들고 로그에 찍지 않는다(ops/s3-ramp.sh).
+# 결과 표(계단마다 이벤트 루프 p99·RSS·CPU·DB 쓰기·SIGKILL 복구, 1천 개당 비용)는 이 실행의 Summary에 붙는다.
+# 걸리는 시간: 계단마다 (분 + 부팅·복구 약 1~3분). 기본 7계단 × 3분이면 최대 약 40분(무너진 계단에서 멈춘다).
+name: s3-ramp
+
+on:
+  workflow_dispatch:
+    inputs:
+      steps:
+        description: "봇 수 계단(쉼표, 2차맵마다 최대 2,000개로 나눈다)"
+        required: false
+        default: "1000,2000,5000,10000,20000,50000,100000"
+      minutes:
+        description: "계단마다 몇 분 (2~10)"
+        required: false
+        default: "3"
+      tag:
+        description: "이미지 태그(비우면 지금 NAS에 배포된 태그)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  ramp:
+    if: vars.NAS_DEPLOY_ENABLED == 'true'
+    runs-on: [self-hosted, nas]
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: read
+    # 배포와 같은 줄에 서서 동시에 돌지 않게 한다(NAS CPU를 함께 쓴다)
+    concurrency:
+      group: deploy-nas
+      cancel-in-progress: false
+    env:
+      S3_RAMP_STEPS: ${{ inputs.steps }}
+      S3_RAMP_MINUTES: ${{ inputs.minutes }}
+      S3_RAMP_TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: GHCR 로그인
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: 준비(시험 DB·이미지·마이그레이션)
+        run: bash ops/s3-ramp.sh prepare
+      - name: 계단 시험
+        run: bash ops/s3-ramp.sh ramp
+      - name: 정리(시험 컨테이너·DB·계정 지우기)
+        if: always()
+        run: bash ops/s3-ramp.sh cleanup

@@ -1,0 +1,329 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "a20d9b49-0f55-4120-b480-81beff9b487b",
+  "prevIds": [
+    "b6353809-40ab-42d5-9772-0207d42b35f0",
+    "a09bb6b2-bc9f-4139-9d5e-3aef64ba7ee5"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_buildings",
+        "planet_id"
+      ],
+      "writes": [
+        "s|col|public.world_buildings.planet_id",
+        "n|col|public.world_buildings.planet_id",
+        "e|col|public.world_buildings.planet_id"
+      ],
+      "reads": [
+        "n|tbl|public.world_buildings",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_buildings",
+        "domain"
+      ],
+      "writes": [
+        "s|col|public.world_buildings.domain",
+        "n|col|public.world_buildings.domain",
+        "e|col|public.world_buildings.domain"
+      ],
+      "reads": [
+        "n|tbl|public.world_buildings",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_exploration",
+        "planet_id"
+      ],
+      "writes": [
+        "s|col|public.world_exploration.planet_id",
+        "n|col|public.world_exploration.planet_id",
+        "e|col|public.world_exploration.planet_id"
+      ],
+      "reads": [
+        "n|tbl|public.world_exploration",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_units",
+        "planet_id"
+      ],
+      "writes": [
+        "s|col|public.world_units.planet_id",
+        "n|col|public.world_units.planet_id",
+        "e|col|public.world_units.planet_id"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_units",
+        "domain"
+      ],
+      "writes": [
+        "s|col|public.world_units.domain",
+        "n|col|public.world_units.domain",
+        "e|col|public.world_units.domain"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_buildings"
+      ],
+      "writes": [
+        "s|ck|public.world_buildings.world_buildings_planet_id_format",
+        "n|ck|public.world_buildings.world_buildings_planet_id_format",
+        "e|ck|public.world_buildings.world_buildings_planet_id_format",
+        "n|con|public.world_buildings.world_buildings_planet_id_format"
+      ],
+      "reads": [
+        "n|tbl|public.world_buildings",
+        "n|sch|public",
+        "n|col|public.world_buildings.planet_id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_buildings"
+      ],
+      "writes": [
+        "s|ck|public.world_buildings.world_buildings_domain",
+        "n|ck|public.world_buildings.world_buildings_domain",
+        "e|ck|public.world_buildings.world_buildings_domain",
+        "n|con|public.world_buildings.world_buildings_domain"
+      ],
+      "reads": [
+        "n|tbl|public.world_buildings",
+        "n|sch|public",
+        "n|col|public.world_buildings.domain"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_exploration"
+      ],
+      "writes": [
+        "s|ck|public.world_exploration.world_exploration_planet_id_format",
+        "n|ck|public.world_exploration.world_exploration_planet_id_format",
+        "e|ck|public.world_exploration.world_exploration_planet_id_format",
+        "n|con|public.world_exploration.world_exploration_planet_id_format"
+      ],
+      "reads": [
+        "n|tbl|public.world_exploration",
+        "n|sch|public",
+        "n|col|public.world_exploration.planet_id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_units"
+      ],
+      "writes": [
+        "s|ck|public.world_units.world_units_planet_id_format",
+        "n|ck|public.world_units.world_units_planet_id_format",
+        "e|ck|public.world_units.world_units_planet_id_format",
+        "n|con|public.world_units.world_units_planet_id_format"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public",
+        "n|col|public.world_units.planet_id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_units"
+      ],
+      "writes": [
+        "s|ck|public.world_units.world_units_domain",
+        "n|ck|public.world_units.world_units_domain",
+        "e|ck|public.world_units.world_units_domain",
+        "n|con|public.world_units.world_units_domain"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public",
+        "n|col|public.world_units.domain"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_buildings",
+        "name": "planet_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'s2_test_planet'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_buildings",
+        "name": "domain",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'land'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_exploration",
+        "name": "planet_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'s2_test_planet'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "planet_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'s2_test_planet'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "domain",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'land'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_buildings",
+        "name": "world_buildings_planet_id_format",
+        "value": "\"planet_id\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_buildings",
+        "name": "world_buildings_domain",
+        "value": "\"domain\" in ('space', 'sky', 'land', 'sea')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_exploration",
+        "name": "world_exploration_planet_id_format",
+        "value": "\"planet_id\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "world_units_planet_id_format",
+        "value": "\"planet_id\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "world_units_domain",
+        "value": "\"domain\" in ('space', 'sky', 'land', 'sea')",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

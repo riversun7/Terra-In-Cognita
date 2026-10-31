@@ -52,6 +52,7 @@ import { type MapStream, createMapStream } from "./mapStream.ts";
 import type { MapReplicaInit } from "./pathMessages.ts";
 import type { PathOutcome, PathPriority, PathService } from "./pathService.ts";
 import { type Scheduler, createScheduler } from "./scheduler.ts";
+import { DEFAULT_WORLD_PLANET_ID, type WorldDomain } from "../db/schema.ts";
 import { UNIT_KIND_BOT, UNIT_KIND_TEST } from "./unitKinds.ts";
 import { type ExploredStore, type MapVision, createMapVision } from "./vision.ts";
 import { type SizedEntry, buildingToWire, motionToWire, sized } from "./wire.ts";
@@ -84,6 +85,10 @@ export interface UnitRow {
   size: SizeClass;
   speed: number;
   mapKey: number;
+  /** 행성 ID(콘텐츠 팩). 셀 키는 행성 안에서만 하나다(ADR 2026-10-29-cell-key-layout) */
+  planetId: string;
+  /** 영역(D-372): 우주·하늘·육지·해상. 지금은 모두 육지 */
+  domain: WorldDomain;
   /** 꺾이는 점 [x0, y0, …] */
   path: number[];
   departAtMs: number;
@@ -96,6 +101,8 @@ export interface UnitRow {
 export interface BuildingRow {
   id: number;
   mapKey: number;
+  planetId: string;
+  domain: WorldDomain;
   ownerId: number | null;
   placement: BuildingPlacement;
 }
@@ -123,6 +130,7 @@ interface UnitState {
   readonly id: number;
   readonly ownerId: number;
   readonly kind: number;
+  readonly domain: WorldDomain;
   readonly size: SizeClass;
   readonly speed: number;
   motion: Motion;
@@ -165,6 +173,8 @@ export interface SecondMapOptions {
   allocateBuildingId?: (() => number) | undefined;
   /** 탐사 기록 저장(시야 전송). 없으면 메모리에만 */
   explored?: ExploredStore | undefined;
+  /** 이 2차맵이 놓인 행성(기본: 시험 행성) */
+  planetId?: string | undefined;
 }
 
 export interface TerrainFile {
@@ -174,6 +184,8 @@ export interface TerrainFile {
 
 export interface SecondMap {
   readonly mapKey: number;
+  /** 이 2차맵이 놓인 행성. 전체 ID = (행성, 2차맵 키) */
+  readonly planetId: string;
   readonly generatorVersion: number;
   /** 거르지 않은 전송(관리자 전체 보기) */
   readonly stream: MapStream;
@@ -301,6 +313,7 @@ function lastPoint(motion: Motion): Point {
 
 export function createSecondMap(options: SecondMapOptions): SecondMap {
   const { mapKey, terrain, paths, now, stats, log, persist } = options;
+  const planetId = options.planetId ?? DEFAULT_WORLD_PLANET_ID;
   const botOwnerId = options.botOwnerId ?? 0;
   let localUnitId = 0;
   const allocateUnitId =
@@ -374,6 +387,8 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       size: unit.size,
       speed: unit.speed,
       mapKey,
+      planetId,
+      domain: unit.domain,
       path,
       departAtMs: unit.motion.departAtMs,
       wakeAtMs: unit.wakeAtMs ?? null,
@@ -539,6 +554,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     id: number;
     ownerId: number;
     kind: number;
+    domain?: WorldDomain;
     size: SizeClass;
     speed: number;
     motion: Motion;
@@ -549,6 +565,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       id: spec.id,
       ownerId: spec.ownerId,
       kind: spec.kind,
+      domain: spec.domain ?? "land",
       size: spec.size,
       speed: spec.speed,
       motion: spec.motion,
@@ -599,6 +616,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
 
   return {
     mapKey,
+    planetId,
     generatorVersion: terrain.generatorVersion,
     stream,
     vision,
@@ -751,7 +769,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       if (unitInRect(check.rect)) return { ok: false, code: "overlaps_unit" };
       const id = allocateBuildingId();
       putBuilding(id, placement, null);
-      persist?.saveBuilding({ id, mapKey, ownerId: null, placement });
+      persist?.saveBuilding({ id, mapKey, planetId, domain: "land", ownerId: null, placement });
       replanBlockedUnits();
       return { ok: true, buildingId: id };
     },

@@ -22,6 +22,13 @@ export const SURFACE = {
   grass: 1,
   dirt: 2,
   rock: 3,
+  sand: 4,
+  gravel: 5,
+  snow: 6,
+  ice: 7,
+  mud: 8,
+  ash: 9,
+  shallowWater: 10,
 } as const;
 export type SurfaceCode = (typeof SURFACE)[keyof typeof SURFACE];
 

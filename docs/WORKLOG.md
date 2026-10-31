@@ -8,6 +8,7 @@
 | 2026-10-31 22:00 | S3 뒤: 월드 표에 행성 ID·영역(D-372) | Claude Code | [31-2200-s3-planet-domain](worklog/2026/10/31-2200-s3-planet-domain.md) |
 | 2026-10-31 21:00 | S3 WP-E: kill -9 복구 하네스, 규모 계단 시험 작업(NAS), 개발 컨테이너 계단 | Claude Code | [31-2100-s3-wp-e-measure](worklog/2026/10/31-2100-s3-wp-e-measure.md) |
 | 2026-10-31 19:30 | S3 WP-B: 2차맵 시야 전송, 탐사 기록, 프로토콜 3, 안개, 시험 단추 | Claude Code | [31-1930-s3-wp-b-vision](worklog/2026/10/31-1930-s3-wp-b-vision.md) |
+| 2026-10-31 18:52 | 2차맵 생성 WP-1: 행성 값 입력, 정본 노이즈, 바탕 높이·물가·강·지표, 이음매 시험, TCTR 2판 | Claude Code | [31-1852-second-map-wp1](worklog/2026/10/31-1852-second-map-wp1.md) |
 | 2026-10-31 18:13 | 2차맵 생성(ADR 46) 사용자 결정 반영, 기획 질문 124~129, 지도 줄기 크기 | Claude Code | [31-1813-second-map-v2-decisions](worklog/2026/10/31-1813-second-map-v2-decisions.md) |
 | 2026-10-31 18:00 | R1 규칙 틀·시뮬레이터: 가상 시계 루프, 공용 장부·정산, D-391 지표 기록기 | Claude Code | [31-1800-rules-simulator-r1](worklog/2026/10/31-1800-rules-simulator-r1.md) |
 | 2026-10-31 17:55 | 설계: 2차맵을 행성 값에서 만들기(ADR 제안, 구현 없음) | Claude Code | [31-1755-second-map-from-planet-adr](worklog/2026/10/31-1755-second-map-from-planet-adr.md) |

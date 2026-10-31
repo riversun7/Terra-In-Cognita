@@ -2,8 +2,11 @@
 import { describe, expect, it } from "vitest";
 import { ProtocolError } from "./codec.ts";
 import {
+  TERRAIN_FORMAT_V1,
   TERRAIN_FORMAT_VERSION,
   TERRAIN_HEADER_BYTES,
+  TERRAIN_HEADER_BYTES_V2,
+  TERRAIN_NO_WATER,
   type TerrainData,
   decodeTerrain,
   encodeTerrain,
@@ -33,7 +36,7 @@ describe("지형 이진 형식", () => {
     const bytes = encodeTerrain(sample(2));
     expect(String.fromCharCode(...bytes.slice(0, 4))).toBe("TCTR");
     const view = new DataView(bytes.buffer);
-    expect(view.getUint16(4, true)).toBe(TERRAIN_FORMAT_VERSION);
+    expect(view.getUint16(4, true)).toBe(TERRAIN_FORMAT_V1);
     expect(view.getUint16(6, true)).toBe(TERRAIN_HEADER_BYTES);
     expect(view.getUint32(12, true)).toBe(0xdead_beef);
     expect([view.getUint16(16, true), view.getUint16(18, true)]).toEqual([2, 3]);
@@ -72,5 +75,38 @@ describe("지형 이진 형식", () => {
 
   it("주소에 2차맵 키와 생성기 버전이 붙는다", () => {
     expect(terrainPath(281_474_976_710_665, 3)).toBe("/api/maps/281474976710665/terrain?v=3");
+  });
+
+  it("2판: 물 높이·엄폐·실제 칸 크기·판을 왕복한다. 1판 칸만 있으면 1판으로 쓴다", () => {
+    const base = sample(4);
+    const v2: TerrainData = {
+      ...base,
+      waterLevels: Int32Array.from({ length: 25 }, (_, i) => (i % 3 === 0 ? TERRAIN_NO_WATER : i * 10)),
+      cover: Uint8Array.from({ length: 64 }, (_, i) => i % 3),
+      placementSize: 8,
+      cellSizeMm: 11_720,
+      planetGeneratorVersion: 3,
+      definitionHash: 0x6fe8_8527,
+    };
+    const bytes = encodeTerrain(v2);
+    const view = new DataView(bytes.buffer);
+    expect(view.getUint16(4, true)).toBe(TERRAIN_FORMAT_VERSION);
+    expect(view.getUint16(6, true)).toBe(TERRAIN_HEADER_BYTES_V2);
+    expect(bytes.byteLength).toBe(TERRAIN_HEADER_BYTES_V2 + 25 * 4 * 2 + 16 + 64);
+    expect(decodeTerrain(bytes)).toEqual(v2);
+    // 물 높이만, 엄폐 없음
+    const waterOnly: TerrainData = { ...base, waterLevels: new Int32Array(25).fill(5), cellSizeMm: 11_000 };
+    const back = decodeTerrain(encodeTerrain(waterOnly));
+    expect(back.cover).toBeUndefined();
+    expect([...(back.waterLevels ?? [])]).toEqual(Array.from({ length: 25 }, () => 5));
+    expect(new DataView(encodeTerrain(base).buffer).getUint16(4, true)).toBe(TERRAIN_FORMAT_V1);
+  });
+
+  it("2판: 길이·엄폐 크기가 틀리면 거부한다", () => {
+    const v2: TerrainData = { ...sample(4), cover: new Uint8Array(64), placementSize: 8, cellSizeMm: 1 };
+    const bytes = encodeTerrain(v2);
+    expect(() => decodeTerrain(bytes.slice(0, bytes.length - 1))).toThrow(ProtocolError);
+    expect(() => encodeTerrain({ ...v2, placementSize: 9 })).toThrow(RangeError);
+    expect(() => encodeTerrain({ ...v2, waterLevels: new Int32Array(3) })).toThrow(RangeError);
   });
 });

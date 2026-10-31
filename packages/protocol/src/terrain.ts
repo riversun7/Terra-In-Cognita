@@ -17,15 +17,50 @@
 //  꼭짓점 높이 i32 × (N + 1)²  (cm, 해수면 0 기준, 행 우선 y × (N + 1) + x)
 //  지표 종류   u8  × N²        (TERRAIN_SURFACE, 행 우선 y × N + x)
 // 숨김 정보(자원·크리쳐)는 넣지 않는다(ADR 2026-10-28-fog-and-map-visibility).
+//
+// 2판(행성 값에서 만든 2차맵, ADR 2026-10-31-second-map-from-planet 6절): 머리 64바이트. 앞 32바이트는 1판과 같은 뜻이다
+// (생성기 버전 = 2차맵 생성기 판, 시드 = 행성 시드). 더한 머리:
+//  32  u32   행성 생성기 판(GENERATOR_VERSION)
+//  36  u32   행성 정의 해시(16진수 앞 8자리)
+//  40  u32   지형 칸 한 변 실제 길이(mm, 표시용)
+//  44  u16   배치 칸 수 한 변 P(256, 엄폐 층이 없으면 0)
+//  46  u16   깃발: 1 = 물 높이 층, 2 = 엄폐 층
+//  48~63     예약(0)
+// 본문: 높이 → (깃발 1) 꼭짓점 물 높이 i32 × (N + 1)²(cm, 물 없음 = −2^31) → 지표 → (깃발 2) 배치 칸 엄폐 값 u8 × P².
+// 읽는 쪽은 1판·2판을 모두 읽는다.
 import { ProtocolError } from "./errors.ts";
 
-export const TERRAIN_FORMAT_VERSION = 1;
+/** 쓰는 형식의 가장 새 판(2판 칸이 있으면 2판, 없으면 1판으로 쓴다) */
+export const TERRAIN_FORMAT_VERSION = 2;
+/** 1판 형식 번호·머리 길이(S1 임시 지형) */
+export const TERRAIN_FORMAT_V1 = 1;
 export const TERRAIN_HEADER_BYTES = 32;
+/** 2판 머리 길이 */
+export const TERRAIN_HEADER_BYTES_V2 = 64;
+/** 물이 없는 꼭짓점의 물 높이 */
+export const TERRAIN_NO_WATER = -2_147_483_648;
+const FLAG_WATER = 1;
+const FLAG_COVER = 2;
 /** 마법 값 "TCTR"(Terra Cognita TeRrain)의 바이트 */
 const MAGIC = [0x54, 0x43, 0x54, 0x52] as const;
 
-/** 지표 종류 번호 (packages/sim SURFACE_*와 같다 — 서버 시험이 확인) */
-export const TERRAIN_SURFACE = { water: 0, grass: 1, dirt: 2, rock: 3 } as const;
+/**
+ * 지표 종류 번호. 0~3은 S1 임시 지형(packages/sim SURFACE_*)과 같고, 전체는 2차맵 생성기(packages/planet SM_SURFACE)와 같다
+ * — 서버 시험이 둘 다 확인한다. 한 번 쓴 번호는 다른 뜻으로 다시 쓰지 않는다(기획 질문 124 기술 기본안).
+ */
+export const TERRAIN_SURFACE = {
+  water: 0,
+  grass: 1,
+  dirt: 2,
+  rock: 3,
+  sand: 4,
+  gravel: 5,
+  snow: 6,
+  ice: 7,
+  mud: 8,
+  ash: 9,
+  shallowWater: 10,
+} as const;
 
 /** 서버 경로(Fastify 형식). 주소는 terrainPath로 만든다 */
 export const TERRAIN_ROUTE = "/api/maps/:mapKey/terrain";
@@ -50,7 +85,27 @@ export interface TerrainData {
   heights: Int32Array;
   /** 지표 종류 terrainSize² */
   surface: Uint8Array;
+  /** (2판) 꼭짓점 물 높이(cm, 물 없음 = TERRAIN_NO_WATER) (terrainSize + 1)² */
+  waterLevels?: Int32Array | undefined;
+  /** (2판) 배치 칸 엄폐 값(0·1·2) placementSize² */
+  cover?: Uint8Array | undefined;
+  /** (2판) 배치 칸 수 한 변(엄폐 층이 있으면) */
+  placementSize?: number | undefined;
+  /** (2판) 지형 칸 한 변 실제 길이(mm) */
+  cellSizeMm?: number | undefined;
+  /** (2판) 행성 생성기 판 */
+  planetGeneratorVersion?: number | undefined;
+  /** (2판) 행성 정의 해시 앞 8자리(u32) */
+  definitionHash?: number | undefined;
 }
+
+/** 2판 칸이 하나라도 있으면 2판으로 쓴다 */
+const isV2 = (data: TerrainData): boolean =>
+  data.waterLevels !== undefined ||
+  data.cover !== undefined ||
+  data.cellSizeMm !== undefined ||
+  data.planetGeneratorVersion !== undefined ||
+  data.definitionHash !== undefined;
 
 const TWO_POW_32 = 0x1_0000_0000;
 
@@ -73,13 +128,34 @@ export function encodeTerrain(data: TerrainData): Uint8Array {
   if (!Number.isSafeInteger(data.mapKey) || data.mapKey < 0) {
     throw new RangeError(`map key must be a non-negative safe integer: ${data.mapKey}`);
   }
-  const heightsOffset = TERRAIN_HEADER_BYTES;
-  const surfaceOffset = heightsOffset + data.heights.length * 4;
-  const bytes = new Uint8Array(surfaceOffset + data.surface.length);
+  const v2 = isV2(data);
+  const placement = data.cover ? (data.placementSize ?? 0) : 0;
+  if (data.waterLevels && data.waterLevels.length !== vertices * vertices) {
+    throw new RangeError("water levels do not match the terrain size");
+  }
+  if (
+    data.cover &&
+    (!Number.isInteger(placement) ||
+      placement < 1 ||
+      placement > 0xffff ||
+      data.cover.length !== placement * placement)
+  ) {
+    throw new RangeError("cover does not match the placement size");
+  }
+  for (const value of [data.cellSizeMm, data.planetGeneratorVersion, data.definitionHash]) {
+    if (value !== undefined && !isU32(value))
+      throw new RangeError("v2 header values must be 32-bit unsigned integers");
+  }
+  const headerBytes = v2 ? TERRAIN_HEADER_BYTES_V2 : TERRAIN_HEADER_BYTES;
+  const heightsOffset = headerBytes;
+  const waterOffset = heightsOffset + data.heights.length * 4;
+  const surfaceOffset = waterOffset + (data.waterLevels ? data.waterLevels.length * 4 : 0);
+  const coverOffset = surfaceOffset + data.surface.length;
+  const bytes = new Uint8Array(coverOffset + (data.cover ? data.cover.length : 0));
   const view = new DataView(bytes.buffer);
   MAGIC.forEach((byte, index) => view.setUint8(index, byte));
-  view.setUint16(4, TERRAIN_FORMAT_VERSION, true);
-  view.setUint16(6, TERRAIN_HEADER_BYTES, true);
+  view.setUint16(4, v2 ? TERRAIN_FORMAT_VERSION : TERRAIN_FORMAT_V1, true);
+  view.setUint16(6, headerBytes, true);
   view.setUint32(8, data.generatorVersion, true);
   view.setUint32(12, data.seed, true);
   view.setUint16(16, size, true);
@@ -90,7 +166,20 @@ export function encodeTerrain(data: TerrainData): Uint8Array {
   for (let i = 0; i < data.heights.length; i++) {
     view.setInt32(heightsOffset + i * 4, data.heights[i] ?? 0, true);
   }
+  if (v2) {
+    view.setUint32(32, data.planetGeneratorVersion ?? 0, true);
+    view.setUint32(36, data.definitionHash ?? 0, true);
+    view.setUint32(40, data.cellSizeMm ?? 0, true);
+    view.setUint16(44, placement, true);
+    view.setUint16(46, (data.waterLevels ? FLAG_WATER : 0) | (data.cover ? FLAG_COVER : 0), true);
+  }
+  if (data.waterLevels) {
+    for (let i = 0; i < data.waterLevels.length; i++) {
+      view.setInt32(waterOffset + i * 4, data.waterLevels[i] ?? TERRAIN_NO_WATER, true);
+    }
+  }
   bytes.set(data.surface, surfaceOffset);
+  if (data.cover) bytes.set(data.cover, coverOffset);
   return bytes;
 }
 
@@ -107,23 +196,32 @@ export function decodeTerrain(input: ArrayBuffer | Uint8Array): TerrainData {
     throw new ProtocolError("terrain data has a wrong magic value");
   }
   const formatVersion = view.getUint16(4, true);
-  if (formatVersion !== TERRAIN_FORMAT_VERSION) {
+  if (formatVersion !== TERRAIN_FORMAT_V1 && formatVersion !== TERRAIN_FORMAT_VERSION) {
     throw new ProtocolError(`unsupported terrain format version: ${formatVersion}`);
   }
+  const v2 = formatVersion === TERRAIN_FORMAT_VERSION;
   const headerBytes = view.getUint16(6, true);
   const size = view.getUint16(16, true);
   const vertices = view.getUint16(18, true);
-  if (headerBytes < TERRAIN_HEADER_BYTES || size < 1 || vertices !== size + 1) {
+  const minHeader = v2 ? TERRAIN_HEADER_BYTES_V2 : TERRAIN_HEADER_BYTES;
+  if (headerBytes < minHeader || bytes.byteLength < headerBytes || size < 1 || vertices !== size + 1) {
     throw new ProtocolError("terrain header is not valid");
   }
+  const flags = v2 ? view.getUint16(46, true) : 0;
+  const placement = v2 ? view.getUint16(44, true) : 0;
+  const hasWater = (flags & FLAG_WATER) !== 0;
+  const hasCover = (flags & FLAG_COVER) !== 0;
+  if (hasCover && placement < 1) throw new ProtocolError("terrain header is not valid");
   const heightCount = vertices * vertices;
-  const surfaceOffset = headerBytes + heightCount * 4;
-  if (bytes.byteLength !== surfaceOffset + size * size) {
+  const waterOffset = headerBytes + heightCount * 4;
+  const surfaceOffset = waterOffset + (hasWater ? heightCount * 4 : 0);
+  const coverOffset = surfaceOffset + size * size;
+  if (bytes.byteLength !== coverOffset + (hasCover ? placement * placement : 0)) {
     throw new ProtocolError("terrain data length does not match its header");
   }
   const heights = new Int32Array(heightCount);
   for (let i = 0; i < heightCount; i++) heights[i] = view.getInt32(headerBytes + i * 4, true);
-  return {
+  const data: TerrainData = {
     mapKey: view.getUint32(28, true) * TWO_POW_32 + view.getUint32(24, true),
     generatorVersion: view.getUint32(8, true),
     seed: view.getUint32(12, true),
@@ -132,4 +230,18 @@ export function decodeTerrain(input: ArrayBuffer | Uint8Array): TerrainData {
     heights,
     surface: bytes.slice(surfaceOffset, surfaceOffset + size * size),
   };
+  if (!v2) return data;
+  data.planetGeneratorVersion = view.getUint32(32, true);
+  data.definitionHash = view.getUint32(36, true);
+  data.cellSizeMm = view.getUint32(40, true);
+  if (hasWater) {
+    const waterLevels = new Int32Array(heightCount);
+    for (let i = 0; i < heightCount; i++) waterLevels[i] = view.getInt32(waterOffset + i * 4, true);
+    data.waterLevels = waterLevels;
+  }
+  if (hasCover) {
+    data.placementSize = placement;
+    data.cover = bytes.slice(coverOffset, coverOffset + placement * placement);
+  }
+  return data;
 }

@@ -1,4 +1,6 @@
-// 2차맵 하나의 서버 상태 (S1, 메모리에만 — DB 저장은 S3) — ADR 2026-10-28-s1-second-map.md
+// 2차맵 하나의 서버 상태 — ADR 2026-10-28-s1-second-map.md, 저장·복구는 ADR 2026-10-31-s3-server-stage.md 1·2절
+// - 유닛·건물이 바뀌면 persist 고리(월드 쓰기 대기열)로 행을 넘긴다. 위치는 저장하지 않고 경로·출발 시각·속도를 저장한다.
+//   예약은 주인 행의 예정 시각이다: 봇의 쉬기 끝(wakeAtMs)과 경로 도착(arrivalAt). 다시 켜면 restore가 그대로 다시 건다.
 // - 배치 격자(원본)·유닛·건물을 들고, 바뀔 때마다 rev를 1 올리고 전송(mapStream)에 알린다.
 // - 유닛은 "꺾이는 점 + 출발 시각 + 속도"만 둔다. 도착·쉬기 끝은 예약 이벤트로만 처리한다.
 // - 경로는 경로 서비스(워커)가 푼다. 요청 규칙:
@@ -30,6 +32,7 @@ import {
   anchorAt,
   anchorCenter,
   applyPlacement,
+  footprintRect,
   arrivalAt,
   createMotion,
   createPlacementGrid,
@@ -43,11 +46,13 @@ import {
   validatePlacement,
 } from "@terra/sim";
 import { gzipSync } from "node:zlib";
-import { type BotPlan, botPlan, idleMs, pickDestination, pickSpawn, retryMs, startDelayMs } from "./bots.ts";
+import type { Rng } from "@terra/shared";
+import { botPlan, botRng, idleMs, pickDestination, pickSpawn, retryMs, startDelayMs } from "./bots.ts";
 import { type MapStream, createMapStream } from "./mapStream.ts";
 import type { MapReplicaInit } from "./pathMessages.ts";
 import type { PathOutcome, PathPriority, PathService } from "./pathService.ts";
 import { type Scheduler, createScheduler } from "./scheduler.ts";
+import { UNIT_KIND_BOT, UNIT_KIND_TEST } from "./unitKinds.ts";
 import { type SizedEntry, buildingToWire, motionToWire, sized } from "./wire.ts";
 import { type WorldStats, recordPathOutcome } from "./worldStats.ts";
 
@@ -60,8 +65,63 @@ export const MAX_BUILDINGS = 1_024;
 
 export type CommandResult = { ok: true; buildingId?: number } | { ok: false; code: ResultCode };
 
+/** 정산 직무 상태(packages/sim settle가 읽고 바꾼다). 직무가 없으면 job 0 */
+export interface UnitJob {
+  job: number;
+  phase: number;
+  progressMs: number;
+  fatigue: number;
+}
+
+export const NO_JOB: UnitJob = { job: 0, phase: 0, progressMs: 0, fatigue: 0 };
+
+/** 저장하는 유닛 한 줄(world_units) */
+export interface UnitRow {
+  id: number;
+  ownerId: number;
+  kind: number;
+  size: SizeClass;
+  speed: number;
+  mapKey: number;
+  /** 꺾이는 점 [x0, y0, …] */
+  path: number[];
+  departAtMs: number;
+  wakeAtMs: number | null;
+  aiStep: number;
+  job: UnitJob;
+}
+
+/** 저장하는 건물 한 줄(world_buildings) */
+export interface BuildingRow {
+  id: number;
+  mapKey: number;
+  ownerId: number | null;
+  placement: BuildingPlacement;
+}
+
+/** 저장 고리(월드 쓰기 대기열). 없으면 메모리에만 둔다(DB 없는 서버·시험) */
+export interface MapPersist {
+  saveUnit(row: UnitRow): void;
+  saveBuilding(row: BuildingRow): void;
+  removeBuilding(buildingId: number): void;
+}
+
+/** 유닛 읽기 모양(정산·불변 조건 검사) */
+export interface UnitView {
+  readonly id: number;
+  readonly ownerId: number;
+  readonly kind: number;
+  readonly size: SizeClass;
+  readonly motion: Motion;
+  readonly job: UnitJob;
+  readonly planning: boolean;
+  readonly hasEvent: boolean;
+}
+
 interface UnitState {
   readonly id: number;
+  readonly ownerId: number;
+  readonly kind: number;
   readonly size: SizeClass;
   readonly speed: number;
   motion: Motion;
@@ -72,7 +132,12 @@ interface UnitState {
   planning: boolean;
   /** 예약된 도착·쉬기 끝 이벤트 */
   eventId: number | undefined;
-  readonly bot: BotPlan | undefined;
+  /** 예약된 쉬기 끝 시각(저장한다). 도착 예약은 경로에서 다시 나오므로 저장하지 않는다 */
+  wakeAtMs: number | undefined;
+  /** 봇 판단 횟수(봇 난수 차례, 저장한다) */
+  aiStep: number;
+  job: UnitJob;
+  readonly bot: boolean;
 }
 
 type MapEvent = { kind: "arrive" | "wake"; unitId: number };
@@ -89,6 +154,14 @@ export interface SecondMapOptions {
   now: () => number;
   stats: WorldStats;
   log: MapLog;
+  /** 저장 고리. 없으면 메모리에만 */
+  persist?: MapPersist | undefined;
+  /** 시험 봇의 소유 주체(시험 NPC 세력). 기본 0(DB 없음) */
+  botOwnerId?: number | undefined;
+  /** 새 유닛 ID(월드 전체에서 하나씩). 기본은 이 2차맵 안에서 1부터 */
+  allocateUnitId?: (() => number) | undefined;
+  /** 새 건물 ID. 기본은 이 2차맵 안에서 1부터 */
+  allocateBuildingId?: (() => number) | undefined;
 }
 
 export interface TerrainFile {
@@ -104,10 +177,31 @@ export interface SecondMap {
   replicaInit(): MapReplicaInit;
   /** 지형 이진 파일(처음 부를 때 만들고 계속 쓴다) */
   terrainFile(): TerrainFile;
-  /** 시험용 봇을 count개 만든다(유닛 ID 1부터) */
+  /** 시험용 봇이 count개가 되게 모자란 만큼 만든다(이미 있는 봇은 그대로 둔다) */
   spawnBots(count: number): void;
   /** 스스로 움직이지 않는 유닛 하나를 기준 칸 (x, y)에 세운다. ID가 있거나 설 수 없으면 false */
-  addUnit(spec: { id: number; size: SizeClass; speed: number; cellX: number; cellY: number }): boolean;
+  addUnit(spec: {
+    id: number;
+    size: SizeClass;
+    speed: number;
+    cellX: number;
+    cellY: number;
+    ownerId?: number;
+    kind?: number;
+  }): boolean;
+  /** 저장된 건물·유닛을 다시 놓고 예약을 다시 건다(부팅 복구). 놓지 못한 것의 ID를 돌려준다 */
+  restore(
+    units: readonly UnitRow[],
+    buildings: readonly BuildingRow[],
+  ): { badUnits: number[]; badBuildings: number[] };
+  /** 모든 유닛 읽기(정산·불변 조건) */
+  forEachUnit(visit: (unit: UnitView) => void): void;
+  /** 정산 결과의 직무 상태를 넣고 저장한다 */
+  setJob(unitId: number, job: UnitJob): boolean;
+  /** 불변 조건 I5: 예약이 없는 봇 수(경로를 기다리는 봇은 뺀다) */
+  missingEvents(): number;
+  /** 불변 조건 I7: 몸이 건물 칸에 걸친 서 있는 유닛 수 */
+  unitsInBuildings(): number;
   moveUnit(unitId: number, target: Point): Promise<CommandResult>;
   placeBuilding(placement: BuildingPlacement): CommandResult;
   removeBuilding(buildingId: number): CommandResult;
@@ -200,7 +294,15 @@ function lastPoint(motion: Motion): Point {
 }
 
 export function createSecondMap(options: SecondMapOptions): SecondMap {
-  const { mapKey, terrain, paths, now, stats, log } = options;
+  const { mapKey, terrain, paths, now, stats, log, persist } = options;
+  const botOwnerId = options.botOwnerId ?? 0;
+  let localUnitId = 0;
+  const allocateUnitId =
+    options.allocateUnitId ??
+    (() => {
+      localUnitId += 1;
+      return localUnitId;
+    });
   const grid = createPlacementGrid(placementCostsFromTerrain(terrain));
   const units = new Map<number, UnitState>();
   const buildings = new Map<number, { placement: BuildingPlacement; entry: SizedEntry<BuildingWire> }>();
@@ -208,7 +310,13 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
   let gridVersion = 0;
   /** 마지막으로 칸을 막은 편집의 격자 버전. 이보다 옛 격자로 푼 결과는 다시 찾는다 */
   let blockingVersion = 0;
-  let nextBuildingId = 1;
+  let localBuildingId = 0;
+  const allocateBuildingId =
+    options.allocateBuildingId ??
+    (() => {
+      localBuildingId += 1;
+      return localBuildingId;
+    });
   let terrainCache: TerrainFile | undefined;
   const terrainInfo = {
     url: terrainPath(mapKey, terrain.generatorVersion),
@@ -233,21 +341,53 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     onError: (error) => log.error({ err: error, mapKey }, "map event failed"),
   });
 
+  const save = (unit: UnitState): void => {
+    if (!persist) return;
+    const path: number[] = [];
+    for (const point of unit.motion.waypoints) path.push(point.x, point.y);
+    persist.saveUnit({
+      id: unit.id,
+      ownerId: unit.ownerId,
+      kind: unit.kind,
+      size: unit.size,
+      speed: unit.speed,
+      mapKey,
+      path,
+      departAtMs: unit.motion.departAtMs,
+      wakeAtMs: unit.wakeAtMs ?? null,
+      aiStep: unit.aiStep,
+      job: unit.job,
+    });
+  };
+
   const setMotion = (unit: UnitState, motion: Motion): void => {
     unit.motion = motion;
     unit.entry = sized(motionToWire(unit.id, unit.size, motion));
     rev += 1;
     stream.unitChanged(rev, unit.entry);
+    save(unit);
   };
 
   const cancelEvent = (unit: UnitState): void => {
     if (unit.eventId !== undefined) scheduler.cancel(unit.eventId);
     unit.eventId = undefined;
+    unit.wakeAtMs = undefined;
   };
 
   const scheduleEvent = (unit: UnitState, kind: MapEvent["kind"], timeMs: number): void => {
     cancelEvent(unit);
     unit.eventId = scheduler.schedule(timeMs, { kind, unitId: unit.id });
+    if (kind === "wake") {
+      unit.wakeAtMs = timeMs;
+      save(unit);
+    }
+  };
+
+  /** 봇의 다음 판단 난수(판단 횟수를 올리고 저장은 이어지는 바뀜과 함께) */
+  const nextRng = (unit: UnitState): Rng => {
+    const rng = botRng(terrain.seed, unit.id, unit.aiStep);
+    unit.aiStep += 1;
+    return rng;
   };
 
   const isCurrent = (unit: UnitState, seq: number) => (): boolean =>
@@ -329,22 +469,24 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     } else {
       waiter?.({ ok: false, code: failureCode(outcome.status) });
     }
-    if (unit.bot) scheduleEvent(unit, "wake", now() + retryMs(unit.bot.rng));
+    if (unit.bot) scheduleEvent(unit, "wake", now() + retryMs(nextRng(unit)));
   };
 
   const onEvent = (event: MapEvent): void => {
     const unit = units.get(event.unitId);
     if (!unit) return;
     unit.eventId = undefined;
+    if (event.kind === "wake") unit.wakeAtMs = undefined;
     if (!unit.bot) return;
     if (event.kind === "arrive") {
-      scheduleEvent(unit, "wake", now() + idleMs(unit.bot.rng));
+      scheduleEvent(unit, "wake", now() + idleMs(nextRng(unit)));
       return;
     }
     if (unit.planning) return;
-    const destination = pickDestination(grid, unit.bot.rng, unit.size, lastPoint(unit.motion));
+    const rng = nextRng(unit);
+    const destination = pickDestination(grid, rng, unit.size, lastPoint(unit.motion));
     if (!destination) {
-      scheduleEvent(unit, "wake", now() + retryMs(unit.bot.rng));
+      scheduleEvent(unit, "wake", now() + retryMs(rng));
       return;
     }
     requestRoute(unit, destination, "bot", BOT_NODE_BUDGET);
@@ -369,32 +511,65 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     return false;
   };
 
-  /** 서 있는 유닛 하나를 만든다(봇의 첫 출발 예약은 spawnBots가 한다) */
-  const createUnit = (
-    id: number,
-    size: SizeClass,
-    speed: number,
-    at: Point,
-    bot: BotPlan | undefined,
-  ): UnitState => {
-    const motion = createMotion({ waypoints: [at], departAtMs: now(), speed });
+  /** 유닛 하나를 넣는다(봇의 첫 출발 예약은 spawnBots·restore가 한다) */
+  const createUnit = (spec: {
+    id: number;
+    ownerId: number;
+    kind: number;
+    size: SizeClass;
+    speed: number;
+    motion: Motion;
+    aiStep: number;
+    job: UnitJob;
+  }): UnitState => {
     const unit: UnitState = {
-      id,
-      size,
-      speed,
-      motion,
-      entry: sized(motionToWire(id, size, motion)),
-      destination: at,
+      id: spec.id,
+      ownerId: spec.ownerId,
+      kind: spec.kind,
+      size: spec.size,
+      speed: spec.speed,
+      motion: spec.motion,
+      entry: sized(motionToWire(spec.id, spec.size, spec.motion)),
+      destination: lastPoint(spec.motion),
       routeSeq: 0,
       planning: false,
       eventId: undefined,
-      bot,
+      wakeAtMs: undefined,
+      aiStep: spec.aiStep,
+      job: spec.job,
+      bot: spec.kind === UNIT_KIND_BOT,
     };
-    units.set(id, unit);
+    units.set(unit.id, unit);
     rev += 1;
     stream.unitChanged(rev, unit.entry);
     return unit;
   };
+
+  const standing = (at: Point, speed: number): Motion =>
+    createMotion({ waypoints: [at], departAtMs: now(), speed });
+
+  /** 건물 하나를 격자에 놓고 기억한다(검사는 부르는 쪽이 했다) */
+  const putBuilding = (id: number, placement: BuildingPlacement): void => {
+    applyPlacement(grid, id, placement);
+    gridVersion += 1;
+    blockingVersion = gridVersion;
+    paths.edit(mapKey, gridVersion, { op: "place", id, placement });
+    const entry = sized(buildingToWire(id, placement));
+    buildings.set(id, { placement, entry });
+    rev += 1;
+    stream.buildingPlaced(rev, entry.value);
+  };
+
+  const view = (unit: UnitState): UnitView => ({
+    id: unit.id,
+    ownerId: unit.ownerId,
+    kind: unit.kind,
+    size: unit.size,
+    motion: unit.motion,
+    job: unit.job,
+    planning: unit.planning,
+    hasEvent: unit.eventId !== undefined,
+  });
 
   return {
     mapKey,
@@ -425,23 +600,116 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     },
     spawnBots(count) {
       const at = now();
-      for (let id = 1; id <= count; id++) {
-        if (units.has(id)) continue;
+      let existing = 0;
+      for (const unit of units.values()) if (unit.bot) existing += 1;
+      for (let made = existing; made < count; made++) {
+        const id = allocateUnitId();
         const plan = botPlan(terrain.seed, id);
         const spawn = pickSpawn(grid, plan.rng, plan.size);
         if (!spawn) {
           log.warn({ mapKey, unitId: id, size: plan.size }, "no room to spawn a test bot");
           continue;
         }
-        const unit = createUnit(id, plan.size, plan.speed, spawn, plan);
-        scheduleEvent(unit, "wake", at + startDelayMs(plan.rng));
+        const unit = createUnit({
+          id,
+          ownerId: botOwnerId,
+          kind: UNIT_KIND_BOT,
+          size: plan.size,
+          speed: plan.speed,
+          motion: standing(spawn, plan.speed),
+          aiStep: 0,
+          job: NO_JOB,
+        });
+        scheduleEvent(unit, "wake", at + startDelayMs(nextRng(unit)));
       }
     },
-    addUnit({ id, size, speed, cellX, cellY }) {
+    addUnit({ id, size, speed, cellX, cellY, ownerId, kind }) {
       if (units.has(id) || !Number.isInteger(id) || id < 1 || !isPassable(grid, cellX, cellY, size))
         return false;
-      createUnit(id, size, speed, anchorCenter(cellX, cellY, size), undefined);
+      const unit = createUnit({
+        id,
+        ownerId: ownerId ?? botOwnerId,
+        kind: kind ?? UNIT_KIND_TEST,
+        size,
+        speed,
+        motion: standing(anchorCenter(cellX, cellY, size), speed),
+        aiStep: 0,
+        job: NO_JOB,
+      });
+      save(unit);
       return true;
+    },
+    restore(unitRows, buildingRows) {
+      const badUnits: number[] = [];
+      const badBuildings: number[] = [];
+      for (const row of buildingRows.toSorted((a, b) => a.id - b.id)) {
+        const check = validatePlacement(grid, row.placement);
+        if (!check.ok || buildings.has(row.id)) {
+          badBuildings.push(row.id);
+          continue;
+        }
+        putBuilding(row.id, row.placement);
+      }
+      const events: { at: number; kind: MapEvent["kind"]; unit: UnitState }[] = [];
+      for (const row of unitRows) {
+        let motion: Motion;
+        try {
+          const waypoints: Point[] = [];
+          for (let i = 0; i + 1 < row.path.length; i += 2)
+            waypoints.push({ x: row.path[i] ?? 0, y: row.path[i + 1] ?? 0 });
+          motion = createMotion({ waypoints, departAtMs: row.departAtMs, speed: row.speed });
+        } catch {
+          badUnits.push(row.id);
+          continue;
+        }
+        if (units.has(row.id)) {
+          badUnits.push(row.id);
+          continue;
+        }
+        const unit = createUnit({ ...row, motion });
+        if (row.wakeAtMs !== null) events.push({ at: row.wakeAtMs, kind: "wake", unit });
+        else if (unit.bot) events.push({ at: arrivalAt(motion), kind: "arrive", unit });
+      }
+      // 같은 시각끼리는 (시각, 종류, 유닛 ID) 차례로 다시 건다(예약 큐는 넣은 차례를 지킨다)
+      const ordered = events.toSorted(
+        (a, b) => a.at - b.at || a.kind.localeCompare(b.kind) || a.unit.id - b.unit.id,
+      );
+      for (const event of ordered) {
+        event.unit.eventId = scheduler.schedule(event.at, { kind: event.kind, unitId: event.unit.id });
+        if (event.kind === "wake") event.unit.wakeAtMs = event.at;
+      }
+      return { badUnits, badBuildings };
+    },
+    forEachUnit(visit) {
+      for (const unit of units.values()) visit(view(unit));
+    },
+    setJob(unitId, job) {
+      const unit = units.get(unitId);
+      if (!unit) return false;
+      unit.job = job;
+      save(unit);
+      return true;
+    },
+    missingEvents() {
+      let missing = 0;
+      for (const unit of units.values())
+        if (unit.bot && !unit.planning && unit.eventId === undefined) missing += 1;
+      return missing;
+    },
+    unitsInBuildings() {
+      const at = now();
+      let count = 0;
+      for (const unit of units.values()) {
+        if (at < arrivalAt(unit.motion)) continue;
+        const cells = bodyCells(positionAt(unit.motion, at), unit.size);
+        for (const building of buildings.values()) {
+          if (rectsOverlap(cells, footprintRect(building.placement))) {
+            count += 1;
+            break;
+          }
+        }
+      }
+      return count;
     },
     moveUnit(unitId, target) {
       const unit = units.get(unitId);
@@ -454,15 +722,9 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       if (!check.ok)
         return { ok: false, code: check.problem === "invalid_input" ? "invalid_request" : check.problem };
       if (unitInRect(check.rect)) return { ok: false, code: "overlaps_unit" };
-      const id = nextBuildingId++;
-      applyPlacement(grid, id, placement);
-      gridVersion += 1;
-      blockingVersion = gridVersion;
-      paths.edit(mapKey, gridVersion, { op: "place", id, placement });
-      const entry = sized(buildingToWire(id, placement));
-      buildings.set(id, { placement, entry });
-      rev += 1;
-      stream.buildingPlaced(rev, entry.value);
+      const id = allocateBuildingId();
+      putBuilding(id, placement);
+      persist?.saveBuilding({ id, mapKey, ownerId: null, placement });
       replanBlockedUnits();
       return { ok: true, buildingId: id };
     },
@@ -472,6 +734,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       buildings.delete(buildingId);
       gridVersion += 1;
       paths.edit(mapKey, gridVersion, { op: "remove", id: buildingId });
+      persist?.removeBuilding(buildingId);
       rev += 1;
       stream.buildingRemoved(rev, buildingId);
       return { ok: true };

@@ -19,12 +19,14 @@ import {
 } from "../auth/store.ts";
 import { readAuthConfig } from "../auth/config.ts";
 import { type Database, closeDatabase, createDatabase } from "../db/client.ts";
+import { checkSqlInvariants } from "../world/invariants.ts";
 
 export const USAGE = [
   "사용: node dist/cli.js <명령> [옵션]",
   "  create-user  --id <아이디> [--roles <역할,역할>] [--allow-weak]   계정 만들기 (기본 역할 player)",
   "  set-roles    --id <아이디> --roles <역할,역할>                    역할 바꾸기 (예: player,admin)",
   "  set-password --id <아이디> [--allow-weak]                        비밀번호 바꾸기 (그 계정의 세션을 모두 끊는다)",
+  "  check-world                                                      월드 불변 조건(원장·정산) 검사. 위반이 있으면 종료 코드 3",
   "환경 변수: DATABASE_URL(필수), BETTER_AUTH_SECRET·BETTER_AUTH_URL(운영 필수),",
   "           TIC_PASSWORD(create-user·set-password의 비밀번호), TIC_ACTOR(감사 기록에 남길 실행자)",
   "역할: player, gm, dev, admin. --allow-weak는 비밀번호 규칙(8자 이상 등)을 건너뛴다(경고를 남긴다).",
@@ -223,6 +225,16 @@ export async function runCli(argv: readonly string[], env: NodeJS.ProcessEnv, io
     if (argv.length === 0 || argv.includes("--help") || argv.includes("-h")) {
       io.out(USAGE);
       return argv.length === 0 ? 2 : 0;
+    }
+    if (argv[0] === "check-world") {
+      // S3 ADR 2절: DB 몫 불변 조건만 본다(메모리 몫은 서버가 부팅 뒤 검사해 /health worldIssues에 낸다)
+      if (argv.length > 1) throw new CliError(2, "check-world는 옵션을 받지 않습니다.");
+      const worldUrl = env.DATABASE_URL;
+      if (!worldUrl) throw new CliError(2, "환경 변수 DATABASE_URL이 없습니다.");
+      db = createDatabase(worldUrl, (error) => io.err(`DB 연결 오류: ${error.message}`));
+      const problems = await checkSqlInvariants(db.$client, Date.now());
+      io.out(JSON.stringify({ ok: problems.length === 0, problems }));
+      return problems.length === 0 ? 0 : 3;
     }
     const args = parseCliArgs(argv);
     const url = env.DATABASE_URL;

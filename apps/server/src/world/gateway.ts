@@ -42,6 +42,8 @@ const COMMAND_ACTIONS = {
 export interface WorldDirectory {
   map(mapKey: number): SecondMap | undefined;
   readonly stats: WorldStats;
+  /** 부팅 복구가 끝났는가(없으면 늘 준비됨). 끝나기 전 요청은 busy */
+  isReady?(): boolean;
 }
 
 /** 연결 하나가 게이트웨이에 주는 것 */
@@ -170,6 +172,7 @@ export function createWorldGateway(options: {
         const viewer = await link.viewer();
         if (closed) return;
         if (!viewer) return reply(message.id, fail("sign_in_required"));
+        if (world.isReady && !world.isReady()) return reply(message.id, fail("busy"));
         const map = isCellKey(mapKey) ? world.map(mapKey) : undefined;
         if (!map) return reply(message.id, fail("unknown_map"));
         if (!canViewSecondMap(viewer, mapKey)) return reply(message.id, fail("not_visible"));

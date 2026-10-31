@@ -81,6 +81,7 @@ export {
   type MotionInput,
 } from "./motion/motion.ts";
 export { createEventQueue, type EventQueue, type ScheduledEvent } from "./events/eventQueue.ts";
+export { compareEventKeys, type EventKey } from "./events/eventKey.ts";
 export {
   MAX_BUILDING_ID,
   applyPlacement,
@@ -143,3 +144,52 @@ export {
   visionCellOf,
   visionRadius,
 } from "./vision/vision.ts";
+export {
+  LedgerError,
+  createLedgerBook,
+  type LedgerAccount,
+  type LedgerBook,
+  type LedgerEntry,
+  type LedgerErrorCode,
+  type LedgerHooks,
+  type LedgerPost,
+} from "./ledger/ledgerBook.ts";
+export {
+  INVARIANT_I1_ASSETS,
+  INVARIANT_I1_TRANSACTIONS,
+  INVARIANT_I2_BALANCE,
+  INVARIANT_I2_NEGATIVE,
+  INVARIANT_I6_KEYS,
+  createLedgerAudit,
+  type LedgerAudit,
+} from "./ledger/audit.ts";
+export {
+  TEST_ASSET_CREDIT,
+  TEST_ASSET_ORE,
+  TEST_SYSTEM_ISSUE_CREDIT,
+  TEST_SYSTEM_RESERVE_ORE,
+  TEST_SYSTEM_SINK_CREDIT,
+  settleOwnerPeriod,
+  testSettleAccounts,
+  type OwnerSettleInput,
+  type OwnerSettleResult,
+  type SettleAccounts,
+} from "./settle/owner.ts";
+export { type SimLoop, createSimLoop } from "./simulator/loop.ts";
+export {
+  DAY_MS,
+  createMetricsRecorder,
+  type FactionDay,
+  type FactionStart,
+  type MetricsOptions,
+  type MetricsRecorder,
+  type MetricsSummary,
+} from "./simulator/metrics.ts";
+export { parseScenario, type Scenario } from "./simulator/scenario.ts";
+export {
+  SIM_OUTPUT_FORMAT,
+  SIM_START_MS,
+  runSimulation,
+  type RunOptions,
+  type RunSummary,
+} from "./simulator/run.ts";

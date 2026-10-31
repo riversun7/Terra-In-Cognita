@@ -1,5 +1,11 @@
 // 불변 조건 검사 — docs/adr/2026-10-31-s3-server-stage.md 2절 표(I1~I8, 전투 없는 S3 범위)
 // 부팅 뒤(world.ts), 시험, 관리 명령(`node dist/cli.js check-world`, DB 몫만)에서 부른다. 위반은 문장 목록으로 돌려준다.
+import {
+  INVARIANT_I1_ASSETS,
+  INVARIANT_I1_TRANSACTIONS,
+  INVARIANT_I2_BALANCE,
+  INVARIANT_I2_NEGATIVE,
+} from "@terra/sim";
 import type { QueryPool } from "./persist/load.ts";
 
 /** 메모리에서만 볼 수 있는 몫(I5·I7)과 부팅 복구가 놓지 못한 것 */
@@ -24,7 +30,7 @@ export function checkMemoryInvariants(checks: MemoryChecks): string[] {
   return problems;
 }
 
-/** DB 몫: 원장 균형·잔고(I1~I3), 정산 시각(I6) */
+/** DB 몫: 원장 균형·잔고(I1~I3), 정산 시각(I6). 문구는 시뮬레이터의 메모리 감사(@terra/sim createLedgerAudit)와 같다 */
 export async function checkSqlInvariants(pool: QueryPool, nowMs: number): Promise<string[]> {
   const problems: string[] = [];
   const count = async (label: string, text: string, values: unknown[] = []): Promise<void> => {
@@ -33,22 +39,22 @@ export async function checkSqlInvariants(pool: QueryPool, nowMs: number): Promis
     if (n > 0) problems.push(`${label}: ${n}`);
   };
   await count(
-    "I1 assets whose entries do not sum to zero",
+    INVARIANT_I1_ASSETS,
     `select a.asset from ledger_entries e join ledger_accounts a on a.id = e.account_id
      group by a.asset having sum(e.amount) <> 0`,
   );
   await count(
-    "I1 transactions not balanced per asset",
+    INVARIANT_I1_TRANSACTIONS,
     `select e.tx_id, a.asset from ledger_entries e join ledger_accounts a on a.id = e.account_id
      group by e.tx_id, a.asset having sum(e.amount) <> 0`,
   );
   await count(
-    "I2 accounts whose balance differs from their entries",
+    INVARIANT_I2_BALANCE,
     `select a.id from ledger_accounts a left join ledger_entries e on e.account_id = a.id
      group by a.id, a.balance having a.balance <> coalesce(sum(e.amount), 0)`,
   );
   await count(
-    "I2 owner accounts below zero",
+    INVARIANT_I2_NEGATIVE,
     `select id from ledger_accounts where system_code is null and balance < 0`,
   );
   await count("I6 owners settled in the future", `select id from world_owners where settled_at_ms > $1`, [

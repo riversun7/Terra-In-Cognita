@@ -8,17 +8,17 @@
 //   세력(NPC)은 늘 접속 중으로 친다.
 import {
   JOB_GATHER,
-  JOB_NONE,
   type JobState,
   PHASE_WORK,
   type SizeClass,
-  TEST_JOB_RULES,
-  TEST_UPKEEP_PER_UNIT,
-  UPKEEP_PERIOD_MS,
+  TEST_ASSET_CREDIT,
+  TEST_ASSET_ORE,
+  TEST_SYSTEM_ISSUE_CREDIT,
+  TEST_SYSTEM_RESERVE_ORE,
+  TEST_SYSTEM_SINK_CREDIT,
   WALK_SPEED,
-  settleJob,
-  settleUpkeep,
-  upkeepBoundaries,
+  settleOwnerPeriod,
+  testSettleAccounts,
 } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { OwnerRow } from "./persist/load.ts";
@@ -26,14 +26,13 @@ import type { WorldWriter } from "./persist/writer.ts";
 import type { SecondMap, UnitJob } from "./secondMap.ts";
 import { UNIT_KIND_WORKER } from "./unitKinds.ts";
 
-/** [임시] 시험 자산 코드(이름에 임시임이 보이게) */
-export const ASSET_CREDIT = "s3_test_credit";
-export const ASSET_ORE = "s3_test_ore";
-/** 시스템 계정 */
-export const SYSTEM_ISSUE_CREDIT = `issue:${ASSET_CREDIT}`;
-export const SYSTEM_SINK_CREDIT = `sink:${ASSET_CREDIT}`;
+/** [임시] 시험 자산 코드·시스템 계정(@terra/sim settle/owner.ts, 시뮬레이터와 같은 값) */
+export const ASSET_CREDIT = TEST_ASSET_CREDIT;
+export const ASSET_ORE = TEST_ASSET_ORE;
+export const SYSTEM_ISSUE_CREDIT = TEST_SYSTEM_ISSUE_CREDIT;
+export const SYSTEM_SINK_CREDIT = TEST_SYSTEM_SINK_CREDIT;
 /** 총량 자원은 쓴 만큼 행성 매장량으로 돌아간다(D-112·D-116) — 산출은 매장량에서 나온다 */
-export const SYSTEM_RESERVE_ORE = `reserve:${ASSET_ORE}`;
+export const SYSTEM_RESERVE_ORE = TEST_SYSTEM_RESERVE_ORE;
 /** [임시] 시험 NPC 세력이 처음 받는 시험 화폐 */
 export const NPC_START_CREDIT = 1_000_000_000n;
 
@@ -131,51 +130,26 @@ export function createSettlement(options: {
   const settleWith = (owner: OwnerRow, units: readonly UnitRef[], toMs: number): SettleReport => {
     const from = owner.settledAtMs;
     if (toMs <= from) return { cycles: 0, upkeepPaid: 0, upkeepUnpaid: 0 };
-    const offline = offlineOf(owner);
-    let cycles = 0;
-    for (const unit of units) {
-      if (unit.job.job === JOB_NONE) continue;
-      const result = settleJob(unit.job, from, toMs, offline, TEST_JOB_RULES);
-      cycles += result.cycles;
-      if (!sameJob(unit.job, result.state)) unit.map.setJob(unit.id, { ...result.state });
-    }
-    let upkeepPaid = 0;
-    let upkeepUnpaid = 0;
-    const charge = BigInt(units.length) * TEST_UPKEEP_PER_UNIT;
-    const boundaries = upkeepBoundaries(from, toMs, UPKEEP_PERIOD_MS);
-    if (charge > 0n && boundaries.length > 0) {
-      const wallet = ledger.ownerAccount(owner.id, ASSET_CREDIT);
-      const sink = ledger.systemAccount(SYSTEM_SINK_CREDIT, ASSET_CREDIT);
-      const result = settleUpkeep(ledger.balance(wallet), charge, boundaries);
-      for (const at of result.paid) {
-        ledger.post({
-          kind: "upkeep",
-          atMs: at,
-          key: `upkeep:${owner.id}:${at}`,
-          entries: [
-            { account: wallet, amount: -charge },
-            { account: sink, amount: charge },
-          ],
-        });
-      }
-      upkeepPaid = result.paid.length;
-      upkeepUnpaid = result.unpaid;
-      owner.upkeepArrears += result.unpaid;
-    }
-    if (cycles > 0) {
-      const amount = BigInt(cycles);
-      ledger.post({
-        kind: "job_output",
-        atMs: toMs,
-        entries: [
-          { account: ledger.systemAccount(SYSTEM_RESERVE_ORE, ASSET_ORE), amount: -amount },
-          { account: ledger.ownerAccount(owner.id, ASSET_ORE), amount },
-        ],
-      });
-    }
+    // 판정은 @terra/sim 공용 함수(시뮬레이터와 같다). 여기서는 결과를 2차맵·소유 주체 행에 적기만 한다
+    const result = settleOwnerPeriod(
+      {
+        ownerId: owner.id,
+        jobs: units.map((unit) => unit.job),
+        fromMs: from,
+        toMs,
+        offlineSinceMs: offlineOf(owner),
+      },
+      ledger,
+      testSettleAccounts(ledger, owner.id),
+    );
+    units.forEach((unit, index) => {
+      const next = result.jobs[index];
+      if (next && !sameJob(unit.job, next)) unit.map.setJob(unit.id, { ...next });
+    });
+    owner.upkeepArrears += result.upkeepUnpaid;
     owner.settledAtMs = toMs;
     saveOwner(owner);
-    return { cycles, upkeepPaid, upkeepUnpaid };
+    return { cycles: result.cycles, upkeepPaid: result.upkeepPaid, upkeepUnpaid: result.upkeepUnpaid };
   };
 
   const settleOwner = (ownerId: number, toMs: number): SettleReport => {

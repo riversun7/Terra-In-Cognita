@@ -17,10 +17,12 @@ export interface Scheduler<T> {
 export function createScheduler<T>(options: {
   now: () => number;
   handle: (event: ScheduledEvent<T>) => void;
+  /** 같은 시각끼리의 차례(@terra/sim compareEventKeys 등). 없으면 예약한 차례 */
+  order?: ((a: T, b: T) => number) | undefined;
   /** 처리 중 오류(이벤트 하나가 실패해도 나머지는 계속) */
   onError: (error: unknown) => void;
 }): Scheduler<T> {
-  const queue = createEventQueue<T>();
+  const queue = createEventQueue<T>(options.order);
   let timer: ReturnType<typeof setTimeout> | undefined;
   let armedAt: number | undefined;
   let stopped = false;

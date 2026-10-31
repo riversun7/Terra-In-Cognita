@@ -41,6 +41,11 @@ export interface PlanetServiceOptions {
   retryDelayMs?: ((failures: number) => number) | undefined;
   /** 벽시계(ms) — 캐시 목록의 구운 시각(참고용) */
   wallClock?: (() => number) | undefined;
+  /**
+   * 행성 값(TCPV, F9 약 22MB)을 메모리에 들고 있을 행성. 없으면 모두. 나머지는 디스크 캐시에만 쓰고 planetValues는 거부한다
+   * (편집 전용 행성처럼 2차맵을 띄우지 않는 행성의 값을 들고 있지 않게)
+   */
+  keepValuesFor?: readonly string[] | undefined;
 }
 
 /** 타일 찾기 결과 */
@@ -62,6 +67,11 @@ export interface PlanetService {
   recordTileResponse(status: number, bytes: number): void;
   /** 지난 호출 뒤 구간 지표(1분 지표 한 줄에 붙인다). 부르면 구간을 비운다 */
   takeMetrics(): Record<string, number>;
+  /**
+   * 행성 값 파일(TCPV) — 준비되면 풀린다(2차맵 지형 워커가 받는다). 없는 행성이면 거부.
+   * 준비가 실패해 다시 굽는 동안에는 계속 기다린다
+   */
+  planetValues(planetId: string): Promise<Uint8Array>;
   /** 지금 줄 선 준비가 모두 끝날 때까지(시험용) */
   whenIdle(): Promise<void>;
   close(): Promise<void>;
@@ -74,6 +84,8 @@ interface ReadyPlanet {
   maxElevationM: number;
   /** 생성 결과 해시(생성기 meta.hash) — 준비된 목록 정보에 싣는다(ADR 38 4절: 편집기 "굽기와 같음") */
   fieldsHash: string;
+  /** 행성 값 파일(TCPV). 들고 있지 않는 행성은 undefined(keepValuesFor) */
+  values: Uint8Array | undefined;
 }
 
 interface PlanetEntry {
@@ -82,6 +94,8 @@ interface PlanetEntry {
   /** 목록 정보(상태는 부를 때 채운다) */
   readonly manifest: PlanetManifest;
   ready: ReadyPlanet | undefined;
+  /** 행성 값을 기다리는 쪽(준비되면 부른다) */
+  waiting: ((values: Uint8Array) => void)[];
   failures: number;
   retry: NodeJS.Timeout | undefined;
 }
@@ -136,6 +150,7 @@ function cacheKey(source: PlanetSource): PlanetCacheKey {
 function makeReady(
   tiles: readonly (readonly [number, number])[],
   pack: Uint8Array,
+  values: Uint8Array | undefined,
   summary: { maxElevationM: number; fieldsHash: string },
 ): ReadyPlanet {
   const map = new Map<number, Uint8Array>();
@@ -150,11 +165,21 @@ function makeReady(
     bytes: pack.byteLength,
     maxElevationM: summary.maxElevationM,
     fieldsHash: summary.fieldsHash,
+    values,
   };
+}
+
+/** 준비된 행성의 값을 기다리던 쪽에 넘긴다 */
+function wake(entry: PlanetEntry): void {
+  const values = entry.ready?.values;
+  if (!values) return;
+  for (const resolve of entry.waiting.splice(0)) resolve(values);
 }
 
 export function createPlanetService(options: PlanetServiceOptions): PlanetService {
   const { baker, cacheDir, log } = options;
+  const keepValues = (planetId: string): boolean =>
+    options.keepValuesFor === undefined || options.keepValuesFor.includes(planetId);
   const retryDelay = options.retryDelayMs ?? defaultRetryDelay;
   const wallClock = options.wallClock ?? Date.now;
   const entries = new Map<string, PlanetEntry>();
@@ -166,6 +191,7 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
       version,
       manifest: manifestOf(source, version),
       ready: undefined,
+      waiting: [],
       failures: 0,
       retry: undefined,
     });
@@ -181,7 +207,13 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
       const result = await readPlanetCache(cacheDir, cacheKey(entry.source));
       if (result.ok) {
         const { index } = result.cached;
-        entry.ready = makeReady(index.tiles, result.cached.pack, index);
+        entry.ready = makeReady(
+          index.tiles,
+          result.cached.pack,
+          keepValues(entry.source.id) ? result.cached.values : undefined,
+          index,
+        );
+        wake(entry);
         const loadMs = performance.now() - started;
         counts.cacheHits += 1;
         counts.cacheLoadMsMax = Math.max(counts.cacheLoadMsMax, loadMs);
@@ -240,6 +272,8 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
           packBytes: output.pack.byteLength,
           packSha256: output.packSha256,
           rawBytes: output.rawBytes,
+          valuesBytes: output.values.byteLength,
+          valuesSha256: output.valuesSha256,
           fieldsHash: output.fieldsHash,
           maxElevationM: output.maxElevationM,
           bakedAt: new Date(wallClock()).toISOString(),
@@ -247,6 +281,7 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
           tiles: output.tiles,
         },
         output.pack,
+        output.values,
       );
       const removed = await prunePlanetCache(cacheDir, source.id, cacheFileStem(cacheKey(source)));
       if (removed.length > 0) log.info({ planetId: source.id, removed }, "planet cache pruned");
@@ -290,7 +325,13 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
       fail(entry, new Error("baked tiles do not match the planet tile list"));
       return;
     }
-    entry.ready = makeReady(output.tiles, output.pack, output);
+    entry.ready = makeReady(
+      output.tiles,
+      output.pack,
+      keepValues(entry.source.id) ? output.values : undefined,
+      output,
+    );
+    wake(entry);
     entry.failures = 0;
     counts.bakes += 1;
     counts.bakeMsMax = Math.max(counts.bakeMsMax, output.totalMs);
@@ -346,6 +387,13 @@ export function createPlanetService(options: PlanetServiceOptions): PlanetServic
       if (!entry.ready) return { kind: "not_ready" };
       const gzip = entry.ready.tiles.get(tileKey);
       return gzip ? { kind: "ok", gzip } : { kind: "unknown_tile" };
+    },
+    planetValues(planetId) {
+      const entry = entries.get(planetId);
+      if (!entry) return Promise.reject(new Error(`unknown planet ${planetId}`));
+      if (!keepValues(planetId)) return Promise.reject(new Error(`planet ${planetId} values are not kept`));
+      if (entry.ready?.values) return Promise.resolve(entry.ready.values);
+      return new Promise((resolve) => entry.waiting.push(resolve));
     },
     recordTileResponse(status, bytes) {
       if (status === 200) {

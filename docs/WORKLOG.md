@@ -7,6 +7,7 @@
 |---|---|---|---|
 | 2026-10-31 22:00 | S3 뒤: 월드 표에 행성 ID·영역(D-372) | Claude Code | [31-2200-s3-planet-domain](worklog/2026/10/31-2200-s3-planet-domain.md) |
 | 2026-10-31 21:00 | S3 WP-E: kill -9 복구 하네스, 규모 계단 시험 작업(NAS), 개발 컨테이너 계단 | Claude Code | [31-2100-s3-wp-e-measure](worklog/2026/10/31-2100-s3-wp-e-measure.md) |
+| 2026-10-31 20:27 | 2차맵 생성 WP-3: 서버 연결 — 행성 값 파일, 지형 워커·캐시, 고정본, 시험 2차맵을 땅으로, 이웃 지형, 빠른 no_path | Claude Code | [31-2027-second-map-wp3](worklog/2026/10/31-2027-second-map-wp3.md) |
 | 2026-10-31 20:06 | R3 전투 코어: 100ms 정수 틱 판정, 공식 한 모듈(Step 9), 스탯 계산기, 서버 전투 인스턴스(최소), 시뮬 war16 | Claude Code | [31-2006-combat-core-r3](worklog/2026/10/31-2006-combat-core-r3.md) |
 | 2026-10-31 19:40 | 2차맵 생성 WP-2: 소품 규칙(map_props), 숲 나누기·빈 길·흩기·갇힌 곳 잇기, 지형 비용, 숲 경로 측정 | Claude Code | [31-1940-second-map-wp2](worklog/2026/10/31-1940-second-map-wp2.md) |
 | 2026-10-31 19:30 | S3 WP-B: 2차맵 시야 전송, 탐사 기록, 프로토콜 3, 안개, 시험 단추 | Claude Code | [31-1930-s3-wp-b-vision](worklog/2026/10/31-1930-s3-wp-b-vision.md) |

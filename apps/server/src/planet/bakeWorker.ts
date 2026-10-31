@@ -3,7 +3,7 @@
 // 하는 일: 설명(spec)으로 원본을 다시 만들기 → 생성 → 타일 → gzip → 결과를 한 번 보내기(pack은 복사하지 않고 넘김).
 import { performance } from "node:perf_hooks";
 import { parentPort } from "node:worker_threads";
-import { bakePlanetTiles } from "./bake.ts";
+import { bakePlanetTiles, bakePlanetValues } from "./bake.ts";
 import type { BakeReplyMessage, BakeRequestMessage } from "./bakeMessages.ts";
 import { createPlanetSource } from "./sources.ts";
 
@@ -47,25 +47,27 @@ async function bake(request: BakeRequestMessage): Promise<void> {
       `planet source ${source.id} differs in the worker (generator ${source.generatorVersion}, definition ${source.definitionHash})`,
     );
   }
-  const fields = await source.generate(sample);
+  const { fields, values } = await source.generate(sample);
   const generateMs = performance.now() - started;
   sample();
   const baked = bakePlanetTiles(fields, {
     generatorVersion: source.generatorVersion,
     definitionHash: source.definitionHash,
   });
+  const bakedValues = bakePlanetValues(values);
   sample();
   reply(
     {
       type: "done",
       output: {
         ...baked,
+        ...bakedValues,
         generateMs,
         totalMs: performance.now() - started,
         peakWorkerMb: peakWorker / BYTES_PER_MB,
         peakRssMb: peakRss / BYTES_PER_MB,
       },
     },
-    [baked.pack.buffer],
+    [baked.pack.buffer, bakedValues.values.buffer],
   );
 }

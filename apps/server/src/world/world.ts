@@ -5,7 +5,8 @@
 //   대기열이 0.25초마다 묶어 커밋하고, 10초마다 생존 시각을 쓴다. 끌 때 대기열을 비운다.
 import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
-import { EARTH_FACE_LEVEL, cellKey } from "@terra/planet";
+import { gunzipSync } from "node:zlib";
+import { type CellKey, EARTH_FACE_LEVEL, cellKey, stepCell } from "@terra/planet";
 import { DEFAULT_WORLD_PLANET_ID } from "../db/schema.ts";
 import { generateTempTerrain, seedFromCellKey } from "@terra/sim";
 import type { WorldDirectory } from "./gateway.ts";
@@ -17,6 +18,9 @@ import { createWorkerPathService } from "./pathPool.ts";
 import { type PathService, createInlinePathService } from "./pathService.ts";
 import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
+import { type MapTerrain, mapTerrainFromBuilt, mapTerrainFromTemp, terrainFromFile } from "./mapTerrain.ts";
+import { type MapPin, loadPins, retireTestMaps, savePin } from "./pins.ts";
+import type { TerrainService } from "./terrainService.ts";
 import type { ExploredStore } from "./vision.ts";
 import {
   ASSET_CREDIT,
@@ -28,19 +32,33 @@ import {
 import { emptyWorldStats, resetWorldStats, summarizeWorldStats } from "./worldStats.ts";
 
 /**
- * S1 시험 2차맵: 지구(면 레벨 9) 면 0의 (i, j) = (256, 256) 칸(면 가운데, +x 방향).
+ * 시험 2차맵 자리(ADR 2026-10-31-second-map-from-planet 8절): S2 시험 행성(면 레벨 9) 면 0의 (i, j) = (282, 328) 칸부터
+ * 오른쪽으로. 64장(MAX_TEST_MAPS)이 모두 땅·초지이고 강·호수·바다가 둘레에 없는 줄이다(지금 생성기 판에서, 시험이 본다).
  * 기기는 같은 값을 @terra/protocol S1_TEST_MAP_KEY로 안다(시험이 두 값이 같은지 본다).
- * 지형은 칸 키로 만든 임시 지형이라 실제 지구 위치·고도와는 상관없다(행성 회전·생성기는 S2).
+ * 지형 서비스가 있으면 행성 값에서 만든 2차맵, 없으면(시험·DB 없는 개발) S1 임시 지형이다.
  */
-export const TEST_MAP_KEY: number = cellKey(0, EARTH_FACE_LEVEL, 256, 256);
+export const TEST_MAP_ORIGIN = { face: 0, i: 282, j: 328 } as const;
+export const TEST_MAP_KEY: CellKey = cellKey(
+  TEST_MAP_ORIGIN.face,
+  EARTH_FACE_LEVEL,
+  TEST_MAP_ORIGIN.i,
+  TEST_MAP_ORIGIN.j,
+);
 
 /** 시험 2차맵이 놓인 행성(콘텐츠 팩 ID). 지구가 팩에 들어오면 시험 2차맵도 옮긴다(D-372, S3 ADR "행성 ID·영역") */
 export const TEST_PLANET_ID: string = DEFAULT_WORLD_PLANET_ID;
 
 /** 시험 2차맵 k번째(0 = TEST_MAP_KEY). 규모 시험(S1_TEST_MAPS)은 오른쪽으로 나란히 둔다 */
-export function testMapKey(index: number): number {
+export function testMapKey(index: number): CellKey {
+  return cellKey(TEST_MAP_ORIGIN.face, EARTH_FACE_LEVEL, TEST_MAP_ORIGIN.i + index, TEST_MAP_ORIGIN.j);
+}
+
+/** 옛 시험 2차맵(S1 임시 지형 시절, S2 시험 행성에서는 깊은 바다 위) k번째. 부팅 때 행을 지운다(U4 (가), pins.ts) */
+export function retiredTestMapKey(index: number): number {
   return cellKey(0, EARTH_FACE_LEVEL, 256 + index, 256);
 }
+/** 옛 시험 2차맵 수(그때의 S1_TEST_MAPS 상한) */
+export const RETIRED_TEST_MAPS = 64;
 
 /** 생존 시각을 쓰는 간격(ms). kill -9 뒤 접속 상태를 고칠 때의 오차 상한이다 */
 export const HEARTBEAT_MS = 10_000;
@@ -61,6 +79,11 @@ export interface WorldConfig {
   onFatal?: ((error: unknown) => void) | undefined;
   /** 쓰기 묶음 간격(ms, 기본 250). 시험용 */
   writeIntervalMs?: number | undefined;
+  /**
+   * 2차맵 지형 서비스(행성 값에서 만든 2차맵, terrainService.ts). 없으면 S1 임시 지형(시험·행성 서비스 없는 서버).
+   * 있으면 부팅이 행성 값을 기다린다(행성 서비스가 캐시를 읽거나 굽는 동안)
+   */
+  terrain?: TerrainService | undefined;
 }
 
 export interface WorldLog extends MapLog {
@@ -101,6 +124,8 @@ export interface WorldStatus {
 
 export interface World extends WorldDirectory {
   readonly maps: ReadonlyMap<number, SecondMap>;
+  /** 2차맵 지형 서비스(있으면). 지형 경로가 띄우지 않은 이웃 2차맵의 지형을 줄 때 쓴다 */
+  readonly terrain: TerrainService | undefined;
   /** 부팅 복구가 끝나면 풀린다(실패하면 거부) */
   readonly ready: Promise<void>;
   status(): WorldStatus;
@@ -154,15 +179,47 @@ export function startWorld(
   let stopped = false;
   const bootId = randomUUID();
 
-  const createMaps = (
+  const terrainService = config.terrain;
+  const mapKeys = Array.from({ length: mapCount }, (_, index) => testMapKey(index));
+
+  /** 2차맵 지형: 고정본 → 지형 서비스(캐시 → 생성기). 지형 서비스가 없으면 S1 임시 지형 */
+  const terrainFor = async (mapKey: number, pins: ReadonlyMap<number, MapPin>): Promise<MapTerrain> => {
+    if (!terrainService) return mapTerrainFromTemp(mapKey, generateTempTerrain(seedFromCellKey(mapKey)));
+    const pin = pins.get(mapKey);
+    if (pin) {
+      try {
+        return mapTerrainFromBuilt(terrainFromFile(mapKey, pin.terrainVersion, pin.tctrGzip, gunzipSync));
+      } catch (error) {
+        // 고정본이 틀리면 생성기로 만든다(고정본은 그대로 두고 알린다: 사람이 본다)
+        log.error({ err: error, mapKey }, "second map pin does not decode, generating instead");
+      }
+    }
+    return terrainService.get(mapKey);
+  };
+
+  /** 처음 손댄 2차맵의 지금 지형을 고정본으로 쓴다(행성 값 2차맵만. S1 임시 지형은 고정하지 않는다) */
+  const pinner = (db: QueryPool | undefined, mapKey: number) => (): void => {
+    const map = maps.get(mapKey);
+    if (!db || !terrainService || !map) return;
+    const pin = { mapKey, terrainVersion: map.terrainVersion, tctrGzip: map.terrainFile().gzip };
+    savePin(db, TEST_PLANET_ID, pin, now())
+      .then(() => log.info({ mapKey, terrainVersion: pin.terrainVersion }, "second map pinned"))
+      .catch((error: unknown) => log.warn({ err: error, mapKey }, "second map pin failed"));
+  };
+
+  const createMaps = async (
     persist: MapPersist | undefined,
     ids: WorldPersistence["nextId"] | undefined,
     npcOwnerId: number,
     exploredStore?: (mapKey: number) => ExploredStore,
-  ) => {
-    for (let index = 0; index < mapCount; index++) {
-      const mapKey = testMapKey(index);
-      const terrain = generateTempTerrain(seedFromCellKey(mapKey));
+    db?: QueryPool,
+  ): Promise<void> => {
+    const pins =
+      db && terrainService ? await loadPins(db, TEST_PLANET_ID, mapKeys) : new Map<number, MapPin>();
+    const terrains = await Promise.all(mapKeys.map((mapKey) => terrainFor(mapKey, pins)));
+    for (const [index, mapKey] of mapKeys.entries()) {
+      const terrain = terrains[index];
+      if (!terrain) continue;
       maps.set(
         mapKey,
         createSecondMap({
@@ -178,8 +235,23 @@ export function startWorld(
           botOwnerId: npcOwnerId,
           allocateUnitId: ids?.unit,
           allocateBuildingId: ids?.building,
+          onFirstEdit: pins.has(mapKey) ? undefined : pinner(db, mapKey),
         }),
       );
+    }
+    // 이웃 미리 받기: 띄운 2차맵 둘레 8장의 지형을 캐시에 둔다(경계 너머 보기·나중의 2차맵 넘기)
+    if (terrainService) {
+      const neighbours = new Set<number>();
+      for (const mapKey of mapKeys) {
+        for (let dj = -1; dj <= 1; dj++) {
+          for (let di = -1; di <= 1; di++) {
+            if (di === 0 && dj === 0) continue;
+            const next = stepCell(mapKey, di, dj);
+            if (next !== null && !maps.has(next)) neighbours.add(next);
+          }
+        }
+      }
+      terrainService.prefetch([...neighbours]);
     }
   };
 
@@ -209,6 +281,15 @@ export function startWorld(
     let npcOwnerId = 0;
     for (let attempt = 1; !loaded; attempt++) {
       try {
+        // 옛 시험 2차맵(깊은 바다 위)의 행을 지운다(지울 것이 없으면 그대로). U4 (가)
+        const retired = await retireTestMaps(
+          db,
+          TEST_PLANET_ID,
+          Array.from({ length: RETIRED_TEST_MAPS }, (_, index) => retiredTestMapKey(index)),
+        );
+        if (retired.units + retired.buildings + retired.exploration > 0) {
+          log.info(retired, "world boot: retired the old test maps");
+        }
         npcOwnerId = await ensureTestNpcOwner(db, now());
         loaded = await loadWorld(db, now());
       } catch (error) {
@@ -293,7 +374,7 @@ export function startWorld(
         });
       },
     });
-    createMaps(persist, nextId, npcOwnerId, exploredStore);
+    await createMaps(persist, nextId, npcOwnerId, exploredStore, db);
     const settlement = createSettlement({
       maps,
       owners,
@@ -376,7 +457,7 @@ export function startWorld(
     if (pool) {
       await bootWithDb(pool);
     } else {
-      createMaps(undefined, undefined, 0);
+      await createMaps(undefined, undefined, 0);
       paths.start();
       spawnBots();
       status.bootMs = 0;
@@ -401,6 +482,7 @@ export function startWorld(
   return {
     stats,
     maps,
+    terrain: terrainService,
     ready,
     status: () => ({ ...status }),
     get persistence() {

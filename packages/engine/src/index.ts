@@ -14,6 +14,7 @@ export type {
 } from "./engineTypes.ts";
 export {
   HEIGHT_UNIT_M,
+  NO_WATER_UNITS,
   PLACEMENT_CELLS,
   SURFACE,
   TERRAIN_CELLS,

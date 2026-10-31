@@ -516,6 +516,28 @@ export const worldExploration = pgTable(
   ],
 );
 
+/**
+ * 2차맵 고정본(PLAN 5.5, ADR 2026-10-31-second-map-from-planet 6절): 플레이어가 처음 손댄 2차맵(건설 등)의 그때 지형 파일.
+ * 그 뒤 생성기가 바뀌어도 이 2차맵은 고정본에서 읽는다. 처음 한 번만 쓰고 고치지 않는다(on conflict do nothing).
+ * terrain_version = 지형 주소 판 표지(2차맵 생성기 판.행성 생성기 판.정의 해시 8자.소품 규칙 해시), tctr_gzip = TCTR 2판 gzip.
+ * 새 표라 직전 판 앱은 이 표를 모른 채 그대로 돈다.
+ */
+export const secondMapPins = pgTable(
+  "second_map_pins",
+  {
+    planetId: text("planet_id").notNull(),
+    mapKey: bigint("map_key", { mode: "number" }).notNull(),
+    terrainVersion: text("terrain_version").notNull(),
+    tctrGzip: bytea("tctr_gzip").notNull(),
+    pinnedAtMs: bigint("pinned_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.planetId, table.mapKey] }),
+    check("second_map_pins_planet_id_format", sql`${table.planetId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+    check("second_map_pins_size", sql`octet_length(${table.tctrGzip}) between 32 and 4194304`),
+  ],
+);
+
 /** 서버 생존 시각(한 줄). kill -9 뒤 접속 중이던 사용자를 이 시각에 끊긴 것으로 친다(ADR 2절) */
 export const worldHeartbeat = pgTable(
   "world_heartbeat",

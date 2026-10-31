@@ -30,7 +30,9 @@ import { appRouter } from "./trpc/router.ts";
 import { cacheViewer, createWorldGateway } from "./world/gateway.ts";
 import { createWorldSummaryBackend } from "./world/summarySources.ts";
 import { registerTerrainRoute } from "./world/terrainRoute.ts";
-import { type WorldConfig, startWorld } from "./world/world.ts";
+import type { MapPropInput } from "@terra/planet/secondMap";
+import { createTerrainService } from "./world/terrainService.ts";
+import { TEST_PLANET_ID, type WorldConfig, startWorld } from "./world/world.ts";
 
 /** WebSocket 연결의 로그인 사용자 조회를 기억하는 시간(ms). 명령마다 DB를 부르지 않는다 */
 export const SOCKET_VIEWER_TTL_MS = 15_000;
@@ -87,6 +89,13 @@ export interface AppOptions {
   /** 1차맵 행성(굽기·캐시·목록 정보·타일). 없으면 행성 경로 없음 */
   planets?: AppPlanetsOptions | undefined;
   /**
+   * 행성 값에서 만든 2차맵(ADR 2026-10-31-second-map-from-planet WP-3): 월드 행성(시험 행성)이 planets에 있으면
+   * 지형 서비스를 띄워 시험 2차맵 지형을 만든다. 없으면 S1 임시 지형. props = 콘텐츠 map_props(src/world/mapProps.ts)
+   */
+  secondMaps?:
+    | { props: MapPropInput[]; runner: { kind: "worker"; workerUrl: URL } | { kind: "inline" } }
+    | undefined;
+  /**
    * 행성 편집기(ADR 38): 서버가 켤 때 만든 정의 조회 자료(src/planetEditor/definitions.ts). 인증이 켜져 있어야 쓴다.
    * 없으면 planetEditor.* 는 권한 확인 뒤 NOT_FOUND(PLANET_EDITOR_UNAVAILABLE). limits는 시험용(속도 제한 숫자 바꾸기)
    */
@@ -100,6 +109,9 @@ export interface AppOptions {
   testViewer?: ((request: FastifyRequest) => Promise<Viewer | null>) | undefined;
 }
 
+/** 서버 준비(onReady: 월드 부팅 복구 + 시험 2차맵 지형)를 기다리는 상한(ms) */
+export const WORLD_READY_TIMEOUT_MS = 300_000;
+
 export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const now = options.now ?? Date.now;
   const app = Fastify({
@@ -108,6 +120,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     trustProxy: options.trustProxy ?? DEFAULT_TRUST_PROXY,
     // tRPC 묶음 요청은 경로에 프로시저 이름을 쉼표로 잇는다(/api/trpc/a,b,c). 기본 100자는 짧다.
     routerOptions: { maxParamLength: 5_000 },
+    // onReady 훅(월드 부팅 복구)이 기다리는 상한. 기본 10초면 빈 캐시의 행성 굽기(시험 2차맵 지형이 기다린다, NAS 약 18초)나
+    // DB를 기다리는 부팅(최대 약 60초)에서 서버가 FST_ERR_HOOK_TIMEOUT으로 꺼지고, 다시 켜면 굽기를 처음부터 한다(되풀이)
+    pluginTimeout: WORLD_READY_TIMEOUT_MS,
   });
 
   await app.register(websocket, { options: { maxPayload: MAX_MESSAGE_BYTES } });
@@ -154,13 +169,47 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     });
   }
 
-  // 월드: DB가 있으면 저장·부팅 복구(S3 ADR 1·2절). 준비(listen·ready)는 부팅 복구가 끝날 때까지 기다린다
+  // 행성: 준비(캐시 읽기·굽기)는 기다리지 않고 시작한다. 그동안 목록 정보는 generating, 타일은 409.
+  // 월드보다 먼저 만든다: 2차맵 지형 서비스가 월드 행성의 행성 값을 받는다
+  const planets = options.planets
+    ? createPlanetService({
+        sources: options.planets.sources,
+        baker: options.planets.baker,
+        cacheDir: options.planets.cacheDir,
+        retryDelayMs: options.planets.retryDelayMs,
+        // 행성 값은 2차맵을 띄우는 월드 행성 것만 메모리에 든다(약 22MB씩)
+        keepValuesFor: options.secondMaps ? [TEST_PLANET_ID] : undefined,
+        log: app.log,
+      })
+    : undefined;
+  planets?.start();
+  const worldPlanet = options.planets?.sources.find((source) => source.id === TEST_PLANET_ID);
+  const terrain =
+    options.world && options.secondMaps && planets && worldPlanet
+      ? createTerrainService({
+          planetId: worldPlanet.id,
+          values: () => planets.planetValues(worldPlanet.id),
+          props: options.secondMaps.props,
+          planetGeneratorVersion: worldPlanet.generatorVersion,
+          definitionHash: worldPlanet.definitionHash,
+          cacheDir: options.planets?.cacheDir,
+          runner: options.secondMaps.runner,
+          log: app.log,
+        })
+      : undefined;
+
+  // 월드: DB가 있으면 저장·부팅 복구(S3 ADR 1·2절). 준비(listen·ready)는 부팅 복구가 끝날 때까지 기다린다.
+  // 지형 서비스가 있으면 부팅이 행성 값(행성 서비스의 캐시 읽기·굽기)도 기다린다
   const world = options.world
-    ? startWorld({ ...options.world, now, log: app.log, pool: options.db?.$client })
+    ? startWorld({ ...options.world, terrain, now, log: app.log, pool: options.db?.$client })
     : undefined;
   if (world) {
     app.addHook("onReady", async () => world.ready);
-    app.addHook("onClose", async () => world.stop());
+    app.addHook("onClose", async () => {
+      // 지형 서비스를 먼저 닫는다: 행성 값을 기다리던 부팅이 실패로 끝나야 world.stop이 기다리지 않는다
+      await terrain?.close();
+      await world.stop();
+    });
   }
 
   // 요청의 출처 확인 기준 = 계정 경로와 같은 앱 출처(인증이 꺼지면 세션이 없어 보지 않는다)
@@ -197,7 +246,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     return cacheViewer(() => loadViewer(deps.auth, headers), now, SOCKET_VIEWER_TTL_MS);
   };
 
-  if (world) registerTerrainRoute(app, { world, viewer: httpViewer });
+  if (world) registerTerrainRoute(app, { world, viewer: httpViewer, terrain });
   // 관리자 전체 보기를 켜면 감사 기록을 남긴다(S3 ADR 3절). DB가 없으면 로그만
   const auditDb = options.db;
   const gateway = world
@@ -218,20 +267,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       })
     : undefined;
 
-  // 행성: 준비(캐시 읽기·굽기)는 기다리지 않고 시작한다. 그동안 목록 정보는 generating, 타일은 409
-  const planets = options.planets
-    ? createPlanetService({
-        sources: options.planets.sources,
-        baker: options.planets.baker,
-        cacheDir: options.planets.cacheDir,
-        retryDelayMs: options.planets.retryDelayMs,
-        log: app.log,
-      })
-    : undefined;
   if (planets && options.planets) {
     registerPlanetRoutes(app, { planets, viewer: httpViewer, now, limits: options.planets.limits });
     app.addHook("onClose", async () => planets.close());
-    planets.start();
   }
 
   let wsConnections = 0;
@@ -260,7 +298,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const metricsIntervalMs = options.metricsIntervalMs ?? 60_000;
   if (metricsIntervalMs > 0) {
     // 지표 한 줄에 붙일 값: S1 2차맵(src/world/worldStats.ts), 행성(src/planet/service.ts)
-    const extras = (): Record<string, number> => ({ ...world?.takeMetrics(), ...planets?.takeMetrics() });
+    const extras = (): Record<string, number> => ({
+      ...world?.takeMetrics(),
+      ...terrain?.takeMetrics(),
+      ...planets?.takeMetrics(),
+    });
     const stopMetrics = startServerMetrics(
       app.log,
       () => wsConnections,

@@ -7,6 +7,7 @@ import {
   TERRAIN_VERTEX_SIZE,
   type TempTerrain,
 } from "@terra/sim";
+import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import { type PathOutcome, type PathService, createInlinePathService } from "./pathService.ts";
 import { type SecondMap, createSecondMap } from "./secondMap.ts";
 import { type WorldStats, emptyWorldStats } from "./worldStats.ts";
@@ -74,9 +75,10 @@ export function createTestMap(options: { terrain?: TempTerrain; mapKey?: number 
       () => performance.now(),
     ),
   );
+  const mapKey = options.mapKey ?? 9;
   const map = createSecondMap({
-    mapKey: options.mapKey ?? 9,
-    terrain: options.terrain ?? flatTerrain(),
+    mapKey,
+    terrain: mapTerrainFromTemp(mapKey, options.terrain ?? flatTerrain()),
     paths,
     now: () => Date.now(),
     stats,

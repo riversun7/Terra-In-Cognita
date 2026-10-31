@@ -70,9 +70,12 @@ export const TERRAIN_ROUTE = "/api/maps/:mapKey/terrain";
 /** 버전이 붙은 주소는 내용이 바뀌지 않는다. 로그인한 사람에게만 주므로 공유 캐시(프록시)에는 두지 않는다 */
 export const TERRAIN_CACHE_CONTROL = "private, max-age=31536000, immutable";
 
-/** 지형 주소: /api/maps/<2차맵 키>/terrain?v=<생성기 버전> */
-export function terrainPath(mapKey: number, generatorVersion: number): string {
-  return `/api/maps/${mapKey}/terrain?v=${generatorVersion}`;
+/**
+ * 지형 주소: /api/maps/<2차맵 키>/terrain?v=<판 표지>. 판 표지는 서버가 정한다(임시 지형은 생성기 버전, 행성 값 2차맵은
+ * "2차맵 생성기 판.행성 생성기 판.정의 해시 8자.소품 규칙 해시"). 같은 표지면 내용이 같다(불변 주소)
+ */
+export function terrainPath(mapKey: number, version: string | number): string {
+  return `/api/maps/${mapKey}/terrain?v=${encodeURIComponent(String(version))}`;
 }
 
 export interface TerrainData {

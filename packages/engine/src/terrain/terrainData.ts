@@ -12,6 +12,8 @@ export const PLACEMENT_CELLS = 256;
 export const PLACEMENT_PER_TERRAIN = PLACEMENT_CELLS / TERRAIN_CELLS;
 /** 높이 값 1이 나타내는 길이(m) — 높이는 데시미터(0.1m) 정수 */
 export const HEIGHT_UNIT_M = 0.1;
+/** 꼭짓점 물 높이에서 "물 없음" 값(int16 가장 작은 값) */
+export const NO_WATER_UNITS = -32_768;
 
 /**
  * 지표 종류 코드(칸마다 1바이트). 모르는 코드는 회색으로 그린다(서버가 더 새 코드를 보낼 수 있다).
@@ -41,8 +43,13 @@ export interface TerrainInput {
   baseHeightM: number;
   /** 지형 칸 한 변(m, 표시용). 위치에 따라 약 ±10% 다르다(평균 약 11.7m) */
   cellSizeM: number;
-  /** 물 높이(m). 이보다 낮은 땅 위에 물 판을 그린다 */
+  /** 물 높이(m). 이보다 낮은 땅 위에 물 판을 그린다(waterLevels가 없을 때) */
   waterLevelM: number;
+  /**
+   * 꼭짓점 물 높이 129×129(0.1m, baseHeightM 기준, 물 없음 = NO_WATER_UNITS). 있으면 물 판 대신 이 높이로 물 면을 그린다
+   * (강·호수 수면이 해수면과 다르다, 행성 값에서 만든 2차맵 = 지형 파일 TCTR 2판)
+   */
+  waterLevels?: Int16Array | undefined;
 }
 
 /** 입력이 모양에 맞는지 — 맞지 않으면 무엇이 틀렸는지 문장을 돌려준다(없으면 null) */
@@ -58,6 +65,12 @@ export function terrainProblem(input: TerrainInput): string | null {
   if (!Number.isFinite(input.cellSizeM) || input.cellSizeM <= 0) return "cellSizeM must be > 0";
   if (!Number.isFinite(input.baseHeightM)) return "baseHeightM must be finite";
   if (!Number.isFinite(input.waterLevelM)) return "waterLevelM must be finite";
+  if (
+    input.waterLevels !== undefined &&
+    (!(input.waterLevels instanceof Int16Array) || input.waterLevels.length !== vertices)
+  ) {
+    return `waterLevels must be Int16Array(${vertices})`;
+  }
   return null;
 }
 

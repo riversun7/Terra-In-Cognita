@@ -131,7 +131,9 @@ jobs:
         run: |
           docker run -d --name smoke -p 127.0.0.1:4100:4100 "$IMAGE_REF"
           ok=""
-          for _ in $(seq 1 20); do
+          # 시험 2차맵 지형이 S2 시험 행성 값에서 나와(ADR 2026-10-31-second-map-from-planet WP-3) 빈 캐시면 월드 부팅이
+          # 행성 굽기(약 12~20초)를 기다린다. listen은 월드 준비 뒤라 /health까지 90초를 준다
+          for _ in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:4100/health; then ok=1; break; fi
             sleep 1
           done

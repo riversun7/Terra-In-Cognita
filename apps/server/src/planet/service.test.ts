@@ -3,6 +3,7 @@ import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
 import { planetTileIds } from "@terra/planet";
+import { decodePlanetValues } from "@terra/planet/secondMap";
 import { decodePlanetTile, planetManifestSchema, planetTileVersion } from "@terra/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { DEFAULT_PLANET_CACHE_DIR, readConfig } from "../config.ts";
@@ -73,7 +74,7 @@ describe("행성 서비스", () => {
       faceLevel: 5,
       tileUrlTemplate: `/api/planets/test_planet/tiles/{tileKey}?v=${version}`,
     });
-    const fields = await smallSource().generate();
+    const { fields } = await smallSource().generate();
     expect(manifest?.maxElevationM).toBe(Math.max(0, ...fields.elevationM));
     // 생성 결과 해시는 구운 결과의 meta.hash(값은 생성기 판에 따라 바뀌므로 적지 않고 견준다, ADR 38 4절)
     expect(manifest?.fieldsHash).toBe(fields.meta.hash);
@@ -102,7 +103,7 @@ describe("행성 서비스", () => {
       planetCacheMisses: 1,
       planetCacheHits: 0,
     });
-    expect(await readdir(dir)).toHaveLength(2);
+    expect(await readdir(dir)).toHaveLength(3);
 
     const second = start({ cacheDir: dir });
     await second.service.whenIdle();
@@ -112,9 +113,14 @@ describe("행성 서비스", () => {
     expect(second.service.manifest("test_planet")?.maxElevationM).toBe(
       first.service.manifest("test_planet")?.maxElevationM,
     );
-    const baked = await smallSource().generate();
+    const baked = (await smallSource().generate()).fields;
     expect(first.service.manifest("test_planet")?.fieldsHash).toBe(baked.meta.hash);
     expect(second.service.manifest("test_planet")?.fieldsHash).toBe(baked.meta.hash);
+    // 행성 값 파일도 캐시에서 같은 바이트로 온다(2차맵 생성기 입력)
+    const valuesA = await first.service.planetValues("test_planet");
+    const valuesB = await second.service.planetValues("test_planet");
+    expect(Buffer.from(valuesA).equals(Buffer.from(valuesB))).toBe(true);
+    expect(decodePlanetValues(valuesB).faceLevel).toBe(5);
     expect(planetManifestSchema.parse(second.service.manifest("test_planet"))).toEqual(
       second.service.manifest("test_planet"),
     );
@@ -137,6 +143,20 @@ describe("행성 서비스", () => {
     expect(Buffer.from(a.gzip).equals(Buffer.from(b.gzip))).toBe(true);
     // 지표 구간은 부르면 비워진다
     expect(second.service.takeMetrics()).toMatchObject({ planetCacheHits: 0, planetsReady: 1 });
+  });
+
+  it("행성 값: 준비 전에 부르면 기다렸다 받는다. 들고 있지 않는 행성(keepValuesFor 밖)과 없는 행성은 거부한다", async () => {
+    const source = controlledSource(smallSource());
+    source.hold = true;
+    const { service } = start({ source });
+    const waiting = service.planetValues("test_planet");
+    source.release();
+    expect(decodePlanetValues(await waiting).faceLevel).toBe(5);
+    await expect(service.planetValues("nope")).rejects.toThrow("unknown planet");
+    const skipped = start({ keepValuesFor: [] });
+    await skipped.service.whenIdle();
+    expect(skipped.service.manifest("test_planet")?.status).toBe("ready");
+    await expect(skipped.service.planetValues("test_planet")).rejects.toThrow("not kept");
   });
 
   it("틀린 캐시는 경고를 남기고 다시 구워 덮어쓴다", async () => {

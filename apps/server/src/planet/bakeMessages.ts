@@ -1,7 +1,7 @@
 // 메인 스레드 ↔ 굽기 워커 메시지 (src/planet/baker.ts ↔ src/planet/bakeWorker.ts)
 // 굽기 하나마다 워커를 새로 띄우고, 요청 하나 → 답 하나 뒤 끝낸다(생성기 작업 메모리를 바로 돌려준다).
 // 워커가 지울 수 있는 TS 문법만 쓰도록(Node 타입 지우기로 바로 실행) 타입만 둔다.
-import type { BakedTiles } from "./bake.ts";
+import type { BakedTiles, BakedValues } from "./bake.ts";
 import type { PlanetSourceSpec } from "./sources.ts";
 
 export interface BakeRequestMessage {
@@ -13,7 +13,7 @@ export interface BakeRequestMessage {
 }
 
 /** 굽기 결과 + 워커 안에서 잰 값 */
-export interface BakeOutput extends BakedTiles {
+export interface BakeOutput extends BakedTiles, BakedValues {
   /** 생성기(ms) */
   generateMs: number;
   /** 워커 안 전체(ms) */

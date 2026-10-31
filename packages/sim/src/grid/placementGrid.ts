@@ -20,6 +20,8 @@ export interface PlacementGrid extends CellLayers {
   readonly buildings: Map<number, CellRect>;
   /** 길찾기 추정값에 쓰는 가장 싼 칸 비용(천분율) 캐시. 0이면 다음에 다시 센다 */
   cheapestCostCache: number;
+  /** 크기 등급별 연결 영역 번호 캐시(components.ts). 칸이 바뀌면 비운다 */
+  componentCache: (Int32Array | undefined)[];
 }
 
 /** 배치 격자를 만든다. 지형 비용을 주지 않으면 모든 칸이 평지(BASE_COST)다. */
@@ -34,7 +36,13 @@ export function createPlacementGrid(terrainCost?: Uint16Array): PlacementGrid {
     road: new Uint8Array(PLACEMENT_CELLS),
     building: new Uint32Array(PLACEMENT_CELLS),
   };
-  return { ...layers, clearance: computeClearance(layers), buildings: new Map(), cheapestCostCache: 0 };
+  return {
+    ...layers,
+    clearance: computeClearance(layers),
+    buildings: new Map(),
+    cheapestCostCache: 0,
+    componentCache: [],
+  };
 }
 
 export function isInside(x: number, y: number): boolean {
@@ -65,6 +73,7 @@ export function setTerrainCost(grid: PlacementGrid, x: number, y: number, cost: 
   }
   grid.terrainCost[cellIndex(x, y)] = cost;
   grid.cheapestCostCache = 0;
+  grid.componentCache = [];
   refreshClearance(grid, grid.clearance, x, y, 1, 1);
 }
 
@@ -74,6 +83,7 @@ export function setRoad(grid: PlacementGrid, x: number, y: number, roadType: num
   if (!isRoadType(roadType)) throw new RangeError(`unknown road type: ${roadType}`);
   grid.road[cellIndex(x, y)] = roadType;
   grid.cheapestCostCache = 0;
+  grid.componentCache = [];
   refreshClearance(grid, grid.clearance, x, y, 1, 1);
 }
 
@@ -82,6 +92,7 @@ export function writeBuildingCells(grid: PlacementGrid, rect: CellRect, building
   for (let y = rect.y; y < rect.y + rect.height; y++) {
     grid.building.fill(buildingId, cellIndex(rect.x, y), cellIndex(rect.x + rect.width, y));
   }
+  grid.componentCache = [];
   refreshClearance(grid, grid.clearance, rect.x, rect.y, rect.width, rect.height);
 }
 

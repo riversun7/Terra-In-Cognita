@@ -4,7 +4,7 @@
 // 새 런타임 의존성 없이 node:worker_threads를 직접 쓴다.
 import { performance } from "node:perf_hooks";
 import { Worker } from "node:worker_threads";
-import { bakePlanetTiles } from "./bake.ts";
+import { bakePlanetTiles, bakePlanetValues } from "./bake.ts";
 import type { BakeOutput, BakeReplyMessage, BakeRequestMessage } from "./bakeMessages.ts";
 import type { PlanetSource } from "./sources.ts";
 
@@ -22,7 +22,7 @@ export function createInlineBaker(): PlanetBaker {
   return {
     async bake(source) {
       const started = performance.now();
-      const fields = await source.generate();
+      const { fields, values } = await source.generate();
       const generateMs = performance.now() - started;
       const baked = bakePlanetTiles(fields, {
         generatorVersion: source.generatorVersion,
@@ -30,6 +30,7 @@ export function createInlineBaker(): PlanetBaker {
       });
       return {
         ...baked,
+        ...bakePlanetValues(values),
         generateMs,
         totalMs: performance.now() - started,
         peakWorkerMb: 0,

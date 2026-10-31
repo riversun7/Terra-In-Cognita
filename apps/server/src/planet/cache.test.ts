@@ -40,22 +40,32 @@ async function prepared() {
     packBytes: output.pack.byteLength,
     packSha256: output.packSha256,
     rawBytes: output.rawBytes,
+    valuesBytes: output.values.byteLength,
+    valuesSha256: output.valuesSha256,
     fieldsHash: output.fieldsHash,
     maxElevationM: output.maxElevationM,
     bakedAt: "2026-10-29T00:00:00.000Z",
     bakeMs: 12.3,
     tiles: output.tiles,
   };
-  return { dir, key, index, pack: output.pack, stem: path.join(dir, cacheFileStem(key)) };
+  return {
+    dir,
+    key,
+    index,
+    pack: output.pack,
+    values: output.values,
+    stem: path.join(dir, cacheFileStem(key)),
+  };
 }
 
 describe("행성 디스크 캐시", () => {
-  it("쓴 것을 그대로 읽는다. 파일은 pack과 목록 두 개, 이름에 행성·생성기·형식 버전·해시 앞부분", async () => {
-    const { dir, key, index, pack } = await prepared();
-    await writePlanetCache(dir, index, pack);
+  it("쓴 것을 그대로 읽는다. 파일은 pack·values·목록 셋, 이름에 행성·생성기·형식 버전·해시 앞부분", async () => {
+    const { dir, key, index, pack, values } = await prepared();
+    await writePlanetCache(dir, index, pack, values);
     expect((await readdir(dir)).toSorted()).toEqual([
       `${cacheFileStem(key)}.index.json`,
       `${cacheFileStem(key)}.pack`,
+      `${cacheFileStem(key)}.values`,
     ]);
     // 키의 생성기 버전은 원본 값(= 지금 GENERATOR_VERSION)이다. 버전이 오르면 파일 이름이 바뀌어 옛 캐시를 읽지 않는다
     expect(key.generatorVersion).toBe(GENERATOR_VERSION);
@@ -67,6 +77,7 @@ describe("행성 디스크 캐시", () => {
     if (!result.ok) return;
     expect(result.cached.index).toEqual(index);
     expect(Buffer.from(result.cached.pack).equals(Buffer.from(pack))).toBe(true);
+    expect(Buffer.from(result.cached.values).equals(Buffer.from(values))).toBe(true);
   });
 
   it("없는 폴더·없는 캐시는 missing", async () => {
@@ -78,6 +89,8 @@ describe("행성 디스크 캐시", () => {
   it.each([
     ["pack 한 바이트가 바뀜", async (stem: string) => flipByte(`${stem}.pack`, 100), "SHA-256"],
     ["pack이 잘림", async (stem: string) => truncate(`${stem}.pack`), "size"],
+    ["values 한 바이트가 바뀜", async (stem: string) => flipByte(`${stem}.values`, 50), "values SHA-256"],
+    ["values가 없음", async (stem: string) => rm(`${stem}.values`), "values file is missing"],
     ["pack이 없음", async (stem: string) => rm(`${stem}.pack`), "missing"],
     ["목록이 JSON이 아님", async (stem: string) => writeFile(`${stem}.index.json`, "{"), "JSON"],
     [
@@ -112,8 +125,8 @@ describe("행성 디스크 캐시", () => {
       "add up",
     ],
   ])("%s → invalid(다시 굽는다)", async (_name, breakIt, detail) => {
-    const { dir, key, index, pack, stem } = await prepared();
-    await writePlanetCache(dir, index, pack);
+    const { dir, key, index, pack, values, stem } = await prepared();
+    await writePlanetCache(dir, index, pack, values);
     await breakIt(stem);
     const result = await readPlanetCache(dir, key);
     expect(result.ok).toBe(false);
@@ -123,25 +136,25 @@ describe("행성 디스크 캐시", () => {
   });
 
   it("다른 버전은 가장 최근 하나만 남기고 지운다. 지금 것과 다른 행성은 남기고, 10분 넘은 임시 파일은 지운다", async () => {
-    const { dir, index, pack } = await prepared();
+    const { dir, index, pack, values } = await prepared();
     // 지금 판(GENERATOR_VERSION)과 겹치지 않는 다른 판 셋: 지금 + 1·2·3
     const older = index.generatorVersion + 1;
     const middle = index.generatorVersion + 2;
     const newest = index.generatorVersion + 3;
     const versions = [older, middle, newest].map((generatorVersion) => ({ ...index, generatorVersion }));
     for (const [at, version] of versions.entries()) {
-      await writePlanetCache(dir, version, pack);
+      await writePlanetCache(dir, version, pack, values);
       // 바뀐 시각을 차례로(older < middle < newest)
       const stem = path.join(dir, cacheFileStem(version));
       const when = new Date(Date.UTC(2026, 9, 29, 0, at));
       await utimes(`${stem}.index.json`, when, when);
     }
-    await writePlanetCache(dir, { ...index, planetId: "other_planet" }, pack);
+    await writePlanetCache(dir, { ...index, planetId: "other_planet" }, pack, values);
     await writeFile(path.join(dir, `${cacheFileStem(index)}.pack.tmp-1-old`), "x");
     await writeFile(path.join(dir, `${cacheFileStem(index)}.pack.tmp-2-new`), "x");
     const old = new Date(Date.now() - 20 * 60_000);
     await utimes(path.join(dir, `${cacheFileStem(index)}.pack.tmp-1-old`), old, old);
-    await writePlanetCache(dir, index, pack);
+    await writePlanetCache(dir, index, pack, values);
 
     const removed = await prunePlanetCache(dir, index.planetId, cacheFileStem(index));
     const stemOf = (generatorVersion: number) => cacheFileStem({ ...index, generatorVersion });
@@ -149,8 +162,10 @@ describe("행성 디스크 캐시", () => {
       [
         `${stemOf(older)}.index.json`,
         `${stemOf(older)}.pack`,
+        `${stemOf(older)}.values`,
         `${stemOf(middle)}.index.json`,
         `${stemOf(middle)}.pack`,
+        `${stemOf(middle)}.values`,
         `${cacheFileStem(index)}.pack.tmp-1-old`,
       ].toSorted(),
     );

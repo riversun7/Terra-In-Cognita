@@ -14,7 +14,6 @@ import {
   MAX_PATH_POINTS,
   type ResultCode,
   type UnitMotionWire,
-  encodeTerrain,
   terrainPath,
 } from "@terra/protocol";
 import {
@@ -27,8 +26,6 @@ import {
   type PlacementGrid,
   type Point,
   type SizeClass,
-  type TempTerrain,
-  TERRAIN_SIZE,
   anchorAt,
   anchorCenter,
   applyPlacement,
@@ -38,17 +35,15 @@ import {
   createPlacementGrid,
   distanceAt,
   isPassable,
-  placementCostsFromTerrain,
   positionAt,
   positionAtDistance,
   compareEventKeys,
   removeBuilding,
-  terrainHash,
   validatePlacement,
 } from "@terra/sim";
-import { gzipSync } from "node:zlib";
 import type { Rng } from "@terra/shared";
 import { botPlan, botRng, idleMs, pickDestination, pickSpawn, retryMs, startDelayMs } from "./bots.ts";
+import type { MapTerrain, TerrainFile } from "./mapTerrain.ts";
 import { type MapStream, createMapStream } from "./mapStream.ts";
 import type { MapReplicaInit } from "./pathMessages.ts";
 import type { PathOutcome, PathPriority, PathService } from "./pathService.ts";
@@ -160,7 +155,8 @@ export interface MapLog {
 
 export interface SecondMapOptions {
   mapKey: number;
-  terrain: TempTerrain;
+  /** 지형(고정본·캐시·생성기 또는 S1 임시 지형, mapTerrain.ts) */
+  terrain: MapTerrain;
   paths: PathService;
   now: () => number;
   stats: WorldStats;
@@ -177,18 +173,22 @@ export interface SecondMapOptions {
   explored?: ExploredStore | undefined;
   /** 이 2차맵이 놓인 행성(기본: 시험 행성) */
   planetId?: string | undefined;
+  /**
+   * 플레이어가 처음 손댔을 때(건물을 처음 놓았을 때) 한 번 부른다 — 월드가 지금 지형을 고정본으로 저장한다
+   * (PLAN 5.5, ADR 2026-10-31-second-map-from-planet 6절)
+   */
+  onFirstEdit?: (() => void) | undefined;
 }
 
-export interface TerrainFile {
-  raw: Buffer;
-  gzip: Buffer;
-}
+export type { TerrainFile } from "./mapTerrain.ts";
 
 export interface SecondMap {
   readonly mapKey: number;
   /** 이 2차맵이 놓인 행성. 전체 ID = (행성, 2차맵 키) */
   readonly planetId: string;
   readonly generatorVersion: number;
+  /** 지형 주소 판 표지(?v=) */
+  readonly terrainVersion: string;
   /** 거르지 않은 전송(관리자 전체 보기) */
   readonly stream: MapStream;
   /** 시야로 거른 전송(플레이어) — S3 ADR 3절 */
@@ -324,7 +324,9 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       localUnitId += 1;
       return localUnitId;
     });
-  const grid = createPlacementGrid(placementCostsFromTerrain(terrain));
+  // 격자가 지형 비용 배열을 고친다(벌목 등) → 캐시가 든 원본과 나눠 쓰지 않게 복사한다
+  const grid = createPlacementGrid(terrain.costs.slice());
+  let edited = false;
   const units = new Map<number, UnitState>();
   const buildings = new Map<
     number,
@@ -341,9 +343,8 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       localBuildingId += 1;
       return localBuildingId;
     });
-  let terrainCache: TerrainFile | undefined;
   const terrainInfo = {
-    url: terrainPath(mapKey, terrain.generatorVersion),
+    url: terrainPath(mapKey, terrain.version),
     generatorVersion: terrain.generatorVersion,
   };
 
@@ -621,6 +622,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     mapKey,
     planetId,
     generatorVersion: terrain.generatorVersion,
+    terrainVersion: terrain.version,
     stream,
     vision,
     replicaInit: () => ({
@@ -630,21 +632,8 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       road: grid.road,
       buildings: [...buildings].map(([id, building]) => ({ id, placement: building.placement })),
     }),
-    terrainFile() {
-      if (!terrainCache) {
-        const bytes = encodeTerrain({
-          mapKey,
-          generatorVersion: terrain.generatorVersion,
-          seed: terrain.seed,
-          hash: Number.parseInt(terrainHash(terrain), 16) >>> 0,
-          terrainSize: TERRAIN_SIZE,
-          heights: terrain.heights,
-          surface: terrain.surface,
-        });
-        const raw = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-        terrainCache = { raw, gzip: gzipSync(raw) };
-      }
-      return terrainCache;
+    terrainFile(): TerrainFile {
+      return terrain.file();
     },
     spawnBots(count) {
       const at = now();
@@ -771,6 +760,10 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       putBuilding(id, placement, null);
       persist?.saveBuilding({ id, mapKey, planetId, domain: "land", ownerId: null, placement });
       replanBlockedUnits();
+      if (!edited) {
+        edited = true;
+        options.onFirstEdit?.();
+      }
       return { ok: true, buildingId: id };
     },
     removeBuilding(buildingId) {

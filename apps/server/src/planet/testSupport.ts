@@ -3,9 +3,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { loadContentPack } from "@terra/content/node";
-import type { PlanetFields } from "@terra/planet";
+
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import {
+  type PlanetGeneration,
   type PlanetSource,
   type PlanetSourceSpec,
   createPlanetSource,
@@ -76,7 +77,7 @@ export function controlledSource(inner: PlanetSource): ControlledSource {
     calls: 0,
     failNext: 0,
     hold: false,
-    async generate(): Promise<PlanetFields> {
+    async generate(): Promise<PlanetGeneration> {
       source.calls += 1;
       if (source.failNext > 0) {
         source.failNext -= 1;

@@ -6,14 +6,16 @@
   "exports": {
     ".": "./src/index.ts",
     "./projection": "./src/projection.ts",
-    "./generator": "./src/generator/index.ts"
+    "./generator": "./src/generator/index.ts",
+    "./secondMap": "./src/secondMap/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p bench/tsconfig.json",
     "bench": "node bench/generator.ts",
     "render": "node bench/render.ts",
     "variety": "node bench/variety.ts",
-    "test": "vitest run --root ../.. packages/planet"
+    "test": "vitest run --root ../.. packages/planet",
+    "second-map": "node bench/secondMap.ts"
   },
   "dependencies": {
     "@terra/shared": "workspace:*"

@@ -40,13 +40,13 @@ describe("buildSurfaceTextureData", () => {
 
   it("모르는 코드는 회색, 코드는 그대로 둔다(셰이더가 같은 지표끼리 묶는다)", () => {
     const surface = new Uint8Array(CELLS).fill(SURFACE.grass);
-    surface[5] = 4;
+    surface[5] = 11;
     surface[6] = 200;
     surface[7] = 255;
     const data = buildSurfaceTextureData(surface);
     const grey = bytesOf(UNKNOWN_SURFACE_RGB);
     for (const [index, code] of [
-      [5, 4],
+      [5, 11],
       [6, 200],
       [7, 255],
     ] as const) {

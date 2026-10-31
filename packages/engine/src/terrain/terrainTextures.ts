@@ -14,6 +14,14 @@ const SURFACE_RGB: Readonly<Record<number, Rgb>> = {
   [SURFACE.grass]: [0.56, 0.8, 0.45],
   [SURFACE.dirt]: [0.79, 0.67, 0.49],
   [SURFACE.rock]: [0.63, 0.63, 0.67],
+  // 2차맵을 행성 값에서 만들 때 더한 지표(ADR 2026-10-31-second-map-from-planet, 기획 질문 124 기술 기본안)
+  [SURFACE.sand]: [0.9, 0.84, 0.64],
+  [SURFACE.gravel]: [0.7, 0.68, 0.62],
+  [SURFACE.snow]: [0.94, 0.96, 0.98],
+  [SURFACE.ice]: [0.8, 0.9, 0.95],
+  [SURFACE.mud]: [0.55, 0.5, 0.42],
+  [SURFACE.ash]: [0.45, 0.44, 0.46],
+  [SURFACE.shallowWater]: [0.62, 0.82, 0.84],
 };
 /** 모르는 지표 코드(서버가 더 새 코드를 보낼 수 있다) */
 export const UNKNOWN_SURFACE_RGB: Rgb = [0.8, 0.8, 0.8];

@@ -1,6 +1,7 @@
 // 2차맵 서버 상태 시험 — 봇, 관리자 명령, 건물과 경로 다시 찾기, 늦게 온 결과, 지형 파일, 상수 일치
 import { gunzipSync } from "node:zlib";
 import { PLACEMENT_CELLS_PER_SIDE } from "@terra/planet";
+import { SM_SURFACE } from "@terra/planet/secondMap";
 import {
   MAX_UNIT_SPEED,
   POSITION_UNITS_PER_CELL,
@@ -54,12 +55,14 @@ describe("상수 일치(기기가 보는 값 = 판정·격자 값)", () => {
     expect(SECOND_MAP_CELLS).toBe(PLACEMENT_SIZE);
     expect(SECOND_MAP_CELLS).toBe(PLACEMENT_CELLS_PER_SIDE);
     expect(MAX_UNIT_SPEED).toBe(MAX_SPEED);
-    expect(TERRAIN_SURFACE).toEqual({
-      water: SURFACE_WATER,
-      grass: SURFACE_GRASS,
-      dirt: SURFACE_DIRT,
-      rock: SURFACE_ROCK,
-    });
+    // 0~3은 S1 임시 지형(sim), 전체는 2차맵 생성기(planet)와 같다
+    expect([
+      TERRAIN_SURFACE.water,
+      TERRAIN_SURFACE.grass,
+      TERRAIN_SURFACE.dirt,
+      TERRAIN_SURFACE.rock,
+    ]).toEqual([SURFACE_WATER, SURFACE_GRASS, SURFACE_DIRT, SURFACE_ROCK]);
+    expect(TERRAIN_SURFACE).toEqual(SM_SURFACE);
     expect(Math.max(...UNIT_SIZE_CLASSES)).toBe(MAX_SIZE_CLASS);
   });
 

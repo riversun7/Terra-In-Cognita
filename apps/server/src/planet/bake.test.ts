@@ -128,10 +128,24 @@ describe("콘텐츠 팩 행성 원본", () => {
         ),
       },
     ];
-    for (const changed of changes)
-      expect(hashOf({ ...spec, input: changed })).not.toBe(source.definitionHash);
+    // 대륙 배치(ADR 2026-10-31-continent-layouts)도 타일 내용을 바꾼다: 배치 종류·대륙 수마다 다른 해시
+    const earthlike = { ...input, continents: { layout: "earthlike" as const, count: 3 } };
+    changes.push(earthlike, { ...input, continents: { layout: "earthlike" as const, count: 4 } });
+    changes.push({ ...input, continents: { layout: "hemisphere" as const, count: 3 } });
+    const hashes = changes.map((changed) => hashOf({ ...spec, input: changed }));
+    for (const hash of hashes) expect(hash).not.toBe(source.definitionHash);
+    expect(new Set(hashes).size).toBe(hashes.length);
     // 키 순서만 다르면 같은 해시
     expect(definitionHashOf({ a: 1, b: { c: 2, d: 3 } })).toBe(definitionHashOf({ b: { d: 3, c: 2 }, a: 1 }));
+  });
+
+  it("대륙 배치가 없는 팩 행성의 정의 해시는 대륙 배치를 더하기 전과 같다(캐시·타일 주소 그대로, NAS가 다시 굽지 않는다)", () => {
+    // main 7bec7cb·9d08a20에서 잰 값(2026-10-31). 정의 해시에 넣는 값이 바뀌면 두 행성을 모두 다시 굽는다
+    const hashes = Object.fromEntries(planetSpecsFromPack(pack()).map((spec) => [spec.id, hashOf(spec)]));
+    expect(hashes).toEqual({
+      s2_test_planet: "e04dd3cb58134c676649a8c5232b43e054dfb54489218f5b7f8144f412402cf6",
+      s2_editor_planet: "00b0ffd1c4772163aea9c5ed858378f19b2eeaea18b0955d852b2c9a49a2a924",
+    });
   });
 
   it("팩 행성 정의를 면 레벨 5로 생성하면 생성기 골든 해시와 같다(팩 → 원본 → 생성기 입력이 맞다)", async () => {

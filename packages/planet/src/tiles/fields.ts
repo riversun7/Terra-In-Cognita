@@ -5,7 +5,7 @@
 // 타일 코드가 메타에서 읽는 값은 faceLevel뿐이다(generatorVersion·해시는 서버가 캐시 키·머리에 쓴다).
 //
 // 칸 순서: 면 레벨 F의 칸마다 index = 면 × n² + j × n + i (n = 2^F). 면·i·j는 @terra/planet의 칸 좌표와 같다.
-import type { PlanetSettings } from "@terra/shared";
+import type { ContinentLayout, PlanetSettings } from "@terra/shared";
 import { assertFaceLevel, cellsPerSide, isIntegerInRange } from "../levels.ts";
 
 // ── water 비트 (ADR 36) ──
@@ -36,6 +36,8 @@ export interface PlanetFieldsMeta {
   readonly faceLevel: number;
   /** 생성에 쓴 세부 수치(프리셋 + 덮어쓰기를 풀어 쓴 값). 타일은 읽지 않는다 */
   readonly settings: PlanetSettings;
+  /** 생성에 쓴 대륙 배치(정의에 있을 때만, ADR 2026-10-31-continent-layouts). 타일은 읽지 않는다 */
+  readonly continents?: ContinentLayout | undefined;
   /**
    * 결과 해시: 모든 필드를 정해진 바이트 순서로 이은 FNV-1a 32비트(16진수 8자리, generator/hash.ts).
    * 타일은 읽지 않는다(서버는 캐시 목록에 적는다)

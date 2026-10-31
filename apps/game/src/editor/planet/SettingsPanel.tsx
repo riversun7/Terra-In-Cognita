@@ -1,4 +1,7 @@
-// 설정 판 — 프리셋 6축 × 3단계, 세부 수치 슬라이더, 시드, 본 미리보기 해상도(ADR 38 2·3·4절)
+// 설정 판 — 프리셋 5축 × 3단계 + 대륙 모양·대륙 수, 세부 수치 슬라이더, 시드, 본 미리보기 해상도(ADR 38 2·3·4절)
+// - 대륙 모양(ADR 2026-10-31-continent-layouts): 노이즈·초대륙·대륙 몇 개·여러 대륙·군도·한쪽 반구. 해수면 줄 바로 아래.
+//   모양은 누르면 바로 적용하고, 대륙 수 슬라이더는 다른 슬라이더처럼 [적용]을 기다린다. 판 개수 프리셋 줄은 뺐다(판 개수는
+//   세부 수치에서 "판 개수(산맥·해구 자리)"로 바꾼다).
 // - 프리셋 단계마다 정하는 값을 함께 보인다(editorModel presetRows). 단계를 고르면 그 축의 덮어쓰기를 지운다.
 // - 슬라이더 범위는 생성기 입력 확인과 같은 표(editorModel settingRows ← PLANET_SETTING_RANGES)에서 읽는다.
 // - 슬라이더(이어지는 값)만 "적용 전 변경"(부모가 든다)을 바꾼다. 미리보기·자동 저장은 [적용]을 누를 때 한다(사용자 의견
@@ -8,17 +11,28 @@
 // - "배치 바뀜" 표시: 바꾸면 땅·바다 배치가 새로 바뀌는 값.
 // - 해상도: F6~상한. F9는 확인 창(부모), F8 이상이 도는 동안 [멈춤]. 꺼짐 감지가 낮춘 기기 상한과 [다시 허용].
 import { PLANET_GENERATOR_FACE_LEVELS } from "@terra/shared";
-import { useId, useState } from "react";
+import { Fragment, useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
-import { AXIS_LABELS, SETTING_LABELS, formatNumber, levelLabel, settingValue } from "./editorMessages.ts";
+import {
+  AXIS_LABELS,
+  CONTINENT_LABELS,
+  SETTING_LABELS,
+  formatNumber,
+  levelLabel,
+  settingValue,
+} from "./editorMessages.ts";
 import {
   type DraftEntry,
+  continentRow,
   entrySeed,
   presetRows,
   settingRows,
+  withContinentChoice,
+  withContinentCount,
   withPreset,
   withSeed,
   withSetting,
+  withoutContinentCount,
   withoutSetting,
 } from "./editorModel.ts";
 import { parseSeedText, randomSeed } from "./editorView.ts";
@@ -89,6 +103,105 @@ function PresetGroup({
           );
         })}
       </div>
+    </fieldset>
+  );
+}
+
+/** 대륙 수 + 단위 */
+const countText = (value: number) => m.planet_editor_value_count({ value: formatNumber(value) });
+
+/** 대륙 모양(누르면 바로 적용)과 대륙 수 슬라이더([적용]을 기다림) */
+function ContinentGroup({
+  entry,
+  row,
+  onEdit,
+  onCommit,
+}: {
+  entry: DraftEntry;
+  row: ReturnType<typeof continentRow>;
+  onEdit: SettingsPanelProps["onEdit"];
+  onCommit: SettingsPanelProps["onCommit"];
+}) {
+  const name = useId();
+  const countId = `${name}-count`;
+  const countLabel = m.planet_editor_continent_count();
+  return (
+    <fieldset className="pe-preset">
+      <legend className="pe-preset-legend">
+        {m.planet_editor_axis_continents()}
+        {row.relayout ? <span className="pe-tag">{m.planet_editor_relayout()}</span> : null}
+      </legend>
+      <div className="pe-choices">
+        {row.choices.map((choice) => {
+          const id = `${name}-${choice.choice}`;
+          return (
+            <label key={choice.choice} className="pe-choice" htmlFor={id}>
+              <input
+                id={id}
+                type="radio"
+                className="pe-choice-input"
+                name={name}
+                value={choice.choice}
+                checked={row.choice === choice.choice}
+                onChange={() => onCommit(withContinentChoice(entry, choice.choice))}
+              />
+              <span className="pe-choice-face">
+                <span className="pe-choice-name">{CONTINENT_LABELS[choice.choice]()}</span>
+                <span className="pe-choice-value">
+                  {choice.defaultCount === null
+                    ? m.planet_editor_continents_noise_hint()
+                    : m.planet_editor_continents_default({ count: formatNumber(choice.defaultCount) })}
+                </span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
+      {row.count === null || row.defaultCount === null ? (
+        <p className="field-hint">{m.planet_editor_continents_noise_note()}</p>
+      ) : (
+        <div className="pe-slider" data-overridden={row.overridden}>
+          <div className="pe-slider-head">
+            <label htmlFor={countId} className="pe-slider-name">
+              {countLabel}
+            </label>
+            <output htmlFor={countId} className="pe-slider-value">
+              {countText(row.count)}
+            </output>
+          </div>
+          <input
+            id={countId}
+            type="range"
+            className="pe-range"
+            min={row.min}
+            max={row.max}
+            step={1}
+            value={row.count}
+            data-key="continentCount"
+            aria-valuetext={countText(row.count)}
+            aria-describedby={`${countId}-hint`}
+            onChange={(event) => onEdit(withContinentCount(entry, Number(event.target.value)))}
+          />
+          <p id={`${countId}-hint`} className="field-hint">
+            {m.planet_editor_continent_count_hint()}
+          </p>
+          <div className="pe-slider-foot">
+            <span className="field-hint">
+              {m.planet_editor_continent_count_default({ value: countText(row.defaultCount) })}
+            </span>
+            {row.overridden ? (
+              <button
+                type="button"
+                className="button-text"
+                aria-label={m.planet_editor_continent_count_reset_label()}
+                onClick={() => onCommit(withoutContinentCount(entry))}
+              >
+                {m.planet_editor_reset()}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      )}
     </fieldset>
   );
 }
@@ -233,7 +346,12 @@ export function SettingsPanel(props: SettingsPanelProps) {
               {m.planet_editor_presets()}
             </h2>
             {rows.presets.map((axis) => (
-              <PresetGroup key={axis.axis} entry={entry} axis={axis} onCommit={onCommit} />
+              <Fragment key={axis.axis}>
+                <PresetGroup entry={entry} axis={axis} onCommit={onCommit} />
+                {axis.axis === "seaLevel" ? (
+                  <ContinentGroup entry={entry} row={rows.continents} onEdit={onEdit} onCommit={onCommit} />
+                ) : null}
+              </Fragment>
             ))}
           </section>
           <section className="pe-section" aria-labelledby={`${levelId}-details`}>
@@ -295,7 +413,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
 /** 항목이 틀리면(서버에 남은 옛 초안 등) 판을 그리지 않는다(초안 판이 받지 않음 상태를 알린다) */
 function safeRows(entry: DraftEntry) {
   try {
-    return { presets: presetRows(entry), settings: settingRows(entry) };
+    return { presets: presetRows(entry), settings: settingRows(entry), continents: continentRow(entry) };
   } catch {
     return null;
   }

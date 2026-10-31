@@ -11,7 +11,7 @@
 //   판 흔들기·대륙성·기복은 1판 노이즈 그대로다(같은 시드는 같은 판·대륙 배치).
 // 높이는 실제 환산 m(해수면을 정하기 전 절대값)이다. 거리는 구 위 각도(라디안)라 해상도와 무관하다.
 import { detExp } from "@terra/shared";
-import type { PlanetSettings } from "@terra/shared";
+import type { ContinentLayout, PlanetSettings } from "@terra/shared";
 import { CUBE_CORNERS } from "../corners.ts";
 import {
   FEATURE_ANDEAN,
@@ -22,6 +22,7 @@ import {
   FEATURE_TRENCH,
   blendBoundaryFeatures,
 } from "./boundaries.ts";
+import { buildContinentModel, continentDetailOctaves, continentValue } from "./continents.ts";
 import { type PlanetGrid, areaOf, neighbors8 } from "./grid.ts";
 import { addVolcanoes, hotspotVolcanoes } from "./hotspots.ts";
 import {
@@ -38,10 +39,12 @@ import {
 import { NOISE_JITTER, type NoiseSetup, fbm3, octavesFor, offsetFbm3, offsetRidged3 } from "./noise.ts";
 import {
   CONTINENT_FREQUENCY,
+  anchorPlates,
   CONTINENT_OCTAVES,
   chooseRotation,
   createPlates,
   plateAt,
+  plateAtLayout,
   plateOf,
   plateVelocity,
   rotate,
@@ -68,6 +71,20 @@ const BOUNDARY_REACH = km(700);
  */
 const CORNER_PUSH_RADIUS = 0.035;
 const CORNER_PUSH = 0.3;
+/**
+ * 대륙 배치(continents.ts)의 꼭짓점 밀어내기: 노이즈 배치와 같은 반경·세기. 배치 회전이 꼭짓점을 대개 바다에 둔다.
+ * 초대륙처럼 꼭짓점을 피할 수 없으면 해안 가까이에서는 만이 되고, 땅 깊숙이면 바다 판정의 꼭짓점 누르기(seaLevel.ts,
+ * 약 100km)만 작은 바다로 남는다. 세게(1, 반경 약 320km) 밀면 땅 안에 둥근 바다가 눈에 띄었다(F7 그림)
+ */
+const LAYOUT_CORNER_PUSH_RADIUS = CORNER_PUSH_RADIUS;
+const LAYOUT_CORNER_PUSH = CORNER_PUSH;
+/**
+ * 대륙 배치의 열곡: 대륙 지각끼리 벌어지는 경계가 땅을 이 높이(실제 환산 m) 아래로는 낮추지 않는다(열곡 골짜기·호수).
+ * 노이즈 배치처럼 바다 밑까지 깎으면 대륙이 둘로 갈라져 대륙 수가 바뀐다
+ */
+const LAYOUT_RIFT_FLOOR_M = 60;
+/** 대륙 배치: 판 중 대륙 닻으로 옮겨도 되는 몫(나머지는 바다 판) */
+const LAYOUT_ANCHOR_SHARE = 0.6;
 /** 산맥 단면 노이즈 시드: streamSeed(시드, STREAM_MOUNTAINS) + 이 값(무늬 0, 경계 세기 7, 섬 호 11) */
 const MOUNTAIN_SHAPE_SEED_OFFSET = 3;
 /** 산맥 무늬: 능선 노이즈 2판, 주파수 7, 해상도에 맞게 6옥타브까지 */
@@ -134,8 +151,13 @@ function bump(d: number, center: number, halfWidth: number): number {
  * 판 구조 → 기본 고도. 판 구조 높이(tectonicRelief) → 봉우리 다듬기 → 해안선 흔들기 순서다. 해안선 흔들기는 끝에서
  * 해수면 백분위를 다시 재므로(landforms.ts) 그 뒤에 높이를 바꾸지 않는다(바다 판정 classifyOcean이 같은 높이를 받게)
  */
-export function buildTectonics(grid: PlanetGrid, seed: number, settings: PlanetSettings): Tectonics {
-  const relief = tectonicRelief(grid, seed, settings);
+export function buildTectonics(
+  grid: PlanetGrid,
+  seed: number,
+  settings: PlanetSettings,
+  continents?: ContinentLayout,
+): Tectonics {
+  const relief = tectonicRelief(grid, seed, settings, continents);
   const { elevation } = relief;
   softenPeaks(elevation);
   roughenCoasts(
@@ -155,10 +177,25 @@ export function buildTectonics(grid: PlanetGrid, seed: number, settings: PlanetS
  * 판 구조 높이: 판·지각·판 경계 지형·안쪽 고원·분지·구릉·열점까지(봉우리 다듬기·해안선 흔들기 전).
  * 함수가 끝나면 거리장 같은 큰 중간 배열이 풀린다(해안선 흔들기가 메모리를 더 쓴다)
  */
-export function tectonicRelief(grid: PlanetGrid, seed: number, settings: PlanetSettings): TectonicRelief {
+export function tectonicRelief(
+  grid: PlanetGrid,
+  seed: number,
+  settings: PlanetSettings,
+  continents?: ContinentLayout,
+): TectonicRelief {
   const count = grid.cellCount;
   const continentalShare = Math.min(0.97, (settings.landPercent + settings.shelfPercent) / 100);
-  const plates = createPlates(seed, settings.plateCount, continentalShare);
+  // 대륙 배치가 있으면 대륙성은 배치(continents.ts)가 정하고 무늬 공간은 돌리지 않는다(배치가 꼭짓점을 피해 스스로 돈다).
+  // 판은 같은 시드의 판에서 가까운 것들의 중심을 대륙 닻으로 옮긴다(대륙이 제 판에 실린다. 바다 판을 40%는 남긴다)
+  const layout =
+    continents === undefined ? undefined : buildContinentModel(seed, continents, continentalShare);
+  const randomPlates = createPlates(seed, settings.plateCount, continentalShare);
+  const anchoring =
+    layout === undefined
+      ? undefined
+      : anchorPlates(randomPlates, layout.anchors, Math.floor(LAYOUT_ANCHOR_SHARE * settings.plateCount));
+  const plates = anchoring?.plates ?? randomPlates;
+  const layoutOctaves = continentDetailOctaves(grid.meanCellAngle);
   const warpSeed = streamSeed(seed, STREAM_PLATE_WARP);
   const continentSeed = streamSeed(seed, STREAM_CONTINENTS);
   const uplift = settings.upliftPercent / 100;
@@ -166,39 +203,69 @@ export function tectonicRelief(grid: PlanetGrid, seed: number, settings: PlanetS
   const volcanism = settings.volcanismPercent / 100;
 
   // 무늬 공간 좌표(격자를 돌린 것). 이웃·면적·거리는 회전과 무관하다
-  const rotation = chooseRotation(seed, plates, warpSeed, continentSeed);
   const sx = new Float64Array(count);
   const sy = new Float64Array(count);
   const sz = new Float64Array(count);
-  for (let c = 0; c < count; c++) {
-    const [x, y, z] = rotate(rotation, grid.x[c] ?? 0, grid.y[c] ?? 0, grid.z[c] ?? 0);
-    sx[c] = x;
-    sy[c] = y;
-    sz[c] = z;
+  if (layout === undefined) {
+    const rotation = chooseRotation(seed, plates, warpSeed, continentSeed);
+    for (let c = 0; c < count; c++) {
+      const [x, y, z] = rotate(rotation, grid.x[c] ?? 0, grid.y[c] ?? 0, grid.z[c] ?? 0);
+      sx[c] = x;
+      sy[c] = y;
+      sz[c] = z;
+    }
+  } else {
+    sx.set(grid.x);
+    sy.set(grid.y);
+    sz.set(grid.z);
   }
   const plate = new Uint8Array(count);
-  for (let c = 0; c < count; c++) plate[c] = plateAt(plates, warpSeed, sx[c] ?? 0, sy[c] ?? 0, sz[c] ?? 0);
+  const continentality = new Float32Array(count);
+  if (layout === undefined) {
+    for (let c = 0; c < count; c++) plate[c] = plateAt(plates, warpSeed, sx[c] ?? 0, sy[c] ?? 0, sz[c] ?? 0);
+  } else {
+    // 대륙 배치: 대륙성을 먼저 재고, 판은 대륙성 쪽으로 끈다(중심이 땅에 있는 판 = 대륙 판, plateAtLayout)
+    for (let c = 0; c < count; c++) {
+      const push =
+        LAYOUT_CORNER_PUSH *
+        cornerProximity(grid.x[c] ?? 0, grid.y[c] ?? 0, grid.z[c] ?? 0, LAYOUT_CORNER_PUSH_RADIUS);
+      continentality[c] = continentValue(layout, sx[c] ?? 0, sy[c] ?? 0, sz[c] ?? 0, layoutOctaves) - push;
+    }
+    const affinity = Float64Array.from(anchoring?.anchored ?? [], (anchored) => (anchored === 1 ? 1 : -1));
+    for (let c = 0; c < count; c++) {
+      plate[c] = plateAtLayout(
+        plates,
+        warpSeed,
+        sx[c] ?? 0,
+        sy[c] ?? 0,
+        sz[c] ?? 0,
+        affinity,
+        continentality[c] ?? 0,
+      );
+    }
+  }
 
   // ── 지각: 대륙성 값 → 면적 백분위로 대륙 지각 ──
   const continentOctaves = Math.min(
     CONTINENT_OCTAVES,
     octavesFor(CONTINENT_FREQUENCY, grid.meanCellAngle, 6),
   );
-  const continentality = new Float32Array(count);
-  for (let c = 0; c < count; c++) {
-    const noise = fbm3(
-      continentSeed,
-      sx[c] ?? 0,
-      sy[c] ?? 0,
-      sz[c] ?? 0,
-      CONTINENT_FREQUENCY,
-      continentOctaves,
-      0.55,
-    );
-    const bias = plateOf(plates, plate[c] ?? 0).bias;
-    const push =
-      CORNER_PUSH * cornerProximity(grid.x[c] ?? 0, grid.y[c] ?? 0, grid.z[c] ?? 0, CORNER_PUSH_RADIUS);
-    continentality[c] = noise + bias - push;
+  if (layout === undefined) {
+    for (let c = 0; c < count; c++) {
+      const noise = fbm3(
+        continentSeed,
+        sx[c] ?? 0,
+        sy[c] ?? 0,
+        sz[c] ?? 0,
+        CONTINENT_FREQUENCY,
+        continentOctaves,
+        0.55,
+      );
+      const bias = plateOf(plates, plate[c] ?? 0).bias;
+      const push =
+        CORNER_PUSH * cornerProximity(grid.x[c] ?? 0, grid.y[c] ?? 0, grid.z[c] ?? 0, CORNER_PUSH_RADIUS);
+      continentality[c] = noise + bias - push;
+    }
   }
   const threshold = areaPercentile(grid, continentality, 1 - continentalShare);
   const continental = new Uint8Array(count);
@@ -362,7 +429,10 @@ export function tectonicRelief(grid: PlanetGrid, seed: number, settings: PlanetS
         const islands = Math.min(1, Math.max(0, 3 * (breaks + 0.12)));
         h += volcanism * 3900 * arc * ridges * islands * bump(d, km(160), km(75));
       }
-      if (rift > 0) h -= uplift * 1700 * rift * bump(d, 0, km(90));
+      if (rift > 0) {
+        const lowered = h - uplift * 1700 * rift * bump(d, 0, km(90));
+        h = layout !== undefined && h > 0 ? Math.max(lowered, Math.min(h, LAYOUT_RIFT_FLOOR_M)) : lowered;
+      }
     }
     elevation[c] = h;
   }
@@ -373,6 +443,7 @@ export function tectonicRelief(grid: PlanetGrid, seed: number, settings: PlanetS
     settings.hotspotCount,
     volcanism,
     (x, y, z, owner) => {
+      if (layout !== undefined) return continentValue(layout, x, y, z, layoutOctaves) > threshold;
       const noise = fbm3(continentSeed, x, y, z, CONTINENT_FREQUENCY, continentOctaves, 0.55);
       return noise + plateOf(plates, owner).bias > threshold;
     },

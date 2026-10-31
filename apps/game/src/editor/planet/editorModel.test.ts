@@ -2,6 +2,9 @@
 // 다시 배치 표시, 슬라이더 범위 = 생성기 입력 확인 표, 다른 필드는 그대로. 무작위로 고쳐도 늘 생성기가 받는 항목이다
 import { planetInputFromDefinition, validatePlanetInput } from "@terra/planet/generator";
 import {
+  CONTINENT_COUNT_RANGE,
+  CONTINENT_LAYOUTS,
+  CONTINENT_LAYOUT_DEFAULT_COUNTS,
   PLANET_PRESET_AXES,
   PLANET_PRESET_LEVELS,
   PLANET_SETTING_KEYS,
@@ -11,11 +14,14 @@ import {
 } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import {
+  CONTINENT_CHOICES,
   type DraftEntry,
+  EDITOR_PRESET_AXES,
   RELAYOUT_PRESET_AXES,
   RELAYOUT_SETTING_KEYS,
   SEED_RELAYOUT,
   axisSettingKeys,
+  continentRow,
   entryPresets,
   entrySeed,
   entrySettings,
@@ -25,9 +31,12 @@ import {
   presetSettings,
   sameEntry,
   settingRows,
+  withContinentChoice,
+  withContinentCount,
   withPreset,
   withSeed,
   withSetting,
+  withoutContinentCount,
   withoutSetting,
 } from "./editorModel.ts";
 import { PACK_BIOMES, TEST_PLANET } from "./testDefinitions.ts";
@@ -89,9 +98,16 @@ describe("세부 수치", () => {
 });
 
 describe("프리셋", () => {
-  it("프리셋 줄: 축 순서, 단계마다 정하는 값, 다시 배치 표시", () => {
+  it("프리셋 줄: 축 순서(판 개수 축은 빼고 — 대륙 모양 줄이 그 자리), 단계마다 정하는 값, 다시 배치 표시", () => {
     const rows = presetRows(TEST_PLANET);
-    expect(rows.map((row) => row.axis)).toEqual([...PLANET_PRESET_AXES]);
+    expect(EDITOR_PRESET_AXES).toEqual([
+      "seaLevel",
+      "temperature",
+      "precipitation",
+      "mountains",
+      "volcanism",
+    ]);
+    expect(rows.map((row) => row.axis)).toEqual([...EDITOR_PRESET_AXES]);
     for (const row of rows) {
       expect(row.choices.map((choice) => choice.level)).toEqual([...PLANET_PRESET_LEVELS[row.axis]]);
       for (const choice of row.choices) {
@@ -128,6 +144,75 @@ describe("프리셋", () => {
     };
     expect(() => settingRows(broken)).toThrow(RangeError);
     expect(() => withSetting(broken, "landPercent", 20)).toThrow(RangeError);
+  });
+});
+
+describe("대륙 모양·대륙 수 (ADR 2026-10-31-continent-layouts)", () => {
+  it("대륙 모양 줄: 노이즈(정의에 continents 없음) + 배치 종류 넷, 종류마다 기본 대륙 수, 노이즈는 대륙 수 없음", () => {
+    expect(CONTINENT_CHOICES).toEqual(["noise", ...CONTINENT_LAYOUTS]);
+    const row = continentRow(TEST_PLANET);
+    expect(row).toMatchObject({
+      choice: "noise",
+      count: null,
+      defaultCount: null,
+      overridden: false,
+      relayout: true,
+    });
+    expect([row.min, row.max]).toEqual([...CONTINENT_COUNT_RANGE]);
+    expect(row.choices).toEqual([
+      { choice: "noise", defaultCount: null },
+      ...CONTINENT_LAYOUTS.map((layout) => ({
+        choice: layout,
+        defaultCount: CONTINENT_LAYOUT_DEFAULT_COUNTS[layout],
+      })),
+    ]);
+  });
+
+  it("종류를 고르면 continents = {layout}(대륙 수는 기본값), 노이즈를 고르면 필드를 뺀다(팩 행성과 같은 정의)", () => {
+    const earth = withContinentChoice(TEST_PLANET, "earthlike");
+    expect(earth.continents).toEqual({ layout: "earthlike" });
+    expect(continentRow(earth)).toMatchObject({
+      choice: "earthlike",
+      count: 3,
+      defaultCount: 3,
+      overridden: false,
+    });
+    const back = withContinentChoice(earth, "noise");
+    expect("continents" in back).toBe(false);
+    expect(sameEntry(back, TEST_PLANET)).toBe(true);
+  });
+
+  it("대륙 수: 범위로 묶고 정수로, 기본값과 같으면 count를 지운다. 종류를 바꾸면 count도 지운다. 노이즈면 그대로", () => {
+    const earth = withContinentChoice(TEST_PLANET, "earthlike");
+    expect(withContinentCount(earth, 1).continents).toEqual({ layout: "earthlike", count: 1 });
+    expect(withContinentCount(earth, 99).continents).toEqual({ layout: "earthlike", count: 10 });
+    expect(withContinentCount(earth, 4.6).continents).toEqual({ layout: "earthlike", count: 5 });
+    expect(withContinentCount(earth, 3).continents).toEqual({ layout: "earthlike" });
+    expect(continentRow(withContinentCount(earth, 1))).toMatchObject({ count: 1, overridden: true });
+    expect(withoutContinentCount(withContinentCount(earth, 1)).continents).toEqual({ layout: "earthlike" });
+    expect(withContinentChoice(withContinentCount(earth, 1), "scattered").continents).toEqual({
+      layout: "scattered",
+    });
+    expect(withContinentCount(TEST_PLANET, 2)).toBe(TEST_PLANET);
+    expect(withContinentCount(earth, Number.NaN)).toBe(earth);
+  });
+
+  it("고친 항목은 생성기 입력이 되고, 판 개수 덮어쓰기와 프리셋은 그대로다", () => {
+    const entry = withContinentCount(
+      withContinentChoice(withSetting(TEST_PLANET, "plateCount", 30), "hemisphere"),
+      5,
+    );
+    const input = planetInputFromDefinition(entry, PACK_BIOMES, 5);
+    expect(input.continents).toEqual({ layout: "hemisphere", count: 5 });
+    expect(input.settings.plateCount).toBe(30);
+    expect(entryPresets(entry)).toEqual(entryPresets(TEST_PLANET));
+  });
+
+  it("틀린 대륙 배치는 RangeError", () => {
+    expect(() => continentRow({ ...TEST_PLANET, continents: { layout: "pangaea" } })).toThrow(RangeError);
+    expect(() => continentRow({ ...TEST_PLANET, continents: { layout: "earthlike", count: 0 } })).toThrow(
+      RangeError,
+    );
   });
 });
 
@@ -198,6 +283,11 @@ describe("적용 전 변경 수", () => {
     // 해수면 프리셋을 바꾸면 그 축의 덮어쓰기(육지 비율)가 지워진다 → 프리셋 1 + 지워진 덮어쓰기 1
     expect(pendingChangeCount(land, withPreset(land, "seaLevel", "continent"))).toBe(2);
     expect(pendingChangeCount(TEST_PLANET, withoutSetting(land, "landPercent"))).toBe(0);
+    // 대륙 모양 하나, 대륙 수 하나
+    const earth = withContinentChoice(TEST_PLANET, "earthlike");
+    expect(pendingChangeCount(TEST_PLANET, earth)).toBe(1);
+    expect(pendingChangeCount(earth, withContinentCount(earth, 5))).toBe(1);
+    expect(pendingChangeCount(TEST_PLANET, withContinentCount(earth, 5))).toBe(2);
   });
 
   it("틀린 항목이면 다른 키 수를 센다", () => {

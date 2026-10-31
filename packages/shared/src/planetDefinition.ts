@@ -110,6 +110,38 @@ export type PlanetSettingKeysComplete = ExpectTrue<
   [Exclude<PlanetSettingKey, (typeof PLANET_SETTING_KEYS)[number]>] extends [never] ? true : false
 >;
 
+/**
+ * 대륙 배치 종류(ADR 2026-10-31-continent-layouts). 행성 정의의 continents.layout에 쓴다. 정의에 continents가 없으면
+ * 대륙성 노이즈 배치(출력 판 3 그대로)다. 이름은 데이터에 남으므로 바꾸지 않는다.
+ * - supercontinent: 초대륙(판게아). 땅이 한 덩어리로 모인다(기본 1개).
+ * - earthlike: 지구형. 크기가 다른 큰 대륙 몇 개 + 섬(기본 3개).
+ * - scattered: 여러 대륙·군도. 비슷한 크기의 중간 대륙 여럿 + 작은 섬이 많다(기본 6개).
+ * - hemisphere: 한쪽 반구. 대륙이 한쪽 반구에 몰리고 다른 쪽은 거의 바다다(기본 3개).
+ */
+export const CONTINENT_LAYOUTS = ["supercontinent", "earthlike", "scattered", "hemisphere"] as const;
+export type ContinentLayoutKind = (typeof CONTINENT_LAYOUTS)[number];
+
+/** 큰 땅덩어리(대륙) 수 범위 [최소, 최대] (둘 다 포함). 섬(작은 조각·열점·섬 호)은 세지 않는다 */
+export const CONTINENT_COUNT_RANGE = [1, 10] as const;
+
+/** 값이 대륙 배치 종류 이름인지 */
+export function isContinentLayoutKind(value: unknown): value is ContinentLayoutKind {
+  const kinds: readonly unknown[] = CONTINENT_LAYOUTS;
+  return kinds.includes(value);
+}
+
+/** 행성 정의의 대륙 배치(continents): 종류와, 덮어쓸 때만 대륙 수 */
+export interface ContinentLayoutDefinition {
+  readonly layout: ContinentLayoutKind;
+  readonly count?: number | undefined;
+}
+
+/** 풀어 쓴 대륙 배치(대륙 수까지 정해진 것) — 생성기 입력 */
+export interface ContinentLayout {
+  readonly layout: ContinentLayoutKind;
+  readonly count: number;
+}
+
 /** 바다 수심 등급: 연안·대륙붕·심해 (생성 결과 water 바이트 4~5비트 = 1·2·3, 0은 바다 아님) */
 export const OCEAN_DEPTH_CLASSES = ["coastal", "shelf", "deep"] as const;
 export type OceanDepthClass = (typeof OCEAN_DEPTH_CLASSES)[number];

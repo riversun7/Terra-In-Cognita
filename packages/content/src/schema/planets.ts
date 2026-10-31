@@ -3,6 +3,9 @@
 // 생성기가 받지 않는 정의는 여기(스키마)와 2단계 뒤 행성 검사(validate/planets.ts)가 먼저 막는다.
 // 지금 데이터는 S2 임시값이다(팩 placeholder: true). 바이옴 목록·기온·습도 범위는 기획 세션에 요청했다(ADR 36).
 import {
+  CONTINENT_COUNT_RANGE,
+  CONTINENT_LAYOUTS,
+  type ContinentLayoutDefinition,
   OCEAN_DEPTH_CLASSES,
   PLANET_GENERATOR_FACE_LEVELS,
   PLANET_PRESET_LEVELS,
@@ -100,6 +103,15 @@ const overrideShape = {
 
 const overridesSchema = z.strictObject(overrideShape);
 
+/**
+ * 대륙 배치(ADR 2026-10-31-continent-layouts): 종류와, 덮어쓸 때만 대륙 수(큰 땅덩어리 수, 섬은 세지 않는다). 없으면
+ * 대륙성 노이즈 배치(출력 판 3 그대로). 그래서 이 필드가 없는 옛 항목·초안은 그대로 통과하고 결과도 그대로다
+ */
+const continentsSchema = z.strictObject({
+  layout: z.enum(CONTINENT_LAYOUTS),
+  count: z.int().min(CONTINENT_COUNT_RANGE[0]).max(CONTINENT_COUNT_RANGE[1]).optional(),
+}) satisfies z.ZodType<ContinentLayoutDefinition>;
+
 /** 객체의 필드(없으면 undefined). Zod는 필드가 틀려도 행성 검사(superRefine)를 부르므로 모양을 믿지 않고 읽는다 */
 function property(value: unknown, key: string): unknown {
   return typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
@@ -147,6 +159,8 @@ export const planetEntrySchema = z
     presets: presetsSchema,
     /** 프리셋으로 정한 세부 수치를 덮어쓴다(편집기 슬라이더) */
     overrides: overridesSchema.optional(),
+    /** 대륙 배치(선택). 없으면 노이즈 배치 */
+    continents: continentsSchema.optional(),
     /**
      * 바이옴 표: 생성 결과의 바이옴 번호 = 이 배열의 위치. 바다·호수·육지 규칙이 하나씩은 있어야 생성된다
      * (참조가 풀린 뒤 validate/planets.ts가 본다)

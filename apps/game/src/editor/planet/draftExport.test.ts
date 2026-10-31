@@ -139,6 +139,9 @@ describe("가져오기", () => {
       { ...planet, overrides: { landPercent: maxLand + 1 } },
       { ...planet, overrides: { unknownSetting: 1 } },
       { ...planet, overrides: { poleTemperatureC: 40, equatorTemperatureC: 0 } },
+      { ...planet, continents: { layout: "pangaea" } },
+      { ...planet, continents: { layout: "earthlike", count: 11 } },
+      { ...planet, continents: "supercontinent" },
     ];
     for (const entry of broken) {
       expect(isImportableEntry(entry)).toBe(false);
@@ -146,6 +149,8 @@ describe("가져오기", () => {
     }
     expect(code(bundleText({ planet: "s2_test_planet" }))).toBe("invalid_entry");
     expect(isImportableEntry(planet)).toBe(true);
+    // 대륙 배치(ADR 2026-10-31-continent-layouts)가 있는 항목도 받는다
+    expect(isImportableEntry({ ...planet, continents: { layout: "earthlike", count: 4 } })).toBe(true);
   });
 
   it("planets.json 항목 하나만 붙여 넣어도 받는다(기준·해시 없음)", () => {

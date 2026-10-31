@@ -10,6 +10,7 @@ export {
   validatePlanetInput,
 } from "./generate.ts";
 export {
+  parseContinentLayout,
   parsePlanetBiome,
   parsePlanetOverrides,
   parsePlanetPresets,
@@ -30,7 +31,14 @@ export {
 export { faceAreaTable } from "./grid.ts";
 export { type PlanetBiomeArea, type PlanetSummary, summarizePlanet } from "./summary.ts";
 // 프리셋 수치표와 풀기는 콘텐츠 검증과 같이 쓰려고 @terra/shared(planetPresets.ts)에 있다. 생성기 진입점도 내보낸다
-export { NORMAL_PRESETS, PLANET_PRESET_VALUES, presetValues, resolvePlanetSettings } from "@terra/shared";
+export {
+  CONTINENT_LAYOUT_DEFAULT_COUNTS,
+  NORMAL_PRESETS,
+  PLANET_PRESET_VALUES,
+  presetValues,
+  resolveContinentLayout,
+  resolvePlanetSettings,
+} from "@terra/shared";
 export { VERTICAL_SCALE } from "./surface.ts";
 export {
   type BiomeRange,

@@ -1,0 +1,24 @@
+{
+  "id": "synthetic",
+  "planet": "s2_test_planet",
+  "factions": [
+    {
+      "code": "npc",
+      "count": 16,
+      "fixed": true,
+      "cities": 4,
+      "workers": 625,
+      "credit": "100000000",
+      "tech": 3
+    }
+  ],
+  "stub": {
+    "decideEveryMs": 21600000,
+    "conquerPerMille": 40,
+    "rebelPerMille": 20,
+    "techUpPerMille": 60,
+    "techDownPerMille": 40,
+    "techMax": 10
+  },
+  "trips": { "idleMinMs": 1800000, "idleMaxMs": 5400000 }
+}

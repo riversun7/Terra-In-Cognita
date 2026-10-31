@@ -7,10 +7,13 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p bench/tsconfig.json",
-    "bench": "node bench/pathfinding.ts"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p bench/tsconfig.json && tsc --noEmit -p cli/tsconfig.json",
+    "bench": "node bench/pathfinding.ts",
+    "sim": "node cli/sim.ts",
+    "sim:speed": "node cli/speed.ts"
   },
   "devDependencies": {
+    "@terra/content": "workspace:*",
     "@terra/shared": "workspace:*"
   }
 }

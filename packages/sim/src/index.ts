@@ -175,3 +175,21 @@ export {
   type OwnerSettleResult,
   type SettleAccounts,
 } from "./settle/owner.ts";
+export { type SimLoop, createSimLoop } from "./simulator/loop.ts";
+export {
+  DAY_MS,
+  createMetricsRecorder,
+  type FactionDay,
+  type FactionStart,
+  type MetricsOptions,
+  type MetricsRecorder,
+  type MetricsSummary,
+} from "./simulator/metrics.ts";
+export { parseScenario, type Scenario } from "./simulator/scenario.ts";
+export {
+  SIM_OUTPUT_FORMAT,
+  SIM_START_MS,
+  runSimulation,
+  type RunOptions,
+  type RunSummary,
+} from "./simulator/run.ts";

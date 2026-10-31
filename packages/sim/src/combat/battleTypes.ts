@@ -29,6 +29,8 @@ export interface CombatUnitSpec {
   /** 스태미나·MP 최대와 공격 한 번에 드는 양(D-415·D-418) */
   readonly staminaMax: number;
   readonly staminaCost: number;
+  /** STA 점수(N13: 1차 AGI·VIT 가중합). 소모·회복 배율을 정한다 */
+  readonly staminaScore: number;
   readonly mpMax: number;
   readonly mpCost: number;
   /** 스탯 시야(칸, 가중치 표 sight 행) */

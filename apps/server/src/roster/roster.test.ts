@@ -3,7 +3,11 @@ import { loadContentPack } from "@terra/content/node";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import type { HomeQuery, TrpcContext, Viewer } from "../trpc/context.ts";
+import { emptyEconomyCatalog } from "../economyView/catalog.ts";
+import { createEconomyServices } from "../economyView/services.ts";
+import { createFactionScreenServices } from "../factionScreen/overview.ts";
 import { createHomeServices } from "../home/services.ts";
+import { createMailServices } from "../mail/list.ts";
 import { createCallerFactory } from "../trpc/init.ts";
 import { appRouter } from "../trpc/router.ts";
 import { BASELINE_PRIMARY, baselineBody, bodyView } from "./body.ts";
@@ -51,8 +55,8 @@ describe("몸 계산", () => {
     // STR 14, K 1150, Lv18 → 14 × (1000 + 100 × 1150 × 17 ÷ 1000) ÷ 1000 = 41, 반지(1~3, 700‰) +2
     expect(mina.stats.primaries.str).toEqual({ base: 41, bonus: 2 });
     expect(mina.stats.primaries.vit).toEqual({ base: 40, bonus: 0 });
-    // HP = 50 + (43×300 + 23×200 + 24×200 + 40×3000 + 14×200 + 20×300) ÷ 1000 = 201
-    expect(mina.stats.secondary.find((row) => row.id === "hp")?.value).toBe(201);
+    // HP = 0 + (43×1500 + 23×1000 + 24×1500 + 40×3000 + 14×1000 + 20×1200) ÷ 1000 = 281(팩 표 = 기획 48 N1, R4b)
+    expect(mina.stats.secondary.find((row) => row.id === "hp")?.value).toBe(281);
     expect(mina.stats.source).toBe("computed");
     // 칸 배치 = 팩 human 6칸, 장비 4개
     expect(mina.slots.map((slot) => slot.slot)).toEqual([
@@ -243,6 +247,10 @@ function callerFor(viewer: Viewer) {
     planetEditor: undefined,
     home: createHomeServices(),
     roster: createRosterServices({ catalog }),
+    // 다른 화면 자료: 이 시험은 쓰지 않는다
+    economy: createEconomyServices({ catalog: emptyEconomyCatalog("test") }),
+    faction: createFactionScreenServices(),
+    mail: createMailServices(),
   };
   return createCallerFactory(appRouter)(ctx);
 }

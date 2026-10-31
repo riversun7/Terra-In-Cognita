@@ -65,7 +65,8 @@ export function computeSecondary(
         throw new RangeError(`weight out of range in ${row.id}`);
       weighted += (p[i] ?? 0) * weight;
     }
-    const extra = (gear[row.id] ?? 0) + (buffs[row.id] ?? 0);
+    // 양 모양 = 기본 + 가중합 + 장비 + 버프, 확률 모양 점수 = 가중합 + 장비(버프는 넣지 않는다, 48 §3.1)
+    const extra = (gear[row.id] ?? 0) + (row.shape === "quantity" ? (buffs[row.id] ?? 0) : 0);
     check(extra, `gear+buff ${row.id}`);
     const score = Math.floor(weighted / 1000) + extra;
     if (row.shape === "quantity") out[row.id] = row.base + score;
@@ -89,22 +90,23 @@ const pr = (id: string, cap: number, halfConstant: number, weights: readonly num
 });
 
 /**
- * [임시] 가중치 표(STR·DEX·AGI·VIT·INT·WIS 차례, ‰). 기획 D-414의 "주로 쓰는 1차"를 따른 시험값이다(수치는 밸런싱).
+ * 가중치 표(STR·DEX·AGI·VIT·INT·WIS 차례, ‰). HP·쉴드·MP·스태미나·회피는 기획 49 N1·N3·N14 출발값,
+ * 나머지 행과 크리 배율의 DEX 몫은 [임시](D-414 "주로 쓰는 1차"를 따른 시험값).
  * 확률 모양의 상한은 ‰(예: 명중 상한 950 = 95%).
  */
 export const TEST_STAT_TABLE: readonly StatRow[] = [
-  q("hp", 50, [300, 200, 200, 3000, 200, 300]),
+  q("hp", 0, [1500, 1000, 1500, 3000, 1000, 1200]),
   q("armor_hp", 0, [500, 0, 0, 1000, 0, 0]),
-  q("shield_hp", 0, [0, 0, 0, 0, 500, 1500]),
+  q("shield_hp", 0, [200, 200, 200, 200, 1000, 3000]),
   pr("defense_rate", 700, 100, [600, 0, 0, 1200, 0, 0]),
   q("physical_attack", 0, [2000, 600, 0, 0, 0, 0]),
   q("elemental_attack", 0, [0, 0, 0, 0, 2000, 600]),
   pr("hit", 950, 20, [0, 1200, 600, 0, 0, 0]),
-  pr("evade", 600, 150, [0, 0, 1500, 0, 0, 0]),
+  pr("evade", 850, 250, [0, 0, 1000, 0, 0, 0]),
   pr("crit_chance", 500, 200, [0, 1500, 0, 0, 0, 0]),
-  q("crit_multiplier", 1300, [0, 15_000, 0, 0, 0, 0]),
+  q("crit_multiplier", 1500, [0, 10_000, 0, 0, 0, 0]),
   q("action_speed", 50, [0, 300, 2000, 0, 0, 0]),
-  q("stamina", 50, [0, 0, 1500, 3000, 0, 0]),
-  q("mp", 20, [0, 0, 0, 0, 2500, 3000]),
+  q("stamina", 100, [0, 0, 700, 300, 0, 0]),
+  q("mp", 0, [300, 300, 300, 300, 1500, 2000]),
   q("sight", 10, [0, 0, 50, 0, 0, 100]),
 ];

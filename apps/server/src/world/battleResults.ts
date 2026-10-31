@@ -12,6 +12,8 @@ import { DOWNED_INJURY, type UnitCondition, injure } from "./unitCondition.ts";
 export interface BattleWorld {
   /** 세계 유닛이 있는 2차맵 */
   mapOf(unitId: number): SecondMap | undefined;
+  /** 그 유닛이 돌아갈 가장 가까운 안전 도시의 시청 칸(없으면 undefined → 2차맵 가운데) */
+  safeCellFor(unitId: number, ownerId: number, map: SecondMap): { x: number; y: number } | undefined;
   ownerExists(ownerId: number): boolean;
   ledger: Ledger;
 }
@@ -57,8 +59,9 @@ export function applyBattleOutcome(
     if (result.injured) injured += 1;
     if (result.outcome === "stays" && receiver === null) receiver = cargoLocation(result.unit);
     if (result.outcome === "returned" || result.outcome === "prisoner") {
-      // 질문 108 기본안·D-351: 끝나는 때 바로 안전한 곳으로([임시] 그 2차맵의 안전한 칸, R4b에서 가장 가까운 안전 도시)
-      map.relocateToSafety(result.unit);
+      // 질문 108 기본안·D-351: 끝나는 때 바로 가장 가까운 안전 도시로(포로는 잡은 쪽 세력의 도시)
+      const owner = next.heldBy ?? info.ownerId;
+      map.relocateToSafety(result.unit, world.safeCellFor(result.unit, owner, map));
       losers.push({ unit: result.unit, owner: info.ownerId });
       if (next.heldBy !== null) prisoners += 1;
       else returned += 1;

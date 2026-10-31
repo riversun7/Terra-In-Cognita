@@ -94,13 +94,13 @@ test.describe("dev + 시안 자료", () => {
       message("ko", "units_selected", { count: 2 }),
     );
     expect(await smallTapTargets(page)).toEqual([]);
-    // 상세: Mina(Lv18) HP = 201(서버 계산, apps/server/src/roster/roster.test.ts와 같은 값)
+    // 상세: Mina(Lv18) HP = 281(서버 계산, apps/server/src/roster/roster.test.ts와 같은 값)
     await rows.filter({ hasText: "Mina" }).locator(".units-row-main").click();
     const detail = page.locator(".units-detail");
     await expect(detail.locator(".units-detail-name")).toHaveText("Mina");
     await expect(detail.locator(".units-detail-name")).toBeFocused();
     await expect(detail.locator(".roster-secondary-row").filter({ hasText: "HP" }).first()).toContainText(
-      "201",
+      "281",
     );
     await expect(
       detail.locator(".roster-slot").filter({ hasText: message("ko", "roster_slot_weapon") }),

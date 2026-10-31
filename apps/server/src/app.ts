@@ -13,6 +13,9 @@ import { isAllowedSocketOrigin } from "./auth/requestGuard.ts";
 import { writeAudit } from "./auth/store.ts";
 import { DEFAULT_TRUST_PROXY, SIM_VERSION } from "./config.ts";
 import { type Database, pingDatabase } from "./db/client.ts";
+import { createEconomyServices } from "./economyView/services.ts";
+import { worldEconomySource } from "./economyView/worldSource.ts";
+import { createWorldFactionSource } from "./factionScreen/source.ts";
 import { startServerMetrics } from "./metrics.ts";
 import type { PlanetBaker } from "./planet/baker.ts";
 import { type PlanetRouteLimits, registerPlanetRoutes } from "./planet/routes.ts";
@@ -34,6 +37,7 @@ import { createWorldRosterSource } from "./roster/worldUnits.ts";
 import { createSecondMapLab } from "./world/secondMapLab.ts";
 import { registerTerrainRoute } from "./world/terrainRoute.ts";
 import type { MapPropInput } from "@terra/planet/secondMap";
+import type { EconomyCatalogResponse } from "@terra/shared/economy";
 import { createTerrainService } from "./world/terrainService.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, type WorldConfig, startWorld } from "./world/world.ts";
 
@@ -107,6 +111,8 @@ export interface AppOptions {
     | undefined;
   /** 유닛·사이보그 화면의 콘텐츠 팩 자료(src/roster/catalog.ts rosterCatalogOf). 없으면 시험 자료(이름 = ID) */
   roster?: RosterCatalog | undefined;
+  /** 경제 화면 목록(팩 items·recipes 등, src/economyView/catalog.ts). 없으면 빈 목록 */
+  economyCatalog?: EconomyCatalogResponse | undefined;
   /**
    * 시험용: 요청의 로그인 사용자를 직접 정한다(DB 없는 시험). 주면 인증 세션 조회와 WebSocket 출처 검사를 하지 않는다.
    * 운영 코드는 쓰지 않는다.
@@ -247,6 +253,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
               testMapKey: TEST_MAP_KEY,
             })
           : undefined,
+      // 경제 화면: 팩 목록 + 월드 원장 잔고(읽기만) + 시안 자료
+      economy: options.economyCatalog
+        ? createEconomyServices({
+            catalog: options.economyCatalog,
+            world: world ? worldEconomySource(world) : undefined,
+          })
+        : undefined,
+      factionSource: world && options.db ? createWorldFactionSource(world) : undefined,
     }),
   });
 

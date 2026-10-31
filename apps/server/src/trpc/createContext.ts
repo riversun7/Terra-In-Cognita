@@ -13,10 +13,15 @@ import { authHeaders } from "../auth/http.ts";
 import { parseRoleString } from "../auth/permissions.ts";
 import { isAllowedReadRequest, isSameOriginRequest } from "../auth/requestGuard.ts";
 import type { Database } from "../db/client.ts";
+import { emptyEconomyCatalog } from "../economyView/catalog.ts";
+import { createEconomyServices } from "../economyView/services.ts";
 import { createHomeServices } from "../home/services.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
 import { createRosterServices } from "../roster/services.ts";
 import type { WorldRosterSource } from "../roster/worldUnits.ts";
+import { createFactionScreenServices } from "../factionScreen/overview.ts";
+import type { FactionSource } from "../factionScreen/source.ts";
+import { createMailServices } from "../mail/list.ts";
 import {
   type PlanetEditorShared,
   betterAuthPermissionCheck,
@@ -24,7 +29,13 @@ import {
 } from "../planetEditor/services.ts";
 import { createSettingsServices } from "../settings/store.ts";
 import type { SummaryBackend } from "../summary/summary.ts";
-import type { SecondMapLabServices, TrpcContext, TrpcContextOptions, Viewer } from "./context.ts";
+import type {
+  EconomyServices,
+  SecondMapLabServices,
+  TrpcContext,
+  TrpcContextOptions,
+  Viewer,
+} from "./context.ts";
 import { reasonedError } from "./init.ts";
 
 export interface ContextFactoryOptions extends TrpcContextOptions {
@@ -43,6 +54,10 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   roster?: { catalog?: RosterCatalog | undefined; world?: WorldRosterSource | undefined } | undefined;
   /** 개발자 2차맵 시험(월드·지형 서비스·행성 서비스가 다 있을 때, src/world/secondMapLab.ts) */
   secondMapLab?: SecondMapLabServices | undefined;
+  /** 경제 화면 자료(팩 목록·월드 원장). 없으면 빈 목록·잔고 없음 */
+  economy?: EconomyServices | undefined;
+  /** 세력 화면 실제 자료(DB·월드가 있을 때) */
+  factionSource?: FactionSource | undefined;
 }
 
 /** 읽기 요청(출처 규칙이 쓰기보다 느슨하다: 주소창에서 연 것도 받는다). tRPC 조회는 GET, 쓰기는 POST다 */
@@ -71,6 +86,12 @@ export function createContextFactory(options: ContextFactoryOptions) {
   // 홈 자료(처리할 일·복귀 요약·서버 카드)는 요청마다 만들지 않고 앱에 하나다(제공 함수 목록을 한 번 만든다)
   const home = createHomeServices({ summary: options.summary });
   const roster = createRosterServices(options.roster);
+  // 경제 화면 자료도 앱에 하나다(시안 시장 캐시를 함께 쓴다)
+  const economy =
+    options.economy ?? createEconomyServices({ catalog: emptyEconomyCatalog(options.contentVersion) });
+  // 세력 화면·우편 조회도 앱에 하나다
+  const faction = createFactionScreenServices({ source: options.factionSource });
+  const mail = createMailServices();
   return (opts?: { req: FastifyRequest; res?: FastifyReply }): TrpcContext => {
     const authDeps = options.auth;
     const request = opts?.req;
@@ -105,6 +126,9 @@ export function createContextFactory(options: ContextFactoryOptions) {
       home,
       roster,
       secondMapLab: options.secondMapLab,
+      economy,
+      faction,
+      mail,
     };
   };
 }

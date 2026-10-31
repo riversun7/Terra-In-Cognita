@@ -11,6 +11,8 @@ import type { EconomyCatalog } from "./catalog.ts";
 import { type EconomyRun, type EconomySummary, attachEconomy, systemRule } from "./economyRun.ts";
 import { type CombatSummary, attachCombat } from "./combatRun.ts";
 import type { CombatCatalog } from "../combat/catalog.ts";
+import { combatCoefficientsFrom, societyCoefficientsFrom } from "../tuning.ts";
+import { type SocietySummary, attachSociety } from "./society.ts";
 import {
   EVENT_ARRIVE,
   EVENT_DECIDE,
@@ -29,8 +31,11 @@ import {
   totalOwnerAsset,
 } from "./world.ts";
 
-/** 출력 형식 판(줄·요약의 모양이 바뀌면 올린다. 관전판·관리자 화면이 읽는다). 2: econ 줄·요약 economy 칸(R2), 3: battle 줄·요약 combat 칸(R3) */
-export const SIM_OUTPUT_FORMAT = 3;
+/**
+ * 출력 형식 판(줄·요약의 모양이 바뀌면 올린다. 관전판·관리자 화면이 읽는다). 2: econ 줄·요약 economy 칸(R2),
+ * 3: battle 줄·요약 combat 칸(R3), 4: 하루 줄 세력 칸 satisfaction·regime·overlord, 요약 society 칸, born 줄 mode·city(R4b)
+ */
+export const SIM_OUTPUT_FORMAT = 4;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 요약에 남기는 불변 조건 위반 문장 수 */
@@ -50,6 +55,8 @@ export interface RunOptions {
   /** 스탯 가중치 표(콘텐츠 팩 stat_rows). 없으면 TEST_STAT_TABLE */
   /** 전투 자료(스탯 표·효과·스킬·장비·유닛 종류). 없으면 TEST_COMBAT_CATALOG */
   readonly combatCatalog?: CombatCatalog | undefined;
+  /** 설정 칸 값(콘텐츠 팩 tuning: 항목 ID → 정수). 없으면 TEST 계수표 */
+  readonly tuning?: ReadonlyMap<string, number> | undefined;
   /** 경제 목록(시나리오에 economy 칸이 있으면 꼭 준다. 실행 도구가 콘텐츠 팩에서 만든다) */
   readonly catalog?: EconomyCatalog | undefined;
   /** 하루가 끝날 때마다(진행 표시용, 판정에 영향 없음) */
@@ -77,6 +84,8 @@ export interface RunSummary {
   readonly economy: EconomySummary | null;
   /** 전투(시나리오에 combat 칸이 없으면 null) */
   readonly combat: CombatSummary | null;
+  /** 세력·사회(R4b 규칙) */
+  readonly society: SocietySummary;
   readonly ledger: { transactions: number; accounts: number };
   readonly invariants: { checks: number; violations: number; first: string[] };
   /** 요약 앞까지 쓴 줄 수와 그 줄들의 FNV-1a 해시(지표 해시) */
@@ -140,11 +149,34 @@ export function runSimulation(options: RunOptions): RunSummary {
     trips: scenario.trips,
     hooks: econ?.hooks,
     combat: scenario.combat
-      ? attachCombat(world, scenario.combat, recorder, options.combatCatalog)
+      ? attachCombat(
+          world,
+          scenario.combat,
+          recorder,
+          options.combatCatalog,
+          combatCoefficientsFrom(options.tuning ?? new Map()),
+        )
       : undefined,
     encounterPerMille: scenario.combat?.encounterPerMille,
   };
   ctxRef.ctx = ctx;
+  const society = attachSociety(
+    {
+      world,
+      scenario,
+      recorder,
+      c: societyCoefficientsFrom(options.tuning ?? new Map()),
+      hooks: econ?.hooks,
+      combat: ctx.combat,
+      scheduleFaction: (faction, nowMs) => scheduleDecide(ctx, faction, nowMs),
+      scheduleUnit: (unitId, nowMs) => {
+        if (scenario.trips) scheduleTrip(ctx, unitId, nowMs);
+      },
+      cancel: (eventId) => loop.cancel(eventId),
+    },
+    SIM_START_MS,
+  );
+  ctx.society = society;
 
   recorder.start(
     [...world.factions.values()].map((faction) => ({
@@ -162,7 +194,11 @@ export function runSimulation(options: RunOptions): RunSummary {
   const first: string[] = [];
   const check = (nowMs: number): void => {
     checks += 1;
-    const problems = [...checkWorld(world, nowMs, scenario.trips !== undefined), ...(econ?.check() ?? [])];
+    const problems = [
+      ...checkWorld(world, nowMs, scenario.trips !== undefined),
+      ...(econ?.check() ?? []),
+      ...society.check(nowMs),
+    ];
     violations += problems.length;
     for (const problem of problems) if (first.length < FIRST_PROBLEMS) first.push(`${nowMs}: ${problem}`);
   };
@@ -171,6 +207,7 @@ export function runSimulation(options: RunOptions): RunSummary {
     const endMs = SIM_START_MS + day * DAY_MS;
     loop.runUntil(endMs);
     econ?.endOfDay(endMs);
+    society.endOfDay(endMs);
     const rows: FactionDay[] = [];
     for (const faction of world.factions.values()) {
       if (!faction.alive) continue;
@@ -184,6 +221,7 @@ export function runSimulation(options: RunOptions): RunSummary {
           faction.id,
           econ ? econ.hooks.treasuryAsset(faction) : TEST_ASSET_CREDIT,
         ),
+        ...society.dayFields(faction),
       });
     }
     recorder.day(day, rows);
@@ -221,6 +259,7 @@ export function runSimulation(options: RunOptions): RunSummary {
     events: { processed: loop.processed, byKind: kinds },
     economy: econ ? econ.summary() : null,
     combat: ctx.combat ? ctx.combat.summary() : null,
+    society: society.summary(),
     ledger: { transactions: world.audit.transactions, accounts: [...world.book.accounts()].length },
     invariants: { checks, violations, first },
     lines: lineCount,

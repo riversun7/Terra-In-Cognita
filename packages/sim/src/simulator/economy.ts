@@ -77,6 +77,9 @@ export interface Economy {
   /** 오늘 센 값(하루 줄에 쓰고 비운다) */
   readonly today: {
     shortUnits: Map<string, number>;
+    /** 도시마다 오늘 낼 생필품(유닛 × 회) · 못 낸 몫(만족도의 포만감, D-438 5) */
+    dueByCity: Map<number, number>;
+    shortByCity: Map<number, number>;
     inputShort: number;
     issued: Map<string, bigint>;
     burned: Map<string, bigint>;
@@ -138,7 +141,14 @@ export function createEconomy(
     cargo: new Map(),
     nextOrderId,
     nextCargoId: counter(),
-    today: { shortUnits: new Map(), inputShort: 0, issued: new Map(), burned: new Map() },
+    today: {
+      shortUnits: new Map(),
+      dueByCity: new Map(),
+      shortByCity: new Map(),
+      inputShort: 0,
+      issued: new Map(),
+      burned: new Map(),
+    },
   };
   for (const unit of world.units.values())
     economy.cityUnits.set(unit.city, (economy.cityUnits.get(unit.city) ?? 0) + 1);
@@ -358,6 +368,9 @@ export function onUpkeep(
       consumeAccount(world.book),
       nowMs,
     );
+    economy.today.dueByCity.set(cityId, (economy.today.dueByCity.get(cityId) ?? 0) + units);
+    if (paid.shortUnits > 0)
+      economy.today.shortByCity.set(cityId, (economy.today.shortByCity.get(cityId) ?? 0) + paid.shortUnits);
     if (paid.shortUnits > 0)
       economy.today.shortUnits.set(
         spec.asset,

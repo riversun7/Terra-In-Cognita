@@ -45,6 +45,7 @@ export {
 } from "./schema/economy.ts";
 export { mapPropEntrySchema, type MapPropEntry } from "./schema/mapProps.ts";
 export { statRowEntrySchema, type StatRowEntry } from "./schema/stats.ts";
+export { tuningEntrySchema, type TuningEntry } from "./schema/tuning.ts";
 export {
   EQUIP_SLOT_KINDS,
   PRIMARY_STAT_CODES,

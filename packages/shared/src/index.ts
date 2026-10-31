@@ -106,6 +106,7 @@ export {
   isRouteParamValue,
   isRouteTarget,
   matchPath,
+  menuRoute,
   parentTarget,
   replaceSearch,
   routePathExamples,

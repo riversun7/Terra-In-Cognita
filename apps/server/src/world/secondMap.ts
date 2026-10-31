@@ -224,8 +224,8 @@ export interface SecondMap {
   setJob(unitId: number, job: UnitJob): boolean;
   /** 부상·포로 상태를 넣고 저장한다(전투 결과) */
   setCondition(unitId: number, condition: UnitCondition): boolean;
-  /** 안전한 곳(unitCondition.ts safePoint, [임시])으로 바로 옮긴다(질문 108 기본안·D-351). 하던 이동은 버린다 */
-  relocateToSafety(unitId: number): boolean;
+  /** 안전한 곳(기준 칸 = 가장 가까운 안전 도시, 없으면 가운데)으로 바로 옮긴다(질문 108 기본안·D-351). 하던 이동은 버린다 */
+  relocateToSafety(unitId: number, near?: { readonly x: number; readonly y: number }): boolean;
   /** 불변 조건 I5: 예약이 없는 봇 수(경로를 기다리는 봇은 뺀다) */
   missingEvents(): number;
   /** 불변 조건 I7: 몸이 건물 칸에 걸친 서 있는 유닛 수 */
@@ -751,9 +751,9 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       save(unit);
       return true;
     },
-    relocateToSafety(unitId) {
+    relocateToSafety(unitId, near) {
       const unit = units.get(unitId);
-      const point = unit ? safePoint(grid, unit.size) : undefined;
+      const point = unit ? safePoint(grid, unit.size, near) : undefined;
       if (!unit || !point) return false;
       cancelEvent(unit);
       unit.routeSeq += 1;

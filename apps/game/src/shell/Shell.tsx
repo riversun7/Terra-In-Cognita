@@ -8,7 +8,7 @@
 // 닫으면 <dialog>가 연 단추로 돌려준 초점을 그대로 둔다. 겹침이 열린 동안에는 스크롤을 기억하지 않는다.
 // 지금 화면을 다시 고르면(라우터 reselects) focusId 칸에 초점을 두거나 맨 위로 올린다.
 // 복귀 요약(W3, summary/ReturnSummary.tsx)은 틀 밖 겹침으로 맨 아래에 그린다. 종 배지는 TopBar.tsx, 화면은 routeViews.tsx.
-import { type AccountView, ROUTES, canOpenRoute } from "@terra/shared";
+import { type AccountView, ROUTES, canOpenRoute, menuRoute } from "@terra/shared";
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useInboxMenuBadges } from "../inbox/store.ts";
 import { m } from "../paraglide/messages.js";
@@ -198,7 +198,8 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
   // 메뉴 항목 배지(처리할 일 inbox.list의 badges, ADR 37 4·7절)
   const badges = useInboxMenuBadges();
   const { match } = route;
-  const current = match?.id ?? null;
+  // 메뉴(하단 탭·사이드 메뉴)의 지금 화면: 하위 화면(예: /economy/market/…)은 그 메뉴 항목으로 본다
+  const current = match === null ? null : menuRoute(match.id);
   const allowed = match === null || canOpenRoute(match.id, user.roles);
   const hidden = match !== null && allowed && ROUTES[match.id].frame === "hidden";
   const narrow = layout.stage === "narrow";

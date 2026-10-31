@@ -4,8 +4,20 @@
 // 넣으면 기기 코드에서 Node 전역(process, Buffer)이 타입 오류 없이 보이게 된다 — scripts/check-boundaries.mjs가 잡는다.
 import type { Role, UserSettings } from "@terra/shared";
 import type { DashboardCardsResponse } from "@terra/shared/dashboard";
+import type {
+  EconomyCatalogResponse,
+  EconomyExchangeResponse,
+  EconomyHoldingsResponse,
+  EconomyOrdersResponse,
+  EconomyProductionResponse,
+  MarketBookResponse,
+  MarketCitiesResponse,
+  MarketItemsResponse,
+} from "@terra/shared/economy";
 import type { InboxListResponse, SummaryGetResponse } from "@terra/shared/inbox";
 import type { CyborgGetResponse, UnitsListResponse } from "@terra/shared/roster";
+import type { FactionOverviewResponse } from "@terra/shared/faction";
+import type { MailListResponse } from "@terra/shared/mail";
 import type { PlanetLibraryBase } from "@terra/shared";
 import type {
   PlanetDraftRevisionInfo,
@@ -171,6 +183,42 @@ export interface SecondMapLabServices {
   locate(planetId: string, target: SecondMapLabTarget): Promise<SecondMapLabAnswer>;
 }
 
+/** 경제 화면 조회의 조건. preview는 프로시저가 권한(home: preview, dev·admin)을 본 뒤에만 true다 */
+export interface EconomyQuery {
+  readonly preview: boolean;
+  /** 서버 시각(UTC ms, ctx.now()) */
+  readonly now: number;
+}
+
+/**
+ * 경제 화면 자료(조회만) — ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)". 프로시저가 로그인한 본인으로만 부른다.
+ * 거래소·생산·환전은 서버가 아직 돌리지 않아 시안 자료가 아니면 status "not_ready"다(src/economyView/services.ts).
+ * 실패: NOT_FOUND(data.reason unknown_item·unknown_city)
+ */
+export interface EconomyServices {
+  catalog(): EconomyCatalogResponse;
+  holdings(viewer: Viewer, query: EconomyQuery): Promise<EconomyHoldingsResponse>;
+  production(viewer: Viewer, query: EconomyQuery): EconomyProductionResponse;
+  marketItems(viewer: Viewer, query: EconomyQuery): MarketItemsResponse;
+  marketCities(viewer: Viewer, item: string, query: EconomyQuery): MarketCitiesResponse;
+  marketBook(viewer: Viewer, item: string, city: string, query: EconomyQuery): MarketBookResponse;
+  orders(viewer: Viewer, query: EconomyQuery): EconomyOrdersResponse;
+  exchange(viewer: Viewer, query: EconomyQuery): EconomyExchangeResponse;
+}
+
+/**
+ * 세력 화면(faction.overview, D-439) — 내 몫·소속 세력은 실제 자료, 도시·외교·전쟁·정권·지분·점령은 규칙(R4b) 전이라
+ * 준비 중이고 dev·admin의 시안 자료(preview)로만 채운다. 프로시저가 로그인한 본인으로만 부른다(src/factionScreen/overview.ts)
+ */
+export interface FactionScreenServices {
+  overview(viewer: Viewer, query: HomeQuery): Promise<FactionOverviewResponse>;
+}
+
+/** 우편(mail.list, D-270) — 조회만. 보내기·받기는 WebSocket 명령으로 만든다(src/mail/list.ts) */
+export interface MailServices {
+  list(viewer: Viewer, query: HomeQuery): Promise<MailListResponse>;
+}
+
 export interface TrpcContext {
   /** 콘텐츠 팩 버전 */
   contentVersion: string;
@@ -190,6 +238,12 @@ export interface TrpcContext {
   roster: RosterServices;
   /** 개발자 2차맵 시험. 월드·지형 서비스·행성 서비스가 다 있을 때만 */
   secondMapLab?: SecondMapLabServices | undefined;
+  /** 경제 화면 자료. 늘 있다(팩이 없으면 빈 목록, 월드가 없으면 잔고 없음) */
+  economy: EconomyServices;
+  /** 세력 화면. 늘 있다(DB·월드가 없으면 실제 자료가 빈 값이다) */
+  faction: FactionScreenServices;
+  /** 우편. 늘 있다(우편 표가 아직 없어 실제 우편함은 비어 있다) */
+  mail: MailServices;
 }
 
 export interface TrpcContextOptions {

@@ -57,6 +57,7 @@ export function unit(
     moveIntervalMs: 500,
     staminaMax: 1000,
     staminaCost: 1,
+    staminaScore: 80,
     mpMax: 0,
     mpCost: 0,
     sight: 12,

@@ -1,7 +1,7 @@
 // 전투 결과의 세계 적용 DB 통합 시험(docs/adr/2026-10-31-combat-core.md 8절) — TEST_DATABASE_URL이 있을 때만. 계정은 가짜 값이다.
 // 두 주체의 시험 일꾼끼리 전쟁 전투를 열고, 끝 시각이 지난 뒤 다시 켜면: 진 유닛은 부상·포로·안전한 곳, 화물 절반은 이긴 쪽,
 // 불변 조건은 그대로, 또 켜도 두 번 적용하지 않는다.
-import { type BattleInit, resolveOutcomes, runBattle } from "@terra/sim";
+import { type BattleInit, CELL_UNITS, resolveOutcomes, runBattle } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { cargoLocation } from "./battleResults.ts";
@@ -126,8 +126,18 @@ describe.skipIf(!TEST_DATABASE_URL)("전투 결과 → 세계", () => {
     // 포로는 주인의 명령을 받지 않는다
     const map = second.maps.get(mapKey);
     expect(await map?.moveUnit(b1, { x: 5000, y: 5000 })).toEqual({ ok: false, code: "invalid_request" });
-    // 진 유닛 둘은 같은 안전한 칸 둘레로 옮겨졌다(서 있음)
+    // 진 유닛은 가장 가까운 안전 도시(시험 NPC 세력의 시작 도시, 가운데 칸) 둘레로 옮겨졌다(서 있음)
     expect(map?.unitInfo(b1)?.motion.waypoints).toHaveLength(1);
+    const startCities = await rows<{ cell_x: number; cell_y: number }>(
+      test.db,
+      `select cell_x, cell_y from world_cities where start and map_key = $1`,
+      [mapKey],
+    );
+    expect(startCities).toHaveLength(1);
+    const [stand] = map?.unitInfo(b1)?.motion.waypoints ?? [];
+    const near = startCities[0];
+    expect(Math.abs(Math.floor((stand?.x ?? 0) / CELL_UNITS) - (near?.cell_x ?? 0))).toBeLessThan(16);
+    expect(Math.abs(Math.floor((stand?.y ?? 0) / CELL_UNITS) - (near?.cell_y ?? 0))).toBeLessThan(16);
 
     // 화물: 진 쪽은 5씩 남고, 이긴 쪽 첫 남은 유닛의 화물에 10
     const winnerStays = expected.find((r) => r.side === 1 && r.outcome === "stays")?.unit ?? 0;

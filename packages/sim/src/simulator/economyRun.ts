@@ -1,5 +1,6 @@
 // 시뮬레이터 실행에 경제를 붙이는 접착 — docs/adr/2026-10-31-economy-core.md 7절
 // run.ts가 시나리오에 economy 칸이 있을 때 부른다: 경제 차리기·예약, 사건 나누기, 하루 끝(중앙은행·지표 줄), 불변 조건, 요약.
+import { HOUR_MS } from "../economy/production.ts";
 import type { ScheduledEvent } from "../events/eventQueue.ts";
 import type { EconomyCatalog } from "./catalog.ts";
 import {
@@ -117,6 +118,17 @@ export function attachEconomy(
         for (const market of perItem.values()) market.cancelOwner(target.id, nowMs);
       transferHoldings(world, target, attacker, () => true, nowMs);
     },
+    unitsChanged: (cityId, delta) =>
+      economy.cityUnits.set(cityId, Math.max(0, (economy.cityUnits.get(cityId) ?? 0) + delta)),
+    cityFounded: (cityId, units, nowMs) => {
+      economy.cityUnits.set(cityId, units);
+      loop.schedule(nowMs + HOUR_MS, { kind: EVENT_UPKEEP, subject: cityId });
+    },
+    foodPmOf: (cityId) => {
+      const due = economy.today.dueByCity.get(cityId) ?? 0;
+      if (due === 0) return 1000;
+      return Math.max(0, 1000 - Math.floor(((economy.today.shortByCity.get(cityId) ?? 0) * 1000) / due));
+    },
   };
 
   /** 화폐마다 값을 매기는 거래소의 마지막 체결가 평균(물건마다) */
@@ -192,6 +204,8 @@ export function attachEconomy(
         inputShort: economy.today.inputShort,
       };
       economy.today.shortUnits.clear();
+      economy.today.dueByCity.clear();
+      economy.today.shortByCity.clear();
       economy.today.issued.clear();
       economy.today.burned.clear();
       economy.today.inputShort = 0;

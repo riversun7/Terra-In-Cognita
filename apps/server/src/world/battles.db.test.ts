@@ -49,6 +49,15 @@ function boot(results: { id: number; outcome: BattleOutcome; atMs: number }[]): 
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
 
+/** 결과 적용을 기다린다(부하가 크면 50ms로 모자라다) */
+async function untilEnded(service: BattleService, id: number): Promise<void> {
+  for (let i = 0; i < 200; i++) {
+    if ((await service.get(id))?.status === "ended") return;
+    await settle();
+  }
+  throw new Error("battle did not end");
+}
+
 describe.skipIf(!TEST_DATABASE_URL)("전투 인스턴스(서버)", () => {
   it("만들면 빨리감기로 끝 시각을 정하고, 입력이 오면 다시 계산하고, 다시 켜도 결과를 한 번만 적용한다", async () => {
     const results: { id: number; outcome: BattleOutcome; atMs: number }[] = [];
@@ -70,7 +79,7 @@ describe.skipIf(!TEST_DATABASE_URL)("전투 인스턴스(서버)", () => {
     clock = (changed?.endsAtMs ?? 0) + 1;
     const second = boot(results);
     expect(await second.restore()).toBe(1);
-    await settle();
+    await untilEnded(second, id);
     const ended = await second.get(id);
     expect(ended?.status).toBe("ended");
     expect(results).toHaveLength(1);

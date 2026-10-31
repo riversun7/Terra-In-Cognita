@@ -6,6 +6,7 @@ import { mix32 } from "../math/hash.ts";
 import { runBattle } from "../combat/battle.ts";
 import type { BattleInit, BattleResult, CombatUnitSpec } from "../combat/battleTypes.ts";
 import type { BattleMapInput } from "../combat/battleMap.ts";
+import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "../combat/coefficients.ts";
 import { type CombatCatalog, TEST_COMBAT_CATALOG, UNARMED, skillsOf } from "../combat/catalog.ts";
 import { type EquippedItem, itemAt, loadoutOf, skillSlotCount } from "../combat/equipment.ts";
 import type { CombatSkill } from "../combat/skills.ts";
@@ -29,6 +30,16 @@ export interface CombatRun {
   siege(attacker: SimFaction, defender: SimFaction, cityId: number, nowMs: number): boolean;
   /** 조우: 다른 살아 있는 세력 하나와 작은 전투 */
   encounter(faction: SimFaction, roll: number, nowMs: number): void;
+  /**
+   * 반란(D-253·D-256): 도시 안 공성. 공격 변이 없고(반란군은 시청 둘레에서 시작), 반란군은 AI만·퇴각 없음.
+   * 정부 편 = 남은 유닛. 반란군이 시청(넥서스)을 무너뜨리거나 정부 편을 모두 쓰러뜨리면 true
+   */
+  rebellion(
+    government: SimFaction,
+    rebels: readonly SimUnit[],
+    loyal: readonly SimUnit[],
+    nowMs: number,
+  ): boolean;
   summary(): CombatSummary;
 }
 
@@ -64,10 +75,10 @@ function kitOf(catalog: CombatCatalog) {
   const known = new Set(catalog.skills.map((skill) => skill.id));
   const innate = LOADOUT.skills.filter((id) => known.has(id));
   const skillSlots = kind ? skillSlotCount(kind.skillSlots.base, 0, kind.skillSlots.max) : 0;
-  return { slots, equipped, innate, skillSlots };
+  return { slots, equipped, innate, skillSlots, unarmed: kind?.naturalWeapon ?? UNARMED };
 }
 
-/** [임시] 1차 스탯 = 10 + 기술 단계 × 2(모두 같게), 장비·스킬은 kitOf, 2차는 스탯 계산기(가중치 표) */
+/** [임시] 1차 스탯 = 40 + 기술 단계 × 8(모두 같게, 48 §3.5 예의 Lv30 휴먼 근처), 장비·스킬은 kitOf, 2차는 스탯 계산기 */
 function specOf(
   unit: SimUnit,
   tech: number,
@@ -75,14 +86,15 @@ function specOf(
   kit: ReturnType<typeof kitOf>,
   skillCache: Map<string, CombatSkill[]>,
   place: { side: number; party: number; x: number; y: number },
+  c: CombatCoefficients,
 ): CombatUnitSpec {
-  const p = 10 + tech * 2;
+  const p = 40 + tech * 8;
   const out = loadoutOf({
     base: { str: p, dex: p, agi: p, vit: p, int: p, wis: p },
     slots: kit.slots,
     equipped: kit.equipped,
     table: catalog.statTable,
-    unarmed: UNARMED,
+    unarmed: kit.unarmed,
     innateSkills: kit.innate,
     skillSlots: kit.skillSlots,
   });
@@ -92,16 +104,19 @@ function specOf(
     skills = skillsOf(catalog, out.skills);
     skillCache.set(key, skills);
   }
-  return specFromStats({
-    id: unit.id,
-    ...place,
-    stats: out.stats,
-    weapon: out.weapon,
-    primaries: out.primaries,
-    skills,
-    moveIntervalMs: 1000,
-    buildingMulPm: 2000,
-  });
+  return specFromStats(
+    {
+      id: unit.id,
+      ...place,
+      stats: out.stats,
+      weapon: out.weapon,
+      primaries: out.primaries,
+      skills,
+      moveIntervalMs: 1000,
+      buildingMulPm: 2000,
+    },
+    c,
+  );
 }
 
 /** 공격 쪽 = 편 1(서쪽 변), 수비 쪽 = 편 2(동쪽 변) */
@@ -125,6 +140,7 @@ export function attachCombat(
   settings: ScenarioCombat,
   recorder: MetricsRecorder,
   catalog: CombatCatalog = TEST_COMBAT_CATALOG,
+  c: CombatCoefficients = TEST_COMBAT_COEFFICIENTS,
 ): CombatRun {
   const kit = kitOf(catalog);
   const skillCache = new Map<string, CombatSkill[]>();
@@ -158,12 +174,20 @@ export function attachCombat(
   ): CombatUnitSpec[] =>
     units.map((unit, index) => {
       const offset = ((index + 1) >> 1) * (index % 2 === 0 ? 1 : -1);
-      return specOf(unit, tech, catalog, kit, skillCache, {
-        side,
-        party: partyBase + Math.floor(index / PARTY_SIZE),
-        x: x + Math.floor(index / 24),
-        y: center + offset,
-      });
+      return specOf(
+        unit,
+        tech,
+        catalog,
+        kit,
+        skillCache,
+        {
+          side,
+          party: partyBase + Math.floor(index / PARTY_SIZE),
+          x: x + Math.floor(index / 24),
+          y: center + offset,
+        },
+        c,
+      );
     });
 
   const fight = (
@@ -173,7 +197,7 @@ export function attachCombat(
     init: BattleInit,
     nowMs: number,
   ): BattleResult => {
-    const { result, state } = runBattle(init, []);
+    const { result, state } = runBattle(init, [], undefined, c);
     battles += 1;
     ticks += result.endTick;
     if (result.winner === 1) attackerWins += 1;
@@ -220,6 +244,37 @@ export function attachCombat(
           seed: mix32(world.seed ^ Math.imul(battles + 1, 0x9e37_79b1)),
           map,
           sides: sides(attacker, defender),
+          parties: partiesOf(units),
+          units,
+        },
+        nowMs,
+      );
+      return result.winner === 1;
+    },
+    rebellion(government, rebels, loyal, nowMs) {
+      const size = settings.siegeMapSize;
+      const center = size / 2;
+      const map = openMap(size);
+      const nexus = [center - 1, center].flatMap((y) => [center - 1, center].map((x) => y * size + x));
+      map.buildings = [{ id: 1, cells: nexus, durability: settings.nexusDurability, nexus: true }];
+      const take = settings.siegeUnits;
+      const units = [
+        ...line(rebels.slice(0, take), government.tech, 1, center - 10, center, 1),
+        ...line(loyal.slice(0, take), government.tech, 2, center - 3, center, 101),
+      ];
+      if (units.every((unit) => unit.side === 1)) return true;
+      if (units.every((unit) => unit.side === 2)) return false;
+      sieges += 1;
+      const result = fight(
+        "siege",
+        government,
+        government,
+        {
+          id: battles + 1,
+          kind: "siege",
+          seed: mix32(world.seed ^ Math.imul(battles + 1, 0x9e37_79b1)),
+          map,
+          sides: sides(government, government),
           parties: partiesOf(units),
           units,
         },

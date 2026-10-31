@@ -4,7 +4,7 @@
 // [임시] 기획 본문 48(스탯·공식)을 받기 전 기술 기본안이다. 칸 이름·부품 종류·수치 범위는 본문이 오면 맞춘다.
 // 칸·1차 스탯 코드 목록은 packages/sim combat/equipment.ts와 같아야 한다(sim 시험이 맞춰 본다).
 import { z } from "zod";
-import { contentId, localizedText, ref } from "./common.ts";
+import { ContentRef, contentId, localizedText, ref } from "./common.ts";
 
 export const PRIMARY_STAT_CODES = ["str", "dex", "agi", "vit", "int", "wis"] as const;
 export const EQUIP_SLOT_KINDS = [
@@ -17,8 +17,10 @@ export const EQUIP_SLOT_KINDS = [
   "part",
   "saddle",
 ] as const;
-/** 1차 스탯을 올리는 칸(D-423: 장신구·인공장기·부품). 나머지 칸은 2차 수치 */
-export const PRIMARY_STAT_SLOTS: readonly string[] = ["accessory", "organ", "part"];
+/** 1차 스탯을 올리는 칸(D-423, 48 §5.2: 장신구·인공장기·부품·크리쳐 안장). 나머지 칸은 2차 수치 */
+export const PRIMARY_STAT_SLOTS: readonly string[] = ["accessory", "organ", "part", "saddle"];
+/** 장비가 올리지 않는 2차 행(D-438 1: 2차 공격력은 1차·장신구·버프만, 무기 공격력은 무기 사양) */
+export const GEAR_FORBIDDEN_ROWS: readonly string[] = ["physical_attack", "elemental_attack"];
 
 const enabled = z.boolean({ error: "enabled가 없습니다. true 또는 false로 적으세요(D-398 켬·끔)." });
 const permille = z.int().min(-100_000).max(100_000);
@@ -127,21 +129,6 @@ export const skillEntrySchema = z.strictObject({
 });
 export type SkillEntry = z.output<typeof skillEntrySchema>;
 
-export const unitKindEntrySchema = z.strictObject({
-  id: contentId,
-  name: localizedText,
-  /** 장비 칸 차례(구조 값 D-5054): 사람형 공통 6칸 + 종류별 강화 칸, 크리쳐 2칸(D-422) */
-  slots: z.array(z.enum(EQUIP_SLOT_KINDS)).min(1).max(32),
-  /** 스킬 칸(D-427): 종 기본 + 환생마다, 상한 10(구조 값) */
-  skillSlots: z.strictObject({
-    base: z.int().min(0).max(10),
-    perRebirth: z.int().min(0).max(10),
-    max: z.int().min(1).max(10),
-  }),
-  enabled,
-});
-export type UnitKindEntry = z.output<typeof unitKindEntrySchema>;
-
 const weaponSchema = z.strictObject({
   kind: z.enum(["physical", "elemental"]),
   attack: z.int().min(0).max(1_000_000),
@@ -158,6 +145,23 @@ const weaponSchema = z.strictObject({
   mpCost: z.int().min(0).max(100_000),
   skillElementsPm: z.array(permille).length(12).optional(),
 });
+
+export const unitKindEntrySchema = z.strictObject({
+  id: contentId,
+  name: localizedText,
+  /** 장비 칸 차례(구조 값 D-5054): 사람형 공통 6칸 + 종류별 강화 칸, 크리쳐 2칸(D-422) */
+  slots: z.array(z.enum(EQUIP_SLOT_KINDS)).min(1).max(32),
+  /** 스킬 칸(D-427): 종 기본 + 환생마다, 상한 10(구조 값) */
+  skillSlots: z.strictObject({
+    base: z.int().min(0).max(10),
+    perRebirth: z.int().min(0).max(10),
+    max: z.int().min(1).max(10),
+  }),
+  /** 타고난 무기(D-436): 크리쳐의 발톱·이빨 등, 사람형은 맨손. 무기 칸이 비었을 때 쓴다(D-420 같은 공식) */
+  naturalWeapon: weaponSchema,
+  enabled,
+});
+export type UnitKindEntry = z.output<typeof unitKindEntrySchema>;
 
 /** 아이템의 장비 칸(D-423: 스탯 목록 {스탯 코드, 최소, 최대}) */
 export const equipSchema = z
@@ -190,6 +194,12 @@ export const equipSchema = z
           message: wantPrimary
             ? `${equip.slot} 칸은 1차 스탯(str·dex·agi·vit·int·wis)만 올립니다(D-423).`
             : `${equip.slot} 칸은 2차 수치(가중치 표 행)만 올립니다(D-423).`,
+        });
+      if (entry.stat instanceof ContentRef && GEAR_FORBIDDEN_ROWS.includes(entry.stat.id))
+        ctx.addIssue({
+          code: "custom",
+          path: ["stats", index, "stat"],
+          message: "장비는 2차 공격력을 올리지 않습니다(D-438 1, 무기 공격력은 weapon 칸).",
         });
       if (typeof entry.min === "number" && typeof entry.max === "number" && entry.min > entry.max)
         ctx.addIssue({ code: "custom", path: ["stats", index], message: "min이 max보다 큽니다." });

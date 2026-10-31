@@ -34,7 +34,7 @@
   - `apps/*` → `packages/*` 방향만 허용(예외는 아래 게임 앱 → 서버 타입 하나).
   - `packages/engine`은 `apps/server`·`packages/sim`을 import하지 않는다.
   - `packages/sim`은 `packages/engine`·DOM API를 쓰지 않는다.
-  - `@terra/planet`은 정수 진입점(`.`)과 실수 투영(`./projection`)을 나눈다. 투영은 `@terra/shared`의 결정적 근사(`detTan`·`detAtan`)를 써서 엔진과 무관하게 같은 값을 낸다. 패키지 전체(격자·투영·생성기)와 `@terra/shared`의 결정적 모듈(`detMath`·`rng`·`planetDefinition`·`planetPresets`·`planetCalendar`)의 결정성을 경계 검사가 본다(주석·문자열 안은 보지 않는다, `scripts/determinism-scan.mjs`. ADR `2026-10-29-cell-key-layout.md`, `2026-10-29-s2-planet-lod.md`). 판정 코드는 칸 키·이웃(정수 진입점)을 쓴다.
+  - `@terra/planet`은 정수 진입점(`.`)과 실수 투영(`./projection`)을 나눈다. 투영은 `@terra/shared`의 결정적 근사(`detTan`·`detAtan`)를 써서 엔진과 무관하게 같은 값을 낸다. 패키지 전체(격자·투영·생성기)와 `@terra/shared`의 결정적 모듈(`detMath`·`rng`·`planetDefinition`·`planetPresets`·`planetCalendar`)의 결정성을 경계 검사가 본다(주석·문자열 안은 보지 않는다, `scripts/determinism-scan.mjs`. ADR `2026-10-29-cell-key-layout.md`, `2026-10-29-s2-planet-lod.md`). 시험 파일과 시험 도우미(`test` + 대문자로 시작하는 파일: `testFixtures.ts`·`testVariety.ts` 등)는 검사 밖이라, 시험이 아닌 파일은 시험 도우미를 가져오지 않는다(같은 검사가 막는다). 판정 코드는 칸 키·이웃(정수 진입점)을 쓴다.
   - `apps/game`은 `packages/sim`을 import하지 않는다(판정 코드를 기기로 보내지 않음).
   - `packages/protocol`·`packages/shared`는 다른 내부 패키지를 import하지 않는다.
   - `apps/game`은 `apps/server`를 **타입으로만** 가져온다(tRPC 라우터 타입): `import type { AppRouter } from "@terra/server/trpc"`. 값 import, `import { type X }`, 동적 `import()`는 검사에서 실패한다. `@terra/server`는 게임 앱 `devDependencies`에만 둔다(ADR `2026-10-28-trpc-type-sharing.md`).
@@ -161,6 +161,7 @@
 | `pnpm --filter @terra/sim bench` | 판정 코어 벤치마크(임시 지형에서 경로 1,000개, 통과 폭·배치·이동 계산). `pnpm test`에는 없다. 공유 CPU에서는 값이 흔들린다 |
 | `pnpm --filter @terra/planet bench [면 레벨 …]` | 행성 생성기 벤치마크(콘텐츠 팩의 S2 시험 행성, 기본 6 7 9): 단계별 시간·RSS·타입 배열·최대 RSS. 레벨마다 새 프로세스로 잰다. `pnpm test`에는 없다 |
 | `pnpm --filter @terra/planet render <출력 폴더> [면 레벨] [시드]` | 생성 결과 그림(S2 시험 행성, 기본 면 레벨 7, 시드는 팩 값): 면마다 고도·바이옴·기온 PNG, 경위도 전체 5장(고도·바이옴·기온·강수·습도), 요약 수치. 출력 폴더는 저장소 밖 절대 경로로 준다(명령은 `packages/planet`에서 돈다) |
+| `pnpm --filter @terra/planet variety [면 레벨] [시드 목록] [--json <경로>] [--compare bench/variety-baseline.json] [--strict]` | 행성 생성 결과의 반복·단조로움 검사(S2 시험 행성 설정, 기본 F9 × 시드 `pack,1,42,2718281828`): 지표 표(문서 `docs/questions/2026-10-29-special-terrain.md` 4.1의 14개 + 보고용), 땅 바이옴 몫. 모은 맵 레벨 L5~L7 지표도 낸다. `--json`은 결과 파일, `--compare`는 기준(출력 판 3, F9. 출력 판 2는 `bench/variety-baseline-v2.json`)보다 문턱 쪽으로 10% 넘게 나빠진 지표와 바이옴 몫 차이(%p)를 알린다(`--strict`면 종료 코드 1). F9 × 4는 약 2분. 상대 경로는 `packages/planet` 기준. `pnpm test`의 `variety.test.ts`(F7 × 3)는 막는 지표 11개(`VARIETY_TARGETS`의 `gate`)가 문턱을 넘으면 실패하고 나머지는 보고만 한다 |
 | `pnpm build` | 전체 빌드 |
 | `pnpm check:bundle` | 첫 화면 JS 크기 검사(빌드한 뒤에. CI는 빌드 다음 단계): 빌드한 `index.html`의 모듈 + modulepreload 조각, 파일마다 gzip 9단계 합 ≤ `apps/game/bundle-budget.json`. 상한을 올리면 늘어난 까닭과 잰 값을 작업 기록에 적는다(ADR `2026-10-29-app-shell.md` 11절) |
 | `pnpm docs:index` | 작업 기록을 추가한 뒤 `docs/WORKLOG.md` 목차를 다시 만든다 |
@@ -178,7 +179,7 @@
 | `NODE_ENV= PORT=4320 STATIC_DIR=apps/game/dist DATABASE_URL=… BETTER_AUTH_SECRET=… BETTER_AUTH_URL=http://127.0.0.1:4320 node apps/server/dist/main.js` | 빌드한 앱·서버로 화면 시험(Playwright 등). 운영 모드(`NODE_ENV=production`)는 https 주소를 요구하므로 비운다. 먼저 `pnpm build`, `DATABASE_URL=… node apps/server/dist/migrate.js`. 시험 계정은 `node apps/server/dist/cli.js create-user`(가짜 자료만) |
 | `S1_TEST_BOTS=1000 PATH_WORKERS=1 pnpm dev:server` | S1 시험 2차맵(키 `S1_TEST_MAP_KEY`)에 서버가 움직이는 봇 수(기본 0 = 봇 없음, 최대 20,000)와 경로 워커 스레드 수(기본 1, 최대 8). 2차맵·경로 워커는 늘 켜진다. 빌드한 서버(`node apps/server/dist/main.js`)도 같다. NAS는 `ops/compose.yml`에서 1,000 |
 | `S1_URL=http://127.0.0.1:4320 S1_ID=… S1_PASSWORD=… node ops/s1-probe.mjs` | S1 측정 클라이언트: 들어가기 → 구독 → 스냅샷 크기·받는 시간·갱신 양·경로 지연·rev 빠짐. `S1_SECONDS`(기본 60), `S1_CLIENTS`(동시 연결), `S1_MOVE_MS`(관리자 이동 명령 간격, admin 계정만). `S1_URL`은 서버 `BETTER_AUTH_URL`과 같아야 한다. 저장소에서 `pnpm install` 뒤 실행(가짜 계정만) |
-| `PLANET_CACHE_DIR=/경로 pnpm dev:server` | 1차맵 행성 타일 디스크 캐시 폴더(기본 `apps/server/.planet-cache`, 이미지 `/app/planet-cache`, NAS는 `ops/compose.yml` 볼륨). 시작하면 콘텐츠 팩 행성(`planets`)마다 캐시를 읽거나 워커에서 차례로 굽는다(S2 시험 행성 `s2_test_planet`·편집 전용 행성 `s2_editor_planet`, 생성기 1판 출력 판 2(`GENERATOR_VERSION` 2), 둘 다 F = 9. 빈 캐시면 개발 컨테이너에서 행성마다 약 19~21초, 둘 다 준비까지 약 43초(기계 부하에 따라). 캐시로 켜면 약 3초). 요청을 받기 전에 행성마다 편집기 확인 해시(F5)도 만든다(두 행성 약 0.3~0.9초). 지워도 된다(다음 시작 때 다시 굽는다). 빌드한 서버도 같다 |
+| `PLANET_CACHE_DIR=/경로 pnpm dev:server` | 1차맵 행성 타일 디스크 캐시 폴더(기본 `apps/server/.planet-cache`, 이미지 `/app/planet-cache`, NAS는 `ops/compose.yml` 볼륨). 시작하면 콘텐츠 팩 행성(`planets`)마다 캐시를 읽거나 워커에서 차례로 굽는다(S2 시험 행성 `s2_test_planet`·편집 전용 행성 `s2_editor_planet`, 생성기 1판 출력 판 3(`GENERATOR_VERSION` 3), 둘 다 F = 9. 빈 캐시면 개발 컨테이너에서 행성마다 약 11~14초(기계 부하에 따라). 캐시로 켜면 약 1~3초). 요청을 받기 전에 행성마다 편집기 확인 해시(F5)도 만든다(두 행성 약 0.3~0.9초). 지워도 된다(다음 시작 때 다시 굽는다). 빌드한 서버도 같다 |
 | `S2_URL=http://127.0.0.1:4320 S2_ID=… S2_PASSWORD=… node ops/s2-probe.mjs` | S2 타일 측정 클라이언트: 들어가기 → 목록 정보(준비까지 기다림) → 처음 화면 타일(맵 레벨 F−4·F−3) 시간·크기, 머리 값·이음매 확인(어긋나면 종료 코드 1). `S2_ALL=1`(모든 타일), `S2_CONCURRENCY`(기본 6), `S2_PLANET`(기본 `s2_test_planet`). `S2_URL`은 서버 `BETTER_AUTH_URL`과 같아야 한다(가짜 계정만) |
 
 git 훅: 커밋 전(포맷·비밀값), 커밋 메시지(Conventional Commits), 푸시 전(`pnpm check` + 문서 규칙 + 콘텐츠 호환 + 목차 최신 여부).

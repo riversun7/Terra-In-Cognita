@@ -7,6 +7,7 @@
 |---|---|---|---|
 | 2026-10-31 09:30 | 1차맵 하늘 2부 합치기(낮밤·달·구름) — 조각 상한 조정 | Claude Code | [31-0930-sky-integration](worklog/2026/10/31-0930-sky-integration.md) |
 | 2026-10-31 09:10 | 1차맵 구름 — GPU 굽기 큐브, 기후 치우침, 날씨 창, 껍질·걷히기·고른 칸 둘레 (WP5) | Claude Code | [31-0910-sky-clouds](worklog/2026/10/31-0910-sky-clouds.md) |
+| 2026-10-31 09:10 | 행성 생성기 다양성 고침: 검토 지적 고침·마무리(출력 판 3) | Claude Code | [31-0910-generator-variety](worklog/2026/10/31-0910-generator-variety.md) |
 | 2026-10-31 09:10 | 기획 미러 동기화 — 원본 aadab42(D-272~D-324, Step 5 D-5049·D-5050, Step 7 D-7036~D-7054) | Claude Code | [31-0910-design-mirror-aadab42](worklog/2026/10/31-0910-design-mirror-aadab42.md) |
 | 2026-10-31 09:10 | 앱 뼈대 W3·W4 문서 정리: ADR 37 "구현하며 정한 것" W3·W4, 0단계 남은 것 표시, PLAN 14장 줄 | Claude Code | [31-0910-app-shell-notes-2](worklog/2026/10/31-0910-app-shell-notes-2.md) |
 | 2026-10-30 02:20 | 행성 편집기 1단계 WP-H: 개발자 홈(/dev), 셰이더 측정판을 /dev/gpu-bench로 옮김, 미리 캐시 규칙 DEV_ONLY_CHUNK | Claude Code | [30-0220-editor-devhome](worklog/2026/10/30-0220-editor-devhome.md) |
@@ -26,6 +27,7 @@
 | 2026-10-29 23:50 | 2차맵 선명도 검토 고침: 평평한 지형 점무늬, 칸 가운데 줄, 점 테두리, 잡음 먼저, 시험 | Claude Code | [29-2350-second-map-sharpness-review](worklog/2026/10/29-2350-second-map-sharpness-review.md) |
 | 2026-10-29 23:45 | 공용 행성 달력 `@terra/shared/planetCalendar` — 정수·결정성 검사·화면 쪽 내림 입구 (1차맵 하늘 WP1) | Claude Code | [29-2345-planet-calendar](worklog/2026/10/29-2345-planet-calendar.md) |
 | 2026-10-29 23:40 | 1차맵 하늘 문서 — ADR(제안)·조사·기획 질문 두 묶음, PLAN·ADR 36, 사용자 결정 U1~U3 반영 (WP0) | Claude Code | [29-2340-primary-map-sky-docs](worklog/2026/10/29-2340-primary-map-sky-docs.md) |
+| 2026-10-29 23:30 | 행성 생성기 다양성 고침 3단계: 지형 틀(안쪽 고원·분지·구릉, 해안선 흔들기, 산맥 단면·세기, 열점 사슬), 출력 판 3 마무리 | Claude Code | [29-2330-generator-variety-stage3](worklog/2026/10/29-2330-generator-variety-stage3.md) |
 | 2026-10-29 23:15 | 행성 편집기 서버(WP-B) 검토 고침: 지적 14개 확인·처리 | Claude Code | [29-2315-planet-editor-server-review](worklog/2026/10/29-2315-planet-editor-server-review.md) |
 | 2026-10-29 23:10 | 앱 뼈대 W1: 화면 길·틀(라우터·위 띠·하단 탭·사이드 메뉴), 메뉴 순서 하나(D-265) | Claude Code | [29-2310-app-shell-w1](worklog/2026/10/29-2310-app-shell-w1.md) |
 | 2026-10-29 23:00 | 앱 뼈대 W5: 화면 시험 틀(e2e/)과 첫 화면 JS 크기 검사 | Claude Code | [29-2300-app-shell-w5](worklog/2026/10/29-2300-app-shell-w5.md) |
@@ -33,10 +35,13 @@
 | 2026-10-29 22:40 | 앱 뼈대 W3: 처리할 일·복귀 요약 — 서버 조회, 기기 저장소, 처리함 화면, 복귀 요약 대화상자 | Claude Code | [29-2240-app-shell-w3](worklog/2026/10/29-2240-app-shell-w3.md) |
 | 2026-10-29 22:20 | 앱 뼈대 W2: 계정 설정에 메뉴(nav)·홈(home) 묶음 — 기기 저장·맞추기·서버 저장·템플릿 저장 규칙 | Claude Code | [29-2220-app-shell-w2](worklog/2026/10/29-2220-app-shell-w2.md) |
 | 2026-10-29 22:10 | 행성 편집기 서버(WP-B): 초안 표·planetEditor tRPC·확인 해시·fieldsHash·편집 전용 행성·tRPC 같은 출처 확인 | Claude Code | [29-2210-planet-editor-server](worklog/2026/10/29-2210-planet-editor-server.md) |
+| 2026-10-29 22:00 | 행성 생성기 다양성 고침 2단계: 기후 위도 흔들기, 기온·강수의 중간 크기·잔 변이(출력 판 3) | Claude Code | [29-2200-generator-variety-stage2](worklog/2026/10/29-2200-generator-variety-stage2.md) |
 | 2026-10-29 21:40 | 기획 원본 f0e0e71(D-260~D-271·Step 5 D-5029~D-5048·Step 6 D-6039~D-6049·Step 7 D-7026~D-7035) → ADR 35·36·38·PLAN 14장·특수 지형 제안서 | Claude Code | [29-2140-planning-f0e0e71](worklog/2026/10/29-2140-planning-f0e0e71.md) |
+| 2026-10-29 21:30 | 행성 생성기 다양성 고침 1단계: 노이즈 2판, 굽이치는 바람·바람이 오는 이웃 둘, 오르막 75km, 증발 가능량(출력 판 3) | Claude Code | [29-2130-generator-variety-stage1](worklog/2026/10/29-2130-generator-variety-stage1.md) |
 | 2026-10-29 21:20 | 2차맵 선명도: 지형 재질 셰이더, 휴대폰 픽셀 비율 상한 2, 아이콘 점·캡슐, ?pixel-ratio | Claude Code | [29-2120-second-map-sharpness](worklog/2026/10/29-2120-second-map-sharpness.md) |
 | 2026-10-29 21:00 | 단위 시험 제한 시간 30초(공유 개발 컨테이너 부하) | Claude Code | [29-2100-bake-test-timeout](worklog/2026/10/29-2100-bake-test-timeout.md) |
 | 2026-10-29 21:00 | 앱 뼈대 0단계 검토 반영: 주소 표 타입·값 규칙, 부모 화면·검색어 바꾸기, 설정 쓰기 도우미, 완료 종류, ADR 37 문장 | Claude Code | [29-2100-app-shell-stage0-review](worklog/2026/10/29-2100-app-shell-stage0-review.md) |
+| 2026-10-29 20:35 | 행성 생성기 반복·단조로움 검사를 보고 모드로 넣기(출력 판 2 기준값) | Claude Code | [29-2035-generator-variety-check](worklog/2026/10/29-2035-generator-variety-check.md) |
 | 2026-10-29 20:15 | 앱 뼈대 0단계: 주소 표·메뉴·홈 카드·처리할 일 계약, 개발 도구 권한, 화면 경로 대조 | Claude Code | [29-2015-app-shell-stage0](worklog/2026/10/29-2015-app-shell-stage0.md) |
 | 2026-10-29 20:13 | 행성 편집기 핵심(WP-C): 미리보기 워커·작업 줄·결과 기억·타일·칸 정보·초안 동기화 | Claude Code | [29-2013-planet-editor-core](worklog/2026/10/29-2013-planet-editor-core.md) |
 | 2026-10-29 20:10 | 행성 편집기 평면 미니맵(WP-E): 픽셀 → 칸 표, 바이옴 색·땅 음영, 미니맵 부품 | Claude Code | [29-2010-editor-flatmap](worklog/2026/10/29-2010-editor-flatmap.md) |

@@ -1,6 +1,7 @@
 // 행성 생성기 1판 — 단계 순서는 ADR 31(2026-10-28-planet-generation-order), 출력은 ADR 36 PlanetFields
 // 1 판 구조 + fBm → 기본 고도  2 해수면(육지 비율 백분위)  3 Priority-Flood·흐름 방향  4 기후(기온·강수)
-// 5 물 흐름 누적(강수 가중) → 침식(몇 번, 매번 흐름을 다시 구함) → 강·호수  6 수심 등급  7 습도  8 바이옴 → 숲 밀도
+// 5 물 흐름 누적(강수 가중) → 침식(몇 번: 큰 강이 들어오는 마른 분지 뚫기·하천 침식, 매번 흐름을 다시 구함) → 강·호수
+// 6 수심 등급  7 습도  8 바이옴 → 숲 밀도
 // 결정성: 사칙연산 + 명세가 정한 Math 함수 + @terra/shared 결정적 근사·시드 난수만 쓴다. 칸은 늘 번호 순서로 돈다
 // (면 0~5, 행 j, 열 i). 같은 입력이면 어느 엔진에서든 같은 결과·해시다.
 import {
@@ -13,7 +14,7 @@ import { computeClimate } from "./climate.ts";
 import { priorityFlood } from "./flood.ts";
 import { buildGrid } from "./grid.ts";
 import { hashPlanetFields } from "./hash.ts";
-import { erodeOnce, findRivers, runoffOf, waterBalance } from "./hydrology.ts";
+import { breachDryBasins, erodeOnce, findRivers, runoffOf, waterBalance } from "./hydrology.ts";
 import { classifyOcean } from "./seaLevel.ts";
 import { buildSurface, compileBiomes, lakeSurfaceHeights } from "./surface.ts";
 import { buildTectonics } from "./tectonics.ts";
@@ -109,16 +110,18 @@ export function runPlanetGenerator(
   let flow = priorityFlood(grid, elevation, ocean);
   onStage("flowDirections");
 
-  const climate = computeClimate(grid, elevation, seaLevel, ocean, settings);
+  const climate = computeClimate(grid, elevation, seaLevel, ocean, settings, seed);
   assertFinite("temperature", climate.temperature);
   assertFinite("precipitation", climate.precipitation);
   const runoff = runoffOf(climate.precipitation, climate.temperature, ocean);
   onStage("climate");
 
+  // 침식 반복: 물 수지 → 큰 강이 들어오는 마른 분지 뚫기 → 하천 침식 → 흐름 방향 다시
   const strength = (EROSION_STRENGTH * settings.erosionPercent) / 100;
   if (strength > 0) {
     for (let pass = 0; pass < EROSION_PASSES; pass++) {
       const balance = waterBalance(grid, flow, elevation, runoff, climate.temperature, settings.lakePercent);
+      breachDryBasins(grid, flow, elevation, balance, ocean, seaLevel);
       erodeOnce(grid, flow, elevation, balance.discharge, ocean, seaLevel, strength);
       flow = priorityFlood(grid, elevation, ocean);
     }

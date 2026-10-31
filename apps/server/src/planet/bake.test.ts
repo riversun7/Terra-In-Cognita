@@ -138,8 +138,8 @@ describe("콘텐츠 팩 행성 원본", () => {
     const spec = packTestPlanetSpec();
     const fields = await createPlanetSource({ ...spec, input: { ...spec.input, faceLevel: 5 } }).generate();
     expect(() => assertPlanetFields(fields)).not.toThrow();
-    // packages/planet generator/generate.test.ts "S2 시험 행성 설정" F5 골든 값(출력 판 2)
-    expect(fields.meta.hash).toBe("5c984c77");
+    // packages/planet generator/generate.test.ts "S2 시험 행성 설정" F5 골든 값(출력 판 3)
+    expect(fields.meta.hash).toBe("884e2b28");
     expect(fields.meta).toMatchObject({
       generatorVersion: GENERATOR_VERSION,
       faceLevel: 5,
@@ -180,8 +180,13 @@ describe("가장 높은 땅", () => {
   });
 });
 
+// 워커 스레드를 띄우는 시험은 기계가 바쁘면 기본 5초를 넘을 때가 있다(혼자 1~1.6초, 부하 10에서 5.1초를 봤다)
+const WORKER_TEST_TIMEOUT_MS = 30_000;
+
 describe("굽는 곳", () => {
-  it("워커에서 구운 결과가 같은 스레드에서 구운 것과 같다 (pack SHA-256)", async () => {
+  it("워커에서 구운 결과가 같은 스레드에서 구운 것과 같다 (pack SHA-256)", {
+    timeout: WORKER_TEST_TIMEOUT_MS,
+  }, async () => {
     const source = smallSource({ faceLevel: 6, seed: 11 });
     const inline = await createInlineBaker().bake(source);
     baker = createWorkerBaker({ workerUrl: WORKER_URL });
@@ -194,7 +199,9 @@ describe("굽는 곳", () => {
     expect(viaWorker.generateMs).toBeGreaterThan(0);
   });
 
-  it("워커가 다시 만든 원본이 메인 스레드와 다르면 굽지 않는다 / spec이 없으면 워커로 굽지 못한다", async () => {
+  it("워커가 다시 만든 원본이 메인 스레드와 다르면 굽지 않는다 / spec이 없으면 워커로 굽지 못한다", {
+    timeout: WORKER_TEST_TIMEOUT_MS,
+  }, async () => {
     baker = createWorkerBaker({ workerUrl: WORKER_URL });
     const source = smallSource();
     await expect(baker.bake({ ...source, definitionHash: "00".repeat(32) })).rejects.toThrow(
@@ -203,7 +210,9 @@ describe("굽는 곳", () => {
     await expect(baker.bake({ ...source, spec: undefined })).rejects.toThrow(/no spec/);
   });
 
-  it("닫으면 굽는 중인 것은 실패로 끝나고, 그 뒤 굽기는 거절한다", async () => {
+  it("닫으면 굽는 중인 것은 실패로 끝나고, 그 뒤 굽기는 거절한다", {
+    timeout: WORKER_TEST_TIMEOUT_MS,
+  }, async () => {
     baker = createWorkerBaker({ workerUrl: WORKER_URL });
     const pending = baker.bake(smallSource({ faceLevel: 8 }));
     await baker.close();

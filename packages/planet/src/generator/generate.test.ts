@@ -1,6 +1,6 @@
 // 행성 생성기 시험 — 골든 해시(바뀌면 바로 잡는다), 결정성, 성질(해수면 비율·강은 내리막·바이옴 규칙·꼭짓점 바다),
 // 프리셋이 결과를 바꾸는 방향, 해상도가 달라도 큰 모양이 같은지, 콘텐츠 팩 행성이 생성되는지
-import { PLANET_GENERATOR_FACE_LEVELS, type PlanetPresets } from "@terra/shared";
+import { PLANET_GENERATOR_FACE_LEVELS, type PlanetPresets, detAsin } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import biomesJson from "../../../../content/core/biomes.json";
 import planetsJson from "../../../../content/core/planets.json";
@@ -26,7 +26,7 @@ import {
   resolvePlanetSettings,
   runPlanetGenerator,
 } from "./index.ts";
-import { computeClimate } from "./climate.ts";
+import { LAPSE_RATE_PER_M, computeClimate } from "./climate.ts";
 import { classifyOcean, cornerCells } from "./seaLevel.ts";
 import { buildTectonics } from "./tectonics.ts";
 import { S2_TEST_PLANET_SEED, TEST_BIOMES } from "./testFixtures.ts";
@@ -142,21 +142,23 @@ function landSummary(faceLevel: number, fields: PlanetFields) {
 
 describe("골든 해시 (값이 바뀌면 GENERATOR_VERSION을 올리고 새 값으로 고친다)", () => {
   it("생성기 버전", () => {
-    expect(GENERATOR_VERSION).toBe(2);
+    expect(GENERATOR_VERSION).toBe(3);
   });
 
   // 2026-10-29 기록(Node 24.22.1). 결정성 규칙(사칙연산 + 명세가 정한 함수)상 다른 엔진에서도 같아야 한다.
-  // 출력 판 2(강가·호숫가 가산을 면 레벨과 무관하게)에서 바꿨다
+  // 출력 판 3(다양성 고침 가지의 마지막 출력): 1단계(바람 굽이·바람이 오는 이웃 둘·오르막 75km·반올림 전 기온의
+  // 증발 가능량), 2단계(기후 위도 흔들기·기온·강수의 중간 크기·잔 변이), 3단계(지형 틀: 안쪽 고원·분지·구릉,
+  // 해안선 흔들기, 산맥 단면·세기, 열점 사슬 모양, 봉우리 다듬기)
   it("면 레벨 5, 시드 1, 프리셋 군도·더움·습윤·젊음·많음·많음", () => {
-    expect(run(5, 1, STRESS_PRESETS).fields.meta.hash).toBe("005378e0");
+    expect(run(5, 1, STRESS_PRESETS).fields.meta.hash).toBe("22051c78");
   });
 
   it("S2 시험 행성 설정(시드 20261029, 모두 보통)을 면 레벨 5로", () => {
-    expect(run(5, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("5c984c77");
+    expect(run(5, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("884e2b28");
   });
 
   it("S2 시험 행성 설정을 면 레벨 6으로", () => {
-    expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("215d9b32");
+    expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("6d0b4b25");
   });
 });
 
@@ -182,25 +184,43 @@ function fingerprint(arrays: readonly (Float32Array | Float64Array)[]): string {
   return state.toString(16).padStart(8, "0");
 }
 
+/** 판 구조의 판 번호·대륙 지각 바이트(plate, continental)의 FNV-1a 32비트: 판·대륙 배치가 그대로인지 본다 */
+function layout(faceLevel: number, seed: number, presets: PlanetPresets): string {
+  const { plate, continental } = buildTectonics(buildGrid(faceLevel), seed, resolvePlanetSettings(presets));
+  let state = 0x811c9dc5;
+  for (const bytes of [plate, continental]) {
+    for (const value of bytes) state = Math.imul(state ^ value, 0x01000193) >>> 0;
+  }
+  return state.toString(16).padStart(8, "0");
+}
+
 describe("실수 지문 (정수 필드로 반올림하기 전 값. 바뀌면 골든 해시처럼 GENERATOR_VERSION과 함께 고친다)", () => {
   // 골든 해시는 정수 출력만 본다. 정수로 반올림하면 실수의 마지막 비트 차이는 대개 사라지므로(Float32 저장 포함),
   // 64비트 값(격자·면적·해수면)은 마지막 비트까지, 32비트 중간 필드는 그 자릿수까지 여기서 고정한다
   it("격자(칸 중심·면적 = 투영 detTan·detAtan)와 해수면의 64비트 값", () => {
     const grid = buildGrid(5);
     expect(fingerprint([grid.x, grid.y, grid.z, grid.faceArea])).toBe("5e2f5aef");
-    expect(bitsOf(run(5, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c0043675a19f9000");
-    expect(bitsOf(run(5, 1, STRESS_PRESETS).seaLevelRealM)).toBe("40623b91fc7d4620");
-    expect(bitsOf(run(6, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c013df62c611b000");
+    expect(bitsOf(run(5, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c02a977f25529800");
+    expect(bitsOf(run(5, 1, STRESS_PRESETS).seaLevelRealM)).toBe("4059154410661300");
+    expect(bitsOf(run(6, S2_TEST_PLANET_SEED).seaLevelRealM)).toBe("c02cf72e496bd000");
   });
 
   it("판 구조 고도·기온·강수(Float32 중간값, 면 레벨 5, S2 시험 행성 설정)", () => {
     const grid = buildGrid(5);
     const settings = resolvePlanetSettings(NORMAL_PRESETS);
     const { elevation } = buildTectonics(grid, S2_TEST_PLANET_SEED, settings);
-    expect(fingerprint([elevation])).toBe("00edae93");
+    // 출력 판 3(다양성 고침 3단계 지형 틀)에서 바꿨다. 출력 판 2·1~2단계는 00edae93
+    expect(fingerprint([elevation])).toBe("49da3268");
     const { seaLevel, ocean } = classifyOcean(grid, elevation, settings.landPercent);
-    const climate = computeClimate(grid, elevation, seaLevel, ocean, settings);
-    expect(fingerprint([climate.temperature, climate.precipitation])).toBe("5e5ca05d");
+    const climate = computeClimate(grid, elevation, seaLevel, ocean, settings, S2_TEST_PLANET_SEED);
+    expect(fingerprint([climate.temperature, climate.precipitation])).toBe("d82bcd13");
+  });
+
+  it("판 번호·대륙 지각 배치는 출력 판 2와 같다(지형 틀은 높이만 더하고 판·대륙은 1판 노이즈 그대로)", () => {
+    // 2026-10-29 출력 판 2(main 25b7ebc)와 이 판에서 같은 값(Verified)
+    expect(layout(5, S2_TEST_PLANET_SEED, NORMAL_PRESETS)).toBe("37b8c9f3");
+    expect(layout(5, 1, STRESS_PRESETS)).toBe("2e6487fc");
+    expect(layout(6, 42, NORMAL_PRESETS)).toBe("3aa02e85");
   });
 });
 
@@ -365,7 +385,9 @@ describe("성질 (면 레벨 5·6)", () => {
     }
   });
 
-  it("기온: 적도 바다는 적도 설정 근처, 위도 띠 평균은 극으로 갈수록 내려가고, 극에 가장 가까운 칸은 극 설정 이하(+2°C)", () => {
+  it("기온: 적도 바다는 적도 설정 근처, 위도 띠 평균은 극으로 갈수록 내려가고, 극에 가장 가까운 칸은 시드 16개 평균으로 극 쪽 띠 식 ±2°C, 칸마다 ±10°C", {
+    timeout: 60_000,
+  }, () => {
     const { fields } = run(5, S2_TEST_PLANET_SEED);
     const grid = buildGrid(5);
     const settings = resolvePlanetSettings(NORMAL_PRESETS);
@@ -392,8 +414,33 @@ describe("성질 (면 레벨 5·6)", () => {
     expect(Math.abs(equatorSum / equatorCount - settings.equatorTemperatureC)).toBeLessThan(2);
     const means = sums.map((sum, k) => sum / (counts[k] ?? 1));
     for (let k = 1; k < means.length; k++) expect(means[k] ?? 0).toBeLessThan(means[k - 1] ?? 0);
-    expect(fields.temperatureC[north] ?? 0).toBeLessThanOrEqual(settings.poleTemperatureC + 2);
-    expect(fields.temperatureC[south] ?? 0).toBeLessThanOrEqual(settings.poleTemperatureC + 2);
+    // 극에 가장 가까운 칸(위도 88°): 저장 기온 + 고도 냉각을 그 위도의 띠 식(극 설정으로 끝나는 식)과 견준다.
+    // 출력 판 3부터 기온에 지역 변이(바다 표준편차 2°C, 내륙 3.5°C, climate.ts)가 있어 칸 하나는 ±8°C까지 벗어난다
+    // (2026-10-29 잰 값, 시드 64개: −7.95 ~ +7.26°C, 저장 기온 − 극 설정 최대 8°C). 그래서 시드 16개 × 남북 평균이 ±2°C
+    // 안인지 보고(잰 평균 +0.01°C), 칸마다는 넉넉히 ±10°C·극 설정 + 10°C를 본다(극 칸 몇 개만 15°C 더워지는 결함도
+    // 잡게, 검토 지적). 출력 판 2까지는 팩 시드의 칸 하나가 극 설정 + 2°C 이하인지 봤다
+    const span = settings.equatorTemperatureC - settings.poleTemperatureC;
+    let residual = 0;
+    let samples = 0;
+    let worstResidual = 0;
+    let warmest = Number.NEGATIVE_INFINITY;
+    for (let seed = 1; seed <= 16; seed++) {
+      const polar = run(5, seed).fields;
+      for (const c of [north, south]) {
+        const t = Math.abs(detAsin(grid.z[c] ?? 0) * (180 / Math.PI)) / 90;
+        const cooling = LAPSE_RATE_PER_M * Math.max(0, (polar.elevationM[c] ?? 0) * VERTICAL_SCALE);
+        const zonal = settings.equatorTemperatureC - span * t * Math.sqrt(t);
+        const stored = polar.temperatureC[c] ?? 0;
+        const cellResidual = stored + cooling - zonal;
+        residual += cellResidual;
+        samples++;
+        if (Math.abs(cellResidual) > Math.abs(worstResidual)) worstResidual = cellResidual;
+        warmest = Math.max(warmest, stored - settings.poleTemperatureC);
+      }
+    }
+    expect(Math.abs(residual / samples)).toBeLessThan(2);
+    expect(Math.abs(worstResidual)).toBeLessThanOrEqual(10);
+    expect(warmest).toBeLessThanOrEqual(10);
   });
 });
 
@@ -448,9 +495,10 @@ describe("해상도와 무관한 큰 모양 (편집기 미리보기 = 낮은 면
   it("육지 바이옴 면적 비율은 면 레벨 6(미리보기)과 8에서 바이옴마다 2.5%p 안, 평균 습도 3%·숲 밀도 6% 안", {
     timeout: 60_000,
   }, () => {
-    // 2026-10-29 잰 값: 가장 큰 차이는 사바나 1.93%p, 습도 1.2%, 숲 3.5%. 사바나 차이는 강가 가산을 꺼도 1.9%p라
-    // 기후 쪽에서 온다(원인 미확인). 강가 가산이 칸 크기를 따라가던 때는 사바나 6.1%p·열대우림 5.4%p, 습도 7.6%,
-    // 숲 20%였다(surface.ts·riparian.ts).
+    // 2026-10-29 잰 값(출력 판 3, 다양성 고침 3단계까지): 가장 큰 차이는 초지 1.20%p, 습도 −0.2%, 숲 −0.3%. 시험 밖
+    // 시드 1·42는 0.82·1.13%p(습도 −1.2·+1.1%, 숲 −0.9·−3.5%). 잔 기후 변이(climate.ts)와 해안선 흔들기(landforms.ts)는
+    // F6에서 끈다. 2단계는 사막 1.17%p, 습도 1.4%, 숲 2.3%, 1단계는 사바나 1.95%p·1.0%·4.9%, 판 2는 1.93%p·1.2%·3.5%였다.
+    // 강가 가산이 칸 크기를 따라가던 때는 사바나 6.1%p·열대우림 5.4%p, 습도 7.6%, 숲 20%였다(surface.ts·riparian.ts).
     const coarse = landSummary(6, run(6, S2_TEST_PLANET_SEED).fields);
     const fine = landSummary(8, run(8, S2_TEST_PLANET_SEED).fields);
     TEST_BIOMES.forEach((biome, index) => {

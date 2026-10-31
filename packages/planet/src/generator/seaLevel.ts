@@ -34,13 +34,11 @@ export function cornerCells(grid: PlanetGrid): number[] {
 }
 
 /**
- * 해수면을 정하고 바다를 표시한다. 꼭짓점 둘레의 고도는 바다 깊이로 누른다(elevation을 고친다).
- * @param landPercent 육지 면적 비율(%)
+ * 꼭짓점 둘레 칸(늘 바다로 누르는 칸)이면 1. 꼭짓점 쪽으로 반경 CORNER_SEA_RADIUS(칸이 크면 칸 1.2개) 안과 꼭짓점 칸.
+ * classifyOcean과 해안선 흔들기(landforms.ts)가 같은 칸을 쓴다
  */
-export function classifyOcean(grid: PlanetGrid, elevation: Float32Array, landPercent: number): SeaLevel {
+export function cornerSeaMask(grid: PlanetGrid): Uint8Array {
   const count = grid.cellCount;
-  const seaLevel = areaPercentile(grid, elevation, 1 - landPercent / 100);
-  // 꼭짓점 둘레: 해수면 아래로
   const radius = Math.max(CORNER_SEA_RADIUS, 1.2 * grid.meanCellAngle);
   const limit = 2 - radius * radius; // 2·cos θ ≥ 2 − θ²: 현 길이² = 2 − 2·cos
   const forced = new Uint8Array(count);
@@ -53,23 +51,30 @@ export function classifyOcean(grid: PlanetGrid, elevation: Float32Array, landPer
     }
   }
   for (const c of cornerCells(grid)) forced[c] = 1;
-  for (let c = 0; c < count; c++) {
-    if (forced[c] === 1) elevation[c] = Math.min(elevation[c] ?? 0, seaLevel - CORNER_SEA_DEPTH);
-  }
-  // 해수면 아래 칸을 이어진 덩어리로 묶고, 넓거나 꼭짓점을 품은 덩어리만 바다로
+  return forced;
+}
+
+/**
+ * 바다 판정: 해수면 아래 칸(below)을 8이웃으로 이어진 덩어리로 묶고, 넓거나(구 면적의 0.2% 이상) 꼭짓점 칸(forced)을
+ * 품은 덩어리만 바다(1)로 둔다. 나머지 해수면 아래 칸은 땅(웅덩이)이다. 결과는 덩어리를 찾는 순서와 무관하다
+ */
+export function oceanComponents(
+  grid: PlanetGrid,
+  below: (c: number) => boolean,
+  forced: Uint8Array,
+): Uint8Array {
+  const count = grid.cellCount;
   const ocean = new Uint8Array(count);
-  const label = new Int32Array(count).fill(-1);
+  const seen = new Uint8Array(count);
   const queue = new Int32Array(count);
   const out = new Int32Array(8);
   const minArea = MIN_OCEAN_SHARE * 4 * Math.PI;
-  let labels = 0;
   for (let start = 0; start < count; start++) {
-    if ((elevation[start] ?? 0) >= seaLevel || label[start] !== -1) continue;
-    const id = labels++;
+    if (seen[start] === 1 || !below(start)) continue;
     let head = 0;
     let tail = 0;
     queue[tail++] = start;
-    label[start] = id;
+    seen[start] = 1;
     let area = 0;
     let touchesCorner = false;
     while (head < tail) {
@@ -79,8 +84,8 @@ export function classifyOcean(grid: PlanetGrid, elevation: Float32Array, landPer
       neighbors8(grid, c, out);
       for (let k = 0; k < 8; k++) {
         const next = out[k] ?? -1;
-        if (next < 0 || label[next] !== -1 || (elevation[next] ?? 0) >= seaLevel) continue;
-        label[next] = id;
+        if (next < 0 || seen[next] === 1 || !below(next)) continue;
+        seen[next] = 1;
         queue[tail++] = next;
       }
     }
@@ -88,5 +93,21 @@ export function classifyOcean(grid: PlanetGrid, elevation: Float32Array, landPer
       for (let k = 0; k < tail; k++) ocean[queue[k] ?? 0] = 1;
     }
   }
+  return ocean;
+}
+
+/**
+ * 해수면을 정하고 바다를 표시한다. 꼭짓점 둘레의 고도는 바다 깊이로 누른다(elevation을 고친다).
+ * @param landPercent 육지 면적 비율(%)
+ */
+export function classifyOcean(grid: PlanetGrid, elevation: Float32Array, landPercent: number): SeaLevel {
+  const seaLevel = areaPercentile(grid, elevation, 1 - landPercent / 100);
+  // 꼭짓점 둘레: 해수면 아래로
+  const forced = cornerSeaMask(grid);
+  for (let c = 0; c < grid.cellCount; c++) {
+    if (forced[c] === 1) elevation[c] = Math.min(elevation[c] ?? 0, seaLevel - CORNER_SEA_DEPTH);
+  }
+  // 해수면 아래 칸을 이어진 덩어리로 묶고, 넓거나 꼭짓점을 품은 덩어리만 바다로
+  const ocean = oceanComponents(grid, (c) => (elevation[c] ?? 0) < seaLevel, forced);
   return { seaLevel, ocean };
 }

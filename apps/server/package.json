@@ -13,6 +13,7 @@
     "build": "vite build",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --root ../.. apps/server",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/migrate.ts"
   },

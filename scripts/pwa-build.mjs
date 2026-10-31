@@ -107,14 +107,35 @@ export function precacheUrls(sw) {
 }
 
 /**
- * 개발자 도구 조각(ADR 2026-10-29-planet-editor-stage1 1절) — 셰이더 측정(gpuBench…)과 행성 편집기(planetEditor…)의
- * 화면·코드·워커·CSS. 개발자 도구를 열 때만 받는다(셰이더 측정의 three/webgpu는 약 690kB).
+ * 개발자 도구 조각(ADR 2026-10-29-planet-editor-stage1 1절) — 셰이더 측정(gpuBench…), 행성 편집기(planetEditor…),
+ * 항성계 편집기(starSystem…, ADR 2026-10-31-star-system-editor)의 화면·코드·워커·CSS. 개발자 도구를 열 때만 받는다(셰이더 측정의 three/webgpu는 약 690kB).
  * 미리 캐시하면 모든 플레이어가 서비스 워커 설치 때 받는다. vite.config.ts의 workbox.globIgnores가 같은 파일을 뺀다.
  * 조각 이름은 진입 파일 이름을 따른다: 개발자 도구의 지연 로딩·워커 진입 파일은 이 앞머리로 짓는다
- * (대문자로 시작하는 화면 파일 PlanetEditorScreen.tsx도 걸리게 [Pp]. 시험이 진입 파일 이름을 본다).
+ * (대문자로 시작하는 화면 파일 PlanetEditorScreen.tsx·StarSystemScreen.tsx도 걸리게 [Pp]·[Ss]. 시험이 진입 파일 이름을 본다).
  * 개발자 홈(DevHome)은 작은 목록이라 이 규칙 밖이다(미리 캐시된다).
  */
-export const DEV_ONLY_CHUNK = /^assets\/(gpuBench|[Pp]lanetEditor)[^/]*\.(js|css)$/;
+export const DEV_ONLY_CHUNK = /^assets\/(gpuBench|[Pp]lanetEditor|[Ss]tarSystem)[^/]*\.(js|css)$/;
+
+/**
+ * 개발자 도구만 쓰는 소스(소스 맵의 sources 경로). 개발자 도구 둘(행성 편집기·항성계 편집기)이 같이 쓰는 모듈은 따로 한 조각이
+ * 되고, 그 이름은 묶인 모듈에서 정해진다(ADR 2026-10-31-star-system-editor): 이름이 DEV_ONLY_CHUNK에 걸린다는 보장이 없다.
+ * 그래서 미리 캐시하는 JS의 소스 맵에 이 소스가 있으면 실패한다(개발자 홈 DevHome·devIcons는 미리 캐시되는 작은 목록이라 뺀다).
+ * 이름으로 묶는 rolldown codeSplitting 무리는 쓰지 않는다: 무리에 든 모듈이 가져오는 react·api까지 끌려가 플레이어 화면이
+ * 미리 캐시되지 않은 조각을 받게 됐다(2026-10-31 빌드로 확인).
+ */
+export const DEV_ONLY_SOURCE =
+  /(^|\/)src\/editor\/(planet|starSystem|gpuBench)\/|(^|\/)packages\/planet\/src\/generator\//;
+
+/** 소스 맵(JSON 바이트)의 sources 중 개발자 도구 소스. 맵이 없거나 읽지 못하면 빈 목록 */
+function devSourcesOf(mapBytes) {
+  if (!mapBytes) return [];
+  try {
+    const sources = JSON.parse(new TextDecoder().decode(mapBytes)).sources;
+    return Array.isArray(sources) ? sources.filter((source) => DEV_ONLY_SOURCE.test(String(source))) : [];
+  } catch {
+    return [];
+  }
+}
 
 /**
  * 디자인 시스템 규칙(ADR 2026-10-28-design-system)
@@ -154,6 +175,12 @@ function findDesignProblems({ indexHtml, sw, files, readFile }) {
     }
     for (const url of urls.filter((u) => DEV_ONLY_CHUNK.test(u))) {
       problems.push(`sw.js가 개발자 도구 조각을 미리 캐시합니다(도구를 열 때만 받아야 함): ${url}`);
+    }
+    for (const url of urls.filter((u) => u.endsWith(".js"))) {
+      const leaked = devSourcesOf(readFile(`${url}.map`));
+      if (leaked.length > 0) {
+        problems.push(`sw.js가 개발자 도구 모듈이 든 조각을 미리 캐시합니다: ${url} ← ${leaked.join(", ")}`);
+      }
     }
   }
   const fonts = files.filter((file) => FONT_FILE.test(file));

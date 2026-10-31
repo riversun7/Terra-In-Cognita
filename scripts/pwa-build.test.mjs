@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   ALLOWED_NAVIGATIONS,
   DEV_ONLY_CHUNK,
+  DEV_ONLY_SOURCE,
   ROUTE_NAVIGATIONS,
   extractDenylist,
   findPwaProblems,
@@ -254,7 +255,7 @@ describe("디자인 시스템 규칙(테마 시작 스크립트·글꼴)", () =>
     expect(precacheUrls(SW)).toEqual(["theme-init.js", "index.html", "assets/index-Cvbx1a8l.css"]);
   });
 
-  it("개발자 도구 조각(셰이더 측정·행성 편집기의 JS·CSS)을 미리 캐시하면 실패(도구를 열 때만 받는다)", () => {
+  it("개발자 도구 조각(셰이더 측정·행성 편집기·항성계 편집기의 JS·CSS)을 미리 캐시하면 실패(도구를 열 때만 받는다)", () => {
     const devChunks = [
       "assets/gpuBenchTsl-Acw_2DfU.js",
       "assets/gpuBenchScreen-B1c2D3e4.js",
@@ -262,6 +263,9 @@ describe("디자인 시스템 규칙(테마 시작 스크립트·글꼴)", () =>
       "assets/planetEditorWorker-C9d8E7f6.js",
       "assets/PlanetEditorScreen-D5e6F7g8.js",
       "assets/PlanetEditorScreen-D5e6F7g8.css",
+      "assets/StarSystemScreen-H1i2J3k4.js",
+      "assets/StarSystemScreen-H1i2J3k4.css",
+      "assets/starSystemShared-K5l6M7n8.js",
     ];
     for (const url of devChunks) {
       expect(findPwaProblems(build({ sw: swPrecaching(url) })), url).toEqual([
@@ -274,6 +278,7 @@ describe("디자인 시스템 규칙(테마 시작 스크립트·글꼴)", () =>
       "assets/DevHome-E1f2G3h4.js",
       "assets/DevHome-E1f2G3h4.css",
       "assets/sub/gpuBench-F1g2H3i4.js",
+      "assets/StarMap-L1m2N3o4.js",
       "assets/gpuBenchTsl-Acw_2DfU.wasm",
       "gpuBench.js",
     ]) {
@@ -319,6 +324,50 @@ function devEntries() {
   return [...new Set(entries)];
 }
 
+/** 소스 맵 바이트(sources만) */
+const map = (sources) => new TextEncoder().encode(JSON.stringify({ version: 3, sources }));
+
+describe("미리 캐시하는 조각의 소스(DEV_ONLY_SOURCE)", () => {
+  it("개발자 도구 소스가 든 조각을 미리 캐시하면 실패(같이 쓰는 조각의 이름이 규칙에 안 걸려도)", () => {
+    const url = "assets/workingCopy-AbCd1234.js";
+    const leaked = build({
+      sw: swPrecaching(url),
+      files: {
+        [url]: new Uint8Array(),
+        [`${url}.map`]: map(["../../src/editor/planet/workingCopy.ts", "../../src/net/api.ts"]),
+      },
+    });
+    expect(findPwaProblems(leaked)).toEqual([
+      expect.stringContaining(
+        `개발자 도구 모듈이 든 조각을 미리 캐시합니다: ${url} ← ../../src/editor/planet/workingCopy.ts`,
+      ),
+    ]);
+    const generator = build({
+      sw: swPrecaching(url),
+      files: { [`${url}.map`]: map(["../../../../packages/planet/src/generator/generate.ts"]) },
+    });
+    expect(findPwaProblems(generator)).toHaveLength(1);
+  });
+
+  it("개발자 홈·플레이어 화면 소스, 맵이 없는 조각은 통과", () => {
+    const url = "assets/DevHome-AbCd1234.js";
+    const ok = build({
+      sw: swPrecaching(url),
+      files: {
+        [`${url}.map`]: map([
+          "../../src/editor/DevHome.tsx",
+          "../../src/editor/devIcons.tsx",
+          "../../../../packages/planet/src/tiles/fields.ts",
+        ]),
+      },
+    });
+    expect(findPwaProblems(ok)).toEqual([]);
+    expect(findPwaProblems(build({ sw: swPrecaching("assets/nomap-AbCd1234.js") }))).toEqual([]);
+    expect(DEV_ONLY_SOURCE.test("../../src/editor/starSystem/StarSystemScreen.tsx")).toBe(true);
+    expect(DEV_ONLY_SOURCE.test("../../src/space/StarSystemView.tsx")).toBe(false);
+  });
+});
+
 describe("개발자 도구 조각 이름(DEV_ONLY_CHUNK가 기대는 규칙)", () => {
   it("진입 대상을 찾는다(셰이더 측정 화면·실행기·방식 모듈, 행성 편집기 워커, 개발자 홈)", () => {
     expect(devEntries()).toEqual(
@@ -329,6 +378,7 @@ describe("개발자 도구 조각 이름(DEV_ONLY_CHUNK가 기대는 규칙)", (
         "apps/game/src/editor/gpuBench/gpuBenchGlsl.ts",
         "apps/game/src/editor/gpuBench/gpuBenchTsl.ts",
         "apps/game/src/editor/planet/planetEditorWorker.ts",
+        "apps/game/src/editor/starSystem/StarSystemScreen.tsx",
       ]),
     );
   });

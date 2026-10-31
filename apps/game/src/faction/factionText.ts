@@ -18,6 +18,7 @@ import type {
   RelationBand,
   SiegeSide,
   StepState,
+  TreatyDecision,
   TreatyKind,
   UnrestLevel,
   VotingRule,
@@ -123,6 +124,13 @@ export const TREATY_NAMES = {
   joint_purification: m.faction_treaty_joint_purification,
   exchange: m.faction_treaty_exchange,
 } satisfies Record<TreatyKind, Text>;
+
+/** 조약을 맺는 길(D-444 167): 줄 아래 작은 글 */
+export const TREATY_DECISION_NOTES = {
+  vote: m.faction_treaty_offer_note_vote,
+  short_vote: m.faction_treaty_offer_note_short,
+  leader: m.faction_treaty_offer_note_leader,
+} satisfies Record<TreatyDecision, Text>;
 
 export const CASUS_NAMES = {
   territory_dispute: m.faction_casus_territory_dispute,

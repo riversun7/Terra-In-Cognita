@@ -6,9 +6,12 @@ import {
   REBELLION_THRESHOLD_EXAMPLE,
   REGIMES,
   RELATION_BANDS,
+  TREATY_CARD_RULES,
+  TREATY_KINDS,
   UNREST_LEVELS,
   VOTING_RULES,
   relationBand,
+  treatyDecision,
   unrestLevel,
 } from "./faction.ts";
 
@@ -82,5 +85,24 @@ describe("체제(46 §1.3·§3.2)", () => {
       democracy: "treasury",
       dictatorship: "ruling_family",
     });
+  });
+});
+
+describe("조약 카드의 투표 필요 칸(D-444 167, D-5057·D-221)", () => {
+  it("동맹·보호·속국·영토 이전·휴전·강화는 투표, 휴전·강화는 짧은 투표, 나머지는 지도자가 바로 맺는다", () => {
+    const vote = TREATY_KINDS.filter((kind) => TREATY_CARD_RULES[kind].needsVote);
+    const short = TREATY_KINDS.filter((kind) => TREATY_CARD_RULES[kind].shortVote);
+    expect(vote).toEqual(["alliance", "protection", "territory_transfer", "ceasefire"]);
+    expect(short).toEqual(["ceasefire"]);
+  });
+
+  it("독재는 모두 지도자가 바로, 그 밖은 카드대로(체제를 모르면 투표 쪽으로 본다)", () => {
+    for (const kind of TREATY_KINDS) expect(treatyDecision(kind, "dictatorship")).toBe("leader");
+    expect(treatyDecision("alliance", "democracy")).toBe("vote");
+    expect(treatyDecision("ceasefire", "capitalism")).toBe("short_vote");
+    expect(treatyDecision("trade", "capitalism")).toBe("leader");
+    expect(treatyDecision("vision_share", "democracy")).toBe("leader");
+    expect(treatyDecision("territory_transfer", null)).toBe("vote");
+    expect(treatyDecision("exchange", null)).toBe("leader");
   });
 });

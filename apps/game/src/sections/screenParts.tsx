@@ -51,7 +51,16 @@ export function SoonTag() {
 }
 
 /** 아직 명령이 없는 동작 단추(누르면 곧 열림 알림만) */
-export function SoonButton({ label, primary = false }: { label: string; primary?: boolean }) {
+export function SoonButton({
+  label,
+  primary = false,
+  context,
+}: {
+  label: string;
+  primary?: boolean;
+  /** 화면 읽기에만 앞에 붙는 대상 이름(목록 줄마다 같은 단추 글자일 때, 예: "동맹 조약" + "안건 올리기") */
+  context?: string;
+}) {
   const announce = use(SoonContext);
   return (
     <button
@@ -60,6 +69,7 @@ export function SoonButton({ label, primary = false }: { label: string; primary?
       aria-disabled="true"
       onClick={announce}
     >
+      {context === undefined ? null : <span className="visually-hidden">{`${context} `}</span>}
       <span>{label}</span>
       <SoonTag />
     </button>

@@ -4,7 +4,8 @@
 //   dev·admin이 시안 자료를 켜면(홈과 같은 스위치) 여섯 칸을 시안 장면으로 채우고 칸마다 "시험 자료"를 붙인다.
 // - 배치: 좁으면(모바일) 요약 판 → 탭 → 고른 탭. 넓으면(64em 이상) 왼쪽 옆 판(요약·내 몫·잠긴 메뉴) + 오른쪽 탭.
 // - 선전포고·투표·편입 답 같은 명령은 WebSocket으로만 보낸다(AGENTS 4장). 지금은 곧 열림 단추(누르면 알림만).
-// - 독재가 아니면 시장 임명·선전포고·조약 제안은 바로 실행이 아니라 [안건 올리기]다(기획 검토 C4, decidesByVote).
+// - 독재가 아니면 시장 임명·선전포고는 바로 실행이 아니라 [안건 올리기]다(기획 검토 C4, decidesByVote). 조약은 카드마다
+//   "투표 필요" 칸을 따른다(D-444 167, 외교 탭 아래 조약 제안 목록).
 // - 제목(h1)은 tabIndex=-1. 앱 안 이동 때 초점은 화면 틀이 옮긴다.
 import type { FactionOverviewResponse } from "@terra/shared/faction";
 import { useState } from "react";
@@ -25,7 +26,7 @@ import {
 } from "../sections/screenParts.tsx";
 import { useScreenQuery } from "../sections/useScreenQuery.ts";
 import { FactionCities } from "./FactionCities.tsx";
-import { FactionDiplomacy } from "./FactionDiplomacy.tsx";
+import { FactionDiplomacy, FactionTreatyOffers } from "./FactionDiplomacy.tsx";
 import { FactionOccupations, FactionShares } from "./FactionShares.tsx";
 import { FactionSide } from "./FactionSide.tsx";
 import { FactionVotes } from "./FactionVotes.tsx";
@@ -68,9 +69,16 @@ function TabBody({ tab, view }: { tab: FactionTab; view: FactionOverviewResponse
             id="faction-diplomacy-title"
             title={m.faction_diplomacy_title()}
             preview={sectionKind(section) === "preview"}
-            end={<SoonButton label={byVote ? m.faction_dip_propose_vote() : m.faction_dip_propose()} />}
           />
-          {section.status === "ready" ? <FactionDiplomacy rows={section.data} now={now} /> : <SoonPanel />}
+          {section.status === "ready" ? (
+            <>
+              <FactionDiplomacy rows={section.data} now={now} />
+              <SectionHead id="faction-treaty-offers-title" title={m.faction_treaty_offers_title()} />
+              <FactionTreatyOffers regime={view.faction?.regime ?? null} />
+            </>
+          ) : (
+            <SoonPanel />
+          )}
         </>
       );
     }

@@ -51,6 +51,44 @@ export const TREATY_KINDS = [
 ] as const;
 export type TreatyKind = (typeof TREATY_KINDS)[number];
 
+/** 조약 카드마다 정하는 칸(D-444 167, 데이터) */
+export interface TreatyCardRule {
+  /** 독재가 아닌 나라에서 투표 안건이다(D-5057). false면 지도자가 바로 맺는다(D-221 일상 결정) */
+  readonly needsVote: boolean;
+  /** 짧은 투표(급한 안건, VoteRow.urgent. 휴전·강화 — D-5057 "급한 전쟁·강화 안건은 짧게") */
+  readonly shortVote: boolean;
+}
+
+/**
+ * 조약 카드 기본값(D-444 167): 동맹·보호·속국(protection 카드가 보호·속국)·영토 이전·휴전·강화(ceasefire 카드가 휴전·강화) =
+ * 투표, 휴전·강화는 짧은 투표. 교역 협정·불가침·시야·핀 공유·군대 통행권·공동 정화·교환 = 지도자가 바로 맺음
+ */
+export const TREATY_CARD_RULES = {
+  trade: { needsVote: false, shortVote: false },
+  non_aggression: { needsVote: false, shortVote: false },
+  alliance: { needsVote: true, shortVote: false },
+  protection: { needsVote: true, shortVote: false },
+  territory_transfer: { needsVote: true, shortVote: false },
+  ceasefire: { needsVote: true, shortVote: true },
+  vision_share: { needsVote: false, shortVote: false },
+  military_access: { needsVote: false, shortVote: false },
+  joint_purification: { needsVote: false, shortVote: false },
+  exchange: { needsVote: false, shortVote: false },
+} as const satisfies Record<TreatyKind, TreatyCardRule>;
+
+/** 조약을 맺는 길: 투표(vote) · 짧은 투표(short_vote) · 지도자가 바로(leader) */
+export type TreatyDecision = "vote" | "short_vote" | "leader";
+
+/**
+ * 그 체제에서 조약 카드를 맺는 길(D-444 167). 독재는 투표가 없다(D-217). 체제를 모르면(null) 투표 쪽으로 본다
+ * (바로 맺는 것처럼 보이지 않게)
+ */
+export function treatyDecision(kind: TreatyKind, regime: Regime | null): TreatyDecision {
+  const rule: TreatyCardRule = TREATY_CARD_RULES[kind];
+  if (regime === "dictatorship" || !rule.needsVote) return "leader";
+  return rule.shortVote ? "short_vote" : "vote";
+}
+
 /** 선전포고 명분(46 §4.2). none = 명분 없음(관계 점수 크게 하락 + 국고 비용, S3) */
 export const CASUS_BELLI = [
   "territory_dispute",

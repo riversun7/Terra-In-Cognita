@@ -114,11 +114,13 @@ export function createRosterServices(
       const cyborgRules = catalog.society.cyborg;
       return {
         name: viewer.loginId,
-        // 환생 조건·비용은 설정값이라 본체가 없어도(플레이어) 보낸다(D-440·D-441, N7·N34)
+        // 환생 조건·비용은 설정값이라 본체가 없어도(플레이어) 보낸다(D-440·D-441, N7·N34). 분포는 생성 때처럼 다시 굴린다:
+        // 다시 굴리기 횟수 = 생성과 같은 N9 값(D-444 164)
         rebirth: {
           maxLevel: cyborgRules.maxLevel,
           faith: cyborgRules.rebirthFaith,
           currency: String(cyborgRules.rebirthCurrency),
+          rerolls: cyborgRules.initialRerolls,
         },
         body,
         unitCount,

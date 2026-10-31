@@ -6,7 +6,8 @@ import type { BiomeAxis } from "@terra/planet/generator";
 import type { OceanDepthClass } from "@terra/shared";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
-import type { DraftDeniedReason, DraftSyncSnapshot } from "./draftSync.ts";
+import type { LibraryFailure } from "./libraryClient.ts";
+import type { LibraryDocState } from "./useLibraryDocument.ts";
 import type { PreviewErrorCode } from "./previewTypes.ts";
 
 export const AXIS_LABELS: Readonly<Record<PlanetPresetAxis, () => string>> = {
@@ -112,42 +113,52 @@ export function previewErrorText(code: PreviewErrorCode): string {
   return PREVIEW_ERRORS[code]();
 }
 
-const DENIED: Readonly<Record<DraftDeniedReason, () => string>> = {
-  unauthorized: m.planet_editor_save_denied_unauthorized,
-  forbidden: m.planet_editor_save_denied_forbidden,
-  invalid_request: m.planet_editor_save_denied_invalid,
+const LIBRARY_REASONS: Readonly<Record<string, () => string>> = {
+  invalid_name: m.planet_editor_reason_invalid_name,
+  unknown_base: m.planet_editor_reason_unknown_base,
+  planet_not_found: m.planet_editor_reason_planet_not_found,
+  version_not_found: m.planet_editor_reason_version_not_found,
+  not_author: m.planet_editor_reason_not_author,
+  rate_limited: m.planet_editor_reason_rate_limited,
 };
 
-/** 초안 저장 상태 한 줄 */
-export function saveStatusText(sync: DraftSyncSnapshot): string {
-  switch (sync.status) {
-    case "loading":
-      return m.planet_editor_save_loading();
-    case "load_failed":
-      return m.planet_editor_save_load_failed();
-    case "saved":
-      return sync.revision > 0
-        ? m.planet_editor_save_saved({ revision: String(sync.revision) })
-        : m.planet_editor_save_none();
-    case "pending":
-      return m.planet_editor_save_pending();
-    case "saving":
-      return m.planet_editor_save_saving();
-    case "retrying":
-      return m.planet_editor_save_retrying();
+/** 보관함 호출 실패 → 문구(정의 받지 않음 코드는 가져오기와 같은 표) */
+export function libraryFailureText(failure: LibraryFailure): string {
+  switch (failure.kind) {
     case "conflict":
-      return m.planet_editor_save_conflict();
-    case "rejected":
-      return m.planet_editor_save_rejected({ reason: reasonText(sync.rejectedCode ?? "") });
-    case "denied":
-      return DENIED[sync.deniedReason ?? "forbidden"]();
-    case "busy":
-      return m.planet_editor_save_busy();
+      return m.planet_editor_conflict_title();
+    case "unauthorized":
+      return m.planet_editor_save_denied_unauthorized();
+    case "forbidden":
+      return m.planet_editor_save_denied_forbidden();
+    case "network":
+      return m.planet_editor_library_network();
+    case "reason":
+      return m.planet_editor_save_rejected({
+        reason: LIBRARY_REASONS[failure.reason]?.() ?? reasonText(failure.reason),
+      });
     default: {
-      const unhandled: never = sync.status;
+      const unhandled: never = failure;
       return unhandled;
     }
   }
+}
+
+/** 머리 줄 저장 상태(새 행성 · 저장 안 함 / 저장 안 한 변경 / 저장됨 · 판 N / 저장하는 중) */
+export function docStatusText(doc: LibraryDocState): { text: string; status: string } {
+  if (doc.busy) return { text: m.planet_editor_library_saving(), status: "saving" };
+  if (doc.failure) return { text: m.planet_editor_library_not_saved(), status: "failed" };
+  if (doc.saved === null) return { text: m.planet_editor_library_status_new(), status: "new" };
+  if (doc.dirty) {
+    return {
+      text: m.planet_editor_library_status_dirty({ revision: String(doc.fromRevision) }),
+      status: "dirty",
+    };
+  }
+  return {
+    text: m.planet_editor_library_status_saved({ revision: String(doc.saved.revision) }),
+    status: "saved",
+  };
 }
 
 /** 지금 언어의 수(정수는 그대로, 실수는 자릿수만큼) */

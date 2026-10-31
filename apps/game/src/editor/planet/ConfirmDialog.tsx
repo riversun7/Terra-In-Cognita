@@ -1,4 +1,4 @@
-// 편집기 확인 창 — F9 만들기, 판 되돌리기, 가져오기, 초안 지우기, 저장 안 한 채 나가기(ADR 38 4·9절)
+// 편집기 확인 창 — F9 만들기, 저장 판 불러오기, 가져오기, 행성 지우기, 저장 충돌, 저장 안 한 채 나가기(ADR 38 4·9절, 보관함)
 // <dialog>.showModal()로 연다: 초점을 가두고 Esc는 취소, 닫으면 연 자리로 초점이 돌아간다(브라우저 동작).
 // 부모가 request를 넘기면 열리고, null이면 닫힌다. 확인·취소 모두 부모의 onClose를 부른다(확인은 onConfirm 먼저).
 import { useEffect, useId, useRef } from "react";
@@ -12,6 +12,8 @@ export interface ConfirmRequest {
   readonly danger?: boolean;
   readonly cancelLabel?: string;
   readonly onConfirm: () => void;
+  /** 세 번째 선택(저장 충돌의 [다른 이름으로 저장] 등). 취소와 확인 사이에 둔다 */
+  readonly extra?: { readonly label: string; readonly onClick: () => void };
 }
 
 export function ConfirmDialog({ request, onClose }: { request: ConfirmRequest | null; onClose: () => void }) {
@@ -45,6 +47,18 @@ export function ConfirmDialog({ request, onClose }: { request: ConfirmRequest | 
             <button type="submit" value="cancel">
               {request.cancelLabel ?? m.planet_editor_cancel()}
             </button>
+            {request.extra ? (
+              <button
+                type="button"
+                className="pe-dialog-extra"
+                onClick={() => {
+                  request.extra?.onClick();
+                  onClose();
+                }}
+              >
+                {request.extra.label}
+              </button>
+            ) : null}
             <button
               type="button"
               className={request.danger ? "pe-button-danger" : "button-primary"}

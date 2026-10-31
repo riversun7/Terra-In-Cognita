@@ -46,7 +46,7 @@ const code = (text: string) => {
 };
 
 describe("내보내기", () => {
-  it("모양: format·formatVersion·exportedAt·generatorVersion·base·checks(레벨 오름차순, 레벨마다 하나)·planet", () => {
+  it("모양: format·formatVersion·exportedAt·generatorVersion·base·checks(레벨 오름차순, 레벨마다 하나)·planet·library", () => {
     const bundle = buildDraftExport({ planet, base: null, checks: [], generatorVersion: 3, exportedAt: AT });
     expect(Object.keys(bundle)).toEqual([
       "format",
@@ -56,7 +56,14 @@ describe("내보내기", () => {
       "base",
       "checks",
       "planet",
+      "library",
     ]);
+    expect(bundle.library).toBeNull();
+    const library = { id: "7d1f4a52-3a9e-4c1b-9f0e-2b6c8d4e5a10", name: "지구형 행성 1", revision: 2 };
+    expect(
+      buildDraftExport({ planet, base: null, checks: [], generatorVersion: 3, exportedAt: AT, library })
+        .library,
+    ).toEqual(library);
     expect(bundle).toMatchObject({
       format: DRAFT_EXPORT_FORMAT,
       formatVersion: 1,

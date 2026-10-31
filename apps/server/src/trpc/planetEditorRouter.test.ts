@@ -21,6 +21,7 @@ const DEV: Viewer = {
 };
 const PLAYER: Viewer = { ...DEV, roles: ["player"] };
 const PLANET = "s2_editor_planet";
+const LIBRARY_ID = "7d1f4a52-3a9e-4c1b-9f0e-2b6c8d4e5a10";
 
 interface FakeOptions {
   /** 두 번째 확인의 답 */
@@ -53,6 +54,16 @@ function fakeEditor(options: FakeOptions) {
     save: service("save"),
     restore: service("restore"),
     remove: service("remove"),
+    library: {
+      list: service("library.list"),
+      get: service("library.get"),
+      create: service("library.create"),
+      save: service("library.save"),
+      rename: service("library.rename"),
+      remove: service("library.remove"),
+      versions: service("library.versions"),
+      version: service("library.version"),
+    },
   };
   return { editor, calls };
 }
@@ -73,7 +84,7 @@ function callerFor(viewer: Viewer, editor: PlanetEditorServices) {
 
 type Caller = ReturnType<typeof callerFor>;
 
-/** 여섯 프로시저 × (맞는 입력, 틀린 입력) — 틀린 입력은 형식이 틀려도 권한·제한이 먼저 나오는지 보려는 것 */
+/** 프로시저마다 (맞는 입력, 틀린 입력) — 틀린 입력은 형식이 틀려도 권한·제한이 먼저 나오는지 보려는 것 */
 const CASES: {
   name: string;
   action: PlanetEditorAction;
@@ -131,6 +142,82 @@ const CASES: {
     calls: [
       (caller) => caller.planetEditor.drafts.remove({ planetId: PLANET }),
       (caller) => caller.planetEditor.drafts.remove({ planetId: "x" }),
+    ],
+  },
+  // 행성 보관함(ADR 38 "바뀜: 행성 보관함") — 같은 권한·제한 차례
+  {
+    name: "library.list",
+    action: "read",
+    kind: "library",
+    calls: [(caller) => caller.planetEditor.library.list()],
+  },
+  {
+    name: "library.get",
+    action: "read",
+    kind: "library",
+    calls: [
+      (caller) => caller.planetEditor.library.get({ id: LIBRARY_ID }),
+      (caller) => caller.planetEditor.library.get({ id: "not-a-uuid" }),
+    ],
+  },
+  {
+    name: "library.versions",
+    action: "read",
+    kind: "library",
+    calls: [
+      (caller) => caller.planetEditor.library.versions({ id: LIBRARY_ID }),
+      (caller) => caller.planetEditor.library.versions({ id: "" }),
+    ],
+  },
+  {
+    name: "library.version",
+    action: "read",
+    kind: "library",
+    calls: [
+      (caller) => caller.planetEditor.library.version({ id: LIBRARY_ID, revision: 1 }),
+      (caller) => caller.planetEditor.library.version({ id: LIBRARY_ID, revision: 0 }),
+    ],
+  },
+  {
+    name: "library.create",
+    action: "write",
+    kind: "library",
+    calls: [
+      (caller) =>
+        caller.planetEditor.library.create({ name: "x", base: { kind: "pack", id: PLANET }, definition: {} }),
+      (caller) =>
+        caller.planetEditor.library.create({
+          name: "x",
+          base: { kind: "pack", id: "Bad Id" },
+          definition: {},
+        }),
+    ],
+  },
+  {
+    name: "library.save",
+    action: "write",
+    kind: "library",
+    calls: [
+      (caller) => caller.planetEditor.library.save({ id: LIBRARY_ID, definition: {}, expectedRevision: 1 }),
+      (caller) => caller.planetEditor.library.save({ id: LIBRARY_ID, definition: {}, expectedRevision: 0 }),
+    ],
+  },
+  {
+    name: "library.rename",
+    action: "write",
+    kind: "library",
+    calls: [
+      (caller) => caller.planetEditor.library.rename({ id: LIBRARY_ID, name: "y" }),
+      (caller) => caller.planetEditor.library.rename({ id: "x", name: "y" }),
+    ],
+  },
+  {
+    name: "library.remove",
+    action: "write",
+    kind: "library",
+    calls: [
+      (caller) => caller.planetEditor.library.remove({ id: LIBRARY_ID }),
+      (caller) => caller.planetEditor.library.remove({ id: "x" }),
     ],
   },
 ];

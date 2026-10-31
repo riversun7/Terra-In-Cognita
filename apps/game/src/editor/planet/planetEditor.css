@@ -697,3 +697,31 @@
 .pe-details[open] > .pe-details-summary {
   margin-bottom: var(--space-2);
 }
+
+/* ── 보관함: 머리 줄 [저장], 행성 판, 빈 보관함, 이름 창 ── */
+.pe-save-group {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.pe-library-name {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.pe-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: var(--content-max);
+}
+.pe-empty-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+}
+.pe-base-select {
+  width: 100%;
+}

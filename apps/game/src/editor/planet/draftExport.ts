@@ -1,5 +1,6 @@
 // 초안 내보내기·가져오기 — ADR 38 9절 "내보내기·가져오기는 남긴다(반영·백업)"
-// 내보내기 모양: { format: "terra-planet-draft", formatVersion: 1, exportedAt, generatorVersion, base, checks, planet }.
+// 내보내기 모양: { format: "terra-planet-draft", formatVersion: 1, exportedAt, generatorVersion, base, checks, planet, library? }.
+//   library = 보관함 행성(ID·이름·판, ADR 38 "바뀜: 행성 보관함"). 저장하지 않은 새 행성이면 null. 가져오기는 읽지 않는다.
 //   planet은 planets.json 항목 그대로, checks는 이 초안으로 기기에서 만든 결과 해시(면 레벨별). 반영할 때 Node에서 다시 견준다.
 // 가져오기는 두 단계다. 코드는 메시지 키로 바꾼다(문장을 보이지 않는다).
 //   1. parseDraftImport(글): 64KiB 상한 → JSON 읽기 → 바깥 모양을 손으로 확인 → 항목 크기(8KiB)·생성기가 받을 수 있는 모양.
@@ -49,6 +50,8 @@ export interface DraftExportBundle {
   /** 면 레벨 오름차순 */
   readonly checks: readonly DraftCheck[];
   readonly planet: DraftEntry;
+  /** 보관함 행성(반영할 때 어느 행성인지 알게). 저장하지 않은 새 행성은 null */
+  readonly library: { readonly id: string; readonly name: string; readonly revision: number } | null;
 }
 
 /** 가져오기 글을 읽을 때만 나는 코드(기기): too_large = 글이 64KiB를 넘음, not_json, unknown_format = 바깥 묶음 모양이 틀림 */
@@ -78,6 +81,7 @@ export function buildDraftExport(input: {
   readonly checks: readonly DraftCheck[];
   readonly generatorVersion: number;
   readonly exportedAt: Date;
+  readonly library?: DraftExportBundle["library"];
 }): DraftExportBundle {
   const byLevel = new Map<number, string>();
   for (const check of input.checks) byLevel.set(check.faceLevel, check.hash);
@@ -93,6 +97,7 @@ export function buildDraftExport(input: {
     base: input.base,
     checks,
     planet: input.planet,
+    library: input.library ?? null,
   };
 }
 

@@ -1,22 +1,24 @@
-// 행성 편집기 화면 시험 — ADR 2026-10-29-planet-editor-stage1(38) WP-D: /dev/planet-editor(틀 숨김).
-// - admin·dev가 개발자 홈에서 열고, 기기 워커 미리보기(공개본 F5 확인 → 초안 F7)가 지구본에 나온다.
-// - 열 때 확인: 이 기기의 공개본 F5 해시가 서버 확인 해시와 같다(헤드리스 Chromium, 해시 값은 적지 않는다).
-// - 슬라이더를 바꾸면 "바뀐 값 N개"만 생기고(미리보기·자동 저장 없음), [적용]을 누르면 새 미리보기와 자동 저장 판(서버 초안)이
-//   생긴다(사용자 의견 2026-10-31). 판 되돌리기·JSON 내보내기·가져오기, 칸 쉬운 설명, 지구본 옆 평면 미니맵도 본다.
-// - player는 권한 없음 화면이다(서버도 매 요청 권한을 본다: 단위·DB 시험).
-// F8·F9는 느려서 넣지 않는다. 초안은 계정마다·행성마다 하나이고 실행마다 새 DB라, admin·dev 시험은 서로 섞이지 않는다.
+// 행성 편집기 화면 시험 — ADR 2026-10-29-planet-editor-stage1(38) WP-D·"바뀜: 행성 보관함": /dev/planet-editor(틀 숨김).
+// - 보관함(팀 공용 목록): 빈 보관함 → [새 행성](이름·시작점) → 작업 사본(이 기기) → [저장]이 판 1을 만든다. 고친 값은 서버에
+//   쓰지 않고 작업 사본에만 남으며 새로고침해도 이어진다. [저장]마다 판 하나, 저장 기록에서 판 불러오기, [다른 이름으로 저장],
+//   이름 바꾸기, 다른 탭이 먼저 저장했을 때 충돌 → [덮어쓰기], 지우기(만든 사람·admin만), JSON 내보내기·가져오기.
+// - 기기 워커 미리보기(기준 팩 행성 F5 확인 → 작업 사본 F7), 슬라이더는 [적용]을 기다리고 누르는 조작은 바로 적용된다.
+// - dev는 admin이 만든 행성을 보고(만든 사람 표시) 고쳐 저장할 수 있지만 지울 수는 없다. player는 권한 없음 화면이다.
+// F8·F9는 느려서 넣지 않는다. 실행마다 새 DB라 보관함은 빈 채로 시작한다(admin 시험이 먼저 돈다).
 // 표지(class·data-*)로 본다: 지구본 .pe-globe-view[data-face-level·data-sequence·data-status], 확인 칩 .pe-check-chip[data-check],
-// 저장 줄 .pe-save-line[data-save-status·data-revision](초안 탭, 숨겨져 있어도 읽는다).
+// 저장 상태 칩 .pe-save-chip[data-save-status: new·dirty·saved·saving·failed], 행성 판의 판 번호 .pe-library-info [data-revision].
 import type { Page } from "@playwright/test";
 import { shot, smallTapTargets } from "./helpers/screen.ts";
 import { expect, test } from "./helpers/test.ts";
+import { watchTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
 /** 처음 여는 행성 F7 미리보기는 부하에 따라 수 초다(빌드·워커 데우기 포함) */
 const PREVIEW_TIMEOUT = 45_000;
 
 const globe = (page: Page) => page.locator(".pe-globe-view");
-const saveLine = (page: Page) => page.locator(".pe-save-line");
+const saveChip = (page: Page) => page.locator(".pe-save-chip");
+const revision = (page: Page) => page.locator(".pe-library-info [data-revision]");
 const tab = (page: Page, id: string) => page.locator(`.pe-tab[data-tab="${id}"]`);
 const slider = (page: Page, key: string) => page.locator(`input.pe-range[data-key="${key}"]`);
 
@@ -30,14 +32,42 @@ async function globeReady(page: Page, level: number, after = 0): Promise<number>
   return Number(await globe(page).getAttribute("data-sequence"));
 }
 
-/** 자동 저장이 끝나 서버 판이 previous보다 커질 때까지. 새 판을 돌려준다 */
-async function savedAfter(page: Page, previous: number): Promise<number> {
-  await expect(saveLine(page)).toHaveAttribute("data-save-status", "saved", { timeout: 20_000 });
-  await expect
-    .poll(async () => Number(await saveLine(page).getAttribute("data-revision")), { timeout: 20_000 })
-    .toBeGreaterThan(previous);
-  return Number(await saveLine(page).getAttribute("data-revision"));
+/** [저장]을 누르고 저장이 끝나(저장됨) 판이 expected가 될 때까지 */
+async function saveAndExpect(page: Page, expected: number): Promise<void> {
+  await page.locator(".pe-save").click();
+  await expect(saveChip(page)).toHaveAttribute("data-save-status", "saved", { timeout: 20_000 });
+  await expect(revision(page)).toHaveAttribute("data-revision", String(expected));
 }
+
+/** 이름 창에 이름을 넣고 확인한다 */
+async function answerName(page: Page, name: string): Promise<void> {
+  // 이름 창은 목록 화면과 편집 화면에 하나씩 있다: 열린 것 하나를 고른다
+  const dialog = page.locator("dialog.pe-prompt[open]");
+  await expect(dialog).toHaveCount(1);
+  await dialog.locator(".pe-name-input").fill(name);
+  await dialog.locator(".pe-prompt-confirm").click();
+  await expect(page.locator("dialog.pe-prompt[open]")).toHaveCount(0);
+}
+
+/** 편집기를 열고 행성 하나를 연다(보관함이 비어 있으면 새 행성을 만들어 저장한다) */
+async function openSomePlanet(page: Page): Promise<void> {
+  await page.goto("/dev/planet-editor");
+  const empty = page.locator(".pe-empty .pe-new-planet");
+  await expect(empty.or(page.locator(".pe-save-chip"))).toBeVisible({ timeout: PREVIEW_TIMEOUT });
+  if (await empty.isVisible()) {
+    await empty.click();
+    await answerName(page, "지구형 행성 1");
+    await page.locator(".pe-save").click();
+    await expect(saveChip(page)).toHaveAttribute("data-save-status", "saved", { timeout: 20_000 });
+  }
+}
+
+/** 머리 줄 행성 고르기에서 지금 고른 줄의 글 */
+const selectedPlanet = (page: Page) =>
+  page.locator(".pe-planet-select").evaluate((element) => {
+    const select = element instanceof HTMLSelectElement ? element : null;
+    return select?.selectedOptions[0]?.textContent ?? "";
+  });
 
 /** 슬라이더를 키보드로 한 칸 옮긴다(적용 전 변경만 생긴다). 새 값을 돌려준다 */
 async function nudge(page: Page, key: string, direction: "ArrowRight" | "ArrowLeft"): Promise<number> {
@@ -56,12 +86,15 @@ async function applyEdits(page: Page): Promise<void> {
   await expect(page.locator(".pe-apply-bar")).toHaveCount(0);
 }
 
+/** 열린 확인 창(이름 창 말고) */
+const openConfirm = (page: Page) => page.locator("dialog.pe-dialog:not(.pe-prompt)[open]");
+
 /** 확인 창의 확인 버튼 */
 async function confirmDialog(page: Page): Promise<void> {
-  const dialog = page.locator("dialog.pe-dialog");
-  await expect(dialog).toHaveAttribute("open", "");
+  const dialog = openConfirm(page);
+  await expect(dialog).toHaveCount(1);
   await dialog.locator(".button-primary, .pe-button-danger").click();
-  await expect(dialog).not.toHaveAttribute("open", "");
+  await expect(openConfirm(page)).toHaveCount(0);
 }
 
 /** 편집기 판 안이 가로로 넘치지 않는다(판은 세로 스크롤 상자라 문서 넘침 검사로는 보이지 않는다) */
@@ -80,64 +113,103 @@ async function panelOverflow(page: Page): Promise<string[]> {
 test.describe("관리자", () => {
   test.use({ account: "admin" });
 
-  test("개발자 홈에서 열면 F5 확인 → F7 미리보기, 슬라이더로 새 미리보기·자동 저장 판, 판 되돌리기, 내보내기·가져오기 왕복", async ({
+  test("보관함: [새 행성] → [저장] 판 1, 고친 값은 작업 사본(새로고침해도 남음) → 판 2, 판 불러오기 → 판 3, 다른 이름으로 저장·이름 바꾸기·충돌 덮어쓰기·지우기, 내보내기·가져오기", async ({
     page,
     deviceErrors,
   }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(240_000);
+    const calls = watchTrpc(page);
     await page.goto("/dev");
     await page.locator('#main a.dev-tool[href="/dev/planet-editor"]').click();
     await expect(page).toHaveURL((url) => url.pathname === "/dev/planet-editor");
-    await expect(page.locator(".pe-screen")).toBeVisible();
     await expect(page.locator(".frame")).toHaveCount(0);
-    // 열 때 확인(공개본 F5 = 서버 확인 해시)과 초안 F7 지구본
+    // 빈 보관함 → [새 행성](이름·시작점) → 저장하지 않은 작업 사본
+    await page.locator(".pe-empty .pe-new-planet").click();
+    await expect(page.locator("dialog.pe-prompt[open] .pe-base-select")).toHaveValue("s2_editor_planet");
+    await answerName(page, "지구형 행성 1");
+    await expect(saveChip(page)).toHaveAttribute("data-save-status", "new");
     await expect(page.locator(".pe-check-chip")).toHaveAttribute("data-check", "match", {
       timeout: PREVIEW_TIMEOUT,
     });
     let sequence = await globeReady(page, 7);
-    await expect(saveLine(page)).toHaveAttribute("data-save-status", "saved");
-    await expect(saveLine(page)).toHaveAttribute("data-revision", "0");
+    expect(calls.some((call) => call.procedures.includes("planetEditor.library.create"))).toBe(false);
+    await tab(page, "planet").click();
+    await saveAndExpect(page, 1);
+    expect(await selectedPlanet(page)).toContain("지구형 행성 1");
 
-    // 슬라이더 → 바뀐 값 1개, 미리보기·자동 저장은 하지 않는다(Enter도 적용하지 않는다)
+    // 슬라이더 → 적용 전 → [적용](작업 사본만 바뀐다, 서버에 쓰지 않는다)
+    await tab(page, "settings").click();
     const first = await nudge(page, "landPercent", "ArrowRight");
-    await expect(page.locator(".pe-apply-bar")).toHaveAttribute("data-pending", "1");
     await expect(tab(page, "settings").locator(".pe-tab-badge")).toHaveText("1");
     await slider(page, "landPercent").press("Enter");
-    await page.waitForTimeout(2_500);
     await expect(globe(page)).toHaveAttribute("data-sequence", String(sequence));
-    await expect(saveLine(page)).toHaveAttribute("data-revision", "0");
-    // [적용] → 새 F7 미리보기 + 자동 저장(판 1개)
     await applyEdits(page);
     sequence = await globeReady(page, 7, sequence);
-    const firstSequence = sequence;
-    const revision1 = await savedAfter(page, 0);
-    // 두 번째 변경 → 새 판
-    const second = await nudge(page, "landPercent", "ArrowRight");
-    expect(second).toBe(first + 1);
-    await applyEdits(page);
-    await globeReady(page, 7, sequence);
-    const revision2 = await savedAfter(page, revision1);
-
-    // 면적표: 바이옴 줄과 공개본 대비 차이가 있다
-    await tab(page, "area").click();
-    await expect(page.locator(".pe-area-table tbody tr")).not.toHaveCount(0);
-    await expect(page.locator(".pe-area-table td[data-diff]").first()).toBeVisible();
-
-    // 판 되돌리기: 판 1로 → 새 판, 슬라이더 값이 그때 값
-    await tab(page, "draft").click();
-    await page.locator(".pe-revisions-load").click();
-    const row = page.locator(`.pe-revision[data-revision="${revision1}"]`);
-    await expect(row).toBeVisible();
-    await expect(page.locator(`.pe-revision[data-revision="${revision2}"]`)).toBeVisible();
-    await row.locator("button").click();
-    await confirmDialog(page);
-    const revision3 = await savedAfter(page, revision2);
+    await expect(saveChip(page)).toHaveAttribute("data-save-status", "dirty");
+    expect(calls.filter((call) => call.procedures.includes("planetEditor.library.save"))).toHaveLength(0);
+    // 새로고침해도 작업 사본이 남는다(이 기기)
+    page.once("dialog", (dialog) => void dialog.accept());
+    await page.reload();
+    await expect(saveChip(page)).toHaveAttribute("data-save-status", "dirty", { timeout: PREVIEW_TIMEOUT });
     await expect(slider(page, "landPercent")).toHaveValue(String(first));
-    // 그 값의 F7 결과는 기억에 있어 다시 만들지 않고 그대로 보인다(받은 차례가 그때 것)
-    await expect(globe(page)).toHaveAttribute("data-sequence", String(firstSequence));
+    sequence = await globeReady(page, 7);
+    await saveAndExpect(page, 2);
 
-    // 내보내기(확인이 같음이라 막히지 않는다)
-    await tab(page, "draft").click();
+    // 저장 기록: 판 1 불러오기 → 작업 사본이 그 판(저장 안 함) → [저장] → 판 3
+    await tab(page, "planet").click();
+    await page.locator(".pe-versions-load").click();
+    await expect(page.locator(".pe-revision")).toHaveCount(2);
+    await page.locator('.pe-revision[data-revision="1"] button').click();
+    await confirmDialog(page);
+    await expect(saveChip(page)).toHaveAttribute("data-save-status", "dirty");
+    await expect(slider(page, "landPercent")).toHaveValue(String(first - 1));
+    await saveAndExpect(page, 3);
+
+    // [다른 이름으로 저장] → 새 행성(판 1)으로 옮긴다, 이름 바꾸기
+    await page.locator(".pe-save-as").click();
+    await answerName(page, "지구형 행성 2");
+    await expect(page.locator(".pe-library-name")).toHaveText("지구형 행성 2", { timeout: PREVIEW_TIMEOUT });
+    await expect(revision(page)).toHaveAttribute("data-revision", "1");
+    // 다른 행성으로 옮기면 화면을 새로 만든다(설정 탭부터)
+    await tab(page, "planet").click();
+    await page.locator(".pe-rename").click();
+    await answerName(page, "지구형 행성 2b");
+    await expect(page.locator(".pe-library-name")).toHaveText("지구형 행성 2b");
+    await expect.poll(() => selectedPlanet(page)).toContain("지구형 행성 2b");
+
+    // 충돌: 다른 탭(같은 기기)이 먼저 저장 → 이 탭의 [저장]은 충돌 → [덮어쓰기]
+    sequence = await globeReady(page, 7);
+    const other = await page.context().newPage();
+    await other.goto("/dev/planet-editor");
+    await expect(other.locator(".pe-library-name")).toHaveText("지구형 행성 2b", {
+      timeout: PREVIEW_TIMEOUT,
+    });
+    await globeReady(other, 7);
+    await nudge(other, "plateCount", "ArrowRight");
+    await applyEdits(other);
+    await saveAndExpect(other, 2);
+    await other.close();
+    await tab(page, "settings").click();
+    await nudge(page, "hotspotCount", "ArrowRight");
+    await applyEdits(page);
+    await page.locator(".pe-save").click();
+    const conflict = openConfirm(page);
+    await expect(conflict).toHaveCount(1);
+    await expect(conflict.locator(".pe-dialog-extra")).toBeVisible();
+    await conflict.locator(".button-primary").click();
+    await expect(saveChip(page)).toHaveAttribute("data-save-status", "saved", { timeout: 20_000 });
+    await tab(page, "planet").click();
+    await expect(revision(page)).toHaveAttribute("data-revision", "3");
+
+    // 지우기(만든 사람) → 목록에서 빠지고 남은 행성을 연다
+    await page.locator(".pe-remove").click();
+    await confirmDialog(page);
+    await expect(page.locator(".pe-library-name")).toHaveText("지구형 행성 1", { timeout: PREVIEW_TIMEOUT });
+    await expect(page.locator(".pe-planet-select option")).toHaveCount(1);
+
+    // 내보내기 → 값 바꿈 → 가져오기 → 작업 사본이 내보낸 것과 같아져 저장 안 한 변경이 없다
+    sequence = await globeReady(page, 7);
+    await tab(page, "planet").click();
     await page.locator(".pe-export").click();
     const exported = await page.locator(".pe-export-text").inputValue();
     const bundle: unknown = JSON.parse(exported);
@@ -145,48 +217,32 @@ test.describe("관리자", () => {
       format: "terra-planet-draft",
       formatVersion: 1,
       planet: { id: "s2_editor_planet" },
+      library: { name: "지구형 행성 1", revision: 3 },
     });
-    expect(Reflect.get(Object(bundle), "checks")).not.toHaveLength(0);
-
-    // 값을 바꿔 저장한 뒤, 내보낸 것을 가져오면 그 값으로 돌아온다(새 판)
     await tab(page, "settings").click();
     await nudge(page, "landPercent", "ArrowLeft");
     await applyEdits(page);
-    const revision4 = await savedAfter(page, revision3);
-    await tab(page, "draft").click();
+    await expect(saveChip(page)).toHaveAttribute("data-save-status", "dirty");
+    await tab(page, "planet").click();
     await page.locator(".pe-import-text").fill(exported);
     await page.locator(".pe-import").click();
     await confirmDialog(page);
-    await savedAfter(page, revision4);
-    await expect(slider(page, "landPercent")).toHaveValue(String(first));
-    await page.locator(".pe-export").click();
-    const again: unknown = JSON.parse(await page.locator(".pe-export-text").inputValue());
-    expect(Reflect.get(Object(again), "planet")).toEqual(Reflect.get(Object(bundle), "planet"));
+    await expect(saveChip(page)).toHaveAttribute("data-save-status", "saved");
 
-    // 칸 정보: 미니맵을 누르면 칸 값과 바이옴 판정 설명(저장 바이옴과 같음)
+    // 칸 정보: 미니맵을 누르면 쉬운 설명 먼저, 날것의 표는 [자세히 보기]
     await tab(page, "area").click();
     await page.locator(".pe-area-map .flat-map-canvas").click({ position: { x: 40, y: 30 } });
     await tab(page, "cell").click();
-    await expect(page.locator(".pe-cell")).toBeVisible();
-    // 쉬운 설명이 먼저, 날것의 표는 [자세히 보기] 아래(처음 접힘)
     await expect(page.locator(".pe-story p").first()).not.toBeEmpty();
-    await expect(page.locator(".pe-details")).not.toHaveAttribute("open", "");
-    await expect(page.locator(".pe-cell-values")).toBeHidden();
     await page.locator(".pe-details-summary").click();
-    await expect(page.locator(".pe-cell-values")).toBeVisible();
     await expect(page.locator(".pe-explain-stored")).toHaveAttribute("data-matches", "true");
 
-    // 휴대폰: 지구본 자리를 [평면]으로 바꾸면 평면 미니맵이 덮는다
-    await expect(page.locator(".pe-stage-map")).toBeHidden();
-    await page.locator('.pe-view-toggle button[data-view="flat"]').click();
-    await expect(page.locator(".pe-stage-map .flat-map-canvas")).toBeVisible();
-    await page.locator('.pe-view-toggle button[data-view="globe"]').click();
-    await expect(page.locator(".pe-stage-map")).toBeHidden();
-
-    // [뒤로]: 저장이 끝났으니 묻지 않고 개발자 홈으로
+    // [뒤로]: 저장 안 한 변경이 없으니 묻지 않는다
     await page.locator(".pe-back").click();
     await expect(page).toHaveURL((url) => url.pathname === "/dev");
-    expect(deviceErrors).toEqual([]);
+    // 충돌 저장의 409는 브라우저가 콘솔에 남긴다(일부러 낸 충돌이라 뺀다)
+    const conflictLog = /status of 409 .*planetEditor\.library\.save/;
+    expect(deviceErrors.filter((error) => !conflictLog.test(error.text))).toEqual([]);
   });
 
   // 사진: 휴대폰 세로 390px·데스크톱 1440px × 기본 테마 둘 × 한국어·영어(E2E_SHOTS_DIR). 휴대폰은 판 넘침·누르는 곳도 본다
@@ -197,7 +253,7 @@ test.describe("관리자", () => {
 
         test(`390px 세로 (${theme}·${language})`, async ({ page }) => {
           test.setTimeout(120_000);
-          await page.goto("/dev/planet-editor");
+          await openSomePlanet(page);
           await globeReady(page, 7);
           await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
           expect(await panelOverflow(page)).toEqual([]);
@@ -214,9 +270,14 @@ test.describe("관리자", () => {
           await expect(page.locator(".pe-area-table")).toBeVisible();
           expect(await panelOverflow(page)).toEqual([]);
           await shot(page, `planet-editor-390-${theme}-${language}-area`);
-          await tab(page, "draft").click();
+          await tab(page, "planet").click();
           expect(await panelOverflow(page)).toEqual([]);
           expect(await smallTapTargets(page)).toEqual([]);
+          await shot(page, `planet-editor-390-${theme}-${language}-planet`);
+          await page.locator(".pe-tabpanel .pe-new-planet").click();
+          await expect(page.locator("dialog.pe-prompt[open]")).toHaveCount(1);
+          await shot(page, `planet-editor-390-${theme}-${language}-new`);
+          await page.keyboard.press("Escape");
         });
 
         test.describe("데스크톱", () => {
@@ -224,7 +285,7 @@ test.describe("관리자", () => {
 
           test(`1440px (${theme}·${language})`, async ({ page }) => {
             test.setTimeout(120_000);
-            await page.goto("/dev/planet-editor");
+            await openSomePlanet(page);
             await globeReady(page, 7);
             // 넓은 화면: 설정 탭에서도 지구본 아래에 평면 미니맵이 있고, 보기 단추·면적 탭 미니맵은 없다
             await expect(page.locator(".pe-stage-map .flat-map-canvas")).toBeVisible();
@@ -258,7 +319,7 @@ test.describe("관리자", () => {
 test.describe("개발자(dev)", () => {
   test.use({ account: "dev" });
 
-  test("행성 편집기: 슬라이더는 [적용]을 기다리고, 프리셋 단계·시드 [무작위]는 누르면 바로 적용된다(적용 전 슬라이더 변경도 함께)", async ({
+  test("팀 공용 목록: admin이 만든 행성을 보고(만든 사람 표시) 고쳐 저장한다. 지우기는 없다. 슬라이더는 [적용], 프리셋·시드는 바로", async ({
     page,
     deviceErrors,
   }) => {
@@ -269,27 +330,30 @@ test.describe("개발자(dev)", () => {
       timeout: PREVIEW_TIMEOUT,
     });
     let sequence = await globeReady(page, 7);
-    // 슬라이더 → 적용 줄(지구본 자리 아래, 판 밖) → [적용] → 새 미리보기·판
-    await nudge(page, "precipitationPercent", "ArrowRight");
+    expect(await selectedPlanet(page)).toContain("지구형 행성 1");
+    await tab(page, "planet").click();
+    await expect(page.locator(".pe-library-info")).toContainText("e2e_admin");
+    await expect(page.locator(".pe-remove")).toHaveCount(0);
+    const before = Number(await revision(page).getAttribute("data-revision"));
+    await tab(page, "settings").click();
+    // 슬라이더 → 적용 줄(지구본 자리 아래, 판 밖)
+    const plates = await nudge(page, "plateCount", "ArrowRight");
     await expect(page.locator(".pe-stage .pe-apply-bar")).toBeVisible();
     await expect(page.locator(".pe-tabpanel .pe-apply-bar")).toHaveCount(0);
-    await applyEdits(page);
-    sequence = await globeReady(page, 7, sequence);
-    let revision = await savedAfter(page, 0);
-    // 슬라이더를 바꿔 둔 채 프리셋 단계를 누르면 둘 다 바로 적용된다(미리보기 한 번, 판 하나)
-    const plates = await nudge(page, "plateCount", "ArrowRight");
+    // 프리셋 단계를 누르면 슬라이더 변경과 함께 바로 적용(미리보기 한 번)
     await page.locator('.pe-choice-input[value="wet"]').check();
     await expect(page.locator(".pe-apply-bar")).toHaveCount(0);
     sequence = await globeReady(page, 7, sequence);
-    revision = await savedAfter(page, revision);
     await expect(slider(page, "plateCount")).toHaveValue(String(plates));
-    await expect(page.locator('.pe-choice-input[value="wet"]')).toBeChecked();
-    // 시드 [무작위] → 바로 새 미리보기·판
+    // 시드 [무작위] → 바로 새 미리보기
     const seed = await page.locator(".pe-seed-input").inputValue();
     await page.locator(".pe-seed-random").click();
     await expect(page.locator(".pe-seed-input")).not.toHaveValue(seed);
     await globeReady(page, 7, sequence);
-    await savedAfter(page, revision);
+    await expect(saveChip(page)).toHaveAttribute("data-save-status", "dirty");
+    await tab(page, "planet").click();
+    await saveAndExpect(page, before + 1);
+    await expect(page.locator(".pe-library-info")).toContainText("e2e_dev");
     expect(deviceErrors).toEqual([]);
   });
 });

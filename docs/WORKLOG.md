@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-31 14:10 | 행성 보관함: 팀 공용 목록, [저장]만 서버에, 작업 사본은 기기에 | Claude Code | [31-1410-planet-library](worklog/2026/10/31-1410-planet-library.md) |
 | 2026-10-31 14:00 | S3 서버 단계 설계 (ADR 제안, 구현 전) | Claude Code | [31-1400-s3-design](worklog/2026/10/31-1400-s3-design.md) |
 | 2026-10-31 13:50 | 기획 반영 — 원본 501ee47(D-330~D-353, Step 5 D-5051~D-5054, 세력 본문·설정 칸 정리본), S3 ADR 질문 번호 | Claude Code | [31-1350-planning-501ee47](worklog/2026/10/31-1350-planning-501ee47.md) |
 | 2026-10-31 13:40 | 사용자 결정: 행성 목록·대륙 모양·태양계 샘플·항성계·은하지도, S3 10만 개 시험 빼기 | Claude Code | [31-1340-user-decisions-library-space](worklog/2026/10/31-1340-user-decisions-library-space.md) |

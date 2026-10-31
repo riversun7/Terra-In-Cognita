@@ -28,6 +28,8 @@ export const WORLD_TABLES = {
       "size",
       "speed",
       "map_key",
+      "planet_id",
+      "domain",
       "path",
       "depart_at_ms",
       "wake_at_ms",
@@ -41,7 +43,7 @@ export const WORLD_TABLES = {
   },
   buildings: {
     name: "world_buildings",
-    columns: ["id", "map_key", "owner_id", "x", "y", "width", "height", "rotation"],
+    columns: ["id", "map_key", "planet_id", "domain", "owner_id", "x", "y", "width", "height", "rotation"],
     key: ["id"],
   },
   presence: {
@@ -51,7 +53,8 @@ export const WORLD_TABLES = {
   },
   exploration: {
     name: "world_exploration",
-    columns: ["user_id", "map_key", "cells", "updated_at_ms"],
+    columns: ["user_id", "map_key", "planet_id", "cells", "updated_at_ms"],
+    // 기본 키가 아직 (user_id, map_key)다(schema.ts worldExploration 주석). 행성이 둘이 되기 전에 planet_id를 더한다
     key: ["user_id", "map_key"],
   },
   heartbeat: {

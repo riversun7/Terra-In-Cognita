@@ -1,6 +1,7 @@
 // 부팅 복구의 DB 읽기 — docs/adr/2026-10-31-s3-server-stage.md 2절
 // 쓰기 대기열이 돌기 전에 한 번 부른다. int8은 pg가 문자열로 주므로 여기서 숫자(시각·ID)·BigInt(금액)로 바꾼다.
 import { SIZE_SMALL, type Rotation, type SizeClass, isSizeClass } from "@terra/sim";
+import { DEFAULT_WORLD_PLANET_ID, WORLD_DOMAINS, type WorldDomain } from "../../db/schema.ts";
 import type { BuildingRow, UnitRow } from "../secondMap.ts";
 import { TEST_NPC_FACTION_CODE } from "../unitKinds.ts";
 
@@ -48,6 +49,9 @@ const toSize = (value: unknown): SizeClass => {
   const size = num(value);
   return isSizeClass(size) ? size : SIZE_SMALL;
 };
+/** DB 검사 조건이 네 값만 받는다. 그래도 틀리면 육지로 읽는다 */
+const toDomain = (value: unknown): WorldDomain => WORLD_DOMAINS.find((domain) => domain === value) ?? "land";
+const toPlanet = (value: unknown): string => (typeof value === "string" ? value : DEFAULT_WORLD_PLANET_ID);
 const toRotation = (value: unknown): Rotation => {
   const rotation = num(value);
   return rotation === 90 || rotation === 180 || rotation === 270 ? rotation : 0;
@@ -85,11 +89,11 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
     `select id, user_id, faction_id, settled_at_ms, upkeep_arrears from world_owners`,
   );
   const units = await pool.query(
-    `select id, owner_id, kind, size, speed, map_key, path, depart_at_ms, wake_at_ms, ai_step,
+    `select id, owner_id, kind, size, speed, map_key, planet_id, domain, path, depart_at_ms, wake_at_ms, ai_step,
             job, job_phase, job_progress_ms, fatigue from world_units`,
   );
   const buildings = await pool.query(
-    `select id, map_key, owner_id, x, y, width, height, rotation from world_buildings`,
+    `select id, map_key, planet_id, domain, owner_id, x, y, width, height, rotation from world_buildings`,
   );
   const accounts = await pool.query(`select id, owner_id, system_code, asset, balance from ledger_accounts`);
   const max = await pool.query(
@@ -120,6 +124,8 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
       size: toSize(row.size),
       speed: num(row.speed),
       mapKey: num(row.map_key),
+      planetId: toPlanet(row.planet_id),
+      domain: toDomain(row.domain),
       path: Array.isArray(row.path) ? row.path.map(num) : [],
       departAtMs: num(row.depart_at_ms),
       wakeAtMs: numOrNull(row.wake_at_ms),
@@ -134,6 +140,8 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
     buildings: buildings.rows.map((row) => ({
       id: num(row.id),
       mapKey: num(row.map_key),
+      planetId: toPlanet(row.planet_id),
+      domain: toDomain(row.domain),
       ownerId: numOrNull(row.owner_id),
       placement: {
         x: num(row.x),

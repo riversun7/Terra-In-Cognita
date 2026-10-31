@@ -362,6 +362,18 @@ export const planetLibraryVersions = pgTable(
 // 묶어 커밋한다. 그래서 ID는 DB가 아니라 서버가 정한다(부팅 때 가장 큰 값 + 1부터, 쓰는 프로세스는 하나다).
 // 시각은 서버 ms 정수(int8)다. 예약은 따로 된 표 없이 주인 행의 예정 시각 열(유닛의 경로 도착·wake_at_ms)이다.
 
+/**
+ * 행성 ID·영역(기획 D-372: 행성 ID와 영역 4종은 처음부터 둔다). 셀 키는 행성 안에서만 하나라서(ADR 2026-10-29-cell-key-layout)
+ * 2차맵을 가리키는 표는 (planet_id, map_key)로 읽는다. 기본값은 S1·S3 시험 2차맵이 놓인 시험 행성(콘텐츠 팩 s2_test_planet)
+ * — 열 더하기만 한 마이그레이션이라 직전 판 앱이 이 열을 모른 채 넣어도 기본값이 들어간다.
+ * 영역: space(우주)·sky(하늘)·land(육지)·sea(해상). 지금 유닛·건물은 모두 land다.
+ */
+export const DEFAULT_WORLD_PLANET_ID = "s2_test_planet";
+export const WORLD_DOMAINS = ["space", "sky", "land", "sea"] as const;
+export type WorldDomain = (typeof WORLD_DOMAINS)[number];
+const planetIdColumn = () => text("planet_id").notNull().default(DEFAULT_WORLD_PLANET_ID);
+const domainColumn = () => text("domain").$type<WorldDomain>().notNull().default("land");
+
 /** 세력(최소) — 소유와 시야 묶음에만 쓴다. 가입·봉신·외교는 세력 시스템(기획 Step 4-6)이 넓힌다 */
 export const factions = pgTable(
   "factions",
@@ -424,6 +436,8 @@ export const worldUnits = pgTable(
     size: smallint("size").notNull(),
     speed: integer("speed").notNull(),
     mapKey: bigint("map_key", { mode: "number" }).notNull(),
+    planetId: planetIdColumn(),
+    domain: domainColumn(),
     /** 꺾이는 점 [x0, y0, x1, y1, …] (고정소수점) */
     path: integer("path").array().notNull(),
     departAtMs: bigint("depart_at_ms", { mode: "number" }).notNull(),
@@ -443,6 +457,8 @@ export const worldUnits = pgTable(
     check("world_units_size", sql`${table.size} between 1 and 3`),
     check("world_units_speed", sql`${table.speed} > 0`),
     check("world_units_path", sql`cardinality(${table.path}) >= 2 and cardinality(${table.path}) % 2 = 0`),
+    check("world_units_planet_id_format", sql`${table.planetId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+    check("world_units_domain", sql`${table.domain} in ('space', 'sky', 'land', 'sea')`),
   ],
 );
 
@@ -452,6 +468,8 @@ export const worldBuildings = pgTable(
   {
     id: bigint("id", { mode: "number" }).primaryKey(),
     mapKey: bigint("map_key", { mode: "number" }).notNull(),
+    planetId: planetIdColumn(),
+    domain: domainColumn(),
     ownerId: bigint("owner_id", { mode: "number" }).references(() => worldOwners.id),
     x: smallint("x").notNull(),
     y: smallint("y").notNull(),
@@ -459,7 +477,11 @@ export const worldBuildings = pgTable(
     height: smallint("height").notNull(),
     rotation: smallint("rotation").notNull(),
   },
-  (table) => [index("world_buildings_map_idx").on(table.mapKey)],
+  (table) => [
+    index("world_buildings_map_idx").on(table.mapKey),
+    check("world_buildings_planet_id_format", sql`${table.planetId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+    check("world_buildings_domain", sql`${table.domain} in ('space', 'sky', 'land', 'sea')`),
+  ],
 );
 
 /** 접속 상태(D-136): 모든 연결이 끊긴 시각. 접속 중이면 null */
@@ -471,7 +493,11 @@ export const worldPresence = pgTable("world_presence", {
   updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
 });
 
-/** 탐사 기록(ADR 26, D-143·D-152): (사용자, 2차맵)마다 시야 칸 32×32 비트 = 128바이트 */
+/**
+ * 탐사 기록(ADR 26, D-143·D-152): (사용자, 행성, 2차맵)마다 시야 칸 32×32 비트 = 128바이트.
+ * 기본 키는 아직 (user_id, map_key)다: 직전 판 앱이 그 열쇠로 덮어쓰기(on conflict)를 하기 때문이다. 행성이 둘 이상이 되기 전에
+ * 다음 마이그레이션에서 (user_id, planet_id, map_key)로 바꾼다(ADR 22 세 단계: 더하기 → 코드 → 정리).
+ */
 export const worldExploration = pgTable(
   "world_exploration",
   {
@@ -479,12 +505,14 @@ export const worldExploration = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     mapKey: bigint("map_key", { mode: "number" }).notNull(),
+    planetId: planetIdColumn(),
     cells: bytea("cells").notNull(),
     updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.userId, table.mapKey] }),
     check("world_exploration_cells", sql`octet_length(${table.cells}) = 128`),
+    check("world_exploration_planet_id_format", sql`${table.planetId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
   ],
 );
 

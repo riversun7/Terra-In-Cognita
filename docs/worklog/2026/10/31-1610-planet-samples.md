@@ -15,9 +15,10 @@
 ## 검사·측정 (Verified, 이 작업 트리, Node 24.22.1)
 - 표본별 결과(F7 그림, `samples.ts`): 수성 땅 83.9%·사막 72%·빙상 10%·−57~49°C / 금성 땅 22.3%·큰 땅덩어리 2·사바나 54%·열대우림 27%·−36~41°C(평균 30.3) / 지구 땅 29.1%·큰 땅덩어리 4·사바나 22·초원 18·사막 16·타이가 10%·−61~34°C(평균 12.1) / 화성 땅 61.6%·큰 땅덩어리 1·사막 26·빙상 24·초원 17%·−64~25°C / 명왕성 땅 64.1%·빙상 41·타이가 23·툰드라 19%·−71~15°C. 땅 무게중심 위도: 수성 −14, 금성 33, 지구 −20, 화성 10, 명왕성 −75(남극 쪽 빙상).
 - 서버 표본 F5 확인 해시(e2e 서버 기록): 59.9~114.5ms씩, 합 약 0.37초. 정의 준비 전체 905.7ms(팩 행성 둘 포함). 팩 행성 F5 확인 해시 `884e2b28`·`95709b4b` 그대로(골든·서버 시험 통과). 팩 판이 올라도 행성 둘은 다시 굽지 않는다(캐시 키 = 생성기 판 + 정의 해시, e2e "준비 0.0초").
-- 시험: 콘텐츠·보관함 API·서버 편집기(DB 포함)·생성기 시험 168개 통과(표본 검사, 표본 정의·해시, 굽는 목록에 없음, template 만들기·잘못된 종류 `unknown_base`, 표본마다 F4 생성). 전체 `pnpm check`·`pnpm e2e` 결과는 아래 "합친 뒤".
+- 시험: 콘텐츠·보관함 API·서버 편집기(DB 포함)·생성기 시험 168개 통과(표본 검사, 표본 정의·해시, 굽는 목록에 없음, template 만들기·잘못된 종류 `unknown_base`, 표본마다 F4 생성). 전체 결과는 아래 "main을 합친 뒤".
 - 화면 시험 `e2e/planet-editor.spec.ts`: 첫 실행 13개 중 3개 실패 → 고침. 원인: 새 행성을 저장하면 보관함 행성으로 옮겨 화면을 새로 만들어(설정 탭부터) [지우기]가 숨은 탭에 있었다. 화성 행성이 남아 뒤 시험 둘(대륙 모양·dev)이 다른 행성을 열었다. 고친 뒤 다시 돌려 앞 세 개 통과 확인(나머지는 문구를 줄이느라 멈추고 전체 실행에서 확인).
-- 사진: 표본 그림(F7, 지구본 두 면 + 경위도 바이옴 지도 + 설명·범례, 영어) `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/planet-samples/shots/` — `solar_mercury.png`·`solar_venus.png`·`solar_earth.png`·`solar_mars.png`·`solar_pluto.png`, 한 장 `all-samples.png`. 편집기 `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/planet-samples/shots/editor/` — `planet-editor-390|1440-<테마>-<언어>-new-template.png`(화성 표본 고른 창), `…-new-list.png`(목록 모양: 사진에서만 고르기에 size를 주고 모서리를 폈다), 390은 `…-new.png`(처음 열린 창)도.
+- main을 합친 뒤(`323f707`, 충돌 없음): `TEST_DATABASE_URL=… pnpm check` 통과(시험 파일 211개·시험 2,051개, DB 시험 포함), `pnpm check:content origin/main` 통과(core@4, 단계 1·2·4a·4b), `pnpm check:docs` 통과, `pnpm e2e` 전체 80개 통과(4.1분).
+- 사진: 표본 그림(F7, 지구본 두 면 + 경위도 바이옴 지도 + 설명·범례, 영어) `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/planet-samples/shots/` — `solar_mercury.png`·`solar_venus.png`·`solar_earth.png`·`solar_mars.png`·`solar_pluto.png`, 한 장 `all-samples.png`. 편집기(전체 e2e 실행의 사진) `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/planet-samples/shots/editor/` — `planet-editor-390|1440-<테마>-<언어>-new-template.png`(화성 표본 고른 창), `…-new-list.png`(목록 모양: 사진에서만 고르기에 size를 주고 모서리를 폈다), 390은 `…-new.png`(처음 열린 창)도.
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
@@ -34,6 +35,7 @@
 | `packages/planet/src/generator/generate.test.ts` | 팩 표본마다 면 레벨 범위·F4 생성 |
 | `e2e/planet-editor.spec.ts` | 화성 표본 시험, 시작점 고르기 값 `pack:…`, 시작점 창 사진 |
 | `docs/adr/2026-10-29-planet-editor-stage1.md`·`2026-10-31-continent-layouts.md`·`docs/PLAN.md` | 행성 표본 절(자료 자리·서버·보관함·기기·설정 표·출처·남은 특징), 반구 방향 한 줄, PLAN 표 |
+| `AGENTS.md` | 명령 표 `PLANET_CACHE_DIR` 줄: 표본은 굽지 않고 확인 해시만(약 0.4초) |
 
 ## 함께 바꿔야 하는 파일
 - 표본을 더하거나 고치면 `content/core/manifest.json` 판을 올린다. 표본 ID를 지우거나 바꾸면 `id-changes.json`에 뒤로만 더한다(보관함 행성의 `base.id`가 가리킨다).

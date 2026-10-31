@@ -12,8 +12,15 @@ export interface SecondMapPreviewRequest {
   readonly id: number;
   /** 행성 값 열쇠(previewKey(input)) — 같으면 워커가 들고 있는 행성 값을 다시 쓴다 */
   readonly planetKey: string;
-  /** 행성 생성기 입력(면 레벨 = 행성 정의의 면 레벨) */
-  readonly input: PlanetGeneratorInput;
+  /** 행성 생성기 입력(면 레벨 = 행성 정의의 면 레벨). 없으면 definition으로 워커가 만든다 */
+  readonly input?: PlanetGeneratorInput | undefined;
+  /**
+   * 행성 원본 항목 + 팩 바이옴 항목 + 면 레벨(개발자 2차맵 시험): 워커가 생성기 입력을 만든다. 화면 조각이 생성기를 가져오지 않게
+   * (개발자 도구 둘이 같이 쓰는 조각에 생성기가 들면 미리 캐시 검사에 걸린다)
+   */
+  readonly definition?:
+    | { readonly entry: unknown; readonly biomes: readonly unknown[]; readonly faceLevel: number }
+    | undefined;
   /** 2차맵 키 = 행성 면 레벨 칸의 셀 키. null이면 preset으로 워커가 찾는다 */
   readonly mapKey: number | null;
   /** 시험 자리 종류(개발자 2차맵 시험): mapKey가 null일 때 행성 값에서 찾는다(@terra/planet/secondMap findMapPreset) */

@@ -13,7 +13,7 @@ import {
   SecondMapPreviewError,
   type SecondMapPreviewClient,
   previewTerrainInput,
-} from "./secondMapPreviewClient.ts";
+} from "../../map/secondMapBuildClient.ts";
 import type { SecondMapPreviewResult, SecondMapPreviewStage } from "./secondMapPreviewProtocol.ts";
 
 export interface SecondMapPreviewProps {

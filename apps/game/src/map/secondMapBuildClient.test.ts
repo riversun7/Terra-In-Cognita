@@ -7,9 +7,12 @@ import {
   type SecondMapWorkerHandlers,
   createSecondMapPreviewClient,
   previewTerrainInput,
-} from "./secondMapPreviewClient.ts";
-import type { SecondMapPreviewRequest, SecondMapPreviewTerrain } from "./secondMapPreviewProtocol.ts";
-import { PACK_BIOMES, TEST_PLANET } from "./testDefinitions.ts";
+} from "./secondMapBuildClient.ts";
+import type {
+  SecondMapPreviewRequest,
+  SecondMapPreviewTerrain,
+} from "../editor/planet/secondMapPreviewProtocol.ts";
+import { PACK_BIOMES, TEST_PLANET } from "../editor/planet/testDefinitions.ts";
 
 const NO_WATER = -2_147_483_648;
 const INPUT = planetInputFromDefinition(TEST_PLANET, PACK_BIOMES, 5);

@@ -1,12 +1,19 @@
 // 2차맵 시험 화면의 판(조작·칸 정보) — 그리기만 한다(상태는 SecondMapLabScreen.tsx). 휴대폰은 지도 아래, 넓은 화면은 옆.
 // 판은 섹션 다섯: 자리(행성·빨리 가기·면 i j·키), 시각(낮밤·지역 시각), 고저(높이 과장), 보기(이웃·격자·모델 거리·상한), 칸 정보.
-import { MAP_PRESETS, type MapPreset, type PlanetCellValues } from "@terra/planet/secondMap";
+import type { MapPreset, PlanetCellValues } from "@terra/planet/secondMap";
 import { useId } from "react";
 import { m } from "../../paraglide/messages.js";
-import { formatNumber, localName } from "../planet/editorMessages.ts";
 import { formatLocalTime } from "../../map/secondMapSky.ts";
 import { EXAGGERATION_STEPS, type LabPointInfo } from "./labTerrain.ts";
-import { PRESET_TEXT, artText, coverText, surfaceText } from "./labMessages.ts";
+import {
+  LAB_PRESETS,
+  PRESET_TEXT,
+  artText,
+  coverText,
+  formatNumber,
+  localName,
+  surfaceText,
+} from "./labMessages.ts";
 import type { LabMap, LabPlanet } from "./labSource.ts";
 
 /** 게임 높이 → 실제 높이 배율(@terra/planet generator VERTICAL_SCALE) */
@@ -209,7 +216,7 @@ export function LabPanel(props: LabPanelProps) {
         <div className="field">
           <span className="field-label">{m.second_map_lab_presets()}</span>
           <div className="sml-presets">
-            {(["test", ...MAP_PRESETS] as const).map((preset) => (
+            {(["test", ...LAB_PRESETS] as const).map((preset) => (
               <button
                 key={preset}
                 type="button"

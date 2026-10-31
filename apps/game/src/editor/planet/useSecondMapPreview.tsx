@@ -7,12 +7,13 @@
 // - 엔진 렌더러는 앱에 하나다(sharedRenderer.ts: 빌려 가면 앞 쪽 캔버스가 떼어진다). 그래서 창이 열린 동안(open) 편집 화면은
 //   지구본 엔진을 내리고, 닫으면 같은 보기로 다시 만든다(EditorGlobe의 보기 넘기기).
 import { type ReactNode, Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import type { PlanetGeneratorInput } from "@terra/planet/generator";
 import { cellAtLatLon } from "./cellReport.ts";
 import type { LatLon } from "./flatMapRender.ts";
 import { previewInput } from "./previewController.ts";
 import { previewKey } from "./previewJobs.ts";
 import type { PreviewDefinition } from "./previewTypes.ts";
-import { type SecondMapJob, createSecondMapPreviewClient } from "./secondMapPreviewClient.ts";
+import { type SecondMapJob, createSecondMapPreviewClient } from "../../map/secondMapBuildClient.ts";
 
 const SecondMapPreview = lazy(() => import("./planetEditorSecondMap.ts"));
 
@@ -45,7 +46,7 @@ interface OpenJob {
 /** 정의의 행성 입력(진짜 면 레벨). 생성기가 받지 않는 정의면 null(단추를 숨긴다: 미리보기도 rejected다) */
 function planetJobBase(
   definition: PreviewDefinition,
-): { input: SecondMapJob["input"]; planetKey: string } | null {
+): { input: PlanetGeneratorInput; planetKey: string } | null {
   const level: unknown =
     typeof definition.entry === "object" && definition.entry !== null
       ? Reflect.get(definition.entry, "faceLevel")

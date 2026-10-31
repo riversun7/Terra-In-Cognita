@@ -1,8 +1,37 @@
 // 2차맵 시험 화면 문구 표 — 지표·소품 그림·엄폐·시험 자리·실패 코드 → 메시지(oxlint: 메시지 이름을 계산해 읽지 않는다, 표로 적는다)
-import { MAP_PROP_ARTS } from "@terra/shared";
 import type { MapPreset } from "@terra/planet/secondMap";
+import { MAP_PROP_ARTS } from "@terra/shared";
 import { m } from "../../paraglide/messages.js";
+import { getLocale } from "../../paraglide/runtime.js";
 import type { LabErrorCode } from "./labSource.ts";
+
+// 행성 편집기의 같은 도우미(editor/planet/editorMessages.ts)를 가져오지 않고 여기 둔다: 개발자 도구 둘이 같이 쓰는 조각에
+// 편집기 모듈이 들면 미리 캐시 검사에 걸린다(labSource.ts 머리 주석)
+
+/** 시험 자리 종류(@terra/planet/secondMap MAP_PRESETS와 같은 차례. 그 진입점은 생성기를 함께 묶어서 값은 가져오지 않는다) */
+export const LAB_PRESETS = [
+  "river",
+  "coast",
+  "lake",
+  "mountain",
+  "forest",
+  "grassland",
+] as const satisfies readonly MapPreset[];
+
+/** 지금 언어의 수 글(소수 digits자리) */
+export function formatNumber(value: number, digits = 0): string {
+  return new Intl.NumberFormat(getLocale(), {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value);
+}
+
+/** 콘텐츠 이름 {ko, en} → 지금 언어 글. 없으면 fallback */
+export function localName(value: unknown, fallback: string): string {
+  if (typeof value !== "object" || value === null) return fallback;
+  const text: unknown = Reflect.get(value, getLocale() === "en" ? "en" : "ko");
+  return typeof text === "string" && text !== "" ? text : fallback;
+}
 
 /** 지표 코드(엔진 SURFACE, 2차맵 생성기 SM_SURFACE와 같은 번호) → 이름 */
 const SURFACE_TEXT: readonly (() => string)[] = [

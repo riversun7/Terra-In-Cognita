@@ -7,7 +7,12 @@
 // - 개발자 2차맵 시험(/dev/second-map)도 같은 워커를 쓴다: 키 대신 시험 자리 종류(preset), 8이웃(neighbours), 행성 칸 값(cell).
 // 던지지 않는다: 받지 않는 입력은 rejected, 맞는 자리가 없으면 none, 그 밖의 오류는 failed로 답한다.
 import { isCellKey, stepCell } from "@terra/planet";
-import { runPlanetGenerator, validatePlanetInput } from "@terra/planet/generator";
+import {
+  type PlanetGeneratorInput,
+  planetInputFromDefinition,
+  runPlanetGenerator,
+  validatePlanetInput,
+} from "@terra/planet/generator";
 import {
   type MapPreset,
   type MapPropInput,
@@ -92,7 +97,7 @@ export function runSecondMapJob(
   slot: PlanetValuesSlot,
   options: SecondMapWorkOptions = {},
 ): SecondMapWorkOutput {
-  const { id, input } = request;
+  const { id } = request;
   const now = options.now ?? (() => performance.now());
   const onStage = options.onStage ?? (() => undefined);
   const reject = (error: unknown): SecondMapWorkOutput => ({
@@ -100,7 +105,13 @@ export function runSecondMapJob(
     transfer: [],
   });
   let props: MapPropInput[];
+  let input: PlanetGeneratorInput;
   try {
+    const { definition } = request;
+    if (request.input) input = request.input;
+    else if (definition)
+      input = planetInputFromDefinition(definition.entry, definition.biomes, definition.faceLevel);
+    else throw new TypeError("request needs input or definition");
     validatePlanetInput(input);
     props = mapPropInputsFromJson(request.props);
   } catch (error) {

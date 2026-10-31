@@ -30,6 +30,8 @@
   - 알림은 오른쪽 가운데 1·2차맵 전환 단추를 피해 왼쪽에 붙인다.
 - 감사 기록은 새로 쓰지 않는다(ADR 46 메모). 새 조회·지형 경로 읽기는 보기 전용이고 지형은 숨김 정보가 아니다. 행성 목록을 받는 편집기 정의 조회는 전처럼 기록을 남긴다(시드가 든 자료).
 - 미리 캐시: 화면 조각 `SecondMapLabScreen-*`을 뺀다(`DEV_ONLY_CHUNK`·`DEV_ONLY_SOURCE`·Workbox `globIgnores`).
+  - 처음 빌드에서 `check-pwa`가 실패했다. 편집기 모듈을 같이 써서 생긴 `libraryClient-*`·`workspaceParts-*` 조각이 미리 캐시됐다.
+  - 이 화면이 편집기 모듈·생성기를 가져오지 않게 고쳤다(워커가 원본 항목에서 생성기 입력을 만든다, 확인은 지도 위 카드). 워커 손잡이는 `src/map/secondMapBuildClient.ts`로 옮겼다. 그 뒤 `check-pwa`가 통과했다.
 
 ## 잰 값
 - 화면 시험(헤드리스 Chromium, 개발 컨테이너)(**Verified**: 이 환경)
@@ -42,7 +44,12 @@
 - 서버 시험 자리 찾기(F9 행성 값 풀기 + 여섯 종류 훑기)의 이벤트 루프 시간은 재지 않았다(**Assumed**: 약 0.1~0.3초, 처음 한 번).
 
 ## 검사
-- (커밋 전에 채움)
+- main `6c57543`(경제·세력·우편 화면, R4b)을 받은 뒤에 쟀다.
+- `pnpm check`(DB 시험 포함): 2,479개 모두 통과.
+- `pnpm e2e` 관련 넷(`second-map-lab`·`dev`·`vision`·`planet-editor`): 46개 중 45개 통과, 1개 건너뜀(측정 시험, `E2E_MEASURE=1`일 때만), 6.9분.
+  - 그 전 실행에서 `dev.spec`의 player 시험이 `page.goto` ERR_ABORTED로 한 번 실패했다. 그 파일만 다시 돌려 12개 모두 통과했다(전부터 알려진 흔들림).
+- `check-pwa` 통과(편집기 모듈을 떼어 낸 뒤).
+- `pnpm check:bundle`: 첫 화면 JS 129,628B / 상한 131,416B. 화면 조각 `SecondMapLabScreen-*` 27,879B(gzip 9,519B)는 미리 캐시에서 빠진다. main만 따로 재지 않아 이 일로 는 몫은 모른다(**Unknown**: 주소 표 한 줄이라 수십 B로 봄).
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
@@ -51,7 +58,8 @@
 | `apps/server/src/world/secondMapLab.ts`(새)·`secondMapLab.test.ts`(새), `src/trpc/planetEditor.ts`·`context.ts`·`createContext.ts`·`planetEditorRouter.test.ts`, `src/planetEditor/types.ts`, `src/app.ts` | `planetEditor.secondMap` 조회 |
 | `packages/engine/src/props/propView.ts`, `terrain/terrainMaterial.ts`(+시험)·`terrainView.ts`·`neighbourTerrains.ts`, `camera/cameraMath.ts`, `secondMapEngine.ts`·`engineParts.ts`·`engineTypes.ts`·`index.ts` | 보기 설정(격자·소품 모델 거리·상한), 처음 카메라 거리 |
 | `apps/game/src/editor/secondMapLab/`(새: 화면·판·자료·순수 계산·문구·CSS·시험 둘) | 2차맵 시험 화면 |
-| `apps/game/src/editor/planet/secondMapPreviewProtocol.ts`·`secondMapPreviewWork.ts`(+시험)·`secondMapPreviewClient.ts`(+시험)·`SecondMapPreview.tsx` | 워커 부탁에 시험 자리·8이웃·칸 값 |
+| `apps/game/src/editor/planet/secondMapPreviewProtocol.ts`·`secondMapPreviewWork.ts`(+시험)·`SecondMapPreview.tsx`·`useSecondMapPreview.tsx`·`planetEditorSecondMapWorker.ts` | 워커 부탁에 시험 자리·8이웃·칸 값, 원본 항목(`definition`)으로 생성기 입력 만들기 |
+| `apps/game/src/map/secondMapBuildClient.ts`(+시험, `editor/planet/secondMapPreviewClient.ts`에서 옮김) | 두 개발자 도구가 같이 쓰는 워커 손잡이를 개발자 소스 폴더 밖으로(미리 캐시 검사) |
 | `apps/game/src/map/mapFeed.ts`(+시험)·`feedTypes.ts`·`SecondaryMapScreen.tsx`·`map.css` | 탐사 칸 수, 검은 2차맵 안내 |
 | `packages/shared/src/routes.ts`(+시험), `apps/game/src/shell/routeViews.tsx`·`SideMenu.tsx`, `src/editor/DevHome.tsx`, `src/sections/ComingSoon.tsx` | 주소·개발자 도구 줄 |
 | `apps/game/vite.config.ts`, `scripts/pwa-build.mjs`(+시험) | 미리 캐시에서 빼기 |

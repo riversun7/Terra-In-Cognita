@@ -4,7 +4,7 @@ import { cellKey } from "@terra/planet";
 import { S1_TEST_MAP_KEY, terrainPath } from "@terra/protocol";
 import { describe, expect, it } from "vitest";
 import { neighbourSpots } from "../../map/secondMapNeighbours.ts";
-import type { SecondMapJob, SecondMapPreviewClient } from "../planet/secondMapPreviewClient.ts";
+import type { SecondMapJob, SecondMapPreviewClient } from "../../map/secondMapBuildClient.ts";
 import type { SecondMapPreviewResult } from "../planet/secondMapPreviewProtocol.ts";
 import { PACK_BIOMES, TEST_PLANET } from "../planet/testDefinitions.ts";
 import { type LabAnswer, LabLoadError, createLabSource } from "./labSource.ts";

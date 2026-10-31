@@ -22,10 +22,8 @@ import { formatLocalTime } from "../../map/secondMapSky.ts";
 import { fetchTerrain } from "../../map/terrainLoader.ts";
 import { api } from "../../net/api.ts";
 import { m } from "../../paraglide/messages.js";
-import { ConfirmDialog, type ConfirmRequest } from "../planet/ConfirmDialog.tsx";
-import { createSecondMapPreviewClient } from "../planet/secondMapPreviewClient.ts";
+import { createSecondMapPreviewClient } from "../../map/secondMapBuildClient.ts";
 import type { SecondMapPreviewStage } from "../planet/secondMapPreviewProtocol.ts";
-import { heavyConfirm } from "../planet/workspaceParts.tsx";
 import { LabPanel, type LabPanelProps, type LabSettings } from "./LabPanel.tsx";
 import { labErrorText } from "./labMessages.ts";
 import {
@@ -61,6 +59,8 @@ const DEFAULT_SETTINGS: LabSettings = {
 };
 /** 처음 카메라: 화면 짧은 변 약 360m(소품 모델 거리 420m 안, 고저가 보이게. 엔진 기본은 약 70m) */
 const INITIAL_ZOOM = 9;
+/** 이 면 레벨부터는 기기에서 행성을 처음 만들기 전에 묻는다(편집기 editorView.ts CONFIRM_PREVIEW_LEVEL과 같다) */
+const CONFIRM_BUILD_LEVEL = 9;
 /** 엔진 요약을 읽는 간격(ms) */
 const STATS_MS = 1000;
 
@@ -169,25 +169,30 @@ function Lab({ definitions }: { definitions: LabDefinitions }) {
   const [settings, setSettings] = useState<LabSettings>(DEFAULT_SETTINGS);
   const [point, setPoint] = useState<LabPointInfo | null>(null);
   const [stats, setStats] = useState<EngineStats | null>(null);
-  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  /** 이 기기에서 F9 이상 행성을 처음 만들기 전에 묻는 중(지도 위 카드) */
+  const [buildAsk, setBuildAsk] = useState<{ level: number; answer: (ok: boolean) => void } | null>(null);
   const [inputs, setInputs] = useState<LabPanelProps["inputs"]>({ face: "", i: "", j: "", key: "" });
 
   useEffect(() => () => client.dispose(), [client]);
 
-  /** 확인 창을 닫았을 때(취소) 풀 약속 */
-  const confirmCancelRef = useRef<(() => void) | null>(null);
-  /** F9 이상 행성을 이 기기에서 처음 만들 때 묻는다(편집기 F9 미리보기와 같은 확인 창) */
+  /**
+   * F9 이상 행성을 이 기기에서 처음 만들 때 묻는다(편집기 F9 미리보기 확인과 같은 기준 editorView.ts CONFIRM_PREVIEW_LEVEL).
+   * 편집기 확인 창 모듈은 가져오지 않는다(labSource.ts 머리 주석): 지도 위 카드로 묻는다
+   */
   const askBuild = useCallback(
     (level: number) =>
       new Promise<boolean>((resolve) => {
-        const request = heavyConfirm(level, () => resolve(true));
-        if (!request) {
+        if (level < CONFIRM_BUILD_LEVEL) {
           resolve(true);
           return;
         }
-        setConfirm({ ...request, onConfirm: () => resolve(true) });
-        // 창을 닫으면(취소·Esc) 아니오로 본다. 확인은 먼저 풀려서 이 값은 무시된다
-        confirmCancelRef.current = () => resolve(false);
+        setBuildAsk({
+          level,
+          answer: (ok) => {
+            setBuildAsk(null);
+            resolve(ok);
+          },
+        });
       }),
     [],
   );
@@ -368,6 +373,23 @@ function Lab({ definitions }: { definitions: LabDefinitions }) {
     >
       <div className="sml-stage">
         <div ref={hostRef} className="sml-view" role="img" aria-label={m.second_map_lab_view_label()} />
+        {buildAsk ? (
+          <div className="sml-ask" role="alertdialog" aria-labelledby="sml-ask-text">
+            <p id="sml-ask-text">{m.second_map_lab_build_ask({ level: String(buildAsk.level) })}</p>
+            <div className="sml-ask-actions">
+              <button type="button" className="button-small" onClick={() => buildAsk.answer(false)}>
+                {m.second_map_lab_cancel()}
+              </button>
+              <button
+                type="button"
+                className="button-small button-primary sml-ask-build"
+                onClick={() => buildAsk.answer(true)}
+              >
+                {m.second_map_lab_build()}
+              </button>
+            </div>
+          </div>
+        ) : null}
         <div className="sml-hud">
           <p className="sml-chip" role="status">
             {status.kind === "loading"
@@ -408,14 +430,6 @@ function Lab({ definitions }: { definitions: LabDefinitions }) {
           onSettings={(next) => setSettings((current) => ({ ...current, ...next }))}
         />
       </div>
-      <ConfirmDialog
-        request={confirm}
-        onClose={() => {
-          setConfirm(null);
-          confirmCancelRef.current?.();
-          confirmCancelRef.current = null;
-        }}
-      />
     </div>
   );
 }

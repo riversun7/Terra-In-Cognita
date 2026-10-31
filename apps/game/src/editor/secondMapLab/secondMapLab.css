@@ -194,3 +194,25 @@
     border-left: var(--border-w) solid var(--color-border);
   }
 }
+
+/* 기기에서 F9 행성을 처음 만들기 전 묻는 카드(지도 위 가운데) */
+.sml-ask {
+  position: absolute;
+  inset: auto var(--space-3) var(--space-3);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.sml-ask-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

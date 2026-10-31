@@ -5,19 +5,18 @@
 // - device: 월드 행성이 아니다(편집 전용 행성·행성 표본). 편집기 2차맵 미리보기 워커가 행성(진짜 면 레벨)부터 만든다
 //   (처음 한 번 F9 약 10~20초, 같은 행성이면 다시 쓴다). 이웃은 같은 워커가 함께 만든다.
 // 두 길 모두 게임 상태를 바꾸지 않는다(보기 전용). 지형·칸 값은 서버 판정 자료와 같은 생성기 코드다.
+// 행성 편집기 모듈(src/editor/planet/의 화면 모듈)·생성기를 가져오지 않는다: 개발자 도구 둘이 같이 쓰는 조각은 이름이 정해지지 않아
+// 개발자 소스가 들면 미리 캐시 검사에 걸린다(scripts/pwa-build.mjs DEV_ONLY_SOURCE). 생성기 입력은 워커가 원본 항목에서 만든다.
 import type { NeighbourPlacement, TerrainInput } from "@terra/engine";
 import { decodeCellKey, isCellKey } from "@terra/planet";
 import type { MapPreset, PlanetCellValues } from "@terra/planet/secondMap";
 import { S1_TEST_MAP_KEY } from "@terra/protocol";
-import { trpcErrorOf } from "../planet/libraryClient.ts";
-import { previewInput } from "../planet/previewController.ts";
-import { previewKey } from "../planet/previewJobs.ts";
 import {
   type SecondMapJob,
   SecondMapPreviewError,
   type SecondMapPreviewClient,
   previewTerrainInput,
-} from "../planet/secondMapPreviewClient.ts";
+} from "../../map/secondMapBuildClient.ts";
 import type { SecondMapPreviewStage } from "../planet/secondMapPreviewProtocol.ts";
 import { neighbourSpots, neighbourTerrainUrl } from "../../map/secondMapNeighbours.ts";
 
@@ -135,6 +134,13 @@ function keyLevel(mapKey: number): number | null {
   return isCellKey(mapKey) ? decodeCellKey(mapKey).level : null;
 }
 
+/** 오류의 tRPC 코드·이유 코드(tRPC 응답이 아니면 null) */
+function trpcErrorOf(error: unknown): { code: unknown; reason: unknown } {
+  const data: unknown = typeof error === "object" && error !== null ? Reflect.get(error, "data") : null;
+  if (typeof data !== "object" || data === null) return { code: null, reason: null };
+  return { code: Reflect.get(data, "code"), reason: Reflect.get(data, "reason") };
+}
+
 /** 서버 오류 → 실패 코드 */
 function serverError(error: unknown): LabLoadError {
   const { code, reason } = trpcErrorOf(error);
@@ -156,17 +162,13 @@ function deviceError(error: unknown): LabLoadError {
 export function createLabSource(deps: LabSourceDeps): LabSource {
   const now = deps.now ?? (() => performance.now());
 
-  /** device 길의 행성 입력·열쇠 */
+  /** device 길의 행성(원본 항목·면 레벨)과 워커 행성 열쇠(같은 원본이면 워커가 행성 값을 다시 쓴다) */
   const devicePlanet = (planetId: string) => {
     const planet = deps.definitions.planets.find((item) => item.id === planetId);
     const level = planet ? faceLevelOf(planet.entry) : null;
     if (!planet || level === null) throw new LabLoadError("unknown_planet", `unknown planet ${planetId}`);
-    try {
-      const input = previewInput({ entry: planet.entry, biomes: deps.definitions.biomes }, level);
-      return { input, level, planetKey: previewKey(input) };
-    } catch (error) {
-      throw new LabLoadError("rejected", error instanceof Error ? error.message : String(error));
-    }
+    const definition = { entry: planet.entry, biomes: deps.definitions.biomes, faceLevel: level };
+    return { definition, level, planetKey: `${planetId}:${level}:${JSON.stringify(planet.entry)}` };
   };
 
   /** device 부탁: 시험 2차맵은 같은 면 레벨이면 월드 시험 2차맵 자리, 아니면 초지 */
@@ -175,8 +177,8 @@ export function createLabSource(deps: LabSourceDeps): LabSource {
     target: LabTarget,
     neighbours: boolean,
   ): { job: SecondMapJob; level: number } => {
-    const { input, level, planetKey } = devicePlanet(planetId);
-    const base = { planetKey, input, props: deps.definitions.mapProps, neighbours };
+    const { definition, level, planetKey } = devicePlanet(planetId);
+    const base = { planetKey, definition, props: deps.definitions.mapProps, neighbours };
     if (target.kind === "key") {
       if (keyLevel(target.mapKey) !== level)
         throw new LabLoadError("bad_key", `map key is not a level ${level} cell`);

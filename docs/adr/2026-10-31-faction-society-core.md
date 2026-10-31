@@ -106,7 +106,7 @@
 | S23 | `dictatorshipSatisfactionDrop` 20 [임시] |
 | S25 | `homelessRecoveryPm` 100 [임시] |
 | S26 | `rebellionThreshold` 40 |
-| N35 | `rebellionWarningAt` 50(설정값 출발값, D-444·D-5032), `sabotageAt` 60(기술 [임시] 그대로, 49 N35) |
+| N35 | `rebellionWarningAt` 50(설정값 출발값, D-444·D-5032), `sabotageAt` 60(설정값 출발값, D-446·D-5032, 49 N35) |
 | S27 | `independencePassPm` 500 (구조) |
 | S30 | `offerDeadlineMs` 3일 [임시] |
 | S31 | `delistSatisfactionDrop` 15, `delistRelationDrop` 20 [임시] |
@@ -179,7 +179,7 @@
 | `s33_tribute_rate` | S33 | 50(‰, 출발값) |
 | `d443_tribute_every` | — | 604800000(7일) |
 | `n35_rebellion_warning` | N35 | 50(출발값) |
-| `n35_sabotage` | N35 | 60 [임시] |
+| `n35_sabotage` | N35 | 60(설정값 출발값, D-446) |
 | `n6_k_min`·`n6_k_max` | N6 | 800·1200 |
 | `n7_max_level` | N7 | 50(구조) |
 | `n9_initial_sum`·`n9_initial_min`·`n9_initial_max` | N9 | 60·1·20 |

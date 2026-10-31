@@ -10,6 +10,7 @@
 | 2026-10-31 19:30 | S3 WP-B: 2차맵 시야 전송, 탐사 기록, 프로토콜 3, 안개, 시험 단추 | Claude Code | [31-1930-s3-wp-b-vision](worklog/2026/10/31-1930-s3-wp-b-vision.md) |
 | 2026-10-31 16:50 | S3 WP-C: 오프라인 정산·최소 원장·접속 상태·복귀 요약 생산 칸 | Claude Code | [31-1650-s3-wp-c-settlement](worklog/2026/10/31-1650-s3-wp-c-settlement.md) |
 | 2026-10-31 16:30 | S3 NAS 계단 시험 결과 — 10만 개까지 버팀 | Claude Code | [31-1630-s3-ramp-result](worklog/2026/10/31-1630-s3-ramp-result.md) |
+| 2026-10-31 16:25 | 바다 특수 지형 후보 제안(질문 103 나): 후보 12개, 생성 조건, 잰 값 | Claude Code | [31-1625-ocean-terrain](worklog/2026/10/31-1625-ocean-terrain.md) |
 | 2026-10-31 16:10 | 행성 표본: 태양계 암석 행성 다섯(편집기 시작점, 서버는 굽지 않음) | Claude Code | [31-1610-planet-samples](worklog/2026/10/31-1610-planet-samples.md) |
 | 2026-10-31 16:00 | S3 계단 시험: 시험 DB를 전용 컨테이너로 바꿈 | Claude Code | [31-1600-s3-ramp-db](worklog/2026/10/31-1600-s3-ramp-db.md) |
 | 2026-10-31 16:00 | 기획 반영 — 원본 fd3ffeb(D-354~D-388 우주, Step 5 D-5055~D-5062), 우주층 데이터 모델 골격 ADR, 질문 115~118 | Claude Code | [31-1600-planning-space](worklog/2026/10/31-1600-planning-space.md) |

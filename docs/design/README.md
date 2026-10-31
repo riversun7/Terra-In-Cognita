@@ -5,8 +5,8 @@
 읽는 순서(기획 세션 안내): `00_README.md` → `02_Decision_Log.md` → `10_Concept.md`·`20_Core_Loop.md`·`30_World.md`·`40_Systems/` → `03_Planning_Rules.md`. 기술 쪽 영향 범위를 볼 때는 `03_Planning_Rules.md` 10장(결합 지도)을 본다.
 
 - 원본: AntiGravt01 저장소, 브랜치 `claude/sweet-wright-4ubb2u`, 폴더 `docs/GDD_v4/`
-- 원본 커밋: `9f2ba5af3074f3b1c047656090b2216bb65568ff` (결정 로그 D-001~D-413, Step 5 D-5001~D-5068, Step 6 D-6001~D-6049, Step 7 D-7001~D-7054)
-- 동기화 시각: 2026-10-31 18:20 (KST)
+- 원본 커밋: `c403f5bd9088521c7946eb8999c0def3a551bf0a` (결정 로그 D-001~D-421, Step 5 D-5001~D-5068, Step 6 D-6001~D-6049, Step 7 D-7001~D-7054)
+- 동기화 시각: 2026-10-31 19:15 (KST)
 
 ## 규칙
 - 기획 세션("0.기획서 개편")이 원본을 쓰고 관리한다.

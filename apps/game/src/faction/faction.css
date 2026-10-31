@@ -493,6 +493,43 @@
 .faction-gardener td::before {
   content: none;
 }
+/* 조약 제안(D-444 167): 카드마다 이름·맺는 길 + 단추. 넓으면 두 줄로 나눈다 */
+.faction-treaty-offers {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+}
+.faction-treaty-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+}
+.faction-treaty-offer > .faction-stack {
+  flex: 1 1 10rem;
+}
+/* 단추가 다음 줄로 내려가도 끝에 붙인다(줄마다 단추 자리가 같게) */
+.faction-treaty-offer > .soon-button {
+  margin-inline-start: auto;
+}
+.faction-treaty-offer-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+@container faction-main (min-width: 40em) {
+  .faction-treaty-offers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 @container faction-main (min-width: 40em) {
   .faction-table {
     border-collapse: collapse;

@@ -33,7 +33,7 @@ import { registerTrpc } from "./trpc/plugin.ts";
 import { appRouter } from "./trpc/router.ts";
 import { cacheViewer, createWorldGateway } from "./world/gateway.ts";
 import { createCyborgGateway } from "./cyborg/gateway.ts";
-import { type CyborgService, cyborgReadsOf, cyborgRulesFrom } from "./cyborg/service.ts";
+import { type CyborgService, cyborgReadsOf } from "./cyborg/service.ts";
 import { createWorldSummaryBackend } from "./world/summarySources.ts";
 import type { RosterCatalog } from "./roster/catalog.ts";
 import { createWorldRosterSource } from "./roster/worldUnits.ts";
@@ -225,10 +225,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         now,
         log: app.log,
         pool: options.db?.$client,
-        // 사이보그 만들기 규칙: 팩 tuning(N9·N6·n9_*). 팩이 없으면 sim 시험 계수표
-        cyborgRules: rosterCatalog
-          ? () => cyborgRulesFrom(rosterCatalog.society, rosterCatalog.creation)
-          : undefined,
+        // 사이보그 만들기 규칙: 팩 tuning을 얹은 세력·사회 계수표(N9·N6, 환생과 같은 굴리기). 팩이 없으면 sim 시험 계수표
+        cyborgRules: rosterCatalog ? () => rosterCatalog.society : undefined,
       })
     : undefined;
   // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md): 세계가 준비된 뒤의 서비스(DB가 있는 월드만)

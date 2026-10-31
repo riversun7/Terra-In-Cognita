@@ -94,7 +94,7 @@ export interface WorldConfig {
    * 있으면 부팅이 행성 값을 기다린다(행성 서비스가 캐시를 읽거나 굽는 동안)
    */
   terrain?: TerrainService | undefined;
-  /** 사이보그 만들기 규칙(팩 tuning N9·N6·n9_*). 없으면 sim 시험 계수표 */
+  /** 사이보그 만들기 규칙(팩 tuning을 얹은 세력·사회 계수표 N9·N6). 없으면 sim 시험 계수표 */
   cyborgRules?: (() => CyborgRules) | undefined;
 }
 

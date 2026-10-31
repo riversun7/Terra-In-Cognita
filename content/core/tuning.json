@@ -691,6 +691,16 @@
       "structural": false
     },
     {
+      "id": "d444_delist_loyalty",
+      "code": "",
+      "name": {
+        "ko": "독재 재발행 충성 보상 몫(‰, D-444)",
+        "en": "Dictatorship reissue loyalty share (‰, D-444)"
+      },
+      "value": 200,
+      "structural": false
+    },
+    {
       "id": "s33_tribute_rate",
       "code": "S33",
       "name": {
@@ -1001,6 +1011,36 @@
       "structural": false
     },
     {
+      "id": "n9_initial_rerolls",
+      "code": "N9",
+      "name": {
+        "ko": "다시 굴리기 횟수",
+        "en": "Initial rerolls"
+      },
+      "value": 3,
+      "structural": false
+    },
+    {
+      "id": "n9_initial_favor",
+      "code": "N9",
+      "name": {
+        "ko": "성향 평균 올림(밀리점)",
+        "en": "Temperament mean boost (milli-points)"
+      },
+      "value": 4000,
+      "structural": false
+    },
+    {
+      "id": "n9_initial_spread",
+      "code": "N9",
+      "name": {
+        "ko": "스탯 표준편차",
+        "en": "Initial stat spread"
+      },
+      "value": 3000,
+      "structural": false
+    },
+    {
       "id": "n34_rebirth_faith",
       "code": "N34",
       "name": {
@@ -1018,46 +1058,6 @@
         "en": "Cyborg rebirth currency cost (minor units)"
       },
       "value": 10000,
-      "structural": false
-    },
-    {
-      "id": "n9_rerolls",
-      "code": "N9",
-      "name": {
-        "ko": "초기 스탯 다시 굴리기 횟수",
-        "en": "Initial stat rerolls"
-      },
-      "value": 3,
-      "structural": false
-    },
-    {
-      "id": "n9_bias_favored",
-      "code": "N9",
-      "name": {
-        "ko": "성향이 고른 스탯 가중치(‰)",
-        "en": "Temperament favored stat weight (‰)"
-      },
-      "value": 1400,
-      "structural": false
-    },
-    {
-      "id": "n9_bias_other",
-      "code": "N9",
-      "name": {
-        "ko": "성향 밖 스탯 가중치(‰)",
-        "en": "Other stat weight (‰)"
-      },
-      "value": 800,
-      "structural": false
-    },
-    {
-      "id": "n9_spread",
-      "code": "N9",
-      "name": {
-        "ko": "초기 스탯 흩어짐(균등 셋의 반폭, 0.001점)",
-        "en": "Initial stat spread (half width of three uniforms, 0.001 pt)"
-      },
-      "value": 3000,
       "structural": false
     },
     {

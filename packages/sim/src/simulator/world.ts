@@ -44,6 +44,14 @@ export interface SimFaction {
   eventId: number | undefined;
 }
 
+/**
+ * [임시] 지배 가문 금고 주체 = 세력 국고 주체. 가문 층이 아직 없다(ADR faction-society-core "바뀜 (2026-11-01)" 1·
+ * "바뀜 (2026-11-01, D-444)"). 가문이 들어오면 이 함수만 바꾼다(배당 ③·상장폐지 재발행·독재 과반 검사가 이 값을 쓴다)
+ */
+export function rulingFamilyOf(faction: SimFaction): number {
+  return faction.id;
+}
+
 export interface SimCity {
   readonly id: number;
   owner: number;

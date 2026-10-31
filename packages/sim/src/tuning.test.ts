@@ -1,14 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TEST_COMBAT_COEFFICIENTS } from "./combat/coefficients.ts";
 import { TEST_SOCIETY_COEFFICIENTS } from "./society/coefficients.ts";
-import { TEST_CYBORG_CREATION } from "./cyborg/initialStats.ts";
-import {
-  TUNING_KEYS,
-  combatCoefficientsFrom,
-  cyborgCreationFrom,
-  societyCoefficientsFrom,
-  tuningValue,
-} from "./tuning.ts";
+import { TUNING_KEYS, combatCoefficientsFrom, societyCoefficientsFrom, tuningValue } from "./tuning.ts";
 
 describe("설정 칸 값 → 계수표", () => {
   it("값이 없으면 기본 계수표 그대로, 있으면 그 칸만 바뀐다(원본은 그대로)", () => {
@@ -36,19 +29,32 @@ describe("설정 칸 값 → 계수표", () => {
       25_000, 50, 100,
     ]);
     expect(TEST_SOCIETY_COEFFICIENTS.cyborg.rebirthCurrency).toBe(10_000);
-  });
-
-  it("사이보그 만들기 계수(N9 성향 치우침·흩어짐·다시 굴리기)도 같은 길로 바뀐다", () => {
-    expect(cyborgCreationFrom(new Map())).toEqual(TEST_CYBORG_CREATION);
-    const tuned = cyborgCreationFrom(
+    // D-444: 독재 재발행 충성 보상 몫, 다시 굴리기 횟수(생성·환생 같은 칸)
+    const d444 = societyCoefficientsFrom(
       new Map([
-        ["n9_rerolls", 5],
-        ["n9_bias_favored", 1500],
-        ["n34_rebirth_faith", 1],
+        ["d444_delist_loyalty", 300],
+        ["n9_initial_rerolls", 5],
       ]),
     );
-    expect(tuned).toEqual({ ...TEST_CYBORG_CREATION, rerolls: 5, favoredPm: 1500 });
-    expect(TEST_CYBORG_CREATION.rerolls).toBe(3);
+    expect([d444.delistLoyaltyPm, d444.cyborg.initialRerolls, d444.cyborg.temperaments.length]).toEqual([
+      300, 5, 4,
+    ]);
+  });
+
+  it("첫 접속 치우침(N9, D-445 168 출발값 4000)·시작 도시 붐빔 문턱(D-6041)도 같은 길로 바뀐다", () => {
+    expect(TEST_SOCIETY_COEFFICIENTS.cyborg.initialFavorMilli).toBe(4000);
+    const tuned = societyCoefficientsFrom(
+      new Map([
+        ["n9_initial_favor", 3500],
+        ["d6041_crowd_normal", 10],
+        ["d6041_crowd_busy", 30],
+      ]),
+    );
+    expect([
+      tuned.cyborg.initialFavorMilli,
+      tuned.cyborg.startCrowdNormal,
+      tuned.cyborg.startCrowdBusy,
+    ]).toEqual([3500, 10, 30]);
   });
 
   it("모든 키는 계수표의 숫자 칸을 가리키고, ID는 겹치지 않는다", () => {

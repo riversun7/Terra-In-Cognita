@@ -27,6 +27,7 @@ import {
   type SimUnit,
   TEST_ASSET_CREDIT,
   newFaction,
+  rulingFamilyOf,
   streamRng,
   transferAsset,
   transferCity,
@@ -206,7 +207,12 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       // [임시] 대리 판단: 약탈·통합 반반, 상장폐지 3분의 1
       const treatment = (rolls[0] ?? 0) % 2 === 0 ? "loot" : "integrate";
       const choice = (rolls[1] ?? 0) % 3 === 0 ? "delist" : "keep";
-      const decided = settleShares(book, cityId, target.id, attacker.id, attacker.regime, choice, nowMs, c);
+      const occupier = {
+        treasury: attacker.id,
+        regime: attacker.regime,
+        rulingFamily: rulingFamilyOf(attacker),
+      };
+      const decided = settleShares(book, cityId, target.id, occupier, choice, nowMs, c);
       const shifts = occupationShifts(treatment, decided, target.regime, attacker.regime, c);
       for (const unit of world.units.values())
         if (unit.city === cityId)

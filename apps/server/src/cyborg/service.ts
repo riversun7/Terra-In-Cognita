@@ -15,19 +15,16 @@ import type {
 import { isCyborgAppearance, parseCyborgName } from "@terra/shared/cyborg";
 import type { LocalizedName } from "@terra/shared/roster";
 import type { CyborgResultCode, CyborgRollWire } from "@terra/protocol";
-import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS, WALK_SPEED } from "@terra/sim";
+import { createRng } from "@terra/shared";
 import {
-  CYBORG_TEMPERAMENTS,
-  type CyborgCreationCoefficients,
-  type GrowthKRange,
-  type InitialStatRange,
-  crowdingBand,
-  cyborgRollLimit,
-  isCyborgTemperament,
-  rollGrowthK,
-  rollInitialStats,
-  TEST_CYBORG_CREATION,
-} from "@terra/sim/cyborg";
+  type SocietyCoefficients,
+  TEST_SOCIETY_COEFFICIENTS,
+  WALK_SPEED,
+  firstStatRoll,
+  kFromRolls,
+  rerollStats,
+  temperamentOf,
+} from "@terra/sim";
 import type { CyborgReadServices } from "../trpc/context.ts";
 import type { CityRow } from "../world/cities.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
@@ -43,29 +40,38 @@ import {
   rollRow,
 } from "./state.ts";
 
-/** 만들기 규칙(팩 tuning: N9 합·칸 범위, N6 K 범위, n9_* 성향 치우침·다시 굴리기, 붐빔 문턱) */
-export interface CyborgRules {
-  readonly range: InitialStatRange;
-  readonly k: GrowthKRange;
-  readonly creation: CyborgCreationCoefficients;
-}
-
-/** 세력·사회 계수표(N9 합·칸 범위, N6 K 범위)와 만들기 계수로 규칙을 만든다(팩 값은 roster/catalog.ts가 얹는다) */
-export function cyborgRulesFrom(
-  society: SocietyCoefficients,
-  creation: CyborgCreationCoefficients,
-): CyborgRules {
-  const c = society.cyborg;
-  return {
-    range: { sum: c.initialSum, min: c.initialMin, max: c.initialMax },
-    k: { minPm: c.kMinPm, maxPm: c.kMaxPm },
-    creation,
-  };
-}
+/**
+ * 만들기 규칙 = 팩 tuning을 얹은 세력·사회 계수표의 사이보그 칸(N9 합·칸 범위·성향 목록·치우침·흩어짐·다시 굴리기, N6 K 범위,
+ * 시작 도시 붐빔 문턱). 굴리기는 환생과 같은 함수(@terra/sim society/cyborgStats.ts, D-444 164)다
+ */
+export type CyborgRules = SocietyCoefficients;
 
 /** 팩이 없을 때(시험): sim 시험 계수표 */
-export const defaultCyborgRules = (): CyborgRules =>
-  cyborgRulesFrom(TEST_SOCIETY_COEFFICIENTS, TEST_CYBORG_CREATION);
+export const defaultCyborgRules = (): CyborgRules => TEST_SOCIETY_COEFFICIENTS;
+
+/** K 굴림 한 번의 눈 수(kFromRolls: 0~9999) */
+const K_ROLL_SIDES = 10_000;
+
+/** 굴림 상한 = 처음 1번 + 다시 굴리기(N9, D-445 169) */
+export function rollLimit(rules: CyborgRules): number {
+  return 1 + Math.max(0, rules.cyborg.initialRerolls);
+}
+
+/** 성장 K 여섯(N6 범위 균등, 숨김 D-417): 시드 하나로 굴림 여섯(0~9999) → 환생 리롤과 같은 kFromRolls */
+function growthK(seed: number, rules: CyborgRules) {
+  const rng = createRng(seed >>> 0);
+  return kFromRolls(
+    Array.from({ length: 6 }, () => rng.nextInt(K_ROLL_SIDES)),
+    rules,
+  );
+}
+
+/** 시작 도시 붐빔 띠(D-6041·D-445 175, 문턱은 설정값) */
+export function crowdingBand(cyborgs: number, rules: CyborgRules): "quiet" | "normal" | "busy" {
+  if (cyborgs >= rules.cyborg.startCrowdBusy) return "busy";
+  if (cyborgs >= rules.cyborg.startCrowdNormal) return "normal";
+  return "quiet";
+}
 
 /** 시작 도시 둘레에서 빈 칸을 찾는 반지름 상한(칸) */
 export const PLACE_SEARCH_RADIUS = 24;
@@ -130,7 +136,7 @@ export function* spiralCells(cx: number, cy: number, radius: number): Generator<
 }
 
 function rollView(roll: RollRecord, rules: CyborgRules): CyborgRollWire {
-  const max = cyborgRollLimit(rules.creation);
+  const max = rollLimit(rules);
   return {
     temperament: roll.temperament,
     stats: { ...roll.stats },
@@ -223,7 +229,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
               number: index + 1,
               mapKey: String(city.mapKey),
               cyborgs,
-              crowding: crowdingBand(cyborgs, rules.creation),
+              crowding: crowdingBand(cyborgs, rules),
             };
           })
           // 기본 선택 = 가장 덜 붐비는 곳(D-6041): 붐빔 적은 차례, 같으면 앞 도시
@@ -234,12 +240,15 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         created: byUser.has(userId),
         roll: view,
         rules: {
-          statSum: rules.range.sum,
-          statMin: rules.range.min,
-          statMax: rules.range.max,
-          rollsMax: cyborgRollLimit(rules.creation),
+          statSum: rules.cyborg.initialSum,
+          statMin: rules.cyborg.initialMin,
+          statMax: rules.cyborg.initialMax,
+          rollsMax: rollLimit(rules),
         },
-        temperaments: CYBORG_TEMPERAMENTS.map((entry) => ({ id: entry.id, favored: [...entry.favored] })),
+        temperaments: rules.cyborg.temperaments.map((entry) => ({
+          id: entry.id,
+          favored: [...entry.favored],
+        })),
         factions: list,
         generatedAt: nowMs,
       };
@@ -253,16 +262,28 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
     async roll(userId, temperament) {
       if (!options.ready()) return fail("busy");
       if (byUser.has(userId)) return fail("already_created");
-      if (!isCyborgTemperament(temperament)) return fail("unknown_temperament");
       const rules = options.rules();
+      if (!temperamentOf(temperament, rules)) return fail("unknown_temperament");
       const previous = rolls.get(userId);
       const used = previous?.rollsUsed ?? 0;
-      if (used >= cyborgRollLimit(rules.creation)) return fail("rolls_exhausted");
+      const limit = rollLimit(rules);
+      if (used >= limit) return fail("rolls_exhausted");
       const seed = options.seed() >>> 0;
+      const rng = createRng(seed);
+      // 환생과 같은 굴리기(처음 굴림 → 다시 굴리기, 남은 다시 굴리기 = 상한 − 쓴 굴림)
+      const next = previous
+        ? rerollStats(
+            { temperament: previous.temperament, spread: previous.stats, rerollsLeft: limit - used },
+            temperament,
+            rng,
+            rules,
+          )
+        : firstStatRoll(temperament, rng, rules);
+      if (!next) return fail("rolls_exhausted");
       const record: RollRecord = {
         userId,
         temperament,
-        stats: rollInitialStats(seed, temperament, rules.range, rules.creation),
+        stats: next.spread,
         rollsUsed: used + 1,
         seed,
         updatedAtMs: options.now(),
@@ -299,7 +320,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         nameKey: parsed.key,
         temperament: roll.temperament,
         initial: roll.stats,
-        kPm: rollGrowthK(options.seed() >>> 0, rules.k),
+        kPm: growthK(options.seed(), rules),
         appearance,
         factionId: faction.id,
         startCityId: city.id,

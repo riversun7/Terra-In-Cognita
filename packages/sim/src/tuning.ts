@@ -4,14 +4,13 @@
 // 팩의 임시 값 = TEST_* 계수표(서버 시험이 맞춰 본다). 표에 없는 계수는 아직 설정 칸이 없거나 기술 상수다.
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "./combat/coefficients.ts";
 import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "./society/coefficients.ts";
-import { type CyborgCreationCoefficients, TEST_CYBORG_CREATION } from "./cyborg/initialStats.ts";
 
 export interface TuningKey {
   /** 팩 항목 ID */
   readonly id: string;
   /** 기획 설정 칸 코드(49). 칸이 없으면 "" */
   readonly code: string;
-  readonly target: "combat" | "society" | "cyborg";
+  readonly target: "combat" | "society";
   /** 계수표 안 경로(점으로 잇는다, 배열은 번호) */
   readonly path: string;
   /** 구조 값(D-5054) */
@@ -361,6 +360,14 @@ export const TUNING_KEYS: readonly TuningKey[] = [
     "Shares reissued after delisting (D-298)",
   ),
   k(
+    "d444_delist_loyalty",
+    "",
+    "society",
+    "delistLoyaltyPm",
+    "독재 재발행 충성 보상 몫(‰, D-444)",
+    "Dictatorship reissue loyalty share (‰, D-444)",
+  ),
+  k(
     "s33_tribute_rate",
     "S33",
     "society",
@@ -491,6 +498,16 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ),
   k("n9_initial_min", "N9", "society", "cyborg.initialMin", "초기 스탯 칸 최소", "Initial stat min per stat"),
   k("n9_initial_max", "N9", "society", "cyborg.initialMax", "초기 스탯 칸 최대", "Initial stat max per stat"),
+  k("n9_initial_rerolls", "N9", "society", "cyborg.initialRerolls", "다시 굴리기 횟수", "Initial rerolls"),
+  k("n9_initial_favor", "N9", "society", "cyborg.initialFavorMilli", "성향 평균 올림", "Temperament boost"),
+  k(
+    "n9_initial_spread",
+    "N9",
+    "society",
+    "cyborg.initialSpreadMilli",
+    "스탯 표준편차",
+    "Initial stat spread",
+  ),
   k(
     "n34_rebirth_faith",
     "N34",
@@ -507,38 +524,20 @@ export const TUNING_KEYS: readonly TuningKey[] = [
     "사이보그 환생 화폐(최소 단위)",
     "Cyborg rebirth currency cost (minor units)",
   ),
-  // 사이보그 만들기 (49 N9 성향·다시 굴리기, D-6039·D-445 168·169) — 계수표는 cyborg/initialStats.ts
-  k("n9_rerolls", "N9", "cyborg", "rerolls", "초기 스탯 다시 굴리기 횟수", "Initial stat rerolls"),
-  k(
-    "n9_bias_favored",
-    "N9",
-    "cyborg",
-    "favoredPm",
-    "성향이 고른 스탯 가중치(‰)",
-    "Temperament favored stat weight (‰)",
-  ),
-  k("n9_bias_other", "N9", "cyborg", "otherPm", "성향 밖 스탯 가중치(‰)", "Other stat weight (‰)"),
-  k(
-    "n9_spread",
-    "N9",
-    "cyborg",
-    "spreadMilli",
-    "초기 스탯 흩어짐(균등 셋의 반폭, 0.001점)",
-    "Initial stat spread (half width of three uniforms, 0.001 pt)",
-  ),
+  // 첫 접속 시작 도시 붐빔 띠(D-6041·D-445 175 설정값, docs/adr/2026-11-01-first-login-cyborg.md)
   k(
     "d6041_crowd_normal",
     "",
-    "cyborg",
-    "crowdNormal",
+    "society",
+    "cyborg.startCrowdNormal",
     "시작 도시 붐빔 보통 문턱(사이보그 수)",
     "Start city crowding: normal from (cyborgs)",
   ),
   k(
     "d6041_crowd_busy",
     "",
-    "cyborg",
-    "crowdBusy",
+    "society",
+    "cyborg.startCrowdBusy",
     "시작 도시 붐빔 문턱(사이보그 수)",
     "Start city crowding: busy from (cyborgs)",
   ),
@@ -570,13 +569,7 @@ function setPath(root: object, path: string, value: number): void {
 
 /** 계수표의 지금 값(팩 `tuning` 임시 자료를 만들 때) */
 export function tuningValue(key: TuningKey): number {
-  const base =
-    key.target === "combat"
-      ? TEST_COMBAT_COEFFICIENTS
-      : key.target === "cyborg"
-        ? TEST_CYBORG_CREATION
-        : TEST_SOCIETY_COEFFICIENTS;
-  return getPath(base, key.path);
+  return getPath(key.target === "combat" ? TEST_COMBAT_COEFFICIENTS : TEST_SOCIETY_COEFFICIENTS, key.path);
 }
 
 function apply<T extends object>(
@@ -608,12 +601,4 @@ export function societyCoefficientsFrom(
   base: SocietyCoefficients = TEST_SOCIETY_COEFFICIENTS,
 ): SocietyCoefficients {
   return apply(base, "society", values);
-}
-
-/** 팩 값을 얹은 사이보그 만들기 계수(성향 치우침·흩어짐·다시 굴리기, N9) */
-export function cyborgCreationFrom(
-  values: ReadonlyMap<string, number>,
-  base: CyborgCreationCoefficients = TEST_CYBORG_CREATION,
-): CyborgCreationCoefficients {
-  return apply(base, "cyborg", values);
 }

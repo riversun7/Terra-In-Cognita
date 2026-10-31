@@ -387,12 +387,15 @@ export {
 export {
   makeOffers,
   occupationShifts,
+  reissueHolders,
   resolveOffer,
   settleShares,
+  shareOwnerOf,
   type IncorporationOffer,
   type OccupationResult,
   type OfferState,
   type ShareChoice,
+  type ShareOccupier,
   type Treatment,
 } from "./society/occupation.ts";
 export {
@@ -425,6 +428,17 @@ export {
   type RebirthResult,
   type RebirthWallet,
 } from "./society/cyborgRebirth.ts";
+export {
+  firstStatRoll,
+  kFromRolls,
+  PRIMARY_STATS,
+  rerollStats,
+  rollStatSpread,
+  temperamentOf,
+  type CyborgTemperament,
+  type PrimaryStat,
+  type StatRolls,
+} from "./society/cyborgStats.ts";
 export { birthRoll, canBirth, deathFate, inherit, lifespanMs, type DeathFate } from "./society/population.ts";
 export {
   advanceTech,

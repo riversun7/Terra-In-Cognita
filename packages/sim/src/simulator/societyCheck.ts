@@ -4,7 +4,7 @@ import { SATISFACTION_MAX_MILLI } from "../society/labor.ts";
 import type { IncorporationOffer } from "../society/occupation.ts";
 import { holdingsOf, rulerHasMajority } from "../society/shares.ts";
 import { DAY_MS } from "./metrics.ts";
-import type { SimWorld } from "./world.ts";
+import { type SimWorld, rulingFamilyOf } from "./world.ts";
 
 /**
  * S1 지분 합 = 0, 도시 주식 수 또는 상장폐지 재발행 주식 수(D-298·D-443), S2 독재 도시 지배 주체 과반(D-338·D-349),
@@ -26,7 +26,8 @@ export function checkSociety(
     if (total !== 0n && total !== BigInt(c.sharesPerCity) && total !== BigInt(c.delistReissueShares))
       badTotal += 1;
     // 점령으로 막 바뀐 도시는 settleShares가 과반을 맞춘다
-    if (owner?.regime === "dictatorship" && !rulerHasMajority(holdings, owner.id)) badMajority += 1;
+    if (owner?.regime === "dictatorship" && !rulerHasMajority(holdings, rulingFamilyOf(owner)))
+      badMajority += 1;
   }
   let badSatisfaction = 0;
   for (const unit of world.units.values())

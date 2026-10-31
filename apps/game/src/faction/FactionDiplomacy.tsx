@@ -1,12 +1,20 @@
 // 외교 탭 — 세 층(46 §4.1): 관계 점수(호감, 세력 쌍마다)와 띠, 세력 신뢰(세력마다 하나, 모두가 보는 값 — D-255·D-443),
 // 공식 상태(동맹·중립·전쟁), 조약 카드. 정원사는 늘 적대이고 외교가 없어(D-321) 띠·점수 없이 글 한 줄만 보인다.
 // 표다(빽빽해서 data-density="compact"). 좁은 화면에서는 줄마다 카드처럼 쌓는다(칸 이름을 앞에 보인다, faction.css).
-import type { DiplomacyRow, TreatyCard } from "@terra/shared/faction";
+// 표 아래 조약 제안: 카드마다 맺는 길(D-444 167, @terra/shared/faction treatyDecision). 독재가 아니면 투표 필요 카드만
+// [안건 올리기](휴전·강화는 짧은 투표), 나머지는 지도자가 바로 [제안하기]. 둘 다 아직 곧 열림 단추다(명령은 WebSocket, R5).
+import {
+  type DiplomacyRow,
+  type Regime,
+  TREATY_KINDS,
+  type TreatyCard,
+  treatyDecision,
+} from "@terra/shared/faction";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
-import { StateChip } from "../sections/screenParts.tsx";
+import { SoonButton, StateChip } from "../sections/screenParts.tsx";
 import { leftText } from "../sections/screenText.ts";
-import { BAND_NAMES, STATE_NAMES, TREATY_NAMES } from "./factionText.ts";
+import { BAND_NAMES, STATE_NAMES, TREATY_DECISION_NOTES, TREATY_NAMES } from "./factionText.ts";
 import { BAND_TONES, STATE_TONES, formatPermille } from "./factionView.ts";
 
 /** 점수 글자(+64, −41). 빼기는 진짜 빼기표 */
@@ -114,6 +122,38 @@ export function FactionDiplomacy({ rows, now }: { rows: readonly DiplomacyRow[];
           </tbody>
         </table>
       </div>
+    </>
+  );
+}
+
+/** 조약 제안 목록(D-444 167). regime = 내 세력 체제(모르면 null → 투표 쪽) */
+export function FactionTreatyOffers({ regime }: { regime: Regime | null }) {
+  const leaderOnly = regime === "dictatorship";
+  return (
+    <>
+      <p className="faction-muted">
+        {leaderOnly ? m.faction_treaty_offers_hint_leader() : m.faction_treaty_offers_hint_vote()}
+      </p>
+      <ul className="faction-treaty-offers">
+        {TREATY_KINDS.map((kind) => {
+          const decision = treatyDecision(kind, regime);
+          const name = TREATY_NAMES[kind]();
+          return (
+            <li key={kind} className="faction-treaty-offer" data-decision={decision}>
+              <span className="faction-stack">
+                <span className="faction-treaty-offer-name">{name}</span>
+                <span className="faction-muted">{TREATY_DECISION_NOTES[decision]()}</span>
+              </span>
+              <SoonButton
+                context={name}
+                label={
+                  decision === "leader" ? m.faction_treaty_offer_direct() : m.faction_treaty_offer_vote()
+                }
+              />
+            </li>
+          );
+        })}
+      </ul>
     </>
   );
 }

@@ -199,8 +199,9 @@ function Inventory({ body, data }: { body: CyborgBody; data: CyborgGetResponse }
 }
 
 /**
- * 환생(D-026·D-031·D-352·D-427·D-440·D-441): 바뀌는 것(레벨 1·경험치 0, 가속 없음)·남는 것·얻는 것, 비용.
- * 비용 = 최고 레벨 + 신앙도 + 화폐(그 신전 도시의 화폐). 양은 서버가 보내는 팩 설정값(N7·N34, rule)이라 플레이어에게도 보인다.
+ * 환생(D-026·D-031·D-352·D-427·D-440·D-441·D-444): 바뀌는 것(레벨 1·경험치 0, 가속 없음, 분포는 성향을 골라 다시 굴림 — 다시
+ * 굴리기 횟수는 생성과 같은 N9 값)·남는 것·얻는 것, 비용. 성향 고르기·다시 굴리기 화면은 환생 시설에서 연다(아직 곧 열림).
+ * 비용 = 최고 레벨 + 신앙도(써서 줄어든다) + 화폐(그 신전 도시의 화폐). 양은 서버가 보내는 팩 설정값(N7·N34, rule)이라 플레이어에게도 보인다.
  * 진로별 종교 아이템은 특수 스킬 같은 추가 조건에만 쓴다. 지금 레벨·신앙도는 본체가 있을 때(시안 자료)만 덧붙인다
  */
 function Rebirth({ body, rule }: { body: CyborgBody | null; rule: CyborgRebirthRule }) {
@@ -211,7 +212,7 @@ function Rebirth({ body, rule }: { body: CyborgBody | null; rule: CyborgRebirthR
       <dl className="roster-facts">
         <div>
           <dt>{m.cyborg_rebirth_changes()}</dt>
-          <dd>{m.cyborg_rebirth_changes_body()}</dd>
+          <dd>{m.cyborg_rebirth_changes_body({ rerolls: formatNumber(rule.rerolls) })}</dd>
         </div>
         <div>
           <dt>{m.cyborg_rebirth_keeps()}</dt>

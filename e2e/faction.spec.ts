@@ -3,7 +3,9 @@
 // - dev + 시안 자료(test.use의 preview): 시안 장면(apps/server/src/factionScreen/preview.ts) — 나라 Solace(자본주의), 도시 4
 //   (민심 네 단계), 외교 4 + 정원사(글 한 줄), 전쟁 2(공성 선포·공격 변), 투표 4(열린 3, 시장 임명 포함), 지분 4(민주주의 도시
 //   하나는 배당 없음), 점령 처리 2(복원 모금 지분). 칸마다 "시험 자료". 곧 열림 단추는 WebSocket 명령을 보내지 않는다.
-//   독재가 아니라 시장 임명·선전포고·조약은 [안건 올리기]다(기획 세력 화면 검토 C4).
+//   독재가 아니라 시장 임명·선전포고는 [안건 올리기]다(기획 세력 화면 검토 C4). 조약 제안은 카드마다 "투표 필요" 칸을 따른다
+//   (D-444 167: 동맹·보호·속국·영토 이전·휴전·강화는 안건, 휴전·강화는 짧은 투표, 나머지는 지도자가 바로 제안). 독재로 고친
+//   응답에서는 모든 카드가 바로 제안이다.
 // - NPC 국가 시민(C8): 플레이어 응답을 도시 2개·독재·고정 NPC 국가로 고쳐 요약 판이 국가로 그려지는지 본다(서버 읽기는 DB 시험).
 // - 긴 이름·큰 수는 faction.overview 응답을 고쳐 넣는다(helpers/trpc.ts rewriteTrpc).
 // - 사진: 390·1440 × 파스텔·다크 × 한국어·영어, 탭 다섯(E2E_SHOTS_DIR).
@@ -162,10 +164,42 @@ test.describe("dev 시안 자료", () => {
     // 세력 신뢰(D-443 154)와 조약 이름(C10)
     await expect(panel.locator("thead")).toContainText(message("ko", "faction_dip_col_trust"));
     await expect(panel).toContainText(message("ko", "faction_dip_scores_hint"));
+    // 조약 제안(D-444 167): 열 장, 투표 필요 카드만 안건 올리기(휴전·강화는 짧은 투표), 나머지는 바로 제안
+    const offers = panel.locator(".faction-treaty-offer");
+    await expect(offers).toHaveCount(10);
+    await expect(panel.locator(".faction-treaty-offer[data-decision=vote]")).toHaveCount(3);
+    await expect(panel.locator(".faction-treaty-offer[data-decision=short_vote]")).toHaveCount(1);
+    await expect(panel.locator(".faction-treaty-offer[data-decision=leader]")).toHaveCount(6);
+    await expect(panel).toContainText(message("ko", "faction_treaty_offers_hint_vote"));
+    for (const [treaty, action] of [
+      ["faction_treaty_alliance", "faction_treaty_offer_vote"],
+      ["faction_treaty_protection", "faction_treaty_offer_vote"],
+      ["faction_treaty_territory_transfer", "faction_treaty_offer_vote"],
+      ["faction_treaty_ceasefire", "faction_treaty_offer_vote"],
+      ["faction_treaty_trade", "faction_treaty_offer_direct"],
+      ["faction_treaty_vision_share", "faction_treaty_offer_direct"],
+    ] as const)
+      await expect(
+        panel.getByRole("button", {
+          name: `${message("ko", treaty)} ${message("ko", action)}`,
+          exact: false,
+        }),
+      ).toBeVisible();
     await expect(
-      screen.getByRole("button", { name: new RegExp(message("ko", "faction_dip_propose_vote")) }),
-    ).toBeVisible();
+      panel.locator(".faction-treaty-offer[data-decision=short_vote]", {
+        hasText: message("ko", "faction_treaty_ceasefire"),
+      }),
+    ).toContainText(message("ko", "faction_treaty_offer_note_short"));
+    await panel
+      .locator(".faction-treaty-offer[data-decision=vote]")
+      .first()
+      .getByRole("button")
+      .click({ force: true });
+    await expect(screen.locator(".soon-live")).toContainText(message("ko", "screen_soon_pressed"));
+    expect(await smallTapTargets(page)).toEqual([]);
 
+    // 곧 열림 단추를 눌러 초점이 옮겨 갔으므로 탭으로 돌아와 End
+    await tabOf(page, "ko", "diplomacy").focus();
     await page.keyboard.press("End");
     await expect(tabOf(page, "ko", "shares")).toHaveAttribute("aria-selected", "true");
     await expect(panel.locator(".faction-step")).toHaveCount(10);
@@ -261,6 +295,34 @@ test.describe("dev 시안 자료", () => {
       expect(await horizontalOverflow(page), tab).toEqual([]);
       expect(await smallTapTargets(page), tab).toEqual([]);
     }
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+/** 시안 응답의 내 세력 체제를 독재로 고친다(조약 제안이 모두 지도자가 바로 맺는 길이 되는지) */
+const asDictatorship = (data: unknown): void => {
+  if (typeof data !== "object" || data === null) throw new Error("faction.overview 응답 모양이 다릅니다");
+  const faction: unknown = Reflect.get(data, "faction");
+  if (typeof faction !== "object" || faction === null) throw new Error("시안 응답에 세력이 없습니다");
+  Reflect.set(faction, "regime", "dictatorship");
+};
+
+test.describe("조약 제안: 독재(D-444 167)", () => {
+  test.use({ account: "dev", preview: "dev" });
+
+  test("독재는 열 장 모두 지도자가 바로 제안, 안건 올리기 단추 없음", async ({ page, deviceErrors }) => {
+    await rewriteTrpc(page, { "summary.get": hideSummary, "faction.overview": asDictatorship });
+    await openFaction(page);
+    await tabOf(page, "ko", "diplomacy").click();
+    const panel = page.locator("section.faction").getByRole("tabpanel");
+    await expect(panel.locator(".faction-treaty-offer[data-decision=leader]")).toHaveCount(10);
+    await expect(panel).toContainText(message("ko", "faction_treaty_offers_hint_leader"));
+    await expect(
+      panel.locator(".faction-treaty-offer").getByRole("button", {
+        name: new RegExp(message("ko", "faction_treaty_offer_vote")),
+      }),
+    ).toHaveCount(0);
+    expect(await horizontalOverflow(page)).toEqual([]);
     expect(deviceErrors).toEqual([]);
   });
 });
@@ -361,7 +423,7 @@ for (const [size, preset] of [
   });
 }
 
-test.describe("사진 390px: NPC 국가 시민 요약·발전도 내역", () => {
+test.describe("사진 390px: NPC 국가 시민 요약·조약 제안·발전도 내역", () => {
   for (const { theme, language } of LAYOUTS) {
     test.describe(`${theme}·${language}`, () => {
       test.use({ theme, language, ...VIEWPORTS.phone });
@@ -381,6 +443,23 @@ test.describe("사진 390px: NPC 국가 시민 요약·발전도 내역", () => 
 
       test.describe("dev 시안", () => {
         test.use({ account: "dev", preview: "dev" });
+        test("조약 제안(D-444 167), 사진", async ({ page, deviceErrors }) => {
+          await rewriteTrpc(page, { "summary.get": hideSummary });
+          await openFaction(page);
+          await tabOf(page, language, "diplomacy").click();
+          const offers = page.locator("section.faction .faction-treaty-offers");
+          await expect(offers.locator(".faction-treaty-offer")).toHaveCount(10);
+          await page.locator("#faction-treaty-offers-title").scrollIntoViewIfNeeded();
+          await page.evaluate(() => {
+            const title = document.getElementById("faction-treaty-offers-title");
+            if (title !== null) window.scrollBy(0, title.getBoundingClientRect().top - 72);
+          });
+          expect(await horizontalOverflow(page)).toEqual([]);
+          expect(await smallTapTargets(page)).toEqual([]);
+          await shot(page, `faction-treaty-offers-${theme}-${language}-390`);
+          expect(deviceErrors).toEqual([]);
+        });
+
         test("발전도 내역 펼침, 사진", async ({ page, deviceErrors }) => {
           await rewriteTrpc(page, { "summary.get": hideSummary });
           await openFaction(page);

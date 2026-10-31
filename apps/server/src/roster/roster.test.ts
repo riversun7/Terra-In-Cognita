@@ -231,10 +231,11 @@ describe("서비스", () => {
     expect(list.names.items.grain).toBeDefined();
   });
 
-  it("사이보그: 이름·유닛 수는 실제, 본체는 시안에서만, 환생 조건·비용은 팩 설정값으로 늘(D-440·D-441, N7·N34)", async () => {
+  it("사이보그: 이름·유닛 수는 실제, 본체는 시안에서만, 환생 조건·비용·다시 굴리기 횟수는 팩 설정값으로 늘(D-440·D-441·D-444, N7·N9·N34)", async () => {
     const mine = await services.cyborg(player, own);
     expect(mine).toMatchObject({ name: "Player1", body: null, unitCount: 1, preview: false });
-    expect(mine.rebirth).toEqual({ maxLevel: 50, faith: 50, currency: "10000" });
+    // 환생 분포는 생성 때처럼 성향을 골라 다시 굴린다: 다시 굴리기 횟수는 생성과 같은 N9 값(3)
+    expect(mine.rebirth).toEqual({ maxLevel: 50, faith: 50, currency: "10000", rerolls: 3 });
     const preview = await services.cyborg(dev, withPreview);
     expect(preview.body?.level).toBe(23);
     expect(preview.unitCount).toBe(0);

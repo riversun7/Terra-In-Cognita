@@ -125,11 +125,13 @@ export function createRosterServices(
         // 다른 사람에게 보이는 이름은 사이보그 이름뿐이다(D-134). 만들기 전에는 계정 이름(본인만 본다)
         name: record?.name ?? viewer.loginId,
         appearance: record?.appearance ?? null,
-        // 환생 조건·비용은 설정값이라 본체가 없어도(플레이어) 보낸다(D-440·D-441, N7·N34)
+        // 환생 조건·비용은 설정값이라 본체가 없어도(플레이어) 보낸다(D-440·D-441, N7·N34). 분포는 생성 때처럼 다시 굴린다:
+        // 다시 굴리기 횟수 = 생성과 같은 N9 값(D-444 164)
         rebirth: {
           maxLevel: cyborgRules.maxLevel,
           faith: cyborgRules.rebirthFaith,
           currency: String(cyborgRules.rebirthCurrency),
+          rerolls: cyborgRules.initialRerolls,
         },
         body,
         unitCount,

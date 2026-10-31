@@ -527,7 +527,7 @@ export const cyborgs = pgTable(
     name: text("name").notNull(),
     /** 비교 열쇠(소문자) — 유일 */
     nameKey: text("name_key").notNull().unique(),
-    /** 성향 ID(@terra/sim/cyborg CYBORG_TEMPERAMENTS) */
+    /** 성향 ID(@terra/sim 세력·사회 계수표 cyborg.temperaments, D-445 168) */
     temperament: text("temperament").notNull(),
     initial: smallint("initial").array().notNull(),
     kPm: smallint("k_pm").array().notNull(),

@@ -9,7 +9,10 @@
 | 2026-10-31 21:00 | S3 WP-E: kill -9 복구 하네스, 규모 계단 시험 작업(NAS), 개발 컨테이너 계단 | Claude Code | [31-2100-s3-wp-e-measure](worklog/2026/10/31-2100-s3-wp-e-measure.md) |
 | 2026-10-31 19:30 | S3 WP-B: 2차맵 시야 전송, 탐사 기록, 프로토콜 3, 안개, 시험 단추 | Claude Code | [31-1930-s3-wp-b-vision](worklog/2026/10/31-1930-s3-wp-b-vision.md) |
 | 2026-10-31 17:55 | 설계: 2차맵을 행성 값에서 만들기(ADR 제안, 구현 없음) | Claude Code | [31-1755-second-map-from-planet-adr](worklog/2026/10/31-1755-second-map-from-planet-adr.md) |
+| 2026-10-31 17:50 | 기획 Step 8 마감 반영: N1 출시 관문은 실제 시간, 질문 119~123 답, 로드맵 이름 | Claude Code | [31-1750-planning-roadmap](worklog/2026/10/31-1750-planning-roadmap.md) |
 | 2026-10-31 17:40 | 2차맵 낮밤 조명(1차맵과 같은 시각·자리) | Claude Code | [31-1740-second-map-daynight](worklog/2026/10/31-1740-second-map-daynight.md) |
+| 2026-10-31 17:40 | 사용자 결정: 출시까지 기술 순서 (규칙 먼저 + 두 갈래) | Claude Code | [31-1740-roadmap-decision](worklog/2026/10/31-1740-roadmap-decision.md) |
+| 2026-10-31 17:10 | 기획 반영 — 원본 befdfb3(Step 8 D-389~D-399, 질문 답 D-400, Step 5 D-5063~D-5068), 출시까지의 기술 순서 ADR(제안), 질문 119~123 | Claude Code | [31-1710-planning-launch](worklog/2026/10/31-1710-planning-launch.md) |
 | 2026-10-31 17:00 | 사용자 확인: 대륙 모양 확정, 2차맵 질문 답, 실제 행성 자료 불필요 | Claude Code | [31-1700-user-review-2nd-map-continents](worklog/2026/10/31-1700-user-review-2nd-map-continents.md) |
 | 2026-10-31 16:50 | S3 WP-C: 오프라인 정산·최소 원장·접속 상태·복귀 요약 생산 칸 | Claude Code | [31-1650-s3-wp-c-settlement](worklog/2026/10/31-1650-s3-wp-c-settlement.md) |
 | 2026-10-31 16:30 | S3 NAS 계단 시험 결과 — 10만 개까지 버팀 | Claude Code | [31-1630-s3-ramp-result](worklog/2026/10/31-1630-s3-ramp-result.md) |

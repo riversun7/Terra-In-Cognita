@@ -79,7 +79,7 @@ export default function SecondMapPreview({ client, job, level, onClose }: Second
         // 지형 입력을 먼저 바꾼다(틀리면 엔진을 만들지 않고 실패로 보인다)
         const terrain = previewTerrainInput(result.terrain);
         setState({ kind: "ready", result });
-        const created = createSecondMapEngine(host, { mapKey: job.mapKey });
+        const created = createSecondMapEngine(host, { mapKey: result.terrain.mapKey });
         engine = created;
         void created.setTerrain(terrain);
         timer = setInterval(() => setProps(created.stats().props), STATS_MS);
@@ -109,7 +109,7 @@ export default function SecondMapPreview({ client, job, level, onClose }: Second
     >
       <div className="pe-dialog-body">
         <h2 id={titleId} className="pe-dialog-title">
-          {m.planet_editor_second_map_title({ key: String(job.mapKey) })}
+          {m.planet_editor_second_map_title({ key: String(job.mapKey ?? "–") })}
         </h2>
         <p className="field-hint" role="status">
           {state.kind === "working" ? stageText(state.stage, level) : null}

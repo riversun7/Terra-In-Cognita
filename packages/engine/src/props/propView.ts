@@ -32,14 +32,18 @@ export interface PropSource {
   readonly salt: number;
 }
 
-/** 모델을 세우는 화면 짧은 변 상한(m) — 이보다 멀면 땅 색만 */
+/** 모델을 세우는 화면 짧은 변 상한(m) — 이보다 멀면 땅 색만. 기본값(개발자 2차맵 시험이 setLimits로 바꿔 본다) */
 export const PROP_MODEL_SPAN_M = 420;
-/** 한 번에 세우는 모델 수 상한(가까운 칸부터) */
+/** 한 번에 세우는 모델 수 상한(가까운 칸부터). 기본값 */
 export const MAX_PROPS = 2_500;
+/** setLimits가 받는 범위(개발자 시험용): 화면 짧은 변 50 ~ 3,000m, 모델 0 ~ 20,000개 */
+export const PROP_SPAN_RANGE_M = [50, 3_000] as const;
+export const PROP_CAP_RANGE = [0, 20_000] as const;
 /** 모델 반지름 = 화면 짧은 변 × 이 값, 아래·위 한계(m) */
 const RADIUS_FACTOR = 0.8;
 const MIN_RADIUS_M = 60;
-const MAX_RADIUS_M = 340;
+/** 반지름 위 한계 = 모델 상한 거리 × 이 값(기본 420m → 340m) */
+const MAX_RADIUS_PER_SPAN = 340 / 420;
 const TRUNK_COLOR = new Color(0.42, 0.32, 0.22);
 
 type Part = "trunk" | "broadleaf" | "conifer" | "palm" | "bush" | "reeds" | "boulder" | "log";
@@ -98,17 +102,54 @@ export class PropView {
   private readonly side = new Vector3(0, 0, 1);
   private readonly color = new Color();
   private readonly tilt = new Quaternion();
+  private spanM = PROP_MODEL_SPAN_M;
+  private maxProps = MAX_PROPS;
+  /** 모양마다 인스턴스 자리 수(상한을 올리면 다시 만든다) */
+  private capacity = 0;
 
   constructor() {
+    this.allocate(MAX_PROPS);
+    this.group.visible = false;
+  }
+
+  /** 모양마다 InstancedMesh를 capacity 자리로 (다시) 만든다 */
+  private allocate(capacity: number): void {
+    for (const mesh of this.meshes.values()) {
+      mesh.removeFromParent();
+      mesh.geometry.dispose();
+      if (!Array.isArray(mesh.material)) mesh.material.dispose();
+      mesh.dispose();
+    }
+    this.meshes.clear();
     for (const part of PARTS) {
-      const mesh = new InstancedMesh(partGeometry(part), new MeshLambertMaterial(), MAX_PROPS);
+      const mesh = new InstancedMesh(partGeometry(part), new MeshLambertMaterial(), Math.max(1, capacity));
       mesh.count = 0;
       // 인스턴스 자리가 넓게 퍼져 있어 묶음 경계로 거르지 않는다(늘 그리되 개수가 0이면 그리지 않는다)
       mesh.frustumCulled = false;
       this.meshes.set(part, mesh);
       this.group.add(mesh);
     }
-    this.group.visible = false;
+    this.capacity = capacity;
+  }
+
+  /** 지금 상한(화면 짧은 변 m, 모델 수) */
+  get limits(): { spanM: number; maxProps: number } {
+    return { spanM: this.spanM, maxProps: this.maxProps };
+  }
+
+  /**
+   * 모델을 세우는 거리(화면 짧은 변 m)와 모델 수 상한을 바꾼다(개발자 2차맵 시험). 범위 밖은 범위로 자른다.
+   * 상한이 지금 자리보다 크면 InstancedMesh를 다시 만든다. 다음 update에서 다시 세운다
+   */
+  setLimits(spanM: number, maxProps: number): void {
+    const [spanLow, spanHigh] = PROP_SPAN_RANGE_M;
+    const [capLow, capHigh] = PROP_CAP_RANGE;
+    this.spanM = Math.min(spanHigh, Math.max(spanLow, Number.isFinite(spanM) ? spanM : PROP_MODEL_SPAN_M));
+    this.maxProps = Math.round(
+      Math.min(capHigh, Math.max(capLow, Number.isFinite(maxProps) ? maxProps : MAX_PROPS)),
+    );
+    if (this.maxProps > this.capacity) this.allocate(this.maxProps);
+    this.lastX = Number.NaN;
   }
 
   /** 그린 모델 수(마지막으로 세운 것) */
@@ -133,12 +174,15 @@ export class PropView {
 
   /** 카메라가 바뀐 뒤 부른다. 다시 세웠으면 true(한 번 더 그려야 한다) */
   update(targetX: number, targetZ: number, viewSpanM: number): boolean {
-    if (this.sources.length === 0 || viewSpanM >= PROP_MODEL_SPAN_M) {
+    if (this.sources.length === 0 || this.maxProps === 0 || viewSpanM >= this.spanM) {
       const changed = this.group.visible;
       this.group.visible = false;
       return changed;
     }
-    const radius = Math.min(MAX_RADIUS_M, Math.max(MIN_RADIUS_M, viewSpanM * RADIUS_FACTOR));
+    const radius = Math.min(
+      this.spanM * MAX_RADIUS_PER_SPAN,
+      Math.max(MIN_RADIUS_M, viewSpanM * RADIUS_FACTOR),
+    );
     const moved = Math.hypot(targetX - this.lastX, targetZ - this.lastZ);
     const wasVisible = this.group.visible;
     this.group.visible = true;
@@ -162,9 +206,9 @@ export class PropView {
     const r = radius / cellM;
     const candidates: Candidate[] = [];
     for (const source of this.sources) this.collect(source, targetX, targetZ, r, candidates);
-    if (candidates.length > MAX_PROPS) {
+    if (candidates.length > this.maxProps) {
       candidates.sort((a, b) => a.distance2 - b.distance2);
-      candidates.length = MAX_PROPS;
+      candidates.length = this.maxProps;
     }
     const counts = new Map<Part, number>(PARTS.map((part) => [part, 0]));
     for (const candidate of candidates) this.place(candidate, counts);
@@ -284,7 +328,7 @@ export class PropView {
   ): void {
     const mesh = this.meshes.get(part);
     const index = counts.get(part) ?? 0;
-    if (!mesh || index >= MAX_PROPS) return;
+    if (!mesh || index >= this.capacity) return;
     this.position.set(x, y, z);
     this.scale.set(sx, sy, sz);
     this.matrix.compose(this.position, this.rotation, this.scale);

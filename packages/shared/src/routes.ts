@@ -105,6 +105,14 @@ export const ROUTES = {
     frame: "hidden",
     access: "dev_admin",
   },
+  // 2차맵 시험(ADR 2026-10-31-second-map-from-planet "구현하며 정한 것 (개발자 2차맵 시험)"): 틀을 숨긴 전체 화면. 보기 전용
+  dev_second_map: {
+    path: "/dev/second-map",
+    search: [],
+    parent: "dev",
+    frame: "hidden",
+    access: "dev_admin",
+  },
   dev_gpu_bench: {
     path: "/dev/gpu-bench",
     search: [],

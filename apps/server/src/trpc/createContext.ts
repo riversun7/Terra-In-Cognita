@@ -24,7 +24,7 @@ import {
 } from "../planetEditor/services.ts";
 import { createSettingsServices } from "../settings/store.ts";
 import type { SummaryBackend } from "../summary/summary.ts";
-import type { TrpcContext, TrpcContextOptions, Viewer } from "./context.ts";
+import type { SecondMapLabServices, TrpcContext, TrpcContextOptions, Viewer } from "./context.ts";
 import { reasonedError } from "./init.ts";
 
 export interface ContextFactoryOptions extends TrpcContextOptions {
@@ -41,6 +41,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   summary?: SummaryBackend | undefined;
   /** 유닛·사이보그 화면: 콘텐츠 팩 자료(없으면 시험 자료)와 실제 유닛 출처(DB·월드가 있을 때) */
   roster?: { catalog?: RosterCatalog | undefined; world?: WorldRosterSource | undefined } | undefined;
+  /** 개발자 2차맵 시험(월드·지형 서비스·행성 서비스가 다 있을 때, src/world/secondMapLab.ts) */
+  secondMapLab?: SecondMapLabServices | undefined;
 }
 
 /** 읽기 요청(출처 규칙이 쓰기보다 느슨하다: 주소창에서 연 것도 받는다). tRPC 조회는 GET, 쓰기는 POST다 */
@@ -102,6 +104,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
           : undefined,
       home,
       roster,
+      secondMapLab: options.secondMapLab,
     };
   };
 }

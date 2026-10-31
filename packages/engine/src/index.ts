@@ -7,6 +7,7 @@ export type {
   EngineLightStats,
   EngineStats,
   EngineStatus,
+  EngineViewOptions,
   SecondMapEngine,
   SecondMapEngineOptions,
   UnitSpawn,
@@ -24,7 +25,12 @@ export {
 } from "./terrain/terrainData.ts";
 export { FIXED_POINT_SCALE, type UnitPath } from "./units/unitMotion.ts";
 export type { NeighbourPlacement, NeighbourTerrain } from "./terrain/neighbourTerrains.ts";
-export { MAX_PROPS, PROP_MODEL_SPAN_M } from "./props/propView.ts";
+export {
+  MAX_PROPS,
+  PROP_CAP_RANGE,
+  PROP_MODEL_SPAN_M,
+  PROP_SPAN_RANGE_M,
+} from "./props/propView.ts";
 export type { UnitDisplayMode, UnitLook } from "./units/unitView.ts";
 export type { BuildingFootprint, QuarterTurns } from "./buildings/footprint.ts";
 export { disposeSharedRenderer } from "./render/sharedRenderer.ts";

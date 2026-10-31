@@ -5,6 +5,7 @@
 // - 결과 → 엔진 지형 입력은 서버 지형 파일과 같은 바꾸기(mapWire.ts toTerrainInput)를 쓴다.
 import type { TerrainInput } from "@terra/engine";
 import type { PlanetGeneratorInput } from "@terra/planet/generator";
+import type { MapPreset } from "@terra/planet/secondMap";
 import { toTerrainInput } from "../../map/mapWire.ts";
 import type {
   SecondMapPreviewReply,
@@ -14,8 +15,8 @@ import type {
   SecondMapPreviewTerrain,
 } from "./secondMapPreviewProtocol.ts";
 
-/** 실패 코드: 워커가 답한 것(rejected·failed), 워커가 죽음(crashed), 손잡이를 버림(closed) */
-export type SecondMapPreviewErrorCode = "rejected" | "failed" | "crashed" | "closed";
+/** 실패 코드: 워커가 답한 것(rejected·failed·none), 워커가 죽음(crashed), 손잡이를 버림(closed) */
+export type SecondMapPreviewErrorCode = "rejected" | "failed" | "none" | "crashed" | "closed";
 
 export class SecondMapPreviewError extends Error {
   override readonly name = "SecondMapPreviewError";
@@ -30,8 +31,12 @@ export class SecondMapPreviewError extends Error {
 export interface SecondMapJob {
   readonly planetKey: string;
   readonly input: PlanetGeneratorInput;
-  readonly mapKey: number;
+  /** null이면 preset으로 워커가 찾는다(개발자 2차맵 시험) */
+  readonly mapKey: number | null;
   readonly props: readonly unknown[];
+  readonly preset?: MapPreset | undefined;
+  /** 8이웃 2차맵도 만든다 */
+  readonly neighbours?: boolean | undefined;
 }
 
 export interface SecondMapWorkerHandlers {

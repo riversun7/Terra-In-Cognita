@@ -18,6 +18,8 @@ import type {
   PlanetLibrarySummary,
   PlanetLibraryVersion,
   PlanetLibraryVersionInfo,
+  SecondMapLabAnswer,
+  SecondMapLabTarget,
   StarSystemRecord,
   StarSystemSaved,
   StarSystemSummary,
@@ -161,6 +163,14 @@ export interface RosterServices {
   cyborg(viewer: Viewer, query: HomeQuery): Promise<CyborgGetResponse>;
 }
 
+/**
+ * 개발자 2차맵 시험(planetEditor.secondMap, ADR 46 "구현하며 정한 것 (개발자 2차맵 시험)"): 월드 행성의 2차맵 지형 주소·행성 칸 값.
+ * 실패: SecondMapLabInputError(틀린 키) → BAD_REQUEST, SecondMapLabNotReadyError(지형 서비스 준비 전) → PRECONDITION_FAILED
+ */
+export interface SecondMapLabServices {
+  locate(planetId: string, target: SecondMapLabTarget): Promise<SecondMapLabAnswer>;
+}
+
 export interface TrpcContext {
   /** 콘텐츠 팩 버전 */
   contentVersion: string;
@@ -178,6 +188,8 @@ export interface TrpcContext {
   home: HomeServices;
   /** 유닛·사이보그 화면 자료. 늘 있다(세계·DB가 없으면 실제 자료는 빈 목록) */
   roster: RosterServices;
+  /** 개발자 2차맵 시험. 월드·지형 서비스·행성 서비스가 다 있을 때만 */
+  secondMapLab?: SecondMapLabServices | undefined;
 }
 
 export interface TrpcContextOptions {

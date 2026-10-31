@@ -102,6 +102,8 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
   let subscribeId: number | null = null;
   /** 지금 구독이 전체 보기인가 */
   let observing = false;
+  /** 마지막 탐사 칸(vision)에서 켜진 시야 칸 수. 아직 없거나 전체 보기면 null */
+  let explored: number | null = null;
   /** 결과를 기다리는 개발 시험 명령 */
   const devSpawns = new Map<number, ReturnType<typeof setTimeout>>();
   /** 구독을 보냈고 그 스냅샷을 아직 못 받았다 */
@@ -294,7 +296,10 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
     pushUnits();
     sink.setBuildings(footprints());
     // 전체 보기는 안개가 없다(시야로 거른 구독은 스냅샷 뒤 vision이 온다)
-    if (observing) sink.setExplored(null);
+    if (observing) {
+      sink.setExplored(null);
+      explored = null;
+    }
     last.snapshotBytes = snapshot.bytes;
     last.snapshotParts = snapshot.parts;
     if (!requested) counts.serverResyncs += 1;
@@ -370,7 +375,9 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
 
   const onVision = (message: ServerMessageOf<"vision">): void => {
     if (observing) return;
-    sink.setExplored(Uint8Array.from(atob(message.explored), (char) => char.charCodeAt(0)));
+    const bits = Uint8Array.from(atob(message.explored), (char) => char.charCodeAt(0));
+    sink.setExplored(bits);
+    explored = countBits(bits);
   };
 
   const onBuildingChange = (changeRev: number, apply: () => void): void => {
@@ -483,6 +490,7 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
         gaps: counts.gaps,
         serverResyncs: counts.serverResyncs,
         droppedUnits: dropped.size,
+        explored,
         commands: counts.commands,
         pendingCommands: pending.size,
         ...meter.rates(),
@@ -559,4 +567,17 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       subscribedOnLink = false;
     },
   };
+}
+
+/** 켜진 비트 수(탐사 칸 128바이트) */
+function countBits(bits: Uint8Array): number {
+  let count = 0;
+  for (const byte of bits) {
+    let value = byte;
+    while (value !== 0) {
+      count += value & 1;
+      value >>= 1;
+    }
+  }
+  return count;
 }

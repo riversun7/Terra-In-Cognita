@@ -31,10 +31,11 @@ import { cacheViewer, createWorldGateway } from "./world/gateway.ts";
 import { createWorldSummaryBackend } from "./world/summarySources.ts";
 import type { RosterCatalog } from "./roster/catalog.ts";
 import { createWorldRosterSource } from "./roster/worldUnits.ts";
+import { createSecondMapLab } from "./world/secondMapLab.ts";
 import { registerTerrainRoute } from "./world/terrainRoute.ts";
 import type { MapPropInput } from "@terra/planet/secondMap";
 import { createTerrainService } from "./world/terrainService.ts";
-import { TEST_PLANET_ID, type WorldConfig, startWorld } from "./world/world.ts";
+import { TEST_MAP_KEY, TEST_PLANET_ID, type WorldConfig, startWorld } from "./world/world.ts";
 
 /** WebSocket 연결의 로그인 사용자 조회를 기억하는 시간(ms). 명령마다 DB를 부르지 않는다 */
 export const SOCKET_VIEWER_TTL_MS = 15_000;
@@ -235,6 +236,17 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         catalog: options.roster,
         world: world && options.db ? createWorldRosterSource(world) : undefined,
       },
+      // 개발자 2차맵 시험: 월드 행성의 2차맵 지형 주소·칸 값(보기 전용, src/world/secondMapLab.ts)
+      secondMapLab:
+        world && terrain && planets && worldPlanet
+          ? createSecondMapLab({
+              planetId: worldPlanet.id,
+              values: () => planets.planetValues(worldPlanet.id),
+              terrainVersion: () => terrain.version(),
+              loadedVersion: (mapKey) => world.map(mapKey)?.terrainVersion,
+              testMapKey: TEST_MAP_KEY,
+            })
+          : undefined,
     }),
   });
 

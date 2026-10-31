@@ -163,6 +163,8 @@ export function createSecondMapEngine(
   const propView = new PropView();
   scene.add(neighbours.group, propView.group);
   let pendingNeighbours: readonly NeighbourTerrain[] | null = null;
+  /** 격자 선(개발자 2차맵 시험, setViewOptions) */
+  let grid = false;
   let lastView = "";
 
   // 땅 높이: 지금 2차맵 위면 그 지형, 밖이면 이웃 지형(없으면 가장자리 값)
@@ -407,7 +409,7 @@ export function createSecondMapEngine(
       unitView.group.visible = true;
       limits = computeLimits();
       if (!cameraPlaced) {
-        state = initialCamera(mapSize, limits, groundAt(mapSize / 2, mapSize / 2));
+        state = initialCamera(mapSize, limits, groundAt(mapSize / 2, mapSize / 2), options.initialZoom);
         cameraPlaced = true;
       } else {
         state = clampCamera(state, limits);
@@ -533,6 +535,9 @@ export function createSecondMapEngine(
         light: lightStats(sky),
         neighbours: neighbours.count,
         props: propView.drawn,
+        propSpanM: propView.limits.spanM,
+        propCap: propView.limits.maxProps,
+        grid,
       };
     },
 
@@ -543,6 +548,20 @@ export function createSecondMapEngine(
     setSky(mode) {
       if (sky.setMode(mode, performance.now())) scheduler.request();
       syncSkyTimer();
+    },
+
+    setViewOptions(view) {
+      if (view.grid !== undefined) {
+        grid = view.grid;
+        terrainView.setGrid(grid);
+        neighbours.setGrid(grid);
+      }
+      if (view.propSpanM !== undefined || view.propCap !== undefined) {
+        const current = propView.limits;
+        propView.setLimits(view.propSpanM ?? current.spanM, view.propCap ?? current.maxProps);
+        propView.update(state.targetX, state.targetZ, spanForDistance(state.distance, viewport));
+      }
+      scheduler.request();
     },
 
     dispose() {

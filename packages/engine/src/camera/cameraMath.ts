@@ -110,7 +110,12 @@ export function cameraLimitsFor(mapSizeM: number, viewport: Viewport, fov = CAME
 const INITIAL_ZOOM = 1.75;
 
 /** 처음 카메라: 2차맵 가운데, 기본 기울기, 화면 짧은 변 약 70m */
-export function initialCamera(mapSizeM: number, limits: CameraLimits, targetY = 0): CameraState {
+export function initialCamera(
+  mapSizeM: number,
+  limits: CameraLimits,
+  targetY = 0,
+  zoom = INITIAL_ZOOM,
+): CameraState {
   return clampCamera(
     {
       targetX: mapSizeM / 2,
@@ -118,7 +123,7 @@ export function initialCamera(mapSizeM: number, limits: CameraLimits, targetY = 
       targetZ: mapSizeM / 2,
       yaw: 0,
       pitch: DEFAULT_PITCH_RAD,
-      distance: limits.minDistance * INITIAL_ZOOM,
+      distance: limits.minDistance * zoom,
     },
     limits,
   );

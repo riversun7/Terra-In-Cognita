@@ -9,6 +9,8 @@
 // 경계 너머 보기(ADR 2026-10-31-second-map-from-planet WP-4): 카메라가 경계에 다가오면 이웃 2차맵 지형을 받아 둘레에 그린다
 // (secondMapNeighbourLoader.ts). ?second-map-neighbours=all이면 처음부터 8장(개발자 3×3 이어 보기). 나침반은 그 2차맵의 북쪽을 가리킨다
 // (2차맵은 면 격자 틀이라 북쪽이 2차맵마다 돌아가 있다, 사용자 결정 U1).
+// 탐사한 곳이 없으면(유닛 없는 계정, S3 시야 안개) 온통 어두운 까닭을 알리고, dev·admin에게는 [시험 일꾼 받기]·[전체 보기]와
+// 개발자 2차맵 시험(/dev/second-map)을 가리킨다.
 import {
   type EngineStats,
   type EngineStatus,
@@ -22,6 +24,7 @@ import { useEffect, useRef, useState } from "react";
 import { refreshSession, useSession } from "../auth/session.ts";
 import { hasDevTools, isAdmin } from "../auth/sessionState.ts";
 import { serverLink } from "../net/serverLink.ts";
+import { navigate } from "../shell/routerStore.ts";
 import { m } from "../paraglide/messages.js";
 import type { FrameMonitor } from "../perf/frameMonitor.ts";
 import { usePerfStats } from "../perf/usePerfStats.ts";
@@ -330,6 +333,8 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
   const stats = snapshot?.stats ?? null;
   const light = stats?.light ?? null;
   const feed = snapshot?.feed ?? null;
+  // 탐사한 곳이 하나도 없으면(유닛 없는 계정) 안개로 온통 어둡다: 까닭과 할 일을 알린다(전체 보기면 안개가 없다)
+  const dark = !notice && !observe && feed?.explored === 0;
   const hint =
     selected === null
       ? m.map_hint()
@@ -465,6 +470,23 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
             <button type="button" className="button-small" onClick={() => feedRef.current?.retry()}>
               {m.retry()}
             </button>
+          ) : null}
+        </div>
+      ) : null}
+      {dark ? (
+        <div className="map-panel map-notice map-dark" role="status">
+          <p>{m.map_dark_explain()}</p>
+          {devTools ? (
+            <>
+              <p>{m.map_dark_dev({ spawn: m.map_vision_spawn(), observe: m.map_vision_observe() })}</p>
+              <button
+                type="button"
+                className="button-small map-dark-lab"
+                onClick={() => navigate({ route: "dev_second_map" })}
+              >
+                {m.map_dark_open_lab()}
+              </button>
+            </>
           ) : null}
         </div>
       ) : null}

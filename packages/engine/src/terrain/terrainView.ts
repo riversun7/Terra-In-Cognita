@@ -41,6 +41,11 @@ export class TerrainView {
     this.surface.setExplored(bits);
   }
 
+  /** 격자 선(개발자 2차맵 시험) */
+  setGrid(on: boolean): void {
+    this.surface.setGrid(on);
+  }
+
   /** 메시(워커 결과)와 그 메시를 만든 지형 입력(칸 지표·칸 크기·물 높이), 지형 재질의 잡음 자료(terrainBuilder.ts) */
   /**
    * shade = 높이 밝기에 쓸 높이 범위(m). 없으면 이 지형의 범위. 이웃 2차맵은 지금 2차맵 범위를 써서 경계 양쪽 밝기가 같다

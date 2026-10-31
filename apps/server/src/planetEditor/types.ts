@@ -1,6 +1,7 @@
 // 행성 편집기 서버 API의 모양 — tRPC planetEditor.*(src/trpc/planetEditor.ts)가 주고받는 값(ADR 2026-10-29-planet-editor-stage1 9·11절).
 // AppRouter 타입에 들어가 게임 앱 타입 검사에도 쓰인다: Node 전용 타입(fastify, pg, drizzle 등)을 넣지 않는다(context.ts와 같은 규칙).
 // 받지 않음 코드·항목 상한은 기기와 같이 쓰는 @terra/shared planetDraftApi.ts에 있다. 보관함 이름·시작점 규칙은 planetLibraryApi.ts.
+import type { MapPreset, PlanetCellValues } from "@terra/planet/secondMap";
 import type { PlanetLibraryBase, StarSystemDefinition } from "@terra/shared";
 
 /** JSON 객체(콘텐츠 팩 항목 모양). 키 순서는 지키지 않는다(DB jsonb) */
@@ -169,3 +170,31 @@ export interface StarSystemSaved {
   updatedAt: string;
   updatedBy: PlanetLibraryPerson | null;
 }
+
+// ── 개발자 2차맵 시험(planetEditor.secondMap, ADR 2026-10-31-second-map-from-planet "구현하며 정한 것 (개발자 2차맵 시험)") ──
+
+/** 보고 싶은 2차맵: 월드 시험 2차맵, 2차맵 키, 시험 자리 종류(@terra/planet/secondMap MAP_PRESETS) */
+export type SecondMapLabTarget =
+  | { kind: "test" }
+  | { kind: "key"; mapKey: number }
+  | { kind: "preset"; preset: MapPreset };
+
+/**
+ * 답: server = 월드 행성이라 서버 지형 서비스가 지형 파일을 준다(주소는 지형 경로, 전체 보기 권한으로 받는다).
+ * device = 월드 행성이 아니라 서버가 행성 값을 들고 있지 않다 → 기기 워커가 만든다(편집기 2차맵 미리보기와 같은 길).
+ * none = 그 종류에 맞는 자리가 없다(예: 바다 없는 행성의 바닷가)
+ */
+export type SecondMapLabAnswer =
+  | {
+      kind: "server";
+      planetId: string;
+      faceLevel: number;
+      mapKey: number;
+      /** 지형 주소(/api/maps/<키>/terrain?v=<판 표지>) */
+      terrainUrl: string;
+      cell: PlanetCellValues;
+      /** 월드 시험 2차맵 키(유닛이 있는 곳) */
+      testMapKey: number;
+    }
+  | { kind: "device" }
+  | { kind: "none" };

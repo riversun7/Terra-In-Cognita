@@ -14,6 +14,21 @@ import { PACK_BIOMES, TEST_PLANET } from "./testDefinitions.ts";
 const NO_WATER = -2_147_483_648;
 const INPUT = planetInputFromDefinition(TEST_PLANET, PACK_BIOMES, 5);
 
+const FAKE_CELL = {
+  mapKey: 1,
+  face: 0,
+  i: 0,
+  j: 0,
+  biomeId: "grassland",
+  elevationM: 10,
+  temperatureC: 15,
+  humidity: 100,
+  precipitationMm: 600,
+  water: 0,
+  riverOrder: 0,
+  forest: 0,
+};
+
 function fakeTerrain(): SecondMapPreviewTerrain {
   const heightsCm = new Int32Array(129 * 129).fill(1234);
   const waterLevelCm = new Int32Array(129 * 129).fill(NO_WATER);
@@ -77,7 +92,7 @@ describe("2차맵 미리보기 손잡이", () => {
     world.handlers().onReply({
       kind: "result",
       id,
-      result: { terrain: fakeTerrain(), planetMs: 10, mapMs: 1 },
+      result: { terrain: fakeTerrain(), cell: FAKE_CELL, neighbours: [], planetMs: 10, mapMs: 1 },
     });
     await expect(promise).resolves.toMatchObject({ planetMs: 10 });
     expect(stages).toEqual(["planet", "map"]);
@@ -110,7 +125,7 @@ describe("2차맵 미리보기 손잡이", () => {
     world.handlers().onReply({
       kind: "result",
       id: world.posted[0]?.id ?? 0,
-      result: { terrain: fakeTerrain(), planetMs: 1, mapMs: 1 },
+      result: { terrain: fakeTerrain(), cell: FAKE_CELL, neighbours: [], planetMs: 1, mapMs: 1 },
     });
     await waiting;
     expect(world.client.hasPlanet("p1")).toBe(true);

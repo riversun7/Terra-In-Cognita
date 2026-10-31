@@ -5,6 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { describe, expect, it } from "vitest";
 import { createHomeServices } from "../home/services.ts";
 import { createRosterServices } from "../roster/services.ts";
+import { SecondMapLabInputError, SecondMapLabNotReadyError } from "../world/secondMapLab.ts";
 import type {
   PlanetEditorAction,
   PlanetEditorCallKind,
@@ -333,4 +334,66 @@ describe("planetEditor 라우터 — 권한 두 겹·속도 제한이 입력 검
       }
     },
   );
+});
+
+/** 개발자 2차맵 시험 서비스를 붙인 호출자 */
+function withLab(viewer: Viewer, editor: PlanetEditorServices, lab: TrpcContext["secondMapLab"]) {
+  const ctx: TrpcContext = {
+    contentVersion: "test",
+    now: () => 0,
+    viewer: () => Promise.resolve(viewer),
+    admin: undefined,
+    settings: undefined,
+    planetEditor: editor,
+    home: createHomeServices(),
+    roster: createRosterServices(),
+    secondMapLab: lab,
+  };
+  return createCallerFactory(appRouter)(ctx);
+}
+
+describe("planetEditor.secondMap — 개발자 2차맵 시험(보기 전용)", () => {
+  const target = { kind: "test" } as const;
+  const answer = { kind: "device" } as const;
+  const okLab = { locate: () => Promise.resolve(answer) };
+
+  it("편집기 읽기 권한 두 겹·속도 제한(drafts)을 지나야 한다", async () => {
+    const player = fakeEditor({ allow: true });
+    await expect(
+      withLab(PLAYER, player.editor, okLab).planetEditor.secondMap({ planetId: PLANET, target }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(player.calls).toEqual([]);
+    const denied = fakeEditor({ allow: false });
+    await expect(
+      withLab(DEV, denied.editor, okLab).planetEditor.secondMap({ planetId: PLANET, target }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const passed = fakeEditor({ allow: true });
+    await expect(
+      withLab(DEV, passed.editor, okLab).planetEditor.secondMap({ planetId: PLANET, target }),
+    ).resolves.toEqual(answer);
+    expect(passed.calls).toEqual(["permission:read", "admit:drafts"]);
+  });
+
+  it("틀린 입력·틀린 키는 BAD_REQUEST, 준비 전은 PRECONDITION_FAILED, 시험 기능이 없는 서버는 NOT_FOUND", async () => {
+    const { editor } = fakeEditor({ allow: true });
+    await expect(
+      withLab(DEV, editor, okLab).planetEditor.secondMap({
+        planetId: PLANET,
+        target: { kind: "key", mapKey: -1 },
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const badKey = {
+      locate: () => Promise.reject(new SecondMapLabInputError("bad")),
+    };
+    await expect(
+      withLab(DEV, editor, badKey).planetEditor.secondMap({ planetId: PLANET, target }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST", cause: { reason: "bad_map_key" } });
+    const notReady = { locate: () => Promise.reject(new SecondMapLabNotReadyError("wait")) };
+    await expect(
+      withLab(DEV, editor, notReady).planetEditor.secondMap({ planetId: PLANET, target }),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    await expect(
+      withLab(DEV, editor, undefined).planetEditor.secondMap({ planetId: PLANET, target }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
 });

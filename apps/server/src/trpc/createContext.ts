@@ -20,6 +20,7 @@ import {
   createPlanetEditorServices,
 } from "../planetEditor/services.ts";
 import { createSettingsServices } from "../settings/store.ts";
+import type { SummaryBackend } from "../summary/summary.ts";
 import type { TrpcContext, TrpcContextOptions, Viewer } from "./context.ts";
 import { reasonedError } from "./init.ts";
 
@@ -33,6 +34,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   appOrigin?: string | undefined;
   /** 행성 편집기(서버가 켤 때 만든 정의 조회 자료·속도 제한기, createPlanetEditorShared). 인증이 켜져 있어야 쓴다 */
   planetEditor?: PlanetEditorShared | undefined;
+  /** 복귀 요약 자료(DB·월드가 있을 때) */
+  summary?: SummaryBackend | undefined;
 }
 
 /** 읽기 요청(출처 규칙이 쓰기보다 느슨하다: 주소창에서 연 것도 받는다). tRPC 조회는 GET, 쓰기는 POST다 */
@@ -59,7 +62,7 @@ export async function loadViewer(auth: TerraAuth, headers: Headers): Promise<Vie
 /** 요청마다 맥락을 만드는 함수. req가 없으면(서버 안 호출·시험) 로그인하지 않은 맥락 */
 export function createContextFactory(options: ContextFactoryOptions) {
   // 홈 자료(처리할 일·복귀 요약·서버 카드)는 요청마다 만들지 않고 앱에 하나다(제공 함수 목록을 한 번 만든다)
-  const home = createHomeServices();
+  const home = createHomeServices({ summary: options.summary });
   return (opts?: { req: FastifyRequest; res?: FastifyReply }): TrpcContext => {
     const authDeps = options.auth;
     const request = opts?.req;

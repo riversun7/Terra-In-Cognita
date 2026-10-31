@@ -61,6 +61,15 @@ export function loadSummary(preview: boolean): Promise<HomeQueryResult<SummaryGe
   return request;
 }
 
+/** 복귀 요약 확인 기록(summary.ack). 실패해도 화면은 그대로다(다음에 켤 때 같은 요약이 다시 뜰 수 있다) */
+export async function ackSummary(until: number): Promise<void> {
+  try {
+    await api.summary.ack.mutate({ until }, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+  } catch {
+    // 오프라인·세션 끝 등: 다시 보내지 않는다
+  }
+}
+
 /** 홈의 서버 카드 상태(dashboard.cards). 모르는 ID·기기 카드는 서버가 빼고 요청 순서대로 돌려준다 */
 export async function loadCards(
   ids: readonly string[],

@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-31 16:50 | S3 WP-C: 오프라인 정산·최소 원장·접속 상태·복귀 요약 생산 칸 | Claude Code | [31-1650-s3-wp-c-settlement](worklog/2026/10/31-1650-s3-wp-c-settlement.md) |
 | 2026-10-31 15:25 | S3 WP-A: 월드 저장·부팅 복구, 불변 조건, 사용자 결정 반영 | Claude Code | [31-1525-s3-wp-a-persistence](worklog/2026/10/31-1525-s3-wp-a-persistence.md) |
 | 2026-10-31 14:00 | S3 서버 단계 설계 (ADR 제안, 구현 전) | Claude Code | [31-1400-s3-design](worklog/2026/10/31-1400-s3-design.md) |
 | 2026-10-31 13:40 | 사용자 결정: 행성 목록·대륙 모양·태양계 샘플·항성계·은하지도, S3 10만 개 시험 빼기 | Claude Code | [31-1340-user-decisions-library-space](worklog/2026/10/31-1340-user-decisions-library-space.md) |

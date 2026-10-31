@@ -19,6 +19,7 @@ function setup(answer: SummaryGetResponse = SHOW) {
   let now = 0;
   let sessionChecks = 0;
   let manual = false;
+  const acked: number[] = [];
   const gate = createSummaryGate({
     load: (preview) => {
       asked.push(preview);
@@ -30,9 +31,11 @@ function setup(answer: SummaryGetResponse = SHOW) {
     onSessionEnded: () => {
       sessionChecks += 1;
     },
+    ack: (until) => acked.push(until),
   });
   return {
     gate,
+    acked,
     asked,
     waiting,
     setViewer: (next: typeof viewer) => {
@@ -82,6 +85,25 @@ describe("복귀 요약을 물을 때", () => {
     t.gate.sessionChanged();
     await flush();
     expect(t.asked).toHaveLength(1);
+  });
+
+  it("닫으면 확인 기록(until)을 보낸다. 시안 자료는 보내지 않는다", async () => {
+    const own: SummaryGetResponse = {
+      show: true,
+      since: null,
+      until: 77,
+      sections: [{ kind: "production", count: 3, params: {}, target: null }],
+    };
+    const t = setup(own);
+    t.gate.sessionChanged();
+    await flush();
+    t.gate.dismiss();
+    expect(t.acked).toEqual([77]);
+    const preview = setup(SHOW);
+    preview.gate.sessionChanged();
+    await flush();
+    preview.gate.dismiss();
+    expect(preview.acked).toEqual([]);
   });
 
   it("30분 넘게 숨겼다가 다시 보이면 또 묻는다. 30분 안이면 묻지 않는다(PWA의 '켤 때'와 같다)", async () => {

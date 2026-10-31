@@ -3,20 +3,22 @@
 // 각 모듈의 create…가 정한다. 지금은 모두 0개라 DB를 받지 않는다. 시스템이 생겨 DB·월드가 필요하면 여기로 넘긴다.
 import { collectInbox, checkProviders, createInboxProviders } from "../inbox/registry.ts";
 import type { InboxAccount } from "../inbox/types.ts";
-import { collectSummary, createSummarySources } from "../summary/summary.ts";
+import { EMPTY_SUMMARY_BACKEND, type SummaryBackend, collectSummary } from "../summary/summary.ts";
 import type { HomeServices, Viewer } from "../trpc/context.ts";
 import { createServerCardProviders, loadDashboardCards } from "./cards.ts";
 
 const accountOf = (viewer: Viewer): InboxAccount => ({ userId: viewer.id, roles: viewer.roles });
 
-export function createHomeServices(): HomeServices {
+/** summary: 복귀 요약 자료(DB·월드가 있을 때 app.ts가 만든다, src/world/summarySources.ts) */
+export function createHomeServices(options: { summary?: SummaryBackend | undefined } = {}): HomeServices {
   const inboxProviders = createInboxProviders();
   checkProviders(inboxProviders);
-  const summarySources = createSummarySources();
+  const summary = options.summary ?? EMPTY_SUMMARY_BACKEND;
   const cardProviders = createServerCardProviders();
   return {
     inbox: (viewer, query) => collectInbox(inboxProviders, accountOf(viewer), query.now, query.preview),
-    summary: (viewer, query) => collectSummary(summarySources, accountOf(viewer), query.now, query.preview),
+    summary: (viewer, query) => collectSummary(summary, accountOf(viewer), query.now, query.preview),
+    ackSummary: (viewer, until, now) => summary.ack(viewer.id, until, now),
     // 시안 자료에서도 서버 카드는 "준비 중"이라 preview는 권한 확인에만 쓴다(trpc/dashboard.ts)
     cards: (viewer, ids, query) => loadDashboardCards(cardProviders, ids, accountOf(viewer), query.now),
   };

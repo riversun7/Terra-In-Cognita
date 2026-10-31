@@ -67,6 +67,21 @@ export interface ScenarioTrips {
   readonly idleMaxMs: number;
 }
 
+/** 전투(있으면 도시 빼앗기를 공성 전투로 정하고 조우 전투를 연다). [임시] 값은 시나리오 시험값이다 */
+export interface ScenarioCombat {
+  /** 공성에 나서는 유닛 수(편마다) */
+  readonly siegeUnits: number;
+  /** 조우에 나서는 유닛 수(편마다) */
+  readonly encounterUnits: number;
+  /** 세력 판단 한 번에 조우가 생길 확률(천분율) */
+  readonly encounterPerMille: number;
+  /** 일반 전투맵 한 변(49 C3: 64) */
+  readonly mapSize: number;
+  /** 공성 전투맵 한 변(49 C3: 128) */
+  readonly siegeMapSize: number;
+  readonly nexusDurability: number;
+}
+
 export interface Scenario {
   readonly id: string;
   /** 콘텐츠 팩 행성 ID(있으면 실행 도구가 팩에 있는지 본다) */
@@ -75,6 +90,7 @@ export interface Scenario {
   readonly stub: ScenarioStub;
   readonly trips?: ScenarioTrips | undefined;
   readonly economy?: ScenarioEconomy | undefined;
+  readonly combat?: ScenarioCombat | undefined;
 }
 
 const ID = /^[a-z][a-z0-9_]{1,47}$/;
@@ -171,7 +187,29 @@ export function parseScenario(value: unknown): Scenario {
           fxLot: amount(field(economyValue, "fxLot"), "economy.fxLot"),
         };
   if (economy && economy.fxLot <= 0n) throw new ScenarioError("economy.fxLot: positive expected");
-  return { id, planet, factions, stub, trips, economy };
+  const combatValue = field(value, "combat");
+  const evenSize = (raw: unknown, path: string): number => {
+    const size = int(raw, path, 32, 128);
+    if (size % 2 !== 0) throw new ScenarioError(`${path}: even number expected`);
+    return size;
+  };
+  const combat: ScenarioCombat | undefined =
+    combatValue === undefined
+      ? undefined
+      : {
+          siegeUnits: int(field(combatValue, "siegeUnits"), "combat.siegeUnits", 1, 250),
+          encounterUnits: int(field(combatValue, "encounterUnits"), "combat.encounterUnits", 1, 100),
+          encounterPerMille: int(
+            field(combatValue, "encounterPerMille"),
+            "combat.encounterPerMille",
+            0,
+            1000,
+          ),
+          mapSize: evenSize(field(combatValue, "mapSize"), "combat.mapSize"),
+          siegeMapSize: evenSize(field(combatValue, "siegeMapSize"), "combat.siegeMapSize"),
+          nexusDurability: int(field(combatValue, "nexusDurability"), "combat.nexusDurability", 1),
+        };
+  return { id, planet, factions, stub, trips, economy, combat };
 }
 
 function optionalList<T>(

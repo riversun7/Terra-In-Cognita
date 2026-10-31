@@ -337,8 +337,9 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
   const refreshAttackFields = (gone: ReadonlySet<number>): void => {
     attackFields = new Map();
     for (const side of state.sides) {
+      // 공성 공격 쪽은 보이는 적이 없으면 넥서스로 간다(기억한 자리보다 목표가 먼저)
       let sources = side.lastSeen;
-      if (sources.length === 0 && state.kind === "siege" && !side.defender) {
+      if (side.visible.length === 0 && state.kind === "siege" && !side.defender) {
         const nexus = nexusOf(gone);
         sources = nexus === undefined ? [] : (nexusCells.get(nexus) ?? []);
       }

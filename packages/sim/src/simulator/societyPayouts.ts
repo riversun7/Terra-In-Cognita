@@ -3,8 +3,8 @@
 // - 기간 세금 = 도시 거래소 거래세 누적(경제 고리 taxCollectedOf)의 차이. 도시 주인이 바뀌면 기준점을 다시 잡는다
 //   (새 주인은 가진 뒤 걷은 세금만, 옛 주인의 정산 전 몫은 정산하지 않는다).
 // - 기간 이자 = 그 세력이 낸 발행 이자 누적(interestPaidOf, 중앙은행이 날마다 이미 소각한 양)의 차이.
-// - [임시] 운영비 = 그 기간 그 도시 연구 시설 짓기 값(공공 건물). 도시 예산(D-252 급여·유지비)은 아직 시뮬에 없다.
-// - [임시] 가문이 없어 지배 가문 금고 = 세력 국고 주체(독재 국고 몫은 국고에 남는다).
+// - 운영비 = 그 기간 그 도시 연구 시설 짓기 값(공공 건물, 지금 있는 운영비). 시장 급여·유지비(D-252)가 생기면 더한다(D-444 166).
+// - [임시] 가문이 없어 지배 가문 금고 = 세력 국고 주체(world.ts rulingFamilyOf, 독재 국고 몫은 국고에 남는다).
 // - 공물 = 봉신 국고 × tributePm ÷ 1000(D-443 설정값, 기획 값 없음).
 import { type CityRevenue, payCityProfit, profitRecipient, settleCityTaxes } from "../society/dividends.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";

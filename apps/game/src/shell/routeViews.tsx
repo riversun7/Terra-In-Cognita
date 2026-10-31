@@ -23,6 +23,10 @@ const HomeScreen = lazy(() => import("../home/HomeScreen.tsx"));
 // 처리할 일 화면(W3): ?item= 은 그 줄을 강조한다(초점은 앱 안 이동일 때만 틀이 옮긴다). [뒤로]는 화면 제목 줄 끝에 둔다
 const InboxScreen = lazy(() => import("../inbox/InboxScreen.tsx"));
 const ComingSoon = lazy(() => import("../sections/ComingSoon.tsx"));
+// 세력 화면(D-439, 기획 46): 내 세력·도시·외교·전쟁·투표·지분. 규칙 전 칸은 곧 열림, dev·admin은 시안 자료
+const FactionScreen = lazy(() => import("../faction/FactionScreen.tsx"));
+// 우편 화면(D-270): 받은·보낸 우편, 쓰기(칸 검사만, 보내기는 곧 열림)
+const MailScreen = lazy(() => import("../mail/MailScreen.tsx"));
 const SettingsPage = lazy(() => import("../settings/SettingsPage.tsx"));
 const AdminPage = lazy(() => import("../admin/AdminPage.tsx"));
 // 개발자 영역(ADR 38 1절). 셰이더 측정은 gpuBench…로 시작하는 진입 파일로 받는다(조각 이름 → 미리 캐시에서 빠짐)
@@ -141,11 +145,13 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <PlanetEditorScreen onClose={goBack} monitor={monitor} />;
     case "dev_star_system":
       return <StarSystemScreen onClose={goBack} onNavigate={navigate} />;
+    case "faction":
+      return <FactionScreen />;
+    case "mail":
+      return <MailScreen />;
     case "units":
     case "economy":
-    case "faction":
     case "cyborg":
-    case "mail":
       return <ComingSoon match={match} />;
     default: {
       // 주소 표에 줄이 늘면 여기서 타입 오류가 난다

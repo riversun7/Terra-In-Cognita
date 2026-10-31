@@ -230,6 +230,12 @@ test.describe("관리자", () => {
             await expect(page.locator(".pe-stage-map .flat-map-canvas")).toBeVisible();
             await expect(page.locator(".pe-view-toggle")).toBeHidden();
             await shot(page, `planet-editor-1440-${theme}-${language}-settings`);
+            // 적용 줄은 지구본·미니맵 아래(판 밖)에 한 줄로 붙는다
+            await nudge(page, "precipitationPercent", "ArrowRight");
+            await expect(page.locator(".pe-stage .pe-apply-bar")).toBeVisible();
+            await shot(page, `planet-editor-1440-${theme}-${language}-pending`);
+            await page.locator(".pe-discard").click();
+            await expect(page.locator(".pe-apply-bar")).toHaveCount(0);
             await tab(page, "area").click();
             await expect(page.locator(".pe-area-table")).toBeVisible();
             await expect(page.locator(".pe-area-map")).toBeHidden();
@@ -252,21 +258,38 @@ test.describe("관리자", () => {
 test.describe("개발자(dev)", () => {
   test.use({ account: "dev" });
 
-  test("서랍의 [개발자] → 행성 편집기: 미리보기와 서버 확인이 나오고, 슬라이더 변경이 자동 저장된다", async ({
+  test("행성 편집기: 슬라이더는 [적용]을 기다리고, 프리셋 단계·시드 [무작위]는 누르면 바로 적용된다(적용 전 슬라이더 변경도 함께)", async ({
     page,
     deviceErrors,
   }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(150_000);
     await page.goto("/dev");
     await page.locator('#main a.dev-tool[href="/dev/planet-editor"]').click();
     await expect(page.locator(".pe-check-chip")).toHaveAttribute("data-check", "match", {
       timeout: PREVIEW_TIMEOUT,
     });
-    const sequence = await globeReady(page, 7);
+    let sequence = await globeReady(page, 7);
+    // 슬라이더 → 적용 줄(지구본 자리 아래, 판 밖) → [적용] → 새 미리보기·판
     await nudge(page, "precipitationPercent", "ArrowRight");
+    await expect(page.locator(".pe-stage .pe-apply-bar")).toBeVisible();
+    await expect(page.locator(".pe-tabpanel .pe-apply-bar")).toHaveCount(0);
     await applyEdits(page);
+    sequence = await globeReady(page, 7, sequence);
+    let revision = await savedAfter(page, 0);
+    // 슬라이더를 바꿔 둔 채 프리셋 단계를 누르면 둘 다 바로 적용된다(미리보기 한 번, 판 하나)
+    const plates = await nudge(page, "plateCount", "ArrowRight");
+    await page.locator('.pe-choice-input[value="wet"]').check();
+    await expect(page.locator(".pe-apply-bar")).toHaveCount(0);
+    sequence = await globeReady(page, 7, sequence);
+    revision = await savedAfter(page, revision);
+    await expect(slider(page, "plateCount")).toHaveValue(String(plates));
+    await expect(page.locator('.pe-choice-input[value="wet"]')).toBeChecked();
+    // 시드 [무작위] → 바로 새 미리보기·판
+    const seed = await page.locator(".pe-seed-input").inputValue();
+    await page.locator(".pe-seed-random").click();
+    await expect(page.locator(".pe-seed-input")).not.toHaveValue(seed);
     await globeReady(page, 7, sequence);
-    await savedAfter(page, 0);
+    await savedAfter(page, revision);
     expect(deviceErrors).toEqual([]);
   });
 });

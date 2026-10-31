@@ -5,6 +5,7 @@
 import type { Role, UserSettings } from "@terra/shared";
 import type { DashboardCardsResponse } from "@terra/shared/dashboard";
 import type { InboxListResponse, SummaryGetResponse } from "@terra/shared/inbox";
+import type { CyborgGetResponse, UnitsListResponse } from "@terra/shared/roster";
 import type { PlanetLibraryBase } from "@terra/shared";
 import type {
   PlanetDraftRevisionInfo,
@@ -151,6 +152,15 @@ export interface HomeServices {
   cards(viewer: Viewer, ids: readonly string[], query: HomeQuery): Promise<DashboardCardsResponse>;
 }
 
+/**
+ * 유닛·사이보그 화면 자료(units.list·cyborg.get, ADR 2026-10-29-app-shell "구현하며 정한 것 (유닛·사이보그 화면)").
+ * 프로시저가 로그인한 본인으로만 부른다. preview는 홈 시안 자료와 같은 권한(home: preview)을 본 뒤에만 true다.
+ */
+export interface RosterServices {
+  units(viewer: Viewer, query: HomeQuery): Promise<UnitsListResponse>;
+  cyborg(viewer: Viewer, query: HomeQuery): Promise<CyborgGetResponse>;
+}
+
 export interface TrpcContext {
   /** 콘텐츠 팩 버전 */
   contentVersion: string;
@@ -166,6 +176,8 @@ export interface TrpcContext {
   planetEditor: PlanetEditorServices | undefined;
   /** 홈 자료. 늘 있다(지금 제공 함수가 0개라 DB가 필요 없다). 로그인 검사는 프로시저가 먼저 한다 */
   home: HomeServices;
+  /** 유닛·사이보그 화면 자료. 늘 있다(세계·DB가 없으면 실제 자료는 빈 목록) */
+  roster: RosterServices;
 }
 
 export interface TrpcContextOptions {

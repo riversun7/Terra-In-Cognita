@@ -1,0 +1,444 @@
+/*
+ * 유닛·사이보그 화면 공용 — 시험 자료 표, 곧 열림 버튼, 막대, 판, 스탯·장비 칸·스킬, 목록 줄, 얼굴 동그라미.
+ * 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast). 디자인: 후보 A "새싹 장난감"(ADR 2026-10-28-design-system).
+ * 폭 경계는 화면 틀과 같은 em 숫자다(37.5em·64em, CSS 변수는 미디어 쿼리에 못 쓴다).
+ */
+
+/* 목록·정의 목록·소제목의 브라우저 기본 여백을 지운다(이 두 화면 안만, 특이도 0이라 아래 규칙이 이긴다) */
+:where(.units, .cyborg) :where(ul, ol, dl, dd, h2, h3) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── 안내 줄 ───────────────────────────────────── */
+.roster-notice {
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-w) dashed var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.roster-note,
+.roster-meta {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-muted);
+}
+.roster-empty {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+  color: var(--color-text-muted);
+}
+.roster-empty-panel {
+  gap: var(--space-2);
+  text-align: center;
+}
+.roster-empty-title {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+}
+.roster-muted {
+  color: var(--color-text-muted);
+}
+.roster-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+.roster-subtitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.roster-failed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+/* ── 작은 표(칩) ───────────────────────────────── */
+.roster-tag {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  min-height: calc(var(--tap-size) / 2);
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  white-space: nowrap;
+}
+.roster-tag-plain {
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+.roster-tag-preview {
+  border-style: dashed;
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+}
+.roster-tag[data-tone="captive"] {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+.roster-tag[data-tone="injured"],
+.roster-tag[data-tone="idle"] {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+}
+.roster-tag[data-tone="working"] {
+  border-color: var(--color-success);
+  background-color: var(--color-success-surface);
+  color: var(--color-success);
+}
+.roster-tag[data-tone="top"] {
+  border-color: var(--color-primary-lip);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+/* ── 곧 열림 버튼: 이름 + 작은 "곧 열림" ─────────────── */
+.roster-soon {
+  flex-wrap: wrap;
+  column-gap: var(--space-2);
+  row-gap: 0;
+}
+.roster-soon-note {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+.roster-preview-switch[aria-pressed="true"] {
+  --button-lip: var(--color-primary-lip);
+  border-color: transparent;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+/* ── 판 ───────────────────────────────────────── */
+.roster-section {
+  gap: var(--space-3);
+  padding: var(--space-4);
+  min-width: 0;
+}
+.roster-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.roster-section-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+}
+
+/* ── 막대 ─────────────────────────────────────── */
+.roster-meter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.roster-meter-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.roster-meter-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.roster-meter-track {
+  height: var(--preview-line);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  box-shadow: inset 0 0 0 var(--hairline) var(--color-border);
+  overflow: hidden;
+}
+.roster-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary-lip);
+  transition: inline-size var(--duration-slow) var(--easing-out);
+}
+.roster-meter-track[data-warn="true"] .roster-meter-fill {
+  background-color: var(--color-warning);
+}
+
+/* ── 사실 목록(이름: 값) ─────────────────────────── */
+.roster-facts {
+  display: grid;
+  gap: var(--space-2);
+}
+.roster-facts > div {
+  display: grid;
+  grid-template-columns: minmax(5em, auto) minmax(0, 1fr);
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.roster-facts dt {
+  color: var(--color-text-muted);
+}
+.roster-facts dd[data-tone="injured"] {
+  color: var(--color-warning);
+  font-weight: var(--font-weight-strong);
+}
+.roster-facts dd[data-tone="captive"] {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-strong);
+}
+
+/* ── 스탯 ─────────────────────────────────────── */
+.roster-stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.roster-primaries {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.roster-primary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+  padding: var(--space-2) var(--space-1);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  text-align: center;
+}
+.roster-primary-name {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-snug);
+}
+.roster-primary-value {
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  font-variant-numeric: tabular-nums;
+}
+.roster-primary-bonus {
+  font-size: var(--font-size-xs);
+  color: var(--color-success);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.roster-secondary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
+  column-gap: var(--space-4);
+  row-gap: 0;
+}
+.roster-secondary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-block: var(--space-1);
+  border-bottom: var(--hairline) solid var(--color-border);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.roster-secondary-row dt {
+  min-width: 0;
+  color: var(--color-text-muted);
+}
+.roster-secondary-row dd {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+
+/* ── 장비 칸 ──────────────────────────────────── */
+.roster-slots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.roster-slot {
+  display: grid;
+  grid-template-columns: minmax(4.5em, auto) minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.roster-slot[data-empty="true"] {
+  border-style: dashed;
+  background-color: transparent;
+}
+.roster-slot-kind {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.roster-slot-item {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.roster-slot-name {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.roster-slot-values {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── 스킬 칩 ──────────────────────────────────── */
+.roster-skills {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.roster-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.roster-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-height: var(--tap-size);
+  align-content: center;
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.roster-chip-note {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+.roster-chip-empty {
+  border-style: dashed;
+  background-color: transparent;
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+
+/* ── 목록 줄(화물·인벤토리·프리셋·경매·포로·랭킹) ─────── */
+.roster-list {
+  display: flex;
+  flex-direction: column;
+}
+.roster-list-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  padding-block: var(--space-2);
+  border-bottom: var(--hairline) solid var(--color-border);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.roster-list-row:last-child {
+  border-bottom: none;
+}
+.roster-list-panel {
+  padding: var(--space-1) var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+.roster-list-panel > .roster-list-row {
+  padding-block: var(--space-3);
+}
+.roster-list-main {
+  display: flex;
+  flex: 1 1 12em;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.roster-list-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+
+/* ── 얼굴 동그라미(이름 첫 글자, 종류마다 색) ───────── */
+.roster-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--aide-size);
+  height: var(--aide-size);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
+.roster-avatar-lg {
+  width: var(--mark-lg);
+  height: var(--mark-lg);
+  font-size: var(--font-size-2xl);
+}
+.roster-avatar[data-type="human"] {
+  border-color: var(--color-primary-lip);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.roster-avatar[data-type="creature"] {
+  border-color: var(--color-warning);
+  background-color: var(--color-highlight);
+  color: var(--color-on-primary);
+}
+.roster-avatar[data-type="android"] {
+  border-color: var(--color-focus);
+  background-color: var(--color-surface);
+}
+.roster-avatar[data-type="cyborg"] {
+  border-color: var(--color-deco-3);
+  background-color: var(--color-deco-2);
+}
+
+@media (min-width: 37.5em) {
+  .roster-primaries {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}

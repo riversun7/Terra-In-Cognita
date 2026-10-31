@@ -1,0 +1,367 @@
+/*
+ * 유닛 화면 — 칸 줄, 목록(걸러 보기·줄·다중 선택 띠), 상세, 파티 진형, 칸 판. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 촘촘 화면(data-density="compact")이다. 좁은 폭은 목록 ↔ 상세를 바꿔 보이고, 넓은 폭(64em 이상)은 목록 옆에 상세 판을 둔다.
+ */
+
+.units {
+  width: 100%;
+  min-width: 0;
+}
+
+/* ── 칸 줄: 좁으면 가로로 넘긴다 ─────────────────── */
+.units-tabs {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-block: var(--space-1) var(--space-2);
+  scrollbar-width: thin;
+}
+.units-tab {
+  --button-lip: transparent;
+  flex: none;
+  min-height: var(--tap-size);
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-sm);
+}
+.units-tab[aria-selected="true"] {
+  --button-lip: var(--color-primary-lip);
+  border-color: transparent;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.units-tab-count {
+  min-width: var(--badge-size);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+.units-panel {
+  min-width: 0;
+}
+.units-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.units-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ── 목록 ↔ 상세 ──────────────────────────────── */
+.units-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.units-split[data-view="detail"] .units-list-pane,
+.units-split[data-view="list"] .units-detail-pane {
+  display: none;
+}
+.units-list-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.units-detail-placeholder {
+  text-align: center;
+}
+
+/* ── 걸러 보기 ─────────────────────────────────── */
+.units-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.units-filter {
+  display: flex;
+  flex: 1 1 7em;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.units-filter select {
+  width: 100%;
+}
+.units-filter-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.units-list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* ── 줄: [고르기] [얼굴 + 이름 + 표] ─────────────── */
+.units-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.units-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  /* 유닛이 수백이어도 화면 밖 줄은 그리지 않는다(높이는 카드 한 줄쯤으로 어림) */
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto var(--card-row);
+}
+.units-row-check {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--tap-size);
+  min-height: var(--tap-size);
+  cursor: pointer;
+}
+.units-row-check input {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  accent-color: var(--color-primary-lip);
+  cursor: pointer;
+}
+.units-row-main {
+  --button-lip: var(--color-secondary-lip);
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  font-weight: var(--font-weight-regular);
+  text-align: start;
+}
+.units-row[data-current="true"] .units-row-main {
+  border-color: var(--color-focus);
+}
+.units-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.units-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.units-row-name {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.units-row-meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.units-row-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* ── 다중 선택 띠: 목록 아래에 붙는다(하단 탭 위) ──────── */
+.units-selection {
+  position: sticky;
+  bottom: var(--space-3);
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-w) solid var(--color-primary-lip);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+:root[data-tabbar] .units-selection {
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-2));
+}
+:root[data-tabbar="c"] .units-selection {
+  bottom: calc(var(--tabbar-h) + var(--space-6) + env(safe-area-inset-bottom) + var(--space-2));
+}
+.units-selection-count {
+  font-weight: var(--font-weight-strong);
+}
+.units-selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ── 상세 ─────────────────────────────────────── */
+.units-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.units-detail-head {
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+.units-detail-back {
+  align-self: flex-start;
+}
+.units-detail-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.units-detail-names {
+  display: flex;
+  flex: 1 1 10em;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.units-detail-name {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+.units-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.units-detail-actions > button {
+  flex: 1 1 var(--button-basis);
+}
+
+/* ── 파티·진형 ────────────────────────────────── */
+.units-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  gap: var(--space-3);
+}
+.units-card {
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+.units-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.units-card-title {
+  flex: 1 1 auto;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+}
+.units-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+/* 진형: 앞줄 3칸 · 뒷줄 3칸. 줄 이름은 첫 열 */
+.units-formation {
+  display: grid;
+  grid-template-columns: auto repeat(3, minmax(0, 1fr));
+  grid-template-rows: auto auto;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+.units-formation-row-label {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.units-formation-back {
+  grid-row: 2;
+}
+.units-spot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-2) var(--space-1);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  text-align: center;
+}
+.units-spot[data-row="front"] {
+  grid-row: 1;
+}
+.units-spot[data-row="back"] {
+  grid-row: 2;
+}
+.units-spot[data-empty="true"] {
+  justify-content: center;
+  border-style: dashed;
+  background-color: transparent;
+}
+.units-spot-name {
+  max-width: 100%;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.units-spot-role,
+.units-spot-empty {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── 경매·포로 ────────────────────────────────── */
+.units-lot-prices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-strong);
+}
+.units-lot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ── 넓음(64em 이상): 목록 옆에 상세 판 ─────────────── */
+@media (min-width: 64em) {
+  .units-split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  }
+  .units-split[data-view="detail"] .units-list-pane,
+  .units-split[data-view="list"] .units-detail-pane {
+    display: flex;
+  }
+  .units-detail-pane {
+    position: sticky;
+    top: calc(var(--topbar-h) + var(--space-3));
+    max-height: calc(100dvh - var(--topbar-h) - var(--space-6));
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .units-detail-back {
+    display: none;
+  }
+}

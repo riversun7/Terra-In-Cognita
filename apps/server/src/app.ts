@@ -29,6 +29,8 @@ import { registerTrpc } from "./trpc/plugin.ts";
 import { appRouter } from "./trpc/router.ts";
 import { cacheViewer, createWorldGateway } from "./world/gateway.ts";
 import { createWorldSummaryBackend } from "./world/summarySources.ts";
+import type { RosterCatalog } from "./roster/catalog.ts";
+import { createWorldRosterSource } from "./roster/worldUnits.ts";
 import { registerTerrainRoute } from "./world/terrainRoute.ts";
 import type { MapPropInput } from "@terra/planet/secondMap";
 import { createTerrainService } from "./world/terrainService.ts";
@@ -102,6 +104,8 @@ export interface AppOptions {
   planetEditor?:
     | { definitions: PlanetEditorDefinitions; limits?: Partial<PlanetEditorLimits> | undefined }
     | undefined;
+  /** 유닛·사이보그 화면의 콘텐츠 팩 자료(src/roster/catalog.ts rosterCatalogOf). 없으면 시험 자료(이름 = ID) */
+  roster?: RosterCatalog | undefined;
   /**
    * 시험용: 요청의 로그인 사용자를 직접 정한다(DB 없는 시험). 주면 인증 세션 조회와 WebSocket 출처 검사를 하지 않는다.
    * 운영 코드는 쓰지 않는다.
@@ -226,6 +230,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         : undefined,
       // 복귀 요약: 오프라인 정산의 생산 + 확인 시각(DB가 있는 월드만)
       summary: world && options.db ? createWorldSummaryBackend(world) : undefined,
+      // 유닛·사이보그 화면: 실제 유닛은 DB가 있는 월드만(복귀 요약과 같은 읽는 차례)
+      roster: {
+        catalog: options.roster,
+        world: world && options.db ? createWorldRosterSource(world) : undefined,
+      },
     }),
   });
 

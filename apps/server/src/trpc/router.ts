@@ -6,6 +6,7 @@ import { dashboardRouter } from "./dashboard.ts";
 import { inboxRouter } from "./inbox.ts";
 import { router } from "./init.ts";
 import { planetEditorRouter } from "./planetEditor.ts";
+import { cyborgRouter, unitsRouter } from "./roster.ts";
 import { settingsRouter } from "./settings.ts";
 import { summaryRouter } from "./summary.ts";
 import { systemRouter } from "./system.ts";
@@ -20,6 +21,9 @@ export const appRouter = router({
   inbox: inboxRouter,
   summary: summaryRouter,
   dashboard: dashboardRouter,
+  // 유닛·사이보그 화면 자료(ADR 2026-10-29-app-shell "구현하며 정한 것 (유닛·사이보그 화면)")
+  units: unitsRouter,
+  cyborg: cyborgRouter,
 });
 
 export type AppRouter = typeof appRouter;

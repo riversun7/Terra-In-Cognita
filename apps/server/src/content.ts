@@ -24,7 +24,15 @@ export interface RawPackEntries {
 
 export type ContentLoadResult =
   /** pack: 검증을 통과한 항목(행성 원본을 만든다, src/planet/sources.ts planetSpecsFromPack). raw: 같은 항목의 파일 JSON */
-  | { ok: true; content: ServerContent; pack: ContentPack; raw: RawPackEntries; warnings: string[] }
+  | {
+      ok: true;
+      content: ServerContent;
+      pack: ContentPack;
+      raw: RawPackEntries;
+      /** 팩 파일(분류 스키마로 다시 읽는 곳: 유닛·사이보그 화면 자료 src/roster/catalog.ts) */
+      source: PackSource;
+      warnings: string[];
+    }
   | { ok: false; lines: string[] };
 
 /** 분류 파일의 entries(파일 JSON 그대로). 파일이 없으면 빈 배열. 검증을 통과한 팩이라 모양은 맞다 */
@@ -53,6 +61,7 @@ export function loadServerContent(dir: string): ContentLoadResult {
       placeholder: loaded.pack.manifest.placeholder === true,
     },
     pack: loaded.pack,
+    source: loaded.source,
     raw: {
       planets: rawEntriesOf(loaded.source, "planets.json"),
       biomes: rawEntriesOf(loaded.source, "biomes.json"),

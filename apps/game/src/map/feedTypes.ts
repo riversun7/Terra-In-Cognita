@@ -87,6 +87,8 @@ export interface FeedStats extends FeedRates {
   serverResyncs: number;
   /** 엔진 상한을 넘어 그리지 않는 유닛 수 */
   droppedUnits: number;
+  /** 탐사한 시야 칸 수(마지막 vision, 32×32 중). 아직 안 왔거나 전체 보기면 null — 0이면 2차맵이 온통 어둡다 */
+  explored: number | null;
   commands: number;
   pendingCommands: number;
 }

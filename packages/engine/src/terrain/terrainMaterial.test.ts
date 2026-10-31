@@ -39,6 +39,7 @@ describe("TerrainMaterial 셰이더 끼우기", () => {
       "uCellSize",
       "uFog",
       "uFogOn",
+      "uGrid",
       "uHeight",
       "uNoise",
       "uProps",

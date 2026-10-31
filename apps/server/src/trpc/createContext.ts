@@ -29,7 +29,13 @@ import {
 } from "../planetEditor/services.ts";
 import { createSettingsServices } from "../settings/store.ts";
 import type { SummaryBackend } from "../summary/summary.ts";
-import type { EconomyServices, TrpcContext, TrpcContextOptions, Viewer } from "./context.ts";
+import type {
+  EconomyServices,
+  SecondMapLabServices,
+  TrpcContext,
+  TrpcContextOptions,
+  Viewer,
+} from "./context.ts";
 import { reasonedError } from "./init.ts";
 
 export interface ContextFactoryOptions extends TrpcContextOptions {
@@ -46,6 +52,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   summary?: SummaryBackend | undefined;
   /** 유닛·사이보그 화면: 콘텐츠 팩 자료(없으면 시험 자료)와 실제 유닛 출처(DB·월드가 있을 때) */
   roster?: { catalog?: RosterCatalog | undefined; world?: WorldRosterSource | undefined } | undefined;
+  /** 개발자 2차맵 시험(월드·지형 서비스·행성 서비스가 다 있을 때, src/world/secondMapLab.ts) */
+  secondMapLab?: SecondMapLabServices | undefined;
   /** 경제 화면 자료(팩 목록·월드 원장). 없으면 빈 목록·잔고 없음 */
   economy?: EconomyServices | undefined;
   /** 세력 화면 실제 자료(DB·월드가 있을 때) */
@@ -117,6 +125,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
           : undefined,
       home,
       roster,
+      secondMapLab: options.secondMapLab,
       economy,
       faction,
       mail,

@@ -30,6 +30,8 @@ import type {
   PlanetLibrarySummary,
   PlanetLibraryVersion,
   PlanetLibraryVersionInfo,
+  SecondMapLabAnswer,
+  SecondMapLabTarget,
   StarSystemRecord,
   StarSystemSaved,
   StarSystemSummary,
@@ -173,6 +175,14 @@ export interface RosterServices {
   cyborg(viewer: Viewer, query: HomeQuery): Promise<CyborgGetResponse>;
 }
 
+/**
+ * 개발자 2차맵 시험(planetEditor.secondMap, ADR 46 "구현하며 정한 것 (개발자 2차맵 시험)"): 월드 행성의 2차맵 지형 주소·행성 칸 값.
+ * 실패: SecondMapLabInputError(틀린 키) → BAD_REQUEST, SecondMapLabNotReadyError(지형 서비스 준비 전) → PRECONDITION_FAILED
+ */
+export interface SecondMapLabServices {
+  locate(planetId: string, target: SecondMapLabTarget): Promise<SecondMapLabAnswer>;
+}
+
 /** 경제 화면 조회의 조건. preview는 프로시저가 권한(home: preview, dev·admin)을 본 뒤에만 true다 */
 export interface EconomyQuery {
   readonly preview: boolean;
@@ -226,6 +236,8 @@ export interface TrpcContext {
   home: HomeServices;
   /** 유닛·사이보그 화면 자료. 늘 있다(세계·DB가 없으면 실제 자료는 빈 목록) */
   roster: RosterServices;
+  /** 개발자 2차맵 시험. 월드·지형 서비스·행성 서비스가 다 있을 때만 */
+  secondMapLab?: SecondMapLabServices | undefined;
   /** 경제 화면 자료. 늘 있다(팩이 없으면 빈 목록, 월드가 없으면 잔고 없음) */
   economy: EconomyServices;
   /** 세력 화면. 늘 있다(DB·월드가 없으면 실제 자료가 빈 값이다) */

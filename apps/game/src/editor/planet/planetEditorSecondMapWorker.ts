@@ -1,4 +1,4 @@
-// 편집기 2차맵 미리보기 워커(모듈 워커) — secondMapPreviewClient.ts가
+// 편집기 2차맵 미리보기 워커(모듈 워커) — map/secondMapBuildClient.ts가
 // `new Worker(new URL("./planetEditorSecondMapWorker.ts", import.meta.url), { type: "module" })`로 띄운다
 // (ADR 2026-10-31-second-map-from-planet 9절). 파일 이름 앞머리 planetEditor를 지킨다: 서비스 워커 미리 캐시 규칙(DEV_ONLY_CHUNK)이
 // 이 이름으로 개발자 조각을 뺀다(planetEditorWorker.ts와 같다).

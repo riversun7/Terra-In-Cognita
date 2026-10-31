@@ -1,0 +1,218 @@
+/*
+ * 2차맵 시험 화면(SecondMapLabScreen) — 틀 숨김, 화면 전체. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * - 휴대폰 세로(48em 미만): 위 지도 + 아래 판(세로 스크롤). 넓은 화면(48em 이상): 지도 옆 판.
+ * - 판은 촘촘 변형(data-density="compact", 화면 뿌리). 지도 위 상태 띠는 불투명 판이다: 세계 색은 테마와 상관없어
+ *   다크에서도 글자가 읽혀야 한다(D-070).
+ */
+.sml-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+.sml-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-w) solid var(--color-border);
+  background-color: var(--color-surface);
+}
+.sml-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-display);
+}
+.sml-center {
+  padding: var(--space-4);
+}
+
+/* ── 본문: 지도 + 판 ── */
+.sml-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(12rem, 11fr) minmax(0, 9fr);
+}
+.sml-stage {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background-color: var(--color-bg);
+}
+.sml-view {
+  position: absolute;
+  inset: 0;
+}
+.sml-hud {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  right: var(--space-2);
+  display: flex;
+  pointer-events: none;
+}
+.sml-chip {
+  max-width: 100%;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-panel);
+}
+.sml-body[data-status="failed"] .sml-chip {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+  font-weight: var(--font-weight-strong);
+}
+
+.sml-panel {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-3) var(--space-3) calc(var(--space-6) + env(safe-area-inset-bottom));
+  border-top: var(--border-w) solid var(--color-border);
+  background-color: var(--color-surface);
+}
+.sml-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.sml-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
+  border-bottom: var(--border-w) solid var(--color-border);
+}
+.sml-section:last-child {
+  border-bottom: 0;
+}
+.sml-subtitle {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.sml-planet {
+  max-width: 100%;
+}
+.sml-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.sml-cell-inputs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: var(--space-2);
+}
+.sml-cell-inputs .sml-open-cell {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.sml-key-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-2);
+}
+.sml-key-input .field {
+  flex: 1 1 12em;
+  min-width: 0;
+}
+.sml-current {
+  overflow-wrap: anywhere;
+}
+.sml-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-size);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.sml-check input {
+  width: var(--space-5);
+  height: var(--space-5);
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+.sml-range {
+  width: 100%;
+  min-height: var(--tap-size);
+  margin: 0;
+  accent-color: var(--color-primary);
+  touch-action: pan-y;
+}
+.sml-facts {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.sml-facts > div {
+  display: grid;
+  grid-template-columns: minmax(5em, 2fr) minmax(0, 5fr);
+  gap: var(--space-2);
+}
+.sml-facts dt {
+  color: var(--color-text-muted);
+}
+.sml-facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* 넓은 화면: 지도 옆 판 */
+@media (min-width: 48em) {
+  .sml-body {
+    grid-template-rows: none;
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 26rem);
+  }
+  .sml-panel {
+    border-top: 0;
+    border-left: var(--border-w) solid var(--color-border);
+  }
+}
+
+/* 기기에서 F9 행성을 처음 만들기 전 묻는 카드(지도 위 가운데) */
+.sml-ask {
+  position: absolute;
+  inset: auto var(--space-3) var(--space-3);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.sml-ask-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

@@ -49,6 +49,10 @@ export interface SecondMapEngineOptions {
   mapKey?: number;
   /** 하늘(낮밤) 모드 — 1차맵과 같은 모양(구름은 쓰지 않는다). 없으면 끔 = 지금 고정 빛 */
   sky?: PlanetSkyMode;
+  /**
+   * 처음 카메라 거리 = 가장 가까운 거리 × 이 값(기본 1.75: 화면 짧은 변 약 70m). 개발자 2차맵 시험은 고저를 보려고 멀리서 시작한다
+   */
+  initialZoom?: number;
   onStatus?: (status: EngineStatus) => void;
   /** 유닛을 눌러 골랐을 때(엔진이 고른 표시를 한다) */
   onSelect?: (unitId: number | null) => void;
@@ -95,6 +99,21 @@ export interface EngineStats {
   neighbours: number;
   /** 세운 소품 모델 수(가까이만, 0이면 땅 색만) */
   props: number;
+  /** 소품 모델을 세우는 화면 짧은 변 상한(m)·모델 수 상한(setViewOptions로 바꾼 값) */
+  propSpanM: number;
+  propCap: number;
+  /** 격자 선을 그리는지 */
+  grid: boolean;
+}
+
+/** 보기 설정(개발자 2차맵 시험). 빠진 값은 그대로 둔다 */
+export interface EngineViewOptions {
+  /** 격자 선(지형 칸 + 16칸) */
+  grid?: boolean;
+  /** 소품 모델을 세우는 화면 짧은 변 상한(m, 기본 420, 50~3,000) */
+  propSpanM?: number;
+  /** 소품 모델 수 상한(기본 2,500, 0~20,000) */
+  propCap?: number;
 }
 
 /** 낮밤 빛 요약 */
@@ -143,6 +162,8 @@ export interface SecondMapEngine {
   camera(): Readonly<CameraState>;
   /** 하늘(낮밤) 모드를 바꾼다(동작 줄이기 등). 0.5초에 걸쳐 옮긴다. 셰이더는 다시 만들지 않는다 */
   setSky(mode: PlanetSkyMode): void;
+  /** 보기 설정(격자 선·소품 모델 거리·상한, 개발자 2차맵 시험). 게임 자료는 바꾸지 않는다 */
+  setViewOptions(options: EngineViewOptions): void;
   /** 모두 버린다: 그리기 멈춤, 입력·워커·지오메트리·재질 정리, 캔버스 떼기(렌더러는 다음 화면이 다시 쓴다) */
   dispose(): void;
 }

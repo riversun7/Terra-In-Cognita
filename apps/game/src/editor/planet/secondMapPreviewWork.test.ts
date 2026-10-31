@@ -3,8 +3,10 @@
 import { planetInputFromDefinition, runPlanetGenerator } from "@terra/planet/generator";
 import {
   compileMapProps,
+  findMapPreset,
   generateSecondMap,
   mapPropInputsFromJson,
+  planetCellValues,
   planetValuesFromGeneration,
 } from "@terra/planet/secondMap";
 import { describe, expect, it } from "vitest";
@@ -78,5 +80,38 @@ describe("2차맵 미리보기 일", () => {
     expect(badInput.reply).toMatchObject({ kind: "error", code: "rejected" });
     const wrongLevel = runSecondMapJob(request(6, cellAtLatLon(LEVEL + 1, 0, 0).key), slot);
     expect(wrongLevel.reply).toMatchObject({ kind: "error", code: "failed" });
+  });
+});
+
+describe("개발자 2차맵 시험 부탁(시험 자리·8이웃·칸 값)", () => {
+  it("키 대신 시험 자리 종류로 찾고, 8이웃을 함께 만들고, 그 칸의 행성 값을 준다", () => {
+    const details = runPlanetGenerator(INPUT);
+    const biomeIds = INPUT.biomes.map((biome) => biome.id);
+    const values = planetValuesFromGeneration(details.fields, details, biomeIds);
+    const slot = emptyPlanetSlot();
+    const out = runSecondMapJob(
+      { ...request(1, 0), mapKey: null, preset: "mountain", neighbours: true },
+      slot,
+    );
+    expect(out.reply.kind).toBe("result");
+    if (out.reply.kind !== "result") return;
+    const key = findMapPreset(values, "mountain");
+    const { result } = out.reply;
+    expect(result.terrain.mapKey).toBe(key);
+    expect(result.cell).toEqual(planetCellValues(values, key ?? 0));
+    expect(result.neighbours.length).toBeGreaterThanOrEqual(7);
+    expect(new Set(result.neighbours.map((terrain) => terrain.mapKey)).size).toBe(result.neighbours.length);
+    // 넘길 버퍼 = 2차맵마다 다섯
+    expect(out.transfer).toHaveLength(5 * (1 + result.neighbours.length));
+    // 시험 자리는 행성마다 기억한다
+    expect(slot.presets.get("mountain")).toBe(key);
+  });
+
+  it("맞는 자리가 없으면 none", () => {
+    const slot = emptyPlanetSlot();
+    runSecondMapJob(request(1, cellAtLatLon(LEVEL, 0, 0).key), slot);
+    slot.presets.set("coast", null);
+    const out = runSecondMapJob({ ...request(2, 0), mapKey: null, preset: "coast" }, slot);
+    expect(out.reply).toMatchObject({ kind: "error", code: "none" });
   });
 });

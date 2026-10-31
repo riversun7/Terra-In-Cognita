@@ -146,8 +146,8 @@ export function encodePlanetValues(values: PlanetValues): Uint8Array {
   return out;
 }
 
-/** 파일 바이트 → 행성 값. 마법·형식 판·길이가 틀리면 RangeError */
-export function decodePlanetValues(bytes: Uint8Array): PlanetValues {
+/** 파일 머리(마법·형식 판·면 레벨·시드·칸 수·바이옴 표)와 배열이 시작하는 자리. 틀리면 RangeError */
+function readHeader(bytes: Uint8Array) {
   const data = new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   if (data.length < HEADER_BYTES || MAGIC.some((byte, index) => data[index] !== byte)) {
@@ -170,6 +170,55 @@ export function decodePlanetValues(bytes: Uint8Array): PlanetValues {
   }
   if (data.length !== at + count * PLANET_VALUES_BYTES_PER_CELL)
     throw new RangeError("planet values length mismatch");
+  return { data, view, faceLevel, seed, count, biomeIds, at };
+}
+
+/** 칸 하나의 값(파일에서 바로 읽은 것) */
+export interface PlanetValuesCell {
+  readonly faceLevel: number;
+  readonly biomeId: string | null;
+  readonly elevationM: number;
+  readonly temperatureC: number;
+  readonly precipitationMm: number;
+  readonly humidity: number;
+  readonly water: number;
+  readonly river: number;
+  readonly forest: number;
+}
+
+/**
+ * 파일에서 칸 하나(배열 번호 = 면 × n² + j × n + i)의 값만 읽는다. 전체를 풀지 않는다(서버가 행성 값 22MB를 한 벌 더 만들지 않게,
+ * 개발자 2차맵 시험). 번호가 범위 밖이면 RangeError
+ */
+export function readPlanetValuesCell(bytes: Uint8Array, cell: number): PlanetValuesCell {
+  const { data, view, faceLevel, count, biomeIds, at } = readHeader(bytes);
+  if (!Number.isInteger(cell) || cell < 0 || cell >= count)
+    throw new RangeError(`cell ${cell} is outside the planet`);
+  // 배열 차례: 고도 i16, 기온 i8, 강수 u16, 호수 수면 i16, 바이옴·습도·물·하천·숲·흐름·웅덩이 u8
+  const elevationAt = at;
+  const temperatureAt = elevationAt + count * 2;
+  const precipitationAt = temperatureAt + count;
+  const lakeAt = precipitationAt + count * 2;
+  const bytesAt = lakeAt + count * 2;
+  const u8 = (k: number): number => data[bytesAt + k * count + cell] ?? 0;
+  return {
+    faceLevel,
+    biomeId: biomeIds[u8(0)] ?? null,
+    elevationM: view.getInt16(elevationAt + cell * 2, true),
+    temperatureC: view.getInt8(temperatureAt + cell),
+    precipitationMm: view.getUint16(precipitationAt + cell * 2, true),
+    humidity: u8(1),
+    water: u8(2),
+    river: u8(3),
+    forest: u8(4),
+  };
+}
+
+/** 파일 바이트 → 행성 값. 마법·형식 판·길이가 틀리면 RangeError */
+export function decodePlanetValues(bytes: Uint8Array): PlanetValues {
+  const header = readHeader(bytes);
+  const { data, view, faceLevel, seed, count, biomeIds } = header;
+  let { at } = header;
   const elevationM = new Int16Array(count);
   for (let c = 0; c < count; c++, at += 2) elevationM[c] = view.getInt16(at, true);
   const temperatureC = new Int8Array(count);

@@ -40,6 +40,8 @@ const GpuBenchPage = lazy(() => import("../editor/gpuBench/gpuBenchScreen.ts"));
 const PlanetEditorScreen = lazy(() => import("../editor/planet/PlanetEditorScreen.tsx"));
 // 항성계 편집기(ADR 2026-10-31-star-system-editor, 틀 숨김): 조각 이름 StarSystemScreen-*(미리 캐시 규칙 [Ss]tarSystem)
 const StarSystemScreen = lazy(() => import("../editor/starSystem/StarSystemScreen.tsx"));
+// 2차맵 시험(틀 숨김, 보기 전용): 조각 이름 SecondMapLabScreen-*(미리 캐시 규칙 [Ss]econdMapLab). 엔진은 지도 화면과 같이 쓴다
+const SecondMapLabScreen = lazy(() => import("../editor/secondMapLab/SecondMapLabScreen.tsx"));
 // 지도: Three.js·엔진은 이 조각들과 함께만 내려온다. 떠나면 내린다(ADR 37 11절). 화면은 { onClose, monitor }만 받는다
 const SecondaryMapScreen = lazy(() => import("../map/SecondaryMapScreen.tsx"));
 const PlanetMapScreen = lazy(() => import("../map/PlanetMapScreen.tsx"));
@@ -67,6 +69,7 @@ export const ROUTE_TITLES = {
   dev: m.shell_dev,
   dev_planet_editor: m.shell_route_dev_planet_editor,
   dev_star_system: m.shell_route_dev_star_system,
+  dev_second_map: m.shell_route_dev_second_map,
   dev_gpu_bench: m.shell_route_dev_gpu_bench,
 } satisfies Record<RouteId, () => string>;
 
@@ -156,6 +159,8 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <PlanetEditorScreen onClose={goBack} monitor={monitor} />;
     case "dev_star_system":
       return <StarSystemScreen onClose={goBack} onNavigate={navigate} />;
+    case "dev_second_map":
+      return <SecondMapLabScreen onClose={goBack} />;
     case "faction":
       return <FactionScreen />;
     case "mail":

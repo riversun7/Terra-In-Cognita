@@ -474,16 +474,22 @@ describe("시야 전송(S3)", () => {
     await live(snapshot({ rev: 5, units: [unit(1), unit(2)] }));
     net.receive({ t: "unit_paths", mapKey: MAP, fromRev: 5, rev: 6, units: [], hidden: [2] });
     expect(engine.state.units.map((spawn) => spawn.id)).toEqual([1]);
+    // vision 전에는 탐사 수를 모른다(null). 9 = 비트 둘
+    expect(feed.stats().explored).toBeNull();
     const bits = new Uint8Array(128);
+    net.receive({ t: "vision", mapKey: MAP, explored: btoa(String.fromCharCode(...bits)) });
+    expect(feed.stats().explored).toBe(0);
     bits[3] = 9;
     net.receive({ t: "vision", mapKey: MAP, explored: btoa(String.fromCharCode(...bits)) });
     expect(engine.state.explored?.[3]).toBe(9);
+    expect(feed.stats().explored).toBe(2);
     setObserve(true);
     feed.refresh();
     await vi.advanceTimersByTimeAsync(1_000);
     expect(net.of("subscribe").at(-1)).toMatchObject({ observe: true });
     await live(snapshot({ rev: 9, units: [unit(1)], snapshotId: 2 }));
     expect(engine.state.explored).toBeNull();
+    expect(feed.stats().explored).toBeNull();
   });
 
   it("관리자가 아니어도 내 유닛(own)은 움직일 수 있다", async () => {

@@ -46,6 +46,9 @@ export function inertEngine(): SecondMapEngine {
     light: lightStats(new SecondMapSky(null)),
     neighbours: 0,
     props: 0,
+    propSpanM: 0,
+    propCap: 0,
+    grid: false,
   };
   const camera: CameraState = { targetX: 0, targetY: 0, targetZ: 0, yaw: 0, pitch: 0, distance: 0 };
   return {
@@ -62,6 +65,7 @@ export function inertEngine(): SecondMapEngine {
     stats: () => empty,
     camera: () => camera,
     setSky: () => undefined,
+    setViewOptions: () => undefined,
     dispose: () => undefined,
   };
 }

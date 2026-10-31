@@ -57,11 +57,18 @@ test.describe("dev", () => {
     const screen = page.locator(".map-screen");
     await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
     await expect(screen).toHaveAttribute("data-units", "0");
+    // 탐사한 곳이 없어 온통 어둡다: 까닭과 할 일(시험 일꾼·전체 보기·2차맵 시험)을 알린다
+    const dark = page.locator(".map-dark");
+    await expect(dark).toBeVisible({ timeout: 15_000 });
+    await expect(dark.locator(".map-dark-lab")).toBeVisible();
+    await shot(page, "map-dark-dev-390");
     await page.locator(".map-dev-spawn").click();
     await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
     await expect
       .poll(async () => Number(await screen.getAttribute("data-units")), { timeout: 15_000 })
       .toBeGreaterThanOrEqual(5);
+    // 일꾼 둘레를 탐사하면 알림이 사라진다
+    await expect(dark).toHaveCount(0, { timeout: 15_000 });
     const observe = page.locator(".map-dev-observe");
     await expect(observe).toHaveAttribute("aria-pressed", "false");
     await observe.click();

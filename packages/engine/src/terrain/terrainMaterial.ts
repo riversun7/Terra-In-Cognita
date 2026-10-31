@@ -108,6 +108,20 @@ uniform float uCellSize;
 uniform vec3 uHeight;
 uniform sampler2D uFog;
 uniform float uFogOn;
+uniform float uGrid;
+
+// 격자 선(개발자 2차맵 시험): 지형 칸 선(가까이만, 화면 한 점이 칸의 1/4보다 작을 때) + 16칸마다 굵은 선(2차맵 변 포함).
+// 선 폭은 화면 한 점(fwidth)으로 맞춘다. 0 ~ 1(선 위 1)
+float terrainGridLine(vec2 cells) {
+  vec2 w = max(fwidth(cells), vec2(1e-4));
+  vec2 fine = abs(fract(cells - 0.5) - 0.5) / w;
+  float fineLine = (1.0 - clamp(min(fine.x, fine.y), 0.0, 1.0)) * (1.0 - smoothstep(0.12, 0.25, max(w.x, w.y)));
+  vec2 coarseCells = cells / 16.0;
+  vec2 cw = max(fwidth(coarseCells), vec2(1e-5));
+  vec2 coarse = abs(fract(coarseCells - 0.5) - 0.5) / cw;
+  float coarseLine = 1.0 - clamp(min(coarse.x, coarse.y) * 0.6, 0.0, 1.0);
+  return max(fineLine * 0.45, coarseLine * 0.8);
+}
 
 // 지표 코드마다 잡음 채널: 0~3은 한 채널씩(서로 다르다), 그 밖의 코드는 두 채널을 섞는다(새 코드도 경계가 흔들린다)
 vec4 terrainNoiseMix(float code) {
@@ -213,6 +227,9 @@ const FRAGMENT_COLOR = /* glsl */ `
 {
   // 윗면만 칠한다(가장자리 벽은 법선 y = 0이라 꼭짓점 색 그대로). 계산은 분기 밖(미분이 정의되게)
   vec3 terrainColor = terrainSurfaceColor(vTerrainPos, vTerrainLocal);
+  // 격자 선(끄면 0): 미분이 있어 분기 밖에서 계산한다. 2차맵 안 자리(지형 칸)로 그린다
+  float gridLine = terrainGridLine(vTerrainLocal.xz / uCellSize) * uGrid;
+  terrainColor = mix(terrainColor, vec3(0.08, 0.1, 0.12), gridLine * 0.55);
   diffuseColor.rgb = vTerrainUp > 0.01 ? terrainColor : diffuseColor.rgb;
   // 안개(S3 시야 전송): 탐사하지 않은 시야 칸은 검게. 시야 칸 32×32 = 지형 칸 4×4, 경계는 선형 거르기로 부드럽게
   if (uFogOn > 0.5) {
@@ -316,6 +333,7 @@ export class TerrainMaterial {
     uFogOn: { value: number };
     uProps: { value: DataTexture };
     uPropsOn: { value: number };
+    uGrid: { value: number };
   } = {
     uSurface: { value: this.surfaceTexture },
     uNoise: { value: null },
@@ -326,6 +344,8 @@ export class TerrainMaterial {
     uFogOn: { value: 0 },
     uProps: { value: this.propTexture },
     uPropsOn: { value: 0 },
+    /** 격자 선(1 켬, 개발자 2차맵 시험) */
+    uGrid: { value: 0 },
   };
 
   constructor() {
@@ -377,6 +397,11 @@ export class TerrainMaterial {
     }
     this.fogTexture.needsUpdate = true;
     this.uniforms.uFogOn.value = 1;
+  }
+
+  /** 격자 선(지형 칸·16칸)을 그릴지(개발자 2차맵 시험). 셰이더는 다시 만들지 않는다 */
+  setGrid(on: boolean): void {
+    this.uniforms.uGrid.value = on ? 1 : 0;
   }
 
   dispose(): void {

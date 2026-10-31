@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-31 23:30 | 개발자 2차맵 시험 화면(/dev/second-map)과 검은 2차맵 안내 | Claude Code | [31-2330-dev-second-map](worklog/2026/10/31-2330-dev-second-map.md) |
 | 2026-10-31 22:45 | 화면 셋(유닛·사이보그, 경제·거래창, 세력·우편)과 R4b 합치기 | Claude Code | [31-2245-merge-ui-r4b](worklog/2026/10/31-2245-merge-ui-r4b.md) |
 | 2026-10-31 22:30 | 유닛 화면·사이보그 화면(그럴듯한 첫 판) | Claude Code | [31-2230-ui-units-cyborg](worklog/2026/10/31-2230-ui-units-cyborg.md) |
 | 2026-10-31 22:30 | 경제 화면: 창고·생산·거래창(호가 + 주문표 + 차트)·내 주문·환전 | Claude Code | [31-2230-ui-economy](worklog/2026/10/31-2230-ui-economy.md) |

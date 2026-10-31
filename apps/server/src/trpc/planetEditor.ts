@@ -7,12 +7,14 @@
 // @terra/shared PLANET_DRAFT_REJECT_CODES·"unknown_planet"), CONFLICT(저장의 기대 판이 지금 판과 다름, data.reason
 // "revision_conflict"), NOT_FOUND(되돌리기: data.reason "draft_not_found"·"revision_not_found"; 편집기를 켜지 않은 서버:
 // message "PLANET_EDITOR_UNAVAILABLE"). 응답에는 시드가 들어 있다. tRPC 응답은 모두 cache-control: no-store다(src/trpc/plugin.ts).
+import { MAP_PRESETS } from "@terra/planet/secondMap";
 import { PLANET_ID_PATTERN } from "@terra/protocol";
 import { PLANET_LIBRARY_BASE_KINDS } from "@terra/shared";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { SecondMapLabInputError, SecondMapLabNotReadyError } from "../world/secondMapLab.ts";
 import type { PlanetEditorAction, PlanetEditorCallKind } from "./context.ts";
-import { permissionProcedure, router } from "./init.ts";
+import { permissionProcedure, reasonedError, router } from "./init.ts";
 
 /** PostgreSQL integer 상한(판 번호 열) */
 const REVISION_MAX = 2_147_483_647;
@@ -39,6 +41,13 @@ const saveInput = z.strictObject({
 });
 
 const restoreInput = z.strictObject({ planetId, revision: z.int().min(1).max(REVISION_MAX) });
+
+/** 개발자 2차맵 시험: 보고 싶은 2차맵(월드 시험 2차맵·키·시험 자리 종류) */
+const labTarget = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("test") }),
+  z.strictObject({ kind: z.literal("key"), mapKey: z.int().min(0).max(Number.MAX_SAFE_INTEGER) }),
+  z.strictObject({ kind: z.literal("preset"), preset: z.enum(MAP_PRESETS) }),
+]);
 
 // ── 행성 보관함 입력(이름·정의는 서버가 이유 코드 차례로 본다: 여기서는 받기만 한다) ──
 const libraryId = z.uuid();
@@ -144,6 +153,27 @@ export const planetEditorRouter = router({
    * (그래서 속도 제한을 따로 한 번 더 센다)
    */
   definitions: editorProcedure("read", "definitions").query(({ ctx }) => ctx.editor.definitions(ctx.viewer)),
+  /**
+   * 개발자 2차맵 시험(/dev/second-map): 월드 행성이면 2차맵 지형 주소와 그 칸의 행성 값(server), 아니면 device(기기가 만든다),
+   * 맞는 시험 자리가 없으면 none. 보기 전용이라 감사 기록이 없다(지형 파일은 숨김 정보가 아니다, ADR 26).
+   * 틀린 키는 BAD_REQUEST(data.reason "bad_map_key"), 지형 서비스 준비 전은 PRECONDITION_FAILED
+   */
+  secondMap: editorProcedure("read")
+    .input(z.strictObject({ planetId, target: labTarget }))
+    .query(async ({ ctx, input }) => {
+      const lab = ctx.secondMapLab;
+      if (!lab) throw new TRPCError({ code: "NOT_FOUND", message: "SECOND_MAP_LAB_UNAVAILABLE" });
+      try {
+        return await lab.locate(input.planetId, input.target);
+      } catch (error) {
+        if (error instanceof SecondMapLabInputError)
+          throw reasonedError("BAD_REQUEST", error.message, "bad_map_key");
+        if (error instanceof SecondMapLabNotReadyError) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: "SECOND_MAP_LAB_NOT_READY" });
+        }
+        throw error;
+      }
+    }),
   drafts: router({
     /** 내 초안(항목·기준·판·시각). 없으면 null */
     get: editorProcedure("read")

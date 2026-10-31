@@ -44,6 +44,7 @@ export class NeighbourTerrains {
   readonly group = new Group();
   private readonly entries = new Map<string, Entry>();
   private version = 0;
+  private grid = false;
 
   constructor(private readonly builder: TerrainBuilder) {}
 
@@ -77,6 +78,7 @@ export class NeighbourTerrains {
       if (version !== this.version) return changed;
       const view = new TerrainView();
       view.setWalls(false);
+      view.setGrid(this.grid);
       view.set(built.mesh, terrain, built.noise, shade);
       const { a, b, cc, d, tx, tz } = item.placement;
       view.group.matrixAutoUpdate = false;
@@ -87,6 +89,12 @@ export class NeighbourTerrains {
       changed = true;
     }
     return changed;
+  }
+
+  /** 격자 선(개발자 2차맵 시험): 지금 이웃과 뒤에 올 이웃 모두 */
+  setGrid(on: boolean): void {
+    this.grid = on;
+    for (const entry of this.entries.values()) entry.view.setGrid(on);
   }
 
   /** 소품 층이 있는 이웃(소품 모델 세우기, propView.ts) */

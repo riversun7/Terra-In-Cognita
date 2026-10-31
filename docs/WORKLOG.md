@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-10-31 09:10 | 앱 뼈대 W3 화면 시험: 처리할 일·종 배지·복귀 요약을 저장소 e2e로 | Claude Code | [31-0910-inbox-e2e](worklog/2026/10/31-0910-inbox-e2e.md) |
 | 2026-10-30 02:20 | 앱 뼈대 W4 합치기(홈 대시보드) — 앱 뼈대 W1~W5가 모두 main에 | Claude Code | [30-0220-app-shell-w4-integration](worklog/2026/10/30-0220-app-shell-w4-integration.md) |
 | 2026-10-30 02:10 | 앱 뼈대 W3 합치기(처리할 일·종 배지·받은 편지 화면·돌아오면 요약) | Claude Code | [30-0210-app-shell-w3-integration](worklog/2026/10/30-0210-app-shell-w3-integration.md) |
 | 2026-10-30 01:55 | 기획 질문 94·95(휴대폰 내 주문 자리, 회유 알림 분류) | Claude Code | [30-0155-planning-questions-94-95](worklog/2026/10/30-0155-planning-questions-94-95.md) |

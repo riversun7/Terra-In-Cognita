@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # S3 규모 계단 시험(NAS) — docs/adr/2026-10-31-s3-server-stage.md 6·7절, GitHub Actions s3-ramp가 부른다.
 # 운영 컨테이너(tic-app·tic-db)는 건드리지 않는다. 같은 이미지로 짧게 사는 컨테이너(tic-s3-ramp)를 따로 띄우고,
-# DB는 NAS 5440의 시험 DB 컨테이너(terra_testDB, 사용자가 비워도 된다고 함) 안에 시험용 DB·계정(s3ramp)을 새로 만든다.
-# 다른 프로젝트 DB(sunplant-db, ks-frontier)는 쓰지 않는다. 공개 포트를 열지 않고, 끝나면 컨테이너·DB·계정을 지운다.
+# DB도 시험 전용 PostgreSQL 컨테이너(tic-s3-ramp-db, 운영과 같은 이미지)를 전용 네트워크(tic-s3-ramp-net)에 잠깐 띄운다.
+# (예전 5440 시험 DB terra_testDB는 이 스택을 만들 때 지웠다 — PLAN 9.4. 첫 실행이 "돌고 있지 않다"로 멈춰 바꿨다.)
+# 다른 프로젝트 DB(sunplant-db, ks-frontier)와 운영 DB(tic-db)는 쓰지 않는다. 공개 포트를 열지 않고, 끝나면 컨테이너·볼륨·네트워크를 지운다.
 # 비밀값(DB 비밀번호, 인증 비밀값)은 실행할 때 만들고 로그에 찍지 않는다(GitHub 가리기 + 명령줄에 넣지 않음).
 #
 # 단계: prepare(DB·이미지·마이그레이션) → ramp(계단: 봇 수마다 새 컨테이너 → STEP_MINUTES 동안 지표 → SIGKILL 복구) → cleanup
 # 환경 변수: S3_RAMP_STEPS(기본 1000,2000,5000,10000,20000,50000,100000), S3_RAMP_MINUTES(기본 3, 2~10),
-#   S3_RAMP_TAG(비우면 지금 배포된 태그), S3_RAMP_DB_CONTAINER(기본 terra_testDB)
+#   S3_RAMP_TAG(비우면 지금 배포된 태그)
 # 멈추는 조건: 이벤트 루프 p99 > 50ms(첫 1분 뺌), RSS > 900MB(컨테이너 상한 1GiB 가까움), 컨테이너가 죽거나 준비가 안 됨.
 set -euo pipefail
 
@@ -15,7 +16,9 @@ MODE="${1:?mode: prepare | ramp | cleanup}"
 DATA_DIR=/volume1/docker/terra-in-cognita
 WORK="${RUNNER_TEMP:-/tmp}/s3-ramp"
 SECRETS="${RUNNER_TEMP:-/tmp}/s3-ramp-secrets"
-DB_CONTAINER="${S3_RAMP_DB_CONTAINER:-terra_testDB}"
+DB_CONTAINER=tic-s3-ramp-db
+DB_IMAGE=postgres:18.6-trixie
+S3_NET=tic-s3-ramp-net
 APP=tic-s3-ramp
 STEPS="${S3_RAMP_STEPS:-1000,2000,5000,10000,20000,50000,100000}"
 MINUTES="${S3_RAMP_MINUTES:-3}"
@@ -27,16 +30,16 @@ BOTS_PER_MAP=2000
 case "$STEPS" in '' | *[!0-9,]*) echo "S3_RAMP_STEPS는 숫자와 쉼표만" >&2; exit 1 ;; esac
 case "$MINUTES" in '' | *[!0-9]*) echo "S3_RAMP_MINUTES는 2~10" >&2; exit 1 ;; esac
 if [ "$MINUTES" -lt 2 ] || [ "$MINUTES" -gt 10 ]; then echo "S3_RAMP_MINUTES는 2~10" >&2; exit 1; fi
-case "$DB_CONTAINER" in sunplant-db | *ks-frontier* | tic-db) echo "다른 프로젝트·운영 DB는 쓰지 않는다: $DB_CONTAINER" >&2; exit 1 ;; esac
 
 TAG="${S3_RAMP_TAG:-}"
 if [ -z "$TAG" ]; then TAG="$(cat "$DATA_DIR/deployed-tag")"; fi
 case "$TAG" in '' | *[!A-Za-z0-9._-]*) echo "이미지 태그가 이상하다" >&2; exit 1 ;; esac
 IMAGE="ghcr.io/riversun7/terra-in-cognita:$TAG"
 
-# 시험 DB 컨테이너 안의 관리자 psql(컨테이너 안 소켓 접속, 비밀번호 없이). SQL은 표준 입력으로 넣는다
-admin_psql() {
-  docker exec -i "$DB_CONTAINER" sh -c 'psql -v ON_ERROR_STOP=1 -q -U "${POSTGRES_USER:-postgres}" -d postgres'
+# 시험 DB 컨테이너·네트워크를 지운다(익명 볼륨까지 -v)
+remove_db() {
+  docker rm -f -v "$DB_CONTAINER" >/dev/null 2>&1 || true
+  docker network rm "$S3_NET" >/dev/null 2>&1 || true
 }
 
 # 시험 컨테이너의 /health JSON(안 되면 빈 문자열)
@@ -85,30 +88,30 @@ prepare)
   mkdir -p "$WORK" "$SECRETS"
   chmod 700 "$SECRETS"
   : >"$WORK/steps.tsv"
-  if [ "$(docker inspect -f '{{.State.Running}}' "$DB_CONTAINER" 2>/dev/null || echo false)" != "true" ]; then
-    echo "시험 DB 컨테이너($DB_CONTAINER)가 돌고 있지 않다" >&2
-    exit 1
-  fi
   PW="$(od -An -tx1 -N16 /dev/urandom | tr -d ' \n')"
   SECRET="$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')"
   echo "::add-mask::$PW"
   echo "::add-mask::$SECRET"
-  # 시험용 DB·계정을 비우고 새로 만든다(비밀번호는 16진수라 따옴표 문제 없음, 표준 입력으로만 넘긴다)
-  printf '%s\n' \
-    "DROP DATABASE IF EXISTS s3ramp WITH (FORCE);" \
-    "DROP ROLE IF EXISTS s3ramp;" \
-    "CREATE ROLE s3ramp LOGIN PASSWORD '$PW';" \
-    "CREATE DATABASE s3ramp OWNER s3ramp;" | admin_psql
-  NET="$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}' "$DB_CONTAINER" | head -n 1)"
-  if [ -z "$NET" ] || [ "$NET" = "host" ]; then echo "시험 DB 네트워크를 쓸 수 없다($NET)" >&2; exit 1; fi
-  HOST="$(docker inspect -f "{{(index .NetworkSettings.Networks \"$NET\").IPAddress}}" "$DB_CONTAINER")"
-  CPORT="$(docker port "$DB_CONTAINER" | sed -n 's#^\([0-9]*\)/tcp -> .*:5440$#\1#p' | head -n 1)"
-  CPORT="${CPORT:-5432}"
+  # 앞 실행이 남긴 것이 있으면 지우고 새로 띄운다. 비밀번호는 -e 이름만 넘긴다(명령줄·로그에 남지 않는다)
+  remove_db
+  docker network create "$S3_NET" >/dev/null
+  docker pull -q "$DB_IMAGE" >/dev/null
+  POSTGRES_PASSWORD="$PW" docker run -d --name "$DB_CONTAINER" --network "$S3_NET" \
+    --memory 512m --cpu-shares 512 \
+    --label com.centurylinklabs.watchtower.enable=false \
+    -e POSTGRES_USER=s3ramp -e POSTGRES_DB=s3ramp -e POSTGRES_PASSWORD \
+    "$DB_IMAGE" >/dev/null
+  # 받을 준비가 될 때까지(최대 120초). 첫 기동은 initdb 뒤 한 번 다시 켜지므로 TCP로 본다
+  for _ in $(seq 1 120); do
+    if docker exec "$DB_CONTAINER" pg_isready -q -h 127.0.0.1 -U s3ramp -d s3ramp 2>/dev/null; then break; fi
+    sleep 1
+  done
+  docker exec "$DB_CONTAINER" pg_isready -q -h 127.0.0.1 -U s3ramp -d s3ramp || { echo "시험 DB가 준비되지 않았다" >&2; exit 1; }
   (
     umask 077
     {
-      echo "S3_NET='$NET'"
-      echo "S3_DATABASE_URL='postgres://s3ramp:$PW@$HOST:$CPORT/s3ramp'"
+      echo "S3_NET='$S3_NET'"
+      echo "S3_DATABASE_URL='postgres://s3ramp:$PW@$DB_CONTAINER:5432/s3ramp'"
       echo "S3_AUTH_SECRET='$SECRET'"
     } >"$SECRETS/env"
   )
@@ -121,7 +124,7 @@ prepare)
     echo "이미지: $IMAGE"
     echo "CPU: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //') ($(grep -c '^processor' /proc/cpuinfo)스레드)"
     echo "메모리(호스트): $(awk '/MemTotal/ {printf "%d MB", $2/1024}' /proc/meminfo)"
-    echo "컨테이너: 메모리 상한 1GiB, CPU 상한 없음(커널 4.4, cpu_shares 512), 경로 워커 1"
+    echo "컨테이너: 메모리 상한 1GiB, CPU 상한 없음(커널 4.4, cpu_shares 512), 경로 워커 1. 시험 DB: $DB_IMAGE, 메모리 상한 512MiB(운영 DB는 1GiB)"
     echo "계단마다 ${MINUTES}분, 봇은 2차맵마다 최대 ${BOTS_PER_MAP}개"
   } >"$WORK/meta.txt"
   ;;
@@ -174,9 +177,7 @@ ramp)
 
 cleanup)
   docker rm -f "$APP" >/dev/null 2>&1 || true
-  if [ "$(docker inspect -f '{{.State.Running}}' "$DB_CONTAINER" 2>/dev/null || echo false)" = "true" ]; then
-    printf '%s\n' "DROP DATABASE IF EXISTS s3ramp WITH (FORCE);" "DROP ROLE IF EXISTS s3ramp;" | admin_psql || true
-  fi
+  remove_db
   rm -rf "$SECRETS"
   ;;
 

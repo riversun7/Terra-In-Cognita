@@ -681,6 +681,36 @@
       "structural": false
     },
     {
+      "id": "d298_delist_reissue",
+      "code": "",
+      "name": {
+        "ko": "상장폐지 뒤 재발행 주식 수(D-298)",
+        "en": "Shares reissued after delisting (D-298)"
+      },
+      "value": 1000,
+      "structural": false
+    },
+    {
+      "id": "s33_tribute_rate",
+      "code": "S33",
+      "name": {
+        "ko": "속국·봉신 공물(국고 ‰, 주기마다)",
+        "en": "Vassal tribute (treasury ‰ per period)"
+      },
+      "value": 50,
+      "structural": false
+    },
+    {
+      "id": "d443_tribute_every",
+      "code": "",
+      "name": {
+        "ko": "공물 주기(ms)",
+        "en": "Tribute period (ms)"
+      },
+      "value": 604800000,
+      "structural": false
+    },
+    {
       "id": "s22_inheritance_tax",
       "code": "S22",
       "name": {
@@ -708,6 +738,26 @@
         "en": "Rebellion threshold"
       },
       "value": 40,
+      "structural": false
+    },
+    {
+      "id": "n35_rebellion_warning",
+      "code": "N35",
+      "name": {
+        "ko": "민심 표 반란 예고 문턱(이하)",
+        "en": "Unrest: rebellion warning at or below"
+      },
+      "value": 50,
+      "structural": false
+    },
+    {
+      "id": "n35_sabotage",
+      "code": "N35",
+      "name": {
+        "ko": "민심 표 태업 조짐 문턱(이하)",
+        "en": "Unrest: sabotage signs at or below"
+      },
+      "value": 60,
       "structural": false
     },
     {
@@ -888,6 +938,86 @@
         "en": "Blueprint discount (bp)"
       },
       "value": 5000,
+      "structural": false
+    },
+    {
+      "id": "n6_k_min",
+      "code": "N6",
+      "name": {
+        "ko": "K 범위 최소(‰)",
+        "en": "K range min (‰)"
+      },
+      "value": 800,
+      "structural": false
+    },
+    {
+      "id": "n6_k_max",
+      "code": "N6",
+      "name": {
+        "ko": "K 범위 최대(‰)",
+        "en": "K range max (‰)"
+      },
+      "value": 1200,
+      "structural": false
+    },
+    {
+      "id": "n7_max_level",
+      "code": "N7",
+      "name": {
+        "ko": "만렙(기본)",
+        "en": "Max level (base)"
+      },
+      "value": 50,
+      "structural": true
+    },
+    {
+      "id": "n9_initial_sum",
+      "code": "N9",
+      "name": {
+        "ko": "사이보그 초기 스탯 합",
+        "en": "Cyborg initial stat sum"
+      },
+      "value": 60,
+      "structural": false
+    },
+    {
+      "id": "n9_initial_min",
+      "code": "N9",
+      "name": {
+        "ko": "초기 스탯 칸 최소",
+        "en": "Initial stat min per stat"
+      },
+      "value": 1,
+      "structural": false
+    },
+    {
+      "id": "n9_initial_max",
+      "code": "N9",
+      "name": {
+        "ko": "초기 스탯 칸 최대",
+        "en": "Initial stat max per stat"
+      },
+      "value": 20,
+      "structural": false
+    },
+    {
+      "id": "n34_rebirth_faith",
+      "code": "N34",
+      "name": {
+        "ko": "사이보그 환생 신앙도",
+        "en": "Cyborg rebirth faith cost"
+      },
+      "value": 50,
+      "structural": false
+    },
+    {
+      "id": "n34_rebirth_currency",
+      "code": "N34",
+      "name": {
+        "ko": "사이보그 환생 화폐(최소 단위)",
+        "en": "Cyborg rebirth currency cost (minor units)"
+      },
+      "value": 10000,
       "structural": false
     }
   ]

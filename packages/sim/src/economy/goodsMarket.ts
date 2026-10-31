@@ -6,6 +6,7 @@
 //   산 쪽이 들어온 주문이면 묶은 값과 체결가의 차이를 돌려준다. 체결가는 걸려 있던 주문의 값(orderBook.ts).
 // - 거래세 = ⌊총액 × 세율(만분율) ÷ 10000⌋(버림), 판 쪽이 내고 그 도시를 가진 나라의 국고로 간다(D-128·D-131, 기술 기본안).
 // - 불변식: 물건 에스크로 = 걸린 팔 주문 남은 양 합, 돈 에스크로 = 걸린 살 주문 (값 × 남은 양) 합(checkEscrow).
+// - 걷은 거래세 누적(taxCollected, 읽기 전용 통계): 도시 세금 정산(D-304, society/dividends.ts)이 기간 차이를 쓴다. 장부는 바꾸지 않는다.
 import type { LedgerBook, LedgerEntry } from "../ledger/ledgerBook.ts";
 import { type BookFill, type BookOrder, type OrderBook, type Side, createOrderBook } from "./orderBook.ts";
 
@@ -34,6 +35,8 @@ export interface GoodsMarket {
   /** 체결 수·체결 수량(누적) */
   readonly trades: number;
   readonly volume: bigint;
+  /** 걷은 거래세 누적(화폐가 바뀌어도 이어 센다. 쓰는 쪽이 주인이 바뀔 때 기준점을 다시 잡는다) */
+  readonly taxCollected: bigint;
   place(
     owner: number,
     side: Side,
@@ -71,6 +74,7 @@ export function createGoodsMarket(
   let lastPrice: bigint | undefined;
   let trades = 0;
   let volume = 0n;
+  let taxCollected = 0n;
 
   const goodsEscrow = (): number =>
     book.systemAccount(`escrow:goods:${config.id}`, config.item, config.location);
@@ -110,6 +114,7 @@ export function createGoodsMarket(
     lastPrice = fill.price;
     trades += 1;
     volume += fill.qty;
+    taxCollected += tax;
   };
 
   return {
@@ -124,6 +129,9 @@ export function createGoodsMarket(
     },
     get volume() {
       return volume;
+    },
+    get taxCollected() {
+      return taxCollected;
     },
     place(owner, side, price, qty, nowMs, expiresAtMs) {
       if (price <= 0n || qty <= 0n) throw new RangeError("price and qty must be positive");

@@ -68,6 +68,8 @@ export interface Economy {
   /** 화폐 → 발행하는 나라(고정 NPC 나라) */
   readonly issuer: Map<string, number>;
   readonly interestOwed: Map<string, bigint>;
+  /** 나라 → 소각한 발행 이자 누적(D-303). 도시 세금 정산(D-304)이 기간 차이를 쓴다 */
+  readonly interestPaid: Map<number, bigint>;
   readonly facilities: Map<number, EcoFacility>;
   /** 도시 → 사는 유닛 수(유닛은 도시를 옮기지 않는다) */
   readonly cityUnits: Map<number, number>;
@@ -136,6 +138,7 @@ export function createEconomy(
     taxOf,
     issuer,
     interestOwed: new Map(),
+    interestPaid: new Map(),
     facilities: new Map(),
     cityUnits: new Map(),
     cargo: new Map(),
@@ -478,6 +481,7 @@ export function bankDay(economy: Economy, world: SimWorld, nowMs: number): void 
       TEST_CENTRAL_BANK_RULE,
     );
     economy.interestOwed.set(currency, step.interestOwed);
+    economy.interestPaid.set(factionId, (economy.interestPaid.get(factionId) ?? 0n) + step.interestBurn);
     burn(economy, world.book, currency, factionId, step.interestBurn + step.burn, nowMs);
     issue(economy, world.book, currency, factionId, step.issue, nowMs);
   }

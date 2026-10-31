@@ -33,9 +33,10 @@ import {
 
 /**
  * 출력 형식 판(줄·요약의 모양이 바뀌면 올린다. 관전판·관리자 화면이 읽는다). 2: econ 줄·요약 economy 칸(R2),
- * 3: battle 줄·요약 combat 칸(R3), 4: 하루 줄 세력 칸 satisfaction·regime·overlord, 요약 society 칸, born 줄 mode·city(R4b)
+ * 3: battle 줄·요약 combat 칸(R3), 4: 하루 줄 세력 칸 satisfaction·regime·overlord, 요약 society 칸, born 줄 mode·city(R4b),
+ * 5: 요약 society 칸에 dividends(도시 세금 정산 D-304)·tributes(D-443)
  */
-export const SIM_OUTPUT_FORMAT = 4;
+export const SIM_OUTPUT_FORMAT = 5;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 요약에 남기는 불변 조건 위반 문장 수 */

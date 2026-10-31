@@ -5,6 +5,8 @@
 // - 독립(D-300~D-302): 자본주의 = 지분 1위 가문이 열고 찬성 지분 합 ≥ 문턱(S27 50%, 혼자 ≥ 문턱이면 투표 없이),
 //   민주주의 = 그 도시 가문 수 과반, 독재 = 투표 없음(반란으로만). 시작 도시는 없다(D-341).
 // - 봉신 독립 선언(D-216): 상위 관계를 끊는 사건(부르는 쪽이 overlord를 지운다).
+// - 민심 표(D-443 155, 49 N35): 안정 · 태업 조짐 · 반란 예고(반란 문턱 바로 위 구간) · 반란 중(문턱 이하 = 이미 반란, D-253).
+//   문턱은 모두 "이하"로 읽는다(S26과 같다).
 import type { SocietyCoefficients } from "./coefficients.ts";
 import type { Holding, Regime } from "./shares.ts";
 
@@ -21,6 +23,16 @@ export function rebelsOf(
     .filter((u) => u.satisfactionMilli <= threshold)
     .map((u) => u.id)
     .toSorted((a, b) => a - b);
+}
+
+export type UnrestBand = "stable" | "sabotage" | "warning" | "rebellion";
+
+/** 도시 평균 만족도(밀리점) → 민심 표 단계 */
+export function unrestBand(averageMilli: number, c: SocietyCoefficients): UnrestBand {
+  if (averageMilli <= c.rebellionThreshold * 1000) return "rebellion";
+  if (averageMilli <= c.rebellionWarningAt * 1000) return "warning";
+  if (averageMilli <= c.sabotageAt * 1000) return "sabotage";
+  return "stable";
 }
 
 export type IndependenceVote =

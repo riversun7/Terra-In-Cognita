@@ -124,6 +124,12 @@ export function attachEconomy(
       economy.cityUnits.set(cityId, units);
       loop.schedule(nowMs + HOUR_MS, { kind: EVENT_UPKEEP, subject: cityId });
     },
+    taxCollectedOf: (cityId) => {
+      let sum = 0n;
+      for (const market of economy.markets.get(cityId)?.values() ?? []) sum += market.taxCollected;
+      return sum;
+    },
+    interestPaidOf: (factionId) => economy.interestPaid.get(factionId) ?? 0n,
     foodPmOf: (cityId) => {
       const due = economy.today.dueByCity.get(cityId) ?? 0;
       if (due === 0) return 1000;

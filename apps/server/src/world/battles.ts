@@ -4,7 +4,9 @@
 // - 입력(참전·명령·퇴각)이 오면: 그 틱 이하의 가장 가까운 스냅숏에서 다시 계산하고, 그 뒤 스냅숏을 바꾸고, 끝 시각을 다시 건다.
 // - 다시 켜면: 진행 중인 전투의 끝 시각을 다시 건다(지났으면 곧바로). 결과는 적용할 때 스냅숏 + 입력으로 다시 계산한다.
 //   스냅숏은 다시 만들 수 있는 캐시라 전투 행과 같은 트랜잭션에 넣지 않는다(죽으면 처음부터 계산할 뿐이다).
-// - 결과 적용은 한 번만 한다(status = ended). 세계에 무엇을 바꿀지는 onResult(부상·귀환·포로·탈취)가 정한다.
+// - 결과 적용은 한 번만 한다: apply(세계 바뀜, battleResults.ts)를 동기로 부르고 같은 쓰기 묶음에 결과 기록
+//   (world_battle_results, 전투마다 한 줄)을 넣는다. 커밋된 뒤 status = ended(캐시)를 고친다. 다시 켜면 기록이 있는 전투는
+//   다시 적용하지 않고 status만 고친다.
 import {
   type Battle,
   type BattleInit,
@@ -18,6 +20,7 @@ import {
   restoreBattle,
 } from "@terra/sim";
 import type { QueryPool } from "./persist/load.ts";
+import type { WorldWriter } from "./persist/writer.ts";
 import { type Scheduler, createScheduler } from "./scheduler.ts";
 
 export interface BattleOutcome {
@@ -79,13 +82,17 @@ function decodeInit(value: unknown): BattleInit {
 
 export function createBattleService(options: {
   pool: QueryPool;
+  writer: WorldWriter;
   now: () => number;
-  onResult: (battleId: number, outcome: BattleOutcome) => Promise<void> | void;
+  /** 세계에 결과를 적용한다(동기, 쓰기 대기열에만 쓴다). atMs = 실시간으로 끝나는 시각 */
+  apply: (battleId: number, init: BattleInit, outcome: BattleOutcome, atMs: number) => void;
   onError: (error: unknown) => void;
 }): BattleService {
   const { pool } = options;
   let nextId = 1;
   const scheduled = new Map<number, number>();
+  /** 이 서버가 적용한 전투(커밋 전에도 두 번 하지 않게) */
+  const applied = new Set<number>();
   const scheduler: Scheduler<{ kind: string; subject: number }> = createScheduler({
     now: options.now,
     handle: (event) => {
@@ -158,17 +165,37 @@ export function createBattleService(options: {
     scheduled.set(battleId, scheduler.schedule(atMs, { kind: "battle_end", subject: battleId }));
   };
 
+  /** status 캐시를 결과 기록에 맞춘다 */
+  const markEnded = (battleId: number) =>
+    pool.query(
+      `update world_battles b set status = 'ended', result = r.result
+       from world_battle_results r where b.id = $1 and r.battle_id = b.id and b.status = 'running'`,
+      [battleId],
+    );
+
   async function finish(battleId: number): Promise<void> {
     scheduled.delete(battleId);
+    if (applied.has(battleId)) return;
     const battle = await load(battleId);
     if (!battle || battle.status !== "running") return;
+    const done = await pool.query(`select 1 from world_battle_results where battle_id = $1`, [battleId]);
+    if (done.rows.length > 0) {
+      await markEnded(battleId);
+      return;
+    }
     const { result, state } = await compute(battleId, battle.init, battle.inputs, 0x7fff_ffff);
+    if (applied.has(battleId)) return;
     const outcome: BattleOutcome = { result, units: resolveOutcomes(state, { war: battle.war }) };
-    await options.onResult(battleId, outcome);
-    await pool.query(
-      `update world_battles set status = 'ended', result = $2 where id = $1 and status = 'running'`,
-      [battleId, JSON.stringify(outcome)],
-    );
+    // 여기부터 기다림 없이: 세계 바뀜과 결과 기록이 같은 쓰기 묶음에 들어간다
+    applied.add(battleId);
+    options.apply(battleId, battle.init, outcome, battle.endsAtMs);
+    options.writer.append("battleResults", {
+      battle_id: battleId,
+      applied_at_ms: battle.endsAtMs,
+      result: JSON.stringify(outcome),
+    });
+    await options.writer.durable();
+    await markEnded(battleId);
   }
 
   return {
@@ -176,10 +203,19 @@ export function createBattleService(options: {
       const max = await pool.query(`select coalesce(max(id), 0) as id from world_battles`);
       nextId = Number(max.rows[0]?.id ?? 0) + 1;
       const running = await pool.query(
-        `select id, ends_at_ms from world_battles where status = 'running' order by id`,
+        `select b.id, b.ends_at_ms, (r.battle_id is not null) as applied from world_battles b
+         left join world_battle_results r on r.battle_id = b.id where b.status = 'running' order by b.id`,
       );
-      for (const row of running.rows) schedule(Number(row.id), Number(row.ends_at_ms));
-      return running.rows.length;
+      let count = 0;
+      for (const row of running.rows) {
+        // 결과 기록은 커밋됐는데 status를 고치기 전에 죽었다 → 다시 적용하지 않는다
+        if (row.applied === true) await markEnded(Number(row.id));
+        else {
+          schedule(Number(row.id), Number(row.ends_at_ms));
+          count += 1;
+        }
+      }
+      return count;
     },
     async start(init, { war }) {
       const battleId = nextId++;

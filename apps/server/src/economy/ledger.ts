@@ -19,13 +19,12 @@ export function createLedger(options: {
 }): Ledger {
   const { writer } = options;
   const save = (account: Readonly<LedgerAccount>): void => {
-    // ledger_accounts에 위치 열이 아직 없다 → 위치 계정을 쓰면 저장에서 위치가 사라진다. 그 전에 막는다(R2 ADR 3절)
-    if (account.location !== null) throw new Error("ledger: location accounts are not persisted yet");
     writer.upsert("accounts", {
       id: account.id,
       owner_id: account.ownerId,
       system_code: account.systemCode,
       asset: account.asset,
+      location: account.location,
       balance: account.balance,
     });
   };

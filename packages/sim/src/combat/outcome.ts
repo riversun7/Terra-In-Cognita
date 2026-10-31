@@ -37,7 +37,8 @@ export interface CargoHolding {
 
 /**
  * 진 쪽 화물의 일부(만분율, C19 기존 "최대 50%")를 이긴 쪽으로 옮긴다(D-173). 거래 하나, 버림.
- * 물건은 같은 위치(전투한 곳) 계정으로 옮긴다. 옮긴 것이 없으면 거래를 넣지 않는다.
+ * 받는 곳: toLocation이 있으면 그 위치(서버: 이긴 쪽 유닛의 화물), 없으면 진 쪽 화물과 같은 위치.
+ * key가 있으면 한 번만 받는 거래다(서버: 전투마다 하나). 옮긴 것이 없으면 거래를 넣지 않는다.
  */
 export function postLoot(
   book: LedgerBook,
@@ -45,19 +46,21 @@ export function postLoot(
   winnerOwner: number,
   lootBp: number,
   atMs: number,
+  options: { readonly toLocation?: number | null; readonly key?: string } = {},
 ): bigint {
   const entries: LedgerEntry[] = [];
   let moved = 0n;
   for (const holding of cargo) {
     const take = (book.balanceOf(holding.owner, holding.asset, holding.location) * BigInt(lootBp)) / 10_000n;
     if (take <= 0n) continue;
+    const to = options.toLocation === undefined ? holding.location : options.toLocation;
     entries.push({
       account: book.ownerAccount(holding.owner, holding.asset, holding.location),
       amount: -take,
     });
-    entries.push({ account: book.ownerAccount(winnerOwner, holding.asset, holding.location), amount: take });
+    entries.push({ account: book.ownerAccount(winnerOwner, holding.asset, to), amount: take });
     moved += take;
   }
-  if (entries.length > 0) book.post({ kind: "loot", atMs, entries });
+  if (entries.length > 0) book.post({ kind: "loot", atMs, key: options.key, entries });
   return moved;
 }

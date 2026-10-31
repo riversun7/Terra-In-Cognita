@@ -1,4 +1,4 @@
-// 불변 조건 검사 — docs/adr/2026-10-31-s3-server-stage.md 2절 표(I1~I8, 전투 없는 S3 범위)
+// 불변 조건 검사 — docs/adr/2026-10-31-s3-server-stage.md 2절 표(I1~I8), 전투 결과 I9~I12(docs/adr/2026-10-31-combat-core.md 8절)
 // 부팅 뒤(world.ts), 시험, 관리 명령(`node dist/cli.js check-world`, DB 몫만)에서 부른다. 위반은 문장 목록으로 돌려준다.
 import {
   INVARIANT_I1_ASSETS,
@@ -60,5 +60,24 @@ export async function checkSqlInvariants(pool: QueryPool, nowMs: number): Promis
   await count("I6 owners settled in the future", `select id from world_owners where settled_at_ms > $1`, [
     nowMs + 60_000,
   ]);
+  // 전투 결과(docs/adr/2026-10-31-combat-core.md 8절): 상태가 맞고, 결과는 한 번만, 화물은 있는 유닛에만
+  await count(
+    "I9 prisoners held by themselves",
+    `select id from world_units where held_by is not null and held_by = owner_id`,
+  );
+  await count(
+    "I10 injuries without a heal time",
+    `select id from world_units where injury not between 0 and 3 or (injury = 0) <> (injury_until_ms is null)`,
+  );
+  await count(
+    "I11 ended battles without a result record",
+    `select b.id from world_battles b where b.status = 'ended'
+     and not exists (select 1 from world_battle_results r where r.battle_id = b.id)`,
+  );
+  await count(
+    "I12 cargo on missing units",
+    `select a.id from ledger_accounts a where a.location < 0
+     and not exists (select 1 from world_units u where u.id = -a.location)`,
+  );
   return problems;
 }

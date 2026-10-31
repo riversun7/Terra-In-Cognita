@@ -16,7 +16,7 @@ export const WORLD_TABLES = {
   },
   accounts: {
     name: "ledger_accounts",
-    columns: ["id", "owner_id", "system_code", "asset", "balance"],
+    columns: ["id", "owner_id", "system_code", "asset", "location", "balance"],
     key: ["id"],
   },
   units: {
@@ -38,6 +38,9 @@ export const WORLD_TABLES = {
       "job_phase",
       "job_progress_ms",
       "fatigue",
+      "injury",
+      "injury_until_ms",
+      "held_by",
     ],
     key: ["id"],
   },
@@ -72,6 +75,12 @@ export const WORLD_TABLES = {
     columns: ["tx_id", "account_id", "amount"],
     key: [],
   },
+  /** 전투 결과 적용 기록(추가만, 전투마다 한 줄 — 유닛 바뀜·탈취 거래와 같은 묶음) */
+  battleResults: {
+    name: "world_battle_results",
+    columns: ["battle_id", "applied_at_ms", "result"],
+    key: [],
+  },
 } as const satisfies Record<string, TableSpec>;
 
 export type WorldTable = keyof typeof WORLD_TABLES;
@@ -87,6 +96,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "heartbeat",
   "transactions",
   "entries",
+  "battleResults",
 ];
 
 /** 한 행: 열 이름 → 값(number·string·bigint·null·정수 배열·Buffer) */

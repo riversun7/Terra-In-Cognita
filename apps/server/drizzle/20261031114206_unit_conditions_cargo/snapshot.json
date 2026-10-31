@@ -1,0 +1,500 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "236be0fc-340e-45bd-ab96-71eb315a2a2f",
+  "prevIds": [
+    "c85d524a-34c2-4676-9efc-8183f2c506c5"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_battle_results"
+      ],
+      "writes": [
+        "s|tbl|public.world_battle_results",
+        "n|tbl|public.world_battle_results",
+        "e|tbl|public.world_battle_results",
+        "n|rel|public.world_battle_results",
+        "n|type|public.world_battle_results",
+        "n|rel|public.world_battle_results_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "drop_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ledger_accounts",
+        "ledger_accounts_owner_asset_idx"
+      ],
+      "writes": [
+        "s|idx|public.ledger_accounts_owner_asset_idx",
+        "n|idx|public.ledger_accounts_owner_asset_idx",
+        "e|idx|public.ledger_accounts_owner_asset_idx",
+        "n|rel|public.ledger_accounts_owner_asset_idx"
+      ],
+      "reads": [
+        "n|tbl|public.ledger_accounts",
+        "n|sch|public",
+        "e|col|public.ledger_accounts.owner_id",
+        "e|col|public.ledger_accounts.asset"
+      ],
+      "sharedWrites": [
+        "e|uniqueness|public.ledger_accounts.asset.owner_id"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "ledger_accounts",
+        "location"
+      ],
+      "writes": [
+        "s|col|public.ledger_accounts.location",
+        "n|col|public.ledger_accounts.location",
+        "e|col|public.ledger_accounts.location"
+      ],
+      "reads": [
+        "n|tbl|public.ledger_accounts",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_units",
+        "injury"
+      ],
+      "writes": [
+        "s|col|public.world_units.injury",
+        "n|col|public.world_units.injury",
+        "e|col|public.world_units.injury"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_units",
+        "injury_until_ms"
+      ],
+      "writes": [
+        "s|col|public.world_units.injury_until_ms",
+        "n|col|public.world_units.injury_until_ms",
+        "e|col|public.world_units.injury_until_ms"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_units",
+        "held_by"
+      ],
+      "writes": [
+        "s|col|public.world_units.held_by",
+        "n|col|public.world_units.held_by",
+        "e|col|public.world_units.held_by"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "ledger_accounts",
+        "ledger_accounts_owner_asset_location_idx"
+      ],
+      "writes": [
+        "s|idx|public.ledger_accounts_owner_asset_location_idx",
+        "n|idx|public.ledger_accounts_owner_asset_location_idx",
+        "e|idx|public.ledger_accounts_owner_asset_location_idx",
+        "n|rel|public.ledger_accounts_owner_asset_location_idx"
+      ],
+      "reads": [
+        "n|tbl|public.ledger_accounts",
+        "n|sch|public",
+        "n|col|public.ledger_accounts.owner_id",
+        "n|col|public.ledger_accounts.asset"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_battle_results"
+      ],
+      "writes": [
+        "s|fk|public.world_battle_results.world_battle_results_battle_id_world_battles_id_fkey",
+        "n|fk|public.world_battle_results.world_battle_results_battle_id_world_battles_id_fkey",
+        "e|fk|public.world_battle_results.world_battle_results_battle_id_world_battles_id_fkey",
+        "n|con|public.world_battle_results.world_battle_results_battle_id_world_battles_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_battle_results",
+        "n|sch|public",
+        "n|tbl|public.world_battles",
+        "n|sch|public",
+        "n|col|public.world_battle_results.battle_id",
+        "n|col|public.world_battles.id",
+        "e|uniqueness|public.world_battles.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_units"
+      ],
+      "writes": [
+        "s|fk|public.world_units.world_units_held_by_world_owners_id_fkey",
+        "n|fk|public.world_units.world_units_held_by_world_owners_id_fkey",
+        "e|fk|public.world_units.world_units_held_by_world_owners_id_fkey",
+        "n|con|public.world_units.world_units_held_by_world_owners_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public",
+        "n|tbl|public.world_owners",
+        "n|sch|public",
+        "n|col|public.world_units.held_by",
+        "n|col|public.world_owners.id",
+        "e|uniqueness|public.world_owners.id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_units"
+      ],
+      "writes": [
+        "s|ck|public.world_units.world_units_injury",
+        "n|ck|public.world_units.world_units_injury",
+        "e|ck|public.world_units.world_units_injury",
+        "n|con|public.world_units.world_units_injury"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public",
+        "n|col|public.world_units.injury"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_units"
+      ],
+      "writes": [
+        "s|ck|public.world_units.world_units_injury_until",
+        "n|ck|public.world_units.world_units_injury_until",
+        "e|ck|public.world_units.world_units_injury_until",
+        "n|con|public.world_units.world_units_injury_until"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public",
+        "n|col|public.world_units.injury",
+        "n|col|public.world_units.injury_until_ms"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_units"
+      ],
+      "writes": [
+        "s|ck|public.world_units.world_units_held_by_other",
+        "n|ck|public.world_units.world_units_held_by_other",
+        "e|ck|public.world_units.world_units_held_by_other",
+        "n|con|public.world_units.world_units_held_by_other"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public",
+        "n|col|public.world_units.held_by",
+        "n|col|public.world_units.owner_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "world_battle_results",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_accounts",
+        "name": "location",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_battle_results",
+        "name": "battle_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_battle_results",
+        "name": "applied_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_battle_results",
+        "name": "result",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "injury",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "injury_until_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "held_by",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "ledger_accounts",
+        "name": "ledger_accounts_owner_asset_location_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "owner_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "asset",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "coalesce(\"location\", 0)",
+            "isExpression": true,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_battle_results",
+        "name": "world_battle_results_battle_id_world_battles_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "battle_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_battles",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "world_units_held_by_world_owners_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "held_by"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_owners",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_battle_results",
+        "name": "world_battle_results_pkey",
+        "columns": [
+          "battle_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "world_units_injury",
+        "value": "\"injury\" between 0 and 3",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "world_units_injury_until",
+        "value": "(\"injury\" = 0) = (\"injury_until_ms\" is null)",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "world_units_held_by_other",
+        "value": "\"held_by\" is null or \"held_by\" <> \"owner_id\"",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "drop",
+      "key": "indexes\u0000[\"public\",\"ledger_accounts_owner_asset_idx\"]"
+    }
+  ]
+}

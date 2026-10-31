@@ -450,6 +450,12 @@ export const worldUnits = pgTable(
     jobPhase: smallint("job_phase").notNull().default(0),
     jobProgressMs: integer("job_progress_ms").notNull().default(0),
     fatigue: integer("fatigue").notNull().default(0),
+    /** 부상 단계(D-099·D-145): 0 없음, 1 경상, 2 중상, 3 중태(활동 불가). 전투 결과가 넣는다(docs/adr/2026-10-31-combat-core.md 8절) */
+    injury: smallint("injury").notNull().default(0),
+    /** 저절로 낫는 시각(실제 시간, T6 [임시]). 부상이 없으면 null */
+    injuryUntilMs: bigint("injury_until_ms", { mode: "number" }),
+    /** 포로로 잡은 주체(D-187). 주인(owner_id)은 그대로다(몸값은 원래 주인하고만, D-242) */
+    heldBy: bigint("held_by", { mode: "number" }).references(() => worldOwners.id),
   },
   (table) => [
     index("world_units_owner_idx").on(table.ownerId),
@@ -459,6 +465,9 @@ export const worldUnits = pgTable(
     check("world_units_path", sql`cardinality(${table.path}) >= 2 and cardinality(${table.path}) % 2 = 0`),
     check("world_units_planet_id_format", sql`${table.planetId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
     check("world_units_domain", sql`${table.domain} in ('space', 'sky', 'land', 'sea')`),
+    check("world_units_injury", sql`${table.injury} between 0 and 3`),
+    check("world_units_injury_until", sql`(${table.injury} = 0) = (${table.injuryUntilMs} is null)`),
+    check("world_units_held_by_other", sql`${table.heldBy} is null or ${table.heldBy} <> ${table.ownerId}`),
   ],
 );
 
@@ -539,10 +548,21 @@ export const ledgerAccounts = pgTable(
     ownerId: bigint("owner_id", { mode: "number" }).references(() => worldOwners.id),
     systemCode: text("system_code").unique(),
     asset: text("asset").notNull(),
+    /**
+     * 물건이 있는 곳(R2 ADR 3절, 계정 = (주체, 자산, 위치)). null = 위치 없음(화폐 등).
+     * [임시] 음수 = 유닛이 실은 화물(−유닛 ID, docs/adr/2026-10-31-combat-core.md 8절). 양수 = 창고 위치(도시는 R4b)
+     */
+    location: bigint("location", { mode: "number" }),
     balance: bigint("balance", { mode: "bigint" }).notNull().default(0n),
   },
   (table) => [
-    uniqueIndex("ledger_accounts_owner_asset_idx").on(table.ownerId, table.asset),
+    // (주체, 자산, 위치)마다 계정 하나. 위치 null(위치 없음)은 0으로 친다(0은 위치로 쓰지 않는다).
+    // 시스템 계정(주체 null)끼리는 겹쳐도 된다(system_code가 따로 유일)
+    uniqueIndex("ledger_accounts_owner_asset_location_idx").on(
+      table.ownerId,
+      table.asset,
+      sql`coalesce(${table.location}, 0)`,
+    ),
     check("ledger_accounts_one_kind", sql`num_nonnulls(${table.ownerId}, ${table.systemCode}) = 1`),
     check("ledger_accounts_owner_nonnegative", sql`${table.systemCode} is not null or ${table.balance} >= 0`),
     check("ledger_accounts_asset_format", sql`${table.asset} ~ '^[a-z][a-z0-9_]{1,47}$'`),
@@ -653,6 +673,18 @@ export const worldBattleSnapshots = pgTable(
   },
   (table) => [primaryKey({ columns: [table.battleId, table.tick] })],
 );
+
+/**
+ * 전투 결과를 세계에 적용한 기록(전투마다 한 줄, 두 번 적용 없음). 유닛 바뀜·탈취 거래와 같은 쓰기 묶음에 들어간다
+ * (docs/adr/2026-10-31-combat-core.md 8절). world_battles.status는 그 뒤에 고치는 캐시다.
+ */
+export const worldBattleResults = pgTable("world_battle_results", {
+  battleId: bigint("battle_id", { mode: "number" })
+    .primaryKey()
+    .references(() => worldBattles.id),
+  appliedAtMs: bigint("applied_at_ms", { mode: "number" }).notNull(),
+  result: jsonb("result").notNull(),
+});
 
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

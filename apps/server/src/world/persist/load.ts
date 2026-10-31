@@ -23,8 +23,8 @@ export interface AccountRow {
   ownerId: number | null;
   systemCode: string | null;
   asset: string;
-  /** 창고 위치. ledger_accounts에 아직 위치 열이 없어 늘 null이다(R2 ADR: 서버가 위치 계정을 쓸 때 열 더하기 마이그레이션) */
-  location: null;
+  /** 물건이 있는 곳(null = 위치 없음, 음수 = 유닛 화물 −유닛 ID [임시]) */
+  location: number | null;
   balance: bigint;
 }
 
@@ -92,12 +92,14 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
   );
   const units = await pool.query(
     `select id, owner_id, kind, size, speed, map_key, planet_id, domain, path, depart_at_ms, wake_at_ms, ai_step,
-            job, job_phase, job_progress_ms, fatigue from world_units`,
+            job, job_phase, job_progress_ms, fatigue, injury, injury_until_ms, held_by from world_units`,
   );
   const buildings = await pool.query(
     `select id, map_key, planet_id, domain, owner_id, x, y, width, height, rotation from world_buildings`,
   );
-  const accounts = await pool.query(`select id, owner_id, system_code, asset, balance from ledger_accounts`);
+  const accounts = await pool.query(
+    `select id, owner_id, system_code, asset, location, balance from ledger_accounts`,
+  );
   const max = await pool.query(
     `select (select max(id) from world_owners) as owner, (select max(id) from world_units) as unit,
             (select max(id) from world_buildings) as building, (select max(id) from ledger_accounts) as account,
@@ -138,6 +140,11 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
         progressMs: num(row.job_progress_ms),
         fatigue: num(row.fatigue),
       },
+      condition: {
+        injury: num(row.injury ?? 0),
+        injuryUntilMs: numOrNull(row.injury_until_ms),
+        heldBy: numOrNull(row.held_by),
+      },
     })),
     buildings: buildings.rows.map((row) => ({
       id: num(row.id),
@@ -158,7 +165,7 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
       ownerId: numOrNull(row.owner_id),
       systemCode: typeof row.system_code === "string" ? row.system_code : null,
       asset: String(row.asset),
-      location: null,
+      location: numOrNull(row.location),
       balance: BigInt(String(row.balance)),
     })),
     maxIds: {

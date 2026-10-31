@@ -6,9 +6,17 @@
 // - 극 기온 ≤ 적도 기온을 지킨다(쓸 때 맞춘다). 시드는 u32.
 // - 슬라이더 범위는 생성기 입력 확인(validatePlanetInput)과 같은 표(PLANET_SETTING_RANGES)에서 읽는다. 표에 줄이 늘면
 //   (생성기 다양성 고침) 여기는 그대로 따라간다.
-// - "다시 배치" 표시: 바꾸면 땅·바다 배치가 새로 바뀌는 값(육지 %, 대륙붕 %, 판 개수, 시드, 해수면·판 프리셋).
-import { parsePlanetOverrides, parsePlanetPresets } from "@terra/planet/generator";
+// - "다시 배치" 표시: 바꾸면 땅·바다 배치가 새로 바뀌는 값(육지 %, 대륙붕 %, 판 개수, 시드, 해수면·판 프리셋, 대륙 모양·수).
+// - 대륙 모양(ADR 2026-10-31-continent-layouts): 정의의 continents {layout, count?}. "노이즈"는 필드가 없는 것(팩 행성과 같은
+//   정의)이다. 대륙 수는 종류의 기본값과 같으면 count를 지운다(세부 수치 덮어쓰기와 같은 규칙). 프리셋 줄에서는 판 개수 축을
+//   빼고(데이터의 presets.plates는 그대로 둔다) 대륙 모양 줄을 그 자리에 둔다. 판 개수는 세부 수치(plateCount)로 바꾼다.
+import { parseContinentLayout, parsePlanetOverrides, parsePlanetPresets } from "@terra/planet/generator";
 import {
+  CONTINENT_COUNT_RANGE,
+  CONTINENT_LAYOUTS,
+  CONTINENT_LAYOUT_DEFAULT_COUNTS,
+  type ContinentLayoutDefinition,
+  type ContinentLayoutKind,
   PLANET_PRESET_AXES,
   PLANET_PRESET_LEVELS,
   PLANET_SETTING_KEYS,
@@ -20,6 +28,7 @@ import {
   type PlanetSettingOverrides,
   type PlanetSettings,
   presetValues,
+  resolveContinentLayout,
   resolvePlanetSettings,
 } from "@terra/shared";
 import { stableJson } from "./stableJson.ts";
@@ -54,6 +63,15 @@ export const RELAYOUT_PRESET_AXES: ReadonlySet<PlanetPresetAxis> = new Set<Plane
 ]);
 /** 시드를 바꾸면 늘 배치가 새로 바뀐다 */
 export const SEED_RELAYOUT = true;
+
+/** 편집기 프리셋 줄에 보이는 축: 판 개수 축은 뺀다(대륙 모양 줄이 그 자리. 데이터의 presets.plates는 그대로 둔다) */
+export const EDITOR_PRESET_AXES: readonly PlanetPresetAxis[] = PLANET_PRESET_AXES.filter(
+  (axis) => axis !== "plates",
+);
+
+/** 대륙 모양 선택지: 노이즈(정의에 continents가 없음, 지금까지의 방식) + 배치 종류 */
+export const CONTINENT_CHOICES = ["noise", ...CONTINENT_LAYOUTS] as const;
+export type ContinentChoice = (typeof CONTINENT_CHOICES)[number];
 
 const SEED_MAX = 0xffff_ffff;
 
@@ -194,6 +212,77 @@ export function withSeed(entry: DraftEntry, seed: number): DraftEntry {
   return withField(entry, "seed", seed);
 }
 
+/** 대륙 배치 정의(없으면 undefined = 노이즈). 모르는 종류·필드·범위 밖 대륙 수는 RangeError */
+export function entryContinents(entry: DraftEntry): ContinentLayoutDefinition | undefined {
+  const definition = parseContinentLayout(entry.continents);
+  resolveContinentLayout(definition);
+  return definition;
+}
+
+/** 대륙 모양 줄: 고른 것, 보이는 대륙 수(노이즈는 null), 종류의 기본 대륙 수, 슬라이더 범위, 선택지 */
+export interface ContinentRow {
+  readonly choice: ContinentChoice;
+  readonly count: number | null;
+  readonly defaultCount: number | null;
+  readonly overridden: boolean;
+  readonly min: number;
+  readonly max: number;
+  readonly relayout: boolean;
+  readonly choices: readonly { readonly choice: ContinentChoice; readonly defaultCount: number | null }[];
+}
+
+/** 대륙 모양 줄(틀린 대륙 배치면 RangeError) */
+export function continentRow(entry: DraftEntry): ContinentRow {
+  const definition = entryContinents(entry);
+  const resolved = resolveContinentLayout(definition);
+  const [min, max] = CONTINENT_COUNT_RANGE;
+  return {
+    choice: definition?.layout ?? "noise",
+    count: resolved?.count ?? null,
+    defaultCount: definition ? CONTINENT_LAYOUT_DEFAULT_COUNTS[definition.layout] : null,
+    overridden: definition?.count !== undefined,
+    min,
+    max,
+    relayout: true,
+    choices: CONTINENT_CHOICES.map((choice) => ({
+      choice,
+      defaultCount: choice === "noise" ? null : CONTINENT_LAYOUT_DEFAULT_COUNTS[choice],
+    })),
+  };
+}
+
+/** 대륙 배치를 적은 새 항목(undefined면 필드를 뺀다 = 노이즈) */
+function withContinents(entry: DraftEntry, definition: ContinentLayoutDefinition | undefined): DraftEntry {
+  return withField(entry, "continents", definition);
+}
+
+/** 대륙 모양을 고른다(누르는 조작). 노이즈면 필드를 빼고, 종류면 {layout}(대륙 수는 그 종류의 기본값) */
+export function withContinentChoice(entry: DraftEntry, choice: ContinentChoice): DraftEntry {
+  return withContinents(entry, choice === "noise" ? undefined : { layout: choice });
+}
+
+/**
+ * 대륙 수를 쓴다(슬라이더): 정수로 반올림하고 범위로 묶는다. 종류의 기본값과 같으면 count를 지운다. 노이즈이거나 수가
+ * 아니면 그대로
+ */
+export function withContinentCount(entry: DraftEntry, value: number): DraftEntry {
+  const definition = entryContinents(entry);
+  if (!definition || !Number.isFinite(value)) return entry;
+  const [min, max] = CONTINENT_COUNT_RANGE;
+  const count = Math.min(max, Math.max(min, Math.round(value)));
+  const layout: ContinentLayoutKind = definition.layout;
+  return withContinents(
+    entry,
+    count === CONTINENT_LAYOUT_DEFAULT_COUNTS[layout] ? { layout } : { layout, count },
+  );
+}
+
+/** 대륙 수를 종류의 기본값으로 되돌린다 */
+export function withoutContinentCount(entry: DraftEntry): DraftEntry {
+  const definition = entryContinents(entry);
+  return definition ? withContinents(entry, { layout: definition.layout }) : entry;
+}
+
 /** 슬라이더 한 줄 */
 export interface SettingRow {
   readonly key: PlanetSettingKey;
@@ -240,10 +329,10 @@ export interface PresetRow {
   readonly relayout: boolean;
 }
 
-/** 프리셋 줄(축 순서). 항목이 틀리면 RangeError */
+/** 프리셋 줄(편집기 축 순서, 판 개수 축 빼고). 항목이 틀리면 RangeError */
 export function presetRows(entry: DraftEntry): PresetRow[] {
   const presets = entryPresets(entry);
-  return PLANET_PRESET_AXES.map((axis) => {
+  return EDITOR_PRESET_AXES.map((axis) => {
     const levels: readonly PlanetPresetLevel<PlanetPresetAxis>[] = PLANET_PRESET_LEVELS[axis];
     return {
       axis,
@@ -266,7 +355,7 @@ export function sameDocument(a: DraftDocument, b: DraftDocument): boolean {
 
 /**
  * 적용 전 변경 수(설정 판의 "바뀐 값 N개") — 적용한 초안(applied)과 적용 전 초안(pending)에서 다른 조작부 수:
- * 프리셋 축마다 단계, 세부 수치마다 덮어쓰기(값·있고 없음), 시드. 프리셋 단계를 바꿔 그 축의 덮어쓰기가 지워지면 그 줄도 센다.
+ * 프리셋 축마다 단계, 세부 수치마다 덮어쓰기(값·있고 없음), 시드, 대륙 모양, 대륙 수. 프리셋 단계를 바꿔 그 축의 덮어쓰기가 지워지면 그 줄도 센다.
  * 둘 중 하나가 틀린 항목이면(서버에 남은 옛 초안 등) 다른 키 수를 센다(0이 아니면 적용할 것이 있다)
  */
 export function pendingChangeCount(applied: DraftEntry, pending: DraftEntry): number {
@@ -279,6 +368,10 @@ export function pendingChangeCount(applied: DraftEntry, pending: DraftEntry): nu
     for (const axis of PLANET_PRESET_AXES) if (presetsA[axis] !== presetsB[axis]) count++;
     for (const key of PLANET_SETTING_KEYS) if (overridesA[key] !== overridesB[key]) count++;
     if (applied.seed !== pending.seed) count++;
+    const continentsA = entryContinents(applied);
+    const continentsB = entryContinents(pending);
+    if (continentsA?.layout !== continentsB?.layout) count++;
+    if (continentsA?.count !== continentsB?.count) count++;
     return count;
   } catch {
     const keys = new Set([...Object.keys(applied), ...Object.keys(pending)]);

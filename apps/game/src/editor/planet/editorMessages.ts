@@ -6,6 +6,7 @@ import type { BiomeAxis } from "@terra/planet/generator";
 import type { OceanDepthClass } from "@terra/shared";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
+import type { ContinentChoice } from "./editorModel.ts";
 import type { LibraryFailure } from "./libraryClient.ts";
 import type { LibraryDocState } from "./useLibraryDocument.ts";
 import type { PreviewErrorCode } from "./previewTypes.ts";
@@ -17,6 +18,15 @@ export const AXIS_LABELS: Readonly<Record<PlanetPresetAxis, () => string>> = {
   mountains: m.planet_editor_axis_mountains,
   plates: m.planet_editor_axis_plates,
   volcanism: m.planet_editor_axis_volcanism,
+};
+
+/** 대륙 모양 선택지 이름(ADR 2026-10-31-continent-layouts) */
+export const CONTINENT_LABELS: Readonly<Record<ContinentChoice, () => string>> = {
+  noise: m.planet_editor_continents_noise,
+  supercontinent: m.planet_editor_continents_supercontinent,
+  earthlike: m.planet_editor_continents_earthlike,
+  scattered: m.planet_editor_continents_scattered,
+  hemisphere: m.planet_editor_continents_hemisphere,
 };
 
 /** 프리셋 단계 이름(모든 축의 단계 이름 합집합) */

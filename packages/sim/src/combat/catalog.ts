@@ -37,7 +37,7 @@ export const UNARMED: WeaponSpec = {
   speedAppropriate: 100,
   range: 1,
   arc: false,
-  staminaCost: 2,
+  staminaCost: 10,
   mpCost: 0,
 };
 
@@ -77,7 +77,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       tickMs: 0,
       stacking: "refresh",
       maxStacks: 1,
-      resist: { cap: 800, halfConstant: 100, weights: [0, 0, 0, 1000, 0, 200] },
+      resist: { cap: 600, halfConstant: 100, weights: [0, 0, 0, 1000, 0, 200] },
     },
     {
       id: "attack_up",
@@ -240,7 +240,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
         speedAppropriate: 100,
         range: 1,
         arc: false,
-        staminaCost: 5,
+        staminaCost: 10,
         mpCost: 0,
       },
       skills: [],
@@ -261,7 +261,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
         speedAppropriate: 100,
         range: 6,
         arc: false,
-        staminaCost: 2,
+        staminaCost: 10,
         mpCost: 5,
         skillElementsPm: fireOnly,
       },

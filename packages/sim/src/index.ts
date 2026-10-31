@@ -351,3 +351,11 @@ export {
   type UnitKindDef,
 } from "./combat/catalog.ts";
 export { combatCatalogFrom } from "./combat/packCatalog.ts";
+export {
+  TUNING_KEYS,
+  combatCoefficientsFrom,
+  societyCoefficientsFrom,
+  tuningValue,
+  type TuningKey,
+} from "./tuning.ts";
+export { TEST_SOCIETY_COEFFICIENTS, type SocietyCoefficients } from "./society/coefficients.ts";

@@ -107,7 +107,7 @@
           "speedAppropriate": 100,
           "range": 1,
           "arc": false,
-          "staminaCost": 5,
+          "staminaCost": 10,
           "mpCost": 0
         }
       },
@@ -143,7 +143,7 @@
           "speedAppropriate": 100,
           "range": 6,
           "arc": false,
-          "staminaCost": 2,
+          "staminaCost": 10,
           "mpCost": 5,
           "skillElementsPm": [0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         },

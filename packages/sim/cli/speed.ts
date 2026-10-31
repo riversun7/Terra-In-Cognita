@@ -44,6 +44,7 @@ function measure(spec: string): Row {
     scenario,
     catalog: scenario.economy ? pack?.catalog : undefined,
     combatCatalog: pack?.combat,
+    tuning: pack?.tuning,
     seed: Number(values.seed),
     days,
     onDay: () => {

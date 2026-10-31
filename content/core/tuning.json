@@ -1,0 +1,664 @@
+{
+  "entries": [
+    {
+      "id": "c5_command_lock",
+      "code": "C5",
+      "name": {
+        "ko": "명령 다시 넣기 막는 시간(ms)",
+        "en": "Command re-entry lock (ms)"
+      },
+      "value": 1000,
+      "structural": false
+    },
+    {
+      "id": "c2_limit_normal",
+      "code": "C2",
+      "name": {
+        "ko": "일반 전투 제한 시간(ms)",
+        "en": "Normal battle time limit (ms)"
+      },
+      "value": 600000,
+      "structural": false
+    },
+    {
+      "id": "c2_limit_siege",
+      "code": "C2",
+      "name": {
+        "ko": "공성 제한 시간(ms)",
+        "en": "Siege time limit (ms)"
+      },
+      "value": 1800000,
+      "structural": false
+    },
+    {
+      "id": "c19_loot",
+      "code": "C19",
+      "name": {
+        "ko": "패배 화물 탈취(만분율)",
+        "en": "Defeat cargo loot (bp)"
+      },
+      "value": 5000,
+      "structural": false
+    },
+    {
+      "id": "c21_retreat_band",
+      "code": "C21",
+      "name": {
+        "ko": "퇴각 구역 폭(칸)",
+        "en": "Retreat band width (cells)"
+      },
+      "value": 2,
+      "structural": false
+    },
+    {
+      "id": "c23_retreat_dwell",
+      "code": "C23",
+      "name": {
+        "ko": "퇴각 구역 머무는 시간(ms)",
+        "en": "Retreat dwell (ms)"
+      },
+      "value": 0,
+      "structural": false
+    },
+    {
+      "id": "c24_bush_sense",
+      "code": "C24",
+      "name": {
+        "ko": "수풀 속 적이 보이는 거리(칸)",
+        "en": "Bush sense range (cells)"
+      },
+      "value": 1,
+      "structural": false
+    },
+    {
+      "id": "c25_bush_reveal",
+      "code": "C25",
+      "name": {
+        "ko": "수풀에서 공격하면 드러나는 시간(ms)",
+        "en": "Bush reveal (ms)"
+      },
+      "value": 2000,
+      "structural": false
+    },
+    {
+      "id": "c27_height_unit",
+      "code": "C27",
+      "name": {
+        "ko": "높이 시야 보너스 단위",
+        "en": "Height sight unit"
+      },
+      "value": 4800,
+      "structural": false
+    },
+    {
+      "id": "c27_height_cap",
+      "code": "C27",
+      "name": {
+        "ko": "높이 시야 보너스 상한(칸)",
+        "en": "Height sight cap (cells)"
+      },
+      "value": 4,
+      "structural": false
+    },
+    {
+      "id": "n10_appropriate_cap",
+      "code": "N10",
+      "name": {
+        "ko": "적정 스탯 비율 상한(‰)",
+        "en": "Appropriate ratio cap (‰)"
+      },
+      "value": 2000,
+      "structural": true
+    },
+    {
+      "id": "n11_favor_slope",
+      "code": "N11",
+      "name": {
+        "ko": "회피 유리 기울기(‰)",
+        "en": "Evade favour slope (‰)"
+      },
+      "value": 300,
+      "structural": false
+    },
+    {
+      "id": "n11_favor_cap",
+      "code": "N11",
+      "name": {
+        "ko": "회피 유리 끝값(‰)",
+        "en": "Evade favour cap (‰)"
+      },
+      "value": 400,
+      "structural": false
+    },
+    {
+      "id": "n11_unfavor_slope",
+      "code": "N11",
+      "name": {
+        "ko": "회피 불리 기울기(‰)",
+        "en": "Evade disfavour slope (‰)"
+      },
+      "value": 400,
+      "structural": false
+    },
+    {
+      "id": "n11_unfavor_cap",
+      "code": "N11",
+      "name": {
+        "ko": "회피 불리 끝값(‰)",
+        "en": "Evade disfavour cap (‰)"
+      },
+      "value": 300,
+      "structural": false
+    },
+    {
+      "id": "n12_crit_spread",
+      "code": "N12",
+      "name": {
+        "ko": "크리 배율 범위 폭(‰)",
+        "en": "Crit multiplier spread (‰)"
+      },
+      "value": 500,
+      "structural": false
+    },
+    {
+      "id": "n13_weight_agi",
+      "code": "N13",
+      "name": {
+        "ko": "STA 점수 AGI 가중치(‰)",
+        "en": "STA score AGI weight (‰)"
+      },
+      "value": 700,
+      "structural": false
+    },
+    {
+      "id": "n13_weight_vit",
+      "code": "N13",
+      "name": {
+        "ko": "STA 점수 VIT 가중치(‰)",
+        "en": "STA score VIT weight (‰)"
+      },
+      "value": 300,
+      "structural": false
+    },
+    {
+      "id": "n13_appropriate",
+      "code": "N13",
+      "name": {
+        "ko": "적정 STA 점수",
+        "en": "Appropriate STA score"
+      },
+      "value": 80,
+      "structural": false
+    },
+    {
+      "id": "n13_min_consume",
+      "code": "N13",
+      "name": {
+        "ko": "최소 소모 비율(‰)",
+        "en": "Minimum consumption (‰)"
+      },
+      "value": 500,
+      "structural": false
+    },
+    {
+      "id": "n13_regen",
+      "code": "N13",
+      "name": {
+        "ko": "기본 회복(/초)",
+        "en": "Base regen (/s)"
+      },
+      "value": 3,
+      "structural": false
+    },
+    {
+      "id": "n13_regen_cap",
+      "code": "N13",
+      "name": {
+        "ko": "회복 배수 상한(‰)",
+        "en": "Regen multiplier cap (‰)"
+      },
+      "value": 2000,
+      "structural": false
+    },
+    {
+      "id": "n15_mp_regen",
+      "code": "N15",
+      "name": {
+        "ko": "MP 회복(WIS 1점당 밀리/초)",
+        "en": "MP regen (milli per WIS per s)"
+      },
+      "value": 50,
+      "structural": false
+    },
+    {
+      "id": "n21_fatigue_max",
+      "code": "N21",
+      "name": {
+        "ko": "피로 상한",
+        "en": "Fatigue max"
+      },
+      "value": 120,
+      "structural": true
+    },
+    {
+      "id": "n23_band1_from",
+      "code": "N23",
+      "name": {
+        "ko": "피로 구간 1 시작",
+        "en": "Fatigue band 1 start"
+      },
+      "value": 31,
+      "structural": false
+    },
+    {
+      "id": "n23_band1_ability",
+      "code": "N23",
+      "name": {
+        "ko": "피로 구간 1 능력(‰)",
+        "en": "Fatigue band 1 ability (‰)"
+      },
+      "value": 900,
+      "structural": false
+    },
+    {
+      "id": "n23_band1_move",
+      "code": "N23",
+      "name": {
+        "ko": "피로 구간 1 이동(‰)",
+        "en": "Fatigue band 1 move (‰)"
+      },
+      "value": 1000,
+      "structural": false
+    },
+    {
+      "id": "n23_band2_from",
+      "code": "N23",
+      "name": {
+        "ko": "피로 구간 2 시작",
+        "en": "Fatigue band 2 start"
+      },
+      "value": 61,
+      "structural": false
+    },
+    {
+      "id": "n23_band2_ability",
+      "code": "N23",
+      "name": {
+        "ko": "피로 구간 2 능력(‰)",
+        "en": "Fatigue band 2 ability (‰)"
+      },
+      "value": 750,
+      "structural": false
+    },
+    {
+      "id": "n23_band2_move",
+      "code": "N23",
+      "name": {
+        "ko": "피로 구간 2 이동(‰)",
+        "en": "Fatigue band 2 move (‰)"
+      },
+      "value": 850,
+      "structural": false
+    },
+    {
+      "id": "n23_band3_from",
+      "code": "N23",
+      "name": {
+        "ko": "피로 구간 3 시작",
+        "en": "Fatigue band 3 start"
+      },
+      "value": 91,
+      "structural": false
+    },
+    {
+      "id": "n23_band3_ability",
+      "code": "N23",
+      "name": {
+        "ko": "피로 구간 3 능력(‰)",
+        "en": "Fatigue band 3 ability (‰)"
+      },
+      "value": 500,
+      "structural": false
+    },
+    {
+      "id": "n23_band3_move",
+      "code": "N23",
+      "name": {
+        "ko": "피로 구간 3 이동(‰)",
+        "en": "Fatigue band 3 move (‰)"
+      },
+      "value": 700,
+      "structural": false
+    },
+    {
+      "id": "n24_recover_step",
+      "code": "N24",
+      "name": {
+        "ko": "피로 1점 회복 시간(ms)",
+        "en": "Fatigue recovery step (ms)"
+      },
+      "value": 180000,
+      "structural": false
+    },
+    {
+      "id": "n24_housing_1",
+      "code": "N24",
+      "name": {
+        "ko": "주거 1등급 회복 배율(‰)",
+        "en": "Housing grade 1 recovery (‰)"
+      },
+      "value": 1500,
+      "structural": false
+    },
+    {
+      "id": "n24_housing_2",
+      "code": "N24",
+      "name": {
+        "ko": "주거 2등급 회복 배율(‰)",
+        "en": "Housing grade 2 recovery (‰)"
+      },
+      "value": 2000,
+      "structural": false
+    },
+    {
+      "id": "n24_housing_3",
+      "code": "N24",
+      "name": {
+        "ko": "주거 3등급 회복 배율(‰)",
+        "en": "Housing grade 3 recovery (‰)"
+      },
+      "value": 3000,
+      "structural": false
+    },
+    {
+      "id": "s25_homeless_recovery",
+      "code": "S25",
+      "name": {
+        "ko": "노숙 회복 배율(‰)",
+        "en": "Homeless recovery (‰)"
+      },
+      "value": 100,
+      "structural": false
+    },
+    {
+      "id": "n25_low_satisfaction",
+      "code": "N25",
+      "name": {
+        "ko": "만족도 0일 때 회복 배율(‰)",
+        "en": "Recovery at satisfaction 0 (‰)"
+      },
+      "value": 500,
+      "structural": false
+    },
+    {
+      "id": "n27_wage_rate",
+      "code": "N27",
+      "name": {
+        "ko": "기준 단가(효율 1점당 밀리)",
+        "en": "Base wage rate (milli per point)"
+      },
+      "value": 2000,
+      "structural": false
+    },
+    {
+      "id": "n27_elasticity",
+      "code": "N27",
+      "name": {
+        "ko": "단가 수급 탄력(‰)",
+        "en": "Wage elasticity (‰)"
+      },
+      "value": 500,
+      "structural": false
+    },
+    {
+      "id": "n27_rate_min",
+      "code": "N27",
+      "name": {
+        "ko": "단가 하한(‰)",
+        "en": "Wage rate floor (‰)"
+      },
+      "value": 500,
+      "structural": false
+    },
+    {
+      "id": "n27_rate_max",
+      "code": "N27",
+      "name": {
+        "ko": "단가 상한(‰)",
+        "en": "Wage rate ceiling (‰)"
+      },
+      "value": 2000,
+      "structural": false
+    },
+    {
+      "id": "n27_recalc",
+      "code": "N27",
+      "name": {
+        "ko": "단가 재계산 주기(ms)",
+        "en": "Wage recalculation (ms)"
+      },
+      "value": 21600000,
+      "structural": false
+    },
+    {
+      "id": "n28_adjust_min",
+      "code": "N28",
+      "name": {
+        "ko": "고용주 조정 하한(‰)",
+        "en": "Employer adjust floor (‰)"
+      },
+      "value": 800,
+      "structural": false
+    },
+    {
+      "id": "n28_adjust_max",
+      "code": "N28",
+      "name": {
+        "ko": "고용주 조정 상한(‰)",
+        "en": "Employer adjust ceiling (‰)"
+      },
+      "value": 1500,
+      "structural": false
+    },
+    {
+      "id": "n29_restore",
+      "code": "N29",
+      "name": {
+        "ko": "만족도 복원 속도(하루 ‰)",
+        "en": "Satisfaction restore (‰/day)"
+      },
+      "value": 300,
+      "structural": false
+    },
+    {
+      "id": "n29_base",
+      "code": "N29",
+      "name": {
+        "ko": "만족도 기본 목표",
+        "en": "Satisfaction base target"
+      },
+      "value": 20,
+      "structural": false
+    },
+    {
+      "id": "n29_food",
+      "code": "N29",
+      "name": {
+        "ko": "포만감 목표 기여",
+        "en": "Food target"
+      },
+      "value": 40,
+      "structural": false
+    },
+    {
+      "id": "n29_housing_1",
+      "code": "N29",
+      "name": {
+        "ko": "주거 1등급 목표 기여",
+        "en": "Housing grade 1 target"
+      },
+      "value": 15,
+      "structural": false
+    },
+    {
+      "id": "n29_housing_2",
+      "code": "N29",
+      "name": {
+        "ko": "주거 2등급 목표 기여",
+        "en": "Housing grade 2 target"
+      },
+      "value": 20,
+      "structural": false
+    },
+    {
+      "id": "n29_housing_3",
+      "code": "N29",
+      "name": {
+        "ko": "주거 3등급 목표 기여",
+        "en": "Housing grade 3 target"
+      },
+      "value": 25,
+      "structural": false
+    },
+    {
+      "id": "n29_homeless",
+      "code": "N29",
+      "name": {
+        "ko": "노숙 목표 기여",
+        "en": "Homeless target"
+      },
+      "value": -20,
+      "structural": false
+    },
+    {
+      "id": "n29_wage",
+      "code": "N29",
+      "name": {
+        "ko": "임금 목표 기여",
+        "en": "Wage target"
+      },
+      "value": 20,
+      "structural": false
+    },
+    {
+      "id": "n29_wage_gap",
+      "code": "N29",
+      "name": {
+        "ko": "임금 격차 불만",
+        "en": "Wage gap penalty"
+      },
+      "value": -10,
+      "structural": false
+    },
+    {
+      "id": "n29_faith",
+      "code": "N29",
+      "name": {
+        "ko": "신앙 목표 기여",
+        "en": "Faith target"
+      },
+      "value": 10,
+      "structural": false
+    },
+    {
+      "id": "n29_war",
+      "code": "N29",
+      "name": {
+        "ko": "전쟁 목표 기여",
+        "en": "War target"
+      },
+      "value": -15,
+      "structural": false
+    },
+    {
+      "id": "n29_injury",
+      "code": "N29",
+      "name": {
+        "ko": "부상 목표 기여",
+        "en": "Injury target"
+      },
+      "value": -10,
+      "structural": false
+    },
+    {
+      "id": "n30_gap_floor",
+      "code": "N30",
+      "name": {
+        "ko": "임금 격차 문턱(‰)",
+        "en": "Wage gap floor (‰)"
+      },
+      "value": 600,
+      "structural": false
+    },
+    {
+      "id": "n30_top_share",
+      "code": "N30",
+      "name": {
+        "ko": "임금 비교 상위 몫(‰)",
+        "en": "Wage comparison top share (‰)"
+      },
+      "value": 250,
+      "structural": false
+    },
+    {
+      "id": "n31_life_skill",
+      "code": "N31",
+      "name": {
+        "ko": "생활 스킬 등급당 효율",
+        "en": "Life skill bonus per grade"
+      },
+      "value": 2,
+      "structural": false
+    },
+    {
+      "id": "n32_main_divisor",
+      "code": "N32",
+      "name": {
+        "ko": "생산 진행 나눔(주 스탯)",
+        "en": "Production main divisor"
+      },
+      "value": 20,
+      "structural": false
+    },
+    {
+      "id": "n32_sub_yield",
+      "code": "N32",
+      "name": {
+        "ko": "추가 수확(보조 스탯 ‰)",
+        "en": "Extra yield (sub stat ‰)"
+      },
+      "value": 80,
+      "structural": false
+    },
+    {
+      "id": "n33_food_zero_at",
+      "code": "N33",
+      "name": {
+        "ko": "포만감 효율 0 구간",
+        "en": "Food efficiency zero at"
+      },
+      "value": 30,
+      "structural": false
+    },
+    {
+      "id": "n33_food_low_at",
+      "code": "N33",
+      "name": {
+        "ko": "포만감 효율 낮음 구간",
+        "en": "Food efficiency low at"
+      },
+      "value": 50,
+      "structural": false
+    },
+    {
+      "id": "n33_food_low",
+      "code": "N33",
+      "name": {
+        "ko": "포만감 낮을 때 효율(‰)",
+        "en": "Low food efficiency (‰)"
+      },
+      "value": 700,
+      "structural": false
+    }
+  ]
+}

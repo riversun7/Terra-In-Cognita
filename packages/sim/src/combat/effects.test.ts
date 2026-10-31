@@ -61,9 +61,9 @@ describe("효과 사전(D-425)", () => {
   it("상태이상 저항은 1차 스탯 가중합의 확률 모양이다(D-429)", () => {
     const stun = def("stun");
     expect(statusResistPm(stun, [0, 0, 0, 0, 0, 0])).toBe(0);
-    // 점수 = VIT 100 × 1000‰ ÷ 1000 = 100 = 반감 상수 → 상한 800의 절반
-    expect(statusResistPm(stun, [0, 0, 0, 100, 0, 0])).toBe(400);
-    expect(statusResistPm(stun, [0, 0, 0, 10_000_000, 0, 0])).toBeLessThan(800);
+    // 점수 = VIT 100 × 1000‰ ÷ 1000 = 100 = 반감 상수 → 상한 600(N3)의 절반
+    expect(statusResistPm(stun, [0, 0, 0, 100, 0, 0])).toBe(300);
+    expect(statusResistPm(stun, [0, 0, 0, 10_000_000, 0, 0])).toBeLessThan(600);
     expect(statusResistPm(def("burn"), [0, 0, 0, 100, 0, 0])).toBe(0);
   });
 

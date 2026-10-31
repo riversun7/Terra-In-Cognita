@@ -6,6 +6,7 @@ import { mix32 } from "../math/hash.ts";
 import { runBattle } from "../combat/battle.ts";
 import type { BattleInit, BattleResult, CombatUnitSpec } from "../combat/battleTypes.ts";
 import type { BattleMapInput } from "../combat/battleMap.ts";
+import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "../combat/coefficients.ts";
 import { type CombatCatalog, TEST_COMBAT_CATALOG, UNARMED, skillsOf } from "../combat/catalog.ts";
 import { type EquippedItem, itemAt, loadoutOf, skillSlotCount } from "../combat/equipment.ts";
 import type { CombatSkill } from "../combat/skills.ts";
@@ -67,7 +68,7 @@ function kitOf(catalog: CombatCatalog) {
   return { slots, equipped, innate, skillSlots, unarmed: kind?.naturalWeapon ?? UNARMED };
 }
 
-/** [임시] 1차 스탯 = 10 + 기술 단계 × 2(모두 같게), 장비·스킬은 kitOf, 2차는 스탯 계산기(가중치 표) */
+/** [임시] 1차 스탯 = 40 + 기술 단계 × 8(모두 같게, 48 §3.5 예의 Lv30 휴먼 근처), 장비·스킬은 kitOf, 2차는 스탯 계산기 */
 function specOf(
   unit: SimUnit,
   tech: number,
@@ -75,8 +76,9 @@ function specOf(
   kit: ReturnType<typeof kitOf>,
   skillCache: Map<string, CombatSkill[]>,
   place: { side: number; party: number; x: number; y: number },
+  c: CombatCoefficients,
 ): CombatUnitSpec {
-  const p = 10 + tech * 2;
+  const p = 40 + tech * 8;
   const out = loadoutOf({
     base: { str: p, dex: p, agi: p, vit: p, int: p, wis: p },
     slots: kit.slots,
@@ -92,16 +94,19 @@ function specOf(
     skills = skillsOf(catalog, out.skills);
     skillCache.set(key, skills);
   }
-  return specFromStats({
-    id: unit.id,
-    ...place,
-    stats: out.stats,
-    weapon: out.weapon,
-    primaries: out.primaries,
-    skills,
-    moveIntervalMs: 1000,
-    buildingMulPm: 2000,
-  });
+  return specFromStats(
+    {
+      id: unit.id,
+      ...place,
+      stats: out.stats,
+      weapon: out.weapon,
+      primaries: out.primaries,
+      skills,
+      moveIntervalMs: 1000,
+      buildingMulPm: 2000,
+    },
+    c,
+  );
 }
 
 /** 공격 쪽 = 편 1(서쪽 변), 수비 쪽 = 편 2(동쪽 변) */
@@ -125,6 +130,7 @@ export function attachCombat(
   settings: ScenarioCombat,
   recorder: MetricsRecorder,
   catalog: CombatCatalog = TEST_COMBAT_CATALOG,
+  c: CombatCoefficients = TEST_COMBAT_COEFFICIENTS,
 ): CombatRun {
   const kit = kitOf(catalog);
   const skillCache = new Map<string, CombatSkill[]>();
@@ -158,12 +164,20 @@ export function attachCombat(
   ): CombatUnitSpec[] =>
     units.map((unit, index) => {
       const offset = ((index + 1) >> 1) * (index % 2 === 0 ? 1 : -1);
-      return specOf(unit, tech, catalog, kit, skillCache, {
-        side,
-        party: partyBase + Math.floor(index / PARTY_SIZE),
-        x: x + Math.floor(index / 24),
-        y: center + offset,
-      });
+      return specOf(
+        unit,
+        tech,
+        catalog,
+        kit,
+        skillCache,
+        {
+          side,
+          party: partyBase + Math.floor(index / PARTY_SIZE),
+          x: x + Math.floor(index / 24),
+          y: center + offset,
+        },
+        c,
+      );
     });
 
   const fight = (
@@ -173,7 +187,7 @@ export function attachCombat(
     init: BattleInit,
     nowMs: number,
   ): BattleResult => {
-    const { result, state } = runBattle(init, []);
+    const { result, state } = runBattle(init, [], undefined, c);
     battles += 1;
     ticks += result.endTick;
     if (result.winner === 1) attackerWins += 1;

@@ -11,6 +11,7 @@ import type { EconomyCatalog } from "./catalog.ts";
 import { type EconomyRun, type EconomySummary, attachEconomy, systemRule } from "./economyRun.ts";
 import { type CombatSummary, attachCombat } from "./combatRun.ts";
 import type { CombatCatalog } from "../combat/catalog.ts";
+import { combatCoefficientsFrom } from "../tuning.ts";
 import {
   EVENT_ARRIVE,
   EVENT_DECIDE,
@@ -50,6 +51,8 @@ export interface RunOptions {
   /** 스탯 가중치 표(콘텐츠 팩 stat_rows). 없으면 TEST_STAT_TABLE */
   /** 전투 자료(스탯 표·효과·스킬·장비·유닛 종류). 없으면 TEST_COMBAT_CATALOG */
   readonly combatCatalog?: CombatCatalog | undefined;
+  /** 설정 칸 값(콘텐츠 팩 tuning: 항목 ID → 정수). 없으면 TEST 계수표 */
+  readonly tuning?: ReadonlyMap<string, number> | undefined;
   /** 경제 목록(시나리오에 economy 칸이 있으면 꼭 준다. 실행 도구가 콘텐츠 팩에서 만든다) */
   readonly catalog?: EconomyCatalog | undefined;
   /** 하루가 끝날 때마다(진행 표시용, 판정에 영향 없음) */
@@ -140,7 +143,13 @@ export function runSimulation(options: RunOptions): RunSummary {
     trips: scenario.trips,
     hooks: econ?.hooks,
     combat: scenario.combat
-      ? attachCombat(world, scenario.combat, recorder, options.combatCatalog)
+      ? attachCombat(
+          world,
+          scenario.combat,
+          recorder,
+          options.combatCatalog,
+          combatCoefficientsFrom(options.tuning ?? new Map()),
+        )
       : undefined,
     encounterPerMille: scenario.combat?.encounterPerMille,
   };

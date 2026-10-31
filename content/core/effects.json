@@ -28,7 +28,7 @@
       "stacking": "refresh",
       "maxStacks": 1,
       "resist": {
-        "cap": 800,
+        "cap": 600,
         "halfConstant": 100,
         "weights": [0, 0, 0, 1000, 0, 200]
       },

@@ -14,6 +14,7 @@ import {
   recipeEntrySchema,
   skillEntrySchema,
   statRowEntrySchema,
+  tuningEntrySchema,
   unitKindEntrySchema,
 } from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
@@ -115,7 +116,13 @@ function combatCatalogOf(source: PackSource): CombatCatalog {
 export function readPack(
   dir: string,
   scenario: Scenario,
-): { version: string; hash: string; catalog: EconomyCatalog; combat: CombatCatalog } {
+): {
+  version: string;
+  hash: string;
+  catalog: EconomyCatalog;
+  combat: CombatCatalog;
+  tuning: Map<string, number>;
+} {
   const loaded = loadContentPack(dir);
   if (hasErrors(loaded.issues) || !loaded.pack || !loaded.version || !loaded.hash || !loaded.source) {
     throw new Error(
@@ -134,6 +141,12 @@ export function readPack(
     hash: loaded.hash,
     catalog: catalogOf(loaded.source),
     combat: combatCatalogOf(loaded.source),
+    tuning: new Map(
+      parseFile(loaded.source, "tuning.json", (raw) => tuningEntrySchema.parse(raw)).map((entry) => [
+        entry.id,
+        entry.value,
+      ]),
+    ),
   };
 }
 

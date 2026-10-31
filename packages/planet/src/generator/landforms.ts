@@ -1,4 +1,4 @@
-// 생성 1단계의 지형 틀(출력 판 3, 다양성 고침 3단계, ADR 2026-10-29-planet-generator-variety) — tectonics.ts가 쓴다.
+// 생성 1단계의 지형 틀(출력 판 3, 다양성 고침 3단계, ADR 2026-10-29-generator-variety) — tectonics.ts가 쓴다.
 // 판·대륙 배치를 정하는 1판 노이즈(판 흔들기·대륙성·기복)는 그대로 두고, 그 위에 노이즈 2판(옥타브마다 격자 옮기기·
 // 회전·좌표 흔들기 NOISE_JITTER, noise.ts)으로 높이를 더한다. 좌표는 무늬 공간(돌린 격자), 높이는 실제 환산 m, 거리는
 // 구 위 각도. 노이즈 설정은 NoiseSetup 하나씩이고(LANDFORM_NOISES) 부르는 곳이 그 값을 그대로 쓴다.

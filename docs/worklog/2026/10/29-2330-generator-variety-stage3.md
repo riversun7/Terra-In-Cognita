@@ -3,7 +3,7 @@
 - 일시: 2026-10-29 23:30 (KST)
 - 작업 도구: Claude Code
 - 가지: `work/generator-variety`(작업 트리 `.claude/worktrees/generator-variety`, 서브에이전트, 푸시하지 않음). 앞 기록 `29-2200-generator-variety-stage2.md`(2단계, 커밋 `b1b845d`)
-- 관련: ADR `2026-10-29-planet-generator-variety.md`(제안, "3단계"·"반복 검사" 절), ADR `2026-10-29-s2-planet-lod.md`(36, 버전·시험 절 한 줄), `docs/questions/2026-10-29-special-terrain.md` 4.3 3단계. 커밋 `59ac58c`(노이즈 펼치기, 출력 그대로), `f02b6b8`(지형 틀), 그다음 커밋(막는 지표·출력 판 3 기준값)
+- 관련: ADR `2026-10-29-generator-variety.md`(제안, "3단계"·"반복 검사" 절), ADR `2026-10-29-s2-planet-lod.md`(36, 버전·시험 절 한 줄), `docs/questions/2026-10-29-special-terrain.md` 4.3 3단계. 커밋 `59ac58c`(노이즈 펼치기, 출력 그대로), `f02b6b8`(지형 틀), 그다음 커밋(막는 지표·출력 판 3 기준값)
 
 ## 한 일
 1. 노이즈 속도(`59ac58c`, 출력 비트까지 같음): `gradientNoise3`·두 채널 노이즈 안의 해시·격자점 해시·기울기 내적·보간을 손으로 펼쳤다. V8이 작은 함수 호출 25번을 다 펼치지 않아 느렸다. F9 CPU 약 −30%라 3단계를 더하고도 출력 판 2보다 빠르다.
@@ -87,7 +87,7 @@
 | `packages/planet/src/generator/landforms.test.ts`, `hotspots.test.ts` | 새 시험(위 "한 일" 4) |
 | `packages/planet/src/generator/generate.test.ts` | 골든·지문·해수면 비트, 판·대륙 배치 해시 시험, F6·F8 주석 |
 | `apps/server/src/planet/bake.test.ts` | 서버 F5 고정값 `6c151e7f` |
-| `docs/adr/2026-10-29-planet-generator-variety.md` | 3단계 절·측정·결과, 노이즈 펼치기 한 줄, 상태 줄 |
+| `docs/adr/2026-10-29-generator-variety.md` | 3단계 절·측정·결과, 노이즈 펼치기 한 줄, 상태 줄 |
 | `docs/adr/2026-10-29-s2-planet-lod.md` | 버전·시험 절 한 줄에 지형 틀 |
 | `docs/PLAN.md` | 5.3 1번 줄: 지형 틀 |
 | `packages/planet/src/generator/testVariety.ts`, `variety.test.ts` | 막는 지표 9개(`gate: true`)와 그 시험 |

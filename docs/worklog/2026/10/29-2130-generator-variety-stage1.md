@@ -3,7 +3,7 @@
 - 일시: 2026-10-29 21:30 (KST)
 - 작업 도구: Claude Code
 - 가지: `work/generator-variety`(작업 트리 `.claude/worktrees/generator-variety`, 서브에이전트, 푸시하지 않음). 앞 기록 `29-2035-generator-variety-check.md`(반복 검사, 커밋 `ae61547`)
-- 관련: ADR `2026-10-29-planet-generator-variety.md`(새, 제안), ADR `2026-10-29-s2-planet-lod.md`(36, 버전·시험 절에 가리키는 줄), `docs/questions/2026-10-29-special-terrain.md` 4.3 1단계. 커밋 `a57f620`(기울기 표), `e21c3d2`(노이즈 2판), 이 기록의 커밋(기후·출력 판 3)
+- 관련: ADR `2026-10-29-generator-variety.md`(새, 제안), ADR `2026-10-29-s2-planet-lod.md`(36, 버전·시험 절에 가리키는 줄), `docs/questions/2026-10-29-special-terrain.md` 4.3 1단계. 커밋 `a57f620`(기울기 표), `e21c3d2`(노이즈 2판), 이 기록의 커밋(기후·출력 판 3)
 
 ## 한 일
 1. 기울기 표(`a57f620`, 출력 그대로): `gradDot`의 `switch`를 `GRADIENT_X·Y·Z` 표로. 골든 해시·실수 지문·해수면 비트·벤치 F7 `5664ca15`·F9 `ac761e56`이 그대로다(Verified).
@@ -73,7 +73,7 @@
 | `packages/planet/src/generator/testVariety.ts`, `testVarietyMeasures.ts`, `testVarietyUnit.ts` | 생성기 바람·새 노이즈로 재기, 줄무늬 보고 지표 둘, 줄무늬 쌍 거리 인자 |
 | `apps/server/src/planet/bake.test.ts` | 서버 F5 고정값 `3da7da3a` |
 | `apps/server/src/planet/cache.test.ts` | 다른 판 번호를 지금 판 + 1·2·3으로(판 3과 겹치지 않게) |
-| `docs/adr/2026-10-29-planet-generator-variety.md` | 새 ADR(제안) |
+| `docs/adr/2026-10-29-generator-variety.md` | 새 ADR(제안) |
 | `docs/adr/2026-10-29-s2-planet-lod.md` | 버전·시험 절에 새 ADR을 가리키는 줄 |
 | `docs/PLAN.md` | 5.3 기후 줄: 바람 굽이, 자연스러운 경계는 기후 필드 변이로 |
 

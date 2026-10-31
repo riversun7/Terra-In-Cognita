@@ -3,7 +3,7 @@
 - 일시: 2026-10-29 22:00 (KST)
 - 작업 도구: Claude Code
 - 가지: `work/generator-variety`(작업 트리 `.claude/worktrees/generator-variety`, 서브에이전트, 푸시하지 않음). 앞 기록 `29-2130-generator-variety-stage1.md`(1단계, 커밋 `fac3289`)
-- 관련: ADR `2026-10-29-planet-generator-variety.md`(제안, "2단계" 절), ADR `2026-10-29-s2-planet-lod.md`(36, 버전·시험 절 한 줄), `docs/questions/2026-10-29-special-terrain.md` 4.3 2단계. 커밋 `11448e1`(바람장을 `climateWind.ts`로 나누기, 출력 그대로), 이 기록의 커밋(기후 변이)
+- 관련: ADR `2026-10-29-generator-variety.md`(제안, "2단계" 절), ADR `2026-10-29-s2-planet-lod.md`(36, 버전·시험 절 한 줄), `docs/questions/2026-10-29-special-terrain.md` 4.3 2단계. 커밋 `11448e1`(바람장을 `climateWind.ts`로 나누기, 출력 그대로), 이 기록의 커밋(기후 변이)
 
 ## 한 일
 1. 기후 위도(`climateWind.ts`): 위도 + 4° × 바람 노이즈 채널 A ÷ 0.2. 75°부터 극까지 0으로 줄인다. 바람 띠·기온 띠·위도 띠 강수·적도 대류 몫·열대 습기 회복 거리가 이 위도를 쓴다. 노이즈는 1단계 굽이 각도와 한 번에 낸다(칸마다 한 번).
@@ -86,7 +86,7 @@
 | `packages/planet/src/generator/generate.test.ts` | 골든 3개·기후 지문, 극 기온 시험, F6·F8 잰 값 주석 |
 | `packages/planet/src/generator/testVariety.ts` | 생성기 바람 설명(기후 위도의 띠 바람 + 굽이) |
 | `apps/server/src/planet/bake.test.ts` | 서버 F5 고정값 `624e4b52` |
-| `docs/adr/2026-10-29-planet-generator-variety.md` | 2단계 절·측정·결과 |
+| `docs/adr/2026-10-29-generator-variety.md` | 2단계 절·측정·결과 |
 | `docs/adr/2026-10-29-s2-planet-lod.md` | 버전·시험 절 한 줄에 기후 변이 |
 | `docs/PLAN.md` | 5.3 기후 줄: 흔든 기후 위도, 기온·강수 변이 |
 

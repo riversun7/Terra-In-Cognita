@@ -7,7 +7,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./dashboard": "./src/dashboard.ts",
+    "./faction": "./src/faction.ts",
     "./inbox": "./src/inbox.ts",
+    "./mail": "./src/mail.ts",
     "./planetCalendar": "./src/planetCalendar.ts"
   },
   "scripts": {

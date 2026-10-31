@@ -37,6 +37,15 @@ export {
   type UnitMotionWire,
 } from "./secondMap.ts";
 export {
+  CYBORG_PROTOCOL_VERSION,
+  CYBORG_RESULT_CODES,
+  cyborgAppearanceSchema,
+  cyborgRollSchema,
+  cyborgStatsSchema,
+  type CyborgResultCode,
+  type CyborgRollWire,
+} from "./cyborg.ts";
+export {
   TERRAIN_CACHE_CONTROL,
   TERRAIN_FORMAT_V1,
   TERRAIN_FORMAT_VERSION,

@@ -5,8 +5,10 @@
  * 2: 2차맵 구독·명령·전송 메시지(secondMap.ts, ADR 2026-10-28-s1-second-map.md "구현하며 정한 것 (서버 연결)").
  * 3: 2차맵 시야 전송(S3 ADR 3절) — 남의 유닛은 자른 경로(until)·사라짐(hidden), 탐사 칸(vision), 관리자 전체 보기(observe),
  *    개발 시험 명령(dev_spawn_units).
+ * 4: 사이보그 만들기(cyborg.ts, ADR 2026-11-01-first-login-cyborg 4절) — cyborg_roll·cyborg_create → cyborg_result.
+ *    더하기만 했다. 3판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
  */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /**
  * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7).

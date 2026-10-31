@@ -7,6 +7,8 @@
 // - 2차 스탯은 서버가 계산해 보낸다(게임 앱은 판정 코드 packages/sim을 가져오지 않는다, AGENTS 4장).
 // - 금액·양은 최소 단위 정수 문자열이다(PLAN 4.7).
 
+import type { CyborgAppearance } from "./cyborgLooks.ts";
+
 /** 1차 스탯 6개(D-414) — 화면 차례 */
 export const PRIMARY_STATS = ["str", "dex", "agi", "vit", "int", "wis"] as const;
 export type PrimaryStat = (typeof PRIMARY_STATS)[number];
@@ -221,7 +223,7 @@ export interface CyborgRanking {
   readonly score: number;
 }
 
-/** 사이보그 본체(D-018·D-026·D-040). 아직 세계에 본체가 없어 시안에서만 온다 */
+/** 사이보그 본체(D-018·D-026·D-040). 만든 사이보그(첫 접속, docs/adr/2026-11-01-first-login-cyborg.md)나 dev·admin 시안에서 온다 */
 export interface CyborgBody {
   readonly level: number;
   readonly maxLevel: number;
@@ -238,7 +240,8 @@ export interface CyborgBody {
   readonly fatigue: { readonly value: number; readonly max: number };
   readonly inventory: readonly CyborgItem[];
   readonly rankings: readonly CyborgRanking[];
-  readonly preview: true;
+  /** 시안 자료인지(만든 사이보그면 false) */
+  readonly preview: boolean;
 }
 
 /**
@@ -256,9 +259,11 @@ export interface CyborgRebirthRule {
 export interface CyborgGetResponse {
   /** 환생 조건·비용(설정값) */
   readonly rebirth: CyborgRebirthRule;
-  /** 계정 이름(실제) */
+  /** 사이보그 이름(만들었으면, 서버 고유 D-134). 아직 없으면 계정 이름 */
   readonly name: string;
-  /** 본체 자료(시안만, 없으면 null) */
+  /** 외형(만든 사이보그만, D-6040) */
+  readonly appearance: CyborgAppearance | null;
+  /** 본체 자료(만든 사이보그 또는 시안, 없으면 null) */
   readonly body: CyborgBody | null;
   /** 보유 유닛 수(실제 세계 유닛, 포로로 잡힌 유닛 포함) */
   readonly unitCount: number;

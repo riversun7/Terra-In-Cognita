@@ -21,6 +21,7 @@ import {
   combatCatalogFrom,
   societyCoefficientsFrom,
 } from "@terra/sim";
+import { type CyborgCreationCoefficients, TEST_CYBORG_CREATION, cyborgCreationFrom } from "@terra/sim/cyborg";
 import { tuningOf } from "../world/combatCatalog.ts";
 
 export interface RosterCatalog {
@@ -31,6 +32,8 @@ export interface RosterCatalog {
   readonly baseValue: ReadonlyMap<string, number>;
   /** 팩 tuning을 얹은 세력·사회 계수표(사이보그 만렙·스킬 등급 상한·환생 비용 N7·N34, D-440·D-441) */
   readonly society: SocietyCoefficients;
+  /** 팩 tuning을 얹은 사이보그 만들기 계수(성향 치우침·흩어짐·다시 굴리기·붐빔 문턱 n9_*, D-445) */
+  readonly creation: CyborgCreationCoefficients;
 }
 
 function entriesOf<T>(source: PackSource, file: string, parse: (raw: unknown) => T): T[] {
@@ -72,6 +75,7 @@ export function rosterCatalogOf(source: PackSource): RosterCatalog {
     },
     baseValue: new Map(items.map((item) => [item.id, item.baseValue])),
     society: societyCoefficientsFrom(tuningOf(source)),
+    creation: cyborgCreationFrom(tuningOf(source)),
   };
 }
 
@@ -92,6 +96,7 @@ export function testRosterCatalog(): RosterCatalog {
     },
     baseValue: new Map(),
     society: TEST_SOCIETY_COEFFICIENTS,
+    creation: TEST_CYBORG_CREATION,
   };
 }
 

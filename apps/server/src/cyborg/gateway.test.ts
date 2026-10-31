@@ -1,0 +1,107 @@
+// 사이보그 만들기 연결 처리 시험 — 로그인, 세계 준비 전, 속도 제한, 차례 처리, 결과 메시지 모양
+import { decodeServerMessage } from "@terra/protocol";
+import { describe, expect, it } from "vitest";
+import type { Viewer } from "../trpc/context.ts";
+import { createCyborgGateway } from "./gateway.ts";
+import type { CyborgCommandResult, CyborgService } from "./service.ts";
+
+const viewer: Viewer = { id: "user-1", loginId: "tester", roles: ["player"] };
+const roll = {
+  temperament: "combat",
+  stats: { str: 14, dex: 8, agi: 9, vit: 13, int: 8, wis: 8 },
+  rollsLeft: 3,
+  rollsMax: 4,
+};
+
+const ok = (value: CyborgCommandResult) => Promise.resolve(value);
+/** 쌓인 약속(차례 처리 사슬)을 한 바퀴 돌린다 */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+function fakeService(calls: string[]): CyborgService {
+  return {
+    size: 0,
+    status: () => ({ cyborg: null }),
+    creation: () => {
+      throw new Error("not used");
+    },
+    nameCheck: () => ({ ok: true, display: "x" }),
+    roll: (userId, temperament) => {
+      calls.push(`roll:${userId}:${temperament}`);
+      return ok({ ok: true, roll });
+    },
+    create: (userId, input) => {
+      calls.push(`create:${userId}:${input.name}`);
+      return ok({ ok: false, code: "name_taken" });
+    },
+    record: () => undefined,
+    isBodyUnit: () => false,
+    repairUnits: () => 0,
+  };
+}
+
+function open(service: CyborgService | undefined, who: Viewer | null, now = () => 0) {
+  const sent: unknown[] = [];
+  const gateway = createCyborgGateway({ service: () => service, now, log: { error: () => {} } });
+  const socket = gateway.open({
+    send: (text) => sent.push(decodeServerMessage(text)),
+    viewer: () => Promise.resolve(who),
+  });
+  return { sent, socket };
+}
+
+const create = {
+  t: "cyborg_create",
+  id: 2,
+  name: "Nova",
+  factionId: 1,
+  cityId: 1,
+  appearance: {
+    head: "dome",
+    face: "visor",
+    body: "slim",
+    limbs: "piston",
+    primary: "mint",
+    accent: "lemon",
+  },
+} as const;
+
+describe("사이보그 연결 처리", () => {
+  it("굴리기·만들기를 받은 차례대로 서비스에 넘기고 결과를 요청 id로 돌려준다", async () => {
+    const calls: string[] = [];
+    const { sent, socket } = open(fakeService(calls), viewer);
+    socket.handle({ t: "cyborg_roll", id: 1, temperament: "combat" });
+    socket.handle(create);
+    await settle();
+    await settle();
+    expect(calls).toEqual(["roll:user-1:combat", "create:user-1:Nova"]);
+    expect(sent).toEqual([
+      { t: "cyborg_result", id: 1, ok: true, roll },
+      { t: "cyborg_result", id: 2, ok: false, code: "name_taken" },
+    ]);
+  });
+
+  it("로그인하지 않으면 sign_in_required, 세계가 준비 전이면 busy", async () => {
+    const signedOut = open(fakeService([]), null);
+    signedOut.socket.handle({ t: "cyborg_roll", id: 5, temperament: "tech" });
+    await settle();
+    expect(signedOut.sent).toEqual([{ t: "cyborg_result", id: 5, ok: false, code: "sign_in_required" }]);
+    const booting = open(undefined, viewer);
+    booting.socket.handle({ t: "cyborg_roll", id: 6, temperament: "tech" });
+    await settle();
+    expect(booting.sent).toEqual([{ t: "cyborg_result", id: 6, ok: false, code: "busy" }]);
+  });
+
+  it("사용자별 속도 제한(순간 10번)을 넘으면 rate_limited", async () => {
+    const calls: string[] = [];
+    const { sent, socket } = open(fakeService(calls), viewer);
+    for (let id = 1; id <= 8; id++) socket.handle({ t: "cyborg_roll", id, temperament: "combat" });
+    for (let i = 0; i < 10; i++) await settle();
+    for (let id = 9; id <= 12; id++) socket.handle({ t: "cyborg_roll", id, temperament: "combat" });
+    for (let i = 0; i < 10; i++) await settle();
+    expect(calls).toHaveLength(10);
+    expect(sent.slice(-2)).toEqual([
+      { t: "cyborg_result", id: 11, ok: false, code: "rate_limited" },
+      { t: "cyborg_result", id: 12, ok: false, code: "rate_limited" },
+    ]);
+  });
+});

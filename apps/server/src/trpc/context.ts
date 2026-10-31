@@ -15,6 +15,11 @@ import type {
   MarketItemsResponse,
 } from "@terra/shared/economy";
 import type { InboxListResponse, SummaryGetResponse } from "@terra/shared/inbox";
+import type {
+  CyborgCreationResponse,
+  CyborgNameCheckResponse,
+  CyborgStatusResponse,
+} from "@terra/shared/cyborg";
 import type { CyborgGetResponse, UnitsListResponse } from "@terra/shared/roster";
 import type { FactionOverviewResponse } from "@terra/shared/faction";
 import type { MailListResponse } from "@terra/shared/mail";
@@ -176,6 +181,16 @@ export interface RosterServices {
 }
 
 /**
+ * 사이보그 만들기 조회(cyborg.status·creation·nameCheck, docs/adr/2026-11-01-first-login-cyborg.md 4절). 굴리기·만들기는
+ * WebSocket이다. 프로시저가 로그인한 본인으로만 부른다
+ */
+export interface CyborgReadServices {
+  status(viewer: Viewer): CyborgStatusResponse;
+  creation(viewer: Viewer, now: number): CyborgCreationResponse;
+  nameCheck(name: string): CyborgNameCheckResponse;
+}
+
+/**
  * 개발자 2차맵 시험(planetEditor.secondMap, ADR 46 "구현하며 정한 것 (개발자 2차맵 시험)"): 월드 행성의 2차맵 지형 주소·행성 칸 값.
  * 실패: SecondMapLabInputError(틀린 키) → BAD_REQUEST, SecondMapLabNotReadyError(지형 서비스 준비 전) → PRECONDITION_FAILED
  */
@@ -236,6 +251,8 @@ export interface TrpcContext {
   home: HomeServices;
   /** 유닛·사이보그 화면 자료. 늘 있다(세계·DB가 없으면 실제 자료는 빈 목록) */
   roster: RosterServices;
+  /** 사이보그 만들기 조회. 세계(DB)가 없거나 부팅 복구 전이면 undefined(프로시저가 PRECONDITION_FAILED) */
+  cyborgs?: (() => CyborgReadServices | undefined) | undefined;
   /** 개발자 2차맵 시험. 월드·지형 서비스·행성 서비스가 다 있을 때만 */
   secondMapLab?: SecondMapLabServices | undefined;
   /** 경제 화면 자료. 늘 있다(팩이 없으면 빈 목록, 월드가 없으면 잔고 없음) */

@@ -24,7 +24,7 @@ import type { Ledger } from "../economy/ledger.ts";
 import type { OwnerRow } from "./persist/load.ts";
 import type { WorldWriter } from "./persist/writer.ts";
 import type { SecondMap, UnitJob } from "./secondMap.ts";
-import { UNIT_KIND_WORKER } from "./unitKinds.ts";
+import { UNIT_KIND_CYBORG, UNIT_KIND_WORKER } from "./unitKinds.ts";
 
 /** [임시] 시험 자산 코드·시스템 계정(@terra/sim settle/owner.ts, 시뮬레이터와 같은 값) */
 export const ASSET_CREDIT = TEST_ASSET_CREDIT;
@@ -107,7 +107,8 @@ export function createSettlement(options: {
     const out = new Map<number, UnitRef[]>();
     for (const map of maps.values()) {
       map.forEachUnit((unit) => {
-        if (!ownerIds.has(unit.ownerId)) return;
+        // 사이보그 본체는 직무·유지비 정산에 넣지 않는다(D-445 178: 생필품 유지비 없음)
+        if (!ownerIds.has(unit.ownerId) || unit.kind === UNIT_KIND_CYBORG) return;
         let list = out.get(unit.ownerId);
         if (!list) {
           list = [];

@@ -32,6 +32,8 @@ import { createContextFactory, loadViewer } from "./trpc/createContext.ts";
 import { registerTrpc } from "./trpc/plugin.ts";
 import { appRouter } from "./trpc/router.ts";
 import { cacheViewer, createWorldGateway } from "./world/gateway.ts";
+import { createCyborgGateway } from "./cyborg/gateway.ts";
+import { type CyborgService, cyborgReadsOf, cyborgRulesFrom } from "./cyborg/service.ts";
 import { createWorldSummaryBackend } from "./world/summarySources.ts";
 import type { RosterCatalog } from "./roster/catalog.ts";
 import { createWorldRosterSource } from "./roster/worldUnits.ts";
@@ -215,9 +217,23 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   // 월드: DB가 있으면 저장·부팅 복구(S3 ADR 1·2절). 준비(listen·ready)는 부팅 복구가 끝날 때까지 기다린다.
   // 지형 서비스가 있으면 부팅이 행성 값(행성 서비스의 캐시 읽기·굽기)도 기다린다
+  const rosterCatalog = options.roster;
   const world = options.world
-    ? startWorld({ ...options.world, terrain, now, log: app.log, pool: options.db?.$client })
+    ? startWorld({
+        ...options.world,
+        terrain,
+        now,
+        log: app.log,
+        pool: options.db?.$client,
+        // 사이보그 만들기 규칙: 팩 tuning(N9·N6·n9_*). 팩이 없으면 sim 시험 계수표
+        cyborgRules: rosterCatalog
+          ? () => cyborgRulesFrom(rosterCatalog.society, rosterCatalog.creation)
+          : undefined,
+      })
     : undefined;
+  // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md): 세계가 준비된 뒤의 서비스(DB가 있는 월드만)
+  const cyborgService = (): CyborgService | undefined =>
+    world?.status().state === "ready" ? world.persistence?.cyborgs : undefined;
   if (world) {
     app.addHook("onReady", async () => world.ready);
     app.addHook("onClose", async () => {
@@ -245,6 +261,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       roster: {
         catalog: options.roster,
         world: world && options.db ? createWorldRosterSource(world) : undefined,
+        cyborgs: cyborgService,
+      },
+      cyborgs: () => {
+        const service = cyborgService();
+        return service ? cyborgReadsOf(service) : undefined;
       },
       // 개발자 2차맵 시험: 월드 행성의 2차맵 지형 주소·칸 값(보기 전용, src/world/secondMapLab.ts)
       secondMapLab:
@@ -306,6 +327,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         },
       })
     : undefined;
+  const cyborgGateway = world
+    ? createCyborgGateway({ service: cyborgService, now, log: app.log })
+    : undefined;
 
   if (planets && options.planets) {
     registerPlanetRoutes(app, { planets, viewer: httpViewer, now, limits: options.planets.limits });
@@ -324,6 +348,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         contentVersion: options.contentVersion,
         now,
         world: gateway,
+        cyborg: cyborgGateway,
         viewer: socketViewer(request),
         // 접속 상태(D-136): 월드가 DB에 저장할 때만. 연결은 부팅 복구가 끝난 뒤에만 들어온다(listen이 기다린다)
         presence: world

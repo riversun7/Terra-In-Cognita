@@ -1,0 +1,732 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "412665e3-796c-44bc-a7f0-414470bb89bf",
+  "prevIds": [
+    "4e0e38ce-edb8-4d0f-8ee1-3df4b68c454f"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "cyborg_rolls"
+      ],
+      "writes": [
+        "s|tbl|public.cyborg_rolls",
+        "n|tbl|public.cyborg_rolls",
+        "e|tbl|public.cyborg_rolls",
+        "n|rel|public.cyborg_rolls",
+        "n|type|public.cyborg_rolls",
+        "n|rel|public.cyborg_rolls_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "cyborgs"
+      ],
+      "writes": [
+        "s|tbl|public.cyborgs",
+        "n|tbl|public.cyborgs",
+        "e|tbl|public.cyborgs",
+        "n|rel|public.cyborgs",
+        "n|type|public.cyborgs",
+        "n|rel|public.cyborgs_pkey",
+        "n|rel|public.cyborgs_name_key_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "cyborgs",
+        "cyborgs_unit_idx"
+      ],
+      "writes": [
+        "s|idx|public.cyborgs_unit_idx",
+        "n|idx|public.cyborgs_unit_idx",
+        "e|idx|public.cyborgs_unit_idx",
+        "n|rel|public.cyborgs_unit_idx"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public",
+        "n|col|public.cyborgs.unit_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "cyborg_rolls"
+      ],
+      "writes": [
+        "s|fk|public.cyborg_rolls.cyborg_rolls_user_id_users_id_fkey",
+        "n|fk|public.cyborg_rolls.cyborg_rolls_user_id_users_id_fkey",
+        "e|fk|public.cyborg_rolls.cyborg_rolls_user_id_users_id_fkey",
+        "n|con|public.cyborg_rolls.cyborg_rolls_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.cyborg_rolls",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.cyborg_rolls.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "cyborgs"
+      ],
+      "writes": [
+        "s|fk|public.cyborgs.cyborgs_user_id_users_id_fkey",
+        "n|fk|public.cyborgs.cyborgs_user_id_users_id_fkey",
+        "e|fk|public.cyborgs.cyborgs_user_id_users_id_fkey",
+        "n|con|public.cyborgs.cyborgs_user_id_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.cyborgs.user_id",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "cyborgs"
+      ],
+      "writes": [
+        "s|fk|public.cyborgs.cyborgs_faction_id_factions_id_fkey",
+        "n|fk|public.cyborgs.cyborgs_faction_id_factions_id_fkey",
+        "e|fk|public.cyborgs.cyborgs_faction_id_factions_id_fkey",
+        "n|con|public.cyborgs.cyborgs_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.cyborgs.faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "cyborgs"
+      ],
+      "writes": [
+        "s|fk|public.cyborgs.cyborgs_start_city_id_world_cities_id_fkey",
+        "n|fk|public.cyborgs.cyborgs_start_city_id_world_cities_id_fkey",
+        "e|fk|public.cyborgs.cyborgs_start_city_id_world_cities_id_fkey",
+        "n|con|public.cyborgs.cyborgs_start_city_id_world_cities_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public",
+        "n|tbl|public.world_cities",
+        "n|sch|public",
+        "n|col|public.cyborgs.start_city_id",
+        "n|col|public.world_cities.id",
+        "e|uniqueness|public.world_cities.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "cyborg_rolls",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "cyborgs",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_rolls",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_rolls",
+        "name": "temperament",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_rolls",
+        "name": "stats",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_rolls",
+        "name": "rolls_used",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_rolls",
+        "name": "seed",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_rolls",
+        "name": "updated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "user_id",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "name_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "temperament",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "initial",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "k_pm",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "appearance",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "start_city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "level",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "exp",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "rebirths",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "faith",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "created_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "cyborgs_unit_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "unit_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_rolls",
+        "name": "cyborg_rolls_user_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "cyborgs_user_id_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "cyborgs_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "cyborgs_start_city_id_world_cities_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "start_city_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_cities",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_rolls",
+        "name": "cyborg_rolls_pkey",
+        "columns": [
+          "user_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "cyborgs_pkey",
+        "columns": [
+          "user_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "cyborgs_name_key_key",
+        "nameExplicit": false,
+        "columns": [
+          "name_key"
+        ],
+        "nullsNotDistinct": false,
+        "entityType": "uniques"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_rolls",
+        "name": "cyborg_rolls_six",
+        "value": "cardinality(\"stats\") = 6",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_rolls",
+        "name": "cyborg_rolls_used",
+        "value": "\"rolls_used\" >= 1",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "cyborgs_initial_six",
+        "value": "cardinality(\"initial\") = 6",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "cyborgs_k_six",
+        "value": "cardinality(\"k_pm\") = 6",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "cyborgs_temperament_format",
+        "value": "\"temperament\" ~ '^[a-z][a-z0-9_]{1,31}$'",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "cyborgs_level",
+        "value": "\"level\" >= 1 and \"exp\" >= 0 and \"rebirths\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "cyborgs_faith",
+        "value": "\"faith\" between 0 and 100",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

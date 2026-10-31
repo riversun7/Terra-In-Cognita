@@ -7,6 +7,7 @@ import {
   combatCoefficientsFrom,
   societyCoefficientsFrom,
 } from "@terra/sim";
+import { TEST_CYBORG_CREATION, cyborgCreationFrom } from "@terra/sim/cyborg";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { combatCatalogOf, tuningOf } from "./combatCatalog.ts";
@@ -30,5 +31,7 @@ describe("전투 자료: 팩 = TEST_COMBAT_CATALOG", () => {
     expect(tuning.size).toBeGreaterThan(0);
     expect(combatCoefficientsFrom(tuning)).toEqual(TEST_COMBAT_COEFFICIENTS);
     expect(societyCoefficientsFrom(tuning)).toEqual(TEST_SOCIETY_COEFFICIENTS);
+    // 사이보그 만들기 계수(n9_*·붐빔 문턱, D-445 설정값 출발값)도 팩 값 = 시험 계수표
+    expect(cyborgCreationFrom(tuning)).toEqual(TEST_CYBORG_CREATION);
   });
 });

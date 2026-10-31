@@ -3,7 +3,9 @@
 // 응답의 이름 표는 응답에 나온 ID만 담는다(catalog.ts namesFor).
 import type { CyborgGetResponse, RosterPrisoner, RosterUnit, UnitsListResponse } from "@terra/shared/roster";
 import type { HomeQuery, RosterServices, Viewer } from "../trpc/context.ts";
+import type { CyborgService } from "../cyborg/service.ts";
 import { baselineBody } from "./body.ts";
+import { realCyborgBody } from "./cyborgBody.ts";
 import { type RosterCatalog, namesFor, testRosterCatalog } from "./catalog.ts";
 import {
   FATIGUE_MAX,
@@ -72,7 +74,12 @@ function usedNames(catalog: RosterCatalog, units: readonly RosterUnit[]) {
 }
 
 export function createRosterServices(
-  options: { catalog?: RosterCatalog | undefined; world?: WorldRosterSource | undefined } = {},
+  options: {
+    catalog?: RosterCatalog | undefined;
+    world?: WorldRosterSource | undefined;
+    /** 만든 사이보그(세계가 준비되면, docs/adr/2026-11-01-first-login-cyborg.md). 없으면 본체는 시안만 */
+    cyborgs?: (() => Pick<CyborgService, "record"> | undefined) | undefined;
+  } = {},
 ): RosterServices {
   const catalog = options.catalog ?? testRosterCatalog();
   const world = options.world ?? EMPTY_WORLD_ROSTER;
@@ -99,7 +106,9 @@ export function createRosterServices(
     },
     async cyborg(viewer: Viewer, query: HomeQuery): Promise<CyborgGetResponse> {
       const unitCount = await world.count(viewer.id, query.now);
-      const body = query.preview ? previewCyborg(catalog) : null;
+      const record = options.cyborgs?.()?.record(viewer.id);
+      // 시안을 켜면 시안 본체(화면 검토용), 아니면 만든 사이보그의 본체
+      const body = query.preview ? previewCyborg(catalog) : record ? realCyborgBody(catalog, record) : null;
       const names = body
         ? namesFor(catalog, {
             stats: body.stats.secondary.map((row) => row.id),
@@ -113,7 +122,9 @@ export function createRosterServices(
         : namesFor(catalog, { stats: [], items: [], skills: [], facilities: [] });
       const cyborgRules = catalog.society.cyborg;
       return {
-        name: viewer.loginId,
+        // 다른 사람에게 보이는 이름은 사이보그 이름뿐이다(D-134). 만들기 전에는 계정 이름(본인만 본다)
+        name: record?.name ?? viewer.loginId,
+        appearance: record?.appearance ?? null,
         // 환생 조건·비용은 설정값이라 본체가 없어도(플레이어) 보낸다(D-440·D-441, N7·N34)
         rebirth: {
           maxLevel: cyborgRules.maxLevel,

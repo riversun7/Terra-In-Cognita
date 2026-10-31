@@ -3,7 +3,7 @@
 // - DB가 없으면 S1처럼 메모리에만 둔다(시험·DB 없는 서버).
 // - DB가 있으면 부팅 때 DB에서 건물·유닛을 다시 놓고 예약을 다시 건 뒤 준비 완료(ready)다. 그 뒤 바뀜은 월드 쓰기
 //   대기열이 0.25초마다 묶어 커밋하고, 10초마다 생존 시각을 쓴다. 끌 때 대기열을 비운다.
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { gunzipSync } from "node:zlib";
 import { type CellKey, EARTH_FACE_LEVEL, cellKey, stepCell } from "@terra/planet";
@@ -19,6 +19,13 @@ import { type PathService, createInlinePathService } from "./pathService.ts";
 import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
 import { type BattleWorld, applyBattleOutcome } from "./battleResults.ts";
 import { type CityRow, ensureTestStartCities, loadCities, nearestSafeCity } from "./cities.ts";
+import {
+  type CyborgRules,
+  type CyborgService,
+  createCyborgService,
+  defaultCyborgRules,
+} from "../cyborg/service.ts";
+import { type LoadedCyborgs, loadCyborgs } from "../cyborg/state.ts";
 import { TEST_NPC_FACTION_CODE } from "./unitKinds.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
 import { type MapTerrain, mapTerrainFromBuilt, mapTerrainFromTemp, terrainFromFile } from "./mapTerrain.ts";
@@ -87,6 +94,8 @@ export interface WorldConfig {
    * 있으면 부팅이 행성 값을 기다린다(행성 서비스가 캐시를 읽거나 굽는 동안)
    */
   terrain?: TerrainService | undefined;
+  /** 사이보그 만들기 규칙(팩 tuning N9·N6·n9_*). 없으면 sim 시험 계수표 */
+  cyborgRules?: (() => CyborgRules) | undefined;
 }
 
 export interface WorldLog extends MapLog {
@@ -115,6 +124,8 @@ export interface WorldPersistence {
   readonly npcOwnerId: number;
   /** 전투 인스턴스(R3 최소: 빨리감기 + 끝 시각에 결과 적용. 유닛 부상·귀환은 R4) */
   readonly battles: BattleService;
+  /** 사이보그(계정당 하나, docs/adr/2026-11-01-first-login-cyborg.md) */
+  readonly cyborgs: CyborgService;
 }
 
 export interface WorldStatus {
@@ -283,6 +294,7 @@ export function startWorld(
     let loaded: Awaited<ReturnType<typeof loadWorld>> | undefined;
     let npcOwnerId = 0;
     let cities: CityRow[] = [];
+    let cyborgData: LoadedCyborgs = { cyborgs: [], rolls: [], factions: [], fixedAppearances: 0 };
     for (let attempt = 1; !loaded; attempt++) {
       try {
         // 옛 시험 2차맵(깊은 바다 위)의 행을 지운다(지울 것이 없으면 그대로). U4 (가)
@@ -297,6 +309,7 @@ export function startWorld(
         npcOwnerId = await ensureTestNpcOwner(db, now());
         await ensureTestStartCities(db, TEST_NPC_FACTION_CODE, TEST_PLANET_ID, mapKeys, now());
         cities = await loadCities(db);
+        cyborgData = await loadCyborgs(db);
         loaded = await loadWorld(db, now());
       } catch (error) {
         if (attempt >= BOOT_ATTEMPTS || stopped) throw error;
@@ -432,7 +445,20 @@ export function startWorld(
       },
       onError: (error) => log.error({ err: error }, "battle failed"),
     });
-    persistence = { writer, pool: db, nextId, owners, ledger, settlement, npcOwnerId, battles };
+    const cyborgs = createCyborgService({
+      loaded: cyborgData,
+      maps,
+      cities,
+      settlement,
+      writer,
+      nextUnitId: nextId.unit,
+      rules: config.cyborgRules ?? defaultCyborgRules,
+      now,
+      seed: () => randomInt(0x1_0000_0000),
+      ready: () => status.state === "ready",
+      log,
+    });
+    persistence = { writer, pool: db, nextId, owners, ledger, settlement, npcOwnerId, battles, cyborgs };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)
     if (
       !loaded.accounts.some((account) => account.ownerId === npcOwnerId && account.asset === ASSET_CREDIT)
@@ -465,6 +491,12 @@ export function startWorld(
     spawnBots();
     // 유닛을 다시 놓은 뒤에 전투 끝을 다시 건다(지난 끝 시각은 곧바로 적용된다)
     await battles.restore();
+    // 유닛 행이 없는 사이보그를 시작 도시에 다시 놓는다(불변 조건 I13). 검사가 DB를 읽기 전에 커밋한다
+    const repaired = cyborgs.repairUnits(new Set(loaded.units.map((unit) => unit.id)));
+    if (repaired > 0) {
+      log.info({ repaired }, "world boot: placed cyborgs without a unit again");
+      await writer.durable();
+    }
 
     const writeHeartbeat = () => writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
     writeHeartbeat();

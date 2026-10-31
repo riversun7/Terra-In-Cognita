@@ -10,3 +10,5 @@ export const UNIT_KIND_TEST = 2;
 
 /** S3 시험 NPC 세력 코드(factions.code) */
 export const TEST_NPC_FACTION_CODE = "s3_test_npc";
+/** 사이보그 본체(플레이어 하나에 하나, docs/adr/2026-11-01-first-login-cyborg.md 2절). 보유 유닛 수·유지비에 넣지 않는다 */
+export const UNIT_KIND_CYBORG = 3;

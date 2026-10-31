@@ -1019,6 +1019,66 @@
       },
       "value": 10000,
       "structural": false
+    },
+    {
+      "id": "n9_rerolls",
+      "code": "N9",
+      "name": {
+        "ko": "초기 스탯 다시 굴리기 횟수",
+        "en": "Initial stat rerolls"
+      },
+      "value": 3,
+      "structural": false
+    },
+    {
+      "id": "n9_bias_favored",
+      "code": "N9",
+      "name": {
+        "ko": "성향이 고른 스탯 가중치(‰)",
+        "en": "Temperament favored stat weight (‰)"
+      },
+      "value": 1400,
+      "structural": false
+    },
+    {
+      "id": "n9_bias_other",
+      "code": "N9",
+      "name": {
+        "ko": "성향 밖 스탯 가중치(‰)",
+        "en": "Other stat weight (‰)"
+      },
+      "value": 800,
+      "structural": false
+    },
+    {
+      "id": "n9_spread",
+      "code": "N9",
+      "name": {
+        "ko": "초기 스탯 흩어짐(균등 셋의 반폭, 0.001점)",
+        "en": "Initial stat spread (half width of three uniforms, 0.001 pt)"
+      },
+      "value": 3000,
+      "structural": false
+    },
+    {
+      "id": "d6041_crowd_normal",
+      "code": "",
+      "name": {
+        "ko": "시작 도시 붐빔 보통 문턱(사이보그 수)",
+        "en": "Start city crowding: normal from (cyborgs)"
+      },
+      "value": 20,
+      "structural": false
+    },
+    {
+      "id": "d6041_crowd_busy",
+      "code": "",
+      "name": {
+        "ko": "시작 도시 붐빔 문턱(사이보그 수)",
+        "en": "Start city crowding: busy from (cyborgs)"
+      },
+      "value": 50,
+      "structural": false
     }
   ]
 }

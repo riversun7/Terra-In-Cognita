@@ -65,6 +65,40 @@ export const WORLD_TABLES = {
     columns: ["id", "boot_id", "alive_at_ms"],
     key: ["id"],
   },
+  /** 세력 가입(사용자당 한 줄). joined_at은 처음 넣을 때 DB 기본값 */
+  factionMembers: {
+    name: "faction_members",
+    columns: ["user_id", "faction_id"],
+    key: ["user_id"],
+  },
+  /** 사이보그(계정당 하나, docs/adr/2026-11-01-first-login-cyborg.md 2절) — 만들 때 유닛과 같은 커밋 */
+  cyborgs: {
+    name: "cyborgs",
+    columns: [
+      "user_id",
+      "name",
+      "name_key",
+      "temperament",
+      "initial",
+      "k_pm",
+      "appearance",
+      "faction_id",
+      "start_city_id",
+      "unit_id",
+      "level",
+      "exp",
+      "rebirths",
+      "faith",
+      "created_at_ms",
+    ],
+    key: ["user_id"],
+  },
+  /** 만드는 중인 초기 스탯 굴림(만들면 지운다) */
+  cyborgRolls: {
+    name: "cyborg_rolls",
+    columns: ["user_id", "temperament", "stats", "rolls_used", "seed", "updated_at_ms"],
+    key: ["user_id"],
+  },
   transactions: {
     name: "ledger_transactions",
     columns: ["id", "kind", "at_ms", "idempotency_key"],
@@ -94,6 +128,9 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "presence",
   "exploration",
   "heartbeat",
+  "factionMembers",
+  "cyborgs",
+  "cyborgRolls",
   "transactions",
   "entries",
   "battleResults",

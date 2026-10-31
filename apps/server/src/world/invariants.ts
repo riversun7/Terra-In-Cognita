@@ -1,4 +1,5 @@
-// 불변 조건 검사 — docs/adr/2026-10-31-s3-server-stage.md 2절 표(I1~I8), 전투 결과 I9~I12(docs/adr/2026-10-31-combat-core.md 8절)
+// 불변 조건 검사 — docs/adr/2026-10-31-s3-server-stage.md 2절 표(I1~I8), 전투 결과 I9~I12(docs/adr/2026-10-31-combat-core.md 8절),
+// 사이보그 본체 I13(docs/adr/2026-11-01-first-login-cyborg.md 2절)
 // 부팅 뒤(world.ts), 시험, 관리 명령(`node dist/cli.js check-world`, DB 몫만)에서 부른다. 위반은 문장 목록으로 돌려준다.
 import {
   INVARIANT_I1_ASSETS,
@@ -78,6 +79,13 @@ export async function checkSqlInvariants(pool: QueryPool, nowMs: number): Promis
     "I12 cargo on missing units",
     `select a.id from ledger_accounts a where a.location < 0
      and not exists (select 1 from world_units u where u.id = -a.location)`,
+  );
+  // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md 2절): 본체 유닛이 그 사용자의 것으로 있다(없으면 부팅이 다시 놓는다)
+  await count(
+    "I13 cyborgs without their body unit",
+    `select c.user_id from cyborgs c where c.unit_id is null or not exists (
+       select 1 from world_units u join world_owners o on o.id = u.owner_id
+       where u.id = c.unit_id and u.kind = 3 and o.user_id = c.user_id)`,
   );
   return problems;
 }

@@ -510,6 +510,75 @@ export const worldUnits = pgTable(
   ],
 );
 
+/**
+ * 사이보그(플레이어 본체, 계정당 하나 D-096) — docs/adr/2026-11-01-first-login-cyborg.md 2절.
+ * 이름은 서버에서 하나뿐이다(D-134·D-443 159): name_key = 대소문자를 무시한 열쇠(@terra/shared/cyborg parseCyborgName).
+ * 스탯은 STR·DEX·AGI·VIT·INT·WIS 차례의 여섯 칸 배열이다(초기 분포 N9, 숨은 성장 K N6 ‰, D-417).
+ * unit_id = 세계 유닛(world_units, 종류 3). 외래 키를 두지 않는다: 옛 시험 2차맵 정리가 유닛 행을 지운다 → 부팅이 다시 놓는다.
+ * 쓰기는 월드 쓰기 대기열(유닛과 같은 커밋)이다.
+ */
+export const cyborgs = pgTable(
+  "cyborgs",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** 보이는 이름(친 모양, NFC) */
+    name: text("name").notNull(),
+    /** 비교 열쇠(소문자) — 유일 */
+    nameKey: text("name_key").notNull().unique(),
+    /** 성향 ID(@terra/sim/cyborg CYBORG_TEMPERAMENTS) */
+    temperament: text("temperament").notNull(),
+    initial: smallint("initial").array().notNull(),
+    kPm: smallint("k_pm").array().notNull(),
+    /** 외형 = 부위 ID 넷 + 색 ID 둘(D-6040, @terra/shared/cyborg CyborgAppearance) */
+    appearance: jsonb("appearance").notNull(),
+    factionId: bigint("faction_id", { mode: "number" })
+      .notNull()
+      .references(() => factions.id),
+    startCityId: bigint("start_city_id", { mode: "number" })
+      .notNull()
+      .references(() => worldCities.id),
+    unitId: bigint("unit_id", { mode: "number" }),
+    level: smallint("level").notNull().default(1),
+    exp: integer("exp").notNull().default(0),
+    rebirths: smallint("rebirths").notNull().default(0),
+    /** 신앙도 0~100(D-441·D-444 165) */
+    faith: smallint("faith").notNull().default(0),
+    createdAtMs: bigint("created_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("cyborgs_unit_idx").on(table.unitId),
+    check("cyborgs_initial_six", sql`cardinality(${table.initial}) = 6`),
+    check("cyborgs_k_six", sql`cardinality(${table.kPm}) = 6`),
+    check("cyborgs_temperament_format", sql`${table.temperament} ~ '^[a-z][a-z0-9_]{1,31}$'`),
+    check("cyborgs_level", sql`${table.level} >= 1 and ${table.exp} >= 0 and ${table.rebirths} >= 0`),
+    check("cyborgs_faith", sql`${table.faith} between 0 and 100`),
+  ],
+);
+
+/**
+ * 만드는 중인 초기 스탯 굴림(D-6039·D-445 169: 처음 1번 + 다시 굴리기). 서버가 굴리고 횟수를 센다(새로고침·재접속에도 남는다).
+ * 사이보그를 만들면 지운다. seed = 마지막 굴림의 시드(같은 시드 = 같은 값, 감사용)
+ */
+export const cyborgRolls = pgTable(
+  "cyborg_rolls",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    temperament: text("temperament").notNull(),
+    stats: smallint("stats").array().notNull(),
+    rollsUsed: smallint("rolls_used").notNull(),
+    seed: bigint("seed", { mode: "number" }).notNull(),
+    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    check("cyborg_rolls_six", sql`cardinality(${table.stats}) = 6`),
+    check("cyborg_rolls_used", sql`${table.rollsUsed} >= 1`),
+  ],
+);
+
 /** 2차맵 건물(칸 직사각형) */
 export const worldBuildings = pgTable(
   "world_buildings",

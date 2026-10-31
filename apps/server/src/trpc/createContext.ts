@@ -16,9 +16,7 @@ import type { Database } from "../db/client.ts";
 import { emptyEconomyCatalog } from "../economyView/catalog.ts";
 import { createEconomyServices } from "../economyView/services.ts";
 import { createHomeServices } from "../home/services.ts";
-import type { RosterCatalog } from "../roster/catalog.ts";
 import { createRosterServices } from "../roster/services.ts";
-import type { WorldRosterSource } from "../roster/worldUnits.ts";
 import { createFactionScreenServices } from "../factionScreen/overview.ts";
 import type { FactionScreenRules } from "../factionScreen/tuning.ts";
 import type { FactionSource } from "../factionScreen/source.ts";
@@ -35,6 +33,7 @@ import type {
   SecondMapLabServices,
   TrpcContext,
   TrpcContextOptions,
+  CyborgReadServices,
   Viewer,
 } from "./context.ts";
 import { reasonedError } from "./init.ts";
@@ -52,7 +51,7 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   /** 복귀 요약 자료(DB·월드가 있을 때) */
   summary?: SummaryBackend | undefined;
   /** 유닛·사이보그 화면: 콘텐츠 팩 자료(없으면 시험 자료)와 실제 유닛 출처(DB·월드가 있을 때) */
-  roster?: { catalog?: RosterCatalog | undefined; world?: WorldRosterSource | undefined } | undefined;
+  roster?: Parameters<typeof createRosterServices>[0] | undefined;
   /** 개발자 2차맵 시험(월드·지형 서비스·행성 서비스가 다 있을 때, src/world/secondMapLab.ts) */
   secondMapLab?: SecondMapLabServices | undefined;
   /** 경제 화면 자료(팩 목록·월드 원장). 없으면 빈 목록·잔고 없음 */
@@ -61,10 +60,15 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   factionSource?: FactionSource | undefined;
   /** 세력 화면 규칙 설정값(팩 tuning: 공물·민심 문턱·주기). 없으면 sim 시험 계수표 */
   factionRules?: FactionScreenRules | undefined;
+  /** 사이보그 만들기 조회(세계가 준비되면 서비스, docs/adr/2026-11-01-first-login-cyborg.md 4절). 없으면 늘 준비 전 */
+  cyborgs?: (() => CyborgReadServices | undefined) | undefined;
 }
 
 /** 읽기 요청(출처 규칙이 쓰기보다 느슨하다: 주소창에서 연 것도 받는다). tRPC 조회는 GET, 쓰기는 POST다 */
 const READ_METHODS = new Set(["GET", "HEAD"]);
+
+/** 사이보그 조회가 없는 서버(세계·DB 없음) */
+const noCyborgs = (): CyborgReadServices | undefined => undefined;
 
 /** 이 요청을 받아도 되는 출처인지(읽기·쓰기 규칙이 다르다) */
 function isAllowedOrigin(request: FastifyRequest, appOrigin: string): boolean {
@@ -128,6 +132,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
           : undefined,
       home,
       roster,
+      cyborgs: options.cyborgs ?? noCyborgs,
       secondMapLab: options.secondMapLab,
       economy,
       faction,

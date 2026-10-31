@@ -12,17 +12,18 @@ import { WATER_RIVER } from "../tiles/fields.ts";
 import { type SecondMapTerrain, generateSecondMap } from "./generate.ts";
 import { SM_TERRAIN, SM_VERTICES, cubePoint, mapCoords, vertexI, vertexJ } from "./layout.ts";
 import { receiverOf } from "./rivers.ts";
-import { testPlanetValues } from "./testPlanetValues.ts";
+import { testPlanetValues, testPropRules } from "./testPlanetValues.ts";
 
 const LEVEL = 6;
 const values = testPlanetValues(LEVEL);
+const rules = testPropRules();
 const n = cellsPerSide(LEVEL);
 
 const cache = new Map<number, SecondMapTerrain>();
 function terrain(key: number): SecondMapTerrain {
   let result = cache.get(key);
   if (!result) {
-    result = generateSecondMap(values, key);
+    result = generateSecondMap(values, key, rules);
     cache.set(key, result);
   }
   return result;
@@ -199,8 +200,8 @@ describe("2차맵 이음매", () => {
 
   it("같은 2차맵을 두 번 만들면 비트까지 같다(결정적)", () => {
     const key: CellKey = cellKey(2, LEVEL, 10, 50);
-    const first = generateSecondMap(values, key);
-    const second = generateSecondMap(values, key);
+    const first = generateSecondMap(values, key, rules);
+    const second = generateSecondMap(values, key, rules);
     expect(second.hash).toBe(first.hash);
     expect([...second.heightsCm]).toEqual([...first.heightsCm]);
   });

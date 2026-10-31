@@ -102,6 +102,33 @@ describe("지형 이진 형식", () => {
     expect(new DataView(encodeTerrain(base).buffer).getUint16(4, true)).toBe(TERRAIN_FORMAT_V1);
   });
 
+  it("2판: 소품 그림 층(깃발 4)은 엄폐 층 뒤에 오고, 엄폐 없이도 쓴다", () => {
+    const base = sample(4);
+    const art = Uint8Array.from({ length: 64 }, (_, i) => i % 8);
+    const both: TerrainData = {
+      ...base,
+      cover: Uint8Array.from({ length: 64 }, (_, i) => i % 3),
+      art,
+      placementSize: 8,
+      cellSizeMm: 11_720,
+    };
+    const bytes = encodeTerrain(both);
+    const view = new DataView(bytes.buffer);
+    expect(view.getUint16(46, true)).toBe(2 | 4);
+    expect(bytes.byteLength).toBe(TERRAIN_HEADER_BYTES_V2 + 25 * 4 + 16 + 64 + 64);
+    expect(Array.from(bytes.subarray(bytes.length - 64))).toEqual([...art]);
+    expect(decodeTerrain(bytes)).toEqual({
+      ...both,
+      planetGeneratorVersion: 0,
+      definitionHash: 0,
+    });
+    const artOnly: TerrainData = { ...base, art, placementSize: 8, cellSizeMm: 1 };
+    const back = decodeTerrain(encodeTerrain(artOnly));
+    expect(back.cover).toBeUndefined();
+    expect([...(back.art ?? [])]).toEqual([...art]);
+    expect(() => encodeTerrain({ ...artOnly, art: new Uint8Array(10) })).toThrow(RangeError);
+  });
+
   it("2판: 길이·엄폐 크기가 틀리면 거부한다", () => {
     const v2: TerrainData = { ...sample(4), cover: new Uint8Array(64), placementSize: 8, cellSizeMm: 1 };
     const bytes = encodeTerrain(v2);

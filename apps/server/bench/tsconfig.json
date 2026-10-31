@@ -1,0 +1,10 @@
+{
+  // 측정 스크립트 — 시간·메모리를 재려고 Node 타입(performance, process)을 쓴다. 서버 코드(src/)는 상위 tsconfig.json으로 검사한다.
+  // node로 바로 실행하므로 지울 수 있는 문법만 쓴다.
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "erasableSyntaxOnly": true
+  },
+  "include": [".", "../src/world/mapProps.ts"]
+}

@@ -1,0 +1,83 @@
+// 지형 층(꼭짓점 높이·지표·엄폐) → 배치 칸 지형 비용 — ADR 46 5절(지형 비용은 서버가 sim 코드로), ADR 35 "엄폐 값".
+// 임시 지형(tempTerrain.ts)과 행성 값에서 만든 2차맵(@terra/planet/secondMap, 서버가 넘긴다)이 같은 함수를 쓴다.
+// - 지표 비용(천분율, 0 = 막힘): 번호는 protocol TERRAIN_SURFACE(= planet SM_SURFACE)와 같다. 0 ~ 3은 S1 임시값 그대로,
+//   4 ~ 10은 기획 질문 124·126 기술 기본안의 [임시] 출발값(Step 5 설정값 전): 얕은 물(하천 등급 1 ~ 2)은 걸어서 건너되 비싸다.
+// - 지형 칸 네 꼭짓점 높이 차가 CLIFF_RELIEF_CM 이상이면 벼랑(막힘). 엄폐 값 2(차폐: 빽빽한 숲·큰 바위)는 막힘(D-227 ①·D-234).
+//   planet secondMap SM_CLIFF_RELIEF_CM과 같다(서버 시험이 본다).
+// - 지형 칸 하나 = 배치 칸 2×2. 엄폐는 배치 칸마다다.
+import {
+  PLACEMENT_CELLS,
+  PLACEMENT_PER_TERRAIN,
+  PLACEMENT_SIZE,
+  TERRAIN_SIZE,
+  TERRAIN_VERTEX_SIZE,
+} from "../units.ts";
+
+/** 지표 종류 → 배치 칸 비용(천분율, 0 = 막힘). 물·풀·흙·바위·모래·자갈·눈·얼음·진흙·화산재·얕은 물 */
+export const SURFACE_COST: Readonly<Uint16Array> = Uint16Array.of(
+  0,
+  1000,
+  1050,
+  1300,
+  1150,
+  1100,
+  1300,
+  1350,
+  1400,
+  1100,
+  2500,
+);
+
+/** 이 이상이면 가파른 비탈이라 지나갈 수 없다(지형 칸 약 11.7m에 약 6.5m) */
+export const CLIFF_RELIEF_CM = 650;
+
+/** 차폐 엄폐 값(지나갈 수 없다) */
+export const COVER_BLOCKING = 2;
+
+/** 비용을 만들 지형 층 */
+export interface TerrainLayers {
+  /** 꼭짓점 높이(cm) 129², 행 우선 */
+  readonly heights: Int32Array;
+  /** 지형 칸 지표 종류 128², 행 우선 */
+  readonly surface: Uint8Array;
+  /** 배치 칸 엄폐 값(0 · 1 · 2) 256². 없으면 엄폐 없음 */
+  readonly cover?: Uint8Array | undefined;
+}
+
+/** 지형 칸 (tx, ty) 꼭짓점 4개의 높이 차(cm) */
+export function cellRelief(heights: Int32Array, tx: number, ty: number): number {
+  const top = ty * TERRAIN_VERTEX_SIZE + tx;
+  const bottom = top + TERRAIN_VERTEX_SIZE;
+  const a = heights[top] ?? 0;
+  const b = heights[top + 1] ?? 0;
+  const c = heights[bottom] ?? 0;
+  const d = heights[bottom + 1] ?? 0;
+  return Math.max(a, b, c, d) - Math.min(a, b, c, d);
+}
+
+/** 배치 칸 65,536개의 지형 비용(천분율, 0 = 막힘). createPlacementGrid에 넣는다. 모르는 지표 번호는 막힘 */
+export function placementCostsFromLayers(layers: TerrainLayers): Uint16Array {
+  const { heights, surface, cover } = layers;
+  if (
+    heights.length !== TERRAIN_VERTEX_SIZE * TERRAIN_VERTEX_SIZE ||
+    surface.length !== TERRAIN_SIZE * TERRAIN_SIZE
+  ) {
+    throw new RangeError("terrain layers do not match the second map size");
+  }
+  if (cover && cover.length !== PLACEMENT_CELLS)
+    throw new RangeError("cover does not match the placement size");
+  const costs = new Uint16Array(PLACEMENT_CELLS);
+  for (let ty = 0; ty < TERRAIN_SIZE; ty++) {
+    for (let tx = 0; tx < TERRAIN_SIZE; tx++) {
+      const kind = surface[ty * TERRAIN_SIZE + tx] ?? 0;
+      const cost = cellRelief(heights, tx, ty) >= CLIFF_RELIEF_CM ? 0 : (SURFACE_COST[kind] ?? 0);
+      for (let dy = 0; dy < PLACEMENT_PER_TERRAIN; dy++) {
+        const row = (ty * PLACEMENT_PER_TERRAIN + dy) * PLACEMENT_SIZE + tx * PLACEMENT_PER_TERRAIN;
+        for (let dx = 0; dx < PLACEMENT_PER_TERRAIN; dx++) {
+          costs[row + dx] = cover && cover[row + dx] === COVER_BLOCKING ? 0 : cost;
+        }
+      }
+    }
+  }
+  return costs;
+}

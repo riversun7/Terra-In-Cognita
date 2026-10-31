@@ -3,6 +3,8 @@ import { NORMAL_PRESETS, resolvePlanetSettings } from "@terra/shared";
 import { runPlanetGenerator } from "../generator/generate.ts";
 import { S2_TEST_PLANET_SEED, TEST_BIOMES } from "../generator/testFixtures.ts";
 import { type PlanetValues, planetValuesFromGeneration } from "./planetValues.ts";
+import { type PropRuleSet, compileMapProps } from "./props.ts";
+import { TEST_MAP_PROPS } from "./testMapProps.ts";
 
 const cache = new Map<number, PlanetValues>();
 
@@ -23,4 +25,12 @@ export function testPlanetValues(faceLevel = 6): PlanetValues {
   );
   cache.set(faceLevel, values);
   return values;
+}
+
+/** S2 시험 행성 바이옴 표로 만든 시험 소품 규칙(팩 map_props 사본) */
+export function testPropRules(): PropRuleSet {
+  return compileMapProps(
+    TEST_MAP_PROPS,
+    TEST_BIOMES.map((biome) => biome.id),
+  );
 }

@@ -12,10 +12,11 @@
     "dev": "tsx watch src/main.ts",
     "build": "vite build",
     "start": "node dist/main.js",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p bench/tsconfig.json",
     "test": "vitest run --root ../.. apps/server",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/migrate.ts"
+    "db:migrate": "tsx src/migrate.ts",
+    "bench:second-map": "node bench/secondMapPaths.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.14",

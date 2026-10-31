@@ -23,10 +23,11 @@
 //  32  u32   행성 생성기 판(GENERATOR_VERSION)
 //  36  u32   행성 정의 해시(16진수 앞 8자리)
 //  40  u32   지형 칸 한 변 실제 길이(mm, 표시용)
-//  44  u16   배치 칸 수 한 변 P(256, 엄폐 층이 없으면 0)
-//  46  u16   깃발: 1 = 물 높이 층, 2 = 엄폐 층
+//  44  u16   배치 칸 수 한 변 P(256, 엄폐·소품 층이 없으면 0)
+//  46  u16   깃발: 1 = 물 높이 층, 2 = 엄폐 층, 4 = 소품 그림 층
 //  48~63     예약(0)
-// 본문: 높이 → (깃발 1) 꼭짓점 물 높이 i32 × (N + 1)²(cm, 물 없음 = −2^31) → 지표 → (깃발 2) 배치 칸 엄폐 값 u8 × P².
+// 본문: 높이 → (깃발 1) 꼭짓점 물 높이 i32 × (N + 1)²(cm, 물 없음 = −2^31) → 지표 → (깃발 2) 배치 칸 엄폐 값 u8 × P²
+//  → (깃발 4) 배치 칸 소품 그림 번호 u8 × P²(@terra/shared MAP_PROP_ARTS, 기기 장식용. 판정에 쓰지 않는다).
 // 읽는 쪽은 1판·2판을 모두 읽는다.
 import { ProtocolError } from "./errors.ts";
 
@@ -41,6 +42,7 @@ export const TERRAIN_HEADER_BYTES_V2 = 64;
 export const TERRAIN_NO_WATER = -2_147_483_648;
 const FLAG_WATER = 1;
 const FLAG_COVER = 2;
+const FLAG_ART = 4;
 /** 마법 값 "TCTR"(Terra Cognita TeRrain)의 바이트 */
 const MAGIC = [0x54, 0x43, 0x54, 0x52] as const;
 
@@ -89,7 +91,9 @@ export interface TerrainData {
   waterLevels?: Int32Array | undefined;
   /** (2판) 배치 칸 엄폐 값(0·1·2) placementSize² */
   cover?: Uint8Array | undefined;
-  /** (2판) 배치 칸 수 한 변(엄폐 층이 있으면) */
+  /** (2판) 배치 칸 소품 그림 번호 placementSize² */
+  art?: Uint8Array | undefined;
+  /** (2판) 배치 칸 수 한 변(엄폐·소품 층이 있으면) */
   placementSize?: number | undefined;
   /** (2판) 지형 칸 한 변 실제 길이(mm) */
   cellSizeMm?: number | undefined;
@@ -103,6 +107,7 @@ export interface TerrainData {
 const isV2 = (data: TerrainData): boolean =>
   data.waterLevels !== undefined ||
   data.cover !== undefined ||
+  data.art !== undefined ||
   data.cellSizeMm !== undefined ||
   data.planetGeneratorVersion !== undefined ||
   data.definitionHash !== undefined;
@@ -129,18 +134,20 @@ export function encodeTerrain(data: TerrainData): Uint8Array {
     throw new RangeError(`map key must be a non-negative safe integer: ${data.mapKey}`);
   }
   const v2 = isV2(data);
-  const placement = data.cover ? (data.placementSize ?? 0) : 0;
+  const placement = data.cover || data.art ? (data.placementSize ?? 0) : 0;
   if (data.waterLevels && data.waterLevels.length !== vertices * vertices) {
     throw new RangeError("water levels do not match the terrain size");
   }
-  if (
-    data.cover &&
-    (!Number.isInteger(placement) ||
-      placement < 1 ||
-      placement > 0xffff ||
-      data.cover.length !== placement * placement)
-  ) {
-    throw new RangeError("cover does not match the placement size");
+  for (const layer of [data.cover, data.art]) {
+    if (
+      layer &&
+      (!Number.isInteger(placement) ||
+        placement < 1 ||
+        placement > 0xffff ||
+        layer.length !== placement * placement)
+    ) {
+      throw new RangeError("cover or art does not match the placement size");
+    }
   }
   for (const value of [data.cellSizeMm, data.planetGeneratorVersion, data.definitionHash]) {
     if (value !== undefined && !isU32(value))
@@ -151,7 +158,8 @@ export function encodeTerrain(data: TerrainData): Uint8Array {
   const waterOffset = heightsOffset + data.heights.length * 4;
   const surfaceOffset = waterOffset + (data.waterLevels ? data.waterLevels.length * 4 : 0);
   const coverOffset = surfaceOffset + data.surface.length;
-  const bytes = new Uint8Array(coverOffset + (data.cover ? data.cover.length : 0));
+  const artOffset = coverOffset + (data.cover ? data.cover.length : 0);
+  const bytes = new Uint8Array(artOffset + (data.art ? data.art.length : 0));
   const view = new DataView(bytes.buffer);
   MAGIC.forEach((byte, index) => view.setUint8(index, byte));
   view.setUint16(4, v2 ? TERRAIN_FORMAT_VERSION : TERRAIN_FORMAT_V1, true);
@@ -171,7 +179,11 @@ export function encodeTerrain(data: TerrainData): Uint8Array {
     view.setUint32(36, data.definitionHash ?? 0, true);
     view.setUint32(40, data.cellSizeMm ?? 0, true);
     view.setUint16(44, placement, true);
-    view.setUint16(46, (data.waterLevels ? FLAG_WATER : 0) | (data.cover ? FLAG_COVER : 0), true);
+    view.setUint16(
+      46,
+      (data.waterLevels ? FLAG_WATER : 0) | (data.cover ? FLAG_COVER : 0) | (data.art ? FLAG_ART : 0),
+      true,
+    );
   }
   if (data.waterLevels) {
     for (let i = 0; i < data.waterLevels.length; i++) {
@@ -180,6 +192,7 @@ export function encodeTerrain(data: TerrainData): Uint8Array {
   }
   bytes.set(data.surface, surfaceOffset);
   if (data.cover) bytes.set(data.cover, coverOffset);
+  if (data.art) bytes.set(data.art, artOffset);
   return bytes;
 }
 
@@ -211,12 +224,14 @@ export function decodeTerrain(input: ArrayBuffer | Uint8Array): TerrainData {
   const placement = v2 ? view.getUint16(44, true) : 0;
   const hasWater = (flags & FLAG_WATER) !== 0;
   const hasCover = (flags & FLAG_COVER) !== 0;
-  if (hasCover && placement < 1) throw new ProtocolError("terrain header is not valid");
+  const hasArt = (flags & FLAG_ART) !== 0;
+  if ((hasCover || hasArt) && placement < 1) throw new ProtocolError("terrain header is not valid");
   const heightCount = vertices * vertices;
   const waterOffset = headerBytes + heightCount * 4;
   const surfaceOffset = waterOffset + (hasWater ? heightCount * 4 : 0);
   const coverOffset = surfaceOffset + size * size;
-  if (bytes.byteLength !== coverOffset + (hasCover ? placement * placement : 0)) {
+  const artOffset = coverOffset + (hasCover ? placement * placement : 0);
+  if (bytes.byteLength !== artOffset + (hasArt ? placement * placement : 0)) {
     throw new ProtocolError("terrain data length does not match its header");
   }
   const heights = new Int32Array(heightCount);
@@ -239,9 +254,8 @@ export function decodeTerrain(input: ArrayBuffer | Uint8Array): TerrainData {
     for (let i = 0; i < heightCount; i++) waterLevels[i] = view.getInt32(waterOffset + i * 4, true);
     data.waterLevels = waterLevels;
   }
-  if (hasCover) {
-    data.placementSize = placement;
-    data.cover = bytes.slice(coverOffset, coverOffset + placement * placement);
-  }
+  if (hasCover || hasArt) data.placementSize = placement;
+  if (hasCover) data.cover = bytes.slice(coverOffset, coverOffset + placement * placement);
+  if (hasArt) data.art = bytes.slice(artOffset, artOffset + placement * placement);
   return data;
 }

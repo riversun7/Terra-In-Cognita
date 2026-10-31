@@ -11,6 +11,7 @@ import { useId } from "react";
 import { usePreviewOn } from "../inbox/preview.ts";
 import { m } from "../paraglide/messages.js";
 import { BackButton } from "../shell/BackButton.tsx";
+import { CyborgAvatar } from "./CyborgAvatar.tsx";
 import { AppLink } from "../shell/AppLink.tsx";
 import {
   LoadState,
@@ -59,14 +60,22 @@ function CyborgBodyView({ data }: { data: CyborgGetResponse }) {
       <div className="cyborg-columns">
         <div className="cyborg-column">
           <Profile data={data} />
-          <Section id={`${id}-stats`} title={m.roster_stats_title()} end={body ? <PreviewTag /> : null}>
+          <Section
+            id={`${id}-stats`}
+            title={m.roster_stats_title()}
+            end={body?.preview ? <PreviewTag /> : null}
+          >
             {body ? (
               <StatBlock stats={body.stats} names={data.names} />
             ) : (
               <Later text={m.cyborg_stats_later()} />
             )}
           </Section>
-          <Section id={`${id}-skills`} title={m.roster_skills_title()} end={body ? <PreviewTag /> : null}>
+          <Section
+            id={`${id}-skills`}
+            title={m.roster_skills_title()}
+            end={body?.preview ? <PreviewTag /> : null}
+          >
             {body ? (
               <>
                 <SkillList skills={body.skills} names={data.names} />
@@ -102,14 +111,18 @@ function CyborgBodyView({ data }: { data: CyborgGetResponse }) {
           <Section
             id={`${id}-inventory`}
             title={m.cyborg_inventory_title()}
-            end={body ? <PreviewTag /> : null}
+            end={body?.preview ? <PreviewTag /> : null}
           >
             {body ? <Inventory body={body} data={data} /> : <Later text={m.cyborg_inventory_later()} />}
           </Section>
           <Section id={`${id}-rebirth`} title={m.cyborg_rebirth_title()}>
             <Rebirth body={body} rule={data.rebirth} />
           </Section>
-          <Section id={`${id}-ranking`} title={m.cyborg_ranking_title()} end={body ? <PreviewTag /> : null}>
+          <Section
+            id={`${id}-ranking`}
+            title={m.cyborg_ranking_title()}
+            end={body?.preview ? <PreviewTag /> : null}
+          >
             {body ? <Rankings body={body} /> : <Later text={m.cyborg_ranking_later()} />}
           </Section>
         </div>
@@ -127,9 +140,18 @@ function Profile({ data }: { data: CyborgGetResponse }) {
   return (
     <div className="panel cyborg-profile">
       <div className="cyborg-who">
-        <span className="roster-avatar roster-avatar-lg" data-type="cyborg" aria-hidden="true">
-          {Array.from(data.name)[0] ?? "?"}
-        </span>
+        {data.appearance ? (
+          // 만든 사이보그의 외형(첫 접속, D-6040): 2D 그림
+          <CyborgAvatar
+            look={data.appearance}
+            className="cyborg-avatar"
+            label={m.cyborg_appearance_label({ name: data.name })}
+          />
+        ) : (
+          <span className="roster-avatar roster-avatar-lg" data-type="cyborg" aria-hidden="true">
+            {Array.from(data.name)[0] ?? "?"}
+          </span>
+        )}
         <div className="cyborg-names">
           <p className="cyborg-name">{data.name}</p>
           <p className="roster-meta">
@@ -143,7 +165,7 @@ function Profile({ data }: { data: CyborgGetResponse }) {
               : m.cyborg_body_later()}
           </p>
         </div>
-        {body ? <PreviewTag /> : null}
+        {body?.preview ? <PreviewTag /> : null}
       </div>
       {body ? (
         <dl className="roster-facts cyborg-faith">

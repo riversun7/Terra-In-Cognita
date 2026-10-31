@@ -360,6 +360,7 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
       data-terrain-ms={stats?.terrainBuildMs?.toFixed(0)}
       data-terrain-source={stats?.terrainSource ?? undefined}
       data-rev={feed?.rev ?? undefined}
+      data-explored={feed?.explored ?? undefined}
       data-subscribes={feed?.subscribes}
       data-gaps={feed?.gaps}
       data-resyncs={feed?.serverResyncs}

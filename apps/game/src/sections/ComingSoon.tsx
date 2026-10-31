@@ -23,6 +23,7 @@ type ComingSoonRoute = Exclude<
   | "settings"
   | "admin"
   | "inbox"
+  | "start"
   | "dev"
   | "dev_gpu_bench"
   | "dev_planet_editor"

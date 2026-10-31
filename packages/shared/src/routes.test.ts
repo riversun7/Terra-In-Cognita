@@ -189,6 +189,8 @@ describe("주소 표", () => {
     );
     expect(rows).toEqual({
       home: ["/", null, "shown", "everyone", ["template"]],
+      // 첫 접속(docs/adr/2026-11-01-first-login-cyborg.md 1절)
+      start: ["/start", "home", "hidden", "everyone", []],
       map: [
         "/map",
         "home",

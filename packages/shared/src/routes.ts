@@ -45,12 +45,15 @@ export type RouteTable = { readonly [id: string]: RouteDefinition };
 
 /**
  * 화면 주소 표. 줄 순서는 메뉴 순서와 상관없다(메뉴는 navigation.ts).
- * 예약만 한 주소(`/start`, `/units/:unitId`, `/economy/market/:itemId`, `/battle/:battleId` 등)는 ADR 37 1절에 있다.
+ * 예약만 한 주소(`/units/:unitId`, `/economy/market/:itemId`, `/battle/:battleId` 등)는 ADR 37 1절에 있다.
  * 그 화면을 만들 때 여기에 줄을 더한다. 개발자 도구는 도구마다 정적 줄(`/dev/<도구>`, 조각은 영어 소문자·`-`)이다.
  */
 export const ROUTES = {
   // ?template=: 저장하지 않고 다른 템플릿을 본다(검토·사진용). dev·admin에게만 듣는다(ADR 37 6절)
   home: { path: "/", search: ["template"], parent: null, frame: "shown", access: "everyone" },
+  // 첫 접속(6-6, ADR 37 1절 예약 → docs/adr/2026-11-01-first-login-cyborg.md): 사이보그 만들기 6단계. 틀을 숨긴 전체 화면이고,
+  // 사이보그가 없는 계정은 틀(shell/Shell.tsx)이 다른 주소를 여기로 바꾼다. 만들면 홈으로
+  start: { path: "/start", search: [], parent: "home", frame: "hidden", access: "everyone" },
   // 시험·측정용(map/SecondaryMapScreen.tsx): ?pixel-ratio= 픽셀 비율 상한, 2차맵 낮밤(map/secondMapSky.ts,
   // ADR 2026-10-28-s1-second-map "2차맵 낮밤"): ?second-map-time= 지역 시각 멈춤, ?second-map-sky=off 낮밤 끔,
   // ?second-map-neighbours=all 이웃 8장을 처음부터(개발자 3×3 이어 보기, ADR 2026-10-31-second-map-from-planet WP-4)

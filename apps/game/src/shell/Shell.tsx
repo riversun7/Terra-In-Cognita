@@ -26,6 +26,7 @@ import { SIDE_NAV_ID, SideMenu } from "./SideMenu.tsx";
 import { TabBar } from "./TabBar.tsx";
 import { TopBar } from "./TopBar.tsx";
 import { useLayout } from "./useLayout.ts";
+import { gateHolds, gateRedirect, useCyborgGate } from "../start/cyborgGate.ts";
 import "./shell.css";
 import "./overlays.css";
 
@@ -201,7 +202,16 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
   // 메뉴(하단 탭·사이드 메뉴)의 지금 화면: 하위 화면(예: /economy/market/…)은 그 메뉴 항목으로 본다
   const current = match === null ? null : menuRoute(match.id);
   const allowed = match === null || canOpenRoute(match.id, user.roles);
-  const hidden = match !== null && allowed && ROUTES[match.id].frame === "hidden";
+  // 첫 접속 길잡이(start/cyborgGate.ts): 사이보그가 없으면 /start로, 만들었으면 /start에서 홈으로. 묻는 중·보내는 중에는
+  // 그 주소를 그리지 않고 틀 없이 "확인 중"만 보인다(사이보그 없는 플레이어에게 메뉴가 잠깐 보이지 않게)
+  const gate = useCyborgGate(user.id);
+  const gateId = match?.id ?? null;
+  const redirect = gateRedirect(gate, gateId, user.roles);
+  const holding = gateHolds(gate, gateId, user.roles);
+  useEffect(() => {
+    if (redirect !== null) navigate({ route: redirect }, { replace: true });
+  }, [redirect]);
+  const hidden = holding || (match !== null && allowed && ROUTES[match.id].frame === "hidden");
   const narrow = layout.stage === "narrow";
   const tabsShown = !hidden && narrow;
   const onSettled = useRouteEffects(route, allowed);
@@ -224,7 +234,11 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
     };
   }, [tabsShown, hidden, nav.layout]);
 
-  const view = (
+  const view = holding ? (
+    <p className="status shell-loading" role="status">
+      {m.start_gate_checking()}
+    </p>
+  ) : (
     <RouteView
       match={match}
       allowed={allowed}
@@ -244,7 +258,7 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
           {view}
         </main>
         <ConnectionNotice floating showLost />
-        {current === "map" || current === "map_planet" ? (
+        {!holding && (current === "map" || current === "map_planet") ? (
           <>
             <MapSwitch route={current} />
             <OrientationHint />

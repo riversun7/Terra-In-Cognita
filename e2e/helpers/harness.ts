@@ -6,9 +6,17 @@ export const HARNESS_ENV = "E2E_HARNESS";
 /**
  * 가짜 계정 이름. 아이디·역할은 global-setup.ts의 ACCOUNTS 표.
  * dev는 개발자 역할(계정 관리 권한 없이 홈 시안 자료·행성 편집기)이다. 시안 자료 시험은 admin 대신 dev로 본다(가장 좁은 역할).
+ * player·dev·admin은 전역 준비가 사이보그를 만들어 둔다(첫 접속을 마친 계정). fresh·fresh_shots는 사이보그가 없는 새 플레이어다
+ * (e2e/first-login.spec.ts: fresh는 끝까지 만들고, fresh_shots는 단계 사진만 찍는다).
  */
-export type AccountName = "player" | "dev" | "admin";
-export const ACCOUNT_NAMES = ["player", "dev", "admin"] as const satisfies readonly AccountName[];
+export type AccountName = "player" | "dev" | "admin" | "fresh" | "fresh_shots";
+export const ACCOUNT_NAMES = [
+  "player",
+  "dev",
+  "admin",
+  "fresh",
+  "fresh_shots",
+] as const satisfies readonly AccountName[];
 
 export interface HarnessAccount {
   /** 로그인 아이디 */

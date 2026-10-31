@@ -25,6 +25,8 @@ const InboxScreen = lazy(() => import("../inbox/InboxScreen.tsx"));
 // 유닛 화면(목록·파티·직무 프리셋·관리인·경매소·포로)과 사이보그 화면(본체): units.list·cyborg.get(ADR 37 "구현하며 정한 것 (유닛·사이보그 화면)")
 const UnitsScreen = lazy(() => import("../units/UnitsScreen.tsx"));
 const CyborgScreen = lazy(() => import("../cyborg/CyborgScreen.tsx"));
+// 첫 접속(사이보그 만들기, 틀 숨김, docs/adr/2026-11-01-first-login-cyborg.md): 사이보그가 없으면 틀이 여기로 보낸다
+const StartScreen = lazy(() => import("../start/StartScreen.tsx"));
 // 경제(창고·생산·거래창·환전, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)"): 칸마다 다시 따로 조각이다
 const EconomyScreen = lazy(() => import("../economy/EconomyScreen.tsx"));
 // 세력 화면(D-439, 기획 46): 내 세력·도시·외교·전쟁·투표·지분. 규칙 전 칸은 곧 열림, dev·admin은 시안 자료
@@ -49,6 +51,7 @@ const PlanetMapScreen = lazy(() => import("../map/PlanetMapScreen.tsx"));
 /** 화면 이름(문서 제목 `document.title`) */
 export const ROUTE_TITLES = {
   home: m.nav_home,
+  start: m.start_title,
   map: m.map_title,
   map_planet: m.planet_title,
   units: m.nav_units,
@@ -141,6 +144,8 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
   switch (match.id) {
     case "home":
       return <HomeScreen match={match} monitor={monitor} />;
+    case "start":
+      return <StartScreen user={user} />;
     case "map":
       return <SecondaryMapScreen onClose={goBack} monitor={monitor} />;
     case "map_planet":

@@ -51,6 +51,9 @@ const ACCOUNTS = {
   player: { id: "e2e_player", roles: "player" },
   dev: { id: "e2e_dev", roles: "player,dev" },
   admin: { id: "e2e_admin", roles: "player,admin" },
+  // 첫 접속 시험(e2e/first-login.spec.ts): 사이보그가 없는 새 플레이어. fresh는 끝까지 만들고, fresh_shots는 단계 사진만 찍는다
+  fresh: { id: "e2e_fresh", roles: "player" },
+  fresh_shots: { id: "e2e_fresh_shots", roles: "player" },
 } as const satisfies Record<AccountName, { id: string; roles: string }>;
 
 /** 만든 계정(아직 들어가지 않아 계정 ID를 모른다) */
@@ -274,6 +277,91 @@ async function saveSession(baseURL: string, account: CreatedAccount): Promise<Ha
   }
 }
 
+/** 전역 준비가 만드는 사이보그(첫 접속을 마친 계정). 이름은 서버 고유(대소문자 무시) */
+const SETUP_CYBORGS = {
+  player: "E2EPlayer",
+  dev: "E2EDev",
+  // "admin"이 든 이름은 사칭 목록에 걸린다(D-134·D-445 171)
+  admin: "E2EChief",
+} as const satisfies Partial<Record<AccountName, string>>;
+
+/**
+ * 계정의 사이보그를 실제 프로토콜로 만든다(docs/adr/2026-11-01-first-login-cyborg.md 6절): 그 계정 세션의 브라우저에서
+ * tRPC cyborg.creation(세력·시작 도시) → WebSocket hello(프로토콜 4) → cyborg_roll → cyborg_create.
+ * 브라우저 안에서 열면 같은 출처라 쿠키·Origin이 저절로 실린다(Node WebSocket 머리글 타입을 쓰지 않으려고).
+ */
+async function createSetupCyborg(baseURL: string, account: HarnessAccount, name: string): Promise<void> {
+  const browser = await chromium.launch();
+  try {
+    const context = await browser.newContext({ baseURL, storageState: account.storageState });
+    const page = await context.newPage();
+    await page.goto("/health");
+    // 이 함수는 브라우저에서 돈다(바깥 변수·함수를 쓸 수 없다)
+    const outcome = await page.evaluate(async (cyborgName) => {
+      // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
+      const field = (value: unknown, key: string): unknown =>
+        typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
+      // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
+      const first = (value: unknown): unknown => (Array.isArray(value) ? (value as unknown[])[0] : undefined);
+      const creation: unknown = await fetch("/api/trpc/cyborg.creation").then((response) => response.json());
+      const data = field(field(creation, "result"), "data");
+      if (field(data, "created") === true) return "already";
+      const faction = first(field(data, "factions"));
+      const factionId = field(faction, "id");
+      const cityId = field(first(field(faction, "cities")), "id");
+      if (typeof factionId !== "number" || typeof cityId !== "number")
+        return `no start city: ${JSON.stringify(creation).slice(0, 200)}`;
+      const socket = new WebSocket(`${location.origin.replace(/^http/, "ws")}/ws`);
+      const replies: unknown[] = [];
+      const next = (predicate: (message: unknown) => boolean): Promise<unknown> =>
+        new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error("no reply")), 15_000);
+          const check = (): void => {
+            const found = replies.find(predicate);
+            if (found === undefined) setTimeout(check, 20);
+            else {
+              clearTimeout(timer);
+              resolve(found);
+            }
+          };
+          check();
+        });
+      socket.addEventListener("message", (event) => {
+        if (typeof event.data !== "string") return;
+        const parsed: unknown = JSON.parse(event.data);
+        replies.push(parsed);
+      });
+      await new Promise((resolve) => socket.addEventListener("open", resolve, { once: true }));
+      socket.send(JSON.stringify({ t: "hello", protocolVersion: 4, clientBuild: "e2e-setup" }));
+      await next((message) => field(message, "t") === "welcome");
+      const result = (id: number) => (message: unknown) =>
+        field(message, "t") === "cyborg_result" && field(message, "id") === id;
+      socket.send(JSON.stringify({ t: "cyborg_roll", id: 1, temperament: "balanced" }));
+      const rolled = await next(result(1));
+      if (field(rolled, "ok") !== true) return `roll failed: ${String(field(rolled, "code"))}`;
+      const appearance = {
+        head: "dome",
+        face: "visor",
+        body: "round",
+        limbs: "stub",
+        primary: "sky",
+        accent: "lemon",
+      };
+      socket.send(
+        JSON.stringify({ t: "cyborg_create", id: 2, name: cyborgName, appearance, factionId, cityId }),
+      );
+      const created = await next(result(2));
+      socket.close();
+      return field(created, "ok") === true ? "created" : `create failed: ${String(field(created, "code"))}`;
+    }, name);
+    if (outcome !== "created" && outcome !== "already")
+      throw new Error(`${account.id} 사이보그를 만들지 못했습니다: ${outcome}`);
+    await context.close();
+  } finally {
+    await browser.close();
+  }
+}
+
 /** 서버가 싣는 콘텐츠 팩의 행성 ID(planets.json의 entries[].id). 서버와 같이 CONTENT_DIR를 따른다 */
 function planetIds(): string[] {
   const dir = process.env.CONTENT_DIR
@@ -453,10 +541,12 @@ export default async function globalSetup(config: FullConfig): Promise<() => Pro
       });
       return { id, password, storageState: path.join(runDir, `session-${name}.json`) };
     };
-    const [player, dev, admin] = await Promise.all([
+    const [player, dev, admin, fresh, freshShots] = await Promise.all([
       createAccount("player"),
       createAccount("dev"),
       createAccount("admin"),
+      createAccount("fresh"),
+      createAccount("fresh_shots"),
     ]);
 
     const logStream = createWriteStream(logFile);
@@ -497,8 +587,17 @@ export default async function globalSetup(config: FullConfig): Promise<() => Pro
       player: await saveSession(baseURL, player),
       dev: await saveSession(baseURL, dev),
       admin: await saveSession(baseURL, admin),
+      fresh: await saveSession(baseURL, fresh),
+      fresh_shots: await saveSession(baseURL, freshShots),
     };
     await waitForPlanets(baseURL, accounts.admin.storageState);
+    // 첫 접속을 마친 계정: player·dev·admin은 사이보그가 있어야 다른 시험의 화면이 열린다(없으면 /start로 간다).
+    // fresh·fresh_shots는 사이보그 없이 둔다(첫 접속 시험)
+    for (const name of ["player", "dev", "admin"] as const) {
+      const account = accounts[name];
+      await createSetupCyborg(baseURL, account, SETUP_CYBORGS[name]);
+    }
+    log(`사이보그를 만든 계정: ${Object.keys(SETUP_CYBORGS).join("·")}`);
     const harness: Harness = { baseURL, accounts };
     process.env[HARNESS_ENV] = JSON.stringify(harness);
   } catch (error) {

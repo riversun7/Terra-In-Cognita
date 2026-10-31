@@ -1,5 +1,5 @@
 // 유닛·사이보그 화면 시험 — ADR 2026-10-29-app-shell "구현하며 정한 것 (유닛·사이보그 화면)".
-// - 플레이어: 실제 자료만(유닛이 없으면 빈 안내, 시안 칸은 빈 안내, 사이보그 본체는 "생기면 보입니다", 시안 스위치 없음).
+// - 플레이어: 실제 자료만(유닛이 없으면 빈 안내, 시안 칸은 빈 안내, 사이보그는 전역 준비가 첫 접속으로 만든 본체, 시안 스위치 없음).
 // - dev + 시안 자료: 시안 유닛 10·포로·파티·프리셋·관리인·경매소, 사이보그 본체. 걸러 보기·다중 선택·상세(서버 계산 스탯).
 // - admin + 실제 자료: 2차맵 [시험 일꾼 받기] 뒤 유닛 목록에 시험 일꾼(기본값 스탯 안내). dev는 vision.spec.ts가 빈 상태로 써서 admin으로.
 // - 사진: 390·1440 × 파스텔·다크 × 한국어·영어(유닛 목록·유닛 상세·사이보그, 시안 자료). 폴더는 E2E_SHOTS_DIR.
@@ -53,17 +53,20 @@ test.describe("플레이어(실제 자료)", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  test("사이보그: 이름은 계정 이름, 본체는 생기면 보인다는 안내, 유닛 화면 링크", async ({
+  test("사이보그: 첫 접속에서 만든 이름·외형·본체(레벨 1, 스탯), 시안 표시 없음, 유닛 화면 링크", async ({
     page,
     deviceErrors,
   }) => {
     await page.goto("/cyborg");
     await cyborgReady(page);
-    await expect(page.locator(".cyborg-name")).toHaveText("e2e_player");
-    await expect(page.getByText(message("ko", "cyborg_body_later"))).toBeVisible();
-    // 환생 조건·비용은 본체가 없어도 설정값으로 보인다(D-440·D-441)
+    // 전역 준비가 만든 사이보그(첫 접속, docs/adr/2026-11-01-first-login-cyborg.md)
+    await expect(page.locator(".cyborg-name")).toHaveText("E2EPlayer");
+    await expect(page.locator(".cyborg-avatar")).toBeVisible();
+    await expect(page.getByText(message("ko", "cyborg_body_later"))).toHaveCount(0);
+    await expect(page.locator(".roster-primary-name")).toHaveCount(6);
+    // 환생 조건·비용(D-440·D-441): 본체가 있으니 지금 신앙도(0)와 함께
     await expect(page.locator(".cyborg-rebirth")).toContainText(
-      message("ko", "cyborg_rebirth_faith_need", { need: 50 }),
+      message("ko", "cyborg_rebirth_faith_value", { need: 50, value: 0 }),
     );
     await expect(page.locator(".roster-tag-preview")).toHaveCount(0);
     const link = page.locator(".cyborg-units-link");

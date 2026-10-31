@@ -92,3 +92,10 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
+
+/* 만든 사이보그의 외형 그림(첫 접속, 2D) — 테두리는 글자 색 */
+.cyborg-avatar {
+  flex: none;
+  width: var(--mark-lg);
+  color: var(--color-text);
+}

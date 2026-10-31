@@ -2,6 +2,7 @@
 // 고정 NPC 국가(D-324)는 표를 붙인다. 공물은 주마다 국고의 비율이다(D-443 설정값).
 import type {
   FactionOverviewResponse,
+  FactionRules,
   FactionSummary,
   LockedFeature,
   MySummary,
@@ -10,7 +11,7 @@ import { formatCount } from "../home/numbers.ts";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import { Fact, PreviewTag, SoonButton, StateChip } from "../sections/screenParts.tsx";
-import { amountText, dateText } from "../sections/screenText.ts";
+import { amountText, dateText, durationText } from "../sections/screenText.ts";
 import { Icon } from "../ui/icons.tsx";
 import { KIND_NAMES, LOCK_NAMES, REGIME_NAMES, STAGE_NAMES, assetName } from "./factionText.ts";
 import { formatPermille } from "./factionView.ts";
@@ -31,8 +32,15 @@ function NameLine({ faction }: { faction: FactionSummary }) {
   );
 }
 
-function FactionCard({ faction }: { faction: FactionSummary }) {
-  const locale = getLocale();
+/** 공물 글: 주기마다 국고의 비율(S33·주기 설정값) */
+function tributeText(pm: number, rules: FactionRules): string {
+  return m.faction_tribute({
+    rate: formatPermille(pm, getLocale()),
+    period: durationText(rules.tributeEveryMs),
+  });
+}
+
+function FactionCard({ faction, rules }: { faction: FactionSummary; rules: FactionRules }) {
   return (
     <section className="panel faction-card" aria-labelledby="faction-card-title">
       <div className="screen-section-head">
@@ -77,7 +85,7 @@ function FactionCard({ faction }: { faction: FactionSummary }) {
               <span className="faction-muted">
                 {faction.overlord.tributePm === null
                   ? m.faction_tribute_unset()
-                  : m.faction_tribute({ rate: formatPermille(faction.overlord.tributePm, locale) })}
+                  : tributeText(faction.overlord.tributePm, rules)}
               </span>
             </span>
           )}
@@ -90,9 +98,7 @@ function FactionCard({ faction }: { faction: FactionSummary }) {
               {faction.vassals.map((vassal) => (
                 <li key={vassal.faction.id}>
                   {vassal.faction.name}{" "}
-                  <span className="faction-muted">
-                    {m.faction_tribute({ rate: formatPermille(vassal.tributePm, locale) })}
-                  </span>
+                  <span className="faction-muted">{tributeText(vassal.tributePm, rules)}</span>
                 </li>
               ))}
             </ul>
@@ -217,7 +223,7 @@ function Locks({ locks }: { locks: readonly LockedFeature[] }) {
 export function FactionSide({ view }: { view: FactionOverviewResponse }) {
   return (
     <aside className="faction-side" aria-label={m.faction_side_label()}>
-      {view.faction === null ? <NoFaction /> : <FactionCard faction={view.faction} />}
+      {view.faction === null ? <NoFaction /> : <FactionCard faction={view.faction} rules={view.rules} />}
       <MyHoldings me={view.me} />
       <Locks locks={view.locks} />
     </aside>

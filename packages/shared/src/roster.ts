@@ -230,7 +230,7 @@ export interface CyborgBody {
   readonly rebirths: number;
   /** 스킬 최대 등급 = 3 + 환생(D-031) */
   readonly skillGradeCap: number;
-  /** 신앙도(D-441: 사이보그 환생 비용의 하나. 신앙 활동 46 §7로 쌓인다). 단위는 점 */
+  /** 신앙도(D-441: 사이보그 환생 비용의 하나. 신앙 활동 46 §7로 쌓인다). 0~100 척도(규칙 sim CyborgProgress.faith) */
   readonly faith: number;
   readonly stats: RosterStats;
   readonly slots: readonly RosterSlot[];
@@ -241,8 +241,21 @@ export interface CyborgBody {
   readonly preview: true;
 }
 
+/**
+ * 사이보그 환생 조건·비용(D-440·D-441, 팩 tuning 설정값 — 본체가 없어도 규칙이라 늘 보낸다).
+ * 최고 레벨(N7 `n7_max_level`), 신앙도(N34 `n34_rebirth_faith`, 0~100 척도), 화폐(N34 `n34_rebirth_currency`,
+ * 환생 시설이 있는 도시 화폐의 최소 단위 정수 글자). 진로별 종교 아이템은 추가 조건이라 여기에 없다
+ */
+export interface CyborgRebirthRule {
+  readonly maxLevel: number;
+  readonly faith: number;
+  readonly currency: string;
+}
+
 /** cyborg.get 응답 */
 export interface CyborgGetResponse {
+  /** 환생 조건·비용(설정값) */
+  readonly rebirth: CyborgRebirthRule;
   /** 계정 이름(실제) */
   readonly name: string;
   /** 본체 자료(시안만, 없으면 null) */

@@ -7,7 +7,6 @@ import type {
   CasusBelli,
   CityPolicy,
   DevelopmentFactor,
-  DividendRecipient,
   FactionKind,
   FactionStage,
   IndependencePath,
@@ -67,8 +66,8 @@ export const LOCK_NAMES = {
 } satisfies Record<LockableFeature, Text>;
 
 export const UNREST_NAMES = {
-  calm: m.faction_unrest_calm,
-  slowdown: m.faction_unrest_slowdown,
+  stable: m.faction_unrest_stable,
+  sabotage: m.faction_unrest_sabotage,
   warning: m.faction_unrest_warning,
   rebellion: m.faction_unrest_rebellion,
 } satisfies Record<UnrestLevel, Text>;
@@ -89,13 +88,6 @@ export const SIDE_NAMES = {
   south: m.faction_war_side_south,
   west: m.faction_war_side_west,
 } satisfies Record<SiegeSide, Text>;
-
-/** 지분대로 나누지 않는 체제의 배당 글(지분대로면 최근 배당 값을 보인다) */
-export const DIVIDEND_ELSEWHERE = {
-  shareholders: null,
-  treasury: m.faction_share_dividend_treasury,
-  ruling_family: m.faction_share_dividend_ruling,
-} satisfies Record<DividendRecipient, Text | null>;
 
 export const POLICY_NAMES = {
   growth: m.faction_policy_growth,

@@ -16,7 +16,7 @@ import type {
   RosterPrisoner,
   RosterUnit,
 } from "@terra/shared/roster";
-import type { Primaries } from "@terra/sim";
+import { type Primaries, skillGradeCap } from "@terra/sim";
 import { TEST_MAP_KEY, TEST_PLANET_ID } from "../world/world.ts";
 import { type BodySpec, bodyView } from "./body.ts";
 import type { RosterCatalog } from "./catalog.ts";
@@ -407,14 +407,15 @@ export function previewCyborg(catalog: RosterCatalog): CyborgBody {
   });
   return {
     level: 23,
-    // [임시] 만렙 50(48 §2.3 출발값)
-    maxLevel: 50,
+    // 만렙(N7 팩 tuning, 출발값 50)
+    maxLevel: catalog.society.cyborg.maxLevel,
     // [임시] 구간 경험치 = floor(40 × 23^1.9)(48 §2.4 출발값 후보)
     exp: { into: 6120, span: 15_460 },
     rebirths,
-    skillGradeCap: 3 + rebirths,
-    // 신앙도(D-441). 화면을 채우려는 값이다(신앙 활동·환생 비용 양 N34는 아직 없다)
-    faith: 340,
+    // 스킬 최대 등급 = min(3 + 환생, 10)(D-031·D-5001, 규칙 sim skillGradeCap)
+    skillGradeCap: skillGradeCap(rebirths, catalog.society),
+    // 신앙도(D-441, 0~100 척도). 화면을 채우려는 값이다(환생 비용 N34 출발값 50보다 조금 많게)
+    faith: 62,
     ...body,
     fatigue: { value: 30, max: FATIGUE_MAX },
     inventory: [

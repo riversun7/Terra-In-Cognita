@@ -5,8 +5,10 @@
 //   민심 네 단계(안정·태업 조짐·반란 예고·반란 중, D-443)가 보이게 한다.
 // - 이름은 사람이 지은 이름이라 두 언어에서 같은 글자다(D-6046). ID는 preview_로 시작한다(실제 ID와 겹치지 않게).
 // - 시각은 지금(now) 기준이다: 지난 일은 과거, 마감·공성은 미래. 방어 시각 기한 = 공성 선포 + 24시간(D-200).
-// - 공물·민심 구간은 실제 화면과 같은 설정값(tuning.ts)을 쓴다. 인구·만족도·금액 같은 수는 화면을 채우려는 값이다(규칙 값 아님).
-// - 복원 모금의 받을 지분은 규칙 함수(@terra/sim allocateShares, 가장 큰 나머지)로 계산한다. 배당은 지분 비례 내림(D-304).
+// - 공물·민심 문턱은 실제 화면과 같은 팩 설정값(tuning.ts, S33·S26·N35)을 쓴다. 인구·만족도·금액 같은 수는 화면을 채우려는
+//   값이다(규칙 값 아님).
+// - 복원 모금의 받을 지분은 규칙 함수(@terra/sim allocateShares, 가장 큰 나머지)로 계산한다. 배당은 지분 비례 내림(D-304,
+//   sim payCityProfit와 같은 셈).
 import {
   type CityRow,
   type CityShareRow,
@@ -21,12 +23,11 @@ import {
   SIEGE_DEFENSE_WINDOW_MS,
   VOTING_RULES,
   type WarRow,
-  rebellionWarningAt,
   relationBand,
   unrestLevel,
 } from "@terra/shared/faction";
 import { allocateShares } from "@terra/sim";
-import { UNREST_BANDS, VASSAL_TRIBUTE_PM } from "./tuning.ts";
+import type { FactionScreenRules } from "./tuning.ts";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -45,7 +46,7 @@ export const PREVIEW_FACTIONS = {
 const SOL_CURRENCY = { code: "preview_sol_mark", name: "Sol" };
 
 /** 내 세력 요약(나라 Solace, 내 가문 Beacon) */
-export function previewFaction(now: number): FactionSummary {
+export function previewFaction(now: number, rules: FactionScreenRules): FactionSummary {
   return {
     ...PREVIEW_FACTIONS.solace,
     stage: "nation",
@@ -57,20 +58,22 @@ export function previewFaction(now: number): FactionSummary {
     joinedAt: now - 23 * DAY,
     family: { name: "Beacon", memberCount: 3, head: true },
     overlord: null,
-    vassals: [{ faction: PREVIEW_FACTIONS.driftwood, tributePm: VASSAL_TRIBUTE_PM }],
+    vassals: [{ faction: PREVIEW_FACTIONS.driftwood, tributePm: rules.tributePm }],
     currency: { code: SOL_CURRENCY.code, name: SOL_CURRENCY.name, issued: "4800000" },
     treasury: [{ asset: SOL_CURRENCY.code, name: SOL_CURRENCY.name, amount: "1250000" }],
     preview: true,
   };
 }
 
-/** 도시 한 줄: 민심 단계는 만족도와 민심 표 구간(S26·N35, tuning.ts)에서 정한다 */
-function city(row: Omit<CityRow, "unrest" | "rebellionThreshold" | "rebellionWarning">): CityRow {
+type CityInput = Omit<CityRow, "unrest" | "rebellionThreshold" | "rebellionWarning">;
+
+/** 도시 한 줄: 민심 단계는 만족도와 민심 표 문턱(팩 S26·N35, tuning.ts)에서 정한다 */
+function city(row: CityInput, rules: FactionScreenRules): CityRow {
   return {
     ...row,
-    rebellionThreshold: UNREST_BANDS.rebellionThreshold,
-    rebellionWarning: rebellionWarningAt(UNREST_BANDS),
-    unrest: unrestLevel(row.satisfaction, UNREST_BANDS),
+    rebellionThreshold: rules.unrest.rebellionThreshold,
+    rebellionWarning: rules.unrest.warningAt,
+    unrest: unrestLevel(row.satisfaction, rules.unrest),
   };
 }
 
@@ -100,10 +103,10 @@ function relation(r: Omit<DiplomacyRow, "band">): DiplomacyRow {
   return { ...r, band: relationBand(r.score) };
 }
 
-/** 도시 넷: 안정·반란 예고·반란 중(막 점령)·태업 조짐 */
-export function previewCities(): CityRow[] {
-  return [
-    city({
+/** 도시 넷: 안정·반란 예고·반란 중(막 점령)·태업 조짐(팩 출발값 문턱 40·50·60 기준) */
+export function previewCities(rules: FactionScreenRules): CityRow[] {
+  const rows: CityInput[] = [
+    {
       id: "preview_city_nova",
       name: "Nova",
       mayor: "Mora",
@@ -117,8 +120,8 @@ export function previewCities(): CityRow[] {
       dailyBudget: "20000",
       startCity: false,
       occupied: false,
-    }),
-    city({
+    },
+    {
       id: "preview_city_vega",
       name: "Vega",
       mayor: null,
@@ -132,8 +135,8 @@ export function previewCities(): CityRow[] {
       dailyBudget: "8000",
       startCity: false,
       occupied: false,
-    }),
-    city({
+    },
+    {
       id: "preview_city_sandport",
       name: "Sandport",
       mayor: null,
@@ -147,8 +150,8 @@ export function previewCities(): CityRow[] {
       dailyBudget: "3000",
       startCity: false,
       occupied: true,
-    }),
-    city({
+    },
+    {
       id: "preview_city_millbrook",
       name: "Millbrook",
       mayor: "Juniper",
@@ -162,8 +165,9 @@ export function previewCities(): CityRow[] {
       dailyBudget: "6000",
       startCity: false,
       occupied: false,
-    }),
+    },
   ];
+  return rows.map((row) => city(row, rules));
 }
 
 /** 외교 표: 동맹·적대(전쟁)·고정 NPC 이웃·명분 없이 선포한 세력 */

@@ -61,6 +61,10 @@ test.describe("플레이어(실제 자료)", () => {
     await cyborgReady(page);
     await expect(page.locator(".cyborg-name")).toHaveText("e2e_player");
     await expect(page.getByText(message("ko", "cyborg_body_later"))).toBeVisible();
+    // 환생 조건·비용은 본체가 없어도 설정값으로 보인다(D-440·D-441)
+    await expect(page.locator(".cyborg-rebirth")).toContainText(
+      message("ko", "cyborg_rebirth_faith_need", { need: 50 }),
+    );
     await expect(page.locator(".roster-tag-preview")).toHaveCount(0);
     const link = page.locator(".cyborg-units-link");
     await expect(link).toHaveText(message("ko", "cyborg_units_link", { count: 0 }));
@@ -142,8 +146,10 @@ test.describe("dev + 시안 자료", () => {
     // 단추는 가장 가까운 환생 시설로 가는 길(곧 열림). 신앙도는 시안 값
     const rebirth = page.locator(".cyborg-rebirth");
     await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_changes_body"));
-    await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_faith_value", { value: 340 }));
-    await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_currency_value"));
+    // 비용 양은 팩 설정값(N7 만렙 50, N34 신앙도 50·화폐 10,000)
+    await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_level_value", { max: 50, level: 23 }));
+    await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_faith_value", { need: 50, value: 62 }));
+    await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_currency_value", { amount: "10,000" }));
     await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_items_value"));
     await expect(rebirth).toContainText(message("ko", "cyborg_rebirth_place"));
     const route = rebirth.getByRole("button", {

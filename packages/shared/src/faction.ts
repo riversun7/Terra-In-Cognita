@@ -112,33 +112,29 @@ export function relationBand(score: number): RelationBand {
 
 /**
  * 도시 민심 단계(46 §2.4, 질문 155 → D-443): 안정 · 태업 조짐 · 반란 예고(반란 문턱 바로 위 구간) · 반란 중.
- * 반란 문턱(S26) 이하는 이미 반란이 일어나는 상태다(D-253). 구간 값은 설정값 49 N35다
+ * 반란 문턱(S26) 이하는 이미 반란이 일어나는 상태다(D-253). 이름·문턱은 규칙 @terra/sim `unrestBand`와 같다
+ * (stable·sabotage·warning·rebellion). 기기는 sim을 가져오지 않으므로 같은 셈을 여기에 둔다(서버 시험이 같은지 본다)
  */
-export const UNREST_LEVELS = ["calm", "slowdown", "warning", "rebellion"] as const;
+export const UNREST_LEVELS = ["stable", "sabotage", "warning", "rebellion"] as const;
 export type UnrestLevel = (typeof UNREST_LEVELS)[number];
 /** 반란 문턱 예시값(S26 "예시 40") */
 export const REBELLION_THRESHOLD_EXAMPLE = 40;
 
-/** 민심 표 구간(설정값 S26·N35). 서버가 값을 정해 넘긴다 */
+/** 민심 표 문턱(설정값: 반란 S26, 예고·태업 N35 — 팩 tuning). 셋 다 "이 값 이하"다. 서버가 팩 값을 넘긴다 */
 export interface UnrestBands {
-  /** 반란 문턱(S26): 도시 평균 만족도가 이 값 이하면 반란 중 */
+  /** 반란 문턱(S26 `s26_rebellion`): 도시 평균 만족도가 이 값 이하면 반란 중 */
   readonly rebellionThreshold: number;
-  /** 반란 예고 구간 너비(N35): 문턱 + 이 값 이하면 반란 예고 */
-  readonly warningBand: number;
-  /** 태업 조짐 문턱(N35): 이 값 미만이면 태업 조짐 */
-  readonly slowdownBelow: number;
+  /** 반란 예고 문턱(N35 `n35_rebellion_warning`): 이 값 이하면 반란 예고 */
+  readonly warningAt: number;
+  /** 태업 조짐 문턱(N35 `n35_sabotage`): 이 값 이하면 태업 조짐 */
+  readonly sabotageAt: number;
 }
 
-/** 반란 예고가 시작되는 만족도(이 값 이하 = 예고, 문턱 이하 = 반란 중) */
-export function rebellionWarningAt(bands: UnrestBands): number {
-  return bands.rebellionThreshold + Math.max(0, bands.warningBand);
-}
-
-/** 만족도(0~100) → 민심 단계. 반란 문턱 이하면 반란 중, 예고 구간이면 반란 예고, 태업 문턱 미만이면 태업 조짐 */
+/** 만족도(0~100) → 민심 단계. 반란 문턱 이하 = 반란 중, 예고 문턱 이하 = 반란 예고, 태업 문턱 이하 = 태업 조짐 */
 export function unrestLevel(satisfaction: number, bands: UnrestBands): UnrestLevel {
   if (satisfaction <= bands.rebellionThreshold) return "rebellion";
-  if (satisfaction <= rebellionWarningAt(bands)) return "warning";
-  return satisfaction < bands.slowdownBelow ? "slowdown" : "calm";
+  if (satisfaction <= bands.warningAt) return "warning";
+  return satisfaction <= bands.sabotageAt ? "sabotage" : "stable";
 }
 
 /** 도시 발전도 7요소(D-254). 발전도 = Σ(요소 점수 × 가중치), 가중치는 설정값 */
@@ -194,7 +190,10 @@ export type SiegeSide = (typeof SIEGE_SIDES)[number];
 /** 방어자가 공성 시각을 고르는 기한 = 공성 선포 + 실제 1일(D-200). 고르지 않으면 이 시각에 공성이 열린다 */
 export const SIEGE_DEFENSE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-/** 도시 배당이 가는 곳(D-304·D-338): 자본주의 = 지분대로, 민주주의 = 국고, 독재 = 지배 가문 금고 */
+/**
+ * 도시 남은 이익이 가는 곳(D-304·D-338, 규칙 sim `payCityProfit`): 자본주의 = 지분대로(국고가 가진 몫은 국고에),
+ * 독재 = 지분대로 나누되 국고가 가진 몫은 지배 가문 금고로, 민주주의 = 모두 국고(배당 없음)
+ */
 export const DIVIDEND_RECIPIENTS = ["shareholders", "treasury", "ruling_family"] as const;
 export type DividendRecipient = (typeof DIVIDEND_RECIPIENTS)[number];
 export const DIVIDEND_BY_REGIME = {
@@ -259,7 +258,7 @@ export interface FactionSummary {
   readonly joinedAt: number;
   /** 나라 안의 내 가문(46 §1.1). 없으면 null */
   readonly family: { readonly name: string; readonly memberCount: number; readonly head: boolean } | null;
-  /** 이 세력이 종속국(봉신)이면 상위 세력과 주마다 내는 공물 비율(국고의 ‰, D-5056·D-443 설정값. 아직 모르면 null) */
+  /** 이 세력이 종속국(봉신)이면 상위 세력과 공물 비율(주기마다 국고의 ‰, S33 설정값 D-443. 주기는 rules. 모르면 null) */
   readonly overlord: { readonly faction: FactionRef; readonly tributePm: number | null } | null;
   /** 이 세력의 종속국들(공물 비율은 위와 같은 뜻) */
   readonly vassals: readonly { readonly faction: FactionRef; readonly tributePm: number }[];
@@ -461,10 +460,18 @@ export type FactionSection<T> =
   | { readonly status: "not_ready" }
   | { readonly status: "ready"; readonly data: T; readonly preview?: true };
 
+/** 화면 문구에 쓰는 규칙 설정값(팩 tuning): 공물 주기(`d443_tribute_every`), 배당 주기(`d130_dividend_every`) */
+export interface FactionRules {
+  readonly tributeEveryMs: number;
+  readonly dividendEveryMs: number;
+}
+
 /** faction.overview 응답 */
 export interface FactionOverviewResponse {
   /** 만든 서버 시각(남은 시간의 기준) */
   readonly generatedAt: number;
+  /** 규칙 설정값(실제 자료든 시안이든 같은 팩 값) */
+  readonly rules: FactionRules;
   /** 시안 자료가 든 응답인지(dev·admin이 켰을 때) */
   readonly preview: boolean;
   readonly stage: FactionStage;

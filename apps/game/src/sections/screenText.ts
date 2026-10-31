@@ -20,6 +20,11 @@ export function relativeText(target: number, now: number): string {
   return diff >= 0 ? m.screen_time_in({ time }) : m.screen_time_ago({ time });
 }
 
+/** 길이("7일", "7 days") — 설정값 주기 같은 기간 */
+export function durationText(ms: number): string {
+  return spanText(spanOf(Math.max(0, ms)));
+}
+
 /** 남은 길이만("9일") — "{time} 남음"에 넣는다 */
 export function leftText(target: number, now: number): string {
   return spanText(spanOf(Math.max(0, target - now)));

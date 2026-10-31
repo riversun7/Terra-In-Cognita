@@ -20,6 +20,7 @@ import type { RosterCatalog } from "../roster/catalog.ts";
 import { createRosterServices } from "../roster/services.ts";
 import type { WorldRosterSource } from "../roster/worldUnits.ts";
 import { createFactionScreenServices } from "../factionScreen/overview.ts";
+import type { FactionScreenRules } from "../factionScreen/tuning.ts";
 import type { FactionSource } from "../factionScreen/source.ts";
 import { createMailServices } from "../mail/list.ts";
 import {
@@ -58,6 +59,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   economy?: EconomyServices | undefined;
   /** 세력 화면 실제 자료(DB·월드가 있을 때) */
   factionSource?: FactionSource | undefined;
+  /** 세력 화면 규칙 설정값(팩 tuning: 공물·민심 문턱·주기). 없으면 sim 시험 계수표 */
+  factionRules?: FactionScreenRules | undefined;
 }
 
 /** 읽기 요청(출처 규칙이 쓰기보다 느슨하다: 주소창에서 연 것도 받는다). tRPC 조회는 GET, 쓰기는 POST다 */
@@ -90,7 +93,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
   const economy =
     options.economy ?? createEconomyServices({ catalog: emptyEconomyCatalog(options.contentVersion) });
   // 세력 화면·우편 조회도 앱에 하나다
-  const faction = createFactionScreenServices({ source: options.factionSource });
+  const faction = createFactionScreenServices({ source: options.factionSource, rules: options.factionRules });
   const mail = createMailServices();
   return (opts?: { req: FastifyRequest; res?: FastifyReply }): TrpcContext => {
     const authDeps = options.auth;

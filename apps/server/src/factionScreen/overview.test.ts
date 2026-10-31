@@ -1,6 +1,6 @@
 // 세력 화면 응답 시험 — 실제 자료만(곧 열림 칸)·시안 자료(여섯 칸)·잠긴 메뉴(D-5055)·시안 장면이 기획 46 규칙과 맞는지
-// (기획 세력 화면 검토 2026-11-01: 공성 기한 = 공성 선포 + 24시간, 공격 변, 민심 네 단계, 공물 = 규칙 출발값, 배당·복원 지분)
-import { readFileSync } from "node:fs";
+// (기획 세력 화면 검토 2026-11-01: 공성 기한 = 공성 선포 + 24시간, 공격 변, 민심 네 단계, 공물·문턱·주기 = 팩 tuning, 배당·복원 지분)
+import { loadContentPack } from "@terra/content/node";
 import {
   AGENDA_KINDS,
   CASUS_BELLI,
@@ -17,11 +17,20 @@ import {
   relationBand,
   unrestLevel,
 } from "@terra/shared/faction";
-import { parseScenario } from "@terra/sim";
+import { TEST_SOCIETY_COEFFICIENTS, societyCoefficientsFrom, unrestBand } from "@terra/sim";
 import { describe, expect, it } from "vitest";
+import { DEFAULT_CONTENT_DIR } from "../config.ts";
+import { tuningOf } from "../world/combatCatalog.ts";
 import { LOCK_RULES, buildFactionOverview, createFactionScreenServices, evaluateLocks } from "./overview.ts";
 import { type FactionReal, NO_FACTION_REAL } from "./source.ts";
-import { UNREST_BANDS, VASSAL_TRIBUTE_PM } from "./tuning.ts";
+import { TEST_FACTION_RULES, factionRulesFrom } from "./tuning.ts";
+
+/** 실제 콘텐츠 팩(content/core)의 tuning으로 만든 세력 화면 설정값 */
+function packRules() {
+  const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
+  if (!loaded.source) throw new Error("content pack");
+  return factionRulesFrom(societyCoefficientsFrom(tuningOf(loaded.source)));
+}
 
 const NOW = Date.UTC(2026, 9, 31, 3, 0, 0);
 const OFF = { preview: false, now: NOW };
@@ -144,8 +153,8 @@ describe("시안 자료(dev·admin)", () => {
     const unrest = view.cities.data.map((city) => city.unrest);
     expect(new Set(unrest)).toEqual(new Set(UNREST_LEVELS));
     for (const city of view.cities.data) {
-      expect(city.unrest).toBe(unrestLevel(city.satisfaction, UNREST_BANDS));
-      expect(city.rebellionWarning).toBe(UNREST_BANDS.rebellionThreshold + UNREST_BANDS.warningBand);
+      expect(city.unrest).toBe(unrestLevel(city.satisfaction, TEST_FACTION_RULES.unrest));
+      expect(city.rebellionWarning).toBe(TEST_FACTION_RULES.unrest.warningAt);
       // 발전도 7요소 내역의 합 = 발전도(D-254)
       const parts = city.developmentParts;
       expect(parts === null ? null : Object.keys(parts)).toEqual([...DEVELOPMENT_FACTORS]);
@@ -171,23 +180,36 @@ describe("시안 자료(dev·admin)", () => {
     for (const row of view.occupations.data) expect(Object.keys(row.steps)).toEqual([...OCCUPATION_STEPS]);
   });
 
-  it("봉신 공물은 규칙 출발값과 같다(주마다 국고의 5%, sim 시나리오 society.tributeBp 기본, D-443 R4b ②)", () => {
-    const stub = parseScenario(
-      JSON.parse(
-        readFileSync(new URL("../../../../packages/sim/scenarios/stub16.json", import.meta.url), "utf8"),
-      ),
-    );
-    expect(VASSAL_TRIBUTE_PM * 10).toBe(stub.society.tributeBp);
-    expect(view.faction?.vassals.map((vassal) => vassal.tributePm)).toEqual([VASSAL_TRIBUTE_PM]);
+  it("봉신 공물·민심 문턱·주기는 팩 tuning 값이다(S33 5%·7일, S26 40·N35 50·60, 배당 7일, D-443)", () => {
+    const rules = packRules();
+    expect(rules).toEqual({
+      unrest: { rebellionThreshold: 40, warningAt: 50, sabotageAt: 60 },
+      tributePm: 50,
+      tributeEveryMs: 7 * 86_400_000,
+      dividendEveryMs: 7 * 86_400_000,
+    });
+    // 팩 없는 서버·시험의 값(sim 시험 계수표)도 팩 출발값과 같다
+    expect(TEST_FACTION_RULES).toEqual(rules);
+    const packed = buildFactionOverview(MEMBER, ON, { ...rules, tributePm: 70, tributeEveryMs: 3 });
+    expect(packed.faction?.vassals.map((vassal) => vassal.tributePm)).toEqual([70]);
+    expect(packed.rules).toEqual({ tributeEveryMs: 3, dividendEveryMs: rules.dividendEveryMs });
+    expect(view.faction?.vassals.map((vassal) => vassal.tributePm)).toEqual([rules.tributePm]);
   });
 
-  it("지분: 배당은 체제대로(자본주의 = 지분대로, 민주주의 = 국고라 배당 없음), 최근 배당 내 몫 = 지분 비례 내림(D-304)", () => {
+  it("민심 단계는 규칙 sim unrestBand와 같다(만족도 0~100 모두)", () => {
+    for (let satisfaction = 0; satisfaction <= 100; satisfaction += 1)
+      expect(unrestLevel(satisfaction, TEST_FACTION_RULES.unrest), String(satisfaction)).toBe(
+        unrestBand(satisfaction * 1000, TEST_SOCIETY_COEFFICIENTS),
+      );
+  });
+
+  it("지분: 남은 이익은 체제대로(자본주의 = 지분대로, 민주주의 = 국고라 배당 없음), 최근 배당 내 몫 = 지분 비례 내림(D-304)", () => {
     if (view.shares.status !== "ready") throw new Error("지분 칸 없음");
     const recipients = new Set(view.shares.data.map((row) => row.dividend.to));
     expect(recipients).toEqual(new Set([DIVIDEND_BY_REGIME.capitalism, DIVIDEND_BY_REGIME.democracy]));
     for (const row of view.shares.data) {
       const last = row.dividend.last;
-      if (row.dividend.to !== "shareholders") expect(last).toBeNull();
+      if (row.dividend.to === "treasury") expect(last).toBeNull();
       if (last !== null)
         expect(last.mine).toBe(
           ((BigInt(last.total) * BigInt(row.myShares)) / BigInt(SHARES_PER_CITY)).toString(),

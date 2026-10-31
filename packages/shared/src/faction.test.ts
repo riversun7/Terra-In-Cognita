@@ -8,7 +8,6 @@ import {
   RELATION_BANDS,
   UNREST_LEVELS,
   VOTING_RULES,
-  rebellionWarningAt,
   relationBand,
   unrestLevel,
 } from "./faction.ts";
@@ -40,23 +39,23 @@ describe("관계 점수 띠(6단계, D-443)", () => {
 });
 
 describe("민심 단계(46 §2.4, D-443 네 가지)", () => {
-  const bands = { rebellionThreshold: REBELLION_THRESHOLD_EXAMPLE, warningBand: 10, slowdownBelow: 60 };
+  // 팩 출발값(S26 40, N35 예고 50·태업 60). 셋 다 "이하"
+  const bands = { rebellionThreshold: REBELLION_THRESHOLD_EXAMPLE, warningAt: 50, sabotageAt: 60 };
 
-  it("반란 문턱 이하는 반란 중, 문턱 바로 위 구간은 반란 예고, 태업 문턱 아래는 태업 조짐, 그 위는 안정", () => {
+  it("반란 문턱 이하는 반란 중, 예고 문턱 이하는 반란 예고, 태업 문턱 이하는 태업 조짐, 그 위는 안정", () => {
     expect(unrestLevel(40, bands)).toBe("rebellion");
     expect(unrestLevel(41, bands)).toBe("warning");
     expect(unrestLevel(50, bands)).toBe("warning");
-    expect(unrestLevel(51, bands)).toBe("slowdown");
-    expect(unrestLevel(59, bands)).toBe("slowdown");
-    expect(unrestLevel(60, bands)).toBe("calm");
+    expect(unrestLevel(51, bands)).toBe("sabotage");
+    expect(unrestLevel(60, bands)).toBe("sabotage");
+    expect(unrestLevel(61, bands)).toBe("stable");
     expect(unrestLevel(0, { ...bands, rebellionThreshold: 0 })).toBe("rebellion");
   });
 
-  it("예고 구간이 태업 문턱을 넘으면 태업 조짐 없이 예고에서 안정으로, 너비 0이면 예고 없음", () => {
-    expect(unrestLevel(65, { ...bands, warningBand: 30 })).toBe("warning");
-    expect(unrestLevel(71, { ...bands, warningBand: 30 })).toBe("calm");
-    expect(unrestLevel(41, { ...bands, warningBand: 0 })).toBe("slowdown");
-    expect(rebellionWarningAt({ ...bands, warningBand: -5 })).toBe(40);
+  it("예고 문턱이 태업 문턱보다 높으면 태업 조짐 없이 예고에서 안정으로, 예고 문턱 = 반란 문턱이면 예고 없음", () => {
+    expect(unrestLevel(65, { ...bands, warningAt: 70 })).toBe("warning");
+    expect(unrestLevel(71, { ...bands, warningAt: 70 })).toBe("stable");
+    expect(unrestLevel(41, { ...bands, warningAt: 40 })).toBe("sabotage");
   });
 
   it("네 단계가 모두 어느 만족도에선가 나온다", () => {
@@ -77,7 +76,7 @@ describe("체제(46 §1.3·§3.2)", () => {
     expect(INDEPENDENCE_BY_REGIME.democracy).toBe("family_vote");
   });
 
-  it("배당이 가는 곳: 자본주의 = 지분대로, 민주주의 = 국고, 독재 = 지배 가문(D-304·D-338)", () => {
+  it("남은 이익이 가는 곳: 자본주의 = 지분대로, 민주주의 = 국고, 독재 = 지분대로 + 국고 몫은 지배 가문(D-304·D-338)", () => {
     expect(DIVIDEND_BY_REGIME).toEqual({
       capitalism: "shareholders",
       democracy: "treasury",

@@ -119,6 +119,10 @@ describe("몸 계산", () => {
     expect(body.slots.filter((slot) => slot.slot === "organ").length).toBeGreaterThan(0);
     expect(body.skills.slots).toBe(4);
     expect(body.skillGradeCap).toBe(4);
+    // 만렙은 팩 N7, 신앙도는 0~100 척도(D-441)
+    expect(body.maxLevel).toBe(catalog.society.cyborg.maxLevel);
+    expect(body.faith).toBeGreaterThanOrEqual(0);
+    expect(body.faith).toBeLessThanOrEqual(100);
     expect(body.stats.primaries.vit.bonus).toBeGreaterThan(0);
     expect(body.preview).toBe(true);
   });
@@ -227,9 +231,10 @@ describe("서비스", () => {
     expect(list.names.items.grain).toBeDefined();
   });
 
-  it("사이보그: 이름·유닛 수는 실제, 본체는 시안에서만", async () => {
+  it("사이보그: 이름·유닛 수는 실제, 본체는 시안에서만, 환생 조건·비용은 팩 설정값으로 늘(D-440·D-441, N7·N34)", async () => {
     const mine = await services.cyborg(player, own);
     expect(mine).toMatchObject({ name: "Player1", body: null, unitCount: 1, preview: false });
+    expect(mine.rebirth).toEqual({ maxLevel: 50, faith: 50, currency: "10000" });
     const preview = await services.cyborg(dev, withPreview);
     expect(preview.body?.level).toBe(23);
     expect(preview.unitCount).toBe(0);

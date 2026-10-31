@@ -111,7 +111,21 @@ export function createRosterServices(
             facilities: [],
           })
         : namesFor(catalog, { stats: [], items: [], skills: [], facilities: [] });
-      return { name: viewer.loginId, body, unitCount, names, preview: query.preview, generatedAt: query.now };
+      const cyborgRules = catalog.society.cyborg;
+      return {
+        name: viewer.loginId,
+        // 환생 조건·비용은 설정값이라 본체가 없어도(플레이어) 보낸다(D-440·D-441, N7·N34)
+        rebirth: {
+          maxLevel: cyborgRules.maxLevel,
+          faith: cyborgRules.rebirthFaith,
+          currency: String(cyborgRules.rebirthCurrency),
+        },
+        body,
+        unitCount,
+        names,
+        preview: query.preview,
+        generatedAt: query.now,
+      };
     },
   };
 }

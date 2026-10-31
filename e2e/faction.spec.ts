@@ -121,15 +121,15 @@ test.describe("dev 시안 자료", () => {
     );
     // 봉신 공물 = 주마다 국고의 5%(규칙 출발값, D-443 R4b ②)
     await expect(screen.locator(".faction-card")).toContainText(
-      message("ko", "faction_tribute", { rate: "5%" }),
+      message("ko", "faction_tribute", { rate: "5%", period: "7일" }),
     );
 
     // 도시: 민심 네 단계(안정·태업 조짐·반란 예고·반란 중, D-443)
     const panel = screen.getByRole("tabpanel");
     await expect(panel.locator(".faction-city")).toHaveCount(4);
     for (const key of [
-      "faction_unrest_calm",
-      "faction_unrest_slowdown",
+      "faction_unrest_stable",
+      "faction_unrest_sabotage",
       "faction_unrest_warning",
       "faction_unrest_rebellion",
     ]) {
@@ -176,7 +176,7 @@ test.describe("dev 시안 자료", () => {
       message("ko", "faction_occ_restoration_mine", { amount: "6,000", currency: "Sol", shares: 50 }),
     );
     // 배당(C7·D-304): 나누는 순서 안내, 지분대로 나눈 최근 배당, 민주주의 도시는 배당 없음
-    await expect(panel).toContainText(message("ko", "faction_dividend_rule"));
+    await expect(panel).toContainText(message("ko", "faction_dividend_rule", { period: "7일" }));
     await expect(panel).toContainText(message("ko", "faction_share_dividend_treasury"));
     await expect(panel.locator(".faction-item", { hasText: "Nova" }).first()).toContainText("6,480 Sol");
 

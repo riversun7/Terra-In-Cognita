@@ -113,7 +113,11 @@ function TabBody({ tab, view }: { tab: FactionTab; view: FactionOverviewResponse
             title={m.faction_shares_title()}
             preview={sectionKind(shares) === "preview"}
           />
-          {shares.status === "ready" ? <FactionShares shares={shares.data} now={now} /> : <SoonPanel />}
+          {shares.status === "ready" ? (
+            <FactionShares shares={shares.data} now={now} dividendEveryMs={view.rules.dividendEveryMs} />
+          ) : (
+            <SoonPanel />
+          )}
           <SectionHead
             id="faction-occupations-title"
             title={m.faction_occupations_title()}

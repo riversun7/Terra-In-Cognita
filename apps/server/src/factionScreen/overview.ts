@@ -23,6 +23,7 @@ import {
   previewWars,
 } from "./preview.ts";
 import { type FactionMembership, type FactionReal, type FactionSource, NO_FACTION_REAL } from "./source.ts";
+import { type FactionScreenRules, TEST_FACTION_RULES } from "./tuning.ts";
 
 /**
  * 잠긴 메뉴 조건(S32 "기능별 잠금 조건", 설정값). 기획 값이 있는 출발값이다(질문 156 → D-443, 세력 화면 검토 2026-11-01):
@@ -90,20 +91,26 @@ function mySummary(real: FactionReal): MySummary {
   };
 }
 
-/** 응답 한 장. preview면 세력·여섯 칸이 시안 자료다 */
-export function buildFactionOverview(real: FactionReal, query: HomeQuery): FactionOverviewResponse {
+/** 응답 한 장. preview면 세력·여섯 칸이 시안 자료다. rules = 팩 설정값(공물·민심 문턱·주기) */
+export function buildFactionOverview(
+  real: FactionReal,
+  query: HomeQuery,
+  rules: FactionScreenRules = TEST_FACTION_RULES,
+): FactionOverviewResponse {
   const { now } = query;
   const me = mySummary(real);
+  const shown = { tributeEveryMs: rules.tributeEveryMs, dividendEveryMs: rules.dividendEveryMs };
   if (query.preview) {
-    const faction = previewFaction(now);
+    const faction = previewFaction(now, rules);
     return {
       generatedAt: now,
+      rules: shown,
       preview: true,
       stage: faction.stage,
       me,
       faction,
       locks: evaluateLocks(faction.cityCount),
-      cities: preview(previewCities()),
+      cities: preview(previewCities(rules)),
       diplomacy: preview(previewDiplomacy(now)),
       wars: preview(previewWars(now)),
       regime: preview(previewRegime(now)),
@@ -114,6 +121,7 @@ export function buildFactionOverview(real: FactionReal, query: HomeQuery): Facti
   const faction = real.faction === null ? null : realSummary(real.faction);
   return {
     generatedAt: now,
+    rules: shown,
     preview: false,
     stage: faction === null ? "individual" : faction.stage,
     me,
@@ -128,13 +136,17 @@ export function buildFactionOverview(real: FactionReal, query: HomeQuery): Facti
   };
 }
 
-/** source: 실제 자료 출처(DB·월드가 있을 때 app.ts가 만든다). 없으면 실제 자료는 빈 값이다 */
+/**
+ * source: 실제 자료 출처(DB·월드가 있을 때 app.ts가 만든다). 없으면 실제 자료는 빈 값이다.
+ * rules: 팩 설정값(main.ts가 팩 tuning으로 만든다). 없으면 sim 시험 계수표(팩 출발값과 같다)
+ */
 export function createFactionScreenServices(
-  options: { source?: FactionSource | undefined } = {},
+  options: { source?: FactionSource | undefined; rules?: FactionScreenRules | undefined } = {},
 ): FactionScreenServices {
   const source = options.source;
+  const rules = options.rules ?? TEST_FACTION_RULES;
   return {
     overview: async (viewer, query) =>
-      buildFactionOverview(source ? await source.load(viewer.id, query.now) : NO_FACTION_REAL, query),
+      buildFactionOverview(source ? await source.load(viewer.id, query.now) : NO_FACTION_REAL, query, rules),
   };
 }

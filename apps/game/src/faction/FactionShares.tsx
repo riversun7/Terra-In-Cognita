@@ -12,8 +12,8 @@ import { formatCount } from "../home/numbers.ts";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import { ActionRow, Fact, SoonButton, StateChip } from "../sections/screenParts.tsx";
-import { amountText, dateText, relativeText } from "../sections/screenText.ts";
-import { DIVIDEND_ELSEWHERE, OFFER_NAMES, PATH_TEXT, STEP_NAMES, STEP_STATE_NAMES } from "./factionText.ts";
+import { amountText, dateText, durationText, relativeText } from "../sections/screenText.ts";
+import { OFFER_NAMES, PATH_TEXT, STEP_NAMES, STEP_STATE_NAMES } from "./factionText.ts";
 import { barWidth, formatPermille, sharePermille } from "./factionView.ts";
 
 function sharesText(shares: number): string {
@@ -23,10 +23,9 @@ function sharesText(shares: number): string {
   });
 }
 
-/** 최근 배당 글: 지분대로면 내 몫·전체·시각, 아니면 남은 이익이 가는 곳 */
+/** 최근 배당 글: 민주주의는 배당 없음(국고), 그 밖은 내 몫·전체·시각(없으면 "아직 없음") */
 function dividendText(row: CityShareRow, now: number): string {
-  const elsewhere = DIVIDEND_ELSEWHERE[row.dividend.to];
-  if (elsewhere !== null) return elsewhere();
+  if (row.dividend.to === "treasury") return m.faction_share_dividend_treasury();
   const last = row.dividend.last;
   if (last === null) return m.faction_share_dividend_none_yet();
   return m.faction_share_dividend_value({
@@ -35,6 +34,12 @@ function dividendText(row: CityShareRow, now: number): string {
     total: amountText(last.total),
     time: relativeText(last.paidAt, now),
   });
+}
+
+/** 독재 도시: 지분대로 나누되 국고 몫은 지배 가문 금고로(D-338) — 값 아래 덧붙임 */
+function DividendNote({ row }: { row: CityShareRow }) {
+  if (row.dividend.to !== "ruling_family") return null;
+  return <span className="faction-muted">{m.faction_share_dividend_ruling()}</span>;
 }
 
 function ShareCard({ row, now }: { row: CityShareRow; now: number }) {
@@ -64,7 +69,12 @@ function ShareCard({ row, now }: { row: CityShareRow; now: number }) {
                 </span>
               )}
             </Fact>
-            <Fact label={m.faction_share_dividend()}>{dividendText(row, now)}</Fact>
+            <Fact label={m.faction_share_dividend()}>
+              <span className="faction-stack">
+                <span>{dividendText(row, now)}</span>
+                <DividendNote row={row} />
+              </span>
+            </Fact>
           </dl>
         ) : null}
         <div className="faction-path">
@@ -225,12 +235,20 @@ function OccupationCard({ row, now }: { row: OccupationRow; now: number }) {
   );
 }
 
-export function FactionShares({ shares, now }: { shares: readonly CityShareRow[]; now: number }) {
+export function FactionShares({
+  shares,
+  now,
+  dividendEveryMs,
+}: {
+  shares: readonly CityShareRow[];
+  now: number;
+  dividendEveryMs: number;
+}) {
   if (shares.length === 0) return <p className="faction-muted">{m.faction_shares_empty()}</p>;
   return (
     <>
       <p className="faction-muted">{m.faction_shares_hint({ count: formatCount(SHARES_PER_CITY) })}</p>
-      <p className="faction-muted">{m.faction_dividend_rule()}</p>
+      <p className="faction-muted">{m.faction_dividend_rule({ period: durationText(dividendEveryMs) })}</p>
       <ul className="faction-grid">
         {shares.map((row) => (
           <ShareCard key={row.cityId} row={row} now={now} />

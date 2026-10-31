@@ -20,8 +20,8 @@ export type Tone = "good" | "warn" | "bad" | "plain";
 
 /** 민심 네 단계(D-443). 반란 예고와 반란 중은 같은 색이고 글자로 가른다 */
 export const UNREST_TONES = {
-  calm: "good",
-  slowdown: "warn",
+  stable: "good",
+  sabotage: "warn",
   warning: "bad",
   rebellion: "bad",
 } as const satisfies Record<UnrestLevel, Tone>;

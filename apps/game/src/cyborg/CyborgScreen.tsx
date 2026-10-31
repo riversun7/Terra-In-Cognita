@@ -6,7 +6,7 @@
 //   환생 시설(신전)에서 하고 모항의 몸 교체는 연출, 질문 135 기본안).
 // - 좁은 폭은 판을 위에서 아래로, 넓은 폭(64em 이상)은 두 열(왼쪽 본체·스탯, 오른쪽 장비·인벤토리·환생·랭킹).
 // 지연 로딩 조각(routeViews.tsx).
-import type { CyborgBody, CyborgGetResponse } from "@terra/shared/roster";
+import type { CyborgBody, CyborgGetResponse, CyborgRebirthRule } from "@terra/shared/roster";
 import { useId } from "react";
 import { usePreviewOn } from "../inbox/preview.ts";
 import { m } from "../paraglide/messages.js";
@@ -107,7 +107,7 @@ function CyborgBodyView({ data }: { data: CyborgGetResponse }) {
             {body ? <Inventory body={body} data={data} /> : <Later text={m.cyborg_inventory_later()} />}
           </Section>
           <Section id={`${id}-rebirth`} title={m.cyborg_rebirth_title()}>
-            <Rebirth body={body} />
+            <Rebirth body={body} rule={data.rebirth} />
           </Section>
           <Section id={`${id}-ranking`} title={m.cyborg_ranking_title()} end={body ? <PreviewTag /> : null}>
             {body ? <Rankings body={body} /> : <Later text={m.cyborg_ranking_later()} />}
@@ -200,10 +200,12 @@ function Inventory({ body, data }: { body: CyborgBody; data: CyborgGetResponse }
 
 /**
  * 환생(D-026·D-031·D-352·D-427·D-440·D-441): 바뀌는 것(레벨 1·경험치 0, 가속 없음)·남는 것·얻는 것, 비용.
- * 비용 = 최고 레벨 + 신앙도 + 화폐(그 신전 도시의 화폐). 양은 설정값 49 N34라 정해지면 보인다(출발값 없음).
- * 진로별 종교 아이템은 특수 스킬 같은 추가 조건에만 쓴다. 신앙도 지금 값은 시안 자료다
+ * 비용 = 최고 레벨 + 신앙도 + 화폐(그 신전 도시의 화폐). 양은 서버가 보내는 팩 설정값(N7·N34, rule)이라 플레이어에게도 보인다.
+ * 진로별 종교 아이템은 특수 스킬 같은 추가 조건에만 쓴다. 지금 레벨·신앙도는 본체가 있을 때(시안 자료)만 덧붙인다
  */
-function Rebirth({ body }: { body: CyborgBody | null }) {
+function Rebirth({ body, rule }: { body: CyborgBody | null; rule: CyborgRebirthRule }) {
+  const max = formatNumber(rule.maxLevel);
+  const need = formatNumber(rule.faith);
   return (
     <div className="cyborg-rebirth">
       <dl className="roster-facts">
@@ -226,24 +228,21 @@ function Rebirth({ body }: { body: CyborgBody | null }) {
           <dt>{m.cyborg_rebirth_cost_level()}</dt>
           <dd>
             {body
-              ? m.cyborg_rebirth_level_value({
-                  level: formatNumber(body.level),
-                  max: formatNumber(body.maxLevel),
-                })
-              : m.cyborg_rebirth_amount_unset()}
+              ? m.cyborg_rebirth_level_value({ level: formatNumber(body.level), max })
+              : m.cyborg_rebirth_level_need({ max })}
           </dd>
         </div>
         <div>
           <dt>{m.cyborg_rebirth_cost_faith()}</dt>
           <dd>
             {body
-              ? m.cyborg_rebirth_faith_value({ value: formatNumber(body.faith) })
-              : m.cyborg_rebirth_amount_unset()}
+              ? m.cyborg_rebirth_faith_value({ need, value: formatNumber(body.faith) })
+              : m.cyborg_rebirth_faith_need({ need })}
           </dd>
         </div>
         <div>
           <dt>{m.cyborg_rebirth_cost_currency()}</dt>
-          <dd>{m.cyborg_rebirth_currency_value()}</dd>
+          <dd>{m.cyborg_rebirth_currency_value({ amount: formatAmount(rule.currency) })}</dd>
         </div>
         <div>
           <dt>{m.cyborg_rebirth_cost_items()}</dt>

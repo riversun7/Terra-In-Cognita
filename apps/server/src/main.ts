@@ -1,9 +1,11 @@
 // 서버 시작점 — 설정을 읽고 콘텐츠 팩을 검사한 뒤 앱을 띄운다. 종료 신호를 받으면 새 연결을 막고 정리한 뒤 끝낸다.
+import { societyCoefficientsFrom } from "@terra/sim";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "./app.ts";
 import { readConfig } from "./config.ts";
 import { loadServerContent } from "./content.ts";
 import { rosterCatalogOf } from "./roster/catalog.ts";
+import { tuningOf } from "./world/combatCatalog.ts";
 import { economyCatalogFromPack } from "./economyView/catalog.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
 import { createWorkerBaker } from "./planet/baker.ts";
@@ -91,6 +93,8 @@ app = await buildApp({
   planetEditor: { definitions: planetEditor.definitions },
   // 유닛·사이보그 화면의 스탯 표·장비·스킬·이름(팩이 검증을 통과했으므로 다시 읽기는 실패하지 않는다)
   roster: rosterCatalogOf(loaded.source),
+  // 세력 화면의 공물·민심 문턱·주기(팩 tuning을 얹은 세력·사회 계수표, ADR 37 끝 "기획 답 D-440~D-443 반영")
+  society: societyCoefficientsFrom(tuningOf(loaded.source)),
   // 경제 화면 목록(팩의 경제 분류, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)")
   economyCatalog: economyCatalogFromPack(loaded.pack, content),
   // 시험 2차맵 지형 = 행성 값에서 만든 2차맵(ADR 46 WP-3). 지형 워커가 만들고 행성 캐시 폴더 아래 second-maps/에 둔다

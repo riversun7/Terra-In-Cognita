@@ -32,6 +32,7 @@ const VOTE: VoteRow = {
 
 const EMPTY: FactionOverviewResponse = {
   generatedAt: 0,
+  rules: { tributeEveryMs: 604_800_000, dividendEveryMs: 604_800_000 },
   preview: false,
   stage: "individual",
   me: { hasOwner: false, units: 0, buildings: 0, balances: [] },
@@ -118,7 +119,8 @@ describe("표 색 갈래", () => {
   it("나쁜 상태는 bad, 좋은 상태는 good", () => {
     expect(UNREST_TONES.rebellion).toBe("bad");
     expect(UNREST_TONES.warning).toBe("bad");
-    expect(UNREST_TONES.slowdown).toBe("warn");
+    expect(UNREST_TONES.sabotage).toBe("warn");
+    expect(UNREST_TONES.stable).toBe("good");
     expect(BAND_TONES.hostile).toBe("bad");
     expect(BAND_TONES.trusted).toBe("good");
     expect(STATE_TONES.war).toBe("bad");

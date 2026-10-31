@@ -16,6 +16,7 @@ import { type Database, pingDatabase } from "./db/client.ts";
 import { createEconomyServices } from "./economyView/services.ts";
 import { worldEconomySource } from "./economyView/worldSource.ts";
 import { createWorldFactionSource } from "./factionScreen/source.ts";
+import { factionRulesFrom } from "./factionScreen/tuning.ts";
 import { startServerMetrics } from "./metrics.ts";
 import type { PlanetBaker } from "./planet/baker.ts";
 import { type PlanetRouteLimits, registerPlanetRoutes } from "./planet/routes.ts";
@@ -38,6 +39,7 @@ import { createSecondMapLab } from "./world/secondMapLab.ts";
 import { registerTerrainRoute } from "./world/terrainRoute.ts";
 import type { MapPropInput } from "@terra/planet/secondMap";
 import type { EconomyCatalogResponse } from "@terra/shared/economy";
+import type { SocietyCoefficients } from "@terra/sim";
 import { createTerrainService } from "./world/terrainService.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, type WorldConfig, startWorld } from "./world/world.ts";
 
@@ -111,6 +113,8 @@ export interface AppOptions {
     | undefined;
   /** 유닛·사이보그 화면의 콘텐츠 팩 자료(src/roster/catalog.ts rosterCatalogOf). 없으면 시험 자료(이름 = ID) */
   roster?: RosterCatalog | undefined;
+  /** 팩 tuning을 얹은 세력·사회 계수표(세력 화면 공물·민심 문턱·주기). 없으면 sim 시험 계수표 */
+  society?: SocietyCoefficients | undefined;
   /** 경제 화면 목록(팩 items·recipes 등, src/economyView/catalog.ts). 없으면 빈 목록 */
   economyCatalog?: EconomyCatalogResponse | undefined;
   /**
@@ -261,6 +265,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           })
         : undefined,
       factionSource: world && options.db ? createWorldFactionSource(world) : undefined,
+      factionRules: options.society ? factionRulesFrom(options.society) : undefined,
     }),
   });
 

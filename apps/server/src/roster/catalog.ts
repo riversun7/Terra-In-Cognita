@@ -13,7 +13,15 @@ import {
   unitKindEntrySchema,
 } from "@terra/content";
 import type { LocalizedName, RosterNames } from "@terra/shared/roster";
-import { type CombatCatalog, TEST_COMBAT_CATALOG, combatCatalogFrom } from "@terra/sim";
+import {
+  type CombatCatalog,
+  type SocietyCoefficients,
+  TEST_COMBAT_CATALOG,
+  TEST_SOCIETY_COEFFICIENTS,
+  combatCatalogFrom,
+  societyCoefficientsFrom,
+} from "@terra/sim";
+import { tuningOf } from "../world/combatCatalog.ts";
 
 export interface RosterCatalog {
   readonly combat: CombatCatalog;
@@ -21,6 +29,8 @@ export interface RosterCatalog {
   readonly names: RosterNames;
   /** 아이템 기준 가격(최소 단위, 팩 baseValue). 없으면 0 */
   readonly baseValue: ReadonlyMap<string, number>;
+  /** 팩 tuning을 얹은 세력·사회 계수표(사이보그 만렙·스킬 등급 상한·환생 비용 N7·N34, D-440·D-441) */
+  readonly society: SocietyCoefficients;
 }
 
 function entriesOf<T>(source: PackSource, file: string, parse: (raw: unknown) => T): T[] {
@@ -61,6 +71,7 @@ export function rosterCatalogOf(source: PackSource): RosterCatalog {
       planets: nameTable(planets),
     },
     baseValue: new Map(items.map((item) => [item.id, item.baseValue])),
+    society: societyCoefficientsFrom(tuningOf(source)),
   };
 }
 
@@ -80,6 +91,7 @@ export function testRosterCatalog(): RosterCatalog {
       planets: {},
     },
     baseValue: new Map(),
+    society: TEST_SOCIETY_COEFFICIENTS,
   };
 }
 

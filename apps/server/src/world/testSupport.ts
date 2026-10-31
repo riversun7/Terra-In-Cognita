@@ -1,6 +1,7 @@
 // 2차맵 시험 도우미 — 시험 파일끼리 서로 import하지 않게 여기에 둔다(게임 앱 선언 파일에는 넣지 않는다: tsconfig.api.json)
 import { performance } from "node:perf_hooks";
 import {
+  type BattleInit,
   SURFACE_GRASS,
   TEMP_TERRAIN_GENERATOR_VERSION,
   TERRAIN_SIZE,
@@ -87,4 +88,88 @@ export function createTestMap(options: { terrain?: TempTerrain; mapKey?: number 
   holder.map = map;
   paths.start();
   return { map, stats, paths };
+}
+
+const ZERO = Array.from({ length: 12 }, () => 0);
+/** 시험 전투 유닛(체력 400, 근접) */
+export function testFighter(id: number, side: number, party: number, x: number, y: number) {
+  return {
+    id,
+    side,
+    party,
+    x,
+    y,
+    maxHp: 400,
+    armorHp: 0,
+    shieldHp: 0,
+    attack: {
+      kind: "physical" as const,
+      weaponAttack: 20,
+      attackStat: 10,
+      attackAppropriate: 10,
+      weaponHitPm: 1000,
+      hitStat: 10,
+      hitAppropriate: 10,
+      weaponCritPm: 100,
+      critStat: 10,
+      critAppropriate: 10,
+      critMulPm: 1500,
+      penetrationPm: 0,
+      skillMulPm: 1000,
+      buffPm: 1000,
+      elements: ZERO,
+      skillElementsPm: ZERO,
+    },
+    defense: { defenseRatePm: 100, defenseFlat: 1, evadePm: 0, elements: ZERO, resistPm: ZERO },
+    range: 1,
+    arc: false,
+    attackIntervalMs: 500,
+    moveIntervalMs: 500,
+    staminaMax: 1000,
+    staminaCost: 1,
+    mpMax: 0,
+    mpCost: 0,
+    sight: 12,
+    eye: 2880,
+    air: false,
+    commandCap: 0,
+    cyborg: false,
+    buildingMulPm: 1000,
+    primaries: [0, 0, 0, 0, 0, 0],
+    skills: [],
+  };
+}
+
+/** 시험 조우 전투(32칸, 2 대 2). 유닛 ID·편의 주체(faction)를 바꿀 수 있다 */
+export function testEncounter(
+  ids: readonly [number, number, number, number] = [1, 2, 11, 12],
+  factions: readonly [number, number] = [1, 2],
+): BattleInit {
+  const size = 32;
+  return {
+    id: 1,
+    kind: "normal",
+    seed: 77,
+    map: {
+      size,
+      passable: new Uint8Array(size * size).fill(1),
+      cover: new Uint8Array(size * size),
+      height: new Int32Array(size * size),
+      buildings: [],
+    },
+    sides: [
+      { id: 1, faction: factions[0], defender: false, edge: 3 },
+      { id: 2, faction: factions[1], defender: true, edge: 1 },
+    ],
+    parties: [
+      { id: 1, side: 1, retreatHpPct: 0 },
+      { id: 2, side: 2, retreatHpPct: 0 },
+    ],
+    units: [
+      testFighter(ids[0], 1, 1, 12, 10),
+      testFighter(ids[1], 1, 1, 12, 12),
+      testFighter(ids[2], 2, 2, 18, 10),
+      testFighter(ids[3], 2, 2, 18, 12),
+    ],
+  };
 }

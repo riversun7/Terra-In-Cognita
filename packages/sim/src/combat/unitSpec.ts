@@ -1,8 +1,10 @@
 // 스탯 → 전투 유닛 사양 — docs/adr/2026-10-31-combat-core.md "스탯"
 // 2차 스탯(stats.ts computeSecondary 결과)과 무기에서 전투 사양을 만든다. 서버·시뮬·(나중의) 개발자 페이지 전투 시뮬레이터가 같이 쓴다.
 // 공격 간격 = 무기 간격 × 1000 ÷ min(2000, 행동 속도 × 1000 ÷ 무기 적정 속도)(D-418 행동 속도, D-420 같은 틀).
-import type { CombatUnitSpec } from "./battle.ts";
+import type { CombatUnitSpec } from "./battleTypes.ts";
 import { ELEMENT_COUNT } from "./formula.ts";
+import type { CombatSkill } from "./skills.ts";
+import type { Primaries } from "./stats.ts";
 
 export interface WeaponSpec {
   readonly kind: "physical" | "elemental";
@@ -43,6 +45,9 @@ export interface UnitBody {
   readonly commandCap?: number | undefined;
   readonly cyborg?: boolean | undefined;
   readonly buildingMulPm?: number | undefined;
+  /** 1차 스탯(장비 포함, 상태이상 저항 D-429) */
+  readonly primaries?: Primaries | undefined;
+  readonly skills?: readonly CombatSkill[] | undefined;
 }
 
 const ZERO = Array.from({ length: ELEMENT_COUNT }, () => 0);
@@ -102,5 +107,16 @@ export function specFromStats(body: UnitBody): CombatUnitSpec {
     commandCap: body.commandCap ?? 0,
     cyborg: body.cyborg ?? false,
     buildingMulPm: body.buildingMulPm ?? 1000,
+    primaries: body.primaries
+      ? [
+          body.primaries.str,
+          body.primaries.dex,
+          body.primaries.agi,
+          body.primaries.vit,
+          body.primaries.int,
+          body.primaries.wis,
+        ]
+      : [0, 0, 0, 0, 0, 0],
+    skills: body.skills ?? [],
   };
 }

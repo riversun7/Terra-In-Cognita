@@ -1,0 +1,97 @@
+{
+  "entries": [
+    {
+      "id": "burn",
+      "name": {
+        "ko": "화상",
+        "en": "Burn"
+      },
+      "durationMs": 3000,
+      "kind": "dot",
+      "valueMode": "flat",
+      "tickMs": 1000,
+      "stacking": "stack",
+      "maxStacks": 3,
+      "enabled": true
+    },
+    {
+      "id": "stun",
+      "name": {
+        "ko": "기절",
+        "en": "Stun"
+      },
+      "durationMs": 1500,
+      "kind": "status",
+      "status": "stun",
+      "valueMode": "flat",
+      "tickMs": 0,
+      "stacking": "refresh",
+      "maxStacks": 1,
+      "resist": {
+        "cap": 800,
+        "halfConstant": 100,
+        "weights": [0, 0, 0, 1000, 0, 200]
+      },
+      "enabled": true
+    },
+    {
+      "id": "attack_up",
+      "name": {
+        "ko": "공격 강화",
+        "en": "Attack up"
+      },
+      "durationMs": 6000,
+      "kind": "buff",
+      "stat": "attack",
+      "valueMode": "permille",
+      "tickMs": 0,
+      "stacking": "refresh",
+      "maxStacks": 1,
+      "enabled": true
+    },
+    {
+      "id": "defense_down",
+      "name": {
+        "ko": "방어 약화",
+        "en": "Defense down"
+      },
+      "durationMs": 4000,
+      "kind": "debuff",
+      "stat": "defense_rate",
+      "valueMode": "flat",
+      "tickMs": 0,
+      "stacking": "refresh",
+      "maxStacks": 1,
+      "enabled": true
+    },
+    {
+      "id": "guard",
+      "name": {
+        "ko": "단단함",
+        "en": "Guard"
+      },
+      "durationMs": 0,
+      "kind": "buff",
+      "stat": "defense_rate",
+      "valueMode": "flat",
+      "tickMs": 0,
+      "stacking": "ignore",
+      "maxStacks": 1,
+      "enabled": true
+    },
+    {
+      "id": "mend",
+      "name": {
+        "ko": "치료",
+        "en": "Mend"
+      },
+      "durationMs": 0,
+      "kind": "heal",
+      "valueMode": "permille",
+      "tickMs": 0,
+      "stacking": "refresh",
+      "maxStacks": 1,
+      "enabled": true
+    }
+  ]
+}

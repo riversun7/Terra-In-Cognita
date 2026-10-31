@@ -282,24 +282,22 @@ export {
   type BattleMapInput,
 } from "./combat/battleMap.ts";
 export { BLOCK_HEIGHT, lineClear, type SightEnd } from "./combat/los.ts";
-export {
-  createBattle,
-  restoreBattle,
-  runBattle,
-  snapshotBattle,
-  type Battle,
-  type BattleInit,
-  type BattleInput,
-  type BattlePartySpec,
-  type BattleResult,
-  type BattleSideSpec,
-  type BattleState,
-  type CombatUnitSpec,
-  type Command,
-  type Edge,
-  type UnitState,
-  type UnitStatus,
-} from "./combat/battle.ts";
+export { createBattle, restoreBattle, runBattle, snapshotBattle } from "./combat/battle.ts";
+export type {
+  Battle,
+  BattleInit,
+  BattleInput,
+  BattlePartySpec,
+  BattleResult,
+  BattleSideSpec,
+  BattleState,
+  CombatUnitSpec,
+  Command,
+  Edge,
+  PartyState,
+  UnitState,
+  UnitStatus,
+} from "./combat/battleTypes.ts";
 export {
   postLoot,
   resolveOutcomes,
@@ -309,3 +307,47 @@ export {
 } from "./combat/outcome.ts";
 export { duelInit, runDuels, type DuelReport } from "./combat/duels.ts";
 export { componentLabels } from "./grid/components.ts";
+export {
+  applyEffect,
+  hasStatus,
+  modifiersOf,
+  statusResistPm,
+  tickEffects,
+  type ActiveEffect,
+  type EffectDef,
+  type EffectKind,
+  type ModifierStat,
+  type StatusKind,
+} from "./combat/effects.ts";
+export {
+  skillFromData,
+  type CombatSkill,
+  type SkillCondition,
+  type SkillData,
+  type SkillEffectData,
+  type SkillFormulaPart,
+} from "./combat/skills.ts";
+export {
+  PRIMARY_CODES,
+  PRIMARY_SLOTS,
+  SLOT_KINDS,
+  itemAt,
+  loadoutOf,
+  rollItem,
+  skillSlotCount,
+  wrongStatGroup,
+  type EquipDef,
+  type EquippedItem,
+  type Loadout,
+  type PrimaryCode,
+  type SlotKind,
+  type StatRange,
+} from "./combat/equipment.ts";
+export {
+  TEST_COMBAT_CATALOG,
+  UNARMED,
+  skillsOf,
+  type CombatCatalog,
+  type UnitKindDef,
+} from "./combat/catalog.ts";
+export { combatCatalogFrom } from "./combat/packCatalog.ts";

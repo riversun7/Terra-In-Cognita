@@ -49,6 +49,7 @@ import type { MapReplicaInit } from "./pathMessages.ts";
 import type { PathOutcome, PathPriority, PathService } from "./pathService.ts";
 import { type Scheduler, createScheduler } from "./scheduler.ts";
 import { DEFAULT_WORLD_PLANET_ID, type WorldDomain } from "../db/schema.ts";
+import { HEALTHY, type UnitCondition, safePoint, unavailable } from "./unitCondition.ts";
 import { UNIT_KIND_BOT, UNIT_KIND_TEST } from "./unitKinds.ts";
 import { type ExploredStore, type MapVision, createMapVision } from "./vision.ts";
 import { type SizedEntry, buildingToWire, motionToWire, sized } from "./wire.ts";
@@ -91,6 +92,8 @@ export interface UnitRow {
   wakeAtMs: number | null;
   aiStep: number;
   job: UnitJob;
+  /** 부상·포로(전투 결과, unitCondition.ts) */
+  condition: UnitCondition;
 }
 
 /** 저장하는 건물 한 줄(world_buildings) */
@@ -142,6 +145,7 @@ interface UnitState {
   /** 봇 판단 횟수(봇 난수 차례, 저장한다) */
   aiStep: number;
   job: UnitJob;
+  condition: UnitCondition;
   readonly bot: boolean;
 }
 
@@ -218,6 +222,10 @@ export interface SecondMap {
   forEachUnit(visit: (unit: UnitView) => void): void;
   /** 정산 결과의 직무 상태를 넣고 저장한다 */
   setJob(unitId: number, job: UnitJob): boolean;
+  /** 부상·포로 상태를 넣고 저장한다(전투 결과) */
+  setCondition(unitId: number, condition: UnitCondition): boolean;
+  /** 안전한 곳(unitCondition.ts safePoint, [임시])으로 바로 옮긴다(질문 108 기본안·D-351). 하던 이동은 버린다 */
+  relocateToSafety(unitId: number): boolean;
   /** 불변 조건 I5: 예약이 없는 봇 수(경로를 기다리는 봇은 뺀다) */
   missingEvents(): number;
   /** 불변 조건 I7: 몸이 건물 칸에 걸친 서 있는 유닛 수 */
@@ -227,7 +235,11 @@ export interface SecondMap {
   removeBuilding(buildingId: number): CommandResult;
   gauges(): { units: number; moving: number; planning: number };
   /** 시험·확인용: 유닛의 크기 등급·속도·지금 움직임 */
-  unitInfo(unitId: number): { size: SizeClass; speed: number; motion: Motion; ownerId: number } | undefined;
+  unitInfo(
+    unitId: number,
+  ):
+    | { size: SizeClass; speed: number; motion: Motion; ownerId: number; condition: UnitCondition }
+    | undefined;
   stop(): void;
 }
 
@@ -398,6 +410,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       wakeAtMs: unit.wakeAtMs ?? null,
       aiStep: unit.aiStep,
       job: unit.job,
+      condition: unit.condition,
     });
   };
 
@@ -525,6 +538,11 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       return;
     }
     if (unit.planning) return;
+    // 포로·중태(활동 불가)인 봇은 스스로 움직이지 않는다. 잠시 뒤 다시 본다([임시] 1분)
+    if (unavailable(unit.condition, now())) {
+      scheduleEvent(unit, "wake", now() + 60_000);
+      return;
+    }
     const rng = nextRng(unit);
     const destination = pickDestination(grid, rng, unit.size, lastPoint(unit.motion));
     if (!destination) {
@@ -564,6 +582,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     motion: Motion;
     aiStep: number;
     job: UnitJob;
+    condition?: UnitCondition;
   }): UnitState => {
     const unit: UnitState = {
       id: spec.id,
@@ -581,6 +600,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       wakeAtMs: undefined,
       aiStep: spec.aiStep,
       job: spec.job,
+      condition: spec.condition ?? HEALTHY,
       bot: spec.kind === UNIT_KIND_BOT,
     };
     units.set(unit.id, unit);
@@ -724,6 +744,25 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       save(unit);
       return true;
     },
+    setCondition(unitId, condition) {
+      const unit = units.get(unitId);
+      if (!unit) return false;
+      unit.condition = condition;
+      save(unit);
+      return true;
+    },
+    relocateToSafety(unitId) {
+      const unit = units.get(unitId);
+      const point = unit ? safePoint(grid, unit.size) : undefined;
+      if (!unit || !point) return false;
+      cancelEvent(unit);
+      unit.routeSeq += 1;
+      unit.planning = false;
+      unit.destination = point;
+      setMotion(unit, standing(point, unit.speed));
+      if (unit.bot) scheduleEvent(unit, "wake", now() + startDelayMs(nextRng(unit)));
+      return true;
+    },
     missingEvents() {
       let missing = 0;
       for (const unit of units.values())
@@ -748,6 +787,8 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     moveUnit(unitId, target) {
       const unit = units.get(unitId);
       if (!unit) return Promise.resolve({ ok: false, code: "unknown_unit" });
+      // [임시] 포로·중태는 명령을 받지 않는다. 전용 결과 코드는 전투 화면(L1) 때 프로토콜에 더한다
+      if (unavailable(unit.condition, now())) return Promise.resolve({ ok: false, code: "invalid_request" });
       return new Promise((resolve) => requestRoute(unit, target, "command", COMMAND_NODE_BUDGET, resolve));
     },
     placeBuilding(placement) {
@@ -791,7 +832,13 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     unitInfo(unitId) {
       const unit = units.get(unitId);
       return unit
-        ? { size: unit.size, speed: unit.speed, motion: unit.motion, ownerId: unit.ownerId }
+        ? {
+            size: unit.size,
+            speed: unit.speed,
+            motion: unit.motion,
+            ownerId: unit.ownerId,
+            condition: unit.condition,
+          }
         : undefined;
     },
     stop() {

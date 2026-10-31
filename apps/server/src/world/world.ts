@@ -17,6 +17,7 @@ import { type WorldWriter, type WriterPool, createWorldWriter } from "./persist/
 import { createWorkerPathService } from "./pathPool.ts";
 import { type PathService, createInlinePathService } from "./pathService.ts";
 import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
+import { type BattleWorld, applyBattleOutcome } from "./battleResults.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
 import { type MapTerrain, mapTerrainFromBuilt, mapTerrainFromTemp, terrainFromFile } from "./mapTerrain.ts";
 import { type MapPin, loadPins, retireTestMaps, savePin } from "./pins.ts";
@@ -336,6 +337,9 @@ export function startWorld(
           job_phase: row.job.phase,
           job_progress_ms: row.job.progressMs,
           fatigue: row.job.fatigue,
+          injury: row.condition.injury,
+          injury_until_ms: row.condition.injuryUntilMs,
+          held_by: row.condition.heldBy,
         }),
       saveBuilding: (row) =>
         writer.upsert("buildings", {
@@ -385,15 +389,31 @@ export function startWorld(
       presence: loaded.presence,
       now,
     });
+    const battleWorld: BattleWorld = {
+      mapOf: (unitId) => [...maps.values()].find((map) => map.unitInfo(unitId) !== undefined),
+      ownerExists: (ownerId) => owners.has(ownerId) || ownerId === npcOwnerId,
+      ledger,
+    };
     const battles = createBattleService({
       pool: db,
+      writer,
       now,
-      // [R3] 결과는 전투 행(result)에 남긴다. 유닛 부상(D-099)·귀환·포로(질문 108)·탈취를 세계에 적용하는 일은 R4(부상·수명 열과 함께)
-      onResult: (battleId, outcome) =>
-        log.info({ battleId, winner: outcome.result.winner, reason: outcome.result.reason }, "battle ended"),
+      // 끝 시각에 한 번: 부상·귀환·포로·탈취를 세계에 적용한다(battleResults.ts, docs/adr/2026-10-31-combat-core.md 8절)
+      apply: (battleId, init, outcome, atMs) => {
+        const applied = applyBattleOutcome(battleWorld, battleId, init, outcome, atMs);
+        log.info(
+          {
+            battleId,
+            winner: outcome.result.winner,
+            reason: outcome.result.reason,
+            ...applied,
+            looted: String(applied.looted),
+          },
+          "battle ended",
+        );
+      },
       onError: (error) => log.error({ err: error }, "battle failed"),
     });
-    await battles.restore();
     persistence = { writer, pool: db, nextId, owners, ledger, settlement, npcOwnerId, battles };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)
     if (
@@ -425,6 +445,8 @@ export function startWorld(
     }
     paths.start();
     spawnBots();
+    // 유닛을 다시 놓은 뒤에 전투 끝을 다시 건다(지난 끝 시각은 곧바로 적용된다)
+    await battles.restore();
 
     const writeHeartbeat = () => writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
     writeHeartbeat();

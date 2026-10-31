@@ -10,33 +10,17 @@ import { mix32 } from "../math/hash.ts";
 import { type BattleMap, createBattleMap } from "./battleMap.ts";
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS, msToTicks } from "./coefficients.ts";
 import { NEIGHBORS, UNREACHABLE, distanceField, stepAllowed } from "./fields.ts";
-import { buildingDamage, resolveAttack } from "./formula.ts";
+import { hasStatus, modifiersOf, tickEffects } from "./effects.ts";
+import { buildingDamage, resolveAttack, withAttackModifiers, withDefenseModifiers } from "./formula.ts";
 import { lineClear } from "./los.ts";
 import { visibleEnemies } from "./sight.ts";
+import { pickSkill, resolveSkill, startSkill, takeDamage } from "./skills.ts";
+import { active, electCommander, initialState, ready, spend, unitFrom } from "./battleState.ts";
 import type {
-  CombatUnitSpec,
   BattleInit,
   BattleInput,
   UnitState,
   PartyState,
-  SideState,
-  BattleResult,
-  BattleState,
-  Battle,
-} from "./battleTypes.ts";
-
-export type {
-  Edge,
-  CombatUnitSpec,
-  BattleSideSpec,
-  BattlePartySpec,
-  BattleInit,
-  Command,
-  BattleInput,
-  UnitStatus,
-  UnitState,
-  PartyState,
-  SideState,
   BattleResult,
   BattleState,
   Battle,
@@ -45,92 +29,8 @@ export type {
 const chebyshev = (ax: number, ay: number, bx: number, by: number): number =>
   Math.max(ax > bx ? ax - bx : bx - ax, ay > by ? ay - by : by - ay);
 
-/** 살아 있고 빠지지 않은 유닛 */
-function active(unit: UnitState): boolean {
-  return unit.status === "alive";
-}
-
-/** 행동할 수 있나: 다음 행동 시각이 됐고 자원이 충분(D-418) */
-function ready(unit: UnitState, nowMs: number): boolean {
-  return (
-    nowMs >= unit.nextActionMs &&
-    unit.staminaMilli >= unit.staminaCost * 1000 &&
-    (unit.attack.kind !== "elemental" || unit.mpMilli >= unit.mpCost * 1000)
-  );
-}
-
-/** 행동을 쓴다: 자원을 쓰고 다음 행동 시각을 정한다(빗나가도 쓴다) */
-function spend(unit: UnitState, nowMs: number): void {
-  unit.staminaMilli -= unit.staminaCost * 1000;
-  if (unit.attack.kind === "elemental") unit.mpMilli -= unit.mpCost * 1000;
-  unit.nextActionMs = nowMs + unit.attackIntervalMs;
-}
-
-function unitFrom(spec: CombatUnitSpec): UnitState {
-  return {
-    ...spec,
-    hp: spec.maxHp,
-    armor: spec.armorHp,
-    shield: spec.shieldHp,
-    staminaMilli: spec.staminaMax * 1000,
-    mpMilli: spec.mpMax * 1000,
-    status: "alive",
-    nextActionMs: 0,
-    nextMoveMs: 0,
-    revealUntilMs: -1,
-    bandSinceMs: -1,
-    command: null,
-    lastCommandMs: -1_000_000_000,
-  };
-}
-
-/** 지휘관 = 남은 유닛 가운데 지휘 정원이 가장 큰 유닛(같으면 작은 ID), 정원 밖 파티는 지휘 없음(D-331) */
-function electCommander(state: BattleState, side: SideState): void {
-  let best: UnitState | undefined;
-  for (const unit of state.units) {
-    if (unit.side !== side.id || unit.status !== "alive" || unit.commandCap <= 0) continue;
-    if (!best || unit.commandCap > best.commandCap) best = unit;
-  }
-  side.commander = best?.id ?? 0;
-  const parties = state.parties
-    .filter((party) => party.side === side.id && !party.retreated)
-    .map((party) => party.id);
-  side.uncommanded = parties.slice(best ? best.commandCap : 0);
-}
-
 export function snapshotBattle(state: BattleState): string {
   return JSON.stringify(state);
-}
-
-function initialState(init: BattleInit, c: CombatCoefficients): BattleState {
-  const limitMs = init.limitMs ?? (init.kind === "siege" ? c.limitMs.siege : c.limitMs.normal);
-  if (!Number.isInteger(limitMs) || limitMs < c.tickMs || limitMs > c.limitMs.max)
-    throw new RangeError(`limitMs must be in [${c.tickMs}, ${c.limitMs.max}]`);
-  const limit = msToTicks(limitMs, c);
-  const units = init.units.map(unitFrom).toSorted((a, b) => a.id - b.id);
-  const parties = init.parties
-    .map((party) => ({
-      ...party,
-      maxHpSum: units.filter((unit) => unit.party === party.id).reduce((sum, unit) => sum + unit.maxHp, 0),
-      retreated: false,
-    }))
-    .toSorted((a, b) => a.id - b.id);
-  const state: BattleState = {
-    tick: 0,
-    kind: init.kind,
-    seed: init.seed >>> 0,
-    limitTicks: limit,
-    units,
-    parties,
-    sides: init.sides
-      .map((side) => ({ ...side, commander: 0, uncommanded: [], visible: [], lastSeen: [] }))
-      .toSorted((a, b) => a.id - b.id),
-    buildings: init.map.buildings.map((building) => ({ id: building.id, durability: building.durability })),
-    rejected: 0,
-    result: null,
-  };
-  for (const side of state.sides) electCommander(state, side);
-  return state;
 }
 
 export function createBattle(init: BattleInit, c: CombatCoefficients = TEST_COMBAT_COEFFICIENTS): Battle {
@@ -200,7 +100,12 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
       state.units = [...state.units, ...added].toSorted((a, b) => a.id - b.id);
       state.parties = [
         ...state.parties,
-        { ...input.party, maxHpSum: added.reduce((sum, unit) => sum + unit.maxHp, 0), retreated: false },
+        {
+          ...input.party,
+          maxHpSum: added.reduce((sum, unit) => sum + unit.maxHp, 0),
+          retreating: false,
+          retreated: false,
+        },
       ].toSorted((a, b) => a.id - b.id);
       const side = state.sides.find((entry) => entry.id === input.side.id);
       if (side) electCommander(state, side);
@@ -220,7 +125,21 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
       }
     }
     unit.command = input.command;
+    unit.cast = null;
     unit.lastCommandMs = state.tick * c.tickMs;
+    // 퇴각은 파티 행동이다(D-205·D-207): 파티를 퇴각 중으로 두고 산 동료도 함께 물러난다([임시] 기술 해석)
+    if (input.command.kind === "retreat") orderRetreat(unit.party);
+  };
+
+  const orderRetreat = (partyId: number): void => {
+    const party = state.parties.find((entry) => entry.id === partyId);
+    if (!party || party.retreated) return;
+    party.retreating = true;
+    for (const member of state.units)
+      if (member.party === partyId && active(member)) {
+        member.command = { kind: "retreat" };
+        member.cast = null;
+      }
   };
 
   const computeSight = (gone: ReadonlySet<number>): void => {
@@ -312,27 +231,16 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     if (chebyshev(attacker.x, attacker.y, target.x, target.y) > attacker.range) return false;
     if (attacker.range > 1 && !attacker.arc && !lineClear(map, attacker, target, gone)) return false;
     const rolls = { hit: rng.nextInt(10_000), evade: rng.nextInt(10_000), crit: rng.nextInt(10_000) };
-    const hit = resolveAttack(attacker.attack, target.defense, rolls, c);
+    const hit = resolveAttack(
+      withAttackModifiers(attacker.attack, modifiersOf(attacker)),
+      withDefenseModifiers(target.defense, modifiersOf(target)),
+      rolls,
+      c,
+    );
     spend(attacker, nowMs);
     if (!attacker.air && map.cover[attacker.y * size + attacker.x] === 1)
       attacker.revealUntilMs = nowMs + c.bushRevealMs;
-    let left = hit.amount;
-    if (left <= 0) return true;
-    if (attacker.attack.kind === "physical") {
-      const absorbed = Math.min(target.armor, left);
-      target.armor -= absorbed;
-      left -= absorbed;
-    } else {
-      const absorbed = Math.min(target.shield, left);
-      target.shield -= absorbed;
-      left -= absorbed;
-    }
-    target.hp -= left;
-    if (target.hp <= 0) {
-      target.hp = 0;
-      target.status = "down";
-      target.command = null;
-    }
+    takeDamage(target, hit.amount, attacker.attack.kind);
     return true;
   };
 
@@ -361,6 +269,58 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     return best;
   };
 
+  /** 스킬 사거리·시선(사거리 1 넘으면 직선이 열려야 한다, [임시] 곡사 스킬 없음) */
+  const reach = (unit: UnitState, goal: UnitState, gone: ReadonlySet<number>) => (range: number) =>
+    chebyshev(unit.x, unit.y, goal.x, goal.y) <= range && (range <= 1 || lineClear(map, unit, goal, gone));
+
+  const fire = (
+    unit: UnitState,
+    index: number,
+    goal: UnitState,
+    rng: { nextInt(n: number): number },
+    nowMs: number,
+  ): void => {
+    const skill = unit.skills[index];
+    if (!skill) return;
+    if (skill.target === "enemy" && !unit.air && map.cover[unit.y * size + unit.x] === 1)
+      unit.revealUntilMs = nowMs + c.bushRevealMs;
+    resolveSkill(unit, skill, goal, state.units, rng, nowMs, c);
+  };
+
+  /** 스킬을 고르고 쓴다(시전이 없으면 바로 푼다). 썼으면 true */
+  const useSkill = (
+    unit: UnitState,
+    goal: UnitState,
+    rng: { nextInt(n: number): number },
+    gone: ReadonlySet<number>,
+    nowMs: number,
+  ): boolean => {
+    if (unit.skills.length === 0) return false;
+    const index = pickSkill(unit, goal, nowMs, reach(unit, goal, gone));
+    if (index < 0) return false;
+    if (startSkill(unit, index, goal.id, nowMs)) fire(unit, index, goal, rng, nowMs);
+    return true;
+  };
+
+  /** 시전이 끝났다: 목표가 아직 보이고 닿으면 푼다(아니면 빗나감, 자원·쿨은 이미 썼다) */
+  const finishCast = (
+    unit: UnitState,
+    rng: { nextInt(n: number): number },
+    gone: ReadonlySet<number>,
+    nowMs: number,
+  ): void => {
+    const cast = unit.cast;
+    unit.cast = null;
+    const skill = cast ? unit.skills[cast.skill] : undefined;
+    const goal = cast ? unitById(cast.target) : undefined;
+    if (!cast || !skill || !goal || !active(goal)) return;
+    if (skill.target === "enemy") {
+      const visible = state.sides.find((side) => side.id === unit.side)?.visible ?? [];
+      if (!visible.includes(goal.id) || !reach(unit, goal, gone)(skill.range)) return;
+    }
+    fire(unit, cast.skill, goal, rng, nowMs);
+  };
+
   const act = (
     unit: UnitState,
     rng: { nextInt(n: number): number },
@@ -368,7 +328,12 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     gone: ReadonlySet<number>,
   ): void => {
     const nowMs = state.tick * c.tickMs;
-    const canMove = nowMs >= unit.nextMoveMs;
+    if (hasStatus(unit, "stun")) return;
+    if (unit.cast) {
+      if (nowMs >= unit.cast.atMs) finishCast(unit, rng, gone, nowMs);
+      return;
+    }
+    const canMove = nowMs >= unit.nextMoveMs && !hasStatus(unit, "root");
     const command = unit.command;
     if (command?.kind === "retreat") {
       if (canMove)
@@ -396,6 +361,7 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     target ??= nearestVisible(unit);
     if (target) {
       const goal = target;
+      if (useSkill(unit, goal, rng, gone, nowMs)) return;
       if (ready(unit, nowMs) && attackUnit(unit, goal, rng, gone, nowMs)) return;
       if (canMove && chebyshev(unit.x, unit.y, goal.x, goal.y) > unit.range) {
         const cell = goal.y * size + goal.x;
@@ -437,7 +403,8 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
 
   const checkRetreats = (): void => {
     for (const party of state.parties) {
-      if (party.retreated) continue;
+      // 퇴각 중인 파티만 빠진다. 구역에 서 있거나 쫓아 들어온 것만으로는 빠지지 않는다(D-434)
+      if (party.retreated || !party.retreating) continue;
       const members = state.units.filter((unit) => unit.party === party.id && unit.status !== "retreated");
       const living = members.filter(active);
       if (living.length === 0) continue;
@@ -491,6 +458,8 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
   const step = (inputs: readonly BattleInput[]): void => {
     if (state.result) return;
     for (const input of inputs) if (input.tick === state.tick) applyInput(input);
+    // 효과: 끝난 것을 지우고 지속 피해·회복을 적용한다(시야 전에, 쓰러진 유닛은 보이지 않게)
+    for (const unit of state.units) if (active(unit)) tickEffects(unit, state.tick * c.tickMs);
     const gone = destroyed();
     const key = [...gone].join(",");
     if (key !== destroyedKey) {
@@ -500,10 +469,7 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     computeSight(gone);
     if (state.tick % msToTicks(c.fieldMs, c) === 0 || attackFields.size === 0) refreshAttackFields(gone);
     // 파티 퇴각 기준선(⑦): 파티 ID 차례
-    for (const party of state.parties)
-      if (partyHpLow(party))
-        for (const unit of state.units)
-          if (unit.party === party.id && active(unit)) unit.command = { kind: "retreat" };
+    for (const party of state.parties) if (!party.retreating && partyHpLow(party)) orderRetreat(party.id);
     const occupied = new Int32Array(size * size);
     for (const unit of state.units) if (active(unit) && !unit.air) occupied[unit.y * size + unit.x] = unit.id;
     const rng = createRng(mix32(state.seed ^ Math.imul(state.tick + 1, 0x9e37_79b1)));

@@ -10,7 +10,7 @@ import type { Scenario } from "./scenario.ts";
 import type { EconomyCatalog } from "./catalog.ts";
 import { type EconomyRun, type EconomySummary, attachEconomy, systemRule } from "./economyRun.ts";
 import { type CombatSummary, attachCombat } from "./combatRun.ts";
-import type { StatRow } from "../combat/stats.ts";
+import type { CombatCatalog } from "../combat/catalog.ts";
 import {
   EVENT_ARRIVE,
   EVENT_DECIDE,
@@ -48,7 +48,8 @@ export interface RunOptions {
   /** 불변 조건 검사 간격(날, 기본 1). 끝에서도 한 번 한다 */
   readonly checkEveryDays?: number | undefined;
   /** 스탯 가중치 표(콘텐츠 팩 stat_rows). 없으면 TEST_STAT_TABLE */
-  readonly statTable?: readonly StatRow[] | undefined;
+  /** 전투 자료(스탯 표·효과·스킬·장비·유닛 종류). 없으면 TEST_COMBAT_CATALOG */
+  readonly combatCatalog?: CombatCatalog | undefined;
   /** 경제 목록(시나리오에 economy 칸이 있으면 꼭 준다. 실행 도구가 콘텐츠 팩에서 만든다) */
   readonly catalog?: EconomyCatalog | undefined;
   /** 하루가 끝날 때마다(진행 표시용, 판정에 영향 없음) */
@@ -138,7 +139,9 @@ export function runSimulation(options: RunOptions): RunSummary {
     stub: scenario.stub,
     trips: scenario.trips,
     hooks: econ?.hooks,
-    combat: scenario.combat ? attachCombat(world, scenario.combat, recorder, options.statTable) : undefined,
+    combat: scenario.combat
+      ? attachCombat(world, scenario.combat, recorder, options.combatCatalog)
+      : undefined,
     encounterPerMille: scenario.combat?.encounterPerMille,
   };
   ctxRef.ctx = ctx;

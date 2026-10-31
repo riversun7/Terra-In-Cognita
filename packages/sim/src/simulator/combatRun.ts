@@ -1,12 +1,15 @@
 // 시뮬레이터 전투 — docs/adr/2026-10-31-combat-core.md "시뮬레이터"
 // 시나리오에 combat 칸이 있으면 대리 규칙의 도시 빼앗기를 공성 전투로 정하고(공격 쪽이 이기면 도시가 넘어감), 세력 판단마다
 // 확률로 조우 전투를 연다. 모든 전투는 무관측 빨리감기(같은 판정, D-189)로 끝까지 돌린다.
-// [임시] 전투 유닛 사양은 기술 단계에서 만든 시험값이다(스탯·종 데이터는 기획 Step 5·9). 유닛 부상·포로는 R4가 세계에 붙인다.
+// [임시] 전투 유닛 사양은 기술 단계에서 만든 시험값이다(1차 스탯·장비·스킬, 기획 Step 5·9). 유닛 부상·포로는 세계 쪽 일이다.
 import { mix32 } from "../math/hash.ts";
-import { type BattleInit, type BattleResult, type CombatUnitSpec, runBattle } from "../combat/battle.ts";
+import { runBattle } from "../combat/battle.ts";
+import type { BattleInit, BattleResult, CombatUnitSpec } from "../combat/battleTypes.ts";
 import type { BattleMapInput } from "../combat/battleMap.ts";
-import { type StatRow, TEST_STAT_TABLE, computeSecondary } from "../combat/stats.ts";
-import { type WeaponSpec, specFromStats } from "../combat/unitSpec.ts";
+import { type CombatCatalog, TEST_COMBAT_CATALOG, UNARMED, skillsOf } from "../combat/catalog.ts";
+import { type EquippedItem, itemAt, loadoutOf, skillSlotCount } from "../combat/equipment.ts";
+import type { CombatSkill } from "../combat/skills.ts";
+import { specFromStats } from "../combat/unitSpec.ts";
 import type { MetricsRecorder } from "./metrics.ts";
 import type { ScenarioCombat } from "./scenario.ts";
 import type { SimFaction, SimUnit, SimWorld } from "./world.ts";
@@ -42,43 +45,60 @@ function openMap(size: number): BattleMapInput {
   };
 }
 
-/** [임시] 시험 무기(근접 물리). 무기·종 데이터는 기획 Step 5·9-3 */
-const TEST_WEAPON: WeaponSpec = {
-  kind: "physical",
-  attack: 20,
-  attackAppropriate: 40,
-  hitPm: 900,
-  hitAppropriate: 500,
-  critPm: 100,
-  critAppropriate: 200,
-  intervalMs: 1000,
-  speedAppropriate: 100,
-  range: 1,
-  arc: false,
-  staminaCost: 5,
-  mpCost: 0,
-};
+/** [임시] 시뮬레이터 유닛의 장비·스킬(사람형 칸 차례: 무기·보조·머리·몸·장신구 2). 팩에 없는 ID는 비운다 */
+const LOADOUT = {
+  kind: "human",
+  items: ["test_sword", null, "test_helmet", "test_vest", "test_ring", null],
+  skills: ["power_strike", "iron_skin", "first_aid"],
+} as const;
 
-/** [임시] 1차 스탯 = 10 + 기술 단계 × 2(모두 같게), 2차는 스탯 계산기(가중치 표) */
+/** 팩 자료로 시뮬레이터 유닛의 칸·장비·스킬을 만든다(유닛마다 같다) */
+function kitOf(catalog: CombatCatalog) {
+  const kind = catalog.unitKinds.find((entry) => entry.id === LOADOUT.kind);
+  const slots = kind?.slots ?? [];
+  const equipped: (EquippedItem | null)[] = slots.map((slot, index) => {
+    const id = LOADOUT.items[index] ?? null;
+    const def = id === null ? undefined : catalog.equipment.find((item) => item.id === id);
+    return def && def.slot === slot ? itemAt(def, 500) : null;
+  });
+  const known = new Set(catalog.skills.map((skill) => skill.id));
+  const innate = LOADOUT.skills.filter((id) => known.has(id));
+  const skillSlots = kind ? skillSlotCount(kind.skillSlots.base, 0, kind.skillSlots.max) : 0;
+  return { slots, equipped, innate, skillSlots };
+}
+
+/** [임시] 1차 스탯 = 10 + 기술 단계 × 2(모두 같게), 장비·스킬은 kitOf, 2차는 스탯 계산기(가중치 표) */
 function specOf(
   unit: SimUnit,
   tech: number,
-  table: readonly StatRow[],
-  side: number,
-  party: number,
-  x: number,
-  y: number,
+  catalog: CombatCatalog,
+  kit: ReturnType<typeof kitOf>,
+  skillCache: Map<string, CombatSkill[]>,
+  place: { side: number; party: number; x: number; y: number },
 ): CombatUnitSpec {
   const p = 10 + tech * 2;
-  const stats = computeSecondary({ str: p, dex: p, agi: p, vit: p, int: p, wis: p }, table);
+  const out = loadoutOf({
+    base: { str: p, dex: p, agi: p, vit: p, int: p, wis: p },
+    slots: kit.slots,
+    equipped: kit.equipped,
+    table: catalog.statTable,
+    unarmed: UNARMED,
+    innateSkills: kit.innate,
+    skillSlots: kit.skillSlots,
+  });
+  const key = out.skills.join(",");
+  let skills = skillCache.get(key);
+  if (!skills) {
+    skills = skillsOf(catalog, out.skills);
+    skillCache.set(key, skills);
+  }
   return specFromStats({
     id: unit.id,
-    side,
-    party,
-    x,
-    y,
-    stats,
-    weapon: TEST_WEAPON,
+    ...place,
+    stats: out.stats,
+    weapon: out.weapon,
+    primaries: out.primaries,
+    skills,
     moveIntervalMs: 1000,
     buildingMulPm: 2000,
   });
@@ -104,8 +124,10 @@ export function attachCombat(
   world: SimWorld,
   settings: ScenarioCombat,
   recorder: MetricsRecorder,
-  table: readonly StatRow[] = TEST_STAT_TABLE,
+  catalog: CombatCatalog = TEST_COMBAT_CATALOG,
 ): CombatRun {
+  const kit = kitOf(catalog);
+  const skillCache = new Map<string, CombatSkill[]>();
   let battles = 0;
   let sieges = 0;
   let encounters = 0;
@@ -136,15 +158,12 @@ export function attachCombat(
   ): CombatUnitSpec[] =>
     units.map((unit, index) => {
       const offset = ((index + 1) >> 1) * (index % 2 === 0 ? 1 : -1);
-      return specOf(
-        unit,
-        tech,
-        table,
+      return specOf(unit, tech, catalog, kit, skillCache, {
         side,
-        partyBase + Math.floor(index / PARTY_SIZE),
-        x + Math.floor(index / 24),
-        center + offset,
-      );
+        party: partyBase + Math.floor(index / PARTY_SIZE),
+        x: x + Math.floor(index / 24),
+        y: center + offset,
+      });
     });
 
   const fight = (

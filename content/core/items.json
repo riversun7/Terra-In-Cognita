@@ -76,6 +76,169 @@
       "tier": 1,
       "baseValue": 40,
       "enabled": true
+    },
+    {
+      "id": "test_sword",
+      "name": {
+        "ko": "시험용 검",
+        "en": "Test sword"
+      },
+      "category": "equipment",
+      "tier": 1,
+      "baseValue": 100,
+      "equip": {
+        "slot": "weapon",
+        "stats": [
+          {
+            "stat": "crit_chance",
+            "min": 0,
+            "max": 20
+          }
+        ],
+        "weapon": {
+          "kind": "physical",
+          "attack": 20,
+          "attackAppropriate": 40,
+          "hitPm": 900,
+          "hitAppropriate": 500,
+          "critPm": 100,
+          "critAppropriate": 200,
+          "intervalMs": 1000,
+          "speedAppropriate": 100,
+          "range": 1,
+          "arc": false,
+          "staminaCost": 5,
+          "mpCost": 0
+        }
+      },
+      "enabled": true
+    },
+    {
+      "id": "test_staff",
+      "name": {
+        "ko": "시험용 지팡이",
+        "en": "Test staff"
+      },
+      "category": "equipment",
+      "tier": 1,
+      "baseValue": 100,
+      "equip": {
+        "slot": "weapon",
+        "stats": [
+          {
+            "stat": "mp",
+            "min": 10,
+            "max": 30
+          }
+        ],
+        "weapon": {
+          "kind": "elemental",
+          "attack": 18,
+          "attackAppropriate": 40,
+          "hitPm": 900,
+          "hitAppropriate": 500,
+          "critPm": 50,
+          "critAppropriate": 200,
+          "intervalMs": 1200,
+          "speedAppropriate": 100,
+          "range": 6,
+          "arc": false,
+          "staminaCost": 2,
+          "mpCost": 5,
+          "skillElementsPm": [0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        "skills": ["fire_bolt"]
+      },
+      "enabled": true
+    },
+    {
+      "id": "test_vest",
+      "name": {
+        "ko": "시험용 조끼",
+        "en": "Test vest"
+      },
+      "category": "equipment",
+      "tier": 1,
+      "baseValue": 100,
+      "equip": {
+        "slot": "body",
+        "stats": [
+          {
+            "stat": "defense_rate",
+            "min": 30,
+            "max": 60
+          },
+          {
+            "stat": "armor_hp",
+            "min": 20,
+            "max": 40
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "test_helmet",
+      "name": {
+        "ko": "시험용 투구",
+        "en": "Test helmet"
+      },
+      "category": "equipment",
+      "tier": 1,
+      "baseValue": 100,
+      "equip": {
+        "slot": "head",
+        "stats": [
+          {
+            "stat": "armor_hp",
+            "min": 10,
+            "max": 20
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "test_ring",
+      "name": {
+        "ko": "시험용 반지",
+        "en": "Test ring"
+      },
+      "category": "equipment",
+      "tier": 1,
+      "baseValue": 100,
+      "equip": {
+        "slot": "accessory",
+        "stats": [
+          {
+            "stat": "str",
+            "min": 1,
+            "max": 3
+          }
+        ]
+      },
+      "enabled": true
+    },
+    {
+      "id": "test_heart",
+      "name": {
+        "ko": "시험용 인공 심장",
+        "en": "Test artificial heart"
+      },
+      "category": "equipment",
+      "tier": 1,
+      "baseValue": 100,
+      "equip": {
+        "slot": "organ",
+        "stats": [
+          {
+            "stat": "vit",
+            "min": 2,
+            "max": 4
+          }
+        ]
+      },
+      "enabled": true
     }
   ]
 }

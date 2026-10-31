@@ -9,6 +9,7 @@
 | 2026-10-31 21:00 | S3 WP-E: kill -9 복구 하네스, 규모 계단 시험 작업(NAS), 개발 컨테이너 계단 | Claude Code | [31-2100-s3-wp-e-measure](worklog/2026/10/31-2100-s3-wp-e-measure.md) |
 | 2026-10-31 19:30 | S3 WP-B: 2차맵 시야 전송, 탐사 기록, 프로토콜 3, 안개, 시험 단추 | Claude Code | [31-1930-s3-wp-b-vision](worklog/2026/10/31-1930-s3-wp-b-vision.md) |
 | 2026-10-31 16:50 | S3 WP-C: 오프라인 정산·최소 원장·접속 상태·복귀 요약 생산 칸 | Claude Code | [31-1650-s3-wp-c-settlement](worklog/2026/10/31-1650-s3-wp-c-settlement.md) |
+| 2026-10-31 16:25 | 바다 특수 지형 후보 제안(질문 103 나): 후보 12개, 생성 조건, 잰 값 | Claude Code | [31-1625-ocean-terrain](worklog/2026/10/31-1625-ocean-terrain.md) |
 | 2026-10-31 16:10 | 행성 표본: 태양계 암석 행성 다섯(편집기 시작점, 서버는 굽지 않음) | Claude Code | [31-1610-planet-samples](worklog/2026/10/31-1610-planet-samples.md) |
 | 2026-10-31 16:00 | S3 계단 시험: 시험 DB를 전용 컨테이너로 바꿈 | Claude Code | [31-1600-s3-ramp-db](worklog/2026/10/31-1600-s3-ramp-db.md) |
 | 2026-10-31 15:25 | S3 WP-A: 월드 저장·부팅 복구, 불변 조건, 사용자 결정 반영 | Claude Code | [31-1525-s3-wp-a-persistence](worklog/2026/10/31-1525-s3-wp-a-persistence.md) |

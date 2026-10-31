@@ -35,6 +35,8 @@ const SKIRT_RGB = [0.55, 0.42, 0.3] as const;
 const SKIRT_DEPTH_M = 20;
 
 const SURFACE_VERTEX_COUNT = TERRAIN_VERTICES * TERRAIN_VERTICES;
+/** 윗면 인덱스 수 — 인덱스 배열에서 윗면이 먼저, 가장자리 벽이 그 뒤다(벽을 숨길 때 그리기 범위로 자른다) */
+export const SURFACE_INDEX_COUNT = TERRAIN_CELLS * TERRAIN_CELLS * 6;
 /** 가장자리 벽: 네 변 × 변마다 꼭짓점 129개 × (위, 아래) */
 const SKIRT_VERTEX_COUNT = 4 * TERRAIN_VERTICES * 2;
 
@@ -110,7 +112,7 @@ export function buildTerrainMesh(input: TerrainInput): TerrainMeshArrays {
   }
 
   // 윗면 삼각형: 칸마다 (a, d, b), (a, c, d) — 위에서 보면 반시계(앞면)
-  const surfaceIndexCount = TERRAIN_CELLS * TERRAIN_CELLS * 6;
+  const surfaceIndexCount = SURFACE_INDEX_COUNT;
   const skirtIndexCount = 4 * TERRAIN_CELLS * 6;
   const indices = new Uint16Array(surfaceIndexCount + skirtIndexCount);
   let k = 0;

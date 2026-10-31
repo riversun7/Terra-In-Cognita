@@ -6,6 +6,9 @@
 // 픽셀 비율 재기: 주소에 ?pixel-ratio=<1~4>를 붙이면 엔진 상한을 바꾼다(시험용, pixelRatioParam.ts). HUD에 쓰는 값·그리기 버퍼가 보인다.
 // 낮밤(secondMapSky.ts): 1차맵과 같은 서버 시계·달력으로 이 2차맵 자리의 빛을 바꾼다. 동작 줄이기면 연 시각에 멈춘다(바뀌면 setSky).
 // 시험·사진 주소: ?second-map-time=<0~24> 지역 시각에 멈춤, ?second-map-sky=off 낮밤 끔. HUD에 지역 시각·항성·달 줄이 보인다.
+// 경계 너머 보기(ADR 2026-10-31-second-map-from-planet WP-4): 카메라가 경계에 다가오면 이웃 2차맵 지형을 받아 둘레에 그린다
+// (secondMapNeighbourLoader.ts). ?second-map-neighbours=all이면 처음부터 8장(개발자 3×3 이어 보기). 나침반은 그 2차맵의 북쪽을 가리킨다
+// (2차맵은 면 격자 틀이라 북쪽이 2차맵마다 돌아가 있다, 사용자 결정 U1).
 import {
   type EngineStats,
   type EngineStatus,
@@ -35,6 +38,9 @@ import { startMapFeed } from "./mapFeed.ts";
 import { resultText, terrainFailureText } from "./mapMessages.ts";
 import { formatPixelRatio, pixelRatioOption } from "./pixelRatioParam.ts";
 import { createSkyClock, reducedMotionList } from "./planetSky.ts";
+import { compassAngle, northOnMap } from "./secondMapCompass.ts";
+import { createNeighbourLoader } from "./secondMapNeighbourLoader.ts";
+import { viewMap, wantsAllNeighbours } from "./secondMapNeighbours.ts";
 import { formatLocalTime, readSecondMapSkyParams, secondMapSkyMode } from "./secondMapSky.ts";
 import { fetchTerrain } from "./terrainLoader.ts";
 import "./map.css";
@@ -71,6 +77,8 @@ interface HudSnapshot {
   feed: FeedStats;
   camera: string;
   selectedAt: string;
+  /** 카메라 목표점이 있는 2차맵(지금 "0,0", 이웃이면 방향) */
+  viewMap: string;
 }
 
 /** 가운데 안내 — 엔진 상태와 자료 상태 중 지금 가장 중요한 것 하나 */
@@ -139,6 +147,7 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
   const hostRef = useRef<HTMLDivElement>(null);
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const engineRef = useRef<SecondMapEngine | null>(null);
+  const needleRef = useRef<HTMLSpanElement>(null);
   const feedRef = useRef<MapFeed | null>(null);
   const selectedRef = useRef<number | null>(null);
   const session = useSession();
@@ -170,6 +179,16 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
     const place = secondMapPlace(S1_TEST_MAP_KEY);
     const skyClock = createSkyClock(serverLink);
     const reduced = reducedMotionList();
+    const north = place ? northOnMap(place) : null;
+    // 경계 너머 보기: 지금 2차맵 지형을 받으면 그 판 표지로 이웃을 받는다
+    let mapSizeM = 0;
+    let viewMapNow = "0,0";
+    const neighbourLoader = createNeighbourLoader({
+      mapKey: S1_TEST_MAP_KEY,
+      all: wantsAllNeighbours(window.location.search),
+      setNeighbours: (list) => engineRef.current?.setNeighbours(list) ?? Promise.resolve(),
+      fetchTerrain: (url) => fetchTerrain(url),
+    });
     const skyMode = () =>
       secondMapSkyMode(skyParams, skyClock, {
         reducedMotion: reduced?.matches ?? false,
@@ -182,6 +201,16 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
       sky: skyMode(),
       ...pixelRatioOption(window.location.search),
       onStatus: setStatus,
+      // 카메라가 바뀐 프레임마다: 나침반 바늘(DOM을 바로 돌린다, React 상태를 바꾸지 않는다), 이웃 받기
+      onView: (camera) => {
+        const needle = needleRef.current;
+        if (needle && north)
+          needle.style.transform = `rotate(${compassAngle(north, camera.yaw).toFixed(4)}rad)`;
+        if (mapSizeM > 0) {
+          neighbourLoader.onView(camera.targetX, camera.targetZ);
+          viewMapNow = viewMap(camera.targetX, camera.targetZ, mapSizeM);
+        }
+      },
       onSelect: (id) => {
         selectedRef.current = id;
         setSelected(id);
@@ -203,7 +232,12 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
       link: serverLink,
       mapKey: S1_TEST_MAP_KEY,
       sink: engine,
-      loadTerrain: (url) => fetchTerrain(url),
+      loadTerrain: async (url) => {
+        const terrain = await fetchTerrain(url);
+        mapSizeM = terrain.cellSizeM * 128;
+        neighbourLoader.setMain(url, mapSizeM);
+        return terrain;
+      },
       canCommand: () => adminRef.current,
       observe: () => observeRef.current,
       onDevSpawn: (outcome) =>
@@ -235,11 +269,13 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
           .map((value) => value.toFixed(3))
           .join(","),
         selectedAt: unit ? `${unit.x.toFixed(2)},${unit.y.toFixed(2)}` : "",
+        viewMap: viewMapNow,
       });
     }, 1000);
 
     return () => {
       clearInterval(timer);
+      neighbourLoader.stop();
       reduced?.removeEventListener("change", onReducedMotion);
       // 해제를 먼저 보내고(엔진을 버린 뒤에는 자료를 넣지 않는다) 엔진을 버린다
       feed.stop();
@@ -342,6 +378,9 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
       data-sun-elevation={light?.sunElevationDeg == null ? undefined : fixed(light.sunElevationDeg, 1)}
       data-moon-elevation={light?.moonElevationDeg == null ? undefined : fixed(light.moonElevationDeg, 1)}
       data-light-changes={light?.changes}
+      data-neighbours={stats?.neighbours}
+      data-props={stats?.props}
+      data-view-map={snapshot?.viewMap}
     >
       <div ref={hostRef} className="map-view" role="img" aria-label={m.map_view_label()} />
       <header className="map-hud map-hud-top">
@@ -352,6 +391,14 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
           <h1 id="map-title" className="map-title" ref={headingRef} tabIndex={-1}>
             {m.map_title()}
           </h1>
+          {/* 나침반: 바늘(북 글자 쪽)이 이 2차맵의 북쪽을 가리킨다(카메라를 돌리면 함께 돈다) */}
+          <span className="map-compass" role="img" aria-label={m.map_compass_label()}>
+            <span className="map-compass-needle" ref={needleRef}>
+              <span className="map-compass-north" aria-hidden="true">
+                {m.map_compass_north()}
+              </span>
+            </span>
+          </span>
         </div>
         <p className="map-panel map-perf">
           <span>

@@ -20,6 +20,8 @@ export interface RawPackEntries {
   biomes: readonly unknown[];
   /** planet_templates.json entries (파일 순서, 없으면 빈 배열). 편집기 시작점만이고 서버가 굽지 않는다 */
   planetTemplates: readonly unknown[];
+  /** map_props.json entries (파일 순서 = 흩기 우선순위, 없으면 빈 배열). 편집기 2차맵 미리보기의 소품 규칙 */
+  mapProps: readonly unknown[];
 }
 
 export type ContentLoadResult =
@@ -57,6 +59,7 @@ export function loadServerContent(dir: string): ContentLoadResult {
       planets: rawEntriesOf(loaded.source, "planets.json"),
       biomes: rawEntriesOf(loaded.source, "biomes.json"),
       planetTemplates: rawEntriesOf(loaded.source, "planet_templates.json"),
+      mapProps: rawEntriesOf(loaded.source, "map_props.json"),
     },
     warnings: lines,
   };

@@ -4,6 +4,7 @@ import type { BuildingFootprint } from "./buildings/footprint.ts";
 import type { CameraState } from "./camera/cameraMath.ts";
 import type { SecondMapClockState } from "./lighting/secondMapSky.ts";
 import type { PlanetSkyMode } from "./planet/sky.ts";
+import type { NeighbourTerrain } from "./terrain/neighbourTerrains.ts";
 import type { TerrainInput } from "./terrain/terrainData.ts";
 import type { UnitPath } from "./units/unitMotion.ts";
 import type { UnitDisplayMode, UnitLook } from "./units/unitView.ts";
@@ -53,6 +54,10 @@ export interface SecondMapEngineOptions {
   onSelect?: (unitId: number | null) => void;
   /** 유닛이 아닌 땅을 눌렀을 때 — 배치 칸 좌표 */
   onGroundTap?: (cell: { x: number; y: number }) => void;
+  /**
+   * 카메라가 바뀐 프레임마다(그리기 전). 나침반·이웃 2차맵 받기에 쓴다 — 가볍게 처리한다(React 상태를 프레임마다 바꾸지 않는다)
+   */
+  onView?: (camera: Readonly<CameraState>) => void;
 }
 
 export interface EngineStats {
@@ -86,6 +91,10 @@ export interface EngineStats {
   contextLost: boolean;
   /** 낮밤 빛 요약(시험·HUD) */
   light: EngineLightStats;
+  /** 그린 이웃 2차맵 수(경계 너머 보기) */
+  neighbours: number;
+  /** 세운 소품 모델 수(가까이만, 0이면 땅 색만) */
+  props: number;
 }
 
 /** 낮밤 빛 요약 */
@@ -110,6 +119,11 @@ export interface EngineLightStats {
 export interface SecondMapEngine {
   /** 지형을 바꾼다(워커에서 메시를 만든 뒤 걸린다) */
   setTerrain(terrain: TerrainInput): Promise<void>;
+  /**
+   * 이웃 2차맵 지형(경계 너머 보기). 목록을 통째로 바꾼다(같은 id는 다시 만들지 않는다). 지형이 오기 전이면 그 뒤에 건다.
+   * 카메라 목표점이 이웃 위로도 갈 수 있게 된다
+   */
+  setNeighbours(neighbours: readonly NeighbourTerrain[]): Promise<void>;
   /** 유닛 목록을 통째로 바꾼다(고른 것은 풀린다) */
   setUnits(units: readonly UnitSpawn[]): void;
   /** 서버가 보낸 새 경로 */

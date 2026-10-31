@@ -1,5 +1,6 @@
 // 행성 편집기 정의 조회 자료 — 서버가 켤 때(요청을 받기 전) 한 번 만든다(ADR 2026-10-29-planet-editor-stage1 6·11절).
-// 팩 버전·임시 여부·서버 생성기 판, 행성마다 원본 항목(팩 파일 JSON 그대로)·정의 해시·확인 해시, 바이옴 항목 전부.
+// 팩 버전·임시 여부·서버 생성기 판, 행성마다 원본 항목(팩 파일 JSON 그대로)·정의 해시·확인 해시, 바이옴 항목 전부,
+// 2차맵 소품 규칙(map_props) 항목 전부(편집기 2차맵 미리보기).
 // 행성 표본(planet_templates, "행성 표본" 절)도 같은 모양으로 싣는다. 표본은 굽지 않는다.
 // 확인 해시 = 편집기 빠른 미리보기 레벨(min(5, 행성 면 레벨))로 생성한 결과 해시. 기기는 열 때 공개본을 같은 레벨로 만들어
 // 견주고, 다르면 "이 기기의 미리보기는 서버와 다릅니다"를 띄우고 내보내기를 막는다. 해시 값은 코드·시험에 적지 않는다.
@@ -130,6 +131,9 @@ export function buildPlanetEditorDefinitions(input: PlanetEditorBuildInput): Pla
       planets,
       templates,
       biomes,
+      mapProps: input.raw.mapProps.map((entry, index) =>
+        copyObject(entry, `map_props.json entries[${index}]`),
+      ),
     },
     timings,
     templateTimings,

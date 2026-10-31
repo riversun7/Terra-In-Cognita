@@ -3,6 +3,7 @@ import {
   FIXED_POINT_SCALE,
   HEIGHT_UNIT_M,
   NO_WATER_UNITS,
+  PLACEMENT_CELLS,
   TERRAIN_CELLS,
   TERRAIN_VERTICES,
   type TerrainInput,
@@ -19,6 +20,7 @@ import { describe, expect, it } from "vitest";
 import {
   ENGINE_HEIGHT_UNIT_M,
   ENGINE_NO_WATER,
+  ENGINE_PLACEMENT_CELLS,
   ENGINE_TERRAIN_CELLS,
   TERRAIN_CELL_M,
   TerrainFormatError,
@@ -90,6 +92,15 @@ describe("지형", () => {
     expect(ENGINE_NO_WATER).toBe(NO_WATER_UNITS);
     // 1판은 물 높이가 없다
     expect(toTerrainInput(base).waterLevels).toBeUndefined();
+    // 소품 그림·엄폐는 배치 칸 256²일 때만 넘긴다
+    const art = new Uint8Array(256 * 256).fill(2);
+    const cover = new Uint8Array(256 * 256).fill(1);
+    const withProps = toTerrainInput(
+      decodeTerrain(encodeTerrain({ ...base, art, cover, placementSize: 256 })),
+    );
+    expect(withProps.art?.[5]).toBe(2);
+    expect(withProps.cover?.[5]).toBe(1);
+    expect(ENGINE_PLACEMENT_CELLS).toBe(PLACEMENT_CELLS);
   });
 
   it("int16을 넘는 높이는 가운데를 기준으로 옮긴다", () => {

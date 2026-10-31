@@ -1,7 +1,11 @@
-// 편집 화면 조각 — 머리 줄 틀, 진행 칩 문구, 행성 바이옴 순서. EditorWorkspace.tsx가 쓴다(파일 크기를 나눈 것).
+// 편집 화면 조각 — 머리 줄 틀, 진행 칩 문구, 행성 바이옴 순서, 무거운 미리보기 확인 창. EditorWorkspace.tsx가 쓴다(파일 크기를 나눈 것).
 import type { ReactNode } from "react";
 import { m } from "../../paraglide/messages.js";
+import type { ConfirmRequest } from "./ConfirmDialog.tsx";
+import { formatBytes, formatNumber } from "./editorMessages.ts";
 import type { DraftEntry } from "./editorModel.ts";
+import { CONFIRM_PREVIEW_LEVEL } from "./editorView.ts";
+import { memoryEstimate } from "./memoryEstimate.ts";
 import type { PreviewStage } from "./previewProtocol.ts";
 import type { PreviewDefinition, PreviewSnapshot } from "./previewTypes.ts";
 
@@ -20,6 +24,8 @@ export interface EditorDefinitions {
   /** 행성 표본(planet_templates): [새 행성]의 시작점. 서버가 굽지 않는다(ADR 38 "행성 표본") */
   readonly templates: readonly EditorPlanet[];
   readonly biomes: readonly unknown[];
+  /** map_props.json 항목 전부(팩 순서, JSON 그대로): 2차맵 미리보기의 소품 규칙 */
+  readonly mapProps: readonly unknown[];
 }
 
 /** 시작점의 정의(팩 행성 또는 행성 표본). 없으면 undefined */
@@ -72,6 +78,23 @@ export function biomesInPlanetOrder(entry: DraftEntry, biomes: readonly unknown[
     );
     return found ?? { id: ref };
   });
+}
+
+/** F9 이상 미리보기(행성·2차맵)의 확인 창(ADR 38 4절: 데스크톱 약 15초, 워커 메모리 추정). 그보다 낮으면 null(바로 한다) */
+export function heavyConfirm(level: number, run: () => void): ConfirmRequest | null {
+  if (level < CONFIRM_PREVIEW_LEVEL) return null;
+  const estimate = memoryEstimate(level);
+  return {
+    title: m.planet_editor_heavy_title({ level: String(level) }),
+    body: [
+      m.planet_editor_heavy_body({
+        seconds: formatNumber(15),
+        size: estimate ? formatBytes(estimate.workerPeakBytes) : "–",
+      }),
+    ],
+    confirmLabel: m.planet_editor_heavy_confirm(),
+    onConfirm: run,
+  };
 }
 
 /** 머리 줄 + 본문 틀(세션 전에도 같은 모양). save가 있으면 저장 상태 칩과 [저장] 단추를 단다 */

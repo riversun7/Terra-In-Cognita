@@ -324,6 +324,72 @@ test.describe("관리자", () => {
     expect(deviceErrors).toEqual([]);
   });
 
+  // 2차맵 미리보기(ADR 2026-10-31-second-map-from-planet 9절): 명왕성 표본(F7, 빠르다)에서 칸을 고르면 그 칸의 2차맵을
+  // 기기 워커가 만들어 2차맵 엔진으로 그린다. 두 번째는 행성 값을 다시 쓴다. 창이 열린 동안 지구본 엔진은 내려가고 닫으면 다시 뜬다.
+  // 저장하지 않는다(작업 사본은 시험 맥락과 함께 사라진다). 사진은 기본 테마 둘.
+  for (const theme of ["pastel", "dark"] as const) {
+    test.describe(`2차맵 미리보기 ${theme}`, () => {
+      test.use({ theme });
+
+      test(`칸 정보 [2차맵 미리보기] → 그 칸의 2차맵, 다시 열면 행성 값을 다시 쓴다 (${theme})`, async ({
+        page,
+        deviceErrors,
+      }) => {
+        test.setTimeout(180_000);
+        await openSomePlanet(page);
+        await globeReady(page, 7);
+        await tab(page, "planet").click();
+        await page.locator(".pe-tabpanel .pe-new-planet").click();
+        await page.locator("dialog.pe-prompt[open] .pe-base-select").selectOption("template:solar_pluto");
+        await answerName(page, "명왕성 2차맵");
+        await expect(saveChip(page)).toHaveAttribute("data-save-status", "new");
+        await expect(page.locator(".pe-check-chip")).toHaveAttribute("data-check", "match", {
+          timeout: PREVIEW_TIMEOUT,
+        });
+        await globeReady(page, 7);
+        // 땅 칸을 고른다(바다 칸의 2차맵은 물뿐이라 사진으로 볼 것이 없다). 칸 판은 숨긴 채로도 쉬운 설명 표지가 있다
+        await tab(page, "area").click();
+        const minimap = page.locator(".pe-area-map .flat-map-canvas");
+        const box = await minimap.boundingBox();
+        if (!box) throw new Error("미니맵 캔버스가 없습니다");
+        const spots = [0.3, 0.5, 0.7].flatMap((x) => [0.35, 0.5, 0.65].map((y) => [x, y] as const));
+        for (const [x, y] of spots) {
+          await minimap.click({ position: { x: box.width * x, y: box.height * y } });
+          if ((await page.locator(".pe-story").getAttribute("data-story")) === "land") break;
+        }
+        await expect(page.locator(".pe-story")).toHaveAttribute("data-story", "land");
+        await tab(page, "cell").click();
+        const open = page.locator(".pe-second-map-button");
+        await expect(open).toBeVisible();
+        await expect(page.locator(".pe-second-map-open .field-hint")).toContainText("F7");
+        await shot(page, `planet-editor-second-map-${theme}-cell`);
+
+        await open.click();
+        const dialog = page.locator("dialog.pe-second-map-dialog[open]");
+        await expect(dialog).toHaveAttribute("data-status", "ready", { timeout: 120_000 });
+        const hash = await dialog.getAttribute("data-hash");
+        expect(hash).toMatch(/^[0-9a-f]{8}$/);
+        await expect(dialog.locator(".pe-second-map-view canvas")).toBeVisible();
+        // 지구본 엔진은 내려가 있다(렌더러 하나)
+        await expect(globe(page)).toHaveAttribute("data-status", "waiting");
+        await page.waitForTimeout(1500);
+        await shot(page, `planet-editor-second-map-${theme}`);
+        await dialog.locator(".pe-second-map-close").click();
+        await expect(page.locator("dialog.pe-second-map-dialog")).toHaveCount(0);
+        await expect(globe(page)).toHaveAttribute("data-status", "ready", { timeout: PREVIEW_TIMEOUT });
+
+        // 같은 칸을 다시 열면 행성을 만들지 않고 같은 2차맵(같은 해시)
+        await open.click();
+        await expect(dialog).toHaveAttribute("data-status", "ready", { timeout: 30_000 });
+        await expect(dialog).toHaveAttribute("data-hash", hash ?? "");
+        await expect(dialog.locator(".field-hint[role=status]")).toContainText("행성 값 다시 씀");
+        await page.keyboard.press("Escape");
+        await expect(page.locator("dialog.pe-second-map-dialog")).toHaveCount(0);
+        expect(deviceErrors).toEqual([]);
+      });
+    });
+  }
+
   test("대륙 모양: 누르면 바로 적용하고 대륙 수 슬라이더는 [적용]을 기다린다. 노이즈로 돌아오면 대륙 수가 없다", async ({
     page,
     deviceErrors,

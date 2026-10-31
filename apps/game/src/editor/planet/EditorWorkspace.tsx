@@ -37,7 +37,6 @@ import type { DraftImport } from "./draftExport.ts";
 import { docStatusText, formatBytes, formatNumber, localName, previewErrorText } from "./editorMessages.ts";
 import { type DraftEntry, pendingChangeCount } from "./editorModel.ts";
 import {
-  CONFIRM_PREVIEW_LEVEL,
   type ServerCheck,
   areaRows,
   comparableBaseSummary,
@@ -53,6 +52,7 @@ import { memoryEstimate } from "./memoryEstimate.ts";
 import { HEAVY_PREVIEW_LEVEL } from "./previewJobs.ts";
 import { biomeColoursOf } from "./previewTiles.ts";
 import { type EditorSession, useEditorSession, useStore } from "./useEditorSession.ts";
+import { useSecondMapPreview } from "./useSecondMapPreview.tsx";
 import {
   type LibraryDocActions,
   type LibraryDocDeps,
@@ -66,6 +66,7 @@ import {
   Frame,
   biomesInPlanetOrder,
   definitionOf,
+  heavyConfirm,
   runningText,
 } from "./workspaceParts.tsx";
 
@@ -192,25 +193,22 @@ function Workspace({
     if (activePending) commitEntry(activePending);
   };
 
-  /** F9 이상은 확인 창 뒤에 한다(ADR 38 4절) */
+  /** F9 이상은 확인 창 뒤에 한다(ADR 38 4절, workspaceParts.tsx heavyConfirm) */
   const confirmHeavy = (level: number, run: () => void): void => {
-    if (level < CONFIRM_PREVIEW_LEVEL) {
-      run();
-      return;
-    }
-    const estimate = memoryEstimate(level);
-    setConfirm({
-      title: m.planet_editor_heavy_title({ level: String(level) }),
-      body: [
-        m.planet_editor_heavy_body({
-          seconds: formatNumber(15),
-          size: estimate ? formatBytes(estimate.workerPeakBytes) : "–",
-        }),
-      ],
-      confirmLabel: m.planet_editor_heavy_confirm(),
-      onConfirm: run,
-    });
+    const request = heavyConfirm(level, run);
+    if (request) setConfirm(request);
+    else run();
   };
+
+  // 칸 정보창 [2차맵 미리보기]: 보이는 쪽 정의의 진짜 면 레벨 칸(useSecondMapPreview.tsx)
+  const secondMap = useSecondMapPreview({
+    entry: shown === "base" ? baseEntry : draftEntry,
+    biomes,
+    picked,
+    mapProps: definitions.mapProps,
+    deviceCap,
+    confirmHeavy,
+  });
 
   if (!previewSnap) return null;
   const finalLevel = previewSnap.finalLevel;
@@ -352,7 +350,8 @@ function Workspace({
         <div className="pe-stage" data-view={stageView}>
           <div className="pe-globe-area">
             <EditorGlobe
-              entry={globe}
+              // 2차맵 미리보기 창이 열린 동안은 지구본 엔진을 내린다(렌더러 하나를 같이 쓴다)
+              entry={secondMap.open ? null : globe}
               definitionFaceLevel={faceLevel}
               biomeColors={biomeColors}
               onPick={pickFromGlobe}
@@ -503,6 +502,7 @@ function Workspace({
                   biomeEntries={biomes}
                   contentVersion={definitions.contentVersion}
                   definitionHash={planet.definitionHash}
+                  secondMap={secondMap.opener}
                 />
               ) : null}
               {item.id === "planet" ? (
@@ -593,6 +593,7 @@ function Workspace({
       </div>
       <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} />
       <PromptDialog request={prompt} onClose={() => setPrompt(null)} />
+      {secondMap.dialog}
     </Frame>
   );
 }

@@ -8,6 +8,7 @@ export { stepMapCell, type MapCellStep } from "./edges.ts";
 export {
   compileMapProps,
   emptyPropRules,
+  mapPropInputsFromJson,
   type MapPropCurveInput,
   type MapPropInput,
   type PropRuleSet,

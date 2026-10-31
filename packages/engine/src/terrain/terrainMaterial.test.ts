@@ -26,7 +26,7 @@ describe("TerrainMaterial 셰이더 끼우기", () => {
     }
   });
 
-  it("자리마다 코드를 끼우고 유니폼 여섯 개(안개 둘 포함)를 잇는다", () => {
+  it("자리마다 코드를 끼우고 유니폼 여덟 개(안개 둘·소품 둘 포함)를 잇는다", () => {
     const material = new TerrainMaterial();
     const shader = lambertSource();
     material.patchShader(shader);
@@ -41,6 +41,8 @@ describe("TerrainMaterial 셰이더 끼우기", () => {
       "uFogOn",
       "uHeight",
       "uNoise",
+      "uProps",
+      "uPropsOn",
       "uSurface",
     ]);
     // 선언은 main 앞, 색 단계는 main 안(Lambert 기본 색 단계 뒤)
@@ -49,7 +51,7 @@ describe("TerrainMaterial 셰이더 끼우기", () => {
     }
     const fragment = shader.fragmentShader;
     expect(fragment.indexOf("uniform sampler2D uSurface;")).toBeLessThan(fragment.indexOf("void main"));
-    expect(fragment.indexOf("terrainSurfaceColor(vTerrainPos)")).toBeGreaterThan(
+    expect(fragment.indexOf("terrainSurfaceColor(vTerrainPos, vTerrainLocal)")).toBeGreaterThan(
       fragment.indexOf("#include <color_fragment>"),
     );
     expect(shader.vertexShader.indexOf("vTerrainPos = ")).toBeGreaterThan(

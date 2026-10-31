@@ -236,6 +236,78 @@ export function compileMapProps(props: readonly MapPropInput[], biomeIds: readon
   return { biomeIds, forest, scatter, axes, hash: ruleHash(biomeIds, forest, scatter) };
 }
 
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const optionalNumber = (value: unknown, what: string): number | undefined => {
+  if (value === undefined || typeof value === "number") return value;
+  throw new TypeError(`${what} must be a number`);
+};
+
+function curveOf(value: unknown, what: string): MapPropCurveInput {
+  if (!isRecord(value)) throw new TypeError(`${what} must be an object`);
+  const { min, idealMin, idealMax, max } = value;
+  if (
+    typeof min !== "number" ||
+    typeof idealMin !== "number" ||
+    typeof idealMax !== "number" ||
+    typeof max !== "number"
+  ) {
+    throw new TypeError(`${what} needs min, idealMin, idealMax and max`);
+  }
+  return { min, idealMin, idealMax, max };
+}
+
+function biomeWeightOf(value: unknown, what: string): MapPropInput["biomes"][number] {
+  if (!isRecord(value) || typeof value.weight !== "number") {
+    throw new TypeError(`${what} needs a biome and a weight`);
+  }
+  const { biome, weight } = value;
+  if (typeof biome === "string") return { biome, weight };
+  if (isRecord(biome) && typeof biome.id === "string") return { biome: { id: biome.id }, weight };
+  throw new TypeError(`${what}.biome must be an id`);
+}
+
+/**
+ * map_props 원본 항목(팩 파일 JSON, 바이옴 = ID 문자열) → 입력 모양. 편집기 2차맵 미리보기(기기 워커)가 서버 정의 조회의 원본 항목을
+ * 읽는다. 모양만 본다: 값 범위·참조는 compileMapProps가 다시 본다(서버가 검증한 팩의 항목이라 보통 통과한다). 틀리면 TypeError
+ */
+export function mapPropInputsFromJson(list: readonly unknown[]): MapPropInput[] {
+  return list.map((raw, index): MapPropInput => {
+    const what = `map_props[${index}]`;
+    if (!isRecord(raw)) throw new TypeError(`${what} must be an object`);
+    const { id, art, placement, biomes, curves, clump } = raw;
+    if (typeof id !== "string" || typeof art !== "string" || typeof placement !== "string") {
+      throw new TypeError(`${what} needs id, art and placement`);
+    }
+    if (!Array.isArray(biomes)) throw new TypeError(`${what}.biomes must be an array`);
+    const biomeList: readonly unknown[] = biomes;
+    let curveMap: Record<string, MapPropCurveInput> | undefined;
+    if (curves !== undefined) {
+      if (!isRecord(curves)) throw new TypeError(`${what}.curves must be an object`);
+      curveMap = {};
+      for (const [axis, curve] of Object.entries(curves)) curveMap[axis] = curveOf(curve, `${what}.${axis}`);
+    }
+    let clumpValue: MapPropInput["clump"];
+    if (clump !== undefined) {
+      if (!isRecord(clump) || typeof clump.cells !== "number" || typeof clump.threshold !== "number") {
+        throw new TypeError(`${what}.clump needs cells and threshold`);
+      }
+      clumpValue = { cells: clump.cells, threshold: clump.threshold };
+    }
+    return {
+      id,
+      art,
+      placement,
+      biomes: biomeList.map((item, k) => biomeWeightOf(item, `${what}.biomes[${k}]`)),
+      curves: curveMap,
+      cover: optionalNumber(raw.cover, `${what}.cover`),
+      clump: clumpValue,
+      maxShare: optionalNumber(raw.maxShare, `${what}.maxShare`),
+    };
+  });
+}
+
 /** 소품이 없는 규칙 표(숲 칸은 엄폐 값만 있고 그림은 0) */
 export function emptyPropRules(biomeIds: readonly string[]): PropRuleSet {
   return compileMapProps([], biomeIds);

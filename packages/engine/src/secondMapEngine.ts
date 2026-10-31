@@ -31,8 +31,8 @@ import {
   spanForDistance,
 } from "./camera/cameraMath.ts";
 import { attachControls } from "./camera/controls.ts";
+import { inertEngine, lightStats } from "./engineParts.ts";
 import type {
-  EngineLightStats,
   EngineStats,
   EngineStatus,
   SecondMapEngine,
@@ -41,10 +41,8 @@ import type {
   UnitState,
 } from "./engineTypes.ts";
 import {
-  REFERENCE_FLAT_LIGHT,
   type SecondMapLight,
   UNIT_NIGHT_LIFT,
-  flatLight,
   nightAmount,
   secondMapPlace,
 } from "./lighting/secondMapLight.ts";
@@ -62,7 +60,9 @@ import {
   sampleHeightM,
   terrainProblem,
 } from "./terrain/terrainData.ts";
+import { type NeighbourTerrain, NeighbourTerrains } from "./terrain/neighbourTerrains.ts";
 import { TerrainView } from "./terrain/terrainView.ts";
+import { type PropSource, PropView } from "./props/propView.ts";
 import { type UnitPath, UnitMotionStore } from "./units/unitMotion.ts";
 import { UnitView } from "./units/unitView.ts";
 
@@ -159,7 +159,36 @@ export function createSecondMapEngine(
   const onScreen = new Uint8Array(capacity);
   const pickExtra = new Float32Array(capacity);
 
-  const groundAt = (x: number, z: number): number => (terrain ? sampleHeightM(terrain, x, z) : 0);
+  const neighbours = new NeighbourTerrains(builder);
+  const propView = new PropView();
+  scene.add(neighbours.group, propView.group);
+  let pendingNeighbours: readonly NeighbourTerrain[] | null = null;
+  let lastView = "";
+
+  // 땅 높이: 지금 2차맵 위면 그 지형, 밖이면 이웃 지형(없으면 가장자리 값)
+  const groundAt = (x: number, z: number): number => {
+    if (!terrain) return 0;
+    if (x >= 0 && z >= 0 && x <= mapSize && z <= mapSize) return sampleHeightM(terrain, x, z);
+    return neighbours.heightAt(x, z) ?? sampleHeightM(terrain, x, z);
+  };
+
+  /** 소품 모델 층: 지금 2차맵 + 소품 층이 있는 이웃(이름 순서로 소금을 정한다) */
+  const syncPropSources = (): void => {
+    const sources: PropSource[] = [];
+    if (terrain?.art && terrain.cover)
+      sources.push({ art: terrain.art, cover: terrain.cover, placement: null, salt: 0 });
+    neighbours.propLayers().forEach((layer, index) => {
+      sources.push({ art: layer.art, cover: layer.cover, placement: layer.placement, salt: index + 1 });
+    });
+    propView.setSources(sources, cellM, groundAt);
+  };
+
+  /** 카메라 한계: 확대·기울기는 지금 2차맵 기준, 목표점 범위는 이웃까지(경계 너머 보기) */
+  const computeLimits = (): CameraLimits => {
+    const base = cameraLimitsFor(mapSize, viewport);
+    const bounds = neighbours.bounds(mapSize);
+    return { ...base, ...bounds };
+  };
 
   // 빛을 three 빛·하늘 색·유닛 밤 빛에 넣는다(숫자 몇 개라 프레임마다 넣어도 싸다)
   const applyLight = (light: SecondMapLight): void => {
@@ -208,6 +237,14 @@ export function createSecondMapEngine(
       }
     }
     applyCamera();
+    // 가까이면 카메라 둘레 소품 모델을 세운다(움직임이 크면 다시 세운다)
+    propView.update(state.targetX, state.targetZ, spanForDistance(state.distance, viewport));
+    // 카메라가 바뀌었으면 알린다(나침반·이웃 받기). 같은 값이면 부르지 않는다
+    const view = `${state.targetX.toFixed(1)},${state.targetZ.toFixed(1)},${state.yaw.toFixed(3)},${state.distance.toFixed(0)}`;
+    if (view !== lastView) {
+      lastView = view;
+      options.onView?.(state);
+    }
     const blending = sky.frame(performance.now());
     applyLight(sky.light);
     moving = motion.update(serverNow());
@@ -246,7 +283,7 @@ export function createSecondMapEngine(
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(viewport.width, viewport.height, false);
     unitView.setPixelScale(canvas.width, canvas.height, pixelRatio);
-    limits = cameraLimitsFor(mapSize, viewport);
+    limits = computeLimits();
     state = clampCamera(state, limits);
     scheduler.request();
   };
@@ -366,8 +403,9 @@ export function createSecondMapEngine(
       mapSize = mapSizeM(input);
       cellM = placementCellM(input);
       terrainView.set(built.mesh, input, built.noise);
+      syncPropSources();
       unitView.group.visible = true;
-      limits = cameraLimitsFor(mapSize, viewport);
+      limits = computeLimits();
       if (!cameraPlaced) {
         state = initialCamera(mapSize, limits, groundAt(mapSize / 2, mapSize / 2));
         cameraPlaced = true;
@@ -379,6 +417,29 @@ export function createSecondMapEngine(
         pendingBuildings = null;
       }
       emit(contextLost ? { kind: "context-lost" } : { kind: "ready" });
+      scheduler.request();
+      if (pendingNeighbours) {
+        const list = pendingNeighbours;
+        pendingNeighbours = null;
+        await this.setNeighbours(list);
+      }
+    },
+
+    async setNeighbours(list) {
+      if (!terrain) {
+        pendingNeighbours = list;
+        return;
+      }
+      const changed = await neighbours.set(list, terrain.cellSizeM, {
+        minHeightM: minHeight,
+        maxHeightM: maxHeight,
+      });
+      if (disposed || !changed) return;
+      // 이웃이 있으면 지금 2차맵 가장자리 벽을 숨긴다(이웃 땅과 이어 보이게). 소품 모델도 이웃까지 세운다
+      terrainView.setWalls(neighbours.count === 0);
+      syncPropSources();
+      limits = computeLimits();
+      state = clampCamera(state, limits);
       scheduler.request();
     },
 
@@ -470,6 +531,8 @@ export function createSecondMapEngine(
         terrainSource,
         contextLost,
         light: lightStats(sky),
+        neighbours: neighbours.count,
+        props: propView.drawn,
       };
     },
 
@@ -492,6 +555,8 @@ export function createSecondMapEngine(
       document.removeEventListener("visibilitychange", onVisibility);
       canvas.removeEventListener("webglcontextlost", onContextLost);
       canvas.removeEventListener("webglcontextrestored", onContextRestored);
+      neighbours.dispose();
+      propView.dispose();
       builder.dispose();
       terrainView.dispose();
       buildingView.dispose();
@@ -501,64 +566,5 @@ export function createSecondMapEngine(
       scene.clear();
       releaseRenderer(owner);
     },
-  };
-}
-
-/** 통계용 빛 요약: 평지 밝기는 낮 기준(지금 고정 빛)에 견준 세 채널 평균 */
-function lightStats(sky: SecondMapSky): EngineLightStats {
-  const light = sky.light;
-  const [r, g, b] = flatLight(light);
-  return {
-    clock: sky.clockState,
-    day: light.day,
-    source: light.source,
-    flat: (r + g + b) / 3 / REFERENCE_FLAT_LIGHT,
-    localHours: light.localHours,
-    sunElevationDeg: light.sunElevationDeg,
-    moonElevationDeg: light.moonElevationDeg,
-    moonLit: light.moonLit,
-    changes: sky.changeCount,
-  };
-}
-
-/** WebGL을 못 쓸 때: 아무것도 그리지 않는 엔진(화면은 안내를 띄운다) */
-function inertEngine(): SecondMapEngine {
-  const empty: EngineStats = {
-    renderedFrames: 0,
-    framesLastSecond: 0,
-    renderP95Ms: 0,
-    renderMaxMs: 0,
-    drawCalls: 0,
-    triangles: 0,
-    points: 0,
-    units: 0,
-    movingUnits: 0,
-    drawnUnits: 0,
-    unitMode: "model",
-    pixelRatio: 1,
-    drawingBufferWidth: 0,
-    drawingBufferHeight: 0,
-    pixelsPerMetre: 0,
-    viewSpanM: 0,
-    terrainBuildMs: null,
-    terrainSource: null,
-    contextLost: false,
-    light: lightStats(new SecondMapSky(null)),
-  };
-  const camera: CameraState = { targetX: 0, targetY: 0, targetZ: 0, yaw: 0, pitch: 0, distance: 0 };
-  return {
-    setTerrain: () => Promise.resolve(),
-    setUnits: () => undefined,
-    setUnitPath: () => undefined,
-    stopUnit: () => undefined,
-    unitState: () => null,
-    setBuildings: () => undefined,
-    setExplored: () => undefined,
-    select: () => undefined,
-    selected: () => null,
-    stats: () => empty,
-    camera: () => camera,
-    setSky: () => undefined,
-    dispose: () => undefined,
   };
 }

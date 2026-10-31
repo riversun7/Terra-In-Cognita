@@ -1,7 +1,7 @@
 // 소품 규칙 컴파일 시험 — 시험 사본이 팩과 같은지, 틀린 입력 거부, 곡선 값, 규칙 해시
 import { describe, expect, it } from "vitest";
 import mapPropsJson from "../../../../content/core/map_props.json";
-import { AXIS, compileMapProps, curveValue, emptyPropRules } from "./props.ts";
+import { AXIS, compileMapProps, curveValue, emptyPropRules, mapPropInputsFromJson } from "./props.ts";
 import { TEST_MAP_PROPS } from "./testMapProps.ts";
 
 const BIOMES = ["ocean_deep", "taiga", "desert"] as const;
@@ -112,5 +112,31 @@ describe("2차맵 소품 규칙", () => {
     );
     expect(compileMapProps(edited, BIOMES).hash).not.toBe(base);
     expect(emptyPropRules(BIOMES).forest).toEqual([]);
+  });
+});
+
+describe("map_props 원본 항목 읽기(편집기 2차맵 미리보기)", () => {
+  it("팩 파일 항목이 시험 사본과 같은 규칙이 된다(이름·설명은 버린다)", () => {
+    const biomes = ["taiga", "temperate_forest", "wetland", "desert"];
+    const fromJson = compileMapProps(mapPropInputsFromJson(mapPropsJson.entries), biomes);
+    expect(fromJson.hash).toBe(compileMapProps(TEST_MAP_PROPS, biomes).hash);
+  });
+
+  it("모양이 틀리면 TypeError", () => {
+    expect(() => mapPropInputsFromJson([1])).toThrow(TypeError);
+    expect(() => mapPropInputsFromJson([{ id: "a", art: "bush", placement: "scatter" }])).toThrow(TypeError);
+    expect(() =>
+      mapPropInputsFromJson([
+        { id: "a", art: "bush", placement: "scatter", biomes: [{ biome: 3, weight: 1 }] },
+      ]),
+    ).toThrow(TypeError);
+    expect(() =>
+      mapPropInputsFromJson([
+        { id: "a", art: "bush", placement: "scatter", biomes: [], curves: { humidity: { min: 1 } } },
+      ]),
+    ).toThrow(TypeError);
+    expect(() =>
+      mapPropInputsFromJson([{ id: "a", art: "bush", placement: "scatter", biomes: [], cover: "2" }]),
+    ).toThrow(TypeError);
   });
 });

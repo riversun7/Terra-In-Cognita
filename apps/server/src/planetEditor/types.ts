@@ -49,6 +49,11 @@ export interface PlanetEditorDefinitions {
   templates: PlanetEditorPlanet[];
   /** biomes.json 항목 전부(팩 순서, JSON 그대로) */
   biomes: JsonObject[];
+  /**
+   * map_props.json 항목 전부(팩 순서 = 흩기 우선순위, JSON 그대로): 편집기 2차맵 미리보기가 서버 지형 워커와 같은 소품 규칙으로
+   * 2차맵을 만든다(ADR 2026-10-31-second-map-from-planet 9절)
+   */
+  mapProps: JsonObject[];
 }
 
 /** planetEditor.drafts.get·restore의 초안 */

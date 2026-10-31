@@ -725,3 +725,22 @@
 .pe-base-select {
   width: 100%;
 }
+
+/* ── 2차맵 미리보기(ADR 2026-10-31-second-map-from-planet 9절): 칸 정보창 단추, 창 안 엔진 그림 자리 ── */
+.pe-second-map-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+.pe-second-map-dialog {
+  width: min(56rem, calc(100% - 2 * var(--space-4)));
+}
+.pe-second-map-view {
+  position: relative;
+  width: 100%;
+  height: min(60dvh, 36rem);
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background-color: var(--color-bg);
+}

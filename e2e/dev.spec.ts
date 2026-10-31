@@ -7,7 +7,7 @@ import type { Page } from "@playwright/test";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { expect, test } from "./helpers/test.ts";
 
-const DEV_PATHS = ["/dev", "/dev/planet-editor", "/dev/gpu-bench"] as const;
+const DEV_PATHS = ["/dev", "/dev/planet-editor", "/dev/star-system", "/dev/gpu-bench"] as const;
 
 /** 틀 안 화면이 그려질 때까지(본문 제목) */
 async function framed(page: Page): Promise<void> {
@@ -36,7 +36,7 @@ async function benchShown(page: Page): Promise<void> {
 test.describe("관리자", () => {
   test.use({ account: "admin" });
 
-  test("서랍의 [개발자]로 개발자 홈을 열고, 도구 두 줄에서 셰이더 측정을 연다. [뒤로]는 개발자 홈 → 홈", async ({
+  test("서랍의 [개발자]로 개발자 홈을 열고, 도구 세 줄에서 셰이더 측정을 연다. [뒤로]는 개발자 홈 → 홈", async ({
     page,
     deviceErrors,
   }) => {
@@ -49,10 +49,10 @@ test.describe("관리자", () => {
     await expect(page).toHaveURL((url) => url.pathname === "/dev");
     await framed(page);
     await expect(drawer).not.toHaveAttribute("open", "");
-    // 도구 두 줄: 행성 편집기와 셰이더 측정(둘 다 화면이 있어 "준비 중" 칩이 없다)
-    await expect(page.locator("#main a.dev-tool")).toHaveCount(2);
+    // 도구 세 줄: 행성 편집기·항성계 편집기·셰이더 측정(모두 화면이 있어 "준비 중" 칩이 없다)
+    await expect(page.locator("#main a.dev-tool")).toHaveCount(3);
     await expect(page.locator("#main a.dev-tool .dev-tool-badge")).toHaveCount(0);
-    for (const path of ["/dev/planet-editor", "/dev/gpu-bench"]) {
+    for (const path of ["/dev/planet-editor", "/dev/star-system", "/dev/gpu-bench"]) {
       await expect(toolRow(page, path).locator(".dev-tool-desc")).not.toBeEmpty();
     }
     // 사이드 메뉴의 [개발자]가 지금 화면이다
@@ -173,7 +173,7 @@ test.describe("관리자", () => {
 test.describe("플레이어", () => {
   test.use({ account: "player" });
 
-  test("사이드 메뉴에 [개발자]가 없고, /dev·/dev/planet-editor·/dev/gpu-bench는 권한 없음 화면이다", async ({
+  test("사이드 메뉴에 [개발자]가 없고, /dev·/dev/planet-editor·/dev/star-system·/dev/gpu-bench는 권한 없음 화면이다", async ({
     page,
     deviceErrors,
   }) => {

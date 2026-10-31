@@ -152,7 +152,7 @@ function OrbitFields({ index, ...props }: SystemPanelProps & { index: number }) 
         </label>
         <input
           id={`${id}-distance`}
-          className="ss-distance"
+          className="input ss-distance"
           type="text"
           inputMode="decimal"
           autoComplete="off"

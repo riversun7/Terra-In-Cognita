@@ -1,15 +1,15 @@
 // 항성계 그림(위에서 내려다본 2D, SVG) — 가운데 항성, 궤도 고리, 생명 가능 지대 띠, 궤도 위 천체.
 // 배치는 starSystemLayout.ts(순수 함수)가 정하고 이 파일은 그리기만 한다: 개발자 항성계 편집기가 쓰고, 나중 게임 항성계 화면도
 // 같은 그림에서 시작한다(ADR 2026-10-31-star-system-editor). 문구는 받아서 쓴다(화면마다 다른 메시지 키).
-// - 천체는 누를 수 있다(role="button", Enter·Space). 누르는 자리는 보이는 점보다 크다(터치 목표 --tap-size 근처, 그림 몫 0.13).
+// - 천체는 누를 수 있다(role="button", Enter·Space). 누르는 자리는 보이는 점보다 크다(터치 목표 --tap-size 근처, 그림 몫 0.14).
 // - 항성 색은 자료(항성 종류 표)라 속성으로 넣는다. 나머지 색은 CSS가 디자인 토큰으로 칠한다(starSystemView.css).
 import { type StarSystemDefinition, starType, zoneOf } from "@terra/shared";
 import type { KeyboardEvent } from "react";
 import { STAR_RADIUS, bodyPosition, systemLayout } from "./starSystemLayout.ts";
 import "./starSystemView.css";
 
-/** 천체를 누르는 자리 반지름(그림 몫). 390px 화면에서 지름 약 46px */
-const HIT_RADIUS = 0.13;
+/** 천체를 누르는 자리 반지름(그림 몫). 390px 화면(그림 폭 약 350px)에서 지름 약 49px */
+const HIT_RADIUS = 0.14;
 const PLANET_RADIUS = 0.034;
 const MARK_RADIUS = 0.028;
 
@@ -85,6 +85,7 @@ export function StarSystemView({ definition, label, bodyLabel, selected, onSelec
                 y={-MARK_RADIUS}
                 width={MARK_RADIUS * 2}
                 height={MARK_RADIUS * 2}
+                strokeWidth={0.01}
                 transform="rotate(45)"
               />
             ) : orbit.body.kind === "asteroid_belt" ? (

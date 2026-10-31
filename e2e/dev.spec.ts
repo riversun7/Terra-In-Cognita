@@ -1,7 +1,6 @@
 // 개발자 영역 화면 시험 — ADR 2026-10-29-planet-editor-stage1 1절(개발자 도구 한곳, WP-H): 개발자 홈(/dev),
 // 관리자 화면에서 옮긴 셰이더 측정(/dev/gpu-bench), 역할별 권한, 관리자 화면에 측정판이 없음.
-// 시험 틀의 가짜 계정은 player·admin뿐이다(e2e/global-setup.ts). dev 역할은 주소 표의 같은 규칙(access dev_admin)을 쓰고,
-// 단위 시험(packages/shared routes.test.ts canOpenRoute)이 본다. 여기서는 admin으로만 연다.
+// 여기서는 admin으로 연다(dev 계정으로 편집기를 여는 시험은 e2e/planet-editor.spec.ts). 행성 편집기 화면 자체도 그 파일이 본다.
 // 화면 문구 대신 표지(class·id·주소)로 본다. 셰이더 측정은 WebGL2 + GLSL 하나만 골라 시작 → 바로 멈춤까지만 한다
 // (전체 측정은 약 2분이고, 헤드리스 Chromium의 그리기는 소프트웨어라 숫자가 휴대폰과 다르다).
 import type { Page } from "@playwright/test";
@@ -50,10 +49,9 @@ test.describe("관리자", () => {
     await expect(page).toHaveURL((url) => url.pathname === "/dev");
     await framed(page);
     await expect(drawer).not.toHaveAttribute("open", "");
-    // 도구 두 줄: 행성 편집기(화면은 WP-D, 지금은 "준비 중" 칩)와 셰이더 측정
+    // 도구 두 줄: 행성 편집기와 셰이더 측정(둘 다 화면이 있어 "준비 중" 칩이 없다)
     await expect(page.locator("#main a.dev-tool")).toHaveCount(2);
-    await expect(toolRow(page, "/dev/planet-editor").locator(".dev-tool-badge")).toBeVisible();
-    await expect(toolRow(page, "/dev/gpu-bench").locator(".dev-tool-badge")).toHaveCount(0);
+    await expect(page.locator("#main a.dev-tool .dev-tool-badge")).toHaveCount(0);
     for (const path of ["/dev/planet-editor", "/dev/gpu-bench"]) {
       await expect(toolRow(page, path).locator(".dev-tool-desc")).not.toBeEmpty();
     }
@@ -77,14 +75,15 @@ test.describe("관리자", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  test("행성 편집기 줄은 지금 준비 중 화면을 연다(틀 숨김, [뒤로]는 개발자 홈)", async ({ page }) => {
+  test("행성 편집기 줄은 편집기 화면을 연다(틀 숨김, [뒤로]는 개발자 홈)", async ({ page }) => {
     await page.goto("/dev");
     await framed(page);
     await toolRow(page, "/dev/planet-editor").click();
     await expect(page).toHaveURL((url) => url.pathname === "/dev/planet-editor");
-    await expect(page.locator(".coming-soon")).toBeVisible();
+    await expect(page.locator(".pe-screen")).toBeVisible();
+    await expect(page.locator(".coming-soon")).toHaveCount(0);
     await expect(page.locator(".frame")).toHaveCount(0);
-    await page.locator(".back-button").click();
+    await page.locator(".pe-back").click();
     await expect(page).toHaveURL((url) => url.pathname === "/dev");
   });
 
@@ -189,7 +188,10 @@ test.describe("플레이어", () => {
     for (const path of DEV_PATHS) {
       await page.goto(path);
       await expect(page.locator("#no-permission-title"), path).toBeVisible();
-      await expect(page.locator("#main a.dev-tool, #main .bench, .coming-soon"), path).toHaveCount(0);
+      await expect(
+        page.locator("#main a.dev-tool, #main .bench, .coming-soon, .pe-screen"),
+        path,
+      ).toHaveCount(0);
     }
     expect(deviceErrors).toEqual([]);
   });

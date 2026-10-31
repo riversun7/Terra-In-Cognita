@@ -4,6 +4,7 @@ import {
   type AttackProfile,
   type DefenseProfile,
   buildingDamage,
+  elementTermPm,
   resolveAttack,
   sightRadius,
   weaponScaled,
@@ -111,6 +112,19 @@ describe("공격 한 번(D-419 두 번 굴림, D-421 상한 없음)", () => {
       c,
     );
     expect(Number.isSafeInteger(giant.amount)).toBe(true);
+  });
+
+  it("속성 항은 0 아래로 내려가지 않는다(하한 0.25 거둠, D-421)", () => {
+    const skill = [...NO];
+    skill[2] = 100;
+    const fire: AttackProfile = { ...attacker, kind: "elemental", skillElementsPm: skill };
+    // 불 계열이 물 계열(물 10·서리 10)을 치면 상성 −50 × (10 + 20) = −1500 → 1000 − 1500 → 0
+    const water = [...NO];
+    water[0] = 10;
+    water[1] = 10;
+    const wet = { ...defender, elements: water };
+    expect(elementTermPm(fire, wet, c)).toBe(0);
+    expect(resolveAttack(fire, wet, HIT, c)).toEqual({ outcome: "hit", crit: false, amount: 0 });
   });
 
   it("건물은 물리 실제 공격력 × 건물 배율만 받는다(D-5043)", () => {

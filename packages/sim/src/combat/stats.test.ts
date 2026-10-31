@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { type Primaries, TEST_STAT_TABLE, computeSecondary, primaryAtLevel } from "./stats.ts";
+import {
+  MAX_STAT_INPUT,
+  type Primaries,
+  TEST_STAT_TABLE,
+  computeSecondary,
+  primaryAtLevel,
+} from "./stats.ts";
 
 const flat: Primaries = { str: 10, dex: 10, agi: 10, vit: 10, int: 10, wis: 10 };
 
@@ -14,6 +20,12 @@ describe("스탯 계산기(D-414·D-417, 정수 ‰)", () => {
     // K 1200‰ → 20 × (1 + 0.1 × 1.2 × 10) = 44
     expect(primaryAtLevel(20, 100, 1200, 11)).toBe(44);
     expect(primaryAtLevel(20, 100, 1200, 1)).toBe(20);
+  });
+
+  it("넘침 방지: 입력 범위(10^7)를 넘는 1차 스탯·장비 값은 거절한다(게임 상한이 아니라 정수 보호)", () => {
+    expect(() => computeSecondary({ ...flat, str: MAX_STAT_INPUT }, TEST_STAT_TABLE)).not.toThrow();
+    expect(() => computeSecondary({ ...flat, str: MAX_STAT_INPUT + 1 }, TEST_STAT_TABLE)).toThrow(RangeError);
+    expect(() => computeSecondary(flat, TEST_STAT_TABLE, { hp: MAX_STAT_INPUT + 1 })).toThrow(RangeError);
   });
 
   it("양 모양 = 기본 + Σ(1차 × 가중치‰) ÷ 1000 + 장비 + 버프", () => {

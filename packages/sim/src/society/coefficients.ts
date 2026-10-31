@@ -124,13 +124,13 @@ export interface SocietyCoefficients {
     readonly initialMin: number;
     readonly initialMax: number;
     /**
-     * 성향 목록(N9, D-6039): 고르면 그 칸의 평균이 오른다. 출발값은 D-6039 예시 셋(전투형 STR·VIT, 기술형 INT·DEX, 교역형
-     * INT·WIS). 팩 tuning은 정수 칸만이라 목록은 이 표에 둔다(개발자 설정 D1이 생기면 옮긴다)
+     * 성향 목록(N9, D-6039·D-445 168): 고르면 그 칸의 평균이 오른다. 출발값은 균형(치우침 없음)·전투형 STR·VIT·기술형
+     * INT·DEX·교역형 INT·WIS. 팩 tuning은 정수 칸만이라 목록은 이 표에 둔다(개발자 설정 D1이 생기면 옮긴다)
      */
     readonly temperaments: readonly CyborgTemperament[];
-    /** 다시 굴리기 횟수(N9 출발값 3). 생성과 환생이 같은 값을 쓴다(D-444 164) */
+    /** 다시 굴리기 횟수(N9 출발값 3, 처음 굴림은 따로 — D-445 169). 생성과 환생이 같은 값을 쓴다(D-444 164) */
     readonly initialRerolls: number;
-    /** 성향 칸 평균을 올리는 양(밀리점, 기술 기본안 3000 = +3). 나머지 칸 평균은 합이 그대로가 되게 내려간다 */
+    /** 성향 칸 평균을 올리는 양(치우침 값, 설정값 — D-445 168. 출발값은 기술 기본안 3000 = +3). 나머지 칸 평균은 합이 그대로가 되게 내려간다 */
     readonly initialFavorMilli: number;
     /** 칸마다 정규분포 표준편차(밀리점, 옛 CHR-1 §4.2 "약 3" → 3000) */
     readonly initialSpreadMilli: number;
@@ -226,6 +226,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     initialMin: 1,
     initialMax: 20,
     temperaments: [
+      { id: "balanced", favored: [] },
       { id: "combat", favored: ["str", "vit"] },
       { id: "tech", favored: ["int", "dex"] },
       { id: "trade", favored: ["int", "wis"] },

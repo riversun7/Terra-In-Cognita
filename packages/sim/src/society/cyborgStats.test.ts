@@ -10,8 +10,9 @@ const STATS = ["str", "dex", "agi", "vit", "int", "wis"] as const;
 const sumOf = (p: Record<(typeof STATS)[number], number>) => STATS.reduce((sum, stat) => sum + p[stat], 0);
 
 describe("사이보그 초기 스탯 굴림(생성·환생 공용, D-6039·D-444 164·N9)", () => {
-  it("성향 목록은 N9 출발값(D-6039 예: 전투형 STR·VIT, 기술형 INT·DEX, 교역형 INT·WIS), 다시 굴리기 3번", () => {
+  it("성향 목록은 N9 출발값(D-445 168: 균형·전투형 STR·VIT·기술형 INT·DEX·교역형 INT·WIS), 다시 굴리기 3번(D-445 169)", () => {
     expect(c.cyborg.temperaments.map((t) => [t.id, [...t.favored]])).toEqual([
+      ["balanced", []],
       ["combat", ["str", "vit"]],
       ["tech", ["int", "dex"]],
       ["trade", ["int", "wis"]],
@@ -27,6 +28,17 @@ describe("사이보그 초기 스탯 굴림(생성·환생 공용, D-6039·D-444
       vit: 13,
       int: 8,
       wis: 8,
+    });
+  });
+
+  it("균형은 치우침이 없다: 가운데 굴림이면 모든 칸 10", () => {
+    expect(rollStatSpread("balanced", constantRng(5000), c)).toEqual({
+      str: 10,
+      dex: 10,
+      agi: 10,
+      vit: 10,
+      int: 10,
+      wis: 10,
     });
   });
 
@@ -81,7 +93,7 @@ describe("사이보그 초기 스탯 굴림(생성·환생 공용, D-6039·D-444
     expect(() => rollStatSpread("bard", createRng(1), c)).toThrow(RangeError);
   });
 
-  it("다시 굴리기는 N9 횟수까지(생성과 환생이 같은 설정값), 굴릴 때마다 성향을 다시 고를 수 있다", () => {
+  it("다시 굴리기는 처음 1번 + N9 횟수(생성과 환생이 같은 설정값), 성향을 바꿔 굴려도 1번, 다 쓰면 마지막 값(D-445 169)", () => {
     const rng = createRng(9);
     let rolls = firstStatRoll("combat", rng, c);
     expect(rolls.rerollsLeft).toBe(3);

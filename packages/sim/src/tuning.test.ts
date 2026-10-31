@@ -37,7 +37,7 @@ describe("설정 칸 값 → 계수표", () => {
       ]),
     );
     expect([d444.delistLoyaltyPm, d444.cyborg.initialRerolls, d444.cyborg.temperaments.length]).toEqual([
-      300, 5, 3,
+      300, 5, 4,
     ]);
   });
 

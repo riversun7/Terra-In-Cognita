@@ -1,8 +1,11 @@
 // 화면 시험 쓰는 법 — 시험 파일(e2e/<줄기>.spec.ts)은 @playwright/test 대신 이 파일의 test·expect를 가져온다.
 // 선택(test.use로 바꾼다)
-// - account: 처음부터 로그인한 채 열 가짜 계정("player"·"admin", 기본 null = 로그인 안 함). 전역 준비가 저장한 세션이다.
+// - account: 처음부터 로그인한 채 열 가짜 계정("player"·"dev"·"admin", 기본 null = 로그인 안 함). 전역 준비가 저장한 세션이다.
 //   세션은 시험끼리 함께 쓴다 → 로그아웃하는 시험은 account 대신 login()으로 새 세션을 만든다(helpers/auth.ts. 들어가기
 //   시도 제한 때문에 login()은 로그인 자체를 볼 때만 쓴다).
+// - preview: 시안 자료 보기를 켠 계정(기기 저장소 terra.preview, 기본 null = 꺼짐). 그 계정으로 로그인해 있고 dev·admin일 때만
+//   켜진다(apps/game/src/inbox/preview.ts). 켜면 처리할 일·복귀 요약을 시안 자료로 묻고, 복귀 요약이 앱을 켤 때마다 뜬다.
+//   보통 account와 같은 계정을 준다(test.use({ account: "dev", preview: "dev" })). login()으로 들어갈 계정을 미리 줘도 된다.
 // - theme·language·nav·home: 기기 저장소에 미리 넣을 설정 묶음(기본 pastel·ko·{}·{}, null = 넣지 않음).
 //   "로그인 전에 이 기기에서 고른 값"으로 표시하므로 로그인할 때(저장한 세션으로 열 때 포함) 기기 값이 계정에 올라간다
 //   (apps/game/src/settings/syncRules.ts 규칙 1). 그래서 기본값이면 시험마다 계정 설정이 되돌아간다: 파스텔, 한국어,
@@ -13,13 +16,14 @@
 // 고정
 // - baseURL: 전역 준비가 켠 서버. page.goto("/units")처럼 경로만 쓴다.
 // - deviceErrors: 기기 오류(잡히지 않은 오류, console.error, 오류 보고 전송)를 모은다. 보는 시험이 expect(…).toEqual([]).
-// 시험끼리 함께 쓰는 것: 작업자 하나가 시험 파일을 차례로 돌리고, 한 실행에 계정은 player·admin 하나씩이다.
+// 시험끼리 함께 쓰는 것: 작업자 하나가 시험 파일을 차례로 돌리고, 한 실행에 계정은 player·dev·admin 하나씩이다.
 // - 계정 세션(쿠키), 계정 설정 중 null로 준 묶음, 서버의 시도 제한(들어가기: 아이디마다 15분에 10번·주소마다 분당 10번,
-//   행성 목록 정보: 사용자마다 분당 60번). 서버를 켤 때마다 처음부터다.
+//   행성 목록 정보: 사용자마다 분당 60번). 서버를 켤 때마다 처음부터다. 들어가기는 전역 준비가 계정마다 한 번(3번) 쓴다.
 // - 기기 저장소(localStorage·sessionStorage)와 쿠키 상자는 맥락(시험)마다 새로 만든다.
 // - 다른 기기에도 남는지 보는 시험은 두 번째 기기(deviceOptions)에 보는 묶음을 null로 준다. 그러지 않으면 두 번째 기기가
 //   로그인하며 계정 값을 기본으로 되돌린다.
-// 그 밖: 넘침·누르는 곳·사진은 helpers/screen.ts, 두 번째 기기는 아래 deviceOptions·watchDeviceErrors.
+// 그 밖: 넘침·누르는 곳·사진은 helpers/screen.ts, 화면 문구는 helpers/messages.ts, tRPC 요청 보기·응답 바꾸기는
+// helpers/trpc.ts, 두 번째 기기는 아래 deviceOptions·watchDeviceErrors.
 import { type BrowserContext, type BrowserContextOptions, test as base, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { type AccountName, harness } from "./harness.ts";
@@ -38,21 +42,26 @@ export type SettingsObject = { readonly [key: string]: unknown };
  */
 const SETTINGS_KEY = "terra.settings";
 const PARAGLIDE_KEY = "PARAGLIDE_LOCALE";
+/** 시안 자료 보기 표시 — apps/game/src/inbox/preview.ts의 STORAGE_KEY·MARK_VERSION과 같아야 한다({ v: 1, user: 계정 ID }) */
+const PREVIEW_KEY = "terra.preview";
+const PREVIEW_MARK_VERSION = 1;
 /** 기기 오류 보고 경로 — packages/protocol/src/telemetry.ts의 TELEMETRY_PATHS.errors */
 const ERROR_REPORT_PATH = "/api/telemetry/errors";
 
 export interface DeviceOptions {
   account: AccountName | null;
+  /** 시안 자료 보기를 켠 계정(머리 주석). null = 꺼짐 */
+  preview: AccountName | null;
   theme: Theme | null;
   language: Language | null;
   nav: SettingsObject | null;
   home: SettingsObject | null;
 }
 
-/** 설정 묶음의 기본값(account 제외) — 시험 기본 맥락과 deviceOptions가 같이 쓴다 */
+/** 설정 묶음의 기본값(account·preview 제외) — 시험 기본 맥락과 deviceOptions가 같이 쓴다 */
 const DEFAULT_SETTINGS = { theme: "pastel", language: "ko", nav: {}, home: {} } as const satisfies Omit<
   DeviceOptions,
-  "account"
+  "account" | "preview"
 >;
 
 export interface DeviceError {
@@ -70,8 +79,11 @@ function isCookieFile(value: unknown): value is { cookies: Cookie[] } {
 /** 브라우저 언어(navigator.language) — 앱 언어와 맞춘다. 넣지 않으면 한국어 기기 */
 const browserLocale = (language: Language | null): string => (language === "en" ? "en-US" : "ko-KR");
 
-/** 맥락의 처음 저장 상태: 계정 세션 쿠키 + 기기 저장소의 설정 묶음 */
-function startState({ account, theme, language, nav, home }: DeviceOptions, baseURL: string): StorageState {
+/** 맥락의 처음 저장 상태: 계정 세션 쿠키 + 기기 저장소의 설정 묶음·시안 자료 표시 */
+function startState(
+  { account, preview, theme, language, nav, home }: DeviceOptions,
+  baseURL: string,
+): StorageState {
   let cookies: Cookie[] = [];
   if (account) {
     const file = harness().accounts[account].storageState;
@@ -101,6 +113,10 @@ function startState({ account, theme, language, nav, home }: DeviceOptions, base
     localStorage.push({ name: SETTINGS_KEY, value: JSON.stringify(settings) });
   }
   if (language !== null) localStorage.push({ name: PARAGLIDE_KEY, value: language });
+  if (preview !== null) {
+    const user = harness().accounts[preview].userId;
+    localStorage.push({ name: PREVIEW_KEY, value: JSON.stringify({ v: PREVIEW_MARK_VERSION, user }) });
+  }
   return { cookies, origins: localStorage.length > 0 ? [{ origin: baseURL, localStorage }] : [] };
 }
 
@@ -111,7 +127,7 @@ function startState({ account, theme, language, nav, home }: DeviceOptions, base
  */
 export function deviceOptions(options: Partial<DeviceOptions> = {}): BrowserContextOptions {
   const { baseURL } = harness();
-  const device: DeviceOptions = { account: null, ...DEFAULT_SETTINGS, ...options };
+  const device: DeviceOptions = { account: null, preview: null, ...DEFAULT_SETTINGS, ...options };
   return { baseURL, locale: browserLocale(device.language), storageState: startState(device, baseURL) };
 }
 
@@ -138,6 +154,7 @@ export function watchDeviceErrors(context: BrowserContext): DeviceError[] {
 
 export const test = base.extend<DeviceOptions & { deviceErrors: DeviceError[] }>({
   account: [null, { option: true }],
+  preview: [null, { option: true }],
   theme: [DEFAULT_SETTINGS.theme, { option: true }],
   language: [DEFAULT_SETTINGS.language, { option: true }],
   nav: [DEFAULT_SETTINGS.nav, { option: true }],
@@ -151,8 +168,8 @@ export const test = base.extend<DeviceOptions & { deviceErrors: DeviceError[] }>
   locale: async ({ language }, use) => {
     await use(browserLocale(language));
   },
-  storageState: async ({ account, theme, language, nav, home }, use) => {
-    await use(startState({ account, theme, language, nav, home }, harness().baseURL));
+  storageState: async ({ account, preview, theme, language, nav, home }, use) => {
+    await use(startState({ account, preview, theme, language, nav, home }, harness().baseURL));
   },
   deviceErrors: [
     async ({ context }, use) => {

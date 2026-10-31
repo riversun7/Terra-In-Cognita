@@ -2,10 +2,12 @@
 // 1. 브라우저: 개발 환경에 이미 있는 Chromium(PLAYWRIGHT_BROWSERS_PATH, @playwright/test 1.63.0 = chromium-1243). 내려받지 않는다.
 // 2. 빌드: 결과가 없거나 소스보다 오래되었으면 pnpm build.
 // 3. 새 DB(TEST_DATABASE_URL 계정에 CREATEDB 필요) → 마이그레이션(apps/server/dist/migrate.js).
-// 4. 가짜 계정 player·admin(dist/cli.js create-user, 이번 실행에서 만든 무작위 비밀번호).
+// 4. 가짜 계정 player·dev·admin(dist/cli.js create-user, 이번 실행에서 만든 무작위 비밀번호).
 // 5. 빌드한 서버(dist/main.js): NODE_ENV 비움(운영 모드는 https 주소를 요구한다), STATIC_DIR=apps/game/dist,
 //    127.0.0.1의 빈 포트(4400~4599, E2E_PORT로 정할 수 있다).
 // 6. 계정마다 한 번 들어가 세션(쿠키)을 파일로 남긴다 → 시험이 test.use({ account })로 쓴다(helpers/test.ts).
+//    들어가기 응답의 계정 ID(user.id)도 적는다(시안 자료 표시처럼 기기 저장소에 계정 ID를 넣는 시험용).
+//    차례로 들어간다: 들어가기는 주소마다 분당 10번이다(apps/server/src/auth/limits.ts). 계정을 늘리면 시험의 login()과 함께 센다.
 // 7. 콘텐츠 팩 행성이 준비될 때까지 기다린다. 타일 캐시는 서버 기본 폴더(apps/server/.planet-cache)라 첫 실행만 굽는다.
 // 돌려주는 함수가 전역 정리다: 서버를 끄고 DB를 지운다. 서버 기록은 e2e/test-results/server.log에 남는다.
 // 같은 작업 트리에서는 한 번에 하나만 돈다: 설정 파일을 읽을 때 잠금을 잡는다(helpers/runLock.ts).
@@ -32,13 +34,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { type FullConfig, chromium, request } from "@playwright/test";
-import {
-  ACCOUNT_NAMES,
-  type AccountName,
-  HARNESS_ENV,
-  type Harness,
-  type HarnessAccount,
-} from "./helpers/harness.ts";
+import { type AccountName, HARNESS_ENV, type Harness, type HarnessAccount } from "./helpers/harness.ts";
 import {
   type ProcessRef,
   ROOT,
@@ -53,8 +49,12 @@ const run = promisify(execFile);
 /** 가짜 계정(버리는 DB에만 있다). 아이디 규칙: 영문·숫자·_ 3~20자 */
 const ACCOUNTS = {
   player: { id: "e2e_player", roles: "player" },
+  dev: { id: "e2e_dev", roles: "player,dev" },
   admin: { id: "e2e_admin", roles: "player,admin" },
 } as const satisfies Record<AccountName, { id: string; roles: string }>;
+
+/** 만든 계정(아직 들어가지 않아 계정 ID를 모른다) */
+type CreatedAccount = Omit<HarnessAccount, "userId">;
 
 /** 빌드 결과 — 가장 오래된 것보다 새 소스가 있으면 다시 빌드한다 */
 const BUILD_OUTPUTS = [
@@ -244,8 +244,17 @@ async function stopServer(server: ChildProcess): Promise<void> {
   }
 }
 
-/** 계정으로 한 번 들어가 세션 쿠키를 파일로 남긴다(같은 출처 검사: origin 머리글 = BETTER_AUTH_URL) */
-async function saveSession(baseURL: string, id: string, password: string, file: string): Promise<void> {
+/** 모르는 JSON 값의 칸 하나(객체가 아니면 undefined) */
+function fieldOf(value: unknown, key: string): unknown {
+  return typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
+}
+
+/**
+ * 계정으로 한 번 들어가 세션 쿠키를 파일로 남기고 계정 ID를 돌려준다(같은 출처 검사: origin 머리글 = BETTER_AUTH_URL).
+ * 응답 모양은 packages/shared/src/accountApi.ts의 EnterResponse({ status: "signed_in", user: { id, … } })
+ */
+async function saveSession(baseURL: string, account: CreatedAccount): Promise<HarnessAccount> {
+  const { id, password, storageState } = account;
   const context = await request.newContext({ baseURL });
   try {
     const response = await context.post("/api/account/enter", {
@@ -253,11 +262,13 @@ async function saveSession(baseURL: string, id: string, password: string, file: 
       headers: { origin: baseURL },
     });
     const body: unknown = await response.json().catch(() => null);
-    const status = typeof body === "object" && body !== null ? Reflect.get(body, "status") : undefined;
-    if (response.status() !== 200 || status !== "signed_in") {
+    const status = fieldOf(body, "status");
+    const userId = fieldOf(fieldOf(body, "user"), "id");
+    if (response.status() !== 200 || status !== "signed_in" || typeof userId !== "string") {
       throw new Error(`${id} 세션을 만들지 못했습니다: HTTP ${response.status()}, status ${String(status)}`);
     }
-    await context.storageState({ path: file });
+    await context.storageState({ path: storageState });
+    return { ...account, userId };
   } finally {
     await context.dispose();
   }
@@ -432,7 +443,7 @@ export default async function globalSetup(config: FullConfig): Promise<() => Pro
     };
     await run(process.execPath, ["apps/server/dist/migrate.js"], { cwd: ROOT, env });
 
-    const createAccount = async (name: AccountName): Promise<HarnessAccount> => {
+    const createAccount = async (name: AccountName): Promise<CreatedAccount> => {
       const { id, roles } = ACCOUNTS[name];
       // 비밀번호 규칙(8자 이상, 아이디와 다름, 흔한 비밀번호 아님)을 지키는 무작위 값
       const password = `e2e-${randomBytes(12).toString("base64url")}`;
@@ -442,8 +453,11 @@ export default async function globalSetup(config: FullConfig): Promise<() => Pro
       });
       return { id, password, storageState: path.join(runDir, `session-${name}.json`) };
     };
-    const [player, admin] = await Promise.all([createAccount("player"), createAccount("admin")]);
-    const accounts: Record<AccountName, HarnessAccount> = { player, admin };
+    const [player, dev, admin] = await Promise.all([
+      createAccount("player"),
+      createAccount("dev"),
+      createAccount("admin"),
+    ]);
 
     const logStream = createWriteStream(logFile);
     const server = spawn(process.execPath, ["apps/server/dist/main.js"], {
@@ -478,10 +492,12 @@ export default async function globalSetup(config: FullConfig): Promise<() => Pro
     await waitForServer(baseURL, server, logFile);
     log(`서버 ${baseURL} (DB ${dbName}, ${((Date.now() - started) / 1000).toFixed(1)}초, 기록 ${logFile})`);
 
-    for (const name of ACCOUNT_NAMES) {
-      const account = accounts[name];
-      await saveSession(baseURL, account.id, account.password, account.storageState);
-    }
+    // 차례로 들어간다(객체 칸은 적은 차례대로 기다린다)
+    const accounts: Record<AccountName, HarnessAccount> = {
+      player: await saveSession(baseURL, player),
+      dev: await saveSession(baseURL, dev),
+      admin: await saveSession(baseURL, admin),
+    };
     await waitForPlanets(baseURL, accounts.admin.storageState);
     const harness: Harness = { baseURL, accounts };
     process.env[HARNESS_ENV] = JSON.stringify(harness);

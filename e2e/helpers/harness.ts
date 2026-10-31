@@ -3,13 +3,21 @@
 
 export const HARNESS_ENV = "E2E_HARNESS";
 
-/** 가짜 계정 이름. 아이디·역할은 global-setup.ts의 ACCOUNTS 표 */
-export type AccountName = "player" | "admin";
-export const ACCOUNT_NAMES = ["player", "admin"] as const satisfies readonly AccountName[];
+/**
+ * 가짜 계정 이름. 아이디·역할은 global-setup.ts의 ACCOUNTS 표.
+ * dev는 개발자 역할(계정 관리 권한 없이 홈 시안 자료·행성 편집기)이다. 시안 자료 시험은 admin 대신 dev로 본다(가장 좁은 역할).
+ */
+export type AccountName = "player" | "dev" | "admin";
+export const ACCOUNT_NAMES = ["player", "dev", "admin"] as const satisfies readonly AccountName[];
 
 export interface HarnessAccount {
   /** 로그인 아이디 */
   id: string;
+  /**
+   * 계정 ID(서버 user.id, 이번 실행의 DB에서 정해진다). 전역 준비가 들어가기 응답에서 읽는다.
+   * 기기 저장소가 계정 ID를 적는 값(시안 자료 표시 terra.preview)을 미리 넣을 때 쓴다(helpers/test.ts의 preview)
+   */
+  userId: string;
   /** 이번 실행에서 만든 무작위 비밀번호(버리는 DB의 가짜 계정) */
   password: string;
   /** 이 계정으로 들어간 세션(쿠키) 파일 — Playwright storageState 모양 */
@@ -29,6 +37,7 @@ function isHarnessAccount(value: unknown): value is HarnessAccount {
   return (
     isRecord(value) &&
     typeof value.id === "string" &&
+    typeof value.userId === "string" &&
     typeof value.password === "string" &&
     typeof value.storageState === "string"
   );

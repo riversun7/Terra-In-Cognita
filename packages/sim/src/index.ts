@@ -413,3 +413,4 @@ export {
   type TechState,
 } from "./society/tech.ts";
 export * from "./society/labor.ts";
+export { attachSociety, WALLET_BASE, type SocietyRun, type SocietySummary } from "./simulator/society.ts";

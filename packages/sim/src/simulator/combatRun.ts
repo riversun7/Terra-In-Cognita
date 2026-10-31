@@ -30,6 +30,16 @@ export interface CombatRun {
   siege(attacker: SimFaction, defender: SimFaction, cityId: number, nowMs: number): boolean;
   /** 조우: 다른 살아 있는 세력 하나와 작은 전투 */
   encounter(faction: SimFaction, roll: number, nowMs: number): void;
+  /**
+   * 반란(D-253·D-256): 도시 안 공성. 공격 변이 없고(반란군은 시청 둘레에서 시작), 반란군은 AI만·퇴각 없음.
+   * 정부 편 = 남은 유닛. 반란군이 시청(넥서스)을 무너뜨리거나 정부 편을 모두 쓰러뜨리면 true
+   */
+  rebellion(
+    government: SimFaction,
+    rebels: readonly SimUnit[],
+    loyal: readonly SimUnit[],
+    nowMs: number,
+  ): boolean;
   summary(): CombatSummary;
 }
 
@@ -234,6 +244,37 @@ export function attachCombat(
           seed: mix32(world.seed ^ Math.imul(battles + 1, 0x9e37_79b1)),
           map,
           sides: sides(attacker, defender),
+          parties: partiesOf(units),
+          units,
+        },
+        nowMs,
+      );
+      return result.winner === 1;
+    },
+    rebellion(government, rebels, loyal, nowMs) {
+      const size = settings.siegeMapSize;
+      const center = size / 2;
+      const map = openMap(size);
+      const nexus = [center - 1, center].flatMap((y) => [center - 1, center].map((x) => y * size + x));
+      map.buildings = [{ id: 1, cells: nexus, durability: settings.nexusDurability, nexus: true }];
+      const take = settings.siegeUnits;
+      const units = [
+        ...line(rebels.slice(0, take), government.tech, 1, center - 10, center, 1),
+        ...line(loyal.slice(0, take), government.tech, 2, center - 3, center, 101),
+      ];
+      if (units.every((unit) => unit.side === 1)) return true;
+      if (units.every((unit) => unit.side === 2)) return false;
+      sieges += 1;
+      const result = fight(
+        "siege",
+        government,
+        government,
+        {
+          id: battles + 1,
+          kind: "siege",
+          seed: mix32(world.seed ^ Math.imul(battles + 1, 0x9e37_79b1)),
+          map,
+          sides: sides(government, government),
           parties: partiesOf(units),
           units,
         },

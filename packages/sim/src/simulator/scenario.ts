@@ -1,7 +1,8 @@
 // 시뮬레이터 시나리오 — docs/adr/2026-10-31-rules-simulator.md "세계 차리기"
 // 세력·도시·유닛·처음 자산을 적는 시험 세계 설명이다(JSON 파일, packages/sim/scenarios/). 콘텐츠 팩 분류가 아니다:
 // 국가 프리셋·아이템·레시피·시설의 팩 형식은 그 규칙을 만드는 단계(R2·R4)에서 정하고, 그때 이 설명이 팩 ID를 가리키게 된다.
-// [임시] stub(대리 규칙)은 기록기를 움직여 보려는 자리 표시다. 게임 규칙이 아니고 결과를 D-391 판단에 쓰지 않는다.
+// [임시] stub은 NPC 판단(무엇을 해 볼지)의 대리다. 결과는 진짜 규칙(R4b 세력·사회)이 정하고, 판단은 R5가 대신한다.
+import type { Regime } from "../society/shares.ts";
 
 export interface ScenarioFaction {
   /** 세력 코드 앞머리. count가 2 이상이면 code_01, code_02 … */
@@ -21,6 +22,12 @@ export interface ScenarioFaction {
   readonly cityPlan?: readonly ScenarioFacilityPlan[] | undefined;
   /** 경제: 도시마다 처음 창고 재고 */
   readonly stock?: readonly { readonly item: string; readonly qty: bigint }[] | undefined;
+  /** 정권 체제(D-217). "mixed"면 세력 ID 차례로 셋을 돌린다([임시], 기본) */
+  readonly regime: Regime | "mixed";
+  /** 도시마다 휴먼 주거 수(기본: 도시당 일꾼 × 1.3 + 2) */
+  readonly housing: number;
+  /** 첫 도시 연구 시설 레벨(기본: min(5, tech)) */
+  readonly researchLevel: number;
 }
 
 export interface ScenarioFacilityPlan {
@@ -48,17 +55,23 @@ export interface ScenarioEconomy {
   readonly fxLot: bigint;
 }
 
-/** [임시] 대리 규칙 손잡이(천분율·ms). R4·R5의 진짜 규칙이 대신한다 */
+/**
+ * [임시] NPC 판단 대리(천분율·ms): 무엇을 해 볼지만 정한다. 결과(점령·반란·독립·기술·출생)는 진짜 규칙(R4b)이 정하고,
+ * 판단은 R5(NPC 두뇌)가 대신한다
+ */
 export interface ScenarioStub {
   /** 세력 판단 간격(±25% 흔들림) */
   readonly decideEveryMs: number;
-  /** 판단 한 번에 남의 도시를 빼앗을 확률 */
+  /** 판단 한 번에 남의 도시를 치러 갈 확률 */
   readonly conquerPerMille: number;
-  /** 판단 한 번에 도시 하나가 반란으로 갈라질 확률(도시 2개 이상일 때) */
-  readonly rebelPerMille: number;
-  readonly techUpPerMille: number;
-  readonly techDownPerMille: number;
-  readonly techMax: number;
+  /** 판단 한 번에 가문이 갈라져 새 마을을 세울 확률(붐비는 도시가 있을 때) */
+  readonly foundPerMille: number;
+  /** 판단 한 번에 도시 지분 일부를 다른 세력에 팔 확률 */
+  readonly shareSalePerMille: number;
+  /** 판단 한 번에 연구 시설 레벨을 올릴 확률(국고가 있을 때) */
+  readonly researchBuildPerMille: number;
+  /** 판단 한 번에 봉신이 독립을 선언할 확률 */
+  readonly vassalBreakPerMille: number;
 }
 
 /** 유닛마다 오가는 예약(합성 부하). 도착하면 쉬었다가 다음 목적지로 간다 */
@@ -82,6 +95,23 @@ export interface ScenarioCombat {
   readonly nexusDurability: number;
 }
 
+/** 세력·사회 시뮬 손잡이([임시] 시나리오 시험값, 계수는 society/coefficients.ts) */
+export interface ScenarioSociety {
+  /** 반란 판정 뒤 그 도시를 다시 보지 않는 날 */
+  readonly rebellionCooldownDays: number;
+  /** 주마다 도시 배당 = 주인 국고 × 만분율 ÷ 도시 수 */
+  readonly dividendBp: number;
+  /** 주마다 봉신 공물 = 봉신 국고 × 만분율 */
+  readonly tributeBp: number;
+  /** 새 마을로 옮겨 가는 유닛 수, 세우는 값(국고 화폐 최소 단위) */
+  readonly founders: number;
+  readonly foundCost: bigint;
+  /** 연구 시설 한 레벨 올리는 값(국고 화폐 최소 단위 × 레벨) */
+  readonly researchBuildCost: bigint;
+  /** 연구 시설 레벨 하나가 하루에 내는 연구 작업량 */
+  readonly researchPerLevelDaily: number;
+}
+
 export interface Scenario {
   readonly id: string;
   /** 콘텐츠 팩 행성 ID(있으면 실행 도구가 팩에 있는지 본다) */
@@ -91,6 +121,7 @@ export interface Scenario {
   readonly trips?: ScenarioTrips | undefined;
   readonly economy?: ScenarioEconomy | undefined;
   readonly combat?: ScenarioCombat | undefined;
+  readonly society: ScenarioSociety;
 }
 
 const ID = /^[a-z][a-z0-9_]{1,47}$/;
@@ -107,6 +138,23 @@ function int(value: unknown, path: string, min: number, max = Number.MAX_SAFE_IN
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < min || value > max)
     throw new ScenarioError(`${path}: integer in [${min}, ${max}] expected`);
   return value;
+}
+
+function optionalInt(
+  value: unknown,
+  path: string,
+  min: number,
+  fallback: number,
+  max = Number.MAX_SAFE_INTEGER,
+): number {
+  return value === undefined ? fallback : int(value, path, min, max);
+}
+
+function regimeOf(value: unknown, path: string): Regime | "mixed" {
+  if (value === undefined) return "mixed";
+  if (value === "dictatorship" || value === "democracy" || value === "capitalism" || value === "mixed")
+    return value;
+  throw new ScenarioError(`${path}: dictatorship | democracy | capitalism | mixed expected`);
 }
 
 function text(value: unknown, path: string): string {
@@ -152,21 +200,61 @@ export function parseScenario(value: unknown): Scenario {
         item: text(field(entry, "item"), `${path}.item`),
         qty: amount(field(entry, "qty"), `${path}.qty`),
       })),
+      regime: regimeOf(field(item, "regime"), `${at}.regime`),
+      housing: optionalInt(
+        field(item, "housing"),
+        `${at}.housing`,
+        1,
+        Math.floor(
+          (Number(field(item, "workers") ?? 0) * 13) / (10 * Math.max(1, Number(field(item, "cities") ?? 1))),
+        ) + 2,
+      ),
+      researchLevel: optionalInt(
+        field(item, "researchLevel"),
+        `${at}.researchLevel`,
+        0,
+        Math.min(5, Number(field(item, "tech") ?? 1)),
+        5,
+      ),
     };
   });
   const stubValue = field(value, "stub");
+  const perMille = (key: string) => optionalInt(field(stubValue, key), `stub.${key}`, 0, 0, 1000);
   const stub: ScenarioStub = {
     decideEveryMs: int(field(stubValue, "decideEveryMs"), "stub.decideEveryMs", 60_000),
     conquerPerMille: int(field(stubValue, "conquerPerMille"), "stub.conquerPerMille", 0, 1000),
-    rebelPerMille: int(field(stubValue, "rebelPerMille"), "stub.rebelPerMille", 0, 1000),
-    techUpPerMille: int(field(stubValue, "techUpPerMille"), "stub.techUpPerMille", 0, 1000),
-    techDownPerMille: int(field(stubValue, "techDownPerMille"), "stub.techDownPerMille", 0, 1000),
-    techMax: int(field(stubValue, "techMax"), "stub.techMax", 1, 1000),
+    foundPerMille: perMille("foundPerMille"),
+    shareSalePerMille: perMille("shareSalePerMille"),
+    researchBuildPerMille: perMille("researchBuildPerMille"),
+    vassalBreakPerMille: perMille("vassalBreakPerMille"),
   };
-  if (stub.conquerPerMille + stub.rebelPerMille > 1000)
-    throw new ScenarioError("stub: conquerPerMille + rebelPerMille must be <= 1000");
-  if (stub.techUpPerMille + stub.techDownPerMille > 1000)
-    throw new ScenarioError("stub: techUpPerMille + techDownPerMille must be <= 1000");
+  const societyValue = field(value, "society");
+  const society: ScenarioSociety = {
+    rebellionCooldownDays: optionalInt(
+      field(societyValue, "rebellionCooldownDays"),
+      "society.rebellionCooldownDays",
+      0,
+      3,
+      365,
+    ),
+    dividendBp: optionalInt(field(societyValue, "dividendBp"), "society.dividendBp", 0, 100, 10_000),
+    tributeBp: optionalInt(field(societyValue, "tributeBp"), "society.tributeBp", 0, 500, 10_000),
+    founders: optionalInt(field(societyValue, "founders"), "society.founders", 1, 8, 10_000),
+    foundCost:
+      field(societyValue, "foundCost") === undefined
+        ? 5000n
+        : amount(field(societyValue, "foundCost"), "society.foundCost"),
+    researchBuildCost:
+      field(societyValue, "researchBuildCost") === undefined
+        ? 2000n
+        : amount(field(societyValue, "researchBuildCost"), "society.researchBuildCost"),
+    researchPerLevelDaily: optionalInt(
+      field(societyValue, "researchPerLevelDaily"),
+      "society.researchPerLevelDaily",
+      0,
+      6000,
+    ),
+  };
   const tripsValue = field(value, "trips");
   let trips: ScenarioTrips | undefined;
   if (tripsValue !== undefined) {
@@ -209,7 +297,7 @@ export function parseScenario(value: unknown): Scenario {
           siegeMapSize: evenSize(field(combatValue, "siegeMapSize"), "combat.siegeMapSize"),
           nexusDurability: int(field(combatValue, "nexusDurability"), "combat.nexusDurability", 1),
         };
-  return { id, planet, factions, stub, trips, economy, combat };
+  return { id, planet, factions, stub, trips, economy, combat, society };
 }
 
 function optionalList<T>(

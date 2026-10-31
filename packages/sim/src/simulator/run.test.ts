@@ -9,10 +9,10 @@ const small: Scenario = parseScenario({
   stub: {
     decideEveryMs: 6 * 3_600_000,
     conquerPerMille: 150,
-    rebelPerMille: 150,
-    techUpPerMille: 150,
-    techDownPerMille: 100,
-    techMax: 10,
+    foundPerMille: 150,
+    shareSalePerMille: 100,
+    researchBuildPerMille: 150,
+    vassalBreakPerMille: 50,
   },
   trips: { idleMinMs: 600_000, idleMaxMs: 3_600_000 },
 });

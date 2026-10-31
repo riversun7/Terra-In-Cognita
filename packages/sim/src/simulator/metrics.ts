@@ -39,6 +39,11 @@ export interface FactionDay {
   readonly gardener?: boolean | undefined;
   /** 국고(최소 단위). 문자열로 쓴다 */
   readonly treasury?: bigint | undefined;
+  /** 휴먼 평균 만족도(0~100, R4b) */
+  readonly satisfaction?: number | undefined;
+  /** 정권 체제·상위 세력(R4b) */
+  readonly regime?: string | undefined;
+  readonly overlord?: number | null | undefined;
 }
 
 export interface CountByCause {
@@ -89,7 +94,12 @@ export interface MetricsRecorder {
   /** 처음 세력(시작 시각) */
   start(factions: readonly FactionStart[]): void;
   /** 세력이 생김(반란·독립·새 도시·유목 등) */
-  born(atMs: number, faction: number, cause: string, extra?: { parent?: number; tech?: number }): void;
+  born(
+    atMs: number,
+    faction: number,
+    cause: string,
+    extra?: { parent?: number; tech?: number; mode?: string; city?: number },
+  ): void;
   /** 세력이 사라지거나 합쳐짐(멸망·파산·편입·종속 등) */
   died(atMs: number, faction: number, cause: string, extra?: { into?: number }): void;
   /** 세력 기술 단계가 바뀜 */

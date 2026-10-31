@@ -534,7 +534,7 @@
   "planet_editor_level_high": "High",
   "planet_editor_relayout": "Relayout",
   "planet_editor_details": "Details",
-  "planet_editor_details_hint": "After changing values, press Apply to rebuild at F{level} and save the draft.",
+  "planet_editor_details_hint": "After moving sliders, press Apply to rebuild at F{level} and save the draft. Presets, seed and Reset apply right away.",
   "planet_editor_setting_land_percent": "Land share",
   "planet_editor_setting_shelf_percent": "Shelf share",
   "planet_editor_setting_plate_count": "Plate count",
@@ -708,7 +708,7 @@
   "planet_editor_stay": "Stay",
   "planet_editor_size_kb": "{value} KB",
   "planet_editor_size_mb": "{value} MB",
-  "planet_editor_pending": "Changed: {count} · not applied yet",
+  "planet_editor_pending": "{count} not applied",
   "planet_editor_apply": "Apply",
   "planet_editor_stage_view": "View",
   "planet_editor_view_globe": "Globe",
@@ -729,5 +729,6 @@
   "planet_editor_story_near_humidity_lower": "{amount} drier, it would have been {biome}.",
   "planet_editor_story_near_elevation_higher": "{amount} higher, it would have been {biome}.",
   "planet_editor_story_near_elevation_lower": "{amount} lower, it would have been {biome}.",
-  "planet_editor_story_near_many": "It narrowly missed the {biome} conditions too."
+  "planet_editor_story_near_many": "It narrowly missed the {biome} conditions too.",
+  "planet_editor_seed_set": "Set"
 }

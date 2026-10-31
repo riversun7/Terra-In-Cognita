@@ -1,6 +1,6 @@
 // 행성 하나의 편집 화면 — 지구본 + 판(설정·면적·칸·초안 탭). ADR 38 2~13절
 // 흐름: 세션(꺼짐 감지·서버 초안·미리보기) → 초안을 읽으면 미리보기를 연다(공개본 F5 → 초안 F7 → 공개본 F7)
-// → 설정 판의 변경은 적용 전 변경으로 모으고, [적용]을 누를 때 초안 동기화(edit, 2초 뒤 자동 저장)와 미리보기(빠른 F5 → 미니맵,
+// → 슬라이더 변경은 적용 전 변경으로 모으고, [적용]이나 누르는 조작(프리셋·시드·[되돌리기])을 쓸 때 초안 동기화(edit, 2초 뒤 자동 저장)와 미리보기(빠른 F5 → 미니맵,
 //   본 레벨 → 지구본)에 같이 알린다(사용자 의견 2026-10-31: 슬라이더를 움직일 때마다 다시 만들지 않는다).
 // 밖에서 초안이 바뀌면(되돌리기·가져오기·그쪽 불러오기·지우기) 본 레벨로 다시 만든다(lastSent로 내 편집과 가른다).
 // - 휴대폰 세로: 지구본 + 아래 판, 가로·넓은 화면: 옆 판(폭 경계 37.5em, planetEditor.css). 판은 탭 넷이고 모두 그려 둔다(숨김).
@@ -243,16 +243,25 @@ function Workspace({
     },
     [draftEntry],
   );
-  /** [적용]: 초안 동기화(2초 뒤 자동 저장)와 미리보기(빠른 F5 → 미니맵, 본 레벨 → 지구본)에 같이 알린다 */
-  const apply = useCallback(() => {
-    const current = sync.getSnapshot().document;
-    if (!activePending || !current || !sync.edit({ entry: activePending, base: current.base })) return;
-    lastSentRef.current = activePending;
-    const definition = definitionOf(activePending, biomes);
-    preview.setDraft(definition, "quick");
-    preview.setDraft(definition, "final");
-    setPending(null);
-  }, [activePending, sync, preview, biomes]);
+  /**
+   * 바로 적용: 초안 동기화(2초 뒤 자동 저장)와 미리보기(빠른 F5 → 미니맵, 본 레벨 → 지구본)에 같이 알리고 적용 전 변경을 비운다.
+   * [적용]과 누르는 조작(프리셋·시드·[되돌리기])이 쓴다. 누르는 조작의 항목은 적용 전 슬라이더 변경을 이미 담고 있다
+   */
+  const commitEntry = useCallback(
+    (next: DraftEntry) => {
+      const current = sync.getSnapshot().document;
+      if (!current || !sync.edit({ entry: next, base: current.base })) return;
+      lastSentRef.current = next;
+      const definition = definitionOf(next, biomes);
+      preview.setDraft(definition, "quick");
+      preview.setDraft(definition, "final");
+      setPending(null);
+    },
+    [sync, preview, biomes],
+  );
+  const apply = (): void => {
+    if (activePending) commitEntry(activePending);
+  };
 
   /** F9 이상은 확인 창 뒤에 한다(ADR 38 4절) */
   const confirmHeavy = (level: number, run: () => void): void => {
@@ -441,6 +450,20 @@ function Workspace({
               </button>
             ))}
           </div>
+          {/* 적용 줄: 슬라이더 목록 밖(지구본·미니맵 아래, 휴대폰은 아래 판 바로 위)에 한 줄로 둔다. 판을 가리지 않는다 */}
+          {pendingCount > 0 ? (
+            <div className="pe-apply-bar" data-pending={pendingCount}>
+              <p className="pe-apply-count" role="status">
+                {m.planet_editor_pending({ count: formatNumber(pendingCount) })}
+              </p>
+              <button type="button" className="button-small pe-discard" onClick={() => setPending(null)}>
+                {m.planet_editor_cancel()}
+              </button>
+              <button type="button" className="button-small button-primary pe-apply" onClick={apply}>
+                {m.planet_editor_apply()}
+              </button>
+            </div>
+          ) : null}
         </div>
         <div className="pe-panel">
           <div className="pe-tabs" role="tablist" aria-label={m.planet_editor_tabs_label()}>
@@ -490,9 +513,7 @@ function Workspace({
                   deviceCap={deviceCap}
                   tripped={session.tripped}
                   onEdit={edit}
-                  pendingCount={pendingCount}
-                  onApply={apply}
-                  onDiscard={() => setPending(null)}
+                  onCommit={commitEntry}
                   onFinalLevel={(level) => confirmHeavy(level, () => preview.setFinalLevel(level))}
                   onCancelRun={() => preview.cancelFinal()}
                   onAllowAgain={() => {

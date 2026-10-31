@@ -534,7 +534,7 @@
   "planet_editor_level_high": "많음",
   "planet_editor_relayout": "배치 바뀜",
   "planet_editor_details": "세부 수치",
-  "planet_editor_details_hint": "값을 바꾼 뒤 [적용]을 누르면 F{level}로 다시 만들고 초안에 저장합니다.",
+  "planet_editor_details_hint": "슬라이더를 움직인 뒤 [적용]을 누르면 F{level}로 다시 만들고 초안에 저장합니다. 프리셋·시드·[되돌리기]는 누르면 바로 적용합니다.",
   "planet_editor_setting_land_percent": "육지 비율",
   "planet_editor_setting_shelf_percent": "대륙붕 비율",
   "planet_editor_setting_plate_count": "판 개수",
@@ -708,7 +708,7 @@
   "planet_editor_stay": "머무르기",
   "planet_editor_size_kb": "{value}KB",
   "planet_editor_size_mb": "{value}MB",
-  "planet_editor_pending": "바뀐 값 {count}개 · 아직 적용 안 함",
+  "planet_editor_pending": "적용 전 값 {count}개",
   "planet_editor_apply": "적용",
   "planet_editor_stage_view": "보기 방식",
   "planet_editor_view_globe": "지구본",
@@ -729,5 +729,6 @@
   "planet_editor_story_near_humidity_lower": "습도가 {amount} 더 낮았다면 {biome} 바이옴이었습니다.",
   "planet_editor_story_near_elevation_higher": "{amount} 더 높은 곳이었다면 {biome} 바이옴이었습니다.",
   "planet_editor_story_near_elevation_lower": "{amount} 더 낮은 곳이었다면 {biome} 바이옴이었습니다.",
-  "planet_editor_story_near_many": "{biome} 조건에도 아깝게 못 미쳤습니다."
+  "planet_editor_story_near_many": "{biome} 조건에도 아깝게 못 미쳤습니다.",
+  "planet_editor_seed_set": "바꾸기"
 }

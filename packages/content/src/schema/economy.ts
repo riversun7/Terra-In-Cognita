@@ -3,6 +3,7 @@
 // 세력 화폐(D-124·D-131)·켬/끔(D-398: 모든 콘텐츠를 개발자 페이지에서 켜고 끈다).
 // 지금 팩은 형식 확인용 임시 데이터다(placeholder). 기획 출발값이 없는 칸(기준 가치·작업량·수량·세율)은 시험값이다.
 import { z } from "zod";
+import { equipSchema } from "./combat.ts";
 import { contentId, localizedText, ref } from "./common.ts";
 
 /** 아이템 대분류(D-5029·D-5033, 생산 흐름 순) */
@@ -34,6 +35,8 @@ export const itemEntrySchema = z.strictObject({
   tier,
   /** [임시] 기준 가치(그 나라 화폐 최소 단위, 처음 시세와 NPC 값 매기기의 출발점). 기획 수치 없음 */
   baseValue: z.int().positive(),
+  /** 장비면 칸·스탯 목록·무기 사양·장비 스킬(D-422~D-426, combat.ts) */
+  equip: equipSchema.optional(),
   enabled,
 });
 export type ItemEntry = z.output<typeof itemEntrySchema>;

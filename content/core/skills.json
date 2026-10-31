@@ -1,0 +1,198 @@
+{
+  "entries": [
+    {
+      "id": "power_strike",
+      "name": {
+        "ko": "강타",
+        "en": "Power strike"
+      },
+      "trigger": "active",
+      "resource": "stamina",
+      "cost": 10,
+      "castMs": 0,
+      "cooldownMs": 5000,
+      "target": "enemy",
+      "range": 1,
+      "radius": 0,
+      "damage": "physical",
+      "formula": [
+        {
+          "part": "attack_mul",
+          "pm": 1800
+        },
+        {
+          "part": "penetration",
+          "pm": 150
+        }
+      ],
+      "conditions": [
+        {
+          "part": "appropriate_met"
+        }
+      ],
+      "effects": [
+        {
+          "effect": "defense_down",
+          "value": 100,
+          "chancePm": 1000
+        }
+      ],
+      "gradePm": [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000],
+      "enabled": true
+    },
+    {
+      "id": "fire_bolt",
+      "name": {
+        "ko": "불꽃 화살",
+        "en": "Fire bolt"
+      },
+      "trigger": "active",
+      "resource": "mp",
+      "cost": 15,
+      "castMs": 800,
+      "cooldownMs": 4000,
+      "target": "enemy",
+      "range": 6,
+      "radius": 0,
+      "damage": "elemental",
+      "formula": [
+        {
+          "part": "attack_mul",
+          "pm": 1200
+        },
+        {
+          "part": "element",
+          "element": 2,
+          "pm": 100
+        }
+      ],
+      "conditions": [],
+      "effects": [
+        {
+          "effect": "burn",
+          "value": 5,
+          "chancePm": 600
+        }
+      ],
+      "gradePm": [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000],
+      "enabled": true
+    },
+    {
+      "id": "shock_bash",
+      "name": {
+        "ko": "충격 강타",
+        "en": "Shock bash"
+      },
+      "trigger": "active",
+      "resource": "stamina",
+      "cost": 15,
+      "castMs": 0,
+      "cooldownMs": 8000,
+      "target": "enemy",
+      "range": 1,
+      "radius": 0,
+      "damage": "physical",
+      "formula": [
+        {
+          "part": "attack_mul",
+          "pm": 800
+        }
+      ],
+      "conditions": [],
+      "effects": [
+        {
+          "effect": "stun",
+          "value": 0,
+          "chancePm": 500
+        }
+      ],
+      "gradePm": [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000],
+      "enabled": true
+    },
+    {
+      "id": "war_cry",
+      "name": {
+        "ko": "함성",
+        "en": "War cry"
+      },
+      "trigger": "active",
+      "resource": "stamina",
+      "cost": 10,
+      "castMs": 0,
+      "cooldownMs": 15000,
+      "target": "ally",
+      "range": 0,
+      "radius": 3,
+      "damage": "none",
+      "formula": [],
+      "conditions": [],
+      "effects": [
+        {
+          "effect": "attack_up",
+          "value": 200,
+          "chancePm": 1000
+        }
+      ],
+      "gradePm": [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000],
+      "enabled": true
+    },
+    {
+      "id": "first_aid",
+      "name": {
+        "ko": "응급 처치",
+        "en": "First aid"
+      },
+      "trigger": "active",
+      "resource": "stamina",
+      "cost": 5,
+      "castMs": 0,
+      "cooldownMs": 20000,
+      "target": "self",
+      "range": 0,
+      "radius": 0,
+      "damage": "none",
+      "formula": [
+        {
+          "part": "heal",
+          "pm": 200
+        }
+      ],
+      "conditions": [
+        {
+          "part": "self_hp_below",
+          "pct": 50
+        }
+      ],
+      "effects": [],
+      "gradePm": [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000],
+      "enabled": true
+    },
+    {
+      "id": "iron_skin",
+      "name": {
+        "ko": "강철 피부",
+        "en": "Iron skin"
+      },
+      "trigger": "passive",
+      "resource": "stamina",
+      "cost": 0,
+      "castMs": 0,
+      "cooldownMs": 0,
+      "target": "self",
+      "range": 0,
+      "radius": 0,
+      "damage": "none",
+      "formula": [],
+      "conditions": [],
+      "effects": [
+        {
+          "effect": "guard",
+          "value": 50,
+          "chancePm": 1000
+        }
+      ],
+      "gradePm": [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000],
+      "enabled": true
+    }
+  ]
+}

@@ -45,6 +45,19 @@ export {
 } from "./schema/economy.ts";
 export { mapPropEntrySchema, type MapPropEntry } from "./schema/mapProps.ts";
 export { statRowEntrySchema, type StatRowEntry } from "./schema/stats.ts";
+export {
+  EQUIP_SLOT_KINDS,
+  PRIMARY_STAT_CODES,
+  PRIMARY_STAT_SLOTS,
+  effectEntrySchema,
+  equipSchema,
+  skillEntrySchema,
+  unitKindEntrySchema,
+  type EffectEntry,
+  type EquipEntry,
+  type SkillEntry,
+  type UnitKindEntry,
+} from "./schema/combat.ts";
 export { validatePack, type ValidationResult } from "./validate/pack.ts";
 export {
   assumeAllUsed,

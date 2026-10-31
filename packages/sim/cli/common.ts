@@ -10,11 +10,20 @@ import {
   nationPresetEntrySchema,
   necessityEntrySchema,
   parseJson,
+  effectEntrySchema,
   recipeEntrySchema,
+  skillEntrySchema,
   statRowEntrySchema,
+  unitKindEntrySchema,
 } from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
-import { type EconomyCatalog, type Scenario, type StatRow, parseScenario } from "../src/index.ts";
+import {
+  type CombatCatalog,
+  type EconomyCatalog,
+  type Scenario,
+  combatCatalogFrom,
+  parseScenario,
+} from "../src/index.ts";
 
 /** 저장소의 기본 콘텐츠 팩 */
 export const DEFAULT_PACK_DIR = fileURLToPath(new URL("../../../content/core", import.meta.url));
@@ -91,29 +100,22 @@ function catalogOf(source: PackSource): EconomyCatalog {
   };
 }
 
-/** 팩의 스탯 가중치 표(켜진 행만) */
-function statTableOf(source: PackSource): StatRow[] {
-  return parseFile(source, "stat_rows.json", (raw) => statRowEntrySchema.parse(raw))
-    .filter((row) => row.enabled)
-    .map(
-      (row): StatRow =>
-        row.shape === "quantity"
-          ? { id: row.id, shape: "quantity", base: row.base, weights: row.weights }
-          : {
-              id: row.id,
-              shape: "probability",
-              cap: row.cap,
-              halfConstant: row.halfConstant,
-              weights: row.weights,
-            },
-    );
+/** 팩의 전투 분류 → 시뮬 전투 자료(변환은 combatCatalogFrom) */
+function combatCatalogOf(source: PackSource): CombatCatalog {
+  return combatCatalogFrom({
+    statRows: parseFile(source, "stat_rows.json", (raw) => statRowEntrySchema.parse(raw)),
+    effects: parseFile(source, "effects.json", (raw) => effectEntrySchema.parse(raw)),
+    skills: parseFile(source, "skills.json", (raw) => skillEntrySchema.parse(raw)),
+    items: parseFile(source, "items.json", (raw) => itemEntrySchema.parse(raw)),
+    unitKinds: parseFile(source, "unit_kinds.json", (raw) => unitKindEntrySchema.parse(raw)),
+  });
 }
 
 /** 콘텐츠 팩을 읽고 시나리오가 가리키는 행성이 팩에 있는지 본다. 판·해시와 경제 목록·스탯 표를 돌려준다 */
 export function readPack(
   dir: string,
   scenario: Scenario,
-): { version: string; hash: string; catalog: EconomyCatalog; statTable: StatRow[] } {
+): { version: string; hash: string; catalog: EconomyCatalog; combat: CombatCatalog } {
   const loaded = loadContentPack(dir);
   if (hasErrors(loaded.issues) || !loaded.pack || !loaded.version || !loaded.hash || !loaded.source) {
     throw new Error(
@@ -131,7 +133,7 @@ export function readPack(
     version: loaded.version,
     hash: loaded.hash,
     catalog: catalogOf(loaded.source),
-    statTable: statTableOf(loaded.source),
+    combat: combatCatalogOf(loaded.source),
   };
 }
 

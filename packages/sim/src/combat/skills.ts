@@ -33,8 +33,8 @@ export interface SkillEffectData {
   readonly effect: string;
   readonly value: number;
   readonly chancePm: number;
-  /** 0 = 전투 내내 */
-  readonly durationMs: number;
+  /** 지속(ms, 0 = 전투 내내). 없으면 효과 사전의 기본 지속 */
+  readonly durationMs?: number | undefined;
 }
 
 /** 팩 `skills` 항목의 모양(참조는 ID 문자열) */
@@ -128,7 +128,12 @@ export function skillFromData(
     effects: data.effects.map((part) => {
       const def = effects.get(part.effect);
       if (!def) throw new RangeError(`skill ${data.id}: unknown effect ${part.effect}`);
-      return { def, value: scaled(part.value), chancePm: part.chancePm, durationMs: part.durationMs };
+      return {
+        def,
+        value: scaled(part.value),
+        chancePm: part.chancePm,
+        durationMs: part.durationMs ?? def.durationMs,
+      };
     }),
   };
 }
@@ -264,6 +269,6 @@ export function resolveSkill(
 export function applyPassives(unit: UnitState): void {
   for (const skill of unit.skills) {
     if (skill.trigger !== "passive") continue;
-    for (const part of skill.effects) applyEffect(unit, part.def, part.value, 0, 0);
+    for (const part of skill.effects) applyEffect(unit, part.def, part.value, part.durationMs, 0);
   }
 }

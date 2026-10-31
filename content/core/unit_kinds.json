@@ -1,0 +1,60 @@
+{
+  "entries": [
+    {
+      "id": "cyborg",
+      "name": {
+        "ko": "사이보그",
+        "en": "Cyborg"
+      },
+      "slots": ["weapon", "offhand", "head", "body", "accessory", "accessory", "organ", "organ", "organ"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 10
+      },
+      "enabled": true
+    },
+    {
+      "id": "human",
+      "name": {
+        "ko": "휴먼",
+        "en": "Human"
+      },
+      "slots": ["weapon", "offhand", "head", "body", "accessory", "accessory"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 10
+      },
+      "enabled": true
+    },
+    {
+      "id": "android",
+      "name": {
+        "ko": "안드로이드",
+        "en": "Android"
+      },
+      "slots": ["weapon", "offhand", "head", "body", "accessory", "accessory", "part", "part", "part"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 10
+      },
+      "enabled": true
+    },
+    {
+      "id": "creature",
+      "name": {
+        "ko": "크리쳐",
+        "en": "Creature"
+      },
+      "slots": ["accessory", "saddle"],
+      "skillSlots": {
+        "base": 4,
+        "perRebirth": 1,
+        "max": 10
+      },
+      "enabled": true
+    }
+  ]
+}

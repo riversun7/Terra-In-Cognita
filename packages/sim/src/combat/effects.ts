@@ -16,6 +16,8 @@ export interface EffectDef {
   readonly stat?: ModifierStat | undefined;
   /** dot·heal 세기: flat = 값 그대로, permille = 대상 최대 체력의 ‰ */
   readonly valueMode: "flat" | "permille";
+  /** 기본 지속(ms, 0 = 전투 내내). 거는 쪽(스킬 효과 부품)이 바꿀 수 있다 */
+  readonly durationMs: number;
   /** 주기(ms). dot·heal에서 0이면 한 번만(heal) */
   readonly tickMs: number;
   /** 같은 효과가 또 걸릴 때: refresh = 시간·값 새로, stack = 겹침(최대 maxStacks), ignore = 그대로 */

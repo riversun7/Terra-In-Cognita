@@ -47,9 +47,18 @@ const GRADES = [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000];
 export const TEST_COMBAT_CATALOG: CombatCatalog = {
   statTable: TEST_STAT_TABLE,
   effects: [
-    { id: "burn", kind: "dot", valueMode: "flat", tickMs: 1000, stacking: "stack", maxStacks: 3 },
+    {
+      id: "burn",
+      durationMs: 3000,
+      kind: "dot",
+      valueMode: "flat",
+      tickMs: 1000,
+      stacking: "stack",
+      maxStacks: 3,
+    },
     {
       id: "stun",
+      durationMs: 1500,
       kind: "status",
       status: "stun",
       valueMode: "flat",
@@ -60,6 +69,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
     },
     {
       id: "attack_up",
+      durationMs: 6000,
       kind: "buff",
       stat: "attack",
       valueMode: "permille",
@@ -69,6 +79,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
     },
     {
       id: "defense_down",
+      durationMs: 4000,
       kind: "debuff",
       stat: "defense_rate",
       valueMode: "flat",
@@ -78,6 +89,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
     },
     {
       id: "guard",
+      durationMs: 0,
       kind: "buff",
       stat: "defense_rate",
       valueMode: "flat",
@@ -85,7 +97,15 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       stacking: "ignore",
       maxStacks: 1,
     },
-    { id: "mend", kind: "heal", valueMode: "permille", tickMs: 0, stacking: "refresh", maxStacks: 1 },
+    {
+      id: "mend",
+      durationMs: 0,
+      kind: "heal",
+      valueMode: "permille",
+      tickMs: 0,
+      stacking: "refresh",
+      maxStacks: 1,
+    },
   ],
   skills: [
     {
@@ -104,7 +124,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
         { part: "penetration", pm: 150 },
       ],
       conditions: [{ part: "appropriate_met" }],
-      effects: [{ effect: "defense_down", value: 100, chancePm: 1000, durationMs: 4000 }],
+      effects: [{ effect: "defense_down", value: 100, chancePm: 1000 }],
       gradePm: GRADES,
     },
     {
@@ -123,7 +143,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
         { part: "element", element: 2, pm: 100 },
       ],
       conditions: [],
-      effects: [{ effect: "burn", value: 5, chancePm: 600, durationMs: 3000 }],
+      effects: [{ effect: "burn", value: 5, chancePm: 600 }],
       gradePm: GRADES,
     },
     {
@@ -139,7 +159,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       damage: "physical",
       formula: [{ part: "attack_mul", pm: 800 }],
       conditions: [],
-      effects: [{ effect: "stun", value: 0, chancePm: 500, durationMs: 1500 }],
+      effects: [{ effect: "stun", value: 0, chancePm: 500 }],
       gradePm: GRADES,
     },
     {
@@ -155,7 +175,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       damage: "none",
       formula: [],
       conditions: [],
-      effects: [{ effect: "attack_up", value: 200, chancePm: 1000, durationMs: 6000 }],
+      effects: [{ effect: "attack_up", value: 200, chancePm: 1000 }],
       gradePm: GRADES,
     },
     {
@@ -187,7 +207,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       damage: "none",
       formula: [],
       conditions: [],
-      effects: [{ effect: "guard", value: 50, chancePm: 1000, durationMs: 0 }],
+      effects: [{ effect: "guard", value: 50, chancePm: 1000 }],
       gradePm: GRADES,
     },
   ],

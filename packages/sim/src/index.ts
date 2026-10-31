@@ -349,3 +349,4 @@ export {
   type CombatCatalog,
   type UnitKindDef,
 } from "./combat/catalog.ts";
+export { combatCatalogFrom } from "./combat/packCatalog.ts";

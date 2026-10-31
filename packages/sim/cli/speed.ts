@@ -43,7 +43,7 @@ function measure(spec: string): Row {
   const summary = runSimulation({
     scenario,
     catalog: scenario.economy ? pack?.catalog : undefined,
-    statTable: pack?.statTable,
+    combatCatalog: pack?.combat,
     seed: Number(values.seed),
     days,
     onDay: () => {

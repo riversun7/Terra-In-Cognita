@@ -340,7 +340,7 @@ export const TUNING_KEYS: readonly TuningKey[] = [
     "포만감 낮을 때 효율(‰)",
     "Low food efficiency (‰)",
   ),
-  // 세력·사회 (49 §7 S, §2 T, 질문 120·121)
+  // 세력·사회 (49 §7 S, §2 T, §6.5 N35, 질문 120·121, D-298·D-443)
   k(
     "d130_shares_per_city",
     "",
@@ -351,6 +351,23 @@ export const TUNING_KEYS: readonly TuningKey[] = [
     true,
   ),
   k("d130_dividend_every", "", "society", "dividendEveryMs", "배당 주기(ms)", "Dividend period (ms)"),
+  k(
+    "d298_delist_reissue",
+    "",
+    "society",
+    "delistReissueShares",
+    "상장폐지 뒤 재발행 주식 수(D-298)",
+    "Shares reissued after delisting (D-298)",
+  ),
+  k(
+    "s33_tribute_rate",
+    "S33",
+    "society",
+    "tributePm",
+    "속국·봉신 공물(국고 ‰, 주기마다)",
+    "Vassal tribute (treasury ‰ per period)",
+  ),
+  k("d443_tribute_every", "", "society", "tributeEveryMs", "공물 주기(ms)", "Tribute period (ms)"),
   k("s22_inheritance_tax", "S22", "society", "inheritanceTaxBp", "상속세(만분율)", "Inheritance tax (bp)"),
   k(
     "s23_dictatorship_drop",
@@ -367,6 +384,22 @@ export const TUNING_KEYS: readonly TuningKey[] = [
     "rebellionThreshold",
     "반란 문턱(도시 평균 만족도)",
     "Rebellion threshold",
+  ),
+  k(
+    "n35_rebellion_warning",
+    "N35",
+    "society",
+    "rebellionWarningAt",
+    "민심 표 반란 예고 문턱(이하)",
+    "Unrest: rebellion warning at or below",
+  ),
+  k(
+    "n35_sabotage",
+    "N35",
+    "society",
+    "sabotageAt",
+    "민심 표 태업 조짐 문턱(이하)",
+    "Unrest: sabotage signs at or below",
   ),
   k(
     "s27_independence",
@@ -443,6 +476,36 @@ export const TUNING_KEYS: readonly TuningKey[] = [
     "Development per tech level",
   ),
   k("d396_blueprint", "", "society", "blueprintDiscountBp", "설계도 할인(만분율)", "Blueprint discount (bp)"),
+  // 사이보그 성장·환생 (49 §6.5 N6·N7·N9·N34, D-417·D-440·D-441)
+  k("n6_k_min", "N6", "society", "cyborg.kMinPm", "K 범위 최소(‰)", "K range min (‰)"),
+  k("n6_k_max", "N6", "society", "cyborg.kMaxPm", "K 범위 최대(‰)", "K range max (‰)"),
+  k("n7_max_level", "N7", "society", "cyborg.maxLevel", "만렙(기본)", "Max level (base)", true),
+  k(
+    "n9_initial_sum",
+    "N9",
+    "society",
+    "cyborg.initialSum",
+    "사이보그 초기 스탯 합",
+    "Cyborg initial stat sum",
+  ),
+  k("n9_initial_min", "N9", "society", "cyborg.initialMin", "초기 스탯 칸 최소", "Initial stat min per stat"),
+  k("n9_initial_max", "N9", "society", "cyborg.initialMax", "초기 스탯 칸 최대", "Initial stat max per stat"),
+  k(
+    "n34_rebirth_faith",
+    "N34",
+    "society",
+    "cyborg.rebirthFaith",
+    "사이보그 환생 신앙도",
+    "Cyborg rebirth faith cost",
+  ),
+  k(
+    "n34_rebirth_currency",
+    "N34",
+    "society",
+    "cyborg.rebirthCurrency",
+    "사이보그 환생 화폐(최소 단위)",
+    "Cyborg rebirth currency cost (minor units)",
+  ),
 ];
 
 function getPath(root: unknown, path: string): number {

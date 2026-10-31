@@ -2,7 +2,7 @@
 // 도시마다 지분(1000주, D-130)을 원장 자산 `share_<도시 ID>`로 둔다(1:1 양도·배당·의결이 같은 원장으로 풀린다, D-409).
 // - 발행·소각은 시스템 계정 issue:/sink:(자산마다 하나). 양도는 주체 사이 이체.
 // - 독재 도시는 지배 주체가 과반(> 50%)을 늘 지킨다(D-338·D-349): 그 아래로 내려가는 양도는 거절한다.
-// - 배당은 지분 비례(내림), 남는 몫은 내는 쪽에 남는다. 지배 주체 자기 몫은 옮기지 않는다.
+// - 배당(도시 세금 정산의 남은 이익)은 dividends.ts가 지분 비례로 나눈다(D-304·D-338).
 import type { LedgerBook, LedgerEntry } from "../ledger/ledgerBook.ts";
 
 export type Regime = "dictatorship" | "democracy" | "capitalism";
@@ -114,35 +114,6 @@ export function transferShares(
     ],
   });
   return "ok";
-}
-
-/**
- * 배당(D-130·D-304): total(화폐 asset)을 지분 비례로 나눈다(내림). payer 자기 몫은 옮기지 않는다. 한 거래. 옮긴 합
- */
-export function payDividends(
-  book: LedgerBook,
-  cityId: number,
-  asset: string,
-  payer: number,
-  total: bigint,
-  atMs: number,
-): bigint {
-  const holdings = holdingsOf(book, cityId);
-  const shares = holdings.reduce((sum, h) => sum + h.amount, 0n);
-  if (shares === 0n || total <= 0n || book.balanceOf(payer, asset) < total) return 0n;
-  const entries: LedgerEntry[] = [];
-  let paid = 0n;
-  for (const h of holdings) {
-    if (h.owner === payer) continue;
-    const part = (total * h.amount) / shares;
-    if (part <= 0n) continue;
-    entries.push({ account: book.ownerAccount(h.owner, asset), amount: part });
-    paid += part;
-  }
-  if (paid === 0n) return 0n;
-  entries.push({ account: book.ownerAccount(payer, asset), amount: -paid });
-  book.post({ kind: "dividend", atMs, entries });
-  return paid;
 }
 
 /** 지분 비례 배정(가장 큰 나머지, 같으면 주체 ID 작은 쪽): 복원 모금(D-339) 등 */

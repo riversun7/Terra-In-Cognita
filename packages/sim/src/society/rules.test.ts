@@ -8,14 +8,19 @@ import {
   allocateShares,
   holdingsOf,
   issueShares,
-  payDividends,
   rulerHasMajority,
   shareAsset,
   totalShares,
   transferShares,
 } from "./shares.ts";
 import { advanceTech, researchCost, techCeiling } from "./tech.ts";
-import { capitalistIndependence, democraticIndependence, independenceAllowed, rebelsOf } from "./uprising.ts";
+import {
+  capitalistIndependence,
+  democraticIndependence,
+  independenceAllowed,
+  rebelsOf,
+  unrestBand,
+} from "./uprising.ts";
 
 function setup() {
   let account = 0;
@@ -35,8 +40,8 @@ function setup() {
 }
 
 describe("도시 지분(원장 자산)", () => {
-  it("발행·양도·배당, 독재 도시는 지배 주체 과반을 깨는 양도를 거절한다(D-349)", () => {
-    const { book, audit, give } = setup();
+  it("발행·양도, 독재 도시는 지배 주체 과반을 깨는 양도를 거절한다(D-349)", () => {
+    const { book, audit } = setup();
     issueShares(
       book,
       5,
@@ -53,10 +58,6 @@ describe("도시 지분(원장 자산)", () => {
     expect(rulerHasMajority(holdingsOf(book, 5), 1)).toBe(true);
     expect(transferShares(book, { ...city, regime: "capitalism" }, 1, 3, 500n, 1)).toBe("ok");
     expect(transferShares(book, city, 9, 3, 1n, 1)).toBe("insufficient");
-    // 배당: 1000 중 낸 쪽(1) 몫은 그대로, 나머지에 비례
-    give(1, "cur:a", 1000n);
-    expect(payDividends(book, 5, "cur:a", 1, 1000n, 2)).toBe(1000n - 1n);
-    expect(book.balanceOf(2, "cur:a")).toBe(400n);
     expect(audit.check(book.accounts())).toEqual([]);
   });
 
@@ -99,6 +100,15 @@ describe("점령(46 §5.1)", () => {
     expect(settleShares(book, 5, 2, 3, "dictatorship", "keep", 2, c)).toBe("delist");
     expect(holdingsOf(book, 5)).toEqual([{ owner: 3, amount: 1000n }]);
     expect(book.balanceOf(7, shareAsset(5))).toBe(0n);
+  });
+
+  it("상장폐지 뒤 재발행 주식은 점령 세력 국고로, 주식 수는 설정값(D-298·D-443)", () => {
+    const { book } = setup();
+    issueShares(book, 6, [{ owner: 1, amount: 1000n }], 0);
+    const tuned = { ...c, delistReissueShares: 400 };
+    expect(settleShares(book, 6, 1, 2, "capitalism", "delist", 1, tuned)).toBe("delist");
+    expect(holdingsOf(book, 6)).toEqual([{ owner: 2, amount: 400n }]);
+    expect(c.delistReissueShares).toBe(1000);
   });
 
   it("만족도·관계 사건: 약탈·통합, 상장폐지, 독재로 바뀜", () => {
@@ -147,6 +157,21 @@ describe("반란·독립", () => {
         c,
       ),
     ).toEqual([]);
+  });
+
+  it("민심 표(D-443 155, N35): 문턱 이하 = 반란 중, 그 바로 위 = 반란 예고, 태업 문턱 이하 = 태업 조짐, 그 위 = 안정", () => {
+    expect([0, 40, 41, 50, 51, 60, 61, 100].map((points) => unrestBand(points * 1000, c))).toEqual([
+      "rebellion",
+      "rebellion",
+      "warning",
+      "warning",
+      "sabotage",
+      "sabotage",
+      "stable",
+      "stable",
+    ]);
+    expect(unrestBand(40_001, c)).toBe("warning");
+    expect(unrestBand(55_000, { ...c, rebellionWarningAt: 55 })).toBe("warning");
   });
 
   it("자본주의: 지분 1위가 열고 혼자 50% 이상이면 선언, 찬성 합 50% 이상이면 통과(D-300·D-301)", () => {

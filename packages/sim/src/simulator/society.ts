@@ -1,7 +1,8 @@
 // 시뮬레이터 세력·사회 — docs/adr/2026-10-31-faction-society-core.md "시뮬레이터"
 // 진짜 규칙(society/*.ts)을 시뮬 세계에 붙인다: 도시 지분, 점령(대리 판단이 고른 약탈·통합·지분 처리) + 편입 제안,
 // 하루마다 만족도(목표값으로 다가감)·출생·수명·환생·상속·반란(전투가 켜져 있으면 도시 안 공성)·자본주의 독립·연구·기술 후퇴,
-// 주마다 배당·봉신 공물. 무엇을 해 볼지(치기·마을 세우기·지분 팔기·연구 시설·봉신 독립)는 대리 판단(stubRules.ts, R5가 대신).
+// 배당 주기마다 도시 세금 정산(D-304: 이자 → 운영비 → 남은 이익을 체제대로), 공물 주기마다 봉신 공물.
+// 무엇을 해 볼지(치기·마을 세우기·지분 팔기·연구 시설·봉신 독립)는 대리 판단(stubRules.ts, R5가 대신).
 import type { LedgerBook } from "../ledger/ledgerBook.ts";
 import { JOB_GATHER, PHASE_WORK } from "../settle/settle.ts";
 import { satisfactionTarget, satisfactionToward, shiftSatisfaction } from "../society/labor.ts";
@@ -13,25 +14,17 @@ import {
   settleShares,
 } from "../society/occupation.ts";
 import { birthRoll, canBirth, deathFate, inherit, lifespanMs } from "../society/population.ts";
-import {
-  type Regime,
-  holdingsOf,
-  issueShares,
-  payDividends,
-  shareAsset,
-  totalShares,
-  transferShares,
-} from "../society/shares.ts";
+import { type Regime, holdingsOf, issueShares, shareAsset, transferShares } from "../society/shares.ts";
 import { advanceTech, techCeiling } from "../society/tech.ts";
 import { capitalistIndependence, independenceAllowed, rebelsOf } from "../society/uprising.ts";
 import { DAY_MS } from "./metrics.ts";
 import { checkSociety } from "./societyCheck.ts";
+import { createSocietyPayouts } from "./societyPayouts.ts";
 import type { SocietyOptions, SocietyRun } from "./societyTypes.ts";
 import {
   type SimCity,
   type SimFaction,
   type SimUnit,
-  type SimWorld,
   TEST_ASSET_CREDIT,
   newFaction,
   streamRng,
@@ -49,40 +42,8 @@ const REGIMES: readonly Regime[] = ["dictatorship", "democracy", "capitalism"];
 const average = (units: readonly SimUnit[]): number =>
   units.length === 0 ? 0 : Math.floor(units.reduce((sum, u) => sum + u.satisfactionMilli, 0) / units.length);
 
-/** 주마다: 배당(D-130·D-304 [임시] 국고 × 만분율 ÷ 도시 수), 봉신 공물(D-216 [임시] 봉신 국고 × 만분율) */
-function payWeekly(
-  world: SimWorld,
-  s: SocietyOptions["scenario"]["society"],
-  treasuryAsset: (f: SimFaction) => string,
-  nowMs: number,
-): void {
-  const book = world.book;
-  for (const city of [...world.cities.values()].toSorted((a, b) => a.id - b.id)) {
-    const owner = world.factions.get(city.owner);
-    if (!owner?.alive || totalShares(book, city.id) === 0n) continue;
-    const asset = treasuryAsset(owner);
-    const total =
-      (book.balanceOf(owner.id, asset) * BigInt(s.dividendBp)) /
-      10_000n /
-      BigInt(Math.max(1, owner.cities.size));
-    payDividends(book, city.id, asset, owner.id, total, nowMs);
-  }
-  for (const vassal of [...world.factions.values()].toSorted((a, b) => a.id - b.id)) {
-    const lord = vassal.overlord === null ? undefined : world.factions.get(vassal.overlord);
-    if (!vassal.alive || !lord?.alive) continue;
-    const asset = treasuryAsset(vassal);
-    const tribute = (book.balanceOf(vassal.id, asset) * BigInt(s.tributeBp)) / 10_000n;
-    if (tribute > 0n)
-      book.post({
-        kind: "tribute",
-        atMs: nowMs,
-        entries: [
-          { account: book.ownerAccount(vassal.id, asset), amount: -tribute },
-          { account: book.ownerAccount(lord.id, asset), amount: tribute },
-        ],
-      });
-  }
-}
+/** 날 수 주기(시뮬은 하루 끝에만 돈다: ms 주기를 날 수로 내림, 최소 하루) */
+const periodDays = (ms: number): number => Math.max(1, Math.floor(ms / DAY_MS));
 
 export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
   const { world, c, recorder } = o;
@@ -112,6 +73,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
   let day = 0;
 
   const treasuryAsset = (f: SimFaction): string => o.hooks?.treasuryAsset(f) ?? TEST_ASSET_CREDIT;
+  const payouts = createSocietyPayouts(world, c, o.hooks, treasuryAsset);
   const treasury = (f: SimFaction): bigint => book.balanceOf(f.id, treasuryAsset(f));
   const unitsByCity = (): Map<number, SimUnit[]> => {
     const map = new Map<number, SimUnit[]>();
@@ -214,6 +176,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
   const moveCity = (cityId: number, from: SimFaction, to: SimFaction, nowMs: number): void => {
     o.hooks?.beforeCityTransfer(cityId, from, to, nowMs);
     transferCity(world, cityId, to, nowMs);
+    payouts.cityMoved(cityId);
   };
 
   const removeUnit = (unit: SimUnit): void => {
@@ -378,6 +341,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       });
       city.researchLevel += 1;
       counts.researchBuilt += 1;
+      payouts.spent(city.id, cost);
     },
 
     breakVassal(faction) {
@@ -557,7 +521,8 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         recordTech(faction, nowMs, output, "regression");
       }
 
-      if (day % 7 === 0) payWeekly(world, s, treasuryAsset, nowMs);
+      if (day % periodDays(c.dividendEveryMs) === 0) payouts.settleDividends(nowMs);
+      if (day % periodDays(c.tributeEveryMs) === 0) payouts.payTribute(nowMs);
     },
 
     dayFields(faction) {
@@ -590,6 +555,12 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         shareSales: counts.shareSales,
         researchBuilt: counts.researchBuilt,
         vassalBreaks: counts.vassalBreaks,
+        dividends: {
+          settlements: payouts.counts.settlements,
+          payouts: payouts.counts.payouts,
+          toTreasury: payouts.counts.toTreasury,
+        },
+        tributes: payouts.counts.tributes,
         satisfaction: Math.floor(average(units) / 1000),
       };
     },

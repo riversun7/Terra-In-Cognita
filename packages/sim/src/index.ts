@@ -376,7 +376,6 @@ export {
   burnShares,
   holdingsOf,
   issueShares,
-  payDividends,
   rulerHasMajority,
   shareAsset,
   totalShares,
@@ -401,8 +400,31 @@ export {
   democraticIndependence,
   independenceAllowed,
   rebelsOf,
+  unrestBand,
   type IndependenceVote,
+  type UnrestBand,
 } from "./society/uprising.ts";
+export {
+  payCityProfit,
+  profitRecipient,
+  settleCityTaxes,
+  type CityProfitPayment,
+  type CityRevenue,
+  type CityTaxSettlement,
+  type ProfitRecipient,
+  type TaxSettlement,
+} from "./society/dividends.ts";
+export {
+  rebirthBlockers,
+  rebirthCyborg,
+  skillGradeCap,
+  type CyborgProgress,
+  type ItemNeed,
+  type RebirthBlocker,
+  type RebirthChoice,
+  type RebirthResult,
+  type RebirthWallet,
+} from "./society/cyborgRebirth.ts";
 export { birthRoll, canBirth, deathFate, inherit, lifespanMs, type DeathFate } from "./society/population.ts";
 export {
   advanceTech,

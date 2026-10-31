@@ -95,14 +95,10 @@ export interface ScenarioCombat {
   readonly nexusDurability: number;
 }
 
-/** 세력·사회 시뮬 손잡이([임시] 시나리오 시험값, 계수는 society/coefficients.ts) */
+/** 세력·사회 시뮬 손잡이([임시] 시나리오 시험값, 계수는 society/coefficients.ts. 배당·공물은 계수(팩 tuning)로 옮겼다) */
 export interface ScenarioSociety {
   /** 반란 판정 뒤 그 도시를 다시 보지 않는 날 */
   readonly rebellionCooldownDays: number;
-  /** 주마다 도시 배당 = 주인 국고 × 만분율 ÷ 도시 수 */
-  readonly dividendBp: number;
-  /** 주마다 봉신 공물 = 봉신 국고 × 만분율 */
-  readonly tributeBp: number;
   /** 새 마을로 옮겨 가는 유닛 수, 세우는 값(국고 화폐 최소 단위) */
   readonly founders: number;
   readonly foundCost: bigint;
@@ -237,8 +233,6 @@ export function parseScenario(value: unknown): Scenario {
       3,
       365,
     ),
-    dividendBp: optionalInt(field(societyValue, "dividendBp"), "society.dividendBp", 0, 100, 10_000),
-    tributeBp: optionalInt(field(societyValue, "tributeBp"), "society.tributeBp", 0, 500, 10_000),
     founders: optionalInt(field(societyValue, "founders"), "society.founders", 1, 8, 10_000),
     foundCost:
       field(societyValue, "foundCost") === undefined

@@ -56,6 +56,8 @@ describe("물자 거래소(호가창 + 장부 에스크로)", () => {
     // 1000의 2% = 20은 국고로
     expect(cash(book, 1)).toBe(980n);
     expect(cash(book, TREASURY)).toBe(20n);
+    // 걷은 거래세 누적(도시 세금 정산 D-304가 기간 차이를 쓴다)
+    expect(market.taxCollected).toBe(20n);
     expect(market.lastPrice).toBe(100n);
     expect(market.checkEscrow()).toEqual([]);
     expect(audit.check(book.accounts())).toEqual([]);

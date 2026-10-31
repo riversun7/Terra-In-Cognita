@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { TEST_SOCIETY_COEFFICIENTS as c } from "../society/coefficients.ts";
+import { TEST_ASSET_CREDIT } from "../settle/owner.ts";
+import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "../society/coefficients.ts";
 import { holdingsOf } from "../society/shares.ts";
 import { DAY_MS, createMetricsRecorder } from "./metrics.ts";
 import { parseScenario } from "./scenario.ts";
 import { attachSociety } from "./society.ts";
+import type { StubHooks } from "./stubRules.ts";
 import { createWorld } from "./world.ts";
 
 /** 세력 셋(도시 셋씩): 1 독재(고정), 2 자본주의, 3 민주주의 */
-function setup() {
+function setup(options: { hooks?: StubHooks; c?: SocietyCoefficients } = {}) {
+  const c = options.c ?? TEST_SOCIETY_COEFFICIENTS;
   const scenario = parseScenario({
     id: "society_test",
     factions: [
@@ -55,7 +58,7 @@ function setup() {
       scenario,
       recorder,
       c,
-      hooks: undefined,
+      hooks: options.hooks,
       combat: undefined,
       scheduleFaction: (faction) => scheduled.push(faction.id),
       scheduleUnit: () => {},
@@ -163,5 +166,81 @@ describe("시뮬 세력·사회", () => {
     const avg = [...world.units.values()].reduce((sum, u) => sum + u.satisfactionMilli, 0) / world.units.size;
     expect(avg).toBeGreaterThan(70_000);
     expect(society.summary().births).toBeGreaterThan(0);
+  });
+});
+
+/** 경제 고리 흉내: 도시마다 걷은 거래세 누적, 세력마다 낸 발행 이자 누적 */
+function taxHooks() {
+  const tax = new Map<number, bigint>();
+  const interest = new Map<number, bigint>();
+  const hooks: StubHooks = {
+    treasuryAsset: () => TEST_ASSET_CREDIT,
+    beforeCityTransfer: () => {},
+    factionBorn: () => {},
+    factionDied: () => {},
+    taxCollectedOf: (city) => tax.get(city) ?? 0n,
+    interestPaidOf: (faction) => interest.get(faction) ?? 0n,
+  };
+  return { hooks, tax, interest };
+}
+
+/** 7번 주체에게 도시 지분 400주를 넘긴다 */
+function giveShares(world: ReturnType<typeof setup>["world"], from: number, city: number): void {
+  world.book.post({
+    kind: "transfer",
+    atMs: 0,
+    entries: [
+      { account: world.book.ownerAccount(from, `share_${city}`), amount: -400n },
+      { account: world.book.ownerAccount(77, `share_${city}`), amount: 400n },
+    ],
+  });
+}
+
+describe("시뮬 배당·공물(D-304·D-338·D-443)", () => {
+  it("배당 주기마다 도시 세금 − 이자 − 운영비를 나눈다: 자본주의는 지분대로, 민주주의는 국고에 남는다", () => {
+    const { hooks, tax, interest } = taxHooks();
+    const { world, society } = setup({ hooks });
+    giveShares(world, 2, 5);
+    giveShares(world, 3, 7);
+    tax.set(5, 1000n);
+    tax.set(7, 1000n);
+    interest.set(2, 100n);
+    for (let day = 1; day <= 6; day++) society.endOfDay(day * DAY_MS);
+    expect(world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(0n);
+    society.endOfDay(7 * DAY_MS);
+    // 도시 5: 1000 − 이자 100 = 이익 900의 40% → 360. 도시 7(민주주의): 0
+    expect(world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(360n);
+    expect(society.summary().dividends).toEqual({ settlements: 2, payouts: 1, toTreasury: 1 });
+    // 다음 기간은 새로 걷은 세금만 본다
+    tax.set(5, 1500n);
+    for (let day = 8; day <= 14; day++) society.endOfDay(day * DAY_MS);
+    expect(world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(560n);
+    expect(society.check(14 * DAY_MS)).toEqual([]);
+  });
+
+  it("배당 주기는 설정값이고, 세금이 없으면 배당도 없다", () => {
+    const { hooks, tax } = taxHooks();
+    const c = { ...TEST_SOCIETY_COEFFICIENTS, dividendEveryMs: 2 * DAY_MS };
+    const { world, society } = setup({ hooks, c });
+    giveShares(world, 2, 5);
+    tax.set(5, 500n);
+    society.endOfDay(DAY_MS);
+    expect(world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(0n);
+    society.endOfDay(2 * DAY_MS);
+    expect(world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(200n);
+    const quiet = setup();
+    giveShares(quiet.world, 2, 5);
+    for (let day = 1; day <= 7; day++) quiet.society.endOfDay(day * DAY_MS);
+    expect(quiet.world.book.balanceOf(77, TEST_ASSET_CREDIT)).toBe(0n);
+  });
+
+  it("봉신은 공물 주기마다 국고의 공물 비율(설정값 주 5%)을 상위 세력에 낸다", () => {
+    const { world, society, faction } = setup();
+    faction(3).overlord = 2;
+    const before = world.book.balanceOf(2, TEST_ASSET_CREDIT);
+    const vassal = world.book.balanceOf(3, TEST_ASSET_CREDIT);
+    for (let day = 1; day <= 7; day++) society.endOfDay(day * DAY_MS);
+    expect(world.book.balanceOf(2, TEST_ASSET_CREDIT) - before).toBe((vassal * 50n) / 1000n);
+    expect(society.summary().tributes).toBe(1);
   });
 });

@@ -18,6 +18,17 @@ describe("설정 칸 값 → 계수표", () => {
     expect(TEST_COMBAT_COEFFICIENTS.stamina.scoreWeightsPm[2]).toBe(700);
     const society = societyCoefficientsFrom(new Map([["n24_housing_3", 2500]]));
     expect(society.housingRecoveryPm).toEqual([1000, 1500, 2000, 2500]);
+    // 안쪽 칸(사이보그 환생 N34)·공물(D-443)도 같은 길로 바뀐다
+    const rebirth = societyCoefficientsFrom(
+      new Map([
+        ["n34_rebirth_currency", 25_000],
+        ["s33_tribute_rate", 100],
+      ]),
+    );
+    expect([rebirth.cyborg.rebirthCurrency, rebirth.cyborg.rebirthFaith, rebirth.tributePm]).toEqual([
+      25_000, 50, 100,
+    ]);
+    expect(TEST_SOCIETY_COEFFICIENTS.cyborg.rebirthCurrency).toBe(10_000);
   });
 
   it("모든 키는 계수표의 숫자 칸을 가리키고, ID는 겹치지 않는다", () => {

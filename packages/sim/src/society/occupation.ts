@@ -1,8 +1,8 @@
 // 점령 처리 — docs/adr/2026-10-31-faction-society-core.md "점령", 기획 46 §5.1, D-186·D-293·D-297~D-299·D-339·D-342~D-348,
 // 질문 105·106 기본안(D-381). 판단(무엇을 고를지)은 부르는 쪽(NPC 두뇌 = R5, 지금은 대리 판단)이고, 이 파일은 규칙만 한다.
 // ① 약탈·통합(점령자 선택) ② 체제 = 점령 세력 체제 ③ 지분: 상장폐지(모두 소각 + 만족도·관계 감소) | 지분 유지(옛 통치자 몫 →
-//   점령 세력 국고). 독재 점령국은 몰수 몫으로 과반이 안 되면 상장폐지만(D-346 해석). 상장폐지한 도시는 새 지분 1000주를
-//   점령자에게 낸다([임시] "체제 규칙으로 새 지분", 46 §5.1 ⑤)
+//   점령 세력 국고). 독재 점령국은 몰수 몫으로 과반이 안 되면 상장폐지만(D-346 해석). 상장폐지한 도시는 새 지분을
+//   점령 세력 국고에 낸다(D-298·D-443, 주식 수 = 설정값 delistReissueShares)
 // ④ 도시 안 사유 자산 주인 모두에게 편입 제안 {대상, 기한, 상태}: 기한 동안 건물 정지·세금은 점령자, 수락 = 소유 유지 +
 //   소속 변경, 거부·만료 = 위치 있는 물건(질문 105) 이전 + 적대 표시(질문 106) ⑤ 복원 모금(shares.ts allocateShares)
 import type { LedgerBook, LedgerEntry } from "../ledger/ledgerBook.ts";
@@ -30,8 +30,8 @@ export interface OccupationResult {
 }
 
 /**
- * 지분 처리(③): keep = 옛 통치자 몫을 점령 세력 국고로(D-298), delist = 모두 소각 후 새 1000주를 점령자에게.
- * 독재 점령국은 결과에서 과반이 아니면 delist로 바꾼다
+ * 지분 처리(③): keep = 옛 통치자 몫을 점령 세력 국고로(D-298), delist = 모두 소각 후 새 주식(delistReissueShares)을
+ * 점령 세력 국고로(D-298·D-443). occupier = 점령 세력 국고 주체. 독재 점령국은 결과에서 과반이 아니면 delist로 바꾼다
  */
 export function settleShares(
   book: LedgerBook,
@@ -65,7 +65,7 @@ export function settleShares(
     return "keep";
   }
   burnShares(book, cityId, atMs);
-  issueShares(book, cityId, [{ owner: occupier, amount: BigInt(c.sharesPerCity) }], atMs);
+  issueShares(book, cityId, [{ owner: occupier, amount: BigInt(c.delistReissueShares) }], atMs);
   return "delist";
 }
 

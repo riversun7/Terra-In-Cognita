@@ -19,6 +19,10 @@ export interface SocietySummary {
   readonly shareSales: number;
   readonly researchBuilt: number;
   readonly vassalBreaks: number;
+  /** 도시 세금 정산(D-304): 이익이 난 도시·기간 수, 주주에게 나눈 거래 수, 국고에 남긴 수(민주주의) */
+  readonly dividends: { readonly settlements: number; readonly payouts: number; readonly toTreasury: number };
+  /** 봉신 공물 거래 수 */
+  readonly tributes: number;
   /** 끝 날 휴먼 평균 만족도(0~100) */
   readonly satisfaction: number;
 }

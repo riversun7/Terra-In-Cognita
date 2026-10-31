@@ -5,10 +5,16 @@
 export interface SocietyCoefficients {
   /** 도시 주식 수(D-130) */
   readonly sharesPerCity: number;
-  /** 배당 주기(D-130 7일) */
+  /** 배당(도시 세금 정산) 주기(D-130 7일, D-443 설정값). 시뮬은 하루 끝에서 날 수로 내림해 돈다 */
   readonly dividendEveryMs: number;
-  /** 반란 문턱: 도시 평균 만족도(S26 예시 40) */
+  /** 상장폐지 뒤 점령 세력 국고에 다시 내는 주식 수(D-298·D-443 설정값, 출발값 = 도시 주식 수) */
+  readonly delistReissueShares: number;
+  /** 반란 문턱: 도시 평균 만족도(S26 예시 40). 이하면 반란 중(D-253) */
   readonly rebellionThreshold: number;
+  /** [임시] 민심 표 반란 예고 문턱(N35 출발값 없음): 반란 문턱 위 ~ 이 값 이하 = 반란 예고(D-443 155) */
+  readonly rebellionWarningAt: number;
+  /** [임시] 민심 표 태업 조짐 문턱(N35 출발값 = 기술 [임시] 60): 반란 예고 위 ~ 이 값 이하 = 태업 조짐 */
+  readonly sabotageAt: number;
   /** 독립 통과 문턱(S27 구조 값): 자본주의 찬성 지분 ‰ 이상, 민주주의 가문 과반 */
   readonly independencePassPm: number;
   /** [임시] 편입 제안 기한(S30 출발값 없음) */
@@ -96,6 +102,28 @@ export interface SocietyCoefficients {
   };
   /** [임시] 목표값으로 다가가는 속도(N29 복원 속도, 하루에 차이의 ‰) */
   readonly satisfactionRestorePmPerDay: number;
+  /** [임시] 속국·봉신 공물(기획 값 없음, D-443: 출발값 기술 [임시] 주 5%, ‰): 상위 세력에 내는 국고 몫. 세력 화면도 이 값을 보인다 */
+  readonly tributePm: number;
+  /** 공물 주기(주마다). 시뮬은 하루 끝에서 날 수로 내림해 돈다 */
+  readonly tributeEveryMs: number;
+  /** 사이보그 성장·환생(48 §2, D-417·D-440·D-441, 49 N6·N7·N9·N34) */
+  readonly cyborg: {
+    /** 만렙(N7 기본 50, 구조 값). 특수 만렙 60은 누가 받는지 정해지지 않아 두지 않는다 */
+    readonly maxLevel: number;
+    /** K 범위(N6 800~1200‰, 생성·환생 리롤 때 균등) */
+    readonly kMinPm: number;
+    readonly kMaxPm: number;
+    /** 초기 스탯 합·칸 범위(N9 합 60, 칸 1~20). 환생 분포 변경도 이 안 */
+    readonly initialSum: number;
+    readonly initialMin: number;
+    readonly initialMax: number;
+    /** 스킬 최대 등급 = min(기본 + 환생 횟수, 상한)(D-031 기본 3, D-5001 상한 10) */
+    readonly skillGradeBase: number;
+    readonly skillGradeMax: number;
+    /** [임시] 환생 비용(N34 출발값 없음): 신앙도(0~100 척도), 화폐(신전 도시 화폐 최소 단위) */
+    readonly rebirthFaith: number;
+    readonly rebirthCurrency: number;
+  };
 }
 
 const DAY = 86_400_000;
@@ -104,7 +132,10 @@ const HOUR = 3_600_000;
 export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   sharesPerCity: 1000,
   dividendEveryMs: 7 * DAY,
+  delistReissueShares: 1000,
   rebellionThreshold: 40,
+  rebellionWarningAt: 50,
+  sabotageAt: 60,
   independencePassPm: 500,
   offerDeadlineMs: 3 * DAY,
   lootSatisfactionDrop: 25,
@@ -164,4 +195,18 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     injury: -10,
   },
   satisfactionRestorePmPerDay: 300,
+  tributePm: 50,
+  tributeEveryMs: 7 * DAY,
+  cyborg: {
+    maxLevel: 50,
+    kMinPm: 800,
+    kMaxPm: 1200,
+    initialSum: 60,
+    initialMin: 1,
+    initialMax: 20,
+    skillGradeBase: 3,
+    skillGradeMax: 10,
+    rebirthFaith: 50,
+    rebirthCurrency: 10_000,
+  },
 };

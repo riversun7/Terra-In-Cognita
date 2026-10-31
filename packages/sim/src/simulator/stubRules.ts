@@ -36,6 +36,10 @@ export interface StubHooks {
   cityFounded?(cityId: number, units: number, nowMs: number): void;
   /** 그 도시의 오늘 생필품 충족도(‰). 경제가 없으면 undefined */
   foodPmOf?(cityId: number): number | undefined;
+  /** 그 도시 거래소들이 걷은 거래세 누적(그때 주인 국고 화폐 최소 단위). 없으면 세금 없음(배당 없음) */
+  taxCollectedOf?(cityId: number): bigint;
+  /** 그 세력이 낸 발행 이자 누적(D-303, 화폐를 찍지 않으면 0) */
+  interestPaidOf?(factionId: number): bigint;
 }
 
 export interface StubContext {

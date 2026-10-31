@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-01 07:00 | 규칙 코드를 기획 D-440~D-443에 맞춤: 배당 = 도시 세금 순이익, 상장폐지 재발행, 공물 설정값, 사이보그 환생, 민심 표 | Claude Code | [01-0700-rules-d443](worklog/2026/11/01-0700-rules-d443.md) |
 | 2026-10-31 23:30 | 개발자 2차맵 시험 화면(/dev/second-map)과 검은 2차맵 안내 | Claude Code | [31-2330-dev-second-map](worklog/2026/10/31-2330-dev-second-map.md) |
 | 2026-10-31 22:45 | 화면 셋(유닛·사이보그, 경제·거래창, 세력·우편)과 R4b 합치기 | Claude Code | [31-2245-merge-ui-r4b](worklog/2026/10/31-2245-merge-ui-r4b.md) |
 | 2026-10-31 22:30 | 유닛 화면·사이보그 화면(그럴듯한 첫 판) | Claude Code | [31-2230-ui-units-cyborg](worklog/2026/10/31-2230-ui-units-cyborg.md) |

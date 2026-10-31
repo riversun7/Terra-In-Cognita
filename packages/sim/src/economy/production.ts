@@ -1,0 +1,67 @@
+// 생산 — docs/adr/2026-10-31-economy-core.md 2절, 기획 D-114(4단계)·D-119(효율)·D-5001(시설 Lv1~5 → 최고 티어)
+// - 레시피 한 번 = 장부 거래 하나: 재료(그 도시 창고) → 소멸 계정, 생산원 계정 → 산출(그 도시 창고). 재료가 모자라면 하지 않는다.
+//   일반 자원은 소멸·생산원(다시 자람)으로, 총량 자원은 매장량 계정으로 돈다(계정을 고르는 함수는 부르는 쪽이 준다).
+// - 속도: 시설의 시간당 작업량 = 배치한 일꾼 효율 합(효율 1000 = 기준 일꾼 한 명). 한 번에 드는 시간 = ⌈작업량 × 1시간 ÷ 시간당 작업량⌉.
+//   [임시] 효율은 스탯·스킬 식(D-119, 설정 칸 P9 출발값 없음)이 생기기 전까지 일꾼마다 정한 값이다.
+import type { LedgerBook, LedgerEntry } from "../ledger/ledgerBook.ts";
+
+export const HOUR_MS = 3_600_000;
+/** 기준 일꾼 효율(천분율) */
+export const BASE_EFFICIENCY = 1000;
+
+export interface Stack {
+  readonly asset: string;
+  readonly qty: bigint;
+}
+
+export interface RecipeSpec {
+  readonly id: string;
+  readonly facility: string;
+  readonly inputs: readonly Stack[];
+  readonly outputs: readonly Stack[];
+  /** 한 번에 드는 작업량(효율 1000 일꾼 한 시간 = 1000) */
+  readonly work: number;
+  /** 산출 가운데 가장 높은 티어 */
+  readonly tier: number;
+}
+
+/** 시설 레벨이 다루는 최고 티어(D-5001: Lv1 = T1, Lv2 = T3, … Lv5 = T9) */
+export function maxTierForLevel(level: number): number {
+  return Math.max(0, Math.min(9, level * 2 - 1));
+}
+
+/** 시간당 작업량으로 한 번 만드는 데 드는 시간(ms). 작업량이 0이면 undefined */
+export function batchDurationMs(work: number, pointsPerHour: number): number | undefined {
+  if (pointsPerHour <= 0) return undefined;
+  return Math.ceil((work * HOUR_MS) / pointsPerHour);
+}
+
+/** 재료가 사라지는 곳·산출이 나오는 곳 계정 */
+export interface ProductionAccounts {
+  consume(asset: string): number;
+  source(asset: string): number;
+}
+
+/** 레시피를 한 번 돌린다. 재료가 모자라면 아무것도 하지 않고 false */
+export function runRecipe(
+  book: LedgerBook,
+  owner: number,
+  location: number,
+  recipe: RecipeSpec,
+  accounts: ProductionAccounts,
+  atMs: number,
+): boolean {
+  for (const input of recipe.inputs)
+    if (book.balanceOf(owner, input.asset, location) < input.qty) return false;
+  const entries: LedgerEntry[] = [];
+  for (const input of recipe.inputs) {
+    entries.push({ account: book.ownerAccount(owner, input.asset, location), amount: -input.qty });
+    entries.push({ account: accounts.consume(input.asset), amount: input.qty });
+  }
+  for (const output of recipe.outputs) {
+    entries.push({ account: accounts.source(output.asset), amount: -output.qty });
+    entries.push({ account: book.ownerAccount(owner, output.asset, location), amount: output.qty });
+  }
+  book.post({ kind: "produce", atMs, entries });
+  return true;
+}

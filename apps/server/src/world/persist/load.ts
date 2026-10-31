@@ -23,6 +23,8 @@ export interface AccountRow {
   ownerId: number | null;
   systemCode: string | null;
   asset: string;
+  /** 창고 위치. ledger_accounts에 아직 위치 열이 없어 늘 null이다(R2 ADR: 서버가 위치 계정을 쓸 때 열 더하기 마이그레이션) */
+  location: null;
   balance: bigint;
 }
 
@@ -156,6 +158,7 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
       ownerId: numOrNull(row.owner_id),
       systemCode: typeof row.system_code === "string" ? row.system_code : null,
       asset: String(row.asset),
+      location: null,
       balance: BigInt(String(row.balance)),
     })),
     maxIds: {

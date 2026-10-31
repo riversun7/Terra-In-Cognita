@@ -60,6 +60,45 @@ export function createPlates(seed: number, count: number, continentalShare: numb
   });
 }
 
+/**
+ * 대륙 배치의 판 닻(ADR 2026-10-31-continent-layouts): 닻마다(앞에서부터, 최대 limit개) 아직 옮기지 않은 판 중 중심이
+ * 가장 가까운 판의 중심을 닻으로 옮기고 보로노이 무게를 ANCHOR_WEIGHT만큼 더한다(대륙 판이 제 대륙을 덮게). 극·각속도·
+ * 밀도는 그대로다(같은 시드는 같은 판 운동). anchored[판] = 1이면 닻으로 옮긴 판(대륙 판), 0이면 바다 판이다
+ */
+export function anchorPlates(
+  plates: readonly Plate[],
+  anchors: readonly (readonly [number, number, number])[],
+  limit: number,
+): { readonly plates: Plate[]; readonly anchored: Uint8Array } {
+  const result = [...plates];
+  const anchored = new Uint8Array(plates.length);
+  for (const anchor of anchors.slice(0, Math.max(0, limit))) {
+    let best = -1;
+    let bestDot = Number.NEGATIVE_INFINITY;
+    for (let k = 0; k < result.length; k++) {
+      if (anchored[k] === 1) continue;
+      const { center } = plateOf(result, k);
+      const d = center[0] * anchor[0] + center[1] * anchor[1] + center[2] * anchor[2];
+      if (d > bestDot) {
+        bestDot = d;
+        best = k;
+      }
+    }
+    if (best < 0) break;
+    anchored[best] = 1;
+    const plate = plateOf(result, best);
+    result[best] = {
+      ...plate,
+      center: [anchor[0], anchor[1], anchor[2]],
+      weight: plate.weight + ANCHOR_WEIGHT,
+    };
+  }
+  return { plates: result, anchored };
+}
+
+/** 대륙 판(닻으로 옮긴 판)에 더하는 보로노이 무게: 경계가 약 0.2~0.3라디안 바깥으로 물러난다 */
+export const ANCHOR_WEIGHT = 0.2;
+
 /** 판 회전에 따른 점 p의 속도(접선 벡터) = ω (극 × p) */
 export function plateVelocity(plate: Plate, px: number, py: number, pz: number): [number, number, number] {
   const [ex, ey, ez] = plate.pole;
@@ -89,8 +128,48 @@ export function plateAt(plates: readonly Plate[], warpSeed: number, x: number, y
   return best;
 }
 
-/** 무작위 회전(고른 사원수 → 행렬, 삼각함수 없이) */
-function randomRotation(rng: ReturnType<typeof streamRng>): Rotation {
+/**
+ * 대륙 배치(ADR 2026-10-31-continent-layouts)의 판 고르기: plateAt과 같은 흔든 무게 보로노이에 "대륙 판은 땅 쪽, 바다 판은
+ * 바다 쪽" 점수를 더한다. 점수 = affinity[판](+1 대륙 판 = 닻으로 옮긴 판, −1 바다 판) × PLATE_LAND_AFFINITY × clamp(land, ±1).
+ * land는 그 칸의 대륙성(바다 쪽 음수, 대륙 안 양수)을 PLATE_LAND_REACH로 나눈 값이다. 그래서 대륙 판과 바다 판의 경계는
+ * 해안 가까이 오면 해안으로 붙고(안데스형 산맥·해구), 대륙 판끼리·바다 판끼리의 경계는 그대로다(대륙 안 충돌대·열곡,
+ * 바다 가운데 해령·섬 호). 대륙과 무관한 보로노이만 쓰면 판 경계가 해안과 거의 겹치지 않아 안데스형 산맥이 경계 칸의
+ * 1% 안팎이었다(노이즈 배치 6~10%, 2026-10-31 F6 시드 3개)
+ */
+export function plateAtLayout(
+  plates: readonly Plate[],
+  warpSeed: number,
+  x: number,
+  y: number,
+  z: number,
+  affinity: Float64Array,
+  land: number,
+): number {
+  const qx = x + 0.42 * fbm3(warpSeed, x, y, z, 1.6, PLATE_WARP_OCTAVES, 0.5);
+  const qy = y + 0.42 * fbm3(warpSeed + 1, x, y, z, 1.6, PLATE_WARP_OCTAVES, 0.5);
+  const qz = z + 0.42 * fbm3(warpSeed + 2, x, y, z, 1.6, PLATE_WARP_OCTAVES, 0.5);
+  const length = Math.sqrt(qx * qx + qy * qy + qz * qz);
+  const pull = PLATE_LAND_AFFINITY * Math.min(1, Math.max(-1, land / PLATE_LAND_REACH));
+  let best = 0;
+  let bestScore = Number.NEGATIVE_INFINITY;
+  for (let k = 0; k < plates.length; k++) {
+    const { center, weight } = plateOf(plates, k);
+    const score =
+      (qx * center[0] + qy * center[1] + qz * center[2]) / length + weight + (affinity[k] ?? 0) * pull;
+    if (score > bestScore) {
+      bestScore = score;
+      best = k;
+    }
+  }
+  return best;
+}
+
+/** 대륙 배치 판 고르기의 땅·바다 끌림 세기(보로노이 점수 단위)와, 끌림이 다 차는 대륙성 크기 */
+export const PLATE_LAND_AFFINITY = 0.25;
+export const PLATE_LAND_REACH = 0.3;
+
+/** 무작위 회전(고른 사원수 → 행렬, 삼각함수 없이). 대륙 배치(continents.ts)의 회전 고르기도 쓴다 */
+export function randomRotation(rng: ReturnType<typeof streamRng>): Rotation {
   for (;;) {
     const w = 2 * unitFloat(rng) - 1;
     const x = 2 * unitFloat(rng) - 1;

@@ -3,7 +3,12 @@
 // 팩 전체 검증(스키마·참조)은 pnpm check:content가 한다.
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { type PlanetGeneratorInput, planetInputFromDefinition } from "../src/generator/index.ts";
+import { type ContinentLayout, resolveContinentLayout } from "@terra/shared";
+import {
+  type PlanetGeneratorInput,
+  parseContinentLayout,
+  planetInputFromDefinition,
+} from "../src/generator/index.ts";
 
 const PACK_DIR = fileURLToPath(new URL("../../../content/core/", import.meta.url));
 
@@ -41,4 +46,24 @@ export function loadPackPlanet(id = "s2_test_planet", faceLevel?: number): TestP
     return typeof color === "string" ? color : "#ff00ff";
   });
   return { input, colors, biomeIds: input.biomes.map((biome) => biome.id) };
+}
+
+/**
+ * 측정 스크립트의 --continents 값 "<배치 종류>[:대륙 수]"(예: supercontinent, earthlike:4) → 풀어 쓴 대륙 배치.
+ * 값이 없으면 undefined(팩 정의 그대로 = 노이즈 배치). 틀리면 RangeError
+ */
+export function continentsArgument(value: string | undefined): ContinentLayout | undefined {
+  if (value === undefined) return undefined;
+  const [layout, count] = value.split(":");
+  return resolveContinentLayout(
+    parseContinentLayout(count === undefined ? { layout } : { layout, count: Number(count) }),
+  );
+}
+
+/** 입력에 대륙 배치를 얹는다(없으면 그대로) */
+export function withContinents(
+  input: PlanetGeneratorInput,
+  continents: ContinentLayout | undefined,
+): PlanetGeneratorInput {
+  return continents === undefined ? input : { ...input, continents };
 }

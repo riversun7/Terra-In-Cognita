@@ -1,8 +1,20 @@
 // 행성 정의(JSON 모양) → 생성기 입력 — 타입이 없는 값을 확인하며 바꾼다. 모양은 팩 planets.json·biomes.json과 같다.
 // 받는 것: 파일에서 읽은 JSON, 편집기 가져오기, 콘텐츠 팩 검증 결과 항목(@terra/content `pack.entries`의 planets·biomes).
 // 검증 결과에서는 바이옴 참조가 ID 문자열이 아니라 참조 객체(ContentRef, `id` 필드)라 둘 다 받는다.
-import { OCEAN_DEPTH_CLASSES, PLANET_PRESET_AXES, isPlanetPresetLevel } from "@terra/shared";
-import type { OceanDepthClass, PlanetPresets, PlanetSettingKey, PlanetSettingOverrides } from "@terra/shared";
+import {
+  OCEAN_DEPTH_CLASSES,
+  PLANET_PRESET_AXES,
+  isContinentLayoutKind,
+  isPlanetPresetLevel,
+  resolveContinentLayout,
+} from "@terra/shared";
+import type {
+  ContinentLayoutDefinition,
+  OceanDepthClass,
+  PlanetPresets,
+  PlanetSettingKey,
+  PlanetSettingOverrides,
+} from "@terra/shared";
 import { PLANET_SETTING_KEYS, resolvePlanetSettings } from "@terra/shared";
 import type { BiomeRange, BiomeRule, PlanetBiome, PlanetGeneratorInput } from "./types.ts";
 
@@ -63,6 +75,23 @@ export function parsePlanetOverrides(value: unknown): PlanetSettingOverrides {
     if (raw[key] !== undefined) overrides[key] = integer(raw[key], `overrides.${key}`);
   }
   return overrides;
+}
+
+/**
+ * 대륙 배치 {layout, count?} — 없으면 undefined(노이즈 배치). 모르는 종류·필드는 RangeError(대륙 수 범위는
+ * resolveContinentLayout이 본다)
+ */
+export function parseContinentLayout(value: unknown): ContinentLayoutDefinition | undefined {
+  if (value === undefined) return undefined;
+  const raw = record(value, "continents");
+  for (const key of Object.keys(raw)) {
+    if (key !== "layout" && key !== "count") throw new RangeError(`unknown continents field "${key}"`);
+  }
+  if (!isContinentLayoutKind(raw.layout))
+    throw new RangeError(`unknown continent layout "${String(raw.layout)}"`);
+  return raw.count === undefined
+    ? { layout: raw.layout }
+    : { layout: raw.layout, count: integer(raw.count, "continents.count") };
 }
 
 function parseRange(value: unknown, what: string): BiomeRange | undefined {
@@ -132,10 +161,13 @@ export function planetInputFromDefinition(
     if (entry === undefined) throw new RangeError(`planet.biomes refers to a missing biome "${id}"`);
     return parsePlanetBiome(entry);
   });
-  return {
+  const input: PlanetGeneratorInput = {
     faceLevel: faceLevel ?? integer(raw.faceLevel, "planet.faceLevel"),
     seed: integer(raw.seed, "planet.seed"),
     settings: resolvePlanetSettings(parsePlanetPresets(raw.presets), parsePlanetOverrides(raw.overrides)),
     biomes,
   };
+  // 대륙 배치가 없으면 필드를 두지 않는다(서버 정의 해시가 출력 판 3 그대로)
+  const continents = resolveContinentLayout(parseContinentLayout(raw.continents));
+  return continents === undefined ? input : { ...input, continents };
 }

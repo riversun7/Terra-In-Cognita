@@ -66,17 +66,23 @@ export function definitionHashOf(definition: unknown): string {
 
 /**
  * 정의 해시에 넣는 값 = 타일 내용을 정하는 것 모두: 면 레벨, 시드, 풀어 쓴 세부 수치(프리셋 + 덮어쓰기),
- * 바이옴 표(행성 biomes 순서의 ID·숲 밀도·판정 규칙). 이름·설명·색은 넣지 않는다(바꿔도 다시 굽지 않는다. 범례는
- * 목록 정보로 나가고 목록 정보는 늘 새로 확인한다). 생성기 버전·타일 형식 버전은 캐시 키에 따로 있다.
+ * 바이옴 표(행성 biomes 순서의 ID·숲 밀도·판정 규칙), 대륙 배치(있을 때만, ADR 2026-10-31-continent-layouts).
+ * 대륙 배치가 없는 행성은 칸을 아예 두지 않아 해시가 대륙 배치를 더하기 전과 같다(캐시를 다시 굽지 않는다).
+ * 이름·설명·색은 넣지 않는다(바꿔도 다시 굽지 않는다. 범례는 목록 정보로 나가고 목록 정보는 늘 새로 확인한다).
+ * 생성기 버전·타일 형식 버전은 캐시 키에 따로 있다.
  */
 export function planetDefinitionForHash(input: PlanetGeneratorInput): unknown {
-  return {
+  const definition = {
     kind: "generator",
     faceLevel: input.faceLevel,
     seed: input.seed,
     settings: input.settings,
     biomes: input.biomes.map(({ id, forestDensity, rule }) => ({ id, forestDensity, rule })),
   };
+  const { continents } = input;
+  return continents === undefined
+    ? definition
+    : { ...definition, continents: { layout: continents.layout, count: continents.count } };
 }
 
 /** 설명 → 원본. 메인 스레드(목록 정보·캐시 키)와 굽기 워커(생성)가 같은 함수를 쓴다 */

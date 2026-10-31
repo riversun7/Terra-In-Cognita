@@ -4,6 +4,7 @@
 import type { PlanetSettings } from "@terra/shared";
 import { CLIMATE_NOISES } from "./climate.ts";
 import { WIND_NOISE } from "./climateWind.ts";
+import { CONTINENT_NOISES } from "./continents.ts";
 import { type Volcano, hotspotVolcanoes } from "./hotspots.ts";
 import { LANDFORM_NOISES } from "./landforms.ts";
 import {
@@ -28,12 +29,13 @@ const LATTICE_NEAR = 0.1;
 /** 격자점 지표를 재는 노이즈 시드(격자 위치는 시드마다 다르지만 지표는 시드와 거의 무관하다) */
 const LATTICE_SEED = 777;
 
-/** 생성기가 쓰는 노이즈 2판 설정 전부(바람·기후·지형 틀·산맥) */
+/** 생성기가 쓰는 노이즈 2판 설정 전부(바람·기후·지형 틀·산맥·대륙 배치 잔 노이즈) */
 export const GENERATOR_NOISES: readonly NoiseSetup[] = [
   WIND_NOISE,
   ...CLIMATE_NOISES,
   ...LANDFORM_NOISES,
   ...TECTONIC_NOISES,
+  ...CONTINENT_NOISES,
 ];
 
 /** 모든 칸에서 생성기 바람 세기의 최솟값(0에 가까우면 그 칸은 바람길이 끊긴다) */

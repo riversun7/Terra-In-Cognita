@@ -3,6 +3,7 @@
 // S2: 행성 정의(planets)와 바이옴 표(biomes)를 더했다(ADR 2026-10-29-s2-planet-lod, 임시 데이터).
 // 행성 표본(planet_templates): 편집기 시작점만, 서버가 굽지 않는다(ADR 2026-10-29-planet-editor-stage1 "행성 표본").
 // R2: 아이템에 대분류·티어·기준 가치·켬/끔을 더하고, 레시피·시설·생필품·국가 프리셋을 더했다(ADR 2026-10-31-economy-core).
+// 2차맵 소품(map_props): 2차맵 생성기의 배치 규칙(ADR 2026-10-31-second-map-from-planet 4절, 임시 데이터).
 import { z } from "zod";
 import {
   facilityEntrySchema,
@@ -11,6 +12,7 @@ import {
   necessityEntrySchema,
   recipeEntrySchema,
 } from "./economy.ts";
+import { mapPropEntrySchema } from "./mapProps.ts";
 import { biomeEntrySchema, planetEntrySchema, planetTemplateEntrySchema } from "./planets.ts";
 
 export interface CategoryDefinition {
@@ -42,4 +44,5 @@ export const CATEGORIES: CategoryRegistry = {
   biomes: { entry: biomeEntrySchema },
   planets: { entry: planetEntrySchema },
   planet_templates: { entry: planetTemplateEntrySchema },
+  map_props: { entry: mapPropEntrySchema },
 };

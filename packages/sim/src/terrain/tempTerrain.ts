@@ -5,24 +5,19 @@
 // - 행성 생성기(S2, packages/planet)가 생기면 바뀐다. 이웃 2차맵과 경계는 이어지지 않는다(임시).
 // - 수치(해수면·높이 배율·비탈 기준·지표 비용)는 S1 임시값이다. 출력이 바뀌면 TEMP_TERRAIN_GENERATOR_VERSION을 올린다.
 import { createFnv1a, mix32 } from "../math/hash.ts";
-import {
-  PLACEMENT_CELLS,
-  PLACEMENT_PER_TERRAIN,
-  PLACEMENT_SIZE,
-  TERRAIN_SIZE,
-  TERRAIN_VERTEX_SIZE,
-} from "../units.ts";
+import { TERRAIN_SIZE, TERRAIN_VERTEX_SIZE } from "../units.ts";
 import { TEMP_TERRAIN_GENERATOR_VERSION } from "../version.ts";
+import { CLIFF_RELIEF_CM, SURFACE_COST, cellRelief, placementCostsFromLayers } from "./layerCosts.ts";
 import { valueNoise } from "./noise.ts";
+
+// 지표 비용·벼랑 기준은 layerCosts.ts(행성 값 2차맵과 같은 표)에 있다. 이전 이름 그대로 내보낸다
+export { CLIFF_RELIEF_CM, SURFACE_COST };
 
 /** 지표 종류(임시) */
 export const SURFACE_WATER = 0;
 export const SURFACE_GRASS = 1;
 export const SURFACE_DIRT = 2;
 export const SURFACE_ROCK = 3;
-
-/** 지표 종류 → 배치 칸 비용(천분율, 0 = 막힘). S1 임시값 */
-export const SURFACE_COST: Readonly<Uint16Array> = Uint16Array.of(0, 1000, 1050, 1300);
 
 /** 높이 노이즈 옥타브: [간격 log2(꼭짓점), 가중치]. 넓은 언덕 + 잔물결 */
 const HEIGHT_OCTAVES: readonly (readonly [number, number])[] = [
@@ -41,8 +36,6 @@ const HEIGHT_CM_PER_1000 = 400;
 const ROCK_ALTITUDE_CM = 13_000;
 /** 지형 칸 꼭짓점 4개의 높이 차(cm)가 이 이상이면 바위 */
 export const ROCK_RELIEF_CM = 450;
-/** 이 이상이면 가파른 비탈이라 지나갈 수 없다(지형 칸 약 11.7m에 약 6.5m) */
-export const CLIFF_RELIEF_CM = 650;
 /** 습도 노이즈가 이 이상이면 풀, 아니면 흙 */
 const GRASS_MOISTURE = 26_000;
 
@@ -119,24 +112,12 @@ function cornerHeights(
 
 /** 지형 칸 (tx, ty) 꼭짓점 4개의 높이 차(cm) — 비탈의 세기 */
 export function terrainCellRelief(terrain: TempTerrain, tx: number, ty: number): number {
-  const corners = cornerHeights(terrain, tx, ty);
-  return Math.max(...corners) - Math.min(...corners);
+  return cellRelief(terrain.heights, tx, ty);
 }
 
-/** 배치 칸 65,536개의 지형 비용(천분율, 0 = 막힘). createPlacementGrid에 넣는다 */
+/** 배치 칸 65,536개의 지형 비용(천분율, 0 = 막힘). createPlacementGrid에 넣는다(엄폐 없음) */
 export function placementCostsFromTerrain(terrain: TempTerrain): Uint16Array {
-  const costs = new Uint16Array(PLACEMENT_CELLS);
-  for (let ty = 0; ty < TERRAIN_SIZE; ty++) {
-    for (let tx = 0; tx < TERRAIN_SIZE; tx++) {
-      const kind = terrain.surface[ty * TERRAIN_SIZE + tx] ?? SURFACE_WATER;
-      const cost = terrainCellRelief(terrain, tx, ty) >= CLIFF_RELIEF_CM ? 0 : (SURFACE_COST[kind] ?? 0);
-      for (let dy = 0; dy < PLACEMENT_PER_TERRAIN; dy++) {
-        const row = (ty * PLACEMENT_PER_TERRAIN + dy) * PLACEMENT_SIZE + tx * PLACEMENT_PER_TERRAIN;
-        costs.fill(cost, row, row + PLACEMENT_PER_TERRAIN);
-      }
-    }
-  }
-  return costs;
+  return placementCostsFromLayers({ heights: terrain.heights, surface: terrain.surface });
 }
 
 /** 결과 해시(FNV-1a): 버전·시드·높이·지표. 생성 결과 확인(골든 해시, 저장본 비교)에 쓴다 */

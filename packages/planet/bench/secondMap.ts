@@ -1,10 +1,14 @@
 // 2차맵 생성기 측정·그림(ADR 46 5·7절) — node bench/secondMap.ts <출력 폴더> [면 레벨] [자리] [격자 수]
-// 자리: river·coast·lake·mountain(그런 칸이 든 블록을 면 0에서 찾는다) 또는 "면,i,j". 기본 river, 격자 4, 면 레벨 9.
-// 콘텐츠 팩 S2 시험 행성을 면 레벨로 생성하고, 고른 자리부터 격자 수 × 격자 수 2차맵을 만든다.
+// 자리: river·coast·lake·mountain·forest(그런 칸이 든 블록을 면 0에서 찾는다) 또는 "면,i,j". 기본 river, 격자 4, 면 레벨 9.
+// 콘텐츠 팩 S2 시험 행성을 면 레벨로 생성하고, 고른 자리부터 격자 수 × 격자 수 2차맵을 만든다(소품 규칙 = 팩 map_props).
 // - 시간: 2차맵마다 생성 ms(p50·p95·최대), 행성 생성 ms.
 // - 이음매: 이웃 쌍마다 공유 변 꼭짓점 높이·물 높이가 같은지(다르면 종료 코드 1).
-// - 그림: 2차맵을 이어 붙인 한 장(높이 음영 + 지표 색 + 물), 경계선 없이(이음매가 보이면 안 된다). 출력 폴더는 저장소 밖 절대 경로.
+// - 그림: 2차맵을 이어 붙인 한 장(높이 음영 + 지표 색 + 물 + 엄폐·소품: 배치 칸 하나 = 1화소, 차폐는 소품 색, 은폐는 반쯤 섞음),
+//   경계선 없이(이음매가 보이면 안 된다). 출력 폴더는 저장소 밖 절대 경로.
+// - 엄폐 몫: 배치 칸 가운데 차폐·은폐 비율, 소품 그림별 칸 수.
 import { mkdirSync, writeFileSync } from "node:fs";
+import { MAP_PROP_ARTS } from "@terra/shared";
+import mapPropsJson from "../../../content/core/map_props.json" with { type: "json" };
 import { cellKey } from "../src/cellKey.ts";
 import { FACES, type Face } from "../src/faces.ts";
 import { runPlanetGenerator } from "../src/generator/index.ts";
@@ -14,6 +18,7 @@ import {
   SM_TERRAIN,
   SM_VERTICES,
   type SecondMapTerrain,
+  compileMapProps,
   generateSecondMap,
   planetValuesFromGeneration,
 } from "../src/secondMap/index.ts";
@@ -34,6 +39,7 @@ let t = performance.now();
 const details = runPlanetGenerator(planet.input);
 const planetMs = performance.now() - t;
 const values = planetValuesFromGeneration(details.fields, details, planet.biomeIds);
+const rules = compileMapProps(mapPropsJson.entries, planet.biomeIds);
 
 /** 블록(면 0, 왼쪽 아래 (i, j))에 든 것 세기 */
 function blockScore(kind: string, i0: number, j0: number): number {
@@ -55,6 +61,12 @@ function blockScore(kind: string, i0: number, j0: number): number {
   if (kind === "coast") return ocean > 0 && ocean < cells / 2 ? ocean + river : -1;
   if (kind === "lake") return lake > 0 && ocean === 0 ? lake * 10 + river : -1;
   if (kind === "mountain") return ocean === 0 ? high * 10 + river : -1;
+  if (kind === "forest") {
+    let forest = 0;
+    for (let j = j0; j < j0 + grid; j++)
+      for (let i = i0; i < i0 + grid; i++) forest += values.forest[j * n + i] ?? 0;
+    return ocean === 0 ? forest : -1;
+  }
   return ocean === 0 ? river : -1;
 }
 let face: Face = 0;
@@ -86,7 +98,7 @@ for (let gy = 0; gy < grid; gy++) {
   for (let gx = 0; gx < grid; gx++) {
     const key = cellKey(face, level, ci + gx, cj + grid - 1 - gy);
     t = performance.now();
-    maps.push({ gx, gy, terrain: generateSecondMap(values, key) });
+    maps.push({ gx, gy, terrain: generateSecondMap(values, key, rules) });
     times.push(performance.now() - t);
   }
 }
@@ -131,6 +143,18 @@ const COLORS: Record<number, [number, number, number]> = {
   [SM_SURFACE.ash]: [115, 112, 117],
   [SM_SURFACE.shallowWater]: [158, 209, 214],
 };
+/** 소품 그림 색(차폐는 그대로, 은폐는 바닥과 반쯤 섞는다) */
+const ART_COLORS: Record<string, [number, number, number]> = {
+  tree_broadleaf: [46, 110, 52],
+  tree_conifer: [28, 80, 60],
+  tree_palm: [96, 146, 62],
+  bush: [104, 150, 72],
+  reeds: [176, 178, 96],
+  boulder: [112, 110, 106],
+  log: [124, 92, 60],
+};
+const coverCount = [0, 0, 0];
+const artCount = new Map<string, number>();
 for (const { gx, gy, terrain } of maps) {
   for (let r = 0; r < SM_TERRAIN; r++) {
     for (let c = 0; c < SM_TERRAIN; c++) {
@@ -142,12 +166,24 @@ for (const { gx, gy, terrain } of maps) {
       const shade = Math.max(0.55, Math.min(1.3, 1 - (dx + dy) / 900));
       const water = (terrain.waterLevelCm[v] ?? NO_WATER) > (h[v] ?? 0);
       const base = COLORS[terrain.surface[r * SM_TERRAIN + c] ?? 1] ?? [255, 0, 255];
-      const color = water ? [base[0] * 0.85, base[1] * 0.9, base[2]] : base.map((x) => x * shade);
+      const ground = water ? [base[0] * 0.85, base[1] * 0.9, base[2]] : base.map((x) => x * shade);
       for (let sy = 0; sy < SCALE; sy++) {
         for (let sx = 0; sx < SCALE; sx++) {
           const px = (gx * SM_TERRAIN + c) * SCALE + sx;
           const py = (gy * SM_TERRAIN + r) * SCALE + sy;
           const o = (py * width + px) * 3;
+          // 배치 칸(지형 칸 하나에 2×2) = 1화소
+          const pi = (r * 2 + sy) * 256 + c * 2 + sx;
+          const cover = terrain.cover[pi] ?? 0;
+          const art = MAP_PROP_ARTS[terrain.art[pi] ?? 0] ?? "none";
+          coverCount[cover] = (coverCount[cover] ?? 0) + 1;
+          if (art !== "none") artCount.set(art, (artCount.get(art) ?? 0) + 1);
+          const prop = ART_COLORS[art];
+          const color = prop
+            ? cover === 2
+              ? prop.map((x) => x * shade)
+              : ground.map((x, k) => (x + (prop[k] ?? 0) * shade) / 2)
+            : ground;
           rgb[o] = Math.max(0, Math.min(255, Math.round(color[0] ?? 0)));
           rgb[o + 1] = Math.max(0, Math.min(255, Math.round(color[1] ?? 0)));
           rgb[o + 2] = Math.max(0, Math.min(255, Math.round(color[2] ?? 0)));
@@ -169,6 +205,9 @@ console.log(
       planetMs: Math.round(planetMs),
       mapMs: { p50: +pct(0.5).toFixed(1), p95: +pct(0.95).toFixed(1), max: +pct(1).toFixed(1) },
       seamMismatches: mismatches,
+      coverShare: coverCount.map((count) => +((count / Math.max(1, maps.length * 65_536)) * 100).toFixed(1)),
+      artCells: Object.fromEntries(artCount),
+      propRulesHash: rules.hash,
       image: `${outDir}/${name}`,
     },
     null,

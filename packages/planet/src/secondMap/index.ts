@@ -6,6 +6,14 @@ export { SM_SURFACE, type SmSurface } from "./surfaces.ts";
 export { SM_PLACEMENT, SM_TERRAIN, SM_VERTICES, mapCoords, type MapCoords } from "./layout.ts";
 export { stepMapCell, type MapCellStep } from "./edges.ts";
 export {
+  compileMapProps,
+  emptyPropRules,
+  type MapPropCurveInput,
+  type MapPropInput,
+  type PropRuleSet,
+} from "./props.ts";
+export { SM_CLIFF_RELIEF_CM, WATER_DISTANCE_MAX } from "./placement.ts";
+export {
   NO_RECEIVER,
   PLANET_VALUES_FORMAT,
   decodePlanetValues,

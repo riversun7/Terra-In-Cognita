@@ -51,10 +51,13 @@ export function cubePoint(face: Face, level: number, I: number, J: number): [num
   return [N * n[0] + u * a[0] + v * b[0], N * n[1] + u * a[1] + v * b[1], N * n[2] + u * a[2] + v * b[2]];
 }
 
-/** 정수 나눗셈 내림(b > 0) — 음수에서도 바닥 쪽. 둘 다 안전 정수 범위 안 */
+/**
+ * 정수 나눗셈 내림(b > 0) — 음수에서도 바닥 쪽. |a| < 2^53인 정수면 Math.floor(a / b)가 정확하다:
+ * 참 몫이 정수가 아니면 가장 가까운 정수까지 1/b 이상 떨어져 있고, 나눗셈 반올림 오차는 |a / b| × 2^−53 < 1/b라 넘지 않는다.
+ * 참 몫이 정수면 나눗셈이 정확하다. (나머지 연산 두 번보다 빠르다, 시험이 나머지 식과 비교한다)
+ */
 export function floorDiv(a: number, b: number): number {
-  const r = ((a % b) + b) % b;
-  return (a - r) / b;
+  return Math.floor(a / b);
 }
 
 /** 면 레벨 F 칸 (face, i, j)의 행성 값 배열 번호(면 × n² + j × n + i). 칸이 없으면 −1 */

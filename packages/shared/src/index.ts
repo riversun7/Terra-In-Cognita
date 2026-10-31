@@ -171,3 +171,14 @@ export {
   type ResetPasswordResponse,
   type SessionResponse,
 } from "./accountApi.ts";
+export {
+  MAP_PROP_ARTS,
+  MAP_PROP_CLUMP_CELLS,
+  MAP_PROP_CURVE_AXES,
+  MAP_PROP_CURVE_AXIS_NAMES,
+  MAP_PROP_PLACEMENTS,
+  mapPropArtCode,
+  type MapPropArt,
+  type MapPropCurveAxis,
+  type MapPropPlacement,
+} from "./mapProps.ts";

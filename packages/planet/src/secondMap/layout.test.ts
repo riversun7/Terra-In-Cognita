@@ -12,6 +12,12 @@ function direction(face: Face, level: number, I: number, J: number): number[] {
   return [p[0] / l, p[1] / l, p[2] / l];
 }
 
+/** 정수 내림 몫의 정의(BigInt로 낸다) */
+function exactFloorDiv(a: number, b: number): number {
+  const q = BigInt(a) / BigInt(b);
+  return Number(BigInt(a) % BigInt(b) !== 0n && a < 0 ? q - 1n : q);
+}
+
 describe("2차맵 격자", () => {
   it("정육면체 점: 면 가장자리 꼭짓점은 맞닿은 면이 같은 점을 내고, 같은 점이면 구 위 방향도 같다", () => {
     const level = 3;
@@ -56,5 +62,12 @@ describe("2차맵 격자", () => {
     expect(floorDiv(-7, 2)).toBe(-4);
     expect(floorDiv(-8, 2)).toBe(-4);
     expect(floorDiv(0, 5)).toBe(0);
+    // 정수 내림 몫(BigInt로 낸 정의)과 같다: 2^53 가까운 큰 값, 2의 거듭제곱이 아닌 나누는 수, 참 몫이 정수 바로 아래인 값
+    const big = 2 ** 53 - 1;
+    for (const b of [1, 3, 7, 12, 1000, 12 * 2 ** 22, 65_536, 2 ** 31 - 1]) {
+      for (const a of [big, -big, big - 1, 1 - big, b * 1_234_567 - 1, -(b * 1_234_567) + 1, b - 1, -b - 1]) {
+        if (Math.abs(a) <= big) expect(floorDiv(a, b), `${a} / ${b}`).toBe(exactFloorDiv(a, b));
+      }
+    }
   });
 });

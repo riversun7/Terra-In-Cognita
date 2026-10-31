@@ -95,6 +95,12 @@ export {
 } from "./placement/placement.ts";
 export { NOISE_MAX, valueNoise } from "./terrain/noise.ts";
 export {
+  COVER_BLOCKING,
+  cellRelief,
+  placementCostsFromLayers,
+  type TerrainLayers,
+} from "./terrain/layerCosts.ts";
+export {
   CLIFF_RELIEF_CM,
   ROCK_RELIEF_CM,
   SURFACE_COST,

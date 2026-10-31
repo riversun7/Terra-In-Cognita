@@ -2,19 +2,20 @@
 // 결정적이다: 정수·사칙연산·Math.sqrt만 쓴다(판정 자료를 만든다). 같은 입력이면 서버·기기·엔진과 무관하게 같은 결과·해시다.
 // 이음매: 높이·물 높이를 이루는 값(바탕 높이, 잔기복 세기, 바다·호수 몫, 호수 수면, 노이즈, 강 물길)이 모두
 // 공유 변·꼭짓점에서 맞닿은 2차맵과 같은 값을 낸다(cellPatch.ts·latticeNoise.ts·rivers.ts 머리 주석). 시험: seams.test.ts.
-// 차례: 바탕 높이(칸 고도의 2차 조각) + 잔기복(노이즈 5겹 × 세기) → 강 깎기 → 호수 깎기 → 물 높이 → 지형 칸마다 바이옴·지표.
-// 엄폐 값(배치 칸 256²)은 배치 단계(WP-2)가 채운다. 지금은 0이다.
+// 차례: 바탕 높이(칸 고도의 2차 조각) + 잔기복(노이즈 5겹 × 세기) → 강 깎기 → 호수 깎기 → 물 높이 → 지형 칸마다 바이옴·지표
+// → 배치 칸마다 엄폐 값·소품 그림(placement.ts, 소품 규칙 = 콘텐츠 map_props).
 import { WATER_LAKE, WATER_OCEAN } from "../tiles/fields.ts";
-import { mix32 } from "../generator/random.ts";
 import { NEIGHBOR_DI, NEIGHBOR_DJ } from "../generator/grid.ts";
 import { wrapFaceIJ } from "../faces.ts";
 import { cellsPerSide, pow2 } from "../levels.ts";
 import { cellSizeMeters, planetRadiusMeters } from "../projection.ts";
 import { NET_SCALE, bernsteinTable, controlNet, netSum, netValue } from "./cellPatch.ts";
 import { hashSecondMap } from "./hash.ts";
-import { latticeNoiseGrid } from "./latticeNoise.ts";
+import { latticeNoiseGrid, layerSalt } from "./latticeNoise.ts";
 import { SM_PLACEMENT, SM_TERRAIN, SM_VERTICES, floorDiv, mapCoords, neighbourhood } from "./layout.ts";
+import { placeProps } from "./placement.ts";
 import type { PlanetValues } from "./planetValues.ts";
+import type { PropRuleSet } from "./props.ts";
 import { cellFaceIJ, rasterizeChannels, riverLayout } from "./rivers.ts";
 import { BIOME_ROUGHNESS, BIOME_SURFACES, DEFAULT_MIX, SM_SURFACE, pickSurface } from "./surfaces.ts";
 import { SECOND_MAP_GENERATOR_VERSION } from "./version.ts";
@@ -35,6 +36,10 @@ export interface SecondMapTerrain {
   readonly surface: Uint8Array;
   /** 배치 칸 엄폐 값(0 없음·1 은폐·2 차폐, ADR 35) 256² */
   readonly cover: Uint8Array;
+  /** 배치 칸 소품 그림 번호(@terra/shared MAP_PROP_ARTS, 기기 장식용) 256² */
+  readonly art: Uint8Array;
+  /** 쓴 소품 규칙의 해시(결과가 규칙에 달려 있어 캐시 열쇠에 넣는다) */
+  readonly propRulesHash: string;
   /** 지형 칸 한 변 실제 길이(mm, 표시용: 2차맵마다 약 ±10%) */
   readonly cellSizeMm: number;
   /** 결과 해시(FNV-1a 32비트 16진수 8자리) */
@@ -47,10 +52,6 @@ const LAYER_RIVER = 2;
 const LAYER_BIOME = 3;
 const LAYER_SURFACE = 4;
 const LAYER_SHORE = 5;
-
-export function layerSalt(seed: number, layer: number): number {
-  return mix32((seed ^ mix32(Math.imul(layer + 0x51ed, 0x9e3779b9))) >>> 0);
-}
 
 /** 잔기복 노이즈 겹: [격자 간격 log2(꼭짓점), 무게]. 약 750m ~ 47m(넓은 둔덕 + 잔물결), 무게 합 31 */
 const DETAIL_OCTAVES: readonly (readonly [number, number])[] = [
@@ -156,8 +157,15 @@ function lakeControlLevels(values: PlanetValues, nb: Int32Array): Int32Array {
 /** 칸 안 위치 x(0 ~ 128)에서 무게가 0이 아닌 조절점 열(0·1·2) */
 const activeColumns = (x: number): readonly number[] => (x === 0 ? [0] : x === SM_TERRAIN ? [2] : [0, 1, 2]);
 
-/** 2차맵 하나를 만든다. 행성 값의 면 레벨과 2차맵 키의 레벨이 다르면 RangeError */
-export function generateSecondMap(values: PlanetValues, mapKey: number): SecondMapTerrain {
+/**
+ * 2차맵 하나를 만든다. 행성 값의 면 레벨과 2차맵 키의 레벨이 다르거나, 소품 규칙이 다른 바이옴 표로 만든 것이면 RangeError.
+ * rules는 compileMapProps(콘텐츠 map_props, 행성 바이옴 표)의 결과다.
+ */
+export function generateSecondMap(
+  values: PlanetValues,
+  mapKey: number,
+  rules: PropRuleSet,
+): SecondMapTerrain {
   const map = mapCoords(mapKey);
   if (map.faceLevel !== values.faceLevel) {
     throw new RangeError(`map key level ${map.faceLevel} differs from planet face level ${values.faceLevel}`);
@@ -224,9 +232,9 @@ export function generateSecondMap(values: PlanetValues, mapKey: number): SecondM
       const gridIndex = y * SM_VERTICES + c;
       const amplitude = netValue(netSum(roughnessNet, t7, c, y), 7);
       let noise = 0;
-      DETAIL_OCTAVES.forEach(([, weight], octave) => {
-        noise += weight * ((octaves[octave]?.[gridIndex] ?? 32768) - 32768);
-      });
+      for (let octave = 0; octave < DETAIL_OCTAVES.length; octave++) {
+        noise += (DETAIL_OCTAVES[octave]?.[1] ?? 0) * ((octaves[octave]?.[gridIndex] ?? 32768) - 32768);
+      }
       const detail = floorDiv(amplitude * noise, DETAIL_WEIGHT_SUM * 32768);
       let height: number;
       let level = NO_WATER;
@@ -278,7 +286,7 @@ export function generateSecondMap(values: PlanetValues, mapKey: number): SecondM
     }
   }
 
-  const surface = buildSurfaces(
+  const { surface, biome } = buildSurfaces(
     values,
     map,
     nb,
@@ -289,11 +297,11 @@ export function generateSecondMap(values: PlanetValues, mapKey: number): SecondM
     oceanNet,
     t8,
   );
-  const cover = new Uint8Array(SM_PLACEMENT * SM_PLACEMENT);
+  const { cover, art } = placeProps({ values, map, nb, heightsCm, surface, biome, rules });
   const cellSizeMm = Math.round(
     (cellSizeMeters(map.key, planetRadiusMeters(map.faceLevel)) * 1000) / SM_TERRAIN,
   );
-  const hash = hashSecondMap(heightsCm, waterLevelCm, surface, cover);
+  const hash = hashSecondMap(heightsCm, waterLevelCm, surface, cover, art);
   return {
     mapKey,
     faceLevel: map.faceLevel,
@@ -302,6 +310,8 @@ export function generateSecondMap(values: PlanetValues, mapKey: number): SecondM
     waterLevelCm,
     surface,
     cover,
+    art,
+    propRulesHash: rules.hash,
     cellSizeMm,
     hash,
   };
@@ -309,6 +319,7 @@ export function generateSecondMap(values: PlanetValues, mapKey: number): SecondM
 
 /**
  * 지형 칸마다 바이옴(둘레 칸과 섞음)과 지표. 칸은 2차맵마다 따로라 이음매에서 같을 필요는 없고, 섞는 무게가 경계에서 이어진다.
+ * 고른 바이옴 번호도 돌려준다(배치 규칙의 열쇠).
  */
 function buildSurfaces(
   values: PlanetValues,
@@ -320,8 +331,9 @@ function buildSurfaces(
   temperatureNet: Float64Array,
   oceanNet: Float64Array,
   t8: Float64Array,
-): Uint8Array {
+): { surface: Uint8Array; biome: Uint8Array } {
   const out = new Uint8Array(SM_TERRAIN * SM_TERRAIN);
+  const biomeOut = new Uint8Array(SM_TERRAIN * SM_TERRAIN);
   const placementLevel = map.faceLevel + 8;
   const px0 = map.i * SM_PLACEMENT + 1;
   const py0 = map.j * SM_PLACEMENT + 1;
@@ -382,17 +394,12 @@ function buildSurfaces(
       const x8 = 2 * c + 1;
       const noiseIndex = gridRow * SM_TERRAIN + c;
       // 네 꼭짓점: 물에 잠긴 수, 높이 차
-      const corners = [
-        r * SM_VERTICES + c,
-        r * SM_VERTICES + c + 1,
-        (r + 1) * SM_VERTICES + c,
-        (r + 1) * SM_VERTICES + c + 1,
-      ];
       let wet = 0;
       let low = Number.POSITIVE_INFINITY;
       let high = Number.NEGATIVE_INFINITY;
       let riverOrder = 0;
-      for (const corner of corners) {
+      for (let k = 0; k < 4; k++) {
+        const corner = (r + (k >> 1)) * SM_VERTICES + c + (k & 1);
         const height = heightsCm[corner] ?? 0;
         if ((waterLevelCm[corner] ?? NO_WATER) > height) wet += 1;
         low = Math.min(low, height);
@@ -402,15 +409,17 @@ function buildSurfaces(
       let biome = present[0] ?? 0;
       if (present.length > 1) {
         let best = Number.NEGATIVE_INFINITY;
-        present.forEach((candidate, index) => {
-          const weight = floorDiv(netSum(biomeNets[index] ?? new Float64Array(9), t8, x8, y8), share);
-          if (weight <= 0) return;
+        for (let index = 0; index < present.length; index++) {
+          const net = biomeNets[index];
+          if (!net) continue;
+          const weight = floorDiv(netSum(net, t8, x8, y8), share);
+          if (weight <= 0) continue;
           const score = weight + (((jitter[index]?.[noiseIndex] ?? 32768) - 32768) >> 7);
           if (score > best) {
             best = score;
-            biome = candidate;
+            biome = present[index] ?? biome;
           }
-        });
+        }
       }
       const biomeId = values.biomeIds[biome] ?? "";
       let kind: number;
@@ -439,7 +448,8 @@ function buildSurfaces(
         }
       }
       out[r * SM_TERRAIN + c] = kind;
+      biomeOut[r * SM_TERRAIN + c] = biome;
     }
   }
-  return out;
+  return { surface: out, biome: biomeOut };
 }

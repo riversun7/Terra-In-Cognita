@@ -1,4 +1,4 @@
-// 2차맵 결과 해시 — FNV-1a 32비트(골든 해시 시험·캐시 확인용). 차례: 높이(i32 작은 끝 4바이트) → 물 높이 → 지표 → 엄폐.
+// 2차맵 결과 해시 — FNV-1a 32비트(골든 해시 시험·캐시 확인용). 차례: 높이(i32 작은 끝 4바이트) → 물 높이 → 지표 → 엄폐 → 소품 그림.
 // 기기 바이트 순서와 무관하게 값을 직접 쪼갠다. 차례·모양을 바꾸면 SECOND_MAP_GENERATOR_VERSION을 올린다.
 const FNV_OFFSET = 0x811c9dc5;
 const FNV_PRIME = 0x01000193;
@@ -26,11 +26,13 @@ export function hashSecondMap(
   waterLevelCm: Int32Array,
   surface: Uint8Array,
   cover: Uint8Array,
+  art: Uint8Array,
 ): string {
   let state = FNV_OFFSET;
   state = mixInt32(state, heightsCm);
   state = mixInt32(state, waterLevelCm);
   state = mixBytes(state, surface);
   state = mixBytes(state, cover);
+  state = mixBytes(state, art);
   return state.toString(16).padStart(8, "0");
 }

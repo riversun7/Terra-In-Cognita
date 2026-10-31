@@ -6,6 +6,7 @@
 import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { EARTH_FACE_LEVEL, cellKey } from "@terra/planet";
+import { DEFAULT_WORLD_PLANET_ID } from "../db/schema.ts";
 import { generateTempTerrain, seedFromCellKey } from "@terra/sim";
 import type { WorldDirectory } from "./gateway.ts";
 import { type Ledger, createLedger } from "../economy/ledger.ts";
@@ -31,6 +32,9 @@ import { emptyWorldStats, resetWorldStats, summarizeWorldStats } from "./worldSt
  * 지형은 칸 키로 만든 임시 지형이라 실제 지구 위치·고도와는 상관없다(행성 회전·생성기는 S2).
  */
 export const TEST_MAP_KEY: number = cellKey(0, EARTH_FACE_LEVEL, 256, 256);
+
+/** 시험 2차맵이 놓인 행성(콘텐츠 팩 ID). 지구가 팩에 들어오면 시험 2차맵도 옮긴다(D-372, S3 ADR "행성 ID·영역") */
+export const TEST_PLANET_ID: string = DEFAULT_WORLD_PLANET_ID;
 
 /** 시험 2차맵 k번째(0 = TEST_MAP_KEY). 규모 시험(S1_TEST_MAPS)은 오른쪽으로 나란히 둔다 */
 export function testMapKey(index: number): number {
@@ -166,6 +170,7 @@ export function startWorld(
           stats,
           log,
           persist,
+          planetId: TEST_PLANET_ID,
           explored: exploredStore?.(mapKey),
           botOwnerId: npcOwnerId,
           allocateUnitId: ids?.unit,
@@ -237,6 +242,8 @@ export function startWorld(
           size: row.size,
           speed: row.speed,
           map_key: row.mapKey,
+          planet_id: row.planetId,
+          domain: row.domain,
           path: row.path,
           depart_at_ms: row.departAtMs,
           wake_at_ms: row.wakeAtMs,
@@ -250,6 +257,8 @@ export function startWorld(
         writer.upsert("buildings", {
           id: row.id,
           map_key: row.mapKey,
+          planet_id: row.planetId,
+          domain: row.domain,
           owner_id: row.ownerId,
           ...row.placement,
         }),
@@ -265,8 +274,8 @@ export function startWorld(
     const exploredStore = (mapKey: number): ExploredStore => ({
       async load(userId) {
         const found = await db.query(
-          `select cells from world_exploration where user_id = $1 and map_key = $2`,
-          [userId, mapKey],
+          `select cells from world_exploration where user_id = $1 and map_key = $2 and planet_id = $3`,
+          [userId, mapKey, TEST_PLANET_ID],
         );
         const cells = found.rows[0]?.cells;
         return cells instanceof Uint8Array ? new Uint8Array(cells) : null;
@@ -275,6 +284,7 @@ export function startWorld(
         writer.upsert("exploration", {
           user_id: userId,
           map_key: mapKey,
+          planet_id: TEST_PLANET_ID,
           cells: Buffer.from(bits),
           updated_at_ms: now(),
         });
@@ -310,14 +320,16 @@ export function startWorld(
     let badBuildings = 0;
     let orphanUnits = 0;
     for (const [mapKey, map] of maps) {
-      const result = map.restore(
-        loaded.units.filter((unit) => unit.mapKey === mapKey),
-        loaded.buildings.filter((building) => building.mapKey === mapKey),
-      );
+      const onMap = (row: { planetId: string; mapKey: number }) =>
+        row.planetId === map.planetId && row.mapKey === mapKey;
+      const result = map.restore(loaded.units.filter(onMap), loaded.buildings.filter(onMap));
       badUnits += result.badUnits.length;
       badBuildings += result.badBuildings.length;
     }
-    for (const unit of loaded.units) if (!maps.has(unit.mapKey)) orphanUnits += 1;
+    // 이 서버가 띄우지 않은 (행성, 2차맵)의 유닛은 DB에 그대로 둔다(지우지 않는다)
+    for (const unit of loaded.units) {
+      if (unit.planetId !== TEST_PLANET_ID || !maps.has(unit.mapKey)) orphanUnits += 1;
+    }
     paths.start();
     spawnBots();
 

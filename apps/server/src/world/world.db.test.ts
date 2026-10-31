@@ -143,8 +143,8 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 로그인·권한 (DB)", () => {
       if ((await rows(test.db, "select 1 from world_exploration")).length > 0) break;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
-    expect(await rows(test.db, "select octet_length(cells) as n from world_exploration")).toEqual([
-      { n: 128 },
+    expect(await rows(test.db, "select octet_length(cells) as n, planet_id from world_exploration")).toEqual([
+      { n: 128, planet_id: "s2_test_planet" },
     ]);
   });
 

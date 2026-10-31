@@ -160,6 +160,37 @@ describe.skipIf(!TEST_DATABASE_URL)("월드 부팅 복구(kill -9 흉내)", () =
     for (const m of second.maps.values()) m.forEachUnit(() => (units += 1));
     expect(units).toBe(12);
     expect(await second.checkInvariants()).toEqual([]);
+    // 행성 ID·영역(D-372): 시험 2차맵은 시험 행성, 유닛·건물은 육지
+    expect(await rows(test.db, "select distinct planet_id, domain from world_units")).toEqual([
+      { planet_id: "s2_test_planet", domain: "land" },
+    ]);
+    expect(await rows(test.db, "select planet_id, domain from world_buildings")).toEqual([
+      { planet_id: "s2_test_planet", domain: "land" },
+    ]);
+  });
+
+  it("다른 행성의 같은 2차맵 키 유닛은 이 2차맵에 놓지 않고 DB에 그대로 둔다(전체 ID = 행성 + 키)", async () => {
+    const first = boot(3);
+    await first.ready;
+    const map = [...first.maps.values()][0];
+    if (!map) throw new Error("no map");
+    await first.persistence?.writer.durable();
+    const owner = first.persistence?.npcOwnerId ?? 0;
+    await first.crashForTest("commit");
+    await test.db.$client.query(
+      `insert into world_units (id, owner_id, kind, size, speed, map_key, planet_id, domain, path, depart_at_ms)
+       values (9999, $1, 2, 1, 437, $2, 'fake_other_planet', 'sea', '{512,512}', 0)`,
+      [owner, map.mapKey],
+    );
+    const second = boot(3);
+    await second.ready;
+    expect(second.status().issues).toBe(0);
+    let found = false;
+    for (const m of second.maps.values()) m.forEachUnit((unit) => (found ||= unit.id === 9999));
+    expect(found).toBe(false);
+    expect(await rows(test.db, "select planet_id, domain from world_units where id = 9999")).toEqual([
+      { planet_id: "fake_other_planet", domain: "sea" },
+    ]);
   });
 
   it("접속 중으로 남은 사용자는 지난 생존 시각에 끊긴 것으로 고친다(I8)", async () => {

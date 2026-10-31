@@ -63,16 +63,24 @@ export function buildGrid(faceLevel: number): PlanetGrid {
     x,
     y,
     z,
-    faceArea: faceAreaTable(n),
+    faceArea: faceAreaTableOfSide(n),
     meanCellAngle: Math.sqrt((4 * Math.PI) / cellCount),
   };
+}
+
+/**
+ * 면 레벨 faceLevel의 칸 면적 표(스테라디안, 길이 n², 번호 j × n + i): 여섯 면이 합동이라 면 하나 표로 모든 칸을 센다
+ * (칸 c의 면적 = 표[c % n²]). 편집기 면적표·요약(summary.ts)이 쓴다(ADR 38 12절). 면 레벨이 범위 밖이면 RangeError
+ */
+export function faceAreaTable(faceLevel: number): Float64Array {
+  return faceAreaTableOfSide(cellsPerSide(faceLevel));
 }
 
 /**
  * 면 하나의 칸 면적 표: 면 평면 직사각형 [u0, u1] × [v0, v1]을 구에 비춘 입체각
  * Ω = G(u1, v1) - G(u0, v1) - G(u1, v0) + G(u0, v0),  G(u, v) = atan(u·v / √(1 + u² + v²)) (projection.ts와 같은 식)
  */
-function faceAreaTable(n: number): Float64Array {
+function faceAreaTableOfSide(n: number): Float64Array {
   const edge = new Float64Array(n + 1);
   for (let k = 0; k <= n; k++) edge[k] = stToUV(k / n);
   const side = n + 1;

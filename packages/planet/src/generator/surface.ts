@@ -78,7 +78,8 @@ export function compileBiomes(biomes: readonly PlanetBiome[]): CompiledBiomes {
   return { ocean, lake, land, landFallback: land[land.length - 1]?.index ?? 0 };
 }
 
-function inRange(value: number, range: BiomeRange | undefined): boolean {
+/** 바이옴 규칙 범위 확인(min 포함, max 제외, 없는 쪽은 끝 없음). 판정 설명(explain.ts)도 이 함수 하나를 쓴다 */
+export function inRange(value: number, range: BiomeRange | undefined): boolean {
   if (!range) return true;
   if (range.min !== undefined && value < range.min) return false;
   if (range.max !== undefined && value >= range.max) return false;

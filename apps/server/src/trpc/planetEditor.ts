@@ -8,6 +8,7 @@
 // "revision_conflict"), NOT_FOUND(되돌리기: data.reason "draft_not_found"·"revision_not_found"; 편집기를 켜지 않은 서버:
 // message "PLANET_EDITOR_UNAVAILABLE"). 응답에는 시드가 들어 있다. tRPC 응답은 모두 cache-control: no-store다(src/trpc/plugin.ts).
 import { PLANET_ID_PATTERN } from "@terra/protocol";
+import { PLANET_LIBRARY_BASE_KINDS } from "@terra/shared";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { PlanetEditorAction, PlanetEditorCallKind } from "./context.ts";
@@ -42,8 +43,8 @@ const restoreInput = z.strictObject({ planetId, revision: z.int().min(1).max(REV
 // ── 행성 보관함 입력(이름·정의는 서버가 이유 코드 차례로 본다: 여기서는 받기만 한다) ──
 const libraryId = z.uuid();
 const libraryIdInput = z.strictObject({ id: libraryId });
-/** 시작점: 지금은 팩 행성뿐(@terra/shared PLANET_LIBRARY_BASE_KINDS. 표본을 더하면 종류를 늘린다) */
-const libraryBase = z.strictObject({ kind: z.literal("pack"), id: planetId });
+/** 시작점: 팩 행성·행성 표본(@terra/shared PLANET_LIBRARY_BASE_KINDS) */
+const libraryBase = z.strictObject({ kind: z.enum(PLANET_LIBRARY_BASE_KINDS), id: planetId });
 const libraryCreateInput = z.strictObject({ name: z.unknown(), base: libraryBase, definition: z.unknown() });
 const librarySaveInput = z.strictObject({
   id: libraryId,

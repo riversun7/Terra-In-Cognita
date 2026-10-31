@@ -5,7 +5,12 @@ import { PLANET_EDITOR_CHECK_FACE_LEVEL } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import { createInlineBaker } from "../planet/baker.ts";
 import { createPlanetService } from "../planet/service.ts";
-import { createPlanetSource, planetSpecsFromPack } from "../planet/sources.ts";
+import {
+  createPlanetSource,
+  definitionHashOf,
+  planetDefinitionForHash,
+  planetSpecsFromPack,
+} from "../planet/sources.ts";
 import { recordingLog } from "../planet/testSupport.ts";
 import {
   PLANET_EDITOR_READY_MESSAGE,
@@ -66,6 +71,28 @@ describe("행성 편집기 정의 조회 자료", () => {
     }
   });
 
+  it("행성 표본(planet_templates): 팩 순서, 원본 항목 그대로, 확인 해시는 기기와 같은 길, 정의 해시는 생성기 입력에서", () => {
+    const raw = loaded.raw.planetTemplates;
+    expect(raw.length).toBeGreaterThan(0);
+    expect(definitions.templates.map((template) => template.id)).toEqual(
+      (loaded.pack.entries.get("planet_templates") ?? []).map((template) => template.id),
+    );
+    expect(definitions.templates.map((template) => template.entry)).toEqual(raw);
+    for (const template of definitions.templates) {
+      const input = planetInputFromDefinition(template.entry, loaded.raw.biomes);
+      expect(template.check.faceLevel).toBe(Math.min(PLANET_EDITOR_CHECK_FACE_LEVEL, input.faceLevel));
+      const viaEntry = generatePlanet({ ...input, faceLevel: template.check.faceLevel }).meta.hash;
+      expect(template.check.hash).toBe(viaEntry);
+      expect(template.definitionHash).toBe(definitionHashOf(planetDefinitionForHash(input)));
+    }
+  });
+
+  it("서버는 표본을 굽지 않는다: 굽는 원본(planetSpecsFromPack)은 planets 분류뿐이고 표본 ID와 겹치지 않는다", () => {
+    const baked = planetSpecsFromPack(loaded.pack).map((spec) => spec.id);
+    expect(baked).toEqual(definitions.planets.map((planet) => planet.id));
+    for (const template of definitions.templates) expect(baked).not.toContain(template.id);
+  });
+
   it("편집 전용 행성은 S2 시험 행성과 시드·이름·설명만 다르다(ADR 38 10절)", () => {
     const editor = definitions.planets.find((planet) => planet.id === EDITOR_PLANET_ID);
     const test = definitions.planets.find((planet) => planet.id === TEST_PLANET_ID);
@@ -85,7 +112,7 @@ describe("행성 편집기 정의 조회 자료", () => {
     const raw = { ...rawPlanet(loaded, spec.id), faceLevel: 4 };
     const small = buildPlanetEditorDefinitions({
       content: loaded.content,
-      raw: { planets: [raw], biomes: loaded.raw.biomes },
+      raw: { planets: [raw], biomes: loaded.raw.biomes, planetTemplates: [] },
       specs: [{ ...spec, input: { ...spec.input, faceLevel: 4 } }],
     });
     expect(small.definitions.planets[0]?.check).toEqual({
@@ -110,7 +137,7 @@ describe("행성 편집기 정의 조회 자료", () => {
     expect(() =>
       buildPlanetEditorDefinitions({
         content: loaded.content,
-        raw: { planets: [], biomes: loaded.raw.biomes },
+        raw: { planets: [], biomes: loaded.raw.biomes, planetTemplates: [] },
         specs,
       }),
     ).toThrow(/no entry for planet/);
@@ -122,6 +149,7 @@ describe("행성 편집기 정의 조회 자료", () => {
         raw: {
           planets: [{ ...rawPlanet(loaded, spec.id), biomes: ["ocean_deep", "tundra"] }],
           biomes: loaded.raw.biomes,
+          planetTemplates: [],
         },
         specs: [spec],
       }),
@@ -148,11 +176,17 @@ describe("행성 편집기 정의 조회 자료", () => {
         checkHash: planet.check.hash,
         checkMs: 7,
       })),
+      templates: timed.definitions.templates.map((template) => ({
+        planetId: template.id,
+        checkFaceLevel: template.check.faceLevel,
+        checkHash: template.check.hash,
+        checkMs: 7,
+      })),
       totalMs: timed.totalMs,
     });
-    expect(timed.timings.every((timing) => timing.ms === 7)).toBe(true);
+    expect([...timed.timings, ...timed.templateTimings].every((timing) => timing.ms === 7)).toBe(true);
     const text = JSON.stringify(fields);
-    for (const planet of timed.definitions.planets) {
+    for (const planet of [...timed.definitions.planets, ...timed.definitions.templates]) {
       expect(text).not.toContain(String(planet.entry.seed));
     }
     expect(text).not.toContain("presets");

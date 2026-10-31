@@ -40,8 +40,32 @@ const planet = (extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
-const check = (planets: unknown[], biomes: unknown[] = BIOMES) =>
-  validatePack(fixture({ "biomes.json": { entries: biomes }, "planets.json": { entries: planets } }));
+const check = (planets: unknown[], biomes: unknown[] = BIOMES, templates?: unknown[]) =>
+  validatePack(
+    fixture({
+      "biomes.json": { entries: biomes },
+      "planets.json": { entries: planets },
+      ...(templates ? { "planet_templates.json": { entries: templates } } : {}),
+    }),
+  );
+
+/** 행성 표본(planet_templates) 하나만 둔 팩의 문제 */
+const templateProblems = (templates: unknown[]) =>
+  check([planet()], BIOMES, templates).issues.map((issue) => [
+    issue.stage,
+    issue.file,
+    issue.id,
+    issue.path,
+    issue.message,
+  ]);
+
+/** 표본 항목: 행성 항목 + 한 줄 특징(description, 꼭) */
+const template = (extra: Record<string, unknown> = {}) =>
+  planet({
+    ...named("solar_test"),
+    description: { ko: "시험 표본", en: "Test sample" },
+    ...extra,
+  });
 
 const problems = (planets: unknown[], biomes?: unknown[]) =>
   check(planets, biomes).issues.map((issue) => [
@@ -245,6 +269,30 @@ describe("행성·바이옴 분류", () => {
         "biomes[2]",
         '없는 biomes ID "deserd"입니다. 혹시 "desert"?',
       ],
+    ]);
+  });
+
+  it("행성 표본(planet_templates): 행성 항목과 같은 모양, 한 줄 특징(description)은 꼭, 바이옴 표 규칙도 같다", () => {
+    const result = check([planet()], BIOMES, [
+      template({ continents: { layout: "hemisphere", count: 1 }, faceLevel: 8 }),
+    ]);
+    expect(result.issues).toEqual([]);
+    expect(result.pack?.entries.get("planet_templates")?.map((entry) => entry.id)).toEqual(["solar_test"]);
+    const { description: _description, ...noNote }: Record<string, unknown> = template();
+    expect(templateProblems([noNote])).toEqual([
+      [
+        "schema",
+        "planet_templates.json",
+        "solar_test",
+        "description",
+        "값이 없습니다. ko·en을 함께 적으세요.",
+      ],
+    ]);
+    expect(templateProblems([template({ biomes: ["ocean_deep", "taiga", "desert"] })])).toEqual([
+      ["references", "planet_templates.json", "solar_test", "biomes", expect.stringContaining("호수")],
+    ]);
+    expect(templateProblems([template({ continents: { layout: "pangaea" } })])).toEqual([
+      ["schema", "planet_templates.json", "solar_test", "continents.layout", expect.stringContaining("허용")],
     ]);
   });
 

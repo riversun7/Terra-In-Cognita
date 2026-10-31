@@ -3,6 +3,7 @@
 import { PLANET_GENERATOR_FACE_LEVELS, type PlanetPresets, detAsin } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import biomesJson from "../../../../content/core/biomes.json";
+import templatesJson from "../../../../content/core/planet_templates.json";
 import planetsJson from "../../../../content/core/planets.json";
 import { areaOf, buildGrid } from "./grid.ts";
 import {
@@ -615,6 +616,17 @@ describe("콘텐츠 팩 행성 (content/core) — 정의가 생성기 입력이 
       expect(planet.faceLevel, planet.id).toBeLessThanOrEqual(maxLevel);
       const definition = planetInputFromDefinition(planet, biomesJson.entries, 4);
       expect(generatePlanet(definition).meta.faceLevel, planet.id).toBe(4);
+    }
+  });
+
+  it("팩의 행성 표본(planet_templates, 편집기 시작점): 생성기가 받는 정의이고 면 레벨 4로 생성된다", () => {
+    expect(templatesJson.entries.length).toBeGreaterThan(0);
+    const [minLevel, maxLevel] = PLANET_GENERATOR_FACE_LEVELS;
+    for (const template of templatesJson.entries) {
+      expect(template.faceLevel, template.id).toBeGreaterThanOrEqual(minLevel);
+      expect(template.faceLevel, template.id).toBeLessThanOrEqual(maxLevel);
+      const definition = planetInputFromDefinition(template, biomesJson.entries, 4);
+      expect(generatePlanet(definition).meta.faceLevel, template.id).toBe(4);
     }
   });
 

@@ -15,6 +15,8 @@ import type { JsonObject, PlanetEditorDefinitions } from "./types.ts";
 /** 검사에 쓰는 팩 정보(정의 조회 자료에서 만든다) */
 export interface DraftPackContext {
   readonly planetIds: ReadonlySet<string>;
+  /** 행성 표본 ID(보관함 시작점 "template") */
+  readonly templateIds: ReadonlySet<string>;
   readonly biomeIds: ReadonlySet<string>;
   /** 원본 바이옴 항목(생성기 입력을 만든다) */
   readonly biomes: readonly unknown[];
@@ -25,6 +27,7 @@ export function draftPackContext(definitions: PlanetEditorDefinitions): DraftPac
   for (const biome of definitions.biomes) if (typeof biome.id === "string") biomeIds.add(biome.id);
   return {
     planetIds: new Set(definitions.planets.map((planet) => planet.id)),
+    templateIds: new Set(definitions.templates.map((template) => template.id)),
     biomeIds,
     biomes: definitions.biomes,
   };

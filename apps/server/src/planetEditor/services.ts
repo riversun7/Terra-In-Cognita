@@ -178,10 +178,9 @@ function createLibraryServices(
     },
     async create(viewer, input) {
       const name = checkName(input.name);
-      // 시작점: 지금은 팩 행성뿐(표본은 나중에 종류를 더한다)
-      if (input.base.kind !== "pack" || !shared.pack.planetIds.has(input.base.id)) {
-        throw libraryRejected("unknown_base");
-      }
+      // 시작점: 팩 행성(planets) 또는 행성 표본(planet_templates). 그 종류의 분류에 있는 ID만
+      const known = input.base.kind === "template" ? shared.pack.templateIds : shared.pack.planetIds;
+      if (!known.has(input.base.id)) throw libraryRejected("unknown_base");
       const checked = checkDefinition(input.definition);
       return createLibraryPlanet(db, {
         name,

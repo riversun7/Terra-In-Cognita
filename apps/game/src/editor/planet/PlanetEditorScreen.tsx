@@ -3,8 +3,8 @@
 // 걸려 플레이어 설치 때 받지 않는다(ADR 38 1절). 파일 이름 앞머리를 바꾸지 않는다.
 // 화면은 { onClose, monitor }만 받는다(ADR 37 주소 → 화면 표). 순서: 정의 조회(팩 행성·바이옴·확인 해시, 감사 기록)와 보관함 목록
 // (팀 공용, 만든 사람 표시)을 같이 받는다 → 행성 고르기(마지막으로 연 것 → 저장하지 않은 새 행성 → 목록 첫째) → 편집 화면.
-// 보관함이 비어 있으면 [새 행성]부터 묻는다. [새 행성]은 이름·시작점(지금은 팩 행성. 나중에 정의만 있는 표본을 같은 목록에 더한다)을
-// 받아 이 기기에 작업 사본만 만든다: 서버에는 첫 [저장]에 쓴다(사용자 결정 2026-10-31).
+// 보관함이 비어 있으면 [새 행성]부터 묻는다. [새 행성]은 이름·시작점(팩 행성 또는 행성 표본: 태양계 암석 행성 등 정의만 있고
+// 서버가 굽지 않는 것, ADR 38 "행성 표본")을 받아 이 기기에 작업 사본만 만든다: 서버에는 첫 [저장]에 쓴다(사용자 결정 2026-10-31).
 // 화면 시험은 e2e/planet-editor.spec.ts.
 import type { PlanetLibraryBase } from "@terra/shared";
 import { useEffect, useId, useMemo, useState } from "react";
@@ -17,7 +17,7 @@ import { LiveMessage } from "../../ui/LiveMessage.tsx";
 import { text } from "../../ui/text.ts";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { browserStorage } from "./crashSentinel.ts";
-import { type EditorDefinitions, EditorWorkspace } from "./EditorWorkspace.tsx";
+import { type EditorDefinitions, EditorWorkspace, startPlanetOf } from "./EditorWorkspace.tsx";
 import { type PromptRequest, PromptDialog } from "./PromptDialog.tsx";
 import { localName } from "./editorMessages.ts";
 import { type LibraryPlanet, type LibrarySummary, libraryApi } from "./libraryClient.ts";
@@ -50,12 +50,37 @@ type Opened =
   | { readonly kind: "failed"; readonly key: string; readonly message: string }
   | { readonly kind: "ready"; readonly key: string; readonly opened: OpenedPlanet };
 
-/** 시작점 목록: 지금은 팩 행성. 나중에 정의만 있는 표본(태양계 암석 행성 등)을 여기에 자료로 더한다 */
-function startOptions(definitions: EditorDefinitions): { base: PlanetLibraryBase; label: string }[] {
-  return definitions.planets.map((planet) => ({
-    base: { kind: "pack", id: planet.id },
+/** 시작점 하나: 고르기 값(종류:ID, 팩 행성과 표본의 ID가 겹쳐도 가른다), 이름, 묶음, 한 줄 특징 */
+interface StartOption {
+  readonly value: string;
+  readonly base: PlanetLibraryBase;
+  readonly label: string;
+  readonly group: string;
+  readonly note: string | null;
+}
+
+/** 시작점 하나를 만든다. 한 줄 특징은 표본만(팩 행성은 설명이 있어도 보이지 않는다) */
+function startOption(
+  kind: PlanetLibraryBase["kind"],
+  planet: EditorDefinitions["planets"][number],
+): StartOption {
+  const note = localName(planet.entry.description, "");
+  return {
+    value: `${kind}:${planet.id}`,
+    base: { kind, id: planet.id },
     label: localName(planet.entry.name, planet.id),
-  }));
+    group:
+      kind === "template" ? m.planet_editor_library_group_template() : m.planet_editor_library_group_pack(),
+    note: kind === "template" && note !== "" ? note : null,
+  };
+}
+
+/** 시작점 목록: 팩 행성, 그다음 행성 표본(이름 + 한 줄 특징 = 표본 항목의 description) */
+function startOptions(definitions: EditorDefinitions): StartOption[] {
+  return [
+    ...definitions.planets.map((planet) => startOption("pack", planet)),
+    ...definitions.templates.map((planet) => startOption("template", planet)),
+  ];
 }
 
 /** [다시 시도]는 안쪽을 새로 만든다(정의·목록을 다시 받는다) */
@@ -140,19 +165,21 @@ function EditorLoader({ onClose, onRetry }: { onClose: () => void; onRetry: () =
   const newPlanet = (): void => {
     if (!definitions) return;
     const options = startOptions(definitions);
-    const initial = options.find((option) => option.base.id === DEFAULT_BASE_ID) ?? options[0];
+    const initial =
+      options.find((option) => option.base.kind === "pack" && option.base.id === DEFAULT_BASE_ID) ??
+      options[0];
     if (!initial) return;
     setPrompt({
       title: m.planet_editor_library_new(),
       initialName: m.planet_editor_library_default_name({ number: String(list.length + 1) }),
       confirmLabel: m.planet_editor_library_create(),
       choices: {
-        options: options.map((option) => ({ value: option.base.id, label: option.label })),
-        initial: initial.base.id,
+        options: options.map(({ value, label, group, note }) => ({ value, label, group, note })),
+        initial: initial.value,
       },
       onConfirm: (name, choice) => {
-        const option = options.find((item) => item.base.id === choice) ?? initial;
-        const base = definitions.planets.find((planet) => planet.id === option.base.id);
+        const option = options.find((item) => item.value === choice) ?? initial;
+        const base = startPlanetOf(definitions, option.base);
         if (!base) return;
         store.write({ key: NEW_PLANET_KEY, fromRevision: 0, entry: base.entry, name, base: option.base });
         setNewVersion((count) => count + 1);
@@ -185,12 +212,10 @@ function EditorLoader({ onClose, onRetry }: { onClose: () => void; onRetry: () =
       : opened.kind === "ready" && opened.key === current
         ? opened.opened
         : null;
+  // 기준 행성 = 시작점(팩 행성 또는 행성 표본)의 정의
   const basePlanet =
     openedPlanet && definitions
-      ? definitions.planets.find(
-          (planet) =>
-            planet.id === (openedPlanet.kind === "new" ? openedPlanet.base.id : openedPlanet.planet.base.id),
-        )
+      ? startPlanetOf(definitions, openedPlanet.kind === "new" ? openedPlanet.base : openedPlanet.planet.base)
       : undefined;
 
   const heading = (

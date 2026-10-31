@@ -18,6 +18,8 @@ export interface RawPackEntries {
   planets: readonly unknown[];
   /** biomes.json entries (파일 순서) */
   biomes: readonly unknown[];
+  /** planet_templates.json entries (파일 순서, 없으면 빈 배열). 편집기 시작점만이고 서버가 굽지 않는다 */
+  planetTemplates: readonly unknown[];
 }
 
 export type ContentLoadResult =
@@ -54,6 +56,7 @@ export function loadServerContent(dir: string): ContentLoadResult {
     raw: {
       planets: rawEntriesOf(loaded.source, "planets.json"),
       biomes: rawEntriesOf(loaded.source, "biomes.json"),
+      planetTemplates: rawEntriesOf(loaded.source, "planet_templates.json"),
     },
     warnings: lines,
   };

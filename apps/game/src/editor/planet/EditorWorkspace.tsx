@@ -70,6 +70,7 @@ import {
 } from "./workspaceParts.tsx";
 
 export type { EditorDefinitions, EditorPlanet } from "./workspaceParts.tsx";
+export { startPlanetOf } from "./workspaceParts.tsx";
 
 interface WorkspaceProps {
   /** 연 행성(보관함 행성 또는 저장하지 않은 새 행성) */
@@ -547,7 +548,11 @@ function Workspace({
                   }
                   transfer={{
                     planetId: planet.id,
-                    pack: { planetIds: definitions.planets.map((known) => known.id), biomes },
+                    // 가져오기 검사의 "알려진 행성 ID": 팩 행성 + 행성 표본(표본에서 시작한 행성의 정의 ID는 표본 ID다)
+                    pack: {
+                      planetIds: [...definitions.planets, ...definitions.templates].map((known) => known.id),
+                      biomes,
+                    },
                     baseEntry,
                     deviceGeneratorVersion: GENERATOR_VERSION,
                     exportBlocked: blockText,

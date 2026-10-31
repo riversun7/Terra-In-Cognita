@@ -17,7 +17,18 @@ export interface EditorDefinitions {
   readonly contentVersion: string;
   readonly generatorVersion: number;
   readonly planets: readonly EditorPlanet[];
+  /** 행성 표본(planet_templates): [새 행성]의 시작점. 서버가 굽지 않는다(ADR 38 "행성 표본") */
+  readonly templates: readonly EditorPlanet[];
   readonly biomes: readonly unknown[];
+}
+
+/** 시작점의 정의(팩 행성 또는 행성 표본). 없으면 undefined */
+export function startPlanetOf(
+  definitions: EditorDefinitions,
+  base: { readonly kind: string; readonly id: string },
+): EditorPlanet | undefined {
+  const list = base.kind === "template" ? definitions.templates : definitions.planets;
+  return list.find((planet) => planet.id === base.id);
 }
 
 /** 일 단계 차례(진행 칩의 n/전체) */

@@ -42,6 +42,11 @@ export interface PlanetEditorDefinitions {
   generatorVersion: number;
   /** 팩 순서 */
   planets: PlanetEditorPlanet[];
+  /**
+   * 행성 표본(planet_templates, 팩 순서): [새 행성]의 시작점. 모양은 행성과 같다(정의 해시는 생성기 입력에서 만든 값이고, 서버가
+   * 굽지 않아 목록 정보·타일은 없다. 확인 해시는 행성처럼 켤 때 확인 레벨로 한 번 만든다)
+   */
+  templates: PlanetEditorPlanet[];
   /** biomes.json 항목 전부(팩 순서, JSON 그대로) */
   biomes: JsonObject[];
 }

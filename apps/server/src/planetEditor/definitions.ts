@@ -1,5 +1,6 @@
 // 행성 편집기 정의 조회 자료 — 서버가 켤 때(요청을 받기 전) 한 번 만든다(ADR 2026-10-29-planet-editor-stage1 6·11절).
 // 팩 버전·임시 여부·서버 생성기 판, 행성마다 원본 항목(팩 파일 JSON 그대로)·정의 해시·확인 해시, 바이옴 항목 전부.
+// 행성 표본(planet_templates, "행성 표본" 절)도 같은 모양으로 싣는다. 표본은 굽지 않는다.
 // 확인 해시 = 편집기 빠른 미리보기 레벨(min(5, 행성 면 레벨))로 생성한 결과 해시. 기기는 열 때 공개본을 같은 레벨로 만들어
 // 견주고, 다르면 "이 기기의 미리보기는 서버와 다릅니다"를 띄우고 내보내기를 막는다. 해시 값은 코드·시험에 적지 않는다.
 // 기기와 같은 길로 만든다: planetInputFromDefinition(원본 항목, 원본 바이옴 항목들, 레벨) → 생성기(기기 previewInput과 같다).
@@ -8,7 +9,12 @@ import { performance } from "node:perf_hooks";
 import { GENERATOR_VERSION, generatePlanet, planetInputFromDefinition } from "@terra/planet/generator";
 import { PLANET_EDITOR_CHECK_FACE_LEVEL } from "@terra/shared";
 import type { RawPackEntries, ServerContent } from "../content.ts";
-import { type PlanetSourceSpec, createPlanetSource } from "../planet/sources.ts";
+import {
+  type PlanetSourceSpec,
+  createPlanetSource,
+  definitionHashOf,
+  planetDefinitionForHash,
+} from "../planet/sources.ts";
 import type { JsonObject, PlanetEditorDefinitions, PlanetEditorPlanet } from "./types.ts";
 
 /**
@@ -32,6 +38,8 @@ export interface PlanetEditorBuild {
   definitions: PlanetEditorDefinitions;
   /** 팩 순서 */
   timings: PlanetCheckTiming[];
+  /** 행성 표본 확인 해시(팩 순서) */
+  templateTimings: PlanetCheckTiming[];
   /** 전체(확인 생성 + 항목 복사, ms) */
   totalMs: number;
 }
@@ -95,32 +103,56 @@ export function buildPlanetEditorDefinitions(input: PlanetEditorBuildInput): Pla
       check: { faceLevel, hash },
     };
   });
+  // 행성 표본: 서버가 굽지 않는다(원본·목록 정보·타일 없음). 정의 해시는 굽는 행성과 같은 식으로 생성기 입력에서 만들고,
+  // 확인 해시도 행성처럼 확인 레벨로 한 번 만든다(표본마다 확인 레벨 생성 한 번, 굽기의 수백분의 일)
+  const templateTimings: PlanetCheckTiming[] = [];
+  const templates = input.raw.planetTemplates.map((raw, index): PlanetEditorPlanet => {
+    const entry = copyObject(raw, `planet_templates.json entries[${index}]`);
+    const id = idOf(entry);
+    if (id === undefined) throw new RangeError(`planet_templates.json entries[${index}] has no id`);
+    const definition = planetInputFromDefinition(entry, biomes);
+    const faceLevel = checkFaceLevelOf(definition.faceLevel);
+    const at = now();
+    const hash = generatePlanet({ ...definition, faceLevel }).meta.hash;
+    templateTimings.push({ planetId: id, faceLevel, hash, ms: now() - at });
+    return {
+      id,
+      entry,
+      definitionHash: definitionHashOf(planetDefinitionForHash(definition)),
+      check: { faceLevel, hash },
+    };
+  });
   return {
     definitions: {
       contentVersion: input.content.version,
       placeholder: input.content.placeholder,
       generatorVersion: GENERATOR_VERSION,
       planets,
+      templates,
       biomes,
     },
     timings,
+    templateTimings,
     totalMs: now() - started,
   };
 }
 
 const round1 = (value: number): number => Math.round(value * 10) / 10;
 
-/** 시작 로그 한 줄에 남길 값(시드·항목은 넣지 않는다): 행성마다 확인 레벨·해시·걸린 시간 */
+const timingFields = (timing: PlanetCheckTiming) => ({
+  planetId: timing.planetId,
+  checkFaceLevel: timing.faceLevel,
+  checkHash: timing.hash,
+  checkMs: round1(timing.ms),
+});
+
+/** 시작 로그 한 줄에 남길 값(시드·항목은 넣지 않는다): 행성·표본마다 확인 레벨·해시·걸린 시간 */
 export function planetEditorLogFields(build: PlanetEditorBuild) {
   return {
     contentVersion: build.definitions.contentVersion,
     generatorVersion: build.definitions.generatorVersion,
-    planets: build.timings.map((timing) => ({
-      planetId: timing.planetId,
-      checkFaceLevel: timing.faceLevel,
-      checkHash: timing.hash,
-      checkMs: round1(timing.ms),
-    })),
+    planets: build.timings.map(timingFields),
+    templates: build.templateTimings.map(timingFields),
     totalMs: round1(build.totalMs),
   };
 }

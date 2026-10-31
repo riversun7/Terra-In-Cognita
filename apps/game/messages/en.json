@@ -723,6 +723,8 @@
   "planet_editor_library_name_hint": "1–{max} characters. Names may repeat.",
   "planet_editor_library_name_invalid": "Use 1–{max} characters with no line breaks.",
   "planet_editor_library_start_from": "Start from",
+  "planet_editor_library_group_pack": "Pack planets",
+  "planet_editor_library_group_template": "Solar system samples (not baked)",
   "planet_editor_library_meta": "By {author} · from {base}",
   "planet_editor_library_meta_new": "New planet · from {base} · not saved yet",
   "planet_editor_library_saved_meta": "Revision {revision} · {time} · {person}",

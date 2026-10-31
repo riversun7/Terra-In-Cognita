@@ -27,9 +27,11 @@ describe("보관함 이름", () => {
 });
 
 describe("시작점", () => {
-  it("팩 행성만(콘텐츠 ID 규칙)", () => {
+  it("팩 행성·행성 표본(콘텐츠 ID 규칙)", () => {
     expect(isPlanetLibraryBase({ kind: "pack", id: "s2_editor_planet" })).toBe(true);
-    expect(isPlanetLibraryBase({ kind: "template", id: "earth" })).toBe(false);
+    // 행성 표본(정의만 있는 시작점, 서버가 굽지 않음)도 시작점이다
+    expect(isPlanetLibraryBase({ kind: "template", id: "solar_mars" })).toBe(true);
+    expect(isPlanetLibraryBase({ kind: "sample", id: "solar_mars" })).toBe(false);
     expect(isPlanetLibraryBase({ kind: "pack", id: "Bad Id" })).toBe(false);
     expect(isPlanetLibraryBase(null)).toBe(false);
   });

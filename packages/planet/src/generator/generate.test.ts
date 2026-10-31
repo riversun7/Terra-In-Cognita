@@ -140,6 +140,10 @@ function landSummary(faceLevel: number, fields: PlanetFields) {
   };
 }
 
+/** 면 레벨 5, 시드 1, 모두 보통에 대륙 배치만 얹은 결과 해시 */
+const layoutHash = (continents: PlanetGeneratorInput["continents"]) =>
+  generatePlanet({ ...input(5, 1), continents }).meta.hash;
+
 describe("골든 해시 (값이 바뀌면 GENERATOR_VERSION을 올리고 새 값으로 고친다)", () => {
   it("생성기 버전", () => {
     expect(GENERATOR_VERSION).toBe(3);
@@ -159,6 +163,22 @@ describe("골든 해시 (값이 바뀌면 GENERATOR_VERSION을 올리고 새 값
 
   it("S2 시험 행성 설정을 면 레벨 6으로", () => {
     expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("6d0b4b25");
+  });
+
+  it("대륙 배치(ADR 2026-10-31-continent-layouts) 넷을 면 레벨 5, 시드 1, 모두 보통으로", () => {
+    expect(layoutHash({ layout: "supercontinent", count: 1 })).toBe("6ff5eb90");
+    expect(layoutHash({ layout: "earthlike", count: 3 })).toBe("e5519d0b");
+    expect(layoutHash({ layout: "scattered", count: 6 })).toBe("ffc2a39f");
+    expect(layoutHash({ layout: "hemisphere", count: 3 })).toBe("0468cfa8");
+    expect(layoutHash({ layout: "earthlike", count: 1 })).toBe("57410508");
+  });
+
+  it("편집 전용 행성(팩 정의 그대로, 대륙 배치 없음)을 면 레벨 5로 — 서버 F5 확인 해시와 같은 값", () => {
+    // 대륙 배치(ADR 2026-10-31-continent-layouts)를 더해도 배치가 없는 행성은 출력 판 3 그대로다
+    const planet = planetsJson.entries.find((entry) => entry.id === "s2_editor_planet");
+    expect(generatePlanet(planetInputFromDefinition(planet, biomesJson.entries, 5)).meta.hash).toBe(
+      "95709b4b",
+    );
   });
 });
 
@@ -536,6 +556,52 @@ describe("입력 검사", () => {
     expect(() =>
       planetInputFromDefinition({ ...planet, biomes: ["lake", "nowhere"] }, biomesJson.entries),
     ).toThrow(RangeError);
+  });
+});
+
+/** 행성 항목에 continents만 바꿔 읽는다 */
+const readContinents = (planet: unknown, continents: unknown) =>
+  planetInputFromDefinition(
+    { ...(typeof planet === "object" ? planet : {}), continents },
+    biomesJson.entries,
+    4,
+  );
+
+describe("대륙 배치 정의 읽기 (ADR 2026-10-31-continent-layouts)", () => {
+  const planet = planetsJson.entries[0];
+
+  it("정의에 continents가 없으면 입력에도 없다(노이즈 배치 = 출력 판 3, 정의 해시 그대로)", () => {
+    const definition = planetInputFromDefinition(planet, biomesJson.entries, 4);
+    expect("continents" in definition).toBe(false);
+  });
+
+  it("continents를 읽어 대륙 수를 풀어 쓴다(적지 않으면 종류의 기본값)", () => {
+    const supercontinent = planetInputFromDefinition(
+      { ...planet, continents: { layout: "supercontinent" } },
+      biomesJson.entries,
+      4,
+    );
+    expect(supercontinent.continents).toEqual({ layout: "supercontinent", count: 1 });
+    const four = planetInputFromDefinition(
+      { ...planet, continents: { layout: "earthlike", count: 4 } },
+      biomesJson.entries,
+      4,
+    );
+    expect(four.continents).toEqual({ layout: "earthlike", count: 4 });
+  });
+
+  it("모르는 종류·필드, 범위 밖 대륙 수는 RangeError(정의 읽기와 입력 검사 둘 다)", () => {
+    expect(() => readContinents(planet, { layout: "pangaea" })).toThrow(RangeError);
+    expect(() => readContinents(planet, { layout: "earthlike", count: 0 })).toThrow(RangeError);
+    expect(() => readContinents(planet, { layout: "earthlike", size: 3 })).toThrow(RangeError);
+    expect(() => readContinents(planet, "supercontinent")).toThrow(RangeError);
+    const base = input(4, 1);
+    expect(() => generatePlanet({ ...base, continents: { layout: "scattered", count: 11 } })).toThrow(
+      RangeError,
+    );
+    // 타입 밖 값(JSON에서 온 것처럼)
+    const unknownLayout: PlanetGeneratorInput["continents"] = JSON.parse('{"layout":"nowhere","count":2}');
+    expect(() => generatePlanet({ ...base, continents: unknownLayout })).toThrow(RangeError);
   });
 });
 

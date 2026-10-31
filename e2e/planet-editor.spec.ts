@@ -4,6 +4,7 @@
 //   이름 바꾸기, 다른 탭이 먼저 저장했을 때 충돌 → [덮어쓰기], 지우기(만든 사람·admin만), JSON 내보내기·가져오기.
 // - 기기 워커 미리보기(기준 팩 행성 F5 확인 → 작업 사본 F7), 슬라이더는 [적용]을 기다리고 누르는 조작은 바로 적용된다.
 // - dev는 admin이 만든 행성을 보고(만든 사람 표시) 고쳐 저장할 수 있지만 지울 수는 없다. player는 권한 없음 화면이다.
+// - 대륙 모양(ADR 2026-10-31-continent-layouts): 누르면 바로 적용, 대륙 수 슬라이더는 [적용]을 기다린다.
 // F8·F9는 느려서 넣지 않는다. 실행마다 새 DB라 보관함은 빈 채로 시작한다(admin 시험이 먼저 돈다).
 // 표지(class·data-*)로 본다: 지구본 .pe-globe-view[data-face-level·data-sequence·data-status], 확인 칩 .pe-check-chip[data-check],
 // 저장 상태 칩 .pe-save-chip[data-save-status: new·dirty·saved·saving·failed], 행성 판의 판 번호 .pe-library-info [data-revision].
@@ -245,6 +246,45 @@ test.describe("관리자", () => {
     expect(deviceErrors.filter((error) => !conflictLog.test(error.text))).toEqual([]);
   });
 
+  test("대륙 모양: 누르면 바로 적용하고 대륙 수 슬라이더는 [적용]을 기다린다. 노이즈로 돌아오면 대륙 수가 없다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    // ADR 2026-10-31-continent-layouts: 판 개수 프리셋 줄 대신 대륙 모양 줄, 판 개수는 세부 수치에 남는다
+    test.setTimeout(150_000);
+    await openSomePlanet(page);
+    const initial = await globeReady(page, 7);
+    await tab(page, "settings").click();
+    await expect(page.locator('.pe-choice-input[value="few"]')).toHaveCount(0);
+    await expect(slider(page, "plateCount")).toBeVisible();
+    // 팩 정의 그대로면 노이즈: 대륙 수 슬라이더가 없다
+    await expect(page.locator('.pe-choice-input[value="noise"]')).toBeChecked();
+    await expect(slider(page, "continentCount")).toHaveCount(0);
+    // 초대륙: 누르면 바로 새 미리보기, 대륙 수는 기본 1
+    await page.locator('.pe-choice-input[value="supercontinent"]').check();
+    await expect(page.locator(".pe-apply-bar")).toHaveCount(0);
+    const supercontinent = await globeReady(page, 7, initial);
+    await expect(slider(page, "continentCount")).toHaveValue("1");
+    // 대륙 수 슬라이더는 다른 슬라이더처럼 [적용]을 기다린다
+    expect(await nudge(page, "continentCount", "ArrowRight")).toBe(2);
+    await expect(globe(page)).toHaveAttribute("data-sequence", String(supercontinent));
+    await applyEdits(page);
+    await globeReady(page, 7, supercontinent);
+    // [되돌리기]는 누르는 조작이라 바로 적용(기본 1 = 앞의 초대륙 정의라 기억한 결과를 다시 그린다)
+    const group = page.locator(".pe-preset", { has: slider(page, "continentCount") });
+    await group.locator(".button-text").click();
+    await expect(slider(page, "continentCount")).toHaveValue("1");
+    await expect(globe(page)).toHaveAttribute("data-sequence", String(supercontinent), {
+      timeout: PREVIEW_TIMEOUT,
+    });
+    // 노이즈로 돌아오면 대륙 수 슬라이더가 없고, 처음 정의(팩 그대로)의 결과를 그린다
+    await page.locator('.pe-choice-input[value="noise"]').check();
+    await expect(slider(page, "continentCount")).toHaveCount(0);
+    await expect(globe(page)).toHaveAttribute("data-sequence", String(initial), { timeout: PREVIEW_TIMEOUT });
+    await expect(globe(page)).toHaveAttribute("data-status", "ready", { timeout: PREVIEW_TIMEOUT });
+    expect(deviceErrors).toEqual([]);
+  });
+
   // 사진: 휴대폰 세로 390px·데스크톱 1440px × 기본 테마 둘 × 한국어·영어(E2E_SHOTS_DIR). 휴대폰은 판 넘침·누르는 곳도 본다
   for (const theme of ["pastel", "dark"] as const) {
     for (const language of ["ko", "en"] as const) {
@@ -278,6 +318,15 @@ test.describe("관리자", () => {
           await expect(page.locator("dialog.pe-prompt[open]")).toHaveCount(1);
           await shot(page, `planet-editor-390-${theme}-${language}-new`);
           await page.keyboard.press("Escape");
+          // 대륙 모양: 지구형(대륙 몇 개)을 고르면 대륙 수 슬라이더가 나온다
+          await tab(page, "settings").click();
+          const sequence = Number(await globe(page).getAttribute("data-sequence"));
+          await page.locator('.pe-choice-input[value="earthlike"]').check();
+          await globeReady(page, 7, sequence);
+          await slider(page, "continentCount").scrollIntoViewIfNeeded();
+          expect(await panelOverflow(page)).toEqual([]);
+          expect(await smallTapTargets(page)).toEqual([]);
+          await shot(page, `planet-editor-390-${theme}-${language}-continents`);
         });
 
         test.describe("데스크톱", () => {
@@ -309,6 +358,14 @@ test.describe("관리자", () => {
             await shot(page, `planet-editor-1440-${theme}-${language}-area`);
             await tab(page, "cell").click();
             await shot(page, `planet-editor-1440-${theme}-${language}-cell`);
+            // 대륙 모양: 초대륙
+            await tab(page, "settings").click();
+            const sequence = Number(await globe(page).getAttribute("data-sequence"));
+            await page.locator('.pe-choice-input[value="supercontinent"]').check();
+            await globeReady(page, 7, sequence);
+            await slider(page, "continentCount").scrollIntoViewIfNeeded();
+            expect(await panelOverflow(page)).toEqual([]);
+            await shot(page, `planet-editor-1440-${theme}-${language}-continents`);
           });
         });
       });

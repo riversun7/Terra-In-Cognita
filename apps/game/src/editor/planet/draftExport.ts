@@ -18,9 +18,11 @@ import {
   PLANET_GENERATOR_FACE_LEVELS,
   type PlanetDraftRejectCode,
   planetDraftEntryBytes,
+  resolveContinentLayout,
   resolvePlanetSettings,
 } from "@terra/shared";
 import {
+  parseContinentLayout,
   parsePlanetOverrides,
   parsePlanetPresets,
   planetInputFromDefinition,
@@ -142,7 +144,7 @@ function biomeRefs(entry: DraftEntry): string[] | null {
 
 /**
  * 행성 항목의 크기·모양 문제(없으면 null): 직렬화한 크기가 8KiB를 넘으면 entry_too_large, 생성기가 받을 수 없는 모양
- * (ID·면 레벨 범위·시드·바이옴 ID 목록·프리셋 단계·덮어쓰기 키·범위·극 ≤ 적도)이면 invalid_entry. 콘텐츠 형식 전체는 서버가 본다
+ * (ID·면 레벨 범위·시드·바이옴 ID 목록·프리셋 단계·덮어쓰기 키·범위·극 ≤ 적도·대륙 배치)이면 invalid_entry. 콘텐츠 형식 전체는 서버가 본다
  */
 export function entryProblem(value: unknown): "entry_too_large" | "invalid_entry" | null {
   if (!isDraftEntry(value)) return "invalid_entry";
@@ -155,6 +157,8 @@ export function entryProblem(value: unknown): "entry_too_large" | "invalid_entry
   try {
     // 프리셋 단계 이름·덮어쓰기 키·정수·범위·극 ≤ 적도(생성기와 같은 표)
     resolvePlanetSettings(parsePlanetPresets(value.presets), parsePlanetOverrides(value.overrides));
+    // 대륙 배치(선택): 종류 이름·필드·대륙 수 범위(ADR 2026-10-31-continent-layouts)
+    resolveContinentLayout(parseContinentLayout(value.continents));
   } catch {
     return "invalid_entry";
   }

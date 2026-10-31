@@ -13,9 +13,14 @@
 // - equatorTemperatureC·poleTemperatureC(°C, 절대값): 해수면 연평균 기온. 고도는 실제 환산 고도로 기온을 낮춘다.
 // - precipitationPercent(%): 강수 배율. riverDensityPercent(%): 강 밀도. lakePercent(%): 웅덩이가 호수로 남는 정도.
 import {
+  CONTINENT_COUNT_RANGE,
+  type ContinentLayout,
+  type ContinentLayoutDefinition,
+  type ContinentLayoutKind,
   PLANET_PRESET_AXES,
   PLANET_PRESET_LEVELS,
   PLANET_SETTING_RANGES,
+  isContinentLayoutKind,
   isPlanetPresetLevel,
   type PlanetPresetAxis,
   type PlanetPresetLevel,
@@ -136,4 +141,33 @@ export function resolvePlanetSettings(
     );
   }
   return settings;
+}
+
+/**
+ * 대륙 배치 종류 → 기본 대륙 수(ADR 2026-10-31-continent-layouts). 정의가 대륙 수를 적지 않으면 이 값이다.
+ * 값을 바꾸면 그 배치를 쓰는 행성의 생성 결과가 바뀐다: GENERATOR_VERSION과 고정 시험을 함께 고친다(위 수치표와 같다)
+ */
+export const CONTINENT_LAYOUT_DEFAULT_COUNTS: { readonly [K in ContinentLayoutKind]: number } = {
+  supercontinent: 1,
+  earthlike: 3,
+  scattered: 6,
+  hemisphere: 3,
+};
+
+/**
+ * 대륙 배치 정의 → 풀어 쓴 대륙 배치. 정의가 없으면 undefined(노이즈 배치). 대륙 수를 적지 않으면 종류의 기본값이다.
+ * 모르는 종류, 범위(CONTINENT_COUNT_RANGE) 밖이거나 정수가 아닌 대륙 수는 RangeError
+ */
+export function resolveContinentLayout(
+  definition: ContinentLayoutDefinition | undefined,
+): ContinentLayout | undefined {
+  if (definition === undefined) return undefined;
+  const layout: unknown = definition.layout;
+  if (!isContinentLayoutKind(layout)) throw new RangeError(`unknown continent layout "${String(layout)}"`);
+  const count = definition.count ?? CONTINENT_LAYOUT_DEFAULT_COUNTS[layout];
+  const [min, max] = CONTINENT_COUNT_RANGE;
+  if (!Number.isInteger(count) || count < min || count > max) {
+    throw new RangeError(`continent count must be an integer in [${min}, ${max}]: ${String(count)}`);
+  }
+  return { layout, count };
 }

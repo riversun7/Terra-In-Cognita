@@ -31,6 +31,17 @@ export function GaugeIcon() {
   );
 }
 
+/** 항성계 편집기(가운데 별과 궤도 하나, 궤도 위 행성) */
+export function OrbitIcon() {
+  return (
+    <DevIcon>
+      <circle cx="12" cy="12" r="2.6" />
+      <ellipse cx="12" cy="12" rx="9" ry="5.2" />
+      <circle cx="19.4" cy="9" r="1.4" />
+    </DevIcon>
+  );
+}
+
 /** 줄 끝의 "들어가기" 표시(ui/icons.tsx back의 거울) */
 export function ForwardIcon() {
   return (

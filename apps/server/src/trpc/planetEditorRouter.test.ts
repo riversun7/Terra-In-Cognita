@@ -64,6 +64,14 @@ function fakeEditor(options: FakeOptions) {
       versions: service("library.versions"),
       version: service("library.version"),
     },
+    systems: {
+      list: service("systems.list"),
+      get: service("systems.get"),
+      create: service("systems.create"),
+      save: service("systems.save"),
+      rename: service("systems.rename"),
+      remove: service("systems.remove"),
+    },
   };
   return { editor, calls };
 }
@@ -218,6 +226,55 @@ const CASES: {
     calls: [
       (caller) => caller.planetEditor.library.remove({ id: LIBRARY_ID }),
       (caller) => caller.planetEditor.library.remove({ id: "x" }),
+    ],
+  },
+  // 항성계 보관함(ADR 2026-10-31-star-system-editor) — 보관함과 같은 권한·제한 차례
+  {
+    name: "systems.list",
+    action: "read",
+    kind: "library",
+    calls: [(caller) => caller.planetEditor.systems.list()],
+  },
+  {
+    name: "systems.get",
+    action: "read",
+    kind: "library",
+    calls: [
+      (caller) => caller.planetEditor.systems.get({ id: LIBRARY_ID }),
+      (caller) => caller.planetEditor.systems.get({ id: "not-a-uuid" }),
+    ],
+  },
+  {
+    name: "systems.create",
+    action: "write",
+    kind: "library",
+    calls: [(caller) => caller.planetEditor.systems.create({ name: "x", definition: {} })],
+  },
+  {
+    name: "systems.save",
+    action: "write",
+    kind: "library",
+    calls: [
+      (caller) => caller.planetEditor.systems.save({ id: LIBRARY_ID, definition: {}, expectedRevision: 1 }),
+      (caller) => caller.planetEditor.systems.save({ id: LIBRARY_ID, definition: {}, expectedRevision: 0 }),
+    ],
+  },
+  {
+    name: "systems.rename",
+    action: "write",
+    kind: "library",
+    calls: [
+      (caller) => caller.planetEditor.systems.rename({ id: LIBRARY_ID, name: "y" }),
+      (caller) => caller.planetEditor.systems.rename({ id: "x", name: "y" }),
+    ],
+  },
+  {
+    name: "systems.remove",
+    action: "write",
+    kind: "library",
+    calls: [
+      (caller) => caller.planetEditor.systems.remove({ id: LIBRARY_ID }),
+      (caller) => caller.planetEditor.systems.remove({ id: "x" }),
     ],
   },
 ];

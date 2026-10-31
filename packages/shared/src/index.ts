@@ -5,14 +5,20 @@ export { createRng, type Rng } from "./rng.ts";
 export { detAsin, detAtan, detAtan2, detCos, detExp, detSin, detTan } from "./detMath.ts";
 export {
   BIOME_RULE_KINDS,
+  CONTINENT_COUNT_RANGE,
+  CONTINENT_LAYOUTS,
   OCEAN_DEPTH_CLASSES,
   PLANET_GENERATOR_FACE_LEVELS,
   PLANET_PRESET_AXES,
   PLANET_PRESET_LEVELS,
   PLANET_SETTING_KEYS,
   PLANET_SETTING_RANGES,
+  isContinentLayoutKind,
   isPlanetPresetLevel,
   type BiomeRuleKind,
+  type ContinentLayout,
+  type ContinentLayoutDefinition,
+  type ContinentLayoutKind,
   type OceanDepthClass,
   type PlanetPresetAxis,
   type PlanetPresetLevel,
@@ -22,9 +28,11 @@ export {
   type PlanetSettings,
 } from "./planetDefinition.ts";
 export {
+  CONTINENT_LAYOUT_DEFAULT_COUNTS,
   NORMAL_PRESETS,
   PLANET_PRESET_VALUES,
   presetValues,
+  resolveContinentLayout,
   resolvePlanetSettings,
 } from "./planetPresets.ts";
 export {
@@ -45,6 +53,36 @@ export {
   type PlanetLibraryBaseKind,
   type PlanetLibraryReason,
 } from "./planetLibraryApi.ts";
+export {
+  DEFAULT_STAR_TYPE,
+  EARTH_EQUILIBRIUM_K,
+  SOLAR_HABITABLE_ZONE_AU,
+  STAR_SYSTEM_BODY_KINDS,
+  STAR_SYSTEM_DISTANCE_RANGE,
+  STAR_SYSTEM_FORMAT_VERSION,
+  STAR_SYSTEM_MAX_ORBITS,
+  STAR_SYSTEM_NAME_MAX,
+  STAR_SYSTEM_REASONS,
+  STAR_TYPES,
+  SUGGESTION_DAMPING,
+  emptyStarSystem,
+  habitableZone,
+  normalizeStarSystemName,
+  parseStarSystemDefinition,
+  starType,
+  stellarFlux,
+  suggestTemperatures,
+  temperatureOffsetC,
+  zoneOf,
+  type StarSystemBody,
+  type StarSystemBodyKind,
+  type StarSystemDefinition,
+  type StarSystemOrbit,
+  type StarSystemReason,
+  type StarType,
+  type StarTypeId,
+  type TemperatureSuggestion,
+} from "./starSystem.ts";
 export { utf8ByteLength } from "./utf8.ts";
 export { estimateClockOffset, type ClockSample, type ClockEstimate } from "./clock.ts";
 export {

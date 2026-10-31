@@ -79,11 +79,12 @@
 - 사이드 메뉴 시스템 묶음: 설정 · 개발자(dev·admin) · 관리자(admin) · 로그아웃. 하단 탭과 메뉴 편집 목록에는 넣지 않는다.
 - 권한: 사용자 원문 "dev·admin". 서버 권한 문장 `planetEditor: ["read", "write"]`를 dev와 admin에게 준다(기본 거부). 셰이더 측정판은 서버 자료를 쓰지 않아 기기에서만 가린다. 화면 가림은 편의이고, 서버가 매 요청 권한을 본다.
 - 붙이는 때: 앱 뼈대 0단계가 주소 줄·권한 줄을 먼저 넣는다. 화면은 W1(라우터·틀) 뒤에 붙인다. W1이 편집기 화면보다 늦으면 지금 `App.tsx`의 열린 화면 종류에 `dev`를 더하고 계정 줄 [개발자]로 연다. 그때는 W1이 주소로 옮긴다.
-- 미리 캐시: 개발자 조각(`gpuBench*`, `planetEditor*`)은 서비스 워커 미리 캐시에서 뺀다. 검사 이름은 `ADMIN_ONLY_CHUNK` → `DEV_ONLY_CHUNK`(`/^assets\/(gpuBench|[Pp]lanetEditor)[^/]*\.(js|css)$/`), `globIgnores`도 같게 고친다. 조각 이름은 진입 파일 이름을 따르므로 진입 파일 이름 앞머리를 지킨다. 대문자로 시작하는 화면 파일(`PlanetEditorScreen.tsx`)도 걸리게 `[Pp]`로 쓴다(편집기 핵심 검토에서 찾음).
+- 미리 캐시: 개발자 조각(`gpuBench*`, `planetEditor*`)은 서비스 워커 미리 캐시에서 뺀다. 검사 이름은 `ADMIN_ONLY_CHUNK` → `DEV_ONLY_CHUNK`(`/^assets\/(gpuBench|[Pp]lanetEditor)[^/]*\.(js|css)$/`), `globIgnores`도 같게 고친다. 조각 이름은 진입 파일 이름을 따르므로 진입 파일 이름 앞머리를 지킨다. 대문자로 시작하는 화면 파일(`PlanetEditorScreen.tsx`)도 걸리게 `[Pp]`로 쓴다(편집기 핵심 검토에서 찾음). (바뀜 2026-10-31: 항성계 편집기 조각 `starSystem*`·`StarSystemScreen*`을 더해 `/^assets\/(gpuBench|[Pp]lanetEditor|[Ss]tarSystem)[^/]*\.(js|css)$/`, `globIgnores`에 `assets/[Ss]tarSystem*.{js,css}`. 미리 캐시하는 JS의 소스 맵도 본다(`DEV_ONLY_SOURCE`). ADR `2026-10-31-star-system-editor.md` 1·8절)
 
 ### 2. 범위
 - 넣는 것
   - 프리셋 6축 × 3단계, 세부 수치, 시드. 단계마다 정하는 값을 함께 보인다. 슬라이더 범위는 생성기 입력 검사와 같은 표에서 읽는다(한 곳). 생성기 다양성 고침이 수치를 더하면 표에 줄만 더한다.
+    - → 바뀜(2026-10-31, 사용자 의견 "판 개수가 이상하다 판게아 같은 컨셉이나 다양한 컨셉을 만들 수 있게 해달라"): 판 개수 단계 줄을 빼고 대륙 모양 줄(노이즈·초대륙·대륙 몇 개·여러 대륙·군도·한쪽 반구, 누르면 바로 적용)과 대륙 수 슬라이더([적용])를 둔다. 판 개수는 세부 수치의 "판 개수(산맥·해구 자리)". ADR `2026-10-31-continent-layouts.md`.
   - 기기 워커 미리보기: 빠른 F5, 기본 F7, 고를 때 F6·F8·F9 [사용자 D4].
   - 칸 정보창, 바이옴 면적표.
   - 평면 미니맵, 공개본 ↔ 초안 번갈아 보기, 면적 차이 열 [사용자 D1].
@@ -313,7 +314,7 @@
 - 셰이더 측정 화면 조각의 진입은 `editor/gpuBench/gpuBenchScreen.ts`(GpuBenchPage를 다시 내보내기만 함)다. 1절 정규식은 소문자 `gpuBench`만 맞는데, 화면 파일 `GpuBenchPage.tsx`를 바로 `import()`하면 조각이 `GpuBenchPage-*.js`(대문자 G)가 되어 모든 플레이어에게 미리 캐시되기 때문이다. 정규식은 바꾸지 않고 1절의 "진입 파일 이름 앞머리를 지킨다"로 맞췄다(Verified: 빌드 조각 `gpuBenchScreen-*.js`·`.css`에 GpuBenchPage 코드·CSS가 든다).
 - 개발자 홈 조각(`DevHome-*.js`·`.css`, gzip 약 1.2KB + 0.6KB)은 1절 이름 규칙 밖이라 미리 캐시된다. 작은 목록이라 그대로 둔다.
 - 미리 캐시: `DEV_ONLY_CHUNK`는 1절 정규식 그대로다. `globIgnores`는 `assets/gpuBench*.{js,css}`·`assets/[Pp]lanetEditor*.{js,css}`다. 빌드 뒤 `check-pwa.mjs`가 정규식에 걸리는 파일이 미리 캐시되지 않았는지 본다. 시험(`scripts/pwa-build.test.mjs`)은 개발자 도구 폴더와 `shell/routeViews.tsx`의 지연 로딩·워커 진입 파일(`import("…")`, `new URL("…", import.meta.url)`) 이름이 정규식에 걸리는지 본다(개발자 홈만 뺀다).
-  - 남은 틈(Assumed): 개발자 조각 둘이 함께 쓰는 모듈은 rolldown이 따로 묶고, 그 조각 이름은 안의 모듈 이름을 따른다(지금 `gpuBenchScene-*.js`). 앞머리가 없는 모듈만 든 공용 조각이 생기면 미리 캐시된다. 시험은 진입 파일만 본다. WP-D는 빌드 뒤 미리 캐시 목록(`dist/sw.js`)에 편집기 모듈이 없는지 소스 맵으로 본다.
+  - 남은 틈(Assumed): 개발자 조각 둘이 함께 쓰는 모듈은 rolldown이 따로 묶고, 그 조각 이름은 안의 모듈 이름을 따른다(지금 `gpuBenchScene-*.js`). 앞머리가 없는 모듈만 든 공용 조각이 생기면 미리 캐시된다. 시험은 진입 파일만 본다. WP-D는 빌드 뒤 미리 캐시 목록(`dist/sw.js`)에 편집기 모듈이 없는지 소스 맵으로 본다. → 2026-10-31부터 빌드 검사(`check-pwa.mjs`의 `DEV_ONLY_SOURCE`)가 미리 캐시하는 JS의 소스 맵을 본다(ADR `2026-10-31-star-system-editor.md` 8절).
 - 화면 문구 키 앞머리는 `dev_`다(`dev_home_lead`·`dev_home_tools`·`dev_tool_<도구>_desc`·`dev_tool_soon`). 홈 제목은 `shell_dev`를 다시 쓴다.
 - 잰 값(Verified: 개발 컨테이너, 부하 5~15, main `acd651d`을 합친 뒤): 첫 화면 JS 125,940 → 126,754B(+814B, 상한 131,416B 그대로). 첫 화면 소스 모듈은 243개 그대로이고 조각 나눔만 바뀌었다(3개 → 5개: 공용 조각 `routes`·`reporter`가 따로 나옴, 소스 맵 비교). 미리 캐시 53개 1,341.31KiB → 57개 1,326.17KiB(개발자 홈 JS·CSS와 위 공용 조각 둘을 더함, `gpuBench*` 0개). 관리자 조각 JS 23.87 → 6.55kB, CSS 5.57 → 1.91kB. 셰이더 측정 화면 조각 JS 17.58kB(gzip 6.79kB), CSS 3.40kB.
 

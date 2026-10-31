@@ -163,6 +163,35 @@ describe("행성·바이옴 분류", () => {
     ]);
   });
 
+  it("대륙 배치(continents, 선택): 종류는 정해진 이름, 대륙 수는 1~10 정수. 없으면 노이즈 배치(ADR 2026-10-31-continent-layouts)", () => {
+    expect(check([planet({ continents: { layout: "supercontinent" } })]).issues).toEqual([]);
+    expect(check([planet({ continents: { layout: "earthlike", count: 4 } })]).issues).toEqual([]);
+    expect(problems([planet({ continents: { layout: "pangaea" } })])).toEqual([
+      [
+        "schema",
+        "planets.json",
+        "test_world",
+        "continents.layout",
+        '허용하지 않는 값입니다(허용: "supercontinent", "earthlike", "scattered", "hemisphere").',
+      ],
+    ]);
+    expect(problems([planet({ continents: { layout: "scattered", count: 11 } })])).toEqual([
+      ["schema", "planets.json", "test_world", "continents.count", "값이 너무 큽니다(최대 10)."],
+    ]);
+    expect(problems([planet({ continents: { layout: "scattered", count: 0 } })])).toEqual([
+      ["schema", "planets.json", "test_world", "continents.count", "값이 너무 작습니다(최소 1)."],
+    ]);
+    expect(problems([planet({ continents: { layout: "scattered", size: 2 } })])).toEqual([
+      [
+        "schema",
+        "planets.json",
+        "test_world",
+        "continents",
+        "모르는 필드입니다: size. 이름에 오타가 없는지 확인하세요.",
+      ],
+    ]);
+  });
+
   it("면 레벨은 4~9(생성기가 받는 범위), 시드는 u32 정수", () => {
     expect(problems([planet({ faceLevel: 10 })])).toEqual([
       ["schema", "planets.json", "test_world", "faceLevel", "값이 너무 큽니다(최대 9)."],

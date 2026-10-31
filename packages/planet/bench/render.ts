@@ -1,6 +1,7 @@
 // 생성 결과 눈으로 보기 — 면마다(고도·바이옴·기온) PNG와 등장방형(경위도) 전체 그림, 요약 수치를 낸다.
-// 실행: pnpm --filter @terra/planet render <출력 폴더> [면 레벨, 기본 7] [시드(생략 시 팩 값)]
+// 실행: pnpm --filter @terra/planet render <출력 폴더> [면 레벨, 기본 7] [시드(생략 시 팩 값)] [--continents <배치>[:수]]
 // 또는 packages/planet에서 node bench/render.ts <출력 폴더> 7. pnpm test에 넣지 않는다.
+// --continents: 대륙 배치(ADR 2026-10-31-continent-layouts)를 얹어 본다(예: supercontinent, earthlike:4). 없으면 팩 정의.
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { decodeCellKey } from "../src/cellKey.ts";
@@ -14,20 +15,27 @@ import {
 } from "../src/generator/index.ts";
 import { xyzToCell } from "../src/projection.ts";
 import { encodePng } from "./png.ts";
-import { loadPackPlanet } from "./testPlanet.ts";
+import { continentsArgument, loadPackPlanet, withContinents } from "./testPlanet.ts";
 
 type Rgb = [number, number, number];
 
-const outArg = process.argv[2];
+const args = process.argv.slice(2);
+const flag = args.indexOf("--continents");
+const continents = continentsArgument(flag >= 0 ? args[flag + 1] : undefined);
+const positional = flag >= 0 ? args.filter((_, k) => k !== flag && k !== flag + 1) : args;
+const outArg = positional[0];
 if (!outArg) {
-  console.error("사용: node bench/render.ts <출력 폴더> [면 레벨] [시드]");
+  console.error("사용: node bench/render.ts <출력 폴더> [면 레벨] [시드] [--continents <배치>[:수]]");
   process.exit(2);
 }
 const outDir: string = outArg;
-const faceLevel = Number(process.argv[3] ?? 7);
+const faceLevel = Number(positional[1] ?? 7);
 const planet = loadPackPlanet("s2_test_planet", faceLevel);
-const seedArg = process.argv[4];
-const input = seedArg === undefined ? planet.input : { ...planet.input, seed: Number(seedArg) };
+const seedArg = positional[2];
+const input = withContinents(
+  seedArg === undefined ? planet.input : { ...planet.input, seed: Number(seedArg) },
+  continents,
+);
 const started = performance.now();
 const { fields, basinKind } = runPlanetGenerator(input);
 const elapsed = performance.now() - started;
@@ -238,6 +246,7 @@ const pct = (value: number) => `${((100 * value) / total).toFixed(1)}%`;
 console.log(
   `면 레벨 ${faceLevel} (칸 ${total.toLocaleString()}), 시드 ${input.seed}, ${elapsed.toFixed(0)} ms, 해시 ${fields.meta.hash}`,
 );
+if (input.continents) console.log(`대륙 배치 ${input.continents.layout}, 대륙 수 ${input.continents.count}`);
 console.log(
   `육지(칸 수) ${pct(land)}, 호수 ${pct(lakes)}, 강 칸 ${pct(rivers)} (최대 등급 ${maxOrder}), 마른 분지 ${pct(dry)}`,
 );

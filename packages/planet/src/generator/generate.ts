@@ -9,6 +9,7 @@ import {
   PLANET_SETTING_KEYS,
   PLANET_SETTING_RANGES,
   type PlanetSettings,
+  resolveContinentLayout,
 } from "@terra/shared";
 import { computeClimate } from "./climate.ts";
 import { priorityFlood } from "./flood.ts";
@@ -73,6 +74,12 @@ export function validatePlanetInput(input: PlanetGeneratorInput): void {
   if (input.settings.poleTemperatureC > input.settings.equatorTemperatureC) {
     throw new RangeError("poleTemperatureC must not exceed equatorTemperatureC");
   }
+  // 대륙 배치: 종류 이름과 대륙 수 범위. 풀어 쓴 값이라 대륙 수가 있어야 한다(없으면 기본값으로 메우지 않는다)
+  if (input.continents !== undefined) {
+    const { layout, count } = input.continents;
+    if (count === undefined) throw new RangeError("continents.count must be resolved");
+    resolveContinentLayout({ layout, count });
+  }
   compileBiomes(input.biomes);
 }
 
@@ -94,13 +101,14 @@ export function runPlanetGenerator(
   validatePlanetInput(input);
   const onStage = options.onStage ?? (() => {});
   const { faceLevel, seed, biomes } = input;
+  const continents = input.continents === undefined ? undefined : { ...input.continents };
   // 설정값을 복사해 둔다(호출한 쪽이 나중에 고쳐도 메타가 바뀌지 않게)
   const settings: PlanetSettings = { ...input.settings };
 
   const grid = buildGrid(faceLevel);
   onStage("grid");
 
-  const { elevation } = buildTectonics(grid, seed, settings);
+  const { elevation } = buildTectonics(grid, seed, settings, continents);
   assertFinite("elevation", elevation);
   onStage("tectonics");
 
@@ -149,8 +157,9 @@ export function runPlanetGenerator(
 
   const hash = hashPlanetFields(faceLevel, surface);
   onStage("hash");
+  const meta = { generatorVersion: GENERATOR_VERSION, seed, faceLevel, settings, hash };
   return {
-    fields: { ...surface, meta: { generatorVersion: GENERATOR_VERSION, seed, faceLevel, settings, hash } },
+    fields: { ...surface, meta: continents === undefined ? meta : { ...meta, continents } },
     receiver: flow.receiver,
     basinKind: rivers.basinKind,
     lakeSurfaceM: lakeSurfaceHeights(rivers.basinKind, flow.filled, seaLevel),

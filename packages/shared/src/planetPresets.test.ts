@@ -1,6 +1,8 @@
 // 프리셋 → 세부 수치 시험 — 범위·순서·축 소유·덮어쓰기·오류, 그리고 수치표 고정(바뀌면 생성 결과가 바뀐다)
 import { describe, expect, it } from "vitest";
 import {
+  CONTINENT_COUNT_RANGE,
+  CONTINENT_LAYOUTS,
   PLANET_PRESET_AXES,
   PLANET_PRESET_LEVELS,
   PLANET_SETTING_KEYS,
@@ -10,9 +12,11 @@ import {
   type PlanetSettings,
 } from "./planetDefinition.ts";
 import {
+  CONTINENT_LAYOUT_DEFAULT_COUNTS,
   NORMAL_PRESETS,
   PLANET_PRESET_VALUES,
   presetValues,
+  resolveContinentLayout,
   resolvePlanetSettings,
 } from "./planetPresets.ts";
 
@@ -135,5 +139,60 @@ describe("프리셋 → 세부 수치", () => {
     // 프리셋 축이 정하지 않는 수치의 기본값
     const base = resolvePlanetSettings(NORMAL_PRESETS);
     expect([base.riverDensityPercent, base.lakePercent]).toEqual([100, 100]);
+  });
+});
+
+describe("대륙 배치 → 배치 종류·대륙 수 (ADR 2026-10-31-continent-layouts)", () => {
+  it("정의에 대륙 배치가 없으면 노이즈 배치(undefined)다", () => {
+    expect(resolveContinentLayout(undefined)).toBeUndefined();
+  });
+
+  it("대륙 수를 적지 않으면 배치 종류의 기본값, 적으면 그 값", () => {
+    expect(resolveContinentLayout({ layout: "supercontinent" })).toEqual({
+      layout: "supercontinent",
+      count: 1,
+    });
+    expect(resolveContinentLayout({ layout: "earthlike", count: undefined })).toEqual({
+      layout: "earthlike",
+      count: 3,
+    });
+    expect(resolveContinentLayout({ layout: "scattered", count: 1 })).toEqual({
+      layout: "scattered",
+      count: 1,
+    });
+    expect(resolveContinentLayout({ layout: "hemisphere", count: 10 })).toEqual({
+      layout: "hemisphere",
+      count: 10,
+    });
+  });
+
+  it("기본 대륙 수는 대륙 수 범위 안이다", () => {
+    const [min, max] = CONTINENT_COUNT_RANGE;
+    for (const layout of CONTINENT_LAYOUTS) {
+      const count = CONTINENT_LAYOUT_DEFAULT_COUNTS[layout];
+      expect(Number.isInteger(count), layout).toBe(true);
+      expect(count, layout).toBeGreaterThanOrEqual(min);
+      expect(count, layout).toBeLessThanOrEqual(max);
+    }
+  });
+
+  it("모르는 배치 종류·범위 밖·정수 아닌 대륙 수는 RangeError", () => {
+    // 타입 밖 값(JSON에서 온 것처럼)
+    const unknownLayout: Parameters<typeof resolveContinentLayout>[0] = JSON.parse('{"layout":"pangaea"}');
+    expect(() => resolveContinentLayout(unknownLayout)).toThrow(RangeError);
+    expect(() => resolveContinentLayout({ layout: "earthlike", count: 0 })).toThrow(RangeError);
+    expect(() => resolveContinentLayout({ layout: "earthlike", count: 11 })).toThrow(RangeError);
+    expect(() => resolveContinentLayout({ layout: "earthlike", count: 2.5 })).toThrow(RangeError);
+  });
+
+  it("수치표 고정: 기본 대륙 수를 바꾸면 그 배치를 쓰는 행성의 생성 결과가 바뀐다 → GENERATOR_VERSION", () => {
+    expect(CONTINENT_LAYOUTS).toEqual(["supercontinent", "earthlike", "scattered", "hemisphere"]);
+    expect(CONTINENT_COUNT_RANGE).toEqual([1, 10]);
+    expect(CONTINENT_LAYOUT_DEFAULT_COUNTS).toEqual({
+      supercontinent: 1,
+      earthlike: 3,
+      scattered: 6,
+      hemisphere: 3,
+    });
   });
 });

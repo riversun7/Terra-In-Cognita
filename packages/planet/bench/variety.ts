@@ -1,6 +1,7 @@
 // 반복·단조로움 검사 측정 — 면 레벨(기본 9) × 시드(기본 팩·1·42·2718281828)의 지표를 표와 JSON으로 내고, 기준 JSON과
 // 비교한다.
 // 실행: pnpm --filter @terra/planet variety [면 레벨] [시드 목록] [--json <경로>] [--compare <경로>] [--strict]
+//   [--continents <배치>[:수]]  (대륙 배치를 얹어 잰다, ADR 2026-10-31-continent-layouts. 기준 파일은 노이즈 배치 값이다)
 //   예: pnpm --filter @terra/planet variety 9 pack,1,42,2718281828 --compare bench/variety-baseline.json
 //   명령은 packages/planet에서 돈다: 상대 경로는 packages/planet 기준이다. 기준 파일은 bench/variety-baseline.json
 //   (출력 판 3, F9 × 팩·1·42·2718281828). 시드 1·42는 생성기를 맞출 때 본 시드, 2718281828은 맞출 때 보지 않은 시드
@@ -12,7 +13,7 @@
 //   땅 바이옴 몫이 기준과 얼마나 다른지(%p)도 찍는다. 종료 코드는 0이다(--strict면 나빠진 지표가 있을 때 1).
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { GENERATOR_VERSION, runPlanetGenerator } from "../src/generator/index.ts";
+import { GENERATOR_VERSION, WATER_OCEAN, runPlanetGenerator } from "../src/generator/index.ts";
 import {
   type SeedVariety,
   VARIETY_TARGETS,
@@ -22,9 +23,10 @@ import {
   formatVarietyReport,
   varietyContext,
 } from "../src/generator/testVariety.ts";
+import { landHemisphereShare, landmasses, majorLandmassCount } from "../src/generator/testLandmasses.ts";
 import { levelMetrics } from "../src/generator/testVarietyLevels.ts";
 import { unitMetrics } from "../src/generator/testVarietyUnit.ts";
-import { loadPackPlanet } from "./testPlanet.ts";
+import { continentsArgument, loadPackPlanet, withContinents } from "./testPlanet.ts";
 
 interface Options {
   readonly faceLevel: number;
@@ -32,6 +34,7 @@ interface Options {
   readonly json: string | undefined;
   readonly compare: string | undefined;
   readonly strict: boolean;
+  readonly continents: string | undefined;
 }
 
 function parseOptions(args: readonly string[]): Options {
@@ -39,9 +42,11 @@ function parseOptions(args: readonly string[]): Options {
   let json: string | undefined;
   let compare: string | undefined;
   let strict = false;
+  let continents: string | undefined;
   for (let k = 0; k < args.length; k++) {
     const arg = args[k] ?? "";
     if (arg === "--json") json = args[++k];
+    else if (arg === "--continents") continents = args[++k];
     else if (arg === "--compare") compare = args[++k];
     else if (arg === "--strict") strict = true;
     else rest.push(arg);
@@ -52,6 +57,7 @@ function parseOptions(args: readonly string[]): Options {
     json,
     compare,
     strict,
+    continents,
   };
 }
 
@@ -61,10 +67,15 @@ const record = (metrics: readonly VarietyMetric[]) =>
   Object.fromEntries(metrics.map((entry) => [entry.name, round6(entry.value)]));
 
 const options = parseOptions(process.argv.slice(2));
-const planet = loadPackPlanet("s2_test_planet", options.faceLevel);
+const pack = loadPackPlanet("s2_test_planet", options.faceLevel);
+const planet = { ...pack, input: withContinents(pack.input, continentsArgument(options.continents)) };
 const seeds = options.seeds.map((seed) => (seed === "pack" ? planet.input.seed : Number(seed)));
 console.log(
-  `Node ${process.version}, 면 레벨 ${options.faceLevel}, 시드 ${seeds.join(", ")}, 생성기 판 ${GENERATOR_VERSION}`,
+  `Node ${process.version}, 면 레벨 ${options.faceLevel}, 시드 ${seeds.join(", ")}, 생성기 판 ${GENERATOR_VERSION}${
+    planet.input.continents
+      ? `, 대륙 배치 ${planet.input.continents.layout}:${planet.input.continents.count}`
+      : ""
+  }`,
 );
 const ctx = varietyContext(options.faceLevel);
 const perSeed: SeedVariety[] = [];
@@ -91,8 +102,12 @@ for (const seed of seeds) {
   const done = performance.now();
   hashes[String(seed)] = details.fields.meta.hash;
   ms[String(seed)] = { generate: Math.round(generated - started), metrics: Math.round(done - generated) };
+  // 땅덩어리(보고만): 큰 땅덩어리(땅의 3% 이상) 수, 섬 수, 땅이 많은 반구의 땅 몫
+  const ocean = Uint8Array.from(details.fields.water, (water) => (water & WATER_OCEAN ? 1 : 0));
+  const masses = landmasses(ctx.grid, ocean);
+  const major = majorLandmassCount(masses);
   console.log(
-    `시드 ${seed}: 생성 ${Math.round(generated - started)} ms, 해시 ${details.fields.meta.hash}, 지표 ${Math.round(done - generated)} ms`,
+    `시드 ${seed}: 생성 ${Math.round(generated - started)} ms, 해시 ${details.fields.meta.hash}, 지표 ${Math.round(done - generated)} ms, 큰 땅덩어리 ${major}, 섬 ${masses.areas.length - major}, 땅 반구 몫 ${landHemisphereShare(ctx.grid, ocean).toFixed(2)}`,
   );
 }
 const cross = crossSeedMetrics(

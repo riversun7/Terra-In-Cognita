@@ -17,6 +17,9 @@ import type {
   PlanetLibrarySummary,
   PlanetLibraryVersion,
   PlanetLibraryVersionInfo,
+  StarSystemRecord,
+  StarSystemSaved,
+  StarSystemSummary,
 } from "../planetEditor/types.ts";
 
 /** 로그인한 사용자 */
@@ -89,6 +92,22 @@ export interface PlanetLibraryServices {
 }
 
 /**
+ * 항성계 보관함(개발자 항성계 편집기, ADR 2026-10-31-star-system-editor). 행성 보관함과 같은 규칙. 실패: BAD_REQUEST
+ * (data.reason invalid_name·invalid_definition), NOT_FOUND(system_not_found), CONFLICT(revision_conflict), FORBIDDEN(not_author)
+ */
+export interface StarSystemServices {
+  list(viewer: Viewer): Promise<StarSystemSummary[]>;
+  get(viewer: Viewer, id: string): Promise<StarSystemRecord>;
+  create(viewer: Viewer, input: { name: unknown; definition: unknown }): Promise<StarSystemRecord>;
+  save(
+    viewer: Viewer,
+    input: { id: string; definition: unknown; expectedRevision: number },
+  ): Promise<StarSystemSaved>;
+  rename(viewer: Viewer, input: { id: string; name: unknown }): Promise<{ name: string }>;
+  remove(viewer: Viewer, id: string): Promise<{ removed: true }>;
+}
+
+/**
  * 행성 편집기(ADR 2026-10-29-planet-editor-stage1 9·11절) — 프로시저가 권한 미들웨어(우리 권한 표)를 거친 뒤 부른다.
  * 실패는 tRPC 오류로 던진다: BAD_REQUEST(data.reason = 받지 않음 코드), CONFLICT(기대 판), NOT_FOUND(되돌릴 판·초안 없음),
  * TOO_MANY_REQUESTS(속도 제한)
@@ -109,6 +128,7 @@ export interface PlanetEditorServices {
   restore(viewer: Viewer, input: { planetId: string; revision: number }): Promise<PlanetDraftView>;
   remove(viewer: Viewer, planetId: string): Promise<{ removed: boolean }>;
   library: PlanetLibraryServices;
+  systems: StarSystemServices;
 }
 
 /** 홈 자료 조회의 조건. preview는 프로시저가 권한(home: preview, dev·admin)을 본 뒤에만 true다 */

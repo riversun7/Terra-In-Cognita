@@ -88,6 +88,14 @@ export const ROUTES = {
     frame: "hidden",
     access: "dev_admin",
   },
+  // 항성계 편집기(ADR 2026-10-31-star-system-editor): 틀을 숨긴 전체 화면(행성 편집기와 같다)
+  dev_star_system: {
+    path: "/dev/star-system",
+    search: [],
+    parent: "dev",
+    frame: "hidden",
+    access: "dev_admin",
+  },
   dev_gpu_bench: {
     path: "/dev/gpu-bench",
     search: [],

@@ -312,3 +312,36 @@ export function smoothMax(a: number, b: number): number {
   const h = Math.min(1, Math.max(0, 0.5 + (0.5 * (b - a)) / SMOOTH_UNION));
   return a + (b - a) * h + SMOOTH_UNION * h * (1 - h);
 }
+
+/** 자리 후보: 덩어리 중심과 자기 좌표 x축 */
+export interface Spot {
+  readonly centre: Vec3;
+  readonly east: Vec3;
+}
+
+/** 자기 좌표 점 → 자리(중심·x축)의 점 */
+export function toSpot(spot: Spot, local: Vec3): Vec3 {
+  const { centre, east } = spot;
+  const north = cross(centre, east);
+  return [
+    east[0] * local[0] + north[0] * local[1] + centre[0] * local[2],
+    east[1] * local[0] + north[1] * local[1] + centre[1] * local[2],
+    east[2] * local[0] + north[2] * local[1] + centre[2] * local[2],
+  ];
+}
+
+/** 꽃잎 틀을 자리로 옮긴다 */
+export const frameAt = (spot: Spot, frame: LobeFrame): LobeFrame => ({
+  c: toSpot(spot, frame.c),
+  u: toSpot(spot, frame.u),
+  v: toSpot(spot, frame.v),
+});
+
+/** 꽃잎(긴 반경 a, 짧은 반경 b)의 toward 쪽 반경: 중심에서 본 그 방향의 타원 반경 */
+export function radiusToward(frame: LobeFrame, a: number, b: number, toward: Vec3): number {
+  const tu = dot(toward, frame.u);
+  const tv = dot(toward, frame.v);
+  const n2 = tu * tu + tv * tv;
+  if (n2 < 1e-18) return a;
+  return 1 / Math.sqrt((tu * tu) / (a * a * n2) + (tv * tv) / (b * b * n2));
+}

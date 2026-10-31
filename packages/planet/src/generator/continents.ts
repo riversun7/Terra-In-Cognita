@@ -21,13 +21,13 @@ import {
   type LobeFrame,
   type LocalLobe,
   type Rng,
+  type Spot,
   type Vec3,
   angleBetween,
   continentLobes,
   crescentLobes,
-  cross,
-  dot,
   fitScale,
+  frameAt,
   fragmentLobes,
   intBetween,
   lobeAt,
@@ -37,6 +37,7 @@ import {
   placeLobe,
   pointInCap,
   radiusOfShare,
+  radiusToward,
   randomTangent,
   smoothMax,
   writeLobe,
@@ -181,12 +182,6 @@ interface Mass {
   placedLobes: LobeFrame[];
 }
 
-/** 자리 후보: 덩어리 중심과 자기 좌표 x축 */
-interface Spot {
-  readonly centre: Vec3;
-  readonly east: Vec3;
-}
-
 /** 덩어리 배열 한 줄: 중심 3, 영향 끝 내적 하한, 꽃잎 시작·끝 */
 const GROUP_STRIDE = 6;
 
@@ -222,33 +217,6 @@ function continentWeights(rng: Rng, count: number, sizes: LayoutParams["sizes"])
   raw.sort((a, b) => b - a);
   const total = raw.reduce((sum, value) => sum + value, 0);
   return raw.map((value) => value / total);
-}
-
-/** 자기 좌표 점 → 자리(중심·x축)의 점 */
-function toSpot(spot: Spot, local: Vec3): Vec3 {
-  const { centre, east } = spot;
-  const north = cross(centre, east);
-  return [
-    east[0] * local[0] + north[0] * local[1] + centre[0] * local[2],
-    east[1] * local[0] + north[1] * local[1] + centre[1] * local[2],
-    east[2] * local[0] + north[2] * local[1] + centre[2] * local[2],
-  ];
-}
-
-/** 꽃잎 틀을 자리로 옮긴다 */
-const frameAt = (spot: Spot, frame: LobeFrame): LobeFrame => ({
-  c: toSpot(spot, frame.c),
-  u: toSpot(spot, frame.u),
-  v: toSpot(spot, frame.v),
-});
-
-/** 꽃잎(긴 반경 a, 짧은 반경 b)의 toward 쪽 반경: 중심에서 본 그 방향의 타원 반경 */
-function radiusToward(frame: LobeFrame, a: number, b: number, toward: Vec3): number {
-  const tu = dot(toward, frame.u);
-  const tv = dot(toward, frame.v);
-  const n2 = tu * tu + tv * tv;
-  if (n2 < 1e-18) return a;
-  return 1 / Math.sqrt((tu * tu) / (a * a * n2) + (tv * tv) / (b * b * n2));
 }
 
 /**

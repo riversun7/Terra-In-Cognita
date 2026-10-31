@@ -140,6 +140,10 @@ function landSummary(faceLevel: number, fields: PlanetFields) {
   };
 }
 
+/** 면 레벨 5, 시드 1, 모두 보통에 대륙 배치만 얹은 결과 해시 */
+const layoutHash = (continents: PlanetGeneratorInput["continents"]) =>
+  generatePlanet({ ...input(5, 1), continents }).meta.hash;
+
 describe("골든 해시 (값이 바뀌면 GENERATOR_VERSION을 올리고 새 값으로 고친다)", () => {
   it("생성기 버전", () => {
     expect(GENERATOR_VERSION).toBe(3);
@@ -159,6 +163,14 @@ describe("골든 해시 (값이 바뀌면 GENERATOR_VERSION을 올리고 새 값
 
   it("S2 시험 행성 설정을 면 레벨 6으로", () => {
     expect(run(6, S2_TEST_PLANET_SEED).fields.meta.hash).toBe("6d0b4b25");
+  });
+
+  it("대륙 배치(ADR 2026-10-31-continent-layouts) 넷을 면 레벨 5, 시드 1, 모두 보통으로", () => {
+    expect(layoutHash({ layout: "supercontinent", count: 1 })).toBe("6ff5eb90");
+    expect(layoutHash({ layout: "earthlike", count: 3 })).toBe("e5519d0b");
+    expect(layoutHash({ layout: "scattered", count: 6 })).toBe("ffc2a39f");
+    expect(layoutHash({ layout: "hemisphere", count: 3 })).toBe("0468cfa8");
+    expect(layoutHash({ layout: "earthlike", count: 1 })).toBe("57410508");
   });
 
   it("편집 전용 행성(팩 정의 그대로, 대륙 배치 없음)을 면 레벨 5로 — 서버 F5 확인 해시와 같은 값", () => {

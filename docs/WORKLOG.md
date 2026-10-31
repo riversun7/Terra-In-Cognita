@@ -6,6 +6,7 @@
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
 | 2026-10-31 15:25 | S3 WP-A: 월드 저장·부팅 복구, 불변 조건, 사용자 결정 반영 | Claude Code | [31-1525-s3-wp-a-persistence](worklog/2026/10/31-1525-s3-wp-a-persistence.md) |
+| 2026-10-31 15:00 | 대륙 배치: 초대륙·대륙 몇 개·여러 대륙·군도·한쪽 반구와 대륙 수 | Claude Code | [31-1500-continent-layouts](worklog/2026/10/31-1500-continent-layouts.md) |
 | 2026-10-31 14:10 | 행성 보관함: 팀 공용 목록, [저장]만 서버에, 작업 사본은 기기에 | Claude Code | [31-1410-planet-library](worklog/2026/10/31-1410-planet-library.md) |
 | 2026-10-31 14:00 | S3 서버 단계 설계 (ADR 제안, 구현 전) | Claude Code | [31-1400-s3-design](worklog/2026/10/31-1400-s3-design.md) |
 | 2026-10-31 13:50 | 기획 반영 — 원본 501ee47(D-330~D-353, Step 5 D-5051~D-5054, 세력 본문·설정 칸 정리본), S3 ADR 질문 번호 | Claude Code | [31-1350-planning-501ee47](worklog/2026/10/31-1350-planning-501ee47.md) |

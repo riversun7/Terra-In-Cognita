@@ -72,6 +72,7 @@ app = await buildApp({
   // S1 시험 2차맵은 늘 켠다(봇 수는 S1_TEST_BOTS, 기본 0). 경로는 워커 스레드에서 푼다
   world: {
     testBots: config.s1.testBots,
+    testMaps: config.s1.testMaps,
     paths: { kind: "workers", workerUrl: pathWorkerUrl, workers: config.s1.pathWorkers },
   },
   // 1차맵 행성(ADR 36): 콘텐츠 팩 행성마다 원본 하나(생성기 1판). 캐시에 없으면 워커에서 굽는다

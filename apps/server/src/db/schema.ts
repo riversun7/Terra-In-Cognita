@@ -5,15 +5,19 @@ import type { PerfReport } from "@terra/protocol";
 import type { PlanetLibraryBase, SettingsObject } from "@terra/shared";
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
+  bytea,
   check,
   index,
   integer,
   jsonb,
   pgSequence,
   pgTable,
+  primaryKey,
   real,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -352,6 +356,207 @@ export const planetLibraryVersions = pgTable(
     check("planet_library_versions_bytes_nonnegative", sql`${table.bytes} >= 0`),
   ],
 );
+
+// ── S3 월드 저장 — docs/adr/2026-10-31-s3-server-stage.md 1·4절 ─────────────────────────────────────
+// DB가 원본이고 서버 메모리는 캐시다(ADR 6). 쓰기는 월드 쓰기 대기열(src/world/persist/writer.ts) 하나가 0.25초마다
+// 묶어 커밋한다. 그래서 ID는 DB가 아니라 서버가 정한다(부팅 때 가장 큰 값 + 1부터, 쓰는 프로세스는 하나다).
+// 시각은 서버 ms 정수(int8)다. 예약은 따로 된 표 없이 주인 행의 예정 시각 열(유닛의 경로 도착·wake_at_ms)이다.
+
+/** 세력(최소) — 소유와 시야 묶음에만 쓴다. 가입·봉신·외교는 세력 시스템(기획 Step 4-6)이 넓힌다 */
+export const factions = pgTable(
+  "factions",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    /** npc | player */
+    kind: text("kind").notNull(),
+    /** 위 세력(봉신 관계). 최상위 세력이 시야 묶음이다(D-250) */
+    parentId: bigint("parent_id", { mode: "number" }).references((): AnyPgColumn => factions.id),
+    /** 서버가 찾는 이름(예: s3_test_npc). 유저 세력은 비운다 */
+    code: text("code").unique(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    check("factions_kind", sql`${table.kind} in ('npc', 'player')`),
+    check("factions_code_format", sql`${table.code} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+  ],
+);
+
+/** 사용자 → 세력(사용자당 한 줄). S3는 시험 명령으로만 넣는다 */
+export const factionMembers = pgTable("faction_members", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  factionId: bigint("faction_id", { mode: "number" })
+    .notNull()
+    .references(() => factions.id),
+  joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** 소유 주체 = 사용자 하나 또는 세력 하나. 정산은 주체 단위다(ADR 4절) */
+export const worldOwners = pgTable(
+  "world_owners",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey(),
+    userId: uuid("user_id")
+      .unique()
+      .references(() => users.id),
+    factionId: bigint("faction_id", { mode: "number" })
+      .unique()
+      .references(() => factions.id),
+    /** 마지막 정산 시각. 정산 결과(원장 항목)와 같은 커밋에 쓴다(두 번 적용 없음, 불변 조건 I6) */
+    settledAtMs: bigint("settled_at_ms", { mode: "number" }).notNull(),
+    /** 내지 못한 유지비 횟수[임시] */
+    upkeepArrears: integer("upkeep_arrears").notNull().default(0),
+  },
+  (table) => [check("world_owners_one_kind", sql`num_nonnulls(${table.userId}, ${table.factionId}) = 1`)],
+);
+
+/** 2차맵 유닛. 위치는 저장하지 않고 경로·출발 시각·속도로 계산한다(ADR 5) */
+export const worldUnits = pgTable(
+  "world_units",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey(),
+    ownerId: bigint("owner_id", { mode: "number" })
+      .notNull()
+      .references(() => worldOwners.id),
+    /** 유닛 종류 코드(src/world/unitKinds.ts. 0 시험 봇, 1 시험 일꾼) */
+    kind: smallint("kind").notNull(),
+    size: smallint("size").notNull(),
+    speed: integer("speed").notNull(),
+    mapKey: bigint("map_key", { mode: "number" }).notNull(),
+    /** 꺾이는 점 [x0, y0, x1, y1, …] (고정소수점) */
+    path: integer("path").array().notNull(),
+    departAtMs: bigint("depart_at_ms", { mode: "number" }).notNull(),
+    /** 쉬기 끝 예약(시험 봇). 없으면 null */
+    wakeAtMs: bigint("wake_at_ms", { mode: "number" }),
+    /** 판단 횟수 — 봇 난수를 (유닛, 횟수)로 뽑아 다시 켜도 이어진다 */
+    aiStep: integer("ai_step").notNull().default(0),
+    /** 정산 직무 상태(packages/sim settle): 직무 종류, 일·쉼, 지금 주기 안 시간, 피로 */
+    job: smallint("job").notNull().default(0),
+    jobPhase: smallint("job_phase").notNull().default(0),
+    jobProgressMs: integer("job_progress_ms").notNull().default(0),
+    fatigue: integer("fatigue").notNull().default(0),
+  },
+  (table) => [
+    index("world_units_owner_idx").on(table.ownerId),
+    index("world_units_map_idx").on(table.mapKey),
+    check("world_units_size", sql`${table.size} between 1 and 3`),
+    check("world_units_speed", sql`${table.speed} > 0`),
+    check("world_units_path", sql`cardinality(${table.path}) >= 2 and cardinality(${table.path}) % 2 = 0`),
+  ],
+);
+
+/** 2차맵 건물(칸 직사각형) */
+export const worldBuildings = pgTable(
+  "world_buildings",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey(),
+    mapKey: bigint("map_key", { mode: "number" }).notNull(),
+    ownerId: bigint("owner_id", { mode: "number" }).references(() => worldOwners.id),
+    x: smallint("x").notNull(),
+    y: smallint("y").notNull(),
+    width: smallint("width").notNull(),
+    height: smallint("height").notNull(),
+    rotation: smallint("rotation").notNull(),
+  },
+  (table) => [index("world_buildings_map_idx").on(table.mapKey)],
+);
+
+/** 접속 상태(D-136): 모든 연결이 끊긴 시각. 접속 중이면 null */
+export const worldPresence = pgTable("world_presence", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  offlineSinceMs: bigint("offline_since_ms", { mode: "number" }),
+  updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+});
+
+/** 탐사 기록(ADR 26, D-143·D-152): (사용자, 2차맵)마다 시야 칸 32×32 비트 = 128바이트 */
+export const worldExploration = pgTable(
+  "world_exploration",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    mapKey: bigint("map_key", { mode: "number" }).notNull(),
+    cells: bytea("cells").notNull(),
+    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.mapKey] }),
+    check("world_exploration_cells", sql`octet_length(${table.cells}) = 128`),
+  ],
+);
+
+/** 서버 생존 시각(한 줄). kill -9 뒤 접속 중이던 사용자를 이 시각에 끊긴 것으로 친다(ADR 2절) */
+export const worldHeartbeat = pgTable(
+  "world_heartbeat",
+  {
+    id: smallint("id").primaryKey(),
+    bootId: uuid("boot_id").notNull(),
+    aliveAtMs: bigint("alive_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [check("world_heartbeat_single", sql`${table.id} = 1`)],
+);
+
+// 원장(ADR 8, 이 단계 ADR 4절): 복식부기. 화폐와 쌓이는 자원을 자산 코드로 같은 원장에 적는다.
+// 거래 하나의 항목 합은 자산마다 0이다. 거래·항목은 추가만 한다(마이그레이션의 트리거가 고치기·지우기를 막는다).
+// 금액은 최소 단위 정수(bigint 모드 → JS BigInt).
+
+/** 계정 = (소유 주체, 자산) 또는 시스템 계정(발행·소멸·매장량). balance는 항목 합의 캐시다(불변 조건 I2) */
+export const ledgerAccounts = pgTable(
+  "ledger_accounts",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey(),
+    ownerId: bigint("owner_id", { mode: "number" }).references(() => worldOwners.id),
+    systemCode: text("system_code").unique(),
+    asset: text("asset").notNull(),
+    balance: bigint("balance", { mode: "bigint" }).notNull().default(0n),
+  },
+  (table) => [
+    uniqueIndex("ledger_accounts_owner_asset_idx").on(table.ownerId, table.asset),
+    check("ledger_accounts_one_kind", sql`num_nonnulls(${table.ownerId}, ${table.systemCode}) = 1`),
+    check("ledger_accounts_owner_nonnegative", sql`${table.systemCode} is not null or ${table.balance} >= 0`),
+    check("ledger_accounts_asset_format", sql`${table.asset} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+  ],
+);
+
+/** 원장 거래. idempotency_key가 있으면 한 번만 들어간다(예: 유지비 = 주체·경계 시각) */
+export const ledgerTransactions = pgTable("ledger_transactions", {
+  id: bigint("id", { mode: "number" }).primaryKey(),
+  /** 예: issue, job_output, upkeep */
+  kind: text("kind").notNull(),
+  atMs: bigint("at_ms", { mode: "number" }).notNull(),
+  idempotencyKey: text("idempotency_key").unique(),
+});
+
+/** 원장 항목. 같은 거래의 항목 합은 자산마다 0(불변 조건 I1) */
+export const ledgerEntries = pgTable(
+  "ledger_entries",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    txId: bigint("tx_id", { mode: "number" })
+      .notNull()
+      .references(() => ledgerTransactions.id),
+    accountId: bigint("account_id", { mode: "number" })
+      .notNull()
+      .references(() => ledgerAccounts.id),
+    amount: bigint("amount", { mode: "bigint" }).notNull(),
+  },
+  (table) => [
+    index("ledger_entries_tx_idx").on(table.txId),
+    index("ledger_entries_account_idx").on(table.accountId),
+    check("ledger_entries_amount_nonzero", sql`${table.amount} <> 0`),
+  ],
+);
+
+/** 복귀 요약 마지막 확인 시각(D-6014, ADR 37 8절) */
+export const summaryAcks = pgTable("summary_acks", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  ackedAtMs: bigint("acked_at_ms", { mode: "number" }).notNull(),
+});
 
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

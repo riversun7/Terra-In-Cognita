@@ -26,6 +26,8 @@ const ComingSoon = lazy(() => import("../sections/ComingSoon.tsx"));
 // 유닛 화면(목록·파티·직무 프리셋·관리인·경매소·포로)과 사이보그 화면(본체): units.list·cyborg.get(ADR 37 "구현하며 정한 것 (유닛·사이보그 화면)")
 const UnitsScreen = lazy(() => import("../units/UnitsScreen.tsx"));
 const CyborgScreen = lazy(() => import("../cyborg/CyborgScreen.tsx"));
+// 경제(창고·생산·거래창·환전, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)"): 칸마다 다시 따로 조각이다
+const EconomyScreen = lazy(() => import("../economy/EconomyScreen.tsx"));
 const SettingsPage = lazy(() => import("../settings/SettingsPage.tsx"));
 const AdminPage = lazy(() => import("../admin/AdminPage.tsx"));
 // 개발자 영역(ADR 38 1절). 셰이더 측정은 gpuBench…로 시작하는 진입 파일로 받는다(조각 이름 → 미리 캐시에서 빠짐)
@@ -46,6 +48,13 @@ export const ROUTE_TITLES = {
   map_planet: m.planet_title,
   units: m.nav_units,
   economy: m.nav_economy,
+  economy_warehouse: m.economy_tab_warehouse,
+  economy_production: m.economy_tab_production,
+  economy_market: m.economy_market_title,
+  economy_market_item: m.economy_market_title,
+  economy_market_city: m.economy_market_title,
+  economy_orders: m.economy_my_orders,
+  economy_exchange: m.economy_tab_exchange,
   faction: m.nav_faction,
   cyborg: m.nav_cyborg,
   inbox: m.shell_route_inbox,
@@ -149,6 +158,14 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
     case "cyborg":
       return <CyborgScreen />;
     case "economy":
+    case "economy_warehouse":
+    case "economy_production":
+    case "economy_market":
+    case "economy_market_item":
+    case "economy_market_city":
+    case "economy_orders":
+    case "economy_exchange":
+      return <EconomyScreen match={match} user={user} />;
     case "faction":
     case "mail":
       return <ComingSoon match={match} />;

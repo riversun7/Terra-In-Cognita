@@ -4,6 +4,16 @@
 // 넣으면 기기 코드에서 Node 전역(process, Buffer)이 타입 오류 없이 보이게 된다 — scripts/check-boundaries.mjs가 잡는다.
 import type { Role, UserSettings } from "@terra/shared";
 import type { DashboardCardsResponse } from "@terra/shared/dashboard";
+import type {
+  EconomyCatalogResponse,
+  EconomyExchangeResponse,
+  EconomyHoldingsResponse,
+  EconomyOrdersResponse,
+  EconomyProductionResponse,
+  MarketBookResponse,
+  MarketCitiesResponse,
+  MarketItemsResponse,
+} from "@terra/shared/economy";
 import type { InboxListResponse, SummaryGetResponse } from "@terra/shared/inbox";
 import type { CyborgGetResponse, UnitsListResponse } from "@terra/shared/roster";
 import type { PlanetLibraryBase } from "@terra/shared";
@@ -161,6 +171,29 @@ export interface RosterServices {
   cyborg(viewer: Viewer, query: HomeQuery): Promise<CyborgGetResponse>;
 }
 
+/** 경제 화면 조회의 조건. preview는 프로시저가 권한(home: preview, dev·admin)을 본 뒤에만 true다 */
+export interface EconomyQuery {
+  readonly preview: boolean;
+  /** 서버 시각(UTC ms, ctx.now()) */
+  readonly now: number;
+}
+
+/**
+ * 경제 화면 자료(조회만) — ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)". 프로시저가 로그인한 본인으로만 부른다.
+ * 거래소·생산·환전은 서버가 아직 돌리지 않아 시안 자료가 아니면 status "not_ready"다(src/economyView/services.ts).
+ * 실패: NOT_FOUND(data.reason unknown_item·unknown_city)
+ */
+export interface EconomyServices {
+  catalog(): EconomyCatalogResponse;
+  holdings(viewer: Viewer, query: EconomyQuery): Promise<EconomyHoldingsResponse>;
+  production(viewer: Viewer, query: EconomyQuery): EconomyProductionResponse;
+  marketItems(viewer: Viewer, query: EconomyQuery): MarketItemsResponse;
+  marketCities(viewer: Viewer, item: string, query: EconomyQuery): MarketCitiesResponse;
+  marketBook(viewer: Viewer, item: string, city: string, query: EconomyQuery): MarketBookResponse;
+  orders(viewer: Viewer, query: EconomyQuery): EconomyOrdersResponse;
+  exchange(viewer: Viewer, query: EconomyQuery): EconomyExchangeResponse;
+}
+
 export interface TrpcContext {
   /** 콘텐츠 팩 버전 */
   contentVersion: string;
@@ -178,6 +211,8 @@ export interface TrpcContext {
   home: HomeServices;
   /** 유닛·사이보그 화면 자료. 늘 있다(세계·DB가 없으면 실제 자료는 빈 목록) */
   roster: RosterServices;
+  /** 경제 화면 자료. 늘 있다(팩이 없으면 빈 목록, 월드가 없으면 잔고 없음) */
+  economy: EconomyServices;
 }
 
 export interface TrpcContextOptions {

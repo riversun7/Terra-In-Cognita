@@ -1,0 +1,497 @@
+/*
+ * 거래창 — 물건 목록·도시별 목록·호가창 + 주문표 + 차트 + 체결(D-6032~D-6035). 경제 공용 값은 ../economy.css.
+ * 배치(D-6033): 좁음 = 위 시세·차트(접기), 왼쪽 호가 · 오른쪽 주문표, 아래 체결·내 주문.
+ * 넓음(64em 이상) = 옆 패널에 차트 크게 + 내 주문 목록. 값은 tokens.css의 var(--…)만 쓴다.
+ * 호가 줄은 촘촘한 표라 높이 --space-8(32px, WCAG 2.5.8 AA 24px 이상)이다 [임시]. 다른 누르는 곳은 --tap-size.
+ */
+
+/* ── 물건 목록 ───────────────────────────────────── */
+.eco-market-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+/* 값·등락은 자르거나 줄을 나누지 않는다(견주는 수다). 칸 너비는 글이 정한다 */
+.eco-market-row .eco-row-end {
+  max-inline-size: none;
+  white-space: nowrap;
+}
+
+/* ── 도시별 목록 ─────────────────────────────────── */
+.eco-cities {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 48em) {
+  .eco-cities {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.eco-city {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  color: var(--color-text);
+  text-decoration: none;
+}
+.eco-city[data-sight="out"] {
+  border-style: dashed;
+}
+.eco-city-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.eco-city-name {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: break-word;
+}
+.eco-city-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+}
+.eco-city-last {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.eco-city-quotes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+.eco-city-quotes > span {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+.eco-city-quotes [data-side="buy"] {
+  color: var(--color-success);
+  font-weight: var(--font-weight-strong);
+}
+.eco-city-quotes [data-side="sell"] {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-strong);
+}
+
+/* ── 호가창 + 주문표 배치 ─────────────────────────── */
+.eco-trader {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-areas:
+    "quote quote"
+    "chart chart"
+    "book form"
+    "trades trades"
+    "mine mine";
+  align-items: start;
+  gap: var(--space-3);
+}
+.eco-quote,
+.eco-chart-area,
+.eco-book,
+.eco-form,
+.eco-trades,
+.eco-side-orders {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.eco-quote {
+  grid-area: quote;
+}
+.eco-chart-area {
+  grid-area: chart;
+}
+.eco-book {
+  grid-area: book;
+  padding-inline: var(--space-1);
+}
+.eco-form {
+  grid-area: form;
+  gap: var(--space-3);
+}
+.eco-trades {
+  grid-area: trades;
+}
+.eco-side-orders {
+  grid-area: mine;
+}
+/* 넓음: 호가(두 줄 높이) · 주문표 위 체결 아래 · 옆 패널(차트 크게 위, 내 주문 아래) */
+@media (min-width: 64em) {
+  .eco-trader {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 0.95fr) minmax(0, 1.6fr);
+    grid-template-areas:
+      "quote quote quote"
+      "book form chart"
+      "book trades mine";
+  }
+  /* 옆 패널의 차트는 크게(D-6033). 아래 기본 규칙보다 앞에 있어 선택자를 한 칸 더 쓴다 */
+  .eco-trader .eco-chart-plot {
+    aspect-ratio: 3 / 2;
+  }
+  .eco-chart-toggle {
+    display: none;
+  }
+  .eco-trader[data-chart="closed"] .eco-chart-body {
+    display: block;
+  }
+}
+.eco-panel-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.eco-book .eco-panel-title {
+  padding-inline: var(--space-2);
+}
+
+/* 시세 머리 */
+.eco-quote-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+}
+.eco-quote-city {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: break-word;
+}
+.eco-quote-last {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+.eco-quote-currency {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.eco-quote-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.eco-quote-stats > div {
+  display: flex;
+  gap: var(--space-1);
+}
+.eco-quote-stats dt {
+  color: var(--color-text-muted);
+}
+.eco-quote-stats dd {
+  margin: 0;
+  font-weight: var(--font-weight-strong);
+}
+
+/* 차트 */
+.eco-chart-toggle {
+  align-self: flex-end;
+}
+.eco-trader[data-chart="closed"] .eco-chart-body {
+  display: none;
+}
+.eco-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+.eco-chart-plot {
+  position: relative;
+  aspect-ratio: 2 / 1;
+}
+.eco-chart-svg {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+}
+.eco-chart-grid {
+  stroke: var(--color-border);
+  stroke-width: var(--hairline);
+  vector-effect: non-scaling-stroke;
+}
+.eco-chart-last {
+  stroke: var(--color-text-muted);
+  stroke-width: var(--hairline);
+  stroke-dasharray: 4 4;
+  vector-effect: non-scaling-stroke;
+}
+.eco-chart-wick {
+  stroke-width: var(--hairline);
+  vector-effect: non-scaling-stroke;
+}
+[data-trend="up"] > .eco-chart-wick {
+  stroke: var(--color-success);
+}
+[data-trend="down"] > .eco-chart-wick {
+  stroke: var(--color-danger);
+}
+/* 오름 = 빈 봉(테두리), 내림 = 찬 봉: 색 말고 모양으로도 가른다 */
+.eco-chart-candle {
+  stroke-width: var(--border-w);
+  vector-effect: non-scaling-stroke;
+}
+[data-trend="up"] > .eco-chart-candle {
+  fill: var(--color-surface);
+  stroke: var(--color-success);
+}
+[data-trend="down"] > .eco-chart-candle {
+  fill: var(--color-danger);
+  stroke: var(--color-danger);
+}
+.eco-chart-volume {
+  fill: var(--color-surface-2);
+}
+[data-trend="down"] > .eco-chart-volume {
+  fill: var(--color-border);
+}
+.eco-chart-label,
+.eco-chart-price {
+  position: absolute;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.eco-chart-high {
+  inset-block-start: 0;
+  inset-inline-start: 0;
+}
+.eco-chart-low {
+  inset-block-start: 70%;
+  inset-inline-start: 0;
+}
+.eco-chart-price {
+  inset-inline-end: 0;
+  transform: translateY(-50%);
+  background-color: var(--color-text);
+  color: var(--color-surface);
+  font-weight: var(--font-weight-strong);
+}
+.eco-chart-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.eco-chart-empty {
+  padding-block: var(--space-6);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+/* 호가창 */
+.eco-book-head {
+  display: flex;
+  justify-content: space-between;
+  padding-inline: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.eco-levels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hairline);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+button.eco-level {
+  --button-lip: transparent;
+  --button-press: 0px;
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  inline-size: 100%;
+  min-width: 0;
+  min-height: var(--space-8);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  box-shadow: none;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  overflow: hidden;
+}
+.eco-level-bar {
+  position: absolute;
+  inset-block: var(--hairline);
+  inset-inline-end: 0;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+.eco-level[data-side="sell"] .eco-level-bar {
+  background-color: color-mix(in srgb, var(--color-danger) 16%, transparent);
+}
+.eco-level[data-side="buy"] .eco-level-bar {
+  background-color: color-mix(in srgb, var(--color-success) 16%, transparent);
+}
+.eco-level-price,
+.eco-level-qty {
+  position: relative;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.eco-level-price {
+  font-weight: var(--font-weight-strong);
+}
+.eco-level[data-side="sell"] .eco-level-price {
+  color: var(--color-danger);
+}
+.eco-level[data-side="buy"] .eco-level-price {
+  color: var(--color-success);
+}
+.eco-level-mine {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 0;
+  inline-size: var(--space-1);
+  block-size: var(--space-4);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-focus);
+  transform: translateY(-50%);
+}
+.eco-book-mid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2);
+  border-block: var(--hairline) solid var(--color-border);
+}
+.eco-book-last {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+}
+.eco-book-spread {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.eco-book-empty {
+  padding: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* 주문표 미리 보기 */
+.eco-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-sm);
+}
+.eco-summary > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 var(--space-2);
+}
+.eco-summary dt {
+  color: var(--color-text-muted);
+}
+.eco-summary dd {
+  margin: 0;
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.eco-summary-strong dd {
+  font-size: var(--font-size-md);
+}
+.eco-summary-note dd {
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+.eco-summary-note[data-tone="warning"] dd {
+  color: var(--color-warning);
+  font-weight: var(--font-weight-strong);
+}
+.eco-form[data-side="sell"] .eco-submit {
+  --button-lip: var(--color-danger);
+}
+
+/* 체결 표 */
+.eco-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+}
+.eco-table th {
+  padding: var(--space-1);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+  text-align: end;
+}
+.eco-table td {
+  padding: var(--space-1);
+  border-block-start: var(--hairline) solid var(--color-border);
+  text-align: end;
+}
+.eco-table th:first-child,
+.eco-table td:first-child {
+  text-align: start;
+}
+.eco-table tr[data-side="buy"] .eco-trade-price {
+  color: var(--color-success);
+  font-weight: var(--font-weight-strong);
+}
+.eco-table tr[data-side="sell"] .eco-trade-price {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-strong);
+}
+/* 최근 체결은 좁은 폭 12건, 넓은 폭 20건만 보인다(내 주문·옆 패널이 멀리 밀리지 않게) */
+@media (width < 64em) {
+  .eco-table tbody tr:nth-child(n + 13) {
+    display: none;
+  }
+}
+@media (min-width: 64em) {
+  .eco-table tbody tr:nth-child(n + 21) {
+    display: none;
+  }
+}
+@media (min-width: 64em) {
+  .eco-table {
+    font-size: var(--font-size-sm);
+  }
+}
+
+/* 마우스가 있는 기기에서만: 올리면 알린다 */
+@media (hover: hover) and (pointer: fine) {
+  .eco-city:hover {
+    border-color: var(--color-field-border);
+  }
+  button.eco-level:hover {
+    background-color: var(--color-surface-2);
+    filter: none;
+  }
+}

@@ -1,0 +1,239 @@
+// 경제·거래창 화면 시험 — /economy 아래 칸(한눈에·창고·생산·거래·환전), 거래창 흐름(물건 → 도시 → 호가 + 주문표), 내 주문.
+// ADR 2026-10-29-app-shell 끝 "구현하며 정한 것 (경제·거래창 화면)", 기획 60_UX §6(D-6032~D-6035).
+// - 플레이어: 실제 자료(팩 목록·원장 잔고)만, 거래소·생산·환전은 "곧 열림". 시안 자료를 묻지 않는다.
+// - admin + 시안 자료: 서버가 sim 거래소로 만든 시험 호가·체결(apps/server/src/economyView/). 앱을 켤 때 뜨는 복귀 요약은
+//   summary.get 응답을 고쳐 띄우지 않는다(helpers/trpc.ts hideSummary).
+// - 주문표: 호가 줄을 누르면 값이 들어가고, 거래세·묶이는 돈 미리 보기가 바뀌며, [주문]은 "곧 열림"으로 잠겨 있다(명령 없음).
+// - 사진: 390·1440 × 파스텔·다크 × 한국어·영어, 화면마다(E2E_SHOTS_DIR).
+import type { Page } from "@playwright/test";
+import { message } from "./helpers/messages.ts";
+import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
+import { type Language, type Theme, expect, test } from "./helpers/test.ts";
+import { hideSummary, rewriteTrpc, watchTrpc } from "./helpers/trpc.ts";
+
+/** 호가 줄은 촘촘한 표라 32px다(market.css 머리 주석). 나머지 누르는 곳은 --tap-size */
+const DENSE_TARGETS = ".eco-level";
+
+/** 시안 자료를 켠 계정: 복귀 요약을 띄우지 않고(응답 고침) 경로를 연다 */
+async function openPreview(
+  page: Page,
+  path: string,
+  edits: Readonly<Record<string, (data: unknown) => void>> = {},
+) {
+  await rewriteTrpc(page, { "summary.get": hideSummary, ...edits });
+  await page.goto(path);
+}
+
+const economy = (page: Page) => page.locator("section.economy");
+
+/**
+ * 화면 전체 사진. 화면에 붙은 하단 탭(position: fixed)은 전체 사진에서 첫 화면 높이 자리에 겹쳐 찍혀서 사진 동안만 숨긴다
+ * (하단 탭 자체는 shell.spec.ts가 본다)
+ */
+async function fullShot(page: Page, name: string): Promise<void> {
+  const style = await page.addStyleTag({ content: ".tabbar { visibility: hidden !important; }" });
+  await shot(page, name, { fullPage: true });
+  await style.evaluate((element) => element.parentNode?.removeChild(element));
+}
+
+test.describe("플레이어(실제 자료)", () => {
+  test.use({ account: "player" });
+
+  test("한눈에·거래·환전: 거래소는 곧 열림, 팩 목록은 보인다, 시안 자료를 묻지 않는다, 탭은 경제가 지금 화면", async ({
+    page,
+    deviceErrors,
+  }) => {
+    const calls = watchTrpc(page);
+    await page.goto("/economy");
+    await expect(economy(page).locator(".eco-card")).toHaveCount(4);
+    await expect(page.locator("#economy-title")).toHaveText(message("ko", "nav_economy"));
+    await page.getByRole("link", { name: message("ko", "economy_tab_market"), exact: true }).click();
+    await expect(page).toHaveURL(/\/economy\/market$/);
+    await expect(economy(page).locator(".eco-not-ready")).toContainText(
+      message("ko", "economy_not_ready_market"),
+    );
+    // 팩의 거래할 물건(장비 빼고): 곡물·원목·철광석·철 주괴·배급 식량·생활용품
+    await expect(economy(page).locator(".eco-row-link")).toHaveCount(6);
+    // 하위 화면에서도 하단 탭의 경제가 지금 화면이다(menuRoute)
+    await expect(page.locator('nav.tabbar a[aria-current="page"]')).toHaveText(message("ko", "nav_economy"));
+    await page.goto("/economy/market/iron_ore/101");
+    await expect(economy(page).locator(".eco-not-ready")).toBeVisible();
+    await page.goto("/economy/exchange");
+    await expect(economy(page).locator(".eco-not-ready")).toContainText(
+      message("ko", "economy_not_ready_exchange"),
+    );
+    await page.goto("/economy/production");
+    // 레시피 목록은 실제 팩 자료다
+    await expect(economy(page).getByText("철 제련", { exact: true })).toBeVisible();
+    const economyCalls = calls.filter((call) => call.procedures.some((name) => name.startsWith("economy.")));
+    expect(economyCalls.length).toBeGreaterThan(0);
+    expect(economyCalls.some((call) => JSON.stringify(call.inputs).includes("preview"))).toBe(false);
+    expect(await horizontalOverflow(page)).toEqual([]);
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("칸끼리는 바꾸기: 경제 안에서 칸을 옮겨도 뒤로는 경제 앞 화면", async ({ page }) => {
+    await page.goto("/");
+    await page.goto("/economy/warehouse");
+    await expect(economy(page).locator(".eco-wallet")).toBeVisible();
+    await page.getByRole("link", { name: message("ko", "economy_tab_production"), exact: true }).click();
+    await expect(page).toHaveURL(/\/economy\/production$/);
+    await page.getByRole("link", { name: message("ko", "economy_tab_exchange"), exact: true }).click();
+    await expect(page).toHaveURL(/\/economy\/exchange$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/$/);
+  });
+});
+
+/** 호가창 응답 고치기: 긴 도시 이름·12자리 값·9자리 잔량(넘침 확인) */
+const huge = (data: unknown): void => {
+  if (typeof data !== "object" || data === null) return;
+  Reflect.set(data, "cityName", "Saint-Aurelien-des-Hautes-Collines-Orientales");
+  Reflect.set(data, "last", "987654321012");
+  for (const side of ["asks", "bids"]) {
+    const levels: unknown = Reflect.get(data, side);
+    if (!Array.isArray(levels)) continue;
+    for (const level of levels) {
+      if (typeof level !== "object" || level === null) continue;
+      Reflect.set(level, "price", `98765432${String(Reflect.get(level, "price")).padStart(4, "0")}`);
+      Reflect.set(level, "qty", "123456789");
+    }
+  }
+};
+
+test.describe("admin 시안 자료(시험 거래소)", () => {
+  test.use({ account: "admin", preview: "admin" });
+
+  test("물건 → 도시 → 호가창: 호가 줄을 누르면 값이 들어가고, 미리 보기가 바뀌고, [주문]은 잠겨 있다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await openPreview(page, "/economy/market");
+    await expect(economy(page).locator(".eco-notice")).toHaveText(message("ko", "economy_preview_notice"));
+    await economy(page).locator(".eco-market-row", { hasText: "철광석" }).click();
+    await expect(page).toHaveURL(/\/economy\/market\/iron_ore$/);
+    await expect(economy(page).locator(".eco-city")).toHaveCount(4);
+    // 시야 밖 도시는 마지막 관측(점선 + 표)
+    await expect(economy(page).locator('.eco-city[data-sight="out"]')).toContainText(
+      message("ko", "economy_out_of_sight"),
+    );
+    await economy(page).locator(".eco-city", { hasText: "Nova" }).click();
+    await expect(page).toHaveURL(/\/economy\/market\/iron_ore\/101$/);
+    await expect(economy(page)).toHaveAttribute("data-density", "compact");
+
+    const asks = economy(page).locator('.eco-level[data-side="sell"]');
+    await expect(asks.first()).toBeVisible();
+    // 가장 싼 매도(매도 줄의 맨 아래)를 누르면 주문표 값이 된다
+    const bestAsk = asks.last();
+    const bestAskPrice = (await bestAsk.locator(".eco-level-price").textContent())?.replaceAll(",", "") ?? "";
+    await bestAsk.click();
+    const price = page.getByLabel(message("ko", "economy_price"), { exact: true });
+    await expect(price).toHaveValue(bestAskPrice);
+    const qty = page.getByLabel(message("ko", "economy_qty"), { exact: true });
+    await qty.fill("3");
+    const summary = economy(page).locator(".eco-summary");
+    await expect(summary).toContainText(message("ko", "economy_sum_escrow_cash"));
+    await expect(summary).toContainText(new Intl.NumberFormat("ko").format(Number(bestAskPrice) * 3));
+    // 매도로 바꾸면 거래세(판 쪽)와 받을 돈이 보인다
+    await economy(page).locator('.eco-side[data-side="sell"]').click();
+    await expect(summary).toContainText(message("ko", "economy_sum_tax", { pct: "2.00%" }));
+    await expect(summary).toContainText(message("ko", "economy_sum_net"));
+    // 가진 양보다 많이 팔면 문제를 알린다
+    await qty.fill("999999");
+    await expect(economy(page).locator(".eco-problems")).toContainText(message("ko", "economy_err_goods"));
+    // 시장가: 안전망 칸(최저 가격)이 기본값으로 찬다
+    await page.getByLabel(message("ko", "economy_kind_label")).selectOption("market");
+    await expect(page.getByLabel(message("ko", "economy_guard_sell"))).not.toHaveValue("");
+    // 칸 오류는 건드린 뒤에만
+    await qty.fill("1.5");
+    await qty.blur();
+    await expect(economy(page).locator(".eco-field-error")).toHaveText(message("ko", "economy_err_integer"));
+    const submit = economy(page).locator(".eco-submit");
+    await expect(submit).toHaveAttribute("aria-disabled", "true");
+    await expect(submit).toHaveText(message("ko", "economy_submit_soon"));
+    // 남은 주문을 누르면 늘리는 법(D-6034)
+    await economy(page).locator(".eco-limit").click();
+    await expect(economy(page).getByText(message("ko", "economy_limit_help"))).toBeVisible();
+    // 차트 접기
+    await economy(page).locator(".eco-chart-toggle").click();
+    await expect(economy(page).locator(".eco-chart-body")).toBeHidden();
+    // 화면 안 [뒤로]는 쌓은 차례로(도시 목록)
+    await economy(page).locator(".back-button").click();
+    await expect(page).toHaveURL(/\/economy\/market\/iron_ore$/);
+    expect(await horizontalOverflow(page)).toEqual([]);
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("내 주문·환전·생산·창고: 시안 자료가 칸마다 보인다", async ({ page, deviceErrors }) => {
+    await openPreview(page, "/economy/orders");
+    await expect(economy(page).locator(".eco-order").first()).toBeVisible();
+    await expect(
+      economy(page).getByText(message("ko", "economy_order_expired"), { exact: true }),
+    ).toBeVisible();
+    await page.goto("/economy/exchange");
+    await expect(economy(page).locator(".eco-fx")).toHaveCount(3);
+    await expect(economy(page).locator(".eco-fx-countdown")).toContainText(/\d\d:\d\d/);
+    await page.goto("/economy/production");
+    await expect(economy(page).locator(".eco-facility").first()).toBeVisible();
+    await page.goto("/economy/warehouse");
+    await expect(economy(page).getByText("Velmara Eastreach Free Port")).toBeVisible();
+    expect(await horizontalOverflow(page)).toEqual([]);
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("큰 값·긴 이름: 호가창이 넘치지 않는다(390px)", async ({ page, deviceErrors }) => {
+    await openPreview(page, "/economy/market/iron_ore/101", { "economy.marketBook": huge });
+    await expect(economy(page).locator(".eco-level").first()).toBeVisible();
+    await page.evaluate(() => document.fonts.ready.then(() => undefined));
+    expect(await horizontalOverflow(page)).toEqual([]);
+    expect(await smallTapTargets(page, { ignore: DENSE_TARGETS })).toEqual([]);
+    await fullShot(page, "economy-book-huge-pastel-ko-390");
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+const SCREENS: readonly { path: string; name: string; ready: string }[] = [
+  { path: "/economy", name: "overview", ready: ".eco-card-metric" },
+  { path: "/economy/warehouse", name: "warehouse", ready: ".eco-place" },
+  { path: "/economy/production", name: "production", ready: ".eco-facility" },
+  { path: "/economy/market", name: "market", ready: ".eco-market-row" },
+  { path: "/economy/market/iron_ore", name: "cities", ready: ".eco-city" },
+  { path: "/economy/market/iron_ore/101", name: "book", ready: ".eco-level" },
+  { path: "/economy/orders", name: "orders", ready: ".eco-order" },
+  { path: "/economy/exchange", name: "exchange", ready: ".eco-fx" },
+];
+
+const LAYOUTS: readonly { theme: Theme; language: Language; width: number; height: number }[] = [
+  { theme: "pastel", language: "ko", width: 390, height: 844 },
+  { theme: "pastel", language: "en", width: 390, height: 844 },
+  { theme: "dark", language: "ko", width: 390, height: 844 },
+  { theme: "dark", language: "en", width: 390, height: 844 },
+  { theme: "pastel", language: "ko", width: 1440, height: 900 },
+  { theme: "pastel", language: "en", width: 1440, height: 900 },
+  { theme: "dark", language: "ko", width: 1440, height: 900 },
+  { theme: "dark", language: "en", width: 1440, height: 900 },
+];
+
+test.describe("배치·사진", () => {
+  test.use({ account: "admin", preview: "admin" });
+
+  for (const { theme, language, width, height } of LAYOUTS) {
+    test.describe(`${theme}·${language}·${width}px`, () => {
+      test.use({ theme, language, viewport: { width, height } });
+
+      test("칸마다: 가로 넘침·작은 누르는 곳 없음, 사진", async ({ page, deviceErrors }) => {
+        test.setTimeout(120_000);
+        await rewriteTrpc(page, { "summary.get": hideSummary });
+        for (const screen of SCREENS) {
+          await page.goto(screen.path);
+          await expect(economy(page).locator(screen.ready).first()).toBeVisible();
+          await page.evaluate(() => document.fonts.ready.then(() => undefined));
+          expect(await horizontalOverflow(page), screen.name).toEqual([]);
+          expect(await smallTapTargets(page, { ignore: DENSE_TARGETS }), screen.name).toEqual([]);
+          await fullShot(page, `economy-${screen.name}-${theme}-${language}-${width}`);
+        }
+        expect(deviceErrors).toEqual([]);
+      });
+    });
+  }
+});

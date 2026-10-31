@@ -3,6 +3,8 @@
 // 조회 셋은 read, 쓰기 셋은 write로 묻는다. 가짜 서비스가 불린 것을 적어 둔다.
 import { TRPCError } from "@trpc/server";
 import { describe, expect, it } from "vitest";
+import { emptyEconomyCatalog } from "../economyView/catalog.ts";
+import { createEconomyServices } from "../economyView/services.ts";
 import { createHomeServices } from "../home/services.ts";
 import { createRosterServices } from "../roster/services.ts";
 import type {
@@ -89,6 +91,8 @@ function callerFor(viewer: Viewer, editor: PlanetEditorServices) {
     home: createHomeServices(),
     // 유닛·사이보그 화면 자료: 이 시험은 쓰지 않는다(시험 자료, 실제 유닛 없음)
     roster: createRosterServices(),
+    // 경제 화면 자료: 이 시험은 쓰지 않는다(빈 목록)
+    economy: createEconomyServices({ catalog: emptyEconomyCatalog("test") }),
   };
   return createCallerFactory(appRouter)(ctx);
 }

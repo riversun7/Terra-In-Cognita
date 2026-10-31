@@ -26,6 +26,7 @@ type ComingSoonRoute = Exclude<
   | "dev"
   | "dev_gpu_bench"
   | "dev_planet_editor"
+  | "dev_star_system"
 >;
 
 const SECTIONS = {

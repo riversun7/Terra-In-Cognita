@@ -3,14 +3,14 @@
 //   서버 자료를 쓰는 도구는 서버가 요청마다 권한을 본다.
 // - 도구마다 한 줄: 아이콘, 이름(주소 표의 화면 이름과 같은 키), 한 줄 설명. 누르면 그 도구 화면을 쌓는다(부모 dev, ADR 37 2절).
 // - 도구 목록은 주소 표에서 부모가 dev인 줄과 같다. 줄이 늘면 DEV_TOOLS에서 타입 오류가 난다(나중 도구도 한 줄씩 더한다).
-// - 이 조각은 미리 캐시된다(작은 목록이다). 도구 조각은 이름 앞머리(gpuBench·planetEditor)로 미리 캐시에서 빠진다.
+// - 이 조각은 미리 캐시된다(작은 목록이다). 도구 조각은 이름 앞머리(gpuBench·planetEditor·starSystem)으로 미리 캐시에서 빠진다.
 import { ROUTES, type RouteId } from "@terra/shared";
 import type { ReactNode } from "react";
 import { m } from "../paraglide/messages.js";
 import { AppLink } from "../shell/AppLink.tsx";
 import { BackButton } from "../shell/BackButton.tsx";
 import { Icon } from "../ui/icons.tsx";
-import { ForwardIcon, GaugeIcon } from "./devIcons.tsx";
+import { ForwardIcon, GaugeIcon, OrbitIcon } from "./devIcons.tsx";
 import "./devHome.css";
 
 /** 개발자 도구 주소 = 주소 표에서 부모가 dev인 줄 */
@@ -33,6 +33,13 @@ const DEV_TOOLS = {
     name: m.shell_route_dev_planet_editor,
     desc: m.dev_tool_planet_editor_desc,
     mark: <Icon name="globe" />,
+    ready: true,
+  },
+  // 항성계 편집기(ADR 2026-10-31-star-system-editor)
+  dev_star_system: {
+    name: m.shell_route_dev_star_system,
+    desc: m.dev_tool_star_system_desc,
+    mark: <OrbitIcon />,
     ready: true,
   },
   dev_gpu_bench: {

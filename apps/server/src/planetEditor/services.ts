@@ -22,6 +22,7 @@ import type {
   PlanetEditorAction,
   PlanetEditorServices,
   PlanetLibraryServices,
+  StarSystemServices,
   Viewer,
 } from "../trpc/context.ts";
 import { reasonedError } from "../trpc/init.ts";
@@ -34,7 +35,11 @@ import {
   saveDraft,
 } from "./store.ts";
 import type { PlanetEditorDefinitions } from "./types.ts";
-import { normalizePlanetLibraryName } from "@terra/shared";
+import {
+  normalizePlanetLibraryName,
+  normalizeStarSystemName,
+  parseStarSystemDefinition,
+} from "@terra/shared";
 import {
   createLibraryPlanet,
   listLibrary,
@@ -45,6 +50,14 @@ import {
   renameLibraryPlanet,
   saveLibraryPlanet,
 } from "./library.ts";
+import {
+  createStarSystem,
+  listStarSystems,
+  readStarSystem,
+  removeStarSystem,
+  renameStarSystem,
+  saveStarSystem,
+} from "./starSystems.ts";
 import {
   type DraftPackContext,
   checkDraftEntry,
@@ -222,6 +235,70 @@ function createLibraryServices(
   };
 }
 
+/** 항성계 받지 않음(BAD_REQUEST, data.reason = @terra/shared STAR_SYSTEM_REASONS) */
+const systemRejected = (reason: string) => reasonedError("BAD_REQUEST", "STAR_SYSTEM_REJECTED", reason);
+const systemNotFound = () => reasonedError("NOT_FOUND", "STAR_SYSTEM_NOT_FOUND", "system_not_found");
+
+/** 항성계 이름 규칙(@terra/shared). 틀리면 BAD_REQUEST invalid_name */
+function checkSystemName(raw: unknown): string {
+  const name = normalizeStarSystemName(raw);
+  if (name === null) throw systemRejected("invalid_name");
+  return name;
+}
+
+/** 항성계 정의 검사(@terra/shared). 틀리면 BAD_REQUEST invalid_definition */
+function checkSystemDefinition(raw: unknown) {
+  const definition = parseStarSystemDefinition(raw);
+  if (!definition) throw systemRejected("invalid_definition");
+  return definition;
+}
+
+/** 항성계 보관함 처리(ADR 2026-10-31-star-system-editor). 행성 보관함과 같은 규칙: 팀 공용, 지우기만 만든 사람·admin */
+function createStarSystemServices(db: Database, ip: string | null): StarSystemServices {
+  return {
+    list: () => listStarSystems(db),
+    async get(_viewer, id) {
+      const system = await readStarSystem(db, id);
+      if (!system) throw systemNotFound();
+      return system;
+    },
+    async create(viewer, input) {
+      const name = checkSystemName(input.name);
+      const definition = checkSystemDefinition(input.definition);
+      return createStarSystem(db, { name, definition, actor: actorOf(viewer, ip) });
+    },
+    async save(viewer, input) {
+      const definition = checkSystemDefinition(input.definition);
+      const outcome = await saveStarSystem(db, {
+        id: input.id,
+        definition,
+        expectedRevision: input.expectedRevision,
+        actor: actorOf(viewer, ip),
+      });
+      if (outcome.kind === "not_found") throw systemNotFound();
+      if (outcome.kind === "conflict")
+        throw reasonedError("CONFLICT", "REVISION_CONFLICT", "revision_conflict");
+      return { revision: outcome.revision, updatedAt: outcome.updatedAt, updatedBy: outcome.updatedBy };
+    },
+    async rename(viewer, input) {
+      const name = checkSystemName(input.name);
+      if (!(await renameStarSystem(db, { id: input.id, name, actor: actorOf(viewer, ip) })))
+        throw systemNotFound();
+      return { name };
+    },
+    async remove(viewer, id) {
+      const outcome = await removeStarSystem(db, {
+        id,
+        canRemoveAny: viewer.roles.includes("admin"),
+        actor: actorOf(viewer, ip),
+      });
+      if (outcome === "not_found") throw systemNotFound();
+      if (outcome === "not_author") throw reasonedError("FORBIDDEN", "NOT_AUTHOR", "not_author");
+      return { removed: true };
+    },
+  };
+}
+
 export function createPlanetEditorServices(deps: PlanetEditorServicesDeps): PlanetEditorServices {
   const { db, shared } = deps;
   /** 이 요청에서 동작마다 한 번만 묻는다(묶음 요청의 프로시저가 같은 답을 쓴다) */
@@ -236,6 +313,7 @@ export function createPlanetEditorServices(deps: PlanetEditorServicesDeps): Plan
 
   return {
     library: createLibraryServices(db, shared, deps.ip),
+    systems: createStarSystemServices(db, deps.ip),
     ensurePermission(action) {
       let check = permissionChecks.get(action);
       if (!check) {

@@ -54,6 +54,15 @@ const librarySaveInput = z.strictObject({
 const libraryRenameInput = z.strictObject({ id: libraryId, name: z.unknown() });
 const libraryVersionInput = z.strictObject({ id: libraryId, revision: z.int().min(1).max(REVISION_MAX) });
 
+// ── 항성계 보관함 입력(이름·정의는 서버가 이유 코드로 본다: 여기서는 받기만 한다) ──
+const systemCreateInput = z.strictObject({ name: z.unknown(), definition: z.unknown() });
+const systemSaveInput = z.strictObject({
+  id: libraryId,
+  definition: z.unknown(),
+  /** 이 기기가 연 판. 지금 판과 다르면 CONFLICT */
+  expectedRevision: z.int().min(1).max(REVISION_MAX),
+});
+
 /** 권한 표 확인(미들웨어) → Better Auth 확인 → 속도 제한 → 편집기 서비스를 ctx.editor로 */
 function editorProcedure(action: PlanetEditorAction, kind: PlanetEditorCallKind = "drafts") {
   return permissionProcedure({ planetEditor: [action] }).use(async ({ ctx, next }) => {
@@ -106,6 +115,28 @@ export const planetEditorRouter = router({
     remove: libraryWrite
       .input(libraryIdInput)
       .mutation(({ ctx, input }) => ctx.editor.library.remove(ctx.viewer, input.id)),
+  }),
+  /**
+   * 항성계 보관함 — 개발자 항성계 편집기(ADR 2026-10-31-star-system-editor). 행성 보관함과 같은 규칙(팀 공용, [저장]만,
+   * 판 충돌, 지우기는 만든 사람·admin). 게임 실행에는 쓰지 않는다. 속도 제한은 보관함과 같이 센다
+   */
+  systems: router({
+    list: libraryRead.query(({ ctx }) => ctx.editor.systems.list(ctx.viewer)),
+    get: libraryRead
+      .input(libraryIdInput)
+      .query(({ ctx, input }) => ctx.editor.systems.get(ctx.viewer, input.id)),
+    create: libraryWrite
+      .input(systemCreateInput)
+      .mutation(({ ctx, input }) => ctx.editor.systems.create(ctx.viewer, input)),
+    save: libraryWrite
+      .input(systemSaveInput)
+      .mutation(({ ctx, input }) => ctx.editor.systems.save(ctx.viewer, input)),
+    rename: libraryWrite
+      .input(libraryRenameInput)
+      .mutation(({ ctx, input }) => ctx.editor.systems.rename(ctx.viewer, input)),
+    remove: libraryWrite
+      .input(libraryIdInput)
+      .mutation(({ ctx, input }) => ctx.editor.systems.remove(ctx.viewer, input.id)),
   }),
   /**
    * 팩 버전·임시 여부·서버 생성기 판, 행성마다 원본 항목·정의 해시·확인 해시, 바이옴 항목. 부를 때마다 감사 기록

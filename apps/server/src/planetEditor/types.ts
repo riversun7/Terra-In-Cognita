@@ -1,7 +1,7 @@
 // 행성 편집기 서버 API의 모양 — tRPC planetEditor.*(src/trpc/planetEditor.ts)가 주고받는 값(ADR 2026-10-29-planet-editor-stage1 9·11절).
 // AppRouter 타입에 들어가 게임 앱 타입 검사에도 쓰인다: Node 전용 타입(fastify, pg, drizzle 등)을 넣지 않는다(context.ts와 같은 규칙).
 // 받지 않음 코드·항목 상한은 기기와 같이 쓰는 @terra/shared planetDraftApi.ts에 있다. 보관함 이름·시작점 규칙은 planetLibraryApi.ts.
-import type { PlanetLibraryBase } from "@terra/shared";
+import type { PlanetLibraryBase, StarSystemDefinition } from "@terra/shared";
 
 /** JSON 객체(콘텐츠 팩 항목 모양). 키 순서는 지키지 않는다(DB jsonb) */
 export type JsonObject = Record<string, unknown>;
@@ -130,5 +130,32 @@ export interface PlanetLibrarySaved {
   revision: number;
   updatedAt: string;
   /** 저장한 사람(기기가 목록·판 정보를 다시 읽지 않고 맞춘다) */
+  updatedBy: PlanetLibraryPerson | null;
+}
+
+// ── 항성계 보관함(planetEditor.systems.*, ADR 2026-10-31-star-system-editor) ──
+
+/** 항성계 목록 한 줄(정의는 싣지 않는다) */
+export interface StarSystemSummary {
+  /** uuid, 바뀌지 않는다 */
+  id: string;
+  name: string;
+  revision: number;
+  author: PlanetLibraryPerson | null;
+  updatedBy: PlanetLibraryPerson | null;
+  /** ISO 8601, UTC */
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 항성계 하나(정의 포함) */
+export interface StarSystemRecord extends StarSystemSummary {
+  definition: StarSystemDefinition;
+}
+
+/** systems.save 결과 */
+export interface StarSystemSaved {
+  revision: number;
+  updatedAt: string;
   updatedBy: PlanetLibraryPerson | null;
 }

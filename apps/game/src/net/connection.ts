@@ -1,5 +1,8 @@
 // 서버 연결 — 접속 핸드셰이크, 시계 차이 측정, 끊기면 다시 연결
 // 2차맵 같은 기능의 메시지는 기능 통로(serverLink.ts)로 넘긴다. 기능은 이 연결 하나를 함께 쓴다.
+// 이 모듈은 첫 화면 묶음에 넣지 않는다 — 값을 가져오는 곳은 connectionStatus.ts의 동적 import 하나뿐이다(lazyConnection.ts,
+// 타입만 가져오는 것은 괜찮다).
+// 정적으로 가져오면 서버 메시지 검사(스키마·zod)가 첫 화면에 돌아온다(ADR 2026-10-29-app-shell 11절 "첫 화면 줄이기").
 import { PROTOCOL_VERSION, type ServerMessage, decodeServerMessage, encodeMessage } from "@terra/protocol";
 import { type ClockEstimate, type ClockSample, estimateClockOffset } from "@terra/shared";
 import { attachConnection } from "./serverLink.ts";
@@ -22,7 +25,7 @@ const MAX_RECONNECT_DELAY_MS = 15_000;
 /** 열린 연결들의 "새로고침 전 정상 종료" 함수 */
 const reloadClosers = new Set<() => void>();
 
-/** 새로고침 직전 — 열린 연결을 정상 종료(1000)하고 다시 연결하지 않는다 (pwa/updates.ts) */
+/** 새로고침 직전 — 열린 연결을 정상 종료(1000)하고 다시 연결하지 않는다 (pwa/updates.ts가 connectionStatus.ts를 거쳐 부른다) */
 export function closeForReload(): void {
   for (const close of reloadClosers) close();
 }

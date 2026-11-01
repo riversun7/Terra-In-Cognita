@@ -1,8 +1,10 @@
 // 서버 연결 상태 — 화면(React) 밖에 하나만 둔다(ADR 2026-10-29-app-shell 3절). 전에는 App.tsx의 useState에만 있었다.
 // 틀(연결 줄·서버 거절 안내)·홈 카드(연결·성능)·다시 받기가 useConnectionStatus()로 같이 읽는다.
 // 연결 자체(접속 인사·시계 차이·다시 연결)는 connection.ts가 한다. 시작은 main.tsx가 한 번 부른다(startConnectionStatus).
+// connection.ts는 첫 화면 묶음에 넣지 않고 시작할 때 받는다(lazyConnection.ts, ADR 2026-10-29-app-shell 11절 "첫 화면 줄이기").
 import { useSyncExternalStore } from "react";
-import { type ConnectOptions, type ConnectionStatus, connect } from "./connection.ts";
+import type { ConnectOptions, ConnectionStatus } from "./connection.ts";
+import { createLazyConnection } from "./lazyConnection.ts";
 
 /** 이만큼 넘게 연결되지 않으면 연결 줄을 띄운다(ADR 37 3절 "2초 넘게 끊기면") */
 export const LOST_NOTICE_DELAY_MS = 2_000;
@@ -105,11 +107,22 @@ export function createConnectionStore(deps: ConnectionStoreDeps): ConnectionStor
   };
 }
 
-const store = createConnectionStore({
-  connect,
+const lazyConnection = createLazyConnection({
+  load: () => import("./connection.ts"),
   setTimer: (run, ms) => setTimeout(run, ms),
   clearTimer: (handle) => clearTimeout(handle),
 });
+
+const store = createConnectionStore({
+  connect: lazyConnection.connect,
+  setTimer: (run, ms) => setTimeout(run, ms),
+  clearTimer: (handle) => clearTimeout(handle),
+});
+
+/** 새로고침 직전 — 열린 연결을 정상 종료(1000)하고 다시 연결하지 않는다 (pwa/updates.ts). 아직 받는 중이면 연결을 열지 않는다 */
+export function closeForReload(): void {
+  lazyConnection.closeForReload();
+}
 
 /** 앱 시작 때 한 번 부른다(main.tsx). 연결은 로그인과 상관없이 늘 켠다(옛 버전이면 로그인 전에도 새 버전으로 바꾼다) */
 export function startConnectionStatus(options?: ConnectionStartOptions): void {

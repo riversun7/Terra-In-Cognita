@@ -106,7 +106,7 @@
 | S23 | `dictatorshipSatisfactionDrop` 20 [임시] |
 | S25 | `homelessRecoveryPm` 100 [임시] |
 | S26 | `rebellionThreshold` 40 |
-| N35 | `rebellionWarningAt` 50(설정값 출발값, D-444·D-5032), `sabotageAt` 60(기술 [임시] 그대로, 49 N35) |
+| N35 | `rebellionWarningAt` 50(설정값 출발값, D-444·D-5032), `sabotageAt` 60(설정값 출발값, D-446·D-5032, 49 N35) |
 | S27 | `independencePassPm` 500 (구조) |
 | S30 | `offerDeadlineMs` 3일 [임시] |
 | S31 | `delistSatisfactionDrop` 15, `delistRelationDrop` 20 [임시] |
@@ -179,7 +179,7 @@
 | `s33_tribute_rate` | S33 | 50(‰, 출발값) |
 | `d443_tribute_every` | — | 604800000(7일) |
 | `n35_rebellion_warning` | N35 | 50(출발값) |
-| `n35_sabotage` | N35 | 60 [임시] |
+| `n35_sabotage` | N35 | 60(설정값 출발값, D-446) |
 | `n6_k_min`·`n6_k_max` | N6 | 800·1200 |
 | `n7_max_level` | N7 | 50(구조) |
 | `n9_initial_sum`·`n9_initial_min`·`n9_initial_max` | N9 | 60·1·20 |
@@ -251,3 +251,8 @@
 
 - 줄 해시가 바뀐 까닭은 머리 줄·요약 줄의 콘텐츠 판(core@11 → core@12)과 팩 해시뿐이다. 그 두 칸을 빼면 전·뒤 줄이 모두 같다(Verified: JSON 줄 비교). 가문이 없어 지배 가문 = 국고, 충성 가문 없음이라 재발행 결과가 같고, 시뮬은 환생 분포를 굴리지 않는다(휴먼 환생은 수명 규칙).
 - 배당 정산(econ16 142번, 주주에게 44, 민주주의 국고 32)·공물(stub16 5번, econ16 1번)도 그대로다.
+
+## 바뀜 (2026-11-01, D-446·사용자 결정)
+- 질문 180 = 가(D-446): 환생 때 분포 다시 굴리기는 고를 수 있다. 굴리지 않으면 지금 분포를 둔다. 한 번 굴리기 시작하면 마지막 값.
+- 사용자 결정(2026-11-01, 원문 "사이보그 환생시 스탯분포 유지시 k값은 리롤되게"): 분포를 그대로 둬도 K(N6)는 늘 다시 굴린다. `rebirthCyborg`가 이미 그렇게 했고(`kRolls`는 늘 받는다), 시험에 "분포 유지 → K 리롤"을 더했다(`cyborgRebirth.test.ts`). 사이보그 화면 환생 문구도 "분포는 두거나 다시 굴림, 성장값은 늘 다시 굴림"으로 고쳤다.
+- 태업 문턱 60·독재 충성 몫 200‰ = 설정값 출발값(D-446·D-5032).

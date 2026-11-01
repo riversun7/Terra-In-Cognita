@@ -19,7 +19,7 @@ export interface SocietyCoefficients {
   readonly rebellionThreshold: number;
   /** 민심 표 반란 예고 문턱(N35 설정값, 출발값 50 — D-444·D-5032): 반란 문턱 위 ~ 이 값 이하 = 반란 예고(D-443 155) */
   readonly rebellionWarningAt: number;
-  /** [임시] 민심 표 태업 조짐 문턱(N35 출발값 = 기술 [임시] 60): 반란 예고 위 ~ 이 값 이하 = 태업 조짐 */
+  /** 민심 표 태업 조짐 문턱(49 N35 설정값 출발값 60, D-443·D-446·D-5032): 반란 예고 위 ~ 이 값 이하 = 태업 조짐 */
   readonly sabotageAt: number;
   /** 독립 통과 문턱(S27 구조 값): 자본주의 찬성 지분 ‰ 이상, 민주주의 가문 과반 */
   readonly independencePassPm: number;

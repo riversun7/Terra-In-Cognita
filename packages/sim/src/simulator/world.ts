@@ -80,8 +80,12 @@ export interface SimCity {
   nextRebellionMs: number;
 }
 
+/** 노숙(갈 도시가 없는 휴먼, D-296)의 도시 칸 값. 도시 ID는 1부터다 */
+export const HOMELESS = 0;
+
 export interface SimUnit {
   readonly id: number;
+  /** 사는 도시(노숙이면 HOMELESS — 떠도는 세력의 휴먼, D-294·D-464 217) */
   city: number;
   owner: number;
   job: JobState;
@@ -372,7 +376,7 @@ export function checkWorld(world: SimWorld, nowMs: number, tripsOn: boolean): st
         !unit ||
         unit.owner !== faction.id ||
         owned.has(unitId) ||
-        world.cities.get(unit.city)?.owner !== faction.id
+        (unit.city !== HOMELESS && world.cities.get(unit.city)?.owner !== faction.id)
       )
         badUnits += 1;
       owned.add(unitId);
@@ -386,7 +390,7 @@ export function checkWorld(world: SimWorld, nowMs: number, tripsOn: boolean): st
   const add = (label: string, n: number): void => {
     if (n > 0) problems.push(`${label}: ${n}`);
   };
-  add("I4 units not in exactly one living faction with their city", badUnits);
+  add("I4 units not in exactly one living faction with their city (or homeless)", badUnits);
   add("I4 cities whose owner does not list them or is not alive", badCities);
   add("I5 living factions without a scheduled decision", missingDecide);
   add("I5 units without a scheduled trip", missingTrip);

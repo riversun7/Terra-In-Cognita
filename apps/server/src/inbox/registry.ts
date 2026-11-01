@@ -1,17 +1,21 @@
 // 처리할 일 등록부 — 종류마다 제공 함수(그 계정의 상태 → 건)를 두고, 요청 때 모두 불러 묶고 정렬한다(ADR 2026-10-29-app-shell 7절).
 // 서버가 처리할 일을 늘 들고 있지 않는다: inbox.list 요청마다 만든다(서버 권위, D-6006 기술 전달).
-// 지금 제공 함수는 0개다. 종류 표의 8종류는 모두 planned(시안 자료만)라서 실제 계정의 처리함은 늘 비어 있다.
+// 지금 제공 함수: wave_incoming(정원사 웨이브, DB가 있을 때, npc/waveInbox.ts). 나머지 7종류는 planned(시안 자료만)다.
 // 새 종류를 더하는 순서(ADR 37 7절): 종류 표(@terra/shared/inbox) → 메시지 키 → 기기 inboxText.ts →
 // 그 시스템 모듈에 제공 함수 + 여기 createInboxProviders에 한 줄 + 종류 표의 planned를 false로(registry.test.ts가 본다).
 // 제공 함수가 실패하면 처리함 전체가 실패한다(INTERNAL_SERVER_ERROR). 위협을 빠뜨린 목록을 보이지 않으려는 것이다.
 import type { InboxListResponse } from "@terra/shared/inbox";
+import { createWaveInboxProvider } from "../npc/waveInbox.ts";
+import type { QueryPool } from "../world/persist/load.ts";
 import { orderInbox } from "./order.ts";
 import { previewInboxEntries } from "./preview.ts";
 import type { InboxAccount, InboxEntry, InboxProvider } from "./types.ts";
 
-/** 서버가 쓰는 제공 함수들. 앱을 만들 때 한 번 부른다(trpc/createContext.ts → home/services.ts) */
-export function createInboxProviders(): readonly InboxProvider[] {
-  return [];
+/** 서버가 쓰는 제공 함수들. 앱을 만들 때 한 번 부른다(trpc/createContext.ts → home/services.ts). DB가 없으면 0개 */
+export function createInboxProviders(
+  options: { pool?: QueryPool | undefined } = {},
+): readonly InboxProvider[] {
+  return options.pool ? [createWaveInboxProvider(options.pool)] : [];
 }
 
 /** 제공 함수 목록 검사: 한 종류에 제공 함수는 하나다(같은 종류를 두 곳이 만들면 항목 ID가 겹친다) */

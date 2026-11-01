@@ -329,17 +329,20 @@ function scheduleProduce(
   facility.eventId = loop.schedule(fromMs + duration, { kind: EVENT_PRODUCE, subject: facility.id });
 }
 
-/** 시설 한 번 생산(재료가 모자라면 세고 다음 차례를 기다린다) */
+/**
+ * 시설 한 번 생산(재료가 모자라면 세고 다음 차례를 기다린다). 생산했으면 그 도시와 오염 몫(레벨 × 시설 오염 값 × 일한 ms,
+ * docs/adr/2026-11-01-gardener-r5b.md 1절)을 돌려준다. 생산하지 못했으면 undefined
+ */
 export function onProduce(
   economy: Economy,
   world: SimWorld,
   loop: SimLoop<SimEvent>,
   facilityId: number,
   nowMs: number,
-): void {
+): { city: number; weightedWorkMs: number } | undefined {
   const facility = economy.facilities.get(facilityId);
   const city = facility ? world.cities.get(facility.city) : undefined;
-  if (!facility || !city) return;
+  if (!facility || !city) return undefined;
   const done = runRecipe(
     world.book,
     city.owner,
@@ -350,6 +353,10 @@ export function onProduce(
   );
   if (!done) economy.today.inputShort += 1;
   scheduleProduce(economy, loop, facility, nowMs);
+  if (!done) return undefined;
+  const workMs = batchDurationMs(facility.recipe.work, facility.workers * BASE_EFFICIENCY) ?? 0;
+  const pollution = economy.catalog.facilities.get(facility.recipe.facility)?.pollution ?? 0;
+  return { city: city.id, weightedWorkMs: facility.level * pollution * workMs };
 }
 
 /** 도시 유지비(정시) */
@@ -536,6 +543,40 @@ export function beforeCityTransfer(
   transferHoldings(world, from, to, (location) => location === cityId, nowMs);
 }
 
+/**
+ * 도시가 폐허가 되기 바로 전(docs/adr/2026-11-01-gardener-r5b.md 4절, D-464 217): 그 도시 거래소의 걸린 주문을 돌려주고 거래소를
+ * 닫는다, 그 도시 시설은 멈춘다, 그 도시 창고(누구 것이든)의 물건은 소각한다. 운송 중인 화물은 그대로 도착한다(받을 곳 없음)
+ */
+export function cityRuined(
+  economy: Economy,
+  world: SimWorld,
+  loop: SimLoop<SimEvent>,
+  cityId: number,
+  nowMs: number,
+): void {
+  for (const market of economy.markets.get(cityId)?.values() ?? []) {
+    const owners = [...new Set(market.orders().map((order) => order.owner))].toSorted((a, b) => a - b);
+    for (const owner of owners) market.cancelOwner(owner, nowMs);
+  }
+  economy.markets.delete(cityId);
+  for (const [id, facility] of [...economy.facilities].toSorted((a, b) => a[0] - b[0])) {
+    if (facility.city !== cityId) continue;
+    if (facility.eventId !== undefined) loop.cancel(facility.eventId);
+    economy.facilities.delete(id);
+  }
+  economy.cityUnits.delete(cityId);
+  const entries = [];
+  for (const account of world.book.accounts()) {
+    if (account.ownerId === null || account.location !== cityId || account.balance <= 0n) continue;
+    entries.push({ account: account.id, amount: -account.balance });
+    entries.push({
+      account: world.book.systemAccount(`sink:${account.asset}`, account.asset),
+      amount: account.balance,
+    });
+  }
+  if (entries.length > 0) world.book.post({ kind: "burn", atMs: nowMs, entries });
+}
+
 /** 반란 세력은 부모 화폐·세율을 빌려 쓴다 */
 export function factionBorn(economy: Economy, child: SimFaction, parent: SimFaction): void {
   economy.currencyOf.set(child.id, economy.currencyOf.get(parent.id) ?? economy.base);
@@ -556,6 +597,12 @@ export function checkEconomy(economy: Economy, world: SimWorld): string[] {
   for (const perItem of economy.markets.values())
     for (const market of perItem.values()) problems.push(...market.checkEscrow());
   for (const market of economy.fx.values()) problems.push(...market.checkEscrow());
+  // D-299: 도시를 모두 잃은(떠도는) 세력의 화폐는 사라져야 한다. 화폐를 찍는 세력은 고정 국가뿐이고 시작 도시를 잃지 않는다(D-341)
+  for (const [currency, issuer] of economy.issuer) {
+    const faction = world.factions.get(issuer);
+    if (faction?.alive && faction.cities.size === 0)
+      problems.push(`E3 wandering faction ${issuer} still issues ${currency}`);
+  }
   const transit = new Map<string, bigint>();
   for (const cargo of economy.cargo.values())
     bump(transit, `transit:${cargo.asset}:${cargo.from}`, cargo.qty);

@@ -1497,6 +1497,422 @@
       },
       "value": 7,
       "structural": false
+    },
+    {
+      "id": "p15_cell_max",
+      "code": "P15",
+      "name": {
+        "ko": "칸 오염 상한",
+        "en": "Cell pollution cap (points)"
+      },
+      "value": 10000,
+      "structural": true,
+      "unit": "points",
+      "min": 1000,
+      "max": 100000
+    },
+    {
+      "id": "p15_battle",
+      "code": "P15",
+      "name": {
+        "ko": "전투 한 번 오염",
+        "en": "Pollution per battle (points)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "p15_human_step",
+      "code": "P15",
+      "name": {
+        "ko": "휴먼 묶음당 하루 오염",
+        "en": "Daily pollution per human group (points)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "p15_humans_per_step",
+      "code": "P15",
+      "name": {
+        "ko": "휴먼 오염 묶음 크기(명)",
+        "en": "Human pollution group size"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 100000
+    },
+    {
+      "id": "p15_forest",
+      "code": "P15",
+      "name": {
+        "ko": "숲 칸 하루 오염 감소",
+        "en": "Forest cell daily reduction (points)"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "s14_purify",
+      "code": "S14",
+      "name": {
+        "ko": "정화 한 번 오염 감소",
+        "en": "Pollution removed per purification (points)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "p15_decay",
+      "code": "P15",
+      "name": {
+        "ko": "하루 자연 감소(만분율)",
+        "en": "Daily natural decay (bp)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "p15_spread",
+      "code": "P15",
+      "name": {
+        "ko": "하루 이웃 퍼짐(만분율)",
+        "en": "Daily spread to neighbours (bp)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 5000
+    },
+    {
+      "id": "m3_influence_radius",
+      "code": "M3",
+      "name": {
+        "ko": "웨이브 영향권 반경(칸)",
+        "en": "Wave influence radius (cells)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 4
+    },
+    {
+      "id": "c14_chance_divisor",
+      "code": "C14",
+      "name": {
+        "ko": "웨이브 확률 나눗수",
+        "en": "Wave chance divisor"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 1000000
+    },
+    {
+      "id": "c14_chance_max",
+      "code": "C14",
+      "name": {
+        "ko": "웨이브 하루 확률 상한(‰)",
+        "en": "Wave daily chance cap (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "c16_strength_base",
+      "code": "C16",
+      "name": {
+        "ko": "웨이브 세기 기본(마리)",
+        "en": "Wave strength base"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 1000
+    },
+    {
+      "id": "c16_strength_humans",
+      "code": "C16",
+      "name": {
+        "ko": "세기 휴먼 나눗수",
+        "en": "Strength human divisor"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 1000000
+    },
+    {
+      "id": "c16_strength_treasury",
+      "code": "C16",
+      "name": {
+        "ko": "세기 국고 나눗수(최소 단위)",
+        "en": "Strength treasury divisor (minor units)"
+      },
+      "value": 1000000,
+      "structural": false,
+      "unit": "minor",
+      "min": 1,
+      "max": 1000000000000
+    },
+    {
+      "id": "c16a_target_win",
+      "code": "C16a",
+      "name": {
+        "ko": "웨이브 목표 승률(‰)",
+        "en": "Wave target win rate (‰)"
+      },
+      "value": 333,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "c16a_target_sum",
+      "code": "C16a",
+      "name": {
+        "ko": "웨이브 목표 기준 영향권 오염 합",
+        "en": "Wave target reference pollution sum (points)"
+      },
+      "value": 30000,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000000
+    },
+    {
+      "id": "c15_notice",
+      "code": "C15",
+      "name": {
+        "ko": "웨이브 최소 예고(ms)",
+        "en": "Wave minimum notice (ms)"
+      },
+      "value": 28800000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 604800000
+    },
+    {
+      "id": "c18_cooldown",
+      "code": "C18",
+      "name": {
+        "ko": "실패 뒤 쉬는 시간(ms)",
+        "en": "Cooldown after a failed wave (ms)"
+      },
+      "value": 604800000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 7776000000
+    },
+    {
+      "id": "c18_cooldown_chance",
+      "code": "C18",
+      "name": {
+        "ko": "쉬는 시간 확률 몫(만분율)",
+        "en": "Chance kept during cooldown (bp)"
+      },
+      "value": 5000,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "c17_physical_divisor",
+      "code": "C17",
+      "name": {
+        "ko": "물리형 비율 나눗수",
+        "en": "Physical share divisor"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 1000000
+    },
+    {
+      "id": "c17_physical_max",
+      "code": "C17",
+      "name": {
+        "ko": "물리형 비율 상한(‰)",
+        "en": "Physical share cap (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "s16_unit_budget",
+      "code": "S16",
+      "name": {
+        "ko": "서버 유닛 예산",
+        "en": "Server unit budget"
+      },
+      "value": 100000,
+      "structural": true,
+      "unit": "count",
+      "min": 1,
+      "max": 10000000
+    },
+    {
+      "id": "s16_mothership",
+      "code": "S16",
+      "name": {
+        "ko": "모함 몫(만분율)",
+        "en": "Mothership share (bp)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "bp",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "s17_nomad_detect",
+      "code": "S17",
+      "name": {
+        "ko": "유목 탐지 거리(칸)",
+        "en": "Nomad detection range (cells)"
+      },
+      "value": 8,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 32
+    },
+    {
+      "id": "s17_nomad_notice",
+      "code": "S17",
+      "name": {
+        "ko": "유목 최소 예고(ms)",
+        "en": "Nomad minimum notice (ms)"
+      },
+      "value": 10800000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 604800000
+    },
+    {
+      "id": "s17_nomad_threshold",
+      "code": "S17",
+      "name": {
+        "ko": "유목 목표 오염 문턱",
+        "en": "Nomad target threshold (points)"
+      },
+      "value": 2000,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "c18_nomad_exclude",
+      "code": "C18",
+      "name": {
+        "ko": "유목 실패 목표 제외(ms)",
+        "en": "Nomad failed-target exclusion (ms)"
+      },
+      "value": 604800000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 7776000000
+    },
+    {
+      "id": "s16_nomad_scouts",
+      "code": "S16",
+      "name": {
+        "ko": "정찰대 수(행성마다)",
+        "en": "Scout parties per planet"
+      },
+      "value": 2,
+      "structural": true,
+      "unit": "count",
+      "min": 0,
+      "max": 16
+    },
+    {
+      "id": "s16_nomad_legions",
+      "code": "S16",
+      "name": {
+        "ko": "정화 군단 수(행성마다)",
+        "en": "Purge legions per planet"
+      },
+      "value": 1,
+      "structural": true,
+      "unit": "count",
+      "min": 0,
+      "max": 16
+    },
+    {
+      "id": "s16_scout_size",
+      "code": "S16",
+      "name": {
+        "ko": "정찰대 규모(마리)",
+        "en": "Scout party size"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 1000
+    },
+    {
+      "id": "s16_legion_at",
+      "code": "S16",
+      "name": {
+        "ko": "정화 군단 목표 오염 문턱",
+        "en": "Legion target threshold (points)"
+      },
+      "value": 5000,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "s16_legion_step",
+      "code": "S16",
+      "name": {
+        "ko": "정화 군단 규모 오염 걸음",
+        "en": "Legion size pollution step (points)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 100000
     }
   ]
 }

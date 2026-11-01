@@ -254,6 +254,7 @@ export {
   type SimHooks,
 } from "./simulator/npcRun.ts";
 export {
+  HOMELESS,
   STREAM_TRAITS,
   newFaction,
   rulingFamilyOf,
@@ -263,6 +264,65 @@ export {
   type SimUnit,
   type SimWorld,
 } from "./simulator/world.ts";
+// 오염·정원사(R5b, docs/adr/2026-11-01-gardener-r5b.md): 순수 규칙, 시뮬·서버가 같이 쓰는 실행 접착·웨이브 전투
+export { TEST_GARDENER_COEFFICIENTS, type GardenerCoefficients } from "./gardener/coefficients.ts";
+export {
+  addPollution,
+  dailyPollutionStep,
+  facilityPollution,
+  humanPollution,
+  influenceCells,
+  influenceSum,
+  purify,
+  squareGrid,
+  type PollutionGrid,
+  type PollutionLayer,
+} from "./gardener/pollution.ts";
+export {
+  bitLength,
+  floorLog2,
+  grantGardenerUnits,
+  mothershipCap,
+  physicalCount,
+  physicalPm,
+  waveArrivalMs,
+  waveChancePm,
+  waveStrength,
+  type FactionScale,
+} from "./gardener/waves.ts";
+export {
+  NOMAD_KINDS,
+  nomadFits,
+  nomadSize,
+  nomadTarget,
+  roamCell,
+  startingNomads,
+  type NomadKind,
+  type NomadParty,
+} from "./gardener/nomads.ts";
+export {
+  EVENT_NOMAD,
+  EVENT_WAVE,
+  STREAM_GARDENER,
+  attachGardener,
+  type GardenerOptions,
+  type GardenerRestore,
+  type GardenerRun,
+  type GardenerSummary,
+  type GardenerWave,
+  type ResolvedWave,
+  type WaveState,
+} from "./simulator/gardenerRun.ts";
+export {
+  GARDENER_SIDE_FACTION,
+  WAVE_CHECK_TICKS,
+  finishSpentWave,
+  isWaveBattle,
+  runWaveToEnd,
+  waveBattleInit,
+  waveSiegeSpent,
+  type WaveBattleInput,
+} from "./simulator/waveBattle.ts";
 export {
   SIM_OUTPUT_FORMAT,
   SIM_START_MS,

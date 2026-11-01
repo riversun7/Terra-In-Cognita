@@ -12,6 +12,7 @@ import {
   type Economy,
   bankDay,
   beforeCityTransfer,
+  cityRuined,
   checkEconomy,
   createEconomy,
   factionBorn,
@@ -71,6 +72,8 @@ export interface EconomyRun {
   dayLine(): Record<string, unknown>;
   check(): string[];
   summary(): EconomySummary;
+  /** 시설이 생산했을 때(도시, 레벨 × 오염 값 × 일한 ms). 정원사(gardenerRun.ts)가 붙인다 */
+  onWork?: ((cityId: number, weightedWorkMs: number) => void) | undefined;
 }
 
 function record<T>(map: ReadonlyMap<string, T>): Record<string, T> {
@@ -116,6 +119,7 @@ export function attachEconomy(
     beforeCityTransfer: (cityId, from, to, nowMs) =>
       beforeCityTransfer(economy, world, cityId, from, to, nowMs),
     factionBorn: (child, parent) => factionBorn(economy, child, parent),
+    cityRuined: (cityId, nowMs) => cityRuined(economy, world, loop, cityId, nowMs),
     factionDied: (target, attacker, nowMs) => {
       for (const perItem of economy.markets.values())
         for (const market of perItem.values()) market.cancelOwner(target.id, nowMs);
@@ -164,13 +168,16 @@ export function attachEconomy(
     return out;
   };
 
-  return {
+  const run: EconomyRun = {
     economy,
     hooks,
+    onWork: undefined,
     handle(event, nowMs) {
       const { kind, subject } = event.payload;
-      if (kind === EVENT_PRODUCE) onProduce(economy, world, loop, subject, nowMs);
-      else if (kind === EVENT_UPKEEP) onUpkeep(economy, world, loop, subject, nowMs);
+      if (kind === EVENT_PRODUCE) {
+        const work = onProduce(economy, world, loop, subject, nowMs);
+        if (work && work.weightedWorkMs > 0) run.onWork?.(work.city, work.weightedWorkMs);
+      } else if (kind === EVENT_UPKEEP) onUpkeep(economy, world, loop, subject, nowMs);
       else if (kind === EVENT_TRADE) onTrade(economy, world, loop, subject, nowMs, npc);
       else if (kind === EVENT_FX) onFx(economy, world, loop, nowMs, quoteFx(economy, world, nowMs));
       else if (kind === EVENT_CARGO) onCargo(economy, world, subject, nowMs);
@@ -252,4 +259,5 @@ export function attachEconomy(
       };
     },
   };
+  return run;
 }

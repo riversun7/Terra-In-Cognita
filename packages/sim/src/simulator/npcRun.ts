@@ -17,6 +17,7 @@ import type { ScenarioSociety, ScenarioTrips } from "./scenario.ts";
 import type { SimLoop } from "./loop.ts";
 import type { SocietyRun } from "./society.ts";
 import {
+  HOMELESS,
   STREAM_DECIDE,
   STREAM_TRIP,
   type SimFaction,
@@ -45,6 +46,8 @@ export interface SimHooks {
   factionDied(target: SimFaction, attacker: SimFaction, nowMs: number): void;
   /** 도시의 유닛 수가 바뀌었다(출생·사망·이주) */
   unitsChanged?(cityId: number, delta: number): void;
+  /** 도시가 폐허가 되기 바로 전(거래소 주문 돌려주기·시설 멈춤·창고 물건 소각, D-464 217) */
+  cityRuined?(cityId: number, nowMs: number): void;
   /** 새 마을이 생겼다(유닛 수) */
   cityFounded?(cityId: number, units: number, nowMs: number): void;
   /** 그 도시의 오늘 생필품 충족도(‰). 경제가 없으면 undefined */
@@ -167,6 +170,8 @@ export function factionView(ctx: NpcContext, faction: SimFaction): FactionView {
     if (city.researchLevel < c.techGroundMax && (!bestCity || city.development > bestCity.development))
       bestCity = { level: city.researchLevel, development: city.development, id: city.id };
   }
+  // 노숙 휴먼(떠도는 세력, D-464 217)도 만족도 평균에 든다
+  sum += byCity.get(HOMELESS)?.sum ?? 0;
   const strength = faction.units.size;
   const treasury = world.book.balanceOf(faction.id, treasuryAssetOf(ctx, faction));
   // 다음 기술 단계가 연구 시설에 막혔다: 지금 단계 < 상한, 어느 도시도 다음 단계 연구 시설이 없고, 발전도는 다음 단계에 넉넉하다

@@ -82,6 +82,7 @@ function catalogOf(source: PackSource): EconomyCatalog {
         id: facility.id,
         stage: facility.stage,
         slotsPerLevel: facility.slotsPerLevel,
+        pollution: facility.pollution ?? 0,
         enabled: facility.enabled,
       }),
     ),

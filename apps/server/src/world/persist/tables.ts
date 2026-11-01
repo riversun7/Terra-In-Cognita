@@ -121,6 +121,7 @@ export const WORLD_TABLES = {
       "founded_at_ms",
       "development",
       "next_rebellion_ms",
+      "wave_cooldown_until_ms",
     ],
     key: ["id"],
   },
@@ -155,10 +156,35 @@ export const WORLD_TABLES = {
     columns: ["faction_a", "faction_b", "state", "at_ms"],
     key: ["faction_a", "faction_b"],
   },
-  /** NPC 사회 런타임 상태(한 줄) */
+  /** NPC 사회 런타임 상태(한 줄, gardener = 정원사 상태 jsonb) */
   npcSociety: {
     name: "npc_society",
-    columns: ["id", "seed", "day", "updated_at_ms"],
+    columns: ["id", "seed", "day", "updated_at_ms", "gardener"],
+    key: ["id"],
+  },
+  /** 1차맵 칸 오염(docs/adr/2026-11-01-gardener-r5b.md). 0이 된 칸은 지운다 */
+  pollution: {
+    name: "planet_pollution",
+    columns: ["planet_id", "cell_key", "value", "updated_at_ms"],
+    key: ["planet_id", "cell_key"],
+  },
+  /** 정원사 도시 웨이브(예고부터 결과까지 한 줄) */
+  gardenerWaves: {
+    name: "gardener_waves",
+    columns: [
+      "id",
+      "planet_id",
+      "city_id",
+      "cell_key",
+      "faction_id",
+      "strength",
+      "physical",
+      "created_at_ms",
+      "arrive_at_ms",
+      "state",
+      "battle_id",
+      "resolved_at_ms",
+    ],
     key: ["id"],
   },
   transactions: {
@@ -191,6 +217,8 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "humans",
   "factionWars",
   "npcSociety",
+  "pollution",
+  "gardenerWaves",
   "buildings",
   "presence",
   "exploration",

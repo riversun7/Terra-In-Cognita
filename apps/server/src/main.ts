@@ -98,6 +98,7 @@ app = await buildApp({
       ? {
           testNations: config.npc.testNations,
           dayMs: config.npc.dayMs,
+          gardenerWaves: config.npc.gardenerWaves,
           presets: nationPresetsOf(loaded.pack),
         }
       : undefined,

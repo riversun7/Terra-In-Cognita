@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p bench/tsconfig.json && tsc --noEmit -p cli/tsconfig.json",
     "bench": "node bench/pathfinding.ts",
     "sim": "node cli/sim.ts",
-    "sim:speed": "node cli/speed.ts"
+    "sim:speed": "node cli/speed.ts",
+    "gardener:cal": "node cli/gardener-cal.ts"
   },
   "devDependencies": {
     "@terra/content": "workspace:*",

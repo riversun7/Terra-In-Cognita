@@ -31,7 +31,7 @@ const idle = (key: string): InboxEntry => ({
 });
 
 describe("처리할 일 등록부", () => {
-  it("지금 등록된 제공 함수는 없다: 실제 계정의 처리함은 비어 있다", async () => {
+  it("DB가 없으면 제공 함수가 없다: 실제 계정의 처리함은 비어 있다", async () => {
     const providers = createInboxProviders();
     expect(providers).toEqual([]);
     const list = await collectInbox(providers, ACCOUNT, NOW, false);
@@ -39,8 +39,28 @@ describe("처리할 일 등록부", () => {
     expect(list.generatedAt).toBe(NOW);
   });
 
+  it("DB가 있으면 웨이브 예고(wave_incoming): 진군 중인 웨이브가 마감 = 도착 시각인 건이 된다", async () => {
+    const seen: unknown[][] = [];
+    const pool = {
+      query: async (_text: string, values?: unknown[]) => {
+        seen.push(values ?? []);
+        return {
+          rows: [{ id: "7", created_at_ms: String(NOW - 1000), arrive_at_ms: String(NOW + 8 * 3_600_000) }],
+        };
+      },
+    };
+    const providers = createInboxProviders({ pool });
+    expect(providers.map((provider) => provider.kind)).toEqual(["wave_incoming"]);
+    const list = await collectInbox(providers, ACCOUNT, NOW, false);
+    expect(list.items.map((item) => [item.id, item.category, item.deadlineAt])).toEqual([
+      ["wave_incoming:wave_7", "threat", NOW + 8 * 3_600_000],
+    ]);
+    expect(seen).toEqual([[ACCOUNT.userId, NOW]]);
+  });
+
   it("등록부와 종류 표가 맞다: 제공 함수가 있는 종류는 planned가 아니고, planned가 아닌 종류는 제공 함수가 있다", () => {
-    const registered = new Set<string>(createInboxProviders().map((provider) => provider.kind));
+    const pool = { query: async () => ({ rows: [] }) };
+    const registered = new Set<string>(createInboxProviders({ pool }).map((provider) => provider.kind));
     for (const [kind, definition] of Object.entries(INBOX_KINDS)) {
       expect(definition.planned, kind).toBe(!registered.has(kind));
     }

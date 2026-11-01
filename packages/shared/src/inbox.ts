@@ -56,7 +56,8 @@ export const INBOX_KINDS = {
     route: "map",
     actions: ["deploy_defense"],
     badge: null,
-    planned: true,
+    // 제공 함수: 서버 npc/waveInbox.ts(정원사 웨이브, docs/adr/2026-11-01-gardener-r5b.md)
+    planned: false,
   },
   // 위협: 공성 선포(D-200). 마감 = 방어 시각을 고르지 않으면 열리는 시각
   siege_declared: {

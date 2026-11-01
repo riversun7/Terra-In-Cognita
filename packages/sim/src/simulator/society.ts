@@ -34,6 +34,7 @@ import { checkSociety } from "./societyCheck.ts";
 import { createSocietyPayouts } from "./societyPayouts.ts";
 import type { SocietyOptions, SocietyRun } from "./societyTypes.ts";
 import {
+  HOMELESS,
   STREAM_TRAITS,
   type SimCity,
   type SimFaction,
@@ -85,6 +86,12 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     treaties: 0,
     whitePeace: 0,
     stalled: 0,
+    ruined: 0,
+    damaged: 0,
+    fled: 0,
+    homeless: 0,
+    wandering: 0,
+    dispersed: 0,
   };
   const offers: IncorporationOffer[] = [];
   let day = o.restoreDay ?? 0;
@@ -141,14 +148,17 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     faction.research = { progress: state.progress, blueprint: state.blueprint };
   };
 
-  /** 도시가 없고 유닛도 없으면 세력이 사라진다(D-294) */
+  /**
+   * 도시가 없고 구성원(유닛)도 없으면 세력이 사라진다(D-294). 도시만 잃고 노숙 휴먼이 남으면 떠도는 세력으로 남는다(D-464 217).
+   * 점령·반란·독립은 그 도시 유닛을 함께 옮기므로 마지막 도시를 잃으면 구성원도 없다
+   */
   const dieIfEmpty = (
     faction: SimFaction,
     cause: string,
     into: SimFaction | undefined,
     nowMs: number,
   ): void => {
-    if (!faction.alive || faction.cities.size > 0) return;
+    if (!faction.alive || faction.cities.size > 0 || faction.units.size > 0) return;
     if (into) {
       if (o.hooks) o.hooks.factionDied(faction, into, nowMs);
       else transferAsset(world, faction, into, TEST_ASSET_CREDIT, 1n, nowMs);
@@ -397,6 +407,47 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       counts.treaties += 1;
     },
 
+    ruin(cityId, nowMs) {
+      // 폐허(D-105·D-464 217): 도시가 세계에서 빠진다. 휴먼은 같은 세력의 가장 오래된 도시로 피난, 없으면 노숙(떠도는 세력)
+      const city = world.cities.get(cityId);
+      const owner = city ? world.factions.get(city.owner) : undefined;
+      if (!city || !owner || city.start) return;
+      o.hooks?.cityRuined?.(cityId, nowMs);
+      const refuge = [...owner.cities].filter((id) => id !== cityId).toSorted((a, b) => a - b)[0];
+      for (const unit of [...world.units.values()].toSorted((a, b) => a.id - b.id)) {
+        if (unit.city !== cityId) continue;
+        if (refuge === undefined) {
+          unit.city = HOMELESS;
+          counts.homeless += 1;
+        } else {
+          unit.city = refuge;
+          o.hooks?.unitsChanged?.(refuge, 1);
+          counts.fled += 1;
+        }
+      }
+      owner.cities.delete(cityId);
+      world.cities.delete(cityId);
+      payouts.cityMoved(cityId);
+      counts.ruined += 1;
+      recordTech(owner, nowMs, 0, "city_ruined");
+      // 도시 지분은 쓸모없는 채로 남는다(D-464 217). 화폐 소멸(D-299)은 화폐를 찍는 세력만 — 고정 국가는 시작 도시를 잃지 않는다
+      if (owner.cities.size === 0) {
+        dieIfEmpty(owner, "dispersed", undefined, nowMs);
+        if (owner.alive) counts.wandering += 1;
+        else counts.dispersed += 1;
+      }
+    },
+
+    damage(cityId, nowMs) {
+      // 시작 도시 건물 피해(D-341·D-464 217 가): 연구 시설 1레벨 내림 → 기술 상한이 내려가면 후퇴
+      const city = world.cities.get(cityId);
+      const owner = city ? world.factions.get(city.owner) : undefined;
+      if (!city || !owner) return;
+      city.researchLevel = Math.max(0, city.researchLevel - 1);
+      counts.damaged += 1;
+      recordTech(owner, nowMs, 0, "wave_damage");
+    },
+
     breakVassal(faction) {
       // D-216: 독립 선언 = 상위 관계를 끊는 사건
       if (faction.overlord === null) return;
@@ -407,6 +458,30 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     endOfDay(nowMs) {
       day += 1;
       const rng = streamRng(world.seed, STREAM_SOCIETY, 0, day);
+      // 노숙 휴먼(D-296): 세력에 도시가 있으면 가장 오래된 도시로 든다. 없으면 노숙인 채 만족도가 노숙 목표로 다가간다
+      for (const unit of [...world.units.values()].toSorted((a, b) => a.id - b.id)) {
+        if (unit.city !== HOMELESS) continue;
+        const owner = world.factions.get(unit.owner);
+        const shelter = owner ? [...owner.cities].toSorted((a, b) => a - b)[0] : undefined;
+        if (shelter !== undefined) {
+          unit.city = shelter;
+          o.hooks?.unitsChanged?.(shelter, 1);
+          continue;
+        }
+        const target = satisfactionTarget(
+          {
+            foodPm: 1000,
+            housing: 0,
+            wage: 0,
+            topAverageWage: 0,
+            faith: false,
+            war: (owner?.wars.size ?? 0) > 0,
+            injured: false,
+          },
+          c,
+        );
+        unit.satisfactionMilli = satisfactionToward(unit.satisfactionMilli, target, 1000, c);
+      }
       let byCity = unitsByCity();
       for (const city of sortedCities()) {
         const owner = world.factions.get(city.owner);
@@ -494,6 +569,13 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
           counts.deaths += 1;
         }
         removeUnit(unit);
+      }
+
+      // 떠도는 세력은 구성원이 모두 떠나면(수명) 사라진다(D-294·D-464 217)
+      for (const faction of [...world.factions.values()].toSorted((a, b) => a.id - b.id)) {
+        if (!faction.alive || faction.cities.size > 0 || faction.units.size > 0) continue;
+        counts.dispersed += 1;
+        dieIfEmpty(faction, "dispersed", undefined, nowMs);
       }
 
       // 반란(D-253·D-256): 도시 평균 ≤ 문턱이면 문턱 이하 휴먼이 반란군. 시작 도시는 만족도 회복 사건(D-341)
@@ -659,6 +741,14 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         tributes: payouts.counts.tributes,
         wars: { declared: counts.warsDeclared, treaties: counts.treaties, whitePeace: counts.whitePeace },
         stalled: counts.stalled,
+        ruins: {
+          ruined: counts.ruined,
+          damaged: counts.damaged,
+          fled: counts.fled,
+          homeless: counts.homeless,
+          wandering: counts.wandering,
+          dispersed: counts.dispersed,
+        },
         satisfaction: Math.floor(average(units) / 1000),
       };
     },

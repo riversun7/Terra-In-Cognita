@@ -28,6 +28,18 @@ export interface SocietySummary {
   readonly wars: { readonly declared: number; readonly treaties: number; readonly whitePeace: number };
   /** 굶어 멈춤에 닿은 세력 수(D-220, 기술 정의) */
   readonly stalled: number;
+  /**
+   * 정원사 웨이브 결과(docs/adr/2026-11-01-gardener-r5b.md, D-464 217): 폐허가 된 도시, 건물 피해를 받은 시작 도시, 피난한·노숙이 된
+   * 휴먼, 떠도는 세력이 된 수, 구성원이 모두 떠나 사라진 떠도는 세력 수
+   */
+  readonly ruins: {
+    readonly ruined: number;
+    readonly damaged: number;
+    readonly fled: number;
+    readonly homeless: number;
+    readonly wandering: number;
+    readonly dispersed: number;
+  };
   /** 끝 날 휴먼 평균 만족도(0~100) */
   readonly satisfaction: number;
 }
@@ -51,6 +63,10 @@ export interface SocietyRun {
   sellShares(seller: SimFaction, cityId: number, nowMs: number): void;
   buildResearch(faction: SimFaction, nowMs: number): void;
   breakVassal(faction: SimFaction): void;
+  /** 웨이브에 진 시작 도시가 아닌 도시: 폐허(D-105·D-464 217) */
+  ruin(cityId: number, nowMs: number): void;
+  /** 웨이브에 진 시작 도시: 건물 피해(D-341) */
+  damage(cityId: number, nowMs: number): void;
   endOfDay(nowMs: number): void;
   /** 하루 줄의 세력 칸(만족도·체제·상위) */
   dayFields(faction: SimFaction): { satisfaction: number; regime: string; overlord: number | null };

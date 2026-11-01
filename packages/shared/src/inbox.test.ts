@@ -44,7 +44,8 @@ describe("종류 표", () => {
       "contract_match",
       "craft_done",
     ]);
-    for (const [kind, definition] of kinds) expect(definition.planned, kind).toBe(true);
+    // 제공 함수가 있는 종류(서버 등록부와 짝): wave_incoming(정원사 웨이브). 나머지는 시안 자료만
+    for (const [kind, definition] of kinds) expect(definition.planned, kind).toBe(kind !== "wave_incoming");
   });
 
   it("5분류를 모두 덮고, 표 순서가 분류 순서다(시안 자료가 순서대로 보인다)", () => {

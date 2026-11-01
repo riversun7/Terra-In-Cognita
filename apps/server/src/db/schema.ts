@@ -24,6 +24,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import type { PlanetDraftBase } from "../planetEditor/types.ts";
+import { DEFAULT_WORLD_PLANET_ID, planetIdColumn } from "./planetColumns.ts";
 
 /** 기기 오류 기록 (PLAN 9.5 "기기 오류 수집"). 기기가 보낸 오류를 받은 그대로 남긴다. */
 export const clientErrors = pgTable("client_errors", {
@@ -368,10 +369,12 @@ export const planetLibraryVersions = pgTable(
  * — 열 더하기만 한 마이그레이션이라 직전 판 앱이 이 열을 모른 채 넣어도 기본값이 들어간다.
  * 영역: space(우주)·sky(하늘)·land(육지)·sea(해상). 지금 유닛·건물은 모두 land다.
  */
-export const DEFAULT_WORLD_PLANET_ID = "s2_test_planet";
+export { DEFAULT_WORLD_PLANET_ID };
+// 정원사 표(오염·웨이브)는 파일 크기 상한 때문에 따로 둔다(drizzle-kit은 이 파일의 내보내기만 읽는다)
+export { gardenerWaves, planetPollution } from "./gardenerSchema.ts";
 export const WORLD_DOMAINS = ["space", "sky", "land", "sea"] as const;
 export type WorldDomain = (typeof WORLD_DOMAINS)[number];
-const planetIdColumn = () => text("planet_id").notNull().default(DEFAULT_WORLD_PLANET_ID);
+
 const domainColumn = () => text("domain").$type<WorldDomain>().notNull().default("land");
 
 /** 세력(최소) — 소유와 시야 묶음에만 쓴다. 가입·봉신·외교는 세력 시스템(기획 Step 4-6)이 넓힌다 */
@@ -473,6 +476,8 @@ export const worldCities = pgTable(
     development: smallint("development").notNull().default(0),
     /** 다음 반란 판정을 할 수 있는 시각(반란 뒤 쉬는 날) */
     nextRebellionMs: bigint("next_rebellion_ms", { mode: "number" }).notNull().default(0),
+    /** 정원사 웨이브를 막아 낸 뒤 확률이 줄어드는 기간의 끝(C18, docs/adr/2026-11-01-gardener-r5b.md). 0 = 없음 */
+    waveCooldownUntilMs: bigint("wave_cooldown_until_ms", { mode: "number" }).notNull().default(0),
   },
   (table) => [
     index("world_cities_map_idx").on(table.mapKey),
@@ -492,9 +497,8 @@ export const worldHumans = pgTable(
     unitId: bigint("unit_id", { mode: "number" })
       .primaryKey()
       .references((): AnyPgColumn => worldUnits.id, { onDelete: "cascade" }),
-    cityId: bigint("city_id", { mode: "number" })
-      .notNull()
-      .references(() => worldCities.id),
+    /** 사는 도시. null = 노숙(도시를 모두 잃은 떠도는 세력의 휴먼, D-294·D-296·D-464 217) */
+    cityId: bigint("city_id", { mode: "number" }).references(() => worldCities.id),
     satisfactionMilli: integer("satisfaction_milli").notNull(),
     bornAtMs: bigint("born_at_ms", { mode: "number" }).notNull(),
     lifespanMs: bigint("lifespan_ms", { mode: "number" }).notNull(),
@@ -536,6 +540,11 @@ export const npcSociety = pgTable(
     seed: bigint("seed", { mode: "number" }).notNull(),
     day: integer("day").notNull().default(0),
     updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+    /**
+     * 정원사 상태(docs/adr/2026-11-01-gardener-r5b.md 5절): 모함 칸·다음 웨이브 ID·유목 부대(자리·목표·도착·규모·제외 칸).
+     * null = 아직 없음(런타임이 처음 저장할 때 채운다)
+     */
+    gardener: jsonb("gardener"),
   },
   (table) => [check("npc_society_single", sql`${table.id} = 1`)],
 );

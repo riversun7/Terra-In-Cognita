@@ -110,6 +110,10 @@ export interface MetricsRecorder {
   battle(atMs: number, data: Record<string, unknown>): void;
   /** day일째 경제 조정용 줄(시세·통화량·환율·모자람 등, 내용은 부르는 쪽이 정한다) */
   econ(day: number, data: Record<string, unknown>): void;
+  /** 정원사 사건(웨이브 예고·결과, 유목 진군·결과, docs/adr/2026-11-01-gardener-r5b.md). 내용은 부르는 쪽이 정한다 */
+  wave(atMs: number, data: Record<string, unknown>): void;
+  /** day일째 오염·정원사 하루 줄(오염 칸 수·합·최대, 진군 중인 정원사 수 등) */
+  gardener(day: number, data: Record<string, unknown>): void;
   summary(endMs: number): MetricsSummary;
 }
 
@@ -282,6 +286,12 @@ export function createMetricsRecorder(options: MetricsOptions): MetricsRecorder 
     },
     econ(day, data) {
       write({ t: "econ", day, ...data });
+    },
+    wave(atMs, data) {
+      write({ t: "wave", atMs, day: dayOf(atMs), ...data });
+    },
+    gardener(day, data) {
+      write({ t: "gardener", day, ...data });
     },
     summary(endMs) {
       const days = Math.floor((endMs - startMs) / DAY_MS);

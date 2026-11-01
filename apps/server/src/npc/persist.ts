@@ -3,7 +3,10 @@
 // - 세력 ID(거울) = 소유 주체 ID. 세력 행 ID와는 rowOf로 잇는다. 새 세력은 예비 세력 행(이미 DB에 있음)을 받아 동기로 ID를 얻는다
 //   → 같은 처리에서 생긴 원장 계정이 소유 주체를 가리켜도 외래 키가 깨지지 않는다. 예비 행은 처리 뒤 채운다(refillSpares).
 // - 새 도시(마을)는 부모 도시 둘레의 빈 자리에 둔다. 출생 = 그 도시 둘레에 봇을 세움, 사망 = 휴먼 행·유닛을 지움.
-import { type SimFaction, type SimWorld, traitsToArray } from "@terra/sim";
+// - 정원사(docs/adr/2026-11-01-gardener-r5b.md 5절): 바뀐 칸 오염(0이 되면 지움), 웨이브 줄(예고·전투 ID·결과), 도시 쉬는 시간,
+//   npc_society.gardener(모함 칸·유목 부대). 폐허가 된 도시는 도시 행을 지우고(휴먼을 먼저 옮긴 같은 묶음), 노숙 휴먼은 city_id null.
+import { HOMELESS, type SimFaction, type SimWorld, traitsToArray } from "@terra/sim";
+import { type ServerGardener, storedGardenerOf } from "./gardener.ts";
 import type { QueryPool, OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
@@ -52,6 +55,10 @@ export interface NpcPersistOptions {
   readonly now: () => number;
   readonly log: { warn(obj: object, message: string): void; error(obj: object, message: string): void };
   readonly seed: number;
+  /** 칸 오염·웨이브의 행성 */
+  readonly planetId: string;
+  /** 정원사(런타임이 사회 규칙 뒤에 붙인다) */
+  readonly gardener: () => ServerGardener | undefined;
 }
 
 export interface NpcPersist {
@@ -69,6 +76,26 @@ export interface NpcPersist {
   /** 바뀐 것을 쓰기 대기열에 넣는다. 늦게 넣을 세력 행이 있으면 기다린다 */
   flush(day: number): Promise<{ rows: number; births: number; deaths: number; owners: number }>;
 }
+
+/** 웨이브 줄의 저장 모습(바뀌었는지 견줄 때) */
+const waveSig = (wave: { state: string; battleId: number | null; arriveAtMs: number }): string =>
+  JSON.stringify([wave.state, wave.battleId, wave.arriveAtMs]);
+
+/** 웨이브 줄에 쓰는 칸 */
+interface WaveFields {
+  readonly id: number;
+  readonly city: number;
+  readonly faction: number;
+  readonly strength: number;
+  readonly physical: number;
+  readonly createdAtMs: number;
+  readonly arriveAtMs: number;
+  readonly battleId: number | null;
+}
+
+/** 끝난 웨이브의 결과 → 줄 상태 */
+const resolvedState = (outcome: string): string =>
+  outcome === "damaged" || outcome === "ruined" ? "won" : outcome === "repelled" ? "repelled" : "disbanded";
 
 export function createNpcPersist(
   o: NpcPersistOptions,
@@ -88,12 +115,22 @@ export function createNpcPersist(
   const savedHumans = new Map<number, { sig: string; owner: number }>();
   const savedWars = new Map<string, string>();
   let savedDay = -1;
+  const savedPollution = new Map<number, number>();
+  const savedWaves = new Map<number, string>();
+  let savedGardener = "";
   const diedAt = new Map<number, number>();
 
   const citySig = (id: number): string => {
     const city = world.cities.get(id);
     return city
-      ? JSON.stringify([city.owner, city.housing, city.researchLevel, city.development, city.nextRebellionMs])
+      ? JSON.stringify([
+          city.owner,
+          city.housing,
+          city.researchLevel,
+          city.development,
+          city.nextRebellionMs,
+          o.gardener()?.run.cooldownUntil.get(id) ?? 0,
+        ])
       : "";
   };
 
@@ -199,6 +236,53 @@ export function createNpcPersist(
     });
   };
 
+  const waveRow = (wave: WaveFields, state: string, resolvedAtMs: number | null) => ({
+    id: wave.id,
+    planet_id: o.planetId,
+    city_id: wave.city,
+    cell_key: places.get(wave.city)?.mapKey ?? 0,
+    faction_id: rowOf.get(wave.faction) ?? null,
+    strength: wave.strength,
+    physical: wave.physical,
+    created_at_ms: wave.createdAtMs,
+    arrive_at_ms: wave.arriveAtMs,
+    state,
+    battle_id: wave.battleId,
+    resolved_at_ms: resolvedAtMs,
+  });
+
+  /** 정원사 바뀜: 칸 오염(바뀐 칸만, 0이면 지움), 진군·전투 중인 웨이브, 끝난 웨이브의 결과 */
+  const flushGardener = (gardener: ServerGardener, nowMs: number): number => {
+    let rows = 0;
+    const layer = gardener.run.layer();
+    for (const [cell, value] of layer) {
+      if (savedPollution.get(cell) === value) continue;
+      writer.upsert("pollution", { planet_id: o.planetId, cell_key: cell, value, updated_at_ms: nowMs });
+      savedPollution.set(cell, value);
+      rows += 1;
+    }
+    for (const cell of savedPollution.keys()) {
+      if (layer.has(cell)) continue;
+      writer.remove("pollution", { planet_id: o.planetId, cell_key: cell });
+      savedPollution.delete(cell);
+      rows += 1;
+    }
+    gardener.takeDirtyWaves();
+    for (const wave of [...gardener.run.waves.values()].toSorted((a, b) => a.id - b.id)) {
+      const sig = waveSig(wave);
+      if (savedWaves.get(wave.id) === sig) continue;
+      writer.upsert("gardenerWaves", waveRow(wave, wave.state, null));
+      savedWaves.set(wave.id, sig);
+      rows += 1;
+    }
+    for (const done of gardener.run.takeResolved()) {
+      writer.upsert("gardenerWaves", waveRow(done.wave, resolvedState(done.outcome), done.atMs));
+      savedWaves.delete(done.wave.id);
+      rows += 1;
+    }
+    return rows;
+  };
+
   const insertSpareRow = async (): Promise<number> => {
     const found = await o.pool.query(
       `insert into factions (kind, dissolved_at_ms) values ('npc', $1) returning id`,
@@ -240,6 +324,11 @@ export function createNpcPersist(
         savedHumans.set(unit.id, { sig: humanSig(unit.id), owner: unit.owner });
       for (const [key, row] of warRows()) savedWars.set(key, JSON.stringify(row));
       savedDay = day;
+      const gardener = o.gardener();
+      if (gardener) {
+        for (const [cell, value] of gardener.run.layer()) savedPollution.set(cell, value);
+        for (const wave of gardener.run.waves.values()) savedWaves.set(wave.id, waveSig(wave));
+      }
     },
     async flush(day) {
       const count = { rows: 0, births: 0, deaths: 0, owners: 0 };
@@ -288,6 +377,7 @@ export function createNpcPersist(
         const factionRow = rowOf.get(city.owner);
         if (factionRow === undefined) continue;
         writer.upsert("cities", {
+          wave_cooldown_until_ms: o.gardener()?.run.cooldownUntil.get(id) ?? 0,
           id,
           faction_id: factionRow,
           planet_id: place.planetId,
@@ -302,6 +392,14 @@ export function createNpcPersist(
           next_rebellion_ms: city.nextRebellionMs,
         });
         savedCities.set(id, sig);
+        count.rows += 1;
+      }
+      // 폐허가 된 도시(웨이브, D-464 217): 도시 행을 지운다. 그 도시 휴먼은 아래에서 옮긴 도시·노숙으로 먼저 고친다(같은 묶음,
+      // 쓰기 대기열은 고치기를 먼저, 지우기를 나중에 한다). 자리(places)는 남긴다(칸 오염의 칸)
+      for (const id of savedCities.keys()) {
+        if (world.cities.has(id)) continue;
+        writer.remove("cities", { id });
+        savedCities.delete(id);
         count.rows += 1;
       }
       // 휴먼: 사망 = 거울에서 사라짐 → 휴먼 행·유닛 지움
@@ -341,7 +439,7 @@ export function createNpcPersist(
         }
         writer.upsert("humans", {
           unit_id: unit.id,
-          city_id: unit.city,
+          city_id: unit.city === HOMELESS ? null : unit.city,
           satisfaction_milli: Math.max(0, Math.min(100_000, unit.satisfactionMilli)),
           born_at_ms: unit.bornAtMs,
           lifespan_ms: unit.lifespanMs,
@@ -371,11 +469,21 @@ export function createNpcPersist(
         savedWars.set(key, sig);
         count.rows += 1;
       }
-      if (day !== savedDay) {
-        writer.upsert("npcSociety", { id: 1, seed: o.seed, day, updated_at_ms: nowMs });
+      const gardener = o.gardener();
+      const gardenerText = gardener ? storedGardenerOf(gardener.run, gardener.mothershipCell) : null;
+      if (day !== savedDay || (gardenerText !== null && gardenerText !== savedGardener)) {
+        writer.upsert("npcSociety", {
+          id: 1,
+          seed: o.seed,
+          day,
+          updated_at_ms: nowMs,
+          gardener: gardenerText,
+        });
         savedDay = day;
+        if (gardenerText !== null) savedGardener = gardenerText;
         count.rows += 1;
       }
+      if (gardener) count.rows += flushGardener(gardener, nowMs);
       return count;
     },
   };

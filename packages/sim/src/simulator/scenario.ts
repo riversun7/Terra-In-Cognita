@@ -95,6 +95,14 @@ export interface ScenarioSociety {
   readonly researchPerLevelDaily: number;
 }
 
+/**
+ * 정원사(오염 층·웨이브·유목 부대, docs/adr/2026-11-01-gardener-r5b.md). 기본 켬: 출시 관문 NPC 시험에는 정원사 압박이 들어간다
+ * (D-460 199 덧붙임). 끄기는 견주기 실행에만 쓴다
+ */
+export interface ScenarioGardener {
+  readonly enabled: boolean;
+}
+
 /** 세력·사회 손잡이 기본값(시나리오에 없을 때, 서버 NPC 런타임도 같은 값) */
 export const DEFAULT_SCENARIO_SOCIETY: ScenarioSociety = {
   rebellionCooldownDays: 3,
@@ -114,6 +122,7 @@ export interface Scenario {
   readonly economy?: ScenarioEconomy | undefined;
   readonly combat?: ScenarioCombat | undefined;
   readonly society: ScenarioSociety;
+  readonly gardener: ScenarioGardener;
 }
 
 const ID = /^[a-z][a-z0-9_]{1,47}$/;
@@ -288,7 +297,11 @@ export function parseScenario(value: unknown): Scenario {
           siegeMapSize: evenSize(field(combatValue, "siegeMapSize"), "combat.siegeMapSize"),
           nexusDurability: int(field(combatValue, "nexusDurability"), "combat.nexusDurability", 1),
         };
-  return { id, planet, factions, npc, trips, economy, combat, society };
+  const gardenerEnabled = field(field(value, "gardener"), "enabled");
+  if (gardenerEnabled !== undefined && typeof gardenerEnabled !== "boolean")
+    throw new ScenarioError("gardener.enabled: boolean expected");
+  const gardener: ScenarioGardener = { enabled: gardenerEnabled !== false };
+  return { id, planet, factions, npc, trips, economy, combat, society, gardener };
 }
 
 function optionalList<T>(

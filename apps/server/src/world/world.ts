@@ -8,7 +8,14 @@ import { performance } from "node:perf_hooks";
 import { gunzipSync } from "node:zlib";
 import { type CellKey, EARTH_FACE_LEVEL, cellKey, stepCell } from "@terra/planet";
 import { DEFAULT_WORLD_PLANET_ID } from "../db/schema.ts";
-import { CELL_UNITS, generateTempTerrain, positionAt, seedFromCellKey } from "@terra/sim";
+import {
+  CELL_UNITS,
+  type CombatCatalog,
+  type CombatCoefficients,
+  generateTempTerrain,
+  positionAt,
+  seedFromCellKey,
+} from "@terra/sim";
 import type { WorldDirectory } from "./gateway.ts";
 import { type Ledger, createLedger } from "../economy/ledger.ts";
 import { type MemoryChecks, checkMemoryInvariants, checkSqlInvariants } from "./invariants.ts";
@@ -98,6 +105,9 @@ export interface WorldConfig {
   terrain?: TerrainService | undefined;
   /** 사이보그 만들기 규칙(팩 tuning을 얹은 세력·사회 계수표 N9·N6). 없으면 sim 시험 계수표 */
   cyborgRules?: (() => CyborgRules) | undefined;
+  /** 전투 자료(팩)·전투 계수(설정 칸 실효 값, 부를 때마다 읽는다). 정원사 웨이브 전투가 쓴다. 없으면 sim 시험 자료 */
+  combatCatalog?: CombatCatalog | undefined;
+  combatRules?: (() => CombatCoefficients) | undefined;
   /**
    * NPC 사회 런타임(docs/adr/2026-11-01-npc-brain-r5.md 7절, NPC_SOCIETY). 없으면 끔. DB가 있을 때만 돈다.
    * testNations = 시험 국가 수(NPC_TEST_NATIONS), dayMs = 하루 길이(측정용, NPC_DAY_MS), manual = 타이머 없이(시험)
@@ -107,6 +117,8 @@ export interface WorldConfig {
         testNations: number;
         dayMs?: number | undefined;
         manual?: boolean | undefined;
+        /** 정원사 웨이브 켬(GARDENER_WAVES). 없으면 켬(시험), 운영 설정은 기본 끔 */
+        gardenerWaves?: boolean | undefined;
         /** 팩 국가 프리셋(시험 국가 2번부터의 코드·이름) */
         presets?: readonly NationPreset[] | undefined;
       }
@@ -453,6 +465,10 @@ export function startWorld(
       ownerExists: (ownerId) => owners.has(ownerId) || ownerId === npcOwnerId,
       ledger,
     };
+    // 전투가 끝났을 때 알려 줄 곳(NPC 런타임의 정원사 웨이브, docs/adr/2026-11-01-gardener-r5b.md 5절)
+    // 듣는 곳이 붙기 전에 끝난 전투(부팅 때 restore가 바로 적용한 것)는 모아 두었다가 붙을 때 넘긴다
+    const battleEnded = new Set<(battleId: number, attackerWon: boolean) => void>();
+    const endedBeforeListen: [number, boolean][] = [];
     const battles = createBattleService({
       pool: db,
       writer,
@@ -470,8 +486,14 @@ export function startWorld(
           },
           "battle ended",
         );
+        const attacker = init.sides.find((side) => !side.defender)?.id;
+        const attackerWon = outcome.result.winner === attacker;
+        if (battleEnded.size === 0 && endedBeforeListen.length < 1000)
+          endedBeforeListen.push([battleId, attackerWon]);
+        for (const listener of battleEnded) listener(battleId, attackerWon);
       },
       onError: (error) => log.error({ err: error }, "battle failed"),
+      onComputed: (cost) => log.info(cost, "battle computed"),
     });
     const cyborgs = createCyborgService({
       loaded: cyborgData,
@@ -559,6 +581,16 @@ export function startWorld(
           rules: config.cyborgRules ?? defaultCyborgRules,
           dayMs: config.npc.dayMs,
           manual: config.npc.manual,
+          gardenerWaves: config.npc.gardenerWaves,
+          planetId: TEST_PLANET_ID,
+          startBattle: (init) => battles.start(init, { war: false }),
+          onBattleEnded: (listener) => {
+            battleEnded.add(listener);
+            for (const [battleId, attackerWon] of endedBeforeListen.splice(0))
+              listener(battleId, attackerWon);
+          },
+          combatCatalog: config.combatCatalog,
+          combatRules: config.combatRules,
         });
       } catch (error) {
         log.error({ err: error }, "npc society failed to start; bots keep walking");

@@ -49,9 +49,9 @@ export interface CombatRun {
   summary(): CombatSummary;
 }
 
-const PARTY_SIZE = 6;
+export const PARTY_SIZE = 6;
 
-function openMap(size: number): BattleMapInput {
+export function openMap(size: number): BattleMapInput {
   const cells = size * size;
   return {
     size,
@@ -70,7 +70,7 @@ const LOADOUT = {
 } as const;
 
 /** 팩 자료로 시뮬레이터 유닛의 칸·장비·스킬을 만든다(유닛마다 같다) */
-function kitOf(catalog: CombatCatalog) {
+export function kitOf(catalog: CombatCatalog) {
   const kind = catalog.unitKinds.find((entry) => entry.id === LOADOUT.kind);
   const slots = kind?.slots ?? [];
   const equipped: (EquippedItem | null)[] = slots.map((slot, index) => {
@@ -92,7 +92,7 @@ function kitOf(catalog: CombatCatalog) {
 }
 
 /** [임시] 1차 스탯 = 40 + 기술 단계 × 8(모두 같게, 48 §3.5 예의 Lv30 휴먼 근처), 장비·스킬은 kitOf, 2차는 스탯 계산기 */
-function specOf(
+export function specOf(
   unit: SimUnit,
   tech: number,
   catalog: CombatCatalog,
@@ -211,6 +211,7 @@ export function attachCombat(
     defender: SimFaction,
     init: BattleInit,
     nowMs: number,
+    city?: number,
   ): BattleResult => {
     const { result, state } = runBattle(init, [], undefined, c);
     battles += 1;
@@ -232,6 +233,8 @@ export function attachCombat(
       reason: result.reason,
       ticks: result.endTick,
       downed: down,
+      // 그 전투가 난 도시(오염 +battle, docs/adr/2026-11-01-gardener-r5b.md). 조우는 도시가 없다
+      ...(city === undefined ? {} : { city }),
     });
     return result;
   };
@@ -263,6 +266,7 @@ export function attachCombat(
           units,
         },
         nowMs,
+        cityId,
       );
       return result.winner === 1;
     },
@@ -294,6 +298,7 @@ export function attachCombat(
           units,
         },
         nowMs,
+        rebels[0]?.city,
       );
       return result.winner === 1;
     },

@@ -5,6 +5,7 @@
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "./combat/coefficients.ts";
 import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "./society/coefficients.ts";
 import { CYBORG_TUNING_KEYS } from "./tuningCyborg.ts";
+import { GARDENER_TUNING_KEYS } from "./tuningGardener.ts";
 import { NPC_TUNING_KEYS } from "./tuningNpc.ts";
 
 export interface TuningKey {
@@ -490,6 +491,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...CYBORG_TUNING_KEYS,
   // NPC 판단(49 S3·S5·S19, D-323·D-292·D-220): tuningNpc.ts
   ...NPC_TUNING_KEYS,
+  // 오염·정원사 웨이브(49 P15·S14·M3·C14~C18·S16·S17, D-460·D-464): tuningGardener.ts
+  ...GARDENER_TUNING_KEYS,
 ];
 
 function getPath(root: unknown, path: string): number {

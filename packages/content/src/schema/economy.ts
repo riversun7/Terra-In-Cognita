@@ -49,6 +49,11 @@ export const facilityEntrySchema = z.strictObject({
   stage: z.enum(FACILITY_STAGES),
   /** [임시] 레벨당 일하는 자리 수(Lv × 이 값). 기획 수치 없음(E29 근처, 건물 데이터 D-5044) */
   slotsPerLevel: z.int().positive().max(1000),
+  /**
+   * [임시] 오염 값: 레벨 1이 1시간 일할 때 그 1차맵 칸에 더하는 오염(D-460 200 "시설 레벨 × 시설 오염 값", D-464 215 출발값,
+   * 개발자 페이지 콘텐츠 D-398). 없으면 0
+   */
+  pollution: z.int().min(0).max(10_000).optional(),
   enabled,
 });
 export type FacilityEntry = z.output<typeof facilityEntrySchema>;

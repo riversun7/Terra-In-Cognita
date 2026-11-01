@@ -8,6 +8,7 @@
       },
       "stage": "gather",
       "slotsPerLevel": 10,
+      "pollution": 1,
       "enabled": true
     },
     {
@@ -18,6 +19,7 @@
       },
       "stage": "gather",
       "slotsPerLevel": 10,
+      "pollution": 2,
       "enabled": true
     },
     {
@@ -28,6 +30,7 @@
       },
       "stage": "gather",
       "slotsPerLevel": 10,
+      "pollution": 6,
       "enabled": true
     },
     {
@@ -38,6 +41,7 @@
       },
       "stage": "process",
       "slotsPerLevel": 10,
+      "pollution": 8,
       "enabled": true
     },
     {
@@ -48,6 +52,7 @@
       },
       "stage": "finish",
       "slotsPerLevel": 10,
+      "pollution": 1,
       "enabled": true
     },
     {
@@ -58,6 +63,7 @@
       },
       "stage": "finish",
       "slotsPerLevel": 10,
+      "pollution": 4,
       "enabled": true
     }
   ]

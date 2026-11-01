@@ -473,6 +473,8 @@ export const worldCities = pgTable(
     development: smallint("development").notNull().default(0),
     /** 다음 반란 판정을 할 수 있는 시각(반란 뒤 쉬는 날) */
     nextRebellionMs: bigint("next_rebellion_ms", { mode: "number" }).notNull().default(0),
+    /** 정원사 웨이브를 막아 낸 뒤 확률이 줄어드는 기간의 끝(C18, docs/adr/2026-11-01-gardener-r5b.md). 0 = 없음 */
+    waveCooldownUntilMs: bigint("wave_cooldown_until_ms", { mode: "number" }).notNull().default(0),
   },
   (table) => [
     index("world_cities_map_idx").on(table.mapKey),
@@ -492,9 +494,8 @@ export const worldHumans = pgTable(
     unitId: bigint("unit_id", { mode: "number" })
       .primaryKey()
       .references((): AnyPgColumn => worldUnits.id, { onDelete: "cascade" }),
-    cityId: bigint("city_id", { mode: "number" })
-      .notNull()
-      .references(() => worldCities.id),
+    /** 사는 도시. null = 노숙(도시를 모두 잃은 떠도는 세력의 휴먼, D-294·D-296·D-464 217) */
+    cityId: bigint("city_id", { mode: "number" }).references(() => worldCities.id),
     satisfactionMilli: integer("satisfaction_milli").notNull(),
     bornAtMs: bigint("born_at_ms", { mode: "number" }).notNull(),
     lifespanMs: bigint("lifespan_ms", { mode: "number" }).notNull(),
@@ -536,8 +537,64 @@ export const npcSociety = pgTable(
     seed: bigint("seed", { mode: "number" }).notNull(),
     day: integer("day").notNull().default(0),
     updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+    /**
+     * 정원사 상태(docs/adr/2026-11-01-gardener-r5b.md 5절): 모함 칸·다음 웨이브 ID·유목 부대(자리·목표·도착·규모·제외 칸).
+     * null = 아직 없음(런타임이 처음 저장할 때 채운다)
+     */
+    gardener: jsonb("gardener"),
   },
   (table) => [check("npc_society_single", sql`${table.id} = 1`)],
+);
+
+/**
+ * 1차맵 칸 오염(docs/adr/2026-11-01-gardener-r5b.md 1절, D-115·D-460 200): 행성·칸 키(면 레벨 F9 = 2차맵 하나)마다 정수.
+ * 값이 있는 칸만 둔다(0이 되면 지운다). 하루마다 NPC 사회 런타임이 바뀐 칸만 쓴다
+ */
+export const planetPollution = pgTable(
+  "planet_pollution",
+  {
+    planetId: planetIdColumn(),
+    cellKey: bigint("cell_key", { mode: "number" }).notNull(),
+    value: integer("value").notNull(),
+    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.planetId, table.cellKey] }),
+    check("planet_pollution_value", sql`${table.value} between 1 and 100000`),
+    check("planet_pollution_planet_id_format", sql`${table.planetId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+  ],
+);
+
+/**
+ * 정원사 도시 웨이브(docs/adr/2026-11-01-gardener-r5b.md 2·5절, D-188·D-192·D-196·D-230): 예고(생성)부터 결과까지 한 줄.
+ * state = marching(진군, 도착 예약) | fighting(전투 서비스 battle_id) | won | repelled | disbanded. 끝난 줄은 기록으로 남긴다.
+ * 도시가 폐허가 되면 도시 행이 지워지므로 city_id에 외래 키를 두지 않는다
+ */
+export const gardenerWaves = pgTable(
+  "gardener_waves",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey(),
+    planetId: planetIdColumn(),
+    cityId: bigint("city_id", { mode: "number" }).notNull(),
+    cellKey: bigint("cell_key", { mode: "number" }).notNull(),
+    /** 생길 때 그 도시 주인 세력(행 ID) */
+    factionId: bigint("faction_id", { mode: "number" }),
+    strength: integer("strength").notNull(),
+    physical: integer("physical").notNull(),
+    createdAtMs: bigint("created_at_ms", { mode: "number" }).notNull(),
+    arriveAtMs: bigint("arrive_at_ms", { mode: "number" }).notNull(),
+    state: text("state").notNull(),
+    battleId: bigint("battle_id", { mode: "number" }),
+    resolvedAtMs: bigint("resolved_at_ms", { mode: "number" }),
+  },
+  (table) => [
+    index("gardener_waves_state_idx").on(table.state),
+    index("gardener_waves_city_idx").on(table.cityId),
+    check(
+      "gardener_waves_state",
+      sql`${table.state} in ('marching', 'fighting', 'won', 'repelled', 'disbanded')`,
+    ),
+  ],
 );
 
 /** 2차맵 유닛. 위치는 저장하지 않고 경로·출발 시각·속도로 계산한다(ADR 5) */

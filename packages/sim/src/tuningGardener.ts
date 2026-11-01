@@ -1,0 +1,96 @@
+// 오염·정원사 설정 칸 값 ↔ 계수표 — docs/adr/2026-11-01-gardener-r5b.md, D-460(질문 199~202)·D-464(질문 214~225)
+// 팩 항목 ID ↔ 세력·사회 계수표 gardener 칸(경로). 49 P15·S14·M3·C14~C18·S16·S17에 출발값이 없어 D-460·D-464 값이 출발값이고
+// 값은 계수표 TEST_GARDENER_COEFFICIENTS다. 팩 항목의 단위·기술 범위(unit·min·max)는 content/core/tuning.json에 적는다.
+import type { TuningKey } from "./tuning.ts";
+
+const k = (
+  id: string,
+  code: string,
+  path: string,
+  ko: string,
+  en: string,
+  structural = false,
+): TuningKey => ({
+  id,
+  code,
+  target: "society",
+  path: `gardener.${path}`,
+  structural,
+  ko,
+  en,
+});
+
+export const GARDENER_TUNING_KEYS: readonly TuningKey[] = [
+  k("p15_cell_max", "P15", "cellMax", "칸 오염 상한", "Cell pollution cap (points)", true),
+  k("p15_battle", "P15", "battle", "전투 한 번 오염", "Pollution per battle (points)"),
+  k(
+    "p15_human_step",
+    "P15",
+    "humanStep",
+    "휴먼 묶음당 하루 오염",
+    "Daily pollution per human group (points)",
+  ),
+  k("p15_humans_per_step", "P15", "humansPerStep", "휴먼 오염 묶음 크기(명)", "Human pollution group size"),
+  k("p15_forest", "P15", "forestDaily", "숲 칸 하루 오염 감소", "Forest cell daily reduction (points)"),
+  k(
+    "s14_purify",
+    "S14",
+    "purifyAmount",
+    "정화 한 번 오염 감소",
+    "Pollution removed per purification (points)",
+  ),
+  k("p15_decay", "P15", "decayBp", "하루 자연 감소(만분율)", "Daily natural decay (bp)"),
+  k("p15_spread", "P15", "spreadBp", "하루 이웃 퍼짐(만분율)", "Daily spread to neighbours (bp)"),
+  k(
+    "m3_influence_radius",
+    "M3",
+    "influenceRadius",
+    "웨이브 영향권 반경(칸)",
+    "Wave influence radius (cells)",
+  ),
+  k("c14_chance_divisor", "C14", "chanceDivisor", "웨이브 확률 나눗수", "Wave chance divisor"),
+  k("c14_chance_max", "C14", "chanceMaxPm", "웨이브 하루 확률 상한(‰)", "Wave daily chance cap (‰)"),
+  k("c16_strength_base", "C16", "strengthBase", "웨이브 세기 기본(마리)", "Wave strength base"),
+  k("c16_strength_humans", "C16", "strengthHumansPer", "세기 휴먼 나눗수", "Strength human divisor"),
+  k(
+    "c16_strength_treasury",
+    "C16",
+    "strengthTreasuryUnit",
+    "세기 국고 나눗수(최소 단위)",
+    "Strength treasury divisor (minor units)",
+  ),
+  k("c15_notice", "C15", "noticeMs", "웨이브 최소 예고(ms)", "Wave minimum notice (ms)"),
+  k("c18_cooldown", "C18", "cooldownMs", "실패 뒤 쉬는 시간(ms)", "Cooldown after a failed wave (ms)"),
+  k(
+    "c18_cooldown_chance",
+    "C18",
+    "cooldownChanceBp",
+    "쉬는 시간 확률 몫(만분율)",
+    "Chance kept during cooldown (bp)",
+  ),
+  k("c17_physical_divisor", "C17", "physicalDivisor", "물리형 비율 나눗수", "Physical share divisor"),
+  k("c17_physical_max", "C17", "physicalMaxPm", "물리형 비율 상한(‰)", "Physical share cap (‰)"),
+  k("s16_unit_budget", "S16", "unitBudget", "서버 유닛 예산", "Server unit budget", true),
+  k("s16_mothership", "S16", "mothershipBp", "모함 몫(만분율)", "Mothership share (bp)"),
+  k("s17_nomad_detect", "S17", "nomadDetect", "유목 탐지 거리(칸)", "Nomad detection range (cells)"),
+  k("s17_nomad_notice", "S17", "nomadNoticeMs", "유목 최소 예고(ms)", "Nomad minimum notice (ms)"),
+  k("s17_nomad_threshold", "S17", "nomadThreshold", "유목 목표 오염 문턱", "Nomad target threshold (points)"),
+  k(
+    "c18_nomad_exclude",
+    "C18",
+    "nomadExcludeMs",
+    "유목 실패 목표 제외(ms)",
+    "Nomad failed-target exclusion (ms)",
+  ),
+  k("s16_nomad_scouts", "S16", "nomadScouts", "정찰대 수(행성마다)", "Scout parties per planet", true),
+  k("s16_nomad_legions", "S16", "nomadLegions", "정화 군단 수(행성마다)", "Purge legions per planet", true),
+  k("s16_scout_size", "S16", "nomadScoutSize", "정찰대 규모(마리)", "Scout party size"),
+  k("s16_legion_at", "S16", "nomadLegionAt", "정화 군단 목표 오염 문턱", "Legion target threshold (points)"),
+  k(
+    "s16_legion_step",
+    "S16",
+    "nomadLegionStep",
+    "정화 군단 규모 오염 걸음",
+    "Legion size pollution step (points)",
+  ),
+];

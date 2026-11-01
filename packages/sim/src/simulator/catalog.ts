@@ -25,6 +25,8 @@ export interface CatalogFacility {
   readonly id: string;
   readonly stage: string;
   readonly slotsPerLevel: number;
+  /** 오염 값(레벨 1·1시간, 팩 facilities pollution, 없으면 0 — docs/adr/2026-11-01-gardener-r5b.md) */
+  readonly pollution?: number | undefined;
   readonly enabled: boolean;
 }
 

@@ -1,0 +1,193 @@
+// 정원사 웨이브 공성 전투의 시작 자료 — docs/adr/2026-11-01-gardener-r5b.md 2절, 기획 D-193·D-273·D-5050, D-464(질문 214·218)
+// 시뮬레이터(gardenerRun.ts → runBattle)와 서버(NPC 런타임 → 전투 서비스 battles.start)가 같은 함수로 만든다.
+// - 지도: 공성 전투맵(시나리오 siegeMapSize, 49 C3 128), 가운데 넥서스(시청). 웨이브는 서쪽 변에서, 수비는 넥서스 앞(시뮬 공성과 같은 자리).
+// - 수비: 그 도시 휴먼(앞에서부터 공성 인원 상한까지, 질문 218 가) — 시뮬 공성과 같은 [임시] 휴먼 사양(combatRun.ts specOf).
+// - 웨이브: 정원사 크리쳐 strength마리. 한 마리의 힘은 [임시] 수비 휴먼과 같은 사양(같은 1차 스탯·장비·스킬)이라 웨이브 세기는
+//   마리 수로만 정해진다(D-322 "세기 = 세력 규모"). 그 가운데 물리형(공성 크리쳐, 돌진·거대, D-273·D-5050)은 건물 피해 배율
+//   [임시] 4,000‰, 마법형은 건물을 부수지 못한다(배율 0, D-5043 "건물은 물리 피해만") — 유닛만 노린다.
+//   크리쳐 종류의 타고난 무기·속성 무기로 만든 사양은 잰 결과 웨이브가 늘 시간 초과로 졌다(ADR 4절): 장비 없는 크리쳐는 장비 든
+//   휴먼보다 훨씬 약하고, 지팡이는 지금 전투에 MP 회복이 없어 MP가 떨어지면 멈춘다. 크리쳐 에디터 값(D-5024)·전투 줄기(D-457~D-459)를
+//   합친 뒤 바꾼다. 전투 공식은 건드리지 않는다(전투 API만 부른다).
+import type {
+  Battle,
+  BattleInit,
+  BattleInput,
+  BattleResult,
+  BattleState,
+  CombatUnitSpec,
+} from "../combat/battleTypes.ts";
+import type { CombatCoefficients } from "../combat/coefficients.ts";
+import type { CombatCatalog } from "../combat/catalog.ts";
+import type { CombatSkill } from "../combat/skills.ts";
+import { PARTY_SIZE, kitOf, openMap, specOf } from "./combatRun.ts";
+import type { SimUnit } from "./world.ts";
+
+/** 정원사 편의 세력 칸(소유 주체가 아니다: 포로·탈취를 받지 않는다, D-193·D-321) */
+export const GARDENER_SIDE_FACTION = 0;
+/** [임시] 물리형 공성 크리쳐의 건물 피해 배율(‰, 휴먼 사양은 2,000). 마법형은 0 */
+const SIEGE_BUILDING_MUL_PM = 4000;
+const MAGIC_BUILDING_MUL_PM = 0;
+
+export interface WaveBattleInput {
+  readonly battleId: number;
+  readonly seed: number;
+  /** 수비 세력(그 도시 주인의 소유 주체·세력 ID) */
+  readonly defenderFaction: number;
+  /** 수비 휴먼(앞에서부터 쓴다) */
+  readonly defenders: readonly SimUnit[];
+  readonly defenderTech: number;
+  /** 정원사 크리쳐 수와 그 가운데 물리형 수 */
+  readonly strength: number;
+  readonly physical: number;
+  /** 정원사 크리쳐 1차 스탯의 기술 단계([임시] 수비 세력 기술과 같다) */
+  readonly creatureTech: number;
+  /** 정원사 크리쳐 전투 유닛 ID의 시작(세계 유닛 ID와 겹치지 않게) */
+  readonly firstCreatureId: number;
+  readonly mapSize: number;
+  readonly nexusDurability: number;
+  /** 수비 인원 상한(질문 218 가) */
+  readonly maxDefenders: number;
+}
+
+/** 공성 크리쳐가 남았는지 보는 간격(틱). 결과는 간격과 상관없다(멈춘 틱만 이만큼 늦을 수 있다) */
+const WAVE_CHECK_TICKS = 50;
+
+/** 정원사 편 공성인가(공격 편 세력 칸이 정원사) */
+export function isWaveBattle(init: Pick<BattleInit, "kind" | "sides">): boolean {
+  return (
+    init.kind === "siege" &&
+    init.sides.some((side) => !side.defender && side.faction === GARDENER_SIDE_FACTION)
+  );
+}
+
+/**
+ * 웨이브가 이길 수 없게 됐나: 넥서스가 서 있고 공격 편에 건물을 부술 수 있는(건물 피해 배율 > 0) 유닛이 하나도 서 있지 않다.
+ * 건물은 물리 피해만 받고(D-5043) 공성 수비 편은 넥서스가 서 있는 동안 지지 않으므로 이 뒤의 결과는 늘 수비 승이다
+ */
+export function waveSiegeSpent(state: BattleState): boolean {
+  if (state.result || !state.buildings.some((building) => building.durability > 0)) return false;
+  const attacker = state.sides.find((side) => !side.defender)?.id;
+  return !state.units.some(
+    (unit) => unit.side === attacker && unit.buildingMulPm > 0 && unit.status === "alive" && unit.hp > 0,
+  );
+}
+
+/**
+ * 웨이브 전투 빨리감기: 끝나거나, 공성 크리쳐를 모두 잃어 이길 수 없게 되면 멈춘다 — 웨이브는 물러난다(실패, D-230
+ * "실패는 진 경우와 시간 초과"). 그때 결과는 수비 승(사유 timeout과 같게 적는다)이고 state.result에도 적는다.
+ * 공성 제한 시간(C2 30분)까지 남은 웨이브를 빨리감기하면 크리쳐 수십에 수 초가 걸린다(ADR 4절 잰 값). 서버 전투 서비스도 이 함수를 쓴다
+ */
+export function runWaveToEnd(
+  battle: Battle,
+  inputs: readonly BattleInput[],
+  onSnapshot?: (snapshot: string, tick: number) => void,
+): { state: BattleState; result: BattleResult | null; rejected: number } {
+  for (;;) {
+    const from = battle.state.tick;
+    const run = battle.runToEnd(
+      inputs.filter((input) => input.tick >= from),
+      WAVE_CHECK_TICKS,
+      onSnapshot,
+    );
+    if (run.result) return run;
+    if (waveSiegeSpent(battle.state)) {
+      const defender = battle.state.sides.find((side) => side.defender)?.id ?? 0;
+      const result: BattleResult = { winner: defender, reason: "timeout", endTick: battle.state.tick };
+      battle.state.result = result;
+      return { state: battle.state, result, rejected: run.rejected };
+    }
+  }
+}
+
+/** i번째를 가운데에서 위아래로 번갈아(0, +1, −1, +2, …) */
+const spreadY = (index: number, center: number): number =>
+  center + ((index + 1) >> 1) * (index % 2 === 0 ? 1 : -1);
+
+/** 크리쳐 전투 유닛(사양 함수가 읽는 칸은 ID뿐이다) */
+function creatureUnit(id: number): SimUnit {
+  return {
+    id,
+    city: 0,
+    owner: GARDENER_SIDE_FACTION,
+    job: { job: 0, phase: 0, progressMs: 0, fatigue: 0 },
+    pos: { x: 0, y: 0 },
+    tripStep: 0,
+    eventId: undefined,
+    satisfactionMilli: 0,
+    bornAtMs: 0,
+    lifespanMs: 0,
+    parents: [],
+    rebirths: 0,
+  };
+}
+
+/** 웨이브 공성 전투의 시작 자료. 수비 휴먼이 없으면 부르는 쪽이 전투 없이 웨이브가 이긴 것으로 한다 */
+export function waveBattleInit(
+  input: WaveBattleInput,
+  catalog: CombatCatalog,
+  c: CombatCoefficients,
+): BattleInit {
+  const size = input.mapSize;
+  const center = size / 2;
+  const map = openMap(size);
+  const nexus = [center - 1, center].flatMap((y) => [center - 1, center].map((x) => y * size + x));
+  map.buildings = [{ id: 1, cells: nexus, durability: input.nexusDurability, nexus: true }];
+  const kit = kitOf(catalog);
+  const skillCache = new Map<string, CombatSkill[]>();
+  const units: CombatUnitSpec[] = [];
+  for (let index = 0; index < input.strength; index++) {
+    const spec = specOf(
+      creatureUnit(input.firstCreatureId + index),
+      input.creatureTech,
+      catalog,
+      kit,
+      skillCache,
+      {
+        side: 1,
+        party: 1 + Math.floor(index / PARTY_SIZE),
+        x: 2 + Math.floor(index / 24),
+        y: spreadY(index, center),
+      },
+      c,
+    );
+    units.push({
+      ...spec,
+      buildingMulPm: index < input.physical ? SIEGE_BUILDING_MUL_PM : MAGIC_BUILDING_MUL_PM,
+    });
+  }
+  input.defenders.slice(0, input.maxDefenders).forEach((unit, index) => {
+    units.push(
+      specOf(
+        unit,
+        input.defenderTech,
+        catalog,
+        kit,
+        skillCache,
+        {
+          side: 2,
+          party: 101 + Math.floor(index / PARTY_SIZE),
+          x: center - 3 + Math.floor(index / 24),
+          y: spreadY(index, center),
+        },
+        c,
+      ),
+    );
+  });
+  const parties = [...new Set(units.map((unit) => unit.party))].map((id) => ({
+    id,
+    side: units.find((unit) => unit.party === id)?.side ?? 1,
+    retreatHpPct: 0,
+  }));
+  return {
+    id: input.battleId,
+    kind: "siege",
+    seed: input.seed,
+    map,
+    sides: [
+      { id: 1, faction: GARDENER_SIDE_FACTION, defender: false, edge: 3 },
+      { id: 2, faction: input.defenderFaction, defender: true, edge: 1 },
+    ],
+    parties,
+    units,
+  };
+}

@@ -28,6 +28,12 @@ export interface GardenerCoefficients {
   readonly strengthBase: number;
   readonly strengthHumansPer: number;
   readonly strengthTreasuryUnit: number;
+  /**
+   * 웨이브 결과 목표(49 C16a, D-468): 영향권 오염 합 ≥ targetSum인 도시에 오는 웨이브의 승률 ‰(출발값 약 1/3). 판정에는 쓰지 않고
+   * 맞추기 도구(cli/gardener-cal.ts)와 시뮬 요약(gardener.target)이 읽는다
+   */
+  readonly targetWinPm: number;
+  readonly targetSum: number;
   /** 웨이브 최소 예고(C15, D-460 201: 실제 8시간) */
   readonly noticeMs: number;
   /** 실패한 웨이브 뒤 그 도시 확률 감소 기간·남는 몫(C18, D-460 201: 7일 절반) */
@@ -71,6 +77,8 @@ export const TEST_GARDENER_COEFFICIENTS: GardenerCoefficients = {
   strengthBase: 4,
   strengthHumansPer: 50,
   strengthTreasuryUnit: 1_000_000,
+  targetWinPm: 333,
+  targetSum: 30_000,
   noticeMs: 8 * HOUR_MS,
   cooldownMs: 7 * DAY_MS,
   cooldownChanceBp: 5000,

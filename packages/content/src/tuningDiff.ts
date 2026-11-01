@@ -27,7 +27,7 @@ const tuningInt = z.int().min(-TUNING_VALUE_LIMIT).max(TUNING_VALUE_LIMIT);
 export const tuningDiffChangeSchema = z.strictObject({
   id: contentId,
   /** 49 칸 코드(보기용, 적용은 ID로) */
-  code: z.string().regex(/^([A-Z][0-9]{1,2})?$/),
+  code: z.string().regex(/^([A-Z][0-9]{1,2}[a-z]?)?$/),
   /** 내보낼 때의 팩 값 */
   from: tuningInt,
   /** 덮어쓰기 값 */

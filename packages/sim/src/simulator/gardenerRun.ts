@@ -82,6 +82,16 @@ export interface GardenerSummary {
     readonly strengthMax: number;
   };
   readonly nomads: { readonly marches: number; readonly raids: number; readonly retargets: number };
+  /**
+   * 웨이브 결과 목표(49 C16a, D-468): 끝난 웨이브를 생길 때 영향권 오염 합이 기준 이상(band)·미만(below)으로 나눈 웨이브 승률.
+   * goalPm = 목표 승률. 흩어진 웨이브는 세지 않는다
+   */
+  readonly target: {
+    readonly sumAtLeast: number;
+    readonly goalPm: number;
+    readonly band: { readonly waves: number; readonly won: number; readonly winPm: number };
+    readonly below: { readonly waves: number; readonly won: number; readonly winPm: number };
+  };
 }
 
 export interface GardenerRestore {
@@ -143,6 +153,10 @@ export interface GardenerRun {
   summary(): GardenerSummary;
   check(): string[];
 }
+
+/** 웨이브 승률(‰, 웨이브가 없으면 0) */
+const rate = (bucket: { waves: number; won: number }): number =>
+  bucket.waves === 0 ? 0 : Math.floor((bucket.won * 1000) / bucket.waves);
 
 export function attachGardener(o: GardenerOptions): GardenerRun {
   const { world, grid } = o;
@@ -218,11 +232,21 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
     });
   };
 
+  /** 웨이브 → 생길 때 영향권 오염 합(목표 승률 셈, 이어 돌린 웨이브는 모른다) */
+  const sumOf = new Map<number, number>();
+  const outcomes = { band: { waves: 0, won: 0 }, below: { waves: 0, won: 0 } };
   const resolve = (waveId: number, won: boolean, nowMs: number): void => {
     const wave = waves.get(waveId);
     if (!wave) return;
     const c = o.rules();
     const city = world.cities.get(wave.city);
+    const sum = sumOf.get(wave.id);
+    sumOf.delete(wave.id);
+    if (sum !== undefined) {
+      const bucket = sum >= c.targetSum ? outcomes.band : outcomes.below;
+      bucket.waves += 1;
+      if (won) bucket.won += 1;
+    }
     if (won) {
       counts.won += 1;
       const start = city?.start === true;
@@ -393,6 +417,7 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
         nextWave += 1;
         wave.eventId = o.schedule(wave.arriveAtMs, EVENT_WAVE, wave.id);
         waves.set(wave.id, wave);
+        sumOf.set(wave.id, sum);
         counts.noticed += 1;
         counts.strengthMax = Math.max(counts.strengthMax, strength);
         o.recorder.wave(nowMs, {
@@ -472,6 +497,12 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
           strengthMax: counts.strengthMax,
         },
         nomads: { marches: counts.marches, raids: counts.raids, retargets: counts.retargets },
+        target: {
+          sumAtLeast: o.rules().targetSum,
+          goalPm: o.rules().targetWinPm,
+          band: { ...outcomes.band, winPm: rate(outcomes.band) },
+          below: { ...outcomes.below, winPm: rate(outcomes.below) },
+        },
       };
     },
     check() {

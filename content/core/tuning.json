@@ -1668,6 +1668,32 @@
       "max": 1000000000000
     },
     {
+      "id": "c16a_target_win",
+      "code": "C16a",
+      "name": {
+        "ko": "웨이브 목표 승률(‰)",
+        "en": "Wave target win rate (‰)"
+      },
+      "value": 333,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "c16a_target_sum",
+      "code": "C16a",
+      "name": {
+        "ko": "웨이브 목표 기준 영향권 오염 합",
+        "en": "Wave target reference pollution sum (points)"
+      },
+      "value": 30000,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000000
+    },
+    {
       "id": "c15_notice",
       "code": "C15",
       "name": {

@@ -59,6 +59,14 @@ export const GARDENER_TUNING_KEYS: readonly TuningKey[] = [
     "세기 국고 나눗수(최소 단위)",
     "Strength treasury divisor (minor units)",
   ),
+  k("c16a_target_win", "C16a", "targetWinPm", "웨이브 목표 승률(‰)", "Wave target win rate (‰)"),
+  k(
+    "c16a_target_sum",
+    "C16a",
+    "targetSum",
+    "웨이브 목표 기준 영향권 오염 합",
+    "Wave target reference pollution sum (points)",
+  ),
   k("c15_notice", "C15", "noticeMs", "웨이브 최소 예고(ms)", "Wave minimum notice (ms)"),
   k("c18_cooldown", "C18", "cooldownMs", "실패 뒤 쉬는 시간(ms)", "Cooldown after a failed wave (ms)"),
   k(

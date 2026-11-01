@@ -1,11 +1,23 @@
 // 몸 자료 → 화면 스탯·장비 칸·스킬 — @terra/sim의 같은 순수 함수(성장 primaryAtLevel, 장비 loadoutOf, 스킬 칸 skillSlotCount)로
 // 계산한다. 기획 D-414(2차 스탯은 계산), D-417(성장), D-422·D-423(칸·올리는 스탯), D-426·D-427(스킬). 게임 앱은 결과만 받는다.
 // [임시] 성장률 100‰는 48 §2.3 출발값이다(설정값 N 칸이 생기면 그 값). 시험 유닛은 저장된 스탯이 없어 기본값으로 계산한다.
-import type { EquipSlot, PrimaryStat, RosterSkills, RosterSlot, RosterStats } from "@terra/shared/roster";
+import {
+  ELEMENT_CODES,
+  type EquipSlot,
+  PRIMARY_STATS,
+  type PrimaryStat,
+  RULE_STAT_ORDER,
+  type RosterSkills,
+  type RosterSlot,
+  type RosterStatBreakdown,
+  type RosterStats,
+} from "@terra/shared/roster";
 import {
   type EquippedItem,
+  type Loadout,
   type Primaries,
   UNARMED,
+  explainSecondary,
   itemAt,
   loadoutOf,
   primaryAtLevel,
@@ -47,8 +59,64 @@ function grown(spec: BodySpec): Primaries {
   return { str: at("str"), dex: at("dex"), agi: at("agi"), vit: at("vit"), int: at("int"), wis: at("wis") };
 }
 
+/** 속성값 12칸이 모두 0(D-182). 사이보그가 속성값을 얻는 길이 생기면(질문 182) 저장된 값을 쓴다 */
+export const NO_ELEMENTS: readonly number[] = ELEMENT_CODES.map(() => 0);
+
+/** 사이보그 화면의 더 자세한 자료(cyborgSheet): 2차 스탯 풀이, 스킬 칸 최대·열리는 환생 횟수 */
+export interface BodySheet extends BodyView {
+  readonly breakdown: RosterStatBreakdown[];
+  readonly skillSlotsMax: number;
+  readonly skillSlotUnlocks: number[];
+}
+
+interface BodyParts {
+  readonly view: BodyView;
+  readonly loadout: Loadout;
+  readonly skillRule: { readonly base: number; readonly perRebirth: number; readonly max: number } | null;
+}
+
 /** 몸 하나의 화면 자료. 팩에 없는 아이템·칸이 맞지 않는 아이템은 빈 칸으로 둔다(팩이 바뀌어도 화면이 깨지지 않게) */
 export function bodyView(catalog: RosterCatalog, spec: BodySpec): BodyView {
+  return bodyParts(catalog, spec).view;
+}
+
+/**
+ * 사이보그 화면 자료: bodyView + 2차 스탯 풀이(같은 입력으로 @terra/sim explainSecondary — 값은 stats.secondary와 같다) +
+ * 스킬 칸 규칙(팩 unit_kinds skillSlots: 처음 + 환생마다, 최대). 열리는 환생 횟수는 서버가 같은 skillSlotCount로 센다
+ */
+/** 화면 차례(PRIMARY_STATS)의 자리 — 풀이 항을 화면 차례로 놓는다 */
+const screenOrder = (stat: PrimaryStat): number => PRIMARY_STATS.indexOf(stat);
+
+export function bodySheet(catalog: RosterCatalog, spec: BodySpec): BodySheet {
+  const { view, loadout, skillRule } = bodyParts(catalog, spec);
+  const unlocks: number[] = [];
+  if (skillRule && skillRule.perRebirth > 0) {
+    let opened = view.skills.slots;
+    for (let rebirths = spec.rebirths + 1; opened < skillRule.max; rebirths++) {
+      const count = skillSlotCount(skillRule.base, rebirths * skillRule.perRebirth, skillRule.max);
+      for (; opened < count; opened++) unlocks.push(rebirths);
+    }
+  }
+  const breakdown = explainSecondary(loadout.primaries, catalog.combat.statTable, loadout.gear).map(
+    (row): RosterStatBreakdown => ({
+      ...row,
+      terms: row.terms
+        .flatMap((term) => {
+          const stat = RULE_STAT_ORDER[term.index];
+          return stat ? [{ stat, value: term.value, weightPm: term.weightPm, milli: term.milli }] : [];
+        })
+        .toSorted((a, b) => screenOrder(a.stat) - screenOrder(b.stat)),
+    }),
+  );
+  return {
+    ...view,
+    breakdown,
+    skillSlotsMax: skillRule?.max ?? view.skills.slots,
+    skillSlotUnlocks: unlocks,
+  };
+}
+
+function bodyParts(catalog: RosterCatalog, spec: BodySpec): BodyParts {
   const kind = catalog.combat.unitKinds.find((entry) => entry.id === spec.kind);
   const slots = kind?.slots ?? [];
   const equipped: (EquippedItem | null)[] = slots.map((slot, index) => {
@@ -79,7 +147,7 @@ export function bodyView(catalog: RosterCatalog, spec: BodySpec): BodyView {
     wis: primary("wis"),
   };
   const innate = new Set(spec.innateSkills);
-  return {
+  const view: BodyView = {
     stats: {
       source: spec.source,
       primaries,
@@ -98,6 +166,7 @@ export function bodyView(catalog: RosterCatalog, spec: BodySpec): BodyView {
       list: loadout.skills.map((id) => ({ id, source: innate.has(id) ? "innate" : "equipment" })),
     },
   };
+  return { view, loadout, skillRule: kind ? kind.skillSlots : null };
 }
 
 /** [임시] 저장된 스탯이 없는 시험 유닛(휴먼 칸 배치, 1차 모두 10, 레벨 1, 장비 없음) */

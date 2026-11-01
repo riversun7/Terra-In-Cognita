@@ -18,7 +18,7 @@ import type {
 } from "@terra/shared/roster";
 import { type Primaries, skillGradeCap } from "@terra/sim";
 import { TEST_MAP_KEY, TEST_PLANET_ID } from "../world/world.ts";
-import { type BodySpec, bodyView } from "./body.ts";
+import { type BodySpec, NO_ELEMENTS, bodySheet, bodyView } from "./body.ts";
 import type { RosterCatalog } from "./catalog.ts";
 
 const MINUTE = 60_000;
@@ -387,7 +387,7 @@ export function previewAuction(now: number): RosterAuctionLot[] {
 /** 사이보그 본체 시안(D-018·D-026·D-031·D-040·D-427). 사이보그 칸 = 공통 6 + 인공장기(팩 [임시] 3) */
 export function previewCyborg(catalog: RosterCatalog): CyborgBody {
   const rebirths = 1;
-  const body = bodyView(catalog, {
+  const body = bodySheet(catalog, {
     kind: "cyborg",
     // 초기값 합 60(D-6039), K는 숨김 값(D-417)이라 화면에 보내지 않는다
     initial: p6([12, 9, 10, 11, 8, 10]),
@@ -417,6 +417,9 @@ export function previewCyborg(catalog: RosterCatalog): CyborgBody {
     // 신앙도(D-441, 0~100 척도). 화면을 채우려는 값이다(환생 비용 N34 출발값 50보다 조금 많게)
     faith: 62,
     ...body,
+    // 시안은 Lv 23(만렙 아님)이라 K·처음 값을 보내지 않는다(D-449). 속성값 저장(D-450)이 생기기 전이라 0
+    growth: null,
+    elements: NO_ELEMENTS,
     fatigue: { value: 30, max: FATIGUE_MAX },
     inventory: [
       { id: "grain", amount: "40" },

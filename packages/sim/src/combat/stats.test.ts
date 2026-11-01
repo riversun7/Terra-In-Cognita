@@ -1,9 +1,11 @@
+import { createRng } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import {
   MAX_STAT_INPUT,
   type Primaries,
   TEST_STAT_TABLE,
   computeSecondary,
+  explainSecondary,
   primaryAtLevel,
 } from "./stats.ts";
 
@@ -75,5 +77,48 @@ describe("스탯 계산기(D-414·D-417, 정수 ‰)", () => {
       "sight",
     ])
       expect(typeof stats[id]).toBe("number");
+  });
+
+  it("풀이(explainSecondary)의 값은 computeSecondary와 늘 같다 — 무작위 1차 스탯·장비·버프 2,000번", () => {
+    const rng = createRng(181);
+    const pick = (max: number) => rng.nextInt(max);
+    for (let round = 0; round < 2000; round++) {
+      const primaries: Primaries = {
+        str: pick(300),
+        dex: pick(300),
+        agi: pick(300),
+        vit: pick(300),
+        int: pick(300),
+        wis: pick(300),
+      };
+      const gear: Record<string, number> = { hp: pick(40) - 10, hit: pick(30) - 10, evade: pick(5) };
+      const buffs: Record<string, number> = { hp: pick(20), evade: pick(20) };
+      const values = computeSecondary(primaries, TEST_STAT_TABLE, gear, buffs);
+      for (const row of explainSecondary(primaries, TEST_STAT_TABLE, gear, buffs)) {
+        expect(row.value).toBe(values[row.id]);
+      }
+    }
+  });
+
+  it("풀이: 가중치 0인 칸은 빼고, 곱·내림·장비·확률 상한·반감을 그대로 보낸다", () => {
+    const rows = explainSecondary(flat, TEST_STAT_TABLE, { hp: 3, evade: 4 }, { hp: 2, evade: 9 });
+    const hp = rows.find((row) => row.id === "hp");
+    const evade = rows.find((row) => row.id === "evade");
+    if (!hp || !evade) throw new Error("fixture");
+    // HP 가중치 [1500, 1000, 1500, 3000, 1000, 1200] × 10 → Σ 92,000 → 92, 장비 3 + 버프 2
+    expect(hp.terms.map((term) => term.milli)).toEqual([15_000, 10_000, 15_000, 30_000, 10_000, 12_000]);
+    expect(hp).toMatchObject({
+      shape: "quantity",
+      base: 0,
+      weighted: 92,
+      extra: 5,
+      score: 97,
+      cap: null,
+      value: 97,
+    });
+    // 회피는 AGI 칸 하나(1000‰), 확률 모양은 버프를 넣지 않는다(48 §3.1)
+    expect(evade.terms).toEqual([{ index: 2, value: 10, weightPm: 1000, milli: 10_000 }]);
+    expect(evade).toMatchObject({ base: 0, weighted: 10, extra: 4, score: 14, cap: 850, halfConstant: 250 });
+    expect(evade.value).toBe(Math.floor((850 * 14) / (14 + 250)));
   });
 });

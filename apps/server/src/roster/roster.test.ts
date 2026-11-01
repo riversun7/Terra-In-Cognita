@@ -1,5 +1,6 @@
 // 유닛·사이보그 화면 자료 — 팩 이름 표, 몸 계산(성장·장비·스킬 칸), 시안 자료, 실제 유닛 줄 바꾸기, 서비스·프로시저 권한
 import { loadContentPack } from "@terra/content/node";
+import { DEFAULT_CYBORG_APPEARANCE } from "@terra/shared/cyborg";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import type { HomeQuery, TrpcContext, Viewer } from "../trpc/context.ts";
@@ -12,6 +13,8 @@ import { createCallerFactory } from "../trpc/init.ts";
 import { appRouter } from "../trpc/router.ts";
 import { BASELINE_PRIMARY, baselineBody, bodyView } from "./body.ts";
 import { type RosterCatalog, namesFor, rosterCatalogOf } from "./catalog.ts";
+import type { CyborgRecord } from "../cyborg/state.ts";
+import { realCyborgBody } from "./cyborgBody.ts";
 import { previewCyborg, previewUnits } from "./preview.ts";
 import { createRosterServices, realPrisoner, realUnit } from "./services.ts";
 import { type WorldRosterRow, type WorldRosterSource, injuryOf, jobOf, unitTypeOf } from "./worldUnits.ts";
@@ -125,6 +128,70 @@ describe("몸 계산", () => {
     expect(body.faith).toBeLessThanOrEqual(100);
     expect(body.stats.primaries.vit.bonus).toBeGreaterThan(0);
     expect(body.preview).toBe(true);
+  });
+
+  it("사이보그 풀이: 행마다 stats.secondary와 같은 값, 항은 보너스까지 더한 1차 × 팩 가중치, 장비 수치는 extra(48 §3.1)", () => {
+    const body = previewCyborg(catalog);
+    expect(body.breakdown.map((row) => row.id)).toEqual(body.stats.secondary.map((row) => row.id));
+    for (const row of body.breakdown) {
+      expect(row.value).toBe(body.stats.secondary.find((stat) => stat.id === row.id)?.value);
+      for (const term of row.terms) {
+        const primary = body.stats.primaries[term.stat];
+        expect(term.value).toBe(primary.base + primary.bonus);
+        expect(term.milli).toBe(term.value * term.weightPm);
+      }
+      expect(row.weighted).toBe(Math.floor(row.terms.reduce((sum, term) => sum + term.milli, 0) / 1000));
+      if (row.shape === "quantity") expect(row.value).toBe(row.base + row.weighted + row.extra);
+      else expect(row.cap).not.toBeNull();
+    }
+    // HP 항은 화면 차례(STR·VIT·INT·WIS·DEX·AGI)로 온다
+    expect(body.breakdown.find((row) => row.id === "hp")?.terms.map((term) => term.stat)).toEqual([
+      "str",
+      "vit",
+      "int",
+      "wis",
+      "dex",
+      "agi",
+    ]);
+    // 시험 조끼(body)는 방어 수치를 더한다 → 어느 행이든 extra가 0이 아니다
+    expect(body.breakdown.some((row) => row.extra !== 0)).toBe(true);
+    // 속성값 12칸은 0(질문 182), 스킬 칸: 환생 1 → 4칸, 닫힌 칸 6개가 환생 2~7에 하나씩 열린다(팩 처음 3 + 환생마다 1, 최대 10)
+    expect(body.elements).toEqual(Array.from({ length: 12 }, () => 0));
+    expect(body.skillSlotsMax).toBe(10);
+    expect(body.skillSlotUnlocks).toEqual([2, 3, 4, 5, 6, 7]);
+    // 시안은 Lv 23이라 K·처음 값이 없다(D-449)
+    expect(body.growth).toBeNull();
+  });
+
+  it("만든 사이보그: K·처음 값은 만렙(N7)에서만 보낸다(D-449), 그 밖에는 null(D-417 숨김)", () => {
+    const record: CyborgRecord = {
+      userId: "u-player",
+      name: "새싹로봇",
+      nameKey: "새싹로봇",
+      temperament: "balanced",
+      initial: { str: 12, dex: 9, agi: 10, vit: 11, int: 8, wis: 10 },
+      kPm: { str: 1100, dex: 950, agi: 1000, vit: 1050, int: 900, wis: 1000 },
+      appearance: DEFAULT_CYBORG_APPEARANCE,
+      factionId: 1,
+      startCityId: 1,
+      unitId: 7,
+      level: 1,
+      exp: 0,
+      rebirths: 0,
+      faith: 0,
+      createdAtMs: NOW,
+    };
+    const fresh = realCyborgBody(catalog, record);
+    expect(fresh.growth).toBeNull();
+    expect(fresh.stats.primaries.str).toEqual({ base: 12, bonus: 0 });
+    const max = catalog.society.cyborg.maxLevel;
+    const top = realCyborgBody(catalog, { ...record, level: max });
+    expect(top.growth).toEqual({ initial: record.initial, kPm: record.kPm });
+    // 성장값 = 처음 값 × (1000 + 100 × K × (Lv − 1) ÷ 1000) ÷ 1000(D-417, 성장률 100‰)
+    expect(top.stats.primaries.str.base).toBe(
+      Math.floor((12 * (1000 + Math.floor((100 * 1100 * (max - 1)) / 1000))) / 1000),
+    );
+    expect(realCyborgBody(catalog, { ...record, level: max - 1 }).growth).toBeNull();
   });
 
   it("[임시] 시험 유닛 기본값: 1차 모두 10, 보너스 0, baseline", () => {

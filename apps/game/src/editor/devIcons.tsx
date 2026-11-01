@@ -62,3 +62,13 @@ export function SlidersIcon() {
     </DevIcon>
   );
 }
+
+/** 밸런스 화면(저울) */
+export function ScaleIcon() {
+  return (
+    <DevIcon>
+      <path d="M12 4v16M7 20h10M5 7h14" />
+      <path d="M5 7l-2.5 6h5zM19 7l-2.5 6h5z" />
+    </DevIcon>
+  );
+}

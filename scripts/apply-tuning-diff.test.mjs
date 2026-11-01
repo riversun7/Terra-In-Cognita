@@ -52,6 +52,7 @@ describe("pnpm tuning:apply", () => {
     expect(outcome).toEqual({
       applied: [{ id: "n9_initial_sum", from: 60, to: 66 }],
       skipped: [],
+      rows: { applied: [], skipped: [] },
       version: 4,
     });
     const tuning = readFileSync(path.join(dir, "tuning.json"), "utf8");
@@ -90,5 +91,33 @@ describe("pnpm tuning:apply", () => {
     expect(result.stderr).toContain("n9_initial_gone");
     expect(run().status).toBe(2);
     expect(run(file, "--pack", dir, "--bogus").status).toBe(2);
+  });
+
+  it("가중치 표 칸(statRows)도 stat_rows.json에 넣고 판은 한 번만 올린다(밸런스 화면)", () => {
+    const hp = {
+      id: "hp",
+      name: { ko: "HP", en: "HP" },
+      shape: "quantity",
+      base: 0,
+      weights: [1500, 1000, 1500, 3000, 1000, 1200],
+      enabled: true,
+    };
+    writeFileSync(path.join(dir, "stat_rows.json"), json({ entries: [hp] }));
+    const tuningBefore = readFileSync(path.join(dir, "tuning.json"), "utf8");
+    const outcome = applyDiffToPack(dir, {
+      ...diff([]),
+      statRows: [
+        { row: "hp", field: "vit", from: 3000, to: 3300 },
+        { row: "hp", field: "cap", from: 0, to: 1 },
+      ],
+    });
+    expect(outcome.rows.applied).toEqual([{ row: "hp", field: "vit", from: 3000, to: 3300 }]);
+    expect(outcome.rows.skipped).toEqual([{ row: "hp", field: "cap", reason: "unknown" }]);
+    expect(outcome.version).toBe(4);
+    expect(readFileSync(path.join(dir, "stat_rows.json"), "utf8")).toBe(
+      json({ entries: [{ ...hp, weights: [1500, 1000, 1500, 3300, 1000, 1200] }] }),
+    );
+    // 설정 칸 차이가 없으면 tuning.json은 그대로
+    expect(readFileSync(path.join(dir, "tuning.json"), "utf8")).toBe(tuningBefore);
   });
 });

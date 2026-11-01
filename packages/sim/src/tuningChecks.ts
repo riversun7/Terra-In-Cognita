@@ -63,3 +63,18 @@ export function newTuningProblems(
 ): TuningProblem[] {
   return after.filter((problem) => !before.includes(problem));
 }
+
+/**
+ * 가중치 표(stat_rows 실효 표, 켜진 행)의 여러 칸 문제 — docs/adr/2026-11-01-balance-screen.md 1절.
+ * 모든 행에서 가중치가 0인 1차 스탯이 있으면 stat_primary_unused(그 1차는 어느 2차 스탯에도 들지 않는다, D-458 "가치 없는 1차").
+ * 더 약한 신호(+10 승률이 오르지 않음)는 밸런스 화면이 보이기만 한다
+ */
+export function statTableProblems(
+  table: readonly { readonly weights: readonly number[] }[],
+): TuningProblem[] {
+  // 표가 없으면(가중치 표를 싣지 않은 접근자·시험) 볼 것이 없다
+  if (table.length === 0) return [];
+  for (let column = 0; column < PRIMARY_COUNT; column++)
+    if (table.every((row) => (row.weights[column] ?? 0) === 0)) return ["stat_primary_unused"];
+  return [];
+}

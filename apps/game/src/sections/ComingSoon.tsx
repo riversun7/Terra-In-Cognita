@@ -30,6 +30,7 @@ type ComingSoonRoute = Exclude<
   | "dev_star_system"
   | "dev_second_map"
   | "dev_tuning"
+  | "dev_balance"
   | "economy"
   | "economy_warehouse"
   | "economy_production"

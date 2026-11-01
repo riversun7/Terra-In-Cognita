@@ -239,6 +239,8 @@ describe("주소 표", () => {
       dev_star_system: ["/dev/star-system", "dev", "hidden", "dev_admin", []],
       dev_second_map: ["/dev/second-map", "dev", "hidden", "dev_admin", []],
       dev_tuning: ["/dev/tuning", "dev", "shown", "dev_admin", []],
+      // 밸런스 화면(docs/adr/2026-11-01-balance-screen.md 7절)
+      dev_balance: ["/dev/balance", "dev", "shown", "dev_admin", []],
       dev_gpu_bench: ["/dev/gpu-bench", "dev", "shown", "dev_admin", []],
     });
   });

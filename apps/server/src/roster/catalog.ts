@@ -18,6 +18,7 @@ import type { LocalizedName, RosterNames } from "@terra/shared/roster";
 import {
   type CombatCatalog,
   type SocietyCoefficients,
+  type StatRow,
   TEST_COMBAT_CATALOG,
   TEST_SOCIETY_COEFFICIENTS,
   combatCatalogFrom,
@@ -26,6 +27,7 @@ import {
 import { tuningOf } from "../world/combatCatalog.ts";
 
 export interface RosterCatalog {
+  /** 전투 자료. 스탯 표는 읽을 때마다 그 세계의 실효 가중치 표다(받아 두지 말고 요청마다 읽는다) */
   readonly combat: CombatCatalog;
   /** 이름 표 전체(응답에는 쓴 ID만 넣는다, namesFor) */
   readonly names: RosterNames;
@@ -54,9 +56,14 @@ const nameTable = (entries: readonly { id: string; name: LocalizedName }[]): Rec
 
 /**
  * 검증을 통과한 팩의 파일에서 만든다(서버 시작 때). society: 설정 칸 실효 값 접근자(src/tuning/state.ts TuningState.society).
- * 없으면 팩 값 그대로(시험)
+ * statTable: 가중치 표 실효 값 접근자(TuningState.statTable, 밸런스 화면 덮어쓰기 — docs/adr/2026-11-01-balance-screen.md 1절).
+ * 둘 다 없으면 팩 값 그대로(시험). combat은 읽을 때마다 지금 표를 든 묶음이다(표가 같으면 같은 객체)
  */
-export function rosterCatalogOf(source: PackSource, society?: () => SocietyCoefficients): RosterCatalog {
+export function rosterCatalogOf(
+  source: PackSource,
+  society?: () => SocietyCoefficients,
+  statTable?: () => readonly StatRow[],
+): RosterCatalog {
   const statRows = entriesOf(source, "stat_rows.json", (raw) => statRowEntrySchema.parse(raw));
   const items = entriesOf(source, "items.json", (raw) => itemEntrySchema.parse(raw));
   const skills = entriesOf(source, "skills.json", (raw) => skillEntrySchema.parse(raw));
@@ -71,8 +78,17 @@ export function rosterCatalogOf(source: PackSource, society?: () => SocietyCoeff
   });
   const packSociety = societyCoefficientsFrom(tuningOf(source));
   const current = society ?? (() => packSociety);
+  // 가중치 표가 바뀌면(덮어쓰기 판) 새 묶음을 만든다. 옛 묶음을 든 쪽은 그 요청 안에서만 쓴다(받아 두지 않는다)
+  let combatNow: CombatCatalog = combat;
+  const combatOf = (): CombatCatalog => {
+    const table = statTable?.() ?? combat.statTable;
+    if (combatNow.statTable !== table) combatNow = { ...combat, statTable: table };
+    return combatNow;
+  };
   return {
-    combat,
+    get combat() {
+      return combatOf();
+    },
     names: {
       stats: nameTable(statRows.filter((row) => row.enabled)),
       items: nameTable(items.filter((item) => item.enabled)),

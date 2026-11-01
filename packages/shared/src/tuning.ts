@@ -107,6 +107,8 @@ export const TUNING_PROBLEMS = [
   "wage_order",
   "employer_order",
   "food_order",
+  // 가중치 표(stat_rows): 켜진 모든 행에서 가중치가 0인 1차 스탯(가치 없는 1차, D-458). docs/adr/2026-11-01-balance-screen.md 1절
+  "stat_primary_unused",
 ] as const;
 export type TuningProblem = (typeof TUNING_PROBLEMS)[number];
 
@@ -175,6 +177,8 @@ export interface TuningListResponse {
   readonly revision: number;
   /** 팩 차례 */
   readonly entries: readonly TuningEntryView[];
+  /** 가중치 표(stat_rows) 칸 덮어쓰기 수(밸런스 화면 /dev/balance에서 본다) */
+  readonly statOverrides: number;
 }
 
 /** 최근 바꿈 동작(감사 기록 tuning.*): 묶음 적용, 모두 되돌리기, 켤 때 팩이 이김, 켤 때 지움 */
@@ -244,6 +248,76 @@ export interface TuningDiffView {
     readonly from: number;
     readonly to: number;
   }[];
+  /** 가중치 표 칸 차이(덮어쓰기가 있을 때만, docs/adr/2026-11-01-balance-screen.md 2절) */
+  readonly statRows?: readonly StatCellChange[];
+}
+
+// ── 가중치 표(콘텐츠 팩 stat_rows) 칸 — 밸런스 화면(/dev/balance, docs/adr/2026-11-01-balance-screen.md 1절) ──
+// 칸 하나 = 행 하나의 가중치 6개(팩 weights 차례 STR·DEX·AGI·VIT·INT·WIS) 또는 양 모양 기본(base)·확률 모양 상한(cap)·반감 상수(half).
+// 덮어쓰기 키는 `<행 ID>.<칸>`이고 설정 칸 덮어쓰기(tuning_overrides)와 같은 표·판·감사 기록에 든다(점이 있어 설정 칸 ID와 겹치지 않는다).
+
+/** 가중치 칸(팩 weights 차례 = 규칙 차례) */
+export const STAT_WEIGHT_FIELDS = ["str", "dex", "agi", "vit", "int", "wis"] as const;
+export type StatWeightField = (typeof STAT_WEIGHT_FIELDS)[number];
+/** 칸 이름 전체 */
+export const STAT_CELL_FIELDS = [...STAT_WEIGHT_FIELDS, "base", "cap", "half"] as const;
+export type StatCellField = (typeof STAT_CELL_FIELDS)[number];
+
+export function isStatCellField(value: unknown): value is StatCellField {
+  return typeof value === "string" && (STAT_CELL_FIELDS as readonly string[]).includes(value);
+}
+
+/** 덮어쓰기 키 모양(DB 검사 tuning_overrides_id_format과 같은 칸 이름) */
+export const STAT_CELL_KEY = /^([a-z][a-z0-9_]{1,47})\.(str|dex|agi|vit|int|wis|base|cap|half)$/;
+
+export function statCellKey(row: string, field: StatCellField): string {
+  return `${row}.${field}`;
+}
+
+/** 키 → 행·칸. 가중치 칸 키가 아니면 null(설정 칸 ID) */
+export function parseStatCellKey(key: string): { row: string; field: StatCellField } | null {
+  const match = STAT_CELL_KEY.exec(key);
+  const row = match?.[1];
+  const field = match?.[2];
+  return row !== undefined && isStatCellField(field) ? { row, field } : null;
+}
+
+/** 칸의 저장 단위: 가중치·상한 ‰, 기본·반감 상수 점수 */
+export function statCellUnit(field: StatCellField): TuningUnit {
+  return field === "base" || field === "half" ? "points" : "pm";
+}
+
+/** 칸 기술 범위(양 끝 포함) = 팩 스키마(stat_rows)·sim 입력 범위(MAX_WEIGHT_PM·MAX_STAT_INPUT)와 같다 */
+export const STAT_CELL_LIMITS: Readonly<
+  Record<StatCellField, { readonly min: number; readonly max: number }>
+> = {
+  str: { min: -100_000, max: 100_000 },
+  dex: { min: -100_000, max: 100_000 },
+  agi: { min: -100_000, max: 100_000 },
+  vit: { min: -100_000, max: 100_000 },
+  int: { min: -100_000, max: 100_000 },
+  wis: { min: -100_000, max: 100_000 },
+  base: { min: -10_000_000, max: 10_000_000 },
+  cap: { min: 0, max: 1000 },
+  half: { min: 1, max: 10_000_000 },
+};
+
+export function statCellInRange(field: StatCellField, value: number): boolean {
+  const limit = STAT_CELL_LIMITS[field];
+  return Number.isSafeInteger(value) && value >= limit.min && value <= limit.max;
+}
+
+/** 모양마다 있는 칸(가중치 6개 + 양 모양 base, 확률 모양 cap·half) */
+export function statCellFieldsOf(shape: "quantity" | "probability"): readonly StatCellField[] {
+  return shape === "quantity" ? [...STAT_WEIGHT_FIELDS, "base"] : [...STAT_WEIGHT_FIELDS, "cap", "half"];
+}
+
+/** 내보내기 차이의 가중치 칸 하나: from = 내보낼 때의 팩 값, to = 덮어쓰기 값 */
+export interface StatCellChange {
+  readonly row: string;
+  readonly field: StatCellField;
+  readonly from: number;
+  readonly to: number;
 }
 
 export interface TuningExportResponse {

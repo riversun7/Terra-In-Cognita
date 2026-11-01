@@ -62,6 +62,23 @@ describe("1차 스탯 대결(밸런스 화면이 쓸 함수, D-458): 1차 스탯
     expect(plusStr.aWins).toBeGreaterThan(first.aWins);
   });
 
+  it("밸런스 화면 선택: 작은 지도·짧은 제한 시간, 시간 초과는 남은 HP 몫이 큰 쪽으로 센다", () => {
+    const tough = { primaries: { ...even, vit: 200 }, weapon: blade };
+    const base = { primaries: even, weapon: blade };
+    const quick = { ...options, mapSize: 32, limitMs: 10_000 };
+    const report = runStatDuels(tough, base, quick);
+    expect(runStatDuels(tough, base, quick)).toEqual(report);
+    // 10초 안에는 아무도 쓰러지지 않는다(수비 쪽 b 승으로 세던 시간 초과)
+    expect(report.timeouts).toBe(12);
+    expect(report.avgMs).toBe(10_000);
+    // VIT 200 쪽이 남은 몫이 더 크다
+    expect(report.aTimeoutLeads).toBe(12);
+    expect(report.bTimeoutLeads).toBe(0);
+    // 같은 유닛끼리 시간 초과는 같음(둘 다 0이 아닐 수 있지만 합이 시간 초과 수를 넘지 않는다)
+    const same = runStatDuels(base, base, quick);
+    expect(same.aTimeoutLeads + same.bTimeoutLeads).toBeLessThanOrEqual(same.timeouts);
+  });
+
   it("가중치 표를 바꾸면 결과가 바뀐다(표를 고쳐 보는 화면)", () => {
     const base = { primaries: even, weapon: blade };
     const strong = { primaries: { ...even, str: 40 }, weapon: blade };

@@ -935,7 +935,7 @@ export const worldBattleResults = pgTable("world_battle_results", {
 export const tuningOverrides = pgTable(
   "tuning_overrides",
   {
-    /** 칸 ID(팩 tuning 항목 ID) */
+    /** 칸 ID(팩 tuning 항목 ID) 또는 가중치 표 칸 키 `<stat_rows 행 ID>.<칸>`(밸런스 화면, docs/adr/2026-11-01-balance-screen.md 1절) */
     id: text("id").primaryKey(),
     value: bigint("value", { mode: "number" }).notNull(),
     /** 저장할 때의 팩 값·팩 판(core@N). 지금 팩 값과 다르면 화면이 "팩 값이 바뀜"을 보인다 */
@@ -949,7 +949,10 @@ export const tuningOverrides = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    check("tuning_overrides_id_format", sql`${table.id} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+    check(
+      "tuning_overrides_id_format",
+      sql`${table.id} ~ '^[a-z][a-z0-9_]{1,47}(\\.(str|dex|agi|vit|int|wis|base|cap|half))?$'`,
+    ),
     check("tuning_overrides_note_length", sql`${table.note} is null or char_length(${table.note}) <= 200`),
   ],
 );

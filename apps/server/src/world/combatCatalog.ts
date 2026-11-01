@@ -3,6 +3,7 @@
 // 지금은 시험이 쓴다. 세계에서 전투를 열 때(R5) 서버가 유닛 사양을 만들 때 쓴다.
 import {
   type PackSource,
+  type StatRowEntry,
   type TuningEntry,
   effectEntrySchema,
   itemEntrySchema,
@@ -33,6 +34,11 @@ export function combatCatalogOf(source: PackSource): CombatCatalog {
     items: entriesOf(source, "items.json", (raw) => itemEntrySchema.parse(raw)),
     unitKinds: entriesOf(source, "unit_kinds.json", (raw) => unitKindEntrySchema.parse(raw)),
   });
+}
+
+/** 팩 `stat_rows` 항목(팩 차례, 꺼진 행 포함). 서버의 설정 칸 접근자가 가중치 칸 덮어쓰기에 쓴다(밸런스 화면) */
+export function statRowsOf(source: PackSource): StatRowEntry[] {
+  return entriesOf(source, "stat_rows.json", (raw) => statRowEntrySchema.parse(raw));
 }
 
 /** 팩 `tuning` 항목(팩 차례). 서버의 설정 칸 접근자(src/tuning/state.ts)가 받는다 */

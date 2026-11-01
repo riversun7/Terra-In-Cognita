@@ -1,0 +1,39 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "ade719a5-ba82-47a5-900b-48cbc25500ca",
+  "prevIds": [
+    "fbc59ee0-3609-4d77-95f6-b48a60bafc7b",
+    "2c65ad99-fcb8-4f71-a04c-f11f2e15292c"
+  ],
+  "footprints": [
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "tuning_overrides"
+      ],
+      "writes": [
+        "s|ck|public.tuning_overrides.tuning_overrides_id_format"
+      ],
+      "reads": [
+        "n|tbl|public.tuning_overrides",
+        "n|sch|public",
+        "n|col|public.tuning_overrides.id",
+        "e|col|public.tuning_overrides.id"
+      ],
+      "sqlHash": "e3e00b72074f6c5a"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"tuning_overrides\",\"tuning_overrides_id_format\"]",
+      "set": {
+        "value": "\"id\" ~ '^[a-z][a-z0-9_]{1,47}(\\.(str|dex|agi|vit|int|wis|base|cap|half))?$'"
+      }
+    }
+  ]
+}

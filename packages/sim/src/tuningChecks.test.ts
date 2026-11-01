@@ -2,7 +2,8 @@ import { TUNING_PROBLEMS } from "@terra/shared/tuning";
 import { describe, expect, it } from "vitest";
 import { TEST_SOCIETY_COEFFICIENTS } from "./society/coefficients.ts";
 import { societyCoefficientsFrom } from "./tuning.ts";
-import { newTuningProblems, tuningProblems } from "./tuningChecks.ts";
+import { TEST_STAT_TABLE } from "./combat/stats.ts";
+import { newTuningProblems, statTableProblems, tuningProblems } from "./tuningChecks.ts";
 
 const withValues = (entries: readonly (readonly [string, number])[]) =>
   societyCoefficientsFrom(new Map(entries));
@@ -43,5 +44,29 @@ describe("설정 칸 여러 칸 규칙 검사(D1)", () => {
     for (const problem of problems) expect(TUNING_PROBLEMS).toContain(problem);
     expect(newTuningProblems(["n9_fit"], problems)).toEqual(["n6_order"]);
     expect(newTuningProblems(problems, ["n9_fit"])).toEqual([]);
+  });
+});
+
+describe("가중치 표 여러 칸 규칙(밸런스 화면, D-458 가치 없는 1차)", () => {
+  it("시험 표(= 팩 stat_rows)에는 문제가 없다", () => {
+    expect(statTableProblems(TEST_STAT_TABLE)).toEqual([]);
+    expect(statTableProblems([])).toEqual([]);
+  });
+
+  it("켜진 모든 행에서 가중치가 0인 1차 스탯이 있으면 stat_primary_unused", () => {
+    for (let column = 0; column < 6; column++) {
+      const zeroed = TEST_STAT_TABLE.map((row) => ({
+        ...row,
+        weights: row.weights.map((w, i) => (i === column ? 0 : w)),
+      }));
+      expect(statTableProblems(zeroed)).toEqual(["stat_primary_unused"]);
+    }
+    // 한 행에라도 남아 있으면(시야 WIS만) 문제가 아니다 — 약한 1차는 화면이 따로 보인다
+    const onlySight = TEST_STAT_TABLE.map((row) => ({
+      ...row,
+      weights: row.weights.map((w, i) => (i === 5 && row.id !== "sight" ? 0 : w)),
+    }));
+    expect(statTableProblems(onlySight)).toEqual([]);
+    expect(TUNING_PROBLEMS).toContain("stat_primary_unused");
   });
 });

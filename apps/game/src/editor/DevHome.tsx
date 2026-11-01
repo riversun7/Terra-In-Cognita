@@ -58,7 +58,7 @@ const DEV_TOOLS = {
     mark: <SlidersIcon />,
     ready: true,
   },
-  // 밸런스 화면(docs/adr/2026-11-01-balance-screen.md): 가중치 표를 고치고 1차 스탯 +10의 2차 스탯·승률 변화를 본다
+  // 밸런스·전투 실험실(docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-01, 전투 실험실)"): 팀 A·B 파티 전투 + 가중치 표
   dev_balance: {
     name: m.shell_route_dev_balance,
     desc: m.dev_tool_balance_desc,

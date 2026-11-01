@@ -1,4 +1,5 @@
-// 밸런스 화면 시험 — /dev/balance (docs/adr/2026-11-01-balance-screen.md 7절).
+// 밸런스 화면 시험 — /dev/balance [가중치 표] 탭 (docs/adr/2026-11-01-balance-screen.md 7절). [전투 실험실] 탭은 e2e/battleLab.spec.ts.
+// - 화면은 실험실 탭으로 열리고, [가중치 표] 탭을 누르면 이 표가 뜬다. 기준 유닛을 팀 A 유닛·유닛 프리셋에서 불러온다.
 // - dev: 가중치 칸(HP의 VIT)을 고치면 담기고 기여 표가 "지금 → 고침"을 보인다. [승률 돌리기]는 1차 여섯 줄(지금·고침 막대).
 //   [적용]하면 그 세계에 바로 든다(세계에서 바뀐 칸 1, 시안 유닛 HP가 오름, 설정 칸 패널 머리에 가중치 칸 수). 되돌리기 → 적용이면 팩 값.
 //   모든 WIS 가중치를 0으로 담으면 담은 변경 막대가 "적용하면 받지 않음(가치 없는 1차)"을 미리 보이고, 적용은 거절된다.
@@ -70,10 +71,17 @@ async function previewHp(page: Page): Promise<number> {
   return Number(field(hp, "value"));
 }
 
+/** [가중치 표] 탭을 열고 표·기여가 뜰 때까지 */
+async function weightsReady(page: Page): Promise<void> {
+  await page.locator("#bp-tab-weights").click();
+  await expect(page.locator(".bp-weights-tab")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(page.locator(".bp-contrib tbody tr").first()).toBeVisible({ timeout: 20_000 });
+}
+
 async function screenReady(page: Page): Promise<void> {
   await page.goto("/dev/balance");
-  await expect(page.locator(".bp-screen")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
-  await expect(page.locator(".bp-contrib tbody tr").first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator(".bp-screen")).toBeVisible({ timeout: 20_000 });
+  await weightsReady(page);
 }
 
 const cell = (page: Page, row: string, fieldName: string) =>
@@ -122,7 +130,7 @@ test.describe("개발자", () => {
     await screenReady(page);
     await resetTuning(page);
     await page.reload();
-    await expect(page.locator(".bp-screen")).toHaveAttribute("data-status", "ready");
+    await weightsReady(page);
     await expect(page.locator(".bp-weights tbody tr")).toHaveCount(18);
     const hpBefore = await previewHp(page);
 
@@ -165,7 +173,7 @@ test.describe("개발자", () => {
     await screenReady(page);
     await resetTuning(page);
     await page.reload();
-    await expect(page.locator(".bp-screen")).toHaveAttribute("data-status", "ready");
+    await weightsReady(page);
     const rows = await page
       .locator(".bp-weights tbody tr")
       .evaluateAll((elements) => elements.map((element) => element.getAttribute("data-row") ?? ""));
@@ -181,6 +189,26 @@ test.describe("개발자", () => {
     await expect(page.locator(".bp-pending")).toBeVisible();
     await page.locator(".bp-pending-actions .button-small").first().click();
     await expect(page.locator(".bp-pending")).toHaveCount(0);
+    expect(unexpected(deviceErrors)).toEqual([]);
+  });
+});
+
+test.describe("기준 유닛 불러오기", () => {
+  test.use({ account: "dev" });
+
+  test("팀 A 유닛·유닛 프리셋을 고르면 서버 미리 보기의 1차 합과 무기가 기준 유닛에 든다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await screenReady(page);
+    const source = page.locator(".bp-source select");
+    // 샘플 Lv 30 전사(처음 STR 14, K 1100, Lv 30 → 14 × (1000 + 100 × 1100 × 29 ÷ 1000) ÷ 1000 = 58, 반지(500‰) +2)
+    await source.selectOption("sample_lv30_warrior");
+    await expect(page.locator(".bp-primary-input").first()).toHaveValue("60");
+    await expect(page.locator(".bp-settings select").first()).toHaveValue("test_sword");
+    // 팀 A 첫 유닛(샘플 혼성 파티의 탱커)
+    await source.selectOption("team:0");
+    await expect(page.locator(".bp-primary-input").first()).not.toHaveValue("60");
     expect(unexpected(deviceErrors)).toEqual([]);
   });
 });
@@ -251,7 +279,7 @@ test.describe("배치·사진", () => {
         });
         expect(saved.status).toBe(200);
         await page.reload();
-        await expect(page.locator(".bp-screen")).toHaveAttribute("data-status", "ready");
+        await weightsReady(page);
         await stageCell(page, "hp", "vit", "4500");
         await stageCell(page, "physical_attack", "str", "2600");
         // 승률은 파스텔에서만 돌린다(대결 속도 제한), 다크는 비어 있는 상태를 찍는다

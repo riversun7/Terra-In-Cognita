@@ -3,6 +3,7 @@
 import { accountRouter } from "./account.ts";
 import { adminRouter } from "./admin.ts";
 import { balanceRouter } from "./balance.ts";
+import { battleLabRouter } from "./battleLab.ts";
 import { battleReplayRouter } from "./battleReplay.ts";
 import { dashboardRouter } from "./dashboard.ts";
 import { economyRouter } from "./economy.ts";
@@ -30,6 +31,8 @@ export const appRouter = router({
   balance: balanceRouter,
   // 개발자 스킬 편집기·행동별 소모 화면(docs/adr/2026-11-01-skill-editor.md 6절)
   skills: skillsRouter,
+  // 개발자 전투 실험실(같은 화면의 [전투 실험실] 탭, 같은 ADR "바뀜 (2026-11-01, 전투 실험실)")
+  battleLab: battleLabRouter,
   // 개발자 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 5절)
   battleReplay: battleReplayRouter,
   // 홈 자료(앱 뼈대 W3, ADR 2026-10-29-app-shell 6·7·8절)

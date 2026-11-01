@@ -570,14 +570,15 @@ function makeBattle(
   };
 }
 
-/** 빨리감기: 끝까지 돌려 결과·끝 상태(JSON)를 낸다. onSnapshot은 스냅숏 간격마다 */
+/** 빨리감기: 끝까지 돌려 결과·끝 상태(JSON)를 낸다. onSnapshot은 스냅숏 간격마다, trace는 판정 관찰자(선택, 전투 실험실 통계) */
 export function runBattle(
   init: BattleInit,
   inputs: readonly BattleInput[],
   onSnapshot?: (snapshot: string, tick: number) => void,
   c: CombatCoefficients = TEST_COMBAT_COEFFICIENTS,
+  trace?: BattleTrace,
 ): { result: BattleResult; finalState: string; state: BattleState } {
-  const battle = createBattle(init, c);
+  const battle = createBattle(init, c, trace);
   const { state, result } = battle.runToEnd(inputs, Number.POSITIVE_INFINITY, onSnapshot);
   if (!result) throw new Error("battle did not end");
   return { result, finalState: snapshotBattle(state), state };

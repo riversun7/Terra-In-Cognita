@@ -6,7 +6,7 @@ import { loadServerContent } from "./content.ts";
 import { rosterCatalogOf } from "./roster/catalog.ts";
 import { effectNamesOf } from "./battleReplay/names.ts";
 import { createTuningState } from "./tuning/state.ts";
-import { effectsOf, statRowsOf, tuningEntriesOf } from "./world/combatCatalog.ts";
+import { effectsOf, statRowsOf, tuningEntriesOf, unitKindNamesOf } from "./world/combatCatalog.ts";
 import { createContentEditState } from "./contentEdit/state.ts";
 import { economyCatalogFromPack } from "./economyView/catalog.ts";
 import { nationPresetsOf } from "./npc/presets.ts";
@@ -133,6 +133,8 @@ app = await buildApp({
   contentEdit: { state: contentEdit },
   // 밸런스 화면(/dev/balance): 시드 대결은 요청마다 워커 스레드에서
   balance: { runner: { kind: "worker", workerUrl: balanceWorkerUrl } },
+  // 전투 실험실(같은 화면의 [전투 실험실] 탭): 전투는 같은 워커, 유닛 종류 이름은 팩
+  battleLab: { unitKindNames: unitKindNamesOf(loaded.source) },
   // 전투 다시보기(/dev/battle-replay): 시범 6 대 6 기록은 요청마다 워커 스레드에서. 효과 이름은 팩 effects
   battleReplay: {
     runner: { kind: "worker", workerUrl: battleReplayWorkerUrl },

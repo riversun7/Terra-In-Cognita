@@ -1,0 +1,454 @@
+/*
+ * 밸런스·전투 실험실(/dev/balance) — 탭과 [전투 실험실] 탭. 화면 조각과 함께 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 촘촘(data-density="compact"). 좁은 폭(390px) 먼저 한 줄로 쌓고, 넓으면(64em) 왼쪽 팀·전투장 / 오른쪽 유닛 편집·미리 보기.
+ * 큰 표(레벨 표·유닛 요약)는 그 안에서만 옆으로 민다(쪽 전체는 가로로 밀리지 않는다).
+ */
+
+/* ── 탭 ── */
+.bp-tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-block-end: var(--border-w) solid var(--color-border);
+}
+.bp-tab {
+  min-height: var(--tap-size);
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-w) solid transparent;
+  border-block-end: none;
+  border-start-start-radius: var(--radius-sm);
+  border-start-end-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+.bp-tab[aria-selected="true"] {
+  border-color: var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: inset 0 calc(var(--border-w) * 2) 0 var(--color-primary);
+}
+.bp-tab:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: calc(var(--focus-offset) * -1);
+}
+.bp-tabpanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.bp-tabpanel[hidden] {
+  display: none;
+}
+.bp-weights-tab,
+.bl-lab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.bp-source {
+  gap: var(--space-1);
+}
+
+/* ── 배치 ── */
+.bl-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+.bl-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+@media (min-width: 64em) {
+  .bl-layout {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  }
+}
+
+/* ── 팀 ── */
+.bl-team[data-team="a"] {
+  border-inline-start: calc(var(--border-w) * 3) solid var(--color-primary);
+}
+.bl-team[data-team="b"] {
+  border-inline-start: calc(var(--border-w) * 3) solid var(--color-warning);
+}
+.bl-team-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.bl-count {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.bl-units,
+.bl-skills,
+.bl-secondary {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.bl-unit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+}
+.bl-unit[data-active] {
+  border-color: var(--color-focus);
+  box-shadow: inset 0 0 0 var(--hairline) var(--color-focus);
+}
+.bl-unit-pick {
+  flex: 1 1 12em;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--space-2);
+  min-width: 0;
+  min-height: var(--tap-size);
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.bl-unit-pick:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.bl-unit-key {
+  grid-row: span 2;
+  align-self: center;
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-focus);
+}
+.bl-unit-name {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.bl-unit-meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.bl-unit-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-inline-start: auto;
+}
+.bl-row-select {
+  min-width: 0;
+  width: auto;
+}
+.bl-icon {
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  padding-inline: var(--space-2);
+}
+.bl-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.bl-add select {
+  flex: 1 1 12em;
+  width: auto;
+  min-width: 0;
+}
+
+/* ── 프리셋 막대 ── */
+.bl-presets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--hairline) dashed var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.bl-preset-select {
+  width: 100%;
+  min-width: 0;
+}
+.bl-preset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* ── 숫자 칸·격자 ── */
+.bl-num {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.bl-num-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.bl-num-input {
+  min-width: 0;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.bl-num-input[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+.bl-warn .bl-num-input {
+  border-color: var(--color-warning);
+}
+.bl-grid2,
+.bl-grid3,
+.bl-grid4 {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 30em) {
+  .bl-grid3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .bl-grid4 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 48em) {
+  .bl-grid4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.bl-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-size);
+}
+.bl-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.bl-details > summary {
+  min-height: var(--tap-size);
+  display: flex;
+  align-items: center;
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+.bl-details[open] > summary {
+  margin-block-end: var(--space-1);
+}
+/* flex로 바꾼 summary는 펼침 표시가 사라진다: 직접 그린다(펼칠 수 있는 것이 보이게) */
+.bl-details > summary::before,
+.bl-secondary summary::after {
+  content: "▸";
+  flex: none;
+  margin-inline-end: var(--space-2);
+  color: var(--color-text-muted);
+}
+.bl-details[open] > summary::before,
+.bl-secondary details[open] summary::after {
+  content: "▾";
+}
+.bl-secondary summary::after {
+  order: -1;
+}
+.bl-details > summary::-webkit-details-marker,
+.bl-secondary summary::-webkit-details-marker {
+  display: none;
+}
+.bl-details > summary:hover,
+.bl-secondary summary:hover,
+.bl-unit-pick:hover {
+  background-color: var(--color-surface-2);
+}
+.bp-tab:hover {
+  color: var(--color-text);
+}
+.bl-subtitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+}
+.bl-weapon-field {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.bl-custom-weapon {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.bl-slots {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr);
+}
+.bl-slot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 6em);
+  gap: var(--space-1) var(--space-2);
+  align-items: end;
+}
+.bl-slot .field-label {
+  grid-column: 1 / -1;
+}
+.bl-slot select {
+  min-width: 0;
+  width: 100%;
+}
+
+/* ── 표 ── */
+.bl-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.bl-table {
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+.bl-table th,
+.bl-table td {
+  padding: var(--space-1) var(--space-2);
+  border-block-end: var(--hairline) solid var(--color-border);
+  text-align: end;
+  white-space: nowrap;
+}
+.bl-table th[scope="row"] {
+  text-align: start;
+}
+.bl-table thead th {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-strong);
+}
+.bl-table thead th:first-child {
+  text-align: start;
+}
+.bl-primaries {
+  width: 100%;
+}
+.bl-primaries td {
+  inline-size: 50%;
+}
+.bl-stat-code {
+  font-weight: var(--font-weight-strong);
+  color: var(--bp-stat, var(--color-text));
+}
+.bl-strong {
+  font-weight: var(--font-weight-strong);
+}
+.bl-summary-table th[scope="row"] {
+  white-space: normal;
+  min-width: 10em;
+}
+.bl-summary-table tr[data-team="b"] .bl-unit-key {
+  color: var(--color-warning);
+}
+.bl-summary-table tr[data-status="down"] td:last-child {
+  color: var(--color-danger);
+}
+.bl-levels-wrap {
+  max-height: calc(var(--tap-size) * 8);
+  overflow-y: auto;
+}
+
+/* ── 속성 ── */
+.bl-elements {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 30em) {
+  .bl-elements {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.bl-family {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  gap: var(--space-2);
+  align-items: end;
+}
+.bl-family-sum {
+  padding-block-end: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.bl-chip-line {
+  margin: 0;
+}
+.bl-chip {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-sm);
+}
+.bl-chip[data-tone="ok"] {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+.bl-chip[data-tone="warn"] {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+.bl-warn-text {
+  color: var(--color-warning);
+}
+.bl-invalid {
+  border-color: var(--color-warning) !important;
+  color: var(--color-warning);
+}
+
+/* ── 스킬 ── */
+.bl-skill {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.bl-skill[data-over] {
+  border-style: dashed;
+  color: var(--color-text-muted);
+}
+.bl-skill-name {
+  flex: 1 1 8em;
+  align-self: center;
+  overflow-wrap: anywhere;
+}
+.bl-grade {
+  inline-size: 5em;
+}

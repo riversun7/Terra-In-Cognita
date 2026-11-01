@@ -25,6 +25,8 @@ import type { FactionOverviewResponse } from "@terra/shared/faction";
 import type { MailListResponse } from "@terra/shared/mail";
 import type { TuningExportResponse, TuningHistoryResponse, TuningListResponse } from "@terra/shared/tuning";
 import type { SkillEditorServices } from "../contentEdit/services.ts";
+import type { BattleLabShared } from "../battleLab/services.ts";
+import type { Database } from "../db/client.ts";
 import type {
   BalanceContributionInput,
   BalanceContributionResponse,
@@ -328,6 +330,8 @@ export interface TrpcContext {
   balance?: BalanceServices | undefined;
   /** 스킬 편집기·행동별 소모 화면. 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */
   skills?: SkillEditorServices | undefined;
+  /** 전투 실험실(앱에 하나인 서비스 + 이 요청의 DB·접속 주소). 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */
+  battleLab?: { readonly shared: BattleLabShared; readonly db: Database; readonly ip: string } | undefined;
   /** 전투 다시보기. 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */
   battleReplay?: BattleReplayServices | undefined;
 }

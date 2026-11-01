@@ -27,6 +27,7 @@ import { reasonedError } from "../trpc/init.ts";
 import { type TuningShared, overrideView } from "../tuning/services.ts";
 import type { TuningChange, TuningPlan } from "../tuning/state.ts";
 import { contributionOf } from "./compute.ts";
+import { type HeavyGate, createHeavyGate } from "./gate.ts";
 import { type DuelRunner, DuelRunError } from "./runner.ts";
 
 /** 받지 않은 요청(BAD_REQUEST)의 message. 무엇이 틀렸는지는 data.reason(@terra/shared BALANCE_REASONS) */
@@ -45,6 +46,15 @@ export const BALANCE_DEFAULTS = {
   seed: 1,
   limitSec: 120,
 } as const;
+
+/**
+ * 기준 유닛 기본값의 무기(D-490: 기본 유닛은 기본 무기를 든다): 팩 무기 가운데 물리 칸이 있는 첫 무기, 없으면 맨손.
+ * 장비·스킬은 이 대결 모양에 없다(전투 실험실 샘플이 장비·스킬까지 든다)
+ */
+function defaultsOf(weapons: ReadonlyMap<string, WeaponSpec>) {
+  const first = [...weapons].find(([id, weapon]) => id !== BALANCE_UNARMED && weapon.physical);
+  return { ...BALANCE_DEFAULTS, weapon: first?.[0] ?? BALANCE_UNARMED };
+}
 
 export interface BalanceLimits {
   /** 사용자마다 대결 속도 제한 */
@@ -78,12 +88,14 @@ export function createBalanceServices(deps: {
   now: () => number;
   log: BalanceLog;
   limits?: Partial<BalanceLimits> | undefined;
+  /** 서버 전체 바쁨 표시(전투 실험실과 같이 쓴다). 없으면 이 서비스만의 표시 */
+  gate?: HeavyGate | undefined;
 }): BalanceServices {
   const { tuning, roster, runner, now, log } = deps;
   const { state } = tuning;
   const limits = { ...DEFAULT_BALANCE_LIMITS, ...deps.limits };
   const duelLimiter = createRateLimiter({ ...limits.duelsPerUser, now });
-  let busy = false;
+  const gate = deps.gate ?? createHeavyGate();
 
   /** 무기 목록: 맨손(사람형 타고난 무기) + 팩의 무기 아이템(무기 사양이 있는 장비). 화면은 맨손 이름을 메시지 키로 바꾼다 */
   const weaponSpecs = (): Map<string, WeaponSpec> => {
@@ -129,7 +141,7 @@ export function createBalanceServices(deps: {
         revision: snapshot.revision,
         rows,
         weapons: [...weaponSpecs()].map(([id, weapon]) => weaponView(id, weapon)),
-        defaults: BALANCE_DEFAULTS,
+        defaults: defaultsOf(weaponSpecs()),
       });
     },
 
@@ -151,8 +163,7 @@ export function createBalanceServices(deps: {
       if (!weapon) throw rejected("unknown_weapon");
       if (!duelLimiter.take(viewer.id))
         throw reasonedError("TOO_MANY_REQUESTS", "RATE_LIMITED", "rate_limited");
-      if (busy) throw reasonedError("TOO_MANY_REQUESTS", "BALANCE_BUSY", "busy");
-      busy = true;
+      if (!gate.tryEnter()) throw reasonedError("TOO_MANY_REQUESTS", "BALANCE_BUSY", "busy");
       try {
         // 요청 시작 때 값 한 벌(표 두 벌·계수)을 일에 담는다. 워커는 접근자를 모른다
         const snapshot = state.snapshot();
@@ -209,7 +220,7 @@ export function createBalanceServices(deps: {
           ms,
         };
       } finally {
-        busy = false;
+        gate.leave();
       }
     },
   };

@@ -383,6 +383,8 @@ export {
   affinityRatePm,
   msToTicks,
   regenOnTick,
+  staminaCostMilli,
+  staminaScore,
   type CombatCoefficients,
 } from "./combat/coefficients.ts";
 export {
@@ -434,6 +436,13 @@ export {
 } from "./combat/battleMap.ts";
 export { BLOCK_HEIGHT, lineClear, type SightEnd } from "./combat/los.ts";
 export { createBattle, restoreBattle, runBattle, snapshotBattle } from "./combat/battle.ts";
+export {
+  createBattleTally,
+  type BattleHit,
+  type BattleTally,
+  type TallyEvent,
+  type UnitTally,
+} from "./combat/observe.ts";
 export type { BattleTrace } from "./combat/battleTrace.ts";
 export {
   recordBattleReplay,

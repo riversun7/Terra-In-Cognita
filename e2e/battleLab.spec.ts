@@ -196,4 +196,99 @@ test.describe("배치·사진", () => {
       });
     });
   }
+
+  for (const language of ["ko", "en"] as const) {
+    test.describe(`나쁜 값·${language}·390px`, () => {
+      test.use({ theme: "pastel", language, viewport: { width: 390, height: 844 } });
+
+      test("6 대 6, 이름 40자, Lv 999, 1차 10,000, 스킬 칸 넘침에서도 쪽이 가로로 밀리지 않는다", async ({
+        page,
+        deviceErrors,
+      }) => {
+        test.setTimeout(150_000);
+        // 기기 저장 팀(화면이 읽는 자료 입구)에 가장 나쁜 실제 값을 넣는다: 이름 상한 40자, 레벨·1차·K 상한, 속성 모두 10
+        await page.addInitScript(
+          (teams) => localStorage.setItem("terra.battleLab.teams.v1", JSON.stringify(teams)),
+          worstTeams(),
+        );
+        await labReady(page);
+        await expect(page.locator(".bl-team[data-team='a'] .bl-unit")).toHaveCount(6);
+        await page.locator(".bl-lab details:not([open]) > summary").evaluateAll((elements) => {
+          for (const element of elements) element.parentElement?.setAttribute("open", "");
+        });
+        await page.locator(".bl-limit").selectOption("60");
+        await runUntil(page, ".bl-battle", ".bl-result");
+        await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        const style = await page.addStyleTag({
+          content: ".tabbar, .topbar, .frame-side, .skip-link { visibility: hidden !important; }",
+        });
+        await shot(page, `battle-lab-worst-${language}-390`, { fullPage: true });
+        await style.evaluate((element) => element.parentNode?.removeChild(element));
+        expect(unexpected(deviceErrors)).toEqual([]);
+      });
+    });
+  }
 });
+
+/** 가장 나쁜 실제 값의 팀(이름 40자·Lv 999·1차 10,000·K 10,000·속성 10·스킬 칸 넘침·직접 값 무기 큰 수) */
+function worstTeams() {
+  const zeros = Array.from({ length: 12 }, () => 0);
+  const tens = Array.from({ length: 12 }, () => 10);
+  const max = { str: 10_000, vit: 10_000, int: 10_000, wis: 10_000, dex: 10_000, agi: 10_000 };
+  const labels = [
+    "Aleksandra Wiśniewska-Kowalczyk 근위대장",
+    "북부 산악 연합 제3 기계화 정찰대 선임 조종사",
+    "Jo",
+    "",
+    "Bartholomew Fitzgerald-Northwind III",
+    "ㅇ",
+  ];
+  const unit = (index: number) => ({
+    label: labels[index] ?? "",
+    kind: index % 2 === 0 ? "cyborg" : "creature",
+    level: 999,
+    rebirths: 0,
+    initial: max,
+    kPm: max,
+    elements: index === 2 ? zeros : tens,
+    weapon:
+      index % 2 === 0
+        ? {
+            kind: "custom",
+            spec: {
+              physical: { attack: 1_000_000, appropriate: 1 },
+              elemental: { attack: 999_999, appropriate: 1 },
+              basic: "elemental",
+              hitPm: 1_000_000,
+              hitAppropriate: 1,
+              critPm: 1_000_000,
+              critAppropriate: 1,
+              intervalMs: 60_000,
+              speedAppropriate: 1_000_000,
+              range: 32,
+              arc: true,
+              staminaCost: 1_000_000,
+              mpCost: 1_000_000,
+              elementsPm: tens.map(() => 1_000_000),
+            },
+          }
+        : { kind: "natural" },
+    equipment: [],
+    gear: {
+      rows: [{ id: "hp", value: 1_000_000 }],
+      defenseFlat: 1_000_000,
+      penetrationPm: 1000,
+      resistPm: tens.map(() => -1000),
+      primaries: { str: -10_000, vit: 0, int: 0, wis: 0, dex: 0, agi: 10_000 },
+    },
+    skills: ["power_strike", "fire_bolt", "shock_bash", "war_cry", "first_aid", "iron_skin"].map((id) => ({
+      id,
+      grade: 10,
+    })),
+    row: (["front", "middle", "back"] as const)[index % 3],
+  });
+  const party = { units: Array.from({ length: 6 }, (_, index) => unit(index)), retreatHpPct: 99 };
+  return { a: party, b: party };
+}

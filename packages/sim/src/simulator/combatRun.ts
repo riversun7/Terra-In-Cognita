@@ -7,7 +7,13 @@ import { runBattle } from "../combat/battle.ts";
 import type { BattleInit, BattleResult, CombatUnitSpec } from "../combat/battleTypes.ts";
 import type { BattleMapInput } from "../combat/battleMap.ts";
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "../combat/coefficients.ts";
-import { type CombatCatalog, TEST_COMBAT_CATALOG, UNARMED, skillsOf } from "../combat/catalog.ts";
+import {
+  type CombatCatalog,
+  TEST_COMBAT_CATALOG,
+  UNARMED,
+  UNARMED_ELEMENTAL,
+  skillsOf,
+} from "../combat/catalog.ts";
 import { type EquippedItem, itemAt, loadoutOf, skillSlotCount } from "../combat/equipment.ts";
 import type { CombatSkill } from "../combat/skills.ts";
 import { specFromStats } from "../combat/unitSpec.ts";
@@ -75,7 +81,14 @@ function kitOf(catalog: CombatCatalog) {
   const known = new Set(catalog.skills.map((skill) => skill.id));
   const innate = LOADOUT.skills.filter((id) => known.has(id));
   const skillSlots = kind ? skillSlotCount(kind.skillSlots.base, 0, kind.skillSlots.max) : 0;
-  return { slots, equipped, innate, skillSlots, unarmed: kind?.naturalWeapon ?? UNARMED };
+  return {
+    slots,
+    equipped,
+    innate,
+    skillSlots,
+    unarmed: kind?.naturalWeapon ?? UNARMED,
+    unarmedElemental: kind?.naturalElementalWeapon ?? UNARMED_ELEMENTAL,
+  };
 }
 
 /** [임시] 1차 스탯 = 40 + 기술 단계 × 8(모두 같게, 48 §3.5 예의 Lv30 휴먼 근처), 장비·스킬은 kitOf, 2차는 스탯 계산기 */
@@ -110,6 +123,8 @@ function specOf(
       ...place,
       stats: out.stats,
       weapon: out.weapon,
+      naturalWeapon: kit.unarmed,
+      naturalElementalWeapon: kit.unarmedElemental,
       primaries: out.primaries,
       skills,
       moveIntervalMs: 1000,

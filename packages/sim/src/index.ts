@@ -247,16 +247,26 @@ export {
   type CentralBankRule,
   type CentralBankStep,
 } from "./economy/centralBank.ts";
-export { TEST_COMBAT_COEFFICIENTS, msToTicks, type CombatCoefficients } from "./combat/coefficients.ts";
+export {
+  AFFINITY_RELATION,
+  TEST_COMBAT_COEFFICIENTS,
+  affinityRatePm,
+  msToTicks,
+  regenOnTick,
+  type CombatCoefficients,
+} from "./combat/coefficients.ts";
 export {
   ELEMENT_COUNT,
   buildingDamage,
-  elementTermPm,
+  elementAddPm,
+  familyValue,
+  matchupPm,
   resolveAttack,
   sightRadius,
   weaponScaled,
   type AttackOutcome,
   type AttackProfile,
+  type AttackResult,
   type DefenseProfile,
   type Rolls,
 } from "./combat/formula.ts";
@@ -308,7 +318,14 @@ export {
   type UnitOutcome,
   type UnitResult,
 } from "./combat/outcome.ts";
-export { duelInit, runDuels, type DuelReport } from "./combat/duels.ts";
+export {
+  duelInit,
+  runDuels,
+  runStatDuels,
+  statFighterSpecs,
+  type DuelReport,
+  type StatFighter,
+} from "./combat/duels.ts";
 export { componentLabels } from "./grid/components.ts";
 export {
   applyEffect,
@@ -349,6 +366,7 @@ export {
 export {
   TEST_COMBAT_CATALOG,
   UNARMED,
+  UNARMED_ELEMENTAL,
   skillsOf,
   type CombatCatalog,
   type UnitKindDef,

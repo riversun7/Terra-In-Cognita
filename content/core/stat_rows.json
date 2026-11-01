@@ -36,13 +36,25 @@
     {
       "id": "defense_rate",
       "name": {
-        "ko": "방어율",
-        "en": "Defense rate"
+        "ko": "물리 방어율",
+        "en": "Physical defense rate"
       },
       "shape": "probability",
       "cap": 700,
       "halfConstant": 100,
       "weights": [600, 0, 0, 1200, 0, 0],
+      "enabled": true
+    },
+    {
+      "id": "elemental_defense_rate",
+      "name": {
+        "ko": "속성 방어율",
+        "en": "Elemental defense rate"
+      },
+      "shape": "probability",
+      "cap": 700,
+      "halfConstant": 100,
+      "weights": [0, 0, 0, 600, 0, 1200],
       "enabled": true
     },
     {
@@ -70,12 +82,11 @@
     {
       "id": "hit",
       "name": {
-        "ko": "명중",
-        "en": "Hit"
+        "ko": "명중 점수",
+        "en": "Hit score"
       },
-      "shape": "probability",
-      "cap": 950,
-      "halfConstant": 20,
+      "shape": "quantity",
+      "base": 0,
       "weights": [0, 1200, 600, 0, 0, 0],
       "enabled": true
     },
@@ -94,12 +105,11 @@
     {
       "id": "crit_chance",
       "name": {
-        "ko": "크리 확률",
-        "en": "Crit chance"
+        "ko": "크리 점수",
+        "en": "Crit score"
       },
-      "shape": "probability",
-      "cap": 500,
-      "halfConstant": 200,
+      "shape": "quantity",
+      "base": 0,
       "weights": [0, 1500, 0, 0, 0, 0],
       "enabled": true
     },
@@ -117,8 +127,8 @@
     {
       "id": "action_speed",
       "name": {
-        "ko": "행동 속도",
-        "en": "Action speed"
+        "ko": "행동 속도 점수",
+        "en": "Action speed score"
       },
       "shape": "quantity",
       "base": 50,
@@ -137,6 +147,17 @@
       "enabled": true
     },
     {
+      "id": "stamina_regen",
+      "name": {
+        "ko": "스태미나 회복",
+        "en": "Stamina regen"
+      },
+      "shape": "quantity",
+      "base": 0,
+      "weights": [0, 0, 1575, 675, 0, 0],
+      "enabled": true
+    },
+    {
       "id": "mp",
       "name": {
         "ko": "MP",
@@ -145,6 +166,28 @@
       "shape": "quantity",
       "base": 0,
       "weights": [300, 300, 300, 300, 1500, 2000],
+      "enabled": true
+    },
+    {
+      "id": "mp_regen",
+      "name": {
+        "ko": "MP 회복",
+        "en": "MP regen"
+      },
+      "shape": "quantity",
+      "base": 0,
+      "weights": [0, 0, 0, 0, 1000, 2000],
+      "enabled": true
+    },
+    {
+      "id": "shield_regen",
+      "name": {
+        "ko": "쉴드 재생",
+        "en": "Shield regen"
+      },
+      "shape": "quantity",
+      "base": 0,
+      "weights": [0, 0, 0, 0, 0, 1000],
       "enabled": true
     },
     {

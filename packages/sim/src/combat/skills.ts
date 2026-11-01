@@ -7,6 +7,7 @@
 import { type CombatCoefficients, staminaCostMilli } from "./coefficients.ts";
 import { type EffectDef, applyEffect, hasEffect, hasStatus, modifiersOf, statusResistPm } from "./effects.ts";
 import {
+  type AttackProfile,
   type SkillFormula,
   healAmount,
   resolveAttack,
@@ -49,6 +50,8 @@ export interface SkillData {
   readonly range: number;
   readonly radius: number;
   readonly damage: "physical" | "elemental" | "none";
+  /** 기반(D-463): 물리 무기·물리 공격력 / 속성 무기(없으면 맨손 속성)·속성 공격력. 피해를 주면 damage와 같다 */
+  readonly base: "physical" | "elemental";
   readonly formula: readonly SkillFormulaPart[];
   readonly conditions: readonly SkillCondition[];
   readonly effects: readonly SkillEffectData[];
@@ -118,6 +121,7 @@ export function skillFromData(
     range: data.range,
     radius: data.radius,
     damage: data.damage,
+    base: data.base,
     attackMulPm,
     weaponAdd,
     penetrationPm,
@@ -141,10 +145,18 @@ export function skillFromData(
 const chebyshev = (a: { x: number; y: number }, b: { x: number; y: number }): number =>
   Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
+/** 스킬 기반의 공격 사양(D-463 211). 사양에 없으면(시험 유닛) 기본 공격 사양 */
+function baseAttack(unit: UnitState, skill: CombatSkill): AttackProfile {
+  return (
+    (skill.base === "elemental" ? unit.skillAttack?.elemental : unit.skillAttack?.physical) ?? unit.attack
+  );
+}
+
 function conditionsMet(unit: UnitState, target: UnitState | undefined, skill: CombatSkill): boolean {
   for (const condition of skill.conditions) {
     if (condition.part === "appropriate_met") {
-      if (unit.attack.attackStat < unit.attack.attackAppropriate) return false;
+      const attack = baseAttack(unit, skill);
+      if (attack.attackStat < attack.attackAppropriate) return false;
     } else if (condition.part === "self_hp_below") {
       if (unit.hp * 100 >= condition.pct * unit.maxHp) return false;
     } else if (!target || !hasEffect(target, condition.effect)) return false;
@@ -199,15 +211,18 @@ export function startSkill(
   return false;
 }
 
-/** 피해를 아머(물리)·쉴드(속성)부터 깎고 체력을 줄인다 */
-export function takeDamage(target: UnitState, amount: number, kind: "physical" | "elemental"): void {
-  let left = amount;
-  if (left <= 0) return;
-  const absorbed = Math.min(kind === "physical" ? target.armor : target.shield, left);
-  if (kind === "physical") target.armor -= absorbed;
-  else target.shield -= absorbed;
-  left -= absorbed;
-  target.hp -= left;
+/**
+ * 피해 두 몫(D-459): 물리 몫은 아머 HP부터, 속성 몫은 쉴드 HP부터 깎고 남은 것을 체력에서 뺀다. 맞은 시각을 적는다
+ * (피격 뒤 쉴드 재생 지연, D-463 212)
+ */
+export function takeDamage(target: UnitState, physical: number, elemental: number, nowMs: number): void {
+  if (physical <= 0 && elemental <= 0) return;
+  target.lastHitMs = nowMs;
+  const toArmor = Math.min(target.armor, Math.max(0, physical));
+  const toShield = Math.min(target.shield, Math.max(0, elemental));
+  target.armor -= toArmor;
+  target.shield -= toShield;
+  target.hp -= Math.max(0, physical) - toArmor + (Math.max(0, elemental) - toShield);
   if (target.hp <= 0) {
     target.hp = 0;
     target.status = "down";
@@ -257,7 +272,7 @@ export function resolveSkill(
     }
     return;
   }
-  const attack = withAttackModifiers(skillAttack(unit.attack, skill), modifiersOf(unit));
+  const attack = withAttackModifiers(skillAttack(baseAttack(unit, skill), skill), modifiersOf(unit));
   const targets = units.filter(
     (other) =>
       other.side !== unit.side &&
@@ -277,7 +292,10 @@ export function resolveSkill(
     };
     const hit = resolveAttack(attack, withDefenseModifiers(target.defense, modifiersOf(target)), rolls, c);
     if (hit.outcome !== "hit") continue;
-    takeDamage(target, hit.amount + Math.max(0, skill.flat), attack.kind);
+    // 고정 피해(공식 부품 flat)는 스킬 종류의 몫에 더한다(물리 → 물리 몫, 속성 → 속성 몫)
+    const flat = Math.max(0, skill.flat);
+    if (attack.kind === "physical") takeDamage(target, hit.physical + flat, hit.elemental, nowMs);
+    else takeDamage(target, hit.physical, hit.elemental + flat, nowMs);
     applyParts(skill, target, rng, nowMs);
   }
 }

@@ -1,19 +1,15 @@
 // 전투 판정 코어 — docs/adr/2026-10-31-combat-core.md, ADR 35(전투맵 인스턴스)
 // 한 틱(tickMs, 100ms) = 입력 적용 → 편마다 시야(틱 시작 위치) → 흐름장(fieldMs마다) → 파티 퇴각 기준 → 유닛마다(ID 차례) 행동
 // (공격 또는 한 걸음) → 퇴각 판정 → 끝 판정. 행동 시각은 ms로 들고, 그 시각이 된 첫 틱 경계에서 한다(D-418 실시간).
-// 공격 = 다음 행동 시각이 됐고 스태미나(속성이면 MP도)가 충분할 때. 걷기는 자원이 없다. 자원은 틱마다 조금씩 찬다.
+// 공격 = 다음 행동 시각이 됐고 스태미나(속성이면 MP도)가 충분할 때. 걷기는 자원이 없다. 스태미나·MP·쉴드는 2차 스탯(분당 회복,
+// D-458)대로 틱마다 찬다. 피해는 두 몫이다(D-459): 물리 몫은 아머 HP부터, 속성 몫은 쉴드 HP부터 깎는다.
 // 정수·시드 굴림만 쓴다(굴림 하나 = 0~9999, (시드, 틱)마다 새 흐름, 공격마다 셋: 명중·회피·크리, D-419).
 // 실시간·빨리감기·재생이 같은 함수다. 상태는 직렬화할 수 있는 값만 들고(스냅숏), 흐름장은 상태에서 다시 나오는 캐시다.
 // [임시] 파티 AI는 "보이는 가장 가까운 적"과 퇴각 기준선(⑦)만 한다. 작전 슬라이더 ①~⑥은 R5(D-5040).
 import { createRng } from "@terra/shared";
 import { mix32 } from "../math/hash.ts";
 import { type BattleMap, createBattleMap } from "./battleMap.ts";
-import {
-  type CombatCoefficients,
-  TEST_COMBAT_COEFFICIENTS,
-  msToTicks,
-  staminaRegenMilli,
-} from "./coefficients.ts";
+import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS, msToTicks, regenOnTick } from "./coefficients.ts";
 import { NEIGHBORS, UNREACHABLE, distanceField, stepAllowed } from "./fields.ts";
 import { hasStatus, modifiersOf, tickEffects } from "./effects.ts";
 import { buildingDamage, resolveAttack, withAttackModifiers, withDefenseModifiers } from "./formula.ts";
@@ -250,7 +246,7 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     spend(attacker, nowMs, c);
     if (!attacker.air && map.cover[attacker.y * size + attacker.x] === 1)
       attacker.revealUntilMs = nowMs + c.bushRevealMs;
-    takeDamage(target, hit.amount, attacker.attack.kind);
+    takeDamage(target, hit.physical, hit.elemental, nowMs);
     return true;
   };
 
@@ -392,16 +388,22 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     if (canMove) stepAlong(unit, attackFields.get(unit.side) ?? null, occupied, gone);
   };
 
-  /** 자원이 틱마다 찬다(초당 최대값의 ‰) */
+  /**
+   * 스태미나·MP(밀리점)·쉴드가 틱마다 찬다: 2차 스탯 분당 회복을 틱에 나눈 몫(regenOnTick), 최대에서 멈춘다(D-458).
+   * 쉴드는 맞은 뒤 지연(shieldRegenDelayMs, D-463 212, 출발값 0)이 지나야 찬다
+   */
   const regen = (unit: UnitState): void => {
-    unit.staminaMilli = Math.min(
-      unit.staminaMax * 1000,
-      unit.staminaMilli + staminaRegenMilli(unit.staminaScore, c),
-    );
-    unit.mpMilli = Math.min(
-      unit.mpMax * 1000,
-      unit.mpMilli + Math.floor(((unit.primaries[5] ?? 0) * c.mpRegenMilliPerWisPerSec * c.tickMs) / 1000),
-    );
+    const tick = state.tick;
+    const nowMs = tick * c.tickMs;
+    if (unit.staminaMilli < unit.staminaMax * 1000)
+      unit.staminaMilli = Math.min(
+        unit.staminaMax * 1000,
+        unit.staminaMilli + regenOnTick(unit.staminaRegen, tick, 1000, c),
+      );
+    if (unit.mpMilli < unit.mpMax * 1000)
+      unit.mpMilli = Math.min(unit.mpMax * 1000, unit.mpMilli + regenOnTick(unit.mpRegen, tick, 1000, c));
+    if (unit.shield < unit.shieldHp && nowMs - unit.lastHitMs >= c.shieldRegenDelayMs)
+      unit.shield = Math.min(unit.shieldHp, unit.shield + regenOnTick(unit.shieldRegen, tick, 1, c));
   };
 
   const partyHpLow = (party: PartyState): boolean => {

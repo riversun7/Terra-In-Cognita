@@ -144,6 +144,35 @@ describe("스킬(부품 조합, D-426~D-428)", () => {
     expect(byId(battle, 1).hp).toBe(600);
   });
 
+  it("속성 기반 스킬은 기본 공격(칼)이 아니라 속성 공격 사양(맨손 속성·m.atk)으로 풀고, 속성 몫은 쉴드부터(D-463 211)", () => {
+    const bolt = skillFromData(
+      {
+        ...data("fire_bolt"),
+        cost: 0,
+        castMs: 0,
+        effects: [],
+        formula: [{ part: "element", element: 2, pm: 100 }],
+      },
+      1,
+      effects,
+    );
+    const caster = unit(1, 1, 1, 10, 10, { skills: [bolt] });
+    // 기본 공격(칼)은 200, 속성 공격 사양은 30(크리 없음). 시전자 속성값이 없어 가산 0 → E = 30
+    const sword = { ...caster.attack, weaponAttack: 200 };
+    const elemental = { ...caster.attack, kind: "elemental" as const, weaponAttack: 30, weaponCritPm: 0 };
+    const battle = createBattle(
+      fight([
+        { ...caster, attack: sword, skillAttack: { physical: sword, elemental } },
+        unit(101, 2, 11, 11, 10, { maxHp: 5000, armorHp: 1000, shieldHp: 1000 }),
+      ]),
+    );
+    battle.step([]);
+    const target = byId(battle, 101);
+    expect(target.shield).toBe(970);
+    expect(target.armor).toBe(1000);
+    expect(target.hp).toBe(5000);
+  });
+
   it("등급 표가 공식·효과 값에 곱해진다", () => {
     const g1 = skillFromData(data("power_strike"), 1, effects);
     const g10 = skillFromData(data("power_strike"), 10, effects);

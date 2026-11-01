@@ -15,6 +15,7 @@
       "range": 1,
       "radius": 0,
       "damage": "physical",
+      "base": "physical",
       "formula": [
         {
           "part": "attack_mul",
@@ -55,6 +56,7 @@
       "range": 6,
       "radius": 0,
       "damage": "elemental",
+      "base": "elemental",
       "formula": [
         {
           "part": "attack_mul",
@@ -92,6 +94,7 @@
       "range": 1,
       "radius": 0,
       "damage": "physical",
+      "base": "physical",
       "formula": [
         {
           "part": "attack_mul",
@@ -124,6 +127,7 @@
       "range": 0,
       "radius": 3,
       "damage": "none",
+      "base": "physical",
       "formula": [],
       "conditions": [],
       "effects": [
@@ -151,6 +155,7 @@
       "range": 0,
       "radius": 0,
       "damage": "none",
+      "base": "physical",
       "formula": [
         {
           "part": "heal",
@@ -182,6 +187,7 @@
       "range": 0,
       "radius": 0,
       "damage": "none",
+      "base": "physical",
       "formula": [],
       "conditions": [],
       "effects": [

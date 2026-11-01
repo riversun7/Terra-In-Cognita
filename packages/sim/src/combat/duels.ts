@@ -1,9 +1,12 @@
 // 반복 대결 — docs/adr/2026-10-31-combat-core.md "개발자 페이지 재사용"
 // 개발자 페이지 전투 시뮬레이터(D-414: 설정한 유닛끼리 반복 전투, 특정 스탯이 무조건 이기지 않는지)가 쓸 순수 함수다.
 // 같은 판정(runBattle)을 시드만 바꿔 여러 번 돌려 편마다 이긴 수를 낸다. 화면은 개발자 페이지 단계(D1·D2)에서 만든다.
+// 밸런스 화면(D-458: 가중치 표를 고치고 1차 스탯 하나를 +10 했을 때 승률을 본다)은 runStatDuels 하나로 1차 스탯·표·무기에서 바로 돌린다.
 import { runBattle } from "./battle.ts";
 import type { BattleInit, CombatUnitSpec } from "./battleTypes.ts";
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "./coefficients.ts";
+import { type Primaries, type StatRow, computeSecondary } from "./stats.ts";
+import { type WeaponSpec, specFromStats } from "./unitSpec.ts";
 import { mix32 } from "../math/hash.ts";
 
 export interface DuelReport {
@@ -89,4 +92,63 @@ export function runDuels(
     totalMs += result.endTick * c.tickMs;
   }
   return { runs, aWins, bWins, timeouts, avgMs: runs === 0 ? 0 : Math.floor(totalMs / runs) };
+}
+
+/** 밸런스 화면의 대결 유닛 한 종류: 1차 스탯(장비 포함) + 무기, 같은 유닛 몇 명(기본 3) */
+export interface StatFighter {
+  readonly primaries: Primaries;
+  readonly weapon: WeaponSpec;
+  readonly count?: number | undefined;
+  /** 속성값 12칸(0~10)·속성별 저항 ‰. 없으면 0 */
+  readonly elements?: readonly number[] | undefined;
+  readonly resistPm?: readonly number[] | undefined;
+}
+
+/** 1차 스탯 + 가중치 표 → 2차 스탯(computeSecondary) → 전투 사양(specFromStats). 자리·편은 duelInit이 다시 정한다 */
+export function statFighterSpecs(
+  fighter: StatFighter,
+  table: readonly StatRow[],
+  c: CombatCoefficients = TEST_COMBAT_COEFFICIENTS,
+): CombatUnitSpec[] {
+  const spec = specFromStats(
+    {
+      id: 1,
+      side: 1,
+      party: 1,
+      x: 0,
+      y: 0,
+      stats: computeSecondary(fighter.primaries, table),
+      weapon: fighter.weapon,
+      moveIntervalMs: 1000,
+      primaries: fighter.primaries,
+      elements: fighter.elements,
+      resistPm: fighter.resistPm,
+    },
+    c,
+  );
+  return Array.from({ length: Math.max(1, fighter.count ?? 3) }, () => spec);
+}
+
+/**
+ * 1차 스탯 대결(밸런스 화면, D-458·D-414): a·b를 가중치 표로 전투 사양으로 바꿔 runs번 싸운다(시드 = seed에서 갈라 씀).
+ * 순수 함수다: 같은 입력이면 같은 보고. 표만 바꿔 다시 부르면 그 표의 승률이 나온다
+ */
+export function runStatDuels(
+  a: StatFighter,
+  b: StatFighter,
+  options: {
+    readonly table: readonly StatRow[];
+    readonly runs: number;
+    readonly seed?: number | undefined;
+    readonly coefficients?: CombatCoefficients | undefined;
+  },
+): DuelReport {
+  const c = options.coefficients ?? TEST_COMBAT_COEFFICIENTS;
+  return runDuels(
+    statFighterSpecs(a, options.table, c),
+    statFighterSpecs(b, options.table, c),
+    options.runs,
+    options.seed ?? 1,
+    c,
+  );
 }

@@ -14,6 +14,8 @@ export interface UnitKindDef {
   readonly skillSlots: { readonly base: number; readonly perRebirth: number; readonly max: number };
   /** 타고난 무기(D-436, 사람형은 맨손). 무기 칸이 비었을 때 */
   readonly naturalWeapon: WeaponSpec;
+  /** 맨손 속성 자료(D-463 211): 속성 무기를 들지 않았을 때 속성 기반 스킬이 쓴다 */
+  readonly naturalElementalWeapon: WeaponSpec;
 }
 
 export interface CombatCatalog {
@@ -24,21 +26,35 @@ export interface CombatCatalog {
   readonly unitKinds: readonly UnitKindDef[];
 }
 
-/** [임시] 사람형 맨손 무기(D-436 "맨손 무기" 데이터. 값은 기획 전 시험값) */
+/**
+ * [임시] 사람형 맨손 무기(D-436 "맨손 무기" 데이터. 값은 기획 전 시험값). 명중·크리 적정은 점수 단위(D-458):
+ * 1차 모두 11쯤인 처음 유닛(명중 점수 = DEX × 1.2 + AGI × 0.6, 크리 점수 = DEX × 1.5)이 1배
+ */
 export const UNARMED: WeaponSpec = {
   kind: "physical",
   attack: 5,
   attackAppropriate: 20,
   hitPm: 850,
-  hitAppropriate: 500,
+  hitAppropriate: 20,
   critPm: 50,
-  critAppropriate: 200,
+  critAppropriate: 20,
   intervalMs: 1000,
   speedAppropriate: 100,
   range: 1,
   arc: false,
   staminaCost: 10,
   mpCost: 0,
+};
+
+/**
+ * [임시] 맨손 속성 자료(D-463 211): 속성 무기를 들지 않은 유닛이 속성 기반 스킬을 쓸 때의 무기 자료. 맨손 무기(D-436)처럼
+ * 유닛 종류 데이터(팩 unit_kinds naturalElementalWeapon)이고, 공격력·적정치가 낮다. 기본 공격에는 쓰지 않는다
+ */
+export const UNARMED_ELEMENTAL: WeaponSpec = {
+  ...UNARMED,
+  kind: "elemental",
+  attack: 5,
+  attackAppropriate: 20,
 };
 
 /** [임시] 크리쳐 타고난 무기(D-436, 종 데이터 전 단계) */
@@ -131,6 +147,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       range: 1,
       radius: 0,
       damage: "physical",
+      base: "physical",
       formula: [
         { part: "attack_mul", pm: 1800 },
         { part: "penetration", pm: 150 },
@@ -150,6 +167,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       range: 6,
       radius: 0,
       damage: "elemental",
+      base: "elemental",
       formula: [
         { part: "attack_mul", pm: 1200 },
         { part: "element", element: 2, pm: 100 },
@@ -169,6 +187,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       range: 1,
       radius: 0,
       damage: "physical",
+      base: "physical",
       formula: [{ part: "attack_mul", pm: 800 }],
       conditions: [],
       effects: [{ effect: "stun", value: 0, chancePm: 500 }],
@@ -185,6 +204,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       range: 0,
       radius: 3,
       damage: "none",
+      base: "physical",
       formula: [],
       conditions: [],
       effects: [{ effect: "attack_up", value: 200, chancePm: 1000 }],
@@ -201,6 +221,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       range: 0,
       radius: 0,
       damage: "none",
+      base: "physical",
       formula: [{ part: "heal", pm: 200 }],
       conditions: [{ part: "self_hp_below", pct: 50 }],
       effects: [],
@@ -217,12 +238,14 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       range: 0,
       radius: 0,
       damage: "none",
+      base: "physical",
       formula: [],
       conditions: [],
       effects: [{ effect: "guard", value: 50, chancePm: 1000 }],
       gradePm: GRADES,
     },
   ],
+  // 시험 무기의 명중·크리 적정은 점수 단위(D-458): 시뮬레이터 유닛(1차 40 + 기술 × 8)이 옛 확률 모양 때와 비슷한 비율이 되게
   equipment: [
     {
       id: "test_sword",
@@ -233,9 +256,9 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
         attack: 20,
         attackAppropriate: 40,
         hitPm: 900,
-        hitAppropriate: 500,
+        hitAppropriate: 50,
         critPm: 100,
-        critAppropriate: 200,
+        critAppropriate: 100,
         intervalMs: 1000,
         speedAppropriate: 100,
         range: 1,
@@ -254,9 +277,9 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
         attack: 18,
         attackAppropriate: 40,
         hitPm: 900,
-        hitAppropriate: 500,
+        hitAppropriate: 50,
         critPm: 50,
-        critAppropriate: 200,
+        critAppropriate: 100,
         intervalMs: 1200,
         speedAppropriate: 100,
         range: 6,
@@ -286,19 +309,28 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       slots: [...COMMON, "organ", "organ", "organ"],
       skillSlots: { base: 3, perRebirth: 1, max: 10 },
       naturalWeapon: UNARMED,
+      naturalElementalWeapon: UNARMED_ELEMENTAL,
     },
-    { id: "human", slots: COMMON, skillSlots: { base: 3, perRebirth: 1, max: 10 }, naturalWeapon: UNARMED },
+    {
+      id: "human",
+      slots: COMMON,
+      skillSlots: { base: 3, perRebirth: 1, max: 10 },
+      naturalWeapon: UNARMED,
+      naturalElementalWeapon: UNARMED_ELEMENTAL,
+    },
     {
       id: "android",
       slots: [...COMMON, "part", "part", "part"],
       skillSlots: { base: 3, perRebirth: 1, max: 10 },
       naturalWeapon: UNARMED,
+      naturalElementalWeapon: UNARMED_ELEMENTAL,
     },
     {
       id: "creature",
       slots: ["accessory", "saddle"],
       skillSlots: { base: 4, perRebirth: 1, max: 10 },
       naturalWeapon: CLAWS,
+      naturalElementalWeapon: UNARMED_ELEMENTAL,
     },
   ],
 };

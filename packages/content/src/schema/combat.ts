@@ -97,37 +97,55 @@ const conditionPart = z.discriminatedUnion("part", [
   z.strictObject({ part: z.literal("target_has"), effect: ref("effects") }),
 ]);
 
-export const skillEntrySchema = z.strictObject({
-  id: contentId,
-  name: localizedText,
-  description: localizedText.optional(),
-  /** active = 쓰는 스킬, passive = 전투 내내 걸린 효과 */
-  trigger: z.enum(["active", "passive"]),
-  resource: z.enum(["stamina", "mp"]),
-  cost: z.int().min(0).max(100_000),
-  castMs: z.int().min(0).max(60_000),
-  cooldownMs: z.int().min(0).max(3_600_000),
-  target: z.enum(["enemy", "self", "ally"]),
-  range: z.int().min(0).max(128),
-  radius: z.int().min(0).max(128),
-  damage: z.enum(["physical", "elemental", "none"]),
-  formula: z.array(formulaPart).max(16),
-  conditions: z.array(conditionPart).max(8),
-  effects: z
-    .array(
-      z.strictObject({
-        effect: ref("effects"),
-        value: z.int().min(-1_000_000).max(1_000_000),
-        chancePm: z.int().min(0).max(1000),
-        /** 없으면 효과 사전의 기본 지속 */
-        durationMs: z.int().min(0).max(3_600_000).optional(),
-      }),
-    )
-    .max(8),
-  /** 등급별 값 배율(‰, 등급 1부터. 스킬 등급 상한 10, D-5001) */
-  gradePm: z.array(z.int().min(0).max(100_000)).min(1).max(10),
-  enabled,
-});
+export const skillEntrySchema = z
+  .strictObject({
+    id: contentId,
+    name: localizedText,
+    description: localizedText.optional(),
+    /** active = 쓰는 스킬, passive = 전투 내내 걸린 효과 */
+    trigger: z.enum(["active", "passive"]),
+    resource: z.enum(["stamina", "mp"]),
+    cost: z.int().min(0).max(100_000),
+    castMs: z.int().min(0).max(60_000),
+    cooldownMs: z.int().min(0).max(3_600_000),
+    target: z.enum(["enemy", "self", "ally"]),
+    range: z.int().min(0).max(128),
+    radius: z.int().min(0).max(128),
+    damage: z.enum(["physical", "elemental", "none"]),
+    /**
+     * 기반(D-463): physical = 든 물리 무기(없으면 맨손)와 물리 공격력, elemental = 든 속성 무기(없으면 유닛 종류의 맨손 속성 자료)와
+     * 속성 공격력(m.atk). 피해를 주는 스킬은 damage와 같아야 한다
+     */
+    base: z.enum(["physical", "elemental"]),
+    formula: z.array(formulaPart).max(16),
+    conditions: z.array(conditionPart).max(8),
+    effects: z
+      .array(
+        z.strictObject({
+          effect: ref("effects"),
+          value: z.int().min(-1_000_000).max(1_000_000),
+          chancePm: z.int().min(0).max(1000),
+          /** 없으면 효과 사전의 기본 지속 */
+          durationMs: z.int().min(0).max(3_600_000).optional(),
+        }),
+      )
+      .max(8),
+    /** 등급별 값 배율(‰, 등급 1부터. 스킬 등급 상한 10, D-5001) */
+    gradePm: z.array(z.int().min(0).max(100_000)).min(1).max(10),
+    enabled,
+  })
+  .superRefine((entry, ctx) => {
+    // 필드 검사가 실패해도 불린다(AGENTS 6장 Zod 4.6.7): 두 칸이 모두 알맞은 글자일 때만 본다
+    const { damage, base } = entry;
+    if (typeof damage !== "string" || typeof base !== "string" || damage === "none") return;
+    if (damage !== base)
+      ctx.addIssue({
+        code: "custom",
+        path: ["base"],
+        message:
+          "피해를 주는 스킬은 기반(base)이 피해 종류(damage)와 같아야 합니다(D-463: 물리 기반 → 물리 몫, 속성 기반 → 속성 몫).",
+      });
+  });
 export type SkillEntry = z.output<typeof skillEntrySchema>;
 
 const weaponSchema = z.strictObject({
@@ -160,6 +178,8 @@ export const unitKindEntrySchema = z.strictObject({
   }),
   /** 타고난 무기(D-436): 크리쳐의 발톱·이빨 등, 사람형은 맨손. 무기 칸이 비었을 때 쓴다(D-420 같은 공식) */
   naturalWeapon: weaponSchema,
+  /** 맨손 속성 자료(D-463): 속성 무기를 들지 않았을 때 속성 기반 스킬이 쓴다(공격력·적정치 낮게). kind는 elemental */
+  naturalElementalWeapon: weaponSchema.extend({ kind: z.literal("elemental") }),
   enabled,
 });
 export type UnitKindEntry = z.output<typeof unitKindEntrySchema>;

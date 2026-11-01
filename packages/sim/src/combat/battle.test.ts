@@ -251,3 +251,102 @@ describe("시선·엄폐·지휘가 판정을 바꾼다", () => {
     expect(battle.state.sides[0]?.uncommanded).toEqual([]);
   });
 });
+
+describe("피해 두 몫과 회복(D-458·D-459)", () => {
+  const FIRE = 2;
+  const fireCells = (value: number) => Array.from({ length: 12 }, (_, i) => (i === FIRE ? value : 0));
+  /** 붙어 선 두 유닛: 1은 화염의 검(물리 40, 불 × 5% 옵션)을 든 불 5, 2는 맞기만 한다(크리 없음) */
+  const pair = () => {
+    const striker = unit(1, 1, 1, 10, 10);
+    const target = unit(101, 2, 11, 11, 10, { maxHp: 100, armorHp: 1000, shieldHp: 1000 });
+    return {
+      ...duel(1),
+      units: [
+        {
+          ...striker,
+          attack: {
+            ...striker.attack,
+            weaponAttack: 40,
+            weaponCritPm: 0,
+            elements: fireCells(5),
+            skillElementsPm: fireCells(50),
+          },
+        },
+        { ...target, attack: { ...target.attack, weaponHitPm: 0 } },
+      ],
+    };
+  };
+
+  it("물리 몫은 아머 HP부터, 속성 몫은 쉴드 HP부터 깎는다(HP는 그대로)", () => {
+    const battle = createBattle(pair());
+    for (let i = 0; i < 30; i++) battle.step([]);
+    const target = battle.state.units.find((u) => u.id === 101);
+    if (!target) throw new Error("target");
+    // 한 번에 P = 40 × (1 − 방어율 100‰) − 고정 1 = 35, E = 40 × 25% = 10
+    const armorLost = 1000 - target.armor;
+    const shieldLost = 1000 - target.shield;
+    expect(armorLost).toBeGreaterThan(0);
+    expect(armorLost % 35).toBe(0);
+    expect(shieldLost).toBe((armorLost / 35) * 10);
+    expect(target.hp).toBe(100);
+  });
+
+  it("쉴드 재생·스태미나·MP 회복은 2차 스탯(분당)대로 차고 최대에서 멈춘다", () => {
+    // 서로 보이지 않게 멀리 둔다(싸우지 않는다)
+    const init = {
+      ...duel(1),
+      units: [
+        unit(1, 1, 1, 0, 0, {
+          shieldHp: 20,
+          shieldRegen: 35,
+          staminaMax: 1000,
+          staminaRegen: 180,
+          mpMax: 1000,
+          mpRegen: 120,
+        }),
+        unit(101, 2, 11, 31, 31),
+      ],
+    };
+    const battle = createBattle(init);
+    const me = battle.state.units.find((u) => u.id === 1);
+    if (!me) throw new Error("unit");
+    me.shield = 0;
+    me.staminaMilli = 0;
+    me.mpMilli = 0;
+    for (let i = 0; i < 300; i++) battle.step([]);
+    // 30초: 쉴드 35/분 → 17, 스태미나 180/분 → 90, MP 120/분 → 60
+    expect(me.shield).toBe(17);
+    expect(me.staminaMilli).toBe(90_000);
+    expect(me.mpMilli).toBe(60_000);
+    for (let i = 0; i < 300; i++) battle.step([]);
+    // 최대 20에서 멈춘다
+    expect(me.shield).toBe(20);
+    expect(battle.state.result).toBeNull();
+  });
+
+  it("피격 뒤 쉴드 재생 지연(D-463 212, 출발값 0): 맞은 시각부터 지연이 지나야 다시 찬다", () => {
+    // 출발값 0: 맞아도 곧바로 찬다(위 시험과 같은 뜻)
+    expect(TEST_COMBAT_COEFFICIENTS.shieldRegenDelayMs).toBe(0);
+    const init = {
+      ...duel(1),
+      units: [unit(1, 1, 1, 0, 0, { shieldHp: 1000, shieldRegen: 600 }), unit(101, 2, 11, 31, 31)],
+    };
+    const delayed = createBattle(init, { ...TEST_COMBAT_COEFFICIENTS, shieldRegenDelayMs: 2000 });
+    const me = delayed.state.units.find((u) => u.id === 1);
+    if (!me) throw new Error("unit");
+    me.shield = 0;
+    me.lastHitMs = 0;
+    // 분당 600 = 틱(100ms)마다 1. 2초(20틱) 동안은 차지 않는다
+    for (let i = 0; i < 20; i++) delayed.step([]);
+    expect(me.shield).toBe(0);
+    for (let i = 0; i < 10; i++) delayed.step([]);
+    expect(me.shield).toBe(10);
+  });
+
+  it("맞으면 맞은 시각을 적는다(물리·속성 몫이 있을 때)", () => {
+    const battle = createBattle(pair());
+    battle.step([]);
+    const target = battle.state.units.find((u) => u.id === 101);
+    expect(target?.lastHitMs).toBe(0);
+  });
+});

@@ -42,6 +42,7 @@ export function unitFrom(spec: CombatUnitSpec): UnitState {
     cast: null,
     command: null,
     lastCommandMs: -1_000_000_000,
+    lastHitMs: -1_000_000_000,
   };
   applyPassives(unit);
   return unit;

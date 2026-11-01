@@ -41,7 +41,8 @@ import { createSecondMapLab } from "./world/secondMapLab.ts";
 import { registerTerrainRoute } from "./world/terrainRoute.ts";
 import type { MapPropInput } from "@terra/planet/secondMap";
 import type { EconomyCatalogResponse } from "@terra/shared/economy";
-import type { SocietyCoefficients } from "@terra/sim";
+import type { TuningState } from "./tuning/state.ts";
+import { type TuningLimits, bootTuning, createTuningShared } from "./tuning/services.ts";
 import { createTerrainService } from "./world/terrainService.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, type WorldConfig, startWorld } from "./world/world.ts";
 
@@ -115,8 +116,19 @@ export interface AppOptions {
     | undefined;
   /** 유닛·사이보그 화면의 콘텐츠 팩 자료(src/roster/catalog.ts rosterCatalogOf). 없으면 시험 자료(이름 = ID) */
   roster?: RosterCatalog | undefined;
-  /** 팩 tuning을 얹은 세력·사회 계수표(세력 화면 공물·민심 문턱·주기). 없으면 sim 시험 계수표 */
-  society?: SocietyCoefficients | undefined;
+  /**
+   * 설정 칸 실효 값(팩 tuning + 이 세계 DB의 덮어쓰기, src/tuning/state.ts — docs/adr/2026-11-01-dev-settings-panel.md).
+   * 사이보그 만들기·지원금·세력 화면이 쓸 때마다 읽는다. DB가 있으면 켤 때(onReady) 덮어쓰기를 싣고, 인증이 켜져 있으면
+   * 개발자 패널(tuning.*)을 연다. locked = 쓰기 잠금(TUNING_EDIT=off). 없으면 sim 시험 계수표·패널 없음
+   */
+  tuning?:
+    | {
+        state: TuningState;
+        packId: string;
+        locked?: boolean | undefined;
+        limits?: Partial<TuningLimits> | undefined;
+      }
+    | undefined;
   /** 경제 화면 목록(팩 items·recipes 등, src/economyView/catalog.ts). 없으면 빈 목록 */
   economyCatalog?: EconomyCatalogResponse | undefined;
   /**
@@ -160,6 +172,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       simVersion: SIM_VERSION,
       contentVersion: options.contentVersion,
       contentHash: options.contentHash,
+      // 적용 중인 설정 칸 덮어쓰기 수(0이면 팩 값 그대로, docs/adr/2026-11-01-dev-settings-panel.md 10절)
+      tuningOverrides: options.tuning?.state.appliedCount(),
       uptimeSec: Math.floor(process.uptime()),
     };
   });
@@ -215,6 +229,27 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         })
       : undefined;
 
+  // 설정 칸 실효 값(팩 + 덮어쓰기): 서버에서 칸 값을 읽는 곳은 모두 이 접근자를 쓸 때마다 부른다
+  const tuningState = options.tuning?.state;
+  const tuningShared = options.tuning
+    ? createTuningShared({
+        state: options.tuning.state,
+        pack: {
+          packId: options.tuning.packId,
+          contentVersion: options.contentVersion,
+          contentHash: options.contentHash ?? "",
+        },
+        locked: options.tuning.locked ?? false,
+        now,
+        limits: options.tuning.limits,
+      })
+    : undefined;
+  const tuningDb = options.db;
+  if (tuningShared && tuningDb) {
+    // 덮어쓰기를 싣는다(요청을 받기 전에). DB를 기다리는 다시 시도는 월드 부팅과 같다
+    app.addHook("onReady", async () => bootTuning(tuningDb, tuningShared, app.log));
+  }
+
   // 월드: DB가 있으면 저장·부팅 복구(S3 ADR 1·2절). 준비(listen·ready)는 부팅 복구가 끝날 때까지 기다린다.
   // 지형 서비스가 있으면 부팅이 행성 값(행성 서비스의 캐시 읽기·굽기)도 기다린다
   const rosterCatalog = options.roster;
@@ -225,8 +260,13 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         now,
         log: app.log,
         pool: options.db?.$client,
-        // 사이보그 만들기 규칙: 팩 tuning을 얹은 세력·사회 계수표(N9·N6, 환생과 같은 굴리기). 팩이 없으면 sim 시험 계수표
-        cyborgRules: rosterCatalog ? () => rosterCatalog.society : undefined,
+        // 사이보그 만들기 규칙: 설정 칸 실효 값을 얹은 세력·사회 계수표(N9·N6·N36·N39, 환생과 같은 굴리기), 부를 때마다 읽는다.
+        // 팩이 없으면 sim 시험 계수표
+        cyborgRules: tuningState
+          ? () => tuningState.society()
+          : rosterCatalog
+            ? () => rosterCatalog.society
+            : undefined,
       })
     : undefined;
   // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md): 세계가 준비된 뒤의 서비스(DB가 있는 월드만)
@@ -284,7 +324,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           })
         : undefined,
       factionSource: world && options.db ? createWorldFactionSource(world) : undefined,
-      factionRules: options.society ? factionRulesFrom(options.society) : undefined,
+      factionRules: tuningState ? () => factionRulesFrom(tuningState.society()) : undefined,
+      // 설정 칸 패널: 인증이 켜져 있을 때만 맥락이 서비스를 만든다
+      tuning: tuningShared,
     }),
   });
 

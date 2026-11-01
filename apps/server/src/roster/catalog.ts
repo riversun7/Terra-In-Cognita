@@ -1,6 +1,8 @@
 // 유닛·사이보그 화면 자료의 콘텐츠 팩 부분 — 전투 자료(스탯 표·장비·스킬·유닛 종류 칸)와 이름 표({ko, en}).
 // 전투 자료는 서버 전투 변환(world/combatCatalog.ts)과 같은 @terra/sim combatCatalogFrom으로 만든다. 이름은 화면이 쓴다.
 // 서버를 켤 때 한 번 만든다(main.ts → app.ts roster). 시험은 실제 팩(content/core)이나 시험 자료로 만든다.
+// society(설정 칸 실효 값을 얹은 계수표)만은 읽을 때마다 접근자에서 받는다(개발자 패널 덮어쓰기가 다음 요청부터 듣게,
+// docs/adr/2026-11-01-dev-settings-panel.md 5·7절).
 import {
   type PackSource,
   effectEntrySchema,
@@ -29,7 +31,10 @@ export interface RosterCatalog {
   readonly names: RosterNames;
   /** 아이템 기준 가격(최소 단위, 팩 baseValue). 없으면 0 */
   readonly baseValue: ReadonlyMap<string, number>;
-  /** 팩 tuning을 얹은 세력·사회 계수표(사이보그 만렙·스킬 등급 상한·환생 비용 N7·N34, D-440·D-441) */
+  /**
+   * 설정 칸 실효 값(팩 tuning + 그 세계의 덮어쓰기)을 얹은 세력·사회 계수표(사이보그 만렙·스킬 등급 상한·환생 비용 N7·N34,
+   * 생활비 N38, D-440·D-441). 읽을 때마다 지금 값이다(rosterCatalogOf의 society 접근자). 받아 두지 말고 쓸 때 읽는다
+   */
   readonly society: SocietyCoefficients;
 }
 
@@ -47,8 +52,11 @@ function entriesOf<T>(source: PackSource, file: string, parse: (raw: unknown) =>
 const nameTable = (entries: readonly { id: string; name: LocalizedName }[]): Record<string, LocalizedName> =>
   Object.fromEntries(entries.map((entry) => [entry.id, { ko: entry.name.ko, en: entry.name.en }]));
 
-/** 검증을 통과한 팩의 파일에서 만든다(서버 시작 때) */
-export function rosterCatalogOf(source: PackSource): RosterCatalog {
+/**
+ * 검증을 통과한 팩의 파일에서 만든다(서버 시작 때). society: 설정 칸 실효 값 접근자(src/tuning/state.ts TuningState.society).
+ * 없으면 팩 값 그대로(시험)
+ */
+export function rosterCatalogOf(source: PackSource, society?: () => SocietyCoefficients): RosterCatalog {
   const statRows = entriesOf(source, "stat_rows.json", (raw) => statRowEntrySchema.parse(raw));
   const items = entriesOf(source, "items.json", (raw) => itemEntrySchema.parse(raw));
   const skills = entriesOf(source, "skills.json", (raw) => skillEntrySchema.parse(raw));
@@ -61,6 +69,8 @@ export function rosterCatalogOf(source: PackSource): RosterCatalog {
     items,
     unitKinds: entriesOf(source, "unit_kinds.json", (raw) => unitKindEntrySchema.parse(raw)),
   });
+  const packSociety = societyCoefficientsFrom(tuningOf(source));
+  const current = society ?? (() => packSociety);
   return {
     combat,
     names: {
@@ -71,7 +81,9 @@ export function rosterCatalogOf(source: PackSource): RosterCatalog {
       planets: nameTable(planets),
     },
     baseValue: new Map(items.map((item) => [item.id, item.baseValue])),
-    society: societyCoefficientsFrom(tuningOf(source)),
+    get society() {
+      return current();
+    },
   };
 }
 

@@ -1,11 +1,11 @@
 // 서버 시작점 — 설정을 읽고 콘텐츠 팩을 검사한 뒤 앱을 띄운다. 종료 신호를 받으면 새 연결을 막고 정리한 뒤 끝낸다.
-import { societyCoefficientsFrom } from "@terra/sim";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "./app.ts";
 import { readConfig } from "./config.ts";
 import { loadServerContent } from "./content.ts";
 import { rosterCatalogOf } from "./roster/catalog.ts";
-import { tuningOf } from "./world/combatCatalog.ts";
+import { createTuningState } from "./tuning/state.ts";
+import { tuningEntriesOf } from "./world/combatCatalog.ts";
 import { economyCatalogFromPack } from "./economyView/catalog.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
 import { createWorkerBaker } from "./planet/baker.ts";
@@ -61,6 +61,10 @@ try {
   process.exit(1);
 }
 
+// 설정 칸 실효 값(팩 tuning + 이 세계 DB의 덮어쓰기, docs/adr/2026-11-01-dev-settings-panel.md 5절). 서버에서 칸 값을 읽는 곳은
+// 모두 이 접근자를 쓸 때마다 부른다(덮어쓰기는 앱이 켤 때 DB에서 싣는다)
+const tuning = createTuningState(tuningEntriesOf(loaded.source));
+
 let app: FastifyInstance | undefined;
 const db = config.databaseUrl
   ? createDatabase(config.databaseUrl, (error) => app?.log.warn({ err: error }, "db pool error"))
@@ -91,10 +95,11 @@ app = await buildApp({
     cacheDir: config.planetCacheDir,
   },
   planetEditor: { definitions: planetEditor.definitions },
-  // 유닛·사이보그 화면의 스탯 표·장비·스킬·이름(팩이 검증을 통과했으므로 다시 읽기는 실패하지 않는다)
-  roster: rosterCatalogOf(loaded.source),
-  // 세력 화면의 공물·민심 문턱·주기(팩 tuning을 얹은 세력·사회 계수표, ADR 37 끝 "기획 답 D-440~D-443 반영")
-  society: societyCoefficientsFrom(tuningOf(loaded.source)),
+  // 유닛·사이보그 화면의 스탯 표·장비·스킬·이름(팩이 검증을 통과했으므로 다시 읽기는 실패하지 않는다).
+  // 사이보그 만렙·환생 조건·생활비는 설정 칸 실효 값(접근자)에서 읽는다
+  roster: rosterCatalogOf(loaded.source, () => tuning.society()),
+  // 설정 칸: 사이보그 만들기·지원금·세력 화면(공물·민심 문턱·주기)이 쓰고, 개발자 패널(/dev/tuning)이 덮어쓴다
+  tuning: { state: tuning, packId: loaded.pack.manifest.packId, locked: !config.tuningEdit },
   // 경제 화면 목록(팩의 경제 분류, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)")
   economyCatalog: economyCatalogFromPack(loaded.pack, content),
   // 시험 2차맵 지형 = 행성 값에서 만든 2차맵(ADR 46 WP-3). 지형 워커가 만들고 행성 캐시 폴더 아래 second-maps/에 둔다

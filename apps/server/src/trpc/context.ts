@@ -23,6 +23,7 @@ import type {
 import type { CyborgGetResponse, UnitsListResponse } from "@terra/shared/roster";
 import type { FactionOverviewResponse } from "@terra/shared/faction";
 import type { MailListResponse } from "@terra/shared/mail";
+import type { TuningExportResponse, TuningHistoryResponse, TuningListResponse } from "@terra/shared/tuning";
 import type { PlanetLibraryBase } from "@terra/shared";
 import type {
   PlanetDraftRevisionInfo,
@@ -151,6 +152,36 @@ export interface PlanetEditorServices {
   systems: StarSystemServices;
 }
 
+/** 설정 칸 패널 동작(권한 문장 tuning) */
+export type TuningAction = "read" | "write";
+
+export interface TuningSetInput {
+  readonly id: string;
+  readonly value: number;
+  /** 이 기기가 본 덮어쓰기 값(없으면 null). 지금과 다르면 CONFLICT */
+  readonly expected: number | null;
+  readonly note?: string | null | undefined;
+  /** 구조 값(D-5054)을 바꿀 때 확인 창을 거쳤다 */
+  readonly confirmStructural?: boolean | undefined;
+}
+
+/**
+ * 개발자 설정 칸 패널(docs/adr/2026-11-01-dev-settings-panel.md 8절, src/tuning/services.ts). 쓰기는 바뀐 목록을 돌려준다.
+ * 오류는 data.reason(@terra/shared TUNING_REASONS), 규칙 문제는 data.details
+ */
+export interface TuningServices {
+  /** 두 번째 권한 확인(Better Auth). 한 요청 안에서는 동작마다 한 번만 묻는다 */
+  ensurePermission(action: TuningAction): Promise<void>;
+  /** 사용자별 속도 제한(조회·쓰기 따로). 넘으면 TOO_MANY_REQUESTS */
+  admit(viewer: Viewer, action: TuningAction): void;
+  list(viewer: Viewer): Promise<TuningListResponse>;
+  history(viewer: Viewer): Promise<TuningHistoryResponse>;
+  exportDiff(viewer: Viewer): Promise<TuningExportResponse>;
+  set(viewer: Viewer, input: TuningSetInput): Promise<TuningListResponse>;
+  revert(viewer: Viewer, input: { id: string; expected: number }): Promise<TuningListResponse>;
+  revertAll(viewer: Viewer): Promise<TuningListResponse>;
+}
+
 /** 홈 자료 조회의 조건. preview는 프로시저가 권한(home: preview, dev·admin)을 본 뒤에만 true다 */
 export interface HomeQuery {
   readonly preview: boolean;
@@ -261,6 +292,8 @@ export interface TrpcContext {
   faction: FactionScreenServices;
   /** 우편. 늘 있다(우편 표가 아직 없어 실제 우편함은 비어 있다) */
   mail: MailServices;
+  /** 설정 칸 패널. 인증(DB)과 팩 설정 칸 접근자가 있을 때만 */
+  tuning?: TuningServices | undefined;
 }
 
 export interface TrpcContextOptions {

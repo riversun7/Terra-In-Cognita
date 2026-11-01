@@ -845,5 +845,29 @@ export const worldBattleResults = pgTable("world_battle_results", {
   result: jsonb("result").notNull(),
 });
 
+/**
+ * 설정 칸 덮어쓰기 — 개발자 패널(/dev/tuning, docs/adr/2026-11-01-dev-settings-panel.md 4절). 이 DB의 세계에서 팩 값 위에 얹는다.
+ * 칸마다 한 줄. 판 기록 표는 두지 않는다(앞뒤 값·메모는 감사 기록 tuning.*). 팩에서 빠진 ID의 줄도 지울 때까지 남는다(적용하지 않음)
+ */
+export const tuningOverrides = pgTable(
+  "tuning_overrides",
+  {
+    /** 칸 ID(팩 tuning 항목 ID) */
+    id: text("id").primaryKey(),
+    value: bigint("value", { mode: "number" }).notNull(),
+    /** 저장할 때의 팩 값·팩 판(core@N). 지금 팩 값과 다르면 화면이 "팩 값이 바뀜"을 보인다 */
+    packValue: bigint("pack_value", { mode: "number" }).notNull(),
+    contentVersion: text("content_version").notNull(),
+    /** 메모(0~200 코드 포인트, @terra/shared TUNING_NOTE_MAX) */
+    note: text("note"),
+    updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("tuning_overrides_id_format", sql`${table.id} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+    check("tuning_overrides_note_length", sql`${table.note} is null or char_length(${table.note}) <= 200`),
+  ],
+);
+
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

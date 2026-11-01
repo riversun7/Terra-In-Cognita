@@ -1,15 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { TEST_ASSET_CREDIT } from "../settle/owner.ts";
 import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "../society/coefficients.ts";
+import type { OccupationChoice } from "../npc/policy.ts";
 import { holdingsOf } from "../society/shares.ts";
 import { DAY_MS, createMetricsRecorder } from "./metrics.ts";
 import { parseScenario } from "./scenario.ts";
 import { attachSociety } from "./society.ts";
-import type { StubHooks } from "./stubRules.ts";
+import type { SimHooks } from "./npcRun.ts";
 import { createWorld } from "./world.ts";
 
+/** 점령 처리 선택(시험이 고른다) */
+const INTEGRATE_KEEP: OccupationChoice = { treatment: "integrate", shares: "keep" };
+const LOOT_DELIST: OccupationChoice = { treatment: "loot", shares: "delist" };
+
 /** 세력 셋(도시 셋씩): 1 독재(고정), 2 자본주의, 3 민주주의 */
-function setup(options: { hooks?: StubHooks; c?: SocietyCoefficients } = {}) {
+function setup(options: { hooks?: SimHooks; c?: SocietyCoefficients } = {}) {
   const c = options.c ?? TEST_SOCIETY_COEFFICIENTS;
   const scenario = parseScenario({
     id: "society_test",
@@ -45,7 +50,7 @@ function setup(options: { hooks?: StubHooks; c?: SocietyCoefficients } = {}) {
         regime: "democracy",
       },
     ],
-    stub: { decideEveryMs: 21_600_000, conquerPerMille: 0 },
+    npc: { decideEveryMs: 21_600_000 },
   });
   const world = createWorld(scenario, 5, 0);
   const lines: { t: string; cause?: string; faction?: number; from?: number; to?: number }[] = [];
@@ -55,7 +60,7 @@ function setup(options: { hooks?: StubHooks; c?: SocietyCoefficients } = {}) {
   const society = attachSociety(
     {
       world,
-      scenario,
+      settings: scenario.society,
       recorder,
       c,
       hooks: options.hooks,
@@ -88,7 +93,7 @@ describe("시뮬 세력·사회", () => {
     const cap = faction(2);
     const dem = faction(3);
     // 연구 시설이 있는 첫 도시(4)를 잃으면 상한이 내려간다
-    society.occupy(dem, cap, 4, [1, 1], 1000);
+    society.occupy(dem, cap, 4, INTEGRATE_KEEP, 1000);
     expect(world.cities.get(4)?.owner).toBe(3);
     expect(holdingsOf(world.book, 4)).toEqual([{ owner: 3, amount: 1000n }]);
     expect(cap.wars.has(3)).toBe(true);
@@ -96,14 +101,14 @@ describe("시뮬 세력·사회", () => {
       true,
     );
     // 시작 도시(1)는 그대로
-    society.occupy(dem, faction(1), 1, [0, 0], 2000);
+    society.occupy(dem, faction(1), 1, LOOT_DELIST, 2000);
     expect(world.cities.get(1)?.owner).toBe(1);
     expect(society.check(2000)).toEqual([]);
   });
 
   it("마지막 도시까지 빼앗기면 세력이 사라진다(conquered)", () => {
     const { world, society, lines, faction } = setup();
-    for (const cityId of [7, 8, 9]) society.occupy(faction(2), faction(3), cityId, [1, 1], 1000);
+    for (const cityId of [7, 8, 9]) society.occupy(faction(2), faction(3), cityId, INTEGRATE_KEEP, 1000);
     expect(faction(3).alive).toBe(false);
     expect(lines.filter((line) => line.t === "died").map((line) => [line.faction, line.cause])).toEqual([
       [3, "conquered"],
@@ -114,7 +119,7 @@ describe("시뮬 세력·사회", () => {
   it("약탈 + 상장폐지 + 독재로 바뀜은 만족도를 크게 떨어뜨려 반란이 일어나고, 반란군은 새 세력(전쟁)이 된다", () => {
     const { world, society, lines, scheduled, faction } = setup();
     // 독재(1)가 민주주의(3) 도시 7을 약탈(0)·상장폐지(0)
-    society.occupy(faction(1), faction(3), 7, [0, 0], 1000);
+    society.occupy(faction(1), faction(3), 7, LOOT_DELIST, 1000);
     const unitsIn7 = [...world.units.values()].filter((u) => u.city === 7);
     // 60 − 25(약탈) − 15(상장폐지) − 20(독재로) = 0
     expect(unitsIn7.every((u) => u.satisfactionMilli === 0)).toBe(true);
@@ -135,7 +140,9 @@ describe("시뮬 세력·사회", () => {
     const city = world.cities.get(4);
     if (!city) throw new Error("city");
     city.housing = 5;
-    society.found(cap, 0, 1000);
+    // 순한 부모 → 새 가문(± 150)도 공격 성향 600 아래 → 봉신(질문 198 가)
+    cap.traits = { aggression: 100, commerce: 500, faith: 500, station: 500 };
+    society.found(cap, 1000);
     const born = lines.find((line) => line.t === "born" && line.cause === "founding");
     const house = world.factions.get(born?.faction ?? 0);
     expect(house?.overlord).toBe(2);
@@ -173,7 +180,7 @@ describe("시뮬 세력·사회", () => {
 function taxHooks() {
   const tax = new Map<number, bigint>();
   const interest = new Map<number, bigint>();
-  const hooks: StubHooks = {
+  const hooks: SimHooks = {
     treasuryAsset: () => TEST_ASSET_CREDIT,
     beforeCityTransfer: () => {},
     factionBorn: () => {},
@@ -242,5 +249,33 @@ describe("시뮬 배당·공물(D-304·D-338·D-443)", () => {
     for (let day = 1; day <= 7; day++) society.endOfDay(day * DAY_MS);
     expect(world.book.balanceOf(2, TEST_ASSET_CREDIT) - before).toBe((vassal * 50n) / 1000n);
     expect(society.summary().tributes).toBe(1);
+  });
+
+  it("선포는 국고의 5%를 태우고, 교전 없이 7일이 지나면 백지 강화, 강화 조약은 14일 불가침(질문 194~196 가)", () => {
+    const { world, society, faction } = setup();
+    const cap = faction(2);
+    const dem = faction(3);
+    const before = world.book.balanceOf(2, TEST_ASSET_CREDIT);
+    society.declareWar(cap, dem, 0);
+    expect(world.book.balanceOf(2, TEST_ASSET_CREDIT)).toBe(before - (before * 500n) / 10_000n);
+    expect(cap.wars.has(3) && dem.wars.has(2)).toBe(true);
+    for (let day = 1; day <= 6; day++) society.endOfDay(day * DAY_MS);
+    expect(cap.wars.has(3)).toBe(true);
+    society.endOfDay(7 * DAY_MS);
+    expect(cap.wars.has(3) || dem.wars.has(2)).toBe(false);
+    expect(society.summary().wars).toEqual({ declared: 1, treaties: 0, whitePeace: 1 });
+    society.declareWar(cap, dem, 8 * DAY_MS);
+    society.makePeace(dem, cap, 9 * DAY_MS);
+    expect(cap.wars.size).toBe(0);
+    expect(cap.truces.get(3)).toBe(23 * DAY_MS);
+    expect(society.check(9 * DAY_MS)).toEqual([]);
+  });
+
+  it("반란 세력은 원래 나라를 기억한다(반란의 반란도 맨 처음 나라)", () => {
+    const { world, society, lines, faction } = setup();
+    society.occupy(faction(1), faction(3), 7, LOOT_DELIST, 1000);
+    society.endOfDay(DAY_MS);
+    const born = lines.find((line) => line.t === "born" && line.cause === "rebellion");
+    expect(world.factions.get(born?.faction ?? 0)?.rebelOf).toBe(1);
   });
 });

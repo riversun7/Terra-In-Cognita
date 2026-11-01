@@ -1,16 +1,29 @@
-// [임시] NPC 판단 대리 — docs/adr/2026-10-31-rules-simulator.md "대리 규칙", docs/adr/2026-10-31-faction-society-core.md "시뮬레이터"
-// 무엇을 해 볼지(남의 도시 치기·마을 세우기·지분 팔기·연구 시설·봉신 독립)만 시드 난수로 정한다. 결과는 진짜 규칙(R4b
-// society.ts: 점령·반란·독립·출생·수명·기술)이 정한다. R5(NPC 두뇌)가 이 판단을 대신한다.
-// 판단은 예약 시각에만 한다(세력마다 "decide"). 합성 이동 부하(유닛마다 "arrive")는 서버와 같은 이동 함수로 도착 시각을 낸다.
+// NPC 판단 실행 — docs/adr/2026-11-01-npc-brain-r5.md 3·6절 (옛 stubRules.ts, R1 대리 규칙을 대신함)
+// 세력마다 판단 예약("decide")에서: 세계 → 지표(FactionView·RivalView) → npc/brain.ts가 고른 행동 하나 → 세력·사회 규칙(society.ts)·
+// 전투(combatRun.ts)로 실행한다. 세율(경제가 있을 때)은 판단마다 규칙식(npc/policy.ts)으로 따로 돈다.
+// 결과(점령·반란·독립·출생·기술·백지 강화)는 규칙이 정한다. 서버(apps/server/src/npc/)도 같은 함수를 실제 시각으로 부른다.
+// 합성 이동 부하(유닛마다 "arrive")는 서버와 같은 이동 함수로 도착 시각을 낸다.
 import { WALK_SPEED } from "../units.ts";
 import { arrivalAt, createMotion } from "../motion/motion.ts";
 import type { EventKey } from "../events/eventKey.ts";
+import { type FactionView, type NpcAction, type RivalView, decideAction, peaceScore } from "../npc/brain.ts";
+import { nextTaxBp, occupationChoice } from "../npc/policy.ts";
+import type { SocietyCoefficients } from "../society/coefficients.ts";
+import { shareAsset } from "../society/shares.ts";
+import { inTruce, recordFight } from "../society/wars.ts";
 import type { CombatRun } from "./combatRun.ts";
 import type { MetricsRecorder } from "./metrics.ts";
-import type { ScenarioStub, ScenarioTrips } from "./scenario.ts";
+import type { ScenarioSociety, ScenarioTrips } from "./scenario.ts";
 import type { SimLoop } from "./loop.ts";
 import type { SocietyRun } from "./society.ts";
-import { STREAM_DECIDE, STREAM_TRIP, type SimFaction, type SimWorld, streamRng } from "./world.ts";
+import {
+  STREAM_DECIDE,
+  STREAM_TRIP,
+  type SimFaction,
+  type SimWorld,
+  TEST_ASSET_CREDIT,
+  streamRng,
+} from "./world.ts";
 
 export const EVENT_ARRIVE = "arrive";
 export const EVENT_DECIDE = "decide";
@@ -20,8 +33,8 @@ export type SimEvent = EventKey;
 /** 합성 이동의 목적지 범위(2차맵 한 변, 단위) */
 const TRIP_SPAN = 0x4_0000;
 
-/** 경제를 돌리면 대리 규칙의 자산 옮기기를 경제가 맡는다(simulator/run.ts가 붙인다) */
-export interface StubHooks {
+/** 경제를 돌리면 자산 옮기기·생필품·세율을 경제가 맡는다(simulator/run.ts가 붙인다) */
+export interface SimHooks {
   /** 국고 자산(세력 화폐) */
   treasuryAsset(faction: SimFaction): string;
   /** 도시 주인이 바뀌기 바로 전(옛 주인을 아직 안다) */
@@ -40,32 +53,57 @@ export interface StubHooks {
   taxCollectedOf?(cityId: number): bigint;
   /** 그 세력이 낸 발행 이자 누적(D-303, 화폐를 찍지 않으면 0) */
   interestPaidOf?(factionId: number): bigint;
+  /** 세율(거래세 만분율): 지금 값·프리셋 기본값·바꾸기. 없으면 세율 규칙식이 돌지 않는다 */
+  taxOf?(faction: SimFaction): number;
+  baseTaxOf?(faction: SimFaction): number;
+  setTax?(faction: SimFaction, taxBp: number, nowMs: number): void;
 }
 
-export interface StubContext {
+/** 판단 실행 횟수(요약 npc 칸) */
+export interface NpcCounts {
+  readonly actions: Record<NpcAction["kind"], number>;
+  peaceRefused: number;
+  taxChanges: number;
+}
+
+export function emptyNpcCounts(): NpcCounts {
+  return {
+    actions: { idle: 0, attack: 0, found: 0, research: 0, sell_shares: 0, peace: 0, break_vassal: 0 },
+    peaceRefused: 0,
+    taxChanges: 0,
+  };
+}
+
+export interface NpcContext {
   readonly world: SimWorld;
   readonly loop: SimLoop<SimEvent>;
   readonly recorder: MetricsRecorder;
-  readonly stub: ScenarioStub;
+  /** 세력·사회 계수표(npc 칸 포함) */
+  readonly c: SocietyCoefficients;
+  /** 판단 간격(시나리오가 바꿀 수 있다. 없으면 c.npc.decideEveryMs) */
+  readonly decideEveryMs: number;
+  /** 마을 세우는 값·연구 시설 값(시나리오 society 칸, 서버는 서버 설정) */
+  readonly settings: ScenarioSociety;
   readonly trips: ScenarioTrips | undefined;
-  readonly hooks?: StubHooks | undefined;
+  readonly hooks?: SimHooks | undefined;
   /** 있으면 도시 빼앗기를 공성 전투로 정하고 조우 전투를 연다 */
   readonly combat?: CombatRun | undefined;
   readonly encounterPerMille?: number | undefined;
-  /** 진짜 규칙(점령 처리·마을·지분·연구). run.ts가 붙인다 */
+  /** 진짜 규칙(점령 처리·마을·지분·연구·전쟁). run.ts가 붙인다 */
   society?: SocietyRun | undefined;
+  readonly counts: NpcCounts;
 }
 
 /** 다음 판단 시각: 간격 ±25% */
-export function scheduleDecide(ctx: StubContext, faction: SimFaction, fromMs: number): void {
+export function scheduleDecide(ctx: NpcContext, faction: SimFaction, fromMs: number): void {
   const rng = streamRng(ctx.world.seed, STREAM_DECIDE, faction.id, faction.aiStep * 2 + 1);
-  const quarter = Math.floor(ctx.stub.decideEveryMs / 4);
-  const delay = ctx.stub.decideEveryMs - quarter + rng.nextInt(quarter * 2 + 1);
+  const quarter = Math.floor(ctx.decideEveryMs / 4);
+  const delay = ctx.decideEveryMs - quarter + rng.nextInt(quarter * 2 + 1);
   faction.eventId = ctx.loop.schedule(fromMs + delay, { kind: EVENT_DECIDE, subject: faction.id });
 }
 
 /** 유닛 하나의 다음 이동: 아무 곳으로 걸어가 도착하고, 쉬었다가 다시 고른다 */
-export function scheduleTrip(ctx: StubContext, unitId: number, fromMs: number): void {
+export function scheduleTrip(ctx: NpcContext, unitId: number, fromMs: number): void {
   const unit = ctx.world.units.get(unitId);
   const trips = ctx.trips;
   if (!unit || !trips) return;
@@ -78,56 +116,252 @@ export function scheduleTrip(ctx: StubContext, unitId: number, fromMs: number): 
   unit.eventId = ctx.loop.schedule(arrivalAt(motion), { kind: EVENT_ARRIVE, subject: unit.id });
 }
 
-function livingIds(world: SimWorld): number[] {
-  const ids: number[] = [];
-  for (const faction of world.factions.values()) if (faction.alive) ids.push(faction.id);
-  return ids;
+const treasuryAssetOf = (ctx: NpcContext, faction: SimFaction): string =>
+  ctx.hooks?.treasuryAsset(faction) ?? TEST_ASSET_CREDIT;
+
+/** 도시마다 그 세력 휴먼 수·만족도 합(세력의 유닛만 돈다) */
+function citizens(ctx: NpcContext, faction: SimFaction): Map<number, { n: number; sum: number }> {
+  const out = new Map<number, { n: number; sum: number }>();
+  for (const unitId of faction.units) {
+    const unit = ctx.world.units.get(unitId);
+    if (!unit) continue;
+    const entry = out.get(unit.city) ?? { n: 0, sum: 0 };
+    entry.n += 1;
+    entry.sum += unit.satisfactionMilli;
+    out.set(unit.city, entry);
+  }
+  return out;
 }
 
-/** 첫 도시(넣은 차례)가 아니라 난수로 고른 도시 */
-function pickCity(cities: readonly number[], roll: number): number | undefined {
-  return cities[roll % Math.max(1, cities.length)];
+/** 한 번 파는 지분 수(society.sellShares와 같다) */
+const SHARE_LOT = 100n;
+
+/** 100주를 팔아도 쥐고 있을 몫(‰)이 남는 도시인가(shareKeepPm − 상업 ÷ 10) */
+function sellableCity(ctx: NpcContext, faction: SimFaction, cityId: number): boolean {
+  const have = ctx.world.book.balanceOf(faction.id, shareAsset(cityId));
+  const keep = BigInt(ctx.c.npc.shareKeepPm - Math.floor(faction.traits.commerce / 10));
+  return have > SHARE_LOT && (have - SHARE_LOT) * 1000n >= keep * BigInt(ctx.c.sharesPerCity);
 }
 
-function conquer(ctx: StubContext, attacker: SimFaction, rolls: readonly number[], nowMs: number): void {
+/** 세력 하나의 지표(npc/brain.ts FactionView) */
+export function factionView(ctx: NpcContext, faction: SimFaction): FactionView {
+  const { world, c, settings } = ctx;
+  const byCity = citizens(ctx, faction);
+  let sum = 0;
+  let food = 1000;
+  let crowded = false;
+  let sellable = false;
+  let bestCity: { level: number; development: number; id: number } | undefined;
+  let maxResearch = 0;
+  for (const cityId of [...faction.cities].toSorted((a, b) => a - b)) {
+    const city = world.cities.get(cityId);
+    if (!city) continue;
+    const here = byCity.get(cityId);
+    sum += here?.sum ?? 0;
+    food = Math.min(food, ctx.hooks?.foodPmOf?.(cityId) ?? 1000);
+    // 붐빔 = 주거가 꽉 찼고 마을로 떠날 사람이 모자라지 않다(society.found와 같은 조건)
+    if ((here?.n ?? 0) >= city.housing && (here?.n ?? 0) >= settings.founders) crowded = true;
+    if (sellableCity(ctx, faction, cityId)) sellable = true;
+    maxResearch = Math.max(maxResearch, city.researchLevel);
+    // 연구 시설을 올릴 도시 = society.buildResearch와 같은 차례(발전도 높은 것, 같으면 작은 ID)
+    if (city.researchLevel < c.techGroundMax && (!bestCity || city.development > bestCity.development))
+      bestCity = { level: city.researchLevel, development: city.development, id: city.id };
+  }
+  const strength = faction.units.size;
+  const treasury = world.book.balanceOf(faction.id, treasuryAssetOf(ctx, faction));
+  // 다음 기술 단계가 연구 시설에 막혔다: 지금 단계 < 상한, 어느 도시도 다음 단계 연구 시설이 없고, 발전도는 다음 단계에 넉넉하다
+  const blocked =
+    bestCity !== undefined &&
+    faction.tech < c.techGroundMax &&
+    maxResearch <= faction.tech &&
+    bestCity.development >= c.developmentPerTech * faction.tech;
+  const overlord = faction.overlord === null ? undefined : world.factions.get(faction.overlord);
+  let vassals = 0;
+  for (const other of world.factions.values()) if (other.alive && other.overlord === faction.id) vassals += 1;
+  return {
+    id: faction.id,
+    traits: faction.traits,
+    cities: faction.cities.size,
+    strength,
+    treasury,
+    satisfaction: strength === 0 ? 0 : Math.floor(sum / strength / 1000),
+    foodPm: food,
+    crowded,
+    foundCost: settings.foundCost,
+    research: bestCity ? { cost: settings.researchBuildCost * BigInt(bestCity.level + 1), blocked } : null,
+    sellableShares: sellable,
+    poor: treasury < settings.foundCost,
+    overlord: overlord?.alive ? { id: overlord.id, strength: overlord.units.size } : null,
+    vassals,
+  };
+}
+
+/**
+ * 봉신 묶음(D-216·D-250 "같은 세력 = 국가 전체, 봉신 관계만 따라 올라감"): 세력 → 맨 위 상위 세력, 묶음 → 휴먼 수 합.
+ * 묶음 안 세력끼리는 치지 않고, 묶음 안 세력을 치면 묶음 전체가 지킨다(상대 힘 = 묶음 힘, 기술 해석)
+ */
+export interface Blocs {
+  readonly topOf: Map<number, number>;
+  readonly strengthOf: Map<number, number>;
+}
+
+export function blocsOf(world: SimWorld): Blocs {
+  const topOf = new Map<number, number>();
+  const strengthOf = new Map<number, number>();
+  for (const faction of world.factions.values()) {
+    if (!faction.alive) continue;
+    let top = faction;
+    // 상위 관계가 돌아 들어와도 멈추게(세력 수만큼만 올라간다)
+    for (let hop = 0; top.overlord !== null && hop < world.factions.size; hop++) {
+      const up = world.factions.get(top.overlord);
+      if (!up?.alive) break;
+      top = up;
+    }
+    topOf.set(faction.id, top.id);
+    strengthOf.set(top.id, (strengthOf.get(top.id) ?? 0) + faction.units.size);
+  }
+  return { topOf, strengthOf };
+}
+
+/** 다른 세력 하나를 faction이 본 모습 */
+export function rivalView(
+  ctx: NpcContext,
+  faction: SimFaction,
+  other: SimFaction,
+  nowMs: number,
+  blocs: Blocs = blocsOf(ctx.world),
+): RivalView {
+  let takeable = 0;
+  for (const cityId of other.cities) if (ctx.world.cities.get(cityId)?.start === false) takeable += 1;
+  const top = blocs.topOf.get(other.id) ?? other.id;
+  return {
+    id: other.id,
+    strength: blocs.strengthOf.get(top) ?? other.units.size,
+    takeable,
+    atWar: faction.wars.has(other.id),
+    truce: inTruce(faction, other.id, nowMs),
+    related: top === (blocs.topOf.get(faction.id) ?? faction.id),
+    rebel: other.rebelOf === faction.id,
+  };
+}
+
+function rivalsOf(ctx: NpcContext, faction: SimFaction, nowMs: number): RivalView[] {
+  const blocs = blocsOf(ctx.world);
+  const out: RivalView[] = [];
+  for (const other of ctx.world.factions.values())
+    if (other.alive && other.id !== faction.id) out.push(rivalView(ctx, faction, other, nowMs, blocs));
+  return out;
+}
+
+/** 도시 하나의 휴먼 평균 만족도(0~100, 사람이 없으면 0) */
+function cityAverage(ctx: NpcContext, cityId: number): number {
+  let n = 0;
+  let sum = 0;
+  for (const unit of ctx.world.units.values())
+    if (unit.city === cityId) {
+      n += 1;
+      sum += unit.satisfactionMilli;
+    }
+  return n === 0 ? 0 : Math.floor(sum / n / 1000);
+}
+
+/** 치기: (선포했으면) 남의 도시 하나를 고르고, 전투가 켜져 있으면 공성에서 이겨야 점령한다 */
+function attack(ctx: NpcContext, attacker: SimFaction, targetId: number, roll: number, nowMs: number): void {
   const { world } = ctx;
-  // 시작 도시는 주인이 바뀌지 않는다(D-341) → 칠 수 있는 도시가 있는 세력만
-  const takeable = (id: number) =>
-    [...(world.factions.get(id)?.cities ?? [])].filter((cityId) => world.cities.get(cityId)?.start === false);
-  const targets = livingIds(world).filter((id) => id !== attacker.id && takeable(id).length > 0);
-  const target = world.factions.get(targets[(rolls[0] ?? 0) % Math.max(1, targets.length)] ?? 0);
-  if (!target || targets.length === 0) return;
-  const cityId = pickCity(takeable(target.id), rolls[1] ?? 0);
+  const target = world.factions.get(targetId);
+  if (!target?.alive) return;
+  // 시작 도시는 주인이 바뀌지 않는다(D-341). 난수로 고른 도시(넣은 차례가 아니라)
+  const takeable = [...target.cities].filter((cityId) => world.cities.get(cityId)?.start === false);
+  const cityId = takeable[roll % Math.max(1, takeable.length)];
   if (cityId === undefined) return;
-  // 전투가 켜져 있으면 공성 전투에서 이겨야 도시가 넘어간다
-  if (ctx.combat && !ctx.combat.siege(attacker, target, cityId, nowMs)) return;
-  ctx.society?.occupy(attacker, target, cityId, [rolls[2] ?? 0, rolls[3] ?? 0], nowMs);
+  if (ctx.combat) {
+    const won = ctx.combat.siege(attacker, target, cityId, nowMs);
+    recordFight(attacker, attacker.id, target, target.id, nowMs);
+    if (!won) return;
+  }
+  ctx.society?.occupy(
+    attacker,
+    target,
+    cityId,
+    occupationChoice(attacker.traits, cityAverage(ctx, cityId), ctx.c.npc, ctx.c),
+    nowMs,
+  );
+}
+
+/** 강화 제안: 받는 쪽의 강화 점수가 0 넘으면 맺는다(질문 195 가) */
+function proposePeace(ctx: NpcContext, from: SimFaction, toId: number, nowMs: number): void {
+  const to = ctx.world.factions.get(toId);
+  if (!to?.alive || !from.wars.has(toId)) return;
+  if (peaceScore(factionView(ctx, to), rivalView(ctx, to, from, nowMs), ctx.c.npc) > 0)
+    ctx.society?.makePeace(from, to, nowMs);
+  else ctx.counts.peaceRefused += 1;
+}
+
+/** 세율 규칙식(경제가 있을 때만, 질문 197 가) */
+function taxPolicy(ctx: NpcContext, faction: SimFaction, view: FactionView, nowMs: number): void {
+  const hooks = ctx.hooks;
+  if (!hooks?.setTax || !hooks.taxOf || !hooks.baseTaxOf) return;
+  const current = hooks.taxOf(faction);
+  const next = nextTaxBp(
+    {
+      current,
+      base: hooks.baseTaxOf(faction),
+      treasury: view.treasury,
+      before: faction.taxBefore,
+      satisfaction: view.satisfaction,
+    },
+    ctx.c.npc,
+  );
+  faction.taxBefore = view.treasury;
+  if (next === current) return;
+  hooks.setTax(faction, next, nowMs);
+  ctx.counts.taxChanges += 1;
 }
 
 /** 세력 판단 하나 */
-export function decide(ctx: StubContext, factionId: number, nowMs: number): void {
+export function decide(ctx: NpcContext, factionId: number, nowMs: number): void {
   const faction = ctx.world.factions.get(factionId);
   if (!faction?.alive) return;
   faction.eventId = undefined;
   const rng = streamRng(ctx.world.seed, STREAM_DECIDE, faction.id, faction.aiStep * 2);
-  // 굴림 수는 판단마다 같다(무엇을 하든 다음 굴림이 밀리지 않게)
-  const tries = [
-    rng.nextInt(1000),
-    rng.nextInt(1000),
-    rng.nextInt(1000),
-    rng.nextInt(1000),
-    rng.nextInt(1000),
-  ];
-  const rolls = [rng.nextInt(0x1_0000), rng.nextInt(0x1_0000), rng.nextInt(0x1_0000), rng.nextInt(0x1_0000)];
-  const stub = ctx.stub;
-  if ((tries[0] ?? 1000) < stub.conquerPerMille) conquer(ctx, faction, rolls, nowMs);
-  if ((tries[1] ?? 1000) < stub.foundPerMille && faction.alive)
-    ctx.society?.found(faction, rolls[0] ?? 0, nowMs);
-  if ((tries[2] ?? 1000) < stub.shareSalePerMille && faction.alive)
-    ctx.society?.sellShares(faction, rolls[1] ?? 0, nowMs);
-  if ((tries[3] ?? 1000) < stub.researchBuildPerMille && faction.alive)
-    ctx.society?.buildResearch(faction, nowMs);
-  if ((tries[4] ?? 1000) < stub.vassalBreakPerMille && faction.alive) ctx.society?.breakVassal(faction);
+  // 굴림 수는 판단마다 같다(무엇을 하든 다음 굴림이 밀리지 않게): 같은 점수 고르기, 도시 고르기, 지분 고르기
+  const rolls = [rng.nextInt(0x1_0000), rng.nextInt(0x1_0000), rng.nextInt(0x1_0000)];
+  const view = factionView(ctx, faction);
+  const action = decideAction(view, rivalsOf(ctx, faction, nowMs), rolls[0] ?? 0, ctx.c.npc);
+  ctx.counts.actions[action.kind] += 1;
+  const society = ctx.society;
+  switch (action.kind) {
+    case "attack": {
+      const target = ctx.world.factions.get(action.target);
+      if (action.declare && target) society?.declareWar(faction, target, nowMs);
+      attack(ctx, faction, action.target, rolls[1] ?? 0, nowMs);
+      break;
+    }
+    case "found":
+      society?.found(faction, nowMs);
+      break;
+    case "research":
+      society?.buildResearch(faction, nowMs);
+      break;
+    case "sell_shares": {
+      const cities = [...faction.cities]
+        .toSorted((a, b) => a - b)
+        .filter((id) => sellableCity(ctx, faction, id));
+      const cityId = cities[(rolls[2] ?? 0) % Math.max(1, cities.length)];
+      if (cityId !== undefined) society?.sellShares(faction, cityId, nowMs);
+      break;
+    }
+    case "peace":
+      proposePeace(ctx, faction, action.target, nowMs);
+      break;
+    case "break_vassal":
+      society?.breakVassal(faction);
+      break;
+    case "idle":
+      break;
+  }
+  // 세율은 판단을 시작할 때 본 국고끼리 견준다(행동이 쓴 돈과 섞이지 않게)
+  if (faction.alive) taxPolicy(ctx, faction, view, nowMs);
   if (ctx.combat && rng.nextInt(1000) < (ctx.encounterPerMille ?? 0) && faction.alive)
     ctx.combat.encounter(faction, rng.nextInt(0x1_0000), nowMs);
   // 판단 난수는 차례 2k, 다음 시각 난수는 2k+1(k = 판단 횟수)이라 겹치지 않는다

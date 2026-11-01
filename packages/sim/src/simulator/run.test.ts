@@ -5,15 +5,8 @@ import { type Scenario, parseScenario } from "./scenario.ts";
 /** 시험용 작은 시나리오(팩·파일 없이) */
 const small: Scenario = parseScenario({
   id: "test_small",
-  factions: [{ code: "npc", count: 4, fixed: true, cities: 3, workers: 6, credit: "5000", tech: 2 }],
-  stub: {
-    decideEveryMs: 6 * 3_600_000,
-    conquerPerMille: 150,
-    foundPerMille: 150,
-    shareSalePerMille: 100,
-    researchBuildPerMille: 150,
-    vassalBreakPerMille: 50,
-  },
+  factions: [{ code: "npc", count: 4, fixed: true, cities: 3, workers: 6, credit: "50000", tech: 2 }],
+  npc: { decideEveryMs: 6 * 3_600_000 },
   trips: { idleMinMs: 600_000, idleMaxMs: 3_600_000 },
 });
 
@@ -53,8 +46,18 @@ describe("시뮬레이터 실행", () => {
     expect(BigInt(summary.world.ore)).toBeGreaterThan(0n);
   });
 
-  it("[임시] 대리 규칙이 기록기의 세 갈래(생김·사라짐·기술 오르내림)를 모두 건드린다", () => {
-    const { summary } = run(5, 60);
+  it("NPC 판단(R5)과 규칙이 기록기의 세 갈래(생김·사라짐·기술 오르내림)를 모두 건드린다", () => {
+    // 센 나라 둘과 약한 세력 넷: 공격 성향 나라가 약한 세력의 도시를 친다(판단은 성향·힘 비, 결과는 점령 규칙)
+    const uneven = parseScenario({
+      id: "test_uneven",
+      factions: [
+        { code: "big", count: 2, fixed: true, cities: 3, workers: 40, credit: "200000", tech: 3 },
+        { code: "small", count: 4, fixed: false, cities: 2, workers: 6, credit: "20000", tech: 2 },
+      ],
+      npc: { decideEveryMs: 6 * 3_600_000 },
+      trips: { idleMinMs: 600_000, idleMaxMs: 3_600_000 },
+    });
+    const { summary } = run(5, 60, uneven);
     expect(summary.metrics.churn.born.total).toBeGreaterThan(0);
     expect(summary.metrics.churn.died.total).toBeGreaterThan(0);
     expect(summary.metrics.tech.ups).toBeGreaterThan(0);
@@ -69,14 +72,12 @@ describe("시나리오 읽기", () => {
       parseScenario({
         id: "xx",
         factions: [{ code: "aa", count: 1, fixed: true, cities: 0, workers: 1, credit: "1", tech: 1 }],
-        stub: small.stub,
       }),
     ).toThrow(/cities/);
     expect(() =>
       parseScenario({
         id: "xx",
         factions: [{ code: "aa", count: 1, fixed: true, cities: 1, workers: 1, credit: "-1", tech: 1 }],
-        stub: small.stub,
       }),
     ).toThrow(/credit/);
   });

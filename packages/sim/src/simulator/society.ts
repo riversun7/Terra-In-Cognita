@@ -2,8 +2,13 @@
 // 진짜 규칙(society/*.ts)을 시뮬 세계에 붙인다: 도시 지분, 점령(대리 판단이 고른 약탈·통합·지분 처리) + 편입 제안,
 // 하루마다 만족도(목표값으로 다가감)·출생·수명·환생·상속·반란(전투가 켜져 있으면 도시 안 공성)·자본주의 독립·연구·기술 후퇴,
 // 배당 주기마다 도시 세금 정산(D-304: 이자 → 운영비 → 남은 이익을 체제대로), 공물 주기마다 봉신 공물.
-// 무엇을 해 볼지(치기·마을 세우기·지분 팔기·연구 시설·봉신 독립)는 대리 판단(stubRules.ts, R5가 대신).
+// 전쟁·강화(D-256·D-290·D-292): 선포 비용, 교전 시각, 백지 강화(S5), 강화 조약의 불가침(society/wars.ts).
+// 무엇을 해 볼지(치기·마을·지분·연구·강화·봉신 독립)는 NPC 판단(npcRun.ts → npc/brain.ts), 고를 수 있는 칸(점령 처리·마을 체제·
+// 편입 답·독립 찬성)은 NPC 규칙식(npc/policy.ts, docs/adr/2026-11-01-npc-brain-r5.md).
 import type { LedgerBook } from "../ledger/ledgerBook.ts";
+import { type OccupationChoice, answerOffer, foundingChoice, independenceYes } from "../npc/policy.ts";
+import { inheritTraits } from "../npc/traits.ts";
+import { declareWar, endWar, endedWars, makePeace, recordFight, warCost } from "../society/wars.ts";
 import { JOB_GATHER, PHASE_WORK } from "../settle/settle.ts";
 import { satisfactionTarget, satisfactionToward, shiftSatisfaction } from "../society/labor.ts";
 import {
@@ -14,7 +19,14 @@ import {
   settleShares,
 } from "../society/occupation.ts";
 import { birthRoll, canBirth, deathFate, inherit, lifespanMs } from "../society/population.ts";
-import { type Regime, holdingsOf, issueShares, shareAsset, transferShares } from "../society/shares.ts";
+import {
+  type Regime,
+  holdingsOf,
+  issueShares,
+  shareAsset,
+  totalShares,
+  transferShares,
+} from "../society/shares.ts";
 import { advanceTech, techCeiling } from "../society/tech.ts";
 import { capitalistIndependence, independenceAllowed, rebelsOf } from "../society/uprising.ts";
 import { DAY_MS } from "./metrics.ts";
@@ -22,6 +34,7 @@ import { checkSociety } from "./societyCheck.ts";
 import { createSocietyPayouts } from "./societyPayouts.ts";
 import type { SocietyOptions, SocietyRun } from "./societyTypes.ts";
 import {
+  STREAM_TRAITS,
   type SimCity,
   type SimFaction,
   type SimUnit,
@@ -37,7 +50,6 @@ import {
 export const STREAM_SOCIETY = 4;
 /** [임시] 휴먼 지갑의 원장 주체 ID = 이 값 + 유닛 ID(휴먼 주체 표가 생기기 전) */
 export const WALLET_BASE = 1_000_000_000;
-const REGIMES: readonly Regime[] = ["dictatorship", "democracy", "capitalism"];
 
 /** 휴먼 평균 만족도(밀리점) */
 const average = (units: readonly SimUnit[]): number =>
@@ -49,7 +61,7 @@ const periodDays = (ms: number): number => Math.max(1, Math.floor(ms / DAY_MS));
 export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
   const { world, c, recorder } = o;
   const book: LedgerBook = world.book;
-  const s = o.scenario.society;
+  const s = o.settings;
   const counts = {
     births: 0,
     deaths: 0,
@@ -69,9 +81,13 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     shareSales: 0,
     researchBuilt: 0,
     vassalBreaks: 0,
+    warsDeclared: 0,
+    treaties: 0,
+    whitePeace: 0,
+    stalled: 0,
   };
   const offers: IncorporationOffer[] = [];
-  let day = 0;
+  let day = o.restoreDay ?? 0;
 
   const treasuryAsset = (f: SimFaction): string => o.hooks?.treasuryAsset(f) ?? TEST_ASSET_CREDIT;
   const payouts = createSocietyPayouts(world, c, o.hooks, treasuryAsset);
@@ -87,14 +103,17 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
   };
   const sortedCities = (): SimCity[] => [...world.cities.values()].toSorted((a, b) => a.id - b.id);
 
-  // 차리기: 나이·수명 흩기, 도시마다 지분 1000주(D-130)를 도시 주인에게, 기술 단계는 지상 상한 안
-  for (const unit of world.units.values()) {
-    const rng = streamRng(world.seed, STREAM_SOCIETY, unit.id, 0);
-    unit.lifespanMs = lifespanMs(rng.nextInt(10_000), c);
-    unit.bornAtMs = startMs - Math.floor((unit.lifespanMs * rng.nextInt(10_000)) / 10_000);
-  }
+  // 차리기: 나이·수명 흩기, 도시마다 지분 1000주(D-130)를 도시 주인에게, 기술 단계는 지상 상한 안.
+  // 이어 돌리기(서버)는 수명이 저장 값이고 지분은 없는 도시에만 낸다
+  if (o.restoreDay === undefined)
+    for (const unit of world.units.values()) {
+      const rng = streamRng(world.seed, STREAM_SOCIETY, unit.id, 0);
+      unit.lifespanMs = lifespanMs(rng.nextInt(10_000), c);
+      unit.bornAtMs = startMs - Math.floor((unit.lifespanMs * rng.nextInt(10_000)) / 10_000);
+    }
   for (const city of sortedCities())
-    issueShares(book, city.id, [{ owner: city.owner, amount: BigInt(c.sharesPerCity) }], startMs);
+    if (o.restoreDay === undefined || totalShares(book, city.id) === 0n)
+      issueShares(book, city.id, [{ owner: city.owner, amount: BigInt(c.sharesPerCity) }], startMs);
   for (const faction of world.factions.values()) {
     faction.tech = Math.max(1, Math.min(c.techGroundMax, faction.tech));
     faction.research.blueprint = faction.tech;
@@ -139,6 +158,8 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     faction.eventId = undefined;
     for (const other of world.factions.values()) {
       other.wars.delete(faction.id);
+      other.lastFight.delete(faction.id);
+      other.truces.delete(faction.id);
       if (other.overlord === faction.id) other.overlord = null;
     }
     recorder.died(nowMs, faction.id, cause, into ? { into: into.id } : {});
@@ -158,6 +179,8 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       regime,
       settledAtMs: nowMs,
       overlord,
+      // 유동 세력의 성향 = 부모 값 ± 폭(질문 192 가)
+      traits: inheritTraits(parent.traits, streamRng(world.seed, STREAM_TRAITS, id, 0), c.npc),
     });
     child.research = { progress: 0, blueprint: parent.research.blueprint };
     world.factions.set(id, child);
@@ -201,12 +224,11 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
   };
 
   return {
-    occupy(attacker, target, cityId, rolls, nowMs) {
+    occupy(attacker, target, cityId, decision: OccupationChoice, nowMs) {
       const city = world.cities.get(cityId);
       if (!city || city.start) return;
-      // [임시] 대리 판단: 약탈·통합 반반, 상장폐지 3분의 1
-      const treatment = (rolls[0] ?? 0) % 2 === 0 ? "loot" : "integrate";
-      const choice = (rolls[1] ?? 0) % 3 === 0 ? "delist" : "keep";
+      // 점령자가 고른 처리(NPC 규칙식 npc/policy.ts occupationChoice, 질문 198 가)
+      const { treatment, shares: choice } = decision;
       const occupier = {
         treasury: attacker.id,
         regime: attacker.regime,
@@ -235,14 +257,15 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       } else counts.integrate += 1;
       if (decided === "delist") counts.delisted += 1;
       offers.push(...makeOffers(book, cityId, attacker.id, new Set([target.id]), nowMs, c));
-      attacker.wars.add(target.id);
-      target.wars.add(attacker.id);
+      // 점령은 교전이다(전쟁이 아니었으면 전쟁이 된다. 선포 비용은 판단이 선포할 때 냈다)
+      if (attacker.wars.has(target.id)) recordFight(attacker, attacker.id, target, target.id, nowMs);
+      else declareWar(attacker, attacker.id, target, target.id, nowMs);
       moveCity(cityId, target, attacker, nowMs);
       recordTech(target, nowMs, 0, "city_lost");
       dieIfEmpty(target, "conquered", attacker, nowMs);
     },
 
-    found(parent, roll, nowMs) {
+    found(parent, nowMs) {
       const byCity = unitsByCity();
       const crowded = [...parent.cities]
         .map((id) => world.cities.get(id))
@@ -261,10 +284,12 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
           { account: book.systemAccount(`sink:${asset}`, asset), amount: s.foundCost },
         ],
       });
-      // D-340: 세울 때 봉신 | 독립(+ 체제)을 고른다. [임시] 대리 판단 반반
-      const vassal = roll % 2 === 0;
-      const regime = vassal ? parent.regime : (REGIMES[(roll >> 1) % REGIMES.length] ?? "democracy");
-      const child = spawnFaction(parent, "house", regime, vassal ? parent.id : null, nowMs);
+      // D-340: 세울 때 봉신 | 독립(+ 체제)을 고른다 — 세우는 가문(새 성향)의 규칙식(질문 198 가)
+      const child = spawnFaction(parent, "house", parent.regime, null, nowMs);
+      const plan = foundingChoice(child.traits, c.npc);
+      const vassal = plan.vassal;
+      if (plan.vassal) child.overlord = parent.id;
+      else child.regime = plan.regime;
       const city: SimCity = {
         id: world.nextCityId(),
         owner: child.id,
@@ -295,10 +320,8 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       o.scheduleFaction(child, nowMs);
     },
 
-    sellShares(seller, roll, nowMs) {
-      const cities = [...seller.cities].filter((id) => book.balanceOf(seller.id, shareAsset(id)) > 0n);
-      const cityId = cities[roll % Math.max(1, cities.length)];
-      if (cityId === undefined) return;
+    sellShares(seller, cityId, nowMs) {
+      if (!seller.cities.has(cityId)) return;
       // [임시] 사는 쪽 = 국고가 가장 많은 다른 살아 있는 세력, 값 = 주당 10(사는 쪽 국고 화폐)
       let buyer: SimFaction | undefined;
       for (const other of world.factions.values())
@@ -348,6 +371,30 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       city.researchLevel += 1;
       counts.researchBuilt += 1;
       payouts.spent(city.id, cost);
+    },
+
+    declareWar(attacker, target, nowMs) {
+      if (!attacker.alive || !target.alive || attacker.wars.has(target.id)) return;
+      // 무명분 선포 비용(S3, 질문 196 가): 국고의 만분율을 소각. 나에게서 떨어져 나간 반란 세력을 치는 것은 명분이 있다(D-290 해방)
+      const asset = treasuryAsset(attacker);
+      const cost = target.rebelOf === attacker.id ? 0n : warCost(book.balanceOf(attacker.id, asset), c.npc);
+      if (cost > 0n)
+        book.post({
+          kind: "burn",
+          atMs: nowMs,
+          entries: [
+            { account: book.ownerAccount(attacker.id, asset), amount: -cost },
+            { account: book.systemAccount(`sink:${asset}`, asset), amount: cost },
+          ],
+        });
+      declareWar(attacker, attacker.id, target, target.id, nowMs);
+      counts.warsDeclared += 1;
+    },
+
+    makePeace(a, b, nowMs) {
+      if (!a.wars.has(b.id)) return;
+      makePeace(a, a.id, b, b.id, nowMs, c.npc);
+      counts.treaties += 1;
     },
 
     breakVassal(faction) {
@@ -473,8 +520,10 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
           continue;
         }
         const child = spawnFaction(parent, "rebel", parent.regime, null, nowMs);
-        child.wars.add(parent.id);
-        parent.wars.add(child.id);
+        // 반란 세력은 원래 세력과 전쟁으로 시작한다(D-256, 선포 비용 없음). 정부는 소탕하려 한다(46 §2.4)
+        // 반란의 반란이면 맨 처음 나라가 그대로 되찾으려 한다(빼앗긴 옛 도시 = 해방·종주권 명분, D-290)
+        child.rebelOf = parent.rebelOf ?? parent.id;
+        declareWar(child, child.id, parent, parent.id, nowMs);
         seizeShares(city.id, parent.id, child.id, nowMs);
         moveCity(city.id, parent, child, nowMs);
         birthTech(child);
@@ -486,7 +535,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         dieIfEmpty(parent, "rebellion", child, nowMs);
       }
 
-      // 자본주의 독립(D-300·D-301): 지분 1위(지배 주체 아님)가 열고, 다른 주주는 찬성([임시] 대리 판단)
+      // 자본주의 독립(D-300·D-301): 지분 1위(지배 주체 아님)가 열고, 다른 주주는 규칙식으로 찬성(질문 198 가)
       for (const city of sortedCities()) {
         const parent = world.factions.get(city.owner);
         if (
@@ -496,7 +545,18 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         )
           continue;
         const holdings = holdingsOf(book, city.id);
-        const yes = new Set(holdings.map((h) => h.owner).filter((owner) => owner !== parent.id));
+        const yes = new Set(
+          holdings
+            .map((h) => h.owner)
+            .filter((owner) => {
+              const holder = world.factions.get(owner);
+              return (
+                owner !== parent.id &&
+                holder?.alive === true &&
+                independenceYes(holder.traits, holder.wars.has(parent.id), c.npc)
+              );
+            }),
+        );
         const vote = capitalistIndependence(holdings, parent.id, yes, c);
         if (vote.kind !== "declare" && vote.kind !== "passed") continue;
         const child = spawnFaction(parent, "free", "capitalism", null, nowMs);
@@ -509,14 +569,33 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         dieIfEmpty(parent, "independence", child, nowMs);
       }
 
-      // 편입 제안: 대리 판단(반반 수락), 기한이 지나면 만료 = 거부(D-347)
+      // 편입 제안: 받는 세력의 규칙식(질문 198 가), 기한이 지나면 만료 = 거부(D-347). 세력이 아닌 주인은 기한까지 답하지 않는다
       for (const offer of offers) {
         if (offer.state !== "pending") continue;
-        const answer = nowMs >= offer.deadlineMs ? "expired" : rng.nextInt(2) === 0 ? "accepted" : "refused";
+        const holder = world.factions.get(offer.owner);
+        const answer =
+          nowMs >= offer.deadlineMs
+            ? "expired"
+            : holder?.alive
+              ? answerOffer(holder.traits, holder.wars.has(offer.occupier), c.npc)
+              : undefined;
+        if (answer === undefined) continue;
         resolveOffer(book, offer, answer, nowMs);
         counts[answer] += 1;
       }
       offers.splice(0, offers.length, ...offers.filter((offer) => offer.state === "pending"));
+
+      // 백지 강화(D-292·S5, 질문 194 가): 마지막 교전부터 기간이 지난 전쟁은 끝난다(불가침 없음)
+      for (const faction of [...world.factions.values()].toSorted((a, b) => a.id - b.id)) {
+        if (!faction.alive) continue;
+        for (const otherId of endedWars(faction, nowMs, c.npc)) {
+          const other = world.factions.get(otherId);
+          if (!other) continue;
+          endWar(faction, faction.id, other, other.id);
+          counts.whitePeace += 1;
+        }
+        for (const [otherId, until] of faction.truces) if (until <= nowMs) faction.truces.delete(otherId);
+      }
 
       // 연구·기술(질문 121·D-396): 연구 시설 레벨 × 하루 작업량, 상한이 내려가면 바로 후퇴
       for (const faction of [...world.factions.values()].toSorted((a, b) => a.id - b.id)) {
@@ -529,6 +608,16 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
 
       if (day % periodDays(c.dividendEveryMs) === 0) payouts.settleDividends(nowMs);
       if (day % periodDays(c.tributeEveryMs) === 0) payouts.payTribute(nowMs);
+
+      // 굶어 멈춤(D-220, 기술 정의): 국고 0 + 가장 모자란 도시의 생필품 충족 < 문턱이 며칠 이어짐. 처음 닿을 때 한 번 센다
+      for (const faction of [...world.factions.values()].toSorted((a, b) => a.id - b.id)) {
+        if (!faction.alive) continue;
+        let food = 1000;
+        for (const id of faction.cities) food = Math.min(food, o.hooks?.foodPmOf?.(id) ?? 1000);
+        faction.stalledDays =
+          treasury(faction) <= 0n && food < c.npc.stallFoodPm ? faction.stalledDays + 1 : 0;
+        if (faction.stalledDays === c.npc.stallDays) counts.stalled += 1;
+      }
     },
 
     dayFields(faction) {
@@ -546,6 +635,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     check(nowMs) {
       return checkSociety(world, offers, c, nowMs);
     },
+    currentDay: () => day,
     summary() {
       const units = [...world.units.values()];
       return {
@@ -567,6 +657,8 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
           toTreasury: payouts.counts.toTreasury,
         },
         tributes: payouts.counts.tributes,
+        wars: { declared: counts.warsDeclared, treaties: counts.treaties, whitePeace: counts.whitePeace },
+        stalled: counts.stalled,
         satisfaction: Math.floor(average(units) / 1000),
       };
     },

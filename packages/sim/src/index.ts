@@ -192,7 +192,77 @@ export {
   type MetricsRecorder,
   type MetricsSummary,
 } from "./simulator/metrics.ts";
-export { parseScenario, type Scenario } from "./simulator/scenario.ts";
+export {
+  DEFAULT_SCENARIO_SOCIETY,
+  parseScenario,
+  type Scenario,
+  type ScenarioSociety,
+} from "./simulator/scenario.ts";
+// NPC 판단(R5, docs/adr/2026-11-01-npc-brain-r5.md): 판단 틀·규칙식·성향, 시뮬·서버가 같이 쓰는 실행 접착
+export {
+  chooseAction,
+  decideAction,
+  peaceScore,
+  scoreActions,
+  type FactionView,
+  type NpcAction,
+  type RivalView,
+  type ScoredAction,
+} from "./npc/brain.ts";
+export { TEST_NPC_COEFFICIENTS, type NpcCoefficients } from "./npc/coefficients.ts";
+export {
+  answerOffer,
+  foundingChoice,
+  independenceYes,
+  nextTaxBp,
+  occupationChoice,
+  tradePolicy,
+  type FoundingChoice,
+  type OccupationChoice,
+  type TradePolicy,
+} from "./npc/policy.ts";
+export {
+  TRAIT_AXES,
+  inheritTraits,
+  rollTraits,
+  traitsFromArray,
+  traitsToArray,
+  type Traits,
+} from "./npc/traits.ts";
+export {
+  declareWar,
+  endWar,
+  endedWars,
+  inTruce,
+  makePeace,
+  recordFight,
+  warCost,
+  type WarState,
+} from "./society/wars.ts";
+export {
+  EVENT_DECIDE,
+  blocsOf,
+  decide,
+  emptyNpcCounts,
+  factionView,
+  rivalView,
+  scheduleDecide,
+  type Blocs,
+  type NpcContext,
+  type NpcCounts,
+  type SimEvent,
+  type SimHooks,
+} from "./simulator/npcRun.ts";
+export {
+  STREAM_TRAITS,
+  newFaction,
+  rulingFamilyOf,
+  streamRng,
+  type SimCity,
+  type SimFaction,
+  type SimUnit,
+  type SimWorld,
+} from "./simulator/world.ts";
 export {
   SIM_OUTPUT_FORMAT,
   SIM_START_MS,
@@ -473,4 +543,11 @@ export {
   type TechState,
 } from "./society/tech.ts";
 export * from "./society/labor.ts";
-export { attachSociety, WALLET_BASE, type SocietyRun, type SocietySummary } from "./simulator/society.ts";
+export {
+  attachSociety,
+  STREAM_SOCIETY,
+  WALLET_BASE,
+  type SocietyOptions,
+  type SocietyRun,
+  type SocietySummary,
+} from "./simulator/society.ts";

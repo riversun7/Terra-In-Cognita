@@ -1249,6 +1249,136 @@
       },
       "value": 10,
       "structural": false
+    },
+    {
+      "id": "s19_trait_min",
+      "code": "S19",
+      "name": {
+        "ko": "NPC 성향 축 최소",
+        "en": "NPC trait axis min"
+      },
+      "value": 0,
+      "structural": false
+    },
+    {
+      "id": "s19_trait_max",
+      "code": "S19",
+      "name": {
+        "ko": "NPC 성향 축 최대",
+        "en": "NPC trait axis max"
+      },
+      "value": 1000,
+      "structural": false
+    },
+    {
+      "id": "s19_trait_drift",
+      "code": "S19",
+      "name": {
+        "ko": "유동 세력 성향 물려받기 폭",
+        "en": "Fluid faction trait drift"
+      },
+      "value": 150,
+      "structural": false
+    },
+    {
+      "id": "d323_decide_every",
+      "code": "",
+      "name": {
+        "ko": "NPC 판단 간격(ms)",
+        "en": "NPC decision interval (ms)"
+      },
+      "value": 21600000,
+      "structural": false
+    },
+    {
+      "id": "s3_war_cost",
+      "code": "S3",
+      "name": {
+        "ko": "무명분 선포 비용(국고 만분율)",
+        "en": "No-cause war cost (treasury bp)"
+      },
+      "value": 500,
+      "structural": false
+    },
+    {
+      "id": "s5_white_peace",
+      "code": "S5",
+      "name": {
+        "ko": "백지 강화 기간(ms)",
+        "en": "White peace after no fighting (ms)"
+      },
+      "value": 604800000,
+      "structural": false
+    },
+    {
+      "id": "d292_truce",
+      "code": "",
+      "name": {
+        "ko": "강화 조약 불가침 기간(ms)",
+        "en": "Peace treaty non-aggression (ms)"
+      },
+      "value": 1209600000,
+      "structural": false
+    },
+    {
+      "id": "d323_tax_step",
+      "code": "",
+      "name": {
+        "ko": "NPC 세율 한 번 바꾸는 폭(만분율)",
+        "en": "NPC tax step (bp)"
+      },
+      "value": 100,
+      "structural": false
+    },
+    {
+      "id": "d323_tax_max",
+      "code": "",
+      "name": {
+        "ko": "NPC 세율 규칙식 상한(만분율)",
+        "en": "NPC tax rule cap (bp)"
+      },
+      "value": 2000,
+      "structural": false
+    },
+    {
+      "id": "d323_tax_floor",
+      "code": "",
+      "name": {
+        "ko": "NPC가 세율을 올리지 않는 만족도 하한",
+        "en": "NPC tax raise satisfaction floor"
+      },
+      "value": 50,
+      "structural": false
+    },
+    {
+      "id": "npc_attack_ratio",
+      "code": "",
+      "name": {
+        "ko": "NPC 공격 힘 비(‰)",
+        "en": "NPC attack strength ratio (‰)"
+      },
+      "value": 1200,
+      "structural": false
+    },
+    {
+      "id": "npc_attack_satisfaction",
+      "code": "",
+      "name": {
+        "ko": "NPC가 새 전쟁을 벌이는 만족도 하한",
+        "en": "NPC new war satisfaction floor"
+      },
+      "value": 55,
+      "structural": false
+    },
+    {
+      "id": "d220_stall_days",
+      "code": "",
+      "name": {
+        "ko": "굶어 멈춤으로 세는 날 수",
+        "en": "Days counted as stalled"
+      },
+      "value": 7,
+      "structural": false
     }
   ]
 }

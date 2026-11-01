@@ -1,9 +1,10 @@
 // 시뮬 세력·사회의 모양(society.ts가 쓴다) — docs/adr/2026-10-31-faction-society-core.md "시뮬레이터"
+import type { OccupationChoice } from "../npc/policy.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
 import type { CombatRun } from "./combatRun.ts";
 import type { MetricsRecorder } from "./metrics.ts";
-import type { Scenario } from "./scenario.ts";
-import type { StubHooks } from "./stubRules.ts";
+import type { ScenarioSociety } from "./scenario.ts";
+import type { SimHooks } from "./npcRun.ts";
 import type { SimFaction, SimWorld } from "./world.ts";
 
 export interface SocietySummary {
@@ -23,21 +24,31 @@ export interface SocietySummary {
   readonly dividends: { readonly settlements: number; readonly payouts: number; readonly toTreasury: number };
   /** 봉신 공물 거래 수 */
   readonly tributes: number;
+  /** 전쟁(docs/adr/2026-11-01-npc-brain-r5.md 5절): 선포, 강화 조약, 백지 강화 수 */
+  readonly wars: { readonly declared: number; readonly treaties: number; readonly whitePeace: number };
+  /** 굶어 멈춤에 닿은 세력 수(D-220, 기술 정의) */
+  readonly stalled: number;
   /** 끝 날 휴먼 평균 만족도(0~100) */
   readonly satisfaction: number;
 }
 
 export interface SocietyRun {
-  /** 공성에서 이긴 뒤: 점령 처리(46 §5.1). rolls = 대리 판단의 고르기 굴림 */
+  /** 공성에서 이긴 뒤: 점령 처리(46 §5.1). decision = 점령자가 고른 처리(NPC 규칙식) */
   occupy(
     attacker: SimFaction,
     target: SimFaction,
     cityId: number,
-    rolls: readonly number[],
+    decision: OccupationChoice,
     nowMs: number,
   ): void;
-  found(parent: SimFaction, roll: number, nowMs: number): void;
-  sellShares(seller: SimFaction, roll: number, nowMs: number): void;
+  /** 붐비는 도시에서 마을 세우기(봉신 | 독립은 세우는 가문의 규칙식) */
+  found(parent: SimFaction, nowMs: number): void;
+  /** 선전포고(무명분 비용, 질문 196 가). 이미 전쟁이면 아무것도 안 한다 */
+  declareWar(attacker: SimFaction, target: SimFaction, nowMs: number): void;
+  /** 강화 조약(백지 + 불가침, 질문 195 가). 받는지는 부르는 쪽(판단)이 정했다 */
+  makePeace(a: SimFaction, b: SimFaction, nowMs: number): void;
+  /** 그 도시 지분 100주를 국고가 가장 많은 다른 세력에 판다(어느 도시를 팔지는 판단이 고른다) */
+  sellShares(seller: SimFaction, cityId: number, nowMs: number): void;
   buildResearch(faction: SimFaction, nowMs: number): void;
   breakVassal(faction: SimFaction): void;
   endOfDay(nowMs: number): void;
@@ -45,14 +56,22 @@ export interface SocietyRun {
   dayFields(faction: SimFaction): { satisfaction: number; regime: string; overlord: number | null };
   check(nowMs: number): string[];
   summary(): SocietySummary;
+  /** 지금까지 돈 하루 끝 수(이어 돌리기 저장용) */
+  currentDay(): number;
 }
 
 export interface SocietyOptions {
   readonly world: SimWorld;
-  readonly scenario: Scenario;
+  /** 마을·연구 값과 반란 쉬는 날(시나리오 society 칸, 서버는 서버 설정) */
+  readonly settings: ScenarioSociety;
+  /**
+   * 이어 돌리기(서버, docs/adr/2026-11-01-npc-brain-r5.md 7절): 있으면 차리기를 건너뛰고(수명·기술은 저장 값) 그 날부터 센다.
+   * 지분이 없는 도시에만 지분을 낸다
+   */
+  readonly restoreDay?: number | undefined;
   readonly recorder: MetricsRecorder;
   readonly c: SocietyCoefficients;
-  readonly hooks: StubHooks | undefined;
+  readonly hooks: SimHooks | undefined;
   readonly combat: CombatRun | undefined;
   /** 새 세력의 판단 예약, 새 유닛의 이동 예약, 예약 지우기(stubRules·loop) */
   readonly scheduleFaction: (faction: SimFaction, nowMs: number) => void;

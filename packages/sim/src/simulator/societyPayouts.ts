@@ -8,7 +8,7 @@
 // - 공물 = 봉신 국고 × tributePm ÷ 1000(D-443 설정값, 기획 값 없음).
 import { type CityRevenue, payCityProfit, profitRecipient, settleCityTaxes } from "../society/dividends.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
-import type { StubHooks } from "./stubRules.ts";
+import type { SimHooks } from "./npcRun.ts";
 import { type SimFaction, type SimWorld, rulingFamilyOf } from "./world.ts";
 
 export interface PayoutCounts {
@@ -34,7 +34,7 @@ export interface SocietyPayouts {
 export function createSocietyPayouts(
   world: SimWorld,
   c: SocietyCoefficients,
-  hooks: StubHooks | undefined,
+  hooks: SimHooks | undefined,
   treasuryAsset: (f: SimFaction) => string,
 ): SocietyPayouts {
   const book = world.book;

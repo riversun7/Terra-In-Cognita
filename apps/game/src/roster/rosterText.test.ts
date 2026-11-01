@@ -1,6 +1,6 @@
 // 유닛·사이보그 화면 문구·다듬기 시험 — 이름(이름 없는 실제 유닛), 상태 분류·정렬(손이 필요한 순)·걸러 보기, 스탯 값 글, 남은 시간,
 // 자산 이름(팩 → 시험 자산 → 코드)
-import type { RosterNames, RosterUnit } from "@terra/shared/roster";
+import { PRIMARY_STATS, PRIMARY_STAT_PAIRS, type RosterNames, type RosterUnit } from "@terra/shared/roster";
 import { describe, expect, it } from "vitest";
 import {
   NO_FILTER,
@@ -8,10 +8,14 @@ import {
   basesOf,
   filterUnits,
   formatAmount,
+  formatK,
+  formatMilli,
   formatStat,
   injuryLabel,
   jobLabel,
   localName,
+  primaryCode,
+  primaryLabel,
   remaining,
   sortUnits,
   statusCounts,
@@ -138,6 +142,34 @@ describe("수·시간", () => {
     expect(formatStat({ id: "hp", shape: "quantity", value: 1284 }, "en")).toBe("1,284");
     expect(formatAmount("1200000", "ko")).toBe("1,200,000");
     expect(formatAmount("not-a-number", "ko")).toBe("not-a-number");
+  });
+
+  it("천분의 일 정수는 소수로(뒤 0 없이): 풀이의 곱·가중치", () => {
+    expect(formatMilli(16_800, "en")).toBe("16.8");
+    expect(formatMilli(15_000, "en")).toBe("15");
+    expect(formatMilli(1_234_500, "en")).toBe("1,234.5");
+    expect(formatMilli(1200, "ko")).toBe("1.2");
+    expect(formatMilli(-500, "en")).toBe("-0.5");
+  });
+
+  it("K는 소수 두 자리(‰ ÷ 1000, D-449)", () => {
+    expect(formatK(970, "en")).toBe("0.97");
+    expect(formatK(1200, "ko")).toBe("1.20");
+  });
+
+  it("스탯 약자·이름: 화면 차례는 STR·VIT·INT·WIS·DEX·AGI(두 칸씩 묶음, 질문 181 가)", () => {
+    expect(PRIMARY_STATS).toEqual(["str", "vit", "int", "wis", "dex", "agi"]);
+    expect(PRIMARY_STAT_PAIRS.flat()).toEqual([...PRIMARY_STATS]);
+    expect(PRIMARY_STATS.map((stat) => primaryCode(stat, "ko"))).toEqual([
+      "STR",
+      "VIT",
+      "INT",
+      "WIS",
+      "DEX",
+      "AGI",
+    ]);
+    expect(primaryLabel("vit", "ko")).toBe("체력");
+    expect(primaryLabel("vit", "en")).toBe("Vitality");
   });
 
   it("남은 시간은 내림, 지났으면 null", () => {

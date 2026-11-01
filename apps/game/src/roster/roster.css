@@ -216,44 +216,27 @@
   flex-direction: column;
   gap: var(--space-3);
 }
-.roster-primaries {
+/* 2차 스탯: 48 §3.2 묶음(생존·공격·정확·속도·자원·활동)별 작은 제목 + 목록 */
+.roster-secondary-groups {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: var(--space-3) var(--space-4);
 }
-.roster-primary {
+.roster-secondary-group {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0;
+  gap: var(--space-1);
   min-width: 0;
-  padding: var(--space-2) var(--space-1);
-  border-radius: var(--radius-sm);
-  background-color: var(--color-surface-2);
-  text-align: center;
 }
-.roster-primary-name {
-  font-size: var(--font-size-xs);
+.roster-secondary-group-title {
   color: var(--color-text-muted);
-  line-height: var(--line-height-snug);
-}
-.roster-primary-value {
-  font-family: var(--font-display);
-  font-size: var(--font-size-xl);
-  line-height: var(--line-height-tight);
-  font-variant-numeric: tabular-nums;
-}
-.roster-primary-bonus {
   font-size: var(--font-size-xs);
-  color: var(--color-success);
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-snug);
 }
 .roster-secondary {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
-  column-gap: var(--space-4);
-  row-gap: 0;
+  display: flex;
+  flex-direction: column;
 }
 .roster-secondary-row {
   display: flex;
@@ -435,10 +418,4 @@
 .roster-avatar[data-type="cyborg"] {
   border-color: var(--color-deco-3);
   background-color: var(--color-deco-2);
-}
-
-@media (min-width: 37.5em) {
-  .roster-primaries {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
 }

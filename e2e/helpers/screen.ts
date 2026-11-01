@@ -2,7 +2,7 @@
 // 넘침·누르는 곳은 문제 목록(문자열)을 돌려준다. 시험은 expect(await horizontalOverflow(page)).toEqual([])처럼 본다.
 import { mkdirSync } from "node:fs";
 import path from "node:path";
-import { type Page, test } from "@playwright/test";
+import { type Locator, type Page, test } from "@playwright/test";
 
 /** 누르는 곳 최소 크기(px)를 화면에서 읽지 못할 때 쓰는 값 — apps/game/src/styles/tokens.css의 --tap-size(44px) */
 const TAP_SIZE_FALLBACK = 44;
@@ -114,12 +114,23 @@ export async function smallTapTargets(
  * 없으면 e2e/test-results/shots(다음 실행이 지운다). 이름은 영문 소문자·숫자·`-`·`_`·`.`만(예: home-pastel-ko-390).
  */
 export async function shot(page: Page, name: string, options: { fullPage?: boolean } = {}): Promise<string> {
+  return capture(name, (file) =>
+    page.screenshot({ path: file, fullPage: options.fullPage ?? false, animations: "disabled" }),
+  );
+}
+
+/** 요소 하나만 찍는다(그림·판 하나). 폴더·이름 규칙은 shot과 같다 */
+export async function elementShot(locator: Locator, name: string): Promise<string> {
+  return capture(name, (file) => locator.screenshot({ path: file, animations: "disabled" }));
+}
+
+async function capture(name: string, take: (path: string) => Promise<unknown>): Promise<string> {
   if (!/^[a-z0-9][a-z0-9._-]*$/.test(name)) throw new Error(`사진 이름은 영문 소문자·숫자·-·_·.만: ${name}`);
   const info = test.info();
   const dir = process.env.E2E_SHOTS_DIR ?? path.join(info.project.outputDir, "shots");
   mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `${name}.png`);
-  await page.screenshot({ path: file, fullPage: options.fullPage ?? false, animations: "disabled" });
+  await take(file);
   await info.attach(name, { path: file, contentType: "image/png" });
   return file;
 }

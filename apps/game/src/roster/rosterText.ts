@@ -62,6 +62,16 @@ const PRIMARY_LABELS = {
   wis: (locale) => m.roster_stat_wis({}, { locale }),
 } satisfies Record<string, Text>;
 
+/** 스탯 약자(STR·VIT…). 두 언어 같은 글자지만 화면 문구라 메시지 키로 둔다 */
+const PRIMARY_CODES = {
+  str: (locale) => m.roster_stat_str_code({}, { locale }),
+  dex: (locale) => m.roster_stat_dex_code({}, { locale }),
+  agi: (locale) => m.roster_stat_agi_code({}, { locale }),
+  vit: (locale) => m.roster_stat_vit_code({}, { locale }),
+  int: (locale) => m.roster_stat_int_code({}, { locale }),
+  wis: (locale) => m.roster_stat_wis_code({}, { locale }),
+} satisfies Record<keyof typeof PRIMARY_LABELS, Text>;
+
 /** [임시] 시험 자산(서버 world/settlement.ts 시험 자산 코드). 실제 자산이 팩에 들어오면 팩 이름 */
 const TEST_ASSETS: Readonly<Record<string, Text>> = {
   s3_test_ore: (locale) => m.roster_asset_test_ore({}, { locale }),
@@ -75,6 +85,8 @@ export const houseLabel = (house: RosterAuctionLot["house"], locale: Locale = ge
   HOUSE_LABELS[house](locale);
 export const primaryLabel = (stat: keyof typeof PRIMARY_LABELS, locale: Locale = getLocale()): string =>
   PRIMARY_LABELS[stat](locale);
+export const primaryCode = (stat: keyof typeof PRIMARY_CODES, locale: Locale = getLocale()): string =>
+  PRIMARY_CODES[stat](locale);
 
 /** 팩 이름을 지금 언어로. 없으면 ID */
 export function localName(name: LocalizedName | undefined, id: string, locale: Locale = getLocale()): string {
@@ -162,6 +174,25 @@ export function formatAmount(amount: string, locale: Locale = getLocale()): stri
     return amount;
   }
 }
+
+const milliFormats = new Map<string, Intl.NumberFormat>();
+
+/**
+ * 천분의 일 단위 정수를 소수로(뒤 0은 뺀다): 곱 16,800 → "16.8", 가중치 1500‰ → "1.5". 스탯 풀이(서버가 보낸 정수)를 보일 때 쓴다.
+ * 수를 다시 계산하지 않고 단위만 바꾼다
+ */
+export function formatMilli(milli: number, locale: Locale = getLocale()): string {
+  let format = milliFormats.get(locale);
+  if (!format) {
+    format = new Intl.NumberFormat(locale, { minimumFractionDigits: 0, maximumFractionDigits: 3 });
+    milliFormats.set(locale, format);
+  }
+  return format.format(milli / 1000);
+}
+
+/** 성장 K(‰)를 소수 두 자리로(970 → "0.97"). K가 보이는 곳에서만 쓴다(D-449, 옛 화면처럼 값으로) */
+export const formatK = (kPm: number, locale: Locale = getLocale()): string =>
+  numberFormat(locale, 2).format(kPm / 1000);
 
 /** 2차 스탯 값: 확률 모양은 %(‰ ÷ 10, 소수 한 자리), ‰ 양은 ×배율, 나머지는 수 */
 export function formatStat(stat: RosterStat, locale: Locale = getLocale()): string {

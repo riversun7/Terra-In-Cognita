@@ -145,6 +145,21 @@
   --sheet-max: 560px;
 }
 
+/*
+ * 스탯·사이보그 화면 — 스탯 막대 두께, 사이보그 그림 크기(ADR 2026-11-01-ui-visibility). 색은 테마마다 --color-stat-*.
+ */
+:root {
+  /* 스탯 막대: 보통(초기 스탯·유닛 상세·전투 스펙 줄), 굵게(핵심 사양) */
+  --stat-bar: 8px;
+  --stat-bar-lg: 12px;
+  /* 사이보그 화면 가운데 그림(좁은 폭·넓은 폭), 만들기 화면 외형 미리 보기 */
+  --avatar-hero: 168px;
+  --avatar-hero-lg: 220px;
+  --avatar-preview: 180px;
+  /* 장비 칸 한 칸의 가장 좁은 너비 */
+  --slot-min: 92px;
+}
+
 /* 파스텔(기본) — 하늘에서 풀밭으로. 버튼은 밝은 잎색 + 짙은 글자 */
 :root,
 :root[data-theme="pastel"],
@@ -183,6 +198,13 @@
   --color-deco-3: #6fbf63;
   /* 파스텔: 해, 다크: 달 */
   --color-deco-sun: #ffd66e;
+  /* 스탯 색(ADR 2026-11-01-ui-visibility, 질문 181 가: 옛 프로젝트 STR 진홍·VIT 주황빨강·INT 파랑·WIS 보라·DEX 호박·AGI 초록). 바탕·판·둘째 판 위 글자 4.5:1 */
+  --color-stat-str: #c0233e;
+  --color-stat-vit: #b23f0a;
+  --color-stat-int: #1f5bc4;
+  --color-stat-wis: #7a3fc8;
+  --color-stat-dex: #8a5a00;
+  --color-stat-agi: #1a7236;
 }
 
 /* 다크 — 밤의 들판. 잎색 버튼은 그대로 두어 톤을 잇는다. 세계(지도) 조명은 바꾸지 않는다(D-070) → 판은 불투명 */
@@ -220,6 +242,13 @@
   --color-deco-2: #22472f;
   --color-deco-3: #2d5a3a;
   --color-deco-sun: #e9e2c0;
+  /* 스탯 색 — 밤 판 위에서 밝게(글자 4.5:1) */
+  --color-stat-str: #ff8fa2;
+  --color-stat-vit: #ffa36e;
+  --color-stat-int: #8cb9ff;
+  --color-stat-wis: #c9a8ff;
+  --color-stat-dex: #f5c665;
+  --color-stat-agi: #7fdc97;
 }
 
 /* 선명 — 고대비(본문 7:1 이상) + 색각 배려(성공=파랑, 위험=주황빨강, 상태는 늘 아이콘·글자와 함께). 그림자 없음 */
@@ -257,6 +286,13 @@
   --color-deco-2: #cfd7e2;
   --color-deco-3: #b7c2d1;
   --color-deco-sun: #dfe5ec;
+  /* 스탯 색 — 선명: 짙게(글자 4.5:1. 색만으로 구분하지 않고 이름·약자를 늘 함께 쓴다) */
+  --color-stat-str: #a3102b;
+  --color-stat-vit: #9e3300;
+  --color-stat-int: #0b4fb3;
+  --color-stat-wis: #5a1fb0;
+  --color-stat-dex: #6f4500;
+  --color-stat-agi: #11602b;
 }
 /* 선명: 초점 표시를 4px로(테두리는 이미 2px). 굵기 값은 바꾸지 않는다(본문 글꼴은 400·600만 받는다) */
 :root[data-theme="contrast"] {

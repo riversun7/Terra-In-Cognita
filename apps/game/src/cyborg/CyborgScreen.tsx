@@ -1,31 +1,25 @@
 // 사이보그 화면(내 본체) — 기획 60 §9 "사이보그: 스탯·장비·인공장기·인벤토리·환생·랭킹"(D-018·D-026·D-040, 🟡 세부 미정).
-// ADR 37 "구현하며 정한 것 (유닛·사이보그 화면)". 위 띠의 사이보그 얼굴이 여는 화면이다(D-6010).
-// - 실제: 계정 이름, 보유 유닛 수. 본체(레벨·스탯·장비·인공장기·스킬·인벤토리·환생·랭킹)는 세계에 아직 없어 dev·admin 시안 자료로만 보인다.
-//   플레이어에게는 판마다 "생기면 보입니다" 안내다(가짜 숫자 없음, ADR 37 6절 원칙).
-// - 바꾸는 동작(장착·인공장기 시술·환생)은 "곧 열림"이다. 환생 단추는 "가장 가까운 환생 시설로 가는 길"이다(D-441: 환생은
-//   환생 시설(신전)에서 하고 모항의 몸 교체는 연출, 질문 135 기본안).
-// - 좁은 폭은 판을 위에서 아래로, 넓은 폭(64em 이상)은 두 열(왼쪽 본체·스탯, 오른쪽 장비·인벤토리·환생·랭킹).
-// 지연 로딩 조각(routeViews.tsx).
-import type { CyborgBody, CyborgGetResponse, CyborgRebirthRule } from "@terra/shared/roster";
+// ADR 37 "구현하며 정한 것 (유닛·사이보그 화면)", ADR 2026-11-01-ui-visibility(옛 프로젝트 /character처럼 더 가시적으로).
+// 위 띠의 사이보그 얼굴이 여는 화면이다(D-6010).
+// - 머리 판: 가운데 큰 그림(외형 ID로 그린 SVG, 포인트 색 빛) + 양옆 인공장기·장비 칸(팩 unit_kinds 칸) + 경험치·피로·신앙도.
+// - 핵심 사양·상세 전투 스펙(CyborgSpecs.tsx), 스킬 칸·속성·인벤토리·환생·랭킹·상태 줄(CyborgExtras.tsx). 값은 모두 서버가 계산해 보낸다.
+// - 바꾸는 동작(장착·인공장기 시술·환생)은 "곧 열림"이다. 환생 단추는 "가장 가까운 환생 시설로 가는 길"이다(D-441).
+// - 좁은 폭은 판을 위에서 아래로(머리 → 핵심 사양 → 전투 스펙 → 스킬 → 속성 → 인벤토리 → 환생 → 랭킹),
+//   넓은 폭(64em 이상)은 머리 판을 가로로 길게(인공장기 | 그림 | 장비) 두고 그 아래 두 열(왼쪽 핵심 사양·전투 스펙, 오른쪽 나머지).
+// 지연 로딩 조각(routeViews.tsx). 그림·이 화면 코드는 첫 화면 묶음에 들어가지 않는다.
+import type { CyborgBody, CyborgGetResponse, RosterNames, RosterSlot } from "@terra/shared/roster";
 import { useId } from "react";
 import { usePreviewOn } from "../inbox/preview.ts";
 import { m } from "../paraglide/messages.js";
 import { BackButton } from "../shell/BackButton.tsx";
-import { CyborgAvatar } from "./CyborgAvatar.tsx";
 import { AppLink } from "../shell/AppLink.tsx";
-import {
-  LoadState,
-  Meter,
-  PreviewTag,
-  Section,
-  SkillList,
-  SlotList,
-  SoonButton,
-  StatBlock,
-} from "../roster/parts.tsx";
+import { LoadState, Meter, PreviewTag, Section, SoonButton, slotValueText } from "../roster/parts.tsx";
 import { PreviewSwitch } from "../roster/PreviewSwitch.tsx";
-import { assetLabel, formatAmount, formatNumber, localName } from "../roster/rosterText.ts";
+import { formatNumber, localName, slotLabel } from "../roster/rosterText.ts";
 import { loadCyborg, useRosterQuery } from "../roster/useRosterQuery.ts";
+import { CyborgAvatar } from "./CyborgAvatar.tsx";
+import { CombatSpec, CoreSpec } from "./CyborgSpecs.tsx";
+import { Elements, Inventory, Rankings, Rebirth, SkillSlots, StatusFooter } from "./CyborgExtras.tsx";
 import "./cyborg.css";
 
 export default function CyborgScreen() {
@@ -57,57 +51,33 @@ function CyborgBodyView({ data }: { data: CyborgGetResponse }) {
   return (
     <>
       {data.preview ? <p className="roster-notice">{m.roster_preview_notice()}</p> : null}
+      <Hero data={data} />
       <div className="cyborg-columns">
         <div className="cyborg-column">
-          <Profile data={data} />
-          <Section
-            id={`${id}-stats`}
-            title={m.roster_stats_title()}
-            end={body?.preview ? <PreviewTag /> : null}
-          >
-            {body ? (
-              <StatBlock stats={body.stats} names={data.names} />
-            ) : (
+          {body ? (
+            <>
+              <CoreSpec body={body} />
+              <CombatSpec body={body} names={data.names} />
+            </>
+          ) : (
+            <Section id={`${id}-stats`} title={m.roster_stats_title()}>
               <Later text={m.cyborg_stats_later()} />
-            )}
-          </Section>
+            </Section>
+          )}
+        </div>
+        <div className="cyborg-column">
           <Section
             id={`${id}-skills`}
             title={m.roster_skills_title()}
             end={body?.preview ? <PreviewTag /> : null}
           >
-            {body ? (
-              <>
-                <SkillList skills={body.skills} names={data.names} />
-                <p className="roster-meta">
-                  {m.cyborg_skill_grade_cap({ grade: formatNumber(body.skillGradeCap) })}
-                </p>
-              </>
-            ) : (
-              <Later text={m.cyborg_skills_later()} />
-            )}
+            {body ? <SkillSlots body={body} names={data.names} /> : <Later text={m.cyborg_skills_later()} />}
           </Section>
-        </div>
-        <div className="cyborg-column">
-          <Section
-            id={`${id}-gear`}
-            title={m.roster_gear_title()}
-            end={body ? <SoonButton label={m.roster_action_equip()} /> : null}
-          >
-            {body ? (
-              <SlotList slots={body.slots} names={data.names} except="organ" />
-            ) : (
-              <Later text={m.cyborg_gear_later()} />
-            )}
-          </Section>
-          <Section
-            id={`${id}-organs`}
-            title={m.cyborg_organs_title()}
-            end={body ? <SoonButton label={m.cyborg_action_implant()} /> : null}
-          >
-            <p className="roster-note">{m.cyborg_organs_note()}</p>
-            {body ? <SlotList slots={body.slots} names={data.names} only="organ" /> : null}
-          </Section>
+          {body ? (
+            <Section id={`${id}-elements`} title={m.cyborg_elements_title()}>
+              <Elements values={body.elements} />
+            </Section>
+          ) : null}
           <Section
             id={`${id}-inventory`}
             title={m.cyborg_inventory_title()}
@@ -127,6 +97,7 @@ function CyborgBodyView({ data }: { data: CyborgGetResponse }) {
           </Section>
         </div>
       </div>
+      {body ? <StatusFooter data={data} body={body} /> : null}
     </>
   );
 }
@@ -135,23 +106,13 @@ function Later({ text }: { text: string }) {
   return <p className="roster-empty">{text}</p>;
 }
 
-function Profile({ data }: { data: CyborgGetResponse }) {
+/** 머리 판: 이름·레벨, 그림(가운데)과 인공장기·장비 칸, 막대 */
+function Hero({ data }: { data: CyborgGetResponse }) {
+  const id = useId();
   const body = data.body;
   return (
     <div className="panel cyborg-profile">
       <div className="cyborg-who">
-        {data.appearance ? (
-          // 만든 사이보그의 외형(첫 접속, D-6040): 2D 그림
-          <CyborgAvatar
-            look={data.appearance}
-            className="cyborg-avatar"
-            label={m.cyborg_appearance_label({ name: data.name })}
-          />
-        ) : (
-          <span className="roster-avatar roster-avatar-lg" data-type="cyborg" aria-hidden="true">
-            {Array.from(data.name)[0] ?? "?"}
-          </span>
-        )}
         <div className="cyborg-names">
           <p className="cyborg-name">{data.name}</p>
           <p className="roster-meta">
@@ -167,14 +128,41 @@ function Profile({ data }: { data: CyborgGetResponse }) {
         </div>
         {body?.preview ? <PreviewTag /> : null}
       </div>
-      {body ? (
-        <dl className="roster-facts cyborg-faith">
-          <div>
-            <dt>{m.cyborg_faith()}</dt>
-            <dd className="roster-num">{formatNumber(body.faith)}</dd>
-          </div>
-        </dl>
-      ) : null}
+      <div className="cyborg-bay">
+        <div className="cyborg-stage">
+          {data.appearance ? (
+            // 만든 사이보그의 외형(첫 접속, D-6040): 2D 그림
+            <CyborgAvatar
+              look={data.appearance}
+              halo
+              className="cyborg-avatar"
+              label={m.cyborg_appearance_label({ name: data.name })}
+            />
+          ) : (
+            <span className="roster-avatar roster-avatar-lg" data-type="cyborg" aria-hidden="true">
+              {Array.from(data.name)[0] ?? "?"}
+            </span>
+          )}
+        </div>
+        <SlotGroup
+          id={`${id}-organs`}
+          side="organ"
+          title={m.cyborg_organs_title()}
+          action={m.cyborg_action_implant()}
+          body={body}
+          names={data.names}
+          later={null}
+        />
+        <SlotGroup
+          id={`${id}-gear`}
+          side="gear"
+          title={m.roster_gear_title()}
+          action={m.roster_action_equip()}
+          body={body}
+          names={data.names}
+          later={m.cyborg_gear_later()}
+        />
+      </div>
       {body ? (
         <div className="cyborg-meters">
           <Meter
@@ -195,6 +183,12 @@ function Profile({ data }: { data: CyborgGetResponse }) {
               max: formatNumber(body.fatigue.max),
             })}
           />
+          <dl className="roster-facts cyborg-faith">
+            <div>
+              <dt>{m.cyborg_faith()}</dt>
+              <dd className="roster-num">{formatNumber(body.faith)}</dd>
+            </div>
+          </dl>
         </div>
       ) : null}
       <p className="cyborg-units">
@@ -206,103 +200,64 @@ function Profile({ data }: { data: CyborgGetResponse }) {
   );
 }
 
-function Inventory({ body, data }: { body: CyborgBody; data: CyborgGetResponse }) {
-  if (body.inventory.length === 0) return <p className="roster-empty">{m.cyborg_inventory_empty()}</p>;
+/** 칸 묶음(인공장기 또는 그 밖의 장비). 칸 배치는 팩 unit_kinds 차례 그대로 */
+function SlotGroup({
+  id,
+  side,
+  title,
+  action,
+  body,
+  names,
+  later,
+}: {
+  id: string;
+  side: "organ" | "gear";
+  title: string;
+  action: string;
+  body: CyborgBody | null;
+  names: RosterNames;
+  later: string | null;
+}) {
+  const slots = body ? body.slots.filter((slot) => (side === "organ") === (slot.slot === "organ")) : [];
   return (
-    <ul className="roster-list">
-      {body.inventory.map((item) => (
-        <li key={item.id} className="roster-list-row">
-          <span>{assetLabel(item.id, data.names)}</span>
-          <span className="roster-num">{formatAmount(item.amount)}</span>
-        </li>
-      ))}
-    </ul>
+    <section className="cyborg-slot-group" data-side={side} aria-labelledby={id}>
+      <div className="cyborg-slot-head">
+        <h2 id={id} className="cyborg-slot-title">
+          {title}
+        </h2>
+        {body ? <SoonButton label={action} /> : null}
+      </div>
+      {side === "organ" ? <p className="roster-note">{m.cyborg_organs_note()}</p> : null}
+      {body ? (
+        <ul className="cyborg-slots">
+          {slots.map((slot, index) => (
+            // 같은 종류 칸이 여럿이다(장신구 2·인공장기 3): 차례로 열쇠를 만든다
+            <SlotTile key={`${slot.slot}-${String(index)}`} slot={slot} names={names} />
+          ))}
+        </ul>
+      ) : later ? (
+        <Later text={later} />
+      ) : null}
+    </section>
   );
 }
 
-/**
- * 환생(D-026·D-031·D-352·D-427·D-440·D-441·D-444): 바뀌는 것(레벨 1·경험치 0, 가속 없음, 분포는 성향을 골라 다시 굴림 — 다시
- * 굴리기 횟수는 생성과 같은 N9 값)·남는 것·얻는 것, 비용. 성향 고르기·다시 굴리기 화면은 환생 시설에서 연다(아직 곧 열림).
- * 비용 = 최고 레벨 + 신앙도(써서 줄어든다) + 화폐(그 신전 도시의 화폐). 양은 서버가 보내는 팩 설정값(N7·N34, rule)이라 플레이어에게도 보인다.
- * 진로별 종교 아이템은 특수 스킬 같은 추가 조건에만 쓴다. 지금 레벨·신앙도는 본체가 있을 때(시안 자료)만 덧붙인다
- */
-function Rebirth({ body, rule }: { body: CyborgBody | null; rule: CyborgRebirthRule }) {
-  const max = formatNumber(rule.maxLevel);
-  const need = formatNumber(rule.faith);
+function SlotTile({ slot, names }: { slot: RosterSlot; names: RosterNames }) {
   return (
-    <div className="cyborg-rebirth">
-      <dl className="roster-facts">
-        <div>
-          <dt>{m.cyborg_rebirth_changes()}</dt>
-          <dd>{m.cyborg_rebirth_changes_body({ rerolls: formatNumber(rule.rerolls) })}</dd>
-        </div>
-        <div>
-          <dt>{m.cyborg_rebirth_keeps()}</dt>
-          <dd>{m.cyborg_rebirth_keeps_body()}</dd>
-        </div>
-        <div>
-          <dt>{m.cyborg_rebirth_gains()}</dt>
-          <dd>{m.cyborg_rebirth_gains_body()}</dd>
-        </div>
-      </dl>
-      <h3 className="cyborg-rebirth-cost">{m.cyborg_rebirth_cost()}</h3>
-      <dl className="roster-facts">
-        <div>
-          <dt>{m.cyborg_rebirth_cost_level()}</dt>
-          <dd>
-            {body
-              ? m.cyborg_rebirth_level_value({ level: formatNumber(body.level), max })
-              : m.cyborg_rebirth_level_need({ max })}
-          </dd>
-        </div>
-        <div>
-          <dt>{m.cyborg_rebirth_cost_faith()}</dt>
-          <dd>
-            {body
-              ? m.cyborg_rebirth_faith_value({ need, value: formatNumber(body.faith) })
-              : m.cyborg_rebirth_faith_need({ need })}
-          </dd>
-        </div>
-        <div>
-          <dt>{m.cyborg_rebirth_cost_currency()}</dt>
-          <dd>{m.cyborg_rebirth_currency_value({ amount: formatAmount(rule.currency) })}</dd>
-        </div>
-        <div>
-          <dt>{m.cyborg_rebirth_cost_items()}</dt>
-          <dd>{m.cyborg_rebirth_items_value()}</dd>
-        </div>
-      </dl>
-      <p className="roster-note">{m.cyborg_rebirth_place()}</p>
-      <SoonButton label={m.cyborg_action_rebirth_route()} small={false} />
-    </div>
-  );
-}
-
-function Rankings({ body }: { body: CyborgBody }) {
-  if (body.rankings.length === 0) return <p className="roster-empty">{m.cyborg_ranking_empty()}</p>;
-  return (
-    <>
-      <p className="roster-note">{m.cyborg_ranking_note()}</p>
-      <ul className="roster-list">
-        {body.rankings.map((row) => (
-          <li key={row.path} className="roster-list-row">
-            <span className="roster-list-main">
-              <span className="roster-list-title">{localName(row.name, row.path)}</span>
-              <span className="roster-meta">
-                {m.cyborg_ranking_score({ score: formatNumber(row.score) })}
-              </span>
+    <li className="cyborg-slot" data-slot={slot.slot} data-empty={slot.item ? undefined : "true"}>
+      <span className="cyborg-slot-kind">{slotLabel(slot.slot)}</span>
+      {slot.item ? (
+        <>
+          <span className="cyborg-slot-name">{localName(names.items[slot.item.id], slot.item.id)}</span>
+          {slot.item.values.length > 0 ? (
+            <span className="cyborg-slot-values">
+              {slot.item.values.map((value) => slotValueText(value.stat, value.value, names)).join(" · ")}
             </span>
-            <span className="cyborg-rank">
-              <span className="roster-num">{m.cyborg_ranking_rank({ rank: formatNumber(row.rank) })}</span>
-              <span className="roster-tag" data-tone={row.tierPercent <= 5 ? "top" : undefined}>
-                {row.tierPercent < 100
-                  ? m.cyborg_ranking_tier({ percent: formatNumber(row.tierPercent) })
-                  : m.cyborg_ranking_no_tier()}
-              </span>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </>
+          ) : null}
+        </>
+      ) : (
+        <span className="cyborg-slot-name roster-muted">{m.roster_slot_empty()}</span>
+      )}
+    </li>
   );
 }

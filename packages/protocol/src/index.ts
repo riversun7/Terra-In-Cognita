@@ -92,20 +92,14 @@ export {
   type PlanetManifest,
   type PlanetStatus,
 } from "./planetManifest.ts";
+// 보내기(encode.ts)·텔레메트리 상한(telemetryLimits.ts)은 스키마(zod) 없는 모듈에서 바로 내보낸다 — 기기 첫 화면 묶음이
+// 이것만 쓰고 zod는 쓰지 않는다(ADR 2026-10-29-app-shell 11절 "첫 화면 줄이기")
+export { encodeMessage } from "./encode.ts";
+export { decodeClientMessage, decodeServerMessage, ProtocolError, utf8ByteLength } from "./codec.ts";
+export { TELEMETRY_LIMITS, TELEMETRY_MAX_BODY_BYTES, TELEMETRY_PATHS, clip } from "./telemetryLimits.ts";
 export {
-  encodeMessage,
-  decodeClientMessage,
-  decodeServerMessage,
-  ProtocolError,
-  utf8ByteLength,
-} from "./codec.ts";
-export {
-  TELEMETRY_LIMITS,
-  TELEMETRY_MAX_BODY_BYTES,
-  TELEMETRY_PATHS,
   clientErrorReportSchema,
   perfReportSchema,
-  clip,
   type ClientErrorReport,
   type PerfReport,
 } from "./telemetry.ts";

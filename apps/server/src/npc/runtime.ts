@@ -20,6 +20,7 @@ import {
   DEFAULT_SCENARIO_SOCIETY,
   EVENT_DECIDE,
   type FactionDay,
+  type GardenerCoefficients,
   HOMELESS,
   type NpcContext,
   STREAM_SOCIETY,
@@ -84,6 +85,8 @@ export interface NpcRuntimeOptions {
   readonly rules: () => SocietyCoefficients;
   /** 하루 길이(ms, 기본 실제 24시간). 측정용으로만 줄인다(NPC_DAY_MS) */
   readonly dayMs?: number | undefined;
+  /** 정원사 웨이브 켬(GARDENER_WAVES). false면 도시 웨이브 확률 0(오염은 그대로 쌓임). 없으면 켬 */
+  readonly gardenerWaves?: boolean | undefined;
   /** 타이머를 켜지 않는다(시험이 tick을 직접 부른다) */
   readonly manual?: boolean | undefined;
   /** 시험 세계 행성(칸 오염의 행성) */
@@ -111,6 +114,14 @@ export interface NpcRuntime {
 }
 
 /** 다음 하루 끝(UTC 0시, 하루 길이를 줄였으면 그 배수) */
+/**
+ * 웨이브를 끄면 도시 웨이브 확률 상한(chanceMaxPm)을 0으로 둔다: 굴림은 돌지만 늘 실패하고, 오염 층은 그대로 쌓인다.
+ * 사용자 결정(2026-11-01 "합치되 웨이브 끔"), GARDENER_WAVES
+ */
+export function gardenerRulesOf(rules: GardenerCoefficients, wavesOn: boolean): GardenerCoefficients {
+  return wavesOn ? rules : { ...rules, chanceMaxPm: 0 };
+}
+
 const nextDayEnd = (nowMs: number, dayMs: number): number => (Math.floor(nowMs / dayMs) + 1) * dayMs;
 
 export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime> {
@@ -419,7 +430,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     loop,
     recorder,
     society,
-    rules: () => o.rules().gardener,
+    rules: () => gardenerRulesOf(o.rules().gardener, o.gardenerWaves !== false),
     combatRules: o.combatRules ?? (() => TEST_COMBAT_COEFFICIENTS),
     catalog: o.combatCatalog ?? TEST_COMBAT_CATALOG,
     cellOf: (cityId) => persist.places.get(cityId)?.mapKey,

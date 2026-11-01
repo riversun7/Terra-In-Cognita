@@ -27,6 +27,9 @@ services:
       # 실제 시간으로 돌린다(기본 켬). 끄려면 "0"(봇만 걷는다, 표·행은 그대로)
       NPC_SOCIETY: "1"
       NPC_TEST_NATIONS: "4"
+      # 정원사 웨이브(docs/adr/2026-11-01-gardener-r5b.md): 사용자 결정(2026-11-01 "합치되 웨이브 끔")으로 끈다.
+      # 오염은 쌓이지만 도시 웨이브는 오지 않는다. 켜려면 "1"(도시 몫 문제·폐허 복원 D-339를 정한 뒤)
+      GARDENER_WAVES: "0"
     volumes:
       # 1차맵 행성 타일 캐시(PLANET_CACHE_DIR=/app/planet-cache, Dockerfile). 다시 켤 때 굽지 않고 읽는다.
       # 지워도 된다(다음 시작 때 다시 굽는다). deploy.sh가 폴더를 만들고 컨테이너 node 사용자(1000)에게 소유자·권한(755)을 준다

@@ -35,6 +35,11 @@ export interface NpcConfig {
   testNations: number;
   /** 하루 길이(NPC_DAY_MS, 기본 실제 24시간). 측정용으로만 줄인다(출시 관문은 실제 시간, ADR 2026-10-31-n1-real-time-gate) */
   dayMs: number;
+  /**
+   * 정원사 웨이브(GARDENER_WAVES, 기본 0 = 끔, 1 = 켬). 끄면 오염은 쌓이지만 도시 웨이브 확률이 0이다.
+   * 사용자 결정(2026-11-01 "합치되 웨이브 끔"): 도시 몫 문제·폐허 복원(D-339)을 정할 때까지 운영 세계에서 끈다
+   */
+  gardenerWaves: boolean;
 }
 
 /**
@@ -115,6 +120,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       enabled: readInteger(env.NPC_SOCIETY, 1, 0, 1, "NPC_SOCIETY") === 1,
       testNations: readInteger(env.NPC_TEST_NATIONS, 4, 1, 16, "NPC_TEST_NATIONS"),
       dayMs: readInteger(env.NPC_DAY_MS, 86_400_000, 60_000, 86_400_000, "NPC_DAY_MS"),
+      gardenerWaves: readInteger(env.GARDENER_WAVES, 0, 0, 1, "GARDENER_WAVES") === 1,
     },
     planetCacheDir: env.PLANET_CACHE_DIR || DEFAULT_PLANET_CACHE_DIR,
   };

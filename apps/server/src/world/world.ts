@@ -117,6 +117,8 @@ export interface WorldConfig {
         testNations: number;
         dayMs?: number | undefined;
         manual?: boolean | undefined;
+        /** 정원사 웨이브 켬(GARDENER_WAVES). 없으면 켬(시험), 운영 설정은 기본 끔 */
+        gardenerWaves?: boolean | undefined;
         /** 팩 국가 프리셋(시험 국가 2번부터의 코드·이름) */
         presets?: readonly NationPreset[] | undefined;
       }
@@ -579,6 +581,7 @@ export function startWorld(
           rules: config.cyborgRules ?? defaultCyborgRules,
           dayMs: config.npc.dayMs,
           manual: config.npc.manual,
+          gardenerWaves: config.npc.gardenerWaves,
           planetId: TEST_PLANET_ID,
           startBattle: (init) => battles.start(init, { war: false }),
           onBattleEnded: (listener) => {

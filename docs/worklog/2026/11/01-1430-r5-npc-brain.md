@@ -59,6 +59,7 @@
 | `apps/server/src/db/schema.ts`, `drizzle/20261101051807_npc_society/` | 표·칸 추가 |
 | `apps/server/src/world/{world,secondMap,vision}.ts`, `persist/{tables,writer}.ts` | 런타임 연결, 휴먼 봇 세우기·주인·지우기, 고치기만 표 |
 | `apps/server/src/{config,main}.ts`, `ops/compose.yml` | `NPC_SOCIETY`·`NPC_TEST_NATIONS`·`NPC_DAY_MS` |
+| `ops/s3-ramp.sh` | 계단 시험은 기본 `NPC_SOCIETY=0`(봇만 걷는 옛 계단과 같게, 1이면 NPC도) |
 | `apps/server/src/cyborg/service.ts` | 시험 국가 화면 이름(`npc_nation_NN` → "시험 NPC 국가 N") |
 | `e2e/first-login.spec.ts` | 시험 국가가 넷이라 기본 선택은 첫 줄이 아니라 추천(가장 덜 붐빈) 세력이다: 추천 줄의 선택·지원금을 본다 |
 | `AGENTS.md` | 시뮬 명령 줄 문구, NPC 사회 런타임 줄 |

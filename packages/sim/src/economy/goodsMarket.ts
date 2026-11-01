@@ -52,6 +52,8 @@ export interface GoodsMarket {
   expire(nowMs: number): number;
   /** 도시 주인이 바뀌면: 걸린 주문을 모두 돌려준 뒤 화폐·국고·세율을 바꾼다 */
   retarget(nowMs: number, currency: string, treasuryOwner: number, taxBp: number): void;
+  /** 거래세만 바꾼다(파는 쪽이 체결 때 내므로 걸린 주문의 에스크로와 무관하다, 세율 규칙식 D-323) */
+  setTax(taxBp: number): void;
   orders(): BookOrder[];
   /** 그쪽의 가장 좋은 걸린 주문 */
   best(side: Side): BookOrder | undefined;
@@ -179,6 +181,9 @@ export function createGoodsMarket(
       }
       if (currency !== config.currency) lastPrice = undefined;
       config = { ...config, currency, treasuryOwner, taxBp };
+    },
+    setTax(taxBp) {
+      config = { ...config, taxBp };
     },
     orders() {
       return orders.orders();

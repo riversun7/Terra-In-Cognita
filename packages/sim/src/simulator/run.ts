@@ -16,12 +16,14 @@ import { type SocietySummary, attachSociety } from "./society.ts";
 import {
   EVENT_ARRIVE,
   EVENT_DECIDE,
+  type NpcContext,
+  type NpcCounts,
   type SimEvent,
-  type StubContext,
   decide,
+  emptyNpcCounts,
   scheduleDecide,
   scheduleTrip,
-} from "./stubRules.ts";
+} from "./npcRun.ts";
 import {
   TEST_ASSET_CREDIT,
   TEST_ASSET_ORE,
@@ -34,9 +36,10 @@ import {
 /**
  * 출력 형식 판(줄·요약의 모양이 바뀌면 올린다. 관전판·관리자 화면이 읽는다). 2: econ 줄·요약 economy 칸(R2),
  * 3: battle 줄·요약 combat 칸(R3), 4: 하루 줄 세력 칸 satisfaction·regime·overlord, 요약 society 칸, born 줄 mode·city(R4b),
- * 5: 요약 society 칸에 dividends(도시 세금 정산 D-304)·tributes(D-443)
+ * 5: 요약 society 칸에 dividends(도시 세금 정산 D-304)·tributes(D-443),
+ * 6: 요약 npc 칸(NPC 판단 행동 수·강화 거절·세율 바꿈), society 칸에 wars·stalled(docs/adr/2026-11-01-npc-brain-r5.md)
  */
-export const SIM_OUTPUT_FORMAT = 5;
+export const SIM_OUTPUT_FORMAT = 6;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 요약에 남기는 불변 조건 위반 문장 수 */
@@ -87,6 +90,8 @@ export interface RunSummary {
   readonly combat: CombatSummary | null;
   /** 세력·사회(R4b 규칙) */
   readonly society: SocietySummary;
+  /** NPC 판단(R5) */
+  readonly npc: NpcCounts;
   readonly ledger: { transactions: number; accounts: number };
   readonly invariants: { checks: number; violations: number; first: string[] };
   /** 요약 앞까지 쓴 줄 수와 그 줄들의 FNV-1a 해시(지표 해시) */
@@ -122,10 +127,11 @@ export function runSimulation(options: RunOptions): RunSummary {
   );
 
   if (scenario.economy && !options.catalog) throw new Error("scenario with economy needs a catalog");
-  const world = createWorld(scenario, seed, SIM_START_MS, { systemRule });
+  const societyCoefficients = societyCoefficientsFrom(options.tuning ?? new Map());
+  const world = createWorld(scenario, seed, SIM_START_MS, { systemRule, npc: societyCoefficients.npc });
   const recorder = createMetricsRecorder({ startMs: SIM_START_MS, sink: emit });
   const byKind = new Map<string, number>();
-  const ctxRef: { ctx?: StubContext } = {};
+  const ctxRef: { ctx?: NpcContext } = {};
   const loop = createSimLoop<SimEvent>({
     startMs: SIM_START_MS,
     handle: (event, sim) => {
@@ -140,13 +146,16 @@ export function runSimulation(options: RunOptions): RunSummary {
   // 경제: 사건 처리기가 쓰기 전에 붙인다(예약은 아직 돌지 않는다)
   const econ: EconomyRun | undefined =
     scenario.economy && options.catalog
-      ? attachEconomy(world, scenario, options.catalog, loop, SIM_START_MS)
+      ? attachEconomy(world, scenario, options.catalog, loop, SIM_START_MS, societyCoefficients.npc)
       : undefined;
-  const ctx: StubContext = {
+  const ctx: NpcContext = {
     world,
     loop,
     recorder,
-    stub: scenario.stub,
+    c: societyCoefficients,
+    decideEveryMs: scenario.npc.decideEveryMs ?? societyCoefficients.npc.decideEveryMs,
+    settings: scenario.society,
+    counts: emptyNpcCounts(),
     trips: scenario.trips,
     hooks: econ?.hooks,
     combat: scenario.combat
@@ -164,9 +173,9 @@ export function runSimulation(options: RunOptions): RunSummary {
   const society = attachSociety(
     {
       world,
-      scenario,
+      settings: scenario.society,
       recorder,
-      c: societyCoefficientsFrom(options.tuning ?? new Map()),
+      c: societyCoefficients,
       hooks: econ?.hooks,
       combat: ctx.combat,
       scheduleFaction: (faction, nowMs) => scheduleDecide(ctx, faction, nowMs),
@@ -261,6 +270,7 @@ export function runSimulation(options: RunOptions): RunSummary {
     economy: econ ? econ.summary() : null,
     combat: ctx.combat ? ctx.combat.summary() : null,
     society: society.summary(),
+    npc: ctx.counts,
     ledger: { transactions: world.audit.transactions, accounts: [...world.book.accounts()].length },
     invariants: { checks, violations, first },
     lines: lineCount,

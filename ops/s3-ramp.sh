@@ -8,7 +8,8 @@
 #
 # 단계: prepare(DB·이미지·마이그레이션) → ramp(계단: 봇 수마다 새 컨테이너 → STEP_MINUTES 동안 지표 → SIGKILL 복구) → cleanup
 # 환경 변수: S3_RAMP_STEPS(기본 1000,2000,5000,10000,20000,50000,100000), S3_RAMP_MINUTES(기본 3, 2~10),
-#   S3_RAMP_TAG(비우면 지금 배포된 태그)
+#   S3_RAMP_TAG(비우면 지금 배포된 태그), NPC_SOCIETY(기본 0 = 봇만 걷는 옛 계단과 같게, 1이면 NPC 사회 런타임도 돈다 —
+#   docs/adr/2026-11-01-npc-brain-r5.md 7절)
 # 멈추는 조건: 이벤트 루프 p99 > 50ms(첫 1분 뺌), RSS > 900MB(컨테이너 상한 1GiB 가까움), 컨테이너가 죽거나 준비가 안 됨.
 set -euo pipefail
 
@@ -78,7 +79,7 @@ start_app() {
     --label com.centurylinklabs.watchtower.enable=false \
     -e PORT=4100 -e DATABASE_URL -e BETTER_AUTH_SECRET \
     -e BETTER_AUTH_URL=https://s3-ramp.invalid -e AUTH_OPEN_SIGNUP=false \
-    -e S1_TEST_BOTS="$bots" -e S1_TEST_MAPS="$maps" \
+    -e S1_TEST_BOTS="$bots" -e S1_TEST_MAPS="$maps" -e NPC_SOCIETY="${NPC_SOCIETY:-0}" \
     -v "$DATA_DIR/planet-cache:/app/planet-cache:ro" \
     "$IMAGE" >/dev/null
 }

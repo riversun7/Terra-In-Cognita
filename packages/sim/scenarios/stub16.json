@@ -12,12 +12,7 @@
       "tech": 3
     }
   ],
-  "stub": {
-    "decideEveryMs": 21600000,
-    "conquerPerMille": 12,
-    "foundPerMille": 10,
-    "shareSalePerMille": 20,
-    "researchBuildPerMille": 120,
-    "vassalBreakPerMille": 10
+  "npc": {
+    "decideEveryMs": 21600000
   }
 }

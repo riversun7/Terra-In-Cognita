@@ -83,6 +83,8 @@ export interface MapVision {
   subscribe(subscriber: StreamSubscriber, viewer: VisionViewer): void;
   unsubscribe(subscriber: StreamSubscriber): void;
   unitChanged(unit: VisionUnit): void;
+  /** 유닛이 세계에서 사라졌다(NPC 휴먼 사망): 보던 무리에 숨김으로 보낸다 */
+  unitRemoved(unitId: number, ownerId: number): void;
   buildingPlaced(building: VisionBuilding): void;
   buildingRemoved(buildingId: number): void;
   /** 시험용: 시야 틱 한 번 */
@@ -384,6 +386,14 @@ export function createMapVision(options: {
         } else if (group.visible.has(unit.id)) {
           showUnit(group, unit);
         }
+      }
+    },
+    unitRemoved(unitId, ownerId) {
+      for (const group of groups.values()) {
+        if (owns(group.viewer, ownerId)) {
+          group.rev += 1;
+          group.stream.unitHidden(group.rev, unitId);
+        } else hideUnit(group, unitId);
       }
     },
     buildingPlaced(building) {

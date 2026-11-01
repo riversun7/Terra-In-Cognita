@@ -23,12 +23,14 @@ import {
   onUpkeep,
   priceIndexMilli,
   scheduleEconomy,
+  setTax,
   transferHoldings,
 } from "./economy.ts";
-import { onTrade, quoteFx } from "./economyStub.ts";
+import type { NpcCoefficients } from "../npc/coefficients.ts";
+import { onTrade, quoteFx } from "./npcTrade.ts";
 import type { SimLoop } from "./loop.ts";
 import type { Scenario } from "./scenario.ts";
-import type { SimEvent, StubHooks } from "./stubRules.ts";
+import type { SimEvent, SimHooks } from "./npcRun.ts";
 import type { SimWorld } from "./world.ts";
 
 /** 시스템 계정 앞머리 → 건드려도 되는 거래 종류(물건·돈이 생기고 사라지는 사건을 정해 둔다) */
@@ -60,7 +62,7 @@ export interface EconomySummary {
 
 export interface EconomyRun {
   readonly economy: Economy;
-  readonly hooks: StubHooks;
+  readonly hooks: SimHooks;
   /** 경제 사건이면 처리하고 true */
   handle(event: ScheduledEvent<SimEvent>, nowMs: number): boolean;
   /** 하루 끝(정산·기록 전): 중앙은행 */
@@ -86,6 +88,7 @@ export function attachEconomy(
   catalog: EconomyCatalog,
   loop: SimLoop<SimEvent>,
   startMs: number,
+  npc: NpcCoefficients,
 ): EconomyRun {
   const economy = createEconomy(world, scenario, catalog, startMs);
   scheduleEconomy(economy, world, loop, startMs);
@@ -108,7 +111,7 @@ export function attachEconomy(
   };
   let lastTotals = marketTotals();
 
-  const hooks: StubHooks = {
+  const hooks: SimHooks = {
     treasuryAsset: (faction) => economy.currencyOf.get(faction.id) ?? economy.base,
     beforeCityTransfer: (cityId, from, to, nowMs) =>
       beforeCityTransfer(economy, world, cityId, from, to, nowMs),
@@ -130,6 +133,9 @@ export function attachEconomy(
       return sum;
     },
     interestPaidOf: (factionId) => economy.interestPaid.get(factionId) ?? 0n,
+    taxOf: (faction) => economy.taxOf.get(faction.id) ?? 0,
+    baseTaxOf: (faction) => economy.baseTax.get(faction.id) ?? 0,
+    setTax: (faction, taxBp) => setTax(economy, faction, taxBp),
     foodPmOf: (cityId) => {
       const due = economy.today.dueByCity.get(cityId) ?? 0;
       if (due === 0) return 1000;
@@ -165,7 +171,7 @@ export function attachEconomy(
       const { kind, subject } = event.payload;
       if (kind === EVENT_PRODUCE) onProduce(economy, world, loop, subject, nowMs);
       else if (kind === EVENT_UPKEEP) onUpkeep(economy, world, loop, subject, nowMs);
-      else if (kind === EVENT_TRADE) onTrade(economy, world, loop, subject, nowMs);
+      else if (kind === EVENT_TRADE) onTrade(economy, world, loop, subject, nowMs, npc);
       else if (kind === EVENT_FX) onFx(economy, world, loop, nowMs, quoteFx(economy, world, nowMs));
       else if (kind === EVENT_CARGO) onCargo(economy, world, subject, nowMs);
       else return false;

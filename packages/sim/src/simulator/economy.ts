@@ -1,6 +1,6 @@
 // 시뮬레이터 경제 — docs/adr/2026-10-31-economy-core.md 7절
 // 공용 경제 규칙(economy/*: 장부·호가창·동시호가·생산·생필품·중앙은행)을 세계에 붙인다. 판단(무엇을 사고팔지)은 대리 규칙
-// economyStub.ts이고, 여기는 규칙이 정한 일(생산·유지비·환전 회차·운송 도착·중앙은행·도시 주인 바뀜)만 한다.
+// npcTrade.ts이고, 여기는 규칙이 정한 일(생산·유지비·환전 회차·운송 도착·중앙은행·도시 주인 바뀜)만 한다.
 // - 세력 화폐: 처음 고정 나라마다 국가 프리셋 하나(팩 순서), 화폐 = 그 프리셋 화폐. 반란 세력은 부모 화폐를 빌려 쓴다(D-131 0단계).
 // - 기준 통화 = 첫 나라의 화폐. 환전 짝은 (화폐, 기준 통화)만 둔다.
 // - 도시마다 물건마다 물자 거래소 하나. 값은 그 도시 주인의 화폐로 매기고 거래세는 그 주인 국고로 간다.
@@ -27,7 +27,7 @@ import {
 } from "./catalog.ts";
 import type { SimLoop } from "./loop.ts";
 import type { Scenario, ScenarioEconomy } from "./scenario.ts";
-import type { SimEvent } from "./stubRules.ts";
+import type { SimEvent } from "./npcRun.ts";
 import type { SimFaction, SimWorld } from "./world.ts";
 
 export const EVENT_PRODUCE = "produce";
@@ -65,6 +65,8 @@ export interface Economy {
   readonly fx: Map<string, FxMarket>;
   readonly currencyOf: Map<number, string>;
   readonly taxOf: Map<number, number>;
+  /** 세력 → 프리셋 기본 거래세(NPC 세율 규칙식이 이 아래로 내리지 않는다, 질문 197 가) */
+  readonly baseTax: Map<number, number>;
   /** 화폐 → 발행하는 나라(고정 NPC 나라) */
   readonly issuer: Map<string, number>;
   readonly interestOwed: Map<string, bigint>;
@@ -136,6 +138,7 @@ export function createEconomy(
     fx: new Map(),
     currencyOf,
     taxOf,
+    baseTax: new Map(taxOf),
     issuer,
     interestOwed: new Map(),
     interestPaid: new Map(),
@@ -537,6 +540,14 @@ export function beforeCityTransfer(
 export function factionBorn(economy: Economy, child: SimFaction, parent: SimFaction): void {
   economy.currencyOf.set(child.id, economy.currencyOf.get(parent.id) ?? economy.base);
   economy.taxOf.set(child.id, economy.taxOf.get(parent.id) ?? 0);
+  economy.baseTax.set(child.id, economy.baseTax.get(parent.id) ?? 0);
+}
+
+/** 세력의 거래세를 바꾼다: 그 세력 도시 거래소의 세율만 바꾼다(걸린 주문은 그대로) */
+export function setTax(economy: Economy, faction: SimFaction, taxBp: number): void {
+  economy.taxOf.set(faction.id, taxBp);
+  for (const cityId of [...faction.cities].toSorted((a, b) => a - b))
+    for (const market of economy.markets.get(cityId)?.values() ?? []) market.setTax(taxBp);
 }
 
 /** 경제 몫 불변 조건: 거래소·환전 에스크로, 운송 중 = 실린 화물 합 */

@@ -393,12 +393,23 @@ export const factions = pgTable(
     /** 기술 단계·설계도(가장 높았던 단계, 질문 121·D-396) */
     techLevel: smallint("tech_level").notNull().default(1),
     techBlueprint: smallint("tech_blueprint").notNull().default(1),
+    /** 다음 기술 단계로 쌓은 연구 작업량(질문 121, NPC 사회 런타임 docs/adr/2026-11-01-npc-brain-r5.md 7절) */
+    researchProgress: integer("research_progress").notNull().default(0),
+    /** NPC 성향 4축(공격·상업·신앙·정거장, D-327, 칸마다 0~1000). null = 아직 굴리지 않음(서버가 굴려 채운다) */
+    traits: smallint("traits").array(),
+    /** NPC 판단 횟수(판단 난수의 차례) */
+    aiStep: integer("ai_step").notNull().default(0),
+    /** 사라진 시각(유동 세력, D-294). 고정 세력은 사라지지 않는다 */
+    dissolvedAtMs: bigint("dissolved_at_ms", { mode: "number" }),
+    /** 반란으로 생긴 세력이면 되찾으려는 원래 세력(46 §2.4) */
+    rebelOf: bigint("rebel_of", { mode: "number" }).references((): AnyPgColumn => factions.id),
   },
   (table) => [
     check("factions_kind", sql`${table.kind} in ('npc', 'player')`),
     check("factions_regime", sql`${table.regime} in ('dictatorship', 'democracy', 'capitalism')`),
     check("factions_tech", sql`${table.techLevel} >= 1 and ${table.techBlueprint} >= ${table.techLevel}`),
     check("factions_code_format", sql`${table.code} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+    check("factions_traits", sql`${table.traits} is null or cardinality(${table.traits}) = 4`),
   ],
 );
 
@@ -458,6 +469,10 @@ export const worldCities = pgTable(
     housing: integer("housing").notNull().default(0),
     researchLevel: smallint("research_level").notNull().default(0),
     foundedAtMs: bigint("founded_at_ms", { mode: "number" }).notNull(),
+    /** 발전도(0~100, 하루마다 다시 셈, docs/adr/2026-11-01-npc-brain-r5.md 7절) */
+    development: smallint("development").notNull().default(0),
+    /** 다음 반란 판정을 할 수 있는 시각(반란 뒤 쉬는 날) */
+    nextRebellionMs: bigint("next_rebellion_ms", { mode: "number" }).notNull().default(0),
   },
   (table) => [
     index("world_cities_map_idx").on(table.mapKey),
@@ -465,6 +480,64 @@ export const worldCities = pgTable(
     check("world_cities_research", sql`${table.researchLevel} between 0 and 5`),
     check("world_cities_planet_id_format", sql`${table.planetId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
   ],
+);
+
+/**
+ * NPC 나라의 휴먼(docs/adr/2026-11-01-npc-brain-r5.md 7절): 시험 봇 유닛 하나 = 휴먼 하나. 사는 도시·만족도(D-219, 밀리점)·
+ * 태어난 시각·수명(T4)·환생 수. 유닛이 지워지면 함께 지워진다
+ */
+export const worldHumans = pgTable(
+  "world_humans",
+  {
+    unitId: bigint("unit_id", { mode: "number" })
+      .primaryKey()
+      .references((): AnyPgColumn => worldUnits.id, { onDelete: "cascade" }),
+    cityId: bigint("city_id", { mode: "number" })
+      .notNull()
+      .references(() => worldCities.id),
+    satisfactionMilli: integer("satisfaction_milli").notNull(),
+    bornAtMs: bigint("born_at_ms", { mode: "number" }).notNull(),
+    lifespanMs: bigint("lifespan_ms", { mode: "number" }).notNull(),
+    rebirths: smallint("rebirths").notNull().default(0),
+  },
+  (table) => [
+    index("world_humans_city_idx").on(table.cityId),
+    check("world_humans_satisfaction", sql`${table.satisfactionMilli} between 0 and 100000`),
+  ],
+);
+
+/** 세력 쌍의 전쟁·불가침(D-256·D-290·D-292, 작은 ID가 앞). 하나도 아니면 행이 없다 */
+export const factionWars = pgTable(
+  "faction_wars",
+  {
+    factionA: bigint("faction_a", { mode: "number" })
+      .notNull()
+      .references(() => factions.id),
+    factionB: bigint("faction_b", { mode: "number" })
+      .notNull()
+      .references(() => factions.id),
+    /** war | truce */
+    state: text("state").notNull(),
+    /** 전쟁: 마지막 교전 시각(백지 강화 S5), 불가침: 끝 시각 */
+    atMs: bigint("at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.factionA, table.factionB] }),
+    check("faction_wars_order", sql`${table.factionA} < ${table.factionB}`),
+    check("faction_wars_state", sql`${table.state} in ('war', 'truce')`),
+  ],
+);
+
+/** NPC 사회 런타임 상태(한 줄): 세계 시드·지금까지 돈 하루 끝 수(난수 흐름·배당·공물 주기) */
+export const npcSociety = pgTable(
+  "npc_society",
+  {
+    id: smallint("id").primaryKey(),
+    seed: bigint("seed", { mode: "number" }).notNull(),
+    day: integer("day").notNull().default(0),
+    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [check("npc_society_single", sql`${table.id} = 1`)],
 );
 
 /** 2차맵 유닛. 위치는 저장하지 않고 경로·출발 시각·속도로 계산한다(ADR 5) */

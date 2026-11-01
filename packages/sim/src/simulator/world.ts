@@ -15,10 +15,13 @@ import {
   testSettleAccounts,
 } from "../settle/owner.ts";
 import { JOB_GATHER, PHASE_WORK, type JobState } from "../settle/settle.ts";
+import { type NpcCoefficients, TEST_NPC_COEFFICIENTS } from "../npc/coefficients.ts";
+import { type Traits, rollTraits } from "../npc/traits.ts";
 import type { Regime } from "../society/shares.ts";
+import type { WarState } from "../society/wars.ts";
 import type { Scenario } from "./scenario.ts";
 
-export interface SimFaction {
+export interface SimFaction extends WarState {
   readonly id: number;
   readonly code: string;
   readonly fixed: boolean;
@@ -28,8 +31,18 @@ export interface SimFaction {
   regime: Regime;
   /** 상위 세력(봉신 관계 D-216). 없으면 null */
   overlord: number | null;
-  /** 전쟁 중인 세력(반란 세력은 원래 세력과 전쟁으로 시작, D-256) */
+  /** 전쟁 중인 세력(반란 세력은 원래 세력과 전쟁으로 시작, D-256)·마지막 교전·불가침(society/wars.ts) */
   readonly wars: Set<number>;
+  readonly lastFight: Map<number, number>;
+  readonly truces: Map<number, number>;
+  /** NPC 성향(D-327, npc/traits.ts) */
+  traits: Traits;
+  /** 지난 판단 때 국고(세율 규칙식 D-323). 처음엔 null */
+  taxBefore: bigint | null;
+  /** 굶어 멈춘 날이 이어진 수(D-220, 기술 정의 npc.stallDays) */
+  stalledDays: number;
+  /** 반란으로 생긴 세력이면 원래 세력(정부가 소탕한다, 46 §2.4). 아니면 null */
+  rebelOf: number | null;
   /** 연구 작업 진행·설계도(가장 높았던 단계, D-396) */
   research: { progress: number; blueprint: number };
   /** 도시 ID(넣은 차례) */
@@ -105,7 +118,14 @@ export interface SimWorld {
 export function newFaction(
   id: number,
   code: string,
-  fields: { fixed: boolean; tech: number; regime: Regime; settledAtMs: number; overlord?: number | null },
+  fields: {
+    fixed: boolean;
+    tech: number;
+    regime: Regime;
+    settledAtMs: number;
+    overlord?: number | null;
+    traits: Traits;
+  },
 ): SimFaction {
   return {
     id,
@@ -116,6 +136,12 @@ export function newFaction(
     regime: fields.regime,
     overlord: fields.overlord ?? null,
     wars: new Set(),
+    lastFight: new Map(),
+    truces: new Map(),
+    traits: fields.traits,
+    taxBefore: null,
+    stalledDays: 0,
+    rebelOf: null,
     research: { progress: 0, blueprint: fields.tech },
     cities: new Set(),
     units: new Set(),
@@ -132,6 +158,8 @@ const REGIMES: readonly Regime[] = ["dictatorship", "democracy", "capitalism"];
 export const STREAM_SETUP = 1;
 export const STREAM_DECIDE = 2;
 export const STREAM_TRIP = 3;
+/** 흐름 4는 세력·사회(society.ts STREAM_SOCIETY), 5는 NPC 성향 */
+export const STREAM_TRAITS = 5;
 
 /** (세계 시드, 흐름, 대상, 차례)로 정해지는 난수 — 다른 흐름·대상의 판단 수와 상관없이 같은 값 */
 export function streamRng(seed: number, stream: number, subject: number, step: number): Rng {
@@ -160,8 +188,9 @@ export function createWorld(
   scenario: Scenario,
   seed: number,
   startMs: number,
-  options: { systemRule?: (code: string, kind: string) => boolean } = {},
+  options: { systemRule?: (code: string, kind: string) => boolean; npc?: NpcCoefficients } = {},
 ): SimWorld {
+  const npc = options.npc ?? TEST_NPC_COEFFICIENTS;
   const audit = createLedgerAudit([], options.systemRule);
   const book = createLedgerBook({ nextAccountId: counter(), nextTxId: counter(), hooks: audit.hooks });
   const nextFactionId = counter();
@@ -183,6 +212,8 @@ export function createWorld(
         tech: group.tech,
         regime,
         settledAtMs: startMs,
+        // 성향은 (세계 시드, 세력)으로 굴린다(D-327: 행성마다 무작위)
+        traits: rollTraits(streamRng(seed, STREAM_TRAITS, id, 0), npc),
       });
       factions.set(id, faction);
       const own: number[] = [];

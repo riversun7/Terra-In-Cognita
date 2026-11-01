@@ -6,6 +6,8 @@ export interface TableSpec {
   readonly columns: readonly string[];
   /** 같은 행을 가리키는 열(바뀜을 하나로 합칠 때·ON CONFLICT). 추가만 하는 표는 비운다 */
   readonly key: readonly string[];
+  /** 있는 행을 고치기만 한다(UPDATE … WHERE 열쇠). 정체 열(identity)이라 upsert를 쓸 수 없는 표(factions) */
+  readonly updateOnly?: boolean;
 }
 
 export const WORLD_TABLES = {
@@ -103,6 +105,62 @@ export const WORLD_TABLES = {
     columns: ["user_id", "temperament", "stats", "rolls_used", "seed", "updated_at_ms"],
     key: ["user_id"],
   },
+  /** 도시(docs/adr/2026-11-01-npc-brain-r5.md 7절: NPC 사회 런타임이 주인·주거·연구 시설·발전도를 고치고 새 마을을 넣는다) */
+  cities: {
+    name: "world_cities",
+    columns: [
+      "id",
+      "faction_id",
+      "planet_id",
+      "map_key",
+      "cell_x",
+      "cell_y",
+      "start",
+      "housing",
+      "research_level",
+      "founded_at_ms",
+      "development",
+      "next_rebellion_ms",
+    ],
+    key: ["id"],
+  },
+  /** NPC 나라의 휴먼(봇 유닛 하나 = 휴먼 하나). 유닛 다음에 쓰고 유닛보다 먼저 지운다 */
+  humans: {
+    name: "world_humans",
+    columns: ["unit_id", "city_id", "satisfaction_milli", "born_at_ms", "lifespan_ms", "rebirths"],
+    key: ["unit_id"],
+  },
+  /** 세력 상태(고치기만: 새 세력 행은 정체 열이라 런타임이 DB에 먼저 넣는다) */
+  factionState: {
+    name: "factions",
+    columns: [
+      "id",
+      "code",
+      "regime",
+      "parent_id",
+      "tech_level",
+      "tech_blueprint",
+      "research_progress",
+      "traits",
+      "ai_step",
+      "dissolved_at_ms",
+      "rebel_of",
+    ],
+    key: ["id"],
+    updateOnly: true,
+  },
+  /** 세력 쌍의 전쟁·불가침(작은 ID가 앞) */
+  factionWars: {
+    name: "faction_wars",
+    columns: ["faction_a", "faction_b", "state", "at_ms"],
+    key: ["faction_a", "faction_b"],
+  },
+  /** NPC 사회 런타임 상태(한 줄) */
+  npcSociety: {
+    name: "npc_society",
+    columns: ["id", "seed", "day", "updated_at_ms"],
+    key: ["id"],
+  },
   transactions: {
     name: "ledger_transactions",
     columns: ["id", "kind", "at_ms", "idempotency_key"],
@@ -126,8 +184,13 @@ export type WorldTable = keyof typeof WORLD_TABLES;
 /** 쓰는 차례(외래 키). 지우기는 이 차례를 거꾸로 */
 export const WRITE_ORDER: readonly WorldTable[] = [
   "owners",
+  "factionState",
   "accounts",
+  "cities",
   "units",
+  "humans",
+  "factionWars",
+  "npcSociety",
   "buildings",
   "presence",
   "exploration",

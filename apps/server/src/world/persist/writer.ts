@@ -90,6 +90,22 @@ function insertStatement(spec: TableSpec, rows: readonly Row[]): { text: string;
   return { text, values };
 }
 
+/** UPDATE … SET … WHERE 열쇠 = …(행마다 한 문장, 고치기만 하는 표) */
+function updateStatement(spec: TableSpec, row: Row): { text: string; values: unknown[] } {
+  const values: unknown[] = [];
+  const sets = spec.columns
+    .filter((c) => !spec.key.includes(c))
+    .map((c) => {
+      values.push(row[c] ?? null);
+      return `"${c}" = $${values.length}`;
+    });
+  const where = spec.key.map((c) => {
+    values.push(row[c]);
+    return `"${c}" = $${values.length}`;
+  });
+  return { text: `update "${spec.name}" set ${sets.join(", ")} where ${where.join(" and ")}`, values };
+}
+
 /** DELETE … WHERE (열쇠 = …) OR … */
 function deleteStatement(spec: TableSpec, rows: readonly Row[]): { text: string; values: unknown[] } {
   const values: unknown[] = [];
@@ -164,6 +180,13 @@ export function createWorldWriter(options: WorldWriterOptions): WorldWriter {
           .filter((c) => !c.remove)
           .map((c) => c.row);
         const rows = [...upserts, ...(batch.appends.get(table) ?? [])];
+        if ("updateOnly" in spec && spec.updateOnly) {
+          for (const row of rows) {
+            const statement = updateStatement(spec, row);
+            await client.query(statement.text, statement.values);
+          }
+          continue;
+        }
         for (const part of chunks(rows)) {
           const statement = insertStatement(spec, part);
           await client.query(statement.text, statement.values);

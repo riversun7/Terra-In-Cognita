@@ -5,7 +5,9 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-01 15:00 | R5 합치기, 사이보그 화면 시험의 무작위 의존 고침 | Claude Code | [01-1500-merge-r5-cyborg-spec](worklog/2026/11/01-1500-merge-r5-cyborg-spec.md) |
 | 2026-11-01 14:35 | CI 배포 판단 기준을 "마지막으로 성공한 main 실행"으로 | Claude Code | [01-1435-ci-deploy-base](worklog/2026/11/01-1435-ci-deploy-base.md) |
+| 2026-11-01 14:30 | R5 NPC 두뇌: 성향 가중 판단 틀, 서버가 시험 세계 NPC 국가에 세력·사회 규칙을 실제 시간으로 돌림, 정원사 설계 | Claude Code | [01-1430-r5-npc-brain](worklog/2026/11/01-1430-r5-npc-brain.md) |
 | 2026-11-01 13:45 | 첫 화면 JS 줄이기: zod(메시지 스키마)를 첫 화면에서 뺌 | Claude Code | [01-1345-bundle-slim](worklog/2026/11/01-1345-bundle-slim.md) |
 | 2026-11-01 13:30 | 사이보그 스탯 판을 옛 프로젝트 모양으로 다시: 상세 전투 스펙·핵심 사양 출처 상세, 2차 스탯 색 | Claude Code | [01-1330-cyborg-sheet-old-look](worklog/2026/11/01-1330-cyborg-sheet-old-look.md) |
 | 2026-11-01 13:00 | 기획 D-450~D-456 반영: 사이보그 속성 분배·신앙도·종교 아이템 환생·본체 유지비·정착 지원금 | Claude Code | [01-1300-d450](worklog/2026/11/01-1300-d450.md) |

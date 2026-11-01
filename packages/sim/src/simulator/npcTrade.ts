@@ -1,26 +1,26 @@
-// [임시] 경제 대리 판단 — docs/adr/2026-10-31-economy-core.md 7절
-// 게임 규칙이 아니다. NPC 나라가 생산·유지비·거래소·환전을 실제로 돌려 보게 하는 자리 표시다. R5(NPC 두뇌, D-323 규칙식)가 대신한다.
+// NPC 거래 실행 — docs/adr/2026-10-31-economy-core.md 7절, docs/adr/2026-11-01-npc-brain-r5.md 4절 (옛 economyStub.ts)
+// 정책 값(매도 이익률·국고 쓰는 몫)은 NPC 규칙식 npc/policy.ts tradePolicy(성향·생필품 부족)이다(D-323 "운임 = 원가 + 성향별 이익률").
 // 세력마다 거래 판단 예약에서(상태 없는 계산, D-323 틀):
 // 1. 내가 건 물자 주문을 모두 거둔다. 2. 남의 도시에 있는 내 물건을 필요한 내 도시로 보낸다.
 // 3. 도시마다 목표 재고(생필품 48시간 + 시설 재료 24시간)와 견줘, 남는 도시 → 모자란 도시로 보낸다.
-// 4. 남는 것은 그 도시 거래소에 판다: 크게 남으면(목표의 4배 넘게) 지난 값 95%, 아니면 101%(값이 바닥으로만 가지 않게).
+// 4. 남는 것은 그 도시 거래소에 판다: 크게 남으면(목표의 4배 넘게) 지난 값 95%, 아니면 101% + 상업 성향 이익률.
 // 5. 모자란 것은 남의 도시 거래소 매도 호가를 싼 차례로 산다(값은 환율로 내 화폐로 바꿔 견준다).
 //    그 화폐가 모자라면 환전 주문을 낸다(기준 통화를 거쳐서). 자기 화폐를 발행하는 나라는 자기 화폐를 팔지 않는다
 //    (시장 조성 quoteFx가 이미 내므로, 같은 회차의 자기 주문끼리 맞물리지 않게).
-// 쓰는 돈은 판단 한 번에 국고의 1/4까지다. 발행 나라는 환전 회차마다 자기 화폐 양쪽 값을 낸다(quoteFx, 가진 것의 5%씩).
+// 쓰는 돈은 판단 한 번에 국고의 1/4까지다(생필품이 모자라면 1/2). 발행 나라는 환전 회차마다 자기 화폐 양쪽 값을 낸다(quoteFx, 가진 것의 5%씩).
 import type { FxMarket } from "../economy/fxMarket.ts";
 import { BASE_EFFICIENCY } from "../economy/production.ts";
+import type { NpcCoefficients } from "../npc/coefficients.ts";
+import { tradePolicy } from "../npc/policy.ts";
 import { type Economy, EVENT_TRADE, fxRate, ship } from "./economy.ts";
 import type { SimLoop } from "./loop.ts";
-import type { SimEvent } from "./stubRules.ts";
+import type { SimEvent } from "./npcRun.ts";
 import type { SimFaction, SimWorld } from "./world.ts";
 
 /** 생필품 목표 재고(시간) */
 const NECESSITY_BUFFER_HOURS = 48;
 /** 시설 재료 목표 재고(시간) */
 const INPUT_BUFFER_HOURS = 24;
-/** 판단 한 번에 쓰는 국고 몫(분모) */
-const SPEND_DIVISOR = 4n;
 /** 이만큼(목표의 배수) 넘게 남으면 값을 내려 판다 */
 const GLUT_MULTIPLE = 4n;
 /** 발행 나라 시장 조성 몫(가진 것의 1/분모) */
@@ -68,6 +68,7 @@ export function onTrade(
   loop: SimLoop<SimEvent>,
   factionId: number,
   nowMs: number,
+  npc: NpcCoefficients,
 ): void {
   const faction = world.factions.get(factionId);
   if (!faction?.alive) return;
@@ -106,7 +107,10 @@ export function onTrade(
   for (const held of abroad)
     ship(economy, world, loop, factionId, held.asset, held.location, neediest(held.asset), held.qty, nowMs);
 
-  const budget = { left: book.balanceOf(factionId, currency) / SPEND_DIVISOR };
+  // 정책: 오늘 생필품을 못 낸 도시가 있으면 국고를 더 쓴다
+  const foodShort = cities.some((cityId) => (economy.today.shortByCity.get(cityId) ?? 0) > 0);
+  const policy = tradePolicy(faction.traits, foodShort, npc);
+  const budget = { left: book.balanceOf(factionId, currency) / policy.spendDivisor };
   for (const asset of economy.catalog.items) {
     // 3. 내 도시끼리 나누기
     let shortfall = 0n;
@@ -129,7 +133,7 @@ export function onTrade(
       if (spare <= 0n || !market) continue;
       const target = need.get(cityId)?.get(asset) ?? 0n;
       const glut = stock(cityId, asset) > target * GLUT_MULTIPLE;
-      const price = pct(refPrice(economy, cityId, asset), glut ? 95n : 101n);
+      const price = pct(refPrice(economy, cityId, asset), glut ? policy.glutPct : policy.sellPct);
       market.place(factionId, "sell", price, spare, nowMs, nowMs + economy.settings.orderLifeMs);
     }
     // 5. 모자란 것 사기

@@ -1,0 +1,927 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "fbc59ee0-3609-4d77-95f6-b48a60bafc7b",
+  "prevIds": [
+    "bcd92909-a08b-4a84-9549-43388af554d1"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "faction_wars"
+      ],
+      "writes": [
+        "s|tbl|public.faction_wars",
+        "n|tbl|public.faction_wars",
+        "e|tbl|public.faction_wars",
+        "n|rel|public.faction_wars",
+        "n|type|public.faction_wars",
+        "n|rel|public.faction_wars_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "npc_society"
+      ],
+      "writes": [
+        "s|tbl|public.npc_society",
+        "n|tbl|public.npc_society",
+        "e|tbl|public.npc_society",
+        "n|rel|public.npc_society",
+        "n|type|public.npc_society",
+        "n|rel|public.npc_society_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_humans"
+      ],
+      "writes": [
+        "s|tbl|public.world_humans",
+        "n|tbl|public.world_humans",
+        "e|tbl|public.world_humans",
+        "n|rel|public.world_humans",
+        "n|type|public.world_humans",
+        "n|rel|public.world_humans_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "factions",
+        "research_progress"
+      ],
+      "writes": [
+        "s|col|public.factions.research_progress",
+        "n|col|public.factions.research_progress",
+        "e|col|public.factions.research_progress"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "factions",
+        "traits"
+      ],
+      "writes": [
+        "s|col|public.factions.traits",
+        "n|col|public.factions.traits",
+        "e|col|public.factions.traits"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "factions",
+        "ai_step"
+      ],
+      "writes": [
+        "s|col|public.factions.ai_step",
+        "n|col|public.factions.ai_step",
+        "e|col|public.factions.ai_step"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "factions",
+        "dissolved_at_ms"
+      ],
+      "writes": [
+        "s|col|public.factions.dissolved_at_ms",
+        "n|col|public.factions.dissolved_at_ms",
+        "e|col|public.factions.dissolved_at_ms"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "factions",
+        "rebel_of"
+      ],
+      "writes": [
+        "s|col|public.factions.rebel_of",
+        "n|col|public.factions.rebel_of",
+        "e|col|public.factions.rebel_of"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_cities",
+        "development"
+      ],
+      "writes": [
+        "s|col|public.world_cities.development",
+        "n|col|public.world_cities.development",
+        "e|col|public.world_cities.development"
+      ],
+      "reads": [
+        "n|tbl|public.world_cities",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_cities",
+        "next_rebellion_ms"
+      ],
+      "writes": [
+        "s|col|public.world_cities.next_rebellion_ms",
+        "n|col|public.world_cities.next_rebellion_ms",
+        "e|col|public.world_cities.next_rebellion_ms"
+      ],
+      "reads": [
+        "n|tbl|public.world_cities",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "world_humans",
+        "world_humans_city_idx"
+      ],
+      "writes": [
+        "s|idx|public.world_humans_city_idx",
+        "n|idx|public.world_humans_city_idx",
+        "e|idx|public.world_humans_city_idx",
+        "n|rel|public.world_humans_city_idx"
+      ],
+      "reads": [
+        "n|tbl|public.world_humans",
+        "n|sch|public",
+        "n|col|public.world_humans.city_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "faction_wars"
+      ],
+      "writes": [
+        "s|fk|public.faction_wars.faction_wars_faction_a_factions_id_fkey",
+        "n|fk|public.faction_wars.faction_wars_faction_a_factions_id_fkey",
+        "e|fk|public.faction_wars.faction_wars_faction_a_factions_id_fkey",
+        "n|con|public.faction_wars.faction_wars_faction_a_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.faction_wars",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.faction_wars.faction_a",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "faction_wars"
+      ],
+      "writes": [
+        "s|fk|public.faction_wars.faction_wars_faction_b_factions_id_fkey",
+        "n|fk|public.faction_wars.faction_wars_faction_b_factions_id_fkey",
+        "e|fk|public.faction_wars.faction_wars_faction_b_factions_id_fkey",
+        "n|con|public.faction_wars.faction_wars_faction_b_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.faction_wars",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.faction_wars.faction_b",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "factions"
+      ],
+      "writes": [
+        "s|fk|public.factions.factions_rebel_of_factions_id_fkey",
+        "n|fk|public.factions.factions_rebel_of_factions_id_fkey",
+        "e|fk|public.factions.factions_rebel_of_factions_id_fkey",
+        "n|con|public.factions.factions_rebel_of_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.factions.rebel_of",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_humans"
+      ],
+      "writes": [
+        "s|fk|public.world_humans.world_humans_unit_id_world_units_id_fkey",
+        "n|fk|public.world_humans.world_humans_unit_id_world_units_id_fkey",
+        "e|fk|public.world_humans.world_humans_unit_id_world_units_id_fkey",
+        "n|con|public.world_humans.world_humans_unit_id_world_units_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_humans",
+        "n|sch|public",
+        "n|tbl|public.world_units",
+        "n|sch|public",
+        "n|col|public.world_humans.unit_id",
+        "n|col|public.world_units.id",
+        "e|uniqueness|public.world_units.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_humans"
+      ],
+      "writes": [
+        "s|fk|public.world_humans.world_humans_city_id_world_cities_id_fkey",
+        "n|fk|public.world_humans.world_humans_city_id_world_cities_id_fkey",
+        "e|fk|public.world_humans.world_humans_city_id_world_cities_id_fkey",
+        "n|con|public.world_humans.world_humans_city_id_world_cities_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_humans",
+        "n|sch|public",
+        "n|tbl|public.world_cities",
+        "n|sch|public",
+        "n|col|public.world_humans.city_id",
+        "n|col|public.world_cities.id",
+        "e|uniqueness|public.world_cities.id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "factions"
+      ],
+      "writes": [
+        "s|ck|public.factions.factions_traits",
+        "n|ck|public.factions.factions_traits",
+        "e|ck|public.factions.factions_traits",
+        "n|con|public.factions.factions_traits"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.factions.traits"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "faction_wars",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "npc_society",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "world_humans",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_wars",
+        "name": "faction_a",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_wars",
+        "name": "faction_b",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_wars",
+        "name": "state",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_wars",
+        "name": "at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "research_progress",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "traits",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "ai_step",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "dissolved_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "rebel_of",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_society",
+        "name": "id",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_society",
+        "name": "seed",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_society",
+        "name": "day",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_society",
+        "name": "updated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "development",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "next_rebellion_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "satisfaction_milli",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "born_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "lifespan_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "rebirths",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "world_humans_city_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "city_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_wars",
+        "name": "faction_wars_faction_a_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_a"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_wars",
+        "name": "faction_wars_faction_b_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "faction_b"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "factions_rebel_of_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "rebel_of"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "world_humans_unit_id_world_units_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "unit_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_units",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "world_humans_city_id_world_cities_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "city_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_cities",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_wars",
+        "name": "faction_wars_pkey",
+        "columns": [
+          "faction_a",
+          "faction_b"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_society",
+        "name": "npc_society_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "world_humans_pkey",
+        "columns": [
+          "unit_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_wars",
+        "name": "faction_wars_order",
+        "value": "\"faction_a\" < \"faction_b\"",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "faction_wars",
+        "name": "faction_wars_state",
+        "value": "\"state\" in ('war', 'truce')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "factions_traits",
+        "value": "\"traits\" is null or cardinality(\"traits\") = 4",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "npc_society",
+        "name": "npc_society_single",
+        "value": "\"id\" = 1",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "world_humans_satisfaction",
+        "value": "\"satisfaction_milli\" between 0 and 100000",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

@@ -5,6 +5,7 @@
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "./combat/coefficients.ts";
 import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "./society/coefficients.ts";
 import { CYBORG_TUNING_KEYS } from "./tuningCyborg.ts";
+import { NPC_TUNING_KEYS } from "./tuningNpc.ts";
 
 export interface TuningKey {
   /** 팩 항목 ID */
@@ -510,6 +511,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   k("d396_blueprint", "", "society", "blueprintDiscountBp", "설계도 할인(만분율)", "Blueprint discount (bp)"),
   // 사이보그 성장·환생·속성·유지와 장비 수리(49 N6·N7·N9·N34·N36~N38·F11·F12): tuningCyborg.ts
   ...CYBORG_TUNING_KEYS,
+  // NPC 판단(49 S3·S5·S19, D-323·D-292·D-220): tuningNpc.ts
+  ...NPC_TUNING_KEYS,
 ];
 
 function getPath(root: unknown, path: string): number {

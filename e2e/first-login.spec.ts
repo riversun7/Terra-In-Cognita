@@ -131,10 +131,12 @@ test.describe("첫 접속: 새 플레이어", () => {
     await expectStep(page, "faction");
 
     // 5·6. 세력(추천)·시작 도시(기본 선택 = 가장 덜 붐빔)
-    await expect(page.locator(".start-choice[data-faction] input").first()).toBeChecked();
-    await expect(page.locator(".start-badge").first()).toBeVisible();
+    // 시험 국가가 넷이다(docs/adr/2026-11-01-npc-brain-r5.md 7절, 질문 203 가): 기본 선택 = 추천(가장 덜 붐빈) 세력
+    const recommended = page.locator(".start-choice[data-faction]:has(.start-badge)").first();
+    await expect(recommended.locator("input")).toBeChecked();
+    await expect(recommended.locator(".start-badge")).toBeVisible();
     // 정착 지원금(D-455 190, N39 출발값 72 × 가장 덜 붐빈 세력 배율 1500‰)
-    await expect(page.locator(".start-faction-grant").first()).toHaveAttribute("data-grant", "108");
+    await expect(recommended.locator(".start-faction-grant")).toHaveAttribute("data-grant", "108");
     await next(page);
     await expectStep(page, "city");
     await expect(page.locator(".start-choice[data-city] input").first()).toBeChecked();

@@ -1,0 +1,98 @@
+// NPC 규칙식 — docs/adr/2026-11-01-npc-brain-r5.md 4절, 기획 D-323(정책 값은 규칙식), 질문 197·198 가
+// 판단 틀의 행동 하나와 따로, 고를 수 있는 칸(세율·거래 값·점령 처리·마을 체제·편입 답·독립 찬성)을 성향과 상태로 정한다.
+// 순수 함수다. 사람(유저 세력)이면 이 자리에 유저 명령이 들어간다.
+import type { SocietyCoefficients } from "../society/coefficients.ts";
+import type { Regime } from "../society/shares.ts";
+import type { NpcCoefficients } from "./coefficients.ts";
+import type { Traits } from "./traits.ts";
+
+/**
+ * 거래세(만분율, D-323 예): 지난 판단 뒤 국고가 줄었으면 +1%p(휴먼 평균 만족도가 하한 아래면 올리지 않음), 늘었으면 −1%p
+ * (프리셋 기본 아래로는 안 내림). NPC 규칙식 상한에서 멈춘다. 처음 판단(before 없음)은 그대로
+ */
+export function nextTaxBp(
+  input: {
+    readonly current: number;
+    readonly base: number;
+    readonly treasury: bigint;
+    readonly before: bigint | null;
+    readonly satisfaction: number;
+  },
+  c: NpcCoefficients,
+): number {
+  const { current, base, treasury, before, satisfaction } = input;
+  if (before === null) return current;
+  if (treasury < before && satisfaction >= c.taxSatisfactionFloor)
+    return Math.min(c.taxMaxBp, Math.max(current, current + c.taxStepBp));
+  if (treasury > before) return Math.max(Math.min(base, current), current - c.taxStepBp);
+  return current;
+}
+
+export interface TradePolicy {
+  /** 남는 물건 매도 값(지난 값의 %) */
+  readonly sellPct: bigint;
+  /** 크게 남을 때 매도 값(%) */
+  readonly glutPct: bigint;
+  /** 판단 한 번에 쓰는 국고 몫(분모) */
+  readonly spendDivisor: bigint;
+}
+
+/** 거래 정책(D-323 "운임 = 원가 + 성향별 이익률"): 상업 성향만큼 이익률, 생필품이 모자라면 국고를 더 쓴다 */
+export function tradePolicy(traits: Traits, foodShort: boolean, c: NpcCoefficients): TradePolicy {
+  return {
+    sellPct: 101n + BigInt(Math.floor(traits.commerce / c.tradeMarkupPerPct)),
+    glutPct: 95n,
+    spendDivisor: BigInt(foodShort ? c.spendDivisorShort : c.spendDivisor),
+  };
+}
+
+export interface OccupationChoice {
+  readonly treatment: "loot" | "integrate";
+  readonly shares: "delist" | "keep";
+}
+
+/**
+ * 점령 처리(46 §5.1): 공격 성향이 높고 약탈 뒤에도 도시 평균 만족도가 반란 문턱 + 여유보다 높으면 약탈, 아니면 통합.
+ * 상장폐지는 아주 공격적일 때만(독재가 과반을 못 쥐면 규칙이 상장폐지로 바꾼다)
+ */
+export function occupationChoice(
+  traits: Traits,
+  citySatisfaction: number,
+  c: NpcCoefficients,
+  sc: SocietyCoefficients,
+): OccupationChoice {
+  const lootSafe = citySatisfaction - sc.lootSatisfactionDrop > sc.rebellionThreshold + c.lootMargin;
+  return {
+    treatment: traits.aggression >= c.lootAggression && lootSafe ? "loot" : "integrate",
+    shares: traits.aggression >= c.delistAggression ? "delist" : "keep",
+  };
+}
+
+export type FoundingChoice = { readonly vassal: true } | { readonly vassal: false; readonly regime: Regime };
+
+/** 새 마을(D-340): 세우는 가문이 공격적이면 독립 도시국가 + 가장 큰 축의 체제, 아니면 봉신 */
+export function foundingChoice(traits: Traits, c: NpcCoefficients): FoundingChoice {
+  if (traits.aggression < c.independentAggression) return { vassal: true };
+  const { aggression, commerce, faith } = traits;
+  const regime: Regime =
+    aggression >= commerce && aggression >= faith
+      ? "dictatorship"
+      : commerce >= faith
+        ? "capitalism"
+        : "democracy";
+  return { vassal: false, regime };
+}
+
+/** 편입 제안 답(D-342): 점령자와 전쟁 중인 공격 성향 세력만 거부한다 */
+export function answerOffer(
+  traits: Traits,
+  atWarWithOccupier: boolean,
+  c: NpcCoefficients,
+): "accepted" | "refused" {
+  return atWarWithOccupier && traits.aggression >= c.refuseAggression ? "refused" : "accepted";
+}
+
+/** 자본주의 독립 투표 찬성(D-301): 도시 주인과 전쟁 중이거나 상업 성향이 높으면 */
+export function independenceYes(traits: Traits, atWarWithRuler: boolean, c: NpcCoefficients): boolean {
+  return atWarWithRuler || traits.commerce >= c.voteCommerce;
+}

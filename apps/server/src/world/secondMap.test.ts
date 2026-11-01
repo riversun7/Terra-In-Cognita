@@ -123,6 +123,26 @@ describe("시험용 봇", () => {
     map.stop();
   });
 
+  it("NPC 휴먼(docs/adr/2026-11-01-npc-brain-r5.md 7절): 도시 둘레에 세우고, 주인을 바꾸고, 지우면 예약·몸이 사라진다", () => {
+    const { map } = createTestMap();
+    expect(map.spawnBotNear(501, 7, { x: 100, y: 100 }, 8)).toBe(true);
+    expect(map.spawnBotNear(501, 7, { x: 100, y: 100 }, 8)).toBe(false);
+    const unit = map.unitInfo(501);
+    if (!unit) throw new Error("spawned bot missing");
+    const at = anchorAt(unit.motion.waypoints[0] ?? { x: 0, y: 0 }, unit.size);
+    expect(Math.max(Math.abs(at.x - 100), Math.abs(at.y - 100))).toBeLessThanOrEqual(8);
+    expect(unit.ownerId).toBe(7);
+    expect(map.missingEvents()).toBe(0);
+    expect(map.setOwner(501, 9)).toBe(true);
+    expect(map.unitInfo(501)?.ownerId).toBe(9);
+    expect(map.removeUnit(501)).toBe(true);
+    expect(map.unitInfo(501)).toBeUndefined();
+    expect(map.removeUnit(501)).toBe(false);
+    expect(map.setOwner(501, 1)).toBe(false);
+    expect(map.gauges().units).toBe(0);
+    map.stop();
+  });
+
   it("시작 뒤 몇 초 안에 출발하고, 도착하면 쉬었다가 다시 간다", async () => {
     const terrain = generateTempTerrain(seedFromCellKey(TEST_MAP_KEY));
     const { map, stats } = createTestMap({ terrain, mapKey: TEST_MAP_KEY });

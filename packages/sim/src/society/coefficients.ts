@@ -1,6 +1,7 @@
 // 세력·사회 계수표 — docs/adr/2026-10-31-faction-society-core.md "계수 한 곳"
 // 세력·도시·인구·기술·노동 규칙의 수치를 이 표 하나에 모은다. 기획 설정 칸(49 §6.5 N·§7 S·T)에 출발값이 있으면 그 값, 없으면 [임시].
 // 노동 공식(labor.ts)의 정본은 기획 48 §7이다. 시각은 실제 시간 ms, 배율은 ‰. N·S 코드 ↔ 칸 대응은 ADR faction-society-core.
+import { type NpcCoefficients, TEST_NPC_COEFFICIENTS } from "../npc/coefficients.ts";
 import type { CyborgTemperament } from "./cyborgStats.ts";
 
 export interface SocietyCoefficients {
@@ -112,6 +113,8 @@ export interface SocietyCoefficients {
   readonly tributePm: number;
   /** 공물 주기(주마다). 시뮬은 하루 끝에서 날 수로 내림해 돈다 */
   readonly tributeEveryMs: number;
+  /** NPC 판단 계수(docs/adr/2026-11-01-npc-brain-r5.md, 팩 tuning 경로 "npc.*") */
+  readonly npc: NpcCoefficients;
   /** 사이보그 성장·환생·속성·유지·정착 지원금(48 §2, D-417·D-440·D-441·D-450~D-453·D-455, 49 N6·N7·N9·N34·N36~N39) */
   readonly cyborg: {
     /** 만렙(N7 기본 50, 구조 값). 특수 만렙 60은 누가 받는지 정해지지 않아 두지 않는다 */
@@ -256,6 +259,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   satisfactionRestorePmPerDay: 300,
   tributePm: 50,
   tributeEveryMs: 7 * DAY,
+  npc: TEST_NPC_COEFFICIENTS,
   cyborg: {
     maxLevel: 50,
     kMinPm: 800,

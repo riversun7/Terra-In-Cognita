@@ -27,6 +27,16 @@ export interface S1Config {
   testMaps: number;
 }
 
+/** NPC 사회 런타임 설정(docs/adr/2026-11-01-npc-brain-r5.md 7절) */
+export interface NpcConfig {
+  /** 켬(NPC_SOCIETY, 기본 1 = 켬, 0 = 끔). DB가 있을 때만 돈다 */
+  enabled: boolean;
+  /** 시험 국가 수(NPC_TEST_NATIONS, 기본 4, 질문 203 가) */
+  testNations: number;
+  /** 하루 길이(NPC_DAY_MS, 기본 실제 24시간). 측정용으로만 줄인다(출시 관문은 실제 시간, ADR 2026-10-31-n1-real-time-gate) */
+  dayMs: number;
+}
+
 /**
  * 믿는 프록시 주소. 이 주소에서 온 연결만 X-Forwarded-For를 따라간다.
  * NAS에서는 DSM 역방향 프록시 → Docker 포트(사설 주소)를 거쳐 들어온다. 기기가 위조한 앞쪽 값은 무시된다.
@@ -61,6 +71,7 @@ export interface ServerConfig {
   /** 인증 설정. DB가 없으면 인증을 켜지 않는다(undefined) — CI 이미지 확인은 DB 없이 돈다 */
   auth: AuthConfig | undefined;
   s1: S1Config;
+  npc: NpcConfig;
   /** 1차맵 행성 타일 디스크 캐시 폴더 (PLANET_CACHE_DIR) */
   planetCacheDir: string;
 }
@@ -99,6 +110,11 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       testBots: readInteger(env.S1_TEST_BOTS, 0, 0, MAX_TEST_BOTS, "S1_TEST_BOTS"),
       pathWorkers: readInteger(env.PATH_WORKERS, 1, 1, MAX_PATH_WORKERS, "PATH_WORKERS"),
       testMaps: readInteger(env.S1_TEST_MAPS, 1, 1, MAX_TEST_MAPS, "S1_TEST_MAPS"),
+    },
+    npc: {
+      enabled: readInteger(env.NPC_SOCIETY, 1, 0, 1, "NPC_SOCIETY") === 1,
+      testNations: readInteger(env.NPC_TEST_NATIONS, 4, 1, 16, "NPC_TEST_NATIONS"),
+      dayMs: readInteger(env.NPC_DAY_MS, 86_400_000, 60_000, 86_400_000, "NPC_DAY_MS"),
     },
     planetCacheDir: env.PLANET_CACHE_DIR || DEFAULT_PLANET_CACHE_DIR,
   };

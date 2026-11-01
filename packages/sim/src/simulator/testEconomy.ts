@@ -116,14 +116,7 @@ export const TEST_ECONOMY_SCENARIO: Scenario = parseScenario({
       ],
     },
   ],
-  stub: {
-    decideEveryMs: 6 * 3_600_000,
-    conquerPerMille: 30,
-    foundPerMille: 30,
-    shareSalePerMille: 30,
-    researchBuildPerMille: 60,
-    vassalBreakPerMille: 20,
-  },
+  npc: { decideEveryMs: 6 * 3_600_000 },
   economy: {
     tradeEveryMs: 3 * 3_600_000,
     fxEveryMs: 3_600_000,

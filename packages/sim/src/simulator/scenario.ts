@@ -1,7 +1,7 @@
 // 시뮬레이터 시나리오 — docs/adr/2026-10-31-rules-simulator.md "세계 차리기"
 // 세력·도시·유닛·처음 자산을 적는 시험 세계 설명이다(JSON 파일, packages/sim/scenarios/). 콘텐츠 팩 분류가 아니다:
 // 국가 프리셋·아이템·레시피·시설의 팩 형식은 그 규칙을 만드는 단계(R2·R4)에서 정하고, 그때 이 설명이 팩 ID를 가리키게 된다.
-// [임시] stub은 NPC 판단(무엇을 해 볼지)의 대리다. 결과는 진짜 규칙(R4b 세력·사회)이 정하고, 판단은 R5가 대신한다.
+// NPC 판단(무엇을 해 볼지)은 npc/brain.ts(R5), 결과는 진짜 규칙(R4b 세력·사회)이 정한다. 시나리오는 판단 간격만 바꾼다.
 import type { Regime } from "../society/shares.ts";
 
 export interface ScenarioFaction {
@@ -55,23 +55,10 @@ export interface ScenarioEconomy {
   readonly fxLot: bigint;
 }
 
-/**
- * [임시] NPC 판단 대리(천분율·ms): 무엇을 해 볼지만 정한다. 결과(점령·반란·독립·기술·출생)는 진짜 규칙(R4b)이 정하고,
- * 판단은 R5(NPC 두뇌)가 대신한다
- */
-export interface ScenarioStub {
-  /** 세력 판단 간격(±25% 흔들림) */
-  readonly decideEveryMs: number;
-  /** 판단 한 번에 남의 도시를 치러 갈 확률 */
-  readonly conquerPerMille: number;
-  /** 판단 한 번에 가문이 갈라져 새 마을을 세울 확률(붐비는 도시가 있을 때) */
-  readonly foundPerMille: number;
-  /** 판단 한 번에 도시 지분 일부를 다른 세력에 팔 확률 */
-  readonly shareSalePerMille: number;
-  /** 판단 한 번에 연구 시설 레벨을 올릴 확률(국고가 있을 때) */
-  readonly researchBuildPerMille: number;
-  /** 판단 한 번에 봉신이 독립을 선언할 확률 */
-  readonly vassalBreakPerMille: number;
+/** NPC 판단(docs/adr/2026-11-01-npc-brain-r5.md): 판단 간격만 시나리오가 바꾼다(조정용). 없으면 계수표 값(질문 193 가 6시간) */
+export interface ScenarioNpc {
+  /** 세력 판단 간격(±25% 흔들림). undefined면 계수표 npc.decideEveryMs */
+  readonly decideEveryMs: number | undefined;
 }
 
 /** 유닛마다 오가는 예약(합성 부하). 도착하면 쉬었다가 다음 목적지로 간다 */
@@ -108,12 +95,21 @@ export interface ScenarioSociety {
   readonly researchPerLevelDaily: number;
 }
 
+/** 세력·사회 손잡이 기본값(시나리오에 없을 때, 서버 NPC 런타임도 같은 값) */
+export const DEFAULT_SCENARIO_SOCIETY: ScenarioSociety = {
+  rebellionCooldownDays: 3,
+  founders: 8,
+  foundCost: 5000n,
+  researchBuildCost: 2000n,
+  researchPerLevelDaily: 6000,
+};
+
 export interface Scenario {
   readonly id: string;
   /** 콘텐츠 팩 행성 ID(있으면 실행 도구가 팩에 있는지 본다) */
   readonly planet?: string | undefined;
   readonly factions: readonly ScenarioFaction[];
-  readonly stub: ScenarioStub;
+  readonly npc: ScenarioNpc;
   readonly trips?: ScenarioTrips | undefined;
   readonly economy?: ScenarioEconomy | undefined;
   readonly combat?: ScenarioCombat | undefined;
@@ -214,15 +210,10 @@ export function parseScenario(value: unknown): Scenario {
       ),
     };
   });
-  const stubValue = field(value, "stub");
-  const perMille = (key: string) => optionalInt(field(stubValue, key), `stub.${key}`, 0, 0, 1000);
-  const stub: ScenarioStub = {
-    decideEveryMs: int(field(stubValue, "decideEveryMs"), "stub.decideEveryMs", 60_000),
-    conquerPerMille: int(field(stubValue, "conquerPerMille"), "stub.conquerPerMille", 0, 1000),
-    foundPerMille: perMille("foundPerMille"),
-    shareSalePerMille: perMille("shareSalePerMille"),
-    researchBuildPerMille: perMille("researchBuildPerMille"),
-    vassalBreakPerMille: perMille("vassalBreakPerMille"),
+  const npcValue = field(value, "npc");
+  const npcEvery = field(npcValue, "decideEveryMs");
+  const npc: ScenarioNpc = {
+    decideEveryMs: npcEvery === undefined ? undefined : int(npcEvery, "npc.decideEveryMs", 60_000),
   };
   const societyValue = field(value, "society");
   const society: ScenarioSociety = {
@@ -230,23 +221,29 @@ export function parseScenario(value: unknown): Scenario {
       field(societyValue, "rebellionCooldownDays"),
       "society.rebellionCooldownDays",
       0,
-      3,
+      DEFAULT_SCENARIO_SOCIETY.rebellionCooldownDays,
       365,
     ),
-    founders: optionalInt(field(societyValue, "founders"), "society.founders", 1, 8, 10_000),
+    founders: optionalInt(
+      field(societyValue, "founders"),
+      "society.founders",
+      1,
+      DEFAULT_SCENARIO_SOCIETY.founders,
+      10_000,
+    ),
     foundCost:
       field(societyValue, "foundCost") === undefined
-        ? 5000n
+        ? DEFAULT_SCENARIO_SOCIETY.foundCost
         : amount(field(societyValue, "foundCost"), "society.foundCost"),
     researchBuildCost:
       field(societyValue, "researchBuildCost") === undefined
-        ? 2000n
+        ? DEFAULT_SCENARIO_SOCIETY.researchBuildCost
         : amount(field(societyValue, "researchBuildCost"), "society.researchBuildCost"),
     researchPerLevelDaily: optionalInt(
       field(societyValue, "researchPerLevelDaily"),
       "society.researchPerLevelDaily",
       0,
-      6000,
+      DEFAULT_SCENARIO_SOCIETY.researchPerLevelDaily,
     ),
   };
   const tripsValue = field(value, "trips");
@@ -291,7 +288,7 @@ export function parseScenario(value: unknown): Scenario {
           siegeMapSize: evenSize(field(combatValue, "siegeMapSize"), "combat.siegeMapSize"),
           nexusDurability: int(field(combatValue, "nexusDurability"), "combat.nexusDurability", 1),
         };
-  return { id, planet, factions, stub, trips, economy, combat, society };
+  return { id, planet, factions, npc, trips, economy, combat, society };
 }
 
 function optionalList<T>(

@@ -29,7 +29,8 @@ function splitRow(line) {
   return cells.slice(1, -1);
 }
 
-const CODE = /^[A-Z][0-9]{1,2}$/;
+// 49 코드: 영문 대문자 + 숫자 1~2자리, 기존 칸 사이에 끼운 칸은 끝에 소문자 하나(C16a, D-468)
+const CODE = /^[A-Z][0-9]{1,2}[a-z]?$/;
 /** 출발값이 없다: 출발값 칸이 —로 시작하거나 비고에 "출발값 없음" */
 const noValueOf = (start, note) => start.startsWith("—") || note.includes("출발값 없음");
 

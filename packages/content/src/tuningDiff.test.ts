@@ -53,6 +53,12 @@ describe("설정 칸 항목의 기술 범위(D1 형식)", () => {
 
 describe("설정 칸 차이(내보내기)", () => {
   it("형식: 같은 ID 두 번, 모르는 칸, 다른 형식 이름은 받지 않는다", () => {
+    expect(tuningDiffSchema.safeParse(diffOf([{ id: "a_b", code: "C16a", from: 1, to: 2 }])).success).toBe(
+      true,
+    );
+    expect(tuningDiffSchema.safeParse(diffOf([{ id: "a_b", code: "C16ab", from: 1, to: 2 }])).success).toBe(
+      false,
+    );
     expect(tuningDiffSchema.safeParse(diffOf([{ id: "a_b", code: "N9", from: 1, to: 2 }])).success).toBe(
       true,
     );

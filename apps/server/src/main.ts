@@ -6,7 +6,7 @@ import { loadServerContent } from "./content.ts";
 import { rosterCatalogOf } from "./roster/catalog.ts";
 import { effectNamesOf } from "./battleReplay/names.ts";
 import { createTuningState } from "./tuning/state.ts";
-import { statRowsOf, tuningEntriesOf } from "./world/combatCatalog.ts";
+import { formulaEntriesOf, statRowsOf, tuningEntriesOf } from "./world/combatCatalog.ts";
 import { economyCatalogFromPack } from "./economyView/catalog.ts";
 import { nationPresetsOf } from "./npc/presets.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
@@ -74,7 +74,11 @@ try {
 // 설정 칸 실효 값(팩 tuning + 이 세계 DB의 덮어쓰기, docs/adr/2026-11-01-dev-settings-panel.md 5절). 서버에서 칸 값을 읽는 곳은
 // 모두 이 접근자를 쓸 때마다 부른다(덮어쓰기는 앱이 켤 때 DB에서 싣는다). 가중치 표(stat_rows) 칸 덮어쓰기도 같은 접근자다
 // (밸런스 화면, docs/adr/2026-11-01-balance-screen.md 1절)
-const tuning = createTuningState(tuningEntriesOf(loaded.source), statRowsOf(loaded.source));
+const tuning = createTuningState(
+  tuningEntriesOf(loaded.source),
+  statRowsOf(loaded.source),
+  formulaEntriesOf(loaded.source),
+);
 
 let app: FastifyInstance | undefined;
 const db = config.databaseUrl

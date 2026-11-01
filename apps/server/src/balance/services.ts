@@ -162,7 +162,7 @@ export function createBalanceServices(deps: {
             current: [...state.statTable()],
             edited: changes.length > 0 ? [...state.statTableWith(changes)] : null,
           },
-          coefficients: combatCoefficientsFrom(snapshot.values),
+          coefficients: combatCoefficientsFrom(snapshot.values, undefined, state.combatFormulas()),
           primaries: input.primaries,
           weapon,
           count: input.count,

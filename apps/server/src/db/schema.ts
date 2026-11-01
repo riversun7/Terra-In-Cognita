@@ -957,6 +957,26 @@ export const tuningOverrides = pgTable(
   ],
 );
 
+/** 계산식 덮어쓰기(ADR 2026-11-01-formula-editor): 설정 칸과 같은 판·감사 기록, 글 값. id = 전투 식 ID 또는 `<행 ID>.formula` */
+export const formulaOverrides = pgTable(
+  "formula_overrides",
+  {
+    id: text("id").primaryKey(),
+    source: text("source").notNull(),
+    packSource: text("pack_source").notNull(),
+    contentVersion: text("content_version").notNull(),
+    note: text("note"),
+    updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("formula_overrides_id_format", sql`${table.id} ~ '^[a-z][a-z0-9_]{1,47}(\\.formula)?$'`),
+    check("formula_overrides_source_length", sql`char_length(${table.source}) between 1 and 2000`),
+    check("formula_overrides_pack_source_length", sql`char_length(${table.packSource}) <= 4000`),
+    check("formula_overrides_note_length", sql`${table.note} is null or char_length(${table.note}) <= 200`),
+  ],
+);
+
 /**
  * 세계 설정 판 — 줄 하나(id = 1). 덮어쓰기를 바꾸는 트랜잭션마다 revision = revision + 1 where revision = 기대 판(두 관리자가 동시에
  * 바꾸면 늦은 쪽이 충돌, docs/adr/2026-11-01-dev-settings-panel.md 4·8절). 줄은 서버가 켤 때 없으면 만든다

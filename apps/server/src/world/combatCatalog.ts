@@ -2,10 +2,12 @@
 // 검증을 통과한 팩의 파일을 분류 스키마로 다시 읽어 @terra/sim combatCatalogFrom에 넘긴다(시뮬 실행 도구와 같은 변환).
 // 지금은 시험이 쓴다. 세계에서 전투를 열 때(R5) 서버가 유닛 사양을 만들 때 쓴다.
 import {
+  type FormulaEntry,
   type PackSource,
   type StatRowEntry,
   type TuningEntry,
   effectEntrySchema,
+  formulaEntrySchema,
   itemEntrySchema,
   parseJson,
   skillEntrySchema,
@@ -39,6 +41,11 @@ export function combatCatalogOf(source: PackSource): CombatCatalog {
 /** 팩 `stat_rows` 항목(팩 차례, 꺼진 행 포함). 서버의 설정 칸 접근자가 가중치 칸 덮어쓰기에 쓴다(밸런스 화면) */
 export function statRowsOf(source: PackSource): StatRowEntry[] {
   return entriesOf(source, "stat_rows.json", (raw) => statRowEntrySchema.parse(raw));
+}
+
+/** 팩 `formulas` 항목(전투 계산식, docs/adr/2026-11-01-formula-editor.md). 서버의 설정 칸 접근자가 식 덮어쓰기에 쓴다 */
+export function formulaEntriesOf(source: PackSource): FormulaEntry[] {
+  return entriesOf(source, "formulas.json", (raw) => formulaEntrySchema.parse(raw));
 }
 
 /** 팩 `tuning` 항목(팩 차례). 서버의 설정 칸 접근자(src/tuning/state.ts)가 받는다 */

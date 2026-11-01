@@ -45,6 +45,7 @@ import type { EconomyCatalogResponse } from "@terra/shared/economy";
 import type { TuningState } from "./tuning/state.ts";
 import { type TuningLimits, bootTuning, createTuningShared } from "./tuning/services.ts";
 import { type BalanceLimits, createBalanceServices } from "./balance/services.ts";
+import { createFormulaServices } from "./formulas/services.ts";
 import { inlineDuelRunner, workerDuelRunner } from "./balance/runner.ts";
 import { createArenaSource } from "./battleReplay/arena.ts";
 import { type ReplayJob, type ReplayJobResult, runReplayJob } from "./battleReplay/compute.ts";
@@ -288,6 +289,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         limits: options.balance?.limits,
       })
     : undefined;
+  // 계산식 탭(식 칸·무기·표본): 설정 칸 접근자 위에서 돈다
+  const formulas = tuningShared
+    ? createFormulaServices({ tuning: tuningShared, roster: options.roster ?? testRosterCatalog() })
+    : undefined;
   const tuningDb = options.db;
   if (tuningShared && tuningDb) {
     // 덮어쓰기를 싣는다(요청을 받기 전에). DB를 기다리는 다시 시도는 월드 부팅과 같다
@@ -313,7 +318,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
             : undefined,
         // 정원사 웨이브 전투(docs/adr/2026-11-01-gardener-r5b.md): 팩 전투 자료, 설정 칸 실효 값을 얹은 전투 계수(부를 때마다)
         combatCatalog: rosterCatalog?.combat,
-        combatRules: tuningState ? () => combatCoefficientsFrom(tuningState.values()) : undefined,
+        combatRules: tuningState
+          ? () => combatCoefficientsFrom(tuningState.values(), undefined, tuningState.combatFormulas())
+          : undefined,
       })
     : undefined;
   // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md): 세계가 준비된 뒤의 서비스(DB가 있는 월드만)
@@ -410,6 +417,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       tuning: tuningShared,
       balance,
       battleReplay,
+      formulas,
     }),
   });
 

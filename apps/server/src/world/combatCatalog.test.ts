@@ -9,7 +9,8 @@ import {
 } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
-import { combatCatalogOf, tuningOf } from "./combatCatalog.ts";
+import { COMBAT_FORMULA_IDS, DEFAULT_COMBAT_FORMULAS } from "@terra/shared/formula";
+import { combatCatalogOf, formulaEntriesOf, tuningOf } from "./combatCatalog.ts";
 
 describe("전투 자료: 팩 = TEST_COMBAT_CATALOG", () => {
   it("스탯 표·효과 사전·스킬·장비·유닛 종류가 같다", () => {
@@ -30,5 +31,15 @@ describe("전투 자료: 팩 = TEST_COMBAT_CATALOG", () => {
     expect(tuning.size).toBeGreaterThan(0);
     expect(combatCoefficientsFrom(tuning)).toEqual(TEST_COMBAT_COEFFICIENTS);
     expect(societyCoefficientsFrom(tuning)).toEqual(TEST_SOCIETY_COEFFICIENTS);
+  });
+
+  it("전투 계산식(formulas)이 판정 코드의 기본 식과 같다(docs/adr/2026-11-01-formula-editor.md)", () => {
+    const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
+    if (!loaded.source) throw new Error("content pack");
+    const entries = formulaEntriesOf(loaded.source);
+    expect(entries.map((entry) => entry.id)).toEqual([...COMBAT_FORMULA_IDS]);
+    expect(Object.fromEntries(entries.map((entry) => [entry.id, entry.expression]))).toEqual(
+      DEFAULT_COMBAT_FORMULAS,
+    );
   });
 });

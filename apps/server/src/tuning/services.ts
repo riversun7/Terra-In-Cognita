@@ -28,6 +28,7 @@ import { reasonedError } from "../trpc/init.ts";
 import { tuningScopeOf } from "./scope.ts";
 import type { TuningOverrideRecord, TuningState } from "./state.ts";
 import {
+  type FormulaWrite,
   type TuningWrite,
   applyTuningWrites,
   cleanupTuningAtBoot,
@@ -123,22 +124,33 @@ export async function bootTuning(
       await new Promise((resolve) => setTimeout(resolve, options.retryMs ?? BOOT_RETRY_MS));
     }
   }
-  const selection = state.selectAtBoot(loaded.rows);
+  const selection = state.selectAtBoot(loaded.rows, loaded.formulaRows);
   let revision = loaded.revision;
-  if (selection.packWon.length > 0 || selection.dropped.length > 0) {
+  const toClean =
+    selection.packWon.length +
+    selection.dropped.length +
+    selection.formulaPackWon.length +
+    selection.formulaDropped.length;
+  if (toClean > 0) {
     try {
       revision = await cleanupTuningAtBoot(db, selection, shared.pack.contentVersion);
     } catch (error) {
       log.warn({ err: error }, "tuning boot: could not clean up overrides (kept in the database)");
     }
   }
-  state.install(selection.keep, revision);
+  state.install(selection.keep, revision, selection.formulaKeep);
   log.info(
     {
       tuningRevision: revision,
-      applied: selection.keep.map((row) => row.id),
-      packWon: selection.packWon.map(({ row, packValue }) => ({ id: row.id, value: row.value, packValue })),
-      dropped: selection.dropped.map(({ row, reason }) => ({ id: row.id, value: row.value, reason })),
+      applied: [...selection.keep, ...selection.formulaKeep].map((row) => row.id),
+      packWon: [
+        ...selection.packWon.map(({ row, packValue }) => ({ id: row.id, value: row.value, packValue })),
+        ...selection.formulaPackWon.map(({ row }) => ({ id: row.id, formula: true })),
+      ],
+      dropped: [
+        ...selection.dropped.map(({ row, reason }) => ({ id: row.id, value: row.value, reason })),
+        ...selection.formulaDropped.map(({ row, reason }) => ({ id: row.id, formula: true, reason })),
+      ],
     },
     TUNING_BOOT_MESSAGE,
   );
@@ -201,6 +213,7 @@ export function tuningList(shared: TuningShared): TuningListResponse {
     revision: snapshot.revision,
     entries,
     statOverrides: [...snapshot.overrides.keys()].filter((id) => state.statCell(id) !== undefined).length,
+    formulaOverrides: snapshot.formulas.size,
   };
 }
 
@@ -222,6 +235,12 @@ export function tuningExport(shared: TuningShared): TuningExportResponse {
     if (!cell || record.value === cell.packValue) return [];
     return [{ row: cell.row.id, field: cell.field, from: cell.packValue, to: record.value }];
   });
+  // 계산식: 팩 식과 다른 덮어쓰기(칸 키 차례, docs/adr/2026-11-01-formula-editor.md)
+  const formulas = [...snapshot.formulas.values()].flatMap((record) => {
+    const slot = state.formulaSlot(record.id);
+    if (!slot || record.source === slot.packSource) return [];
+    return [{ id: record.id, from: slot.packSource, to: record.source }];
+  });
   const exportedAt = new Date(shared.now()).toISOString();
   const stamp = exportedAt.replaceAll(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
   return {
@@ -234,6 +253,7 @@ export function tuningExport(shared: TuningShared): TuningExportResponse {
       contentHash: pack.contentHash,
       changes,
       ...(statRows.length > 0 ? { statRows } : {}),
+      ...(formulas.length > 0 ? { formulas } : {}),
     },
     fileName: `tuning-${pack.contentVersion.replace("@", "-")}-${stamp}.json`,
   };
@@ -289,32 +309,53 @@ export function createTuningServices(deps: TuningServicesDeps): TuningServices {
       if (note === false) throw rejected("invalid_note");
       return shared.serial(async () => {
         if (state.revision() !== input.expectedRevision) throw conflict();
-        const plan = state.plan(input.changes);
-        if (!plan.ok) throw rejected(plan.reason, plan.problems);
+        const plan = state.plan(input.changes, input.formulas ?? []);
+        if (!plan.ok)
+          throw rejected(
+            plan.reason,
+            plan.reason === "invalid_formula"
+              ? (plan.formulaErrors ?? []).map((error) => `${error.code}@${error.s}`)
+              : plan.problems,
+          );
         // 구조 값(D-5054)이 들면 확인 창을 거쳐야 한다(되돌리기 포함)
         const structural = plan.changes.some((change) => state.slot(change.id)?.structural === true);
         if (structural && input.confirmStructural !== true) throw rejected("structural_unconfirmed");
-        if (plan.changes.length === 0) return tuningList(shared);
+        if (plan.changes.length === 0 && plan.formulas.length === 0) return tuningList(shared);
         // 설정 칸·가중치 칸(밸런스 화면) 모두 저장 때의 팩 값·단위를 함께 둔다(켤 때 "가장 나중에 바꾼 것" 판정)
         const writes: TuningWrite[] = plan.changes.flatMap((change) => {
           const target = state.slot(change.id);
           return target ? [{ ...change, packValue: target.packValue, unit: target.unit }] : [];
         });
+        // 계산식도 저장 때의 팩 식을 함께 둔다(켤 때 "가장 나중에 바꾼 것")
+        const formulaWrites: FormulaWrite[] = plan.formulas.flatMap((change) => {
+          const slot = state.formulaSlot(change.id);
+          return slot ? [{ ...change, packSource: slot.packSource }] : [];
+        });
         const outcome = await applyTuningWrites(db, {
           expectedRevision: input.expectedRevision,
           writes,
+          formulaWrites,
           contentVersion: shared.pack.contentVersion,
           note,
           actor: actorOf(viewer, deps.ip),
         });
         if (outcome.kind === "conflict") throw conflict();
-        state.install(outcome.records, outcome.revision);
+        state.install(outcome.records, outcome.revision, outcome.formulaRecords);
         log.info(
           {
             tuningRevision: outcome.revision,
             at: shared.now(),
             actor: viewer.loginId,
             changes: writes.map((write) => ({ id: write.id, before: write.before, after: write.after })),
+            ...(formulaWrites.length > 0
+              ? {
+                  formulas: formulaWrites.map((write) => ({
+                    id: write.id,
+                    before: write.before,
+                    after: write.after,
+                  })),
+                }
+              : {}),
             note,
           },
           TUNING_CHANGE_MESSAGE,
@@ -326,17 +367,25 @@ export function createTuningServices(deps: TuningServicesDeps): TuningServices {
     async revertAll(viewer, input) {
       return shared.serial(async () => {
         if (state.revision() !== input.expectedRevision) throw conflict();
-        const removed = [...state.snapshot().overrides.values()].map((record) => ({
-          id: record.id,
-          before: record.value,
-          after: null,
-        }));
+        const snapshot = state.snapshot();
+        const removed = [
+          ...[...snapshot.overrides.values()].map((record) => ({
+            id: record.id,
+            before: record.value,
+            after: null,
+          })),
+          ...[...snapshot.formulas.values()].map((record) => ({
+            id: record.id,
+            before: record.source,
+            after: null,
+          })),
+        ];
         const outcome = await revertAllTuning(db, {
           expectedRevision: input.expectedRevision,
           actor: actorOf(viewer, deps.ip),
         });
         if (outcome.kind === "conflict") throw conflict();
-        state.install([], outcome.revision);
+        state.install([], outcome.revision, []);
         log.info(
           {
             tuningRevision: outcome.revision,

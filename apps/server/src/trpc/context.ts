@@ -24,6 +24,7 @@ import type { CyborgGetResponse, UnitsListResponse } from "@terra/shared/roster"
 import type { FactionOverviewResponse } from "@terra/shared/faction";
 import type { MailListResponse } from "@terra/shared/mail";
 import type { TuningExportResponse, TuningHistoryResponse, TuningListResponse } from "@terra/shared/tuning";
+import type { FormulaListResponse } from "@terra/shared/formula";
 import type {
   BalanceContributionInput,
   BalanceContributionResponse,
@@ -169,6 +170,8 @@ export interface TuningApplyInput {
   readonly expectedRevision: number;
   /** 칸마다 새 값(null·팩 값 = 되돌리기). 한 묶음으로 검사·저장·반영한다 */
   readonly changes: readonly { readonly id: string; readonly value: number | null }[];
+  /** 계산식마다 새 식(null·팩 식 = 되돌리기, docs/adr/2026-11-01-formula-editor.md). 칸과 같은 묶음으로 검사·저장한다 */
+  readonly formulas?: readonly { readonly id: string; readonly source: string | null }[] | undefined;
   readonly note?: string | null | undefined;
   /** 구조 값(D-5054)이 들면 확인 창을 거쳤다 */
   readonly confirmStructural?: boolean | undefined;
@@ -195,6 +198,11 @@ export interface TuningServices {
  * 밸런스 화면(docs/adr/2026-11-01-balance-screen.md 3절, src/balance/services.ts). 권한·조회 속도 제한은 D1(tuning:read)이 먼저 본다.
  * 오류는 data.reason(@terra/shared BALANCE_REASONS)
  */
+/** 계산식 탭(docs/adr/2026-11-01-formula-editor.md, src/formulas/services.ts). 권한·조회 속도 제한은 D1(tuning:read)이 먼저 본다 */
+export interface FormulaServices {
+  list(): Promise<FormulaListResponse>;
+}
+
 export interface BalanceServices {
   table(): Promise<BalanceTableResponse>;
   contribution(input: BalanceContributionInput): Promise<BalanceContributionResponse>;
@@ -327,6 +335,8 @@ export interface TrpcContext {
   balance?: BalanceServices | undefined;
   /** 전투 다시보기. 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */
   battleReplay?: BattleReplayServices | undefined;
+  /** 계산식 탭. 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */
+  formulas?: FormulaServices | undefined;
 }
 
 export interface TrpcContextOptions {

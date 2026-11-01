@@ -33,6 +33,7 @@ import type { QueryPool } from "../world/persist/load.ts";
 import type {
   BalanceServices,
   BattleReplayServices,
+  FormulaServices,
   EconomyServices,
   SecondMapLabServices,
   TrpcContext,
@@ -72,6 +73,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   balance?: BalanceServices | undefined;
   /** 전투 다시보기(src/battleReplay/services.ts, 앱에 하나). 설정 칸 패널이 있을 때만 맥락에 넣는다(권한은 tuning이 본다) */
   battleReplay?: BattleReplayServices | undefined;
+  /** 계산식 탭(src/formulas/services.ts, 앱에 하나). 설정 칸 패널이 있을 때만 맥락에 넣는다 */
+  formulas?: FormulaServices | undefined;
   /** 사이보그 만들기 조회(세계가 준비되면 서비스, docs/adr/2026-11-01-first-login-cyborg.md 4절). 없으면 늘 준비 전 */
   cyborgs?: (() => CyborgReadServices | undefined) | undefined;
 }
@@ -161,6 +164,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
           : undefined,
       balance: authDeps && request && tuning ? options.balance : undefined,
       battleReplay: authDeps && request && tuning ? options.battleReplay : undefined,
+      formulas: authDeps && request && tuning ? options.formulas : undefined,
     };
   };
 }

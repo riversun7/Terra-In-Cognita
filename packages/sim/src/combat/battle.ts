@@ -11,11 +11,11 @@ import { mix32 } from "../math/hash.ts";
 import { type BattleMap, createBattleMap } from "./battleMap.ts";
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS, msToTicks, regenOnTick } from "./coefficients.ts";
 import { NEIGHBORS, UNREACHABLE, distanceField, stepAllowed } from "./fields.ts";
-import { hasStatus, modifiersOf, tickEffects } from "./effects.ts";
+import { hasStatus, modifiersOf, moveIntervalMs, tickEffects } from "./effects.ts";
 import { buildingDamage, resolveAttack, withAttackModifiers, withDefenseModifiers } from "./formula.ts";
 import { lineClear } from "./los.ts";
 import { visibleEnemies } from "./sight.ts";
-import { pickSkill, resolveSkill, startSkill, takeDamage } from "./skills.ts";
+import { pickSkill, resolveSkill, singleAlly, startSkill, takeDamage } from "./skills.ts";
 import { active, electCommander, initialState, ready, spend, unitFrom } from "./battleState.ts";
 import type {
   BattleInit,
@@ -229,7 +229,8 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     }
     unit.x = bestCell % size;
     unit.y = (bestCell - unit.x) / size;
-    unit.nextMoveMs = state.tick * c.tickMs + unit.moveIntervalMs;
+    // 느리게·빠르게(효과 move_speed)는 다음 걸음까지의 간격에 든다
+    unit.nextMoveMs = state.tick * c.tickMs + moveIntervalMs(unit, unit.moveIntervalMs);
   };
 
   const inRangeOfBuilding = (unit: UnitState, buildingId: number): boolean =>
@@ -291,8 +292,8 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     return best;
   };
 
-  /** 스킬 사거리·시선(사거리 1 넘으면 직선이 열려야 한다, [임시] 곡사 스킬 없음) */
-  const reach = (unit: UnitState, goal: UnitState, gone: ReadonlySet<number>) => (range: number) =>
+  /** 스킬 사거리·시선(사거리 1 넘으면 직선이 열려야 한다, [임시] 곡사 스킬 없음). 적·아군 대상 모두 */
+  const reach = (unit: UnitState, gone: ReadonlySet<number>) => (goal: UnitState, range: number) =>
     chebyshev(unit.x, unit.y, goal.x, goal.y) <= range && (range <= 1 || lineClear(map, unit, goal, gone));
 
   const fire = (
@@ -318,13 +319,14 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     nowMs: number,
   ): boolean => {
     if (unit.skills.length === 0) return false;
-    const index = pickSkill(unit, goal, nowMs, reach(unit, goal, gone), c);
-    if (index < 0) return false;
-    if (startSkill(unit, index, goal.id, nowMs, c)) fire(unit, index, goal, rng, nowMs);
+    const pick = pickSkill(unit, goal, nowMs, reach(unit, gone), c, state.units);
+    if (!pick) return false;
+    if (startSkill(unit, pick.index, pick.target.id, nowMs, c))
+      fire(unit, pick.index, pick.target, rng, nowMs);
     return true;
   };
 
-  /** 시전이 끝났다: 목표가 아직 보이고 닿으면 푼다(아니면 빗나감, 자원·쿨은 이미 썼다) */
+  /** 시전이 끝났다: 목표가 아직 보이고 닿으면 푼다(아군 하나는 닿으면. 아니면 빗나감, 자원·쿨은 이미 썼다) */
   const finishCast = (
     unit: UnitState,
     rng: { nextInt(n: number): number },
@@ -338,8 +340,8 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     if (!cast || !skill || !goal || !active(goal)) return;
     if (skill.target === "enemy") {
       const visible = state.sides.find((side) => side.id === unit.side)?.visible ?? [];
-      if (!visible.includes(goal.id) || !reach(unit, goal, gone)(skill.range)) return;
-    }
+      if (!visible.includes(goal.id) || !reach(unit, gone)(goal, skill.range)) return;
+    } else if (singleAlly(skill) && !reach(unit, gone)(goal, skill.range)) return;
     fire(unit, cast.skill, goal, rng, nowMs);
   };
 

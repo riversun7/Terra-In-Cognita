@@ -1,6 +1,7 @@
 // 전투 자료 묶음 — 스탯 표·효과 사전·스킬·장비·유닛 종류(칸 배치). docs/adr/2026-10-31-combat-core.md 7절
 // 원본은 콘텐츠 팩(`stat_rows`·`effects`·`skills`·`items`의 equip 칸·`unit_kinds`)이고, 실행 도구가 팩에서 이 모양을 만든다.
-// TEST_COMBAT_CATALOG는 시험·기본값이고 팩의 임시 자료와 같은 값이다. [임시] 모든 수치(기획 Step 5·본문 48 전).
+// TEST_COMBAT_CATALOG는 시험·기본값이고 팩의 임시 자료와 같은 값이다(마법 스킬·속성 지팡이는 catalogMagic.ts). [임시] 모든 수치(기획 Step 5·본문 48 전).
+import { MAGIC_EFFECTS, MAGIC_SKILLS, MAGIC_STAFFS } from "./catalogMagic.ts";
 import type { EffectDef } from "./effects.ts";
 import type { EquipDef, SlotKind } from "./equipment.ts";
 import { type CombatSkill, type SkillData, skillFromData } from "./skills.ts";
@@ -136,10 +137,12 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       stacking: "refresh",
       maxStacks: 1,
     },
+    ...MAGIC_EFFECTS,
   ],
   skills: [
     {
       id: "power_strike",
+      shape: "single",
       trigger: "active",
       resource: "stamina",
       cost: 10,
@@ -160,6 +163,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
     },
     {
       id: "fire_bolt",
+      shape: "projectile",
       trigger: "active",
       resource: "mp",
       cost: 15,
@@ -180,6 +184,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
     },
     {
       id: "shock_bash",
+      shape: "single",
       trigger: "active",
       resource: "stamina",
       cost: 15,
@@ -197,6 +202,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
     },
     {
       id: "war_cry",
+      shape: "buff",
       trigger: "active",
       resource: "stamina",
       cost: 10,
@@ -214,6 +220,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
     },
     {
       id: "first_aid",
+      shape: "heal",
       trigger: "active",
       resource: "stamina",
       cost: 5,
@@ -231,6 +238,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
     },
     {
       id: "iron_skin",
+      shape: "buff",
       trigger: "passive",
       resource: "stamina",
       cost: 0,
@@ -246,6 +254,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       effects: [{ effect: "guard", value: 50, chancePm: 1000 }],
       gradePm: GRADES,
     },
+    ...MAGIC_SKILLS,
   ],
   // 시험 무기의 명중·크리 적정은 점수 단위(D-458): 시뮬레이터 유닛(1차 40 + 기술 × 8)이 옛 확률 모양 때와 비슷한 비율이 되게
   equipment: [
@@ -300,6 +309,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
     { id: "test_helmet", slot: "head", stats: [{ stat: "armor_hp", min: 10, max: 20 }], skills: [] },
     { id: "test_ring", slot: "accessory", stats: [{ stat: "str", min: 1, max: 3 }], skills: [] },
     { id: "test_heart", slot: "organ", stats: [{ stat: "vit", min: 2, max: 4 }], skills: [] },
+    ...MAGIC_STAFFS,
   ],
   unitKinds: [
     {

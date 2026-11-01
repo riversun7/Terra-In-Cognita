@@ -92,6 +92,21 @@
       "stacking": "refresh",
       "maxStacks": 1,
       "enabled": true
+    },
+    {
+      "id": "chill",
+      "name": {
+        "ko": "냉기",
+        "en": "Chill"
+      },
+      "durationMs": 3000,
+      "kind": "debuff",
+      "stat": "move_speed",
+      "valueMode": "permille",
+      "tickMs": 0,
+      "stacking": "refresh",
+      "maxStacks": 1,
+      "enabled": true
     }
   ]
 }

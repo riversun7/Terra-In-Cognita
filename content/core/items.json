@@ -235,6 +235,237 @@
         ]
       },
       "enabled": true
+    },
+    {
+      "id": "fire_staff",
+      "name": {
+        "ko": "불꽃 지팡이",
+        "en": "Fire staff"
+      },
+      "category": "equipment",
+      "tier": 1,
+      "baseValue": 120,
+      "equip": {
+        "slot": "weapon",
+        "stats": [
+          {
+            "stat": "mp",
+            "min": 10,
+            "max": 30
+          }
+        ],
+        "weapon": {
+          "elemental": { "attack": 20, "attackAppropriate": 45 },
+          "hitPm": 900,
+          "hitAppropriate": 50,
+          "critPm": 60,
+          "critAppropriate": 100,
+          "intervalMs": 1200,
+          "speedAppropriate": 100,
+          "range": 6,
+          "arc": false,
+          "staminaCost": 10,
+          "mpCost": 5,
+          "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        "skills": ["flame_burst"]
+      },
+      "enabled": true
+    },
+    {
+      "id": "water_staff",
+      "name": {
+        "ko": "물결 지팡이",
+        "en": "Water staff"
+      },
+      "category": "equipment",
+      "tier": 1,
+      "baseValue": 120,
+      "equip": {
+        "slot": "weapon",
+        "stats": [
+          {
+            "stat": "mp",
+            "min": 10,
+            "max": 30
+          },
+          {
+            "stat": "mp_regen",
+            "min": 5,
+            "max": 15
+          }
+        ],
+        "weapon": {
+          "elemental": { "attack": 18, "attackAppropriate": 40 },
+          "hitPm": 900,
+          "hitAppropriate": 50,
+          "critPm": 50,
+          "critAppropriate": 100,
+          "intervalMs": 1200,
+          "speedAppropriate": 100,
+          "range": 6,
+          "arc": false,
+          "staminaCost": 10,
+          "mpCost": 5,
+          "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        "skills": ["frost_bolt"]
+      },
+      "enabled": true
+    },
+    {
+      "id": "wind_staff",
+      "name": {
+        "ko": "바람 지팡이",
+        "en": "Wind staff"
+      },
+      "category": "equipment",
+      "tier": 1,
+      "baseValue": 120,
+      "equip": {
+        "slot": "weapon",
+        "stats": [
+          {
+            "stat": "mp",
+            "min": 10,
+            "max": 30
+          }
+        ],
+        "weapon": {
+          "elemental": { "attack": 16, "attackAppropriate": 40 },
+          "hitPm": 950,
+          "hitAppropriate": 50,
+          "critPm": 80,
+          "critAppropriate": 100,
+          "intervalMs": 1000,
+          "speedAppropriate": 100,
+          "range": 7,
+          "arc": false,
+          "staminaCost": 10,
+          "mpCost": 5,
+          "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0]
+        },
+        "skills": ["chain_lightning"]
+      },
+      "enabled": true
+    },
+    {
+      "id": "earth_staff",
+      "name": {
+        "ko": "대지 지팡이",
+        "en": "Earth staff"
+      },
+      "category": "equipment",
+      "tier": 1,
+      "baseValue": 120,
+      "equip": {
+        "slot": "weapon",
+        "stats": [
+          {
+            "stat": "mp",
+            "min": 10,
+            "max": 30
+          },
+          {
+            "stat": "armor_hp",
+            "min": 10,
+            "max": 20
+          }
+        ],
+        "weapon": {
+          "elemental": { "attack": 24, "attackAppropriate": 50 },
+          "hitPm": 850,
+          "hitAppropriate": 50,
+          "critPm": 40,
+          "critAppropriate": 100,
+          "intervalMs": 1400,
+          "speedAppropriate": 100,
+          "range": 5,
+          "arc": false,
+          "staminaCost": 10,
+          "mpCost": 5,
+          "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0]
+        },
+        "skills": ["stone_spike"]
+      },
+      "enabled": true
+    },
+    {
+      "id": "light_staff",
+      "name": {
+        "ko": "빛 지팡이",
+        "en": "Light staff"
+      },
+      "category": "equipment",
+      "tier": 1,
+      "baseValue": 120,
+      "equip": {
+        "slot": "weapon",
+        "stats": [
+          {
+            "stat": "mp",
+            "min": 10,
+            "max": 30
+          },
+          {
+            "stat": "shield_regen",
+            "min": 5,
+            "max": 15
+          }
+        ],
+        "weapon": {
+          "elemental": { "attack": 15, "attackAppropriate": 40 },
+          "hitPm": 900,
+          "hitAppropriate": 50,
+          "critPm": 50,
+          "critAppropriate": 100,
+          "intervalMs": 1300,
+          "speedAppropriate": 100,
+          "range": 6,
+          "arc": false,
+          "staminaCost": 10,
+          "mpCost": 5,
+          "skillElementsPm": [0, 0, 0, 0, 0, 0, 0, 0, 50, 0, 0, 0]
+        },
+        "skills": ["light_heal", "radiant_ward"]
+      },
+      "enabled": true
+    },
+    {
+      "id": "dark_staff",
+      "name": {
+        "ko": "어둠 지팡이",
+        "en": "Dark staff"
+      },
+      "category": "equipment",
+      "tier": 1,
+      "baseValue": 120,
+      "equip": {
+        "slot": "weapon",
+        "stats": [
+          {
+            "stat": "mp",
+            "min": 10,
+            "max": 30
+          }
+        ],
+        "weapon": {
+          "elemental": { "attack": 20, "attackAppropriate": 45 },
+          "hitPm": 900,
+          "hitAppropriate": 50,
+          "critPm": 70,
+          "critAppropriate": 100,
+          "intervalMs": 1200,
+          "speedAppropriate": 100,
+          "range": 6,
+          "arc": false,
+          "staminaCost": 10,
+          "mpCost": 5,
+          "skillElementsPm": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 0]
+        },
+        "skills": ["dark_curse"]
+      },
+      "enabled": true
     }
   ]
 }

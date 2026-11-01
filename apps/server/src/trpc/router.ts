@@ -13,6 +13,7 @@ import { cyborgRouter, unitsRouter } from "./roster.ts";
 import { settingsRouter } from "./settings.ts";
 import { summaryRouter } from "./summary.ts";
 import { systemRouter } from "./system.ts";
+import { tuningRouter } from "./tuning.ts";
 
 export const appRouter = router({
   system: systemRouter,
@@ -20,6 +21,8 @@ export const appRouter = router({
   admin: adminRouter,
   settings: settingsRouter,
   planetEditor: planetEditorRouter,
+  // 개발자 설정 칸 패널(docs/adr/2026-11-01-dev-settings-panel.md 8절)
+  tuning: tuningRouter,
   // 홈 자료(앱 뼈대 W3, ADR 2026-10-29-app-shell 6·7·8절)
   inbox: inboxRouter,
   summary: summaryRouter,

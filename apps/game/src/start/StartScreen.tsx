@@ -157,7 +157,14 @@ export default function StartScreen({ user }: { user: AccountView }) {
     }
     if (!result.ok) {
       problem.show([commandErrorText(result.code)]);
-      if (result.code === "already_created") fetchData();
+      // 굴림 상한·성향은 설정 칸이라 개발자 패널이 바로 바꿀 수 있다: 거절되면 규칙을 다시 받는다
+      // (docs/adr/2026-11-01-dev-settings-panel.md 7절)
+      if (
+        result.code === "already_created" ||
+        result.code === "rolls_exhausted" ||
+        result.code === "unknown_temperament"
+      )
+        fetchData();
     }
   };
 
@@ -190,8 +197,16 @@ export default function StartScreen({ user }: { user: AccountView }) {
     else if (code === "elements_invalid") goTo("elements");
     else if (code === "unknown_faction") goTo("faction");
     else if (code === "unknown_city" || code === "no_room") goTo("city");
-    // 서버가 받았는지 모르는 실패(끊김·시간 초과)·이미 만듦은 자료를 다시 물어 확인한다
-    if (code === "offline" || code === "timeout" || code === "already_created") fetchData();
+    // 서버가 받았는지 모르는 실패(끊김·시간 초과)·이미 만듦은 자료를 다시 물어 확인한다. 굴림·분배 거절은 그 사이 설정 칸
+    // (N9 굴림 상한·N36 속성 칸·점수)이 바뀌었을 수 있어 규칙을 다시 받는다(docs/adr/2026-11-01-dev-settings-panel.md 7절)
+    if (
+      code === "offline" ||
+      code === "timeout" ||
+      code === "already_created" ||
+      code === "rolls_exhausted" ||
+      code === "elements_invalid"
+    )
+      fetchData();
   };
 
   const onSignOut = async (): Promise<void> => {

@@ -71,7 +71,7 @@ describe("역할 표", () => {
 });
 
 // 개발 도구 권한: 홈 시험(ADR 2026-10-29-app-shell 6절)과 행성 편집기(ADR 2026-10-29-planet-editor-stage1). dev·admin만
-describe("개발 도구 권한(home·planetEditor)", () => {
+describe("개발 도구 권한(home·planetEditor·tuning)", () => {
   const DEV_TOOL_ACTIONS: PermissionRequest[] = [
     { home: ["preview"] },
     { home: ["template"] },
@@ -79,13 +79,16 @@ describe("개발 도구 권한(home·planetEditor)", () => {
     { planetEditor: ["read"] },
     { planetEditor: ["write"] },
     { planetEditor: ["read", "write"] },
+    { tuning: ["read"] },
+    { tuning: ["write"] },
   ];
   // 역할마다 기대값. 표에 역할이 늘면 이 표도 늘려야 한다(아래 시험이 확인)
   const EXPECTED: Record<Role, boolean> = { player: false, gm: false, dev: true, admin: true };
 
-  it("문장은 home: preview·template, planetEditor: read·write다", () => {
+  it("문장은 home: preview·template, planetEditor: read·write, tuning: read·write다", () => {
     expect(statements.home).toEqual(["preview", "template"]);
     expect(statements.planetEditor).toEqual(["read", "write"]);
+    expect(statements.tuning).toEqual(["read", "write"]);
   });
 
   it("역할마다: player·gm은 못 하고 dev·admin은 한다", () => {

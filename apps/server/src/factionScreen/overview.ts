@@ -138,15 +138,20 @@ export function buildFactionOverview(
 
 /**
  * source: 실제 자료 출처(DB·월드가 있을 때 app.ts가 만든다). 없으면 실제 자료는 빈 값이다.
- * rules: 팩 설정값(main.ts가 팩 tuning으로 만든다). 없으면 sim 시험 계수표(팩 출발값과 같다)
+ * rules: 설정 칸 실효 값(팩 + 덮어쓰기, app.ts가 src/tuning/state.ts 접근자로 만든다). 요청마다 부른다(덮어쓰기를 바꾸면 다음
+ * 요청부터 듣는다, docs/adr/2026-11-01-dev-settings-panel.md 7절). 없으면 sim 시험 계수표(팩 출발값과 같다)
  */
 export function createFactionScreenServices(
-  options: { source?: FactionSource | undefined; rules?: FactionScreenRules | undefined } = {},
+  options: { source?: FactionSource | undefined; rules?: (() => FactionScreenRules) | undefined } = {},
 ): FactionScreenServices {
   const source = options.source;
-  const rules = options.rules ?? TEST_FACTION_RULES;
+  const rules = options.rules ?? (() => TEST_FACTION_RULES);
   return {
     overview: async (viewer, query) =>
-      buildFactionOverview(source ? await source.load(viewer.id, query.now) : NO_FACTION_REAL, query, rules),
+      buildFactionOverview(
+        source ? await source.load(viewer.id, query.now) : NO_FACTION_REAL,
+        query,
+        rules(),
+      ),
   };
 }

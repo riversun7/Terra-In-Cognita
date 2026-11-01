@@ -255,7 +255,7 @@ describe("디자인 시스템 규칙(테마 시작 스크립트·글꼴)", () =>
     expect(precacheUrls(SW)).toEqual(["theme-init.js", "index.html", "assets/index-Cvbx1a8l.css"]);
   });
 
-  it("개발자 도구 조각(셰이더 측정·행성 편집기·항성계 편집기·2차맵 시험의 JS·CSS)을 미리 캐시하면 실패(도구를 열 때만 받는다)", () => {
+  it("개발자 도구 조각(셰이더 측정·행성 편집기·항성계 편집기·2차맵 시험·설정 칸 패널의 JS·CSS)을 미리 캐시하면 실패(도구를 열 때만 받는다)", () => {
     const devChunks = [
       "assets/gpuBenchTsl-Acw_2DfU.js",
       "assets/gpuBenchScreen-B1c2D3e4.js",
@@ -268,6 +268,8 @@ describe("디자인 시스템 규칙(테마 시작 스크립트·글꼴)", () =>
       "assets/starSystemShared-K5l6M7n8.js",
       "assets/SecondMapLabScreen-P1q2R3s4.js",
       "assets/SecondMapLabScreen-P1q2R3s4.css",
+      "assets/TuningPanelScreen-T1u2V3w4.js",
+      "assets/TuningPanelScreen-T1u2V3w4.css",
     ];
     for (const url of devChunks) {
       expect(findPwaProblems(build({ sw: swPrecaching(url) })), url).toEqual([
@@ -369,6 +371,8 @@ describe("미리 캐시하는 조각의 소스(DEV_ONLY_SOURCE)", () => {
     expect(DEV_ONLY_SOURCE.test("../../src/space/StarSystemView.tsx")).toBe(false);
     expect(DEV_ONLY_SOURCE.test("../../src/editor/secondMapLab/SecondMapLabScreen.tsx")).toBe(true);
     expect(DEV_ONLY_SOURCE.test("../../src/map/SecondaryMapScreen.tsx")).toBe(false);
+    expect(DEV_ONLY_SOURCE.test("../../src/editor/tuning/settingsCells.json")).toBe(true);
+    expect(DEV_ONLY_SOURCE.test("../../src/settings/SettingsPage.tsx")).toBe(false);
   });
 });
 
@@ -383,6 +387,7 @@ describe("개발자 도구 조각 이름(DEV_ONLY_CHUNK가 기대는 규칙)", (
         "apps/game/src/editor/gpuBench/gpuBenchTsl.ts",
         "apps/game/src/editor/planet/planetEditorWorker.ts",
         "apps/game/src/editor/starSystem/StarSystemScreen.tsx",
+        "apps/game/src/editor/tuning/TuningPanelScreen.tsx",
       ]),
     );
   });

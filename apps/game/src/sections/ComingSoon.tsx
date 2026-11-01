@@ -29,6 +29,7 @@ type ComingSoonRoute = Exclude<
   | "dev_planet_editor"
   | "dev_star_system"
   | "dev_second_map"
+  | "dev_tuning"
   | "economy"
   | "economy_warehouse"
   | "economy_production"

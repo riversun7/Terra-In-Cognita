@@ -180,7 +180,7 @@ export function createBattleLabShared(deps: {
       revision: snapshot.revision,
       rules: {
         catalog: roster.combat,
-        coefficients: combatCoefficientsFrom(snapshot.values),
+        coefficients: combatCoefficientsFrom(snapshot.values, undefined, state.combatFormulas()),
         growthPm: society.cyborg.growthPm,
         maxLevel: society.cyborg.maxLevel,
       },

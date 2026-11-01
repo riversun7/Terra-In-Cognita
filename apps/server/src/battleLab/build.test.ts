@@ -1,9 +1,12 @@
 import { type LabUnit, newLabUnit } from "@terra/shared/battleLab";
 import {
+  DEFAULT_COMBAT_FORMULA_SET,
   TEST_COMBAT_CATALOG,
   TEST_COMBAT_COEFFICIENTS,
+  combatFormulaSetFrom,
   computeSecondary,
   primaryAtLevel,
+  realAttackOf,
   specFromStats,
 } from "@terra/sim";
 import { describe, expect, it } from "vitest";
@@ -210,5 +213,26 @@ describe("실험 유닛 → 전투 사양(서버만 계산)", () => {
     expect(staff.attacks.elemental).toMatchObject({ source: "weapon", weaponAttack: 18, appropriate: 40 });
     expect(staff.attacks.physical.source).toBe("natural");
     expect(staff.appropriate.speed.appropriate).toBe(100);
+  });
+
+  it("유닛 레벨이 맨손 식(D-488)으로 가고, 화면 요약은 판정과 같은 실효 계산식이다(계수표의 식 덮어쓰기 포함)", () => {
+    const unit: LabUnit = { ...newLabUnit("human"), level: 30, initial: flat(10) };
+    const built = buildLabUnit(unit, rules);
+    expect(built.spec.attack).toMatchObject({ unarmed: true, level: 30 });
+    const preview = previewLabUnit(unit, rules);
+    // 맨손은 굴림 가운데 값(레벨 1로 셈하면 더 크다: 적정 DEX가 낮다)
+    const cap = rules.coefficients.appropriateCapPm;
+    expect(preview.combat.realAttack).toBe(realAttackOf(built.spec.attack, 5000, cap, rules.coefficients));
+    expect(preview.combat.realAttack).toBeLessThan(
+      realAttackOf({ ...built.spec.attack, level: 1 }, 5000, cap, rules.coefficients),
+    );
+    // 명중 식을 덮어쓰면(세계의 계산식) 화면 요약도 그 식
+    const formulas = combatFormulaSetFrom({ real_hit: "777" });
+    expect(formulas.real_hit).not.toBe(DEFAULT_COMBAT_FORMULA_SET.real_hit);
+    const overridden = previewLabUnit(unit, {
+      ...rules,
+      coefficients: { ...rules.coefficients, formulas },
+    });
+    expect(overridden.combat.hitPm).toBe(777);
   });
 });

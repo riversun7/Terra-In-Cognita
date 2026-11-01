@@ -1,6 +1,7 @@
 // 실험 유닛 → 전투 사양·미리 보기(순수 함수) — docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-01, 전투 실험실)" 2절
 // 서버·시뮬레이터와 같은 @terra/sim 함수만 쓴다: 성장 primaryAtLevel(D-417, 성장률 = 설정 칸 N5 실효 값), 장비 loadoutOf(칸·묶음 검사
-// D-422·D-423), 2차 스탯 computeSecondary·explainSecondary(가중치 표 = 실효 표), 사양 specFromStats(D-465 무기 칸), 스킬 skillFromData.
+// D-422·D-423), 2차 스탯 computeSecondary·explainSecondary(가중치 표 = 실효 표, 행 식의 LV = 유닛 레벨), 사양 specFromStats(D-465 무기 칸,
+// 맨손 식의 레벨 D-488), 스킬 skillFromData. 화면 요약의 실제 공격력·명중·크리는 판정과 같은 계산식(계수표의 실효 식, frameValue·realAttackOf)이다.
 // 공식 수는 여기에 적지 않는다(규칙 rules가 실효 표·계수를 준다). 팩에 없는 참조·맞지 않는 칸은 빼고 dropped로 알린다.
 // 직접 값 장비는 가상 칸 둘(장신구 = 1차 보너스, 몸 = 2차 행 더하기)로 loadoutOf에 넣는다: 같은 묶음 검사·같은 더하기다.
 import type {
@@ -27,14 +28,15 @@ import {
   type WeaponSpec,
   computeSecondary,
   explainSecondary,
+  frameValue,
   itemAt,
   loadoutOf,
   primaryAtLevel,
+  realAttackOf,
   skillFromData,
   skillSlotCount,
   specFromStats,
   staminaCostMilli,
-  weaponScaled,
 } from "@terra/sim";
 
 /** 계산 규칙(요청 때 실효 값 한 벌): 전투 자료(실효 가중치 표)·전투 계수·성장률 N5·만렙 N7 */
@@ -58,6 +60,8 @@ const CUSTOM_PRIMARY = "lab_custom_primaries";
 const CUSTOM_ROWS = "lab_custom_rows";
 /** 레벨 표 줄 수 상한 */
 const LEVEL_TABLE_MAX = 200;
+/** 화면 요약의 맨손 일반 공격(굴림 범위, D-488)은 굴림 가운데 값을 보인다 */
+const MID_ROLL = 5000;
 
 export interface BuiltLabUnit {
   /** 자리·편·ID는 전투장이 다시 정한다(0) */
@@ -217,7 +221,7 @@ function kitOf(unit: LabUnit, rules: LabRules): Kit {
   return { kind, slots, equipped, weapon, innate, skillSlots, dropped };
 }
 
-function loadoutAt(kit: Kit, base: Primaries, rules: LabRules): Loadout {
+function loadoutAt(kit: Kit, base: Primaries, rules: LabRules, level: number): Loadout {
   return loadoutOf({
     base,
     slots: kit.slots,
@@ -226,6 +230,8 @@ function loadoutAt(kit: Kit, base: Primaries, rules: LabRules): Loadout {
     unarmed: kit.kind.naturalWeapon,
     innateSkills: kit.innate.map((skill) => skill.id),
     skillSlots: kit.skillSlots,
+    // 행 식의 LV(docs/adr/2026-11-01-formula-editor.md)
+    level,
   });
 }
 
@@ -245,7 +251,7 @@ export function buildLabUnit(unit: LabUnit, rules: LabRules): BuiltLabUnit {
   const kit = kitOf(unit, rules);
   const initial = toPrimaries(unit.initial);
   const grown = grownAt(unit, unit.level, rules.growthPm);
-  const loadout = loadoutAt(kit, grown, rules);
+  const loadout = loadoutAt(kit, grown, rules, unit.level);
   const weapon = kit.weapon ?? loadout.weapon;
   const spec = specFromStats(
     {
@@ -261,6 +267,8 @@ export function buildLabUnit(unit: LabUnit, rules: LabRules): BuiltLabUnit {
       // [임시] 한 칸 1초(C28 전투 속도, 대결·시뮬레이터와 같다)
       moveIntervalMs: 1000,
       primaries: loadout.primaries,
+      // 맨손 식의 적정 DEX(D-488)
+      level: unit.level,
       elements: unit.elements,
       resistPm: unit.gear.resistPm,
       defenseFlat: unit.gear.defenseFlat,
@@ -293,12 +301,7 @@ function attackView(
     weaponAttack: profile.weaponAttack,
     attackStat: profile.attackStat,
     appropriate: profile.attackAppropriate,
-    realAttack: weaponScaled(
-      profile.weaponAttack,
-      profile.attackStat,
-      profile.attackAppropriate,
-      c.appropriateCapPm,
-    ),
+    realAttack: realAttackOf(profile, MID_ROLL, c.appropriateCapPm, c),
   };
 }
 
@@ -335,9 +338,9 @@ function combatView(built: BuiltLabUnit, c: CombatCoefficients): LabCombatView {
     shieldHp: spec.shieldHp,
     basic: a.kind,
     weaponAttack: a.weaponAttack,
-    realAttack: weaponScaled(a.weaponAttack, a.attackStat, a.attackAppropriate, c.appropriateCapPm),
-    hitPm: weaponScaled(a.weaponHitPm, a.hitStat, a.hitAppropriate, c.appropriateCapPm),
-    critPm: weaponScaled(a.weaponCritPm, a.critStat, a.critAppropriate, c.appropriateCapPm),
+    realAttack: realAttackOf(a, MID_ROLL, c.appropriateCapPm, c),
+    hitPm: frameValue("real_hit", a.weaponHitPm, a.hitStat, a.hitAppropriate, c.appropriateCapPm, c),
+    critPm: frameValue("real_crit", a.weaponCritPm, a.critStat, a.critAppropriate, c.appropriateCapPm, c),
     critMulPm: a.critMulPm,
     attackIntervalMs: spec.attackIntervalMs,
     range: spec.range,
@@ -369,7 +372,7 @@ export function previewLabUnit(unit: LabUnit, rules: LabRules): Omit<LabPreviewR
     bonus: loadout.primaries[stat] - built.grown[stat],
     total: loadout.primaries[stat],
   });
-  const secondary = explainSecondary(loadout.primaries, table, loadout.gear).map(
+  const secondary = explainSecondary(loadout.primaries, table, loadout.gear, {}, unit.level).map(
     (row): LabSecondaryView => ({
       id: row.id,
       shape: row.shape,
@@ -391,9 +394,9 @@ export function previewLabUnit(unit: LabUnit, rules: LabRules): Omit<LabPreviewR
   const last = Math.min(LEVEL_TABLE_MAX, Math.max(rules.maxLevel, unit.level));
   const levels = Array.from({ length: last }, (_, index) => {
     const level = index + 1;
-    const at = loadoutAt(kit, grownAt(unit, level, rules.growthPm), rules);
+    const at = loadoutAt(kit, grownAt(unit, level, rules.growthPm), rules, level);
     const p = at.primaries;
-    const values = computeSecondary(p, table, at.gear);
+    const values = computeSecondary(p, table, at.gear, {}, level);
     return {
       level,
       primaries: { str: p.str, vit: p.vit, int: p.int, wis: p.wis, dex: p.dex, agi: p.agi },

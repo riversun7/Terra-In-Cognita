@@ -6,10 +6,12 @@
 //   스냅숏은 다시 만들 수 있는 캐시라 전투 행과 같은 트랜잭션에 넣지 않는다(죽으면 처음부터 계산할 뿐이다).
 // - 빨리감기는 COMPUTE_SLICE_TICKS틱마다 이벤트 루프에 양보한다(긴 전투 하나가 루프를 수 초 막지 않게, NAS 루프 p99 < 50ms,
 //   docs/adr/2026-11-01-gardener-r5b.md 6절). 정원사 웨이브(공격 편 세력 칸 = 정원사)는 공성 크리쳐를 모두 잃으면 멈춘다(@terra/sim
-//   waveSiegeSpent: 넥서스를 더는 부술 수 없어 결과가 수비 승으로 정해짐). 시작과 끝 적용이 같은 함수로 계산하므로 결과가 같다.
+//   waveSiegeSpent: 넥서스를 더는 부술 수 없어 결과가 수비 승으로 정해짐). 멈춤은 WAVE_CHECK_TICKS의 배수 틱에서만 봐서 시뮬
+//   (runWaveToEnd)과 같은 틱에 멈추고, 시작과 끝 적용이 같은 함수로 계산하므로 결과가 같다(스냅숏 간격 300틱도 그 배수).
 // - 결과 적용은 한 번만 한다: apply(세계 바뀜, battleResults.ts)를 동기로 부르고 같은 쓰기 묶음에 결과 기록
 //   (world_battle_results, 전투마다 한 줄)을 넣는다. 커밋된 뒤 status = ended(캐시)를 고친다. 다시 켜면 기록이 있는 전투는
 //   다시 적용하지 않고 status만 고친다.
+import { performance } from "node:perf_hooks";
 import {
   type Battle,
   type BattleInit,
@@ -23,6 +25,7 @@ import {
   isWaveBattle,
   resolveOutcomes,
   restoreBattle,
+  WAVE_CHECK_TICKS,
   waveSiegeSpent,
 } from "@terra/sim";
 import type { QueryPool } from "./persist/load.ts";
@@ -32,6 +35,15 @@ import { type Scheduler, createScheduler } from "./scheduler.ts";
 export interface BattleOutcome {
   readonly result: BattleResult;
   readonly units: readonly UnitResult[];
+}
+
+/** 빨리감기 한 번의 비용(서버 기록) */
+export interface ComputeStats {
+  readonly battleId: number;
+  readonly ticks: number;
+  readonly slices: number;
+  readonly cpuMs: number;
+  readonly maxSliceMs: number;
 }
 
 export interface BattleService {
@@ -49,8 +61,11 @@ export interface BattleService {
 }
 
 const { tickMs } = TEST_COMBAT_COEFFICIENTS;
-/** 빨리감기 한 조각(틱). 유닛 수십이면 한 조각이 수십 ms 안쪽이다(ADR gardener-r5b 6절 잰 값) */
-export const COMPUTE_SLICE_TICKS = 50;
+/**
+ * 빨리감기 한 조각(틱). 웨이브 공성(유닛 50, 128칸)은 한 틱에 약 1ms라 조각 하나가 10~20ms다(ADR gardener-r5b "NAS 안전" 잰 값:
+ * 50틱 조각은 45~100ms라 그 분의 루프 p99가 50ms를 넘었다). 웨이브 멈춤 검사는 시뮬과 같은 틱(WAVE_CHECK_TICKS의 배수)에서만 한다
+ */
+export const COMPUTE_SLICE_TICKS = 10;
 
 /** 이벤트 루프에 한 번 양보한다(다른 요청·타이머가 돈다) */
 const yieldToLoop = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
@@ -98,6 +113,8 @@ export function createBattleService(options: {
   /** 세계에 결과를 적용한다(동기, 쓰기 대기열에만 쓴다). atMs = 실시간으로 끝나는 시각 */
   apply: (battleId: number, init: BattleInit, outcome: BattleOutcome, atMs: number) => void;
   onError: (error: unknown) => void;
+  /** 빨리감기 한 번이 끝났을 때(틱 수·조각 수·CPU ms 합·가장 긴 조각 ms) — 서버 기록(NAS 루프 측정) */
+  onComputed?: (stats: ComputeStats) => void;
 }): BattleService {
   const { pool } = options;
   let nextId = 1;
@@ -157,24 +174,37 @@ export function createBattleService(options: {
     const onSnapshot = (state: string, tick: number): void => {
       if (tick > from) snapshots.push({ tick, state });
     };
-    let run = battle.runToEnd(
-      inputs.filter((input) => input.tick >= from),
-      COMPUTE_SLICE_TICKS,
-      onSnapshot,
-    );
-    while (!run.result) {
-      if (wave && waveSiegeSpent(battle.state)) {
-        run = { ...run, result: finishSpentWave(battle.state) };
-        break;
-      }
-      await yieldToLoop();
+    const cost = { slices: 0, cpuMs: 0, maxSliceMs: 0 };
+    const slice = () => {
+      const started = performance.now();
       const at = battle.state.tick;
-      run = battle.runToEnd(
+      const out = battle.runToEnd(
         inputs.filter((input) => input.tick >= at),
         COMPUTE_SLICE_TICKS,
         onSnapshot,
       );
+      const ms = performance.now() - started;
+      cost.slices += 1;
+      cost.cpuMs += ms;
+      cost.maxSliceMs = Math.max(cost.maxSliceMs, ms);
+      return out;
+    };
+    let run = slice();
+    while (!run.result) {
+      if (wave && battle.state.tick % WAVE_CHECK_TICKS === 0 && waveSiegeSpent(battle.state)) {
+        run = { ...run, result: finishSpentWave(battle.state) };
+        break;
+      }
+      await yieldToLoop();
+      run = slice();
     }
+    options.onComputed?.({
+      battleId,
+      ticks: battle.state.tick - from,
+      slices: cost.slices,
+      cpuMs: Math.round(cost.cpuMs * 10) / 10,
+      maxSliceMs: Math.round(cost.maxSliceMs * 10) / 10,
+    });
     for (const entry of snapshots)
       await pool.query(`insert into world_battle_snapshots (battle_id, tick, state) values ($1, $2, $3)`, [
         battleId,

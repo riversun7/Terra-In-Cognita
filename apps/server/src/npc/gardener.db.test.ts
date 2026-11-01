@@ -2,7 +2,12 @@
 // 시험 2차맵 칸(과 이웃 8칸)에 오염을 미리 넣고, 하루 끝에 웨이브 예고(8시간) → 도착하면 전투 서비스의 공성 전투 →
 // 끝 시각이 지난 뒤 다시 켜면 결과(피해·쉬는 시간)가 들어가는지 본다.
 import { neighbors8 } from "@terra/planet";
-import { DAY_MS, TEST_GARDENER_COEFFICIENTS, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
+import {
+  DAY_MS,
+  TEST_COMBAT_COEFFICIENTS,
+  TEST_GARDENER_COEFFICIENTS,
+  TEST_SOCIETY_COEFFICIENTS,
+} from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { silentLog } from "../world/testSupport.ts";
@@ -43,6 +48,11 @@ async function boot(): Promise<World> {
       throw error;
     },
     cyborgRules: () => PRESSURE,
+    // 시험 시간: 웨이브 공성 제한 2분(설정 칸 C2 실효 값이 웨이브 전투에 들어가는지도 본다)
+    combatRules: () => ({
+      ...TEST_COMBAT_COEFFICIENTS,
+      limitMs: { ...TEST_COMBAT_COEFFICIENTS.limitMs, siege: 120_000 },
+    }),
     npc: { testNations: 3, manual: true },
   });
   worlds.push(world);
@@ -51,7 +61,8 @@ async function boot(): Promise<World> {
 }
 
 async function waitFor(check: () => Promise<boolean>): Promise<void> {
-  for (let i = 0; i < 300; i++) {
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
     if (await check()) return;
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
@@ -133,6 +144,8 @@ describe.skipIf(!TEST_DATABASE_URL)("정원사(서버)", () => {
     );
     expect(battles).toHaveLength(3);
     expect(battles.every((battle) => battle.status === "running")).toBe(true);
+    // 공성 제한 2분(1,200틱) 안에 끝난다
+    for (const battle of battles) expect(Number(battle.ends_at_ms) - clock).toBeLessThanOrEqual(120_000);
     const research = await rows<{ id: string; research_level: number }>(
       test.db,
       `select id, research_level from world_cities order by id`,
@@ -169,5 +182,5 @@ describe.skipIf(!TEST_DATABASE_URL)("정원사(서버)", () => {
       `select gardener from npc_society where id = 1`,
     );
     expect(society[0]?.gardener?.nomads).toHaveLength(3);
-  });
+  }, 120_000);
 });

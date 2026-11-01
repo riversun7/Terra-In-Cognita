@@ -49,6 +49,11 @@ export interface WaveBattleInput {
   readonly nexusDurability: number;
   /** 수비 인원 상한(질문 218 가) */
   readonly maxDefenders: number;
+  /**
+   * 공성 제한 시간(ms, C2). 없으면 전투를 만드는 쪽의 계수표 값. 서버 전투 서비스는 시험 계수표로 전투를 만들므로 설정 칸
+   * 실효 값을 여기로 넘긴다
+   */
+  readonly limitMs?: number | undefined;
 }
 
 /** 공성 크리쳐가 남았는지 보는 간격(틱). 결과는 간격과 상관없다(멈춘 틱만 이만큼 늦을 수 있다) */
@@ -195,5 +200,6 @@ export function waveBattleInit(
     ],
     parties,
     units,
+    ...(input.limitMs === undefined ? {} : { limitMs: input.limitMs }),
   };
 }

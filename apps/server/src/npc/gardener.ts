@@ -227,6 +227,8 @@ export function attachServerGardener(o: ServerGardenerOptions): ServerGardener {
           mapSize: WAVE_MAP_SIZE,
           nexusDurability: WAVE_NEXUS,
           maxDefenders: WAVE_DEFENDERS,
+          // 공성 제한 시간(C2): 설정 칸 실효 값(전투 서비스는 시험 계수표로 전투를 만든다)
+          limitMs: combat.limitMs.siege,
         },
         o.catalog,
         combat,

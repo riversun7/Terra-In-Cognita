@@ -48,6 +48,8 @@ const SecondMapLabScreen = lazy(() => import("../editor/secondMapLab/SecondMapLa
 const TuningPanelScreen = lazy(() => import("../editor/tuning/TuningPanelScreen.tsx"));
 // 밸런스 화면(틀 안): 조각 이름 BalancePanelScreen-*(미리 캐시 규칙 [Bb]alancePanel)
 const BalancePanelScreen = lazy(() => import("../editor/balance/BalancePanelScreen.tsx"));
+// 스킬 편집기·행동별 소모(틀 안): 조각 이름 SkillEditorScreen-*(미리 캐시 규칙 [Ss]killEditor)
+const SkillEditorScreen = lazy(() => import("../editor/skills/SkillEditorScreen.tsx"));
 // 지도: Three.js·엔진은 이 조각들과 함께만 내려온다. 떠나면 내린다(ADR 37 11절). 화면은 { onClose, monitor }만 받는다
 const SecondaryMapScreen = lazy(() => import("../map/SecondaryMapScreen.tsx"));
 const PlanetMapScreen = lazy(() => import("../map/PlanetMapScreen.tsx"));
@@ -79,6 +81,7 @@ export const ROUTE_TITLES = {
   dev_second_map: m.shell_route_dev_second_map,
   dev_tuning: m.shell_route_dev_tuning,
   dev_balance: m.shell_route_dev_balance,
+  dev_skills: m.shell_route_dev_skills,
   dev_gpu_bench: m.shell_route_dev_gpu_bench,
 } satisfies Record<RouteId, () => string>;
 
@@ -176,6 +179,8 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <TuningPanelScreen />;
     case "dev_balance":
       return <BalancePanelScreen />;
+    case "dev_skills":
+      return <SkillEditorScreen />;
     case "faction":
       return <FactionScreen />;
     case "mail":

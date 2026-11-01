@@ -111,7 +111,7 @@ export default defineConfig({
         // scripts/check-pwa.mjs가 빌드된 sw.js에서 이 규칙을 확인한다
         navigateFallbackDenylist: [/^\/(api|ws|health)(\/|\?|$)/],
         // 개발자 도구 조각(셰이더 측정 gpuBench…·행성 편집기 planetEditor…·항성계 편집기 starSystem…·2차맵 시험 secondMapLab…·
-        // 설정 칸 패널 tuningPanel…·밸런스 화면 balancePanel…의 JS·CSS)은 미리 캐시하지 않는다 — 도구를 열 때만
+        // 설정 칸 패널 tuningPanel…·밸런스 화면 balancePanel…·스킬 편집기 skillEditor…의 JS·CSS)은 미리 캐시하지 않는다 — 도구를 열 때만
         // 받는다(ADR 2026-10-29-planet-editor-stage1 1절). scripts/pwa-build.mjs DEV_ONLY_CHUNK와 같은 파일이다.
         // 앞 항목은 Workbox 기본값이다(덮어쓰므로 함께 적는다). scripts/check-pwa.mjs가 빌드된 sw.js로 확인한다
         globIgnores: [
@@ -122,6 +122,7 @@ export default defineConfig({
           "assets/[Ss]econdMapLab*.{js,css}",
           "assets/[Tt]uningPanel*.{js,css}",
           "assets/[Bb]alancePanel*.{js,css}",
+          "assets/[Ss]killEditor*.{js,css}",
         ],
       },
       // 개발 서버에서는 SW를 쓰지 않는다(virtual:pwa-register는 아무것도 하지 않는 대체 코드)

@@ -184,6 +184,14 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
+  // 스킬 편집기·행동별 소모(docs/adr/2026-11-01-skill-editor.md 5절): 틀 안 빽빽한 편집 화면. 저장하면 그 세계에 바로 든다
+  dev_skills: {
+    path: "/dev/skills",
+    search: [],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
   dev_gpu_bench: {
     path: "/dev/gpu-bench",
     search: [],

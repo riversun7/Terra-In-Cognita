@@ -72,3 +72,13 @@ export function ScaleIcon() {
     </DevIcon>
   );
 }
+
+/** 스킬 편집기(번쩍임 별) */
+export function SparkIcon() {
+  return (
+    <DevIcon>
+      <path d="M12 3.5 13.9 9l5.6 1.9-5.6 1.9L12 18.5l-1.9-5.7-5.6-1.9L10.1 9z" />
+      <path d="M18.5 3.5v3M17 5h3" />
+    </DevIcon>
+  );
+}

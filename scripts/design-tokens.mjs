@@ -123,6 +123,30 @@ export const CONTRAST_PAIRS = [
       kind: "text",
     })),
   ),
+  // 2차 스탯 색(사이보그 화면 상세 전투 스펙의 값·아이콘·막대): 판·둘째 판·바탕 위 글자
+  ...[
+    "hp",
+    "armor-hp",
+    "shield-hp",
+    "mp",
+    "stamina",
+    "physical-attack",
+    "elemental-attack",
+    "hit",
+    "crit-chance",
+    "crit-multiplier",
+    "defense-rate",
+    "evade",
+    "action-speed",
+    "sight",
+    "other",
+  ].flatMap((row) =>
+    ["--color-bg", "--color-surface", "--color-surface-2"].map((bg) => ({
+      fg: `--color-sec-${row}`,
+      bg,
+      kind: "text",
+    })),
+  ),
   { fg: "--color-focus", bg: "--color-bg", kind: "ui" },
   { fg: "--color-focus", bg: "--color-surface", kind: "ui" },
   // 고른 라디오 점(초점 색)은 입력칸 바탕 위에 그린다

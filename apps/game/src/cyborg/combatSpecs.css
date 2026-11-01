@@ -1,0 +1,297 @@
+/*
+ * 상세 전투 스펙 — 옛 프로젝트 SecondaryStatsCard 모양(머리 띠 · 묶음 칸 · 줄(▶ 아이콘 이름 막대 값) · 공식 상자 · 아래 줄).
+ * 색은 2차 스탯 색(tokens.css --color-sec-*, 1차 스탯 색과 다른 계열). 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 2차 스탯 색 글자는 판(--color-surface)·둘째 판(--color-surface-2) 위에만 놓는다(대비 검사가 그 쌍을 잰다). ADR 2026-11-01-ui-visibility "바뀜"
+ */
+
+/* 묶음 색: 묶음의 대표 줄 색 */
+.combat-group {
+  --group: var(--color-sec-other);
+}
+.combat-group[data-group="vitals"] {
+  --group: var(--color-sec-hp);
+}
+.combat-group[data-group="offense"] {
+  --group: var(--color-sec-physical-attack);
+}
+.combat-group[data-group="defense"] {
+  --group: var(--color-sec-defense-rate);
+}
+.combat-group[data-group="mobility"] {
+  --group: var(--color-sec-action-speed);
+}
+
+/* 줄 색: 2차 스탯마다(모르는 행은 기타 색) */
+.combat-row {
+  --sec: var(--color-sec-other);
+}
+.combat-row[data-sec="hp"] {
+  --sec: var(--color-sec-hp);
+}
+.combat-row[data-sec="armor_hp"] {
+  --sec: var(--color-sec-armor-hp);
+}
+.combat-row[data-sec="shield_hp"] {
+  --sec: var(--color-sec-shield-hp);
+}
+.combat-row[data-sec="mp"] {
+  --sec: var(--color-sec-mp);
+}
+.combat-row[data-sec="stamina"] {
+  --sec: var(--color-sec-stamina);
+}
+.combat-row[data-sec="physical_attack"] {
+  --sec: var(--color-sec-physical-attack);
+}
+.combat-row[data-sec="elemental_attack"] {
+  --sec: var(--color-sec-elemental-attack);
+}
+.combat-row[data-sec="hit"] {
+  --sec: var(--color-sec-hit);
+}
+.combat-row[data-sec="crit_chance"] {
+  --sec: var(--color-sec-crit-chance);
+}
+.combat-row[data-sec="crit_multiplier"] {
+  --sec: var(--color-sec-crit-multiplier);
+}
+.combat-row[data-sec="defense_rate"] {
+  --sec: var(--color-sec-defense-rate);
+}
+.combat-row[data-sec="evade"] {
+  --sec: var(--color-sec-evade);
+}
+.combat-row[data-sec="action_speed"] {
+  --sec: var(--color-sec-action-speed);
+}
+.combat-row[data-sec="sight"] {
+  --sec: var(--color-sec-sight);
+}
+
+/* ── 카드 ───────────────────────────────────── */
+.combat-card {
+  container-type: inline-size;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.combat-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--hairline) solid var(--color-border);
+  background-color: var(--color-surface-2);
+}
+.combat-card-icon {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  fill: none;
+  stroke: var(--color-primary-lip);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.combat-card-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  text-shadow: var(--shadow-heading);
+}
+.combat-card-sub {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.combat-card-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+.combat-card-foot {
+  padding: var(--space-2) var(--space-4);
+  border-top: var(--hairline) solid var(--color-border);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+/* ── 묶음 칸 ─────────────────────────────────── */
+.combat-group {
+  overflow: hidden;
+  border: var(--hairline) solid color-mix(in srgb, var(--group) 40%, var(--color-border));
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+}
+.combat-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-w) solid var(--group);
+  border-bottom: var(--hairline) solid var(--color-border);
+  background-color: var(--color-surface-2);
+  line-height: var(--line-height-snug);
+}
+.combat-group-tag {
+  color: var(--group);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.15em;
+}
+.combat-group-name {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+}
+.combat-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.combat-row + .combat-row {
+  border-top: var(--hairline) solid var(--color-border);
+}
+.combat-row[data-open="true"] {
+  background-color: var(--color-surface-2);
+}
+
+/* ── 줄: 누르는 곳 전체(버튼 기본 모양을 지운다) ───────────── */
+.combat-toggle {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap-size);
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: none;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  text-align: start;
+  cursor: pointer;
+}
+.combat-toggle:active:not([aria-disabled="true"], :disabled) {
+  transform: none;
+  box-shadow: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .combat-toggle:hover {
+    background-color: var(--color-surface-2);
+  }
+}
+/* ▶ — 펼치면 ▼(90도) */
+.combat-caret {
+  width: 0;
+  height: 0;
+  border-block: var(--space-1) solid transparent;
+  border-inline-start: var(--space-1) solid var(--color-text-muted);
+  transition: transform var(--duration-fast) var(--easing-out);
+}
+.combat-toggle[aria-expanded="true"] .combat-caret {
+  transform: rotate(90deg);
+}
+.combat-icon {
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  color: var(--sec);
+}
+.combat-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.combat-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.combat-bar {
+  display: block;
+  height: var(--space-1);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+}
+.combat-row[data-open="true"] .combat-bar {
+  background-color: var(--color-surface);
+}
+.combat-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background-color: var(--sec);
+  transition: inline-size var(--duration-slow) var(--easing-out);
+}
+.combat-value {
+  color: var(--sec);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── 공식 상자 ───────────────────────────────── */
+.combat-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0 var(--space-3) var(--space-3) calc(var(--space-3) + var(--space-6));
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+.combat-detail[hidden] {
+  display: none;
+}
+.combat-formula {
+  padding-block-end: var(--space-1);
+  border-bottom: var(--hairline) solid var(--color-border);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.combat-formula-label {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-strong);
+}
+.combat-line {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.combat-result {
+  padding-block-start: var(--space-1);
+  border-top: var(--hairline) solid var(--color-border);
+  color: var(--sec);
+  font-weight: var(--font-weight-strong);
+}
+
+/* 넓은 칸이면 묶음을 두 열로 */
+@container (min-width: 40rem) {
+  .combat-card-body {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}

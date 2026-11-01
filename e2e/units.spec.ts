@@ -63,7 +63,7 @@ test.describe("플레이어(실제 자료)", () => {
     await expect(page.locator(".cyborg-name")).toHaveText("E2EPlayer");
     await expect(page.locator(".cyborg-avatar")).toBeVisible();
     await expect(page.getByText(message("ko", "cyborg_body_later"))).toHaveCount(0);
-    await expect(page.locator(".cyborg .stat-cell")).toHaveCount(6);
+    await expect(page.locator(".cyborg .core-row")).toHaveCount(6);
     // 환생 조건·비용(D-440·D-441): 본체가 있으니 지금 신앙도(0)와 함께
     await expect(page.locator(".cyborg-rebirth")).toContainText(
       message("ko", "cyborg_rebirth_faith_value", { need: 50, value: 0 }),

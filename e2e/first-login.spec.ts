@@ -156,7 +156,7 @@ test.describe("첫 접속: 새 플레이어", () => {
     await page.goto("/cyborg");
     await expect(page.locator(".cyborg-name")).toHaveText("새싹로봇");
     await expect(page.locator(".cyborg-avatar")).toHaveAttribute("data-look", chosen ?? "");
-    await expect(page.locator(".cyborg .stat-cell")).toHaveCount(6);
+    await expect(page.locator(".cyborg .core-row")).toHaveCount(6);
     // 서버가 나눈 속성값을 저장했다(12칸, 차례 = ELEMENT_CODES: 물·빙결·불·폭렬·바람…)
     expect(await bodyElements(page)).toEqual([0, 0, 7, 0, 3, 0, 0, 0, 0, 0, 0, 0]);
 

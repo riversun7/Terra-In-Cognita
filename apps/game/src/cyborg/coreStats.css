@@ -1,0 +1,246 @@
+/*
+ * 핵심 사양 — 옛 프로젝트 StatBar 모양: 범례(진하기 = 출처), 줄 = 약자·이름 | 막대 | 합계, 올리거나 누르면 출처 상세 판.
+ * 스탯 색은 roster/statPairs.css의 [data-stat] → --stat, 묶음 두 색 띠는 [data-pair] → --pair-a·--pair-b(D-448).
+ * 진하기: 몸 값·처음 값 = 스탯 색 그대로, 레벨 성장 = 옅게, 장비 = 글자 색 쪽으로 섞은 색, 인공장기 = 그 색 빗금, 스킬·효과 = 더 섞고 빛.
+ * 값은 var(--…)만 쓴다.
+ */
+
+/* 칸마다 진하기 — 막대 칸, 범례 네모, 상세 판 네모가 같은 규칙을 쓴다 */
+[data-part="body"],
+[data-part="initial"] {
+  --part: var(--stat);
+}
+[data-part="growth"] {
+  --part: color-mix(in srgb, var(--stat) 70%, var(--color-surface));
+}
+/* 장비·스킬은 글자 색 쪽으로 섞는다: 밝은 테마는 짙게, 어두운 테마는 밝게(어느 테마든 몸 값과 갈린다) */
+[data-part="gear"],
+[data-part="organ"] {
+  --part: color-mix(in srgb, var(--stat) 55%, var(--color-text));
+}
+[data-part="effect"] {
+  --part: color-mix(in srgb, var(--stat) 35%, var(--color-text));
+}
+/* 범례는 스탯이 정해지지 않아 테마의 버튼 턱 색으로 진하기만 보인다 */
+.core-legend {
+  --stat: var(--color-primary-lip);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  list-style: none;
+}
+.core-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.core-swatch {
+  display: inline-block;
+  flex: none;
+  width: var(--status-dot);
+  height: var(--status-dot);
+  border-radius: var(--hairline);
+  background-color: var(--part);
+}
+[data-part="organ"] > .core-swatch,
+.core-seg[data-part="organ"] {
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--stat) 0 var(--hairline),
+    var(--part) var(--hairline) var(--space-1)
+  );
+}
+.core-seg[data-part="effect"] {
+  box-shadow: 0 0 var(--space-2) var(--stat);
+}
+
+/* ── 묶음과 줄 ─────────────────────────────── */
+.core-pairs {
+  display: grid;
+  gap: var(--space-3);
+}
+.core-pair {
+  position: relative;
+  display: grid;
+  gap: var(--space-1);
+  padding: calc(var(--space-2) + var(--space-1)) var(--space-2) var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+/* 두 스탯이 한 계열이라는 띠(위 가장자리, 두 색 반씩) */
+.core-pair::before {
+  position: absolute;
+  inset: 0 var(--space-3) auto;
+  height: var(--space-1);
+  border-radius: 0 0 var(--radius-pill) var(--radius-pill);
+  background-image: linear-gradient(90deg, var(--pair-a) 0 50%, var(--pair-b) 50% 100%);
+  content: "";
+}
+.core-row {
+  position: relative;
+}
+/* 줄 전체가 누르는 곳(버튼 기본 모양을 지운다) */
+.core-toggle {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, auto) minmax(0, 1fr) minmax(3ch, auto);
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--tap-size);
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  box-shadow: none;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  text-align: start;
+  cursor: pointer;
+}
+.core-toggle:active:not([aria-disabled="true"], :disabled) {
+  transform: none;
+  box-shadow: none;
+}
+.core-row[data-open="true"] .core-toggle {
+  background-color: var(--color-surface);
+}
+@media (hover: hover) and (pointer: fine) {
+  .core-toggle:hover {
+    background-color: var(--color-surface);
+  }
+}
+.core-label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: var(--line-height-tight);
+}
+.core-code {
+  color: var(--stat);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.04em;
+}
+.core-name {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.core-k {
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+.core-bar {
+  display: flex;
+  height: var(--stat-bar-lg);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  box-shadow: inset 0 0 0 var(--hairline) var(--color-border);
+}
+.core-seg {
+  display: block;
+  flex: none;
+  height: 100%;
+  background-color: var(--part);
+  transition: inline-size var(--duration-slow) var(--easing-out);
+}
+.core-seg + .core-seg {
+  border-inline-start: var(--hairline) solid var(--color-surface);
+}
+.core-total {
+  color: var(--stat);
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-xl);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-tight);
+  text-align: end;
+}
+
+/* ── 출처 상세 판(누르면 줄 아래에 열림, 마우스는 올리면 떠서 보임) ─────────── */
+.core-pop {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  inset-inline: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+.core-pop[hidden] {
+  display: none;
+}
+/* 눌러서 연 상세는 줄 아래에 끼워 넣는다(아래 줄을 가리지 않게). 마우스를 올려 잠깐 보는 것만 떠 있다 */
+.core-row[data-open="true"] .core-pop {
+  position: static;
+  margin: var(--space-1) 0 var(--space-1);
+  box-shadow: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .core-row:hover .core-pop[hidden] {
+    display: flex;
+  }
+}
+.core-pop-title {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-strong);
+  letter-spacing: 0.04em;
+}
+.core-pop-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.core-pop-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+.core-pop-name {
+  min-width: 0;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.core-pop-value {
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.core-pop-total {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-block-start: var(--space-1);
+  border-top: var(--hairline) solid var(--color-border);
+  color: var(--color-text-muted);
+}
+.core-pop-sum {
+  color: var(--stat);
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}

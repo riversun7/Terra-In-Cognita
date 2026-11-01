@@ -34,11 +34,20 @@
 .combat-row[data-sec="shield_hp"] {
   --sec: var(--color-sec-shield-hp);
 }
+.combat-row[data-sec="shield_regen"] {
+  --sec: var(--color-sec-shield-regen);
+}
 .combat-row[data-sec="mp"] {
   --sec: var(--color-sec-mp);
 }
+.combat-row[data-sec="mp_regen"] {
+  --sec: var(--color-sec-mp-regen);
+}
 .combat-row[data-sec="stamina"] {
   --sec: var(--color-sec-stamina);
+}
+.combat-row[data-sec="stamina_regen"] {
+  --sec: var(--color-sec-stamina-regen);
 }
 .combat-row[data-sec="physical_attack"] {
   --sec: var(--color-sec-physical-attack);
@@ -57,6 +66,9 @@
 }
 .combat-row[data-sec="defense_rate"] {
   --sec: var(--color-sec-defense-rate);
+}
+.combat-row[data-sec="elemental_defense_rate"] {
+  --sec: var(--color-sec-elemental-defense-rate);
 }
 .combat-row[data-sec="evade"] {
   --sec: var(--color-sec-evade);

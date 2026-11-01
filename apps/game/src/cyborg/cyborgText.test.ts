@@ -56,12 +56,14 @@ describe("속성", () => {
 });
 
 describe("상세 전투 스펙(옛 SecondaryStatsCard 묶음)", () => {
-  it("팩 행을 VITALS·OFFENSE·DEFENSE·MOBILITY로, 모르는 행은 기타, 빈 묶음(효율)은 뺀다", () => {
+  it("팩 행(2차 스탯 17개 + 시야, D-458)을 VITALS·OFFENSE·DEFENSE·MOBILITY로, 모르는 행은 기타, 빈 묶음(효율)은 뺀다", () => {
+    // 팩 차례(48 §3.2 묶음 차례)로 온다
     const ids = [
       "hp",
       "armor_hp",
       "shield_hp",
       "defense_rate",
+      "elemental_defense_rate",
       "physical_attack",
       "elemental_attack",
       "hit",
@@ -70,14 +72,27 @@ describe("상세 전투 스펙(옛 SecondaryStatsCard 묶음)", () => {
       "crit_multiplier",
       "action_speed",
       "stamina",
+      "stamina_regen",
       "mp",
+      "mp_regen",
+      "shield_regen",
       "sight",
       "new_row",
     ];
     const groups = combatGroups(ids.map((id) => ({ id })));
     expect(groups.map((entry) => entry.group)).toEqual(["vitals", "offense", "defense", "mobility", "other"]);
-    expect(groups[0]?.rows.map((row) => row.id)).toEqual(["hp", "armor_hp", "shield_hp", "mp", "stamina"]);
-    expect(groups[2]?.rows.map((row) => row.id)).toEqual(["defense_rate", "evade"]);
+    // 옛 VITALS(HP, 보호막, 보호막 재생, MP, STA): 재생·회복은 그 자원 바로 아래
+    expect(groups[0]?.rows.map((row) => row.id)).toEqual([
+      "hp",
+      "armor_hp",
+      "shield_hp",
+      "shield_regen",
+      "mp",
+      "mp_regen",
+      "stamina",
+      "stamina_regen",
+    ]);
+    expect(groups[2]?.rows.map((row) => row.id)).toEqual(["defense_rate", "elemental_defense_rate", "evade"]);
     expect(combatGroupOf("sight")).toBe("mobility");
   });
 

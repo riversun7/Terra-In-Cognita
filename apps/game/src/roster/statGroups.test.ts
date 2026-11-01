@@ -5,12 +5,13 @@ import { STAT_GROUPS, groupStats, statGroupLabel, statGroupOf } from "./statGrou
 const row = (id: string) => ({ id });
 
 describe("2차 스탯 묶음", () => {
-  it("팩 행 14개를 48 §3.2·§3.3 묶음으로 나눈다", () => {
+  it("팩 행 18개(2차 스탯 17개 D-458 + 시야)를 48 §3.2·§3.3 묶음으로 나눈다", () => {
     const ids = [
       "hp",
       "armor_hp",
       "shield_hp",
       "defense_rate",
+      "elemental_defense_rate",
       "physical_attack",
       "elemental_attack",
       "hit",
@@ -19,7 +20,10 @@ describe("2차 스탯 묶음", () => {
       "crit_multiplier",
       "action_speed",
       "stamina",
+      "stamina_regen",
       "mp",
+      "mp_regen",
+      "shield_regen",
       "sight",
     ];
     const groups = groupStats(ids.map(row));
@@ -31,7 +35,20 @@ describe("2차 스탯 묶음", () => {
       "resource",
       "activity",
     ]);
-    expect(groups[0]?.rows.map((entry) => entry.id)).toEqual(["hp", "armor_hp", "shield_hp", "defense_rate"]);
+    expect(groups[0]?.rows.map((entry) => entry.id)).toEqual([
+      "hp",
+      "armor_hp",
+      "shield_hp",
+      "defense_rate",
+      "elemental_defense_rate",
+    ]);
+    expect(groups[4]?.rows.map((entry) => entry.id)).toEqual([
+      "stamina",
+      "stamina_regen",
+      "mp",
+      "mp_regen",
+      "shield_regen",
+    ]);
     expect(groups.flatMap((entry) => entry.rows).length).toBe(ids.length);
   });
 

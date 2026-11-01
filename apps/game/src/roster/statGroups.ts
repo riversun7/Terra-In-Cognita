@@ -21,6 +21,7 @@ const GROUP_OF: Readonly<Record<string, StatGroup>> = {
   armor_hp: "survival",
   shield_hp: "survival",
   defense_rate: "survival",
+  elemental_defense_rate: "survival",
   physical_attack: "offense",
   elemental_attack: "offense",
   hit: "accuracy",
@@ -29,7 +30,10 @@ const GROUP_OF: Readonly<Record<string, StatGroup>> = {
   crit_multiplier: "accuracy",
   action_speed: "speed",
   stamina: "resource",
+  stamina_regen: "resource",
   mp: "resource",
+  mp_regen: "resource",
+  shield_regen: "resource",
   sight: "activity",
 };
 

@@ -1005,6 +1005,7 @@
   "roster_type_test_unit": "시험 유닛",
   "roster_unnamed": "{type} #{number}",
   "roster_level": "Lv {level}",
+  "roster_per_minute": "{value}/분",
   "roster_level_of": "Lv {level} / {max}",
   "roster_rebirths": "환생 {count}회",
   "roster_place": "{place} · {domain}",

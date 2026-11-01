@@ -97,6 +97,13 @@ export function logLine(replay: BattleReplay, index: number, locale: Locale): st
     case "skill":
       return m.battle_log_skill({ source: name(event.u), skill: skillName(replay, event.skill, locale) });
     case "heal":
+      // 쉴드만 채운 회복(빛 보호막 등)은 쉴드 줄
+      if (event.amount <= 0 && event.shieldGain > 0)
+        return m.battle_log_shield({
+          source: name(event.u),
+          target: name(event.target),
+          amount: event.shieldGain,
+        });
       return m.battle_log_heal({ source: name(event.u), target: name(event.target), amount: event.amount });
     case "down":
       return m.battle_log_down({ unit: name(event.u) });

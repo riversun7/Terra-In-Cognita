@@ -31,7 +31,7 @@
 
 ## 검사
 - e2e(빌드한 앱·서버, 헤드리스 Chromium, `E2E_MEASURE=1`): `e2e/battle-replay.spec.ts` 11개 통과(4.1분: 기능 1·측정 2·사진 8), `e2e/dev.spec.ts` 12개 통과(49.6초). 사진은 저장소 밖 `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/battle-replay/shots/`(390·1440 × 파스텔·다크 × 한국어·영어, 싸움 중 2장 + 끝 요약).
-- `TEST_DATABASE_URL=… pnpm check`: 아래 줄(합친 뒤 마지막에 돌린 값).
+- `TEST_DATABASE_URL=postgres://…(PG16 시험 DB) pnpm check`: 통과(main `5c621d3` 위, 시험 파일 339·시험 2,875 모두 통과, 포맷·린트·타입·경계·크기·다국어·디자인 값·콘텐츠 core@20). 그 뒤 쉴드 채움 기록 줄(`battle_log_shield`) 하나를 더해 게임 타입·린트·다국어·포맷·다시보기 시험만 다시 돌렸다(통과).
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
@@ -44,7 +44,7 @@
 | `packages/engine/src/render/engineLayers.ts`·`secondMapEngine.ts`·`engineTypes.ts`·`engineParts.ts`·`index.ts`·`battle/*`·`package.json` | 덧그림 층·유닛 모습·카메라 목표·전투 효과 층 진입점 |
 | `apps/game/src/battle/*` | 보기 화면(해석·시계·장면·덧층·문구·CSS·시험) |
 | `apps/game/src/editor/battleReplayLab/*`·`shell/routeViews.tsx`·`sections/ComingSoon.tsx`·`editor/DevHome.tsx` | 개발자 주소·개발자 홈 줄 |
-| `apps/game/messages/ko.json`·`en.json` | 문구 69개(ko·en 함께) |
+| `apps/game/messages/ko.json`·`en.json` | 문구 70개(ko·en 함께) |
 | `scripts/pwa-build.mjs`·`pwa-build.test.mjs`·`apps/game/vite.config.ts` | 미리 캐시 밖(`[Bb]attleReplayLab`) |
 | `e2e/battle-replay.spec.ts`·`e2e/dev.spec.ts` | 화면 시험·사진·측정, 개발자 홈 일곱 줄 |
 | `docs/adr/2026-11-01-battle-replay.md` | 결정 |

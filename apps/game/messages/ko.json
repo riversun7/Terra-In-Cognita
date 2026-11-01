@@ -2178,5 +2178,6 @@
   "battle_role_mage": "마법사",
   "battle_role_priest": "사제",
   "battle_role_cyborg": "사이보그",
-  "battle_role_unit": "유닛"
+  "battle_role_unit": "유닛",
+  "battle_log_shield": "{source} → {target} 쉴드 +{amount}"
 }

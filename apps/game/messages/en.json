@@ -2178,5 +2178,6 @@
   "battle_role_mage": "Mage",
   "battle_role_priest": "Priest",
   "battle_role_cyborg": "Cyborg",
-  "battle_role_unit": "Unit"
+  "battle_role_unit": "Unit",
+  "battle_log_shield": "{source} → {target} shield +{amount}"
 }

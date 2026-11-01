@@ -12,6 +12,7 @@ const DEV_PATHS = [
   "/dev/planet-editor",
   "/dev/star-system",
   "/dev/second-map",
+  "/dev/tuning",
   "/dev/gpu-bench",
 ] as const;
 
@@ -42,7 +43,7 @@ async function benchShown(page: Page): Promise<void> {
 test.describe("관리자", () => {
   test.use({ account: "admin" });
 
-  test("서랍의 [개발자]로 개발자 홈을 열고, 도구 네 줄에서 셰이더 측정을 연다. [뒤로]는 개발자 홈 → 홈", async ({
+  test("서랍의 [개발자]로 개발자 홈을 열고, 도구 다섯 줄에서 셰이더 측정을 연다. [뒤로]는 개발자 홈 → 홈", async ({
     page,
     deviceErrors,
   }) => {
@@ -55,10 +56,16 @@ test.describe("관리자", () => {
     await expect(page).toHaveURL((url) => url.pathname === "/dev");
     await framed(page);
     await expect(drawer).not.toHaveAttribute("open", "");
-    // 도구 네 줄: 행성 편집기·항성계 편집기·2차맵 시험·셰이더 측정(모두 화면이 있어 "준비 중" 칩이 없다)
-    await expect(page.locator("#main a.dev-tool")).toHaveCount(4);
+    // 도구 다섯 줄: 행성 편집기·항성계 편집기·2차맵 시험·설정 칸·셰이더 측정(모두 화면이 있어 "준비 중" 칩이 없다)
+    await expect(page.locator("#main a.dev-tool")).toHaveCount(5);
     await expect(page.locator("#main a.dev-tool .dev-tool-badge")).toHaveCount(0);
-    for (const path of ["/dev/planet-editor", "/dev/star-system", "/dev/second-map", "/dev/gpu-bench"]) {
+    for (const path of [
+      "/dev/planet-editor",
+      "/dev/star-system",
+      "/dev/second-map",
+      "/dev/tuning",
+      "/dev/gpu-bench",
+    ]) {
       await expect(toolRow(page, path).locator(".dev-tool-desc")).not.toBeEmpty();
     }
     // 사이드 메뉴의 [개발자]가 지금 화면이다
@@ -195,7 +202,7 @@ test.describe("플레이어", () => {
       await page.goto(path);
       await expect(page.locator("#no-permission-title"), path).toBeVisible();
       await expect(
-        page.locator("#main a.dev-tool, #main .bench, .coming-soon, .pe-screen, .sml-screen"),
+        page.locator("#main a.dev-tool, #main .bench, .coming-soon, .pe-screen, .sml-screen, .tp-screen"),
         path,
       ).toHaveCount(0);
     }

@@ -12,26 +12,38 @@ export const INTERNAL_ERROR_MESSAGE = "internal_error";
  */
 export class ErrorReason extends Error {
   readonly reason: string;
+  /** 이유를 더 나눈 코드들(data.details, 예: 설정 칸 규칙 문제 코드). 없으면 undefined */
+  readonly details: readonly string[] | undefined;
 
-  constructor(reason: string) {
+  constructor(reason: string, details?: readonly string[]) {
     super(reason);
     this.name = "ErrorReason";
     this.reason = reason;
+    this.details = details;
   }
 }
 
-/** 이유 코드를 단 tRPC 오류. message는 고정된 대문자 낱말(사람이 읽는 문장이 아니다), 이유 코드는 data.reason */
-export function reasonedError(code: TRPCError["code"], message: string, reason: string): TRPCError {
-  return new TRPCError({ code, message, cause: new ErrorReason(reason) });
+/**
+ * 이유 코드를 단 tRPC 오류. message는 고정된 대문자 낱말(사람이 읽는 문장이 아니다), 이유 코드는 data.reason,
+ * 더 나눈 코드(선택)는 data.details
+ */
+export function reasonedError(
+  code: TRPCError["code"],
+  message: string,
+  reason: string,
+  details?: readonly string[],
+): TRPCError {
+  return new TRPCError({ code, message, cause: new ErrorReason(reason, details) });
 }
 
 const t = initTRPC.context<TrpcContext>().create({
   // 오류 응답에 스택을 넣지 않는다(서버 내부 경로가 드러나지 않게). 기본값은 NODE_ENV에 따라 바뀐다.
   isDev: false,
   errorFormatter({ shape, error }) {
-    // 이유 코드가 없으면 undefined(JSON에서 빠진다). 타입은 늘 같은 모양(data.reason?: string)
+    // 이유 코드가 없으면 undefined(JSON에서 빠진다). 타입은 늘 같은 모양(data.reason?: string, data.details?: string[])
     const reason = error.cause instanceof ErrorReason ? error.cause.reason : undefined;
-    const data = { ...shape.data, reason };
+    const details = error.cause instanceof ErrorReason ? error.cause.details : undefined;
+    const data = { ...shape.data, reason, details };
     // DB 오류 같은 원문 메시지는 내부 정보를 담을 수 있어 기기에 보내지 않는다
     if (error.code === "INTERNAL_SERVER_ERROR") return { ...shape, message: INTERNAL_ERROR_MESSAGE, data };
     return { ...shape, data };

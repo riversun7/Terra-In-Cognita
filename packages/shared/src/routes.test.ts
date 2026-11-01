@@ -238,6 +238,7 @@ describe("주소 표", () => {
       dev_planet_editor: ["/dev/planet-editor", "dev", "hidden", "dev_admin", []],
       dev_star_system: ["/dev/star-system", "dev", "hidden", "dev_admin", []],
       dev_second_map: ["/dev/second-map", "dev", "hidden", "dev_admin", []],
+      dev_tuning: ["/dev/tuning", "dev", "shown", "dev_admin", []],
       dev_gpu_bench: ["/dev/gpu-bench", "dev", "shown", "dev_admin", []],
     });
   });
@@ -568,6 +569,8 @@ describe("여는 역할", () => {
     expect(canOpenRoute("dev_star_system", ["player"])).toBe(false);
     expect(canOpenRoute("dev_second_map", ["player"])).toBe(false);
     expect(canOpenRoute("dev_second_map", ["dev"])).toBe(true);
+    expect(canOpenRoute("dev_tuning", ["player"])).toBe(false);
+    expect(canOpenRoute("dev_tuning", ["admin"])).toBe(true);
   });
 });
 

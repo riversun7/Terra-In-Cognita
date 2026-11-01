@@ -168,6 +168,14 @@ export const ROUTES = {
     frame: "hidden",
     access: "dev_admin",
   },
+  // 설정 칸 패널(docs/adr/2026-11-01-dev-settings-panel.md 12절): 틀 안 빽빽한 목록. 바꾼 값은 그 세계에 바로 든다
+  dev_tuning: {
+    path: "/dev/tuning",
+    search: [],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
   dev_gpu_bench: {
     path: "/dev/gpu-bench",
     search: [],

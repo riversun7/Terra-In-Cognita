@@ -27,6 +27,7 @@ import {
   createPlanetEditorServices,
 } from "../planetEditor/services.ts";
 import { createSettingsServices } from "../settings/store.ts";
+import { type TuningShared, betterAuthTuningCheck, createTuningServices } from "../tuning/services.ts";
 import type { SummaryBackend } from "../summary/summary.ts";
 import type {
   EconomyServices,
@@ -58,8 +59,10 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   economy?: EconomyServices | undefined;
   /** 세력 화면 실제 자료(DB·월드가 있을 때) */
   factionSource?: FactionSource | undefined;
-  /** 세력 화면 규칙 설정값(팩 tuning: 공물·민심 문턱·주기). 없으면 sim 시험 계수표 */
-  factionRules?: FactionScreenRules | undefined;
+  /** 세력 화면 규칙 설정값(설정 칸 실효 값: 공물·민심 문턱·주기, 부를 때마다 읽는다). 없으면 sim 시험 계수표 */
+  factionRules?: (() => FactionScreenRules) | undefined;
+  /** 설정 칸 패널(접근자·속도 제한기·쓰기 차례, src/tuning/services.ts). 인증이 켜져 있어야 쓴다 */
+  tuning?: TuningShared | undefined;
   /** 사이보그 만들기 조회(세계가 준비되면 서비스, docs/adr/2026-11-01-first-login-cyborg.md 4절). 없으면 늘 준비 전 */
   cyborgs?: (() => CyborgReadServices | undefined) | undefined;
 }
@@ -112,6 +115,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       return viewerPromise;
     };
     const editor = options.planetEditor;
+    const tuning = options.tuning;
     return {
       contentVersion: options.contentVersion,
       now: options.now,
@@ -137,6 +141,15 @@ export function createContextFactory(options: ContextFactoryOptions) {
       economy,
       faction,
       mail,
+      tuning:
+        authDeps && request && tuning
+          ? createTuningServices({
+              db: authDeps.db,
+              shared: tuning,
+              ip: request.ip,
+              hasPermission: betterAuthTuningCheck(authDeps.auth, request),
+            })
+          : undefined,
     };
   };
 }

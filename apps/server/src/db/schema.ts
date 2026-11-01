@@ -918,5 +918,49 @@ export const worldBattleResults = pgTable("world_battle_results", {
   result: jsonb("result").notNull(),
 });
 
+/**
+ * 설정 칸 덮어쓰기 — 개발자 패널(/dev/tuning, docs/adr/2026-11-01-dev-settings-panel.md 4·6절). 이 DB의 세계에서 팩 값 위에 얹는다.
+ * 칸마다 한 줄. 판 기록 표는 두지 않는다(앞뒤 값·메모는 감사 기록 tuning.*). 켤 때 저장 때의 팩 값·단위로 "가장 나중에 바꾼 것"을
+ * 고르고, 팩이 더 나중이거나 새 팩과 맞지 않는 줄은 지운다(감사 tuning.pack_won·tuning.dropped)
+ */
+export const tuningOverrides = pgTable(
+  "tuning_overrides",
+  {
+    /** 칸 ID(팩 tuning 항목 ID) */
+    id: text("id").primaryKey(),
+    value: bigint("value", { mode: "number" }).notNull(),
+    /** 저장할 때의 팩 값·팩 판(core@N). 지금 팩 값과 다르면 화면이 "팩 값이 바뀜"을 보인다 */
+    packValue: bigint("pack_value", { mode: "number" }).notNull(),
+    /** 저장할 때의 단위(@terra/shared TUNING_UNITS, 모르면 null). 새 팩에서 단위가 바뀌면 켤 때 지운다 */
+    unit: text("unit"),
+    contentVersion: text("content_version").notNull(),
+    /** 메모(0~200 코드 포인트, @terra/shared TUNING_NOTE_MAX) */
+    note: text("note"),
+    updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("tuning_overrides_id_format", sql`${table.id} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+    check("tuning_overrides_note_length", sql`${table.note} is null or char_length(${table.note}) <= 200`),
+  ],
+);
+
+/**
+ * 세계 설정 판 — 줄 하나(id = 1). 덮어쓰기를 바꾸는 트랜잭션마다 revision = revision + 1 where revision = 기대 판(두 관리자가 동시에
+ * 바꾸면 늦은 쪽이 충돌, docs/adr/2026-11-01-dev-settings-panel.md 4·8절). 줄은 서버가 켤 때 없으면 만든다
+ */
+export const tuningRevision = pgTable(
+  "tuning_revision",
+  {
+    id: smallint("id").primaryKey(),
+    revision: bigint("revision", { mode: "number" }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("tuning_revision_single", sql`${table.id} = 1`),
+    check("tuning_revision_nonnegative", sql`${table.revision} >= 0`),
+  ],
+);
+
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

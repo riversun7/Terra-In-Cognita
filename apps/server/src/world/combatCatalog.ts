@@ -3,6 +3,7 @@
 // 지금은 시험이 쓴다. 세계에서 전투를 열 때(R5) 서버가 유닛 사양을 만들 때 쓴다.
 import {
   type PackSource,
+  type TuningEntry,
   effectEntrySchema,
   itemEntrySchema,
   parseJson,
@@ -34,12 +35,15 @@ export function combatCatalogOf(source: PackSource): CombatCatalog {
   });
 }
 
-/** 팩 `tuning`(설정 칸 값): 항목 ID → 정수. 계수표는 @terra/sim combatCoefficientsFrom·societyCoefficientsFrom이 만든다 */
+/** 팩 `tuning` 항목(팩 차례). 서버의 설정 칸 접근자(src/tuning/state.ts)가 받는다 */
+export function tuningEntriesOf(source: PackSource): TuningEntry[] {
+  return entriesOf(source, "tuning.json", (raw) => tuningEntrySchema.parse(raw));
+}
+
+/**
+ * 팩 `tuning`(설정 칸 값): 항목 ID → 정수. 계수표는 @terra/sim combatCoefficientsFrom·societyCoefficientsFrom이 만든다.
+ * 팩 값 그대로다(덮어쓰기 없음). 서버 실행 중의 실효 값은 src/tuning/state.ts
+ */
 export function tuningOf(source: PackSource): Map<string, number> {
-  return new Map(
-    entriesOf(source, "tuning.json", (raw) => tuningEntrySchema.parse(raw)).map((entry) => [
-      entry.id,
-      entry.value,
-    ]),
-  );
+  return new Map(tuningEntriesOf(source).map((entry) => [entry.id, entry.value]));
 }

@@ -449,6 +449,7 @@ export {
   tuningValue,
   type TuningKey,
 } from "./tuning.ts";
+export { newTuningProblems, tuningProblems } from "./tuningChecks.ts";
 export { TEST_SOCIETY_COEFFICIENTS, type SocietyCoefficients } from "./society/coefficients.ts";
 export {
   PROTECTOR_ASSET,

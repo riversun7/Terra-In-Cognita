@@ -14,6 +14,8 @@ import {
   recipeEntrySchema,
   skillEntrySchema,
   statRowEntrySchema,
+  overlayTuningDiff,
+  tuningDiffSchema,
   tuningEntrySchema,
   unitKindEntrySchema,
 } from "@terra/content";
@@ -148,6 +150,23 @@ export function readPack(
       ]),
     ),
   };
+}
+
+/**
+ * 개발자 패널 내보내기 차이(`terra-tuning-diff`, docs/adr/2026-11-01-dev-settings-panel.md 11절)를 팩 설정 칸 값 위에 얹는다.
+ * 서버가 그 세계에서 쓰는 실효 값과 같다. 팩에 없는 ID는 얹지 않고(서버도 듣지 않는다), 팩 값이 차이의 from과 다르면 알린다
+ */
+export function withTuningDiff(tuning: ReadonlyMap<string, number>, file: string): Map<string, number> {
+  const diff = tuningDiffSchema.parse(JSON.parse(readFileSync(file, "utf8")));
+  const result = overlayTuningDiff(tuning, diff);
+  if (result.unknown.length > 0)
+    console.error(`설정 차이: 팩에 없는 칸은 건너뜀 — ${result.unknown.join(", ")}`);
+  if (result.stale.length > 0)
+    console.error(`설정 차이: 내보낼 때와 팩 값이 다른 칸(차이 값을 씀) — ${result.stale.join(", ")}`);
+  console.error(
+    `설정 차이: ${diff.contentVersion}에서 내보낸 칸 ${diff.changes.length - result.unknown.length}개를 얹음`,
+  );
+  return result.values;
 }
 
 /** 세력마다 일꾼 수를 바꿔 전체 유닛이 약 total개가 되게 한다(속도 측정용) */

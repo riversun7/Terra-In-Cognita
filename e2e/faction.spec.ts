@@ -1,5 +1,6 @@
 // 세력 화면 시험 — /faction(D-439, 기획 46). 실제 자료만 보는 플레이어와 시안 자료를 켠 dev.
-// - 플레이어: 세력 없음(개인), 여섯 칸은 "곧 열림", 시안 자료 스위치 없음. faction.overview를 preview 없이 묻는다.
+// - 플레이어: 첫 접속에서 든 시험 NPC 세력(실제 자료). 세력 없음(개인) 화면은 응답을 개인으로 고쳐 본다(여섯 칸은 "곧 열림", 시안 자료
+//   스위치 없음). faction.overview를 preview 없이 묻는다.
 // - dev + 시안 자료(test.use의 preview): 시안 장면(apps/server/src/factionScreen/preview.ts) — 나라 Solace(자본주의), 도시 4
 //   (민심 네 단계), 외교 4 + 정원사(글 한 줄), 전쟁 2(공성 선포·공격 변), 투표 4(열린 3, 시장 임명 포함), 지분 4(민주주의 도시
 //   하나는 배당 없음), 점령 처리 2(복원 모금 지분). 칸마다 "시험 자료". 곧 열림 단추는 WebSocket 명령을 보내지 않는다.
@@ -63,8 +64,28 @@ async function openFaction(page: Page): Promise<void> {
   await expect(page.locator("section.faction .faction-side")).toBeVisible({ timeout: 20_000 });
 }
 
+/**
+ * faction.overview → 세력 없는 개인. player는 첫 접속에서 시험 NPC 세력에 들었으므로(docs/adr/2026-11-01-first-login-cyborg.md)
+ * "세력 없음" 화면은 응답을 바꿔 본다(세력을 떠나거나 잃은 사이보그의 화면)
+ */
+const asIndividual = (data: unknown): void => {
+  if (typeof data !== "object" || data === null) throw new Error("faction.overview 응답 모양이 다릅니다");
+  Reflect.set(data, "stage", "individual");
+  Reflect.set(data, "faction", null);
+};
+
 test.describe("플레이어(실제 자료만)", () => {
   test.use({ account: "player" });
+
+  test("첫 접속에서 고른 세력(시험 NPC 세력)에 들어 있다", async ({ page, deviceErrors }) => {
+    await rewriteTrpc(page, { "summary.get": hideSummary });
+    await openFaction(page);
+    const screen = page.locator("section.faction");
+    await expect(screen.locator(".faction-name-text")).toHaveText("s3_test_npc");
+    await expect(screen.getByRole("heading", { name: message("ko", "faction_none_title") })).toHaveCount(0);
+    await expect(screen.locator(".preview-notice")).toHaveCount(0);
+    expect(deviceErrors).toEqual([]);
+  });
 
   test("세력 없음(개인), 여섯 칸은 곧 열림, 시안 스위치 없음, 곧 열림 단추는 명령을 보내지 않는다", async ({
     page,
@@ -72,6 +93,7 @@ test.describe("플레이어(실제 자료만)", () => {
   }) => {
     const calls = watchTrpc(page);
     const commands = watchCommands(page);
+    await rewriteTrpc(page, { "faction.overview": asIndividual });
     await openFaction(page);
     const screen = page.locator("section.faction");
     await expect(screen.locator("h1")).toHaveText(message("ko", "nav_faction"));
@@ -244,7 +266,7 @@ test.describe("dev 시안 자료", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  test("시안 스위치를 끄면 실제 자료(세력 없음)로 다시 묻고, 켜면 시안 장면으로 돌아온다", async ({
+  test("시안 스위치를 끄면 실제 자료(첫 접속에서 든 시험 NPC 세력)로 다시 묻고, 켜면 시안 장면으로 돌아온다", async ({
     page,
     deviceErrors,
   }) => {
@@ -255,7 +277,7 @@ test.describe("dev 시안 자료", () => {
     await expect(toggle).toBeChecked();
     await screen.locator(".screen-switch").click();
     await expect(toggle).not.toBeChecked();
-    await expect(screen.getByRole("heading", { name: message("ko", "faction_none_title") })).toBeVisible();
+    await expect(screen.locator(".faction-name-text")).toHaveText("s3_test_npc");
     await expect(screen.locator(".preview-notice")).toHaveCount(0);
     await screen.locator(".screen-switch").click();
     await expect(screen.locator(".faction-name-text")).toHaveText("Solace");

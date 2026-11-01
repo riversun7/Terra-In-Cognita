@@ -23,7 +23,7 @@ import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import type { PlainMessageKey } from "../ui/messageRef.ts";
 import { text } from "../ui/text.ts";
 import { useMountFocus } from "../ui/useMountFocus.ts";
-import { markCyborgCreated } from "./cyborgGate.ts";
+import { markCyborgCreated, refreshCyborgGate } from "./cyborgGate.ts";
 import { sendCyborgCommand } from "./cyborgCommands.ts";
 import { LooksStep, NameStep } from "./nameLookSteps.tsx";
 import { CityStep, DescentStep, FactionStep } from "./placeSteps.tsx";
@@ -119,10 +119,10 @@ export default function StartScreen({ user }: { user: AccountView }) {
   const data = load.status === "ready" ? load.data : null;
   const place = data ? pickPlace(data, factionId, cityId) : { faction: undefined, city: undefined };
 
-  // 이미 만든 계정(다른 기기에서 만듦 등)은 홈으로
+  // 이미 만든 계정(다른 기기에서 만듦 등): 길잡이 상태를 다시 물으면 틀이 홈으로 보낸다(바로 홈으로 가면 낡은 상태가 되돌려 보낸다)
   useEffect(() => {
-    if (data?.created) navigate({ route: "home" }, { replace: true });
-  }, [data?.created]);
+    if (data?.created) void refreshCyborgGate(user.id);
+  }, [data?.created, user.id]);
 
   const index = START_STEPS.indexOf(step);
   const goTo = useCallback(

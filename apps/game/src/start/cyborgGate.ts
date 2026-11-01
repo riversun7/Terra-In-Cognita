@@ -4,11 +4,12 @@
 // - 사이보그가 없으면 아래 예외 밖의 주소를 /start로 바꾼다(replace). 만들면 홈으로.
 //   예외: 설정(언어·테마·로그아웃). dev·admin은 더 관리자·개발자 도구·지도(전체 보기·시험 일꾼은 지도 안의 개발 도구다).
 // - 묻기에 실패하면 막지 않는다(화면들은 사이보그가 없어도 빈 상태로 돈다). 서버가 만들기·읽기 권한을 늘 다시 본다.
-// 첫 화면 묶음에 들어간다: 요청은 net/homeQueries.ts를 동적 import()로 부른다(tRPC 클라이언트를 이 묶음에 넣지 않는다).
+// 첫 화면 묶음에 들어간다: 요청은 cyborgStatusQuery.ts를 동적 import()로 부른다(tRPC 클라이언트를 이 묶음에 넣지 않는다).
 import type { Role, RouteId } from "@terra/shared";
 import type { CyborgAppearance } from "@terra/shared/cyborg";
 import { useEffect, useSyncExternalStore } from "react";
 import { refreshSession } from "../auth/session.ts";
+import type { CyborgStatusResult } from "./cyborgStatusQuery.ts";
 
 export type CyborgGateState =
   | { readonly status: "idle" }
@@ -81,12 +82,29 @@ export function refreshCyborgGate(userId: string): Promise<void> {
   return check(userId);
 }
 
+/** 조각 받기 + 조회. 조각이 오지 않거나 실패해도 REQUEST_TIMEOUT_MS 안에 끝난다(그러면 막지 않는다) */
+async function fetchStatus(): Promise<CyborgStatusResult> {
+  const failed: CyborgStatusResult = { ok: false, sessionEnded: false };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<CyborgStatusResult>((resolve) => {
+    timer = setTimeout(() => resolve(failed), REQUEST_TIMEOUT_MS);
+  });
+  const load = import("./cyborgStatusQuery.ts").then(
+    (module) => module.loadCyborgStatus(AbortSignal.timeout(REQUEST_TIMEOUT_MS)),
+    () => failed,
+  );
+  try {
+    return await Promise.race([load, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function check(userId: string): Promise<void> {
   request += 1;
   const mine = request;
   if (state.status === "idle" || state.userId !== userId) set({ status: "checking", userId });
-  const { loadCyborgStatus } = await import("../net/homeQueries.ts");
-  const result = await loadCyborgStatus(AbortSignal.timeout(REQUEST_TIMEOUT_MS));
+  const result = await fetchStatus();
   if (mine !== request) return;
   if (!result.ok) {
     if (result.sessionEnded) void refreshSession();

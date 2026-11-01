@@ -6,7 +6,6 @@
 // - tRPC 클라이언트(net/api.ts)가 첫 화면 묶음에 들어가지 않게 늘 동적으로만 부른다(settings/accountSync.ts와 같은 방식, ADR 37 7·11절).
 //   첫 화면 모듈은 이 파일에서 타입만 가져온다(inbox/firstScreen.test.ts가 본다).
 // - 실패는 값으로 돌려준다(문구 키는 net/apiErrors.ts).
-import type { CyborgStatusResponse } from "@terra/shared/cyborg";
 import type { DashboardCardsResponse } from "@terra/shared/dashboard";
 import type { InboxListResponse, SummaryGetResponse } from "@terra/shared/inbox";
 import { getSessionState } from "../auth/session.ts";
@@ -81,19 +80,6 @@ export async function loadCards(
       { ids: [...ids], ...(preview ? { preview: true } : {}) },
       { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
     );
-    return { ok: true, data };
-  } catch (error) {
-    return failure(error);
-  }
-}
-
-/**
- * 사이보그가 있는지(cyborg.status, docs/adr/2026-11-01-first-login-cyborg.md 1절). 첫 화면의 틀 길잡이(start/cyborgGate.ts)가
- * 로그인 직후 처리할 일·복귀 요약과 같은 틱에 부른다(같은 HTTP 요청으로 묶인다)
- */
-export async function loadCyborgStatus(signal: AbortSignal): Promise<HomeQueryResult<CyborgStatusResponse>> {
-  try {
-    const data = await api.cyborg.status.query(undefined, { signal });
     return { ok: true, data };
   } catch (error) {
     return failure(error);

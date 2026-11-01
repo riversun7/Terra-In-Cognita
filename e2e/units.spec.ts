@@ -135,7 +135,7 @@ test.describe("dev + 시안 자료", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  test("사이보그 시안: 레벨·인공장기·인벤토리·랭킹, 시안 스위치를 끄면 본체 안내", async ({
+  test("사이보그 시안: 레벨·인공장기·인벤토리·랭킹, 시안 스위치를 끄면 첫 접속에서 만든 본체", async ({
     page,
     deviceErrors,
   }) => {
@@ -164,12 +164,15 @@ test.describe("dev + 시안 자료", () => {
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);
     await page.locator(".roster-preview-switch").click();
-    await expect(page.getByText(message("ko", "cyborg_body_later"))).toBeVisible({ timeout: 15_000 });
+    // 실제 자료: 전역 준비가 첫 접속으로 만든 본체(레벨 1, 시안 표시 없음)
+    await expect(page.locator(".cyborg-name")).toHaveText("E2EDev", { timeout: 15_000 });
+    await expect(page.locator(".cyborg-profile .roster-meta").first()).toContainText("Lv 1 / 50");
+    await expect(page.locator(".roster-tag-preview")).toHaveCount(0);
     expect(deviceErrors).toEqual([]);
   });
 });
 
-// admin으로 받는다: dev는 vision.spec.ts가 "처음에는 내 유닛 0개"를 보므로 이 시험이 dev에게 일꾼을 주면 그 시험이 깨진다
+// admin으로 받는다: dev는 vision.spec.ts가 처음 유닛 수(사이보그 본체)를 기준으로 보므로 여기서 dev에게 일꾼을 주지 않는다
 test.describe("admin + 실제 자료", () => {
   test.use({ account: "admin" });
 

@@ -52,7 +52,11 @@
 - 같은 시작 도시에 사이보그가 붙어 선다(시험 2차맵 하나·도시 하나). 붐빔 표시는 시작한 수만 센다.
 
 ## 검사
-- (뒤에 채움)
+- Verified: `TEST_DATABASE_URL=postgres://terra@127.0.0.1:55432/postgres pnpm check` 통과 — 시험 파일 299개·시험 2,556개(DB 시험 포함), 다국어 1,797키, 콘텐츠 core@13. `pnpm check:docs`·`check:content`·`docs:index --check` 통과.
+- Verified: 서버 규칙 시험 — `apps/server/src/cyborg/cyborg.db.test.ts` 4개(굴림 합 60·칸 1~20·처음 1 + 다시 3·다 쓰면 rolls_exhausted·다시 켜도 횟수 남음 / 굴림 없이·이름 규칙·사칭·대소문자 무시 고유·외형·세력·도시·계정당 하나 / 시작 도시 둘레 내 유닛(종류 3)·시야로 2차맵 열림·한 커밋·보유 유닛 밖·다시 켜도 그대로·불변 조건 0 / 잃은 본체 다시 놓기 I13), `gateway.test.ts` 3개, `cyborgName.test.ts` 8개·`cyborgLooks.test.ts` 5개, `cyborgStats.test.ts`(시드 2000개 합·범위·평균 14·8·10·표준편차), 프로토콜 4개, 길잡이 4개.
+- Verified: 화면 시험 전체 `pnpm e2e` 175개 중 174 통과·1 건너뜀(측정 시험, `E2E_MEASURE=1`일 때만), 12.6분. 새 `first-login.spec.ts` 5개 통과(새 플레이어 만들기 끝까지 약 10초).
+- Verified: 첫 화면 JS `pnpm check:bundle` 130,849B / 상한 131,416B(남음 567B). 앞 main(d443 기록 129,802B) 대비 약 +1KB: 길잡이 저장소·프로토콜 4 스키마(첫 화면 `schemas` 조각)·주소 줄. 상한은 올리지 않았다.
+- 사진(390px × 파스텔·다크 × 한국어·영어, 단계 여섯 + 만든 뒤 2차맵): 저장소 밖 `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/first-login/shots/`.
 
 ## 사용자 결정 대기
 - 없음(168~179는 D-445로 답 받음). 새 기획 질문은 180부터(이번에 낸 것 없음).

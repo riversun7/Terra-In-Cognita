@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-02 08:40 | 아이템 편집기 핵심 합치기, 질문 291·분류 목록 사용자 답 | Claude Code | [02-0840-merge-item-editor](worklog/2026/11/02-0840-merge-item-editor.md) |
 | 2026-11-02 02:57 | 아이템 편집기(/dev/items): 팩 형식 넓힘, 덮어쓰기 층 보강, 서버 API, 화면(WP-1~WP-4) | Claude Code | [02-0257-item-editor](worklog/2026/11/02-0257-item-editor.md) |
 | 2026-11-01 23:02 | 아이템 편집기 설계(조사·설계·비판·고친 판), 질문 285~290 | Claude Code(다중 에이전트 워크플로: 조사 3 → 설계 → 비판 → 고친 판) | [01-2302-item-editor-design](worklog/2026/11/01-2302-item-editor-design.md) |
 | 2026-11-01 21:50 | 개발자 모드 계산식 편집기(사용자 결정 D-488) | Claude Code | [01-2150-formulas](worklog/2026/11/01-2150-formulas.md) |

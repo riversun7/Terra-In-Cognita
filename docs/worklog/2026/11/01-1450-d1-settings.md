@@ -24,7 +24,7 @@
   - 사이보그 명령은 시작할 때 받은 값 한 벌만 쓴다(`grantFor`에 규칙을 넘김). `/start` 화면은 굴림·분배가 거절되면 만들기 자료(규칙)를 다시 받는다.
 - 화면(`apps/game/src/editor/tuning/`, `/dev/tuning`, 틀 안·촘촘)
   - 요약 칩(팩 판·세계 설정 판·칸 수·바꾼 칸·서버 즉시), 찾기·무리·거르기(전체·바꾼 것·서버 즉시), 49 무리 차례 칸 줄(코드·이름·구조 값·범위 칩, ID·단위·범위, 지금·팩·차이·범위 막대, 바꾼 사람·시각·메모), 줄 안 값 칸 → [담기], 화면 아래 담은 변경 막대(메모·[적용]·[비우기]), 구조 값 확인 창, 판 충돌이면 목록을 다시 받고 담은 것은 남김, [내보내기] 창(JSON·파일·복사), [모두 되돌리기] 확인 창, 최근 바꿈, "49 칸 중 N개 연결".
-  - 49 칸 목록 자료: `pnpm settings:cells`(`scripts/build-settings-cells.mjs`)가 49 문서 칸 표(278칸, X 충돌 기록 뺌)에서 `settingsCells.json`을 만든다. 49가 바뀌었는데 다시 만들지 않으면 `scripts/build-settings-cells.test.mjs`가 실패한다.
+  - 49 칸 목록 자료: `pnpm settings:cells`(`scripts/build-settings-cells.mjs`)가 49 문서 칸 표(279칸 — main의 49 미러 7e7dc3e를 합친 뒤, X 충돌 기록 뺌)에서 `settingsCells.json`을 만든다. 49가 바뀌었는데 다시 만들지 않으면 `scripts/build-settings-cells.test.mjs`가 실패한다.
   - 조각 `TuningPanelScreen-*`는 미리 캐시에서 뺐다(`DEV_ONLY_CHUNK` `[Tt]uningPanel`, `DEV_ONLY_SOURCE` `editor/tuning/`, `globIgnores`). 메시지 키 `dev_tuning_*` 등 132개(ko·en).
 
 ### 꼬임 점검(사용자 답 204) — 찾은 것과 막은 것

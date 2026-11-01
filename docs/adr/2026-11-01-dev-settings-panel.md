@@ -2,7 +2,7 @@
 
 - 상태: 제안 (사용자 답 204~206 = 기획 D-461, 질문 207 = 기획 D-462 반영, 2026-11-01)
 - 날짜: 2026-11-01
-- 관련: docs/PLAN.md 7장(설정값)·11장(개발자 페이지 D1), ADR `2026-10-31-roadmap-to-launch.md`(D1 행 "반영은 배포" — 사용자 답 204로 이 ADR이 바꾼다), `2026-10-28-content-pack-format.md`(분류 형식에 칸을 더한다), `2026-10-29-planet-editor-stage1.md`(ADR 38: 개발자 영역 `/dev`·권한 두 겹·감사 기록·속도 제한·미리 캐시 규칙), `2026-10-31-faction-society-core.md`("설정 칸 대응"), `2026-11-01-first-login-cyborg.md`(사이보그 만들기·정착 지원금), `2026-10-31-n1-real-time-gate.md`(D-410 "설정값을 바꾸지 않고" — 사용자 답 205로 관문 중 조정 허용), `2026-11-01-ui-visibility.md`, 기획 D-5032·D-5054·D-335·D-329·D-398·D-410·D-461·D-462, 49 §0·§9 X11·§10, 질문 `docs/questions/2026-11-01-d1.md`(204~207)
+- 관련: docs/PLAN.md 7장(설정값)·11장(개발자 페이지 D1), ADR `2026-10-31-roadmap-to-launch.md`(D1 행 "반영은 배포" — 사용자 답 204로 이 ADR이 일부 대체), `2026-10-28-content-pack-format.md`(분류 형식에 칸을 더한다), `2026-10-29-planet-editor-stage1.md`(ADR 38: 개발자 영역 `/dev`·권한 두 겹·감사 기록·속도 제한·미리 캐시 규칙), `2026-10-31-faction-society-core.md`("설정 칸 대응"), `2026-11-01-first-login-cyborg.md`(사이보그 만들기·정착 지원금), `2026-10-31-n1-real-time-gate.md`(D-410 "설정값을 바꾸지 않고" — 사용자 답 205 = D-461로 관문 중 조정 허용, 일부 대체), `2026-11-01-ui-visibility.md`, 기획 D-5032·D-5054·D-335·D-329·D-398·D-410·D-461·D-462, 49 §0·§9 X11·§10, 질문 `docs/questions/2026-11-01-d1.md`(204~207)
 
 ## 배경
 - 지금(Verified: main `5981da7`)
@@ -136,7 +136,7 @@
   - 값 없음(`no_value`): 연결되지 않았고 49에 출발값이 없다(출발값 칸이 —, 또는 비고에 "출발값 없음").
   - 연결 없음(`not_connected`): 49에 출발값은 있지만 코드가 읽지 않는다.
 - 자료: 49 문서가 기계로 읽는 표를 따로 두지 않아서 `pnpm settings:cells`(`scripts/build-settings-cells.mjs`)가 `docs/design/40_Systems/49_Settings.md`의 칸 표(9장 충돌 처리 X는 뺀다)를 읽어 `apps/game/src/editor/tuning/settingsCells.json`(코드·장·이름·무엇·단위·출발값·근거·값 없음)을 쓴다. 손으로 고치지 않는다. 49 미러를 동기화한 뒤 다시 만들지 않으면 `pnpm check`의 시험이 실패한다(`scripts/build-settings-cells.test.mjs`, `--check`도 같다).
-- 상태는 기기가 셈한다(목록 JSON + `tuning.list`의 칸 코드). JSON은 패널 조각에만 든다(미리 캐시 밖, 약 89KB).
+- 상태는 기기가 셈한다(목록 JSON + `tuning.list`의 칸 코드). JSON은 패널 조각에만 든다(미리 캐시 밖, 약 90KB, 2026-11-01 49 미러 7e7dc3e 기준 279칸).
 
 ## 사용자 결정 (2026-11-01, 질문 204~206 답, 통합 담당이 전함)
 | 질문 | 원문 | 반영 |

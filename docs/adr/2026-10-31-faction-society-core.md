@@ -318,5 +318,5 @@
 - `society/settlementGrant.ts` `settlementGrant`·`grantMultiplierPm`. 계수 `cyborg.grantBase`·`grantMaxPm`·`grantMinPm`·`grantStepPm`(팩 `n39_grant_base` 72·`n39_grant_max` 1500·`n39_grant_min` 1000·`n39_grant_step` 50, 설정값 출발값). 서버 지급(국고 → 사용자, 한 번)은 첫 접속 ADR "바뀜 (D-455)" 1.
 
 ### 5. 결과
-- 185·186·189는 지금 그대로다. 시뮬은 사이보그·생활비 미납을 돌리지 않아 결과가 같다("바뀜 (D-450~D-453)" 7과 같은 확인을 D-455 뒤에 다시 했다 — 작업 기록 "검사").
+- 185·186·189는 지금 그대로다. 시뮬은 사이보그·생활비 미납을 돌리지 않아 결과가 같다(Verified: D-455 뒤 시드 1·180일 두 번 바이트 같음·위반 0, 줄 해시 stub16 `67e91286`·econ16 `dce03fe8` — 팩 해시가 N39 항목으로 또 바뀌어서다. main `f872151` 출력과 콘텐츠 칸을 빼고 비교하면 947·3,570줄과 요약이 모두 같다).
 

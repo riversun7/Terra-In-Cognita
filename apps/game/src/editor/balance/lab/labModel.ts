@@ -24,6 +24,9 @@ export interface Selection {
   readonly index: number;
 }
 
+/** 유닛 더하기 기본값 = 새 사이보그 샘플(기본 무기·장비·스킬, D-490) */
+export const DEFAULT_UNIT_PRESET = "sample_new_cyborg";
+
 /** 처음 팀(목록을 받기 전): 편마다 새 사이보그 하나 */
 export function initialTeams(): Teams {
   return {

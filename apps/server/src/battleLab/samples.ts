@@ -24,10 +24,17 @@ const p = (str: number, vit: number, int: number, wis: number, dex: number, agi:
 const elements = (values: Partial<Record<number, number>>): number[] =>
   Array.from({ length: 12 }, (_, index) => values[index] ?? 0);
 
+// 모든 샘플은 기본 무기·장비와 그 무기에 맞는 스킬 1~2개를 든다(D-490, D-467 ② 정정). 스킬 기반(물리·속성)은 든 무기에
+// 그 칸이 있게 고른다(물리 스킬 ↔ 칼, 속성 스킬 ↔ 속성 지팡이). 크리쳐는 무기 칸이 없어 타고난 무기(발톱)를 쓴다.
+// 사람형 칸: 0 무기·1 보조·2 머리·3 몸·4·5 장신구. 사이보그는 6~8 인공장기를 더한다. 크리쳐는 0 장신구·1 안장.
+
 const NEW_CYBORG: LabUnit = {
   ...newLabUnit("cyborg"),
   // 생성 규칙(D-450): 4원소 두 칸에 10점
   elements: elements({ 2: 6, 6: 4 }),
+  weapon: { kind: "item", id: "test_sword", pm: 0 },
+  equipment: [{ slot: 3, item: "test_vest", pm: 0 }],
+  skills: [{ id: "power_strike", grade: 1 }],
 };
 
 const WARRIOR: LabUnit = {
@@ -37,7 +44,6 @@ const WARRIOR: LabUnit = {
   kPm: p(1100, 1000, 900, 900, 1000, 1000),
   elements: elements({ 2: 5, 4: 5 }),
   weapon: { kind: "item", id: "test_sword", pm: 500 },
-  // 사람형 칸: 0 무기·1 보조·2 머리·3 몸·4·5 장신구
   equipment: [
     { slot: 2, item: "test_helmet", pm: 500 },
     { slot: 3, item: "test_vest", pm: 500 },
@@ -45,7 +51,6 @@ const WARRIOR: LabUnit = {
   ],
   skills: [
     { id: "power_strike", grade: 1 },
-    { id: "war_cry", grade: 1 },
     { id: "shock_bash", grade: 1 },
   ],
   row: "front",
@@ -58,7 +63,6 @@ const TANK: LabUnit = {
   kPm: p(1000, 1200, 900, 1000, 900, 900),
   elements: elements({ 6: 10 }),
   weapon: { kind: "item", id: "test_sword", pm: 200 },
-  // 사이보그 칸: 0 무기·1 보조·2 머리·3 몸·4·5 장신구·6~8 인공장기
   equipment: [
     { slot: 2, item: "test_helmet", pm: 1000 },
     { slot: 3, item: "test_vest", pm: 1000 },
@@ -66,9 +70,8 @@ const TANK: LabUnit = {
   ],
   gear: { ...emptyLabGear(), defenseFlat: 3 },
   skills: [
-    { id: "iron_skin", grade: 1 },
     { id: "shock_bash", grade: 1 },
-    { id: "first_aid", grade: 1 },
+    { id: "iron_skin", grade: 1 },
   ],
   row: "front",
 };
@@ -79,13 +82,15 @@ const MAGE_FIRE: LabUnit = {
   initial: p(6, 8, 16, 12, 10, 8),
   kPm: p(900, 900, 1200, 1100, 1000, 900),
   elements: elements({ 2: 10 }),
-  // 화염 지팡이: 장비 스킬 화염 폭발(범위). 고유 스킬은 불꽃 화살(등급 2)·화염 폭발
+  // 화염 지팡이(속성 칸, 장비 스킬 화염 폭발). 고유 스킬은 불꽃 화살(등급 2)·화염 폭발
   weapon: { kind: "item", id: "fire_staff", pm: 500 },
-  equipment: [{ slot: 4, item: "test_ring", pm: 0 }],
+  equipment: [
+    { slot: 3, item: "test_vest", pm: 0 },
+    { slot: 4, item: "test_ring", pm: 0 },
+  ],
   skills: [
     { id: "fire_bolt", grade: 2 },
     { id: "flame_burst", grade: 1 },
-    { id: "war_cry", grade: 1 },
   ],
   row: "back",
 };
@@ -96,12 +101,15 @@ const HEALER: LabUnit = {
   initial: p(6, 10, 12, 16, 8, 8),
   kPm: p(900, 1000, 1000, 1200, 900, 1000),
   elements: elements({ 0: 10 }),
-  // 빛 지팡이: 장비 스킬 빛의 치유(아군 회복)·빛의 수호(아군 쉴드). 고유 스킬로 앞에 두어 먼저 쓴다
+  // 빛 지팡이(속성 칸, 장비 스킬 빛의 치유·빛의 수호). 고유 스킬로 앞에 두어 먼저 쓴다
   weapon: { kind: "item", id: "light_staff", pm: 500 },
+  equipment: [
+    { slot: 2, item: "test_helmet", pm: 0 },
+    { slot: 3, item: "test_vest", pm: 0 },
+  ],
   skills: [
     { id: "light_heal", grade: 2 },
     { id: "radiant_ward", grade: 1 },
-    { id: "first_aid", grade: 1 },
   ],
   row: "middle",
 };
@@ -112,10 +120,8 @@ const WOLF: LabUnit = {
   initial: p(12, 10, 4, 6, 12, 16),
   kPm: p(1000, 900, 800, 900, 1100, 1200),
   elements: elements({ 4: 4 }),
-  skills: [
-    { id: "power_strike", grade: 1 },
-    { id: "shock_bash", grade: 1 },
-  ],
+  equipment: [{ slot: 0, item: "test_ring", pm: 0 }],
+  skills: [{ id: "power_strike", grade: 1 }],
   row: "front",
 };
 
@@ -125,9 +131,10 @@ const GOLEM: LabUnit = {
   initial: p(16, 18, 6, 8, 6, 6),
   kPm: p(1100, 1200, 800, 900, 800, 800),
   elements: elements({ 6: 8, 7: 4 }),
+  equipment: [{ slot: 0, item: "test_ring", pm: 1000 }],
   skills: [
-    { id: "iron_skin", grade: 2 },
     { id: "shock_bash", grade: 1 },
+    { id: "iron_skin", grade: 2 },
   ],
   row: "front",
 };

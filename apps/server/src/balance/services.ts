@@ -47,6 +47,15 @@ export const BALANCE_DEFAULTS = {
   limitSec: 120,
 } as const;
 
+/**
+ * 기준 유닛 기본값의 무기(D-490: 기본 유닛은 기본 무기를 든다): 팩 무기 가운데 물리 칸이 있는 첫 무기, 없으면 맨손.
+ * 장비·스킬은 이 대결 모양에 없다(전투 실험실 샘플이 장비·스킬까지 든다)
+ */
+function defaultsOf(weapons: ReadonlyMap<string, WeaponSpec>) {
+  const first = [...weapons].find(([id, weapon]) => id !== BALANCE_UNARMED && weapon.physical);
+  return { ...BALANCE_DEFAULTS, weapon: first?.[0] ?? BALANCE_UNARMED };
+}
+
 export interface BalanceLimits {
   /** 사용자마다 대결 속도 제한 */
   duelsPerUser: { capacity: number; refillPerMinute: number };
@@ -132,7 +141,7 @@ export function createBalanceServices(deps: {
         revision: snapshot.revision,
         rows,
         weapons: [...weaponSpecs()].map(([id, weapon]) => weaponView(id, weapon)),
-        defaults: BALANCE_DEFAULTS,
+        defaults: defaultsOf(weaponSpecs()),
       });
     },
 

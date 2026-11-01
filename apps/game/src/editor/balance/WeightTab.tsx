@@ -99,6 +99,7 @@ export function WeightTab({ data, locale }: { data: LabData; locale: string }) {
   const problem = useLiveLines();
   const duelProblem = useLiveLines();
   const contributionSeq = useRef(0);
+  const weaponSeeded = useRef(false);
 
   const fail = (target: typeof problem, error: unknown): BalanceErrorInfo => {
     const info = balanceErrorOf(error);
@@ -113,6 +114,11 @@ export function WeightTab({ data, locale }: { data: LabData; locale: string }) {
         setLoad({ status: "ready", table });
         // 기준 유닛은 처음 한 번만 기본값으로 채운다(사용자가 고친 값은 그대로)
         setPrimaries((previous) => previous ?? primariesText(table.defaults.primaries));
+        // 기본 무기도 처음 한 번만(D-490: 기준 유닛은 기본 무기를 든다)
+        if (!weaponSeeded.current) {
+          weaponSeeded.current = true;
+          setWeapon(table.defaults.weapon);
+        }
         return table;
       },
       (error: unknown) => {

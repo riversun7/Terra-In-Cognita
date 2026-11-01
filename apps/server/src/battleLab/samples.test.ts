@@ -34,6 +34,26 @@ describe("샘플 프리셋([임시] 수치, 읽기 전용)", () => {
     }
   });
 
+  it("D-490: 유닛 샘플마다 기본 무기(크리쳐는 타고난 무기)·장비와 스킬 1~2개, 스킬 기반 칸이 든 무기에 있다", () => {
+    const skills = new Map(catalog.skills.map((skill) => [skill.id, skill]));
+    for (const preset of LAB_SAMPLES) {
+      const units = preset.kind === "unit" ? [preset.data] : preset.data.units;
+      for (const unit of units) {
+        const kind = catalog.unitKinds.find((entry) => entry.id === unit.kind);
+        const hasWeaponSlot = kind?.slots.includes("weapon") ?? false;
+        if (hasWeaponSlot) expect(unit.weapon.kind, preset.id).toBe("item");
+        expect(unit.equipment.length, preset.id).toBeGreaterThanOrEqual(1);
+        expect(unit.skills.length, preset.id).toBeGreaterThanOrEqual(1);
+        expect(unit.skills.length, preset.id).toBeLessThanOrEqual(2);
+        const weapon = buildLabUnit(unit, rules).weapon;
+        for (const entry of unit.skills) {
+          const base = skills.get(entry.id)?.base;
+          expect(base && weapon[base], `${preset.id} ${entry.id}`).toBeTruthy();
+        }
+      }
+    }
+  });
+
   it("마법사는 속성 기본 공격·불 속성 스킬, 치유사는 아군 회복, 탱커는 아머가 크다", () => {
     const mage = LAB_SAMPLES.find((preset) => preset.id === "sample_lv30_mage_fire");
     const tank = LAB_SAMPLES.find((preset) => preset.id === "sample_lv30_tank");
@@ -49,7 +69,6 @@ describe("샘플 프리셋([임시] 수치, 읽기 전용)", () => {
     expect(buildLabUnit(healer.data, rules).spec.skills.map((skill) => skill.id)).toEqual([
       "light_heal",
       "radiant_ward",
-      "first_aid",
     ]);
     expect(buildLabUnit(tank.data, rules).spec.armorHp).toBeGreaterThan(
       buildLabUnit(warrior.data, rules).spec.armorHp,

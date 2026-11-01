@@ -12,6 +12,7 @@ import { useId, useState } from "react";
 import { m } from "../../../paraglide/messages.js";
 import { NumberField } from "./fields.tsx";
 import {
+  DEFAULT_UNIT_PRESET,
   type Selection,
   type Teams,
   addUnit,
@@ -48,7 +49,9 @@ export function TeamPanel(props: {
 
   const add = (): void => {
     if (full) return;
-    let unit = newLabUnit(catalog.unitKinds[0]?.id ?? "cyborg");
+    // 기본은 새 사이보그 샘플(기본 무기·장비·스킬, D-490). 종류만 고르면 빈 몸, 프리셋이면 그 값
+    const fallback = units.find((entry) => entry.id === DEFAULT_UNIT_PRESET)?.data;
+    let unit = fallback ?? newLabUnit(catalog.unitKinds[0]?.id ?? "cyborg");
     if (adding.startsWith("kind:")) unit = newLabUnit(adding.slice(5));
     else if (adding !== "") {
       const preset = units.find((entry) => entry.id === adding);

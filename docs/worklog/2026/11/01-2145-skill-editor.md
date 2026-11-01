@@ -44,6 +44,15 @@
 - 사진(파스텔·다크 × ko·en × 390·1440, 스킬 칸·행동별 소모 표 16장): `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/skill-editor/shots/` (저장소 밖). 넘침·작은 누르는 곳 검사 통과.
 - `pnpm check:bundle`: 첫 화면 JS 104,409 B / 상한 131,416 B(편집기는 지연 조각). `pnpm check:content 5c621d3`: core@21 통과(호환 4b 포함).
 
+## main 합치기 (b9a25a6: 전투 다시보기·마법 스킬, 통합 담당 요청)
+- 충돌 18파일을 풀었다. 판정 코어(`combat/battle.ts`·`skills.ts`)는 둘 다 둔다: 다시보기 기록기(`trace`) 칸·훅(`resolveSkill`·`applyParts`·`tickEffects`·기본 공격)과 이 가지의 `takeDamage` nowMs 없앰·`skillUsable` 거름. 목록 파일(주소 표·시험, `routeViews`, `ComingSoon`, 개발자 홈, `vite.config` globIgnores, PWA 규칙·시험, tRPC router·context·createContext, `app.ts`, 문구 ko·en)은 둘 다. `docs/WORKLOG.md`는 다시 만들었다. `e2e/dev.spec.ts`는 개발자 도구 여덟 줄(스킬 편집기·전투 다시보기).
+- 시범 6 대 6(`packages/sim/src/combat/replayDemo.ts`): 맨손 규칙 아래에서 전사·수호자(칼 = 물리)와 마법사(속성 지팡이 = 속성)는 스킬을 그대로 쓴다. 사제는 빛 지팡이(속성 칸만)라 물리 기반 응급 처치를 쓸 수 없어 빼고, 빛 치유(heal)·빛 보호막(buff)은 그대로라 일곱 모양이 모두 나온다(시험 `replay.test.ts`). 장비 `bareHanded`·`naturalIsWeapon`을 사양에 넘긴다. 무기를 새로 쥐여 준 유닛은 없다.
+- 합친 뒤 검사
+  - 시뮬레이터(main b9a25a6 앞 · 합친 가지 뒤, 시드 1, 두 번씩 바이트 같음, 위반 0): war16 `88edea7d` → `459bae3a`(하루·전투 줄 같음, 머리·요약만), stub16 `6db997de` → `4e9f2147`(같음), econ16 `67b687fa` → `2ccc72e8`(13일 웨이브 전투부터 다름, 위와 같은 까닭). main b9a25a6의 시뮬 줄 해시는 5c621d3과 같다(다시보기는 판정을 바꾸지 않음). SIM_VERSION 5, 팩 core@21 그대로.
+  - 화면 시험: skills 12·dev 12·battle-replay 9·tuning 16 = 49 통과, 2 건너뜀(다시보기 측정 시험, `E2E_MEASURE=1`일 때만).
+  - `pnpm check:bundle` 첫 화면 JS 104,554 B / 131,416 B. `pnpm check:content origin/main` core@21 통과(4b 기준 b9a25a6).
+  - `TEST_DATABASE_URL=… pnpm check`: 통과(시험 파일 342·시험 2,903). 시뮬 두 개를 함께 돌리던 첫 번은 `packages/planet` 2차맵 이음매 시험 하나가 부하로 30초 제한을 넘어 실패했고(합친 것과 상관없는 꾸러미), 쉬는 기계에서 다시 돌려 모두 통과.
+
 ## 함께 바꿔야 하는 파일
 - 스킬 칸을 더하면: `packages/content/src/schema/combat.ts` → `packages/sim/src/combat/{skills,packCatalog}.ts` → `apps/server/src/contentEdit/views.ts`(`skillJsonOf`) → `packages/shared/src/skillEditor.ts`(`SkillJson`) → 화면 `editor/skills/SkillForm.tsx`.
 - 효과 사전 수치를 더하면: 팩 스키마 `stat` 목록 + `effects.ts ModifierStat`·`modifiersOf`.

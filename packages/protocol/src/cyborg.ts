@@ -16,22 +16,6 @@ export const CYBORG_PROTOCOL_VERSION = 4;
  */
 export const CYBORG_ELEMENTS_PROTOCOL_VERSION = 5;
 
-/** 속성 12칸 코드(D-167, @terra/shared cyborgElements ELEMENT_IDS와 같은 차례 — 서버 시험이 맞춰 본다) */
-export const CYBORG_ELEMENT_IDS = [
-  "water",
-  "frost",
-  "fire",
-  "blaze",
-  "wind",
-  "lightning",
-  "earth",
-  "crystal",
-  "light",
-  "holy",
-  "dark",
-  "necro",
-] as const;
-
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 /** 기기가 정하는 요청 번호(2차맵 명령과 같은 규칙) */
 const requestId = u32;
@@ -54,14 +38,44 @@ export const cyborgAppearanceSchema = z.strictObject({
   accent: listId,
 });
 
+/** 속성 한 칸 점수(0~10, D-182). 적지 않은 칸은 0 */
+const elementPoint = z.number().int().min(0).max(10).optional();
+
 /**
- * 속성 분배: 칸 이름 → 점수(0~10, D-182). 적지 않은 칸은 0. 모양만 본다 — 칸 수·합·4원소인지(N36 설정값)는 서버가
- * @terra/shared checkElementAllocation으로 본다
+ * 속성 분배: 칸 이름(D-167 코드, @terra/shared cyborgElements ELEMENT_IDS와 같은 차례 — 서버 시험이 맞춰 본다) → 점수. 모양만 본다 —
+ * 칸 수·합·4원소인지(N36 설정값)는 서버가 @terra/shared checkElementAllocation으로 본다. 모르는 칸은 받지 않는다.
+ * (z.record 대신 칸을 적은 객체: 첫 화면 묶음에 레코드 스키마 코드를 넣지 않는다 — 첫 화면 JS 상한, ADR 37 11절)
  */
-export const cyborgElementsSchema = z.partialRecord(
-  z.enum(CYBORG_ELEMENT_IDS),
-  z.number().int().min(0).max(10),
-);
+export const cyborgElementsSchema = z.strictObject({
+  water: elementPoint,
+  frost: elementPoint,
+  fire: elementPoint,
+  blaze: elementPoint,
+  wind: elementPoint,
+  lightning: elementPoint,
+  earth: elementPoint,
+  crystal: elementPoint,
+  light: elementPoint,
+  holy: elementPoint,
+  dark: elementPoint,
+  necro: elementPoint,
+});
+
+/** 속성 12칸 코드 차례(위 객체의 칸 차례와 같다 — cyborg.test.ts가 맞춰 본다) */
+export const CYBORG_ELEMENT_IDS = [
+  "water",
+  "frost",
+  "fire",
+  "blaze",
+  "wind",
+  "lightning",
+  "earth",
+  "crystal",
+  "light",
+  "holy",
+  "dark",
+  "necro",
+] as const satisfies readonly (keyof typeof cyborgElementsSchema.shape)[];
 
 /** 1차 스탯 여섯 */
 export const cyborgStatsSchema = z.strictObject({

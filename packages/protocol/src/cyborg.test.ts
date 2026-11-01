@@ -6,6 +6,7 @@ import {
   CYBORG_PROTOCOL_VERSION,
   CYBORG_RESULT_CODES,
   PROTOCOL_VERSION,
+  cyborgElementsSchema,
   ProtocolError,
   decodeClientMessage,
   decodeServerMessage,
@@ -51,6 +52,7 @@ describe("사이보그 만들기 메시지", () => {
 
   it("속성 분배(5): 만들기에 덧붙이거나(4판 기기는 보내지 않는다) 따로 보낸다. 칸 이름은 12속성, 값은 0~10 정수", () => {
     expect(CYBORG_ELEMENT_IDS).toHaveLength(12);
+    expect(Object.keys(cyborgElementsSchema.shape)).toEqual([...CYBORG_ELEMENT_IDS]);
     const create = {
       t: "cyborg_create",
       id: 2,

@@ -30,6 +30,7 @@ import {
 import { createSettingsServices } from "../settings/store.ts";
 import { type TuningShared, betterAuthTuningCheck, createTuningServices } from "../tuning/services.ts";
 import { type ContentEditShared, createSkillEditorServices } from "../contentEdit/services.ts";
+import { type ItemEditShared, createItemEditorServices } from "../itemEdit/services.ts";
 import type { SummaryBackend } from "../summary/summary.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type {
@@ -75,6 +76,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   balance?: BalanceServices | undefined;
   /** 스킬 편집기(src/contentEdit/services.ts 접근자·쓰기 차례). 설정 칸 패널이 있을 때만 맥락에 넣는다(권한은 tuning이 본다) */
   contentEdit?: ContentEditShared | undefined;
+  /** 아이템 편집기(같은 덮어쓰기 층 + 팩 레시피·코드 참조 표, src/itemEdit/services.ts). 설정 칸 패널이 있을 때만 */
+  itemEdit?: ItemEditShared | undefined;
   /** 전투 실험실(src/battleLab/services.ts, 앱에 하나). 설정 칸 패널이 있을 때만 맥락에 넣는다(권한은 tuning이 본다) */
   battleLab?: BattleLabShared | undefined;
   /** 전투 다시보기(src/battleReplay/services.ts, 앱에 하나). 설정 칸 패널이 있을 때만 맥락에 넣는다(권한은 tuning이 본다) */
@@ -173,6 +176,10 @@ export function createContextFactory(options: ContextFactoryOptions) {
       skills:
         authDeps && request && tuning && options.contentEdit
           ? createSkillEditorServices({ db: authDeps.db, shared: options.contentEdit, ip: request.ip })
+          : undefined,
+      items:
+        authDeps && request && tuning && options.itemEdit
+          ? createItemEditorServices({ db: authDeps.db, shared: options.itemEdit, ip: request.ip })
           : undefined,
       battleLab:
         authDeps && request && tuning && options.battleLab

@@ -47,6 +47,7 @@ import { type TuningLimits, bootTuning, createTuningShared } from "./tuning/serv
 import { type BalanceLimits, createBalanceServices } from "./balance/services.ts";
 import type { ContentEditState } from "./contentEdit/state.ts";
 import { bootContentEdit, createContentEditShared } from "./contentEdit/services.ts";
+import { createItemEditShared } from "./itemEdit/services.ts";
 import { createFormulaServices } from "./formulas/services.ts";
 import { createHeavyGate } from "./balance/gate.ts";
 import { duelRunnerOf, inlineJobRunner, workerJobRunner } from "./balance/runner.ts";
@@ -183,8 +184,11 @@ export interface AppOptions {
         limits?: Partial<BattleReplayLimits> | undefined;
       }
     | undefined;
-  /** 경제 화면 목록(팩 items·recipes 등, src/economyView/catalog.ts). 없으면 빈 목록 */
-  economyCatalog?: EconomyCatalogResponse | undefined;
+  /**
+   * 경제 화면 목록(팩 items·recipes 등, src/economyView/catalog.ts) 또는 그 접근자(실효 아이템, 아이템 편집기 덮어쓰기가 바로 든다).
+   * 없으면 빈 목록
+   */
+  economyCatalog?: EconomyCatalogResponse | (() => EconomyCatalogResponse) | undefined;
   /**
    * 시험용: 요청의 로그인 사용자를 직접 정한다(DB 없는 시험). 주면 인증 세션 조회와 WebSocket 출처 검사를 하지 않는다.
    * 운영 코드는 쓰지 않는다.
@@ -342,6 +346,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   if (contentEdit && tuningDb) {
     app.addHook("onReady", async () => bootContentEdit(tuningDb, contentEdit));
   }
+  // 아이템 편집기(/dev/items): 같은 덮어쓰기 층 위에서 돈다. 미리 보기는 설정 칸 접근자(실효 계산식)·유닛 화면 전투 자료(실효)를 쓴다
+  const itemEdit = contentEdit
+    ? createItemEditShared({
+        content: contentEdit,
+        tuning: tuningShared,
+        roster: options.roster ?? testRosterCatalog(),
+      })
+    : undefined;
 
   // 월드: DB가 있으면 저장·부팅 복구(S3 ADR 1·2절). 준비(listen·ready)는 부팅 복구가 끝날 때까지 기다린다.
   // 지형 서비스가 있으면 부팅이 행성 값(행성 서비스의 캐시 읽기·굽기)도 기다린다
@@ -488,6 +500,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       tuning: tuningShared,
       balance,
       contentEdit,
+      itemEdit,
       battleLab,
       battleReplay,
       formulas,
@@ -567,7 +580,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const metricsIntervalMs = options.metricsIntervalMs ?? 60_000;
   if (metricsIntervalMs > 0) {
     // 지표 한 줄에 붙일 값: S1 2차맵(src/world/worldStats.ts), 행성(src/planet/service.ts), 세계 설정 판·덮어쓴 칸 수
-    // (N1 지표를 설정 판으로 기간을 나눠 본다, docs/adr/2026-11-01-dev-settings-panel.md 9절)
+    // (N1 지표를 설정 판으로 기간을 나눠 본다, docs/adr/2026-11-01-dev-settings-panel.md 9절), 팩 항목 덮어쓰기 판·덮어쓴 항목 수
+    // (아이템·스킬 편집기, 관문 지표를 바꾼 시각으로 나눠 본다, docs/adr/2026-11-01-item-editor.md 4절)
+    const contentState = options.contentEdit?.state;
     const extras = (): Record<string, number> => ({
       ...world?.takeMetrics(),
       ...terrain?.takeMetrics(),
@@ -575,12 +590,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       ...(tuningState
         ? { tuningRevision: tuningState.revision(), tuningOverrides: tuningState.appliedCount() }
         : {}),
+      ...(contentState
+        ? { contentRevision: contentState.revision(), contentOverrides: contentState.appliedCount() }
+        : {}),
     });
     const stopMetrics = startServerMetrics(
       app.log,
       () => wsConnections,
       metricsIntervalMs,
-      world || planets || tuningState ? extras : undefined,
+      world || planets || tuningState || contentState ? extras : undefined,
     );
     app.addHook("onClose", async () => stopMetrics());
   }

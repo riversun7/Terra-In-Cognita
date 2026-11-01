@@ -114,18 +114,41 @@ function head(query: EconomyQuery, ready: boolean) {
   return { generatedAt: query.now, preview: query.preview, status: ready ? "ready" : "not_ready" } as const;
 }
 
+/**
+ * catalog: 경제 목록 또는 그 접근자(그 세계의 실효 아이템, 아이템 편집기 덮어쓰기가 바로 든다 — docs/adr/2026-11-01-item-editor.md 4절).
+ * 요청마다 지금 목록을 읽고, 목록이 바뀌면 호가창 물건·시안 시장 캐시를 새로 만든다
+ */
 export function createEconomyServices(options: {
-  catalog: EconomyCatalogResponse;
+  catalog: EconomyCatalogResponse | (() => EconomyCatalogResponse);
   world?: EconomyWorldSource | undefined;
 }): EconomyServices {
-  const { catalog, world } = options;
-  const bookItems = catalog.items.filter(tradesOnBook);
-  const itemIndex = new Map(catalog.items.map((item, index) => [item.id, index]));
-  /** 시장 캐시: "도시|물건" → 창 끝 칸의 결과(칸이 바뀌면 다시 만든다) */
-  const cache = new Map<string, PreviewMarketState>();
+  const { world } = options;
+  const source = options.catalog;
+  const current = typeof source === "function" ? source : () => source;
+  /** 목록 하나에서 만든 것: 호가창 물건·물건 차례·시장 캐시("도시|물건" → 창 끝 칸의 결과, 칸이 바뀌면 다시 만든다) */
+  let derived:
+    | {
+        catalog: EconomyCatalogResponse;
+        bookItems: EconomyCatalogResponse["items"];
+        itemIndex: Map<string, number>;
+        cache: Map<string, PreviewMarketState>;
+      }
+    | undefined;
+  const view = () => {
+    const catalog = current();
+    if (derived?.catalog !== catalog)
+      derived = {
+        catalog,
+        bookItems: catalog.items.filter(tradesOnBook),
+        itemIndex: new Map(catalog.items.map((item, index) => [item.id, index])),
+        cache: new Map(),
+      };
+    return derived;
+  };
 
   /** 시안 시장 하나(시야 밖 도시는 마지막 관측 시각까지) */
   const marketOf = (city: PreviewCity, itemId: string, now: number): PreviewMarketState | undefined => {
+    const { catalog, itemIndex, cache } = view();
     const item = catalog.items.find((entry) => entry.id === itemId);
     const currency = cityCurrency(catalog, city);
     if (!item || currency === null || !tradesOnBook(item)) return undefined;
@@ -152,11 +175,12 @@ export function createEconomyServices(options: {
   const homeCity = PREVIEW_CITIES[0];
 
   const ensureItem = (itemId: string): void => {
-    if (!bookItems.some((item) => item.id === itemId))
+    if (!view().bookItems.some((item) => item.id === itemId))
       throw reasonedError("NOT_FOUND", "UNKNOWN_ITEM", "unknown_item");
   };
 
   const myOrders = (now: number): { open: MyOrder[]; done: MyOrderDone[] } => {
+    const { catalog } = view();
     const open: MyOrder[] = [];
     const done: MyOrderDone[] = [];
     for (const key of Object.keys(PREVIEW_MY_PLANS)) {
@@ -211,9 +235,10 @@ export function createEconomyServices(options: {
   };
 
   return {
-    catalog: () => catalog,
+    catalog: () => view().catalog,
 
     async holdings(viewer: Viewer, query: EconomyQuery): Promise<EconomyHoldingsResponse> {
+      const { catalog } = view();
       const owner = world?.ownerOf(viewer.id);
       const real =
         owner === undefined
@@ -232,11 +257,12 @@ export function createEconomyServices(options: {
 
     production(_viewer: Viewer, query: EconomyQuery): EconomyProductionResponse {
       if (!query.preview) return { ...head(query, false), facilities: [], repeats: [], wages: [] };
-      return { ...head(query, true), ...previewProduction(catalog, query.now) };
+      return { ...head(query, true), ...previewProduction(view().catalog, query.now) };
     },
 
     marketItems(_viewer: Viewer, query: EconomyQuery): MarketItemsResponse {
       if (!query.preview || !homeCity) return { ...head(query, false), homeCity: null, items: [] };
+      const { catalog, bookItems } = view();
       const items = bookItems.map((item) => {
         let volume = 0n;
         let cities = 0;
@@ -265,6 +291,7 @@ export function createEconomyServices(options: {
 
     marketCities(_viewer: Viewer, itemId: string, query: EconomyQuery): MarketCitiesResponse {
       ensureItem(itemId);
+      const { catalog } = view();
       if (!query.preview) return { ...head(query, false), item: itemId, rows: [] };
       const rows: MarketCityRow[] = [];
       for (const city of PREVIEW_CITIES) {
@@ -298,6 +325,7 @@ export function createEconomyServices(options: {
 
     marketBook(_viewer: Viewer, itemId: string, cityId: string, query: EconomyQuery): MarketBookResponse {
       ensureItem(itemId);
+      const { catalog } = view();
       const city = PREVIEW_CITIES.find((entry) => entry.id === cityId);
       const empty = {
         item: itemId,
@@ -361,6 +389,7 @@ export function createEconomyServices(options: {
     },
 
     exchange(_viewer: Viewer, query: EconomyQuery): EconomyExchangeResponse {
+      const { catalog } = view();
       const base = catalog.baseCurrency;
       const common = { base, intervalMs: FX_INTERVAL_MS, nextAuctionAt: nextAuctionAt(query.now) };
       if (!query.preview || base === null)

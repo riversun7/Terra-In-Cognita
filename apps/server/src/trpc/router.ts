@@ -15,6 +15,7 @@ import { mailRouter } from "./mail.ts";
 import { planetEditorRouter } from "./planetEditor.ts";
 import { cyborgRouter, unitsRouter } from "./roster.ts";
 import { settingsRouter } from "./settings.ts";
+import { itemsRouter } from "./items.ts";
 import { skillsRouter } from "./skills.ts";
 import { summaryRouter } from "./summary.ts";
 import { systemRouter } from "./system.ts";
@@ -32,6 +33,7 @@ export const appRouter = router({
   balance: balanceRouter,
   // 개발자 스킬 편집기·행동별 소모 화면(docs/adr/2026-11-01-skill-editor.md 6절)
   skills: skillsRouter,
+  items: itemsRouter,
   // 개발자 전투 실험실(같은 화면의 [전투 실험실] 탭, 같은 ADR "바뀜 (2026-11-01, 전투 실험실)")
   battleLab: battleLabRouter,
   // 개발자 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 5절)

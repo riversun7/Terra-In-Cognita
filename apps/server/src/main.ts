@@ -14,7 +14,7 @@ import {
   unitKindNamesOf,
 } from "./world/combatCatalog.ts";
 import { createContentEditState } from "./contentEdit/state.ts";
-import { economyCatalogFromPack } from "./economyView/catalog.ts";
+import { economyCatalogAccessor } from "./economyView/catalog.ts";
 import { nationPresetsOf } from "./npc/presets.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
 import { createWorkerBaker } from "./planet/baker.ts";
@@ -139,7 +139,7 @@ app = await buildApp({
   ),
   // 설정 칸: 사이보그 만들기·지원금·세력 화면(공물·민심 문턱·주기)이 쓰고, 개발자 패널(/dev/tuning)이 덮어쓴다
   tuning: { state: tuning, packId: loaded.pack.manifest.packId },
-  // 스킬 편집기·행동별 소모(/dev/skills): 스킬·무기·유닛 종류 덮어쓰기, 바로 든다(D-461)
+  // 스킬 편집기·행동별 소모(/dev/skills)·아이템 편집기(/dev/items): 팩 항목 덮어쓰기, 바로 든다(D-461)
   contentEdit: { state: contentEdit },
   // 밸런스 화면(/dev/balance): 시드 대결은 요청마다 워커 스레드에서
   balance: { runner: { kind: "worker", workerUrl: balanceWorkerUrl } },
@@ -150,8 +150,8 @@ app = await buildApp({
     runner: { kind: "worker", workerUrl: battleReplayWorkerUrl },
     effectNames: effectNamesOf(loaded.source),
   },
-  // 경제 화면 목록(팩의 경제 분류, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)")
-  economyCatalog: economyCatalogFromPack(loaded.pack, content),
+  // 경제 화면 목록(팩의 경제 분류, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)"). 아이템은 실효 항목(아이템 편집기가 덮어쓴다)
+  economyCatalog: economyCatalogAccessor(loaded.pack, content, () => contentEdit.effective().items),
   // 시험 2차맵 지형 = 행성 값에서 만든 2차맵(ADR 46 WP-3). 지형 워커가 만들고 행성 캐시 폴더 아래 second-maps/에 둔다
   secondMaps: {
     props: mapPropInputsFromPack(loaded.pack),

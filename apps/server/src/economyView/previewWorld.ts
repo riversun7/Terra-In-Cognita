@@ -4,12 +4,13 @@
 // - 도시 이름은 사람·NPC가 지은 이름처럼 두 언어에서 같은 글자다(D-6046, src/inbox/preview.ts와 같다). 하나는 긴 이름(넘침 확인).
 // - 화폐는 팩 나라 프리셋 차례로 쓴다(첫 나라 = 기준 통화, R2 ADR 6절). 나라가 모자라면 돌려 쓴다.
 // - 값은 모두 [임시]다(게임 규칙·수치가 아니다). 시험 자료라 수치 근거가 없다.
-import type {
-  CatalogItemView,
-  EconomyCatalogResponse,
-  HoldingLine,
-  HoldingPlace,
-  StoreKind,
+import {
+  type CatalogItemView,
+  type EconomyCatalogResponse,
+  type HoldingLine,
+  type HoldingPlace,
+  type StoreKind,
+  marketKindOf,
 } from "@terra/shared/economy";
 
 const MINUTE = 60_000;
@@ -106,10 +107,11 @@ export function cityTaxBp(catalog: EconomyCatalogResponse, city: PreviewCity): n
 
 /**
  * 호가창(연속 체결)으로 사고파는 물건인지. 장비 같은 완제품은 경매 매물 목록(D-282), 문서는 거래하지 않음(D-152).
- * 보석은 종류·티어·등급이 옵션을 정해 같은 것끼리 바꿔 쓸 수 있으므로 호가창이다(질문 148 → D-443)
+ * 보석은 종류·티어·등급이 옵션을 정해 같은 것끼리 바꿔 쓸 수 있으므로 호가창이다(질문 148 → D-443).
+ * 규칙은 @terra/shared/economy marketKindOf 하나다(거래 불가·계정 귀속 아이템도 빠진다, 아이템 편집기)
  */
 export function tradesOnBook(item: CatalogItemView): boolean {
-  return item.category !== "equipment" && item.category !== "document";
+  return (item.market ?? marketKindOf(item)) === "book";
 }
 
 /** 그 도시·물건의 시안 기준 값(그 도시 화폐 최소 단위) */

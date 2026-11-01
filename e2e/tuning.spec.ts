@@ -56,10 +56,16 @@ async function resetTuning(page: Page): Promise<void> {
 }
 
 /** 사이보그 만들기 화면의 첫 세력 정착 지원금(문자열) */
+/**
+ * 가장 덜 붐빈 세력의 지원금(= 기본액 × 최대 배율 1500‰). 시험 세계의 NPC 국가 수·차례·붐빔은 다른 시험과 R5에 따라 바뀌므로
+ * 첫 줄이 아니라 세력들 가운데 가장 큰 값을 본다(가장 덜 붐빈 세력은 늘 최대 배율, settlementGrant)
+ */
 async function firstGrant(page: Page): Promise<unknown> {
   const creation = await trpc(page, "cyborg.creation");
   const factions = field(creation.data, "factions");
-  return Array.isArray(factions) ? field(factions[0], "grant") : undefined;
+  if (!Array.isArray(factions)) return undefined;
+  const grants = factions.map((faction) => Number(field(faction, "grant")));
+  return grants.length > 0 ? String(Math.max(...grants)) : undefined;
 }
 
 const row = (page: Page, id: string) => page.locator(`.tp-row[data-id="${id}"]`);

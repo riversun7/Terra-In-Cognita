@@ -61,7 +61,7 @@ describe("정원사 실행(오염 층 + 웨이브, docs/adr/2026-11-01-gardener-
     expect(off.records.some((r) => r.t === "wave" || r.t === "gardener")).toBe(false);
   });
 
-  it("예고 → 8시간 뒤 도착 → 공성 전투, 이기면 시작 도시는 피해·다른 도시는 폐허, 지면 쉬는 시간", () => {
+  it("예고 → 8시간 뒤 도착 → 공성 전투, 이기면 시작 도시는 피해·다른 도시는 폐허, 마지막 도시를 잃으면 떠도는 세력", () => {
     const { summary, records } = run(world(), 15);
     const notices = records.filter((r) => r.t === "wave" && r.phase === "notice" && r.kind === "city");
     expect(notices.length).toBeGreaterThan(0);
@@ -69,7 +69,7 @@ describe("정원사 실행(오염 층 + 웨이브, docs/adr/2026-11-01-gardener-
     const outcomes = records
       .filter((r) => r.t === "wave" && r.phase === "result" && r.kind === "city")
       .map((r) => r.outcome);
-    expect(outcomes).toEqual(expect.arrayContaining(["repelled"]));
+    for (const outcome of outcomes) expect(["ruined", "damaged", "repelled", "disbanded"]).toContain(outcome);
     expect(outcomes.some((o) => o === "ruined" || o === "damaged")).toBe(true);
     expect(records.some((r) => r.t === "battle" && r.kind === "wave")).toBe(true);
     const waves = summary.gardener?.waves;

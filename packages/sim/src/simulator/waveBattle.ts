@@ -2,14 +2,13 @@
 // 시뮬레이터(gardenerRun.ts → runBattle)와 서버(NPC 런타임 → 전투 서비스 battles.start)가 같은 함수로 만든다.
 // - 지도: 공성 전투맵(시나리오 siegeMapSize, 49 C3 128), 가운데 넥서스(시청). 웨이브는 서쪽 변에서, 수비는 넥서스 앞(시뮬 공성과 같은 자리).
 // - 수비: 그 도시 휴먼(앞에서부터 공성 인원 상한까지, 질문 218 가) — 시뮬 공성과 같은 [임시] 휴먼 사양(combatRun.ts specOf).
-// - 웨이브: 정원사 크리쳐 strength마리. 한 마리의 힘은 [임시] 수비 휴먼과 같은 사양(같은 1차 스탯·장비·스킬)이라 웨이브 세기는
-//   마리 수로만 정해진다(D-322 "세기 = 세력 규모"). 그 가운데 물리형(공성 크리쳐, 돌진·거대, D-273·D-5050)은 건물 피해 배율
-//   [임시] 4,000‰, 마법형은 건물을 부수지 못한다(배율 0, D-5043 "건물은 물리 피해만") — 유닛만 노린다.
-//   [임시] 진형: 물리형은 줄 끝(가운데에서 먼 자리)에 선다. 마법형이 먼저 수비와 맞붙고 공성 크리쳐가 넥서스로 간다
-//   (줄 가운데 맨 앞에 두면 공성 크리쳐가 먼저 쓰러져 웨이브가 거의 늘 졌다 — econ16 웨이브 전투 332번 중 이긴 것 1번, ADR 4절).
-//   크리쳐 종류의 타고난 무기·속성 무기로 만든 사양은 잰 결과 웨이브가 늘 시간 초과로 졌다(ADR 4절): 장비 없는 크리쳐는 장비 든
-//   휴먼보다 훨씬 약하고, 지팡이는 지금 전투에 MP 회복이 없어 MP가 떨어지면 멈춘다. 크리쳐 에디터 값(D-5024)·전투 줄기(D-457~D-459)를
-//   합친 뒤 바꾼다. 전투 공식은 건드리지 않는다(전투 API만 부른다).
+// - 웨이브: 정원사 크리쳐 strength마리. 한 마리의 몸은 [임시] 수비 휴먼과 같은 사양(같은 1차 스탯·방어구·스킬)이라 웨이브 세기는
+//   마리 수로 정해진다(D-322 "세기 = 세력 규모"). 물리형(공성 크리쳐, 돌진형, D-273·D-5050)은 칼(근접 물리)에 건물 피해 배율
+//   [임시] 4,000‰, 마법형은 지팡이(속성 무기)라 건물을 부수지 못하고(D-5043 "건물은 물리 피해만", 배율도 0) 유닛을 사거리에서 친다.
+//   [임시] 진형: 물리형은 줄 끝(가운데에서 먼 자리).
+//   잰 결과로 고른 것(ADR 4절): 크리쳐 종류의 타고난 무기는 장비 든 휴먼에게 늘 졌고, 마법형을 칼 든 건물 피해 0으로 두면 웨이브가
+//   클 때 마법형이 넥서스 둘레를 막아 공성 크리쳐가 닿지 못해 공성 제한 30분을 다 썼다(전투 하나 CPU 약 20초). 지팡이는 사거리가 길어
+//   넥서스 둘레를 막지 않는다. 크리쳐 에디터 값(D-5024)·전투 줄기 값이 생기면 바꾼다. 전투 공식은 건드리지 않는다(전투 API만 부른다).
 import type {
   Battle,
   BattleInit,
@@ -20,6 +19,7 @@ import type {
 } from "../combat/battleTypes.ts";
 import type { CombatCoefficients } from "../combat/coefficients.ts";
 import type { CombatCatalog } from "../combat/catalog.ts";
+import { itemAt } from "../combat/equipment.ts";
 import type { CombatSkill } from "../combat/skills.ts";
 import { PARTY_SIZE, kitOf, openMap, specOf } from "./combatRun.ts";
 import type { SimUnit } from "./world.ts";
@@ -29,6 +29,8 @@ export const GARDENER_SIDE_FACTION = 0;
 /** [임시] 물리형 공성 크리쳐의 건물 피해 배율(‰, 휴먼 사양은 2,000). 마법형은 0 */
 const SIEGE_BUILDING_MUL_PM = 4000;
 const MAGIC_BUILDING_MUL_PM = 0;
+/** [임시] 마법형 크리쳐의 무기(팩 시험 지팡이, 속성 무기) */
+const MAGIC_WEAPON = "test_staff";
 
 export interface WaveBattleInput {
   readonly battleId: number;
@@ -144,14 +146,27 @@ export function waveBattleInit(
   const nexus = [center - 1, center].flatMap((y) => [center - 1, center].map((x) => y * size + x));
   map.buildings = [{ id: 1, cells: nexus, durability: input.nexusDurability, nexus: true }];
   const kit = kitOf(catalog);
+  // 마법형: 같은 몸에 무기만 지팡이(속성 무기 — 건물 피해 0, 사거리가 길어 넥서스 둘레를 막지 않는다). 팩에 없으면 같은 몸
+  const staff = catalog.equipment.find((item) => item.id === MAGIC_WEAPON);
+  const magicKit = staff
+    ? {
+        ...kit,
+        equipped: kit.equipped.map((item, slot) =>
+          kit.slots[slot] === staff.slot && slot === kit.slots.indexOf(staff.slot)
+            ? itemAt(staff, 500)
+            : item,
+        ),
+      }
+    : kit;
   const skillCache = new Map<string, CombatSkill[]>();
   const units: CombatUnitSpec[] = [];
   for (let index = 0; index < input.strength; index++) {
+    const physical = index >= input.strength - input.physical;
     const spec = specOf(
       creatureUnit(input.firstCreatureId + index),
       input.creatureTech,
       catalog,
-      kit,
+      physical ? kit : magicKit,
       skillCache,
       {
         side: 1,
@@ -161,10 +176,7 @@ export function waveBattleInit(
       },
       c,
     );
-    units.push({
-      ...spec,
-      buildingMulPm: index >= input.strength - input.physical ? SIEGE_BUILDING_MUL_PM : MAGIC_BUILDING_MUL_PM,
-    });
+    units.push({ ...spec, buildingMulPm: physical ? SIEGE_BUILDING_MUL_PM : MAGIC_BUILDING_MUL_PM });
   }
   input.defenders.slice(0, input.maxDefenders).forEach((unit, index) => {
     units.push(

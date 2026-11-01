@@ -26,7 +26,7 @@
 덮어쓰기는 1(통째, 새 표 둘), 맨손은 나.
 
 ### 1. 전투 규칙 고침 (D-490)
-- **쉴드 재생은 맞는 중에도 일정하게 찬다.** `shieldRegenDelayMs`·`lastHitMs`를 없앴다(`packages/sim/src/combat/`). 팩 `n40_shield_regen_delay`를 지우고 `id-changes.json`에 `removed`(since 21, 보상 없음)로 뒤에 더했다. 세계에 남은 그 칸 덮어쓰기는 D1이 켤 때 `unknown_entry`로 지운다.
+- **쉴드 재생은 맞는 중에도 일정하게 찬다.** `shieldRegenDelayMs`·`lastHitMs`를 없앴다(`packages/sim/src/combat/`). 팩 `n40_shield_regen_delay`를 지우고 `id-changes.json`에 `removed`(since = 이 가지가 들어가는 판, 지금 22, 보상 없음)로 뒤에 더했다. 세계에 남은 그 칸 덮어쓰기는 D1이 켤 때 `unknown_entry`로 지운다.
 - **효과 사전 수치 `shield_regen`** (버프·디버프, ‰): 분당 쉴드 재생 × max(0, 1000 + 합 ‰) ÷ 1000(버림, −1000 이하면 멈춤, `effects.ts shieldRegenPerMinute`). 재생 단계가 쓴다. 지금 팩 스킬은 이것을 쓰지 않는다(콘텐츠는 그대로).
 - **맨손은 스킬을 쓸 수 없다(맨손 스킬 제외).** 스킬 칸 둘을 더한다(팩 선택 칸, `formatVersion` 그대로):
   - `weaponField`: 필요한 무기 칸 `physical`·`elemental`·`any`. 없으면 기반(`base`)과 같은 칸. 피해를 주는 스킬은 기반과 같은 칸만(그 칸의 공격력으로 피해를 센다, 팩 검사). 피해 없는 스킬(회복·버프·디버프)은 `any`나 다른 칸도 된다.
@@ -47,7 +47,7 @@
   - 그 판(N+1)을 다시 켜면 잠든 줄을 보통 규칙으로 다시 고른다 → 해시가 같으니 다시 든다. **자동으로 다시 드는 것은 되돌림이 그 팩 항목을 바꾸지 않은 줄뿐**(만든 항목, 해시가 같은 고친 항목)이다. 되돌림이 바꾼 항목은 D1처럼 팩이 이기고, 화면에서 다시 담아야 되살아난다.
   - 옛 판에서 잠든 줄과 같은 키를 다시 저장하면 그 판으로 덮어써 깨어난다(옛 판 내용). 판이 같거나 옛것인 줄은 위 규칙 그대로다.
   - 시험: `contentEdit/contentEditBoot.db.test.ts`(N+1 세 줄이 N에서 남고 적용되지 않음, N+1을 다시 켜면 다시 듦, N+1에서 바뀐 팩 항목은 N에서 팩이 이김).
-- **꺼진 참조 거르기**(같은 설계안 WP-0 b): 전투 자료 변환(`@terra/sim` `combatCatalogFrom`, 서버·시뮬 실행 도구가 같이 쓴다)은 켜진 장비가 가리키는 꺼졌거나 없는 스킬 ID와, 켜진 스킬이 가리키는 꺼졌거나 없는 효과 줄을 뺀다. 편집기로 `fire_bolt`를 끄면 정원사 웨이브(시험 지팡이)가, `flame_burst`를 끄면 다시보기 시범(불 지팡이)이 사양을 만들다 던지던 것을 막는다. 뺀 참조는 스냅숏마다 서버 기록 한 줄(`content references dropped`, `droppedReferences`). 지금 팩에는 꺼진 것이 없어 시뮬 요약이 바이트까지 같다. 시험: `packages/sim/src/combat/catalog.test.ts`(장비 → 스킬, 스킬 → 효과).
+- **꺼진 참조 거르기**(같은 설계안 WP-0 b): 전투 자료 변환(`@terra/sim` `combatCatalogFrom`, 서버·시뮬 실행 도구가 같이 쓴다)은 켜진 장비가 가리키는 꺼졌거나 없는 스킬 ID와, 켜진 스킬이 가리키는 꺼졌거나 없는 효과 줄을 뺀다. 편집기로 `fire_bolt`를 끄면 정원사 웨이브(시험 지팡이)가, `flame_burst`를 끄면 다시보기 시범(불 지팡이)이 사양을 만들다 던지던 것을 막는다. 뺀 참조는 스냅숏마다 서버 기록 한 줄(`content references dropped`, `droppedReferences`). 지금 팩에는 꺼진 것이 없어 시뮬 요약이 바이트까지 같다. 시험: `apps/server/src/world/combatCatalog.test.ts`(실제 팩, 장비 → 스킬, 스킬 → 효과).
 - `/health`에 `contentOverrides`(덮어쓴 항목 수)·`contentRevision`.
 
 ### 3. 바로 듦(D-461)과 읽는 곳

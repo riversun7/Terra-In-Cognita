@@ -8,7 +8,9 @@ import type {
   LabPreviewResponse,
   LabUnit,
 } from "@terra/shared/battleLab";
+import { decodeBattleReplay, replayFromBase64 } from "@terra/protocol/battleReplay";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { loadReplayGround } from "../../../battle/replayTerrain.ts";
 import { refreshSession } from "../../../auth/session.ts";
 import { api } from "../../../net/api.ts";
 import { m } from "../../../paraglide/messages.js";
@@ -16,6 +18,7 @@ import { LiveMessage, useLiveLines } from "../../../ui/LiveMessage.tsx";
 import { type ArenaSettings, ArenaPanel } from "./ArenaPanel.tsx";
 import { type Selection, clampSelection, isLabUnitShape, labErrorOf, updateUnit } from "./labModel.ts";
 import { labErrorText } from "./labMessages.ts";
+import { ReplayOverlay, type WatchedBattle } from "./ReplayOverlay.tsx";
 import { TeamPanel } from "./TeamPanel.tsx";
 import { UnitEditor } from "./UnitEditor.tsx";
 import { UnitPreview } from "./UnitPreview.tsx";
@@ -35,7 +38,8 @@ export function BattleLab({ data, locale }: { data: LabData; locale: string }) {
     seed: 1,
     runs: 20,
   });
-  const [busy, setBusy] = useState<"battle" | "monte" | null>(null);
+  const [busy, setBusy] = useState<"battle" | "monte" | "watch" | null>(null);
+  const [watched, setWatched] = useState<WatchedBattle | null>(null);
   const [battle, setBattle] = useState<{ result: LabBattleResponse; key: string } | null>(null);
   const [monte, setMonte] = useState<{ result: LabMonteCarloResponse; key: string } | null>(null);
   const notice = useLiveLines();
@@ -111,6 +115,28 @@ export function BattleLab({ data, locale }: { data: LabData; locale: string }) {
       .finally(() => setBusy(null));
   };
 
+  /** 3D 관람: 서버가 같은 시드의 한 판을 리플레이로 기록 → 경기장 지형을 받아 보기 창을 연다 */
+  const runWatch = (): void => {
+    if (busy) return;
+    setBusy("watch");
+    problem.clear();
+    api.battleLab.replay
+      .mutate({
+        a: teams.a,
+        b: teams.b,
+        terrain: settings.terrain,
+        limitSec: settings.limitSec,
+        seed: settings.seed,
+      })
+      .then(async (result) => {
+        const replay = decodeBattleReplay(replayFromBase64(result.replay));
+        const ground = await loadReplayGround(replay.arena);
+        setWatched({ replay, ground });
+      }, fail)
+      .catch(fail)
+      .finally(() => setBusy(null));
+  };
+
   const runMonte = (): void => {
     if (busy) return;
     setBusy("monte");
@@ -142,6 +168,7 @@ export function BattleLab({ data, locale }: { data: LabData; locale: string }) {
   const { catalog } = load;
   return (
     <div className="bl-lab" data-status="ready" data-revision={catalog.revision}>
+      <ReplayOverlay watched={watched} onClose={() => setWatched(null)} />
       <p className="lead bp-lead">{m.dev_lab_lead()}</p>
       <ul className="bp-summary" aria-label={m.dev_balance_summary_label()}>
         <li>{m.dev_balance_pack({ version: catalog.contentVersion })}</li>
@@ -177,6 +204,7 @@ export function BattleLab({ data, locale }: { data: LabData; locale: string }) {
             busy={busy}
             onBattle={runBattle}
             onMonte={runMonte}
+            onWatch={runWatch}
             battle={battle ? { result: battle.result, stale: battle.key !== battleKey } : null}
             monte={monte ? { result: monte.result, stale: monte.key !== monteKey } : null}
             problem={problem}

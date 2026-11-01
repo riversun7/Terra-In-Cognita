@@ -44,9 +44,10 @@ export function ArenaPanel(props: {
   readonly catalog: LabCatalogResponse;
   readonly settings: ArenaSettings;
   readonly onSettings: (settings: ArenaSettings) => void;
-  readonly busy: "battle" | "monte" | null;
+  readonly busy: "battle" | "monte" | "watch" | null;
   readonly onBattle: () => void;
   readonly onMonte: () => void;
+  readonly onWatch: () => void;
   readonly battle: { readonly result: LabBattleResponse; readonly stale: boolean } | null;
   readonly monte: { readonly result: LabMonteCarloResponse; readonly stale: boolean } | null;
   readonly problem: LiveLines;
@@ -136,10 +137,11 @@ export function ArenaPanel(props: {
         <button
           type="button"
           className="button-small bl-watch"
-          aria-disabled={!catalog.replay}
-          aria-describedby={catalog.replay ? undefined : `${id}-watch-hint`}
+          aria-disabled={!catalog.replay || running || battleIssue !== null}
+          aria-describedby={`${id}-watch-hint`}
+          onClick={!catalog.replay || running || battleIssue !== null ? undefined : props.onWatch}
         >
-          {m.dev_lab_watch()}
+          {props.busy === "watch" ? m.dev_lab_watch_loading() : m.dev_lab_watch()}
         </button>
         <button
           type="button"
@@ -158,11 +160,9 @@ export function ArenaPanel(props: {
           {props.busy === "monte" ? m.dev_lab_running() : m.dev_lab_monte({ runs: settings.runs })}
         </button>
       </div>
-      {catalog.replay ? null : (
-        <p id={`${id}-watch-hint`} className="field-hint bl-watch-hint">
-          {m.dev_lab_watch_pending()}
-        </p>
-      )}
+      <p id={`${id}-watch-hint`} className="field-hint bl-watch-hint">
+        {catalog.replay ? m.dev_lab_watch_hint() : m.dev_lab_watch_pending()}
+      </p>
       <LiveMessage tone="error" lines={props.problem.lines} version={props.problem.version} />
       {!props.battle && !props.monte ? (
         <p className="field-hint bl-results-empty">{m.dev_lab_results_empty()}</p>

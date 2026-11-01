@@ -1,6 +1,7 @@
 // 전투 실험실 시험 — /dev/balance [전투 실험실] 탭 (docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-01, 전투 실험실)").
 // - dev: 처음 열면 샘플 파티 둘(팀 A Lv 30 혼성 4명, 팀 B 크리쳐 무리 4명). 유닛을 고르고 레벨을 바꾸면 서버 미리 보기의 성장이 바뀐다.
-//   [한 판]은 이긴 팀·유닛 8줄·사건 기록, [몬테카를로]는 팀 승률 막대 둘·유닛 8줄. 3D 관람은 재생 기록기 전에는 꺼져 있고 "준비 중".
+//   [한 판]은 이긴 팀·유닛 8줄·사건 기록, [몬테카를로]는 팀 승률 막대 둘·유닛 8줄. [3D 관람]은 같은 시드의 한 판을 리플레이로 받아
+//   전투 다시보기 화면(.br-view)을 화면 전체 창에 띄우고, [닫기]로 닫는다.
 //   유닛 프리셋: 새로 저장(이름 ko·en 창) → 이름 바꾸기 → 복제 → 지우기(확인 창). 샘플을 고르면 덮어쓰기·이름 바꾸기·지우기는 꺼진다.
 //   새로 고치면 팀이 이 기기에 남아 있다(localStorage).
 // - player: 권한 없음, tRPC battleLab.*는 403.
@@ -62,9 +63,9 @@ test.describe("개발자", () => {
     await labReady(page);
     await expect(page.locator(".bl-team[data-team='a'] .bl-unit")).toHaveCount(4);
     await expect(page.locator(".bl-team[data-team='b'] .bl-unit")).toHaveCount(4);
-    // 3D 관람은 재생 기록기 전에는 꺼져 있다
-    await expect(page.locator(".bl-watch")).toHaveAttribute("aria-disabled", "true");
-    await expect(page.locator(".bl-watch-hint")).toHaveText(message("ko", "dev_lab_watch_pending"));
+    // 3D 관람은 켜져 있고 같은 시드의 한 판을 다시 본다는 설명이 붙는다
+    await expect(page.locator(".bl-watch")).toHaveAttribute("aria-disabled", "false");
+    await expect(page.locator(".bl-watch-hint")).toHaveText(message("ko", "dev_lab_watch_hint"));
 
     // 팀 A 둘째 유닛(전사)을 고르고 레벨 30 → 10
     await page.locator(".bl-team[data-team='a'] .bl-unit-pick").nth(1).click();
@@ -82,6 +83,15 @@ test.describe("개발자", () => {
     await expect(page.locator(".bl-result .bl-summary-table tbody tr")).toHaveCount(8);
     await expect(page.locator(".bl-log li").first()).toBeVisible();
     await expect(page.locator(".bl-result")).toHaveAttribute("data-winner", /^(a|b|even)$/);
+
+    // 3D 관람: 리플레이·지형·엔진 준비 → 보기 화면이 창 안에 뜬다 → [닫기]
+    await runUntil(page, ".bl-watch", ".bl-watch-dialog[open]");
+    const watch = page.locator(".bl-watch-dialog[open]");
+    await expect(watch.locator(".br-view")).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
+    await expect(watch.locator(".bl-watch-title")).toHaveText(message("ko", "dev_lab_watch_title"));
+    await watch.locator(".bl-watch-close").click();
+    await expect(page.locator(".bl-watch-dialog[open]")).toHaveCount(0);
+    await expect(page.locator(".bl-watch")).toBeFocused();
 
     await page.locator(".bl-runs").selectOption("10");
     await runUntil(page, ".bl-monte-run", ".bl-monte");

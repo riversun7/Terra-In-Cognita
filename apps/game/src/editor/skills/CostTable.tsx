@@ -36,11 +36,12 @@ function WeaponRow({
       <th scope="row">
         <span className="sk-cost-name">{name}</span>
         <span className="sk-cost-id">{row.id}</span>
+        <span className="sk-cost-kind">{KIND_TEXT[row.kind]()}</span>
         {row.origin !== "pack" ? (
           <span className="sk-chip sk-chip-edited">{ORIGIN_TEXT[row.origin]()}</span>
         ) : null}
       </th>
-      <td>{KIND_TEXT[row.kind]()}</td>
+      <td className="sk-col-kind">{KIND_TEXT[row.kind]()}</td>
       <td>
         <NumberField
           className="sk-cost-input"
@@ -121,12 +122,13 @@ function SkillRow({
           {name}
         </button>
         <span className="sk-cost-id">{row.id}</span>
+        <span className="sk-cost-kind">{KIND_TEXT.skill()}</span>
         {row.origin !== "pack" ? (
           <span className="sk-chip sk-chip-edited">{ORIGIN_TEXT[row.origin]()}</span>
         ) : null}
         {row.enabled ? null : <span className="sk-chip">{m.dev_skills_disabled()}</span>}
       </th>
-      <td>{KIND_TEXT.skill()}</td>
+      <td className="sk-col-kind">{KIND_TEXT.skill()}</td>
       <td colSpan={2}>
         <div className="sk-cost-skill">
           <SelectField
@@ -194,7 +196,9 @@ export function CostTable({
           <thead>
             <tr>
               <th scope="col">{m.dev_skills_col_action()}</th>
-              <th scope="col">{m.dev_skills_col_kind()}</th>
+              <th scope="col" className="sk-col-kind">
+                {m.dev_skills_col_kind()}
+              </th>
               <th scope="col">{m.dev_skills_col_stamina()}</th>
               <th scope="col">{m.dev_skills_col_mp()}</th>
               <th scope="col">{m.dev_skills_col_apply()}</th>
@@ -206,7 +210,7 @@ export function CostTable({
                 return (
                   <tr key={row.key} data-key={row.key} data-kind="fixed" data-status={row.status}>
                     <th scope="row">{actionText(row.key)}</th>
-                    <td>{KIND_TEXT.fixed()}</td>
+                    <td className="sk-col-kind">{KIND_TEXT.fixed()}</td>
                     <td colSpan={3}>
                       <span className={`sk-chip sk-status-${row.status}`}>{statusText(row.status)}</span>
                     </td>

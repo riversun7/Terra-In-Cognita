@@ -437,6 +437,10 @@
 }
 .sk-cost-input {
   min-width: 6em;
+  max-width: 12em;
+}
+.sk-cost-apply {
+  white-space: nowrap;
 }
 .sk-cost-skill {
   display: flex;
@@ -462,6 +466,23 @@
   text-decoration: underline;
   text-decoration-color: var(--color-focus);
   text-underline-offset: var(--space-1);
+}
+
+/* 좁은 화면: 종류 열을 빼고 행동 이름 아래에 작게 적는다(한 글자씩 꺾이지 않게) */
+.sk-col-kind {
+  display: none;
+}
+.sk-cost-kind {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+@media (min-width: 48em) {
+  .sk-col-kind {
+    display: table-cell;
+  }
+  .sk-cost-table tbody th > .sk-cost-kind {
+    display: none;
+  }
 }
 
 @media (min-width: 64em) {

@@ -303,6 +303,11 @@ const naturalWeaponSchema = z
     elemental: weaponAttackField.optional(),
     basic: attackFieldKind.optional(),
     ...weaponBody,
+    /**
+     * 사람형 맨손(D-488): 참이면 기본 공격의 실제 공격력을 계산식 bare_attack(팩 formulas, 옛 맨손 규칙)으로 셈한다.
+     * 없으면 무기 틀 그대로(크리쳐 발톱 등). docs/adr/2026-11-01-formula-editor.md
+     */
+    unarmed: z.boolean().optional(),
   })
   .superRefine(checkWeaponFields);
 

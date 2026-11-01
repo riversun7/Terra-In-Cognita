@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-01 17:00 | 전투 D-465: 스킬은 무기의 공격력 칸으로 셈, 두 칸 무기(마검) | Claude Code | [01-1700-d465](worklog/2026/11/01-1700-d465.md) |
 | 2026-11-01 16:20 | 전투 규칙(D-457~D-459) main 합치기, 질문 226 | Claude Code | [01-1620-merge-combat-q226](worklog/2026/11/01-1620-merge-combat-q226.md) |
 | 2026-11-01 15:20 | D1 설정 패널 합치기(R5와 함께), 팩 판 16 | Claude Code | [01-1520-merge-d1](worklog/2026/11/01-1520-merge-d1.md) |
 | 2026-11-01 15:00 | R5 합치기, 사이보그 화면 시험의 무작위 의존 고침 | Claude Code | [01-1500-merge-r5-cyborg-spec](worklog/2026/11/01-1500-merge-r5-cyborg-spec.md) |

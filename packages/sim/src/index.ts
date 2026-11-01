@@ -352,7 +352,14 @@ export {
   type SecondaryTerm,
   type StatRow,
 } from "./combat/stats.ts";
-export { specFromStats, type UnitBody, type WeaponSpec } from "./combat/unitSpec.ts";
+export {
+  type AttackField,
+  basicFieldOf,
+  specFromStats,
+  type UnitBody,
+  type WeaponAttackField,
+  type WeaponSpec,
+} from "./combat/unitSpec.ts";
 export {
   COVER_BLOCK,
   COVER_BUSH,

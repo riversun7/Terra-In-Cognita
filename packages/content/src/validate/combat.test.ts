@@ -49,6 +49,38 @@ const item = (equip: Record<string, unknown>) => ({
 const issuesOf = (files: Record<string, unknown>) =>
   validatePack(fixture({ "stat_rows.json": statRows, ...files })).issues;
 
+/** 무기 사양의 공격력 칸 말고 나머지 */
+const WEAPON_BODY = {
+  hitPm: 900,
+  hitAppropriate: 50,
+  critPm: 100,
+  critAppropriate: 100,
+  intervalMs: 1000,
+  speedAppropriate: 100,
+  range: 1,
+  arc: false,
+  staminaCost: 10,
+  mpCost: 0,
+};
+const PHYSICAL = { attack: 20, attackAppropriate: 40 };
+const ELEMENTAL = { attack: 30, attackAppropriate: 50 };
+const weaponIssues = (weapon: Record<string, unknown>) =>
+  issuesOf({
+    "items.json": { entries: [item({ slot: "weapon", stats: [], weapon: { ...WEAPON_BODY, ...weapon } })] },
+  });
+const unitKind = (extra: Record<string, unknown>) => ({
+  id: "human",
+  name,
+  slots: ["weapon"],
+  skillSlots: { base: 3, perRebirth: 1, max: 10 },
+  naturalWeapon: { ...WEAPON_BODY, physical: { attack: 5, attackAppropriate: 20 } },
+  naturalElementalWeapon: { ...WEAPON_BODY, elemental: { attack: 5, attackAppropriate: 20 } },
+  enabled: true,
+  ...extra,
+});
+const kindIssues = (extra: Record<string, unknown>) =>
+  issuesOf({ "unit_kinds.json": { entries: [unitKind(extra)] } });
+
 describe("전투 분류", () => {
   it("올바른 효과·스킬·장비는 통과한다", () => {
     expect(
@@ -148,6 +180,36 @@ describe("전투 분류", () => {
       "skills.json": { entries: [{ ...strike, base: undefined }] },
     });
     expect(missing.some((issue) => issue.file === "skills.json" && issue.path === "base")).toBe(true);
+  });
+
+  it("무기 공격력 칸(D-465): 물리·속성 하나 또는 둘. 하나도 없으면 실패", () => {
+    expect(weaponIssues({ physical: PHYSICAL })).toEqual([]);
+    expect(weaponIssues({ elemental: ELEMENTAL })).toEqual([]);
+    expect(weaponIssues({ physical: PHYSICAL, elemental: ELEMENTAL, basic: "elemental" })).toEqual([]);
+    const none = weaponIssues({});
+    expect(none.map((issue) => [issue.stage, issue.path])).toEqual([["schema", "equip.weapon"]]);
+    // 옛 모양(kind·attack)은 받지 않는다
+    expect(weaponIssues({ kind: "physical", attack: 20, attackAppropriate: 40 }).length).toBeGreaterThan(0);
+  });
+
+  it("두 칸 무기는 기본 공격 칸(basic)을 꼭 적고, basic은 무기에 있는 칸만 가리킨다(질문 235 가)", () => {
+    const missing = weaponIssues({ physical: PHYSICAL, elemental: ELEMENTAL });
+    expect(missing.map((issue) => issue.path)).toEqual(["equip.weapon.basic"]);
+    const absent = weaponIssues({ physical: PHYSICAL, basic: "elemental" });
+    expect(absent.map((issue) => issue.path)).toEqual(["equip.weapon.basic"]);
+    expect(weaponIssues({ elemental: ELEMENTAL, basic: "elemental" })).toEqual([]);
+  });
+
+  it("유닛 종류: 타고난 무기(맨손)는 물리 칸이 꼭 있고, 맨손 속성 자료는 속성 칸만 있다(D-436·D-463·D-465)", () => {
+    expect(kindIssues({})).toEqual([]);
+    const claws = { ...WEAPON_BODY, physical: PHYSICAL, elemental: ELEMENTAL, basic: "physical" };
+    expect(kindIssues({ naturalWeapon: claws })).toEqual([]);
+    expect(kindIssues({ naturalWeapon: { ...WEAPON_BODY, elemental: ELEMENTAL } }).length).toBeGreaterThan(0);
+    const both = { ...WEAPON_BODY, physical: PHYSICAL, elemental: ELEMENTAL };
+    expect(kindIssues({ naturalElementalWeapon: both }).length).toBeGreaterThan(0);
+    expect(
+      kindIssues({ naturalElementalWeapon: { ...WEAPON_BODY, physical: PHYSICAL } }).length,
+    ).toBeGreaterThan(0);
   });
 
   it("스킬이 없는 효과를, 장비가 없는 스탯 행을 가리키면 참조 오류다", () => {

@@ -141,6 +141,8 @@ export function demoSkirmish(options: {
   const unarmedElemental = human?.naturalElementalWeapon ?? UNARMED_ELEMENTAL;
   const center = Math.floor(map.size / 2);
   const taken = new Set<number>();
+  const findItem = (want: string | null | undefined) =>
+    want ? catalog.equipment.find((item) => item.id === want) : undefined;
   const units: CombatUnitSpec[] = [];
   const labels: Record<number, { name: string; kind: string }> = {};
   for (const side of [1, 2] as const) {
@@ -148,9 +150,7 @@ export function demoSkirmish(options: {
       const kit = KITS[role];
       const equipped: (EquippedItem | null)[] = slots.map((slot, slotIndex) => {
         const id = kit.items[slotIndex] ?? null;
-        const find = (want: string | null | undefined) =>
-          want ? catalog.equipment.find((item) => item.id === want) : undefined;
-        const def = find(id) ?? (slotIndex === 0 ? find(kit.fallbackWeapon) : undefined);
+        const def = findItem(id) ?? (slotIndex === 0 ? findItem(kit.fallbackWeapon) : undefined);
         return def && def.slot === slot ? itemAt(def, 500) : null;
       });
       const out = loadoutOf({

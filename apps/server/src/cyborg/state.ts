@@ -36,6 +36,8 @@ export interface CyborgRecord {
   readonly religion: string | null;
   /** 신앙 포인트(D-451) */
   readonly faithPoints: number;
+  /** 강하 때 받은 정착 지원금(D-455 190). null = 받지 않음(지원금 전에 만든 사이보그) */
+  readonly startGrant: bigint | null;
 }
 
 export interface RollRecord {
@@ -78,6 +80,9 @@ export function statsFromArray(value: unknown): Primaries {
 }
 
 const num = (value: unknown): number => Number(value);
+/** int8은 pg가 문자열로 준다 */
+const bigOrNull = (value: unknown): bigint | null =>
+  typeof value === "string" || typeof value === "number" || typeof value === "bigint" ? BigInt(value) : null;
 const numOrNull = (value: unknown): number | null =>
   value === null || value === undefined ? null : Number(value);
 
@@ -85,7 +90,7 @@ export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
   const [cyborgRows, rollRows, factionRows] = await Promise.all([
     pool.query(
       `select user_id, name, name_key, temperament, initial, k_pm, appearance, faction_id, start_city_id, unit_id,
-              level, exp, rebirths, faith, created_at_ms, elements, religion, faith_points
+              level, exp, rebirths, faith, created_at_ms, elements, religion, faith_points, start_grant
          from cyborgs order by created_at_ms, user_id`,
     ),
     pool.query(`select user_id, temperament, stats, rolls_used, seed, updated_at_ms from cyborg_rolls`),
@@ -115,6 +120,7 @@ export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
       elements: row.elements === null || row.elements === undefined ? null : elementsFromArray(row.elements),
       religion: typeof row.religion === "string" ? row.religion : null,
       faithPoints: num(row.faith_points ?? 0),
+      startGrant: bigOrNull(row.start_grant),
     };
   });
   const rolls = rollRows.rows.map(
@@ -157,6 +163,7 @@ export function cyborgRow(record: CyborgRecord): Row {
     elements: record.elements === null ? null : elementsToArray(record.elements),
     religion: record.religion,
     faith_points: record.faithPoints,
+    start_grant: record.startGrant,
   };
 }
 

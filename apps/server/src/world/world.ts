@@ -450,6 +450,12 @@ export function startWorld(
       maps,
       cities,
       settlement,
+      ledger,
+      // 세력 국고 = 그 세력의 소유 주체(정착 지원금을 낸다, D-455 190)
+      treasuryOf: (factionId) => {
+        for (const owner of owners.values()) if (owner.factionId === factionId) return owner.id;
+        return undefined;
+      },
       writer,
       nextUnitId: nextId.unit,
       rules: config.cyborgRules ?? defaultCyborgRules,

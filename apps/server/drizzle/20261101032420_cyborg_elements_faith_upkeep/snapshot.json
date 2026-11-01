@@ -2,7 +2,7 @@
   "type": "diff",
   "version": "9",
   "dialect": "postgres",
-  "id": "8d6c232b-da82-4a2a-b1e0-bcd64e06e2b5",
+  "id": "bcd92909-a08b-4a84-9549-43388af554d1",
   "prevIds": [
     "412665e3-796c-44bc-a7f0-414470bb89bf"
   ],
@@ -55,6 +55,24 @@
         "s|col|public.cyborgs.faith_points",
         "n|col|public.cyborgs.faith_points",
         "e|col|public.cyborgs.faith_points"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "cyborgs",
+        "start_grant"
+      ],
+      "writes": [
+        "s|col|public.cyborgs.start_grant",
+        "n|col|public.cyborgs.start_grant",
+        "e|col|public.cyborgs.start_grant"
       ],
       "reads": [
         "n|tbl|public.cyborgs",
@@ -135,6 +153,25 @@
         "n|sch|public",
         "n|col|public.cyborgs.faith_points"
       ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "cyborgs"
+      ],
+      "writes": [
+        "s|ck|public.cyborgs.cyborgs_start_grant",
+        "n|ck|public.cyborgs.cyborgs_start_grant",
+        "e|ck|public.cyborgs.cyborgs_start_grant",
+        "n|con|public.cyborgs.cyborgs_start_grant"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public",
+        "n|col|public.cyborgs.start_grant"
+      ]
     }
   ],
   "deltas": [
@@ -190,6 +227,22 @@
       "op": "create",
       "row": {
         "schema": "public",
+        "table": "cyborgs",
+        "name": "start_grant",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
         "table": "world_owners",
         "name": "upkeep_unpaid_at_ms",
         "type": "bigint",
@@ -229,6 +282,16 @@
         "table": "cyborgs",
         "name": "cyborgs_faith_points",
         "value": "\"faith_points\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "cyborgs_start_grant",
+        "value": "\"start_grant\" is null or \"start_grant\" >= 0",
         "entityType": "checks"
       }
     }

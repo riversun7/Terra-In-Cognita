@@ -184,6 +184,7 @@ describe("몸 계산", () => {
       elements: { ...zeroElements(), fire: 6, wind: 4 },
       religion: null,
       faithPoints: 0,
+      startGrant: 108n,
     };
     const fresh = realCyborgBody(catalog, record, false);
     // 속성값(D-450) = 저장된 생성 값(12칸, 차례 = ELEMENT_CODES). 분배 전(null)이면 모두 0

@@ -1141,6 +1141,46 @@
       "structural": false
     },
     {
+      "id": "n39_grant_base",
+      "code": "N39",
+      "name": {
+        "ko": "정착 지원금 기본액(최소 단위)",
+        "en": "Settlement grant base (minor units)"
+      },
+      "value": 72,
+      "structural": false
+    },
+    {
+      "id": "n39_grant_max",
+      "code": "N39",
+      "name": {
+        "ko": "정착 지원금 세력 배율 최대(‰)",
+        "en": "Settlement grant faction multiplier max (‰)"
+      },
+      "value": 1500,
+      "structural": false
+    },
+    {
+      "id": "n39_grant_min",
+      "code": "N39",
+      "name": {
+        "ko": "정착 지원금 세력 배율 최소(‰)",
+        "en": "Settlement grant faction multiplier min (‰)"
+      },
+      "value": 1000,
+      "structural": false
+    },
+    {
+      "id": "n39_grant_step",
+      "code": "N39",
+      "name": {
+        "ko": "정착 지원금 배율 걸음(시작 사이보그 1명당 ‰)",
+        "en": "Settlement grant multiplier step per cyborg (‰)"
+      },
+      "value": 50,
+      "structural": false
+    },
+    {
       "id": "f11_repair_lv1",
       "code": "F11",
       "name": {

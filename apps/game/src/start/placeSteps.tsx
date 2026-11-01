@@ -52,6 +52,10 @@ export function FactionStep({
                 {m.start_faction_cyborgs({ count: formatNumber(faction.cyborgs) })} ·{" "}
                 {m.start_faction_cities({ count: formatNumber(faction.cities.length) })}
               </span>
+              {/* 정착 지원금(D-455 190·N39): 강하 때 한 번, 덜 붐빈 세력일수록 많다 */}
+              <span className="start-choice-meta start-faction-grant" data-grant={faction.grant}>
+                {m.start_faction_grant({ amount: formatNumber(Number(faction.grant)) })}
+              </span>
             </span>
           </label>
         ))}

@@ -58,6 +58,11 @@ export interface CreationFaction {
   readonly recommended: boolean;
   /** 이 세력에 든 사이보그 수 */
   readonly cyborgs: number;
+  /**
+   * 강하 때 한 번 받는 정착 지원금(D-455 190·N39: 기본액 × 세력 배율, 사이보그가 적게 시작한 세력일수록 많다). 최소 단위 정수 글자.
+   * [임시] 세력 화폐가 서버에 없어 세력 국고의 시험 화폐로 낸다. 국고가 모자라면 실제로 받는 양이 적을 수 있다
+   */
+  readonly grant: string;
   /** 시작 도시(D-6041). 기본 선택은 가장 덜 붐비는 곳(처음 것) */
   readonly cities: readonly CreationCity[];
 }

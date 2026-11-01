@@ -8,6 +8,9 @@
 //   "분배 기다림"(elements null)으로 만들고, 그런 사이보그(프로토콜 5 전에 만든 것 포함)는 allocateElements로 한 번 나눈다.
 //   다시 나누기는 환생 때다(@terra/sim rebirthCyborg). 5판 연결은 만들기에 분배를 꼭 보낸다(gateway.ts가 본다).
 // - 생활비(D-453): 본체도 유닛 유지비를 내고(world/settlement.ts), 못 냈으면 livingUnpaid가 참 → 화면 효율 불이익(N38).
+// - 정착 지원금(D-455 190, N39): 만들기와 같은 동기 처리에서 그 세력 국고 → 사용자 주체로 한 번 옮긴다(원장 거래 settlement_grant,
+//   중복 방지 키 settlement_grant:<사용자>, 사이보그 행 start_grant에 기록 — 세력을 바꿔도 다시 주지 않는다). 새 화폐를 만들지 않는다:
+//   국고가 모자라면 국고에 있는 만큼만 준다. [임시] 세력 화폐가 서버에 없어 국고의 시험 화폐(유지비와 같은 자산)로 낸다.
 // 쓰는 프로세스는 하나다(ADR 3): 메모리 표가 원본의 캐시이고, 같은 스레드라 두 요청이 같은 값을 보지 않는다.
 import type {
   CreationFaction,
@@ -27,13 +30,15 @@ import {
   firstStatRoll,
   kFromRolls,
   rerollStats,
+  settlementGrant,
   temperamentOf,
 } from "@terra/sim";
+import type { Ledger } from "../economy/ledger.ts";
 import type { CyborgReadServices } from "../trpc/context.ts";
 import type { CityRow } from "../world/cities.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import type { Settlement } from "../world/settlement.ts";
+import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
 import { TEST_NPC_FACTION_CODE, UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
 import {
   type CyborgRecord,
@@ -123,6 +128,10 @@ export interface CyborgServiceOptions {
   /** 부팅 때 읽은 도시(시작 도시 표시 D-341) */
   cities: readonly CityRow[];
   settlement: Settlement;
+  /** 원장(정착 지원금을 세력 국고에서 옮긴다) */
+  ledger: Ledger;
+  /** 세력의 국고 = 그 세력 소유 주체 ID(없으면 undefined → 지원금 0) */
+  treasuryOf: (factionId: number) => number | undefined;
   writer: WorldWriter;
   nextUnitId: () => number;
   rules: () => CyborgRules;
@@ -164,7 +173,7 @@ const elementRule = (rules: CyborgRules) => ({
 });
 
 export function createCyborgService(options: CyborgServiceOptions): CyborgService {
-  const { maps, settlement, writer, log } = options;
+  const { maps, settlement, writer, log, ledger } = options;
   const byUser = new Map<string, CyborgRecord>();
   const byName = new Map<string, string>();
   const bodyUnits = new Map<number, string>();
@@ -213,6 +222,17 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
     return { perFaction, perCity };
   };
 
+  /**
+   * 정착 지원금(N39): NPC 세력 = 기본액 × 세력 배율(그 세력 시작 수 − 열린 세력 가운데 가장 적은 시작 수). 유저 세력은 지도자가 정한
+   * 양(지금은 가입할 유저 세력이 없어 고리만 — @terra/sim settlementGrant의 user 갈래)
+   */
+  const grantFor = (factionId: number, perFaction: ReadonlyMap<number, number>, open: readonly number[]) => {
+    const fewest = Math.min(...open.map((id) => perFaction.get(id) ?? 0));
+    return settlementGrant({ kind: "npc", started: perFaction.get(factionId) ?? 0 }, fewest, options.rules());
+  };
+  const openFactionIds = (): number[] =>
+    factions.filter((faction) => startCitiesOf(faction.id).length > 0).map((faction) => faction.id);
+
   return {
     get size() {
       return byUser.size;
@@ -245,6 +265,13 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         },
         recommended: (perFaction.get(faction.id) ?? 0) === fewest,
         cyborgs: perFaction.get(faction.id) ?? 0,
+        grant: String(
+          grantFor(
+            faction.id,
+            perFaction,
+            open.map((entry) => entry.faction.id),
+          ),
+        ),
         cities: cities
           .map((city, index) => {
             const cyborgs = perCity.get(city.id) ?? 0;
@@ -344,10 +371,26 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         elements = checked.values;
       }
       const at = options.now();
-      // 여기부터 한 번의 동기 처리: 소유 주체 → 유닛 → 사이보그·가입·굴림 지우기(같은 커밋)
+      // 지원금은 이 사이보그를 세기 전의 시작 수로 정한다(화면에 보인 양과 같다)
+      const grant = grantFor(faction.id, counts().perFaction, openFactionIds());
+      // 여기부터 한 번의 동기 처리: 소유 주체 → 유닛 → 지원금 → 사이보그·가입·굴림 지우기(같은 커밋)
       const owner = settlement.ownerOfUser(userId, at);
       const unitId = place(city, owner.id);
       if (unitId === undefined) return fail("no_room");
+      const treasury = options.treasuryOf(faction.id);
+      const available = treasury === undefined ? 0n : ledger.balanceOf(treasury, ASSET_CREDIT);
+      const paid = treasury === undefined ? 0n : grant < available ? grant : available;
+      if (treasury !== undefined && paid > 0n) {
+        ledger.post({
+          kind: "settlement_grant",
+          atMs: at,
+          key: `settlement_grant:${userId}`,
+          entries: [
+            { account: ledger.ownerAccount(treasury, ASSET_CREDIT), amount: -paid },
+            { account: ledger.ownerAccount(owner.id, ASSET_CREDIT), amount: paid },
+          ],
+        });
+      }
       const record: CyborgRecord = {
         userId,
         name: parsed.display,
@@ -367,6 +410,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         elements,
         religion: null,
         faithPoints: 0,
+        startGrant: paid,
       };
       byUser.set(userId, record);
       byName.set(record.nameKey, userId);

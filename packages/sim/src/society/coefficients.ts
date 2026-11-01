@@ -112,7 +112,7 @@ export interface SocietyCoefficients {
   readonly tributePm: number;
   /** 공물 주기(주마다). 시뮬은 하루 끝에서 날 수로 내림해 돈다 */
   readonly tributeEveryMs: number;
-  /** 사이보그 성장·환생·속성·유지(48 §2, D-417·D-440·D-441·D-450~D-453, 49 N6·N7·N9·N34·N36~N38) */
+  /** 사이보그 성장·환생·속성·유지·정착 지원금(48 §2, D-417·D-440·D-441·D-450~D-453·D-455, 49 N6·N7·N9·N34·N36~N39) */
   readonly cyborg: {
     /** 만렙(N7 기본 50, 구조 값). 특수 만렙 60은 누가 받는지 정해지지 않아 두지 않는다 */
     readonly maxLevel: number;
@@ -164,6 +164,14 @@ export interface SocietyCoefficients {
     readonly organWearPerPeriod: number;
     readonly organRepairCost: number;
     readonly livingUnpaidPm: number;
+    /**
+     * 정착 지원금(N39, D-455 190·D-163·D-218, 출발값 없음 → 설정값 출발값): 기본액(최소 단위, 처음 며칠 생활비 — 출발값 72 = 3일 × 정시 24번 ×
+     * 시험 유지비 1), 세력 배율 ‰ = 최대 − 걸음 × (그 세력 시작 수 − 가장 적은 세력 시작 수), 최소에서 멈춤
+     */
+    readonly grantBase: number;
+    readonly grantMaxPm: number;
+    readonly grantMinPm: number;
+    readonly grantStepPm: number;
   };
   /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
@@ -276,6 +284,10 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     organWearPerPeriod: 1,
     organRepairCost: 100,
     livingUnpaidPm: 700,
+    grantBase: 72,
+    grantMaxPm: 1500,
+    grantMinPm: 1000,
+    grantStepPm: 50,
   },
   durability: {
     repairLossPct: [30, 25, 20, 15, 10],

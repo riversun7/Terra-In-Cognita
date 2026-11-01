@@ -8,10 +8,11 @@
 //   분포를 그대로 둬도 늘 다시 굴린다(사용자 결정 2026-11-01, D-446). 인공장기·장비 등 다른 칸은 손대지 않는다(D-026: 인공장기 유지).
 //   스킬 최대 등급(D-031·D-5001)과 스킬 칸(D-427, combat/equipment.ts skillSlotCount)은 환생 횟수에서 계산하므로 +1씩 따라 오른다.
 // - 속성값(D-450): 4원소 10점(N36)은 그대로 두거나 다시 나눈다(생성과 같은 검사, @terra/shared cyborgElements). 앞선 환생에서 얻은
-//   빛·어둠은 남는다(해석). 강화형은 장비·인공장기·신앙에서만 온다(여기서 바꾸지 않는다).
-// - 진로별 종교 아이템(D-452, D-441 해석 대체): 고르면 하나를 쓰고 ① 빛·어둠 갈래를 연다(그 칸 + N37, 칸마다 10에서 자름) 또는
-//   ② 그 종교의 특수 스킬을 환생 뒤에 받는다(스킬석처럼, 스킬 DB "종교" 태그 — 실제 부여는 부르는 쪽, 데이터 고리). 아이템은 사이보그의
-//   종교 것이어야 한다(해석). 아이템 목록·효과는 신앙 콘텐츠 데이터이고 부르는 쪽이 넘긴다.
+//   빛·어둠은 남는다(D-455 184). 강화형은 장비·인공장기·신앙에서만 온다(여기서 바꾸지 않는다).
+// - 진로별 종교 아이템(D-452, D-441 해석 대체): 고르면 하나를 쓰고 ① 빛·어둠 갈래를 연다(그 칸 + N37, 칸마다 10에서 자름. 갈래는
+//   하나라 다른 갈래로 바꾸면 앞 갈래 값은 0 — D-455 184 나) 또는 ② 그 종교의 특수 스킬을 환생 뒤에 받는다(스킬석처럼, 스킬 DB "종교"
+//   태그 — 고유 스킬로 스킬 칸 하나를 쓰고 다음 환생에도 남으며 개종하면 사라진다, D-455 187. 같은 스킬은 다시 받지 않는다). 아이템은
+//   사이보그의 종교 것이어야 한다(D-455 185 가). 아이템 목록·효과는 신앙 콘텐츠 데이터이고 부르는 쪽이 넘긴다.
 // - 화폐는 그 신전 도시의 화폐다(D-441 해석). 내는 곳(NPC 신전 = 소멸, 유저 신전 = 주인 수입, 46 §7.4)은 부르는 쪽이 원장에 쓴다.
 // 장소(환생 시설·신전)와 연출(모항 몸 교체, D-058)은 부르는 쪽 몫이다.
 import {
@@ -84,7 +85,7 @@ export type RebirthResult<T extends CyborgProgress> =
       readonly state: T;
       /** 쓴 것: 화폐, 종교 아이템(신앙도는 쓰지 않고 0이 된다, D-451) */
       readonly spent: { readonly currency: bigint; readonly items: readonly ItemNeed[] };
-      /** 환생 뒤 받는 것: 종교 특수 스킬(부르는 쪽이 스킬 칸에 넣는다, D-452) */
+      /** 환생 뒤 받는 것: 종교 특수 스킬(state.religionSkills에도 더했다. 부르는 쪽이 스킬 칸·스킬 DB에 넣는다, D-452·D-455 187) */
       readonly grants: { readonly skill: string | null };
     }
   | { readonly ok: false; readonly blockers: RebirthBlocker[] };
@@ -98,7 +99,8 @@ export function skillGradeCap(rebirths: number, c: SocietyCoefficients): number 
 function religionItemUsable(state: CyborgProgress, wallet: RebirthWallet, use: ReligionItemUse): boolean {
   if (state.religion === null || use.item.religion !== state.religion) return false;
   if ((wallet.item?.(use.item.asset) ?? 0n) < 1n) return false;
-  return use.use === "branch" ? use.item.branches.includes(use.branch) : use.item.skills.includes(use.skill);
+  if (use.use === "branch") return use.item.branches.includes(use.branch);
+  return use.item.skills.includes(use.skill) && !state.religionSkills.includes(use.skill);
 }
 
 /** 환생을 막는 것(비어 있으면 할 수 있다): 만렙, 신앙도 문턱, 화폐, 종교 아이템 차례 */
@@ -134,7 +136,10 @@ function validRolls(rolls: StatRolls, c: SocietyCoefficients): boolean {
   return sum === c.cyborg.initialSum;
 }
 
-/** 새 속성값: 4원소는 다시 나눈 값(없으면 그대로), 빛·어둠은 남기고, 갈래를 열면 그 칸 + N37(칸마다 10에서 자름) */
+/**
+ * 새 속성값: 4원소는 다시 나눈 값(없으면 그대로), 빛·어둠은 남기고, 갈래를 열면 그 칸 + N37(칸마다 10에서 자름)·다른 갈래는 0
+ * (D-455 184 나: 갈래는 하나)
+ */
 function nextElements(
   own: ElementValues,
   basic: ElementValues | null,
@@ -144,7 +149,9 @@ function nextElements(
   const base: ElementValues = basic
     ? { ...own, water: basic.water, fire: basic.fire, wind: basic.wind, earth: basic.earth }
     : own;
-  return branch ? sumElementSources(base, [{ [branch]: c.cyborg.lightDarkPoints }]) : base;
+  if (!branch) return base;
+  const other: LightDarkElement = branch === "light" ? "dark" : "light";
+  return sumElementSources({ ...base, [other]: 0 }, [{ [branch]: c.cyborg.lightDarkPoints }]);
 }
 
 /** 환생 한 번. 막히면 까닭 목록, 되면 새 상태(다른 칸은 그대로)·쓴 것·받는 것 */
@@ -178,6 +185,7 @@ export function rebirthCyborg<T extends CyborgProgress>(
       initial: choice.spread?.spread ?? state.initial,
       kPm,
       elements: nextElements(state.elements, basic, use?.use === "branch" ? use.branch : null, c),
+      religionSkills: use?.use === "skill" ? [...state.religionSkills, use.skill] : state.religionSkills,
     },
     spent: {
       currency: BigInt(c.cyborg.rebirthCurrency),

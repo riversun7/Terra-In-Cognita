@@ -560,6 +560,11 @@ export const cyborgs = pgTable(
     religion: text("religion"),
     /** 신앙 포인트 잔고(D-451, 쓰는 재화) */
     faithPoints: integer("faith_points").notNull().default(0),
+    /**
+     * 강하 때 받은 정착 지원금(최소 단위, D-455 190·N39). null = 받지 않음(지원금 전에 만든 사이보그). 사이보그마다 한 번이고 세력을
+     * 바꿔도 다시 주지 않는다. 원장 거래는 idempotency_key settlement_grant:<user_id>
+     */
+    startGrant: bigint("start_grant", { mode: "bigint" }),
   },
   (table) => [
     uniqueIndex("cyborgs_unit_idx").on(table.unitId),
@@ -577,6 +582,7 @@ export const cyborgs = pgTable(
       sql`${table.religion} is null or ${table.religion} ~ '^[a-z][a-z0-9_]{1,47}$'`,
     ),
     check("cyborgs_faith_points", sql`${table.faithPoints} >= 0`),
+    check("cyborgs_start_grant", sql`${table.startGrant} is null or ${table.startGrant} >= 0`),
   ],
 );
 

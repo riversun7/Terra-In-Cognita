@@ -93,6 +93,7 @@ export const WORLD_TABLES = {
       "elements",
       "religion",
       "faith_points",
+      "start_grant",
     ],
     key: ["user_id"],
   },

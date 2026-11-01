@@ -20,6 +20,7 @@ const ready = {
   religion: "sun_faith",
   faith: 70,
   faithPoints: 40,
+  religionSkills: [],
   initial: even,
   kPm: flatK,
   elements: ownElements,
@@ -34,6 +35,8 @@ const sunRelic: ReligionItem = {
   branches: ["light"],
   skills: ["sun_blessing"],
 };
+/** 같은 종교의 어둠 갈래 아이템(갈래 바꾸기 시험) */
+const sunShadow: ReligionItem = { ...sunRelic, asset: "item:sun_shadow", branches: ["dark"], skills: [] };
 const holding = (asset: string, amount = 1n) => ({
   ...rich,
   item: (wanted: string) => (wanted === asset ? amount : 0n),
@@ -74,6 +77,7 @@ describe("사이보그 환생 결과", () => {
         religion: "sun_faith",
         faith: 0,
         faithPoints: 40,
+        religionSkills: [],
         initial: rolled.spread,
         kPm: { str: 800, dex: 1200, agi: 1000, vit: 800, int: 800, wis: 800 },
         elements: ownElements,
@@ -177,6 +181,29 @@ describe("진로별 종교 아이템(D-452: 빛·어둠 갈래 또는 종교 특
     expect(capped.ok && capped.state.elements.light).toBe(10);
   });
 
+  it("갈래를 바꾸면 앞 갈래 값은 0이 된다(D-455 184 나: 갈래는 하나), 같은 갈래는 쌓인다", () => {
+    // 빛 8인 사이보그가 어둠 갈래로 → 빛 0, 어둠 5
+    const switched = rebirthCyborg(
+      ready,
+      holding(sunShadow.asset),
+      { kRolls: zeros, religionItem: { item: sunShadow, use: "branch", branch: "dark" } },
+      c,
+    );
+    expect(switched.ok && switched.state.elements).toEqual({ ...zeroElements(), fire: 7, wind: 3, dark: 5 });
+    // 4원소를 다시 나눠도 빛·어둠은 남는다(같은 환생에서 갈래도 고르면 함께)
+    const both = rebirthCyborg(
+      ready,
+      holding(sunRelic.asset),
+      {
+        kRolls: zeros,
+        elements: { earth: 10 },
+        religionItem: { item: sunRelic, use: "branch", branch: "light" },
+      },
+      c,
+    );
+    expect(both.ok && both.state.elements).toEqual({ ...zeroElements(), earth: 10, light: 10 });
+  });
+
   it("종교 특수 스킬: 환생 뒤 받을 스킬을 돌려준다(실제 부여는 부르는 쪽, 스킬석처럼), 속성값은 그대로", () => {
     const skilled = rebirthCyborg(
       ready,
@@ -186,10 +213,25 @@ describe("진로별 종교 아이템(D-452: 빛·어둠 갈래 또는 종교 특
     );
     expect(skilled).toMatchObject({
       ok: true,
-      state: { elements: ownElements },
+      state: { elements: ownElements, religionSkills: ["sun_blessing"] },
       spent: { items: [{ asset: "item:sun_relic", amount: 1n }] },
       grants: { skill: "sun_blessing" },
     });
+    // 고유 스킬로 남아 다음 환생에도 있다(D-455 187), 같은 스킬을 또 받지는 못한다
+    if (!skilled.ok) throw new Error("rebirth");
+    const again = { ...skilled.state, level: 50, faith: 60 };
+    expect(rebirthCyborg(again, rich, { kRolls: zeros }, c)).toMatchObject({
+      ok: true,
+      state: { religionSkills: ["sun_blessing"] },
+    });
+    expect(
+      rebirthCyborg(
+        again,
+        holding(sunRelic.asset),
+        { kRolls: zeros, religionItem: { item: sunRelic, use: "skill", skill: "sun_blessing" } },
+        c,
+      ),
+    ).toEqual({ ok: false, blockers: ["religion_item"] });
   });
 
   it("아이템이 없거나, 다른 종교 것이거나, 그 갈래·스킬을 열지 않거나, 종교가 없으면 막는다", () => {

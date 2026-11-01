@@ -57,7 +57,7 @@ describe("설정 칸 값 → 계수표", () => {
     ]).toEqual([3500, 10, 30]);
   });
 
-  it("속성 분배(N36 구조 값)·빛어둠(N37)·인공장기·생활비(N38)·수리(F11 배열 칸·F12)도 같은 길로 바뀐다(D-450~D-453)", () => {
+  it("속성 분배(N36 구조 값)·빛어둠(N37)·인공장기·생활비(N38)·정착 지원금(N39)·수리(F11 배열 칸·F12)도 같은 길로 바뀐다(D-450~D-455)", () => {
     const tuned = societyCoefficientsFrom(
       new Map([
         ["n36_element_points", 12],
@@ -65,8 +65,10 @@ describe("설정 칸 값 → 계수표", () => {
         ["n38_living_unpaid", 500],
         ["f11_repair_lv3", 18],
         ["f12_destroy_at", 5],
+        ["n39_grant_base", 120],
       ]),
     );
+    expect(tuned.cyborg.grantBase).toBe(120);
     expect([
       tuned.cyborg.elementCells,
       tuned.cyborg.elementPoints,

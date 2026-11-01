@@ -1,5 +1,5 @@
 // 사이보그 설정 칸 값 ↔ 계수표 — tuning.ts에서 나눈 사이보그·장비 수리 칸(파일 크기, AGENTS.md 4장).
-// docs/adr/2026-10-31-faction-society-core.md "설정 칸 대응"·"바뀜 (2026-11-01, D-450~D-453)", 기획 49 §6.5 N6·N7·N9·N34·N36~N38·F11·F12.
+// docs/adr/2026-10-31-faction-society-core.md "설정 칸 대응"·"바뀜 (2026-11-01, D-450~D-453)", 기획 49 §6.5 N6·N7·N9·N34·N36~N39·F11·F12.
 // 팩 항목 ID ↔ 세력·사회 계수표 칸(경로). 출발값이 없는 칸은 설정값 출발값(D-5032)이고 값은 계수표 TEST_SOCIETY_COEFFICIENTS다.
 import type { TuningKey } from "./tuning.ts";
 
@@ -98,6 +98,35 @@ export const CYBORG_TUNING_KEYS: readonly TuningKey[] = [
     "cyborg.livingUnpaidPm",
     "생활비 못 냈을 때 효율(‰)",
     "Efficiency when living costs are unpaid (‰)",
+  ),
+  // 정착 지원금(N39 출발값 없음 → 설정값 출발값, D-455 190)
+  k(
+    "n39_grant_base",
+    "N39",
+    "cyborg.grantBase",
+    "정착 지원금 기본액(최소 단위)",
+    "Settlement grant base (minor units)",
+  ),
+  k(
+    "n39_grant_max",
+    "N39",
+    "cyborg.grantMaxPm",
+    "정착 지원금 세력 배율 최대(‰)",
+    "Settlement grant faction multiplier max (‰)",
+  ),
+  k(
+    "n39_grant_min",
+    "N39",
+    "cyborg.grantMinPm",
+    "정착 지원금 세력 배율 최소(‰)",
+    "Settlement grant faction multiplier min (‰)",
+  ),
+  k(
+    "n39_grant_step",
+    "N39",
+    "cyborg.grantStepPm",
+    "정착 지원금 배율 걸음(시작 사이보그 1명당 ‰)",
+    "Settlement grant multiplier step per cyborg (‰)",
   ),
   // 장비·인공장기 수리(F11 시설 Lv별 최대 내구도 감소 %, 하한 %, F12 파괴 문턱, D-5031)
   k(

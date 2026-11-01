@@ -10,6 +10,7 @@ import { realCyborgBody } from "../roster/cyborgBody.ts";
 import { createWorldRosterSource } from "../roster/worldUnits.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { silentLog } from "../world/testSupport.ts";
+import { ASSET_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
 import { TEST_MAP_KEY, type World, startWorld } from "../world/world.ts";
 import { PLACE_SEARCH_RADIUS } from "./service.ts";
@@ -350,13 +351,13 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
       return { ownerId, persistence };
     };
     expect(living()).toEqual({ unpaid: false, efficiencyPm: 1000 });
-    // 시험 화폐가 없다: 정시 두 번을 못 낸다(본체 하나 × 시험 유지비)
+    // 정착 지원금(108 = 정시 108번의 본체 유지비)으로 처음 4.5일을 낸다(D-455 190). 정시 110번이면 마지막 두 번을 못 낸다
     const hour = 3_600_000;
-    const boundary = (Math.floor(clock / hour) + 2) * hour;
+    const boundary = (Math.floor(clock / hour) + 110) * hour;
     clock = boundary + 5;
     const first = ownerOf();
     expect(first.persistence.settlement.settleOwner(first.ownerId, clock)).toMatchObject({
-      upkeepPaid: 0,
+      upkeepPaid: 108,
       upkeepUnpaid: 2,
     });
     expect(first.persistence.owners.get(first.ownerId)?.upkeepUnpaidAtMs).toBe(boundary);
@@ -376,6 +377,52 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     expect(living()).toEqual({ unpaid: false, efficiencyPm: 1000 });
     // 보유 유닛 수(주거 상한 D-153)에는 그대로 세지 않는다
     expect(await createWorldRosterSource(world).count(user, clock)).toBe(0);
+    expect(await world.checkInvariants()).toEqual([]);
+  });
+  it("정착 지원금(D-455 190, N39): 강하 때 한 번, 그 세력 국고에서 옮긴다(새 화폐를 만들지 않음). 덜 붐빈 세력일수록 많다", async () => {
+    let world = await boot();
+    const service = cyborgsOf(world);
+    const persistence = world.persistence;
+    if (!persistence) throw new Error("no persistence");
+    const npc = persistence.npcOwnerId;
+    const issued = () =>
+      persistence.ledger.balance(persistence.ledger.systemAccount(SYSTEM_ISSUE_CREDIT, ASSET_CREDIT));
+    const issuedBefore = issued();
+    const treasuryBefore = persistence.ledger.balanceOf(npc, ASSET_CREDIT);
+    const first = await fakeUser("Grant_One");
+    // 세력이 하나라 늘 "가장 덜 붐빔" → 배율 최대(1500‰): 72 × 1.5 = 108(화면에 보이는 양과 같다)
+    expect(service.creation(first, clock).factions[0]?.grant).toBe("108");
+    await service.roll(first, "combat");
+    expect(
+      await service.create(first, {
+        name: "Granted",
+        appearance: DEFAULT_CYBORG_APPEARANCE,
+        ...startOf(world, first),
+        elements: fireWind,
+      }),
+    ).toEqual({ ok: true });
+    const owner = world.ownerOfUser?.(first);
+    if (owner === undefined) throw new Error("no owner");
+    expect(persistence.ledger.balanceOf(owner, ASSET_CREDIT)).toBe(108n);
+    expect(persistence.ledger.balanceOf(npc, ASSET_CREDIT)).toBe(treasuryBefore - 108n);
+    // 발행 계정은 그대로(국고에서 옮겼다)
+    expect(issued()).toBe(issuedBefore);
+    expect(service.record(first)?.startGrant).toBe(108n);
+    const [tx] = await rows<{ kind: string; idempotency_key: string; grant: string }>(
+      test.db,
+      `select t.kind, t.idempotency_key, c.start_grant as grant
+         from ledger_transactions t, cyborgs c where t.kind = 'settlement_grant' and c.user_id = $1`,
+      [first],
+    );
+    expect(tx).toEqual({
+      kind: "settlement_grant",
+      idempotency_key: `settlement_grant:${first}`,
+      grant: "108",
+    });
+    expect(await world.checkInvariants()).toEqual([]);
+
+    world = await restart(world);
+    expect(cyborgsOf(world).record(first)?.startGrant).toBe(108n);
     expect(await world.checkInvariants()).toEqual([]);
   });
 });

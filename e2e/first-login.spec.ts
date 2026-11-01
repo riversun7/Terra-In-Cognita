@@ -31,6 +31,7 @@ const elementButton = (page: Page, element: string, which: "less" | "more" | "al
 async function bodyElements(page: Page): Promise<unknown> {
   return page.evaluate(async () => {
     const response: unknown = await fetch("/api/trpc/cyborg.get").then((reply) => reply.json());
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
     const pick = (value: unknown, key: string): unknown =>
       typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
     return pick(pick(pick(pick(response, "result"), "data"), "body"), "elements");
@@ -132,6 +133,8 @@ test.describe("첫 접속: 새 플레이어", () => {
     // 5·6. 세력(추천)·시작 도시(기본 선택 = 가장 덜 붐빔)
     await expect(page.locator(".start-choice[data-faction] input").first()).toBeChecked();
     await expect(page.locator(".start-badge").first()).toBeVisible();
+    // 정착 지원금(D-455 190, N39 출발값 72 × 가장 덜 붐빈 세력 배율 1500‰)
+    await expect(page.locator(".start-faction-grant").first()).toHaveAttribute("data-grant", "108");
     await next(page);
     await expectStep(page, "city");
     await expect(page.locator(".start-choice[data-city] input").first()).toBeChecked();

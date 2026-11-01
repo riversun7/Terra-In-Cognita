@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TEST_SOCIETY_COEFFICIENTS as c } from "./coefficients.ts";
 import { livingEfficiencyPm, organWorks, repairOrgan, wearOrgan, withEfficiency } from "./cyborgUpkeep.ts";
+import { efficiencyScore, recoveryPm } from "./labor.ts";
 
 const HOUR = 3_600_000;
 const heart = { id: "test_heart", durability: 100, maxDurability: 100 };
@@ -12,6 +13,18 @@ describe("사이보그 생활비(D-453: 유닛 유지비 규칙 D-150, 못 내�
     expect(livingEfficiencyPm(true, c)).toBe(700);
     expect(withEfficiency(57, livingEfficiencyPm(true, c))).toBe(39);
     expect(withEfficiency(57, livingEfficiencyPm(false, c))).toBe(57);
+  });
+
+  it("못 내면 직무 효율과 피로 회복이 함께 준다(D-455 188, 노숙과 같은 자리). 전투·이동은 그대로", () => {
+    const primaries = [10, 10, 10, 10, 10, 10];
+    const weights = [1000, 0, 0, 1000, 0, 0];
+    expect(efficiencyScore(primaries, weights, 0, 100, c)).toBe(20);
+    expect(efficiencyScore(primaries, weights, 0, 100, c, true)).toBe(14);
+    // 주거 등급 1(1.5배)·만족도 100: 1500‰ → 못 내면 × 700‰
+    expect(recoveryPm(1, 100_000, c)).toBe(1500);
+    expect(recoveryPm(1, 100_000, c, true)).toBe(1050);
+    // 노숙 불이익과 겹친다(곱)
+    expect(recoveryPm(0, 100_000, c, true)).toBe(Math.floor((recoveryPm(0, 100_000, c) * 700) / 1000));
   });
 });
 

@@ -17,10 +17,16 @@ export function fatiguePenalty(
 }
 
 /**
- * 피로 회복 배율(D-430, 48 §7.1) = 주거 등급 배율(N24) × 만족도 배율(N25) × 노숙 배율(S25) (‰).
- * housing: 0 = 주거 없음(노숙, D-296), 1~3 = 주거 등급
+ * 피로 회복 배율(D-430, 48 §7.1) = 주거 등급 배율(N24) × 만족도 배율(N25) × 노숙 배율(S25) × 생활비 미납 배율(N38) (‰).
+ * housing: 0 = 주거 없음(노숙, D-296), 1~3 = 주거 등급. livingUnpaid = 유닛 유지비(생활비)를 마지막 경계에 못 냄
+ * (D-453·D-455 188: 노숙과 같은 자리, 사이보그 본체 포함)
  */
-export function recoveryPm(housing: number, satisfactionMilli: number, c: SocietyCoefficients): number {
+export function recoveryPm(
+  housing: number,
+  satisfactionMilli: number,
+  c: SocietyCoefficients,
+  livingUnpaid = false,
+): number {
   const homeless = housing <= 0;
   const grade = Math.min(c.housingRecoveryPm.length - 1, Math.max(1, housing));
   const house = homeless ? 1000 : (c.housingRecoveryPm[grade] ?? 1000);
@@ -29,7 +35,8 @@ export function recoveryPm(housing: number, satisfactionMilli: number, c: Societ
     c.lowSatisfactionRecoveryPm +
     Math.floor(((1000 - c.lowSatisfactionRecoveryPm) * sat) / SATISFACTION_MAX_MILLI);
   const homelessPm = homeless ? c.homelessRecoveryPm : 1000;
-  return Math.max(1, Math.floor((Math.floor((house * satPm) / 1000) * homelessPm) / 1000));
+  const base = Math.floor((Math.floor((house * satPm) / 1000) * homelessPm) / 1000);
+  return Math.max(1, livingUnpaid ? Math.floor((base * c.cyborg.livingUnpaidPm) / 1000) : base);
 }
 
 /** 회복 배율을 정산 규칙(settle)에 얹는다: 피로 1점 푸는 시간 = 기본(N24 3분) ÷ 배율. 정산 엔진은 그대로다 */
@@ -43,7 +50,7 @@ export function rulesWithRecovery(base: JobRules, recovery: number, c: SocietyCo
 
 /**
  * 효율점수(D-431, 48 §7.2) = Σ(직무 가중치‰ × 1차 스탯) ÷ 1000 + "생활" 스킬 등급 합 × N31.
- * 직무 가중치는 가중치 표의 직무 행(N1). 포만감 효율 배율(N33)을 곱한다
+ * 직무 가중치는 가중치 표의 직무 행(N1). 포만감 효율 배율(N33)을 곱하고, 생활비를 못 냈으면 N38 배율도 곱한다(D-453·D-455 188)
  */
 export function efficiencyScore(
   primaries: readonly number[],
@@ -51,11 +58,13 @@ export function efficiencyScore(
   lifeSkillGrades: number,
   food: number,
   c: SocietyCoefficients,
+  livingUnpaid = false,
 ): number {
   let sum = 0;
   for (let i = 0; i < 6; i++) sum += (primaries[i] ?? 0) * (weightsPm[i] ?? 0);
   const raw = Math.max(0, Math.floor(sum / 1000) + lifeSkillGrades * c.lifeSkillBonusPerGrade);
-  return Math.floor((raw * foodEfficiencyPm(food, c)) / 1000);
+  const fed = Math.floor((raw * foodEfficiencyPm(food, c)) / 1000);
+  return livingUnpaid ? Math.floor((fed * c.cyborg.livingUnpaidPm) / 1000) : fed;
 }
 
 /** 포만감 효율 배율(N33): 포만감(0~100)이 구간 이하이면 그 ‰ */

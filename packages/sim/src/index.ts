@@ -442,6 +442,7 @@ export {
   spendFaithPoints,
   type UnitFaith,
 } from "./society/faith.ts";
+export { grantMultiplierPm, settlementGrant, type GrantFaction } from "./society/settlementGrant.ts";
 export {
   livingEfficiencyPm,
   organWorks,

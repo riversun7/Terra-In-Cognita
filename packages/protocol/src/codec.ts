@@ -1,4 +1,5 @@
-// 메시지 인코딩 — 지금은 JSON. 측정 후 MessagePack으로 바꿀 수 있게 이 파일에만 둔다.
+// 메시지 인코딩 — 지금은 JSON. 측정 후 MessagePack으로 바꿀 수 있게 이 파일과 encode.ts(보내기) 둘에만 둔다.
+// 보내기(encodeMessage)는 스키마가 필요 없어서 encode.ts에 따로 있다(보내기만 하는 쪽이 zod를 끌고 오지 않게).
 import type { z } from "zod";
 import {
   type ClientMessage,
@@ -10,10 +11,7 @@ import { ProtocolError } from "./errors.ts";
 import { MAX_MESSAGE_BYTES } from "./version.ts";
 
 export { ProtocolError };
-
-export function encodeMessage(message: ClientMessage | ServerMessage): string {
-  return JSON.stringify(message);
-}
+export { encodeMessage } from "./encode.ts";
 
 /** 문자열의 UTF-8 바이트 길이 (브라우저·Node 공통, 환경 API 없이 계산) */
 export function utf8ByteLength(text: string): number {

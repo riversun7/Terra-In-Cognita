@@ -4,6 +4,7 @@ import type { BuildingFootprint } from "./buildings/footprint.ts";
 import type { CameraState } from "./camera/cameraMath.ts";
 import type { SecondMapClockState } from "./lighting/secondMapSky.ts";
 import type { PlanetSkyMode } from "./planet/sky.ts";
+import type { EngineLayer } from "./render/engineLayers.ts";
 import type { NeighbourTerrain } from "./terrain/neighbourTerrains.ts";
 import type { TerrainInput } from "./terrain/terrainData.ts";
 import type { UnitPath } from "./units/unitMotion.ts";
@@ -164,6 +165,14 @@ export interface SecondMapEngine {
   setSky(mode: PlanetSkyMode): void;
   /** 보기 설정(격자 선·소품 모델 거리·상한, 개발자 2차맵 시험). 게임 자료는 바꾸지 않는다 */
   setViewOptions(options: EngineViewOptions): void;
+  /** 덧그림 층을 붙인다(전투 효과 등, render/engineLayers.ts). 떼는 함수를 돌려준다 */
+  addLayer(layer: EngineLayer): () => void;
+  /** 한 번 더 그린다(층 자료가 바뀌었을 때) */
+  requestFrame(): void;
+  /** 유닛 하나의 모습(키·굵기·색)을 바꾼다(쓰러짐 등). 없는 유닛이면 아무것도 하지 않는다 */
+  setUnitLook(id: number, look: UnitLook): void;
+  /** 카메라 목표(배치 칸)와 화면 짧은 변에 보일 길이(m, 없으면 거리 그대로). 한계 안으로 자른다 */
+  setView(view: { x: number; y: number; spanM?: number | undefined }): void;
   /** 모두 버린다: 그리기 멈춤, 입력·워커·지오메트리·재질 정리, 캔버스 떼기(렌더러는 다음 화면이 다시 쓴다) */
   dispose(): void;
 }

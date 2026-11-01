@@ -134,6 +134,17 @@ export interface RosterStatBreakdown {
   readonly value: number;
 }
 
+/**
+ * 1차 스탯 한 칸의 출처 하나(서버가 계산해 보낸다). item = 장비 칸의 아이템(slot "organ"이면 인공장기, "part"면 부품, 보석 몫 포함),
+ * effect = 스킬·효과(버프, 지금은 없다)
+ */
+export type RosterPrimarySource =
+  | { readonly kind: "body"; readonly value: number }
+  | { readonly kind: "initial"; readonly value: number }
+  | { readonly kind: "growth"; readonly value: number; readonly kPm: number }
+  | { readonly kind: "item"; readonly slot: EquipSlot; readonly item: string; readonly value: number }
+  | { readonly kind: "effect"; readonly id: string; readonly value: number };
+
 /** 1차 스탯 하나: 성장값 + 장신구·인공장기·부품 보너스(D-417·D-423) */
 export interface RosterPrimary {
   readonly base: number;
@@ -325,6 +336,11 @@ export interface CyborgBody {
     readonly initial: Readonly<Record<PrimaryStat, number>>;
     readonly kPm: Readonly<Record<PrimaryStat, number>>;
   } | null;
+  /**
+   * 1차 스탯마다 합쳐진 값의 출처(핵심 사양 막대를 누르거나 올리면 보이는 상세, ADR 2026-11-01-ui-visibility "바뀜"). 더하면
+   * stats.primaries의 base + bonus와 같다. 몸 값은 평소 하나(body), K가 보이는 곳(만렙, D-449)에서는 처음 값(initial)·레벨 성장(growth, K‰)
+   */
+  readonly primarySources: Readonly<Record<PrimaryStat, readonly RosterPrimarySource[]>>;
   /**
    * 속성값 12칸(0~10, D-182, 차례 = ELEMENT_CODES). 출처는 생성·환생 분배(4원소, 종교 환생 빛·어둠), 인공장기·장비, 신앙(D-450)이고
    * 칸마다 10에서 자른다(@terra/shared cyborgElements sumElementSources). 지금 출처는 저장된 생성·환생 값 하나다(장비·신앙 출처는

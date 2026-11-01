@@ -26,16 +26,22 @@ export function realCyborgBody(
   /** 장비·인공장기·신앙에서 오는 속성값(데이터 고리, 아직 없음) */
   elementSources: readonly ElementSource[] = [],
 ): CyborgBody {
-  const body = bodySheet(catalog, {
-    kind: "cyborg",
-    initial: record.initial,
-    kPm: record.kPm,
-    level: record.level,
-    rebirths: record.rebirths,
-    equipped: new Map(),
-    innateSkills: [],
-    source: "computed",
-  });
+  // K가 보이는 곳(D-449): 사이보그 화면은 만렙일 때만 처음 값·K를 보낸다
+  const maxed = record.level >= catalog.society.cyborg.maxLevel;
+  const body = bodySheet(
+    catalog,
+    {
+      kind: "cyborg",
+      initial: record.initial,
+      kPm: record.kPm,
+      level: record.level,
+      rebirths: record.rebirths,
+      equipped: new Map(),
+      innateSkills: [],
+      source: "computed",
+    },
+    { revealGrowth: maxed },
+  );
   return {
     level: record.level,
     maxLevel: catalog.society.cyborg.maxLevel,
@@ -47,8 +53,7 @@ export function realCyborgBody(
     faithPoints: record.faithPoints,
     living: { unpaid: livingUnpaid, efficiencyPm: livingEfficiencyPm(livingUnpaid, catalog.society) },
     ...body,
-    growth:
-      record.level >= catalog.society.cyborg.maxLevel ? { initial: record.initial, kPm: record.kPm } : null,
+    growth: maxed ? { initial: record.initial, kPm: record.kPm } : null,
     elements: elementsToArray(sumElementSources(record.elements ?? zeroElements(), elementSources)),
     // 본체 피로는 아직 직무·생활 규칙이 없어 0이다(피로 회복은 주거에 따른다 D-430, D-445 178 — 그 규칙이 들어올 때 건다)
     fatigue: { value: 0, max: FATIGUE_MAX },

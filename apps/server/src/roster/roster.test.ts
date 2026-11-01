@@ -162,6 +162,18 @@ describe("몸 계산", () => {
     expect(body.skillSlotUnlocks).toEqual([2, 3, 4, 5, 6, 7]);
     // 시안은 Lv 23이라 K·처음 값이 없다(D-449)
     expect(body.growth).toBeNull();
+    // 1차 출처(핵심 사양 상세): 몸 값 + 장비 칸 아이템마다. 더하면 base + bonus(시험 반지 = 장신구 STR, 시험 심장 = 인공장기 VIT)
+    for (const stat of ["str", "vit", "int", "wis", "dex", "agi"] as const) {
+      const sum = body.primarySources[stat].reduce((total, source) => total + source.value, 0);
+      expect(sum).toBe(body.stats.primaries[stat].base + body.stats.primaries[stat].bonus);
+      expect(body.primarySources[stat][0]).toEqual({ kind: "body", value: body.stats.primaries[stat].base });
+    }
+    expect(body.primarySources.vit.some((source) => source.kind === "item" && source.slot === "organ")).toBe(
+      true,
+    );
+    expect(
+      body.primarySources.str.some((source) => source.kind === "item" && source.slot === "accessory"),
+    ).toBe(true);
   });
 
   it("만든 사이보그: K·처음 값은 만렙(N7)에서만 보낸다(D-449), 그 밖에는 null(D-417 숨김)", () => {
@@ -205,6 +217,12 @@ describe("몸 계산", () => {
       Math.floor((12 * (1000 + Math.floor((100 * 1100 * (max - 1)) / 1000))) / 1000),
     );
     expect(realCyborgBody(catalog, { ...record, level: max - 1 }, false).growth).toBeNull();
+    // 1차 출처: 평소 몸 값 하나, 만렙이면 처음 값 + 레벨 성장(K‰). 더하면 base + bonus
+    expect(fresh.primarySources.str).toEqual([{ kind: "body", value: 12 }]);
+    expect(top.primarySources.str).toEqual([
+      { kind: "initial", value: 12 },
+      { kind: "growth", value: top.stats.primaries.str.base - 12, kPm: 1100 },
+    ]);
   });
 
   it("[임시] 시험 유닛 기본값: 1차 모두 10, 보너스 0, baseline", () => {

@@ -433,6 +433,15 @@ export {
 } from "./combat/battleMap.ts";
 export { BLOCK_HEIGHT, lineClear, type SightEnd } from "./combat/los.ts";
 export { createBattle, restoreBattle, runBattle, snapshotBattle } from "./combat/battle.ts";
+export type { BattleTrace } from "./combat/battleTrace.ts";
+export {
+  recordBattleReplay,
+  skillShape,
+  type RecordBattleOptions,
+  type RecordedBattle,
+} from "./combat/replay.ts";
+export { DEMO_ROLES, demoSkirmish, type DemoRole, type DemoSkirmish } from "./combat/replayDemo.ts";
+export { arenaFromSecondMap, pickArenaOrigin, type SecondMapLayers } from "./combat/arena.ts";
 export type {
   Battle,
   BattleInit,

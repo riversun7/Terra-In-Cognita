@@ -427,7 +427,27 @@ export {
   type RebirthChoice,
   type RebirthResult,
   type RebirthWallet,
+  type ReligionItem,
+  type ReligionItemUse,
 } from "./society/cyborgRebirth.ts";
+export {
+  FAITH_MAX,
+  FAITH_POINTS_MAX,
+  convertReligion,
+  gainFaith,
+  resetFaithForRebirth,
+  spendFaithPoints,
+  type UnitFaith,
+} from "./society/faith.ts";
+export {
+  livingEfficiencyPm,
+  organWorks,
+  repairOrgan,
+  wearOrgan,
+  withEfficiency,
+  type Durable,
+  type RepairResult,
+} from "./society/cyborgUpkeep.ts";
 export {
   firstStatRoll,
   kFromRolls,

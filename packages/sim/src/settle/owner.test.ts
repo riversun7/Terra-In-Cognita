@@ -107,6 +107,36 @@ describe("소유 주체 정산(시험 직무·유지비, 서버·시뮬 공용)"
       book,
       testSettleAccounts(book, 3),
     );
-    expect(result).toEqual({ jobs: [fresh], cycles: 0, upkeepPaid: 0, upkeepUnpaid: 0 });
+    expect(result).toEqual({
+      jobs: [fresh],
+      cycles: 0,
+      upkeepPaid: 0,
+      upkeepUnpaid: 0,
+      lastUpkeepPaid: null,
+    });
+  });
+
+  it("마지막 유지비 경계를 냈는지 알려 준다(못 냈으면 사이보그 본체가 비효율로 돈다, D-453). 경계가 없으면 null", () => {
+    const broke = bookWithCredit(4, 1n);
+    // 유닛 하나(본체), 1시간 경계는 내고 2시간 경계는 못 냄
+    const late = settleOwnerPeriod(
+      { ownerId: 4, jobs: [idle], fromMs: 0, toMs: 2 * HOUR, offlineSinceMs: null },
+      broke,
+      testSettleAccounts(broke, 4),
+    );
+    expect([late.upkeepPaid, late.upkeepUnpaid, late.lastUpkeepPaid]).toEqual([1, 1, false]);
+    const rich = bookWithCredit(4, 10n);
+    const paid = settleOwnerPeriod(
+      { ownerId: 4, jobs: [idle], fromMs: 0, toMs: 2 * HOUR, offlineSinceMs: null },
+      rich,
+      testSettleAccounts(rich, 4),
+    );
+    expect(paid.lastUpkeepPaid).toBe(true);
+    const inside = settleOwnerPeriod(
+      { ownerId: 4, jobs: [idle], fromMs: HOUR + 1, toMs: 2 * HOUR - 1, offlineSinceMs: null },
+      rich,
+      testSettleAccounts(rich, 4),
+    );
+    expect(inside.lastUpkeepPaid).toBeNull();
   });
 });

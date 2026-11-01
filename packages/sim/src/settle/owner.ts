@@ -66,6 +66,11 @@ export interface OwnerSettleResult {
   readonly cycles: number;
   readonly upkeepPaid: number;
   readonly upkeepUnpaid: number;
+  /**
+   * 구간의 마지막 유지비 경계를 냈는가(경계가 없거나 낼 것이 없으면 null = 그대로). 못 냈으면 사이보그 본체가 효율 불이익으로
+   * 돈다(D-453, society/cyborgUpkeep.ts). 부르는 쪽이 상태로 적는다
+   */
+  readonly lastUpkeepPaid: boolean | null;
 }
 
 /**
@@ -78,7 +83,8 @@ export function settleOwnerPeriod(
   accounts: SettleAccounts,
 ): OwnerSettleResult {
   const { fromMs, toMs } = input;
-  if (toMs <= fromMs) return { jobs: input.jobs, cycles: 0, upkeepPaid: 0, upkeepUnpaid: 0 };
+  if (toMs <= fromMs)
+    return { jobs: input.jobs, cycles: 0, upkeepPaid: 0, upkeepUnpaid: 0, lastUpkeepPaid: null };
   const rules = input.rules ?? TEST_JOB_RULES;
   let cycles = 0;
   const jobs = input.jobs.map((job) => {
@@ -89,6 +95,7 @@ export function settleOwnerPeriod(
   });
   let upkeepPaid = 0;
   let upkeepUnpaid = 0;
+  let lastUpkeepPaid: boolean | null = null;
   const charge = BigInt(input.jobs.length) * (input.upkeepPerUnit ?? TEST_UPKEEP_PER_UNIT);
   const boundaries = upkeepBoundaries(fromMs, toMs, input.upkeepPeriodMs ?? UPKEEP_PERIOD_MS);
   if (charge > 0n && boundaries.length > 0) {
@@ -108,6 +115,7 @@ export function settleOwnerPeriod(
     }
     upkeepPaid = result.paid.length;
     upkeepUnpaid = result.unpaid;
+    lastUpkeepPaid = result.paid.at(-1) === boundaries.at(-1);
   }
   if (cycles > 0) {
     const amount = BigInt(cycles);
@@ -120,5 +128,5 @@ export function settleOwnerPeriod(
       ],
     });
   }
-  return { jobs, cycles, upkeepPaid, upkeepUnpaid };
+  return { jobs, cycles, upkeepPaid, upkeepUnpaid, lastUpkeepPaid };
 }

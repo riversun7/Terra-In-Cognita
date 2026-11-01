@@ -3,6 +3,7 @@
 // 상태이상 저항 = 1차 스탯(D-429), 켬·끔(D-398), 구조 값(D-5054). 계산은 packages/sim combat/(effects·skills·equipment).
 // [임시] 기획 본문 48(스탯·공식)을 받기 전 기술 기본안이다. 칸 이름·부품 종류·수치 범위는 본문이 오면 맞춘다.
 // 칸·1차 스탯 코드 목록은 packages/sim combat/equipment.ts와 같아야 한다(sim 시험이 맞춰 본다).
+import { ELEMENT_IDS, ELEMENT_MAX } from "@terra/shared/cyborg";
 import { z } from "zod";
 import { ContentRef, contentId, localizedText, ref } from "./common.ts";
 
@@ -180,6 +181,14 @@ export const equipSchema = z
     weapon: weaponSchema.optional(),
     /** 장비 스킬(D-426. 지금은 아이템이 바로 가진다. 스킬석 소켓 인챈트는 뒤 단계) */
     skills: z.array(ref("skills")).max(4).optional(),
+    /**
+     * 속성값 칸(D-450: 장비·인공장기 스탯 묶음에 속성값 칸, 칸마다 1~10 D-182, 코드 D-167). 강화형(빙결·폭렬·번개·크리스탈)은
+     * 장비·인공장기·신앙에서만 온다. 유닛 속성값 = 출처 합, 칸마다 10에서 자름(@terra/shared sumElementSources)
+     */
+    elements: z
+      .array(z.strictObject({ element: z.enum(ELEMENT_IDS), value: z.int().min(1).max(ELEMENT_MAX) }))
+      .max(ELEMENT_IDS.length)
+      .optional(),
   })
   .superRefine((equip, ctx) => {
     if (typeof equip !== "object" || equip === null || !Array.isArray(equip.stats)) return;
@@ -204,6 +213,19 @@ export const equipSchema = z
       if (typeof entry.min === "number" && typeof entry.max === "number" && entry.min > entry.max)
         ctx.addIssue({ code: "custom", path: ["stats", index], message: "min이 max보다 큽니다." });
     });
+    if (Array.isArray(equip.elements)) {
+      const seen = new Set<string>();
+      equip.elements.forEach((entry, index) => {
+        if (typeof entry !== "object" || entry === null || typeof entry.element !== "string") return;
+        if (seen.has(entry.element))
+          ctx.addIssue({
+            code: "custom",
+            path: ["elements", index, "element"],
+            message: `속성 ${entry.element}이(가) 두 번 있습니다. 칸마다 한 줄만 적으세요.`,
+          });
+        seen.add(entry.element);
+      });
+    }
     if ((equip.weapon !== undefined) !== (equip.slot === "weapon"))
       ctx.addIssue({
         code: "custom",

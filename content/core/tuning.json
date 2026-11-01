@@ -1044,8 +1044,8 @@
       "id": "n34_rebirth_faith",
       "code": "N34",
       "name": {
-        "ko": "사이보그 환생 신앙도",
-        "en": "Cyborg rebirth faith cost"
+        "ko": "사이보그 환생 신앙도 문턱(환생하면 0)",
+        "en": "Cyborg rebirth faith threshold (reset to 0)"
       },
       "value": 50,
       "structural": false
@@ -1078,6 +1078,136 @@
         "en": "Start city crowding: busy from (cyborgs)"
       },
       "value": 50,
+      "structural": false
+    },
+    {
+      "id": "n36_element_cells",
+      "code": "N36",
+      "name": {
+        "ko": "생성 속성 칸 수(4원소)",
+        "en": "Creation element cells (basic four)"
+      },
+      "value": 2,
+      "structural": true
+    },
+    {
+      "id": "n36_element_points",
+      "code": "N36",
+      "name": {
+        "ko": "생성 속성 점수",
+        "en": "Creation element points"
+      },
+      "value": 10,
+      "structural": true
+    },
+    {
+      "id": "n37_light_dark",
+      "code": "N37",
+      "name": {
+        "ko": "종교 환생 빛·어둠 값",
+        "en": "Religious rebirth light/dark points"
+      },
+      "value": 5,
+      "structural": false
+    },
+    {
+      "id": "n38_organ_wear",
+      "code": "N38",
+      "name": {
+        "ko": "인공장기 닳는 양(정시마다)",
+        "en": "Organ wear per hour"
+      },
+      "value": 1,
+      "structural": false
+    },
+    {
+      "id": "n38_organ_repair_cost",
+      "code": "N38",
+      "name": {
+        "ko": "인공장기 수리 비용(내구도 1점, 최소 단위)",
+        "en": "Organ repair cost per point (minor units)"
+      },
+      "value": 100,
+      "structural": false
+    },
+    {
+      "id": "n38_living_unpaid",
+      "code": "N38",
+      "name": {
+        "ko": "생활비 못 냈을 때 효율(‰)",
+        "en": "Efficiency when living costs are unpaid (‰)"
+      },
+      "value": 700,
+      "structural": false
+    },
+    {
+      "id": "f11_repair_lv1",
+      "code": "F11",
+      "name": {
+        "ko": "수리 최대 내구도 감소 Lv1(%)",
+        "en": "Repair max durability loss Lv1 (%)"
+      },
+      "value": 30,
+      "structural": false
+    },
+    {
+      "id": "f11_repair_lv2",
+      "code": "F11",
+      "name": {
+        "ko": "수리 최대 내구도 감소 Lv2(%)",
+        "en": "Repair max durability loss Lv2 (%)"
+      },
+      "value": 25,
+      "structural": false
+    },
+    {
+      "id": "f11_repair_lv3",
+      "code": "F11",
+      "name": {
+        "ko": "수리 최대 내구도 감소 Lv3(%)",
+        "en": "Repair max durability loss Lv3 (%)"
+      },
+      "value": 20,
+      "structural": false
+    },
+    {
+      "id": "f11_repair_lv4",
+      "code": "F11",
+      "name": {
+        "ko": "수리 최대 내구도 감소 Lv4(%)",
+        "en": "Repair max durability loss Lv4 (%)"
+      },
+      "value": 15,
+      "structural": false
+    },
+    {
+      "id": "f11_repair_lv5",
+      "code": "F11",
+      "name": {
+        "ko": "수리 최대 내구도 감소 Lv5(%)",
+        "en": "Repair max durability loss Lv5 (%)"
+      },
+      "value": 10,
+      "structural": false
+    },
+    {
+      "id": "f11_repair_floor",
+      "code": "F11",
+      "name": {
+        "ko": "수리 최대 내구도 감소 하한(%)",
+        "en": "Repair max durability loss floor (%)"
+      },
+      "value": 5,
+      "structural": false
+    },
+    {
+      "id": "f12_destroy_at",
+      "code": "F12",
+      "name": {
+        "ko": "파괴 문턱(최대 내구도 이하)",
+        "en": "Destroyed at or below max durability"
+      },
+      "value": 10,
       "structural": false
     }
   ]

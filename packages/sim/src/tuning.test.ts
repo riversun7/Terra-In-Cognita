@@ -57,6 +57,28 @@ describe("설정 칸 값 → 계수표", () => {
     ]).toEqual([3500, 10, 30]);
   });
 
+  it("속성 분배(N36 구조 값)·빛어둠(N37)·인공장기·생활비(N38)·수리(F11 배열 칸·F12)도 같은 길로 바뀐다(D-450~D-453)", () => {
+    const tuned = societyCoefficientsFrom(
+      new Map([
+        ["n36_element_points", 12],
+        ["n37_light_dark", 3],
+        ["n38_living_unpaid", 500],
+        ["f11_repair_lv3", 18],
+        ["f12_destroy_at", 5],
+      ]),
+    );
+    expect([
+      tuned.cyborg.elementCells,
+      tuned.cyborg.elementPoints,
+      tuned.cyborg.lightDarkPoints,
+      tuned.cyborg.livingUnpaidPm,
+      tuned.durability.destroyAtMax,
+    ]).toEqual([2, 12, 3, 500, 5]);
+    expect(tuned.durability.repairLossPct).toEqual([30, 25, 18, 15, 10]);
+    const structural = TUNING_KEYS.filter((key) => key.structural).map((key) => key.id);
+    expect(structural).toEqual(expect.arrayContaining(["n36_element_cells", "n36_element_points"]));
+  });
+
   it("모든 키는 계수표의 숫자 칸을 가리키고, ID는 겹치지 않는다", () => {
     for (const key of TUNING_KEYS) expect(Number.isInteger(tuningValue(key))).toBe(true);
     expect(new Set(TUNING_KEYS.map((key) => key.id)).size).toBe(TUNING_KEYS.length);

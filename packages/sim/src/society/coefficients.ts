@@ -112,7 +112,7 @@ export interface SocietyCoefficients {
   readonly tributePm: number;
   /** 공물 주기(주마다). 시뮬은 하루 끝에서 날 수로 내림해 돈다 */
   readonly tributeEveryMs: number;
-  /** 사이보그 성장·환생(48 §2, D-417·D-440·D-441, 49 N6·N7·N9·N34) */
+  /** 사이보그 성장·환생·속성·유지(48 §2, D-417·D-440·D-441·D-450~D-453, 49 N6·N7·N9·N34·N36~N38) */
   readonly cyborg: {
     /** 만렙(N7 기본 50, 구조 값). 특수 만렙 60은 누가 받는지 정해지지 않아 두지 않는다 */
     readonly maxLevel: number;
@@ -147,11 +147,32 @@ export interface SocietyCoefficients {
     readonly skillGradeBase: number;
     readonly skillGradeMax: number;
     /**
-     * 환생 비용(N34 설정값, 출발값 신앙도 50·화폐 10,000 — D-444·D-5032): 신앙도(0~100, 써서 줄어든다 D-444 165),
-     * 화폐(신전 도시 화폐 최소 단위)
+     * 환생 비용(N34 설정값, 출발값 신앙도 50·화폐 10,000 — D-444·D-5032): 신앙도 문턱(0~100, 쓰지 않고 이만큼 있는지만 본다.
+     * 환생하면 0 — D-451), 화폐(신전 도시 화폐 최소 단위)
      */
     readonly rebirthFaith: number;
     readonly rebirthCurrency: number;
+    /** 생성 속성 분배(N36 구조 값, D-450 원문 "두가지속성만 선택"·"10개씩 분배"): 4원소 가운데 고를 수 있는 칸 수, 나눌 점수 */
+    readonly elementCells: number;
+    readonly elementPoints: number;
+    /** 종교 환생 빛·어둠 값(N37, 출발값 없음 → 설정값 출발값 5): 진로별 종교 아이템으로 갈래를 열면 그 칸에 더한다(D-450·D-452) */
+    readonly lightDarkPoints: number;
+    /**
+     * 사이보그 인공장기·생활비(N38, 출발값 없음 → 설정값 출발값, D-453): 유지비 경계(정시)마다 닳는 내구도, 수리로 되찾는 내구도
+     * 1점당 비용(최소 단위), 생활비(유닛 유지비 D-150)를 못 냈을 때 효율(‰)
+     */
+    readonly organWearPerPeriod: number;
+    readonly organRepairCost: number;
+    readonly livingUnpaidPm: number;
+  };
+  /**
+   * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
+   * 최대 내구도가 이 값 이하면 파괴(분해만 가능)
+   */
+  readonly durability: {
+    readonly repairLossPct: readonly number[];
+    readonly repairLossFloorPct: number;
+    readonly destroyAtMax: number;
   };
 }
 
@@ -249,5 +270,16 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     skillGradeMax: 10,
     rebirthFaith: 50,
     rebirthCurrency: 10_000,
+    elementCells: 2,
+    elementPoints: 10,
+    lightDarkPoints: 5,
+    organWearPerPeriod: 1,
+    organRepairCost: 100,
+    livingUnpaidPm: 700,
+  },
+  durability: {
+    repairLossPct: [30, 25, 20, 15, 10],
+    repairLossFloorPct: 5,
+    destroyAtMax: 10,
   },
 };

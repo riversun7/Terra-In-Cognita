@@ -4,6 +4,7 @@
 // 팩의 임시 값 = TEST_* 계수표(서버 시험이 맞춰 본다). 표에 없는 계수는 아직 설정 칸이 없거나 기술 상수다.
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "./combat/coefficients.ts";
 import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "./society/coefficients.ts";
+import { CYBORG_TUNING_KEYS } from "./tuningCyborg.ts";
 
 export interface TuningKey {
   /** 팩 항목 ID */
@@ -484,63 +485,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
     "Development per tech level",
   ),
   k("d396_blueprint", "", "society", "blueprintDiscountBp", "설계도 할인(만분율)", "Blueprint discount (bp)"),
-  // 사이보그 성장·환생 (49 §6.5 N6·N7·N9·N34, D-417·D-440·D-441)
-  k("n6_k_min", "N6", "society", "cyborg.kMinPm", "K 범위 최소(‰)", "K range min (‰)"),
-  k("n6_k_max", "N6", "society", "cyborg.kMaxPm", "K 범위 최대(‰)", "K range max (‰)"),
-  k("n7_max_level", "N7", "society", "cyborg.maxLevel", "만렙(기본)", "Max level (base)", true),
-  k(
-    "n9_initial_sum",
-    "N9",
-    "society",
-    "cyborg.initialSum",
-    "사이보그 초기 스탯 합",
-    "Cyborg initial stat sum",
-  ),
-  k("n9_initial_min", "N9", "society", "cyborg.initialMin", "초기 스탯 칸 최소", "Initial stat min per stat"),
-  k("n9_initial_max", "N9", "society", "cyborg.initialMax", "초기 스탯 칸 최대", "Initial stat max per stat"),
-  k("n9_initial_rerolls", "N9", "society", "cyborg.initialRerolls", "다시 굴리기 횟수", "Initial rerolls"),
-  k("n9_initial_favor", "N9", "society", "cyborg.initialFavorMilli", "성향 평균 올림", "Temperament boost"),
-  k(
-    "n9_initial_spread",
-    "N9",
-    "society",
-    "cyborg.initialSpreadMilli",
-    "스탯 표준편차",
-    "Initial stat spread",
-  ),
-  k(
-    "n34_rebirth_faith",
-    "N34",
-    "society",
-    "cyborg.rebirthFaith",
-    "사이보그 환생 신앙도",
-    "Cyborg rebirth faith cost",
-  ),
-  k(
-    "n34_rebirth_currency",
-    "N34",
-    "society",
-    "cyborg.rebirthCurrency",
-    "사이보그 환생 화폐(최소 단위)",
-    "Cyborg rebirth currency cost (minor units)",
-  ),
-  // 첫 접속 시작 도시 붐빔 띠(D-6041·D-445 175 설정값, docs/adr/2026-11-01-first-login-cyborg.md)
-  k(
-    "d6041_crowd_normal",
-    "",
-    "society",
-    "cyborg.startCrowdNormal",
-    "시작 도시 붐빔 보통 문턱(사이보그 수)",
-    "Start city crowding: normal from (cyborgs)",
-  ),
-  k(
-    "d6041_crowd_busy",
-    "",
-    "society",
-    "cyborg.startCrowdBusy",
-    "시작 도시 붐빔 문턱(사이보그 수)",
-    "Start city crowding: busy from (cyborgs)",
-  ),
+  // 사이보그 성장·환생·속성·유지와 장비 수리(49 N6·N7·N9·N34·N36~N38·F11·F12): tuningCyborg.ts
+  ...CYBORG_TUNING_KEYS,
 ];
 
 function getPath(root: unknown, path: string): number {

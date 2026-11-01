@@ -98,6 +98,37 @@ describe("전투 분류", () => {
     ).toHaveLength(1);
   });
 
+  it("장비·인공장기 스탯 묶음에 속성값 칸(D-450): 코드(D-167)·1~10(D-182), 한 칸 한 줄", () => {
+    expect(
+      issuesOf({
+        "items.json": {
+          entries: [
+            item({
+              slot: "organ",
+              stats: [{ stat: "str", min: 1, max: 2 }],
+              elements: [
+                { element: "frost", value: 3 },
+                { element: "fire", value: 10 },
+              ],
+            }),
+          ],
+        },
+      }),
+    ).toEqual([]);
+    for (const elements of [
+      [{ element: "plasma", value: 3 }],
+      [{ element: "fire", value: 11 }],
+      [{ element: "fire", value: 0 }],
+      [
+        { element: "fire", value: 2 },
+        { element: "fire", value: 3 },
+      ],
+    ])
+      expect(
+        issuesOf({ "items.json": { entries: [item({ slot: "organ", stats: [], elements })] } }),
+      ).toHaveLength(1);
+  });
+
   it("스킬이 없는 효과를, 장비가 없는 스탯 행을 가리키면 참조 오류다", () => {
     const issues = issuesOf({
       "effects.json": { entries: [effect({})] },

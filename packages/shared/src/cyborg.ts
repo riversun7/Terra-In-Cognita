@@ -1,4 +1,4 @@
-// 사이보그 만들기 공용 진입점(@terra/shared/cyborg) — 이름 규칙·외형 목록·조회 응답 모양.
+// 사이보그 만들기 공용 진입점(@terra/shared/cyborg) — 이름 규칙·외형 목록·속성값 분배(D-450)·조회 응답 모양.
 // ADR 2026-11-01-first-login-cyborg. 첫 화면 묶음에 넣지 않으려고 꾸러미 진입점(index.ts)과 나눴다.
 export {
   CYBORG_NAME_MAX_UNITS,
@@ -26,6 +26,26 @@ export {
   type CyborgLookSlot,
   type CyborgPresetId,
 } from "./cyborgLooks.ts";
+export {
+  BASIC_ELEMENTS,
+  ELEMENT_IDS,
+  ELEMENT_MAX,
+  ENHANCED_ELEMENTS,
+  LIGHT_DARK_ELEMENTS,
+  checkElementAllocation,
+  elementsFromArray,
+  elementsToArray,
+  isElementId,
+  sumElementSources,
+  zeroElements,
+  type ElementAllocationProblem,
+  type ElementAllocationResult,
+  type ElementAllocationRule,
+  type ElementId,
+  type ElementSource,
+  type ElementValues,
+  type LightDarkElement,
+} from "./cyborgElements.ts";
 export {
   CROWDING_BANDS,
   type CreationCity,

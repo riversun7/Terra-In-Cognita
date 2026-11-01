@@ -20,6 +20,7 @@ import {
   CELL_UNITS,
   DEFAULT_NODE_BUDGET,
   HALF_CELL_UNITS,
+  PLACEMENT_SIZE,
   type BuildingPlacement,
   type CellRect,
   type Motion,
@@ -111,6 +112,8 @@ export interface MapPersist {
   saveUnit(row: UnitRow): void;
   saveBuilding(row: BuildingRow): void;
   removeBuilding(buildingId: number): void;
+  /** 유닛 행을 지운다(NPC 휴먼 사망, docs/adr/2026-11-01-npc-brain-r5.md 7절). 없으면 저장하지 않는 2차맵 */
+  removeUnit?(unitId: number): void;
 }
 
 /** 유닛 읽기 모양(정산·불변 조건 검사) */
@@ -127,7 +130,8 @@ export interface UnitView {
 
 interface UnitState {
   readonly id: number;
-  readonly ownerId: number;
+  /** NPC 사회 런타임이 도시 주인이 바뀔 때 바꾼다(setOwner) */
+  ownerId: number;
   readonly kind: number;
   readonly domain: WorldDomain;
   readonly size: SizeClass;
@@ -224,6 +228,20 @@ export interface SecondMap {
   setJob(unitId: number, job: UnitJob): boolean;
   /** 부상·포로 상태를 넣고 저장한다(전투 결과) */
   setCondition(unitId: number, condition: UnitCondition): boolean;
+  /**
+   * NPC 휴먼(시험 봇) 하나를 기준 칸 둘레(반경 칸 안)에 세운다(출생, docs/adr/2026-11-01-npc-brain-r5.md 7절).
+   * ID가 있거나 설 곳이 없으면 false
+   */
+  spawnBotNear(
+    id: number,
+    ownerId: number,
+    near: { readonly x: number; readonly y: number },
+    radiusCells: number,
+  ): boolean;
+  /** 유닛 주인을 바꾸고 저장한다(도시 주인이 바뀜). 없으면 false */
+  setOwner(unitId: number, ownerId: number): boolean;
+  /** 유닛을 지운다(NPC 휴먼 사망). 하던 이동·예약은 버리고 보던 기기에 숨김을 보낸다. 없으면 false */
+  removeUnit(unitId: number): boolean;
   /** 안전한 곳(기준 칸 = 가장 가까운 안전 도시, 없으면 가운데)으로 바로 옮긴다(질문 108 기본안·D-351). 하던 이동은 버린다 */
   relocateToSafety(unitId: number, near?: { readonly x: number; readonly y: number }): boolean;
   /** 불변 조건 I5: 예약이 없는 봇 수(경로를 기다리는 봇은 뺀다) */
@@ -736,6 +754,53 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     },
     forEachUnit(visit) {
       for (const unit of units.values()) visit(view(unit));
+    },
+    spawnBotNear(id, ownerId, near, radiusCells) {
+      if (units.has(id) || !Number.isInteger(id) || id < 1) return false;
+      const plan = botPlan(terrain.seed, id);
+      const span = radiusCells * 2 + 1;
+      let at: Point | undefined;
+      for (let attempt = 0; attempt < 64 && !at; attempt++) {
+        const x = near.x + plan.rng.nextInt(span) - radiusCells;
+        const y = near.y + plan.rng.nextInt(span) - radiusCells;
+        if (x >= 0 && y >= 0 && x < PLACEMENT_SIZE && y < PLACEMENT_SIZE && isPassable(grid, x, y, plan.size))
+          at = anchorCenter(x, y, plan.size);
+      }
+      if (!at) return false;
+      const unit = createUnit({
+        id,
+        ownerId,
+        kind: UNIT_KIND_BOT,
+        size: plan.size,
+        speed: plan.speed,
+        motion: standing(at, plan.speed),
+        aiStep: 0,
+        job: NO_JOB,
+      });
+      scheduleEvent(unit, "wake", now() + startDelayMs(nextRng(unit)));
+      return true;
+    },
+    setOwner(unitId, ownerId) {
+      const unit = units.get(unitId);
+      if (!unit) return false;
+      if (unit.ownerId === ownerId) return true;
+      unit.ownerId = ownerId;
+      save(unit);
+      vision.unitChanged(unit);
+      return true;
+    },
+    removeUnit(unitId) {
+      const unit = units.get(unitId);
+      if (!unit) return false;
+      cancelEvent(unit);
+      // 진행 중인 경로 결과는 버려진다(isCurrent가 지운 유닛을 거른다)
+      unit.routeSeq += 1;
+      units.delete(unitId);
+      rev += 1;
+      stream.unitHidden(rev, unitId);
+      vision.unitRemoved(unitId, unit.ownerId);
+      persist?.removeUnit?.(unitId);
+      return true;
     },
     setJob(unitId, job) {
       const unit = units.get(unitId);

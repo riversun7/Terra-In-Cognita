@@ -37,6 +37,7 @@ import {
 import type { Ledger } from "../economy/ledger.ts";
 import type { CyborgReadServices } from "../trpc/context.ts";
 import type { CityRow } from "../world/cities.ts";
+import { nationName } from "../npc/nations.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
@@ -290,7 +291,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       const fewest = Math.min(...open.map((entry) => perFaction.get(entry.faction.id) ?? 0));
       const list: CreationFaction[] = open.map(({ faction, cities }) => ({
         id: faction.id,
-        name: (faction.code ? FACTION_NAMES[faction.code] : undefined) ?? {
+        name: (faction.code ? (FACTION_NAMES[faction.code] ?? nationName(faction.code)) : undefined) ?? {
           ko: faction.code ?? `#${faction.id}`,
           en: faction.code ?? `#${faction.id}`,
         },

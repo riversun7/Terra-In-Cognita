@@ -83,6 +83,8 @@ app = await buildApp({
     testBots: config.s1.testBots,
     testMaps: config.s1.testMaps,
     paths: { kind: "workers", workerUrl: pathWorkerUrl, workers: config.s1.pathWorkers },
+    // NPC 사회 런타임(docs/adr/2026-11-01-npc-brain-r5.md 7절): 시험 세계 NPC 국가에 세력·사회 규칙을 실제 시간으로
+    npc: config.npc.enabled ? { testNations: config.npc.testNations, dayMs: config.npc.dayMs } : undefined,
   },
   // 1차맵 행성(ADR 36): 콘텐츠 팩 행성마다 원본 하나(생성기 1판). 캐시에 없으면 워커에서 굽는다
   planets: {

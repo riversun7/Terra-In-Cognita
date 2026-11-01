@@ -23,6 +23,10 @@ services:
       # 휴대폰으로 실제 NAS에서 재야 해서 운영에서 켠다. 측정이 끝나면 0으로(봇 없음, 2차맵·경로 워커는 그대로).
       # 경로 워커 수는 기본 1(PATH_WORKERS). NAS는 2코어 4스레드라 메인 스레드 + 워커 1로 시작한다(ops/nas-facts.md)
       S1_TEST_BOTS: "1000"
+      # NPC 사회 런타임(docs/adr/2026-11-01-npc-brain-r5.md 7절): 시험 봇을 NPC 국가 넷의 휴먼으로 들이고 세력·사회 규칙을
+      # 실제 시간으로 돌린다(기본 켬). 끄려면 "0"(봇만 걷는다, 표·행은 그대로)
+      NPC_SOCIETY: "1"
+      NPC_TEST_NATIONS: "4"
     volumes:
       # 1차맵 행성 타일 캐시(PLANET_CACHE_DIR=/app/planet-cache, Dockerfile). 다시 켤 때 굽지 않고 읽는다.
       # 지워도 된다(다음 시작 때 다시 굽는다). deploy.sh가 폴더를 만들고 컨테이너 node 사용자(1000)에게 소유자·권한(755)을 준다

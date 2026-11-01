@@ -40,6 +40,8 @@ import {
   createSettlement,
 } from "./settlement.ts";
 import { emptyWorldStats, resetWorldStats, summarizeWorldStats } from "./worldStats.ts";
+import { ensureTestNations } from "../npc/nations.ts";
+import { type NpcRuntime, startNpcRuntime } from "../npc/runtime.ts";
 
 /**
  * 시험 2차맵 자리(ADR 2026-10-31-second-map-from-planet 8절): S2 시험 행성(면 레벨 9) 면 0의 (i, j) = (282, 328) 칸부터
@@ -96,6 +98,11 @@ export interface WorldConfig {
   terrain?: TerrainService | undefined;
   /** 사이보그 만들기 규칙(팩 tuning을 얹은 세력·사회 계수표 N9·N6). 없으면 sim 시험 계수표 */
   cyborgRules?: (() => CyborgRules) | undefined;
+  /**
+   * NPC 사회 런타임(docs/adr/2026-11-01-npc-brain-r5.md 7절, NPC_SOCIETY). 없으면 끔. DB가 있을 때만 돈다.
+   * testNations = 시험 국가 수(NPC_TEST_NATIONS), dayMs = 하루 길이(측정용, NPC_DAY_MS), manual = 타이머 없이(시험)
+   */
+  npc?: { testNations: number; dayMs?: number | undefined; manual?: boolean | undefined } | undefined;
 }
 
 export interface WorldLog extends MapLog {
@@ -145,6 +152,8 @@ export interface World extends WorldDirectory {
   status(): WorldStatus;
   /** DB가 있을 때만 */
   readonly persistence: WorldPersistence | undefined;
+  /** NPC 사회 런타임(켜져 있고 DB가 있을 때만) */
+  readonly npc: NpcRuntime | undefined;
   /** 불변 조건 검사(메모리 + DB). 위반 목록 */
   checkInvariants(): Promise<string[]>;
   /** 지난 호출 뒤 구간의 지표(지표 한 줄에 붙인다). 부르면 구간을 비운다 */
@@ -189,6 +198,7 @@ export function startWorld(
   const mapCount = Math.max(1, config.testMaps ?? 1);
   const status: WorldStatus = { state: "recovering", issues: 0, bootMs: undefined };
   let persistence: WorldPersistence | undefined;
+  let npc: NpcRuntime | undefined;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   let stopped = false;
   const bootId = randomUUID();
@@ -308,6 +318,13 @@ export function startWorld(
         }
         npcOwnerId = await ensureTestNpcOwner(db, now());
         await ensureTestStartCities(db, TEST_NPC_FACTION_CODE, TEST_PLANET_ID, mapKeys, now());
+        if (config.npc && mapKeys[0] !== undefined)
+          await ensureTestNations(db, {
+            count: config.npc.testNations,
+            planetId: TEST_PLANET_ID,
+            mapKey: mapKeys[0],
+            nowMs: now(),
+          });
         cities = await loadCities(db);
         cyborgData = await loadCyborgs(db);
         loaded = await loadWorld(db, now());
@@ -369,6 +386,8 @@ export function startWorld(
           ...row.placement,
         }),
       removeBuilding: (id) => writer.remove("buildings", { id }),
+      // NPC 휴먼 사망(docs/adr/2026-11-01-npc-brain-r5.md 7절). 휴먼 행은 런타임이 먼저 지운다(외래 키는 cascade)
+      removeUnit: (id) => writer.remove("units", { id }),
     };
     const ledger = createLedger({
       writer,
@@ -514,6 +533,27 @@ export function startWorld(
       ...(await checkSqlInvariants(db, now())),
     ];
     status.issues = problems.length;
+    // NPC 사회 런타임(봇을 다시 놓은 뒤): 실패해도 월드는 봇만 걷는 채로 돈다
+    if (config.npc && !stopped) {
+      try {
+        npc = await startNpcRuntime({
+          pool: db,
+          writer,
+          ledger,
+          owners,
+          maps,
+          nextOwnerId: nextId.owner,
+          nextUnitId: nextId.unit,
+          now,
+          log,
+          rules: config.cyborgRules ?? defaultCyborgRules,
+          dayMs: config.npc.dayMs,
+          manual: config.npc.manual,
+        });
+      } catch (error) {
+        log.error({ err: error }, "npc society failed to start; bots keep walking");
+      }
+    }
     status.bootMs = Math.round(performance.now() - started);
     log.info(
       {
@@ -566,6 +606,9 @@ export function startWorld(
     get persistence() {
       return persistence;
     },
+    get npc() {
+      return npc;
+    },
     isReady: () => status.state === "ready",
     ownerOfUser: (userId) => persistence?.settlement.findOwnerOfUser(userId),
     devSpawn(userId, mapKey, count) {
@@ -599,12 +642,13 @@ export function startWorld(
       const summary = summarizeWorldStats(stats, gauges, at - windowStart);
       resetWorldStats(stats);
       windowStart = at;
-      return { ...summary, ...persistence?.writer.takeMetrics() };
+      return { ...summary, ...persistence?.writer.takeMetrics(), ...npc?.takeMetrics() };
     },
     async stop() {
       stopped = true;
       await ready.catch(() => undefined);
       if (heartbeat) clearInterval(heartbeat);
+      npc?.stop();
       persistence?.settlement.stop();
       persistence?.battles.stop();
       for (const map of maps.values()) map.stop();
@@ -617,6 +661,7 @@ export function startWorld(
     async crashForTest(inFlight) {
       stopped = true;
       await ready.catch(() => undefined);
+      npc?.stop();
       await persistence?.writer.crash(inFlight);
       persistence?.settlement.stop();
       persistence?.battles.stop();

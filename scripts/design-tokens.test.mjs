@@ -35,6 +35,21 @@ const GOOD = {
   "--color-stat-wis": "#5a1fb0",
   "--color-stat-dex": "#6a4200",
   "--color-stat-agi": "#0e5a28",
+  "--color-sec-hp": "#3a3a3a",
+  "--color-sec-armor-hp": "#3a3a3a",
+  "--color-sec-shield-hp": "#3a3a3a",
+  "--color-sec-mp": "#3a3a3a",
+  "--color-sec-stamina": "#3a3a3a",
+  "--color-sec-physical-attack": "#3a3a3a",
+  "--color-sec-elemental-attack": "#3a3a3a",
+  "--color-sec-hit": "#3a3a3a",
+  "--color-sec-crit-chance": "#3a3a3a",
+  "--color-sec-crit-multiplier": "#3a3a3a",
+  "--color-sec-defense-rate": "#3a3a3a",
+  "--color-sec-evade": "#3a3a3a",
+  "--color-sec-action-speed": "#3a3a3a",
+  "--color-sec-sight": "#3a3a3a",
+  "--color-sec-other": "#3a3a3a",
 };
 
 const block = (selector, tokens) =>

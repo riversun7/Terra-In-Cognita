@@ -1,9 +1,11 @@
-// 사이보그 화면 시험 — ADR 2026-11-01-ui-visibility, 기획 D-448(스탯 묶음·색)·D-449(K는 만렙 등에서만)·D-450(속성 12칸)
-// - 플레이어(전역 준비가 만든 Lv 1 사이보그): 스탯 두 칸씩 묶음(STR·VIT, INT·WIS, DEX·AGI)·스탯 색, K 없음, 전투 스펙 줄 펼치기
-//   (공식·항·결과 = 줄 값, 확률 줄은 상한·반감 상수, 키보드), 스킬 칸(처음 3 + 닫힌 7), 속성 12칸, 인공장기 3·장비 6칸, 상태 줄.
-// - 만렙(응답을 고쳐 본다: cyborg.get의 level·growth): K 6개와 세 칸 범례.
-// - 사진: 390 × 파스텔·다크·정거장, 1440 × 파스텔·다크, 한국어·영어(dev 시안 자료) — 접은 화면·펼친 화면·머리 판(그림).
-//   정거장(네온 SF 테마, 사용자 결정 2026-11-01)은 홈·설정 테마 미리 보기도 찍는다. 폴더는 E2E_SHOTS_DIR.
+// 사이보그 화면 시험 — ADR 2026-11-01-ui-visibility(+ "바뀜": 옛 프로젝트 모양으로 다시), 기획 D-448·D-449·D-450
+// - 플레이어(전역 준비가 만든 Lv 1 사이보그): 핵심 사양(옛 StatBar) 두 칸씩 묶음·스탯 색, 막대를 누르면 출처 상세(몸 값·장비·인공장기·
+//   스킬·효과·합계, Escape로 닫힘), K 없음. 상세 전투 스펙(옛 SecondaryStatsCard): VITALS·OFFENSE·DEFENSE·MOBILITY 묶음, 줄마다
+//   한 색 막대(2차 스탯 색 = 1차 스탯 색과 다름), ▶ 펼치면 "공식 … | 캡 …"·입력 줄·"= 결과", 키보드. 스킬 칸·속성·장비 칸·상태 줄.
+// - 만렙(응답을 고쳐 본다: level·growth·primarySources): K 6개, 처음 값·레벨 성장 칸, 세 칸 범례.
+// - 데스크톱: 막대에 마우스를 올리면 출처 상세가 보인다.
+// - 사진: 390 × 파스텔·다크·정거장, 1440 × 파스텔·다크, 한국어·영어(dev 시안 자료) — 접은·펼친 전투 스펙, 출처 상세, 머리 판.
+//   정거장(네온 SF 테마, D-454)은 홈·설정 테마 미리 보기도 찍는다. 폴더는 E2E_SHOTS_DIR.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
@@ -11,9 +13,11 @@ import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
+const PRIMARY = ["str", "vit", "int", "wis", "dex", "agi"] as const;
+
 async function cyborgReady(page: Page): Promise<void> {
   await expect(page.locator(".cyborg-profile")).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator(".cyborg .stat-cell").first()).toBeVisible();
+  await expect(page.locator(".cyborg .core-row").first()).toBeVisible();
 }
 
 /** #rrggbb → 계산된 색 글("rgb(r, g, b)") */
@@ -25,7 +29,7 @@ function rgb(hex: string): string {
 test.describe("플레이어: 사이보그 화면", () => {
   test.use({ account: "player" });
 
-  test("스탯 묶음·색, K 없음, 전투 스펙 펼치기, 스킬 칸·속성·장비 칸, 상태 줄", async ({
+  test("핵심 사양(묶음·색·출처 상세), 상세 전투 스펙(묶음·한 색 막대·공식 상자), 스킬 칸·속성·장비 칸, 상태 줄", async ({
     page,
     deviceErrors,
   }) => {
@@ -33,74 +37,98 @@ test.describe("플레이어: 사이보그 화면", () => {
     await page.goto("/cyborg");
     await cyborgReady(page);
 
-    // 1차 스탯: 두 칸씩 셋, 화면 차례 STR·VIT·INT·WIS·DEX·AGI(D-448)
-    await expect(page.locator(".cyborg .stat-pair")).toHaveCount(3);
-    const cells = page.locator(".cyborg .stat-cell");
-    expect(await cells.evaluateAll((list) => list.map((cell) => cell.getAttribute("data-stat")))).toEqual([
-      "str",
-      "vit",
-      "int",
-      "wis",
-      "dex",
-      "agi",
+    // 핵심 사양: 두 칸씩 셋, 화면 차례 STR·VIT·INT·WIS·DEX·AGI(D-448), 합계 글자 = 그 스탯 색
+    await expect(page.locator(".cyborg .core-pair")).toHaveCount(3);
+    const rows = page.locator(".cyborg .core-row");
+    expect(await rows.evaluateAll((list) => list.map((row) => row.getAttribute("data-stat")))).toEqual([
+      ...PRIMARY,
     ]);
-    // 스탯 색: 값 글자 = 그 테마의 --color-stat-*, 스탯마다 다르다
-    const colors = await page.evaluate(() => {
+    const colors = await page.evaluate((stats) => {
       const root = getComputedStyle(document.documentElement);
-      const read = (stat: string) => {
-        const value = document.querySelector(`.cyborg .stat-cell[data-stat="${stat}"] .stat-value`);
-        return {
-          shown: value ? getComputedStyle(value).color : "",
-          token: root.getPropertyValue(`--color-stat-${stat}`).trim(),
-        };
+      const fills = ["hp", "physical_attack"].map((row) => {
+        const element = document.querySelector(`.combat-row[data-sec="${row}"] .combat-bar-fill`);
+        return element ? getComputedStyle(element).backgroundColor : "";
+      });
+      return {
+        totals: stats.map((stat) => {
+          const element = document.querySelector(`.cyborg .core-row[data-stat="${stat}"] .core-total`);
+          return element ? getComputedStyle(element).color : "";
+        }),
+        stat: stats.map((stat) => root.getPropertyValue(`--color-stat-${stat}`).trim()),
+        hpFill: fills[0] ?? "",
+        hpToken: root.getPropertyValue("--color-sec-hp").trim(),
+        attackFill: fills[1] ?? "",
+        attackToken: root.getPropertyValue("--color-sec-physical-attack").trim(),
       };
-      return { str: read("str"), vit: read("vit"), agi: read("agi") };
-    });
-    expect(colors.str.shown).toBe(rgb(colors.str.token));
-    expect(colors.agi.shown).toBe(rgb(colors.agi.token));
-    expect(colors.str.shown).not.toBe(colors.vit.shown);
-    // K·처음 값은 만렙이 아니면 보이지 않는다(D-449)
-    await expect(page.locator(".stat-k")).toHaveCount(0);
+    }, PRIMARY);
+    expect(colors.totals).toEqual(colors.stat.map(rgb));
+    // 2차 스탯 막대는 그 2차 스탯 색 하나(1차 스탯 색과 겹치지 않는다)
+    expect(colors.hpFill).toBe(rgb(colors.hpToken));
+    expect(colors.attackFill).toBe(rgb(colors.attackToken));
+    for (const token of colors.stat) {
+      expect(colors.hpToken).not.toBe(token);
+      expect(colors.attackToken).not.toBe(token);
+    }
+    await expect(page.locator(".combat-row[data-sec='hp'] .combat-bar-fill")).toHaveCount(1);
+
+    // 출처 상세: STR 막대를 누르면 몸 값·스킬·효과·합계(= 막대 합계), Escape로 닫힌다. K는 만렙이 아니면 없다(D-449)
+    const str = page.locator('.core-row[data-stat="str"]');
+    const pop = str.locator(".core-pop");
+    await expect(pop).toBeHidden();
+    await str.locator(".core-toggle").click();
+    await expect(str.locator(".core-toggle")).toHaveAttribute("aria-expanded", "true");
+    await expect(pop).toBeVisible();
+    await expect(pop).toContainText(message("ko", "cyborg_source_body"));
+    await expect(pop).toContainText(message("ko", "cyborg_source_effect"));
+    await expect(pop.locator(".core-pop-sum")).toHaveText(
+      (await str.locator(".core-total").textContent()) ?? "",
+    );
+    // 다른 막대를 누르면 그쪽만 열린다
+    await page.locator('.core-row[data-stat="vit"] .core-toggle').click();
+    await expect(pop).toBeHidden();
+    await expect(page.locator('.core-row[data-stat="vit"] .core-pop')).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator('.core-row[data-stat="vit"] .core-pop')).toBeHidden();
+    await expect(page.locator(".core-k")).toHaveCount(0);
     await expect(page.locator(".cyborg")).toContainText(message("ko", "cyborg_core_note"));
 
-    // 전투 스펙: HP 줄을 누르면 공식·항(1차 × 가중치, 0이 아닌 6칸)·결과(= 줄 값)
-    const hp = page.locator('.spec-row[data-stat-row="hp"]');
-    const toggle = hp.locator(".spec-toggle");
+    // 상세 전투 스펙: 옛 묶음(효율은 행이 없어 빠진다), HP 줄을 누르면 공식 상자(입력 6줄)·"= 결과"(= 줄 값)
+    expect(
+      await page
+        .locator(".combat-group")
+        .evaluateAll((list) => list.map((group) => group.getAttribute("data-group"))),
+    ).toEqual(["vitals", "offense", "defense", "mobility"]);
+    const hp = page.locator('.combat-row[data-sec="hp"]');
+    const toggle = hp.locator(".combat-toggle");
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await expect(hp.locator(".spec-detail")).toBeHidden();
+    await expect(hp.locator(".combat-detail")).toBeHidden();
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
-    const detail = hp.locator(".spec-detail");
+    const detail = hp.locator(".combat-detail");
     await expect(detail).toBeVisible();
-    await expect(detail).toContainText(message("ko", "cyborg_formula_quantity"));
-    await expect(detail.locator(".spec-term[data-stat]")).toHaveCount(6);
-    const hpValue = (await hp.locator(".spec-value").textContent()) ?? "";
-    await expect(detail.locator(".spec-result-value")).toHaveText(hpValue);
-    // 확률 줄(회피)은 키보드로: 공식 + 상한·반감 상수 + 곡선 계산
-    const evade = page.locator('.spec-row[data-stat-row="evade"]');
-    await evade.locator(".spec-toggle").focus();
+    await expect(detail.locator(".combat-formula")).toContainText(message("ko", "cyborg_formula_quantity"));
+    await expect(detail.locator(".combat-line")).toHaveCount(8);
+    const hpValue = (await hp.locator(".combat-value").textContent()) ?? "";
+    await expect(detail.locator(".combat-result")).toHaveText(`= ${hpValue}`);
+    // 확률 줄(회피)은 키보드로: 공식 | 캡 …
+    const evade = page.locator('.combat-row[data-sec="evade"]');
+    await evade.locator(".combat-toggle").focus();
     await page.keyboard.press("Enter");
-    await expect(evade.locator(".spec-detail")).toContainText(message("ko", "cyborg_formula_probability"));
-    await expect(evade.locator(".spec-curve")).toBeVisible();
+    await expect(evade.locator(".combat-formula")).toContainText(message("ko", "cyborg_formula_probability"));
+    await expect(evade.locator(".combat-formula")).toContainText("|");
     // 다시 누르면 접힌다
     await toggle.click();
-    await expect(hp.locator(".spec-detail")).toBeHidden();
+    await expect(hp.locator(".combat-detail")).toBeHidden();
 
     // 스킬 칸: 처음 3칸(빈 칸) + 닫힌 7칸(환생 1~7회에 하나씩, 팩 skillSlots)
     const locked = page.locator('.cyborg-skill[data-state="locked"]');
     await expect(locked).toHaveCount(7);
     await expect(locked.first()).toContainText(message("ko", "cyborg_skill_locked", { count: 1 }));
     await expect(page.locator('.cyborg-skill[data-state="empty"]')).toHaveCount(3);
-    // 속성 12칸(D-450 출처 안내), 인공장기 3칸·장비 6칸(팩 unit_kinds)
+    // 속성 12칸, 인공장기 3칸·장비 6칸(팩 unit_kinds)
     await expect(page.locator(".cyborg-element")).toHaveCount(12);
-    await expect(page.locator(".cyborg")).toContainText(message("ko", "cyborg_elements_note"));
     await expect(page.locator('.cyborg-slot-group[data-side="organ"] .cyborg-slot')).toHaveCount(3);
     await expect(page.locator('.cyborg-slot-group[data-side="gear"] .cyborg-slot')).toHaveCount(6);
-    // 환생: 신앙도는 문턱(D-451), K는 환생 시설에서(D-449)
-    await expect(page.locator(".cyborg-rebirth")).toContainText(
-      message("ko", "cyborg_rebirth_faith_value", { need: 50, value: 0 }),
-    );
-    await expect(page.locator(".cyborg-rebirth")).toContainText(message("ko", "cyborg_rebirth_k"));
     await expect(page.locator(".cyborg-footer")).toContainText("E2EPlayer");
 
     expect(await horizontalOverflow(page)).toEqual([]);
@@ -108,27 +136,63 @@ test.describe("플레이어: 사이보그 화면", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  test("만렙이면 K와 처음 값(D-449): 세 칸 범례, 스탯마다 K 값", async ({ page, deviceErrors }) => {
+  test("만렙이면 K와 처음 값(D-449): 처음 값·레벨 성장 칸, 스탯마다 K, 세 칸 범례", async ({
+    page,
+    deviceErrors,
+  }) => {
     await rewriteTrpc(page, {
       "summary.get": hideSummary,
-      // 서버는 만렙일 때만 growth를 보낸다(apps/server/src/roster/roster.test.ts). 화면만 보려고 응답을 만렙으로 고친다
+      // 서버는 만렙일 때만 growth와 처음 값·레벨 성장 출처를 보낸다(apps/server/src/roster/roster.test.ts). 화면만 보려고 응답을 고친다
       "cyborg.get": (data) => {
-        const body: unknown = Reflect.get(Object(data), "body");
-        if (typeof body !== "object" || body === null) throw new Error("본체가 없습니다");
+        const body = record(Reflect.get(record(data), "body"));
         Reflect.set(body, "level", Reflect.get(body, "maxLevel"));
         const k = { str: 1100, vit: 950, int: 1000, wis: 1200, dex: 800, agi: 1050 };
         Reflect.set(body, "growth", { initial: { str: 5, vit: 5, int: 5, wis: 5, dex: 5, agi: 5 }, kPm: k });
+        const sources = record(Reflect.get(body, "primarySources"));
+        for (const stat of PRIMARY) {
+          const list: unknown = Reflect.get(sources, stat);
+          if (!Array.isArray(list)) throw new Error("출처가 없습니다");
+          const bodyValue = Number(Reflect.get(record(list[0]), "value"));
+          Reflect.set(sources, stat, [
+            { kind: "initial", value: 5 },
+            { kind: "growth", value: bodyValue - 5, kPm: k[stat] },
+            ...list.slice(1),
+          ]);
+        }
       },
     });
     await page.goto("/cyborg");
     await cyborgReady(page);
-    const ks = page.locator(".cyborg .stat-k");
+    const ks = page.locator(".cyborg .core-k");
     await expect(ks).toHaveCount(6);
     await expect(ks.first()).toHaveText(message("ko", "roster_stat_k", { value: "1.10" }));
-    await expect(page.locator('.spec-legend-item[data-kind="initial"]')).toBeVisible();
-    await expect(page.locator('.spec-legend-item[data-kind="growth"]')).toBeVisible();
+    await expect(page.locator('.core-legend-item[data-part="initial"]')).toBeVisible();
+    await expect(page.locator('.core-legend-item[data-part="growth"]')).toBeVisible();
     await expect(page.locator(".cyborg")).toContainText(message("ko", "cyborg_core_note_max"));
-    await expect(page.locator('.cyborg .stat-bar-body[data-part="growth"]')).toHaveCount(6);
+    await expect(page.locator('.cyborg .core-seg[data-part="growth"]')).toHaveCount(6);
+    await page.locator('.core-row[data-stat="str"] .core-toggle').click();
+    await expect(page.locator('.core-row[data-stat="str"] .core-pop')).toContainText(
+      message("ko", "cyborg_source_growth", { k: "1.10" }),
+    );
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+test.describe("데스크톱: 막대에 올리면 출처 상세", () => {
+  test.use({ ...VIEWPORTS.desktop, account: "dev", preview: "dev" });
+
+  test("마우스를 올리면 보이고 치우면 사라진다(장비·인공장기 줄)", async ({ page, deviceErrors }) => {
+    await rewriteTrpc(page, { "summary.get": hideSummary });
+    await page.goto("/cyborg");
+    await cyborgReady(page);
+    const vit = page.locator('.core-row[data-stat="vit"]');
+    await vit.locator(".core-bar").hover();
+    const pop = vit.locator(".core-pop");
+    await expect(pop).toBeVisible();
+    // 시안 인공 심장(인공장기 칸)이 VIT를 올린다
+    await expect(pop.locator('.core-pop-row[data-part="organ"]')).toHaveCount(1);
+    await page.locator(".screen-title").hover();
+    await expect(pop).toBeHidden();
     expect(deviceErrors).toEqual([]);
   });
 });
@@ -194,7 +258,8 @@ test.describe("나쁜 자료(긴 이름·큰 수) 390", () => {
         await page.goto("/cyborg");
         await cyborgReady(page);
         await expect(page.locator(".cyborg-name")).toHaveText("Bartholomew12345");
-        await page.locator('.spec-row[data-stat-row="hp"] .spec-toggle').click();
+        await page.locator('.combat-row[data-sec="hp"] .combat-toggle').click();
+        await page.locator('.core-row[data-stat="str"] .core-toggle').click();
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
         expect(await horizontalOverflow(page)).toEqual([]);
         expect(await smallTapTargets(page)).toEqual([]);
@@ -228,17 +293,24 @@ for (const { viewport, theme, language } of SHOTS) {
       await cyborgReady(page);
       await page.evaluate(() => document.fonts.ready.then(() => undefined));
       expect(await horizontalOverflow(page)).toEqual([]);
-      await shot(page, `cyborg-ui-${String(width)}-${theme}-${language}`, { fullPage: true });
-      await elementShot(
-        page.locator(".cyborg-profile"),
-        `cyborg-ui-hero-${String(width)}-${theme}-${language}`,
-      );
+      const name = `${String(width)}-${theme}-${language}`;
+      await shot(page, `cyborg-ui-${name}`, { fullPage: true });
+      await elementShot(page.locator(".cyborg-profile"), `cyborg-ui-hero-${name}`);
+      // 상세 전투 스펙: 접은 카드 → 펼친 카드(HP·회피·크리 배율)
+      const combat = page.locator(".combat-card");
+      await elementShot(combat, `cyborg-ui-combat-${name}`);
       for (const row of ["hp", "evade", "crit_multiplier"]) {
-        await page.locator(`.spec-row[data-stat-row="${row}"] .spec-toggle`).click();
+        await page.locator(`.combat-row[data-sec="${row}"] .combat-toggle`).click();
       }
-      await expect(page.locator('.spec-row[data-stat-row="hp"] .spec-detail')).toBeVisible();
+      await expect(page.locator('.combat-row[data-sec="hp"] .combat-detail')).toBeVisible();
       expect(await horizontalOverflow(page)).toEqual([]);
-      await shot(page, `cyborg-ui-open-${String(width)}-${theme}-${language}`, { fullPage: true });
+      await elementShot(combat, `cyborg-ui-combat-open-${name}`);
+      await shot(page, `cyborg-ui-open-${name}`, { fullPage: true });
+      // 핵심 사양 출처 상세(VIT: 몸 값 + 인공 심장)
+      await page.locator('.core-row[data-stat="vit"] .core-toggle').click();
+      await expect(page.locator('.core-row[data-stat="vit"] .core-pop')).toBeVisible();
+      expect(await horizontalOverflow(page)).toEqual([]);
+      await elementShot(page.locator(".core-pairs"), `cyborg-ui-pop-${name}`);
       expect(deviceErrors).toEqual([]);
     });
 

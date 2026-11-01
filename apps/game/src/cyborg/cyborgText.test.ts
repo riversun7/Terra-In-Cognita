@@ -1,7 +1,16 @@
-// 사이보그 화면 다듬기 시험 — 속성 계열 묶음(기본·강화), 전투 스펙 막대 칸(받은 항을 몫으로만 바꾼다)
-import type { RosterStatBreakdown } from "@terra/shared/roster";
+// 사이보그 화면 다듬기 시험 — 속성 계열 묶음(기본·강화), 상세 전투 스펙 묶음·막대 채움, 핵심 사양 출처 칸
+import type { RosterPrimarySource, RosterStatBreakdown } from "@terra/shared/roster";
 import { describe, expect, it } from "vitest";
-import { elementFamilies, elementLabel, specSegments, termMilliSum } from "./cyborgText.ts";
+import {
+  barFill,
+  combatGroupOf,
+  combatGroups,
+  coreSegments,
+  corePartOf,
+  elementFamilies,
+  elementLabel,
+  termMilliSum,
+} from "./cyborgText.ts";
 
 const hp: RosterStatBreakdown = {
   id: "hp",
@@ -46,32 +55,58 @@ describe("속성", () => {
   });
 });
 
-describe("전투 스펙 막대", () => {
-  it("양 모양: 기본·항·장비를 값 전체의 몫으로, 막대는 끝까지", () => {
-    const { fill, segments } = specSegments(hp);
-    expect(fill).toBe(1);
-    expect(segments).toEqual([
-      { kind: "base", share: 10 / 60 },
-      { kind: "stat", stat: "str", share: 15 / 60 },
-      { kind: "stat", stat: "vit", share: 30 / 60 },
-      { kind: "gear", share: 5 / 60 },
-    ]);
+describe("상세 전투 스펙(옛 SecondaryStatsCard 묶음)", () => {
+  it("팩 행을 VITALS·OFFENSE·DEFENSE·MOBILITY로, 모르는 행은 기타, 빈 묶음(효율)은 뺀다", () => {
+    const ids = [
+      "hp",
+      "armor_hp",
+      "shield_hp",
+      "defense_rate",
+      "physical_attack",
+      "elemental_attack",
+      "hit",
+      "evade",
+      "crit_chance",
+      "crit_multiplier",
+      "action_speed",
+      "stamina",
+      "mp",
+      "sight",
+      "new_row",
+    ];
+    const groups = combatGroups(ids.map((id) => ({ id })));
+    expect(groups.map((entry) => entry.group)).toEqual(["vitals", "offense", "defense", "mobility", "other"]);
+    expect(groups[0]?.rows.map((row) => row.id)).toEqual(["hp", "armor_hp", "shield_hp", "mp", "stamina"]);
+    expect(groups[2]?.rows.map((row) => row.id)).toEqual(["defense_rate", "evade"]);
+    expect(combatGroupOf("sight")).toBe("mobility");
+  });
+
+  it("막대 한 색: 확률 = 값 ÷ 상한, 양 = 값 ÷ 그 값을 넘는 1·2·5 단위, 0 이하 = 빈 막대", () => {
+    expect(barFill(evade)).toBeCloseTo(77 / 850);
+    expect(barFill(hp)).toBeCloseTo(60 / 100);
+    expect(barFill({ shape: "quantity", value: 317, cap: null })).toBeCloseTo(317 / 500);
+    expect(barFill({ shape: "quantity", value: 1770, cap: null })).toBeCloseTo(1770 / 2000);
+    expect(barFill({ shape: "quantity", value: 200, cap: null })).toBe(1);
+    expect(barFill({ shape: "quantity", value: 0, cap: null })).toBe(0);
     expect(termMilliSum(hp)).toBe(45_000);
   });
+});
 
-  it("확률 모양: 상한까지의 몫만 칠한다(서버 값 ÷ 상한)", () => {
-    const { fill, segments } = specSegments(evade);
-    expect(fill).toBeCloseTo(77 / 850);
-    expect(segments).toEqual([{ kind: "stat", stat: "agi", share: 1 }]);
-  });
-
-  it("음수·0 항은 막대에 넣지 않는다, 모두 0이면 빈 막대", () => {
-    const negative: RosterStatBreakdown = {
-      ...hp,
-      base: 0,
-      extra: -3,
-      terms: [{ stat: "dex", value: 4, weightPm: -500, milli: -2000 }],
-    };
-    expect(specSegments(negative)).toEqual({ fill: 0, segments: [] });
+describe("핵심 사양 출처", () => {
+  it("칸 차례: 몸 값 → 장비 → 인공장기(부품) → 스킬·효과, 같은 칸은 더하고 0은 막대에서 뺀다", () => {
+    const sources: RosterPrimarySource[] = [
+      { kind: "body", value: 40 },
+      { kind: "item", slot: "accessory", item: "ring", value: 2 },
+      { kind: "item", slot: "accessory", item: "ring2", value: 1 },
+      { kind: "item", slot: "organ", item: "heart", value: 3 },
+      { kind: "effect", id: "buff", value: 0 },
+    ];
+    expect(coreSegments(sources)).toEqual([
+      { part: "body", value: 40 },
+      { part: "gear", value: 3 },
+      { part: "organ", value: 3 },
+    ]);
+    expect(corePartOf({ kind: "item", slot: "part", item: "x", value: 1 })).toBe("organ");
+    expect(corePartOf({ kind: "growth", value: 30, kPm: 1100 })).toBe("growth");
   });
 });

@@ -18,6 +18,8 @@
     sans-serif;
   --font-body:
     "Pretendard", -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  /* 공식·계산 줄(사이보그 화면 상세 전투 스펙) — 기기 고정폭 글꼴만(받지 않는다) */
+  --font-mono: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", "D2Coding", monospace;
 
   /* 크기 단계 — 약 1.2배씩. rem이라 브라우저 기본 글자 크기를 키운 사람에게는 함께 커진다(기본 16px일 때 괄호 값) */
   --font-size-xs: 0.75rem; /* 12px */
@@ -205,6 +207,22 @@
   --color-stat-wis: #7a3fc8;
   --color-stat-dex: #8a5a00;
   --color-stat-agi: #1a7236;
+  /* 2차 스탯 색(ADR 2026-11-01-ui-visibility "바뀜"): 1차 스탯 색과 겹치지 않는 계열 — 전투자원 청록, 공격 자홍, 방어 회색, 기동 연두. 글자 4.5:1 */
+  --color-sec-hp: #0a706b;
+  --color-sec-armor-hp: #476b68;
+  --color-sec-shield-hp: #006d85;
+  --color-sec-mp: #1e6478;
+  --color-sec-stamina: #18766a;
+  --color-sec-physical-attack: #b0166c;
+  --color-sec-elemental-attack: #a01f8c;
+  --color-sec-hit: #8c3270;
+  --color-sec-crit-chance: #c01a78;
+  --color-sec-crit-multiplier: #86285f;
+  --color-sec-defense-rate: #535e6e;
+  --color-sec-evade: #655f58;
+  --color-sec-action-speed: #566b00;
+  --color-sec-sight: #486e00;
+  --color-sec-other: #5c6470;
 }
 
 /* 다크 — 밤의 들판. 잎색 버튼은 그대로 두어 톤을 잇는다. 세계(지도) 조명은 바꾸지 않는다(D-070) → 판은 불투명 */
@@ -249,6 +267,22 @@
   --color-stat-wis: #c9a8ff;
   --color-stat-dex: #f5c665;
   --color-stat-agi: #7fdc97;
+  /* 2차 스탯 색 — 밤 판 위에서 밝게(글자 4.5:1) */
+  --color-sec-hp: #4fd6c8;
+  --color-sec-armor-hp: #93bab6;
+  --color-sec-shield-hp: #55cde6;
+  --color-sec-mp: #78b9cc;
+  --color-sec-stamina: #5fe0c4;
+  --color-sec-physical-attack: #ff6fcf;
+  --color-sec-elemental-attack: #f07ce0;
+  --color-sec-hit: #f0a2dc;
+  --color-sec-crit-chance: #ff86d6;
+  --color-sec-crit-multiplier: #d996c8;
+  --color-sec-defense-rate: #aab4c4;
+  --color-sec-evade: #c2b8ad;
+  --color-sec-action-speed: #c8e254;
+  --color-sec-sight: #aee47a;
+  --color-sec-other: #b3bbc7;
 }
 
 /* 선명 — 고대비(본문 7:1 이상) + 색각 배려(성공=파랑, 위험=주황빨강, 상태는 늘 아이콘·글자와 함께). 그림자 없음 */
@@ -293,6 +327,22 @@
   --color-stat-wis: #5a1fb0;
   --color-stat-dex: #6f4500;
   --color-stat-agi: #11602b;
+  /* 2차 스탯 색 — 선명: 짙게(글자 4.5:1) */
+  --color-sec-hp: #005e5a;
+  --color-sec-armor-hp: #34524f;
+  --color-sec-shield-hp: #005a6e;
+  --color-sec-mp: #164b5a;
+  --color-sec-stamina: #0c5a50;
+  --color-sec-physical-attack: #8f0a55;
+  --color-sec-elemental-attack: #7f1470;
+  --color-sec-hit: #6e2556;
+  --color-sec-crit-chance: #9c0e60;
+  --color-sec-crit-multiplier: #6a1e4a;
+  --color-sec-defense-rate: #414a57;
+  --color-sec-evade: #4f4a44;
+  --color-sec-action-speed: #435300;
+  --color-sec-sight: #385500;
+  --color-sec-other: #474e59;
 }
 /* 선명: 초점 표시를 4px로(테두리는 이미 2px). 굵기 값은 바꾸지 않는다(본문 글꼴은 400·600만 받는다) */
 :root[data-theme="contrast"] {
@@ -350,6 +400,22 @@
   --color-stat-wis: #c770ff;
   --color-stat-dex: #ffc933;
   --color-stat-agi: #3dff9e;
+  /* 2차 스탯 색 — 정거장: 네온(글자 4.5:1) */
+  --color-sec-hp: #20eedf;
+  --color-sec-armor-hp: #8fd6cd;
+  --color-sec-shield-hp: #5fe4f2;
+  --color-sec-mp: #7cc7d6;
+  --color-sec-stamina: #8ff2e6;
+  --color-sec-physical-attack: #ff63d2;
+  --color-sec-elemental-attack: #ff70e6;
+  --color-sec-hit: #ff8fe2;
+  --color-sec-crit-chance: #ff5fd2;
+  --color-sec-crit-multiplier: #e89ad6;
+  --color-sec-defense-rate: #a9b6cc;
+  --color-sec-evade: #c4b8aa;
+  --color-sec-action-speed: #c6ff3d;
+  --color-sec-sight: #9cf55a;
+  --color-sec-other: #a3adbf;
 }
 
 /* 촘촘 변형 — 관리자·거래창처럼 빽빽한 화면(data-density="compact"): 턱 0, 모서리 작게, 조작부 44px */

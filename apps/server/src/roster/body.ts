@@ -7,6 +7,7 @@ import {
   PRIMARY_STATS,
   type PrimaryStat,
   RULE_STAT_ORDER,
+  type RosterPrimarySource,
   type RosterSkills,
   type RosterSlot,
   type RosterStatBreakdown,
@@ -62,9 +63,10 @@ function grown(spec: BodySpec): Primaries {
 /** 속성값 12칸이 모두 0(D-182). 사이보그가 속성값을 얻는 길이 생기면(질문 182) 저장된 값을 쓴다 */
 export const NO_ELEMENTS: readonly number[] = ELEMENT_CODES.map(() => 0);
 
-/** 사이보그 화면의 더 자세한 자료(cyborgSheet): 2차 스탯 풀이, 스킬 칸 최대·열리는 환생 횟수 */
+/** 사이보그 화면의 더 자세한 자료(bodySheet): 2차 스탯 풀이, 1차 스탯 출처, 스킬 칸 최대·열리는 환생 횟수 */
 export interface BodySheet extends BodyView {
   readonly breakdown: RosterStatBreakdown[];
+  readonly primarySources: Record<PrimaryStat, RosterPrimarySource[]>;
   readonly skillSlotsMax: number;
   readonly skillSlotUnlocks: number[];
 }
@@ -72,6 +74,9 @@ export interface BodySheet extends BodyView {
 interface BodyParts {
   readonly view: BodyView;
   readonly loadout: Loadout;
+  readonly base: Primaries;
+  readonly slots: readonly EquipSlot[];
+  readonly equipped: readonly (EquippedItem | null)[];
   readonly skillRule: { readonly base: number; readonly perRebirth: number; readonly max: number } | null;
 }
 
@@ -80,15 +85,49 @@ export function bodyView(catalog: RosterCatalog, spec: BodySpec): BodyView {
   return bodyParts(catalog, spec).view;
 }
 
-/**
- * 사이보그 화면 자료: bodyView + 2차 스탯 풀이(같은 입력으로 @terra/sim explainSecondary — 값은 stats.secondary와 같다) +
- * 스킬 칸 규칙(팩 unit_kinds skillSlots: 처음 + 환생마다, 최대). 열리는 환생 횟수는 서버가 같은 skillSlotCount로 센다
- */
 /** 화면 차례(PRIMARY_STATS)의 자리 — 풀이 항을 화면 차례로 놓는다 */
 const screenOrder = (stat: PrimaryStat): number => PRIMARY_STATS.indexOf(stat);
 
-export function bodySheet(catalog: RosterCatalog, spec: BodySpec): BodySheet {
-  const { view, loadout, skillRule } = bodyParts(catalog, spec);
+/**
+ * 1차 스탯마다 출처: 몸 값(성장값) + 장비 칸마다 그 아이템이 더한 값(스탯 묶음 + 스탯 보석, loadoutOf와 같은 더하기). 더하면 loadout의 1차 값.
+ * revealGrowth(K가 보이는 곳, D-449)면 몸 값을 처음 값·레벨 성장(K‰)으로 나눈다. 스킬·효과(버프)는 화면 자료에 아직 없다
+ */
+function primarySources(
+  spec: BodySpec,
+  parts: BodyParts,
+  revealGrowth: boolean,
+): Record<PrimaryStat, RosterPrimarySource[]> {
+  const of = (stat: PrimaryStat): RosterPrimarySource[] => {
+    const list: RosterPrimarySource[] = [];
+    const k = spec.kPm;
+    if (revealGrowth && k !== null) {
+      list.push({ kind: "initial", value: spec.initial[stat] });
+      list.push({ kind: "growth", value: parts.base[stat] - spec.initial[stat], kPm: k[stat] });
+    } else list.push({ kind: "body", value: parts.base[stat] });
+    parts.equipped.forEach((item, index) => {
+      const slot = parts.slots[index];
+      if (!item || slot === undefined) return;
+      let value = 0;
+      for (const entry of item.values) if (entry.stat === stat) value += entry.value;
+      for (const gem of item.gems ?? []) if (gem.kind === "stat" && gem.stat === stat) value += gem.value;
+      if (value !== 0) list.push({ kind: "item", slot, item: item.item, value });
+    });
+    return list;
+  };
+  return { str: of("str"), vit: of("vit"), int: of("int"), wis: of("wis"), dex: of("dex"), agi: of("agi") };
+}
+
+/**
+ * 사이보그 화면 자료: bodyView + 2차 스탯 풀이(같은 입력으로 @terra/sim explainSecondary — 값은 stats.secondary와 같다) +
+ * 1차 스탯 출처 + 스킬 칸 규칙(팩 unit_kinds skillSlots: 처음 + 환생마다, 최대). 열리는 환생 횟수는 서버가 같은 skillSlotCount로 센다
+ */
+export function bodySheet(
+  catalog: RosterCatalog,
+  spec: BodySpec,
+  options: { readonly revealGrowth?: boolean } = {},
+): BodySheet {
+  const parts = bodyParts(catalog, spec);
+  const { view, loadout, skillRule } = parts;
   const unlocks: number[] = [];
   if (skillRule && skillRule.perRebirth > 0) {
     let opened = view.skills.slots;
@@ -111,6 +150,7 @@ export function bodySheet(catalog: RosterCatalog, spec: BodySpec): BodySheet {
   return {
     ...view,
     breakdown,
+    primarySources: primarySources(spec, parts, options.revealGrowth ?? false),
     skillSlotsMax: skillRule?.max ?? view.skills.slots,
     skillSlotUnlocks: unlocks,
   };
@@ -166,7 +206,7 @@ function bodyParts(catalog: RosterCatalog, spec: BodySpec): BodyParts {
       list: loadout.skills.map((id) => ({ id, source: innate.has(id) ? "innate" : "equipment" })),
     },
   };
-  return { view, loadout, skillRule: kind ? kind.skillSlots : null };
+  return { view, loadout, base, slots, equipped, skillRule: kind ? kind.skillSlots : null };
 }
 
 /** [임시] 저장된 스탯이 없는 시험 유닛(휴먼 칸 배치, 1차 모두 10, 레벨 1, 장비 없음) */

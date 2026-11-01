@@ -1,22 +1,11 @@
 // 기기 → 서버 관측 보고(텔레메트리) 형식 — HTTP POST로 보낸다. 게임 상태는 바꾸지 않는다 (PLAN 9.5).
 // WebSocket 메시지가 아니라서 PROTOCOL_VERSION과 무관하다. 기기·서버가 같은 정의를 쓴다.
-// 길이 상한은 서버가 받는 기준이자 기기가 보내기 전에 자르는 기준이다.
+// 길이 상한은 서버가 받는 기준이자 기기가 보내기 전에 자르는 기준이다. 상한·경로·자르기는 telemetryLimits.ts에 있다
+// (기기의 보고 모듈이 zod 없이 쓰게, ADR 2026-10-29-app-shell 11절 "첫 화면 줄이기").
 import { z } from "zod";
+import { TELEMETRY_LIMITS } from "./telemetryLimits.ts";
 
-export const TELEMETRY_LIMITS = {
-  build: 64,
-  message: 2_000,
-  stack: 8_000,
-  page: 512,
-} as const;
-
-/** 보고 1건의 본문 상한(바이트) — 서버의 bodyLimit */
-export const TELEMETRY_MAX_BODY_BYTES = 16 * 1024;
-
-export const TELEMETRY_PATHS = {
-  errors: "/api/telemetry/errors",
-  perf: "/api/telemetry/perf",
-} as const;
+export { TELEMETRY_LIMITS, TELEMETRY_MAX_BODY_BYTES, TELEMETRY_PATHS, clip } from "./telemetryLimits.ts";
 
 const build = z.string().min(1).max(TELEMETRY_LIMITS.build);
 const page = z.string().max(TELEMETRY_LIMITS.page).optional();
@@ -61,8 +50,3 @@ export const perfReportSchema = z.object({
   }),
 });
 export type PerfReport = z.infer<typeof perfReportSchema>;
-
-/** 문자열을 상한 길이로 자른다 (기기에서 보내기 전에 쓴다) */
-export function clip(text: string, max: number): string {
-  return text.length > max ? text.slice(0, max) : text;
-}

@@ -10,6 +10,8 @@ on:
 
 permissions:
   contents: read
+  # 배포가 필요한지 볼 때 마지막으로 성공한 main 실행을 찾는다(아래 changes 단계)
+  actions: read
 
 # PR은 새 푸시가 오면 이전 실행을 취소한다. main은 취소하지 않는다(배포 도중에 끊기지 않게).
 concurrency:
@@ -49,8 +51,20 @@ jobs:
           fetch-depth: 0
       - name: 배포가 필요한 변경인지 (문서·스킬만 바뀌면 이미지·배포 생략)
         id: changes
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           before="${{ github.event.before }}"
+          # 같은 동시 실행 묶음은 대기 하나만 남긴다: 코드 푸시의 실행이 대기 중에 다음 푸시로 취소되면,
+          # 다음(문서만 바뀐) 푸시의 범위만 보고 배포를 건너뛰어 그 코드가 배포되지 않는다.
+          # 그래서 기준을 "마지막으로 성공한 main 푸시 실행의 커밋"으로 잡는다(찾지 못하면 푸시 범위 그대로).
+          if [ "${{ github.event_name }}" = "push" ]; then
+            last_ok="$(gh api "repos/${{ github.repository }}/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&per_page=1" --jq '.workflow_runs[0].head_sha // empty' 2>/dev/null || true)"
+            if [ -n "$last_ok" ] && git cat-file -e "${last_ok}^{commit}" 2>/dev/null && git merge-base --is-ancestor "$last_ok" "$GITHUB_SHA"; then
+              before="$last_ok"
+            fi
+          fi
+          echo "배포 판단 기준 커밋: ${before}" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ github.event_name }}" != "push" ] || ! git cat-file -e "${before}^{commit}" 2>/dev/null; then
             echo "deploy=true" >> "$GITHUB_OUTPUT"
           elif git diff --name-only "$before" "$GITHUB_SHA" | grep -q -v -E '^(docs/|\.claude/|\.agent/)|\.md$'; then

@@ -2,7 +2,8 @@
 // ADR 37 "구현하며 정한 것 (유닛·사이보그 화면)", ADR 2026-11-01-ui-visibility(옛 프로젝트 /character처럼 더 가시적으로).
 // 위 띠의 사이보그 얼굴이 여는 화면이다(D-6010).
 // - 머리 판: 가운데 큰 그림(외형 ID로 그린 SVG, 포인트 색 빛) + 양옆 인공장기·장비 칸(팩 unit_kinds 칸) + 경험치·피로·신앙도.
-// - 핵심 사양·상세 전투 스펙(CyborgSpecs.tsx), 스킬 칸·속성·인벤토리·환생·랭킹·상태 줄(CyborgExtras.tsx). 값은 모두 서버가 계산해 보낸다.
+// - 핵심 사양(CoreStats.tsx, 옛 StatBar + 출처 상세)·상세 전투 스펙(CombatSpecs.tsx, 옛 SecondaryStatsCard), 스킬 칸·속성·인벤토리·
+//   환생·랭킹·상태 줄(CyborgExtras.tsx). 값은 모두 서버가 계산해 보낸다.
 // - 바꾸는 동작(장착·인공장기 시술·환생)은 "곧 열림"이다. 환생 단추는 "가장 가까운 환생 시설로 가는 길"이다(D-441).
 // - 좁은 폭은 판을 위에서 아래로(머리 → 핵심 사양 → 전투 스펙 → 스킬 → 속성 → 인벤토리 → 환생 → 랭킹),
 //   넓은 폭(64em 이상)은 머리 판을 가로로 길게(인공장기 | 그림 | 장비) 두고 그 아래 두 열(왼쪽 핵심 사양·전투 스펙, 오른쪽 나머지).
@@ -18,7 +19,8 @@ import { PreviewSwitch } from "../roster/PreviewSwitch.tsx";
 import { formatNumber, localName, slotLabel } from "../roster/rosterText.ts";
 import { loadCyborg, useRosterQuery } from "../roster/useRosterQuery.ts";
 import { CyborgAvatar } from "./CyborgAvatar.tsx";
-import { CombatSpec, CoreSpec } from "./CyborgSpecs.tsx";
+import { CombatSpecs } from "./CombatSpecs.tsx";
+import { CoreStats } from "./CoreStats.tsx";
 import { Elements, Inventory, Rankings, Rebirth, SkillSlots, StatusFooter } from "./CyborgExtras.tsx";
 import "./cyborg.css";
 
@@ -56,8 +58,8 @@ function CyborgBodyView({ data }: { data: CyborgGetResponse }) {
         <div className="cyborg-column">
           {body ? (
             <>
-              <CoreSpec body={body} />
-              <CombatSpec body={body} names={data.names} />
+              <CoreStats body={body} names={data.names} />
+              <CombatSpecs body={body} names={data.names} />
             </>
           ) : (
             <Section id={`${id}-stats`} title={m.roster_stats_title()}>

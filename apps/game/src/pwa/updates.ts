@@ -2,7 +2,7 @@
 // 언제 적용할지는 updatePolicy.ts가 정한다(켤 때 자동, 쓰는 중엔 배너). ADR 2026-10-28-pwa-and-browser-baseline
 // SW가 없는 곳(카카오톡 같은 앱 안 브라우저, https가 아닌 주소)에서는 아무것도 하지 않고, 강제 적용은 그냥 새로고침이다.
 import { registerSW } from "virtual:pwa-register";
-import { closeForReload } from "../net/connection.ts";
+import { closeForReload } from "../net/connectionStatus.ts";
 import {
   INITIAL_VISIBILITY,
   type LaunchWindow,

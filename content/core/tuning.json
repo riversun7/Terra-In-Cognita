@@ -18,7 +18,10 @@
         "en": "Normal battle time limit (ms)"
       },
       "value": 600000,
-      "structural": false
+      "structural": false,
+      "unit": "ms",
+      "min": 1000,
+      "max": 1800000
     },
     {
       "id": "c2_limit_siege",
@@ -28,7 +31,10 @@
         "en": "Siege time limit (ms)"
       },
       "value": 1800000,
-      "structural": false
+      "structural": false,
+      "unit": "ms",
+      "min": 1000,
+      "max": 1800000
     },
     {
       "id": "c19_loot",
@@ -678,7 +684,10 @@
         "en": "Dividend period (ms)"
       },
       "value": 604800000,
-      "structural": false
+      "structural": false,
+      "unit": "ms",
+      "min": 60000,
+      "max": 31536000000
     },
     {
       "id": "d298_delist_reissue",
@@ -708,7 +717,10 @@
         "en": "Vassal tribute (treasury ‰ per period)"
       },
       "value": 50,
-      "structural": false
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
     },
     {
       "id": "d443_tribute_every",
@@ -718,7 +730,10 @@
         "en": "Tribute period (ms)"
       },
       "value": 604800000,
-      "structural": false
+      "structural": false,
+      "unit": "ms",
+      "min": 60000,
+      "max": 31536000000
     },
     {
       "id": "s22_inheritance_tax",
@@ -748,7 +763,10 @@
         "en": "Rebellion threshold"
       },
       "value": 40,
-      "structural": false
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100
     },
     {
       "id": "n35_rebellion_warning",
@@ -758,7 +776,10 @@
         "en": "Unrest: rebellion warning at or below"
       },
       "value": 50,
-      "structural": false
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100
     },
     {
       "id": "n35_sabotage",
@@ -768,7 +789,10 @@
         "en": "Unrest: sabotage signs at or below"
       },
       "value": 60,
-      "structural": false
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100
     },
     {
       "id": "s27_independence",
@@ -958,7 +982,10 @@
         "en": "K range min (‰)"
       },
       "value": 800,
-      "structural": false
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 10000
     },
     {
       "id": "n6_k_max",
@@ -968,7 +995,10 @@
         "en": "K range max (‰)"
       },
       "value": 1200,
-      "structural": false
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 10000
     },
     {
       "id": "n7_max_level",
@@ -978,7 +1008,10 @@
         "en": "Max level (base)"
       },
       "value": 50,
-      "structural": true
+      "structural": true,
+      "unit": "level",
+      "min": 1,
+      "max": 999
     },
     {
       "id": "n9_initial_sum",
@@ -988,7 +1021,10 @@
         "en": "Cyborg initial stat sum"
       },
       "value": 60,
-      "structural": false
+      "structural": false,
+      "unit": "points",
+      "min": 6,
+      "max": 600
     },
     {
       "id": "n9_initial_min",
@@ -998,7 +1034,10 @@
         "en": "Initial stat min per stat"
       },
       "value": 1,
-      "structural": false
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 100
     },
     {
       "id": "n9_initial_max",
@@ -1008,7 +1047,10 @@
         "en": "Initial stat max per stat"
       },
       "value": 20,
-      "structural": false
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 100
     },
     {
       "id": "n9_initial_rerolls",
@@ -1018,7 +1060,10 @@
         "en": "Initial rerolls"
       },
       "value": 3,
-      "structural": false
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 20
     },
     {
       "id": "n9_initial_favor",
@@ -1028,7 +1073,10 @@
         "en": "Temperament mean boost (milli-points)"
       },
       "value": 4000,
-      "structural": false
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 20000
     },
     {
       "id": "n9_initial_spread",
@@ -1038,7 +1086,10 @@
         "en": "Initial stat spread"
       },
       "value": 3000,
-      "structural": false
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 20000
     },
     {
       "id": "n34_rebirth_faith",
@@ -1048,7 +1099,10 @@
         "en": "Cyborg rebirth faith threshold (reset to 0)"
       },
       "value": 50,
-      "structural": false
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100
     },
     {
       "id": "n34_rebirth_currency",
@@ -1058,7 +1112,9 @@
         "en": "Cyborg rebirth currency cost (minor units)"
       },
       "value": 10000,
-      "structural": false
+      "structural": false,
+      "unit": "minor",
+      "min": 0
     },
     {
       "id": "d6041_crowd_normal",
@@ -1068,7 +1124,10 @@
         "en": "Start city crowding: normal from (cyborgs)"
       },
       "value": 20,
-      "structural": false
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000000
     },
     {
       "id": "d6041_crowd_busy",
@@ -1078,7 +1137,10 @@
         "en": "Start city crowding: busy from (cyborgs)"
       },
       "value": 50,
-      "structural": false
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000000
     },
     {
       "id": "n36_element_cells",
@@ -1088,7 +1150,10 @@
         "en": "Creation element cells (basic four)"
       },
       "value": 2,
-      "structural": true
+      "structural": true,
+      "unit": "count",
+      "min": 1,
+      "max": 4
     },
     {
       "id": "n36_element_points",
@@ -1098,7 +1163,10 @@
         "en": "Creation element points"
       },
       "value": 10,
-      "structural": true
+      "structural": true,
+      "unit": "points",
+      "min": 0,
+      "max": 40
     },
     {
       "id": "n37_light_dark",
@@ -1138,7 +1206,10 @@
         "en": "Efficiency when living costs are unpaid (‰)"
       },
       "value": 700,
-      "structural": false
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
     },
     {
       "id": "n39_grant_base",
@@ -1148,7 +1219,10 @@
         "en": "Settlement grant base (minor units)"
       },
       "value": 72,
-      "structural": false
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000
     },
     {
       "id": "n39_grant_max",
@@ -1158,7 +1232,10 @@
         "en": "Settlement grant faction multiplier max (‰)"
       },
       "value": 1500,
-      "structural": false
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000
     },
     {
       "id": "n39_grant_min",
@@ -1168,7 +1245,10 @@
         "en": "Settlement grant faction multiplier min (‰)"
       },
       "value": 1000,
-      "structural": false
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000
     },
     {
       "id": "n39_grant_step",
@@ -1178,7 +1258,10 @@
         "en": "Settlement grant multiplier step per cyborg (‰)"
       },
       "value": 50,
-      "structural": false
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000
     },
     {
       "id": "f11_repair_lv1",

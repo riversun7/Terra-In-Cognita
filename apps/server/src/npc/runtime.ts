@@ -95,8 +95,8 @@ export interface NpcRuntimeOptions {
   readonly startBattle?: ((init: BattleInit) => Promise<number>) | undefined;
   /** 전투 서비스가 전투를 끝냈을 때 알려 달라고 등록한다(공격 편이 이겼나) */
   readonly onBattleEnded?: ((listener: (battleId: number, attackerWon: boolean) => void) => void) | undefined;
-  /** 전투 자료(팩)·전투 계수(설정 칸 실효 값). 없으면 시험 자료 */
-  readonly combatCatalog?: CombatCatalog | undefined;
+  /** 전투 자료(팩 + 덮어쓰기 실효 값)·전투 계수(설정 칸 실효 값), 부를 때마다 읽는다. 없으면 시험 자료 */
+  readonly combatCatalog?: (() => CombatCatalog) | undefined;
   readonly combatRules?: (() => CombatCoefficients) | undefined;
 }
 
@@ -432,7 +432,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     society,
     rules: () => gardenerRulesOf(o.rules().gardener, o.gardenerWaves !== false),
     combatRules: o.combatRules ?? (() => TEST_COMBAT_COEFFICIENTS),
-    catalog: o.combatCatalog ?? TEST_COMBAT_CATALOG,
+    catalog: o.combatCatalog ?? (() => TEST_COMBAT_CATALOG),
     cellOf: (cityId) => persist.places.get(cityId)?.mapKey,
     ownerOfRow: (rowId) => ownerOfRow.get(rowId),
     treasuryOf: (ownerId) => ledger.balanceOf(ownerId, ASSET_CREDIT),

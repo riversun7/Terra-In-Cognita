@@ -1,6 +1,7 @@
 // 설정 칸(49) 공용 표·자료 모양 — docs/adr/2026-11-01-dev-settings-panel.md(D1)
 // 서버(tRPC tuning.*)·개발자 패널(/dev/tuning)·콘텐츠 형식(packages/content tuning 분류)·규칙 검사(@terra/sim tuningProblems)가 같이 쓴다.
 // 값의 층: 실효 값 = 팩 값 위에 그 세계(DB 하나)의 덮어쓰기. 팩이 정본이다.
+import type { EntryDiffChange } from "./skillEditor.ts";
 
 /** 칸의 저장 단위(게임 규칙 단위, PLAN 7장). 화면은 ms를 시간 글로, pm·bp를 %로도 보인다 */
 export const TUNING_UNITS = [
@@ -250,6 +251,8 @@ export interface TuningDiffView {
   }[];
   /** 가중치 표 칸 차이(덮어쓰기가 있을 때만, docs/adr/2026-11-01-balance-screen.md 2절) */
   readonly statRows?: readonly StatCellChange[];
+  /** 팩 항목 차이(스킬·무기·유닛 종류 덮어쓰기가 있을 때만, docs/adr/2026-11-01-skill-editor.md 7절) */
+  readonly entries?: readonly EntryDiffChange[];
 }
 
 // ── 가중치 표(콘텐츠 팩 stat_rows) 칸 — 밸런스 화면(/dev/balance, docs/adr/2026-11-01-balance-screen.md 1절) ──

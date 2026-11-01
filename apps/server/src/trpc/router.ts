@@ -12,6 +12,7 @@ import { mailRouter } from "./mail.ts";
 import { planetEditorRouter } from "./planetEditor.ts";
 import { cyborgRouter, unitsRouter } from "./roster.ts";
 import { settingsRouter } from "./settings.ts";
+import { skillsRouter } from "./skills.ts";
 import { summaryRouter } from "./summary.ts";
 import { systemRouter } from "./system.ts";
 import { tuningRouter } from "./tuning.ts";
@@ -26,6 +27,8 @@ export const appRouter = router({
   tuning: tuningRouter,
   // 개발자 밸런스 화면(docs/adr/2026-11-01-balance-screen.md 3절)
   balance: balanceRouter,
+  // 개발자 스킬 편집기·행동별 소모 화면(docs/adr/2026-11-01-skill-editor.md 6절)
+  skills: skillsRouter,
   // 홈 자료(앱 뼈대 W3, ADR 2026-10-29-app-shell 6·7·8절)
   inbox: inboxRouter,
   summary: summaryRouter,

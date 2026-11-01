@@ -5,7 +5,8 @@ import { readConfig } from "./config.ts";
 import { loadServerContent } from "./content.ts";
 import { rosterCatalogOf } from "./roster/catalog.ts";
 import { createTuningState } from "./tuning/state.ts";
-import { statRowsOf, tuningEntriesOf } from "./world/combatCatalog.ts";
+import { effectsOf, statRowsOf, tuningEntriesOf } from "./world/combatCatalog.ts";
+import { createContentEditState } from "./contentEdit/state.ts";
 import { economyCatalogFromPack } from "./economyView/catalog.ts";
 import { nationPresetsOf } from "./npc/presets.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
@@ -70,6 +71,9 @@ try {
 // 모두 이 접근자를 쓸 때마다 부른다(덮어쓰기는 앱이 켤 때 DB에서 싣는다). 가중치 표(stat_rows) 칸 덮어쓰기도 같은 접근자다
 // (밸런스 화면, docs/adr/2026-11-01-balance-screen.md 1절)
 const tuning = createTuningState(tuningEntriesOf(loaded.source), statRowsOf(loaded.source));
+// 팩 항목 실효 값(스킬·무기·유닛 종류 + 이 세계 DB의 덮어쓰기, docs/adr/2026-11-01-skill-editor.md 3·4절). 전투 자료를 읽는 곳은
+// 모두 이 접근자를 쓸 때마다 부른다(유닛 화면·정원사 웨이브 전투, 스킬 편집기 /dev/skills가 덮어쓴다)
+const contentEdit = createContentEditState(loaded.source, effectsOf(loaded.source));
 
 let app: FastifyInstance | undefined;
 const db = config.databaseUrl
@@ -116,9 +120,12 @@ app = await buildApp({
     loaded.source,
     () => tuning.society(),
     () => tuning.statTable(),
+    () => contentEdit.effective(),
   ),
   // 설정 칸: 사이보그 만들기·지원금·세력 화면(공물·민심 문턱·주기)이 쓰고, 개발자 패널(/dev/tuning)이 덮어쓴다
   tuning: { state: tuning, packId: loaded.pack.manifest.packId },
+  // 스킬 편집기·행동별 소모(/dev/skills): 스킬·무기·유닛 종류 덮어쓰기, 바로 든다(D-461)
+  contentEdit: { state: contentEdit },
   // 밸런스 화면(/dev/balance): 시드 대결은 요청마다 워커 스레드에서
   balance: { runner: { kind: "worker", workerUrl: balanceWorkerUrl } },
   // 경제 화면 목록(팩의 경제 분류, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)")

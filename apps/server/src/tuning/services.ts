@@ -25,6 +25,7 @@ import type { Database } from "../db/client.ts";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { TuningAction, TuningServices, Viewer } from "../trpc/context.ts";
 import { reasonedError } from "../trpc/init.ts";
+import { type ContentEditShared, contentExportEntries } from "../contentEdit/services.ts";
 import { tuningScopeOf } from "./scope.ts";
 import type { TuningOverrideRecord, TuningState } from "./state.ts";
 import {
@@ -208,7 +209,7 @@ export function tuningList(shared: TuningShared): TuningListResponse {
  * 내보내기 차이: 팩 값과 다른 덮어쓰기(ID 차례). 가중치 표 칸은 statRows(있을 때만, 키 차례 — docs/adr/2026-11-01-balance-screen.md
  * 2절)
  */
-export function tuningExport(shared: TuningShared): TuningExportResponse {
+export function tuningExport(shared: TuningShared, content?: ContentEditShared): TuningExportResponse {
   const { state, pack } = shared;
   const snapshot = state.snapshot();
   const records = [...snapshot.overrides.values()];
@@ -222,6 +223,8 @@ export function tuningExport(shared: TuningShared): TuningExportResponse {
     if (!cell || record.value === cell.packValue) return [];
     return [{ row: cell.row.id, field: cell.field, from: cell.packValue, to: record.value }];
   });
+  // 팩 항목 덮어쓰기(스킬 편집기·행동별 소모, docs/adr/2026-11-01-skill-editor.md 7절): 있을 때만
+  const entries = content ? contentExportEntries(content) : [];
   const exportedAt = new Date(shared.now()).toISOString();
   const stamp = exportedAt.replaceAll(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
   return {
@@ -234,6 +237,7 @@ export function tuningExport(shared: TuningShared): TuningExportResponse {
       contentHash: pack.contentHash,
       changes,
       ...(statRows.length > 0 ? { statRows } : {}),
+      ...(entries.length > 0 ? { entries } : {}),
     },
     fileName: `tuning-${pack.contentVersion.replace("@", "-")}-${stamp}.json`,
   };
@@ -252,6 +256,8 @@ export interface TuningServicesDeps {
   shared: TuningShared;
   ip: string | null;
   hasPermission: TuningPermissionCheck;
+  /** 스킬 편집기 덮어쓰기(내보내기 차이에 팩 항목을 함께 싣는다) */
+  content?: ContentEditShared | undefined;
 }
 
 export function createTuningServices(deps: TuningServicesDeps): TuningServices {
@@ -282,7 +288,7 @@ export function createTuningServices(deps: TuningServicesDeps): TuningServices {
       return { rows: await readTuningHistory(db, TUNING_HISTORY_LIMIT) };
     },
 
-    exportDiff: () => Promise.resolve(tuningExport(shared)),
+    exportDiff: () => Promise.resolve(tuningExport(shared, deps.content)),
 
     async save(viewer, input) {
       const note = normalizeTuningNote(input.note);

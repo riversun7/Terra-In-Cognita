@@ -45,6 +45,8 @@ import type { EconomyCatalogResponse } from "@terra/shared/economy";
 import type { TuningState } from "./tuning/state.ts";
 import { type TuningLimits, bootTuning, createTuningShared } from "./tuning/services.ts";
 import { type BalanceLimits, createBalanceServices } from "./balance/services.ts";
+import type { ContentEditState } from "./contentEdit/state.ts";
+import { bootContentEdit, createContentEditShared } from "./contentEdit/services.ts";
 import { inlineDuelRunner, workerDuelRunner } from "./balance/runner.ts";
 import { createTerrainService } from "./world/terrainService.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, type WorldConfig, startWorld } from "./world/world.ts";
@@ -127,6 +129,12 @@ export interface AppOptions {
    */
   tuning?: { state: TuningState; packId: string; limits?: Partial<TuningLimits> | undefined } | undefined;
   /**
+   * 팩 항목 실효 값(스킬·무기·유닛 종류: 팩 + 이 세계 DB의 덮어쓰기, src/contentEdit/state.ts — docs/adr/2026-11-01-skill-editor.md).
+   * 전투 자료(유닛 화면·정원사 웨이브 전투)가 쓸 때마다 읽는다(roster가 같은 접근자를 받는다). DB가 있으면 켤 때 덮어쓰기를 싣고,
+   * tuning이 있으면 개발자 스킬 편집기(skills.*)를 연다. 없으면 팩 항목 그대로·편집기 없음
+   */
+  contentEdit?: { state: ContentEditState } | undefined;
+  /**
    * 밸런스 화면 대결을 어디서 돌리나(docs/adr/2026-11-01-balance-screen.md 4절): 워커(요청마다 띄움) 또는 같은 스레드(시험).
    * 화면은 tuning이 있을 때만 연다. 없으면 같은 스레드
    */
@@ -182,6 +190,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       // 덮어쓴 설정 칸 수(0이면 팩 값 그대로)와 세계 설정 판(docs/adr/2026-11-01-dev-settings-panel.md 10절)
       tuningOverrides: options.tuning?.state.appliedCount(),
       tuningRevision: options.tuning?.state.revision(),
+      // 덮어쓴 팩 항목 수(스킬·무기·유닛 종류)와 그 판(docs/adr/2026-11-01-skill-editor.md)
+      contentOverrides: options.contentEdit?.state.appliedCount(),
+      contentRevision: options.contentEdit?.state.revision(),
       uptimeSec: Math.floor(process.uptime()),
     };
   });
@@ -272,6 +283,18 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     // 덮어쓰기를 싣는다(요청을 받기 전에). DB를 기다리는 다시 시도는 월드 부팅과 같다
     app.addHook("onReady", async () => bootTuning(tuningDb, tuningShared));
   }
+  // 팩 항목 덮어쓰기(스킬 편집기): 설정 칸 패널과 같은 차례로 켤 때 싣는다
+  const contentEdit = options.contentEdit
+    ? createContentEditShared({
+        state: options.contentEdit.state,
+        pack: { packId: options.tuning?.packId ?? "core", contentVersion: options.contentVersion },
+        now,
+        log: app.log,
+      })
+    : undefined;
+  if (contentEdit && tuningDb) {
+    app.addHook("onReady", async () => bootContentEdit(tuningDb, contentEdit));
+  }
 
   // 월드: DB가 있으면 저장·부팅 복구(S3 ADR 1·2절). 준비(listen·ready)는 부팅 복구가 끝날 때까지 기다린다.
   // 지형 서비스가 있으면 부팅이 행성 값(행성 서비스의 캐시 읽기·굽기)도 기다린다
@@ -291,7 +314,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
             ? () => rosterCatalog.society
             : undefined,
         // 정원사 웨이브 전투(docs/adr/2026-11-01-gardener-r5b.md): 팩 전투 자료, 설정 칸 실효 값을 얹은 전투 계수(부를 때마다)
-        combatCatalog: rosterCatalog?.combat,
+        // 팩 항목 덮어쓰기(스킬 편집기)·가중치 표 덮어쓰기를 얹은 실효 자료, 전투를 열 때마다 읽는다
+        combatCatalog: rosterCatalog ? () => rosterCatalog.combat : undefined,
         combatRules: tuningState ? () => combatCoefficientsFrom(tuningState.values()) : undefined,
       })
     : undefined;
@@ -356,6 +380,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       // 설정 칸 패널: 인증이 켜져 있을 때만 맥락이 서비스를 만든다
       tuning: tuningShared,
       balance,
+      contentEdit,
     }),
   });
 

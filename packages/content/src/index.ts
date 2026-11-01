@@ -47,6 +47,9 @@ export { mapPropEntrySchema, type MapPropEntry } from "./schema/mapProps.ts";
 export { statRowEntrySchema, type StatRowEntry } from "./schema/stats.ts";
 export { tuningEntrySchema, tuningValueInRange, type TuningEntry } from "./schema/tuning.ts";
 export {
+  ENTRY_DIFF_CATEGORIES,
+  entriesDiffChangeSchema,
+  type EntriesDiffChange,
   TUNING_DIFF_FORMAT,
   TUNING_DIFF_FORMAT_VERSION,
   TUNING_DIFF_MAX_CHANGES,

@@ -1,10 +1,14 @@
 // 유닛·사이보그 화면 자료의 콘텐츠 팩 부분 — 전투 자료(스탯 표·장비·스킬·유닛 종류 칸)와 이름 표({ko, en}).
 // 전투 자료는 서버 전투 변환(world/combatCatalog.ts)과 같은 @terra/sim combatCatalogFrom으로 만든다. 이름은 화면이 쓴다.
 // 서버를 켤 때 한 번 만든다(main.ts → app.ts roster). 시험은 실제 팩(content/core)이나 시험 자료로 만든다.
+// 스킬·장비·유닛 종류는 스킬 편집기 덮어쓰기를 얹은 실효 항목이다(읽을 때마다 접근자, docs/adr/2026-11-01-skill-editor.md 4절).
 // society(설정 칸 실효 값을 얹은 계수표)만은 읽을 때마다 접근자에서 받는다(개발자 패널 덮어쓰기가 다음 요청부터 듣게,
 // docs/adr/2026-11-01-dev-settings-panel.md 5·7절).
 import {
+  type ItemEntry,
   type PackSource,
+  type SkillEntry,
+  type UnitKindEntry,
   effectEntrySchema,
   facilityEntrySchema,
   itemEntrySchema,
@@ -27,7 +31,9 @@ import {
 import { tuningOf } from "../world/combatCatalog.ts";
 
 export interface RosterCatalog {
-  /** 전투 자료. 스탯 표는 읽을 때마다 그 세계의 실효 가중치 표다(받아 두지 말고 요청마다 읽는다) */
+  /**
+   * 전투 자료. 스탯 표는 그 세계의 실효 가중치 표, 스킬·장비·유닛 종류는 실효 항목이다(읽을 때마다 지금 값, 받아 두지 말고 요청마다 읽는다)
+   */
   readonly combat: CombatCatalog;
   /** 이름 표 전체(응답에는 쓴 ID만 넣는다, namesFor) */
   readonly names: RosterNames;
@@ -54,49 +60,75 @@ function entriesOf<T>(source: PackSource, file: string, parse: (raw: unknown) =>
 const nameTable = (entries: readonly { id: string; name: LocalizedName }[]): Record<string, LocalizedName> =>
   Object.fromEntries(entries.map((entry) => [entry.id, { ko: entry.name.ko, en: entry.name.en }]));
 
+/** 팩 항목 실효 값(스킬·장비·유닛 종류, 스킬 편집기 덮어쓰기 — src/contentEdit/state.ts ContentEditState.effective) */
+export interface RosterContentEntries {
+  readonly skills: readonly SkillEntry[];
+  readonly items: readonly ItemEntry[];
+  readonly unitKinds: readonly UnitKindEntry[];
+}
+
 /**
  * 검증을 통과한 팩의 파일에서 만든다(서버 시작 때). society: 설정 칸 실효 값 접근자(src/tuning/state.ts TuningState.society).
  * statTable: 가중치 표 실효 값 접근자(TuningState.statTable, 밸런스 화면 덮어쓰기 — docs/adr/2026-11-01-balance-screen.md 1절).
- * 둘 다 없으면 팩 값 그대로(시험). combat은 읽을 때마다 지금 표를 든 묶음이다(표가 같으면 같은 객체)
+ * content: 스킬·장비·유닛 종류 실효 항목 접근자(ContentEditState.effective, 스킬 편집기 — docs/adr/2026-11-01-skill-editor.md 4절).
+ * 없으면 팩 값 그대로(시험). combat·names는 읽을 때마다 지금 값을 든 묶음이다(값이 같으면 같은 객체)
  */
 export function rosterCatalogOf(
   source: PackSource,
   society?: () => SocietyCoefficients,
   statTable?: () => readonly StatRow[],
+  content?: () => RosterContentEntries,
 ): RosterCatalog {
   const statRows = entriesOf(source, "stat_rows.json", (raw) => statRowEntrySchema.parse(raw));
-  const items = entriesOf(source, "items.json", (raw) => itemEntrySchema.parse(raw));
-  const skills = entriesOf(source, "skills.json", (raw) => skillEntrySchema.parse(raw));
+  const packEntries: RosterContentEntries = {
+    items: entriesOf(source, "items.json", (raw) => itemEntrySchema.parse(raw)),
+    skills: entriesOf(source, "skills.json", (raw) => skillEntrySchema.parse(raw)),
+    unitKinds: entriesOf(source, "unit_kinds.json", (raw) => unitKindEntrySchema.parse(raw)),
+  };
+  const effects = entriesOf(source, "effects.json", (raw) => effectEntrySchema.parse(raw));
   const facilities = entriesOf(source, "facilities.json", (raw) => facilityEntrySchema.parse(raw));
   const planets = entriesOf(source, "planets.json", (raw) => planetEntrySchema.parse(raw));
-  const combat = combatCatalogFrom({
-    statRows,
-    effects: entriesOf(source, "effects.json", (raw) => effectEntrySchema.parse(raw)),
-    skills,
-    items,
-    unitKinds: entriesOf(source, "unit_kinds.json", (raw) => unitKindEntrySchema.parse(raw)),
-  });
   const packSociety = societyCoefficientsFrom(tuningOf(source));
   const current = society ?? (() => packSociety);
-  // 가중치 표가 바뀌면(덮어쓰기 판) 새 묶음을 만든다. 옛 묶음을 든 쪽은 그 요청 안에서만 쓴다(받아 두지 않는다)
-  let combatNow: CombatCatalog = combat;
+  const entriesNow = content ?? (() => packEntries);
+  /** 실효 항목 한 벌 → 전투 자료(팩 표)·이름 표·기준 가격 */
+  const build = (entries: RosterContentEntries) => ({
+    entries,
+    combat: combatCatalogFrom({ statRows, effects, ...entries }),
+    names: {
+      stats: nameTable(statRows.filter((row) => row.enabled)),
+      items: nameTable(entries.items.filter((item) => item.enabled)),
+      skills: nameTable(entries.skills.filter((skill) => skill.enabled)),
+      facilities: nameTable(facilities.filter((facility) => facility.enabled)),
+      planets: nameTable(planets),
+    },
+    baseValue: new Map(entries.items.map((item) => [item.id, item.baseValue])),
+  });
+  // 실효 항목(스킬 편집기 판)이나 가중치 표(덮어쓰기 판)가 바뀌면 새 묶음을 만든다. 옛 묶음을 든 쪽은 그 요청 안에서만 쓴다
+  let built = build(entriesNow());
+  const latest = () => {
+    const entries = entriesNow();
+    if (built.entries !== entries) built = build(entries);
+    return built;
+  };
+  let cache: { base: CombatCatalog; table: readonly StatRow[]; value: CombatCatalog } | undefined;
   const combatOf = (): CombatCatalog => {
-    const table = statTable?.() ?? combat.statTable;
-    if (combatNow.statTable !== table) combatNow = { ...combat, statTable: table };
-    return combatNow;
+    const base = latest().combat;
+    const table = statTable?.() ?? base.statTable;
+    if (cache?.base !== base || cache.table !== table)
+      cache = { base, table, value: table === base.statTable ? base : { ...base, statTable: table } };
+    return cache.value;
   };
   return {
     get combat() {
       return combatOf();
     },
-    names: {
-      stats: nameTable(statRows.filter((row) => row.enabled)),
-      items: nameTable(items.filter((item) => item.enabled)),
-      skills: nameTable(skills.filter((skill) => skill.enabled)),
-      facilities: nameTable(facilities.filter((facility) => facility.enabled)),
-      planets: nameTable(planets),
+    get names() {
+      return latest().names;
     },
-    baseValue: new Map(items.map((item) => [item.id, item.baseValue])),
+    get baseValue() {
+      return latest().baseValue;
+    },
     get society() {
       return current();
     },

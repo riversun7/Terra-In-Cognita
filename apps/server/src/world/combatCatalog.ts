@@ -2,6 +2,7 @@
 // 검증을 통과한 팩의 파일을 분류 스키마로 다시 읽어 @terra/sim combatCatalogFrom에 넘긴다(시뮬 실행 도구와 같은 변환).
 // 지금은 시험이 쓴다. 세계에서 전투를 열 때(R5) 서버가 유닛 사양을 만들 때 쓴다.
 import {
+  type EffectEntry,
   type PackSource,
   type StatRowEntry,
   type TuningEntry,
@@ -34,6 +35,11 @@ export function combatCatalogOf(source: PackSource): CombatCatalog {
     items: entriesOf(source, "items.json", (raw) => itemEntrySchema.parse(raw)),
     unitKinds: entriesOf(source, "unit_kinds.json", (raw) => unitKindEntrySchema.parse(raw)),
   });
+}
+
+/** 팩 `effects` 항목(팩 차례, 꺼진 항목 포함). 스킬 편집기가 특수 효과 고르기에 쓴다(docs/adr/2026-11-01-skill-editor.md) */
+export function effectsOf(source: PackSource): EffectEntry[] {
+  return entriesOf(source, "effects.json", (raw) => effectEntrySchema.parse(raw));
 }
 
 /** 팩 `stat_rows` 항목(팩 차례, 꺼진 행 포함). 서버의 설정 칸 접근자가 가중치 칸 덮어쓰기에 쓴다(밸런스 화면) */

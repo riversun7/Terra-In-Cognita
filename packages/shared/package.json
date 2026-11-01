@@ -15,6 +15,7 @@
     "./mail": "./src/mail.ts",
     "./planetCalendar": "./src/planetCalendar.ts",
     "./roster": "./src/roster.ts",
+    "./skillEditor": "./src/skillEditor.ts",
     "./tuning": "./src/tuning.ts"
   },
   "scripts": {

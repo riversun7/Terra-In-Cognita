@@ -1,0 +1,262 @@
+// 스킬 편집기·행동별 소모 화면(/dev/skills) 공용 자료 모양 — docs/adr/2026-11-01-skill-editor.md
+// 서버(tRPC skills.*, apps/server/src/contentEdit/)와 화면(apps/game/src/editor/skills/)이 같이 쓴다.
+// 스킬 항목은 콘텐츠 팩 skills.json 한 줄과 같은 JSON 모양이다(참조는 ID 문자열). 형식 검사는 서버가 팩 스키마로 한다
+// (게임 앱은 @terra/content를 가져오지 않는다). 값의 범위 상수는 화면 입력 칸이 쓰고, 맞는지는 서버가 다시 본다.
+
+/** 덮어쓸 수 있는 팩 분류(스킬 편집기 = skills, 행동별 소모 = items 무기·unit_kinds 타고난 무기) */
+export const CONTENT_EDIT_CATEGORIES = ["skills", "items", "unit_kinds"] as const;
+export type ContentEditCategory = (typeof CONTENT_EDIT_CATEGORIES)[number];
+
+export interface LocalizedName {
+  readonly ko: string;
+  readonly en: string;
+}
+
+/** 스킬 모양(@terra/content SKILL_SHAPES와 같다, 서버 시험이 맞춰 본다) */
+export const SKILL_SHAPE_IDS = ["single", "projectile", "area", "chain", "heal", "buff", "debuff"] as const;
+export type SkillShapeId = (typeof SKILL_SHAPE_IDS)[number];
+export const SKILL_TRIGGERS = ["active", "passive"] as const;
+export const SKILL_RESOURCES = ["stamina", "mp"] as const;
+export const SKILL_TARGETS = ["enemy", "self", "ally"] as const;
+export const SKILL_DAMAGES = ["physical", "elemental", "none"] as const;
+export const SKILL_BASES = ["physical", "elemental"] as const;
+/** 필요한 무기 칸(D-490). 화면의 "기반과 같음"은 칸을 적지 않는 것(undefined)이다 */
+export const SKILL_WEAPON_FIELDS = ["physical", "elemental", "any"] as const;
+export type SkillWeaponFieldId = (typeof SKILL_WEAPON_FIELDS)[number];
+
+/** 공식 부품 종류(@terra/content formulaPart와 같다) */
+export const SKILL_FORMULA_PARTS = [
+  "attack_mul",
+  "weapon_add",
+  "element",
+  "penetration",
+  "flat",
+  "heal",
+  "shield",
+] as const;
+export type SkillFormulaPartKind = (typeof SKILL_FORMULA_PARTS)[number];
+export const SKILL_CONDITION_PARTS = [
+  "appropriate_met",
+  "self_hp_below",
+  "target_hp_below",
+  "target_has",
+] as const;
+export type SkillConditionPartKind = (typeof SKILL_CONDITION_PARTS)[number];
+
+export type SkillFormulaPartJson =
+  | { readonly part: "attack_mul"; readonly pm: number }
+  | { readonly part: "weapon_add"; readonly value: number }
+  | { readonly part: "element"; readonly element: number; readonly pm: number }
+  | { readonly part: "penetration"; readonly pm: number }
+  | { readonly part: "flat"; readonly value: number }
+  | { readonly part: "heal"; readonly pm: number }
+  | { readonly part: "shield"; readonly pm: number };
+
+export type SkillConditionJson =
+  | { readonly part: "appropriate_met" }
+  | { readonly part: "self_hp_below"; readonly pct: number }
+  | { readonly part: "target_hp_below"; readonly pct: number }
+  | { readonly part: "target_has"; readonly effect: string };
+
+/** 특수 효과 하나(효과 사전 ID + 확률·지속·세기) */
+export interface SkillEffectJson {
+  readonly effect: string;
+  readonly value: number;
+  readonly chancePm: number;
+  /** 없으면 효과 사전의 기본 지속 */
+  readonly durationMs?: number | undefined;
+}
+
+/** 팩 skills.json 한 줄(JSON 모양) */
+export interface SkillJson {
+  readonly id: string;
+  readonly name: LocalizedName;
+  readonly description?: LocalizedName | undefined;
+  readonly shape: SkillShapeId;
+  readonly trigger: (typeof SKILL_TRIGGERS)[number];
+  readonly resource: (typeof SKILL_RESOURCES)[number];
+  readonly cost: number;
+  readonly castMs: number;
+  readonly cooldownMs: number;
+  readonly target: (typeof SKILL_TARGETS)[number];
+  readonly range: number;
+  readonly radius: number;
+  readonly chain?:
+    | { readonly targets: number; readonly jump: number; readonly falloffPm: number }
+    | undefined;
+  readonly damage: (typeof SKILL_DAMAGES)[number];
+  readonly base: (typeof SKILL_BASES)[number];
+  readonly weaponField?: SkillWeaponFieldId | undefined;
+  readonly bareHand?: boolean | undefined;
+  readonly formula: readonly SkillFormulaPartJson[];
+  readonly conditions: readonly SkillConditionJson[];
+  readonly effects: readonly SkillEffectJson[];
+  readonly gradePm: readonly number[];
+  readonly enabled: boolean;
+}
+
+/** 입력 칸 범위(팩 스키마와 같다. 서버가 다시 본다) */
+export const SKILL_LIMITS = {
+  cost: { min: 0, max: 100_000 },
+  castMs: { min: 0, max: 60_000 },
+  cooldownMs: { min: 0, max: 3_600_000 },
+  range: { min: 0, max: 128 },
+  radius: { min: 0, max: 128 },
+  chainTargets: { min: 2, max: 16 },
+  chainJump: { min: 1, max: 32 },
+  falloffPm: { min: 0, max: 1000 },
+  chancePm: { min: 0, max: 1000 },
+  effectDurationMs: { min: 0, max: 3_600_000 },
+  effectValue: { min: -1_000_000, max: 1_000_000 },
+  gradePm: { min: 0, max: 100_000 },
+  formula: 16,
+  conditions: 8,
+  effects: 8,
+  grades: 10,
+  nameMax: 200,
+} as const;
+
+/** 무기 한 번 공격의 소모(행동별 소모 화면) */
+export const ACTION_COST_MAX = 100_000;
+
+/** 항목이 어디서 왔나: 팩 그대로 · 팩 위에 덮어씀 · 편집기에서 만듦(팩에 없음) */
+export type ContentEditOrigin = "pack" | "edited" | "created";
+
+/** 세계의 덮어쓰기 하나(누가·언제·메모) */
+export interface ContentOverrideView {
+  readonly note: string | null;
+  readonly updatedBy: string | null;
+  readonly updatedAt: number;
+  readonly contentVersionAtSave: string;
+}
+
+export interface SkillEditorSkill {
+  /** 실효 항목(팩 + 덮어쓰기) */
+  readonly entry: SkillJson;
+  readonly origin: ContentEditOrigin;
+  /** 팩 항목(편집기에서 만든 스킬은 null) */
+  readonly pack: SkillJson | null;
+  readonly override: ContentOverrideView | null;
+  /** 이 스킬을 주는 장비(아이템 ID) */
+  readonly grantedBy: readonly string[];
+}
+
+/** 효과 사전 한 줄(편집기의 특수 효과 고르기) */
+export interface SkillEditorEffect {
+  readonly id: string;
+  readonly name: LocalizedName;
+  readonly kind: "buff" | "debuff" | "dot" | "heal" | "status";
+  readonly stat: string | null;
+  readonly valueMode: "flat" | "permille";
+  readonly durationMs: number;
+  readonly status: string | null;
+  readonly enabled: boolean;
+}
+
+/**
+ * 행동별 소모 표 한 줄(D-491). kind:
+ * - weapon: 무기 아이템의 기본 공격(무기 칸 staminaCost·mpCost, MP는 기본 공격 칸이 속성일 때만 든다)
+ * - natural: 유닛 종류의 타고난 무기(맨손) 기본 공격
+ * - skill: 스킬(자원·소모)
+ * - fixed: 값이 없는 행동 — free(걷기·퇴각 이동, D-418), same_as_basic(건물 공격 = 기본 공격 값), unimplemented(미구현)
+ */
+export type ActionCostRow =
+  | {
+      readonly kind: "weapon" | "natural";
+      readonly key: string;
+      readonly id: string;
+      readonly name: LocalizedName;
+      readonly staminaCost: number;
+      readonly mpCost: number;
+      /** 기본 공격 칸(속성이면 MP도 든다) */
+      readonly basic: "physical" | "elemental";
+      readonly origin: ContentEditOrigin;
+      readonly enabled: boolean;
+    }
+  | {
+      readonly kind: "skill";
+      readonly key: string;
+      readonly id: string;
+      readonly name: LocalizedName;
+      readonly resource: "stamina" | "mp";
+      readonly cost: number;
+      readonly trigger: "active" | "passive";
+      readonly origin: ContentEditOrigin;
+      readonly enabled: boolean;
+    }
+  | {
+      readonly kind: "fixed";
+      readonly key: "walk" | "retreat" | "building_attack" | "evasive_move";
+      readonly status: "free" | "same_as_basic" | "unimplemented";
+    };
+
+export interface SkillEditorListResponse {
+  readonly contentVersion: string;
+  /** 스킬·장비 덮어쓰기 판(skills.save의 expectedRevision) */
+  readonly revision: number;
+  readonly skills: readonly SkillEditorSkill[];
+  readonly effects: readonly SkillEditorEffect[];
+  readonly actions: readonly ActionCostRow[];
+  /** 한 번 쓰고 지운 스킬 ID(팩 id-changes). 새 스킬 ID로 다시 쓰지 못한다 */
+  readonly retiredSkillIds: readonly string[];
+}
+
+/** 묶음의 바꿈 하나 */
+export type SkillEditorChange =
+  /** 스킬 항목 통째로(만들기·복제·고치기·끄기) */
+  | { readonly op: "put_skill"; readonly entry: SkillJson }
+  /** 덮어쓰기를 지운다(팩 값으로. 편집기에서 만든 스킬은 지워진다) */
+  | { readonly op: "revert"; readonly category: ContentEditCategory; readonly id: string }
+  /** 무기·타고난 무기의 기본 공격 소모(행동별 소모 화면) */
+  | {
+      readonly op: "set_cost";
+      readonly category: "items" | "unit_kinds";
+      readonly id: string;
+      readonly staminaCost: number;
+      readonly mpCost: number;
+    };
+
+/** 한 묶음의 바꿈 수 상한 */
+export const SKILL_EDITOR_CHANGES_MAX = 100;
+
+/** 받지 않은 까닭(data.reason) */
+export const SKILL_EDITOR_REASONS = [
+  "invalid_entry",
+  "unknown_entry",
+  "retired_id",
+  "duplicate_entry",
+  "invalid_note",
+] as const;
+export type SkillEditorReason = (typeof SKILL_EDITOR_REASONS)[number];
+
+/** 켤 때 덮어쓰기를 지운 까닭 */
+export const CONTENT_DROP_REASONS = ["unknown_entry", "invalid_entry"] as const;
+export type ContentDropReason = (typeof CONTENT_DROP_REASONS)[number];
+
+/** 최근 바꿈 한 줄(감사 기록) */
+export interface SkillEditorHistoryRow {
+  readonly at: number;
+  readonly action: "apply" | "pack_won" | "dropped";
+  readonly actor: string | null;
+  readonly revision: number | null;
+  readonly note: string | null;
+  readonly changes: readonly {
+    readonly category: ContentEditCategory;
+    readonly id: string;
+    /** apply: put·revert·cost, 켤 때: 까닭 */
+    readonly what: string;
+  }[];
+}
+
+export const SKILL_EDITOR_HISTORY_LIMIT = 30;
+
+/**
+ * 내보내기 차이의 팩 항목 한 줄(terra-tuning-diff entries, `pnpm tuning:apply`가 분류 파일에 넣는다). from = 내보낼 때의 팩 항목
+ * 정규 JSON SHA-256(팩에 없던 항목이면 null), entry = 덮어쓴 항목 통째
+ */
+export interface EntryDiffChange {
+  readonly category: ContentEditCategory;
+  readonly id: string;
+  readonly from: string | null;
+  readonly entry: Readonly<Record<string, unknown>>;
+}

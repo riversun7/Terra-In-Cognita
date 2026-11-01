@@ -105,8 +105,11 @@ export interface WorldConfig {
   terrain?: TerrainService | undefined;
   /** 사이보그 만들기 규칙(팩 tuning을 얹은 세력·사회 계수표 N9·N6). 없으면 sim 시험 계수표 */
   cyborgRules?: (() => CyborgRules) | undefined;
-  /** 전투 자료(팩)·전투 계수(설정 칸 실효 값, 부를 때마다 읽는다). 정원사 웨이브 전투가 쓴다. 없으면 sim 시험 자료 */
-  combatCatalog?: CombatCatalog | undefined;
+  /**
+   * 전투 자료(팩 + 덮어쓰기 실효 값)·전투 계수(설정 칸 실효 값), 둘 다 부를 때마다 읽는다. 정원사 웨이브 전투가 쓴다.
+   * 없으면 sim 시험 자료
+   */
+  combatCatalog?: (() => CombatCatalog) | undefined;
   combatRules?: (() => CombatCoefficients) | undefined;
   /**
    * NPC 사회 런타임(docs/adr/2026-11-01-npc-brain-r5.md 7절, NPC_SOCIETY). 없으면 끔. DB가 있을 때만 돈다.

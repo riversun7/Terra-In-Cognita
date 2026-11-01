@@ -138,7 +138,8 @@ export interface ServerGardenerOptions {
   readonly society: SocietyRun;
   readonly rules: () => GardenerCoefficients;
   readonly combatRules: () => CombatCoefficients;
-  readonly catalog: CombatCatalog;
+  /** 전투 자료(웨이브 전투를 열 때마다 읽는다: 스킬 편집기·가중치 표 덮어쓰기가 다음 웨이브부터 든다) */
+  readonly catalog: () => CombatCatalog;
   /** 도시 → 칸(2차맵 키). 폐허가 된 도시도 안다 */
   readonly cellOf: (cityId: number) => number | undefined;
   /** 세력 행 ID → 소유 주체 ID(웨이브 행의 세력) */
@@ -230,7 +231,7 @@ export function attachServerGardener(o: ServerGardenerOptions): ServerGardener {
           // 공성 제한 시간(C2): 설정 칸 실효 값(전투 서비스는 시험 계수표로 전투를 만든다)
           limitMs: combat.limitMs.siege,
         },
-        o.catalog,
+        o.catalog(),
         combat,
       );
       if (!o.startBattle) {

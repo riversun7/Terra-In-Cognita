@@ -4,6 +4,8 @@
 // - 시뮬레이터: `pnpm --filter @terra/sim sim … --tuning <차이.json>`이 overlayTuningDiff로 팩 값 위에 얹는다(서버와 같은 실효 값).
 // 가중치 표(stat_rows) 칸 차이는 선택 칸 statRows(docs/adr/2026-11-01-balance-screen.md 2절): applyStatRowsDiff가 stat_rows.json의
 // 그 칸만 바꾸고, overlayStatRowsDiff가 팩 행 위에 얹는다(시뮬레이터). 덮어쓰기가 없으면 칸을 넣지 않아 옛 모양 그대로다.
+// 팩 항목(스킬·무기·유닛 종류) 차이는 선택 칸 entries(docs/adr/2026-11-01-skill-editor.md 7절): 해시가 필요해 적용 함수는
+// "@terra/content/node" applyEntriesDiff다.
 // Node API를 쓰지 않는다(파일 읽기는 부르는 쪽).
 import {
   STAT_CELL_FIELDS,
@@ -46,6 +48,22 @@ export const statRowsDiffChangeSchema = z.strictObject({
 });
 export type StatRowsDiffChange = z.output<typeof statRowsDiffChangeSchema>;
 
+/** 팩 항목 차이를 넣을 수 있는 분류(스킬 편집기·행동별 소모, docs/adr/2026-11-01-skill-editor.md 7절) */
+export const ENTRY_DIFF_CATEGORIES = ["skills", "items", "unit_kinds"] as const;
+
+export const entriesDiffChangeSchema = z.strictObject({
+  category: z.enum(ENTRY_DIFF_CATEGORIES),
+  id: contentId,
+  /** 내보낼 때의 팩 항목 정규 JSON SHA-256(팩에 없던 항목 = 편집기에서 만든 항목이면 null) */
+  from: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .nullable(),
+  /** 덮어쓴 항목 통째(팩 파일 한 줄 모양). 칸 검사는 넣은 뒤 팩 검사(pnpm check:content)가 한다 */
+  entry: z.record(z.string(), z.unknown()),
+});
+export type EntriesDiffChange = z.output<typeof entriesDiffChangeSchema>;
+
 export const tuningDiffSchema = z
   .strictObject({
     format: z.literal(TUNING_DIFF_FORMAT),
@@ -59,6 +77,8 @@ export const tuningDiffSchema = z
     changes: z.array(tuningDiffChangeSchema).max(TUNING_DIFF_MAX_CHANGES),
     /** 가중치 표 칸 차이(선택, 덮어쓰기가 있을 때만) */
     statRows: z.array(statRowsDiffChangeSchema).max(TUNING_DIFF_MAX_CHANGES).optional(),
+    /** 팩 항목 차이(선택, 스킬·무기·유닛 종류 덮어쓰기가 있을 때만) */
+    entries: z.array(entriesDiffChangeSchema).max(TUNING_DIFF_MAX_CHANGES).optional(),
   })
   .superRefine((diff, ctx) => {
     if (Array.isArray(diff.changes)) {
@@ -69,6 +89,16 @@ export const tuningDiffSchema = z
         if (seen.has(id))
           ctx.addIssue({ code: "custom", path: ["changes", index, "id"], message: `ID가 두 번: ${id}` });
         seen.add(id);
+      });
+    }
+    if (Array.isArray(diff.entries)) {
+      const seen = new Set<string>();
+      diff.entries.forEach((change, index) => {
+        if (typeof change !== "object" || change === null) return;
+        const key = `${change.category}/${change.id}`;
+        if (seen.has(key))
+          ctx.addIssue({ code: "custom", path: ["entries", index], message: `항목이 두 번: ${key}` });
+        seen.add(key);
       });
     }
     if (Array.isArray(diff.statRows)) {

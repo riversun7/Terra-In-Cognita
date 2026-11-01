@@ -60,6 +60,7 @@ export function combatCatalogFrom(pack: {
         range: entry.range,
         radius: entry.radius,
         damage: entry.damage,
+        base: entry.base,
         formula: entry.formula,
         conditions: entry.conditions.map((part) =>
           part.part === "target_has" ? { part: "target_has", effect: idOf(part.effect) } : part,
@@ -97,6 +98,7 @@ export function combatCatalogFrom(pack: {
       slots: entry.slots,
       skillSlots: entry.skillSlots,
       naturalWeapon: entry.naturalWeapon,
+      naturalElementalWeapon: entry.naturalElementalWeapon,
     }));
   return { statTable, effects, skills, equipment, unitKinds };
 }

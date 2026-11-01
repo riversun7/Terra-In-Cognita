@@ -20,8 +20,10 @@ export interface CombatCoefficients {
   readonly snapshotMs: number;
   /** 이동 흐름장을 다시 세는 간격. 스냅숏 간격의 약수, 틱의 배수여야 한다 */
   readonly fieldMs: number;
-  /** 계열 상성 rate(C10·D-5013, ‰): [공격 계열][방어 계열], 계열 = 물·불·바람·땅·빛·어둠 */
-  readonly affinityPm: readonly (readonly number[])[];
+  /**
+   * 계열 상성 rate(C10·D-5013·D-459, ‰, 부호 포함): 유리·불리·같은 계열(내성). 어느 짝이 유리·불리인지는 AFFINITY_RELATION(구조 값)
+   */
+  readonly affinity: { readonly favorPm: number; readonly unfavorPm: number; readonly samePm: number };
   /** 높이 시야 보너스(C27 출발값 없음 → [임시]): min(heightCap, ⌊높이차 ÷ heightUnit⌋), 높이 단위 16배 cm */
   readonly sight: { readonly heightUnit: number; readonly heightCap: number };
   /** 수풀 속 적이 보이는 거리(칸, C24)·수풀에서 공격하면 드러나는 시간(C25 출발값 없음 → [임시]) */
@@ -41,29 +43,37 @@ export interface CombatCoefficients {
   /** 크리 배율 범위 폭(N12: 최대 − 최소 = 2000 − 1500 = 500‰) */
   readonly critSpreadPm: number;
   /**
-   * 스태미나(N13, 48 §4.1): STA 점수 = 1차 가중합(AGI 700·VIT 300‰), 소모 = 기본 × max(최소 소모‰, 적정 × 1000 ÷ 점수) ÷ 1000,
-   * 초당 회복 = 기본 회복 × min(회복 배수 상한, 점수 ÷ 적정)
+   * 스태미나 소모(N13, 48 §4.1): STA 점수 = 1차 가중합(AGI 700·VIT 300‰), 소모 = 기본 × max(최소 소모‰, 적정 × 1000 ÷ 점수) ÷ 1000.
+   * 회복은 2차 스탯 "스태미나 회복"(D-458, 가중치 표 행 stamina_regen, 분당)이다. MP 회복·쉴드 재생도 같다(mp_regen·shield_regen)
    */
   readonly stamina: {
     readonly scoreWeightsPm: readonly number[];
     readonly appropriateScore: number;
     readonly minConsumePm: number;
-    readonly regenPerSec: number;
-    readonly regenCapPm: number;
   };
-  /** [임시] MP 회복(N15 출발값 없음, D-438 3 WIS 비례): WIS 1점당 초당 밀리점 */
-  readonly mpRegenMilliPerWisPerSec: number;
+  /** 피격 뒤 쉴드 재생 지연(ms, 49 N40 묶음, D-463 212): 맞은 뒤 이만큼 지나야 쉴드가 다시 찬다. 출발값 0(맞아도 곧바로 참) */
+  readonly shieldRegenDelayMs: number;
 }
 
-/** 계열 상성표(D-5013, 50_Content_Rules 2.1): 유리 +50, 불리 −50, 같은 계열 −20 */
-const AFFINITY = [
-  [-20, 50, 0, -50, 50, -50],
-  [-50, -20, 50, 0, 50, -50],
-  [0, -50, -20, 50, 50, -50],
-  [50, 0, -50, -20, 50, -50],
-  [-50, -50, -50, -50, -20, 50],
-  [50, 50, 50, 50, -50, -20],
+/**
+ * 계열 상성 관계(50_Content_Rules §2.1, 구조 값): [공격 계열][방어 계열] = 1 유리, −1 불리, 0 보통. 대각(같은 계열)은 samePm.
+ * 4원소 순환 물 > 불 > 바람 > 땅 > 물, 큰 고리 어둠 > 4원소 > 빛 > 어둠
+ */
+export const AFFINITY_RELATION: readonly (readonly (-1 | 0 | 1)[])[] = [
+  [0, 1, 0, -1, 1, -1],
+  [-1, 0, 1, 0, 1, -1],
+  [0, -1, 0, 1, 1, -1],
+  [1, 0, -1, 0, 1, -1],
+  [-1, -1, -1, -1, 0, 1],
+  [1, 1, 1, 1, -1, 0],
 ];
+
+/** 계열 상성 rate(‰): 같은 계열이면 samePm, 아니면 관계에 따라 유리·불리·0 */
+export function affinityRatePm(attackFamily: number, defenseFamily: number, c: CombatCoefficients): number {
+  if (attackFamily === defenseFamily) return c.affinity.samePm;
+  const relation = AFFINITY_RELATION[attackFamily]?.[defenseFamily] ?? 0;
+  return relation > 0 ? c.affinity.favorPm : relation < 0 ? c.affinity.unfavorPm : 0;
+}
 
 export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
   tickMs: 100,
@@ -74,7 +84,8 @@ export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
   entryRow: 3,
   snapshotMs: 30_000,
   fieldMs: 500,
-  affinityPm: AFFINITY,
+  // C10: 유리 +50, 불리 −50, 같은 계열 −30(내성, D-459. D-5013의 −20을 바꿈)
+  affinity: { favorPm: 50, unfavorPm: -50, samePm: -30 },
   sight: { heightUnit: 4_800, heightCap: 4 },
   bushSenseCells: 1,
   bushRevealMs: 2_000,
@@ -86,10 +97,8 @@ export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
     scoreWeightsPm: [0, 0, 700, 300, 0, 0],
     appropriateScore: 80,
     minConsumePm: 500,
-    regenPerSec: 3,
-    regenCapPm: 2_000,
   },
-  mpRegenMilliPerWisPerSec: 50,
+  shieldRegenDelayMs: 0,
 };
 
 /** STA 점수(N13) = Σ 1차 × 가중치‰ ÷ 1000 */
@@ -108,13 +117,23 @@ export function staminaCostMilli(baseCost: number, score: number, c: CombatCoeff
   return baseCost * factor;
 }
 
-/** 틱 하나의 스태미나 회복(밀리점, N13): 기본 회복/초 × min(상한, 점수 ÷ 적정) */
-export function staminaRegenMilli(score: number, c: CombatCoefficients): number {
-  const ratio = Math.min(
-    c.stamina.regenCapPm,
-    Math.floor((Math.max(0, score) * 1000) / c.stamina.appropriateScore),
-  );
-  return Math.floor((c.stamina.regenPerSec * ratio * c.tickMs) / 1000);
+const MINUTE_MS = 60_000;
+const SAFE = Number.MAX_SAFE_INTEGER;
+
+/**
+ * 분당 회복(2차 스탯 스태미나 회복·MP 회복·쉴드 재생, D-458)을 틱 tick(0부터)에 나눠 준 몫(scale배 단위, 예: 밀리점이면 1000).
+ * 틱 0..t의 합 = ⌊분당 × scale × (t + 1) × tickMs ÷ 60,000⌋ 이라 몫을 모으면 버림 손실이 없다(남은 값을 상태로 들지 않는다).
+ * 음수는 0. 큰 값은 BigInt로 센다(결과는 안전 정수에서 자른다)
+ */
+export function regenOnTick(perMinute: number, tick: number, scale: number, c: CombatCoefficients): number {
+  if (perMinute <= 0 || tick < 0) return 0;
+  const product = perMinute * scale * c.tickMs * (tick + 1);
+  if (Number.isSafeInteger(product))
+    return Math.floor(product / MINUTE_MS) - Math.floor((perMinute * scale * c.tickMs * tick) / MINUTE_MS);
+  const unit = BigInt(Math.trunc(perMinute)) * BigInt(Math.trunc(scale)) * BigInt(c.tickMs);
+  const minute = BigInt(MINUTE_MS);
+  const share = (unit * BigInt(tick + 1)) / minute - (unit * BigInt(tick)) / minute;
+  return share > BigInt(SAFE) ? SAFE : Number(share);
 }
 
 /** ms → 틱(올림: 그 시각이 된 첫 틱 경계) */

@@ -17,6 +17,11 @@ export interface CombatUnitSpec {
   readonly armorHp: number;
   readonly shieldHp: number;
   readonly attack: AttackProfile;
+  /**
+   * 스킬 기반별 공격 사양(D-463 211): 물리 = 든 물리 무기(없으면 맨손)·물리 공격력, 속성 = 든 속성 무기(없으면 맨손 속성 자료)·
+   * 속성 공격력. 없으면 기본 공격 사양(attack)으로 푼다(시험 유닛)
+   */
+  readonly skillAttack?: { readonly physical: AttackProfile; readonly elemental: AttackProfile } | undefined;
   readonly defense: DefenseProfile;
   /** 사거리(체비쇼프 칸) */
   readonly range: number;
@@ -29,10 +34,16 @@ export interface CombatUnitSpec {
   /** 스태미나·MP 최대와 공격 한 번에 드는 양(D-415·D-418) */
   readonly staminaMax: number;
   readonly staminaCost: number;
-  /** STA 점수(N13: 1차 AGI·VIT 가중합). 소모·회복 배율을 정한다 */
+  /** STA 점수(N13: 1차 AGI·VIT 가중합). 소모 배율을 정한다 */
   readonly staminaScore: number;
+  /** 스태미나 회복(분당, 2차 스탯 stamina_regen D-458) */
+  readonly staminaRegen: number;
   readonly mpMax: number;
   readonly mpCost: number;
+  /** MP 회복(분당, 2차 스탯 mp_regen D-458) */
+  readonly mpRegen: number;
+  /** 쉴드 재생(분당, 2차 스탯 shield_regen D-458). 전투 중에도 찬다 */
+  readonly shieldRegen: number;
   /** 스탯 시야(칸, 가중치 표 sight 행) */
   readonly sight: number;
   /** 시선 높이(16배 cm) */
@@ -116,6 +127,8 @@ export interface UnitState extends CombatUnitSpec {
   cast: CastState | null;
   command: Command | null;
   lastCommandMs: number;
+  /** 마지막으로 맞은 시각(ms, 피격 뒤 쉴드 재생 지연 D-463 212). 맞은 적이 없으면 아주 작은 값 */
+  lastHitMs: number;
 }
 
 export interface PartyState extends BattlePartySpec {

@@ -58,25 +58,54 @@ describe("스탯 계산기(D-414·D-417, 정수 ‰)", () => {
     expect(computeSecondary(agiOnly(0), TEST_STAT_TABLE).evade).toBe(0);
   });
 
-  it("13개 2차 스탯과 활동 수치를 모두 계산한다(저장하지 않고 계산만)", () => {
+  it("2차 스탯 17개(D-458)와 시야: 확률 모양은 회피·물리/속성 방어율, 나머지는 양 모양(명중·크리·행동 속도는 점수)", () => {
+    const shapes = Object.fromEntries(TEST_STAT_TABLE.map((row) => [row.id, row.shape]));
+    expect(shapes).toEqual({
+      // 생존 5
+      hp: "quantity",
+      armor_hp: "quantity",
+      shield_hp: "quantity",
+      defense_rate: "probability",
+      elemental_defense_rate: "probability",
+      // 공격 2
+      physical_attack: "quantity",
+      elemental_attack: "quantity",
+      // 정확 4
+      hit: "quantity",
+      evade: "probability",
+      crit_chance: "quantity",
+      crit_multiplier: "quantity",
+      // 속도 1
+      action_speed: "quantity",
+      // 자원 5
+      stamina: "quantity",
+      stamina_regen: "quantity",
+      mp: "quantity",
+      mp_regen: "quantity",
+      shield_regen: "quantity",
+      // 활동 수치(48 §3.3)
+      sight: "quantity",
+    });
     const stats = computeSecondary(flat, TEST_STAT_TABLE);
-    for (const id of [
-      "hp",
-      "armor_hp",
-      "shield_hp",
-      "defense_rate",
-      "physical_attack",
-      "elemental_attack",
-      "hit",
-      "evade",
-      "crit_chance",
-      "crit_multiplier",
-      "action_speed",
-      "stamina",
-      "mp",
-      "sight",
-    ])
-      expect(typeof stats[id]).toBe("number");
+    for (const row of TEST_STAT_TABLE) expect(Number.isInteger(stats[row.id])).toBe(true);
+  });
+
+  it("새 행 출발값(분당): 쉴드 재생 = 1분에 WIS만큼(L11), 스태미나 회복 = STA 점수 80에서 초당 3(L13)", () => {
+    const wisOnly: Primaries = { str: 0, dex: 0, agi: 0, vit: 0, int: 0, wis: 35 };
+    expect(computeSecondary(wisOnly, TEST_STAT_TABLE).shield_regen).toBe(35);
+    // STA 점수 = AGI × 0.7 + VIT × 0.3 = 80 → 초당 3 = 분당 180
+    const sta80: Primaries = { str: 0, dex: 0, agi: 80, vit: 80, int: 0, wis: 0 };
+    expect(computeSecondary(sta80, TEST_STAT_TABLE).stamina_regen).toBe(180);
+  });
+
+  it("속성 방어율은 WIS·VIT로 오르고(D-458) STR은 보탬이 없다, 물리 방어율은 그 반대 쪽", () => {
+    const base = computeSecondary(flat, TEST_STAT_TABLE);
+    const wiser = computeSecondary({ ...flat, wis: 30 }, TEST_STAT_TABLE);
+    const stronger = computeSecondary({ ...flat, str: 30 }, TEST_STAT_TABLE);
+    expect(wiser.elemental_defense_rate).toBeGreaterThan(base.elemental_defense_rate ?? 0);
+    expect(wiser.defense_rate).toBe(base.defense_rate);
+    expect(stronger.elemental_defense_rate).toBe(base.elemental_defense_rate);
+    expect(stronger.defense_rate).toBeGreaterThan(base.defense_rate ?? 0);
   });
 
   it("풀이(explainSecondary)의 값은 computeSecondary와 늘 같다 — 무작위 1차 스탯·장비·버프 2,000번", () => {

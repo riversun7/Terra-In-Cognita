@@ -32,6 +32,7 @@ const skill = (effectId: string) => ({
   range: 0,
   radius: 0,
   damage: "none",
+  base: "physical",
   formula: [],
   conditions: [],
   effects: [{ effect: effectId, value: 50, chancePm: 1000 }],
@@ -127,6 +128,26 @@ describe("전투 분류", () => {
       expect(
         issuesOf({ "items.json": { entries: [item({ slot: "organ", stats: [], elements })] } }),
       ).toHaveLength(1);
+  });
+
+  it("스킬 기반(D-463)은 물리·속성 둘 중 하나이고, 피해를 주는 스킬은 피해 종류와 기반이 같다", () => {
+    const strike = { ...skill("guard"), trigger: "active", target: "enemy", range: 1 };
+    const ok = issuesOf({
+      "effects.json": { entries: [effect({})] },
+      "skills.json": { entries: [{ ...strike, damage: "elemental", base: "elemental" }] },
+      "items.json": { entries: [item({ slot: "body", stats: [], skills: ["iron_skin"] })] },
+    });
+    expect(ok.filter((issue) => issue.level === "error" && issue.file === "skills.json")).toEqual([]);
+    const mixed = issuesOf({
+      "effects.json": { entries: [effect({})] },
+      "skills.json": { entries: [{ ...strike, damage: "physical", base: "elemental" }] },
+    });
+    expect(mixed.some((issue) => issue.file === "skills.json" && issue.path === "base")).toBe(true);
+    const missing = issuesOf({
+      "effects.json": { entries: [effect({})] },
+      "skills.json": { entries: [{ ...strike, base: undefined }] },
+    });
+    expect(missing.some((issue) => issue.file === "skills.json" && issue.path === "base")).toBe(true);
   });
 
   it("스킬이 없는 효과를, 장비가 없는 스탯 행을 가리키면 참조 오류다", () => {

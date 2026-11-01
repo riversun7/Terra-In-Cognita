@@ -1005,6 +1005,7 @@
   "roster_type_test_unit": "Test unit",
   "roster_unnamed": "{type} #{number}",
   "roster_level": "Lv {level}",
+  "roster_per_minute": "{value}/min",
   "roster_level_of": "Lv {level} / {max}",
   "roster_rebirths": "Rebirths: {count}",
   "roster_place": "{place} · {domain}",

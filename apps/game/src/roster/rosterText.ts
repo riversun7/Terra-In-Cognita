@@ -149,6 +149,8 @@ export function remaining(untilMs: number, now: number, locale: Locale = getLoca
 
 /** [임시] ‰로 저장하는 양 모양 행(크리 배율 1300 = ×1.30). 표에 행이 생기면 서버가 단위를 보내게 바꾼다 */
 const PERMILLE_QUANTITIES: ReadonlySet<string> = new Set(["crit_multiplier"]);
+/** [임시] 분당 값인 양 모양 행(스태미나·MP 회복, 쉴드 재생 D-458: 1분에 그만큼 찬다). 단위도 서버가 보내게 바꿀 때 함께 */
+const PER_MINUTE_QUANTITIES: ReadonlySet<string> = new Set(["stamina_regen", "mp_regen", "shield_regen"]);
 
 const numberFormats = new Map<string, Intl.NumberFormat>();
 function numberFormat(locale: Locale, digits: number): Intl.NumberFormat {
@@ -194,10 +196,12 @@ export function formatMilli(milli: number, locale: Locale = getLocale()): string
 export const formatK = (kPm: number, locale: Locale = getLocale()): string =>
   numberFormat(locale, 2).format(kPm / 1000);
 
-/** 2차 스탯 값: 확률 모양은 %(‰ ÷ 10, 소수 한 자리), ‰ 양은 ×배율, 나머지는 수 */
+/** 2차 스탯 값: 확률 모양은 %(‰ ÷ 10, 소수 한 자리), ‰ 양은 ×배율, 분당 양은 "n/분", 나머지는 수 */
 export function formatStat(stat: RosterStat, locale: Locale = getLocale()): string {
   if (stat.shape === "probability") return `${numberFormat(locale, 1).format(stat.value / 10)}%`;
   if (PERMILLE_QUANTITIES.has(stat.id)) return `×${numberFormat(locale, 2).format(stat.value / 1000)}`;
+  if (PER_MINUTE_QUANTITIES.has(stat.id))
+    return m.roster_per_minute({ value: numberFormat(locale, 0).format(stat.value) }, { locale });
   return numberFormat(locale, 0).format(stat.value);
 }
 

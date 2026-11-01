@@ -130,6 +130,32 @@ describe("몸 계산", () => {
     expect(body.preview).toBe(true);
   });
 
+  it("사이보그 풀이: 2차 스탯 17개 + 시야(D-458), 새 네 행(속성 방어율·스태미나 회복·MP 회복·쉴드 재생)도 공식 항과 함께 온다", () => {
+    const body = previewCyborg(catalog);
+    expect(body.breakdown).toHaveLength(18);
+    const row = (id: string) => {
+      const found = body.breakdown.find((entry) => entry.id === id);
+      if (!found) throw new Error(`row ${id}`);
+      return found;
+    };
+    const total = (stat: "agi" | "vit" | "int" | "wis") =>
+      body.stats.primaries[stat].base + body.stats.primaries[stat].bonus;
+    // 쉴드 재생 = 1분에 WIS만큼(L11): 항 WIS × 1000‰ 하나
+    expect(row("shield_regen").terms.map((term) => [term.stat, term.weightPm])).toEqual([["wis", 1000]]);
+    expect(row("shield_regen").value).toBe(total("wis"));
+    // 속성 방어율: 확률 모양(상한 700‰·반감 100), 항은 화면 차례 VIT·WIS
+    const ward = row("elemental_defense_rate");
+    expect([ward.shape, ward.cap, ward.halfConstant]).toEqual(["probability", 700, 100]);
+    expect(ward.terms.map((term) => term.stat)).toEqual(["vit", "wis"]);
+    // 스태미나 회복 = AGI × 1.575 + VIT × 0.675, MP 회복 = INT × 1 + WIS × 2 (분당)
+    expect(row("stamina_regen").value).toBe(Math.floor((total("agi") * 1575 + total("vit") * 675) / 1000));
+    expect(row("mp_regen").value).toBe(Math.floor((total("int") * 1000 + total("wis") * 2000) / 1000));
+    expect(catalog.names.stats.elemental_defense_rate).toEqual({
+      ko: "속성 방어율",
+      en: "Elemental defense rate",
+    });
+  });
+
   it("사이보그 풀이: 행마다 stats.secondary와 같은 값, 항은 보너스까지 더한 1차 × 팩 가중치, 장비 수치는 extra(48 §3.1)", () => {
     const body = previewCyborg(catalog);
     expect(body.breakdown.map((row) => row.id)).toEqual(body.stats.secondary.map((row) => row.id));

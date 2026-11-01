@@ -140,6 +140,10 @@ describe("수·시간", () => {
     expect(formatStat({ id: "evade", shape: "probability", value: 164 }, "en")).toBe("16.4%");
     expect(formatStat({ id: "crit_multiplier", shape: "quantity", value: 1300 }, "en")).toBe("×1.30");
     expect(formatStat({ id: "hp", shape: "quantity", value: 1284 }, "en")).toBe("1,284");
+    // 회복·재생 행(D-458)은 분당
+    expect(formatStat({ id: "shield_regen", shape: "quantity", value: 35 }, "ko")).toBe("35/분");
+    expect(formatStat({ id: "stamina_regen", shape: "quantity", value: 1180 }, "en")).toBe("1,180/min");
+    expect(formatStat({ id: "mp_regen", shape: "quantity", value: 0 }, "en")).toBe("0/min");
     expect(formatAmount("1200000", "ko")).toBe("1,200,000");
     expect(formatAmount("not-a-number", "ko")).toBe("not-a-number");
   });

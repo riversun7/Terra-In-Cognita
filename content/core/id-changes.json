@@ -1,4 +1,29 @@
 {
   "renamed": [],
-  "removed": []
+  "removed": [
+    {
+      "category": "tuning",
+      "id": "n13_regen",
+      "since": 17,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "n13_regen_cap",
+      "since": 17,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "n15_mp_regen",
+      "since": 17,
+      "compensation": {
+        "kind": "none"
+      }
+    }
+  ]
 }

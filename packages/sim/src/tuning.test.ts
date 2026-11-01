@@ -81,6 +81,22 @@ describe("설정 칸 값 → 계수표", () => {
     expect(structural).toEqual(expect.arrayContaining(["n36_element_cells", "n36_element_points"]));
   });
 
+  it("속성 상성 rate(C10: 유리·불리·같은 계열, D-459)도 같은 길로 바뀌고, 옛 회복 칸(N13 회복·N15)은 없다(D-458 행으로 옮김)", () => {
+    expect(TEST_COMBAT_COEFFICIENTS.affinity).toEqual({ favorPm: 50, unfavorPm: -50, samePm: -30 });
+    const tuned = combatCoefficientsFrom(
+      new Map([
+        ["c10_affinity_favor", 60],
+        ["c10_affinity_unfavor", -40],
+        ["c10_affinity_same", -25],
+      ]),
+    );
+    expect(tuned.affinity).toEqual({ favorPm: 60, unfavorPm: -40, samePm: -25 });
+    // 피격 뒤 쉴드 재생 지연(N40 묶음, D-463 212, 출발값 0)
+    expect(combatCoefficientsFrom(new Map([["n40_shield_regen_delay", 3000]])).shieldRegenDelayMs).toBe(3000);
+    const ids = TUNING_KEYS.map((key) => key.id);
+    for (const gone of ["n13_regen", "n13_regen_cap", "n15_mp_regen"]) expect(ids).not.toContain(gone);
+  });
+
   it("모든 키는 계수표의 숫자 칸을 가리키고, ID는 겹치지 않는다", () => {
     for (const key of TUNING_KEYS) expect(Number.isInteger(tuningValue(key))).toBe(true);
     expect(new Set(TUNING_KEYS.map((key) => key.id)).size).toBe(TUNING_KEYS.length);

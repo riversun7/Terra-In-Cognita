@@ -6,6 +6,8 @@
 // - 데스크톱: 막대에 마우스를 올리면 출처 상세가 보인다.
 // - 사진: 390 × 파스텔·다크·정거장, 1440 × 파스텔·다크, 한국어·영어(dev 시안 자료) — 접은·펼친 전투 스펙, 출처 상세, 머리 판.
 //   정거장(네온 SF 테마, D-454)은 홈·설정 테마 미리 보기도 찍는다. 폴더는 E2E_SHOTS_DIR.
+// - D-458 새 2차 스탯 넷: 쉴드 재생·MP 회복·스태미나 회복은 VITALS, 속성 방어율은 DEFENSE. 줄마다 자기 --color-sec-* 색
+//   (1차 스탯 색과 다름), 펼친 묶음 사진(cyborg-d459-*).
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
@@ -14,6 +16,13 @@ import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
 const PRIMARY = ["str", "vit", "int", "wis", "dex", "agi"] as const;
+/** D-458 새 행 → 묶음·색 토큰 */
+const NEW_ROWS = [
+  { row: "shield_regen", group: "vitals", token: "--color-sec-shield-regen" },
+  { row: "mp_regen", group: "vitals", token: "--color-sec-mp-regen" },
+  { row: "stamina_regen", group: "vitals", token: "--color-sec-stamina-regen" },
+  { row: "elemental_defense_rate", group: "defense", token: "--color-sec-elemental-defense-rate" },
+] as const;
 
 async function cyborgReady(page: Page): Promise<void> {
   await expect(page.locator(".cyborg-profile")).toBeVisible({ timeout: 15_000 });
@@ -98,6 +107,49 @@ test.describe("플레이어: 사이보그 화면", () => {
         .locator(".combat-group")
         .evaluateAll((list) => list.map((group) => group.getAttribute("data-group"))),
     ).toEqual(["vitals", "offense", "defense", "mobility"]);
+    // D-458 새 행: 옛 묶음 자리(재생·회복은 VITALS, 속성 방어율은 DEFENSE), 막대는 자기 색(1차 스탯 색·다른 2차 스탯 색과 다름)
+    const rowsOf = (group: string) =>
+      page
+        .locator(`.combat-group[data-group="${group}"] .combat-row`)
+        .evaluateAll((list) => list.map((row) => row.getAttribute("data-sec")));
+    expect(await rowsOf("vitals")).toEqual([
+      "hp",
+      "armor_hp",
+      "shield_hp",
+      "shield_regen",
+      "mp",
+      "mp_regen",
+      "stamina",
+      "stamina_regen",
+    ]);
+    expect(await rowsOf("defense")).toEqual(["defense_rate", "elemental_defense_rate", "evade"]);
+    const newColors = await page.evaluate((wanted) => {
+      const root = getComputedStyle(document.documentElement);
+      const allSec = [...document.querySelectorAll<HTMLElement>(".combat-row")].map(
+        (row) => row.getAttribute("data-sec") ?? "",
+      );
+      return {
+        rows: wanted.map(({ row, token }) => {
+          const fill = document.querySelector(`.combat-row[data-sec="${row}"] .combat-bar-fill`);
+          return {
+            fill: fill ? getComputedStyle(fill).backgroundColor : "",
+            token: root.getPropertyValue(token).trim(),
+          };
+        }),
+        others: allSec
+          .filter((id) => !wanted.some((entry) => entry.row === id))
+          .map((id) => root.getPropertyValue(`--color-sec-${id.replaceAll("_", "-")}`).trim()),
+      };
+    }, NEW_ROWS);
+    for (const { fill, token } of newColors.rows) {
+      expect(token).toMatch(/^#[0-9a-f]{6}$/);
+      expect(fill).toBe(rgb(token));
+      expect(colors.stat).not.toContain(token);
+      expect(newColors.others).not.toContain(token);
+    }
+    expect(new Set(newColors.rows.map((entry) => entry.token)).size).toBe(NEW_ROWS.length);
+    // 회복·재생 값은 분당
+    await expect(page.locator('.combat-row[data-sec="shield_regen"] .combat-value')).toContainText("/분");
     const hp = page.locator('.combat-row[data-sec="hp"]');
     const toggle = hp.locator(".combat-toggle");
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -309,6 +361,25 @@ for (const { viewport, theme, language } of SHOTS) {
       await expect(page.locator('.combat-row[data-sec="hp"] .combat-detail')).toBeVisible();
       expect(await horizontalOverflow(page)).toEqual([]);
       await elementShot(combat, `cyborg-ui-combat-open-${name}`);
+      // D-458 새 행: 접은 VITALS·DEFENSE 묶음, 쉴드 재생·속성 방어율을 펼친 묶음
+      const vitals = page.locator('.combat-group[data-group="vitals"]');
+      const defense = page.locator('.combat-group[data-group="defense"]');
+      await page.locator('.combat-row[data-sec="hp"] .combat-toggle').click();
+      await page.locator('.combat-row[data-sec="evade"] .combat-toggle').click();
+      await elementShot(vitals, `cyborg-d459-vitals-${name}`);
+      await elementShot(defense, `cyborg-d459-defense-${name}`);
+      for (const { row } of NEW_ROWS)
+        await page.locator(`.combat-row[data-sec="${row}"] .combat-toggle`).click();
+      await expect(
+        page.locator('.combat-row[data-sec="elemental_defense_rate"] .combat-detail'),
+      ).toBeVisible();
+      expect(await horizontalOverflow(page)).toEqual([]);
+      await elementShot(vitals, `cyborg-d459-vitals-open-${name}`);
+      await elementShot(defense, `cyborg-d459-defense-open-${name}`);
+      for (const { row } of NEW_ROWS)
+        await page.locator(`.combat-row[data-sec="${row}"] .combat-toggle`).click();
+      await page.locator('.combat-row[data-sec="hp"] .combat-toggle').click();
+      await page.locator('.combat-row[data-sec="evade"] .combat-toggle').click();
       await shot(page, `cyborg-ui-open-${name}`, { fullPage: true });
       // 핵심 사양 출처 상세(VIT: 몸 값 + 인공 심장)
       await page.locator('.core-row[data-stat="vit"] .core-toggle').click();

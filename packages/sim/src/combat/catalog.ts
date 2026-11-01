@@ -5,7 +5,7 @@ import type { EffectDef } from "./effects.ts";
 import type { EquipDef, SlotKind } from "./equipment.ts";
 import { type CombatSkill, type SkillData, skillFromData } from "./skills.ts";
 import { type StatRow, TEST_STAT_TABLE } from "./stats.ts";
-import type { WeaponSpec } from "./unitSpec.ts";
+import type { WeaponAttackField, WeaponSpec } from "./unitSpec.ts";
 
 /** 유닛 종류(D-422 장비 칸, D-427 스킬 칸). 칸 수는 구조 값(D-5054) */
 export interface UnitKindDef {
@@ -26,14 +26,8 @@ export interface CombatCatalog {
   readonly unitKinds: readonly UnitKindDef[];
 }
 
-/**
- * [임시] 사람형 맨손 무기(D-436 "맨손 무기" 데이터. 값은 기획 전 시험값). 명중·크리 적정은 점수 단위(D-458):
- * 1차 모두 11쯤인 처음 유닛(명중 점수 = DEX × 1.2 + AGI × 0.6, 크리 점수 = DEX × 1.5)이 1배
- */
-export const UNARMED: WeaponSpec = {
-  kind: "physical",
-  attack: 5,
-  attackAppropriate: 20,
+/** 맨손 무기의 공격력 칸 말고 나머지(명중·크리·간격·사거리·비용) */
+const UNARMED_BODY = {
   hitPm: 850,
   hitAppropriate: 20,
   critPm: 50,
@@ -47,21 +41,29 @@ export const UNARMED: WeaponSpec = {
 };
 
 /**
- * [임시] 맨손 속성 자료(D-463 211): 속성 무기를 들지 않은 유닛이 속성 기반 스킬을 쓸 때의 무기 자료. 맨손 무기(D-436)처럼
- * 유닛 종류 데이터(팩 unit_kinds naturalElementalWeapon)이고, 공격력·적정치가 낮다. 기본 공격에는 쓰지 않는다
+ * [임시] 사람형 맨손 무기(D-436 "맨손 무기" 데이터. 값은 기획 전 시험값). 물리 칸만 있다(D-465: 물리 칸이 없는 무기를 든
+ * 유닛의 물리 기반 스킬이 이 칸을 쓴다). 명중·크리 적정은 점수 단위(D-458):
+ * 1차 모두 11쯤인 처음 유닛(명중 점수 = DEX × 1.2 + AGI × 0.6, 크리 점수 = DEX × 1.5)이 1배
  */
-export const UNARMED_ELEMENTAL: WeaponSpec = {
-  ...UNARMED,
-  kind: "elemental",
-  attack: 5,
-  attackAppropriate: 20,
+export const UNARMED: WeaponSpec & { readonly physical: WeaponAttackField } = {
+  physical: { attack: 5, attackAppropriate: 20 },
+  ...UNARMED_BODY,
+};
+
+/**
+ * [임시] 맨손 속성 자료(D-463 211, D-465): 속성 칸이 없는 무기를 든(또는 맨손인) 유닛이 속성 기반 스킬을 쓸 때의 무기 자료.
+ * 맨손 무기(D-436)처럼 유닛 종류 데이터(팩 unit_kinds naturalElementalWeapon)이고, 속성 칸만 있으며 공격력·적정치가 낮다.
+ * 기본 공격에는 쓰지 않는다
+ */
+export const UNARMED_ELEMENTAL: WeaponSpec & { readonly elemental: WeaponAttackField } = {
+  elemental: { attack: 5, attackAppropriate: 20 },
+  ...UNARMED_BODY,
 };
 
 /** [임시] 크리쳐 타고난 무기(D-436, 종 데이터 전 단계) */
 const CLAWS: WeaponSpec = {
   ...UNARMED,
-  attack: 12,
-  attackAppropriate: 30,
+  physical: { attack: 12, attackAppropriate: 30 },
   hitPm: 850,
   critPm: 100,
   intervalMs: 900,
@@ -252,9 +254,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       slot: "weapon",
       stats: [{ stat: "crit_chance", min: 0, max: 20 }],
       weapon: {
-        kind: "physical",
-        attack: 20,
-        attackAppropriate: 40,
+        physical: { attack: 20, attackAppropriate: 40 },
         hitPm: 900,
         hitAppropriate: 50,
         critPm: 100,
@@ -273,9 +273,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       slot: "weapon",
       stats: [{ stat: "mp", min: 10, max: 30 }],
       weapon: {
-        kind: "elemental",
-        attack: 18,
-        attackAppropriate: 40,
+        elemental: { attack: 18, attackAppropriate: 40 },
         hitPm: 900,
         hitAppropriate: 50,
         critPm: 50,

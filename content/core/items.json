@@ -96,9 +96,7 @@
           }
         ],
         "weapon": {
-          "kind": "physical",
-          "attack": 20,
-          "attackAppropriate": 40,
+          "physical": { "attack": 20, "attackAppropriate": 40 },
           "hitPm": 900,
           "hitAppropriate": 50,
           "critPm": 100,
@@ -132,9 +130,7 @@
           }
         ],
         "weapon": {
-          "kind": "elemental",
-          "attack": 18,
-          "attackAppropriate": 40,
+          "elemental": { "attack": 18, "attackAppropriate": 40 },
           "hitPm": 900,
           "hitAppropriate": 50,
           "critPm": 50,

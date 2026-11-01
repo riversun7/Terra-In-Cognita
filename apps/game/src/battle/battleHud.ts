@@ -11,7 +11,9 @@ import type { FloatingNumber, UnitFrame } from "./replayTimeline.ts";
 const TAG_LIFT_M = 3.1;
 /** 숫자가 떠오르는 높이(m): 시작 + 수명 동안 */
 const NUMBER_LIFT_M = 2.4;
-const NUMBER_RISE_M = 2.2;
+const NUMBER_RISE_M = 4.5;
+/** 이름은 가까이 볼 때만(목표점에서 1m가 이 CSS 픽셀 이상) 또는 고른 유닛만: 멀리서 붙어 싸우면 이름이 겹친다 */
+const NAMES_PX_PER_M = 9;
 /** 숫자 묶음(한 화면에 동시에) */
 const NUMBER_POOL = 48;
 
@@ -94,7 +96,10 @@ export class BattleHud {
     origin: { readonly x: number; readonly y: number },
     hidden: (index: number) => boolean,
     project: Project,
+    pixelsPerMetre: number,
   ): void {
+    const names = pixelsPerMetre >= NAMES_PX_PER_M ? "on" : "off";
+    if (this.root.dataset.names !== names) this.root.dataset.names = names;
     frames.forEach((frame, index) => {
       const tag = this.tags[index];
       const unit = replay.units[index];
@@ -151,9 +156,10 @@ export class BattleHud {
         slot.root.textContent = numberText(number);
         slot.root.hidden = false;
       }
-      // 속성 몫은 물리 몫 옆에(같은 사건의 둘째 숫자)
-      const shift = number.key % 2 === 1 ? 1 : 0;
-      const transform = `translate3d(${Math.round(point.x)}px, ${Math.round(point.y)}px, 0) translateX(${shift * 100}%)`;
+      // 속성 몫은 물리 몫 옆에(같은 사건의 둘째 숫자). 같은 유닛에 잇달아 뜬 숫자는 사건마다 조금씩 옆으로 비킨다
+      const jitter = ((Math.floor(number.key / 2) * 7) % 5) - 2;
+      const shift = (number.key % 2 === 1 ? 1 : 0) + jitter * 0.6;
+      const transform = `translate3d(${Math.round(point.x)}px, ${Math.round(point.y)}px, 0) translateX(${Math.round(shift * 100)}%)`;
       if (transform !== slot.transform) {
         slot.root.style.transform = transform;
         slot.transform = transform;

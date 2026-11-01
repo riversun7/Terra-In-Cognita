@@ -29,6 +29,26 @@ export interface BattleReplayViewProps {
 
 const SEEK_STEP_MS = 100;
 
+/** 처음부터(되감는 둥근 화살표). 꾸밈이라 읽기 프로그램에는 숨긴다(옆 숨긴 글자가 알린다). 크기는 CSS(.icon) */
+function RestartIcon() {
+  return (
+    <svg
+      className="icon"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.9}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" />
+      <path d="M4.5 4.5v4h4" />
+    </svg>
+  );
+}
+
 export default function BattleReplayView({ replay, ground, autoPlay = true }: BattleReplayViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<BattleScene | null>(null);
@@ -83,6 +103,7 @@ export default function BattleReplayView({ replay, ground, autoPlay = true }: Ba
       data-time={Math.round(timeMs)}
       data-speed={speed}
       data-fx={ui?.fx ?? 0}
+      data-fx-kinds={ui?.fxKinds ?? ""}
       data-numbers={ui?.numbers ?? 0}
       data-render-p95={perf ? perf.p95.toFixed(2) : ""}
       data-fps={perf?.fps ?? ""}
@@ -134,8 +155,14 @@ export default function BattleReplayView({ replay, ground, autoPlay = true }: Ba
 
       <div className="br-controls">
         <div className="br-buttons">
-          <button type="button" className="button-small" onClick={() => scene()?.restart()}>
-            {m.battle_restart()}
+          <button
+            type="button"
+            className="button-small br-restart"
+            title={m.battle_restart()}
+            onClick={() => scene()?.restart()}
+          >
+            <RestartIcon />
+            <span className="visually-hidden">{m.battle_restart()}</span>
           </button>
           <button
             type="button"

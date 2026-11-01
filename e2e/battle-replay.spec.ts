@@ -15,7 +15,17 @@ const screen = (page: Page) => page.locator(".brl-screen");
 const view = (page: Page) => page.locator(".br-view");
 const timeOf = async (page: Page): Promise<number> => Number(await view(page).getAttribute("data-time"));
 
+/**
+ * 기록·지형·엔진 준비까지. 시험들이 같은 dev 계정으로 잇달아 부르므로 사용자 속도 제한(순간 5·분당 12)에 걸리면 6초 쉬고
+ * [새 전투]로 다시 부른다(최대 3번)
+ */
 async function ready(page: Page): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await expect(screen(page)).not.toHaveAttribute("data-status", "loading", { timeout: 60_000 });
+    if ((await screen(page).getAttribute("data-error")) !== "rate_limited") break;
+    await page.waitForTimeout(6000);
+    await page.locator(".brl-form .button-primary").click();
+  }
   await expect(screen(page)).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
   await expect(view(page)).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
 }
@@ -28,15 +38,15 @@ async function seek(page: Page, ms: number): Promise<void> {
   await expect.poll(() => timeOf(page)).toBe(ms);
 }
 
-/** 효과가 둘 넘게 보이는 시각을 찾아 둔다(싸움 중 사진) */
-async function seekToAction(page: Page): Promise<number> {
+/** 투사체가 날고 다른 효과·숫자도 보이는 시각을 찾아 둔다(싸움 중 사진, 0.1초 간격) */
+async function seekToAction(page: Page, from: number): Promise<number> {
   const end = Number(await page.locator(".br-seek").getAttribute("max"));
-  for (let ms = 8000; ms < end; ms += 300) {
+  for (let ms = from; ms < end; ms += 100) {
     await page.locator(".br-seek").fill(String(ms));
     await expect.poll(() => timeOf(page)).toBe(ms);
-    const fx = Number(await view(page).getAttribute("data-fx"));
+    const kinds = (await view(page).getAttribute("data-fx-kinds")) ?? "";
     const numbers = Number(await view(page).getAttribute("data-numbers"));
-    if (fx >= 2 && numbers >= 1) return ms;
+    if (kinds.includes("projectile") && kinds.split(",").length >= 2 && numbers >= 1) return ms;
   }
   throw new Error("no moment with effects");
 }
@@ -101,27 +111,30 @@ test.describe("dev", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  test("측정: 1배속 재생 중 엔진 한 프레임(헤드리스, 휴대폰 값 아님)", async ({ page }) => {
-    test.skip(!process.env.E2E_MEASURE, "E2E_MEASURE=1일 때만");
-    test.setTimeout(90_000);
-    await page.goto("/dev/battle-replay");
-    await ready(page);
-    await seek(page, 10_000);
-    await page.locator(".br-play").click();
-    await page.waitForTimeout(6000);
-    const p95 = Number(await view(page).getAttribute("data-render-p95"));
-    const fps = Number(await view(page).getAttribute("data-fps"));
-    const calls = Number(await view(page).getAttribute("data-draw-calls"));
-    const bytes = Number(await screen(page).getAttribute("data-bytes"));
-    test.info().annotations.push({
-      type: "measure",
-      description: `battle replay 390px: render p95 ${p95}ms, ${fps} fps, ${calls} draw calls, replay ${bytes} B`,
+  // 측정: 390px(DPR 3)·1440px(DPR 1). SwiftShader는 그리기 버퍼 픽셀 수에 따라 느려진다(휴대폰 GPU 값 아님)
+  for (const size of ["390", "1440"] as const) {
+    test.describe(`측정 ${size}`, () => {
+      test.use(size === "1440" ? VIEWPORTS.desktop : VIEWPORTS.phone);
+
+      test(`측정: 1배속 재생 중 엔진 한 프레임 ${size}px(헤드리스, 휴대폰 값 아님)`, async ({ page }) => {
+        test.skip(!process.env.E2E_MEASURE, "E2E_MEASURE=1일 때만");
+        test.setTimeout(90_000);
+        await page.goto("/dev/battle-replay");
+        await ready(page);
+        await seek(page, 10_000);
+        await page.locator(".br-play").click();
+        await page.waitForTimeout(6000);
+        const p95 = Number(await view(page).getAttribute("data-render-p95"));
+        const fps = Number(await view(page).getAttribute("data-fps"));
+        const calls = Number(await view(page).getAttribute("data-draw-calls"));
+        const bytes = Number(await screen(page).getAttribute("data-bytes"));
+        const line = `battle replay ${size}px: render p95 ${p95}ms, ${fps} fps, ${calls} draw calls, replay ${bytes} B`;
+        test.info().annotations.push({ type: "measure", description: line });
+        console.info(`[measure] ${line}`);
+        expect(fps).toBeGreaterThan(0);
+      });
     });
-    console.info(
-      `[measure] battle replay 390px: render p95 ${p95}ms, ${fps} fps, ${calls} draw calls, replay ${bytes} B`,
-    );
-    expect(fps).toBeGreaterThan(0);
-  });
+  }
 
   // 사진: 390·1440 × 기본 테마 둘 × 한국어·영어(싸움 중 + 끝 요약)
   for (const size of ["390", "1440"] as const) {
@@ -136,12 +149,12 @@ test.describe("dev", () => {
             await ready(page);
             await page.locator(".br-play").click();
             await expect(view(page)).toHaveAttribute("data-playing", "false");
-            const at = await seekToAction(page);
+            const at = await seekToAction(page, 7000);
             await page.waitForTimeout(300);
             expect(await horizontalOverflow(page)).toEqual([]);
             await shot(page, `battle-replay-${size}-${theme}-${language}-action`);
-            // 효과가 다른 모습(조금 뒤)도 한 장
-            await page.locator(".br-seek").fill(String(at + 400));
+            // 다른 싸움 순간(뒤쪽, 쓰러진 유닛이 있을 때)도 한 장
+            await seekToAction(page, at + 30_000);
             await page.waitForTimeout(300);
             await shot(page, `battle-replay-${size}-${theme}-${language}-action2`);
             const end = Number(await page.locator(".br-seek").getAttribute("max"));

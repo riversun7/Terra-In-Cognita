@@ -13,6 +13,8 @@
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(14rem, 1fr) auto auto auto;
   grid-template-areas: "top" "stage" "controls" "units" "log";
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background-color: var(--color-bg);
   color: var(--color-text);
 }
@@ -81,10 +83,13 @@
   flex-direction: column;
   align-items: center;
   gap: var(--hairline);
-  width: calc(var(--space-12) + var(--space-2));
-  margin-left: calc((var(--space-12) + var(--space-2)) / -2);
+  width: var(--space-10);
+  margin-left: calc(var(--space-10) / -2);
   translate: 0 -100%;
   will-change: transform;
+}
+.br-hud[data-names="off"] .br-tag:not([data-selected="true"]) .br-tag-name {
+  display: none;
 }
 .br-tag[data-status="down"] {
   opacity: 0.55;
@@ -119,13 +124,13 @@
 }
 .br-bar {
   display: block;
-  height: var(--space-1);
+  height: calc(var(--hairline) * 2);
   overflow: hidden;
   border-radius: var(--radius-pill);
   background-color: var(--color-surface-2);
 }
 .br-bar-hp {
-  height: calc(var(--space-1) + var(--hairline));
+  height: var(--space-1);
 }
 .br-fill {
   display: block;
@@ -219,6 +224,10 @@
   background-color: var(--color-surface);
   box-shadow: var(--shadow-panel);
 }
+/* 카드 전체가 세로로 민다(표가 0 높이로 줄지 않게) */
+.br-summary > * {
+  flex-shrink: 0;
+}
 .br-summary-title {
   margin: 0;
   font-family: var(--font-display);
@@ -303,8 +312,13 @@
   align-items: center;
   gap: var(--space-2);
 }
+.br-restart {
+  min-width: var(--tap-size);
+  padding-inline: var(--space-2);
+}
 .br-play {
-  min-width: calc(var(--tap-size) * 2);
+  min-width: calc(var(--tap-size) + var(--space-5));
+  padding-inline: var(--space-3);
 }
 .br-speed {
   display: flex;
@@ -313,7 +327,7 @@
 }
 .br-speed > button {
   min-width: var(--tap-size);
-  padding-inline: var(--space-2);
+  padding-inline: var(--space-1);
   font-variant-numeric: tabular-nums;
 }
 .br-speed > button[aria-pressed="true"],
@@ -375,8 +389,7 @@
   gap: var(--space-2);
   font-size: var(--font-size-sm);
 }
-.br-vision .input {
-  width: auto;
+.br-vision select {
   min-height: var(--control-h-sm);
 }
 .br-unit-detail {

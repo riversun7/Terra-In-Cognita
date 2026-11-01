@@ -32,6 +32,8 @@ export interface SceneUi {
   readonly frames: readonly UnitFrame[];
   /** 그 시각 효과·떠오르는 숫자 수(시험·측정) */
   readonly fx: number;
+  /** 그 시각 효과 종류(쉼표로, 시험 사진이 투사체가 나는 때를 찾는다) */
+  readonly fxKinds: string;
   readonly numbers: number;
 }
 
@@ -41,8 +43,8 @@ const LOOK_CREATURE = { heightM: 1.8, radiusM: 0.85 } as const;
 const LOOK_DOWN = { heightM: 0.6, radiusM: 0.8 } as const;
 /** 감춘 유닛을 둘 곳(2차맵 밖) */
 const FAR_AWAY = -10_000;
-/** 처음 보기: 화면 짧은 변에 전투맵 칸 이만큼 */
-const START_SPAN_CELLS = 26;
+/** 처음 보기: 화면 짧은 변에 전투맵 칸 이만큼(약 58m: 유닛이 모델로 보이고 두 편이 한 화면에 든다) */
+const START_SPAN_CELLS = 10;
 const UI_MS = 100;
 
 const toneColor = (tone: FxTone): number => {
@@ -77,7 +79,7 @@ function fxItem(fx: TimelineFx, ox: number, oy: number): BattleFxItem {
         toY: oy + fx.toY,
         progress: fx.progress,
         color,
-        size: 0.9,
+        size: 1.5,
       };
     case "beam":
       return {
@@ -127,6 +129,7 @@ export class BattleScene {
   private lastUi = Number.NEGATIVE_INFINITY;
   private lastPlaying = false;
   private fxCount = 0;
+  private fxKinds = "";
   private disposed = false;
 
   constructor(options: {
@@ -170,6 +173,7 @@ export class BattleScene {
           this.origin,
           (index) => this.hidden(index),
           view.project,
+          view.pixelsPerMetre,
         );
       },
     });
@@ -232,6 +236,7 @@ export class BattleScene {
     );
     const items = this.timeline.fxAt(t);
     this.fxCount = items.length;
+    this.fxKinds = [...new Set(items.map((item) => item.kind))].join(",");
     this.fx.setItems(items.map((item) => fxItem(item, ox, oy)));
     const target = this.frames[this.selected];
     if (this.follow && target && target.status !== "absent")
@@ -251,6 +256,7 @@ export class BattleScene {
       follow: this.follow,
       frames: this.frames,
       fx: this.fxCount,
+      fxKinds: this.fxKinds,
       numbers: this.timeline.numbersAt(this.clock.timeMs).length,
     });
   }

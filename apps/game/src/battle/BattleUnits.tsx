@@ -68,7 +68,6 @@ export function BattleUnits({
         <label className="br-vision">
           <span>{m.battle_vision()}</span>
           <select
-            className="input"
             value={vision === null ? "all" : String(vision)}
             onChange={(event) => {
               const value = event.currentTarget.value;

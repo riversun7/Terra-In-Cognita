@@ -27,8 +27,9 @@ export interface BattleReplayLimits {
   perUser: { capacity: number; refillPerMinute: number };
 }
 
+/** 한 판이 1초 안팎이고 서버 전체 한 번에 하나라 밸런스 대결(순간 2·분당 4)보다 넉넉히: 순간 5·분당 12 */
 export const DEFAULT_BATTLE_REPLAY_LIMITS: BattleReplayLimits = {
-  perUser: { capacity: 3, refillPerMinute: 6 },
+  perUser: { capacity: 5, refillPerMinute: 12 },
 };
 
 export interface BattleReplayLog {

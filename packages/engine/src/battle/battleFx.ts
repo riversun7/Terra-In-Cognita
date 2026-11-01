@@ -304,7 +304,7 @@ export class BattleFxLayer implements EngineLayer {
         const mesh = this.flashes.next(item.color, 0.9 * (1 - p));
         if (!mesh) return;
         mesh.position.set(item.x * cell, ground(item.x, item.y) + BODY_LIFT_M, item.y * cell);
-        mesh.scale.setScalar(0.8 + 1.6 * p);
+        mesh.scale.setScalar(1.2 + 2.2 * p);
         return;
       }
       default: {

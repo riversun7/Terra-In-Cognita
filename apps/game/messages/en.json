@@ -2176,7 +2176,7 @@
   "battle_role_warrior": "Warrior",
   "battle_role_guardian": "Guardian",
   "battle_role_mage": "Mage",
-  "battle_role_leader": "Leader",
+  "battle_role_priest": "Priest",
   "battle_role_cyborg": "Cyborg",
   "battle_role_unit": "Unit"
 }

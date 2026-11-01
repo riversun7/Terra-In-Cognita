@@ -2176,7 +2176,7 @@
   "battle_role_warrior": "전사",
   "battle_role_guardian": "수호자",
   "battle_role_mage": "마법사",
-  "battle_role_leader": "지휘자",
+  "battle_role_priest": "사제",
   "battle_role_cyborg": "사이보그",
   "battle_role_unit": "유닛"
 }

@@ -153,11 +153,13 @@ describe("다시보기 계산", () => {
     const replay = decodeBattleReplay(bytes);
     expect(replay.units).toHaveLength(12);
     expect(replay.arena.ref).toEqual(pick.ref);
-    expect(replay.skills.find((skill) => skill.id === "fire_bolt")?.name).toEqual({
-      ko: "불꽃 화살",
-      en: "Fire bolt",
+    // 팩 속성 지팡이 스킬(연쇄 번개 = chain)과 효과 이름(냉기)
+    expect(replay.skills.find((skill) => skill.id === "chain_lightning")).toMatchObject({
+      shape: "chain",
+      name: { ko: "연쇄 번개", en: "Chain lightning" },
     });
-    expect(replay.effects.find((effect) => effect.id === "burn")?.name).toEqual({ ko: "화상", en: "Burn" });
+    expect(replay.effects.find((effect) => effect.id === "chill")?.name).toEqual({ ko: "냉기", en: "Chill" });
+    expect(new Set(replay.skills.map((skill) => skill.shape)).size).toBe(7);
     expect(replay.units.map((unit) => unit.name)).toEqual([
       "A1",
       "A2",

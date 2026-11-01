@@ -22,8 +22,8 @@ export function roleName(kind: string): string {
       return m.battle_role_guardian();
     case "mage":
       return m.battle_role_mage();
-    case "leader":
-      return m.battle_role_leader();
+    case "priest":
+      return m.battle_role_priest();
     case "cyborg":
       return m.battle_role_cyborg();
     case "unit":

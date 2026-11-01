@@ -63,11 +63,13 @@
 | `apps/game/src/start/StartScreen.tsx` | 굴림·분배 거절 뒤 규칙 다시 받기 |
 | `scripts/pwa-build.mjs`(+시험), `apps/game/vite.config.ts` | 패널 조각을 미리 캐시에서 뺌 |
 | `e2e/tuning.spec.ts`, `e2e/dev.spec.ts` | 패널 화면 시험, 도구 다섯 줄 |
+| `docs/adr/2026-10-31-n1-real-time-gate.md`·`2026-10-31-roadmap-to-launch.md` | 상태 줄에 일부 대체 표시만(D-461) |
 
 ## 함께 바꿔야 하는 파일
 - 서버에서 설정 칸을 새로 읽으면: `apps/server/src/tuning/scope.ts` `SERVER_LIVE_PATHS`에 경로, 팩 항목에 `unit`·`min`·`max`, 명령은 시작할 때 `rules()`를 한 번만 부른다(ADR 7절).
 - 여러 칸이 함께 맞아야 하는 규칙을 더하면 `packages/sim/src/tuningChecks.ts`와 `@terra/shared/tuning` `TUNING_PROBLEMS`, 화면 문구 `dev_tuning_problem_*`(ko·en)를 함께.
 - 49 미러를 동기화하면 `pnpm settings:cells`.
+- `pnpm tuning:apply`로 팩 값을 바꾸면 `packages/sim`의 `TEST_*_COEFFICIENTS`도 같이 고친다(서버 `world/combatCatalog.test.ts`가 팩 값 = 시험 계수표를 본다).
 - R5가 팩에 칸을 더하면 목록은 저절로 보인다. 범위·단위는 팩 항목에 적는다.
 
 ## 건드리지 말 것
@@ -79,7 +81,15 @@
 - 서버 전투는 팩 값을 아직 읽지 않는다(시험 계수표). 전투 시작 자료에 계수를 넣은 뒤 "전투를 시작할 때 고정"으로 연다.
 - `/start`의 "거절 뒤 규칙 다시 받기"는 화면 시험이 없다(서버 쪽 가드는 DB 시험).
 - 49 칸 목록 이름은 49의 한국어 이름이다(영어 화면에도 한국어, 49에 영어가 없음).
-- 검사 결과는 아래에 적는다.
+- 서버 기록·지표 줄의 `tuningRevision`을 읽어 N1 지표 기간을 나누는 도구는 아직 없다(기록만 남긴다).
+- 첫 화면 JS: 104,148B(상한 131,416B). main `3120b4f`의 104,014B보다 +134B — 새 주소 줄(`dev_tuning`)·화면 이름 메시지·지연 로딩 한 줄이 첫 화면에 든다(Verified: `pnpm check:bundle`, 파일 8개, 원본 327,893B). 패널 코드·49 JSON은 `TuningPanelScreen-*.js`(96,686B, gzip 28,832B)에만 들고 미리 캐시되지 않는다(`check-pwa.mjs` 통과).
+
+## 검사 결과
+- `TEST_DATABASE_URL=postgres://terra@127.0.0.1:55432/postgres pnpm check`: 통과(시험 파일 314개, 시험 2,680개, origin/main `3e4678c`를 합친 뒤). 그 뒤 `state.test.ts`만 고쳐 다시 돌림(7개 통과).
+- `pnpm build`, `pnpm check:bundle` 104,148B ✓, `node scripts/check-pwa.mjs` ✓.
+- `pnpm e2e` 전체(215개, 1 작업자, 부하 13 안팎): 213 통과, 1 실패, 1 건너뜀(측정 시험). 실패는 `cyborg.spec.ts` "만렙이면 K와 처음 값"(성장 칸 6개 기대, 5개): 시험이 처음 값을 5로 고쳐 넣는데 무작위로 굴린 스탯 하나의 몸 값이 5라 성장 0 칸이 그려지지 않았다(이 줄기와 무관, main 시험의 무작위 의존). `pnpm e2e cyborg.spec.ts`만 다시 돌려 17개 통과. 새 `tuning.spec.ts` 16개·`dev.spec.ts` 12개 통과.
+- 시뮬레이터 `--tuning`(stub16 1일): 팩에 없는 칸 건너뜀·팩 값이 다른 칸 알림·얹은 칸 수가 나옴(실행). `pnpm tuning:apply --dry-run`을 실제 팩에 돌려 바꿀 칸·건너뛸 칸이 나옴(파일은 그대로).
+- 사진(`E2E_SHOTS_DIR`): `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/d1/shots/tuning-{pastel,dark,station}-{ko,en}-{390,1440}.png`(12장, 전체 길이, 고정 띠·하단 탭·사이드 메뉴는 숨김). 가로 넘침·작은 누르는 곳 없음.
 
 ## 사용자 결정 대기
 - 없음(204~207 모두 답).

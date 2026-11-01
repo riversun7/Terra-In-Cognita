@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-01 14:50 | D1 개발자 설정 칸 패널: 세계마다 바로 드는 덮어쓰기, 묶음 적용, 내보내기, 49 칸 목록 | Claude Code | [01-1450-d1-settings](worklog/2026/11/01-1450-d1-settings.md) |
 | 2026-11-01 14:35 | CI 배포 판단 기준을 "마지막으로 성공한 main 실행"으로 | Claude Code | [01-1435-ci-deploy-base](worklog/2026/11/01-1435-ci-deploy-base.md) |
 | 2026-11-01 13:45 | 첫 화면 JS 줄이기: zod(메시지 스키마)를 첫 화면에서 뺌 | Claude Code | [01-1345-bundle-slim](worklog/2026/11/01-1345-bundle-slim.md) |
 | 2026-11-01 13:30 | 사이보그 스탯 판을 옛 프로젝트 모양으로 다시: 상세 전투 스펙·핵심 사양 출처 상세, 2차 스탯 색 | Claude Code | [01-1330-cyborg-sheet-old-look](worklog/2026/11/01-1330-cyborg-sheet-old-look.md) |

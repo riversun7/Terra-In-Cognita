@@ -1,6 +1,6 @@
 // 설정 칸 실효 값 접근자 시험 — docs/adr/2026-11-01-dev-settings-panel.md 5·6·7절·"꼬임 점검". 저장소 팩을 서버 시작과 같은 길로 읽는다.
 import { loadContentPack } from "@terra/content/node";
-import { TEST_SOCIETY_COEFFICIENTS, TUNING_KEYS } from "@terra/sim";
+import { TUNING_KEYS, societyCoefficientsFrom } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { tuningEntriesOf } from "../world/combatCatalog.ts";
@@ -12,6 +12,10 @@ function packEntries() {
   if (!loaded.source) throw new Error("content pack");
   return tuningEntriesOf(loaded.source);
 }
+
+/** 팩 값만 얹은 계수표(덮어쓰기 없음) */
+const packSociety = () =>
+  societyCoefficientsFrom(new Map(packEntries().map((entry) => [entry.id, entry.value])));
 
 const record = (
   id: string,
@@ -32,9 +36,9 @@ const record = (
 });
 
 describe("설정 칸 실효 값", () => {
-  it("덮어쓰기가 없으면 팩 값 그대로(시험 계수표와 같다)", () => {
+  it("덮어쓰기가 없으면 팩 값 그대로, 팩 값에는 여러 칸 규칙 문제가 없다", () => {
     const state = createTuningState(packEntries());
-    expect(state.society()).toEqual(TEST_SOCIETY_COEFFICIENTS);
+    expect(state.society()).toEqual(packSociety());
     expect(state.appliedCount()).toBe(0);
     expect(state.problems()).toEqual([]);
   });
@@ -54,7 +58,7 @@ describe("설정 칸 실효 값", () => {
     // 팩에 없는 ID는 넣지 않는다
     state.install([record("gone_entry", 1, 0)], 8);
     expect(state.appliedCount()).toBe(0);
-    expect(state.society()).toEqual(TEST_SOCIETY_COEFFICIENTS);
+    expect(state.society()).toEqual(packSociety());
   });
 
   it("plan: 묶음을 바꾼 뒤의 전체 값으로 본다. 함께 바꾸면 되는 칸(N9 합·칸 최대)은 한 묶음으로 받는다", () => {

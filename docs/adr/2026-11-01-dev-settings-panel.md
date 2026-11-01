@@ -115,6 +115,7 @@
 - 형식(`@terra/content` `tuningDiffSchema`): `{ format: "terra-tuning-diff", formatVersion: 1, exportedAt, packId, contentVersion, contentHash, changes: [{ id, code, from, to }] }`. `from` = 지금 팩 값, `to` = 덮어쓰기 값. 팩 값과 다른 덮어쓰기만 넣는다(ID 차례).
 - 화면: [내보내기] → JSON 파일 받기 + 글 상자(복사).
 - 팩에 넣기: `pnpm tuning:apply <차이.json> [--pack content/<팩 ID>] [--force] [--dry-run]`(`scripts/apply-tuning-diff.mjs`). 칸마다 팩에 있는지, 지금 팩 값 = `from`인지(아니면 건너뛰고 알린다, `--force`면 넣는다), 범위 안인지 본 뒤 `value`만 바꾸고 `manifest.json` 판을 올린다. 그다음 `pnpm check:content`·작업 기록·커밋은 사람·에이전트가 한다(PLAN 7장 v1 흐름). 그 팩이 배포되면 그 칸은 팩 값이 바뀌었으므로 6절대로 팩 값(= 같은 값)이 들고 덮어쓰기는 지워진다.
+- 지금 팩은 임시 자료라 팩 값 = sim 시험 계수표(`TEST_COMBAT_COEFFICIENTS`·`TEST_SOCIETY_COEFFICIENTS`)이고 서버 시험(`world/combatCatalog.test.ts`)이 둘이 같은지 본다(Verified). 그래서 차이를 팩에 넣으면 그 시험이 실패한다 → 같은 커밋에서 시험 계수표도 고치거나, 팩이 임시 자료를 벗을 때 그 시험을 "팩 값에 규칙 문제가 없다"로 바꾼다(TODO, 작업 기록).
 
 ### 12. 화면 `/dev/tuning`
 - 주소 줄 `dev_tuning`(`/dev/tuning`, 부모 `dev`, 틀 있음, dev·admin). 개발자 홈 도구 줄 하나(ADR 38 WP-H 규칙).

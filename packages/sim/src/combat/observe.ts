@@ -67,6 +67,11 @@ export interface BattleTally {
   };
 }
 
+/** 쓰러졌는가(지속 피해 관찰자는 쓰러짐 표시 전에 불려 체력으로도 본다) */
+function isDown(target: UnitState): boolean {
+  return target.status === "down" || target.hp <= 0;
+}
+
 /** 유닛마다 세는 관찰자. tick() = 지금 판정 틱(관찰자 인자에는 시각이 없어 전투 상태에서 읽는다). logMax = 담을 사건 줄 수 */
 export function createBattleTally(
   units: readonly Pick<CombatUnitSpec, "id" | "side">[],
@@ -80,7 +85,6 @@ export function createBattleTally(
   }
   const events: TallyEvent[] = [];
   let dropped = 0;
-  const isDown = (target: UnitState): boolean => target.status === "down" || target.hp <= 0;
   /** 대상 → 지속 피해 효과가 있는 스킬을 마지막으로 맞힌 유닛 */
   const dotSource = new Map<number, number>();
   /** 지금 풀리는 스킬 사건(skillHit·heal이 여기에 맞은 대상을 더한다) */

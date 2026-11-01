@@ -12,6 +12,7 @@
     "./dashboard": "./src/dashboard.ts",
     "./economy": "./src/economy.ts",
     "./faction": "./src/faction.ts",
+    "./formula": "./src/formula.ts",
     "./inbox": "./src/inbox.ts",
     "./mail": "./src/mail.ts",
     "./planetCalendar": "./src/planetCalendar.ts",

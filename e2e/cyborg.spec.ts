@@ -147,18 +147,22 @@ test.describe("플레이어: 사이보그 화면", () => {
         const body = record(Reflect.get(record(data), "body"));
         Reflect.set(body, "level", Reflect.get(body, "maxLevel"));
         const k = { str: 1100, vit: 950, int: 1000, wis: 1200, dex: 800, agi: 1050 };
-        Reflect.set(body, "growth", { initial: { str: 5, vit: 5, int: 5, wis: 5, dex: 5, agi: 5 }, kPm: k });
+        // 계정의 사이보그 스탯은 서버가 무작위로 굴린다(1~20) → 처음 값을 몸 값의 절반(내림)으로 잡아 레벨 성장이 늘 1 이상이게 한다
+        const initial: Record<string, number> = {};
         const sources = record(Reflect.get(body, "primarySources"));
         for (const stat of PRIMARY) {
           const list: unknown = Reflect.get(sources, stat);
           if (!Array.isArray(list)) throw new Error("출처가 없습니다");
           const bodyValue = Number(Reflect.get(record(list[0]), "value"));
+          const start = Math.floor(bodyValue / 2);
+          initial[stat] = start;
           Reflect.set(sources, stat, [
-            { kind: "initial", value: 5 },
-            { kind: "growth", value: bodyValue - 5, kPm: k[stat] },
+            { kind: "initial", value: start },
+            { kind: "growth", value: bodyValue - start, kPm: k[stat] },
             ...list.slice(1),
           ]);
         }
+        Reflect.set(body, "growth", { initial, kPm: k });
       },
     });
     await page.goto("/cyborg");

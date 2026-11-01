@@ -3,6 +3,7 @@
 import { accountRouter } from "./account.ts";
 import { adminRouter } from "./admin.ts";
 import { balanceRouter } from "./balance.ts";
+import { battleReplayRouter } from "./battleReplay.ts";
 import { dashboardRouter } from "./dashboard.ts";
 import { economyRouter } from "./economy.ts";
 import { factionRouter } from "./faction.ts";
@@ -26,6 +27,8 @@ export const appRouter = router({
   tuning: tuningRouter,
   // 개발자 밸런스 화면(docs/adr/2026-11-01-balance-screen.md 3절)
   balance: balanceRouter,
+  // 개발자 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 5절)
+  battleReplay: battleReplayRouter,
   // 홈 자료(앱 뼈대 W3, ADR 2026-10-29-app-shell 6·7·8절)
   inbox: inboxRouter,
   summary: summaryRouter,

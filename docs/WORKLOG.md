@@ -7,6 +7,7 @@
 |---|---|---|---|
 | 2026-11-01 21:50 | 개발자 모드 계산식 편집기(사용자 결정 D-488) | Claude Code | [01-2150-formulas](worklog/2026/11/01-2150-formulas.md) |
 | 2026-11-01 20:40 | 3D 전투 다시보기: 판정을 바꾸지 않는 기록기, 이진 리플레이 형식, 2차맵 엔진 위 보기 화면, 개발자 주소 /dev/battle-replay | Claude Code | [01-2040-battle-replay](worklog/2026/11/01-2040-battle-replay.md) |
+| 2026-11-01 20:40 | 밸런스·전투 실험실(/dev/balance): 팀 A·B 파티 전투, 실험 유닛·프리셋 DB, 한 판·몬테카를로, 가중치 표 탭 | Claude Code | [01-2040-battle-lab](worklog/2026/11/01-2040-battle-lab.md) |
 | 2026-11-01 20:38 | 마법 스킬·속성 지팡이 합치기(사용자 승인), 질문 260~264 답 | Claude Code | [01-2038-merge-mage-skills](worklog/2026/11/01-2038-merge-mage-skills.md) |
 | 2026-11-01 20:20 | R5b 정원사 합치기, 웨이브 끄는 설정(GARDENER_WAVES) | Claude Code | [01-2020-merge-r5b-waves-off](worklog/2026/11/01-2020-merge-r5b-waves-off.md) |
 | 2026-11-01 20:00 | 마법 스킬 일곱·속성 지팡이 여섯, 스킬 모양 칸(shape)·연쇄·아군 하나·쉴드 회복·느리게 | Claude Code | [01-2000-mage-skills](worklog/2026/11/01-2000-mage-skills.md) |

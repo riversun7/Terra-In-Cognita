@@ -46,10 +46,17 @@ import type { TuningState } from "./tuning/state.ts";
 import { type TuningLimits, bootTuning, createTuningShared } from "./tuning/services.ts";
 import { type BalanceLimits, createBalanceServices } from "./balance/services.ts";
 import { createFormulaServices } from "./formulas/services.ts";
-import { inlineDuelRunner, workerDuelRunner } from "./balance/runner.ts";
+import { createHeavyGate } from "./balance/gate.ts";
+import { duelRunnerOf, inlineJobRunner, workerJobRunner } from "./balance/runner.ts";
+import { type BattleLabLimits, createBattleLabShared } from "./battleLab/services.ts";
+import { worldArenaTerrains } from "./battleLab/worldTerrains.ts";
+import type { LocalizedName } from "@terra/shared/roster";
 import { createArenaSource } from "./battleReplay/arena.ts";
 import { type ReplayJob, type ReplayJobResult, runReplayJob } from "./battleReplay/compute.ts";
-import { inlineJobRunner, workerJobRunner } from "./battleReplay/jobRunner.ts";
+import {
+  inlineJobRunner as inlineReplayRunner,
+  workerJobRunner as workerReplayRunner,
+} from "./battleReplay/jobRunner.ts";
 import {
   type BattleReplayLimits,
   REPLAY_TIMEOUT_MS,
@@ -145,6 +152,16 @@ export interface AppOptions {
     | {
         runner: { kind: "worker"; workerUrl: URL } | { kind: "inline" };
         limits?: Partial<BalanceLimits> | undefined;
+      }
+    | undefined;
+  /**
+   * 전투 실험실(같은 화면의 [전투 실험실] 탭, docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-01, 전투 실험실)"): 팩 유닛 종류 이름,
+   * 시험용 속도 제한. 전투는 balance.runner와 같은 워커·같은 바쁨 표시. 화면은 tuning이 있을 때만 연다
+   */
+  battleLab?:
+    | {
+        unitKindNames?: ReadonlyMap<string, LocalizedName> | undefined;
+        limits?: Partial<BattleLabLimits> | undefined;
       }
     | undefined;
   /**
@@ -274,19 +291,23 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         limits: options.tuning.limits,
       })
     : undefined;
-  // 밸런스 화면(가중치 표·기여·시드 대결): 설정 칸 접근자 위에서 돈다. 대결은 워커
+  // 밸런스 화면(가중치 표·기여·시드 대결)과 전투 실험실: 설정 칸 접근자 위에서 돈다. 무거운 일(대결·전투)은 같은 워커 진입 파일,
+  // 서버 전체 한 번에 하나(같은 바쁨 표시)
   const balanceRunner = options.balance?.runner;
+  const jobRunner =
+    balanceRunner?.kind === "worker"
+      ? workerJobRunner({ workerUrl: balanceRunner.workerUrl })
+      : inlineJobRunner();
+  const heavyGate = createHeavyGate();
   const balance = tuningShared
     ? createBalanceServices({
         tuning: tuningShared,
         roster: options.roster ?? testRosterCatalog(),
-        runner:
-          balanceRunner?.kind === "worker"
-            ? workerDuelRunner({ workerUrl: balanceRunner.workerUrl })
-            : inlineDuelRunner(),
+        runner: duelRunnerOf(jobRunner),
         now,
         log: app.log,
         limits: options.balance?.limits,
+        gate: heavyGate,
       })
     : undefined;
   // 계산식 탭(식 칸·무기·표본): 설정 칸 접근자 위에서 돈다
@@ -335,6 +356,41 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     });
   }
 
+  const secondMapLab =
+    world && terrain && planets && worldPlanet
+      ? createSecondMapLab({
+          planetId: worldPlanet.id,
+          values: () => planets.planetValues(worldPlanet.id),
+          terrainVersion: () => terrain.version(),
+          loadedVersion: (mapKey) => world.map(mapKey)?.terrainVersion,
+          testMapKey: TEST_MAP_KEY,
+        })
+      : undefined;
+  // 전투 실험실: 전투장 지형은 월드 시험 2차맵(지형 서비스가 있으면 시험 자리 종류도)
+  const battleLab = tuningShared
+    ? createBattleLabShared({
+        tuning: tuningShared,
+        roster: options.roster ?? testRosterCatalog(),
+        unitKindNames: options.battleLab?.unitKindNames ?? new Map(),
+        effectNames: options.battleReplay?.effectNames,
+        terrains: worldArenaTerrains({
+          testMapKey: TEST_MAP_KEY,
+          terrain,
+          locatePreset:
+            secondMapLab && worldPlanet
+              ? async (preset) => {
+                  const answer = await secondMapLab.locate(worldPlanet.id, { kind: "preset", preset });
+                  return answer.kind === "server" ? answer.mapKey : null;
+                }
+              : undefined,
+        }),
+        runner: jobRunner,
+        gate: heavyGate,
+        now,
+        log: app.log,
+        limits: options.battleLab?.limits,
+      })
+    : undefined;
   // 전투 다시보기(시범 6 대 6 기록): 설정 칸 접근자 위에서 돈다. 경기장 = 월드 시험 2차맵 구역(없으면 빈 평지). 기록은 워커
   const replayRunner = options.battleReplay?.runner;
   const battleReplay = tuningShared
@@ -354,12 +410,12 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         }),
         runner:
           replayRunner?.kind === "worker"
-            ? workerJobRunner<ReplayJob, ReplayJobResult>({
+            ? workerReplayRunner<ReplayJob, ReplayJobResult>({
                 workerUrl: replayRunner.workerUrl,
                 timeoutMs: REPLAY_TIMEOUT_MS,
                 heapMb: REPLAY_WORKER_HEAP_MB,
               })
-            : inlineJobRunner(runReplayJob),
+            : inlineReplayRunner(runReplayJob),
         effectNames: options.battleReplay?.effectNames,
         now,
         log: app.log,
@@ -394,16 +450,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         return service ? cyborgReadsOf(service) : undefined;
       },
       // 개발자 2차맵 시험: 월드 행성의 2차맵 지형 주소·칸 값(보기 전용, src/world/secondMapLab.ts)
-      secondMapLab:
-        world && terrain && planets && worldPlanet
-          ? createSecondMapLab({
-              planetId: worldPlanet.id,
-              values: () => planets.planetValues(worldPlanet.id),
-              terrainVersion: () => terrain.version(),
-              loadedVersion: (mapKey) => world.map(mapKey)?.terrainVersion,
-              testMapKey: TEST_MAP_KEY,
-            })
-          : undefined,
+      secondMapLab,
       // 경제 화면: 팩 목록 + 월드 원장 잔고(읽기만) + 시안 자료
       economy: options.economyCatalog
         ? createEconomyServices({
@@ -416,6 +463,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       // 설정 칸 패널: 인증이 켜져 있을 때만 맥락이 서비스를 만든다
       tuning: tuningShared,
       balance,
+      battleLab,
       battleReplay,
       formulas,
     }),

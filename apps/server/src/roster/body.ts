@@ -1,6 +1,7 @@
 // 몸 자료 → 화면 스탯·장비 칸·스킬 — @terra/sim의 같은 순수 함수(성장 primaryAtLevel, 장비 loadoutOf, 스킬 칸 skillSlotCount)로
 // 계산한다. 기획 D-414(2차 스탯은 계산), D-417(성장), D-422·D-423(칸·올리는 스탯), D-426·D-427(스킬). 게임 앱은 결과만 받는다.
-// [임시] 성장률 100‰는 48 §2.3 출발값이다(설정값 N 칸이 생기면 그 값). 시험 유닛은 저장된 스탯이 없어 기본값으로 계산한다.
+// 성장률은 설정 칸 N5(n5_growth_rate, 48 §2.3 출발값 100‰)의 실효 값이다(catalog.society, 읽을 때마다 지금 값).
+// 시험 유닛은 저장된 스탯이 없어 기본값으로 계산한다.
 import {
   ELEMENT_CODES,
   type EquipSlot,
@@ -26,9 +27,6 @@ import {
 } from "@terra/sim";
 import type { RosterCatalog } from "./catalog.ts";
 
-/** [임시] 성장률(‰, 48 §2.3 출발값 0.1) */
-export const GROWTH_PM = 100;
-
 /** [임시] 스탯을 저장하기 전의 시험 유닛 기본값: 1차 6개 모두 10(합 60, D-6039의 합과 같다), 레벨 1, 장비 없음 */
 export const BASELINE_PRIMARY = 10;
 
@@ -53,10 +51,10 @@ export interface BodyView {
   readonly skills: RosterSkills;
 }
 
-function grown(spec: BodySpec): Primaries {
+function grown(spec: BodySpec, growthPm: number): Primaries {
   const k = spec.kPm;
   if (k === null) return spec.initial;
-  const at = (stat: PrimaryStat) => primaryAtLevel(spec.initial[stat], GROWTH_PM, k[stat], spec.level);
+  const at = (stat: PrimaryStat) => primaryAtLevel(spec.initial[stat], growthPm, k[stat], spec.level);
   return { str: at("str"), dex: at("dex"), agi: at("agi"), vit: at("vit"), int: at("int"), wis: at("wis") };
 }
 
@@ -170,7 +168,7 @@ function bodyParts(catalog: RosterCatalog, spec: BodySpec): BodyParts {
     const def = wanted ? catalog.combat.equipment.find((item) => item.id === wanted.item) : undefined;
     return wanted && def && def.slot === slot ? itemAt(def, wanted.pm) : null;
   });
-  const base = grown(spec);
+  const base = grown(spec, catalog.society.cyborg.growthPm);
   const skillSlots = kind
     ? skillSlotCount(kind.skillSlots.base, spec.rebirths * kind.skillSlots.perRebirth, kind.skillSlots.max)
     : 0;

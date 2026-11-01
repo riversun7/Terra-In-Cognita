@@ -3,6 +3,7 @@
 import { accountRouter } from "./account.ts";
 import { adminRouter } from "./admin.ts";
 import { balanceRouter } from "./balance.ts";
+import { battleLabRouter } from "./battleLab.ts";
 import { battleReplayRouter } from "./battleReplay.ts";
 import { formulasRouter } from "./formulas.ts";
 import { dashboardRouter } from "./dashboard.ts";
@@ -28,6 +29,8 @@ export const appRouter = router({
   tuning: tuningRouter,
   // 개발자 밸런스 화면(docs/adr/2026-11-01-balance-screen.md 3절)
   balance: balanceRouter,
+  // 개발자 전투 실험실(같은 화면의 [전투 실험실] 탭, 같은 ADR "바뀜 (2026-11-01, 전투 실험실)")
+  battleLab: battleLabRouter,
   // 개발자 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 5절)
   battleReplay: battleReplayRouter,
   // 개발자 계산식 탭(docs/adr/2026-11-01-formula-editor.md)

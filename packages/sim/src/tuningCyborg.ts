@@ -21,7 +21,8 @@ const k = (
 });
 
 export const CYBORG_TUNING_KEYS: readonly TuningKey[] = [
-  // 사이보그 성장·환생 (N6·N7·N9·N34, D-417·D-440·D-441·D-451)
+  // 사이보그 성장·환생 (N5·N6·N7·N9·N34, D-417·D-440·D-441·D-451)
+  k("n5_growth_rate", "N5", "cyborg.growthPm", "레벨당 성장률(‰)", "Growth rate per level (‰)"),
   k("n6_k_min", "N6", "cyborg.kMinPm", "K 범위 최소(‰)", "K range min (‰)"),
   k("n6_k_max", "N6", "cyborg.kMaxPm", "K 범위 최대(‰)", "K range max (‰)"),
   k("n7_max_level", "N7", "cyborg.maxLevel", "만렙(기본)", "Max level (base)", true),

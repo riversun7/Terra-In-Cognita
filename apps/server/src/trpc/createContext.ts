@@ -12,6 +12,7 @@ import type { TerraAuth } from "../auth/auth.ts";
 import { authHeaders } from "../auth/http.ts";
 import { parseRoleString } from "../auth/permissions.ts";
 import { isAllowedReadRequest, isSameOriginRequest } from "../auth/requestGuard.ts";
+import type { BattleLabShared } from "../battleLab/services.ts";
 import type { Database } from "../db/client.ts";
 import { emptyEconomyCatalog } from "../economyView/catalog.ts";
 import { createEconomyServices } from "../economyView/services.ts";
@@ -71,6 +72,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   tuning?: TuningShared | undefined;
   /** 밸런스 화면(src/balance/services.ts, 앱에 하나). 설정 칸 패널이 있을 때만 맥락에 넣는다(권한은 tuning이 본다) */
   balance?: BalanceServices | undefined;
+  /** 전투 실험실(src/battleLab/services.ts, 앱에 하나). 설정 칸 패널이 있을 때만 맥락에 넣는다(권한은 tuning이 본다) */
+  battleLab?: BattleLabShared | undefined;
   /** 전투 다시보기(src/battleReplay/services.ts, 앱에 하나). 설정 칸 패널이 있을 때만 맥락에 넣는다(권한은 tuning이 본다) */
   battleReplay?: BattleReplayServices | undefined;
   /** 계산식 탭(src/formulas/services.ts, 앱에 하나). 설정 칸 패널이 있을 때만 맥락에 넣는다 */
@@ -163,6 +166,10 @@ export function createContextFactory(options: ContextFactoryOptions) {
             })
           : undefined,
       balance: authDeps && request && tuning ? options.balance : undefined,
+      battleLab:
+        authDeps && request && tuning && options.battleLab
+          ? { shared: options.battleLab, db: authDeps.db, ip: request.ip }
+          : undefined,
       battleReplay: authDeps && request && tuning ? options.battleReplay : undefined,
       formulas: authDeps && request && tuning ? options.formulas : undefined,
     };

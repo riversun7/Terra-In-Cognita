@@ -1,4 +1,4 @@
-// 계산식 탭 시험 — 밸런스 화면(/dev/balance) 안 계산식 탭(docs/adr/2026-11-01-formula-editor.md "화면", 사용자 결정 D-488).
+// 계산식 탭 시험 — 밸런스 화면(/dev/balance)의 [계산식] 탭(docs/adr/2026-11-01-formula-editor.md "화면", 사용자 결정 D-488).
 // - dev: HP 행 식에 오타(STRR)를 넣으면 위치와 "STR로 고치기"가 뜨고 담기가 막힌다 → 고치면 "식이 맞습니다", 결과·항마다 풀이·1차 영향
 //   여섯 줄. 담기 → [적용]이면 그 세계에 바로 든다(세계에서 바꾼 식 1, 시안 유닛 HP가 오름). 팩 식으로 되돌리기 → 적용이면 HP가 돌아온다.
 //   이름 자동 완성(fl → floor(), Enter). 맨손 일반 공격 식: Lv 30 균형형·맨손이면 굴림 0 → 13, 9999 → 27(10 상한 없음).
@@ -65,9 +65,16 @@ async function previewHp(page: Page): Promise<number> {
   return Number(field(hp, "value"));
 }
 
+/** [계산식] 탭을 열고 식 목록이 뜰 때까지(밸런스 화면은 [전투 실험실] 탭으로 열린다) */
+async function openFormulas(page: Page): Promise<void> {
+  await page.locator("#bp-tab-formulas").click();
+  await expect(page.locator(".fx-tab")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+}
+
 async function tabReady(page: Page): Promise<void> {
   await page.goto("/dev/balance");
-  await expect(page.locator(".fx-tab")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+  await expect(page.locator(".bp-screen")).toBeVisible({ timeout: 20_000 });
+  await openFormulas(page);
 }
 
 /** 칸을 고른다(칸이 바뀌면 입력 칸을 새로 만든다) */
@@ -98,7 +105,7 @@ test.describe("개발자", () => {
     await tabReady(page);
     await resetTuning(page);
     await page.reload();
-    await expect(page.locator(".fx-tab")).toHaveAttribute("data-status", "ready");
+    await openFormulas(page);
     const hpBefore = await previewHp(page);
     await pick(page, "hp.formula");
     const input = page.locator(".fx-input");

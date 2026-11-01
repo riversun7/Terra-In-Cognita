@@ -180,7 +180,8 @@ describe("밸런스 서비스", () => {
     const weapons = new Map(table.weapons.map((weapon) => [weapon.id, weapon]));
     expect(weapons.get("unarmed")).toMatchObject({ basic: "physical", elemental: null });
     expect(weapons.get("test_staff")?.elemental).not.toBeNull();
-    expect(table.defaults).toEqual(BALANCE_DEFAULTS);
+    // 기본 무기(D-490): 팩 무기 가운데 물리 칸이 있는 첫 무기
+    expect(table.defaults).toEqual({ ...BALANCE_DEFAULTS, weapon: "test_sword" });
   });
 
   it("contribution: 지금 표와 고친 표(담은 변경), tuning.save가 받지 않을 묶음이면 그 까닭", async () => {

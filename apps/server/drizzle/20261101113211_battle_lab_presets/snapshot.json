@@ -1,0 +1,340 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "65d75be0-ae08-4108-9885-c9ef743efbb2",
+  "prevIds": [
+    "0cdfc981-226d-44e5-9bc0-1bb35cbe5dd8"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "battle_lab_presets"
+      ],
+      "writes": [
+        "s|tbl|public.battle_lab_presets",
+        "n|tbl|public.battle_lab_presets",
+        "e|tbl|public.battle_lab_presets",
+        "n|rel|public.battle_lab_presets",
+        "n|type|public.battle_lab_presets",
+        "n|rel|public.battle_lab_presets_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "battle_lab_presets"
+      ],
+      "writes": [
+        "s|fk|public.battle_lab_presets.battle_lab_presets_created_by_users_id_fkey",
+        "n|fk|public.battle_lab_presets.battle_lab_presets_created_by_users_id_fkey",
+        "e|fk|public.battle_lab_presets.battle_lab_presets_created_by_users_id_fkey",
+        "n|con|public.battle_lab_presets.battle_lab_presets_created_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.battle_lab_presets",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.battle_lab_presets.created_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "battle_lab_presets"
+      ],
+      "writes": [
+        "s|fk|public.battle_lab_presets.battle_lab_presets_updated_by_users_id_fkey",
+        "n|fk|public.battle_lab_presets.battle_lab_presets_updated_by_users_id_fkey",
+        "e|fk|public.battle_lab_presets.battle_lab_presets_updated_by_users_id_fkey",
+        "n|con|public.battle_lab_presets.battle_lab_presets_updated_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.battle_lab_presets",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.battle_lab_presets.updated_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "battle_lab_presets",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "kind",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "name_ko",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "name_en",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "data",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "version",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "created_by",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "updated_by",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "battle_lab_presets_created_by_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "created_by"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "battle_lab_presets_updated_by_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "updated_by"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "battle_lab_presets_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "battle_lab_presets_id_format",
+        "value": "\"id\" ~ '^lab_[0-9a-f]{12}$'",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "battle_lab_presets_kind",
+        "value": "\"kind\" in ('unit', 'party')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "battle_lab_presets_name_length",
+        "value": "char_length(\"name_ko\") between 1 and 40 and char_length(\"name_en\") between 1 and 40",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "battle_lab_presets",
+        "name": "battle_lab_presets_version_positive",
+        "value": "\"version\" >= 1",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

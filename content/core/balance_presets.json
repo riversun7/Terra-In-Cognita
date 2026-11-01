@@ -1,0 +1,37 @@
+{
+  "entries": [
+    {
+      "id": "new_cyborg",
+      "name": {
+        "ko": "새 사이보그",
+        "en": "New cyborg"
+      },
+      "primaries": { "str": 10, "vit": 10, "int": 10, "wis": 10, "dex": 10, "agi": 10 },
+      "count": 1,
+      "runs": 10,
+      "limitSec": 120
+    },
+    {
+      "id": "lv30_combat",
+      "name": {
+        "ko": "Lv 30 전투형",
+        "en": "Lv 30 combat"
+      },
+      "primaries": { "str": 54, "vit": 54, "int": 31, "wis": 31, "dex": 31, "agi": 31 },
+      "count": 1,
+      "runs": 10,
+      "limitSec": 120
+    },
+    {
+      "id": "lv30_tech",
+      "name": {
+        "ko": "Lv 30 기술형",
+        "en": "Lv 30 tech"
+      },
+      "primaries": { "str": 31, "vit": 31, "int": 54, "wis": 31, "dex": 54, "agi": 31 },
+      "count": 1,
+      "runs": 10,
+      "limitSec": 120
+    }
+  ]
+}

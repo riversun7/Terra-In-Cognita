@@ -965,5 +965,32 @@ export const tuningRevision = pgTable(
   ],
 );
 
+/**
+ * 밸런스 화면 기준 유닛 프리셋 — 개발자 페이지(/dev/balance, docs/adr/2026-11-01-balance-screen.md "바뀜 (D-467)"). 팀이 함께 쓴다.
+ * 팩 balance_presets(씨앗) 위에 얹는다: 팩 프리셋 ID의 줄 = 화면에서 고친 값, `dev_` + 16진 12자 ID의 줄 = 화면에서 만든 프리셋.
+ * 세계 상태가 아니다(전투·경제에 들지 않는 도구 입력). 바꾼 사람·때는 줄과 감사 기록 balance_preset.*에 남긴다.
+ * 읽을 때·켤 때 저장 때의 팩 항목(pack_entry)이 지금 팩과 다르면 팩이 이기고, 지금 규칙에 맞지 않는 값은 쓰지 않는다(켤 때 지움)
+ */
+export const balancePresets = pgTable(
+  "balance_presets",
+  {
+    id: text("id").primaryKey(),
+    /** 프리셋 값 {name: {ko, en}, primaries: {str…agi}, weapon, count, runs, limitSec}(@terra/shared BalancePresetValues) */
+    data: jsonb("data").notNull(),
+    /** 저장 때의 팩 항목(같은 모양). 그 ID가 팩에 없었으면(화면에서 만든 것) null */
+    packEntry: jsonb("pack_entry"),
+    contentVersion: text("content_version").notNull(),
+    /** 줄 판(저장마다 +1). 두 사람이 같은 프리셋을 고치면 늦은 쪽이 충돌 */
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("balance_presets_id_format", sql`${table.id} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+    check("balance_presets_version_positive", sql`${table.version} >= 1`),
+  ],
+);
+
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

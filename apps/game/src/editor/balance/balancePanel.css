@@ -115,6 +115,81 @@
   min-width: 0;
 }
 
+/* ── 기준 유닛 프리셋: 고르기 칸, 출처·바꾼 사람, 쓰기 단추, 이름·확인 창 ── */
+.bp-presets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-block-end: var(--space-2);
+  border-block-end: var(--hairline) solid var(--color-border);
+}
+.bp-preset-field {
+  gap: var(--space-1);
+  min-width: 0;
+}
+.bp-preset-select {
+  width: 100%;
+  min-width: 0;
+}
+.bp-preset-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.bp-preset-source {
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  font-weight: var(--font-weight-strong);
+}
+.bp-preset-meta[data-source="edited"] .bp-preset-source {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+}
+.bp-preset-meta[data-source="custom"] .bp-preset-source {
+  border-color: var(--color-focus);
+  color: var(--color-focus);
+}
+.bp-preset-modified {
+  color: var(--color-warning);
+}
+.bp-preset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.bp-dialog {
+  width: min(100% - 2 * var(--space-4), var(--sheet-max));
+  padding: 0;
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-panel);
+}
+.bp-dialog::backdrop {
+  background-color: var(--color-overlay);
+}
+.bp-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  overflow-wrap: anywhere;
+}
+.bp-dialog-title {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-xl);
+}
+
 /* 1차 스탯 색(--color-stat-*) */
 .bp-screen [data-field="str"] {
   --bp-stat: var(--color-stat-str);

@@ -5,7 +5,7 @@ import { readConfig } from "./config.ts";
 import { loadServerContent } from "./content.ts";
 import { rosterCatalogOf } from "./roster/catalog.ts";
 import { createTuningState } from "./tuning/state.ts";
-import { statRowsOf, tuningEntriesOf } from "./world/combatCatalog.ts";
+import { balancePresetsOf, statRowsOf, tuningEntriesOf } from "./world/combatCatalog.ts";
 import { economyCatalogFromPack } from "./economyView/catalog.ts";
 import { nationPresetsOf } from "./npc/presets.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
@@ -118,8 +118,11 @@ app = await buildApp({
   ),
   // 설정 칸: 사이보그 만들기·지원금·세력 화면(공물·민심 문턱·주기)이 쓰고, 개발자 패널(/dev/tuning)이 덮어쓴다
   tuning: { state: tuning, packId: loaded.pack.manifest.packId },
-  // 밸런스 화면(/dev/balance): 시드 대결은 요청마다 워커 스레드에서
-  balance: { runner: { kind: "worker", workerUrl: balanceWorkerUrl } },
+  // 밸런스 화면(/dev/balance): 시드 대결은 요청마다 워커 스레드에서. 기준 유닛 프리셋 씨앗 = 팩 balance_presets
+  balance: {
+    runner: { kind: "worker", workerUrl: balanceWorkerUrl },
+    presets: balancePresetsOf(loaded.source),
+  },
   // 경제 화면 목록(팩의 경제 분류, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)")
   economyCatalog: economyCatalogFromPack(loaded.pack, content),
   // 시험 2차맵 지형 = 행성 값에서 만든 2차맵(ADR 46 WP-3). 지형 워커가 만들고 행성 캐시 폴더 아래 second-maps/에 둔다

@@ -2,6 +2,7 @@
 import path from "node:path";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
+import type { BalancePresetEntry } from "@terra/content";
 import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "@terra/protocol";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { registerAccountRoutes } from "./auth/account.ts";
@@ -127,12 +128,14 @@ export interface AppOptions {
   tuning?: { state: TuningState; packId: string; limits?: Partial<TuningLimits> | undefined } | undefined;
   /**
    * 밸런스 화면 대결을 어디서 돌리나(docs/adr/2026-11-01-balance-screen.md 4절): 워커(요청마다 띄움) 또는 같은 스레드(시험).
-   * 화면은 tuning이 있을 때만 연다. 없으면 같은 스레드
+   * 화면은 tuning이 있을 때만 연다. 없으면 같은 스레드. presets = 팩 balance_presets(기준 유닛 프리셋 씨앗, "바뀜 (D-467)"),
+   * DB가 있으면 화면에서 고친 것·만든 것을 그 DB에 두고 켤 때 정리한다
    */
   balance?:
     | {
         runner: { kind: "worker"; workerUrl: URL } | { kind: "inline" };
         limits?: Partial<BalanceLimits> | undefined;
+        presets?: readonly BalancePresetEntry[] | undefined;
       }
     | undefined;
   /** 경제 화면 목록(팩 items·recipes 등, src/economyView/catalog.ts). 없으면 빈 목록 */
@@ -264,12 +267,18 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         now,
         log: app.log,
         limits: options.balance?.limits,
+        presets: options.balance?.presets,
+        db: options.db,
       })
     : undefined;
   const tuningDb = options.db;
   if (tuningShared && tuningDb) {
-    // 덮어쓰기를 싣는다(요청을 받기 전에). DB를 기다리는 다시 시도는 월드 부팅과 같다
-    app.addHook("onReady", async () => bootTuning(tuningDb, tuningShared));
+    // 덮어쓰기를 싣는다(요청을 받기 전에). DB를 기다리는 다시 시도는 월드 부팅과 같다.
+    // 그다음 밸런스 프리셋 줄을 정리한다(던지지 않는다)
+    app.addHook("onReady", async () => {
+      await bootTuning(tuningDb, tuningShared);
+      await balance?.boot();
+    });
   }
 
   // 월드: DB가 있으면 저장·부팅 복구(S3 ADR 1·2절). 준비(listen·ready)는 부팅 복구가 끝날 때까지 기다린다.

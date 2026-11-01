@@ -43,20 +43,22 @@ const UNARMED_BODY = {
 /**
  * [임시] 사람형 맨손 무기(D-436 "맨손 무기" 데이터. 값은 기획 전 시험값). 물리 칸만 있다(D-465: 물리 칸이 없는 무기를 든
  * 유닛의 물리 기반 스킬이 이 칸을 쓴다). 명중·크리 적정은 점수 단위(D-458):
- * 1차 모두 11쯤인 처음 유닛(명중 점수 = DEX × 1.2 + AGI × 0.6, 크리 점수 = DEX × 1.5)이 1배
+ * 1차 모두 11쯤인 처음 유닛(명중 점수 = DEX × 1.2 + AGI × 0.6, 크리 점수 = DEX × 1.5)이 1배.
+ * 공격력 20·적정 80(밸런스 화면 D-467): 적정이 작으면 무기 틀 상한(2배)에 일찍 닿아 STR이 피해를 늘리지 않는다(옛 5·20은
+ * 물리 공격 점수 40 = STR 17부터 늘 10). 새 사이보그(점수 26)의 실제 공격은 그대로 6이고, 점수 160(Lv 30 + 10을 넘는 곳)까지 는다
  */
 export const UNARMED: WeaponSpec & { readonly physical: WeaponAttackField } = {
-  physical: { attack: 5, attackAppropriate: 20 },
+  physical: { attack: 20, attackAppropriate: 80 },
   ...UNARMED_BODY,
 };
 
 /**
  * [임시] 맨손 속성 자료(D-463 211, D-465): 속성 칸이 없는 무기를 든(또는 맨손인) 유닛이 속성 기반 스킬을 쓸 때의 무기 자료.
  * 맨손 무기(D-436)처럼 유닛 종류 데이터(팩 unit_kinds naturalElementalWeapon)이고, 속성 칸만 있으며 공격력·적정치가 낮다.
- * 기본 공격에는 쓰지 않는다
+ * 기본 공격에는 쓰지 않는다. 공격력·적정은 맨손 무기와 같은 까닭으로 20·80(INT가 일찍 상한에 닿지 않게)
  */
 export const UNARMED_ELEMENTAL: WeaponSpec & { readonly elemental: WeaponAttackField } = {
-  elemental: { attack: 5, attackAppropriate: 20 },
+  elemental: { attack: 20, attackAppropriate: 80 },
   ...UNARMED_BODY,
 };
 

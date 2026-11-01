@@ -29,6 +29,9 @@ import type {
   BalanceContributionResponse,
   BalanceDuelsInput,
   BalanceDuelsResponse,
+  BalancePresetDeleteInput,
+  BalancePresetSaveInput,
+  BalancePresetsResponse,
   BalanceTableResponse,
 } from "@terra/shared/balance";
 import type { PlanetLibraryBase } from "@terra/shared";
@@ -199,6 +202,17 @@ export interface BalanceServices {
   contribution(input: BalanceContributionInput): Promise<BalanceContributionResponse>;
   /** 시드 대결(워커). 사용자 속도 제한·서버 전체 한 번에 하나 */
   duels(viewer: Viewer, input: BalanceDuelsInput): Promise<BalanceDuelsResponse>;
+  /** 기준 유닛 프리셋 저장(새로 만들기·고치기·이름 바꾸기, ADR "바뀜 (D-467)"). 권한·쓰기 속도 제한은 D1(tuning:write)이 먼저 본다 */
+  savePreset(viewer: Viewer, input: BalancePresetSaveInput): Promise<BalancePresetsResponse>;
+  /** 기준 유닛 프리셋 지우기(화면에서 만든 것) 또는 팩 값으로 되돌리기(팩 프리셋) */
+  deletePreset(viewer: Viewer, input: BalancePresetDeleteInput): Promise<BalancePresetsResponse>;
+}
+
+/** 앱에 하나인 밸런스 서비스: 요청마다 접속 주소(감사 기록)를 묶어 BalanceServices를 만든다. 켤 때 프리셋 줄을 정리한다 */
+export interface BalanceShared {
+  forRequest(ip: string | null): BalanceServices;
+  /** 켤 때(onReady): 팩이 이긴 프리셋 줄·맞지 않는 줄을 지운다. 던지지 않는다 */
+  boot(): Promise<void>;
 }
 
 /** 홈 자료 조회의 조건. preview는 프로시저가 권한(home: preview, dev·admin)을 본 뒤에만 true다 */

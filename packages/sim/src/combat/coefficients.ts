@@ -95,7 +95,7 @@ export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
   critSpreadPm: 500,
   stamina: {
     scoreWeightsPm: [0, 0, 700, 300, 0, 0],
-    appropriateScore: 80,
+    appropriateScore: 10,
     minConsumePm: 500,
   },
   shieldRegenDelayMs: 0,

@@ -2,6 +2,7 @@
 // 서버(tRPC balance.*, apps/server/src/balance/)와 화면(apps/game/src/editor/balance/)이 같이 쓴다. 계산은 서버만 한다
 // (기기는 판정 코드를 받지 않는다). 1차 스탯 키는 roster의 PrimaryStat(str·dex·agi·vit·int·wis)이다.
 import type { PrimaryStat } from "./roster.ts";
+import { hasUnstorableText } from "./settings.ts";
 import type { StatCellField, TuningOverrideView } from "./tuning.ts";
 
 /** 1차 스탯 6개 */
@@ -65,7 +66,15 @@ export interface BalanceDuelSettings {
   readonly limitSec: number;
 }
 
-export interface BalanceTableResponse {
+/** 프리셋 목록(표 응답에 들고, 프리셋 저장·지우기의 응답) */
+export interface BalancePresetsResponse {
+  /** 기준 유닛 프리셋(팩 씨앗 + 화면에서 고친 것·만든 것, ADR "바뀜 (D-467)") */
+  readonly presets: readonly BalancePresetView[];
+  /** 프리셋을 고칠 수 있는가(DB가 있는 서버) */
+  readonly presetsWritable: boolean;
+}
+
+export interface BalanceTableResponse extends BalancePresetsResponse {
   readonly contentVersion: string;
   /** 세계 설정 판(tuning.save의 expectedRevision) */
   readonly revision: number;
@@ -73,6 +82,104 @@ export interface BalanceTableResponse {
   readonly weapons: readonly BalanceWeaponView[];
   /** 기준 유닛 기본값(새 사이보그 평균 1차 10, 맨손) */
   readonly defaults: BalanceDuelSettings;
+}
+
+/** 기준 유닛 프리셋 값(D-467 228 다): 이름(ko·en)·1차 6·무기·인원·판 수·제한 시간. 대결 시드는 담지 않는다 */
+export interface BalancePresetValues {
+  readonly name: { readonly ko: string; readonly en: string };
+  readonly primaries: BalancePrimaries;
+  /** 무기 ID(맨손 = BALANCE_UNARMED, 아니면 팩 무기 아이템 ID) */
+  readonly weapon: string;
+  readonly count: number;
+  readonly runs: number;
+  readonly limitSec: number;
+}
+
+/** 프리셋 출처: 팩 그대로, 팩 프리셋을 화면에서 고침, 화면에서 만듦 */
+export const BALANCE_PRESET_SOURCES = ["pack", "edited", "custom"] as const;
+export type BalancePresetSource = (typeof BALANCE_PRESET_SOURCES)[number];
+
+/** 프리셋 하나(화면) */
+export interface BalancePresetView extends BalancePresetValues {
+  readonly id: string;
+  readonly source: BalancePresetSource;
+  /** DB 줄의 판(줄이 없으면 0). 저장·지우기의 expectedVersion */
+  readonly version: number;
+  /** 마지막으로 바꾼 사람·때(팩 그대로면 null) */
+  readonly updatedBy: string | null;
+  readonly updatedAt: number | null;
+}
+
+/** 프리셋 저장 입력: id null = 새로 만들기(서버가 ID를 만든다) */
+export interface BalancePresetSaveInput {
+  readonly id: string | null;
+  readonly expectedVersion: number;
+  readonly values: BalancePresetValues;
+}
+
+/** 프리셋 지우기 입력: 화면에서 만든 것은 지우고, 팩 프리셋은 팩 값으로 되돌린다 */
+export interface BalancePresetDeleteInput {
+  readonly id: string;
+  readonly expectedVersion: number;
+}
+
+/** 프리셋 이름 최대 길이(코드 포인트) */
+export const BALANCE_PRESET_NAME_MAX = 40;
+/** 화면에서 만든 프리셋 수 상한 */
+export const BALANCE_CUSTOM_PRESETS_MAX = 50;
+/** 화면에서 만든 프리셋 ID 앞머리(팩 분류는 이 앞머리를 받지 않는다) */
+export const BALANCE_CUSTOM_PRESET_PREFIX = "dev_";
+/** 화면에서 만든 프리셋 ID 모양: dev_ + 16진 12자 */
+export const BALANCE_CUSTOM_PRESET_ID = /^dev_[0-9a-f]{12}$/;
+
+/** 코드 포인트 수(짝이 맞는 대리 문자 둘 = 한 글자) */
+function codePointLength(text: string): number {
+  let count = 0;
+  for (let index = 0; index < text.length; index++) {
+    const code = text.charCodeAt(index);
+    const next = text.charCodeAt(index + 1);
+    if (code >= 0xd800 && code <= 0xdbff && next >= 0xdc00 && next <= 0xdfff) index += 1;
+    count += 1;
+  }
+  return count;
+}
+
+function hasControlText(text: string): boolean {
+  for (let index = 0; index < text.length; index++) {
+    const code = text.charCodeAt(index);
+    if (code < 0x20 || (code >= 0x7f && code <= 0x9f)) return true;
+  }
+  return false;
+}
+
+/** 프리셋 이름 정리: 앞뒤 빈칸을 떼고 1~40 코드 포인트, 제어 문자 없음, DB에 담을 수 있는 글자. 틀리면 null */
+export function normalizeBalancePresetName(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const name = raw.trim();
+  const length = codePointLength(name);
+  if (length === 0 || length > BALANCE_PRESET_NAME_MAX) return null;
+  if (hasControlText(name) || hasUnstorableText({ name })) return null;
+  return name;
+}
+
+/** 프리셋 값 검사(서버·화면 같이): 이름(ko·en)·1차 범위·대결 설정 상한. 무기가 있는지는 부르는 쪽이 본다 */
+export function balancePresetProblem(
+  values: BalancePresetValues,
+): "name" | "primaries" | "runs" | "limit" | "budget" | "count" | null {
+  if (
+    normalizeBalancePresetName(values.name.ko) === null ||
+    normalizeBalancePresetName(values.name.en) === null
+  )
+    return "name";
+  const primaries = Object.values(values.primaries);
+  if (
+    primaries.length !== 6 ||
+    primaries.some(
+      (value) => !Number.isInteger(value) || value < BALANCE_PRIMARY_MIN || value > BALANCE_PRIMARY_MAX,
+    )
+  )
+    return "primaries";
+  return balanceSettingsProblem(values);
 }
 
 /** 담은 변경 하나: key = `<행 ID>.<칸>`(또는 설정 칸 ID), value null = 팩 값 */
@@ -95,7 +202,7 @@ export const BALANCE_EDITS_MAX = 200;
 
 /**
  * 서버가 받지 않은 까닭(오류 data.reason): 대결 설정이 상한 밖, 모르는 무기, 다른 대결이 도는 중(서버 전체 하나), 사용자 속도 제한,
- * 워커 제한 시간·오류
+ * 워커 제한 시간·오류, 프리셋 값이 틀림·없는 프리셋·판 충돌(다른 사람이 먼저 바꿈)·화면에서 만든 프리셋 수 상한
  */
 export const BALANCE_REASONS = [
   "invalid_settings",
@@ -104,6 +211,10 @@ export const BALANCE_REASONS = [
   "rate_limited",
   "timeout",
   "failed",
+  "invalid_preset",
+  "unknown_preset",
+  "preset_conflict",
+  "too_many_presets",
 ] as const;
 export type BalanceReason = (typeof BALANCE_REASONS)[number];
 

@@ -30,7 +30,7 @@ import { createSettingsServices } from "../settings/store.ts";
 import { type TuningShared, betterAuthTuningCheck, createTuningServices } from "../tuning/services.ts";
 import type { SummaryBackend } from "../summary/summary.ts";
 import type {
-  BalanceServices,
+  BalanceShared,
   EconomyServices,
   SecondMapLabServices,
   TrpcContext,
@@ -65,7 +65,7 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   /** 설정 칸 패널(접근자·속도 제한기·쓰기 차례, src/tuning/services.ts). 인증이 켜져 있어야 쓴다 */
   tuning?: TuningShared | undefined;
   /** 밸런스 화면(src/balance/services.ts, 앱에 하나). 설정 칸 패널이 있을 때만 맥락에 넣는다(권한은 tuning이 본다) */
-  balance?: BalanceServices | undefined;
+  balance?: BalanceShared | undefined;
   /** 사이보그 만들기 조회(세계가 준비되면 서비스, docs/adr/2026-11-01-first-login-cyborg.md 4절). 없으면 늘 준비 전 */
   cyborgs?: (() => CyborgReadServices | undefined) | undefined;
 }
@@ -153,7 +153,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
               hasPermission: betterAuthTuningCheck(authDeps.auth, request),
             })
           : undefined,
-      balance: authDeps && request && tuning ? options.balance : undefined,
+      balance: authDeps && request && tuning ? options.balance?.forRequest(request.ip) : undefined,
     };
   };
 }

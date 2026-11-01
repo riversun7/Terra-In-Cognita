@@ -22,7 +22,7 @@ import { ErrorReason } from "../trpc/init.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { createTuningShared } from "../tuning/services.ts";
 import { type TuningOverrideRecord, createTuningState } from "../tuning/state.ts";
-import { statRowsOf, tuningEntriesOf } from "../world/combatCatalog.ts";
+import { balancePresetsOf, statRowsOf, tuningEntriesOf } from "../world/combatCatalog.ts";
 import { type DuelJob, combineOrders, contributionOf, runDuelJob } from "./compute.ts";
 import { type DuelRunner, inlineDuelRunner, workerDuelRunner } from "./runner.ts";
 import { BALANCE_DEFAULTS, createBalanceServices } from "./services.ts";
@@ -69,7 +69,8 @@ function setup(options: { runner?: DuelRunner; duelCapacity?: number } = {}) {
     now: () => 0,
     log: silent,
     limits: { duelsPerUser: { capacity: options.duelCapacity ?? 100, refillPerMinute: 1 } },
-  });
+    presets: balancePresetsOf(packSource),
+  }).forRequest(null);
   return { state, roster, services };
 }
 
@@ -183,6 +184,28 @@ describe("밸런스 서비스", () => {
     expect(table.defaults).toEqual(BALANCE_DEFAULTS);
   });
 
+  it("프리셋(DB 없음): 팩 씨앗만 보이고 고칠 수 없다(쓰기는 NOT_FOUND)", async () => {
+    const { services } = setup();
+    const table = await services.table();
+    expect(table.presetsWritable).toBe(false);
+    expect(table.presets.map((preset) => [preset.id, preset.source, preset.version, preset.weapon])).toEqual([
+      ["new_cyborg", "pack", 0, "unarmed"],
+      ["lv30_combat", "pack", 0, "unarmed"],
+      ["lv30_tech", "pack", 0, "unarmed"],
+    ]);
+    const values = { ...BALANCE_DEFAULTS, name: { ko: "내 것", en: "Mine" } };
+    expect(await reasonOf(services.savePreset(viewer(), { id: null, expectedVersion: 0, values }))).toEqual({
+      code: "NOT_FOUND",
+      reason: "unavailable",
+    });
+    expect(await reasonOf(services.deletePreset(viewer(), { id: "new_cyborg", expectedVersion: 0 }))).toEqual(
+      {
+        code: "NOT_FOUND",
+        reason: "unavailable",
+      },
+    );
+  });
+
   it("contribution: 지금 표와 고친 표(담은 변경), tuning.save가 받지 않을 묶음이면 그 까닭", async () => {
     const { services } = setup();
     const plain = await services.contribution({ primaries: flat(10), edits: [] });
@@ -286,19 +309,21 @@ describe("꼬임 가드", () => {
 
   it("진행 중인 전투: 사양(최대 HP 등)은 시작 자료·스냅숏에 고정되어 표를 바꿔도 다시 계산(복구)이 같고, 현재 값은 최대를 넘지 않는다", () => {
     const { state, roster } = setup();
-    const sword = roster.combat.equipment.find((item) => item.id === "test_sword")?.weapon;
-    if (!sword) throw new Error("test_sword");
-    const specs = statFighterSpecs({ primaries: flat(40), weapon: sword, count: 2 }, state.statTable());
+    // 맨손(공격이 작아 스냅숏 간격 30초보다 오래 싸운다)
+    const fists = roster.combat.unitKinds.find((kind) => kind.id === "human")?.naturalWeapon;
+    if (!fists) throw new Error("human natural weapon");
+    const specs = statFighterSpecs({ primaries: flat(40), weapon: fists, count: 2 }, state.statTable());
     const init = duelInit(specs, specs, 7, 32);
     const snapshots: string[] = [];
     const full = runBattle(init, [], (snapshot) => snapshots.push(snapshot));
+    expect(snapshots.length).toBeGreaterThan(0);
     // 전투 도중에 가중치 표를 크게 바꾼다(HP를 낮춤) — 전투는 표를 읽지 않는다
     state.install([record("hp.vit", 100, 3000), record("hp.str", 100, 1500)], 1);
     const restored = restoreBattle(init, snapshots[0] ?? "");
     const resumed = restored.runToEnd([]);
     expect(snapshotBattle(resumed.state)).toBe(full.finalState);
     // 새 표로 만든 사양은 다르다(다음 전투부터만 든다)
-    const lower = statFighterSpecs({ primaries: flat(40), weapon: sword, count: 2 }, state.statTable());
+    const lower = statFighterSpecs({ primaries: flat(40), weapon: fists, count: 2 }, state.statTable());
     expect(lower[0]?.maxHp).toBeLessThan(specs[0]?.maxHp ?? 0);
     const battle = createBattle(init);
     for (let i = 0; i < 300; i++) {

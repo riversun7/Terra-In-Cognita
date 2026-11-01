@@ -2,8 +2,11 @@
 // - dev: 가중치 칸(HP의 VIT)을 고치면 담기고 기여 표가 "지금 → 고침"을 보인다. [승률 돌리기]는 1차 여섯 줄(지금·고침 막대).
 //   [적용]하면 그 세계에 바로 든다(세계에서 바뀐 칸 1, 시안 유닛 HP가 오름, 설정 칸 패널 머리에 가중치 칸 수). 되돌리기 → 적용이면 팩 값.
 //   모든 WIS 가중치를 0으로 담으면 담은 변경 막대가 "적용하면 받지 않음(가치 없는 1차)"을 미리 보이고, 적용은 거절된다.
-// - player: 권한 없음 화면, tRPC balance.*는 403.
-// - 배치·사진: 390·1440 × 파스텔·다크 × 한국어·영어, 큰 숫자(1차 10,000·가중치 100,000). 가로 넘침(표는 안에서 민다)·작은 누르는 곳 없음.
+// - dev 프리셋(ADR "바뀜 (D-467)"): 팩 씨앗 셋, 고르면 기준 유닛 칸을 채운다. 칸을 고치면 [이 프리셋에 저장](팩에서 고침),
+//   [새 프리셋](이름 ko·en 창) → [이름 바꾸기] → [지우기], 고친 팩 프리셋은 [팩 값으로].
+// - player: 권한 없음 화면, tRPC balance.*는 403(프리셋 쓰기 포함).
+// - 배치·사진: 390·1440 × 파스텔·다크 × 한국어·영어(새 프리셋 창 포함), 큰 숫자(1차 10,000·가중치 100,000).
+//   가로 넘침(표는 안에서 민다)·작은 누르는 곳 없음.
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 덮어쓰기를 모두 지운다(설정 칸 패널 시험과 같은 결).
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
@@ -56,6 +59,22 @@ async function resetTuning(page: Page): Promise<void> {
   if (!changed) return;
   const reverted = await trpc(page, "tuning.revertAll", { expectedRevision: revision });
   if (reverted.status !== 200) throw new Error(`tuning.revertAll ${reverted.status}`);
+}
+
+/** 프리셋을 팩 씨앗으로 돌린다(화면에서 만든 것은 지우고 고친 팩 프리셋은 되돌린다) */
+async function resetPresets(page: Page): Promise<void> {
+  const table = await trpc(page, "balance.table");
+  const presets = field(table.data, "presets");
+  if (!Array.isArray(presets)) throw new Error(`balance.table ${table.status}`);
+  for (const preset of presets) {
+    const version = field(preset, "version");
+    if (typeof version !== "number" || version === 0) continue;
+    const removed = await trpc(page, "balance.deletePreset", {
+      id: field(preset, "id"),
+      expectedVersion: version,
+    });
+    if (removed.status !== 200) throw new Error(`balance.deletePreset ${removed.status}`);
+  }
 }
 
 /** 시안 유닛 첫 줄의 HP(서버 화면 자료가 실효 가중치 표로 계산한다) */
@@ -185,6 +204,85 @@ test.describe("개발자", () => {
   });
 });
 
+/** 기준 유닛 1차 입력 여섯(화면 차례) */
+const primaryValues = (page: Page) =>
+  page
+    .locator(".bp-primary-input")
+    .evaluateAll((inputs) => inputs.map((input) => (input instanceof HTMLInputElement ? input.value : "")));
+/** 열린 확인·이름 창의 [확인] */
+const confirm = (page: Page) => page.locator(".bp-dialog .bp-dialog-confirm");
+
+test.describe("개발자 프리셋", () => {
+  test.use({ account: "dev" });
+
+  test("팩 씨앗 셋, 고르면 칸을 채우고, 고쳐 저장·새로 만들기·이름 바꾸기·지우기, 고친 팩 프리셋은 팩 값으로", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(120_000);
+    await screenReady(page);
+    await resetPresets(page);
+    await page.reload();
+    await expect(page.locator(".bp-screen")).toHaveAttribute("data-status", "ready");
+    const select = page.locator(".bp-preset-select");
+    // 자리 표시 + 팩 씨앗 셋. 처음 칸(새 사이보그 평균)과 같은 프리셋이 골라져 보인다
+    await expect(select.locator("option")).toHaveCount(4);
+    await expect(select).toHaveValue("new_cyborg");
+    await expect(page.locator(".bp-preset-meta")).toHaveAttribute("data-source", "pack");
+
+    // 고르기 → 칸 채움(1차 화면 차례 STR·VIT·INT·WIS·DEX·AGI, 무기)
+    await select.selectOption("lv30_combat");
+    expect(await primaryValues(page)).toEqual(["54", "54", "31", "31", "31", "31"]);
+    await expect(page.locator(".bp-settings select").first()).toHaveValue("unarmed");
+    await expect(page.locator(".bp-preset-save")).toHaveCount(0);
+
+    // 칸을 고치면 "다름" → [이 프리셋에 저장] → 팩에서 고침
+    await page.locator(".bp-primary-input").first().fill("60");
+    await expect(page.locator(".bp-preset-modified")).toBeVisible();
+    await page.locator(".bp-preset-save").click();
+    await expect(page.locator(".bp-preset-meta")).toHaveAttribute("data-source", "edited");
+    await expect(page.locator(".bp-preset-modified")).toHaveCount(0);
+    await expect(select.locator("option[value='lv30_combat']")).toContainText(
+      message("ko", "dev_balance_preset_source_edited"),
+    );
+
+    // 새 프리셋(지금 칸 = STR 60 전투형) → 이름 창
+    await page.locator(".bp-preset-new").click();
+    await expect(page.locator(".bp-dialog")).toBeVisible();
+    await expect(confirm(page)).toHaveAttribute("aria-disabled", "true");
+    await page.locator(".bp-preset-name-ko").fill("e2e 프리셋");
+    await page.locator(".bp-preset-name-en").fill("E2E preset");
+    await confirm(page).click();
+    await expect(page.locator(".bp-dialog")).toBeHidden();
+    await expect(page.locator(".bp-presets")).toHaveAttribute("data-selected", /^dev_[0-9a-f]{12}$/);
+    await expect(page.locator(".bp-preset-meta")).toHaveAttribute("data-source", "custom");
+    await expect(select.locator("option")).toHaveCount(5);
+
+    // 이름 바꾸기
+    await page.locator(".bp-preset-rename").click();
+    await page.locator(".bp-preset-name-ko").fill("e2e 바꾼 이름");
+    await confirm(page).click();
+    await expect(page.locator(".bp-dialog")).toBeHidden();
+    await expect(select.locator("option:checked")).toContainText("e2e 바꾼 이름");
+
+    // 지우기(팀이 만든 것)
+    await page.locator(".bp-preset-delete").click();
+    await expect(page.locator(".bp-dialog")).toContainText("e2e 바꾼 이름");
+    await confirm(page).click();
+    await expect(select.locator("option")).toHaveCount(4);
+
+    // 고친 팩 프리셋은 [팩 값으로]
+    await select.selectOption("lv30_combat");
+    expect((await primaryValues(page))[0]).toBe("60");
+    await page.locator(".bp-preset-revert").click();
+    await confirm(page).click();
+    await expect(page.locator(".bp-preset-meta")).toHaveAttribute("data-source", "pack");
+    await expect(page.locator(".bp-preset-revert")).toHaveCount(0);
+    await resetPresets(page);
+    expect(unexpected(deviceErrors)).toEqual([]);
+  });
+});
+
 test.describe("플레이어", () => {
   test.use({ account: "player" });
 
@@ -208,6 +306,19 @@ test.describe("플레이어", () => {
       "query",
     );
     expect([duels.status, duels.code]).toEqual([403, "FORBIDDEN"]);
+    const save = await trpc(page, "balance.savePreset", {
+      id: null,
+      expectedVersion: 0,
+      values: {
+        name: { ko: "가짜", en: "Fake" },
+        primaries: { str: 10, vit: 10, int: 10, wis: 10, dex: 10, agi: 10 },
+        weapon: "unarmed",
+        count: 1,
+        runs: 10,
+        limitSec: 120,
+      },
+    });
+    expect([save.status, save.code]).toEqual([403, "FORBIDDEN"]);
     expect(unexpected(deviceErrors)).toEqual([]);
   });
 });
@@ -260,6 +371,23 @@ test.describe("배치·사진", () => {
         expect(await horizontalOverflow(page)).toEqual([]);
         expect(await smallTapTargets(page)).toEqual([]);
         await fullShot(page, `balance-${theme}-${language}-${width}`);
+        // 새 프리셋 창(이름 ko·en): 넘침·작은 누르는 곳 없음, 사진. 만들지 않고 닫는다
+        await page.locator(".bp-preset-new").click();
+        await expect(page.locator(".bp-dialog")).toBeVisible();
+        await page
+          .locator(".bp-preset-name-ko")
+          .fill("아주 긴 프리셋 이름으로 넘침을 보는 시험 프리셋 하나둘");
+        // 이름 상한(40자)을 꽉 채운 영어 이름: 받을 수 있는 값이라 [만들기]가 켜져 있다
+        await page.locator(".bp-preset-name-en").fill("A long preset name that fits forty chars");
+        await expect(page.locator(".bp-dialog .bp-dialog-confirm")).not.toHaveAttribute(
+          "aria-disabled",
+          "true",
+        );
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await shot(page, `balance-preset-dialog-${theme}-${language}-${width}`);
+        await page.keyboard.press("Escape");
+        await expect(page.locator(".bp-dialog")).toBeHidden();
         await resetTuning(page);
         expect(unexpected(deviceErrors)).toEqual([]);
       });

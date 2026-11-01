@@ -13,7 +13,7 @@
         "max": 10
       },
       "naturalWeapon": {
-        "physical": { "attack": 5, "attackAppropriate": 20 },
+        "physical": { "attack": 20, "attackAppropriate": 80 },
         "hitPm": 850,
         "hitAppropriate": 20,
         "critPm": 50,
@@ -26,7 +26,7 @@
         "mpCost": 0
       },
       "naturalElementalWeapon": {
-        "elemental": { "attack": 5, "attackAppropriate": 20 },
+        "elemental": { "attack": 20, "attackAppropriate": 80 },
         "hitPm": 850,
         "hitAppropriate": 20,
         "critPm": 50,
@@ -53,7 +53,7 @@
         "max": 10
       },
       "naturalWeapon": {
-        "physical": { "attack": 5, "attackAppropriate": 20 },
+        "physical": { "attack": 20, "attackAppropriate": 80 },
         "hitPm": 850,
         "hitAppropriate": 20,
         "critPm": 50,
@@ -66,7 +66,7 @@
         "mpCost": 0
       },
       "naturalElementalWeapon": {
-        "elemental": { "attack": 5, "attackAppropriate": 20 },
+        "elemental": { "attack": 20, "attackAppropriate": 80 },
         "hitPm": 850,
         "hitAppropriate": 20,
         "critPm": 50,
@@ -93,7 +93,7 @@
         "max": 10
       },
       "naturalWeapon": {
-        "physical": { "attack": 5, "attackAppropriate": 20 },
+        "physical": { "attack": 20, "attackAppropriate": 80 },
         "hitPm": 850,
         "hitAppropriate": 20,
         "critPm": 50,
@@ -106,7 +106,7 @@
         "mpCost": 0
       },
       "naturalElementalWeapon": {
-        "elemental": { "attack": 5, "attackAppropriate": 20 },
+        "elemental": { "attack": 20, "attackAppropriate": 80 },
         "hitPm": 850,
         "hitAppropriate": 20,
         "critPm": 50,
@@ -146,7 +146,7 @@
         "mpCost": 0
       },
       "naturalElementalWeapon": {
-        "elemental": { "attack": 5, "attackAppropriate": 20 },
+        "elemental": { "attack": 20, "attackAppropriate": 80 },
         "hitPm": 850,
         "hitAppropriate": 20,
         "critPm": 50,

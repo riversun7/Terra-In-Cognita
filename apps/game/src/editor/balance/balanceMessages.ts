@@ -1,6 +1,7 @@
 // 밸런스 화면 문구 표 — 1차 이름·칸 이름·오류·규칙 문제 → 메시지(oxlint: 메시지 이름을 계산해 읽지 않는다, 표로 적는다).
 // 이 조각(BalancePanelScreen)에만 든다. 설정 칸 패널(editor/tuning)의 표는 가져오지 않는다(두 개발자 조각이 같이 쓰는 모듈은
 // 따로 한 조각이 되어 미리 캐시 규칙에 걸리지 않을 수 있다, scripts/pwa-build.mjs DEV_ONLY_SOURCE).
+import type { BalancePresetSource } from "@terra/shared/balance";
 import type { PrimaryStat } from "@terra/shared/roster";
 import type { StatCellField, TuningProblem } from "@terra/shared/tuning";
 import { m } from "../../paraglide/messages.js";
@@ -50,6 +51,10 @@ const ERROR_TEXT: Readonly<Record<BalanceErrorKey, () => string>> = {
   rate_limited: m.dev_balance_err_rate_limited,
   timeout: m.dev_balance_err_timeout,
   failed: m.dev_balance_err_failed,
+  invalid_preset: m.dev_balance_err_invalid_preset,
+  unknown_preset: m.dev_balance_err_unknown_preset,
+  preset_conflict: m.dev_balance_err_preset_conflict,
+  too_many_presets: m.dev_balance_err_too_many_presets,
   unknown_entry: m.dev_balance_err_unknown_entry,
   out_of_range: m.dev_balance_err_out_of_range,
   rules_conflict: m.dev_balance_err_rules_conflict,
@@ -85,3 +90,12 @@ export const problemText = (problem: TuningProblem): string => PROBLEM_TEXT[prob
 
 /** 1차 목록 → "STR · WIS" */
 export const primaryList = (stats: readonly PrimaryStat[]): string => stats.map(primaryCode).join(" · ");
+
+const SOURCE_TEXT: Readonly<Record<BalancePresetSource, () => string>> = {
+  pack: m.dev_balance_preset_source_pack,
+  edited: m.dev_balance_preset_source_edited,
+  custom: m.dev_balance_preset_source_custom,
+};
+
+/** 프리셋 출처(팩·팩에서 고침·팀이 만듦) */
+export const presetSourceText = (source: BalancePresetSource): string => SOURCE_TEXT[source]();

@@ -232,7 +232,7 @@
         "ko": "적정 STA 점수",
         "en": "Appropriate STA score"
       },
-      "value": 80,
+      "value": 10,
       "structural": false
     },
     {

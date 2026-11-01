@@ -1,6 +1,7 @@
 // 밸런스 화면(/dev/balance) — docs/adr/2026-11-01-balance-screen.md 7절. dev·admin, 틀 안, 촘촘.
 // - 가중치 표(팩 stat_rows의 실효 값)를 고쳐 담고, 1차 스탯 +10의 2차 스탯 기여(balance.contribution, 담을 때마다 곧바로)와
 //   시드 대결 승률(balance.duels, [승률 돌리기])을 지금 표·고친 표로 견준다. 계산은 모두 서버가 한다(기기는 판정 코드를 받지 않는다).
+// - 기준 유닛 프리셋(팀이 함께 씀, "바뀜 (D-467)")을 고르면 기준 유닛 칸을 채운다(BalancePresets.tsx).
 // - [적용]은 담은 칸을 설정 칸 패널과 같은 묶음(tuning.save)으로 보낸다: 서버가 검사하고 그 세계에 바로 넣는다(감사 기록·설정 판).
 //   판 충돌이면 표를 다시 받고 담은 칸은 남긴다(바뀔 것이 없어진 칸은 뺀다). 받지 않을 묶음은 기여 조회가 미리 알린다.
 // 조각 이름 BalancePanelScreen-*(미리 캐시 규칙 [Bb]alancePanel). 시험용 data-*: data-status(loading·ready·failed), data-revision.
@@ -12,6 +13,7 @@ import {
   type BalanceCellView,
   type BalanceContributionResponse,
   type BalanceDuelsResponse,
+  type BalancePresetView,
   type BalanceRowView,
   type BalanceTableResponse,
   type BalanceWeaponView,
@@ -26,6 +28,7 @@ import { getLocale } from "../../paraglide/runtime.js";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
+import { BalancePresets } from "./BalancePresets.tsx";
 import { ContributionView, DuelsView } from "./BalanceResults.tsx";
 import { BalanceTable } from "./BalanceTable.tsx";
 import { errorText, primaryCode, primaryName, problemText } from "./balanceMessages.ts";
@@ -46,6 +49,7 @@ import {
   settingsProblem,
   stageCell,
 } from "./balanceModel.ts";
+import { optionsWith } from "./balancePresetModel.ts";
 import "./balancePanel.css";
 
 type Load =
@@ -159,6 +163,15 @@ export default function BalancePanelScreen() {
     return () => clearTimeout(timer);
   }, [revision, parsed, pending]);
 
+  /** 프리셋을 고르면 기준 유닛 칸을 채운다(대결 결과는 지문이 달라져 "옛 결과"로 보인다) */
+  const pick = (preset: BalancePresetView): void => {
+    setPrimaries(primariesText(preset.primaries));
+    setWeapon(preset.weapon);
+    setCount(preset.count);
+    setRuns(preset.runs);
+    setLimitSec(preset.limitSec);
+  };
+
   const stage = (row: BalanceRowView, cell: BalanceCellView, value: number | null): void => {
     setPending((previous) => stageCell(previous, row, cell, value));
     problem.clear();
@@ -263,6 +276,21 @@ export default function BalancePanelScreen() {
               {m.dev_balance_fighter_title()}
             </h2>
             <p className="field-hint">{m.dev_balance_fighter_hint()}</p>
+            <BalancePresets
+              presets={table.presets}
+              writable={table.presetsWritable}
+              locale={locale}
+              form={{ primaries: parsed, weapon, count, runs, limitSec }}
+              onPick={pick}
+              onChanged={(response) =>
+                setLoad((previous) =>
+                  previous.status === "ready"
+                    ? { status: "ready", table: { ...previous.table, ...response } }
+                    : previous,
+                )
+              }
+              onConflict={reload}
+            />
             <div className="bp-primaries">
               {PRIMARY_STATS.map((stat) => (
                 <label key={stat} className="bp-primary" data-field={stat}>
@@ -314,7 +342,7 @@ export default function BalancePanelScreen() {
                   {m.dev_balance_runs()}
                 </label>
                 <select id={runsId} value={runs} onChange={(event) => setRuns(Number(event.target.value))}>
-                  {RUN_OPTIONS.map((value) => (
+                  {optionsWith(RUN_OPTIONS, runs).map((value) => (
                     <option key={value} value={value}>
                       {value}
                     </option>
@@ -330,7 +358,7 @@ export default function BalancePanelScreen() {
                   value={limitSec}
                   onChange={(event) => setLimitSec(Number(event.target.value))}
                 >
-                  {LIMIT_OPTIONS.map((value) => (
+                  {optionsWith(LIMIT_OPTIONS, limitSec).map((value) => (
                     <option key={value} value={value}>
                       {m.dev_balance_seconds({ seconds: value })}
                     </option>

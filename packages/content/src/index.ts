@@ -45,6 +45,7 @@ export {
 } from "./schema/economy.ts";
 export { mapPropEntrySchema, type MapPropEntry } from "./schema/mapProps.ts";
 export { statRowEntrySchema, type StatRowEntry } from "./schema/stats.ts";
+export { balancePresetEntrySchema, type BalancePresetEntry } from "./schema/balance.ts";
 export { tuningEntrySchema, tuningValueInRange, type TuningEntry } from "./schema/tuning.ts";
 export {
   TUNING_DIFF_FORMAT,

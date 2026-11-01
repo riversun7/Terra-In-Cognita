@@ -1,0 +1,64 @@
+# 스킬 편집기·행동별 소모 개발자 화면(/dev/skills), 맨손은 스킬 못 씀, 쉴드 재생은 맞아도 계속
+
+- 일시: 2026-11-01 21:45 (KST)
+- 작업 도구: Claude Code
+- 관련: ADR `docs/adr/2026-11-01-skill-editor.md`(제안), `2026-11-01-dev-settings-panel.md`, `2026-11-01-balance-screen.md`, `2026-10-31-combat-core.md`, 기획 D-490·D-491·D-487·D-461, 가지 `work/skill-editor`(main 5c621d3 위)
+
+## 한 일
+- **전투 규칙(D-490)**, `tdd`로 시험부터
+  - 쉴드 재생은 맞는 중에도 일정하게 찬다: `shieldRegenDelayMs`·`lastHitMs` 없앰, 팩 `n40_shield_regen_delay` 지움 + `id-changes.json` `removed`(since 21)를 뒤에 더함(세계에 남은 덮어쓰기는 D1이 켤 때 `unknown_entry`로 지움).
+  - 효과 사전 수치 `shield_regen`(버프·디버프 ‰, 분당 재생 × max(0, 1000 + ‰) ÷ 1000, `shieldRegenPerMinute`): 재생 단계가 쓴다. 팩 스킬은 그대로.
+  - 맨손은 스킬을 쓸 수 없다(맨손 스킬 제외): 스킬 선택 칸 `weaponField`(physical·elemental·any, 없으면 기반)·`bareHand`, 사양 `weaponFields`·`bareHandAttack`, 판정 `skillUsable`(AI `pickSkill`·지속형 `applyPassives`가 거름). "맞는 칸이 없으면 맨손 자료로 셈"을 없앰. 맨손 스킬은 늘 타고난 무기·맨손 속성 자료로 센다(든 무기 계수 없음). 스킬 명령은 아직 없다(같은 함수로 거절할 자리).
+  - 유닛 종류 선택 칸 `naturalWeaponIsWeapon`: 팩에 크리쳐 참, 사이보그·휴먼·안드로이드 거짓(적지 않으면 무기 칸 없는 종류만 참). `loadoutOf`가 `bareHanded`를 낸다.
+- **팩 항목 덮어쓰기(D-461 바로 듦)**: 새 표 `content_overrides`·`content_override_revision`(마이그레이션 `20261101120613_content_overrides`, 더하기만, 표 정의 `db/contentEditSchema.ts`). 접근자 `contentEdit/state.ts`(실효 항목·묶음 검사 = 실효 팩 전체를 `validatePack`·켤 때 고르기 = 저장 때 팩 항목 해시), 저장 `store.ts`(판·감사 `content.apply`·`content.pack_won`·`content.dropped`), 요청 `services.ts`, 화면 자료 `views.ts`. tRPC `skills.list`·`skills.history`·`skills.save`(권한·속도 제한 = D1 `tuning:*`). `/health` `contentOverrides`·`contentRevision`.
+- **읽는 곳을 실효 항목으로**: 유닛·사이보그 화면 자료(`rosterCatalogOf` `combat`·`names`·`baseValue` 접근자), 정원사 웨이브 전투(`combatCatalog`를 함수로: 월드·NPC 런타임·정원사), 밸런스 화면(같은 `roster.combat`).
+- **내보내기 → 팩**: 차이 형식에 선택 칸 `entries`(`from` = 팩 항목 해시, 만든 항목 null), `pnpm tuning:apply`가 분류 파일 항목을 통째로 바꾸거나 끝에 붙임(`@terra/content/node` `applyEntriesDiff`·`hashEntry`), 판은 한 번.
+- **화면 `/dev/skills`**: [스킬](목록·찾기·거르기·새 스킬, 모든 칸: 이름·설명·켜기, 기반·피해·필요한 무기 칸·맨손 스킬, 모양·발동·대상·사거리·반지름·연쇄, 자원·소모·시전·쿨, 공식 부품·조건·특수 효과(효과 사전)·등급, 저장·편집 취소·복제·끄기/켜기·팩 값으로·지우기) · [행동별 소모](걷기·퇴각 무료, 무기별·유닛 종류별 기본 공격 스태미나·MP, 건물 공격 = 기본 공격 값, 회피 기동 미구현, 스킬별 자원·소모, 줄마다 [적용]). 지연 로딩·미리 캐시 밖(`[Ss]killEditor`), 개발자 홈 줄, 메시지 185개(ko·en).
+- 팩 core@20 → core@21. `SIM_VERSION` 4 → 5(아래 시뮬).
+
+## 바꾼 파일과 이유
+| 파일 | 이유 |
+|---|---|
+| `packages/sim/src/combat/{battle,battleState,battleTypes,coefficients,effects,skills,unitSpec,equipment,catalog,packCatalog}.ts`, `simulator/combatRun.ts`, `tuning.ts`, `index.ts`, `version.ts` | 쉴드 재생 지연 없앰·`shield_regen` 효과, 맨손 규칙(`skillUsable`·`weaponFields`·`bareHandAttack`·`bareHanded`·`naturalWeaponIsWeapon`), SIM_VERSION 5 |
+| `packages/sim/src/combat/{battle,effects,skills,unitSpec}.test.ts`, `tuning.test.ts` | 새 규칙 시험(쉴드 계속·저주·버프, 칼·지팡이·마검·맨손·크리쳐, AI·지속형 거름) |
+| `packages/content/src/schema/combat.ts`, `validate/combat.test.ts` | 스킬 `weaponField`·`bareHand`, 유닛 종류 `naturalWeaponIsWeapon`, 효과 `shield_regen` + 규칙 시험 |
+| `packages/content/src/tuningDiff.ts`, `index.ts`, `node/{hash,entriesDiff,index}.ts` | 차이 `entries` 칸, 항목 해시·적용 함수 |
+| `scripts/apply-tuning-diff.mjs`(+test) | `pnpm tuning:apply`가 `entries`를 분류 파일에 |
+| `content/core/{manifest,tuning,id-changes,unit_kinds}.json` | core@21, N40 지연 칸 지움(+ID 변경표), 유닛 종류 칸 |
+| `apps/server/src/contentEdit/*`, `db/contentEditSchema.ts`, `db/schema.ts`, `drizzle/20261101120613_content_overrides/` | 팩 항목 덮어쓰기 층(접근자·저장·요청·화면 자료·시험 2개) |
+| `apps/server/src/trpc/{skills,router,context,createContext}.ts`, `tuning/services.ts`, `app.ts`, `main.ts` | `skills.*` 라우터, 내보내기 `entries`, 켤 때 싣기, `/health` |
+| `apps/server/src/roster/catalog.ts`, `world/{world,combatCatalog}.ts`, `npc/{runtime,gardener}.ts` | 전투 자료를 실효 항목으로 쓸 때마다 읽음 |
+| `packages/shared/src/skillEditor.ts`, `tuning.ts`, `routes.ts`(+test), `package.json` | 공용 모양, 차이 `entries` 모양, 주소 줄 `dev_skills` |
+| `apps/game/src/editor/skills/*`, `editor/{DevHome,devIcons}.tsx`, `shell/routeViews.tsx`, `sections/ComingSoon.tsx`, `messages/{ko,en}.json`, `vite.config.ts`, `scripts/pwa-build.mjs`(+test) | 화면·문구·지연 로딩·미리 캐시 규칙 |
+| `e2e/skills.spec.ts` | 화면 시험 |
+| `docs/adr/2026-11-01-skill-editor.md`, `docs/PLAN.md`(ADR 표 49) | 결정 기록 |
+
+## 시험·검사
+- 시뮬레이터(시드 1, 두 번씩, 위반 0. 앞 = main 5c621d3을 저장소 밖에 풀어 돌림, 뒤 = 이 가지)
+  - war16 30일: 하루·전투 줄이 모두 같다(머리·요약 줄의 팩 판·해시·SIM_VERSION만 다름). 전투 123(조우 123), 공격 쪽 승 55, 쓰러짐 428, 틱 132,068 그대로. 줄 해시 `88edea7d` → `459bae3a`.
+  - stub16 180일: 하루 줄 모두 같다. 줄 해시 `6db997de` → `4e9f2147`.
+  - econ16 180일: 13일 웨이브 전투(틱 750 → 700)부터 달라진다 — 시뮬 정원사 마법형 크리쳐(물리 스킬 셋 + 지팡이 = 속성 칸만)가 물리 기반 스킬을 더는 쓰지 않는다(D-490). 웨이브 예고 529 → 494, 웨이브 전투 383 → 342, 웨이브 승 31 → 38, 끝 세력 19 → 18·도시 58 → 56·유닛 838 → 809, 도시 몫 최대 1,666 → 1,578bp. 줄 해시 `67b687fa` → `2ccc72e8`. 같은 입력의 결과가 바뀌어 SIM_VERSION 4 → 5.
+  - 두 번 돌린 결과: 앞·뒤 모두 세 시나리오가 두 번 바이트까지 같다(줄·요약 파일 SHA-256 같음), 위반 0. 뒤 줄 해시는 SIM_VERSION 5 머리로 다시 돌린 값.
+- `TEST_DATABASE_URL=postgres://terra@127.0.0.1:55432/postgres pnpm check`: 통과(시험 파일 335·시험 2,864, 포맷·린트·타입·경계·크기·다국어·디자인 값·콘텐츠). 새 시험: 서버 `contentEdit/state.test.ts`(7)·`contentEdit.db.test.ts`(5), sim 쉴드·맨손·팩 칸 기본값, 콘텐츠 스키마 3, `apply-tuning-diff` entries 1, 화면 모델 `skillModel.test.ts`(6).
+- 화면 시험(Playwright 1.63, 헤드리스 Chromium, `TEST_DATABASE_URL` 개발 DB): `skills`·`dev`·`tuning`·`units`·`cyborg`·`balance` 함께 83개 중 82 통과·1 실패(`dev.spec.ts` 개발자 도구 줄 수 6 → 7, 시험을 고침) → 고친 뒤 `skills`·`dev` 24개 모두 통과. 줄기별: skills 12, dev 12, tuning 16, units 13, cyborg 17, balance 13. 처음 돌렸을 때 skills 6개가 실패했다(data-* 값 "true", 390px 가로 넘침 10px — 그리드 칸 `minmax(0, 1fr)`로 고침).
+- 사진(파스텔·다크 × ko·en × 390·1440, 스킬 칸·행동별 소모 표 16장): `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/skill-editor/shots/` (저장소 밖). 넘침·작은 누르는 곳 검사 통과.
+- `pnpm check:bundle`: 첫 화면 JS 104,409 B / 상한 131,416 B(편집기는 지연 조각). `pnpm check:content 5c621d3`: core@21 통과(호환 4b 포함).
+
+## 함께 바꿔야 하는 파일
+- 스킬 칸을 더하면: `packages/content/src/schema/combat.ts` → `packages/sim/src/combat/{skills,packCatalog}.ts` → `apps/server/src/contentEdit/views.ts`(`skillJsonOf`) → `packages/shared/src/skillEditor.ts`(`SkillJson`) → 화면 `editor/skills/SkillForm.tsx`.
+- 효과 사전 수치를 더하면: 팩 스키마 `stat` 목록 + `effects.ts ModifierStat`·`modifiersOf`.
+
+## 건드리지 말 것
+- 올라간 마이그레이션 `20261101120613_content_overrides`는 고치지 않는다.
+- `id-changes.json`은 뒤에 더하기만.
+
+## 미검증·TODO·알려진 문제
+- 스킬 명령(유저 개입)이 없어 "명령 거절"은 `skillUsable` 함수만 있다(명령이 생기면 같은 함수로 거절).
+- 시뮬레이터 `--tuning`이 차이의 `entries`를 아직 얹지 않는다(서버·시뮬 실효 항목이 다를 수 있음).
+- 시뮬 정원사 마법형 크리쳐는 같은 물리 스킬 셋에 지팡이만 들어 이제 스킬을 못 쓴다(시뮬 [임시] 장비, `work/battle-lab` 프리셋과 같이 정리).
+- 유닛·사이보그 화면은 "든 무기로 못 쓰는 스킬"을 아직 따로 보이지 않는다.
+- NAS 실행·NAS 부하는 재지 않았다(Unknown).
+- 다른 줄기와 겹침: `work/formulas`(팩 core@21·SIM_VERSION 5를 같이 씀, `coefficients.ts`에서 `shieldRegenDelayMs`를 뺐다), `work/battle-replay`(스킬 `shape`·연쇄 칸은 그대로).
+
+## 사용자 결정 대기
+- 없음(스킬 세부는 편집기에서 정한다, D-490). 기술 기본값으로 정한 것: 맨손 스킬은 무기를 들어도 늘 타고난 무기로 센다, 지속형 스킬도 든 무기로 거른다, `naturalWeaponIsWeapon`(크리쳐 참·사람형 거짓).

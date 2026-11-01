@@ -3,10 +3,12 @@
 // 공격 간격 = 무기 간격 × 1000 ÷ min(2000, 행동 속도 × 1000 ÷ 무기 적정 속도)(D-418 행동 속도 점수, D-420 같은 틀).
 // 명중·크리도 점수(D-458): 무기 값 × min(2, 점수 ÷ 적정). 무기의 속성 계수(skillElementsPm)는 물리 칸이면 옵션(속성 몫, D-459)이다.
 // 무기는 공격력 칸을 물리·속성 하나 또는 둘 가진다(D-465). 스킬은 기반에 맞는 칸(없으면 맨손·맨손 속성), 기본 공격은 basic 칸(질문 235 가).
+// 공격 간격은 계산식 attack_interval(기본 = 위 틀), 맨손 기본 공격(무기 unarmed)은 맨손 식 bare_attack(D-488, formula.ts realAttackOf).
 import type { CombatUnitSpec } from "./battleTypes.ts";
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS, staminaScore } from "./coefficients.ts";
 import { UNARMED, UNARMED_ELEMENTAL } from "./catalog.ts";
 import { type AttackProfile, ELEMENT_COUNT } from "./formula.ts";
+import { attackIntervalMs } from "./formulas.ts";
 import type { CombatSkill } from "./skills.ts";
 import type { Primaries } from "./stats.ts";
 
@@ -41,6 +43,11 @@ export interface WeaponSpec {
   readonly staminaCost: number;
   readonly mpCost: number;
   readonly skillElementsPm?: readonly number[] | undefined;
+  /**
+   * 사람형 맨손(타고난 무기, 팩 unit_kinds naturalWeapon unarmed): 기본 공격의 실제 공격력을 맨손 식(bare_attack, D-488)으로
+   * 셈한다. 크리쳐 발톱 같은 다른 타고난 무기는 무기 틀 그대로(질문 275)
+   */
+  readonly unarmed?: boolean | undefined;
 }
 
 export interface UnitBody {
@@ -71,6 +78,8 @@ export interface UnitBody {
   readonly buildingMulPm?: number | undefined;
   /** 1차 스탯(장비 포함, 상태이상 저항 D-429) */
   readonly primaries?: Primaries | undefined;
+  /** 레벨(맨손 식의 적정 DEX, D-488). 없으면 1 */
+  readonly level?: number | undefined;
   readonly skills?: readonly CombatSkill[] | undefined;
 }
 
@@ -89,12 +98,17 @@ export function specFromStats(
   const primaries = p ? [p.str, p.dex, p.agi, p.vit, p.int, p.wis] : [0, 0, 0, 0, 0, 0];
   const s = (id: string): number => body.stats[id] ?? 0;
   const w = body.weapon;
-  const speedRatio = Math.min(
-    2000,
-    Math.floor((Math.max(1, s("action_speed")) * 1000) / Math.max(1, w.speedAppropriate)),
-  );
-  /** 무기의 한 칸 → 공격 사양(물리 칸 = 물리 공격력, 속성 칸 = 속성 공격력. 무기 틀 D-420). 명중·크리·옵션 계수는 무기 값 */
-  const profileOf = (weapon: WeaponSpec, kind: AttackField, field: WeaponAttackField): AttackProfile => ({
+  /**
+   * 무기의 한 칸 → 공격 사양(물리 칸 = 물리 공격력, 속성 칸 = 속성 공격력. 무기 틀 D-420). 명중·크리·옵션 계수는 무기 값.
+   * bare = 맨손 일반 공격(D-488): 1차·레벨을 싣고 실제 공격력을 맨손 식으로 셈한다
+   */
+  const profileOf = (
+    weapon: WeaponSpec,
+    kind: AttackField,
+    field: WeaponAttackField,
+    bare = false,
+  ): AttackProfile => ({
+    ...(bare ? { unarmed: true, primaries, level: body.level ?? 1 } : {}),
     kind,
     weaponAttack: field.attack,
     attackStat: kind === "physical" ? s("physical_attack") : s("elemental_attack"),
@@ -116,8 +130,11 @@ export function specFromStats(
   const basic = basicFieldOf(w);
   const basicField = w[basic];
   if (!basicField) throw new RangeError(`weapon has no ${basic} attack field`);
-  const attack = profileOf(w, basic, basicField);
-  /** 스킬 기반의 공격 사양(D-465): 든 무기에 그 칸이 있으면 그 칸, 없으면 맨손(그 칸이 없으면 기본값)의 칸 */
+  const attack = profileOf(w, basic, basicField, w.unarmed === true && basic === "physical");
+  /**
+   * 스킬 기반의 공격 사양(D-465): 든 무기에 그 칸이 있으면 그 칸, 없으면 맨손(그 칸이 없으면 기본값)의 칸.
+   * 맨손 식은 기본 공격에만 쓴다(스킬은 무기 틀 그대로, D-490 맨손 스킬은 스킬 편집기 몫)
+   */
   const skillProfile = (
     kind: AttackField,
     natural: WeaponSpec | undefined,
@@ -125,7 +142,7 @@ export function specFromStats(
     fallbackField: WeaponAttackField,
   ): AttackProfile => {
     const held = w[kind];
-    if (held) return kind === basic ? attack : profileOf(w, kind, held);
+    if (held) return kind === basic && !attack.unarmed ? attack : profileOf(w, kind, held);
     const own = natural?.[kind];
     return natural && own ? profileOf(natural, kind, own) : profileOf(fallback, kind, fallbackField);
   };
@@ -159,7 +176,7 @@ export function specFromStats(
     },
     range: w.range,
     arc: w.arc,
-    attackIntervalMs: Math.max(1, Math.floor((w.intervalMs * 1000) / Math.max(1, speedRatio))),
+    attackIntervalMs: attackIntervalMs(w.intervalMs, s("action_speed"), w.speedAppropriate, c),
     moveIntervalMs: body.moveIntervalMs,
     staminaMax: Math.max(0, s("stamina")),
     staminaCost: w.staminaCost,

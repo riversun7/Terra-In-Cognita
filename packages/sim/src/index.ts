@@ -383,6 +383,8 @@ export {
   affinityRatePm,
   msToTicks,
   regenOnTick,
+  staminaCostMilli,
+  staminaScore,
   type CombatCoefficients,
 } from "./combat/coefficients.ts";
 export {
@@ -391,6 +393,7 @@ export {
   elementAddPm,
   familyValue,
   matchupPm,
+  realAttackOf,
   resolveAttack,
   sightRadius,
   weaponScaled,
@@ -400,6 +403,19 @@ export {
   type DefenseProfile,
   type Rolls,
 } from "./combat/formula.ts";
+export {
+  DEFAULT_COMBAT_FORMULA_SET,
+  attackIntervalMs,
+  bareAttackValue,
+  combatFormulaSetFrom,
+  critMultiplierPm,
+  evadeChancePm,
+  frameValue,
+  isValidCombatFormula,
+  staminaCostMilliOf,
+  staminaScoreOf,
+  type CombatFormulaSet,
+} from "./combat/formulas.ts";
 export {
   MAX_STAT_INPUT,
   MAX_WEIGHT_PM,
@@ -524,7 +540,7 @@ export {
   type CombatCatalog,
   type UnitKindDef,
 } from "./combat/catalog.ts";
-export { combatCatalogFrom } from "./combat/packCatalog.ts";
+export { combatCatalogFrom, combatFormulasFromPack, statRowFrom } from "./combat/packCatalog.ts";
 export {
   TUNING_KEYS,
   combatCoefficientsFrom,

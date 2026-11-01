@@ -49,6 +49,8 @@ const UNARMED_BODY = {
 export const UNARMED: WeaponSpec & { readonly physical: WeaponAttackField } = {
   physical: { attack: 5, attackAppropriate: 20 },
   ...UNARMED_BODY,
+  // 기본 공격의 실제 공격력은 맨손 식(bare_attack, D-488). 공격력 5·적정 20은 맨손 스킬·건물 피해의 무기 틀에만 남는다
+  unarmed: true,
 };
 
 /**
@@ -63,7 +65,7 @@ export const UNARMED_ELEMENTAL: WeaponSpec & { readonly elemental: WeaponAttackF
 
 /** [임시] 크리쳐 타고난 무기(D-436, 종 데이터 전 단계) */
 const CLAWS: WeaponSpec = {
-  ...UNARMED,
+  ...UNARMED_BODY,
   physical: { attack: 12, attackAppropriate: 30 },
   hitPm: 850,
   critPm: 100,

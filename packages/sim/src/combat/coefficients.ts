@@ -4,6 +4,9 @@
 // 출발값: 기획 설정 칸(49 5장·6.5 N1~N33)에 있는 값은 그대로, 없는 값은 [임시]. 배율은 ‰, 확률 굴림은 0~9999.
 // 정본은 기획 48(수치·공식)이다. 콘텐츠 팩 `tuning`(N 칸 값)이 있으면 실행 도구가 이 표를 그 값으로 바꾼다(tuning.ts).
 // 게임 상한은 없다(D-421: 하드캡·속성 하한 거둠).
+// 식(실제 공격력·명중·크리·맨손·크리 배율·공격 간격·STA 점수·스태미나 소모·최종 회피)은 개발자 모드에서 고치는 계산식이다
+// (formulas.ts, docs/adr/2026-11-01-formula-editor.md). 이 표의 수(N10·N11·N12·N13)는 식의 변수로 들어간다.
+import { type CombatFormulaSet, staminaCostMilliOf, staminaScoreOf } from "./formulas.ts";
 
 export interface CombatCoefficients {
   /** 판정 틱(ms). 기술 결정(ADR combat-core "틱"): 100ms */
@@ -53,6 +56,11 @@ export interface CombatCoefficients {
   };
   /** 피격 뒤 쉴드 재생 지연(ms, 49 N40 묶음, D-463 212): 맞은 뒤 이만큼 지나야 쉴드가 다시 찬다. 출발값 0(맞아도 곧바로 참) */
   readonly shieldRegenDelayMs: number;
+  /**
+   * 전투 계산식 묶음(팩 formulas + 그 세계의 덮어쓰기, docs/adr/2026-11-01-formula-editor.md). 없으면 기본 식
+   * (DEFAULT_COMBAT_FORMULA_SET = 지금 코드와 같은 결과, 맨손만 옛 프로젝트 규칙)
+   */
+  readonly formulas?: CombatFormulaSet | undefined;
 }
 
 /**
@@ -101,20 +109,14 @@ export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
   shieldRegenDelayMs: 0,
 };
 
-/** STA 점수(N13) = Σ 1차 × 가중치‰ ÷ 1000 */
+/** STA 점수(N13): 식 stamina_score(기본 = ⌊AGI × 가중치 + VIT × 가중치⌋) */
 export function staminaScore(primaries: readonly number[], c: CombatCoefficients): number {
-  let sum = 0;
-  for (let i = 0; i < 6; i++) sum += (primaries[i] ?? 0) * (c.stamina.scoreWeightsPm[i] ?? 0);
-  return Math.floor(sum / 1000);
+  return staminaScoreOf(primaries, c);
 }
 
-/** 행동 한 번의 스태미나 소모(밀리점, N13): 기본 × max(최소 소모, 적정 ÷ 점수) */
+/** 행동 한 번의 스태미나 소모(밀리점, N13): 식 stamina_cost(기본 = 기본 소모 × max(최소 소모, 적정 ÷ 점수)) */
 export function staminaCostMilli(baseCost: number, score: number, c: CombatCoefficients): number {
-  const factor =
-    score <= 0
-      ? c.stamina.appropriateScore * 1000
-      : Math.max(c.stamina.minConsumePm, Math.floor((c.stamina.appropriateScore * 1000) / score));
-  return baseCost * factor;
+  return staminaCostMilliOf(baseCost, score, c);
 }
 
 const MINUTE_MS = 60_000;

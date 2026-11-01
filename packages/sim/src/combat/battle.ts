@@ -267,6 +267,8 @@ function makeBattle(
       evade: rng.nextInt(10_000),
       crit: rng.nextInt(10_000),
       critPos: rng.nextInt(10_000),
+      // 맨손 일반 공격(D-488)만 피해 범위 자리를 하나 더 뽑는다: 무기 공격의 굴림 흐름은 바꾸지 않는다
+      damagePos: attacker.attack.unarmed ? rng.nextInt(10_000) : undefined,
     };
     const hit = resolveAttack(
       withAttackModifiers(attacker.attack, modifiersOf(attacker)),

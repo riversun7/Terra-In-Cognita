@@ -6,6 +6,16 @@
 // - 게임 상한은 없다(D-421). 확률 모양이 저절로 상한(점근선)을 넘지 않는다. 정수 넘침은 입력 범위로 막는다(아래 상수).
 // - 안드로이드(D-416)는 레벨·K 없이 1차 = 몸체 + 부품 합을 그대로 넘긴다(같은 표·같은 함수).
 // 원본 표는 콘텐츠 팩 `stat_rows`(임시)이고, 시험·기본값은 TEST_STAT_TABLE(같은 값)이다.
+// - 행 식(docs/adr/2026-11-01-formula-editor.md): 행에 formula(개발자 모드에서 고친 계산식, 팩 stat_rows formula 또는 그 세계의
+//   덮어쓰기)가 있으면 가중치 대신 그 식으로 셈한다(변수 = 1차 6개·레벨·그 행의 장비·버프, 결과는 내림한 정수). 식이 없는 행은
+//   가중치 그대로이고, 가중치에서 만든 식(@terra/shared statRowExpression)은 이 계산과 같은 값을 낸다(stats.test.ts).
+import {
+  type FormulaProgram,
+  type FormulaTerm,
+  evaluateFormulaInt,
+  explainFormula,
+  statRowScope,
+} from "@terra/shared/formula";
 
 export interface Primaries {
   readonly str: number;
@@ -22,6 +32,8 @@ export type StatRow =
       readonly shape: "quantity";
       readonly base: number;
       readonly weights: readonly number[];
+      /** 행 식(있으면 가중치·기본 대신 이 식) */
+      readonly formula?: FormulaProgram | undefined;
     }
   | {
       readonly id: string;
@@ -30,6 +42,7 @@ export type StatRow =
       readonly cap: number;
       readonly halfConstant: number;
       readonly weights: readonly number[];
+      readonly formula?: FormulaProgram | undefined;
     };
 
 /** 입력 범위(넘침 방지): 1차 스탯·장비·버프 값은 이 안이어야 한다(가장 큰 곱 = 10^7 × 10^5 × 6 < 2^53) */
@@ -47,17 +60,33 @@ function check(value: number, label: string): void {
     throw new RangeError(`${label} out of range: ${value}`);
 }
 
-/** 2차 스탯과 활동 수치(행 ID → 값). gear·buffs는 행 ID → 더하는 값 */
+/** 행 식의 값(변수 = 1차 6개·레벨·그 행의 장비·버프) */
+function formulaValue(
+  program: FormulaProgram,
+  p: readonly number[],
+  level: number,
+  gear: number,
+  buff: number,
+): number {
+  return evaluateFormulaInt(program, statRowScope(p, level, gear, buff));
+}
+
+/** 2차 스탯과 활동 수치(행 ID → 값). gear·buffs는 행 ID → 더하는 값. level은 행 식의 LV(없으면 1) */
 export function computeSecondary(
   primaries: Primaries,
   table: readonly StatRow[],
   gear: Readonly<Record<string, number>> = {},
   buffs: Readonly<Record<string, number>> = {},
+  level = 1,
 ): Record<string, number> {
   const p = [primaries.str, primaries.dex, primaries.agi, primaries.vit, primaries.int, primaries.wis];
   for (const value of p) check(value, "primary");
   const out: Record<string, number> = {};
   for (const row of table) {
+    if (row.formula) {
+      out[row.id] = formulaValue(row.formula, p, level, gear[row.id] ?? 0, buffs[row.id] ?? 0);
+      continue;
+    }
     let weighted = 0;
     for (let i = 0; i < 6; i++) {
       const weight = row.weights[i] ?? 0;
@@ -100,6 +129,8 @@ export interface SecondaryExplanation {
   readonly cap: number | null;
   readonly halfConstant: number | null;
   readonly value: number;
+  /** 행 식으로 셈한 행: 식 글과 결과 식의 항(이때 terms는 비고 weighted = value − extra) */
+  readonly formula?: { readonly source: string; readonly terms: readonly FormulaTerm[] } | undefined;
 }
 
 /**
@@ -111,10 +142,32 @@ export function explainSecondary(
   table: readonly StatRow[],
   gear: Readonly<Record<string, number>> = {},
   buffs: Readonly<Record<string, number>> = {},
+  level = 1,
 ): SecondaryExplanation[] {
   const p = [primaries.str, primaries.dex, primaries.agi, primaries.vit, primaries.int, primaries.wis];
   for (const value of p) check(value, "primary");
-  return table.map((row) => {
+  return table.map((row): SecondaryExplanation => {
+    if (row.formula) {
+      const extra = (gear[row.id] ?? 0) + (buffs[row.id] ?? 0);
+      const value = formulaValue(row.formula, p, level, gear[row.id] ?? 0, buffs[row.id] ?? 0);
+      const explained = explainFormula(
+        row.formula,
+        statRowScope(p, level, gear[row.id] ?? 0, buffs[row.id] ?? 0),
+      );
+      return {
+        id: row.id,
+        shape: row.shape,
+        base: 0,
+        terms: [],
+        weighted: value - extra,
+        extra,
+        score: value,
+        cap: null,
+        halfConstant: null,
+        value,
+        formula: { source: row.formula.source, terms: explained.terms },
+      };
+    }
     const terms: SecondaryTerm[] = [];
     let weighted = 0;
     for (let i = 0; i < 6; i++) {

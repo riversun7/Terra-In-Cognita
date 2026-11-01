@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-01 19:36 | 2차 스탯 기준 대조표(질문 265~274), 밸런스 도구 다시 만들기 시작 | Claude Code | [01-1936-secondary-stats-baseline](worklog/2026/11/01-1936-secondary-stats-baseline.md) |
 | 2026-11-01 18:37 | 49 설정 칸 코드에 끼운 칸(C16a) 받기, 미러 8e7716c | Claude Code | [01-1837-settings-code-suffix](worklog/2026/11/01-1837-settings-code-suffix.md) |
 | 2026-11-01 17:50 | 개발자 밸런스 화면(/dev/balance), 가중치 칸 바로 바꾸기(D1 덮어쓰기), 전투 틱 편 쏠림 고침(SIM_VERSION 4) | Claude Code | [01-1750-balance](worklog/2026/11/01-1750-balance.md) |
 | 2026-11-01 17:30 | R5b 정원사: 칸 오염 층·도시 웨이브(공성 전투)·모함 몫·유목 부대, 시뮬과 서버 | Claude Code | [01-1730-r5b-gardener](worklog/2026/11/01-1730-r5b-gardener.md) |

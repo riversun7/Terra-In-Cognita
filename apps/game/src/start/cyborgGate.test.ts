@@ -8,7 +8,10 @@ const ready: CyborgGateState = {
   userId: "u",
   name: "Nova",
   appearance: DEFAULT_CYBORG_APPEARANCE,
+  elementsPending: false,
 };
+/** 속성 분배 전에 만든 사이보그(프로토콜 5 전, D-450) */
+const pending: CyborgGateState = { ...ready, elementsPending: true };
 const checking: CyborgGateState = { status: "checking", userId: "u" };
 const unknown: CyborgGateState = { status: "unknown", userId: "u" };
 
@@ -52,5 +55,14 @@ describe("첫 접속 길잡이", () => {
     expect(gateHolds(ready, "home", ["player"])).toBe(false);
     expect(gateHolds(unknown, "home", ["player"])).toBe(false);
     expect(gateHolds({ status: "idle" }, "units", ["player"])).toBe(true);
+  });
+
+  it("속성 분배가 없는 사이보그(D-450)는 /start의 분배 단계로 한 번 보낸다. 예외 주소는 같다", () => {
+    expect(gateRedirect(pending, "home", ["player"])).toBe("start");
+    expect(gateRedirect(pending, "start", ["player"])).toBeNull();
+    expect(gateRedirect(pending, "settings", ["player"])).toBeNull();
+    expect(gateRedirect(pending, "map", ["player", "admin"])).toBeNull();
+    expect(gateHolds(pending, "start", ["player"])).toBe(false);
+    expect(gateHolds(pending, "units", ["player"])).toBe(true);
   });
 });

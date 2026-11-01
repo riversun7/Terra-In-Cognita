@@ -1,4 +1,5 @@
-// 사이보그 만들기 명령(WebSocket, 프로토콜 4) — cyborg_roll·cyborg_create를 보내고 같은 요청 번호의 cyborg_result를 기다린다.
+// 사이보그 만들기 명령(WebSocket, 프로토콜 4·5) — cyborg_roll·cyborg_create·cyborg_elements를 보내고 같은 요청 번호의 cyborg_result를
+// 기다린다.
 // docs/adr/2026-11-01-first-login-cyborg.md 4절. 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장).
 // - 연결이 아직 인사 전이면 인사가 끝날 때까지 기다렸다 보낸다(만들기 화면을 켠 직후). 기다림·답 모두 TIMEOUT_MS 안.
 // - 끊기면(down) 기다리던 명령은 "offline"으로 끝난다. 서버가 같은 명령을 받았는지 모르므로, 화면은 creation을 다시 물어 확인한다.
@@ -8,7 +9,8 @@ import { type ServerLink, serverLink } from "../net/serverLink.ts";
 
 export type CyborgCommand =
   | Omit<ClientMessageOf<"cyborg_roll">, "id">
-  | Omit<ClientMessageOf<"cyborg_create">, "id">;
+  | Omit<ClientMessageOf<"cyborg_create">, "id">
+  | Omit<ClientMessageOf<"cyborg_elements">, "id">;
 
 export type CyborgCommandOutcome =
   | { readonly ok: true; readonly roll?: CyborgRollWire }

@@ -1,5 +1,6 @@
-// 첫 접속 — 사이보그 만들기(기획 60 7.1·D-140·D-6039~D-6041·D-445, docs/adr/2026-11-01-first-login-cyborg.md 1절).
-// 이름 → 외형 → 초기 스탯 → 세력 → 시작 도시 → 강하, 여섯 단계를 한 화면 안 상태로 넘긴다(기록 칸을 쌓지 않는다).
+// 첫 접속 — 사이보그 만들기(기획 60 7.1·D-140·D-6039~D-6041·D-445·D-450, docs/adr/2026-11-01-first-login-cyborg.md 1절).
+// 이름 → 외형 → 초기 스탯 → 속성 → 세력 → 시작 도시 → 강하, 일곱 단계를 한 화면 안 상태로 넘긴다(기록 칸을 쌓지 않는다).
+// 속성 분배가 없는 옛 사이보그는 속성 단계만 보인다(elementsStep.tsx ElementsOnly).
 // - 틀이 없는 전체 화면이라 머리에 [설정]·[로그아웃]을 둔다. 사이보그가 없으면 틀이 다른 주소를 여기로 보낸다.
 // - 자료(지금 굴림·성향·세력·도시)는 tRPC cyborg.creation, 이름 확인은 cyborg.nameCheck, 굴리기·만들기는 WebSocket(cyborgCommands.ts).
 // - 서버가 판정한다: 굴림 값·남은 횟수, 이름 고유, 외형 ID, 세력·도시, 놓을 자리. 화면은 결과를 보이고 잘못된 단계로 돌아간다.
@@ -25,19 +26,30 @@ import { text } from "../ui/text.ts";
 import { useMountFocus } from "../ui/useMountFocus.ts";
 import { markCyborgCreated, refreshCyborgGate } from "./cyborgGate.ts";
 import { sendCyborgCommand } from "./cyborgCommands.ts";
+import {
+  EMPTY_ELEMENT_DRAFT,
+  type ElementDraft,
+  ElementsOnly,
+  ElementsStep,
+  ElementsSummaryRow,
+  elementDraftValid,
+  elementPayload,
+  ruleOf,
+} from "./elementsStep.tsx";
 import { LooksStep, NameStep } from "./nameLookSteps.tsx";
 import { CityStep, DescentStep, FactionStep } from "./placeSteps.tsx";
 import { commandErrorText } from "./startText.ts";
 import { StatsStep } from "./statsStep.tsx";
 import "./start.css";
 
-export const START_STEPS = ["name", "looks", "stats", "faction", "city", "descent"] as const;
+export const START_STEPS = ["name", "looks", "stats", "elements", "faction", "city", "descent"] as const;
 export type StartStep = (typeof START_STEPS)[number];
 
 const STEP_TITLES = {
   name: m.start_step_name,
   looks: m.start_step_looks,
   stats: m.start_step_stats,
+  elements: m.start_step_elements,
   faction: m.start_step_faction,
   city: m.start_step_city,
   descent: m.start_step_descent,
@@ -79,6 +91,7 @@ export default function StartScreen({ user }: { user: AccountView }) {
   const [look, setLook] = useState<CyborgAppearance>(DEFAULT_CYBORG_APPEARANCE);
   const [roll, setRoll] = useState<CyborgRollView | null>(null);
   const [temperament, setTemperament] = useState<string>("balanced");
+  const [elements, setElements] = useState<ElementDraft>(EMPTY_ELEMENT_DRAFT);
   const [factionId, setFactionId] = useState<number | null>(null);
   const [cityId, setCityId] = useState<number | null>(null);
   const [descending, setDescending] = useState(false);
@@ -158,6 +171,7 @@ export default function StartScreen({ user }: { user: AccountView }) {
       appearance: look,
       factionId: place.faction.id,
       cityId: place.city.id,
+      elements: elementPayload(elements),
     });
     if (result.ok) {
       const wait = prefersReducedMotion() ? 0 : DESCENT_SCENE_MS;
@@ -173,6 +187,7 @@ export default function StartScreen({ user }: { user: AccountView }) {
     if (code === "name_invalid" || code === "name_reserved" || code === "name_taken") goTo("name");
     else if (code === "appearance_invalid") goTo("looks");
     else if (code === "roll_required" || code === "rolls_exhausted") goTo("stats");
+    else if (code === "elements_invalid") goTo("elements");
     else if (code === "unknown_faction") goTo("faction");
     else if (code === "unknown_city" || code === "no_room") goTo("city");
     // 서버가 받았는지 모르는 실패(끊김·시간 초과)·이미 만듦은 자료를 다시 물어 확인한다
@@ -192,11 +207,13 @@ export default function StartScreen({ user }: { user: AccountView }) {
   const canNext =
     step === "stats"
       ? roll !== null
-      : step === "faction"
-        ? place.faction !== undefined
-        : step === "city"
-          ? place.city !== undefined
-          : true;
+      : step === "elements"
+        ? data !== null && elementDraftValid(elements, ruleOf(data))
+        : step === "faction"
+          ? place.faction !== undefined
+          : step === "city"
+            ? place.city !== undefined
+            : true;
 
   return (
     <section className="start" aria-labelledby={`${id}-title`} data-step={step}>
@@ -238,6 +255,8 @@ export default function StartScreen({ user }: { user: AccountView }) {
             </button>
           </div>
         </div>
+      ) : data?.created && data.elementsPending ? (
+        <ElementsOnly user={user} data={data} />
       ) : data ? (
         <>
           <ol className="start-progress" aria-label={m.start_progress_label()}>
@@ -272,6 +291,8 @@ export default function StartScreen({ user }: { user: AccountView }) {
                 onTemperament={setTemperament}
                 onRoll={onRoll}
               />
+            ) : step === "elements" ? (
+              <ElementsStep draft={elements} rule={ruleOf(data)} onDraft={setElements} />
             ) : step === "faction" ? (
               <FactionStep
                 data={data}
@@ -291,6 +312,7 @@ export default function StartScreen({ user }: { user: AccountView }) {
                 faction={place.faction}
                 city={place.city}
                 descending={descending}
+                elements={<ElementsSummaryRow draft={elements} />}
               />
             ) : null}
             <LiveMessage tone="error" lines={problem.lines} version={problem.version} />

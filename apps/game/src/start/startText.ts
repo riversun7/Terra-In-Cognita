@@ -83,6 +83,9 @@ const COMMAND_ERRORS = {
   unknown_city: m.start_error_place,
   no_room: m.start_error_no_room,
   internal_error: m.start_error_retry,
+  elements_invalid: m.start_error_elements,
+  elements_locked: m.start_error_elements_locked,
+  no_cyborg: m.start_error_no_cyborg,
   offline: m.start_error_offline,
   timeout: m.start_error_retry,
 } satisfies Record<CyborgResultCode | "offline" | "timeout", Text>;

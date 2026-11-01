@@ -8,7 +8,7 @@ import type {
   CyborgRollView,
 } from "@terra/shared/cyborg";
 import { PRIMARY_STATS } from "@terra/shared/roster";
-import { useId } from "react";
+import { type ReactNode, useId } from "react";
 import { CyborgAvatar } from "../cyborg/CyborgAvatar.tsx";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
@@ -109,6 +109,7 @@ export function DescentStep({
   faction,
   city,
   descending,
+  elements,
 }: {
   name: string;
   look: CyborgAppearance;
@@ -116,6 +117,8 @@ export function DescentStep({
   faction: CreationFaction;
   city: CreationCity;
   descending: boolean;
+  /** 속성 분배 요약 줄(elementsStep.tsx ElementsSummaryRow, D-450) */
+  elements?: ReactNode;
 }) {
   return (
     <div className="start-descent" data-descending={descending ? "true" : "false"}>
@@ -135,6 +138,7 @@ export function DescentStep({
             )}
           </dd>
         </div>
+        {elements}
         <div>
           <dt>{m.start_step_faction()}</dt>
           <dd>{localName(faction.name)}</dd>

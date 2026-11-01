@@ -2,6 +2,7 @@
 // 기획 60 7.1·D-140·D-445 177.
 // - 로그인하면 cyborg.status를 한 번 묻는다(계정이 바뀌면 다시). 묻는 동안 막는 주소는 그리지 않는다(홈이 잠깐 보였다 바뀌지 않게).
 // - 사이보그가 없으면 아래 예외 밖의 주소를 /start로 바꾼다(replace). 만들면 홈으로.
+//   속성 분배(D-450)가 없는 사이보그(프로토콜 5 전에 만든 것)도 같은 예외로 /start에 보낸다 → 분배 단계만 보이고 나누면 홈으로.
 //   예외: 설정(언어·테마·로그아웃). dev·admin은 더 관리자·개발자 도구·지도(전체 보기·시험 일꾼은 지도 안의 개발 도구다).
 // - 묻기에 실패하면 막지 않는다(화면들은 사이보그가 없어도 빈 상태로 돈다). 서버가 만들기·읽기 권한을 늘 다시 본다.
 // 첫 화면 묶음에 들어간다: 요청은 cyborgStatusQuery.ts를 동적 import()로 부른다(tRPC 클라이언트를 이 묶음에 넣지 않는다).
@@ -20,6 +21,8 @@ export type CyborgGateState =
       readonly userId: string;
       readonly name: string;
       readonly appearance: CyborgAppearance;
+      /** 속성 분배가 없다(한 번 나누러 /start로) */
+      readonly elementsPending: boolean;
     }
   /** 묻지 못함 — 막지 않는다 */
   | { readonly status: "unknown"; readonly userId: string };
@@ -50,8 +53,9 @@ export function gateRedirect(
   id: RouteId | null,
   roles: readonly Role[],
 ): "start" | "home" | null {
-  if (state.status === "none" && !opensWithoutCyborg(id, roles)) return "start";
-  if (state.status === "ready" && id === "start") return "home";
+  const needsStart = state.status === "none" || (state.status === "ready" && state.elementsPending);
+  if (needsStart && !opensWithoutCyborg(id, roles)) return "start";
+  if (state.status === "ready" && !state.elementsPending && id === "start") return "home";
   return null;
 }
 
@@ -115,14 +119,27 @@ async function check(userId: string): Promise<void> {
   set(
     cyborg === null
       ? { status: "none", userId }
-      : { status: "ready", userId, name: cyborg.name, appearance: cyborg.appearance },
+      : {
+          status: "ready",
+          userId,
+          name: cyborg.name,
+          appearance: cyborg.appearance,
+          elementsPending: cyborg.elementsPending,
+        },
   );
 }
 
 /** 만들기가 끝났다(서버가 커밋한 뒤 답했다). 다시 묻지 않고 바로 홈으로 갈 수 있게 */
 export function markCyborgCreated(userId: string, name: string, appearance: CyborgAppearance): void {
   request += 1;
-  set({ status: "ready", userId, name, appearance });
+  set({ status: "ready", userId, name, appearance, elementsPending: false });
+}
+
+/** 속성 분배가 끝났다(서버가 커밋한 뒤 답했다). 다시 묻지 않고 바로 홈으로 */
+export function markCyborgElementsSet(userId: string): void {
+  if (state.status !== "ready" || state.userId !== userId) return;
+  request += 1;
+  set({ ...state, elementsPending: false });
 }
 
 export function getCyborgGate(): CyborgGateState {

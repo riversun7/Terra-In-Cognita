@@ -1,7 +1,9 @@
 // 첫 접속(사이보그 만들기) 화면 시험 — docs/adr/2026-11-01-first-login-cyborg.md, 기획 60 7.1·D-445
 // - fresh(사이보그 없는 새 플레이어): 어느 주소로 열어도 /start로 간다(설정은 연다) → 이름(규칙·사칭·이미 있는 이름) → 외형
-//   (프리셋·무작위·부위·색) → 초기 스탯(굴리기·다시 굴리기, 남은 횟수) → 세력 → 시작 도시 → 강하 → 홈. 그 뒤 /start는 홈으로,
-//   사이보그 화면은 실제 이름·스탯, 2차맵은 열리고(내 사이보그 하나) 까맣지 않다(탐사 칸 > 0).
+//   (프리셋·무작위·부위·색) → 초기 스탯(굴리기·다시 굴리기, 남은 횟수) → 속성(D-450: 4원소 두 칸까지 합 10) → 세력 → 시작 도시 →
+//   강하 → 홈. 그 뒤 /start는 홈으로, 사이보그 화면은 실제 이름·스탯, 서버가 속성값을 돌려주고, 2차맵은 열리고(내 사이보그 하나)
+//   까맣지 않다(탐사 칸 > 0).
+// - legacy(속성 분배 전 프로토콜 4로 만든 사이보그): 다음 접속 때 /start의 속성 단계만 보이고, 한 번 나누면 홈으로.
 // - fresh_shots: 390px × 파스텔·다크 × 한국어·영어로 단계마다 사진(만들지 않는다. 굴림은 처음 한 번만 쓴다).
 // player·dev·admin은 전역 준비가 사이보그를 만들어 두었다("E2EPlayer" 등 — 이미 있는 이름 시험에 쓴다).
 import type { Page } from "@playwright/test";
@@ -9,7 +11,7 @@ import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 
-const STEPS = ["name", "looks", "stats", "faction", "city", "descent"] as const;
+const STEPS = ["name", "looks", "stats", "elements", "faction", "city", "descent"] as const;
 
 async function expectStep(page: Page, step: (typeof STEPS)[number]): Promise<void> {
   await expect(page.locator(".start")).toHaveAttribute("data-step", step);
@@ -19,10 +21,24 @@ async function next(page: Page): Promise<void> {
   await page.locator(".start-nav .button-primary").click();
 }
 
+/** 속성 한 칸의 단추(less·more·all) */
+const elementButton = (page: Page, element: string, which: "less" | "more" | "all") =>
+  page.locator(`.start-element[data-element='${element}'] .start-element-${which}`);
+
+/** cyborg.get의 본체 속성값(서버가 저장한 값) */
+async function bodyElements(page: Page): Promise<unknown> {
+  return page.evaluate(async () => {
+    const response: unknown = await fetch("/api/trpc/cyborg.get").then((reply) => reply.json());
+    const pick = (value: unknown, key: string): unknown =>
+      typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
+    return pick(pick(pick(pick(response, "result"), "data"), "body"), "elements");
+  });
+}
+
 test.describe("첫 접속: 새 플레이어", () => {
   test.use({ account: "fresh" });
 
-  test("사이보그가 없으면 /start로 가고, 여섯 단계를 마치면 홈 → 사이보그 화면·2차맵이 열린다", async ({
+  test("사이보그가 없으면 /start로 가고, 일곱 단계를 마치면 홈 → 사이보그 화면·2차맵이 열린다", async ({
     page,
     deviceErrors,
   }) => {
@@ -84,9 +100,27 @@ test.describe("첫 접속: 새 플레이어", () => {
     await expect(result).toHaveAttribute("data-rolls-left", "2", { timeout: 15_000 });
     expect(await sum()).toBe(60);
     await next(page);
+    await expectStep(page, "elements");
+
+    // 4. 속성(D-450, N36): 10점을 다 나눠야 다음이 열린다. 한 칸에 모두 → 둘로 나눔 → 세 번째 칸은 못 고른다
+    const nextButton = page.locator(".start-nav .button-primary");
+    await expect(nextButton).toBeDisabled();
+    await elementButton(page, "fire", "all").click();
+    await expect(page.locator(".start-element[data-element='fire'] .start-element-value")).toHaveText("10");
+    await expect(nextButton).toBeEnabled();
+    await expect(elementButton(page, "water", "more")).toBeDisabled();
+    for (let i = 0; i < 3; i++) await elementButton(page, "fire", "less").click();
+    await expect(nextButton).toBeDisabled();
+    for (let i = 0; i < 3; i++) await elementButton(page, "wind", "more").click();
+    await expect(page.locator(".start-element[data-picked='true']")).toHaveCount(2);
+    await elementButton(page, "fire", "less").click();
+    await expect(elementButton(page, "earth", "more")).toBeDisabled();
+    await elementButton(page, "fire", "more").click();
+    await expect(nextButton).toBeEnabled();
+    await next(page);
     await expectStep(page, "faction");
 
-    // 4·5. 세력(추천)·시작 도시(기본 선택 = 가장 덜 붐빔)
+    // 5·6. 세력(추천)·시작 도시(기본 선택 = 가장 덜 붐빔)
     await expect(page.locator(".start-choice[data-faction] input").first()).toBeChecked();
     await expect(page.locator(".start-badge").first()).toBeVisible();
     await next(page);
@@ -96,8 +130,9 @@ test.describe("첫 접속: 새 플레이어", () => {
     await expectStep(page, "descent");
     await expect(page.locator(".start-summary-name")).toHaveText("새싹로봇");
     await expect(page.locator(".start-summary-avatar")).toHaveAttribute("data-look", chosen ?? "");
+    await expect(page.locator(".start-elements-summary dd")).toHaveText("불 7 · 바람 3");
 
-    // 6. 강하 → 홈
+    // 7. 강하 → 홈
     await page.locator(".start-descend").click();
     await expect(page).toHaveURL(/\/$/, { timeout: 20_000 });
     await expect(page.locator(".tabbar")).toBeVisible();
@@ -110,6 +145,8 @@ test.describe("첫 접속: 새 플레이어", () => {
     await expect(page.locator(".cyborg-name")).toHaveText("새싹로봇");
     await expect(page.locator(".cyborg-avatar")).toHaveAttribute("data-look", chosen ?? "");
     await expect(page.locator(".roster-primary-name").first()).toBeVisible();
+    // 서버가 나눈 속성값을 저장했다(사이보그 화면 표시는 화면 줄기 몫)
+    expect(await bodyElements(page)).toMatchObject({ fire: 7, wind: 3, water: 0, earth: 0, light: 0 });
 
     // 2차맵: 열리고(볼 수 있음), 내 사이보그 하나, 탐사한 칸이 있어 까맣지 않다
     await page.goto("/map");
@@ -123,6 +160,41 @@ test.describe("첫 접속: 새 플레이어", () => {
       .toBeGreaterThan(0);
     await expect(page.locator(".map-dark")).toHaveCount(0);
     await shot(page, "first-login-map-after-390");
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+test.describe("첫 접속: 속성 분배 전에 만든 사이보그", () => {
+  test.use({ account: "legacy" });
+
+  test("다음 접속 때 /start의 속성 단계만 보이고, 한 번 나누면 홈으로 간다(D-450)", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(60_000);
+    await rewriteTrpc(page, { "summary.get": hideSummary });
+    await page.goto("/units");
+    await expect(page).toHaveURL(/\/start$/);
+    const only = page.locator(".start-elements-only");
+    await expect(only).toBeVisible();
+    await expect(page.locator(".start-progress")).toHaveCount(0);
+    // 설정은 연다(같은 예외)
+    await page.goto("/settings");
+    await expect(page).toHaveURL(/\/settings$/);
+    await page.goto("/start");
+    const save = only.locator(".start-nav .button-primary");
+    await expect(save).toBeDisabled();
+    await elementButton(page, "earth", "all").click();
+    await expect(save).toBeEnabled();
+    expect(await horizontalOverflow(page)).toEqual([]);
+    expect(await smallTapTargets(page)).toEqual([]);
+    await shot(page, "first-login-elements-only-390-pastel-ko", { fullPage: true });
+    await save.click();
+    await expect(page).toHaveURL(/\/$/, { timeout: 20_000 });
+    await expect(page.locator(".tabbar")).toBeVisible();
+    await page.goto("/start");
+    await expect(page).toHaveURL(/\/$/);
+    expect(await bodyElements(page)).toMatchObject({ earth: 10, fire: 0 });
     expect(deviceErrors).toEqual([]);
   });
 });
@@ -159,15 +231,27 @@ test.describe("첫 접속 사진", () => {
           expect(await smallTapTargets(page)).toEqual([]);
           await shot(page, `first-login-3-stats-390-${theme}-${language}`, { fullPage: true });
           await next(page);
+          await expectStep(page, "elements");
+          expect(await horizontalOverflow(page)).toEqual([]);
+          expect(await smallTapTargets(page)).toEqual([]);
+          await shot(page, `first-login-4-elements-empty-390-${theme}-${language}`, { fullPage: true });
+          // 불 6·바람 4(두 칸, 합 10)
+          await elementButton(page, "fire", "all").click();
+          for (let i = 0; i < 4; i++) await elementButton(page, "fire", "less").click();
+          for (let i = 0; i < 4; i++) await elementButton(page, "wind", "more").click();
+          await expect(page.locator(".start-nav .button-primary")).toBeEnabled();
+          expect(await horizontalOverflow(page)).toEqual([]);
+          await shot(page, `first-login-4-elements-390-${theme}-${language}`, { fullPage: true });
+          await next(page);
           await expectStep(page, "faction");
-          await shot(page, `first-login-4-faction-390-${theme}-${language}`, { fullPage: true });
+          await shot(page, `first-login-5-faction-390-${theme}-${language}`, { fullPage: true });
           await next(page);
           await expectStep(page, "city");
-          await shot(page, `first-login-5-city-390-${theme}-${language}`, { fullPage: true });
+          await shot(page, `first-login-6-city-390-${theme}-${language}`, { fullPage: true });
           await next(page);
           await expectStep(page, "descent");
           expect(await horizontalOverflow(page)).toEqual([]);
-          await shot(page, `first-login-6-descent-390-${theme}-${language}`, { fullPage: true });
+          await shot(page, `first-login-7-descent-390-${theme}-${language}`, { fullPage: true });
           expect(deviceErrors).toEqual([]);
         });
       });

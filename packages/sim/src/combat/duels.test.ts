@@ -4,9 +4,7 @@ import { type Primaries, TEST_STAT_TABLE, computeSecondary } from "./stats.ts";
 import { type WeaponSpec, specFromStats } from "./unitSpec.ts";
 
 const sword: WeaponSpec = {
-  kind: "physical",
-  attack: 20,
-  attackAppropriate: 40,
+  physical: { attack: 20, attackAppropriate: 40 },
   hitPm: 900,
   // 명중·크리는 점수(D-458): DEX 16·AGI 16이면 명중 점수 28, 크리 점수 24
   hitAppropriate: 25,

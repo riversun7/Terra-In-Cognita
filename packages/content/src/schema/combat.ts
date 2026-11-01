@@ -148,10 +148,15 @@ export const skillEntrySchema = z
   });
 export type SkillEntry = z.output<typeof skillEntrySchema>;
 
-const weaponSchema = z.strictObject({
-  kind: z.enum(["physical", "elemental"]),
+/** 무기 공격력 칸 하나(D-465): 공격력과 적정치(2차 스탯 단위, 무기 틀 D-420) */
+const weaponAttackField = z.strictObject({
   attack: z.int().min(0).max(1_000_000),
   attackAppropriate: z.int().min(0).max(10_000_000),
+});
+const attackFieldKind = z.enum(["physical", "elemental"]);
+
+/** 무기 사양의 공격력 칸 말고 나머지(명중·크리·간격·사거리·비용·옵션 계수) */
+const weaponBody = {
   hitPm: z.int().min(0).max(1000),
   hitAppropriate: z.int().min(0).max(10_000_000),
   critPm: z.int().min(0).max(1000),
@@ -162,8 +167,70 @@ const weaponSchema = z.strictObject({
   arc: z.boolean(),
   staminaCost: z.int().min(0).max(100_000),
   mpCost: z.int().min(0).max(100_000),
+  /** 속성 계수 12칸(‰): 물리 칸으로 치면 옵션(속성 몫), 속성 칸으로 치면 가산 계수(48 §4.5a). 두 칸 무기는 두 칸이 같이 쓴다 */
   skillElementsPm: z.array(permille).length(12).optional(),
-});
+};
+
+/**
+ * 공격력 칸 규칙(D-465, 질문 235 가): 칸이 적어도 하나, 두 칸이면 기본 공격 칸(basic)을 꼭 적고, basic은 있는 칸만 가리킨다.
+ * 필드 검사가 실패해도 불리므로(AGENTS 6장 Zod 4.6.7) 값의 모양을 다시 본다
+ */
+function checkWeaponFields(weapon: unknown, ctx: z.RefinementCtx): void {
+  if (typeof weapon !== "object" || weapon === null) return;
+  const has = (key: string): boolean => {
+    const value: unknown = Reflect.get(weapon, key);
+    return typeof value === "object" && value !== null;
+  };
+  const physical = has("physical");
+  const elemental = has("elemental");
+  const basic: unknown = Reflect.get(weapon, "basic");
+  if (!physical && !elemental) {
+    ctx.addIssue({
+      code: "custom",
+      path: [],
+      message:
+        "무기에 공격력 칸이 없습니다. physical(물리)·elemental(속성) 가운데 하나 이상을 {attack, attackAppropriate}로 적으세요(D-465).",
+    });
+    return;
+  }
+  if (physical && elemental && basic === undefined)
+    ctx.addIssue({
+      code: "custom",
+      path: ["basic"],
+      message:
+        '두 칸 무기는 기본 공격(스킬 없음)이 쓸 칸을 basic에 적습니다: "physical" 또는 "elemental"(질문 235 가).',
+    });
+  if ((basic === "physical" && !physical) || (basic === "elemental" && !elemental))
+    ctx.addIssue({
+      code: "custom",
+      path: ["basic"],
+      message: `basic이 가리키는 칸(${basic})이 무기에 없습니다.`,
+    });
+}
+
+const weaponSchema = z
+  .strictObject({
+    /** 공격력 칸(D-465): 하나 또는 둘. 스킬은 기반에 맞는 칸을, 없으면 맨손·맨손 속성 자료의 칸을 쓴다 */
+    physical: weaponAttackField.optional(),
+    elemental: weaponAttackField.optional(),
+    /** 기본 공격이 쓰는 칸(질문 235 가): 두 칸 무기만 꼭 적는다. 한 칸 무기는 그 칸 */
+    basic: attackFieldKind.optional(),
+    ...weaponBody,
+  })
+  .superRefine(checkWeaponFields);
+
+/** 타고난 무기(D-436 맨손): 물리 칸이 꼭 있다(물리 칸이 없는 무기를 든 유닛의 물리 기반 스킬이 쓴다, D-465) */
+const naturalWeaponSchema = z
+  .strictObject({
+    physical: weaponAttackField,
+    elemental: weaponAttackField.optional(),
+    basic: attackFieldKind.optional(),
+    ...weaponBody,
+  })
+  .superRefine(checkWeaponFields);
+
+/** 맨손 속성 자료(D-463): 속성 칸만 있다(기본 공격에는 쓰지 않아 basic도 없다) */
+const naturalElementalWeaponSchema = z.strictObject({ elemental: weaponAttackField, ...weaponBody });
 
 export const unitKindEntrySchema = z.strictObject({
   id: contentId,
@@ -176,10 +243,10 @@ export const unitKindEntrySchema = z.strictObject({
     perRebirth: z.int().min(0).max(10),
     max: z.int().min(1).max(10),
   }),
-  /** 타고난 무기(D-436): 크리쳐의 발톱·이빨 등, 사람형은 맨손. 무기 칸이 비었을 때 쓴다(D-420 같은 공식) */
-  naturalWeapon: weaponSchema,
-  /** 맨손 속성 자료(D-463): 속성 무기를 들지 않았을 때 속성 기반 스킬이 쓴다(공격력·적정치 낮게). kind는 elemental */
-  naturalElementalWeapon: weaponSchema.extend({ kind: z.literal("elemental") }),
+  /** 타고난 무기(D-436): 크리쳐의 발톱·이빨 등, 사람형은 맨손. 무기 칸이 비었을 때 쓴다(D-420 같은 공식). 물리 칸 필수 */
+  naturalWeapon: naturalWeaponSchema,
+  /** 맨손 속성 자료(D-463·D-465): 든 무기에 속성 칸이 없을 때 속성 기반 스킬이 쓴다(공격력·적정치 낮게). 속성 칸만 */
+  naturalElementalWeapon: naturalElementalWeaponSchema,
   enabled,
 });
 export type UnitKindEntry = z.output<typeof unitKindEntrySchema>;

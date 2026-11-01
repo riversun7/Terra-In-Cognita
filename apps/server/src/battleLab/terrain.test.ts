@@ -27,17 +27,22 @@ describe("전투장 지형(시험 2차맵에서 자름)", () => {
   });
 
   it("목록: 지형 서비스가 없으면 평지·시험 2차맵만, 있으면 시험 자리 종류도. 모르는 ID는 null", async () => {
-    const plain = createArenaTerrains({ test: () => Promise.resolve(layers()) });
+    const plain = createArenaTerrains({ test: () => Promise.resolve({ layers: layers() }) });
     expect(plain.list().map((entry) => entry.id)).toEqual(["flat", "test"]);
     expect(await plain.map("preset_river")).toBeNull();
     expect(await plain.map("nope")).toBeNull();
-    expect((await plain.map("flat"))?.passable.every((value) => value === 1)).toBe(true);
+    expect((await plain.map("flat"))?.map.passable.every((value) => value === 1)).toBe(true);
+    expect((await plain.map("test"))?.ref).toBeNull();
     const withPresets = createArenaTerrains({
-      test: () => Promise.resolve(layers()),
-      preset: (preset) => Promise.resolve(preset === "lake" ? null : layers()),
+      test: () => Promise.resolve({ layers: layers(), source: { mapKey: 77, terrainVersion: "v1" } }),
+      preset: (preset) => Promise.resolve(preset === "lake" ? null : { layers: layers() }),
     });
     expect(withPresets.list()).toContainEqual({ id: "preset_forest", kind: "preset", preset: "forest" });
     expect(await withPresets.map("preset_lake")).toBeNull();
-    expect((await withPresets.map("preset_forest"))?.size).toBe(ARENA_SIZE);
+    expect((await withPresets.map("preset_forest"))?.map.size).toBe(ARENA_SIZE);
+    // 2차맵 구역이면 3D 관람 참조(키·판 표지·창 원점)
+    const test = await withPresets.map("test");
+    expect(test?.ref).toMatchObject({ mapKey: 77, terrainVersion: "v1" });
+    expect((test?.ref?.originX ?? -1) % 8).toBe(0);
   });
 });

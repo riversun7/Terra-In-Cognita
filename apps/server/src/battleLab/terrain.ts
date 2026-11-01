@@ -3,6 +3,8 @@
 // 2차맵 지형 층(꼭짓점 높이 129²·지표 128²·배치 칸 엄폐 256²) → 배치 칸 지형 비용(@terra/sim placementCostsFromLayers, 0 = 막힘)
 // → 통과 몫이 가장 큰 창(8칸 걸음, 같으면 가운데에 가까운 것). 높이는 지형 칸 네 꼭짓점 평균(cm × 16, 창의 최저점 = 0, ADR 35).
 // 만든 전투장은 지형 ID마다 기억한다(지형은 판 표지 안에서 바뀌지 않는다). 지형이 없는 서버는 빈 평지와 S1 임시 지형만 있다.
+// 2차맵 구역이면 3D 관람(리플레이)이 같은 지형을 받게 참조(2차맵 키·지형 판 표지·창의 원점 배치 칸)를 함께 돌려준다.
+import type { ReplayArenaRef } from "@terra/protocol/battleReplay";
 import type { LabTerrainView } from "@terra/shared/battleLab";
 import {
   type BattleMapInput,
@@ -20,6 +22,14 @@ const PLACEMENT_PER_TERRAIN = 2;
 
 /** 2차맵 지형 층 → 전투장(배치 칸 size² 창) */
 export function arenaMapFromLayers(layers: TerrainLayers, size = ARENA_SIZE): BattleMapInput {
+  return arenaWindowFromLayers(layers, size).map;
+}
+
+/** 2차맵 지형 층 → 전투장과 그 창의 원점(배치 칸) */
+export function arenaWindowFromLayers(
+  layers: TerrainLayers,
+  size = ARENA_SIZE,
+): { map: BattleMapInput; originX: number; originY: number } {
   const costs = placementCostsFromLayers(layers);
   const full = PLACEMENT_SIZE;
   // 통과 칸 누적 합(창 합을 빨리)
@@ -71,13 +81,41 @@ export function arenaMapFromLayers(layers: TerrainLayers, size = ARENA_SIZE): Ba
       lowest = Math.min(lowest, cm * 16);
     }
   for (let i = 0; i < cells; i++) height[i] = (height[i] ?? 0) - lowest;
-  return { size, passable, cover, height, buildings: [] };
+  return { map: { size, passable, cover, height, buildings: [] }, originX: best.x, originY: best.y };
+}
+
+/** 전투장 하나: 전투맵과 3D 관람용 지형 참조(빈 평지·지형 파일이 없는 임시 지형은 null) */
+export interface ArenaPick {
+  readonly map: BattleMapInput;
+  readonly ref: ReplayArenaRef | null;
+}
+
+/** 지형 층 + (2차맵이면) 그 2차맵 키·지형 판 표지 */
+export interface ArenaLayers {
+  readonly layers: TerrainLayers;
+  readonly source?: { readonly mapKey: number; readonly terrainVersion: string } | undefined;
 }
 
 export interface ArenaTerrains {
   list(): LabTerrainView[];
   /** 지형 ID → 전투장. 모르는 ID·자리가 없는 종류는 null */
-  map(id: string): Promise<BattleMapInput | null>;
+  map(id: string): Promise<ArenaPick | null>;
+}
+
+function pickOf(input: ArenaLayers): ArenaPick {
+  const window = arenaWindowFromLayers(input.layers);
+  const source = input.source;
+  return {
+    map: window.map,
+    ref: source
+      ? {
+          mapKey: source.mapKey,
+          terrainVersion: source.terrainVersion,
+          originX: window.originX,
+          originY: window.originY,
+        }
+      : null,
+  };
 }
 
 export const ARENA_FLAT = "flat";
@@ -91,18 +129,18 @@ const presetOf = (id: string): ArenaPreset | undefined =>
 
 export function createArenaTerrains(deps: {
   /** S1 시험 2차맵의 지형 층(지형 서비스가 없으면 S1 임시 지형) */
-  readonly test: () => Promise<TerrainLayers>;
+  readonly test: () => Promise<ArenaLayers>;
   /** 시험 자리 종류의 지형 층(지형 서비스가 있는 월드만, 자리가 없으면 null) */
-  readonly preset?: ((preset: ArenaPreset) => Promise<TerrainLayers | null>) | undefined;
+  readonly preset?: ((preset: ArenaPreset) => Promise<ArenaLayers | null>) | undefined;
 }): ArenaTerrains {
-  const cache = new Map<string, Promise<BattleMapInput | null>>();
-  const build = async (id: string): Promise<BattleMapInput | null> => {
-    if (id === ARENA_FLAT) return flatArena();
-    if (id === ARENA_TEST) return arenaMapFromLayers(await deps.test());
+  const cache = new Map<string, Promise<ArenaPick | null>>();
+  const build = async (id: string): Promise<ArenaPick | null> => {
+    if (id === ARENA_FLAT) return { map: flatArena(), ref: null };
+    if (id === ARENA_TEST) return pickOf(await deps.test());
     const preset = presetOf(id);
     if (!preset || !deps.preset) return null;
     const layers = await deps.preset(preset);
-    return layers ? arenaMapFromLayers(layers) : null;
+    return layers ? pickOf(layers) : null;
   };
   return {
     list() {

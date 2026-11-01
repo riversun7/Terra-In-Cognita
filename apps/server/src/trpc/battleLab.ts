@@ -49,6 +49,10 @@ export const battleLabRouter = router({
   battle: read
     .input(labBattleInputSchema)
     .mutation(({ ctx, input }) => ctx.lab.shared.battle(ctx.viewer, input)),
+  /** 3D 관람(워커): 같은 시드의 한 판을 리플레이로 기록(@terra/protocol/battleReplay base64) */
+  replay: read
+    .input(labBattleInputSchema)
+    .mutation(({ ctx, input }) => ctx.lab.shared.replay(ctx.viewer, input)),
   /** 몬테카를로 N판(워커, 편을 반씩 바꿈) */
   monteCarlo: read
     .input(labMonteCarloInputSchema)

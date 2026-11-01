@@ -66,6 +66,10 @@ export function inertEngine(): SecondMapEngine {
     camera: () => camera,
     setSky: () => undefined,
     setViewOptions: () => undefined,
+    addLayer: () => () => undefined,
+    requestFrame: () => undefined,
+    setUnitLook: () => undefined,
+    setView: () => undefined,
     dispose: () => undefined,
   };
 }

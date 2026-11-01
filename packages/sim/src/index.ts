@@ -438,11 +438,19 @@ export { createBattle, restoreBattle, runBattle, snapshotBattle } from "./combat
 export {
   createBattleTally,
   type BattleHit,
-  type BattleObserver,
   type BattleTally,
   type TallyEvent,
   type UnitTally,
 } from "./combat/observe.ts";
+export type { BattleTrace } from "./combat/battleTrace.ts";
+export {
+  recordBattleReplay,
+  skillShape,
+  type RecordBattleOptions,
+  type RecordedBattle,
+} from "./combat/replay.ts";
+export { DEMO_ROLES, demoSkirmish, type DemoRole, type DemoSkirmish } from "./combat/replayDemo.ts";
+export { arenaFromSecondMap, pickArenaOrigin, type SecondMapLayers } from "./combat/arena.ts";
 export type {
   Battle,
   BattleInit,

@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./planet": "./src/planet/index.ts",
-    "./mock": "./src/mock/index.ts"
+    "./mock": "./src/mock/index.ts",
+    "./battle": "./src/battle/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"

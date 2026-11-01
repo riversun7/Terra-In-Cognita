@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@terra/content": "workspace:*",
+    "@terra/protocol": "workspace:*",
     "@terra/shared": "workspace:*"
   }
 }

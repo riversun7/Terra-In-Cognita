@@ -4,7 +4,7 @@
 // - 진형: 서쪽 편(1, 공격 편 edge 3)·동쪽 편(2, 수비 편 edge 1). 전열·중열·후열 = 가운데에서 4·7·10칸, 같은 줄은 위아래로 2칸씩 벌린다.
 //   막힌 칸·찬 칸이면 가장 가까운 빈칸(너비 우선, 정해진 차례). 팀 A ID 1~, 팀 B 101~(편과 무관), 파티 ID 1·2.
 // - 시간 초과는 대결 도구와 같은 판정(D-467 229): 남은 (HP + 아머 + 쉴드) 몫이 큰 팀, 같으면 이긴 팀 없음(반 승). 실제 규칙은 그대로.
-// - 사건·유닛 통계는 sim 관찰자(createBattleTally)로 모은다(결과를 바꾸지 않는다).
+// - 사건·유닛 통계는 판정 관찰자 위의 집계(createBattleTally, 리플레이 기록기와 같은 고리)로 모은다(결과를 바꾸지 않는다).
 import {
   LAB_LIMITS,
   type LabBattleEvent,
@@ -22,9 +22,10 @@ import {
   type CombatCoefficients,
   type CombatUnitSpec,
   type TallyEvent,
+  type Battle,
+  createBattle,
   createBattleTally,
   mix32,
-  runBattle,
 } from "@terra/sim";
 
 /** 전투장 한 변(배치 칸, 일반 전투 64보다 작게: 파티 둘이 곧 만난다. 32~128 짝수) */
@@ -176,8 +177,11 @@ interface Played {
 
 function play(job: ArenaJob, seed: number, swapped: boolean, logMax: number): Played {
   const init = arenaInit(job, seed, swapped);
-  const tally = createBattleTally(init.units, { logMax });
-  const { result, state } = runBattle(init, [], undefined, job.coefficients, tally.observer);
+  let battle: Battle | null = null;
+  const tally = createBattleTally(init.units, { logMax, tick: () => battle?.state.tick ?? 0 });
+  battle = createBattle(init, job.coefficients, tally.trace);
+  const { result, state } = battle.runToEnd([]);
+  if (!result) throw new Error("arena battle did not end");
   const remaining = { a: remainingPm(state, "a"), b: remainingPm(state, "b") };
   let winner: LabTeam | null;
   if (result.reason === "timeout")
@@ -197,7 +201,7 @@ function play(job: ArenaJob, seed: number, swapped: boolean, logMax: number): Pl
 }
 
 /** 관찰자 사건 → 화면 사건(유닛 키·ms) */
-function eventOf(event: TallyEvent, tickMs: number, partySide: (party: number) => LabTeam): LabBattleEvent {
+function eventOf(event: TallyEvent, tickMs: number): LabBattleEvent {
   const ms = event.tick * tickMs;
   switch (event.kind) {
     case "attack":
@@ -211,14 +215,6 @@ function eventOf(event: TallyEvent, tickMs: number, partySide: (party: number) =
         damage: event.damage,
         down: event.down,
       };
-    case "cast":
-      return {
-        kind: "cast",
-        ms,
-        unit: keyOfId(event.unit),
-        skill: event.skill,
-        target: keyOfId(event.target),
-      };
     case "skill":
       return {
         kind: "skill",
@@ -227,10 +223,8 @@ function eventOf(event: TallyEvent, tickMs: number, partySide: (party: number) =
         skill: event.skill,
         hits: event.hits.map((hit) => ({ target: keyOfId(hit.unit), damage: hit.damage, down: hit.down })),
       };
-    case "dot":
-      return { kind: "dot", ms, target: keyOfId(event.unit), damage: event.damage, down: event.down };
     default:
-      return { kind: "retreat", ms, team: partySide(event.party) };
+      return { kind: "dot", ms, target: keyOfId(event.unit), damage: event.damage, down: event.down };
   }
 }
 
@@ -272,9 +266,7 @@ export function runArenaBattle(job: ArenaJob, logMax: number = LAB_LIMITS.logMax
     endMs: played.endMs,
     remainingPm: played.remaining,
     units,
-    events: played.tally.events.map((event) =>
-      eventOf(event, job.coefficients.tickMs, (party) => (party === 1 ? "a" : "b")),
-    ),
+    events: played.tally.events.map((event) => eventOf(event, job.coefficients.tickMs)),
     eventsDropped: played.tally.eventsDropped,
   };
 }

@@ -50,6 +50,19 @@ import { duelRunnerOf, inlineJobRunner, workerJobRunner } from "./balance/runner
 import { type BattleLabLimits, createBattleLabShared } from "./battleLab/services.ts";
 import { worldArenaTerrains } from "./battleLab/worldTerrains.ts";
 import type { LocalizedName } from "@terra/shared/roster";
+import { createArenaSource } from "./battleReplay/arena.ts";
+import { type ReplayJob, type ReplayJobResult, runReplayJob } from "./battleReplay/compute.ts";
+import {
+  inlineJobRunner as inlineReplayRunner,
+  workerJobRunner as workerReplayRunner,
+} from "./battleReplay/jobRunner.ts";
+import {
+  type BattleReplayLimits,
+  REPLAY_TIMEOUT_MS,
+  REPLAY_WORKER_HEAP_MB,
+  createBattleReplayServices,
+} from "./battleReplay/services.ts";
+import type { ReplayName } from "@terra/protocol/battleReplay";
 import { createTerrainService } from "./world/terrainService.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, type WorldConfig, startWorld } from "./world/world.ts";
 
@@ -148,6 +161,17 @@ export interface AppOptions {
     | {
         unitKindNames?: ReadonlyMap<string, LocalizedName> | undefined;
         limits?: Partial<BattleLabLimits> | undefined;
+      }
+    | undefined;
+  /**
+   * 전투 다시보기 기록을 어디서 돌리나(docs/adr/2026-11-01-battle-replay.md 5절): 워커(요청마다 띄움) 또는 같은 스레드(시험).
+   * 화면은 tuning이 있을 때만 연다. 없으면 같은 스레드. effectNames = 팩 효과 이름(없으면 ID)
+   */
+  battleReplay?:
+    | {
+        runner: { kind: "worker"; workerUrl: URL } | { kind: "inline" };
+        effectNames?: Record<string, ReplayName> | undefined;
+        limits?: Partial<BattleReplayLimits> | undefined;
       }
     | undefined;
   /** 경제 화면 목록(팩 items·recipes 등, src/economyView/catalog.ts). 없으면 빈 목록 */
@@ -341,6 +365,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         tuning: tuningShared,
         roster: options.roster ?? testRosterCatalog(),
         unitKindNames: options.battleLab?.unitKindNames ?? new Map(),
+        effectNames: options.battleReplay?.effectNames,
         terrains: worldArenaTerrains({
           testMapKey: TEST_MAP_KEY,
           terrain,
@@ -357,6 +382,37 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         now,
         log: app.log,
         limits: options.battleLab?.limits,
+      })
+    : undefined;
+  // 전투 다시보기(시범 6 대 6 기록): 설정 칸 접근자 위에서 돈다. 경기장 = 월드 시험 2차맵 구역(없으면 빈 평지). 기록은 워커
+  const replayRunner = options.battleReplay?.runner;
+  const battleReplay = tuningShared
+    ? createBattleReplayServices({
+        tuning: tuningShared,
+        roster: options.roster ?? testRosterCatalog(),
+        arena: createArenaSource(() => {
+          const map = world?.map(TEST_MAP_KEY);
+          return map
+            ? {
+                mapKey: map.mapKey,
+                terrainVersion: map.terrainVersion,
+                costs: () => map.replicaInit().terrainCost,
+                terrainFile: () => map.terrainFile().raw,
+              }
+            : undefined;
+        }),
+        runner:
+          replayRunner?.kind === "worker"
+            ? workerReplayRunner<ReplayJob, ReplayJobResult>({
+                workerUrl: replayRunner.workerUrl,
+                timeoutMs: REPLAY_TIMEOUT_MS,
+                heapMb: REPLAY_WORKER_HEAP_MB,
+              })
+            : inlineReplayRunner(runReplayJob),
+        effectNames: options.battleReplay?.effectNames,
+        now,
+        log: app.log,
+        limits: options.battleReplay?.limits,
       })
     : undefined;
 
@@ -401,6 +457,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       tuning: tuningShared,
       balance,
       battleLab,
+      battleReplay,
     }),
   });
 

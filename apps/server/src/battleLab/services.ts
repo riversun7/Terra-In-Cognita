@@ -17,9 +17,11 @@ import {
   type LabPresetListResponse,
   type LabPresetSaveInput,
   type LabPreviewResponse,
+  type LabReplayResponse,
   type LabUnit,
   labSettingsProblem,
 } from "@terra/shared/battleLab";
+import type { ReplayArenaRef, ReplayName } from "@terra/protocol/battleReplay";
 import type { LocalizedName } from "@terra/shared/roster";
 import { combatCoefficientsFrom, societyCoefficientsFrom } from "@terra/sim";
 import type { HeavyGate } from "../balance/gate.ts";
@@ -76,6 +78,8 @@ export interface BattleLabShared {
   preview(unit: LabUnit): LabPreviewResponse;
   battle(viewer: Viewer, input: LabBattleInput): Promise<LabBattleResponse>;
   monteCarlo(viewer: Viewer, input: LabMonteCarloInput): Promise<LabMonteCarloResponse>;
+  /** 3D 관람: 한 판(같은 시드면 [한 판]과 같은 전투)을 리플레이로 기록 */
+  replay(viewer: Viewer, input: LabBattleInput): Promise<LabReplayResponse>;
   presets(db: Database, writable: boolean): Promise<LabPresetListResponse>;
   savePreset(
     db: Database,
@@ -154,6 +158,8 @@ export function createBattleLabShared(deps: {
   roster: RosterCatalog;
   /** 팩 unit_kinds 이름(없으면 ID) */
   unitKindNames: ReadonlyMap<string, LocalizedName>;
+  /** 팩 효과 이름(3D 관람 리플레이, 없으면 ID) */
+  effectNames?: Readonly<Record<string, ReplayName>> | undefined;
   terrains: ArenaTerrains;
   runner: JobRunner;
   gate: HeavyGate;
@@ -185,14 +191,14 @@ export function createBattleLabShared(deps: {
   const runArena = async <T>(
     viewer: Viewer,
     input: LabBattleInput & { runs?: number },
-    work: (job: ArenaJob) => Promise<T>,
+    work: (job: ArenaJob, arena: ReplayArenaRef | null) => Promise<T>,
   ): Promise<{ result: T; revision: number; dropped: LabDropped[]; ms: number }> => {
     if (labSettingsProblem(input) !== null) throw rejected("invalid_settings");
-    const map = await terrains.map(input.terrain).catch((error: unknown) => {
+    const pick = await terrains.map(input.terrain).catch((error: unknown) => {
       log.warn({ err: error, terrain: input.terrain }, "battle lab terrain failed");
       return null;
     });
-    if (!map) throw rejected("unknown_terrain");
+    if (!pick) throw rejected("unknown_terrain");
     const { rules, revision } = rulesNow();
     const a = partyOf(input.a, rules);
     const b = partyOf(input.b, rules);
@@ -203,7 +209,7 @@ export function createBattleLabShared(deps: {
       const job: ArenaJob = {
         a: a.party,
         b: b.party,
-        map,
+        map: pick.map,
         coefficients: rules.coefficients,
         limitMs: input.limitSec * 1000,
         seed: input.seed,
@@ -211,7 +217,7 @@ export function createBattleLabShared(deps: {
       const started = now();
       let result: T;
       try {
-        result = await work(job);
+        result = await work(job, pick.ref);
       } catch (error) {
         const reason = error instanceof DuelRunError ? error.reason : "failed";
         log.warn({ err: error, reason }, "battle lab battle failed");
@@ -300,7 +306,7 @@ export function createBattleLabShared(deps: {
           maxLevel: society.cyborg.maxLevel,
         },
         terrains: terrains.list(),
-        replay: false,
+        replay: true,
       };
     },
 
@@ -321,6 +327,32 @@ export function createBattleLabShared(deps: {
         return result.result;
       });
       return { revision: out.revision, ...out.result, dropped: out.dropped, ms: out.ms };
+    },
+
+    async replay(viewer, input) {
+      // 리플레이 이름표: 표시 이름(없으면 A1·B3)과 유닛 종류. 팀 A ID 1~, 팀 B 101~(전투장과 같다)
+      const units: Record<number, { name: string; kind: string }> = {};
+      input.a.units.forEach((unit, index) => {
+        units[1 + index] = { name: unit.label.trim() || `A${index + 1}`, kind: unit.kind };
+      });
+      input.b.units.forEach((unit, index) => {
+        units[101 + index] = { name: unit.label.trim() || `B${index + 1}`, kind: unit.kind };
+      });
+      const names = { skills: { ...roster.names.skills }, effects: { ...deps.effectNames } };
+      const out = await runArena(viewer, input, async (job, arena) => {
+        const result = await runner({ kind: "replay", replay: { job, arena, units, names } });
+        if (result.kind !== "replay") throw new DuelRunError("failed", `unexpected ${result.kind} result`);
+        return result.result;
+      });
+      return {
+        revision: out.revision,
+        replay: out.result.replay,
+        bytes: out.result.bytes,
+        events: out.result.events,
+        endMs: out.result.endTick * rulesNow().rules.coefficients.tickMs,
+        dropped: out.dropped,
+        ms: out.ms,
+      };
     },
 
     async monteCarlo(viewer, input) {

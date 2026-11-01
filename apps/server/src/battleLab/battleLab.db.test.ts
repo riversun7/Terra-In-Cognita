@@ -107,6 +107,7 @@ describe.skipIf(!TEST_DATABASE_URL)("전투 실험실 (DB)", () => {
     expect(obj(kinds[0]?.name).ko).toBe("사이보그");
     expect(obj(catalog.growth)).toMatchObject({ growthPm: 100, maxLevel: 50 });
     expect(arr(catalog.terrains).map((terrain) => obj(terrain).id)).toEqual(["flat", "test"]);
+    expect(catalog.replay).toBe(true);
     expect(arr(catalog.weapons).map((weapon) => obj(weapon).id)).toEqual(
       expect.arrayContaining(["test_sword", "test_staff", "fire_staff", "light_staff"]),
     );
@@ -247,6 +248,11 @@ describe.skipIf(!TEST_DATABASE_URL)("전투 실험실 (DB)", () => {
       cookie.dev,
     );
     expect(terrainTest.statusCode).toBe(200);
+    // 3D 관람: 같은 입력의 한 판을 리플레이(base64)로. 같은 시드면 한 판과 같은 전투라 끝 시각이 같다
+    const replay = obj(resultOf(await trpcMutation(app, "battleLab.replay", input, cookie.dev)));
+    expect(typeof replay.replay).toBe("string");
+    expect(Number(replay.events)).toBeGreaterThan(0);
+    expect(replay.endMs).toBe(battle.endMs);
     const unknown = await trpcMutation(
       app,
       "battleLab.battle",

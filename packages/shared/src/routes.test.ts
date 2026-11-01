@@ -241,6 +241,8 @@ describe("주소 표", () => {
       dev_tuning: ["/dev/tuning", "dev", "shown", "dev_admin", []],
       // 밸런스 화면(docs/adr/2026-11-01-balance-screen.md 7절)
       dev_balance: ["/dev/balance", "dev", "shown", "dev_admin", []],
+      // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 7절)
+      dev_battle_replay: ["/dev/battle-replay", "dev", "hidden", "dev_admin", []],
       dev_gpu_bench: ["/dev/gpu-bench", "dev", "shown", "dev_admin", []],
     });
   });

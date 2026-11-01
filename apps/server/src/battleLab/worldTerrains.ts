@@ -2,13 +2,18 @@
 // 쓰고, 없으면(시험·행성 없는 개발 서버) 월드와 같은 S1 임시 지형(@terra/sim generateTempTerrain)을 쓴다.
 // docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-01, 전투 실험실)" 4절. 지형 파일 하나를 푸는 것은 수 ms(256² 엄폐 + 129² 높이)다.
 import { decodeTerrain } from "@terra/protocol";
-import { type TerrainLayers, generateTempTerrain, seedFromCellKey } from "@terra/sim";
+import { generateTempTerrain, seedFromCellKey } from "@terra/sim";
 import type { TerrainService } from "../world/terrainService.ts";
-import { type ArenaPreset, type ArenaTerrains, createArenaTerrains } from "./terrain.ts";
+import { type ArenaLayers, type ArenaPreset, type ArenaTerrains, createArenaTerrains } from "./terrain.ts";
 
-async function layersOf(terrain: TerrainService, mapKey: number): Promise<TerrainLayers> {
-  const data = decodeTerrain((await terrain.get(mapKey)).file().raw);
-  return { heights: data.heights, surface: data.surface, cover: data.cover };
+/** 지형 서비스의 2차맵 → 지형 층 + 참조(3D 관람이 같은 지형 파일을 받는다) */
+async function layersOf(terrain: TerrainService, mapKey: number): Promise<ArenaLayers> {
+  const map = await terrain.get(mapKey);
+  const data = decodeTerrain(map.file().raw);
+  return {
+    layers: { heights: data.heights, surface: data.surface, cover: data.cover },
+    source: { mapKey, terrainVersion: map.version },
+  };
 }
 
 export function worldArenaTerrains(deps: {
@@ -22,7 +27,7 @@ export function worldArenaTerrains(deps: {
     test: () =>
       terrain
         ? layersOf(terrain, deps.testMapKey)
-        : Promise.resolve(generateTempTerrain(seedFromCellKey(deps.testMapKey))),
+        : Promise.resolve({ layers: generateTempTerrain(seedFromCellKey(deps.testMapKey)) }),
     preset:
       terrain && locatePreset
         ? async (preset) => {

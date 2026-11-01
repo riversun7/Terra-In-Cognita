@@ -125,8 +125,15 @@ function heal(target: EffectHolder, mode: "flat" | "permille", value: number): v
   target.hp = Math.min(target.maxHp, target.hp + Math.max(0, amountOf(target, mode, value)));
 }
 
-/** 틱 처음: 끝난 효과를 지우고, 주기가 된 dot·heal을 적용한다. dot로 쓰러질 수 있다 */
-export function tickEffects(target: EffectHolder, nowMs: number): void {
+/**
+ * 틱 처음: 끝난 효과를 지우고, 주기가 된 dot·heal을 적용한다. dot로 쓰러질 수 있다.
+ * onTick(효과, 실제로 바뀐 체력)은 리플레이 기록용 관찰자다(상태를 바꾸지 않는다, battleTrace.ts)
+ */
+export function tickEffects(
+  target: EffectHolder,
+  nowMs: number,
+  onTick?: (effect: ActiveEffect, change: number) => void,
+): void {
   if (target.effects.length === 0) return;
   target.effects = target.effects.filter((effect) => effect.untilMs < 0 || effect.untilMs > nowMs);
   for (const effect of target.effects) {
@@ -134,8 +141,10 @@ export function tickEffects(target: EffectHolder, nowMs: number): void {
     while (effect.nextTickMs <= nowMs && target.status === "alive") {
       effect.nextTickMs += effect.tickMs;
       const amount = Math.max(0, amountOf(target, effect.valueMode, effect.value)) * effect.stacks;
+      const before = target.hp;
       if (effect.kind === "heal") target.hp = Math.min(target.maxHp, target.hp + amount);
       else target.hp -= amount;
+      if (onTick) onTick(effect, Math.abs(Math.max(0, target.hp) - before));
       if (target.hp <= 0) {
         target.hp = 0;
         target.status = "down";

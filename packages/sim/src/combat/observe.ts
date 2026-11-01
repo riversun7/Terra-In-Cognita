@@ -1,85 +1,19 @@
-// 전투 관찰자 — 밸런스·전투 실험실(docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-01, 전투 실험실)" 4절)
-// 판정 코어(battle.ts)가 공격·스킬·지속 효과·퇴각 때 부르는 선택 함수 묶음이다. 상태·굴림을 바꾸지 않는다(관찰자 있음·없음 결과가
-// 바이트까지 같다, observe.test.ts). 피해는 호출 앞뒤의 (HP + 아머 + 쉴드) 차이로 센다(넘친 피해는 들지 않는다, 음수 = 회복).
-// 지속 피해는 그 효과를 마지막에 건 유닛에게 돌린다(효과 상태는 건 쪽을 들지 않아 관찰자 쪽에서 센다).
-// createBattleTally: 유닛마다 준·받은 피해·회복·쓰러뜨림·공격·스킬 수와 앞 N줄 사건 기록(실험실 한 판·몬테카를로가 쓴다).
+// 전투 집계 — 밸런스·전투 실험실(docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-01, 전투 실험실)" 4절)
+// 판정 관찰자(battleTrace.ts BattleTrace, 리플레이 기록기와 같은 고리)를 받아 유닛마다 준·받은 피해·회복·쓰러뜨림·공격·스킬 수와
+// 앞 N줄 사건을 센다. 관찰자는 상태·굴림을 바꾸지 않는다(관찰자 있음·없음 결과가 바이트까지 같다, observe.test.ts).
+// - 피해 = 그 공격·스킬의 두 몫 합(물리 + 속성, 넘친 피해 포함 — "공격 피해량"). 회복 = 실제로 오른 HP + 쉴드. 지속 피해 = 실제로 내려간 HP.
+// - 지속 피해는 그 대상에 지속 피해 효과가 있는 스킬을 마지막으로 맞힌 유닛에게 돌린다(효과 상태는 건 쪽을 들지 않는다).
+// - 쓰러뜨림 = 그 일 뒤에 대상이 쓰러졌다(관찰자는 살아 있는 대상에만 불린다). 지속 피해 관찰자는 쓰러짐 표시 전에 불려서
+//   체력 0 이하도 쓰러짐으로 본다(effects.ts tickEffects).
+import type { BattleTrace } from "./battleTrace.ts";
 import type { CombatUnitSpec, UnitState } from "./battleTypes.ts";
 import type { AttackOutcome } from "./formula.ts";
 
 export interface BattleHit {
   readonly unit: number;
-  /** (HP + 아머 + 쉴드) 줄어든 양(음수 = 회복) */
+  /** 피해(음수 = 회복) */
   readonly damage: number;
   readonly down: boolean;
-}
-
-export interface BattleObserver {
-  /** 기본 공격 한 번 */
-  attack?(event: {
-    readonly tick: number;
-    readonly unit: number;
-    readonly target: number;
-    readonly outcome: AttackOutcome;
-    readonly crit: boolean;
-    readonly damage: number;
-    readonly down: boolean;
-  }): void;
-  /** 시전 시작(시전이 있는 스킬) */
-  cast?(event: {
-    readonly tick: number;
-    readonly unit: number;
-    readonly skill: string;
-    readonly target: number;
-  }): void;
-  /** 스킬을 풀었다(바로 또는 시전 끝). hits = (HP + 아머 + 쉴드)가 바뀐 유닛 */
-  skill?(event: {
-    readonly tick: number;
-    readonly unit: number;
-    readonly skill: string;
-    readonly hits: readonly BattleHit[];
-    /** 지속 피해 효과를 새로 걸거나 새로 한 유닛 */
-    readonly dotTargets: readonly number[];
-  }): void;
-  /** 지속 효과 틱(피해 +, 회복 −) */
-  effect?(event: {
-    readonly tick: number;
-    readonly unit: number;
-    readonly damage: number;
-    readonly down: boolean;
-  }): void;
-  /** 파티가 전장을 빠졌다 */
-  retreat?(event: { readonly tick: number; readonly party: number }): void;
-}
-
-/** 관찰자가 세는 양: HP + 아머 + 쉴드 */
-export const poolOf = (unit: UnitState): number =>
-  Math.max(0, unit.hp) + Math.max(0, unit.armor) + Math.max(0, unit.shield);
-
-/** 지속 피해 효과의 지문(효과 ID·겹침·끝 시각). 스킬 앞뒤로 견줘 새로 걸리거나 새로 한 것을 찾는다 */
-const dotPrint = (unit: UnitState): string =>
-  unit.effects
-    .filter((effect) => effect.kind === "dot")
-    .map((effect) => `${effect.id}:${effect.stacks}:${effect.untilMs}`)
-    .join("|");
-
-/** 스킬 하나를 푸는 앞뒤로 유닛마다 (HP + 아머 + 쉴드)·쓰러짐·지속 피해 효과를 견준다(값을 바꾸지 않는다) */
-export function watchSkill(
-  units: readonly UnitState[],
-  run: () => void,
-): { hits: BattleHit[]; dotTargets: number[] } {
-  const pools = units.map(poolOf);
-  const prints = units.map(dotPrint);
-  const alive = units.map((unit) => unit.status !== "down");
-  run();
-  const hits: BattleHit[] = [];
-  const dotTargets: number[] = [];
-  units.forEach((unit, at) => {
-    const damage = (pools[at] ?? 0) - poolOf(unit);
-    const down = (alive[at] ?? false) && unit.status === "down";
-    if (damage !== 0 || down) hits.push({ unit: unit.id, damage, down });
-    if (dotPrint(unit) !== prints[at]) dotTargets.push(unit.id);
-  });
-  return { hits, dotTargets };
 }
 
 /** 실험실 사건 한 줄(유닛 ID 그대로, 화면 모양으로 바꾸는 것은 서버) */
@@ -95,18 +29,11 @@ export type TallyEvent =
       readonly down: boolean;
     }
   | {
-      readonly kind: "cast";
-      readonly tick: number;
-      readonly unit: number;
-      readonly skill: string;
-      readonly target: number;
-    }
-  | {
       readonly kind: "skill";
       readonly tick: number;
       readonly unit: number;
       readonly skill: string;
-      readonly hits: readonly BattleHit[];
+      readonly hits: BattleHit[];
     }
   | {
       readonly kind: "dot";
@@ -114,8 +41,7 @@ export type TallyEvent =
       readonly unit: number;
       readonly damage: number;
       readonly down: boolean;
-    }
-  | { readonly kind: "retreat"; readonly tick: number; readonly party: number };
+    };
 
 export interface UnitTally {
   /** 적에게 준 피해 */
@@ -132,7 +58,8 @@ export interface UnitTally {
 }
 
 export interface BattleTally {
-  readonly observer: BattleObserver;
+  /** 판정 관찰자(createBattle·runBattle에 넘긴다) */
+  readonly trace: BattleTrace;
   report(): {
     readonly units: ReadonlyMap<number, UnitTally>;
     readonly events: readonly TallyEvent[];
@@ -140,10 +67,10 @@ export interface BattleTally {
   };
 }
 
-/** 유닛마다 세는 관찰자. logMax = 담을 사건 줄 수(0이면 세기만) */
+/** 유닛마다 세는 관찰자. tick() = 지금 판정 틱(관찰자 인자에는 시각이 없어 전투 상태에서 읽는다). logMax = 담을 사건 줄 수 */
 export function createBattleTally(
   units: readonly Pick<CombatUnitSpec, "id" | "side">[],
-  options: { readonly logMax: number },
+  options: { readonly logMax: number; readonly tick: () => number },
 ): BattleTally {
   const rows = new Map<number, UnitTally>();
   const sideOf = new Map<number, number>();
@@ -153,62 +80,82 @@ export function createBattleTally(
   }
   const events: TallyEvent[] = [];
   let dropped = 0;
-  /** 대상 → 그 유닛에 지속 피해를 마지막에 건 유닛 */
+  const isDown = (target: UnitState): boolean => target.status === "down" || target.hp <= 0;
+  /** 대상 → 지속 피해 효과가 있는 스킬을 마지막으로 맞힌 유닛 */
   const dotSource = new Map<number, number>();
+  /** 지금 풀리는 스킬 사건(skillHit·heal이 여기에 맞은 대상을 더한다) */
+  let current: { unit: number; hits: BattleHit[] } | null = null;
   const log = (event: TallyEvent): void => {
     if (events.length < options.logMax) events.push(event);
     else dropped += 1;
   };
-  const row = (id: number): UnitTally | undefined => rows.get(id);
-  /** 한 유닛(source)이 낸 결과 하나를 센다: 적이면 준 피해·쓰러뜨림, 회복이면 회복 */
-  const credit = (source: number, hit: BattleHit): void => {
-    const target = row(hit.unit);
-    const from = row(source);
-    if (hit.damage > 0) {
-      if (target) target.taken += hit.damage;
-      if (from && sideOf.get(source) !== sideOf.get(hit.unit)) from.dealt += hit.damage;
-    } else if (hit.damage < 0) {
-      if (target) target.healedReceived -= hit.damage;
-      if (from) from.healed -= hit.damage;
-    }
-    if (hit.down && from && sideOf.get(source) !== sideOf.get(hit.unit)) from.kills += 1;
+  /** 피해 하나: 받은 쪽 taken, 적이면 준 쪽 dealt·쓰러뜨림 */
+  const harm = (source: number | null, target: UnitState, damage: number): void => {
+    const row = rows.get(target.id);
+    if (row) row.taken += damage;
+    if (source === null || sideOf.get(source) === sideOf.get(target.id)) return;
+    const from = rows.get(source);
+    if (!from) return;
+    from.dealt += damage;
+    if (isDown(target)) from.kills += 1;
   };
 
-  const observer: BattleObserver = {
-    attack(event) {
-      const from = row(event.unit);
-      if (from) from.attacks += 1;
-      credit(event.unit, { unit: event.target, damage: event.damage, down: event.down });
-      log({ kind: "attack", ...event });
+  const trace: BattleTrace = {
+    attack(attacker, target, hit) {
+      const damage = hit.physical + hit.elemental;
+      const row = rows.get(attacker.id);
+      if (row) row.attacks += 1;
+      harm(attacker.id, target, damage);
+      log({
+        kind: "attack",
+        tick: options.tick(),
+        unit: attacker.id,
+        target: target.id,
+        outcome: hit.outcome,
+        crit: hit.crit,
+        damage,
+        down: isDown(target),
+      });
     },
-    cast(event) {
-      log({ kind: "cast", ...event });
+    building() {
+      // 실험실 전투장에는 건물이 없다
     },
-    skill(event) {
-      const from = row(event.unit);
-      if (from) from.skills += 1;
-      for (const hit of event.hits) credit(event.unit, hit);
-      for (const target of event.dotTargets) dotSource.set(target, event.unit);
-      log({ kind: "skill", tick: event.tick, unit: event.unit, skill: event.skill, hits: event.hits });
+    skill(unit, index) {
+      const row = rows.get(unit.id);
+      if (row) row.skills += 1;
+      const hits: BattleHit[] = [];
+      current = { unit: unit.id, hits };
+      log({ kind: "skill", tick: options.tick(), unit: unit.id, skill: unit.skills[index]?.id ?? "", hits });
     },
-    effect(event) {
-      const source = dotSource.get(event.unit) ?? 0;
-      const hit = { unit: event.unit, damage: event.damage, down: event.down };
-      // 지속 피해만 건 유닛에게 돌린다(지속 회복은 받은 회복으로만 센다)
-      if (source !== 0 && event.damage > 0) credit(source, hit);
-      else {
-        const target = row(event.unit);
-        if (target && event.damage > 0) target.taken += event.damage;
-        else if (target && event.damage < 0) target.healedReceived -= event.damage;
-      }
-      log({ kind: "dot", ...event });
+    skillHit(unit, skill, target, _hit, physical, elemental) {
+      const damage = physical + elemental;
+      harm(unit.id, target, damage);
+      if (skill.effects.some((part) => part.def.kind === "dot")) dotSource.set(target.id, unit.id);
+      if (current && current.unit === unit.id && (damage > 0 || isDown(target)))
+        current.hits.push({ unit: target.id, damage, down: isDown(target) });
     },
-    retreat(event) {
-      log({ kind: "retreat", ...event });
+    heal(source, target, gain) {
+      const amount = gain.hp + gain.shield;
+      if (amount <= 0) return;
+      const row = rows.get(target.id);
+      if (row) row.healedReceived += amount;
+      if (source) {
+        const from = rows.get(source.id);
+        if (from) from.healed += amount;
+        if (current && current.unit === source.id)
+          current.hits.push({ unit: target.id, damage: -amount, down: false });
+      } else log({ kind: "dot", tick: options.tick(), unit: target.id, damage: -amount, down: false });
+    },
+    dot(target, _effect, amount) {
+      harm(dotSource.get(target.id) ?? null, target, amount);
+      log({
+        kind: "dot",
+        tick: options.tick(),
+        unit: target.id,
+        damage: amount,
+        down: isDown(target),
+      });
     },
   };
-  return {
-    observer,
-    report: () => ({ units: rows, events, eventsDropped: dropped }),
-  };
+  return { trace, report: () => ({ units: rows, events, eventsDropped: dropped }) };
 }

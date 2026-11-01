@@ -6,7 +6,8 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
-    "./planetTile": "./src/planetTile.ts"
+    "./planetTile": "./src/planetTile.ts",
+    "./battleReplay": "./src/battleReplayEntry.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"

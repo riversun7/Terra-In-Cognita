@@ -6,7 +6,6 @@
 // 정수·시드 굴림만 쓴다(굴림 하나 = 0~9999, (시드, 틱)마다 새 흐름, 공격마다 셋: 명중·회피·크리, D-419).
 // 실시간·빨리감기·재생이 같은 함수다. 상태는 직렬화할 수 있는 값만 들고(스냅숏), 흐름장은 상태에서 다시 나오는 캐시다.
 // [임시] 파티 AI는 "보이는 가장 가까운 적"과 퇴각 기준선(⑦)만 한다. 작전 슬라이더 ①~⑥은 R5(D-5040).
-// 관찰자(observe.ts, 선택)는 공격·스킬·지속 효과·퇴각 앞뒤 값을 읽기만 한다(밸런스·전투 실험실의 사건·유닛 통계).
 import { createRng } from "@terra/shared";
 import { mix32 } from "../math/hash.ts";
 import { type BattleMap, createBattleMap } from "./battleMap.ts";
@@ -17,8 +16,8 @@ import { buildingDamage, resolveAttack, withAttackModifiers, withDefenseModifier
 import { lineClear } from "./los.ts";
 import { visibleEnemies } from "./sight.ts";
 import { pickSkill, resolveSkill, singleAlly, startSkill, takeDamage } from "./skills.ts";
+import type { BattleTrace } from "./battleTrace.ts";
 import { active, electCommander, initialState, ready, spend, unitFrom } from "./battleState.ts";
-import { type BattleObserver, poolOf as pool, watchSkill } from "./observe.ts";
 import type {
   BattleInit,
   BattleInput,
@@ -52,12 +51,16 @@ export function snapshotBattle(state: BattleState): string {
   return JSON.stringify(state);
 }
 
+/**
+ * trace = 리플레이 기록용 관찰자(battleTrace.ts). 상태·굴림에 손대지 않으므로 있어도 없어도 결과가 같다
+ * (docs/adr/2026-11-01-battle-replay.md 1절, 시험 replay.test.ts)
+ */
 export function createBattle(
   init: BattleInit,
   c: CombatCoefficients = TEST_COMBAT_COEFFICIENTS,
-  observer?: BattleObserver,
+  trace?: BattleTrace,
 ): Battle {
-  return makeBattle(init, initialState(init, c), c, observer);
+  return makeBattle(init, initialState(init, c), c, trace);
 }
 
 /** 스냅숏에서 다시 켠다(같은 시작 자료가 있어야 한다: 지도는 스냅숏에 넣지 않는다) */
@@ -80,7 +83,7 @@ function makeBattle(
   init: BattleInit,
   state: BattleState,
   c: CombatCoefficients,
-  observer?: BattleObserver,
+  trace?: BattleTrace,
 ): Battle {
   const map: BattleMap = createBattleMap(init.map);
   const size = map.size;
@@ -274,17 +277,8 @@ function makeBattle(
     spend(attacker, nowMs, c);
     if (!attacker.air && map.cover[attacker.y * size + attacker.x] === 1)
       attacker.revealUntilMs = nowMs + c.bushRevealMs;
-    const before = observer ? pool(target) : 0;
     takeDamage(target, hit.physical, hit.elemental, nowMs);
-    observer?.attack?.({
-      tick: state.tick,
-      unit: attacker.id,
-      target: target.id,
-      outcome: hit.outcome,
-      crit: hit.crit,
-      damage: before - pool(target),
-      down: before > 0 && target.status === "down",
-    });
+    if (trace) trace.attack(attacker, target, hit);
     return true;
   };
 
@@ -292,8 +286,10 @@ function makeBattle(
     if (!inRangeOfBuilding(attacker, buildingId)) return false;
     const building = state.buildings.find((entry) => entry.id === buildingId);
     if (!building || building.durability <= 0) return false;
-    building.durability -= buildingDamage(attacker.attack, attacker.buildingMulPm, c);
+    const damage = buildingDamage(attacker.attack, attacker.buildingMulPm, c);
+    building.durability -= damage;
     spend(attacker, nowMs, c);
+    if (trace) trace.building(attacker, buildingId, damage, building.durability);
     return true;
   };
 
@@ -328,10 +324,8 @@ function makeBattle(
     if (!skill) return;
     if (skill.target === "enemy" && !unit.air && map.cover[unit.y * size + unit.x] === 1)
       unit.revealUntilMs = nowMs + c.bushRevealMs;
-    const run = () => resolveSkill(unit, skill, goal, state.units, rng, nowMs, c);
-    if (!observer) return run();
-    const { hits, dotTargets } = watchSkill(state.units, run);
-    observer.skill?.({ tick: state.tick, unit: unit.id, skill: skill.id, hits, dotTargets });
+    if (trace) trace.skill(unit, index, goal);
+    resolveSkill(unit, skill, goal, state.units, rng, nowMs, c, trace);
   };
 
   /** 스킬을 고르고 쓴다(시전이 없으면 바로 푼다). 썼으면 true */
@@ -347,13 +341,6 @@ function makeBattle(
     if (!pick) return false;
     if (startSkill(unit, pick.index, pick.target.id, nowMs, c))
       fire(unit, pick.index, pick.target, rng, nowMs);
-    else
-      observer?.cast?.({
-        tick: state.tick,
-        unit: unit.id,
-        skill: unit.skills[pick.index]?.id ?? "",
-        target: pick.target.id,
-      });
     return true;
   };
 
@@ -477,7 +464,6 @@ function makeBattle(
       if (!living.every((unit) => unit.bandSinceMs >= 0 && nowMs - unit.bandSinceMs >= c.retreatDwellMs))
         continue;
       party.retreated = true;
-      observer?.retreat?.({ tick: state.tick, party: party.id });
       // 쓰러진 동료도 데리고 나간다(D-225)
       for (const unit of members) unit.status = "retreated";
       const side = state.sides.find((entry) => entry.id === party.side);
@@ -521,18 +507,18 @@ function makeBattle(
     if (state.result) return;
     for (const input of inputs) if (input.tick === state.tick) applyInput(input);
     // 효과: 끝난 것을 지우고 지속 피해·회복을 적용한다(시야 전에, 쓰러진 유닛은 보이지 않게)
-    for (const unit of state.units) {
-      if (!active(unit)) continue;
-      if (!observer) {
-        tickEffects(unit, state.tick * c.tickMs);
-        continue;
-      }
-      const before = pool(unit);
-      tickEffects(unit, state.tick * c.tickMs);
-      const damage = before - pool(unit);
-      if (damage !== 0)
-        observer.effect?.({ tick: state.tick, unit: unit.id, damage, down: unit.status === "down" });
-    }
+    for (const unit of state.units)
+      if (active(unit))
+        tickEffects(
+          unit,
+          state.tick * c.tickMs,
+          trace
+            ? (effect, change) => {
+                if (effect.kind === "heal") trace.heal(null, unit, { hp: change, shield: 0 }, effect.id);
+                else trace.dot(unit, effect.id, change);
+              }
+            : undefined,
+        );
     const gone = destroyed();
     const key = [...gone].join(",");
     if (key !== destroyedKey) {
@@ -582,15 +568,15 @@ function makeBattle(
   };
 }
 
-/** 빨리감기: 끝까지 돌려 결과·끝 상태(JSON)를 낸다. onSnapshot은 스냅숏 간격마다, observer는 사건마다(선택) */
+/** 빨리감기: 끝까지 돌려 결과·끝 상태(JSON)를 낸다. onSnapshot은 스냅숏 간격마다, trace는 판정 관찰자(선택, 전투 실험실 통계) */
 export function runBattle(
   init: BattleInit,
   inputs: readonly BattleInput[],
   onSnapshot?: (snapshot: string, tick: number) => void,
   c: CombatCoefficients = TEST_COMBAT_COEFFICIENTS,
-  observer?: BattleObserver,
+  trace?: BattleTrace,
 ): { result: BattleResult; finalState: string; state: BattleState } {
-  const battle = createBattle(init, c, observer);
+  const battle = createBattle(init, c, trace);
   const { state, result } = battle.runToEnd(inputs, Number.POSITIVE_INFINITY, onSnapshot);
   if (!result) throw new Error("battle did not end");
   return { result, finalState: snapshotBattle(state), state };

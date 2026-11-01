@@ -27,12 +27,6 @@ function eventText(event: LabBattleEvent, catalog: LabCatalogResponse, locale: s
       const text = m.dev_lab_ev_hit({ ...who, damage: n(event.damage) });
       return `${text}${event.crit ? ` ${m.dev_lab_ev_crit()}` : ""}${event.down ? ` ${m.dev_lab_ev_down()}` : ""}`;
     }
-    case "cast":
-      return m.dev_lab_ev_cast({
-        unit: unitShort(event.unit),
-        skill: skillName(catalog, event.skill, locale),
-        target: unitShort(event.target),
-      });
     case "skill": {
       const hits = event.hits
         .map((hit) =>
@@ -47,12 +41,10 @@ function eventText(event: LabBattleEvent, catalog: LabCatalogResponse, locale: s
         hits: hits || m.dev_lab_ev_no_effect(),
       });
     }
-    case "dot":
+    default:
       return event.damage < 0
         ? m.dev_lab_ev_regen({ target: unitShort(event.target), amount: n(-event.damage) })
         : `${m.dev_lab_ev_dot({ target: unitShort(event.target), damage: n(event.damage) })}${event.down ? ` ${m.dev_lab_ev_down()}` : ""}`;
-    default:
-      return m.dev_lab_ev_retreat({ team: teamText(event.team) });
   }
 }
 

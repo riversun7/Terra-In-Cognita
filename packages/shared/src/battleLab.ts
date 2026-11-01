@@ -323,20 +323,13 @@ export type LabBattleEvent =
       readonly hits: readonly { readonly target: string; readonly damage: number; readonly down: boolean }[];
     }
   | {
-      readonly kind: "cast";
-      readonly ms: number;
-      readonly unit: string;
-      readonly skill: string;
-      readonly target: string;
-    }
-  | {
+      /** 지속 효과 틱(피해 +, 효과 회복 −) */
       readonly kind: "dot";
       readonly ms: number;
       readonly target: string;
       readonly damage: number;
       readonly down: boolean;
-    }
-  | { readonly kind: "retreat"; readonly ms: number; readonly team: LabTeam };
+    };
 
 /** 유닛 한 판 요약 */
 export interface LabUnitSummary {
@@ -400,6 +393,17 @@ export interface LabMonteCarloResponse {
   readonly avgMs: number;
   readonly medianMs: number;
   readonly units: readonly LabUnitStats[];
+  readonly dropped: readonly LabDropped[];
+  readonly ms: number;
+}
+
+/** 3D 관람: 이진 리플레이(base64, @terra/protocol/battleReplay 형식)와 크기·사건 수·끝 시각 */
+export interface LabReplayResponse {
+  readonly revision: number;
+  readonly replay: string;
+  readonly bytes: number;
+  readonly events: number;
+  readonly endMs: number;
   readonly dropped: readonly LabDropped[];
   readonly ms: number;
 }

@@ -5,7 +5,7 @@
 //   유닛 프리셋: 새로 저장(이름 ko·en 창) → 이름 바꾸기 → 복제 → 지우기(확인 창). 샘플을 고르면 덮어쓰기·이름 바꾸기·지우기는 꺼진다.
 //   새로 고치면 팀이 이 기기에 남아 있다(localStorage).
 // - player: 권한 없음, tRPC battleLab.*는 403.
-// - 배치·사진: 390·1440 × 파스텔·다크 × 한국어·영어. 가로 넘침·작은 누르는 곳 없음.
+// - 배치·사진: 390·1440 × 파스텔·다크 × 한국어·영어. 가로 넘침·작은 누르는 곳 없음. 3D 관람 창은 테마 둘 × 390·1440(언어 섞어 넷).
 // 팀 프리셋은 시험끼리 DB를 같이 쓴다: 만든 프리셋은 시험 안에서 지운다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
@@ -202,6 +202,32 @@ test.describe("배치·사진", () => {
         });
         await shot(page, `battle-lab-${theme}-${language}-${width}`, { fullPage: true });
         await style.evaluate((element) => element.parentNode?.removeChild(element));
+        expect(unexpected(deviceErrors)).toEqual([]);
+      });
+    });
+  }
+
+  // 3D 관람 창: 기본 테마 둘 × 390·1440(한국어·영어 한 번씩). 창 안 보기 화면이 가로로 넘치지 않는다
+  for (const { theme, language, width, height } of [
+    { theme: "pastel", language: "ko", width: 390, height: 844 },
+    { theme: "dark", language: "en", width: 390, height: 844 },
+    { theme: "pastel", language: "en", width: 1440, height: 900 },
+    { theme: "dark", language: "ko", width: 1440, height: 900 },
+  ] as const) {
+    test.describe(`3D 관람·${theme}·${language}·${width}px`, () => {
+      test.use({ theme, language, viewport: { width, height } });
+
+      test("3D 관람 창: 보기 화면 준비, 가로 넘침 없음, 사진", async ({ page, deviceErrors }) => {
+        test.setTimeout(150_000);
+        await labReady(page);
+        await runUntil(page, ".bl-watch", ".bl-watch-dialog[open]");
+        const watch = page.locator(".bl-watch-dialog[open]");
+        await expect(watch.locator(".br-view")).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
+        await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await shot(page, `battle-lab-watch-${theme}-${language}-${width}`);
+        await page.keyboard.press("Escape");
+        await expect(page.locator(".bl-watch-dialog[open]")).toHaveCount(0);
         expect(unexpected(deviceErrors)).toEqual([]);
       });
     });

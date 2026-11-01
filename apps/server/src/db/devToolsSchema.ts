@@ -1,4 +1,5 @@
-// 개발자 도구 DB 표 — schema.ts가 다시 내보낸다(drizzle-kit은 schema.ts 하나를 읽는다). schema.ts가 1,000줄 상한에 닿아 나눴다.
+// 개발자 도구 DB 표(전투 실험실 프리셋·계산식 덮어쓰기) — schema.ts가 다시 내보낸다(drizzle-kit은 schema.ts 하나를 읽는다).
+// schema.ts가 1,000줄 상한에 닿아 나눴다.
 // 바꾼 뒤 `pnpm --filter @terra/server db:generate`로 마이그레이션을 만든다(schema.ts와 같은 규칙).
 import { sql } from "drizzle-orm";
 import { check, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
@@ -33,5 +34,25 @@ export const battleLabPresets = pgTable(
       sql`char_length(${table.nameKo}) between 1 and 40 and char_length(${table.nameEn}) between 1 and 40`,
     ),
     check("battle_lab_presets_version_positive", sql`${table.version} >= 1`),
+  ],
+);
+
+/** 계산식 덮어쓰기(ADR 2026-11-01-formula-editor): 설정 칸과 같은 판·감사 기록, 글 값. id = 전투 식 ID 또는 `<행 ID>.formula` */
+export const formulaOverrides = pgTable(
+  "formula_overrides",
+  {
+    id: text("id").primaryKey(),
+    source: text("source").notNull(),
+    packSource: text("pack_source").notNull(),
+    contentVersion: text("content_version").notNull(),
+    note: text("note"),
+    updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("formula_overrides_id_format", sql`${table.id} ~ '^[a-z][a-z0-9_]{1,47}(\\.formula)?$'`),
+    check("formula_overrides_source_length", sql`char_length(${table.source}) between 1 and 2000`),
+    check("formula_overrides_pack_source_length", sql`char_length(${table.packSource}) <= 4000`),
+    check("formula_overrides_note_length", sql`${table.note} is null or char_length(${table.note}) <= 200`),
   ],
 );

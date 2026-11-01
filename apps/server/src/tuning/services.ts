@@ -7,6 +7,7 @@
 //   바꿔 끼우기 → 서버 기록 `tuning change`(N1·지표가 판으로 기간을 나눈다, 9절).
 // - 켤 때(bootTuning): 가장 나중에 바꾼 것을 고르고(6절) 지울 줄을 정리한다. 정리가 실패해도 시작을 막지 않는다.
 import {
+  type StatCellChange,
   TUNING_HISTORY_LIMIT,
   type TuningEntryView,
   type TuningExportResponse,
@@ -198,17 +199,27 @@ export function tuningList(shared: TuningShared): TuningListResponse {
     contentHash: shared.pack.contentHash,
     revision: snapshot.revision,
     entries,
+    statOverrides: [...snapshot.overrides.keys()].filter((id) => state.statCell(id) !== undefined).length,
   };
 }
 
-/** 내보내기 차이: 팩 값과 다른 덮어쓰기(ID 차례) */
+/**
+ * 내보내기 차이: 팩 값과 다른 덮어쓰기(ID 차례). 가중치 표 칸은 statRows(있을 때만, 키 차례 — docs/adr/2026-11-01-balance-screen.md
+ * 2절)
+ */
 export function tuningExport(shared: TuningShared): TuningExportResponse {
   const { state, pack } = shared;
   const snapshot = state.snapshot();
-  const changes = [...snapshot.overrides.values()].flatMap((record) => {
+  const records = [...snapshot.overrides.values()];
+  const changes = records.flatMap((record) => {
     const entry = state.entry(record.id);
     if (!entry || record.value === entry.value) return [];
     return [{ id: record.id, code: entry.code, from: entry.value, to: record.value }];
+  });
+  const statRows: StatCellChange[] = records.flatMap((record) => {
+    const cell = state.statCell(record.id);
+    if (!cell || record.value === cell.packValue) return [];
+    return [{ row: cell.row.id, field: cell.field, from: cell.packValue, to: record.value }];
   });
   const exportedAt = new Date(shared.now()).toISOString();
   const stamp = exportedAt.replaceAll(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
@@ -221,6 +232,7 @@ export function tuningExport(shared: TuningShared): TuningExportResponse {
       contentVersion: pack.contentVersion,
       contentHash: pack.contentHash,
       changes,
+      ...(statRows.length > 0 ? { statRows } : {}),
     },
     fileName: `tuning-${pack.contentVersion.replace("@", "-")}-${stamp}.json`,
   };
@@ -279,12 +291,13 @@ export function createTuningServices(deps: TuningServicesDeps): TuningServices {
         const plan = state.plan(input.changes);
         if (!plan.ok) throw rejected(plan.reason, plan.problems);
         // 구조 값(D-5054)이 들면 확인 창을 거쳐야 한다(되돌리기 포함)
-        const structural = plan.changes.some((change) => state.entry(change.id)?.structural === true);
+        const structural = plan.changes.some((change) => state.slot(change.id)?.structural === true);
         if (structural && input.confirmStructural !== true) throw rejected("structural_unconfirmed");
         if (plan.changes.length === 0) return tuningList(shared);
+        // 설정 칸·가중치 칸(밸런스 화면) 모두 저장 때의 팩 값·단위를 함께 둔다(켤 때 "가장 나중에 바꾼 것" 판정)
         const writes: TuningWrite[] = plan.changes.flatMap((change) => {
-          const entry = state.entry(change.id);
-          return entry ? [{ ...change, packValue: entry.value, unit: state.unitOf(entry) }] : [];
+          const target = state.slot(change.id);
+          return target ? [{ ...change, packValue: target.packValue, unit: target.unit }] : [];
         });
         const outcome = await applyTuningWrites(db, {
           expectedRevision: input.expectedRevision,

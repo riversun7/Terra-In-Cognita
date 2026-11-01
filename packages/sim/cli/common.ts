@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   type PackSource,
+  type StatRowEntry,
   facilityEntrySchema,
   formatIssue,
   hasErrors,
@@ -14,6 +15,7 @@ import {
   recipeEntrySchema,
   skillEntrySchema,
   statRowEntrySchema,
+  overlayStatRowsDiff,
   overlayTuningDiff,
   tuningDiffSchema,
   tuningEntrySchema,
@@ -103,10 +105,10 @@ function catalogOf(source: PackSource): EconomyCatalog {
   };
 }
 
-/** 팩의 전투 분류 → 시뮬 전투 자료(변환은 combatCatalogFrom) */
-function combatCatalogOf(source: PackSource): CombatCatalog {
+/** 팩의 전투 분류 → 시뮬 전투 자료(변환은 combatCatalogFrom). 가중치 표 행은 따로 돌려준다(--tuning 가중치 칸 차이) */
+function combatCatalogOf(source: PackSource, statRows: StatRowEntry[]): CombatCatalog {
   return combatCatalogFrom({
-    statRows: parseFile(source, "stat_rows.json", (raw) => statRowEntrySchema.parse(raw)),
+    statRows,
     effects: parseFile(source, "effects.json", (raw) => effectEntrySchema.parse(raw)),
     skills: parseFile(source, "skills.json", (raw) => skillEntrySchema.parse(raw)),
     items: parseFile(source, "items.json", (raw) => itemEntrySchema.parse(raw)),
@@ -123,6 +125,7 @@ export function readPack(
   hash: string;
   catalog: EconomyCatalog;
   combat: CombatCatalog;
+  statRows: StatRowEntry[];
   tuning: Map<string, number>;
 } {
   const loaded = loadContentPack(dir);
@@ -138,11 +141,13 @@ export function readPack(
     if (!planets.some((entry) => entry.id === scenario.planet))
       throw new Error(`시나리오 ${scenario.id}의 행성 ${scenario.planet}이(가) 팩에 없습니다`);
   }
+  const statRows = parseFile(loaded.source, "stat_rows.json", (raw) => statRowEntrySchema.parse(raw));
   return {
     version: loaded.version,
     hash: loaded.hash,
     catalog: catalogOf(loaded.source),
-    combat: combatCatalogOf(loaded.source),
+    combat: combatCatalogOf(loaded.source, statRows),
+    statRows,
     tuning: new Map(
       parseFile(loaded.source, "tuning.json", (raw) => tuningEntrySchema.parse(raw)).map((entry) => [
         entry.id,
@@ -167,6 +172,34 @@ export function withTuningDiff(tuning: ReadonlyMap<string, number>, file: string
     `설정 차이: ${diff.contentVersion}에서 내보낸 칸 ${diff.changes.length - result.unknown.length}개를 얹음`,
   );
   return result.values;
+}
+
+/**
+ * 같은 차이 파일의 가중치 표 칸(statRows, 밸런스 화면 — docs/adr/2026-11-01-balance-screen.md 2절)을 팩 행 위에 얹은 전투 자료.
+ * 칸이 없으면 그대로. 서버 세계의 실효 표와 같다(팩에 없는 칸은 얹지 않는다)
+ */
+export function withStatRowsDiff(
+  combat: CombatCatalog,
+  statRows: readonly StatRowEntry[],
+  file: string,
+): CombatCatalog {
+  const diff = tuningDiffSchema.parse(JSON.parse(readFileSync(file, "utf8")));
+  const changes = diff.statRows ?? [];
+  if (changes.length === 0) return combat;
+  const result = overlayStatRowsDiff(statRows, changes);
+  if (result.unknown.length > 0)
+    console.error(`가중치 차이: 팩에 없는 칸은 건너뜀 — ${result.unknown.join(", ")}`);
+  if (result.stale.length > 0)
+    console.error(`가중치 차이: 내보낼 때와 팩 값이 다른 칸(차이 값을 씀) — ${result.stale.join(", ")}`);
+  console.error(`가중치 차이: 칸 ${changes.length - result.unknown.length}개를 얹음`);
+  const { statTable } = combatCatalogFrom({
+    statRows: result.rows,
+    effects: [],
+    skills: [],
+    items: [],
+    unitKinds: [],
+  });
+  return { ...combat, statTable };
 }
 
 /** 세력마다 일꾼 수를 바꿔 전체 유닛이 약 total개가 되게 한다(속도 측정용) */

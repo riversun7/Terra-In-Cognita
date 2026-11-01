@@ -6,6 +6,7 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./balance": "./src/balance.ts",
     "./cyborg": "./src/cyborg.ts",
     "./dashboard": "./src/dashboard.ts",
     "./economy": "./src/economy.ts",

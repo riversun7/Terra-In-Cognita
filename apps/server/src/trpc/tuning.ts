@@ -12,7 +12,8 @@ import { z } from "zod";
 import type { TuningAction } from "./context.ts";
 import { permissionProcedure, router } from "./init.ts";
 
-const tuningId = z.string().regex(/^[a-z][a-z0-9_]{1,47}$/);
+/** 설정 칸 ID 또는 가중치 표 칸 키 `<행 ID>.<칸>`(밸런스 화면, docs/adr/2026-11-01-balance-screen.md 1절) */
+const tuningId = z.string().regex(/^[a-z][a-z0-9_]{1,47}(\.(str|dex|agi|vit|int|wis|base|cap|half))?$/);
 const tuningValue = z.int().min(-TUNING_VALUE_LIMIT).max(TUNING_VALUE_LIMIT);
 
 /** 세계 설정 판(DB int8, 안전한 정수) */

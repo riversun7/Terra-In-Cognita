@@ -9,7 +9,15 @@
 import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { DAY_MS, runSimulation } from "../src/index.ts";
-import { DEFAULT_PACK_DIR, fmt, readPack, readScenario, withTuningDiff, withUnits } from "./common.ts";
+import {
+  DEFAULT_PACK_DIR,
+  fmt,
+  readPack,
+  readScenario,
+  withStatRowsDiff,
+  withTuningDiff,
+  withUnits,
+} from "./common.ts";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -34,8 +42,17 @@ if (!name) {
 }
 let scenario = readScenario(name);
 if (values.units !== undefined) scenario = withUnits(scenario, Number(values.units));
-const { catalog, combat, tuning: packTuning, ...content } = readPack(values.pack, scenario);
+const {
+  catalog,
+  combat: packCombat,
+  statRows,
+  tuning: packTuning,
+  ...content
+} = readPack(values.pack, scenario);
 const tuning = values.tuning === undefined ? packTuning : withTuningDiff(packTuning, values.tuning);
+// 같은 차이의 가중치 표 칸(밸런스 화면)도 얹는다
+const combat =
+  values.tuning === undefined ? packCombat : withStatRowsDiff(packCombat, statRows, values.tuning);
 const days = Number(values.days);
 const lines: string[] = [];
 const started = performance.now();

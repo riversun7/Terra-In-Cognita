@@ -393,6 +393,7 @@ export {
   runDuels,
   runStatDuels,
   statFighterSpecs,
+  type DuelOptions,
   type DuelReport,
   type StatFighter,
 } from "./combat/duels.ts";
@@ -449,7 +450,7 @@ export {
   tuningValue,
   type TuningKey,
 } from "./tuning.ts";
-export { newTuningProblems, tuningProblems } from "./tuningChecks.ts";
+export { newTuningProblems, statTableProblems, tuningProblems } from "./tuningChecks.ts";
 export { TEST_SOCIETY_COEFFICIENTS, type SocietyCoefficients } from "./society/coefficients.ts";
 export {
   PROTECTOR_ASSET,

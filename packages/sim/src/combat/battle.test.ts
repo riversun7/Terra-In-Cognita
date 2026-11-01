@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createBattle, restoreBattle, runBattle, snapshotBattle } from "./battle.ts";
+import { actionOrder, createBattle, restoreBattle, runBattle, snapshotBattle } from "./battle.ts";
 import type { BattleInput } from "./battleTypes.ts";
 import { COVER_BLOCK } from "./battleMap.ts";
 import { TEST_COMBAT_COEFFICIENTS } from "./coefficients.ts";
@@ -348,5 +348,49 @@ describe("피해 두 몫과 회복(D-458·D-459)", () => {
     battle.step([]);
     const target = battle.state.units.find((u) => u.id === 101);
     expect(target?.lastHitMs).toBe(0);
+  });
+});
+
+describe("틱 안 행동 차례(밸런스 화면 편 쏠림 진단, SIM_VERSION 4)", () => {
+  /** 한 방에 쓰러지는(체력 10, 공격 20, 늘 맞음) 같은 유닛 1 대 1을 거리 gap으로 세운다. 먼저 친 쪽이 이긴다 */
+  function oneHitWinner(gap: number, seed: number): number {
+    const fragile = { maxHp: 10 };
+    const init = {
+      ...duel(1, seed),
+      units: [unit(1, 1, 1, 10, 16, fragile), unit(101, 2, 11, 10 + gap, 16, fragile)],
+    };
+    return runBattle(init, []).result.winner;
+  }
+
+  it("같은 틱에 맞닿은 두 유닛 가운데 누가 먼저 치는지는 유닛 ID 차례·거리 홀짝으로 정해지지 않는다", () => {
+    for (const gap of [8, 9]) {
+      let side1 = 0;
+      for (let seed = 1; seed <= 40; seed++) if (oneHitWinner(gap, seed) === 1) side1 += 1;
+      // 고치기 전(ID 차례): 거리 8이면 늘 편 2(0/40) — 앞 차례(편 1)가 걸어 맞닿자 뒤 차례(편 2)가 같은 틱에 바로 쳤다.
+      // 거리 9면 늘 편 1(40/40) — 둘 다 걸어 맞닿은 다음 틱에 ID가 작은 편 1이 먼저 쳤다
+      expect(side1).toBeGreaterThanOrEqual(10);
+      expect(side1).toBeLessThanOrEqual(30);
+    }
+  });
+
+  it("행동 차례는 (시드, 틱)마다 고르게 섞인 순열이다", () => {
+    const first = new Map<number, number>();
+    for (let tick = 0; tick < 600; tick++) {
+      const order = actionOrder(4, 7, tick);
+      expect(order.toSorted((a, b) => a - b)).toEqual([0, 1, 2, 3]);
+      first.set(order[0] ?? -1, (first.get(order[0] ?? -1) ?? 0) + 1);
+    }
+    expect(actionOrder(4, 7, 3)).toEqual(actionOrder(4, 7, 3));
+    // 맨 앞자리가 네 자리에 고루 간다(각 150 근처)
+    for (const index of [0, 1, 2, 3]) expect(first.get(index) ?? 0).toBeGreaterThan(100);
+  });
+
+  it("행동 차례는 시드·틱에서 나와 스냅숏 재생이 바이트까지 같다", () => {
+    const base = duel(6, 13);
+    const init = { ...base, units: base.units.map((spec) => ({ ...spec, maxHp: 6000 })) };
+    const snapshots: string[] = [];
+    const full = runBattle(init, [], (snapshot) => snapshots.push(snapshot));
+    const restored = restoreBattle(init, snapshots[0] ?? "");
+    expect(snapshotBattle(restored.runToEnd([]).state)).toBe(full.finalState);
   });
 });

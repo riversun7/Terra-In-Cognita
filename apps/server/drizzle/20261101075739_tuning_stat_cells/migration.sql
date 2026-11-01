@@ -1,0 +1,1 @@
+ALTER TABLE "tuning_overrides" DROP CONSTRAINT "tuning_overrides_id_format", ADD CONSTRAINT "tuning_overrides_id_format" CHECK ("id" ~ '^[a-z][a-z0-9_]{1,47}(\.(str|dex|agi|vit|int|wis|base|cap|half))?$');

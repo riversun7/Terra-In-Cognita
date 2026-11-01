@@ -1,6 +1,6 @@
 // 전투 판정 코어 — docs/adr/2026-10-31-combat-core.md, ADR 35(전투맵 인스턴스)
-// 한 틱(tickMs, 100ms) = 입력 적용 → 편마다 시야(틱 시작 위치) → 흐름장(fieldMs마다) → 파티 퇴각 기준 → 유닛마다(ID 차례) 행동
-// (공격 또는 한 걸음) → 퇴각 판정 → 끝 판정. 행동 시각은 ms로 들고, 그 시각이 된 첫 틱 경계에서 한다(D-418 실시간).
+// 한 틱(tickMs, 100ms) = 입력 적용 → 편마다 시야(틱 시작 위치) → 흐름장(fieldMs마다) → 파티 퇴각 기준 → 유닛마다(틱마다 (시드, 틱)으로
+// 섞은 차례, SIM_VERSION 4) 행동(공격 또는 한 걸음) → 퇴각 판정 → 끝 판정. 행동 시각은 ms로 들고, 그 시각이 된 첫 틱 경계에서 한다(D-418 실시간).
 // 공격 = 다음 행동 시각이 됐고 스태미나(속성이면 MP도)가 충분할 때. 걷기는 자원이 없다. 스태미나·MP·쉴드는 2차 스탯(분당 회복,
 // D-458)대로 틱마다 찬다. 피해는 두 몫이다(D-459): 물리 몫은 아머 HP부터, 속성 몫은 쉴드 HP부터 깎는다.
 // 정수·시드 굴림만 쓴다(굴림 하나 = 0~9999, (시드, 틱)마다 새 흐름, 공격마다 셋: 명중·회피·크리, D-419).
@@ -29,6 +29,22 @@ import type {
 
 const chebyshev = (ax: number, ay: number, bx: number, by: number): number =>
   Math.max(ax > bx ? ax - bx : bx - ax, ay > by ? ay - by : by - ay);
+
+/**
+ * 한 틱의 유닛 행동 차례(상태 배열 자리): (시드, 틱)에서 만든 흐름으로 섞는다(피셔-예이츠). 공격 굴림 흐름과 따로라 굴림 수는 그대로다.
+ * 상태에 들지 않고 시드·틱에서 다시 나오므로 스냅숏 재생이 바이트까지 같다
+ */
+export function actionOrder(count: number, seed: number, tick: number): number[] {
+  const order = Array.from({ length: count }, (_, index) => index);
+  const rng = createRng(mix32(seed ^ Math.imul(tick + 1, 0x85eb_ca6b) ^ 0x2c1b_3c6d));
+  for (let i = count - 1; i > 0; i--) {
+    const j = rng.nextInt(i + 1);
+    const swap = order[i] ?? i;
+    order[i] = order[j] ?? j;
+    order[j] = swap;
+  }
+  return order;
+}
 
 export function snapshotBattle(state: BattleState): string {
   return JSON.stringify(state);
@@ -485,11 +501,15 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     const occupied = new Int32Array(size * size);
     for (const unit of state.units) if (active(unit) && !unit.air) occupied[unit.y * size + unit.x] = unit.id;
     const rng = createRng(mix32(state.seed ^ Math.imul(state.tick + 1, 0x9e37_79b1)));
-    for (const unit of state.units)
-      if (active(unit)) {
+    // 행동 차례는 틱마다 (시드, 틱)으로 섞는다(SIM_VERSION 4). ID 차례로 돌면 같은 틱에 앞 차례의 걸음을 본 뒤 차례 유닛이
+    // 바로 쳐서, 같은 유닛끼리도 거리 홀짝과 ID로 선공이 정해졌다(밸런스 화면 진단, docs/adr/2026-11-01-balance-screen.md)
+    for (const index of actionOrder(state.units.length, state.seed, state.tick)) {
+      const unit = state.units[index];
+      if (unit && active(unit)) {
         regen(unit);
         act(unit, rng, occupied, gone);
       }
+    }
     checkRetreats();
     state.tick += 1;
     checkEnd(destroyed());

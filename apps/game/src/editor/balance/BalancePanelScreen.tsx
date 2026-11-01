@@ -14,6 +14,7 @@ import { type LabData, useLabData } from "./lab/useLabData.ts";
 import { WeightTab } from "./WeightTab.tsx";
 import "./balancePanel.css";
 import "./lab/battleLab.css";
+import "./lab/battleLabResults.css";
 
 type Tab = "lab" | "weights";
 

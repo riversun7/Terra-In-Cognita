@@ -256,3 +256,48 @@
 - 질문 180 = 가(D-446): 환생 때 분포 다시 굴리기는 고를 수 있다. 굴리지 않으면 지금 분포를 둔다. 한 번 굴리기 시작하면 마지막 값.
 - 사용자 결정(2026-11-01, 원문 "사이보그 환생시 스탯분포 유지시 k값은 리롤되게"): 분포를 그대로 둬도 K(N6)는 늘 다시 굴린다. `rebirthCyborg`가 이미 그렇게 했고(`kRolls`는 늘 받는다), 시험에 "분포 유지 → K 리롤"을 더했다(`cyborgRebirth.test.ts`). 사이보그 화면 환생 문구도 "분포는 두거나 다시 굴림, 성장값은 늘 다시 굴림"으로 고쳤다.
 - 태업 문턱 60·독재 충성 몫 200‰ = 설정값 출발값(D-446·D-5032).
+
+## 바뀜 (2026-11-01, D-450~D-453)
+- 까닭: 기획 D-450(속성값 출처)·D-451(신앙도는 쌓이는 문턱, 신앙 포인트가 따로 — D-444 165 대체)·D-452(진로별 종교 아이템 = 빛·어둠 갈래 또는 종교 특수 스킬 — D-441 "진로" 해석 대체)·D-453(사이보그도 인공장기 내구도·생활비 — D-445 178 대체). 작업 기록 `docs/worklog/2026/11/01-1300-d450.md`, 서버·화면은 ADR `2026-11-01-first-login-cyborg.md` 같은 이름 절, 후속 질문 184~190 `docs/questions/2026-11-01-d450-followup.md`.
+
+### 1. 환생 (4절·"바뀜 (D-444)" 3절을 고침)
+- `rebirthBlockers`: 신앙도는 **문턱**이다(≥ N34). 신앙 포인트는 조건이 아니다.
+- `rebirthCyborg` 결과: 신앙도 **0**(남는 몫 없이, `faith.ts resetFaithForRebirth`). 신앙 포인트·종교는 그대로. `spent`는 `{ currency, items }`(신앙도는 쓰지 않는다), `grants.skill`(종교 특수 스킬, 없으면 null).
+- 속성값(D-450): `CyborgProgress.elements`(생성·환생 값 12칸). 선택 `elements`가 있으면 4원소를 다시 나눈다(생성과 같은 검사 `@terra/shared checkElementAllocation`, N36 — 틀리면 막는 것 `elements`). 없으면 그대로. 앞선 종교 환생의 빛·어둠은 남는다(해석, 질문 184).
+- 진로별 종교 아이템(D-452): 선택 `religionItem = { item, use: "branch", branch: light|dark } | { item, use: "skill", skill }`. 아이템(`ReligionItem` = asset·religion·열 수 있는 갈래·줄 수 있는 스킬, 신앙 콘텐츠 데이터 고리)은 가졌고 사이보그 종교 것이고 그 갈래·스킬을 열어야 한다(아니면 `religion_item`, 해석 — 질문 185). 하나를 쓴다(`spent.items`). 갈래 = 그 칸 + N37(`n37_light_dark` 기술 출발값 5, 칸마다 10에서 자름, `sumElementSources`). 스킬 = `grants.skill`만 돌려주고 실제 부여는 부르는 쪽(스킬 DB "종교" 태그가 생기면, 질문 187).
+- 옛 `extraItems`(가졌는지만 보는 추가 조건)와 막는 것 `items`는 지웠다. 강화형(빙결·폭렬·번개·크리스탈)은 환생에서 바꾸지 않는다(장비·인공장기·신앙 몫).
+- 부르는 곳은 아직 없다(환생 명령은 R5). 시뮬은 사이보그를 돌리지 않아 결과가 그대로다(7).
+
+### 2. 신앙 (`society/faith.ts`, D-451)
+- `UnitFaith = { religion, faith, faithPoints }`(사이보그·휴먼 같은 칸). `gainFaith`(종교 활동: 둘을 함께 쌓음 — D-451 해석, 신앙도는 `FAITH_MAX` 100에서 멈춤 — REL-1, 질문 186, 종교가 없으면 그대로), `spendFaithPoints`(모자라면 null, 신앙도는 그대로), `resetFaithForRebirth`(신앙도만 0), `convertReligion`(둘 다 0, 같은 종교면 그대로).
+- 종교 활동·신앙 포인트 사용처는 신앙 콘텐츠 데이터이고 아직 없다.
+
+### 3. 사이보그 유지 (`society/cyborgUpkeep.ts`, D-453·D-150·D-5031)
+- 생활비: `livingEfficiencyPm(못 냄, 계수)` = N38 `n38_living_unpaid`(기술 출발값 700‰, N33 포만감 50 이하 0.7과 같은 크기) 또는 1000, `withEfficiency`(내림). 정산 결과에 `lastUpkeepPaid`(마지막 유지비 경계를 냈는가, 경계가 없거나 낼 것이 없으면 null)를 더했다(`settle/owner.ts`). 서버가 본체 생활비 상태로 적는다.
+- 인공장기: `wearOrgan`(유지비 경계 = 정시마다 N38 `n38_organ_wear` 기술 출발값 1, 0에서 멈춤, 나눠 계산해도 같다 — 질문 189), `organWorks`(내구도 > 0, 0이면 보너스 없음 — 해석), `repairOrgan`(장비 수리 규칙 D-5031: 감소‰ = F11 시설 레벨 % × 10 × (2000 − 실력‰) ÷ 2000, 하한 F11 5%, 줄어드는 최대 = ⌈최대 × 감소‰ ÷ 1000⌉, 새 최대 ≤ F12 10이면 파괴·비용 없음, 아니면 내구도 = 새 최대·비용 = 되찾은 내구도 × N38 `n38_organ_repair_cost` 기술 출발값 100).
+- 장비 내구도 규칙은 sim에 없었다(보석 인챈트 실패의 최대 내구도 감소만 있음). 수리 계수는 장비와 함께 쓰도록 계수표 `durability`(F11 `repairLossPct` [30,25,20,15,10]·`repairLossFloorPct` 5, F12 `destroyAtMax` 10 — 49 값)에 두었다.
+- 서버 연결: 본체 생활비는 서버 정산에 넣었다(첫 접속 ADR "바뀜" 5). 인공장기 내구도는 아이템 인스턴스가 없어 R5다.
+
+### 4. 장비·인공장기 스탯 묶음의 속성값 칸 (D-450, 콘텐츠 형식)
+- `packages/content` 아이템 `equip.elements`(선택): `[{ element: 코드(D-167), value: 1~10 }]`, 한 칸 한 줄. 지금 팩 아이템에는 없다. 유닛 속성값 = 출처 합, 칸마다 10에서 자름(`sumElementSources`). 전투 쪽(`combat/unitSpec.ts`)에 장비 속성값을 더하는 일은 장비 속성 자료가 들어올 때 한다.
+
+### 5. 설정 칸 (팩 `content/core/tuning.json`, 팩 판 14, 키 표는 `packages/sim/src/tuningCyborg.ts`로 나눔)
+| 팩 항목 | 칸 | 값 |
+|---|---|---|
+| `n36_element_cells`·`n36_element_points` | N36 | 2·10(구조 값, D-450 원문) |
+| `n37_light_dark` | N37 | 5(49 출발값 없음 → 설정값 출발값) |
+| `n38_organ_wear`·`n38_organ_repair_cost`·`n38_living_unpaid` | N38 | 1·100·700(49 출발값 없음 → 설정값 출발값) |
+| `f11_repair_lv1`~`f11_repair_lv5`·`f11_repair_floor` | F11 | 30·25·20·15·10·5(49 잠정값) |
+| `f12_destroy_at` | F12 | 10(49) |
+- `n34_rebirth_faith` 이름을 "환생 신앙도 문턱(환생하면 0)"으로 고쳤다(값 50 그대로).
+- 키 표가 600줄을 넘어(파일 크기 경고) 사이보그·수리 칸을 `tuningCyborg.ts`로 옮겼다(ID·경로는 그대로).
+
+### 6. SIM_VERSION
+- 올리지 않는다. 바뀐 판정(환생·신앙·인공장기)은 아직 서버·시뮬이 부르지 않고, 정산 함수는 결과 칸 하나를 더했을 뿐 같은 입력의 값이 같다. 서버가 본체를 정산에 넣은 것은 입력(유닛 목록)이 바뀐 것이다(앞선 환생 변경과 같은 판단, "바뀜 (D-444)").
+
+### 7. 결과 (Verified: 시드 1, 개발 컨테이너, 같은 명령 두 번 바이트 같음, 위반 0)
+| 시나리오 | 날 | 줄 해시 전(main `f872151`, core@13) | 줄 해시 뒤(core@14) | 전·뒤 줄 수 | 콘텐츠 칸을 뺀 비교 |
+|---|---|---|---|---|---|
+| stub16 | 180 | `0e6b0487` | `8e78a32f` | 947·947 | 모든 줄·요약 같음 |
+| econ16 | 180 | `87e50ebf` | `f0df2f77` | 3,570·3,570 | 모든 줄·요약 같음 |
+- 줄 해시가 바뀐 까닭은 머리 줄·요약의 콘텐츠 판·해시(core@13 → core@14)뿐이다(Verified: JSON 줄에서 content·hash 칸을 빼고 비교). stub16 세력 16 → 37, econ16 16 → 69는 그대로다.

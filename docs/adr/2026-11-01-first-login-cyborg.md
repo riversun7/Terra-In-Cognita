@@ -120,3 +120,35 @@
 - 화면 시험: 전역 준비가 player·dev·admin의 사이보그를 그 계정 세션의 브라우저에서 실제 프로토콜로 만든다(이름 E2EPlayer·E2EDev·E2EChief — "admin"이 든 이름은 사칭 목록에 걸린다). 그래서 기존 시험의 화면은 첫 접속을 마친 계정 화면이다. `vision.spec.ts`의 "탐사 없음" 화면은 서버의 탐사 칸 메시지를 빈 비트로 바꿔(`page.routeWebSocket`) 본다. 새 계정 `fresh`(끝까지)·`fresh_shots`(사진만).
 - 첫 화면 JS: 130,849B / 상한 131,416B(남음 567B, 길잡이·프로토콜 4 스키마·주소 줄). 위 띠 얼굴 그림은 이 때문에 미뤘다(ADR 37 끝).
 - NAS 기존 계정: 배포 뒤 처음 들어가면 플레이어는 `/start`로 간다. 사용자의 admin 계정은 관리자·개발자 도구·지도·설정을 만들기 전에도 열고, 홈·유닛·세력 등은 `/start`로 간다(D-445 177). 만들면 그 계정의 본체가 시험 2차맵 시작 도시에 선다.
+
+## 바뀜 (D-450~D-453, 2026-11-01)
+기획 D-450(속성값 출처)·D-451(신앙도·신앙 포인트)·D-453(사이보그 유지비, D-445 178 대체). 규칙(환생·신앙·인공장기)은 ADR `2026-10-31-faction-society-core.md` 같은 이름 절. 작업 기록 `docs/worklog/2026/11/01-1300-d450.md`, 후속 질문 184~190 `docs/questions/2026-11-01-d450-followup.md`.
+
+### 1. 속성 분배 단계 (D-450, 49 N36)
+- 흐름: 이름 → 외형 → 초기 스탯 → **속성** → 세력 → 시작 도시 → 강하(일곱 단계). 속성 단계는 기본 4원소(물·불·바람·땅) 가운데 N36 칸 수(2)까지 골라 N36 점수(10)를 정확히 나눈다. 한 칸에 모두 넣어도 된다(단추 [모두]). 10점을 다 나눠야 [다음]이 열리고, 강하 요약에 한 줄("불 6 · 바람 4")이 보인다. 화면 `apps/game/src/start/elementsStep.tsx`·`elements.css`(start.css와 나눔, 막대 색은 지금 있는 색 토큰을 빌려 씀).
+- 규칙 함수 하나(`packages/shared/src/cyborgElements.ts` `checkElementAllocation`)를 기기(다음 단추)·서버(만들기·분배 판정)·판정 코드(환생 다시 나누기)가 함께 쓴다. 이름 규칙과 같은 자리다. 칸 수·점수는 팩 tuning `n36_element_cells`·`n36_element_points`(구조 값, D-5054)이고 `cyborg.creation` `rules.elementCells`·`elementPoints`로 보낸다. 칸마다 상한 10(D-182)은 구조 상수 `ELEMENT_MAX`.
+- 저장: 표 `cyborgs`에 `elements smallint[]`(12칸, D-167 코드 차례 = 전투 공식 칸 차례). **null = 아직 나누지 않음**. 검사 `cyborgs_elements`(null이거나 12칸·0~10). 마이그레이션 `20261101025010_cyborg_elements_faith_upkeep`(열 더하기만 → 직전 판 앱이 그대로 돈다: 옛 앱이 만든 사이보그는 null로 남는다).
+- 조회: `cyborg.status`·`cyborg.creation`에 `elementsPending`, `cyborg.get` 본체에 `elements`(12칸, 생성·환생 값 + 장비·인공장기·신앙 출처의 합, 칸마다 10에서 자름 — 출처는 아직 없어 데이터 고리만, 분배 전이면 모두 0).
+
+### 2. 프로토콜 5
+- `cyborg_create.elements`(코드 → 0~10, 모양만 프로토콜이 보고 칸 수·합·4원소인지는 서버). **5판 연결은 꼭 보낸다**(없으면 `elements_invalid`, gateway가 본다).
+- `cyborg_elements { id, elements }`: 분배가 없는 내 사이보그에 한 번 나눈다. 이미 나눴으면 `elements_locked`(다시 나누기는 환생 때), 사이보그가 없으면 `no_cyborg`.
+- 결과 코드 셋 더함: `elements_invalid`·`elements_locked`·`no_cyborg`. 이 코드를 부르는 메시지는 5판만 보내므로 4판 기기는 새 코드를 받지 않는다.
+- `PROTOCOL_VERSION` 4 → 5, 받는 가장 낮은 판 3 → 4(현재 + 직전 1개, ADR 7). **4판 기기의 만들기(elements 없음)는 받고 "분배 기다림"(null)으로 만든다** — PWA 강제 적용으로 새 앱이 오면 아래 3으로 한 번 나눈다. 4판 연결이 `cyborg_elements`를 보내면 `invalid_message`(2차맵·만들기 메시지와 같은 규칙).
+
+### 3. 분배가 없는 사이보그 (NAS 기존 계정)
+- 프로토콜 5 전에 만든 사이보그(NAS의 사용자 계정 포함)는 `elements`가 null이다. **모두 0으로 두지 않고, 다음 접속 때 한 번 나누게 했다**: 길잡이(`start/cyborgGate.ts`)가 `elementsPending`이면 사이보그가 없을 때와 같은 예외(설정, dev·admin의 관리자·개발자 도구·지도) 밖의 주소를 `/start`로 보내고, `/start`는 속성 단계만 보인다(`ElementsOnly`, 진행 표시 없음, [속성 정하기] → `cyborg_elements` → 홈). D-445 177("사이보그 없는 기존 계정은 다음 접속 때 생성창")과 같은 결이고, 생성 때의 첫 전략 선택(D-450 영향)을 옛 계정도 한다.
+- 까닭: 0으로 두면 옛 계정만 속성이 없는 채 다음 환생까지 간다(환생은 만렙 + 신앙 + 화폐라 멀다).
+
+### 4. 신앙 칸 (D-451)
+- 표 `cyborgs`에 `religion text`(신앙 콘텐츠 ID, 없으면 null, 검사 `cyborgs_religion_format`), `faith_points integer default 0`(검사 ≥ 0). 신앙도 `faith`는 그대로(0~100, 쌓이는 문턱 — 환생·개종하면 0). `cyborg.get` 본체에 `religion`·`faithPoints`. 종교를 고르는 길·종교 활동은 아직 없어 모두 null·0이다.
+- 휴먼 유닛의 같은 칸(D-451 "유닛(사이보그·휴먼)")은 휴먼 유닛 행이 생길 때 넣는다(지금 세계 유닛 표에 휴먼이 없다, R5). 규칙 모양은 `@terra/sim` `UnitFaith`.
+
+### 5. 본체 생활비 (D-453, 2절 "시험 유지비·직무 정산에 넣지 않는다"를 대체)
+- 서버 정산(`world/settlement.ts`)이 본체 유닛도 센다: 직무는 없고(JOB_NONE) 유닛 유지비(시험값, D-150 = 생활비)만 낸다. 보유 유닛 수(주거 상한 D-153)·유닛 화면 목록에서는 그대로 뺀다(D-445 178 해석 유지).
+- 마지막 유지비 경계(정시)를 못 냈으면 그 시각을 `world_owners.upkeep_unpaid_at_ms`에 적고(냈으면 null), `cyborg.get` 본체 `living = { unpaid, efficiencyPm }`(N38 `n38_living_unpaid` 출발값 700‰)로 보낸다. 본체에 직무·전투가 아직 없어 배율을 곱할 곳은 없다(질문 188, R5).
+- 인공장기 내구도는 규칙만 있다(인공장기 아이템 인스턴스가 서버에 없다, R5).
+- 결과: 화폐가 없는 새 플레이어는 첫 정시부터 "못 냄"이 된다(정착 지원금 전, 질문 190). 밀린 유지비 수(`upkeep_arrears`)도 본체 몫만큼 는다.
+
+### 6. 화면 시험
+- 전역 준비가 player·dev·admin을 프로토콜 5로(속성 불 6·바람 4) 만든다. 새 계정 `legacy`는 프로토콜 4로 만들어 분배를 기다리게 둔다. `first-login.spec.ts`: 새 플레이어가 속성 단계(10점 다 나눠야 다음, 한 칸에 모두, 세 번째 칸 막힘)를 지나 강하하고 `cyborg.get`이 나눈 값을 돌려준다, legacy는 다음 접속 때 속성 단계만 보이고 한 번 나누면 홈, 단계 사진(속성 빈 것·나눈 것, 390px × 파스텔·다크 × 한국어·영어).

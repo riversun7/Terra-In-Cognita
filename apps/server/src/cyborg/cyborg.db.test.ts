@@ -425,4 +425,53 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     expect(cyborgsOf(world).record(first)?.startGrant).toBe(108n);
     expect(await world.checkInvariants()).toEqual([]);
   });
+  it("지원금 전에 만든 사이보그(D-456): 한 번 속성 분배 때 지금 세력 국고에서 한 번 받는다. 다시 나누기·다시 켜기로는 다시 받지 않는다", async () => {
+    let world = await boot();
+    const user = await fakeUser("Old_Timer");
+    const start = startOf(world, user);
+    await world.stop();
+    worlds.splice(worlds.indexOf(world), 1);
+    // 옛 앱이 만든 모양(속성·지원금 없음). 본체 유닛 행은 부팅이 시작 도시에 다시 놓는다(I13)
+    await test.db.$client.query(
+      `insert into cyborgs (user_id, name, name_key, temperament, initial, k_pm, appearance, faction_id, start_city_id,
+                            created_at_ms)
+       values ($1, 'Oldie', 'oldie', 'balanced', '{10,10,10,10,10,10}', '{1000,1000,1000,1000,1000,1000}', $2::jsonb,
+               $3, $4, $5)`,
+      [user, JSON.stringify(DEFAULT_CYBORG_APPEARANCE), start.factionId, start.cityId, clock],
+    );
+    world = await boot();
+    const service = cyborgsOf(world);
+    expect(service.record(user)).toMatchObject({ elements: null, startGrant: null });
+    const persistence = world.persistence;
+    if (!persistence) throw new Error("no persistence");
+    const issued = () =>
+      persistence.ledger.balance(persistence.ledger.systemAccount(SYSTEM_ISSUE_CREDIT, ASSET_CREDIT));
+    const issuedBefore = issued();
+    const treasuryBefore = persistence.ledger.balanceOf(persistence.npcOwnerId, ASSET_CREDIT);
+    expect(await service.allocateElements(user, { earth: 10 })).toEqual({ ok: true });
+    // 자기를 뺀 시작 수 0 = 가장 덜 붐빈 세력 → 72 × 1500‰ = 108
+    const owner = world.ownerOfUser?.(user);
+    if (owner === undefined) throw new Error("no owner");
+    expect(persistence.ledger.balanceOf(owner, ASSET_CREDIT)).toBe(108n);
+    expect(persistence.ledger.balanceOf(persistence.npcOwnerId, ASSET_CREDIT)).toBe(treasuryBefore - 108n);
+    expect(issued()).toBe(issuedBefore);
+    expect(service.record(user)?.startGrant).toBe(108n);
+    // 다시 나누기는 막히고 지원금도 다시 없다
+    expect(await service.allocateElements(user, { fire: 10 })).toEqual({
+      ok: false,
+      code: "elements_locked",
+    });
+    expect(persistence.ledger.balanceOf(owner, ASSET_CREDIT)).toBe(108n);
+
+    world = await restart(world);
+    expect(cyborgsOf(world).record(user)).toMatchObject({ startGrant: 108n });
+    expect(world.persistence?.ledger.balanceOf(owner, ASSET_CREDIT)).toBe(108n);
+    const grants = await rows<{ n: string }>(
+      test.db,
+      `select count(*) as n from ledger_transactions where idempotency_key = $1`,
+      [`settlement_grant:${user}`],
+    );
+    expect(grants).toEqual([{ n: "1" }]);
+    expect(await world.checkInvariants()).toEqual([]);
+  });
 });

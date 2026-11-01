@@ -11,6 +11,7 @@
 // - 정착 지원금(D-455 190, N39): 만들기와 같은 동기 처리에서 그 세력 국고 → 사용자 주체로 한 번 옮긴다(원장 거래 settlement_grant,
 //   중복 방지 키 settlement_grant:<사용자>, 사이보그 행 start_grant에 기록 — 세력을 바꿔도 다시 주지 않는다). 새 화폐를 만들지 않는다:
 //   국고가 모자라면 국고에 있는 만큼만 준다. [임시] 세력 화폐가 서버에 없어 국고의 시험 화폐(유지비와 같은 자산)로 낸다.
+//   지원금 전에 만든 사이보그(start_grant null)는 다음 접속의 한 번 속성 분배 때 같은 키로 한 번 받는다(D-456).
 // 쓰는 프로세스는 하나다(ADR 3): 메모리 표가 원본의 캐시이고, 같은 스레드라 두 요청이 같은 값을 보지 않는다.
 import type {
   CreationFaction,
@@ -233,6 +234,36 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
   const openFactionIds = (): number[] =>
     factions.filter((faction) => startCitiesOf(faction.id).length > 0).map((faction) => faction.id);
 
+  /**
+   * 지원금을 세력 국고 → 사용자 주체로 옮기고 실제로 준 양을 돌려준다(국고가 모자라면 있는 만큼, 국고가 없으면 0 — 새 화폐를 만들지
+   * 않는다). 중복 방지 키 settlement_grant:<사용자>는 사이보그 행 start_grant와 같은 커밋이라, 부르는 쪽은 start_grant가 null일
+   * 때만 부른다(DB 유일 키가 뒤를 받친다)
+   */
+  const payGrant = (
+    userId: string,
+    ownerId: number,
+    factionId: number,
+    grant: bigint,
+    at: number,
+  ): bigint => {
+    const treasury = options.treasuryOf(factionId);
+    if (treasury === undefined) return 0n;
+    const available = ledger.balanceOf(treasury, ASSET_CREDIT);
+    const paid = grant < available ? grant : available;
+    if (paid > 0n) {
+      ledger.post({
+        kind: "settlement_grant",
+        atMs: at,
+        key: `settlement_grant:${userId}`,
+        entries: [
+          { account: ledger.ownerAccount(treasury, ASSET_CREDIT), amount: -paid },
+          { account: ledger.ownerAccount(ownerId, ASSET_CREDIT), amount: paid },
+        ],
+      });
+    }
+    return paid;
+  };
+
   return {
     get size() {
       return byUser.size;
@@ -377,20 +408,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       const owner = settlement.ownerOfUser(userId, at);
       const unitId = place(city, owner.id);
       if (unitId === undefined) return fail("no_room");
-      const treasury = options.treasuryOf(faction.id);
-      const available = treasury === undefined ? 0n : ledger.balanceOf(treasury, ASSET_CREDIT);
-      const paid = treasury === undefined ? 0n : grant < available ? grant : available;
-      if (treasury !== undefined && paid > 0n) {
-        ledger.post({
-          kind: "settlement_grant",
-          atMs: at,
-          key: `settlement_grant:${userId}`,
-          entries: [
-            { account: ledger.ownerAccount(treasury, ASSET_CREDIT), amount: -paid },
-            { account: ledger.ownerAccount(owner.id, ASSET_CREDIT), amount: paid },
-          ],
-        });
-      }
+      const paid = payGrant(userId, owner.id, faction.id, grant, at);
       const record: CyborgRecord = {
         userId,
         name: parsed.display,
@@ -430,6 +448,15 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       const checked = checkElementAllocation(elements, elementRule(options.rules()));
       if (!checked.ok) return fail("elements_invalid");
       record.elements = checked.values;
+      // 지원금 전에 만든 사이보그는 이때 한 번 받는다(D-456): 지금 세력의 국고에서, 자기를 뺀 시작 수로 정한 양(만들 때와 같은 규칙)
+      if (record.startGrant === null) {
+        const at = options.now();
+        const perFaction = new Map(counts().perFaction);
+        perFaction.set(record.factionId, Math.max(0, (perFaction.get(record.factionId) ?? 0) - 1));
+        const grant = grantFor(record.factionId, perFaction, openFactionIds());
+        const owner = settlement.ownerOfUser(userId, at);
+        record.startGrant = payGrant(userId, owner.id, record.factionId, grant, at);
+      }
       writer.upsert("cyborgs", cyborgRow(record));
       await writer.durable();
       return { ok: true };

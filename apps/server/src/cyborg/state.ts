@@ -36,8 +36,10 @@ export interface CyborgRecord {
   readonly religion: string | null;
   /** 신앙 포인트(D-451) */
   readonly faithPoints: number;
-  /** 강하 때 받은 정착 지원금(D-455 190). null = 받지 않음(지원금 전에 만든 사이보그) */
-  readonly startGrant: bigint | null;
+  /**
+   * 받은 정착 지원금(D-455 190: 강하 때, D-456: 지원금 전에 만든 사이보그는 한 번 속성 분배 때). null = 아직 받지 않음
+   */
+  startGrant: bigint | null;
 }
 
 export interface RollRecord {

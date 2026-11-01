@@ -142,7 +142,7 @@
 - `takeDamage(대상, P, E)`: P는 아머부터, E는 쉴드부터 깎고 남은 것을 체력에서 뺀다. 스킬 고정 피해(공식 부품 flat)는 그 스킬 종류의 몫에 더한다.
 
 ### 2. 계열 상성 rate (C10, `coefficients.ts`)
-- 6×6 표를 관계(구조 값 `AFFINITY_RELATION`, 50 §2.1: 1 유리·−1 불리·0 보통, 대각 = 같은 계열)와 rate 셋(`affinity.favorPm` +50·`unfavorPm` −50·`samePm` −30)으로 나눴다. rate 셋은 설정 칸이다(팩 `tuning` `c10_affinity_favor`·`c10_affinity_unfavor`·`c10_affinity_same`, 팩 판 16). 불 계열 20이면 불 공격을 60% 덜 받는다(시험).
+- 6×6 표를 관계(구조 값 `AFFINITY_RELATION`, 50 §2.1: 1 유리·−1 불리·0 보통, 대각 = 같은 계열)와 rate 셋(`affinity.favorPm` +50·`unfavorPm` −50·`samePm` −30)으로 나눴다. rate 셋은 설정 칸이다(팩 `tuning` `c10_affinity_favor`·`c10_affinity_unfavor`·`c10_affinity_same`, 팩 판 17, 단위·범위 pm(D1 형식)). 불 계열 20이면 불 공격을 60% 덜 받는다(시험).
 
 ### 3. 2차 스탯 17개 (3절을 고침, 팩 `stat_rows` 18행 = 17 + 시야, `TEST_STAT_TABLE` 같은 값)
 - 새 네 행(N40 출발값 없음 → 설정값 출발값, 질문 213): 속성 방어율 `elemental_defense_rate`(확률, 상한 700‰·반감 100, VIT 600·WIS 1200 — 물리 방어율과 짝), 스태미나 회복 `stamina_regen`(분당, AGI 1575·VIT 675 = L13 "STA 점수 80에서 초당 3"), MP 회복 `mp_regen`(분당, INT 1000·WIS 2000 = 옛 N15 [임시] 크기), 쉴드 재생 `shield_regen`(분당, WIS 1000 = L11).
@@ -152,7 +152,7 @@
 ### 4. 회복 (1절을 고침)
 - 스태미나·MP·쉴드는 2차 스탯 분당 값을 틱마다 나눠 더한다(`regenOnTick`: 틱 0..t 합 = ⌊분당 × (t + 1) × 틱 ÷ 60초⌋ — 버림 손실 없이 1분에 정확히 그 값, 남은 값을 상태로 들지 않아 스냅숏 모양 그대로). 최대에서 멈춘다. 쉴드도 전투 중에 찬다(질문 212 가). 맞은 뒤 지연 칸은 8절.
 - 전투 사양(`CombatUnitSpec`)에 `staminaRegen`·`mpRegen`·`shieldRegen`(분당), 방어 사양에 `elementalDefenseRatePm`을 더했다. STA 점수(N13)는 소모에만 쓴다.
-- 계수표의 `stamina.regenPerSec`·`regenCapPm`·`mpRegenMilliPerWisPerSec`와 팩 `tuning` `n13_regen`·`n13_regen_cap`·`n15_mp_regen`은 지웠다(`id-changes.json` removed, since 16, 질문 208 가). 설정 칸 대응(`2026-10-31-faction-society-core.md` 10절 표)의 N13 회복 칸·N15는 이 절로 바뀐다.
+- 계수표의 `stamina.regenPerSec`·`regenCapPm`·`mpRegenMilliPerWisPerSec`와 팩 `tuning` `n13_regen`·`n13_regen_cap`·`n15_mp_regen`은 지웠다(`id-changes.json` removed, since 17, 질문 208 가). 설정 칸 대응(`2026-10-31-faction-society-core.md` 10절 표)의 N13 회복 칸·N15는 이 절로 바뀐다.
 
 ### 5. 밸런스 화면이 부를 함수 (D-458 개발자 페이지, 다음 단계)
 - 2차 스탯: `computeSecondary(1차, 가중치 표, 장비, 버프)`(그대로, 순수). 풀이는 `explainSecondary`.
@@ -162,7 +162,7 @@
 - 같은 입력의 전투 결과가 바뀐다(PROTECTED). 서버 전투 인스턴스는 아직 세계에서 열리지 않아(시뮬레이터·시험만) 옛 판 전투 행은 없다(Assumed: R5 전).
 
 ### 7. 결과 (Verified: 시드 1, 개발 컨테이너, 같은 명령 두 번 바이트 같음, 위반 0)
-- R5(NPC 두뇌)를 합친 main 기준(전 main `66af13a` core@15 / 뒤 이 가지 core@16):
+- R5(NPC 두뇌)·D1(설정 패널)을 합친 main 기준(전 main `2c17006` core@16 / 뒤 이 가지 core@17):
 
 | 지표(war16 30일) | 전 | 뒤 |
 |---|---|---|
@@ -182,5 +182,5 @@
 - 211 가 + 스킬 기반: 스킬 자료에 `base` {physical, elemental}(팩 `skills`, 피해를 주면 `damage`와 같아야 함 — 팩 검사). 속성 기반 스킬은 늘 속성 공격력(m.atk)으로 센다: 든 무기가 속성 무기면 그것, 아니면 유닛 종류의 맨손 속성 자료(팩 `unit_kinds` `naturalElementalWeapon`, sim `UNARMED_ELEMENTAL` [임시] 공격력 5·적정 20 — 맨손 무기 D-436과 같은 방식). 물리 기반은 든 물리 무기, 속성 무기를 들었으면 맨손(타고난 무기)과 물리 공격력(해석: 속성 기반과 짝). 계수는 그 무기의 옵션 + 스킬 계수(칸마다).
   - 전투 사양 `skillAttack: { physical, elemental }`(`specFromStats`가 만든다, 없으면 기본 공격 사양 — 시험 유닛). 스킬의 공격·적정 스탯 조건은 그 기반의 사양을 본다.
   - 그래서 칼을 든 유닛의 불꽃 화살은 칼(물리 공격력)이 아니라 맨손 속성 자료와 속성 공격력이다(시험 `unitSpec.test.ts`·`skills.test.ts`).
-- 212 가 + 설정 칸: 피격 뒤 쉴드 재생 지연 `shieldRegenDelayMs`(팩 `tuning` `n40_shield_regen_delay`, 49 N40 묶음, 저장 단위 ms, 출발값 0). 물리·속성 몫이 있는 공격·스킬에 맞으면 `lastHitMs`(유닛 상태, 스냅숏에 든다)를 적고, 지금 − 맞은 시각 ≥ 지연일 때만 쉴드가 찬다. 지속 피해는 맞은 것으로 세지 않는다(해석). 0이면 1~7절과 같다.
+- 212 가 + 설정 칸: 피격 뒤 쉴드 재생 지연 `shieldRegenDelayMs`(팩 `tuning` `n40_shield_regen_delay`, 49 N40 묶음, 저장 단위 ms, 기술 범위 0~600,000, 출발값 0. 서버는 전투 계수표를 실시간으로 읽지 않아 D1 범위 "sim"). 물리·속성 몫이 있는 공격·스킬에 맞으면 `lastHitMs`(유닛 상태, 스냅숏에 든다)를 적고, 지금 − 맞은 시각 ≥ 지연일 때만 쉴드가 찬다. 지속 피해는 맞은 것으로 세지 않는다(해석). 0이면 1~7절과 같다.
 

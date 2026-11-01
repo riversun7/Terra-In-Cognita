@@ -7,6 +7,7 @@
 |---|---|---|---|
 | 2026-11-01 15:20 | D1 설정 패널 합치기(R5와 함께), 팩 판 16 | Claude Code | [01-1520-merge-d1](worklog/2026/11/01-1520-merge-d1.md) |
 | 2026-11-01 15:00 | R5 합치기, 사이보그 화면 시험의 무작위 의존 고침 | Claude Code | [01-1500-merge-r5-cyborg-spec](worklog/2026/11/01-1500-merge-r5-cyborg-spec.md) |
+| 2026-11-01 15:00 | 전투 규칙 D-457~D-459(+ D-463): 속성 계열 값 1:1, 2차 스탯 17개, 물리 몫·속성 몫 | Claude Code | [01-1500-combat-d459](worklog/2026/11/01-1500-combat-d459.md) |
 | 2026-11-01 14:50 | D1 개발자 설정 칸 패널: 세계마다 바로 드는 덮어쓰기, 묶음 적용, 내보내기, 49 칸 목록 | Claude Code | [01-1450-d1-settings](worklog/2026/11/01-1450-d1-settings.md) |
 | 2026-11-01 14:35 | CI 배포 판단 기준을 "마지막으로 성공한 main 실행"으로 | Claude Code | [01-1435-ci-deploy-base](worklog/2026/11/01-1435-ci-deploy-base.md) |
 | 2026-11-01 14:30 | R5 NPC 두뇌: 성향 가중 판단 틀, 서버가 시험 세계 NPC 국가에 세력·사회 규칙을 실제 시간으로 돌림, 정원사 설계 | Claude Code | [01-1430-r5-npc-brain](worklog/2026/11/01-1430-r5-npc-brain.md) |

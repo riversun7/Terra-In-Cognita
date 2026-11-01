@@ -5,8 +5,17 @@
 // [임시] 종류·수치 칸·쌓임 규칙은 기획 본문 48을 받기 전 기술 기본안이다.
 
 export type EffectKind = "buff" | "debuff" | "dot" | "heal" | "status";
-/** 버프·디버프가 바꾸는 전투 수치. attack은 ‰ 배율(버프 항), 나머지는 ‰ 더하기 */
-export type ModifierStat = "attack" | "defense_rate" | "evade" | "penetration" | "crit_multiplier";
+/**
+ * 버프·디버프가 바꾸는 전투 수치. attack은 ‰ 배율(버프 항), move_speed는 이동 속도 ‰(디버프 = 느리게, moveIntervalMs),
+ * 나머지는 ‰ 더하기
+ */
+export type ModifierStat =
+  | "attack"
+  | "defense_rate"
+  | "evade"
+  | "penetration"
+  | "crit_multiplier"
+  | "move_speed";
 export type StatusKind = "stun" | "root" | "silence";
 
 export interface EffectDef {
@@ -59,6 +68,8 @@ export interface Modifiers {
   readonly evadePm: number;
   readonly penetrationPm: number;
   readonly critMulPm: number;
+  /** 이동 속도(‰, + 빠르게 · − 느리게) */
+  readonly moveSpeedPm: number;
 }
 
 /** 상태이상 저항(‰). 저항 칸이 없으면 0 */
@@ -148,6 +159,7 @@ const NO_MODIFIERS: Modifiers = {
   evadePm: 0,
   penetrationPm: 0,
   critMulPm: 0,
+  moveSpeedPm: 0,
 };
 
 /** 버프(+)·디버프(−) 합 */
@@ -161,7 +173,17 @@ export function modifiersOf(target: EffectHolder): Modifiers {
     else if (effect.stat === "defense_rate") sum.defenseRatePm += value;
     else if (effect.stat === "evade") sum.evadePm += value;
     else if (effect.stat === "penetration") sum.penetrationPm += value;
+    else if (effect.stat === "move_speed") sum.moveSpeedPm += value;
     else sum.critMulPm += value;
   }
   return sum;
+}
+
+/** 이동 속도 하한(‰): 아무리 느리게 해도 이 빠르기 아래로는 내려가지 않는다(간격 최대 10배, [임시] 기술 보호 — 질문 262 가) */
+export const MIN_MOVE_SPEED_PM = 100;
+
+/** 한 칸 가는 간격(ms) = 간격 × 1000 ÷ max(하한, 1000 + 이동 속도 ‰). 이동 속도 효과가 없으면 그대로 */
+export function moveIntervalMs(intervalMs: number, mods: Modifiers): number {
+  if (mods.moveSpeedPm === 0) return intervalMs;
+  return Math.max(1, Math.floor((intervalMs * 1000) / Math.max(MIN_MOVE_SPEED_PM, 1000 + mods.moveSpeedPm)));
 }

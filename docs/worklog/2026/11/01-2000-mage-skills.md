@@ -13,7 +13,7 @@
 - 팩 형식(`packages/content/src/schema/combat.ts`): `shape` 필수 + `checkSkillShape`(모양과 대상·피해·사거리·반지름·연쇄·회복 부품이 맞는지, 지속형은 buff, 반지름 0 아군은 사거리 ≥ 1), `chain`, `shield`·`target_hp_below` 부품, 효과 `move_speed`. `@terra/content`가 `SKILL_SHAPES`를 내보낸다.
 - 팩 core@18 → core@19: 옛 스킬 여섯에 모양, 효과 `chill`, 스킬 일곱(`frost_bolt` projectile·`chain_lightning` chain·`flame_burst` area·`stone_spike` single·`light_heal` heal·`radiant_ward` buff·`dark_curse` debuff, 모두 속성 기반·MP), 지팡이 여섯(`fire_staff`·`water_staff`·`wind_staff`·`earth_staff`·`light_staff`·`dark_staff`, 속성 칸만·옵션 계수 그 계열 기본형 50‰·그 계열 스킬). 수치는 모두 [임시](D-5032). ID는 새것만(지운 것·바꾼 것 없음 → `id-changes.json` 그대로).
 - `TEST_COMBAT_CATALOG`(팩과 같은 값)에 마법 몫을 새 파일 `catalogMagic.ts`로 더했다(서버 시험 `combatCatalog.test.ts`가 팩 = 시험 자료를 본다).
-- `@terra/sim`이 `singleAlly`·`moveIntervalMs`·`MIN_MOVE_SPEED_PM`·`SkillShape`·`SkillChain`·`SkillPick`를 내보낸다.
+- `@terra/sim`이 `singleAlly`·`moveIntervalMs`(유닛·간격 → 이동 속도를 얹은 간격)·`MIN_MOVE_SPEED_PM`·`SkillShape`·`SkillChain`·`SkillPick`를 내보낸다.
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
@@ -45,8 +45,9 @@
 
 ## 검사
 - 새·바꾼 시험: sim `magic.test.ts` 9개(새), 팩 `combat.test.ts` 11개(+2). 기존 sim 전투 시험·서버 `combatCatalog.test.ts`(팩 = `TEST_COMBAT_CATALOG`) 그대로 통과.
-- `TEST_DATABASE_URL=… pnpm check`: (아래 채움)
-- e2e: (아래 채움)
+- `TEST_DATABASE_URL=… pnpm check`: 통과(포맷·린트·타입·경계·크기·다국어·대비·콘텐츠, 시험 파일 325개·시험 2,802개 통과, DB 시험 포함 건너뜀 0). 처음 한 번은 린트 경고 2개(시험 도우미 함수 위치, `unicorn(consistent-function-scoping)`)로 실패해 고친 뒤 다시 돌렸다.
+- 그 뒤 걸음 간격 계산을 합 객체 없이 바꿨다(`moveIntervalMs(유닛, 간격)`, perf 커밋): sim 전투 시험 112개 통과, war16 30일 줄·요약이 바꾸기 전과 바이트까지 같음(cmp).
+- e2e(`pnpm e2e e2e/balance.spec.ts e2e/cyborg.spec.ts e2e/units.spec.ts`, 빌드 포함 5.4분): 43개 통과·실패 0(밸런스 13·사이보그 17·유닛 13). 밸런스 화면 무기 고르기에 지팡이 여섯이 더해져도 390px ko·en·파스텔·다크에서 가로 넘침·작은 누르는 곳 없음(시험이 봄), 화면에 "core@19". 사이보그·유닛 화면은 유닛이 가진 스킬 이름만 보여서(새 스킬을 가진 시안 유닛 없음) 그대로다. 사진은 저장소 밖(작업용 폴더).
 
 ## 함께 바꿔야 하는 파일
 - 팩 `skills`에 스킬을 더하면 `shape`를 꼭 적는다(모양 검사가 대상·피해·사거리·반지름·연쇄와 맞춰 본다). 시험 자료 `TEST_COMBAT_CATALOG`(`catalog.ts`·`catalogMagic.ts`)도 같은 값으로.

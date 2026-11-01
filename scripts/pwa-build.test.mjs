@@ -274,6 +274,10 @@ describe("디자인 시스템 규칙(테마 시작 스크립트·글꼴)", () =>
       "assets/BalancePanelScreen-B5a6L7n8.css",
       "assets/SkillEditorScreen-S1k2E3d4.js",
       "assets/SkillEditorScreen-S1k2E3d4.css",
+      "assets/ItemEditorScreen-I1t2E3m4.js",
+      "assets/ItemEditorScreen-I1t2E3m4.css",
+      "assets/contentEditorFields-C1e2F3d4.js",
+      "assets/contentEditorFields-C1e2F3d4.css",
       "assets/BattleReplayLabScreen-R1e2P3l4.js",
       "assets/BattleReplayLabScreen-R1e2P3l4.css",
     ];
@@ -396,6 +400,7 @@ describe("개발자 도구 조각 이름(DEV_ONLY_CHUNK가 기대는 규칙)", (
         "apps/game/src/editor/tuning/TuningPanelScreen.tsx",
         "apps/game/src/editor/balance/BalancePanelScreen.tsx",
         "apps/game/src/editor/skills/SkillEditorScreen.tsx",
+        "apps/game/src/editor/items/ItemEditorScreen.tsx",
         "apps/game/src/editor/battleReplayLab/BattleReplayLabScreen.tsx",
       ]),
     );

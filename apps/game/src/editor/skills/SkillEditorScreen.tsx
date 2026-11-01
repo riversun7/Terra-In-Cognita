@@ -2,7 +2,9 @@
 // - [스킬] 칸: 왼쪽 목록(찾기·거르기·새 스킬), 오른쪽 한 스킬의 모든 칸(SkillForm). [저장]·[복제]·[끄기/켜기]·[팩 값으로]·[지우기].
 //   고친 칸은 초안에만 들고 [저장]이 서버 묶음(skills.save) 하나로 보낸다. 서버가 팩 검사기로 본 뒤 그 세계에 바로 넣는다(D-461).
 // - [행동별 소모] 칸: 행동·스킬마다 스태미나·MP(CostTable, D-491). 줄마다 [적용]이 바로 보낸다.
-// - 판 충돌(다른 사람이 먼저 바꿈)이면 목록을 다시 받고 초안은 남긴다. [내보내기]는 팩 차이(tuning.export, entries 칸)다.
+// - 저장 묶음에 고치기 시작할 때의 실효 항목 해시(baseHash)를 싣는다: 다른 스킬만 바뀐 판 충돌은 받고, 같은 스킬을 누가 먼저 바꿨으면
+//   (entry_changed) 목록을 다시 받아 내가 바꾼 칸만 새 항목 위에 다시 얹는다(3방향, 같은 칸을 양쪽이 바꿨으면 알린다). [내보내기]는
+//   팩 차이(tuning.export, entries 칸)다. 공용 부품(입력 칸·효과 줄·최근 바꿈)은 editor/content/(아이템 편집기와 같이 쓴다).
 // 조각 이름 SkillEditorScreen-*(미리 캐시 규칙 [Ss]killEditor). 시험용 data-*: data-status(loading·ready·failed), data-revision.
 import type {
   SkillEditorChange,
@@ -12,7 +14,7 @@ import type {
   SkillJson,
 } from "@terra/shared/skillEditor";
 import type { TuningExportResponse } from "@terra/shared/tuning";
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { refreshSession } from "../../auth/session.ts";
 import { api } from "../../net/api.ts";
 import { m } from "../../paraglide/messages.js";
@@ -20,6 +22,8 @@ import { getLocale } from "../../paraglide/runtime.js";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
+import { ContentHistory } from "../content/contentEditorHistory.tsx";
+import { mergeThreeWay } from "../content/contentEditorModel.ts";
 import { CostTable } from "./CostTable.tsx";
 import { SkillForm } from "./SkillForm.tsx";
 import { SkillList } from "./SkillList.tsx";
@@ -41,12 +45,29 @@ type Load =
 
 type Tab = "skills" | "costs";
 
-/** 편집 중인 것: 고른 스킬 ID와 초안(새 스킬이면 목록에 아직 없다) */
+/**
+ * 편집 중인 것: 고른 스킬 ID와 초안(새 스킬이면 목록에 아직 없다). base·baseHash = 고치기 시작할 때의 실효 항목과 해시(새 스킬 null,
+ * 옛 서버면 해시 undefined)
+ */
 interface Editing {
   readonly id: string;
   readonly draft: SkillJson;
   readonly isNew: boolean;
+  readonly base: SkillJson | null;
+  readonly baseHash: string | null | undefined;
 }
+
+/** 실효 항목으로 편집을 시작한다 */
+const editingOf = (skill: SkillEditorSkill): Editing => ({
+  id: skill.entry.id,
+  draft: skill.entry,
+  isNew: false,
+  base: skill.entry,
+  baseHash: skill.hash,
+});
+
+const isSkillJson = (value: unknown): value is SkillJson =>
+  typeof value === "object" && value !== null && typeof Reflect.get(value, "id") === "string";
 
 type Confirm = { readonly kind: "revert" | "delete"; readonly id: string } | null;
 
@@ -97,6 +118,8 @@ export default function SkillEditorScreen() {
   const list = load.status === "ready" ? load.list : null;
   const skills = list?.skills ?? [];
   const byId = new Map(skills.map((skill): [string, SkillEditorSkill] => [skill.entry.id, skill]));
+  /** 저장 뒤 받은 목록의 스킬(저장한 스킬의 새 해시로 편집을 이어 간다) */
+  const byIdAfter = useRef<Map<string, SkillEditorSkill> | null>(null);
   const taken = new Set([...byId.keys(), ...(list?.retiredSkillIds ?? [])]);
   const current = editing && !editing.isNew ? byId.get(editing.id) : undefined;
   const dirty = editing ? editing.isNew || !current || !sameSkill(editing.draft, current.entry) : false;
@@ -105,7 +128,7 @@ export default function SkillEditorScreen() {
   const select = (id: string): void => {
     const skill = byId.get(id);
     if (!skill) return;
-    setEditing({ id, draft: skill.entry, isNew: false });
+    setEditing(editingOf(skill));
     setConfirm(null);
     problem.clear();
     setTab("skills");
@@ -125,52 +148,97 @@ export default function SkillEditorScreen() {
         changes,
         note: note.trim() === "" ? null : note,
       });
+      byIdAfter.current = new Map(
+        next.skills.map((skill): [string, SkillEditorSkill] => [skill.entry.id, skill]),
+      );
       setLoad({ status: "ready", list: next });
       setNote("");
       notice.show([done(next)]);
       return true;
     } catch (error: unknown) {
-      if (fail(error).key === "revision_conflict") {
+      const info = fail(error);
+      if (info.key === "revision_conflict") {
         await reload();
         problem.show([m.dev_skills_reloaded()]);
       }
+      if (info.key === "entry_changed") await rebase();
       return false;
     } finally {
       setBusy(false);
     }
   };
 
+  /**
+   * 같은 스킬을 누가 먼저 바꿨다(entry_changed): 목록을 다시 받아 내가 바꾼 칸만 새 항목 위에 다시 얹는다(3방향). 같은 칸을 양쪽이 바꿨으면
+   * 내 값을 두고 그 칸을 알린다. 다시 [저장]하면 새 해시로 보낸다
+   */
+  const rebase = async (): Promise<void> => {
+    const fresh = await reload();
+    const theirs = fresh?.skills.find((skill) => skill.entry.id === editing?.id);
+    if (!editing || !theirs) return;
+    const merged = mergeThreeWay(editing.base, editing.draft, theirs.entry);
+    const draft = isSkillJson(merged.merged) ? merged.merged : editing.draft;
+    setEditing({ ...editingOf(theirs), draft });
+    problem.show([
+      m.dev_skills_rebased({ id: editing.id }),
+      ...(merged.conflicts.length > 0
+        ? [m.dev_skills_rebase_conflicts({ fields: merged.conflicts.join(", ") })]
+        : []),
+    ]);
+  };
+
+  /** 저장 묶음의 baseHash(옛 서버면 싣지 않는다) */
+  const hashOf = (target: Editing): { baseHash?: string | null } =>
+    target.isNew ? { baseHash: null } : target.baseHash === undefined ? {} : { baseHash: target.baseHash };
+
   const onSave = (): void => {
     if (!editing) return;
     const entry = cleanSkill(editing.draft);
-    void send([{ op: "put_skill", entry }], (next) =>
+    void send([{ op: "put_skill", entry, ...hashOf(editing) }], (next) =>
       m.dev_skills_saved({ id: entry.id, revision: next.revision }),
     ).then((ok) => {
-      if (ok) setEditing({ id: entry.id, draft: entry, isNew: false });
+      if (ok) {
+        const saved = byIdAfter.current?.get(entry.id);
+        setEditing(
+          saved
+            ? editingOf(saved)
+            : { id: entry.id, draft: entry, isNew: false, base: entry, baseHash: undefined },
+        );
+      }
     });
   };
 
   const onToggle = (): void => {
     if (!editing || !current) return;
     const entry = cleanSkill({ ...current.entry, enabled: !current.entry.enabled });
-    void send([{ op: "put_skill", entry }], (next) =>
-      m.dev_skills_saved({ id: entry.id, revision: next.revision }),
+    void send(
+      [{ op: "put_skill", entry, ...(current.hash === undefined ? {} : { baseHash: current.hash }) }],
+      (next) => m.dev_skills_saved({ id: entry.id, revision: next.revision }),
     ).then((ok) => {
-      if (ok) setEditing({ id: entry.id, draft: entry, isNew: false });
+      if (ok) {
+        const saved = byIdAfter.current?.get(entry.id);
+        setEditing(
+          saved
+            ? editingOf(saved)
+            : { id: entry.id, draft: entry, isNew: false, base: entry, baseHash: undefined },
+        );
+      }
     });
   };
 
   const onDuplicate = (): void => {
     if (!editing) return;
     const id = freeSkillId(editing.draft.id, taken);
-    setEditing({ id, draft: { ...editing.draft, id }, isNew: true });
+    setEditing({ id, draft: { ...editing.draft, id }, isNew: true, base: null, baseHash: null });
     setConfirm(null);
   };
 
   const onRevert = (kind: "revert" | "delete", id: string): void => {
     setConfirm(null);
-    void send([{ op: "revert", category: "skills", id }], () =>
-      kind === "delete" ? m.dev_skills_deleted({ id }) : m.dev_skills_reverted({ id }),
+    const hash = byId.get(id)?.hash;
+    void send(
+      [{ op: "revert", category: "skills", id, ...(hash === undefined ? {} : { baseHash: hash }) }],
+      () => (kind === "delete" ? m.dev_skills_deleted({ id }) : m.dev_skills_reverted({ id })),
     ).then((ok) => {
       if (!ok) return;
       setEditing(null);
@@ -178,7 +246,7 @@ export default function SkillEditorScreen() {
   };
 
   const onCreate = (id: string): void => {
-    setEditing({ id, draft: newSkillTemplate(id), isNew: true });
+    setEditing({ id, draft: newSkillTemplate(id), isNew: true, base: null, baseHash: null });
     setConfirm(null);
     setTab("skills");
   };
@@ -280,7 +348,15 @@ export default function SkillEditorScreen() {
               </div>
             </section>
           ) : null}
-          {history ? <HistoryPanel rows={history} locale={locale} /> : null}
+          {history ? (
+            <ContentHistory
+              rows={history}
+              locale={locale}
+              title={m.dev_skills_history()}
+              className="sk-panel sk-history"
+              headingId="sk-history-title"
+            />
+          ) : null}
           <LiveMessage tone="success" lines={notice.lines} version={notice.version} />
           <LiveMessage tone="error" lines={problem.lines} version={problem.version} />
           <div className="sk-tabs" role="tablist" aria-label={m.dev_skills_tabs_label()} id={tabsId}>
@@ -406,7 +482,7 @@ export default function SkillEditorScreen() {
                         <button
                           type="button"
                           className="button-small"
-                          onClick={() => setEditing({ ...editing, draft: current.entry })}
+                          onClick={() => setEditing(editingOf(current))}
                         >
                           {m.dev_skills_discard()}
                         </button>
@@ -471,39 +547,4 @@ export default function SkillEditorScreen() {
 function originText(origin: SkillEditorSkill["origin"]): string {
   if (origin === "created") return m.dev_skills_origin_created();
   return origin === "edited" ? m.dev_skills_origin_edited() : m.dev_skills_origin_pack();
-}
-
-const HISTORY_TEXT: Readonly<Record<SkillEditorHistoryRow["action"], () => string>> = {
-  apply: m.dev_skills_history_apply,
-  pack_won: m.dev_skills_history_pack_won,
-  dropped: m.dev_skills_history_dropped,
-  slept: m.dev_skills_history_slept,
-};
-
-function HistoryPanel({ rows, locale }: { rows: readonly SkillEditorHistoryRow[]; locale: "ko" | "en" }) {
-  return (
-    <section className="sk-panel sk-history" aria-labelledby="sk-history-title">
-      <h2 id="sk-history-title" className="sk-heading">
-        {m.dev_skills_history()}
-      </h2>
-      {rows.length === 0 ? <p className="field-hint">{m.dev_skills_history_empty()}</p> : null}
-      <ul className="sk-history-list">
-        {rows.map((row) => (
-          <li key={`${row.at}-${row.revision ?? "x"}-${row.action}`}>
-            <p>
-              {m.dev_skills_history_line({
-                when: new Date(row.at).toLocaleString(locale),
-                who: row.actor ?? m.dev_skills_history_system(),
-                what: HISTORY_TEXT[row.action](),
-              })}
-              {row.note ? ` · ${row.note}` : ""}
-            </p>
-            <p className="sk-history-changes">
-              {row.changes.map((change) => `${change.category}/${change.id} (${change.what})`).join(", ")}
-            </p>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
 }

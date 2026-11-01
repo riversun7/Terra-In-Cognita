@@ -1,0 +1,167 @@
+/*
+ * 아이템 편집기 목록 판(대분류 타일·찾기·거르기·줄)과 분류 자료 칸 — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
+ * 칩·판·편집 칸은 itemEditor.css. 같은 조각(ItemEditorScreen-*)에 든다.
+ */
+.ie-list-pane {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ie-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.ie-tile {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--tap-size);
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  box-shadow: none;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+}
+.ie-tile[aria-pressed="true"] {
+  border-color: var(--color-focus);
+  background-color: var(--color-surface-2);
+  font-weight: var(--font-weight-strong);
+}
+.ie-tile-count {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ie-filters > summary,
+.ie-section-title,
+.ie-tax-new > summary,
+.ie-unit > summary {
+  min-height: var(--tap-size);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.ie-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
+  align-items: end;
+  gap: var(--space-2);
+}
+.ie-filter-grid select {
+  width: 100%;
+}
+.ie-range {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.ie-range > .input {
+  min-width: 0;
+  width: 100%;
+}
+.ie-list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.ie-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-1);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.ie-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: var(--tap-size);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  box-shadow: none;
+  color: var(--color-text);
+  text-align: start;
+}
+.ie-item[aria-current="true"] {
+  border-color: var(--color-focus);
+  background-color: var(--color-surface-2);
+}
+.ie-item[data-off] .ie-item-name {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+.ie-item-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.ie-item-name {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.ie-item-meta,
+.ie-item-summary {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.ie-item-summary {
+  color: var(--color-text);
+}
+
+/* ── 분류 자료 ── */
+.ie-tax-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  align-items: start;
+  gap: var(--space-3);
+}
+.ie-tax-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-1);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.ie-tax-row > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-height: var(--tap-size);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.ie-tax-row[data-staged] > summary {
+  color: var(--color-focus);
+}
+.ie-tax-body,
+.ie-new-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+.ie-new-row > button {
+  justify-self: start;
+}

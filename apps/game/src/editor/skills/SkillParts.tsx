@@ -12,8 +12,9 @@ import {
   type SkillJson,
 } from "@terra/shared/skillEditor";
 import { m } from "../../paraglide/messages.js";
-import { NumberField, RemoveButton, SelectField } from "./SkillFields.tsx";
-import { CONDITION_TEXT, PART_TEXT, effectKindText, elementText } from "./skillMessages.ts";
+import { EffectRows, effectOptions } from "../content/contentEditorEffects.tsx";
+import { NumberField, RemoveButton, SelectField } from "../content/contentEditorFields.tsx";
+import { CONDITION_TEXT, PART_TEXT, elementText } from "./skillMessages.ts";
 
 type Update = (next: SkillJson) => void;
 
@@ -161,16 +162,6 @@ export function FormulaSection({ draft, update }: { draft: SkillJson; update: Up
   );
 }
 
-function effectOptions(effects: readonly SkillEditorEffect[], locale: "ko" | "en", current: string) {
-  const list = effects.map((effect) => ({
-    value: effect.id,
-    label: m.dev_skills_effect_option({ name: effect.name[locale], kind: effectKindText(effect.kind) }),
-  }));
-  return list.some((option) => option.value === current)
-    ? list
-    : [{ value: current, label: current }, ...list];
-}
-
 export function ConditionSection({
   draft,
   update,
@@ -263,83 +254,23 @@ export function EffectSection({
   effects: readonly SkillEditorEffect[];
   locale: "ko" | "en";
 }) {
-  const firstEffect = effects.find((effect) => effect.enabled)?.id ?? effects[0]?.id ?? "burn";
-  const L = SKILL_LIMITS;
+  // 효과 줄 편집은 아이템 사용 효과와 같은 부품(contentEditorEffects)이다. 칸 모양 이름은 이 화면 것(시험이 sk-section을 고른다)
   return (
-    <fieldset className="sk-section">
-      <legend className="sk-section-title">{m.dev_skills_section_effects()}</legend>
-      <ul className="sk-rows">
-        {draft.effects.map((part, index) => (
-          <li key={index} className="sk-row sk-effect-row">
-            <SelectField
-              label={m.dev_skills_field_effect()}
-              value={part.effect}
-              options={effectOptions(effects, locale, part.effect)}
-              onChange={(effect) =>
-                update({ ...draft, effects: replaceAt(draft.effects, index, { ...part, effect }) })
-              }
-            />
-            <NumberField
-              label={m.dev_skills_field_chance()}
-              value={part.chancePm}
-              min={L.chancePm.min}
-              max={L.chancePm.max}
-              onChange={(chancePm) =>
-                update({
-                  ...draft,
-                  effects: replaceAt(draft.effects, index, { ...part, chancePm: chancePm ?? 0 }),
-                })
-              }
-            />
-            <NumberField
-              label={m.dev_skills_field_duration()}
-              value={part.durationMs}
-              min={L.effectDurationMs.min}
-              max={L.effectDurationMs.max}
-              optional
-              onChange={(durationMs) => {
-                const { durationMs: _drop, ...rest } = part;
-                update({
-                  ...draft,
-                  effects: replaceAt(
-                    draft.effects,
-                    index,
-                    durationMs === undefined ? rest : { ...rest, durationMs },
-                  ),
-                });
-              }}
-            />
-            <NumberField
-              label={m.dev_skills_field_magnitude()}
-              value={part.value}
-              min={L.effectValue.min}
-              max={L.effectValue.max}
-              onChange={(value) =>
-                update({ ...draft, effects: replaceAt(draft.effects, index, { ...part, value: value ?? 0 }) })
-              }
-            />
-            <RemoveButton
-              name={part.effect}
-              onClick={() => update({ ...draft, effects: removeAt(draft.effects, index) })}
-            />
-          </li>
-        ))}
-      </ul>
-      {draft.effects.length < L.effects ? (
-        <button
-          type="button"
-          className="button-small sk-add"
-          onClick={() =>
-            update({
-              ...draft,
-              effects: [...draft.effects, { effect: firstEffect, value: 0, chancePm: 1000 }],
-            })
-          }
-        >
-          {m.dev_skills_add_effect()}
-        </button>
-      ) : null}
-    </fieldset>
+    <EffectRows
+      legend={m.dev_skills_section_effects()}
+      rows={draft.effects}
+      onChange={(rows) => update({ ...draft, effects: rows })}
+      effects={effects}
+      locale={locale}
+      max={SKILL_LIMITS.effects}
+      classes={{
+        section: "sk-section",
+        title: "sk-section-title",
+        rows: "sk-rows",
+        row: "sk-row sk-effect-row",
+        add: "sk-add",
+      }}
+    />
   );
 }
 

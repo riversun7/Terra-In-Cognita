@@ -57,8 +57,9 @@ test.describe("관리자", () => {
     await expect(page).toHaveURL((url) => url.pathname === "/dev");
     await framed(page);
     await expect(drawer).not.toHaveAttribute("open", "");
-    // 도구 여덟 줄: 행성 편집기·항성계 편집기·2차맵 시험·설정 칸·밸런스·스킬 편집기·전투 다시보기·셰이더 측정(모두 화면이 있어 "준비 중" 칩이 없다)
-    await expect(page.locator("#main a.dev-tool")).toHaveCount(8);
+    // 도구 아홉 줄: 행성 편집기·항성계 편집기·2차맵 시험·설정 칸·밸런스·스킬 편집기·아이템 편집기·전투 다시보기·셰이더 측정(모두 화면이 있어
+    // "준비 중" 칩이 없다)
+    await expect(page.locator("#main a.dev-tool")).toHaveCount(9);
     await expect(page.locator("#main a.dev-tool .dev-tool-badge")).toHaveCount(0);
     for (const path of [
       "/dev/planet-editor",
@@ -67,6 +68,7 @@ test.describe("관리자", () => {
       "/dev/tuning",
       "/dev/balance",
       "/dev/skills",
+      "/dev/items",
       "/dev/battle-replay",
       "/dev/gpu-bench",
     ]) {

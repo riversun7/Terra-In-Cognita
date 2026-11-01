@@ -56,6 +56,38 @@ export function defaultStorageOf(category: string, food: boolean): StorageKindId
   return food ? "food" : "general";
 }
 
+/**
+ * 칸마다 지금 읽는 곳(설계안 3.4 "쓰는 곳 칩"): combat = 전투 자료, economy = 경제(시세·생산·거래 방식), screen = 화면·거르기,
+ * none = 아직 읽는 곳이 없음(규칙 줄기가 붙으면 바꾼다: 장비 전투 연결 WP-5, 크리쳐 칸 WP-C, 소모품 실행 WP-6, 보유 표)
+ */
+export const ITEM_FIELD_USES: Readonly<Record<string, "combat" | "economy" | "screen" | "none">> = {
+  tier: "economy",
+  baseValue: "economy",
+  tradable: "economy",
+  bound: "economy",
+  enabled: "economy",
+  subcategory: "screen",
+  tags: "screen",
+  weight: "none",
+  stackMax: "none",
+  icon: "none",
+  perish: "none",
+  use: "none",
+  "equip.slot": "combat",
+  "equip.stats": "combat",
+  "equip.weapon": "combat",
+  "equip.skills": "combat",
+  "equip.weaponType": "screen",
+  "equip.elements": "none",
+  "equip.maxDurability": "none",
+  "equip.combat": "none",
+  "equip.kinds": "none",
+  "equip.creature": "none",
+  "equip.weapon.appropriate": "none",
+  "equip.weapon.twoHanded": "none",
+  "equip.weapon.ammo": "none",
+};
+
 /** 입력 칸 범위(팩 스키마와 같다. 서버가 다시 본다) + 편집기 상한(묶음·글 크기·만든 항목 수, 서버도 본다) */
 export const ITEM_LIMITS = {
   tier: { min: 0, max: 9 },
@@ -64,7 +96,7 @@ export const ITEM_LIMITS = {
   stackMax: { min: 1, max: 1_000_000 },
   shelfLifeMs: { min: 3_600_000, max: 31_536_000_000 },
   tags: 16,
-  useEffects: 8,
+  effectsMax: 8,
   order: { min: 0, max: 10_000 },
   statValue: { min: -10_000_000, max: 10_000_000 },
   stats: 16,

@@ -1,5 +1,6 @@
 // 스킬 편집기 화면 모델 — 거르기, 새 스킬 틀, 복제 ID, 모양을 바꿀 때 맞춰 주는 칸, 보낼 항목 다듬기, 오류 코드.
 // 계산이 없는 순수 함수만 둔다(시험: skillModel.test.ts). 칸마다의 규칙은 서버가 팩 스키마로 다시 본다(docs/adr/2026-11-01-skill-editor.md 5절).
+// 숫자 읽기·복제 ID·같은 내용·오류 코드는 아이템 편집기와 같이 쓰는 contentEditorModel이다(docs/adr/2026-11-01-item-editor.md 3절).
 import {
   SKILL_EDITOR_REASONS,
   type SkillEditorReason,
@@ -8,9 +9,18 @@ import {
   type SkillJson,
   type SkillShapeId,
 } from "@terra/shared/skillEditor";
+import {
+  CONTENT_ID_PATTERN,
+  type ContentErrorInfo,
+  contentErrorOf,
+  freeCopyId,
+  sameJson,
+} from "../content/contentEditorModel.ts";
+
+export { parseInt32 } from "../content/contentEditorModel.ts";
 
 /** 콘텐츠 ID 규칙(AGENTS 4장, 서버 팩 검사와 같다) */
-export const SKILL_ID_PATTERN = /^[a-z][a-z0-9_]{1,47}$/;
+export const SKILL_ID_PATTERN = CONTENT_ID_PATTERN;
 
 export const SKILL_FILTERS = ["all", "edited", "created", "disabled"] as const;
 export type SkillFilter = (typeof SKILL_FILTERS)[number];
@@ -58,14 +68,7 @@ export function newSkillTemplate(id: string): SkillJson {
 }
 
 /** 쓸 수 없는 ID(있는 스킬 + 한 번 쓰고 지운 ID)를 피한 복제 ID: <ID>_copy, <ID>_copy2 … (48자 안) */
-export function freeSkillId(base: string, taken: ReadonlySet<string>): string {
-  const stem = base.slice(0, 40);
-  for (let n = 1; n < 1000; n++) {
-    const id = n === 1 ? `${stem}_copy` : `${stem}_copy${n}`;
-    if (!taken.has(id)) return id;
-  }
-  return `${stem}_x`;
-}
+export const freeSkillId = freeCopyId;
 
 const DAMAGE_SHAPES: readonly SkillShapeId[] = ["single", "projectile", "area", "chain"];
 
@@ -114,66 +117,14 @@ export function cleanSkill(draft: SkillJson): SkillJson {
 
 /** 키 차례와 상관없는 같은 내용인가 */
 export function sameSkill(a: SkillJson, b: SkillJson): boolean {
-  return stable(cleanSkill(a)) === stable(cleanSkill(b));
+  return sameJson(cleanSkill(a), cleanSkill(b));
 }
 
-function stable(value: unknown): string {
-  return JSON.stringify(value, (_key, item: unknown) =>
-    typeof item === "object" && item !== null && !Array.isArray(item)
-      ? Object.fromEntries(Object.entries(item).toSorted(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)))
-      : item,
-  );
-}
-
-export type SkillErrorKey =
-  | SkillEditorReason
-  | "revision_conflict"
-  | "rate_limited"
-  | "unauthorized"
-  | "forbidden"
-  | "unavailable"
-  | "network"
-  | "unknown";
-
-export interface SkillErrorInfo {
-  readonly key: SkillErrorKey;
-  /** 서버 팩 검사 문제 줄(사람이 읽는 줄) */
-  readonly details: readonly string[];
-  readonly sessionEnded: boolean;
-}
-
-const field = (value: unknown, key: string): unknown =>
-  typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
-const isReason = (value: unknown): value is SkillEditorReason =>
-  typeof value === "string" && (SKILL_EDITOR_REASONS as readonly string[]).includes(value);
+/** 서버 팩 검사 문제 줄(사람이 읽는 줄)·바뀐 항목 키를 단 화면 오류 */
+export type SkillErrorInfo = ContentErrorInfo<SkillEditorReason>;
+export type SkillErrorKey = SkillErrorInfo["key"];
 
 /** tRPC 오류 → 화면 오류 키 */
 export function skillErrorOf(error: unknown): SkillErrorInfo {
-  const data = field(error, "data");
-  const code = field(data, "code");
-  const reason = field(data, "reason");
-  const raw = field(data, "details");
-  const details = Array.isArray(raw) ? raw.filter((line): line is string => typeof line === "string") : [];
-  if (isReason(reason)) return { key: reason, details, sessionEnded: false };
-  if (reason === "revision_conflict" || reason === "rate_limited")
-    return { key: reason, details, sessionEnded: false };
-  switch (code) {
-    case "UNAUTHORIZED":
-      return { key: "unauthorized", details, sessionEnded: true };
-    case "FORBIDDEN":
-      return { key: "forbidden", details, sessionEnded: false };
-    case "NOT_FOUND":
-      return { key: "unavailable", details, sessionEnded: false };
-    case undefined:
-      return { key: "network", details, sessionEnded: false };
-    default:
-      return { key: "unknown", details, sessionEnded: false };
-  }
-}
-
-/** 정수 입력: 범위 안 정수면 그 값, 아니면 null */
-export function parseInt32(text: string, min: number, max: number): number | null {
-  if (!/^-?\d+$/.test(text.trim())) return null;
-  const value = Number(text.trim());
-  return Number.isSafeInteger(value) && value >= min && value <= max ? value : null;
+  return contentErrorOf(error, SKILL_EDITOR_REASONS);
 }

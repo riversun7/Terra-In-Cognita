@@ -1,0 +1,121 @@
+/*
+ * 콘텐츠 편집기 공용 칸(스킬 편집기·아이템 편집기) — 입력 칸·켜기·빼기 단추·문제 줄·최근 바꿈. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 두 편집기 조각이 같이 쓰는 모듈과 함께 내려온다(미리 캐시 밖, [Cc]ontentEditor).
+ */
+.ce-field {
+  min-width: 0;
+}
+.ce-field select,
+.ce-field .input {
+  width: 100%;
+  min-width: 0;
+}
+.ce-number {
+  font-variant-numeric: tabular-nums;
+}
+.ce-number[aria-invalid="true"],
+.ce-field .input[aria-invalid="true"],
+.ce-field select[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+.ce-hint,
+.ce-problem {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+.ce-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-size);
+}
+.ce-check > input {
+  inline-size: var(--icon-md);
+  block-size: var(--icon-md);
+}
+/* 칸 옆 이름표가 누르는 곳(44px)이다 */
+.ce-check > label {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-size);
+  min-width: var(--tap-size);
+  cursor: pointer;
+}
+.ce-check-hint,
+.ce-check > .ce-problem {
+  flex-basis: 100%;
+  margin: 0;
+}
+.ce-remove {
+  align-self: end;
+}
+
+/* ── 효과 줄 ── */
+.ce-effect-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr));
+  align-items: end;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+
+/* ── 효과 줄 묶음(화면이 classes를 주지 않을 때) ── */
+.ce-section {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+.ce-section-title {
+  font-weight: var(--font-weight-strong);
+}
+.ce-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-2);
+}
+.ce-add {
+  justify-self: start;
+}
+
+/* ── 최근 바꿈 ── */
+.ce-history-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.ce-history-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+.ce-history-list > li {
+  display: grid;
+  gap: var(--space-1);
+}
+.ce-history-list p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.ce-history-changes {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.ce-history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}

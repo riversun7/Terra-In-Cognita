@@ -4,7 +4,6 @@ import { ELEMENT_CODES, type ElementCode } from "@terra/shared/roster";
 import type {
   ActionCostRow,
   SkillConditionPartKind,
-  SkillEditorEffect,
   SkillFormulaPartKind,
   SkillJson,
   SkillShapeId,
@@ -63,18 +62,6 @@ export const CONDITION_TEXT: Readonly<Record<SkillConditionPartKind, Text>> = {
   target_has: m.dev_skills_cond_target_has,
 };
 
-const EFFECT_KIND_TEXT: Readonly<Record<SkillEditorEffect["kind"], Text>> = {
-  buff: m.dev_skills_effect_kind_buff,
-  debuff: m.dev_skills_effect_kind_debuff,
-  dot: m.dev_skills_effect_kind_dot,
-  heal: m.dev_skills_effect_kind_heal,
-  status: m.dev_skills_effect_kind_status,
-};
-
-export function effectKindText(kind: SkillEditorEffect["kind"]): string {
-  return EFFECT_KIND_TEXT[kind]();
-}
-
 const ELEMENT_TEXT: Readonly<Record<ElementCode, Text>> = {
   water: m.cyborg_element_water,
   frost: m.cyborg_element_frost,
@@ -109,6 +96,7 @@ const ERROR_TEXT: Readonly<Record<SkillErrorKey, Text>> = {
   retired_id: m.dev_skills_err_retired_id,
   duplicate_entry: m.dev_skills_err_duplicate_entry,
   invalid_note: m.dev_skills_err_invalid_note,
+  entry_changed: m.dev_skills_err_entry_changed,
   revision_conflict: m.dev_skills_err_revision_conflict,
   rate_limited: m.dev_skills_err_rate_limited,
   unauthorized: m.dev_skills_err_unauthorized,

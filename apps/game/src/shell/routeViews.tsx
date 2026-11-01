@@ -50,6 +50,8 @@ const TuningPanelScreen = lazy(() => import("../editor/tuning/TuningPanelScreen.
 const BalancePanelScreen = lazy(() => import("../editor/balance/BalancePanelScreen.tsx"));
 // 스킬 편집기·행동별 소모(틀 안): 조각 이름 SkillEditorScreen-*(미리 캐시 규칙 [Ss]killEditor)
 const SkillEditorScreen = lazy(() => import("../editor/skills/SkillEditorScreen.tsx"));
+// 아이템 편집기(틀 안): 조각 이름 ItemEditorScreen-*(미리 캐시 규칙 [Ii]temEditor). 스킬 편집기와 같이 쓰는 부품은 contentEditor…
+const ItemEditorScreen = lazy(() => import("../editor/items/ItemEditorScreen.tsx"));
 // 전투 다시보기(틀 숨김): 조각 이름 BattleReplayLabScreen-*(미리 캐시 규칙 [Bb]attleReplayLab). 보기 화면(src/battle/)·엔진은 같이 쓴다
 const BattleReplayLabScreen = lazy(() => import("../editor/battleReplayLab/BattleReplayLabScreen.tsx"));
 // 지도: Three.js·엔진은 이 조각들과 함께만 내려온다. 떠나면 내린다(ADR 37 11절). 화면은 { onClose, monitor }만 받는다
@@ -84,6 +86,7 @@ export const ROUTE_TITLES = {
   dev_tuning: m.shell_route_dev_tuning,
   dev_balance: m.shell_route_dev_balance,
   dev_skills: m.shell_route_dev_skills,
+  dev_items: m.shell_route_dev_items,
   dev_battle_replay: m.shell_route_dev_battle_replay,
   dev_gpu_bench: m.shell_route_dev_gpu_bench,
 } satisfies Record<RouteId, () => string>;
@@ -184,6 +187,8 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <BalancePanelScreen />;
     case "dev_skills":
       return <SkillEditorScreen />;
+    case "dev_items":
+      return <ItemEditorScreen initialId={match.search.item} />;
     case "dev_battle_replay":
       return <BattleReplayLabScreen onClose={goBack} />;
     case "faction":

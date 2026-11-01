@@ -13,7 +13,7 @@ import {
   type SkillWeaponFieldId,
 } from "@terra/shared/skillEditor";
 import { m } from "../../paraglide/messages.js";
-import { CheckField, NumberField, SelectField, TextField } from "./SkillFields.tsx";
+import { CheckField, NumberField, SelectField, TextField } from "../content/contentEditorFields.tsx";
 import { ConditionSection, EffectSection, FormulaSection, GradeSection } from "./SkillParts.tsx";
 import { DAMAGE_TEXT, RESOURCE_TEXT, SHAPE_TEXT, TARGET_TEXT, TRIGGER_TEXT } from "./skillMessages.ts";
 import { withShape } from "./skillModel.ts";

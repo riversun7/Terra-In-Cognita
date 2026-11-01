@@ -43,7 +43,7 @@ export const ITEM_SCHEMA_LIMITS = {
   /** 유통기한(ms): 1시간 ~ 365일 */
   shelfLifeMinMs: 3_600_000,
   shelfLifeMaxMs: 31_536_000_000,
-  useEffects: 8,
+  effectsMax: 8,
   order: 10_000,
 } as const;
 
@@ -82,7 +82,7 @@ export const useSchema = z.strictObject({
       }),
     )
     .min(1)
-    .max(ITEM_SCHEMA_LIMITS.useEffects),
+    .max(ITEM_SCHEMA_LIMITS.effectsMax),
 });
 
 /** 대분류와 묶음·거래 칸이 맞는지(필드 검사가 실패해도 불린다: 값의 모양을 다시 보고 틀리면 건너뛴다) */

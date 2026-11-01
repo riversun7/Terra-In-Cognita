@@ -82,3 +82,13 @@ export function SparkIcon() {
     </DevIcon>
   );
 }
+
+/** 아이템 편집기(뚜껑 있는 상자) */
+export function CrateIcon() {
+  return (
+    <DevIcon>
+      <path d="M3.5 8.5 12 4l8.5 4.5v8L12 21l-8.5-4.5z" />
+      <path d="M3.5 8.5 12 13l8.5-4.5M12 13v8" />
+    </DevIcon>
+  );
+}

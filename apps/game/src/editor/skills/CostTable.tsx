@@ -10,7 +10,7 @@ import {
 } from "@terra/shared/skillEditor";
 import { useState } from "react";
 import { m } from "../../paraglide/messages.js";
-import { NumberField, SelectField } from "./SkillFields.tsx";
+import { NumberField, SelectField } from "../content/contentEditorFields.tsx";
 import { KIND_TEXT, ORIGIN_TEXT, RESOURCE_TEXT, actionText, statusText } from "./skillMessages.ts";
 
 type Locale = "ko" | "en";

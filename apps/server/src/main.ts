@@ -5,7 +5,7 @@ import { readConfig } from "./config.ts";
 import { loadServerContent } from "./content.ts";
 import { rosterCatalogOf } from "./roster/catalog.ts";
 import { createTuningState } from "./tuning/state.ts";
-import { statRowsOf, tuningEntriesOf } from "./world/combatCatalog.ts";
+import { statRowsOf, tuningEntriesOf, unitKindNamesOf } from "./world/combatCatalog.ts";
 import { economyCatalogFromPack } from "./economyView/catalog.ts";
 import { nationPresetsOf } from "./npc/presets.ts";
 import { closeDatabase, createDatabase } from "./db/client.ts";
@@ -120,6 +120,8 @@ app = await buildApp({
   tuning: { state: tuning, packId: loaded.pack.manifest.packId },
   // 밸런스 화면(/dev/balance): 시드 대결은 요청마다 워커 스레드에서
   balance: { runner: { kind: "worker", workerUrl: balanceWorkerUrl } },
+  // 전투 실험실(같은 화면의 [전투 실험실] 탭): 전투는 같은 워커, 유닛 종류 이름은 팩
+  battleLab: { unitKindNames: unitKindNamesOf(loaded.source) },
   // 경제 화면 목록(팩의 경제 분류, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)")
   economyCatalog: economyCatalogFromPack(loaded.pack, content),
   // 시험 2차맵 지형 = 행성 값에서 만든 2차맵(ADR 46 WP-3). 지형 워커가 만들고 행성 캐시 폴더 아래 second-maps/에 둔다

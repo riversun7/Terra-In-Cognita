@@ -44,7 +44,11 @@ import type { EconomyCatalogResponse } from "@terra/shared/economy";
 import type { TuningState } from "./tuning/state.ts";
 import { type TuningLimits, bootTuning, createTuningShared } from "./tuning/services.ts";
 import { type BalanceLimits, createBalanceServices } from "./balance/services.ts";
-import { inlineDuelRunner, workerDuelRunner } from "./balance/runner.ts";
+import { createHeavyGate } from "./balance/gate.ts";
+import { duelRunnerOf, inlineJobRunner, workerJobRunner } from "./balance/runner.ts";
+import { type BattleLabLimits, createBattleLabShared } from "./battleLab/services.ts";
+import { worldArenaTerrains } from "./battleLab/worldTerrains.ts";
+import type { LocalizedName } from "@terra/shared/roster";
 import { createTerrainService } from "./world/terrainService.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, type WorldConfig, startWorld } from "./world/world.ts";
 
@@ -133,6 +137,16 @@ export interface AppOptions {
     | {
         runner: { kind: "worker"; workerUrl: URL } | { kind: "inline" };
         limits?: Partial<BalanceLimits> | undefined;
+      }
+    | undefined;
+  /**
+   * 전투 실험실(같은 화면의 [전투 실험실] 탭, docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-01, 전투 실험실)"): 팩 유닛 종류 이름,
+   * 시험용 속도 제한. 전투는 balance.runner와 같은 워커·같은 바쁨 표시. 화면은 tuning이 있을 때만 연다
+   */
+  battleLab?:
+    | {
+        unitKindNames?: ReadonlyMap<string, LocalizedName> | undefined;
+        limits?: Partial<BattleLabLimits> | undefined;
       }
     | undefined;
   /** 경제 화면 목록(팩 items·recipes 등, src/economyView/catalog.ts). 없으면 빈 목록 */
@@ -251,19 +265,23 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         limits: options.tuning.limits,
       })
     : undefined;
-  // 밸런스 화면(가중치 표·기여·시드 대결): 설정 칸 접근자 위에서 돈다. 대결은 워커
+  // 밸런스 화면(가중치 표·기여·시드 대결)과 전투 실험실: 설정 칸 접근자 위에서 돈다. 무거운 일(대결·전투)은 같은 워커 진입 파일,
+  // 서버 전체 한 번에 하나(같은 바쁨 표시)
   const balanceRunner = options.balance?.runner;
+  const jobRunner =
+    balanceRunner?.kind === "worker"
+      ? workerJobRunner({ workerUrl: balanceRunner.workerUrl })
+      : inlineJobRunner();
+  const heavyGate = createHeavyGate();
   const balance = tuningShared
     ? createBalanceServices({
         tuning: tuningShared,
         roster: options.roster ?? testRosterCatalog(),
-        runner:
-          balanceRunner?.kind === "worker"
-            ? workerDuelRunner({ workerUrl: balanceRunner.workerUrl })
-            : inlineDuelRunner(),
+        runner: duelRunnerOf(jobRunner),
         now,
         log: app.log,
         limits: options.balance?.limits,
+        gate: heavyGate,
       })
     : undefined;
   const tuningDb = options.db;
@@ -303,6 +321,41 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     });
   }
 
+  const secondMapLab =
+    world && terrain && planets && worldPlanet
+      ? createSecondMapLab({
+          planetId: worldPlanet.id,
+          values: () => planets.planetValues(worldPlanet.id),
+          terrainVersion: () => terrain.version(),
+          loadedVersion: (mapKey) => world.map(mapKey)?.terrainVersion,
+          testMapKey: TEST_MAP_KEY,
+        })
+      : undefined;
+  // 전투 실험실: 전투장 지형은 월드 시험 2차맵(지형 서비스가 있으면 시험 자리 종류도)
+  const battleLab = tuningShared
+    ? createBattleLabShared({
+        tuning: tuningShared,
+        roster: options.roster ?? testRosterCatalog(),
+        unitKindNames: options.battleLab?.unitKindNames ?? new Map(),
+        terrains: worldArenaTerrains({
+          testMapKey: TEST_MAP_KEY,
+          terrain,
+          locatePreset:
+            secondMapLab && worldPlanet
+              ? async (preset) => {
+                  const answer = await secondMapLab.locate(worldPlanet.id, { kind: "preset", preset });
+                  return answer.kind === "server" ? answer.mapKey : null;
+                }
+              : undefined,
+        }),
+        runner: jobRunner,
+        gate: heavyGate,
+        now,
+        log: app.log,
+        limits: options.battleLab?.limits,
+      })
+    : undefined;
+
   // 요청의 출처 확인 기준 = 계정 경로와 같은 앱 출처(인증이 꺼지면 세션이 없어 보지 않는다)
   const editor = options.planetEditor;
   await registerTrpc(app, {
@@ -328,16 +381,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         return service ? cyborgReadsOf(service) : undefined;
       },
       // 개발자 2차맵 시험: 월드 행성의 2차맵 지형 주소·칸 값(보기 전용, src/world/secondMapLab.ts)
-      secondMapLab:
-        world && terrain && planets && worldPlanet
-          ? createSecondMapLab({
-              planetId: worldPlanet.id,
-              values: () => planets.planetValues(worldPlanet.id),
-              terrainVersion: () => terrain.version(),
-              loadedVersion: (mapKey) => world.map(mapKey)?.terrainVersion,
-              testMapKey: TEST_MAP_KEY,
-            })
-          : undefined,
+      secondMapLab,
       // 경제 화면: 팩 목록 + 월드 원장 잔고(읽기만) + 시안 자료
       economy: options.economyCatalog
         ? createEconomyServices({
@@ -350,6 +394,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       // 설정 칸 패널: 인증이 켜져 있을 때만 맥락이 서비스를 만든다
       tuning: tuningShared,
       balance,
+      battleLab,
     }),
   });
 

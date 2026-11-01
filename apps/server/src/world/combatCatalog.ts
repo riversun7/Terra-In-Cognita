@@ -41,6 +41,15 @@ export function statRowsOf(source: PackSource): StatRowEntry[] {
   return entriesOf(source, "stat_rows.json", (raw) => statRowEntrySchema.parse(raw));
 }
 
+/** 팩 `unit_kinds` 이름(켜진 것, ID → {ko, en}). 전투 실험실 목록이 쓴다(docs/adr/2026-11-01-balance-screen.md "바뀜") */
+export function unitKindNamesOf(source: PackSource): Map<string, { ko: string; en: string }> {
+  return new Map(
+    entriesOf(source, "unit_kinds.json", (raw) => unitKindEntrySchema.parse(raw))
+      .filter((entry) => entry.enabled)
+      .map((entry) => [entry.id, { ko: entry.name.ko, en: entry.name.en }]),
+  );
+}
+
 /** 팩 `tuning` 항목(팩 차례). 서버의 설정 칸 접근자(src/tuning/state.ts)가 받는다 */
 export function tuningEntriesOf(source: PackSource): TuningEntry[] {
   return entriesOf(source, "tuning.json", (raw) => tuningEntrySchema.parse(raw));

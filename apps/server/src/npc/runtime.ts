@@ -305,8 +305,11 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   await persist.refillSpares(SPARE_FACTIONS);
 
   const metrics = { decisions: 0, decideMs: 0, dayMs: 0, persistMs: 0, births: 0, deaths: 0, days: 0 };
+  // 기록기는 "N일째"를 시작 시각 + N × 24시간으로 센다 → 이어 돈 날 수와 UTC 0시 하루 끝에 맞춘 시작 시각을 준다
+  // (하루를 줄인 측정 실행에서는 줄의 시각이 실제와 다르다)
+  const restoredDay = state.society?.day ?? 0;
   const recorder = createMetricsRecorder({
-    startMs,
+    startMs: nextDayEnd(startMs, dayMs) - (restoredDay + 1) * DAY_MS,
     sink: (line) => log.info({ npcMetrics: line }, "npc society metrics"),
   });
   const ctxRef: { ctx?: NpcContext } = {};
@@ -350,7 +353,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       scheduleFaction: (faction, nowMs) => scheduleDecide(ctx, faction, nowMs),
       scheduleUnit: () => {},
       cancel: (eventId) => loop.cancel(eventId),
-      restoreDay: state.society?.day ?? 0,
+      restoreDay: restoredDay,
     },
     startMs,
   );

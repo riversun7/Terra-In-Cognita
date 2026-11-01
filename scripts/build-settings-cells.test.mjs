@@ -36,6 +36,13 @@ describe("49 설정 칸 목록(D-462)", () => {
     ]);
   });
 
+  it("코드 끝에 영문 소문자 하나가 붙은 칸(C16a 등, 기존 칸 사이에 끼운 칸)도 읽는다", () => {
+    const cells = parseSettingsCells(
+      "| C16a | 웨이브 결과 목표 | 목표 승률 | ‰ | 약 333‰ | D-468 | — |\n| C16ab | x | x | x | 1 | x | — |\n",
+    );
+    expect(cells.map((cell) => cell.code)).toEqual(["C16a"]);
+  });
+
   it("칸 수가 틀리거나 같은 코드가 두 번이면 던진다", () => {
     expect(() => parseSettingsCells("| T1 | a | b |\n")).toThrow(/7개/);
     const row = "| T1 | a | b | c | d | e | f |\n";

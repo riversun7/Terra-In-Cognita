@@ -1,5 +1,7 @@
 /*
- * 사이보그 화면 — 본체 머리 판, 두 열(넓은 폭), 환생·랭킹. 공용 부품은 roster/roster.css. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 사이보그 화면 — 머리 판(그림 + 인공장기·장비 칸 + 막대), 두 열(넓은 폭), 스킬 칸, 속성, 환생·랭킹, 상태 줄.
+ * 공용 부품은 roster/roster.css, 스탯 묶음은 roster/statPairs.css, 전투 스펙은 cyborgSpecs.css. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * ADR 2026-11-01-ui-visibility: 그림은 디자인 시스템 톤, 화면은 수·색·칸을 더 보인다.
  */
 
 .cyborg {
@@ -19,9 +21,10 @@
   min-width: 0;
 }
 
-/* ── 본체 머리 판 ──────────────────────────────── */
+/* ── 머리 판 ──────────────────────────────── */
 .cyborg-profile {
-  gap: var(--space-3);
+  container-type: inline-size;
+  gap: var(--space-4);
   padding: var(--space-4);
 }
 .cyborg-who {
@@ -42,11 +45,122 @@
   font-weight: var(--font-weight-display);
   font-size: var(--font-size-2xl);
   line-height: var(--line-height-tight);
+  text-shadow: var(--shadow-heading);
   overflow-wrap: anywhere;
 }
+
+/* 그림 자리와 칸: 좁으면 그림 → 인공장기 → 장비, 판이 넉넉하면 인공장기 | 그림 | 장비 */
+.cyborg-bay {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "stage"
+    "organ"
+    "gear";
+  gap: var(--space-4);
+}
+.cyborg-stage {
+  grid-area: stage;
+  display: grid;
+  place-items: center;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface-2);
+}
+.cyborg-avatar {
+  display: block;
+  width: var(--avatar-hero);
+  max-width: 100%;
+  height: auto;
+  color: var(--color-text);
+}
+.cyborg-slot-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.cyborg-slot-group[data-side="organ"] {
+  grid-area: organ;
+}
+.cyborg-slot-group[data-side="gear"] {
+  grid-area: gear;
+}
+.cyborg-slot-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.cyborg-slot-title {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-tight);
+}
+.cyborg-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--slot-min)), 1fr));
+  gap: var(--space-2);
+}
+.cyborg-slot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  min-height: var(--tap-size);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-inline-start: var(--border-w) solid var(--color-primary-lip);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.cyborg-slot[data-empty="true"] {
+  border-style: dashed;
+  border-inline-start-style: dashed;
+  border-inline-start-color: var(--color-border);
+  background-color: transparent;
+  box-shadow: none;
+}
+.cyborg-slot-kind {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.cyborg-slot-name {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.cyborg-slot-values {
+  color: var(--color-success);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+
+@container (min-width: 34rem) {
+  .cyborg-bay {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-areas: "organ stage gear";
+    align-items: start;
+  }
+  .cyborg-avatar {
+    width: var(--avatar-hero-lg);
+  }
+  /* 넓으면 이름을 더 크게(좁은 폭은 가장 긴 이름 16칸이 한 줄에 들게 한 단계 작게) */
+  .cyborg-name {
+    font-size: var(--font-size-3xl);
+  }
+}
+
 .cyborg-meters {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  align-items: end;
   gap: var(--space-3);
 }
 .cyborg-units {
@@ -68,6 +182,129 @@
   text-decoration: none;
 }
 
+/* ── 스킬 칸 ─────────────────────────────── */
+.cyborg-skills {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.cyborg-skill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 7.5rem), 1fr));
+  gap: var(--space-2);
+}
+.cyborg-skill {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: calc(var(--tap-size) * 1.25);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.cyborg-skill[data-state="used"] {
+  border: var(--border-w) solid var(--color-primary-lip);
+  background-color: var(--color-surface-2);
+  box-shadow: var(--shadow-control);
+}
+.cyborg-skill[data-state="empty"] {
+  border-style: dashed;
+}
+.cyborg-skill[data-state="locked"] {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  border-style: dashed;
+  color: var(--color-text-muted);
+}
+.cyborg-skill-name {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.cyborg-skill-note {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+/* 자물쇠 표시(꾸밈): 고리 + 몸통을 테두리로 */
+.cyborg-skill-lock {
+  position: relative;
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-2);
+  margin-block-start: var(--space-2);
+  border-radius: var(--hairline);
+  background-color: var(--color-text-muted);
+}
+.cyborg-skill-lock::before {
+  position: absolute;
+  inset: auto var(--hairline) 100%;
+  height: var(--space-2);
+  border: var(--border-w) solid var(--color-text-muted);
+  border-bottom: none;
+  border-radius: var(--radius-pill) var(--radius-pill) 0 0;
+  content: "";
+}
+
+/* ── 속성 ─────────────────────────────────── */
+.cyborg-elements-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.cyborg-elements {
+  display: grid;
+  gap: var(--space-2);
+}
+.cyborg-element-family {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.cyborg-element {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "name value"
+    "pips pips";
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-sm);
+}
+.cyborg-element-name {
+  grid-area: name;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cyborg-element-value {
+  grid-area: value;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-strong);
+}
+.cyborg-element[data-empty="true"] .cyborg-element-value {
+  color: var(--color-text-muted);
+}
+/* 눈금 10칸(0~10) */
+.cyborg-element-pips {
+  grid-area: pips;
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: var(--hairline);
+}
+.cyborg-element-pip {
+  height: var(--space-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-border);
+}
+.cyborg-element-pip[data-on="true"] {
+  background-color: var(--color-primary-lip);
+}
+
 /* ── 환생·랭킹 ────────────────────────────────── */
 .cyborg-rebirth {
   display: flex;
@@ -87,15 +324,27 @@
   gap: var(--space-2);
 }
 
+/* ── 상태 줄 ──────────────────────────────── */
+.cyborg-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
+  margin-block-start: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--hairline) dashed var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-snug);
+}
+.cyborg-footer p {
+  overflow-wrap: anywhere;
+}
+
 @media (min-width: 64em) {
   .cyborg-columns {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
-}
-
-/* 만든 사이보그의 외형 그림(첫 접속, 2D) — 테두리는 글자 색 */
-.cyborg-avatar {
-  flex: none;
-  width: var(--mark-lg);
-  color: var(--color-text);
 }

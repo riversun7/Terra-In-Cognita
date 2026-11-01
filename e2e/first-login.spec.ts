@@ -4,12 +4,14 @@
 //   강하 → 홈. 그 뒤 /start는 홈으로, 사이보그 화면은 실제 이름·스탯, 서버가 속성값을 돌려주고, 2차맵은 열리고(내 사이보그 하나)
 //   까맣지 않다(탐사 칸 > 0).
 // - legacy(속성 분배 전 프로토콜 4로 만든 사이보그): 다음 접속 때 /start의 속성 단계만 보이고, 한 번 나누면 홈으로.
-// - fresh_shots: 390px × 파스텔·다크 × 한국어·영어로 단계마다 사진(만들지 않는다. 굴림은 처음 한 번만 쓴다).
+// - fresh_shots: 390px × 파스텔·다크·정거장, 1440px × 파스텔·다크 × 한국어·영어로 단계마다 사진(속성 단계는 빈 것·나눈 것), 외형
+//   단계에서 프리셋 그림 넷(만들지 않는다. 굴림은 처음 한 번만 쓴다).
 // player·dev·admin은 전역 준비가 사이보그를 만들어 두었다("E2EPlayer" 등 — 이미 있는 이름 시험에 쓴다).
 import type { Page } from "@playwright/test";
-import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
-import { expect, test } from "./helpers/test.ts";
+import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
+import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
+import { VIEWPORTS } from "./helpers/viewports.ts";
 
 const STEPS = ["name", "looks", "stats", "elements", "faction", "city", "descent"] as const;
 
@@ -25,7 +27,7 @@ async function next(page: Page): Promise<void> {
 const elementButton = (page: Page, element: string, which: "less" | "more" | "all") =>
   page.locator(`.start-element[data-element='${element}'] .start-element-${which}`);
 
-/** cyborg.get의 본체 속성값(서버가 저장한 값) */
+/** cyborg.get의 본체 속성값 12칸(서버가 저장한 값) */
 async function bodyElements(page: Page): Promise<unknown> {
   return page.evaluate(async () => {
     const response: unknown = await fetch("/api/trpc/cyborg.get").then((reply) => reply.json());
@@ -91,10 +93,17 @@ test.describe("첫 접속: 새 플레이어", () => {
     const result = page.locator(".start-roll-result");
     await expect(result).toHaveAttribute("data-rolls-left", "3", { timeout: 15_000 });
     const sum = async (): Promise<number> => {
-      const values = await page.locator(".start-stat-value").allTextContents();
+      const values = await page.locator(".start-roll-result .stat-value").allTextContents();
       return values.reduce((total, value) => total + Number(value), 0);
     };
     expect(await sum()).toBe(60);
+    // 여섯 스탯은 두 칸씩 묶음, 차례 STR·VIT·INT·WIS·DEX·AGI(D-448: 힘·체력이 붙어 있다)
+    await expect(result.locator(".stat-pair")).toHaveCount(3);
+    expect(
+      await result
+        .locator(".stat-cell")
+        .evaluateAll((list) => list.map((cell) => cell.getAttribute("data-stat"))),
+    ).toEqual(["str", "vit", "int", "wis", "dex", "agi"]);
     await page.locator(".start-choice[data-temperament='tech'] input").check();
     await roll.click();
     await expect(result).toHaveAttribute("data-rolls-left", "2", { timeout: 15_000 });
@@ -144,9 +153,9 @@ test.describe("첫 접속: 새 플레이어", () => {
     await page.goto("/cyborg");
     await expect(page.locator(".cyborg-name")).toHaveText("새싹로봇");
     await expect(page.locator(".cyborg-avatar")).toHaveAttribute("data-look", chosen ?? "");
-    await expect(page.locator(".roster-primary-name").first()).toBeVisible();
-    // 서버가 나눈 속성값을 저장했다(사이보그 화면 표시는 화면 줄기 몫)
-    expect(await bodyElements(page)).toMatchObject({ fire: 7, wind: 3, water: 0, earth: 0, light: 0 });
+    await expect(page.locator(".cyborg .stat-cell")).toHaveCount(6);
+    // 서버가 나눈 속성값을 저장했다(12칸, 차례 = ELEMENT_CODES: 물·빙결·불·폭렬·바람…)
+    expect(await bodyElements(page)).toEqual([0, 0, 7, 0, 3, 0, 0, 0, 0, 0, 0, 0]);
 
     // 2차맵: 열리고(볼 수 있음), 내 사이보그 하나, 탐사한 칸이 있어 까맣지 않다
     await page.goto("/map");
@@ -194,67 +203,86 @@ test.describe("첫 접속: 속성 분배 전에 만든 사이보그", () => {
     await expect(page.locator(".tabbar")).toBeVisible();
     await page.goto("/start");
     await expect(page).toHaveURL(/\/$/);
-    expect(await bodyElements(page)).toMatchObject({ earth: 10, fire: 0 });
+    expect(await bodyElements(page)).toEqual([0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0]);
     expect(deviceErrors).toEqual([]);
   });
 });
 
+// 사진 크기·테마: 390 × 파스텔·다크·정거장, 1440 × 파스텔·다크, 한국어·영어(정거장 = 네온 SF 테마, 사용자 결정 2026-11-01)
+const SHOT_CASES: readonly { viewport: "phone" | "desktop"; theme: Theme; language: Language }[] = [
+  ...(["pastel", "dark", "station"] as const).flatMap((theme) =>
+    (["ko", "en"] as const).map((language) => ({ viewport: "phone" as const, theme, language })),
+  ),
+  ...(["pastel", "dark"] as const).flatMap((theme) =>
+    (["ko", "en"] as const).map((language) => ({ viewport: "desktop" as const, theme, language })),
+  ),
+];
+
 test.describe("첫 접속 사진", () => {
   test.use({ account: "fresh_shots" });
 
-  for (const theme of ["pastel", "dark"] as const) {
-    for (const language of ["ko", "en"] as const) {
-      test.describe(`${theme} ${language}`, () => {
-        test.use({ theme, language });
+  for (const { viewport, theme, language } of SHOT_CASES) {
+    const width = String(VIEWPORTS[viewport].viewport.width);
+    test.describe(`${width} ${theme} ${language}`, () => {
+      test.use({ ...VIEWPORTS[viewport], theme, language });
 
-        test(`단계마다 사진 (${theme}·${language})`, async ({ page, deviceErrors }) => {
-          test.setTimeout(90_000);
-          await page.goto("/start");
-          await expectStep(page, "name");
-          await page.locator(".start-name-input").fill(language === "ko" ? "꼬마정찰병" : "Pebble");
-          expect(await horizontalOverflow(page)).toEqual([]);
-          expect(await smallTapTargets(page)).toEqual([]);
-          await shot(page, `first-login-1-name-390-${theme}-${language}`, { fullPage: true });
-          await next(page);
-          await expectStep(page, "looks");
-          expect(await horizontalOverflow(page)).toEqual([]);
-          expect(await smallTapTargets(page)).toEqual([]);
-          await shot(page, `first-login-2-looks-390-${theme}-${language}`, { fullPage: true });
-          await next(page);
-          await expectStep(page, "stats");
-          // 처음 한 번만 굴린다(다음 사진은 서버에 남은 굴림을 보인다)
-          if ((await page.locator(".start-roll-result").count()) === 0) {
-            await page.locator(".start-roll-button").click();
-            await expect(page.locator(".start-roll-result")).toBeVisible({ timeout: 15_000 });
+      test(`단계마다 사진 (${width}·${theme}·${language})`, async ({ page, deviceErrors }) => {
+        test.setTimeout(90_000);
+        await page.goto("/start");
+        await expectStep(page, "name");
+        await page.locator(".start-name-input").fill(language === "ko" ? "꼬마정찰병" : "Pebble");
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await shot(page, `first-login-1-name-${width}-${theme}-${language}`, { fullPage: true });
+        await next(page);
+        await expectStep(page, "looks");
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await shot(page, `first-login-2-looks-${width}-${theme}-${language}`, { fullPage: true });
+        // 그림(프리셋 넷): 한국어에서만 찍는다(그림에는 글자가 없다)
+        if (language === "ko") {
+          for (const index of [0, 1, 2, 3]) {
+            await page.locator(".start-preset").nth(index).click();
+            await elementShot(
+              page.locator(".start-looks-preview"),
+              `avatar-preset-${String(index)}-${width}-${theme}`,
+            );
           }
-          expect(await horizontalOverflow(page)).toEqual([]);
-          expect(await smallTapTargets(page)).toEqual([]);
-          await shot(page, `first-login-3-stats-390-${theme}-${language}`, { fullPage: true });
-          await next(page);
-          await expectStep(page, "elements");
-          expect(await horizontalOverflow(page)).toEqual([]);
-          expect(await smallTapTargets(page)).toEqual([]);
-          await shot(page, `first-login-4-elements-empty-390-${theme}-${language}`, { fullPage: true });
-          // 불 6·바람 4(두 칸, 합 10)
-          await elementButton(page, "fire", "all").click();
-          for (let i = 0; i < 4; i++) await elementButton(page, "fire", "less").click();
-          for (let i = 0; i < 4; i++) await elementButton(page, "wind", "more").click();
-          await expect(page.locator(".start-nav .button-primary")).toBeEnabled();
-          expect(await horizontalOverflow(page)).toEqual([]);
-          await shot(page, `first-login-4-elements-390-${theme}-${language}`, { fullPage: true });
-          await next(page);
-          await expectStep(page, "faction");
-          await shot(page, `first-login-5-faction-390-${theme}-${language}`, { fullPage: true });
-          await next(page);
-          await expectStep(page, "city");
-          await shot(page, `first-login-6-city-390-${theme}-${language}`, { fullPage: true });
-          await next(page);
-          await expectStep(page, "descent");
-          expect(await horizontalOverflow(page)).toEqual([]);
-          await shot(page, `first-login-7-descent-390-${theme}-${language}`, { fullPage: true });
-          expect(deviceErrors).toEqual([]);
-        });
+        }
+        await next(page);
+        await expectStep(page, "stats");
+        // 처음 한 번만 굴린다(다음 사진은 서버에 남은 굴림을 보인다)
+        if ((await page.locator(".start-roll-result").count()) === 0) {
+          await page.locator(".start-roll-button").click();
+          await expect(page.locator(".start-roll-result")).toBeVisible({ timeout: 15_000 });
+        }
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await shot(page, `first-login-3-stats-${width}-${theme}-${language}`, { fullPage: true });
+        await next(page);
+        await expectStep(page, "elements");
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await shot(page, `first-login-4-elements-empty-${width}-${theme}-${language}`, { fullPage: true });
+        // 불 6·바람 4(두 칸, 합 10)
+        await elementButton(page, "fire", "all").click();
+        for (let i = 0; i < 4; i++) await elementButton(page, "fire", "less").click();
+        for (let i = 0; i < 4; i++) await elementButton(page, "wind", "more").click();
+        await expect(page.locator(".start-nav .button-primary")).toBeEnabled();
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await shot(page, `first-login-4-elements-${width}-${theme}-${language}`, { fullPage: true });
+        await next(page);
+        await expectStep(page, "faction");
+        await shot(page, `first-login-5-faction-${width}-${theme}-${language}`, { fullPage: true });
+        await next(page);
+        await expectStep(page, "city");
+        await shot(page, `first-login-6-city-${width}-${theme}-${language}`, { fullPage: true });
+        await next(page);
+        await expectStep(page, "descent");
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await shot(page, `first-login-7-descent-${width}-${theme}-${language}`, { fullPage: true });
+        expect(deviceErrors).toEqual([]);
       });
-    }
+    });
   }
 });

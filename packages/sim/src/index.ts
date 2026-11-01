@@ -265,8 +265,11 @@ export {
   MAX_WEIGHT_PM,
   TEST_STAT_TABLE,
   computeSecondary,
+  explainSecondary,
   primaryAtLevel,
   type Primaries,
+  type SecondaryExplanation,
+  type SecondaryTerm,
   type StatRow,
 } from "./combat/stats.ts";
 export { specFromStats, type UnitBody, type WeaponSpec } from "./combat/unitSpec.ts";

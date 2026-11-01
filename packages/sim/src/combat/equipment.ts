@@ -106,6 +106,8 @@ export interface Loadout {
   readonly primaries: Primaries;
   /** 2차 스탯(가중치 표 + 무기·방어구 수치 + 버프) */
   readonly stats: Record<string, number>;
+  /** 무기·방어구가 2차 스탯 행에 더한 수치(행 ID → 합). 화면의 스탯 풀이(explainSecondary)가 쓴다 */
+  readonly gear: Readonly<Record<string, number>>;
   readonly weapon: WeaponSpec;
   /** 쓸 스킬 ID: 고유 스킬 먼저, 그다음 장비 스킬, 스킬 칸 수까지(D-426·D-427) */
   readonly skills: readonly string[];
@@ -153,6 +155,7 @@ export function loadoutOf(options: {
   return {
     primaries: primary,
     stats: computeSecondary(primary, options.table, gear, options.buffs ?? {}),
+    gear,
     weapon,
     skills: skills.slice(0, options.skillSlots ?? skills.length),
   };

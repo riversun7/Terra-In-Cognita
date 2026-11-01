@@ -16,10 +16,10 @@ import type {
   RosterPrisoner,
   RosterUnit,
 } from "@terra/shared/roster";
-import { sumElementSources, zeroElements } from "@terra/shared/cyborg";
+import { elementsToArray, sumElementSources, zeroElements } from "@terra/shared/cyborg";
 import { type Primaries, skillGradeCap } from "@terra/sim";
 import { TEST_MAP_KEY, TEST_PLANET_ID } from "../world/world.ts";
-import { type BodySpec, bodyView } from "./body.ts";
+import { type BodySpec, bodySheet, bodyView } from "./body.ts";
 import type { RosterCatalog } from "./catalog.ts";
 
 const MINUTE = 60_000;
@@ -388,7 +388,7 @@ export function previewAuction(now: number): RosterAuctionLot[] {
 /** 사이보그 본체 시안(D-018·D-026·D-031·D-040·D-427). 사이보그 칸 = 공통 6 + 인공장기(팩 [임시] 3) */
 export function previewCyborg(catalog: RosterCatalog): CyborgBody {
   const rebirths = 1;
-  const body = bodyView(catalog, {
+  const body = bodySheet(catalog, {
     kind: "cyborg",
     // 초기값 합 60(D-6039), K는 숨김 값(D-417)이라 화면에 보내지 않는다
     initial: p6([12, 9, 10, 11, 8, 10]),
@@ -420,10 +420,14 @@ export function previewCyborg(catalog: RosterCatalog): CyborgBody {
     // [임시] 시안 종교·신앙 포인트(D-451). 종교 목록은 신앙 콘텐츠가 생기면 그 ID
     religion: "preview_sun",
     faithPoints: 140,
-    // 속성값(D-450): 생성 불 7·바람 3 + 시안 인공장기(test_heart) 불 2·빙결 3 + 종교 환생 빛 5
-    elements: sumElementSources({ ...zeroElements(), fire: 7, wind: 3, light: 5 }, [{ fire: 2, frost: 3 }]),
     living: { unpaid: false, efficiencyPm: 1000 },
     ...body,
+    // 시안은 Lv 23(만렙 아님)이라 K·처음 값을 보내지 않는다(D-449). 속성값 저장(D-450)이 생기기 전이라 0
+    growth: null,
+    // 속성값(D-450): 생성 불 7·바람 3 + 시안 인공장기(test_heart) 불 2·빙결 3 + 종교 환생 빛 5
+    elements: elementsToArray(
+      sumElementSources({ ...zeroElements(), fire: 7, wind: 3, light: 5 }, [{ fire: 2, frost: 3 }]),
+    ),
     fatigue: { value: 30, max: FATIGUE_MAX },
     inventory: [
       { id: "grain", amount: "40" },

@@ -7,12 +7,13 @@ import type {
   CyborgCreationResponse,
   CyborgRollView,
 } from "@terra/shared/cyborg";
-import { PRIMARY_STATS } from "@terra/shared/roster";
+import { PRIMARY_STAT_PAIRS } from "@terra/shared/roster";
 import { type ReactNode, useId } from "react";
 import { CyborgAvatar } from "../cyborg/CyborgAvatar.tsx";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
-import { formatNumber, primaryLabel } from "../roster/rosterText.ts";
+import { formatNumber, primaryCode, primaryLabel } from "../roster/rosterText.ts";
+import "../roster/statPairs.css";
 import { crowdingText, temperamentText } from "./startText.ts";
 
 const localName = (name: { ko: string; en: string }): string => (getLocale() === "en" ? name.en : name.ko);
@@ -133,9 +134,22 @@ export function DescentStep({
         <div>
           <dt>{m.start_step_stats()}</dt>
           <dd>
-            {PRIMARY_STATS.map((stat) => `${primaryLabel(stat)} ${formatNumber(roll.stats[stat])}`).join(
-              " · ",
-            )}
+            {/* 두 칸씩 묶은 스탯(질문 181 가): 약자 칩 + 값(스탯 색). 읽는 이름은 "힘 12" */}
+            <ul className="start-summary-stats">
+              {PRIMARY_STAT_PAIRS.map((pair) => (
+                <li key={pair.join("-")} className="start-summary-pair" data-pair={pair.join("-")}>
+                  {pair.map((stat) => (
+                    <span key={stat} className="start-summary-stat" data-stat={stat}>
+                      <span className="stat-chip" translate="no" aria-hidden="true">
+                        {primaryCode(stat)}
+                      </span>
+                      <span className="visually-hidden">{primaryLabel(stat)} </span>
+                      <span className="start-summary-value">{formatNumber(roll.stats[stat])}</span>
+                    </span>
+                  ))}
+                </li>
+              ))}
+            </ul>
           </dd>
         </div>
         {elements}

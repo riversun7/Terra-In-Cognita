@@ -29,6 +29,12 @@ const GOOD = {
   "--color-focus": "#1f4fd0",
   "--color-field-bg": "#ffffff",
   "--color-field-border": "#555555",
+  "--color-stat-str": "#9a1030",
+  "--color-stat-vit": "#8a3000",
+  "--color-stat-int": "#0b4fb3",
+  "--color-stat-wis": "#5a1fb0",
+  "--color-stat-dex": "#6a4200",
+  "--color-stat-agi": "#0e5a28",
 };
 
 const block = (selector, tokens) =>

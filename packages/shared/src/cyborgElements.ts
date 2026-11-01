@@ -5,22 +5,14 @@
 // - 합치기: 출처(생성·환생 값, 장비·인공장기, 신앙)를 더하고 칸마다 10에서 자른다(D-450 해석).
 // - 빛·어둠은 종교 환생 때(D-450·D-452), 강화형(빙결·폭렬·번개·크리스탈)은 장비·인공장기·신앙에서만 온다(D-450 해석).
 
-/** 속성 12칸 차례(D-167 코드). 전투 공식(packages/sim combat/formula.ts)의 칸 번호와 같다: 계열 = ⌊칸 ÷ 2⌋, 짝수 = 기본, 홀수 = 강화형 */
-export const ELEMENT_IDS = [
-  "water",
-  "frost",
-  "fire",
-  "blaze",
-  "wind",
-  "lightning",
-  "earth",
-  "crystal",
-  "light",
-  "holy",
-  "dark",
-  "necro",
-] as const;
-export type ElementId = (typeof ELEMENT_IDS)[number];
+import { ELEMENT_CODES, type ElementCode } from "./roster.ts";
+
+/**
+ * 속성 12칸 차례(D-167 코드) = 화면 자료의 ELEMENT_CODES(roster.ts, 같은 목록 하나). 전투 공식(packages/sim combat/formula.ts)의 칸 번호와
+ * 같다: 계열 = ⌊칸 ÷ 2⌋, 짝수 = 기본, 홀수 = 강화형
+ */
+export const ELEMENT_IDS = ELEMENT_CODES;
+export type ElementId = ElementCode;
 
 /** 생성 때 나누는 기본 4원소(D-450) */
 export const BASIC_ELEMENTS = ["water", "fire", "wind", "earth"] as const satisfies readonly ElementId[];

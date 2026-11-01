@@ -7,12 +7,49 @@
 // - 2차 스탯은 서버가 계산해 보낸다(게임 앱은 판정 코드 packages/sim을 가져오지 않는다, AGENTS 4장).
 // - 금액·양은 최소 단위 정수 문자열이다(PLAN 4.7).
 
-import type { ElementValues } from "./cyborgElements.ts";
 import type { CyborgAppearance } from "./cyborgLooks.ts";
 
-/** 1차 스탯 6개(D-414) — 화면 차례 */
-export const PRIMARY_STATS = ["str", "dex", "agi", "vit", "int", "wis"] as const;
+/**
+ * 1차 스탯 6개(D-414) — 화면 차례. 두 개씩 묶는다: STR·VIT, INT·WIS, DEX·AGI(옛 프로젝트 CHR-1 차례·색, 질문 181 기술 추천 가.
+ * 기획은 묶음·색을 정하지 않았다). 판정 코드의 차례(STR·DEX·AGI·VIT·INT·WIS, packages/sim)와 다르다 — 화면만 이 차례를 쓴다.
+ * 스탯 색은 styles/tokens.css의 --color-stat-<ID>
+ */
+export const PRIMARY_STATS = ["str", "vit", "int", "wis", "dex", "agi"] as const;
 export type PrimaryStat = (typeof PRIMARY_STATS)[number];
+
+/** 화면의 스탯 묶음(두 칸씩, PRIMARY_STATS와 같은 차례) */
+export const PRIMARY_STAT_PAIRS = [
+  ["str", "vit"],
+  ["int", "wis"],
+  ["dex", "agi"],
+] as const satisfies readonly (readonly [PrimaryStat, PrimaryStat])[];
+
+/** 판정 코드(packages/sim Primaries·가중치 열)의 1차 스탯 차례. 서버가 가중치 칸 번호를 스탯 ID로 바꿀 때 쓴다 */
+export const RULE_STAT_ORDER = [
+  "str",
+  "dex",
+  "agi",
+  "vit",
+  "int",
+  "wis",
+] as const satisfies readonly PrimaryStat[];
+
+/** 속성 12칸(D-182·D-5011, 50 §2.1). 차례 = 판정 코드의 속성 칸(packages/sim combat/formula.ts), 계열 = ⌊칸 ÷ 2⌋(기본·강화) */
+export const ELEMENT_CODES = [
+  "water",
+  "frost",
+  "fire",
+  "blaze",
+  "wind",
+  "lightning",
+  "earth",
+  "crystal",
+  "light",
+  "holy",
+  "dark",
+  "necro",
+] as const;
+export type ElementCode = (typeof ELEMENT_CODES)[number];
 
 /** 두 언어 이름(콘텐츠 팩 이름 칸과 같은 모양) */
 export interface LocalizedName {
@@ -64,6 +101,36 @@ export interface RosterCargo {
 export interface RosterStat {
   readonly id: string;
   readonly shape: "quantity" | "probability";
+  readonly value: number;
+}
+
+/** 2차 스탯 풀이의 한 항: 1차 스탯(보너스 포함) × 가중치‰. milli = value × weightPm(÷ 1000이 그 항의 몫) */
+export interface RosterStatTerm {
+  readonly stat: PrimaryStat;
+  readonly value: number;
+  readonly weightPm: number;
+  readonly milli: number;
+}
+
+/**
+ * 2차 스탯 한 줄의 풀이 — 서버가 팩 stat_rows 식(48 §3.1)으로 계산해 보낸다. 기기는 다시 계산하지 않고 보이기만 한다.
+ * 양: value = base + weighted + extra / 확률: score = weighted + extra, value = ⌊cap × score ÷ (score + halfConstant)⌋(score ≤ 0이면 0).
+ * weighted = ⌊Σ milli ÷ 1000⌋. extra = 장비(무기·방어구 수치)와 양 모양의 버프
+ */
+export interface RosterStatBreakdown {
+  readonly id: string;
+  readonly shape: "quantity" | "probability";
+  /** 양 모양의 기본(확률 모양은 0) */
+  readonly base: number;
+  /** 가중치가 0이 아닌 항(화면 차례 PRIMARY_STATS) */
+  readonly terms: readonly RosterStatTerm[];
+  readonly weighted: number;
+  readonly extra: number;
+  /** 확률 모양의 점수(양 모양은 base + weighted + extra와 같은 value) */
+  readonly score: number;
+  /** 확률 모양: 점근선(‰)과 반감 상수. 양 모양은 null */
+  readonly cap: number | null;
+  readonly halfConstant: number | null;
   readonly value: number;
 }
 
@@ -243,18 +310,32 @@ export interface CyborgBody {
   /** 신앙 포인트(D-451: 그 종교의 특수 시스템·버프·아이템에 쓰는 잔고, 개종하면 0) */
   readonly faithPoints: number;
   /**
-   * 속성값 12칸(0~10, D-182·D-450) = 생성·환생 값(4원소 분배·종교 환생 빛·어둠) + 장비·인공장기·신앙 몫, 칸마다 10에서 자른다.
-   * 분배가 없는 옛 사이보그는 모두 0
-   */
-  readonly elements: ElementValues;
-  /**
    * 생활비(D-453: 유닛 유지비 D-150을 본체도 낸다). unpaid = 마지막 유지비를 못 냄 → 효율 efficiencyPm(N38 ‰)으로 돈다(멈추지 않음).
    * 보유 유닛 수(주거 상한 D-153)에는 세지 않는다
    */
   readonly living: { readonly unpaid: boolean; readonly efficiencyPm: number };
   readonly stats: RosterStats;
+  /** 2차 스탯 풀이(stats.secondary와 같은 행·같은 값, 상세 전투 스펙의 펼친 줄) */
+  readonly breakdown: readonly RosterStatBreakdown[];
+  /**
+   * 처음 값과 성장 K(‰, 800~1200) — K가 보이는 곳에서만 보낸다(D-449: 환생 시설·생명공학 시설·만렙). cyborg.get은 만렙(N7)일 때만,
+   * 그 밖에는 null(K·처음 값 숨김, D-417)
+   */
+  readonly growth: {
+    readonly initial: Readonly<Record<PrimaryStat, number>>;
+    readonly kPm: Readonly<Record<PrimaryStat, number>>;
+  } | null;
+  /**
+   * 속성값 12칸(0~10, D-182, 차례 = ELEMENT_CODES). 출처는 생성·환생 분배(4원소, 종교 환생 빛·어둠), 인공장기·장비, 신앙(D-450)이고
+   * 칸마다 10에서 자른다(@terra/shared cyborgElements sumElementSources). 지금 출처는 저장된 생성·환생 값 하나다(장비·신앙 출처는
+   * 데이터 고리). 분배가 없는 옛 사이보그는 모두 0(다음 접속 때 한 번 나눈다)
+   */
+  readonly elements: readonly number[];
   readonly slots: readonly RosterSlot[];
   readonly skills: RosterSkills;
+  /** 스킬 칸 최대(팩 unit_kinds skillSlots.max)와 아직 닫힌 칸이 열리는 환생 횟수(칸마다, 오름차순) */
+  readonly skillSlotsMax: number;
+  readonly skillSlotUnlocks: readonly number[];
   readonly fatigue: { readonly value: number; readonly max: number };
   readonly inventory: readonly CyborgItem[];
   readonly rankings: readonly CyborgRanking[];

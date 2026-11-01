@@ -115,6 +115,14 @@ export const CONTRAST_PAIRS = [
     bg,
     kind: "text",
   })),
+  // 스탯 색(ADR 2026-11-01-ui-visibility): 스탯 약자·값 글자가 판·둘째 판(스탯 묶음 칸)·바탕 위에 놓인다
+  ...["str", "vit", "int", "wis", "dex", "agi"].flatMap((stat) =>
+    ["--color-bg", "--color-surface", "--color-surface-2"].map((bg) => ({
+      fg: `--color-stat-${stat}`,
+      bg,
+      kind: "text",
+    })),
+  ),
   { fg: "--color-focus", bg: "--color-bg", kind: "ui" },
   { fg: "--color-focus", bg: "--color-surface", kind: "ui" },
   // 고른 라디오 점(초점 색)은 입력칸 바탕 위에 그린다

@@ -1,0 +1,182 @@
+/*
+ * 1차 스탯 묶음(두 칸씩) — 스탯마다 고유 색(tokens.css --color-stat-*, 질문 181 가), ADR 2026-11-01-ui-visibility.
+ * 값은 styles/tokens.css의 var(--…)만 쓴다. 스탯 색 글자는 판·둘째 판·바탕 위에서만 쓴다(대비 검사가 그 쌍을 잰다).
+ */
+
+/* 스탯 색: data-stat이 붙은 곳 어디서나(스탯 묶음, 전투 스펙 풀이의 항, 칩) --stat 하나로 쓴다 */
+[data-stat="str"] {
+  --stat: var(--color-stat-str);
+}
+[data-stat="vit"] {
+  --stat: var(--color-stat-vit);
+}
+[data-stat="int"] {
+  --stat: var(--color-stat-int);
+}
+[data-stat="wis"] {
+  --stat: var(--color-stat-wis);
+}
+[data-stat="dex"] {
+  --stat: var(--color-stat-dex);
+}
+[data-stat="agi"] {
+  --stat: var(--color-stat-agi);
+}
+[data-pair="str-vit"] {
+  --pair-a: var(--color-stat-str);
+  --pair-b: var(--color-stat-vit);
+}
+[data-pair="int-wis"] {
+  --pair-a: var(--color-stat-int);
+  --pair-b: var(--color-stat-wis);
+}
+[data-pair="dex-agi"] {
+  --pair-a: var(--color-stat-dex);
+  --pair-b: var(--color-stat-agi);
+}
+
+/* 묶음 셋을 나란히 둘지는 놓인 칸의 너비로 정한다(사이보그 화면의 넓은 폭 두 열 안에서는 위아래) */
+.stat-pairs-box {
+  container-type: inline-size;
+  min-width: 0;
+}
+.stat-pairs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+}
+.stat-pair {
+  position: relative;
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  padding-top: calc(var(--space-3) + var(--space-1));
+  overflow: hidden;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  list-style: none;
+}
+/* 묶음 위 띠: 두 스탯 색을 반씩 — 두 칸이 한 계열이라는 표시 */
+.stat-pair::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: var(--space-1);
+  background-image: linear-gradient(90deg, var(--pair-a) 0 50%, var(--pair-b) 50% 100%);
+  content: "";
+}
+
+/* 칸: 첫 줄 = 약자 · 이름 · (K) · (보너스) · 값, 둘째 줄 = 막대. 없는 조각은 자리를 차지하지 않게 줄 바꿈 flex */
+.stat-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+  min-width: 0;
+}
+/* 스탯 약자 칩: 묶음 칸의 약자, 성향 카드의 치우친 스탯 */
+.stat-code,
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  min-height: calc(var(--tap-size) / 2);
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--stat);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  color: var(--stat);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-display);
+}
+.stat-chip {
+  margin-inline-end: var(--space-1);
+  vertical-align: baseline;
+}
+.stat-name {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 성장 K(D-449: 만렙 등 K가 보이는 곳만) */
+.stat-k {
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.stat-bonus {
+  color: var(--color-success);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+.stat-value {
+  min-width: 2ch;
+  color: var(--stat);
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-xl);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-tight);
+  text-align: end;
+}
+.stat-bar {
+  display: flex;
+  flex: 1 0 100%;
+  height: var(--stat-bar);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  box-shadow: inset 0 0 0 var(--hairline) var(--color-border);
+}
+.stat-bar-body {
+  display: block;
+  flex: none;
+  height: 100%;
+  border-radius: var(--radius-pill) 0 0 var(--radius-pill);
+  background-color: var(--stat);
+  transition: inline-size var(--duration-slow) var(--easing-out);
+}
+/* K가 보이는 곳: 처음 값(진하게) + 레벨 성장(같은 색을 옅게) */
+.stat-bar-body[data-part="growth"] {
+  border-radius: 0;
+  background-color: color-mix(in srgb, var(--stat) 55%, var(--color-surface));
+}
+/* 보너스(장비·인공장기): 같은 색 빗금 — 몸 값과 구분 */
+.stat-bar-bonus {
+  display: block;
+  flex: none;
+  height: 100%;
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--stat) 0 var(--space-1),
+    color-mix(in srgb, var(--stat) 40%, var(--color-surface)) var(--space-1) var(--space-2)
+  );
+  transition: inline-size var(--duration-slow) var(--easing-out);
+}
+
+/* 굵게(사이보그 화면 핵심 사양) */
+.stat-pairs[data-size="lg"] .stat-value {
+  font-size: var(--font-size-2xl);
+}
+.stat-pairs[data-size="lg"] .stat-bar {
+  height: var(--stat-bar-lg);
+}
+
+/* 칸이 넉넉하면 묶음 셋을 나란히 */
+@container (min-width: 44rem) {
+  .stat-pairs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

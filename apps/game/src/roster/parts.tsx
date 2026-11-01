@@ -13,7 +13,9 @@ import { m } from "../paraglide/messages.js";
 import { LiveMessage } from "../ui/LiveMessage.tsx";
 import type { PlainMessageKey } from "../ui/messageRef.ts";
 import { text } from "../ui/text.ts";
+import { StatPairs, pairValuesOf, statScale } from "./StatPairs.tsx";
 import { formatNumber, formatStat, localName, primaryLabel, slotLabel } from "./rosterText.ts";
+import { groupStats, statGroupLabel } from "./statGroups.ts";
 import "./roster.css";
 
 /** "시험 자료" 표 — 시안 자료 항목마다 붙인다(ADR 37 6절) */
@@ -98,35 +100,28 @@ export function Section({
   );
 }
 
-/** 1차 스탯 6칸 + 2차 스탯 목록(서버 계산 값) */
+/** 1차 스탯(두 칸씩 묶음, 스탯 색) + 2차 스탯(48 §3.2 묶음별 목록). 값은 서버 계산 값 */
 export function StatBlock({ stats, names }: { stats: RosterStats; names: RosterNames }) {
+  const values = pairValuesOf(stats.primaries);
   return (
     <div className="roster-stats">
       {stats.source === "baseline" ? <p className="roster-note">{m.roster_stats_baseline()}</p> : null}
-      <ul className="roster-primaries" aria-label={m.roster_primary_title()}>
-        {PRIMARY_STATS.map((stat) => {
-          const { base, bonus } = stats.primaries[stat];
-          return (
-            <li key={stat} className="roster-primary">
-              <span className="roster-primary-name">{primaryLabel(stat)}</span>
-              <span className="roster-primary-value">{formatNumber(base + bonus)}</span>
-              {bonus !== 0 ? (
-                <span className="roster-primary-bonus">
-                  {m.roster_primary_bonus({ value: `${bonus > 0 ? "+" : ""}${formatNumber(bonus)}` })}
-                </span>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-      <dl className="roster-secondary" aria-label={m.roster_secondary_title()}>
-        {stats.secondary.map((stat) => (
-          <div key={stat.id} className="roster-secondary-row">
-            <dt>{localName(names.stats[stat.id], stat.id)}</dt>
-            <dd>{formatStat(stat)}</dd>
-          </div>
+      <StatPairs values={values} max={statScale(values, 20)} label={m.roster_primary_title()} />
+      <div className="roster-secondary-groups" role="group" aria-label={m.roster_secondary_title()}>
+        {groupStats(stats.secondary).map(({ group, rows }) => (
+          <section key={group} className="roster-secondary-group" aria-label={statGroupLabel(group)}>
+            <h3 className="roster-secondary-group-title">{statGroupLabel(group)}</h3>
+            <dl className="roster-secondary">
+              {rows.map((stat) => (
+                <div key={stat.id} className="roster-secondary-row">
+                  <dt>{localName(names.stats[stat.id], stat.id)}</dt>
+                  <dd>{formatStat(stat)}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
         ))}
-      </dl>
+      </div>
     </div>
   );
 }
@@ -135,7 +130,7 @@ const isPrimaryStat = (stat: string): stat is PrimaryStat =>
   (PRIMARY_STATS as readonly string[]).includes(stat);
 
 /** 칸 값 글("치명타 확률 +14") — 1차 스탯이면 스탯 이름, 아니면 팩 이름 */
-function slotValueText(stat: string, value: number, names: RosterNames): string {
+export function slotValueText(stat: string, value: number, names: RosterNames): string {
   const label = isPrimaryStat(stat) ? primaryLabel(stat) : localName(names.stats[stat], stat);
   return `${label} ${value >= 0 ? "+" : ""}${formatNumber(value)}`;
 }

@@ -63,7 +63,7 @@ test.describe("플레이어(실제 자료)", () => {
     await expect(page.locator(".cyborg-name")).toHaveText("E2EPlayer");
     await expect(page.locator(".cyborg-avatar")).toBeVisible();
     await expect(page.getByText(message("ko", "cyborg_body_later"))).toHaveCount(0);
-    await expect(page.locator(".roster-primary-name")).toHaveCount(6);
+    await expect(page.locator(".cyborg .stat-cell")).toHaveCount(6);
     // 환생 조건·비용(D-440·D-441): 본체가 있으니 지금 신앙도(0)와 함께
     await expect(page.locator(".cyborg-rebirth")).toContainText(
       message("ko", "cyborg_rebirth_faith_value", { need: 50, value: 0 }),
@@ -142,7 +142,7 @@ test.describe("dev + 시안 자료", () => {
     await page.goto("/cyborg");
     await cyborgReady(page);
     await expect(page.locator(".cyborg-profile .roster-meta").first()).toContainText("Lv 23 / 50");
-    await expect(page.locator(".roster-slot").filter({ hasText: "시험용 인공 심장" })).toBeVisible();
+    await expect(page.locator(".cyborg-slot").filter({ hasText: "시험용 인공 심장" })).toBeVisible();
     await expect(page.getByText("곡물")).toBeVisible();
     await expect(page.locator(".cyborg-rank")).toHaveCount(4);
     // 환생(D-440·D-441): 레벨 1·가속 없음, 비용 = 최고 레벨 + 신앙도 + 화폐(양은 설정값), 종교 아이템은 추가 조건,

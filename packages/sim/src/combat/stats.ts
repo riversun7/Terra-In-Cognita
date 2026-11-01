@@ -75,6 +75,80 @@ export function computeSecondary(
   return out;
 }
 
+/** 풀이의 한 항: 가중치 칸 번호(0~5 = STR·DEX·AGI·VIT·INT·WIS), 1차 스탯 값, 가중치‰, 곱(÷ 1000 전) */
+export interface SecondaryTerm {
+  readonly index: number;
+  readonly value: number;
+  readonly weightPm: number;
+  readonly milli: number;
+}
+
+/** 2차 스탯 한 줄의 풀이. value는 computeSecondary의 같은 행 값과 늘 같다(stats.test.ts가 본다) */
+export interface SecondaryExplanation {
+  readonly id: string;
+  readonly shape: StatRow["shape"];
+  /** 양 모양의 기본(확률 모양은 0) */
+  readonly base: number;
+  /** 가중치가 0이 아닌 항만, 칸 번호 차례 */
+  readonly terms: readonly SecondaryTerm[];
+  /** ⌊Σ 곱 ÷ 1000⌋ */
+  readonly weighted: number;
+  /** 장비 + (양 모양이면) 버프 */
+  readonly extra: number;
+  /** weighted + extra */
+  readonly score: number;
+  readonly cap: number | null;
+  readonly halfConstant: number | null;
+  readonly value: number;
+}
+
+/**
+ * 2차 스탯의 풀이(화면의 "공식·입력·결과" 펼침, 나중의 개발자 페이지 스탯 시뮬레이터). 판정은 computeSecondary를 쓴다.
+ * 같은 식이라 결과가 같아야 한다: 식을 바꾸면 두 함수를 함께 고친다(시험이 무작위 입력으로 같은지 본다).
+ */
+export function explainSecondary(
+  primaries: Primaries,
+  table: readonly StatRow[],
+  gear: Readonly<Record<string, number>> = {},
+  buffs: Readonly<Record<string, number>> = {},
+): SecondaryExplanation[] {
+  const p = [primaries.str, primaries.dex, primaries.agi, primaries.vit, primaries.int, primaries.wis];
+  for (const value of p) check(value, "primary");
+  return table.map((row) => {
+    const terms: SecondaryTerm[] = [];
+    let weighted = 0;
+    for (let i = 0; i < 6; i++) {
+      const weight = row.weights[i] ?? 0;
+      if (weight < -MAX_WEIGHT_PM || weight > MAX_WEIGHT_PM)
+        throw new RangeError(`weight out of range in ${row.id}`);
+      const value = p[i] ?? 0;
+      weighted += value * weight;
+      if (weight !== 0) terms.push({ index: i, value, weightPm: weight, milli: value * weight });
+    }
+    const extra = (gear[row.id] ?? 0) + (row.shape === "quantity" ? (buffs[row.id] ?? 0) : 0);
+    check(extra, `gear+buff ${row.id}`);
+    const score = Math.floor(weighted / 1000) + extra;
+    const base = row.shape === "quantity" ? row.base : 0;
+    return {
+      id: row.id,
+      shape: row.shape,
+      base,
+      terms,
+      weighted: Math.floor(weighted / 1000),
+      extra,
+      score,
+      cap: row.shape === "probability" ? row.cap : null,
+      halfConstant: row.shape === "probability" ? row.halfConstant : null,
+      value:
+        row.shape === "quantity"
+          ? row.base + score
+          : score <= 0
+            ? 0
+            : Math.floor((row.cap * score) / (score + row.halfConstant)),
+    };
+  });
+}
+
 const q = (id: string, base: number, weights: readonly number[]): StatRow => ({
   id,
   shape: "quantity",

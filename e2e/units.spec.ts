@@ -145,7 +145,7 @@ test.describe("dev + 시안 자료", () => {
     await expect(page.locator(".cyborg-slot").filter({ hasText: "시험용 인공 심장" })).toBeVisible();
     await expect(page.getByText("곡물")).toBeVisible();
     await expect(page.locator(".cyborg-rank")).toHaveCount(4);
-    // 환생(D-440·D-441): 레벨 1·가속 없음, 비용 = 최고 레벨 + 신앙도 + 화폐(양은 설정값), 종교 아이템은 추가 조건,
+    // 환생(D-440·D-441·D-451·D-452): 레벨 1·가속 없음, 조건 = 최고 레벨 + 신앙도 문턱 + 화폐(양은 설정값), 종교 아이템 = 갈래·특수 스킬(선택),
     // 단추는 가장 가까운 환생 시설로 가는 길(곧 열림). 신앙도는 시안 값
     const rebirth = page.locator(".cyborg-rebirth");
     // 분포는 생성 때처럼 성향을 골라 다시 굴린다(D-444 164): 다시 굴리기 횟수 = N9 3번

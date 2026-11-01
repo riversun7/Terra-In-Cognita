@@ -119,6 +119,8 @@ export interface SocietyCoefficients {
   readonly cyborg: {
     /** 만렙(N7 기본 50, 구조 값). 특수 만렙 60은 누가 받는지 정해지지 않아 두지 않는다 */
     readonly maxLevel: number;
+    /** 레벨당 성장률(N5 출발값 100‰, D-417): 1차 = 초기 × (1000 + 성장률 × K × (Lv − 1) ÷ 1000) ÷ 1000 */
+    readonly growthPm: number;
     /** K 범위(N6 800~1200‰, 생성·환생 리롤 때 균등) */
     readonly kMinPm: number;
     readonly kMaxPm: number;
@@ -262,6 +264,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   npc: TEST_NPC_COEFFICIENTS,
   cyborg: {
     maxLevel: 50,
+    growthPm: 100,
     kMinPm: 800,
     kMaxPm: 1200,
     initialSum: 60,

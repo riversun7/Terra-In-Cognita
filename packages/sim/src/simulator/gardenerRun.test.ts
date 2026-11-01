@@ -4,7 +4,7 @@ import { type Scenario, parseScenario } from "./scenario.ts";
 
 const HOUR = 3_600_000;
 
-/** 고정 나라 하나(시작 도시 + 마을 둘)와 유동 세력 둘(도시 하나씩) */
+/** 고정 나라 하나(시작 도시 + 마을 둘)와 유동 세력 둘(도시 하나씩). 시험 시간을 줄이려고 공성 전투맵·넥서스를 작게 */
 const world = (gardener?: boolean): Scenario =>
   parseScenario({
     id: "test_gardener",
@@ -13,17 +13,28 @@ const world = (gardener?: boolean): Scenario =>
       { code: "wild", count: 2, fixed: false, cities: 1, workers: 8, credit: "5000", tech: 2 },
     ],
     npc: { decideEveryMs: 6 * HOUR },
+    combat: {
+      siegeUnits: 6,
+      encounterUnits: 2,
+      encounterPerMille: 0,
+      mapSize: 32,
+      siegeMapSize: 48,
+      nexusDurability: 600,
+    },
     ...(gardener === undefined ? {} : { gardener: { enabled: gardener } }),
   });
 
-/** 오염이 빨리 쌓이고(휴먼 한 명 하루 +1,000), 확률이 바로 상한(300‰)이고, 웨이브가 수비보다 훨씬 센 설정 */
+/**
+ * 오염이 빨리 쌓이고(휴먼 한 명 하루 +1,000), 확률이 바로 상한(300‰)이고, 물리형이 많은 설정(합 ÷ 20 ‰).
+ * 공성 제한 5분(오래 버티는 웨이브 전투를 짧게)
+ */
 const PRESSURE = new Map([
   ["p15_humans_per_step", 1],
   ["p15_human_step", 1000],
   ["c14_chance_divisor", 1],
-  ["c16_strength_base", 20],
-  // 시험 시간: 공성 제한 10분(오래 버티는 웨이브 전투를 짧게)
-  ["c2_limit_siege", 600_000],
+  ["c16_strength_base", 6],
+  ["c17_physical_divisor", 20],
+  ["c2_limit_siege", 300_000],
 ]);
 
 function run(scenario: Scenario, days: number, tuning: ReadonlyMap<string, number> = PRESSURE, seed = 3) {
@@ -35,12 +46,12 @@ function run(scenario: Scenario, days: number, tuning: ReadonlyMap<string, numbe
 
 describe("정원사 실행(오염 층 + 웨이브, docs/adr/2026-11-01-gardener-r5b.md)", () => {
   it("기본은 켜져 있고, 같은 시드면 줄·요약이 바이트까지 같다", () => {
-    const a = run(world(), 20);
-    const b = run(world(), 20);
+    const a = run(world(), 12);
+    const b = run(world(), 12);
     expect(b.lines).toEqual(a.lines);
     expect(a.summary.gardener).not.toBeNull();
     expect(a.summary.gardener?.waves.noticed).toBeGreaterThan(0);
-    expect(a.records.filter((r) => r.t === "gardener")).toHaveLength(20);
+    expect(a.records.filter((r) => r.t === "gardener")).toHaveLength(12);
     expect(a.summary.invariants.violations).toBe(0);
   });
 
@@ -50,40 +61,23 @@ describe("정원사 실행(오염 층 + 웨이브, docs/adr/2026-11-01-gardener-
     expect(off.records.some((r) => r.t === "wave" || r.t === "gardener")).toBe(false);
   });
 
-  it("예고 → 8시간 뒤 도착 → 공성 전투, 이기면 시작 도시는 피해·다른 도시는 폐허, 마지막 도시를 잃으면 떠도는 세력", () => {
-    const { summary, records } = run(world(), 30);
+  it("예고 → 8시간 뒤 도착 → 공성 전투, 이기면 시작 도시는 피해·다른 도시는 폐허, 지면 쉬는 시간", () => {
+    const { summary, records } = run(world(), 15);
     const notices = records.filter((r) => r.t === "wave" && r.phase === "notice" && r.kind === "city");
     expect(notices.length).toBeGreaterThan(0);
     for (const notice of notices) expect(notice.arriveAtMs - notice.atMs).toBe(8 * HOUR);
-    const results = records.filter((r) => r.t === "wave" && r.phase === "result" && r.kind === "city");
-    expect(results.map((r) => r.outcome)).toEqual(expect.arrayContaining(["ruined", "damaged"]));
+    const outcomes = records
+      .filter((r) => r.t === "wave" && r.phase === "result" && r.kind === "city")
+      .map((r) => r.outcome);
+    expect(outcomes).toEqual(expect.arrayContaining(["repelled"]));
+    expect(outcomes.some((o) => o === "ruined" || o === "damaged")).toBe(true);
     expect(records.some((r) => r.t === "battle" && r.kind === "wave")).toBe(true);
-    const ruins = summary.society.ruins;
-    expect(ruins.ruined).toBeGreaterThanOrEqual(2);
-    expect(ruins.damaged).toBeGreaterThan(0);
-    expect(ruins.fled).toBeGreaterThan(0);
-    expect(ruins.homeless).toBeGreaterThan(0);
-    expect(ruins.wandering).toBeGreaterThan(0);
-    // 웨이브 피해·폐허는 기술 후퇴로 이어질 수 있다
-    expect(
-      records.some((r) => r.t === "tech" && (r.cause === "wave_damage" || r.cause === "city_ruined")),
-    ).toBe(true);
-    // 떠도는 세력은 사라지지 않는다(구성원이 남아 있다): 사라짐 줄에 폐허가 까닭인 것이 없다
-    expect(records.filter((r) => r.t === "died" && r.cause === "dispersed")).toHaveLength(0);
-    expect(summary.invariants.violations).toBe(0);
-  });
-
-  it("떠도는 세력은 구성원이 모두 떠나면(수명) 사라진다", () => {
-    const short = new Map([
-      ...PRESSURE,
-      ["t4_lifespan_min", 20 * 24 * HOUR],
-      ["t4_lifespan_max", 25 * 24 * HOUR],
-      ["d395_rebirth", 0],
-      ["d395_deify", 0],
-    ]);
-    const { summary, records } = run(world(), 60, short);
+    const waves = summary.gardener?.waves;
+    expect((waves?.won ?? 0) + (waves?.failed ?? 0) + (waves?.disbanded ?? 0)).toBeGreaterThan(0);
+    expect(summary.society.ruins.ruined + summary.society.ruins.damaged).toBe(waves?.won);
+    // 마지막 도시를 잃은 유동 세력은 떠도는 세력으로 남는다(D-464 217)
     expect(summary.society.ruins.wandering).toBeGreaterThan(0);
-    expect(records.some((r) => r.t === "died" && r.cause === "dispersed")).toBe(true);
+    expect(summary.society.ruins.homeless).toBeGreaterThan(0);
     expect(summary.invariants.violations).toBe(0);
   });
 

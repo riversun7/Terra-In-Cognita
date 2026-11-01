@@ -76,6 +76,8 @@ export interface NpcState {
   /** 1차맵 칸 오염(그 행성) */
   readonly pollution: { cellKey: number; value: number }[];
   readonly waves: NpcWaveRow[];
+  /** 웨이브 행의 가장 큰 ID(끝난 줄 포함, 다음 ID가 겹치지 않게) */
+  readonly maxWaveId: number;
   /** 예비 세력 행(이름 없음·사라짐 표시, 소유 주체 있음): 새 세력이 동기로 ID를 받는 자리 */
   readonly spares: { rowId: number; ownerId: number }[];
   readonly maxCityId: number;
@@ -88,38 +90,40 @@ const regimeOf = (value: unknown): NpcFactionRow["regime"] =>
   value === "dictatorship" || value === "capitalism" ? value : "democracy";
 
 export async function loadNpcState(pool: QueryPool, planetId: string): Promise<NpcState> {
-  const [factions, cities, humans, wars, society, spares, maxCity, pollution, waves] = await Promise.all([
-    pool.query(
-      `select f.id, o.id as owner_id, f.code, f.regime, f.fixed, f.parent_id, f.tech_level, f.tech_blueprint,
+  const [factions, cities, humans, wars, society, spares, maxCity, pollution, waves, maxWave] =
+    await Promise.all([
+      pool.query(
+        `select f.id, o.id as owner_id, f.code, f.regime, f.fixed, f.parent_id, f.tech_level, f.tech_blueprint,
               f.research_progress, f.traits, f.ai_step, f.rebel_of
        from factions f join world_owners o on o.faction_id = f.id
        where f.kind = 'npc' and f.dissolved_at_ms is null and f.code is not null order by f.id`,
-    ),
-    pool.query(
-      `select id, faction_id, planet_id, map_key, cell_x, cell_y, start, housing, research_level, founded_at_ms,
+      ),
+      pool.query(
+        `select id, faction_id, planet_id, map_key, cell_x, cell_y, start, housing, research_level, founded_at_ms,
               development, next_rebellion_ms, wave_cooldown_until_ms from world_cities order by id`,
-    ),
-    pool.query(
-      `select unit_id, city_id, satisfaction_milli, born_at_ms, lifespan_ms, rebirths from world_humans order by unit_id`,
-    ),
-    pool.query(`select faction_a, faction_b, state, at_ms from faction_wars order by faction_a, faction_b`),
-    pool.query(`select seed, day, gardener from npc_society where id = 1`),
-    pool.query(
-      `select f.id, o.id as owner_id from factions f join world_owners o on o.faction_id = f.id
+      ),
+      pool.query(
+        `select unit_id, city_id, satisfaction_milli, born_at_ms, lifespan_ms, rebirths from world_humans order by unit_id`,
+      ),
+      pool.query(`select faction_a, faction_b, state, at_ms from faction_wars order by faction_a, faction_b`),
+      pool.query(`select seed, day, gardener from npc_society where id = 1`),
+      pool.query(
+        `select f.id, o.id as owner_id from factions f join world_owners o on o.faction_id = f.id
        where f.kind = 'npc' and f.code is null and f.dissolved_at_ms is not null order by f.id`,
-    ),
-    pool.query(`select coalesce(max(id), 0) as id from world_cities`),
-    pool.query(`select cell_key, value from planet_pollution where planet_id = $1 order by cell_key`, [
-      planetId,
-    ]),
-    pool.query(
-      `select w.id, w.city_id, w.faction_id, w.strength, w.physical, w.created_at_ms, w.arrive_at_ms, w.state, w.battle_id,
+      ),
+      pool.query(`select coalesce(max(id), 0) as id from world_cities`),
+      pool.query(`select cell_key, value from planet_pollution where planet_id = $1 order by cell_key`, [
+        planetId,
+      ]),
+      pool.query(
+        `select w.id, w.city_id, w.faction_id, w.strength, w.physical, w.created_at_ms, w.arrive_at_ms, w.state, w.battle_id,
               r.result -> 'result' ->> 'winner' as winner
        from gardener_waves w left join world_battle_results r on r.battle_id = w.battle_id
        where w.planet_id = $1 and w.state in ('marching', 'fighting') order by w.id`,
-      [planetId],
-    ),
-  ]);
+        [planetId],
+      ),
+      pool.query(`select coalesce(max(id), 0) as id from gardener_waves`),
+    ]);
   const societyRow = society.rows[0];
   return {
     factions: factions.rows.map((row) => ({
@@ -183,5 +187,6 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
     })),
     spares: spares.rows.map((row) => ({ rowId: num(row.id), ownerId: num(row.owner_id) })),
     maxCityId: num(maxCity.rows[0]?.id ?? 0),
+    maxWaveId: num(maxWave.rows[0]?.id ?? 0),
   };
 }

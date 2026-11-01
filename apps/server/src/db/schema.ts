@@ -24,6 +24,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import type { PlanetDraftBase } from "../planetEditor/types.ts";
+import { DEFAULT_WORLD_PLANET_ID, planetIdColumn } from "./planetColumns.ts";
 
 /** 기기 오류 기록 (PLAN 9.5 "기기 오류 수집"). 기기가 보낸 오류를 받은 그대로 남긴다. */
 export const clientErrors = pgTable("client_errors", {
@@ -368,10 +369,12 @@ export const planetLibraryVersions = pgTable(
  * — 열 더하기만 한 마이그레이션이라 직전 판 앱이 이 열을 모른 채 넣어도 기본값이 들어간다.
  * 영역: space(우주)·sky(하늘)·land(육지)·sea(해상). 지금 유닛·건물은 모두 land다.
  */
-export const DEFAULT_WORLD_PLANET_ID = "s2_test_planet";
+export { DEFAULT_WORLD_PLANET_ID };
+// 정원사 표(오염·웨이브)는 파일 크기 상한 때문에 따로 둔다(drizzle-kit은 이 파일의 내보내기만 읽는다)
+export { gardenerWaves, planetPollution } from "./gardenerSchema.ts";
 export const WORLD_DOMAINS = ["space", "sky", "land", "sea"] as const;
 export type WorldDomain = (typeof WORLD_DOMAINS)[number];
-const planetIdColumn = () => text("planet_id").notNull().default(DEFAULT_WORLD_PLANET_ID);
+
 const domainColumn = () => text("domain").$type<WorldDomain>().notNull().default("land");
 
 /** 세력(최소) — 소유와 시야 묶음에만 쓴다. 가입·봉신·외교는 세력 시스템(기획 Step 4-6)이 넓힌다 */
@@ -544,57 +547,6 @@ export const npcSociety = pgTable(
     gardener: jsonb("gardener"),
   },
   (table) => [check("npc_society_single", sql`${table.id} = 1`)],
-);
-
-/**
- * 1차맵 칸 오염(docs/adr/2026-11-01-gardener-r5b.md 1절, D-115·D-460 200): 행성·칸 키(면 레벨 F9 = 2차맵 하나)마다 정수.
- * 값이 있는 칸만 둔다(0이 되면 지운다). 하루마다 NPC 사회 런타임이 바뀐 칸만 쓴다
- */
-export const planetPollution = pgTable(
-  "planet_pollution",
-  {
-    planetId: planetIdColumn(),
-    cellKey: bigint("cell_key", { mode: "number" }).notNull(),
-    value: integer("value").notNull(),
-    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.planetId, table.cellKey] }),
-    check("planet_pollution_value", sql`${table.value} between 1 and 100000`),
-    check("planet_pollution_planet_id_format", sql`${table.planetId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
-  ],
-);
-
-/**
- * 정원사 도시 웨이브(docs/adr/2026-11-01-gardener-r5b.md 2·5절, D-188·D-192·D-196·D-230): 예고(생성)부터 결과까지 한 줄.
- * state = marching(진군, 도착 예약) | fighting(전투 서비스 battle_id) | won | repelled | disbanded. 끝난 줄은 기록으로 남긴다.
- * 도시가 폐허가 되면 도시 행이 지워지므로 city_id에 외래 키를 두지 않는다
- */
-export const gardenerWaves = pgTable(
-  "gardener_waves",
-  {
-    id: bigint("id", { mode: "number" }).primaryKey(),
-    planetId: planetIdColumn(),
-    cityId: bigint("city_id", { mode: "number" }).notNull(),
-    cellKey: bigint("cell_key", { mode: "number" }).notNull(),
-    /** 생길 때 그 도시 주인 세력(행 ID) */
-    factionId: bigint("faction_id", { mode: "number" }),
-    strength: integer("strength").notNull(),
-    physical: integer("physical").notNull(),
-    createdAtMs: bigint("created_at_ms", { mode: "number" }).notNull(),
-    arriveAtMs: bigint("arrive_at_ms", { mode: "number" }).notNull(),
-    state: text("state").notNull(),
-    battleId: bigint("battle_id", { mode: "number" }),
-    resolvedAtMs: bigint("resolved_at_ms", { mode: "number" }),
-  },
-  (table) => [
-    index("gardener_waves_state_idx").on(table.state),
-    index("gardener_waves_city_idx").on(table.cityId),
-    check(
-      "gardener_waves_state",
-      sql`${table.state} in ('marching', 'fighting', 'won', 'repelled', 'disbanded')`,
-    ),
-  ],
 );
 
 /** 2차맵 유닛. 위치는 저장하지 않고 경로·출발 시각·속도로 계산한다(ADR 5) */

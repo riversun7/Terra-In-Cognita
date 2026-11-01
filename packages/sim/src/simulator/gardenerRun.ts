@@ -60,6 +60,13 @@ export interface GardenerWave {
   eventId: number | undefined;
 }
 
+/** 끝난 웨이브(서버가 결과 줄을 쓴다). outcome = damaged | ruined | repelled | disbanded */
+export interface ResolvedWave {
+  readonly wave: GardenerWave;
+  readonly outcome: "damaged" | "ruined" | "repelled" | "disbanded";
+  readonly atMs: number;
+}
+
 export interface GardenerSummary {
   readonly pollution: { readonly cells: number; readonly total: number; readonly max: number };
   readonly waves: {
@@ -122,6 +129,10 @@ export interface GardenerRun {
   handle(kind: string, subject: number, nowMs: number): boolean;
   /** 싸우던 웨이브의 결과(서버: 전투가 끝났을 때) */
   resolve(waveId: number, won: boolean, nowMs: number): void;
+  /** 웨이브를 흩는다(서버: 전투를 열지 못했을 때). 쉬는 시간은 걸지 않는다 */
+  disband(waveId: number, nowMs: number): void;
+  /** 지난 호출 뒤 끝난 웨이브(꺼내면 비운다) */
+  takeResolved(): ResolvedWave[];
   readonly layer: () => PollutionLayer;
   readonly waves: ReadonlyMap<number, GardenerWave>;
   readonly cooldownUntil: ReadonlyMap<number, number>;
@@ -187,9 +198,16 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
     if (cell !== undefined && amount !== 0) addPollution(layer, cell, amount, o.rules());
   };
 
-  const finish = (wave: GardenerWave, outcome: string, nowMs: number, extra: object = {}): void => {
+  const resolvedOut: ResolvedWave[] = [];
+  const finish = (
+    wave: GardenerWave,
+    outcome: ResolvedWave["outcome"],
+    nowMs: number,
+    extra: object = {},
+  ): void => {
     if (wave.eventId !== undefined) o.cancel(wave.eventId);
     waves.delete(wave.id);
+    resolvedOut.push({ wave, outcome, atMs: nowMs });
     o.recorder.wave(nowMs, {
       kind: "city",
       phase: "result",
@@ -390,13 +408,14 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
           arriveAtMs: wave.arriveAtMs,
         });
       }
-      for (const [cityId, until] of [...cooldownUntil]) if (until <= nowMs) cooldownUntil.delete(cityId);
+      // Map은 돌면서 지금 항목을 지워도 된다
+      for (const [cityId, until] of cooldownUntil) if (until <= nowMs) cooldownUntil.delete(cityId);
 
       // 유목 부대: 목표가 없으면 고르고, 없으면 떠돈다(부대마다 굴림 하나)
       const inInfluence = influenceSet(c);
       for (const party of nomads) {
         const roll = rng.nextInt(0x1_0000);
-        for (const [cell, until] of [...party.excluded]) if (until <= nowMs) party.excluded.delete(cell);
+        for (const [cell, until] of party.excluded) if (until <= nowMs) party.excluded.delete(cell);
         if (party.target !== null) continue;
         if (!march(party, nowMs, c, inInfluence))
           party.cell = roamCell(party.cell, grid, c.nomadDetect, roll);
@@ -417,6 +436,15 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
       return true;
     },
     resolve,
+    disband(waveId, nowMs) {
+      const wave = waves.get(waveId);
+      if (!wave) return;
+      counts.disbanded += 1;
+      finish(wave, "disbanded", nowMs);
+    },
+    takeResolved() {
+      return resolvedOut.splice(0, resolvedOut.length);
+    },
     layer: () => layer,
     waves,
     cooldownUntil,

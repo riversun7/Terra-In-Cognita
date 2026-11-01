@@ -3,15 +3,21 @@
 // 각 모듈의 create…가 정한다. 지금은 모두 0개라 DB를 받지 않는다. 시스템이 생겨 DB·월드가 필요하면 여기로 넘긴다.
 import { collectInbox, checkProviders, createInboxProviders } from "../inbox/registry.ts";
 import type { InboxAccount } from "../inbox/types.ts";
+import type { QueryPool } from "../world/persist/load.ts";
 import { EMPTY_SUMMARY_BACKEND, type SummaryBackend, collectSummary } from "../summary/summary.ts";
 import type { HomeServices, Viewer } from "../trpc/context.ts";
 import { createServerCardProviders, loadDashboardCards } from "./cards.ts";
 
 const accountOf = (viewer: Viewer): InboxAccount => ({ userId: viewer.id, roles: viewer.roles });
 
-/** summary: 복귀 요약 자료(DB·월드가 있을 때 app.ts가 만든다, src/world/summarySources.ts) */
-export function createHomeServices(options: { summary?: SummaryBackend | undefined } = {}): HomeServices {
-  const inboxProviders = createInboxProviders();
+/**
+ * summary: 복귀 요약 자료(DB·월드가 있을 때 app.ts가 만든다, src/world/summarySources.ts).
+ * pool: 처리할 일 제공 함수가 읽는 DB(웨이브 예고 wave_incoming, DB가 있을 때)
+ */
+export function createHomeServices(
+  options: { summary?: SummaryBackend | undefined; pool?: QueryPool | undefined } = {},
+): HomeServices {
+  const inboxProviders = createInboxProviders({ pool: options.pool });
   checkProviders(inboxProviders);
   const summary = options.summary ?? EMPTY_SUMMARY_BACKEND;
   const cardProviders = createServerCardProviders();

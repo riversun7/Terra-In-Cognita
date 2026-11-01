@@ -14,6 +14,7 @@ import {
 const HOUR = 3_600_000;
 const grid = squareGrid(64);
 const at = (x: number, y: number): number => grid.cellOf(x, y);
+const byCell = (x: [number, number], y: [number, number]): number => x[0] - y[0];
 
 describe("오염 층(D-460 200, P15)", () => {
   it("더하기는 칸마다 0~10,000 안에 머물고, 0이 된 칸은 지운다", () => {
@@ -79,8 +80,8 @@ describe("오염 층(D-460 200, P15)", () => {
       [at(30, 2), 900],
     ]);
     const b = new Map([...a].toReversed());
-    expect([...dailyPollutionStep(a, grid, c)].toSorted()).toEqual(
-      [...dailyPollutionStep(b, grid, c)].toSorted(),
+    expect([...dailyPollutionStep(a, grid, c)].toSorted(byCell)).toEqual(
+      [...dailyPollutionStep(b, grid, c)].toSorted(byCell),
     );
   });
 

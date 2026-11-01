@@ -5,6 +5,8 @@
 // - 웨이브: 정원사 크리쳐 strength마리. 한 마리의 힘은 [임시] 수비 휴먼과 같은 사양(같은 1차 스탯·장비·스킬)이라 웨이브 세기는
 //   마리 수로만 정해진다(D-322 "세기 = 세력 규모"). 그 가운데 물리형(공성 크리쳐, 돌진·거대, D-273·D-5050)은 건물 피해 배율
 //   [임시] 4,000‰, 마법형은 건물을 부수지 못한다(배율 0, D-5043 "건물은 물리 피해만") — 유닛만 노린다.
+//   [임시] 진형: 물리형은 줄 끝(가운데에서 먼 자리)에 선다. 마법형이 먼저 수비와 맞붙고 공성 크리쳐가 넥서스로 간다
+//   (줄 가운데 맨 앞에 두면 공성 크리쳐가 먼저 쓰러져 웨이브가 거의 늘 졌다 — econ16 웨이브 전투 332번 중 이긴 것 1번, ADR 4절).
 //   크리쳐 종류의 타고난 무기·속성 무기로 만든 사양은 잰 결과 웨이브가 늘 시간 초과로 졌다(ADR 4절): 장비 없는 크리쳐는 장비 든
 //   휴먼보다 훨씬 약하고, 지팡이는 지금 전투에 MP 회복이 없어 MP가 떨어지면 멈춘다. 크리쳐 에디터 값(D-5024)·전투 줄기(D-457~D-459)를
 //   합친 뒤 바꾼다. 전투 공식은 건드리지 않는다(전투 API만 부른다).
@@ -50,7 +52,7 @@ export interface WaveBattleInput {
 }
 
 /** 공성 크리쳐가 남았는지 보는 간격(틱). 결과는 간격과 상관없다(멈춘 틱만 이만큼 늦을 수 있다) */
-const WAVE_CHECK_TICKS = 50;
+export const WAVE_CHECK_TICKS = 50;
 
 /** 정원사 편 공성인가(공격 편 세력 칸이 정원사) */
 export function isWaveBattle(init: Pick<BattleInit, "kind" | "sides">): boolean {
@@ -90,13 +92,17 @@ export function runWaveToEnd(
       onSnapshot,
     );
     if (run.result) return run;
-    if (waveSiegeSpent(battle.state)) {
-      const defender = battle.state.sides.find((side) => side.defender)?.id ?? 0;
-      const result: BattleResult = { winner: defender, reason: "timeout", endTick: battle.state.tick };
-      battle.state.result = result;
-      return { state: battle.state, result, rejected: run.rejected };
-    }
+    if (waveSiegeSpent(battle.state))
+      return { state: battle.state, result: finishSpentWave(battle.state), rejected: run.rejected };
   }
+}
+
+/** 이길 수 없게 된 웨이브를 끝낸다: 수비 승(사유 timeout과 같게)을 state.result에 적고 돌려준다 */
+export function finishSpentWave(state: BattleState): BattleResult {
+  const defender = state.sides.find((side) => side.defender)?.id ?? 0;
+  const result: BattleResult = { winner: defender, reason: "timeout", endTick: state.tick };
+  state.result = result;
+  return result;
 }
 
 /** i번째를 가운데에서 위아래로 번갈아(0, +1, −1, +2, …) */
@@ -152,7 +158,7 @@ export function waveBattleInit(
     );
     units.push({
       ...spec,
-      buildingMulPm: index < input.physical ? SIEGE_BUILDING_MUL_PM : MAGIC_BUILDING_MUL_PM,
+      buildingMulPm: index >= input.strength - input.physical ? SIEGE_BUILDING_MUL_PM : MAGIC_BUILDING_MUL_PM,
     });
   }
   input.defenders.slice(0, input.maxDefenders).forEach((unit, index) => {

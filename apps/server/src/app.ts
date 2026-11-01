@@ -3,6 +3,7 @@ import path from "node:path";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "@terra/protocol";
+import { combatCoefficientsFrom } from "@terra/sim";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { registerAccountRoutes } from "./auth/account.ts";
 import { type AuthSettings, type TerraAuth, createAuth, verifyAuth } from "./auth/auth.ts";
@@ -262,6 +263,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           : rosterCatalog
             ? () => rosterCatalog.society
             : undefined,
+        // 정원사 웨이브 전투(docs/adr/2026-11-01-gardener-r5b.md): 팩 전투 자료, 설정 칸 실효 값을 얹은 전투 계수(부를 때마다)
+        combatCatalog: rosterCatalog?.combat,
+        combatRules: tuningState ? () => combatCoefficientsFrom(tuningState.values()) : undefined,
       })
     : undefined;
   // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md): 세계가 준비된 뒤의 서비스(DB가 있는 월드만)
@@ -290,6 +294,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         : undefined,
       // 복귀 요약: 오프라인 정산의 생산 + 확인 시각(DB가 있는 월드만)
       summary: world && options.db ? createWorldSummaryBackend(world) : undefined,
+      // 처리할 일: 정원사 웨이브 예고(wave_incoming, DB가 있을 때)
+      inboxPool: options.db?.$client,
       // 유닛·사이보그 화면: 실제 유닛은 DB가 있는 월드만(복귀 요약과 같은 읽는 차례)
       roster: {
         catalog: options.roster,

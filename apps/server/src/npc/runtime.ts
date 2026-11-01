@@ -5,19 +5,27 @@
 // - 실제 시각 루프: 시뮬 루프(createSimLoop)를 TICK_MS마다 지금까지 민다. 판단 예약은 시뮬과 같고, 하루 끝(UTC 0시)에 endOfDay
 //   (만족도·출생·수명·반란·독립·백지 강화·연구, 7일마다 배당·공물).
 // - 처리 뒤 거울 세계의 바뀜을 쓰기 대기열·2차맵에 맞춘다(persist.ts).
+// - 정원사(docs/adr/2026-11-01-gardener-r5b.md 5절, gardener.ts): 하루 끝에 칸 오염·도시 웨이브 굴림·유목 부대, 웨이브 도착은
+//   서버 전투 서비스의 공성 전투로 싸운다(결과가 오면 다음 틱에 피해·폐허·쉬는 시간).
 // - 서버에서 아직 안 하는 것: 실시간 공성(NPC 공격은 전투 없이 점령 — 시뮬 "전투 끔"과 같은 규칙), NPC 시장·세금(배당 0),
-//   휴먼 지갑(상속은 빈 지갑), 편입 제안 저장(메모리).
+//   휴먼 지갑(상속은 빈 지갑), 편입 제안 저장(메모리), NPC 생산 시설의 오염(시설이 없다).
 import { randomInt } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import {
+  type BattleInit,
   CELL_UNITS,
+  type CombatCatalog,
+  type CombatCoefficients,
   DAY_MS,
   DEFAULT_SCENARIO_SOCIETY,
   EVENT_DECIDE,
   type FactionDay,
+  HOMELESS,
   type NpcContext,
   STREAM_SOCIETY,
   STREAM_TRAITS,
+  TEST_COMBAT_CATALOG,
+  TEST_COMBAT_COEFFICIENTS,
   type SimCity,
   type SimEvent,
   type SimFaction,
@@ -45,6 +53,7 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, NPC_START_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
+import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type CityPlace, type NpcPersist, createNpcPersist } from "./persist.ts";
 import { loadNpcState } from "./state.ts";
 
@@ -77,6 +86,15 @@ export interface NpcRuntimeOptions {
   readonly dayMs?: number | undefined;
   /** 타이머를 켜지 않는다(시험이 tick을 직접 부른다) */
   readonly manual?: boolean | undefined;
+  /** 시험 세계 행성(칸 오염의 행성) */
+  readonly planetId: string;
+  /** 정원사 웨이브 전투를 넣을 전투 서비스(없으면 그 자리에서 빨리감기) */
+  readonly startBattle?: ((init: BattleInit) => Promise<number>) | undefined;
+  /** 전투 서비스가 전투를 끝냈을 때 알려 달라고 등록한다(공격 편이 이겼나) */
+  readonly onBattleEnded?: ((listener: (battleId: number, attackerWon: boolean) => void) => void) | undefined;
+  /** 전투 자료(팩)·전투 계수(설정 칸 실효 값). 없으면 시험 자료 */
+  readonly combatCatalog?: CombatCatalog | undefined;
+  readonly combatRules?: (() => CombatCoefficients) | undefined;
 }
 
 export interface NpcRuntime {
@@ -85,6 +103,8 @@ export interface NpcRuntime {
   /** 거울 세계(시험·관리 조회용, 바꾸지 않는다) */
   readonly world: SimWorld;
   readonly society: SocietyRun;
+  /** 정원사(오염·웨이브·유목 부대) */
+  readonly gardener: ServerGardener;
   /** 지난 호출 뒤 구간의 지표(서버 1분 지표 한 줄에 붙인다) */
   takeMetrics(): Record<string, number>;
   stop(): void;
@@ -98,7 +118,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   const c = o.rules();
   const dayMs = o.dayMs ?? DAY_MS;
   const startMs = o.now();
-  const state = await loadNpcState(o.pool);
+  const state = await loadNpcState(o.pool, o.planetId);
   const seed = state.society?.seed ?? randomInt(0x7fff_ffff);
 
   // 세력: 소유 주체 ID ↔ 세력 행 ID
@@ -207,7 +227,21 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     return unit;
   };
   for (const row of state.humans) {
-    if (!onMap.has(row.unitId) || !cities.has(row.cityId)) continue;
+    const at = onMap.get(row.unitId);
+    if (!at) continue;
+    // 노숙 휴먼(떠도는 세력, D-464 217): 도시가 없다. 주인 = 유닛 주인(살아 있는 세력일 때만)
+    if (row.cityId === null) {
+      if (!factions.has(at.ownerId)) continue;
+      human(row.unitId, HOMELESS, {
+        owner: at.ownerId,
+        satisfactionMilli: row.satisfactionMilli,
+        bornAtMs: row.bornAtMs,
+        lifespanMs: row.lifespanMs,
+        rebirths: row.rebirths,
+      });
+      continue;
+    }
+    if (!cities.has(row.cityId)) continue;
     human(row.unitId, row.cityId, {
       satisfactionMilli: row.satisfactionMilli,
       bornAtMs: row.bornAtMs,
@@ -217,6 +251,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   }
   let nextCity = state.maxCityId;
   const persistRef: { current?: NpcPersist } = {};
+  const gardenerRef: { current?: ServerGardener } = {};
   const world: SimWorld = {
     seed,
     factions,
@@ -248,6 +283,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       now: o.now,
       log,
       seed,
+      planetId: o.planetId,
+      gardener: () => gardenerRef.current,
     },
     { rowOf, places, spares: state.spares },
   );
@@ -304,7 +341,17 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
 
   await persist.refillSpares(SPARE_FACTIONS);
 
-  const metrics = { decisions: 0, decideMs: 0, dayMs: 0, persistMs: 0, births: 0, deaths: 0, days: 0 };
+  const metrics = {
+    decisions: 0,
+    decideMs: 0,
+    dayMs: 0,
+    persistMs: 0,
+    births: 0,
+    deaths: 0,
+    days: 0,
+    gardenerMs: 0,
+    waveResults: 0,
+  };
   // 기록기는 "N일째"를 시작 시각 + N × 24시간으로 센다 → 이어 돈 날 수와 UTC 0시 하루 끝에 맞춘 시작 시각을 준다
   // (하루를 줄인 측정 실행에서는 줄의 시각이 실제와 다르다)
   const restoredDay = state.society?.day ?? 0;
@@ -319,6 +366,10 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       const ctx = ctxRef.ctx;
       if (!ctx) return;
       const started = performance.now();
+      if (gardenerRef.current?.run.handle(event.payload.kind, event.payload.subject, sim.nowMs)) {
+        metrics.gardenerMs += performance.now() - started;
+        return;
+      }
       if (event.payload.kind === EVENT_DECIDE) {
         decide(ctx, event.payload.subject, sim.nowMs);
         metrics.decisions += 1;
@@ -359,8 +410,35 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   );
   ctx.society = society;
 
+  // 정원사: 칸 = 도시의 2차맵 키(F9), 이웃 = 행성 이웃 8칸. 계수는 설정 칸 실효 값을 부를 때마다 읽는다
+  const gardener = attachServerGardener({
+    world,
+    state,
+    seed,
+    startMs,
+    loop,
+    recorder,
+    society,
+    rules: () => o.rules().gardener,
+    combatRules: o.combatRules ?? (() => TEST_COMBAT_COEFFICIENTS),
+    catalog: o.combatCatalog ?? TEST_COMBAT_CATALOG,
+    cellOf: (cityId) => persist.places.get(cityId)?.mapKey,
+    ownerOfRow: (rowId) => ownerOfRow.get(rowId),
+    treasuryOf: (ownerId) => ledger.balanceOf(ownerId, ASSET_CREDIT),
+    timeScale: dayMs / DAY_MS,
+    startBattle: o.startBattle,
+    log,
+  });
+  gardenerRef.current = gardener;
+  o.onBattleEnded?.((battleId, attackerWon) => {
+    gardener.battleEnded(battleId, attackerWon);
+  });
+
   function endOfDay(nowMs: number): void {
     society.endOfDay(nowMs);
+    const started = performance.now();
+    gardener.run.endOfDay(nowMs, society.currentDay());
+    metrics.gardenerMs += performance.now() - started;
     const rows: FactionDay[] = [];
     for (const faction of world.factions.values()) {
       if (!faction.alive) continue;
@@ -405,8 +483,11 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     busy = true;
     try {
       const before = loop.processed;
+      // 끝난 웨이브 전투(전투 서비스가 알려 줌)의 결과를 먼저 넣는다
+      const results = gardener.applyPending(o.now());
+      metrics.waveResults += results;
       loop.runUntil(o.now() + 1);
-      if (loop.processed === before && !force) return;
+      if (loop.processed === before && results === 0 && !force) return;
       const started = performance.now();
       const result = await persist.flush(society.currentDay());
       await persist.refillSpares(SPARE_FACTIONS);
@@ -426,6 +507,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     tick,
     world,
     society,
+    gardener,
     takeMetrics() {
       const out = {
         npcDecisions: metrics.decisions,
@@ -436,6 +518,10 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         npcDeaths: metrics.deaths,
         npcHumans: world.units.size,
         npcFactions: [...world.factions.values()].filter((f) => f.alive).length,
+        gardenerMs: Math.round(metrics.gardenerMs * 10) / 10,
+        gardenerWaves: gardener.run.waves.size,
+        gardenerWaveResults: metrics.waveResults,
+        pollutionCells: gardener.run.layer().size,
       };
       metrics.decisions = 0;
       metrics.decideMs = 0;
@@ -444,6 +530,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       metrics.births = 0;
       metrics.deaths = 0;
       metrics.days = 0;
+      metrics.gardenerMs = 0;
+      metrics.waveResults = 0;
       return out;
     },
     stop() {

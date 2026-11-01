@@ -4,6 +4,9 @@
 // - 입력(참전·명령·퇴각)이 오면: 그 틱 이하의 가장 가까운 스냅숏에서 다시 계산하고, 그 뒤 스냅숏을 바꾸고, 끝 시각을 다시 건다.
 // - 다시 켜면: 진행 중인 전투의 끝 시각을 다시 건다(지났으면 곧바로). 결과는 적용할 때 스냅숏 + 입력으로 다시 계산한다.
 //   스냅숏은 다시 만들 수 있는 캐시라 전투 행과 같은 트랜잭션에 넣지 않는다(죽으면 처음부터 계산할 뿐이다).
+// - 빨리감기는 COMPUTE_SLICE_TICKS틱마다 이벤트 루프에 양보한다(긴 전투 하나가 루프를 수 초 막지 않게, NAS 루프 p99 < 50ms,
+//   docs/adr/2026-11-01-gardener-r5b.md 6절). 정원사 웨이브(공격 편 세력 칸 = 정원사)는 공성 크리쳐를 모두 잃으면 멈춘다(@terra/sim
+//   waveSiegeSpent: 넥서스를 더는 부술 수 없어 결과가 수비 승으로 정해짐). 시작과 끝 적용이 같은 함수로 계산하므로 결과가 같다.
 // - 결과 적용은 한 번만 한다: apply(세계 바뀜, battleResults.ts)를 동기로 부르고 같은 쓰기 묶음에 결과 기록
 //   (world_battle_results, 전투마다 한 줄)을 넣는다. 커밋된 뒤 status = ended(캐시)를 고친다. 다시 켜면 기록이 있는 전투는
 //   다시 적용하지 않고 status만 고친다.
@@ -16,8 +19,11 @@ import {
   TEST_COMBAT_COEFFICIENTS,
   type UnitResult,
   createBattle,
+  finishSpentWave,
+  isWaveBattle,
   resolveOutcomes,
   restoreBattle,
+  waveSiegeSpent,
 } from "@terra/sim";
 import type { QueryPool } from "./persist/load.ts";
 import type { WorldWriter } from "./persist/writer.ts";
@@ -43,6 +49,11 @@ export interface BattleService {
 }
 
 const { tickMs } = TEST_COMBAT_COEFFICIENTS;
+/** 빨리감기 한 조각(틱). 유닛 수십이면 한 조각이 수십 ms 안쪽이다(ADR gardener-r5b 6절 잰 값) */
+export const COMPUTE_SLICE_TICKS = 50;
+
+/** 이벤트 루프에 한 번 양보한다(다른 요청·타이머가 돈다) */
+const yieldToLoop = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
 function b64(array: Uint8Array | Int32Array): string {
   return Buffer.from(array.buffer, array.byteOffset, array.byteLength).toString("base64");
@@ -142,13 +153,28 @@ export function createBattleService(options: {
       from,
     ]);
     const snapshots: { tick: number; state: string }[] = [];
-    const run = battle.runToEnd(
+    const wave = isWaveBattle(init);
+    const onSnapshot = (state: string, tick: number): void => {
+      if (tick > from) snapshots.push({ tick, state });
+    };
+    let run = battle.runToEnd(
       inputs.filter((input) => input.tick >= from),
-      Number.POSITIVE_INFINITY,
-      (state, tick) => {
-        if (tick > from) snapshots.push({ tick, state });
-      },
+      COMPUTE_SLICE_TICKS,
+      onSnapshot,
     );
+    while (!run.result) {
+      if (wave && waveSiegeSpent(battle.state)) {
+        run = { ...run, result: finishSpentWave(battle.state) };
+        break;
+      }
+      await yieldToLoop();
+      const at = battle.state.tick;
+      run = battle.runToEnd(
+        inputs.filter((input) => input.tick >= at),
+        COMPUTE_SLICE_TICKS,
+        onSnapshot,
+      );
+    }
     for (const entry of snapshots)
       await pool.query(`insert into world_battle_snapshots (battle_id, tick, state) values ($1, $2, $3)`, [
         battleId,

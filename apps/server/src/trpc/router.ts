@@ -5,6 +5,7 @@ import { adminRouter } from "./admin.ts";
 import { balanceRouter } from "./balance.ts";
 import { battleLabRouter } from "./battleLab.ts";
 import { battleReplayRouter } from "./battleReplay.ts";
+import { formulasRouter } from "./formulas.ts";
 import { dashboardRouter } from "./dashboard.ts";
 import { economyRouter } from "./economy.ts";
 import { factionRouter } from "./faction.ts";
@@ -35,6 +36,8 @@ export const appRouter = router({
   battleLab: battleLabRouter,
   // 개발자 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 5절)
   battleReplay: battleReplayRouter,
+  // 개발자 계산식 탭(docs/adr/2026-11-01-formula-editor.md)
+  formulas: formulasRouter,
   // 홈 자료(앱 뼈대 W3, ADR 2026-10-29-app-shell 6·7·8절)
   inbox: inboxRouter,
   summary: summaryRouter,

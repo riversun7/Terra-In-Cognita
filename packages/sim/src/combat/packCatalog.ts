@@ -2,14 +2,46 @@
 // 팩 형식(zod)은 모른다: 이미 검증·파싱한 항목을 받는다(타입만 가져온다). 켜진 항목만, 참조는 ID 문자열로.
 // 꺼진(또는 없는) 참조는 거른다(docs/adr/2026-11-01-skill-editor.md 2절): 켜진 장비가 가리키는 꺼진 스킬 ID, 켜진 스킬이 가리키는
 // 꺼진 효과 줄. 편집기로 스킬·효과를 꺼도 그것을 주는 장비·스킬로 전투 사양을 만들 때 던지지 않게 한다(뺀 것은 droppedReferences).
-import type { EffectEntry, ItemEntry, SkillEntry, StatRowEntry, UnitKindEntry } from "@terra/content";
+// 행 식(stat_rows formula)과 전투 계산식(formulas)은 읽은 식 나무로 바꾼다(팩 검사가 이미 본 식, 틀리면 던진다).
+import type {
+  EffectEntry,
+  FormulaEntry,
+  ItemEntry,
+  SkillEntry,
+  StatRowEntry,
+  UnitKindEntry,
+} from "@terra/content";
+import { STAT_FORMULA_VARS, compileFormulaOrThrow } from "@terra/shared/formula";
 import type { CombatCatalog } from "./catalog.ts";
 import type { EffectDef } from "./effects.ts";
 import type { EquipDef } from "./equipment.ts";
+import { type CombatFormulaSet, combatFormulaSetFrom } from "./formulas.ts";
 import type { SkillData } from "./skills.ts";
 import type { StatRow } from "./stats.ts";
 
 const idOf = (ref: { readonly id: string }): string => ref.id;
+const STAT_VARS = STAT_FORMULA_VARS.map((item) => item.name);
+
+/** 팩 행(켜진 것) → sim 가중치 표 행. formula가 있으면 읽은 식을 싣는다 */
+export function statRowFrom(row: StatRowEntry): StatRow {
+  const formula = row.formula === undefined ? undefined : compileFormulaOrThrow(row.formula, STAT_VARS);
+  const extra = formula ? { formula } : {};
+  return row.shape === "quantity"
+    ? { id: row.id, shape: "quantity", base: row.base, weights: row.weights, ...extra }
+    : {
+        id: row.id,
+        shape: "probability",
+        cap: row.cap,
+        halfConstant: row.halfConstant,
+        weights: row.weights,
+        ...extra,
+      };
+}
+
+/** 팩 formulas 항목 → 전투 계산식 묶음(빠진 칸은 기본 식) */
+export function combatFormulasFromPack(entries: readonly FormulaEntry[]): CombatFormulaSet {
+  return combatFormulaSetFrom(Object.fromEntries(entries.map((entry) => [entry.id, entry.expression])));
+}
 
 /** 전투 자료로 옮기는 팩 분류 */
 export interface CombatPackEntries {
@@ -53,20 +85,7 @@ export function droppedReferences(pack: CombatPackEntries): DroppedReferences {
 export function combatCatalogFrom(pack: CombatPackEntries): CombatCatalog {
   const enabledSkills = new Set(pack.skills.filter((entry) => entry.enabled).map((entry) => entry.id));
   const enabledEffects = new Set(pack.effects.filter((entry) => entry.enabled).map((entry) => entry.id));
-  const statTable = pack.statRows
-    .filter((row) => row.enabled)
-    .map(
-      (row): StatRow =>
-        row.shape === "quantity"
-          ? { id: row.id, shape: "quantity", base: row.base, weights: row.weights }
-          : {
-              id: row.id,
-              shape: "probability",
-              cap: row.cap,
-              halfConstant: row.halfConstant,
-              weights: row.weights,
-            },
-    );
+  const statTable = pack.statRows.filter((row) => row.enabled).map(statRowFrom);
   const effects = pack.effects
     .filter((entry) => entry.enabled)
     .map(

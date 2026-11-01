@@ -3,10 +3,12 @@
 // 지금은 시험이 쓴다. 세계에서 전투를 열 때(R5) 서버가 유닛 사양을 만들 때 쓴다.
 import {
   type EffectEntry,
+  type FormulaEntry,
   type PackSource,
   type StatRowEntry,
   type TuningEntry,
   effectEntrySchema,
+  formulaEntrySchema,
   itemEntrySchema,
   parseJson,
   skillEntrySchema,
@@ -45,6 +47,11 @@ export function effectsOf(source: PackSource): EffectEntry[] {
 /** 팩 `stat_rows` 항목(팩 차례, 꺼진 행 포함). 서버의 설정 칸 접근자가 가중치 칸 덮어쓰기에 쓴다(밸런스 화면) */
 export function statRowsOf(source: PackSource): StatRowEntry[] {
   return entriesOf(source, "stat_rows.json", (raw) => statRowEntrySchema.parse(raw));
+}
+
+/** 팩 `formulas` 항목(전투 계산식, docs/adr/2026-11-01-formula-editor.md). 서버의 설정 칸 접근자가 식 덮어쓰기에 쓴다 */
+export function formulaEntriesOf(source: PackSource): FormulaEntry[] {
+  return entriesOf(source, "formulas.json", (raw) => formulaEntrySchema.parse(raw));
 }
 
 /** 팩 `unit_kinds` 이름(켜진 것, ID → {ko, en}). 전투 실험실 목록이 쓴다(docs/adr/2026-11-01-balance-screen.md "바뀜") */

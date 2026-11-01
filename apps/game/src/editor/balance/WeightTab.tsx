@@ -413,6 +413,9 @@ export function WeightTab({ data, locale }: { data: LabData; locale: string }) {
             <ul className="bp-legend">
               <li data-state="staged">{m.dev_balance_legend_staged()}</li>
               <li data-state="override">{m.dev_balance_legend_override()}</li>
+              {table.rows.some((row) => row.formula !== null) ? (
+                <li data-state="formula">{m.dev_balance_legend_formula()}</li>
+              ) : null}
             </ul>
             <BalanceTable
               rows={table.rows}

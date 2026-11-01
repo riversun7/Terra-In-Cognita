@@ -6,7 +6,13 @@ import { loadServerContent } from "./content.ts";
 import { rosterCatalogOf } from "./roster/catalog.ts";
 import { effectNamesOf } from "./battleReplay/names.ts";
 import { createTuningState } from "./tuning/state.ts";
-import { effectsOf, statRowsOf, tuningEntriesOf, unitKindNamesOf } from "./world/combatCatalog.ts";
+import {
+  effectsOf,
+  formulaEntriesOf,
+  statRowsOf,
+  tuningEntriesOf,
+  unitKindNamesOf,
+} from "./world/combatCatalog.ts";
 import { createContentEditState } from "./contentEdit/state.ts";
 import { economyCatalogFromPack } from "./economyView/catalog.ts";
 import { nationPresetsOf } from "./npc/presets.ts";
@@ -75,7 +81,11 @@ try {
 // 설정 칸 실효 값(팩 tuning + 이 세계 DB의 덮어쓰기, docs/adr/2026-11-01-dev-settings-panel.md 5절). 서버에서 칸 값을 읽는 곳은
 // 모두 이 접근자를 쓸 때마다 부른다(덮어쓰기는 앱이 켤 때 DB에서 싣는다). 가중치 표(stat_rows) 칸 덮어쓰기도 같은 접근자다
 // (밸런스 화면, docs/adr/2026-11-01-balance-screen.md 1절)
-const tuning = createTuningState(tuningEntriesOf(loaded.source), statRowsOf(loaded.source));
+const tuning = createTuningState(
+  tuningEntriesOf(loaded.source),
+  statRowsOf(loaded.source),
+  formulaEntriesOf(loaded.source),
+);
 // 팩 항목 실효 값(스킬·무기·유닛 종류 + 이 세계 DB의 덮어쓰기, docs/adr/2026-11-01-skill-editor.md 3·4절). 전투 자료를 읽는 곳은
 // 모두 이 접근자를 쓸 때마다 부른다(유닛 화면·정원사 웨이브 전투, 스킬 편집기 /dev/skills가 덮어쓴다)
 const contentEdit = createContentEditState(loaded.source, effectsOf(loaded.source));

@@ -2,9 +2,12 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
+  type FormulaEntry,
   type PackSource,
   type StatRowEntry,
   facilityEntrySchema,
+  formulaEntrySchema,
+  overlayFormulasDiff,
   formatIssue,
   hasErrors,
   itemEntrySchema,
@@ -24,9 +27,12 @@ import {
 import { loadContentPack } from "@terra/content/node";
 import {
   type CombatCatalog,
+  type CombatFormulaSet,
   type EconomyCatalog,
   type Scenario,
   combatCatalogFrom,
+  combatFormulaSetFrom,
+  combatFormulasFromPack,
   parseScenario,
 } from "../src/index.ts";
 
@@ -127,6 +133,9 @@ export function readPack(
   catalog: EconomyCatalog;
   combat: CombatCatalog;
   statRows: StatRowEntry[];
+  /** 팩 전투 계산식 항목(formulas.json)과 그 묶음(docs/adr/2026-11-01-formula-editor.md) */
+  formulaEntries: FormulaEntry[];
+  combatFormulas: CombatFormulaSet;
   tuning: Map<string, number>;
 } {
   const loaded = loadContentPack(dir);
@@ -143,12 +152,15 @@ export function readPack(
       throw new Error(`시나리오 ${scenario.id}의 행성 ${scenario.planet}이(가) 팩에 없습니다`);
   }
   const statRows = parseFile(loaded.source, "stat_rows.json", (raw) => statRowEntrySchema.parse(raw));
+  const formulaEntries = parseFile(loaded.source, "formulas.json", (raw) => formulaEntrySchema.parse(raw));
   return {
     version: loaded.version,
     hash: loaded.hash,
     catalog: catalogOf(loaded.source),
     combat: combatCatalogOf(loaded.source, statRows),
     statRows,
+    formulaEntries,
+    combatFormulas: combatFormulasFromPack(formulaEntries),
     tuning: new Map(
       parseFile(loaded.source, "tuning.json", (raw) => tuningEntrySchema.parse(raw)).map((entry) => [
         entry.id,
@@ -176,31 +188,49 @@ export function withTuningDiff(tuning: ReadonlyMap<string, number>, file: string
 }
 
 /**
- * 같은 차이 파일의 가중치 표 칸(statRows, 밸런스 화면 — docs/adr/2026-11-01-balance-screen.md 2절)을 팩 행 위에 얹은 전투 자료.
- * 칸이 없으면 그대로. 서버 세계의 실효 표와 같다(팩에 없는 칸은 얹지 않는다)
+ * 같은 차이 파일의 가중치 표 칸(statRows, 밸런스 화면 — docs/adr/2026-11-01-balance-screen.md 2절)과 계산식(formulas,
+ * docs/adr/2026-11-01-formula-editor.md)을 팩 위에 얹은 전투 자료·전투 식 묶음. 칸이 없으면 그대로. 서버 세계의 실효 값과 같다
+ * (팩에 없는 칸·틀린 식은 얹지 않는다). 행 식은 가중치 칸을 얹은 행 위에 얹는다
  */
 export function withStatRowsDiff(
   combat: CombatCatalog,
   statRows: readonly StatRowEntry[],
   file: string,
-): CombatCatalog {
+  formulaEntries: readonly FormulaEntry[] = [],
+  combatFormulas?: CombatFormulaSet,
+): { combat: CombatCatalog; combatFormulas: CombatFormulaSet | undefined } {
   const diff = tuningDiffSchema.parse(JSON.parse(readFileSync(file, "utf8")));
   const changes = diff.statRows ?? [];
-  if (changes.length === 0) return combat;
+  const formulaChanges = diff.formulas ?? [];
+  if (changes.length === 0 && formulaChanges.length === 0) return { combat, combatFormulas };
   const result = overlayStatRowsDiff(statRows, changes);
   if (result.unknown.length > 0)
     console.error(`가중치 차이: 팩에 없는 칸은 건너뜀 — ${result.unknown.join(", ")}`);
   if (result.stale.length > 0)
     console.error(`가중치 차이: 내보낼 때와 팩 값이 다른 칸(차이 값을 씀) — ${result.stale.join(", ")}`);
-  console.error(`가중치 차이: 칸 ${changes.length - result.unknown.length}개를 얹음`);
+  if (changes.length > 0) console.error(`가중치 차이: 칸 ${changes.length - result.unknown.length}개를 얹음`);
+  const formulas = overlayFormulasDiff(formulaEntries, result.rows, formulaChanges);
+  if (formulas.unknown.length + formulas.invalid.length > 0)
+    console.error(
+      `식 차이: 팩에 없는 칸·틀린 식은 건너뜀 — ${[...formulas.unknown, ...formulas.invalid].join(", ")}`,
+    );
+  if (formulas.stale.length > 0)
+    console.error(`식 차이: 내보낼 때와 팩 식이 다른 칸(차이 식을 씀) — ${formulas.stale.join(", ")}`);
+  if (formulaChanges.length > 0)
+    console.error(
+      `식 차이: 칸 ${formulaChanges.length - formulas.unknown.length - formulas.invalid.length}개를 얹음`,
+    );
   const { statTable } = combatCatalogFrom({
-    statRows: result.rows,
+    statRows: formulas.rows,
     effects: [],
     skills: [],
     items: [],
     unitKinds: [],
   });
-  return { ...combat, statTable };
+  return {
+    combat: { ...combat, statTable },
+    combatFormulas: combatFormulaSetFrom(Object.fromEntries(formulas.formulas)),
+  };
 }
 
 /** 세력마다 일꾼 수를 바꿔 전체 유닛이 약 total개가 되게 한다(속도 측정용) */

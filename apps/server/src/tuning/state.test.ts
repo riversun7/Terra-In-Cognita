@@ -78,6 +78,7 @@ describe("설정 칸 실효 값", () => {
       ]),
     ).toEqual({
       ok: true,
+      formulas: [],
       changes: [
         { id: "n9_initial_sum", before: null, after: 150 },
         { id: "n9_initial_max", before: null, after: 30 },
@@ -112,6 +113,7 @@ describe("설정 칸 실효 값", () => {
       ]),
     ).toEqual({
       ok: true,
+      formulas: [],
       changes: [
         { id: "n39_grant_base", before: 90, after: null },
         { id: "s26_rebellion", before: 30, after: null },
@@ -242,6 +244,7 @@ describe("가중치 표 칸 덮어쓰기(밸런스 화면, docs/adr/2026-11-01-b
     ]);
     expect(plan).toEqual({
       ok: true,
+      formulas: [],
       changes: [
         { id: "hp.vit", before: null, after: 3500 },
         { id: "n39_grant_base", before: null, after: 90 },
@@ -250,6 +253,7 @@ describe("가중치 표 칸 덮어쓰기(밸런스 화면, docs/adr/2026-11-01-b
     state.install([record("hp.vit", 3500, 3000, 1, "pm")], 1);
     expect(state.plan([{ id: "hp.vit", value: null }])).toEqual({
       ok: true,
+      formulas: [],
       changes: [{ id: "hp.vit", before: 3500, after: null }],
     });
   });

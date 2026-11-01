@@ -47,6 +47,7 @@ import { type TuningLimits, bootTuning, createTuningShared } from "./tuning/serv
 import { type BalanceLimits, createBalanceServices } from "./balance/services.ts";
 import type { ContentEditState } from "./contentEdit/state.ts";
 import { bootContentEdit, createContentEditShared } from "./contentEdit/services.ts";
+import { createFormulaServices } from "./formulas/services.ts";
 import { createHeavyGate } from "./balance/gate.ts";
 import { duelRunnerOf, inlineJobRunner, workerJobRunner } from "./balance/runner.ts";
 import { type BattleLabLimits, createBattleLabShared } from "./battleLab/services.ts";
@@ -320,6 +321,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         gate: heavyGate,
       })
     : undefined;
+  // 계산식 탭(식 칸·무기·표본): 설정 칸 접근자 위에서 돈다
+  const formulas = tuningShared
+    ? createFormulaServices({ tuning: tuningShared, roster: options.roster ?? testRosterCatalog() })
+    : undefined;
   const tuningDb = options.db;
   if (tuningShared && tuningDb) {
     // 덮어쓰기를 싣는다(요청을 받기 전에). DB를 기다리는 다시 시도는 월드 부팅과 같다
@@ -358,7 +363,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         // 정원사 웨이브 전투(docs/adr/2026-11-01-gardener-r5b.md): 팩 전투 자료, 설정 칸 실효 값을 얹은 전투 계수(부를 때마다)
         // 팩 항목 덮어쓰기(스킬 편집기)·가중치 표 덮어쓰기를 얹은 실효 자료, 전투를 열 때마다 읽는다
         combatCatalog: rosterCatalog ? () => rosterCatalog.combat : undefined,
-        combatRules: tuningState ? () => combatCoefficientsFrom(tuningState.values()) : undefined,
+        combatRules: tuningState
+          ? () => combatCoefficientsFrom(tuningState.values(), undefined, tuningState.combatFormulas())
+          : undefined,
       })
     : undefined;
   // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md): 세계가 준비된 뒤의 서비스(DB가 있는 월드만)
@@ -483,6 +490,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       contentEdit,
       battleLab,
       battleReplay,
+      formulas,
     }),
   });
 

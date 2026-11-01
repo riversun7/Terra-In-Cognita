@@ -76,6 +76,7 @@ describe("pnpm tuning:apply", () => {
       skipped: [],
       rows: { applied: [], skipped: [] },
       entries: { applied: [], skipped: [] },
+      formulas: { applied: [], skipped: [] },
       version: 4,
     });
     const tuning = readFileSync(path.join(dir, "tuning.json"), "utf8");
@@ -171,5 +172,44 @@ describe("pnpm tuning:apply", () => {
       ["bash", 5],
       ["kick", 3],
     ]);
+  });
+
+  it("계산식(formulas)은 formulas.json expression·stat_rows.json formula에 넣고 판은 한 번만 올린다(계산식 탭)", () => {
+    const hp = {
+      id: "hp",
+      name: { ko: "HP", en: "HP" },
+      shape: "quantity",
+      base: 0,
+      weights: [1500, 1000, 1500, 3000, 1000, 1200],
+      enabled: true,
+    };
+    const hit = { id: "real_hit", name: { ko: "명중", en: "Hit" }, expression: "W" };
+    writeFileSync(path.join(dir, "stat_rows.json"), json({ entries: [hp] }));
+    writeFileSync(path.join(dir, "formulas.json"), json({ entries: [hit] }));
+    const generated = "STR * 1.5 + DEX + AGI * 1.5 + VIT * 3 + INT + WIS * 1.2 + GEAR + BUFF";
+    const outcome = applyDiffToPack(dir, {
+      ...diff([]),
+      statRows: [{ row: "hp", field: "vit", from: 3000, to: 3300 }],
+      formulas: [
+        { id: "hp.formula", from: generated, to: "VIT * 10 + STR" },
+        { id: "real_hit", from: "W", to: "W * 2" },
+        { id: "real_crit", from: "W", to: "W + NOPE" },
+        { id: "real_attack", from: "옛 식", to: "W" },
+      ],
+    });
+    expect(outcome.formulas.applied.map((change) => change.id)).toEqual(["hp.formula", "real_hit"]);
+    expect(outcome.formulas.skipped).toEqual([
+      { id: "real_crit", reason: "unknown" },
+      { id: "real_attack", reason: "unknown" },
+    ]);
+    expect(outcome.version).toBe(4);
+    expect(JSON.parse(readFileSync(path.join(dir, "stat_rows.json"), "utf8")).entries[0]).toEqual({
+      ...hp,
+      weights: [1500, 1000, 1500, 3300, 1000, 1200],
+      formula: "VIT * 10 + STR",
+    });
+    expect(JSON.parse(readFileSync(path.join(dir, "formulas.json"), "utf8")).entries[0].expression).toBe(
+      "W * 2",
+    );
   });
 });

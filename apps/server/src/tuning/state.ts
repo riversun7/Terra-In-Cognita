@@ -8,13 +8,25 @@
 // - selectAtBoot: 켤 때 DB 줄에서 "가장 나중에 바꾼 것"을 고른다(6절). 오류를 던지지 않는다.
 // - 가중치 표(stat_rows) 칸도 같은 덮어쓰기다(docs/adr/2026-11-01-balance-screen.md 1절): 키 `<행 ID>.<칸>`, 켜진 행·모양에 있는 칸만.
 //   statTable()은 스냅숏마다 한 번 만든 실효 표(sim StatRow, 켜진 행). 여러 칸 규칙에 statTableProblems(가치 없는 1차)를 더한다.
+// - 계산식(docs/adr/2026-11-01-formula-editor.md)도 같은 판·감사·켤 때 고르기를 쓴다: 칸 키 = 전투 식 ID(팩 formulas) 또는
+//   `<행 ID>.formula`(행 식). 값은 글이라 따로 든다(formulas). 식은 그 칸 변수로 읽혀야 받고(invalid_formula), 행 식은 가치 없는 1차
+//   검사(식이 쓰는 1차 변수)에도 든다. combatFormulas()는 스냅숏마다 한 번 만든 전투 식 묶음(sim 계수표에 싣는다).
 import {
+  type FormulaEntry,
   type StatRowEntry,
   type TuningEntry,
   statRowCell,
   tuningValueInRange,
   withStatRowCell,
 } from "@terra/content";
+import {
+  type CombatFormulaId,
+  type FormulaIssue,
+  type FormulaProgram,
+  isCombatFormulaId,
+  parseStatFormulaKey,
+  statRowExpression,
+} from "@terra/shared/formula";
 import {
   type StatCellField,
   type TuningDropReason,
@@ -27,13 +39,31 @@ import {
   tuningUnitFromName,
 } from "@terra/shared/tuning";
 import {
+  type CombatFormulaSet,
   type SocietyCoefficients,
   type StatRow,
+  combatFormulaSetFrom,
   newTuningProblems,
   societyCoefficientsFrom,
   statTableProblems,
   tuningProblems,
 } from "@terra/sim";
+import {
+  type FormulaChange,
+  type FormulaOverrideRecord,
+  type FormulaSlotInfo,
+  type PlannedFormulaChange,
+  compileSlot,
+  formulaSlotsOf,
+  sourcesOf,
+} from "./formulaSlots.ts";
+
+export type {
+  FormulaChange,
+  FormulaOverrideRecord,
+  FormulaSlotInfo,
+  PlannedFormulaChange,
+} from "./formulaSlots.ts";
 
 /** DB 줄(덮어쓰기 하나) */
 export interface TuningOverrideRecord {
@@ -58,6 +88,8 @@ export interface TuningSnapshot {
   readonly values: ReadonlyMap<string, number>;
   /** 듣는 덮어쓰기(팩에 있고 맞는 것만) */
   readonly overrides: ReadonlyMap<string, TuningOverrideRecord>;
+  /** 듣는 계산식 덮어쓰기(칸 키 → 줄) */
+  readonly formulas: ReadonlyMap<string, FormulaOverrideRecord>;
 }
 
 /** 묶음의 칸 하나: value null = 되돌리기(팩 값). 팩 값과 같은 값도 되돌리기로 본다 */
@@ -78,12 +110,21 @@ export type TuningPlan =
       readonly ok: true;
       /** 실제로 바뀌는 칸(같은 값·없는 덮어쓰기 되돌리기는 빠진다) */
       readonly changes: readonly PlannedChange[];
+      /** 실제로 바뀌는 계산식 */
+      readonly formulas: readonly PlannedFormulaChange[];
     }
   | {
       readonly ok: false;
-      readonly reason: "unknown_entry" | "out_of_range" | "rules_conflict" | "duplicate_entry";
+      readonly reason:
+        | "unknown_entry"
+        | "out_of_range"
+        | "rules_conflict"
+        | "duplicate_entry"
+        | "invalid_formula";
       readonly id: string | null;
       readonly problems: readonly TuningProblem[];
+      /** invalid_formula: 식 오류(코드·위치) */
+      readonly formulaErrors?: readonly FormulaIssue[];
     };
 
 /** 켤 때 고른 결과 */
@@ -94,6 +135,13 @@ export interface BootSelection {
   readonly packWon: readonly { readonly row: TuningOverrideRecord; readonly packValue: number }[];
   /** 새 팩과 맞지 않는 줄(지운다, 감사 tuning.dropped) */
   readonly dropped: readonly { readonly row: TuningOverrideRecord; readonly reason: TuningDropReason }[];
+  /** 계산식 줄: 듣는 줄·팩이 이긴 줄·지울 줄 */
+  readonly formulaKeep: readonly FormulaOverrideRecord[];
+  readonly formulaPackWon: readonly { readonly row: FormulaOverrideRecord; readonly packSource: string }[];
+  readonly formulaDropped: readonly {
+    readonly row: FormulaOverrideRecord;
+    readonly reason: TuningDropReason;
+  }[];
 }
 
 /** 가중치 칸 하나(팩 행·칸·팩 값·단위) */
@@ -134,6 +182,15 @@ export interface TuningState {
   statTable(): readonly StatRow[];
   /** 지금 표 위에 묶음을 얹은 표(검사와 상관없이 팩에 있고 범위 안인 가중치 칸만 얹는다, 밸런스 화면 미리 보기) */
   statTableWith(changes: readonly TuningChange[]): readonly StatRow[];
+  /** 계산식 칸(행 식은 켜진 행 팩 차례, 그다음 전투 식) */
+  readonly formulaSlots: readonly FormulaSlotInfo[];
+  formulaSlot(key: string): FormulaSlotInfo | undefined;
+  /** 지금 실효 식 글(덮어쓰기 → 팩 식, 행 식이 없는 행은 실효 가중치에서 만든 식) */
+  formulaSource(key: string): string | undefined;
+  /** 지금 스냅숏의 전투 식 묶음(스냅숏마다 한 번 만든다, sim combatCoefficientsFrom의 formulas) */
+  combatFormulas(): CombatFormulaSet;
+  /** 덮어쓴 계산식 수 */
+  formulaOverrideCount(): number;
   revision(): number;
   /** 덮어쓴 칸 수(/health·지표, 가중치 칸 포함) */
   appliedCount(): number;
@@ -141,12 +198,22 @@ export interface TuningState {
   statOverrideCount(): number;
   /** 지금 실효 값의 규칙 문제(팩이 틀렸을 때 켤 때 알린다) */
   problems(): TuningProblem[];
-  /** 묶음을 바꾼 뒤의 전체 값으로 검사한다(메모리는 그대로) */
-  plan(changes: readonly TuningChange[]): TuningPlan;
+  /** 묶음(칸·계산식)을 바꾼 뒤의 전체 값으로 검사한다(메모리는 그대로) */
+  plan(changes: readonly TuningChange[], formulas?: readonly FormulaChange[]): TuningPlan;
   /** 켤 때: DB 줄에서 듣는 줄·팩이 이긴 줄·지울 줄을 고른다(메모리는 그대로, 던지지 않는다) */
-  selectAtBoot(rows: readonly TuningOverrideRecord[]): BootSelection;
-  /** 새 스냅숏으로 바꿔 끼운다(DB 커밋 뒤). 팩에 없는 ID는 넣지 않는다 */
-  install(overrides: Iterable<TuningOverrideRecord>, revision: number): void;
+  selectAtBoot(
+    rows: readonly TuningOverrideRecord[],
+    formulaRows?: readonly FormulaOverrideRecord[],
+  ): BootSelection;
+  /**
+   * 새 스냅숏으로 바꿔 끼운다(DB 커밋 뒤). 팩에 없는 ID·읽히지 않는 식은 넣지 않는다. formulas를 주지 않으면 지금 식 덮어쓰기를
+   * 그대로 둔다(칸만 바꾼 묶음)
+   */
+  install(
+    overrides: Iterable<TuningOverrideRecord>,
+    revision: number,
+    formulas?: Iterable<FormulaOverrideRecord>,
+  ): void;
 }
 
 /** 칸의 단위: 팩 unit, 없으면 영어 이름 끝 괄호 */
@@ -154,22 +221,35 @@ const unitOf = (entry: TuningEntry): TuningUnit | null => entry.unit ?? tuningUn
 
 const byId = (a: { id: string }, b: { id: string }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
-/** 팩 행 + 값 표(가중치 칸 키 → 값) → sim 가중치 표 */
-function statTableFrom(rows: readonly StatRowEntry[], values: ReadonlyMap<string, number>): StatRow[] {
+/** 팩 행 + 값 표(가중치 칸 키 → 값) → 실효 팩 행(가중치 칸을 얹은 것) */
+function effectiveRow(pack: StatRowEntry, values: ReadonlyMap<string, number>): StatRowEntry {
+  let row = pack;
+  for (const field of statCellFieldsOf(pack.shape)) {
+    const value = values.get(`${pack.id}.${field}`);
+    if (value !== undefined) row = withStatRowCell(row, field, value);
+  }
+  return row;
+}
+
+/** 팩 행 + 값 표 + 행 식(행 ID → 읽은 식) → sim 가중치 표 */
+function statTableFrom(
+  rows: readonly StatRowEntry[],
+  values: ReadonlyMap<string, number>,
+  formulas: ReadonlyMap<string, FormulaProgram> = new Map(),
+): StatRow[] {
   return rows.map((pack): StatRow => {
-    let row = pack;
-    for (const field of statCellFieldsOf(pack.shape)) {
-      const value = values.get(`${pack.id}.${field}`);
-      if (value !== undefined) row = withStatRowCell(row, field, value);
-    }
+    const row = effectiveRow(pack, values);
+    const formula = formulas.get(row.id);
+    const extra = formula ? { formula } : {};
     return row.shape === "quantity"
-      ? { id: row.id, shape: "quantity", base: row.base, weights: row.weights }
+      ? { id: row.id, shape: "quantity", base: row.base, weights: row.weights, ...extra }
       : {
           id: row.id,
           shape: "probability",
           cap: row.cap,
           halfConstant: row.halfConstant,
           weights: row.weights,
+          ...extra,
         };
   });
 }
@@ -182,14 +262,54 @@ function allProblems(society: SocietyCoefficients, table: readonly StatRow[]): T
 export function createTuningState(
   entries: readonly TuningEntry[],
   packStatRows: readonly StatRowEntry[] = [],
+  packFormulas: readonly FormulaEntry[] = [],
 ): TuningState {
   const entryById = new Map(entries.map((entry) => [entry.id, entry]));
   const statRows = packStatRows.filter((row) => row.enabled);
   const statRowById = new Map(statRows.map((row) => [row.id, row]));
   const packValues: ReadonlyMap<string, number> = new Map(entries.map((entry) => [entry.id, entry.value]));
-  let current: TuningSnapshot = { revision: 0, values: packValues, overrides: new Map() };
+
+  // 계산식 칸: 켜진 행의 행 식(팩 차례) → 전투 식(칸 차례). 팩 식은 켤 때 한 번 읽는다(팩 검사가 본 식)
+  const formulaSlots = formulaSlotsOf(statRows, packFormulas);
+  const formulaSlotByKey = new Map(formulaSlots.map((slot) => [slot.key, slot]));
+  /** 팩의 행 식(행 ID → 읽은 식): 팩 행에 formula가 있을 때만 */
+  const packRowPrograms = new Map<string, FormulaProgram>();
+  for (const slot of formulaSlots) {
+    if (slot.row?.formula === undefined) continue;
+    const compiled = compileSlot(slot, slot.row.formula);
+    if (compiled.ok) packRowPrograms.set(slot.row.id, compiled.program);
+  }
+  /** 덮어쓴 식(칸 키 → 읽은 식). 글이 같으면 다시 읽지 않는다 */
+  const programCache = new Map<string, { source: string; program: FormulaProgram }>();
+  const programOf = (key: string, source: string): FormulaProgram | undefined => {
+    const hit = programCache.get(key);
+    if (hit?.source === source) return hit.program;
+    const slot = formulaSlotByKey.get(key);
+    const compiled = slot ? compileSlot(slot, source) : undefined;
+    if (!compiled?.ok) return undefined;
+    programCache.set(key, { source, program: compiled.program });
+    return compiled.program;
+  };
+  /** 식 덮어쓰기(칸 키 → 글)에서 행 ID → 실효 행 식 */
+  const rowProgramsFrom = (formulas: ReadonlyMap<string, string>): Map<string, FormulaProgram> => {
+    const out = new Map(packRowPrograms);
+    for (const [key, source] of formulas) {
+      const rowId = parseStatFormulaKey(key);
+      const program = rowId === null ? undefined : programOf(key, source);
+      if (rowId !== null && program) out.set(rowId, program);
+    }
+    return out;
+  };
+
+  let current: TuningSnapshot = {
+    revision: 0,
+    values: packValues,
+    overrides: new Map(),
+    formulas: new Map(),
+  };
   let cached: { snapshot: TuningSnapshot; society: SocietyCoefficients } | undefined;
   let cachedTable: { snapshot: TuningSnapshot; table: readonly StatRow[] } | undefined;
+  let cachedCombat: { snapshot: TuningSnapshot; set: CombatFormulaSet } | undefined;
 
   const society = (): SocietyCoefficients => {
     const snapshot = current;
@@ -201,8 +321,41 @@ export function createTuningState(
   const statTable = (): readonly StatRow[] => {
     const snapshot = current;
     if (cachedTable?.snapshot !== snapshot)
-      cachedTable = { snapshot, table: Object.freeze(statTableFrom(statRows, snapshot.values)) };
+      cachedTable = {
+        snapshot,
+        table: Object.freeze(
+          statTableFrom(statRows, snapshot.values, rowProgramsFrom(sourcesOf(snapshot.formulas))),
+        ),
+      };
     return cachedTable.table;
+  };
+
+  /** 전투 식 묶음(칸 ID → 글: 덮어쓰기 → 팩 식) */
+  const combatSetFrom = (formulas: ReadonlyMap<string, string>): CombatFormulaSet => {
+    const sources: Partial<Record<CombatFormulaId, string>> = {};
+    for (const slot of formulaSlots) {
+      if (slot.group !== "combat" || !isCombatFormulaId(slot.key)) continue;
+      sources[slot.key] = formulas.get(slot.key) ?? slot.packSource;
+    }
+    return combatFormulaSetFrom(sources);
+  };
+
+  const combatFormulas = (): CombatFormulaSet => {
+    const snapshot = current;
+    if (cachedCombat?.snapshot !== snapshot)
+      cachedCombat = { snapshot, set: combatSetFrom(sourcesOf(snapshot.formulas)) };
+    return cachedCombat.set;
+  };
+
+  /** 지금 실효 식 글 */
+  const formulaSource = (key: string): string | undefined => {
+    const slot = formulaSlotByKey.get(key);
+    if (!slot) return undefined;
+    const record = current.formulas.get(key);
+    if (record) return record.source;
+    if (slot.row && slot.row.formula === undefined)
+      return statRowExpression(effectiveRow(slot.row, current.values));
+    return slot.packSource;
   };
 
   const statCell = (key: string): StatCellInfo | undefined => {
@@ -234,19 +387,28 @@ export function createTuningState(
     return undefined;
   };
 
-  /** base 값에서 next로 바꾸면 새로 생기는 규칙 문제(세력·사회 + 가중치 표) */
+  /** base 값에서 next로 바꾸면 새로 생기는 규칙 문제(세력·사회 + 가중치 표·행 식) */
   const newProblems = (
     base: { society: SocietyCoefficients; table: readonly StatRow[] },
     next: ReadonlyMap<string, number>,
+    nextFormulas: ReadonlyMap<string, string>,
   ): TuningProblem[] =>
     newTuningProblems(
       allProblems(base.society, base.table),
-      allProblems(societyCoefficientsFrom(next), statTableFrom(statRows, next)),
+      allProblems(
+        societyCoefficientsFrom(next),
+        statTableFrom(statRows, next, rowProgramsFrom(nextFormulas)),
+      ),
     );
 
   return {
     entries,
     statRows,
+    formulaSlots,
+    formulaSlot: (key) => formulaSlotByKey.get(key),
+    formulaSource,
+    combatFormulas,
+    formulaOverrideCount: () => current.formulas.size,
     entry: (id) => entryById.get(id),
     statCell,
     slot,
@@ -264,14 +426,14 @@ export function createTuningState(
         const value = change.value ?? cell.packValue;
         if (statCellInRange(cell.field, value)) next.set(change.id, value);
       }
-      return statTableFrom(statRows, next);
+      return statTableFrom(statRows, next, rowProgramsFrom(sourcesOf(current.formulas)));
     },
     revision: () => current.revision,
-    appliedCount: () => current.overrides.size,
+    appliedCount: () => current.overrides.size + current.formulas.size,
     statOverrideCount: () => [...current.overrides.keys()].filter((id) => statCell(id) !== undefined).length,
     problems: () => allProblems(society(), statTable()),
 
-    plan(changes) {
+    plan(changes, formulaChanges = []) {
       const snapshot = current;
       const seen = new Set<string>();
       const next = new Map(snapshot.values);
@@ -293,15 +455,48 @@ export function createTuningState(
         next.set(change.id, after ?? target.packValue);
         planned.push({ id: change.id, before, after });
       }
-      const problems = newProblems({ society: society(), table: statTable() }, next);
+      // 계산식: 칸이 있는가 → 그 칸 변수로 읽히나 → 앞 덮어쓰기와 다른가. 팩 식과 같은 글(앞뒤 빈칸 무시)은 되돌리기
+      const nextFormulas = sourcesOf(snapshot.formulas);
+      const plannedFormulas: PlannedFormulaChange[] = [];
+      const seenFormulas = new Set<string>();
+      for (const change of formulaChanges) {
+        if (seenFormulas.has(change.id))
+          return { ok: false, reason: "duplicate_entry", id: change.id, problems: [] };
+        seenFormulas.add(change.id);
+        const target = formulaSlotByKey.get(change.id);
+        const before = snapshot.formulas.get(change.id)?.source ?? null;
+        if (!target) {
+          if (change.source === null) continue;
+          return { ok: false, reason: "unknown_entry", id: change.id, problems: [] };
+        }
+        const trimmed = change.source?.trim() ?? null;
+        const after = trimmed === null || trimmed === target.packSource.trim() ? null : trimmed;
+        if (after !== null) {
+          const compiled = compileSlot(target, after);
+          if (!compiled.ok)
+            return {
+              ok: false,
+              reason: "invalid_formula",
+              id: change.id,
+              problems: [],
+              formulaErrors: compiled.errors,
+            };
+        }
+        if (after === before) continue;
+        if (after === null) nextFormulas.delete(change.id);
+        else nextFormulas.set(change.id, after);
+        plannedFormulas.push({ id: change.id, before, after });
+      }
+      const problems = newProblems({ society: society(), table: statTable() }, next, nextFormulas);
       if (problems.length > 0) return { ok: false, reason: "rules_conflict", id: null, problems };
-      return { ok: true, changes: planned };
+      return { ok: true, changes: planned, formulas: plannedFormulas };
     },
 
-    selectAtBoot(rows) {
+    selectAtBoot(rows, formulaRows = []) {
       const keep: TuningOverrideRecord[] = [];
       const packWon: { row: TuningOverrideRecord; packValue: number }[] = [];
       const dropped: { row: TuningOverrideRecord; reason: TuningDropReason }[] = [];
+      const noFormulas = new Map<string, string>();
       let values = new Map(packValues);
       let base = { society: societyCoefficientsFrom(values), table: statTableFrom(statRows, values) };
       // 저장한 차례로 얹는다(앞 덮어쓰기와 맞지 않는 뒤 덮어쓰기가 빠진다). 같은 시각이면 ID 차례
@@ -329,7 +524,7 @@ export function createTuningState(
         next.set(row.id, row.value);
         let problems: TuningProblem[];
         try {
-          problems = newProblems(base, next);
+          problems = newProblems(base, next, noFormulas);
         } catch {
           // 계수표를 만들지 못하는 값(코드 표와 팩이 어긋남)도 시작을 막지 않는다
           problems = ["n9_fit"];
@@ -342,10 +537,45 @@ export function createTuningState(
         values = next;
         base = { society: societyCoefficientsFrom(values), table: statTableFrom(statRows, values) };
       }
-      return { keep, packWon, dropped };
+      // 계산식 줄: 칸 → 팩 식이 저장 뒤에 바뀌었나(팩이 이김) → 새 팩 변수로 읽히나 → 규칙(가치 없는 1차). 칸 값 뒤에 얹는다
+      const formulaKeep: FormulaOverrideRecord[] = [];
+      const formulaPackWon: { row: FormulaOverrideRecord; packSource: string }[] = [];
+      const formulaDropped: { row: FormulaOverrideRecord; reason: TuningDropReason }[] = [];
+      const sources = new Map<string, string>();
+      for (const row of formulaRows.toSorted((a, b) => a.updatedAtMs - b.updatedAtMs || byId(a, b))) {
+        const target = formulaSlotByKey.get(row.id);
+        if (!target) {
+          formulaDropped.push({ row, reason: "unknown_entry" });
+          continue;
+        }
+        if (target.packSource !== row.packSource || row.source === target.packSource) {
+          formulaPackWon.push({ row, packSource: target.packSource });
+          continue;
+        }
+        if (!compileSlot(target, row.source).ok) {
+          formulaDropped.push({ row, reason: "invalid_formula" });
+          continue;
+        }
+        const next = new Map(sources);
+        next.set(row.id, row.source);
+        let problems: TuningProblem[];
+        try {
+          problems = newProblems(base, values, next);
+        } catch {
+          problems = ["stat_primary_unused"];
+        }
+        if (problems.length > 0) {
+          formulaDropped.push({ row, reason: "rules_conflict" });
+          continue;
+        }
+        formulaKeep.push(row);
+        sources.set(row.id, row.source);
+        base = { society: base.society, table: statTableFrom(statRows, values, rowProgramsFrom(sources)) };
+      }
+      return { keep, packWon, dropped, formulaKeep, formulaPackWon, formulaDropped };
     },
 
-    install(overrides, revision) {
+    install(overrides, revision, formulas) {
       const map = new Map<string, TuningOverrideRecord>();
       const values = new Map(packValues);
       for (const record of [...overrides].toSorted(byId)) {
@@ -353,8 +583,12 @@ export function createTuningState(
         map.set(record.id, record);
         values.set(record.id, record.value);
       }
+      const formulaRecords = [...(formulas ?? current.formulas.values())].toSorted(byId);
+      const formulaMap = new Map<string, FormulaOverrideRecord>();
+      for (const record of formulaRecords)
+        if (programOf(record.id, record.source)) formulaMap.set(record.id, record);
       // 대입 한 번: 읽는 쪽은 앞 스냅숏이나 이 스냅숏만 본다
-      current = { revision, values, overrides: map };
+      current = { revision, values, overrides: map, formulas: formulaMap };
     },
   };
 }

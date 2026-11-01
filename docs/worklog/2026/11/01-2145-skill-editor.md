@@ -60,6 +60,20 @@
 - WP-0 b 꺼진 참조 거르기: `@terra/sim` `combatCatalogFrom`이 켜진 장비의 꺼진(없는) 스킬 ID와 켜진 스킬의 꺼진(없는) 효과 줄을 뺀다(`droppedReferences`). 서버는 스냅숏마다(켤 때·저장 뒤) 한 줄 `content references dropped`. 시험 둘(`apps/server/src/world/combatCatalog.test.ts`, 실제 팩: `fire_bolt`를 끄면 시험 지팡이 장비 스킬에서 빠지고 던지지 않음, `burn`을 끄면 화염 폭발·불꽃 화살 효과에서 빠짐). 지금 팩의 꺼진 참조는 없음(같은 시험).
 - 확인: 시뮬(시드 1) war16·stub16·econ16을 거르기 앞(c3ab843)·뒤에서 한 번씩 돌려 줄·요약 파일이 바이트까지 같다(war16 `77530457`, stub16 `2d938320`, econ16 `c8d4fdd9`, 위반 0. 팩 core@22라 앞 합치기의 해시와 머리만 다르고 하루·전투 줄은 같다. ID 변경표 since를 22로 고치기 전 팩으로 잰 값이라 지금 팩 해시와는 머리가 다르다). 서버 DB 시험 contentEdit·battleLab·battleReplay 10파일 50개 통과. 그다음 main b57a2b3(설계안 문서)도 합치고 `TEST_DATABASE_URL=… pnpm check` 통과(시험 파일 350·시험 2,943), `pnpm check:content origin/main` core@22 통과(ID 변경표 n40 기록의 since를 22로 — main 판 다음).
 
+## main 합치기 3 (ff87874: 계산식 편집기, 통합 담당 요청)
+- 충돌 15파일을 풀었다. 서버 `app.ts`(정원사 웨이브 전투 자료는 이 가지의 실효 항목 접근자, 전투 계수는 main의 계산식 `combatFormulas()`를 싣는다)·`main.ts`(설정 칸 상태 = 팩 tuning·가중치 표·계산식, 그 뒤 팩 항목 상태)·tRPC `context.ts`·`tuning/services.ts`(내보내기 = `entries` + `formulas`)·`world/combatCatalog.ts`. 콘텐츠 `tuningDiff.ts`(선택 칸 `entries` + `formulas`, 겹침 검사 둘)·공용 `tuning.ts`. sim `coefficients.ts`(계산식 칸 `formulas`는 받고 `shieldRegenDelayMs`는 없앤 채)·`packCatalog.ts`(행 식 `statRowFrom` + 꺼진 참조 거르기)·`unitSpec.ts`(아래)·`index.ts`·`version.ts`. `pnpm tuning:apply`(`entries` + `formulas`, 판은 한 번, 건너뜀 까닭 `invalid`는 식과 항목의 문구를 나눔)와 시험. `docs/WORKLOG.md`는 다시 만들었다.
+- 맨손 식과 맨손 규칙: main의 맨손 식(`bare_attack`, D-488)은 맨손 기본 공격(무기 `unarmed`)에만 쓴다. 맨손 유닛(사람형)은 그대로 스킬을 못 쓰고(D-490), 맨손 스킬은 타고난 무기 틀로 센다. 든 무기가 `unarmed`면 같은 칸 스킬의 사양은 무기 틀(main의 `!attack.unarmed` 조건을 이 가지 `skillProfile`에 옮김).
+- 팩: main core@22(계산식 `formulas`, 사람형 타고난 무기 `unarmed`) 다음이라 core@23, ID 변경표 n40 기록의 since 23. 스킬 편집기의 유닛 종류 소모 저장은 `naturalWeapon`을 펼쳐 바꾸므로 `unarmed`가 남는다.
+- 마이그레이션: main이 `20261101113211_battle_lab_presets`·`20261101121828_formula_overrides`(둘 다 gardener 위 갈래)를 더했다. 이 가지의 `20261101120613_content_overrides`(gardener 위)도 그대로 두어 gardener 위 갈래 셋이다(AGENTS 6장 Drizzle: 적용은 이름만 보므로 차례와 상관없고, 다시 만들지 않는다, 통합 담당 지시). 합친 뒤 `db:generate`는 "No schema changes". 다음 마이그레이션의 `prevIds`에 세 끝을 모두 적게 된다.
+- 켤 때 잠재우기 DB 시험은 팩 판을 manifest에서 읽는다(22 고정 → N, 새 판 = N + 1).
+- 시뮬레이터(main ff87874 앞 · 합친 가지 뒤, 시드 1, 두 번씩 바이트 같음, 위반 0)
+  - war16 30일·stub16 180일: 하루·전투 줄이 모두 같다(머리·요약 줄의 팩 판·해시·SIM_VERSION만). 줄 해시 war16 `95243fc1` → `fd0d1c00`, stub16 `2985e911` → `2b878a6a`.
+  - econ16 180일: 13일 웨이브 전투(틱 750 → 700)부터 달라진다(시뮬 정원사 마법형 크리쳐가 물리 기반 스킬을 못 씀, 앞 합치기들과 같은 까닭과 같은 수). 웨이브 예고 529 → 494, 웨이브 전투 383 → 342, 웨이브 승 31 → 38, 끝 세력 19 → 18·도시 58 → 56·유닛 838 → 809, 도시 몫 최대 1,666 → 1,578bp. 줄 해시 `e9d92ab9` → `b06e63b7`.
+  - main이 `SIM_VERSION` 5(계산식)를 먼저 써서 같은 입력의 결과가 main 5와 다르므로 6으로 올렸다(`version.ts`에 5 = 계산식, 6 = 이 가지).
+- `TEST_DATABASE_URL=… pnpm check`: 통과(시험 파일 356·시험 3,008). `pnpm check:content origin/main`: core@23 통과(4b 기준 ff87874). `pnpm check:bundle` 첫 화면 JS 104,731 B / 131,416 B.
+- 화면 시험(Playwright 1.63, 빌드한 합친 가지): skills·dev·battle-replay·tuning·formulas·battleLab 79개 중 73 통과, 2 건너뜀(다시보기 측정, `E2E_MEASURE=1`일 때만), 4 실패 = battleLab 배치·사진의 1440px 넷(전체 화면 사진에서 Chromium "Unable to capture screenshot"). battleLab만 한 번 다시 돌리니 17개 중 16 통과, 1 실패(dark·en·1440: 사진은 찍힌 뒤 렌더러가 죽음 "Target crashed"). 이 사진은 기기 배율 3이라 4,320 × 약 23,000px(약 1억 화소)이고, 그때 기계는 디스크가 거의 차고(남은 곳 약 0.5~0.9GB) 다른 줄기 작업으로 부하가 컸다. 전투 실험실 화면 코드는 이 합치기에서 바뀌지 않았다. 환경 탓으로 보지만(Assumed) main에서 같은 기계로는 재지 않았다(Unknown).
+- 기계 디스크가 거의 찼다(다른 줄기 작업 트리 포함). 이 가지의 옛 기준 복사본(시뮬 비교용)과 지난 화면 시험 결과 폴더는 지웠다.
+
 ## 함께 바꿔야 하는 파일
 - 스킬 칸을 더하면: `packages/content/src/schema/combat.ts` → `packages/sim/src/combat/{skills,packCatalog}.ts` → `apps/server/src/contentEdit/views.ts`(`skillJsonOf`) → `packages/shared/src/skillEditor.ts`(`SkillJson`) → 화면 `editor/skills/SkillForm.tsx`.
 - 효과 사전 수치를 더하면: 팩 스키마 `stat` 목록 + `effects.ts ModifierStat`·`modifiersOf`.
@@ -74,7 +88,7 @@
 - 시뮬 정원사 마법형 크리쳐는 같은 물리 스킬 셋에 지팡이만 들어 이제 스킬을 못 쓴다(시뮬 [임시] 장비, `work/battle-lab` 프리셋과 같이 정리).
 - 유닛·사이보그 화면은 "든 무기로 못 쓰는 스킬"을 아직 따로 보이지 않는다.
 - NAS 실행·NAS 부하는 재지 않았다(Unknown).
-- 다른 줄기와 겹침: `work/formulas`(팩 core@21·SIM_VERSION 5를 같이 씀, `coefficients.ts`에서 `shieldRegenDelayMs`를 뺐다), `work/battle-replay`(스킬 `shape`·연쇄 칸은 그대로).
+- 다른 줄기와 겹침: `work/formulas`는 main ff87874로 합쳤다(아래 "main 합치기 3"). `work/battle-replay`(스킬 `shape`·연쇄 칸은 그대로).
 
 ## 사용자 결정 대기
 - 없음(스킬 세부는 편집기에서 정한다, D-490). 기술 기본값으로 정한 것: 맨손 스킬은 무기를 들어도 늘 타고난 무기로 센다, 지속형 스킬도 든 무기로 거른다, `naturalWeaponIsWeapon`(크리쳐 참·사람형 거짓).

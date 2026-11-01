@@ -133,6 +133,8 @@ export function loadoutOf(options: {
   readonly innateSkills?: readonly string[];
   readonly skillSlots?: number;
   readonly buffs?: Readonly<Record<string, number>>;
+  /** 레벨(행 식의 LV, 없으면 1) */
+  readonly level?: number;
 }): Loadout {
   const { slots, equipped } = options;
   if (equipped.length > slots.length) throw new RangeError("more items than slots");
@@ -165,7 +167,7 @@ export function loadoutOf(options: {
   const skills = [...new Set([...(options.innateSkills ?? []), ...equipSkills])];
   return {
     primaries: primary,
-    stats: computeSecondary(primary, options.table, gear, options.buffs ?? {}),
+    stats: computeSecondary(primary, options.table, gear, options.buffs ?? {}, options.level ?? 1),
     gear,
     weapon,
     bareHanded: !armed && options.naturalIsWeapon !== true,

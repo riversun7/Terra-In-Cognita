@@ -9,6 +9,8 @@ import type { SocietyCoefficients } from "./society/coefficients.ts";
 
 /** 1차 스탯 수(N9 합을 칸마다 나눈다) */
 const PRIMARY_COUNT = 6;
+/** 행 식의 1차 변수 이름(가중치 칸 차례) */
+const PRIMARY_VAR_NAMES = ["STR", "DEX", "AGI", "VIT", "INT", "WIS"];
 
 /** 오르는 차례인가(같은 값 허용) */
 const ascending = (values: readonly number[]): boolean =>
@@ -70,11 +72,19 @@ export function newTuningProblems(
  * 더 약한 신호(+10 승률이 오르지 않음)는 밸런스 화면이 보이기만 한다
  */
 export function statTableProblems(
-  table: readonly { readonly weights: readonly number[] }[],
+  table: readonly {
+    readonly weights: readonly number[];
+    readonly formula?: { readonly vars: readonly string[] } | undefined;
+  }[],
 ): TuningProblem[] {
   // 표가 없으면(가중치 표를 싣지 않은 접근자·시험) 볼 것이 없다
   if (table.length === 0) return [];
+  // 행 식이 있는 행은 식이 쓰는 1차 변수로 본다(docs/adr/2026-11-01-formula-editor.md)
+  const uses = (row: (typeof table)[number], column: number): boolean =>
+    row.formula
+      ? row.formula.vars.includes(PRIMARY_VAR_NAMES[column] ?? "")
+      : (row.weights[column] ?? 0) !== 0;
   for (let column = 0; column < PRIMARY_COUNT; column++)
-    if (table.every((row) => (row.weights[column] ?? 0) === 0)) return ["stat_primary_unused"];
+    if (table.every((row) => !uses(row, column))) return ["stat_primary_unused"];
   return [];
 }

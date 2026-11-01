@@ -5,6 +5,7 @@
 // R4a: 효과 사전·스킬·유닛 종류(장비 칸)와 아이템 장비 칸(docs/adr/2026-10-31-combat-core.md 7절).
 // R2: 아이템에 대분류·티어·기준 가치·켬/끔을 더하고, 레시피·시설·생필품·국가 프리셋을 더했다(ADR 2026-10-31-economy-core).
 // 2차맵 소품(map_props): 2차맵 생성기의 배치 규칙(ADR 2026-10-31-second-map-from-planet 4절, 임시 데이터).
+// 전투 계산식(formulas): 개발자 모드에서 고치는 식(docs/adr/2026-11-01-formula-editor.md).
 import { z } from "zod";
 import {
   facilityEntrySchema,
@@ -16,6 +17,7 @@ import {
 import { mapPropEntrySchema } from "./mapProps.ts";
 import { effectEntrySchema, skillEntrySchema, unitKindEntrySchema } from "./combat.ts";
 import { biomeEntrySchema, planetEntrySchema, planetTemplateEntrySchema } from "./planets.ts";
+import { formulaEntrySchema } from "./formulas.ts";
 import { statRowEntrySchema } from "./stats.ts";
 import { tuningEntrySchema } from "./tuning.ts";
 
@@ -46,6 +48,7 @@ export const CATEGORIES: CategoryRegistry = {
   necessities: { entry: necessityEntrySchema },
   nation_presets: { entry: nationPresetEntrySchema },
   stat_rows: { entry: statRowEntrySchema },
+  formulas: { entry: formulaEntrySchema },
   effects: { entry: effectEntrySchema },
   skills: { entry: skillEntrySchema },
   unit_kinds: { entry: unitKindEntrySchema },

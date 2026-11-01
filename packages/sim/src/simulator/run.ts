@@ -17,6 +17,7 @@ import type { EconomyCatalog } from "./catalog.ts";
 import { type EconomyRun, type EconomySummary, attachEconomy, systemRule } from "./economyRun.ts";
 import { type CombatSummary, attachCombat } from "./combatRun.ts";
 import type { CombatCatalog } from "../combat/catalog.ts";
+import type { CombatFormulaSet } from "../combat/formulas.ts";
 import { combatCoefficientsFrom, societyCoefficientsFrom } from "../tuning.ts";
 import { type SocietySummary, attachSociety } from "./society.ts";
 import {
@@ -85,6 +86,8 @@ export interface RunOptions {
   readonly combatCatalog?: CombatCatalog | undefined;
   /** 설정 칸 값(콘텐츠 팩 tuning: 항목 ID → 정수). 없으면 TEST 계수표 */
   readonly tuning?: ReadonlyMap<string, number> | undefined;
+  /** 전투 계산식 묶음(콘텐츠 팩 formulas + 차이의 식, docs/adr/2026-11-01-formula-editor.md). 없으면 기본 식 */
+  readonly combatFormulas?: CombatFormulaSet | undefined;
   /** 경제 목록(시나리오에 economy 칸이 있으면 꼭 준다. 실행 도구가 콘텐츠 팩에서 만든다) */
   readonly catalog?: EconomyCatalog | undefined;
   /** 하루가 끝날 때마다(진행 표시용, 판정에 영향 없음) */
@@ -205,7 +208,7 @@ export function runSimulation(options: RunOptions): RunSummary {
           scenario.combat,
           combatRecorder,
           options.combatCatalog,
-          combatCoefficientsFrom(options.tuning ?? new Map()),
+          combatCoefficientsFrom(options.tuning ?? new Map(), undefined, options.combatFormulas),
         )
       : undefined,
     encounterPerMille: scenario.combat?.encounterPerMille,
@@ -230,7 +233,11 @@ export function runSimulation(options: RunOptions): RunSummary {
   ctx.society = society;
 
   // 정원사(R5b): 시뮬 세계에는 지형이 없어 도시마다 합성 격자 칸(3칸 간격)을 준다. 모함 칸은 격자 끝(도시에서 멀다)
-  const combatCoefficients = combatCoefficientsFrom(options.tuning ?? new Map());
+  const combatCoefficients = combatCoefficientsFrom(
+    options.tuning ?? new Map(),
+    undefined,
+    options.combatFormulas,
+  );
   let waveBattles = 0;
   if (scenario.gardener.enabled) {
     const grid = squareGrid(SIM_GRID_SIZE);

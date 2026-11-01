@@ -45,6 +45,7 @@ export {
 } from "./schema/economy.ts";
 export { mapPropEntrySchema, type MapPropEntry } from "./schema/mapProps.ts";
 export { statRowEntrySchema, type StatRowEntry } from "./schema/stats.ts";
+export { formulaEntrySchema, type FormulaEntry } from "./schema/formulas.ts";
 export { tuningEntrySchema, tuningValueInRange, type TuningEntry } from "./schema/tuning.ts";
 export {
   ENTRY_DIFF_CATEGORIES,
@@ -70,6 +71,15 @@ export {
   type TuningDiff,
   type TuningDiffChange,
 } from "./tuningDiff.ts";
+export {
+  applyFormulasDiff,
+  formulaDiffChangeSchema,
+  overlayFormulasDiff,
+  packStatRowFormula,
+  type FormulaDiffChange,
+  type FormulaDiffSkip,
+  type FormulasApplyResult,
+} from "./formulaDiff.ts";
 export {
   EQUIP_SLOT_KINDS,
   PRIMARY_STAT_CODES,

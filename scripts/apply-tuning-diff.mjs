@@ -3,6 +3,8 @@
 // 차이에 가중치 표 칸(statRows, 밸런스 화면 /dev/balance — docs/adr/2026-11-01-balance-screen.md 2절)이 있으면 stat_rows.json의 그 칸도
 // 같은 규칙으로 바꾼다(판은 한 번만 올린다). 팩 항목 차이(entries, 스킬 편집기 /dev/skills — docs/adr/2026-11-01-skill-editor.md 7절)가
 // 있으면 skills.json·items.json·unit_kinds.json의 그 항목을 통째로 바꾸거나(지금 팩 항목 해시 = from) 끝에 붙인다(from = null).
+// 계산식 차이(formulas, docs/adr/2026-11-01-formula-editor.md)가 있으면 formulas.json의 expression·stat_rows.json의
+// formula도 바꾼다(지금 팩 식 = from, 그 칸 변수로 읽히는 식만).
 // 사용: pnpm tuning:apply <차이.json> [--pack content/<팩 ID>] [--force] [--dry-run]
 //   칸마다: 팩에 있는가(없으면 건너뜀), 지금 팩 값 = 차이의 from인가(아니면 건너뜀, --force면 넣음), 기술 범위 안인가(아니면 건너뜀).
 //   바꾼 칸이 하나도 없으면 파일을 쓰지 않는다. 그다음 pnpm check:content → 작업 기록 → 커밋은 사람·에이전트가 한다(PLAN 7장 v1).
@@ -11,6 +13,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
+  applyFormulasDiff,
   applyStatRowsDiff,
   applyTuningDiff,
   itemEntrySchema,
@@ -44,7 +47,12 @@ export function applyDiffToPack(packDir, diffValue, { force = false, dryRun = fa
   const file = JSON.parse(readFileSync(tuningPath, "utf8"));
   const result = applyTuningDiff(Array.isArray(file.entries) ? file.entries : [], diff, { force });
   const statChanges = diff.statRows ?? [];
-  const rowsFile = statChanges.length > 0 ? JSON.parse(readFileSync(statRowsPath, "utf8")) : null;
+  const formulaChanges = diff.formulas ?? [];
+  const formulasPath = path.join(packDir, "formulas.json");
+  const rowsFile =
+    statChanges.length > 0 || formulaChanges.length > 0
+      ? JSON.parse(readFileSync(statRowsPath, "utf8"))
+      : null;
   const rows = rowsFile
     ? applyStatRowsDiff(Array.isArray(rowsFile.entries) ? rowsFile.entries : [], statChanges, { force })
     : { entries: [], applied: [], skipped: [] };
@@ -69,11 +77,31 @@ export function applyDiffToPack(packDir, diffValue, { force = false, dryRun = fa
   const entriesSkipped = entryResults.flatMap(({ category, outcome }) =>
     outcome.skipped.map((change) => ({ category, ...change })),
   );
+  const formulasFile = formulaChanges.length > 0 ? JSON.parse(readFileSync(formulasPath, "utf8")) : null;
+  const formulas = formulasFile
+    ? applyFormulasDiff(
+        Array.isArray(formulasFile.entries) ? formulasFile.entries : [],
+        rows.entries,
+        formulaChanges,
+        // from은 내보낼 때의 팩 식이라 같은 차이의 가중치 칸을 넣기 전 행으로 견준다
+        { force, compareRows: Array.isArray(rowsFile?.entries) ? rowsFile.entries : [] },
+      )
+    : { formulaEntries: [], statRowEntries: rows.entries, applied: [], skipped: [] };
+  const rowsChanged =
+    rows.applied.length > 0 || formulas.applied.some((change) => change.id.endsWith(".formula"));
+  const formulasChanged = formulas.applied.some((change) => !change.id.endsWith(".formula"));
   let version = manifest.version;
-  if ((result.applied.length > 0 || rows.applied.length > 0 || entriesApplied.length > 0) && !dryRun) {
+  const anyApplied =
+    result.applied.length > 0 ||
+    rows.applied.length > 0 ||
+    formulas.applied.length > 0 ||
+    entriesApplied.length > 0;
+  if (anyApplied && !dryRun) {
     if (result.applied.length > 0) writeFileSync(tuningPath, json({ ...file, entries: result.entries }));
-    if (rowsFile && rows.applied.length > 0)
-      writeFileSync(statRowsPath, json({ ...rowsFile, entries: rows.entries }));
+    if (rowsFile && rowsChanged)
+      writeFileSync(statRowsPath, json({ ...rowsFile, entries: formulas.statRowEntries }));
+    if (formulasFile && formulasChanged)
+      writeFileSync(formulasPath, json({ ...formulasFile, entries: formulas.formulaEntries }));
     for (const { filePath, categoryFile, outcome } of entryResults)
       if (outcome.applied.length > 0)
         writeFileSync(filePath, json({ ...categoryFile, entries: outcome.entries }));
@@ -85,6 +113,7 @@ export function applyDiffToPack(packDir, diffValue, { force = false, dryRun = fa
     skipped: result.skipped,
     rows: { applied: rows.applied, skipped: rows.skipped },
     entries: { applied: entriesApplied, skipped: entriesSkipped },
+    formulas: { applied: formulas.applied, skipped: formulas.skipped },
     version,
   };
 }
@@ -93,8 +122,12 @@ const SKIP_TEXT = {
   unknown: "팩에 없는 칸",
   stale: "지금 팩 값이 내보낼 때와 다름(--force로 넣기)",
   out_of_range: "기술 범위 밖",
-  invalid: "항목 모양이 팩 스키마와 맞지 않음",
+  invalid: "그 칸 변수로 읽히지 않는 식",
 };
+
+/** 팩 항목 차이의 건너뜀 까닭(invalid = 항목 모양이 스키마와 맞지 않음) */
+const entrySkipText = (reason) =>
+  reason === "invalid" ? "항목 모양이 팩 스키마와 맞지 않음" : SKIP_TEXT[reason];
 
 function main(argv) {
   const args = argv.slice(2);
@@ -126,10 +159,13 @@ function main(argv) {
   for (const change of outcome.applied) console.log(`✓ ${change.id}: ${change.from} → ${change.to}`);
   for (const change of outcome.rows.applied)
     console.log(`✓ stat_rows ${change.row}.${change.field}: ${change.from} → ${change.to}`);
+  for (const change of outcome.formulas.applied) console.log(`✓ 식 ${change.id}: ${change.to}`);
+  for (const skip of outcome.formulas.skipped)
+    console.error(`- 건너뜀 식 ${skip.id}: ${SKIP_TEXT[skip.reason]}`);
   for (const change of outcome.entries.applied)
     console.log(`✓ ${change.category} ${change.id}: ${change.kind === "added" ? "새 항목" : "항목 바꿈"}`);
   for (const skip of outcome.entries.skipped)
-    console.error(`- 건너뜀 ${skip.category} ${skip.id}: ${SKIP_TEXT[skip.reason]}`);
+    console.error(`- 건너뜀 ${skip.category} ${skip.id}: ${entrySkipText(skip.reason)}`);
   for (const skip of outcome.skipped) {
     const current = skip.current === undefined ? "" : ` (지금 팩 값 ${skip.current})`;
     console.error(`- 건너뜀 ${skip.id}: ${SKIP_TEXT[skip.reason]}${current}`);
@@ -138,14 +174,23 @@ function main(argv) {
     const current = skip.current === undefined ? "" : ` (지금 팩 값 ${skip.current})`;
     console.error(`- 건너뜀 stat_rows ${skip.row}.${skip.field}: ${SKIP_TEXT[skip.reason]}${current}`);
   }
-  const count = outcome.applied.length + outcome.rows.applied.length + outcome.entries.applied.length;
+  const count =
+    outcome.applied.length +
+    outcome.rows.applied.length +
+    outcome.formulas.applied.length +
+    outcome.entries.applied.length;
   if (count === 0) console.log("바꾼 칸이 없습니다(파일을 쓰지 않음)");
   else if (args.includes("--dry-run")) console.log(`미리 보기: ${count}칸(파일을 쓰지 않음)`);
   else
     console.log(
       `${count}칸을 바꾸고 팩 판을 ${outcome.version}로 올렸습니다 → pnpm check:content, 작업 기록, 커밋`,
     );
-  return outcome.skipped.length + outcome.rows.skipped.length + outcome.entries.skipped.length > 0 ? 1 : 0;
+  const skipped =
+    outcome.skipped.length +
+    outcome.rows.skipped.length +
+    outcome.formulas.skipped.length +
+    outcome.entries.skipped.length;
+  return skipped > 0 ? 1 : 0;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)

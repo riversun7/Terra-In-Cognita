@@ -6,6 +6,7 @@
 // 그 칸만 바꾸고, overlayStatRowsDiff가 팩 행 위에 얹는다(시뮬레이터). 덮어쓰기가 없으면 칸을 넣지 않아 옛 모양 그대로다.
 // 팩 항목(스킬·무기·유닛 종류) 차이는 선택 칸 entries(docs/adr/2026-11-01-skill-editor.md 7절): 해시가 필요해 적용 함수는
 // "@terra/content/node" applyEntriesDiff다.
+// 계산식 차이는 선택 칸 formulas(formulaDiff.ts, docs/adr/2026-11-01-formula-editor.md).
 // Node API를 쓰지 않는다(파일 읽기는 부르는 쪽).
 import {
   STAT_CELL_FIELDS,
@@ -15,6 +16,7 @@ import {
   statCellInRange,
 } from "@terra/shared/tuning";
 import { z } from "zod";
+import { formulaDiffChangeSchema } from "./formulaDiff.ts";
 import { contentId } from "./schema/common.ts";
 import { type StatRowEntry, statRowEntrySchema } from "./schema/stats.ts";
 import { type TuningEntry, tuningEntrySchema, tuningValueInRange } from "./schema/tuning.ts";
@@ -79,6 +81,8 @@ export const tuningDiffSchema = z
     statRows: z.array(statRowsDiffChangeSchema).max(TUNING_DIFF_MAX_CHANGES).optional(),
     /** 팩 항목 차이(선택, 스킬·무기·유닛 종류 덮어쓰기가 있을 때만) */
     entries: z.array(entriesDiffChangeSchema).max(TUNING_DIFF_MAX_CHANGES).optional(),
+    /** 계산식 차이(선택, 식 덮어쓰기가 있을 때만, docs/adr/2026-11-01-formula-editor.md) */
+    formulas: z.array(formulaDiffChangeSchema).max(TUNING_DIFF_MAX_CHANGES).optional(),
   })
   .superRefine((diff, ctx) => {
     if (Array.isArray(diff.changes)) {
@@ -99,6 +103,16 @@ export const tuningDiffSchema = z
         if (seen.has(key))
           ctx.addIssue({ code: "custom", path: ["entries", index], message: `항목이 두 번: ${key}` });
         seen.add(key);
+      });
+    }
+    if (Array.isArray(diff.formulas)) {
+      const seen = new Set<string>();
+      diff.formulas.forEach((change, index) => {
+        const id = typeof change === "object" && change !== null ? change.id : undefined;
+        if (typeof id !== "string") return;
+        if (seen.has(id))
+          ctx.addIssue({ code: "custom", path: ["formulas", index, "id"], message: `식 칸이 두 번: ${id}` });
+        seen.add(id);
       });
     }
     if (Array.isArray(diff.statRows)) {

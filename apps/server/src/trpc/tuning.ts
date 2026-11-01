@@ -4,9 +4,11 @@
 // 쓰기는 게임 상태가 아니라 그 세계의 설정 칸 실효 값(덮어쓰기)을 바꾼다: 서버가 범위·규칙을 본 뒤에만 받고 감사 기록을 남긴다.
 // 오류(error.data.code): UNAUTHORIZED, FORBIDDEN(권한 없음, "cross_origin"), TOO_MANY_REQUESTS("rate_limited"),
 // BAD_REQUEST(입력 형식, 또는 data.reason = unknown_entry·out_of_range·rules_conflict(+ data.details 문제 코드)·
-// structural_unconfirmed·invalid_note·duplicate_entry — 하나라도 틀리면 묶음 전체를 받지 않는다),
+// structural_unconfirmed·invalid_note·duplicate_entry·invalid_formula(+ data.details 식 오류 "코드@위치") — 하나라도 틀리면 묶음
+// 전체를 받지 않는다),
 // CONFLICT("revision_conflict": 세계 설정 판이 바뀜), NOT_FOUND(message "TUNING_UNAVAILABLE": 인증이나 팩 설정 칸이 없는 서버).
-import { TUNING_APPLY_MAX, TUNING_VALUE_LIMIT } from "@terra/shared/tuning";
+import { FORMULA_MAX_LENGTH } from "@terra/shared/formula";
+import { TUNING_APPLY_MAX, TUNING_FORMULAS_MAX, TUNING_VALUE_LIMIT } from "@terra/shared/tuning";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { TuningAction } from "./context.ts";
@@ -19,16 +21,25 @@ const tuningValue = z.int().min(-TUNING_VALUE_LIMIT).max(TUNING_VALUE_LIMIT);
 /** 세계 설정 판(DB int8, 안전한 정수) */
 const revision = z.int().min(0).max(Number.MAX_SAFE_INTEGER);
 
-const applyInput = z.strictObject({
-  expectedRevision: revision,
-  changes: z
-    .array(z.strictObject({ id: tuningId, value: tuningValue.nullable() }))
-    .min(1)
-    .max(TUNING_APPLY_MAX),
-  /** 메모는 서버가 정리·검사한다(@terra/shared normalizeTuningNote). 여기서는 길이만 크게 막는다 */
-  note: z.string().max(2_000).nullable().optional(),
-  confirmStructural: z.boolean().optional(),
-});
+/** 계산식 칸 키: 전투 식 ID 또는 `<행 ID>.formula`(docs/adr/2026-11-01-formula-editor.md) */
+const formulaId = z.string().regex(/^[a-z][a-z0-9_]{1,47}(\.formula)?$/);
+
+const applyInput = z
+  .strictObject({
+    expectedRevision: revision,
+    changes: z.array(z.strictObject({ id: tuningId, value: tuningValue.nullable() })).max(TUNING_APPLY_MAX),
+    /** 계산식(글은 서버가 읽어 보고 받는다. 여기서는 길이만) */
+    formulas: z
+      .array(z.strictObject({ id: formulaId, source: z.string().max(FORMULA_MAX_LENGTH).nullable() }))
+      .max(TUNING_FORMULAS_MAX)
+      .optional(),
+    /** 메모는 서버가 정리·검사한다(@terra/shared normalizeTuningNote). 여기서는 길이만 크게 막는다 */
+    note: z.string().max(2_000).nullable().optional(),
+    confirmStructural: z.boolean().optional(),
+  })
+  .refine((input) => input.changes.length + (input.formulas?.length ?? 0) > 0, {
+    message: "empty batch",
+  });
 const revertAllInput = z.strictObject({ expectedRevision: revision });
 
 /** 권한 표 확인(미들웨어) → Better Auth 확인 → 속도 제한 → ctx.tuning */

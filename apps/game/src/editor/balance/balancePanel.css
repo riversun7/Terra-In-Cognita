@@ -247,6 +247,21 @@
   border-color: var(--color-warning);
   background-color: var(--color-warning-surface);
 }
+/* 계산식 행(가중치 칸이 듣지 않음): 칸은 점선·흐린 글, 행 머리에 표시 */
+.bp-cell[data-formula] .bp-input {
+  border-style: dashed;
+  color: var(--color-text-muted);
+}
+.bp-formula {
+  display: inline-block;
+  margin-inline-start: var(--space-1);
+  padding: 0 var(--space-1);
+  border: var(--hairline) dashed var(--color-text-muted);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text);
+}
 .bp-cell-none {
   color: var(--color-text-muted);
   text-align: center;
@@ -282,6 +297,10 @@
   border-color: var(--color-warning);
   background-color: var(--color-warning-surface);
   color: var(--color-warning);
+}
+.bp-legend > [data-state="formula"] {
+  border-style: dashed;
+  border-color: var(--color-text-muted);
 }
 
 /* 기여 칸: 0은 흐리게, 고친 표에서 달라진 칸은 강조 */

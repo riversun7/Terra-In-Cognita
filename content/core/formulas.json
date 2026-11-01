@@ -1,0 +1,76 @@
+{
+  "entries": [
+    {
+      "id": "real_attack",
+      "name": {
+        "ko": "실제 공격력(무기)",
+        "en": "Real attack (weapon)"
+      },
+      "expression": "if(A <= 0, W, floor(W * min(CAP, max(0, S) / A)))"
+    },
+    {
+      "id": "real_hit",
+      "name": {
+        "ko": "실제 명중(‰)",
+        "en": "Real hit (‰)"
+      },
+      "expression": "if(A <= 0, W, floor(W * min(CAP, max(0, S) / A)))"
+    },
+    {
+      "id": "real_crit",
+      "name": {
+        "ko": "실제 크리 확률(‰)",
+        "en": "Real crit chance (‰)"
+      },
+      "expression": "if(A <= 0, W, floor(W * min(CAP, max(0, S) / A)))"
+    },
+    {
+      "id": "bare_attack",
+      "name": {
+        "ko": "맨손 일반 공격력",
+        "en": "Bare-hand basic attack"
+      },
+      "expression": "# [임시] 옛 프로젝트 맨손 규칙: 적정 DEX = 레벨 × 1.5 + 10, 피해는 STR × 범위\noptDex = LV * 1.5 + 10\nr = DEX / optDex\na = STR * max(0.1, r * 0.5)\nb = STR * min(1.5, r)\nlo = min(a, b)\nhi = max(a, b)\nmax(1, floor(lo + (hi - lo) * ROLL / 10000))"
+    },
+    {
+      "id": "crit_multiplier",
+      "name": {
+        "ko": "크리 배율(‰)",
+        "en": "Crit multiplier (‰)"
+      },
+      "expression": "max(0, M) + floor(SPREAD * ROLL / 10000)"
+    },
+    {
+      "id": "attack_interval",
+      "name": {
+        "ko": "공격 간격(ms)",
+        "en": "Attack interval (ms)"
+      },
+      "expression": "max(1, floor(I / max(0.001, min(2, max(1, SPD) / max(1, A)))))"
+    },
+    {
+      "id": "stamina_score",
+      "name": {
+        "ko": "STA 점수",
+        "en": "STA score"
+      },
+      "expression": "floor(AGI * W_AGI + VIT * W_VIT)"
+    },
+    {
+      "id": "stamina_cost",
+      "name": {
+        "ko": "스태미나 소모(행동 한 번)",
+        "en": "Stamina cost (one action)"
+      },
+      "expression": "B * if(SC <= 0, APP, max(MIN, APP / SC))"
+    },
+    {
+      "id": "evade_chance",
+      "name": {
+        "ko": "최종 회피(‰)",
+        "en": "Final evade (‰)"
+      },
+      "expression": "r = max(0, DA) / AA\nfavor = min(FAVOR_CAP, floor(FAVOR_SLOPE * (r - 1)))\nunfavor = max(-UNFAVOR_CAP, trunc(UNFAVOR_SLOPE * (r - 1)))\nrel = if(AA <= 0, if(DA > 0, FAVOR_CAP, 0), if(r >= 1, favor, unfavor))\n# 최종 회피는 1%~85%(옛 기획 회피율 §6, 사용자 답 277)\nclamp(E + rel, 10, 850)"
+    }
+  ]
+}

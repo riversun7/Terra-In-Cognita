@@ -86,6 +86,8 @@ export const TUNING_DROP_REASONS = [
   "unit_changed",
   "out_of_range",
   "rules_conflict",
+  // 계산식 덮어쓰기가 새 팩의 그 칸 변수로 읽히지 않음(docs/adr/2026-11-01-formula-editor.md)
+  "invalid_formula",
 ] as const;
 export type TuningDropReason = (typeof TUNING_DROP_REASONS)[number];
 
@@ -127,8 +129,13 @@ export const TUNING_REASONS = [
   "duplicate_entry",
   "revision_conflict",
   "rate_limited",
+  // 계산식이 그 칸 변수로 읽히지 않음(data.details = 식 오류 코드, docs/adr/2026-11-01-formula-editor.md)
+  "invalid_formula",
 ] as const;
 export type TuningReason = (typeof TUNING_REASONS)[number];
+
+/** 한 묶음에 담는 계산식 수 상한 */
+export const TUNING_FORMULAS_MAX = 40;
 
 /** 메모 길이 상한(코드 포인트) */
 export const TUNING_NOTE_MAX = 200;
@@ -180,6 +187,8 @@ export interface TuningListResponse {
   readonly entries: readonly TuningEntryView[];
   /** 가중치 표(stat_rows) 칸 덮어쓰기 수(밸런스 화면 /dev/balance에서 본다) */
   readonly statOverrides: number;
+  /** 계산식 덮어쓰기 수(밸런스 화면 계산식 탭에서 본다) */
+  readonly formulaOverrides?: number;
 }
 
 /** 최근 바꿈 동작(감사 기록 tuning.*): 묶음 적용, 모두 되돌리기, 켤 때 팩이 이김, 켤 때 지움 */
@@ -196,6 +205,14 @@ export interface TuningHistoryChange {
   readonly packValue: number | null;
 }
 
+/** 최근 바꿈 한 식: 앞·뒤 덮어쓴 식(없으면 null = 팩 식) */
+export interface TuningHistoryFormulaChange {
+  readonly id: string;
+  readonly before: string | null;
+  readonly after: string | null;
+  readonly reason: TuningDropReason | null;
+}
+
 /** 최근 바꿈 한 줄(감사 기록) */
 export interface TuningHistoryRow {
   readonly at: number;
@@ -205,6 +222,8 @@ export interface TuningHistoryRow {
   /** 이 바꿈 뒤의 세계 설정 판(모르면 null) */
   readonly revision: number | null;
   readonly changes: readonly TuningHistoryChange[];
+  /** 계산식 바꿈(있을 때만, docs/adr/2026-11-01-formula-editor.md) */
+  readonly formulas?: readonly TuningHistoryFormulaChange[];
   readonly note: string | null;
 }
 
@@ -253,6 +272,8 @@ export interface TuningDiffView {
   readonly statRows?: readonly StatCellChange[];
   /** 팩 항목 차이(스킬·무기·유닛 종류 덮어쓰기가 있을 때만, docs/adr/2026-11-01-skill-editor.md 7절) */
   readonly entries?: readonly EntryDiffChange[];
+  /** 계산식 차이(덮어쓰기가 있을 때만, docs/adr/2026-11-01-formula-editor.md): from = 팩 식, to = 덮어쓴 식 */
+  readonly formulas?: readonly { readonly id: string; readonly from: string; readonly to: string }[];
 }
 
 // ── 가중치 표(콘텐츠 팩 stat_rows) 칸 — 밸런스 화면(/dev/balance, docs/adr/2026-11-01-balance-screen.md 1절) ──

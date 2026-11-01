@@ -46,13 +46,17 @@ const {
   catalog,
   combat: packCombat,
   statRows,
+  formulaEntries,
+  combatFormulas: packFormulas,
   tuning: packTuning,
   ...content
 } = readPack(values.pack, scenario);
 const tuning = values.tuning === undefined ? packTuning : withTuningDiff(packTuning, values.tuning);
-// 같은 차이의 가중치 표 칸(밸런스 화면)도 얹는다
-const combat =
-  values.tuning === undefined ? packCombat : withStatRowsDiff(packCombat, statRows, values.tuning);
+// 같은 차이의 가중치 표 칸(밸런스 화면)·계산식(식 탭)도 얹는다
+const { combat, combatFormulas } =
+  values.tuning === undefined
+    ? { combat: packCombat, combatFormulas: packFormulas }
+    : withStatRowsDiff(packCombat, statRows, values.tuning, formulaEntries, packFormulas);
 const days = Number(values.days);
 const lines: string[] = [];
 const started = performance.now();
@@ -63,6 +67,7 @@ const summary = runSimulation({
   content,
   catalog,
   combatCatalog: combat,
+  combatFormulas,
   tuning,
   checkEveryDays: Number(values["check-every"]),
   sink: values.out === undefined ? undefined : (line) => lines.push(line),

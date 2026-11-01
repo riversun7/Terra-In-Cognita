@@ -75,7 +75,6 @@ function CombatRow({ row, name }: { row: RosterStatBreakdown; name: string }) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const shown = formatStat(row);
-  const probability = row.shape === "probability" && row.cap !== null && row.halfConstant !== null;
   return (
     <li className="combat-row" data-sec={row.id} data-open={open ? "true" : undefined}>
       <button
@@ -96,49 +95,78 @@ function CombatRow({ row, name }: { row: RosterStatBreakdown; name: string }) {
         <span className="combat-value">{shown}</span>
       </button>
       <div id={`${id}-detail`} className="combat-detail" hidden={!open}>
-        <p className="combat-formula">
-          <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
-          {probability ? m.cyborg_formula_probability() : m.cyborg_formula_quantity()}
-          {probability && row.cap !== null && row.halfConstant !== null
-            ? ` | ${m.cyborg_formula_cap({
-                cap: formatStat({ id: row.id, shape: "probability", value: row.cap }),
-                half: formatNumber(row.halfConstant),
-              })}`
-            : null}
-        </p>
-        {row.shape === "quantity" && row.base !== 0 ? (
-          <p className="combat-line">
-            {m.cyborg_term_base()} {formatNumber(row.base)}
-          </p>
-        ) : null}
-        {row.terms.map((term) => (
-          <p key={term.stat} className="combat-line" translate="no">
-            {primaryCode(term.stat)}({formatNumber(term.value)})×{formatMilli(term.weightPm)} ={" "}
-            {formatMilli(term.milli)}
-          </p>
-        ))}
-        <p className="combat-line">
-          {m.cyborg_term_weighted({
-            sum: formatMilli(termMilliSum(row)),
-            weighted: formatNumber(row.weighted),
-          })}
-        </p>
-        {row.extra !== 0 ? (
-          <p className="combat-line">
-            {m.cyborg_term_gear()} {signed(row.extra)}
-          </p>
-        ) : null}
-        {probability && row.cap !== null && row.halfConstant !== null ? (
-          <p className="combat-line">
-            {m.cyborg_term_score()} {formatNumber(row.score)} → {formatNumber(row.cap)}×
-            {formatNumber(row.score)}÷(
-            {formatNumber(row.score)}+{formatNumber(row.halfConstant)}) = {formatNumber(row.value)}‰
-          </p>
-        ) : null}
-        <p className="combat-line combat-result">
-          = {shown === formatNumber(row.value) ? shown : `${formatNumber(row.value)} → ${shown}`}
-        </p>
+        {row.formula ? <FormulaLines row={row} shown={shown} /> : <WeightLines row={row} shown={shown} />}
       </div>
     </li>
+  );
+}
+
+/** 행 식으로 셈한 행(개발자 모드 계산식, docs/adr/2026-11-01-formula-editor.md): 식 글과 항마다 값 */
+function FormulaLines({ row, shown }: { row: RosterStatBreakdown; shown: string }) {
+  return (
+    <>
+      <p className="combat-formula" translate="no">
+        <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+        {row.formula?.source}
+      </p>
+      {row.formula?.terms.map((term, index) => (
+        <p key={`${index}-${term.text}`} className="combat-line" translate="no">
+          {term.sign < 0 ? "− " : ""}
+          {term.text} = {formatMilli(term.value)}
+        </p>
+      ))}
+      <p className="combat-line combat-result">= {shown}</p>
+    </>
+  );
+}
+
+/** 가중치 행: 공식 이름·항·가중합·장비·확률 모양 */
+function WeightLines({ row, shown }: { row: RosterStatBreakdown; shown: string }) {
+  const probability = row.shape === "probability" && row.cap !== null && row.halfConstant !== null;
+  return (
+    <>
+      <p className="combat-formula">
+        <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+        {probability ? m.cyborg_formula_probability() : m.cyborg_formula_quantity()}
+        {probability && row.cap !== null && row.halfConstant !== null
+          ? ` | ${m.cyborg_formula_cap({
+              cap: formatStat({ id: row.id, shape: "probability", value: row.cap }),
+              half: formatNumber(row.halfConstant),
+            })}`
+          : null}
+      </p>
+      {row.shape === "quantity" && row.base !== 0 ? (
+        <p className="combat-line">
+          {m.cyborg_term_base()} {formatNumber(row.base)}
+        </p>
+      ) : null}
+      {row.terms.map((term) => (
+        <p key={term.stat} className="combat-line" translate="no">
+          {primaryCode(term.stat)}({formatNumber(term.value)})×{formatMilli(term.weightPm)} ={" "}
+          {formatMilli(term.milli)}
+        </p>
+      ))}
+      <p className="combat-line">
+        {m.cyborg_term_weighted({
+          sum: formatMilli(termMilliSum(row)),
+          weighted: formatNumber(row.weighted),
+        })}
+      </p>
+      {row.extra !== 0 ? (
+        <p className="combat-line">
+          {m.cyborg_term_gear()} {signed(row.extra)}
+        </p>
+      ) : null}
+      {probability && row.cap !== null && row.halfConstant !== null ? (
+        <p className="combat-line">
+          {m.cyborg_term_score()} {formatNumber(row.score)} → {formatNumber(row.cap)}×
+          {formatNumber(row.score)}÷(
+          {formatNumber(row.score)}+{formatNumber(row.halfConstant)}) = {formatNumber(row.value)}‰
+        </p>
+      ) : null}
+      <p className="combat-line combat-result">
+        = {shown === formatNumber(row.value) ? shown : `${formatNumber(row.value)} → ${shown}`}
+      </p>
+    </>
   );
 }

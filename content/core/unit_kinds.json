@@ -23,7 +23,8 @@
         "range": 1,
         "arc": false,
         "staminaCost": 10,
-        "mpCost": 0
+        "mpCost": 0,
+        "unarmed": true
       },
       "naturalElementalWeapon": {
         "elemental": { "attack": 5, "attackAppropriate": 20 },
@@ -64,7 +65,8 @@
         "range": 1,
         "arc": false,
         "staminaCost": 10,
-        "mpCost": 0
+        "mpCost": 0,
+        "unarmed": true
       },
       "naturalElementalWeapon": {
         "elemental": { "attack": 5, "attackAppropriate": 20 },
@@ -105,7 +107,8 @@
         "range": 1,
         "arc": false,
         "staminaCost": 10,
-        "mpCost": 0
+        "mpCost": 0,
+        "unarmed": true
       },
       "naturalElementalWeapon": {
         "elemental": { "attack": 5, "attackAppropriate": 20 },

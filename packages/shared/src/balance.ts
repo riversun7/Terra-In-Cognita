@@ -44,6 +44,11 @@ export interface BalanceRowView {
   readonly shape: "quantity" | "probability";
   /** 모양에 있는 칸(가중치 6개 + base 또는 cap·half) */
   readonly cells: readonly BalanceCellView[];
+  /**
+   * 이 행을 계산식으로 셈하는가(docs/adr/2026-11-01-formula-editor.md 3절): "pack" = 팩 행 식, "world" = 이 세계에서 바꾼 행 식,
+   * null = 가중치. 식으로 셈하는 행은 가중치 칸을 고쳐도 값이 바뀌지 않는다(화면이 표시한다)
+   */
+  readonly formula: "pack" | "world" | null;
 }
 
 export interface BalanceWeaponView {

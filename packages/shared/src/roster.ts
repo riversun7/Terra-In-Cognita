@@ -132,6 +132,16 @@ export interface RosterStatBreakdown {
   readonly cap: number | null;
   readonly halfConstant: number | null;
   readonly value: number;
+  /**
+   * 행 식으로 셈한 행(개발자 모드 계산식, docs/adr/2026-11-01-formula-editor.md): 식 글과 결과 식의 항(값을 붙인 글·값,
+   * 고정 소수점 1000배). 이때 terms는 비고 weighted = value − extra
+   */
+  readonly formula?:
+    | {
+        readonly source: string;
+        readonly terms: readonly { readonly sign: 1 | -1; readonly text: string; readonly value: number }[];
+      }
+    | undefined;
 }
 
 /**

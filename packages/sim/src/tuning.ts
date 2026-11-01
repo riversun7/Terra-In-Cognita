@@ -3,6 +3,7 @@
 // 이 표가 팩 항목 ID ↔ 계수표 칸(경로)을 잇는다. 실행 도구·서버는 팩 값으로 계수표를 만든다(없는 칸은 기본값 그대로).
 // 팩의 임시 값 = TEST_* 계수표(서버 시험이 맞춰 본다). 표에 없는 계수는 아직 설정 칸이 없거나 기술 상수다.
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "./combat/coefficients.ts";
+import type { CombatFormulaSet } from "./combat/formulas.ts";
 import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "./society/coefficients.ts";
 import { CYBORG_TUNING_KEYS } from "./tuningCyborg.ts";
 import { GARDENER_TUNING_KEYS } from "./tuningGardener.ts";
@@ -555,12 +556,19 @@ function apply<T extends object>(
   return copy;
 }
 
-/** 팩 값(ID → 정수)을 얹은 전투 계수표. 표에 없는 ID는 무시한다 */
+/**
+ * 팩 값(ID → 정수)을 얹은 전투 계수표. 표에 없는 ID는 무시한다. formulas(전투 계산식 묶음, docs/adr/2026-11-01-formula-editor.md)를
+ * 주면 그 묶음을 싣고, 아니면 base의 묶음(없으면 기본 식)을 그대로 둔다. 식 나무는 깊게 복사하지 않는다(같은 객체 = 같은 캐시)
+ */
 export function combatCoefficientsFrom(
   values: ReadonlyMap<string, number>,
   base: CombatCoefficients = TEST_COMBAT_COEFFICIENTS,
+  formulas?: CombatFormulaSet,
 ): CombatCoefficients {
-  return apply(base, "combat", values);
+  const { formulas: baseFormulas, ...numbers } = base;
+  const copy = apply(numbers, "combat", values);
+  const set = formulas ?? baseFormulas;
+  return set ? { ...copy, formulas: set } : copy;
 }
 
 /** 팩 값을 얹은 세력·사회 계수표 */

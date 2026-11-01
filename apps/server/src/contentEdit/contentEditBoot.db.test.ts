@@ -1,5 +1,5 @@
 // 켤 때 잠재우기 DB 시험 — docs/adr/2026-11-01-skill-editor.md 2절 "켤 때"(아이템 편집기 설계안 4.5 WP-0 a).
-// 새 판(N+1 = core@23)이 저장한 줄을 옛 판(N = 지금 팩)으로 켜면(되돌림 배포): 읽지 못하는 줄은 지우지 않고 잠재우고(감사 content.slept),
+// 새 판(N+1 = 지금 팩 판 + 1)이 저장한 줄을 옛 판(N = 지금 팩)으로 켜면(되돌림 배포): 읽지 못하는 줄은 지우지 않고 잠재우고(감사 content.slept),
 // N+1을 다시 켜면 다시 든다. N+1에서 바뀐 팩 항목의 줄은 N에서 팩이 이긴다. TEST_DATABASE_URL이 있을 때만.
 import type { PackSource } from "@terra/content";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -30,11 +30,19 @@ const skillOf = (source: PackSource, id: string): Record<string, unknown> => {
   return structuredClone(found);
 };
 
-/** 새 판 팩(core@23): 새 효과 n1_freeze·새 스킬 n1_spark를 더한다. changeShockBash면 팩 항목 shock_bash도 바꾼다 */
+/** 지금 팩 판(manifest version) */
+const N = ((): number => {
+  const manifest: unknown = JSON.parse(packN.files.get("manifest.json") ?? "{}");
+  const version = isRecord(manifest) ? manifest.version : undefined;
+  if (typeof version !== "number") throw new Error("fixture manifest");
+  return version;
+})();
+
+/** 새 판 팩(core@N+1): 새 효과 n1_freeze·새 스킬 n1_spark를 더한다. changeShockBash면 팩 항목 shock_bash도 바꾼다 */
 function packN1(changeShockBash = false): PackSource {
   const files = new Map(packN.files);
   const manifest: unknown = JSON.parse(files.get("manifest.json") ?? "{}");
-  files.set("manifest.json", JSON.stringify({ ...(isRecord(manifest) ? manifest : {}), version: 23 }));
+  files.set("manifest.json", JSON.stringify({ ...(isRecord(manifest) ? manifest : {}), version: N + 1 }));
   const freeze = {
     ...entriesOf(packN, "effects.json").find((entry) => entry.id === "burn"),
     id: "n1_freeze",
@@ -60,8 +68,8 @@ describe.skipIf(!TEST_DATABASE_URL)("스킬 편집기 켤 때 잠재우기 (DB)"
   const insert = async (id: string, entry: Record<string, unknown>, packHash: string | null) => {
     await test.db.$client.query(
       `insert into content_overrides (category, id, entry, pack_hash, content_version, note, updated_by, updated_at)
-       values ('skills', $1, $2::jsonb, $3, 'core@23', null, null, now())`,
-      [id, JSON.stringify(entry), packHash],
+       values ('skills', $1, $2::jsonb, $3, $4, null, null, now())`,
+      [id, JSON.stringify(entry), packHash, `core@${N + 1}`],
     );
   };
   const boot = async (source: PackSource): Promise<ContentEditState> => {
@@ -114,7 +122,7 @@ describe.skipIf(!TEST_DATABASE_URL)("스킬 편집기 켤 때 잠재우기 (DB)"
       createContentEditState(packN1(), effectsOf(packN1())).packHash("skills", "power_strike"),
     );
     const state = await boot(packN);
-    expect(state.packVersion).toBe(22);
+    expect(state.packVersion).toBe(N);
     expect(state.sleepingCount()).toBe(3);
     expect(
       state.effective().skills.some((skill) => skill.id === "editor_nova" || skill.id === "n1_spark"),

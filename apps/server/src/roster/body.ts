@@ -134,7 +134,13 @@ export function bodySheet(
       for (; opened < count; opened++) unlocks.push(rebirths);
     }
   }
-  const breakdown = explainSecondary(loadout.primaries, catalog.combat.statTable, loadout.gear).map(
+  const breakdown = explainSecondary(
+    loadout.primaries,
+    catalog.combat.statTable,
+    loadout.gear,
+    {},
+    spec.level,
+  ).map(
     (row): RosterStatBreakdown => ({
       ...row,
       terms: row.terms
@@ -174,6 +180,8 @@ function bodyParts(catalog: RosterCatalog, spec: BodySpec): BodyParts {
     unarmed: UNARMED,
     innateSkills: spec.innateSkills,
     skillSlots,
+    // 행 식의 LV(docs/adr/2026-11-01-formula-editor.md)
+    level: spec.level,
   });
   const primary = (stat: PrimaryStat) => ({ base: base[stat], bonus: loadout.primaries[stat] - base[stat] });
   const primaries: RosterStats["primaries"] = {

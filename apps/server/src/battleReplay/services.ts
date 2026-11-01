@@ -69,7 +69,11 @@ export function createBattleReplayServices(deps: {
         }
         const job: ReplayJob = {
           catalog: roster.combat,
-          coefficients: combatCoefficientsFrom(tuning.state.snapshot().values),
+          coefficients: combatCoefficientsFrom(
+            tuning.state.snapshot().values,
+            undefined,
+            tuning.state.combatFormulas(),
+          ),
           map: pick?.map ?? plainArena(),
           arena: pick?.ref ?? null,
           seed: input.seed,

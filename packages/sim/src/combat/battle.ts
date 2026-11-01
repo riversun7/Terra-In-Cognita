@@ -230,7 +230,7 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     unit.x = bestCell % size;
     unit.y = (bestCell - unit.x) / size;
     // 느리게·빠르게(효과 move_speed)는 다음 걸음까지의 간격에 든다
-    unit.nextMoveMs = state.tick * c.tickMs + moveIntervalMs(unit.moveIntervalMs, modifiersOf(unit));
+    unit.nextMoveMs = state.tick * c.tickMs + moveIntervalMs(unit, unit.moveIntervalMs);
   };
 
   const inRangeOfBuilding = (unit: UnitState, buildingId: number): boolean =>

@@ -182,8 +182,16 @@ export function modifiersOf(target: EffectHolder): Modifiers {
 /** 이동 속도 하한(‰): 아무리 느리게 해도 이 빠르기 아래로는 내려가지 않는다(간격 최대 10배, [임시] 기술 보호 — 질문 262 가) */
 export const MIN_MOVE_SPEED_PM = 100;
 
-/** 한 칸 가는 간격(ms) = 간격 × 1000 ÷ max(하한, 1000 + 이동 속도 ‰). 이동 속도 효과가 없으면 그대로 */
-export function moveIntervalMs(intervalMs: number, mods: Modifiers): number {
-  if (mods.moveSpeedPm === 0) return intervalMs;
-  return Math.max(1, Math.floor((intervalMs * 1000) / Math.max(MIN_MOVE_SPEED_PM, 1000 + mods.moveSpeedPm)));
+/**
+ * 한 칸 가는 간격(ms) = 간격 × 1000 ÷ max(하한, 1000 + 이동 속도 ‰). 이동 속도 효과가 없으면 그대로.
+ * 걸음마다 불리므로 modifiersOf처럼 합 객체를 만들지 않고 이동 속도만 더한다(같은 합)
+ */
+export function moveIntervalMs(target: EffectHolder, intervalMs: number): number {
+  let speedPm = 0;
+  for (const effect of target.effects) {
+    if (effect.stat !== "move_speed" || (effect.kind !== "buff" && effect.kind !== "debuff")) continue;
+    speedPm += (effect.kind === "buff" ? effect.value : -effect.value) * effect.stacks;
+  }
+  if (speedPm === 0) return intervalMs;
+  return Math.max(1, Math.floor((intervalMs * 1000) / Math.max(MIN_MOVE_SPEED_PM, 1000 + speedPm)));
 }

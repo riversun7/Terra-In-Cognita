@@ -38,7 +38,7 @@
 - 저장: `tuning_overrides`에 같은 칸(값·저장 때 팩 값·단위·팩 판·메모·사람·시각)으로 넣는다. 마이그레이션은 칸 ID 검사를 `^[a-z][a-z0-9_]{1,47}(\.(str|dex|agi|vit|int|wis|base|cap|half))?$`로 넓히는 것 하나다. 직전 판 앱은 칸 키를 쓰지 않고, 켤 때 이 줄을 "팩에 없는 칸"으로 보고 지운다(`tuning.dropped` `unknown_entry`) — 되돌림 배포 = 팩이 더 나중(D-461 "가장 나중에 바꾼 것이 이긴다")과 같은 결과다.
 - 쓰기·되돌리기·판·감사·속도 제한·서버 기록은 D1 그대로다: 밸런스 화면의 [적용]은 `tuning.save`(같은 묶음 검사·트랜잭션·스냅숏 바꿔 끼우기), [모두 되돌리기](`tuning.revertAll`)는 가중치 칸도 지운다. 묶음에 설정 칸과 가중치 칸을 섞어도 된다.
 - 여러 칸 규칙(`tuningProblems`에 더함): `stat_primary_unused` — 켜진 모든 행에서 가중치가 0인 1차 스탯이 생기면 묶음을 받지 않는다("가치 없는 1차"를 세계에 넣지 않는다, D-458). 화면은 더 약한 신호(아래 3절)도 보이지만 막지 않는다(질문 227).
-- 실효 표: 서버 접근자 `TuningState.statTable()`(스냅숏마다 한 번 만든다)·`statRows()`. 켤 때 고르기(D1 6절)도 같다: 지금 팩 칸 값 ≠ 저장 때 팩 값 → 팩이 이김(`tuning.pack_won`), 행이 빠짐·꺼짐·모양이 바뀌어 칸이 없음 → `unknown_entry`, 범위 밖 → `out_of_range`, 저장 차례로 얹다 `stat_primary_unused` → `rules_conflict`. 켤 때 던지지 않는다.
+- 실효 표: 서버 접근자 `TuningState.statTable()`(스냅숏마다 한 번 만든 얼린 배열)·`statTableWith(묶음)`(미리 보기)·`statRows`(켜진 팩 행). 켤 때 고르기(D1 6절)도 같다: 지금 팩 칸 값 ≠ 저장 때 팩 값 → 팩이 이김(`tuning.pack_won`), 행이 빠짐·꺼짐·모양이 바뀌어 칸이 없음 → `unknown_entry`, 범위 밖 → `out_of_range`, 저장 차례로 얹다 `stat_primary_unused` → `rules_conflict`. 켤 때 던지지 않는다.
 - 서버가 표를 읽는 곳: 유닛·사이보그 화면(`rosterCatalogOf`의 `combat`이 접근자 속성이 되어 읽을 때마다 실효 표, 표가 같으면 같은 객체). 범위 칩은 "서버 즉시"다. 세계에서 전투를 열 때(R5) 사양은 그 명령 순간의 `statTable()`로 만든다(아래 꼬임 점검).
 - `/dev/tuning` 머리에 "가중치 표 바뀐 칸 N"을 보이고 밸런스 화면으로 잇는다(`tuning.list` `statOverrides`).
 

@@ -6,6 +6,8 @@
 //                  after { revision, contentVersion, note, changes: [{ category, id, entry | null, packHash }] }
 // - content.pack_won(켤 때, system): before { changes: [{ category, id, packHash(저장 때) }] }, after { revision, contentVersion }
 // - content.dropped(켤 때, system): before { changes: [{ category, id, reason }] }, after { revision, contentVersion }
+// - content.slept(켤 때, system): before { changes: [{ category, id, reason(newer_pack·unknown_category), contentVersion(저장 때) }] },
+//                 after { revision, contentVersion } — 지우지 않고 적용하지 않은 줄(되돌림 배포가 읽지 못하는 새 판 줄)
 import {
   CONTENT_EDIT_CATEGORIES,
   type ContentEditCategory,
@@ -21,7 +23,15 @@ export const CONTENT_AUDIT_ACTIONS = {
   apply: "content.apply",
   pack_won: "content.pack_won",
   dropped: "content.dropped",
+  slept: "content.slept",
 } as const;
+
+/** 이 판이 모르는 분류의 줄(새 판이 만든 분류). 읽지도 지우지도 않고 켤 때 잠든 줄로 감사 기록만 남긴다 */
+export interface ForeignContentRow {
+  readonly category: string;
+  readonly id: string;
+  readonly contentVersion: string;
+}
 
 type Actor = AuditActor & { id: string };
 
@@ -29,6 +39,12 @@ const isCategory = (value: string): value is ContentEditCategory =>
   (CONTENT_EDIT_CATEGORIES as readonly string[]).includes(value);
 
 async function readRecords(db: Database | Transaction): Promise<ContentOverrideRecord[]> {
+  return (await readRows(db)).records;
+}
+
+async function readRows(
+  db: Database | Transaction,
+): Promise<{ records: ContentOverrideRecord[]; foreign: ForeignContentRow[] }> {
   const rows = await db
     .select({
       category: contentOverrides.category,
@@ -43,21 +59,26 @@ async function readRecords(db: Database | Transaction): Promise<ContentOverrideR
     })
     .from(contentOverrides)
     .leftJoin(users, eq(users.id, contentOverrides.updatedBy));
-  return rows.flatMap(({ updatedAt, category, ...row }): ContentOverrideRecord[] =>
-    isCategory(category) ? [{ ...row, category, updatedAtMs: updatedAt.getTime() }] : [],
-  );
+  const records: ContentOverrideRecord[] = [];
+  const foreign: ForeignContentRow[] = [];
+  for (const { updatedAt, category, ...row } of rows) {
+    if (isCategory(category)) records.push({ ...row, category, updatedAtMs: updatedAt.getTime() });
+    else foreign.push({ category, id: row.id, contentVersion: row.contentVersion });
+  }
+  return { records, foreign };
 }
 
 /** 켤 때: 판 줄을 (없으면) 만들고 판과 덮어쓰기 줄 전부를 읽는다 */
 export async function loadContentOverrides(
   db: Database,
-): Promise<{ revision: number; rows: ContentOverrideRecord[] }> {
+): Promise<{ revision: number; rows: ContentOverrideRecord[]; foreign: ForeignContentRow[] }> {
   await db.insert(contentOverrideRevision).values({ id: 1, revision: 0 }).onConflictDoNothing();
   const [meta] = await db
     .select({ revision: contentOverrideRevision.revision })
     .from(contentOverrideRevision)
     .where(eq(contentOverrideRevision.id, 1));
-  return { revision: meta?.revision ?? 0, rows: await readRecords(db) };
+  const { records, foreign } = await readRows(db);
+  return { revision: meta?.revision ?? 0, rows: records, foreign };
 }
 
 /** 판을 조건부로 올린다(기대 판이 아니면 null). expected가 null이면 조건 없이 올린다(켤 때 정리) */
@@ -142,17 +163,21 @@ export async function applyContentWrites(
   });
 }
 
-/** 켤 때 정리: 팩이 이긴 줄·맞지 않는 줄을 지우고 판을 올리고 감사 기록(행위자 system). 새 판 */
+/**
+ * 켤 때 정리: 팩이 이긴 줄·맞지 않는 줄을 지우고 판을 올리고 감사 기록(행위자 system). 잠든 줄(새 판 줄·모르는 분류 줄)은 지우지 않고
+ * 감사 content.slept만 남긴다(지울 줄이 없으면 판도 올리지 않는다). 지금 판
+ */
 export async function cleanupContentAtBoot(
   db: Database,
-  selection: Pick<ContentBootSelection, "packWon" | "dropped">,
+  selection: Pick<ContentBootSelection, "packWon" | "dropped" | "slept">,
   contentVersion: string,
-): Promise<number> {
+  foreign: readonly ForeignContentRow[] = [],
+): Promise<number | null> {
   const rows = [...selection.packWon, ...selection.dropped.map((item) => item.row)];
   return db.transaction(async (tx) => {
     if (rows.length > 0)
       await tx.delete(contentOverrides).where(or(...rows.map((row) => whereKey(row.category, row.id))));
-    const revision = (await bumpRevision(tx, null)) ?? 0;
+    const revision = rows.length > 0 ? ((await bumpRevision(tx, null)) ?? 0) : null;
     const system: AuditActor = { kind: "system", id: null, ip: null };
     if (selection.packWon.length > 0)
       await writeAudit(tx, {
@@ -182,6 +207,23 @@ export async function cleanupContentAtBoot(
         },
         after: { revision, contentVersion },
       });
+    const sleeping = [
+      ...selection.slept.map((row) => ({
+        category: row.category,
+        id: row.id,
+        reason: "newer_pack",
+        contentVersion: row.contentVersion,
+      })),
+      ...foreign.map((row) => ({ ...row, reason: "unknown_category" })),
+    ];
+    if (sleeping.length > 0)
+      await writeAudit(tx, {
+        actor: system,
+        action: CONTENT_AUDIT_ACTIONS.slept,
+        targetId: null,
+        before: { changes: sleeping },
+        after: { revision, contentVersion },
+      });
     return revision;
   });
 }
@@ -195,6 +237,7 @@ const ACTION_OF: ReadonlyMap<string, SkillEditorHistoryRow["action"]> = new Map(
   [CONTENT_AUDIT_ACTIONS.apply, "apply"],
   [CONTENT_AUDIT_ACTIONS.pack_won, "pack_won"],
   [CONTENT_AUDIT_ACTIONS.dropped, "dropped"],
+  [CONTENT_AUDIT_ACTIONS.slept, "slept"],
 ]);
 
 /** 감사 기록 한 줄의 바꿈: apply는 put(만듦·고침)·revert, 켤 때는 까닭 */
@@ -211,7 +254,10 @@ function historyChanges(
     let what: string;
     if (action === "apply") what = field(item, "entry") === null ? "revert" : "put";
     else if (action === "pack_won") what = "pack_won";
-    else {
+    else if (action === "slept") {
+      const reason = field(item, "reason");
+      what = typeof reason === "string" ? `slept:${reason}` : "slept";
+    } else {
       const reason = field(item, "reason");
       what = typeof reason === "string" ? reason : "dropped";
     }

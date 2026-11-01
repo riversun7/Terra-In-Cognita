@@ -537,7 +537,12 @@ export {
   type CombatCatalog,
   type UnitKindDef,
 } from "./combat/catalog.ts";
-export { combatCatalogFrom } from "./combat/packCatalog.ts";
+export {
+  combatCatalogFrom,
+  droppedReferences,
+  type CombatPackEntries,
+  type DroppedReferences,
+} from "./combat/packCatalog.ts";
 export {
   TUNING_KEYS,
   combatCoefficientsFrom,

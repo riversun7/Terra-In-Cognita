@@ -2133,6 +2133,7 @@
   "dev_skills_history_apply": "Saved",
   "dev_skills_history_pack_won": "Pack won (at start)",
   "dev_skills_history_dropped": "Dropped (at start)",
+  "dev_skills_history_slept": "Kept asleep (at start, newer pack)",
   "dev_skills_history_line": "{when} · {who} · {what}",
   "dev_skills_history_system": "Server",
   "dev_skills_search_label": "Search",

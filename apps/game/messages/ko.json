@@ -2133,6 +2133,7 @@
   "dev_skills_history_apply": "저장",
   "dev_skills_history_pack_won": "팩이 이김(켤 때)",
   "dev_skills_history_dropped": "지움(켤 때)",
+  "dev_skills_history_slept": "잠재움(켤 때, 새 판 줄)",
   "dev_skills_history_line": "{when} · {who} · {what}",
   "dev_skills_history_system": "서버",
   "dev_skills_search_label": "찾기",

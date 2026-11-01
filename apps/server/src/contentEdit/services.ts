@@ -32,6 +32,19 @@ export const SKILL_EDITOR_REJECTED = "SKILL_EDITOR_REJECTED";
 export const CONTENT_CHANGE_MESSAGE = "content change";
 /** 서버 기록 메시지: 켤 때 고른 결과 */
 export const CONTENT_BOOT_MESSAGE = "content overrides";
+/** 서버 기록 메시지: 스냅숏의 꺼진 참조(켜진 장비 → 꺼진 스킬, 켜진 스킬 → 꺼진 효과, 전투 자료에서 뺌). 스냅숏마다 한 번 */
+export const CONTENT_REFERENCES_MESSAGE = "content references dropped";
+
+/** 지금 스냅숏에 꺼진 참조가 있으면 한 줄 남긴다 */
+function logDroppedReferences(shared: ContentEditShared): void {
+  const { state, log } = shared;
+  const refs = state.droppedReferences();
+  if (refs.itemSkills.length === 0 && refs.skillEffects.length === 0) return;
+  log.warn(
+    { contentRevision: state.revision(), itemSkills: refs.itemSkills, skillEffects: refs.skillEffects },
+    CONTENT_REFERENCES_MESSAGE,
+  );
+}
 
 /** 서버가 켤 때 한 번 만든 것 */
 export interface ContentEditShared {
@@ -88,14 +101,21 @@ export async function bootContentEdit(
     return;
   }
   let revision = loaded.revision;
-  if (selection.packWon.length > 0 || selection.dropped.length > 0) {
+  const sleeping = selection.slept.length + loaded.foreign.length;
+  if (selection.packWon.length > 0 || selection.dropped.length > 0 || sleeping > 0) {
     try {
-      revision = await cleanupContentAtBoot(db, selection, shared.pack.contentVersion);
+      revision =
+        (await cleanupContentAtBoot(db, selection, shared.pack.contentVersion, loaded.foreign)) ?? revision;
     } catch (error) {
       log.warn({ err: error }, "content boot: could not clean up overrides (kept in the database)");
     }
   }
-  state.install(selection.keep, revision);
+  // 잠든 줄은 넣지 않는다(DB에 남고, 그 판을 다시 켜면 다시 고른다)
+  state.install(
+    selection.keep,
+    revision,
+    selection.slept.map((row) => contentKey(row.category, row.id)),
+  );
   log.info(
     {
       contentRevision: revision,
@@ -105,9 +125,20 @@ export async function bootContentEdit(
         key: contentKey(row.category, row.id),
         reason,
       })),
+      slept: [
+        ...selection.slept.map((row) => ({
+          key: contentKey(row.category, row.id),
+          version: row.contentVersion,
+        })),
+        ...loaded.foreign.map((row) => ({
+          key: contentKey(row.category, row.id),
+          version: row.contentVersion,
+        })),
+      ],
     },
     CONTENT_BOOT_MESSAGE,
   );
+  logDroppedReferences(shared);
 }
 
 /** 편집기 목록(스냅숏 하나로) */
@@ -253,6 +284,7 @@ export function createSkillEditorServices(deps: {
           },
           CONTENT_CHANGE_MESSAGE,
         );
+        logDroppedReferences(shared);
         return skillEditorList(shared);
       });
     },

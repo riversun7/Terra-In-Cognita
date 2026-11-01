@@ -236,7 +236,7 @@ export type ContentDropReason = (typeof CONTENT_DROP_REASONS)[number];
 /** 최근 바꿈 한 줄(감사 기록) */
 export interface SkillEditorHistoryRow {
   readonly at: number;
-  readonly action: "apply" | "pack_won" | "dropped";
+  readonly action: "apply" | "pack_won" | "dropped" | "slept";
   readonly actor: string | null;
   readonly revision: number | null;
   readonly note: string | null;

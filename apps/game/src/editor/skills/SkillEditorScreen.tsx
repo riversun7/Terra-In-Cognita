@@ -477,6 +477,7 @@ const HISTORY_TEXT: Readonly<Record<SkillEditorHistoryRow["action"], () => strin
   apply: m.dev_skills_history_apply,
   pack_won: m.dev_skills_history_pack_won,
   dropped: m.dev_skills_history_dropped,
+  slept: m.dev_skills_history_slept,
 };
 
 function HistoryPanel({ rows, locale }: { rows: readonly SkillEditorHistoryRow[]; locale: "ko" | "en" }) {

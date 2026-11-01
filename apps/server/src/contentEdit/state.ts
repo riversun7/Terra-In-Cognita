@@ -4,6 +4,9 @@
 // - 스냅숏: 판·덮어쓰기·실효 항목(JSON·파싱한 것)을 든 바뀌지 않는 객체 하나. 바꾸기는 새 스냅숏을 대입 한 번으로 바꿔 끼운다.
 // - plan: 묶음을 얹은 실효 팩 전체를 팩 검사기(@terra/content validatePack: 스키마·참조·ID 변경표)로 본다. 메모리는 바꾸지 않는다.
 // - selectAtBoot: 켤 때 DB 줄에서 "가장 나중에 바꾼 것"을 고른다(저장 때 팩 항목 해시 ≠ 지금 해시면 팩이 이김). 던지지 않는다.
+//   지금 팩보다 새 판(core@N+1)에서 저장한 줄은 지우지 않고 잠재운다(되돌림 배포가 새 칸·새 참조를 읽지 못해도 줄을 잃지 않게, 감사
+//   content.slept). 잠든 줄은 적용하지 않고 DB에 두며, 그 판을 다시 켜면 보통 규칙으로 다시 고른다.
+// - 켜진 장비·스킬이 가리키는 꺼진 스킬·효과는 전투 자료에서 빠진다(@terra/sim combatCatalogFrom). 스냅숏마다 droppedReferences로 보인다.
 // 서버에서 스킬·무기·유닛 종류를 읽는 곳(전투 자료·유닛 화면·NPC 정원사 웨이브·전투 서비스)은 effective()를 쓸 때마다 부른다.
 import {
   type EffectEntry,
@@ -23,6 +26,7 @@ import {
 } from "@terra/content";
 import { hashEntry } from "@terra/content/node";
 import { hasUnstorableText, isSettingsObject } from "@terra/shared";
+import { type DroppedReferences, droppedReferences } from "@terra/sim";
 import {
   CONTENT_EDIT_CATEGORIES,
   type ContentDropReason,
@@ -94,6 +98,8 @@ export interface ContentBootSelection {
   readonly keep: readonly ContentOverrideRecord[];
   readonly packWon: readonly ContentOverrideRecord[];
   readonly dropped: readonly { readonly row: ContentOverrideRecord; readonly reason: ContentDropReason }[];
+  /** 지금 팩보다 새 판에서 저장했는데 지금 판이 읽지 못하는 줄(지우지 않고 적용하지 않는다, 감사 content.slept) */
+  readonly slept: readonly ContentOverrideRecord[];
 }
 
 export interface ContentEditState {
@@ -113,7 +119,19 @@ export interface ContentEditState {
   retiredIds(category: ContentEditCategory): readonly string[];
   plan(puts: readonly ContentPut[]): ContentPlan;
   selectAtBoot(rows: readonly ContentOverrideRecord[]): ContentBootSelection;
-  install(records: Iterable<ContentOverrideRecord>, revision: number): void;
+  /**
+   * 새 스냅숏으로 바꿔 끼운다. sleeping: 켤 때 잠재운 줄 키(뒤의 install도 그 줄이 아직 새 판이면 넣지 않는다. 이 판에서 다시 저장해
+   * 판이 바뀐 줄은 깨어난다)
+   */
+  install(records: Iterable<ContentOverrideRecord>, revision: number, sleeping?: Iterable<string>): void;
+  /** 지금 팩 판(manifest version) */
+  readonly packVersion: number;
+  /** 줄의 판(core@N)이 지금 팩보다 새로운가(팩 ID가 같고 N이 더 크다) */
+  newerThanPack(contentVersion: string): boolean;
+  /** 지금 스냅숏에서 거른 꺼진 참조(켜진 장비 → 꺼진 스킬, 켜진 스킬 → 꺼진 효과) */
+  droppedReferences(): DroppedReferences;
+  /** 잠든 줄 수 */
+  sleepingCount(): number;
 }
 
 export const contentKey = (category: string, id: string): string => `${category}/${id}`;
@@ -163,10 +181,28 @@ function parseEffective(raw: Readonly<Record<ContentEditCategory, readonly Entry
 const recordsMap = (records: Iterable<ContentOverrideRecord>): Map<string, EntryJson> =>
   new Map([...records].map((record) => [contentKey(record.category, record.id), record.entry]));
 
+/** 팩 manifest의 판(읽지 못하면 0) */
+function manifestVersion(source: PackSource): number {
+  const text = source.files.get("manifest.json");
+  try {
+    const value: unknown = text === undefined ? null : parseJson(text);
+    const version: unknown = isSettingsObject(value) ? value.version : undefined;
+    return typeof version === "number" && Number.isSafeInteger(version) ? version : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export function createContentEditState(
   source: PackSource,
   effects: readonly EffectEntry[],
 ): ContentEditState {
+  const packVersion = manifestVersion(source);
+  /** 줄의 판이 지금 팩보다 새로운가: "<팩 ID>@<정수>"이고 팩 ID가 같으며 정수가 크다 */
+  const newerThanPack = (contentVersion: string): boolean => {
+    const match = /^(.+)@(\d+)$/.exec(contentVersion);
+    return match !== null && match[1] === source.packId && Number(match[2]) > packVersion;
+  };
   const files = new Map<ContentEditCategory, { file: EntryJson; entries: EntryJson[] }>();
   const packById = new Map<string, EntryJson>();
   const packHashes = new Map<string, string>();
@@ -236,6 +272,11 @@ export function createContentEditState(
   const packRaw = rawOf(new Map());
   const pack = parseEffective(packRaw);
   let current: ContentSnapshot = { revision: 0, overrides: new Map(), raw: packRaw, effective: pack };
+  let sleeping = new Set<string>();
+  /** 실효 항목의 꺼진 참조(스냅숏마다 한 번) */
+  const referencesOf = (effective: ContentEffective): DroppedReferences =>
+    droppedReferences({ statRows: [], effects, ...effective });
+  let dropped = referencesOf(pack);
 
   return {
     effects,
@@ -247,6 +288,10 @@ export function createContentEditState(
     packEntry: (category, id) => packById.get(contentKey(category, id)),
     packHash: (category, id) => packHashes.get(contentKey(category, id)) ?? null,
     retiredIds: (category) => retired.get(category) ?? [],
+    packVersion,
+    newerThanPack,
+    droppedReferences: () => dropped,
+    sleepingCount: () => sleeping.size,
 
     plan(puts) {
       const snapshot = current;
@@ -298,46 +343,59 @@ export function createContentEditState(
 
     selectAtBoot(rows) {
       const packWon: ContentOverrideRecord[] = [];
-      const dropped: { row: ContentOverrideRecord; reason: ContentDropReason }[] = [];
+      const lost: { row: ContentOverrideRecord; reason: ContentDropReason }[] = [];
+      const slept: ContentOverrideRecord[] = [];
       const candidates: ContentOverrideRecord[] = [];
+      /** 맞지 않는 줄: 새 판 줄은 잠재우고(지우지 않음), 같거나 옛 판 줄은 지운다 */
+      const reject = (row: ContentOverrideRecord, reason: ContentDropReason): void => {
+        if (newerThanPack(row.contentVersion)) slept.push(row);
+        else lost.push({ row, reason });
+      };
       const ordered = rows.toSorted((a, b) => a.updatedAtMs - b.updatedAtMs || byKey(a, b));
       for (const row of ordered) {
         const key = contentKey(row.category, row.id);
         const hash = packHashes.get(key);
         if (hash !== undefined) {
-          // 가장 나중에 바꾼 것이 이긴다: 저장 뒤에 팩 항목이 바뀌었거나(배포) 저장 때 팩에 없던 항목이 팩에 생겼다
+          // 가장 나중에 바꾼 것이 이긴다: 저장 뒤에 팩 항목이 바뀌었거나(배포·되돌림 배포) 저장 때 팩에 없던 항목이 팩에 생겼다
           if (row.packHash !== hash) {
             packWon.push(row);
             continue;
           }
-        } else if (row.packHash !== null) {
-          // 저장 때는 팩에 있던 항목이 새 팩에서 빠졌다(지웠거나 이름을 바꿈)
-          dropped.push({ row, reason: "unknown_entry" });
+        } else if (row.packHash !== null && !newerThanPack(row.contentVersion)) {
+          // 저장 때는 팩에 있던 항목이 새 팩에서 빠졌다(지웠거나 이름을 바꿈). 새 판 줄(되돌림)은 검사를 거쳐 쓰거나 잠재운다
+          lost.push({ row, reason: "unknown_entry" });
           continue;
         }
         if (idOf(row.entry) !== row.id) {
-          dropped.push({ row, reason: "invalid_entry" });
+          reject(row, "invalid_entry");
           continue;
         }
         candidates.push(row);
       }
       let keep: ContentOverrideRecord[] = candidates;
       if (candidates.length > 0 && validate(rawOf(recordsMap(candidates))).length > 0) {
-        // 한꺼번에는 맞지 않는다: 저장 차례로 하나씩 얹어 맞지 않는 줄을 뺀다
+        // 한꺼번에는 맞지 않는다: 저장 차례로 하나씩 얹어 맞지 않는 줄을 뺀다(새 판 줄은 잠재운다)
         keep = [];
         for (const row of candidates) {
           if (validate(rawOf(recordsMap([...keep, row]))).length === 0) keep.push(row);
-          else dropped.push({ row, reason: "invalid_entry" });
+          else reject(row, "invalid_entry");
         }
       }
-      return { keep, packWon, dropped };
+      return { keep, packWon, dropped: lost, slept };
     },
 
-    install(records, revision) {
+    install(records, revision, asleep) {
+      if (asleep) sleeping = new Set(asleep);
       const map = new Map<string, ContentOverrideRecord>();
       for (const record of [...records].toSorted(byKey)) {
         if (!(CONTENT_EDIT_CATEGORIES as readonly string[]).includes(record.category)) continue;
-        map.set(contentKey(record.category, record.id), record);
+        const key = contentKey(record.category, record.id);
+        // 잠든 줄은 그 판에서 저장한 그대로면 넣지 않는다(이 판에서 다시 저장하면 판이 바뀌어 깨어난다)
+        if (sleeping.has(key)) {
+          if (newerThanPack(record.contentVersion)) continue;
+          sleeping.delete(key);
+        }
+        map.set(key, record);
       }
       const raw = rawOf(recordsMap(map.values()));
       let effective: ContentEffective;
@@ -346,10 +404,12 @@ export function createContentEditState(
       } catch {
         // 검사를 통과한 줄만 오므로 오지 않는다. 와도 팩 항목으로 돈다(서버가 멈추지 않게)
         current = { revision, overrides: new Map(), raw: packRaw, effective: pack };
+        dropped = referencesOf(pack);
         return;
       }
       // 대입 한 번: 읽는 쪽은 앞 스냅숏이나 이 스냅숏만 본다
       current = { revision, overrides: map, raw, effective };
+      dropped = referencesOf(effective);
     },
   };
 }

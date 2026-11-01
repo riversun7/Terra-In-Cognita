@@ -97,6 +97,23 @@ describe("설정 칸 값 → 계수표", () => {
     for (const gone of ["n13_regen", "n13_regen_cap", "n15_mp_regen"]) expect(ids).not.toContain(gone);
   });
 
+  it("정원사 칸(D-460·D-468 C16a)도 같은 길로 바뀐다", () => {
+    const tuned = societyCoefficientsFrom(
+      new Map([
+        ["c16_strength_base", 6],
+        ["c16a_target_win", 250],
+        ["c16a_target_sum", 40_000],
+        ["c17_physical_divisor", 80],
+      ]),
+    );
+    expect([
+      tuned.gardener.strengthBase,
+      tuned.gardener.targetWinPm,
+      tuned.gardener.targetSum,
+      tuned.gardener.physicalDivisor,
+    ]).toEqual([6, 250, 40_000, 80]);
+  });
+
   it("모든 키는 계수표의 숫자 칸을 가리키고, ID는 겹치지 않는다", () => {
     for (const key of TUNING_KEYS) expect(Number.isInteger(tuningValue(key))).toBe(true);
     expect(new Set(TUNING_KEYS.map((key) => key.id)).size).toBe(TUNING_KEYS.length);

@@ -1635,7 +1635,7 @@
         "ko": "웨이브 세기 기본(마리)",
         "en": "Wave strength base"
       },
-      "value": 4,
+      "value": 5,
       "structural": false,
       "unit": "count",
       "min": 1,
@@ -1739,7 +1739,7 @@
         "ko": "물리형 비율 나눗수",
         "en": "Physical share divisor"
       },
-      "value": 200,
+      "value": 100,
       "structural": false,
       "unit": "points",
       "min": 1,

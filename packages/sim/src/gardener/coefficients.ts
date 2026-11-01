@@ -24,7 +24,10 @@ export interface GardenerCoefficients {
   /** 웨이브 확률 ‰ = min(chanceMaxPm, 영향권 오염 합 ÷ chanceDivisor) (C14, D-460 201) */
   readonly chanceDivisor: number;
   readonly chanceMaxPm: number;
-  /** 웨이브 세기 = strengthBase × (1 + ⌊log2(1 + 도시 수 + 휴먼 ÷ strengthHumansPer + 국고 ÷ strengthTreasuryUnit)⌋) (C16) */
+  /**
+   * 웨이브 세기 = strengthBase × (1 + ⌊log2(1 + 도시 수 + 휴먼 ÷ strengthHumansPer + 국고 ÷ strengthTreasuryUnit)⌋) (C16).
+   * strengthBase 출발값 5 = D-468 목표(C16a)로 맞춘 값(D-460 4 → 5, cli/gardener-cal.ts)
+   */
   readonly strengthBase: number;
   readonly strengthHumansPer: number;
   readonly strengthTreasuryUnit: number;
@@ -39,7 +42,10 @@ export interface GardenerCoefficients {
   /** 실패한 웨이브 뒤 그 도시 확률 감소 기간·남는 몫(C18, D-460 201: 7일 절반) */
   readonly cooldownMs: number;
   readonly cooldownChanceBp: number;
-  /** 물리형 공성 크리쳐 ‰ = min(physicalMaxPm, 영향권 오염 합 ÷ physicalDivisor) (C17, 질문 214 가) */
+  /**
+   * 물리형 공성 크리쳐 ‰ = min(physicalMaxPm, 영향권 오염 합 ÷ physicalDivisor) (C17, 질문 214 가). physicalDivisor 출발값 100 =
+   * D-468 목표로 맞춘 값(200 → 100)
+   */
   readonly physicalDivisor: number;
   readonly physicalMaxPm: number;
   /** 서버 유닛 예산과 모함 몫(만분율, S16, D-460 202: 10만의 5%, 행성 하나) */
@@ -74,7 +80,7 @@ export const TEST_GARDENER_COEFFICIENTS: GardenerCoefficients = {
   influenceRadius: 1,
   chanceDivisor: 100,
   chanceMaxPm: 300,
-  strengthBase: 4,
+  strengthBase: 5,
   strengthHumansPer: 50,
   strengthTreasuryUnit: 1_000_000,
   targetWinPm: 333,
@@ -82,7 +88,7 @@ export const TEST_GARDENER_COEFFICIENTS: GardenerCoefficients = {
   noticeMs: 8 * HOUR_MS,
   cooldownMs: 7 * DAY_MS,
   cooldownChanceBp: 5000,
-  physicalDivisor: 200,
+  physicalDivisor: 100,
   physicalMaxPm: 500,
   unitBudget: 100_000,
   mothershipBp: 500,

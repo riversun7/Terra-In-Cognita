@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { TEST_GARDENER_COEFFICIENTS as c } from "./coefficients.ts";
+import { type GardenerCoefficients, TEST_GARDENER_COEFFICIENTS } from "./coefficients.ts";
 import { nomadFits, nomadSize, nomadTarget, roamCell, startingNomads } from "./nomads.ts";
 import { squareGrid } from "./pollution.ts";
 
 const grid = squareGrid(64);
 const at = (x: number, y: number): number => grid.cellOf(x, y);
 const DAY = 86_400_000;
+
+/** 공식은 D-460 원래 값으로 본다(세기 기본 4·물리형 나눗수 200 — D-468로 맞춘 출발값과 따로, 계수 값만 바뀌어도 시험이 그대로) */
+const c: GardenerCoefficients = { ...TEST_GARDENER_COEFFICIENTS, strengthBase: 4, physicalDivisor: 200 };
 
 describe("유목 정원사 부대(D-206·D-319·D-320, D-460 202, 질문 221 가)", () => {
   it("행성마다 정찰대 2·정화 군단 1, 처음 자리는 모함 칸", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TEST_GARDENER_COEFFICIENTS as c } from "./coefficients.ts";
+import { type GardenerCoefficients, TEST_GARDENER_COEFFICIENTS } from "./coefficients.ts";
 import {
   bitLength,
   floorLog2,
@@ -14,6 +14,9 @@ import {
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
+
+/** 공식은 D-460 원래 값으로 본다(세기 기본 4·물리형 나눗수 200 — D-468로 맞춘 출발값과 따로, 계수 값만 바뀌어도 시험이 그대로) */
+const c: GardenerCoefficients = { ...TEST_GARDENER_COEFFICIENTS, strengthBase: 4, physicalDivisor: 200 };
 
 describe("정원사 웨이브 공식(D-460 201, C14~C18)", () => {
   it("확률 ‰ = min(300, 영향권 오염 합 ÷ 100), 쉬는 시간 중이면 절반(내림)", () => {
@@ -63,6 +66,20 @@ describe("정원사 웨이브 공식(D-460 201, C14~C18)", () => {
     // 웨이브 하나의 최소(세기 기본 4)보다 적게 남으면 주지 않는다
     expect(grantGardenerUnits(12, 4_997, c)).toBe(0);
     expect(grantGardenerUnits(12, 6_000, c)).toBe(0);
+  });
+
+  it("출발값: 세기 기본·물리형 나눗수는 D-468 목표(C16a: 합 ≥ 30,000 웨이브의 약 1/3 승)로 맞춘 5·100", () => {
+    expect([
+      TEST_GARDENER_COEFFICIENTS.strengthBase,
+      TEST_GARDENER_COEFFICIENTS.physicalDivisor,
+      TEST_GARDENER_COEFFICIENTS.targetWinPm,
+      TEST_GARDENER_COEFFICIENTS.targetSum,
+    ]).toEqual([5, 100, 333, 30_000]);
+    // 4도시 세력 세기 15, 합 30,000 → 물리형 ⌊15 × 300‰⌋ = 4
+    const t = TEST_GARDENER_COEFFICIENTS;
+    expect(
+      physicalCount(waveStrength({ cities: 4, humans: 40, treasury: 0n }, t), physicalPm(30_000, t)),
+    ).toBe(4);
   });
 
   it("쉬는 시간 길이는 7일", () => {

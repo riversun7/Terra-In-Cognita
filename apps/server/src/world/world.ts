@@ -40,7 +40,7 @@ import {
   createSettlement,
 } from "./settlement.ts";
 import { emptyWorldStats, resetWorldStats, summarizeWorldStats } from "./worldStats.ts";
-import { ensureTestNations } from "../npc/nations.ts";
+import { type NationPreset, ensureTestNations, nationName } from "../npc/nations.ts";
 import { type NpcRuntime, startNpcRuntime } from "../npc/runtime.ts";
 
 /**
@@ -102,7 +102,15 @@ export interface WorldConfig {
    * NPC 사회 런타임(docs/adr/2026-11-01-npc-brain-r5.md 7절, NPC_SOCIETY). 없으면 끔. DB가 있을 때만 돈다.
    * testNations = 시험 국가 수(NPC_TEST_NATIONS), dayMs = 하루 길이(측정용, NPC_DAY_MS), manual = 타이머 없이(시험)
    */
-  npc?: { testNations: number; dayMs?: number | undefined; manual?: boolean | undefined } | undefined;
+  npc?:
+    | {
+        testNations: number;
+        dayMs?: number | undefined;
+        manual?: boolean | undefined;
+        /** 팩 국가 프리셋(시험 국가 2번부터의 코드·이름) */
+        presets?: readonly NationPreset[] | undefined;
+      }
+    | undefined;
 }
 
 export interface WorldLog extends MapLog {
@@ -324,6 +332,7 @@ export function startWorld(
             planetId: TEST_PLANET_ID,
             mapKey: mapKeys[0],
             nowMs: now(),
+            presets: config.npc.presets,
           });
         cities = await loadCities(db);
         cyborgData = await loadCyborgs(db);
@@ -482,6 +491,7 @@ export function startWorld(
       seed: () => randomInt(0x1_0000_0000),
       ready: () => status.state === "ready",
       log,
+      factionName: (code) => nationName(code, config.npc?.presets),
     });
     persistence = { writer, pool: db, nextId, owners, ledger, settlement, npcOwnerId, battles, cyborgs };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)

@@ -37,7 +37,6 @@ import {
 import type { Ledger } from "../economy/ledger.ts";
 import type { CyborgReadServices } from "../trpc/context.ts";
 import type { CityRow } from "../world/cities.ts";
-import { nationName } from "../npc/nations.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
@@ -143,6 +142,8 @@ export interface CyborgServiceOptions {
   /** 세계가 준비됐는가(부팅 복구 중이면 busy) */
   ready: () => boolean;
   log: { warn(obj: object, message: string): void };
+  /** 세력 코드 → 화면 이름(시험 국가 = 팩 국가 프리셋 이름, docs/adr/2026-11-01-npc-brain-r5.md 7절). 없으면 코드 */
+  factionName?: ((code: string) => LocalizedName | undefined) | undefined;
 }
 
 /** 시작 도시 칸에서 나선(가까운 고리부터, 고리 안은 위 → 오른쪽 → 아래 → 왼쪽)으로 칸을 돈다 */
@@ -291,7 +292,9 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       const fewest = Math.min(...open.map((entry) => perFaction.get(entry.faction.id) ?? 0));
       const list: CreationFaction[] = open.map(({ faction, cities }) => ({
         id: faction.id,
-        name: (faction.code ? (FACTION_NAMES[faction.code] ?? nationName(faction.code)) : undefined) ?? {
+        name: (faction.code
+          ? (FACTION_NAMES[faction.code] ?? options.factionName?.(faction.code))
+          : undefined) ?? {
           ko: faction.code ?? `#${faction.id}`,
           en: faction.code ?? `#${faction.id}`,
         },

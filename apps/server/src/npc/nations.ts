@@ -1,6 +1,7 @@
 // 시험 세계 NPC 국가 — docs/adr/2026-11-01-npc-brain-r5.md 7절, 질문 203 가(D-460)
 // NAS 시험 세계(S2 시험 행성, 시험 2차맵)에 NPC 국가 N개(기본 4)를 둔다: 지금 시험 NPC 세력(s3_test_npc, 가운데 시작 도시)이
-// 1번이고, 나머지는 npc_nation_02… 코드로 시험 2차맵 첫 장의 둘레 칸에 시작 도시를 하나씩 둔다. 모두 고정(D-324)이다.
+// 1번이고, 나머지는 팩 국가 프리셋 차례의 코드(프리셋이 없으면 npc_nation_02…)로 시험 2차맵 첫 장의 둘레 칸에 시작 도시를
+// 하나씩 둔다. 모두 고정(D-324)이다.
 // 체제는 국가 차례로 셋을 돌리고(시뮬 "mixed"와 같다), 성향은 NPC 사회 런타임이 세계 시드로 굴려 채운다(D-327).
 import { PLACEMENT_SIZE } from "@terra/sim";
 import type { QueryPool } from "../world/persist/load.ts";
@@ -32,13 +33,25 @@ const SLOTS: readonly (readonly [number, number])[] = [
   [96, MID],
 ];
 
-/** n번째 국가 코드(1번 = 지금 시험 NPC 세력) */
-export function nationCode(n: number): string {
-  return n === 1 ? TEST_NPC_FACTION_CODE : `${NATION_CODE_PREFIX}${String(n).padStart(2, "0")}`;
+/** 팩 국가 프리셋(D-086) 하나: 시험 국가의 코드·이름(질문 203 가: 시험 세력 + 프리셋 차례) */
+export interface NationPreset {
+  readonly code: string;
+  readonly name: { readonly ko: string; readonly en: string };
 }
 
-/** [임시] 화면 이름(세력 표에 이름 칸이 아직 없다): 시험 국가 코드 → "시험 NPC 국가 N" */
-export function nationName(code: string): { ko: string; en: string } | undefined {
+/** n번째 국가 코드(1번 = 지금 시험 NPC 세력, 2번부터 = 팩 프리셋 차례, 프리셋이 없으면 npc_nation_NN) */
+export function nationCode(n: number, presets: readonly NationPreset[] = []): string {
+  if (n === 1) return TEST_NPC_FACTION_CODE;
+  return presets[n - 2]?.code ?? `${NATION_CODE_PREFIX}${String(n).padStart(2, "0")}`;
+}
+
+/** [임시] 화면 이름(세력 표에 이름 칸이 아직 없다): 프리셋 코드 → 프리셋 이름, npc_nation_NN → "시험 NPC 국가 N" */
+export function nationName(
+  code: string,
+  presets: readonly NationPreset[] = [],
+): { ko: string; en: string } | undefined {
+  const preset = presets.find((entry) => entry.code === code);
+  if (preset) return { ko: preset.name.ko, en: preset.name.en };
   if (!code.startsWith(NATION_CODE_PREFIX)) return undefined;
   const n = Number(code.slice(NATION_CODE_PREFIX.length));
   return Number.isInteger(n) ? { ko: `시험 NPC 국가 ${n}`, en: `Test NPC nation ${n}` } : undefined;
@@ -50,11 +63,17 @@ export function nationName(code: string): { ko: string; en: string } | undefined
  */
 export async function ensureTestNations(
   pool: QueryPool,
-  options: { count: number; planetId: string; mapKey: number; nowMs: number },
+  options: {
+    count: number;
+    planetId: string;
+    mapKey: number;
+    nowMs: number;
+    presets?: readonly NationPreset[] | undefined;
+  },
 ): Promise<void> {
   const count = Math.max(1, Math.min(MAX_TEST_NATIONS, options.count));
   for (let n = 2; n <= count; n++) {
-    const code = nationCode(n);
+    const code = nationCode(n, options.presets);
     const regime = REGIMES[(n - 1) % REGIMES.length] ?? "democracy";
     const [x, y] = SLOTS[n - 2] ?? [MID, MID];
     await pool.query(

@@ -16,6 +16,8 @@ export interface OwnerRow {
   factionId: number | null;
   settledAtMs: number;
   upkeepArrears: number;
+  /** 마지막 유지비 경계(정시)를 못 냈으면 그 경계 시각(냈으면 null) — 사이보그 본체 효율 불이익(D-453) */
+  upkeepUnpaidAtMs: number | null;
 }
 
 export interface AccountRow {
@@ -88,7 +90,7 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
 
   const presence = await pool.query(`select user_id, offline_since_ms from world_presence`);
   const owners = await pool.query(
-    `select id, user_id, faction_id, settled_at_ms, upkeep_arrears from world_owners`,
+    `select id, user_id, faction_id, settled_at_ms, upkeep_arrears, upkeep_unpaid_at_ms from world_owners`,
   );
   const units = await pool.query(
     `select id, owner_id, kind, size, speed, map_key, planet_id, domain, path, depart_at_ms, wake_at_ms, ai_step,
@@ -120,6 +122,7 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
       factionId: numOrNull(row.faction_id),
       settledAtMs: num(row.settled_at_ms),
       upkeepArrears: num(row.upkeep_arrears),
+      upkeepUnpaidAtMs: numOrNull(row.upkeep_unpaid_at_ms),
     })),
     units: units.rows.map((row) => ({
       id: num(row.id),

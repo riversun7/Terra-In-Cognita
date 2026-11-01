@@ -11,7 +11,7 @@ export interface TableSpec {
 export const WORLD_TABLES = {
   owners: {
     name: "world_owners",
-    columns: ["id", "user_id", "faction_id", "settled_at_ms", "upkeep_arrears"],
+    columns: ["id", "user_id", "faction_id", "settled_at_ms", "upkeep_arrears", "upkeep_unpaid_at_ms"],
     key: ["id"],
   },
   accounts: {
@@ -90,6 +90,9 @@ export const WORLD_TABLES = {
       "rebirths",
       "faith",
       "created_at_ms",
+      "elements",
+      "religion",
+      "faith_points",
     ],
     key: ["user_id"],
   },

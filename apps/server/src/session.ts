@@ -8,6 +8,7 @@ import {
   ProtocolError,
   SECOND_MAP_PROTOCOL_VERSION,
   CYBORG_PROTOCOL_VERSION,
+  CYBORG_ELEMENTS_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -170,9 +171,12 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         return;
       }
       case "cyborg_roll":
-      case "cyborg_create": {
-        // 프로토콜 4의 메시지다. 3으로 인사한 연결은 모르는 메시지로 본다(2차맵 메시지와 같은 규칙)
-        if (protocolVersion < CYBORG_PROTOCOL_VERSION) {
+      case "cyborg_create":
+      case "cyborg_elements": {
+        // 굴리기·만들기는 프로토콜 4, 속성 분배는 5의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다(2차맵 메시지와 같은 규칙)
+        const needs =
+          message.t === "cyborg_elements" ? CYBORG_ELEMENTS_PROTOCOL_VERSION : CYBORG_PROTOCOL_VERSION;
+        if (protocolVersion < needs) {
           reject("invalid_message");
           return;
         }
@@ -180,7 +184,11 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send({ t: "cyborg_result", id: message.id, ok: false, code: "busy" });
           return;
         }
-        cyborgSocket ??= context.cyborg.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        cyborgSocket ??= context.cyborg.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          protocolVersion,
+        });
         cyborgSocket.handle(message);
         return;
       }

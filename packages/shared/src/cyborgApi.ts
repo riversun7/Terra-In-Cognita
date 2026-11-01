@@ -1,5 +1,6 @@
 // 사이보그 만들기·상태 조회 응답 — tRPC cyborg.status·cyborg.creation·cyborg.nameCheck의 모양.
-// ADR 2026-11-01-first-login-cyborg 4절. 바꾸는 명령(굴리기·만들기)은 WebSocket(packages/protocol cyborg.ts)으로만 보낸다.
+// ADR 2026-11-01-first-login-cyborg 4절·"바뀜 (D-450~D-453)". 바꾸는 명령(굴리기·만들기·속성 분배)은 WebSocket(packages/protocol
+// cyborg.ts)으로만 보낸다.
 import type { CyborgAppearance } from "./cyborgLooks.ts";
 import type { CyborgNameProblem } from "./cyborgName.ts";
 import type { LocalizedName, PrimaryStat } from "./roster.ts";
@@ -7,10 +8,19 @@ import type { LocalizedName, PrimaryStat } from "./roster.ts";
 /** 1차 스탯 여섯(STR·DEX·AGI·VIT·INT·WIS) */
 export type CyborgStats = { readonly [S in PrimaryStat]: number };
 
-/** cyborg.status — 틀 길잡이(사이보그가 없으면 /start)와 위 띠 얼굴이 쓴다 */
+/**
+ * cyborg.status — 틀 길잡이(사이보그가 없으면 /start)와 위 띠 얼굴이 쓴다. elementsPending = 속성 분배(D-450)가 없는 사이보그
+ * (프로토콜 5 전에 만든 것): 길잡이가 /start의 속성 분배로 한 번 보낸다
+ */
 export type CyborgStatusResponse =
   | { readonly cyborg: null }
-  | { readonly cyborg: { readonly name: string; readonly appearance: CyborgAppearance } };
+  | {
+      readonly cyborg: {
+        readonly name: string;
+        readonly appearance: CyborgAppearance;
+        readonly elementsPending: boolean;
+      };
+    };
 
 /** 지금 굴림(서버가 굴리고 저장한다). 남은 횟수가 0이면 이 값으로 만든다 */
 export interface CyborgRollView {
@@ -54,15 +64,22 @@ export interface CreationFaction {
 
 /** cyborg.creation — /start 화면 자료 */
 export interface CyborgCreationResponse {
-  /** 이미 만들었는가(그러면 기기는 홈으로) */
+  /** 이미 만들었는가(그러면 기기는 홈으로. 속성 분배가 없으면 분배 단계만) */
   readonly created: boolean;
+  /** 만든 사이보그에 속성 분배가 없다(프로토콜 5 전에 만든 것, D-450): /start가 분배 단계만 보인다 */
+  readonly elementsPending: boolean;
   readonly roll: CyborgRollView | null;
-  /** 합·칸 범위(팩 tuning N9)와 굴림 상한(처음 1 + 다시 굴리기) */
+  /**
+   * 합·칸 범위(팩 tuning N9)와 굴림 상한(처음 1 + 다시 굴리기), 속성 분배(N36: 4원소 가운데 고를 수 있는 칸 수·나눌 점수, 칸마다
+   * 상한 10 D-182)
+   */
   readonly rules: {
     readonly statSum: number;
     readonly statMin: number;
     readonly statMax: number;
     readonly rollsMax: number;
+    readonly elementCells: number;
+    readonly elementPoints: number;
   };
   readonly temperaments: readonly CyborgTemperamentView[];
   readonly factions: readonly CreationFaction[];

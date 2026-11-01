@@ -1,0 +1,236 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "8d6c232b-da82-4a2a-b1e0-bcd64e06e2b5",
+  "prevIds": [
+    "412665e3-796c-44bc-a7f0-414470bb89bf"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "cyborgs",
+        "elements"
+      ],
+      "writes": [
+        "s|col|public.cyborgs.elements",
+        "n|col|public.cyborgs.elements",
+        "e|col|public.cyborgs.elements"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "cyborgs",
+        "religion"
+      ],
+      "writes": [
+        "s|col|public.cyborgs.religion",
+        "n|col|public.cyborgs.religion",
+        "e|col|public.cyborgs.religion"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "cyborgs",
+        "faith_points"
+      ],
+      "writes": [
+        "s|col|public.cyborgs.faith_points",
+        "n|col|public.cyborgs.faith_points",
+        "e|col|public.cyborgs.faith_points"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_owners",
+        "upkeep_unpaid_at_ms"
+      ],
+      "writes": [
+        "s|col|public.world_owners.upkeep_unpaid_at_ms",
+        "n|col|public.world_owners.upkeep_unpaid_at_ms",
+        "e|col|public.world_owners.upkeep_unpaid_at_ms"
+      ],
+      "reads": [
+        "n|tbl|public.world_owners",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "cyborgs"
+      ],
+      "writes": [
+        "s|ck|public.cyborgs.cyborgs_elements",
+        "n|ck|public.cyborgs.cyborgs_elements",
+        "e|ck|public.cyborgs.cyborgs_elements",
+        "n|con|public.cyborgs.cyborgs_elements"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public",
+        "n|col|public.cyborgs.elements"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "cyborgs"
+      ],
+      "writes": [
+        "s|ck|public.cyborgs.cyborgs_religion_format",
+        "n|ck|public.cyborgs.cyborgs_religion_format",
+        "e|ck|public.cyborgs.cyborgs_religion_format",
+        "n|con|public.cyborgs.cyborgs_religion_format"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public",
+        "n|col|public.cyborgs.religion"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "cyborgs"
+      ],
+      "writes": [
+        "s|ck|public.cyborgs.cyborgs_faith_points",
+        "n|ck|public.cyborgs.cyborgs_faith_points",
+        "e|ck|public.cyborgs.cyborgs_faith_points",
+        "n|con|public.cyborgs.cyborgs_faith_points"
+      ],
+      "reads": [
+        "n|tbl|public.cyborgs",
+        "n|sch|public",
+        "n|col|public.cyborgs.faith_points"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "elements",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "religion",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "faith_points",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_owners",
+        "name": "upkeep_unpaid_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "cyborgs_elements",
+        "value": "\"elements\" is null or (cardinality(\"elements\") = 12 and 0 <= all(\"elements\") and 10 >= all(\"elements\"))",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "cyborgs_religion_format",
+        "value": "\"religion\" is null or \"religion\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborgs",
+        "name": "cyborgs_faith_points",
+        "value": "\"faith_points\" >= 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

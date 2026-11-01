@@ -1,5 +1,6 @@
-// 사이보그 만들기 연결 처리 시험 — 로그인, 세계 준비 전, 속도 제한, 차례 처리, 결과 메시지 모양
-import { decodeServerMessage } from "@terra/protocol";
+// 사이보그 만들기 연결 처리 시험 — 로그인, 세계 준비 전, 속도 제한, 차례 처리, 결과 메시지 모양, 속성 분배(프로토콜 5)
+import { CYBORG_ELEMENT_IDS, decodeServerMessage } from "@terra/protocol";
+import { ELEMENT_IDS } from "@terra/shared/cyborg";
 import { describe, expect, it } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
 import { createCyborgGateway } from "./gateway.ts";
@@ -30,21 +31,27 @@ function fakeService(calls: string[]): CyborgService {
       return ok({ ok: true, roll });
     },
     create: (userId, input) => {
-      calls.push(`create:${userId}:${input.name}`);
+      calls.push(`create:${userId}:${input.name}:${JSON.stringify(input.elements ?? null)}`);
       return ok({ ok: false, code: "name_taken" });
     },
+    allocateElements: (userId, elements) => {
+      calls.push(`elements:${userId}:${JSON.stringify(elements)}`);
+      return ok({ ok: true });
+    },
+    livingUnpaid: () => false,
     record: () => undefined,
     isBodyUnit: () => false,
     repairUnits: () => 0,
   };
 }
 
-function open(service: CyborgService | undefined, who: Viewer | null, now = () => 0) {
+function open(service: CyborgService | undefined, who: Viewer | null, now = () => 0, protocolVersion = 5) {
   const sent: unknown[] = [];
   const gateway = createCyborgGateway({ service: () => service, now, log: { error: () => {} } });
   const socket = gateway.open({
     send: (text) => sent.push(decodeServerMessage(text)),
     viewer: () => Promise.resolve(who),
+    protocolVersion,
   });
   return { sent, socket };
 }
@@ -70,10 +77,10 @@ describe("사이보그 연결 처리", () => {
     const calls: string[] = [];
     const { sent, socket } = open(fakeService(calls), viewer);
     socket.handle({ t: "cyborg_roll", id: 1, temperament: "combat" });
-    socket.handle(create);
+    socket.handle({ ...create, elements: { fire: 10 } });
     await settle();
     await settle();
-    expect(calls).toEqual(["roll:user-1:combat", "create:user-1:Nova"]);
+    expect(calls).toEqual(["roll:user-1:combat", 'create:user-1:Nova:{"fire":10}']);
     expect(sent).toEqual([
       { t: "cyborg_result", id: 1, ok: true, roll },
       { t: "cyborg_result", id: 2, ok: false, code: "name_taken" },
@@ -103,5 +110,25 @@ describe("사이보그 연결 처리", () => {
       { t: "cyborg_result", id: 11, ok: false, code: "rate_limited" },
       { t: "cyborg_result", id: 12, ok: false, code: "rate_limited" },
     ]);
+  });
+
+  it("속성 분배(5): 5판 연결의 만들기는 분배가 꼭 있어야 하고, 4판 연결은 분배 없이 넘긴다(분배 기다림). 한 번 분배도 넘긴다", async () => {
+    const calls: string[] = [];
+    const v5 = open(fakeService(calls), viewer);
+    v5.socket.handle(create);
+    v5.socket.handle({ t: "cyborg_elements", id: 3, elements: { earth: 10 } });
+    for (let i = 0; i < 4; i++) await settle();
+    expect(v5.sent).toEqual([
+      { t: "cyborg_result", id: 2, ok: false, code: "elements_invalid" },
+      { t: "cyborg_result", id: 3, ok: true },
+    ]);
+    const v4 = open(fakeService(calls), viewer, () => 0, 4);
+    v4.socket.handle(create);
+    for (let i = 0; i < 4; i++) await settle();
+    expect(calls).toEqual(['elements:user-1:{"earth":10}', "create:user-1:Nova:null"]);
+  });
+
+  it("프로토콜의 속성 코드는 공용 목록과 같은 차례다", () => {
+    expect([...CYBORG_ELEMENT_IDS]).toEqual([...ELEMENT_IDS]);
   });
 });

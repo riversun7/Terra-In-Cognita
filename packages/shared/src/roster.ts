@@ -7,6 +7,7 @@
 // - 2차 스탯은 서버가 계산해 보낸다(게임 앱은 판정 코드 packages/sim을 가져오지 않는다, AGENTS 4장).
 // - 금액·양은 최소 단위 정수 문자열이다(PLAN 4.7).
 
+import type { ElementValues } from "./cyborgElements.ts";
 import type { CyborgAppearance } from "./cyborgLooks.ts";
 
 /** 1차 스탯 6개(D-414) — 화면 차례 */
@@ -233,10 +234,24 @@ export interface CyborgBody {
   /** 스킬 최대 등급 = 3 + 환생(D-031) */
   readonly skillGradeCap: number;
   /**
-   * 신앙도(D-441: 사이보그 환생 비용의 하나, 써서 줄어든다). 0~100(규칙 sim CyborgProgress.faith). 얻는 길은 REL-1 종교 활동
-   * (기도·헌금·의식·종교 의뢰, 신앙 시설 46 §7)이고 아직 없다(D-444 165)
+   * 신앙도(D-451: 쌓이는 점수, 환생 조건의 문턱이고 쓰지 않는다. 환생하면 0, 개종하면 0). 0~100(규칙 sim UnitFaith.faith).
+   * 얻는 길은 REL-1 종교 활동(기도·헌금·의식·종교 의뢰, 신앙 시설 46 §7)이고 아직 없다
    */
   readonly faith: number;
+  /** 종교 코드(신앙 콘텐츠 ID, D-451). 없으면 null(지금은 종교를 고르는 길이 없어 늘 null) */
+  readonly religion: string | null;
+  /** 신앙 포인트(D-451: 그 종교의 특수 시스템·버프·아이템에 쓰는 잔고, 개종하면 0) */
+  readonly faithPoints: number;
+  /**
+   * 속성값 12칸(0~10, D-182·D-450) = 생성·환생 값(4원소 분배·종교 환생 빛·어둠) + 장비·인공장기·신앙 몫, 칸마다 10에서 자른다.
+   * 분배가 없는 옛 사이보그는 모두 0
+   */
+  readonly elements: ElementValues;
+  /**
+   * 생활비(D-453: 유닛 유지비 D-150을 본체도 낸다). unpaid = 마지막 유지비를 못 냄 → 효율 efficiencyPm(N38 ‰)으로 돈다(멈추지 않음).
+   * 보유 유닛 수(주거 상한 D-153)에는 세지 않는다
+   */
+  readonly living: { readonly unpaid: boolean; readonly efficiencyPm: number };
   readonly stats: RosterStats;
   readonly slots: readonly RosterSlot[];
   readonly skills: RosterSkills;
@@ -248,10 +263,10 @@ export interface CyborgBody {
 }
 
 /**
- * 사이보그 환생 조건·비용(D-440·D-441·D-444, 팩 tuning 설정값 — 본체가 없어도 규칙이라 늘 보낸다).
- * 최고 레벨(N7 `n7_max_level`), 신앙도(N34 `n34_rebirth_faith`, 0~100 척도, 써서 줄어든다), 화폐(N34 `n34_rebirth_currency`,
- * 환생 시설이 있는 도시 화폐의 최소 단위 정수 글자), 분포 다시 굴리기 횟수(N9 `n9_initial_rerolls`, 생성과 같은 값 — D-444 164).
- * 진로별 종교 아이템은 추가 조건이라 여기에 없다
+ * 사이보그 환생 조건·비용(D-440·D-441·D-444·D-451, 팩 tuning 설정값 — 본체가 없어도 규칙이라 늘 보낸다).
+ * 최고 레벨(N7 `n7_max_level`), 신앙도 문턱(N34 `n34_rebirth_faith`, 0~100 척도, 쓰지 않고 환생하면 0 — D-451), 화폐(N34
+ * `n34_rebirth_currency`, 환생 시설이 있는 도시 화폐의 최소 단위 정수 글자), 분포 다시 굴리기 횟수(N9 `n9_initial_rerolls`, 생성과 같은
+ * 값 — D-444 164). 진로별 종교 아이템(빛·어둠 갈래 또는 종교 특수 스킬, D-452)은 고르는 칸이라 여기에 없다
  */
 export interface CyborgRebirthRule {
   readonly maxLevel: number;

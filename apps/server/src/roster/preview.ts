@@ -16,6 +16,7 @@ import type {
   RosterPrisoner,
   RosterUnit,
 } from "@terra/shared/roster";
+import { sumElementSources, zeroElements } from "@terra/shared/cyborg";
 import { type Primaries, skillGradeCap } from "@terra/sim";
 import { TEST_MAP_KEY, TEST_PLANET_ID } from "../world/world.ts";
 import { type BodySpec, bodyView } from "./body.ts";
@@ -414,8 +415,14 @@ export function previewCyborg(catalog: RosterCatalog): CyborgBody {
     rebirths,
     // 스킬 최대 등급 = min(3 + 환생, 10)(D-031·D-5001, 규칙 sim skillGradeCap)
     skillGradeCap: skillGradeCap(rebirths, catalog.society),
-    // 신앙도(D-441, 0~100 척도). 화면을 채우려는 값이다(환생 비용 N34 출발값 50보다 조금 많게)
+    // 신앙도(D-441·D-451, 0~100 척도, 쌓이는 문턱). 화면을 채우려는 값이다(환생 문턱 N34 출발값 50보다 조금 많게)
     faith: 62,
+    // [임시] 시안 종교·신앙 포인트(D-451). 종교 목록은 신앙 콘텐츠가 생기면 그 ID
+    religion: "preview_sun",
+    faithPoints: 140,
+    // 속성값(D-450): 생성 불 7·바람 3 + 시안 인공장기(test_heart) 불 2·빙결 3 + 종교 환생 빛 5
+    elements: sumElementSources({ ...zeroElements(), fire: 7, wind: 3, light: 5 }, [{ fire: 2, frost: 3 }]),
+    living: { unpaid: false, efficiencyPm: 1000 },
     ...body,
     fatigue: { value: 30, max: FATIGUE_MAX },
     inventory: [

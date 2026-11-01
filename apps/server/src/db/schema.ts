@@ -428,6 +428,11 @@ export const worldOwners = pgTable(
     settledAtMs: bigint("settled_at_ms", { mode: "number" }).notNull(),
     /** 내지 못한 유지비 횟수[임시] */
     upkeepArrears: integer("upkeep_arrears").notNull().default(0),
+    /**
+     * 마지막 유지비 경계(정시)를 못 냈으면 그 경계 시각(냈으면 null). 사이보그 본체가 효율 불이익(N38)으로 돈다(D-453,
+     * docs/adr/2026-11-01-first-login-cyborg.md "바뀜 (D-450~D-453)")
+     */
+    upkeepUnpaidAtMs: bigint("upkeep_unpaid_at_ms", { mode: "number" }),
   },
   (table) => [check("world_owners_one_kind", sql`num_nonnulls(${table.userId}, ${table.factionId}) = 1`)],
 );
@@ -543,9 +548,18 @@ export const cyborgs = pgTable(
     level: smallint("level").notNull().default(1),
     exp: integer("exp").notNull().default(0),
     rebirths: smallint("rebirths").notNull().default(0),
-    /** 신앙도 0~100(D-441·D-444 165) */
+    /** 신앙도 0~100(D-441, 쌓이는 문턱 점수 — 환생·개종하면 0, D-451) */
     faith: smallint("faith").notNull().default(0),
     createdAtMs: bigint("created_at_ms", { mode: "number" }).notNull(),
+    /**
+     * 생성·환생 속성값 12칸(@terra/shared ELEMENT_IDS 차례, 칸마다 0~10, D-182·D-450). null = 아직 나누지 않음(프로토콜 5 전에 만든
+     * 사이보그 → 다음 접속 때 한 번 나눈다)
+     */
+    elements: smallint("elements").array(),
+    /** 종교 코드(신앙 콘텐츠 ID, D-451). 없으면 null */
+    religion: text("religion"),
+    /** 신앙 포인트 잔고(D-451, 쓰는 재화) */
+    faithPoints: integer("faith_points").notNull().default(0),
   },
   (table) => [
     uniqueIndex("cyborgs_unit_idx").on(table.unitId),
@@ -554,6 +568,15 @@ export const cyborgs = pgTable(
     check("cyborgs_temperament_format", sql`${table.temperament} ~ '^[a-z][a-z0-9_]{1,31}$'`),
     check("cyborgs_level", sql`${table.level} >= 1 and ${table.exp} >= 0 and ${table.rebirths} >= 0`),
     check("cyborgs_faith", sql`${table.faith} between 0 and 100`),
+    check(
+      "cyborgs_elements",
+      sql`${table.elements} is null or (cardinality(${table.elements}) = 12 and 0 <= all(${table.elements}) and 10 >= all(${table.elements}))`,
+    ),
+    check(
+      "cyborgs_religion_format",
+      sql`${table.religion} is null or ${table.religion} ~ '^[a-z][a-z0-9_]{1,47}$'`,
+    ),
+    check("cyborgs_faith_points", sql`${table.faithPoints} >= 0`),
   ],
 );
 

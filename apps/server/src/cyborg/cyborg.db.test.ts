@@ -1,9 +1,12 @@
 // 사이보그 만들기 DB 통합 시험(docs/adr/2026-11-01-first-login-cyborg.md) — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
 // 서버 규칙: 굴림 합 60·칸 1~20, 굴림 횟수(처음 1 + 다시 굴리기 3, 서버 저장·다시 켜도 남음), 이름 규칙·사칭·고유(대소문자 무시),
-// 계정당 하나, 시작 도시 둘레에 세계 유닛으로 놓기(시야로 2차맵이 열림), 한 커밋 저장, 부팅이 잃은 본체를 다시 놓기(I13).
-import { DEFAULT_CYBORG_APPEARANCE } from "@terra/shared/cyborg";
+// 계정당 하나, 시작 도시 둘레에 세계 유닛으로 놓기(시야로 2차맵이 열림), 한 커밋 저장, 부팅이 잃은 본체를 다시 놓기(I13),
+// 속성 분배(D-450, N36: 4원소 두 칸까지 합 10, 분배 없는 옛 사이보그는 한 번 나눔), 본체 생활비(D-453: 유지비를 내고 못 내면 비효율).
+import { DEFAULT_CYBORG_APPEARANCE, zeroElements } from "@terra/shared/cyborg";
 import { CELL_UNITS, positionAt } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { testRosterCatalog } from "../roster/catalog.ts";
+import { realCyborgBody } from "../roster/cyborgBody.ts";
 import { createWorldRosterSource } from "../roster/worldUnits.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { silentLog } from "../world/testSupport.ts";
@@ -73,6 +76,7 @@ function startOf(world: World, userId: string) {
 }
 
 const sum = (stats: Record<string, number>) => Object.values(stats).reduce((a, b) => a + b, 0);
+const fireWind = { fire: 6, wind: 4 };
 
 describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
   it("굴림: 합 60·칸 1~20, 처음 1번 + 다시 굴리기 3번까지, 다 쓰면 rolls_exhausted, 다시 켜도 횟수가 남는다", async () => {
@@ -85,6 +89,8 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
       statMin: 1,
       statMax: 20,
       rollsMax: 4,
+      elementCells: 2,
+      elementPoints: 10,
     });
     expect(await service.roll(user, "berserker")).toEqual({ ok: false, code: "unknown_temperament" });
     const lefts: number[] = [];
@@ -124,7 +130,7 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     const a = await fakeUser("Maker_A");
     const b = await fakeUser("Maker_B");
     const start = startOf(world, a);
-    const input = { name: "Nova", appearance: DEFAULT_CYBORG_APPEARANCE, ...start };
+    const input = { name: "Nova", appearance: DEFAULT_CYBORG_APPEARANCE, ...start, elements: fireWind };
     expect(await service.create(a, input)).toEqual({ ok: false, code: "roll_required" });
     await service.roll(a, "combat");
     expect(await service.create(a, { ...input, name: "No va" })).toEqual({ ok: false, code: "name_invalid" });
@@ -150,8 +156,11 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
       code: "already_created",
     });
     expect(await service.roll(a, "tech")).toEqual({ ok: false, code: "already_created" });
-    expect(service.status(a)).toEqual({ cyborg: { name: "Nova", appearance: DEFAULT_CYBORG_APPEARANCE } });
-    expect(service.creation(a, clock).created).toBe(true);
+    expect(service.status(a)).toEqual({
+      cyborg: { name: "Nova", appearance: DEFAULT_CYBORG_APPEARANCE, elementsPending: false },
+    });
+    expect(service.creation(a, clock)).toMatchObject({ created: true, elementsPending: false });
+    expect(service.record(a)?.elements).toEqual({ ...zeroElements(), fire: 6, wind: 4 });
 
     expect(service.nameCheck("nOvA")).toEqual({ ok: false, code: "taken" });
     expect(service.nameCheck("철")).toEqual({ ok: false, code: "too_short" });
@@ -164,14 +173,19 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     expect(view.factions[0]?.cities[0]).toMatchObject({ cyborgs: 2, crowding: "quiet" });
   });
 
-  it("놓기: 시작 도시 둘레의 내 세계 유닛(종류 3)이고 시야로 2차맵이 열린다. 한 커밋으로 남고 보유 유닛·정산에는 들지 않는다", async () => {
+  it("놓기: 시작 도시 둘레의 내 세계 유닛(종류 3)이고 시야로 2차맵이 열린다. 한 커밋으로 남고 보유 유닛에는 들지 않는다", async () => {
     let world = await boot();
     const user = await fakeUser("Place_User");
     const service = cyborgsOf(world);
     const start = startOf(world, user);
     await service.roll(user, "tech");
     expect(
-      await service.create(user, { name: "Placer", appearance: DEFAULT_CYBORG_APPEARANCE, ...start }),
+      await service.create(user, {
+        name: "Placer",
+        appearance: DEFAULT_CYBORG_APPEARANCE,
+        ...start,
+        elements: { earth: 10 },
+      }),
     ).toEqual({
       ok: true,
     });
@@ -223,6 +237,7 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     expect(again.record(user)).toMatchObject({ name: "Placer", unitId, temperament: "tech", level: 1 });
     expect(again.record(user)?.initial).toEqual(record.initial);
     expect(again.record(user)?.kPm).toEqual(record.kPm);
+    expect(again.record(user)?.elements).toEqual({ ...zeroElements(), earth: 10 });
     expect(world.maps.get(TEST_MAP_KEY)?.unitInfo(unitId)?.ownerId).toBe(world.ownerOfUser?.(user));
     expect(await world.checkInvariants()).toEqual([]);
   });
@@ -236,6 +251,7 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
       name: "Lost",
       appearance: DEFAULT_CYBORG_APPEARANCE,
       ...startOf(world, user),
+      elements: fireWind,
     });
     const before = service.record(user)?.unitId;
     await world.stop();
@@ -252,6 +268,114 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     ]);
     expect(bodies.map((row) => Number(row.id))).toEqual([after]);
     expect(world.status().issues).toBe(0);
+    expect(await world.checkInvariants()).toEqual([]);
+  });
+  it("속성 분배(D-450, N36): 4원소 가운데 두 칸까지 합 10을 서버가 본다. 4판 기기로 만든 사이보그는 분배를 기다리다 한 번 나눈다", async () => {
+    let world = await boot();
+    const service = cyborgsOf(world);
+    const user = await fakeUser("Element_User");
+    const start = startOf(world, user);
+    await service.roll(user, "balanced");
+    const base = { name: "Ember", appearance: DEFAULT_CYBORG_APPEARANCE, ...start };
+    for (const elements of [
+      { water: 4, fire: 3, wind: 3 },
+      { fire: 9 },
+      { light: 10 },
+      { fire: 5, frost: 5 },
+      [10],
+    ])
+      expect(await service.create(user, { ...base, elements })).toEqual({
+        ok: false,
+        code: "elements_invalid",
+      });
+    expect(await service.allocateElements(user, { fire: 10 })).toEqual({ ok: false, code: "no_cyborg" });
+    // 4판 기기(분배 단계가 없음)의 만들기: 분배 없이 만들고 "분배 기다림"
+    expect(await service.create(user, base)).toEqual({ ok: true });
+    expect(service.status(user)).toMatchObject({ cyborg: { elementsPending: true } });
+    expect(service.creation(user, clock)).toMatchObject({ created: true, elementsPending: true });
+    expect(service.record(user)?.elements).toBeNull();
+    const [pending] = await rows<{ elements: number[] | null }>(
+      test.db,
+      `select elements from cyborgs where user_id = $1`,
+      [user],
+    );
+    expect(pending?.elements).toBeNull();
+    expect(await service.allocateElements(user, { water: 7, earth: 2 })).toEqual({
+      ok: false,
+      code: "elements_invalid",
+    });
+    expect(await service.allocateElements(user, { water: 7, earth: 3 })).toEqual({ ok: true });
+    expect(await service.allocateElements(user, { fire: 10 })).toEqual({
+      ok: false,
+      code: "elements_locked",
+    });
+    expect(service.status(user)).toMatchObject({ cyborg: { elementsPending: false } });
+
+    world = await restart(world);
+    expect(cyborgsOf(world).record(user)?.elements).toEqual({ ...zeroElements(), water: 7, earth: 3 });
+    const [saved] = await rows<{ elements: number[]; religion: string | null; faith_points: number }>(
+      test.db,
+      `select elements, religion, faith_points from cyborgs where user_id = $1`,
+      [user],
+    );
+    expect(saved).toEqual({
+      elements: [7, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0],
+      religion: null,
+      faith_points: 0,
+    });
+    expect(await world.checkInvariants()).toEqual([]);
+  });
+
+  it("본체 생활비(D-453): 본체도 유닛 유지비를 내고, 못 내면 효율 불이익(N38)으로 돈다. 보유 유닛 수에는 세지 않는다", async () => {
+    let world = await boot();
+    const user = await fakeUser("Upkeep_User");
+    await cyborgsOf(world).roll(user, "combat");
+    await cyborgsOf(world).create(user, {
+      name: "Payer",
+      appearance: DEFAULT_CYBORG_APPEARANCE,
+      ...startOf(world, user),
+      elements: fireWind,
+    });
+    const catalog = testRosterCatalog();
+    const living = () => {
+      const service = cyborgsOf(world);
+      const record = service.record(user);
+      if (!record) throw new Error("no cyborg");
+      return realCyborgBody(catalog, record, service.livingUnpaid(user)).living;
+    };
+    const ownerOf = () => {
+      const ownerId = world.ownerOfUser?.(user);
+      const persistence = world.persistence;
+      if (ownerId === undefined || !persistence) throw new Error("no owner");
+      return { ownerId, persistence };
+    };
+    expect(living()).toEqual({ unpaid: false, efficiencyPm: 1000 });
+    // 시험 화폐가 없다: 정시 두 번을 못 낸다(본체 하나 × 시험 유지비)
+    const hour = 3_600_000;
+    const boundary = (Math.floor(clock / hour) + 2) * hour;
+    clock = boundary + 5;
+    const first = ownerOf();
+    expect(first.persistence.settlement.settleOwner(first.ownerId, clock)).toMatchObject({
+      upkeepPaid: 0,
+      upkeepUnpaid: 2,
+    });
+    expect(first.persistence.owners.get(first.ownerId)?.upkeepUnpaidAtMs).toBe(boundary);
+    expect(living()).toEqual({ unpaid: true, efficiencyPm: 700 });
+    // 다시 켜도 남는다
+    world = await restart(world);
+    expect(living()).toEqual({ unpaid: true, efficiencyPm: 700 });
+    // 내면 다시 그대로
+    const second = ownerOf();
+    second.persistence.settlement.grantCredit(second.ownerId, 10n, clock);
+    clock += hour;
+    expect(second.persistence.settlement.settleOwner(second.ownerId, clock)).toMatchObject({
+      upkeepPaid: 1,
+      upkeepUnpaid: 0,
+    });
+    expect(second.persistence.owners.get(second.ownerId)?.upkeepUnpaidAtMs).toBeNull();
+    expect(living()).toEqual({ unpaid: false, efficiencyPm: 1000 });
+    // 보유 유닛 수(주거 상한 D-153)에는 그대로 세지 않는다
+    expect(await createWorldRosterSource(world).count(user, clock)).toBe(0);
     expect(await world.checkInvariants()).toEqual([]);
   });
 });

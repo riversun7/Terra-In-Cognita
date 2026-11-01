@@ -4,6 +4,10 @@
 // - 만들기: 한 번의 동기 처리로 소유 주체·세계 유닛(종류 3, 시작 도시 둘레)·사이보그 행·세력 가입·굴림 지우기를 대기열에 넣고
 //   커밋 뒤 답한다(한 커밋이라 "사이보그는 있는데 유닛이 없다"가 저장에서 생기지 않는다).
 // - 부팅: 유닛 행이 없는 사이보그(옛 시험 2차맵 정리 등)를 시작 도시에 다시 놓는다(불변 조건 I13).
+// - 속성 분배(D-450, N36): 만들 때 4원소 가운데 두 칸까지 합 10(@terra/shared checkElementAllocation). 분배 없이 온 만들기(4판 기기)는
+//   "분배 기다림"(elements null)으로 만들고, 그런 사이보그(프로토콜 5 전에 만든 것 포함)는 allocateElements로 한 번 나눈다.
+//   다시 나누기는 환생 때다(@terra/sim rebirthCyborg). 5판 연결은 만들기에 분배를 꼭 보낸다(gateway.ts가 본다).
+// - 생활비(D-453): 본체도 유닛 유지비를 내고(world/settlement.ts), 못 냈으면 livingUnpaid가 참 → 화면 효율 불이익(N38).
 // 쓰는 프로세스는 하나다(ADR 3): 메모리 표가 원본의 캐시이고, 같은 스레드라 두 요청이 같은 값을 보지 않는다.
 import type {
   CreationFaction,
@@ -12,7 +16,7 @@ import type {
   CyborgRollView,
   CyborgStatusResponse,
 } from "@terra/shared/cyborg";
-import { isCyborgAppearance, parseCyborgName } from "@terra/shared/cyborg";
+import { checkElementAllocation, isCyborgAppearance, parseCyborgName } from "@terra/shared/cyborg";
 import type { LocalizedName } from "@terra/shared/roster";
 import type { CyborgResultCode, CyborgRollWire } from "@terra/protocol";
 import { createRng } from "@terra/shared";
@@ -90,6 +94,8 @@ export interface CreateInput {
   readonly appearance: unknown;
   readonly factionId: number;
   readonly cityId: number;
+  /** 속성 분배(D-450). 없으면 "분배 기다림"으로 만든다(4판 기기 — 5판 연결이 빠뜨리면 gateway가 먼저 막는다) */
+  readonly elements?: unknown;
 }
 
 export interface CyborgService {
@@ -98,6 +104,10 @@ export interface CyborgService {
   nameCheck(input: string): CyborgNameCheckResponse;
   roll(userId: string, temperament: string): Promise<CyborgCommandResult>;
   create(userId: string, input: CreateInput): Promise<CyborgCommandResult>;
+  /** 분배가 없는 사이보그에 속성을 한 번 나눈다(D-450) */
+  allocateElements(userId: string, elements: unknown): Promise<CyborgCommandResult>;
+  /** 본체 생활비(유닛 유지비)를 마지막 경계에 못 냈는가(D-453) */
+  livingUnpaid(userId: string): boolean;
   /** 사이보그 자료(사이보그 화면·홈). 없으면 undefined */
   record(userId: string): CyborgRecord | undefined;
   /** 세계 유닛이 사이보그 본체인지(보유 유닛 수·정산에서 뺀다) */
@@ -146,6 +156,12 @@ function rollView(roll: RollRecord, rules: CyborgRules): CyborgRollWire {
 }
 
 const fail = (code: CyborgResultCode): CyborgCommandResult => ({ ok: false, code });
+
+/** 생성 속성 분배 규칙(N36 설정값) */
+const elementRule = (rules: CyborgRules) => ({
+  cells: rules.cyborg.elementCells,
+  points: rules.cyborg.elementPoints,
+});
 
 export function createCyborgService(options: CyborgServiceOptions): CyborgService {
   const { maps, settlement, writer, log } = options;
@@ -203,7 +219,15 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
     },
     status(userId) {
       const record = byUser.get(userId);
-      return record ? { cyborg: { name: record.name, appearance: record.appearance } } : { cyborg: null };
+      return record
+        ? {
+            cyborg: {
+              name: record.name,
+              appearance: record.appearance,
+              elementsPending: record.elements === null,
+            },
+          }
+        : { cyborg: null };
     },
     creation(userId, nowMs) {
       const rules = options.rules();
@@ -236,14 +260,18 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
           .toSorted((a, b) => a.cyborgs - b.cyborgs || a.number - b.number),
       }));
       const view: CyborgRollView | null = roll ? rollView(roll, rules) : null;
+      const record = byUser.get(userId);
       return {
-        created: byUser.has(userId),
+        created: record !== undefined,
+        elementsPending: record !== undefined && record.elements === null,
         roll: view,
         rules: {
           statSum: rules.cyborg.initialSum,
           statMin: rules.cyborg.initialMin,
           statMax: rules.cyborg.initialMax,
           rollsMax: rollLimit(rules),
+          elementCells: rules.cyborg.elementCells,
+          elementPoints: rules.cyborg.elementPoints,
         },
         temperaments: rules.cyborg.temperaments.map((entry) => ({
           id: entry.id,
@@ -309,6 +337,12 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       const city = cities.find((entry) => entry.id === input.cityId);
       if (!city) return fail("unknown_city");
       const rules = options.rules();
+      let elements: CyborgRecord["elements"] = null;
+      if (input.elements !== undefined) {
+        const checked = checkElementAllocation(input.elements, elementRule(rules));
+        if (!checked.ok) return fail("elements_invalid");
+        elements = checked.values;
+      }
       const at = options.now();
       // 여기부터 한 번의 동기 처리: 소유 주체 → 유닛 → 사이보그·가입·굴림 지우기(같은 커밋)
       const owner = settlement.ownerOfUser(userId, at);
@@ -330,6 +364,9 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         rebirths: 0,
         faith: 0,
         createdAtMs: at,
+        elements,
+        religion: null,
+        faithPoints: 0,
       };
       byUser.set(userId, record);
       byName.set(record.nameKey, userId);
@@ -341,6 +378,19 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       await writer.durable();
       return { ok: true };
     },
+    async allocateElements(userId, elements) {
+      if (!options.ready()) return fail("busy");
+      const record = byUser.get(userId);
+      if (!record) return fail("no_cyborg");
+      if (record.elements !== null) return fail("elements_locked");
+      const checked = checkElementAllocation(elements, elementRule(options.rules()));
+      if (!checked.ok) return fail("elements_invalid");
+      record.elements = checked.values;
+      writer.upsert("cyborgs", cyborgRow(record));
+      await writer.durable();
+      return { ok: true };
+    },
+    livingUnpaid: (userId) => settlement.upkeepUnpaid(userId),
     record: (userId) => byUser.get(userId),
     isBodyUnit: (unitId) => bodyUnits.has(unitId),
     repairUnits(knownUnitIds) {

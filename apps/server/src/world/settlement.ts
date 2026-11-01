@@ -6,6 +6,9 @@
 //   그리고 SETTLE_EVERY_MS마다(1분에 오래된 순으로 SWEEP_BATCH 주체씩).
 // - 접속 상태(D-136): 사용자마다 연결 수를 센다. 모든 연결이 끊긴 시각부터 24시간 동안 반복 직무를 잇는다(D-061·D-144).
 //   세력(NPC)은 늘 접속 중으로 친다.
+// - 사이보그 본체도 유닛 유지비(D-150 = 생활비)를 낸다(D-453이 D-445 178 "유지비 없음"을 대체). 직무는 없다. 마지막 유지비 경계를
+//   못 냈으면 그 경계 시각을 주체에 적는다(upkeep_unpaid_at_ms) → 본체가 효율 불이익(N38)으로 돈다(@terra/sim livingEfficiencyPm).
+//   보유 유닛 수(주거 상한 D-153)에서는 그대로 뺀다(roster/worldUnits.ts).
 import {
   JOB_GATHER,
   type JobState,
@@ -16,6 +19,7 @@ import {
   TEST_SYSTEM_ISSUE_CREDIT,
   TEST_SYSTEM_RESERVE_ORE,
   TEST_SYSTEM_SINK_CREDIT,
+  UPKEEP_PERIOD_MS,
   WALK_SPEED,
   settleOwnerPeriod,
   testSettleAccounts,
@@ -24,7 +28,7 @@ import type { Ledger } from "../economy/ledger.ts";
 import type { OwnerRow } from "./persist/load.ts";
 import type { WorldWriter } from "./persist/writer.ts";
 import type { SecondMap, UnitJob } from "./secondMap.ts";
-import { UNIT_KIND_CYBORG, UNIT_KIND_WORKER } from "./unitKinds.ts";
+import { UNIT_KIND_WORKER } from "./unitKinds.ts";
 
 /** [임시] 시험 자산 코드·시스템 계정(@terra/sim settle/owner.ts, 시뮬레이터와 같은 값) */
 export const ASSET_CREDIT = TEST_ASSET_CREDIT;
@@ -53,6 +57,8 @@ export interface Settlement {
   ownerOfUser(userId: string, nowMs: number): OwnerRow;
   /** 사용자의 소유 주체 ID(없으면 undefined, 만들지 않는다) */
   findOwnerOfUser(userId: string): number | undefined;
+  /** 사용자 주체가 마지막 유지비 경계를 못 냈는가(사이보그 본체 생활비, D-453). 주체가 없으면 false */
+  upkeepUnpaid(userId: string): boolean;
   /** 소유 주체 하나를 toMs까지 정산한다 */
   settleOwner(ownerId: number, toMs: number): SettleReport;
   /** 오래 정산하지 않은 주체를 몇 개 정산한다. 정산한 수 */
@@ -97,6 +103,7 @@ export function createSettlement(options: {
       faction_id: owner.factionId,
       settled_at_ms: owner.settledAtMs,
       upkeep_arrears: owner.upkeepArrears,
+      upkeep_unpaid_at_ms: owner.upkeepUnpaidAtMs,
     });
 
   const savePresence = (userId: string, offlineSinceMs: number | null, at: number): void =>
@@ -107,8 +114,8 @@ export function createSettlement(options: {
     const out = new Map<number, UnitRef[]>();
     for (const map of maps.values()) {
       map.forEachUnit((unit) => {
-        // 사이보그 본체는 직무·유지비 정산에 넣지 않는다(D-445 178: 생필품 유지비 없음)
-        if (!ownerIds.has(unit.ownerId) || unit.kind === UNIT_KIND_CYBORG) return;
+        // 사이보그 본체도 넣는다: 직무는 없고(JOB_NONE) 유지비(생활비)만 낸다(D-453)
+        if (!ownerIds.has(unit.ownerId)) return;
         let list = out.get(unit.ownerId);
         if (!list) {
           list = [];
@@ -148,6 +155,10 @@ export function createSettlement(options: {
       if (next && !sameJob(unit.job, next)) unit.map.setJob(unit.id, { ...next });
     });
     owner.upkeepArrears += result.upkeepUnpaid;
+    // 마지막 경계(= toMs 이하의 정시, settle.ts upkeepBoundaries)를 못 냈으면 그 시각, 냈으면 null. 경계가 없으면 그대로
+    if (result.lastUpkeepPaid === true) owner.upkeepUnpaidAtMs = null;
+    else if (result.lastUpkeepPaid === false)
+      owner.upkeepUnpaidAtMs = Math.floor(toMs / UPKEEP_PERIOD_MS) * UPKEEP_PERIOD_MS;
     owner.settledAtMs = toMs;
     saveOwner(owner);
     return { cycles: result.cycles, upkeepPaid: result.upkeepPaid, upkeepUnpaid: result.upkeepUnpaid };
@@ -169,6 +180,7 @@ export function createSettlement(options: {
       factionId: null,
       settledAtMs: nowMs,
       upkeepArrears: 0,
+      upkeepUnpaidAtMs: null,
     };
     owners.set(owner.id, owner);
     ownerByUser.set(userId, owner.id);
@@ -193,6 +205,11 @@ export function createSettlement(options: {
   return {
     ownerOfUser,
     findOwnerOfUser: (userId) => ownerByUser.get(userId),
+    upkeepUnpaid(userId) {
+      const found = ownerByUser.get(userId);
+      const owner = found === undefined ? undefined : owners.get(found);
+      return owner !== undefined && owner.upkeepUnpaidAtMs !== null;
+    },
     settleOwner,
     sweep,
     connect(userId, nowMs) {

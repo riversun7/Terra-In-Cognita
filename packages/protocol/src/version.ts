@@ -7,15 +7,19 @@
  *    개발 시험 명령(dev_spawn_units).
  * 4: 사이보그 만들기(cyborg.ts, ADR 2026-11-01-first-login-cyborg 4절) — cyborg_roll·cyborg_create → cyborg_result.
  *    더하기만 했다. 3판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
+ * 5: 사이보그 속성 분배(D-450, 첫 접속 ADR "바뀜 (D-450~D-453)") — cyborg_create에 elements(5판 연결은 꼭), 한 번 분배
+ *    cyborg_elements, 결과 코드 elements_invalid·elements_locked·no_cyborg. 4판 기기의 만들기(elements 없음)는 그대로 받고
+ *    "분배 기다림"으로 만든다. 새 코드는 5판 연결에만 간다(4판 기기는 그 코드를 부르는 메시지를 보내지 않는다).
  */
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 
 /**
- * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7).
- * 3에서 예외로 2를 받지 않는다: 2판 기기는 걸러지지 않은 2차맵 흐름(남의 경로 전체)을 기대하는데, 시야 전송은 보안 규칙이라
- * 그 흐름을 남기지 않는다(S3 ADR 3절). 2판 기기는 인사에서 protocol_unsupported를 받고 새 앱을 받는다(PWA 강제 적용).
+ * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7). 5부터 3판 기기는 인사에서
+ * protocol_unsupported를 받고 새 앱을 받는다(PWA 강제 적용).
+ * (3에서는 예외로 2를 받지 않았다: 2판 기기는 걸러지지 않은 2차맵 흐름을 기대하는데, 시야 전송은 보안 규칙이라 그 흐름을 남기지
+ * 않는다, S3 ADR 3절.)
  */
-export const MIN_SUPPORTED_PROTOCOL_VERSION = 3;
+export const MIN_SUPPORTED_PROTOCOL_VERSION = 4;
 
 /** WebSocket 메시지 1개의 최대 크기 (바이트) */
 export const MAX_MESSAGE_BYTES = 64 * 1024;

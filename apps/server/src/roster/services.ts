@@ -78,7 +78,7 @@ export function createRosterServices(
     catalog?: RosterCatalog | undefined;
     world?: WorldRosterSource | undefined;
     /** 만든 사이보그(세계가 준비되면, docs/adr/2026-11-01-first-login-cyborg.md). 없으면 본체는 시안만 */
-    cyborgs?: (() => Pick<CyborgService, "record"> | undefined) | undefined;
+    cyborgs?: (() => Pick<CyborgService, "record" | "livingUnpaid"> | undefined) | undefined;
   } = {},
 ): RosterServices {
   const catalog = options.catalog ?? testRosterCatalog();
@@ -106,9 +106,14 @@ export function createRosterServices(
     },
     async cyborg(viewer: Viewer, query: HomeQuery): Promise<CyborgGetResponse> {
       const unitCount = await world.count(viewer.id, query.now);
-      const record = options.cyborgs?.()?.record(viewer.id);
-      // 시안을 켜면 시안 본체(화면 검토용), 아니면 만든 사이보그의 본체
-      const body = query.preview ? previewCyborg(catalog) : record ? realCyborgBody(catalog, record) : null;
+      const cyborgs = options.cyborgs?.();
+      const record = cyborgs?.record(viewer.id);
+      // 시안을 켜면 시안 본체(화면 검토용), 아니면 만든 사이보그의 본체(생활비를 못 냈으면 효율 불이익, D-453)
+      const body = query.preview
+        ? previewCyborg(catalog)
+        : record
+          ? realCyborgBody(catalog, record, cyborgs?.livingUnpaid(viewer.id) ?? false)
+          : null;
       const names = body
         ? namesFor(catalog, {
             stats: body.stats.secondary.map((row) => row.id),

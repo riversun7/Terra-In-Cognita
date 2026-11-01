@@ -1,6 +1,14 @@
 // 사이보그 자료 — 부팅 때 DB에서 읽고(쓰기 대기열이 돌기 전), 바뀌면 월드 쓰기 대기열로 쓴다.
-// docs/adr/2026-11-01-first-login-cyborg.md 2절. int8은 pg가 문자열로 주므로 숫자로 바꾼다. smallint[]는 숫자 배열로 온다.
-import { type CyborgAppearance, DEFAULT_CYBORG_APPEARANCE, isCyborgAppearance } from "@terra/shared/cyborg";
+// docs/adr/2026-11-01-first-login-cyborg.md 2절·"바뀜 (D-450~D-453)". int8은 pg가 문자열로 주므로 숫자로 바꾼다. smallint[]는
+// 숫자 배열로 온다. 속성값(elements)이 null이면 아직 나누지 않은 사이보그다(프로토콜 5 전에 만든 것, 한 번 나눈다).
+import {
+  type CyborgAppearance,
+  DEFAULT_CYBORG_APPEARANCE,
+  type ElementValues,
+  elementsFromArray,
+  elementsToArray,
+  isCyborgAppearance,
+} from "@terra/shared/cyborg";
 import type { Primaries } from "@terra/sim";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { Row } from "../world/persist/tables.ts";
@@ -19,8 +27,15 @@ export interface CyborgRecord {
   readonly level: number;
   readonly exp: number;
   readonly rebirths: number;
+  /** 신앙도(D-451: 쌓이는 문턱 점수, 0~100) */
   readonly faith: number;
   readonly createdAtMs: number;
+  /** 생성·환생 속성값(D-450). null = 아직 나누지 않음(한 번 나누면 채운다) */
+  elements: ElementValues | null;
+  /** 종교 코드(D-451, 지금은 고르는 길이 없어 null) */
+  readonly religion: string | null;
+  /** 신앙 포인트(D-451) */
+  readonly faithPoints: number;
 }
 
 export interface RollRecord {
@@ -70,7 +85,8 @@ export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
   const [cyborgRows, rollRows, factionRows] = await Promise.all([
     pool.query(
       `select user_id, name, name_key, temperament, initial, k_pm, appearance, faction_id, start_city_id, unit_id,
-              level, exp, rebirths, faith, created_at_ms from cyborgs order by created_at_ms, user_id`,
+              level, exp, rebirths, faith, created_at_ms, elements, religion, faith_points
+         from cyborgs order by created_at_ms, user_id`,
     ),
     pool.query(`select user_id, temperament, stats, rolls_used, seed, updated_at_ms from cyborg_rolls`),
     pool.query(`select id, code from factions where kind = 'npc' and fixed = true order by id`),
@@ -96,6 +112,9 @@ export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
       rebirths: num(row.rebirths),
       faith: num(row.faith),
       createdAtMs: num(row.created_at_ms),
+      elements: row.elements === null || row.elements === undefined ? null : elementsFromArray(row.elements),
+      religion: typeof row.religion === "string" ? row.religion : null,
+      faithPoints: num(row.faith_points ?? 0),
     };
   });
   const rolls = rollRows.rows.map(
@@ -135,6 +154,9 @@ export function cyborgRow(record: CyborgRecord): Row {
     rebirths: record.rebirths,
     faith: record.faith,
     created_at_ms: record.createdAtMs,
+    elements: record.elements === null ? null : elementsToArray(record.elements),
+    religion: record.religion,
+    faith_points: record.faithPoints,
   };
 }
 

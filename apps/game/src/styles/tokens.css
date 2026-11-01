@@ -299,44 +299,57 @@
   --focus-w: 4px;
 }
 
-/* 정거장 — 궤도 정거장 안 화면(홀로그램). 청록 빛 테두리, 불투명 판(흐림 효과 backdrop-filter는 쓰지 않는다) */
+/*
+ * 정거장 — 네온 SF(사용자 결정 2026-11-01 "정거장은 기존프로젝트처럼 고대비 모드로 sf나 네온사인색처럼 선명한 테마로").
+ * 옛 프로젝트(AntiGravt01) Magitech Dark 계열: 거의 검은 바탕, 네온 시안이 주색, 네온 자홍·보라·호박·초록이 포인트.
+ * 판은 불투명(흐림 효과 backdrop-filter는 쓰지 않는다), 시안 가는 테두리 + 보라 빛, 제목은 시안 빛. 움직임은 더하지 않는다.
+ * ADR 2026-11-01-ui-visibility
+ */
 :root[data-theme="station"],
 [data-theme-preview="station"] {
   color-scheme: dark;
-  --color-bg: #061a22;
+  --color-bg: #05050c;
   --color-bg-image:
-    repeating-linear-gradient(0deg, rgb(95 227 230 / 5%) 0 1px, transparent 1px 28px),
-    repeating-linear-gradient(90deg, rgb(95 227 230 / 5%) 0 1px, transparent 1px 28px),
-    radial-gradient(circle at 50% 115%, #0f4a55 0%, #061a22 62%);
-  --color-surface: #0c2a34;
-  --color-surface-2: #113844;
-  --color-text: #e4fbff;
-  --color-text-muted: #94c6d2;
-  --color-primary: #5fe3e6;
-  --color-on-primary: #03282d;
-  --color-primary-lip: #2a9ea4;
-  --color-highlight: #ffd66e;
-  --color-secondary-lip: #071f27;
-  --color-success: #7cf0b4;
-  --color-success-surface: #0e3833;
-  --color-warning: #ffd479;
-  --color-warning-surface: #2e2c1d;
-  --color-danger: #ff9080;
-  --color-danger-surface: #2d1b22;
+    repeating-linear-gradient(0deg, rgb(0 240 255 / 6%) 0 1px, transparent 1px 32px),
+    repeating-linear-gradient(90deg, rgb(0 240 255 / 6%) 0 1px, transparent 1px 32px),
+    radial-gradient(circle at 50% 118%, #1d0a36 0%, #05050c 64%);
+  --color-surface: #0e0e1c;
+  --color-surface-2: #17172b;
+  --color-text: #eef6ff;
+  --color-text-muted: #a5b3ce;
+  --color-primary: #00f0ff;
+  --color-on-primary: #00262b;
+  --color-primary-lip: #0094a3;
+  --color-highlight: #ffb800;
+  --color-secondary-lip: #000000;
+  --color-success: #3dffa0;
+  --color-success-surface: #072a1c;
+  --color-warning: #ffc233;
+  --color-warning-surface: #2b2306;
+  --color-danger: #ff5c8a;
+  --color-danger-surface: #2e0c19;
   /* 시세 파랑 — 한국식 시세 색의 내림·매도(D-442). 오름·매수는 위험색(빨강), 서양식은 성공색·위험색 */
-  --color-market-blue: #8fc1ff;
-  --color-focus: #ffffff;
-  --color-border: #2b7584;
-  --color-field-bg: #08222b;
-  --color-field-border: #4fb7c6;
-  --color-overlay: rgb(0 10 14 / 65%);
-  --shadow-control: 0 0 0 1px rgb(95 227 230 / 25%);
-  --shadow-panel: 0 0 0 1px rgb(95 227 230 / 35%), 0 0 22px rgb(95 227 230 / 18%);
-  --shadow-heading: 0 0 14px rgb(95 227 230 / 45%);
-  --color-deco-1: #0d3a44;
-  --color-deco-2: #12505c;
-  --color-deco-3: #1d7380;
-  --color-deco-sun: #1d7380;
+  --color-market-blue: #59c7ff;
+  /* 초점: 네온 자홍(시안 버튼 위에서도 보인다) */
+  --color-focus: #ff5cf4;
+  --color-border: #30335c;
+  --color-field-bg: #08080f;
+  --color-field-border: #8f82ff;
+  --color-overlay: rgb(0 0 0 / 72%);
+  --shadow-control: 0 0 0 1px rgb(0 240 255 / 30%), 0 0 10px rgb(0 240 255 / 20%);
+  --shadow-panel: 0 0 0 1px rgb(0 240 255 / 26%), 0 0 26px rgb(188 19 254 / 18%);
+  --shadow-heading: 0 0 10px rgb(0 240 255 / 60%);
+  --color-deco-1: #14143a;
+  --color-deco-2: #25104c;
+  --color-deco-3: #4a1f8c;
+  --color-deco-sun: #bc13fe;
+  /* 스탯 색 — 정거장: 네온(글자 4.5:1) */
+  --color-stat-str: #ff4f6e;
+  --color-stat-vit: #ff8f3f;
+  --color-stat-int: #40b9ff;
+  --color-stat-wis: #c770ff;
+  --color-stat-dex: #ffc933;
+  --color-stat-agi: #3dff9e;
 }
 
 /* 촘촘 변형 — 관리자·거래창처럼 빽빽한 화면(data-density="compact"): 턱 0, 모서리 작게, 조작부 44px */

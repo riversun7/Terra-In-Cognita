@@ -10,7 +10,7 @@ export const THEME_COLORS: Readonly<Record<Theme, string>> = {
   pastel: "#dff2fb",
   dark: "#13203a",
   contrast: "#ffffff",
-  station: "#061a22",
+  station: "#05050c",
 };
 
 /** 기기 설정을 읽는 미디어 쿼리 */

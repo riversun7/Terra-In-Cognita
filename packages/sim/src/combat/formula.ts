@@ -1,7 +1,7 @@
 // 전투 공식 — docs/adr/2026-10-31-combat-core.md "공식 한 곳", 기획 정본 `docs/design/40_Systems/48_Stats_Formulas.md` §4
 // (D-178·D-419·D-420·D-421·D-438·D-457·D-459·D-5013·D-5014·D-5043·D-5037). 판정 코드는 피해·명중·시야를 이 파일의 함수로만 계산한다.
 // - 무기 틀(D-420·D-438 1): 실제 값 = 무기 값 × min(N10 2, 2차 점수 ÷ 적정치). 적정치는 2차 스탯 단위다.
-// - 판정(D-419): 명중 굴림(0~9999 < 명중‰ × 10) → 회피 굴림(회피 = 확률 모양 + 상대 보정 N11) → 크리 굴림 →
+// - 판정(D-419): 명중 굴림(0~9999 < 명중‰ × 10) → 회피 굴림(회피 = 확률 모양 + 상대 보정 N11, 최종 1%~85% 사용자 답 277) → 크리 굴림 →
 //   크리 배율 자리 굴림(N12 범위). 굴림은 늘 넷을 뽑는다(결정성).
 // - 피해는 두 몫이다(D-459, 48 §4.5a). 물리 무기·스킬: 물리 몫 P = 실제 물리 공격력, 속성 몫 E = P × Σ(옵션 계수 × 그 칸 값).
 //   속성 무기·스킬: P = 0, E = 실제 속성 공격력 × (1 + Σ 계수 × 칸 값). 공격 가산은 칸마다 따로다(D-457).
@@ -11,7 +11,7 @@
 //   크리·스킬 배율·버프는 방어 감소(②) 뒤에 두 몫에 함께 곱한다(48 §4.4 ①→⑥, §4.8 계산 예). 게임 상한은 없다(D-421).
 // - 넘침 방지(기술 보호, D-421): 곱은 BigInt로 하고, 결과가 안전 정수(2^53 − 1)를 넘으면 그 값으로 자른다(게임 규칙이 아님).
 // - 실제 공격력·명중·크리, 맨손 일반 공격, 크리 배율, 최종 회피는 개발자 모드에서 고치는 계산식이다(formulas.ts,
-//   docs/adr/2026-11-01-formula-editor.md). 기본 식은 아래 weaponScaled·evadeRelativePm과 같은 결과다(맨손만 옛 규칙 D-488).
+//   docs/adr/2026-11-01-formula-editor.md). 기본 식은 아래 weaponScaled·evadeFinalPm과 같은 결과다(맨손만 옛 규칙 D-488).
 import { type CombatCoefficients, affinityRatePm } from "./coefficients.ts";
 import type { Modifiers } from "./effects.ts";
 import { bareAttackValue, critMultiplierPm, evadeChancePm, frameValue } from "./formulas.ts";
@@ -102,6 +102,24 @@ export function evadeRelativePm(defenderAgi: number, attackerAgi: number, c: Com
   const ratioPm = Math.floor((Math.max(0, defenderAgi) * 1000) / attackerAgi);
   if (ratioPm >= 1000) return Math.min(e.favorCapPm, Math.floor((e.favorSlopePm * (ratioPm - 1000)) / 1000));
   return Math.max(-e.unfavorCapPm, Math.trunc((e.unfavorSlopePm * (ratioPm - 1000)) / 1000));
+}
+
+/** 최종 회피 범위(‰): 1%~85%(사용자 답 2026-11-01 질문 277 → 옛 기획 회피율 §6 "최종 = clamp(기본 + 보정, 1%, 85%)") */
+export const EVADE_FINAL_MIN_PM = 10;
+export const EVADE_FINAL_MAX_PM = 850;
+
+/**
+ * 최종 회피(‰) = clamp(회피 + 상대 보정 N11, 1%, 85%). 기본 식 evade_chance의 코드 모양이다(판정은 계수표의 식 evadeChancePm으로
+ * 셈하고, 시험이 기본 식 = 이 함수를 본다). 회피가 아무리 높아도 15%는 맞고, 아무리 낮아도 1%는 피한다
+ */
+export function evadeFinalPm(
+  evadePm: number,
+  defenderAgi: number,
+  attackerAgi: number,
+  c: CombatCoefficients,
+): number {
+  const value = evadePm + evadeRelativePm(defenderAgi, attackerAgi, c);
+  return Math.min(EVADE_FINAL_MAX_PM, Math.max(EVADE_FINAL_MIN_PM, value));
 }
 const toSafe = (value: bigint): number => Number(value < 0n ? 0n : value > SAFE ? SAFE : value);
 

@@ -1,5 +1,6 @@
 // 계산식 기본 식 = 바꾸기 전 코드(docs/adr/2026-11-01-formula-editor.md "같은 결과 증명"). 바꾸기 전 공식을 여기 그대로 옮겨 두고
 // 무작위 입력에서 식 결과와 견준다. 맨손 일반 공격만 옛 프로젝트 규칙으로 바꿨다(D-488): 그 값은 따로 본다.
+// 최종 회피는 1%~85% 범위를 더했다(사용자 답 277, 옛 기획 회피율 §6): 바꾸기 전 공식 + 범위(evadeFinalPm)와 견주고, 옛 기획 매칭 표도 본다.
 import {
   COMBAT_FORMULA_IDS,
   DEFAULT_COMBAT_FORMULAS,
@@ -12,7 +13,15 @@ import { createRng } from "@terra/shared";
 import { TEST_COMBAT_CATALOG, UNARMED } from "./catalog.ts";
 import { TEST_COMBAT_COEFFICIENTS, staminaCostMilli, staminaScore } from "./coefficients.ts";
 import { loadoutOf } from "./equipment.ts";
-import { evadeRelativePm, realAttackOf, resolveAttack, weaponScaled } from "./formula.ts";
+import {
+  EVADE_FINAL_MAX_PM,
+  EVADE_FINAL_MIN_PM,
+  evadeFinalPm,
+  evadeRelativePm,
+  realAttackOf,
+  resolveAttack,
+  weaponScaled,
+} from "./formula.ts";
 import {
   DEFAULT_COMBAT_FORMULA_SET,
   attackIntervalMs,
@@ -49,6 +58,10 @@ function oldInterval(intervalMs: number, speed: number, appropriate: number): nu
 const oldCritMul = (critMulPm: number, pos: number): number =>
   Math.max(0, critMulPm) + Math.floor((c.critSpreadPm * pos) / 10_000);
 
+/** 기본 회피 = 2차 스탯 회피 행(확률 모양: 850 × AGI ÷ (AGI + 250)) — 판정과 같은 computeSecondary로 셈한다 */
+const evadeOf = (agi: number): number =>
+  computeSecondary({ str: 0, dex: 0, agi, vit: 0, int: 0, wis: 0 }, TEST_STAT_TABLE)["evade"] ?? 0;
+
 describe("기본 식 = 바꾸기 전 공식(무작위 입력)", () => {
   it("무기 틀(실제 공격력·명중·크리)", () => {
     for (let round = 0; round < 3000; round++) {
@@ -63,15 +76,52 @@ describe("기본 식 = 바꾸기 전 공식(무작위 입력)", () => {
     }
   });
 
-  it("최종 회피(상대 보정 N11)", () => {
+  it("최종 회피(상대 보정 N11 + 범위 1%~85%)", () => {
+    let low = 0;
+    let high = 0;
     for (let round = 0; round < 3000; round++) {
       const evade = int(1000);
       const defender = int(round % 4 === 0 ? 5 : 100_000) - (round % 9 === 0 ? 3 : 0);
       const attacker = int(round % 6 === 0 ? 3 : 100_000) - (round % 13 === 0 ? 2 : 0);
-      expect(evadeChancePm(evade, defender, attacker, c)).toBe(
-        evade + evadeRelativePm(defender, attacker, c),
-      );
+      const before = evade + evadeRelativePm(defender, attacker, c);
+      const final = evadeChancePm(evade, defender, attacker, c);
+      expect(final).toBe(evadeFinalPm(evade, defender, attacker, c));
+      expect(final).toBe(Math.min(EVADE_FINAL_MAX_PM, Math.max(EVADE_FINAL_MIN_PM, before)));
+      if (before < EVADE_FINAL_MIN_PM) low++;
+      if (before > EVADE_FINAL_MAX_PM) high++;
     }
+    // 무작위 입력이 두 끝을 모두 지난다(범위가 실제로 걸린다)
+    expect(low).toBeGreaterThan(0);
+    expect(high).toBeGreaterThan(0);
+  });
+
+  it("최종 회피 = 옛 기획 매칭 표(Lv60 K=1.0, 회피율 §6, 반올림 ±1%p)", () => {
+    const agis = [35, 69, 104, 138, 162] as const;
+    // 행 = 방어 AGI, 열 = 공격 AGI, 값 = 옛 기획 표의 %
+    const table: readonly (readonly number[])[] = [
+      [10, 1, 1, 1, 1],
+      [48, 18, 5, 1, 1],
+      [65, 40, 25, 15, 8],
+      [70, 60, 40, 30, 25],
+      [73, 73, 50, 39, 33],
+    ];
+    agis.forEach((defender, row) => {
+      agis.forEach((attacker, column) => {
+        const pm = evadeChancePm(evadeOf(defender), defender, attacker, c);
+        const doc = table[row]?.[column] ?? Number.NaN;
+        // 옛 표의 방어 104 ÷ 공격 162 칸(8%)은 그 문서 자신의 공식(25.0% − 14.3% = 10.7%)과 맞지 않는다 → 공식 값으로 본다
+        const expected = defender === 104 && attacker === 162 ? 10.7 : doc;
+        expect(
+          Math.abs(pm / 10 - expected),
+          `방어 ${defender} ÷ 공격 ${attacker}: ${pm}‰`,
+        ).toBeLessThanOrEqual(1);
+      });
+    });
+    // 사용자가 짚은 칸: 같은 AGI 차이라도 높은 AGI끼리는 기본 회피가 높다(대각선), 끝은 1%·85%에서 멈춘다
+    expect(evadeChancePm(evadeOf(69), 69, 35, c)).toBe(474);
+    expect(evadeChancePm(evadeOf(35), 35, 69, c)).toBe(EVADE_FINAL_MIN_PM);
+    expect(evadeChancePm(evadeOf(162), 162, 35, c)).toBe(734);
+    expect(evadeChancePm(850, 10_000, 1, c)).toBe(EVADE_FINAL_MAX_PM);
   });
 
   it("크리 배율(N12)", () => {

@@ -152,7 +152,9 @@ export const DEFAULT_COMBAT_FORMULAS: Readonly<Record<CombatFormulaId, string>> 
     "r = max(0, DA) / AA",
     "favor = min(FAVOR_CAP, floor(FAVOR_SLOPE * (r - 1)))",
     "unfavor = max(-UNFAVOR_CAP, trunc(UNFAVOR_SLOPE * (r - 1)))",
-    "E + if(AA <= 0, if(DA > 0, FAVOR_CAP, 0), if(r >= 1, favor, unfavor))",
+    "rel = if(AA <= 0, if(DA > 0, FAVOR_CAP, 0), if(r >= 1, favor, unfavor))",
+    "# 최종 회피는 1%~85%(옛 기획 회피율 §6, 사용자 답 277)",
+    "clamp(E + rel, 10, 850)",
   ].join("\n"),
 };
 

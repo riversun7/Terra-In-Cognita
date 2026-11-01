@@ -11,7 +11,7 @@ import { mix32 } from "../math/hash.ts";
 import { type BattleMap, createBattleMap } from "./battleMap.ts";
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS, msToTicks, regenOnTick } from "./coefficients.ts";
 import { NEIGHBORS, UNREACHABLE, distanceField, stepAllowed } from "./fields.ts";
-import { hasStatus, modifiersOf, moveIntervalMs, tickEffects } from "./effects.ts";
+import { hasStatus, modifiersOf, moveIntervalMs, shieldRegenPerMinute, tickEffects } from "./effects.ts";
 import { buildingDamage, resolveAttack, withAttackModifiers, withDefenseModifiers } from "./formula.ts";
 import { lineClear } from "./los.ts";
 import { visibleEnemies } from "./sight.ts";
@@ -263,7 +263,7 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     spend(attacker, nowMs, c);
     if (!attacker.air && map.cover[attacker.y * size + attacker.x] === 1)
       attacker.revealUntilMs = nowMs + c.bushRevealMs;
-    takeDamage(target, hit.physical, hit.elemental, nowMs);
+    takeDamage(target, hit.physical, hit.elemental);
     return true;
   };
 
@@ -408,11 +408,10 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
 
   /**
    * 스태미나·MP(밀리점)·쉴드가 틱마다 찬다: 2차 스탯 분당 회복을 틱에 나눈 몫(regenOnTick), 최대에서 멈춘다(D-458).
-   * 쉴드는 맞은 뒤 지연(shieldRegenDelayMs, D-463 212, 출발값 0)이 지나야 찬다
+   * 쉴드는 맞는 중에도 일정하게 찬다(D-490). 쉴드 재생 효과(저주·버프, 효과 사전 stat shield_regen ‰)가 분당 재생을 바꾼다
    */
   const regen = (unit: UnitState): void => {
     const tick = state.tick;
-    const nowMs = tick * c.tickMs;
     if (unit.staminaMilli < unit.staminaMax * 1000)
       unit.staminaMilli = Math.min(
         unit.staminaMax * 1000,
@@ -420,8 +419,11 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
       );
     if (unit.mpMilli < unit.mpMax * 1000)
       unit.mpMilli = Math.min(unit.mpMax * 1000, unit.mpMilli + regenOnTick(unit.mpRegen, tick, 1000, c));
-    if (unit.shield < unit.shieldHp && nowMs - unit.lastHitMs >= c.shieldRegenDelayMs)
-      unit.shield = Math.min(unit.shieldHp, unit.shield + regenOnTick(unit.shieldRegen, tick, 1, c));
+    if (unit.shield < unit.shieldHp)
+      unit.shield = Math.min(
+        unit.shieldHp,
+        unit.shield + regenOnTick(shieldRegenPerMinute(unit, unit.shieldRegen), tick, 1, c),
+      );
   };
 
   const partyHpLow = (party: PartyState): boolean => {

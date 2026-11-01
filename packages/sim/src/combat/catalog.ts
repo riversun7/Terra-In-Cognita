@@ -15,8 +15,13 @@ export interface UnitKindDef {
   readonly skillSlots: { readonly base: number; readonly perRebirth: number; readonly max: number };
   /** 타고난 무기(D-436, 사람형은 맨손). 무기 칸이 비었을 때 */
   readonly naturalWeapon: WeaponSpec;
-  /** 맨손 속성 자료(D-463 211): 속성 무기를 들지 않았을 때 속성 기반 스킬이 쓴다 */
+  /** 맨손 속성 자료(D-463 211): 속성 기반 맨손 스킬이 쓴다(D-490) */
   readonly naturalElementalWeapon: WeaponSpec;
+  /**
+   * 타고난 무기를 스킬용 무기로 치나(D-490·D-436): 참이면 무기 칸이 비어도 타고난 무기의 칸으로 스킬을 쓴다(크리쳐 발톱).
+   * 거짓이면 맨손 = 맨손 스킬만(사람형)
+   */
+  readonly naturalWeaponIsWeapon: boolean;
 }
 
 export interface CombatCatalog {
@@ -42,8 +47,8 @@ const UNARMED_BODY = {
 };
 
 /**
- * [임시] 사람형 맨손 무기(D-436 "맨손 무기" 데이터. 값은 기획 전 시험값). 물리 칸만 있다(D-465: 물리 칸이 없는 무기를 든
- * 유닛의 물리 기반 스킬이 이 칸을 쓴다). 명중·크리 적정은 점수 단위(D-458):
+ * [임시] 사람형 맨손 무기(D-436 "맨손 무기" 데이터. 값은 기획 전 시험값). 물리 칸만 있다(물리 기반 맨손 스킬이 이 칸을 쓴다,
+ * D-490). 명중·크리 적정은 점수 단위(D-458):
  * 1차 모두 11쯤인 처음 유닛(명중 점수 = DEX × 1.2 + AGI × 0.6, 크리 점수 = DEX × 1.5)이 1배
  */
 export const UNARMED: WeaponSpec & { readonly physical: WeaponAttackField } = {
@@ -52,9 +57,8 @@ export const UNARMED: WeaponSpec & { readonly physical: WeaponAttackField } = {
 };
 
 /**
- * [임시] 맨손 속성 자료(D-463 211, D-465): 속성 칸이 없는 무기를 든(또는 맨손인) 유닛이 속성 기반 스킬을 쓸 때의 무기 자료.
- * 맨손 무기(D-436)처럼 유닛 종류 데이터(팩 unit_kinds naturalElementalWeapon)이고, 속성 칸만 있으며 공격력·적정치가 낮다.
- * 기본 공격에는 쓰지 않는다
+ * [임시] 맨손 속성 자료(D-463 211): 속성 기반 맨손 스킬(D-490)이 쓰는 무기 자료. 맨손 무기(D-436)처럼 유닛 종류 데이터
+ * (팩 unit_kinds naturalElementalWeapon)이고, 속성 칸만 있으며 공격력·적정치가 낮다. 기본 공격에는 쓰지 않는다
  */
 export const UNARMED_ELEMENTAL: WeaponSpec & { readonly elemental: WeaponAttackField } = {
   elemental: { attack: 5, attackAppropriate: 20 },
@@ -318,6 +322,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       skillSlots: { base: 3, perRebirth: 1, max: 10 },
       naturalWeapon: UNARMED,
       naturalElementalWeapon: UNARMED_ELEMENTAL,
+      naturalWeaponIsWeapon: false,
     },
     {
       id: "human",
@@ -325,6 +330,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       skillSlots: { base: 3, perRebirth: 1, max: 10 },
       naturalWeapon: UNARMED,
       naturalElementalWeapon: UNARMED_ELEMENTAL,
+      naturalWeaponIsWeapon: false,
     },
     {
       id: "android",
@@ -332,6 +338,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       skillSlots: { base: 3, perRebirth: 1, max: 10 },
       naturalWeapon: UNARMED,
       naturalElementalWeapon: UNARMED_ELEMENTAL,
+      naturalWeaponIsWeapon: false,
     },
     {
       id: "creature",
@@ -339,6 +346,7 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       skillSlots: { base: 4, perRebirth: 1, max: 10 },
       naturalWeapon: CLAWS,
       naturalElementalWeapon: UNARMED_ELEMENTAL,
+      naturalWeaponIsWeapon: true,
     },
   ],
 };

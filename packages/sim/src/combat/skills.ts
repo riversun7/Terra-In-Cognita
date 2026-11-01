@@ -72,14 +72,24 @@ export interface SkillData {
   /** 연쇄(모양 chain만) */
   readonly chain?: SkillChain | undefined;
   readonly damage: "physical" | "elemental" | "none";
-  /** 기반(D-463): 물리 무기·물리 공격력 / 속성 무기(없으면 맨손 속성)·속성 공격력. 피해를 주면 damage와 같다 */
+  /** 기반(D-463): 물리 무기·물리 공격력 / 속성 무기·속성 공격력. 피해를 주면 damage와 같다 */
   readonly base: "physical" | "elemental";
+  /**
+   * 필요한 무기 칸(D-490): 든 무기에 이 칸이 있어야 쓴다. any = 칸 하나라도 있는 무기. 없으면 기반과 같은 칸.
+   * 피해를 주는 스킬은 기반과 같아야 한다(팩 검사)
+   */
+  readonly weaponField?: SkillWeaponField | undefined;
+  /** 맨손 스킬(D-490): 무기 없이도 쓰고, 늘 유닛 종류의 타고난 무기(물리 기반)·맨손 속성 자료(속성 기반)로 센다 */
+  readonly bareHand?: boolean | undefined;
   readonly formula: readonly SkillFormulaPart[];
   readonly conditions: readonly SkillCondition[];
   readonly effects: readonly SkillEffectData[];
   /** 등급별 값 배율(‰). 등급 g는 g − 1번째, 없으면 마지막 */
   readonly gradePm: readonly number[];
 }
+
+/** 스킬이 필요로 하는 무기 칸(D-490): 물리·속성 칸, 또는 아무 칸 */
+export type SkillWeaponField = "physical" | "elemental" | "any";
 
 export interface CombatSkill extends SkillFormula {
   readonly id: string;
@@ -93,6 +103,10 @@ export interface CombatSkill extends SkillFormula {
   readonly range: number;
   readonly radius: number;
   readonly chain: SkillChain | null;
+  /** 필요한 무기 칸(D-490, 기본값 = 기반) */
+  readonly weaponField: SkillWeaponField;
+  /** 맨손 스킬(D-490) */
+  readonly bareHand: boolean;
   readonly flat: number;
   readonly healPm: number;
   /** 쉴드 회복(대상 최대 쉴드 HP의 ‰, 공식 부품 shield) */
@@ -150,6 +164,8 @@ export function skillFromData(
     range: data.range,
     radius: data.radius,
     chain: data.chain ?? null,
+    weaponField: data.weaponField ?? data.base,
+    bareHand: data.bareHand === true,
     damage: data.damage,
     base: data.base,
     attackMulPm,
@@ -176,11 +192,28 @@ export function skillFromData(
 const chebyshev = (a: { x: number; y: number }, b: { x: number; y: number }): number =>
   Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
-/** 스킬 기반의 공격 사양(D-463 211). 사양에 없으면(시험 유닛) 기본 공격 사양 */
+/**
+ * 이 유닛이 이 스킬을 쓸 수 있나(D-490 "맨손은 스킬을 쓸 수 없다, 맨손 스킬 제외"): 맨손 스킬은 늘, 그 밖은 든 무기에
+ * 필요한 칸(weaponField, 기본값 = 기반)이 있을 때만. 무기 칸 목록이 없는 사양(시험 유닛·옛 스냅숏)은 늘 쓴다.
+ * AI(pickSkill)·지속형(applyPassives)이 이것으로 거르고, 스킬 명령이 생기면 같은 검사로 거절한다
+ */
+export function skillUsable(
+  unit: { readonly weaponFields?: readonly ("physical" | "elemental")[] | undefined },
+  skill: { readonly bareHand?: boolean | undefined; readonly weaponField: SkillWeaponField },
+): boolean {
+  if (skill.bareHand === true || !unit.weaponFields) return true;
+  return skill.weaponField === "any"
+    ? unit.weaponFields.length > 0
+    : unit.weaponFields.includes(skill.weaponField);
+}
+
+/**
+ * 스킬 기반의 공격 사양(D-463 211): 맨손 스킬은 타고난 무기·맨손 속성 자료(bareHandAttack), 그 밖은 든 무기의 그 칸(skillAttack).
+ * 사양에 없으면(시험 유닛) 기본 공격 사양
+ */
 function baseAttack(unit: UnitState, skill: CombatSkill): AttackProfile {
-  return (
-    (skill.base === "elemental" ? unit.skillAttack?.elemental : unit.skillAttack?.physical) ?? unit.attack
-  );
+  const table = skill.bareHand && unit.bareHandAttack ? unit.bareHandAttack : unit.skillAttack;
+  return (skill.base === "elemental" ? table?.elemental : table?.physical) ?? unit.attack;
 }
 
 function conditionsMet(unit: UnitState, target: UnitState | undefined, skill: CombatSkill): boolean {
@@ -273,7 +306,7 @@ export function pickSkill(
   for (let i = 0; i < unit.skills.length; i++) {
     const skill = unit.skills[i];
     if (!skill || skill.trigger !== "active" || nowMs < (unit.skillReadyMs[i] ?? 0)) continue;
-    if (!affordable(unit, skill, c)) continue;
+    if (!skillUsable(unit, skill) || !affordable(unit, skill, c)) continue;
     if (skill.target === "enemy") {
       if (!conditionsMet(unit, enemy, skill) || !reach(enemy, skill.range)) continue;
       return { index: i, target: enemy };
@@ -306,12 +339,10 @@ export function startSkill(
 }
 
 /**
- * 피해 두 몫(D-459): 물리 몫은 아머 HP부터, 속성 몫은 쉴드 HP부터 깎고 남은 것을 체력에서 뺀다. 맞은 시각을 적는다
- * (피격 뒤 쉴드 재생 지연, D-463 212)
+ * 피해 두 몫(D-459): 물리 몫은 아머 HP부터, 속성 몫은 쉴드 HP부터 깎고 남은 것을 체력에서 뺀다. 맞아도 쉴드 재생은 멈추지 않는다(D-490)
  */
-export function takeDamage(target: UnitState, physical: number, elemental: number, nowMs: number): void {
+export function takeDamage(target: UnitState, physical: number, elemental: number): void {
   if (physical <= 0 && elemental <= 0) return;
-  target.lastHitMs = nowMs;
   const toArmor = Math.min(target.armor, Math.max(0, physical));
   const toShield = Math.min(target.shield, Math.max(0, elemental));
   target.armor -= toArmor;
@@ -436,16 +467,16 @@ export function resolveSkill(
     if (hit.outcome !== "hit") continue;
     // 고정 피해(공식 부품 flat)는 스킬 종류의 몫에 더한다(물리 → 물리 몫, 속성 → 속성 몫)
     const flat = Math.max(0, skill.flat);
-    if (attack.kind === "physical") takeDamage(target, hit.physical + flat, hit.elemental, nowMs);
-    else takeDamage(target, hit.physical, hit.elemental + flat, nowMs);
+    if (attack.kind === "physical") takeDamage(target, hit.physical + flat, hit.elemental);
+    else takeDamage(target, hit.physical, hit.elemental + flat);
     applyParts(skill, target, rng, nowMs);
   }
 }
 
-/** 지속형(passive) 스킬의 효과를 전투 처음에 자기에게 건다(전투 내내) */
+/** 지속형(passive) 스킬의 효과를 전투 처음에 자기에게 건다(전투 내내). 든 무기로 쓸 수 없는 스킬은 걸지 않는다(D-490) */
 export function applyPassives(unit: UnitState): void {
   for (const skill of unit.skills) {
-    if (skill.trigger !== "passive") continue;
+    if (skill.trigger !== "passive" || !skillUsable(unit, skill)) continue;
     for (const part of skill.effects) applyEffect(unit, part.def, part.value, part.durationMs, 0);
   }
 }

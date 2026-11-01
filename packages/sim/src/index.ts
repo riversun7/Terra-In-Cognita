@@ -415,6 +415,7 @@ export {
 export {
   type AttackField,
   basicFieldOf,
+  weaponFieldsOf,
   specFromStats,
   type UnitBody,
   type WeaponAttackField,
@@ -471,6 +472,7 @@ export {
   hasStatus,
   modifiersOf,
   moveIntervalMs,
+  shieldRegenPerMinute,
   statusResistPm,
   tickEffects,
   type ActiveEffect,
@@ -482,6 +484,8 @@ export {
 export {
   singleAlly,
   skillFromData,
+  skillUsable,
+  type SkillWeaponField,
   type CombatSkill,
   type SkillChain,
   type SkillCondition,

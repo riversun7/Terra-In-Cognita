@@ -33,9 +33,17 @@ export const effectEntrySchema = z
     name: localizedText,
     description: localizedText.optional(),
     kind: z.enum(["buff", "debuff", "dot", "heal", "status"]),
-    /** 버프·디버프가 바꾸는 전투 수치(move_speed = 이동 속도 ‰, 디버프면 느리게) */
+    /** 버프·디버프가 바꾸는 전투 수치(move_speed = 이동 속도 ‰, 디버프면 느리게. shield_regen = 쉴드 재생 ‰, 디버프면 저주, D-490) */
     stat: z
-      .enum(["attack", "defense_rate", "evade", "penetration", "crit_multiplier", "move_speed"])
+      .enum([
+        "attack",
+        "defense_rate",
+        "evade",
+        "penetration",
+        "crit_multiplier",
+        "move_speed",
+        "shield_regen",
+      ])
       .optional(),
     valueMode: z.enum(["flat", "permille"]),
     /** 기본 지속(ms). 0 = 전투 내내. 거는 쪽(스킬)이 바꿀 수 있다 */
@@ -189,10 +197,20 @@ export const skillEntrySchema = z
       .optional(),
     damage: z.enum(["physical", "elemental", "none"]),
     /**
-     * 기반(D-463): physical = 든 물리 무기(없으면 맨손)와 물리 공격력, elemental = 든 속성 무기(없으면 유닛 종류의 맨손 속성 자료)와
-     * 속성 공격력(m.atk). 피해를 주는 스킬은 damage와 같아야 한다
+     * 기반(D-463): physical = 든 무기의 물리 칸과 물리 공격력, elemental = 든 무기의 속성 칸과 속성 공격력(m.atk).
+     * 피해를 주는 스킬은 damage와 같아야 한다
      */
     base: z.enum(["physical", "elemental"]),
+    /**
+     * 필요한 무기 칸(D-490 "맨손은 스킬을 쓸 수 없다"): 든 무기에 이 칸이 있어야 쓴다. any = 칸이 하나라도 있는 무기.
+     * 없으면 기반과 같은 칸. 피해를 주는 스킬은 기반과 같은 칸만(무기 칸으로 피해를 센다)
+     */
+    weaponField: z.enum(["physical", "elemental", "any"]).optional(),
+    /**
+     * 맨손 스킬(D-490): 참이면 무기 없이도 쓰고 늘 유닛 종류의 타고난 무기(물리 기반)·맨손 속성 자료(속성 기반)로 센다.
+     * 맨손 스킬만 맨손으로 쓸 수 있다. 필요한 무기 칸(weaponField)과 같이 적지 않는다
+     */
+    bareHand: z.boolean().optional(),
     formula: z.array(formulaPart).max(16),
     conditions: z.array(conditionPart).max(8),
     effects: z
@@ -213,8 +231,21 @@ export const skillEntrySchema = z
   .superRefine((entry, ctx) => {
     checkSkillShape(entry, ctx);
     // 필드 검사가 실패해도 불린다(AGENTS 6장 Zod 4.6.7): 두 칸이 모두 알맞은 글자일 때만 본다
-    const { damage, base } = entry;
+    const { damage, base, weaponField, bareHand } = entry;
+    if (bareHand === true && weaponField !== undefined)
+      ctx.addIssue({
+        code: "custom",
+        path: ["weaponField"],
+        message: "맨손 스킬(bareHand)은 무기 없이 쓰므로 필요한 무기 칸(weaponField)을 적지 않습니다(D-490).",
+      });
     if (typeof damage !== "string" || typeof base !== "string" || damage === "none") return;
+    if (weaponField !== undefined && weaponField !== base)
+      ctx.addIssue({
+        code: "custom",
+        path: ["weaponField"],
+        message:
+          "피해를 주는 스킬의 필요한 무기 칸(weaponField)은 기반(base)과 같아야 합니다(그 칸의 공격력으로 피해를 셉니다, D-490).",
+      });
     if (damage !== base)
       ctx.addIssue({
         code: "custom",
@@ -287,7 +318,7 @@ function checkWeaponFields(weapon: unknown, ctx: z.RefinementCtx): void {
 
 const weaponSchema = z
   .strictObject({
-    /** 공격력 칸(D-465): 하나 또는 둘. 스킬은 기반에 맞는 칸을, 없으면 맨손·맨손 속성 자료의 칸을 쓴다 */
+    /** 공격력 칸(D-465): 하나 또는 둘. 스킬은 기반에 맞는 칸을 쓰고, 그 칸이 없으면 그 스킬을 쓸 수 없다(D-490, 맨손 스킬 제외) */
     physical: weaponAttackField.optional(),
     elemental: weaponAttackField.optional(),
     /** 기본 공격이 쓰는 칸(질문 235 가): 두 칸 무기만 꼭 적는다. 한 칸 무기는 그 칸 */
@@ -296,7 +327,7 @@ const weaponSchema = z
   })
   .superRefine(checkWeaponFields);
 
-/** 타고난 무기(D-436 맨손): 물리 칸이 꼭 있다(물리 칸이 없는 무기를 든 유닛의 물리 기반 스킬이 쓴다, D-465) */
+/** 타고난 무기(D-436 맨손): 물리 칸이 꼭 있다(기본 공격·물리 기반 맨손 스킬이 쓴다, D-490) */
 const naturalWeaponSchema = z
   .strictObject({
     physical: weaponAttackField,
@@ -322,8 +353,13 @@ export const unitKindEntrySchema = z.strictObject({
   }),
   /** 타고난 무기(D-436): 크리쳐의 발톱·이빨 등, 사람형은 맨손. 무기 칸이 비었을 때 쓴다(D-420 같은 공식). 물리 칸 필수 */
   naturalWeapon: naturalWeaponSchema,
-  /** 맨손 속성 자료(D-463·D-465): 든 무기에 속성 칸이 없을 때 속성 기반 스킬이 쓴다(공격력·적정치 낮게). 속성 칸만 */
+  /** 맨손 속성 자료(D-463): 속성 기반 맨손 스킬(D-490)이 쓴다(공격력·적정치 낮게). 속성 칸만 */
   naturalElementalWeapon: naturalElementalWeaponSchema,
+  /**
+   * 타고난 무기를 스킬용 무기로 치나(D-490): 참이면 무기 칸이 비어도 타고난 무기의 칸으로 스킬을 쓴다(크리쳐 발톱·이빨).
+   * 거짓이면 맨손 = 맨손 스킬만(사람형). 없으면 무기 칸(weapon)이 없는 종류만 참
+   */
+  naturalWeaponIsWeapon: z.boolean().optional(),
   enabled,
 });
 export type UnitKindEntry = z.output<typeof unitKindEntrySchema>;

@@ -178,14 +178,7 @@ export const TUNING_KEYS: readonly TuningKey[] = [
     "Minimum consumption (‰)",
   ),
   // N13 회복(기본 회복/초·회복 배수 상한)·N15 MP 회복은 D-458 2차 스탯 행(stamina_regen·mp_regen, N40)으로 옮겼다(팩 stat_rows)
-  k(
-    "n40_shield_regen_delay",
-    "N40",
-    "combat",
-    "shieldRegenDelayMs",
-    "피격 뒤 쉴드 재생 지연(ms)",
-    "Shield regen delay after hit (ms)",
-  ),
+  // N40 피격 뒤 쉴드 재생 지연은 D-490(쉴드 재생은 맞는 중에도 일정하게 계속)으로 없앴다(팩 id-changes core@21)
   // 노동 (49 §6.5 N21~N33, §7 S25)
   k("n21_fatigue_max", "N21", "society", "fatigueMax", "피로 상한", "Fatigue max", true),
   ...[1, 2, 3].flatMap((band) => [

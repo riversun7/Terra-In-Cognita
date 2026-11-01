@@ -2,7 +2,8 @@
 // 2차 스탯(stats.ts computeSecondary 결과)과 무기에서 전투 사양을 만든다. 서버·시뮬·(나중의) 개발자 페이지 전투 시뮬레이터가 같이 쓴다.
 // 공격 간격 = 무기 간격 × 1000 ÷ min(2000, 행동 속도 × 1000 ÷ 무기 적정 속도)(D-418 행동 속도 점수, D-420 같은 틀).
 // 명중·크리도 점수(D-458): 무기 값 × min(2, 점수 ÷ 적정). 무기의 속성 계수(skillElementsPm)는 물리 칸이면 옵션(속성 몫, D-459)이다.
-// 무기는 공격력 칸을 물리·속성 하나 또는 둘 가진다(D-465). 스킬은 기반에 맞는 칸(없으면 맨손·맨손 속성), 기본 공격은 basic 칸(질문 235 가).
+// 무기는 공격력 칸을 물리·속성 하나 또는 둘 가진다(D-465). 스킬은 기반에 맞는 칸, 기본 공격은 basic 칸(질문 235 가).
+// 맨손으로는 스킬을 쓸 수 없다(D-490, 맨손 스킬 제외): 사양에 든 무기의 칸 목록(weaponFields)을 적고, 맨손 스킬은 타고난 무기로 센다.
 import type { CombatUnitSpec } from "./battleTypes.ts";
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS, staminaScore } from "./coefficients.ts";
 import { UNARMED, UNARMED_ELEMENTAL } from "./catalog.ts";
@@ -21,8 +22,8 @@ export interface WeaponAttackField {
 
 export interface WeaponSpec {
   /**
-   * 공격력 칸(D-465): 하나 또는 둘(마검 등). 스킬은 기반(물리·속성)에 맞는 칸을 쓰고, 든 무기에 없으면 유닛 종류의
-   * 맨손(타고난 무기 D-436)·맨손 속성 자료(D-463)의 칸을 쓴다. 칸이 하나도 없으면 틀린 자료다(팩 검사가 막는다)
+   * 공격력 칸(D-465): 하나 또는 둘(마검 등). 스킬은 기반(물리·속성)에 맞는 칸을 쓰고, 든 무기에 그 칸이 없으면 그 스킬을 쓸 수 없다
+   * (D-490, 맨손 스킬 제외). 칸이 하나도 없으면 틀린 자료다(팩 검사가 막는다)
    */
   readonly physical?: WeaponAttackField | undefined;
   readonly elemental?: WeaponAttackField | undefined;
@@ -53,8 +54,13 @@ export interface UnitBody {
   readonly stats: Readonly<Record<string, number>>;
   readonly weapon: WeaponSpec;
   /**
-   * 유닛 종류의 타고난 무기(D-436)·맨손 속성 자료(D-463). 든 무기에 스킬 기반의 칸이 없을 때 쓴다(D-465:
-   * 물리 기반 + 물리 칸 없음 → 맨손의 물리 칸, 속성 기반 + 속성 칸 없음 → 맨손 속성의 속성 칸). 없으면(그 칸이 없어도) UNARMED·UNARMED_ELEMENTAL
+   * 무기 칸이 비어 맨손인가(D-490): 참이면 스킬에 쓸 무기 칸이 없다(맨손 스킬만 쓴다). 타고난 무기를 무기로 치는 종류(크리쳐 발톱)는
+   * 거짓이다(장비 loadoutOf의 bareHanded). 없으면 거짓(weapon을 든 무기로 본다)
+   */
+  readonly bareHanded?: boolean | undefined;
+  /**
+   * 유닛 종류의 타고난 무기(D-436)·맨손 속성 자료(D-463). 맨손 스킬(D-490)이 쓴다(물리 기반 → 타고난 무기의 물리 칸,
+   * 속성 기반 → 맨손 속성의 속성 칸). 없으면(그 칸이 없어도) UNARMED·UNARMED_ELEMENTAL
    */
   readonly naturalWeapon?: WeaponSpec | undefined;
   readonly naturalElementalWeapon?: WeaponSpec | undefined;
@@ -75,6 +81,14 @@ export interface UnitBody {
 }
 
 const ZERO = Array.from({ length: ELEMENT_COUNT }, () => 0);
+
+/** 무기의 공격력 칸 목록(물리 먼저) */
+export function weaponFieldsOf(weapon: WeaponSpec): AttackField[] {
+  const fields: AttackField[] = [];
+  if (weapon.physical) fields.push("physical");
+  if (weapon.elemental) fields.push("elemental");
+  return fields;
+}
 
 /** 기본 공격이 쓰는 칸(질문 235 가): 적은 칸(basic), 없으면 그 무기의 한 칸(물리 먼저) */
 export function basicFieldOf(weapon: WeaponSpec): AttackField {
@@ -117,17 +131,33 @@ export function specFromStats(
   const basicField = w[basic];
   if (!basicField) throw new RangeError(`weapon has no ${basic} attack field`);
   const attack = profileOf(w, basic, basicField);
-  /** 스킬 기반의 공격 사양(D-465): 든 무기에 그 칸이 있으면 그 칸, 없으면 맨손(그 칸이 없으면 기본값)의 칸 */
-  const skillProfile = (
+  /** 맨손 자료의 칸(유닛 종류의 타고난 무기·맨손 속성 자료, 그 칸이 없으면 기본값) */
+  const naturalProfile = (
     kind: AttackField,
     natural: WeaponSpec | undefined,
     fallback: WeaponSpec,
     fallbackField: WeaponAttackField,
   ): AttackProfile => {
-    const held = w[kind];
-    if (held) return kind === basic ? attack : profileOf(w, kind, held);
     const own = natural?.[kind];
     return natural && own ? profileOf(natural, kind, own) : profileOf(fallback, kind, fallbackField);
+  };
+  const bareHandAttack = {
+    physical: naturalProfile("physical", body.naturalWeapon, UNARMED, UNARMED.physical),
+    elemental: naturalProfile(
+      "elemental",
+      body.naturalElementalWeapon,
+      UNARMED_ELEMENTAL,
+      UNARMED_ELEMENTAL.elemental,
+    ),
+  };
+  /**
+   * 스킬 기반의 공격 사양(D-465): 든 무기에 그 칸이 있으면 그 칸. 없으면 그 기반의 스킬은 쓸 수 없고(D-490, skillUsable이 막는다)
+   * 맨손 자료를 넣어 둔다(필요한 칸이 any인 피해 없는 스킬의 적정 조건만 본다)
+   */
+  const skillProfile = (kind: AttackField): AttackProfile => {
+    const held = w[kind];
+    if (held) return kind === basic ? attack : profileOf(w, kind, held);
+    return bareHandAttack[kind];
   };
   return {
     id: body.id,
@@ -139,15 +169,9 @@ export function specFromStats(
     armorHp: Math.max(0, s("armor_hp")),
     shieldHp: Math.max(0, s("shield_hp")),
     attack,
-    skillAttack: {
-      physical: skillProfile("physical", body.naturalWeapon, UNARMED, UNARMED.physical),
-      elemental: skillProfile(
-        "elemental",
-        body.naturalElementalWeapon,
-        UNARMED_ELEMENTAL,
-        UNARMED_ELEMENTAL.elemental,
-      ),
-    },
+    skillAttack: { physical: skillProfile("physical"), elemental: skillProfile("elemental") },
+    weaponFields: body.bareHanded === true ? [] : weaponFieldsOf(w),
+    bareHandAttack,
     defense: {
       defenseRatePm: s("defense_rate"),
       defenseFlat: body.defenseFlat ?? 0,

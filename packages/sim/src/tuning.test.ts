@@ -91,10 +91,10 @@ describe("설정 칸 값 → 계수표", () => {
       ]),
     );
     expect(tuned.affinity).toEqual({ favorPm: 60, unfavorPm: -40, samePm: -25 });
-    // 피격 뒤 쉴드 재생 지연(N40 묶음, D-463 212, 출발값 0)
-    expect(combatCoefficientsFrom(new Map([["n40_shield_regen_delay", 3000]])).shieldRegenDelayMs).toBe(3000);
     const ids = TUNING_KEYS.map((key) => key.id);
-    for (const gone of ["n13_regen", "n13_regen_cap", "n15_mp_regen"]) expect(ids).not.toContain(gone);
+    // 피격 뒤 쉴드 재생 지연(N40)은 D-490으로 없앴다
+    for (const gone of ["n13_regen", "n13_regen_cap", "n15_mp_regen", "n40_shield_regen_delay"])
+      expect(ids).not.toContain(gone);
   });
 
   it("정원사 칸(D-460·D-468 C16a)도 같은 길로 바뀐다", () => {

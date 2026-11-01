@@ -6,6 +6,7 @@ import {
   applyEffect,
   hasStatus,
   modifiersOf,
+  shieldRegenPerMinute,
   statusResistPm,
   tickEffects,
 } from "./effects.ts";
@@ -74,5 +75,32 @@ describe("효과 사전(D-425)", () => {
     expect(hasStatus(unit, "stun")).toBe(true);
     tickEffects(unit, 1500);
     expect(hasStatus(unit, "stun")).toBe(false);
+  });
+
+  it("쉴드 재생 효과(D-490): 저주(디버프)는 재생을 줄이고 0 아래로 내려가지 않으며, 다른 수치에 섞이지 않는다", () => {
+    const curse: EffectDef = {
+      id: "shield_curse",
+      kind: "debuff",
+      stat: "shield_regen",
+      valueMode: "permille",
+      durationMs: 5000,
+      tickMs: 0,
+      stacking: "stack",
+      maxStacks: 3,
+    };
+    const unit = holder();
+    expect(shieldRegenPerMinute(unit, 600)).toBe(600);
+    applyEffect(unit, curse, 300, 5000, 0);
+    expect(shieldRegenPerMinute(unit, 600)).toBe(420);
+    applyEffect(unit, curse, 300, 5000, 0);
+    applyEffect(unit, curse, 300, 5000, 0);
+    expect(shieldRegenPerMinute(unit, 600)).toBe(60);
+    applyEffect(unit, { ...curse, id: "shield_curse_big", stacking: "refresh", maxStacks: 1 }, 900, 5000, 0);
+    expect(shieldRegenPerMinute(unit, 600)).toBe(0);
+    const sum = modifiersOf(unit);
+    expect(sum.shieldRegenPm).toBe(-1800);
+    expect(sum.critMulPm).toBe(0);
+    tickEffects(unit, 5000);
+    expect(shieldRegenPerMinute(unit, 600)).toBe(600);
   });
 });

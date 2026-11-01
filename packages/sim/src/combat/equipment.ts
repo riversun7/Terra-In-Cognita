@@ -109,6 +109,11 @@ export interface Loadout {
   /** 무기·방어구가 2차 스탯 행에 더한 수치(행 ID → 합). 화면의 스탯 풀이(explainSecondary)가 쓴다 */
   readonly gear: Readonly<Record<string, number>>;
   readonly weapon: WeaponSpec;
+  /**
+   * 맨손인가(D-490): 무기 칸에 무기가 없고 타고난 무기를 무기로 치지 않는 종류(naturalIsWeapon 거짓). 참이면 맨손 스킬만 쓴다.
+   * 전투 사양(specFromStats UnitBody.bareHanded)에 그대로 넘긴다
+   */
+  readonly bareHanded: boolean;
   /** 쓸 스킬 ID: 고유 스킬 먼저, 그다음 장비 스킬, 스킬 칸 수까지(D-426·D-427) */
   readonly skills: readonly string[];
 }
@@ -123,6 +128,8 @@ export function loadoutOf(options: {
   readonly equipped: readonly (EquippedItem | null)[];
   readonly table: readonly StatRow[];
   readonly unarmed: WeaponSpec;
+  /** 타고난 무기(unarmed)를 스킬용 무기로 치나(유닛 종류 naturalWeaponIsWeapon, 크리쳐 발톱). 없으면 거짓 */
+  readonly naturalIsWeapon?: boolean;
   readonly innateSkills?: readonly string[];
   readonly skillSlots?: number;
   readonly buffs?: Readonly<Record<string, number>>;
@@ -132,6 +139,7 @@ export function loadoutOf(options: {
   const primary: Record<PrimaryCode, number> = { ...options.base };
   const gear: Record<string, number> = {};
   let weapon = options.unarmed;
+  let armed = false;
   const equipSkills: string[] = [];
   for (let i = 0; i < equipped.length; i++) {
     const item = equipped[i];
@@ -144,7 +152,10 @@ export function loadoutOf(options: {
       if (isPrimary(stat)) primary[stat] += value;
       else gear[stat] = (gear[stat] ?? 0) + value;
     }
-    if (item.slot === "weapon" && item.weapon) weapon = item.weapon;
+    if (item.slot === "weapon" && item.weapon) {
+      weapon = item.weapon;
+      armed = true;
+    }
     equipSkills.push(...item.skills);
     for (const gem of item.gems ?? []) {
       if (gem.kind === "skill") equipSkills.push(gem.skill);
@@ -157,6 +168,7 @@ export function loadoutOf(options: {
     stats: computeSecondary(primary, options.table, gear, options.buffs ?? {}),
     gear,
     weapon,
+    bareHanded: !armed && options.naturalIsWeapon !== true,
     skills: skills.slice(0, options.skillSlots ?? skills.length),
   };
 }

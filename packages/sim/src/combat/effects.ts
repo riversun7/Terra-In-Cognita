@@ -7,7 +7,7 @@
 export type EffectKind = "buff" | "debuff" | "dot" | "heal" | "status";
 /**
  * 버프·디버프가 바꾸는 전투 수치. attack은 ‰ 배율(버프 항), move_speed는 이동 속도 ‰(디버프 = 느리게, moveIntervalMs),
- * 나머지는 ‰ 더하기
+ * shield_regen은 쉴드 재생 ‰(디버프 = 저주, −1000 이하면 멈춤, shieldRegenPerMinute, D-490), 나머지는 ‰ 더하기
  */
 export type ModifierStat =
   | "attack"
@@ -15,7 +15,8 @@ export type ModifierStat =
   | "evade"
   | "penetration"
   | "crit_multiplier"
-  | "move_speed";
+  | "move_speed"
+  | "shield_regen";
 export type StatusKind = "stun" | "root" | "silence";
 
 export interface EffectDef {
@@ -70,6 +71,8 @@ export interface Modifiers {
   readonly critMulPm: number;
   /** 이동 속도(‰, + 빠르게 · − 느리게) */
   readonly moveSpeedPm: number;
+  /** 쉴드 재생(‰, + 빠르게 · − 느리게) */
+  readonly shieldRegenPm: number;
 }
 
 /** 상태이상 저항(‰). 저항 칸이 없으면 0 */
@@ -160,6 +163,7 @@ const NO_MODIFIERS: Modifiers = {
   penetrationPm: 0,
   critMulPm: 0,
   moveSpeedPm: 0,
+  shieldRegenPm: 0,
 };
 
 /** 버프(+)·디버프(−) 합 */
@@ -174,6 +178,7 @@ export function modifiersOf(target: EffectHolder): Modifiers {
     else if (effect.stat === "evade") sum.evadePm += value;
     else if (effect.stat === "penetration") sum.penetrationPm += value;
     else if (effect.stat === "move_speed") sum.moveSpeedPm += value;
+    else if (effect.stat === "shield_regen") sum.shieldRegenPm += value;
     else sum.critMulPm += value;
   }
   return sum;
@@ -194,4 +199,18 @@ export function moveIntervalMs(target: EffectHolder, intervalMs: number): number
   }
   if (speedPm === 0) return intervalMs;
   return Math.max(1, Math.floor((intervalMs * 1000) / Math.max(MIN_MOVE_SPEED_PM, 1000 + speedPm)));
+}
+
+/**
+ * 쉴드 재생(분당) = 기본 × max(0, 1000 + 쉴드 재생 ‰) ÷ 1000(버림). 효과가 없으면 그대로(D-490: 저주 같은 효과에 영향을 받는다).
+ * 틱마다 불리므로 합 객체를 만들지 않고 쉴드 재생만 더한다
+ */
+export function shieldRegenPerMinute(target: EffectHolder, perMinute: number): number {
+  let pm = 0;
+  for (const effect of target.effects) {
+    if (effect.stat !== "shield_regen" || (effect.kind !== "buff" && effect.kind !== "debuff")) continue;
+    pm += (effect.kind === "buff" ? effect.value : -effect.value) * effect.stacks;
+  }
+  if (pm === 0) return perMinute;
+  return Math.floor((perMinute * Math.max(0, 1000 + pm)) / 1000);
 }

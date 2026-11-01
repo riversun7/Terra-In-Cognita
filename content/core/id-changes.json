@@ -24,6 +24,14 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "tuning",
+      "id": "n40_shield_regen_delay",
+      "since": 21,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

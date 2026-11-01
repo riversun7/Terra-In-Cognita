@@ -324,31 +324,58 @@ describe("피해 두 몫과 회복(D-458·D-459)", () => {
     expect(battle.state.result).toBeNull();
   });
 
-  it("피격 뒤 쉴드 재생 지연(D-463 212, 출발값 0): 맞은 시각부터 지연이 지나야 다시 찬다", () => {
-    // 출발값 0: 맞아도 곧바로 찬다(위 시험과 같은 뜻)
-    expect(TEST_COMBAT_COEFFICIENTS.shieldRegenDelayMs).toBe(0);
+  it("쉴드 재생은 맞는 중에도 일정하게 계속된다(D-490: 피격 뒤 멈춤 칸 없음)", () => {
     const init = {
       ...duel(1),
       units: [unit(1, 1, 1, 0, 0, { shieldHp: 1000, shieldRegen: 600 }), unit(101, 2, 11, 31, 31)],
     };
-    const delayed = createBattle(init, { ...TEST_COMBAT_COEFFICIENTS, shieldRegenDelayMs: 2000 });
-    const me = delayed.state.units.find((u) => u.id === 1);
+    const battle = createBattle(init);
+    const me = battle.state.units.find((u) => u.id === 1);
     if (!me) throw new Error("unit");
     me.shield = 0;
-    me.lastHitMs = 0;
-    // 분당 600 = 틱(100ms)마다 1. 2초(20틱) 동안은 차지 않는다
-    for (let i = 0; i < 20; i++) delayed.step([]);
-    expect(me.shield).toBe(0);
-    for (let i = 0; i < 10; i++) delayed.step([]);
-    expect(me.shield).toBe(10);
+    // 분당 600 = 틱(100ms)마다 1. 틱마다 속성 1을 맞아도(쉴드부터 깎임) 재생은 멈추지 않는다
+    for (let i = 0; i < 30; i++) {
+      battle.step([]);
+      expect(me.shield).toBe(1);
+      me.shield -= 1;
+    }
+    expect("lastHitMs" in me).toBe(false);
+    expect("shieldRegenDelayMs" in TEST_COMBAT_COEFFICIENTS).toBe(false);
   });
 
-  it("맞으면 맞은 시각을 적는다(물리·속성 몫이 있을 때)", () => {
-    const battle = createBattle(pair());
-    battle.step([]);
-    const target = battle.state.units.find((u) => u.id === 101);
-    expect(target?.lastHitMs).toBe(0);
+  it("쉴드 재생 효과(디버프 저주·버프)는 재생 빠르기를 ‰로 바꾼다(D-490)", () => {
+    const init = {
+      ...duel(1),
+      units: [unit(1, 1, 1, 0, 0, { shieldHp: 1000, shieldRegen: 600 }), unit(101, 2, 11, 31, 31)],
+    };
+    const run = (effects: ReturnType<typeof curse>[]): number => {
+      const battle = createBattle(init);
+      const me = battle.state.units.find((u) => u.id === 1);
+      if (!me) throw new Error("unit");
+      me.shield = 0;
+      me.effects = effects;
+      for (let i = 0; i < 100; i++) battle.step([]);
+      return me.shield;
+    };
+    // 10초: 효과 없음 100, 저주 −500‰ → 50, 버프 +500‰ → 150, 저주 −1000‰ 이상 → 0(멈춤)
+    expect(run([])).toBe(100);
+    expect(run([curse(500, "debuff")])).toBe(50);
+    expect(run([curse(500, "buff")])).toBe(150);
+    expect(run([curse(1500, "debuff")])).toBe(0);
   });
+});
+
+const curse = (value: number, kind: "buff" | "debuff") => ({
+  id: `shield_${kind}`,
+  kind,
+  stat: "shield_regen" as const,
+  valueMode: "permille" as const,
+  status: null,
+  tickMs: 0,
+  value,
+  stacks: 1,
+  untilMs: -1,
+  nextTickMs: 0,
 });
 
 /** 한 방에 쓰러지는(체력 10, 공격 20, 늘 맞음) 같은 유닛 1 대 1을 거리 gap으로 세운다. 먼저 친 쪽이 이긴다 */

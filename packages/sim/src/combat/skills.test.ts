@@ -120,6 +120,34 @@ describe("스킬(부품 조합, D-426~D-428)", () => {
     ]);
   });
 
+  it("든 무기에 맞는 칸이 없는 스킬은 AI가 고르지 않고, 지속형도 걸리지 않는다(D-490). 맨손 스킬은 맨손으로 쓴다", () => {
+    const strike = skillsOf(TEST_COMBAT_CATALOG, ["power_strike", "iron_skin"]);
+    // 속성 칸만 든(지팡이) 유닛: 물리 기반 강타·쇠 피부를 쓸 수 없다
+    const staffed = createBattle(
+      fight([
+        unit(1, 1, 1, 10, 10, { skills: strike, maxHp: 5000, weaponFields: ["elemental"] }),
+        unit(101, 2, 11, 11, 10, { maxHp: 5000 }),
+      ]),
+    );
+    expect(byId(staffed, 1).effects).toEqual([]);
+    for (let i = 0; i < 20; i++) staffed.step([]);
+    expect(byId(staffed, 1).skillReadyMs).toEqual([0, 0]);
+    expect(byId(staffed, 101).effects).toEqual([]);
+    // 맨손(칸 없음)이어도 맨손 스킬로 바꾸면 쓴다
+    const bare = createBattle(
+      fight([
+        unit(1, 1, 1, 10, 10, {
+          skills: [skillFromData({ ...data("power_strike"), bareHand: true }, 1, effects)],
+          maxHp: 5000,
+          weaponFields: [],
+        }),
+        unit(101, 2, 11, 11, 10, { maxHp: 5000 }),
+      ]),
+    );
+    bare.step([]);
+    expect(byId(bare, 1).skillReadyMs[0]).toBe(5000);
+  });
+
   it("지속형 스킬은 전투 처음부터 끝까지 효과가 걸려 있다", () => {
     const battle = createBattle(
       fight([

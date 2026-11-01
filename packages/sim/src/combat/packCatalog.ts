@@ -63,6 +63,8 @@ export function combatCatalogFrom(pack: {
         chain: entry.chain,
         damage: entry.damage,
         base: entry.base,
+        weaponField: entry.weaponField,
+        bareHand: entry.bareHand,
         formula: entry.formula,
         conditions: entry.conditions.map((part) =>
           part.part === "target_has" ? { part: "target_has", effect: idOf(part.effect) } : part,
@@ -101,6 +103,8 @@ export function combatCatalogFrom(pack: {
       skillSlots: entry.skillSlots,
       naturalWeapon: entry.naturalWeapon,
       naturalElementalWeapon: entry.naturalElementalWeapon,
+      // 적지 않았으면 무기 칸이 없는 종류(크리쳐)만 타고난 무기를 무기로 친다(D-490 기술 기본값)
+      naturalWeaponIsWeapon: entry.naturalWeaponIsWeapon ?? !entry.slots.includes("weapon"),
     }));
   return { statTable, effects, skills, equipment, unitKinds };
 }

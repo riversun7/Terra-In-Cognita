@@ -51,8 +51,6 @@ export interface CombatCoefficients {
     readonly appropriateScore: number;
     readonly minConsumePm: number;
   };
-  /** 피격 뒤 쉴드 재생 지연(ms, 49 N40 묶음, D-463 212): 맞은 뒤 이만큼 지나야 쉴드가 다시 찬다. 출발값 0(맞아도 곧바로 참) */
-  readonly shieldRegenDelayMs: number;
 }
 
 /**
@@ -98,7 +96,6 @@ export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
     appropriateScore: 80,
     minConsumePm: 500,
   },
-  shieldRegenDelayMs: 0,
 };
 
 /** STA 점수(N13) = Σ 1차 × 가중치‰ ÷ 1000 */

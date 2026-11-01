@@ -88,6 +88,7 @@ export function kitOf(catalog: CombatCatalog) {
     skillSlots,
     unarmed: kind?.naturalWeapon ?? UNARMED,
     unarmedElemental: kind?.naturalElementalWeapon ?? UNARMED_ELEMENTAL,
+    naturalIsWeapon: kind?.naturalWeaponIsWeapon ?? false,
   };
 }
 
@@ -108,6 +109,7 @@ export function specOf(
     equipped: kit.equipped,
     table: catalog.statTable,
     unarmed: kit.unarmed,
+    naturalIsWeapon: kit.naturalIsWeapon,
     innateSkills: kit.innate,
     skillSlots: kit.skillSlots,
   });
@@ -123,6 +125,7 @@ export function specOf(
       ...place,
       stats: out.stats,
       weapon: out.weapon,
+      bareHanded: out.bareHanded,
       naturalWeapon: kit.unarmed,
       naturalElementalWeapon: kit.unarmedElemental,
       primaries: out.primaries,

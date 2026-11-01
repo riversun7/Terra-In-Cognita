@@ -38,6 +38,7 @@
         "staminaCost": 10,
         "mpCost": 0
       },
+      "naturalWeaponIsWeapon": false,
       "enabled": true
     },
     {
@@ -78,6 +79,7 @@
         "staminaCost": 10,
         "mpCost": 0
       },
+      "naturalWeaponIsWeapon": false,
       "enabled": true
     },
     {
@@ -118,6 +120,7 @@
         "staminaCost": 10,
         "mpCost": 0
       },
+      "naturalWeaponIsWeapon": false,
       "enabled": true
     },
     {
@@ -158,6 +161,7 @@
         "staminaCost": 10,
         "mpCost": 0
       },
+      "naturalWeaponIsWeapon": true,
       "enabled": true
     }
   ]

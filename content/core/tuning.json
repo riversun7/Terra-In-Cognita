@@ -246,19 +246,6 @@
       "structural": false
     },
     {
-      "id": "n40_shield_regen_delay",
-      "code": "N40",
-      "name": {
-        "ko": "피격 뒤 쉴드 재생 지연(ms)",
-        "en": "Shield regen delay after hit (ms)"
-      },
-      "value": 0,
-      "structural": false,
-      "unit": "ms",
-      "min": 0,
-      "max": 600000
-    },
-    {
       "id": "n21_fatigue_max",
       "code": "N21",
       "name": {

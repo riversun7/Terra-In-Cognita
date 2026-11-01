@@ -18,10 +18,19 @@ export interface CombatUnitSpec {
   readonly shieldHp: number;
   readonly attack: AttackProfile;
   /**
-   * 스킬 기반별 공격 사양(D-463 211): 물리 = 든 물리 무기(없으면 맨손)·물리 공격력, 속성 = 든 속성 무기(없으면 맨손 속성 자료)·
-   * 속성 공격력. 없으면 기본 공격 사양(attack)으로 푼다(시험 유닛)
+   * 스킬 기반별 공격 사양(D-463 211): 물리 = 든 무기의 물리 칸·물리 공격력, 속성 = 든 무기의 속성 칸·속성 공격력. 든 무기에 그 칸이
+   * 없으면 그 기반의 스킬은 쓸 수 없다(D-490, weaponFields). 없으면 기본 공격 사양(attack)으로 푼다(시험 유닛)
    */
   readonly skillAttack?: { readonly physical: AttackProfile; readonly elemental: AttackProfile } | undefined;
+  /**
+   * 스킬에 쓸 수 있는 든 무기의 공격력 칸(D-490): 맨손이면 빈 목록(타고난 무기를 무기로 치는 종류는 타고난 무기의 칸).
+   * 스킬은 이 목록에 필요한 칸이 있을 때만 쓴다(skills.ts skillUsable, 맨손 스킬 제외). 없으면(시험 유닛·옛 스냅숏) 모든 스킬을 쓴다
+   */
+  readonly weaponFields?: readonly ("physical" | "elemental")[] | undefined;
+  /** 맨손 스킬의 공격 사양(D-490): 타고난 무기(물리)·맨손 속성 자료(속성)와 2차 공격력. 없으면 skillAttack */
+  readonly bareHandAttack?:
+    | { readonly physical: AttackProfile; readonly elemental: AttackProfile }
+    | undefined;
   readonly defense: DefenseProfile;
   /** 사거리(체비쇼프 칸) */
   readonly range: number;
@@ -42,7 +51,7 @@ export interface CombatUnitSpec {
   readonly mpCost: number;
   /** MP 회복(분당, 2차 스탯 mp_regen D-458) */
   readonly mpRegen: number;
-  /** 쉴드 재생(분당, 2차 스탯 shield_regen D-458). 전투 중에도 찬다 */
+  /** 쉴드 재생(분당, 2차 스탯 shield_regen D-458). 맞는 중에도 일정하게 찬다(D-490). 쉴드 재생 효과(shield_regen ‰)가 바꾼다 */
   readonly shieldRegen: number;
   /** 스탯 시야(칸, 가중치 표 sight 행) */
   readonly sight: number;
@@ -127,8 +136,6 @@ export interface UnitState extends CombatUnitSpec {
   cast: CastState | null;
   command: Command | null;
   lastCommandMs: number;
-  /** 마지막으로 맞은 시각(ms, 피격 뒤 쉴드 재생 지연 D-463 212). 맞은 적이 없으면 아주 작은 값 */
-  lastHitMs: number;
 }
 
 export interface PartyState extends BattlePartySpec {

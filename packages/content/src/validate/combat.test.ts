@@ -82,6 +82,11 @@ const unitKind = (extra: Record<string, unknown>) => ({
 const kindIssues = (extra: Record<string, unknown>) =>
   issuesOf({ "unit_kinds.json": { entries: [unitKind(extra)] } });
 
+const skillIssuePaths = (entry: Record<string, unknown>) =>
+  issuesOf({ "effects.json": { entries: [effect({})] }, "skills.json": { entries: [entry] } })
+    .filter((issue) => issue.file === "skills.json")
+    .map((issue) => issue.path);
+
 describe("전투 분류", () => {
   it("올바른 효과·스킬·장비는 통과한다", () => {
     expect(
@@ -181,6 +186,26 @@ describe("전투 분류", () => {
       "skills.json": { entries: [{ ...strike, base: undefined }] },
     });
     expect(missing.some((issue) => issue.file === "skills.json" && issue.path === "base")).toBe(true);
+  });
+
+  it("필요한 무기 칸·맨손 스킬(D-490): 피해 스킬은 기반과 같은 칸만, 맨손 스킬은 칸을 적지 않는다", () => {
+    const strike = { ...skill("guard"), shape: "single", trigger: "active", target: "enemy", range: 1 };
+    const physical = { ...strike, damage: "physical", base: "physical" };
+    expect(skillIssuePaths({ ...physical, weaponField: "physical" })).toEqual([]);
+    expect(skillIssuePaths({ ...physical, weaponField: "any" })).toEqual(["weaponField"]);
+    expect(skillIssuePaths({ ...physical, weaponField: "elemental" })).toEqual(["weaponField"]);
+    expect(skillIssuePaths({ ...physical, bareHand: true })).toEqual([]);
+    expect(skillIssuePaths({ ...physical, bareHand: true, weaponField: "physical" })).toEqual([
+      "weaponField",
+    ]);
+    // 피해 없는 스킬은 아무 칸(any)이나 다른 칸도 된다
+    expect(skillIssuePaths({ ...skill("guard"), weaponField: "any" })).toEqual([]);
+    expect(skillIssuePaths({ ...skill("guard"), weaponField: "elemental" })).toEqual([]);
+  });
+
+  it("쉴드 재생 효과(D-490): 버프·디버프의 stat에 shield_regen을 쓴다", () => {
+    const curse = effect({ id: "shield_curse", kind: "debuff", stat: "shield_regen", valueMode: "permille" });
+    expect(issuesOf({ "effects.json": { entries: [curse] } })).toEqual([]);
   });
 
   it("마법 스킬 모양: 연쇄·범위·아군 하나 회복·쉴드 회복·느리게·대상 체력 조건이 통과한다", () => {
@@ -311,6 +336,12 @@ describe("전투 분류", () => {
     expect(
       kindIssues({ naturalElementalWeapon: { ...WEAPON_BODY, physical: PHYSICAL } }).length,
     ).toBeGreaterThan(0);
+  });
+
+  it("유닛 종류: 타고난 무기를 스킬용 무기로 치는지(naturalWeaponIsWeapon, D-490)는 참·거짓 선택 칸", () => {
+    expect(kindIssues({ naturalWeaponIsWeapon: true })).toEqual([]);
+    expect(kindIssues({ naturalWeaponIsWeapon: false })).toEqual([]);
+    expect(kindIssues({ naturalWeaponIsWeapon: "yes" }).length).toBeGreaterThan(0);
   });
 
   it("스킬이 없는 효과를, 장비가 없는 스탯 행을 가리키면 참조 오류다", () => {

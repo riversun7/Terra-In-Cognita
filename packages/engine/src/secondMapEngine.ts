@@ -25,6 +25,7 @@ import {
   cameraLimitsFor,
   cameraPosition,
   clampCamera,
+  distanceForSpan,
   initialCamera,
   pixelsPerMetre,
   screenRay,
@@ -50,6 +51,7 @@ import { SKY_TICK_MS, SecondMapSky } from "./lighting/secondMapSky.ts";
 import { pickNearest, rayHitsTerrain } from "./picking.ts";
 import { FrameScheduler } from "./render/frameScheduler.ts";
 import { RenderTimer } from "./render/renderStats.ts";
+import { EngineLayers, createLayerView } from "./render/engineLayers.ts";
 import { acquireRenderer, defaultMaxPixelRatio, releaseRenderer } from "./render/sharedRenderer.ts";
 import { type BuiltTerrain, createTerrainBuilder } from "./terrain/terrainBuilder.ts";
 import {
@@ -225,9 +227,19 @@ export function createSecondMapEngine(
       unitView.setMode("model");
   };
 
-  const frame = (_time: number, deltaMs: number): boolean => {
+  const layers = new EngineLayers(scene);
+  const layerView = createLayerView({
+    camera,
+    cellM: () => cellM,
+    pixelsPerMetre: () => pixelsPerMetre(state.distance, viewport),
+    viewport: () => viewport,
+    groundAt: (x, z) => groundAt(x, z),
+  });
+
+  const frame = (time: number, deltaMs: number): boolean => {
     const started = performance.now();
-    let animating = false;
+    // 덧그림 층이 먼저 유닛 자리·카메라 목표를 바꾼다(전투 다시보기 시계)
+    let animating = layers.before(time);
     // 누르고 있지 않을 때 목표점 높이를 땅에 맞춘다(끄는 동안은 잡은 평면을 그대로 둔다)
     if (terrain && !gestureActive) {
       const desired = groundAt(state.targetX, state.targetZ);
@@ -253,6 +265,7 @@ export function createSecondMapEngine(
     const ppm = pixelsPerMetre(state.distance, viewport);
     chooseUnitMode(ppm);
     unitView.update(motion.x, motion.y, cellM, groundAt, frustum, selectedSlot, ppm);
+    layers.after(layerView);
     renderer.render(scene, camera);
     const info = renderer.info.render;
     lastInfo = { calls: info.calls, triangles: info.triangles, points: info.points };
@@ -564,9 +577,33 @@ export function createSecondMapEngine(
       scheduler.request();
     },
 
+    addLayer(layer) {
+      const remove = layers.add(layer);
+      scheduler.request();
+      return remove;
+    },
+
+    requestFrame() {
+      scheduler.request();
+    },
+
+    setUnitLook(id, look) {
+      const slot = slotOf(id);
+      if (slot < 0) return;
+      unitView.setLook(slot, look);
+      scheduler.request();
+    },
+
+    setView(view) {
+      const distance = view.spanM === undefined ? state.distance : distanceForSpan(view.spanM, viewport);
+      state = clampCamera({ ...state, targetX: view.x * cellM, targetZ: view.y * cellM, distance }, limits);
+      scheduler.request();
+    },
+
     dispose() {
       if (disposed) return;
       disposed = true;
+      layers.clear();
       scheduler.stop();
       if (skyTimer !== null) clearInterval(skyTimer);
       detachControls();

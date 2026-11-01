@@ -223,6 +223,9 @@ importers:
       '@terra/content':
         specifier: workspace:*
         version: link:../content
+      '@terra/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       '@terra/shared':
         specifier: workspace:*
         version: link:../shared

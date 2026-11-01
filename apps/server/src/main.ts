@@ -4,6 +4,7 @@ import { buildApp } from "./app.ts";
 import { readConfig } from "./config.ts";
 import { loadServerContent } from "./content.ts";
 import { rosterCatalogOf } from "./roster/catalog.ts";
+import { effectNamesOf } from "./battleReplay/names.ts";
 import { createTuningState } from "./tuning/state.ts";
 import { effectsOf, statRowsOf, tuningEntriesOf } from "./world/combatCatalog.ts";
 import { createContentEditState } from "./contentEdit/state.ts";
@@ -38,6 +39,10 @@ const terrainWorkerUrl = import.meta.url.endsWith(".ts")
 const balanceWorkerUrl = import.meta.url.endsWith(".ts")
   ? new URL("./balance/duelWorker.ts", import.meta.url)
   : new URL("./balanceWorker.js", import.meta.url);
+/** 전투 다시보기 워커 진입 파일 (같은 규칙: 개발 src/battleReplay/replayWorker.ts, 빌드 dist/battleReplayWorker.js) */
+const battleReplayWorkerUrl = import.meta.url.endsWith(".ts")
+  ? new URL("./battleReplay/replayWorker.ts", import.meta.url)
+  : new URL("./battleReplayWorker.js", import.meta.url);
 /** 행성 굽기 워커 진입 파일 (경로 워커와 같은 규칙: 개발 src/planet/bakeWorker.ts, 빌드 dist/planetBakeWorker.js) */
 const planetBakeWorkerUrl = import.meta.url.endsWith(".ts")
   ? new URL("./planet/bakeWorker.ts", import.meta.url)
@@ -128,6 +133,11 @@ app = await buildApp({
   contentEdit: { state: contentEdit },
   // 밸런스 화면(/dev/balance): 시드 대결은 요청마다 워커 스레드에서
   balance: { runner: { kind: "worker", workerUrl: balanceWorkerUrl } },
+  // 전투 다시보기(/dev/battle-replay): 시범 6 대 6 기록은 요청마다 워커 스레드에서. 효과 이름은 팩 effects
+  battleReplay: {
+    runner: { kind: "worker", workerUrl: battleReplayWorkerUrl },
+    effectNames: effectNamesOf(loaded.source),
+  },
   // 경제 화면 목록(팩의 경제 분류, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)")
   economyCatalog: economyCatalogFromPack(loaded.pack, content),
   // 시험 2차맵 지형 = 행성 값에서 만든 2차맵(ADR 46 WP-3). 지형 워커가 만들고 행성 캐시 폴더 아래 second-maps/에 둔다

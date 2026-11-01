@@ -33,6 +33,7 @@ import type { SummaryBackend } from "../summary/summary.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type {
   BalanceServices,
+  BattleReplayServices,
   EconomyServices,
   SecondMapLabServices,
   TrpcContext,
@@ -72,6 +73,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   balance?: BalanceServices | undefined;
   /** 스킬 편집기(src/contentEdit/services.ts 접근자·쓰기 차례). 설정 칸 패널이 있을 때만 맥락에 넣는다(권한은 tuning이 본다) */
   contentEdit?: ContentEditShared | undefined;
+  /** 전투 다시보기(src/battleReplay/services.ts, 앱에 하나). 설정 칸 패널이 있을 때만 맥락에 넣는다(권한은 tuning이 본다) */
+  battleReplay?: BattleReplayServices | undefined;
   /** 사이보그 만들기 조회(세계가 준비되면 서비스, docs/adr/2026-11-01-first-login-cyborg.md 4절). 없으면 늘 준비 전 */
   cyborgs?: (() => CyborgReadServices | undefined) | undefined;
 }
@@ -165,6 +168,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
         authDeps && request && tuning && options.contentEdit
           ? createSkillEditorServices({ db: authDeps.db, shared: options.contentEdit, ip: request.ip })
           : undefined,
+      battleReplay: authDeps && request && tuning ? options.battleReplay : undefined,
     };
   };
 }

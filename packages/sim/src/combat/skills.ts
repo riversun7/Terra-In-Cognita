@@ -18,6 +18,7 @@ import {
   withDefenseModifiers,
 } from "./formula.ts";
 import type { UnitState } from "./battleTypes.ts";
+import type { BattleTrace } from "./battleTrace.ts";
 
 export type SkillFormulaPart =
   | { readonly part: "attack_mul"; readonly pm: number }
@@ -355,12 +356,17 @@ export function takeDamage(target: UnitState, physical: number, elemental: numbe
   }
 }
 
-/** 효과 부품을 건다(굴림 하나씩 늘 뽑는다). 상태이상은 대상 1차 스탯 저항으로 줄인다(D-429) */
+/**
+ * 효과 부품을 건다(굴림 하나씩 늘 뽑는다). 상태이상은 대상 1차 스탯 저항으로 줄인다(D-429).
+ * 한 번 회복 효과(heal, 주기 없음)로 오른 체력은 관찰자에게 알린다(기록용, 상태·굴림에 손대지 않는다)
+ */
 function applyParts(
+  source: UnitState,
   skill: CombatSkill,
   target: UnitState,
   rng: { nextInt(n: number): number },
   nowMs: number,
+  trace: BattleTrace | undefined,
 ): void {
   for (const part of skill.effects) {
     const roll = rng.nextInt(10_000);
@@ -369,7 +375,10 @@ function applyParts(
     const chance = Math.floor((part.chancePm * (1000 - Math.min(1000, resist))) / 1000);
     if (roll >= chance * 10) continue;
     if (part.def.status === "stun") target.cast = null;
+    const before = target.hp;
     applyEffect(target, part.def, part.value, part.durationMs, nowMs);
+    if (trace && target.hp > before)
+      trace.heal(source, target, { hp: target.hp - before, shield: 0 }, part.def.id);
   }
 }
 
@@ -411,7 +420,10 @@ function chainStrike(attack: AttackProfile, falloffPm: number, k: number): Attac
   return { ...attack, skillMulPm: mulPm };
 }
 
-/** 스킬을 푼다. 적 대상: 목표와 그 둘레(반지름) 적마다 피해(명중·회피·크리 굴림) → 맞으면 효과. 자기·아군: 회복·효과 */
+/**
+ * 스킬을 푼다. 적 대상: 목표와 그 둘레(반지름)·연쇄 적마다 피해(명중·회피·크리 굴림) → 맞으면 효과. 자기·아군: 회복·쉴드·효과.
+ * trace는 리플레이 기록용 관찰자다(상태·굴림에 손대지 않는다). 연쇄는 튄 차례대로 skillHit을 부른다
+ */
 export function resolveSkill(
   unit: UnitState,
   skill: CombatSkill,
@@ -420,6 +432,7 @@ export function resolveSkill(
   rng: { nextInt(n: number): number },
   nowMs: number,
   c: CombatCoefficients,
+  trace?: BattleTrace,
 ): void {
   if (skill.target !== "enemy") {
     let group: readonly UnitState[];
@@ -432,10 +445,14 @@ export function resolveSkill(
           other.side === unit.side && other.status === "alive" && chebyshev(unit, other) <= skill.radius,
       );
     for (const ally of group) {
+      const hpBefore = ally.hp;
+      const shieldBefore = ally.shield;
       if (skill.healPm > 0) ally.hp = Math.min(ally.maxHp, ally.hp + healAmount(ally.maxHp, skill.healPm));
       if (skill.shieldPm > 0)
         ally.shield = Math.min(ally.shieldHp, ally.shield + healAmount(ally.shieldHp, skill.shieldPm));
-      applyParts(skill, ally, rng, nowMs);
+      if (trace && (ally.hp > hpBefore || ally.shield > shieldBefore))
+        trace.heal(unit, ally, { hp: ally.hp - hpBefore, shield: ally.shield - shieldBefore }, null);
+      applyParts(unit, skill, ally, rng, nowMs, trace);
     }
     return;
   }
@@ -452,7 +469,7 @@ export function resolveSkill(
     const target = targets[k];
     if (!target) continue;
     if (skill.damage === "none") {
-      applyParts(skill, target, rng, nowMs);
+      applyParts(unit, skill, target, rng, nowMs, trace);
       continue;
     }
     // 연쇄는 튈 때마다 스킬 배율에 줄임 배율을 곱한다(첫 대상은 그대로)
@@ -464,12 +481,17 @@ export function resolveSkill(
       critPos: rng.nextInt(10_000),
     };
     const hit = resolveAttack(strike, withDefenseModifiers(target.defense, modifiersOf(target)), rolls, c);
-    if (hit.outcome !== "hit") continue;
+    if (hit.outcome !== "hit") {
+      if (trace) trace.skillHit(unit, skill, target, hit, 0, 0);
+      continue;
+    }
     // 고정 피해(공식 부품 flat)는 스킬 종류의 몫에 더한다(물리 → 물리 몫, 속성 → 속성 몫)
     const flat = Math.max(0, skill.flat);
-    if (attack.kind === "physical") takeDamage(target, hit.physical + flat, hit.elemental);
-    else takeDamage(target, hit.physical, hit.elemental + flat);
-    applyParts(skill, target, rng, nowMs);
+    const physical = attack.kind === "physical" ? hit.physical + flat : hit.physical;
+    const elemental = attack.kind === "physical" ? hit.elemental : hit.elemental + flat;
+    takeDamage(target, physical, elemental);
+    if (trace) trace.skillHit(unit, skill, target, hit, physical, elemental);
+    applyParts(unit, skill, target, rng, nowMs, trace);
   }
 }
 

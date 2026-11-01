@@ -24,6 +24,7 @@ export {
   type TerrainInput,
 } from "./terrain/terrainData.ts";
 export { FIXED_POINT_SCALE, type UnitPath } from "./units/unitMotion.ts";
+export type { EngineLayer, EngineLayerView } from "./render/engineLayers.ts";
 export type { NeighbourPlacement, NeighbourTerrain } from "./terrain/neighbourTerrains.ts";
 export {
   MAX_PROPS,

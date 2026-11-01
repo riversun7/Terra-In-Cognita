@@ -16,6 +16,7 @@ import { buildingDamage, resolveAttack, withAttackModifiers, withDefenseModifier
 import { lineClear } from "./los.ts";
 import { visibleEnemies } from "./sight.ts";
 import { pickSkill, resolveSkill, singleAlly, startSkill, takeDamage } from "./skills.ts";
+import type { BattleTrace } from "./battleTrace.ts";
 import { active, electCommander, initialState, ready, spend, unitFrom } from "./battleState.ts";
 import type {
   BattleInit,
@@ -50,8 +51,16 @@ export function snapshotBattle(state: BattleState): string {
   return JSON.stringify(state);
 }
 
-export function createBattle(init: BattleInit, c: CombatCoefficients = TEST_COMBAT_COEFFICIENTS): Battle {
-  return makeBattle(init, initialState(init, c), c);
+/**
+ * trace = 리플레이 기록용 관찰자(battleTrace.ts). 상태·굴림에 손대지 않으므로 있어도 없어도 결과가 같다
+ * (docs/adr/2026-11-01-battle-replay.md 1절, 시험 replay.test.ts)
+ */
+export function createBattle(
+  init: BattleInit,
+  c: CombatCoefficients = TEST_COMBAT_COEFFICIENTS,
+  trace?: BattleTrace,
+): Battle {
+  return makeBattle(init, initialState(init, c), c, trace);
 }
 
 /** 스냅숏에서 다시 켠다(같은 시작 자료가 있어야 한다: 지도는 스냅숏에 넣지 않는다) */
@@ -70,7 +79,12 @@ export function restoreBattle(
   return makeBattle(init, Object.assign(initialState(init, c), parsed), c);
 }
 
-function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients): Battle {
+function makeBattle(
+  init: BattleInit,
+  state: BattleState,
+  c: CombatCoefficients,
+  trace?: BattleTrace,
+): Battle {
   const map: BattleMap = createBattleMap(init.map);
   const size = map.size;
   const nexusCells = new Map<number, number[]>();
@@ -264,6 +278,7 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     if (!attacker.air && map.cover[attacker.y * size + attacker.x] === 1)
       attacker.revealUntilMs = nowMs + c.bushRevealMs;
     takeDamage(target, hit.physical, hit.elemental);
+    if (trace) trace.attack(attacker, target, hit);
     return true;
   };
 
@@ -271,8 +286,10 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     if (!inRangeOfBuilding(attacker, buildingId)) return false;
     const building = state.buildings.find((entry) => entry.id === buildingId);
     if (!building || building.durability <= 0) return false;
-    building.durability -= buildingDamage(attacker.attack, attacker.buildingMulPm, c);
+    const damage = buildingDamage(attacker.attack, attacker.buildingMulPm, c);
+    building.durability -= damage;
     spend(attacker, nowMs, c);
+    if (trace) trace.building(attacker, buildingId, damage, building.durability);
     return true;
   };
 
@@ -307,7 +324,8 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     if (!skill) return;
     if (skill.target === "enemy" && !unit.air && map.cover[unit.y * size + unit.x] === 1)
       unit.revealUntilMs = nowMs + c.bushRevealMs;
-    resolveSkill(unit, skill, goal, state.units, rng, nowMs, c);
+    if (trace) trace.skill(unit, index, goal);
+    resolveSkill(unit, skill, goal, state.units, rng, nowMs, c, trace);
   };
 
   /** 스킬을 고르고 쓴다(시전이 없으면 바로 푼다). 썼으면 true */
@@ -491,7 +509,18 @@ function makeBattle(init: BattleInit, state: BattleState, c: CombatCoefficients)
     if (state.result) return;
     for (const input of inputs) if (input.tick === state.tick) applyInput(input);
     // 효과: 끝난 것을 지우고 지속 피해·회복을 적용한다(시야 전에, 쓰러진 유닛은 보이지 않게)
-    for (const unit of state.units) if (active(unit)) tickEffects(unit, state.tick * c.tickMs);
+    for (const unit of state.units)
+      if (active(unit))
+        tickEffects(
+          unit,
+          state.tick * c.tickMs,
+          trace
+            ? (effect, change) => {
+                if (effect.kind === "heal") trace.heal(null, unit, { hp: change, shield: 0 }, effect.id);
+                else trace.dot(unit, effect.id, change);
+              }
+            : undefined,
+        );
     const gone = destroyed();
     const key = [...gone].join(",");
     if (key !== destroyedKey) {

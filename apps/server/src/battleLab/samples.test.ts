@@ -34,7 +34,7 @@ describe("샘플 프리셋([임시] 수치, 읽기 전용)", () => {
     }
   });
 
-  it("마법사는 속성 기본 공격·불 속성 스킬, 탱커는 아머가 크다", () => {
+  it("마법사는 속성 기본 공격·불 속성 스킬, 치유사는 아군 회복, 탱커는 아머가 크다", () => {
     const mage = LAB_SAMPLES.find((preset) => preset.id === "sample_lv30_mage_fire");
     const tank = LAB_SAMPLES.find((preset) => preset.id === "sample_lv30_tank");
     const warrior = LAB_SAMPLES.find((preset) => preset.id === "sample_lv30_warrior");
@@ -43,6 +43,14 @@ describe("샘플 프리셋([임시] 수치, 읽기 전용)", () => {
     const m = buildLabUnit(mage.data, rules).spec;
     expect(m.attack.kind).toBe("elemental");
     expect(m.skills.map((skill) => skill.id)).toContain("fire_bolt");
+    // 치유사는 빛 지팡이의 아군 회복·쉴드 스킬(팩 core@20 마법 스킬)
+    const healer = LAB_SAMPLES.find((preset) => preset.id === "sample_lv30_healer");
+    if (healer?.kind !== "unit") throw new Error("healer");
+    expect(buildLabUnit(healer.data, rules).spec.skills.map((skill) => skill.id)).toEqual([
+      "light_heal",
+      "radiant_ward",
+      "first_aid",
+    ]);
     expect(buildLabUnit(tank.data, rules).spec.armorHp).toBeGreaterThan(
       buildLabUnit(warrior.data, rules).spec.armorHp,
     );

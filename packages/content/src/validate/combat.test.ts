@@ -23,6 +23,7 @@ const effect = (extra: Record<string, unknown>) => ({
 const skill = (effectId: string) => ({
   id: "iron_skin",
   name,
+  shape: "buff",
   trigger: "passive",
   resource: "stamina",
   cost: 0,
@@ -163,7 +164,7 @@ describe("전투 분류", () => {
   });
 
   it("스킬 기반(D-463)은 물리·속성 둘 중 하나이고, 피해를 주는 스킬은 피해 종류와 기반이 같다", () => {
-    const strike = { ...skill("guard"), trigger: "active", target: "enemy", range: 1 };
+    const strike = { ...skill("guard"), shape: "single", trigger: "active", target: "enemy", range: 1 };
     const ok = issuesOf({
       "effects.json": { entries: [effect({})] },
       "skills.json": { entries: [{ ...strike, damage: "elemental", base: "elemental" }] },
@@ -180,6 +181,106 @@ describe("전투 분류", () => {
       "skills.json": { entries: [{ ...strike, base: undefined }] },
     });
     expect(missing.some((issue) => issue.file === "skills.json" && issue.path === "base")).toBe(true);
+  });
+
+  it("마법 스킬 모양: 연쇄·범위·아군 하나 회복·쉴드 회복·느리게·대상 체력 조건이 통과한다", () => {
+    const magic = {
+      ...skill("chill"),
+      trigger: "active",
+      resource: "mp",
+      cost: 10,
+      damage: "elemental",
+      base: "elemental",
+      effects: [],
+    };
+    const issues = issuesOf({
+      "effects.json": {
+        entries: [effect({ id: "chill", kind: "debuff", stat: "move_speed", valueMode: "permille" })],
+      },
+      "skills.json": {
+        entries: [
+          {
+            ...magic,
+            id: "bolt",
+            shape: "projectile",
+            target: "enemy",
+            range: 6,
+            effects: [{ effect: "chill", value: 300, chancePm: 1000 }],
+          },
+          {
+            ...magic,
+            id: "zap",
+            shape: "chain",
+            target: "enemy",
+            range: 6,
+            chain: { targets: 3, jump: 3, falloffPm: 750 },
+          },
+          { ...magic, id: "blast", shape: "area", target: "enemy", range: 5, radius: 2 },
+          { ...magic, id: "spike", shape: "single", target: "enemy", range: 4 },
+          {
+            ...magic,
+            id: "mend",
+            shape: "heal",
+            target: "ally",
+            range: 5,
+            damage: "none",
+            formula: [{ part: "heal", pm: 250 }],
+            conditions: [{ part: "target_hp_below", pct: 70 }],
+          },
+          {
+            ...magic,
+            id: "ward",
+            shape: "buff",
+            target: "ally",
+            range: 5,
+            damage: "none",
+            formula: [{ part: "shield", pm: 500 }],
+          },
+          {
+            ...magic,
+            id: "curse",
+            shape: "debuff",
+            target: "enemy",
+            range: 5,
+            damage: "none",
+            effects: [{ effect: "chill", value: 1, chancePm: 1000 }],
+          },
+        ],
+      },
+    });
+    expect(issues).toEqual([]);
+  });
+
+  it("모양이 판정 칸과 맞지 않으면 실패한다", () => {
+    const magic = {
+      ...skill("guard"),
+      trigger: "active",
+      resource: "mp",
+      damage: "elemental",
+      base: "elemental",
+      effects: [],
+    };
+    const pathsOf = (entry: Record<string, unknown>) =>
+      issuesOf({ "skills.json": { entries: [{ ...magic, ...entry }] } }).map((issue) => issue.path);
+    expect(pathsOf({ shape: "chain", target: "enemy", range: 6 })).toEqual(["chain"]);
+    expect(
+      pathsOf({
+        shape: "projectile",
+        target: "enemy",
+        range: 6,
+        chain: { targets: 3, jump: 2, falloffPm: 500 },
+      }),
+    ).toEqual(["chain"]);
+    expect(pathsOf({ shape: "area", target: "enemy", range: 5, radius: 0 })).toEqual(["radius"]);
+    expect(pathsOf({ shape: "projectile", target: "enemy", range: 1 })).toEqual(["range"]);
+    expect(pathsOf({ shape: "single", target: "ally", range: 1 })).toEqual(["target"]);
+    expect(pathsOf({ shape: "debuff", target: "enemy", range: 5 })).toEqual(["damage"]);
+    expect(pathsOf({ shape: "heal", target: "ally", range: 5, damage: "none" })).toEqual(["formula"]);
+    expect(pathsOf({ shape: "buff", target: "ally", range: 0, radius: 0, damage: "none" })).toEqual([
+      "range",
+    ]);
+    expect(pathsOf({ shape: "single", target: "enemy", range: 1, trigger: "passive" })).toEqual(["shape"]);
+    expect(pathsOf({ shape: "spell", target: "enemy", range: 1 })).toEqual(["shape"]);
   });
 
   it("무기 공격력 칸(D-465): 물리·속성 하나 또는 둘. 하나도 없으면 실패", () => {

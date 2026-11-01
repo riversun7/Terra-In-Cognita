@@ -51,6 +51,7 @@ export function combatCatalogFrom(pack: {
     .map(
       (entry): SkillData => ({
         id: entry.id,
+        shape: entry.shape,
         trigger: entry.trigger,
         resource: entry.resource,
         cost: entry.cost,
@@ -59,6 +60,7 @@ export function combatCatalogFrom(pack: {
         target: entry.target,
         range: entry.range,
         radius: entry.radius,
+        chain: entry.chain,
         damage: entry.damage,
         base: entry.base,
         formula: entry.formula,

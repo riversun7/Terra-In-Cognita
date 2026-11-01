@@ -107,7 +107,9 @@ describe.skipIf(!TEST_DATABASE_URL)("전투 실험실 (DB)", () => {
     expect(obj(kinds[0]?.name).ko).toBe("사이보그");
     expect(obj(catalog.growth)).toMatchObject({ growthPm: 100, maxLevel: 50 });
     expect(arr(catalog.terrains).map((terrain) => obj(terrain).id)).toEqual(["flat", "test"]);
-    expect(arr(catalog.weapons).map((weapon) => obj(weapon).id)).toEqual(["test_sword", "test_staff"]);
+    expect(arr(catalog.weapons).map((weapon) => obj(weapon).id)).toEqual(
+      expect.arrayContaining(["test_sword", "test_staff", "fire_staff", "light_staff"]),
+    );
   });
 
   it("미리 보기: 성장률(N5)을 D1로 덮어쓰면 다음 요청부터 레벨 성장이 바뀐다. 모르는 종류는 invalid_unit", async () => {

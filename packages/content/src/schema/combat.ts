@@ -33,8 +33,10 @@ export const effectEntrySchema = z
     name: localizedText,
     description: localizedText.optional(),
     kind: z.enum(["buff", "debuff", "dot", "heal", "status"]),
-    /** 버프·디버프가 바꾸는 전투 수치 */
-    stat: z.enum(["attack", "defense_rate", "evade", "penetration", "crit_multiplier"]).optional(),
+    /** 버프·디버프가 바꾸는 전투 수치(move_speed = 이동 속도 ‰, 디버프면 느리게) */
+    stat: z
+      .enum(["attack", "defense_rate", "evade", "penetration", "crit_multiplier", "move_speed"])
+      .optional(),
     valueMode: z.enum(["flat", "permille"]),
     /** 기본 지속(ms). 0 = 전투 내내. 거는 쪽(스킬)이 바꿀 수 있다 */
     durationMs: z.int().min(0).max(3_600_000),
@@ -89,19 +91,85 @@ const formulaPart = z.discriminatedUnion("part", [
   z.strictObject({ part: z.literal("penetration"), pm: z.int().min(-1000).max(1000) }),
   z.strictObject({ part: z.literal("flat"), value: z.int().min(0).max(1_000_000) }),
   z.strictObject({ part: z.literal("heal"), pm: z.int().min(0).max(10_000) }),
+  /** 쉴드 회복: 대상 최대 쉴드 HP의 ‰(최대에서 멈춤) */
+  z.strictObject({ part: z.literal("shield"), pm: z.int().min(0).max(10_000) }),
 ]);
 
 const conditionPart = z.discriminatedUnion("part", [
   z.strictObject({ part: z.literal("appropriate_met") }),
   z.strictObject({ part: z.literal("self_hp_below"), pct: z.int().min(1).max(100) }),
+  /** 대상(적, 또는 아군 하나 스킬이 고른 아군)의 체력이 이 % 아래 */
+  z.strictObject({ part: z.literal("target_hp_below"), pct: z.int().min(1).max(100) }),
   z.strictObject({ part: z.literal("target_has"), effect: ref("effects") }),
 ]);
+
+/**
+ * 스킬 모양(보는 쪽이 그림을 고르는 칸, ADR combat-core "바뀜 (2026-11-01, 마법 스킬)"). 판정은 대상·사거리·반지름·연쇄 칸으로 하고
+ * checkSkillShape가 둘이 맞는지 본다
+ */
+export const SKILL_SHAPES = ["single", "projectile", "area", "chain", "heal", "buff", "debuff"] as const;
+const ENEMY_SHAPES: readonly string[] = ["single", "projectile", "area", "chain", "debuff"];
+const DAMAGE_SHAPES: readonly string[] = ["single", "projectile", "area", "chain"];
+
+/** 모양과 판정 칸이 맞는지(필드 검사가 실패해도 불리므로 값의 모양을 다시 본다, AGENTS 6장 Zod 4.6.7) */
+function checkSkillShape(entry: unknown, ctx: z.RefinementCtx): void {
+  if (typeof entry !== "object" || entry === null) return;
+  const get = (key: string): unknown => Reflect.get(entry, key);
+  const shape = get("shape");
+  if (typeof shape !== "string") return;
+  const fail = (path: string, message: string): void => {
+    ctx.addIssue({ code: "custom", path: [path], message });
+  };
+  const target = get("target");
+  const damage = get("damage");
+  const range = get("range");
+  const radius = get("radius");
+  const formula = get("formula");
+  const hasHeal =
+    Array.isArray(formula) &&
+    formula.some(
+      (part: unknown) => typeof part === "object" && part !== null && Reflect.get(part, "part") === "heal",
+    );
+  if ((shape === "chain") !== (get("chain") !== undefined))
+    fail("chain", "연쇄 칸(chain)은 모양이 chain일 때만, 그리고 꼭 적습니다.");
+  if (ENEMY_SHAPES.includes(shape) && target !== "enemy")
+    fail("target", `모양 ${shape}은(는) 적 대상(target: enemy)입니다.`);
+  if (!ENEMY_SHAPES.includes(shape) && target === "enemy")
+    fail("target", `모양 ${shape}은(는) 자기·아군 대상(self·ally)입니다.`);
+  if (DAMAGE_SHAPES.includes(shape) && damage === "none")
+    fail(
+      "damage",
+      `모양 ${shape}은(는) 피해를 줍니다(damage: physical·elemental). 피해 없이 효과만 걸면 debuff입니다.`,
+    );
+  if (shape === "debuff" && damage !== "none")
+    fail(
+      "damage",
+      "모양 debuff는 피해 없이(damage: none) 효과만 겁니다. 피해를 주면 single·projectile·area입니다.",
+    );
+  if (shape === "projectile" && typeof range === "number" && range < 2)
+    fail("range", "날아가는 모양(projectile)은 사거리 2 이상입니다. 붙어서 치면 single입니다.");
+  if ((shape === "single" || shape === "projectile" || shape === "chain") && radius !== 0)
+    fail("radius", `모양 ${shape}은(는) 반지름 0입니다(목표 둘레를 치면 area, 연쇄 거리는 chain.jump).`);
+  if (shape === "area" && typeof radius === "number" && radius < 1)
+    fail("radius", "모양 area는 반지름 1 이상입니다.");
+  if (shape === "heal" && !hasHeal) fail("formula", "모양 heal은 회복 부품(part: heal)이 있어야 합니다.");
+  if (shape === "buff" && hasHeal) fail("shape", "회복 부품(part: heal)이 있으면 모양은 heal입니다.");
+  if (get("trigger") === "passive" && shape !== "buff")
+    fail("shape", "지속형(passive) 스킬은 자기에게 전투 내내 효과를 거는 buff 모양입니다.");
+  if (target === "ally" && radius === 0 && range === 0)
+    fail(
+      "range",
+      "반지름 0인 아군 대상은 아군 하나를 고르는 스킬이라 사거리 1 이상입니다(자기만이면 target: self).",
+    );
+}
 
 export const skillEntrySchema = z
   .strictObject({
     id: contentId,
     name: localizedText,
     description: localizedText.optional(),
+    /** 보는 쪽이 그림을 고르는 모양(SKILL_SHAPES). 판정 칸과 맞아야 한다(checkSkillShape) */
+    shape: z.enum(SKILL_SHAPES),
     /** active = 쓰는 스킬, passive = 전투 내내 걸린 효과 */
     trigger: z.enum(["active", "passive"]),
     resource: z.enum(["stamina", "mp"]),
@@ -111,6 +179,14 @@ export const skillEntrySchema = z
     target: z.enum(["enemy", "self", "ally"]),
     range: z.int().min(0).max(128),
     radius: z.int().min(0).max(128),
+    /** 연쇄(모양 chain만): 첫 대상 포함 최대 대상 수, 튐 거리(칸, 앞 대상에서), 튈 때마다 피해 배율(‰) */
+    chain: z
+      .strictObject({
+        targets: z.int().min(2).max(16),
+        jump: z.int().min(1).max(32),
+        falloffPm: z.int().min(0).max(1000),
+      })
+      .optional(),
     damage: z.enum(["physical", "elemental", "none"]),
     /**
      * 기반(D-463): physical = 든 물리 무기(없으면 맨손)와 물리 공격력, elemental = 든 속성 무기(없으면 유닛 종류의 맨손 속성 자료)와
@@ -135,6 +211,7 @@ export const skillEntrySchema = z
     enabled,
   })
   .superRefine((entry, ctx) => {
+    checkSkillShape(entry, ctx);
     // 필드 검사가 실패해도 불린다(AGENTS 6장 Zod 4.6.7): 두 칸이 모두 알맞은 글자일 때만 본다
     const { damage, base } = entry;
     if (typeof damage !== "string" || typeof base !== "string" || damage === "none") return;

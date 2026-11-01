@@ -6,6 +6,7 @@
         "ko": "강타",
         "en": "Power strike"
       },
+      "shape": "single",
       "trigger": "active",
       "resource": "stamina",
       "cost": 10,
@@ -47,6 +48,7 @@
         "ko": "불꽃 화살",
         "en": "Fire bolt"
       },
+      "shape": "projectile",
       "trigger": "active",
       "resource": "mp",
       "cost": 15,
@@ -85,6 +87,7 @@
         "ko": "충격 강타",
         "en": "Shock bash"
       },
+      "shape": "single",
       "trigger": "active",
       "resource": "stamina",
       "cost": 15,
@@ -118,6 +121,7 @@
         "ko": "함성",
         "en": "War cry"
       },
+      "shape": "buff",
       "trigger": "active",
       "resource": "stamina",
       "cost": 10,
@@ -146,6 +150,7 @@
         "ko": "응급 처치",
         "en": "First aid"
       },
+      "shape": "heal",
       "trigger": "active",
       "resource": "stamina",
       "cost": 5,
@@ -178,6 +183,7 @@
         "ko": "강철 피부",
         "en": "Iron skin"
       },
+      "shape": "buff",
       "trigger": "passive",
       "resource": "stamina",
       "cost": 0,
@@ -195,6 +201,258 @@
           "effect": "guard",
           "value": 50,
           "chancePm": 1000
+        }
+      ],
+      "gradePm": [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000],
+      "enabled": true
+    },
+    {
+      "id": "frost_bolt",
+      "name": {
+        "ko": "서리 화살",
+        "en": "Frost bolt"
+      },
+      "shape": "projectile",
+      "trigger": "active",
+      "resource": "mp",
+      "cost": 14,
+      "castMs": 700,
+      "cooldownMs": 4500,
+      "target": "enemy",
+      "range": 6,
+      "radius": 0,
+      "damage": "elemental",
+      "base": "elemental",
+      "formula": [
+        {
+          "part": "attack_mul",
+          "pm": 1100
+        },
+        {
+          "part": "element",
+          "element": 0,
+          "pm": 50
+        },
+        {
+          "part": "element",
+          "element": 1,
+          "pm": 50
+        }
+      ],
+      "conditions": [],
+      "effects": [
+        {
+          "effect": "chill",
+          "value": 300,
+          "chancePm": 1000
+        }
+      ],
+      "gradePm": [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000],
+      "enabled": true
+    },
+    {
+      "id": "chain_lightning",
+      "name": {
+        "ko": "연쇄 번개",
+        "en": "Chain lightning"
+      },
+      "shape": "chain",
+      "trigger": "active",
+      "resource": "mp",
+      "cost": 22,
+      "castMs": 900,
+      "cooldownMs": 7000,
+      "target": "enemy",
+      "range": 6,
+      "radius": 0,
+      "chain": {
+        "targets": 3,
+        "jump": 3,
+        "falloffPm": 700
+      },
+      "damage": "elemental",
+      "base": "elemental",
+      "formula": [
+        {
+          "part": "attack_mul",
+          "pm": 1000
+        },
+        {
+          "part": "element",
+          "element": 5,
+          "pm": 100
+        }
+      ],
+      "conditions": [],
+      "effects": [],
+      "gradePm": [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000],
+      "enabled": true
+    },
+    {
+      "id": "flame_burst",
+      "name": {
+        "ko": "화염 폭발",
+        "en": "Flame burst"
+      },
+      "shape": "area",
+      "trigger": "active",
+      "resource": "mp",
+      "cost": 28,
+      "castMs": 1200,
+      "cooldownMs": 9000,
+      "target": "enemy",
+      "range": 5,
+      "radius": 2,
+      "damage": "elemental",
+      "base": "elemental",
+      "formula": [
+        {
+          "part": "attack_mul",
+          "pm": 900
+        },
+        {
+          "part": "element",
+          "element": 2,
+          "pm": 100
+        }
+      ],
+      "conditions": [],
+      "effects": [
+        {
+          "effect": "burn",
+          "value": 4,
+          "chancePm": 500
+        }
+      ],
+      "gradePm": [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000],
+      "enabled": true
+    },
+    {
+      "id": "stone_spike",
+      "name": {
+        "ko": "바위 가시",
+        "en": "Stone spike"
+      },
+      "shape": "single",
+      "trigger": "active",
+      "resource": "mp",
+      "cost": 18,
+      "castMs": 600,
+      "cooldownMs": 8000,
+      "target": "enemy",
+      "range": 4,
+      "radius": 0,
+      "damage": "elemental",
+      "base": "elemental",
+      "formula": [
+        {
+          "part": "attack_mul",
+          "pm": 1300
+        },
+        {
+          "part": "element",
+          "element": 6,
+          "pm": 100
+        }
+      ],
+      "conditions": [],
+      "effects": [
+        {
+          "effect": "stun",
+          "value": 0,
+          "chancePm": 500,
+          "durationMs": 800
+        }
+      ],
+      "gradePm": [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000],
+      "enabled": true
+    },
+    {
+      "id": "light_heal",
+      "name": {
+        "ko": "치유의 빛",
+        "en": "Healing light"
+      },
+      "shape": "heal",
+      "trigger": "active",
+      "resource": "mp",
+      "cost": 20,
+      "castMs": 1000,
+      "cooldownMs": 6000,
+      "target": "ally",
+      "range": 5,
+      "radius": 0,
+      "damage": "none",
+      "base": "elemental",
+      "formula": [
+        {
+          "part": "heal",
+          "pm": 250
+        }
+      ],
+      "conditions": [
+        {
+          "part": "target_hp_below",
+          "pct": 70
+        }
+      ],
+      "effects": [],
+      "gradePm": [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000],
+      "enabled": true
+    },
+    {
+      "id": "radiant_ward",
+      "name": {
+        "ko": "빛의 보호막",
+        "en": "Radiant ward"
+      },
+      "shape": "buff",
+      "trigger": "active",
+      "resource": "mp",
+      "cost": 18,
+      "castMs": 600,
+      "cooldownMs": 10000,
+      "target": "ally",
+      "range": 5,
+      "radius": 0,
+      "damage": "none",
+      "base": "elemental",
+      "formula": [
+        {
+          "part": "shield",
+          "pm": 400
+        }
+      ],
+      "conditions": [],
+      "effects": [],
+      "gradePm": [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000],
+      "enabled": true
+    },
+    {
+      "id": "dark_curse",
+      "name": {
+        "ko": "어둠의 저주",
+        "en": "Dark curse"
+      },
+      "shape": "debuff",
+      "trigger": "active",
+      "resource": "mp",
+      "cost": 16,
+      "castMs": 800,
+      "cooldownMs": 10000,
+      "target": "enemy",
+      "range": 5,
+      "radius": 0,
+      "damage": "none",
+      "base": "elemental",
+      "formula": [],
+      "conditions": [],
+      "effects": [
+        {
+          "effect": "defense_down",
+          "value": 150,
+          "chancePm": 1000,
+          "durationMs": 6000
         }
       ],
       "gradePm": [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 2000],

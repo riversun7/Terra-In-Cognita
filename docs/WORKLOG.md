@@ -5,7 +5,9 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-01 20:38 | 마법 스킬·속성 지팡이 합치기(사용자 승인), 질문 260~264 답 | Claude Code | [01-2038-merge-mage-skills](worklog/2026/11/01-2038-merge-mage-skills.md) |
 | 2026-11-01 20:20 | R5b 정원사 합치기, 웨이브 끄는 설정(GARDENER_WAVES) | Claude Code | [01-2020-merge-r5b-waves-off](worklog/2026/11/01-2020-merge-r5b-waves-off.md) |
+| 2026-11-01 20:00 | 마법 스킬 일곱·속성 지팡이 여섯, 스킬 모양 칸(shape)·연쇄·아군 하나·쉴드 회복·느리게 | Claude Code | [01-2000-mage-skills](worklog/2026/11/01-2000-mage-skills.md) |
 | 2026-11-01 19:36 | 2차 스탯 기준 대조표(질문 265~274), 밸런스 도구 다시 만들기 시작 | Claude Code | [01-1936-secondary-stats-baseline](worklog/2026/11/01-1936-secondary-stats-baseline.md) |
 | 2026-11-01 18:37 | 49 설정 칸 코드에 끼운 칸(C16a) 받기, 미러 8e7716c | Claude Code | [01-1837-settings-code-suffix](worklog/2026/11/01-1837-settings-code-suffix.md) |
 | 2026-11-01 17:50 | 개발자 밸런스 화면(/dev/balance), 가중치 칸 바로 바꾸기(D1 덮어쓰기), 전투 틱 편 쏠림 고침(SIM_VERSION 4) | Claude Code | [01-1750-balance](worklog/2026/11/01-1750-balance.md) |

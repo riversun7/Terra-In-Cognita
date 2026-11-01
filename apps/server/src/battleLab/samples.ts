@@ -1,8 +1,8 @@
 // 전투 실험실 샘플 프리셋(읽기 전용) — docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-01, 전투 실험실)" 3절
 // [임시] 모든 수치는 기술 출발값이다(기획 값 아님). 고치려면 화면에서 복제해 팀 프리셋으로 만든다.
 // 처음 1차는 합 60(N9 출발값)에 두 칸을 올린 성향 모양(D-445 168), K는 N6 범위(800~1200‰) 안. Lv 30은 48 §3.5 예의 레벨.
-// 팩 참조(종류·무기·장비·스킬)는 지금 팩(core)의 시험 자료다(samples.test.ts가 실제 팩에서 본다). 마법 스킬·속성 지팡이가
-// 팩에 생기면(work/mage-skills) 마법사·치유사 샘플을 그 스킬로 바꾼다.
+// 팩 참조(종류·무기·장비·스킬)는 지금 팩(core)의 시험 자료다(samples.test.ts가 실제 팩에서 본다). 마법사·치유사는 팩의
+// 마법 스킬·속성 지팡이(core@20, 화염 지팡이·빛 지팡이)를 쓴다.
 import {
   type LabParty,
   type LabPresetView,
@@ -79,10 +79,12 @@ const MAGE_FIRE: LabUnit = {
   initial: p(6, 8, 16, 12, 10, 8),
   kPm: p(900, 900, 1200, 1100, 1000, 900),
   elements: elements({ 2: 10 }),
-  weapon: { kind: "item", id: "test_staff", pm: 500 },
+  // 화염 지팡이: 장비 스킬 화염 폭발(범위). 고유 스킬은 불꽃 화살(등급 2)·화염 폭발
+  weapon: { kind: "item", id: "fire_staff", pm: 500 },
   equipment: [{ slot: 4, item: "test_ring", pm: 0 }],
   skills: [
     { id: "fire_bolt", grade: 2 },
+    { id: "flame_burst", grade: 1 },
     { id: "war_cry", grade: 1 },
   ],
   row: "back",
@@ -94,12 +96,12 @@ const HEALER: LabUnit = {
   initial: p(6, 10, 12, 16, 8, 8),
   kPm: p(900, 1000, 1000, 1200, 900, 1000),
   elements: elements({ 0: 10 }),
-  weapon: { kind: "item", id: "test_staff", pm: 0 },
-  // 지금 팩에는 아군 회복 스킬이 없다: 자기 회복(first_aid)·아군 공격 버프(war_cry)
+  // 빛 지팡이: 장비 스킬 빛의 치유(아군 회복)·빛의 수호(아군 쉴드). 고유 스킬로 앞에 두어 먼저 쓴다
+  weapon: { kind: "item", id: "light_staff", pm: 500 },
   skills: [
-    { id: "first_aid", grade: 3 },
-    { id: "war_cry", grade: 2 },
-    { id: "fire_bolt", grade: 1 },
+    { id: "light_heal", grade: 2 },
+    { id: "radiant_ward", grade: 1 },
+    { id: "first_aid", grade: 1 },
   ],
   row: "middle",
 };

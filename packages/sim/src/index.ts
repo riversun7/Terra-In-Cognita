@@ -476,9 +476,11 @@ export {
 } from "./combat/duels.ts";
 export { componentLabels } from "./grid/components.ts";
 export {
+  MIN_MOVE_SPEED_PM,
   applyEffect,
   hasStatus,
   modifiersOf,
+  moveIntervalMs,
   statusResistPm,
   tickEffects,
   type ActiveEffect,
@@ -488,12 +490,16 @@ export {
   type StatusKind,
 } from "./combat/effects.ts";
 export {
+  singleAlly,
   skillFromData,
   type CombatSkill,
+  type SkillChain,
   type SkillCondition,
   type SkillData,
   type SkillEffectData,
   type SkillFormulaPart,
+  type SkillPick,
+  type SkillShape,
 } from "./combat/skills.ts";
 export {
   PRIMARY_CODES,

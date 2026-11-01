@@ -59,11 +59,6 @@
 }
 
 /* ── 머리·판(혼자 서는 부품: 밸런스 화면 스타일에 기대지 않는다) ── */
-.fx-title {
-  font-family: var(--font-display);
-  font-weight: var(--font-weight-display);
-  font-size: var(--font-size-lg);
-}
 .fx-lead {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);

@@ -26,6 +26,7 @@ const hp: BalanceRowView = {
     { field: "vit", pack: 3000, value: 3000, override: null },
     { field: "str", pack: 1500, value: 1800, override: null },
   ],
+  formula: null,
 };
 const [vit, str] = hp.cells;
 if (!vit || !str) throw new Error("cells");

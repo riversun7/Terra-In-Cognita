@@ -1,6 +1,7 @@
 // 계산식 탭 시험 — 밸런스 화면(/dev/balance)의 [계산식] 탭(docs/adr/2026-11-01-formula-editor.md "화면", 사용자 결정 D-488).
-// - dev: HP 행 식에 오타(STRR)를 넣으면 위치와 "STR로 고치기"가 뜨고 담기가 막힌다 → 고치면 "식이 맞습니다", 결과·항마다 풀이·1차 영향
-//   여섯 줄. 담기 → [적용]이면 그 세계에 바로 든다(세계에서 바꾼 식 1, 시안 유닛 HP가 오름). 팩 식으로 되돌리기 → 적용이면 HP가 돌아온다.
+// - dev: [계산식] 탭을 연다. HP 행 식에 오타(STRR)를 넣으면 위치와 "STR로 고치기"가 뜨고 담기가 막힌다 → 고치면 "식이 맞습니다", 결과·항마다 풀이·1차 영향
+//   여섯 줄. 담기 → [적용]이면 그 세계에 바로 든다(세계에서 바꾼 식 1, 시안 유닛 HP가 오름, [가중치 표]의 HP 행에 계산식 표시).
+//   팩 식으로 되돌리기 → 적용이면 HP가 돌아온다.
 //   이름 자동 완성(fl → floor(), Enter). 맨손 일반 공격 식: Lv 30 균형형·맨손이면 굴림 0 → 13, 9999 → 27(10 상한 없음).
 // - player: tRPC formulas.list는 403.
 // - 배치·사진: 390·1440 × 파스텔·다크 × 한국어·영어(오류 상태를 펼친 채). 가로 넘침·작은 누르는 곳 없음.
@@ -130,6 +131,15 @@ test.describe("개발자", () => {
     await expect(page.locator(".fx-pending")).toHaveCount(0);
     await expect(page.locator(".fx-overrides")).toHaveAttribute("data-count", "1");
     expect(await previewHp(page)).toBeGreaterThan(hpBefore);
+    // [가중치 표] 탭은 식으로 셈하는 행을 표시한다(그 행의 가중치 칸은 듣지 않는다)
+    await page.locator("#bp-tab-weights").click();
+    await expect(page.locator('.bp-weights tr[data-row="hp"]')).toHaveAttribute("data-formula", "world", {
+      timeout: 20_000,
+    });
+    await expect(page.locator('.bp-weights tr[data-row="hp"] .bp-formula')).toBeVisible();
+    await expect(page.locator('.bp-weights tr[data-row="mp"]')).not.toHaveAttribute("data-formula");
+    await expect(page.locator('.bp-legend [data-state="formula"]')).toBeVisible();
+    await page.locator("#bp-tab-formulas").click();
 
     await pick(page, "hp.formula");
     await page.locator(".fx-revert").click();

@@ -1,6 +1,8 @@
 // 밸런스 화면 가중치 표 — 행 × (1차 6 + 기본·상한·반감) 입력 칸. docs/adr/2026-11-01-balance-screen.md 7절.
 // 칸을 고치면(입력을 떠나거나 Enter) 담는다. 담은 칸은 강조, 세계 덮어쓰기(팩과 다름)는 다른 표시, 칸마다 되돌리기 버튼.
 // 좁은 화면은 표 안에서만 옆으로 민다(쪽 전체는 밀리지 않는다). 입력은 담은 값이 바뀌면 다시 그린다(key에 보이는 값).
+// 계산식으로 셈하는 행(팩 행 식·이 세계 행 식, docs/adr/2026-11-01-formula-editor.md 3절)은 행 머리에 표시하고 칸을 흐리게 한다:
+// 그 행의 가중치 칸은 고쳐도 값이 바뀌지 않는다(칸은 그대로 고칠 수 있다 — 식을 팩 식으로 되돌리면 다시 듣는다).
 import type { BalanceCellView, BalanceRowView } from "@terra/shared/balance";
 import { PRIMARY_STATS, type PrimaryStat } from "@terra/shared/roster";
 import type { StatCellField } from "@terra/shared/tuning";
@@ -37,7 +39,12 @@ function WeightCell({ row, cell, rowName, pending, locale, onStage, onUnstage }:
     if (value !== shown) onStage(row, cell, value);
   };
   return (
-    <td className="bp-cell" data-state={state} data-field={cell.field}>
+    <td
+      className="bp-cell"
+      data-state={state}
+      data-field={cell.field}
+      data-formula={row.formula === null ? undefined : ""}
+    >
       <span className="bp-cell-box">
         <input
           key={`${cell.field}:${shown}`}
@@ -105,7 +112,7 @@ export function BalanceTable(props: {
           {rows.map((row) => {
             const rowName = locale === "en" ? row.name.en : row.name.ko;
             return (
-              <tr key={row.id} data-row={row.id}>
+              <tr key={row.id} data-row={row.id} data-formula={row.formula ?? undefined}>
                 <th scope="row" className="bp-row-name">
                   <span className="bp-row-label">{rowName}</span>
                   <span className="bp-shape" data-shape={row.shape}>
@@ -113,6 +120,17 @@ export function BalanceTable(props: {
                       ? m.dev_balance_shape_quantity()
                       : m.dev_balance_shape_probability()}
                   </span>
+                  {row.formula === null ? null : (
+                    <span
+                      className="bp-formula"
+                      data-formula={row.formula}
+                      title={m.dev_balance_formula_hint()}
+                    >
+                      {row.formula === "world" ? m.dev_balance_formula_world() : m.dev_balance_formula_pack()}
+                      {/* 칸마다 행 머리를 함께 읽으므로 여기 한 번 적는다 */}
+                      <span className="visually-hidden">{m.dev_balance_formula_hint()}</span>
+                    </span>
+                  )}
                 </th>
                 {COLUMNS.map((column) => {
                   const cell = row.cells.find((entry) => entry.field === column);

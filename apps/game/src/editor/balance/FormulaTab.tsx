@@ -2,7 +2,7 @@
 // 2차 스탯 행 식과 전투 식을 글로 고친다: 이름 자동 완성, 오류 위치, 모르는 이름은 저장 전에 알림(오타 막기), 표본 유닛의 결과·항마다
 // 풀이·1차 스탯별 영향(비중·+10 차이), 무기마다 적정치. [담기]한 식은 [적용]으로 설정 칸 묶음(tuning.save formulas)에 실어 보낸다
 // (서버가 같은 해석기로 다시 검사하고 감사 기록·세계 설정 판을 남긴다). 판 충돌이면 목록을 다시 받고 담은 식은 남긴다.
-// 이 탭은 혼자 서는 부품이다: 밸런스 화면의 탭 자리에 <FormulaTab />로 끼운다(진입 조각 BalancePanelScreen-* 안, 미리 캐시 밖).
+// 이 탭은 혼자 서는 부품이다: 밸런스 화면 TABS의 [계산식] 줄이 <FormulaTab />로 그린다(진입 조각 BalancePanelScreen-* 안, 미리 캐시 밖).
 // 시험용 data-*: data-status(loading·ready·failed), data-revision, 칸 단추 data-slot.
 import {
   type FormulaListResponse,
@@ -148,7 +148,8 @@ export default function FormulaTab() {
       data-status={load.status}
       data-revision={list?.revision}
     >
-      <h2 id={`${slotId}-title`} className="fx-title">
+      {/* 탭 단추가 같은 이름을 보이므로 제목은 읽는 이름으로만 둔다(다른 탭처럼 안내 글부터 보인다) */}
+      <h2 id={`${slotId}-title`} className="visually-hidden">
         {m.dev_formula_tab()}
       </h2>
       <p className="lead fx-lead">{m.dev_formula_lead()}</p>

@@ -182,6 +182,27 @@ describe("밸런스 서비스", () => {
     expect(weapons.get("test_staff")?.elemental).not.toBeNull();
     // 기본 무기(D-490): 팩 무기 가운데 물리 칸이 있는 첫 무기
     expect(table.defaults).toEqual({ ...BALANCE_DEFAULTS, weapon: "test_sword" });
+    // 행 식이 없으면 가중치로 셈한다
+    expect(table.rows.every((row) => row.formula === null)).toBe(true);
+  });
+
+  it("table: 이 세계에서 행 식을 바꾼 행은 formula = world(가중치 칸이 듣지 않는다는 화면 표시)", async () => {
+    const { state, services } = setup();
+    state.install([], 5, [
+      {
+        id: "hp.formula",
+        source: "VIT * 10 + STR + DEX + AGI + INT + WIS",
+        packSource: "",
+        contentVersion: "core@18",
+        note: null,
+        updatedById: null,
+        updatedByName: null,
+        updatedAtMs: 1,
+      },
+    ]);
+    const table = await services.table();
+    expect(table.rows.find((row) => row.id === "hp")?.formula).toBe("world");
+    expect(table.rows.filter((row) => row.formula !== null).map((row) => row.id)).toEqual(["hp"]);
   });
 
   it("contribution: 지금 표와 고친 표(담은 변경), tuning.save가 받지 않을 묶음이면 그 까닭", async () => {

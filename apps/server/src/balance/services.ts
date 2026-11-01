@@ -1,6 +1,6 @@
 // 밸런스 화면 요청 처리 — tRPC balance.*(src/trpc/balance.ts)가 D1 권한(tuning:read 두 겹)·조회 속도 제한을 거친 뒤 부른다.
 // docs/adr/2026-11-01-balance-screen.md 3·4절. 서버가 켤 때 한 번 만든다(요청마다 만들 것이 없다).
-// - table: 가중치 표(팩 값·실효 값·덮어쓰기), 무기 목록, 기준 유닛 기본값. 스냅숏 하나로 만든다.
+// - table: 가중치 표(팩 값·실효 값·덮어쓰기, 행마다 계산식으로 셈하는지), 무기 목록, 기준 유닛 기본값. 스냅숏 하나로 만든다.
 // - contribution: 지금 표·고친 표(지금 + 담은 변경)의 2차 스탯과 1차 +10 차이. 가볍다(주 스레드).
 // - duels: 1차마다 "기준 + 10 vs 기준" 시드 대결. 무겁다 → 워커(runner). 요청 시작 때 표·계수 한 벌을 일에 담는다.
 //   사용자마다 따로 세는 속도 제한, 서버 전체 한 번에 하나(바쁘면 busy).
@@ -18,6 +18,7 @@ import {
   type BalanceWeaponView,
   balanceSettingsProblem,
 } from "@terra/shared/balance";
+import { statFormulaKey } from "@terra/shared/formula";
 import { statCellFieldsOf, statCellKey } from "@terra/shared/tuning";
 import { UNARMED, type WeaponSpec, combatCoefficientsFrom } from "@terra/sim";
 import { createRateLimiter } from "../rateLimit.ts";
@@ -135,6 +136,12 @@ export function createBalanceServices(deps: {
             override: record ? overrideView(record) : null,
           };
         }),
+        // 행 식이 있으면 가중치 칸은 듣지 않는다(세계 식 > 팩 식, docs/adr/2026-11-01-formula-editor.md 3절)
+        formula: snapshot.formulas.has(statFormulaKey(row.id))
+          ? ("world" as const)
+          : row.formula === undefined
+            ? null
+            : ("pack" as const),
       }));
       return Promise.resolve({
         contentVersion: tuning.pack.contentVersion,

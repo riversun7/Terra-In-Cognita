@@ -173,6 +173,20 @@ const elementRule = (rules: CyborgRules) => ({
   points: rules.cyborg.elementPoints,
 });
 
+/**
+ * 정착 지원금(N39): NPC 세력 = 기본액 × 세력 배율(그 세력 시작 수 − 열린 세력 가운데 가장 적은 시작 수). 유저 세력은 지도자가 정한
+ * 양(지금은 가입할 유저 세력이 없어 고리만 — @terra/sim settlementGrant의 user 갈래). rules = 그 명령이 시작할 때 받은 값 한 벌
+ */
+const grantFor = (
+  factionId: number,
+  perFaction: ReadonlyMap<number, number>,
+  open: readonly number[],
+  rules: CyborgRules,
+) => {
+  const fewest = Math.min(...open.map((id) => perFaction.get(id) ?? 0));
+  return settlementGrant({ kind: "npc", started: perFaction.get(factionId) ?? 0 }, fewest, rules);
+};
+
 export function createCyborgService(options: CyborgServiceOptions): CyborgService {
   const { maps, settlement, writer, log, ledger } = options;
   const byUser = new Map<string, CyborgRecord>();
@@ -223,14 +237,6 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
     return { perFaction, perCity };
   };
 
-  /**
-   * 정착 지원금(N39): NPC 세력 = 기본액 × 세력 배율(그 세력 시작 수 − 열린 세력 가운데 가장 적은 시작 수). 유저 세력은 지도자가 정한
-   * 양(지금은 가입할 유저 세력이 없어 고리만 — @terra/sim settlementGrant의 user 갈래)
-   */
-  const grantFor = (factionId: number, perFaction: ReadonlyMap<number, number>, open: readonly number[]) => {
-    const fewest = Math.min(...open.map((id) => perFaction.get(id) ?? 0));
-    return settlementGrant({ kind: "npc", started: perFaction.get(factionId) ?? 0 }, fewest, options.rules());
-  };
   const openFactionIds = (): number[] =>
     factions.filter((faction) => startCitiesOf(faction.id).length > 0).map((faction) => faction.id);
 
@@ -301,6 +307,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
             faction.id,
             perFaction,
             open.map((entry) => entry.faction.id),
+            rules,
           ),
         ),
         cities: cities
@@ -394,6 +401,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       if (!faction || cities.length === 0) return fail("unknown_faction");
       const city = cities.find((entry) => entry.id === input.cityId);
       if (!city) return fail("unknown_city");
+      // 이 명령은 시작할 때 받은 설정 칸 값 한 벌만 쓴다(분배 검사·지원금·성장 K). 커밋 전까지 기다림이 없어 시작 = 커밋 때 값
       const rules = options.rules();
       let elements: CyborgRecord["elements"] = null;
       if (input.elements !== undefined) {
@@ -403,7 +411,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       }
       const at = options.now();
       // 지원금은 이 사이보그를 세기 전의 시작 수로 정한다(화면에 보인 양과 같다)
-      const grant = grantFor(faction.id, counts().perFaction, openFactionIds());
+      const grant = grantFor(faction.id, counts().perFaction, openFactionIds(), rules);
       // 여기부터 한 번의 동기 처리: 소유 주체 → 유닛 → 지원금 → 사이보그·가입·굴림 지우기(같은 커밋)
       const owner = settlement.ownerOfUser(userId, at);
       const unitId = place(city, owner.id);
@@ -445,7 +453,9 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       const record = byUser.get(userId);
       if (!record) return fail("no_cyborg");
       if (record.elements !== null) return fail("elements_locked");
-      const checked = checkElementAllocation(elements, elementRule(options.rules()));
+      // 이 명령은 시작할 때 받은 설정 칸 값 한 벌만 쓴다(분배 검사·지원금, docs/adr/2026-11-01-dev-settings-panel.md 7절)
+      const rules = options.rules();
+      const checked = checkElementAllocation(elements, elementRule(rules));
       if (!checked.ok) return fail("elements_invalid");
       record.elements = checked.values;
       // 지원금 전에 만든 사이보그는 이때 한 번 받는다(D-456): 지금 세력의 국고에서, 자기를 뺀 시작 수로 정한 양(만들 때와 같은 규칙)
@@ -453,7 +463,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         const at = options.now();
         const perFaction = new Map(counts().perFaction);
         perFaction.set(record.factionId, Math.max(0, (perFaction.get(record.factionId) ?? 0) - 1));
-        const grant = grantFor(record.factionId, perFaction, openFactionIds());
+        const grant = grantFor(record.factionId, perFaction, openFactionIds(), rules);
         const owner = settlement.ownerOfUser(userId, at);
         record.startGrant = payGrant(userId, owner.id, record.factionId, grant, at);
       }

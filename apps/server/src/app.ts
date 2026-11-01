@@ -86,7 +86,8 @@ export interface AppOptions {
   /** 콘텐츠 팩 해시(SHA-256). 없으면 /health에 넣지 않는다(시험용) */
   contentHash?: string | undefined;
   staticDir?: string | undefined;
-  logger?: boolean;
+  /** 서버 기록. 기본 true(표준 출력). 시험은 쓰기 대상(stream)을 넘겨 기록 줄을 본다 */
+  logger?: boolean | { level: string; stream: { write(line: string): void } };
   now?: () => number;
   /** 없으면 DB 없이 뜬다(헬스체크의 db는 "off") */
   db?: Database | undefined;
@@ -119,16 +120,9 @@ export interface AppOptions {
   /**
    * 설정 칸 실효 값(팩 tuning + 이 세계 DB의 덮어쓰기, src/tuning/state.ts — docs/adr/2026-11-01-dev-settings-panel.md).
    * 사이보그 만들기·지원금·세력 화면이 쓸 때마다 읽는다. DB가 있으면 켤 때(onReady) 덮어쓰기를 싣고, 인증이 켜져 있으면
-   * 개발자 패널(tuning.*)을 연다. locked = 쓰기 잠금(TUNING_EDIT=off). 없으면 sim 시험 계수표·패널 없음
+   * 개발자 패널(tuning.*)을 연다. 모든 세계에서 바로 든다(사용자 답 204·205). 없으면 sim 시험 계수표·패널 없음
    */
-  tuning?:
-    | {
-        state: TuningState;
-        packId: string;
-        locked?: boolean | undefined;
-        limits?: Partial<TuningLimits> | undefined;
-      }
-    | undefined;
+  tuning?: { state: TuningState; packId: string; limits?: Partial<TuningLimits> | undefined } | undefined;
   /** 경제 화면 목록(팩 items·recipes 등, src/economyView/catalog.ts). 없으면 빈 목록 */
   economyCatalog?: EconomyCatalogResponse | undefined;
   /**
@@ -172,8 +166,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       simVersion: SIM_VERSION,
       contentVersion: options.contentVersion,
       contentHash: options.contentHash,
-      // 적용 중인 설정 칸 덮어쓰기 수(0이면 팩 값 그대로, docs/adr/2026-11-01-dev-settings-panel.md 10절)
+      // 덮어쓴 설정 칸 수(0이면 팩 값 그대로)와 세계 설정 판(docs/adr/2026-11-01-dev-settings-panel.md 10절)
       tuningOverrides: options.tuning?.state.appliedCount(),
+      tuningRevision: options.tuning?.state.revision(),
       uptimeSec: Math.floor(process.uptime()),
     };
   });
@@ -239,15 +234,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           contentVersion: options.contentVersion,
           contentHash: options.contentHash ?? "",
         },
-        locked: options.tuning.locked ?? false,
         now,
+        log: app.log,
         limits: options.tuning.limits,
       })
     : undefined;
   const tuningDb = options.db;
   if (tuningShared && tuningDb) {
     // 덮어쓰기를 싣는다(요청을 받기 전에). DB를 기다리는 다시 시도는 월드 부팅과 같다
-    app.addHook("onReady", async () => bootTuning(tuningDb, tuningShared, app.log));
+    app.addHook("onReady", async () => bootTuning(tuningDb, tuningShared));
   }
 
   // 월드: DB가 있으면 저장·부팅 복구(S3 ADR 1·2절). 준비(listen·ready)는 부팅 복구가 끝날 때까지 기다린다.
@@ -402,17 +397,21 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   const metricsIntervalMs = options.metricsIntervalMs ?? 60_000;
   if (metricsIntervalMs > 0) {
-    // 지표 한 줄에 붙일 값: S1 2차맵(src/world/worldStats.ts), 행성(src/planet/service.ts)
+    // 지표 한 줄에 붙일 값: S1 2차맵(src/world/worldStats.ts), 행성(src/planet/service.ts), 세계 설정 판·덮어쓴 칸 수
+    // (N1 지표를 설정 판으로 기간을 나눠 본다, docs/adr/2026-11-01-dev-settings-panel.md 9절)
     const extras = (): Record<string, number> => ({
       ...world?.takeMetrics(),
       ...terrain?.takeMetrics(),
       ...planets?.takeMetrics(),
+      ...(tuningState
+        ? { tuningRevision: tuningState.revision(), tuningOverrides: tuningState.appliedCount() }
+        : {}),
     });
     const stopMetrics = startServerMetrics(
       app.log,
       () => wsConnections,
       metricsIntervalMs,
-      world || planets ? extras : undefined,
+      world || planets || tuningState ? extras : undefined,
     );
     app.addHook("onClose", async () => stopMetrics());
   }

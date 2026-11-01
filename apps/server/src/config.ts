@@ -63,19 +63,6 @@ export interface ServerConfig {
   s1: S1Config;
   /** 1차맵 행성 타일 디스크 캐시 폴더 (PLANET_CACHE_DIR) */
   planetCacheDir: string;
-  /**
-   * 설정 칸 덮어쓰기 쓰기(TUNING_EDIT, 기본 on). off면 개발자 패널은 보기·내보내기만(N1 관문 세계,
-   * docs/adr/2026-11-01-dev-settings-panel.md 9절)
-   */
-  tuningEdit: boolean;
-}
-
-/** on·off 중 하나(비어 있으면 기본값) */
-function readSwitch(value: string | undefined, fallback: boolean, name: string): boolean {
-  if (value === undefined || value === "") return fallback;
-  if (value === "on") return true;
-  if (value === "off") return false;
-  throw new Error(`${name} must be on or off: ${value}`);
 }
 
 /** 비어 있으면 기본값, 아니면 [min, max] 정수여야 한다 */
@@ -114,6 +101,5 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       testMaps: readInteger(env.S1_TEST_MAPS, 1, 1, MAX_TEST_MAPS, "S1_TEST_MAPS"),
     },
     planetCacheDir: env.PLANET_CACHE_DIR || DEFAULT_PLANET_CACHE_DIR,
-    tuningEdit: readSwitch(env.TUNING_EDIT, true, "TUNING_EDIT"),
   };
 }

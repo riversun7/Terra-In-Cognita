@@ -1,12 +1,18 @@
-// 설정 칸 실효 값 — 접근자 하나(docs/adr/2026-11-01-dev-settings-panel.md 5절)
-// 실효 값 = 팩 값 위에 이 세계(DB)의 덮어쓰기. 서버에서 설정 칸 값을 읽는 곳은 모두 values()·society()를 **쓸 때마다** 부른다
-// (켤 때 한 번 받아 두지 않는다) → 덮어쓰기를 바꾸면 다음 요청부터 듣는다. 어디가 읽는지는 scope.ts.
-// - 메모리 표가 DB 줄의 캐시다(쓰는 프로세스는 하나, ADR 3). 바꾸기는 DB 커밋 뒤에 put·remove·clear로 한다(services.ts).
-// - 켤 때 load: 팩에 없는 ID·지금 팩 범위 밖·규칙 문제를 새로 만드는 줄은 적용하지 않고(줄은 남는다, 까닭을 화면에 보인다),
-//   값이 지금 팩 값과 같은 줄은 지울 목록으로 돌려준다(배포로 팩에 들어간 것).
-// - 규칙 검사: @terra/sim tuningProblems(여러 칸). 이미 있던 문제는 막지 않고 새로 생기는 문제만 막는다.
+// 설정 칸 실효 값 — 접근자 하나(docs/adr/2026-11-01-dev-settings-panel.md 5·6·7절)
+// 실효 값 = 팩 값 위에 이 세계(DB)의 덮어쓰기. 서버에서 설정 칸 값을 읽는 곳은 모두 values()·society()를 **쓸 때마다** 부르고,
+// 명령 하나는 시작할 때 받은 값 한 벌을 끝까지 쓴다(어디가 읽는지는 scope.ts).
+// - 스냅숏: 판·실효 값·덮어쓰기를 든 바뀌지 않는 객체 하나. 바꾸기는 검사한 새 묶음으로 새 스냅숏을 만들어 대입 한 번으로 바꿔 끼운다
+//   (한 스레드라 읽는 쪽은 앞 묶음 전체나 뒤 묶음 전체만 본다).
+// - plan: 묶음(칸 여러 개)을 바꾼 뒤의 전체 값으로 범위·여러 칸 규칙(@terra/sim tuningProblems)을 본다. 이미 있던 문제는 막지 않고
+//   새로 생기는 문제만 막는다. 메모리는 바꾸지 않는다(DB 커밋 뒤에 install).
+// - selectAtBoot: 켤 때 DB 줄에서 "가장 나중에 바꾼 것"을 고른다(6절). 오류를 던지지 않는다.
 import { type TuningEntry, tuningValueInRange } from "@terra/content";
-import type { TuningOverrideState, TuningProblem } from "@terra/shared/tuning";
+import {
+  type TuningDropReason,
+  type TuningProblem,
+  type TuningUnit,
+  tuningUnitFromName,
+} from "@terra/shared/tuning";
 import {
   type SocietyCoefficients,
   newTuningProblems,
@@ -18,8 +24,9 @@ import {
 export interface TuningOverrideRecord {
   readonly id: string;
   readonly value: number;
-  /** 저장할 때의 팩 값·팩 판 */
+  /** 저장할 때의 팩 값·단위·팩 판 */
   readonly packValue: number;
+  readonly unit: string | null;
   readonly contentVersion: string;
   readonly note: string | null;
   readonly updatedById: string | null;
@@ -28,158 +35,194 @@ export interface TuningOverrideRecord {
   readonly updatedAtMs: number;
 }
 
-/** 메모리에 든 덮어쓰기(적용 여부 포함) */
-export interface HeldOverride extends TuningOverrideRecord {
-  readonly state: TuningOverrideState;
-  /** state가 rules_conflict일 때 새로 생기는 문제 */
-  readonly problems: readonly TuningProblem[];
+/** 바뀌지 않는 값 한 벌 */
+export interface TuningSnapshot {
+  /** 세계 설정 판(DB tuning_revision) */
+  readonly revision: number;
+  /** 실효 값(팩 ID → 값) */
+  readonly values: ReadonlyMap<string, number>;
+  /** 듣는 덮어쓰기(팩에 있고 맞는 것만) */
+  readonly overrides: ReadonlyMap<string, TuningOverrideRecord>;
 }
 
-export type TuningCheck =
-  | { readonly ok: true }
+/** 묶음의 칸 하나: value null = 되돌리기(팩 값). 팩 값과 같은 값도 되돌리기로 본다 */
+export interface TuningChange {
+  readonly id: string;
+  readonly value: number | null;
+}
+
+/** plan이 고른 바꿈 하나(앞·뒤 덮어쓰기 값, null = 덮어쓰기 없음) */
+export interface PlannedChange {
+  readonly id: string;
+  readonly before: number | null;
+  readonly after: number | null;
+}
+
+export type TuningPlan =
+  | {
+      readonly ok: true;
+      /** 실제로 바뀌는 칸(같은 값·없는 덮어쓰기 되돌리기는 빠진다) */
+      readonly changes: readonly PlannedChange[];
+    }
   | {
       readonly ok: false;
-      readonly reason: "unknown_entry" | "out_of_range" | "rules_conflict";
+      readonly reason: "unknown_entry" | "out_of_range" | "rules_conflict" | "duplicate_entry";
+      readonly id: string | null;
       readonly problems: readonly TuningProblem[];
     };
+
+/** 켤 때 고른 결과 */
+export interface BootSelection {
+  /** 듣는 줄 */
+  readonly keep: readonly TuningOverrideRecord[];
+  /** 팩이 더 나중에 바꾼 칸(덮어쓰기를 지운다, 감사 tuning.pack_won) */
+  readonly packWon: readonly { readonly row: TuningOverrideRecord; readonly packValue: number }[];
+  /** 새 팩과 맞지 않는 줄(지운다, 감사 tuning.dropped) */
+  readonly dropped: readonly { readonly row: TuningOverrideRecord; readonly reason: TuningDropReason }[];
+}
 
 export interface TuningState {
   /** 팩 tuning 항목(팩 차례) */
   readonly entries: readonly TuningEntry[];
   entry(id: string): TuningEntry | undefined;
-  /** 실효 값(팩 ID → 값). 바뀌면 새 표다(받아 둔 표는 그대로) */
+  /** 칸의 단위(팩 unit, 없으면 영어 이름 끝 괄호) */
+  unitOf(entry: TuningEntry): TuningUnit | null;
+  /** 지금 값 한 벌. 명령 하나는 이것 하나를 받아 끝까지 쓴다 */
+  snapshot(): TuningSnapshot;
   values(): ReadonlyMap<string, number>;
-  /** 실효 값을 얹은 세력·사회 계수표(판마다 한 번 만든다) */
+  /** 지금 스냅숏의 세력·사회 계수표(스냅숏마다 한 번 만든다) */
   society(): SocietyCoefficients;
-  /** 실효 값 판(바뀔 때마다 +1) */
   revision(): number;
-  /** 덮어쓰기(적용 안 된 것 포함), ID 차례 */
-  overrides(): readonly HeldOverride[];
-  override(id: string): HeldOverride | undefined;
-  /** 적용 중인 덮어쓰기 수(/health) */
+  /** 덮어쓴 칸 수(/health·지표) */
   appliedCount(): number;
   /** 지금 실효 값의 규칙 문제(팩이 틀렸을 때 켤 때 알린다) */
   problems(): TuningProblem[];
-  /** 덮어쓰기 하나를 value로 바꾸면(null = 지우면) 받을 수 있나 */
-  check(id: string, value: number | null): TuningCheck;
-  /** 켤 때: DB 줄로 다시 만든다. 값이 팩 값과 같아 지울 줄을 돌려준다 */
-  load(rows: readonly TuningOverrideRecord[]): TuningOverrideRecord[];
-  /** 커밋 뒤: 덮어쓰기 하나를 넣는다(검사는 부르는 쪽이 check로 먼저 했다) */
-  put(record: TuningOverrideRecord): void;
-  remove(id: string): void;
-  clear(): void;
+  /** 묶음을 바꾼 뒤의 전체 값으로 검사한다(메모리는 그대로) */
+  plan(changes: readonly TuningChange[]): TuningPlan;
+  /** 켤 때: DB 줄에서 듣는 줄·팩이 이긴 줄·지울 줄을 고른다(메모리는 그대로, 던지지 않는다) */
+  selectAtBoot(rows: readonly TuningOverrideRecord[]): BootSelection;
+  /** 새 스냅숏으로 바꿔 끼운다(DB 커밋 뒤). 팩에 없는 ID는 넣지 않는다 */
+  install(overrides: Iterable<TuningOverrideRecord>, revision: number): void;
 }
 
-/** base 실효 값에서 id를 value로 바꾸면 새로 생기는 규칙 문제 */
-function newProblems(
-  base: ReadonlyMap<string, number>,
-  baseSociety: SocietyCoefficients,
-  id: string,
-  value: number,
-): TuningProblem[] {
-  const candidate = new Map(base);
-  candidate.set(id, value);
-  return newTuningProblems(tuningProblems(baseSociety), tuningProblems(societyCoefficientsFrom(candidate)));
+/** base 실효 값에서 next로 바꾸면 새로 생기는 규칙 문제 */
+function newProblems(baseSociety: SocietyCoefficients, next: ReadonlyMap<string, number>): TuningProblem[] {
+  return newTuningProblems(tuningProblems(baseSociety), tuningProblems(societyCoefficientsFrom(next)));
 }
+
+/** 칸의 단위: 팩 unit, 없으면 영어 이름 끝 괄호 */
+const unitOf = (entry: TuningEntry): TuningUnit | null => entry.unit ?? tuningUnitFromName(entry.name.en);
+
+const byId = (a: { id: string }, b: { id: string }) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 export function createTuningState(entries: readonly TuningEntry[]): TuningState {
-  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const entryById = new Map(entries.map((entry) => [entry.id, entry]));
   const packValues: ReadonlyMap<string, number> = new Map(entries.map((entry) => [entry.id, entry.value]));
-  const held = new Map<string, HeldOverride>();
-  let effective: ReadonlyMap<string, number> = packValues;
-  let revision = 0;
-  let cached: { revision: number; society: SocietyCoefficients } | undefined;
-
-  const rebuild = (): void => {
-    const next = new Map(packValues);
-    for (const override of held.values())
-      if (override.state === "applied") next.set(override.id, override.value);
-    effective = next;
-    revision += 1;
-  };
+  let current: TuningSnapshot = { revision: 0, values: packValues, overrides: new Map() };
+  let cached: { snapshot: TuningSnapshot; society: SocietyCoefficients } | undefined;
 
   const society = (): SocietyCoefficients => {
-    if (cached?.revision !== revision) cached = { revision, society: societyCoefficientsFrom(effective) };
+    const snapshot = current;
+    if (cached?.snapshot !== snapshot)
+      cached = { snapshot, society: societyCoefficientsFrom(snapshot.values) };
     return cached.society;
   };
 
   return {
     entries,
-    entry: (id) => byId.get(id),
-    values: () => effective,
+    entry: (id) => entryById.get(id),
+    unitOf,
+    snapshot: () => current,
+    values: () => current.values,
     society,
-    revision: () => revision,
-    overrides: () => [...held.values()].toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
-    override: (id) => held.get(id),
-    appliedCount: () => [...held.values()].filter((override) => override.state === "applied").length,
+    revision: () => current.revision,
+    appliedCount: () => current.overrides.size,
     problems: () => tuningProblems(society()),
 
-    check(id, value) {
-      const entry = byId.get(id);
-      if (value === null) {
-        // 지우기: 팩에 없는 ID는 실효 값에 없다(문제도 없다). 팩 ID는 팩 값으로 돌아갈 때 새 문제가 없어야 한다
-        if (!entry) return { ok: true };
-        const problems = newProblems(effective, society(), id, entry.value);
-        return problems.length > 0 ? { ok: false, reason: "rules_conflict", problems } : { ok: true };
+    plan(changes) {
+      const snapshot = current;
+      const seen = new Set<string>();
+      const next = new Map(snapshot.values);
+      const planned: PlannedChange[] = [];
+      for (const change of changes) {
+        if (seen.has(change.id)) return { ok: false, reason: "duplicate_entry", id: change.id, problems: [] };
+        seen.add(change.id);
+        const entry = entryById.get(change.id);
+        const before = snapshot.overrides.get(change.id)?.value ?? null;
+        if (!entry) {
+          // 팩에 없는 칸: 덮어쓰기도 없다(켤 때 지운다). 되돌리기는 할 일이 없고, 값은 받지 않는다
+          if (change.value === null) continue;
+          return { ok: false, reason: "unknown_entry", id: change.id, problems: [] };
+        }
+        const after = change.value === null || change.value === entry.value ? null : change.value;
+        if (after !== null && !tuningValueInRange(entry, after))
+          return { ok: false, reason: "out_of_range", id: change.id, problems: [] };
+        if (after === before) continue;
+        next.set(change.id, after ?? entry.value);
+        planned.push({ id: change.id, before, after });
       }
-      if (!entry) return { ok: false, reason: "unknown_entry", problems: [] };
-      if (!tuningValueInRange(entry, value)) return { ok: false, reason: "out_of_range", problems: [] };
-      const problems = newProblems(effective, society(), id, value);
-      return problems.length > 0 ? { ok: false, reason: "rules_conflict", problems } : { ok: true };
+      const problems = newProblems(society(), next);
+      if (problems.length > 0) return { ok: false, reason: "rules_conflict", id: null, problems };
+      return { ok: true, changes: planned };
     },
 
-    load(rows) {
-      held.clear();
-      const absorbed: TuningOverrideRecord[] = [];
-      let base: Map<string, number> = new Map(packValues);
-      let baseSociety = societyCoefficientsFrom(base);
+    selectAtBoot(rows) {
+      const keep: TuningOverrideRecord[] = [];
+      const packWon: { row: TuningOverrideRecord; packValue: number }[] = [];
+      const dropped: { row: TuningOverrideRecord; reason: TuningDropReason }[] = [];
+      let values = new Map(packValues);
+      let baseSociety = societyCoefficientsFrom(values);
       // 저장한 차례로 얹는다(앞 덮어쓰기와 맞지 않는 뒤 덮어쓰기가 빠진다). 같은 시각이면 ID 차례
-      const ordered = rows.toSorted(
-        (a, b) => a.updatedAtMs - b.updatedAtMs || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
-      );
+      const ordered = rows.toSorted((a, b) => a.updatedAtMs - b.updatedAtMs || byId(a, b));
       for (const row of ordered) {
-        const entry = byId.get(row.id);
-        const hold = (state: TuningOverrideState, problems: readonly TuningProblem[] = []) =>
-          held.set(row.id, { ...row, state, problems });
+        const entry = entryById.get(row.id);
         if (!entry) {
-          hold("unknown_entry");
+          dropped.push({ row, reason: "unknown_entry" });
           continue;
         }
-        if (row.value === entry.value) {
-          absorbed.push(row);
+        // 가장 나중에 바꾼 것이 이긴다: 저장 뒤에 팩 값이 바뀌었으면(배포) 팩이 더 나중이다. 팩 값과 같은 덮어쓰기도 팩 값이 든다
+        if (entry.value !== row.packValue || row.value === entry.value) {
+          packWon.push({ row, packValue: entry.value });
+          continue;
+        }
+        if (unitOf(entry) !== row.unit) {
+          dropped.push({ row, reason: "unit_changed" });
           continue;
         }
         if (!tuningValueInRange(entry, row.value)) {
-          hold("out_of_range");
+          dropped.push({ row, reason: "out_of_range" });
           continue;
         }
-        const problems = newProblems(base, baseSociety, row.id, row.value);
+        const next = new Map(values);
+        next.set(row.id, row.value);
+        let problems: TuningProblem[];
+        try {
+          problems = newProblems(baseSociety, next);
+        } catch {
+          // 계수표를 만들지 못하는 값(코드 표와 팩이 어긋남)도 시작을 막지 않는다
+          problems = ["n9_fit"];
+        }
         if (problems.length > 0) {
-          hold("rules_conflict", problems);
+          dropped.push({ row, reason: "rules_conflict" });
           continue;
         }
-        hold("applied");
-        base = new Map(base);
-        base.set(row.id, row.value);
-        baseSociety = societyCoefficientsFrom(base);
+        keep.push(row);
+        values = next;
+        baseSociety = societyCoefficientsFrom(values);
       }
-      rebuild();
-      return absorbed;
+      return { keep, packWon, dropped };
     },
 
-    put(record) {
-      held.set(record.id, { ...record, state: "applied", problems: [] });
-      rebuild();
-    },
-
-    remove(id) {
-      if (held.delete(id)) rebuild();
-    },
-
-    clear() {
-      if (held.size === 0) return;
-      held.clear();
-      rebuild();
+    install(overrides, revision) {
+      const map = new Map<string, TuningOverrideRecord>();
+      const values = new Map(packValues);
+      for (const record of [...overrides].toSorted(byId)) {
+        if (!entryById.has(record.id)) continue;
+        map.set(record.id, record);
+        values.set(record.id, record.value);
+      }
+      // 대입 한 번: 읽는 쪽은 앞 스냅숏이나 이 스냅숏만 본다
+      current = { revision, values, overrides: map };
     },
   };
 }

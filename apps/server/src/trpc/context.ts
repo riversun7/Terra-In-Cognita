@@ -155,13 +155,14 @@ export interface PlanetEditorServices {
 /** 설정 칸 패널 동작(권한 문장 tuning) */
 export type TuningAction = "read" | "write";
 
-export interface TuningSetInput {
-  readonly id: string;
-  readonly value: number;
-  /** 이 기기가 본 덮어쓰기 값(없으면 null). 지금과 다르면 CONFLICT */
-  readonly expected: number | null;
+/** 묶음 적용 입력(docs/adr/2026-11-01-dev-settings-panel.md 8절) */
+export interface TuningApplyInput {
+  /** 이 기기가 본 세계 설정 판(list.revision). 지금 판과 다르면 CONFLICT */
+  readonly expectedRevision: number;
+  /** 칸마다 새 값(null·팩 값 = 되돌리기). 한 묶음으로 검사·저장·반영한다 */
+  readonly changes: readonly { readonly id: string; readonly value: number | null }[];
   readonly note?: string | null | undefined;
-  /** 구조 값(D-5054)을 바꿀 때 확인 창을 거쳤다 */
+  /** 구조 값(D-5054)이 들면 확인 창을 거쳤다 */
   readonly confirmStructural?: boolean | undefined;
 }
 
@@ -177,9 +178,9 @@ export interface TuningServices {
   list(viewer: Viewer): Promise<TuningListResponse>;
   history(viewer: Viewer): Promise<TuningHistoryResponse>;
   exportDiff(viewer: Viewer): Promise<TuningExportResponse>;
-  set(viewer: Viewer, input: TuningSetInput): Promise<TuningListResponse>;
-  revert(viewer: Viewer, input: { id: string; expected: number }): Promise<TuningListResponse>;
-  revertAll(viewer: Viewer): Promise<TuningListResponse>;
+  /** 묶음 적용(tRPC tuning.save) */
+  save(viewer: Viewer, input: TuningApplyInput): Promise<TuningListResponse>;
+  revertAll(viewer: Viewer, input: { expectedRevision: number }): Promise<TuningListResponse>;
 }
 
 /** 홈 자료 조회의 조건. preview는 프로시저가 권한(home: preview, dev·admin)을 본 뒤에만 true다 */

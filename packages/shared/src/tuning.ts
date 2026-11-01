@@ -76,9 +76,21 @@ export function tuningCodeNumber(code: string): number {
 export const TUNING_SCOPES = ["live", "sim", "none"] as const;
 export type TuningScope = (typeof TUNING_SCOPES)[number];
 
-/** 덮어쓰기가 지금 듣는가. 아니면 까닭(켤 때 본다: 팩에서 빠진 ID, 지금 팩 범위 밖, 다른 칸과 맞지 않음) */
-export const TUNING_OVERRIDE_STATES = ["applied", "unknown_entry", "out_of_range", "rules_conflict"] as const;
-export type TuningOverrideState = (typeof TUNING_OVERRIDE_STATES)[number];
+/**
+ * 켤 때 덮어쓰기를 지운 까닭(감사 tuning.dropped, ADR 6절): 새 팩에 없는 칸(빠짐·이름 바뀜), 단위가 바뀜, 새 범위 밖,
+ * 저장 차례대로 얹을 때 다른 칸과 맞지 않음. 팩이 더 나중에 바꾼 칸은 tuning.pack_won이다(까닭 없음)
+ */
+export const TUNING_DROP_REASONS = [
+  "unknown_entry",
+  "unit_changed",
+  "out_of_range",
+  "rules_conflict",
+] as const;
+export type TuningDropReason = (typeof TUNING_DROP_REASONS)[number];
+
+export function isTuningDropReason(value: unknown): value is TuningDropReason {
+  return typeof value === "string" && (TUNING_DROP_REASONS as readonly string[]).includes(value);
+}
 
 /**
  * 여러 칸 규칙 문제 코드(@terra/sim tuningProblems). 서버가 덮어쓰기를 받지 않을 때 오류 data.details에 싣는다
@@ -109,14 +121,16 @@ export const TUNING_REASONS = [
   "rules_conflict",
   "structural_unconfirmed",
   "invalid_note",
+  "duplicate_entry",
   "revision_conflict",
-  "tuning_locked",
   "rate_limited",
 ] as const;
 export type TuningReason = (typeof TUNING_REASONS)[number];
 
 /** 메모 길이 상한(코드 포인트) */
 export const TUNING_NOTE_MAX = 200;
+/** 한 묶음(tuning.apply)에 담는 칸 수 상한 */
+export const TUNING_APPLY_MAX = 200;
 /** 최근 바꿈 줄 수 */
 export const TUNING_HISTORY_LIMIT = 30;
 
@@ -135,9 +149,6 @@ export interface TuningOverrideView {
   readonly updatedBy: string | null;
   /** ms */
   readonly updatedAt: number;
-  readonly state: TuningOverrideState;
-  /** state가 rules_conflict일 때 문제 코드 */
-  readonly problems: readonly TuningProblem[];
 }
 
 /** 칸 하나(화면). 이름·단위·범위는 팩 항목 그대로 */
@@ -157,26 +168,28 @@ export interface TuningEntryView {
   readonly override: TuningOverrideView | null;
 }
 
-/** 팩에 없는 ID의 덮어쓰기(되돌리기만) */
-export interface TuningOrphanView {
-  readonly id: string;
-  readonly override: TuningOverrideView;
-}
-
 export interface TuningListResponse {
   readonly contentVersion: string;
   readonly contentHash: string;
-  /** 쓰기 잠금(TUNING_EDIT=off, ADR 9절) */
-  readonly locked: boolean;
-  /** 실효 값 판(바뀔 때마다 +1, 켤 때 0) */
+  /** 세계 설정 판(DB tuning_revision, 덮어쓰기를 바꿀 때마다 +1). 쓰기의 expectedRevision으로 보낸다 */
   readonly revision: number;
   /** 팩 차례 */
   readonly entries: readonly TuningEntryView[];
-  readonly orphans: readonly TuningOrphanView[];
 }
 
-export const TUNING_HISTORY_ACTIONS = ["set", "revert", "revert_all", "absorbed"] as const;
+/** 최근 바꿈 동작(감사 기록 tuning.*): 묶음 적용, 모두 되돌리기, 켤 때 팩이 이김, 켤 때 지움 */
+export const TUNING_HISTORY_ACTIONS = ["apply", "revert_all", "pack_won", "dropped"] as const;
 export type TuningHistoryAction = (typeof TUNING_HISTORY_ACTIONS)[number];
+
+/** 최근 바꿈 한 칸: 앞·뒤 덮어쓰기 값(없으면 null = 팩 값) */
+export interface TuningHistoryChange {
+  readonly id: string;
+  readonly before: number | null;
+  readonly after: number | null;
+  /** 켤 때 지운 까닭(dropped), 팩이 이긴 칸은 그때 팩 값(pack_won) */
+  readonly reason: TuningDropReason | null;
+  readonly packValue: number | null;
+}
 
 /** 최근 바꿈 한 줄(감사 기록) */
 export interface TuningHistoryRow {
@@ -184,12 +197,9 @@ export interface TuningHistoryRow {
   readonly action: TuningHistoryAction;
   /** 사람 계정 이름(시스템이면 null) */
   readonly actor: string | null;
-  /** 칸 ID(모두 되돌리기는 지운 칸들) */
-  readonly ids: readonly string[];
-  /** 앞 값(덮어쓰기가 없었으면 null). 모두 되돌리기는 null */
-  readonly before: number | null;
-  /** 뒤 값(되돌리기면 null) */
-  readonly after: number | null;
+  /** 이 바꿈 뒤의 세계 설정 판(모르면 null) */
+  readonly revision: number | null;
+  readonly changes: readonly TuningHistoryChange[];
   readonly note: string | null;
 }
 

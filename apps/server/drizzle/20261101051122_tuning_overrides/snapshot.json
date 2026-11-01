@@ -2,7 +2,7 @@
   "type": "diff",
   "version": "9",
   "dialect": "postgres",
-  "id": "41224083-6023-4f50-b7c9-4b6a2cab2314",
+  "id": "2c65ad99-fcb8-4f71-a04c-f11f2e15292c",
   "prevIds": [
     "bcd92909-a08b-4a84-9549-43388af554d1"
   ],
@@ -21,6 +21,25 @@
         "n|rel|public.tuning_overrides",
         "n|type|public.tuning_overrides",
         "n|rel|public.tuning_overrides_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "tuning_revision"
+      ],
+      "writes": [
+        "s|tbl|public.tuning_revision",
+        "n|tbl|public.tuning_revision",
+        "e|tbl|public.tuning_revision",
+        "n|rel|public.tuning_revision",
+        "n|type|public.tuning_revision",
+        "n|rel|public.tuning_revision_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -56,6 +75,15 @@
       "row": {
         "schema": "public",
         "name": "tuning_overrides",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "tuning_revision",
         "isRlsEnabled": false,
         "entityType": "tables"
       }
@@ -101,6 +129,22 @@
         "type": "bigint",
         "typeSchema": null,
         "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "tuning_overrides",
+        "name": "unit",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
         "dimensions": 0,
         "default": null,
         "generated": null,
@@ -176,6 +220,54 @@
       "op": "create",
       "row": {
         "schema": "public",
+        "table": "tuning_revision",
+        "name": "id",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "tuning_revision",
+        "name": "revision",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "tuning_revision",
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
         "table": "tuning_overrides",
         "name": "tuning_overrides_updated_by_users_id_fkey",
         "nameExplicit": false,
@@ -209,6 +301,19 @@
       "op": "create",
       "row": {
         "schema": "public",
+        "table": "tuning_revision",
+        "name": "tuning_revision_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
         "table": "tuning_overrides",
         "name": "tuning_overrides_id_format",
         "value": "\"id\" ~ '^[a-z][a-z0-9_]{1,47}$'",
@@ -222,6 +327,26 @@
         "table": "tuning_overrides",
         "name": "tuning_overrides_note_length",
         "value": "\"note\" is null or char_length(\"note\") <= 200",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "tuning_revision",
+        "name": "tuning_revision_single",
+        "value": "\"id\" = 1",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "tuning_revision",
+        "name": "tuning_revision_nonnegative",
+        "value": "\"revision\" >= 0",
         "entityType": "checks"
       }
     }

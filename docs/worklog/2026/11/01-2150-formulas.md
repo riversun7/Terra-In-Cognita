@@ -2,7 +2,7 @@
 
 - 일시: 2026-11-01 21:50 (KST)
 - 작업 도구: Claude Code
-- 관련: ADR `docs/adr/2026-11-01-formula-editor.md`(제안), 질문 `docs/questions/2026-11-01-formulas.md`(275~279), `docs/questions/2026-11-01-secondary-stats-baseline.md`(265~274), 기획 D-488·D-490·D-491, 가지 `work/formulas`(main `5c621d3` 위, 합치지 않음 — 통합 담당이 합친다)
+- 관련: ADR `docs/adr/2026-11-01-formula-editor.md`(제안), 질문 `docs/questions/2026-11-01-formulas.md`(275~279), `docs/questions/2026-11-01-secondary-stats-baseline.md`(265~274), 기획 D-488·D-490·D-491, 가지 `work/formulas`(main `5c621d3` 위에서 만들고 main `b57a2b3`까지 합침, main에는 합치지 않음 — 통합 담당이 합친다). 합치기·마무리는 아래 "합치기·마무리" 절(2026-11-01 23:30)
 
 ## 한 일
 - 식 언어(`@terra/shared/formula`): 손으로 쓴 해석기(중간값 줄, 비교, 함수 11개, `× ÷ −` 받음, `#` 설명), 1000배 정수 고정 소수점(곱·나눗셈 음의 무한대 쪽 내림, BigInt 넘침 보호, 0으로 나눔 = 0), 모르는 이름 위치·비슷한 이름 권함, 풀이(항마다 "VIT(10) × 3"), 1차 스탯 영향(비중·+10 차이), 식 칸 표(2차 스탯 행 식 18 + 전투 식 9)와 변수 값 함수, 표본 미리 보기. 결정성 검사 대상에 넣었다.
@@ -59,11 +59,61 @@
 - 결정성: `formula*.ts`에 Math 초월함수·`**`·정규식 리터럴을 쓰지 않는다(경계 검사). 맨손 굴림은 맨손 일반 공격일 때만 뽑는다(무기 전투 굴림 흐름을 지킨다).
 
 ## 미검증·TODO·알려진 문제
-- 탭 끼우기: `work/battle-lab`이 밸런스 화면을 탭으로 바꾸는 중이라 나는 화면 끝에 `<FormulaTab />` 한 줄(+ import)만 넣었다. 통합 때 그 탭 자리로 옮기고 이 줄을 지운다.
-- 행 식이 있는 행은 가중치 칸이 듣지 않는다. 밸런스 화면 가중치 표에 그 표시가 아직 없다(통합 때).
+- ~~탭 끼우기~~ → 했음(합치기·마무리): 밸런스 화면 `TABS`의 [계산식] 탭.
+- ~~가중치 표에 행 식 표시가 없음~~ → 했음(합치기·마무리): "계산식(팩)"·"계산식(이 세계)" 표시·흐린 칸·범례.
+- 계산식 탭의 표본 유닛은 서버의 두 표본(새 사이보그 Lv 1·Lv 30 균형형)뿐이다. 전투 실험실 팀 A 유닛을 표본으로 쓰는 것은 하지 않았다(실험 유닛의 레벨·장비·GEAR를 서버 미리 보기에서 받아야 해서 단순하지 않다).
 - 무기마다 적정치를 화면에서 바로 고치는 칸: 질문 276 답 뒤.
 - 시뮬 유닛은 레벨이 없어 행 식 LV = 1.
 - NAS 미배포.
 
 ## 사용자 결정 대기
-- 275 크리쳐 발톱도 맨손 규칙?, 276 적정 스탯 단위, 277 맨손 명중·크리·속도 적정, 278 맨손 숫자 [임시], 279 맨손 건물 피해(`docs/questions/2026-11-01-formulas.md`).
+- 279 맨손 건물 피해(`docs/questions/2026-11-01-formulas.md`). 275~278은 답함(275·276은 아이템 편집기·크리쳐 작업으로 옮김), 277 뒤따름 둘도 답함(아래).
+
+## 합치기·마무리 (2026-11-01 23:30 KST, Claude Code)
+
+### 한 일
+- main을 두 번 합쳤다: `e77837f`(전투 실험실 탭·`battle_lab_presets`·core@21·BattleTrace) → `b57a2b3`(문서만: 기획 미러 D-494·D-495, 아이템 편집기 설계안). 겹침 풀이:
+  - `BalancePanelScreen.tsx`: main의 `TABS` 구조를 받고 임시 `<FormulaTab />` 끼움을 지웠다. [계산식]을 `TABS` 세 번째 줄로(`dev_lab_tab_formulas` 계산식·Formulas). [가중치 표]는 그대로.
+  - 메시지 ko·en: 두 쪽 키를 모두 둔다(글자 그대로 합쳐 `\u00a0` 표기를 지켰다).
+  - 팩: 두 가지가 모두 core@21(내용 다름) → **core@22**(`fa2099aa…`).
+  - 마이그레이션: `20261101113211_battle_lab_presets`·`20261101121828_formula_overrides`는 같은 부모(`0cdfc981`)의 갈래 → 다시 만들지 않고 그대로 둔다. `db:generate` = "No schema changes"(합친 뒤, 표 정의를 옮긴 뒤 두 번 Verified).
+  - 서버 `app.ts`·`main.ts`·`trpc/context.ts`·`world/combatCatalog.ts`: 두 쪽 가져오기·함수를 모두 둔다. `docs/WORKLOG.md`는 `pnpm docs:index`로 다시 만들었다.
+  - 합친 뒤 `schema.ts`가 1,002줄(상한 1,000)이라 `formula_overrides` 정의를 `db/devToolsSchema.ts`로 옮기고 다시 내보낸다(전투 실험실 프리셋과 같은 자리, 표 모양 그대로).
+- 합치며 생긴 빈틈 고침: main의 전투 실험실·3D 리플레이는 이 가지보다 먼저 만들어져 계수표에 식 묶음을 싣지 않고 유닛 레벨을 넘기지 않았다 → 세계의 실효 전투 식(`TuningState.combatFormulas()`)을 싣고, 실험 유닛 레벨을 행 식 LV·맨손 식에 넘긴다. 실험실 요약의 실제 공격력·명중·크리도 판정과 같은 식(`realAttackOf`·`frameValue`, 맨손은 굴림 가운데 값). 시험 `battleLab/build.test.ts` 하나 더함.
+- 가중치 표의 계산식 행 표시: 서버 `balance.table` 행마다 `formula`("pack"·"world"·null), 화면은 행 머리 "계산식(팩)"·"계산식(이 세계)" + 읽는 이름 안내, 칸은 점선·흐린 글, 범례 한 줄(그런 행이 있을 때만). 계산식 탭 제목은 탭 단추와 같은 이름이라 읽는 이름으로만 둔다.
+- 사용자 답(2026-11-01, 질문 277 뒤따름, 묶임, `docs/questions/2026-11-01-formulas.md`): Lv 1 맨손 명중 "현재 나쁘지 않음 70~80정도" → 그대로(76.5%). 회피 "기존 기획서를 참고하라 …" → 옛 기획 회피율 §6과 지금 식은 최종 범위 하나 말고 같았다 → **최종 회피 1%~85%** 범위를 더했다: 기본 식 `evade_chance` = `… rel = …; clamp(E + rel, 10, 850)`(팩 `formulas.json`도), 코드 모양 `evadeFinalPm`·`EVADE_FINAL_MIN_PM`·`MAX_PM`(`packages/sim/src/combat/formula.ts`). 판정은 계수표의 식(`evadeChancePm`)으로 셈하고 코드가 따로 자르지 않는다(계산식 탭 미리 보기 = 판정을 지키려고, 범위는 식에서 바꿀 수 있다). 같은 결정이 기획 D-495로 미러에 들어왔다(main `0fa5d2e`).
+- 시험: `formulaParity.test.ts` 최종 회피 = `evadeFinalPm`(무작위 3,000번, 두 끝을 모두 지나는지 셈) + 옛 기획 Lv60 매칭 표 25칸(±1%p). 방어 69 ÷ 공격 35 = 474‰(표 48%), 35 ÷ 69 = 10‰(범위 전 −93‰), 162 ÷ 35 = 734‰(표 73%). 표의 방어 104 ÷ 공격 162 칸(8%)은 그 문서 자신의 공식(25.0% − 14.3% = 10.7%)과 맞지 않아 공식 값(106‰)으로 본다.
+
+### 시뮬레이터 (Verified, 시드 1, 각 두 번 바이트까지 같음, 불변 조건 위반 0)
+| 시나리오 | main `e77837f` (SIM 4, core@21) | 이 가지 범위 전 (SIM 5, core@22) | 이 가지 범위 뒤 (SIM 5, core@22 `fa2099aa`) |
+|---|---|---|---|
+| war16 30일 (230줄) | `b6938f28` | `d4f8b340` | `95243fc1` |
+| stub16 180일 (403줄) | `90f6dcb5` | `1b98ad5d` | `2985e911` |
+| econ16 180일 (2,355줄) | `80b0131d` | `2d7d7d15` | `e9d92ab9` |
+- main ↔ 범위 전: 세 시나리오 모두 머리·요약의 `simVersion`·팩 판·해시와 `linesHash` 말고 바이트까지 같다(맨손 규칙이 시뮬 유닛에 닿지 않음, 앞 절 증명을 새 main 위에서 다시 확인).
+- 범위 전 ↔ 범위 뒤: stub16·econ16은 팩 해시·`linesHash`만 다르다. war16은 조우 전투 `battle` 줄 12개가 `ticks`만 다르다(이긴 쪽·쓰러짐 수 같음, 대부분 2~8틱 길어지고 하나는 4틱 짧아짐, 두 줄은 144·142 → 175). 요약 `combat.ticks` 132,068 → 132,168(+100). 회피가 1% 아래(음수 = 늘 맞음)이던 공격이 1%는 피하게 된 몫이다(Assumed: 시뮬 유닛은 AGI가 낮아 85% 위에는 닿지 않는다 — 어느 끝이 걸렸는지 따로 세지 않았다). `SIM_VERSION`은 5 그대로(이 가지가 이미 4 → 5).
+
+### 검사·시험
+- `TEST_DATABASE_URL=… pnpm check`(Verified): 통과 — 포맷·린트·타입·경계·결정성·파일 크기·다국어(2,536키)·디자인 값(460쌍)·콘텐츠(core@22), 단위·DB 시험 352파일 2,974개 통과. 첫 번째 실행은 파일 크기(`schema.ts` 1,002줄)로 실패 → 표 정의를 옮긴 뒤 통과. 시간 초과로 실패한 시험은 없었다.
+- `pnpm check:content origin/main`(Verified): core@22 통과, 단계 1·2·4a·4b.
+- `pnpm check:bundle`(Verified): 첫 화면 JS 104,585 B / 상한 131,416 B.
+- 화면 시험(Verified, `TEST_DATABASE_URL=… pnpm e2e e2e/formulas.spec.ts e2e/balance.spec.ts e2e/battleLab.spec.ts e2e/tuning.spec.ts`, 빌드한 `c4aaba3`): 58개 통과(6.1분) = 계산식 11(먼저 [계산식] 탭을 연다, 가중치 표의 HP 행 "계산식(이 세계)" 표시 포함)·밸런스 14·전투 실험실 17·설정 칸 16. 사진 `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/fin/e2e1/shots/`(`formulas-{pastel,dark}-{ko,en}-{390,1440}.png` 등).
+
+### 바꾼 파일(이 절)
+| 파일 | 이유 |
+|---|---|
+| `apps/game/src/editor/balance/BalancePanelScreen.tsx`, `apps/game/messages/{ko,en}.json` | [계산식] 탭, 합치기 |
+| `apps/game/src/editor/balance/{BalanceTable.tsx,WeightTab.tsx,balancePanel.css,balanceModel.test.ts}`, `packages/shared/src/balance.ts`, `apps/server/src/balance/{services.ts,balance.test.ts}` | 가중치 표의 계산식 행 표시 |
+| `apps/game/src/editor/balance/{FormulaTab.tsx,formulaTab.css}` | 탭 안 제목은 읽는 이름으로만 |
+| `apps/server/src/battleLab/{services.ts,build.ts,build.test.ts}`, `apps/server/src/battleReplay/services.ts` | 세계 계산식·유닛 레벨 |
+| `packages/shared/src/formulaSlots.ts`, `content/core/formulas.json`, `content/core/manifest.json`, `packages/sim/src/combat/{formula.ts,formulaParity.test.ts}`, `packages/sim/src/version.ts` | 최종 회피 1%~85%, core@22 |
+| `apps/server/src/db/{schema.ts,devToolsSchema.ts}` | 파일 크기 상한(표 모양 그대로) |
+| `e2e/formulas.spec.ts` | [계산식] 탭을 먼저 연다, 가중치 표의 계산식 행 표시 |
+| `docs/questions/2026-11-01-formulas.md`, `docs/adr/2026-11-01-formula-editor.md` | 사용자 답 기록, ADR "바뀜" |
+
+### 함께 바꿔야 하는 파일(덧붙임)
+- 회피 범위를 바꾸면 기본 식(`formulaSlots.ts` `DEFAULT_COMBAT_FORMULAS.evade_chance`)·팩 `formulas.json`·`formula.ts` `EVADE_FINAL_*`를 같이(시험이 셋을 견준다).
+- 밸런스 화면 탭을 더하면 `BalancePanelScreen.tsx` `TABS` 한 줄과 `dev_lab_tab_*` 메시지.
+
+### 남은 일
+- 279 맨손 건물 피해(아직 물음). 계산식 탭에서 전투 실험실 팀 A 유닛을 표본으로 쓰기(하지 않음). `PLAN.md` 질문 처리 줄에 275~279 답은 통합 담당 몫(이 가지는 고치지 않았다). NAS 미배포.

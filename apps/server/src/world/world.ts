@@ -491,7 +491,7 @@ export function startWorld(
         for (const listener of battleEnded) listener(battleId, attackerWon);
       },
       onError: (error) => log.error({ err: error }, "battle failed"),
-      onComputed: (stats) => log.info(stats, "battle computed"),
+      onComputed: (cost) => log.info(cost, "battle computed"),
     });
     const cyborgs = createCyborgService({
       loaded: cyborgData,

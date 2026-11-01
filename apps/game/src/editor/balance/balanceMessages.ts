@@ -57,6 +57,7 @@ const ERROR_TEXT: Readonly<Record<BalanceErrorKey, () => string>> = {
   invalid_note: m.dev_balance_err_invalid_note,
   duplicate_entry: m.dev_balance_err_duplicate_entry,
   revision_conflict: m.dev_balance_err_revision_conflict,
+  invalid_formula: m.dev_tuning_err_invalid_formula,
   forbidden: m.dev_balance_err_forbidden,
   unauthorized: m.auth_notice_session_ended,
   unavailable: m.dev_balance_err_unavailable,

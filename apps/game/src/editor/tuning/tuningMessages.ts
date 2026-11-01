@@ -70,6 +70,7 @@ const ERROR_TEXT: Readonly<Record<TuningErrorKey, () => string>> = {
   duplicate_entry: m.dev_tuning_err_duplicate_entry,
   revision_conflict: m.dev_tuning_err_revision_conflict,
   rate_limited: m.dev_tuning_err_rate_limited,
+  invalid_formula: m.dev_tuning_err_invalid_formula,
   forbidden: m.dev_tuning_err_forbidden,
   unauthorized: m.auth_notice_session_ended,
   unavailable: m.dev_tuning_err_unavailable,
@@ -101,6 +102,7 @@ export const DROP_TEXT: Readonly<Record<TuningDropReason, () => string>> = {
   unit_changed: m.dev_tuning_drop_unit_changed,
   out_of_range: m.dev_tuning_drop_out_of_range,
   rules_conflict: m.dev_tuning_drop_rules_conflict,
+  invalid_formula: m.dev_tuning_drop_invalid_formula,
 };
 
 const HISTORY_TEXT: Readonly<Record<TuningHistoryAction, (revision: number | null) => string>> = {

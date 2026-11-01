@@ -28,6 +28,7 @@ import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { ContributionView, DuelsView } from "./BalanceResults.tsx";
 import { BalanceTable } from "./BalanceTable.tsx";
+import FormulaTab from "./FormulaTab.tsx";
 import { errorText, primaryCode, primaryName, problemText } from "./balanceMessages.ts";
 import {
   type BalanceErrorInfo,
@@ -408,6 +409,9 @@ export default function BalancePanelScreen() {
               <p className="field-hint">{m.dev_balance_duels_empty()}</p>
             )}
           </section>
+
+          {/* 임시 자리(계산식 탭): work/battle-lab의 탭 구조가 생기면 그 탭으로 옮긴다 */}
+          <FormulaTab />
 
           <LiveMessage tone="error" lines={problem.lines} version={problem.version} />
           {pending.size > 0 ? (

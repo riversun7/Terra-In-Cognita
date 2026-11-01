@@ -1,0 +1,63 @@
+/*
+ * 개발자 전투 다시보기(BattleReplayLabScreen) — 틀 숨김, 화면 전체. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 머리 줄(뒤로·제목·시드·새 전투) + 바이트 줄 + 보기 화면(battle/battleReplay.css).
+ */
+.brl-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+.brl-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-w) solid var(--color-border);
+  background-color: var(--color-surface);
+}
+.brl-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-display);
+}
+.brl-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.brl-seed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+.brl-seed .input {
+  width: 7em;
+  min-height: var(--control-h-sm);
+  font-variant-numeric: tabular-nums;
+}
+.brl-stats {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border-bottom: var(--border-w) solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+.brl-center {
+  padding: var(--space-4);
+}

@@ -1,0 +1,470 @@
+/*
+ * 전투 다시보기 화면(BattleReplayView) — 값은 styles/tokens.css의 var(--…)만 쓴다. docs/adr/2026-11-01-battle-replay.md 7절.
+ * - 휴대폰 세로(60em 미만): 위 줄 → 지도 → 조작 → 유닛 줄 → 기록 판(접힘). 넓은 화면(60em 이상): 지도 옆에 기록 판.
+ * - 편 색: 편 0 = --color-market-blue, 편 1 = --color-danger(3D 고리의 파랑·빨강과 같은 계열).
+ * - 지도 위 글자(막대 이름·숫자)는 화면 바탕 색 테두리로 읽히게 한다: 세계 색은 테마와 상관없다(D-070).
+ */
+.br-view {
+  --team-0: var(--color-market-blue);
+  --team-1: var(--color-danger);
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(14rem, 1fr) auto auto auto;
+  grid-template-areas: "top" "stage" "controls" "units" "log";
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+[data-team="0"] {
+  --team: var(--team-0);
+}
+[data-team="1"] {
+  --team: var(--team-1);
+}
+
+/* ── 위 줄: 시각·조건·남은 수 ── */
+.br-top {
+  grid-area: top;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-w) solid var(--color-border);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.br-time {
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+.br-condition {
+  color: var(--color-text-muted);
+}
+.br-score {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+.br-score-side {
+  padding: 0 var(--space-2);
+  border-left: var(--border-w) solid var(--team);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 지도 + 덧층 ── */
+.br-stage {
+  grid-area: stage;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+.br-canvas {
+  position: absolute;
+  inset: 0;
+}
+.br-hud {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+.br-tag {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hairline);
+  width: calc(var(--space-12) + var(--space-2));
+  margin-left: calc((var(--space-12) + var(--space-2)) / -2);
+  translate: 0 -100%;
+  will-change: transform;
+}
+.br-tag[data-status="down"] {
+  opacity: 0.55;
+}
+.br-tag-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-text);
+  text-shadow:
+    0 0 var(--space-1) var(--color-surface),
+    0 0 var(--hairline) var(--color-surface);
+}
+.br-tag[data-selected="true"] .br-tag-name {
+  text-decoration: underline;
+  text-decoration-color: var(--color-focus);
+  text-decoration-thickness: var(--border-w);
+}
+.br-tag-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hairline);
+  width: 100%;
+  padding: var(--hairline);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+}
+.br-bar {
+  display: block;
+  height: var(--space-1);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+}
+.br-bar-hp {
+  height: calc(var(--space-1) + var(--hairline));
+}
+.br-fill {
+  display: block;
+  height: 100%;
+  transform-origin: left center;
+  background-color: var(--team, var(--color-sec-hp));
+}
+.br-bar-armor .br-fill {
+  background-color: var(--color-sec-armor-hp);
+}
+.br-bar-shield .br-fill {
+  background-color: var(--color-sec-shield-hp);
+}
+
+/* 떠오르는 숫자: 물리 = 글자색, 크리 = 경고색·크게, 속성 = 속성 공격 색, 회복 = 성공색, 지속 피해 = 위험색, 빗나감·회피 = 흐림 */
+.br-num {
+  position: absolute;
+  top: 0;
+  left: 0;
+  translate: -50% -100%;
+  font-family: var(--font-display);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-display);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
+  color: var(--color-text);
+  text-shadow:
+    0 0 var(--space-1) var(--color-surface),
+    0 0 var(--hairline) var(--color-surface),
+    0 0 var(--hairline) var(--color-surface);
+  will-change: transform, opacity;
+}
+.br-num[data-kind="crit"],
+.br-num[data-crit="true"] {
+  font-size: var(--font-size-lg);
+  color: var(--color-warning);
+}
+.br-num[data-kind="elemental"] {
+  color: var(--color-sec-elemental-attack);
+}
+.br-num[data-kind="heal"] {
+  color: var(--color-success);
+}
+.br-num[data-kind="shield"] {
+  color: var(--color-sec-shield-hp);
+}
+.br-num[data-kind="dot"] {
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+}
+.br-num[data-kind="miss"],
+.br-num[data-kind="evade"] {
+  font-size: var(--font-size-xs);
+  font-family: var(--font-body);
+  color: var(--color-text-muted);
+}
+
+.br-notice {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  right: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-sm);
+}
+.br-show-summary {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+}
+
+/* ── 끝 요약(지도 위 카드) ── */
+.br-summary {
+  position: absolute;
+  inset: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: var(--sheet-max);
+  margin: 0 auto;
+  padding: var(--space-3);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+.br-summary-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-display);
+  line-height: var(--line-height-tight);
+}
+.br-summary-sub {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.br-summary-sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.br-summary-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hairline);
+  padding: var(--space-2);
+  border-left: var(--border-w) solid var(--team);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+.br-summary-table-wrap {
+  overflow-x: auto;
+}
+.br-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+.br-summary-table th,
+.br-summary-table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: var(--hairline) solid var(--color-border);
+  text-align: right;
+  white-space: nowrap;
+}
+.br-summary-table th[scope="row"],
+.br-summary-table thead th:first-child {
+  text-align: left;
+}
+.br-summary-table tr[data-status="down"] th[scope="row"] {
+  color: var(--color-text-muted);
+}
+.br-summary-name {
+  padding-left: var(--space-1);
+  border-left: var(--border-w) solid var(--team);
+  font-weight: var(--font-weight-strong);
+}
+.br-summary-role {
+  color: var(--color-text-muted);
+}
+.br-summary-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* ── 조작 ── */
+.br-controls {
+  grid-area: controls;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-w) solid var(--color-border);
+  background-color: var(--color-surface);
+}
+.br-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.br-play {
+  min-width: calc(var(--tap-size) * 2);
+}
+.br-speed {
+  display: flex;
+  gap: var(--hairline);
+  margin-left: auto;
+}
+.br-speed > button {
+  min-width: var(--tap-size);
+  padding-inline: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+.br-speed > button[aria-pressed="true"],
+.br-unit-tools > button[aria-pressed="true"] {
+  border-color: var(--color-focus);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.br-seek {
+  width: 100%;
+  min-height: var(--tap-size);
+  accent-color: var(--color-primary);
+}
+
+/* ── 유닛 줄 ── */
+.br-units {
+  grid-area: units;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-w) solid var(--color-border);
+}
+.br-unit-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.br-unit-row {
+  display: flex;
+  gap: var(--space-1);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.br-unit-chip {
+  flex: 0 0 auto;
+  min-width: var(--tap-size);
+  padding-inline: var(--space-2);
+  border-left: var(--border-w) solid var(--team);
+}
+.br-unit-chip[data-status="down"],
+.br-unit-chip[data-status="retreated"] {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+.br-unit-chip[aria-pressed="true"] {
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 var(--focus-w) var(--color-focus);
+}
+.br-unit-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.br-vision {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+.br-vision .input {
+  width: auto;
+  min-height: var(--control-h-sm);
+}
+.br-unit-detail {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 기록 판 ── */
+.br-log {
+  grid-area: log;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-w) solid var(--color-border);
+}
+.br-log-toggle {
+  justify-content: space-between;
+  width: 100%;
+}
+.br-log-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+.br-log-end {
+  margin: var(--space-2) 0 0;
+  font-weight: var(--font-weight-strong);
+  font-size: var(--font-size-sm);
+}
+.br-log-list {
+  display: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  max-height: 14rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.br-log[data-open="true"] .br-log-list {
+  display: block;
+}
+.br-log-line {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--hairline) 0;
+  border-bottom: var(--hairline) solid var(--color-border);
+}
+.br-log-line[data-kind="down"],
+.br-log-line[data-kind="end"] {
+  font-weight: var(--font-weight-strong);
+}
+.br-log-time {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+.br-log-empty {
+  color: var(--color-text-muted);
+}
+
+/* 넓은 화면: 지도 옆에 기록 판(늘 펼침) */
+@media (min-width: 60em) {
+  .br-view {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "top top" "stage log" "controls log" "units log";
+  }
+  .br-log {
+    border-top: none;
+    border-left: var(--border-w) solid var(--color-border);
+  }
+  .br-log-toggle {
+    display: none;
+  }
+  .br-log-list {
+    display: block;
+    flex: 1 1 auto;
+    max-height: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .br-tag,
+  .br-num {
+    will-change: auto;
+  }
+}

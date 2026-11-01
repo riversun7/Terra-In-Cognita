@@ -82,8 +82,10 @@ export function combineOrders(primary: PrimaryStat, r1: DuelReport, r2: DuelRepo
   const timeoutLosses = r1.bTimeoutLeads + r2.aTimeoutLeads;
   const timeoutEven = r1.timeouts + r2.timeouts - timeoutWins - timeoutLosses;
   const avgMs = runs === 0 ? 0 : Math.floor((r1.avgMs * r1.runs + r2.avgMs * r2.runs) / runs);
+  // r2에서는 기준 + 10이 편 2라 차를 뒤집는다
+  const marginPm = runs === 0 ? 0 : Math.round((r1.shareLeadPmSum - r2.shareLeadPmSum) / runs);
   const row = { primary, runs, wins, losses, timeoutWins, timeoutLosses, timeoutEven, avgMs };
-  return { ...row, scorePm: balanceScorePm(row) };
+  return { ...row, scorePm: balanceScorePm(row), marginPm };
 }
 
 function duelRows(job: DuelJob, table: readonly StatRow[]): BalanceDuelRow[] {

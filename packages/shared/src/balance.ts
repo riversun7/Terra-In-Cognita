@@ -49,7 +49,11 @@ export interface BalanceRowView {
 export interface BalanceWeaponView {
   readonly id: string;
   readonly name: { readonly ko: string; readonly en: string };
-  readonly kind: "physical" | "elemental";
+  /** 공격력 칸(D-465: 하나 또는 둘). 없는 칸은 null */
+  readonly physical: { readonly attack: number; readonly appropriate: number } | null;
+  readonly elemental: { readonly attack: number; readonly appropriate: number } | null;
+  /** 기본 공격이 쓰는 칸 */
+  readonly basic: "physical" | "elemental";
 }
 
 export interface BalanceDuelSettings {
@@ -76,6 +80,32 @@ export interface BalanceEdit {
   readonly key: string;
   readonly value: number | null;
 }
+
+export interface BalanceContributionInput {
+  readonly primaries: BalancePrimaries;
+  readonly edits: readonly BalanceEdit[];
+}
+
+export interface BalanceDuelsInput extends BalanceDuelSettings {
+  readonly edits: readonly BalanceEdit[];
+}
+
+/** 담은 변경 수 상한(가중치 칸 18행 × 9칸보다 넉넉히, tuning.save 묶음 상한과 같다) */
+export const BALANCE_EDITS_MAX = 200;
+
+/**
+ * 서버가 받지 않은 까닭(오류 data.reason): 대결 설정이 상한 밖, 모르는 무기, 다른 대결이 도는 중(서버 전체 하나), 사용자 속도 제한,
+ * 워커 제한 시간·오류
+ */
+export const BALANCE_REASONS = [
+  "invalid_settings",
+  "unknown_weapon",
+  "busy",
+  "rate_limited",
+  "timeout",
+  "failed",
+] as const;
+export type BalanceReason = (typeof BALANCE_REASONS)[number];
 
 /** 표 한 벌의 기여: 2차 스탯마다 기준 값과 1차 +10 차이(PrimaryStat 키) */
 export interface BalanceContributionTable {
@@ -117,6 +147,8 @@ export interface BalanceDuelRow {
   readonly avgMs: number;
   /** (승 + 판정승 + 같음 ÷ 2) ÷ 판 수(‰) */
   readonly scorePm: number;
+  /** 끝났을 때 남은 (HP + 아머 + 쉴드) 몫의 차(기준 + 10 − 기준)의 판 평균(‰). 모두 이겨도 얼마나 앞서는지 */
+  readonly marginPm: number;
 }
 
 export interface BalanceDuelsResponse {

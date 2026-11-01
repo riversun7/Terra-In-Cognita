@@ -24,6 +24,13 @@ import type { CyborgGetResponse, UnitsListResponse } from "@terra/shared/roster"
 import type { FactionOverviewResponse } from "@terra/shared/faction";
 import type { MailListResponse } from "@terra/shared/mail";
 import type { TuningExportResponse, TuningHistoryResponse, TuningListResponse } from "@terra/shared/tuning";
+import type {
+  BalanceContributionInput,
+  BalanceContributionResponse,
+  BalanceDuelsInput,
+  BalanceDuelsResponse,
+  BalanceTableResponse,
+} from "@terra/shared/balance";
 import type { PlanetLibraryBase } from "@terra/shared";
 import type {
   PlanetDraftRevisionInfo,
@@ -183,6 +190,17 @@ export interface TuningServices {
   revertAll(viewer: Viewer, input: { expectedRevision: number }): Promise<TuningListResponse>;
 }
 
+/**
+ * 밸런스 화면(docs/adr/2026-11-01-balance-screen.md 3절, src/balance/services.ts). 권한·조회 속도 제한은 D1(tuning:read)이 먼저 본다.
+ * 오류는 data.reason(@terra/shared BALANCE_REASONS)
+ */
+export interface BalanceServices {
+  table(): Promise<BalanceTableResponse>;
+  contribution(input: BalanceContributionInput): Promise<BalanceContributionResponse>;
+  /** 시드 대결(워커). 사용자 속도 제한·서버 전체 한 번에 하나 */
+  duels(viewer: Viewer, input: BalanceDuelsInput): Promise<BalanceDuelsResponse>;
+}
+
 /** 홈 자료 조회의 조건. preview는 프로시저가 권한(home: preview, dev·admin)을 본 뒤에만 true다 */
 export interface HomeQuery {
   readonly preview: boolean;
@@ -295,6 +313,8 @@ export interface TrpcContext {
   mail: MailServices;
   /** 설정 칸 패널. 인증(DB)과 팩 설정 칸 접근자가 있을 때만 */
   tuning?: TuningServices | undefined;
+  /** 밸런스 화면. 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */
+  balance?: BalanceServices | undefined;
 }
 
 export interface TrpcContextOptions {

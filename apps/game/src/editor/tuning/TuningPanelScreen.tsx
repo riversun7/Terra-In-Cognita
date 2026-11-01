@@ -11,6 +11,7 @@ import { refreshSession } from "../../auth/session.ts";
 import { api } from "../../net/api.ts";
 import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
+import { AppLink } from "../../shell/AppLink.tsx";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
@@ -160,7 +161,8 @@ export default function TuningPanelScreen() {
     const revision = list.revision;
     setConfirm({
       title: m.dev_tuning_confirm_revert_all_title(),
-      body: m.dev_tuning_confirm_revert_all_body({ count: changedCount }),
+      // 가중치 표 칸 덮어쓰기도 함께 지운다
+      body: m.dev_tuning_confirm_revert_all_body({ count: changedCount + list.statOverrides }),
       confirmLabel: m.dev_tuning_revert_all(),
       onConfirm: () => {
         setBusy(true);
@@ -221,6 +223,12 @@ export default function TuningPanelScreen() {
               {m.dev_tuning_changed_count({ count: changedCount })}
             </li>
             <li>{m.dev_tuning_live_count({ count: liveCount })}</li>
+            {/* 가중치 표 칸 덮어쓰기는 밸런스 화면에서 본다(docs/adr/2026-11-01-balance-screen.md 1절) */}
+            <li className="tp-stat-overrides" data-count={list.statOverrides}>
+              <AppLink to={{ route: "dev_balance" }}>
+                {m.dev_tuning_stat_overrides({ count: list.statOverrides })}
+              </AppLink>
+            </li>
           </ul>
           <div className="tp-toolbar">
             <div className="field tp-search">
@@ -269,7 +277,7 @@ export default function TuningPanelScreen() {
               <button type="button" className="button-small tp-export-button" onClick={onExport}>
                 {m.dev_tuning_export()}
               </button>
-              {changedCount > 0 ? (
+              {changedCount + list.statOverrides > 0 ? (
                 <button
                   type="button"
                   className="button-small tp-revert-all"

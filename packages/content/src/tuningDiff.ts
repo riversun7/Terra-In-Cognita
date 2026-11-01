@@ -74,7 +74,7 @@ export const tuningDiffSchema = z
       const seen = new Set<string>();
       diff.statRows.forEach((change, index) => {
         if (typeof change !== "object" || change === null) return;
-        const key = `${String(change.row)}.${String(change.field)}`;
+        const key = `${change.row}.${change.field}`;
         if (seen.has(key))
           ctx.addIssue({ code: "custom", path: ["statRows", index], message: `칸이 두 번: ${key}` });
         seen.add(key);

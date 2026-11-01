@@ -1,9 +1,9 @@
 // 설정 칸 실효 값 접근자 시험 — docs/adr/2026-11-01-dev-settings-panel.md 5·6·7절·"꼬임 점검". 저장소 팩을 서버 시작과 같은 길로 읽는다.
 import { loadContentPack } from "@terra/content/node";
-import { TUNING_KEYS, societyCoefficientsFrom } from "@terra/sim";
+import { type StatRow, TEST_STAT_TABLE, TUNING_KEYS, societyCoefficientsFrom } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
-import { tuningEntriesOf } from "../world/combatCatalog.ts";
+import { statRowsOf, tuningEntriesOf } from "../world/combatCatalog.ts";
 import { SERVER_LIVE_PATHS, tuningScopeOf } from "./scope.ts";
 import { type TuningOverrideRecord, createTuningState } from "./state.ts";
 
@@ -166,6 +166,137 @@ describe("설정 칸 실효 값", () => {
     ]);
     // 고르기만 하고 메모리는 그대로
     expect(state.appliedCount()).toBe(0);
+  });
+});
+
+function packRows() {
+  const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
+  if (!loaded.source) throw new Error("content pack");
+  return statRowsOf(loaded.source);
+}
+const withRows = () => createTuningState(packEntries(), packRows());
+const hpOf = (table: readonly StatRow[]) => table.find((row) => row.id === "hp");
+const evadeOf = (table: readonly StatRow[]) => table.find((row) => row.id === "evade");
+
+describe("가중치 표 칸 덮어쓰기(밸런스 화면, docs/adr/2026-11-01-balance-screen.md 1절·꼬임 점검)", () => {
+  it("덮어쓰기가 없으면 팩 표 그대로(= sim 시험 표), 문제 없음. 키는 켜진 행·모양에 있는 칸만", () => {
+    const state = withRows();
+    expect(state.statTable()).toEqual(TEST_STAT_TABLE);
+    expect(state.problems()).toEqual([]);
+    expect(state.statCell("hp.vit")).toMatchObject({ field: "vit", packValue: 3000, unit: "pm" });
+    expect(state.statCell("evade.half")).toMatchObject({ field: "half", packValue: 250, unit: "points" });
+    // 양 모양에 cap 없음, 확률 모양에 base 없음, 없는 행
+    expect(state.statCell("hp.cap")).toBeUndefined();
+    expect(state.statCell("evade.base")).toBeUndefined();
+    expect(state.statCell("gone_row.str")).toBeUndefined();
+    expect(state.slot("n39_grant_base")?.packValue).toBe(72);
+  });
+
+  it("install은 표를 한 번에 바꿔 끼운다: 받아 둔 표는 그대로, 판마다 새 표(같은 판이면 같은 객체), 칸 수", () => {
+    const state = withRows();
+    const before = state.statTable();
+    state.install([record("hp.vit", 4000, 3000, 1, "pm"), record("evade.cap", 900, 850, 1, "pm")], 3);
+    const after = state.statTable();
+    expect(after).not.toBe(before);
+    expect(state.statTable()).toBe(after);
+    expect(hpOf(after)?.weights[3]).toBe(4000);
+    expect(evadeOf(after)).toMatchObject({ cap: 900, halfConstant: 250 });
+    expect(hpOf(before)?.weights[3]).toBe(3000);
+    expect(state.appliedCount()).toBe(2);
+    expect(state.statOverrideCount()).toBe(2);
+    expect(Object.isFrozen(after)).toBe(true);
+  });
+
+  it("plan: 없는 칸·모양에 없는 칸은 unknown_entry, 칸 범위 밖은 out_of_range, 가치 없는 1차를 만들면 rules_conflict", () => {
+    const state = withRows();
+    expect(state.plan([{ id: "hp.cap", value: 10 }])).toMatchObject({ ok: false, reason: "unknown_entry" });
+    expect(state.plan([{ id: "nope.str", value: 10 }])).toMatchObject({ ok: false, reason: "unknown_entry" });
+    expect(state.plan([{ id: "hp.str", value: 100_001 }])).toMatchObject({
+      ok: false,
+      reason: "out_of_range",
+    });
+    expect(state.plan([{ id: "evade.cap", value: 1001 }])).toMatchObject({
+      ok: false,
+      reason: "out_of_range",
+    });
+    expect(state.plan([{ id: "evade.half", value: 0 }])).toMatchObject({ ok: false, reason: "out_of_range" });
+    // STR를 쓰는 행: hp·armor_hp·shield_hp·defense_rate·physical_attack·mp → 모두 0이면 STR는 가치 없는 1차
+    const strRows = state.statTable().filter((row) => (row.weights[0] ?? 0) !== 0);
+    const zeroStr = strRows.map((row) => ({ id: `${row.id}.str`, value: 0 }));
+    expect(state.plan(zeroStr)).toEqual({
+      ok: false,
+      reason: "rules_conflict",
+      id: null,
+      problems: ["stat_primary_unused"],
+    });
+    // 하나만 남기면 받는다
+    expect(state.plan(zeroStr.slice(1))).toMatchObject({ ok: true });
+  });
+
+  it("plan: 설정 칸과 섞은 묶음, 팩 값·null은 되돌리기(덮어쓰기 없는 칸은 할 일 없음)", () => {
+    const state = withRows();
+    const plan = state.plan([
+      { id: "hp.vit", value: 3500 },
+      { id: "n39_grant_base", value: 90 },
+      { id: "evade.cap", value: 850 },
+    ]);
+    expect(plan).toEqual({
+      ok: true,
+      changes: [
+        { id: "hp.vit", before: null, after: 3500 },
+        { id: "n39_grant_base", before: null, after: 90 },
+      ],
+    });
+    state.install([record("hp.vit", 3500, 3000, 1, "pm")], 1);
+    expect(state.plan([{ id: "hp.vit", value: null }])).toEqual({
+      ok: true,
+      changes: [{ id: "hp.vit", before: 3500, after: null }],
+    });
+  });
+
+  it("statTableWith: 미리 보기는 팩에 있고 범위 안인 칸만 얹고 지금 표는 그대로", () => {
+    const state = withRows();
+    const preview = state.statTableWith([
+      { id: "hp.vit", value: 5000 },
+      { id: "hp.str", value: 999_999 },
+      { id: "nope.str", value: 1 },
+      { id: "n39_grant_base", value: 90 },
+    ]);
+    expect(hpOf(preview)?.weights).toEqual([1500, 1000, 1500, 5000, 1000, 1200]);
+    expect(hpOf(state.statTable())?.weights[3]).toBe(3000);
+  });
+
+  it("selectAtBoot: 팩 칸 값이 바뀌었으면 팩이 이김, 행이 빠졌거나 모양이 바뀐 칸은 unknown_entry, 범위 밖·가치 없는 1차는 지움", () => {
+    const state = withRows();
+    const strRows = state.statTable().filter((row) => (row.weights[0] ?? 0) !== 0);
+    const selection = state.selectAtBoot([
+      record("hp.vit", 3600, 3000, 1, "pm"),
+      // 저장 뒤에 팩이 바꿈(저장 때 팩 값 150 ≠ 지금 200)
+      record("shield_hp.dex", 400, 150, 2, "pm"),
+      // 모양에 없는 칸(팩이 양 → 확률로 바꾼 경우와 같다)·없는 행
+      record("hp.cap", 500, 600, 3, "pm"),
+      record("old_row.str", 10, 0, 4, "pm"),
+      // 단위가 다름
+      record("evade.half", 300, 250, 5, "pm"),
+      // 지금 범위 밖(DB에 남은 옛 값)
+      record("evade.cap", 1500, 850, 6, "pm"),
+      // 저장 차례로 얹다 STR가 모든 행에서 0이 되는 마지막 칸은 지운다
+      ...strRows.map((row, index) => record(`${row.id}.str`, 0, row.weights[0] ?? 0, 10 + index, "pm")),
+    ]);
+    expect(selection.keep.map((row) => row.id)).toEqual([
+      "hp.vit",
+      ...strRows.slice(0, -1).map((row) => `${row.id}.str`),
+    ]);
+    expect(selection.packWon.map(({ row, packValue }) => [row.id, packValue])).toEqual([
+      ["shield_hp.dex", 200],
+    ]);
+    expect(selection.dropped.map(({ row, reason }) => [row.id, reason])).toEqual([
+      ["hp.cap", "unknown_entry"],
+      ["old_row.str", "unknown_entry"],
+      ["evade.half", "unit_changed"],
+      ["evade.cap", "out_of_range"],
+      [`${strRows.at(-1)?.id}.str`, "rules_conflict"],
+    ]);
   });
 });
 

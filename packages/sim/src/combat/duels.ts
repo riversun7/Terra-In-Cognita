@@ -19,6 +19,11 @@ export interface DuelReport {
   /** 시간 초과 가운데 남은 (HP + 아머 + 쉴드) ÷ 최대(‰)가 더 큰 편(밸런스 화면의 판정, 같으면 어느 쪽도 아님) */
   readonly aTimeoutLeads: number;
   readonly bTimeoutLeads: number;
+  /**
+   * 판마다 끝났을 때 (편 1 남은 몫 − 편 2 남은 몫)(‰)의 합(진 편은 0에 가깝다). 승패만으로는 모두 이기는 경우(새 유닛 +10)에도
+   * 얼마나 앞서는지 보인다(밸런스 화면의 "남은 몫 차")
+   */
+  readonly shareLeadPmSum: number;
 }
 
 /** 대결 선택(밸런스 화면): 지도 한 변(기본 64), 제한 시간(ms, 기본 계수표 일반 전투) */
@@ -107,6 +112,7 @@ export function runDuels(
   let timeouts = 0;
   let aTimeoutLeads = 0;
   let bTimeoutLeads = 0;
+  let shareLeadPmSum = 0;
   let totalMs = 0;
   for (let run = 0; run < runs; run++) {
     const { result, state } = runBattle(
@@ -117,9 +123,10 @@ export function runDuels(
     );
     if (result.winner === 1) aWins += 1;
     else bWins += 1;
+    const lead = remainingPm(state, 1) - remainingPm(state, 2);
+    shareLeadPmSum += lead;
     if (result.reason === "timeout") {
       timeouts += 1;
-      const lead = remainingPm(state, 1) - remainingPm(state, 2);
       if (lead > 0) aTimeoutLeads += 1;
       else if (lead < 0) bTimeoutLeads += 1;
     }
@@ -133,6 +140,7 @@ export function runDuels(
     avgMs: runs === 0 ? 0 : Math.floor(totalMs / runs),
     aTimeoutLeads,
     bTimeoutLeads,
+    shareLeadPmSum,
   };
 }
 

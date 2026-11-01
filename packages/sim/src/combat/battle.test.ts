@@ -351,17 +351,17 @@ describe("피해 두 몫과 회복(D-458·D-459)", () => {
   });
 });
 
-describe("틱 안 행동 차례(밸런스 화면 편 쏠림 진단, SIM_VERSION 4)", () => {
-  /** 한 방에 쓰러지는(체력 10, 공격 20, 늘 맞음) 같은 유닛 1 대 1을 거리 gap으로 세운다. 먼저 친 쪽이 이긴다 */
-  function oneHitWinner(gap: number, seed: number): number {
-    const fragile = { maxHp: 10 };
-    const init = {
-      ...duel(1, seed),
-      units: [unit(1, 1, 1, 10, 16, fragile), unit(101, 2, 11, 10 + gap, 16, fragile)],
-    };
-    return runBattle(init, []).result.winner;
-  }
+/** 한 방에 쓰러지는(체력 10, 공격 20, 늘 맞음) 같은 유닛 1 대 1을 거리 gap으로 세운다. 먼저 친 쪽이 이긴다 */
+function oneHitWinner(gap: number, seed: number): number {
+  const fragile = { maxHp: 10 };
+  const init = {
+    ...duel(1, seed),
+    units: [unit(1, 1, 1, 10, 16, fragile), unit(101, 2, 11, 10 + gap, 16, fragile)],
+  };
+  return runBattle(init, []).result.winner;
+}
 
+describe("틱 안 행동 차례(밸런스 화면 편 쏠림 진단, SIM_VERSION 4)", () => {
   it("같은 틱에 맞닿은 두 유닛 가운데 누가 먼저 치는지는 유닛 ID 차례·거리 홀짝으로 정해지지 않는다", () => {
     for (const gap of [8, 9]) {
       let side1 = 0;

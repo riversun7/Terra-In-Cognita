@@ -50,6 +50,7 @@ describe("설정 칸 여러 칸 규칙 검사(D1)", () => {
 describe("가중치 표 여러 칸 규칙(밸런스 화면, D-458 가치 없는 1차)", () => {
   it("시험 표(= 팩 stat_rows)에는 문제가 없다", () => {
     expect(statTableProblems(TEST_STAT_TABLE)).toEqual([]);
+    expect(statTableProblems([])).toEqual([]);
   });
 
   it("켜진 모든 행에서 가중치가 0인 1차 스탯이 있으면 stat_primary_unused", () => {

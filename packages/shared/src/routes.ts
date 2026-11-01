@@ -176,6 +176,14 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
+  // 밸런스 화면(docs/adr/2026-11-01-balance-screen.md 7절): 틀 안 빽빽한 표. 가중치 칸을 바꾸면 그 세계에 바로 든다
+  dev_balance: {
+    path: "/dev/balance",
+    search: [],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
   dev_gpu_bench: {
     path: "/dev/gpu-bench",
     search: [],

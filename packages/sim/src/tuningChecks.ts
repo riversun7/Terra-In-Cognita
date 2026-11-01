@@ -72,6 +72,8 @@ export function newTuningProblems(
 export function statTableProblems(
   table: readonly { readonly weights: readonly number[] }[],
 ): TuningProblem[] {
+  // 표가 없으면(가중치 표를 싣지 않은 접근자·시험) 볼 것이 없다
+  if (table.length === 0) return [];
   for (let column = 0; column < PRIMARY_COUNT; column++)
     if (table.every((row) => (row.weights[column] ?? 0) === 0)) return ["stat_primary_unused"];
   return [];

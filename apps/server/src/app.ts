@@ -35,7 +35,7 @@ import { cacheViewer, createWorldGateway } from "./world/gateway.ts";
 import { createCyborgGateway } from "./cyborg/gateway.ts";
 import { type CyborgService, cyborgReadsOf } from "./cyborg/service.ts";
 import { createWorldSummaryBackend } from "./world/summarySources.ts";
-import type { RosterCatalog } from "./roster/catalog.ts";
+import { type RosterCatalog, testRosterCatalog } from "./roster/catalog.ts";
 import { createWorldRosterSource } from "./roster/worldUnits.ts";
 import { createSecondMapLab } from "./world/secondMapLab.ts";
 import { registerTerrainRoute } from "./world/terrainRoute.ts";
@@ -43,6 +43,8 @@ import type { MapPropInput } from "@terra/planet/secondMap";
 import type { EconomyCatalogResponse } from "@terra/shared/economy";
 import type { TuningState } from "./tuning/state.ts";
 import { type TuningLimits, bootTuning, createTuningShared } from "./tuning/services.ts";
+import { type BalanceLimits, createBalanceServices } from "./balance/services.ts";
+import { inlineDuelRunner, workerDuelRunner } from "./balance/runner.ts";
 import { createTerrainService } from "./world/terrainService.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, type WorldConfig, startWorld } from "./world/world.ts";
 
@@ -123,6 +125,16 @@ export interface AppOptions {
    * 개발자 패널(tuning.*)을 연다. 모든 세계에서 바로 든다(사용자 답 204·205). 없으면 sim 시험 계수표·패널 없음
    */
   tuning?: { state: TuningState; packId: string; limits?: Partial<TuningLimits> | undefined } | undefined;
+  /**
+   * 밸런스 화면 대결을 어디서 돌리나(docs/adr/2026-11-01-balance-screen.md 4절): 워커(요청마다 띄움) 또는 같은 스레드(시험).
+   * 화면은 tuning이 있을 때만 연다. 없으면 같은 스레드
+   */
+  balance?:
+    | {
+        runner: { kind: "worker"; workerUrl: URL } | { kind: "inline" };
+        limits?: Partial<BalanceLimits> | undefined;
+      }
+    | undefined;
   /** 경제 화면 목록(팩 items·recipes 등, src/economyView/catalog.ts). 없으면 빈 목록 */
   economyCatalog?: EconomyCatalogResponse | undefined;
   /**
@@ -239,6 +251,21 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         limits: options.tuning.limits,
       })
     : undefined;
+  // 밸런스 화면(가중치 표·기여·시드 대결): 설정 칸 접근자 위에서 돈다. 대결은 워커
+  const balanceRunner = options.balance?.runner;
+  const balance = tuningShared
+    ? createBalanceServices({
+        tuning: tuningShared,
+        roster: options.roster ?? testRosterCatalog(),
+        runner:
+          balanceRunner?.kind === "worker"
+            ? workerDuelRunner({ workerUrl: balanceRunner.workerUrl })
+            : inlineDuelRunner(),
+        now,
+        log: app.log,
+        limits: options.balance?.limits,
+      })
+    : undefined;
   const tuningDb = options.db;
   if (tuningShared && tuningDb) {
     // 덮어쓰기를 싣는다(요청을 받기 전에). DB를 기다리는 다시 시도는 월드 부팅과 같다
@@ -322,6 +349,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       factionRules: tuningState ? () => factionRulesFrom(tuningState.society()) : undefined,
       // 설정 칸 패널: 인증이 켜져 있을 때만 맥락이 서비스를 만든다
       tuning: tuningShared,
+      balance,
     }),
   });
 

@@ -163,7 +163,8 @@ export function betterAuthTuningCheck(auth: TerraAuth, request: FastifyRequest):
   };
 }
 
-function overrideView(record: TuningOverrideRecord): TuningOverrideView {
+/** 덮어쓰기 줄 → 화면 모양(설정 칸·가중치 칸 같이) */
+export function overrideView(record: TuningOverrideRecord): TuningOverrideView {
   return {
     value: record.value,
     packValueAtSave: record.packValue,

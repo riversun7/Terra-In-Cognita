@@ -1,0 +1,463 @@
+/*
+ * 밸런스 화면(/dev/balance) — 화면 조각과 함께 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 촘촘(data-density="compact") 화면이다. 1차 스탯은 묶음 색(--color-stat-*), 담은 칸·세계 값은 색 테두리로 더 보이게
+ * (ADR 2026-11-01-ui-visibility). 좁은 폭(390px) 먼저: 큰 표는 그 안에서만 옆으로 민다.
+ */
+.bp-screen {
+  gap: var(--space-3);
+  /* 담은 변경 막대가 마지막 줄을 가리지 않게 */
+  padding-block-end: var(--space-12);
+}
+.bp-lead {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.bp-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* ── 요약 칩 ── */
+.bp-summary,
+.bp-legend,
+.bp-flags {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.bp-summary > li {
+  padding: var(--space-1) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+.bp-summary > .bp-overrides:not([data-count="0"]) {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+  font-weight: var(--font-weight-strong);
+}
+.bp-summary > .bp-staged:not([data-count="0"]) {
+  border-color: var(--color-focus);
+  color: var(--color-focus);
+  font-weight: var(--font-weight-strong);
+}
+
+/* ── 판(기준 유닛·표·기여·승률) ── */
+.bp-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.bp-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.bp-title {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-lg);
+}
+
+/* 1차 스탯 입력: 두 칸씩(묶음 차례), 넓으면 여섯 칸 한 줄 */
+.bp-primaries {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.bp-primary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-inline-start: var(--space-2);
+  border-inline-start: var(--border-w) solid var(--bp-stat, var(--color-border));
+}
+.bp-primary-code {
+  flex: none;
+  min-width: 3ch;
+  font-weight: var(--font-weight-strong);
+  color: var(--bp-stat, var(--color-text));
+}
+.bp-primary-input {
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.bp-settings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.bp-settings .field {
+  gap: var(--space-1);
+  min-width: 0;
+}
+.bp-settings .field:first-child {
+  grid-column: 1 / -1;
+}
+.bp-settings select {
+  width: 100%;
+  min-width: 0;
+}
+
+/* 1차 스탯 색(--color-stat-*) */
+.bp-screen [data-field="str"] {
+  --bp-stat: var(--color-stat-str);
+}
+.bp-screen [data-field="vit"] {
+  --bp-stat: var(--color-stat-vit);
+}
+.bp-screen [data-field="int"] {
+  --bp-stat: var(--color-stat-int);
+}
+.bp-screen [data-field="wis"] {
+  --bp-stat: var(--color-stat-wis);
+}
+.bp-screen [data-field="dex"] {
+  --bp-stat: var(--color-stat-dex);
+}
+.bp-screen [data-field="agi"] {
+  --bp-stat: var(--color-stat-agi);
+}
+
+/* ── 표(가중치·기여): 표 안에서만 옆으로 민다 ── */
+.bp-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+.bp-scroll:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.bp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+.bp-table th,
+.bp-table td {
+  padding: var(--space-1) var(--space-2);
+  border-block-end: var(--hairline) solid var(--color-border);
+  text-align: end;
+  white-space: nowrap;
+}
+.bp-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.bp-table thead th[data-field] {
+  color: var(--bp-stat, var(--color-text));
+}
+/* 첫 열(2차 스탯 이름)은 옆으로 밀어도 남는다 */
+.bp-table .bp-th-stat,
+.bp-table .bp-row-name {
+  vertical-align: top;
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  text-align: start;
+  background-color: var(--color-surface);
+}
+.bp-table thead .bp-th-stat {
+  z-index: 2;
+  background-color: var(--color-surface-2);
+}
+.bp-row-name {
+  max-width: 11em;
+  white-space: normal;
+}
+.bp-row-label {
+  display: block;
+  overflow-wrap: anywhere;
+  font-weight: var(--font-weight-strong);
+}
+.bp-shape {
+  display: inline-block;
+  padding: 0 var(--space-1);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+
+/* 가중치 칸: 되돌리기 버튼은 입력 아래에 둔다(입력이 열마다 같은 자리에 줄 서게) */
+.bp-cell {
+  vertical-align: top;
+}
+.bp-cell-box {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+}
+.bp-input {
+  /* 가중치 −100000(7글자)까지 */
+  inline-size: 8ch;
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-1);
+  border: var(--field-border-w) solid var(--color-field-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-field-bg);
+  color: var(--color-text);
+  font: inherit;
+  text-align: end;
+}
+/* 기본·반감 상수는 ±10,000,000(9글자)까지 */
+.bp-cell[data-field="base"] .bp-input,
+.bp-cell[data-field="half"] .bp-input {
+  inline-size: 10ch;
+}
+.bp-input:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.bp-input[aria-invalid="true"] {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-surface);
+}
+.bp-cell[data-state="staged"] .bp-input {
+  border-color: var(--color-focus);
+  font-weight: var(--font-weight-strong);
+}
+.bp-cell[data-state="override"] .bp-input {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-surface);
+}
+.bp-cell-none {
+  color: var(--color-text-muted);
+  text-align: center;
+}
+.bp-reset {
+  flex: none;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  padding: 0 var(--space-1);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-tight);
+  cursor: pointer;
+}
+.bp-reset:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.bp-legend > li {
+  padding: 0 var(--space-2);
+  border: var(--field-border-w) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+}
+.bp-legend > [data-state="staged"] {
+  border-color: var(--color-focus);
+  color: var(--color-focus);
+}
+.bp-legend > [data-state="override"] {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+}
+
+/* 기여 칸: 0은 흐리게, 고친 표에서 달라진 칸은 강조 */
+.bp-num[data-zero] {
+  color: var(--color-text-muted);
+}
+.bp-num[data-changed] {
+  color: var(--color-focus);
+  font-weight: var(--font-weight-strong);
+}
+
+/* 가치 없는·약한 1차 칩 */
+.bp-flag {
+  padding: var(--space-1) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+.bp-flag[data-tone="ok"] {
+  border-color: var(--color-success);
+  background-color: var(--color-success-surface);
+  color: var(--color-success);
+}
+.bp-flag[data-tone="bad"] {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+/* ── 승률 막대 ── */
+.bp-duels {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.bp-duels-wrap[data-stale] {
+  opacity: 0.6;
+}
+.bp-duel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block: var(--space-2);
+  border-block-start: var(--hairline) solid var(--color-border);
+}
+.bp-duel-name {
+  font-weight: var(--font-weight-strong);
+  color: var(--bp-stat, var(--color-text));
+}
+.bp-duel-full {
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+.bp-score {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label bar value"
+    "detail detail detail";
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+.bp-score-label {
+  grid-area: label;
+  min-width: 4ch;
+  color: var(--color-text-muted);
+}
+.bp-bar {
+  grid-area: bar;
+  position: relative;
+  display: block;
+  block-size: var(--stat-bar);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  overflow: hidden;
+}
+.bp-bar-fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  border-radius: var(--radius-pill);
+  background-color: var(--bp-stat, var(--color-primary));
+}
+.bp-duel .bp-bar-fill {
+  background-color: var(--color-primary);
+}
+.bp-score[data-weak] .bp-bar-fill {
+  background-color: var(--color-danger);
+}
+/* 50% 눈금(같은 유닛끼리) */
+.bp-bar-mid {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 50%;
+  inline-size: var(--hairline);
+  background-color: var(--color-text);
+}
+.bp-score-value {
+  grid-area: value;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-weight: var(--font-weight-strong);
+}
+.bp-margin {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+.bp-margin[data-sign="1"] {
+  color: var(--color-success);
+}
+.bp-margin[data-sign="-1"] {
+  color: var(--color-danger);
+}
+.bp-score[data-weak] .bp-score-value {
+  color: var(--color-danger);
+}
+.bp-score-detail {
+  grid-area: detail;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* ── 담은 변경 막대(화면 아래 붙음) ── */
+.bp-pending {
+  position: sticky;
+  bottom: var(--space-2);
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--color-focus);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+.bp-pending-count {
+  font-weight: var(--font-weight-strong);
+  color: var(--color-focus);
+}
+.bp-pending-reject {
+  flex-basis: 100%;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+  overflow-wrap: anywhere;
+}
+.bp-note-input {
+  flex: 1 1 12em;
+  width: auto;
+  min-width: 0;
+}
+.bp-pending-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+
+/* 넓은 폭: 1차 여섯 칸 한 줄, 설정 네 칸 한 줄 */
+@media (min-width: 48em) {
+  .bp-primaries {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .bp-settings {
+    grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr));
+  }
+  .bp-settings .field:first-child {
+    grid-column: auto;
+  }
+}

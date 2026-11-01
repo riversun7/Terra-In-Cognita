@@ -108,11 +108,13 @@ describe("팩 항목 덮어쓰기 묶음(plan)", () => {
 
   it("팩과 같은 내용·없는 덮어쓰기 되돌리기는 할 일이 없고, 같은 칸 두 번·ID가 다른 항목은 받지 않는다", () => {
     const state = fresh();
-    expect(state.plan([{ category: "skills", id: "fire_bolt", entry: packSkill("fire_bolt") }])).toEqual({
+    expect(
+      state.plan([{ category: "skills", id: "fire_bolt", entry: packSkill("fire_bolt") }]),
+    ).toMatchObject({
       ok: true,
       changes: [],
     });
-    expect(state.plan([{ category: "skills", id: "fire_bolt", entry: null }])).toEqual({
+    expect(state.plan([{ category: "skills", id: "fire_bolt", entry: null }])).toMatchObject({
       ok: true,
       changes: [],
     });
@@ -174,9 +176,17 @@ describe("켤 때 고르기(가장 나중에 바꾼 것이 이긴다, D-461)", (
       null,
     );
     const wrongId = record("skills", "editor_x", { ...packSkill("power_strike"), id: "editor_y" }, null);
+    // 만든 항목과 같은 ID가 팩에 생겼다: 내용이 다르면 잠재우고(id_collision), 같으면 내보내기를 넣은 것이라 조용히 지운다(adopted)
+    const adopted = record("skills", "fire_bolt_copy", packSkill("fire_bolt"), null);
     const selection = state.selectAtBoot([kept, stale, appeared, gone, broken, wrongId]);
     expect(selection.keep.map((r) => r.id)).toEqual(["power_strike"]);
-    expect(selection.packWon.map((r) => r.id)).toEqual(["fire_bolt", "shock_bash"]);
+    expect(selection.packWon.map((r) => r.id)).toEqual(["fire_bolt"]);
+    expect(selection.slept.map(({ row, reason }) => [row.id, reason])).toEqual([
+      ["shock_bash", "id_collision"],
+    ]);
+    expect(state.selectAtBoot([{ ...adopted, id: "fire_bolt" }]).adopted.map((r) => r.id)).toEqual([
+      "fire_bolt",
+    ]);
     expect(selection.dropped.map(({ row, reason }) => [row.id, reason])).toEqual([
       ["removed_skill", "unknown_entry"],
       ["editor_x", "invalid_entry"],

@@ -84,6 +84,16 @@ const KITS: Readonly<Record<DemoRole, RoleKit>> = {
  * 번개(chain)·사제(heal·buff), 편 2 냉기(projectile)·어둠(debuff)·땅(single). 사제를 한 편에만 둔다(두 편 모두 두면 회복·쉴드로
  * 10분 시간 초과까지 끈다). 팩에 없는 지팡이는 시험 지팡이(불꽃 화살)로 대신한다
  */
+/** 시범이 쓰는 팩 아이템 ID(대신 쓰는 지팡이 포함, 아이템 편집기 코드 참조 표 SIM_ITEM_REFS) */
+export const DEMO_ITEMS: readonly string[] = [
+  ...new Set(
+    Object.values(KITS).flatMap((kit) => [
+      ...kit.items.filter((id) => id !== null),
+      ...(kit.fallbackWeapon === undefined ? [] : [kit.fallbackWeapon]),
+    ]),
+  ),
+].toSorted();
+
 export const DEMO_ROLES: Readonly<Record<1 | 2, readonly DemoRole[]>> = {
   1: ["warrior", "guardian", "warrior", "fire_mage", "storm_mage", "priest"],
   2: ["warrior", "guardian", "warrior", "frost_mage", "dark_mage", "earth_mage"],

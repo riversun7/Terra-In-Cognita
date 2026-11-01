@@ -15,7 +15,10 @@ export const contentId = z
 function localizedString(label: string) {
   return z
     .string({ error: `${label}가 없습니다. ko·en을 함께 적으세요.` })
-    .refine((text) => text.trim() !== "", { error: `${label}가 비어 있습니다. ko·en을 함께 적으세요.` });
+    .refine((text) => text.trim() !== "", {
+      error: `${label}가 비어 있습니다. ko·en을 함께 적으세요.`,
+      params: { rule: "text_blank" },
+    });
 }
 
 /** 언어별 문구. 한국어(기본)와 영어 둘 다 비어 있지 않아야 한다 */

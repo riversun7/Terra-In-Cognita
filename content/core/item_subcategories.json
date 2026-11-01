@@ -1,0 +1,351 @@
+{
+  "entries": [
+    {
+      "id": "ore",
+      "name": {
+        "ko": "광석",
+        "en": "Ore"
+      },
+      "major": "raw",
+      "enabled": true
+    },
+    {
+      "id": "wood",
+      "name": {
+        "ko": "목재",
+        "en": "Wood"
+      },
+      "major": "raw",
+      "enabled": true
+    },
+    {
+      "id": "crop",
+      "name": {
+        "ko": "작물",
+        "en": "Crops"
+      },
+      "major": "raw",
+      "storage": "food",
+      "food": true,
+      "foodFamily": "crop",
+      "enabled": true
+    },
+    {
+      "id": "herb",
+      "name": {
+        "ko": "약초",
+        "en": "Herbs"
+      },
+      "major": "raw",
+      "storage": "food",
+      "food": true,
+      "foodFamily": "crop",
+      "enabled": true
+    },
+    {
+      "id": "fish",
+      "name": {
+        "ko": "어류",
+        "en": "Fish"
+      },
+      "major": "raw",
+      "storage": "food",
+      "food": true,
+      "foodFamily": "fishing",
+      "enabled": true
+    },
+    {
+      "id": "livestock_product",
+      "name": {
+        "ko": "축산물",
+        "en": "Livestock products"
+      },
+      "major": "raw",
+      "storage": "food",
+      "food": true,
+      "foodFamily": "livestock",
+      "enabled": true
+    },
+    {
+      "id": "creature_material",
+      "name": {
+        "ko": "크리쳐 재료",
+        "en": "Creature materials"
+      },
+      "major": "raw",
+      "enabled": true
+    },
+    {
+      "id": "metal",
+      "name": {
+        "ko": "금속",
+        "en": "Metal"
+      },
+      "major": "processed",
+      "enabled": true
+    },
+    {
+      "id": "lumber",
+      "name": {
+        "ko": "가공 목재",
+        "en": "Lumber"
+      },
+      "major": "processed",
+      "enabled": true
+    },
+    {
+      "id": "textile",
+      "name": {
+        "ko": "직물",
+        "en": "Textiles"
+      },
+      "major": "processed",
+      "enabled": true
+    },
+    {
+      "id": "leather",
+      "name": {
+        "ko": "가죽",
+        "en": "Leather"
+      },
+      "major": "processed",
+      "enabled": true
+    },
+    {
+      "id": "chemical",
+      "name": {
+        "ko": "화학",
+        "en": "Chemicals"
+      },
+      "major": "processed",
+      "enabled": true
+    },
+    {
+      "id": "circuit",
+      "name": {
+        "ko": "회로",
+        "en": "Circuits"
+      },
+      "major": "part",
+      "enabled": true
+    },
+    {
+      "id": "machine_part",
+      "name": {
+        "ko": "기계 부품",
+        "en": "Machine parts"
+      },
+      "major": "part",
+      "enabled": true
+    },
+    {
+      "id": "reagent",
+      "name": {
+        "ko": "시약",
+        "en": "Reagents"
+      },
+      "major": "part",
+      "enabled": true
+    },
+    {
+      "id": "weapon",
+      "name": {
+        "ko": "무기",
+        "en": "Weapons"
+      },
+      "major": "equipment",
+      "storage": "armory",
+      "enabled": true
+    },
+    {
+      "id": "offhand_weapon",
+      "name": {
+        "ko": "보조 무기",
+        "en": "Off-hand weapons"
+      },
+      "major": "equipment",
+      "storage": "armory",
+      "enabled": true
+    },
+    {
+      "id": "armor",
+      "name": {
+        "ko": "방어구",
+        "en": "Armor"
+      },
+      "major": "equipment",
+      "storage": "armory",
+      "enabled": true
+    },
+    {
+      "id": "accessory",
+      "name": {
+        "ko": "장신구",
+        "en": "Accessories"
+      },
+      "major": "equipment",
+      "storage": "armory",
+      "enabled": true
+    },
+    {
+      "id": "implant",
+      "name": {
+        "ko": "임플란트",
+        "en": "Implants"
+      },
+      "major": "equipment",
+      "storage": "armory",
+      "enabled": true
+    },
+    {
+      "id": "dish",
+      "name": {
+        "ko": "요리",
+        "en": "Dishes"
+      },
+      "major": "consumable",
+      "storage": "food",
+      "food": true,
+      "enabled": true
+    },
+    {
+      "id": "drink",
+      "name": {
+        "ko": "음료",
+        "en": "Drinks"
+      },
+      "major": "consumable",
+      "storage": "food",
+      "food": true,
+      "enabled": true
+    },
+    {
+      "id": "medicine",
+      "name": {
+        "ko": "약",
+        "en": "Medicine"
+      },
+      "major": "consumable",
+      "enabled": true
+    },
+    {
+      "id": "ammo",
+      "name": {
+        "ko": "탄약",
+        "en": "Ammunition"
+      },
+      "major": "consumable",
+      "storage": "armory",
+      "enabled": true
+    },
+    {
+      "id": "buff_item",
+      "name": {
+        "ko": "버프",
+        "en": "Buff items"
+      },
+      "major": "consumable",
+      "enabled": true
+    },
+    {
+      "id": "gem_stone",
+      "name": {
+        "ko": "보석",
+        "en": "Gems"
+      },
+      "major": "gem",
+      "enabled": true
+    },
+    {
+      "id": "building_material",
+      "name": {
+        "ko": "건축 자재",
+        "en": "Building materials"
+      },
+      "major": "construction",
+      "enabled": true
+    },
+    {
+      "id": "furniture",
+      "name": {
+        "ko": "가구",
+        "en": "Furniture"
+      },
+      "major": "construction",
+      "enabled": true
+    },
+    {
+      "id": "facility_module",
+      "name": {
+        "ko": "시설 모듈",
+        "en": "Facility modules"
+      },
+      "major": "construction",
+      "enabled": true
+    },
+    {
+      "id": "defense_structure",
+      "name": {
+        "ko": "방어물",
+        "en": "Defenses"
+      },
+      "major": "construction",
+      "enabled": true
+    },
+    {
+      "id": "blueprint",
+      "name": {
+        "ko": "설계도",
+        "en": "Blueprints"
+      },
+      "major": "document",
+      "enabled": true
+    },
+    {
+      "id": "recipe_book",
+      "name": {
+        "ko": "레시피",
+        "en": "Recipes"
+      },
+      "major": "document",
+      "enabled": true
+    },
+    {
+      "id": "gold",
+      "name": {
+        "ko": "금",
+        "en": "Gold"
+      },
+      "major": "precious",
+      "enabled": true
+    },
+    {
+      "id": "silver",
+      "name": {
+        "ko": "은",
+        "en": "Silver"
+      },
+      "major": "precious",
+      "enabled": true
+    },
+    {
+      "id": "diamond",
+      "name": {
+        "ko": "다이아몬드",
+        "en": "Diamond"
+      },
+      "major": "precious",
+      "enabled": true
+    },
+    {
+      "id": "energy_resource",
+      "name": {
+        "ko": "에너지 자원",
+        "en": "Energy resources"
+      },
+      "major": "precious",
+      "storage": "tank",
+      "enabled": true
+    }
+  ]
+}

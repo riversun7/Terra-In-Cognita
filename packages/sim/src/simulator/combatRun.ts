@@ -69,6 +69,9 @@ const LOADOUT = {
   skills: ["power_strike", "iron_skin", "first_aid"],
 } as const;
 
+/** 시뮬레이터 유닛이 드는 팩 아이템 ID(아이템 편집기 코드 참조 표, SIM_ITEM_REFS) */
+export const SIM_COMBAT_ITEMS: readonly string[] = LOADOUT.items.filter((id) => id !== null);
+
 /** 팩 자료로 시뮬레이터 유닛의 칸·장비·스킬을 만든다(유닛마다 같다) */
 export function kitOf(catalog: CombatCatalog) {
   const kind = catalog.unitKinds.find((entry) => entry.id === LOADOUT.kind);

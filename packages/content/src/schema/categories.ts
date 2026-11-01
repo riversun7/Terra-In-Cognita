@@ -6,14 +6,20 @@
 // R2: 아이템에 대분류·티어·기준 가치·켬/끔을 더하고, 레시피·시설·생필품·국가 프리셋을 더했다(ADR 2026-10-31-economy-core).
 // 2차맵 소품(map_props): 2차맵 생성기의 배치 규칙(ADR 2026-10-31-second-map-from-planet 4절, 임시 데이터).
 // 전투 계산식(formulas): 개발자 모드에서 고치는 식(docs/adr/2026-11-01-formula-editor.md).
+// 아이템 분류 자료(item_subcategories·item_tags·weapon_types)와 아이템 공통 칸·묶음(docs/adr/2026-11-01-item-editor.md 2절).
 import { z } from "zod";
 import {
   facilityEntrySchema,
-  itemEntrySchema,
   nationPresetEntrySchema,
   necessityEntrySchema,
   recipeEntrySchema,
 } from "./economy.ts";
+import {
+  itemEntrySchema,
+  itemSubcategoryEntrySchema,
+  itemTagEntrySchema,
+  weaponTypeEntrySchema,
+} from "./items.ts";
 import { mapPropEntrySchema } from "./mapProps.ts";
 import { effectEntrySchema, skillEntrySchema, unitKindEntrySchema } from "./combat.ts";
 import { biomeEntrySchema, planetEntrySchema, planetTemplateEntrySchema } from "./planets.ts";
@@ -39,10 +45,13 @@ export function entriesFileSchema(entry: z.ZodType<{ id: string }>) {
   return z.strictObject({ entries: z.array(entry) });
 }
 
-export { itemEntrySchema, type ItemEntry } from "./economy.ts";
+export { itemEntrySchema, type ItemEntry } from "./items.ts";
 
 export const CATEGORIES: CategoryRegistry = {
   items: { entry: itemEntrySchema },
+  item_subcategories: { entry: itemSubcategoryEntrySchema },
+  item_tags: { entry: itemTagEntrySchema },
+  weapon_types: { entry: weaponTypeEntrySchema },
   facilities: { entry: facilityEntrySchema },
   recipes: { entry: recipeEntrySchema },
   necessities: { entry: necessityEntrySchema },

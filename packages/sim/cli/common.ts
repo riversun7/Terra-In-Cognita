@@ -23,8 +23,10 @@ import {
   tuningDiffSchema,
   tuningEntrySchema,
   unitKindEntrySchema,
+  validatePack,
+  type EntriesDiffChange,
 } from "@terra/content";
-import { loadContentPack } from "@terra/content/node";
+import { loadContentPack, overlayEntriesDiff } from "@terra/content/node";
 import {
   type CombatCatalog,
   type CombatFormulaSet,
@@ -123,10 +125,58 @@ function combatCatalogOf(source: PackSource, statRows: StatRowEntry[]): CombatCa
   });
 }
 
-/** 콘텐츠 팩을 읽고 시나리오가 가리키는 행성이 팩에 있는지 본다. 판·해시와 경제 목록·스탯 표를 돌려준다 */
+/**
+ * 내보내기 차이의 팩 항목(entries)을 얹지 못했다(만든 항목이 팩 ID와 겹침·팩에 없는 항목을 고친 줄·얹은 실효 팩이 검사에 걸림).
+ * 시뮬레이터는 종료 코드 2로 끝낸다(서버 세계와 다른 자료로 말없이 돌지 않게, docs/adr/2026-11-01-item-editor.md 4절)
+ */
+export class EntriesDiffError extends Error {
+  readonly lines: readonly string[];
+  constructor(lines: readonly string[]) {
+    super(lines.join("\n"));
+    this.lines = lines;
+  }
+}
+
+/** 차이 파일의 팩 항목 줄(없으면 빈 목록) */
+export function entriesOfDiff(file: string): EntriesDiffChange[] {
+  return tuningDiffSchema.parse(JSON.parse(readFileSync(file, "utf8"))).entries ?? [];
+}
+
+/** 팩 위에 차이의 팩 항목을 얹는다(서버 실효 차례와 같다). 얹지 못한 줄이 있거나 실효 팩이 검사에 걸리면 EntriesDiffError */
+function withEntries(source: PackSource, dir: string, entries: readonly EntriesDiffChange[]): PackSource {
+  if (entries.length === 0) return source;
+  const overlay = overlayEntriesDiff(source, entries);
+  if (overlay.stale.length > 0)
+    console.error(`항목 차이: 내보낼 때와 팩 항목이 다른 줄(차이 항목을 씀) — ${overlay.stale.join(", ")}`);
+  const problems = overlay.skipped.map(
+    (skip) =>
+      `항목 차이: 얹지 못함 ${skip.category}/${skip.id} — ${
+        skip.reason === "collision"
+          ? "만든 항목인데 팩에 같은 ID가 있음(서버는 잠재운다)"
+          : "팩에 없는 항목을 고친 줄(서버는 지운다)"
+      }`,
+  );
+  const checked = validatePack(overlay.source);
+  if (hasErrors(checked.issues))
+    problems.push(
+      "항목 차이: 얹은 실효 팩이 검사에 걸림",
+      ...checked.issues
+        .filter((issue) => issue.level === "error")
+        .map((issue) => formatIssue(issue, `${dir}/`)),
+    );
+  if (problems.length > 0) throw new EntriesDiffError(problems);
+  console.error(`항목 차이: 팩 항목 ${overlay.applied.length}개를 얹음`);
+  return overlay.source;
+}
+
+/**
+ * 콘텐츠 팩을 읽고 시나리오가 가리키는 행성이 팩에 있는지 본다. 판·해시와 경제 목록·스탯 표를 돌려준다.
+ * entries: 내보내기 차이의 팩 항목(--tuning). 있으면 팩 위에 얹은 실효 팩으로 경제·전투 자료를 만든다(판·해시는 팩 것)
+ */
 export function readPack(
   dir: string,
   scenario: Scenario,
+  entries: readonly EntriesDiffChange[] = [],
 ): {
   version: string;
   hash: string;
@@ -151,18 +201,19 @@ export function readPack(
     if (!planets.some((entry) => entry.id === scenario.planet))
       throw new Error(`시나리오 ${scenario.id}의 행성 ${scenario.planet}이(가) 팩에 없습니다`);
   }
-  const statRows = parseFile(loaded.source, "stat_rows.json", (raw) => statRowEntrySchema.parse(raw));
-  const formulaEntries = parseFile(loaded.source, "formulas.json", (raw) => formulaEntrySchema.parse(raw));
+  const source = withEntries(loaded.source, dir, entries);
+  const statRows = parseFile(source, "stat_rows.json", (raw) => statRowEntrySchema.parse(raw));
+  const formulaEntries = parseFile(source, "formulas.json", (raw) => formulaEntrySchema.parse(raw));
   return {
     version: loaded.version,
     hash: loaded.hash,
-    catalog: catalogOf(loaded.source),
-    combat: combatCatalogOf(loaded.source, statRows),
+    catalog: catalogOf(source),
+    combat: combatCatalogOf(source, statRows),
     statRows,
     formulaEntries,
     combatFormulas: combatFormulasFromPack(formulaEntries),
     tuning: new Map(
-      parseFile(loaded.source, "tuning.json", (raw) => tuningEntrySchema.parse(raw)).map((entry) => [
+      parseFile(source, "tuning.json", (raw) => tuningEntrySchema.parse(raw)).map((entry) => [
         entry.id,
         entry.value,
       ]),

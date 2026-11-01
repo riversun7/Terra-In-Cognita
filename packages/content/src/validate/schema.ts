@@ -52,6 +52,36 @@ function locate(raw: unknown, path: readonly PropertyKey[]): { id?: string; path
   return { path: formatPath(path) };
 }
 
+/** Zod 문제 → 문제 코드와 값(편집기가 메시지 키로 보인다). 규칙 검사(superRefine)는 params.rule이 코드다 */
+export function zodIssueCode(issue: z.core.$ZodIssue): Pick<ContentIssue, "code" | "params"> {
+  switch (issue.code) {
+    case "too_small":
+      return {
+        code: issue.code,
+        params: { minimum: Number(issue.minimum), inclusive: issue.inclusive ?? true, origin: issue.origin },
+      };
+    case "too_big":
+      return {
+        code: issue.code,
+        params: { maximum: Number(issue.maximum), inclusive: issue.inclusive ?? true, origin: issue.origin },
+      };
+    case "invalid_type":
+      return { code: issue.code, params: { expected: issue.expected } };
+    case "invalid_value":
+      return { code: issue.code, params: { values: issue.values.map((value) => String(value)).join(", ") } };
+    case "unrecognized_keys":
+      return { code: issue.code, params: { keys: issue.keys.join(", ") } };
+    case "invalid_format":
+      return { code: issue.code, params: { format: issue.format } };
+    case "custom": {
+      const rule: unknown = issue.params?.rule;
+      return { code: typeof rule === "string" ? rule : "custom" };
+    }
+    default:
+      return { code: issue.code };
+  }
+}
+
 function parseFile<T>(
   issues: ContentIssue[],
   source: PackSource,
@@ -76,6 +106,7 @@ function parseFile<T>(
       file,
       ...locate(raw, issue.path),
       message: issue.message,
+      ...zodIssueCode(issue),
     });
   }
   return { ok: false };

@@ -50,8 +50,18 @@ export const statRowsDiffChangeSchema = z.strictObject({
 });
 export type StatRowsDiffChange = z.output<typeof statRowsDiffChangeSchema>;
 
-/** 팩 항목 차이를 넣을 수 있는 분류(스킬 편집기·행동별 소모, docs/adr/2026-11-01-skill-editor.md 7절) */
-export const ENTRY_DIFF_CATEGORIES = ["skills", "items", "unit_kinds"] as const;
+/**
+ * 팩 항목 차이를 넣을 수 있는 분류(스킬 편집기·행동별 소모 docs/adr/2026-11-01-skill-editor.md 7절, 아이템 편집기·분류 자료
+ * docs/adr/2026-11-01-item-editor.md 4절). 서버 @terra/shared CONTENT_EDIT_CATEGORIES·적용 스크립트 ENTRY_FILES와 같다(시험이 본다)
+ */
+export const ENTRY_DIFF_CATEGORIES = [
+  "skills",
+  "items",
+  "unit_kinds",
+  "item_subcategories",
+  "item_tags",
+  "weapon_types",
+] as const;
 
 export const entriesDiffChangeSchema = z.strictObject({
   category: z.enum(ENTRY_DIFF_CATEGORIES),
@@ -83,6 +93,11 @@ export const tuningDiffSchema = z
     entries: z.array(entriesDiffChangeSchema).max(TUNING_DIFF_MAX_CHANGES).optional(),
     /** 계산식 차이(선택, 식 덮어쓰기가 있을 때만, docs/adr/2026-11-01-formula-editor.md) */
     formulas: z.array(formulaDiffChangeSchema).max(TUNING_DIFF_MAX_CHANGES).optional(),
+    /** 그 세계에서 만든 뒤 지운 항목 ID(선택, 은퇴 ID, docs/adr/2026-11-01-item-editor.md 4절) */
+    retiredIds: z
+      .array(z.strictObject({ category: z.enum(ENTRY_DIFF_CATEGORIES), id: contentId }))
+      .max(TUNING_DIFF_MAX_CHANGES)
+      .optional(),
   })
   .superRefine((diff, ctx) => {
     if (Array.isArray(diff.changes)) {

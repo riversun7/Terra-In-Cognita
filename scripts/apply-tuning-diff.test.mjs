@@ -4,9 +4,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ENTRY_DIFF_CATEGORIES } from "@terra/content";
 import { hashEntry } from "@terra/content/node";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { applyDiffToPack } from "./apply-tuning-diff.mjs";
+import { ENTRY_FILES, applyDiffToPack } from "./apply-tuning-diff.mjs";
 
 const SCRIPT = fileURLToPath(new URL("./apply-tuning-diff.mjs", import.meta.url));
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
@@ -50,6 +51,15 @@ const skill = (id, cost) => ({
   conditions: [],
   effects: [],
   gradePm: [1000],
+  enabled: true,
+});
+
+const item = (id) => ({
+  id,
+  name: { ko: id, en: id },
+  category: "raw",
+  tier: 0,
+  baseValue: 1,
   enabled: true,
 });
 
@@ -211,5 +221,35 @@ describe("pnpm tuning:apply", () => {
     expect(JSON.parse(readFileSync(path.join(dir, "formulas.json"), "utf8")).entries[0].expression).toBe(
       "W * 2",
     );
+  });
+
+  it("아이템·분류 자료도 entries로 넣고(없는 분류 파일은 만든다), 은퇴 ID는 새 항목으로 넣지 않고 팩에 있으면 알린다", () => {
+    expect(Object.keys(ENTRY_FILES)).toEqual([...ENTRY_DIFF_CATEGORIES]);
+    writeFileSync(path.join(dir, "items.json"), json({ entries: [item("grain"), item("old_loaf")] }));
+    const tag = { id: "starter", name: { ko: "초보", en: "Starter" }, enabled: true };
+    const outcome = applyDiffToPack(dir, {
+      ...diff([]),
+      entries: [
+        { category: "items", id: "zinc", from: null, entry: item("zinc") },
+        { category: "items", id: "gone_loaf", from: null, entry: item("gone_loaf") },
+        { category: "item_tags", id: "starter", from: null, entry: tag },
+      ],
+      retiredIds: [
+        { category: "items", id: "gone_loaf" },
+        { category: "items", id: "old_loaf" },
+      ],
+    });
+    expect(outcome.entries.applied).toEqual([
+      { category: "items", id: "zinc", kind: "added" },
+      { category: "item_tags", id: "starter", kind: "added" },
+    ]);
+    expect(outcome.entries.skipped).toEqual([
+      { category: "items", id: "gone_loaf", reason: "retired" },
+      { category: "items", id: "old_loaf", reason: "retired_in_pack" },
+    ]);
+    expect(JSON.parse(readFileSync(path.join(dir, "item_tags.json"), "utf8")).entries).toEqual([tag]);
+    expect(
+      JSON.parse(readFileSync(path.join(dir, "items.json"), "utf8")).entries.map((line) => line.id),
+    ).toEqual(["grain", "old_loaf", "zinc"]);
   });
 });

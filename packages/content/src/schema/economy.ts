@@ -3,43 +3,16 @@
 // 세력 화폐(D-124·D-131)·켬/끔(D-398: 모든 콘텐츠를 개발자 페이지에서 켜고 끈다).
 // 지금 팩은 형식 확인용 임시 데이터다(placeholder). 기획 출발값이 없는 칸(기준 가치·작업량·수량·세율)은 시험값이다.
 import { z } from "zod";
-import { equipSchema } from "./combat.ts";
 import { contentId, localizedText, ref } from "./common.ts";
 
-/** 아이템 대분류(D-5029·D-5033, 생산 흐름 순) */
-export const ITEM_CATEGORIES = [
-  "raw",
-  "processed",
-  "part",
-  "equipment",
-  "consumable",
-  "gem",
-  "construction",
-  "document",
-  "precious",
-] as const;
+// 아이템 항목·대분류는 items.ts(공통 칸 + 대분류별 묶음, docs/adr/2026-11-01-item-editor.md). 옛 가져오기 길을 지킨다
+export { ITEM_CATEGORIES, itemEntrySchema, type ItemEntry } from "./items.ts";
 
 /** 생산 단계(D-114) */
 export const FACILITY_STAGES = ["gather", "process", "part", "finish"] as const;
 
-/** 티어 T0~T9(D-5001. 상한은 설정값이라 늘리면 여기와 시뮬 규칙을 함께 고친다) */
-const tier = z.int().min(0).max(9);
 /** 켬·끔(D-398). 끈 항목은 세계에 새로 나오지 않는다(있는 것은 그대로) */
 const enabled = z.boolean({ error: "enabled가 없습니다. true 또는 false로 적으세요(D-398 켬·끔)." });
-
-export const itemEntrySchema = z.strictObject({
-  id: contentId,
-  name: localizedText,
-  description: localizedText.optional(),
-  category: z.enum(ITEM_CATEGORIES),
-  tier,
-  /** [임시] 기준 가치(그 나라 화폐 최소 단위, 처음 시세와 NPC 값 매기기의 출발점). 기획 수치 없음 */
-  baseValue: z.int().positive(),
-  /** 장비면 칸·스탯 목록·무기 사양·장비 스킬(D-422~D-426, combat.ts) */
-  equip: equipSchema.optional(),
-  enabled,
-});
-export type ItemEntry = z.output<typeof itemEntrySchema>;
 
 const stack = z.strictObject({ item: ref("items"), qty: z.int().positive().max(1_000_000) });
 

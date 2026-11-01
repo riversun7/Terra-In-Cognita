@@ -4,13 +4,17 @@
 //   <시나리오>: scenarios/<이름>.json의 이름 또는 .json 경로. 상대 경로는 packages/sim 기준(pnpm --filter가 거기서 돈다).
 //   요약은 --summary가 없으면 표준 출력. 걸린 시간·배속은 표준 오류(요약에 넣지 않는다 — 같은 시드면 요약이 같다).
 //   --tuning: 개발자 패널 [내보내기] 차이(terra-tuning-diff)를 팩 설정 칸 값 위에 얹는다(서버 세계와 같은 실효 값,
-//   docs/adr/2026-11-01-dev-settings-panel.md 11절). 상대 경로는 packages/sim 기준.
-//   종료 코드: 불변 조건 위반이 있으면 3(서버 check-world와 같다). D-391 통과 여부는 종료 코드에 넣지 않는다.
+//   docs/adr/2026-11-01-dev-settings-panel.md 11절). 같은 차이의 가중치 칸·계산식·팩 항목(entries: 스킬·아이템·유닛 종류·분류 자료,
+//   docs/adr/2026-11-01-item-editor.md 4절)도 얹는다. 상대 경로는 packages/sim 기준.
+//   종료 코드: 불변 조건 위반이 있으면 3(서버 check-world와 같다). 차이의 팩 항목을 얹지 못하면 2(겹친 ID·없는 항목·검사 실패).
+//   D-391 통과 여부는 종료 코드에 넣지 않는다.
 import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { DAY_MS, runSimulation } from "../src/index.ts";
 import {
   DEFAULT_PACK_DIR,
+  EntriesDiffError,
+  entriesOfDiff,
   fmt,
   readPack,
   readScenario,
@@ -42,6 +46,14 @@ if (!name) {
 }
 let scenario = readScenario(name);
 if (values.units !== undefined) scenario = withUnits(scenario, Number(values.units));
+let pack: ReturnType<typeof readPack>;
+try {
+  pack = readPack(values.pack, scenario, values.tuning === undefined ? [] : entriesOfDiff(values.tuning));
+} catch (error) {
+  if (!(error instanceof EntriesDiffError)) throw error;
+  for (const line of error.lines) console.error(line);
+  process.exit(2);
+}
 const {
   catalog,
   combat: packCombat,
@@ -50,7 +62,7 @@ const {
   combatFormulas: packFormulas,
   tuning: packTuning,
   ...content
-} = readPack(values.pack, scenario);
+} = pack;
 const tuning = values.tuning === undefined ? packTuning : withTuningDiff(packTuning, values.tuning);
 // 같은 차이의 가중치 표 칸(밸런스 화면)·계산식(식 탭)도 얹는다
 const { combat, combatFormulas } =

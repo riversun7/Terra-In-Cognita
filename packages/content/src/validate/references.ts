@@ -73,6 +73,7 @@ export function checkReferences(
       level: "error",
       file: name,
       message: `모르는 파일입니다. 팩 폴더에는 ${[...known].join(", ")}만 둡니다(분류 파일 이름에 오타가 없는지 확인하세요).`,
+      code: "file_unknown",
     });
   }
 
@@ -92,6 +93,8 @@ export function checkReferences(
         file: `${category}.json`,
         id: entry.id,
         message: `ID가 중복됩니다(entries[${first}]와 entries[${index}]). ID는 분류 안에서 하나만 씁니다.`,
+        code: "id_duplicate",
+        params: { id: entry.id },
       });
     });
     ids.set(category, new Set(seen.keys()));
@@ -124,6 +127,8 @@ export function checkReferences(
           issues.push({
             ...where,
             message: `없는 ${ref.category} ID "${ref.id}"입니다. ${guess ? `혹시 "${guess}"?` : `${ref.category}.json에 있는 ID인지 확인하세요.`}`,
+            code: "ref_missing",
+            params: { category: ref.category, id: ref.id },
           });
           continue;
         }
@@ -144,6 +149,7 @@ export function checkReferences(
         file: `${category}.json`,
         id: entry.id,
         message: `아무 데서도 참조하지 않는 ${category} 항목입니다. 쓰는 곳을 만들거나, 지우고 id-changes.json removed에 기록하세요.`,
+        code: "orphan",
       });
     }
   }

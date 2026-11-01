@@ -18,6 +18,18 @@ import type { EquipDef } from "./equipment.ts";
 import { type CombatFormulaSet, combatFormulaSetFrom } from "./formulas.ts";
 import type { SkillData } from "./skills.ts";
 import type { StatRow } from "./stats.ts";
+import type { WeaponSpec } from "./unitSpec.ts";
+
+type PackWeapon = NonNullable<NonNullable<ItemEntry["equip"]>["weapon"]>;
+
+/**
+ * 팩 무기 사양 → 전투 무기 사양. 전투가 아직 읽지 않는 칸(1차 적정 스탯·양손·탄약 연결, docs/adr/2026-11-01-item-editor.md
+ * 2절 — 전투 연결은 WP-5)은 뺀다(전투 사양·저장된 전투 시작 자료에 섞이지 않게. 칸이 없는 지금 팩 무기는 그대로)
+ */
+export function weaponSpecOf(weapon: PackWeapon): WeaponSpec {
+  const { appropriate: _appropriate, twoHanded: _twoHanded, ammo: _ammo, ...spec } = weapon;
+  return spec;
+}
 
 const idOf = (ref: { readonly id: string }): string => ref.id;
 const STAT_VARS = STAT_FORMULA_VARS.map((item) => item.name);
@@ -82,6 +94,25 @@ export function droppedReferences(pack: CombatPackEntries): DroppedReferences {
   };
 }
 
+/**
+ * 팩 아이템 하나 → 장비 정의(장비가 아니면 undefined). 꺼진(또는 없는) 스킬은 뺀다(skillsOf가 모르는 스킬에서 던지지 않게).
+ * 아이템 편집기 미리 보기(서버)가 저장 전 초안에 같은 변환을 쓴다
+ */
+export function equipDefOf(item: ItemEntry, enabledSkills: ReadonlySet<string>): EquipDef | undefined {
+  if (!item.equip) return undefined;
+  return {
+    id: item.id,
+    slot: item.equip.slot,
+    stats: item.equip.stats.map((range) => ({
+      stat: typeof range.stat === "string" ? range.stat : idOf(range.stat),
+      min: range.min,
+      max: range.max,
+    })),
+    weapon: item.equip.weapon ? weaponSpecOf(item.equip.weapon) : undefined,
+    skills: (item.equip.skills ?? []).map(idOf).filter((skill) => enabledSkills.has(skill)),
+  };
+}
+
 export function combatCatalogFrom(pack: CombatPackEntries): CombatCatalog {
   const enabledSkills = new Set(pack.skills.filter((entry) => entry.enabled).map((entry) => entry.id));
   const enabledEffects = new Set(pack.effects.filter((entry) => entry.enabled).map((entry) => entry.id));
@@ -137,24 +168,10 @@ export function combatCatalogFrom(pack: CombatPackEntries): CombatCatalog {
         gradePm: entry.gradePm,
       }),
     );
-  const equipment = pack.items.flatMap((item): EquipDef[] =>
-    item.enabled && item.equip
-      ? [
-          {
-            id: item.id,
-            slot: item.equip.slot,
-            stats: item.equip.stats.map((range) => ({
-              stat: typeof range.stat === "string" ? range.stat : idOf(range.stat),
-              min: range.min,
-              max: range.max,
-            })),
-            weapon: item.equip.weapon,
-            // 꺼진(또는 없는) 스킬은 뺀다(skillsOf가 모르는 스킬에서 던지지 않게)
-            skills: (item.equip.skills ?? []).map(idOf).filter((skill) => enabledSkills.has(skill)),
-          },
-        ]
-      : [],
-  );
+  const equipment = pack.items.flatMap((item): EquipDef[] => {
+    const def = item.enabled ? equipDefOf(item, enabledSkills) : undefined;
+    return def ? [def] : [];
+  });
   const unitKinds = pack.unitKinds
     .filter((entry) => entry.enabled)
     .map((entry) => ({

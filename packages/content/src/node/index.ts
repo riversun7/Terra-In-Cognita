@@ -2,3 +2,8 @@
 export { type LoadedPack, loadContentPack, readPackDir } from "./load.ts";
 export { hashEntry, hashPack } from "./hash.ts";
 export { type EntriesApplyResult, type EntriesApplySkip, applyEntriesDiff } from "./entriesDiff.ts";
+export {
+  type EntriesOverlayChange,
+  type EntriesOverlayResult,
+  overlayEntriesDiff,
+} from "./entriesOverlay.ts";

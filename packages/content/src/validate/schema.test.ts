@@ -46,6 +46,9 @@ describe("1단계: 스키마", () => {
         id: "iron_ore",
         path: "name.en",
         message: "영어(en)가 없습니다. ko·en을 함께 적으세요.",
+        // 편집기가 메시지 키로 보이는 문제 코드와 값(아이템 편집기 WP-1 c)
+        code: "invalid_type",
+        params: { expected: "string" },
       },
     ]);
     expect(formatIssue(issues[0] ?? { stage: "schema", level: "error", message: "" }, "content/core/")).toBe(

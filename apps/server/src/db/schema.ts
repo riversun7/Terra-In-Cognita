@@ -373,7 +373,7 @@ export { DEFAULT_WORLD_PLANET_ID };
 // 정원사 표(오염·웨이브)는 파일 크기 상한 때문에 따로 둔다(drizzle-kit은 이 파일의 내보내기만 읽는다)
 export { gardenerWaves, planetPollution } from "./gardenerSchema.ts";
 // 팩 항목 덮어쓰기 표(스킬 편집기, docs/adr/2026-11-01-skill-editor.md 3절)도 같은 까닭으로 따로 둔다
-export { contentOverrideRevision, contentOverrides } from "./contentEditSchema.ts";
+export { contentOverrideRevision, contentOverrides, contentRetiredIds } from "./contentEditSchema.ts";
 export const WORLD_DOMAINS = ["space", "sky", "land", "sea"] as const;
 export type WorldDomain = (typeof WORLD_DOMAINS)[number];
 

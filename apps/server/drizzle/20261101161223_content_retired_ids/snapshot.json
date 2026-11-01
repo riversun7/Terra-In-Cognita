@@ -1,0 +1,225 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "1ecb9857-ad32-4de8-ab64-7152f744aca1",
+  "prevIds": [
+    "cd9e4a0f-b2db-47ce-8bb6-f52e8651e78d",
+    "cc25e594-4bd3-4934-b56b-d6f4bb035c8d",
+    "65d75be0-ae08-4108-9885-c9ef743efbb2"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "content_retired_ids"
+      ],
+      "writes": [
+        "s|tbl|public.content_retired_ids",
+        "n|tbl|public.content_retired_ids",
+        "e|tbl|public.content_retired_ids",
+        "n|rel|public.content_retired_ids",
+        "n|type|public.content_retired_ids",
+        "n|rel|public.content_retired_ids_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "content_retired_ids"
+      ],
+      "writes": [
+        "s|fk|public.content_retired_ids.content_retired_ids_retired_by_users_id_fkey",
+        "n|fk|public.content_retired_ids.content_retired_ids_retired_by_users_id_fkey",
+        "e|fk|public.content_retired_ids.content_retired_ids_retired_by_users_id_fkey",
+        "n|con|public.content_retired_ids.content_retired_ids_retired_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.content_retired_ids",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.content_retired_ids.retired_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "content_overrides"
+      ],
+      "writes": [
+        "s|ck|public.content_overrides.content_overrides_category"
+      ],
+      "reads": [
+        "n|tbl|public.content_overrides",
+        "n|sch|public",
+        "n|col|public.content_overrides.category",
+        "e|col|public.content_overrides.category"
+      ],
+      "sqlHash": "ff6f5e8fab8eb8de"
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "content_retired_ids",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "content_retired_ids",
+        "name": "category",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "content_retired_ids",
+        "name": "id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "content_retired_ids",
+        "name": "content_version",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "content_retired_ids",
+        "name": "retired_by",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "content_retired_ids",
+        "name": "retired_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "content_retired_ids",
+        "name": "content_retired_ids_retired_by_users_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "retired_by"
+        ],
+        "schemaTo": "public",
+        "tableTo": "users",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "content_retired_ids",
+        "name": "content_retired_ids_pkey",
+        "columns": [
+          "category",
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "content_retired_ids",
+        "name": "content_retired_ids_category",
+        "value": "\"category\" in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "content_retired_ids",
+        "name": "content_retired_ids_id_format",
+        "value": "\"id\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"content_overrides\",\"content_overrides_category\"]",
+      "set": {
+        "value": "\"category\" in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types')"
+      }
+    }
+  ]
+}

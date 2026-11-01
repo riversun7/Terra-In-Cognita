@@ -5,11 +5,14 @@
 // 있으면 skills.json·items.json·unit_kinds.json의 그 항목을 통째로 바꾸거나(지금 팩 항목 해시 = from) 끝에 붙인다(from = null).
 // 계산식 차이(formulas, docs/adr/2026-11-01-formula-editor.md)가 있으면 formulas.json의 expression·stat_rows.json의
 // formula도 바꾼다(지금 팩 식 = from, 그 칸 변수로 읽히는 식만).
+// 아이템 편집기(/dev/items, docs/adr/2026-11-01-item-editor.md 4절)의 아이템·분류 자료(item_subcategories·item_tags·weapon_types)도
+// entries로 오고, 은퇴 ID(retiredIds: 그 세계에서 만든 뒤 지운 항목)는 새 항목으로 넣지 않으며 팩에 이미 그 ID가 있으면 알린다(건너뜀).
+// 배포 전 차례: 팩 항목을 고치는 팩 커밋 전에 NAS 세계의 [내보내기]를 먼저 넣는다(팩 항목 해시가 바뀌면 세계 덮어쓰기는 진다).
 // 사용: pnpm tuning:apply <차이.json> [--pack content/<팩 ID>] [--force] [--dry-run]
 //   칸마다: 팩에 있는가(없으면 건너뜀), 지금 팩 값 = 차이의 from인가(아니면 건너뜀, --force면 넣음), 기술 범위 안인가(아니면 건너뜀).
 //   바꾼 칸이 하나도 없으면 파일을 쓰지 않는다. 그다음 pnpm check:content → 작업 기록 → 커밋은 사람·에이전트가 한다(PLAN 7장 v1).
 //   종료 코드: 0 바꿈(또는 바꿀 것 없음), 1 건너뛴 칸이 있음(바꾼 칸은 썼다), 2 사용법·파일 오류.
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
@@ -17,17 +20,23 @@ import {
   applyStatRowsDiff,
   applyTuningDiff,
   itemEntrySchema,
+  itemSubcategoryEntrySchema,
+  itemTagEntrySchema,
   skillEntrySchema,
   tuningDiffSchema,
   unitKindEntrySchema,
+  weaponTypeEntrySchema,
 } from "@terra/content";
 import { applyEntriesDiff } from "@terra/content/node";
 
-/** 팩 항목 차이 분류 → 파일·항목 스키마 */
-const ENTRY_FILES = {
+/** 팩 항목 차이 분류 → 파일·항목 스키마(@terra/content ENTRY_DIFF_CATEGORIES와 같다, 시험이 본다) */
+export const ENTRY_FILES = {
   skills: { file: "skills.json", schema: skillEntrySchema },
   items: { file: "items.json", schema: itemEntrySchema },
   unit_kinds: { file: "unit_kinds.json", schema: unitKindEntrySchema },
+  item_subcategories: { file: "item_subcategories.json", schema: itemSubcategoryEntrySchema },
+  item_tags: { file: "item_tags.json", schema: itemTagEntrySchema },
+  weapon_types: { file: "weapon_types.json", schema: weaponTypeEntrySchema },
 };
 
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
@@ -56,13 +65,21 @@ export function applyDiffToPack(packDir, diffValue, { force = false, dryRun = fa
   const rows = rowsFile
     ? applyStatRowsDiff(Array.isArray(rowsFile.entries) ? rowsFile.entries : [], statChanges, { force })
     : { entries: [], applied: [], skipped: [] };
-  // 팩 항목(분류마다 한 파일)
+  // 팩 항목(분류마다 한 파일). 은퇴 ID를 새 항목으로 넣는 줄은 건너뛴다(retired)
+  const retired = new Set((diff.retiredIds ?? []).map((row) => `${row.category}/${row.id}`));
   const entryResults = [];
+  const retiredSkips = [];
   for (const [category, { file: name, schema }] of Object.entries(ENTRY_FILES)) {
-    const changes = (diff.entries ?? []).filter((change) => change.category === category);
+    const all = (diff.entries ?? []).filter((change) => change.category === category);
+    const changes = all.filter(
+      (change) => !(change.from === null && retired.has(`${category}/${change.id}`)),
+    );
+    for (const change of all)
+      if (!changes.includes(change)) retiredSkips.push({ category, id: change.id, reason: "retired" });
     if (changes.length === 0) continue;
     const filePath = path.join(packDir, name);
-    const categoryFile = JSON.parse(readFileSync(filePath, "utf8"));
+    // 분류 파일이 없으면(옛 팩) 빈 분류로 시작한다
+    const categoryFile = existsSync(filePath) ? JSON.parse(readFileSync(filePath, "utf8")) : { entries: [] };
     const outcome = applyEntriesDiff(
       Array.isArray(categoryFile.entries) ? categoryFile.entries : [],
       changes,
@@ -74,9 +91,23 @@ export function applyDiffToPack(packDir, diffValue, { force = false, dryRun = fa
   const entriesApplied = entryResults.flatMap(({ category, outcome }) =>
     outcome.applied.map((change) => ({ category, ...change })),
   );
-  const entriesSkipped = entryResults.flatMap(({ category, outcome }) =>
-    outcome.skipped.map((change) => ({ category, ...change })),
-  );
+  // 은퇴 ID가 팩에 이미 있다(누가 팩 커밋으로 같은 ID를 다시 썼다): 알린다(건너뜀으로 센다, 종료 코드 1)
+  const retiredInPack = (diff.retiredIds ?? []).flatMap((row) => {
+    const spec = ENTRY_FILES[row.category];
+    const filePath = path.join(packDir, spec.file);
+    if (!existsSync(filePath)) return [];
+    const list = JSON.parse(readFileSync(filePath, "utf8")).entries;
+    return Array.isArray(list) && list.some((entry) => entry?.id === row.id)
+      ? [{ category: row.category, id: row.id, reason: "retired_in_pack" }]
+      : [];
+  });
+  const entriesSkipped = [
+    ...entryResults.flatMap(({ category, outcome }) =>
+      outcome.skipped.map((change) => ({ category, ...change })),
+    ),
+    ...retiredSkips,
+    ...retiredInPack,
+  ];
   const formulasFile = formulaChanges.length > 0 ? JSON.parse(readFileSync(formulasPath, "utf8")) : null;
   const formulas = formulasFile
     ? applyFormulasDiff(
@@ -125,9 +156,14 @@ const SKIP_TEXT = {
   invalid: "그 칸 변수로 읽히지 않는 식",
 };
 
-/** 팩 항목 차이의 건너뜀 까닭(invalid = 항목 모양이 스키마와 맞지 않음) */
-const entrySkipText = (reason) =>
-  reason === "invalid" ? "항목 모양이 팩 스키마와 맞지 않음" : SKIP_TEXT[reason];
+/** 팩 항목 차이의 건너뜀 까닭(invalid = 항목 모양이 스키마와 맞지 않음, retired = 은퇴 ID를 새 항목으로, retired_in_pack = 은퇴 ID가 팩에 있음) */
+const entrySkipText = (reason) => {
+  if (reason === "invalid") return "항목 모양이 팩 스키마와 맞지 않음";
+  if (reason === "retired") return "그 세계에서 지운(은퇴) ID라 새 항목으로 넣지 않음";
+  if (reason === "retired_in_pack")
+    return "그 세계에서 지운(은퇴) ID가 팩에 이미 있음(한 번 쓴 ID를 다시 씀)";
+  return SKIP_TEXT[reason];
+};
 
 function main(argv) {
   const args = argv.slice(2);

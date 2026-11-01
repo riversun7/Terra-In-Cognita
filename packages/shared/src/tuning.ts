@@ -1,7 +1,7 @@
 // 설정 칸(49) 공용 표·자료 모양 — docs/adr/2026-11-01-dev-settings-panel.md(D1)
 // 서버(tRPC tuning.*)·개발자 패널(/dev/tuning)·콘텐츠 형식(packages/content tuning 분류)·규칙 검사(@terra/sim tuningProblems)가 같이 쓴다.
 // 값의 층: 실효 값 = 팩 값 위에 그 세계(DB 하나)의 덮어쓰기. 팩이 정본이다.
-import type { EntryDiffChange } from "./skillEditor.ts";
+import type { EntryDiffChange, RetiredIdRow } from "./contentEdit.ts";
 
 /** 칸의 저장 단위(게임 규칙 단위, PLAN 7장). 화면은 ms를 시간 글로, pm·bp를 %로도 보인다 */
 export const TUNING_UNITS = [
@@ -270,8 +270,13 @@ export interface TuningDiffView {
   }[];
   /** 가중치 표 칸 차이(덮어쓰기가 있을 때만, docs/adr/2026-11-01-balance-screen.md 2절) */
   readonly statRows?: readonly StatCellChange[];
-  /** 팩 항목 차이(스킬·무기·유닛 종류 덮어쓰기가 있을 때만, docs/adr/2026-11-01-skill-editor.md 7절) */
+  /** 팩 항목 차이(스킬·아이템·유닛 종류·아이템 분류 자료 덮어쓰기가 있을 때만, docs/adr/2026-11-01-skill-editor.md 7절) */
   readonly entries?: readonly EntryDiffChange[];
+  /**
+   * 그 세계에서 만든 뒤 지운 항목 ID(은퇴 ID, 있을 때만, docs/adr/2026-11-01-item-editor.md 4절). `pnpm tuning:apply`는 이 ID를 새 항목으로
+   * 넣지 않고, 팩에 이미 있으면 알린다(종료 코드 1)
+   */
+  readonly retiredIds?: readonly RetiredIdRow[];
   /** 계산식 차이(덮어쓰기가 있을 때만, docs/adr/2026-11-01-formula-editor.md): from = 팩 식, to = 덮어쓴 식 */
   readonly formulas?: readonly { readonly id: string; readonly from: string; readonly to: string }[];
 }

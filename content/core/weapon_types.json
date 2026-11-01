@@ -1,0 +1,130 @@
+{
+  "entries": [
+    {
+      "id": "blade",
+      "name": {
+        "ko": "검·도",
+        "en": "Blade"
+      },
+      "slot": "weapon",
+      "enabled": true
+    },
+    {
+      "id": "greatsword",
+      "name": {
+        "ko": "대검",
+        "en": "Greatsword"
+      },
+      "slot": "weapon",
+      "enabled": true
+    },
+    {
+      "id": "blunt",
+      "name": {
+        "ko": "둔기",
+        "en": "Blunt weapon"
+      },
+      "slot": "weapon",
+      "enabled": true
+    },
+    {
+      "id": "spear",
+      "name": {
+        "ko": "창",
+        "en": "Spear"
+      },
+      "slot": "weapon",
+      "enabled": true
+    },
+    {
+      "id": "axe",
+      "name": {
+        "ko": "도끼",
+        "en": "Axe"
+      },
+      "slot": "weapon",
+      "enabled": true
+    },
+    {
+      "id": "bow",
+      "name": {
+        "ko": "활",
+        "en": "Bow"
+      },
+      "slot": "weapon",
+      "enabled": true
+    },
+    {
+      "id": "crossbow",
+      "name": {
+        "ko": "석궁",
+        "en": "Crossbow"
+      },
+      "slot": "weapon",
+      "enabled": true
+    },
+    {
+      "id": "gun",
+      "name": {
+        "ko": "총",
+        "en": "Gun"
+      },
+      "slot": "weapon",
+      "enabled": true
+    },
+    {
+      "id": "staff",
+      "name": {
+        "ko": "지팡이",
+        "en": "Staff"
+      },
+      "slot": "weapon",
+      "enabled": true
+    },
+    {
+      "id": "wand",
+      "name": {
+        "ko": "완드",
+        "en": "Wand"
+      },
+      "slot": "weapon",
+      "enabled": true
+    },
+    {
+      "id": "fist",
+      "name": {
+        "ko": "권갑",
+        "en": "Fist weapon"
+      },
+      "slot": "weapon",
+      "enabled": true
+    },
+    {
+      "id": "shield",
+      "name": {
+        "ko": "방패",
+        "en": "Shield"
+      },
+      "slot": "offhand",
+      "enabled": true
+    },
+    {
+      "id": "quiver",
+      "name": {
+        "ko": "화살통",
+        "en": "Quiver"
+      },
+      "slot": "offhand",
+      "enabled": true
+    },
+    {
+      "id": "magazine",
+      "name": {
+        "ko": "탄창",
+        "en": "Magazine"
+      },
+      "slot": "offhand",
+      "enabled": true
+    }
+  ]
+}

@@ -236,8 +236,9 @@ export function tuningExport(shared: TuningShared, content?: ContentEditShared):
     if (!cell || record.value === cell.packValue) return [];
     return [{ row: cell.row.id, field: cell.field, from: cell.packValue, to: record.value }];
   });
-  // 팩 항목 덮어쓰기(스킬 편집기·행동별 소모, docs/adr/2026-11-01-skill-editor.md 7절): 있을 때만
+  // 팩 항목 덮어쓰기(스킬·아이템 편집기·행동별 소모, docs/adr/2026-11-01-skill-editor.md 7절): 있을 때만. 은퇴 ID도(아이템 편집기 4절)
   const entries = content ? contentExportEntries(content) : [];
+  const retiredIds = content ? content.state.worldRetired() : [];
   // 계산식: 팩 식과 다른 덮어쓰기(칸 키 차례, docs/adr/2026-11-01-formula-editor.md)
   const formulas = [...snapshot.formulas.values()].flatMap((record) => {
     const slot = state.formulaSlot(record.id);
@@ -258,6 +259,7 @@ export function tuningExport(shared: TuningShared, content?: ContentEditShared):
       ...(statRows.length > 0 ? { statRows } : {}),
       ...(entries.length > 0 ? { entries } : {}),
       ...(formulas.length > 0 ? { formulas } : {}),
+      ...(retiredIds.length > 0 ? { retiredIds } : {}),
     },
     fileName: `tuning-${pack.contentVersion.replace("@", "-")}-${stamp}.json`,
   };

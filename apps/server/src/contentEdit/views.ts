@@ -63,7 +63,7 @@ export function overrideViewOf(record: ContentOverrideRecord | undefined): Conte
     : null;
 }
 
-function originOf(
+export function originOf(
   state: ContentEditState,
   snapshot: ContentSnapshot,
   category: ContentEditCategory,
@@ -101,6 +101,8 @@ export function skillViews(state: ContentEditState, snapshot: ContentSnapshot): 
       pack: pack ? skillJsonOf(pack) : null,
       override: overrideViewOf(snapshot.overrides.get(contentKey("skills", entry.id))),
       grantedBy: grantedBy.get(entry.id) ?? [],
+      // 저장 묶음의 baseHash(같은 항목을 누가 먼저 고쳤을 때만 충돌, 아이템 편집기 설계안 3.10)
+      hash: state.hashOf("skills", entry.id) ?? "",
     };
   });
 }

@@ -2,22 +2,15 @@
 // 기획: 장비 칸(D-422), 장비가 올리는 스탯(D-423), 적정치 미달(D-424), 효과 사전(D-425), 스킬 두 갈래·칸·부품(D-426~D-428),
 // 상태이상 저항 = 1차 스탯(D-429), 켬·끔(D-398), 구조 값(D-5054). 계산은 packages/sim combat/(effects·skills·equipment).
 // [임시] 기획 본문 48(스탯·공식)을 받기 전 기술 기본안이다. 칸 이름·부품 종류·수치 범위는 본문이 오면 맞춘다.
-// 칸·1차 스탯 코드 목록은 packages/sim combat/equipment.ts와 같아야 한다(sim 시험이 맞춰 본다).
+// 칸 목록은 @terra/shared/roster EQUIP_SLOTS 하나다(아이템 편집기 WP-2에서 세 벌을 모았다). 1차 스탯 코드는 sim 시험이 맞춰 본다.
 import { ELEMENT_IDS, ELEMENT_MAX } from "@terra/shared/cyborg";
+import { EQUIP_SLOTS } from "@terra/shared/roster";
 import { z } from "zod";
 import { ContentRef, contentId, localizedText, ref } from "./common.ts";
 
 export const PRIMARY_STAT_CODES = ["str", "dex", "agi", "vit", "int", "wis"] as const;
-export const EQUIP_SLOT_KINDS = [
-  "weapon",
-  "offhand",
-  "head",
-  "body",
-  "accessory",
-  "organ",
-  "part",
-  "saddle",
-] as const;
+/** 장비 칸 종류(D-422). 목록은 @terra/shared/roster EQUIP_SLOTS 하나다(팩·sim·화면이 같이 쓴다) */
+export const EQUIP_SLOT_KINDS = EQUIP_SLOTS;
 /** 1차 스탯을 올리는 칸(D-423, 48 §5.2: 장신구·인공장기·부품·크리쳐 안장). 나머지 칸은 2차 수치 */
 export const PRIMARY_STAT_SLOTS: readonly string[] = ["accessory", "organ", "part", "saddle"];
 /** 장비가 올리지 않는 2차 행(D-438 1: 2차 공격력은 1차·장신구·버프만, 무기 공격력은 무기 사양) */
@@ -298,6 +291,7 @@ function checkWeaponFields(weapon: unknown, ctx: z.RefinementCtx): void {
       path: [],
       message:
         "무기에 공격력 칸이 없습니다. physical(물리)·elemental(속성) 가운데 하나 이상을 {attack, attackAppropriate}로 적으세요(D-465).",
+      params: { rule: "weapon_field_missing" },
     });
     return;
   }
@@ -307,14 +301,41 @@ function checkWeaponFields(weapon: unknown, ctx: z.RefinementCtx): void {
       path: ["basic"],
       message:
         '두 칸 무기는 기본 공격(스킬 없음)이 쓸 칸을 basic에 적습니다: "physical" 또는 "elemental"(질문 235 가).',
+      params: { rule: "weapon_basic_required" },
     });
   if ((basic === "physical" && !physical) || (basic === "elemental" && !elemental))
     ctx.addIssue({
       code: "custom",
       path: ["basic"],
       message: `basic이 가리키는 칸(${basic})이 무기에 없습니다.`,
+      params: { rule: "weapon_basic_field" },
     });
 }
+
+/**
+ * 1차 적정 스탯(D-496, D-494 "둘 다"를 바꿈): 착용 제한이 아니다(D-424 그대로). 못 미치면 효율이 줄고(D-420 틀), 2차 적정치는 이 값만
+ * 가진 유닛(나머지 1차 0, 장비·버프 0, LV 1)의 2차 값으로 셈한다(질문 290 가). 셈해서 전투에 잇는 일은 WP-5다: 그때까지 전투는
+ * 직접 적은 2차 적정치(attackAppropriate 등)를 쓴다(docs/adr/2026-11-01-item-editor.md 2절)
+ */
+export const primaryAppropriateSchema = z
+  .strictObject({
+    str: z.int().min(0).max(10_000_000).optional(),
+    dex: z.int().min(0).max(10_000_000).optional(),
+    agi: z.int().min(0).max(10_000_000).optional(),
+    vit: z.int().min(0).max(10_000_000).optional(),
+    int: z.int().min(0).max(10_000_000).optional(),
+    wis: z.int().min(0).max(10_000_000).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (typeof value !== "object" || value === null) return;
+    if (PRIMARY_STAT_CODES.every((code) => Reflect.get(value, code) === undefined))
+      ctx.addIssue({
+        code: "custom",
+        path: [],
+        message: "1차 적정 스탯(appropriate)은 적어도 하나를 적습니다(str·dex·agi·vit·int·wis).",
+        params: { rule: "weapon_appropriate_empty" },
+      });
+  });
 
 const weaponSchema = z
   .strictObject({
@@ -324,6 +345,15 @@ const weaponSchema = z
     /** 기본 공격이 쓰는 칸(질문 235 가): 두 칸 무기만 꼭 적는다. 한 칸 무기는 그 칸 */
     basic: attackFieldKind.optional(),
     ...weaponBody,
+    /** 1차 적정 스탯(D-496, 위). 전투 연결은 WP-5 */
+    appropriate: primaryAppropriateSchema.optional(),
+    /** 양손 무기(48 §5.5): 든 동안 보조 칸 장비를 쓰지 않는다(전투 연결 WP-5) */
+    twoHanded: z.boolean().optional(),
+    /**
+     * 탄약 연결(48 §5.5, D-496): 이 무기가 쓰는 보조 칸 무기 종류(화살통·탄창). 원거리 타격마다 1씩 쓰고 떨어지면 원거리 공격을
+     * 못 한다(전투 규칙은 다음 줄기). 보조 칸 종류만 가리킨다(팩 검사)
+     */
+    ammo: ref("weapon_types").optional(),
   })
   .superRefine(checkWeaponFields);
 
@@ -394,6 +424,30 @@ export const equipSchema = z
       .array(z.strictObject({ element: z.enum(ELEMENT_IDS), value: z.int().min(1).max(ELEMENT_MAX) }))
       .max(ELEMENT_IDS.length)
       .optional(),
+    /** 무기 종류(48 §5.5): 무기·보조 칸만. 그 종류의 칸이 이 아이템 칸과 같아야 한다(팩 검사) */
+    weaponType: ref("weapon_types").optional(),
+    /** 최대 내구도(전투마다 조금씩, 지면 더 닳는다 D-496. 실행 규칙은 내구도 줄기) */
+    maxDurability: z.int().min(1).max(1_000_000).optional(),
+    /**
+     * 전투 직접 값(D-421, 48 §3.4): 속성별 저항‰ 12칸(ELEMENT_IDS 차례)·고정 방어·비율 관통‰. 여러 장비의 값은 더한다(D-178).
+     * 전투 연결은 WP-5(sim 유닛 사양 resistPm·defenseFlat·penetrationPm)
+     */
+    combat: z
+      .strictObject({
+        resistPm: z.array(z.int().min(-1000).max(1000)).length(ELEMENT_IDS.length).optional(),
+        defenseFlat: z.int().min(0).max(10_000_000).optional(),
+        penetrationPm: z.int().min(0).max(1000).optional(),
+      })
+      .optional(),
+    /** 입을 수 있는 유닛 종류(D-494 크리쳐 전용 장비 등). 없으면 그 칸을 가진 모든 종류. 거르기는 WP-5·WP-C */
+    kinds: z.array(ref("unit_kinds")).min(1).max(8).optional(),
+    /**
+     * 크리쳐 보유(D-494): 조우 때 개체마다 무작위로 가지는 상대 빈도(weight, 후보끼리)와 훔치기로 얻는 확률(stealPm, 드롭률보다 높게).
+     * 굴리기·훔치기는 크리쳐·전투 줄기
+     */
+    creature: z
+      .strictObject({ weight: z.int().min(0).max(1_000_000), stealPm: z.int().min(0).max(1000) })
+      .optional(),
   })
   .superRefine((equip, ctx) => {
     if (typeof equip !== "object" || equip === null || !Array.isArray(equip.stats)) return;
@@ -408,15 +462,22 @@ export const equipSchema = z
           message: wantPrimary
             ? `${equip.slot} 칸은 1차 스탯(str·dex·agi·vit·int·wis)만 올립니다(D-423).`
             : `${equip.slot} 칸은 2차 수치(가중치 표 행)만 올립니다(D-423).`,
+          params: { rule: wantPrimary ? "equip_stat_primary" : "equip_stat_secondary" },
         });
       if (entry.stat instanceof ContentRef && GEAR_FORBIDDEN_ROWS.includes(entry.stat.id))
         ctx.addIssue({
           code: "custom",
           path: ["stats", index, "stat"],
           message: "장비는 2차 공격력을 올리지 않습니다(D-438 1, 무기 공격력은 weapon 칸).",
+          params: { rule: "equip_stat_forbidden" },
         });
       if (typeof entry.min === "number" && typeof entry.max === "number" && entry.min > entry.max)
-        ctx.addIssue({ code: "custom", path: ["stats", index], message: "min이 max보다 큽니다." });
+        ctx.addIssue({
+          code: "custom",
+          path: ["stats", index],
+          message: "min이 max보다 큽니다.",
+          params: { rule: "equip_stat_range" },
+        });
     });
     if (Array.isArray(equip.elements)) {
       const seen = new Set<string>();
@@ -427,6 +488,7 @@ export const equipSchema = z
             code: "custom",
             path: ["elements", index, "element"],
             message: `속성 ${entry.element}이(가) 두 번 있습니다. 칸마다 한 줄만 적으세요.`,
+            params: { rule: "equip_element_duplicate" },
           });
         seen.add(entry.element);
       });
@@ -436,6 +498,29 @@ export const equipSchema = z
         code: "custom",
         path: ["weapon"],
         message: "무기 칸(weapon)에는 무기 사양을 꼭, 다른 칸에는 쓰지 않습니다.",
+        params: { rule: "equip_weapon_slot" },
       });
+    if (equip.weaponType !== undefined && equip.slot !== "weapon" && equip.slot !== "offhand")
+      ctx.addIssue({
+        code: "custom",
+        path: ["weaponType"],
+        message: "무기 종류(weaponType)는 무기·보조 칸(weapon·offhand) 장비에만 씁니다.",
+        params: { rule: "equip_weapon_type_slot" },
+      });
+    if (Array.isArray(equip.kinds)) {
+      const seen = new Set<string>();
+      equip.kinds.forEach((kind, index) => {
+        const id = kind instanceof ContentRef ? kind.id : undefined;
+        if (id === undefined) return;
+        if (seen.has(id))
+          ctx.addIssue({
+            code: "custom",
+            path: ["kinds", index],
+            message: `유닛 종류 ${id}가 두 번 있습니다.`,
+            params: { rule: "equip_kind_duplicate" },
+          });
+        seen.add(id);
+      });
+    }
   });
 export type EquipEntry = z.output<typeof equipSchema>;

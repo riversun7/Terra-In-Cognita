@@ -4,6 +4,7 @@
 // - 무기·방어구(무기·보조·머리·몸·안장)는 2차 수치, 장신구·인공장기·부품은 1차 스탯을 올린다(D-423). 칸과 스탯 묶음이 맞지 않으면 거절한다.
 // - 착용에 스탯 요구가 없다(D-424). 성능은 판정 때 무기 틀 min(2, 유닛 값 ÷ 적정치)으로 준다(formula.ts weaponScaled).
 // 기획 48 §5와 맞췄다(안장 = 1차, 2차 공격력은 장비가 올리지 않음). [임시] 칸 이름(코드)·장비 스킬(소켓 인챈트 전 단계).
+import { EQUIP_SLOTS } from "@terra/shared/roster";
 import type { GemRef } from "./gems.ts";
 import { type Primaries, type StatRow, computeSecondary } from "./stats.ts";
 import type { WeaponSpec } from "./unitSpec.ts";
@@ -11,16 +12,8 @@ import type { WeaponSpec } from "./unitSpec.ts";
 export const PRIMARY_CODES = ["str", "dex", "agi", "vit", "int", "wis"] as const;
 export type PrimaryCode = (typeof PRIMARY_CODES)[number];
 
-export const SLOT_KINDS = [
-  "weapon",
-  "offhand",
-  "head",
-  "body",
-  "accessory",
-  "organ",
-  "part",
-  "saddle",
-] as const;
+/** 장비 칸 종류(D-422). 목록은 @terra/shared/roster EQUIP_SLOTS 하나다(팩 스키마·화면과 같은 목록) */
+export const SLOT_KINDS = EQUIP_SLOTS;
 export type SlotKind = (typeof SLOT_KINDS)[number];
 
 /** 1차 스탯을 올리는 칸(D-423, 48 §5.2: 장신구·인공장기·부품·크리쳐 안장). 나머지 칸은 2차 수치 */

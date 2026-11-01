@@ -5,7 +5,7 @@
 // - 시안 자료(dev·admin이 켠 preview)는 응답의 preview 칸으로 알린다. 화면은 "시험 자료"를 표시한다(ADR 37 6절 [결정 2]).
 // - status "not_ready" = 그 시스템을 서버가 아직 돌리지 않는다(거래소·생산 등). 그때 목록 칸은 비어 있다.
 // - 팩 항목 이름은 두 언어(LocalizedName), 사람·NPC가 지은 이름(도시)은 글자 하나다(번역하지 않는다, D-6046).
-// 이 파일은 타입과 상수만 둔다(첫 화면 묶음에 넣지 않는다: 경로 "@terra/shared/economy"로만 가져온다).
+// 이 파일은 타입과 상수(+ 작은 규칙 함수 marketKindOf)만 둔다(첫 화면 묶음에 넣지 않는다: 경로 "@terra/shared/economy"로만 가져온다).
 
 /** 최소 단위 정수의 10진 글자(음수 없음, 앞자리 0 없음. "0"은 된다) */
 export type DecimalString = string;
@@ -30,6 +30,23 @@ export interface EconomyResponseHead {
 
 // ── 목록(콘텐츠 팩) ─────────────────────────────────────────
 
+/**
+ * 거래 방식: book = 호가창(같은 물건끼리 바꿔 쓴다), auction = 경매 매물(장비 같은 완제품, D-282), none = 거래소에 올리지 않음
+ * (문서 D-152, 거래 불가·계정 귀속 D-7014). 서버가 marketKindOf로 셈해 보낸다
+ */
+export type MarketKind = "book" | "auction" | "none";
+
+/** 거래 방식 규칙 하나(서버 경제 시안·아이템 편집기·화면 옛 규칙 사본을 모았다, 아이템 편집기 설계안 5.1) */
+export function marketKindOf(item: {
+  readonly category: string;
+  readonly tradable?: boolean | undefined;
+  readonly bound?: boolean | undefined;
+}): MarketKind {
+  if (item.bound === true || item.tradable === false) return "none";
+  if (item.category === "document") return "none";
+  return item.category === "equipment" ? "auction" : "book";
+}
+
 export interface CatalogItemView {
   readonly id: string;
   readonly name: LocalizedName;
@@ -39,6 +56,11 @@ export interface CatalogItemView {
   readonly tier: number;
   /** [임시] 기준 가치(그 나라 화폐 최소 단위) */
   readonly baseValue: DecimalString;
+  /**
+   * 거래 방식(marketKindOf). 이 칸이 없는 옛 서버면 화면은 옛 규칙(장비 → 경매, 문서 → 없음, 나머지 → 호가창)을 쓴다
+   * (PWA 기기는 서버보다 옛것이거나 새것일 수 있다)
+   */
+  readonly market?: MarketKind | undefined;
 }
 
 export interface CatalogFacilityView {

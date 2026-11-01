@@ -29,8 +29,8 @@ export const GARDENER_SIDE_FACTION = 0;
 /** [임시] 물리형 공성 크리쳐의 건물 피해 배율(‰, 휴먼 사양은 2,000). 마법형은 0 */
 const SIEGE_BUILDING_MUL_PM = 4000;
 const MAGIC_BUILDING_MUL_PM = 0;
-/** [임시] 마법형 크리쳐의 무기(팩 시험 지팡이, 속성 무기) */
-const MAGIC_WEAPON = "test_staff";
+/** [임시] 마법형 크리쳐의 무기(팩 시험 지팡이, 속성 무기). 아이템 편집기 코드 참조 표가 읽는다(SIM_ITEM_REFS) */
+export const MAGIC_WEAPON = "test_staff";
 
 export interface WaveBattleInput {
   readonly battleId: number;

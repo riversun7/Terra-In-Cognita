@@ -2,11 +2,12 @@
 // 권한·속도 제한은 설정 칸 패널(D1)과 같다: 우리 권한 표(tuning:read·write) → Better Auth 확인 → 사용자별 속도 제한. 셋 다 입력 검사보다 먼저.
 // 쓰기는 게임 상태가 아니라 그 세계의 팩 항목 실효 값(덮어쓰기)을 바꾼다: 서버가 팩 검사기로 본 뒤에만 받고 감사 기록을 남긴다.
 // 오류(error.data.code): UNAUTHORIZED, FORBIDDEN, TOO_MANY_REQUESTS("rate_limited"), BAD_REQUEST(입력 형식, 또는 data.reason =
-// invalid_entry(+ data.details 팩 검사 문제)·unknown_entry·retired_id·duplicate_entry·invalid_note — 하나라도 틀리면 묶음 전체를
-// 받지 않는다), CONFLICT("revision_conflict"), NOT_FOUND(message "SKILL_EDITOR_UNAVAILABLE": 인증이나 팩이 없는 서버).
+// invalid_entry(+ data.details 팩 검사 문제)·unknown_entry·retired_id·duplicate_entry·invalid_note·entry_changed(data.details = 키) —
+// 하나라도 틀리면 묶음 전체를 받지 않는다), CONFLICT("revision_conflict": baseHash 없이 판이 다름), NOT_FOUND(message
+// "SKILL_EDITOR_UNAVAILABLE": 인증이나 팩이 없는 서버).
 import {
   ACTION_COST_MAX,
-  CONTENT_EDIT_CATEGORIES,
+  SKILL_EDITOR_CATEGORIES,
   SKILL_EDITOR_CHANGES_MAX,
   type SkillJson,
 } from "@terra/shared/skillEditor";
@@ -29,9 +30,21 @@ const skillEntry = z.custom<SkillJson>(
     contentId.safeParse(Reflect.get(value, "id")).success,
 );
 
+/** 고치기 시작할 때의 실효 항목 해시(새 항목 null, 옛 기기는 없음) — 같은 항목을 누가 먼저 고쳤을 때만 충돌(entry_changed) */
+const baseHash = z
+  .string()
+  .regex(/^[0-9a-f]{64}$/)
+  .nullable()
+  .optional();
+
 const change = z.discriminatedUnion("op", [
-  z.strictObject({ op: z.literal("put_skill"), entry: skillEntry }),
-  z.strictObject({ op: z.literal("revert"), category: z.enum(CONTENT_EDIT_CATEGORIES), id: contentId }),
+  z.strictObject({ op: z.literal("put_skill"), entry: skillEntry, baseHash }),
+  z.strictObject({
+    op: z.literal("revert"),
+    category: z.enum(SKILL_EDITOR_CATEGORIES),
+    id: contentId,
+    baseHash,
+  }),
   z.strictObject({
     op: z.literal("set_cost"),
     category: z.enum(["items", "unit_kinds"]),

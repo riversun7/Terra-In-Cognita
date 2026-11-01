@@ -18,6 +18,14 @@ export interface ContentIssue {
   column?: number;
   /** "문제. 고칠 방법." 형식의 한국어 문장 */
   message: string;
+  /**
+   * 문제 코드(선택, 편집기가 메시지 키로 보인다 — PLAN 8장 "서버는 문장 대신 코드를 보낸다"). 스키마 단계는 Zod 문제 코드
+   * (too_small·too_big·invalid_type·invalid_value·unrecognized_keys·invalid_format…)나 규칙 코드(params.rule, 예:
+   * item_equip_required), 참조 단계는 ref_missing·id_duplicate·file_unknown·orphan, 아이템 검사는 item_*. 없으면 옛 검사 문구다
+   */
+  code?: string;
+  /** 코드의 값(최솟값·최댓값·허용 값·가리킨 ID 등). 문장에 넣을 값만 */
+  params?: Readonly<Record<string, string | number | boolean>>;
 }
 
 export const STAGE_LABELS: Readonly<Record<ContentStage, string>> = {

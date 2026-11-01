@@ -1,9 +1,13 @@
-// 스킬 편집기·행동별 소모 화면 요청 처리 — tRPC skills.*(src/trpc/skills.ts)가 권한(설정 칸 패널과 같은 tuning:read·write 두 겹)과
-// 속도 제한을 거친 뒤 부른다. docs/adr/2026-11-01-skill-editor.md 3·4·6절.
-// - 쓰기는 한 프로세스 안에서 차례로 돈다(serial): 판 확인 → 묶음을 얹은 실효 팩 전체 검사(plan) → DB(판 +1·덮어쓰기·감사 기록) →
-//   스냅숏 바꿔 끼우기 → 서버 기록 `content change`. 바로 든다(D-461): 다음 전투·화면 요청부터 새 항목을 쓴다.
+// 팩 항목 덮어쓰기 요청 처리 — 스킬 편집기(tRPC skills.*)·아이템 편집기(tRPC items.*, src/itemEdit/)가 같이 쓴다. 권한(설정 칸 패널과
+// 같은 tuning:read·write 두 겹)과 속도 제한은 라우터가 먼저 본다. docs/adr/2026-11-01-skill-editor.md 3·4·6절, 2026-11-01-item-editor.md 4절.
+// - 쓰기는 한 프로세스 안에서 차례로 돈다(serial, 두 라우터가 ContentEditShared 하나를 같이 쓴다): 판·baseHash 확인 → 묶음을 얹은
+//   실효 팩 전체 검사(plan) → DB(판 +1·덮어쓰기·은퇴 ID·감사 기록) → 스냅숏 바꿔 끼우기 → 서버 기록 `content change`.
+//   바로 든다(D-461): 다음 전투·화면 요청부터 새 항목을 쓴다.
+// - 판 충돌 규칙: 묶음의 모든 바꿈에 baseHash가 있으면 판이 달라도(다른 항목만 바뀜) 받고, 그 항목이 그새 바뀌었으면 entry_changed.
+//   baseHash가 없는 옛 기기는 판이 다르면 충돌(revision_conflict).
 // - 켤 때(bootContentEdit): 가장 나중에 바꾼 것을 고르고(팩 항목이 저장 뒤에 바뀌었으면 팩이 이김) 지울 줄을 정리한다. 정리가 실패해도,
 //   고르기가 던져도 시작을 막지 않는다(팩 항목으로 돈다).
+import type { ContentEditCategory } from "@terra/shared/contentEdit";
 import type { EntryDiffChange } from "@terra/shared/skillEditor";
 import {
   SKILL_EDITOR_HISTORY_LIMIT,
@@ -93,6 +97,7 @@ export async function bootContentEdit(
       await new Promise((resolve) => setTimeout(resolve, options.retryMs ?? BOOT_RETRY_MS));
     }
   }
+  state.addRetired(loaded.retired);
   let selection: ReturnType<ContentEditState["selectAtBoot"]>;
   try {
     selection = state.selectAtBoot(loaded.rows);
@@ -102,7 +107,8 @@ export async function bootContentEdit(
   }
   let revision = loaded.revision;
   const sleeping = selection.slept.length + loaded.foreign.length;
-  if (selection.packWon.length > 0 || selection.dropped.length > 0 || sleeping > 0) {
+  const removing = selection.packWon.length + selection.adopted.length + selection.dropped.length;
+  if (removing > 0 || sleeping > 0) {
     try {
       revision =
         (await cleanupContentAtBoot(db, selection, shared.pack.contentVersion, loaded.foreign)) ?? revision;
@@ -110,31 +116,36 @@ export async function bootContentEdit(
       log.warn({ err: error }, "content boot: could not clean up overrides (kept in the database)");
     }
   }
-  // 잠든 줄은 넣지 않는다(DB에 남고, 그 판을 다시 켜면 다시 고른다)
-  state.install(
-    selection.keep,
-    revision,
-    selection.slept.map((row) => contentKey(row.category, row.id)),
-  );
+  // 잠든 줄도 넘긴다(install이 지금도 잠들었는지 보고 넣지 않는다. DB에 남고, 그 판을 다시 켜면 다시 고른다)
+  state.install([...selection.keep, ...selection.slept.map(({ row }) => row)], revision, {
+    newer: selection.slept
+      .filter((item) => item.reason === "newer_pack")
+      .map(({ row }) => contentKey(row.category, row.id)),
+    foreign: loaded.foreign,
+  });
   log.info(
     {
       contentRevision: revision,
       applied: selection.keep.map((row) => contentKey(row.category, row.id)),
       packWon: selection.packWon.map((row) => contentKey(row.category, row.id)),
+      adopted: selection.adopted.map((row) => contentKey(row.category, row.id)),
       dropped: selection.dropped.map(({ row, reason }) => ({
         key: contentKey(row.category, row.id),
         reason,
       })),
       slept: [
-        ...selection.slept.map((row) => ({
+        ...selection.slept.map(({ row, reason }) => ({
           key: contentKey(row.category, row.id),
+          reason,
           version: row.contentVersion,
         })),
         ...loaded.foreign.map((row) => ({
           key: contentKey(row.category, row.id),
+          reason: row.reason,
           version: row.contentVersion,
         })),
       ],
+      retired: loaded.retired.length,
     },
     CONTENT_BOOT_MESSAGE,
   );
@@ -164,6 +175,83 @@ export function contentExportEntries(shared: ContentEditShared): EntryDiffChange
     from: state.packHash(record.category, record.id),
     entry: record.entry,
   }));
+}
+
+/** 묶음 하나 */
+export interface ContentBatchInput {
+  readonly expectedRevision: number;
+  readonly puts: readonly ContentPut[];
+  /** 버릴 잠든 줄 */
+  readonly discard?: readonly { readonly category: ContentEditCategory; readonly id: string }[];
+  readonly note: string | null;
+}
+
+const conflict = () => reasonedError("CONFLICT", "REVISION_CONFLICT", "revision_conflict");
+
+/**
+ * 묶음 적용(두 편집기 공용). 받지 않으면 rejectedMessage로 BAD_REQUEST(data.reason = 까닭, data.details = 문제 줄·키), 판 충돌이면
+ * CONFLICT(revision_conflict). 받으면 새 판(바꿀 것이 없으면 지금 판)
+ */
+export async function applyContentBatch(
+  deps: { db: Database; shared: ContentEditShared; ip: string | null },
+  viewer: Viewer,
+  input: ContentBatchInput,
+  rejectedMessage: string,
+): Promise<number> {
+  const { db, shared } = deps;
+  const { state, log } = shared;
+  const rejected = (reason: string, details?: readonly string[]) =>
+    reasonedError("BAD_REQUEST", rejectedMessage, reason, details);
+  return shared.serial(async () => {
+    // 모든 바꿈에 baseHash가 있으면 판이 달라도 받는다(항목마다 plan이 본다). 없으면 옛 규칙(판이 같아야 한다)
+    const hashed = input.puts.every((put) => put.baseHash !== undefined);
+    if (state.revision() !== input.expectedRevision && !hashed) throw conflict();
+    const plan = state.plan(input.puts);
+    if (!plan.ok) throw rejected(plan.reason, plan.id ? [plan.id, ...plan.details] : plan.details);
+    const discard = (input.discard ?? []).map((key) => {
+      const record = state.sleepingRecord(key.category, key.id);
+      if (!record) throw rejected("unknown_entry", [contentKey(key.category, key.id)]);
+      return { category: record.category, id: record.id, entry: record.entry };
+    });
+    if (plan.changes.length === 0 && discard.length === 0) return state.revision();
+    const actor: AuditActor & { id: string } = {
+      kind: "admin",
+      id: viewer.id,
+      ip: deps.ip,
+      meta: { roles: viewer.roles },
+    };
+    const outcome = await applyContentWrites(db, {
+      // 판 확인은 이 프로세스의 지금 판으로(바로 위에서 보았다). 다른 쓰기가 끼면 DB가 충돌로 돌려준다
+      expectedRevision: state.revision(),
+      changes: plan.changes,
+      retire: plan.retire,
+      discard,
+      contentVersion: shared.pack.contentVersion,
+      note: input.note,
+      actor,
+    });
+    if (outcome.kind === "conflict") throw conflict();
+    state.addRetired(plan.retire);
+    state.install(outcome.records, outcome.revision);
+    log.info(
+      {
+        contentRevision: outcome.revision,
+        at: shared.now(),
+        actor: viewer.loginId,
+        changes: plan.changes.map((change) => ({
+          key: contentKey(change.category, change.id),
+          before: change.before === null ? null : entryHash(change.before).slice(0, 12),
+          after: change.after === null ? null : entryHash(change.after).slice(0, 12),
+        })),
+        retired: plan.retire.map((row) => contentKey(row.category, row.id)),
+        discarded: discard.map((row) => contentKey(row.category, row.id)),
+        note: input.note,
+      },
+      CONTENT_CHANGE_MESSAGE,
+    );
+    logDroppedReferences(shared);
+    return outcome.revision;
+  });
 }
 
 /** 항목 JSON의 깊은 복사(바꿀 칸만 고친다) */
@@ -211,11 +299,13 @@ export interface SkillEditorServices {
   save(viewer: Viewer, input: SkillEditorSaveInput): Promise<SkillEditorListResponse>;
 }
 
-const rejected = (reason: string, details?: readonly string[]) =>
+/**
+ * 화면 바꿈 → 항목 통째 묶음(소모 바꿈은 지금 실효 항목에 그 칸만 고친다: 낡은 초안이 다른 칸을 덮지 않게, 그 항목의 지금 해시를
+ * baseHash로 싣는다)
+ */
+const skillRejected = (reason: string, details?: readonly string[]) =>
   reasonedError("BAD_REQUEST", SKILL_EDITOR_REJECTED, reason, details);
-const conflict = () => reasonedError("CONFLICT", "REVISION_CONFLICT", "revision_conflict");
 
-/** 화면 바꿈 → 항목 통째 묶음(소모 바꿈은 지금 실효 항목에 그 칸만 고친다) */
 function putsOf(state: ContentEditState, changes: readonly SkillEditorChange[]): ContentPut[] {
   const raw = state.snapshot().raw;
   return changes.map((change): ContentPut => {
@@ -224,12 +314,24 @@ function putsOf(state: ContentEditState, changes: readonly SkillEditorChange[]):
         category: "skills",
         id: change.entry.id,
         entry: Object.fromEntries(Object.entries(change.entry)),
+        ...(change.baseHash === undefined ? {} : { baseHash: change.baseHash }),
       };
-    if (change.op === "revert") return { category: change.category, id: change.id, entry: null };
+    if (change.op === "revert")
+      return {
+        category: change.category,
+        id: change.id,
+        entry: null,
+        ...(change.baseHash === undefined ? {} : { baseHash: change.baseHash }),
+      };
     const current = raw[change.category].find((entry) => entry.id === change.id);
     const next = current ? withCost(change.category, current, change.staminaCost, change.mpCost) : undefined;
-    if (!next) throw rejected("unknown_entry", [contentKey(change.category, change.id)]);
-    return { category: change.category, id: change.id, entry: next };
+    if (!next) throw skillRejected("unknown_entry", [contentKey(change.category, change.id)]);
+    return {
+      category: change.category,
+      id: change.id,
+      entry: next,
+      baseHash: state.hashOf(change.category, change.id),
+    };
   });
 }
 
@@ -239,7 +341,7 @@ export function createSkillEditorServices(deps: {
   ip: string | null;
 }): SkillEditorServices {
   const { db, shared } = deps;
-  const { state, log } = shared;
+  const { state } = shared;
   return {
     list: () => Promise.resolve(skillEditorList(shared)),
 
@@ -249,44 +351,16 @@ export function createSkillEditorServices(deps: {
 
     async save(viewer, input) {
       const note = normalizeTuningNote(input.note);
-      if (note === false) throw rejected("invalid_note");
-      return shared.serial(async () => {
-        if (state.revision() !== input.expectedRevision) throw conflict();
-        const plan = state.plan(putsOf(state, input.changes));
-        if (!plan.ok) throw rejected(plan.reason, plan.id ? [plan.id, ...plan.details] : plan.details);
-        if (plan.changes.length === 0) return skillEditorList(shared);
-        const actor: AuditActor & { id: string } = {
-          kind: "admin",
-          id: viewer.id,
-          ip: deps.ip,
-          meta: { roles: viewer.roles },
-        };
-        const outcome = await applyContentWrites(db, {
-          expectedRevision: input.expectedRevision,
-          changes: plan.changes,
-          contentVersion: shared.pack.contentVersion,
-          note,
-          actor,
-        });
-        if (outcome.kind === "conflict") throw conflict();
-        state.install(outcome.records, outcome.revision);
-        log.info(
-          {
-            contentRevision: outcome.revision,
-            at: shared.now(),
-            actor: viewer.loginId,
-            changes: plan.changes.map((change) => ({
-              key: contentKey(change.category, change.id),
-              before: change.before === null ? null : entryHash(change.before).slice(0, 12),
-              after: change.after === null ? null : entryHash(change.after).slice(0, 12),
-            })),
-            note,
-          },
-          CONTENT_CHANGE_MESSAGE,
-        );
-        logDroppedReferences(shared);
-        return skillEditorList(shared);
-      });
+      if (note === false) throw skillRejected("invalid_note");
+      // 소모 바꿈은 묶음을 받을 때의 실효 항목으로 만든다(차례 안에서 다시 보지 않는다: baseHash가 그새 바뀐 것을 잡는다)
+      const puts = putsOf(state, input.changes);
+      await applyContentBatch(
+        deps,
+        viewer,
+        { expectedRevision: input.expectedRevision, puts, note },
+        SKILL_EDITOR_REJECTED,
+      );
+      return skillEditorList(shared);
     },
   };
 }

@@ -555,10 +555,19 @@ export {
   combatCatalogFrom,
   combatFormulasFromPack,
   droppedReferences,
+  equipDefOf,
   statRowFrom,
+  weaponSpecOf,
   type CombatPackEntries,
   type DroppedReferences,
 } from "./combat/packCatalog.ts";
+export { SIM_ITEM_REFS } from "./itemRefs.ts";
+export {
+  APPROPRIATE_ROWS,
+  appropriateFromPrimaries,
+  type DerivedAppropriate,
+  type PrimaryAppropriate,
+} from "./combat/appropriate.ts";
 export {
   TUNING_KEYS,
   combatCoefficientsFrom,

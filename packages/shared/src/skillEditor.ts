@@ -3,14 +3,28 @@
 // 스킬 항목은 콘텐츠 팩 skills.json 한 줄과 같은 JSON 모양이다(참조는 ID 문자열). 형식 검사는 서버가 팩 스키마로 한다
 // (게임 앱은 @terra/content를 가져오지 않는다). 값의 범위 상수는 화면 입력 칸이 쓰고, 맞는지는 서버가 다시 본다.
 
-/** 덮어쓸 수 있는 팩 분류(스킬 편집기 = skills, 행동별 소모 = items 무기·unit_kinds 타고난 무기) */
-export const CONTENT_EDIT_CATEGORIES = ["skills", "items", "unit_kinds"] as const;
-export type ContentEditCategory = (typeof CONTENT_EDIT_CATEGORIES)[number];
+import type {
+  ContentEditOrigin,
+  ContentHistoryRow,
+  ContentOverrideView,
+  LocalizedName,
+} from "./contentEdit.ts";
 
-export interface LocalizedName {
-  readonly ko: string;
-  readonly en: string;
-}
+// 덮어쓰기 층의 공용 모양은 contentEdit.ts(아이템 편집기와 같이 쓴다). 옛 가져오기 길을 지킨다
+export {
+  CONTENT_DROP_REASONS,
+  CONTENT_EDIT_CATEGORIES,
+  type ContentDropReason,
+  type ContentEditCategory,
+  type ContentEditOrigin,
+  type ContentOverrideView,
+  type EntryDiffChange,
+  type LocalizedName,
+} from "./contentEdit.ts";
+
+/** 스킬 편집기 묶음이 고칠 수 있는 분류(스킬, 행동별 소모의 무기 아이템·유닛 종류 타고난 무기) */
+export const SKILL_EDITOR_CATEGORIES = ["skills", "items", "unit_kinds"] as const;
+export type SkillEditorCategory = (typeof SKILL_EDITOR_CATEGORIES)[number];
 
 /** 스킬 모양(@terra/content SKILL_SHAPES와 같다, 서버 시험이 맞춰 본다) */
 export const SKILL_SHAPE_IDS = ["single", "projectile", "area", "chain", "heal", "buff", "debuff"] as const;
@@ -119,17 +133,6 @@ export const SKILL_LIMITS = {
 /** 무기 한 번 공격의 소모(행동별 소모 화면) */
 export const ACTION_COST_MAX = 100_000;
 
-/** 항목이 어디서 왔나: 팩 그대로 · 팩 위에 덮어씀 · 편집기에서 만듦(팩에 없음) */
-export type ContentEditOrigin = "pack" | "edited" | "created";
-
-/** 세계의 덮어쓰기 하나(누가·언제·메모) */
-export interface ContentOverrideView {
-  readonly note: string | null;
-  readonly updatedBy: string | null;
-  readonly updatedAt: number;
-  readonly contentVersionAtSave: string;
-}
-
 export interface SkillEditorSkill {
   /** 실효 항목(팩 + 덮어쓰기) */
   readonly entry: SkillJson;
@@ -139,6 +142,11 @@ export interface SkillEditorSkill {
   readonly override: ContentOverrideView | null;
   /** 이 스킬을 주는 장비(아이템 ID) */
   readonly grantedBy: readonly string[];
+  /**
+   * 실효 항목 해시(정규 JSON SHA-256). 저장 묶음의 baseHash로 되돌려 보내면 다른 항목만 바뀐 판 충돌을 받는다(같은 항목을 누가 먼저
+   * 고쳤으면 entry_changed). 옛 서버면 없다
+   */
+  readonly hash?: string | undefined;
 }
 
 /** 효과 사전 한 줄(편집기의 특수 효과 고르기) */
@@ -201,12 +209,20 @@ export interface SkillEditorListResponse {
   readonly retiredSkillIds: readonly string[];
 }
 
-/** 묶음의 바꿈 하나 */
+/**
+ * 묶음의 바꿈 하나. baseHash(선택) = 그 항목을 고치기 시작할 때의 실효 항목 해시(새 항목이면 null). 묶음의 모든 바꿈에 baseHash가
+ * 있으면 서버는 판이 달라도(다른 항목만 바뀜) 받고, 그 항목이 그새 바뀌었으면 entry_changed로 거절한다(아이템 편집기 설계안 3.10)
+ */
 export type SkillEditorChange =
   /** 스킬 항목 통째로(만들기·복제·고치기·끄기) */
-  | { readonly op: "put_skill"; readonly entry: SkillJson }
+  | { readonly op: "put_skill"; readonly entry: SkillJson; readonly baseHash?: string | null | undefined }
   /** 덮어쓰기를 지운다(팩 값으로. 편집기에서 만든 스킬은 지워진다) */
-  | { readonly op: "revert"; readonly category: ContentEditCategory; readonly id: string }
+  | {
+      readonly op: "revert";
+      readonly category: SkillEditorCategory;
+      readonly id: string;
+      readonly baseHash?: string | null | undefined;
+    }
   /** 무기·타고난 무기의 기본 공격 소모(행동별 소모 화면) */
   | {
       readonly op: "set_cost";
@@ -219,44 +235,18 @@ export type SkillEditorChange =
 /** 한 묶음의 바꿈 수 상한 */
 export const SKILL_EDITOR_CHANGES_MAX = 100;
 
-/** 받지 않은 까닭(data.reason) */
+/** 받지 않은 까닭(data.reason). entry_changed = baseHash를 보낸 항목을 그새 다른 사람이 바꿈(data.details = `<분류>/<ID>`) */
 export const SKILL_EDITOR_REASONS = [
   "invalid_entry",
   "unknown_entry",
   "retired_id",
   "duplicate_entry",
   "invalid_note",
+  "entry_changed",
 ] as const;
 export type SkillEditorReason = (typeof SKILL_EDITOR_REASONS)[number];
 
-/** 켤 때 덮어쓰기를 지운 까닭 */
-export const CONTENT_DROP_REASONS = ["unknown_entry", "invalid_entry"] as const;
-export type ContentDropReason = (typeof CONTENT_DROP_REASONS)[number];
-
 /** 최근 바꿈 한 줄(감사 기록) */
-export interface SkillEditorHistoryRow {
-  readonly at: number;
-  readonly action: "apply" | "pack_won" | "dropped" | "slept";
-  readonly actor: string | null;
-  readonly revision: number | null;
-  readonly note: string | null;
-  readonly changes: readonly {
-    readonly category: ContentEditCategory;
-    readonly id: string;
-    /** apply: put·revert·cost, 켤 때: 까닭 */
-    readonly what: string;
-  }[];
-}
+export type SkillEditorHistoryRow = ContentHistoryRow;
 
 export const SKILL_EDITOR_HISTORY_LIMIT = 30;
-
-/**
- * 내보내기 차이의 팩 항목 한 줄(terra-tuning-diff entries, `pnpm tuning:apply`가 분류 파일에 넣는다). from = 내보낼 때의 팩 항목
- * 정규 JSON SHA-256(팩에 없던 항목이면 null), entry = 덮어쓴 항목 통째
- */
-export interface EntryDiffChange {
-  readonly category: ContentEditCategory;
-  readonly id: string;
-  readonly from: string | null;
-  readonly entry: Readonly<Record<string, unknown>>;
-}

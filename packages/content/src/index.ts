@@ -5,6 +5,14 @@ export { type ContentIssue, type ContentStage, STAGE_LABELS, formatIssue, hasErr
 export { type ContentPack, type PackSource, parseJson, parsePackFiles } from "./pack.ts";
 export { canonicalPackJson, sortKeys } from "./canonical.ts";
 export {
+  type EntryJson,
+  type EntryOverride,
+  categoryFile,
+  effectiveEntries,
+  effectiveSource,
+  readCategoryFile,
+} from "./effective.ts";
+export {
   ID_PATTERN,
   ContentRef,
   amount,
@@ -31,6 +39,22 @@ export {
   type ItemEntry,
 } from "./schema/categories.ts";
 export { biomeEntrySchema, planetEntrySchema, type BiomeEntry, type PlanetEntry } from "./schema/planets.ts";
+export {
+  FOOD_FAMILIES,
+  ITEM_SCHEMA_LIMITS,
+  PERISH_CATEGORIES,
+  STORAGE_KINDS,
+  WEAPON_TYPE_SLOTS,
+  itemSubcategoryEntrySchema,
+  itemTagEntrySchema,
+  perishSchema,
+  useSchema,
+  weaponTypeEntrySchema,
+  type ItemCategory,
+  type ItemSubcategoryEntry,
+  type ItemTagEntry,
+  type WeaponTypeEntry,
+} from "./schema/items.ts";
 export {
   FACILITY_STAGES,
   ITEM_CATEGORIES,
@@ -87,6 +111,7 @@ export {
   SKILL_SHAPES,
   effectEntrySchema,
   equipSchema,
+  primaryAppropriateSchema,
   skillEntrySchema,
   unitKindEntrySchema,
   type EffectEntry,
@@ -95,6 +120,7 @@ export {
   type UnitKindEntry,
 } from "./schema/combat.ts";
 export { validatePack, type ValidationResult } from "./validate/pack.ts";
+export { formatPath, zodIssueCode } from "./validate/schema.ts";
 export {
   assumeAllUsed,
   checkCompat,

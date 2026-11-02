@@ -1,5 +1,5 @@
 // 소모품·신선도 칸(설계안 2.5·3.4) — 사용 효과 줄(효과 사전에서 골라 값·확률‰·지속, 스킬 효과와 같은 모양 D-425), 줄마다 효과량 칸
-// (D-496 286: 쓰는 유닛 스탯 비례·±오차, WP-6), 줄마다 효과 사전 정보 한 문장(종류·대상 수치·값 방식·실효 지속·중첩, 설계안 3.5),
+// (D-496 286·D-501: 비례 스탯·적정 스탯·±오차, WP-6), 줄마다 효과 사전 정보 한 문장(종류·대상 수치·값 방식·실효 지속·중첩, 설계안 3.5),
 // 신선도(유통기한 일·시간과 0이 되면 바뀌는 아이템, D-496 288: 아이템마다 고른다). 실제로 먹고·쓰고·썩는 실행은 보유 물건 뒤 소비 줄기다.
 import {
   ITEM_LIMITS,
@@ -22,17 +22,18 @@ type Problem = (path: string) => string | undefined;
 /** 기본 유통기한(7일, 처음 켤 때) */
 const DEFAULT_SHELF_MS = 7 * 24 * 3_600_000;
 
-/** 스탯 비례를 처음 켤 때 ‰/점(형식 확인용, 값은 편집기에서 정한다) */
-const DEFAULT_SCALE_PM = 10;
+/** 비례 스탯을 처음 고를 때 적정 스탯(입력 시작값: 기준 유닛 1차 10이면 1000‰. 값은 아이템마다 편집기에서 정한다) */
+const DEFAULT_APPROPRIATE = 10;
 
 /** 효과 줄 하나의 효과량 칸을 바꾼다(빈 칸은 뺀다) */
-function withScale(row: ItemEffectJson, stat: ItemPrimaryCode | null, pmPerPoint: number): ItemEffectJson {
+function withScale(row: ItemEffectJson, stat: ItemPrimaryCode | null, appropriate: number): ItemEffectJson {
   const { scale: _drop, ...rest } = row;
-  return stat === null ? rest : { ...rest, scale: { stat, pmPerPoint } };
+  return stat === null ? rest : { ...rest, scale: { stat, appropriate } };
 }
 
 /**
- * 효과 줄마다 효과량 칸(D-496 286): 비례 스탯·스탯 1점당‰·±오차‰(비우면 설정 칸 d496_use_variance). 셈한 범위는 미리 보기 판이 보인다.
+ * 효과 줄마다 효과량 칸(D-496 286, D-501): 비례 스탯·적정 스탯·±오차‰(250~500, 비우면 설정 칸 d496_use_variance). 셈한 범위는
+ * 미리 보기 판이 보인다.
  * 공용 효과 줄 편집(contentEditorEffects)은 스킬과 같이 쓰므로 그대로 두고 여기 따로 둔다
  */
 function ScaleRows({
@@ -69,17 +70,19 @@ function ScaleRows({
               problem={problem(`use.effects[${index}].scale`)}
               onChange={(value) => {
                 const stat = ITEM_PRIMARY_CODES.find((code) => code === value) ?? null;
-                replace(index, withScale(row, stat, row.scale?.pmPerPoint ?? DEFAULT_SCALE_PM));
+                replace(index, withScale(row, stat, row.scale?.appropriate ?? DEFAULT_APPROPRIATE));
               }}
             />
             {row.scale ? (
               <NumberField
-                label={m.dev_items_field_scale_pm()}
-                value={row.scale.pmPerPoint}
-                min={L.scalePmPerPoint.min}
-                max={L.scalePmPerPoint.max}
-                problem={problem(`use.effects[${index}].scale.pmPerPoint`)}
-                onChange={(value) => replace(index, withScale(row, row.scale?.stat ?? null, value ?? 0))}
+                label={m.dev_items_field_scale_appropriate()}
+                value={row.scale.appropriate}
+                min={L.useAppropriate.min}
+                max={L.useAppropriate.max}
+                problem={problem(`use.effects[${index}].scale.appropriate`)}
+                onChange={(value) =>
+                  replace(index, withScale(row, row.scale?.stat ?? null, value ?? L.useAppropriate.min))
+                }
               />
             ) : (
               <span />

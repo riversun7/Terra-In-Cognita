@@ -2,14 +2,16 @@
 // - dev: 시험 검을 복제해 공격력을 고치고 켠 뒤 [적용]하면 그 세계에 바로 든다(목록·items.get·전투 실험실 무기 목록). 서버 미리 보기가
 //   실효 계산식 값을 보인다. 만든 항목을 지우면 목록에서 빠진다. 저장을 막는 문제(공격 칸 없음)는 막대가 막고 칸 아래·옆 판에 보인다.
 //   두 탭이 같은 아이템을 고치면 뒤에 적용한 탭이 내 칸만 새 항목 위에 다시 얹고(다른 칸), 같은 칸이면 고르는 판을 보인다.
-//   효과 사전(WP-6): 효과를 고쳐 적용하면 아이템·스킬 편집기가 같은 실효 효과를 쓴다. 소모품 효과량: 비례 스탯·‰·오차 → 미리 보기 범위.
+//   효과 사전(WP-6): 효과를 고쳐 적용하면 아이템·스킬 편집기가 같은 실효 효과를 쓴다. 소모품 효과량(D-501): 비례 스탯·적정 스탯·오차
+//   → 미리 보기 범위(기준 × min(상한, 스탯 ÷ 적정) ± 오차).
 //   대량 도구(WP-7): CSV 가져오기의 틀린 줄은 줄 번호로, 고친 줄·새 줄은 담아 적용. 크리쳐 전용 장비(D-494): 미리 보기·전투 실험실.
 // - player: 권한 없음 화면, tRPC items.*는 403.
-// - 사진: 390·1440 × 개발 화면 테마 네온·라이트 × 한국어·영어, 보이는 화면 크기(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui).
+// - 사진: 390·1440 × 개발 화면 테마 네온·라이트 × 한국어·영어, 보이는 화면 크기(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui). 소모품 효과량 칸·
+//   미리 보기 판도 같은 조합으로 찍는다.
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 아이템 편집기 분류의 덮어쓰기를 모두 지운다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
-import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
+import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
@@ -110,6 +112,61 @@ async function apply(page: Page, note?: string): Promise<void> {
   await bar(page).locator(".ie-apply").click();
   await expect(bar(page)).toHaveAttribute("data-count", "0", { timeout: 15_000 });
 }
+
+/**
+ * 시험 소모품 초안: 연 아이템(배급 식량)을 복제하고 회복(mend) 효과 줄 하나에 기준 값·비례 스탯 VIT·적정 스탯을 적는다(D-501).
+ * 미리 보기 효과량 줄과 고칠 칸을 돌려준다
+ */
+async function consumableDraft(page: Page, language: Language, value: number, appropriate: number) {
+  await editing(page).locator(".ie-duplicate").click();
+  const use = detail(page).locator('[data-section="use"]');
+  await use.getByRole("button", { name: message(language, "dev_content_add_effect"), exact: true }).click();
+  const line = use.locator(".ce-effect-row").first();
+  await line.getByLabel(message(language, "dev_content_field_effect"), { exact: true }).selectOption("mend");
+  const magnitude = line.getByLabel(message(language, "dev_content_field_magnitude"), { exact: true });
+  await magnitude.fill(String(value));
+  const scale = use.locator('[data-part="use-scale"]');
+  await scale
+    .getByLabel(message(language, "dev_items_field_scale_stat"), { exact: true })
+    .selectOption("vit");
+  const appropriateField = scale.getByLabel(message(language, "dev_items_field_scale_appropriate"), {
+    exact: true,
+  });
+  await appropriateField.fill(String(appropriate));
+  return {
+    use,
+    magnitude,
+    appropriate: appropriateField,
+    variance: scale.getByLabel(message(language, "dev_items_field_variance"), { exact: true }),
+    amount: detail(page).locator('.ie-preview [data-part="use"] [data-part="amount"]'),
+  };
+}
+
+/** 효과량 줄 문구(VIT 비례, 상한 = 설정 칸 N10 2000‰) */
+const amountLine = (
+  language: Language,
+  value: number,
+  appropriate: number,
+  ratio: number,
+  scaled: number,
+  variance: number,
+  min: number,
+  max: number,
+) =>
+  message(language, "dev_items_preview_amount", {
+    stat: message(language, "roster_stat_vit_code"),
+    value,
+    appropriate,
+    ratio,
+    cap: 2000,
+    scaled,
+    variance,
+    min,
+    max,
+  });
+
+const koAmount = (...args: [number, number, number, number, number, number, number]) =>
+  amountLine("ko", ...args);
 
 /** 시험이 일부러 받는 거절(같은 항목을 먼저 바꿈 400·권한 없음 403)의 브라우저 줄을 뺀 기기 오류 */
 const unexpected = (errors: readonly { kind: string; text: string }[], status: 400 | 403) =>
@@ -312,7 +369,7 @@ test.describe("개발자", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  test("소모품 효과량(D-496 286): 효과 줄에 비례 스탯·‰·오차를 적으면 미리 보기가 기준 유닛 스탯으로 범위를 셈한다", async ({
+  test("소모품 효과량(D-501): 효과 줄에 비례 스탯·적정 스탯·오차를 적으면 미리 보기가 기준 × min(상한, 스탯 ÷ 적정) ± 오차를 셈한다", async ({
     page,
     deviceErrors,
   }) => {
@@ -321,29 +378,28 @@ test.describe("개발자", () => {
     await page.reload();
     await expect(page.locator(".ie-screen")).toHaveAttribute("data-status", "ready");
     await open(page, "ration");
-    await editing(page).locator(".ie-duplicate").click();
-    const use = detail(page).locator('[data-section="use"]');
-    await use.getByRole("button", { name: message("ko", "dev_content_add_effect"), exact: true }).click();
-    const line = use.locator(".ce-effect-row").first();
-    await line.getByLabel(message("ko", "dev_content_field_effect"), { exact: true }).selectOption("mend");
-    await line.getByLabel(message("ko", "dev_content_field_magnitude"), { exact: true }).fill("40");
-    const scale = use.locator('[data-part="use-scale"]');
-    await scale.getByLabel(message("ko", "dev_items_field_scale_stat"), { exact: true }).selectOption("vit");
-    await scale.getByLabel(message("ko", "dev_items_field_scale_pm"), { exact: true }).fill("10");
+    const draft = await consumableDraft(page, "ko", 30, 10);
+    // 기준 유닛(1차 모두 10): VIT 10 = 적정 10 → 1000‰ → 30, 설정 칸 d496_use_variance 기본 ±500‰ → 15~45(사용자 예)
+    await expect(draft.amount).toHaveText(koAmount(10, 10, 1000, 30, 500, 15, 45), { timeout: 15_000 });
+    // 기준 50·100도 적정 스탯에서 ±50% → 25~75·50~150
+    await draft.magnitude.fill("50");
+    await expect(draft.amount).toHaveText(koAmount(10, 10, 1000, 50, 500, 25, 75), { timeout: 15_000 });
+    await draft.magnitude.fill("100");
+    await expect(draft.amount).toHaveText(koAmount(10, 10, 1000, 100, 500, 50, 150), { timeout: 15_000 });
+    // 적정 스탯 40인 기준 50 물약: VIT 10이면 250‰ → 12(6~18) — 적정 10인 기준 30(15~45)이 더 낫다
+    await draft.magnitude.fill("50");
+    await draft.appropriate.fill("40");
+    await expect(draft.amount).toHaveText(koAmount(10, 40, 250, 12, 500, 6, 18), { timeout: 15_000 });
+    // VIT 39: 39 ÷ 40 → 975‰ → 48(24~72)
     const preview = detail(page).locator(".ie-preview");
-    const amount = preview.locator('[data-part="use"] [data-part="amount"]');
-    const vit = message("ko", "roster_stat_vit_code");
-    const expected = (value: number, scaled: number, variance: number, min: number, max: number) =>
-      message("ko", "dev_items_preview_amount", { stat: vit, value, scaled, variance, min, max });
-    // 기준 유닛(1차 모두 10): 40 × (1000 + 10 × 10) ÷ 1000 = 44, 설정 칸 d496_use_variance ±250‰ → 33~55(내림)
-    await expect(amount).toHaveText(expected(10, 44, 250, 33, 55), { timeout: 15_000 });
-    // VIT 39: 40 × 1390 ÷ 1000 = 55, ±250‰ → 41~68
     await preview.locator(".ie-unit > summary").click();
-    await preview.getByLabel(vit, { exact: true }).fill("39");
-    await expect(amount).toHaveText(expected(39, 55, 250, 41, 68), { timeout: 15_000 });
-    // 줄 오차 ±100‰ → 49~60
-    await scale.getByLabel(message("ko", "dev_items_field_variance"), { exact: true }).fill("100");
-    await expect(amount).toHaveText(expected(39, 55, 100, 49, 60), { timeout: 15_000 });
+    await preview.getByLabel(message("ko", "roster_stat_vit_code"), { exact: true }).fill("39");
+    await expect(draft.amount).toHaveText(koAmount(39, 40, 975, 48, 500, 24, 72), { timeout: 15_000 });
+    // 적정 10이면 상한 2000‰(무기 효율과 같은 설정 칸 N10) → 100(50~150), 줄 오차 ±250‰ → 75~125
+    await draft.appropriate.fill("10");
+    await expect(draft.amount).toHaveText(koAmount(39, 10, 2000, 100, 500, 50, 150), { timeout: 15_000 });
+    await draft.variance.fill("250");
+    await expect(draft.amount).toHaveText(koAmount(39, 10, 2000, 100, 250, 75, 125), { timeout: 15_000 });
     await bar(page).locator(".ie-clear").click();
     await bar(page)
       .getByRole("button", { name: message("ko", "dev_items_confirm_yes"), exact: true })
@@ -521,6 +577,29 @@ test.describe("배치·사진", () => {
         await page.getByRole("tab", { name: message(language, "dev_items_tab_bulk") }).click();
         await expect(page.locator('[data-part="bulk-import"]')).toBeVisible();
         await check("items-bulk");
+        expect(deviceErrors).toEqual([]);
+      });
+
+      test("소모품 효과량 칸·미리 보기(D-501): 가로 넘침·작은 누르는 곳 없음, 사진", async ({
+        page,
+        deviceErrors,
+      }) => {
+        await editorReady(page, "/dev/items?item=ration");
+        await expect(detail(page)).toHaveAttribute("data-item", "ration");
+        await expect(editing(page)).toBeVisible();
+        // 기준 30·적정 10(기준 유닛 VIT 10) → 30, ±500‰ → 15~45
+        const draft = await consumableDraft(page, language, 30, 10);
+        await expect(draft.amount).toHaveText(amountLine(language, 10, 10, 1000, 30, 500, 15, 45), {
+          timeout: 15_000,
+        });
+        await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await elementShot(draft.use, `items-use-fields-${theme}-${language}-${width}`);
+        await elementShot(
+          detail(page).locator('.ie-preview [data-part="use"]'),
+          `items-use-preview-${theme}-${language}-${width}`,
+        );
         expect(deviceErrors).toEqual([]);
       });
     });

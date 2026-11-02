@@ -32,6 +32,14 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "item_subcategories",
+      "id": "ammo",
+      "since": 26,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

@@ -1388,11 +1388,11 @@
         "ko": "소모품 효과량 오차(±‰)",
         "en": "Consumable effect amount variance (±‰)"
       },
-      "value": 250,
+      "value": 500,
       "structural": false,
       "unit": "pm",
-      "min": 0,
-      "max": 1000
+      "min": 250,
+      "max": 500
     },
     {
       "id": "s19_trait_min",

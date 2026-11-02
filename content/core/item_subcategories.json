@@ -229,16 +229,6 @@
       "enabled": true
     },
     {
-      "id": "ammo",
-      "name": {
-        "ko": "탄약",
-        "en": "Ammunition"
-      },
-      "major": "consumable",
-      "storage": "armory",
-      "enabled": true
-    },
-    {
       "id": "buff_item",
       "name": {
         "ko": "버프",

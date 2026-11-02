@@ -78,6 +78,8 @@ export const ITEM_CSV_COLUMNS = [
   "tier",
   "startPrice",
   "weight",
+  // 거래 묶음 크기(302·D-506, 팩 core@29). 이 열이 없는 옛 CSV는 칸을 그대로 둔다
+  "lotSize",
   "stackMax",
   "tradable",
   "bound",
@@ -255,6 +257,7 @@ function csvRowOf(entry: ItemJson): string {
     tier: String(entry.tier),
     startPrice: String(entry.startPrice),
     weight: entry.weight === undefined ? "" : String(entry.weight),
+    lotSize: entry.lotSize === undefined ? "" : String(entry.lotSize),
     stackMax: entry.stackMax === undefined ? "" : String(entry.stackMax),
     tradable: entry.tradable === undefined ? "" : String(entry.tradable),
     bound: entry.bound === undefined ? "" : String(entry.bound),
@@ -382,6 +385,7 @@ function rowEntry(
   const tier = int("tier");
   const startPrice = int("startPrice");
   const weight = int("weight");
+  const lotSize = int("lotSize");
   const stackMax = int("stackMax");
   const tradable = bool("tradable");
   const bound = bool("bound");
@@ -402,7 +406,7 @@ function rowEntry(
   if (typeof tier === "number") next = { ...next, tier };
   if (typeof startPrice === "number") next = { ...next, startPrice };
   if (typeof enabled === "boolean") next = { ...next, enabled };
-  next = withNumbers(next, weight, stackMax);
+  next = withNumbers(next, weight, stackMax, lotSize);
   next = withFlags(next, tradable, bound);
   const sub = text("subcategory");
   if (sub !== undefined) {
@@ -434,13 +438,18 @@ function rowEntry(
   return next;
 }
 
-/** 선택 숫자 칸(무게·스택 상한): undefined = 그대로, null = 뺀다, 값 = 넣는다 */
+/** 선택 숫자 칸(무게·스택 상한·거래 묶음): undefined = 그대로, null = 뺀다, 값 = 넣는다 */
 function withNumbers(
   entry: ItemJson,
   weight: number | null | undefined,
   stackMax: number | null | undefined,
+  lotSize: number | null | undefined,
 ): ItemJson {
   let next = entry;
+  if (lotSize !== undefined) {
+    const { lotSize: _drop, ...rest } = next;
+    next = lotSize === null ? rest : { ...rest, lotSize };
+  }
   if (weight !== undefined) {
     const { weight: _drop, ...rest } = next;
     next = weight === null ? rest : { ...rest, weight };

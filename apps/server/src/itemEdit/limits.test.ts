@@ -31,6 +31,8 @@ describe("아이템 편집기 범위 = 팩 스키마", () => {
     expect(ITEM_LIMITS.tags).toBe(ITEM_SCHEMA_LIMITS.tags);
     expect(ITEM_LIMITS.weight.max).toBe(ITEM_SCHEMA_LIMITS.weightMax);
     expect(ITEM_LIMITS.stackMax.max).toBe(ITEM_SCHEMA_LIMITS.stackMax);
+    // 거래 묶음 크기(302·D-506)
+    expect(ITEM_LIMITS.lotSize).toEqual({ min: 1, max: ITEM_SCHEMA_LIMITS.lotSizeMax });
     expect(ITEM_LIMITS.shelfLifeMs).toEqual({
       min: ITEM_SCHEMA_LIMITS.shelfLifeMinMs,
       max: ITEM_SCHEMA_LIMITS.shelfLifeMaxMs,

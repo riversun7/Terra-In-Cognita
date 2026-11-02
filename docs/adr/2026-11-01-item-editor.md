@@ -167,3 +167,11 @@
 
 ### 4. 결과
 - 시뮬 출력(war16 30일·stub16·econ16 180일, 시드 1): 머리 줄의 팩 판·해시와 `linesHash`만 다르다(새 항목은 모두 꺼짐, 철광석 중분류·철 주괴 무게는 시뮬이 읽지 않음) → `SIM_VERSION` 7 그대로(Verified, 작업 기록).
+
+## 바뀜 (2026-11-02, 300~302·D-506 — 묶음 크기 칸 `lotSize`, 채집 티어 추첨 미리 보기, 팩 core@29)
+- 까닭: 질문 300~302(`docs/questions/2026-11-02-gather-tier.md`, 기획 D-506). 앞 바뀜 3절 "보류: 철광석의 1g·티어 3"을 닫는다: 철광석 = T3·1g 단위, 거래·레시피는 1kg 묶음(앞 바뀜의 고를 안 가). 규칙·시뮬 쪽은 ADR `2026-10-31-economy-core.md` "바뀜 (… 300~302 …)", 작업 기록 `docs/worklog/2026/11/02-2135-gather-tier.md`.
+- 아이템 공통 칸 `lotSize`(거래 묶음, 기본 단위 개수 1~1,000,000, 없으면 1, 선택 칸): 팩 스키마 `itemEntrySchema`·`ITEM_SCHEMA_LIMITS.lotSizeMax` ↔ `@terra/shared` `ITEM_LIMITS.lotSize`(시험이 맞춰 본다), `ItemJson.lotSize`, 칸 쓰임 `economy`. 편집기 값 구역에 "거래 묶음(개)" 칸(무게를 알면 "묶음 하나 = 1 kg" 풀이), 대량 도구 CSV 열 `lotSize`(무게 다음, 이 열이 없는 옛 CSV는 칸 그대로), 서버 항목 JSON(`itemJsonOf`, 팩 모든 아이템 왕복 시험).
+- 금속 원석 8개(`iron_ore` 포함)는 무게 1·묶음 1,000, `iron_ore` 티어 3. 앞 바뀜에서 1g으로 넣은 새 원석 7개의 제련 레시피는 원석 1,000 → 1묶음으로 고쳤다(같은 1kg).
+- 옛 덮어쓰기 줄: core@28까지 저장한 items 줄에 `lotSize`가 없고 지금 팩 항목에 있으면 팩 값을 넣는다(`legacy.ts` `upgradeLotSize`, 줄의 `contentVersion`으로 판단. 판을 모르는 감사 기록 옛 판 항목도 넣는다). 그러지 않으면 옛 철광석 줄(값 8 = 1kg당)이 1g당 8로 읽힌다. 무게는 옮기지 않는다. core@29부터 저장한 줄은 그대로.
+- 미리 보기 `gather`(새 선택 칸, `ItemGatherPreview`): 초안이 켜진 추첨 시설 사다리(그 시설 `gather.subcategory`)에 있으면 시설·스탯 짝·기준 유닛의 1차 + 2차, 시설 Lv1~5의 유효 스탯(+ N43 실효 레벨 보너스)과 묶음 하나에서 이 아이템이 나올 확률(만분율, 꺼진 아랫 티어로 내려오는 몫 포함·같은 티어 여럿이면 나눔), 확률표 전체(접힘, 이 티어 열·Lv1 구간 행 표시). 셈은 서버가 시뮬과 같은 `@terra/sim` `gatherStat`·`gatherChancesPm`으로 한다(`itemEdit/previewGather.ts`). 레벨 보너스는 미리 보기마다 실효 값을 읽어 설정 칸 반영 범위가 `live`다.
+- 확률표 편집: 지금은 **팩 파일 `content/core/gather_tiers.json`만**(세계 덮어쓰기·편집 화면 없음, 미리 보기는 읽기만). 설정 칸 패널은 N43 레벨 보너스 칸으로 "49 N43 연결"을 보인다. 표 편집 화면(가중치 표 편집처럼 세계별 덮어쓰기 + 내보내기)은 다음 줄기다.

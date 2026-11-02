@@ -8,10 +8,13 @@
 //    그 화폐가 모자라면 환전 주문을 낸다(기준 통화를 거쳐서). 자기 화폐를 발행하는 나라는 자기 화폐를 팔지 않는다
 //    (시장 조성 quoteFx가 이미 내므로, 같은 회차의 자기 주문끼리 맞물리지 않게).
 // 쓰는 돈은 판단 한 번에 국고의 1/4까지다(생필품이 모자라면 1/2). 발행 나라는 환전 회차마다 자기 화폐 양쪽 값을 낸다(quoteFx, 가진 것의 5%씩).
+// 묶음(302·D-506): 목표 재고·남는 양·운송은 기본 단위(광석 g), 거래소 주문은 묶음 단위다. 팔 때는 남는 양 ÷ 묶음(버림, 묶음 하나가
+// 안 되면 팔지 않음), 살 때는 모자란 양 ÷ 묶음(올림).
 import type { FxMarket } from "../economy/fxMarket.ts";
 import { BASE_EFFICIENCY } from "../economy/production.ts";
 import type { NpcCoefficients } from "../npc/coefficients.ts";
 import { tradePolicy } from "../npc/policy.ts";
+import { lotSizeOf } from "./catalog.ts";
 import { type Economy, EVENT_TRADE, fxRate, ship } from "./economy.ts";
 import type { SimLoop } from "./loop.ts";
 import type { SimEvent } from "./npcRun.ts";
@@ -130,11 +133,12 @@ export function onTrade(
     for (const cityId of cities) {
       const spare = -deficit(cityId, asset);
       const market = economy.markets.get(cityId)?.get(asset);
-      if (spare <= 0n || !market) continue;
+      const lots = spare / lotSizeOf(economy.catalog, asset);
+      if (lots <= 0n || !market) continue;
       const target = need.get(cityId)?.get(asset) ?? 0n;
       const glut = stock(cityId, asset) > target * GLUT_MULTIPLE;
       const price = pct(refPrice(economy, cityId, asset), glut ? policy.glutPct : policy.sellPct);
-      market.place(factionId, "sell", price, spare, nowMs, nowMs + economy.settings.orderLifeMs);
+      market.place(factionId, "sell", price, lots, nowMs, nowMs + economy.settings.orderLifeMs);
     }
     // 5. 모자란 것 사기
     if (shortfall > 0n) importGoods(economy, world, faction, currency, asset, shortfall, budget, nowMs);
@@ -147,6 +151,7 @@ function importGoods(
   faction: SimFaction,
   currency: string,
   asset: string,
+  /** 모자란 양(기본 단위) */
   shortfall: bigint,
   budget: { left: bigint },
   nowMs: number,
@@ -164,7 +169,8 @@ function importGoods(
       offers.push({ cityId, price: ask.price, cost, qty: ask.remaining, currency: market.config.currency });
   }
   offers.sort((a, b) => (a.cost !== b.cost ? (a.cost < b.cost ? -1 : 1) : a.cityId - b.cityId));
-  let left = shortfall;
+  // 모자란 양(기본 단위) → 묶음(올림)
+  let left = ceilDiv(shortfall, lotSizeOf(economy.catalog, asset));
   for (const offer of offers) {
     if (left <= 0n) return;
     let qty = left < offer.qty ? left : offer.qty;

@@ -88,6 +88,11 @@ export interface SocietyCoefficients {
   /** 생산(N32): 진행 = max(1, ⌊주 ÷ 나눔⌋)/틱, 추가 수확 = ⌊보조 × ‰⌋ */
   readonly productionMainDivisor: number;
   readonly productionSubYieldPm: number;
+  /**
+   * [임시] 채집 시설 레벨의 상위 티어 확률 보너스(49 N43, D-506 301): 티어 추첨의 유효 스탯 += 이 값 × (레벨 − 1).
+   * 출발값 없음(사용자 확인 대기) → 10점(economy/gather.ts gatherStat)
+   */
+  readonly gatherLevelBonus: number;
   /** 포만감 효율 배율(N33): 포만감 이하 → 효율 ‰ (기존 50 이하 0.7, 30 이하 0) */
   readonly foodEfficiency: readonly { readonly atMost: number; readonly pm: number }[];
   /** 임금 비교 범위(N30 같은 도시 같은 직무 상위 25%, ‰) */
@@ -244,6 +249,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   lifeSkillBonusPerGrade: 2,
   productionMainDivisor: 20,
   productionSubYieldPm: 80,
+  gatherLevelBonus: 10,
   foodEfficiency: [
     { atMost: 30, pm: 0 },
     { atMost: 50, pm: 700 },

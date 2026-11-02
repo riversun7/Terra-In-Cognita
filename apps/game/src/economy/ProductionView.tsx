@@ -19,8 +19,11 @@ import {
   formatDuration,
   indexCatalog,
   itemName,
+  lotOf,
+  lotText,
   recipeName,
   stageName,
+  statPairText,
 } from "./economyText.ts";
 import { NotReady, PreviewTag } from "./parts.tsx";
 import { NO_ARGS, useCatalog, useNowTick, useProduction } from "./queries.ts";
@@ -151,8 +154,16 @@ function WageRow({ wage, index }: { wage: WageLine; index: CatalogIndex }) {
 }
 
 function RecipeRow({ recipe, index }: { recipe: CatalogRecipeView; index: CatalogIndex }) {
-  const stacks = (list: CatalogRecipeView["inputs"]) =>
-    list.map((stack) => `${itemName(index, stack.item)} ×${fmt(stack.qty)}`).join(", ");
+  // 수량은 묶음 단위(302·D-506): 묶음이 1보다 크면 묶음 크기를 붙인다(광석 "×10 (묶음 1 kg)")
+  const stackText = (stack: CatalogRecipeView["inputs"][number]): string => {
+    const item = index.items.get(stack.item);
+    const name = itemName(index, stack.item);
+    return lotOf(item) > 1n
+      ? m.economy_stack_lot({ name, qty: fmt(stack.qty), size: lotText(item) })
+      : `${name} ×${fmt(stack.qty)}`;
+  };
+  const stacks = (list: CatalogRecipeView["inputs"]) => list.map(stackText).join(", ");
+  const gather = recipe.gather;
   return (
     <li className="eco-row">
       <span className="eco-row-main">
@@ -161,9 +172,16 @@ function RecipeRow({ recipe, index }: { recipe: CatalogRecipeView; index: Catalo
           {recipe.inputs.length === 0 ? m.economy_recipe_from_nothing() : stacks(recipe.inputs)} →{" "}
           {stacks(recipe.outputs)}
         </span>
+        {gather ? (
+          <span className="eco-row-meta">
+            {m.economy_recipe_gather({ stats: statPairText(gather.primary, gather.secondary) })}
+          </span>
+        ) : null}
       </span>
       <span className="eco-row-end">
-        <span className="eco-tag">{m.economy_tier({ tier: recipe.tier })}</span>
+        <span className="eco-tag">
+          {gather ? m.economy_tier_rolled() : m.economy_tier({ tier: recipe.tier })}
+        </span>
         <span className="eco-row-meta">
           {m.economy_recipe_time({ time: formatDuration(recipe.baseDurationMs) })}
         </span>

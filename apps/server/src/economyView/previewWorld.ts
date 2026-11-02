@@ -34,7 +34,10 @@ export interface PreviewCity {
   readonly inSight: boolean;
   /** 내 창고 종류(없으면 null) */
   readonly store: StoreKind | null;
-  /** [임시] 창고 용량(물건 개수). 최종 단위는 무게(kg, 43 §7.1, 질문 143 → D-443) — 아이템 무게 칸이 생기면 바꾼다 */
+  /**
+   * [임시] 창고 용량(거래 묶음 수: 묶음 크기 1인 물건은 개수, 광석은 1kg 묶음). 최종 단위는 무게(kg, 43 §7.1, 질문 143 → D-443)
+   * — 아이템 무게 칸이 생기면 바꾼다
+   */
   readonly capacity: bigint;
   /** 그 나라 화폐 가치 배율(천분율): 같은 물건이라도 화폐마다 값이 다르게 */
   readonly currencyPm: number;
@@ -124,7 +127,7 @@ export function previewStartPrice(item: CatalogItemView, city: PreviewCity): big
   return scaled > 0n ? scaled : 1n;
 }
 
-/** 시안 보유 한 줄 [임시]. 도시 ID → 물건 ID → 양 */
+/** 시안 보유 한 줄 [임시]. 도시 ID → 물건 ID → 양(원장 기본 단위: 광석은 g, 302·D-506) */
 interface StockSpec {
   readonly item: string;
   readonly qty: bigint;
@@ -136,7 +139,7 @@ interface StockSpec {
 const PREVIEW_STOCK: Readonly<Record<string, readonly StockSpec[]>> = {
   "101": [
     { item: "grain", qty: 1_240n, spoilsInMs: 5 * HOUR },
-    { item: "iron_ore", qty: 310n },
+    { item: "iron_ore", qty: 310_000n },
     { item: "iron_ingot", qty: 96n },
     { item: "timber", qty: 220n },
     { item: "household_goods", qty: 14n },
@@ -147,14 +150,14 @@ const PREVIEW_STOCK: Readonly<Record<string, readonly StockSpec[]>> = {
     { item: "grain", qty: 400n, spoilsInMs: 30 * HOUR },
   ],
   "104": [
-    { item: "iron_ore", qty: 2_450_000n },
+    { item: "iron_ore", qty: 2_450_000_000n },
     { item: "test_vest", qty: 12n },
   ],
 };
 
-/** 시안에서 내 주문에 묶인 양(도시 ID → 물건 ID). 거래소 시안의 내 매도 주문과 맞춘다 */
+/** 시안에서 내 주문에 묶인 양(도시 ID → 물건 ID, 기본 단위). 거래소 시안의 내 매도 주문(40묶음 = 40kg)과 맞춘다 */
 export const PREVIEW_LOCKED_GOODS: Readonly<Record<string, Readonly<Record<string, bigint>>>> = {
-  "101": { iron_ore: 40n },
+  "101": { iron_ore: 40_000n },
 };
 
 /** 화폐마다 시안 지갑(나라 차례 → 양) [임시] */
@@ -166,9 +169,15 @@ export function previewCash(catalog: EconomyCatalogResponse, currency: string): 
   return index < 0 ? 0n : (PREVIEW_CASH[index] ?? 0n);
 }
 
-/** 시안 창고에서 그 도시·물건의 (팔 수 있는) 양 */
+/** 시안 창고에서 그 도시·물건의 (팔 수 있는) 양(기본 단위) */
 export function previewGoods(cityId: string, itemId: string): bigint {
   return PREVIEW_STOCK[cityId]?.find((stock) => stock.item === itemId)?.qty ?? 0n;
+}
+
+/** 물건의 거래 묶음 크기(목록 칸, 없으면 1) */
+export function lotSizeOfItem(item: CatalogItemView | undefined): bigint {
+  const lot = item?.lotSize === undefined ? 1n : BigInt(item.lotSize);
+  return lot > 0n ? lot : 1n;
 }
 
 /** 시안 지갑 줄(나라 셋까지) */
@@ -186,12 +195,16 @@ export function previewWallet(catalog: EconomyCatalogResponse): HoldingLine[] {
 
 /** 시안 창고들(내 창고가 있는 도시 + 유닛이 실은 화물 하나) */
 export function previewPlaces(catalog: EconomyCatalogResponse, now: number): HoldingPlace[] {
-  const known = new Set(catalog.items.map((item) => item.id));
+  const itemById = new Map(catalog.items.map((item) => [item.id, item]));
   const places: HoldingPlace[] = [];
   for (const city of PREVIEW_CITIES) {
     if (city.store === null) continue;
-    const stock = (PREVIEW_STOCK[city.id] ?? []).filter((line) => known.has(line.item));
-    const used = stock.reduce((sum, line) => sum + line.qty, 0n);
+    const stock = (PREVIEW_STOCK[city.id] ?? []).filter((line) => itemById.has(line.item));
+    // 용량은 묶음 수로 센다(묶음 크기 1이면 개수, 올림)
+    const used = stock.reduce((sum, line) => {
+      const lot = lotSizeOfItem(itemById.get(line.item));
+      return sum + (line.qty + lot - 1n) / lot;
+    }, 0n);
     places.push({
       id: city.id,
       kind: "warehouse",
@@ -211,7 +224,7 @@ export function previewPlaces(catalog: EconomyCatalogResponse, now: number): Hol
     });
   }
   // 운송 차량이 실은 화물(직접 운반, 43 §7.1). 유닛 ID는 시안 값
-  if (known.has("timber")) {
+  if (itemById.has("timber")) {
     places.push({
       id: "cargo_7",
       kind: "cargo",

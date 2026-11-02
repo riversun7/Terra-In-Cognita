@@ -1,7 +1,8 @@
 // 미리 보기 판(설계안 3.7, 서버 items.preview가 셈한다 — 기기는 계산하지 않는다): 기준 유닛(종류·레벨·1차 6개, 기본 = 새 사이보그 평균),
 // 장비 = 담은 초안을 범위 최소·가운데·최대 자리로 입힌 1차·2차 수치(입기 전 → 뒤, 바뀌는 행만), 장비 스킬 쓸 수 있나(D-490), 전투 칸
 // (속성값·직접 값·쓰지 않은 장비, WP-5), 무기 = ItemPreviewParts(실효 계산식 값·셈한 적정치·효율), 소모품 = 효과 줄 문장과 기준 유닛으로
-// 셈한 효과량 범위(D-496 286), 값 = 레시피 원가(입력 시작 시세 합 ÷ 출력 수량)와 시작 시세 차이(BigInt).
+// 셈한 효과량 범위(D-496 286), 채집 = 추첨 시설 사다리의 아이템이면 시설 Lv마다 나올 확률과 확률표(D-506, ItemGatherPart),
+// 값 = 레시피 원가(입력 시작 시세 합 ÷ 출력 수량)와 시작 시세 차이(BigInt).
 import {
   ITEM_PRIMARY_CODES,
   type ItemEditorListResponse,
@@ -11,6 +12,7 @@ import {
 import { useId } from "react";
 import { m } from "../../paraglide/messages.js";
 import { NumberField, SelectField } from "../content/contentEditorFields.tsx";
+import { GatherPart } from "./ItemGatherPart.tsx";
 import { GearPart, WeaponPart } from "./ItemPreviewParts.tsx";
 import { amountText } from "./itemEffectsText.ts";
 import { PRIMARY_TEXT, effectSentence, issueText } from "./itemMessages.ts";
@@ -264,6 +266,12 @@ export function ItemPreview({
             ))}
           </ul>
           <p className="field-hint">{m.dev_items_preview_use_runtime()}</p>
+        </div>
+      ) : null}
+      {preview?.gather ? (
+        <div className="ie-preview-part" data-part="gather">
+          <h3 className="ie-subheading">{m.dev_items_preview_gather()}</h3>
+          <GatherPart gather={preview.gather} locale={locale} />
         </div>
       ) : null}
       {preview?.ok ? (

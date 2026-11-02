@@ -20,7 +20,7 @@ export interface ScenarioFaction {
   readonly tech: number;
   /** 경제: 도시마다 놓는 시설(같은 도시의 일꾼을 앞에서부터 배치) */
   readonly cityPlan?: readonly ScenarioFacilityPlan[] | undefined;
-  /** 경제: 도시마다 처음 창고 재고 */
+  /** 경제: 도시마다 처음 창고 재고. qty는 원장 기본 단위다(광석이면 g, 레시피·거래소의 묶음 단위가 아니다) */
   readonly stock?: readonly { readonly item: string; readonly qty: bigint }[] | undefined;
   /** 정권 체제(D-217). "mixed"면 세력 ID 차례로 셋을 돌린다([임시], 기본) */
   readonly regime: Regime | "mixed";
@@ -35,6 +35,11 @@ export interface ScenarioFacilityPlan {
   readonly recipe: string;
   readonly level: number;
   readonly workers: number;
+  /**
+   * 채집 티어 추첨의 일꾼 스탯(1차 + 2차, D-506). 시뮬 유닛에는 스탯이 없어서 시설마다 적는다. 없으면 새 유닛 평균
+   * 2 × ⌊N9 초기 합 ÷ 6⌋(출발값 60 → 20, economy.ts defaultGatherStat)
+   */
+  readonly gatherStat?: number | undefined;
 }
 
 /** 경제 손잡이(있으면 경제를 돌린다). [임시] 값은 시나리오 시험값이다 */
@@ -196,6 +201,9 @@ export function parseScenario(value: unknown): Scenario {
         recipe: text(field(plan, "recipe"), `${path}.recipe`),
         level: int(field(plan, "level"), `${path}.level`, 1, 5),
         workers: int(field(plan, "workers"), `${path}.workers`, 0, 100_000),
+        ...(field(plan, "gatherStat") === undefined
+          ? {}
+          : { gatherStat: int(field(plan, "gatherStat"), `${path}.gatherStat`, 0, 100_000) }),
       })),
       stock: optionalList(field(item, "stock"), `${at}.stock`, (entry, path) => ({
         item: text(field(entry, "item"), `${path}.item`),

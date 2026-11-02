@@ -1,6 +1,10 @@
 // 경제 목록(시뮬 쪽 평범한 자료) — docs/adr/2026-10-31-economy-core.md 1절
 // 실행 도구(cli/common.ts)가 콘텐츠 팩의 items·recipes·facilities·necessities·nation_presets에서 만든다. 시뮬 코드는 팩 형식(zod)을
 // 모른다. 켬·끔(D-398): 꺼진 항목은 세계에 새로 놓지 않는다(지금 시뮬은 처음 차릴 때만 본다).
+// 묶음 크기(302·D-506): 팩의 레시피·생필품 수량은 묶음 단위, 원장(창고)은 기본 단위다. prepareCatalog가 수량 × 묶음 크기로 바꿔
+// RecipeSpec·NecessitySpec은 기본 단위로 둔다. 거래소는 묶음 단위로 사고판다(goodsMarket lotSize).
+// 채집 티어 추첨(D-506): 시설에 gather가 있고 산출이 모두 그 중분류인 레시피는 산출 묶음마다 티어를 뽑는다(economy/gather.ts).
+import { GATHER_TIERS, type GatherBand, TEST_GATHER_BANDS } from "../economy/gather.ts";
 import { type NecessitySpec } from "../economy/upkeep.ts";
 import { type RecipeSpec } from "../economy/production.ts";
 
@@ -13,6 +17,10 @@ export interface CatalogItem {
    * 시장 시세(마지막 체결가)다: NPC 매물 값 = 마지막 체결가(없을 때만 시작 시세), 물가 지수 = 지금 시세 ÷ 시작 시세(그 세계의 첫 가격 대비)
    */
   readonly startPrice: bigint;
+  /** 중분류(팩 subcategory). 채집 티어 추첨의 사다리가 본다 */
+  readonly subcategory?: string | undefined;
+  /** 거래 묶음 크기(기본 단위 개수, 팩 lotSize, 없으면 1) */
+  readonly lotSize?: bigint | undefined;
   readonly enabled: boolean;
 }
 
@@ -31,6 +39,10 @@ export interface CatalogFacility {
   readonly slotsPerLevel: number;
   /** 오염 값(레벨 1·1시간, 팩 facilities pollution, 없으면 0 — docs/adr/2026-11-01-gardener-r5b.md) */
   readonly pollution?: number | undefined;
+  /** 채집 티어 추첨(팩 facilities gather, D-506): 유효 스탯 = primary + secondary, 사다리 = 그 중분류 */
+  readonly gather?:
+    | { readonly primary: string; readonly secondary: string; readonly subcategory: string }
+    | undefined;
   readonly enabled: boolean;
 }
 
@@ -55,6 +67,8 @@ export interface EconomyCatalog {
   readonly facilities: readonly CatalogFacility[];
   readonly necessities: readonly CatalogNecessity[];
   readonly presets: readonly CatalogPreset[];
+  /** 채집 티어 확률표(팩 gather_tiers, 49 N43). 없으면 TEST_GATHER_BANDS */
+  readonly gatherBands?: readonly GatherBand[] | undefined;
 }
 
 /** 물건 자산 코드 */
@@ -72,39 +86,79 @@ export interface PreparedCatalog {
   readonly facilities: ReadonlyMap<string, CatalogFacility>;
   readonly necessities: readonly NecessitySpec[];
   readonly presets: readonly CatalogPreset[];
+  /** 켜진 물건 자산 코드 → 묶음 크기(1이 아닌 것만) */
+  readonly lotSize: ReadonlyMap<string, bigint>;
+  /** 중분류 → 티어별 켜진 물건 자산(팩 차례, 길이 GATHER_TIERS). 추첨 시설이 가리키는 중분류만 */
+  readonly gatherLadders: ReadonlyMap<string, readonly (readonly string[])[]>;
+  readonly gatherBands: readonly GatherBand[];
+}
+
+/** 자산의 묶음 크기(기본 단위, 없으면 1) */
+export function lotSizeOf(catalog: Pick<PreparedCatalog, "lotSize">, asset: string): bigint {
+  return catalog.lotSize.get(asset) ?? 1n;
 }
 
 export function prepareCatalog(catalog: EconomyCatalog): PreparedCatalog {
   const items = catalog.items.filter((item) => item.enabled);
   const tierOf = new Map(items.map((item) => [item.id, item.tier]));
+  const subOf = new Map(items.map((item) => [item.id, item.subcategory]));
+  const lots = new Map(items.map((item) => [item.id, item.lotSize ?? 1n]));
+  const facilities = new Map(
+    catalog.facilities.filter((facility) => facility.enabled).map((facility) => [facility.id, facility]),
+  );
+  // 추첨 시설이 가리키는 중분류의 사다리(티어마다 켜진 물건, 팩 차례)
+  const gatherLadders = new Map<string, string[][]>();
+  for (const facility of facilities.values()) {
+    const sub = facility.gather?.subcategory;
+    if (sub === undefined || gatherLadders.has(sub)) continue;
+    const ladder = Array.from({ length: GATHER_TIERS }, (): string[] => []);
+    for (const item of items)
+      if (item.subcategory === sub) ladder[Math.min(GATHER_TIERS - 1, item.tier)]?.push(itemAsset(item.id));
+    gatherLadders.set(sub, ladder);
+  }
+  const base = (stack: { item: string; qty: bigint }) => ({
+    asset: itemAsset(stack.item),
+    qty: stack.qty * (lots.get(stack.item) ?? 1n),
+  });
   const recipes = new Map<string, RecipeSpec>();
   for (const recipe of catalog.recipes) {
     if (!recipe.enabled) continue;
     const stacks = [...recipe.inputs, ...recipe.outputs];
     if (stacks.some((stack) => !tierOf.has(stack.item))) continue;
+    const gather = facilities.get(recipe.facility)?.gather;
+    const rolled =
+      gather !== undefined && recipe.outputs.every((stack) => subOf.get(stack.item) === gather.subcategory);
+    let rolledLots = 0n;
+    for (const stack of recipe.outputs) rolledLots += stack.qty;
     recipes.set(recipe.id, {
       id: recipe.id,
       facility: recipe.facility,
-      inputs: recipe.inputs.map((stack) => ({ asset: itemAsset(stack.item), qty: stack.qty })),
-      outputs: recipe.outputs.map((stack) => ({ asset: itemAsset(stack.item), qty: stack.qty })),
+      inputs: recipe.inputs.map(base),
+      outputs: recipe.outputs.map(base),
       work: recipe.work,
       tier: Math.max(...recipe.outputs.map((stack) => tierOf.get(stack.item) ?? 0)),
+      ...(rolled ? { gather: { subcategory: gather.subcategory, lots: Number(rolledLots) } } : {}),
     });
   }
   return {
     items: items.map((item) => itemAsset(item.id)),
     startPrice: new Map(items.map((item) => [itemAsset(item.id), item.startPrice])),
     recipes,
-    facilities: new Map(
-      catalog.facilities.filter((facility) => facility.enabled).map((facility) => [facility.id, facility]),
-    ),
+    facilities,
     necessities: catalog.necessities
       .filter((necessity) => necessity.enabled && tierOf.has(necessity.item))
       .map((necessity) => ({
         asset: itemAsset(necessity.item),
-        perUnit: necessity.perUnit,
+        perUnit: necessity.perUnit * (lots.get(necessity.item) ?? 1n),
         periodHours: necessity.periodHours,
       })),
     presets: catalog.presets.filter((preset) => preset.enabled),
+    lotSize: new Map(
+      items
+        .filter((item) => (item.lotSize ?? 1n) !== 1n)
+        .map((item) => [itemAsset(item.id), item.lotSize ?? 1n]),
+    ),
+    gatherLadders,
+    gatherBands: catalog.gatherBands ?? TEST_GATHER_BANDS,
   };
 }

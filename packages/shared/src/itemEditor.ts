@@ -78,6 +78,7 @@ export const ITEM_FIELD_USES: Readonly<Record<string, "combat" | "economy" | "sc
   subcategory: "screen",
   tags: "screen",
   weight: "none",
+  lotSize: "economy",
   stackMax: "none",
   icon: "none",
   perish: "none",
@@ -102,6 +103,8 @@ export const ITEM_LIMITS = {
   tier: { min: 0, max: 9 },
   startPrice: { min: 1, max: Number.MAX_SAFE_INTEGER },
   weight: { min: 0, max: 100_000_000 },
+  /** 거래 묶음 크기(302·D-506, 팩 스키마 lotSize: 1~1,000,000, 비우면 1) */
+  lotSize: { min: 1, max: 1_000_000 },
   stackMax: { min: 1, max: 1_000_000 },
   shelfLifeMs: { min: 3_600_000, max: 31_536_000_000 },
   tags: 16,
@@ -223,6 +226,8 @@ export interface ItemJson {
   /** 시작 시세(295: 그 세계 시장이 처음 열릴 때의 첫 가격, 최소 단위). 팩 core@27까지 baseValue */
   readonly startPrice: number;
   readonly weight?: number | undefined;
+  /** 거래 묶음 크기(기본 단위 개수, 302·D-506): 거래소·레시피는 묶음, 창고는 기본 단위. 없으면 1 */
+  readonly lotSize?: number | undefined;
   readonly stackMax?: number | undefined;
   readonly tradable?: boolean | undefined;
   readonly bound?: boolean | undefined;
@@ -497,6 +502,7 @@ export {
   type BeforeAfter,
   type ItemEditorPreviewResponse,
   type ItemFormulaValue,
+  type ItemGatherPreview,
   type ItemPreviewIgnored,
   type ItemPreviewUnit,
   type UseAmount,

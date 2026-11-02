@@ -333,6 +333,7 @@ export {
 export {
   currencyAsset,
   itemAsset,
+  lotSizeOf,
   prepareCatalog,
   type CatalogFacility,
   type CatalogItem,
@@ -364,11 +365,25 @@ export {
   batchDurationMs,
   maxTierForLevel,
   runRecipe,
+  tierCappedByLevel,
   type ProductionAccounts,
   type RecipeSpec,
   type Stack,
 } from "./economy/production.ts";
 export { dueNecessities, payNecessities, type NecessitySpec, type UpkeepPaid } from "./economy/upkeep.ts";
+export {
+  GATHER_TIERS,
+  GATHER_WEIGHT_TOTAL,
+  TEST_GATHER_BANDS,
+  gatherBandIndex,
+  gatherChancesPm,
+  gatherStat,
+  pickGatherItem,
+  rollGatherOutputs,
+  rollGatherTier,
+  type GatherBand,
+  type GatherRoll,
+} from "./economy/gather.ts";
 export {
   TEST_CENTRAL_BANK_RULE,
   centralBankStep,

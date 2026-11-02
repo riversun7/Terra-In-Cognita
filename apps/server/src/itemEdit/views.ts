@@ -82,6 +82,7 @@ export function itemJsonOf(entry: ItemEntry): ItemJson {
     tier: entry.tier,
     startPrice: entry.startPrice,
     ...(entry.weight === undefined ? {} : { weight: entry.weight }),
+    ...(entry.lotSize === undefined ? {} : { lotSize: entry.lotSize }),
     ...(entry.stackMax === undefined ? {} : { stackMax: entry.stackMax }),
     ...(entry.tradable === undefined ? {} : { tradable: entry.tradable }),
     ...(entry.bound === undefined ? {} : { bound: entry.bound }),

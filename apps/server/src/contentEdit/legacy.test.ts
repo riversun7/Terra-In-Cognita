@@ -1,5 +1,5 @@
 // 옛 모양 덮어쓰기 줄 고쳐 읽기 시험(legacy.ts, 팩 core@26) — D-501 옛 효과량 칸(스탯 1점당 ‰)·범위 밖 오차, D-501 지운 중분류(ammo),
-// D-502 옛 무기 적정(core@27), 295 옛 기준 가치 칸 baseValue → 시작 시세 startPrice(core@28).
+// D-502 옛 무기 적정(core@27), 295 옛 기준 가치 칸 baseValue → 시작 시세 startPrice(core@28), 302 묶음 크기 칸 lotSize(core@29).
 // 켤 때 고르기에서 그 줄이 지워지지 않고(다른 고친 칸은 남는다) 싣기 뒤 실효 항목이 지금 스키마로 읽힌다.
 import { ITEM_SCHEMA_LIMITS } from "@terra/content";
 import { describe, expect, it } from "vitest";
@@ -243,5 +243,43 @@ describe("옛 기준 가치 칸(팩 core@28, 295 시작 시세)", () => {
       id: "burn",
       baseValue: 1,
     });
+  });
+});
+
+describe("묶음 크기 칸(팩 core@29, 302·D-506 광석 1g·1kg 묶음)", () => {
+  it("core@28까지 저장한 철광석 줄에 lotSize가 없으면 팩 값(1,000)을 넣는다: 값은 그대로 1kg 묶음당", () => {
+    const state = fresh();
+    const pack = state.packEntry("items", "iron_ore");
+    const packHash = state.packHash("items", "iron_ore");
+    if (!pack || packHash === null) throw new Error("fixture iron_ore");
+    expect(pack.lotSize).toBe(1000);
+    const { lotSize: _lot, weight: _weight, ...old } = pack;
+    const edited = {
+      ...record("iron_ore", { ...old, tier: 1, startPrice: 9 }, packHash),
+      contentVersion: "core@28",
+    };
+    const { rows, upgraded } = upgradeLegacyRows(state.core, [edited]);
+    expect(upgraded).toEqual(["items/iron_ore"]);
+    // 무게는 옮기지 않는다(옛 줄 값 그대로), 다른 고친 칸(티어·시작 시세)도 남는다
+    expect(rows[0]?.entry).toEqual({ ...old, tier: 1, startPrice: 9, lotSize: 1000 });
+    expect(state.selectAtBoot([edited]).dropped).toEqual([]);
+    state.install([edited], 1);
+    const ore = state.effective().items.find((item) => item.id === "iron_ore");
+    expect([ore?.lotSize, ore?.startPrice]).toEqual([1000, 9]);
+  });
+
+  it("core@29부터 저장한 줄은 그대로, 판을 모르는 감사 옛 판 항목은 팩 값을 넣는다", () => {
+    const state = fresh();
+    const pack = state.packEntry("items", "iron_ore");
+    const packHash = state.packHash("items", "iron_ore");
+    if (!pack || packHash === null) throw new Error("fixture iron_ore");
+    const { lotSize: _lot, ...cleared } = pack;
+    const now = { ...record("iron_ore", cleared, packHash), contentVersion: "core@29" };
+    expect(upgradeLegacyRows(state.core, [now]).upgraded).toEqual([]);
+    expect(upgradeLegacyEntry(state.core, "items", "iron_ore", cleared)).toEqual(pack);
+    // 팩에 묶음 칸이 없는 아이템(곡물)은 손대지 않는다
+    const grain = state.packEntry("items", "grain");
+    if (!grain) throw new Error("fixture grain");
+    expect(upgradeLegacyEntry(state.core, "items", "grain", grain)).toBe(grain);
   });
 });

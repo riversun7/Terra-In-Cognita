@@ -52,6 +52,34 @@ export function indexCatalog(catalog: EconomyCatalogResponse | null): CatalogInd
 }
 
 export const itemName = (index: CatalogIndex, id: string): string => pickName(index.items.get(id)?.name, id);
+
+/** 물건의 거래 묶음 크기(기본 단위 개수, 302·D-506). 목록에 칸이 없으면(옛 서버) 1 */
+export function lotOf(item: CatalogItemView | undefined): bigint {
+  if (item?.lotSize === undefined) return 1n;
+  const lot = BigInt(item.lotSize);
+  return lot > 0n ? lot : 1n;
+}
+
+/** g → 무게 글(정수 셈, g·kg·t) */
+function gramsText(grams: bigint): string {
+  if (grams >= 1_000_000n && grams % 1_000_000n === 0n) return `${fmt(grams / 1_000_000n)} t`;
+  if (grams >= 1000n && grams % 1000n === 0n) return `${fmt(grams / 1000n)} kg`;
+  return `${fmt(grams)} g`;
+}
+
+/** 묶음 하나의 크기 글: 무게를 알면 무게(1 kg), 모르면 개수 */
+export function lotText(item: CatalogItemView | undefined): string {
+  const lot = lotOf(item);
+  const weight = item?.weight;
+  return weight !== undefined && weight > 0
+    ? gramsText(lot * BigInt(weight))
+    : m.economy_lot_units({ n: fmt(lot) });
+}
+
+/** 스탯 코드 두 개 → "STR+VIT"(스탯 약자는 두 언어 같은 글자) */
+export function statPairText(primary: string, secondary: string): string {
+  return `${primary.toUpperCase()}+${secondary.toUpperCase()}`;
+}
 export const facilityName = (index: CatalogIndex, id: string): string =>
   pickName(index.facilities.get(id)?.name, id);
 export const recipeName = (index: CatalogIndex, id: string): string =>

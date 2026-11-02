@@ -12,6 +12,7 @@ import {
   simulatePreviewMarket,
 } from "./previewMarket.ts";
 import { previewProduction } from "./previewProduction.ts";
+import { lotSizeOfItem, previewGoods, previewPlaces } from "./previewWorld.ts";
 import { holdingsFromAccounts } from "./services.ts";
 
 const NOW = Date.UTC(2026, 9, 31, 9, 3, 0);
@@ -41,6 +42,37 @@ describe("economyCatalogFromPack", () => {
     expect(catalog.currencies[0]).toMatchObject({ tradeTaxBp: 200 });
     expect(catalog.necessities.map((entry) => entry.item)).toEqual(["ration", "household_goods"]);
     expect(catalog.contentVersion).toMatch(/^core@\d+$/);
+  });
+
+  it("묶음 크기·무게와 채집 티어 추첨(302·D-506): 철광석 1g·1kg 묶음, 광산 레시피는 추첨, 원목 베기는 아님", () => {
+    const catalog = packCatalog();
+    expect(catalog.items.find((item) => item.id === "iron_ore")).toMatchObject({
+      tier: 3,
+      lotSize: "1000",
+      weight: 1,
+    });
+    expect(catalog.items.find((item) => item.id === "grain")?.lotSize).toBe("1");
+    expect(catalog.recipes.find((recipe) => recipe.id === "mine_iron_ore")?.gather).toEqual({
+      primary: "str",
+      secondary: "vit",
+      subcategory: "ore",
+    });
+    // 원목(timber)은 목재 사다리(wood) 밖이라 산출 그대로
+    expect(catalog.recipes.find((recipe) => recipe.id === "cut_timber")?.gather).toBeUndefined();
+  });
+
+  it("시안 창고: 철광석은 기본 단위(g)로 들고, 용량은 묶음 수로 센다", () => {
+    const catalog = packCatalog();
+    const nova = previewPlaces(catalog, NOW).find((place) => place.id === "101");
+    expect(nova?.lines.find((line) => line.item === "iron_ore")).toMatchObject({
+      qty: "310000",
+      locked: "40000",
+    });
+    // 곡물 1,240 + 철광석 310묶음 + 철 주괴 96 + 원목 220 + 생활용품 14 + 시험 칼 1
+    expect(nova?.capacity?.used).toBe(String(1240 + 310 + 96 + 220 + 14 + 1));
+    expect(
+      previewGoods("101", "iron_ore") / lotSizeOfItem(catalog.items.find((item) => item.id === "iron_ore")),
+    ).toBe(310n);
   });
 });
 

@@ -190,6 +190,8 @@ test.describe("개발자", () => {
     const cells = page.locator(".tp-cells");
     await cells.locator("summary").click();
     await expect(cells.locator('.tp-cell[data-code="N9"]')).toHaveAttribute("data-status", "connected");
+    // 채집 티어 확률표(D-506): 레벨 보너스 칸 n43_level_bonus가 N43을 잇는다
+    await expect(cells.locator('.tp-cell[data-code="N43"]')).toHaveAttribute("data-status", "connected");
     await expect(cells.locator('.tp-cell[data-code="T6"]')).toHaveAttribute("data-status", "no_value");
     await expect(cells.locator('.tp-cell[data-code="T1"]')).toHaveAttribute("data-status", "not_connected");
     expect(await cells.locator(".tp-cell").count()).toBeGreaterThan(200);
@@ -254,6 +256,24 @@ test.describe("배치·사진", () => {
         // 화면 크기 사진(한 화면에 보이는 줄 수를 본다)
         await shot(page, `tuning-${theme}-${language}-${width}`);
         await resetTuning(page);
+        expect(deviceErrors).toEqual([]);
+      });
+
+      test("채집 칸(D-506): N43 레벨 보너스·창고 용량(g) 줄, 가로 넘침 없음, 사진", async ({
+        page,
+        deviceErrors,
+      }) => {
+        await panelReady(page);
+        await page.locator(".tp-search input").fill("N43");
+        await expect(row(page, "n43_level_bonus")).toBeVisible();
+        await page.locator(".tp-search input").fill("d506");
+        await expect(row(page, "d506_storage_per_level")).toBeVisible();
+        await page.locator(".tp-search input").fill("");
+        await page.locator(".tp-search input").fill("n43_level_bonus");
+        await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await shot(page, `tuning-n43-${theme}-${language}-${width}`);
         expect(deviceErrors).toEqual([]);
       });
     });

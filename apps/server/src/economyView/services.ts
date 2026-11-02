@@ -42,6 +42,7 @@ import {
   previewStartPrice,
   previewCash,
   previewGoods,
+  lotSizeOfItem,
   previewPlaces,
   previewWallet,
   tradesOnBook,
@@ -368,7 +369,13 @@ export function createEconomyServices(options: {
         volume: String(stats.volume),
         trades: recentTrades(state.trades),
         candles: candles(state.trades, from, to, PREVIEW_CANDLE_MS),
-        mine: { goods: String(previewGoods(city.id, itemId)), cash: String(previewCash(catalog, currency)) },
+        // 팔 수 있는 양은 묶음 단위(창고 기본 단위 ÷ 묶음, 버림, 302·D-506)
+        mine: {
+          goods: String(
+            previewGoods(city.id, itemId) / lotSizeOfItem(catalog.items.find((entry) => entry.id === itemId)),
+          ),
+          cash: String(previewCash(catalog, currency)),
+        },
         limit: orderLimit(query.now),
         observedAt,
         inSight: city.inSight,

@@ -14,6 +14,7 @@ import { createSimLoop } from "./loop.ts";
 import { DAY_MS, type FactionDay, type MetricsSummary, createMetricsRecorder } from "./metrics.ts";
 import type { Scenario } from "./scenario.ts";
 import type { EconomyCatalog } from "./catalog.ts";
+import { defaultGatherStat } from "./economy.ts";
 import { type EconomyRun, type EconomySummary, attachEconomy, systemRule } from "./economyRun.ts";
 import { type CombatSummary, attachCombat } from "./combatRun.ts";
 import type { CombatCatalog } from "../combat/catalog.ts";
@@ -46,8 +47,9 @@ import {
  * 5: 요약 society 칸에 dividends(도시 세금 정산 D-304)·tributes(D-443),
  * 6: 요약 npc 칸(NPC 판단 행동 수·강화 거절·세율 바꿈), society 칸에 wars·stalled(docs/adr/2026-11-01-npc-brain-r5.md),
  * 7: wave 줄(웨이브·유목 예고·결과)·gardener 하루 줄, battle 줄 city 칸, 요약 gardener 칸, society 칸 ruins(docs/adr/2026-11-01-gardener-r5b.md)
+ * 8: econ 줄·요약 economy 칸에 produced(생산한 양, 물건 자산 → 기본 단위. 채집 티어 추첨 D-506 확인용)
  */
-export const SIM_OUTPUT_FORMAT = 7;
+export const SIM_OUTPUT_FORMAT = 8;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 정원사 합성 격자 한 변(도시마다 3칸 간격, 한 줄 32도시 — 1만 도시까지), 웨이브 전투 기본값(시나리오에 combat 칸이 없을 때) */
@@ -190,7 +192,10 @@ export function runSimulation(options: RunOptions): RunSummary {
   // 경제: 사건 처리기가 쓰기 전에 붙인다(예약은 아직 돌지 않는다)
   const econ: EconomyRun | undefined =
     scenario.economy && options.catalog
-      ? attachEconomy(world, scenario, options.catalog, loop, SIM_START_MS, societyCoefficients.npc)
+      ? attachEconomy(world, scenario, options.catalog, loop, SIM_START_MS, societyCoefficients.npc, {
+          levelBonus: societyCoefficients.gatherLevelBonus,
+          defaultStat: defaultGatherStat(societyCoefficients.cyborg.initialSum),
+        })
       : undefined;
   const ctx: NpcContext = {
     world,

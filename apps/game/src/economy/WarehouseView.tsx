@@ -1,6 +1,7 @@
 // 창고(/economy/warehouse) — 지갑(화폐)과 곳마다 보유: 도시 창고(종류·용량, D-121), 장부 보관, 유닛이 실은 화물.
 // 원장 계정 = (주체, 자산, 위치)라 곳마다 줄이 나뉜다(R2 ADR 3절). 식품은 상하기 시작하는 시각을 보인다(실제 시간, D-5030).
 // 시안 창고 줄은 "시험"이 붙고, 거래할 수 있는 물건은 그 도시 거래창으로 가는 링크가 있다.
+// 보유 양은 원장 기본 단위다(광석 g). 거래 묶음이 1보다 크면 묶음 크기와 묶음 수(버림)를 덧붙인다(302·D-506).
 import type { HoldingLine, HoldingPlace } from "@terra/shared/economy";
 import { m } from "../paraglide/messages.js";
 import { AppLink } from "../shell/AppLink.tsx";
@@ -13,6 +14,8 @@ import {
   fmt,
   formatDuration,
   indexCatalog,
+  lotOf,
+  lotText,
 } from "./economyText.ts";
 import { Amount, Loaded, PreviewTag } from "./parts.tsx";
 import { NO_ARGS, useCatalog, useHoldings } from "./queries.ts";
@@ -54,6 +57,11 @@ function HoldingRow({
         {item ? (
           <span className="eco-hold-meta">
             {categoryName(item.category)} · {m.economy_tier({ tier: item.tier })}
+          </span>
+        ) : null}
+        {item && lotOf(item) > 1n ? (
+          <span className="eco-hold-meta">
+            {m.economy_hold_lots({ size: lotText(item), lots: fmt(toBig(line.qty) / lotOf(item)) })}
           </span>
         ) : null}
         {locked > 0n ? <span className="eco-hold-meta">{m.economy_locked({ qty: fmt(locked) })}</span> : null}

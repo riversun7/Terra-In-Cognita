@@ -78,6 +78,21 @@ describe("여러 개 고치기(patch)", () => {
   });
 });
 
+describe("CSV 거래 묶음 열(302·D-506)", () => {
+  it("lotSize 열을 내보내고 읽는다(빈 칸 그대로, - 는 뺀다)", () => {
+    const ore: ItemJson = { ...grain, id: "iron_ore", weight: 1, lotSize: 1000 };
+    const csv = itemsToCsv([ore]);
+    expect(csv.split("\n")[0]).toContain("weight,lotSize,stackMax");
+    const back = parseItemsCsv(csv, new Map([[ore.id, ore]]));
+    expect(back.problems).toEqual([]);
+    expect(back.entries[0]?.lotSize).toBe(1000);
+    const cleared = parseItemsCsv("id,lotSize\niron_ore,-\n", new Map([[ore.id, ore]]));
+    expect(cleared.entries[0]?.lotSize).toBeUndefined();
+    const set = parseItemsCsv("id,lotSize\ngrain,500\n", current);
+    expect(set.entries[0]?.lotSize).toBe(500);
+  });
+});
+
 describe("CSV 왕복", () => {
   it("내보낸 CSV를 다시 읽으면 같은 공통 칸(따옴표·쉼표·줄바꿈 이스케이프 포함, 장비 칸은 지금 항목 그대로)", () => {
     const csv = itemsToCsv([grain, sword]);

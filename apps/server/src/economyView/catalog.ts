@@ -97,7 +97,10 @@ export function economyCatalogFrom(
     tier: item.tier,
     startPrice: String(item.startPrice),
     market: marketKindOf(item),
+    lotSize: String(item.lotSize ?? 1),
+    ...(item.weight === undefined ? {} : { weight: item.weight }),
   }));
+  const subOf = new Map(items.map((item) => [item.id, item.subcategory?.id]));
   const facilities: CatalogFacilityView[] = entries.facilities
     .filter((facility) => facility.enabled)
     .map((facility) => ({
@@ -107,6 +110,11 @@ export function economyCatalogFrom(
       slotsPerLevel: facility.slotsPerLevel,
     }));
   const facilityIds = new Set(facilities.map((facility) => facility.id));
+  const gatherOf = new Map(
+    entries.facilities
+      .filter((facility) => facility.enabled)
+      .map((facility) => [facility.id, facility.gather]),
+  );
   const recipes: CatalogRecipeView[] = [];
   for (const recipe of entries.recipes) {
     const facility = recipe.facility.id;
@@ -114,6 +122,11 @@ export function economyCatalogFrom(
     // 꺼진 시설·물건을 쓰는 레시피는 세계에 나오지 않는다(시뮬 prepareCatalog와 같은 규칙)
     if (!recipe.enabled || !facilityIds.has(facility) || stacks.some((stack) => !tierOf.has(stack.item.id)))
       continue;
+    // 채집 티어 추첨: 시설에 gather가 있고 산출이 모두 그 중분류(시뮬 prepareCatalog와 같은 규칙)
+    const gather = gatherOf.get(facility);
+    const rolled =
+      gather !== undefined &&
+      recipe.outputs.every((stack) => subOf.get(stack.item.id) === gather.subcategory.id);
     recipes.push({
       id: recipe.id,
       name: recipe.name,
@@ -123,6 +136,15 @@ export function economyCatalogFrom(
       work: recipe.work,
       tier: Math.max(...recipe.outputs.map((stack) => tierOf.get(stack.item.id) ?? 0)),
       baseDurationMs: batchDurationMs(recipe.work, BASE_EFFICIENCY) ?? 0,
+      ...(rolled
+        ? {
+            gather: {
+              primary: gather.primary,
+              secondary: gather.secondary,
+              subcategory: gather.subcategory.id,
+            },
+          }
+        : {}),
     });
   }
   const currencies: CatalogCurrencyView[] = entries.presets

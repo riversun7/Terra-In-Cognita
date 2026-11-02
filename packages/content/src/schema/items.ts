@@ -50,6 +50,8 @@ export const ITEM_SCHEMA_LIMITS = {
   /** 사용 효과 ±오차(‰) 범위: 25~50%(D-501, 비우면 설정 칸 d496_use_variance) */
   useVarianceMinPm: 250,
   useVarianceMaxPm: 500,
+  /** 거래 묶음 크기 상한(기본 단위 개수, 302·D-506: 광석 1,000 = 1kg) */
+  lotSizeMax: 1_000_000,
 } as const;
 
 const enabled = z.boolean({ error: "enabled가 없습니다. true 또는 false로 적으세요(D-398 켬·끔)." });
@@ -174,6 +176,11 @@ export const itemEntrySchema = z
     startPrice: z.int().positive(),
     /** 무게(g, D-117 "모든 아이템에 무게가 있다"). 읽는 곳이 생기기 전까지는 권고 */
     weight: z.int().min(0).max(ITEM_SCHEMA_LIMITS.weightMax).optional(),
+    /**
+     * 거래 묶음 크기(302·D-506, 팩 core@29): 기본 단위(1개 = weight g) 몇 개를 한 묶음으로 사고파는가. 거래소 주문 수량·값(묶음당)과
+     * 레시피 재료·산출 수량은 묶음 단위, 창고·운반·나누기(원장 잔고)는 기본 단위다. 광석은 1개 = 1g, 묶음 1,000 = 1kg. 없으면 1
+     */
+    lotSize: z.int().min(1).max(ITEM_SCHEMA_LIMITS.lotSizeMax).optional(),
     /** 한 칸에 쌓는 수 상한(장비는 1). 보유 표가 생기면 읽는다 */
     stackMax: z.int().min(1).max(ITEM_SCHEMA_LIMITS.stackMax).optional(),
     /** 거래소에 올릴 수 있나(없으면 참). 우편·이적은 된다 */

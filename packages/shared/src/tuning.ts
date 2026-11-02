@@ -15,6 +15,8 @@ export const TUNING_UNITS = [
   "milli",
   "points",
   "level",
+  // 무게(g, 기본 단위가 1g인 광석 등. D-506 채집 시설 창고 용량)
+  "grams",
 ] as const;
 export type TuningUnit = (typeof TUNING_UNITS)[number];
 

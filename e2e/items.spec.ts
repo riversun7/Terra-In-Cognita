@@ -467,7 +467,7 @@ test.describe("개발자", () => {
     );
     // 옛 열 이름 baseValue(팩 core@27까지)도 시작 시세로 읽는다(295)
     await text.fill(
-      "id,category,tier,baseValue,name.ko,name.en\niron_ore,,3,,,\ne2e_bulk_ore,raw,1,5,시험 광석,Test ore\n",
+      "id,category,tier,baseValue,name.ko,name.en\niron_ore,,4,,,\ne2e_bulk_ore,raw,1,5,시험 광석,Test ore\n",
     );
     await read.click();
     await expect(part.locator('[data-part="bulk-diff"]')).toHaveText(
@@ -479,7 +479,8 @@ test.describe("개발자", () => {
     await expect(bar(page)).toHaveAttribute("data-count", "2");
     await apply(page, "e2e 대량 가져오기");
     const ore = await trpc(page, "items.get", { id: "iron_ore" });
-    expect(field(field(ore.data, "entry"), "tier")).toBe(3);
+    // 철광석은 팩 core@29부터 T3(D-506)이라 4로 고쳐 본다
+    expect(field(field(ore.data, "entry"), "tier")).toBe(4);
     const created = field((await trpc(page, "items.get", { id: "e2e_bulk_ore" })).data, "entry");
     // 새 줄은 꺼진 채로 만든다(덜 만든 아이템이 세계에 나오지 않게)
     expect([
@@ -687,6 +688,34 @@ test.describe("배치·사진", () => {
           expect(await horizontalOverflow(page)).toEqual([]);
           await shot(page, `items-${subcategory}-${theme}-${language}-${width}`);
         }
+        expect(deviceErrors).toEqual([]);
+      });
+
+      test("채집 티어 추첨·묶음(D-506, 300~302): 철광석 묶음 칸 1,000(1 kg), 광산 Lv마다 나올 확률, 확률표, 사진", async ({
+        page,
+        deviceErrors,
+      }) => {
+        await editorReady(page, "/dev/items?item=iron_ore");
+        await expect(detail(page)).toHaveAttribute("data-item", "iron_ore");
+        await expect(editing(page)).toBeVisible();
+        const value = detail(page).locator('[data-section="value"]');
+        const lot = value.getByLabel(message(language, "dev_items_field_lot_size"), { exact: true });
+        await expect(lot).toHaveValue("1000");
+        await expect(value).toContainText(message(language, "dev_items_lot_hint_weight", { size: "1 kg" }));
+        // 기준 유닛(새 사이보그 STR 10 + VIT 10 = 20): Lv1 5%(0~39 구간 T3 50‰), Lv5(+40 = 60) 7%(꺼진 은 T4 몫이 철로)
+        const gather = detail(page).locator('.ie-preview [data-part="gather"]');
+        await expect(gather.locator('[data-level="1"] [data-part="chance"]')).toHaveText("5.00%", {
+          timeout: 15_000,
+        });
+        await expect(gather.locator('[data-level="5"] [data-part="chance"]')).toHaveText("7.00%");
+        await expect(gather.locator('[data-part="gather-summary"]')).toContainText("STR+VIT");
+        await gather.locator(".ie-gather-bands > summary").click();
+        await expect(gather.locator(".ie-gather-bands tbody tr")).toHaveCount(12);
+        await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await elementShot(value, `items-lot-size-${theme}-${language}-${width}`);
+        await elementShot(gather, `items-gather-preview-${theme}-${language}-${width}`);
         expect(deviceErrors).toEqual([]);
       });
     });

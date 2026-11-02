@@ -40,6 +40,7 @@ import {
 import { LAB_SAMPLES } from "../battleLab/samples.ts";
 import type { TuningState } from "../tuning/state.ts";
 import { recipeCost } from "./advice.ts";
+import { type GatherContext, type GatherItem, previewGather } from "./previewGather.ts";
 import { previewUse } from "./previewUse.ts";
 import { previewWeapon } from "./previewWeapon.ts";
 
@@ -52,6 +53,8 @@ export interface PreviewContext {
   readonly recipes: readonly RecipeEntry[];
   /** 아이템 ID → 실효 시작 시세(295: 시장이 처음 열릴 때의 첫 가격) */
   readonly values: ReadonlyMap<string, number>;
+  /** 채집 티어 추첨(D-506): 팩 시설·확률표·실효 레벨 보너스와 실효 아이템(사다리). 없으면 미리 보기 gather 칸 null */
+  readonly gather?: (GatherContext & { readonly items: readonly GatherItem[] }) | undefined;
 }
 
 /** 기준 유닛의 기본 장비(전투 실험실 "새 사이보그" 샘플의 무기·장비, 칸 종류로 옮긴다) */
@@ -272,5 +275,21 @@ export function previewItem(
     const cost = out ? recipeCost(recipe, item.id, values) : null;
     return out && cost !== null ? [{ id: recipe.id, cost: String(cost), outputQty: out.qty }] : [];
   });
-  return { ok: true, issues: [], equip, weapon, use, value: { startPrice: item.startPrice, recipes } };
+  const gather = ctx.gather
+    ? previewGather(
+        ctx.gather,
+        { id: item.id, subcategory: item.subcategory?.id, tier: item.tier, enabled: item.enabled },
+        ctx.gather.items,
+        unit,
+      )
+    : null;
+  return {
+    ok: true,
+    issues: [],
+    equip,
+    weapon,
+    use,
+    gather,
+    value: { startPrice: item.startPrice, recipes },
+  };
 }

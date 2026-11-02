@@ -3,6 +3,7 @@
 // 세력 화폐(D-124·D-131)·켬/끔(D-398: 모든 콘텐츠를 개발자 페이지에서 켜고 끈다).
 // 지금 팩은 형식 확인용 임시 데이터다(placeholder). 기획 출발값이 없는 칸(시작 시세·작업량·수량·세율)은 시험값이다.
 import { z } from "zod";
+import { PRIMARY_STAT_CODES } from "./combat.ts";
 import { contentId, localizedText, ref } from "./common.ts";
 
 // 아이템 항목·대분류는 items.ts(공통 칸 + 대분류별 묶음, docs/adr/2026-11-01-item-editor.md). 옛 가져오기 길을 지킨다
@@ -27,9 +28,52 @@ export const facilityEntrySchema = z.strictObject({
    * 개발자 페이지 콘텐츠 D-398). 없으면 0
    */
   pollution: z.int().min(0).max(10_000).optional(),
+  /**
+   * 채집 티어 추첨(D-506, 질문 300·301): 이 시설의 레시피 가운데 산출이 모두 이 중분류인 것은 산출 묶음마다 티어를 뽑는다.
+   * 유효 스탯 = 일꾼의 primary + secondary(43 §4: 광산 STR + VIT, 벌목 DEX + STR, 약초 INT + WIS, 낚시 AGI + DEX)
+   * + 레벨 보너스(설정 칸 N43 n43_level_bonus × (레벨 − 1)), 확률표 = gather_tiers. 채집 단계(stage gather) 시설에만 쓴다
+   */
+  gather: z
+    .strictObject({
+      primary: z.enum(PRIMARY_STAT_CODES),
+      secondary: z.enum(PRIMARY_STAT_CODES),
+      subcategory: ref("item_subcategories"),
+    })
+    .optional(),
   enabled,
 });
 export type FacilityEntry = z.output<typeof facilityEntrySchema>;
+
+/** 채집 티어 수(T0~T9, D-5001) */
+export const GATHER_TIER_COUNT = 10;
+/** 구간 가중치 합(‰) */
+export const GATHER_WEIGHT_TOTAL = 1000;
+
+/**
+ * 채집·채굴 티어 확률표 한 구간(49 N43, D-506): 유효 스탯이 from 이상(다음 구간 from 미만)이면 이 가중치(‰, T0~T9 차례, 합 1000)로
+ * 티어를 뽑는다. 파일 차례 = from 차례(첫 구간 from 0, 늘어나기만, 2단계 검사). 마지막 구간은 위 끝이 없다.
+ * 옛 프로젝트 skill_tier_probability(20 단위 구간)를 ‰로 옮겼고, 0~39는 [임시] T0 700·T1 150·T2 100·T3 50(사용자 답 300)
+ */
+export const gatherTierEntrySchema = z
+  .strictObject({
+    id: contentId,
+    from: z.int().min(0).max(100_000),
+    weightsPm: z.array(z.int().min(0).max(GATHER_WEIGHT_TOTAL)).length(GATHER_TIER_COUNT),
+  })
+  .superRefine((entry, ctx) => {
+    // 필드 검사가 실패해도 불린다(AGENTS 6장 Zod 4.6.7): 모양을 다시 보고 틀리면 건너뛴다
+    const weights: unknown = entry.weightsPm;
+    if (!Array.isArray(weights) || !weights.every((value) => Number.isInteger(value))) return;
+    const sum = weights.reduce((total: number, value: number) => total + value, 0);
+    if (sum !== GATHER_WEIGHT_TOTAL)
+      ctx.addIssue({
+        code: "custom",
+        path: ["weightsPm"],
+        message: `가중치 합이 ${sum}입니다. 합은 ${GATHER_WEIGHT_TOTAL}(‰)이어야 합니다.`,
+        params: { rule: "gather_weights_sum" },
+      });
+  });
+export type GatherTierEntry = z.output<typeof gatherTierEntrySchema>;
 
 export const recipeEntrySchema = z.strictObject({
   id: contentId,

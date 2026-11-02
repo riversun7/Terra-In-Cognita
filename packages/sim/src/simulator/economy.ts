@@ -5,10 +5,14 @@
 // - 기준 통화 = 첫 나라의 화폐. 환전 짝은 (화폐, 기준 통화)만 둔다.
 // - 도시마다 물건마다 물자 거래소 하나. 값은 그 도시 주인의 화폐로 매기고 거래세는 그 주인 국고로 간다.
 // - 운송: 출발 때 창고 → 운송 중 계정(출발지), 도착 사건에 운송 중 → 도착지 창고. 걸리는 시간은 하나(고정 속도).
+// - 묶음(302·D-506): 원장·운송은 기본 단위(광석 g), 거래소 주문·값은 묶음 단위(물건마다 lotSize).
+// - 채집 티어 추첨(D-506): 추첨 레시피는 한 번 돌릴 때마다 묶음마다 티어를 뽑는다(economy/gather.ts). 난수 = 흐름 7(시설, 차례).
+//   유효 스탯 = 시설 계획의 일꾼 스탯(없으면 새 유닛 평균) + N43 레벨 보너스. 채집 시설은 레벨 티어 상한을 받지 않는다.
 import type { LedgerBook } from "../ledger/ledgerBook.ts";
 import { TEST_CENTRAL_BANK_RULE, centralBankStep, initialMint } from "../economy/centralBank.ts";
 import { type FxMarket, createFxMarket } from "../economy/fxMarket.ts";
 import { type GoodsMarket, createGoodsMarket } from "../economy/goodsMarket.ts";
+import { gatherStat, rollGatherOutputs } from "../economy/gather.ts";
 import {
   BASE_EFFICIENCY,
   HOUR_MS,
@@ -16,6 +20,7 @@ import {
   batchDurationMs,
   maxTierForLevel,
   runRecipe,
+  tierCappedByLevel,
 } from "../economy/production.ts";
 import { dueNecessities, payNecessities } from "../economy/upkeep.ts";
 import {
@@ -23,18 +28,34 @@ import {
   type PreparedCatalog,
   currencyAsset,
   itemAsset,
+  lotSizeOf,
   prepareCatalog,
 } from "./catalog.ts";
 import type { SimLoop } from "./loop.ts";
 import type { Scenario, ScenarioEconomy } from "./scenario.ts";
 import type { SimEvent } from "./npcRun.ts";
-import type { SimFaction, SimWorld } from "./world.ts";
+import { type SimFaction, type SimWorld, streamRng } from "./world.ts";
 
 export const EVENT_PRODUCE = "produce";
 export const EVENT_UPKEEP = "upkeep";
 export const EVENT_TRADE = "trade";
 export const EVENT_FX = "fx";
 export const EVENT_CARGO = "cargo";
+/** 난수 흐름 7: 채집 티어 추첨(대상 = 시설 ID, 차례 = 그 시설의 생산 차례) */
+export const STREAM_GATHER = 7;
+
+/** 채집 티어 추첨 손잡이(attachEconomy가 세력·사회 계수표에서 만든다) */
+export interface GatherSettings {
+  /** 레벨 보너스(N43 n43_level_bonus, 유효 스탯 / 레벨) */
+  readonly levelBonus: number;
+  /** 시설 계획에 일꾼 스탯이 없을 때(새 유닛 평균) */
+  readonly defaultStat: number;
+}
+
+/** 시설 계획에 일꾼 스탯이 없을 때: 새 유닛 평균 1차 둘의 합 = 2 × ⌊N9 초기 합 ÷ 6⌋([임시] 시뮬 유닛에 스탯이 없다) */
+export function defaultGatherStat(initialSum: number): number {
+  return 2 * Math.floor(Math.max(0, initialSum) / 6);
+}
 
 export interface EcoFacility {
   readonly id: number;
@@ -42,6 +63,10 @@ export interface EcoFacility {
   readonly recipe: RecipeSpec;
   readonly level: number;
   readonly workers: number;
+  /** 채집 티어 추첨의 유효 스탯(일꾼 스탯 + 레벨 보너스). 추첨 레시피가 아니면 쓰지 않는다 */
+  readonly gatherStat: number;
+  /** 생산 차례(추첨 난수의 차례) */
+  batches: number;
   eventId: number | undefined;
 }
 
@@ -87,6 +112,8 @@ export interface Economy {
     inputShort: number;
     issued: Map<string, bigint>;
     burned: Map<string, bigint>;
+    /** 오늘 생산한 양(물건 자산 → 기본 단위) */
+    produced: Map<string, bigint>;
   };
 }
 
@@ -107,6 +134,7 @@ export function createEconomy(
   scenario: Scenario,
   raw: EconomyCatalog,
   startMs: number,
+  gather: GatherSettings = { levelBonus: 0, defaultStat: 0 },
 ): Economy {
   const settings = scenario.economy;
   if (!settings) throw new Error("scenario has no economy section");
@@ -154,6 +182,7 @@ export function createEconomy(
       inputShort: 0,
       issued: new Map(),
       burned: new Map(),
+      produced: new Map(),
     },
   };
   for (const unit of world.units.values())
@@ -174,6 +203,7 @@ export function createEconomy(
             currency: currencyOf.get(city.owner) ?? base,
             taxBp: taxOf.get(city.owner) ?? 0,
             treasuryOwner: city.owner,
+            lotSize: lotSizeOf(catalog, item),
           },
           book,
           nextOrderId,
@@ -203,7 +233,7 @@ export function createEconomy(
           const facility = catalog.facilities.get(plan.facility);
           if (!recipe || !facility || recipe.facility !== plan.facility)
             throw new Error(`bad city plan: ${plan.recipe}`);
-          if (recipe.tier > maxTierForLevel(plan.level))
+          if (tierCappedByLevel(facility.stage) && recipe.tier > maxTierForLevel(plan.level))
             throw new Error(`facility level too low for ${plan.recipe}`);
           const workers = Math.min(plan.workers, free, facility.slotsPerLevel * plan.level);
           free -= workers;
@@ -214,6 +244,8 @@ export function createEconomy(
             recipe,
             level: plan.level,
             workers,
+            gatherStat: gatherStat(plan.gatherStat ?? gather.defaultStat, plan.level, gather.levelBonus),
+            batches: 0,
             eventId: undefined,
           });
         }
@@ -343,6 +375,7 @@ export function onProduce(
   const facility = economy.facilities.get(facilityId);
   const city = facility ? world.cities.get(facility.city) : undefined;
   if (!facility || !city) return undefined;
+  const outputs = gatherOutputs(economy, world, facility);
   const done = runRecipe(
     world.book,
     city.owner,
@@ -350,13 +383,41 @@ export function onProduce(
     facility.recipe,
     { consume: consumeAccount(world.book), source: sourceAccount(world.book) },
     nowMs,
+    outputs,
   );
   if (!done) economy.today.inputShort += 1;
+  else for (const output of outputs) bump(economy.today.produced, output.asset, output.qty);
   scheduleProduce(economy, loop, facility, nowMs);
   if (!done) return undefined;
   const workMs = batchDurationMs(facility.recipe.work, facility.workers * BASE_EFFICIENCY) ?? 0;
   const pollution = economy.catalog.facilities.get(facility.recipe.facility)?.pollution ?? 0;
   return { city: city.id, weightedWorkMs: facility.level * pollution * workMs };
+}
+
+/**
+ * 이번 생산의 산출(기본 단위): 추첨 레시피면 묶음마다 티어를 뽑고, 아니면 레시피 산출 그대로. 재료가 모자라 돌지 못해도 추첨은 한다
+ * (차례가 생산 시도마다 하나씩 늘어 결정적이다)
+ */
+function gatherOutputs(
+  economy: Economy,
+  world: SimWorld,
+  facility: EcoFacility,
+): readonly { asset: string; qty: bigint }[] {
+  const roll = facility.recipe.gather;
+  const ladder = roll ? economy.catalog.gatherLadders.get(roll.subcategory) : undefined;
+  if (!roll || !ladder) return facility.recipe.outputs;
+  const rng = streamRng(world.seed, STREAM_GATHER, facility.id, facility.batches);
+  facility.batches += 1;
+  return rollGatherOutputs(
+    {
+      ladder,
+      bands: economy.catalog.gatherBands,
+      stat: facility.gatherStat,
+      lots: roll.lots,
+      lotSize: economy.catalog.lotSize,
+    },
+    rng,
+  ).outputs;
 }
 
 /** 도시 유지비(정시) */

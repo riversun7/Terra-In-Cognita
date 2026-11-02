@@ -327,9 +327,10 @@ test.describe("관리자", () => {
   // 2차맵 미리보기(ADR 2026-10-31-second-map-from-planet 9절): 명왕성 표본(F7, 빠르다)에서 칸을 고르면 그 칸의 2차맵을
   // 기기 워커가 만들어 2차맵 엔진으로 그린다. 두 번째는 행성 값을 다시 쓴다. 창이 열린 동안 지구본 엔진은 내려가고 닫으면 다시 뜬다.
   // 저장하지 않는다(작업 사본은 시험 맥락과 함께 사라진다). 사진은 기본 테마 둘.
-  for (const theme of ["pastel", "dark"] as const) {
+  // 개발 화면 층(ADR 2026-11-02-dev-ui): 게임 테마 대신 개발 화면 테마 둘(네온 다크·라이트)
+  for (const theme of ["neon", "light"] as const) {
     test.describe(`2차맵 미리보기 ${theme}`, () => {
-      test.use({ theme });
+      test.use({ devTheme: theme });
 
       test(`칸 정보 [2차맵 미리보기] → 그 칸의 2차맵, 다시 열면 행성 값을 다시 쓴다 (${theme})`, async ({
         page,
@@ -429,17 +430,18 @@ test.describe("관리자", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  // 사진: 휴대폰 세로 390px·데스크톱 1440px × 기본 테마 둘 × 한국어·영어(E2E_SHOTS_DIR). 휴대폰은 판 넘침·누르는 곳도 본다
-  for (const theme of ["pastel", "dark"] as const) {
+  // 사진: 휴대폰 세로 390px·데스크톱 1440px × 개발 화면 테마 둘(ADR 2026-11-02-dev-ui) × 한국어·영어(E2E_SHOTS_DIR).
+  // 휴대폰은 판 넘침·누르는 곳도 본다
+  for (const theme of ["neon", "light"] as const) {
     for (const language of ["ko", "en"] as const) {
       test.describe(`사진 ${theme} ${language}`, () => {
-        test.use({ theme, language });
+        test.use({ devTheme: theme, language });
 
         test(`390px 세로 (${theme}·${language})`, async ({ page }) => {
           test.setTimeout(120_000);
           await openSomePlanet(page);
           await globeReady(page, 7);
-          await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+          await expect(page.locator("html")).toHaveAttribute("data-dev-theme", theme);
           expect(await panelOverflow(page)).toEqual([]);
           expect(await smallTapTargets(page)).toEqual([]);
           await shot(page, `planet-editor-390-${theme}-${language}-settings`);

@@ -136,12 +136,12 @@ test.describe("dev", () => {
     });
   }
 
-  // 사진: 390·1440 × 기본 테마 둘 × 한국어·영어(싸움 중 + 끝 요약)
+  // 사진: 390·1440 × 개발 화면 테마 둘(ADR 2026-11-02-dev-ui) × 한국어·영어(싸움 중 + 끝 요약)
   for (const size of ["390", "1440"] as const) {
-    for (const theme of ["pastel", "dark"] as const) {
+    for (const theme of ["neon", "light"] as const) {
       for (const language of ["ko", "en"] as const) {
         test.describe(`사진 ${size} ${theme} ${language}`, () => {
-          test.use({ theme, language, ...(size === "1440" ? VIEWPORTS.desktop : VIEWPORTS.phone) });
+          test.use({ devTheme: theme, language, ...(size === "1440" ? VIEWPORTS.desktop : VIEWPORTS.phone) });
 
           test(`${size}px (${theme}·${language})`, async ({ page }) => {
             test.setTimeout(120_000);

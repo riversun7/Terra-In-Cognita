@@ -1,14 +1,14 @@
 // 설정 칸 패널 화면 시험 — /dev/tuning (docs/adr/2026-11-01-dev-settings-panel.md 12절·"바뀜: D-462").
-// - dev: N39 기본액을 [바꾸기] → [담기] → [적용]하면 그 세계에 바로 든다(사이보그 만들기 화면의 정착 지원금 72 × 1.5 = 108 → 135).
+// - dev: N39 기본액을 새 값 칸에 넣고 [담기] → [적용]하면 그 세계에 바로 든다(사이보그 만들기 화면의 정착 지원금 72 × 1.5 = 108 → 135).
 //   [되돌리기] → [적용]이면 팩 값(108). 서로 묶인 칸(N9 합·칸 최대)은 하나만 보내면 규칙 문제로 거절되고 함께 보내면 받는다.
 //   구조 값은 확인 창. [내보내기]는 팩 차이 JSON. [모두 되돌리기]. 49 칸 목록(연결됨·값 없음·연결 없음).
 // - player: 권한 없음 화면, tRPC tuning.*는 403.
-// - 사진: 390·1440 × 파스텔·다크·정거장 × 한국어·영어(E2E_SHOTS_DIR).
+// - 사진: 390·1440 × 개발 화면 테마 둘(네온 다크·라이트, ADR 2026-11-02-dev-ui) × 한국어·영어(E2E_SHOTS_DIR), 화면 크기.
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 덮어쓰기를 모두 지운다(다른 줄기의 지원금·환생 값 시험을 흔들지 않게).
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
-import { type Language, type Theme, expect, test } from "./helpers/test.ts";
+import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
 
 /** 화면 안에서 tRPC를 부른다(같은 출처, 화면과 같은 쿠키). 결과 data 또는 오류 코드 */
 async function trpc(
@@ -86,11 +86,10 @@ async function panelReady(page: Page): Promise<void> {
   await expect(page.locator(".tp-screen")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
 }
 
-/** 줄을 찾아 [바꾸기] → 값 → [담기] */
+/** 줄을 찾아 새 값 칸에 값 → [담기] */
 async function stageValue(page: Page, id: string, value: string): Promise<void> {
   await page.locator(".tp-search input").fill(id);
   const target = row(page, id);
-  await target.locator(".tp-edit").click();
   await target.locator(".tp-input").fill(value);
   await target.locator(".tp-stage").click();
   await expect(target).toHaveAttribute("data-staged", "");
@@ -214,8 +213,9 @@ test.describe("플레이어", () => {
   });
 });
 
-const LAYOUTS: readonly { theme: Theme; language: Language; width: number; height: number }[] = (
-  ["pastel", "dark", "station"] as const
+// 개발 화면 층(ADR 2026-11-02-dev-ui): 게임 테마와 상관없이 개발 화면 테마 둘(네온 다크·라이트)로 찍는다
+const LAYOUTS: readonly { theme: DevTheme; language: Language; width: number; height: number }[] = (
+  ["neon", "light"] as const
 ).flatMap((theme) =>
   (["ko", "en"] as const).flatMap((language) => [
     { theme, language, width: 390, height: 844 },
@@ -228,7 +228,7 @@ test.describe("배치·사진", () => {
 
   for (const { theme, language, width, height } of LAYOUTS) {
     test.describe(`${theme}·${language}·${width}px`, () => {
-      test.use({ theme, language, viewport: { width, height } });
+      test.use({ devTheme: theme, language, viewport: { width, height } });
 
       test("덮어쓴 칸·담은 칸·값 칸: 가로 넘침·작은 누르는 곳 없음, 사진", async ({ page, deviceErrors }) => {
         await panelReady(page);
@@ -243,19 +243,16 @@ test.describe("배치·사진", () => {
         await page.reload();
         await expect(page.locator(".tp-screen")).toHaveAttribute("data-status", "ready");
         await page.locator(".tp-search input").fill("N39");
-        await row(page, "n39_grant_step").locator(".tp-edit").click();
         await row(page, "n39_grant_step").locator(".tp-input").fill("60");
         await row(page, "n39_grant_step").locator(".tp-stage").click();
-        await row(page, "n39_grant_min").locator(".tp-edit").click();
+        await expect(row(page, "n39_grant_step")).toHaveAttribute("data-staged", "");
+        // 값을 고치는 중인 줄(담기 전): 새 값 칸에 초점
+        await row(page, "n39_grant_min").locator(".tp-input").fill("12");
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
         expect(await horizontalOverflow(page)).toEqual([]);
         expect(await smallTapTargets(page)).toEqual([]);
-        // 전체 길이 사진: 고정된 위 띠·하단 탭·건너뛰기 링크가 사진 가운데에 끼지 않게 숨긴다(economy.spec.ts fullShot과 같은 결)
-        const style = await page.addStyleTag({
-          content: ".tabbar, .topbar, .frame-side, .skip-link { visibility: hidden !important; }",
-        });
-        await shot(page, `tuning-${theme}-${language}-${width}`, { fullPage: true });
-        await style.evaluate((element) => element.parentNode?.removeChild(element));
+        // 화면 크기 사진(한 화면에 보이는 줄 수를 본다)
+        await shot(page, `tuning-${theme}-${language}-${width}`);
         await resetTuning(page);
         expect(deviceErrors).toEqual([]);
       });

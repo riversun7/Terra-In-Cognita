@@ -4,11 +4,13 @@
 // 아이콘만 있는 단추라 이름은 aria-label로 준다(배지는 숫자만 두지 않는다: "알림 3개").
 // ☰의 읽는 이름: 좁은 폭은 "메뉴 열기"(서랍 대화 상자를 연다), 중간 폭은 "메뉴" + aria-expanded·aria-controls(레일).
 // 중간 폭에서 이름까지 펼치기·접기로 바꾸면 같은 상태를 두 번 읽는다("메뉴 접기, 펼쳐짐").
+// 개발·관리자 화면(devTheme이 있음)에서는 종 앞에 개발 화면 테마 단추(네온 다크 ↔ 라이트, devSurface.ts)를 둔다.
 import { useInboxBellCount } from "../inbox/store.ts";
 import { m } from "../paraglide/messages.js";
 import { Icon } from "../ui/icons.tsx";
 import { AppLink } from "./AppLink.tsx";
 import { CountBadge } from "./CountBadge.tsx";
+import { type DevTheme, setDevTheme } from "./devSurface.ts";
 import { SIDE_NAV_ID } from "./SideMenu.tsx";
 
 interface TopBarProps {
@@ -18,9 +20,11 @@ interface TopBarProps {
   railExpanded: boolean | null;
   /** 지금 화면 주소 ID(위 띠 단추의 aria-current) */
   current: string | null;
+  /** 개발 화면 층의 테마(개발·관리자 화면일 때만). null이면 테마 단추를 그리지 않는다 */
+  devTheme?: DevTheme | null;
 }
 
-export function TopBar({ onMenu, railExpanded, current }: TopBarProps) {
+export function TopBar({ onMenu, railExpanded, current, devTheme = null }: TopBarProps) {
   // 종 배지 수(완료를 뺀 처리할 일 줄 수, 묶음은 1줄 — ADR 37 7절). 0이면 배지를 그리지 않는다
   const alerts = useInboxBellCount();
   const rail = railExpanded !== null;
@@ -48,6 +52,17 @@ export function TopBar({ onMenu, railExpanded, current }: TopBarProps) {
         </span>
       </AppLink>
       <span className="topbar-spacer" />
+      {devTheme === null ? null : (
+        <button
+          type="button"
+          className="button-small topbar-dev-theme"
+          aria-pressed={devTheme === "light"}
+          title={m.dev_surface_theme_hint()}
+          onClick={() => setDevTheme(devTheme === "light" ? "neon" : "light")}
+        >
+          {m.dev_surface_theme_light()}
+        </button>
+      )}
       <AppLink
         to={{ route: "inbox" }}
         className="topbar-button"

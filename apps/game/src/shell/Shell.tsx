@@ -21,6 +21,7 @@ import { RouteView, documentTitle } from "./routeViews.tsx";
 import type { RouterSnapshot } from "./router.ts";
 import { routeKind } from "./router.ts";
 import { closeOverlay, navigate, openOverlay, useRoute } from "./routerStore.ts";
+import { applyDevSurface, isDevSurfaceRoute, useDevTheme } from "./devSurface.ts";
 import { setRailExpanded, useNavigation, useRailExpanded } from "./shellPrefs.ts";
 import { SIDE_NAV_ID, SideMenu } from "./SideMenu.tsx";
 import { TabBar } from "./TabBar.tsx";
@@ -215,6 +216,13 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
   const narrow = layout.stage === "narrow";
   const tabsShown = !hidden && narrow;
   const onSettled = useRouteEffects(route, allowed);
+  // 개발·관리자 화면은 개발 화면 층(devSurface.ts): 그리기 전에 <html> 표시를 붙여 게임 테마로 잠깐 그려지지 않게 한다
+  const devTheme = useDevTheme();
+  const devSurface = !holding && match !== null && allowed && isDevSurfaceRoute(match.id);
+  useLayoutEffect(() => {
+    applyDevSurface(devSurface, devTheme);
+    return () => applyDevSurface(false, devTheme);
+  }, [devSurface, devTheme]);
 
   // 폭이 넓어져(가로로 돌림 등) 서랍이 필요 없어지면 서랍 칸을 뺀다
   useEffect(() => {
@@ -286,6 +294,7 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
             onMenu={onMenu}
             railExpanded={layout.stage === "medium" ? railExpanded : null}
             current={current}
+            devTheme={devSurface ? devTheme : null}
           />
           <ConnectionNotice floating={false} showLost />
         </header>

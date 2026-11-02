@@ -1,6 +1,6 @@
 /*
  * 관리자 화면 — 지연 로딩 조각과 함께 따로 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
- * 빽빽한 화면이라 촘촘 변형(section의 data-density="compact": 턱 0, 모서리 작게, 조작부 44px)을 쓴다.
+ * 개발 화면 층(ADR 2026-11-02-dev-ui)이다: 사용자 한 명 = 표 한 줄(넓은 폭: 아이디 · 가입 · 역할 · 저장 · 알림). 좁은 폭은 줄 안에서 접힌다.
  */
 .admin-subtitle {
   font-size: var(--font-size-lg);
@@ -29,19 +29,28 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
 }
 .user-card {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border: var(--border-w) solid var(--color-border);
-  border-radius: var(--radius-panel);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-control);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-6);
+  min-height: var(--dev-row-h);
+  padding: var(--space-1) var(--space-4);
+  border-block-end: var(--hairline) solid var(--color-border);
+}
+.user-card:last-child {
+  border-block-end: 0;
+}
+.user-card:nth-child(even) {
+  background-color: var(--dev-row-alt);
 }
 .user-id {
+  flex: 0 0 14em;
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -53,6 +62,8 @@
   font-weight: var(--font-weight-strong);
 }
 .user-meta {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
@@ -63,7 +74,7 @@
   align-items: center;
   padding: 0 var(--space-2);
   border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   background-color: var(--color-surface-2);
   color: var(--color-text);
   font-size: var(--font-size-xs);
@@ -84,7 +95,7 @@
   padding: 0;
   border: 0;
 }
-/* 누르는 영역은 글자까지 포함해 44px */
+/* 누르는 영역은 글자까지 포함해 --tap-size */
 .role-option {
   display: inline-flex;
   align-items: center;
@@ -110,4 +121,16 @@
 .user-message {
   flex: 1 1 auto;
   min-width: 0;
+}
+.user-actions .button-primary {
+  min-height: var(--control-h-sm);
+  padding-inline: var(--space-4);
+  font-size: var(--font-size-sm);
+}
+.user-actions {
+  flex: 1 1 12em;
+}
+/* 쪽 넘기기: 작은 버튼 둘(가득 채우지 않는다) */
+.admin .form-actions > button {
+  flex: 0 0 auto;
 }

@@ -1,6 +1,7 @@
-// 설정 칸 한 줄 — 코드·이름·구조 값·범위 칩, ID·단위·범위, 지금 값·팩 값·차이·범위 막대, 덮어쓰기 정보, [바꾸기]·[되돌리기].
-// [바꾸기]는 줄 안에서 값 칸을 펼치고 [담기]로 담은 변경에 넣는다(적용은 화면 아래 막대의 [적용], 한 묶음).
-// 시험·측정용 data-*: data-id, data-changed(덮어쓰기 있음), data-staged(담음), data-scope.
+// 설정 칸 한 줄(표의 tr, ADR 2026-11-02-dev-ui) — 코드 · 이름(+ID, 덮어쓰기 정보) · 표지(구조 값·범위) · 지금 값(차이, 담은 값) ·
+// 팩 값 · 범위(글 + 작은 막대) · 새 값 칸 + [담기] · [되돌리기]/[담기 취소].
+// 새 값 칸은 늘 보인다(처음 값 = 담은 값 또는 지금 값). 값을 바꾸고 [담기](또는 Enter)로 담은 변경에 넣는다(적용은 화면 아래 막대의
+// [적용], 한 묶음). 시험·측정용 data-*: data-id, data-changed(덮어쓰기 있음), data-staged(담음), data-scope.
 import type { TuningEntryView } from "@terra/shared/tuning";
 import { type FormEvent, useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
@@ -19,14 +20,13 @@ import {
 export interface TuningRowProps {
   entry: TuningEntryView;
   pending: Pending;
-  editing: boolean;
   locale: string;
-  onEdit: (id: string | null) => void;
   /** 담기: 새 값(null = 팩 값으로 되돌리기) */
   onStage: (id: string, value: number | null) => void;
   onUnstage: (id: string) => void;
 }
 
+/** 범위 글(입력 안내용, "범위 0 ~ 10") */
 function rangeText(entry: TuningEntryView, locale: string): string {
   const n = (value: number) => formatNumber(value, locale);
   if (entry.min !== null && entry.max !== null)
@@ -34,6 +34,14 @@ function rangeText(entry: TuningEntryView, locale: string): string {
   if (entry.min !== null) return m.dev_tuning_range_min({ min: n(entry.min) });
   if (entry.max !== null) return m.dev_tuning_range_max({ max: n(entry.max) });
   return m.dev_tuning_no_range();
+}
+
+/** 범위 칸의 짧은 글("0 ~ 10", 한쪽만이면 "0 이상") */
+function rangeShort(entry: TuningEntryView, locale: string): string {
+  const n = (value: number) => formatNumber(value, locale);
+  if (entry.min !== null && entry.max !== null)
+    return m.dev_tuning_range_short({ min: n(entry.min), max: n(entry.max) });
+  return rangeText(entry, locale);
 }
 
 /** 값 + 풀이(예: 600,000 · 10분) */
@@ -52,58 +60,53 @@ interface EditorProps {
   start: number;
   locale: string;
   onStage: (value: number) => void;
-  onCancel: () => void;
 }
 
-function RowEditor({ entry, start, locale, onStage, onCancel }: EditorProps) {
-  const inputId = useId();
+/** 새 값 칸 + [담기]. 처음 값과 같으면 [담기]는 누를 수 없다(aria-disabled: 초점은 남는다) */
+function RowEditor({ entry, start, locale, onStage }: EditorProps) {
   const hintId = useId();
   const errorId = useId();
   const [text, setText] = useState(String(start));
   const [problem, setProblem] = useState<string | null>(null);
   const value = parseValueInput(text);
   const preview = value === null ? null : formatGloss(value, entry.unit, locale);
+  const same = value === start;
   const submit = (event: FormEvent): void => {
     event.preventDefault();
     if (value === null) return setProblem(m.dev_tuning_value_invalid());
+    if (same) return undefined;
     if (!inRange(entry, value)) return setProblem(m.dev_tuning_value_out_of_range());
     onStage(value);
   };
+  const name = locale === "en" ? entry.name.en : entry.name.ko;
   return (
     <form className="tp-editor" onSubmit={submit} noValidate>
-      <label className="field-label" htmlFor={inputId}>
-        {m.dev_tuning_value_label()}
-      </label>
-      <div className="tp-editor-line">
-        <input
-          id={inputId}
-          className="input tp-input"
-          inputMode="numeric"
-          autoComplete="off"
-          // 바꾸기를 누른 사람이 바로 값을 넣게(줄 안에서 펼친 칸)
-          // oxlint-disable-next-line jsx-a11y/no-autofocus -- 누른 [바꾸기] 바로 아래에 펼친 칸이라 초점을 옮긴다
-          autoFocus
-          value={text}
-          aria-invalid={problem !== null}
-          aria-describedby={problem ? `${hintId} ${errorId}` : hintId}
-          onChange={(event) => {
-            setText(event.target.value);
-            setProblem(null);
-          }}
-        />
-        <button type="submit" className="button-primary button-small tp-stage">
-          {m.dev_tuning_stage()}
-        </button>
-        <button type="button" className="button-small" onClick={onCancel}>
-          {m.dev_tuning_cancel()}
-        </button>
-      </div>
-      <p id={hintId} className="field-hint">
+      <input
+        className="input tp-input"
+        inputMode="numeric"
+        autoComplete="off"
+        aria-label={m.dev_tuning_value_for({ name })}
+        value={text}
+        aria-invalid={problem !== null}
+        aria-describedby={problem ? `${hintId} ${errorId}` : hintId}
+        onChange={(event) => {
+          setText(event.target.value);
+          setProblem(null);
+        }}
+      />
+      <button
+        type="submit"
+        className={same ? "button-small tp-stage" : "button-primary button-small tp-stage"}
+        aria-disabled={same}
+      >
+        {m.dev_tuning_stage()}
+      </button>
+      <span id={hintId} className="visually-hidden">
         {m.dev_tuning_value_hint({ unit: unitText(entry.unit) })} · {rangeText(entry, locale)}
         {preview ? ` · ${preview}` : ""}
-      </p>
+      </span>
       {problem ? (
-        <p id={errorId} className="field-error" role="alert">
+        <p id={errorId} className="field-error tp-error" role="alert">
           {problem}
         </p>
       ) : null}
@@ -111,7 +114,7 @@ function RowEditor({ entry, start, locale, onStage, onCancel }: EditorProps) {
   );
 }
 
-export function TuningRow({ entry, pending, editing, locale, onEdit, onStage, onUnstage }: TuningRowProps) {
+export function TuningRow({ entry, pending, locale, onStage, onUnstage }: TuningRowProps) {
   const staged = pending.has(entry.id);
   const target = stagedValue(entry, pending);
   const delta = deltaOf(entry.value, entry.packValue);
@@ -123,36 +126,40 @@ export function TuningRow({ entry, pending, editing, locale, onEdit, onStage, on
     new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(ms);
   const sign = delta.diff > 0 ? "up" : delta.diff < 0 ? "down" : "same";
   return (
-    <li
+    <tr
       className="tp-row"
       data-id={entry.id}
       data-changed={changed ? "" : undefined}
       data-staged={staged ? "" : undefined}
       data-scope={entry.scope}
     >
-      <div className="tp-row-head">
+      <td className="tp-c-code">
         <span className="tp-code">{entry.code === "" ? "—" : entry.code}</span>
+      </td>
+      <td className="tp-c-name">
         <span className="tp-name">{locale === "en" ? entry.name.en : entry.name.ko}</span>
+        <code className="tp-id">{entry.id}</code>
+        {override ? (
+          <span className="tp-override">
+            {m.dev_tuning_changed_by({
+              who: override.updatedBy ?? m.dev_tuning_someone(),
+              when: when(override.updatedAt),
+            })}
+            {override.note ? <span className="tp-note"> · {override.note}</span> : null}
+          </span>
+        ) : null}
+      </td>
+      <td className="tp-c-flags">
         {entry.structural ? (
           <span className="tp-chip tp-chip-structural">{m.dev_tuning_structural()}</span>
         ) : null}
         <span className="tp-chip tp-scope" data-scope={entry.scope} title={scope.hint()}>
           {scope.label()}
         </span>
-      </div>
-      <p className="tp-row-meta">
-        <code className="tp-id">{entry.id}</code>
-        <span>{unitText(entry.unit)}</span>
-        <span>{rangeText(entry, locale)}</span>
-      </p>
-      <div className="tp-values">
+      </td>
+      <td className="tp-c-now">
         <span className="tp-value tp-value-now">
-          <span className="tp-label">{m.dev_tuning_now()}</span>
           <ValueText value={entry.value} entry={entry} locale={locale} />
-        </span>
-        <span className="tp-value tp-value-pack">
-          <span className="tp-label">{m.dev_tuning_pack_value()}</span>
-          <ValueText value={entry.packValue} entry={entry} locale={locale} />
         </span>
         {changed ? (
           <span className="tp-delta" data-sign={sign}>
@@ -162,33 +169,49 @@ export function TuningRow({ entry, pending, editing, locale, onEdit, onStage, on
           </span>
         ) : null}
         {staged ? (
-          <span className="tp-value tp-value-staged">
+          <span className="tp-value tp-value-staged" title={m.dev_tuning_staged_value()}>
             <span className="tp-label">{m.dev_tuning_staged_value()}</span>
             <ValueText value={target} entry={entry} locale={locale} />
           </span>
         ) : null}
-      </div>
-      {positions ? (
-        <div className="tp-range" aria-hidden="true">
-          <span className="tp-range-mark tp-range-pack" style={{ insetInlineStart: `${positions.pack}%` }} />
-          <span className="tp-range-mark tp-range-now" style={{ insetInlineStart: `${positions.now}%` }} />
-        </div>
-      ) : null}
-      {override ? (
-        <p className="tp-override">
-          {m.dev_tuning_changed_by({
-            who: override.updatedBy ?? m.dev_tuning_someone(),
-            when: when(override.updatedAt),
-          })}
-          {override.note ? <span className="tp-note"> · {override.note}</span> : null}
-        </p>
-      ) : null}
-      <div className="tp-actions">
-        {editing ? null : (
-          <button type="button" className="button-small tp-edit" onClick={() => onEdit(entry.id)}>
-            {m.dev_tuning_edit()}
-          </button>
-        )}
+      </td>
+      <td className="tp-c-pack">
+        <span className="tp-value tp-value-pack">
+          <ValueText value={entry.packValue} entry={entry} locale={locale} />
+        </span>
+      </td>
+      <td className="tp-c-range">
+        {/* 막대를 앞에 두어 줄마다 같은 자리에 선다(범위가 없으면 빈 자리) */}
+        <span className="tp-range" aria-hidden="true">
+          {positions ? (
+            <>
+              <span
+                className="tp-range-mark tp-range-pack"
+                style={{ insetInlineStart: `${positions.pack}%` }}
+              />
+              <span
+                className="tp-range-mark tp-range-now"
+                style={{ insetInlineStart: `${positions.now}%` }}
+              />
+            </>
+          ) : null}
+        </span>
+        <span className="tp-range-text">
+          {rangeShort(entry, locale)}
+          <span className="tp-unit"> {unitText(entry.unit)}</span>
+        </span>
+      </td>
+      <td className="tp-c-edit">
+        {/* 담거나 적용해 처음 값이 바뀌면 칸을 새로 만든다(친 글자를 지운다) */}
+        <RowEditor
+          key={target}
+          entry={entry}
+          start={target}
+          locale={locale}
+          onStage={(value) => onStage(entry.id, value)}
+        />
+      </td>
+      <td className="tp-c-actions">
         {staged ? (
           <button type="button" className="button-small tp-unstage" onClick={() => onUnstage(entry.id)}>
             {m.dev_tuning_unstage()}
@@ -198,19 +221,7 @@ export function TuningRow({ entry, pending, editing, locale, onEdit, onStage, on
             {m.dev_tuning_stage_revert()}
           </button>
         ) : null}
-      </div>
-      {editing ? (
-        <RowEditor
-          entry={entry}
-          start={target}
-          locale={locale}
-          onStage={(value) => {
-            onStage(entry.id, value);
-            onEdit(null);
-          }}
-          onCancel={() => onEdit(null)}
-        />
-      ) : null}
-    </li>
+      </td>
+    </tr>
   );
 }

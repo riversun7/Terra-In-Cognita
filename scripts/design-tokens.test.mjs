@@ -2,7 +2,9 @@
 import { describe, expect, it } from "vitest";
 import {
   CONTRAST_PAIRS,
+  DEV_CONTRAST_PAIRS,
   checkContrast,
+  devThemeGaps,
   contrastRatio,
   findRawValues,
   gradientStops,
@@ -61,6 +63,15 @@ const block = (selector, tokens) =>
     .map(([name, value]) => `  ${name}: ${value};`)
     .join("\n")}\n}\n`;
 
+/** 개발 화면 층에만 있는 바탕·글자 값(표 머리·줄무늬·올림·고른 줄, 코드 글자) */
+const DEV_GOOD = {
+  "--dev-head-bg": "#f0f0f0",
+  "--dev-row-alt": "#f8f8f8",
+  "--dev-row-hover": "#eeeeee",
+  "--dev-row-selected": "#e8eef8",
+  "--dev-code": "#0b3f7a",
+};
+
 function tokensCss(overrides = {}) {
   return [
     block(":root", { "--space-1": "4px" }),
@@ -68,6 +79,15 @@ function tokensCss(overrides = {}) {
     block(':root[data-theme="dark"]', { ...GOOD, ...overrides.dark }),
     block(':root[data-theme="contrast"]', { ...GOOD, ...overrides.contrast }),
     block(':root[data-theme="station"]', { ...GOOD, ...overrides.station }),
+    block(':root[data-surface="dev"],\n:root[data-surface="dev"] [data-density="compact"]', {
+      "--space-1": "2px",
+    }),
+    block(':root[data-surface="dev"]', { ...GOOD, ...DEV_GOOD, ...overrides.devNeon }),
+    block(':root[data-surface="dev"][data-dev-theme="light"]', {
+      ...GOOD,
+      ...DEV_GOOD,
+      ...overrides.devLight,
+    }),
     "@media (prefers-reduced-motion: reduce) {\n  :root {\n    --color-text: #eeeeee;\n  }\n}\n",
   ].join("\n");
 }
@@ -105,11 +125,22 @@ describe("대비 계산(WCAG 2.x)", () => {
 describe("테마 값 모으기", () => {
   it(":root 기본값 위에 테마 값을 덮는다. @media 안 값은 넣지 않는다", () => {
     const themes = themeTokens(tokensCss({ dark: { "--color-text": "#fafafa", "--color-bg": "#101010" } }));
-    expect(Object.keys(themes)).toEqual(["pastel", "dark", "contrast", "station"]);
+    expect(Object.keys(themes)).toEqual(["pastel", "dark", "contrast", "station", "dev-neon", "dev-light"]);
     expect(themes.pastel["--color-text"]).toBe("#111111");
     expect(themes.dark["--color-text"]).toBe("#fafafa");
     // 테마가 적지 않은 값은 :root(파스텔) 값을 물려받는다
     expect(themes.dark["--space-1"]).toBe("4px");
+  });
+
+  it("개발 화면 층: :root → 네온 블록 → (라이트) 라이트 블록 차례로 덮는다", () => {
+    const themes = themeTokens(
+      tokensCss({ devNeon: { "--color-bg": "#fcfcfc" }, devLight: { "--color-text": "#202020" } }),
+    );
+    expect(themes["dev-neon"]["--space-1"]).toBe("2px");
+    expect(themes["dev-neon"]["--color-bg"]).toBe("#fcfcfc");
+    expect(themes["dev-light"]["--color-bg"]).toBe("#ffffff");
+    expect(themes["dev-light"]["--color-text"]).toBe("#202020");
+    expect(themes["dev-neon"]["--dev-code"]).toBe("#0b3f7a");
   });
 });
 
@@ -117,8 +148,16 @@ describe("checkContrast", () => {
   it("모두 통과하면 문제 없음", () => {
     const { rows, problems } = checkContrast(themeTokens(tokensCss()));
     expect(problems).toEqual([]);
-    // 그라데이션이 없으면 테마마다 정한 쌍만 잰다
-    expect(rows).toHaveLength(4 * CONTRAST_PAIRS.length);
+    // 그라데이션이 없으면 테마마다 정한 쌍만 잰다. 개발 화면 테마 둘은 개발 전용 쌍을 더 잰다
+    expect(rows).toHaveLength(
+      4 * CONTRAST_PAIRS.length + 2 * (CONTRAST_PAIRS.length + DEV_CONTRAST_PAIRS.length),
+    );
+  });
+
+  it("개발 화면 층: 줄무늬 위 흐린 글자·코드 글자가 4.5 미만이면 실패", () => {
+    const { problems } = checkContrast(themeTokens(tokensCss({ devLight: { "--dev-code": "#9a9a9a" } })));
+    expect(problems.length).toBeGreaterThan(0);
+    expect(problems.every((line) => line.startsWith("dev-light: --dev-code(#9a9a9a)"))).toBe(true);
   });
 
   it("흐린 글자 4.5 미만, 선명 본문 7 미만, 입력칸 테두리 3 미만이면 실패", () => {
@@ -173,6 +212,20 @@ describe("checkContrast", () => {
       expect.stringContaining("dark: --color-focus / --color-surface — #rrggbb 색이 아닙니다"),
       expect.stringContaining("dark: --color-focus / --color-field-bg — #rrggbb 색이 아닙니다"),
     ]);
+  });
+});
+
+describe("개발 화면 층의 색 빠짐", () => {
+  it("게임 테마(정거장)의 색 토큰을 네온·라이트 블록이 모두 다시 정하면 문제 없음", () => {
+    expect(devThemeGaps(tokensCss())).toEqual([]);
+  });
+
+  it("라이트 블록에 색이 빠지면(네온 값이 새어 듦) 그 토큰을 알린다", () => {
+    const css = tokensCss().replace(
+      /(:root\[data-surface="dev"\]\[data-dev-theme="light"\] \{[^}]*?)\n  --color-focus: [^;]+;/,
+      "$1",
+    );
+    expect(devThemeGaps(css)).toEqual([expect.stringContaining("dev-light: --color-focus")]);
   });
 });
 

@@ -7,6 +7,8 @@
  * 함께 바꿀 곳: --color-bg를 바꾸면 주소창 색(src/settings/theme.ts THEME_COLORS, public/theme-init.js,
  * index.html theme-color, vite.config.ts THEME_COLOR)도 바꾼다(src/settings/themeSources.test.ts가 확인).
  * 대비는 pnpm check(scripts/check-contrast.mjs)가 테마마다 잰다.
+ * 개발·관리자 화면은 맨 아래 "개발 화면 층"(:root[data-surface="dev"], ADR 2026-11-02-dev-ui)이 크기·색을 모두 다시 정한다:
+ * 테마는 네온 다크(기본)·라이트 둘이고 게임 테마와 상관없다(shell/devSurface.ts가 <html>에 표시를 붙인다).
  * 주의: 다른 토큰을 var()로 묶은 토큰은 만들지 않는다. 묶은 값은 :root에서 한 번 계산돼 테마·촘촘 변형의 바뀐 값을 따르지 않는다.
  */
 
@@ -440,6 +442,217 @@
   --radius-control: 10px;
   --radius-panel: 16px;
   --control-h: 44px;
+}
+
+/*
+ * 개발 화면 층 — 개발자·관리자 화면(ADR 2026-11-02-dev-ui, 사용자 결정 2026-11-01 "개발자 페이지 UI는 게임과 별도로 개발자 친화적으로").
+ * 데스크톱 먼저 촘촘하게: 본문 13px·보조 12px, 줄 높이 28px 안팎, 얇은 테두리, 작은 조작부(누르는 곳 최소 24px = WCAG 2.5.8).
+ * 크기 값은 화면 안의 촘촘 변형([data-density="compact"])도 덮는다(그 요소가 조작부 44px를 다시 정하지 않게).
+ * 색은 테마 둘: 네온 다크(기본, 정거장 계열을 촘촘한 화면에 맞게 덜 번지게) · 라이트. 게임 테마 블록의 색 토큰을 모두 다시 정한다
+ * (빠진 색이 있으면 게임 테마 값이 새어 든다 → pnpm check:contrast가 막는다).
+ * --dev-* 는 이 층에만 있는 값: 표 머리·줄무늬·올림·고른 줄 바탕(불투명, 대비 검사함), 코드·ID 글자색, 고정 머리 위치, 범위 막대 폭.
+ */
+:root[data-surface="dev"],
+:root[data-surface="dev"] [data-density="compact"] {
+  --font-display:
+    "Pretendard", -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --font-size-xs: 0.6875rem; /* 11px */
+  --font-size-sm: 0.75rem; /* 12px */
+  --font-size-md: 0.8125rem; /* 13px */
+  --font-size-input: 0.8125rem; /* 13px — 터치 기기는 아래 @media에서 16px(iOS 확대 막기) */
+  --font-size-lg: 0.875rem; /* 14px */
+  --font-size-xl: 1rem; /* 16px */
+  --font-size-2xl: 1.125rem; /* 18px */
+  --font-size-3xl: 1.25rem; /* 20px */
+  --font-weight-display: 600;
+  --line-height-tight: 1.2;
+  --line-height-snug: 1.3;
+  --line-height-body: 1.45;
+  --letter-spacing-body: 0;
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 10px;
+  --space-6: 12px;
+  --space-8: 16px;
+  --space-10: 20px;
+  --space-12: 24px;
+  --radius-sm: 2px;
+  --radius-control: 3px;
+  --radius-panel: 4px;
+  --control-h: 26px;
+  --control-h-sm: 24px;
+  --button-basis: 6em;
+  --tap-size: 24px;
+  --border-w: 1px;
+  --field-border-w: 1px;
+  --focus-w: 2px;
+  --focus-offset: 1px;
+  --lip: 0px;
+  --icon-sm: 14px;
+  --icon-md: 16px;
+  --mark-sm: 24px;
+  --status-dot: 8px;
+  --select-arrow: 4px;
+  --switch-w: 30px;
+  --switch-h: 18px;
+  --switch-thumb: 12px;
+  --content-max: 1080px;
+  --topbar-h: 40px;
+  --rail-w: 64px;
+  --sidebar-w: 216px;
+  --content-max-wide: 1680px;
+  --badge-size: 1rem;
+  --sheet-max: 520px;
+  --stat-bar: 4px;
+  --stat-bar-lg: 6px;
+  --dev-row-h: 28px;
+  /* 표 머리를 위 띠(--topbar-h + 테두리) 바로 아래에 붙인다. 틀을 숨긴 화면은 0 */
+  --dev-sticky-top: 41px;
+  --dev-range-w: 64px;
+}
+
+/* 네온 다크(개발 화면 기본) — 거의 검은 바탕, 네온 시안 주색, 자홍 초점. 촘촘한 표에서 읽히게 빛 번짐·격자 바탕은 뺐다 */
+:root[data-surface="dev"] {
+  color-scheme: dark;
+  --color-bg: #08080f;
+  --color-bg-image: none;
+  --color-surface: #0e0f1d;
+  --color-surface-2: #161829;
+  --color-text: #e3eaf5;
+  --color-text-muted: #9ba7c0;
+  --color-primary: #00e5f2;
+  --color-on-primary: #00262b;
+  --color-primary-lip: #008f99;
+  --color-highlight: #ffb800;
+  --color-secondary-lip: #000000;
+  --color-success: #3dffa0;
+  --color-success-surface: #072a1c;
+  --color-warning: #ffc233;
+  --color-warning-surface: #2b2306;
+  --color-danger: #ff5c8a;
+  --color-danger-surface: #2e0c19;
+  --color-market-blue: #59c7ff;
+  --color-focus: #ff5cf4;
+  --color-border: #282b4a;
+  --color-field-bg: #05050b;
+  --color-field-border: #7c76e0;
+  --color-overlay: rgb(0 0 0 / 72%);
+  --shadow-control: none;
+  --shadow-panel: none;
+  --shadow-heading: none;
+  --color-deco-1: #14143a;
+  --color-deco-2: #25104c;
+  --color-deco-3: #4a1f8c;
+  --color-deco-sun: #bc13fe;
+  --color-stat-str: #ff4f6e;
+  --color-stat-vit: #ff8f3f;
+  --color-stat-int: #40b9ff;
+  --color-stat-wis: #c770ff;
+  --color-stat-dex: #ffc933;
+  --color-stat-agi: #3dff9e;
+  --color-sec-hp: #20eedf;
+  --color-sec-armor-hp: #8fd6cd;
+  --color-sec-shield-hp: #5fe4f2;
+  --color-sec-mp: #7cc7d6;
+  --color-sec-stamina: #8ff2e6;
+  --color-sec-stamina-regen: #61e5cf;
+  --color-sec-mp-regen: #9fd5db;
+  --color-sec-shield-regen: #a4f0ec;
+  --color-sec-physical-attack: #ff63d2;
+  --color-sec-elemental-attack: #ff70e6;
+  --color-sec-hit: #ff8fe2;
+  --color-sec-crit-chance: #ff5fd2;
+  --color-sec-crit-multiplier: #e89ad6;
+  --color-sec-defense-rate: #a9b6cc;
+  --color-sec-elemental-defense-rate: #c0ccce;
+  --color-sec-evade: #c4b8aa;
+  --color-sec-action-speed: #c6ff3d;
+  --color-sec-sight: #9cf55a;
+  --color-sec-other: #a3adbf;
+  --dev-head-bg: #14162b;
+  --dev-row-alt: #121325;
+  --dev-row-hover: #1b1e38;
+  --dev-row-selected: #0c2b33;
+  --dev-code: #7fe9ff;
+}
+
+/* 라이트(개발 화면) — 밝은 회색 바탕, 흰 판, 파랑 주색, 자홍 초점 */
+:root[data-surface="dev"][data-dev-theme="light"] {
+  color-scheme: light;
+  --color-bg: #f3f5f8;
+  --color-bg-image: none;
+  --color-surface: #ffffff;
+  --color-surface-2: #eceff4;
+  --color-text: #18202e;
+  --color-text-muted: #4b5568;
+  --color-primary: #0b5cc2;
+  --color-on-primary: #ffffff;
+  --color-primary-lip: #08448f;
+  --color-highlight: #ffd66e;
+  --color-secondary-lip: #c9d1dc;
+  --color-success: #17703a;
+  --color-success-surface: #e5f4ea;
+  --color-warning: #7f4e00;
+  --color-warning-surface: #fff3d6;
+  --color-danger: #b3263d;
+  --color-danger-surface: #fdebee;
+  --color-market-blue: #1d56b8;
+  --color-focus: #b0108a;
+  --color-border: #d3d9e2;
+  --color-field-bg: #ffffff;
+  --color-field-border: #77818f;
+  --color-overlay: rgb(24 32 46 / 45%);
+  --shadow-control: none;
+  --shadow-panel: none;
+  --shadow-heading: none;
+  --color-deco-1: #bfe3b0;
+  --color-deco-2: #9fd68c;
+  --color-deco-3: #6fbf63;
+  --color-deco-sun: #ffd66e;
+  --color-stat-str: #c0233e;
+  --color-stat-vit: #b23f0a;
+  --color-stat-int: #1f5bc4;
+  --color-stat-wis: #7a3fc8;
+  --color-stat-dex: #8a5a00;
+  --color-stat-agi: #1a7236;
+  --color-sec-hp: #0a706b;
+  --color-sec-armor-hp: #476b68;
+  --color-sec-shield-hp: #006d85;
+  --color-sec-mp: #1e6478;
+  --color-sec-stamina: #18766a;
+  --color-sec-stamina-regen: #126e55;
+  --color-sec-mp-regen: #316577;
+  --color-sec-shield-regen: #2f6a6e;
+  --color-sec-physical-attack: #b0166c;
+  --color-sec-elemental-attack: #a01f8c;
+  --color-sec-hit: #8c3270;
+  --color-sec-crit-chance: #c01a78;
+  --color-sec-crit-multiplier: #86285f;
+  --color-sec-defense-rate: #535e6e;
+  --color-sec-elemental-defense-rate: #3f575a;
+  --color-sec-evade: #655f58;
+  --color-sec-action-speed: #566b00;
+  --color-sec-sight: #486e00;
+  --color-sec-other: #5c6470;
+  --dev-head-bg: #e7ebf1;
+  --dev-row-alt: #f6f8fb;
+  --dev-row-hover: #e8f0fc;
+  --dev-row-selected: #dbe8fb;
+  --dev-code: #0a5584;
+}
+
+/* 개발 화면 층: 터치 기기(휴대폰)는 입력칸 16px(iOS 확대 막기), 조작부·누르는 곳을 조금 크게 */
+@media (pointer: coarse) {
+  :root[data-surface="dev"],
+  :root[data-surface="dev"] [data-density="compact"] {
+    --font-size-input: max(16px, 1rem);
+    --control-h: 32px;
+    --control-h-sm: 30px;
+    --tap-size: 30px;
+    --dev-row-h: 32px;
+  }
 }
 
 /* 움직임 줄이기 — 기기 설정(prefers-reduced-motion)을 따른다 */

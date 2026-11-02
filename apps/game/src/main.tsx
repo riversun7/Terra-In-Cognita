@@ -14,6 +14,8 @@ import { startSettings } from "./settings/settings.ts";
 import { startRouter } from "./shell/routerStore.ts";
 import { startTelemetry } from "./telemetry/reporter.ts";
 import "./styles.css";
+// 개발 화면 층 부품(styles/dev.css): 기본 부품 규칙보다 뒤에 와야 같은 우선순위에서 이긴다(규칙은 :where로 우선순위를 낮췄다)
+import "./styles/dev.css";
 
 // 읽기 프로그램이 고른 언어로 읽게 문서 언어를 맞춘다(index.html 기본값은 ko)
 document.documentElement.lang = getLocale();

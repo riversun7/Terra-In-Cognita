@@ -58,7 +58,6 @@ export default function TuningPanelScreen() {
   const [text, setText] = useState("");
   const [filter, setFilter] = useState<TuningFilter>("all");
   const [family, setFamily] = useState(ALL_FAMILIES);
-  const [editing, setEditing] = useState<string | null>(null);
   const [pending, setPending] = useState<ReadonlyMap<string, number | null>>(new Map());
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -295,25 +294,50 @@ export default function TuningPanelScreen() {
             {m.dev_tuning_shown({ shown: shown.length, total: entries.length })}
           </p>
           {groups.length === 0 ? <p className="field-hint">{m.dev_tuning_empty_filter()}</p> : null}
-          {groups.map((group) => (
-            <section key={group.family || "none"} className="tp-group" data-family={group.family}>
-              <h2 className="tp-group-title">{familyText(group.family)}</h2>
-              <ul className="tp-list">
-                {group.entries.map((entry) => (
-                  <TuningRow
-                    key={entry.id}
-                    entry={entry}
-                    pending={pending}
-                    editing={editing === entry.id}
-                    locale={locale}
-                    onEdit={setEditing}
-                    onStage={stage}
-                    onUnstage={unstage}
-                  />
+          {groups.length > 0 ? (
+            // 넓은 폭: 표 머리가 위 띠 아래에 붙는다. 좁은 폭: 표만 이 상자 안에서 가로로 민다(화면은 밀리지 않는다)
+            <div className="tp-table-wrap">
+              <table className="dev-table tp-table">
+                <thead>
+                  <tr>
+                    <th scope="col">{m.dev_tuning_col_code()}</th>
+                    <th scope="col">{m.dev_tuning_col_name()}</th>
+                    <th scope="col">{m.dev_tuning_col_flags()}</th>
+                    <th scope="col" className="tp-th-num">
+                      {m.dev_tuning_now()}
+                    </th>
+                    <th scope="col" className="tp-th-num">
+                      {m.dev_tuning_pack_value()}
+                    </th>
+                    <th scope="col">{m.dev_tuning_col_range()}</th>
+                    <th scope="col">{m.dev_tuning_value_label()}</th>
+                    <th scope="col">
+                      <span className="visually-hidden">{m.dev_tuning_col_actions()}</span>
+                    </th>
+                  </tr>
+                </thead>
+                {groups.map((group) => (
+                  <tbody key={group.family || "none"} className="tp-group" data-family={group.family}>
+                    <tr className="tp-group-row">
+                      <th scope="colgroup" colSpan={8}>
+                        <h2 className="tp-group-title">{familyText(group.family)}</h2>
+                      </th>
+                    </tr>
+                    {group.entries.map((entry) => (
+                      <TuningRow
+                        key={entry.id}
+                        entry={entry}
+                        pending={pending}
+                        locale={locale}
+                        onStage={stage}
+                        onUnstage={unstage}
+                      />
+                    ))}
+                  </tbody>
                 ))}
-              </ul>
-            </section>
-          ))}
+              </table>
+            </div>
+          ) : null}
           <TuningHistory revision={list.revision} locale={locale} />
           <TuningCells entries={entries} />
           {pending.size > 0 ? (

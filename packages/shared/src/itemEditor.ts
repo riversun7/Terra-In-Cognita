@@ -130,10 +130,10 @@ export const ITEM_LIMITS = {
   effectValue: { min: -1_000_000, max: 1_000_000 },
   effectDurationMs: { min: 0, max: 3_600_000 },
   chancePm: { min: 0, max: 1000 },
-  /** 사용 효과 스탯 비례(‰/점, D-496 286) */
-  scalePmPerPoint: { min: 0, max: 10_000 },
-  /** 사용 효과 ±오차(‰) */
-  variancePm: { min: 0, max: 1000 },
+  /** 사용 효과 적정 스탯(D-496 286, D-501) */
+  useAppropriate: { min: 1, max: 10_000_000 },
+  /** 사용 효과 ±오차(‰, D-501: 25~50%) */
+  variancePm: { min: 250, max: 500 },
   /** 이름·설명 글 길이(화면 입력 상한) */
   nameMax: 200,
   /** 한 묶음의 바꿈 수 */
@@ -200,14 +200,14 @@ export interface ItemEquipJson {
   readonly creature?: { readonly weight: number; readonly stealPm: number } | undefined;
 }
 
-/** 사용 효과 한 줄(스킬 효과 줄과 같은 모양 + 효과량 스탯 비례·±오차, D-496 286) */
+/** 사용 효과 한 줄(스킬 효과 줄과 같은 모양 + 효과량 적정 스탯·±오차, D-496 286·D-501) */
 export interface ItemEffectJson {
   readonly effect: string;
   readonly value: number;
   readonly chancePm: number;
   readonly durationMs?: number | undefined;
-  /** 쓰는 유닛의 그 1차 스탯 1점마다 기준 값의 pmPerPoint‰를 더한다(없으면 기준 값 그대로) */
-  readonly scale?: { readonly stat: ItemPrimaryCode; readonly pmPerPoint: number } | undefined;
+  /** 효과량 = 기준 값 × min(상한 N10, 쓰는 유닛의 그 1차 스탯 ÷ 적정 스탯)(없으면 기준 값 그대로) */
+  readonly scale?: { readonly stat: ItemPrimaryCode; readonly appropriate: number } | undefined;
   /** ±오차‰(없으면 설정 칸 d496_use_variance) */
   readonly variancePm?: number | undefined;
 }

@@ -48,6 +48,7 @@ import {
   entryHash,
   idOf,
 } from "./core.ts";
+import { upgradeLegacyRows } from "./legacy.ts";
 import { type ContentPlan, type ContentPut, planContent } from "./plan.ts";
 
 export { type ContentBootSelection, type ContentOverrideRecord } from "./boot.ts";
@@ -228,12 +229,19 @@ export function createContentEditState(source: PackSource): ContentEditState {
     plan: (puts) =>
       planContent({ core, overrides: current.overrides, raw: current.raw, hashOf, isRetired }, puts),
 
-    selectAtBoot: (rows) => selectAtBoot(core, rows),
+    selectAtBoot: (rows) => {
+      // 옛 모양 줄은 지금 모양으로 고쳐 읽고 고른다(legacy.ts, 팩 core@26)
+      const legacy = upgradeLegacyRows(core, rows);
+      return { ...selectAtBoot(core, legacy.rows), upgraded: legacy.upgraded };
+    },
 
     install(records, revision, sleeping) {
       if (sleeping?.newer) newerAsleep = new Set(sleeping.newer);
       if (sleeping?.foreign) foreign = sleeping.foreign;
-      const list = [...records].filter((record) => isEditCategory(record.category)).toSorted(byKey);
+      const list = upgradeLegacyRows(
+        core,
+        [...records].filter((record) => isEditCategory(record.category)),
+      ).rows.toSorted(byKey);
       allRecords = list;
       const map = new Map<string, ContentOverrideRecord>();
       for (const record of list) {

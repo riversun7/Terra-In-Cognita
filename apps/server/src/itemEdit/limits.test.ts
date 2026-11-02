@@ -37,7 +37,11 @@ describe("아이템 편집기 범위 = 팩 스키마", () => {
     });
     expect(ITEM_LIMITS.effectsMax).toBe(ITEM_SCHEMA_LIMITS.effectsMax);
     expect(ITEM_LIMITS.order.max).toBe(ITEM_SCHEMA_LIMITS.order);
-    // 사용 효과 스탯 비례(D-496 286, WP-6)
-    expect(ITEM_LIMITS.scalePmPerPoint.max).toBe(ITEM_SCHEMA_LIMITS.scalePmPerPoint);
+    // 사용 효과 적정 스탯·±오차(D-496 286, D-501)
+    expect(ITEM_LIMITS.useAppropriate).toEqual({ min: 1, max: ITEM_SCHEMA_LIMITS.useAppropriateMax });
+    expect(ITEM_LIMITS.variancePm).toEqual({
+      min: ITEM_SCHEMA_LIMITS.useVarianceMinPm,
+      max: ITEM_SCHEMA_LIMITS.useVarianceMaxPm,
+    });
   });
 });

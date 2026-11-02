@@ -82,15 +82,22 @@ export interface WeaponEfficiency {
   readonly ratioPm: number;
 }
 
-/** 사용 효과 한 줄의 셈(기준 유닛 스탯 비례·±오차, D-496 286). 실행은 소비 줄기(보유 물건 뒤) */
+/**
+ * 사용 효과 한 줄의 셈(D-496 286, D-501 "적정 스탯"): 기준 값 × min(상한, 기준 유닛 스탯 ÷ 적정 스탯) × (1 ± 오차).
+ * 셈은 서버가 @terra/sim useAmountRange로 한다. 실행은 소비 줄기(보유 물건 뒤)
+ */
 export interface UseAmount {
   /** 비례 스탯(없으면 null = 기준 값 그대로) */
   readonly stat: ItemPrimaryCode | null;
-  /** 기준 유닛의 그 스탯 값 */
+  /** 기준 유닛의 그 스탯 값(비례 스탯이 없으면 0) */
   readonly statValue: number;
-  /** 스탯 1점마다 더하는 ‰(기준 값에 대해) */
-  readonly pmPerPoint: number;
-  /** 스탯을 얹은 값 = 기준 값 × (1000 + 스탯 × ‰) ÷ 1000(내림) */
+  /** 적정 스탯(비례 스탯이 없으면 null) */
+  readonly appropriate: number | null;
+  /** 기준 값에 곱하는 비율(‰) = min(상한, 스탯 ÷ 적정 스탯). 비례 스탯이 없으면 1000 */
+  readonly ratioPm: number;
+  /** 비율 상한(‰, 무기 효율과 같은 설정 칸 N10 실효 값) */
+  readonly capPm: number;
+  /** 오차 전 가운데 값 = 기준 값 × 비율 ÷ 1000(내림) */
   readonly scaled: number;
   /** ±오차‰(줄 값, 없으면 설정 칸 d496_use_variance) */
   readonly variancePm: number;

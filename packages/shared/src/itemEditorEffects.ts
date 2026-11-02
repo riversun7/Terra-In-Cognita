@@ -56,7 +56,7 @@ export interface EffectJson {
     | undefined;
   /** 유료 효과 상한 코드(D-7005) */
   readonly capCode?: string | undefined;
-  /** 배타 묶음(D-472: 같은 묶음은 한 출처만, 센 것이 이김 — 실행은 소비 줄기, 비교 규칙 질문 293) */
+  /** 배타 묶음(D-472: 같은 묶음은 하나만. D-501: 같은 효과는 높은 값, 다른 효과는 확인 창 뒤 새 것 — 실행은 소비 줄기) */
   readonly exclusive?: string | undefined;
   readonly enabled: boolean;
 }

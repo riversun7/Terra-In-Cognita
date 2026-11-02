@@ -7,7 +7,7 @@ import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
 import { bodyView } from "../roster/body.ts";
 import { rosterCatalogOf } from "../roster/catalog.ts";
-import { type FormulaOverrideRecord, createTuningState } from "../tuning/state.ts";
+import { type FormulaOverrideRecord, type TuningOverrideRecord, createTuningState } from "../tuning/state.ts";
 import { formulaEntriesOf, statRowsOf, tuningEntriesOf } from "../world/combatCatalog.ts";
 import { parseDraft, previewItem } from "./preview.ts";
 
@@ -227,6 +227,22 @@ describe("무기 미리 보기", () => {
   });
 });
 
+/** 회복 물약 초안(배급 식량 + 회복 줄 하나, VIT 비례) */
+const mendPotion = (value: number, appropriate: number, variancePm?: number) => ({
+  ...packItem("ration"),
+  use: {
+    effects: [
+      {
+        effect: "mend",
+        value,
+        chancePm: 1000,
+        scale: { stat: "vit", appropriate },
+        ...(variancePm === undefined ? {} : { variancePm }),
+      },
+    ],
+  },
+});
+
 describe("초안 읽기", () => {
   it("팩 스키마에 걸리면 미리 보기 없이 코드가 붙은 문제", () => {
     const parsed = parseDraft({ ...packItem("ration"), weight: -5 });
@@ -245,35 +261,93 @@ describe("초안 읽기", () => {
     expect(lines?.[0]).toMatchObject({ effect: "mend", kind: "heal", value: 40 });
   });
 
-  it("WP-6: 효과량 = 기준 값 × (1000 + 스탯 × ‰/점) ÷ 1000, ±오차(VIT 39 → HP 40 × 1.39 = 55 → ±25% 41~68)", () => {
+  it("D-501: 효과량 = 기준 × min(상한, 스탯 ÷ 적정 스탯) × (1 ± 오차), 기준 30·50·100을 적정 스탯에서 ±50% → 15~45·25~75·50~150", () => {
     const { ctx } = setup();
+    // 기준 유닛 VIT 10, 적정 10, 설정 칸 기본 ±500‰
+    const amountOf = (item: unknown, unit = DEFAULT_PREVIEW_UNIT, variance = 500) =>
+      previewItem(ctx(), item, unit, variance).use?.lines[0]?.amount;
+    expect(amountOf(mendPotion(30, 10))).toEqual({
+      stat: "vit",
+      statValue: 10,
+      appropriate: 10,
+      ratioPm: 1000,
+      capPm: 2000,
+      scaled: 30,
+      variancePm: 500,
+      min: 15,
+      max: 45,
+    });
+    expect(amountOf(mendPotion(50, 10))).toMatchObject({ scaled: 50, min: 25, max: 75 });
+    expect(amountOf(mendPotion(100, 10))).toMatchObject({ scaled: 100, min: 50, max: 150 });
+    // 적정 스탯이 높은 기준 50 물약은 VIT 10 유닛에게 250‰ → 12(6~18): 적정 10짜리 기준 30(15~45)이 더 낫다
+    expect(amountOf(mendPotion(50, 40))).toMatchObject({ ratioPm: 250, scaled: 12, min: 6, max: 18 });
+    // VIT 39 → 상한 2000‰(무기 효율과 같은 N10) → 30 × 2 = 60(30~90). 줄 오차 250‰ → 45~75
+    const strong = { ...DEFAULT_PREVIEW_UNIT, primaries: { ...DEFAULT_PREVIEW_UNIT.primaries, vit: 39 } };
+    expect(amountOf(mendPotion(30, 10), strong)).toMatchObject({
+      ratioPm: 2000,
+      scaled: 60,
+      min: 30,
+      max: 90,
+    });
+    expect(amountOf(mendPotion(30, 10, 250), strong)).toMatchObject({ variancePm: 250, min: 45, max: 75 });
+    // 비례 스탯이 없으면 기준 값 그대로(오차만)
+    const fixed = {
+      ...mendPotion(40, 10),
+      use: { effects: [{ effect: "mend", value: 40, chancePm: 1000 }] },
+    };
+    expect(amountOf(fixed, strong)).toMatchObject({
+      stat: null,
+      appropriate: null,
+      ratioPm: 1000,
+      scaled: 40,
+      min: 20,
+      max: 60,
+    });
+  });
+
+  it("D-501: 상한은 설정 칸 N10 실효 값을 읽는다(무기 효율과 같은 값)", () => {
+    const { ctx, tuning } = setup();
     const potion = {
       ...packItem("ration"),
       use: {
-        effects: [{ effect: "mend", value: 40, chancePm: 1000, scale: { stat: "vit", pmPerPoint: 10 } }],
+        effects: [{ effect: "mend", value: 30, chancePm: 1000, scale: { stat: "vit", appropriate: 5 } }],
       },
     };
-    const unit = { ...DEFAULT_PREVIEW_UNIT, primaries: { ...DEFAULT_PREVIEW_UNIT.primaries, vit: 39 } };
-    const amount = previewItem(ctx(), potion, unit, 250).use?.lines[0]?.amount;
-    expect(amount).toEqual({
-      stat: "vit",
-      statValue: 39,
-      pmPerPoint: 10,
-      scaled: 55,
-      variancePm: 250,
-      min: 41,
-      max: 68,
-    });
-    // 줄에 오차를 적으면 그 값(±10%), 비례 스탯이 없으면 기준 값 그대로
-    const fixed = {
-      ...potion,
-      use: { effects: [{ effect: "mend", value: 40, chancePm: 1000, variancePm: 100 }] },
+    const before = previewItem(ctx(), potion, DEFAULT_PREVIEW_UNIT, 500).use?.lines[0]?.amount;
+    expect(before).toMatchObject({ ratioPm: 2000, capPm: 2000, scaled: 60 });
+    const cap: TuningOverrideRecord = {
+      id: "n10_appropriate_cap",
+      value: 3000,
+      packValue: 2000,
+      unit: null,
+      contentVersion: "core@26",
+      note: null,
+      updatedById: null,
+      updatedByName: null,
+      updatedAtMs: 1,
     };
-    expect(previewItem(ctx(), fixed, unit, 250).use?.lines[0]?.amount).toMatchObject({
-      stat: null,
-      scaled: 40,
-      min: 36,
-      max: 44,
+    tuning.install([cap], 1);
+    const after = previewItem(ctx(), potion, DEFAULT_PREVIEW_UNIT, 500).use?.lines[0]?.amount;
+    expect(after).toMatchObject({ ratioPm: 2000, capPm: 3000, scaled: 60 });
+    const lower = { ...DEFAULT_PREVIEW_UNIT, primaries: { ...DEFAULT_PREVIEW_UNIT.primaries, vit: 40 } };
+    expect(previewItem(ctx(), potion, lower, 500).use?.lines[0]?.amount).toMatchObject({
+      ratioPm: 3000,
+      scaled: 90,
     });
+  });
+
+  it("D-501: 옛 모양(스탯 1점당 ‰)과 25~50% 밖 오차는 스키마가 막는다", () => {
+    const line = { effect: "mend", value: 40, chancePm: 1000 };
+    const codes = (extra: Record<string, unknown>) => {
+      const parsed = parseDraft({ ...packItem("ration"), use: { effects: [{ ...line, ...extra }] } });
+      return parsed.ok ? [] : parsed.issues.map((issue) => [issue.path, issue.code]);
+    };
+    expect(codes({ scale: { stat: "vit", pmPerPoint: 10 } }).length).toBeGreaterThan(0);
+    expect(codes({ scale: { stat: "vit", appropriate: 0 } })).toEqual([
+      ["use.effects[0].scale.appropriate", "too_small"],
+    ]);
+    expect(codes({ variancePm: 200 })).toEqual([["use.effects[0].variancePm", "too_small"]]);
+    expect(codes({ variancePm: 600 })).toEqual([["use.effects[0].variancePm", "too_big"]]);
+    expect(codes({ scale: { stat: "wis", appropriate: 25 }, variancePm: 250 })).toEqual([]);
   });
 });

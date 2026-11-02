@@ -62,7 +62,7 @@ import {
 export const ITEM_EDITOR_REJECTED = "ITEM_EDITOR_REJECTED";
 /** 장비 파괴 문턱 설정 칸(F12, 49_Settings.md) */
 const DESTROY_AT_ID = "f12_destroy_at";
-/** 소모품 효과량 기본 ±오차 설정 칸(D-496 286, 출발 250‰ [임시]) */
+/** 소모품 효과량 기본 ±오차 설정 칸(D-496 286, D-501: 기본 ±50% = 500‰, 줄마다 250~500‰) */
 const USE_VARIANCE_ID = "d496_use_variance";
 
 /** 서버가 켤 때 한 번 만든 것(두 편집기가 같은 덮어쓰기 층 ContentEditShared를 쓴다) */

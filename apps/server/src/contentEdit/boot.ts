@@ -36,6 +36,8 @@ export interface ContentBootSelection {
     readonly row: ContentOverrideRecord;
     readonly reason: "newer_pack" | "id_collision";
   }[];
+  /** 옛 모양이라 지금 모양으로 고쳐 읽은 줄 키(legacy.ts, DB 줄은 그대로) */
+  readonly upgraded?: readonly string[] | undefined;
 }
 
 export const byKey = (a: ContentOverrideRecord, b: ContentOverrideRecord): number => {

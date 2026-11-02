@@ -404,6 +404,12 @@ export {
   type Rolls,
 } from "./combat/formula.ts";
 export {
+  rollUseAmount,
+  useAmountRange,
+  type UseAmountRange,
+  type UseScale,
+} from "./combat/useAmount.ts";
+export {
   DEFAULT_COMBAT_FORMULA_SET,
   attackIntervalMs,
   bareAttackValue,

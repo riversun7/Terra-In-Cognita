@@ -3,7 +3,7 @@
 //   범위의 0·500·1000‰ 자리로 입혀 1차·2차 스탯을 입기 전·뒤로 셈한다. 유닛 화면과 같은 함수(itemAt·loadoutOf, 실효 가중치 표·행 식).
 //   전투 연결(아이템 편집기 WP-5): 속성값·저항·고정 방어·관통(입기 전·뒤), 양손 무기의 보조 칸·입을 수 없는 종류(ignored)도 보인다.
 // - 무기: previewWeapon.ts(실효 계산식 값, 1차 적정 스탯으로 셈한 2차 적정치와 풀이, 기준 유닛 효율).
-// - 소모품: previewUse.ts(효과 줄마다 효과 사전 값과 기준 유닛 스탯 비례·±오차 범위, D-496 286).
+// - 소모품: previewUse.ts(효과 줄마다 효과 사전 값과 기준 유닛 스탯 ÷ 적정 스탯·상한 N10·±오차 범위, D-496 286·D-501).
 // - 값: 이 아이템을 만드는 레시피마다 원가(BigInt, 글자로 보낸다).
 import {
   type EffectEntry,
@@ -228,7 +228,7 @@ export function previewItem(
   ctx: PreviewContext,
   entry: unknown,
   unitInput: ItemPreviewUnit | undefined,
-  /** 소모품 효과량의 기본 ±오차‰(설정 칸 d496_use_variance 실효 값) */
+  /** 소모품 효과량의 기본 ±오차‰(설정 칸 d496_use_variance 실효 값. 상한은 무기와 같은 N10 실효 값을 여기서 읽는다) */
   useVariancePm = 0,
 ): ItemEditorPreviewResponse {
   const draft = parseDraft(entry);
@@ -260,7 +260,12 @@ export function previewItem(
         coefficients: coefficientsOf(ctx.tuning),
       });
   }
-  const use = item.use ? previewUse(item.use, ctx.effects, unit, useVariancePm) : null;
+  const use = item.use
+    ? previewUse(item.use, ctx.effects, unit, {
+        capPm: coefficientsOf(ctx.tuning).capPm,
+        variancePm: useVariancePm,
+      })
+    : null;
   const values = new Map(ctx.values);
   values.set(item.id, item.baseValue);
   const recipes = ctx.recipes.flatMap((recipe) => {

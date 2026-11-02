@@ -45,8 +45,11 @@ export const ITEM_SCHEMA_LIMITS = {
   shelfLifeMaxMs: 31_536_000_000,
   effectsMax: 8,
   order: 10_000,
-  /** 사용 효과 스탯 비례(‰/점) 상한(기술 범위: 1점에 기준 값의 10배) */
-  scalePmPerPoint: 10_000,
+  /** 사용 효과 적정 스탯 상한(무기 1차 적정 스탯 primaryAppropriateSchema와 같은 기술 범위) */
+  useAppropriateMax: 10_000_000,
+  /** 사용 효과 ±오차(‰) 범위: 25~50%(D-501, 비우면 설정 칸 d496_use_variance) */
+  useVarianceMinPm: 250,
+  useVarianceMaxPm: 500,
 } as const;
 
 const enabled = z.boolean({ error: "enabled가 없습니다. true 또는 false로 적으세요(D-398 켬·끔)." });
@@ -69,9 +72,10 @@ export const perishSchema = z.strictObject({
 });
 
 /**
- * 사용 효과(D-425 효과 사전 코드만, 스킬 효과 줄과 같은 모양). value는 기준 값이다: 효과량은 쓰는 유닛의 스탯에 비례하고(VIT → HP 회복,
- * WIS → MP 회복) ±오차가 붙는다(D-496 286). 같은 아이템은 같은 물건(호가창)이다. 셈(아이템 편집기 WP-6, 식 모양 확인은 질문 292):
- * 스탯 비례 = value × (1000 + 그 1차 스탯 × pmPerPoint) ÷ 1000, ±오차 = variancePm(없으면 설정 칸 d496_use_variance, 출발 250 [임시]).
+ * 사용 효과(D-425 효과 사전 코드만, 스킬 효과 줄과 같은 모양). value는 기준 값이다: 효과량은 쓰는 유닛의 스탯으로 정해지고(보통 HP 회복은
+ * VIT, MP 회복은 WIS) ±오차가 붙는다(D-496 286). 같은 아이템은 같은 물건(호가창)이다. 식(D-501 "적정 스탯", 무기 효율 D-420 틀):
+ * 효과량 = value × min(상한, 쓰는 유닛의 그 1차 스탯 ÷ 적정 스탯) × (1 ± 오차). 상한은 무기 효율과 같은 설정 칸 N10(n10_appropriate_cap),
+ * 오차 = variancePm(25~50%, 없으면 설정 칸 d496_use_variance 500). 셈은 @terra/sim useAmountRange 하나(정수 ‰·내림).
  * 실제로 먹고 쓰는 실행(전투 중 사용 287 포함)은 보유 물건 뒤 소비 줄기다. 지금은 편집기 미리 보기만 이 값을 셈한다
  */
 export const useSchema = z.strictObject({
@@ -83,15 +87,22 @@ export const useSchema = z.strictObject({
         chancePm: z.int().min(0).max(1000),
         /** 없으면 효과 사전의 기본 지속 */
         durationMs: z.int().min(0).max(3_600_000).optional(),
-        /** 효과량 스탯 비례(D-496 286): 쓰는 유닛의 그 1차 스탯 1점마다 기준 값의 pmPerPoint‰를 더한다. 없으면 기준 값 그대로 */
+        /**
+         * 효과량 비례(D-496 286, D-501): 쓰는 유닛의 stat 값 ÷ appropriate(적정 스탯) 비율(상한 N10)을 기준 값에 곱한다.
+         * 스탯은 1차 6개 중 아무것(보통 HP는 VIT, MP는 WIS). 없으면 기준 값 그대로
+         */
         scale: z
           .strictObject({
             stat: z.enum(PRIMARY_STAT_CODES),
-            pmPerPoint: z.int().min(0).max(ITEM_SCHEMA_LIMITS.scalePmPerPoint),
+            appropriate: z.int().min(1).max(ITEM_SCHEMA_LIMITS.useAppropriateMax),
           })
           .optional(),
-        /** ±오차(‰, D-496 286). 없으면 설정 칸 d496_use_variance */
-        variancePm: z.int().min(0).max(1000).optional(),
+        /** ±오차(‰, D-496 286·D-501: 250~500). 없으면 설정 칸 d496_use_variance */
+        variancePm: z
+          .int()
+          .min(ITEM_SCHEMA_LIMITS.useVarianceMinPm)
+          .max(ITEM_SCHEMA_LIMITS.useVarianceMaxPm)
+          .optional(),
       }),
     )
     .min(1)

@@ -129,6 +129,7 @@ export async function bootContentEdit(
       applied: selection.keep.map((row) => contentKey(row.category, row.id)),
       packWon: selection.packWon.map((row) => contentKey(row.category, row.id)),
       adopted: selection.adopted.map((row) => contentKey(row.category, row.id)),
+      upgraded: selection.upgraded ?? [],
       dropped: selection.dropped.map(({ row, reason }) => ({
         key: contentKey(row.category, row.id),
         reason,

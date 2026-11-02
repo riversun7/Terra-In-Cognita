@@ -123,6 +123,14 @@ export function evadeFinalPm(
 }
 const toSafe = (value: bigint): number => Number(value < 0n ? 0n : value > SAFE ? SAFE : value);
 
+/**
+ * 적정 비율(‰, D-420 틀) = min(상한, 유닛 값 × 1000 ÷ 적정치)(내림, 유닛 값이 음수면 0). 적정치는 1 이상(0 이하는 부르는 쪽이 거른다).
+ * 무기 틀과 소모품 효과량(useAmount.ts, D-501)이 같이 쓴다
+ */
+export function appropriateRatioPm(unitValue: number, appropriate: number, capPm: number): number {
+  return Math.min(capPm, Math.floor((Math.max(0, unitValue) * 1000) / appropriate));
+}
+
 /** 무기 틀(D-420): 무기 값 × min(2000, 유닛 값 × 1000 ÷ 적정치) ÷ 1000. 적정치가 0 이하면 무기 값 그대로 */
 export function weaponScaled(
   weaponValue: number,
@@ -131,7 +139,7 @@ export function weaponScaled(
   capPm = APPROPRIATE_CAP_PM,
 ): number {
   if (appropriate <= 0) return weaponValue;
-  const ratio = Math.min(capPm, Math.floor((Math.max(0, unitValue) * 1000) / appropriate));
+  const ratio = appropriateRatioPm(unitValue, appropriate, capPm);
   return toSafe((BigInt(weaponValue) * BigInt(ratio)) / 1000n);
 }
 

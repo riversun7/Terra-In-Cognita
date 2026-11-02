@@ -42,14 +42,20 @@ export function effectStatusText(status: EffectStatusId): string {
   return STATUS_TEXT[status]();
 }
 
-/** 효과량 범위 한 줄(D-496 286): "VIT 39 → 55 (±250‰ → 41~68)" 또는 비례 스탯이 없으면 "55 (±250‰ → 41~68)" */
+/**
+ * 효과량 범위 한 줄(D-496 286, D-501): "VIT 10 ÷ 적정 10 → 1000‰(상한 2000‰) → 30 (±500‰ → 15~45)" 또는 비례 스탯이 없으면
+ * "30 (±500‰ → 15~45)"
+ */
 export function amountText(amount: UseAmount): string {
   const range = { variance: amount.variancePm, min: amount.min, max: amount.max, scaled: amount.scaled };
-  return amount.stat === null
+  return amount.stat === null || amount.appropriate === null
     ? m.dev_items_preview_amount_plain(range)
     : m.dev_items_preview_amount({
         ...range,
         stat: PRIMARY_TEXT[amount.stat](),
         value: amount.statValue,
+        appropriate: amount.appropriate,
+        ratio: amount.ratioPm,
+        cap: amount.capPm,
       });
 }

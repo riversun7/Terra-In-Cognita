@@ -57,6 +57,7 @@ export {
 } from "./schema/items.ts";
 export {
   FACILITY_STAGES,
+  GATHER_MODES,
   GATHER_TIER_COUNT,
   GATHER_WEIGHT_TOTAL,
   ITEM_CATEGORIES,

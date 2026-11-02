@@ -7,12 +7,21 @@
 // - 운송: 출발 때 창고 → 운송 중 계정(출발지), 도착 사건에 운송 중 → 도착지 창고. 걸리는 시간은 하나(고정 속도).
 // - 묶음(302·D-506): 원장·운송은 기본 단위(광석 g), 거래소 주문·값은 묶음 단위(물건마다 lotSize).
 // - 채집 티어 추첨(D-506): 추첨 레시피는 한 번 돌릴 때마다 묶음마다 티어를 뽑는다(economy/gather.ts). 난수 = 흐름 7(시설, 차례).
-//   유효 스탯 = 시설 계획의 일꾼 스탯(없으면 새 유닛 평균) + N43 레벨 보너스. 채집 시설은 레벨 티어 상한을 받지 않는다.
+//   유효 스탯 = 시설 계획의 일꾼 주 + 보조 스탯(없으면 새 유닛 평균) + N43 레벨 보너스. 채집 시설은 레벨 티어 상한을 받지 않는다.
+// - 옛 1차 생산 규칙(D-507, 49 N32·P8): 스탯 짝이 있는 시설은 시간당 작업량 = 일꾼 × 1000 × 진행 속도(max(1, ⌊주 ÷ 20⌋)),
+//   산출 = 한 번 캘 때 수확량(min(상한, 기본 + ⌊보조 × 비율⌋)) 배. 선택 방식(농장)은 해금 티어 min(⌊(주 + 보조) ÷ 20⌋, 9)에서 고른다.
 import type { LedgerBook } from "../ledger/ledgerBook.ts";
 import { TEST_CENTRAL_BANK_RULE, centralBankStep, initialMint } from "../economy/centralBank.ts";
 import { type FxMarket, createFxMarket } from "../economy/fxMarket.ts";
 import { type GoodsMarket, createGoodsMarket } from "../economy/goodsMarket.ts";
-import { gatherStat, rollGatherOutputs } from "../economy/gather.ts";
+import {
+  accessibleTier,
+  gatherProgress,
+  gatherStat,
+  gatherYield,
+  rollGatherOutputs,
+  tierRequiredProgress,
+} from "../economy/gather.ts";
 import {
   BASE_EFFICIENCY,
   HOUR_MS,
@@ -24,6 +33,7 @@ import {
 } from "../economy/production.ts";
 import { dueNecessities, payNecessities } from "../economy/upkeep.ts";
 import {
+  type CatalogGather,
   type EconomyCatalog,
   type PreparedCatalog,
   currencyAsset,
@@ -44,17 +54,28 @@ export const EVENT_CARGO = "cargo";
 /** 난수 흐름 7: 채집 티어 추첨(대상 = 시설 ID, 차례 = 그 시설의 생산 차례) */
 export const STREAM_GATHER = 7;
 
-/** 채집 티어 추첨 손잡이(attachEconomy가 세력·사회 계수표에서 만든다) */
+/** 채집 손잡이(attachEconomy가 세력·사회 계수표에서 만든다) */
 export interface GatherSettings {
   /** 레벨 보너스(N43 n43_level_bonus, 유효 스탯 / 레벨) */
   readonly levelBonus: number;
-  /** 시설 계획에 일꾼 스탯이 없을 때(새 유닛 평균) */
+  /** 시설 계획에 일꾼 스탯이 없을 때 1차 스탯 하나(새 유닛 평균, 주·보조 둘 다 이 값) */
   readonly defaultStat: number;
+  /** 진행 나눔(N32 n32_main_divisor, 옛 20). 없으면 20 */
+  readonly progressDivisor?: number | undefined;
+  /** 시설에 수확량 비율이 없을 때 보조 스탯 ‰(N32 n32_sub_yield, 옛 80). 없으면 80 */
+  readonly yieldPerStatPm?: number | undefined;
+  /** 필요 진행 기본·티어당(N44 n44_tier_progress_base·step, 옛 30·30). 없으면 30·30 */
+  readonly tierProgressBase?: number | undefined;
+  readonly tierProgressStep?: number | undefined;
+  /** 진행 1의 시간(N44 n44_tick_ms, 옛 1분 = 60,000). 없으면 60,000 */
+  readonly tickMs?: number | undefined;
+  /** 광석 한 번 캘 때 g(N44 n44_ore_grams, 1,000). 없으면 1,000 */
+  readonly oreGrams?: number | undefined;
 }
 
-/** 시설 계획에 일꾼 스탯이 없을 때: 새 유닛 평균 1차 둘의 합 = 2 × ⌊N9 초기 합 ÷ 6⌋([임시] 시뮬 유닛에 스탯이 없다) */
+/** 시설 계획에 일꾼 스탯이 없을 때: 새 유닛 평균 1차 스탯 하나 = ⌊N9 초기 합 ÷ 6⌋([임시] 시뮬 유닛에 스탯이 없다, 출발값 60 → 10) */
 export function defaultGatherStat(initialSum: number): number {
-  return 2 * Math.floor(Math.max(0, initialSum) / 6);
+  return Math.floor(Math.max(0, initialSum) / 6);
 }
 
 export interface EcoFacility {
@@ -63,11 +84,25 @@ export interface EcoFacility {
   readonly recipe: RecipeSpec;
   readonly level: number;
   readonly workers: number;
-  /** 채집 티어 추첨의 유효 스탯(일꾼 스탯 + 레벨 보너스). 추첨 레시피가 아니면 쓰지 않는다 */
+  /** 채집 티어 추첨의 유효 스탯(일꾼 주 + 보조 + 레벨 보너스). 추첨 레시피가 아니면 쓰지 않는다 */
   readonly gatherStat: number;
+  /** 선택 방식의 해금 티어(49 P8). 선택 레시피가 아니면 쓰지 않는다 */
+  readonly selectTier: number;
+  /** 진행 속도(49 N32): 일꾼 한 명의 효율 = 1000 × 이 값. 스탯 짝이 없는 시설은 1 */
+  readonly progress: number;
+  /** 한 번 캘 때 수확량(옛 gather_type_config): 산출 × 이 값. 스탯 짝이 없는 시설은 1 */
+  readonly yieldPerLot: number;
   /** 생산 차례(추첨 난수의 차례) */
   batches: number;
   eventId: number | undefined;
+  /** 예약한 다음 한 번(산출·걸리는 시간). 사다리 산출은 시작할 때 뽑는다 */
+  pending?: PendingBatch | undefined;
+}
+
+/** 예약한 생산 한 번 */
+export interface PendingBatch {
+  readonly outputs: readonly { asset: string; qty: bigint }[];
+  readonly durationMs: number;
 }
 
 export interface Cargo {
@@ -82,6 +117,8 @@ export interface Cargo {
 export interface Economy {
   readonly catalog: PreparedCatalog;
   readonly settings: ScenarioEconomy;
+  /** 채집 손잡이(N43·N32·N44, 세력·사회 계수표에서) */
+  readonly gather: GatherSettings;
   /** 기준 통화 자산 코드 */
   readonly base: string;
   /** 도시 → 물건 → 거래소 */
@@ -161,6 +198,7 @@ export function createEconomy(
   const economy: Economy = {
     catalog,
     settings,
+    gather,
     base,
     markets: new Map(),
     fx: new Map(),
@@ -244,7 +282,7 @@ export function createEconomy(
             recipe,
             level: plan.level,
             workers,
-            gatherStat: gatherStat(plan.gatherStat ?? gather.defaultStat, plan.level, gather.levelBonus),
+            ...workerEffects(facility.gather, plan, gather),
             batches: 0,
             eventId: undefined,
           });
@@ -336,7 +374,8 @@ export function scheduleEconomy(
   loop: SimLoop<SimEvent>,
   startMs: number,
 ): void {
-  for (const facility of economy.facilities.values()) scheduleProduce(economy, loop, facility, startMs);
+  for (const facility of economy.facilities.values())
+    scheduleProduce(economy, world, loop, facility, startMs);
   const firstHour = (Math.floor(startMs / HOUR_MS) + 1) * HOUR_MS;
   for (const city of world.cities.values())
     loop.schedule(firstHour, { kind: EVENT_UPKEEP, subject: city.id });
@@ -350,15 +389,96 @@ export function scheduleEconomy(
   loop.schedule(startMs + economy.settings.fxEveryMs, { kind: EVENT_FX, subject: 0 });
 }
 
+/**
+ * 시설 계획의 일꾼 스탯이 시설에 주는 효과(D-506·D-507): 추첨 유효 스탯, 선택 해금 티어, 진행 속도, 수확량.
+ * 스탯 짝(gather)이 없는 시설은 속도·수확량 1(효과 없음)
+ */
+export function workerEffects(
+  rule: CatalogGather | undefined,
+  plan: { level: number; primaryStat?: number | undefined; secondaryStat?: number | undefined },
+  gather: GatherSettings,
+): Pick<EcoFacility, "gatherStat" | "selectTier" | "progress" | "yieldPerLot"> {
+  const primary = plan.primaryStat ?? gather.defaultStat;
+  const secondary = plan.secondaryStat ?? gather.defaultStat;
+  if (!rule) return { gatherStat: 0, selectTier: 0, progress: 1, yieldPerLot: 1 };
+  return {
+    gatherStat: gatherStat(primary + secondary, plan.level, gather.levelBonus),
+    selectTier: accessibleTier(primary, secondary),
+    progress: gatherProgress(primary, gather.progressDivisor ?? 20),
+    yieldPerLot: gatherYield(secondary, {
+      base: rule.yieldBase ?? 1,
+      perStatPm: rule.yieldPerStatPm ?? gather.yieldPerStatPm ?? 80,
+      cap: rule.yieldCap,
+    }),
+  };
+}
+
+/** 시설의 시간당 작업량(일꾼 × 기준 효율 × 진행 속도) */
+function pointsPerHour(facility: EcoFacility): number {
+  return facility.workers * BASE_EFFICIENCY * facility.progress;
+}
+
+/**
+ * 다음 한 번의 산출과 걸리는 시간을 미리 정한다(사다리 산출은 나온 티어가 시간을 정하므로 시작할 때 뽑는다, D-507).
+ * - 사다리 밖 산출: 레시피 작업량 ÷ 시간당 작업량(옛 farm_crops.required_progress처럼 레시피마다 값), 산출 × 수확량.
+ * - 사다리 산출(추첨·선택): 한 번 캘 때마다 티어를 뽑고(선택은 해금 티어) 수확량만큼 낸다. 필요 진행 = 나온 아이템 티어마다
+ *   max(기본, 기본 + 티어 × 걸음)(49 N44, 빈 번은 T0 값), 시간 = ⌈필요 진행 × 진행 1의 시간 ÷ (일꾼 × 진행 속도)⌉.
+ *   난수 = 흐름 7(시설, 생산 차례). 일하는 사람이 없으면 undefined(예약하지 않는다)
+ */
+function nextBatch(economy: Economy, world: SimWorld, facility: EcoFacility): PendingBatch | undefined {
+  const roll = facility.recipe.gather;
+  const ladder = roll ? economy.catalog.gatherLadders.get(roll.subcategory) : undefined;
+  if (!roll || !ladder) {
+    const durationMs = batchDurationMs(facility.recipe.work, pointsPerHour(facility));
+    if (durationMs === undefined) return undefined;
+    if (facility.yieldPerLot === 1) return { outputs: facility.recipe.outputs, durationMs };
+    const times = BigInt(Math.max(0, facility.yieldPerLot));
+    return {
+      outputs: facility.recipe.outputs.map((stack) => ({ asset: stack.asset, qty: stack.qty * times })),
+      durationMs,
+    };
+  }
+  const speed = facility.workers * facility.progress;
+  if (speed <= 0) return undefined;
+  const rules = economy.gather;
+  const rng = streamRng(world.seed, STREAM_GATHER, facility.id, facility.batches);
+  facility.batches += 1;
+  const result = rollGatherOutputs(
+    {
+      ladder,
+      bands: economy.catalog.gatherBands,
+      stat: facility.gatherStat,
+      lots: roll.lots,
+      lotSize: economy.catalog.lotSize,
+      selectTier: roll.mode === "select" ? facility.selectTier : undefined,
+      yieldPerLot: facility.yieldPerLot,
+      harvestGrams: BigInt(rules.oreGrams ?? 1000),
+    },
+    rng,
+  );
+  const base = rules.tierProgressBase ?? 30;
+  const step = rules.tierProgressStep ?? 30;
+  let progress = result.empty * tierRequiredProgress(0, base, step);
+  result.landed.forEach((count, tier) => {
+    progress += count * tierRequiredProgress(tier, base, step);
+  });
+  const durationMs = Math.max(1, Math.ceil((progress * (rules.tickMs ?? 60_000)) / speed));
+  return { outputs: result.outputs, durationMs };
+}
+
 function scheduleProduce(
   economy: Economy,
+  world: SimWorld,
   loop: SimLoop<SimEvent>,
   facility: EcoFacility,
   fromMs: number,
 ): void {
-  const duration = batchDurationMs(facility.recipe.work, facility.workers * BASE_EFFICIENCY);
-  if (duration === undefined) return;
-  facility.eventId = loop.schedule(fromMs + duration, { kind: EVENT_PRODUCE, subject: facility.id });
+  facility.pending = nextBatch(economy, world, facility);
+  if (!facility.pending) return;
+  facility.eventId = loop.schedule(fromMs + facility.pending.durationMs, {
+    kind: EVENT_PRODUCE,
+    subject: facility.id,
+  });
 }
 
 /**
@@ -375,7 +495,9 @@ export function onProduce(
   const facility = economy.facilities.get(facilityId);
   const city = facility ? world.cities.get(facility.city) : undefined;
   if (!facility || !city) return undefined;
-  const outputs = gatherOutputs(economy, world, facility);
+  const batch = facility.pending;
+  const outputs = batch?.outputs ?? facility.recipe.outputs;
+  const workMs = batch?.durationMs ?? 0;
   const done = runRecipe(
     world.book,
     city.owner,
@@ -387,37 +509,10 @@ export function onProduce(
   );
   if (!done) economy.today.inputShort += 1;
   else for (const output of outputs) bump(economy.today.produced, output.asset, output.qty);
-  scheduleProduce(economy, loop, facility, nowMs);
+  scheduleProduce(economy, world, loop, facility, nowMs);
   if (!done) return undefined;
-  const workMs = batchDurationMs(facility.recipe.work, facility.workers * BASE_EFFICIENCY) ?? 0;
   const pollution = economy.catalog.facilities.get(facility.recipe.facility)?.pollution ?? 0;
   return { city: city.id, weightedWorkMs: facility.level * pollution * workMs };
-}
-
-/**
- * 이번 생산의 산출(기본 단위): 추첨 레시피면 묶음마다 티어를 뽑고, 아니면 레시피 산출 그대로. 재료가 모자라 돌지 못해도 추첨은 한다
- * (차례가 생산 시도마다 하나씩 늘어 결정적이다)
- */
-function gatherOutputs(
-  economy: Economy,
-  world: SimWorld,
-  facility: EcoFacility,
-): readonly { asset: string; qty: bigint }[] {
-  const roll = facility.recipe.gather;
-  const ladder = roll ? economy.catalog.gatherLadders.get(roll.subcategory) : undefined;
-  if (!roll || !ladder) return facility.recipe.outputs;
-  const rng = streamRng(world.seed, STREAM_GATHER, facility.id, facility.batches);
-  facility.batches += 1;
-  return rollGatherOutputs(
-    {
-      ladder,
-      bands: economy.catalog.gatherBands,
-      stat: facility.gatherStat,
-      lots: roll.lots,
-      lotSize: economy.catalog.lotSize,
-    },
-    rng,
-  ).outputs;
 }
 
 /** 도시 유지비(정시) */

@@ -35,6 +35,23 @@
       "enabled": true
     },
     {
+      "id": "cut_logs",
+      "name": {
+        "ko": "통나무 베기(목재 티어)",
+        "en": "Fell logs (wood tiers)"
+      },
+      "facility": "lumber_camp",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "pine_log",
+          "qty": 10
+        }
+      ],
+      "work": 1000,
+      "enabled": true
+    },
+    {
       "id": "mine_iron_ore",
       "name": {
         "ko": "철광석 캐기",

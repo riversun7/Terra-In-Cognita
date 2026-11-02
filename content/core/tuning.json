@@ -633,7 +633,10 @@
         "en": "Production main divisor"
       },
       "value": 20,
-      "structural": false
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 1000
     },
     {
       "id": "n32_sub_yield",
@@ -643,7 +646,10 @@
         "en": "Extra yield (sub stat ‰)"
       },
       "value": 80,
-      "structural": false
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
     },
     {
       "id": "n33_food_zero_at",
@@ -687,6 +693,58 @@
       "unit": "points",
       "min": 0,
       "max": 1000
+    },
+    {
+      "id": "n44_tier_progress_base",
+      "code": "N44",
+      "name": {
+        "ko": "1차 생산 필요 진행 기본(T0)",
+        "en": "Primary production required progress base (T0)"
+      },
+      "value": 30,
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 100000
+    },
+    {
+      "id": "n44_tier_progress_step",
+      "code": "N44",
+      "name": {
+        "ko": "1차 생산 필요 진행 티어당",
+        "en": "Primary production required progress per tier"
+      },
+      "value": 30,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n44_tick_ms",
+      "code": "N44",
+      "name": {
+        "ko": "1차 생산 진행 1의 시간(ms)",
+        "en": "Primary production progress tick (ms)"
+      },
+      "value": 60000,
+      "structural": false,
+      "unit": "ms",
+      "min": 1000,
+      "max": 86400000
+    },
+    {
+      "id": "n44_ore_grams",
+      "code": "N44",
+      "name": {
+        "ko": "광석 한 번 캘 때 무게(g)",
+        "en": "Ore per harvest (g)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "grams",
+      "min": 1,
+      "max": 1000000
     },
     {
       "id": "d506_storage_per_level",

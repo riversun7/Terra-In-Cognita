@@ -9,7 +9,7 @@
 // - 사진: 390·1440 × 파스텔·다크 × 한국어·영어, 화면마다(E2E_SHOTS_DIR).
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
-import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
+import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc, watchTrpc } from "./helpers/trpc.ts";
 
@@ -54,8 +54,8 @@ test.describe("플레이어(실제 자료)", () => {
     await expect(economy(page).locator(".eco-not-ready")).toContainText(
       message("ko", "economy_not_ready_market"),
     );
-    // 팩의 거래할 물건(장비 빼고): 곡물·원목·철광석·철 주괴·배급 식량·생활용품
-    await expect(economy(page).locator(".eco-row-link")).toHaveCount(6);
+    // 팩의 거래할 물건(장비 빼고): 곡물·원목·철광석·철 주괴·배급 식량·생활용품 + 하위 재료(D-507) 잡석·석재·구리·소나무·자작나무·편백나무
+    await expect(economy(page).locator(".eco-row-link")).toHaveCount(12);
     // 하위 화면에서도 하단 탭의 경제가 지금 화면이다(menuRoute)
     await expect(page.locator('nav.tabbar a[aria-current="page"]')).toHaveText(message("ko", "nav_economy"));
     await page.goto("/economy/market/iron_ore/101");
@@ -116,6 +116,40 @@ test.describe("admin 시안 자료(시험 거래소)", () => {
     });
     await expect(rolled).toHaveCount(1);
     await expect(rolled.locator(".eco-tag")).toHaveText(message("ko", "economy_tier_rolled"));
+    // 옛 1차 생산 규칙(D-507): 기준 유닛(스탯 10) STR → 속도 ×1, VIT → 한 번에 2개(1 + ⌊10 × 0.10⌋, 최대 10), 한 번 T0~T3 시간
+    await expect(rolled.locator('[data-part="worker-effect"]')).toHaveText(
+      message("ko", "economy_worker_effect", {
+        stat: 10,
+        primary: "STR",
+        progress: 1,
+        secondary: "VIT",
+        count: 2,
+      }),
+    );
+    await expect(rolled.locator('[data-part="worker-formula"]')).toHaveText(
+      message("ko", "economy_worker_formula", {
+        primary: "STR",
+        secondary: "VIT",
+        divisor: 20,
+        base: 1,
+        rate: "0.10",
+        cap: 10,
+      }),
+    );
+    await expect(rolled.locator('[data-part="worker-harvest"]')).toContainText("T3");
+    // 벌목장 통나무 베기(소나무 T0~, DEX+STR)도 추첨, 원목 베기는 사다리 밖(한 번 시간 없음)
+    await expect(
+      economy(page).locator(".eco-row", {
+        hasText: message("ko", "economy_recipe_gather", { stats: "DEX+STR" }),
+      }),
+    ).toHaveCount(1);
+    await expect(
+      economy(page).locator('.eco-row[data-recipe="cut_timber"] [data-part="worker-harvest"]'),
+    ).toHaveCount(0);
+    await expect(
+      economy(page).locator('.eco-row[data-recipe="smelt_iron"] [data-part="worker-effect"]'),
+    ).toHaveCount(0);
+    await elementShot(rolled, "economy-recipe-worker-ko");
     // 캐기 산출·제련 재료가 "철광석 ×10 (묶음 1 kg)"
     const ore = message("ko", "economy_stack_lot", { name: "철광석", qty: "10", size: "1 kg" });
     await expect(economy(page).locator(".eco-row-meta", { hasText: ore })).toHaveCount(2);

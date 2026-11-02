@@ -56,9 +56,42 @@ describe("economyCatalogFromPack", () => {
       primary: "str",
       secondary: "vit",
       subcategory: "ore",
+      mode: "roll",
     });
-    // 원목(timber)은 목재 사다리(wood) 밖이라 산출 그대로
+    // 원목(timber)은 목재 사다리(wood) 밖이라 산출 그대로, 통나무 베기(소나무 T0~)는 목재 사다리 추첨
     expect(catalog.recipes.find((recipe) => recipe.id === "cut_timber")?.gather).toBeUndefined();
+    expect(catalog.recipes.find((recipe) => recipe.id === "cut_logs")?.gather?.subcategory).toBe("wood");
+  });
+
+  it("일꾼 스탯 효과(D-507): 광산 = 새 유닛 10 → 속도 ×1·한 번에 2개, 한 번 T0 30분·T3 2시간. 원목 베기는 시간표 없음", () => {
+    const catalog = packCatalog();
+    expect(catalog.recipes.find((recipe) => recipe.id === "mine_iron_ore")?.worker).toEqual({
+      primary: "str",
+      secondary: "vit",
+      progressDivisor: 20,
+      yieldBase: 1,
+      yieldPerStatPm: 100,
+      yieldCap: 10,
+      unitStat: 10,
+      unitProgress: 1,
+      unitYield: 2,
+      tierHarvestMs: [30, 60, 90, 120, 150, 180, 210, 240, 270, 300].map((progress) => progress * 60_000),
+      unitTier: null,
+    });
+    const timber = catalog.recipes.find((recipe) => recipe.id === "cut_timber")?.worker;
+    expect(timber).toMatchObject({ primary: "dex", secondary: "str", unitYield: 2, tierHarvestMs: null });
+    // 농장(VIT·INT 0.08·상한 8): 곡물은 작물 사다리 밖 → 한 번에 1개, 레시피 작업량 시간
+    expect(catalog.recipes.find((recipe) => recipe.id === "farm_grain")?.worker).toMatchObject({
+      primary: "vit",
+      secondary: "int",
+      yieldPerStatPm: 80,
+      yieldCap: 8,
+      unitYield: 1,
+      tierHarvestMs: null,
+      unitTier: null,
+    });
+    // 스탯 짝이 없는 시설(제련소)은 없음
+    expect(catalog.recipes.find((recipe) => recipe.id === "smelt_iron")?.worker).toBeUndefined();
   });
 
   it("시안 창고: 철광석은 기본 단위(g)로 들고, 용량은 묶음 수로 센다", () => {

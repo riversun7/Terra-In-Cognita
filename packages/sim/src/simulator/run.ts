@@ -195,6 +195,12 @@ export function runSimulation(options: RunOptions): RunSummary {
       ? attachEconomy(world, scenario, options.catalog, loop, SIM_START_MS, societyCoefficients.npc, {
           levelBonus: societyCoefficients.gatherLevelBonus,
           defaultStat: defaultGatherStat(societyCoefficients.cyborg.initialSum),
+          progressDivisor: societyCoefficients.productionMainDivisor,
+          yieldPerStatPm: societyCoefficients.productionSubYieldPm,
+          tierProgressBase: societyCoefficients.gatherTierProgressBase,
+          tierProgressStep: societyCoefficients.gatherTierProgressStep,
+          tickMs: societyCoefficients.gatherTickMs,
+          oreGrams: societyCoefficients.gatherOreGrams,
         })
       : undefined;
   const ctx: NpcContext = {

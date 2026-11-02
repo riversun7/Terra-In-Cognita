@@ -1,6 +1,7 @@
 // 노동 공식(피로·급여·생산·만족도) — docs/adr/2026-10-31-faction-society-core.md "노동", 정본 기획 48 §7(D-430~D-433·D-438 5)
 // 모양은 48을 따르고 계수는 계수표(coefficients.ts, N21~N33). 출발값이 없는 칸만 [임시]. 정수만 쓴다.
 // 만족도는 밀리점(0~100 × 1000), 배율은 ‰.
+import { gatherProgress, gatherYield } from "../economy/gather.ts";
 import type { JobRules } from "../settle/settle.ts";
 import type { SocietyCoefficients } from "./coefficients.ts";
 
@@ -106,15 +107,18 @@ export function topShareAverage(wages: readonly number[], c: SocietyCoefficients
   return Math.floor(sum / n);
 }
 
-/** 생산(D-431, N32): 주 스탯 → 틱마다 진행 max(1, ⌊주 ÷ 20⌋), 보조 스탯 → 추가 수확 ⌊보조 × 0.08⌋ */
+/**
+ * 생산(D-431, N32): 주 스탯 → 틱마다 진행 max(1, ⌊주 ÷ 20⌋), 보조 스탯 → 추가 수확 ⌊보조 × 0.08⌋(기본 비율).
+ * 시설마다 다른 비율·상한(옛 gather_type_config, D-507)은 economy/gather.ts gatherYield가 본다
+ */
 export function production(
   mainStat: number,
   subStat: number,
   c: SocietyCoefficients,
 ): { progress: number; extra: number } {
   return {
-    progress: Math.max(1, Math.floor(Math.max(0, mainStat) / c.productionMainDivisor)),
-    extra: Math.floor((Math.max(0, subStat) * c.productionSubYieldPm) / 1000),
+    progress: gatherProgress(mainStat, c.productionMainDivisor),
+    extra: gatherYield(subStat, { base: 0, perStatPm: c.productionSubYieldPm }),
   };
 }
 

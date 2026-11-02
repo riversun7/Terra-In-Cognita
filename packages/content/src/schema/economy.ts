@@ -12,6 +12,9 @@ export { ITEM_CATEGORIES, itemEntrySchema, type ItemEntry } from "./items.ts";
 /** 생산 단계(D-114) */
 export const FACILITY_STAGES = ["gather", "process", "part", "finish"] as const;
 
+/** 채집 방식: roll = 확률표 추첨, select = 선택 + 효율(옛 ITM-10) */
+export const GATHER_MODES = ["roll", "select"] as const;
+
 /** 켬·끔(D-398). 끈 항목은 세계에 새로 나오지 않는다(있는 것은 그대로) */
 const enabled = z.boolean({ error: "enabled가 없습니다. true 또는 false로 적으세요(D-398 켬·끔)." });
 
@@ -38,6 +41,31 @@ export const facilityEntrySchema = z.strictObject({
       primary: z.enum(PRIMARY_STAT_CODES),
       secondary: z.enum(PRIMARY_STAT_CODES),
       subcategory: ref("item_subcategories"),
+      /**
+       * 채집 방식(옛 ITM-10, 43 §4): roll = 확률표 추첨(기본, 광산·벌목장·약초원·낚시터), select = 선택 + 효율(농장·목장):
+       * 해금 티어 min(⌊(주 + 보조) ÷ 20⌋, 9)(49 P8)에서 켜진 아이템이 있는 가장 높은 티어를 고른다
+       */
+      mode: z.enum(GATHER_MODES).optional(),
+      /**
+       * 수확량(옛 gather_type_config, 기획 D-507·49 N32): 한 번 캘 때 개수 = min(yieldCap, yieldBase + ⌊보조 스탯 × yieldPerStatPm ÷ 1000⌋).
+       * 없으면 yieldBase 1, yieldPerStatPm = 설정 칸 n32_sub_yield, 상한 없음. 광석은 개수 = 묶음 수(49 N44).
+       * 주 스탯은 진행 속도 max(1, ⌊주 ÷ n32_main_divisor⌋)를 정한다(시설 칸 없음)
+       */
+      yieldBase: z.int().min(0).max(1000).optional(),
+      yieldPerStatPm: z.int().min(0).max(100_000).optional(),
+      yieldCap: z.int().min(1).max(1000).optional(),
+    })
+    .optional(),
+  /**
+   * 건설 재료(옛 building_seed.js buildCost, 49 M14 출발값 = 옛 값, docs/research/2026-11-02-old-primary-production.md):
+   * 레벨 L 비용 = 재료 줄마다 round(qty × L² × mulPm ÷ 1000)의 합(같은 아이템이 여러 줄이면 줄마다 반올림, 옛 그대로).
+   * materials = 옛 raw를 옛 MAT_MAP으로 바꾼 것(WOOD·STONE·PLANK·BRICK → 잡석, INGOT → 철 = 철광석 묶음), mulPm = 옛 카테고리 배율
+   * (PRIMARY 0.8 → 800, SECONDARY 1.2 → 1200). 지금 건설·레벨 올림·수리를 셈하는 곳은 없다(시설은 처음부터 있다)
+   */
+  build: z
+    .strictObject({
+      mulPm: z.int().min(0).max(100_000),
+      materials: z.array(stack).min(1).max(16),
     })
     .optional(),
   enabled,

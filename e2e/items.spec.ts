@@ -709,6 +709,16 @@ test.describe("배치·사진", () => {
         });
         await expect(gather.locator('[data-level="5"] [data-part="chance"]')).toHaveText("7.00%");
         await expect(gather.locator('[data-part="gather-summary"]')).toContainText("STR+VIT");
+        // 옛 1차 생산 규칙(D-507): 진행·수확량 — 새 유닛 STR 10 → 진행 ×1, VIT 10 → 한 번에 2개, T3 필요 진행 120, 광석 한 개 1,000 g
+        const work = gather.locator('[data-part="gather-work"]');
+        await expect(work.locator('[data-part="work-summary"]')).toContainText("120");
+        await expect(work.locator('[data-part="work-grams"]')).toHaveText(
+          message(language, "dev_items_gather_work_grams", { grams: 1000 }),
+        );
+        await expect(work.locator("tbody tr")).toHaveCount(7);
+        await expect(work.locator('tbody tr[data-stat="10"]')).toHaveAttribute("data-hit", "true");
+        await expect(work.locator('tbody tr[data-stat="40"] td').nth(0)).toHaveText("×2");
+        await expect(work.locator('tbody tr[data-stat="40"] td').nth(1)).toHaveText("5");
         await gather.locator(".ie-gather-bands > summary").click();
         await expect(gather.locator(".ie-gather-bands tbody tr")).toHaveCount(12);
         await page.evaluate(() => document.fonts.ready.then(() => undefined));

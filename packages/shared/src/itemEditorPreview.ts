@@ -121,6 +121,46 @@ export interface ItemGatherPreview {
   readonly sameTier: number;
   /** 초안이 꺼져 있으면 거짓(세계에서 나오지 않는다) */
   readonly enabled: boolean;
+  /**
+   * 채집 방식: roll = 확률표 추첨(levels·bands), select = 선택 + 효율(농장·목장, 49 P8): 해금 티어 = min(⌊(주 + 보조) ÷ 20⌋, 9)에서
+   * 켜진 아이템이 있는 가장 높은 티어를 고른다(레벨 보너스 없음, levels의 band는 -1)
+   */
+  readonly mode: "roll" | "select";
+  /** select면 기준 유닛의 해금 티어. roll이면 null */
+  readonly unitTier: number | null;
+  /**
+   * 옛 1차 생산 규칙(D-507, 49 N32·N44): 주 스탯 → 진행 속도 max(1, ⌊주 ÷ divisor⌋), 보조 스탯 → 한 번 캘 때 개수
+   * min(cap, base + ⌊보조 × perStatPm ÷ 1000⌋), 이 티어 한 번 = 필요 진행 max(30, 30 + 티어 × 30) × 진행 1의 시간
+   */
+  readonly work: ItemGatherWork;
+}
+
+/** 채집 미리 보기의 진행·수확량(옛 1차 생산 규칙, D-507). 셈은 서버 @terra/sim gatherProgress·gatherYield·tierRequiredProgress */
+export interface ItemGatherWork {
+  /** 진행 나눔(설정 칸 N32 n32_main_divisor 실효 값) */
+  readonly divisor: number;
+  /** 수확량 규칙(시설 칸, 없으면 기본 1 + 설정 칸 N32 n32_sub_yield, 상한 없음 = null) */
+  readonly yieldBase: number;
+  readonly yieldPerStatPm: number;
+  readonly yieldCap: number | null;
+  /** 이 티어 한 번의 필요 진행(N44)·진행 1의 시간(ms, N44 n44_tick_ms) */
+  readonly requiredProgress: number;
+  readonly tickMs: number;
+  /** 광석 한 번 = g(N44 n44_ore_grams). 초안이 기본 단위 g·묶음 > 1인 아이템이 아니면 null */
+  readonly harvestGrams: number | null;
+  /** 기준 유닛의 주·보조 스탯과 그때 진행 속도·한 번에 개수·이 티어 한 번 시간(ms, 일꾼 한 명) */
+  readonly unitPrimary: number;
+  readonly unitSecondary: number;
+  readonly unitProgress: number;
+  readonly unitYield: number;
+  readonly unitHarvestMs: number;
+  /** 스탯 표(주·보조가 같은 값일 때): 진행 속도·한 번에 개수·이 티어 한 번 시간(ms) */
+  readonly rows: readonly {
+    readonly stat: number;
+    readonly progress: number;
+    readonly yield: number;
+    readonly harvestMs: number;
+  }[];
 }
 
 export interface ItemEditorPreviewResponse {

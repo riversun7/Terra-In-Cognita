@@ -192,6 +192,8 @@ test.describe("개발자", () => {
     await expect(cells.locator('.tp-cell[data-code="N9"]')).toHaveAttribute("data-status", "connected");
     // 채집 티어 확률표(D-506): 레벨 보너스 칸 n43_level_bonus가 N43을 잇는다
     await expect(cells.locator('.tp-cell[data-code="N43"]')).toHaveAttribute("data-status", "connected");
+    // 옛 1차 생산 규칙(D-507): 필요 진행·진행 1 시간·광석 g 칸이 N44를 잇는다
+    await expect(cells.locator('.tp-cell[data-code="N44"]')).toHaveAttribute("data-status", "connected");
     await expect(cells.locator('.tp-cell[data-code="T6"]')).toHaveAttribute("data-status", "no_value");
     await expect(cells.locator('.tp-cell[data-code="T1"]')).toHaveAttribute("data-status", "not_connected");
     expect(await cells.locator(".tp-cell").count()).toBeGreaterThan(200);
@@ -259,7 +261,7 @@ test.describe("배치·사진", () => {
         expect(deviceErrors).toEqual([]);
       });
 
-      test("채집 칸(D-506): N43 레벨 보너스·창고 용량(g) 줄, 가로 넘침 없음, 사진", async ({
+      test("채집 칸(D-506·D-507): N43 레벨 보너스·창고 용량(g)·N44 진행 줄, 가로 넘침 없음, 사진", async ({
         page,
         deviceErrors,
       }) => {
@@ -274,6 +276,13 @@ test.describe("배치·사진", () => {
         expect(await horizontalOverflow(page)).toEqual([]);
         expect(await smallTapTargets(page)).toEqual([]);
         await shot(page, `tuning-n43-${theme}-${language}-${width}`);
+        // N44(D-507): 필요 진행 기본·티어당, 진행 1의 시간, 광석 한 번 g
+        await page.locator(".tp-search input").fill("N44");
+        for (const id of ["n44_tier_progress_base", "n44_tier_progress_step", "n44_tick_ms", "n44_ore_grams"])
+          await expect(row(page, id)).toBeVisible();
+        await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        expect(await horizontalOverflow(page)).toEqual([]);
+        await shot(page, `tuning-n44-${theme}-${language}-${width}`);
         expect(deviceErrors).toEqual([]);
       });
     });

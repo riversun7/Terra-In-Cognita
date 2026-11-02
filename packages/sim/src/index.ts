@@ -336,6 +336,7 @@ export {
   lotSizeOf,
   prepareCatalog,
   type CatalogFacility,
+  type CatalogGather,
   type CatalogItem,
   type CatalogNecessity,
   type CatalogPreset,
@@ -343,6 +344,7 @@ export {
   type EconomyCatalog,
   type PreparedCatalog,
 } from "./simulator/catalog.ts";
+export { defaultGatherStat, workerEffects, type GatherSettings } from "./simulator/economy.ts";
 export {
   type BookFill,
   type BookOrder,
@@ -366,23 +368,30 @@ export {
   maxTierForLevel,
   runRecipe,
   tierCappedByLevel,
+  type GatherMode,
   type ProductionAccounts,
   type RecipeSpec,
   type Stack,
 } from "./economy/production.ts";
 export { dueNecessities, payNecessities, type NecessitySpec, type UpkeepPaid } from "./economy/upkeep.ts";
 export {
+  ACCESSIBLE_TIER_STEP,
   GATHER_TIERS,
   GATHER_WEIGHT_TOTAL,
   TEST_GATHER_BANDS,
+  accessibleTier,
   gatherBandIndex,
   gatherChancesPm,
+  gatherProgress,
   gatherStat,
+  gatherYield,
   pickGatherItem,
   rollGatherOutputs,
   rollGatherTier,
+  tierRequiredProgress,
   type GatherBand,
   type GatherRoll,
+  type GatherYieldRule,
 } from "./economy/gather.ts";
 export {
   TEST_CENTRAL_BANK_RULE,

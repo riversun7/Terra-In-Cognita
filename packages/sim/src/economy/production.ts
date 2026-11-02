@@ -2,13 +2,17 @@
 // - 레시피 한 번 = 장부 거래 하나: 재료(그 도시 창고) → 소멸 계정, 생산원 계정 → 산출(그 도시 창고). 재료가 모자라면 하지 않는다.
 //   일반 자원은 소멸·생산원(다시 자람)으로, 총량 자원은 매장량 계정으로 돈다(계정을 고르는 함수는 부르는 쪽이 준다).
 // - 속도: 시설의 시간당 작업량 = 배치한 일꾼 효율 합(효율 1000 = 기준 일꾼 한 명). 한 번에 드는 시간 = ⌈작업량 × 1시간 ÷ 시간당 작업량⌉.
-//   [임시] 효율은 스탯·스킬 식(D-119, 설정 칸 P9 출발값 없음)이 생기기 전까지 일꾼마다 정한 값이다.
+//   채집 시설(스탯 짝이 있는 시설)은 효율 = 1000 × 진행 속도(max(1, ⌊주 스탯 ÷ 20⌋), 49 N32·D-507, gather.ts gatherProgress).
+//   그 밖의 시설 효율은 [임시] 1000(직무 효율 식 P9 출발값 없음).
 // - 수량은 원장 기본 단위다(팩 레시피의 묶음 수 × 묶음 크기, 302·D-506. 바꾸는 곳은 simulator/catalog.ts prepareCatalog).
 // - 티어 상한(D-5001 시설 Lv → 최고 티어)은 제작 시설에만 건다. 채집 단계 시설은 레벨이 티어를 막지 않는다(D-506): 채집 티어는
 //   일꾼 스탯 확률표(gather.ts)가 정한다.
 import type { LedgerBook, LedgerEntry } from "../ledger/ledgerBook.ts";
 
 export const HOUR_MS = 3_600_000;
+
+/** 채집 방식: roll = 스탯 확률표 추첨(광산·벌목장·약초원·낚시터), select = 해금 티어에서 고름(농장·목장, 옛 ITM-10) */
+export type GatherMode = "roll" | "select";
 /** 기준 일꾼 효율(천분율) */
 export const BASE_EFFICIENCY = 1000;
 
@@ -28,9 +32,11 @@ export interface RecipeSpec {
   readonly tier: number;
   /**
    * 채집 티어 추첨(D-506): 있으면 산출(outputs)은 대표값이고, 한 번 돌릴 때마다 lots개 묶음의 티어를 그 중분류 사다리에서 뽑는다
-   * (gather.ts rollGatherOutputs). 없으면 산출 그대로
+   * (gather.ts rollGatherOutputs). mode "select"(농장·목장 선택 + 효율, 49 P8)면 뽑지 않고 일꾼 해금 티어에서 고른다. 없으면 산출 그대로
    */
-  readonly gather?: { readonly subcategory: string; readonly lots: number } | undefined;
+  readonly gather?:
+    | { readonly subcategory: string; readonly lots: number; readonly mode?: GatherMode | undefined }
+    | undefined;
 }
 
 /** 시설 레벨의 티어 상한을 받는가(D-5001). 채집 단계(gather)는 받지 않는다(D-506) */

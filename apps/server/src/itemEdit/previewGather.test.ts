@@ -1,5 +1,6 @@
 // 채집 티어 추첨 미리 보기(D-506, 49 N43) — 팩 확률표 = 시뮬 TEST_GATHER_BANDS(둘을 함께 고치게, 팩 파일을 읽어야 해서 서버 시험),
-// 실제 팩으로 철광석(T3)·구리(꺼짐)·곡물(추첨 밖) 미리 보기
+// 실제 팩으로 철광석(T3)·구리(T2, 켜짐)·은(꺼짐)·곡물(추첨 밖) 미리 보기. 옛 1차 생산 규칙(D-507): 진행 속도·수확량·필요 진행,
+// 농장 선택 방식(해금 티어)
 import {
   facilityEntrySchema,
   gatherTierEntrySchema,
@@ -30,6 +31,7 @@ function corePack() {
       subcategory: item.subcategory?.id,
       tier: item.tier,
       enabled: item.enabled,
+      lotSize: item.lotSize,
     }));
   return { bands, facilities, items };
 }
@@ -49,6 +51,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
     facilities: pack.facilities,
     bands: pack.bands.map((band) => ({ from: band.from, weightsPm: [...band.weightsPm] })),
     levelBonus: TEST_SOCIETY_COEFFICIENTS.gatherLevelBonus,
+    rules: TEST_SOCIETY_COEFFICIENTS,
   };
   const find = (id: string): GatherItem => {
     const item = pack.items.find((entry) => entry.id === id);
@@ -80,11 +83,72 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
     expect(shown?.bands.at(-1)?.to).toBeNull();
   });
 
-  it("꺼진 구리(T2)는 확률 0, 초안을 켜면 그 티어 몫(0~39 구간 10%)을 받는다", () => {
-    const copper = find("copper_ore");
-    expect(previewGather(ctx, copper, pack.items, DEFAULT_PREVIEW_UNIT)?.levels[0]?.chanceBp).toBe(0);
-    const on = previewGather(ctx, { ...copper, enabled: true }, pack.items, DEFAULT_PREVIEW_UNIT);
-    expect(on?.levels[0]?.chanceBp).toBe(1000);
+  it("켜진 구리(T2)는 0~39 구간 10%, 꺼진 은(T4)은 0이고 초안을 켜면 Lv5(60~79) 1%", () => {
+    expect(
+      previewGather(ctx, find("copper_ore"), pack.items, DEFAULT_PREVIEW_UNIT)?.levels[0]?.chanceBp,
+    ).toBe(1000);
+    const silver = find("silver_ore");
+    expect(previewGather(ctx, silver, pack.items, DEFAULT_PREVIEW_UNIT)?.levels[4]?.chanceBp).toBe(0);
+    const on = previewGather(ctx, { ...silver, enabled: true }, pack.items, DEFAULT_PREVIEW_UNIT);
+    expect(on?.levels.map((row) => row.chanceBp)).toEqual([0, 0, 0, 0, 100]);
+  });
+
+  it("진행·수확량(D-507): 철광석 = 새 유닛 속도 ×1·한 번에 2개(1 + ⌊10 × 0.10⌋)·T3 필요 진행 120 = 2시간, 광석 한 번 1,000g", () => {
+    const work = previewGather(ctx, find("iron_ore"), pack.items, DEFAULT_PREVIEW_UNIT)?.work;
+    expect(work).toMatchObject({
+      divisor: 20,
+      yieldBase: 1,
+      yieldPerStatPm: 100,
+      yieldCap: 10,
+      requiredProgress: 120,
+      tickMs: 60_000,
+      harvestGrams: 1000,
+      unitPrimary: 10,
+      unitSecondary: 10,
+      unitProgress: 1,
+      unitYield: 2,
+      unitHarvestMs: 7_200_000,
+    });
+    // 스탯 40 → 진행 2(한 번 1시간)·한 번에 5개, 100 → 진행 5·상한 10개
+    expect(work?.rows.map((row) => [row.stat, row.progress, row.yield, row.harvestMs])).toEqual([
+      [10, 1, 2, 7_200_000],
+      [20, 1, 3, 7_200_000],
+      [40, 2, 5, 3_600_000],
+      [60, 3, 7, 2_400_000],
+      [100, 5, 10, 1_440_000],
+      [160, 8, 10, 900_000],
+      [240, 12, 10, 600_000],
+    ]);
+    // 잡석(T0, 개 단위)은 g 환산 없음, 필요 진행 30
+    expect(previewGather(ctx, find("rubble"), pack.items, DEFAULT_PREVIEW_UNIT)?.work).toMatchObject({
+      harvestGrams: null,
+      requiredProgress: 30,
+      unitHarvestMs: 1_800_000,
+    });
+  });
+
+  it("농장은 선택 + 효율(49 P8): VIT 10 + INT 10 = 20 → 해금 T1, 켠 감자(T1)가 늘 나온다(레벨 보너스 없음)", () => {
+    const potato = { ...find("potato"), enabled: true };
+    const shown = previewGather(ctx, potato, pack.items, DEFAULT_PREVIEW_UNIT);
+    expect(shown).toMatchObject({ facility: "farm", mode: "select", unitTier: 1, levelBonus: 0, tier: 1 });
+    expect(shown?.levels.map((row) => [row.band, row.chanceBp])).toEqual(
+      Array.from({ length: 5 }, () => [-1, 10_000]),
+    );
+    expect(shown?.work).toMatchObject({
+      yieldPerStatPm: 80,
+      yieldCap: 8,
+      unitYield: 1,
+      requiredProgress: 60,
+    });
+    // 옛 예시 VIT 60 + INT 20 = 80 → T4: T2~T4 작물이 꺼져 있어 감자(T1)로 내려온다
+    const strong = {
+      ...DEFAULT_PREVIEW_UNIT,
+      primaries: { ...DEFAULT_PREVIEW_UNIT.primaries, vit: 60, int: 20 },
+    };
+    const high = previewGather(ctx, potato, pack.items, strong);
+    expect(high).toMatchObject({ unitTier: 4 });
+    expect(high?.levels[0]?.chanceBp).toBe(10_000);
+    expect(high?.work).toMatchObject({ unitProgress: 3, unitYield: 2, unitHarvestMs: 1_200_000 });
   });
 
   it("추첨 시설 사다리에 없는 아이템(곡물)은 null", () => {

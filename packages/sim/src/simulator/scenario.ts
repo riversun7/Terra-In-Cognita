@@ -36,10 +36,12 @@ export interface ScenarioFacilityPlan {
   readonly level: number;
   readonly workers: number;
   /**
-   * 채집 티어 추첨의 일꾼 스탯(1차 + 2차, D-506). 시뮬 유닛에는 스탯이 없어서 시설마다 적는다. 없으면 새 유닛 평균
-   * 2 × ⌊N9 초기 합 ÷ 6⌋(출발값 60 → 20, economy.ts defaultGatherStat)
+   * 일꾼의 주 스탯·보조 스탯(그 시설 스탯 짝, 광산 STR·VIT 등. D-506·D-507). 시뮬 유닛에는 스탯이 없어서 시설마다 적는다.
+   * 주 = 진행 속도, 보조 = 수확량, 합 = 추첨 구간(선택 방식은 해금 티어). 없으면 새 유닛 평균 ⌊N9 초기 합 ÷ 6⌋
+   * (출발값 60 → 10, economy.ts defaultGatherStat)
    */
-  readonly gatherStat?: number | undefined;
+  readonly primaryStat?: number | undefined;
+  readonly secondaryStat?: number | undefined;
 }
 
 /** 경제 손잡이(있으면 경제를 돌린다). [임시] 값은 시나리오 시험값이다 */
@@ -201,9 +203,12 @@ export function parseScenario(value: unknown): Scenario {
         recipe: text(field(plan, "recipe"), `${path}.recipe`),
         level: int(field(plan, "level"), `${path}.level`, 1, 5),
         workers: int(field(plan, "workers"), `${path}.workers`, 0, 100_000),
-        ...(field(plan, "gatherStat") === undefined
+        ...(field(plan, "primaryStat") === undefined
           ? {}
-          : { gatherStat: int(field(plan, "gatherStat"), `${path}.gatherStat`, 0, 100_000) }),
+          : { primaryStat: int(field(plan, "primaryStat"), `${path}.primaryStat`, 0, 100_000) }),
+        ...(field(plan, "secondaryStat") === undefined
+          ? {}
+          : { secondaryStat: int(field(plan, "secondaryStat"), `${path}.secondaryStat`, 0, 100_000) }),
       })),
       stock: optionalList(field(item, "stock"), `${at}.stock`, (entry, path) => ({
         item: text(field(entry, "item"), `${path}.item`),

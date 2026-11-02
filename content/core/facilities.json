@@ -9,6 +9,24 @@
       "stage": "gather",
       "slotsPerLevel": 10,
       "pollution": 1,
+      "gather": {
+        "primary": "vit",
+        "secondary": "int",
+        "subcategory": "crop",
+        "mode": "select",
+        "yieldBase": 1,
+        "yieldPerStatPm": 80,
+        "yieldCap": 8
+      },
+      "build": {
+        "mulPm": 800,
+        "materials": [
+          {
+            "item": "rubble",
+            "qty": 8
+          }
+        ]
+      },
       "enabled": true
     },
     {
@@ -23,7 +41,23 @@
       "gather": {
         "primary": "dex",
         "secondary": "str",
-        "subcategory": "wood"
+        "subcategory": "wood",
+        "yieldBase": 1,
+        "yieldPerStatPm": 100,
+        "yieldCap": 10
+      },
+      "build": {
+        "mulPm": 800,
+        "materials": [
+          {
+            "item": "rubble",
+            "qty": 10
+          },
+          {
+            "item": "rubble",
+            "qty": 5
+          }
+        ]
       },
       "enabled": true
     },
@@ -39,7 +73,23 @@
       "gather": {
         "primary": "str",
         "secondary": "vit",
-        "subcategory": "ore"
+        "subcategory": "ore",
+        "yieldBase": 1,
+        "yieldPerStatPm": 100,
+        "yieldCap": 10
+      },
+      "build": {
+        "mulPm": 800,
+        "materials": [
+          {
+            "item": "rubble",
+            "qty": 12
+          },
+          {
+            "item": "rubble",
+            "qty": 10
+          }
+        ]
       },
       "enabled": true
     },
@@ -52,6 +102,19 @@
       "stage": "process",
       "slotsPerLevel": 10,
       "pollution": 8,
+      "build": {
+        "mulPm": 1200,
+        "materials": [
+          {
+            "item": "rubble",
+            "qty": 15
+          },
+          {
+            "item": "rubble",
+            "qty": 8
+          }
+        ]
+      },
       "enabled": true
     },
     {
@@ -63,6 +126,23 @@
       "stage": "finish",
       "slotsPerLevel": 10,
       "pollution": 1,
+      "build": {
+        "mulPm": 1200,
+        "materials": [
+          {
+            "item": "rubble",
+            "qty": 15
+          },
+          {
+            "item": "rubble",
+            "qty": 10
+          },
+          {
+            "item": "rubble",
+            "qty": 5
+          }
+        ]
+      },
       "enabled": true
     },
     {
@@ -74,6 +154,19 @@
       "stage": "finish",
       "slotsPerLevel": 10,
       "pollution": 4,
+      "build": {
+        "mulPm": 1200,
+        "materials": [
+          {
+            "item": "rubble",
+            "qty": 10
+          },
+          {
+            "item": "iron_ore",
+            "qty": 6
+          }
+        ]
+      },
       "enabled": true
     }
   ]

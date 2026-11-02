@@ -67,6 +67,15 @@
       "enabled": true
     },
     {
+      "id": "livestock_byproduct",
+      "name": {
+        "ko": "목축 부산물",
+        "en": "Livestock byproducts"
+      },
+      "major": "raw",
+      "enabled": true
+    },
+    {
       "id": "creature_material",
       "name": {
         "ko": "크리쳐 재료",

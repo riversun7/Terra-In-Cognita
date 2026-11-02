@@ -120,6 +120,160 @@
       ],
       "work": 500,
       "enabled": true
+    },
+    {
+      "id": "smelt_copper",
+      "name": {
+        "ko": "구리 제련",
+        "en": "Smelt copper"
+      },
+      "facility": "smelter",
+      "inputs": [
+        {
+          "item": "copper_ore",
+          "qty": 1000
+        }
+      ],
+      "outputs": [
+        {
+          "item": "copper_ingot",
+          "qty": 1
+        }
+      ],
+      "work": 1000,
+      "enabled": false
+    },
+    {
+      "id": "smelt_silver",
+      "name": {
+        "ko": "은 제련",
+        "en": "Smelt silver"
+      },
+      "facility": "smelter",
+      "inputs": [
+        {
+          "item": "silver_ore",
+          "qty": 1000
+        }
+      ],
+      "outputs": [
+        {
+          "item": "silver_ingot",
+          "qty": 1
+        }
+      ],
+      "work": 1000,
+      "enabled": false
+    },
+    {
+      "id": "smelt_titanium",
+      "name": {
+        "ko": "티타늄 제련",
+        "en": "Smelt titanium"
+      },
+      "facility": "smelter",
+      "inputs": [
+        {
+          "item": "titanium_ore",
+          "qty": 1000
+        }
+      ],
+      "outputs": [
+        {
+          "item": "titanium_ingot",
+          "qty": 1
+        }
+      ],
+      "work": 1000,
+      "enabled": false
+    },
+    {
+      "id": "smelt_gold",
+      "name": {
+        "ko": "금 제련",
+        "en": "Smelt gold"
+      },
+      "facility": "smelter",
+      "inputs": [
+        {
+          "item": "gold_ore",
+          "qty": 1000
+        }
+      ],
+      "outputs": [
+        {
+          "item": "gold_ingot",
+          "qty": 1
+        }
+      ],
+      "work": 1000,
+      "enabled": false
+    },
+    {
+      "id": "smelt_platinum",
+      "name": {
+        "ko": "백금 제련",
+        "en": "Smelt platinum"
+      },
+      "facility": "smelter",
+      "inputs": [
+        {
+          "item": "platinum_ore",
+          "qty": 1000
+        }
+      ],
+      "outputs": [
+        {
+          "item": "platinum_ingot",
+          "qty": 1
+        }
+      ],
+      "work": 1000,
+      "enabled": false
+    },
+    {
+      "id": "smelt_mithril",
+      "name": {
+        "ko": "미스릴 제련",
+        "en": "Smelt mithril"
+      },
+      "facility": "smelter",
+      "inputs": [
+        {
+          "item": "mithril",
+          "qty": 1000
+        }
+      ],
+      "outputs": [
+        {
+          "item": "mithril_ingot",
+          "qty": 1
+        }
+      ],
+      "work": 1000,
+      "enabled": false
+    },
+    {
+      "id": "smelt_orichalcum",
+      "name": {
+        "ko": "오리할콘 제련",
+        "en": "Smelt orichalcum"
+      },
+      "facility": "smelter",
+      "inputs": [
+        {
+          "item": "orichalcum",
+          "qty": 1000
+        }
+      ],
+      "outputs": [
+        {
+          "item": "orichalcum_ingot",
+          "qty": 1
+        }
+      ],
+      "work": 1000,
+      "enabled": false
     }
   ]
 }

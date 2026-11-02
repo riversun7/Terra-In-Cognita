@@ -7,7 +7,7 @@
 //   대량 도구(WP-7): CSV 가져오기의 틀린 줄은 줄 번호로, 고친 줄·새 줄은 담아 적용. 크리쳐 전용 장비(D-494): 미리 보기·전투 실험실.
 // - player: 권한 없음 화면, tRPC items.*는 403.
 // - 사진: 390·1440 × 개발 화면 테마 네온·라이트 × 한국어·영어, 보이는 화면 크기(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui). 소모품 효과량 칸·
-//   미리 보기 판도 같은 조합으로 찍는다.
+//   미리 보기 판도 같은 조합으로 찍는다. 옛 자원(295·D-505): 광석·목축 부산물 거르기 목록, 시작 시세 칸·지금 세계 시세(시세 없음).
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 아이템 편집기 분류의 덮어쓰기를 모두 지운다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
@@ -651,6 +651,42 @@ test.describe("배치·사진", () => {
           detail(page).locator('.ie-preview [data-part="use"]'),
           `items-use-preview-${theme}-${language}-${width}`,
         );
+        expect(deviceErrors).toEqual([]);
+      });
+
+      test("옛 자원(295·D-505): 광석·목축 부산물 거르기 목록, 시작 시세 칸과 지금 세계 시세(시세 없음), 사진", async ({
+        page,
+        deviceErrors,
+      }) => {
+        await editorReady(page, "/dev/items?item=copper_ore");
+        await expect(detail(page)).toHaveAttribute("data-item", "copper_ore");
+        const value = detail(page).locator('[data-section="value"]');
+        await expect(
+          value.getByLabel(message(language, "dev_items_field_start_price"), { exact: true }),
+        ).toHaveValue("1");
+        // 서버가 물자 거래소를 아직 돌리지 않아 지금 세계 시세는 "시세 없음"
+        await expect(value.locator('[data-part="market-price"]')).toContainText(
+          message(language, "dev_items_world_price_none"),
+        );
+        await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await elementShot(value, `items-start-price-${theme}-${language}-${width}`);
+        await toList(page);
+        const filters = page.locator(".ie-filters");
+        await filters.locator("summary").click();
+        // 거르기 첫 칸이 중분류다(label 안 select라 이름에 고른 값이 붙는다)
+        const pick = filters.locator("select").first();
+        // 광석 10개(잡석·석재 + 금속 원석 8), 목축 부산물 17개(먹지 않는 16 + 밍크 오일)
+        for (const [subcategory, count] of [
+          ["ore", 10],
+          ["livestock_byproduct", 17],
+        ] as const) {
+          await pick.selectOption(subcategory);
+          await expect(page.locator(".ie-item")).toHaveCount(count);
+          expect(await horizontalOverflow(page)).toEqual([]);
+          await shot(page, `items-${subcategory}-${theme}-${language}-${width}`);
+        }
         expect(deviceErrors).toEqual([]);
       });
     });

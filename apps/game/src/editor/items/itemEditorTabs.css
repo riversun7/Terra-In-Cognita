@@ -10,20 +10,32 @@
   min-width: 0;
   flex: 1 1 10em;
 }
+/* 버튼은 늘이지 않는다(글자 폭, ADR 2026-11-02-dev-ui) */
+.ie-tab-tools > button,
+.ie-tab-tools > input[type="file"] {
+  flex: 0 0 auto;
+}
 .ie-tab-form {
   display: grid;
   gap: var(--space-2);
   min-width: 0;
 }
+/* 효과 표(공용 .dev-table): 이름 칸은 접혀도 되고 나머지는 한 줄. 고른 줄은 고른 줄 바탕 + 왼쪽 초점색 */
 .ie-fx-table th[scope="row"] {
-  white-space: normal;
+  min-width: 12em;
+  overflow-wrap: anywhere;
 }
-.ie-fx-table tr[data-selected] th {
-  box-shadow: inset var(--border-w) 0 0 var(--color-focus);
+.ie-fx-table th[scope="row"] > * {
+  margin-inline-end: var(--space-2);
 }
-.ie-fx-table tr[data-selected] th,
-.ie-fx-table tr[data-selected] td {
-  color: var(--color-focus);
+.ie-fx-table td {
+  white-space: nowrap;
+}
+.ie-fx-table tbody tr[data-selected] > * {
+  background-color: var(--dev-row-selected);
+}
+.ie-fx-table tbody tr[data-selected] > th {
+  box-shadow: inset var(--space-1) 0 0 var(--color-focus);
 }
 .ie-fx-pick {
   min-height: var(--tap-size);
@@ -60,6 +72,11 @@
   gap: var(--space-2);
   min-width: 0;
 }
+/* 파일 고르기 칸: 누르는 곳 --tap-size */
+.ie-bulk input[type="file"] {
+  min-height: var(--tap-size);
+  font-size: var(--font-size-sm);
+}
 .ie-bulk-text {
   width: 100%;
   min-height: 8em;
@@ -70,9 +87,25 @@
   max-height: 14em;
   overflow-y: auto;
 }
+/* 여러 개 고치기의 고르기 목록: 여러 칸으로 촘촘하게 */
 .ie-bulk-pick {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16em), 1fr));
+  gap: 0 var(--space-4);
   max-height: 18em;
   overflow-y: auto;
+}
+/* 쓰는 곳(효과 사전): 이름표 | 표지들 두 칸 */
+.ie-fx .ie-facts[data-part="effect-usage"] {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+.ie-fx .ie-facts[data-part="effect-usage"] dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 @media (min-width: 40em) {

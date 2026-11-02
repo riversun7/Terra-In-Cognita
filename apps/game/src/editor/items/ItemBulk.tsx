@@ -106,7 +106,7 @@ function ExportPart({ list }: { list: ItemEditorListResponse }) {
       {result && href ? (
         <>
           <textarea
-            className="ie-bulk-text"
+            className="input ie-bulk-text"
             readOnly
             value={result.text}
             aria-label={m.dev_items_bulk_export()}
@@ -161,7 +161,7 @@ function ImportPart({
       </label>
       <textarea
         id={textId}
-        className="ie-bulk-text"
+        className="input ie-bulk-text"
         value={text}
         onChange={(event) => setText(event.target.value)}
       />

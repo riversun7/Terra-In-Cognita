@@ -377,8 +377,8 @@ export function ItemEffects({
           onChange={setKind}
         />
       </div>
-      <div className="ie-table-wrap">
-        <table className="ie-table ie-fx-table">
+      <div className="dev-table-wrap">
+        <table className="dev-table ie-fx-table">
           <thead>
             <tr>
               <th scope="col">{m.dev_items_fx_col_name()}</th>
@@ -411,7 +411,7 @@ export function ItemEffects({
                     >
                       {entry.name[locale]}
                     </button>{" "}
-                    <span className="ie-dim">{id}</span>
+                    <span className="dev-code">{id}</span>
                     {entry.enabled ? null : <span className="ie-chip">{m.dev_items_disabled()}</span>}
                     {staged.has(id) ? (
                       <span className="ie-chip ie-chip-staged">{m.dev_items_staged_chip()}</span>

@@ -1,5 +1,6 @@
 /*
  * 아이템 편집기 목록 판(대분류 타일·찾기·거르기·줄)과 분류 자료 칸 — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
+ * 개발 화면 층(ADR 2026-11-02-dev-ui): 목록은 한 줄짜리 촘촘한 줄(줄무늬, 고른 줄은 고른 줄 바탕 + 왼쪽 초점색), 고르기·표지는 작은 네모.
  * 칩·판·편집 칸은 itemEditor.css. 같은 조각(ItemEditorScreen-*)에 든다.
  */
 .ie-list-pane {
@@ -17,23 +18,25 @@
 .ie-tile {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   min-height: var(--tap-size);
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   background-color: var(--color-surface);
   box-shadow: none;
   color: var(--color-text);
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
 }
 .ie-tile[aria-pressed="true"] {
   border-color: var(--color-focus);
-  background-color: var(--color-surface-2);
+  background-color: var(--dev-row-selected);
   font-weight: var(--font-weight-strong);
 }
 .ie-tile-count {
   color: var(--color-text-muted);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 .ie-filters > summary,
@@ -49,9 +52,9 @@
 }
 .ie-filter-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr));
   align-items: end;
-  gap: var(--space-2);
+  gap: var(--space-2) var(--space-3);
 }
 .ie-filter-grid select {
   width: 100%;
@@ -72,60 +75,126 @@
   justify-content: space-between;
   gap: var(--space-2);
 }
+
+/*
+ * 목록: 한 줄 = 대분류 표지 · 이름 · ID·티어·칸·거래 · 요약 · 표지. 좁은 폭(40em 아래)은 두 줄
+ * (표지·이름·표지들 / ID 줄·요약). 줄 칸은 목록 폭을 넘지 않는다(minmax(0, 1fr): 줄임표 글이 칸을 넓히지 않게).
+ */
 .ie-list {
   margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
-  gap: var(--space-1);
+  grid-template-columns: minmax(0, 1fr);
   max-height: 70vh;
   overflow-y: auto;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.ie-list > li:nth-child(even) .ie-item {
+  background-color: var(--dev-row-alt);
 }
 .ie-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  justify-items: start;
-  gap: var(--space-1);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0 var(--space-3);
   width: 100%;
-  min-height: var(--tap-size);
-  padding: var(--space-2) var(--space-3);
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-control);
+  min-height: var(--dev-row-h);
+  padding: var(--space-1) var(--space-4);
+  border: 0;
+  border-block-end: var(--hairline) solid var(--color-border);
+  border-radius: 0;
   background-color: var(--color-surface);
   box-shadow: none;
   color: var(--color-text);
+  font-weight: var(--font-weight-regular);
   text-align: start;
 }
-.ie-item[aria-current="true"] {
-  border-color: var(--color-focus);
-  background-color: var(--color-surface-2);
+.ie-list > li .ie-item[aria-current="true"] {
+  background-color: var(--dev-row-selected);
+  box-shadow: inset var(--space-1) 0 0 var(--color-focus);
 }
 .ie-item[data-off] .ie-item-name {
   color: var(--color-text-muted);
   text-decoration: line-through;
 }
-.ie-item-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
 .ie-item-name {
+  min-width: 0;
   font-weight: var(--font-weight-strong);
   overflow-wrap: anywhere;
 }
-.ie-item-meta,
-.ie-item-summary {
+.ie-item-meta {
+  min-width: 0;
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 .ie-item-summary {
+  min-width: 0;
+  font-size: var(--font-size-xs);
   color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.ie-item .ie-chips {
+  flex-wrap: nowrap;
+}
+/* 좁은 폭: 빈 ::after(폭 100%)가 표지들 뒤에서 줄을 바꾸고, ID 줄·요약은 둘째 줄로 */
+.ie-item::after {
+  content: "";
+  order: 1;
+  flex-basis: 100%;
+}
+.ie-item-meta,
+.ie-item-summary {
+  order: 2;
+}
+.ie-item .ie-chip,
+.ie-item .ie-cat {
+  white-space: nowrap;
 }
 
-/* ── 분류 자료 ── */
+/* 넓은 폭: 한 줄로 두고 넘치는 이름·ID 줄·요약은 줄임표(전체 글은 편집 판·title에) */
+@media (min-width: 40em) {
+  .ie-item {
+    flex-wrap: nowrap;
+  }
+  .ie-item::after {
+    content: none;
+  }
+  .ie-item-meta,
+  .ie-item-summary {
+    order: 0;
+  }
+  .ie-item-name,
+  .ie-item-meta,
+  .ie-item-summary {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* 줄어드는 차례: 요약 → ID 줄 → (45%를 넘는) 이름 */
+  .ie-item-name {
+    flex: 0 0 auto;
+    max-width: 45%;
+  }
+  .ie-item-meta {
+    flex: 0 1 auto;
+  }
+  .ie-item-summary {
+    flex: 1 1 0;
+  }
+  .ie-item .ie-chips {
+    flex: none;
+    margin-inline-start: auto;
+  }
+}
+
+/* ── 분류 자료: 줄무늬 줄, 펼치면 칸 ── */
 .ie-tax-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
@@ -137,28 +206,43 @@
   padding: 0;
   list-style: none;
   display: grid;
-  gap: var(--space-1);
   max-height: 60vh;
   overflow-y: auto;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+}
+.ie-tax-list > li {
+  border-block-end: var(--hairline) solid var(--color-border);
+}
+.ie-tax-list > li:nth-child(even) {
+  background-color: var(--dev-row-alt);
 }
 .ie-tax-row > summary {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1) var(--space-2);
-  min-height: var(--tap-size);
+  gap: var(--space-1) var(--space-3);
+  min-height: var(--dev-row-h);
+  padding: 0 var(--space-3);
   cursor: pointer;
   overflow-wrap: anywhere;
 }
+.ie-tax-row[open] > summary {
+  background-color: var(--dev-row-selected);
+  box-shadow: inset var(--space-1) 0 0 var(--color-focus);
+}
 .ie-tax-row[data-staged] > summary {
   color: var(--color-focus);
+}
+.ie-tax-row > button {
+  margin: var(--space-2) var(--space-3);
 }
 .ie-tax-body,
 .ie-new-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-control);
   background-color: var(--color-surface-2);
 }

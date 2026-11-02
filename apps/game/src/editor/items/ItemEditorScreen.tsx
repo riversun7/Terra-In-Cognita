@@ -38,14 +38,12 @@ import {
   sameJson,
   stableJson,
 } from "../content/contentEditorModel.ts";
-import { ItemBulk } from "./ItemBulk.tsx";
 import { ItemDetail } from "./ItemDetail.tsx";
-import { ItemEffects } from "./ItemEffects.tsx";
 import { ExportPanel, ItemSummary, ItemTabs, RiskyConfirm, SleepingPanel } from "./ItemEditorPanels.tsx";
 import { ItemList } from "./ItemList.tsx";
 import { ItemNewForm } from "./ItemNewForm.tsx";
 import { type CheckState, ItemStageBar } from "./ItemStageBar.tsx";
-import { ItemTaxonomy } from "./ItemTaxonomy.tsx";
+import { ITEM_TABS, ITEM_TAB_TEXT, type ItemTab, ItemTabPanel } from "./ItemTabPanel.tsx";
 import { errorText } from "./itemMessages.ts";
 import {
   EMPTY_STAGE,
@@ -76,14 +74,6 @@ import { DebouncedTask } from "./DebouncedTask.tsx";
 import { useItemEditorData } from "./useItemEditorData.ts";
 import "./itemEditor.css";
 
-type Tab = "items" | "taxonomy" | "effects" | "bulk";
-const TABS: readonly Tab[] = ["items", "taxonomy", "effects", "bulk"];
-const TAB_TEXT: Readonly<Record<Tab, () => string>> = {
-  items: m.dev_items_tab_items,
-  taxonomy: m.dev_items_tab_taxonomy,
-  effects: m.dev_items_tab_effects,
-  bulk: m.dev_items_tab_bulk,
-};
 type ErrorInfo = ContentErrorInfo<ItemEditorReason>;
 
 /** 사본 이름 꼬리: 팩 이름 칸은 두 언어를 함께 적는 콘텐츠 값이라 화면 언어와 상관없이 둘 다 붙인다(설계안 3.8) */
@@ -97,7 +87,7 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
   const tabsId = useId();
   const store = useItemEditorData(initialId ?? null);
   const { load, list, reload } = store;
-  const [tab, setTab] = useState<Tab>("items");
+  const [tab, setTab] = useState<ItemTab>("items");
   const [selected, setSelected] = useState<string | null>(initialId ?? null);
   const [view, setView] = useState<"list" | "detail">(initialId ? "detail" : "list");
   const staging = useItemStage();
@@ -482,7 +472,7 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
           <LiveMessage tone="error" lines={problem.lines} version={problem.version} />
           <ItemTabs
             id={tabsId}
-            tabs={TABS.map((value) => ({ value, label: TAB_TEXT[value]() }))}
+            tabs={ITEM_TABS.map((value) => ({ value, label: ITEM_TAB_TEXT[value]() }))}
             selected={tab}
             label={m.dev_items_tabs_label()}
             onSelect={setTab}
@@ -555,27 +545,19 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
               </div>
             </div>
           ) : (
-            <div role="tabpanel" id={`${tabsId}-${tab}-panel`} aria-labelledby={`${tabsId}-${tab}`}>
-              {tab === "taxonomy" ? (
-                <ItemTaxonomy list={list} stage={stage} locale={locale} onStage={stageTax} />
-              ) : tab === "effects" ? (
-                <ItemEffects
-                  list={list}
-                  staged={stage.effects}
-                  locale={locale}
-                  onStage={stageEff}
-                  onOpenItem={(id) => select(id)}
-                />
-              ) : (
-                <ItemBulk
-                  list={list}
-                  locale={locale}
-                  issues={checked?.result?.issues ?? []}
-                  onStage={stageImport}
-                  onPatch={applyPatch}
-                />
-              )}
-            </div>
+            <ItemTabPanel
+              id={tabsId}
+              tab={tab}
+              list={list}
+              stage={stage}
+              locale={locale}
+              issues={checked?.result?.issues ?? []}
+              onStageTaxonomy={stageTax}
+              onStageEffect={stageEff}
+              onOpenItem={(id) => select(id)}
+              onImport={stageImport}
+              onPatch={applyPatch}
+            />
           )}
           {askRisky ? (
             <RiskyConfirm ids={askRisky} onYes={() => void apply(true)} onNo={() => setAskRisky(null)} />

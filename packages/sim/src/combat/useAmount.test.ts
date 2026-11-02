@@ -1,4 +1,5 @@
-// 소모품 효과량 시험(D-501): 기준 × min(상한, 스탯 ÷ 적정 스탯) × (1 ± 오차), 상한 = 무기 효율과 같은 계수표 값, 굴림은 범위 안 균등 정수.
+// 소모품 효과량 시험(D-501): 기준 × min(상한, 스탯 ÷ 적정 스탯) × (1 ± 오차), 상한 = 무기 몫과 같은 계수표 값(N10 1000‰, D-502·사용자 답
+// 299: 적정 이상이면 기준 ±50% — 40이면 20~60), 굴림은 범위 안 균등 정수.
 import { createRng } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import { TEST_COMBAT_COEFFICIENTS } from "./coefficients.ts";
@@ -23,16 +24,38 @@ describe("소모품 효과량 범위(D-501)", () => {
     expect(low).toEqual({ ratioPm: 1000, scaled: 30, min: 15, max: 45 });
     expect(high).toEqual({ ratioPm: 250, scaled: 12, min: 6, max: 18 });
     expect(low.scaled).toBeGreaterThan(high.scaled);
-    // 스탯이 높은 유닛(VIT 40)은 기준 50이 낫다: 30 × 2(상한) = 60 대 50
-    expect(useAmountRange(30, { statValue: 40, appropriate: 10 }, CAP, 500).scaled).toBe(60);
+    // 스탯이 높은 유닛(VIT 40)은 기준 50이 낫다: 30 × 1(상한, 넘는 보너스 없음) = 30 대 50
+    expect(useAmountRange(30, { statValue: 40, appropriate: 10 }, CAP, 500).scaled).toBe(30);
     expect(useAmountRange(50, { statValue: 40, appropriate: 40 }, CAP, 500).scaled).toBe(50);
   });
 
-  it("상한은 무기 효율(D-420)과 같은 값·같은 비율이다: 비율 ≤ 상한, 가운데 값 = weaponScaled", () => {
+  it("사용자 답 299: 적정 이상이면 기준 ±50%가 상하한(기준 40 → 20~60), 적정 미만이면 그 비율로 준다", () => {
+    expect(useAmountRange(40, { statValue: 39, appropriate: 10 }, CAP, 500)).toEqual({
+      ratioPm: 1000,
+      scaled: 40,
+      min: 20,
+      max: 60,
+    });
+    expect(useAmountRange(40, { statValue: 10, appropriate: 10 }, CAP, 500)).toEqual({
+      ratioPm: 1000,
+      scaled: 40,
+      min: 20,
+      max: 60,
+    });
+    expect(useAmountRange(40, { statValue: 5, appropriate: 10 }, CAP, 500)).toEqual({
+      ratioPm: 500,
+      scaled: 20,
+      min: 10,
+      max: 30,
+    });
+  });
+
+  it("상한은 무기 몫(D-502)과 같은 값·같은 비율이다: 비율 ≤ 상한(1000‰), 가운데 값 = weaponScaled", () => {
     expect(CAP).toBe(APPROPRIATE_CAP_PM);
+    expect(CAP).toBe(1000);
     const over = useAmountRange(40, { statValue: 100, appropriate: 10 }, CAP, 500);
     expect(over.ratioPm).toBe(CAP);
-    expect(over.scaled).toBe(80);
+    expect(over.scaled).toBe(40);
     for (const [stat, appropriate] of [
       [7, 13],
       [39, 20],
@@ -40,7 +63,7 @@ describe("소모품 효과량 범위(D-501)", () => {
       [1000, 3],
     ] as const)
       expect(useAmountRange(41, { statValue: stat, appropriate }, CAP, 250).scaled).toBe(
-        weaponScaled(41, stat, appropriate, CAP),
+        weaponScaled(41, stat, appropriate * 1000, CAP),
       );
     // 계수표 상한을 바꾸면 그 값을 쓴다
     expect(useAmountRange(40, { statValue: 100, appropriate: 10 }, 3000, 500).ratioPm).toBe(3000);
@@ -50,12 +73,12 @@ describe("소모품 효과량 범위(D-501)", () => {
     expect(useAmountRange(40, null, CAP, 250)).toEqual({ ratioPm: 1000, scaled: 40, min: 30, max: 50 });
   });
 
-  it("정수 내림: 스탯 39·적정 20 → 1950‰ → 40 × 1.95 = 78, ±250‰ → 58~97", () => {
-    expect(useAmountRange(40, { statValue: 39, appropriate: 20 }, CAP, 250)).toEqual({
-      ratioPm: 1950,
-      scaled: 78,
-      min: 58,
-      max: 97,
+  it("정수 내림: 스탯 39·적정 40 → 975‰ → 40 × 0.975 = 39, ±250‰ → 29~48", () => {
+    expect(useAmountRange(40, { statValue: 39, appropriate: 40 }, CAP, 250)).toEqual({
+      ratioPm: 975,
+      scaled: 39,
+      min: 29,
+      max: 48,
     });
   });
 

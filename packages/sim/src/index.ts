@@ -393,9 +393,14 @@ export {
   elementAddPm,
   familyValue,
   matchupPm,
+  APPROPRIATE_CAP_PM,
   realAttackOf,
+  realCritPm,
+  realHitPm,
   resolveAttack,
   sightRadius,
+  statPlusWeapon,
+  weaponRatioPm,
   weaponScaled,
   type AttackOutcome,
   type AttackProfile,
@@ -412,11 +417,12 @@ export {
 export {
   DEFAULT_COMBAT_FORMULA_SET,
   attackIntervalMs,
-  bareAttackValue,
+  attackValue,
+  bareAppropriateMilli,
   combatFormulaSetFrom,
   critMultiplierPm,
+  dexFrameValue,
   evadeChancePm,
-  frameValue,
   isValidCombatFormula,
   staminaCostMilliOf,
   staminaScoreOf,
@@ -436,10 +442,12 @@ export {
 } from "./combat/stats.ts";
 export {
   type AttackField,
+  appropriateMilliOf,
   basicFieldOf,
   weaponFieldsOf,
   specFromStats,
   type UnitBody,
+  type WeaponAppropriate,
   type WeaponAttackField,
   type WeaponSpec,
 } from "./combat/unitSpec.ts";
@@ -552,12 +560,12 @@ export {
   type SlotKind,
   type StatRange,
 } from "./combat/equipment.ts";
-export { resolveWeaponAppropriate, withStatTable } from "./combat/equipmentAppropriate.ts";
 export {
   TEST_COMBAT_CATALOG,
   UNARMED,
   UNARMED_ELEMENTAL,
   skillsOf,
+  withStatTable,
   type CombatCatalog,
   type UnitKindDef,
 } from "./combat/catalog.ts";
@@ -572,12 +580,6 @@ export {
   type DroppedReferences,
 } from "./combat/packCatalog.ts";
 export { SIM_ITEM_REFS } from "./itemRefs.ts";
-export {
-  APPROPRIATE_ROWS,
-  appropriateFromPrimaries,
-  type DerivedAppropriate,
-  type PrimaryAppropriate,
-} from "./combat/appropriate.ts";
 export {
   TUNING_KEYS,
   combatCoefficientsFrom,

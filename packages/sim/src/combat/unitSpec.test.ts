@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { TEST_COMBAT_CATALOG, UNARMED as UNARMED_PHYSICAL, UNARMED_ELEMENTAL } from "./catalog.ts";
+import { TEST_COMBAT_COEFFICIENTS } from "./coefficients.ts";
 import { itemAt, loadoutOf } from "./equipment.ts";
+import { realAttackOf, realCritPm, realHitPm } from "./formula.ts";
 import { skillUsable } from "./skills.ts";
 import { TEST_STAT_TABLE, computeSecondary } from "./stats.ts";
 import { type WeaponSpec, specFromStats } from "./unitSpec.ts";
@@ -16,11 +18,12 @@ const body = (weapon: WeaponSpec) =>
   specFromStats({ id: 1, side: 1, party: 1, x: 0, y: 0, stats, weapon, moveIntervalMs: 1000, primaries });
 
 const fire = (pm: number): number[] => Array.from({ length: 12 }, (_, i) => (i === 2 ? pm : 0));
-/** 두 칸 무기(마검, D-465): 물리 25·적정 45, 속성 30·적정 50, 불 옵션 50 */
+/** 두 칸 무기(마검, D-465): 물리 25·적정 STR 45, 속성 30·적정 INT 50(D-502 몫마다 하나), 불 옵션 50 */
 const magicSword = (basic: "physical" | "elemental"): WeaponSpec => ({
   ...weaponOf("test_sword"),
-  physical: { attack: 25, attackAppropriate: 45 },
-  elemental: { attack: 30, attackAppropriate: 50 },
+  physical: { attack: 25 },
+  elemental: { attack: 30 },
+  appropriate: { str: 45, int: 50, dex: 12, agi: 12 },
   basic,
   skillElementsPm: fire(50),
 });
@@ -30,23 +33,25 @@ describe("스킬은 든 무기의 공격력 칸으로 센다(D-465), 맞는 칸�
     const spec = body(weaponOf("test_sword"));
     expect(spec.attack.kind).toBe("physical");
     const physical = spec.skillAttack?.physical;
-    expect([physical?.kind, physical?.weaponAttack, physical?.attackAppropriate]).toEqual([
+    expect([physical?.kind, physical?.weaponAttack, physical?.attackAppropriateMilli]).toEqual([
       "physical",
       20,
-      40,
+      25_000,
     ]);
-    expect(physical?.attackStat).toBe(stats.physical_attack);
+    expect(physical?.statAttack).toBe(stats.physical_attack);
+    expect(physical?.attackPrimary).toBe(primaries.str);
     expect(spec.weaponFields).toEqual(["physical"]);
   });
 
   it("불 지팡이(속성 칸만): 속성 기반 = 지팡이(옵션 계수 그대로). 스킬용 무기 칸은 속성뿐", () => {
     const spec = body(weaponOf("test_staff"));
     const elemental = spec.skillAttack?.elemental;
-    expect([elemental?.kind, elemental?.weaponAttack, elemental?.attackAppropriate]).toEqual([
+    expect([elemental?.kind, elemental?.weaponAttack, elemental?.attackAppropriateMilli]).toEqual([
       "elemental",
       18,
-      40,
+      23_000,
     ]);
+    expect(elemental?.attackPrimary).toBe(primaries.int);
     expect(elemental?.skillElementsPm[2]).toBe(100);
     expect(spec.weaponFields).toEqual(["elemental"]);
   });
@@ -54,19 +59,19 @@ describe("스킬은 든 무기의 공격력 칸으로 센다(D-465), 맞는 칸�
   it("두 칸 마검: 물리 기반(강타) = 마검 물리 값과 물리 공격력, 속성 기반(화염구) = 마검 속성 값과 속성 공격력", () => {
     const spec = body(magicSword("physical"));
     const physical = spec.skillAttack?.physical;
-    expect([physical?.kind, physical?.weaponAttack, physical?.attackAppropriate]).toEqual([
+    expect([physical?.kind, physical?.weaponAttack, physical?.attackAppropriateMilli]).toEqual([
       "physical",
       25,
-      45,
+      45_000,
     ]);
-    expect(physical?.attackStat).toBe(stats.physical_attack);
+    expect(physical?.statAttack).toBe(stats.physical_attack);
     const elemental = spec.skillAttack?.elemental;
-    expect([elemental?.kind, elemental?.weaponAttack, elemental?.attackAppropriate]).toEqual([
+    expect([elemental?.kind, elemental?.weaponAttack, elemental?.attackAppropriateMilli]).toEqual([
       "elemental",
       30,
-      50,
+      50_000,
     ]);
-    expect(elemental?.attackStat).toBe(stats.elemental_attack);
+    expect(elemental?.statAttack).toBe(stats.elemental_attack);
     // 무기 옵션 계수는 두 칸이 같이 쓴다(물리 = 옵션 속성 몫, 속성 = 가산 계수, 48 §4.5a)
     expect(physical?.skillElementsPm[2]).toBe(50);
     expect(elemental?.skillElementsPm[2]).toBe(50);
@@ -74,7 +79,8 @@ describe("스킬은 든 무기의 공격력 칸으로 센다(D-465), 맞는 칸�
   });
 
   it("맨손 스킬은 늘 유닛 종류의 타고난 무기·맨손 속성 자료로 센다(든 무기의 옵션 계수는 붙지 않는다)", () => {
-    const breath: WeaponSpec = { ...UNARMED_ELEMENTAL, elemental: { attack: 40, attackAppropriate: 20 } };
+    // 맨손이 아닌 타고난 속성 자료(크리쳐 숨결 같은): 무기 몫이 있다
+    const breath: WeaponSpec = { ...UNARMED_ELEMENTAL, unarmed: false, elemental: { attack: 40 } };
     const spec = specFromStats({
       id: 1,
       side: 1,
@@ -88,8 +94,9 @@ describe("스킬은 든 무기의 공격력 칸으로 센다(D-465), 맞는 칸�
     });
     expect(spec.bareHandAttack?.elemental.weaponAttack).toBe(40);
     expect(spec.bareHandAttack?.elemental.skillElementsPm.every((pm) => pm === 0)).toBe(true);
-    expect([spec.bareHandAttack?.physical.weaponAttack, spec.bareHandAttack?.physical.attackStat]).toEqual([
-      5,
+    // 사람형 맨손: 무기 몫 0, 스탯 공격력만(D-502)
+    expect([spec.bareHandAttack?.physical.weaponAttack, spec.bareHandAttack?.physical.statAttack]).toEqual([
+      0,
       stats.physical_attack,
     ]);
   });
@@ -181,13 +188,13 @@ describe("기본 공격(스킬 없음)의 칸(질문 235 가)", () => {
 
   it("두 칸 무기는 무기 자료가 적은 칸(basic)으로 친다", () => {
     const physical = body(magicSword("physical")).attack;
-    expect([physical.kind, physical.weaponAttack, physical.attackStat]).toEqual([
+    expect([physical.kind, physical.weaponAttack, physical.statAttack]).toEqual([
       "physical",
       25,
       stats.physical_attack,
     ]);
     const elemental = body(magicSword("elemental")).attack;
-    expect([elemental.kind, elemental.weaponAttack, elemental.attackStat]).toEqual([
+    expect([elemental.kind, elemental.weaponAttack, elemental.statAttack]).toEqual([
       "elemental",
       30,
       stats.elemental_attack,
@@ -200,5 +207,79 @@ describe("기본 공격(스킬 없음)의 칸(질문 235 가)", () => {
     const { physical: _drop, ...noField } = weaponOf("test_sword");
     expect(() => body(noField)).toThrow(RangeError);
     expect(() => body({ ...weaponOf("test_sword"), basic: "elemental" })).toThrow(RangeError);
+  });
+});
+
+/** 1차 6개가 모두 value인 유닛 */
+const all = (value: number) => ({ str: value, dex: value, agi: value, vit: value, int: value, wis: value });
+
+/** 1차·무기·레벨 → 전투 사양 */
+const specOf = (p: ReturnType<typeof all>, weapon: WeaponSpec, level = 1) =>
+  specFromStats({
+    id: 1,
+    side: 1,
+    party: 1,
+    x: 0,
+    y: 0,
+    stats: computeSecondary(p, TEST_STAT_TABLE),
+    weapon,
+    primaries: p,
+    level,
+    moveIntervalMs: 1000,
+  });
+
+describe("공격력 = 스탯 공격력 + 무기 몫, 명중·크리 DEX, 공격 간격 AGI(D-502, 사용자 답 296~298)", () => {
+  const c = TEST_COMBAT_COEFFICIENTS;
+  /** 사용자 예의 검: 공격력 20·적정 STR 25(명중·크리·간격 적정은 [임시] DEX·AGI 12) */
+  const sword = weaponOf("test_sword");
+
+  it("스탯 공격력 = (STR + VIT) ÷ 2·(INT + WIS) ÷ 2(내림)", () => {
+    const stat = computeSecondary({ str: 11, dex: 0, agi: 0, vit: 20, int: 7, wis: 8 }, TEST_STAT_TABLE);
+    expect(stat.physical_attack).toBe(15);
+    expect(stat.elemental_attack).toBe(7);
+  });
+
+  it("새 사이보그(1차 모두 10) + 검: 10 + 20 × 10/25 = 18, 명중 900 × 833‰ = 749‰, 크리 100 × 10/12 = 83‰, 간격 1200ms", () => {
+    const spec = specOf(all(10), sword);
+    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(18);
+    expect(realHitPm(spec.attack, c)).toBe(749);
+    expect(realCritPm(spec.attack, c)).toBe(83);
+    expect(spec.attackIntervalMs).toBe(1200);
+  });
+
+  it("새 사이보그 맨손: 공격력 10(무기 몫 0), 명중 850 × 10/11.5 = 738‰(약 74%)", () => {
+    const spec = specOf(all(10), UNARMED_PHYSICAL);
+    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(10);
+    expect(realHitPm(spec.attack, c)).toBe(738);
+  });
+
+  it("Lv 30 균형형(1차 모두 39) + 검: 39 + 20 = 59(적정을 넘는 보너스 없음), 명중·크리·간격은 무기 값 그대로", () => {
+    const spec = specOf(all(39), sword, 30);
+    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(59);
+    expect(realHitPm(spec.attack, c)).toBe(900);
+    expect(realCritPm(spec.attack, c)).toBe(100);
+    expect(spec.attackIntervalMs).toBe(1000);
+  });
+
+  it("적정이 없는 무기는 비율 100%, 공격 몫은 STR만 본다(DEX·VIT를 섞지 않음)", () => {
+    const { appropriate: _drop, ...plain } = sword;
+    const spec = specOf(all(1), plain);
+    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(1 + 20);
+    expect(realHitPm(spec.attack, c)).toBe(900);
+    expect(spec.attackIntervalMs).toBe(1000);
+    // STR만 올리면 무기 몫이 오르고, DEX만 올리면 공격력은 그대로(명중만)
+    const strOnly = specOf({ ...all(10), str: 25 }, sword);
+    const dexOnly = specOf({ ...all(10), dex: 25 }, sword);
+    expect(realAttackOf(strOnly.attack, c.appropriateCapPm, c)).toBe(17 + 20);
+    expect(realAttackOf(dexOnly.attack, c.appropriateCapPm, c)).toBe(18);
+    expect(realHitPm(dexOnly.attack, c)).toBe(900);
+  });
+
+  it("속성 무기는 INT ÷ 적정 INT(불꽃 지팡이 공격력 20·적정 INT 25): 새 사이보그 10 + 8 = 18", () => {
+    const staff = TEST_COMBAT_CATALOG.equipment.find((item) => item.id === "fire_staff")?.weapon;
+    if (!staff) throw new Error("fixture");
+    const spec = specOf(all(10), staff);
+    expect(spec.attack.kind).toBe("elemental");
+    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(18);
   });
 });

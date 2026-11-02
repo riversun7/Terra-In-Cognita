@@ -58,20 +58,17 @@ const list: FormulaListResponse = {
       name: { ko: "human", en: "human" },
       natural: "human",
       kind: "physical",
-      attack: 5,
-      attackAppropriate: 20,
+      attack: 0,
+      appropriate: {},
       hitPm: 850,
-      hitAppropriate: 20,
       critPm: 50,
-      critAppropriate: 20,
       intervalMs: 1000,
-      speedAppropriate: 100,
       staminaCost: 10,
       unarmed: true,
     },
   ],
   coefficients: {
-    capPm: 2000,
+    capPm: 1000,
     critSpreadPm: 500,
     staminaWeightsPm: [0, 0, 700, 300, 0, 0],
     staminaAppropriate: 80,
@@ -136,8 +133,8 @@ describe("미리 보기", () => {
     expect(preview?.outOfRange).toBe(false);
   });
 
-  it("행 식을 담으면 아래 전투 식(실제 공격력 점수 S)에도 든다, 틀린 식은 null", () => {
-    const weapon = { ...human, unarmed: false };
+  it("행 식을 담으면 아래 전투 식(실제 공격력의 스탯 공격력 S)에도 든다, 틀린 식은 null", () => {
+    const weapon = { ...human, unarmed: false, attack: 5, appropriate: { str: 20 } };
     const base = previewOf({
       list,
       drafts: new Map(),
@@ -156,9 +153,9 @@ describe("미리 보기", () => {
       level: 1,
       weapon,
     });
-    // S 26 → 40: 5 × min(2, 26 ÷ 20) = 6, 5 × min(2, 40 ÷ 20) = 10
-    expect(base?.value).toBe(6000);
-    expect(doubled?.value).toBe(10_000);
+    // D-502: S + 5 × min(1, STR 10 ÷ 20) → S 26이면 26 + 2 = 28, S 40이면 40 + 2 = 42
+    expect(base?.value).toBe(28_000);
+    expect(doubled?.value).toBe(42_000);
     expect(
       previewOf({
         list,
@@ -172,8 +169,8 @@ describe("미리 보기", () => {
     ).toBeNull();
   });
 
-  it("맨손 식: 굴림 범위, 맨손이 아니면 판정이 쓰지 않음", () => {
-    const bare = combat("bare_attack");
+  it("맨손 적정 식(D-502): Lv 30 → 55, 굴림 없음, 맨손이 아니면 판정이 쓰지 않음", () => {
+    const bare = combat("bare_appropriate");
     const weapon = human;
     const preview = previewOf({
       list,
@@ -184,8 +181,20 @@ describe("미리 보기", () => {
       level: 30,
       weapon,
     });
-    expect(preview?.rollRange).toEqual({ min: 13_000, max: 27_000 });
+    expect(preview?.value).toBe(55_000);
+    expect(preview?.rollRange).toBeNull();
     expect(preview?.unused).toBe(false);
+    // 맨손 명중 = 850 × 39 ÷ 55 → 602‰
+    const hit = previewOf({
+      list,
+      drafts: new Map(),
+      slot: combat("real_hit"),
+      source: combat("real_hit").source,
+      primaries: [39, 39, 39, 39, 39, 39],
+      level: 30,
+      weapon,
+    });
+    expect(hit?.value).toBe(602_000);
     const armed = previewOf({
       list,
       drafts: new Map(),

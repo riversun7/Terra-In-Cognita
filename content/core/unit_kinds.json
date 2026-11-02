@@ -13,13 +13,10 @@
         "max": 10
       },
       "naturalWeapon": {
-        "physical": { "attack": 5, "attackAppropriate": 20 },
+        "physical": { "attack": 0 },
         "hitPm": 850,
-        "hitAppropriate": 20,
         "critPm": 50,
-        "critAppropriate": 20,
         "intervalMs": 1000,
-        "speedAppropriate": 100,
         "range": 1,
         "arc": false,
         "staminaCost": 10,
@@ -27,17 +24,15 @@
         "unarmed": true
       },
       "naturalElementalWeapon": {
-        "elemental": { "attack": 5, "attackAppropriate": 20 },
+        "elemental": { "attack": 0 },
         "hitPm": 850,
-        "hitAppropriate": 20,
         "critPm": 50,
-        "critAppropriate": 20,
         "intervalMs": 1000,
-        "speedAppropriate": 100,
         "range": 1,
         "arc": false,
         "staminaCost": 10,
-        "mpCost": 0
+        "mpCost": 0,
+        "unarmed": true
       },
       "naturalWeaponIsWeapon": false,
       "enabled": true
@@ -55,13 +50,10 @@
         "max": 10
       },
       "naturalWeapon": {
-        "physical": { "attack": 5, "attackAppropriate": 20 },
+        "physical": { "attack": 0 },
         "hitPm": 850,
-        "hitAppropriate": 20,
         "critPm": 50,
-        "critAppropriate": 20,
         "intervalMs": 1000,
-        "speedAppropriate": 100,
         "range": 1,
         "arc": false,
         "staminaCost": 10,
@@ -69,17 +61,15 @@
         "unarmed": true
       },
       "naturalElementalWeapon": {
-        "elemental": { "attack": 5, "attackAppropriate": 20 },
+        "elemental": { "attack": 0 },
         "hitPm": 850,
-        "hitAppropriate": 20,
         "critPm": 50,
-        "critAppropriate": 20,
         "intervalMs": 1000,
-        "speedAppropriate": 100,
         "range": 1,
         "arc": false,
         "staminaCost": 10,
-        "mpCost": 0
+        "mpCost": 0,
+        "unarmed": true
       },
       "naturalWeaponIsWeapon": false,
       "enabled": true
@@ -97,13 +87,10 @@
         "max": 10
       },
       "naturalWeapon": {
-        "physical": { "attack": 5, "attackAppropriate": 20 },
+        "physical": { "attack": 0 },
         "hitPm": 850,
-        "hitAppropriate": 20,
         "critPm": 50,
-        "critAppropriate": 20,
         "intervalMs": 1000,
-        "speedAppropriate": 100,
         "range": 1,
         "arc": false,
         "staminaCost": 10,
@@ -111,17 +98,15 @@
         "unarmed": true
       },
       "naturalElementalWeapon": {
-        "elemental": { "attack": 5, "attackAppropriate": 20 },
+        "elemental": { "attack": 0 },
         "hitPm": 850,
-        "hitAppropriate": 20,
         "critPm": 50,
-        "critAppropriate": 20,
         "intervalMs": 1000,
-        "speedAppropriate": 100,
         "range": 1,
         "arc": false,
         "staminaCost": 10,
-        "mpCost": 0
+        "mpCost": 0,
+        "unarmed": true
       },
       "naturalWeaponIsWeapon": false,
       "enabled": true
@@ -139,30 +124,26 @@
         "max": 10
       },
       "naturalWeapon": {
-        "physical": { "attack": 12, "attackAppropriate": 30 },
+        "physical": { "attack": 12 },
+        "appropriate": { "str": 15, "dex": 12, "agi": 12 },
         "hitPm": 850,
-        "hitAppropriate": 20,
         "critPm": 100,
-        "critAppropriate": 20,
         "intervalMs": 900,
-        "speedAppropriate": 100,
         "range": 1,
         "arc": false,
         "staminaCost": 10,
         "mpCost": 0
       },
       "naturalElementalWeapon": {
-        "elemental": { "attack": 5, "attackAppropriate": 20 },
+        "elemental": { "attack": 0 },
         "hitPm": 850,
-        "hitAppropriate": 20,
         "critPm": 50,
-        "critAppropriate": 20,
         "intervalMs": 1000,
-        "speedAppropriate": 100,
         "range": 1,
         "arc": false,
         "staminaCost": 10,
-        "mpCost": 0
+        "mpCost": 0,
+        "unarmed": true
       },
       "naturalWeaponIsWeapon": true,
       "enabled": true

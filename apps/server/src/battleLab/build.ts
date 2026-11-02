@@ -1,7 +1,8 @@
 // 실험 유닛 → 전투 사양·미리 보기(순수 함수) — docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-01, 전투 실험실)" 2절
 // 서버·시뮬레이터와 같은 @terra/sim 함수만 쓴다: 성장 primaryAtLevel(D-417, 성장률 = 설정 칸 N5 실효 값), 장비 loadoutOf(칸·묶음 검사
 // D-422·D-423), 2차 스탯 computeSecondary·explainSecondary(가중치 표 = 실효 표, 행 식의 LV = 유닛 레벨), 사양 specFromStats(D-465 무기 칸,
-// 맨손 식의 레벨 D-488), 스킬 skillFromData. 화면 요약의 실제 공격력·명중·크리는 판정과 같은 계산식(계수표의 실효 식, frameValue·realAttackOf)이다.
+// 맨손 적정의 레벨 D-502), 스킬 skillFromData. 화면 요약의 실제 공격력·명중·크리는 판정과 같은 계산식(계수표의 실효 식, realAttackOf·
+// realHitPm·realCritPm)이다. 공격력 = 스탯 공격력 + 무기 몫, 명중·크리·공격 간격은 무기의 1차 적정(DEX·AGI) 대비 비율(D-502).
 // 공식 수는 여기에 적지 않는다(규칙 rules가 실효 표·계수를 준다). 팩에 없는 참조·맞지 않는 칸은 빼고 dropped로 알린다.
 // 직접 값 장비는 가상 칸 둘(장신구 = 1차 보너스, 몸 = 2차 행 더하기)로 loadoutOf에 넣는다: 같은 묶음 검사·같은 더하기다.
 import type {
@@ -26,17 +27,22 @@ import {
   type SlotKind,
   type UnitKindDef,
   type WeaponSpec,
+  appropriateMilliOf,
+  basicFieldOf,
+  bareAppropriateMilli,
   computeSecondary,
   explainSecondary,
-  frameValue,
   itemAt,
   loadoutOf,
   primaryAtLevel,
   realAttackOf,
+  realCritPm,
+  realHitPm,
   skillFromData,
   skillSlotCount,
   specFromStats,
   staminaCostMilli,
+  weaponRatioPm,
 } from "@terra/sim";
 
 /** 계산 규칙(요청 때 실효 값 한 벌): 전투 자료(실효 가중치 표)·전투 계수·성장률 N5·만렙 N7 */
@@ -60,13 +66,13 @@ const CUSTOM_PRIMARY = "lab_custom_primaries";
 const CUSTOM_ROWS = "lab_custom_rows";
 /** 레벨 표 줄 수 상한 */
 const LEVEL_TABLE_MAX = 200;
-/** 화면 요약의 맨손 일반 공격(굴림 범위, D-488)은 굴림 가운데 값을 보인다 */
-const MID_ROLL = 5000;
 
 export interface BuiltLabUnit {
   /** 자리·편·ID는 전투장이 다시 정한다(0) */
   readonly spec: CombatUnitSpec;
   readonly loadout: Loadout;
+  /** 유닛 레벨(맨손 적정 DEX·AGI, D-502) */
+  readonly level: number;
   readonly kind: UnitKindDef;
   /** 처음·성장 뒤 1차 */
   readonly initial: Primaries;
@@ -87,16 +93,21 @@ const toPrimaries = (value: Readonly<Record<PrimaryStat, number>>): Primaries =>
 });
 
 /** 직접 값 공격력 칸 → 판정 칸 */
-const specField = (value: LabCustomWeapon["physical"]) =>
-  value ? { attack: value.attack, attackAppropriate: value.appropriate } : undefined;
+const specField = (value: LabCustomWeapon["physical"]) => (value ? { attack: value.attack } : undefined);
 /** 판정 칸 → 직접 값 공격력 칸 */
-const customField = (value: WeaponSpec["physical"]) =>
-  value ? { attack: value.attack, appropriate: value.attackAppropriate } : null;
+const customField = (value: WeaponSpec["physical"]) => (value ? { attack: value.attack } : null);
+
+/** 직접 값 1차 적정 스탯(0 = 없음) → 판정 칸(적은 칸만, 다 0이면 없음) */
+function specAppropriate(value: LabCustomWeapon["appropriate"]): WeaponSpec["appropriate"] {
+  const entries = (["str", "int", "dex", "agi"] as const).filter((code) => value[code] > 0);
+  return entries.length === 0 ? undefined : Object.fromEntries(entries.map((code) => [code, value[code]]));
+}
 
 /** 직접 만든 무기 → 판정 무기 사양 */
 export function weaponSpecOf(custom: LabCustomWeapon): WeaponSpec {
   const physical = specField(custom.physical);
   const elemental = specField(custom.elemental);
+  const appropriate = specAppropriate(custom.appropriate);
   // 기본 칸이 무기에 없으면 있는 칸으로(두 칸 다 없으면 서버 검사가 먼저 막는다)
   const basic = (custom.basic === "physical" ? physical : elemental)
     ? custom.basic
@@ -107,12 +118,10 @@ export function weaponSpecOf(custom: LabCustomWeapon): WeaponSpec {
     physical,
     elemental,
     basic,
+    ...(appropriate ? { appropriate } : {}),
     hitPm: custom.hitPm,
-    hitAppropriate: custom.hitAppropriate,
     critPm: custom.critPm,
-    critAppropriate: custom.critAppropriate,
     intervalMs: custom.intervalMs,
-    speedAppropriate: custom.speedAppropriate,
     range: custom.range,
     arc: custom.arc,
     staminaCost: custom.staminaCost,
@@ -121,18 +130,20 @@ export function weaponSpecOf(custom: LabCustomWeapon): WeaponSpec {
   };
 }
 
-/** 판정 무기 사양 → 직접 값 편집 모양(타고난 무기를 출발값으로 보일 때) */
+/**
+ * 판정 무기 사양 → 직접 값 편집 모양(타고난 무기를 출발값으로 보일 때). 맨손의 레벨 적정(D-502)과 무기 몫 0 규칙은 직접 값 무기에 없어
+ * 적정 칸은 0(없음)으로 둔다(직접 값 무기는 맨손이 아닌 무기로 셈한다)
+ */
 export function customWeaponOf(weapon: WeaponSpec): LabCustomWeapon {
+  const a = weapon.unarmed === true ? undefined : weapon.appropriate;
   return {
     physical: customField(weapon.physical),
     elemental: customField(weapon.elemental),
     basic: weapon.basic ?? (weapon.physical ? "physical" : "elemental"),
+    appropriate: { str: a?.str ?? 0, int: a?.int ?? 0, dex: a?.dex ?? 0, agi: a?.agi ?? 0 },
     hitPm: weapon.hitPm,
-    hitAppropriate: weapon.hitAppropriate,
     critPm: weapon.critPm,
-    critAppropriate: weapon.critAppropriate,
     intervalMs: weapon.intervalMs,
-    speedAppropriate: weapon.speedAppropriate,
     range: weapon.range,
     arc: weapon.arc,
     staminaCost: weapon.staminaCost,
@@ -294,7 +305,7 @@ export function buildLabUnit(unit: LabUnit, rules: LabRules): BuiltLabUnit {
       // [임시] 한 칸 1초(C28 전투 속도, 대결·시뮬레이터와 같다)
       moveIntervalMs: 1000,
       primaries: loadout.primaries,
-      // 맨손 식의 적정 DEX(D-488)
+      // 맨손 적정 DEX·AGI의 레벨(D-502 bare_appropriate)
       level: unit.level,
       // 속성값·저항·고정 방어·관통 = 유닛 자기 값 + 장비 값(속성값은 칸마다 10에서 자름, D-450·D-178)
       elements: loadout.elements,
@@ -309,6 +320,7 @@ export function buildLabUnit(unit: LabUnit, rules: LabRules): BuiltLabUnit {
   return {
     spec,
     loadout,
+    level: unit.level,
     kind: kit.kind,
     initial,
     grown,
@@ -318,7 +330,7 @@ export function buildLabUnit(unit: LabUnit, rules: LabRules): BuiltLabUnit {
   };
 }
 
-/** 공격 사양 하나 → 화면(source = 든 무기 또는 타고난 무기) */
+/** 공격 사양 하나 → 화면(source = 든 무기 또는 타고난 무기): 스탯 공격력 + 무기 몫(D-502) */
 function attackView(
   profile: AttackProfile,
   source: "weapon" | "natural",
@@ -326,20 +338,18 @@ function attackView(
 ): LabAttackView {
   return {
     source,
+    statAttack: profile.statAttack,
     weaponAttack: profile.weaponAttack,
-    attackStat: profile.attackStat,
-    appropriate: profile.attackAppropriate,
-    realAttack: realAttackOf(profile, MID_ROLL, c.appropriateCapPm, c),
+    primary: profile.attackPrimary,
+    appropriateMilli: profile.attackAppropriateMilli,
+    ratioPm: weaponRatioPm(profile.attackPrimary, profile.attackAppropriateMilli, c.appropriateCapPm),
+    realAttack: realAttackOf(profile, c.appropriateCapPm, c),
   };
 }
 
-/** 점수·적정치 → 무기 값에 곱하는 비율(‰, 무기 틀 D-420: weaponScaled와 같은 식, 상한 = 계수표 N10) */
-function appropriateView(stat: number, appropriate: number, c: CombatCoefficients) {
-  const ratioPm =
-    appropriate <= 0
-      ? 1000
-      : Math.min(c.appropriateCapPm, Math.floor((Math.max(0, stat) * 1000) / appropriate));
-  return { stat, appropriate, ratioPm };
+/** 1차(DEX·AGI)·적정(밀리점) → 무기 값에 곱하는 비율(‰, D-502 weaponRatioPm과 같은 식, 상한 = 계수표 N10) */
+function appropriateView(stat: number, appropriateMilli: number, c: CombatCoefficients) {
+  return { stat, appropriateMilli, ratioPm: weaponRatioPm(stat, appropriateMilli, c.appropriateCapPm) };
 }
 
 function combatView(built: BuiltLabUnit, c: CombatCoefficients): LabCombatView {
@@ -351,6 +361,12 @@ function combatView(built: BuiltLabUnit, c: CombatCoefficients): LabCombatView {
   const sourceOf = (field: "physical" | "elemental") =>
     !heldNatural && weapon[field] ? "weapon" : "natural";
   const skill = spec.skillAttack ?? { physical: a, elemental: a };
+  // 공격 간격의 적정 AGI(밀리점): 판정(specFromStats)과 같은 규칙(맨손은 레벨 식)
+  const agiAppropriate = appropriateMilliOf(
+    weapon,
+    basicFieldOf(weapon),
+    bareAppropriateMilli(built.level, c),
+  ).agi;
   return {
     attacks: {
       basic: attackView(a, heldNatural ? "natural" : "weapon", c),
@@ -358,18 +374,18 @@ function combatView(built: BuiltLabUnit, c: CombatCoefficients): LabCombatView {
       elemental: attackView(skill.elemental, sourceOf("elemental"), c),
     },
     appropriate: {
-      hit: appropriateView(a.hitStat, a.hitAppropriate, c),
-      crit: appropriateView(a.critStat, a.critAppropriate, c),
-      speed: appropriateView(built.loadout.stats["action_speed"] ?? 0, weapon.speedAppropriate, c),
+      hit: appropriateView(a.dex, a.dexAppropriateMilli, c),
+      crit: appropriateView(a.dex, a.dexAppropriateMilli, c),
+      speed: appropriateView(built.loadout.primaries.agi, agiAppropriate, c),
     },
     maxHp: spec.maxHp,
     armorHp: spec.armorHp,
     shieldHp: spec.shieldHp,
     basic: a.kind,
     weaponAttack: a.weaponAttack,
-    realAttack: realAttackOf(a, MID_ROLL, c.appropriateCapPm, c),
-    hitPm: frameValue("real_hit", a.weaponHitPm, a.hitStat, a.hitAppropriate, c.appropriateCapPm, c),
-    critPm: frameValue("real_crit", a.weaponCritPm, a.critStat, a.critAppropriate, c.appropriateCapPm, c),
+    realAttack: realAttackOf(a, c.appropriateCapPm, c),
+    hitPm: realHitPm(a, c),
+    critPm: realCritPm(a, c),
     critMulPm: a.critMulPm,
     attackIntervalMs: spec.attackIntervalMs,
     range: spec.range,

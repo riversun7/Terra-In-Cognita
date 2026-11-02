@@ -3,10 +3,10 @@
     {
       "id": "real_attack",
       "name": {
-        "ko": "실제 공격력(무기)",
-        "en": "Real attack (weapon)"
+        "ko": "실제 공격력(스탯 + 무기)",
+        "en": "Real attack (stat + weapon)"
       },
-      "expression": "if(A <= 0, W, floor(W * min(CAP, max(0, S) / A)))"
+      "expression": "S + if(A <= 0, W, floor(W * min(CAP, max(0, P) / A)))"
     },
     {
       "id": "real_hit",
@@ -14,7 +14,7 @@
         "ko": "실제 명중(‰)",
         "en": "Real hit (‰)"
       },
-      "expression": "if(A <= 0, W, floor(W * min(CAP, max(0, S) / A)))"
+      "expression": "if(A <= 0, W, floor(W * min(CAP, max(0, DEX) / A)))"
     },
     {
       "id": "real_crit",
@@ -22,15 +22,15 @@
         "ko": "실제 크리 확률(‰)",
         "en": "Real crit chance (‰)"
       },
-      "expression": "if(A <= 0, W, floor(W * min(CAP, max(0, S) / A)))"
+      "expression": "if(A <= 0, W, floor(W * min(CAP, max(0, DEX) / A)))"
     },
     {
-      "id": "bare_attack",
+      "id": "bare_appropriate",
       "name": {
-        "ko": "맨손 일반 공격력",
-        "en": "Bare-hand basic attack"
+        "ko": "맨손 적정 DEX·AGI",
+        "en": "Bare-hand appropriate DEX/AGI"
       },
-      "expression": "# [임시] 옛 프로젝트 맨손 규칙: 적정 DEX = 레벨 × 1.5 + 10, 피해는 STR × 범위\noptDex = LV * 1.5 + 10\nr = DEX / optDex\na = STR * max(0.1, r * 0.5)\nb = STR * min(1.5, r)\nlo = min(a, b)\nhi = max(a, b)\nmax(1, floor(lo + (hi - lo) * ROLL / 10000))"
+      "expression": "# [임시] 옛 프로젝트 맨손 규칙: 맨손 적정 DEX·AGI = 레벨 × 1.5 + 10\nLV * 1.5 + 10"
     },
     {
       "id": "crit_multiplier",
@@ -46,7 +46,7 @@
         "ko": "공격 간격(ms)",
         "en": "Attack interval (ms)"
       },
-      "expression": "max(1, floor(I / max(0.001, min(2, max(1, SPD) / max(1, A)))))"
+      "expression": "if(A <= 0, I, max(1, floor(I / max(0.001, min(CAP, max(0, AGI) / A)))))"
     },
     {
       "id": "stamina_score",

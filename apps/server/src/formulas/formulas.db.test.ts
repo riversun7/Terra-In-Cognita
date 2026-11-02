@@ -121,23 +121,29 @@ describe.skipIf(!TEST_DATABASE_URL)("계산식 탭 (DB)", () => {
     await test?.drop();
   });
 
-  it("player는 FORBIDDEN, dev는 칸 27개·무기(맨손 포함)·표본 둘", async () => {
+  it("player는 FORBIDDEN, dev는 칸 24개(켜진 행 식 15 + 전투 식 9)·무기(맨손 포함)·표본 둘", async () => {
     expect((await list("player")).statusCode).toBe(403);
     const res = await list("dev");
     expect(res.statusCode, res.body).toBe(200);
     const body = obj(resultOf(res));
-    expect(arr(body.slots)).toHaveLength(27);
+    expect(arr(body.slots)).toHaveLength(24);
     expect(slotOf(body, "hp.formula")).toMatchObject({ group: "stat", generated: true, override: null });
-    expect(slotOf(body, "bare_attack")).toMatchObject({ group: "combat", generated: false });
+    expect(slotOf(body, "bare_appropriate")).toMatchObject({ group: "combat", generated: false });
     const weapons = arr(body.weapons).map(obj);
+    // 맨손(D-502): 무기 몫 0, 적정은 레벨 식(빈 적정)
     expect(weapons.find((weapon) => weapon.id === "natural_human")).toMatchObject({
       unarmed: true,
-      attack: 5,
+      attack: 0,
+      appropriate: {},
     });
-    expect(weapons.find((weapon) => weapon.id === "natural_creature")).toMatchObject({ unarmed: false });
+    expect(weapons.find((weapon) => weapon.id === "natural_creature")).toMatchObject({
+      unarmed: false,
+      attack: 12,
+      appropriate: { str: 15, dex: 12, agi: 12 },
+    });
     expect(weapons.some((weapon) => weapon.id === "test_sword")).toBe(true);
     expect(arr(body.samples).map((sample) => obj(sample).id)).toEqual(["new_lv1", "even_lv30"]);
-    expect(obj(body.coefficients).capPm).toBe(2000);
+    expect(obj(body.coefficients).capPm).toBe(1000);
   });
 
   it("오타가 든 식은 묶음 전체를 받지 않는다(invalid_formula, data.details = 코드@위치)", async () => {

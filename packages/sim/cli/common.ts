@@ -280,7 +280,7 @@ export function withStatRowsDiff(
     unitKinds: [],
   });
   return {
-    // 1차 적정 스탯 무기의 적정치도 얹은 표로 다시 셈한다(서버 roster catalog와 같은 규칙, 아이템 편집기 WP-5)
+    // 얹은 가중치 표를 전투 자료에 싣는다(서버 roster catalog와 같은 규칙)
     combat: withStatTable(combat, statTable),
     combatFormulas: combatFormulaSetFrom(Object.fromEntries(formulas.formulas)),
   };

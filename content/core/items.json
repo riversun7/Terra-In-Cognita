@@ -90,19 +90,17 @@
         "slot": "weapon",
         "stats": [
           {
-            "stat": "crit_chance",
+            "stat": "crit_multiplier",
             "min": 0,
-            "max": 20
+            "max": 100
           }
         ],
         "weapon": {
-          "physical": { "attack": 20, "attackAppropriate": 40 },
+          "physical": { "attack": 20 },
+          "appropriate": { "str": 25, "dex": 12, "agi": 12 },
           "hitPm": 900,
-          "hitAppropriate": 50,
           "critPm": 100,
-          "critAppropriate": 100,
           "intervalMs": 1000,
-          "speedAppropriate": 100,
           "range": 1,
           "arc": false,
           "staminaCost": 10,
@@ -130,13 +128,11 @@
           }
         ],
         "weapon": {
-          "elemental": { "attack": 18, "attackAppropriate": 40 },
+          "elemental": { "attack": 18 },
+          "appropriate": { "int": 23, "dex": 12, "agi": 12 },
           "hitPm": 900,
-          "hitAppropriate": 50,
           "critPm": 50,
-          "critAppropriate": 100,
           "intervalMs": 1200,
-          "speedAppropriate": 100,
           "range": 6,
           "arc": false,
           "staminaCost": 10,
@@ -265,13 +261,11 @@
           }
         ],
         "weapon": {
-          "elemental": { "attack": 20, "attackAppropriate": 45 },
+          "elemental": { "attack": 20 },
+          "appropriate": { "int": 25, "dex": 12, "agi": 12 },
           "hitPm": 900,
-          "hitAppropriate": 50,
           "critPm": 60,
-          "critAppropriate": 100,
           "intervalMs": 1200,
-          "speedAppropriate": 100,
           "range": 6,
           "arc": false,
           "staminaCost": 10,
@@ -306,13 +300,11 @@
           }
         ],
         "weapon": {
-          "elemental": { "attack": 18, "attackAppropriate": 40 },
+          "elemental": { "attack": 18 },
+          "appropriate": { "int": 23, "dex": 12, "agi": 12 },
           "hitPm": 900,
-          "hitAppropriate": 50,
           "critPm": 50,
-          "critAppropriate": 100,
           "intervalMs": 1200,
-          "speedAppropriate": 100,
           "range": 6,
           "arc": false,
           "staminaCost": 10,
@@ -342,13 +334,11 @@
           }
         ],
         "weapon": {
-          "elemental": { "attack": 16, "attackAppropriate": 40 },
+          "elemental": { "attack": 16 },
+          "appropriate": { "int": 20, "dex": 12, "agi": 12 },
           "hitPm": 950,
-          "hitAppropriate": 50,
           "critPm": 80,
-          "critAppropriate": 100,
           "intervalMs": 1000,
-          "speedAppropriate": 100,
           "range": 7,
           "arc": false,
           "staminaCost": 10,
@@ -383,13 +373,11 @@
           }
         ],
         "weapon": {
-          "elemental": { "attack": 24, "attackAppropriate": 50 },
+          "elemental": { "attack": 24 },
+          "appropriate": { "int": 30, "dex": 12, "agi": 12 },
           "hitPm": 850,
-          "hitAppropriate": 50,
           "critPm": 40,
-          "critAppropriate": 100,
           "intervalMs": 1400,
-          "speedAppropriate": 100,
           "range": 5,
           "arc": false,
           "staminaCost": 10,
@@ -424,13 +412,11 @@
           }
         ],
         "weapon": {
-          "elemental": { "attack": 15, "attackAppropriate": 40 },
+          "elemental": { "attack": 15 },
+          "appropriate": { "int": 19, "dex": 12, "agi": 12 },
           "hitPm": 900,
-          "hitAppropriate": 50,
           "critPm": 50,
-          "critAppropriate": 100,
           "intervalMs": 1300,
-          "speedAppropriate": 100,
           "range": 6,
           "arc": false,
           "staminaCost": 10,
@@ -460,13 +446,11 @@
           }
         ],
         "weapon": {
-          "elemental": { "attack": 20, "attackAppropriate": 45 },
+          "elemental": { "attack": 20 },
+          "appropriate": { "int": 25, "dex": 12, "agi": 12 },
           "hitPm": 900,
-          "hitAppropriate": 50,
           "critPm": 70,
-          "critAppropriate": 100,
           "intervalMs": 1200,
-          "speedAppropriate": 100,
           "range": 6,
           "arc": false,
           "staminaCost": 10,

@@ -5,7 +5,7 @@ import { PRIMARY_STATS, type PrimaryStat } from "@terra/shared/roster";
 import { useId, useState } from "react";
 import { m } from "../../../paraglide/messages.js";
 import { primaryCode, primaryName } from "../balanceMessages.ts";
-import { numberText, percentText } from "./labModel.ts";
+import { appropriateText, numberText, percentText } from "./labModel.ts";
 import { itemName, skillName, statName } from "./labMessages.ts";
 
 /** 풀이 한 줄 글: 기본 + Σ(1차 × 가중치‰) ÷ 1000 + 장비 = 점수 [→ 상한 × 점수 ÷ (점수 + 반감)] */
@@ -89,7 +89,8 @@ export function UnitPreview(props: {
         [m.dev_lab_c_hp(), `${n(combat.maxHp)} / ${n(combat.armorHp)} / ${n(combat.shieldHp)}`],
         [
           m.dev_lab_c_attack(),
-          `${combat.basic === "physical" ? m.dev_lab_weapon_physical() : m.dev_lab_weapon_elemental()} ${n(combat.weaponAttack)} → ${n(combat.realAttack)}`,
+          // 스탯 공격력 + 무기 공격력 → 실제(D-502)
+          `${combat.basic === "physical" ? m.dev_lab_weapon_physical() : m.dev_lab_weapon_elemental()} ${n(combat.attacks.basic.statAttack)} + ${n(combat.weaponAttack)} → ${n(combat.realAttack)}`,
         ],
         [
           m.dev_lab_c_hit_crit(),
@@ -217,9 +218,10 @@ export function UnitPreview(props: {
                     <tr>
                       <th scope="col">{m.dev_lab_col_attack()}</th>
                       <th scope="col">{m.dev_lab_col_source()}</th>
+                      <th scope="col">{m.dev_lab_col_stat_attack()}</th>
                       <th scope="col">{m.dev_lab_weapon_attack()}</th>
-                      <th scope="col">{m.dev_lab_col_score()}</th>
-                      <th scope="col">{m.dev_lab_weapon_appropriate()}</th>
+                      <th scope="col">{m.dev_lab_col_appropriate()}</th>
+                      <th scope="col">{m.dev_lab_col_ratio()}</th>
                       <th scope="col">{m.dev_lab_col_real()}</th>
                     </tr>
                   </thead>
@@ -240,20 +242,25 @@ export function UnitPreview(props: {
                               ? m.dev_lab_source_natural()
                               : m.dev_lab_source_weapon()}
                           </td>
+                          <td>{n(view.statAttack)}</td>
                           <td>{n(view.weaponAttack)}</td>
-                          <td>{n(view.attackStat)}</td>
-                          <td>{n(view.appropriate)}</td>
+                          <td>{`${n(view.primary)} ÷ ${appropriateText(view.appropriateMilli, locale)}`}</td>
+                          <td>{`× ${percentText(view.ratioPm, locale)}%`}</td>
                           <td className="bl-strong">{n(view.realAttack)}</td>
                         </tr>
                       );
                     })}
                     {(
                       [
-                        ["hit", m.dev_lab_appropriate_hit()],
-                        ["crit", m.dev_lab_appropriate_crit()],
-                        ["speed", m.dev_lab_appropriate_speed()],
+                        ["hit", m.dev_lab_appropriate_hit(), `${percentText(combat.hitPm, locale)}%`],
+                        ["crit", m.dev_lab_appropriate_crit(), `${percentText(combat.critPm, locale)}%`],
+                        [
+                          "speed",
+                          m.dev_lab_appropriate_speed(),
+                          m.dev_lab_ms({ value: n(combat.attackIntervalMs) }),
+                        ],
                       ] as const
-                    ).map(([key, label]) => (
+                    ).map(([key, label, real]) => (
                       <tr key={key} data-appropriate={key}>
                         <th scope="row">{label}</th>
                         <td>
@@ -262,9 +269,10 @@ export function UnitPreview(props: {
                             : m.dev_lab_source_weapon()}
                         </td>
                         <td>—</td>
-                        <td>{n(combat.appropriate[key].stat)}</td>
-                        <td>{n(combat.appropriate[key].appropriate)}</td>
-                        <td>{`× ${percentText(combat.appropriate[key].ratioPm, locale)}%`}</td>
+                        <td>—</td>
+                        <td>{`${n(combat.appropriate[key].stat)} ÷ ${appropriateText(combat.appropriate[key].appropriateMilli, locale)}`}</td>
+                        <td>{`${key === "speed" ? "÷" : "×"} ${percentText(combat.appropriate[key].ratioPm, locale)}%`}</td>
+                        <td className="bl-strong">{real}</td>
                       </tr>
                     ))}
                   </tbody>

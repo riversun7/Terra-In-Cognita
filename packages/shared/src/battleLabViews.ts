@@ -105,19 +105,26 @@ export interface LabSecondaryView {
   readonly halfConstant: number | null;
 }
 
-/** 공격 사양 하나(무기 틀 D-420: 실제 = 무기 값 × min(N10, 2차 점수 ÷ 적정)). source = 든 무기 또는 타고난 무기(맨손·맨손 속성) */
+/**
+ * 공격 사양 하나(D-502): 실제 = 스탯 공격력 + 무기 공격력 × min(N10, 1차 ÷ 적정 1차). source = 든 무기 또는 타고난 무기(맨손·맨손 속성,
+ * 무기 몫 0)
+ */
 export interface LabAttackView {
   readonly source: "weapon" | "natural";
+  /** 스탯 공격력(2차 물리·속성 공격력 = (STR + VIT) ÷ 2·(INT + WIS) ÷ 2) */
+  readonly statAttack: number;
   readonly weaponAttack: number;
-  /** 2차 공격 점수(물리·속성 공격력) */
-  readonly attackStat: number;
-  readonly appropriate: number;
+  /** 무기 적정을 보는 1차(물리 STR·속성 INT)와 그 적정(밀리점, 0 = 없음 → 100%), 무기 공격력에 곱하는 비율(‰) */
+  readonly primary: number;
+  readonly appropriateMilli: number;
+  readonly ratioPm: number;
   readonly realAttack: number;
 }
 
+/** 1차 스탯(DEX·AGI)·무기 적정(밀리점, 0 = 없음 → 100%, 맨손은 레벨 식)·비율(‰ = min(N10, 1차 ÷ 적정)) */
 export interface LabAppropriateView {
   readonly stat: number;
-  readonly appropriate: number;
+  readonly appropriateMilli: number;
   readonly ratioPm: number;
 }
 
@@ -127,7 +134,7 @@ export interface LabCombatView {
   readonly armorHp: number;
   readonly shieldHp: number;
   readonly basic: "physical" | "elemental";
-  /** 기본 공격의 무기 공격력·실제 공격력(무기 틀 min(2, 점수 ÷ 적정)) */
+  /** 기본 공격의 무기 공격력·실제 공격력(D-502 스탯 공격력 + 무기 몫) */
   readonly weaponAttack: number;
   readonly realAttack: number;
   /** 기본 공격(든 무기 또는 맨손)과 스킬 기반별 공격(D-465: 든 무기에 그 칸이 없으면 맨손·맨손 속성) */
@@ -136,7 +143,7 @@ export interface LabCombatView {
     readonly physical: LabAttackView;
     readonly elemental: LabAttackView;
   };
-  /** 명중·크리·행동 속도의 2차 점수, 기본 공격 무기의 적정치, 무기 값에 곱하는 비율(‰ = min(N10 상한, 점수 ÷ 적정)) */
+  /** 명중·크리(DEX)·공격 간격(AGI)의 1차 값, 기본 공격 무기의 적정 1차, 무기 값에 곱하는 비율(‰ = min(N10 상한, 1차 ÷ 적정)) */
   readonly appropriate: {
     readonly hit: LabAppropriateView;
     readonly crit: LabAppropriateView;

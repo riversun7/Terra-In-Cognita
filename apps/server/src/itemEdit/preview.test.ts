@@ -172,58 +172,38 @@ describe("무기 미리 보기", () => {
     expect(hitOf(after)).toMatchObject({ value: 450, overridden: true });
   });
 
-  it("1차 적정 스탯이 있으면 셈한 2차 적정치를 보인다(질문 290 칼 STR 25·DEX 15 → 물리 59·명중 18·크리 22·속도 54)", () => {
+  it("D-502 몫마다 비율: 기준 유닛(1차 10)이 검(공격력 20·적정 STR 25·DEX 12·AGI 12)을 들면 STR 400‰·DEX 833‰·AGI 833‰", () => {
     const { ctx } = setup();
-    const sword = packItem("test_sword");
-    const equip = objectOf(sword.equip);
-    const withAppropriate = {
-      ...sword,
-      equip: { ...equip, weapon: { ...objectOf(equip.weapon), appropriate: { str: 25, dex: 15 } } },
-    };
-    const weapon = previewItem(ctx(), withAppropriate, DEFAULT_PREVIEW_UNIT).weapon;
-    expect(weapon?.derived).toEqual({
-      physicalAttack: 59,
-      elementalAttack: 0,
-      hit: 18,
-      crit: 22,
-      speed: 54,
-    });
-    // 풀이: 물리 공격력 = STR 25 × 2.0 + DEX 15 × 0.6 = 59(지금 가중치 표)
-    expect(weapon?.derivedTerms?.find((row) => row.row === "physical_attack")).toEqual({
-      row: "physical_attack",
-      value: 59,
-      base: 0,
-      terms: [
-        { stat: "str", value: 25, weightPm: 2000 },
-        { stat: "dex", value: 15, weightPm: 600 },
-      ],
-      formula: null,
-    });
+    const weapon = previewItem(ctx(), packItem("test_sword"), DEFAULT_PREVIEW_UNIT).weapon;
+    expect(weapon?.parts).toEqual([
+      { part: "physical", stat: "str", value: 10, appropriate: 25, ratioPm: 400 },
+      { part: "hit", stat: "dex", value: 10, appropriate: 12, ratioPm: 833 },
+      { part: "crit", stat: "dex", value: 10, appropriate: 12, ratioPm: 833 },
+      { part: "speed", stat: "agi", value: 10, appropriate: 12, ratioPm: 833 },
+    ]);
+    expect(weapon?.capPm).toBe(1000);
+    const values = weapon?.fields[0]?.values;
+    // 공격력 = 스탯 공격력 10 + 20 × 0.4 = 18(사용자 예), 명중 900 × 0.833 = 749, 간격 1000 ÷ 0.833 = 1200
+    expect(values?.find((value) => value.id === "real_attack")?.value).toBe(18);
+    expect(values?.find((value) => value.id === "real_hit")?.value).toBe(749);
+    expect(values?.find((value) => value.id === "attack_interval")?.value).toBe(1200);
+    // 맨손 적정 식은 아이템 무기 미리 보기에 없다
+    expect(values?.some((value) => value.id === "bare_appropriate")).toBe(false);
   });
 
-  it("WP-5: 전투가 셈한 적정치를 쓴다 — 1차 10인 기준 유닛의 효율 = 물리 26 ÷ 59 = 440‰, 실제 공격력 = 20 × 0.44 → 8", () => {
+  it("적정이 없는 몫은 비율 100%(appropriate null), 무기에 없는 공격력 칸은 줄이 없다", () => {
     const { ctx } = setup();
     const sword = packItem("test_sword");
     const equip = objectOf(sword.equip);
-    const withAppropriate = {
-      ...sword,
-      equip: { ...equip, weapon: { ...objectOf(equip.weapon), appropriate: { str: 25, dex: 15 } } },
-    };
-    const weapon = previewItem(ctx(), withAppropriate, DEFAULT_PREVIEW_UNIT).weapon;
-    expect(weapon?.efficiency?.find((row) => row.row === "physical_attack")).toEqual({
-      row: "physical_attack",
-      stat: 26,
-      appropriate: 59,
-      ratioPm: 440,
-    });
-    // 속성 칸이 없는 칼은 속성 공격력 효율 줄이 없다
-    expect(weapon?.efficiency?.some((row) => row.row === "elemental_attack")).toBe(false);
-    expect(weapon?.capPm).toBe(2000);
-    const real = weapon?.fields[0]?.values.find((value) => value.id === "real_attack");
-    expect(real?.value).toBe(8);
-    // 직접 적은 적정치(40)였다면 20 × 26 ÷ 40 = 13
-    const plain = previewItem(ctx(), sword, DEFAULT_PREVIEW_UNIT).weapon;
-    expect(plain?.fields[0]?.values.find((value) => value.id === "real_attack")?.value).toBe(13);
+    const { appropriate: _drop, ...plain } = objectOf(equip.weapon);
+    const weapon = previewItem(
+      ctx(),
+      { ...sword, equip: { ...equip, weapon: plain } },
+      DEFAULT_PREVIEW_UNIT,
+    ).weapon;
+    expect(weapon?.parts?.every((part) => part.appropriate === null && part.ratioPm === 1000)).toBe(true);
+    expect(weapon?.parts?.some((part) => part.part === "elemental")).toBe(false);
+    expect(weapon?.fields[0]?.values.find((value) => value.id === "real_attack")?.value).toBe(30);
   });
 });
 
@@ -271,7 +251,7 @@ describe("초안 읽기", () => {
       statValue: 10,
       appropriate: 10,
       ratioPm: 1000,
-      capPm: 2000,
+      capPm: 1000,
       scaled: 30,
       variancePm: 500,
       min: 15,
@@ -281,15 +261,16 @@ describe("초안 읽기", () => {
     expect(amountOf(mendPotion(100, 10))).toMatchObject({ scaled: 100, min: 50, max: 150 });
     // 적정 스탯이 높은 기준 50 물약은 VIT 10 유닛에게 250‰ → 12(6~18): 적정 10짜리 기준 30(15~45)이 더 낫다
     expect(amountOf(mendPotion(50, 40))).toMatchObject({ ratioPm: 250, scaled: 12, min: 6, max: 18 });
-    // VIT 39 → 상한 2000‰(무기 효율과 같은 N10) → 30 × 2 = 60(30~90). 줄 오차 250‰ → 45~75
+    // VIT 39 → 상한 1000‰(무기 몫과 같은 N10, D-502: 넘는 보너스 없음) → 30(15~45), 사용자 답 299 "40이면 20~60". 줄 오차 250‰ → 22~37
     const strong = { ...DEFAULT_PREVIEW_UNIT, primaries: { ...DEFAULT_PREVIEW_UNIT.primaries, vit: 39 } };
     expect(amountOf(mendPotion(30, 10), strong)).toMatchObject({
-      ratioPm: 2000,
-      scaled: 60,
-      min: 30,
-      max: 90,
+      ratioPm: 1000,
+      scaled: 30,
+      min: 15,
+      max: 45,
     });
-    expect(amountOf(mendPotion(30, 10, 250), strong)).toMatchObject({ variancePm: 250, min: 45, max: 75 });
+    expect(amountOf(mendPotion(40, 10), strong)).toMatchObject({ scaled: 40, min: 20, max: 60 });
+    expect(amountOf(mendPotion(30, 10, 250), strong)).toMatchObject({ variancePm: 250, min: 22, max: 37 });
     // 비례 스탯이 없으면 기준 값 그대로(오차만)
     const fixed = {
       ...mendPotion(40, 10),
@@ -314,11 +295,11 @@ describe("초안 읽기", () => {
       },
     };
     const before = previewItem(ctx(), potion, DEFAULT_PREVIEW_UNIT, 500).use?.lines[0]?.amount;
-    expect(before).toMatchObject({ ratioPm: 2000, capPm: 2000, scaled: 60 });
+    expect(before).toMatchObject({ ratioPm: 1000, capPm: 1000, scaled: 30 });
     const cap: TuningOverrideRecord = {
       id: "n10_appropriate_cap",
       value: 3000,
-      packValue: 2000,
+      packValue: 1000,
       unit: null,
       contentVersion: "core@26",
       note: null,

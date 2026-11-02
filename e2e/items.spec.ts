@@ -142,7 +142,7 @@ async function consumableDraft(page: Page, language: Language, value: number, ap
   };
 }
 
-/** 효과량 줄 문구(VIT 비례, 상한 = 설정 칸 N10 2000‰) */
+/** 효과량 줄 문구(VIT 비례, 상한 = 설정 칸 N10 1000‰, D-502) */
 const amountLine = (
   language: Language,
   value: number,
@@ -158,7 +158,7 @@ const amountLine = (
     value,
     appropriate,
     ratio,
-    cap: 2000,
+    cap: 1000,
     scaled,
     variance,
     min,
@@ -369,6 +369,43 @@ test.describe("개발자", () => {
     expect(deviceErrors).toEqual([]);
   });
 
+  test("무기 1차 적정 스탯(D-502): 검(공격력 20·적정 STR 25·DEX 12·AGI 12)의 미리 보기 = 10 + 8 = 18, 몫마다 비율, 적정을 비우면 100%", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await editorReady(page);
+    await resetItems(page);
+    await page.reload();
+    await expect(page.locator(".ie-screen")).toHaveAttribute("data-status", "ready");
+    await open(page, "test_sword");
+    await editing(page).locator(".ie-duplicate").click();
+    const weapon = detail(page).locator('.ie-preview [data-part="weapon"]');
+    const efficiency = weapon.locator('[data-part="efficiency"]');
+    // 기준 유닛(1차 모두 10): STR 10 ÷ 25 = 40%, DEX 10 ÷ 12 = 83.3%, AGI 10 ÷ 12 = 83.3%
+    await expect(efficiency.locator('tr[data-row="physical"]')).toContainText("40%", { timeout: 15_000 });
+    await expect(efficiency.locator('tr[data-row="hit"]')).toContainText("83.3%");
+    await expect(efficiency.locator('tr[data-row="speed"]')).toContainText("83.3%");
+    const attackRow = weapon
+      .locator('table[data-field="physical"] tr')
+      .filter({ hasText: message("ko", "dev_items_formula_real_attack") });
+    await expect(attackRow).toContainText("18");
+    // 적정 STR 칸 아래에 기준 유닛 비율이 보인다
+    const physical = detail(page).locator('[data-part="weapon-physical"]');
+    await expect(physical).toContainText(
+      message("ko", "dev_items_part_ratio_hint", { stat: "STR", value: 10, ratio: "40%" }),
+    );
+    // 적정 STR을 비우면 그 몫은 100% → 10 + 20 = 30
+    await physical.getByLabel(message("ko", "dev_items_field_appropriate_str"), { exact: true }).fill("");
+    await expect(efficiency.locator('tr[data-row="physical"]')).toContainText("100%", { timeout: 15_000 });
+    await expect(attackRow).toContainText("30");
+    await bar(page).locator(".ie-clear").click();
+    await bar(page)
+      .getByRole("button", { name: message("ko", "dev_items_confirm_yes"), exact: true })
+      .click();
+    await expect(bar(page)).toHaveAttribute("data-count", "0");
+    expect(deviceErrors).toEqual([]);
+  });
+
   test("소모품 효과량(D-501): 효과 줄에 비례 스탯·적정 스탯·오차를 적으면 미리 보기가 기준 × min(상한, 스탯 ÷ 적정) ± 오차를 셈한다", async ({
     page,
     deviceErrors,
@@ -395,11 +432,11 @@ test.describe("개발자", () => {
     await preview.locator(".ie-unit > summary").click();
     await preview.getByLabel(message("ko", "roster_stat_vit_code"), { exact: true }).fill("39");
     await expect(draft.amount).toHaveText(koAmount(39, 40, 975, 48, 500, 24, 72), { timeout: 15_000 });
-    // 적정 10이면 상한 2000‰(무기 효율과 같은 설정 칸 N10) → 100(50~150), 줄 오차 ±250‰ → 75~125
+    // 적정 10이면 상한 1000‰(무기 몫과 같은 설정 칸 N10, 사용자 답 299: 적정 이상이면 기준 ±50%) → 50(25~75), 줄 오차 ±250‰ → 37~62
     await draft.appropriate.fill("10");
-    await expect(draft.amount).toHaveText(koAmount(39, 10, 2000, 100, 500, 50, 150), { timeout: 15_000 });
+    await expect(draft.amount).toHaveText(koAmount(39, 10, 1000, 50, 500, 25, 75), { timeout: 15_000 });
     await draft.variance.fill("250");
-    await expect(draft.amount).toHaveText(koAmount(39, 10, 2000, 100, 250, 75, 125), { timeout: 15_000 });
+    await expect(draft.amount).toHaveText(koAmount(39, 10, 1000, 50, 250, 37, 62), { timeout: 15_000 });
     await bar(page).locator(".ie-clear").click();
     await bar(page)
       .getByRole("button", { name: message("ko", "dev_items_confirm_yes"), exact: true })
@@ -557,6 +594,15 @@ test.describe("배치·사진", () => {
           await shot(page, `${name}-${theme}-${language}-${width}`);
         };
         await check("items");
+        // 무기 칸(D-502 1차 적정 스탯)과 미리 보기 무기 판(몫마다 비율)
+        await elementShot(
+          detail(page).locator('[data-section="weapon"]'),
+          `items-weapon-fields-${theme}-${language}-${width}`,
+        );
+        await elementShot(
+          detail(page).locator('.ie-preview [data-part="weapon"]'),
+          `items-weapon-preview-${theme}-${language}-${width}`,
+        );
         if (width < 1000) {
           // 390: 목록으로 돌아가 목록 칸을 찍는다
           await detail(page).locator(".ie-back-list").click();

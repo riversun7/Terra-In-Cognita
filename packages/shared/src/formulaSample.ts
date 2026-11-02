@@ -8,30 +8,58 @@ import {
   type CombatFormulaId,
   type EvadeRelativeValues,
   attackIntervalScope,
-  bareAttackScope,
+  attackScope,
+  bareAppropriateScope,
   critMultiplierScope,
+  dexFrameScope,
   evadeScope,
   staminaCostScope,
   staminaScoreScope,
   statRowScope,
-  weaponFrameScope,
 } from "./formulaSlots.ts";
+
+/** 무기 1차 적정 스탯(D-502, 몫마다 하나: str 물리 공격·int 속성 공격·dex 명중·크리·agi 공격 간격). 없는 칸 = 비율 100% */
+export interface WeaponAppropriateValues {
+  readonly str?: number | undefined;
+  readonly int?: number | undefined;
+  readonly dex?: number | undefined;
+  readonly agi?: number | undefined;
+}
 
 /** 표본 무기 하나(기본 공격 칸만): 팩 무기 아이템 또는 유닛 종류의 타고난 무기 */
 export interface FormulaSampleWeapon {
   /** 기본 공격 칸 종류(물리 = 물리 공격력, 속성 = 속성 공격력) */
   readonly kind: "physical" | "elemental";
+  /** 무기 공격력(맨손 0, D-502) */
   readonly attack: number;
-  readonly attackAppropriate: number;
+  readonly appropriate: WeaponAppropriateValues;
   readonly hitPm: number;
-  readonly hitAppropriate: number;
   readonly critPm: number;
-  readonly critAppropriate: number;
   readonly intervalMs: number;
-  readonly speedAppropriate: number;
   readonly staminaCost: number;
-  /** 사람형 맨손(기본 공격이 맨손 식) */
+  /** 맨손(무기 몫 0, 적정 DEX·AGI = bare_appropriate 식) */
   readonly unarmed: boolean;
+}
+
+/** 적정 1차 → 밀리점(없거나 0 이하면 0 = 적정 없음) */
+const milliOf = (value: number | undefined): number => (value === undefined || value <= 0 ? 0 : value * 1000);
+
+/**
+ * 무기의 몫마다 적정치(밀리점, 0 = 없음 → 비율 100%). 공격 몫은 그 칸의 1차(물리 STR·속성 INT), 명중·크리는 DEX, 공격 간격은 AGI.
+ * 맨손은 DEX·AGI가 bareMilli(bare_appropriate 식 값)이고 공격 몫은 없다(무기 몫 0). 판정(sim unitSpec)과 같은 규칙이다
+ */
+export function weaponAppropriateMilli(
+  weapon: Pick<FormulaSampleWeapon, "appropriate" | "unarmed">,
+  kind: "physical" | "elemental",
+  bareMilli: number,
+): { readonly attack: number; readonly dex: number; readonly agi: number } {
+  if (weapon.unarmed) return { attack: 0, dex: bareMilli, agi: bareMilli };
+  const a = weapon.appropriate;
+  return {
+    attack: milliOf(kind === "physical" ? a.str : a.int),
+    dex: milliOf(a.dex),
+    agi: milliOf(a.agi),
+  };
 }
 
 /** 식 변수에 드는 설정 칸 값(N10·N11·N12·N13) */
@@ -72,29 +100,40 @@ export function sampleSecondary(input: FormulaSampleInput): Record<string, numbe
   return out;
 }
 
-/** 표본의 전투 식 변수(식 ID → 변수). stats = sampleSecondary 결과 */
+/** 1차 6개 차례(STR·DEX·AGI·VIT·INT·WIS)에서 이름으로 */
+const primaryAt = (primaries: readonly number[], index: number): number => primaries[index] ?? 0;
+
+/**
+ * 표본의 전투 식 변수(식 ID → 변수). stats = sampleSecondary 결과, bareMilli = 맨손 적정(bare_appropriate 식 값, 밀리점 —
+ * runFormulaSample이 셈한다. 맨손이 아닌 무기면 쓰지 않는다)
+ */
 export function sampleScopes(
   input: FormulaSampleInput,
   stats: Readonly<Record<string, number>>,
   staminaScore: number,
+  bareMilli = 0,
 ): Record<CombatFormulaId, FormulaScope> {
   const { weapon, coefficients: c, primaries } = input;
   const s = (id: string): number => stats[id] ?? 0;
-  const attackStat = weapon.kind === "physical" ? s("physical_attack") : s("elemental_attack");
+  const physical = weapon.kind === "physical";
+  const statAttack = physical ? s("physical_attack") : s("elemental_attack");
   const roll = input.roll ?? 5000;
-  const agi = primaries[2] ?? 0;
+  const dex = primaryAt(primaries, 1);
+  const agi = primaryAt(primaries, 2);
+  const appropriate = weaponAppropriateMilli(weapon, weapon.kind, bareMilli);
   return {
-    real_attack: weaponFrameScope(weapon.attack, attackStat, weapon.attackAppropriate, c.capPm),
-    real_hit: weaponFrameScope(weapon.hitPm, s("hit"), weapon.hitAppropriate, c.capPm),
-    real_crit: weaponFrameScope(weapon.critPm, s("crit_chance"), weapon.critAppropriate, c.capPm),
-    bare_attack: bareAttackScope(
-      primaries,
-      input.level,
-      { weapon: weapon.attack, stat: attackStat, appropriate: weapon.attackAppropriate, capPm: c.capPm },
-      roll,
+    real_attack: attackScope(
+      statAttack,
+      weapon.unarmed ? 0 : weapon.attack,
+      physical ? primaryAt(primaries, 0) : primaryAt(primaries, 4),
+      appropriate.attack,
+      c.capPm,
     ),
+    real_hit: dexFrameScope(weapon.hitPm, dex, appropriate.dex, c.capPm),
+    real_crit: dexFrameScope(weapon.critPm, dex, appropriate.dex, c.capPm),
+    bare_appropriate: bareAppropriateScope(input.level),
     crit_multiplier: critMultiplierScope(s("crit_multiplier"), c.critSpreadPm, roll),
-    attack_interval: attackIntervalScope(weapon.intervalMs, s("action_speed"), weapon.speedAppropriate),
+    attack_interval: attackIntervalScope(weapon.intervalMs, agi, appropriate.agi, c.capPm),
     stamina_score: staminaScoreScope(primaries, c.staminaWeightsPm),
     stamina_cost: staminaCostScope(weapon.staminaCost, staminaScore, c.staminaAppropriate, c.staminaMinPm),
     evade_chance: evadeScope(s("evade"), agi, input.opponentAgi ?? agi, c.evadeRelative),
@@ -119,12 +158,14 @@ export function runFormulaSample(
     combat.stamina_score,
     staminaScoreScope(input.primaries, input.coefficients.staminaWeightsPm),
   );
-  const scopes = sampleScopes(input, stats, staminaScore);
+  // 맨손 적정(밀리점)을 먼저 셈해 명중·크리·공격 간격의 A로 넣는다(판정 specFromStats와 같은 차례)
+  const bareMilli = evaluateFormula(combat.bare_appropriate, bareAppropriateScope(input.level));
+  const scopes = sampleScopes(input, stats, staminaScore, bareMilli);
   const values: Record<CombatFormulaId, number> = {
     real_attack: evaluateFormula(combat.real_attack, scopes.real_attack),
     real_hit: evaluateFormula(combat.real_hit, scopes.real_hit),
     real_crit: evaluateFormula(combat.real_crit, scopes.real_crit),
-    bare_attack: evaluateFormula(combat.bare_attack, scopes.bare_attack),
+    bare_appropriate: bareMilli,
     crit_multiplier: evaluateFormula(combat.crit_multiplier, scopes.crit_multiplier),
     attack_interval: evaluateFormula(combat.attack_interval, scopes.attack_interval),
     stamina_score: evaluateFormula(combat.stamina_score, scopes.stamina_score),

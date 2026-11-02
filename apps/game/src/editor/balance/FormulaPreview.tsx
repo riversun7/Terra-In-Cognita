@@ -118,24 +118,31 @@ export function PreviewPanel({ preview, slot }: { preview: FormulaPreview; slot:
   );
 }
 
-/** 표본 1차·레벨에서 무기마다 적정 비율(2차 점수 ÷ 적정치, 상한)을 보인다. 맨손 일반 공격은 맨손 식 */
+/**
+ * 표본 1차·레벨에서 무기마다 적정 비율(D-502: 1차 ÷ 무기 적정 1차, 상한 N10)을 보인다. 공격 몫은 STR(속성 칸 INT), 명중·크리는 DEX,
+ * 공격 간격은 AGI. 맨손은 무기 몫이 없고 적정 DEX·AGI = 맨손 적정 식(bare_appropriate) 값
+ */
 export function AppropriateTable({
   list,
-  stats,
-  level,
+  primaries,
+  bareAppropriate,
   weaponName,
 }: {
   list: FormulaListResponse;
-  stats: Readonly<Record<string, number>>;
-  level: number;
+  /** 표본 1차 6개(STR·DEX·AGI·VIT·INT·WIS 차례) */
+  primaries: readonly number[];
+  /** 맨손 적정(bare_appropriate 식 값, 점) */
+  bareAppropriate: number;
   weaponName: (weapon: FormulaWeaponView) => string;
 }) {
   const cap = list.coefficients.capPm / 1000;
-  const ratio = (stat: number, appropriate: number): string =>
-    appropriate <= 0 ? "—" : `${Math.min(cap, stat / appropriate).toFixed(2)}×`;
-  const attackOf = (weapon: FormulaWeaponView): number =>
-    weapon.kind === "physical" ? (stats.physical_attack ?? 0) : (stats.elemental_attack ?? 0);
-  const optDex = level * 1.5 + 10;
+  const ratio = (stat: number, appropriate: number | undefined): string =>
+    appropriate === undefined || appropriate <= 0 ? "—" : `${Math.min(cap, stat / appropriate).toFixed(2)}×`;
+  const at = (index: number): number => primaries[index] ?? 0;
+  /** 적정 칸 글: 적정 · 비율(없으면 "—") */
+  const cell = (stat: number, appropriate: number | undefined): string =>
+    appropriate === undefined || appropriate <= 0 ? "—" : `${appropriate} · ${ratio(stat, appropriate)}`;
+  const bare = bareAppropriate.toFixed(bareAppropriate % 1 === 0 ? 0 : 1);
   return (
     <div className="fx-scroll" tabIndex={0} role="region" aria-label={m.dev_formula_items_title()}>
       <table className="fx-table fx-items">
@@ -146,7 +153,6 @@ export function AppropriateTable({
             </th>
             <th scope="col">{m.dev_formula_col_attack()}</th>
             <th scope="col">{m.dev_formula_col_hit()}</th>
-            <th scope="col">{m.dev_formula_col_crit()}</th>
             <th scope="col">{m.dev_formula_col_speed()}</th>
           </tr>
         </thead>
@@ -158,17 +164,20 @@ export function AppropriateTable({
               </th>
               <td translate="no">
                 {weapon.unarmed
-                  ? `${m.dev_formula_bare_rule()} · DEX ${optDex.toFixed(1)}`
-                  : `${weapon.attack} / ${weapon.attackAppropriate} · ${ratio(attackOf(weapon), weapon.attackAppropriate)}`}
+                  ? m.dev_formula_bare_rule()
+                  : weapon.kind === "physical"
+                    ? `${weapon.attack} / STR ${cell(at(0), weapon.appropriate.str)}`
+                    : `${weapon.attack} / INT ${cell(at(4), weapon.appropriate.int)}`}
               </td>
               <td translate="no">
-                {weapon.hitAppropriate} · {ratio(stats.hit ?? 0, weapon.hitAppropriate)}
+                {weapon.unarmed
+                  ? `${bare} · ${ratio(at(1), bareAppropriate)}`
+                  : cell(at(1), weapon.appropriate.dex)}
               </td>
               <td translate="no">
-                {weapon.critAppropriate} · {ratio(stats.crit_chance ?? 0, weapon.critAppropriate)}
-              </td>
-              <td translate="no">
-                {weapon.speedAppropriate} · {ratio(stats.action_speed ?? 0, weapon.speedAppropriate)}
+                {weapon.unarmed
+                  ? `${bare} · ${ratio(at(2), bareAppropriate)}`
+                  : cell(at(2), weapon.appropriate.agi)}
               </td>
             </tr>
           ))}

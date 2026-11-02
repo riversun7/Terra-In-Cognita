@@ -4,10 +4,9 @@
 // [임시] 역할 구성·수치는 화면 확인용 기술 기본값이다(게임 규칙이 아니다).
 import type { BattleMapInput } from "./battleMap.ts";
 import type { BattleInit, CombatUnitSpec } from "./battleTypes.ts";
-import { type CombatCatalog, UNARMED, UNARMED_ELEMENTAL, skillsOf } from "./catalog.ts";
+import { type CombatCatalog, UNARMED, UNARMED_ELEMENTAL, skillsOf, withStatTable } from "./catalog.ts";
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "./coefficients.ts";
 import { type EquippedItem, itemAt, loadoutOf, skillSlotCount } from "./equipment.ts";
-import { withStatTable } from "./equipmentAppropriate.ts";
 import type { Primaries, StatRow } from "./stats.ts";
 import { specFromStats } from "./unitSpec.ts";
 
@@ -144,7 +143,6 @@ export function demoSkirmish(options: {
 }): DemoSkirmish {
   const { map } = options;
   const table = options.table ?? options.catalog.statTable;
-  // 표를 따로 받으면 1차 적정 스탯 무기의 적정치도 그 표로 다시 셈한다(아이템 편집기 WP-5)
   const catalog = withStatTable(options.catalog, table);
   const c = options.coefficients ?? TEST_COMBAT_COEFFICIENTS;
   const human = catalog.unitKinds.find((kind) => kind.id === "human");

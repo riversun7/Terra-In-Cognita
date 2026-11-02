@@ -24,6 +24,54 @@ async function trpcStatus(page: Page, procedure: string, input?: unknown): Promi
   );
 }
 
+/** 화면 안에서 tRPC 조회를 부르고 결과 자료(result.data)를 돌려준다 */
+async function trpcData(page: Page, procedure: string, input: unknown): Promise<unknown> {
+  return page.evaluate(
+    async ({ procedure: name, input: body }) => {
+      const response = await fetch(`/api/trpc/${name}?input=${encodeURIComponent(JSON.stringify(body))}`);
+      const json: unknown = await response.json();
+      const result: unknown =
+        typeof json === "object" && json !== null ? Reflect.get(json, "result") : undefined;
+      return typeof result === "object" && result !== null ? Reflect.get(result, "data") : undefined;
+    },
+    { procedure, input },
+  );
+}
+
+const at = (value: unknown, ...keys: string[]): unknown =>
+  keys.reduce<unknown>(
+    (current, key) =>
+      typeof current === "object" && current !== null ? Reflect.get(current, key) : undefined,
+    value,
+  );
+
+/** 1차 6개가 모두 v */
+const flat = (v: number) => ({ str: v, vit: v, int: v, wis: v, dex: v, agi: v });
+
+/** 실험 유닛(새 유닛 기본값과 같은 모양: 1차 모두 10, Lv 1) */
+const labUnit = (weapon: unknown, level = 1, value = 10) => {
+  return {
+    label: "",
+    kind: "cyborg",
+    level,
+    rebirths: 0,
+    initial: flat(value),
+    kPm: flat(0),
+    elements: Array.from({ length: 12 }, () => 0),
+    weapon,
+    equipment: [],
+    gear: {
+      rows: [],
+      defenseFlat: 0,
+      penetrationPm: 0,
+      resistPm: Array.from({ length: 12 }, () => 0),
+      primaries: flat(0),
+    },
+    skills: [],
+    row: "front",
+  };
+};
+
 async function labReady(page: Page): Promise<void> {
   await page.goto("/dev/balance");
   await expect(page.locator(".bl-lab")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
@@ -107,6 +155,29 @@ test.describe("개발자", () => {
     await page.reload();
     await expect(page.locator(".bl-lab")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
     await expect(page.locator(".bl-team[data-team='a'] .bl-unit-name").nth(1)).toContainText("Lv 11");
+    expect(unexpected(deviceErrors)).toEqual([]);
+  });
+
+  test("공격력 = 스탯 공격력 + 무기 몫(D-502): 새 사이보그 맨손 10·명중 73.8%, 검 10 + 8 = 18, 미리 보기 공격 표", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await labReady(page);
+    // 맨손(Lv 1, 1차 모두 10): 무기 몫 0, 적정 DEX = 1 × 1.5 + 10 = 11.5 → 850‰ × 10 ÷ 11.5 = 738‰
+    const bare = at(await trpcData(page, "battleLab.preview", labUnit({ kind: "natural" })), "combat");
+    expect([at(bare, "realAttack"), at(bare, "hitPm")]).toEqual([10, 738]);
+    expect(at(bare, "appropriate", "hit")).toEqual({ stat: 10, appropriateMilli: 11_500, ratioPm: 869 });
+    // 검(공격력 20·적정 STR 25): 10 + 20 × 10 ÷ 25 = 18, Lv 30 균형형(39) → 39 + 20 = 59
+    const sword = { kind: "item", id: "test_sword", pm: 0 };
+    const lv1 = at(await trpcData(page, "battleLab.preview", labUnit(sword)), "combat");
+    expect(at(lv1, "realAttack")).toBe(18);
+    const lv30 = at(await trpcData(page, "battleLab.preview", labUnit(sword, 30, 39)), "combat");
+    expect(at(lv30, "realAttack")).toBe(59);
+    // 화면: 편집 유닛의 공격 표에 스탯 공격력·무기 공격력·1차 ÷ 적정·비율 칸이 있다
+    await page.locator(".bl-team[data-team='a'] .bl-unit-pick").nth(1).click();
+    const basic = page.locator(".bl-attacks tr[data-attack='basic'] td");
+    await expect(basic).toHaveCount(6);
+    await expect(page.locator(".bl-attacks tr[data-appropriate='speed'] td").nth(4)).toContainText("÷");
     expect(unexpected(deviceErrors)).toEqual([]);
   });
 
@@ -287,15 +358,13 @@ function worstTeams() {
         ? {
             kind: "custom",
             spec: {
-              physical: { attack: 1_000_000, appropriate: 1 },
-              elemental: { attack: 999_999, appropriate: 1 },
+              physical: { attack: 1_000_000 },
+              elemental: { attack: 999_999 },
               basic: "elemental",
+              appropriate: { str: 1, int: 1, dex: 1, agi: 1_000_000 },
               hitPm: 1_000_000,
-              hitAppropriate: 1,
               critPm: 1_000_000,
-              critAppropriate: 1,
               intervalMs: 60_000,
-              speedAppropriate: 1_000_000,
               range: 32,
               arc: true,
               staminaCost: 1_000_000,

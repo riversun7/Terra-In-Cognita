@@ -83,7 +83,7 @@ describe("장비 칸과 스탯(D-422~D-424)", () => {
     expect(out.primaries).toEqual({ ...base, str: 13, vit: 12 });
     // 2차 수치는 가중치 표의 장비 칸으로 들어간다(양 모양은 그대로 더하고, 확률 모양은 점수에 더한다, [임시])
     expect(out.stats).toEqual(
-      computeSecondary(out.primaries, table, { crit_chance: 20, defense_rate: 30, armor_hp: 20 }),
+      computeSecondary(out.primaries, table, { crit_multiplier: 100, defense_rate: 30, armor_hp: 20 }),
     );
     expect(out.stats.armor_hp).toBe((computeSecondary(out.primaries, table).armor_hp ?? 0) + 20);
     expect(out.weapon).toBe(def("test_sword").weapon);
@@ -120,7 +120,8 @@ describe("장비 칸과 스탯(D-422~D-424)", () => {
       moveIntervalMs: 1000,
     });
     expect(spec.attack.weaponAttack).toBe(20);
-    expect(spec.attack.attackStat).toBeLessThan(spec.attack.attackAppropriate);
+    // 적정 STR 25에 못 미친다(D-502: 무기 몫이 그 비율로 준다)
+    expect(spec.attack.attackPrimary * 1000).toBeLessThan(spec.attack.attackAppropriateMilli);
   });
 
   it("맨손이면 맨손 무기, 장비 스킬은 고유 스킬 뒤에 붙고 스킬 칸 수에서 자른다(D-426·D-427)", () => {

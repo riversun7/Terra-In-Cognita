@@ -4,7 +4,7 @@
 // 출발값: 기획 설정 칸(49 5장·6.5 N1~N33)에 있는 값은 그대로, 없는 값은 [임시]. 배율은 ‰, 확률 굴림은 0~9999.
 // 정본은 기획 48(수치·공식)이다. 콘텐츠 팩 `tuning`(N 칸 값)이 있으면 실행 도구가 이 표를 그 값으로 바꾼다(tuning.ts).
 // 게임 상한은 없다(D-421: 하드캡·속성 하한 거둠).
-// 식(실제 공격력·명중·크리·맨손·크리 배율·공격 간격·STA 점수·스태미나 소모·최종 회피)은 개발자 모드에서 고치는 계산식이다
+// 식(실제 공격력·명중·크리·맨손 적정·크리 배율·공격 간격·STA 점수·스태미나 소모·최종 회피)은 개발자 모드에서 고치는 계산식이다
 // (formulas.ts, docs/adr/2026-11-01-formula-editor.md). 이 표의 수(N10·N11·N12·N13)는 식의 변수로 들어간다.
 import { type CombatFormulaSet, staminaCostMilliOf, staminaScoreOf } from "./formulas.ts";
 
@@ -34,7 +34,7 @@ export interface CombatCoefficients {
   readonly bushRevealMs: number;
   /** [임시] 패배 화물 탈취(C19 기존 "최대 50%", 만분율) */
   readonly lootBp: number;
-  /** 적정 스탯 비율 상한(N10 구조 값, 2000‰) */
+  /** 적정 스탯 비율 상한(N10 구조 값, 1000‰ = 적정을 넘는 보너스 없음, D-502) */
   readonly appropriateCapPm: number;
   /** 회피 상대 보정(N11): 유리 기울기·끝값, 불리 기울기·끝값(‰) */
   readonly evadeRelative: {
@@ -56,7 +56,7 @@ export interface CombatCoefficients {
   };
   /**
    * 전투 계산식 묶음(팩 formulas + 그 세계의 덮어쓰기, docs/adr/2026-11-01-formula-editor.md). 없으면 기본 식
-   * (DEFAULT_COMBAT_FORMULA_SET = 지금 코드와 같은 결과, 맨손만 옛 프로젝트 규칙)
+   * (DEFAULT_COMBAT_FORMULA_SET = 지금 코드와 같은 결과)
    */
   readonly formulas?: CombatFormulaSet | undefined;
 }
@@ -96,7 +96,7 @@ export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
   bushSenseCells: 1,
   bushRevealMs: 2_000,
   lootBp: 5_000,
-  appropriateCapPm: 2_000,
+  appropriateCapPm: 1_000,
   evadeRelative: { favorSlopePm: 300, favorCapPm: 400, unfavorSlopePm: 400, unfavorCapPm: 300 },
   critSpreadPm: 500,
   stamina: {

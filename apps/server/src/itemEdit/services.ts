@@ -196,28 +196,24 @@ export function createItemEditorServices(deps: {
     effective,
     effects: state.effects,
     statRows: shared.statRows,
-    statTable: shared.roster.combat.statTable,
     recipes: shared.recipes,
     necessities: shared.necessities,
     destroyAt: destroyAt(),
   });
-  /** 스냅숏·설정 판·가중치 표마다 한 번 셈한 권고 */
+  /** 스냅숏·설정 판마다 한 번 셈한 권고 */
   let adviceCache:
     | {
         snapshot: ContentSnapshot;
         destroyAt: number | null;
-        table: unknown;
         byId: Map<string, ContentIssueView[]>;
       }
     | undefined;
   const adviceOf = (snapshot: ContentSnapshot): Map<string, ContentIssueView[]> => {
     const at = destroyAt();
-    const table = shared.roster.combat.statTable;
-    if (adviceCache?.snapshot === snapshot && adviceCache.destroyAt === at && adviceCache.table === table)
-      return adviceCache.byId;
+    if (adviceCache?.snapshot === snapshot && adviceCache.destroyAt === at) return adviceCache.byId;
     const ctx = adviceContext(snapshot.effective);
     const byId = new Map(snapshot.effective.items.map((item) => [item.id, itemAdvice(ctx, item)]));
-    adviceCache = { snapshot, destroyAt: at, table, byId };
+    adviceCache = { snapshot, destroyAt: at, byId };
     return byId;
   };
 

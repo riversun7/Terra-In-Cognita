@@ -9,6 +9,7 @@ import { and, count, eq } from "drizzle-orm";
 import { type AuditActor, writeAudit } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
 import { battleLabPresets, users } from "../db/schema.ts";
+import { upgradeLegacyPreset } from "./legacy.ts";
 import { labPartySchema, labUnitSchema } from "./schema.ts";
 
 export const LAB_PRESET_AUDIT = {
@@ -29,7 +30,7 @@ export interface PresetRow {
   readonly updatedAtMs: number;
 }
 
-/** DB 줄 → 화면 모양. 값이 지금 규칙에 맞지 않으면 null */
+/** DB 줄 → 화면 모양(옛 모양 직접 값 무기는 고쳐 읽는다, legacy.ts). 값이 지금 규칙에 맞지 않으면 null */
 export function presetViewOf(row: PresetRow): LabPresetView | null {
   const base = {
     id: row.id,
@@ -39,12 +40,13 @@ export function presetViewOf(row: PresetRow): LabPresetView | null {
     updatedBy: row.updatedByName,
     updatedAtMs: row.updatedAtMs,
   };
+  const data = upgradeLegacyPreset(row.kind, row.data);
   if (row.kind === "unit") {
-    const parsed = labUnitSchema.safeParse(row.data);
+    const parsed = labUnitSchema.safeParse(data);
     return parsed.success ? { ...base, kind: "unit", data: parsed.data } : null;
   }
   if (row.kind === "party") {
-    const parsed = labPartySchema.safeParse(row.data);
+    const parsed = labPartySchema.safeParse(data);
     return parsed.success ? { ...base, kind: "party", data: parsed.data } : null;
   }
   return null;

@@ -13,8 +13,13 @@ import {
 import { describe, expect, it } from "vitest";
 import { UNARMED } from "./catalog.ts";
 import { TEST_COMBAT_COEFFICIENTS, staminaCostMilli, staminaScore } from "./coefficients.ts";
-import { realAttackOf } from "./formula.ts";
-import { DEFAULT_COMBAT_FORMULA_SET, critMultiplierPm, evadeChancePm, frameValue } from "./formulas.ts";
+import { realAttackOf, realCritPm, realHitPm } from "./formula.ts";
+import {
+  DEFAULT_COMBAT_FORMULA_SET,
+  bareAppropriateMilli,
+  critMultiplierPm,
+  evadeChancePm,
+} from "./formulas.ts";
 import { TEST_STAT_TABLE, computeSecondary } from "./stats.ts";
 import { type WeaponSpec, specFromStats } from "./unitSpec.ts";
 
@@ -33,13 +38,11 @@ const coefficients = {
   evadeRelative: c.evadeRelative,
 };
 const SWORD: WeaponSpec = {
-  physical: { attack: 20, attackAppropriate: 40 },
+  physical: { attack: 20 },
+  appropriate: { str: 25, dex: 12, agi: 12 },
   hitPm: 900,
-  hitAppropriate: 50,
   critPm: 100,
-  critAppropriate: 100,
   intervalMs: 1000,
-  speedAppropriate: 100,
   range: 1,
   arc: false,
   staminaCost: 10,
@@ -49,13 +52,10 @@ const SWORD: WeaponSpec = {
 const sampleWeapon = (weapon: WeaponSpec): FormulaSampleWeapon => ({
   kind: "physical",
   attack: weapon.physical?.attack ?? 0,
-  attackAppropriate: weapon.physical?.attackAppropriate ?? 0,
+  appropriate: weapon.appropriate ?? {},
   hitPm: weapon.hitPm,
-  hitAppropriate: weapon.hitAppropriate,
   critPm: weapon.critPm,
-  critAppropriate: weapon.critAppropriate,
   intervalMs: weapon.intervalMs,
-  speedAppropriate: weapon.speedAppropriate,
   staminaCost: weapon.staminaCost,
   unarmed: weapon.unarmed === true,
 });
@@ -100,22 +100,11 @@ describe("미리 보기 = 판정", () => {
       expect(fxToInt(v.stamina_score)).toBe(spec.staminaScore);
       expect(sample.staminaScore).toBe(staminaScore(p, c));
       expect(v.stamina_cost).toBe(staminaCostMilli(weapon.staminaCost, spec.staminaScore, c));
-      expect(fxToInt(v.real_hit)).toBe(
-        frameValue("real_hit", weapon.hitPm, stats.hit ?? 0, weapon.hitAppropriate, c.appropriateCapPm, c),
-      );
-      expect(fxToInt(v.real_crit)).toBe(
-        frameValue(
-          "real_crit",
-          weapon.critPm,
-          stats.crit_chance ?? 0,
-          weapon.critAppropriate,
-          c.appropriateCapPm,
-          c,
-        ),
-      );
-      // 맨손이면 맨손 식, 칼이면 무기 틀(판정은 사양의 unarmed로 고른다)
-      const real = realAttackOf(spec.attack, roll, c.appropriateCapPm, c);
-      expect(fxToInt(weapon.unarmed ? v.bare_attack : v.real_attack)).toBe(real);
+      expect(fxToInt(v.real_hit)).toBe(realHitPm(spec.attack, c));
+      expect(fxToInt(v.real_crit)).toBe(realCritPm(spec.attack, c));
+      // 공격력 = 스탯 공격력 + 무기 몫(맨손은 무기 몫 0, D-502). 맨손 적정은 레벨 식(밀리점)
+      expect(fxToInt(v.real_attack)).toBe(realAttackOf(spec.attack, c.appropriateCapPm, c));
+      expect(v.bare_appropriate).toBe(bareAppropriateMilli(level, c));
       expect(fxToInt(v.crit_multiplier)).toBe(critMultiplierPm(stats.crit_multiplier ?? 0, roll, c));
       expect(fxToInt(v.evade_chance)).toBe(evadeChancePm(stats.evade ?? 0, p[2] ?? 0, p[2] ?? 0, c));
     }

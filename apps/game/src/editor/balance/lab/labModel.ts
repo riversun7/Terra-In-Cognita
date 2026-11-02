@@ -297,3 +297,9 @@ export function percentText(pm: number, locale: string): string {
 export function numberText(value: number, locale: string): string {
   return new Intl.NumberFormat(locale).format(value);
 }
+
+/** 적정(밀리점, D-502: 맨손 Lv 1 = 11.5) → 글(소수 셋째 자리까지). 0 이하 = 적정 없음("—") */
+export function appropriateText(milli: number, locale: string): string {
+  if (milli <= 0) return "—";
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 3 }).format(milli / 1000);
+}

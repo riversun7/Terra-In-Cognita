@@ -52,23 +52,31 @@ export const LAB_LIMITS = {
   logMax: 400,
 } as const;
 
-/** 무기 공격력 칸 하나(D-465) */
+/** 무기 공격력 칸 하나(D-465). 공격력 = 스탯 공격력 + 이 값 × 적정 비율(D-502) */
 export interface LabWeaponField {
   readonly attack: number;
-  readonly appropriate: number;
 }
 
-/** 직접 만든 무기(D-465 물리·속성 칸, basic = 기본 공격 칸). 속성 옵션 계수는 12칸 ‰ */
+/**
+ * 무기 1차 적정 스탯(D-502, 사용자 답 296~298: 몫마다 하나 — str 물리 공격, int 속성 공격, dex 명중·크리, agi 공격 간격).
+ * 0 = 그 몫의 적정 없음(비율 100%)
+ */
+export interface LabWeaponAppropriate {
+  readonly str: number;
+  readonly int: number;
+  readonly dex: number;
+  readonly agi: number;
+}
+
+/** 직접 만든 무기(D-465 물리·속성 칸, basic = 기본 공격 칸, D-502 1차 적정 스탯). 속성 옵션 계수는 12칸 ‰ */
 export interface LabCustomWeapon {
   readonly physical: LabWeaponField | null;
   readonly elemental: LabWeaponField | null;
   readonly basic: "physical" | "elemental";
+  readonly appropriate: LabWeaponAppropriate;
   readonly hitPm: number;
-  readonly hitAppropriate: number;
   readonly critPm: number;
-  readonly critAppropriate: number;
   readonly intervalMs: number;
-  readonly speedAppropriate: number;
   readonly range: number;
   readonly arc: boolean;
   readonly staminaCost: number;

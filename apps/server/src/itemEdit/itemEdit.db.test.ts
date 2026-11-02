@@ -188,7 +188,7 @@ describe.skipIf(!TEST_DATABASE_URL)("아이템 편집기 (DB)", () => {
       ...sword,
       id: "editor_blade",
       name: { ko: "편집 칼", en: "Editor blade" },
-      equip: { ...equip, weapon: { ...obj(equip.weapon), physical: { attack: 33, attackAppropriate: 40 } } },
+      equip: { ...equip, weapon: { ...obj(equip.weapon), physical: { attack: 33 } } },
     };
     const res = await save([{ op: "put", category: "items", entry: blade, baseHash: null }], {
       note: "시험",

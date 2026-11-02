@@ -78,9 +78,8 @@ function problemOf(plan: TuningPlan): BalanceEditProblem | null {
 
 const rejected = (reason: string) => reasonedError("BAD_REQUEST", BALANCE_REJECTED, reason);
 
-/** 무기 공격력 칸 → 화면 모양(D-465: 칸이 없으면 null) */
-const attackField = (value: WeaponSpec["physical"]) =>
-  value ? { attack: value.attack, appropriate: value.attackAppropriate } : null;
+/** 무기 공격력 칸 → 화면 모양(D-465: 칸이 없으면 null, 적정은 무기의 1차 적정 스탯 D-502) */
+const attackField = (value: WeaponSpec["physical"]) => (value ? { attack: value.attack } : null);
 
 export function createBalanceServices(deps: {
   tuning: TuningShared;

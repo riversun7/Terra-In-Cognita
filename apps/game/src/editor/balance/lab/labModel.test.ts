@@ -52,15 +52,13 @@ describe("전투 실험실 팀 고치기", () => {
 
   it("무기 고르기: 직접 값으로 바꾸면 타고난 무기가 출발값", () => {
     const natural = {
-      physical: { attack: 5, appropriate: 20 },
+      physical: { attack: 0 },
       elemental: null,
       basic: "physical" as const,
+      appropriate: { str: 0, int: 0, dex: 0, agi: 0 },
       hitPm: 850,
-      hitAppropriate: 20,
       critPm: 50,
-      critAppropriate: 20,
       intervalMs: 1000,
-      speedAppropriate: 100,
       range: 1,
       arc: false,
       staminaCost: 10,

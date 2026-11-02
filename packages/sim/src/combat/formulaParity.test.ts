@@ -1,5 +1,6 @@
-// 계산식 기본 식 = 바꾸기 전 코드(docs/adr/2026-11-01-formula-editor.md "같은 결과 증명"). 바꾸기 전 공식을 여기 그대로 옮겨 두고
-// 무작위 입력에서 식 결과와 견준다. 맨손 일반 공격만 옛 프로젝트 규칙으로 바꿨다(D-488): 그 값은 따로 본다.
+// 계산식 기본 식 = 코드 모양(docs/adr/2026-11-01-formula-editor.md "같은 결과 증명"). 공식을 여기·formula.ts에 코드로 적어 두고
+// 무작위 입력에서 식 결과와 견준다. 공격력·명중·크리·공격 간격은 D-502(사용자 답 296~298)의 모양이다: 스탯 공격력 + 무기 몫,
+// 무기 값 × min(N10, 1차 ÷ 적정), 적정은 밀리점(맨손 Lv 1 = 11.5), 적정이 없으면 100%.
 // 최종 회피는 1%~85% 범위를 더했다(사용자 답 277, 옛 기획 회피율 §6): 바꾸기 전 공식 + 범위(evadeFinalPm)와 견주고, 옛 기획 매칭 표도 본다.
 import {
   COMBAT_FORMULA_IDS,
@@ -19,17 +20,20 @@ import {
   evadeFinalPm,
   evadeRelativePm,
   realAttackOf,
-  resolveAttack,
+  realHitPm,
+  statPlusWeapon,
+  weaponRatioPm,
   weaponScaled,
 } from "./formula.ts";
 import {
   DEFAULT_COMBAT_FORMULA_SET,
   attackIntervalMs,
-  bareAttackValue,
+  attackValue,
+  bareAppropriateMilli,
   combatFormulaSetFrom,
   critMultiplierPm,
+  dexFrameValue,
   evadeChancePm,
-  frameValue,
 } from "./formulas.ts";
 import { type StatRow, TEST_STAT_TABLE, computeSecondary } from "./stats.ts";
 import { specFromStats } from "./unitSpec.ts";
@@ -51,8 +55,10 @@ function oldStaminaCostMilli(baseCost: number, score: number): number {
       : Math.max(c.stamina.minConsumePm, Math.floor((c.stamina.appropriateScore * 1000) / score));
   return baseCost * factor;
 }
-function oldInterval(intervalMs: number, speed: number, appropriate: number): number {
-  const ratio = Math.min(2000, Math.floor((Math.max(1, speed) * 1000) / Math.max(1, appropriate)));
+/** 공격 간격(D-502 사용자 답 297): 무기 간격 ÷ min(N10, AGI ÷ 적정 AGI). 적정(밀리점)이 없으면 무기 간격 그대로 */
+function ruleInterval(intervalMs: number, agi: number, appropriateMilli: number): number {
+  if (appropriateMilli <= 0) return intervalMs;
+  const ratio = weaponRatioPm(agi, appropriateMilli, c.appropriateCapPm);
   return Math.max(1, Math.floor((intervalMs * 1000) / Math.max(1, ratio)));
 }
 const oldCritMul = (critMulPm: number, pos: number): number =>
@@ -63,17 +69,30 @@ const evadeOf = (agi: number): number =>
   computeSecondary({ str: 0, dex: 0, agi, vit: 0, int: 0, wis: 0 }, TEST_STAT_TABLE)["evade"] ?? 0;
 
 describe("기본 식 = 바꾸기 전 공식(무작위 입력)", () => {
-  it("무기 틀(실제 공격력·명중·크리)", () => {
+  it("공격력 = 스탯 공격력 + 무기 몫, 명중·크리 = 무기 값 × 비율(D-502, 적정은 밀리점)", () => {
     for (let round = 0; round < 3000; round++) {
       const weapon = int(round % 3 === 0 ? 2000 : 1_000_000);
       const stat = int(round % 5 === 0 ? 50 : 10_000_000) - (round % 7 === 0 ? 30 : 0);
-      const appropriate = int(round % 11 === 0 ? 3 : 10_000_000);
-      const cap = round % 2 === 0 ? 2000 : int(5000);
-      for (const id of ["real_attack", "real_hit", "real_crit"] as const)
-        expect(frameValue(id, weapon, stat, appropriate, cap, c)).toBe(
-          weaponScaled(weapon, stat, appropriate, cap),
+      const primary = int(round % 5 === 0 ? 50 : 10_000_000) - (round % 9 === 0 ? 30 : 0);
+      // 적정(밀리점): 정수 적정 × 1000, 소수 적정(맨손 11.5 등), 없음(0)
+      const appropriate =
+        round % 13 === 0 ? 0 : round % 4 === 0 ? 1000 * (1 + int(3000)) : 1 + int(4_000_000_000);
+      const cap = round % 2 === 0 ? 1000 : int(5000);
+      expect(attackValue(stat, weapon, primary, appropriate, cap, c)).toBe(
+        statPlusWeapon(stat, weapon, primary, appropriate, cap),
+      );
+      for (const id of ["real_hit", "real_crit"] as const)
+        expect(dexFrameValue(id, weapon, primary, appropriate, cap, c)).toBe(
+          weaponScaled(weapon, primary, appropriate, cap),
         );
     }
+  });
+
+  it("맨손 적정 DEX·AGI = 레벨 × 1.5 + 10(밀리점, Lv 1 = 11.5)", () => {
+    expect(bareAppropriateMilli(1, c)).toBe(11_500);
+    expect(bareAppropriateMilli(30, c)).toBe(55_000);
+    for (let level = 1; level <= 200; level++)
+      expect(bareAppropriateMilli(level, c)).toBe((3 * level + 20) * 500);
   });
 
   it("최종 회피(상대 보정 N11 + 범위 1%~85%)", () => {
@@ -132,15 +151,16 @@ describe("기본 식 = 바꾸기 전 공식(무작위 입력)", () => {
     }
   });
 
-  it("공격 간격", () => {
+  it("공격 간격(D-502: 무기 간격 ÷ min(N10, AGI ÷ 적정 AGI), 적정 미만이면 느려짐)", () => {
     for (let round = 0; round < 3000; round++) {
       const interval = 100 + int(60_000);
-      const speed = int(round % 3 === 0 ? 300 : 10_000_000) - (round % 17 === 0 ? 5 : 0);
-      const appropriate = int(round % 5 === 0 ? 3 : 10_000_000);
-      expect(attackIntervalMs(interval, speed, appropriate, c)).toBe(
-        oldInterval(interval, speed, appropriate),
-      );
+      const agi = int(round % 3 === 0 ? 300 : 10_000_000) - (round % 17 === 0 ? 5 : 0);
+      const appropriate = round % 7 === 0 ? 0 : round % 5 === 0 ? 1 + int(3000) : 1000 * (1 + int(10_000));
+      expect(attackIntervalMs(interval, agi, appropriate, c)).toBe(ruleInterval(interval, agi, appropriate));
     }
+    // 예: 간격 1000ms, 적정 AGI 12 → AGI 10이면 1000 ÷ 0.833 = 1200ms, AGI 39면 1000ms(넘는 보너스 없음)
+    expect(attackIntervalMs(1000, 10, 12_000, c)).toBe(1200);
+    expect(attackIntervalMs(1000, 39, 12_000, c)).toBe(1000);
   });
 
   it("STA 점수·스태미나 소모(N13)", () => {
@@ -186,129 +206,60 @@ describe("기본 식 = 바꾸기 전 공식(무작위 입력)", () => {
     const doubled = {
       ...c,
       formulas: combatFormulaSetFrom({
-        real_attack: "2 * if(A <= 0, W, floor(W * min(CAP, max(0, S) / A)))",
+        real_attack: "2 * (S + if(A <= 0, W, floor(W * min(CAP, max(0, P) / A))))",
       }),
     };
-    expect(frameValue("real_attack", 20, 40, 40, 2000, doubled)).toBe(40);
-    expect(frameValue("real_attack", 20, 40, 40, 2000, c)).toBe(20);
+    expect(attackValue(10, 20, 25, 25_000, 1000, doubled)).toBe(60);
+    expect(attackValue(10, 20, 25, 25_000, 1000, c)).toBe(30);
   });
 });
 
-/** 1차 10에서 K 1로 자란 값(D-417) */
-const grown = (level: number) => Math.floor((10 * (1000 + 100 * (level - 1))) / 1000);
-
-/** 옛 프로젝트 맨손 규칙(AntiGravt01 terra-server/combat/formulas.js calcUnarmedDamage) — 실수 셈이라 근사로 견준다 */
-function oldUnarmed(str: number, dex: number, level: number, t: number): number {
-  const optDex = level * 1.5 + 10;
-  const ratio = dex / optDex;
-  const maxDmg = str * Math.min(1.5, ratio);
-  const minDmg = str * Math.max(0.1, ratio * 0.5);
-  const lo = Math.min(minDmg, maxDmg);
-  const hi = Math.max(minDmg, maxDmg);
-  return Math.max(1, lo + t * (hi - lo));
+/** 맨손 유닛 사양(1차 모두 v, 레벨 level) */
+function bareSpec(v: number, level: number) {
+  const primaries = { str: v, dex: v, agi: v, vit: v, int: v, wis: v };
+  const out = loadoutOf({
+    base: primaries,
+    slots: [],
+    equipped: [],
+    table: TEST_STAT_TABLE,
+    unarmed: UNARMED,
+  });
+  return specFromStats({
+    id: 1,
+    side: 1,
+    party: 1,
+    x: 0,
+    y: 0,
+    stats: out.stats,
+    weapon: out.weapon,
+    naturalWeapon: UNARMED,
+    primaries,
+    level,
+    moveIntervalMs: 1000,
+  });
 }
 
-describe("맨손 일반 공격(D-488: 10 상한 없음, 적정 DEX = 레벨 × 1.5 + 10)", () => {
-  const frame = { weapon: 5, stat: 0, appropriate: 20, capPm: 2000 };
-
-  it("모두 10 Lv 1 → 4~8, 모두 39 Lv 30 → 13~27(옛 규칙과 소수점 아래만 다르다)", () => {
-    expect(bareAttackValue([10, 10, 10, 10, 10, 10], 1, frame, 0, c)).toBe(4);
-    expect(bareAttackValue([10, 10, 10, 10, 10, 10], 1, frame, 9999, c)).toBe(8);
-    expect(bareAttackValue([39, 39, 39, 39, 39, 39], 30, frame, 0, c)).toBe(13);
-    expect(bareAttackValue([39, 39, 39, 39, 39, 39], 30, frame, 9999, c)).toBe(27);
-    for (let round = 0; round < 2000; round++) {
-      const str = int(500);
-      const dex = int(500);
-      const level = 1 + int(60);
-      const roll = int(10_000);
-      const value = bareAttackValue([str, dex, 0, 0, 0, 0], level, frame, roll, c);
-      // 고정 소수점(소수 셋째 자리 내림)이라 옛 실수 값의 내림과 1 이내
-      expect(Math.abs(value - Math.floor(oldUnarmed(str, dex, level, roll / 10_000)))).toBeLessThanOrEqual(1);
-    }
+describe("맨손(D-502: 무기 몫 0, 적정 DEX·AGI = 레벨 × 1.5 + 10, 사용자 답 297)", () => {
+  it("새 사이보그(1차 모두 10, Lv 1): 공격력 10(스탯만), 명중 850 × 10 ÷ 11.5 = 738‰, 크리 50 × 0.869 = 43‰, 간격 1150ms", () => {
+    const spec = bareSpec(10, 1);
+    expect(spec.attack.statAttack).toBe(10);
+    expect(spec.attack.weaponAttack).toBe(0);
+    expect(spec.attack.dexAppropriateMilli).toBe(11_500);
+    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(10);
+    expect(realHitPm(spec.attack, c)).toBe(738);
+    expect(dexFrameValue("real_crit", 50, 10, 11_500, 1000, c)).toBe(43);
+    expect(spec.attackIntervalMs).toBe(1150);
   });
 
-  it("STR이 오르면 10을 넘어 계속 오른다", () => {
-    expect(bareAttackValue([100, 30, 0, 0, 0, 0], 10, frame, 5000, c)).toBeGreaterThan(10);
-    const levels = [1, 5, 10, 20, 30].map((level) =>
-      bareAttackValue(
-        Array.from({ length: 6 }, () => grown(level)),
-        level,
-        frame,
-        5000,
-        c,
-      ),
-    );
-    for (let i = 1; i < levels.length; i++) expect(levels[i] ?? 0).toBeGreaterThan(levels[i - 1] ?? 0);
-  });
-
-  it("맨손 사양은 기본 공격에만 붙고, 스킬 사양·크리쳐 발톱은 무기 틀 그대로", () => {
-    const primaries = { str: 39, dex: 39, agi: 39, vit: 39, int: 39, wis: 39 };
-    const out = loadoutOf({
-      base: primaries,
-      slots: [],
-      equipped: [],
-      table: TEST_STAT_TABLE,
-      unarmed: UNARMED,
-    });
-    const spec = specFromStats({
-      id: 1,
-      side: 1,
-      party: 1,
-      x: 0,
-      y: 0,
-      stats: out.stats,
-      weapon: out.weapon,
-      naturalWeapon: UNARMED,
-      primaries,
-      level: 30,
-      moveIntervalMs: 1000,
-    });
-    expect(spec.attack.unarmed).toBe(true);
-    expect(spec.attack.level).toBe(30);
-    expect(spec.skillAttack?.physical.unarmed).toBeUndefined();
-    expect(realAttackOf(spec.attack, 9999, 2000, c)).toBe(27);
-    // 바꾸기 전: 5 × min(2, 물리 공격력 ÷ 20) = 10에서 멈춤
-    expect(weaponScaled(5, out.stats.physical_attack ?? 0, 20)).toBe(10);
+  it("Lv 30 균형형(39): 공격력 39, 적정 55라 명중 850 × 39 ÷ 55 = 602‰, 스킬 사양도 무기 몫 0", () => {
+    const spec = bareSpec(39, 30);
+    expect(realAttackOf(spec.attack, c.appropriateCapPm, c)).toBe(39);
+    expect(realHitPm(spec.attack, c)).toBe(602);
+    expect(spec.skillAttack?.physical.weaponAttack).toBe(0);
+    // 크리쳐 발톱은 맨손이 아니다(무기와 같은 공식)
     const creature = TEST_COMBAT_CATALOG.unitKinds.find((kind) => kind.id === "creature");
     expect(creature?.naturalWeapon.unarmed).toBeUndefined();
-  });
-
-  it("맨손 공격만 피해 자리 굴림을 쓴다(무기 공격은 굴림 넷 그대로)", () => {
-    const primaries = { str: 39, dex: 39, agi: 39, vit: 39, int: 39, wis: 39 };
-    const out = loadoutOf({
-      base: primaries,
-      slots: [],
-      equipped: [],
-      table: TEST_STAT_TABLE,
-      unarmed: UNARMED,
-    });
-    const spec = specFromStats({
-      id: 1,
-      side: 1,
-      party: 1,
-      x: 0,
-      y: 0,
-      stats: out.stats,
-      weapon: out.weapon,
-      primaries,
-      level: 30,
-      moveIntervalMs: 1000,
-    });
-    const defense = { ...spec.defense, defenseRatePm: 0, evadePm: 0, agi: 39 };
-    const low = resolveAttack(
-      spec.attack,
-      defense,
-      { hit: 0, evade: 9999, crit: 9999, critPos: 0, damagePos: 0 },
-      c,
-    );
-    const high = resolveAttack(
-      spec.attack,
-      defense,
-      { hit: 0, evade: 9999, crit: 9999, critPos: 0, damagePos: 9999 },
-      c,
-    );
-    expect(low.physical).toBe(13);
-    expect(high.physical).toBe(27);
+    expect(creature?.naturalWeapon.physical?.attack).toBe(12);
   });
 });
 

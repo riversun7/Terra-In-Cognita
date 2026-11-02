@@ -131,7 +131,8 @@ test.describe("개발자", () => {
     await resetTuning(page);
     await page.reload();
     await weightsReady(page);
-    await expect(page.locator(".bp-weights tbody tr")).toHaveCount(18);
+    // 켜진 행 15개(D-502로 명중·크리·행동 속도 점수 행은 꺼짐)
+    await expect(page.locator(".bp-weights tbody tr")).toHaveCount(15);
     const hpBefore = await previewHp(page);
 
     await stageCell(page, "hp", "vit", "6000");

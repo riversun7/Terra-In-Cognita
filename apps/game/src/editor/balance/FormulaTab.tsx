@@ -27,7 +27,7 @@ import {
   formulaChangesOf,
   previewOf,
   pruneDrafts,
-  sampleStatsOf,
+  sampleBareAppropriateOf,
   slotDefOf,
   sourceOf,
 } from "./formulaModel.ts";
@@ -254,9 +254,9 @@ export default function FormulaTab() {
             <p className="field-hint">{m.dev_formula_items_hint({ cap: list.coefficients.capPm / 1000 })}</p>
             <AppropriateTable
               list={list}
-              level={sampleView.level}
+              primaries={sampleView.primaries}
+              bareAppropriate={sampleBareAppropriateOf(list, drafts, sampleView.level)}
               weaponName={weaponName}
-              stats={sampleStatsOf(list, drafts, sampleView.primaries, sampleView.level)}
             />
           </section>
 

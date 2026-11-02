@@ -9,7 +9,6 @@ import {
   statRowEntrySchema,
 } from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
-import { TEST_STAT_TABLE } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
@@ -23,7 +22,6 @@ const ctx: AdviceContext = {
   effective: state.effective(),
   effects: state.effects,
   statRows: readCategoryFile(source, "stat_rows").entries.map((raw) => statRowEntrySchema.parse(raw)),
-  statTable: TEST_STAT_TABLE,
   recipes: readCategoryFile(source, "recipes").entries.map((raw) => recipeEntrySchema.parse(raw)),
   necessities: readCategoryFile(source, "necessities").entries.map((raw) => necessityEntrySchema.parse(raw)),
   destroyAt: 10,
@@ -60,12 +58,12 @@ describe("아이템 권고", () => {
     expect(advice.map((issue) => issue.code)).toEqual(
       expect.arrayContaining(["advice_skill_unusable", "advice_durability_low"]),
     );
-    // 질문 290: 적지 않은 1차가 드는 칸은 적정치 0 = 유닛 스탯을 타지 않는다(물리 칸은 STR로 셈해 0이 아니다)
-    expect(advice.find((issue) => issue.code === "advice_appropriate_derived_zero")?.params.rows).toBe(
-      "hit, crit_chance",
+    // D-502: 적정 1차가 없는 몫(명중·크리 DEX, 공격 간격 AGI)은 유닛 스탯을 타지 않는다(물리 칸은 STR가 있다)
+    expect(advice.find((issue) => issue.code === "advice_appropriate_missing")?.params.stats).toBe(
+      "DEX, AGI",
     );
-    // 1차 적정 스탯이 있으면 직접 적은 적정치 0 권고는 보지 않는다(전투가 셈한 값을 쓴다)
-    expect(advice.some((issue) => issue.code === "advice_appropriate_zero")).toBe(false);
+    // 무기에 있는 칸의 적정만 적었으니 쓰지 않는 적정은 없다
+    expect(advice.some((issue) => issue.code === "advice_appropriate_unused")).toBe(false);
   });
 
   it("입을 수 있는 종류에 그 칸이 없거나, 크리쳐 보유 칸인데 크리쳐가 못 입는다(D-494)", () => {

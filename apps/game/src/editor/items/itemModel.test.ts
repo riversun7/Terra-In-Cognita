@@ -64,13 +64,11 @@ const sword: ItemJson = {
     stats: [{ stat: "hit_bonus", min: 1, max: 3 }],
     weaponType: "blade",
     weapon: {
-      physical: { attack: 10, attackAppropriate: 20 },
+      physical: { attack: 10 },
+      appropriate: { str: 12, dex: 10, agi: 10 },
       hitPm: 900,
-      hitAppropriate: 50,
       critPm: 50,
-      critAppropriate: 100,
       intervalMs: 1000,
-      speedAppropriate: 100,
       range: 1,
       arc: false,
       staminaCost: 10,
@@ -115,7 +113,9 @@ describe("아이템 편집기 모델: 칸 맞추기", () => {
     expect(head.weaponType).toBeUndefined();
     expect(head.stats).toEqual([{ stat: "hit_bonus", min: 1, max: 3 }]);
     const back = withSlot(head, "weapon");
-    expect(back.weapon?.physical).toEqual({ attack: 10, attackAppropriate: 20 });
+    expect(back.weapon?.physical).toEqual({ attack: 10 });
+    // 새 무기는 1차 적정 스탯을 비운다(모든 몫 100%, D-502)
+    expect(back.weapon?.appropriate).toBeUndefined();
   });
 
   it("1차 칸(장신구)은 1차 스탯 줄만, 2차 칸은 2차 줄만 남긴다", () => {

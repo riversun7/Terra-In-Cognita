@@ -16,6 +16,8 @@ import {
   type FormulaWeaponView,
   type PrimaryInfluence,
   ROLL_FORMULAS,
+  bareAppropriateScope,
+  evaluateFormula,
   explainFormula,
   isCombatFormulaId,
   parseFormula,
@@ -87,7 +89,7 @@ function programsOf(
       real_attack: pick("real_attack"),
       real_hit: pick("real_hit"),
       real_crit: pick("real_crit"),
-      bare_attack: pick("bare_attack"),
+      bare_appropriate: pick("bare_appropriate"),
       crit_multiplier: pick("crit_multiplier"),
       attack_interval: pick("attack_interval"),
       stamina_score: pick("stamina_score"),
@@ -167,6 +169,17 @@ function valueIn(
   return { value: result.values[id], scope: result.scopes[id] };
 }
 
+/** 표본 레벨의 맨손 적정 DEX·AGI(점, 담은 식 포함 — 맨손 적정 식 bare_appropriate, D-502). 식이 틀리면 0 */
+export function sampleBareAppropriateOf(
+  list: FormulaListResponse,
+  drafts: FormulaDrafts,
+  level: number,
+): number {
+  const programs = programsOf(list, drafts);
+  if (!programs) return 0;
+  return evaluateFormula(programs.combat.bare_appropriate, bareAppropriateScope(level)) / 1000;
+}
+
 /** 표본의 2차 스탯(담은 행 식 포함, 틀린 식은 실효 식). 무기마다 적정치 표가 쓴다 */
 export function sampleStatsOf(
   list: FormulaListResponse,
@@ -180,10 +193,9 @@ export function sampleStatsOf(
   return sampleSecondary({ primaries, level, rows: programs.rows, weapon, coefficients: list.coefficients });
 }
 
-/** 이 무기로 판정이 이 식을 쓰나(맨손 식은 맨손일 때만, 무기 틀 실제 공격력은 맨손이 아닐 때만) */
+/** 이 무기로 판정이 이 식을 쓰나(맨손 적정 식은 맨손일 때만. 실제 공격력은 맨손도 쓴다: 스탯 공격력 + 무기 몫 0, D-502) */
 export function slotUsedBy(slot: FormulaSlotView, weapon: FormulaWeaponView): boolean {
-  if (slot.key === "bare_attack") return weapon.unarmed;
-  if (slot.key === "real_attack") return !weapon.unarmed;
+  if (slot.key === "bare_appropriate") return weapon.unarmed;
   return true;
 }
 

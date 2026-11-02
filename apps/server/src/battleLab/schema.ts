@@ -13,19 +13,24 @@ const twelve = (item: z.ZodInt) => z.array(item).length(12).readonly();
 const primaries = (item: z.ZodInt) =>
   z.strictObject({ str: item, vit: item, int: item, wis: item, dex: item, agi: item });
 
-const weaponField = z.strictObject({ attack: int(0, L.valueMax), appropriate: int(0, L.valueMax) });
+const weaponField = z.strictObject({ attack: int(0, L.valueMax) });
+/** 무기 1차 적정 스탯(D-502: str 물리 공격·int 속성 공격·dex 명중·크리·agi 공격 간격). 0 = 그 몫 적정 없음(비율 100%) */
+const weaponAppropriate = z.strictObject({
+  str: int(0, L.valueMax),
+  int: int(0, L.valueMax),
+  dex: int(0, L.valueMax),
+  agi: int(0, L.valueMax),
+});
 
 export const customWeaponSchema = z
   .strictObject({
     physical: weaponField.nullable(),
     elemental: weaponField.nullable(),
     basic: z.enum(["physical", "elemental"]),
+    appropriate: weaponAppropriate,
     hitPm: int(0, L.valueMax),
-    hitAppropriate: int(0, L.valueMax),
     critPm: int(0, L.valueMax),
-    critAppropriate: int(0, L.valueMax),
     intervalMs: int(100, 60_000),
-    speedAppropriate: int(1, L.valueMax),
     range: int(1, 32),
     arc: z.boolean(),
     staminaCost: int(0, L.valueMax),

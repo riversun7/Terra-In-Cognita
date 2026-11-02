@@ -151,7 +151,14 @@ export const MAGIC_SKILLS: readonly SkillData[] = [
 /** 속성 칸 하나만 50‰(속성 × 5%, 48 §4.5 예와 같은 크기)인 옵션 계수 */
 const only = (element: number): number[] => Array.from({ length: 12 }, (_, i) => (i === element ? 50 : 0));
 
-/** 속성 지팡이 사양(속성 공격력 칸만, D-465): 공격력·적정치·명중·크리·간격·사거리·옵션 계수 칸 */
+/** [임시] 시험 무기의 적정 DEX·AGI(D-502): 새 사이보그(1차 모두 10)가 약간 못 미치고 Lv 30 균형형(39)은 넘는 값 */
+export const TEST_WEAPON_DEX = 12;
+export const TEST_WEAPON_AGI = 12;
+
+/**
+ * 속성 지팡이 사양(속성 공격력 칸만, D-465): 공격력·적정 INT(D-502 [임시] = 공격력 × 1.25 반올림)·명중·크리·간격·사거리·옵션 계수 칸.
+ * 적정 DEX·AGI는 시험 무기 공통값
+ */
 function staff(
   attack: number,
   appropriate: number,
@@ -162,13 +169,11 @@ function staff(
   element: number,
 ): WeaponSpec {
   return {
-    elemental: { attack, attackAppropriate: appropriate },
+    elemental: { attack },
+    appropriate: { int: appropriate, dex: TEST_WEAPON_DEX, agi: TEST_WEAPON_AGI },
     hitPm,
-    hitAppropriate: 50,
     critPm,
-    critAppropriate: 100,
     intervalMs,
-    speedAppropriate: 100,
     range,
     arc: false,
     staminaCost: 10,
@@ -185,42 +190,42 @@ export const MAGIC_STAFFS: readonly EquipDef[] = [
     id: "fire_staff",
     slot: "weapon",
     stats: [MP],
-    weapon: staff(20, 45, 900, 60, 1200, 6, 2),
+    weapon: staff(20, 25, 900, 60, 1200, 6, 2),
     skills: ["flame_burst"],
   },
   {
     id: "water_staff",
     slot: "weapon",
     stats: [MP, { stat: "mp_regen", min: 5, max: 15 }],
-    weapon: staff(18, 40, 900, 50, 1200, 6, 0),
+    weapon: staff(18, 23, 900, 50, 1200, 6, 0),
     skills: ["frost_bolt"],
   },
   {
     id: "wind_staff",
     slot: "weapon",
     stats: [MP],
-    weapon: staff(16, 40, 950, 80, 1000, 7, 4),
+    weapon: staff(16, 20, 950, 80, 1000, 7, 4),
     skills: ["chain_lightning"],
   },
   {
     id: "earth_staff",
     slot: "weapon",
     stats: [MP, { stat: "armor_hp", min: 10, max: 20 }],
-    weapon: staff(24, 50, 850, 40, 1400, 5, 6),
+    weapon: staff(24, 30, 850, 40, 1400, 5, 6),
     skills: ["stone_spike"],
   },
   {
     id: "light_staff",
     slot: "weapon",
     stats: [MP, { stat: "shield_regen", min: 5, max: 15 }],
-    weapon: staff(15, 40, 900, 50, 1300, 6, 8),
+    weapon: staff(15, 19, 900, 50, 1300, 6, 8),
     skills: ["light_heal", "radiant_ward"],
   },
   {
     id: "dark_staff",
     slot: "weapon",
     stats: [MP],
-    weapon: staff(20, 45, 900, 70, 1200, 6, 10),
+    weapon: staff(20, 25, 900, 70, 1200, 6, 10),
     skills: ["dark_curse"],
   },
 ];

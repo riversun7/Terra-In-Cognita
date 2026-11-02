@@ -11,6 +11,7 @@ import {
   type ItemPrimaryCode,
   type MarketKind,
   type StorageKindId,
+  type WeaponPartId,
 } from "@terra/shared/itemEditor";
 import { ELEMENT_CODES, type ElementCode, type EquipSlot } from "@terra/shared/roster";
 import { m } from "../../paraglide/messages.js";
@@ -73,6 +74,15 @@ export const PRIMARY_TEXT: Readonly<Record<ItemPrimaryCode, Text>> = {
   vit: m.roster_stat_vit_code,
   int: m.roster_stat_int_code,
   wis: m.roster_stat_wis_code,
+};
+
+/** 무기 몫 이름(D-502: 물리·속성 공격 몫, 명중, 크리, 공격 간격) */
+export const PART_TEXT: Readonly<Record<WeaponPartId, Text>> = {
+  physical: m.dev_items_part_physical,
+  elemental: m.dev_items_part_elemental,
+  hit: m.dev_items_part_hit,
+  crit: m.dev_items_part_crit,
+  speed: m.dev_items_part_speed,
 };
 
 const ELEMENT_TEXT: Readonly<Record<ElementCode, Text>> = {
@@ -200,9 +210,8 @@ const ISSUE_TEXT: Readonly<Record<string, (params: Params) => string>> = {
   advice_no_wearer: () => m.dev_items_advice_no_wearer(),
   advice_skills_over_slots: (p) => m.dev_items_advice_skills_over_slots({ slots: num(p, "slots") }),
   advice_skill_unusable: (p) => m.dev_items_advice_skill_unusable({ skill: num(p, "skill") }),
-  advice_appropriate_zero: () => m.dev_items_advice_appropriate_zero(),
-  advice_appropriate_derived_zero: (p) =>
-    m.dev_items_advice_appropriate_derived_zero({ rows: num(p, "rows") }),
+  advice_appropriate_missing: (p) => m.dev_items_advice_appropriate_missing({ stats: num(p, "stats") }),
+  advice_appropriate_unused: (p) => m.dev_items_advice_appropriate_unused({ stats: num(p, "stats") }),
   advice_kind_no_slot: (p) => m.dev_items_advice_kind_no_slot({ kind: num(p, "kind"), slot: num(p, "slot") }),
   advice_creature_unwearable: () => m.dev_items_advice_creature_unwearable(),
   advice_ammo_capacity: () => m.dev_items_advice_ammo_capacity(),

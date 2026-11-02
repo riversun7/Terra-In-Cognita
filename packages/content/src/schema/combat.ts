@@ -13,7 +13,7 @@ export const PRIMARY_STAT_CODES = ["str", "dex", "agi", "vit", "int", "wis"] as 
 export const EQUIP_SLOT_KINDS = EQUIP_SLOTS;
 /** 1차 스탯을 올리는 칸(D-423, 48 §5.2: 장신구·인공장기·부품·크리쳐 안장). 나머지 칸은 2차 수치 */
 export const PRIMARY_STAT_SLOTS: readonly string[] = ["accessory", "organ", "part", "saddle"];
-/** 장비가 올리지 않는 2차 행(D-438 1: 2차 공격력은 1차·장신구·버프만, 무기 공격력은 무기 사양) */
+/** 장비가 올리지 않는 2차 행(D-438 1 그대로: 스탯 공격력은 1차·장신구·버프만. 무기 몫은 무기 사양이 더한다, D-502) */
 export const GEAR_FORBIDDEN_ROWS: readonly string[] = ["physical_attack", "elemental_attack"];
 
 const enabled = z.boolean({ error: "enabled가 없습니다. true 또는 false로 적으세요(D-398 켬·끔)." });
@@ -272,27 +272,51 @@ export const skillEntrySchema = z
   });
 export type SkillEntry = z.output<typeof skillEntrySchema>;
 
-/** 무기 공격력 칸 하나(D-465): 공격력과 적정치(2차 스탯 단위, 무기 틀 D-420) */
+/** 무기 공격력 칸 하나(D-465): 무기 공격력. 공격력 = 스탯 공격력 + 이 값 × 적정 비율(D-502) */
 const weaponAttackField = z.strictObject({
   attack: z.int().min(0).max(1_000_000),
-  attackAppropriate: z.int().min(0).max(10_000_000),
 });
 const attackFieldKind = z.enum(["physical", "elemental"]);
 
-/** 무기 사양의 공격력 칸 말고 나머지(명중·크리·간격·사거리·비용·옵션 계수) */
+/** 무기 적정 스탯 칸(몫 차례: 물리 공격·속성 공격·명중과 크리·공격 간격) */
+export const WEAPON_APPROPRIATE_CODES = ["str", "int", "dex", "agi"] as const;
+
+/**
+ * 무기 1차 적정 스탯(D-502, 사용자 답 296~298): 몫마다 하나 — str = 물리 공격 몫, int = 속성 공격 몫, dex = 명중·크리, agi = 공격 간격.
+ * 착용 제한이 아니다(D-424). 못 미치면 그 몫이 비율대로 줄고(공격 간격은 길어지고), 넘는 보너스는 없다(N10 1000‰). 없는 칸은 비율 100%.
+ * 1차를 섞지 않는다(질문 296 "공격력은 str만이지 섞는게 아니다")
+ */
+export const weaponAppropriateSchema = z
+  .strictObject({
+    str: z.int().min(1).max(10_000_000).optional(),
+    int: z.int().min(1).max(10_000_000).optional(),
+    dex: z.int().min(1).max(10_000_000).optional(),
+    agi: z.int().min(1).max(10_000_000).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (typeof value !== "object" || value === null) return;
+    if (WEAPON_APPROPRIATE_CODES.every((code) => Reflect.get(value, code) === undefined))
+      ctx.addIssue({
+        code: "custom",
+        path: [],
+        message:
+          "1차 적정 스탯(appropriate)은 적어도 하나를 적습니다(str·int·dex·agi). 없으면 칸을 빼세요(비율 100%).",
+        params: { rule: "weapon_appropriate_empty" },
+      });
+  });
+/** 무기 사양의 공격력 칸 말고 나머지(명중·크리·간격·사거리·비용·옵션 계수·1차 적정 스탯) */
 const weaponBody = {
   hitPm: z.int().min(0).max(1000),
-  hitAppropriate: z.int().min(0).max(10_000_000),
   critPm: z.int().min(0).max(1000),
-  critAppropriate: z.int().min(0).max(10_000_000),
   intervalMs: z.int().min(100).max(60_000),
-  speedAppropriate: z.int().min(1).max(10_000_000),
   range: z.int().min(1).max(128),
   arc: z.boolean(),
   staminaCost: z.int().min(0).max(100_000),
   mpCost: z.int().min(0).max(100_000),
   /** 속성 계수 12칸(‰): 물리 칸으로 치면 옵션(속성 몫), 속성 칸으로 치면 가산 계수(48 §4.5a). 두 칸 무기는 두 칸이 같이 쓴다 */
   skillElementsPm: z.array(permille).length(12).optional(),
+  /** 1차 적정 스탯(D-502, 위) */
+  appropriate: weaponAppropriateSchema.optional(),
 };
 
 /**
@@ -313,7 +337,7 @@ function checkWeaponFields(weapon: unknown, ctx: z.RefinementCtx): void {
       code: "custom",
       path: [],
       message:
-        "무기에 공격력 칸이 없습니다. physical(물리)·elemental(속성) 가운데 하나 이상을 {attack, attackAppropriate}로 적으세요(D-465).",
+        "무기에 공격력 칸이 없습니다. physical(물리)·elemental(속성) 가운데 하나 이상을 {attack}으로 적으세요(D-465).",
       params: { rule: "weapon_field_missing" },
     });
     return;
@@ -336,29 +360,31 @@ function checkWeaponFields(weapon: unknown, ctx: z.RefinementCtx): void {
 }
 
 /**
- * 1차 적정 스탯(D-496, D-494 "둘 다"를 바꿈): 착용 제한이 아니다(D-424 그대로). 못 미치면 효율이 줄고(D-420 틀), 2차 적정치는 이 값만
- * 가진 유닛(나머지 1차 0, 장비·버프 0, LV 1)의 2차 값으로 셈한다(질문 290 가). 셈해서 전투에 잇는 일은 WP-5다: 그때까지 전투는
- * 직접 적은 2차 적정치(attackAppropriate 등)를 쓴다(docs/adr/2026-11-01-item-editor.md 2절)
+ * 맨손 규칙(D-502): 맨손(unarmed)은 무기 몫이 없고(공격력 칸 attack 0) 적정 DEX·AGI를 레벨로 센다(계산식 bare_appropriate, 옛 규칙
+ * 레벨 × 1.5 + 10). 그래서 attack이 0이 아니거나 appropriate를 적으면 실패다. 필드 검사가 실패해도 불리므로 값의 모양을 다시 본다
  */
-export const primaryAppropriateSchema = z
-  .strictObject({
-    str: z.int().min(0).max(10_000_000).optional(),
-    dex: z.int().min(0).max(10_000_000).optional(),
-    agi: z.int().min(0).max(10_000_000).optional(),
-    vit: z.int().min(0).max(10_000_000).optional(),
-    int: z.int().min(0).max(10_000_000).optional(),
-    wis: z.int().min(0).max(10_000_000).optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (typeof value !== "object" || value === null) return;
-    if (PRIMARY_STAT_CODES.every((code) => Reflect.get(value, code) === undefined))
+function checkUnarmed(weapon: unknown, ctx: z.RefinementCtx): void {
+  if (typeof weapon !== "object" || weapon === null || Reflect.get(weapon, "unarmed") !== true) return;
+  for (const kind of ["physical", "elemental"] as const) {
+    const field: unknown = Reflect.get(weapon, kind);
+    const attack: unknown = typeof field === "object" && field !== null ? Reflect.get(field, "attack") : 0;
+    if (typeof attack === "number" && attack !== 0)
       ctx.addIssue({
         code: "custom",
-        path: [],
-        message: "1차 적정 스탯(appropriate)은 적어도 하나를 적습니다(str·dex·agi·vit·int·wis).",
-        params: { rule: "weapon_appropriate_empty" },
+        path: [kind, "attack"],
+        message: "맨손(unarmed)은 무기 몫이 없습니다: attack은 0입니다(D-502, 공격력 = 스탯 공격력만).",
+        params: { rule: "unarmed_attack" },
       });
-  });
+  }
+  if (Reflect.get(weapon, "appropriate") !== undefined)
+    ctx.addIssue({
+      code: "custom",
+      path: ["appropriate"],
+      message:
+        "맨손(unarmed)의 적정 DEX·AGI는 레벨로 셉니다(계산식 bare_appropriate). appropriate를 적지 않습니다.",
+      params: { rule: "unarmed_appropriate" },
+    });
+}
 
 const weaponSchema = z
   .strictObject({
@@ -368,8 +394,6 @@ const weaponSchema = z
     /** 기본 공격이 쓰는 칸(질문 235 가): 두 칸 무기만 꼭 적는다. 한 칸 무기는 그 칸 */
     basic: attackFieldKind.optional(),
     ...weaponBody,
-    /** 1차 적정 스탯(D-496, 위). 전투 연결은 WP-5 */
-    appropriate: primaryAppropriateSchema.optional(),
     /** 양손 무기(48 §5.5): 든 동안 보조 칸 장비를 쓰지 않는다(전투 연결 WP-5) */
     twoHanded: z.boolean().optional(),
     /**
@@ -388,15 +412,20 @@ const naturalWeaponSchema = z
     basic: attackFieldKind.optional(),
     ...weaponBody,
     /**
-     * 사람형 맨손(D-488): 참이면 기본 공격의 실제 공격력을 계산식 bare_attack(팩 formulas, 옛 맨손 규칙)으로 셈한다.
-     * 없으면 무기 틀 그대로(크리쳐 발톱 등). docs/adr/2026-11-01-formula-editor.md
+     * 사람형 맨손(D-502): 참이면 무기 몫이 없고(attack 0) 적정 DEX·AGI = 계산식 bare_appropriate(레벨 × 1.5 + 10)(checkUnarmed).
+     * 없으면 무기와 같다(크리쳐 발톱 등: 무기 공격력·1차 적정 스탯)
      */
     unarmed: z.boolean().optional(),
   })
-  .superRefine(checkWeaponFields);
+  .superRefine((weapon, ctx) => {
+    checkWeaponFields(weapon, ctx);
+    checkUnarmed(weapon, ctx);
+  });
 
-/** 맨손 속성 자료(D-463): 속성 칸만 있다(기본 공격에는 쓰지 않아 basic도 없다) */
-const naturalElementalWeaponSchema = z.strictObject({ elemental: weaponAttackField, ...weaponBody });
+/** 맨손 속성 자료(D-463): 속성 칸만 있다(기본 공격에는 쓰지 않아 basic도 없다). unarmed는 타고난 무기와 같다(D-502) */
+const naturalElementalWeaponSchema = z
+  .strictObject({ elemental: weaponAttackField, ...weaponBody, unarmed: z.boolean().optional() })
+  .superRefine(checkUnarmed);
 
 export const unitKindEntrySchema = z.strictObject({
   id: contentId,
@@ -412,9 +441,9 @@ export const unitKindEntrySchema = z.strictObject({
     perRebirth: z.int().min(0).max(10),
     max: z.int().min(1).max(10),
   }),
-  /** 타고난 무기(D-436): 크리쳐의 발톱·이빨 등, 사람형은 맨손. 무기 칸이 비었을 때 쓴다(D-420 같은 공식). 물리 칸 필수 */
+  /** 타고난 무기(D-436): 크리쳐의 발톱·이빨 등, 사람형은 맨손. 무기 칸이 비었을 때 쓴다(D-502 같은 공식). 물리 칸 필수 */
   naturalWeapon: naturalWeaponSchema,
-  /** 맨손 속성 자료(D-463): 속성 기반 맨손 스킬(D-490)이 쓴다(공격력·적정치 낮게). 속성 칸만 */
+  /** 맨손 속성 자료(D-463): 속성 기반 맨손 스킬(D-490)이 쓴다(맨손이면 무기 몫 0, D-502). 속성 칸만 */
   naturalElementalWeapon: naturalElementalWeaponSchema,
   /**
    * 타고난 무기를 스킬용 무기로 치나(D-490): 참이면 무기 칸이 비어도 타고난 무기의 칸으로 스킬을 쓴다(크리쳐 발톱·이빨).
@@ -494,7 +523,7 @@ export const equipSchema = z
         ctx.addIssue({
           code: "custom",
           path: ["stats", index, "stat"],
-          message: "장비는 2차 공격력을 올리지 않습니다(D-438 1, 무기 공격력은 weapon 칸).",
+          message: "장비는 스탯 공격력을 올리지 않습니다(D-438 1, 무기 몫은 weapon 칸의 무기 공격력 D-502).",
           params: { rule: "equip_stat_forbidden" },
         });
       if (typeof entry.min === "number" && typeof entry.max === "number" && entry.min > entry.max)

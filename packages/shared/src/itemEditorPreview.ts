@@ -32,15 +32,21 @@ export interface ItemFormulaValue {
   readonly overridden: boolean;
 }
 
-/** 무기 적정치가 쓰는 2차 행(물리·속성 공격력·명중·크리·행동 속도, D-420 무기 틀의 분모) */
-export const APPROPRIATE_ROW_IDS = [
-  "physical_attack",
-  "elemental_attack",
-  "hit",
-  "crit_chance",
-  "action_speed",
-] as const;
-export type AppropriateRowId = (typeof APPROPRIATE_ROW_IDS)[number];
+/** 무기 몫(D-502, 사용자 답 296~298): 물리·속성 공격 몫(STR·INT), 명중·크리(DEX), 공격 간격(AGI) */
+export const WEAPON_PART_IDS = ["physical", "elemental", "hit", "crit", "speed"] as const;
+export type WeaponPartId = (typeof WEAPON_PART_IDS)[number];
+
+/** 무기 몫 하나의 비율: 기준 유닛 1차 ÷ 무기 적정 1차, 상한 N10(1000‰). 적정이 없으면 1000‰(무기 값 그대로) */
+export interface WeaponPartRatio {
+  readonly part: WeaponPartId;
+  /** 그 몫이 보는 1차(물리 str·속성 int·명중과 크리 dex·공격 간격 agi) */
+  readonly stat: "str" | "int" | "dex" | "agi";
+  /** 기준 유닛의 그 1차(가운데 자리 장비 포함) */
+  readonly value: number;
+  /** 무기의 적정 1차(없으면 null = 비율 100%) */
+  readonly appropriate: number | null;
+  readonly ratioPm: number;
+}
 
 /** 끼웠지만 쓰지 않은 장비(양손 무기를 든 동안의 보조 칸, 그 종류가 입을 수 없음) */
 export interface ItemPreviewIgnored {
@@ -54,32 +60,6 @@ export interface ItemPreviewIgnored {
 export interface BeforeAfter<T> {
   readonly before: T;
   readonly after: T;
-}
-
-/** 1차 적정 스탯 → 2차 적정치 풀이 한 줄(예: physical_attack = STR 25 × 2.0 + DEX 15 × 0.6 = 59) */
-export interface AppropriateTerms {
-  readonly row: AppropriateRowId;
-  readonly value: number;
-  /** 양 모양 행의 기본 */
-  readonly base: number;
-  /** 가중치 항(가중치가 0이 아닌 1차만) */
-  readonly terms: readonly {
-    readonly stat: ItemPrimaryCode;
-    readonly value: number;
-    readonly weightPm: number;
-  }[];
-  /** 행 식으로 셈한 행이면 식 글(가중치 항 대신) */
-  readonly formula: string | null;
-}
-
-/** 기준 유닛의 무기 효율 한 칸: 비율 = min(상한, 유닛 값 ÷ 적정치)(D-420 무기 틀, 적정치 0 이하면 무기 값 그대로 = 1000‰) */
-export interface WeaponEfficiency {
-  readonly row: AppropriateRowId;
-  /** 기준 유닛의 그 행 값(가운데 자리 장비) */
-  readonly stat: number;
-  /** 전투가 쓰는 적정치(1차 적정 스탯이 있으면 셈한 값) */
-  readonly appropriate: number;
-  readonly ratioPm: number;
 }
 
 /**
@@ -151,19 +131,9 @@ export interface ItemEditorPreviewResponse {
       readonly kind: "physical" | "elemental";
       readonly values: readonly ItemFormulaValue[];
     }[];
-    /** 1차 적정 스탯으로 셈한 2차 적정치(D-496). 전투가 이 값을 쓴다(WP-5) */
-    readonly derived: {
-      readonly physicalAttack: number;
-      readonly elementalAttack: number;
-      readonly hit: number;
-      readonly crit: number;
-      readonly speed: number;
-    } | null;
-    /** 셈한 적정치의 풀이(1차 적정 스탯이 있을 때) */
-    readonly derivedTerms?: readonly AppropriateTerms[] | null | undefined;
-    /** 기준 유닛(가운데 자리)의 효율: 칸마다 유닛 값 ÷ 적정치 */
-    readonly efficiency?: readonly WeaponEfficiency[] | undefined;
-    /** 효율 상한(‰, 설정 칸 N10 실효 값) */
+    /** 기준 유닛(가운데 자리)의 몫마다 비율(D-502: 1차 ÷ 무기 적정 1차, 상한 N10) */
+    readonly parts?: readonly WeaponPartRatio[] | undefined;
+    /** 비율 상한(‰, 설정 칸 N10 실효 값) */
     readonly capPm?: number | undefined;
   } | null;
   readonly use: {

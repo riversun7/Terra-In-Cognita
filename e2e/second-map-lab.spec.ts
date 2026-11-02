@@ -120,11 +120,11 @@ test.describe("dev", () => {
     expect(deviceErrors).toEqual([]);
   });
 
-  // 사진: 390px 기본 테마 둘 × 한국어·영어. 높이 과장 ×4 + 격자로 산 자리를 찍는다(사용자가 고저 느낌을 본다)
-  for (const theme of ["pastel", "dark"] as const) {
+  // 사진: 390px 개발 화면 테마 둘(ADR 2026-11-02-dev-ui) × 한국어·영어. 높이 과장 ×4 + 격자로 산 자리를 찍는다
+  for (const theme of ["neon", "light"] as const) {
     for (const language of ["ko", "en"] as const) {
       test.describe(`사진 ${theme} ${language}`, () => {
-        test.use({ theme, language });
+        test.use({ devTheme: theme, language });
 
         test(`390px (${theme}·${language})`, async ({ page }) => {
           test.setTimeout(90_000);

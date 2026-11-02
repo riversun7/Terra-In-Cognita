@@ -6,6 +6,15 @@
 
 export const THEMES = ["pastel", "dark", "contrast", "station"];
 
+/**
+ * 개발 화면 층의 테마 둘(ADR 2026-11-02-dev-ui): 개발·관리자 화면은 게임 테마와 상관없이 이 값을 쓴다.
+ * 테마 → 차례로 덮는 선택자(앞 것을 뒤 것이 이긴다. :root 규칙은 그 앞에 늘 먼저 넣는다)
+ */
+export const DEV_THEMES = {
+  "dev-neon": [':root[data-surface="dev"]'],
+  "dev-light": [':root[data-surface="dev"]', ':root[data-surface="dev"][data-dev-theme="light"]'],
+};
+
 /** 주석과 @media 블록을 지운다(@media 안 규칙은 기기 설정에 따라 바뀌는 값이라 대비 계산에 넣지 않는다) */
 function stripCss(css) {
   let text = css.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -56,7 +65,50 @@ export function themeTokens(css) {
     }
     if (rules.some((rule) => rule.selectors.includes(themeSelector))) result[theme] = values;
   }
+  for (const [theme, chain] of Object.entries(DEV_THEMES)) {
+    const values = {};
+    for (const pass of [":root", ...chain]) {
+      for (const rule of rules) {
+        if (!rule.selectors.includes(pass)) continue;
+        for (const [name, value] of rule.declarations) {
+          if (name.startsWith("--")) values[name] = value;
+        }
+      }
+    }
+    const last = chain.at(-1);
+    if (rules.some((rule) => rule.selectors.includes(last))) result[theme] = values;
+  }
   return result;
+}
+
+/**
+ * 개발 화면 층이 게임 테마의 색을 빠짐없이 다시 정했는지: 게임 테마 블록(정거장)에 있는 색·그림자 토큰(--color-*, --shadow-*)이
+ * 개발 테마마다 개발 화면 층 블록에 있어야 한다. 없으면 그 값은 지금 고른 게임 테마에서 새어 든다(대비를 잴 수 없다).
+ * @returns {string[]} 문제 목록
+ */
+export function devThemeGaps(css) {
+  const rules = parseRules(css);
+  const own = (selector) =>
+    new Set(
+      rules
+        .filter((rule) => rule.selectors.includes(selector))
+        .flatMap((rule) => rule.declarations.map(([name]) => name)),
+    );
+  const game = [...own(':root[data-theme="station"]')].filter((name) => /^--(color|shadow)-/.test(name));
+  const problems = [];
+  for (const [theme, chain] of Object.entries(DEV_THEMES)) {
+    const defined = new Set(chain.flatMap((selector) => [...own(selector)]));
+    // 라이트는 네온 블록을 물려받지 않게 자기 블록에도 색을 모두 둔다(네온 값이 라이트에 새지 않게)
+    const last = own(chain.at(-1));
+    for (const name of game) {
+      if (!defined.has(name) || !last.has(name)) {
+        problems.push(
+          `${theme}: ${name}이(가) 개발 화면 층 블록(${chain.at(-1)})에 없습니다(게임 테마 값이 새어 듭니다).`,
+        );
+      }
+    }
+  }
+  return problems;
 }
 
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -165,6 +217,24 @@ export const CONTRAST_PAIRS = [
   { fg: "--color-danger", bg: "--color-field-bg", kind: "ui" },
 ];
 
+/** 개발 화면 층에서만 재는 쌍: 표 머리·줄무늬·올림·고른 줄 바탕 위의 글자, 코드·ID 글자색(ADR 2026-11-02-dev-ui) */
+const DEV_ROW_BACKGROUNDS = ["--dev-head-bg", "--dev-row-alt", "--dev-row-hover", "--dev-row-selected"];
+export const DEV_CONTRAST_PAIRS = [
+  ...DEV_ROW_BACKGROUNDS.map((bg) => ({ fg: "--color-text", bg, kind: "body" })),
+  ...DEV_ROW_BACKGROUNDS.map((bg) => ({ fg: "--color-text-muted", bg, kind: "text" })),
+  ...["--color-bg", "--color-surface", "--color-surface-2", "--color-field-bg", ...DEV_ROW_BACKGROUNDS].map(
+    (bg) => ({ fg: "--dev-code", bg, kind: "text" }),
+  ),
+  // 상태색 글자(바뀐 칸·경고)가 줄무늬·고른 줄 위에 놓인다
+  ...["success", "warning", "danger"].flatMap((status) =>
+    DEV_ROW_BACKGROUNDS.map((bg) => ({ fg: `--color-${status}`, bg, kind: "text" })),
+  ),
+  { fg: "--color-focus", bg: "--dev-row-alt", kind: "ui" },
+  { fg: "--color-focus", bg: "--color-surface-2", kind: "ui" },
+  { fg: "--color-field-border", bg: "--dev-row-alt", kind: "ui" },
+  { fg: "--color-field-border", bg: "--dev-row-selected", kind: "ui" },
+];
+
 /** 테마와 쌍 종류별 최소 대비 */
 export function minimumRatio(theme, kind) {
   if (kind === "ui") return 3;
@@ -179,10 +249,15 @@ export function minimumRatio(theme, kind) {
 export function checkContrast(tokensByTheme) {
   const rows = [];
   const problems = [];
-  for (const theme of THEMES) {
+  for (const theme of [...THEMES, ...Object.keys(DEV_THEMES)]) {
     const tokens = tokensByTheme[theme];
+    const dev = Object.hasOwn(DEV_THEMES, theme);
     if (!tokens) {
-      problems.push(`${theme} 테마가 없습니다(:root[data-theme="${theme}"]).`);
+      problems.push(
+        dev
+          ? `${theme} 개발 화면 테마가 없습니다(${DEV_THEMES[theme].at(-1)}).`
+          : `${theme} 테마가 없습니다(:root[data-theme="${theme}"]).`,
+      );
       continue;
     }
     const measure = (fgName, fgValue, bgName, bgValue, kind) => {
@@ -200,7 +275,9 @@ export function checkContrast(tokensByTheme) {
         );
       }
     };
-    for (const { fg, bg, kind } of CONTRAST_PAIRS) measure(fg, tokens[fg], bg, tokens[bg], kind);
+    for (const { fg, bg, kind } of dev ? [...CONTRAST_PAIRS, ...DEV_CONTRAST_PAIRS] : CONTRAST_PAIRS) {
+      measure(fg, tokens[fg], bg, tokens[bg], kind);
+    }
     // 바탕 그라데이션 위의 글자, 입력칸 테두리, 초점 표시(설정 화면의 카드·스위치 줄은 바탕에 바로 놓인다)
     for (const stop of gradientStops(tokens["--color-bg-image"])) {
       const name = `--color-bg-image ${stop}`;

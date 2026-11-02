@@ -209,6 +209,7 @@ git 훅: 커밋 전(포맷·비밀값), 커밋 메시지(Conventional Commits), 
 
 - `hallmark`, `taste-skill`은 다른 시각 방향을 시험할 때나 사용자가 이름을 말할 때만 쓴다. `find-animation-opportunities`, `improve-animations`, `animation-vocabulary`는 필요할 때.
 - 디자인 시스템은 ADR `2026-10-28-design-system.md`(후보 A 새싹 장난감)다. 화면 스타일은 `apps/game/src/styles/tokens.css`의 `var(--…)`만 쓴다(직접 쓴 색·px 값은 `pnpm check:contrast`가 막는다). 화면을 바꾸면 기본 테마 2개(파스텔·다크)에서만 눈으로 확인하고 사진을 찍는다. 선명·정거장은 자동 검사(`pnpm check:contrast`)로만 지킨다. 새 화면은 디자인 후보를 따로 만들지 않고 이 디자인 시스템으로 바로 만든다(사용자 결정 2026-10-28: "디자인 작업이 너무 오래걸리므로 다음부터는 기본 두가지만 만들고 진도를 빠르게 나가보자"). 관리자·거래창처럼 빽빽한 화면은 `data-density="compact"`.
+- 개발·관리자 화면(`/dev`, `/dev/…`, `/admin`)은 개발 화면 층을 쓴다(`<html data-surface="dev">`, 촘촘한 토큰·`.dev-table`, 테마는 네온 다크(기본)·라이트 둘만, 게임 테마와 상관없음). 이 화면을 바꾸면 그 두 테마에서 사진으로 확인한다 — ADR `2026-11-02-dev-ui.md`.
 - 화면 가시성: 톤(새싹 장난감)은 그림(지도·캐릭터)에 쓰고, 화면은 옛 프로젝트처럼 수·색 막대·펼치는 공식으로 더 보이게 만든다(토큰 규칙은 그대로). 1차 스탯은 STR·VIT, INT·WIS, DEX·AGI 묶음과 `--color-stat-*`, 정거장은 네온 SF 테마, 선명은 지금 그대로 둔다 — ADR `2026-11-01-ui-visibility.md`(D-448). 사이보그 스탯 판은 옛 프로젝트 모양 그대로, 2차 스탯 색(`--color-sec-*`)은 1차 스탯 색과 다른 계열 — ADR `2026-11-01-cyborg-sheet-old-look.md`.
 - **스킬보다 이 문서가 우선한다.** 모바일 우선, 화면 문구는 메시지 키(ko·en 함께), 성능 기준(PLAN 11장). 스킬이 권하는 새 런타임 의존성(Tailwind, framer-motion, shadcn 등)은 ADR을 먼저 쓴다.
 - 스킬이 훅을 설치하거나 설정 파일(`.claude/settings.json` 등)을 바꾸려 하면 사용자 승인 뒤에만 한다(`hallmark`의 install-hook, `/impeccable hooks on`).

@@ -151,15 +151,16 @@ test.describe("관리자", () => {
     await expect(page.locator(".ss-save")).toBeDisabled();
   });
 
-  // 사진: 휴대폰 세로 390px·데스크톱 1440px × 기본 테마 둘 × 한국어·영어(E2E_SHOTS_DIR). 휴대폰은 넘침·누르는 곳도 본다
-  for (const theme of ["pastel", "dark"] as const) {
+  // 사진: 휴대폰 세로 390px·데스크톱 1440px × 개발 화면 테마 둘(ADR 2026-11-02-dev-ui) × 한국어·영어(E2E_SHOTS_DIR).
+  // 휴대폰은 넘침·누르는 곳도 본다
+  for (const theme of ["neon", "light"] as const) {
     for (const language of ["ko", "en"] as const) {
       test.describe(`사진 ${theme} ${language}`, () => {
-        test.use({ theme, language });
+        test.use({ devTheme: theme, language });
 
         test(`390px 세로 (${theme}·${language})`, async ({ page }) => {
           await systemShown(page);
-          await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+          await expect(page.locator("html")).toHaveAttribute("data-dev-theme", theme);
           await page.locator('.ssv-body[data-kind="planet"]').click();
           await expect(page.locator(".ss-card .ss-suggest")).toBeVisible();
           // 행성 정의를 받아 [제안 적용]이 켜진 뒤에 찍는다(지금 기온 줄까지)

@@ -12,6 +12,9 @@
 //   메뉴·홈은 기본({}는 parseNavigation·parseHome이 기본값으로 읽는다). null인 묶음은 앞 시험이 계정에 남긴 값이 온다.
 //   처음부터 다른 값으로 시작하려면 그 값을 준다(예: test.use({ nav: { layout: "a" } })).
 //   맥락을 만들 때 한 번만 넣으므로 시험 안에서 바꾼 값은 새로고침해도 남는다.
+// - devTheme: 개발·관리자 화면의 테마("neon"·"light", 기본 null = 넣지 않음 → 앱 기본 네온 다크). 기기 저장소 terra.devTheme에
+//   넣는다(apps/game/src/shell/devSurface.ts의 DEV_THEME_STORAGE_KEY와 같아야 한다). 개발 화면은 게임 테마(theme)를 보지 않는다
+//   (ADR 2026-11-02-dev-ui) → 개발·관리자 화면 사진은 theme 대신 devTheme 둘(neon·light)로 찍는다.
 // - 화면 크기: test.use(VIEWPORTS.desktop) 등(helpers/viewports.ts, 기본 phone 390×844).
 // 고정
 // - baseURL: 전역 준비가 켠 서버. page.goto("/units")처럼 경로만 쓴다.
@@ -32,6 +35,10 @@ export { expect };
 
 /** 테마 4개(ADR 2026-10-28-design-system). 사진은 기본 둘(pastel·dark)만 찍는다 */
 export type Theme = "pastel" | "dark" | "contrast" | "station";
+/** 개발 화면 층의 테마 둘(ADR 2026-11-02-dev-ui) */
+export type DevTheme = "neon" | "light";
+/** 개발 화면 테마 기기 저장 열쇠 — apps/game/src/shell/devSurface.ts의 DEV_THEME_STORAGE_KEY와 같아야 한다 */
+const DEV_THEME_KEY = "terra.devTheme";
 export type Language = "ko" | "en";
 /** 메뉴(nav)·홈(home) 설정 값: 모양을 모르는 JSON 객체(@terra/shared의 SettingsObject와 같은 모양) */
 export type SettingsObject = { readonly [key: string]: unknown };
@@ -53,16 +60,21 @@ export interface DeviceOptions {
   /** 시안 자료 보기를 켠 계정(머리 주석). null = 꺼짐 */
   preview: AccountName | null;
   theme: Theme | null;
+  /** 개발·관리자 화면 테마(머리 주석). null = 넣지 않음 */
+  devTheme: DevTheme | null;
   language: Language | null;
   nav: SettingsObject | null;
   home: SettingsObject | null;
 }
 
 /** 설정 묶음의 기본값(account·preview 제외) — 시험 기본 맥락과 deviceOptions가 같이 쓴다 */
-const DEFAULT_SETTINGS = { theme: "pastel", language: "ko", nav: {}, home: {} } as const satisfies Omit<
-  DeviceOptions,
-  "account" | "preview"
->;
+const DEFAULT_SETTINGS = {
+  theme: "pastel",
+  devTheme: null,
+  language: "ko",
+  nav: {},
+  home: {},
+} as const satisfies Omit<DeviceOptions, "account" | "preview">;
 
 export interface DeviceError {
   kind: "uncaught" | "console" | "report";
@@ -81,7 +93,7 @@ const browserLocale = (language: Language | null): string => (language === "en" 
 
 /** 맥락의 처음 저장 상태: 계정 세션 쿠키 + 기기 저장소의 설정 묶음·시안 자료 표시 */
 function startState(
-  { account, preview, theme, language, nav, home }: DeviceOptions,
+  { account, preview, theme, devTheme, language, nav, home }: DeviceOptions,
   baseURL: string,
 ): StorageState {
   let cookies: Cookie[] = [];
@@ -113,6 +125,7 @@ function startState(
     localStorage.push({ name: SETTINGS_KEY, value: JSON.stringify(settings) });
   }
   if (language !== null) localStorage.push({ name: PARAGLIDE_KEY, value: language });
+  if (devTheme !== null) localStorage.push({ name: DEV_THEME_KEY, value: devTheme });
   if (preview !== null) {
     const user = harness().accounts[preview].userId;
     localStorage.push({ name: PREVIEW_KEY, value: JSON.stringify({ v: PREVIEW_MARK_VERSION, user }) });
@@ -156,6 +169,7 @@ export const test = base.extend<DeviceOptions & { deviceErrors: DeviceError[] }>
   account: [null, { option: true }],
   preview: [null, { option: true }],
   theme: [DEFAULT_SETTINGS.theme, { option: true }],
+  devTheme: [DEFAULT_SETTINGS.devTheme, { option: true }],
   language: [DEFAULT_SETTINGS.language, { option: true }],
   nav: [DEFAULT_SETTINGS.nav, { option: true }],
   home: [DEFAULT_SETTINGS.home, { option: true }],
@@ -168,8 +182,8 @@ export const test = base.extend<DeviceOptions & { deviceErrors: DeviceError[] }>
   locale: async ({ language }, use) => {
     await use(browserLocale(language));
   },
-  storageState: async ({ account, preview, theme, language, nav, home }, use) => {
-    await use(startState({ account, preview, theme, language, nav, home }, harness().baseURL));
+  storageState: async ({ account, preview, theme, devTheme, language, nav, home }, use) => {
+    await use(startState({ account, preview, theme, devTheme, language, nav, home }, harness().baseURL));
   },
   deviceErrors: [
     async ({ context }, use) => {

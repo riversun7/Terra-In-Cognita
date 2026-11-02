@@ -1,0 +1,188 @@
+/*
+ * 개발 화면 층의 기본 부품 — 개발자·관리자 화면(<html data-surface="dev">, ADR 2026-11-02-dev-ui).
+ * 크기·색은 styles/tokens.css의 개발 화면 층 토큰이 바꾸고, 여기서는 게임 부품(턱 버튼·알약 고르기·큰 제목)의 모양만 개발자용으로 바꾼다.
+ * 값은 var(--…)만 쓴다(pnpm check:contrast). 규칙은 모두 :where(:root[data-surface="dev"]) 아래라 게임 화면은 그대로다.
+ * 우선순위: :where로 기본 부품(styles.css)과 같게 낮추고 main.tsx가 styles.css 뒤에 불러온다 → 기본 부품은 이기고 화면 CSS(클래스)에는 진다.
+ * 공용 표(.dev-table): 고정 머리(위 띠 아래)·줄무늬·올림·고정폭 숫자. 좁은 폭에서는 .dev-table-wrap 안에서만 가로로 민다.
+ */
+:where(:root[data-surface="dev"]) {
+  font-variant-numeric: tabular-nums;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) var(--color-bg);
+}
+
+/* 버튼: 턱·튀는 움직임 없이 납작하게. 기본은 둘째 판 색(보조), 주 동작만 .button-primary */
+:where(:root[data-surface="dev"]) button {
+  padding: 0 var(--space-4);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-tight);
+  transition: none;
+}
+:where(:root[data-surface="dev"]) button:active:not([aria-disabled="true"], :disabled) {
+  transform: none;
+}
+:where(:root[data-surface="dev"]) .button-small {
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-sm);
+}
+:where(:root[data-surface="dev"]) .button-text {
+  min-height: var(--tap-size);
+  font-size: var(--font-size-sm);
+  text-decoration-thickness: var(--hairline);
+}
+
+/* 입력·고르기: 알약 대신 작은 네모, 굵기 보통 */
+:where(:root[data-surface="dev"]) .input {
+  padding: 0 var(--space-3);
+}
+:where(:root[data-surface="dev"]) select {
+  min-height: var(--control-h);
+  padding: 0 calc(var(--space-8) + var(--space-1)) 0 var(--space-3);
+  border-radius: var(--radius-control);
+  font-weight: var(--font-weight-regular);
+  background-position:
+    calc(100% - var(--space-5) - var(--select-arrow)) 50%,
+    calc(100% - var(--space-5)) 50%;
+}
+:where(:root[data-surface="dev"]) textarea {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+:where(:root[data-surface="dev"]) input[type="checkbox"],
+:where(:root[data-surface="dev"]) input[type="radio"],
+:where(:root[data-surface="dev"]) input[type="range"] {
+  accent-color: var(--color-primary);
+}
+:where(:root[data-surface="dev"]) input[type="checkbox"],
+:where(:root[data-surface="dev"]) input[type="radio"] {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  margin: 0;
+}
+
+/* 판·제목·알림: 여백과 글자를 줄인다 */
+:where(:root[data-surface="dev"]) .panel {
+  padding: var(--space-5);
+}
+:where(:root[data-surface="dev"]) .screen-title {
+  font-size: var(--font-size-2xl);
+  text-wrap: wrap;
+}
+:where(:root[data-surface="dev"]) .lead {
+  font-size: var(--font-size-sm);
+}
+:where(:root[data-surface="dev"]) .message {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+}
+:where(:root[data-surface="dev"]) code,
+:where(:root[data-surface="dev"]) kbd,
+:where(:root[data-surface="dev"]) samp {
+  font-family: var(--font-mono);
+  font-size: 0.95em;
+}
+
+/* 위 띠의 개발 화면 테마 단추(shell/TopBar.tsx) */
+.topbar-dev-theme {
+  margin-inline-end: var(--space-2);
+}
+.topbar-dev-theme[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ── 공용 표 ── */
+.dev-table-wrap {
+  /* 줄 안 읽기 전용 글(.visually-hidden, absolute)이 상자 밖으로 문서를 넓히지 않게 담는 상자가 된다 */
+  position: relative;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.dev-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-snug);
+}
+.dev-table th,
+.dev-table td {
+  height: var(--dev-row-h);
+  padding: var(--space-1) var(--space-3);
+  border-block-end: var(--hairline) solid var(--color-border);
+  text-align: start;
+  vertical-align: middle;
+}
+.dev-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--dev-head-bg);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+/* 틀이 있는 화면은 위 띠 아래에 머리를 붙인다(가로 스크롤 상자 밖일 때만 걸린다) */
+:root[data-topbar] .dev-table thead th {
+  top: var(--dev-sticky-top);
+}
+/* 가로 스크롤 상자 안의 표는 머리가 상자에 붙는다(위 띠 높이만큼 내리지 않는다) */
+:root[data-topbar] .dev-table-wrap .dev-table thead th {
+  top: 0;
+}
+.dev-table tbody tr:nth-child(even) > * {
+  background-color: var(--dev-row-alt);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dev-table tbody tr:hover > * {
+    background-color: var(--dev-row-hover);
+  }
+}
+.dev-num {
+  text-align: end;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+.dev-code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--dev-code);
+  overflow-wrap: anywhere;
+}
+.dev-muted {
+  color: var(--color-text-muted);
+}
+/* 작은 표지(칩) */
+.dev-badge {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-body);
+  white-space: nowrap;
+}
+
+/* 건너뛰기 링크(shell.css): 개발 화면 층의 작은 글자에서도 누르는 곳 --tap-size */
+:where(:root[data-surface="dev"]) .skip-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-size);
+}
+
+/* 버튼은 늘이지 않는다: 화면·버튼 줄 안의 버튼은 글자 폭(데스크톱 먼저, 주 동작도 작은 버튼 하나) */
+:where(:root[data-surface="dev"]) .screen > button,
+:where(:root[data-surface="dev"]) .pe-empty > button {
+  align-self: flex-start;
+}
+:where(:root[data-surface="dev"]) .form-actions > button {
+  flex: 0 0 auto;
+}

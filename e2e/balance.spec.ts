@@ -9,7 +9,7 @@
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
-import { type Language, type Theme, expect, test } from "./helpers/test.ts";
+import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
 
 /** 화면 안에서 tRPC를 부른다(같은 출처, 화면과 같은 쿠키). 결과 data 또는 오류 코드 */
 async function trpc(
@@ -240,8 +240,9 @@ test.describe("플레이어", () => {
   });
 });
 
-const LAYOUTS: readonly { theme: Theme; language: Language; width: number; height: number }[] = (
-  ["pastel", "dark"] as const
+// 개발 화면 층(ADR 2026-11-02-dev-ui): 게임 테마와 상관없이 개발 화면 테마 둘(네온 다크·라이트)로 찍는다
+const LAYOUTS: readonly { theme: DevTheme; language: Language; width: number; height: number }[] = (
+  ["neon", "light"] as const
 ).flatMap((theme) =>
   (["ko", "en"] as const).flatMap((language) => [
     { theme, language, width: 390, height: 844 },
@@ -251,11 +252,7 @@ const LAYOUTS: readonly { theme: Theme; language: Language; width: number; heigh
 
 async function fullShot(page: Page, name: string): Promise<void> {
   // 고정된 위 띠·하단 탭·건너뛰기 링크가 사진 가운데에 끼지 않게 숨긴다(설정 칸 패널 사진과 같은 결)
-  const style = await page.addStyleTag({
-    content: ".tabbar, .topbar, .frame-side, .skip-link { visibility: hidden !important; }",
-  });
-  await shot(page, name, { fullPage: true });
-  await style.evaluate((element) => element.parentNode?.removeChild(element));
+  await shot(page, name);
 }
 
 test.describe("배치·사진", () => {
@@ -263,7 +260,7 @@ test.describe("배치·사진", () => {
 
   for (const { theme, language, width, height } of LAYOUTS) {
     test.describe(`${theme}·${language}·${width}px`, () => {
-      test.use({ theme, language, viewport: { width, height } });
+      test.use({ devTheme: theme, language, viewport: { width, height } });
 
       test("세계 값 칸·담은 칸·기여·승률: 가로 넘침·작은 누르는 곳 없음, 사진", async ({
         page,
@@ -282,12 +279,12 @@ test.describe("배치·사진", () => {
         await weightsReady(page);
         await stageCell(page, "hp", "vit", "4500");
         await stageCell(page, "physical_attack", "str", "2600");
-        // 승률은 파스텔에서만 돌린다(대결 속도 제한), 다크는 비어 있는 상태를 찍는다
-        if (theme === "pastel") await runDuels(page);
+        // 승률은 네온에서만 돌린다(대결 속도 제한), 라이트는 비어 있는 상태를 찍는다
+        if (theme === "neon") await runDuels(page);
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
         expect(await horizontalOverflow(page)).toEqual([]);
         expect(await smallTapTargets(page)).toEqual([]);
-        await fullShot(page, `balance-${theme}-${language}-${width}`);
+        await shot(page, `balance-${theme}-${language}-${width}`);
         await resetTuning(page);
         expect(unexpected(deviceErrors)).toEqual([]);
       });

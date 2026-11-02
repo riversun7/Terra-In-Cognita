@@ -167,22 +167,24 @@ test.describe("관리자", () => {
     }
   });
 
-  // 사진(390px, 기본 테마 둘 × 한국어·영어): E2E_SHOTS_DIR, 없으면 e2e/test-results/shots
-  for (const theme of ["pastel", "dark"] as const) {
+  // 사진(390px, 개발 화면 테마 둘 × 한국어·영어): E2E_SHOTS_DIR, 없으면 e2e/test-results/shots.
+  // 개발 화면은 게임 테마와 상관없이 개발 화면 층(ADR 2026-11-02-dev-ui)의 테마를 쓴다
+  for (const theme of ["neon", "light"] as const) {
     for (const language of ["ko", "en"] as const) {
       test.describe(`사진 ${theme} ${language}`, () => {
-        test.use({ theme, language });
+        test.use({ devTheme: theme, language });
 
         test(`개발자 홈·셰이더 측정 390px (${theme}·${language})`, async ({ page }) => {
           await page.goto("/dev");
           await framed(page);
-          await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+          await expect(page.locator("html")).toHaveAttribute("data-surface", "dev");
+          await expect(page.locator("html")).toHaveAttribute("data-dev-theme", theme);
           expect(await horizontalOverflow(page)).toEqual([]);
           await shot(page, `dev-home-390-${theme}-${language}`);
           await page.goto("/dev/gpu-bench");
           await benchShown(page);
           expect(await horizontalOverflow(page)).toEqual([]);
-          await shot(page, `dev-gpu-bench-390-${theme}-${language}`, { fullPage: true });
+          await shot(page, `dev-gpu-bench-390-${theme}-${language}`);
         });
       });
     }

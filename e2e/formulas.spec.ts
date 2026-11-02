@@ -9,7 +9,7 @@
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
-import { type Language, type Theme, expect, test } from "./helpers/test.ts";
+import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
 
 /** 화면 안에서 tRPC를 부른다(같은 출처, 화면과 같은 쿠키). 결과 data 또는 오류 코드 */
 async function trpc(
@@ -180,8 +180,9 @@ test.describe("플레이어", () => {
   });
 });
 
-const LAYOUTS: readonly { theme: Theme; language: Language; width: number; height: number }[] = (
-  ["pastel", "dark"] as const
+// 개발 화면 층(ADR 2026-11-02-dev-ui): 게임 테마와 상관없이 개발 화면 테마 둘(네온 다크·라이트)로 찍는다
+const LAYOUTS: readonly { theme: DevTheme; language: Language; width: number; height: number }[] = (
+  ["neon", "light"] as const
 ).flatMap((theme) =>
   (["ko", "en"] as const).flatMap((language) => [
     { theme, language, width: 390, height: 844 },
@@ -194,7 +195,7 @@ test.describe("배치·사진", () => {
 
   for (const { theme, language, width, height } of LAYOUTS) {
     test.describe(`${theme}·${language}·${width}px`, () => {
-      test.use({ theme, language, viewport: { width, height } });
+      test.use({ devTheme: theme, language, viewport: { width, height } });
 
       test("오류를 펼친 식 칸·미리 보기·적정치 표: 가로 넘침·작은 누르는 곳 없음, 사진", async ({
         page,

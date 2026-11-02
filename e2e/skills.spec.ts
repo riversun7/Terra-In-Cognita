@@ -8,7 +8,7 @@
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
-import { type Language, type Theme, expect, test } from "./helpers/test.ts";
+import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
 
 const field = (value: unknown, key: string): unknown =>
   typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
@@ -221,8 +221,9 @@ test.describe("플레이어", () => {
   });
 });
 
-const LAYOUTS: readonly { theme: Theme; language: Language; width: number; height: number }[] = (
-  ["pastel", "dark"] as const
+// 개발 화면 층(ADR 2026-11-02-dev-ui): 게임 테마와 상관없이 개발 화면 테마 둘(네온 다크·라이트)로 찍는다
+const LAYOUTS: readonly { theme: DevTheme; language: Language; width: number; height: number }[] = (
+  ["neon", "light"] as const
 ).flatMap((theme) =>
   (["ko", "en"] as const).flatMap((language) => [
     { theme, language, width: 390, height: 844 },
@@ -235,7 +236,7 @@ test.describe("배치·사진", () => {
 
   for (const { theme, language, width, height } of LAYOUTS) {
     test.describe(`${theme}·${language}·${width}px`, () => {
-      test.use({ theme, language, viewport: { width, height } });
+      test.use({ devTheme: theme, language, viewport: { width, height } });
 
       test("스킬 칸·행동별 소모 표: 가로 넘침·작은 누르는 곳 없음, 사진", async ({ page, deviceErrors }) => {
         await editorReady(page);
@@ -247,20 +248,12 @@ test.describe("배치·사진", () => {
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
         expect(await horizontalOverflow(page)).toEqual([]);
         expect(await smallTapTargets(page)).toEqual([]);
-        const style = await page.addStyleTag({
-          content: ".tabbar, .topbar, .frame-side, .skip-link { visibility: hidden !important; }",
-        });
-        await shot(page, `skills-${theme}-${language}-${width}`, { fullPage: true });
-        await style.evaluate((element) => element.parentNode?.removeChild(element));
+        await shot(page, `skills-${theme}-${language}-${width}`);
         await page.getByRole("tab", { name: message(language, "dev_skills_tab_costs") }).click();
         await expect(page.locator(".sk-cost-table")).toBeVisible();
         expect(await horizontalOverflow(page)).toEqual([]);
         expect(await smallTapTargets(page)).toEqual([]);
-        const style2 = await page.addStyleTag({
-          content: ".tabbar, .topbar, .frame-side, .skip-link { visibility: hidden !important; }",
-        });
-        await shot(page, `skills-costs-${theme}-${language}-${width}`, { fullPage: true });
-        await style2.evaluate((element) => element.parentNode?.removeChild(element));
+        await shot(page, `skills-costs-${theme}-${language}-${width}`);
         expect(deviceErrors).toEqual([]);
       });
     });

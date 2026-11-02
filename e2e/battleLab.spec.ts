@@ -9,8 +9,9 @@
 // 팀 프리셋은 시험끼리 DB를 같이 쓴다: 만든 프리셋은 시험 안에서 지운다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
-import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
+import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
+import { VIEWPORTS } from "./helpers/viewports.ts";
 
 /** 화면 안에서 tRPC를 부른다(같은 출처, 화면과 같은 쿠키) */
 async function trpcStatus(page: Page, procedure: string, input?: unknown): Promise<number> {
@@ -252,7 +253,12 @@ test.describe("배치·사진", () => {
 
   for (const { theme, language, width, height } of LAYOUTS) {
     test.describe(`${theme}·${language}·${width}px`, () => {
-      test.use({ devTheme: theme, language, viewport: { width, height } });
+      // 1440은 실제 데스크톱(마우스·터치 없음, 아이템 편집기 사진과 같다)
+      test.use({
+        devTheme: theme,
+        language,
+        ...(width >= 1000 ? VIEWPORTS.desktop : { viewport: { width, height } }),
+      });
 
       test("팀·유닛 편집·미리 보기·전투장(결과 포함): 가로 넘침·작은 누르는 곳 없음, 사진", async ({
         page,
@@ -264,6 +270,12 @@ test.describe("배치·사진", () => {
         await page.locator(".bl-lab details:not([open]) > summary").evaluateAll((elements) => {
           for (const element of elements) element.parentElement?.setAttribute("open", "");
         });
+        // 공격·적정 스탯 표(D-502: 스탯 공격력·무기 공격력·1차 ÷ 적정·비율·실제) — 샘플 유닛의 팩 무기로 먼저 찍는다
+        await expect(page.locator(".bl-attacks tr[data-attack='basic']")).toBeVisible();
+        await elementShot(
+          page.locator(".bl-scroll").filter({ has: page.locator(".bl-attacks") }),
+          `battle-lab-attacks-${theme}-${language}-${width}`,
+        );
         await page.locator(".bl-weapon-select").selectOption("custom");
         await runUntil(page, ".bl-battle", ".bl-result");
         await page.evaluate(() => document.fonts.ready.then(() => undefined));

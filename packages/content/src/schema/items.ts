@@ -7,7 +7,7 @@
 // 여러 칸을 함께 보는 검사는 superRefine이다(필드 검사가 실패해도 불리므로 값의 모양을 다시 본다, AGENTS 6장 Zod 4.6.7).
 // 문제마다 params.rule에 규칙 코드를 단다(편집기가 메시지 키로 보인다, issue.ts code).
 import { z } from "zod";
-import { equipSchema } from "./combat.ts";
+import { PRIMARY_STAT_CODES, equipSchema } from "./combat.ts";
 import { contentId, localizedText, ref } from "./common.ts";
 
 /** 아이템 대분류(D-5029·D-5033, 생산 흐름 순). 대분류마다 붙는 칸 묶음이 정해져 있어 코드 목록이다 */
@@ -45,6 +45,8 @@ export const ITEM_SCHEMA_LIMITS = {
   shelfLifeMaxMs: 31_536_000_000,
   effectsMax: 8,
   order: 10_000,
+  /** 사용 효과 스탯 비례(‰/점) 상한(기술 범위: 1점에 기준 값의 10배) */
+  scalePmPerPoint: 10_000,
 } as const;
 
 const enabled = z.boolean({ error: "enabled가 없습니다. true 또는 false로 적으세요(D-398 켬·끔)." });
@@ -68,7 +70,9 @@ export const perishSchema = z.strictObject({
 
 /**
  * 사용 효과(D-425 효과 사전 코드만, 스킬 효과 줄과 같은 모양). value는 기준 값이다: 효과량은 쓰는 유닛의 스탯에 비례하고(VIT → HP 회복,
- * WIS → MP 회복) ±오차가 붙는다(D-496, 실행 규칙·설정 칸은 WP-6). 같은 아이템은 같은 물건(호가창)이다
+ * WIS → MP 회복) ±오차가 붙는다(D-496 286). 같은 아이템은 같은 물건(호가창)이다. 셈(아이템 편집기 WP-6, 식 모양 확인은 질문 292):
+ * 스탯 비례 = value × (1000 + 그 1차 스탯 × pmPerPoint) ÷ 1000, ±오차 = variancePm(없으면 설정 칸 d496_use_variance, 출발 250 [임시]).
+ * 실제로 먹고 쓰는 실행(전투 중 사용 287 포함)은 보유 물건 뒤 소비 줄기다. 지금은 편집기 미리 보기만 이 값을 셈한다
  */
 export const useSchema = z.strictObject({
   effects: z
@@ -79,6 +83,15 @@ export const useSchema = z.strictObject({
         chancePm: z.int().min(0).max(1000),
         /** 없으면 효과 사전의 기본 지속 */
         durationMs: z.int().min(0).max(3_600_000).optional(),
+        /** 효과량 스탯 비례(D-496 286): 쓰는 유닛의 그 1차 스탯 1점마다 기준 값의 pmPerPoint‰를 더한다. 없으면 기준 값 그대로 */
+        scale: z
+          .strictObject({
+            stat: z.enum(PRIMARY_STAT_CODES),
+            pmPerPoint: z.int().min(0).max(ITEM_SCHEMA_LIMITS.scalePmPerPoint),
+          })
+          .optional(),
+        /** ±오차(‰, D-496 286). 없으면 설정 칸 d496_use_variance */
+        variancePm: z.int().min(0).max(1000).optional(),
       }),
     )
     .min(1)
@@ -202,11 +215,27 @@ export type ItemTagEntry = z.output<typeof itemTagEntrySchema>;
  * 무기 종류(48 §5.5): 무기 칸(칼·활·총 등) 또는 보조 칸(방패·화살통·탄창 등). 아이템 equip.weaponType이 가리키고, 무기의 탄약 연결
  * (equip.weapon.ammo)은 보조 칸 종류를 가리킨다(D-496: 화살·탄약은 보조무기 칸, 원거리 타격마다 1씩)
  */
-export const weaponTypeEntrySchema = z.strictObject({
-  id: contentId,
-  name: localizedText,
-  slot: z.enum(WEAPON_TYPE_SLOTS),
-  order: z.int().min(0).max(ITEM_SCHEMA_LIMITS.order).optional(),
-  enabled,
-});
+export const weaponTypeEntrySchema = z
+  .strictObject({
+    id: contentId,
+    name: localizedText,
+    slot: z.enum(WEAPON_TYPE_SLOTS),
+    order: z.int().min(0).max(ITEM_SCHEMA_LIMITS.order).optional(),
+    /**
+     * 탄약 종류(D-497: 탄약은 보조 칸에 끼우는 장비 하나이고 그 장비의 내구도가 남은 탄 수다. 원거리로 칠 때마다 1 준다, 0이면
+     * 원거리 공격을 못 한다). 이 종류의 장비는 최대 내구도 = 담는 탄 수다. 보조 칸 종류만. 소모 실행은 보유 물건 뒤(전투 줄기)
+     */
+    ammo: z.boolean().optional(),
+    enabled,
+  })
+  .superRefine((entry, ctx) => {
+    if (typeof entry !== "object" || entry === null) return;
+    if (entry.ammo === true && entry.slot !== "offhand")
+      fail(
+        ctx,
+        ["ammo"],
+        "weapon_type_ammo_slot",
+        "탄약 종류(ammo)는 보조 칸(offhand) 종류에만 씁니다(D-497).",
+      );
+  });
 export type WeaponTypeEntry = z.output<typeof weaponTypeEntrySchema>;

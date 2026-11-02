@@ -11,6 +11,8 @@ import type {
   LocalizedName,
 } from "./contentEdit.ts";
 import type { MarketKind } from "./economy.ts";
+import type { ItemPatch } from "./itemEditorBulk.ts";
+import type { EffectJson, EffectUsage } from "./itemEditorEffects.ts";
 import type { ElementCode, EquipSlot } from "./roster.ts";
 
 /** 아이템 대분류(@terra/content ITEM_CATEGORIES와 같다, 서버 시험이 맞춰 본다) */
@@ -27,8 +29,14 @@ export const ITEM_CATEGORY_IDS = [
 ] as const;
 export type ItemCategoryId = (typeof ITEM_CATEGORY_IDS)[number];
 
-/** 아이템 편집기 묶음이 고칠 수 있는 분류: 아이템 + 분류 자료 */
-export const ITEM_EDIT_CATEGORIES = ["items", "item_subcategories", "item_tags", "weapon_types"] as const;
+/** 아이템 편집기 묶음이 고칠 수 있는 분류: 아이템 + 분류 자료 + 효과 사전(WP-6) */
+export const ITEM_EDIT_CATEGORIES = [
+  "items",
+  "item_subcategories",
+  "item_tags",
+  "weapon_types",
+  "effects",
+] as const;
 export type ItemEditCategory = (typeof ITEM_EDIT_CATEGORIES)[number];
 
 export const STORAGE_KIND_IDS = ["food", "armory", "general", "tank"] as const;
@@ -58,7 +66,8 @@ export function defaultStorageOf(category: string, food: boolean): StorageKindId
 
 /**
  * 칸마다 지금 읽는 곳(설계안 3.4 "쓰는 곳 칩"): combat = 전투 자료, economy = 경제(시세·생산·거래 방식), screen = 화면·거르기,
- * none = 아직 읽는 곳이 없음(규칙 줄기가 붙으면 바꾼다: 장비 전투 연결 WP-5, 크리쳐 칸 WP-C, 소모품 실행 WP-6, 보유 표)
+ * none = 아직 읽는 곳이 없음(규칙 줄기가 붙으면 바꾼다). WP-5(2026-11-02)로 속성값·전투 직접 값·입을 수 있는 종류·1차 적정 스탯·양손이
+ * 전투에 이어졌다. 내구도·크리쳐 보유·탄약 연결·신선도·사용 효과는 보유 물건(인스턴스)이 생겨야 읽힌다(소비·내구도·조우 줄기)
  */
 export const ITEM_FIELD_USES: Readonly<Record<string, "combat" | "economy" | "screen" | "none">> = {
   tier: "economy",
@@ -78,13 +87,13 @@ export const ITEM_FIELD_USES: Readonly<Record<string, "combat" | "economy" | "sc
   "equip.weapon": "combat",
   "equip.skills": "combat",
   "equip.weaponType": "screen",
-  "equip.elements": "none",
+  "equip.elements": "combat",
   "equip.maxDurability": "none",
-  "equip.combat": "none",
-  "equip.kinds": "none",
+  "equip.combat": "combat",
+  "equip.kinds": "combat",
   "equip.creature": "none",
-  "equip.weapon.appropriate": "none",
-  "equip.weapon.twoHanded": "none",
+  "equip.weapon.appropriate": "combat",
+  "equip.weapon.twoHanded": "combat",
   "equip.weapon.ammo": "none",
 };
 
@@ -121,6 +130,10 @@ export const ITEM_LIMITS = {
   effectValue: { min: -1_000_000, max: 1_000_000 },
   effectDurationMs: { min: 0, max: 3_600_000 },
   chancePm: { min: 0, max: 1000 },
+  /** 사용 효과 스탯 비례(‰/점, D-496 286) */
+  scalePmPerPoint: { min: 0, max: 10_000 },
+  /** 사용 효과 ±오차(‰) */
+  variancePm: { min: 0, max: 1000 },
   /** 이름·설명 글 길이(화면 입력 상한) */
   nameMax: 200,
   /** 한 묶음의 바꿈 수 */
@@ -187,12 +200,16 @@ export interface ItemEquipJson {
   readonly creature?: { readonly weight: number; readonly stealPm: number } | undefined;
 }
 
-/** 사용 효과 한 줄(스킬 효과 줄과 같은 모양) */
+/** 사용 효과 한 줄(스킬 효과 줄과 같은 모양 + 효과량 스탯 비례·±오차, D-496 286) */
 export interface ItemEffectJson {
   readonly effect: string;
   readonly value: number;
   readonly chancePm: number;
   readonly durationMs?: number | undefined;
+  /** 쓰는 유닛의 그 1차 스탯 1점마다 기준 값의 pmPerPoint‰를 더한다(없으면 기준 값 그대로) */
+  readonly scale?: { readonly stat: ItemPrimaryCode; readonly pmPerPoint: number } | undefined;
+  /** ±오차‰(없으면 설정 칸 d496_use_variance) */
+  readonly variancePm?: number | undefined;
 }
 
 /** 팩 items.json 한 줄(JSON 모양) */
@@ -238,6 +255,8 @@ export interface WeaponTypeJson {
   readonly name: LocalizedName;
   readonly slot: WeaponTypeSlotId;
   readonly order?: number | undefined;
+  /** 탄약 종류(D-497: 이 보조 칸 종류의 장비는 내구도 = 남은 탄 수, 최대 내구도 = 담는 탄 수) */
+  readonly ammo?: boolean | undefined;
   readonly enabled: boolean;
 }
 
@@ -318,6 +337,7 @@ export interface ItemEditorListResponse {
     readonly bareHand: boolean;
     readonly enabled: boolean;
   }[];
+  /** 효과 고르기 창 자료(실효 효과 사전, WP-6부터 덮어쓴 값) */
   readonly effects: readonly {
     readonly id: string;
     readonly name: LocalizedName;
@@ -328,6 +348,8 @@ export interface ItemEditorListResponse {
     readonly stacking: "refresh" | "stack" | "ignore";
     readonly status: string | null;
     readonly enabled: boolean;
+    /** 배타 묶음(D-472). 옛 서버는 보내지 않는다 */
+    readonly exclusive?: string | null | undefined;
   }[];
   readonly statRows: readonly {
     readonly id: string;
@@ -336,9 +358,13 @@ export interface ItemEditorListResponse {
     readonly enabled: boolean;
   }[];
   /** 한 번 쓰고 지운 ID(팩 id-changes + 이 세계에서 지운 만든 항목). 새 ID로 다시 쓰지 못한다 */
-  readonly retired: Readonly<Record<ItemEditCategory, readonly string[]>>;
+  readonly retired: Readonly<Partial<Record<ItemEditCategory, readonly string[]>>>;
   /** 잠든 줄(켤 때 적용하지 않은 덮어쓰기) */
   readonly sleeping: readonly ContentSleepingRow[];
+  /** 효과 사전 항목 통째(실효 + 출처 + 해시, [효과 사전] 탭 WP-6). 옛 서버는 보내지 않는다 */
+  readonly effectRows?: readonly TaxonomyRow<EffectJson>[] | undefined;
+  /** 효과마다 쓰는 아이템·스킬(D-425 도감) */
+  readonly effectUsage?: Readonly<Record<string, EffectUsage>> | undefined;
 }
 
 /** 아이템을 쓰는 곳(읽기와 연결만, 설계안 3.6) */
@@ -400,7 +426,24 @@ export type ItemEditorChange =
       readonly baseHash: string | null;
     }
   /** 잠든 줄을 버린다(DB에서 지운다) */
-  | { readonly op: "discard_sleeping"; readonly category: ItemEditCategory; readonly id: string };
+  | { readonly op: "discard_sleeping"; readonly category: ItemEditCategory; readonly id: string }
+  /**
+   * 여러 개 고치기(WP-7, 아이템만): 서버가 지금 실효 항목에 그 칸만 얹는다(applyItemPatch, 기준 가치 ‰는 BigInt). 항목 통째를 보내지
+   * 않아 낡은 초안이 다른 칸을 덮지 않는다
+   */
+  | {
+      readonly op: "patch";
+      readonly category: "items";
+      readonly ids: readonly string[];
+      readonly patch: ItemPatch;
+    };
+
+/** 내보내기(대량 도구 JSON·CSV): 실효 아이템 통째(실효 차례) */
+export interface ItemEditorExportResponse {
+  readonly contentVersion: string;
+  readonly revision: number;
+  readonly entries: readonly ItemJson[];
+}
 
 /** 받지 않은 까닭(data.reason) */
 export const ITEM_EDITOR_REASONS = [
@@ -428,96 +471,51 @@ export interface ItemEditorCheckResponse {
   >;
 }
 
-/** 미리 보기 기준 유닛(화면이 바꾼다) */
-export interface ItemPreviewUnit {
-  readonly kind: string;
-  readonly level: number;
-  /** 1차 6개(ITEM_PRIMARY_CODES 차례 이름) */
-  readonly primaries: Readonly<Record<ItemPrimaryCode, number>>;
-}
-
-/** 기본 미리 보기 유닛: 새 사이보그 평균(1차 모두 10, Lv 1, D-467 ①). 기본 무기·장비는 서버가 붙인다(전투 실험실 기본 유닛) */
-export const DEFAULT_PREVIEW_UNIT: ItemPreviewUnit = {
-  kind: "cyborg",
-  level: 1,
-  primaries: { str: 10, dex: 10, agi: 10, vit: 10, int: 10, wis: 10 },
-};
-
-/** 미리 보기 자리(범위의 ‰): 최소·가운데·최대 */
-export const PREVIEW_PMS = [0, 500, 1000] as const;
-
-/** 전투 식 값 하나(그 세계의 실효 계산식으로 셈, 결과 단위) */
-export interface ItemFormulaValue {
-  readonly id: string;
-  /** int 칸은 정수, fixed 칸은 1000배 정수 */
-  readonly value: number;
-  readonly result: "int" | "fixed";
-  /** 그 세계에서 덮어쓴 식인가(아니면 팩 식) */
-  readonly overridden: boolean;
-}
-
-export interface ItemEditorPreviewResponse {
-  readonly ok: boolean;
-  /** 초안이 팩 스키마에 걸리면 그 문제(미리 보기는 하지 않는다) */
-  readonly issues: readonly ContentIssueView[];
-  readonly equip: {
-    readonly unit: ItemPreviewUnit;
-    /** 초안을 끼운 칸 번호(그 종류에 칸이 없으면 null) */
-    readonly slotIndex: number | null;
-    /** kinds가 있고 이 종류가 없으면 거짓(거르기는 WP-5) */
-    readonly wearable: boolean;
-    /** 그 칸에서 빠진 기본 장비 ID */
-    readonly replaced: string | null;
-    readonly primaries: readonly {
-      readonly stat: ItemPrimaryCode;
-      readonly before: number;
-      readonly after: readonly number[];
-    }[];
-    readonly rows: readonly {
-      readonly id: string;
-      readonly shape: "quantity" | "probability";
-      readonly before: number;
-      readonly after: readonly number[];
-    }[];
-    /** 장비 스킬마다 이 무기로 쓸 수 있나(D-490) */
-    readonly skills: readonly { readonly id: string; readonly usable: boolean }[];
-    /** 1차 스탯 합이 넘쳐 계산할 수 없음 등(코드) */
-    readonly error: string | null;
-  } | null;
-  readonly weapon: {
-    /** 공격력 칸마다 전투 식 값(가운데 자리 유닛 기준) */
-    readonly fields: readonly {
-      readonly kind: "physical" | "elemental";
-      readonly values: readonly ItemFormulaValue[];
-    }[];
-    /** 1차 적정 스탯으로 셈한 2차 적정치(D-496, 전투 연결은 WP-5) */
-    readonly derived: {
-      readonly physicalAttack: number;
-      readonly elementalAttack: number;
-      readonly hit: number;
-      readonly crit: number;
-      readonly speed: number;
-    } | null;
-  } | null;
-  readonly use: {
-    readonly lines: readonly {
-      readonly effect: string;
-      readonly kind: "buff" | "debuff" | "dot" | "heal" | "status" | null;
-      readonly stat: string | null;
-      readonly valueMode: "flat" | "permille" | null;
-      readonly value: number;
-      readonly chancePm: number;
-      /** 실효 지속(ms, 줄에 없으면 효과 사전 기본값. 0 = 전투 내내) */
-      readonly durationMs: number | null;
-      readonly stacking: "refresh" | "stack" | "ignore" | null;
-    }[];
-  } | null;
-  readonly value: {
-    readonly baseValue: number;
-    /** 이 아이템을 만드는 레시피마다 원가(입력 기준 가치 합 ÷ 출력 수량, 최소 단위 정수 글자) */
-    readonly recipes: readonly { readonly id: string; readonly cost: string; readonly outputQty: number }[];
-  };
-}
+// 미리 보기 자료 모양(기준 유닛·자리·응답)은 itemEditorPreview.ts(파일 크기)
+export {
+  APPROPRIATE_ROW_IDS,
+  DEFAULT_PREVIEW_UNIT,
+  PREVIEW_PMS,
+  type AppropriateRowId,
+  type AppropriateTerms,
+  type BeforeAfter,
+  type ItemEditorPreviewResponse,
+  type ItemFormulaValue,
+  type ItemPreviewIgnored,
+  type ItemPreviewUnit,
+  type UseAmount,
+  type WeaponEfficiency,
+} from "./itemEditorPreview.ts";
+// 효과 사전 편집 모양(WP-6)은 itemEditorEffects.ts
+export {
+  EFFECT_COMBAT_STAT_IDS,
+  EFFECT_KIND_IDS,
+  EFFECT_LIMITS,
+  EFFECT_PRIMARY_STAT_IDS,
+  EFFECT_STATUS_IDS,
+  EFFECT_STAT_IDS,
+  type EffectJson,
+  type EffectKindId,
+  type EffectStatId,
+  type EffectStatusId,
+  type EffectUsage,
+} from "./itemEditorEffects.ts";
+// 대량 도구(WP-7: 여러 개 고치기·CSV·JSON)는 itemEditorBulk.ts
+export {
+  ITEM_BULK_LIMITS,
+  ITEM_CSV_COLUMNS,
+  applyItemPatch,
+  importDiff,
+  itemsToCsv,
+  itemsToJson,
+  parseItemsCsv,
+  parseItemsJson,
+  scaleBaseValue,
+  type ItemCsvColumn,
+  type ItemImportProblem,
+  type ItemImportResult,
+  type ItemPatch,
+} from "./itemEditorBulk.ts";
 
 export const ITEM_EDITOR_HISTORY_LIMIT = 40;
 

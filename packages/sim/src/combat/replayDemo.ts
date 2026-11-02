@@ -7,6 +7,7 @@ import type { BattleInit, CombatUnitSpec } from "./battleTypes.ts";
 import { type CombatCatalog, UNARMED, UNARMED_ELEMENTAL, skillsOf } from "./catalog.ts";
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "./coefficients.ts";
 import { type EquippedItem, itemAt, loadoutOf, skillSlotCount } from "./equipment.ts";
+import { withStatTable } from "./equipmentAppropriate.ts";
 import type { Primaries, StatRow } from "./stats.ts";
 import { specFromStats } from "./unitSpec.ts";
 
@@ -141,8 +142,10 @@ export function demoSkirmish(options: {
   readonly table?: readonly StatRow[] | undefined;
   readonly coefficients?: CombatCoefficients | undefined;
 }): DemoSkirmish {
-  const { catalog, map } = options;
-  const table = options.table ?? catalog.statTable;
+  const { map } = options;
+  const table = options.table ?? options.catalog.statTable;
+  // 표를 따로 받으면 1차 적정 스탯 무기의 적정치도 그 표로 다시 셈한다(아이템 편집기 WP-5)
+  const catalog = withStatTable(options.catalog, table);
   const c = options.coefficients ?? TEST_COMBAT_COEFFICIENTS;
   const human = catalog.unitKinds.find((kind) => kind.id === "human");
   const slots = human?.slots ?? [];
@@ -172,6 +175,7 @@ export function demoSkirmish(options: {
         naturalIsWeapon: human?.naturalWeaponIsWeapon ?? false,
         innateSkills: kit.skills(catalog),
         skillSlots,
+        kind: "human",
       });
       const back = index >= 3;
       const row = (index % 3) - 1;
@@ -200,6 +204,10 @@ export function demoSkirmish(options: {
             skills: skillsOf(catalog, out.skills),
             moveIntervalMs: 1000,
             commandCap: kit.commandCap,
+            elements: out.elements,
+            resistPm: out.resistPm,
+            defenseFlat: out.defenseFlat,
+            penetrationPm: out.penetrationPm,
           },
           c,
         ),

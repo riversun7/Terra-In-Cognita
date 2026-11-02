@@ -310,46 +310,50 @@ export function ItemList({
       </div>
       {shown.length === 0 ? <p className="field-hint">{m.dev_items_empty()}</p> : null}
       <ul className="ie-list">
-        {shown.slice(0, limit).map((row) => (
-          <li key={row.id}>
-            <button
-              type="button"
-              className="ie-item"
-              aria-current={selected === row.id ? "true" : undefined}
-              data-item={row.id}
-              data-off={row.enabled ? undefined : ""}
-              onClick={() => onSelect(row.id)}
-            >
-              <span className="ie-item-top">
+        {shown.slice(0, limit).map((row) => {
+          const summary = summaryOf(row, list, locale);
+          return (
+            <li key={row.id}>
+              {/* 한 줄: 대분류 표지 · 이름 · ID·티어·칸·거래 · 요약 · 표지(넓은 폭에서 넘치면 줄임표, 전체 요약은 title) */}
+              <button
+                type="button"
+                className="ie-item"
+                aria-current={selected === row.id ? "true" : undefined}
+                data-item={row.id}
+                data-off={row.enabled ? undefined : ""}
+                onClick={() => onSelect(row.id)}
+              >
                 <span className="ie-cat" data-category={row.category}>
                   {CATEGORY_TEXT[row.category]()}
                 </span>
                 <span className="ie-item-name">{row.name[locale]}</span>
-              </span>
-              <span className="ie-item-meta">
-                {row.id} · T{row.tier}
-                {row.slot ? ` · ${SLOT_TEXT[row.slot]()}` : ` · ${STORAGE_TEXT[row.storage]()}`}
-                {` · ${MARKET_TEXT[row.market]()}`}
-              </span>
-              <span className="ie-item-summary">{summaryOf(row, list, locale)}</span>
-              <span className="ie-chips">
-                {row.origin === "pack" ? null : (
-                  <span className={`ie-chip ie-origin-${row.origin}`}>{ORIGIN_TEXT[row.origin]()}</span>
-                )}
-                {staged.has(row.id) ? (
-                  <span className="ie-chip ie-chip-staged">{m.dev_items_staged_chip()}</span>
-                ) : null}
-                {row.enabled ? null : <span className="ie-chip">{m.dev_items_disabled()}</span>}
-                {row.codeRef ? <span className="ie-chip">{m.dev_items_code_ref_chip()}</span> : null}
-                {row.advice > 0 ? (
-                  <span className="ie-chip ie-chip-advice">
-                    {m.dev_items_advice_count({ count: row.advice })}
-                  </span>
-                ) : null}
-              </span>
-            </button>
-          </li>
-        ))}
+                <span className="ie-item-meta">
+                  {row.id} · T{row.tier}
+                  {row.slot ? ` · ${SLOT_TEXT[row.slot]()}` : ` · ${STORAGE_TEXT[row.storage]()}`}
+                  {` · ${MARKET_TEXT[row.market]()}`}
+                </span>
+                <span className="ie-item-summary" title={summary === "" ? undefined : summary}>
+                  {summary}
+                </span>
+                <span className="ie-chips">
+                  {row.origin === "pack" ? null : (
+                    <span className={`ie-chip ie-origin-${row.origin}`}>{ORIGIN_TEXT[row.origin]()}</span>
+                  )}
+                  {staged.has(row.id) ? (
+                    <span className="ie-chip ie-chip-staged">{m.dev_items_staged_chip()}</span>
+                  ) : null}
+                  {row.enabled ? null : <span className="ie-chip">{m.dev_items_disabled()}</span>}
+                  {row.codeRef ? <span className="ie-chip">{m.dev_items_code_ref_chip()}</span> : null}
+                  {row.advice > 0 ? (
+                    <span className="ie-chip ie-chip-advice">
+                      {m.dev_items_advice_count({ count: row.advice })}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
       {shown.length > limit ? (
         <button type="button" className="button-small" onClick={() => setLimit(limit + PAGE)}>

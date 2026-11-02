@@ -20,6 +20,7 @@ import {
 } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
+import { rosterCatalogOf } from "../roster/catalog.ts";
 import { COMBAT_FORMULA_IDS, DEFAULT_COMBAT_FORMULAS } from "@terra/shared/formula";
 import { combatCatalogOf, formulaEntriesOf, tuningOf } from "./combatCatalog.ts";
 
@@ -108,5 +109,80 @@ describe("꺼진 참조 거르기(스킬 편집기로 끈 스킬·효과)", () =
         { skill: "flame_burst", effect: "burn" },
       ]),
     );
+  });
+});
+
+/** 팩 시험용 검(JSON)에 1차 적정 스탯(STR 25·DEX 15)·양손·속성값·직접 값·입을 수 있는 종류를 적은 항목 */
+function knifePack() {
+  const pack = corePack();
+  const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
+  const text = loaded.source?.files.get("items.json") ?? "{}";
+  const file: unknown = parseJson(text);
+  const entries: unknown = typeof file === "object" && file !== null ? Reflect.get(file, "entries") : [];
+  const raw: unknown = Array.isArray(entries)
+    ? entries.find(
+        (entry: unknown) =>
+          typeof entry === "object" && entry !== null && Reflect.get(entry, "id") === "test_sword",
+      )
+    : undefined;
+  if (typeof raw !== "object" || raw === null) throw new Error("fixture test_sword");
+  const equip: unknown = Reflect.get(raw, "equip");
+  const weapon: unknown = typeof equip === "object" && equip !== null ? Reflect.get(equip, "weapon") : {};
+  const knife = itemEntrySchema.parse({
+    ...raw,
+    equip: {
+      ...(typeof equip === "object" ? equip : {}),
+      weapon: {
+        ...(typeof weapon === "object" ? weapon : {}),
+        appropriate: { str: 25, dex: 15 },
+        twoHanded: true,
+      },
+      elements: [{ element: "fire", value: 4 }],
+      combat: { defenseFlat: 2, penetrationPm: 50 },
+      kinds: ["human", "cyborg"],
+    },
+  });
+  return { ...pack, items: pack.items.map((item) => (item.id === "test_sword" ? knife : item)) };
+}
+
+describe("장비 전투 칸(아이템 편집기 WP-5)", () => {
+  it("1차 적정 스탯이 있으면 전투 자료의 적정치 칸 = 실효 표로 셈한 2차 값(질문 290: 물리 59·명중 18·크리 22·속도 54)", () => {
+    const catalog = combatCatalogFrom(knifePack());
+    const knife = catalog.equipment.find((item) => item.id === "test_sword");
+    expect(knife?.weapon?.physical?.attackAppropriate).toBe(59);
+    expect(knife?.weapon).toMatchObject({ hitAppropriate: 18, critAppropriate: 22, speedAppropriate: 54 });
+    expect(knife).toMatchObject({
+      appropriate: { str: 25, dex: 15 },
+      twoHanded: true,
+      elements: { fire: 4 },
+      defenseFlat: 2,
+      penetrationPm: 50,
+      kinds: ["human", "cyborg"],
+    });
+    // 무기 사양에는 숫자 칸만(1차 적정 스탯·양손·탄약 연결은 장비 정의로)
+    expect(knife?.weapon && "appropriate" in knife.weapon).toBe(false);
+  });
+
+  it("가중치 표가 바뀌면(밸런스 화면) roster 전투 자료가 적정치를 다시 셈한다(STR 가중치 3000 → 물리 84)", () => {
+    const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
+    if (!loaded.source) throw new Error("content pack");
+    const pack = knifePack();
+    const base = combatCatalogFrom(pack);
+    const table = base.statTable.map((row) =>
+      row.id === "physical_attack" && row.shape === "quantity"
+        ? { ...row, weights: [3000, ...row.weights.slice(1)] }
+        : row,
+    );
+    const content = { skills: pack.skills, items: pack.items, unitKinds: pack.unitKinds };
+    const roster = rosterCatalogOf(
+      loaded.source,
+      undefined,
+      () => table,
+      () => content,
+    );
+    const knife = roster.combat.equipment.find((item) => item.id === "test_sword");
+    // 25 × 3 + 15 × 0.6 = 84
+    expect(knife?.weapon?.physical?.attackAppropriate).toBe(84);
+    expect(roster.combat.statTable).toBe(table);
   });
 });

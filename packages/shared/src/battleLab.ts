@@ -280,9 +280,12 @@ export const LAB_REASONS = [
 ] as const;
 export type LabReason = (typeof LAB_REASONS)[number];
 
-/** 사양을 만들 때 뺀 참조(팩이 바뀌었거나 칸이 맞지 않음). 화면이 경고로 보인다 */
+/**
+ * 사양을 만들 때 뺀 참조(팩이 바뀌었거나 칸이 맞지 않음). 화면이 경고로 보인다. two_handed = 양손 무기를 든 동안 쓰지 않는 보조 칸 장비,
+ * unit_kind = 그 유닛 종류가 입을 수 없는 장비(kinds, D-494) — 둘 다 아이템 ID(아이템 편집기 WP-5)
+ */
 export interface LabDropped {
-  readonly kind: "skill" | "item" | "weapon" | "slot" | "gear_row";
+  readonly kind: "skill" | "item" | "weapon" | "slot" | "gear_row" | "two_handed" | "unit_kind";
   readonly id: string;
 }
 

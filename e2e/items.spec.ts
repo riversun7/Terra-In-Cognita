@@ -2,17 +2,25 @@
 // - dev: 시험 검을 복제해 공격력을 고치고 켠 뒤 [적용]하면 그 세계에 바로 든다(목록·items.get·전투 실험실 무기 목록). 서버 미리 보기가
 //   실효 계산식 값을 보인다. 만든 항목을 지우면 목록에서 빠진다. 저장을 막는 문제(공격 칸 없음)는 막대가 막고 칸 아래·옆 판에 보인다.
 //   두 탭이 같은 아이템을 고치면 뒤에 적용한 탭이 내 칸만 새 항목 위에 다시 얹고(다른 칸), 같은 칸이면 고르는 판을 보인다.
+//   효과 사전(WP-6): 효과를 고쳐 적용하면 아이템·스킬 편집기가 같은 실효 효과를 쓴다. 소모품 효과량: 비례 스탯·‰·오차 → 미리 보기 범위.
+//   대량 도구(WP-7): CSV 가져오기의 틀린 줄은 줄 번호로, 고친 줄·새 줄은 담아 적용. 크리쳐 전용 장비(D-494): 미리 보기·전투 실험실.
 // - player: 권한 없음 화면, tRPC items.*는 403.
-// - 사진: 390·1440 × 파스텔·다크 × 한국어·영어(E2E_SHOTS_DIR).
+// - 사진: 390·1440 × 개발 화면 테마 네온·라이트 × 한국어·영어, 보이는 화면 크기(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui).
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 아이템 편집기 분류의 덮어쓰기를 모두 지운다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
-import { type Language, type Theme, expect, test } from "./helpers/test.ts";
+import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
+import { VIEWPORTS } from "./helpers/viewports.ts";
 
 const field = (value: unknown, key: string): unknown =>
   typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
 const list = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : []);
+const record = (value: unknown): Record<string, unknown> =>
+  typeof value === "object" && value !== null ? Object.fromEntries(Object.entries(value)) : {};
+/** 목록에서 id가 맞는 줄(TaxonomyRow면 entry.id) */
+const byId = (rows: unknown, id: string): unknown =>
+  list(rows).find((row) => (field(field(row, "entry"), "id") ?? field(row, "id")) === id);
 
 /** 화면 안에서 tRPC를 부른다(같은 출처, 화면과 같은 쿠키). mutation이면 POST, 아니면 GET(?input=) */
 async function trpc(
@@ -46,7 +54,7 @@ async function trpc(
   );
 }
 
-/** 아이템·중분류·태그·무기 종류 덮어쓰기를 모두 지운다(만든 항목은 지워지고 ID가 은퇴한다) */
+/** 아이템·중분류·태그·무기 종류·효과 덮어쓰기를 모두 지운다(만든 항목은 지워지고 ID가 은퇴한다) */
 async function resetItems(page: Page): Promise<void> {
   const current = await trpc(page, "items.list");
   const revision = field(current.data, "revision");
@@ -62,6 +70,7 @@ async function resetItems(page: Page): Promise<void> {
     ...reverts("item_subcategories", "subcategories"),
     ...reverts("item_tags", "tags"),
     ...reverts("weapon_types", "weaponTypes"),
+    ...reverts("effects", "effectRows"),
     ...reverts("items", "items"),
   ];
   if (changes.length === 0) return;
@@ -267,6 +276,168 @@ test.describe("개발자", () => {
     await resetItems(page);
     expect(unexpected(deviceErrors, 400)).toEqual([]);
   });
+
+  test("효과 사전(WP-6): 효과를 고쳐 적용하면 아이템·스킬 편집기가 같은 실효 효과를 쓰고, 쓰는 스킬이 보인다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await editorReady(page);
+    await resetItems(page);
+    await page.reload();
+    await expect(page.locator(".ie-screen")).toHaveAttribute("data-status", "ready");
+    const listed = await trpc(page, "items.list");
+    const users = list(field(field(field(listed.data, "effectUsage"), "burn"), "skills"));
+    expect(users.length).toBeGreaterThan(0);
+    const skillName = String(
+      field(field(byId(field(listed.data, "skills"), String(users[0])), "name"), "ko"),
+    );
+    await page.getByRole("tab", { name: message("ko", "dev_items_tab_effects"), exact: true }).click();
+    const burnRow = page.locator('.ie-fx-table tr[data-entry="burn"]');
+    await burnRow.locator(".ie-fx-pick").click();
+    await expect(burnRow).toHaveAttribute("data-selected", "");
+    await expect(page.locator('.ie-fx [data-part="effect-usage"]')).toContainText(skillName);
+    const form = page.locator('.ie-fx [data-effect="burn"]');
+    await form.getByLabel(message("ko", "dev_items_fx_field_duration"), { exact: true }).fill("4500");
+    await form.getByLabel(message("ko", "dev_items_field_name_ko"), { exact: true }).fill("e2e 화상");
+    await expect(bar(page)).toHaveAttribute("data-count", "1");
+    await apply(page, "e2e 효과 사전 시험");
+    await expect(burnRow).toContainText(message("ko", "dev_items_origin_edited"));
+    // 서버 실효: 아이템 편집기 효과 줄, 스킬 편집기 효과 고르기(같은 덮어쓰기 층)
+    const after = await trpc(page, "items.list");
+    const burn = byId(field(after.data, "effectRows"), "burn");
+    expect([field(burn, "origin"), field(field(burn, "entry"), "durationMs")]).toEqual(["edited", 4500]);
+    const skills = await trpc(page, "skills.list");
+    expect(field(field(byId(field(skills.data, "effects"), "burn"), "name"), "ko")).toBe("e2e 화상");
+    await resetItems(page);
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("소모품 효과량(D-496 286): 효과 줄에 비례 스탯·‰·오차를 적으면 미리 보기가 기준 유닛 스탯으로 범위를 셈한다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await editorReady(page);
+    await resetItems(page);
+    await page.reload();
+    await expect(page.locator(".ie-screen")).toHaveAttribute("data-status", "ready");
+    await open(page, "ration");
+    await editing(page).locator(".ie-duplicate").click();
+    const use = detail(page).locator('[data-section="use"]');
+    await use.getByRole("button", { name: message("ko", "dev_content_add_effect"), exact: true }).click();
+    const line = use.locator(".ce-effect-row").first();
+    await line.getByLabel(message("ko", "dev_content_field_effect"), { exact: true }).selectOption("mend");
+    await line.getByLabel(message("ko", "dev_content_field_magnitude"), { exact: true }).fill("40");
+    const scale = use.locator('[data-part="use-scale"]');
+    await scale.getByLabel(message("ko", "dev_items_field_scale_stat"), { exact: true }).selectOption("vit");
+    await scale.getByLabel(message("ko", "dev_items_field_scale_pm"), { exact: true }).fill("10");
+    const preview = detail(page).locator(".ie-preview");
+    const amount = preview.locator('[data-part="use"] [data-part="amount"]');
+    const vit = message("ko", "roster_stat_vit_code");
+    const expected = (value: number, scaled: number, variance: number, min: number, max: number) =>
+      message("ko", "dev_items_preview_amount", { stat: vit, value, scaled, variance, min, max });
+    // 기준 유닛(1차 모두 10): 40 × (1000 + 10 × 10) ÷ 1000 = 44, 설정 칸 d496_use_variance ±250‰ → 33~55(내림)
+    await expect(amount).toHaveText(expected(10, 44, 250, 33, 55), { timeout: 15_000 });
+    // VIT 39: 40 × 1390 ÷ 1000 = 55, ±250‰ → 41~68
+    await preview.locator(".ie-unit > summary").click();
+    await preview.getByLabel(vit, { exact: true }).fill("39");
+    await expect(amount).toHaveText(expected(39, 55, 250, 41, 68), { timeout: 15_000 });
+    // 줄 오차 ±100‰ → 49~60
+    await scale.getByLabel(message("ko", "dev_items_field_variance"), { exact: true }).fill("100");
+    await expect(amount).toHaveText(expected(39, 55, 100, 49, 60), { timeout: 15_000 });
+    await bar(page).locator(".ie-clear").click();
+    await bar(page)
+      .getByRole("button", { name: message("ko", "dev_items_confirm_yes"), exact: true })
+      .click();
+    await expect(bar(page)).toHaveAttribute("data-count", "0");
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("대량 도구(WP-7): CSV 가져오기는 틀린 줄을 줄 번호로 보이고, 고친 줄·새 줄을 담아 [적용]한다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await editorReady(page);
+    await resetItems(page);
+    await page.reload();
+    await expect(page.locator(".ie-screen")).toHaveAttribute("data-status", "ready");
+    await page.getByRole("tab", { name: message("ko", "dev_items_tab_bulk"), exact: true }).click();
+    const part = page.locator('[data-part="bulk-import"]');
+    const text = part.getByLabel(message("ko", "dev_items_bulk_paste"), { exact: true });
+    const read = part.getByRole("button", { name: message("ko", "dev_items_bulk_read"), exact: true });
+    await text.fill("id,tier\niron_ore,x\n");
+    await read.click();
+    await expect(part.locator('[data-part="bulk-problems"]')).toContainText(
+      message("ko", "dev_items_bulk_row", {
+        row: 2,
+        text: `${message("ko", "dev_items_bulk_err_not_int")} (tier · x)`,
+      }),
+    );
+    await text.fill(
+      "id,category,tier,baseValue,name.ko,name.en\niron_ore,,3,,,\ne2e_bulk_ore,raw,1,5,시험 광석,Test ore\n",
+    );
+    await read.click();
+    await expect(part.locator('[data-part="bulk-diff"]')).toHaveText(
+      message("ko", "dev_items_bulk_diff", { added: 1, changed: 1, same: 0 }),
+    );
+    await part
+      .getByRole("button", { name: message("ko", "dev_items_bulk_stage", { count: 2 }), exact: true })
+      .click();
+    await expect(bar(page)).toHaveAttribute("data-count", "2");
+    await apply(page, "e2e 대량 가져오기");
+    const ore = await trpc(page, "items.get", { id: "iron_ore" });
+    expect(field(field(ore.data, "entry"), "tier")).toBe(3);
+    const created = field((await trpc(page, "items.get", { id: "e2e_bulk_ore" })).data, "entry");
+    // 새 줄은 꺼진 채로 만든다(덜 만든 아이템이 세계에 나오지 않게)
+    expect([field(created, "enabled"), field(field(created, "name"), "en")]).toEqual([false, "Test ore"]);
+    await resetItems(page);
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("크리쳐 전용 장비(D-494): 입을 종류를 크리쳐로만 두면 다른 종류는 입히지 않고 셈하고, 전투 실험실도 크리쳐에만 입힌다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await editorReady(page);
+    await resetItems(page);
+    await page.reload();
+    await expect(page.locator(".ie-screen")).toHaveAttribute("data-status", "ready");
+    const listed = await trpc(page, "items.list");
+    const creature = String(field(field(byId(field(listed.data, "unitKinds"), "creature"), "name"), "ko"));
+    await open(page, "test_vest");
+    await editing(page).locator(".ie-duplicate").click();
+    const copy = (await detail(page).getAttribute("data-item")) ?? "";
+    await detail(page).locator('[data-section="equip"]').getByLabel(creature, { exact: true }).check();
+    await editing(page).getByLabel(message("ko", "dev_items_field_enabled"), { exact: true }).check();
+    const preview = detail(page).locator(".ie-preview");
+    const notWearable = message("ko", "dev_items_preview_not_wearable");
+    // 기준 유닛(사이보그)은 입을 수 없다 → 입히지 않고 셈한다. 크리쳐로 바꾸면 입는다
+    await expect(preview.locator('[data-part="equip"]')).toContainText(notWearable, { timeout: 15_000 });
+    await preview.locator(".ie-unit > summary").click();
+    await preview
+      .getByLabel(message("ko", "dev_items_preview_kind"), { exact: true })
+      .selectOption("creature");
+    await expect(preview.locator('[data-part="equip"]')).not.toContainText(notWearable, { timeout: 15_000 });
+    await apply(page, "e2e 크리쳐 전용 방어구");
+    // 전투 실험실 샘플: 늑대(크리쳐) 방어구 칸(1)에 입히면 그대로, 마법사(휴먼) 방어구 칸(3)이면 빠진다(unit_kind)
+    const presets = field((await trpc(page, "battleLab.presets")).data, "presets");
+    const wolf = record(field(byId(presets, "sample_creature_wolf"), "data"));
+    const mage = record(field(byId(presets, "sample_lv30_mage_fire"), "data"));
+    const wolfView = await trpc(page, "battleLab.preview", {
+      ...wolf,
+      equipment: [
+        { slot: 1, item: copy, pm: 500 },
+        { slot: 2, item: "test_ring", pm: 0 },
+      ],
+    });
+    expect([wolfView.status, list(field(wolfView.data, "dropped"))]).toEqual([200, []]);
+    const mageView = await trpc(page, "battleLab.preview", {
+      ...mage,
+      equipment: [{ slot: 3, item: copy, pm: 500 }],
+    });
+    expect(list(field(mageView.data, "dropped"))).toEqual([{ kind: "unit_kind", id: copy }]);
+    await resetItems(page);
+    expect(deviceErrors).toEqual([]);
+  });
 });
 
 test.describe("플레이어", () => {
@@ -291,8 +462,9 @@ test.describe("플레이어", () => {
   });
 });
 
-const LAYOUTS: readonly { theme: Theme; language: Language; width: number; height: number }[] = (
-  ["pastel", "dark"] as const
+// 개발 화면 층(ADR 2026-11-02-dev-ui): 게임 테마와 상관없이 개발 화면 테마 둘(네온 다크·라이트)로, 보이는 화면 크기로 찍는다
+const LAYOUTS: readonly { theme: DevTheme; language: Language; width: number; height: number }[] = (
+  ["neon", "light"] as const
 ).flatMap((theme) =>
   (["ko", "en"] as const).flatMap((language) => [
     { theme, language, width: 390, height: 844 },
@@ -305,9 +477,17 @@ test.describe("배치·사진", () => {
 
   for (const { theme, language, width, height } of LAYOUTS) {
     test.describe(`${theme}·${language}·${width}px`, () => {
-      test.use({ theme, language, viewport: { width, height } });
+      // 1440은 실제 데스크톱(마우스·터치 없음)이라 개발 화면 층의 촘촘한 값으로 찍힌다
+      test.use({
+        devTheme: theme,
+        language,
+        ...(width >= 1000 ? VIEWPORTS.desktop : { viewport: { width, height } }),
+      });
 
-      test("목록·편집 판·분류 칸: 가로 넘침·작은 누르는 곳 없음, 사진", async ({ page, deviceErrors }) => {
+      test("목록·편집 판·분류·효과 사전·대량 도구: 가로 넘침·작은 누르는 곳 없음, 사진", async ({
+        page,
+        deviceErrors,
+      }) => {
         await editorReady(page, "/dev/items?item=test_sword");
         await expect(detail(page)).toHaveAttribute("data-item", "test_sword");
         await expect(editing(page)).toBeVisible();
@@ -315,30 +495,32 @@ test.describe("배치·사진", () => {
           timeout: 15_000,
         });
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
-        expect(await horizontalOverflow(page)).toEqual([]);
-        expect(await smallTapTargets(page)).toEqual([]);
-        const hide = ".tabbar, .topbar, .frame-side, .skip-link { visibility: hidden !important; }";
-        const style = await page.addStyleTag({ content: hide });
-        // 1440 전체 쪽 사진은 너무 크다: 보이는 화면만, 390은 편집 판 전체
-        await shot(page, `items-${theme}-${language}-${width}`, { fullPage: width < 1000 });
-        await style.evaluate((element) => element.parentNode?.removeChild(element));
+        const check = async (name: string): Promise<void> => {
+          expect(await horizontalOverflow(page)).toEqual([]);
+          expect(await smallTapTargets(page)).toEqual([]);
+          await shot(page, `${name}-${theme}-${language}-${width}`);
+        };
+        await check("items");
         if (width < 1000) {
           // 390: 목록으로 돌아가 목록 칸을 찍는다
           await detail(page).locator(".ie-back-list").click();
           await expect(row(page, "test_sword")).toBeVisible();
-          expect(await horizontalOverflow(page)).toEqual([]);
-          expect(await smallTapTargets(page)).toEqual([]);
-          const style2 = await page.addStyleTag({ content: hide });
-          await shot(page, `items-list-${theme}-${language}-${width}`);
-          await style2.evaluate((element) => element.parentNode?.removeChild(element));
+          await check("items-list");
+        } else {
+          // 넓은 화면의 목록 줄은 한 줄(촘촘한 줄, 카드가 아니다)
+          const box = await row(page, "test_sword").boundingBox();
+          expect(box?.height ?? 0).toBeLessThanOrEqual(34);
         }
         await page.getByRole("tab", { name: message(language, "dev_items_tab_taxonomy") }).click();
         await expect(page.locator('.ie-tax[data-category="weapon_types"]')).toBeVisible();
-        expect(await horizontalOverflow(page)).toEqual([]);
-        expect(await smallTapTargets(page)).toEqual([]);
-        const style3 = await page.addStyleTag({ content: hide });
-        await shot(page, `items-taxonomy-${theme}-${language}-${width}`);
-        await style3.evaluate((element) => element.parentNode?.removeChild(element));
+        await check("items-taxonomy");
+        await page.getByRole("tab", { name: message(language, "dev_items_tab_effects") }).click();
+        await page.locator('.ie-fx-table tr[data-entry="burn"] .ie-fx-pick').click();
+        await expect(page.locator('.ie-fx [data-effect="burn"]')).toBeVisible();
+        await check("items-effects");
+        await page.getByRole("tab", { name: message(language, "dev_items_tab_bulk") }).click();
+        await expect(page.locator('[data-part="bulk-import"]')).toBeVisible();
+        await check("items-bulk");
         expect(deviceErrors).toEqual([]);
       });
     });

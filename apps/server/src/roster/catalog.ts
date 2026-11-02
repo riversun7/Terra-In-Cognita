@@ -5,6 +5,7 @@
 // society(설정 칸 실효 값을 얹은 계수표)만은 읽을 때마다 접근자에서 받는다(개발자 패널 덮어쓰기가 다음 요청부터 듣게,
 // docs/adr/2026-11-01-dev-settings-panel.md 5·7절).
 import {
+  type EffectEntry,
   type ItemEntry,
   type PackSource,
   type SkillEntry,
@@ -27,6 +28,7 @@ import {
   TEST_SOCIETY_COEFFICIENTS,
   combatCatalogFrom,
   societyCoefficientsFrom,
+  withStatTable,
 } from "@terra/sim";
 import { tuningOf } from "../world/combatCatalog.ts";
 
@@ -60,11 +62,15 @@ function entriesOf<T>(source: PackSource, file: string, parse: (raw: unknown) =>
 const nameTable = (entries: readonly { id: string; name: LocalizedName }[]): Record<string, LocalizedName> =>
   Object.fromEntries(entries.map((entry) => [entry.id, { ko: entry.name.ko, en: entry.name.en }]));
 
-/** 팩 항목 실효 값(스킬·장비·유닛 종류, 스킬 편집기 덮어쓰기 — src/contentEdit/state.ts ContentEditState.effective) */
+/**
+ * 팩 항목 실효 값(스킬·장비·유닛 종류·효과 사전, 스킬·아이템 편집기 덮어쓰기 — src/contentEdit/state.ts ContentEditState.effective).
+ * effects가 없으면 팩 효과 사전(시험)
+ */
 export interface RosterContentEntries {
   readonly skills: readonly SkillEntry[];
   readonly items: readonly ItemEntry[];
   readonly unitKinds: readonly UnitKindEntry[];
+  readonly effects?: readonly EffectEntry[] | undefined;
 }
 
 /**
@@ -94,7 +100,14 @@ export function rosterCatalogOf(
   /** 실효 항목 한 벌 → 전투 자료(팩 표)·이름 표·기준 가격 */
   const build = (entries: RosterContentEntries) => ({
     entries,
-    combat: combatCatalogFrom({ statRows, effects, ...entries }),
+    combat: combatCatalogFrom({
+      statRows,
+      skills: entries.skills,
+      items: entries.items,
+      unitKinds: entries.unitKinds,
+      // 효과 사전도 실효 값(아이템 편집기 효과 사전 탭, WP-6)
+      effects: entries.effects ?? effects,
+    }),
     names: {
       stats: nameTable(statRows.filter((row) => row.enabled)),
       items: nameTable(entries.items.filter((item) => item.enabled)),
@@ -115,8 +128,9 @@ export function rosterCatalogOf(
   const combatOf = (): CombatCatalog => {
     const base = latest().combat;
     const table = statTable?.() ?? base.statTable;
+    // 표가 바뀌면 1차 적정 스탯 무기의 적정치도 그 표로 다시 셈한다(D-496, 아이템 편집기 WP-5)
     if (cache?.base !== base || cache.table !== table)
-      cache = { base, table, value: table === base.statTable ? base : { ...base, statTable: table } };
+      cache = { base, table, value: withStatTable(base, table) };
     return cache.value;
   };
   return {

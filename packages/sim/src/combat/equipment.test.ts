@@ -24,13 +24,48 @@ const kind = (id: string) => {
   return found;
 };
 const table = TEST_COMBAT_CATALOG.statTable;
+/** 시험 자료 장비를 크리쳐 전용으로 바꾼 것(kinds, D-494) */
+const only = (id: string, as: string): EquipDef => ({ ...def(id), id: as, kinds: ["creature"] });
 
 describe("장비 칸과 스탯(D-422~D-424)", () => {
-  it("칸 배치: 사람형 공통 6칸 + 종류별 강화 칸, 크리쳐 2칸", () => {
+  it("칸 배치: 사람형 공통 6칸 + 종류별 강화 칸, 크리쳐 3칸(무기·방어구·장신구, D-494)", () => {
     expect(kind("human").slots).toEqual(["weapon", "offhand", "head", "body", "accessory", "accessory"]);
     expect(kind("cyborg").slots.slice(6)).toEqual(["organ", "organ", "organ"]);
     expect(kind("android").slots.slice(6)).toEqual(["part", "part", "part"]);
-    expect(kind("creature").slots).toHaveLength(2);
+    expect(kind("creature").slots).toEqual(["weapon", "body", "accessory"]);
+  });
+
+  it("크리쳐 전용 장비(D-494): 크리쳐는 전용 무기·방어구·장신구를 입고, 무기를 들면 타고난 무기 대신 그 무기다", () => {
+    const creature = kind("creature");
+    const claw = only("test_sword", "lab_claw");
+    const out = loadoutOf({
+      base,
+      slots: creature.slots,
+      equipped: [
+        itemAt(claw, 500),
+        itemAt(only("test_vest", "lab_hide"), 500),
+        itemAt(only("test_ring", "lab_fang"), 500),
+      ],
+      table,
+      unarmed: creature.naturalWeapon,
+      naturalIsWeapon: creature.naturalWeaponIsWeapon,
+      kind: "creature",
+    });
+    expect(out.ignored).toEqual([]);
+    expect(out.weapon).toBe(claw.weapon);
+    expect(out.bareHanded).toBe(false);
+    expect(out.primaries.str).toBe(12);
+    // 사람형은 크리쳐 전용 장비를 입지 않는다(던지지 않고 뺀다)
+    const human = loadoutOf({
+      base,
+      slots: kind("human").slots,
+      equipped: [itemAt(claw, 500)],
+      table,
+      unarmed: UNARMED,
+      kind: "human",
+    });
+    expect(human.ignored).toEqual([{ index: 0, item: "lab_claw", reason: "kind" }]);
+    expect(human.weapon).toBe(UNARMED);
   });
 
   it("무기·방어구는 2차 수치, 장신구·인공장기는 1차 스탯을 올린다(D-423)", () => {

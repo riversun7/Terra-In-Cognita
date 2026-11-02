@@ -25,8 +25,9 @@ const elements = (values: Partial<Record<number, number>>): number[] =>
   Array.from({ length: 12 }, (_, index) => values[index] ?? 0);
 
 // 모든 샘플은 기본 무기·장비와 그 무기에 맞는 스킬 1~2개를 든다(D-490, D-467 ② 정정). 스킬 기반(물리·속성)은 든 무기에
-// 그 칸이 있게 고른다(물리 스킬 ↔ 칼, 속성 스킬 ↔ 속성 지팡이). 크리쳐는 무기 칸이 없어 타고난 무기(발톱)를 쓴다.
-// 사람형 칸: 0 무기·1 보조·2 머리·3 몸·4·5 장신구. 사이보그는 6~8 인공장기를 더한다. 크리쳐는 0 장신구·1 안장.
+// 그 칸이 있게 고른다(물리 스킬 ↔ 칼, 속성 스킬 ↔ 속성 지팡이). 크리쳐는 무기 칸을 비우면 타고난 무기(발톱)를 무기로 쓴다(D-490).
+// 사람형 칸: 0 무기·1 보조·2 머리·3 몸·4·5 장신구. 사이보그는 6~8 인공장기를 더한다. 크리쳐는 0 무기·1 방어구(몸)·2 장신구
+// (D-494 크리쳐 전용 장비 3칸, 아이템 편집기 WP-C. 전용 장비는 편집기에서 만들어 이 칸에 끼운다).
 
 const NEW_CYBORG: LabUnit = {
   ...newLabUnit("cyborg"),
@@ -120,7 +121,7 @@ const WOLF: LabUnit = {
   initial: p(12, 10, 4, 6, 12, 16),
   kPm: p(1000, 900, 800, 900, 1100, 1200),
   elements: elements({ 4: 4 }),
-  equipment: [{ slot: 0, item: "test_ring", pm: 0 }],
+  equipment: [{ slot: 2, item: "test_ring", pm: 0 }],
   skills: [{ id: "power_strike", grade: 1 }],
   row: "front",
 };
@@ -131,7 +132,7 @@ const GOLEM: LabUnit = {
   initial: p(16, 18, 6, 8, 6, 6),
   kPm: p(1100, 1200, 800, 900, 800, 800),
   elements: elements({ 6: 8, 7: 4 }),
-  equipment: [{ slot: 0, item: "test_ring", pm: 1000 }],
+  equipment: [{ slot: 2, item: "test_ring", pm: 1000 }],
   skills: [
     { id: "shock_bash", grade: 1 },
     { id: "iron_skin", grade: 2 },

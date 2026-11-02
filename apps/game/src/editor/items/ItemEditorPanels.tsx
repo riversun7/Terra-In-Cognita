@@ -103,3 +103,62 @@ export function ExportPanel({ exported, onClose }: { exported: TuningExportRespo
     </section>
   );
 }
+
+/** 코드가 ID로 쓰는 아이템을 끄거나 칸·무기 공격 칸을 바꿀 때 [적용] 전에 묻는다(설계안 3.6) */
+export function RiskyConfirm({
+  ids,
+  onYes,
+  onNo,
+}: {
+  ids: readonly string[];
+  onYes: () => void;
+  onNo: () => void;
+}) {
+  return (
+    <div className="ie-confirm" role="alertdialog" aria-labelledby="ie-ask-risky">
+      <p id="ie-ask-risky">{m.dev_items_confirm_code_ref({ ids: ids.join(", ") })}</p>
+      <div className="ie-inline-actions">
+        <button type="button" className="button-small button-primary ie-confirm-yes" onClick={onYes}>
+          {m.dev_items_confirm_yes()}
+        </button>
+        <button type="button" className="button-small" onClick={onNo}>
+          {m.dev_items_confirm_no()}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** 편집기 탭 줄([아이템]·[아이템 분류]·[효과 사전]·[대량 도구]) */
+export function ItemTabs<T extends string>({
+  id,
+  tabs,
+  selected,
+  label,
+  onSelect,
+}: {
+  id: string;
+  tabs: readonly { readonly value: T; readonly label: string }[];
+  selected: T;
+  label: string;
+  onSelect: (tab: T) => void;
+}) {
+  return (
+    <div className="ie-tabs" role="tablist" aria-label={label} id={id}>
+      {tabs.map((tab) => (
+        <button
+          key={tab.value}
+          type="button"
+          role="tab"
+          id={`${id}-${tab.value}`}
+          aria-selected={selected === tab.value}
+          aria-controls={`${id}-${tab.value}-panel`}
+          className="ie-tab"
+          onClick={() => onSelect(tab.value)}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}

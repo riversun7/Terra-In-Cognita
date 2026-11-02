@@ -4,13 +4,12 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { loadServerContent } from "../content.ts";
-import { effectsOf } from "../world/combatCatalog.ts";
 import { type ContentOverrideRecord, type EntryJson, createContentEditState, entryHash } from "./state.ts";
 
 const loaded = loadServerContent(DEFAULT_CONTENT_DIR);
 if (!loaded.ok) throw new Error(loaded.lines.join("\n"));
 const source = loaded.source;
-const fresh = () => createContentEditState(source, effectsOf(source));
+const fresh = () => createContentEditState(source);
 
 const packEntry = (category: "items" | "skills", id: string): Record<string, unknown> => {
   const entry = fresh().packEntry(category, id);

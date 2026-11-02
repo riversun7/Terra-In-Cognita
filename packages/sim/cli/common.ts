@@ -36,6 +36,7 @@ import {
   combatFormulaSetFrom,
   combatFormulasFromPack,
   parseScenario,
+  withStatTable,
 } from "../src/index.ts";
 
 /** 저장소의 기본 콘텐츠 팩 */
@@ -279,7 +280,8 @@ export function withStatRowsDiff(
     unitKinds: [],
   });
   return {
-    combat: { ...combat, statTable },
+    // 1차 적정 스탯 무기의 적정치도 얹은 표로 다시 셈한다(서버 roster catalog와 같은 규칙, 아이템 편집기 WP-5)
+    combat: withStatTable(combat, statTable),
     combatFormulas: combatFormulaSetFrom(Object.fromEntries(formulas.formulas)),
   };
 }

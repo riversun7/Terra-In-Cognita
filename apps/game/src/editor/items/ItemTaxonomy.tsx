@@ -37,7 +37,8 @@ function templateOf(category: TaxonomyCategory, id: string, name: { ko: string; 
   return { id, name, enabled: true } satisfies ItemTagJson;
 }
 
-function NewEntryForm({
+/** 새 항목 칸(이름 ko·en, 영어 이름에서 ID 제안). 효과 사전 탭도 쓴다 */
+export function NewEntryForm({
   taken,
   onCreate,
 }: {
@@ -181,7 +182,11 @@ function WeaponTypeFields({
           { value: "weapon", label: m.roster_slot_weapon() },
           { value: "offhand", label: m.roster_slot_offhand() },
         ]}
-        onChange={(slot) => onChange({ ...draft, slot })}
+        onChange={(slot) => {
+          // 탄약 종류는 보조 칸만(D-497): 무기 칸으로 바꾸면 뺀다
+          const { ammo: _drop, ...rest } = draft;
+          onChange(slot === "offhand" ? { ...draft, slot } : { ...rest, slot });
+        }}
       />
       <NumberField
         label={m.dev_items_field_order()}
@@ -194,6 +199,17 @@ function WeaponTypeFields({
           onChange(order === undefined ? rest : { ...rest, order });
         }}
       />
+      {draft.slot === "offhand" ? (
+        <CheckField
+          label={m.dev_items_field_ammo_type()}
+          checked={draft.ammo === true}
+          hint={m.dev_items_ammo_type_hint()}
+          onChange={(on) => {
+            const { ammo: _drop, ...rest } = draft;
+            onChange(on ? { ...rest, ammo: true } : rest);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -357,7 +373,11 @@ export function ItemTaxonomy({
   onStage: (category: TaxonomyCategory, id: string, next: Staged<Named> | null) => void;
 }) {
   const takenOf = (category: TaxonomyCategory, rows: readonly TaxonomyRow<Entry>[]) =>
-    new Set([...rows.map((row) => row.entry.id), ...list.retired[category], ...stage[category].keys()]);
+    new Set([
+      ...rows.map((row) => row.entry.id),
+      ...(list.retired[category] ?? []),
+      ...stage[category].keys(),
+    ]);
   return (
     <div className="ie-tax-grid">
       <Section

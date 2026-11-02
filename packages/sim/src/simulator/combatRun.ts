@@ -115,6 +115,7 @@ export function specOf(
     naturalIsWeapon: kit.naturalIsWeapon,
     innateSkills: kit.innate,
     skillSlots: kit.skillSlots,
+    kind: LOADOUT.kind,
   });
   const key = out.skills.join(",");
   let skills = skillCache.get(key);
@@ -135,6 +136,11 @@ export function specOf(
       skills,
       moveIntervalMs: 1000,
       buildingMulPm: 2000,
+      // 장비의 속성값·전투 직접 값(아이템 편집기 WP-5). 지금 시뮬 장비는 이 칸이 없어 모두 0이다(출력 같음)
+      elements: out.elements,
+      resistPm: out.resistPm,
+      defenseFlat: out.defenseFlat,
+      penetrationPm: out.penetrationPm,
     },
     c,
   );

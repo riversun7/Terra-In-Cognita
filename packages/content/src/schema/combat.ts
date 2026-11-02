@@ -20,24 +20,33 @@ const enabled = z.boolean({ error: "enabled가 없습니다. true 또는 false�
 const permille = z.int().min(-100_000).max(100_000);
 const weights = z.array(z.int().min(-100_000).max(100_000)).length(6);
 
+/** 버프·디버프가 바꾸는 전투 수치(판정 코드 packages/sim effects.ts ModifierStat과 같은 목록) */
+export const EFFECT_COMBAT_STATS = [
+  "attack",
+  "defense_rate",
+  "evade",
+  "penetration",
+  "crit_multiplier",
+  "move_speed",
+  "shield_regen",
+] as const;
+/**
+ * 효과가 바꿀 수 있는 수치 = 전투 수치 + 1차 스탯 6개(D-425 "대상 스탯 1차 또는 2차", D-472 요리 버프: 농작물 INT·WIS, 목축 STR·VIT,
+ * 낚시 DEX·AGI). 1차 스탯 버프는 전투 판정이 아직 읽지 않는다(전투 사양은 시작할 때 셈한 2차라서 — 소비 실행 줄기에서 잇는다)
+ */
+export const EFFECT_STATS = [...EFFECT_COMBAT_STATS, ...PRIMARY_STAT_CODES] as const;
+
 export const effectEntrySchema = z
   .strictObject({
     id: contentId,
     name: localizedText,
     description: localizedText.optional(),
     kind: z.enum(["buff", "debuff", "dot", "heal", "status"]),
-    /** 버프·디버프가 바꾸는 전투 수치(move_speed = 이동 속도 ‰, 디버프면 느리게. shield_regen = 쉴드 재생 ‰, 디버프면 저주, D-490) */
-    stat: z
-      .enum([
-        "attack",
-        "defense_rate",
-        "evade",
-        "penetration",
-        "crit_multiplier",
-        "move_speed",
-        "shield_regen",
-      ])
-      .optional(),
+    /**
+     * 버프·디버프가 바꾸는 수치(move_speed = 이동 속도 ‰, 디버프면 느리게. shield_regen = 쉴드 재생 ‰, 디버프면 저주, D-490). 1차 스탯
+     * (str·dex·agi·vit·int·wis)은 요리 버프 등(D-472)이고 전투 판정은 아직 읽지 않는다
+     */
+    stat: z.enum(EFFECT_STATS).optional(),
     valueMode: z.enum(["flat", "permille"]),
     /** 기본 지속(ms). 0 = 전투 내내. 거는 쪽(스킬)이 바꿀 수 있다 */
     durationMs: z.int().min(0).max(3_600_000),
@@ -56,6 +65,11 @@ export const effectEntrySchema = z
       .optional(),
     /** 유료 효과 상한 코드(D-7005·D-7022). 쓰는 곳은 BM 단계 */
     capCode: contentId.optional(),
+    /**
+     * 배타 묶음 코드(D-472·D-425 중첩 규칙: 요리 버프는 하나만, 더 센 것이 이긴다 — 예 "food"). 같은 묶음의 효과는 한 유닛에 한 출처만
+     * 걸린다. "더 센 것"의 비교와 적용은 소비 실행 줄기가 한다(질문 293). 지금은 자료와 편집기만(판정이 읽지 않는다)
+     */
+    exclusive: contentId.optional(),
     enabled,
   })
   .superRefine((entry, ctx) => {
@@ -67,20 +81,28 @@ export const effectEntrySchema = z
         code: "custom",
         path: ["stat"],
         message: "버프·디버프는 바꿀 수치(stat)를 적어야 합니다.",
+        params: { rule: "effect_stat_required" },
       });
     if (!needsStat && entry.stat !== undefined)
-      ctx.addIssue({ code: "custom", path: ["stat"], message: "stat은 버프·디버프에만 씁니다." });
+      ctx.addIssue({
+        code: "custom",
+        path: ["stat"],
+        message: "stat은 버프·디버프에만 씁니다.",
+        params: { rule: "effect_stat_kind" },
+      });
     if ((entry.kind === "status") !== (entry.status !== undefined))
       ctx.addIssue({
         code: "custom",
         path: ["status"],
         message: "status는 상태이상(kind: status)에만, 그리고 꼭 적습니다.",
+        params: { rule: "effect_status_kind" },
       });
     if (entry.resist !== undefined && entry.kind !== "status")
       ctx.addIssue({
         code: "custom",
         path: ["resist"],
         message: "저항(resist)은 상태이상에만 씁니다(D-429).",
+        params: { rule: "effect_resist_kind" },
       });
   });
 export type EffectEntry = z.output<typeof effectEntrySchema>;
@@ -378,7 +400,10 @@ const naturalElementalWeaponSchema = z.strictObject({ elemental: weaponAttackFie
 export const unitKindEntrySchema = z.strictObject({
   id: contentId,
   name: localizedText,
-  /** 장비 칸 차례(구조 값 D-5054): 사람형 공통 6칸 + 종류별 강화 칸, 크리쳐 2칸(D-422) */
+  /**
+   * 장비 칸 차례(구조 값 D-5054: 바꾸면 칸 번호에 기댄 곳이 흔들린다 — 편집기 화면에는 바꾸는 칸이 없고 팩 커밋으로만 바꾼다): 사람형 공통 6칸 + 종류별 강화 칸,
+   * 크리쳐 3칸 무기·방어구·장신구(D-494가 D-422 "크리쳐 2칸"을 바꿈)
+   */
   slots: z.array(z.enum(EQUIP_SLOT_KINDS)).min(1).max(32),
   /** 스킬 칸(D-427): 종 기본 + 환생마다, 상한 10(구조 값) */
   skillSlots: z.strictObject({

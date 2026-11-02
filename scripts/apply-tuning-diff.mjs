@@ -19,6 +19,7 @@ import {
   applyFormulasDiff,
   applyStatRowsDiff,
   applyTuningDiff,
+  effectEntrySchema,
   itemEntrySchema,
   itemSubcategoryEntrySchema,
   itemTagEntrySchema,
@@ -37,6 +38,8 @@ export const ENTRY_FILES = {
   item_subcategories: { file: "item_subcategories.json", schema: itemSubcategoryEntrySchema },
   item_tags: { file: "item_tags.json", schema: itemTagEntrySchema },
   weapon_types: { file: "weapon_types.json", schema: weaponTypeEntrySchema },
+  // 효과 사전(아이템 편집기 WP-6)
+  effects: { file: "effects.json", schema: effectEntrySchema },
 };
 
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;

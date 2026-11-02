@@ -1,18 +1,107 @@
-// 소모품·신선도 칸(설계안 2.5·3.4) — 사용 효과 줄(효과 사전에서 골라 값·확률‰·지속, 스킬 효과와 같은 모양 D-425. 실행은 WP-6),
-// 줄마다 효과 사전 정보 한 문장(종류·대상 수치·값 방식·실효 지속·중첩, 설계안 3.5), 신선도(유통기한 일·시간과 0이 되면 바뀌는 아이템,
-// D-496 288: 아이템마다 고른다).
-import { ITEM_LIMITS, type ItemEditorListResponse, type ItemJson } from "@terra/shared/itemEditor";
+// 소모품·신선도 칸(설계안 2.5·3.4) — 사용 효과 줄(효과 사전에서 골라 값·확률‰·지속, 스킬 효과와 같은 모양 D-425), 줄마다 효과량 칸
+// (D-496 286: 쓰는 유닛 스탯 비례·±오차, WP-6), 줄마다 효과 사전 정보 한 문장(종류·대상 수치·값 방식·실효 지속·중첩, 설계안 3.5),
+// 신선도(유통기한 일·시간과 0이 되면 바뀌는 아이템, D-496 288: 아이템마다 고른다). 실제로 먹고·쓰고·썩는 실행은 보유 물건 뒤 소비 줄기다.
+import {
+  ITEM_LIMITS,
+  ITEM_PRIMARY_CODES,
+  type ItemEditorListResponse,
+  type ItemEffectJson,
+  type ItemJson,
+  type ItemPrimaryCode,
+} from "@terra/shared/itemEditor";
 import { m } from "../../paraglide/messages.js";
 import { EffectRows } from "../content/contentEditorEffects.tsx";
 import { CheckField, NumberField, SelectField } from "../content/contentEditorFields.tsx";
 import { fieldHint } from "./ItemForm.tsx";
-import { effectSentence } from "./itemMessages.ts";
+import { PRIMARY_TEXT, effectSentence } from "./itemMessages.ts";
 import { shelfMs, shelfParts } from "./itemModel.ts";
+import "./itemEditorTabs.css";
 
 type Problem = (path: string) => string | undefined;
 
 /** 기본 유통기한(7일, 처음 켤 때) */
 const DEFAULT_SHELF_MS = 7 * 24 * 3_600_000;
+
+/** 스탯 비례를 처음 켤 때 ‰/점(형식 확인용, 값은 편집기에서 정한다) */
+const DEFAULT_SCALE_PM = 10;
+
+/** 효과 줄 하나의 효과량 칸을 바꾼다(빈 칸은 뺀다) */
+function withScale(row: ItemEffectJson, stat: ItemPrimaryCode | null, pmPerPoint: number): ItemEffectJson {
+  const { scale: _drop, ...rest } = row;
+  return stat === null ? rest : { ...rest, scale: { stat, pmPerPoint } };
+}
+
+/**
+ * 효과 줄마다 효과량 칸(D-496 286): 비례 스탯·스탯 1점당‰·±오차‰(비우면 설정 칸 d496_use_variance). 셈한 범위는 미리 보기 판이 보인다.
+ * 공용 효과 줄 편집(contentEditorEffects)은 스킬과 같이 쓰므로 그대로 두고 여기 따로 둔다
+ */
+function ScaleRows({
+  rows,
+  names,
+  problem,
+  onChange,
+}: {
+  rows: readonly ItemEffectJson[];
+  names: ReadonlyMap<string, string>;
+  problem: Problem;
+  onChange: (next: ItemEffectJson[]) => void;
+}) {
+  const L = ITEM_LIMITS;
+  const replace = (index: number, next: ItemEffectJson) =>
+    onChange(rows.map((row, at) => (at === index ? next : row)));
+  return (
+    <fieldset className="ie-sub" data-part="use-scale">
+      <legend className="field-label">{m.dev_items_use_scale_title()}</legend>
+      <p className="field-hint">{fieldHint("use", m.dev_items_use_scale_hint())}</p>
+      <ul className="ie-scale-rows">
+        {rows.map((row, index) => (
+          <li key={`${index}-${row.effect}`} className="ie-scale-row">
+            <span className="field-label">
+              {m.dev_items_use_scale_row({ effect: names.get(row.effect) ?? row.effect })}
+            </span>
+            <SelectField
+              label={m.dev_items_field_scale_stat()}
+              value={row.scale?.stat ?? ""}
+              options={[
+                { value: "", label: m.dev_items_scale_none() },
+                ...ITEM_PRIMARY_CODES.map((code) => ({ value: code, label: PRIMARY_TEXT[code]() })),
+              ]}
+              problem={problem(`use.effects[${index}].scale`)}
+              onChange={(value) => {
+                const stat = ITEM_PRIMARY_CODES.find((code) => code === value) ?? null;
+                replace(index, withScale(row, stat, row.scale?.pmPerPoint ?? DEFAULT_SCALE_PM));
+              }}
+            />
+            {row.scale ? (
+              <NumberField
+                label={m.dev_items_field_scale_pm()}
+                value={row.scale.pmPerPoint}
+                min={L.scalePmPerPoint.min}
+                max={L.scalePmPerPoint.max}
+                problem={problem(`use.effects[${index}].scale.pmPerPoint`)}
+                onChange={(value) => replace(index, withScale(row, row.scale?.stat ?? null, value ?? 0))}
+              />
+            ) : (
+              <span />
+            )}
+            <NumberField
+              label={m.dev_items_field_variance()}
+              value={row.variancePm}
+              min={L.variancePm.min}
+              max={L.variancePm.max}
+              optional
+              problem={problem(`use.effects[${index}].variancePm`)}
+              onChange={(value) => {
+                const { variancePm: _drop, ...rest } = row;
+                replace(index, value === undefined ? rest : { ...rest, variancePm: value });
+              }}
+            />
+          </li>
+        ))}
+      </ul>
+    </fieldset>
+  );
+}
 
 export function ItemUseFields({
   draft,
@@ -56,6 +145,14 @@ export function ItemUseFields({
         }}
       />
       {problem("use.effects") ? <p className="field-error ce-problem">{problem("use.effects")}</p> : null}
+      {rows.length > 0 ? (
+        <ScaleRows
+          rows={rows}
+          names={new Map(list.effects.map((effect) => [effect.id, effect.name[locale]]))}
+          problem={problem}
+          onChange={(next) => onChange({ ...draft, use: { effects: next } })}
+        />
+      ) : null}
       {rows.length > 0 ? (
         <ul className="ie-sentences" aria-label={m.dev_items_use_sentences()}>
           {rows.map((row, index) => {

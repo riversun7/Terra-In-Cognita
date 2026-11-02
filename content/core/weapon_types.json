@@ -115,6 +115,7 @@
         "en": "Quiver"
       },
       "slot": "offhand",
+      "ammo": true,
       "enabled": true
     },
     {
@@ -124,6 +125,7 @@
         "en": "Magazine"
       },
       "slot": "offhand",
+      "ammo": true,
       "enabled": true
     }
   ]

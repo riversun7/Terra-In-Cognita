@@ -238,3 +238,65 @@ describe("실험 유닛 → 전투 사양(서버만 계산)", () => {
     expect(overridden.combat.hitPm).toBe(777);
   });
 });
+
+describe("장비 전투 칸(아이템 편집기 WP-5)", () => {
+  // 시험 자료에 양손 대검·방패·크리쳐 전용 반지를 더한 묶음
+  const catalog = {
+    ...TEST_COMBAT_CATALOG,
+    equipment: [
+      ...TEST_COMBAT_CATALOG.equipment,
+      ...TEST_COMBAT_CATALOG.equipment
+        .filter((item) => item.id === "test_sword")
+        .map((item) => ({ ...item, id: "lab_greatsword", twoHanded: true })),
+      {
+        id: "lab_shield",
+        slot: "offhand" as const,
+        stats: [{ stat: "defense_rate", min: 40, max: 40 }],
+        skills: [],
+        defenseFlat: 5,
+      },
+      {
+        id: "lab_beast_ring",
+        slot: "accessory" as const,
+        stats: [{ stat: "str", min: 3, max: 3 }],
+        skills: [],
+        kinds: ["creature"],
+      },
+    ],
+  };
+  const gearRules: LabRules = { ...rules, catalog };
+
+  it("양손 무기를 들면 보조 칸 장비는 빠지고(던지지 않음) 경고(two_handed)로 알린다", () => {
+    const unit: LabUnit = {
+      ...newLabUnit("human"),
+      weapon: { kind: "item", id: "lab_greatsword", pm: 500 },
+      equipment: [{ slot: 1, item: "lab_shield", pm: 0 }],
+    };
+    const built = buildLabUnit(unit, gearRules);
+    expect(built.dropped).toEqual([{ kind: "two_handed", id: "lab_shield" }]);
+    expect(built.spec.defense.defenseFlat).toBe(0);
+    // 한손 칼이면 방패가 든다(고정 방어 5 = 직접 값 0 + 방패 5)
+    const oneHand = buildLabUnit({ ...unit, weapon: { kind: "item", id: "test_sword", pm: 500 } }, gearRules);
+    expect(oneHand.dropped).toEqual([]);
+    expect(oneHand.spec.defense.defenseFlat).toBe(5);
+  });
+
+  it("그 종류가 입을 수 없는 장비(kinds)는 빠지고 경고(unit_kind), 속성값은 자기 값 + 장비(칸마다 10)", () => {
+    const unit: LabUnit = {
+      ...newLabUnit("human"),
+      equipment: [{ slot: 4, item: "lab_beast_ring", pm: 0 }],
+    };
+    const built = buildLabUnit(unit, gearRules);
+    expect(built.dropped).toEqual([{ kind: "unit_kind", id: "lab_beast_ring" }]);
+    expect(built.loadout.primaries.str).toBe(10);
+    // 사이보그 인공장기(test_heart: 불 2·빙결 3) + 자기 불 9 → 불 10에서 자름
+    const cyborg: LabUnit = {
+      ...newLabUnit("cyborg"),
+      elements: Array.from({ length: 12 }, (_, index) => (index === 2 ? 9 : 0)),
+      equipment: [{ slot: 6, item: "test_heart", pm: 0 }],
+    };
+    const elements = buildLabUnit(cyborg, gearRules).spec.defense.elements;
+    expect(elements[2]).toBe(10);
+    expect(elements[1]).toBe(3);
+  });
+});

@@ -2,14 +2,16 @@
 // 다시 얹은 담은 변경(바탕·해시는 서버 것으로)과, 양쪽이 같은 칸을 다르게 바꾼 경로를 돌려준다. 계산이 없는 순수 함수(시험:
 // itemModel.test.ts). 화면은 이 결과를 담고, 충돌 칸은 칸마다 내 값·서버 값을 고르게 한다.
 import type { ContentIssueView } from "@terra/shared/contentEdit";
-import type { ItemEditorListResponse, ItemJson, TaxonomyRow } from "@terra/shared/itemEditor";
+import type { EffectJson, ItemEditorListResponse, ItemJson, TaxonomyRow } from "@terra/shared/itemEditor";
 import { mergeThreeWay, valueAt, withValueAt } from "../content/contentEditorModel.ts";
 import {
   type Stage,
   type TaxonomyCategory,
   type TaxonomyJson,
+  isEffectJson,
   isItemJson,
   isTaxonomyJson,
+  stageEffect,
   stageItem,
   stageTaxonomy,
 } from "./itemModel.ts";
@@ -32,6 +34,11 @@ export function taxonomyRows(
 ): readonly TaxonomyRow<TaxonomyJson>[] {
   if (category === "item_subcategories") return list.subcategories;
   return category === "item_tags" ? list.tags : list.weaponTypes;
+}
+
+/** 효과 사전 줄(옛 서버는 보내지 않는다 → 빈 목록) */
+export function effectRows(list: ItemEditorListResponse): readonly TaxonomyRow<EffectJson>[] {
+  return list.effectRows ?? [];
 }
 
 /** 담은 변경 키(분류/ID) → 분류·ID */
@@ -77,6 +84,20 @@ export function rebaseStage(
         baseHash: hash,
       });
       if (merged.conflicts.length > 0) conflicts.set(key, { theirs, paths: merged.conflicts });
+      continue;
+    }
+    if (category === "effects") {
+      const staged = next.effects.get(id);
+      if (!staged) continue;
+      const current = effectRows(fresh).find((item) => item.entry.id === id);
+      const theirs = current?.entry ?? null;
+      const merged = staged.entry ? mergeThreeWay(staged.base, staged.entry, theirs) : null;
+      next = stageEffect(next, id, {
+        ...staged,
+        entry: merged && isEffectJson(merged.merged) ? merged.merged : staged.entry,
+        base: theirs,
+        baseHash: current?.hash ?? null,
+      });
       continue;
     }
     const tax = TAXONOMY_CATEGORIES.find((item) => item === category);
@@ -133,6 +154,7 @@ export function changedKeysOf(issues: readonly ContentIssueView[]): string[] {
 export function stageDiscard(stage: Stage, category: string, id: string): Stage {
   const discard = { op: "discard_sleeping", entry: null, base: null, baseHash: null } as const;
   if (category === "items") return stageItem(stage, id, discard);
+  if (category === "effects") return stageEffect(stage, id, discard);
   const tax = TAXONOMY_CATEGORIES.find((item) => item === category);
   return tax ? stageTaxonomy(stage, tax, id, discard) : stage;
 }

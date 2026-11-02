@@ -20,10 +20,24 @@
       },
       "build": {
         "mulPm": 800,
-        "materials": [
+        "levels": [
           {
-            "item": "rubble",
-            "qty": 8
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 8
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 8
+              }
+            ]
           }
         ]
       },
@@ -48,14 +62,32 @@
       },
       "build": {
         "mulPm": 800,
-        "materials": [
+        "levels": [
           {
-            "item": "rubble",
-            "qty": 10
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 10
+              },
+              {
+                "item": "stone",
+                "qty": 5
+              }
+            ]
           },
           {
-            "item": "rubble",
-            "qty": 5
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 10
+              },
+              {
+                "item": "brick",
+                "qty": 5
+              }
+            ]
           }
         ]
       },
@@ -80,14 +112,32 @@
       },
       "build": {
         "mulPm": 800,
-        "materials": [
+        "levels": [
           {
-            "item": "rubble",
-            "qty": 12
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 12
+              },
+              {
+                "item": "stone",
+                "qty": 10
+              }
+            ]
           },
           {
-            "item": "rubble",
-            "qty": 10
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 12
+              },
+              {
+                "item": "brick",
+                "qty": 10
+              }
+            ]
           }
         ]
       },
@@ -104,14 +154,32 @@
       "pollution": 8,
       "build": {
         "mulPm": 1200,
-        "materials": [
+        "levels": [
           {
-            "item": "rubble",
-            "qty": 15
+            "from": 1,
+            "materials": [
+              {
+                "item": "stone",
+                "qty": 15
+              },
+              {
+                "item": "pine_log",
+                "qty": 8
+              }
+            ]
           },
           {
-            "item": "rubble",
-            "qty": 8
+            "from": 2,
+            "materials": [
+              {
+                "item": "brick",
+                "qty": 15
+              },
+              {
+                "item": "plank",
+                "qty": 8
+              }
+            ]
           }
         ]
       },
@@ -128,18 +196,36 @@
       "pollution": 1,
       "build": {
         "mulPm": 1200,
-        "materials": [
+        "levels": [
           {
-            "item": "rubble",
-            "qty": 15
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 15
+              },
+              {
+                "item": "stone",
+                "qty": 10
+              },
+              {
+                "item": "rubble",
+                "qty": 5
+              }
+            ]
           },
           {
-            "item": "rubble",
-            "qty": 10
-          },
-          {
-            "item": "rubble",
-            "qty": 5
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 15
+              },
+              {
+                "item": "brick",
+                "qty": 15
+              }
+            ]
           }
         ]
       },
@@ -156,18 +242,120 @@
       "pollution": 4,
       "build": {
         "mulPm": 1200,
-        "materials": [
+        "levels": [
           {
-            "item": "rubble",
-            "qty": 10
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 10
+              },
+              {
+                "item": "iron_ore",
+                "qty": 6
+              }
+            ]
           },
           {
-            "item": "iron_ore",
-            "qty": 6
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 10
+              },
+              {
+                "item": "iron_ingot",
+                "qty": 6
+              }
+            ]
           }
         ]
       },
       "enabled": true
+    },
+    {
+      "id": "sawmill",
+      "name": {
+        "ko": "제재소",
+        "en": "Sawmill"
+      },
+      "stage": "process",
+      "slotsPerLevel": 10,
+      "pollution": 2,
+      "build": {
+        "mulPm": 1200,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 15
+              },
+              {
+                "item": "stone",
+                "qty": 8
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 15
+              },
+              {
+                "item": "brick",
+                "qty": 8
+              }
+            ]
+          }
+        ]
+      },
+      "enabled": false
+    },
+    {
+      "id": "kiln",
+      "name": {
+        "ko": "가마",
+        "en": "Kiln"
+      },
+      "stage": "process",
+      "slotsPerLevel": 10,
+      "pollution": 4,
+      "build": {
+        "mulPm": 1200,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "stone",
+                "qty": 12
+              },
+              {
+                "item": "pine_log",
+                "qty": 5
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "brick",
+                "qty": 12
+              },
+              {
+                "item": "plank",
+                "qty": 5
+              }
+            ]
+          }
+        ]
+      },
+      "enabled": false
     }
   ]
 }

@@ -6,7 +6,7 @@
 // 계산식 차이(formulas, docs/adr/2026-11-01-formula-editor.md)가 있으면 formulas.json의 expression·stat_rows.json의
 // formula도 바꾼다(지금 팩 식 = from, 그 칸 변수로 읽히는 식만).
 // 아이템 편집기(/dev/items, docs/adr/2026-11-01-item-editor.md 4절)의 아이템·분류 자료(item_subcategories·item_tags·weapon_types)도
-// entries로 오고, 은퇴 ID(retiredIds: 그 세계에서 만든 뒤 지운 항목)는 새 항목으로 넣지 않으며 팩에 이미 그 ID가 있으면 알린다(건너뜀).
+// entries로 오고(건물 편집기 /dev/buildings의 시설도 facilities.json으로), 은퇴 ID(retiredIds: 그 세계에서 만든 뒤 지운 항목)는 새 항목으로 넣지 않으며 팩에 이미 그 ID가 있으면 알린다(건너뜀).
 // 배포 전 차례: 팩 항목을 고치는 팩 커밋 전에 NAS 세계의 [내보내기]를 먼저 넣는다(팩 항목 해시가 바뀌면 세계 덮어쓰기는 진다).
 // 사용: pnpm tuning:apply <차이.json> [--pack content/<팩 ID>] [--force] [--dry-run]
 //   칸마다: 팩에 있는가(없으면 건너뜀), 지금 팩 값 = 차이의 from인가(아니면 건너뜀, --force면 넣음), 기술 범위 안인가(아니면 건너뜀).
@@ -20,6 +20,7 @@ import {
   applyStatRowsDiff,
   applyTuningDiff,
   effectEntrySchema,
+  facilityEntrySchema,
   itemEntrySchema,
   itemSubcategoryEntrySchema,
   itemTagEntrySchema,
@@ -40,6 +41,8 @@ export const ENTRY_FILES = {
   weapon_types: { file: "weapon_types.json", schema: weaponTypeEntrySchema },
   // 효과 사전(아이템 편집기 WP-6)
   effects: { file: "effects.json", schema: effectEntrySchema },
+  // 시설(건물 편집기 /dev/buildings, docs/adr/2026-11-02-building-editor.md)
+  facilities: { file: "facilities.json", schema: facilityEntrySchema },
 };
 
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;

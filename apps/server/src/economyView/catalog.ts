@@ -2,8 +2,9 @@
 // ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)", R2 ADR 1절(팩 분류). 켜진(enabled) 항목만 팩 순서대로 보낸다(D-398).
 // 팩 항목은 참조 검사(2단계)를 통과한 파싱 결과라 참조가 객체다. 정규 JSON(참조 → ID 글자)으로 되돌린 뒤 스키마로 다시 읽어
 // 타입을 얻는다(src/world/mapProps.ts와 같은 방식. 검증된 팩이라 실패하면 팩 코드가 틀린 것이다).
-// 아이템은 그 세계의 실효 항목(아이템 편집기 덮어쓰기, docs/adr/2026-11-01-item-editor.md 4절)이다: economyCatalogAccessor가 실효 항목이
-// 바뀔 때만 목록을 새로 만든다(요청마다 만들지 않는다). 아이템마다 거래 방식(market, marketKindOf)을 싣는다.
+// 아이템·시설은 그 세계의 실효 항목(아이템 편집기·건물 편집기 덮어쓰기, docs/adr/2026-11-01-item-editor.md 4절·
+// docs/adr/2026-11-02-building-editor.md)이다: economyCatalogAccessor가 실효 항목이 바뀔 때만 목록을 새로 만든다(요청마다 만들지 않는다).
+// 아이템마다 거래 방식(market, marketKindOf)을 싣는다.
 import {
   type ContentPack,
   type FacilityEntry,
@@ -76,20 +77,30 @@ export function economyCatalogFromPack(
 }
 
 /**
- * 팩 분류 위에 실효 아이템(그 세계의 덮어쓰기)을 둔 목록 접근자. 실효 항목 객체가 바뀔 때만(아이템 편집기 저장 뒤) 새로 만든다.
- * 끈 아이템을 쓰는 레시피·생필품은 함께 빠진다(시뮬 prepareCatalog와 같은 규칙)
+ * 팩 분류 위에 실효 아이템·시설(그 세계의 덮어쓰기)을 둔 목록 접근자. effective는 실효 항목 묶음(ContentEditState.effective — 스냅숏마다
+ * 같은 객체)이고, 그 객체가 바뀔 때만(아이템·건물 편집기 저장 뒤) 새로 만든다. 시설이 없으면(시험) 팩 시설.
+ * 끈 아이템·시설을 쓰는 레시피·생필품은 함께 빠진다(시뮬 prepareCatalog와 같은 규칙)
  */
 export function economyCatalogAccessor(
   pack: ContentPack,
   info: { version: string; placeholder: boolean },
-  items: () => readonly ItemEntry[],
+  effective: () => {
+    readonly items: readonly ItemEntry[];
+    readonly facilities?: readonly FacilityEntry[] | undefined;
+  },
 ): () => EconomyCatalogResponse {
   const base = economyCatalogEntriesOf(pack);
-  let built: { items: readonly ItemEntry[]; catalog: EconomyCatalogResponse } | undefined;
+  let built: { source: object; catalog: EconomyCatalogResponse } | undefined;
   return () => {
-    const now = items();
-    if (built?.items !== now)
-      built = { items: now, catalog: economyCatalogFrom({ ...base, items: now }, info) };
+    const now = effective();
+    if (built?.source !== now)
+      built = {
+        source: now,
+        catalog: economyCatalogFrom(
+          { ...base, items: now.items, facilities: now.facilities ?? base.facilities },
+          info,
+        ),
+      };
     return built.catalog;
   };
 }

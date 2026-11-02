@@ -2,6 +2,7 @@
 // 기획: 아이템 9대분류(D-5029)·티어 T0~T9와 시설 Lv1~5(D-5001)·생산 4단계(D-114)·유지비 = 생필품(D-150)·
 // 세력 화폐(D-124·D-131)·켬/끔(D-398: 모든 콘텐츠를 개발자 페이지에서 켜고 끈다).
 // 지금 팩은 형식 확인용 임시 데이터다(placeholder). 기획 출발값이 없는 칸(시작 시세·작업량·수량·세율)은 시험값이다.
+import { FACILITY_BUILD_LIMITS, FACILITY_LEVEL_MAX } from "@terra/shared/facilityBuild";
 import { z } from "zod";
 import { PRIMARY_STAT_CODES } from "./combat.ts";
 import { contentId, localizedText, ref } from "./common.ts";
@@ -19,11 +20,18 @@ export const GATHER_MODES = ["roll", "select"] as const;
 const enabled = z.boolean({ error: "enabled가 없습니다. true 또는 false로 적으세요(D-398 켬·끔)." });
 
 const stack = z.strictObject({ item: ref("items"), qty: z.int().positive().max(1_000_000) });
+/** 건설 재료 한 줄(묶음 수량, 범위는 @terra/shared FACILITY_BUILD_LIMITS) */
+const buildStack = z.strictObject({
+  item: ref("items"),
+  qty: z.int().min(FACILITY_BUILD_LIMITS.qty.min).max(FACILITY_BUILD_LIMITS.qty.max),
+});
 
 export const facilityEntrySchema = z.strictObject({
   id: contentId,
   name: localizedText,
   stage: z.enum(FACILITY_STAGES),
+  /** 최고 레벨(D-5001 시설 Lv1~5). 없으면 5. 건설 재료 구간·편집기 레벨 표가 본다 */
+  maxLevel: z.int().min(1).max(FACILITY_LEVEL_MAX).optional(),
   /** [임시] 레벨당 일하는 자리 수(Lv × 이 값). 기획 수치 없음(E29 근처, 건물 데이터 D-5044) */
   slotsPerLevel: z.int().positive().max(1000),
   /**
@@ -57,15 +65,26 @@ export const facilityEntrySchema = z.strictObject({
     })
     .optional(),
   /**
-   * 건설 재료(옛 building_seed.js buildCost, 49 M14 출발값 = 옛 값, docs/research/2026-11-02-old-primary-production.md):
-   * 레벨 L 비용 = 재료 줄마다 round(qty × L² × mulPm ÷ 1000)의 합(같은 아이템이 여러 줄이면 줄마다 반올림, 옛 그대로).
-   * materials = 옛 raw를 옛 MAT_MAP으로 바꾼 것(WOOD·STONE·PLANK·BRICK → 잡석, INGOT → 철 = 철광석 묶음), mulPm = 옛 카테고리 배율
-   * (PRIMARY 0.8 → 800, SECONDARY 1.2 → 1200). 지금 건설·레벨 올림·수리를 셈하는 곳은 없다(시설은 처음부터 있다)
+   * 건설 재료(49 M14·D-508, 옛 building_seed.js buildCost — docs/adr/2026-11-02-building-editor.md): 레벨 구간마다 재료를 적는다.
+   * 레벨 L에는 from ≤ L인 마지막 구간(levels)을 쓰고, 줄마다 round(qty × L² × mulPm ÷ 1000)(옛 Base × 티어² × 분류 배율, 옛 "티어"를
+   * 새 시설 레벨로 읽은 것은 기술 해석 ⏳). 셈은 @terra/shared/facilityBuild 하나다. D-508: 처음 레벨은 1차 원자재로 지어 초기 발전이
+   * 막히지 않게, 그 위 레벨 대부분은 가공품(판자·벽돌·주괴). 출발값(옛 raw → Lv1 원자재·Lv2부터 가공품)은 [임시]이고 건물 편집기
+   * (/dev/buildings)에서 고친다. 구간 규칙(첫 from 1·늘어나기만·최고 레벨 이하·같은 아이템 한 줄)은 2단계 검사(validate/facilities.ts).
+   * 수량은 레시피와 같은 묶음 단위다. mulPm = 옛 분류 배율(PRIMARY 0.8 → 800, SECONDARY 1.2 → 1200). 지금 짓기·레벨 올림·수리를 셈하는
+   * 곳은 없다(시설은 처음부터 있다)
    */
   build: z
     .strictObject({
-      mulPm: z.int().min(0).max(100_000),
-      materials: z.array(stack).min(1).max(16),
+      mulPm: z.int().min(FACILITY_BUILD_LIMITS.mulPm.min).max(FACILITY_BUILD_LIMITS.mulPm.max),
+      levels: z
+        .array(
+          z.strictObject({
+            from: z.int().min(1).max(FACILITY_LEVEL_MAX),
+            materials: z.array(buildStack).min(1).max(FACILITY_BUILD_LIMITS.materials),
+          }),
+        )
+        .min(1)
+        .max(FACILITY_BUILD_LIMITS.levels),
     })
     .optional(),
   enabled,

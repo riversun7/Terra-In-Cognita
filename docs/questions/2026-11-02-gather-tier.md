@@ -4,7 +4,7 @@
 
 - 받는 곳: 사용자(직접 결정). 기획 세션에 원문을 보냈다.
 - PLAN 14장 번호: 300~302.
-- 상태: 답 받음(기획 D-506, 49 N43). 반영: 가지 `work/gather-tier`(팩 core@29, `SIM_VERSION` 8, ADR `docs/adr/2026-10-31-economy-core.md` "바뀜 (… 300~302 …)"·`docs/adr/2026-11-01-item-editor.md` "바뀜 (… 300~302 …)", 작업 기록 `docs/worklog/2026/11/02-2135-gather-tier.md`). [임시] 값(가장 낮은 구간, 레벨 보너스 10, 창고 레벨당 1t, 광석 묶음 1kg)과 econ16 철 공급 감소(약 94%)는 사용자 확인 대기.
+- 상태: 답 받음(기획 D-506, 49 N43). 끝 절 건축 재료 답(D-508)은 가지 `work/building-editor`로 반영(시설 건설 재료 레벨 구간·건물 편집기). 반영: 가지 `work/gather-tier`(팩 core@29, `SIM_VERSION` 8, ADR `docs/adr/2026-10-31-economy-core.md` "바뀜 (… 300~302 …)"·`docs/adr/2026-11-01-item-editor.md` "바뀜 (… 300~302 …)", 작업 기록 `docs/worklog/2026/11/02-2135-gather-tier.md`). [임시] 값(가장 낮은 구간, 레벨 보너스 10, 창고 레벨당 1t, 광석 묶음 1kg)과 econ16 철 공급 감소(약 94%)는 사용자 확인 대기.
 
 ## 0. 옛 프로젝트 규칙 (Verified: AntiGravt01 main `0ea5299` 파일을 읽어 확인)
 - `terra-server/game/gather/GatherResolverEngine.js` `resolveGatherResult`: 유효 스탯 = 1차 스탯 + 2차 스탯(광산 STR + VIT, 벌목 DEX + STR, 약초 INT + WIS, 낚시 AGI + DEX — `docs/GDD/Item/Consolidated_Item.md` ITM-10 표), 그 값이 든 구간의 가중치로 티어를 뽑고, 그 티어(없으면 더 낮은 티어)의 그 분류 아이템이 나온다. 칸(타일) 최대 티어가 있으면 그것만 상한(0이면 제한 없음). 시설 레벨 상한은 없다. 채집량은 1개 고정.
@@ -48,3 +48,4 @@
 
 ## 옛 1차 생산 규칙 반영 뒤 물음 (2026-11-02, main f3e5920, 팩 core@30, D-507)
 - 건축 비용 재료(옛 코드 `seeds/building_seed.js`는 모두 잡석 + 주괴만 철, 옛 문서는 목재 → 소나무·석재 → 석재·판자·벽돌 → 가공품): 답 원문 "처음 건물은 1차 원자재 그대로 사용하여 초기발전에 문제없게하고 대부분은 가공품 사용. 건물 편집기에서 재료 수정" → 처음(낮은 레벨) 건물은 1차 원자재(잡석·석재·소나무 등)로 지어 초기 발전이 막히지 않게 하고, 그 밖의 대부분은 가공품(판자·벽돌·주괴 등)을 쓴다. 재료는 건물 편집기(개발자 페이지)에서 고친다. 반영은 가지 `work/building-editor`(옛 프로젝트 관리자 건물 편집기 `terra-client/src/app/admin/editor/buildings`를 먼저 본다).
+- 반영(2026-11-02, 기획 D-508·49 M14): 가지 `work/building-editor`(팩 core@31, `SIM_VERSION` 9 그대로, ADR `docs/adr/2026-11-02-building-editor.md`, 작업 기록 `docs/worklog/2026/11/03-0530-building-editor.md`). 시설 건설 재료를 레벨 구간(`facilities.build.levels`, from ≤ L인 마지막 구간)으로 바꾸고, 출발값 [임시]은 옛 raw의 재료 코드를 Lv1 = 1차 원자재(WOOD·PLANK → 소나무, STONE → 석재, BRICK → 잡석, INGOT → 철광석)·Lv2부터 = 가공품(WOOD·PLANK → 판자, STONE·BRICK → 벽돌, INGOT → 철 주괴)으로 옮겼다. 판자·벽돌 아이템과 제재소·가마 시설(옛 SAWMILL·KILN, 레시피 원목 제재·벽돌 소성 = 옛 craft_recipes 값)은 꺼진 채 더했다(켜면 econ16 거래 목록이 바뀐다 — 켤지는 사용자 확인). 건설 시간·유지비는 설정 칸 M14(옛 식, 옛 티어 → 시설 레벨은 기술 해석 ⏳, L4·L5 시간 계수는 옛 표에 없어 L3 값 [임시]). 건물 편집기 `/dev/buildings`에서 재료·자리·채집 칸을 고친다.

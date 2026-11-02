@@ -1,11 +1,12 @@
-// 팩 항목 덮어쓰기(D-461 바로 적용) 공용 모양 — 스킬 편집기(/dev/skills)·아이템 편집기(/dev/items)가 같이 쓴다.
+// 팩 항목 덮어쓰기(D-461 바로 적용) 공용 모양 — 스킬 편집기(/dev/skills)·아이템 편집기(/dev/items)·건물 편집기(/dev/buildings)가 같이 쓴다.
 // docs/adr/2026-11-01-skill-editor.md(덮어쓰기 층), docs/adr/2026-11-01-item-editor.md 3·4절(분류 넓힘·baseHash·은퇴 ID·잠든 줄).
 // 서버(apps/server/src/contentEdit/)와 화면(apps/game/src/editor/content/)이 같이 쓴다.
 
 /**
  * 덮어쓸 수 있는 팩 분류(코드 목록). 스킬 편집기 = skills(+ 행동별 소모: items 무기·unit_kinds 타고난 무기), 아이템 편집기 = items +
  * 분류 자료(item_subcategories·item_tags·weapon_types) + 효과 사전(effects, WP-6 — DB 검사 content_overrides_category는 WP-1에서
- * 이미 넓혔다). 이 판이 모르는 분류의 줄은 읽지도 지우지도 않는다(켤 때 잠든 줄 unknown_category: 직전 판 앱이 effects 줄을 이렇게 둔다)
+ * 이미 넓혔다), 건물 편집기 = facilities(docs/adr/2026-11-02-building-editor.md, DB 검사는 마이그레이션 content_overrides_facilities가
+ * 넓힌다). 이 판이 모르는 분류의 줄은 읽지도 지우지도 않는다(켤 때 잠든 줄 unknown_category: 직전 판 앱이 facilities 줄을 이렇게 둔다)
  */
 export const CONTENT_EDIT_CATEGORIES = [
   "skills",
@@ -15,6 +16,7 @@ export const CONTENT_EDIT_CATEGORIES = [
   "item_tags",
   "weapon_types",
   "effects",
+  "facilities",
 ] as const;
 export type ContentEditCategory = (typeof CONTENT_EDIT_CATEGORIES)[number];
 

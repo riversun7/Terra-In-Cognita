@@ -1,5 +1,5 @@
-// 팩 항목 실효 값 — 스킬·아이템·유닛 종류·아이템 분류 자료 덮어쓰기 접근자 하나(docs/adr/2026-11-01-skill-editor.md 3·4절,
-// docs/adr/2026-11-01-item-editor.md 4절).
+// 팩 항목 실효 값 — 스킬·아이템·유닛 종류·아이템 분류 자료·시설 덮어쓰기 접근자 하나(docs/adr/2026-11-01-skill-editor.md 3·4절,
+// docs/adr/2026-11-01-item-editor.md 4절, docs/adr/2026-11-02-building-editor.md).
 // 실효 항목 = 팩 항목 위에 이 세계(DB)의 덮어쓰기(항목 통째). 팩에 없는 ID는 편집기에서 만든 항목이다(분류 파일 끝에 ID 차례로 붙는다).
 // 설정 칸 접근자(src/tuning/state.ts)와 같은 결이다:
 // - 스냅숏: 판·덮어쓰기·실효 항목(JSON·파싱한 것)을 든 바뀌지 않는 객체 하나. 바꾸기는 새 스냅숏을 대입 한 번으로 바꿔 끼운다.
@@ -10,6 +10,7 @@
 // 서버에서 팩 항목을 읽는 곳(전투 자료·유닛 화면·NPC 정원사 웨이브·전투 서비스·경제 목록)은 effective()를 쓸 때마다 부른다.
 import {
   type EffectEntry,
+  type FacilityEntry,
   type ItemEntry,
   type ItemSubcategoryEntry,
   type ItemTagEntry,
@@ -18,6 +19,7 @@ import {
   type UnitKindEntry,
   type WeaponTypeEntry,
   effectEntrySchema,
+  facilityEntrySchema,
   itemEntrySchema,
   itemSubcategoryEntrySchema,
   itemTagEntrySchema,
@@ -65,6 +67,8 @@ export interface ContentEffective {
   readonly weaponTypes: readonly WeaponTypeEntry[];
   /** 효과 사전(아이템 편집기 WP-6 효과 사전 탭이 덮어쓴다) */
   readonly effects: readonly EffectEntry[];
+  /** 시설(건물 편집기가 덮어쓴다, docs/adr/2026-11-02-building-editor.md). 경제 목록·유닛 화면 이름·아이템 편집기 채집 미리 보기가 읽는다 */
+  readonly facilities: readonly FacilityEntry[];
 }
 
 export interface ContentSnapshot {
@@ -139,6 +143,7 @@ function parseEffective(raw: RawEntries): ContentEffective {
     itemTags: raw.item_tags.map((entry) => itemTagEntrySchema.parse(entry)),
     weaponTypes: raw.weapon_types.map((entry) => weaponTypeEntrySchema.parse(entry)),
     effects: raw.effects.map((entry) => effectEntrySchema.parse(entry)),
+    facilities: raw.facilities.map((entry) => facilityEntrySchema.parse(entry)),
   };
 }
 

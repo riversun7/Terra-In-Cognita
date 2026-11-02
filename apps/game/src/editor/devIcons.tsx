@@ -92,3 +92,14 @@ export function CrateIcon() {
     </DevIcon>
   );
 }
+
+/** 건물 편집기(지붕 있는 집) */
+export function HouseIcon() {
+  return (
+    <DevIcon>
+      <path d="M3.5 11 12 4l8.5 7" />
+      <path d="M6 9.5V20h12V9.5" />
+      <path d="M10 20v-5h4v5" />
+    </DevIcon>
+  );
+}

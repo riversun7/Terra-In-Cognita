@@ -6,6 +6,7 @@
 // docs/adr/2026-11-01-dev-settings-panel.md 5·7절).
 import {
   type EffectEntry,
+  type FacilityEntry,
   type ItemEntry,
   type PackSource,
   type SkillEntry,
@@ -69,6 +70,8 @@ export interface RosterContentEntries {
   readonly items: readonly ItemEntry[];
   readonly unitKinds: readonly UnitKindEntry[];
   readonly effects?: readonly EffectEntry[] | undefined;
+  /** 시설(건물 편집기 덮어쓰기, 이름 표). 없으면 팩 시설 */
+  readonly facilities?: readonly FacilityEntry[] | undefined;
 }
 
 /**
@@ -110,7 +113,7 @@ export function rosterCatalogOf(
       stats: nameTable(statRows.filter((row) => row.enabled)),
       items: nameTable(entries.items.filter((item) => item.enabled)),
       skills: nameTable(entries.skills.filter((skill) => skill.enabled)),
-      facilities: nameTable(facilities.filter((facility) => facility.enabled)),
+      facilities: nameTable((entries.facilities ?? facilities).filter((facility) => facility.enabled)),
       planets: nameTable(planets),
     },
   });

@@ -292,15 +292,19 @@ function whatOf(action: ContentHistoryRow["action"], item: unknown): string {
 }
 
 /**
- * 최근 바꿈(감사 기록 content.*, 새 것부터). 항목 통째는 SQL에서 빼고 요약만 읽는다. key(선택) = 그 항목이 든 줄만
- * (jsonb 포함 검사: apply는 after.changes, 켤 때 줄은 before.changes)
+ * 최근 바꿈(감사 기록 content.*, 새 것부터). 항목 통째는 SQL에서 빼고 요약만 읽는다. key(선택) = 그 항목(id가 없으면 그 분류의 아무
+ * 항목)이 든 줄만(jsonb 포함 검사: apply는 after.changes, 켤 때 줄은 before.changes)
  */
 export async function readContentHistory(
   db: Database,
   limit: number,
-  key?: { readonly category: ContentEditCategory; readonly id: string },
+  key?: { readonly category: ContentEditCategory; readonly id?: string | undefined },
 ): Promise<ContentHistoryRow[]> {
-  const filter = key ? JSON.stringify({ changes: [{ category: key.category, id: key.id }] }) : null;
+  const filter = key
+    ? JSON.stringify({
+        changes: [{ category: key.category, ...(key.id === undefined ? {} : { id: key.id }) }],
+      })
+    : null;
   const result = await db.$client.query<{
     id: string;
     at: Date;

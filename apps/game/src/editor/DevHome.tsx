@@ -4,7 +4,7 @@
 // - 도구마다 한 줄: 아이콘, 이름(주소 표의 화면 이름과 같은 키), 한 줄 설명. 누르면 그 도구 화면을 쌓는다(부모 dev, ADR 37 2절).
 // - 도구 목록은 주소 표에서 부모가 dev인 줄과 같다. 줄이 늘면 DEV_TOOLS에서 타입 오류가 난다(나중 도구도 한 줄씩 더한다).
 // - 이 조각은 미리 캐시된다(작은 목록이다). 도구 조각은 이름 앞머리(gpuBench·planetEditor·starSystem·secondMapLab·tuningPanel·balancePanel·
-//   skillEditor·itemEditor·contentEditor·battleReplayLab)로
+//   skillEditor·itemEditor·buildingEditor·contentEditor·battleReplayLab)로
 //   미리 캐시에서 빠진다.
 import { ROUTES, type RouteId } from "@terra/shared";
 import type { ReactNode } from "react";
@@ -16,6 +16,7 @@ import {
   CrateIcon,
   ForwardIcon,
   GaugeIcon,
+  HouseIcon,
   OrbitIcon,
   ScaleIcon,
   SlidersIcon,
@@ -85,6 +86,13 @@ const DEV_TOOLS = {
     name: m.shell_route_dev_items,
     desc: m.dev_tool_items_desc,
     mark: <CrateIcon />,
+    ready: true,
+  },
+  // 건물 편집기(docs/adr/2026-11-02-building-editor.md): 시설마다 레벨 구간별 건설 재료·자리·채집 칸, 담기 → 적용
+  dev_buildings: {
+    name: m.shell_route_dev_buildings,
+    desc: m.dev_tool_buildings_desc,
+    mark: <HouseIcon />,
     ready: true,
   },
   // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md): 시범 6 대 6을 서버에서 기록해 3D 지도에서 되감고 배속으로 본다

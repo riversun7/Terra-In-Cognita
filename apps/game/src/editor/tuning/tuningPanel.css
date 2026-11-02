@@ -192,7 +192,9 @@
   font-weight: var(--font-weight-strong);
   color: var(--color-text);
 }
+/* 이름 칸이 남는 폭을 먼저 받는다(다른 칸은 줄을 바꾸지 않는 글자 폭) — 긴 영어 이름이 두 줄로 꺾이지 않게 */
 .tp-row > .tp-c-name {
+  width: 40%;
   min-width: 16em;
   white-space: normal;
 }
@@ -347,7 +349,7 @@
   gap: var(--space-1) var(--space-2);
 }
 .tp-input {
-  width: 10em;
+  width: 9em;
   min-height: var(--control-h-sm);
   text-align: end;
   font-family: var(--font-mono);

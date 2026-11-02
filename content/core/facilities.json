@@ -20,6 +20,11 @@
       "stage": "gather",
       "slotsPerLevel": 10,
       "pollution": 2,
+      "gather": {
+        "primary": "dex",
+        "secondary": "str",
+        "subcategory": "wood"
+      },
       "enabled": true
     },
     {
@@ -31,6 +36,11 @@
       "stage": "gather",
       "slotsPerLevel": 10,
       "pollution": 6,
+      "gather": {
+        "primary": "str",
+        "secondary": "vit",
+        "subcategory": "ore"
+      },
       "enabled": true
     },
     {

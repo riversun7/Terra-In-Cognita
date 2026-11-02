@@ -1,7 +1,7 @@
 // 아이템 편집기 미리 보기 자료 모양(items.preview) — 서버가 그 세계의 실효 자료·계산식으로 셈하고 화면은 보이기만 한다(설계안 3.7).
 // docs/adr/2026-11-01-item-editor.md 3절·"바뀜 (2026-11-02)". itemEditor.ts가 다시 내보낸다(파일 크기, AGENTS 4장).
 // 새로 더한 칸은 선택 칸이다: PWA 기기는 서버보다 옛것이거나 새것일 수 있어 화면은 칸이 없을 때도 돈다.
-import type { ContentIssueView } from "./contentEdit.ts";
+import type { ContentIssueView, LocalizedName } from "./contentEdit.ts";
 import type { ItemPrimaryCode } from "./itemEditor.ts";
 
 /** 미리 보기 기준 유닛(화면이 바꾼다) */
@@ -86,6 +86,43 @@ export interface UseAmount {
   readonly max: number;
 }
 
+/**
+ * 채집 티어 추첨 미리 보기(D-506, 49 N43): 초안이 추첨 시설 사다리(그 시설 gather.subcategory)에 있을 때. 셈은 서버가 @terra/sim
+ * gatherStat·gatherChancesPm으로 한다(기준 유닛의 primary + secondary, 시설 Lv1~5, 실효 레벨 보너스·확률표)
+ */
+export interface ItemGatherPreview {
+  readonly facility: string;
+  readonly facilityName: LocalizedName;
+  readonly primary: ItemPrimaryCode;
+  readonly secondary: ItemPrimaryCode;
+  /** 기준 유닛의 primary + secondary */
+  readonly unitStat: number;
+  /** 시설 레벨당 유효 스탯 보너스(설정 칸 N43 n43_level_bonus 실효 값) */
+  readonly levelBonus: number;
+  /**
+   * 시설 Lv1~5마다: 유효 스탯, 든 구간(bands 번호), 묶음 하나에서 이 아이템이 나올 확률(만분율, 버림). 뽑은 티어에 켜진 아이템이
+   * 없으면 더 낮은 티어로 내려가므로 높은 티어 몫이 이 아이템에 모일 수 있다. 같은 티어에 여럿이면 나눈다
+   */
+  readonly levels: readonly {
+    readonly level: number;
+    readonly stat: number;
+    readonly band: number;
+    readonly chanceBp: number;
+  }[];
+  /** 확률표(실효): 구간 시작·끝(마지막은 null = 위 끝 없음)·T0~T9 가중치(‰) */
+  readonly bands: readonly {
+    readonly from: number;
+    readonly to: number | null;
+    readonly weightsPm: readonly number[];
+  }[];
+  /** 초안 티어(확률표에서 표시할 열) */
+  readonly tier: number;
+  /** 이 티어의 켜진 같은 중분류 아이템 수(초안 포함, 초안이 꺼져 있으면 0일 수 있다) */
+  readonly sameTier: number;
+  /** 초안이 꺼져 있으면 거짓(세계에서 나오지 않는다) */
+  readonly enabled: boolean;
+}
+
 export interface ItemEditorPreviewResponse {
   readonly ok: boolean;
   /** 초안이 팩 스키마에 걸리면 그 문제(미리 보기는 하지 않는다) */
@@ -153,6 +190,8 @@ export interface ItemEditorPreviewResponse {
       readonly exclusive?: string | null | undefined;
     }[];
   } | null;
+  /** 채집 티어 추첨(추첨 시설 사다리에 없는 아이템·옛 서버면 null 또는 없음) */
+  readonly gather?: ItemGatherPreview | null | undefined;
   readonly value: {
     /** 시작 시세(295: 시장의 첫 가격) */
     readonly startPrice: number;

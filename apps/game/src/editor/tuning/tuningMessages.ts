@@ -55,6 +55,7 @@ const UNIT_TEXT: Readonly<Record<TuningUnit, () => string>> = {
   milli: m.dev_tuning_unit_milli,
   points: m.dev_tuning_unit_points,
   level: m.dev_tuning_unit_level,
+  grams: m.dev_tuning_unit_grams,
 };
 
 export function unitText(unit: TuningUnit | null): string {

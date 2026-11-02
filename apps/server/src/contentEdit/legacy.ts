@@ -13,6 +13,9 @@
 //   없음(D-502)이라 attack을 0으로 두고 적정을 뺀다. 옛 맨손 속성 자료(naturalElementalWeapon)는 지금 팩처럼 맨손(unarmed, attack 0)이다.
 // - items, 팩 core@28(295 "시작 시세"): 옛 기준 가치 칸 baseValue는 startPrice로 옮긴다(같은 값: 시장이 처음 열릴 때의 첫 가격으로만
 //   쓴다). 둘 다 있으면 startPrice를 두고 baseValue는 뺀다.
+// - items, 팩 core@29(302·D-506 "광석 1g, 거래·레시피는 묶음"): 묶음 크기 칸 lotSize가 생겼다. core@28까지 저장한 줄에 lotSize가 없고
+//   지금 팩 항목에 있으면(금속 원석 1,000) 팩 값을 넣는다. 그러지 않으면 옛 철광석 줄(값 8 = 1kg당)이 1g당 8로 읽힌다. 저장 판을 모르는
+//   감사 기록의 옛 판 항목도 같은 규칙(없으면 팩 값)이다. 무게(weight)는 옮기지 않는다(옛 줄 값 그대로).
 // 감사 기록의 옛 판 항목(items.historyEntry, 다시 담기)도 같은 함수(upgradeLegacyEntry)로 읽는다.
 import type { ContentEditCategory } from "@terra/shared/contentEdit";
 import type { ContentOverrideRecord } from "./boot.ts";
@@ -123,13 +126,35 @@ function upgradeStartPrice(entry: EntryJson): EntryJson {
   return "startPrice" in rest ? rest : { ...rest, startPrice: baseValue };
 }
 
+/** 묶음 크기 칸이 생긴 팩 판(core@29) */
+export const LOT_SIZE_SINCE = 29;
+
+/** 저장 판(`<팩>@<N>`)이 묶음 크기 칸 전인가. 판을 모르면(감사 기록 옛 판 항목) 전으로 본다 */
+function beforeLotSize(savedVersion: string | undefined): boolean {
+  if (savedVersion === undefined) return true;
+  const match = /@(\d+)$/.exec(savedVersion);
+  return match ? Number(match[1]) < LOT_SIZE_SINCE : false;
+}
+
+/** 옛 줄에 묶음 크기가 없고 팩 항목에 있으면 팩 값(302·D-506). 바뀌지 않으면 같은 객체 */
+function upgradeLotSize(
+  entry: EntryJson,
+  pack: EntryJson | undefined,
+  savedVersion: string | undefined,
+): EntryJson {
+  if ("lotSize" in entry || !beforeLotSize(savedVersion)) return entry;
+  const lot = pack?.lotSize;
+  return typeof lot === "number" && lot > 1 ? { ...entry, lotSize: lot } : entry;
+}
+
 /** 아이템 항목 하나(바뀌지 않으면 같은 객체) */
 function upgradeItem(
   entry: EntryJson,
   removedSubcategories: ReadonlySet<string>,
   pack: EntryJson | undefined,
+  savedVersion: string | undefined,
 ): EntryJson {
-  let next: EntryJson = upgradeStartPrice(entry);
+  let next: EntryJson = upgradeLotSize(upgradeStartPrice(entry), pack, savedVersion);
   const subcategory = entry.subcategory;
   if (typeof subcategory === "string" && removedSubcategories.has(subcategory)) {
     const { subcategory: _drop, ...rest } = next;
@@ -154,16 +179,20 @@ function removedSubcategoriesOf(core: ContentCore): Set<string> {
   );
 }
 
-/** 항목 하나를 지금 모양으로(바뀌지 않으면 같은 객체). removed = 팩이 지운 중분류(여러 줄이면 한 번 셈해 넘긴다) */
+/**
+ * 항목 하나를 지금 모양으로(바뀌지 않으면 같은 객체). removed = 팩이 지운 중분류(여러 줄이면 한 번 셈해 넘긴다),
+ * savedVersion = 줄을 저장한 팩 판(`core@N`, 모르면 undefined)
+ */
 export function upgradeLegacyEntry(
   core: ContentCore,
   category: ContentEditCategory,
   id: string,
   entry: EntryJson,
   removed: ReadonlySet<string> = removedSubcategoriesOf(core),
+  savedVersion?: string,
 ): EntryJson {
   const pack = core.packEntry(category, id);
-  if (category === "items") return upgradeItem(entry, removed, pack);
+  if (category === "items") return upgradeItem(entry, removed, pack, savedVersion);
   return category === "unit_kinds" ? upgradeUnitKind(entry, pack) : entry;
 }
 
@@ -175,7 +204,7 @@ export function upgradeLegacyRows(
   const removed = removedSubcategoriesOf(core);
   const upgraded: string[] = [];
   const out = rows.map((row) => {
-    const entry = upgradeLegacyEntry(core, row.category, row.id, row.entry, removed);
+    const entry = upgradeLegacyEntry(core, row.category, row.id, row.entry, removed, row.contentVersion);
     if (entry === row.entry) return row;
     upgraded.push(contentKey(row.category, row.id));
     return { ...row, entry };

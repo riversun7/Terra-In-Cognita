@@ -337,6 +337,14 @@ export const TUNING_KEYS: readonly TuningKey[] = [
     "Extra yield (sub stat ‰)",
   ),
   k(
+    "n43_level_bonus",
+    "N43",
+    "society",
+    "gatherLevelBonus",
+    "채집 시설 레벨당 티어 보너스(유효 스탯)",
+    "Gathering facility tier bonus per level (effective stat)",
+  ),
+  k(
     "n33_food_zero_at",
     "N33",
     "society",

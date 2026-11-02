@@ -140,4 +140,42 @@ describe("물자 거래소(호가창 + 장부 에스크로)", () => {
     expect(market.checkEscrow()).toEqual([]);
     expect(audit.check(book.accounts())).toEqual([]);
   });
+
+  it("묶음(302·D-506): 수량·값은 묶음 단위, 창고·에스크로는 기본 단위(묶음 1,000 = 1kg)", () => {
+    const audit = createLedgerAudit();
+    const book = createLedgerBook({ nextAccountId: counter(), nextTxId: counter(), hooks: audit.hooks });
+    const ORE = "item:iron_ore";
+    const give = (owner: number, asset: string, amount: bigint, location: number | null) =>
+      book.post({
+        kind: "issue",
+        atMs: 0,
+        entries: [
+          { account: book.systemAccount(`issue:${asset}`, asset), amount: -amount },
+          { account: book.ownerAccount(owner, asset, location), amount },
+        ],
+      });
+    const market = createGoodsMarket(
+      { id: 2, location: CITY, item: ORE, currency: CUR, taxBp: 0, treasuryOwner: TREASURY, lotSize: 1000n },
+      book,
+      counter(),
+    );
+    give(1, ORE, 2_500n, CITY);
+    give(2, CUR, 1_000n, null);
+    // 2.5kg로는 3묶음을 걸 수 없다
+    expect(market.place(1, "sell", 8n, 3n, 0, 100)).toEqual({ ok: false, reason: "insufficient" });
+    expect(market.place(1, "sell", 8n, 2n, 0, 100).ok).toBe(true);
+    expect(book.balanceOf(1, ORE, CITY)).toBe(500n);
+    expect(market.checkEscrow()).toEqual([]);
+    // 1묶음 체결: 1,000g이 옮겨 가고 값은 묶음당 8
+    const buy = market.place(2, "buy", 8n, 1n, 1, 100);
+    expect(buy.ok && buy.fills.map((fill) => `${fill.price}x${fill.qty}`)).toEqual(["8x1"]);
+    expect(book.balanceOf(2, ORE, CITY)).toBe(1_000n);
+    expect(book.balanceOf(2, CUR)).toBe(992n);
+    expect(market.volume).toBe(1n);
+    // 남은 1묶음을 거두면 1,000g이 돌아온다
+    market.cancelOwner(1, 2);
+    expect(book.balanceOf(1, ORE, CITY)).toBe(1_500n);
+    expect(market.checkEscrow()).toEqual([]);
+    expect(audit.check(book.accounts())).toEqual([]);
+  });
 });

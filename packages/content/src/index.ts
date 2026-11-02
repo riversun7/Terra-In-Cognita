@@ -57,12 +57,16 @@ export {
 } from "./schema/items.ts";
 export {
   FACILITY_STAGES,
+  GATHER_TIER_COUNT,
+  GATHER_WEIGHT_TOTAL,
   ITEM_CATEGORIES,
   facilityEntrySchema,
+  gatherTierEntrySchema,
   nationPresetEntrySchema,
   necessityEntrySchema,
   recipeEntrySchema,
   type FacilityEntry,
+  type GatherTierEntry,
   type NationPresetEntry,
   type NecessityEntry,
   type RecipeEntry,

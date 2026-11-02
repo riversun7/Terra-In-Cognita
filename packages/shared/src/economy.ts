@@ -61,6 +61,12 @@ export interface CatalogItemView {
    * (PWA 기기는 서버보다 옛것이거나 새것일 수 있다)
    */
   readonly market?: MarketKind | undefined;
+  /**
+   * 거래 묶음 크기(기본 단위 개수, 302·D-506): 거래소 수량·값과 레시피 수량은 묶음 단위, 창고 보유는 기본 단위. 없으면 1(옛 서버)
+   */
+  readonly lotSize?: DecimalString | undefined;
+  /** 기본 단위 하나의 무게(g, 팩 weight). 없으면 모름 */
+  readonly weight?: number | undefined;
 }
 
 export interface CatalogFacilityView {
@@ -89,6 +95,13 @@ export interface CatalogRecipeView {
   readonly tier: number;
   /** 기준 일꾼 한 명이 한 번 만드는 시간(ms, @terra/sim batchDurationMs) */
   readonly baseDurationMs: number;
+  /**
+   * 채집 티어 추첨(D-506): 산출 묶음마다 이 중분류에서 티어를 뽑는다(유효 스탯 = 일꾼 primary + secondary + 레벨 보너스).
+   * 시설 레벨은 티어를 막지 않는다. 없으면 산출 그대로(옛 서버도 없음)
+   */
+  readonly gather?:
+    | { readonly primary: string; readonly secondary: string; readonly subcategory: string }
+    | undefined;
 }
 
 export interface CatalogCurrencyView {

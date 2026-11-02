@@ -7,6 +7,7 @@ import {
   type StatRowEntry,
   facilityEntrySchema,
   formulaEntrySchema,
+  gatherTierEntrySchema,
   overlayFormulasDiff,
   formatIssue,
   hasErrors,
@@ -76,6 +77,8 @@ function catalogOf(source: PackSource): EconomyCatalog {
       tier: item.tier,
       category: item.category,
       startPrice: BigInt(item.startPrice),
+      ...(item.subcategory ? { subcategory: id(item.subcategory) } : {}),
+      ...(item.lotSize === undefined ? {} : { lotSize: BigInt(item.lotSize) }),
       enabled: item.enabled,
     })),
     recipes: parseFile(source, "recipes.json", (raw) => recipeEntrySchema.parse(raw)).map((recipe) => ({
@@ -92,6 +95,15 @@ function catalogOf(source: PackSource): EconomyCatalog {
         stage: facility.stage,
         slotsPerLevel: facility.slotsPerLevel,
         pollution: facility.pollution ?? 0,
+        ...(facility.gather
+          ? {
+              gather: {
+                primary: facility.gather.primary,
+                secondary: facility.gather.secondary,
+                subcategory: id(facility.gather.subcategory),
+              },
+            }
+          : {}),
         enabled: facility.enabled,
       }),
     ),
@@ -112,7 +124,17 @@ function catalogOf(source: PackSource): EconomyCatalog {
         enabled: preset.enabled,
       }),
     ),
+    // 채집 티어 확률표(팩 gather_tiers, 파일 차례 = from 차례). 파일이 없으면 시뮬 기본표(TEST_GATHER_BANDS)
+    ...gatherBandsOf(source),
   };
+}
+
+/** 팩 gather_tiers → 시뮬 확률표(파일이 없거나 비면 칸을 두지 않는다) */
+function gatherBandsOf(source: PackSource): { gatherBands?: { from: number; weightsPm: number[] }[] } {
+  const bands = parseFile(source, "gather_tiers.json", (raw) => gatherTierEntrySchema.parse(raw)).map(
+    (band) => ({ from: band.from, weightsPm: [...band.weightsPm] }),
+  );
+  return bands.length > 0 ? { gatherBands: bands } : {};
 }
 
 /** 팩의 전투 분류 → 시뮬 전투 자료(변환은 combatCatalogFrom). 가중치 표 행은 따로 돌려준다(--tuning 가중치 칸 차이) */

@@ -33,6 +33,14 @@ export function fieldHint(path: string, extra?: string): string {
   return extra ? `${chip} · ${extra}` : chip;
 }
 
+/** 거래 묶음 칸 풀이(302·D-506): 무게를 알면 묶음 하나의 무게, 아니면 단위 규칙 */
+function lotHint(draft: ItemJson): string {
+  const lot = draft.lotSize ?? 1;
+  return draft.weight !== undefined && draft.weight > 0 && lot > 1
+    ? m.dev_items_lot_hint_weight({ size: weightText(lot * draft.weight) })
+    : m.dev_items_lot_hint();
+}
+
 /** 접히는 구역 하나 */
 export function Section({
   title,
@@ -250,6 +258,19 @@ export function ItemBasicSections({
             onChange={(weight) => {
               const { weight: _drop, ...rest } = draft;
               onChange(weight === undefined ? rest : { ...rest, weight });
+            }}
+          />
+          <NumberField
+            label={m.dev_items_field_lot_size()}
+            value={draft.lotSize}
+            min={L.lotSize.min}
+            max={L.lotSize.max}
+            optional
+            hint={fieldHint("lotSize", lotHint(draft))}
+            problem={problem("lotSize")}
+            onChange={(lotSize) => {
+              const { lotSize: _drop, ...rest } = draft;
+              onChange(lotSize === undefined ? rest : { ...rest, lotSize });
             }}
           />
           {equipment ? (

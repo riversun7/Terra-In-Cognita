@@ -676,6 +676,32 @@
       "structural": false
     },
     {
+      "id": "n43_level_bonus",
+      "code": "N43",
+      "name": {
+        "ko": "채집 시설 레벨당 티어 보너스(유효 스탯)",
+        "en": "Gathering facility tier bonus per level (effective stat)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "d506_storage_per_level",
+      "code": "",
+      "name": {
+        "ko": "채집 시설 레벨당 창고 용량(g)",
+        "en": "Gathering facility storage per level (g)"
+      },
+      "value": 1000000,
+      "structural": false,
+      "unit": "grams",
+      "min": 0,
+      "max": 1000000000
+    },
+    {
       "id": "d130_shares_per_city",
       "code": "",
       "name": {

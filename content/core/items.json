@@ -41,8 +41,10 @@
       },
       "category": "raw",
       "subcategory": "ore",
-      "tier": 1,
+      "tier": 3,
       "startPrice": 8,
+      "weight": 1,
+      "lotSize": 1000,
       "enabled": true
     },
     {
@@ -500,6 +502,7 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 1,
+      "lotSize": 1000,
       "enabled": false
     },
     {
@@ -513,6 +516,7 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 1,
+      "lotSize": 1000,
       "enabled": false
     },
     {
@@ -526,6 +530,7 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 1,
+      "lotSize": 1000,
       "enabled": false
     },
     {
@@ -539,6 +544,7 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 1,
+      "lotSize": 1000,
       "enabled": false
     },
     {
@@ -552,6 +558,7 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 1,
+      "lotSize": 1000,
       "enabled": false
     },
     {
@@ -565,6 +572,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 1,
+      "lotSize": 1000,
       "enabled": false
     },
     {
@@ -578,6 +586,7 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 1,
+      "lotSize": 1000,
       "enabled": false
     },
     {

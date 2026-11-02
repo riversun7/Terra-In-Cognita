@@ -7,6 +7,8 @@
 // - 거래세 = ⌊총액 × 세율(만분율) ÷ 10000⌋(버림), 판 쪽이 내고 그 도시를 가진 나라의 국고로 간다(D-128·D-131, 기술 기본안).
 // - 불변식: 물건 에스크로 = 걸린 팔 주문 남은 양 합, 돈 에스크로 = 걸린 살 주문 (값 × 남은 양) 합(checkEscrow).
 // - 걷은 거래세 누적(taxCollected, 읽기 전용 통계): 도시 세금 정산(D-304, society/dividends.ts)이 기간 차이를 쓴다. 장부는 바꾸지 않는다.
+// - 묶음(302·D-506): 주문 수량·남은 양·체결 수량·volume은 묶음 단위, 값은 묶음 하나당이다. 물건 계정(창고·에스크로)은 기본 단위라
+//   묶을 때·체결·돌려줄 때 수량 × lotSize를 옮긴다(광석: 묶음 1 = 1,000g). lotSize가 없으면 1(지금까지와 같다).
 import type { LedgerBook, LedgerEntry } from "../ledger/ledgerBook.ts";
 import { type BookFill, type BookOrder, type OrderBook, type Side, createOrderBook } from "./orderBook.ts";
 
@@ -22,6 +24,8 @@ export interface GoodsMarketConfig {
   readonly taxBp: number;
   /** 거래세를 받는 국고의 주인(세력) */
   readonly treasuryOwner: number;
+  /** 묶음 크기(물건 기본 단위 개수, 없으면 1) */
+  readonly lotSize?: bigint | undefined;
 }
 
 export type PlaceResult =
@@ -72,6 +76,8 @@ export function createGoodsMarket(
   restore: readonly BookOrder[] = [],
 ): GoodsMarket {
   let config = initial;
+  const lot = initial.lotSize ?? 1n;
+  if (lot <= 0n) throw new RangeError("lotSize must be positive");
   const orders: OrderBook = createOrderBook(restore);
   let lastPrice: bigint | undefined;
   let trades = 0;
@@ -89,8 +95,8 @@ export function createGoodsMarket(
     if (order.remaining === 0n) return;
     const entries: LedgerEntry[] = [];
     if (order.side === "sell") {
-      push(entries, goodsEscrow(), -order.remaining);
-      push(entries, goodsOf(order.owner), order.remaining);
+      push(entries, goodsEscrow(), -order.remaining * lot);
+      push(entries, goodsOf(order.owner), order.remaining * lot);
     } else {
       const amount = order.price * order.remaining;
       push(entries, cashEscrow(), -amount);
@@ -106,8 +112,8 @@ export function createGoodsMarket(
     const tax = (gross * BigInt(config.taxBp)) / 10_000n;
     const improvement = fill.takerSide === "buy" ? (takerPrice - fill.price) * fill.qty : 0n;
     const entries: LedgerEntry[] = [];
-    push(entries, goodsEscrow(), -fill.qty);
-    push(entries, goodsOf(buyer), fill.qty);
+    push(entries, goodsEscrow(), -fill.qty * lot);
+    push(entries, goodsOf(buyer), fill.qty * lot);
     push(entries, cashEscrow(), -(gross + improvement));
     push(entries, cashOf(seller), gross - tax);
     push(entries, cashOf(config.treasuryOwner), tax);
@@ -138,7 +144,7 @@ export function createGoodsMarket(
     place(owner, side, price, qty, nowMs, expiresAtMs) {
       if (price <= 0n || qty <= 0n) throw new RangeError("price and qty must be positive");
       const from = side === "sell" ? goodsOf(owner) : cashOf(owner);
-      const lock = side === "sell" ? qty : price * qty;
+      const lock = side === "sell" ? qty * lot : price * qty;
       if (book.balance(from) < lock) return { ok: false, reason: "insufficient" };
       book.post({
         kind: "order_escrow",
@@ -195,7 +201,7 @@ export function createGoodsMarket(
       let goods = 0n;
       let cash = 0n;
       for (const order of orders.orders()) {
-        if (order.side === "sell") goods += order.remaining;
+        if (order.side === "sell") goods += order.remaining * lot;
         else cash += order.price * order.remaining;
       }
       const problems: string[] = [];

@@ -106,6 +106,30 @@ const huge = (data: unknown): void => {
 test.describe("admin 시안 자료(시험 거래소)", () => {
   test.use({ account: "admin", preview: "admin" });
 
+  test("묶음·채집 추첨(302·D-506): 광산 레시피는 묶음마다 티어 추첨, 철광석은 1 kg 묶음(레시피·호가창·창고)", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await openPreview(page, "/economy/production");
+    const rolled = economy(page).locator(".eco-row", {
+      hasText: message("ko", "economy_recipe_gather", { stats: "STR+VIT" }),
+    });
+    await expect(rolled).toHaveCount(1);
+    await expect(rolled.locator(".eco-tag")).toHaveText(message("ko", "economy_tier_rolled"));
+    // 캐기 산출·제련 재료가 "철광석 ×10 (묶음 1 kg)"
+    const ore = message("ko", "economy_stack_lot", { name: "철광석", qty: "10", size: "1 kg" });
+    await expect(economy(page).locator(".eco-row-meta", { hasText: ore })).toHaveCount(2);
+    await page.goto("/economy/market/iron_ore/101");
+    await expect(economy(page).locator('[data-part="lot-note"]')).toHaveText(
+      message("ko", "economy_lot_note", { size: "1 kg" }),
+    );
+    await page.goto("/economy/warehouse");
+    await expect(economy(page).locator(".eco-place").first()).toContainText(
+      message("ko", "economy_hold_lots", { size: "1 kg", lots: "310" }),
+    );
+    expect(deviceErrors).toEqual([]);
+  });
+
   test("물건 → 도시 → 호가창: 호가 줄을 누르면 값이 들어가고, 미리 보기가 바뀌고, [주문]은 잠겨 있다", async ({
     page,
     deviceErrors,

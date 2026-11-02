@@ -7,9 +7,11 @@
 // 2차맵 소품(map_props): 2차맵 생성기의 배치 규칙(ADR 2026-10-31-second-map-from-planet 4절, 임시 데이터).
 // 전투 계산식(formulas): 개발자 모드에서 고치는 식(docs/adr/2026-11-01-formula-editor.md).
 // 아이템 분류 자료(item_subcategories·item_tags·weapon_types)와 아이템 공통 칸·묶음(docs/adr/2026-11-01-item-editor.md 2절).
+// 채집·채굴 티어 확률표(gather_tiers, 49 N43·D-506): 유효 스탯 구간마다 T0~T9 가중치(docs/adr/2026-10-31-economy-core.md "바뀜 (300~302)").
 import { z } from "zod";
 import {
   facilityEntrySchema,
+  gatherTierEntrySchema,
   nationPresetEntrySchema,
   necessityEntrySchema,
   recipeEntrySchema,
@@ -56,6 +58,7 @@ export const CATEGORIES: CategoryRegistry = {
   recipes: { entry: recipeEntrySchema },
   necessities: { entry: necessityEntrySchema },
   nation_presets: { entry: nationPresetEntrySchema },
+  gather_tiers: { entry: gatherTierEntrySchema },
   stat_rows: { entry: statRowEntrySchema },
   formulas: { entry: formulaEntrySchema },
   effects: { entry: effectEntrySchema },

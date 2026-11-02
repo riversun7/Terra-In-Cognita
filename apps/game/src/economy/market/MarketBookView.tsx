@@ -1,12 +1,22 @@
 // 호가창 + 주문표(/economy/market/:itemId/:cityId) — D-6033 배치: 위 차트(접기), 왼쪽 호가창, 오른쪽 주문표, 아래 체결.
 // 넓은 화면(64em 이상)은 옆 패널에 차트를 크게, 이 시장의 내 주문 목록을 둔다. 촘촘(data-density="compact")은 경제 화면 틀이 단다.
 // 주문표 상태는 이 화면이 들고, 호가 줄을 누르면 값이 주문표에 들어간다.
+// 묶음 크기가 1보다 큰 물건(광석 1kg)은 가격·수량이 묶음 단위라는 알림을 시세 아래 둔다(302·D-506).
 import type { EconomyOrdersResponse, MarketBookResponse } from "@terra/shared/economy";
 import { useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { AppLink } from "../../shell/AppLink.tsx";
 import { toBig } from "../amount.ts";
-import { currencyName, fmt, formatAgo, formatClock, indexCatalog, itemName } from "../economyText.ts";
+import {
+  currencyName,
+  fmt,
+  formatAgo,
+  formatClock,
+  indexCatalog,
+  itemName,
+  lotOf,
+  lotText,
+} from "../economyText.ts";
 import type { OrderContext, OrderDraft } from "../orderForm.ts";
 import { Change, Loaded, NotReady, PreviewTag } from "../parts.tsx";
 import { NO_ARGS, useCatalog, useMarketBook, useMarketCities, useOrders } from "../queries.ts";
@@ -150,6 +160,11 @@ function BookTrader({
             <dd className="eco-num">{fmt(book.volume)}</dd>
           </div>
         </dl>
+        {lotOf(index.items.get(book.item)) > 1n ? (
+          <p className="eco-notice" data-part="lot-note">
+            {m.economy_lot_note({ size: lotText(index.items.get(book.item)) })}
+          </p>
+        ) : null}
         {book.inSight ? null : (
           <p className="eco-notice" data-tone="warning">
             {m.economy_book_observed({ time: formatAgo(book.observedAt, book.generatedAt) })}

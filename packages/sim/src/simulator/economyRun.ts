@@ -10,6 +10,7 @@ import {
   EVENT_TRADE,
   EVENT_UPKEEP,
   type Economy,
+  type GatherSettings,
   bankDay,
   beforeCityTransfer,
   cityRuined,
@@ -54,6 +55,8 @@ export interface EconomySummary {
   readonly markets: number;
   readonly trades: number;
   readonly volume: Record<string, string>;
+  /** 생산한 양 누적(물건 자산 → 기본 단위, 출력 형식 판 8) */
+  readonly produced: Record<string, string>;
   readonly shortUnits: Record<string, number>;
   readonly inputShort: number;
   readonly money: Record<string, string>;
@@ -92,14 +95,16 @@ export function attachEconomy(
   loop: SimLoop<SimEvent>,
   startMs: number,
   npc: NpcCoefficients,
+  gather?: GatherSettings,
 ): EconomyRun {
-  const economy = createEconomy(world, scenario, catalog, startMs);
+  const economy = createEconomy(world, scenario, catalog, startMs, gather);
   scheduleEconomy(economy, world, loop, startMs);
   const totals = {
     trades: 0,
     volume: new Map<string, bigint>(),
     shortUnits: new Map<string, number>(),
     inputShort: 0,
+    produced: new Map<string, bigint>(),
   };
   const marketTotals = (): { trades: number; volume: Map<string, bigint> } => {
     let trades = 0;
@@ -201,6 +206,11 @@ export function attachEconomy(
       for (const [asset, n] of economy.today.shortUnits)
         totals.shortUnits.set(asset, (totals.shortUnits.get(asset) ?? 0) + n);
       totals.inputShort += economy.today.inputShort;
+      const produced = new Map<string, string>();
+      for (const [asset, qty] of economy.today.produced) {
+        produced.set(asset, qty.toString());
+        totals.produced.set(asset, (totals.produced.get(asset) ?? 0n) + qty);
+      }
       const money = new Map<string, string>();
       const fx = new Map<string, string>();
       const issued = new Map<string, string>();
@@ -214,6 +224,7 @@ export function attachEconomy(
       const line = {
         trades,
         volume: record(volume),
+        produced: record(produced),
         prices: prices(),
         money: record(money),
         issued: record(issued),
@@ -228,6 +239,7 @@ export function attachEconomy(
       economy.today.issued.clear();
       economy.today.burned.clear();
       economy.today.inputShort = 0;
+      economy.today.produced.clear();
       return line;
     },
     check() {
@@ -244,6 +256,8 @@ export function attachEconomy(
       }
       const volume = new Map<string, string>();
       for (const [asset, qty] of totals.volume) volume.set(asset, qty.toString());
+      const produced = new Map<string, string>();
+      for (const [asset, qty] of totals.produced) produced.set(asset, qty.toString());
       let markets = 0;
       for (const perItem of economy.markets.values()) markets += perItem.size;
       return {
@@ -251,6 +265,7 @@ export function attachEconomy(
         markets,
         trades: totals.trades,
         volume: record(volume),
+        produced: record(produced),
         shortUnits: record(totals.shortUnits),
         inputShort: totals.inputShort,
         money: record(money),

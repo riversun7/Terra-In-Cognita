@@ -1,9 +1,10 @@
-// 팩 하나 검증 — 1단계(스키마) → 2단계(참조 무결성, 이어서 행성 바이옴 표·계산식·아이템 사이 규칙)·4a단계(ID 변경표).
+// 팩 하나 검증 — 1단계(스키마) → 2단계(참조 무결성, 이어서 행성 바이옴 표·계산식·아이템 사이 규칙·채집 티어표)·4a단계(ID 변경표).
 // 검사 스크립트, 서버 시작, (나중에) 브라우저 편집기가 같은 함수를 쓴다. 파일 시스템·git은 쓰지 않는다.
 import { type ContentIssue, hasErrors } from "../issue.ts";
 import type { ContentPack, PackSource } from "../pack.ts";
 import { CATEGORIES, type CategoryRegistry } from "../schema/categories.ts";
 import { checkFormulas } from "./formulas.ts";
+import { checkGather } from "./gather.ts";
 import { checkIdChanges } from "./idChanges.ts";
 import { checkItems } from "./items.ts";
 import { checkPlanetBiomeTables } from "./planets.ts";
@@ -26,6 +27,7 @@ export function validatePack(source: PackSource, registry: CategoryRegistry = CA
     ...checkPlanetBiomeTables(schema.pack),
     ...checkFormulas(schema.pack),
     ...checkItems(schema.pack),
+    ...checkGather(schema.pack),
     ...checkIdChanges(schema.pack, registry),
   ];
   return { issues, pack: hasErrors(issues) ? undefined : schema.pack };

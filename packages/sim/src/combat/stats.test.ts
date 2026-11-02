@@ -58,7 +58,7 @@ describe("스탯 계산기(D-414·D-417, 정수 ‰)", () => {
     expect(computeSecondary(agiOnly(0), TEST_STAT_TABLE).evade).toBe(0);
   });
 
-  it("2차 스탯 17개(D-458)와 시야: 확률 모양은 회피·물리/속성 방어율, 나머지는 양 모양(명중·크리·행동 속도는 점수)", () => {
+  it("2차 스탯 14개(D-458에서 명중·크리·행동 속도 점수를 끔, D-502)와 시야: 확률 모양은 회피·물리/속성 방어율, 나머지는 양 모양", () => {
     const shapes = Object.fromEntries(TEST_STAT_TABLE.map((row) => [row.id, row.shape]));
     expect(shapes).toEqual({
       // 생존 5
@@ -70,13 +70,10 @@ describe("스탯 계산기(D-414·D-417, 정수 ‰)", () => {
       // 공격 2
       physical_attack: "quantity",
       elemental_attack: "quantity",
-      // 정확 4
-      hit: "quantity",
+      // 정확 2(명중·크리 점수는 D-502로 무기 값 × DEX 비율이 되어 껐다)
       evade: "probability",
-      crit_chance: "quantity",
       crit_multiplier: "quantity",
-      // 속도 1
-      action_speed: "quantity",
+      // 속도 0(행동 속도 점수는 D-502로 무기 간격 ÷ AGI 비율이 되어 껐다)
       // 자원 5
       stamina: "quantity",
       stamina_regen: "quantity",

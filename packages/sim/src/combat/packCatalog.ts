@@ -3,9 +3,9 @@
 // 꺼진(또는 없는) 참조는 거른다(docs/adr/2026-11-01-skill-editor.md 2절): 켜진 장비가 가리키는 꺼진 스킬 ID, 켜진 스킬이 가리키는
 // 꺼진 효과 줄. 편집기로 스킬·효과를 꺼도 그것을 주는 장비·스킬로 전투 사양을 만들 때 던지지 않게 한다(뺀 것은 droppedReferences).
 // 행 식(stat_rows formula)과 전투 계산식(formulas)은 읽은 식 나무로 바꾼다(팩 검사가 이미 본 식, 틀리면 던진다).
-// 장비 전투 칸(아이템 편집기 WP-5): 속성값·저항·고정 방어·관통·양손·입을 수 있는 유닛 종류를 장비 정의로 옮기고, 1차 적정 스탯이 있는
-// 무기는 실효 가중치 표로 셈한 2차 적정치를 무기 사양에 넣는다(equipmentAppropriate.ts). 크리쳐 보유·내구도·무기 종류·탄약 연결은
-// 전투가 아직 읽지 않아 옮기지 않는다(조우·내구도·탄약 실행 줄기).
+// 장비 전투 칸(아이템 편집기 WP-5): 속성값·저항·고정 방어·관통·양손·입을 수 있는 유닛 종류를 장비 정의로 옮긴다. 무기의 1차 적정
+// 스탯(D-502)은 무기 사양에 그대로 싣는다(판정이 1차 스탯과 바로 견준다). 크리쳐 보유·내구도·무기 종류·탄약 연결은 전투가 아직 읽지
+// 않아 옮기지 않는다(조우·내구도·탄약 실행 줄기).
 import type {
   EffectEntry,
   FormulaEntry,
@@ -15,11 +15,9 @@ import type {
   UnitKindEntry,
 } from "@terra/content";
 import { STAT_FORMULA_VARS, compileFormulaOrThrow } from "@terra/shared/formula";
-import type { PrimaryAppropriate } from "./appropriate.ts";
 import type { CombatCatalog } from "./catalog.ts";
 import type { EffectDef, ModifierStat } from "./effects.ts";
 import type { EquipDef, GearCombat } from "./equipment.ts";
-import { resolveWeaponAppropriate } from "./equipmentAppropriate.ts";
 import { type CombatFormulaSet, combatFormulaSetFrom } from "./formulas.ts";
 import type { SkillData } from "./skills.ts";
 import type { StatRow } from "./stats.ts";
@@ -29,11 +27,11 @@ type PackWeapon = NonNullable<NonNullable<ItemEntry["equip"]>["weapon"]>;
 type PackEquip = NonNullable<ItemEntry["equip"]>;
 
 /**
- * 팩 무기 사양 → 전투 무기 사양(숫자 칸만). 1차 적정 스탯·양손은 장비 정의(EquipDef appropriate·twoHanded)로 옮기고, 탄약 연결은
- * 전투가 아직 읽지 않아 뺀다(전투 사양·저장된 전투 시작 자료에 섞이지 않게)
+ * 팩 무기 사양 → 전투 무기 사양(숫자 칸과 1차 적정 스탯 D-502). 양손은 장비 정의(EquipDef twoHanded)로 옮기고, 탄약 연결은 전투가
+ * 아직 읽지 않아 뺀다(전투 사양·저장된 전투 시작 자료에 섞이지 않게)
  */
 export function weaponSpecOf(weapon: PackWeapon): WeaponSpec {
-  const { appropriate: _appropriate, twoHanded: _twoHanded, ammo: _ammo, ...spec } = weapon;
+  const { twoHanded: _twoHanded, ammo: _ammo, ...spec } = weapon;
   return spec;
 }
 
@@ -51,13 +49,6 @@ const isCombatStat = (stat: string): stat is ModifierStat => COMBAT_STATS.includ
 /** 효과의 수치 → 전투 수치(1차 스탯 버프는 전투가 아직 읽지 않아 없음) */
 function combatStatOf(stat: EffectEntry["stat"]): ModifierStat | undefined {
   return stat !== undefined && isCombatStat(stat) ? stat : undefined;
-}
-
-/** 팩 1차 적정 스탯(적은 칸만) */
-function appropriateOf(weapon: PackWeapon | undefined): PrimaryAppropriate | undefined {
-  const value = weapon?.appropriate;
-  if (!value) return undefined;
-  return Object.fromEntries(Object.entries(value).filter(([, amount]) => amount !== undefined));
 }
 
 /** 팩 장비의 전투 칸(적은 것만): 속성값 출처(칸 ID → 값)·저항·고정 방어·관통·양손·입을 수 있는 유닛 종류 */
@@ -140,17 +131,11 @@ export function droppedReferences(pack: CombatPackEntries): DroppedReferences {
 
 /**
  * 팩 아이템 하나 → 장비 정의(장비가 아니면 undefined). 꺼진(또는 없는) 스킬은 뺀다(skillsOf가 모르는 스킬에서 던지지 않게).
- * table(실효 가중치 표)을 주면 1차 적정 스탯이 있는 무기의 적정치를 그 표로 셈한다(D-496). 아이템 편집기 미리 보기(서버)가 저장 전
- * 초안에 같은 변환을 쓴다
+ * 아이템 편집기 미리 보기(서버)가 저장 전 초안에 같은 변환을 쓴다
  */
-export function equipDefOf(
-  item: ItemEntry,
-  enabledSkills: ReadonlySet<string>,
-  table?: readonly StatRow[],
-): EquipDef | undefined {
+export function equipDefOf(item: ItemEntry, enabledSkills: ReadonlySet<string>): EquipDef | undefined {
   const equip = item.equip;
   if (!equip) return undefined;
-  const appropriate = appropriateOf(equip.weapon);
   const weapon = equip.weapon ? weaponSpecOf(equip.weapon) : undefined;
   return {
     id: item.id,
@@ -160,10 +145,9 @@ export function equipDefOf(
       min: range.min,
       max: range.max,
     })),
-    weapon: table && appropriate ? resolveWeaponAppropriate({ weapon, appropriate }, table) : weapon,
+    weapon,
     skills: (equip.skills ?? []).map(idOf).filter((skill) => enabledSkills.has(skill)),
     ...gearCombatOfPack(equip),
-    ...(appropriate ? { appropriate } : {}),
   };
 }
 
@@ -224,7 +208,7 @@ export function combatCatalogFrom(pack: CombatPackEntries): CombatCatalog {
       }),
     );
   const equipment = pack.items.flatMap((item): EquipDef[] => {
-    const def = item.enabled ? equipDefOf(item, enabledSkills, statTable) : undefined;
+    const def = item.enabled ? equipDefOf(item, enabledSkills) : undefined;
     return def ? [def] : [];
   });
   const unitKinds = pack.unitKinds

@@ -146,24 +146,23 @@ function knifePack() {
 }
 
 describe("장비 전투 칸(아이템 편집기 WP-5)", () => {
-  it("1차 적정 스탯이 있으면 전투 자료의 적정치 칸 = 실효 표로 셈한 2차 값(질문 290: 물리 59·명중 18·크리 22·속도 54)", () => {
+  it("무기의 1차 적정 스탯(D-502)은 무기 사양 칸 그대로 전투 자료에 간다(2차 적정치로 셈하지 않는다)", () => {
     const catalog = combatCatalogFrom(knifePack());
     const knife = catalog.equipment.find((item) => item.id === "test_sword");
-    expect(knife?.weapon?.physical?.attackAppropriate).toBe(59);
-    expect(knife?.weapon).toMatchObject({ hitAppropriate: 18, critAppropriate: 22, speedAppropriate: 54 });
+    expect(knife?.weapon?.appropriate).toEqual({ str: 25, dex: 15 });
+    expect(knife?.weapon?.physical).toEqual({ attack: 20 });
     expect(knife).toMatchObject({
-      appropriate: { str: 25, dex: 15 },
       twoHanded: true,
       elements: { fire: 4 },
       defenseFlat: 2,
       penetrationPm: 50,
       kinds: ["human", "cyborg"],
     });
-    // 무기 사양에는 숫자 칸만(1차 적정 스탯·양손·탄약 연결은 장비 정의로)
-    expect(knife?.weapon && "appropriate" in knife.weapon).toBe(false);
+    // 무기 사양에는 양손·탄약 연결이 없다(장비 정의로)
+    expect(knife?.weapon && "twoHanded" in knife.weapon).toBe(false);
   });
 
-  it("가중치 표가 바뀌면(밸런스 화면) roster 전투 자료가 적정치를 다시 셈한다(STR 가중치 3000 → 물리 84)", () => {
+  it("가중치 표가 바뀌어도(밸런스 화면) roster 전투 자료의 무기 적정은 그대로이고 표만 바뀐다", () => {
     const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
     if (!loaded.source) throw new Error("content pack");
     const pack = knifePack();
@@ -181,8 +180,7 @@ describe("장비 전투 칸(아이템 편집기 WP-5)", () => {
       () => content,
     );
     const knife = roster.combat.equipment.find((item) => item.id === "test_sword");
-    // 25 × 3 + 15 × 0.6 = 84
-    expect(knife?.weapon?.physical?.attackAppropriate).toBe(84);
+    expect(knife?.weapon?.appropriate).toEqual({ str: 25, dex: 15 });
     expect(roster.combat.statTable).toBe(table);
   });
 });

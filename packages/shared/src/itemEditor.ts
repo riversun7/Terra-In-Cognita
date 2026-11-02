@@ -118,10 +118,9 @@ export const ITEM_LIMITS = {
   penetrationPm: { min: 0, max: 1000 },
   creatureWeight: { min: 0, max: 1_000_000 },
   stealPm: { min: 0, max: 1000 },
-  appropriatePrimary: { min: 0, max: 10_000_000 },
+  /** 무기 1차 적정 스탯(D-502, 팩 스키마 weaponAppropriateSchema: 1 이상, 비우면 그 몫 100%) */
+  appropriatePrimary: { min: 1, max: 10_000_000 },
   weaponAttack: { min: 0, max: 1_000_000 },
-  weaponAppropriate: { min: 0, max: 10_000_000 },
-  speedAppropriate: { min: 1, max: 10_000_000 },
   pm: { min: 0, max: 1000 },
   intervalMs: { min: 100, max: 60_000 },
   range: { min: 1, max: 128 },
@@ -144,30 +143,30 @@ export const ITEM_LIMITS = {
   createdMax: 500,
 } as const;
 
-/** 무기 공격력 칸 */
+/** 무기 공격력 칸(공격력 = 스탯 공격력 + 이 값 × 적정 비율, D-502) */
 export interface ItemWeaponFieldJson {
   readonly attack: number;
-  readonly attackAppropriate: number;
 }
+
+/** 무기 1차 적정 스탯 칸(D-502: str 물리 공격·int 속성 공격·dex 명중·크리·agi 공격 간격, 팩 WEAPON_APPROPRIATE_CODES와 같다) */
+export const WEAPON_APPROPRIATE_CODES = ["str", "int", "dex", "agi"] as const;
+export type WeaponAppropriateCode = (typeof WEAPON_APPROPRIATE_CODES)[number];
 
 /** 팩 equip.weapon(무기 칸만) */
 export interface ItemWeaponJson {
   readonly physical?: ItemWeaponFieldJson | undefined;
   readonly elemental?: ItemWeaponFieldJson | undefined;
   readonly basic?: "physical" | "elemental" | undefined;
+  /** 1차 적정 스탯(D-502, 착용 제한 아님): 몫마다 하나, 없는 칸은 그 몫 비율 100% */
+  readonly appropriate?: Readonly<Partial<Record<WeaponAppropriateCode, number | undefined>>> | undefined;
   readonly hitPm: number;
-  readonly hitAppropriate: number;
   readonly critPm: number;
-  readonly critAppropriate: number;
   readonly intervalMs: number;
-  readonly speedAppropriate: number;
   readonly range: number;
   readonly arc: boolean;
   readonly staminaCost: number;
   readonly mpCost: number;
   readonly skillElementsPm?: readonly number[] | undefined;
-  /** 1차 적정 스탯(D-496, 착용 제한 아님). 전투 연결은 WP-5 */
-  readonly appropriate?: Readonly<Partial<Record<ItemPrimaryCode, number | undefined>>> | undefined;
   readonly twoHanded?: boolean | undefined;
   /** 탄약 연결: 보조 칸 무기 종류 ID */
   readonly ammo?: string | undefined;
@@ -473,18 +472,17 @@ export interface ItemEditorCheckResponse {
 
 // 미리 보기 자료 모양(기준 유닛·자리·응답)은 itemEditorPreview.ts(파일 크기)
 export {
-  APPROPRIATE_ROW_IDS,
   DEFAULT_PREVIEW_UNIT,
   PREVIEW_PMS,
-  type AppropriateRowId,
-  type AppropriateTerms,
+  WEAPON_PART_IDS,
   type BeforeAfter,
   type ItemEditorPreviewResponse,
   type ItemFormulaValue,
   type ItemPreviewIgnored,
   type ItemPreviewUnit,
   type UseAmount,
-  type WeaponEfficiency,
+  type WeaponPartId,
+  type WeaponPartRatio,
 } from "./itemEditorPreview.ts";
 // 효과 사전 편집 모양(WP-6)은 itemEditorEffects.ts
 export {

@@ -1,7 +1,7 @@
 // 전투 계산식 — docs/adr/2026-11-01-formula-editor.md "판정 코드"
-// 실제 공격력·명중·크리(무기 틀), 맨손 일반 공격, 크리 배율, 공격 간격, STA 점수·스태미나 소모, 최종 회피를 개발자 모드에서 고치는
-// 식(@terra/shared/formula)으로 셈한다. 식은 계수표(CombatCoefficients.formulas)에 실린다: 읽은 구문 나무는 직렬화할 수 있는 값이라
-// 전투 시작 자료·스냅숏과 같이 다닌다. 식이 없으면 기본 식(= 지금 코드와 같은 결과, 맨손만 옛 프로젝트 규칙 D-488)이다.
+// 실제 공격력(스탯 공격력 + 무기 몫, D-502)·명중·크리, 맨손 적정 DEX·AGI, 크리 배율, 공격 간격, STA 점수·스태미나 소모, 최종 회피를
+// 개발자 모드에서 고치는 식(@terra/shared/formula)으로 셈한다. 식은 계수표(CombatCoefficients.formulas)에 실린다: 읽은 구문 나무는
+// 직렬화할 수 있는 값이라 전투 시작 자료·스냅숏과 같이 다닌다. 식이 없으면 기본 식(= 지금 코드와 같은 결과)이다.
 // 변수 값은 shared의 …Scope 함수가 만든다(화면 미리 보기와 같은 값). 결과는 칸 규칙대로 정수(내림) 또는 밀리점이다.
 import {
   COMBAT_FORMULA_SLOTS,
@@ -9,9 +9,11 @@ import {
   DEFAULT_COMBAT_FORMULAS,
   type FormulaProgram,
   attackIntervalScope,
-  bareAttackScope,
+  attackScope,
+  bareAppropriateScope,
   compileFormulaOrThrow,
   critMultiplierScope,
+  dexFrameScope,
   evadeScope,
   evaluateFormula,
   evaluateFormulaInt,
@@ -19,7 +21,6 @@ import {
   slotVarNames,
   staminaCostScope,
   staminaScoreScope,
-  weaponFrameScope,
 } from "@terra/shared/formula";
 import type { CombatCoefficients } from "./coefficients.ts";
 
@@ -35,7 +36,7 @@ function setOf(make: (id: CombatFormulaId) => FormulaProgram): CombatFormulaSet 
     real_attack: make("real_attack"),
     real_hit: make("real_hit"),
     real_crit: make("real_crit"),
-    bare_attack: make("bare_attack"),
+    bare_appropriate: make("bare_appropriate"),
     crit_multiplier: make("crit_multiplier"),
     attack_interval: make("attack_interval"),
     stamina_score: make("stamina_score"),
@@ -72,36 +73,43 @@ const formulaOf = (id: CombatFormulaId, c: CombatCoefficients): FormulaProgram =
 const SAFE = Number.MAX_SAFE_INTEGER;
 const nonNegative = (value: number): number => (value < 0 ? 0 : value > SAFE ? SAFE : value);
 
-/** 무기 틀(D-420) 식: 실제 공격력·명중·크리. 결과는 0 이상 정수 */
-export function frameValue(
-  id: "real_attack" | "real_hit" | "real_crit",
+/**
+ * 실제 공격력 식(real_attack, D-502): 스탯 공격력 + 무기 공격력 × min(N10, 1차 ÷ 적정). 적정은 밀리점(0 이하 = 없음 → 100%).
+ * 결과는 0 이상 정수
+ */
+export function attackValue(
+  statAttack: number,
   weapon: number,
-  stat: number,
-  appropriate: number,
+  primary: number,
+  appropriateMilli: number,
   capPm: number,
   c: CombatCoefficients,
 ): number {
   return nonNegative(
-    evaluateFormulaInt(formulaOf(id, c), weaponFrameScope(weapon, stat, appropriate, capPm)),
+    evaluateFormulaInt(
+      formulaOf("real_attack", c),
+      attackScope(statAttack, weapon, primary, appropriateMilli, capPm),
+    ),
   );
 }
 
-/** 맨손 일반 공격 식(D-488): 1차·레벨·물리 공격력 점수·타고난 무기 칸·굴림(0~9999) → 실제 공격력(0 이상 정수) */
-export function bareAttackValue(
-  primaries: readonly number[],
-  level: number,
-  frame: {
-    readonly weapon: number;
-    readonly stat: number;
-    readonly appropriate: number;
-    readonly capPm: number;
-  },
-  roll: number,
+/** 명중·크리 식(real_hit·real_crit): 무기 값 × min(N10, DEX ÷ 적정 DEX(밀리점)). 결과는 0 이상 정수(‰) */
+export function dexFrameValue(
+  id: "real_hit" | "real_crit",
+  weapon: number,
+  dex: number,
+  appropriateMilli: number,
+  capPm: number,
   c: CombatCoefficients,
 ): number {
   return nonNegative(
-    evaluateFormulaInt(formulaOf("bare_attack", c), bareAttackScope(primaries, level, frame, roll)),
+    evaluateFormulaInt(formulaOf(id, c), dexFrameScope(weapon, dex, appropriateMilli, capPm)),
   );
+}
+
+/** 맨손 적정 DEX·AGI(밀리점, 식 bare_appropriate — 기본 = 레벨 × 1.5 + 10). 0 이하면 0(적정 없음 → 비율 100%) */
+export function bareAppropriateMilli(level: number, c: CombatCoefficients): number {
+  return nonNegative(evaluateFormula(formulaOf("bare_appropriate", c), bareAppropriateScope(level)));
 }
 
 /** 크리 배율(‰, N12) 식 */
@@ -114,16 +122,19 @@ export function critMultiplierPm(multiplierPm: number, roll: number, c: CombatCo
   );
 }
 
-/** 공격 간격(ms) 식. 1ms 이상 */
+/** 공격 간격(ms) 식(D-502 사용자 답 297): 무기 간격 ÷ min(N10, AGI ÷ 적정 AGI(밀리점)). 1ms 이상 */
 export function attackIntervalMs(
   intervalMs: number,
-  speed: number,
-  appropriate: number,
+  agi: number,
+  appropriateMilli: number,
   c: CombatCoefficients,
 ): number {
   return Math.max(
     1,
-    evaluateFormulaInt(formulaOf("attack_interval", c), attackIntervalScope(intervalMs, speed, appropriate)),
+    evaluateFormulaInt(
+      formulaOf("attack_interval", c),
+      attackIntervalScope(intervalMs, agi, appropriateMilli, c.appropriateCapPm),
+    ),
   );
 }
 

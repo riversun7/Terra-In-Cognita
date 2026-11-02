@@ -1,7 +1,13 @@
 // 전투 자료 묶음 — 스탯 표·효과 사전·스킬·장비·유닛 종류(칸 배치). docs/adr/2026-10-31-combat-core.md 7절
 // 원본은 콘텐츠 팩(`stat_rows`·`effects`·`skills`·`items`의 equip 칸·`unit_kinds`)이고, 실행 도구가 팩에서 이 모양을 만든다.
 // TEST_COMBAT_CATALOG는 시험·기본값이고 팩의 임시 자료와 같은 값이다(마법 스킬·속성 지팡이는 catalogMagic.ts). [임시] 모든 수치(기획 Step 5·본문 48 전).
-import { MAGIC_EFFECTS, MAGIC_SKILLS, MAGIC_STAFFS } from "./catalogMagic.ts";
+import {
+  MAGIC_EFFECTS,
+  MAGIC_SKILLS,
+  MAGIC_STAFFS,
+  TEST_WEAPON_AGI,
+  TEST_WEAPON_DEX,
+} from "./catalogMagic.ts";
 import type { EffectDef } from "./effects.ts";
 import type { EquipDef, SlotKind } from "./equipment.ts";
 import { type CombatSkill, type SkillData, skillFromData } from "./skills.ts";
@@ -32,14 +38,19 @@ export interface CombatCatalog {
   readonly unitKinds: readonly UnitKindDef[];
 }
 
+/**
+ * 가중치 표를 바꾼 전투 자료(밸런스 화면 가중치 칸·행 식 덮어쓰기, 시뮬 --tuning). 같은 표면 같은 묶음(같은 객체 = 같은 캐시).
+ * 무기 적정은 1차 스탯 그대로라(D-502) 표가 바뀌어도 장비는 다시 셈하지 않는다
+ */
+export function withStatTable(catalog: CombatCatalog, table: readonly StatRow[]): CombatCatalog {
+  return catalog.statTable === table ? catalog : { ...catalog, statTable: table };
+}
+
 /** 맨손 무기의 공격력 칸 말고 나머지(명중·크리·간격·사거리·비용) */
 const UNARMED_BODY = {
   hitPm: 850,
-  hitAppropriate: 20,
   critPm: 50,
-  critAppropriate: 20,
   intervalMs: 1000,
-  speedAppropriate: 100,
   range: 1,
   arc: false,
   staminaCost: 10,
@@ -48,29 +59,30 @@ const UNARMED_BODY = {
 
 /**
  * [임시] 사람형 맨손 무기(D-436 "맨손 무기" 데이터. 값은 기획 전 시험값). 물리 칸만 있다(물리 기반 맨손 스킬이 이 칸을 쓴다,
- * D-490). 명중·크리 적정은 점수 단위(D-458):
- * 1차 모두 11쯤인 처음 유닛(명중 점수 = DEX × 1.2 + AGI × 0.6, 크리 점수 = DEX × 1.5)이 1배
+ * D-490). 맨손은 무기 몫이 없어(D-502) 공격력 = 스탯 공격력이고, 적정 DEX·AGI는 계산식 bare_appropriate(레벨 × 1.5 + 10,
+ * Lv 1 = 11.5: 새 사이보그 명중 850‰ × 10 ÷ 11.5 = 738‰)
  */
 export const UNARMED: WeaponSpec & { readonly physical: WeaponAttackField } = {
-  physical: { attack: 5, attackAppropriate: 20 },
+  physical: { attack: 0 },
   ...UNARMED_BODY,
-  // 기본 공격의 실제 공격력은 맨손 식(bare_attack, D-488). 공격력 5·적정 20은 맨손 스킬·건물 피해의 무기 틀에만 남는다
   unarmed: true,
 };
 
 /**
  * [임시] 맨손 속성 자료(D-463 211): 속성 기반 맨손 스킬(D-490)이 쓰는 무기 자료. 맨손 무기(D-436)처럼 유닛 종류 데이터
- * (팩 unit_kinds naturalElementalWeapon)이고, 속성 칸만 있으며 공격력·적정치가 낮다. 기본 공격에는 쓰지 않는다
+ * (팩 unit_kinds naturalElementalWeapon)이고, 속성 칸만 있다. 맨손이라 무기 몫 0(D-502). 기본 공격에는 쓰지 않는다
  */
 export const UNARMED_ELEMENTAL: WeaponSpec & { readonly elemental: WeaponAttackField } = {
-  elemental: { attack: 5, attackAppropriate: 20 },
+  elemental: { attack: 0 },
   ...UNARMED_BODY,
+  unarmed: true,
 };
 
-/** [임시] 크리쳐 타고난 무기(D-436, 종 데이터 전 단계) */
+/** [임시] 크리쳐 타고난 무기(D-436, 종 데이터 전 단계): 무기와 같은 공식(D-502), 공격력 12·적정 STR 15(= 12 × 1.25)·DEX·AGI 12 */
 const CLAWS: WeaponSpec = {
   ...UNARMED_BODY,
-  physical: { attack: 12, attackAppropriate: 30 },
+  physical: { attack: 12 },
+  appropriate: { str: 15, dex: TEST_WEAPON_DEX, agi: TEST_WEAPON_AGI },
   hitPm: 850,
   critPm: 100,
   intervalMs: 900,
@@ -262,20 +274,19 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
     },
     ...MAGIC_SKILLS,
   ],
-  // 시험 무기의 명중·크리 적정은 점수 단위(D-458): 시뮬레이터 유닛(1차 40 + 기술 × 8)이 옛 확률 모양 때와 비슷한 비율이 되게
+  // 시험 무기의 1차 적정 스탯(D-502 [임시]): 공격 적정 = 무기 공격력 × 1.25(사용자 예 "공격력 20·적정 STR 25 검"), DEX·AGI 12.
+  // 시험 검의 옵션 줄은 크리 점수 행(crit_chance)이 꺼져 크리 배율(crit_multiplier)로 옮겼다
   equipment: [
     {
       id: "test_sword",
       slot: "weapon",
-      stats: [{ stat: "crit_chance", min: 0, max: 20 }],
+      stats: [{ stat: "crit_multiplier", min: 0, max: 100 }],
       weapon: {
-        physical: { attack: 20, attackAppropriate: 40 },
+        physical: { attack: 20 },
+        appropriate: { str: 25, dex: TEST_WEAPON_DEX, agi: TEST_WEAPON_AGI },
         hitPm: 900,
-        hitAppropriate: 50,
         critPm: 100,
-        critAppropriate: 100,
         intervalMs: 1000,
-        speedAppropriate: 100,
         range: 1,
         arc: false,
         staminaCost: 10,
@@ -288,13 +299,11 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       slot: "weapon",
       stats: [{ stat: "mp", min: 10, max: 30 }],
       weapon: {
-        elemental: { attack: 18, attackAppropriate: 40 },
+        elemental: { attack: 18 },
+        appropriate: { int: 23, dex: TEST_WEAPON_DEX, agi: TEST_WEAPON_AGI },
         hitPm: 900,
-        hitAppropriate: 50,
         critPm: 50,
-        critAppropriate: 100,
         intervalMs: 1200,
-        speedAppropriate: 100,
         range: 6,
         arc: false,
         staminaCost: 10,

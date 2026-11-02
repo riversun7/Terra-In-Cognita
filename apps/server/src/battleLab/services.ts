@@ -150,8 +150,7 @@ const nameOf = (table: Readonly<Record<string, LocalizedName>>, id: string): Loc
   return name ? { ko: name.ko, en: name.en } : { ko: id, en: id };
 };
 
-const field = (value: { attack: number; attackAppropriate: number } | undefined) =>
-  value ? { attack: value.attack, appropriate: value.attackAppropriate } : null;
+const field = (value: { attack: number } | undefined) => (value ? { attack: value.attack } : null);
 
 export function createBattleLabShared(deps: {
   tuning: TuningShared;

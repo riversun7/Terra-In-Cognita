@@ -226,7 +226,7 @@ export function ItemDetail(props: ItemDetailProps) {
                   list={list}
                   locale={locale}
                   problem={problem}
-                  derived={props.preview?.weapon?.derived}
+                  parts={props.preview?.weapon?.parts}
                 />
               </Section>
             ) : null}

@@ -128,3 +128,12 @@
 ### 4. 결과
 - 시뮬 출력: war16 30일·stub16·econ16 180일, 시드 1 — 줄 수 같음, 다른 줄은 머리 줄 팩 판·해시와 요약 줄(팩 판·해시·`linesHash`)뿐 → `SIM_VERSION` 6 그대로(Verified, 작업 기록). 시뮬레이터는 소모품·중분류·`d496_use_variance`를 읽지 않는다.
 - 기획 50 §5.1 표의 5번 "탄약"은 D-501이 4 장비 보조 칸으로 옮겼다(미러 `01e0be8`).
+
+## 바뀜 (2026-11-02, D-502·사용자 답 296~299 — 무기 1차 적정 스탯을 몫마다 하나로, 팩 core@27)
+- 까닭: 기획 D-502(공격력 = 스탯 공격력 + 무기 몫)와 식 확인 296~299(`docs/questions/2026-11-02-d502-formulas.md`, 기획 D-503). 전투 쪽 바뀜은 ADR `2026-10-31-combat-core.md` "바뀜 (2026-11-02, D-502·사용자 답 296~299 …)". 작업 기록 `docs/worklog/2026/11/02-1545-d502.md`.
+- "바뀜 (2026-11-02, 아이템 편집기 2차)" 1절의 "1차 적정 스탯 → 2차 적정치를 셈해 전투가 쓴다"와 미리 보기 "셈한 2차 적정치·풀이·효율"을 바꾼다: 무기 칸 `appropriate`는 `{str?, int?, dex?, agi?}`(몫마다 하나 — 물리 칸 STR, 속성 칸 INT, 명중·크리 DEX, 공격 간격 AGI, 1 이상, 비우면 그 몫 100%)이고 판정이 1차와 바로 견준다. 직접 적던 2차 적정치 칸(공격력 칸 `attackAppropriate`, `hitAppropriate`·`critAppropriate`·`speedAppropriate`)과 1차 적정의 `vit`·`wis`는 지웠다.
+- 편집기: 적정 STR은 물리 칸 안, 적정 INT는 속성 칸 안, 적정 DEX·AGI는 "1차 적정 스탯" 묶음. 칸을 끄면 그 칸의 적정(STR·INT)도 뺀다. 칸 아래에 기준 유닛 비율. 새 무기 틀은 적정을 비운다.
+- 미리 보기 응답 `weapon` = `fields`(칸마다 실효 식 값, `bare_appropriate` 뺌) + `parts`(몫마다 {몫, 1차, 기준 유닛 값, 적정 또는 null, 비율‰}) + `capPm`. `derived`·`derivedTerms`·`efficiency`는 없앴다(옛 PWA 기기는 칸이 없으면 숨긴다). 공용 모양 `WEAPON_PART_IDS`·`WeaponPartRatio`(`@terra/shared/itemEditor`).
+- 권고: `advice_appropriate_zero`·`advice_appropriate_derived_zero` → `advice_appropriate_missing`(적정이 없는 몫 = 유닛 스탯을 타지 않음)·`advice_appropriate_unused`(무기에 없는 공격력 칸의 적정). 권고가 가중치 표를 읽지 않게 되어 권고 저장(캐시) 열쇠에서 표를 뺐다.
+- 소모품 효과량 상한(3차 1절)은 같은 N10 실효 값이고 1000‰이 됐다: 적정 이상이면 기준 ±오차(기준 40·±500‰ → 20~60).
+- 옛 모양 DB 줄은 `apps/server/src/contentEdit/legacy.ts`가 켤 때 고쳐 읽는다(전투 ADR 2절과 같다): 옛 2차 적정치 칸 뺌, 옛 1차 적정은 str·int·dex·agi 1 이상만, 남은 적정이 없으면 지금 팩 항목의 적정.

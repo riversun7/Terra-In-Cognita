@@ -2,12 +2,12 @@
 // - 칸 배치는 유닛 종류마다 자료다(콘텐츠 팩 `unit_kinds`, 구조 값 D-5054): 사람형 공통 6칸 + 종류별 강화 칸, 크리쳐 3칸(D-494).
 // - 장비 하나 = 칸 종류 + 스탯 목록 {스탯 코드, 값}(팩에는 {최소, 최대}, 값은 만들 때 정한다) + (무기면) 무기 사양 + 장비 스킬.
 // - 무기·방어구(무기·보조·머리·몸·안장)는 2차 수치, 장신구·인공장기·부품은 1차 스탯을 올린다(D-423). 칸과 스탯 묶음이 맞지 않으면 거절한다.
-// - 착용에 스탯 요구가 없다(D-424). 성능은 판정 때 무기 틀 min(2, 유닛 값 ÷ 적정치)으로 준다(formula.ts weaponScaled).
-// 기획 48 §5와 맞췄다(안장 = 1차, 2차 공격력은 장비가 올리지 않음). [임시] 칸 이름(코드)·장비 스킬(소켓 인챈트 전 단계).
+// - 착용에 스탯 요구가 없다(D-424). 성능은 판정 때 무기의 1차 적정 스탯 대비 비율(상한 N10 1000‰, D-502)로 준다(formula.ts).
+// 기획 48 §5와 맞췄다(안장 = 1차, 스탯 공격력은 장비가 올리지 않음 — 무기 몫은 무기 사양). [임시] 칸 이름(코드)·장비 스킬(소켓 인챈트 전 단계).
 // 전투 연결(아이템 편집기 WP-5, docs/adr/2026-11-01-item-editor.md "바뀜 (2026-11-02)"): 장비의 속성값은 자기 값과 더해 칸마다 10에서
 // 자르고(D-450, @terra/shared sumElementSources 하나), 저항‰·고정 방어·비율 관통‰은 더한다(D-178·D-421). 양손 무기를 든 동안 보조 칸
 // 장비와 그 유닛 종류가 입을 수 없는 장비(kinds, D-494)는 던지지 않고 빼서 ignored로 알린다. 1차·장비 2차 합은 입력 범위에서 자른다
-// (넘침에 던지지 않는다). 1차 적정 스탯 → 2차 적정치는 전투 자료를 만들 때 무기 사양에 넣는다(equipmentAppropriate.ts).
+// (넘침에 던지지 않는다). 무기의 1차 적정 스탯(D-502)은 무기 사양 칸(WeaponSpec.appropriate)이다.
 import {
   type ElementSource,
   elementsFromArray,
@@ -15,7 +15,6 @@ import {
   sumElementSources,
 } from "@terra/shared/cyborg";
 import { EQUIP_SLOTS } from "@terra/shared/roster";
-import type { PrimaryAppropriate } from "./appropriate.ts";
 import type { GemRef } from "./gems.ts";
 import { MAX_STAT_INPUT, type Primaries, type StatRow, computeSecondary } from "./stats.ts";
 import type { WeaponSpec } from "./unitSpec.ts";
@@ -30,7 +29,7 @@ export type SlotKind = (typeof SLOT_KINDS)[number];
 /** 1차 스탯을 올리는 칸(D-423, 48 §5.2: 장신구·인공장기·부품·크리쳐 안장). 나머지 칸은 2차 수치 */
 export const PRIMARY_SLOTS: ReadonlySet<SlotKind> = new Set(["accessory", "organ", "part", "saddle"]);
 
-/** 장비가 올리지 않는 2차 행: 2차 공격력은 1차·장신구·버프만으로 계산한다(D-438 1, 무기 공격력은 무기 사양) */
+/** 장비가 올리지 않는 2차 행: 스탯 공격력은 1차·장신구·버프만으로 계산한다(D-438 1, 무기 몫은 무기 사양이 더한다 D-502) */
 export const GEAR_FORBIDDEN_ROWS: ReadonlySet<string> = new Set(["physical_attack", "elemental_attack"]);
 
 export interface StatRange {
@@ -60,12 +59,10 @@ export interface EquipDef extends GearCombat {
   readonly id: string;
   readonly slot: SlotKind;
   readonly stats: readonly StatRange[];
-  /** 무기 사양. 1차 적정 스탯(appropriate)이 있으면 적정치 칸은 그 값으로 셈한 2차 값이다(equipmentAppropriate.ts) */
+  /** 무기 사양(1차 적정 스탯 D-502 포함) */
   readonly weapon?: WeaponSpec | undefined;
   /** 장비 스킬(D-426. 지금은 아이템이 스킬을 바로 가진다. 스킬석 소켓은 뒤 단계) */
   readonly skills: readonly string[];
-  /** 무기의 1차 적정 스탯(D-496, 착용 제한 아님). 가중치 표가 바뀌면 이 값으로 적정치를 다시 셈한다 */
-  readonly appropriate?: PrimaryAppropriate | undefined;
 }
 
 /** 만들어진 장비 하나(스탯 값이 정해짐) */

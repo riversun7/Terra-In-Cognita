@@ -48,15 +48,13 @@ function weaponView(
     natural,
     kind,
     attack: field.attack,
-    attackAppropriate: field.attackAppropriate,
+    // 1차 적정 스탯(D-502, 적은 칸만). 맨손은 적정 DEX·AGI를 레벨 식 bare_appropriate로 센다(unarmed)
+    appropriate: weapon.unarmed === true ? {} : { ...weapon.appropriate },
     hitPm: weapon.hitPm,
-    hitAppropriate: weapon.hitAppropriate,
     critPm: weapon.critPm,
-    critAppropriate: weapon.critAppropriate,
     intervalMs: weapon.intervalMs,
-    speedAppropriate: weapon.speedAppropriate,
     staminaCost: weapon.staminaCost,
-    unarmed: weapon.unarmed === true && kind === "physical",
+    unarmed: weapon.unarmed === true,
   };
 }
 

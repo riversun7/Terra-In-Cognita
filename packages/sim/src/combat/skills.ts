@@ -220,8 +220,9 @@ function baseAttack(unit: UnitState, skill: CombatSkill): AttackProfile {
 function conditionsMet(unit: UnitState, target: UnitState | undefined, skill: CombatSkill): boolean {
   for (const condition of skill.conditions) {
     if (condition.part === "appropriate_met") {
+      // 적정 스탯 이상(D-502): 그 기반 무기의 공격 몫 적정 1차(STR·INT) 이상. 적정이 없으면(맨손 포함) 만족
       const attack = baseAttack(unit, skill);
-      if (attack.attackStat < attack.attackAppropriate) return false;
+      if (attack.attackPrimary * 1000 < attack.attackAppropriateMilli) return false;
     } else if (condition.part === "self_hp_below") {
       if (unit.hp * 100 >= condition.pct * unit.maxHp) return false;
     } else if (condition.part === "target_hp_below") {

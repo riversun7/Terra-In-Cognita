@@ -106,3 +106,103 @@ describe("옛 모양 덮어쓰기 줄(팩 core@26)", () => {
     expect(created.entry).toBe(oldPotion);
   });
 });
+
+/** core@26에서 저장한 무기 줄(옛 2차 점수 적정치 칸) */
+const oldSwordWeapon = {
+  physical: { attack: 25, attackAppropriate: 40 },
+  hitPm: 900,
+  hitAppropriate: 50,
+  critPm: 100,
+  critAppropriate: 100,
+  intervalMs: 1000,
+  speedAppropriate: 100,
+  range: 1,
+  arc: false,
+  staminaCost: 10,
+  mpCost: 0,
+};
+
+/** 줄의 장비 칸 무기(없으면 undefined) */
+const weaponOf = (row: ContentOverrideRecord | undefined): unknown => {
+  const equip = row?.entry.equip;
+  return typeof equip === "object" && equip !== null ? Reflect.get(equip, "weapon") : undefined;
+};
+
+describe("옛 모양 무기 줄(팩 core@27, D-502 무기 1차 적정 스탯)", () => {
+  it("팩 무기를 고친 줄: 옛 2차 적정치 칸을 빼고, 적정은 팩의 지금 값(검 STR 25·DEX 12·AGI 12)", () => {
+    const state = fresh();
+    const pack = state.packEntry("items", "test_sword");
+    const packHash = state.packHash("items", "test_sword");
+    if (!pack || packHash === null) throw new Error("fixture test_sword");
+    const packEquip = pack.equip;
+    if (typeof packEquip !== "object" || packEquip === null) throw new Error("fixture equip");
+    const edited = record(
+      "test_sword",
+      { ...pack, equip: { ...packEquip, weapon: oldSwordWeapon } },
+      packHash,
+    );
+    const { rows, upgraded } = upgradeLegacyRows(state.core, [edited]);
+    expect(upgraded).toEqual(["items/test_sword"]);
+    expect(weaponOf(rows[0])).toEqual({
+      physical: { attack: 25 },
+      hitPm: 900,
+      critPm: 100,
+      intervalMs: 1000,
+      range: 1,
+      arc: false,
+      staminaCost: 10,
+      mpCost: 0,
+      appropriate: { str: 25, dex: 12, agi: 12 },
+    });
+    // 켤 때 지워지지 않고 실효 항목이 된다(고친 공격력 25는 남는다)
+    const selection = state.selectAtBoot([edited]);
+    expect(selection.dropped).toEqual([]);
+    state.install([edited], 1);
+    const sword = state.effective().items.find((item) => item.id === "test_sword");
+    expect(sword?.equip?.weapon?.physical).toEqual({ attack: 25 });
+    expect(sword?.equip?.weapon?.appropriate).toEqual({ str: 25, dex: 12, agi: 12 });
+  });
+
+  it("만든 무기: 옛 1차 적정은 str·int·dex·agi 1 이상만 남기고(vit·0은 뺀다), 다 빠지면 칸을 뺀다", () => {
+    const state = fresh();
+    const base = state.packEntry("items", "test_sword");
+    if (!base) throw new Error("fixture test_sword");
+    const equip = base.equip;
+    if (typeof equip !== "object" || equip === null) throw new Error("fixture equip");
+    const made = (appropriate: Record<string, number>) =>
+      record(
+        "e2e_old_blade",
+        { ...base, id: "e2e_old_blade", equip: { ...equip, weapon: { ...oldSwordWeapon, appropriate } } },
+        null,
+      );
+    const kept = upgradeLegacyRows(state.core, [made({ str: 20, dex: 15, vit: 30, agi: 0 })]).rows[0];
+    expect(weaponOf(kept)).toHaveProperty("appropriate", { str: 20, dex: 15 });
+    const none = upgradeLegacyRows(state.core, [made({ vit: 30, wis: 10 })]).rows[0];
+    expect(weaponOf(none)).not.toHaveProperty("appropriate");
+  });
+
+  it("유닛 종류 줄(스킬 편집기 소모 바꿈): 맨손은 무기 몫 0·적정 없음, 맨손 속성 자료도 맨손", () => {
+    const state = fresh();
+    const pack = state.packEntry("unit_kinds", "human");
+    const packHash = state.packHash("unit_kinds", "human");
+    if (!pack || packHash === null) throw new Error("fixture human");
+    const oldNatural = { ...oldSwordWeapon, physical: { attack: 5, attackAppropriate: 20 }, unarmed: true };
+    const { physical: _drop, ...body } = oldSwordWeapon;
+    const oldElemental = { ...body, elemental: { attack: 5, attackAppropriate: 20 } };
+    const edited: ContentOverrideRecord = {
+      ...record(
+        "human",
+        { ...pack, naturalWeapon: oldNatural, naturalElementalWeapon: oldElemental },
+        packHash,
+      ),
+      category: "unit_kinds",
+    };
+    const { rows, upgraded } = upgradeLegacyRows(state.core, [edited]);
+    expect(upgraded).toEqual(["unit_kinds/human"]);
+    expect(rows[0]?.entry.naturalWeapon).toMatchObject({ physical: { attack: 0 }, unarmed: true });
+    expect(rows[0]?.entry.naturalWeapon).not.toHaveProperty("hitAppropriate");
+    expect(rows[0]?.entry.naturalElementalWeapon).toMatchObject({ elemental: { attack: 0 }, unarmed: true });
+    const selection = state.selectAtBoot([edited]);
+    expect(selection.dropped).toEqual([]);
+  });
+});

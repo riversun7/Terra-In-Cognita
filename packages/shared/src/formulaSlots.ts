@@ -3,8 +3,9 @@
 // 같은 값을 넣는다(어긋날 수 없게).
 // - 2차 스탯 행(팩 stat_rows): 칸 키 `<행 ID>.formula`. 팩 행에 formula가 없으면 그 행의 가중치에서 만든 식(statRowExpression)이
 //   출발 식이다(결과가 가중치 계산과 같다 — sim stats.test.ts가 무작위 입력으로 본다).
-// - 전투 식(팩 formulas): 칸 키 = 식 ID. 기본 식(DEFAULT_COMBAT_FORMULAS)은 지금 코드와 같은 결과를 내는 식이고,
-//   맨손 일반 공격만 옛 프로젝트 맨손 규칙이다(사용자 결정 D-488 "맨손 10 제한도 없다", 수치 [임시]).
+// - 전투 식(팩 formulas): 칸 키 = 식 ID. 기본 식(DEFAULT_COMBAT_FORMULAS)은 지금 코드와 같은 결과를 내는 식이다.
+//   공격력 = 스탯 공격력 + 무기 몫(D-502): 무기 몫·명중·크리·공격 간격은 무기의 1차 적정 스탯(몫마다 하나: 공격 STR·INT, 명중·크리 DEX,
+//   공격 간격 AGI) 대비 비율을 N10(1000‰)까지 곱한다(사용자 답 296~298). 맨손의 적정 DEX·AGI는 bare_appropriate(옛 규칙 레벨 × 1.5 + 10).
 // - 단위: points(점수·정수), pm(천분율 ‰), x(배, 비율), ms, roll(굴림 0~9999), level(레벨).
 // 결정성 검사 대상이다(scripts/check-boundaries.mjs).
 import { FX_SCALE, fxFormat, fxFromInt, fxFromPm } from "./formulaFixed.ts";
@@ -45,7 +46,7 @@ export const COMBAT_FORMULA_IDS = [
   "real_attack",
   "real_hit",
   "real_crit",
-  "bare_attack",
+  "bare_appropriate",
   "crit_multiplier",
   "attack_interval",
   "stamina_score",
@@ -58,9 +59,10 @@ export function isCombatFormulaId(value: unknown): value is CombatFormulaId {
   return typeof value === "string" && (COMBAT_FORMULA_IDS as readonly string[]).includes(value);
 }
 
-const weaponFrame = (unit: FormulaUnit): readonly FormulaVarDef[] => [
+/** 무기 비율 틀(D-502): W 무기 값, 1차 스탯(이름), A 무기 적정 1차 스탯(맨손은 bare_appropriate), CAP 비율 상한(N10) */
+const ratioFrame = (unit: FormulaUnit, primary: string): readonly FormulaVarDef[] => [
   v("W", unit),
-  v("S", "points"),
+  v(primary, "points"),
   v("A", "points"),
   v("CAP", "x"),
 ];
@@ -75,27 +77,40 @@ const combatSlot = (
 
 /** 전투 식 칸. 변수 뜻(화면 문구)은 게임 앱 메시지 `formula_var_<식>_<변수>` */
 export const COMBAT_FORMULA_SLOTS: Readonly<Record<CombatFormulaId, FormulaSlot>> = {
-  // 무기 틀(D-420): W 무기 값, S 유닛 2차 점수, A 무기 적정치, CAP 적정 비율 상한(N10)
-  real_attack: combatSlot("real_attack", weaponFrame("points"), "points", { min: 0, max: null }),
-  real_hit: combatSlot("real_hit", weaponFrame("pm"), "pm", { min: 0, max: 1000 }),
-  real_crit: combatSlot("real_crit", weaponFrame("pm"), "pm", { min: 0, max: 1000 }),
-  // 맨손 일반 공격(D-488): 1차·레벨·물리 공격력 점수 S·타고난 무기 값 W·A·CAP·굴림 ROLL(0~9999)
-  bare_attack: combatSlot(
-    "bare_attack",
-    [...PRIMARY_DEFS, v("LV", "level"), ...weaponFrame("points"), v("ROLL", "roll")],
+  // 공격력(D-502): S 스탯 공격력(2차 physical_attack·elemental_attack), W 무기 공격력(맨손 0), P 무기 적정을 보는 1차(물리 STR·속성 INT),
+  // A 무기 적정 STR·INT, CAP 비율 상한(N10)
+  real_attack: combatSlot(
+    "real_attack",
+    [v("S", "points"), v("W", "points"), v("P", "points"), v("A", "points"), v("CAP", "x")],
     "points",
     { min: 0, max: null },
+  ),
+  // 명중·크리(사용자 답 297·298): 무기 값 × min(N10, DEX ÷ 적정 DEX)
+  real_hit: combatSlot("real_hit", ratioFrame("pm", "DEX"), "pm", { min: 0, max: 1000 }),
+  real_crit: combatSlot("real_crit", ratioFrame("pm", "DEX"), "pm", { min: 0, max: 1000 }),
+  // 맨손 적정 DEX·AGI(사용자 답 297, 옛 규칙): LV 레벨. 결과는 점(소수 셋째 자리, Lv 1 = 11.5)
+  bare_appropriate: combatSlot(
+    "bare_appropriate",
+    [v("LV", "level")],
+    "points",
+    { min: 1, max: null },
+    "fixed",
   ),
   // 크리 배율(N12): M 크리 배율 점수(‰), SPREAD 범위 폭(‰), ROLL 자리 굴림
   crit_multiplier: combatSlot("crit_multiplier", [v("M", "pm"), v("SPREAD", "pm"), v("ROLL", "roll")], "pm", {
     min: 1000,
     max: null,
   }),
-  // 공격 간격(D-418): I 무기 간격, SPD 행동 속도 점수, A 무기 적정 행동 속도
-  attack_interval: combatSlot("attack_interval", [v("I", "ms"), v("SPD", "points"), v("A", "points")], "ms", {
-    min: 100,
-    max: 60_000,
-  }),
+  // 공격 간격(사용자 답 297): I 무기 간격, AGI, A 무기 적정 AGI(맨손은 bare_appropriate), CAP 비율 상한(N10). 적정 미만이면 느려진다
+  attack_interval: combatSlot(
+    "attack_interval",
+    [v("I", "ms"), v("AGI", "points"), v("A", "points"), v("CAP", "x")],
+    "ms",
+    {
+      min: 100,
+      max: 60_000,
+    },
+  ),
   // STA 점수(N13): 1차와 가중치(배)
   stamina_score: combatSlot("stamina_score", [...PRIMARY_DEFS, v("W_AGI", "x"), v("W_VIT", "x")], "points", {
     min: 0,
@@ -127,25 +142,16 @@ export const COMBAT_FORMULA_SLOTS: Readonly<Record<CombatFormulaId, FormulaSlot>
 };
 
 /**
- * 전투 식 기본(= 팩 core formulas 출발값, 서버 시험이 같은지 본다). 맨손 말고는 지금 코드(formula.ts·unitSpec.ts·coefficients.ts)와
- * 결과가 같다(sim formulaParity.test.ts가 무작위 입력으로 본다)
+ * 전투 식 기본(= 팩 core formulas 출발값, 서버 시험이 같은지 본다). 지금 코드(formula.ts·unitSpec.ts·coefficients.ts)와 결과가 같다
+ * (sim formulaParity.test.ts가 무작위 입력으로 본다). 적정이 없으면(A ≤ 0) 비율 100%(사용자 답 297)
  */
 export const DEFAULT_COMBAT_FORMULAS: Readonly<Record<CombatFormulaId, string>> = {
-  real_attack: "if(A <= 0, W, floor(W * min(CAP, max(0, S) / A)))",
-  real_hit: "if(A <= 0, W, floor(W * min(CAP, max(0, S) / A)))",
-  real_crit: "if(A <= 0, W, floor(W * min(CAP, max(0, S) / A)))",
-  bare_attack: [
-    "# [임시] 옛 프로젝트 맨손 규칙: 적정 DEX = 레벨 × 1.5 + 10, 피해는 STR × 범위",
-    "optDex = LV * 1.5 + 10",
-    "r = DEX / optDex",
-    "a = STR * max(0.1, r * 0.5)",
-    "b = STR * min(1.5, r)",
-    "lo = min(a, b)",
-    "hi = max(a, b)",
-    "max(1, floor(lo + (hi - lo) * ROLL / 10000))",
-  ].join("\n"),
+  real_attack: "S + if(A <= 0, W, floor(W * min(CAP, max(0, P) / A)))",
+  real_hit: "if(A <= 0, W, floor(W * min(CAP, max(0, DEX) / A)))",
+  real_crit: "if(A <= 0, W, floor(W * min(CAP, max(0, DEX) / A)))",
+  bare_appropriate: "# [임시] 옛 프로젝트 맨손 규칙: 맨손 적정 DEX·AGI = 레벨 × 1.5 + 10\nLV * 1.5 + 10",
   crit_multiplier: "max(0, M) + floor(SPREAD * ROLL / 10000)",
-  attack_interval: "max(1, floor(I / max(0.001, min(2, max(1, SPD) / max(1, A)))))",
+  attack_interval: "if(A <= 0, I, max(1, floor(I / max(0.001, min(CAP, max(0, AGI) / A)))))",
   stamina_score: "floor(AGI * W_AGI + VIT * W_VIT)",
   stamina_cost: "B * if(SC <= 0, APP, max(MIN, APP / SC))",
   evade_chance: [
@@ -159,7 +165,7 @@ export const DEFAULT_COMBAT_FORMULAS: Readonly<Record<CombatFormulaId, string>> 
 };
 
 /** 굴림 칸이 있는 식(화면은 굴림 0·중간·9999를 함께 보인다) */
-export const ROLL_FORMULAS: readonly CombatFormulaId[] = ["bare_attack", "crit_multiplier"];
+export const ROLL_FORMULAS: readonly CombatFormulaId[] = ["crit_multiplier"];
 
 // ── 2차 스탯 행 식 ──
 
@@ -271,33 +277,30 @@ export function statRowScope(
   };
 }
 
-/** 무기 틀 식(real_attack·real_hit·real_crit): 무기 값·유닛 점수·적정치·상한(‰) */
-export function weaponFrameScope(
+/** 공격력 식(real_attack, D-502): 스탯 공격력·무기 공격력·무기 적정을 보는 1차(STR·INT)·적정(밀리점, 0 이하 = 없음)·상한(‰) */
+export function attackScope(
+  statAttack: number,
   weapon: number,
-  stat: number,
-  appropriate: number,
+  primary: number,
+  appropriateMilli: number,
   capPm: number,
 ): FormulaScope {
-  return { W: int(weapon), S: int(stat), A: int(appropriate), CAP: pm(capPm) };
+  return { S: int(statAttack), W: int(weapon), P: int(primary), A: pm(appropriateMilli), CAP: pm(capPm) };
 }
 
-/** 맨손 일반 공격 식: 1차 6개·레벨·물리 공격력 점수·타고난 무기 값·적정치·상한(‰)·굴림(0~9999) */
-export function bareAttackScope(
-  primaries: readonly number[],
-  level: number,
-  frame: {
-    readonly weapon: number;
-    readonly stat: number;
-    readonly appropriate: number;
-    readonly capPm: number;
-  },
-  roll: number,
+/** 명중·크리 식(real_hit·real_crit): 무기 값(‰)·DEX·적정 DEX(밀리점)·상한(‰) */
+export function dexFrameScope(
+  weapon: number,
+  dex: number,
+  appropriateMilli: number,
+  capPm: number,
 ): FormulaScope {
-  return {
-    ...statRowScope(primaries, level, 0, 0),
-    ...weaponFrameScope(frame.weapon, frame.stat, frame.appropriate, frame.capPm),
-    ROLL: int(roll),
-  };
+  return { W: int(weapon), DEX: int(dex), A: pm(appropriateMilli), CAP: pm(capPm) };
+}
+
+/** 맨손 적정 DEX·AGI 식(bare_appropriate): 레벨 */
+export function bareAppropriateScope(level: number): FormulaScope {
+  return { LV: int(level) };
 }
 
 /** 크리 배율 식: 크리 배율 점수(‰)·범위 폭(‰)·굴림 */
@@ -305,9 +308,14 @@ export function critMultiplierScope(multiplierPm: number, spreadPm: number, roll
   return { M: int(multiplierPm), SPREAD: int(spreadPm), ROLL: int(roll) };
 }
 
-/** 공격 간격 식: 무기 간격(ms)·행동 속도 점수·적정 행동 속도 */
-export function attackIntervalScope(intervalMs: number, speed: number, appropriate: number): FormulaScope {
-  return { I: int(intervalMs), SPD: int(speed), A: int(appropriate) };
+/** 공격 간격 식: 무기 간격(ms)·AGI·적정 AGI(밀리점)·상한(‰) */
+export function attackIntervalScope(
+  intervalMs: number,
+  agi: number,
+  appropriateMilli: number,
+  capPm: number,
+): FormulaScope {
+  return { I: int(intervalMs), AGI: int(agi), A: pm(appropriateMilli), CAP: pm(capPm) };
 }
 
 /** STA 점수 식: 1차 6개와 AGI·VIT 가중치(‰) */

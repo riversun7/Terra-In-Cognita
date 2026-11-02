@@ -54,10 +54,10 @@ describe("스킬(부품 조합, D-426~D-428)", () => {
     expect(byId(battle, 101).effects.map((e) => e.id)).toEqual(["defense_down"]);
   });
 
-  it("조건이 맞지 않으면(유닛 공격력 < 적정치) 스킬을 쓰지 않는다", () => {
+  it("조건이 맞지 않으면(STR < 무기 적정 STR, D-502) 스킬을 쓰지 않는다", () => {
     const weak = unit(1, 1, 1, 10, 10, { skills: skillsOf(TEST_COMBAT_CATALOG, ["power_strike"]) });
     const battle = createBattle(
-      fight([{ ...weak, attack: { ...weak.attack, attackStat: 5 } }, unit(101, 2, 11, 11, 10)]),
+      fight([{ ...weak, attack: { ...weak.attack, attackPrimary: 5 } }, unit(101, 2, 11, 11, 10)]),
     );
     battle.step([]);
     expect(byId(battle, 1).skillReadyMs[0]).toBe(0);

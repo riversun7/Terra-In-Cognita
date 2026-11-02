@@ -1,9 +1,10 @@
 // 장비 권고(저장을 막지 않는 알림, 설계안 2.7) — advice.ts가 부른다(파일 크기). 규칙이 아니라 알림이다(문턱 값은 기술 상수 [A]).
-// 아이템 편집기 WP-5·C·탄약: 1차 적정 스탯으로 셈한 2차 적정치가 0인 칸(그 칸은 유닛 스탯을 타지 않는다, 질문 290), 입을 수 있는
-// 종류에 그 칸이 없음, 크리쳐 보유 칸인데 크리쳐가 못 입음(D-494), 탄약 장비(보조 칸 탄약 종류)의 내구도 = 탄 수(D-497)가 없음.
+// 아이템 편집기 WP-5·C·탄약: 무기 1차 적정 스탯(D-502)이 없는 몫(그 몫은 유닛 스탯을 타지 않는다)·무기에 없는 공격력 칸의 적정,
+// 입을 수 있는 종류에 그 칸이 없음, 크리쳐 보유 칸인데 크리쳐가 못 입음(D-494), 탄약 장비(보조 칸 탄약 종류)의 내구도 = 탄 수(D-497)가
+// 없음.
 import type { ItemEntry } from "@terra/content";
 import { ITEM_PRIMARY_SLOTS } from "@terra/shared/itemEditor";
-import { MAX_STAT_INPUT, type StatRow, appropriateFromPrimaries } from "@terra/sim";
+import { MAX_STAT_INPUT } from "@terra/sim";
 import type { AdviceContext } from "./advice.ts";
 
 /** 1차 스탯 합이 상한의 몇 ‰를 넘으면 알리나 */
@@ -16,33 +17,26 @@ type Equip = NonNullable<ItemEntry["equip"]>;
 const enabledIds = (list: readonly { id: string; enabled: boolean }[]): Set<string> =>
   new Set(list.filter((entry) => entry.enabled).map((entry) => entry.id));
 
-/** 적정치 권고: 직접 적은 적정치 0, 또는 1차 적정 스탯으로 셈한 2차 적정치 0(그 칸은 무기 값 그대로 = 유닛 스탯을 타지 않는다) */
-function appropriateAdvice(weapon: NonNullable<Equip["weapon"]>, table: readonly StatRow[], add: Add): void {
-  if (weapon.appropriate) {
-    let derived: ReturnType<typeof appropriateFromPrimaries>;
-    try {
-      derived = appropriateFromPrimaries(weapon.appropriate, table);
-    } catch {
-      return;
-    }
-    const zero = [
-      ...(weapon.physical && derived.physicalAttack <= 0 ? ["physical_attack"] : []),
-      ...(weapon.elemental && derived.elementalAttack <= 0 ? ["elemental_attack"] : []),
-      ...(derived.hit <= 0 ? ["hit"] : []),
-      ...(derived.crit <= 0 ? ["crit_chance"] : []),
-    ];
-    if (zero.length > 0)
-      add("equip.weapon.appropriate", "advice_appropriate_derived_zero", { rows: zero.join(", ") });
-    return;
-  }
-  // 적정치 0: 실효 식 if(A <= 0, W, …)라 유닛 스탯과 상관없이 무기 값 그대로
-  const zero = (path: string, value: number | undefined) => {
-    if (value === 0) add(`equip.weapon.${path}`, "advice_appropriate_zero", { field: path });
-  };
-  zero("physical.attackAppropriate", weapon.physical?.attackAppropriate);
-  zero("elemental.attackAppropriate", weapon.elemental?.attackAppropriate);
-  zero("hitAppropriate", weapon.hitAppropriate);
-  zero("critAppropriate", weapon.critAppropriate);
+/**
+ * 적정 권고(D-502, 사용자 답 296~298): 적정 1차가 없는 몫은 비율 100%(유닛 스탯과 상관없이 무기 값 그대로)라 알린다 — 공격 몫(물리 칸
+ * STR·속성 칸 INT), 명중·크리(DEX), 공격 간격(AGI). 무기에 없는 공격력 칸의 적정(물리 칸 없이 STR, 속성 칸 없이 INT)은 쓰지 않는다
+ */
+function appropriateAdvice(weapon: NonNullable<Equip["weapon"]>, add: Add): void {
+  const a = weapon.appropriate ?? {};
+  const missing = [
+    ...(weapon.physical && a.str === undefined ? ["STR"] : []),
+    ...(weapon.elemental && a.int === undefined ? ["INT"] : []),
+    ...(a.dex === undefined ? ["DEX"] : []),
+    ...(a.agi === undefined ? ["AGI"] : []),
+  ];
+  if (missing.length > 0)
+    add("equip.weapon.appropriate", "advice_appropriate_missing", { stats: missing.join(", ") });
+  const unused = [
+    ...(!weapon.physical && a.str !== undefined ? ["STR"] : []),
+    ...(!weapon.elemental && a.int !== undefined ? ["INT"] : []),
+  ];
+  if (unused.length > 0)
+    add("equip.weapon.appropriate", "advice_appropriate_unused", { stats: unused.join(", ") });
 }
 
 /** 장비 칸 권고 */
@@ -96,7 +90,7 @@ export function equipAdvice(ctx: AdviceContext, equip: Equip, add: Add): void {
       const usable = need === "any" ? fields.size > 0 : fields.has(need);
       if (!usable) add(`equip.skills[${index}]`, "advice_skill_unusable", { skill: skill.id, field: need });
     });
-    appropriateAdvice(weapon, ctx.statTable, add);
+    appropriateAdvice(weapon, add);
   }
   if (equip.maxDurability !== undefined && ctx.destroyAt !== null && equip.maxDurability <= ctx.destroyAt)
     add("equip.maxDurability", "advice_durability_low", { destroyAt: ctx.destroyAt });

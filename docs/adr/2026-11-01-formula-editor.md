@@ -130,3 +130,12 @@
 - 전투 실험실·3D 리플레이 계수표에 세계의 실효 전투 식을 싣고, 실험 유닛 레벨을 행 식 LV·맨손 식에 넘긴다(main 쪽은 이 가지보다 먼저 만들어져 기본 식·LV 1이었다). 실험실 요약의 실제 공격력·명중·크리도 판정과 같은 식이다(맨손은 굴림 가운데 값).
 - 사용자 답(질문 277 뒤따름, 2026-11-01, 기획 D-495로 미러에 기록): Lv 1 맨손 명중은 그대로(76.5%). 회피는 옛 기획 회피율 §6을 따른다 → 지금 식에 없던 **최종 범위 1%~85%**를 더했다: 기본 식 `evade_chance` = `clamp(E + rel, 10, 850)`, 코드 모양 `evadeFinalPm`(시험이 기본 식 = 코드를 본다). 범위는 식 안에 있어 계산식 탭에서 바꿀 수 있다(판정 코드가 따로 자르지 않는다: 미리 보기 = 판정을 지키려고). 판정 결과가 바뀌지만 `SIM_VERSION`은 5 그대로(이 가지가 이미 4 → 5).
 - 팩 core@22(두 가지 모두 core@21이었다). 마이그레이션 `battle_lab_presets`·`formula_overrides`는 같은 부모의 갈래로 그대로 합쳤다(`db:generate` "No schema changes").
+
+## 바뀜 (2026-11-02, D-502·사용자 답 296~299 — 공격력 식과 맨손 적정 칸, SIM_VERSION 7)
+- 3절 표의 전투 식 칸이 바뀐다(자세한 식·정수 셈·예는 ADR `2026-10-31-combat-core.md` "바뀜 (2026-11-02, D-502 …)" 1절, 작업 기록 `docs/worklog/2026/11/02-1545-d502.md`):
+  - `real_attack` 변수 S W P A CAP: `S + if(A <= 0, W, floor(W * min(CAP, max(0, P) / A)))`(S = 스탯 공격력, P = STR·INT, A = 무기 적정 1차).
+  - `real_hit`·`real_crit` 변수 W DEX A CAP, `attack_interval` 변수 I AGI A CAP(상한이 N10이 됐다 — "공격 간격의 상한 2는 N10과 따로"를 거둔다).
+  - `bare_attack`(옛 맨손 피해 범위, 5절)을 지우고 `bare_appropriate`(변수 LV, 결과 소수 셋째 자리, 기본 `LV * 1.5 + 10`) 칸을 더했다. 맨손 피해 자리 굴림도 지웠다. 굴림 칸은 `crit_multiplier` 하나다.
+- 변수 A는 소수(밀리점)일 수 있다(맨손 Lv 1 = 11.5). 변수 값 함수: `attackScope`·`dexFrameScope`·`attackIntervalScope`·`bareAppropriateScope`(`formulaSlots.ts`), 미리 보기 `runFormulaSample`이 맨손 적정을 먼저 셈해 넣는다.
+- 2차 행 식 칸은 켜진 행만이라 15개가 됐다(명중·크리·행동 속도 점수 행을 껐다).
+- 옛 덮어쓰기 줄은 바뀐 팩 식이라 켤 때 "팩 이김", `bare_attack` 줄은 `unknown_entry`로 지워진다(7절 켤 때 고르기 그대로).

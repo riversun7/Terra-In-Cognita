@@ -54,9 +54,9 @@ export interface BalanceRowView {
 export interface BalanceWeaponView {
   readonly id: string;
   readonly name: { readonly ko: string; readonly en: string };
-  /** 공격력 칸(D-465: 하나 또는 둘). 없는 칸은 null */
-  readonly physical: { readonly attack: number; readonly appropriate: number } | null;
-  readonly elemental: { readonly attack: number; readonly appropriate: number } | null;
+  /** 공격력 칸(D-465: 하나 또는 둘, 무기 공격력). 없는 칸은 null */
+  readonly physical: { readonly attack: number } | null;
+  readonly elemental: { readonly attack: number } | null;
   /** 기본 공격이 쓰는 칸 */
   readonly basic: "physical" | "elemental";
 }

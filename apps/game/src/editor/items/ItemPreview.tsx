@@ -239,7 +239,7 @@ export function ItemPreview({
       {preview?.weapon ? (
         <div className="ie-preview-part" data-part="weapon">
           <h3 className="ie-subheading">{m.dev_items_preview_weapon()}</h3>
-          <WeaponPart weapon={preview.weapon} list={list} locale={locale} />
+          <WeaponPart weapon={preview.weapon} />
         </div>
       ) : null}
       {preview?.use ? (

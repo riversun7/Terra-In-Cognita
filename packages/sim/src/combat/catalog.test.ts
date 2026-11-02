@@ -11,11 +11,8 @@ import { combatCatalogFrom } from "./packCatalog.ts";
 
 const BODY = {
   hitPm: 850,
-  hitAppropriate: 20,
   critPm: 50,
-  critAppropriate: 20,
   intervalMs: 1000,
-  speedAppropriate: 100,
   range: 1,
   arc: false,
   staminaCost: 10,
@@ -27,8 +24,8 @@ const kind = (id: string, slots: string[], flag?: boolean): UnitKindEntry =>
     name: { ko: id, en: id },
     slots,
     skillSlots: { base: 3, perRebirth: 1, max: 10 },
-    naturalWeapon: { ...BODY, physical: { attack: 5, attackAppropriate: 20 } },
-    naturalElementalWeapon: { ...BODY, elemental: { attack: 5, attackAppropriate: 20 } },
+    naturalWeapon: { ...BODY, physical: { attack: 0 }, unarmed: true },
+    naturalElementalWeapon: { ...BODY, elemental: { attack: 0 }, unarmed: true },
     ...(flag === undefined ? {} : { naturalWeaponIsWeapon: flag }),
     enabled: true,
   });

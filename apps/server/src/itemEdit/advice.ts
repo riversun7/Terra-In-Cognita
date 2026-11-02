@@ -3,7 +3,6 @@
 // 장비 칸 권고는 adviceEquip.ts(파일 크기).
 import type { EffectEntry, ItemEntry, NecessityEntry, RecipeEntry, StatRowEntry } from "@terra/content";
 import type { ContentIssueView } from "@terra/shared/contentEdit";
-import type { StatRow } from "@terra/sim";
 import type { ContentEffective } from "../contentEdit/state.ts";
 import { equipAdvice } from "./adviceEquip.ts";
 
@@ -16,8 +15,6 @@ export interface AdviceContext {
   readonly effective: ContentEffective;
   readonly effects: readonly EffectEntry[];
   readonly statRows: readonly StatRowEntry[];
-  /** 그 세계의 실효 가중치 표(1차 적정 스탯 → 2차 적정치 셈, D-496) */
-  readonly statTable: readonly StatRow[];
   readonly recipes: readonly RecipeEntry[];
   readonly necessities: readonly NecessityEntry[];
   /** 장비 파괴 문턱(설정 칸 F12 f12_destroy_at 실효 값). 없으면 null */

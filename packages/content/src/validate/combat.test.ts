@@ -53,18 +53,15 @@ const issuesOf = (files: Record<string, unknown>) =>
 /** 무기 사양의 공격력 칸 말고 나머지 */
 const WEAPON_BODY = {
   hitPm: 900,
-  hitAppropriate: 50,
   critPm: 100,
-  critAppropriate: 100,
   intervalMs: 1000,
-  speedAppropriate: 100,
   range: 1,
   arc: false,
   staminaCost: 10,
   mpCost: 0,
 };
-const PHYSICAL = { attack: 20, attackAppropriate: 40 };
-const ELEMENTAL = { attack: 30, attackAppropriate: 50 };
+const PHYSICAL = { attack: 20 };
+const ELEMENTAL = { attack: 30 };
 const weaponIssues = (weapon: Record<string, unknown>) =>
   issuesOf({
     "items.json": { entries: [item({ slot: "weapon", stats: [], weapon: { ...WEAPON_BODY, ...weapon } })] },
@@ -74,8 +71,8 @@ const unitKind = (extra: Record<string, unknown>) => ({
   name,
   slots: ["weapon"],
   skillSlots: { base: 3, perRebirth: 1, max: 10 },
-  naturalWeapon: { ...WEAPON_BODY, physical: { attack: 5, attackAppropriate: 20 } },
-  naturalElementalWeapon: { ...WEAPON_BODY, elemental: { attack: 5, attackAppropriate: 20 } },
+  naturalWeapon: { ...WEAPON_BODY, physical: { attack: 0 }, unarmed: true },
+  naturalElementalWeapon: { ...WEAPON_BODY, elemental: { attack: 0 }, unarmed: true },
   enabled: true,
   ...extra,
 });
@@ -315,7 +312,20 @@ describe("전투 분류", () => {
     const none = weaponIssues({});
     expect(none.map((issue) => [issue.stage, issue.path])).toEqual([["schema", "equip.weapon"]]);
     // 옛 모양(kind·attack)은 받지 않는다
-    expect(weaponIssues({ kind: "physical", attack: 20, attackAppropriate: 40 }).length).toBeGreaterThan(0);
+    expect(weaponIssues({ kind: "physical", attack: 20 }).length).toBeGreaterThan(0);
+    // D-502 전의 2차 적정치 칸(attackAppropriate·hitAppropriate 등)도 받지 않는다(DB 옛 줄은 서버가 켤 때 고쳐 읽는다)
+    expect(weaponIssues({ physical: { attack: 20, attackAppropriate: 40 } }).length).toBeGreaterThan(0);
+    expect(weaponIssues({ physical: PHYSICAL, hitAppropriate: 50 }).length).toBeGreaterThan(0);
+  });
+
+  it("무기 1차 적정 스탯(D-502): str·int·dex·agi만, 1 이상, 적어도 하나", () => {
+    expect(weaponIssues({ physical: PHYSICAL, appropriate: { str: 25, dex: 12, agi: 12 } })).toEqual([]);
+    expect(weaponIssues({ elemental: ELEMENTAL, appropriate: { int: 25 } })).toEqual([]);
+    expect(weaponIssues({ physical: PHYSICAL, appropriate: { vit: 10 } }).length).toBeGreaterThan(0);
+    expect(weaponIssues({ physical: PHYSICAL, appropriate: { str: 0 } }).length).toBeGreaterThan(0);
+    expect(weaponIssues({ physical: PHYSICAL, appropriate: {} }).map((issue) => issue.path)).toEqual([
+      "equip.weapon.appropriate",
+    ]);
   });
 
   it("두 칸 무기는 기본 공격 칸(basic)을 꼭 적고, basic은 무기에 있는 칸만 가리킨다(질문 235 가)", () => {
@@ -324,6 +334,29 @@ describe("전투 분류", () => {
     const absent = weaponIssues({ physical: PHYSICAL, basic: "elemental" });
     expect(absent.map((issue) => issue.path)).toEqual(["equip.weapon.basic"]);
     expect(weaponIssues({ elemental: ELEMENTAL, basic: "elemental" })).toEqual([]);
+  });
+
+  it("맨손(unarmed)은 무기 몫이 없고(attack 0) 적정을 적지 않는다(D-502, 적정 DEX·AGI는 레벨 식)", () => {
+    const bare = { ...WEAPON_BODY, physical: { attack: 5 }, unarmed: true };
+    expect(kindIssues({ naturalWeapon: bare }).map((issue) => issue.path)).toEqual([
+      "naturalWeapon.physical.attack",
+    ]);
+    const withAppropriate = {
+      ...WEAPON_BODY,
+      physical: { attack: 0 },
+      unarmed: true,
+      appropriate: { dex: 5 },
+    };
+    expect(kindIssues({ naturalWeapon: withAppropriate }).map((issue) => issue.path)).toEqual([
+      "naturalWeapon.appropriate",
+    ]);
+    const elementalBare = { ...WEAPON_BODY, elemental: { attack: 3 }, unarmed: true };
+    expect(kindIssues({ naturalElementalWeapon: elementalBare }).map((issue) => issue.path)).toEqual([
+      "naturalElementalWeapon.elemental.attack",
+    ]);
+    // 크리쳐 발톱(맨손 아님)은 무기 공격력·1차 적정 스탯을 가진다
+    const claws = { ...WEAPON_BODY, physical: { attack: 12 }, appropriate: { str: 15, dex: 12, agi: 12 } };
+    expect(kindIssues({ naturalWeapon: claws })).toEqual([]);
   });
 
   it("유닛 종류: 타고난 무기(맨손)는 물리 칸이 꼭 있고, 맨손 속성 자료는 속성 칸만 있다(D-436·D-463·D-465)", () => {

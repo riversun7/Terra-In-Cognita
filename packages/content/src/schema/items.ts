@@ -45,7 +45,7 @@ export const ITEM_SCHEMA_LIMITS = {
   shelfLifeMaxMs: 31_536_000_000,
   effectsMax: 8,
   order: 10_000,
-  /** 사용 효과 적정 스탯 상한(무기 1차 적정 스탯 primaryAppropriateSchema와 같은 기술 범위) */
+  /** 사용 효과 적정 스탯 상한(무기 1차 적정 스탯 weaponAppropriateSchema와 같은 기술 범위) */
   useAppropriateMax: 10_000_000,
   /** 사용 효과 ±오차(‰) 범위: 25~50%(D-501, 비우면 설정 칸 d496_use_variance) */
   useVarianceMinPm: 250,

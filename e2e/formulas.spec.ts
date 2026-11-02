@@ -149,7 +149,7 @@ test.describe("개발자", () => {
     expect(unexpected(deviceErrors)).toEqual([]);
   });
 
-  test("이름 자동 완성과 맨손 일반 공격(10 상한 없음)", async ({ page, deviceErrors }) => {
+  test("이름 자동 완성과 맨손 적정 식(D-502: 레벨 × 1.5 + 10)", async ({ page, deviceErrors }) => {
     await tabReady(page);
     await pick(page, "crit_multiplier");
     const input = page.locator(".fx-input");
@@ -158,13 +158,14 @@ test.describe("개발자", () => {
     await input.press("Enter");
     await expect(input).toHaveValue("floor(");
 
-    await pick(page, "bare_attack");
+    await pick(page, "bare_appropriate");
     await page.locator(".fx-controls select").nth(1).selectOption("even_lv30");
-    // 굴림 중간 5000: 13.806 + 13.845 × 0.5 = 20.7 → 20, 굴림 0 → 13, 9999 → 27
-    await expect(page.locator(".fx-result-value")).toHaveText(/^20/);
-    await expect(page.locator(".fx-preview")).toContainText("13");
-    await expect(page.locator(".fx-preview")).toContainText("27");
+    // Lv 30 맨손 적정 = 30 × 1.5 + 10 = 55
+    await expect(page.locator(".fx-result-value")).toHaveText(/^55/);
     await expect(page.locator(".fx-unused")).toHaveCount(0);
+    // 맨손 명중(Lv 30 균형형 DEX 39) = 850 × 39 ÷ 55 → 602‰
+    await pick(page, "real_hit");
+    await expect(page.locator(".fx-result-value")).toHaveText(/^602/);
     expect(unexpected(deviceErrors)).toEqual([]);
   });
 });
@@ -203,7 +204,7 @@ test.describe("배치·사진", () => {
       }) => {
         test.setTimeout(90_000);
         await tabReady(page);
-        await pick(page, "bare_attack");
+        await pick(page, "bare_appropriate");
         await page.locator(".fx-controls select").nth(1).selectOption("even_lv30");
         await expect(page.locator(".fx-result-value")).toBeVisible();
         await page.locator(".fx-tab").scrollIntoViewIfNeeded();

@@ -1,5 +1,6 @@
-// 유닛 편집 — 무기(타고난·팩 무기·직접 값, D-465 물리·속성 칸 + basic)·장비 칸(팩 장비, 유닛 종류 칸 배치)·장비 직접 값
-// (2차 행 더하기·고정 방어·관통·속성별 저항·1차 보너스, 장비 모델 그대로). 공격력 두 행은 장비가 올리지 않는다(D-438, 목록이 gear: false).
+// 유닛 편집 — 무기(타고난·팩 무기·직접 값, D-465 물리·속성 칸 + basic, D-502 1차 적정 스탯: 물리 STR·속성 INT·명중과 크리 DEX·공격
+// 간격 AGI, 0 = 없음 → 100%)·장비 칸(팩 장비, 유닛 종류 칸 배치)·장비 직접 값(2차 행 더하기·고정 방어·관통·속성별 저항·1차 보너스,
+// 장비 모델 그대로). 공격력 두 행은 장비가 올리지 않는다(D-438, 목록이 gear: false).
 import {
   LAB_LIMITS,
   type LabCatalogResponse,
@@ -30,6 +31,16 @@ function CustomWeapon(props: {
   const { spec } = props;
   const id = useId();
   const set = (patch: Partial<LabCustomWeapon>) => props.onChange({ ...spec, ...patch });
+  /** 1차 적정 스탯 칸 하나(0 = 그 몫 적정 없음 → 비율 100%, D-502) */
+  const appropriateField = (code: keyof LabCustomWeapon["appropriate"], label: string) => (
+    <NumberField
+      label={label}
+      value={spec.appropriate[code]}
+      min={0}
+      max={L.valueMax}
+      onChange={(value) => set({ appropriate: { ...spec.appropriate, [code]: value } })}
+    />
+  );
   const fieldEditor = (kind: "physical" | "elemental", label: string) => {
     const value: LabWeaponField | null = spec[kind];
     return (
@@ -40,7 +51,7 @@ function CustomWeapon(props: {
               type="checkbox"
               checked={value !== null}
               onChange={(event) => {
-                const next = event.target.checked ? { attack: 10, appropriate: 20 } : null;
+                const next = event.target.checked ? { attack: 10 } : null;
                 // 칸이 하나도 없는 무기는 만들지 않는다(D-465)
                 const other = kind === "physical" ? spec.elemental : spec.physical;
                 if (!next && !other) return;
@@ -60,15 +71,11 @@ function CustomWeapon(props: {
               value={value.attack}
               min={0}
               max={L.valueMax}
-              onChange={(attack) => set(fieldPatch(kind, { ...value, attack }))}
+              onChange={(attack) => set(fieldPatch(kind, { attack }))}
             />
-            <NumberField
-              label={m.dev_lab_weapon_appropriate()}
-              value={value.appropriate}
-              min={0}
-              max={L.valueMax}
-              onChange={(appropriate) => set(fieldPatch(kind, { ...value, appropriate }))}
-            />
+            {kind === "physical"
+              ? appropriateField("str", m.dev_lab_weapon_appropriate_str())
+              : appropriateField("int", m.dev_lab_weapon_appropriate_int())}
           </div>
         ) : null}
       </fieldset>
@@ -99,13 +106,7 @@ function CustomWeapon(props: {
           max={L.valueMax}
           onChange={(v) => set({ hitPm: v })}
         />
-        <NumberField
-          label={m.dev_lab_weapon_hit_appropriate()}
-          value={spec.hitAppropriate}
-          min={0}
-          max={L.valueMax}
-          onChange={(v) => set({ hitAppropriate: v })}
-        />
+        {appropriateField("dex", m.dev_lab_weapon_appropriate_dex())}
         <NumberField
           label={m.dev_lab_weapon_crit()}
           value={spec.critPm}
@@ -114,26 +115,13 @@ function CustomWeapon(props: {
           onChange={(v) => set({ critPm: v })}
         />
         <NumberField
-          label={m.dev_lab_weapon_crit_appropriate()}
-          value={spec.critAppropriate}
-          min={0}
-          max={L.valueMax}
-          onChange={(v) => set({ critAppropriate: v })}
-        />
-        <NumberField
           label={m.dev_lab_weapon_interval()}
           value={spec.intervalMs}
           min={100}
           max={60_000}
           onChange={(v) => set({ intervalMs: v })}
         />
-        <NumberField
-          label={m.dev_lab_weapon_speed()}
-          value={spec.speedAppropriate}
-          min={1}
-          max={L.valueMax}
-          onChange={(v) => set({ speedAppropriate: v })}
-        />
+        {appropriateField("agi", m.dev_lab_weapon_appropriate_agi())}
         <NumberField
           label={m.dev_lab_weapon_range()}
           value={spec.range}

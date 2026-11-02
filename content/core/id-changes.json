@@ -40,6 +40,14 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "formulas",
+      "id": "bare_attack",
+      "since": 27,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

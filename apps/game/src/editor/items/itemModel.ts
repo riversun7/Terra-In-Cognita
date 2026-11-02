@@ -124,16 +124,13 @@ export function categoryCounts(rows: readonly ItemRow[]): Record<ItemCategoryId,
   return out;
 }
 
-/** 무기 사양 출발값(팩 검사를 통과하는 가장 작은 모양, 시험용 검과 같은 틀) */
+/** 무기 사양 출발값(팩 검사를 통과하는 가장 작은 모양, 시험용 검과 같은 틀. 1차 적정 스탯은 비움 = 모든 몫 100%, D-502) */
 export function newWeapon(): ItemWeaponJson {
   return {
-    physical: { attack: 10, attackAppropriate: 20 },
+    physical: { attack: 10 },
     hitPm: 900,
-    hitAppropriate: 50,
     critPm: 50,
-    critAppropriate: 100,
     intervalMs: 1000,
-    speedAppropriate: 100,
     range: 1,
     arc: false,
     staminaCost: 10,

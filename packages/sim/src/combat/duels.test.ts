@@ -4,30 +4,32 @@ import { type Primaries, TEST_STAT_TABLE, computeSecondary } from "./stats.ts";
 import { type WeaponSpec, specFromStats } from "./unitSpec.ts";
 
 const sword: WeaponSpec = {
-  physical: { attack: 20, attackAppropriate: 40 },
+  physical: { attack: 20 },
+  // 1차 적정 스탯(D-502): STR 25, 명중·크리 DEX 16, 공격 간격 AGI 16
+  appropriate: { str: 25, dex: 16, agi: 16 },
   hitPm: 900,
-  // 명중·크리는 점수(D-458): DEX 16·AGI 16이면 명중 점수 28, 크리 점수 24
-  hitAppropriate: 25,
   critPm: 100,
-  critAppropriate: 20,
   intervalMs: 1000,
-  speedAppropriate: 100,
   range: 1,
   arc: false,
-  staminaCost: 5,
+  // 1차 16이면 STA 점수 16 → 소모 배율 80 ÷ 16 = 5(N13): 행동마다 5
+  staminaCost: 1,
   mpCost: 0,
 };
-const fighter = (str: number, agi: number) =>
-  specFromStats({
+const fighter = (str: number, agi: number) => {
+  const primaries = { str, dex: 16, agi, vit: 16, int: 16, wis: 16 };
+  return specFromStats({
     id: 1,
     side: 1,
     party: 1,
     x: 0,
     y: 0,
-    stats: computeSecondary({ str, dex: 16, agi, vit: 16, int: 16, wis: 16 }, TEST_STAT_TABLE),
+    stats: computeSecondary(primaries, TEST_STAT_TABLE),
     weapon: sword,
+    primaries,
     moveIntervalMs: 1000,
   });
+};
 
 describe("반복 대결(개발자 페이지 전투 시뮬레이터가 쓸 함수)", () => {
   it("같은 입력이면 같은 결과이고, 같은 유닛끼리는 한쪽으로 쏠리지 않는다", () => {
@@ -65,12 +67,12 @@ describe("1차 스탯 대결(밸런스 화면이 쓸 함수, D-458): 1차 스탯
   it("밸런스 화면 선택: 작은 지도·짧은 제한 시간, 시간 초과는 남은 HP 몫이 큰 쪽으로 센다", () => {
     const tough = { primaries: { ...even, vit: 200 }, weapon: blade };
     const base = { primaries: even, weapon: blade };
-    const quick = { ...options, mapSize: 32, limitMs: 10_000 };
+    const quick = { ...options, mapSize: 32, limitMs: 4_000 };
     const report = runStatDuels(tough, base, quick);
     expect(runStatDuels(tough, base, quick)).toEqual(report);
-    // 10초 안에는 아무도 쓰러지지 않는다(수비 쪽 b 승으로 세던 시간 초과)
+    // 4초 안에는 아무도 쓰러지지 않는다(수비 쪽 b 승으로 세던 시간 초과)
     expect(report.timeouts).toBe(12);
-    expect(report.avgMs).toBe(10_000);
+    expect(report.avgMs).toBe(4_000);
     // VIT 200 쪽이 남은 몫이 더 크다
     expect(report.aTimeoutLeads).toBe(12);
     expect(report.bTimeoutLeads).toBe(0);
@@ -89,6 +91,7 @@ describe("1차 스탯 대결(밸런스 화면이 쓸 함수, D-458): 1차 스탯
       weights: row.weights.map((w, i) => (i === 0 ? 0 : w)),
     }));
     const weaker = runStatDuels(strong, base, { ...options, table: noStr });
-    expect(weaker.aWins).toBeLessThan(normal.aWins);
+    // STR는 무기 몫(STR ÷ 적정 STR, D-502)에도 들어 여전히 이기지만, 남은 몫 차이가 준다
+    expect(weaker.shareLeadPmSum).toBeLessThan(normal.shareLeadPmSum);
   });
 });

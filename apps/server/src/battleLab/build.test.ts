@@ -142,15 +142,13 @@ describe("실험 유닛 → 전투 사양(서버만 계산)", () => {
       weapon: {
         kind: "custom",
         spec: {
-          physical: { attack: 30, appropriate: 20 },
-          elemental: { attack: 25, appropriate: 20 },
+          physical: { attack: 30 },
+          elemental: { attack: 25 },
           basic: "elemental",
+          appropriate: { str: 20, int: 20, dex: 20, agi: 0 },
           hitPm: 900,
-          hitAppropriate: 20,
           critPm: 100,
-          critAppropriate: 20,
           intervalMs: 1100,
-          speedAppropriate: 100,
           range: 4,
           arc: false,
           staminaCost: 10,
@@ -170,6 +168,10 @@ describe("실험 유닛 → 전투 사양(서버만 계산)", () => {
     expect(built.spec.attack.kind).toBe("elemental");
     expect(built.spec.range).toBe(4);
     expect(built.spec.skillAttack?.physical.weaponAttack).toBe(30);
+    // 직접 값 적정(D-502): STR·INT 20 → 밀리점, AGI 0 = 적정 없음(간격 그대로)
+    expect(built.spec.skillAttack?.physical.attackAppropriateMilli).toBe(20_000);
+    expect(built.spec.attack.attackAppropriateMilli).toBe(20_000);
+    expect(built.spec.attackIntervalMs).toBe(1100);
     // 사람형 스킬 칸 3(환생 0): 모르는 스킬은 빼고 앞에서 셋
     expect(built.spec.skills.map((skill) => skill.id)).toEqual(["power_strike", "fire_bolt", "war_cry"]);
     expect(built.dropped).toContainEqual({ kind: "skill", id: "no_such_skill" });
@@ -194,40 +196,44 @@ describe("실험 유닛 → 전투 사양(서버만 계산)", () => {
     expect(preview.skills.slots).toBe(3);
   });
 
-  it("맨손·적정치: 무기가 없으면 기본·물리·속성 모두 타고난 무기 값, 지팡이면 물리 스킬만 맨손(D-465)", () => {
+  it("맨손·적정: 무기가 없으면 기본·물리·속성 모두 타고난 무기(무기 몫 0, D-502), 지팡이면 물리 스킬만 맨손(D-465)", () => {
     const bare = previewLabUnit(newLabUnit("human"), rules).combat;
-    const human = TEST_COMBAT_CATALOG.unitKinds.find((entry) => entry.id === "human");
+    // 새 휴먼(1차 모두 10, Lv 1): 공격력 = 스탯 공격력 10, 명중 850 × 10 ÷ 11.5 = 738‰(사용자 답 297)
     expect(bare.attacks.basic).toMatchObject({
       source: "natural",
-      weaponAttack: human?.naturalWeapon.physical?.attack,
-      appropriate: human?.naturalWeapon.physical?.attackAppropriate,
+      weaponAttack: 0,
+      statAttack: 10,
+      realAttack: 10,
     });
-    expect(bare.attacks.elemental).toMatchObject({
-      source: "natural",
-      appropriate: human?.naturalElementalWeapon.elemental?.attackAppropriate,
-    });
-    expect(bare.appropriate.hit.appropriate).toBe(human?.naturalWeapon.hitAppropriate);
+    expect(bare.attacks.elemental).toMatchObject({ source: "natural", weaponAttack: 0, appropriateMilli: 0 });
+    expect(bare.appropriate.hit).toEqual({ stat: 10, appropriateMilli: 11_500, ratioPm: 869 });
+    expect(bare.hitPm).toBe(738);
     const staff = previewLabUnit(
       { ...newLabUnit("human"), weapon: { kind: "item", id: "test_staff", pm: 500 } },
       rules,
     ).combat;
     expect(staff.attacks.basic.source).toBe("weapon");
-    expect(staff.attacks.elemental).toMatchObject({ source: "weapon", weaponAttack: 18, appropriate: 40 });
+    // 지팡이 속성 18 · 적정 INT 23: 10 + 18 × 10 ÷ 23 = 10 + 7 = 17
+    expect(staff.attacks.elemental).toMatchObject({
+      source: "weapon",
+      weaponAttack: 18,
+      appropriateMilli: 23_000,
+      ratioPm: 434,
+      realAttack: 17,
+    });
     expect(staff.attacks.physical.source).toBe("natural");
-    expect(staff.appropriate.speed.appropriate).toBe(100);
+    expect(staff.appropriate.speed).toEqual({ stat: 10, appropriateMilli: 12_000, ratioPm: 833 });
   });
 
-  it("유닛 레벨이 맨손 식(D-488)으로 가고, 화면 요약은 판정과 같은 실효 계산식이다(계수표의 식 덮어쓰기 포함)", () => {
+  it("유닛 레벨이 맨손 적정(D-502)으로 가고, 화면 요약은 판정과 같은 실효 계산식이다(계수표의 식 덮어쓰기 포함)", () => {
     const unit: LabUnit = { ...newLabUnit("human"), level: 30, initial: flat(10) };
     const built = buildLabUnit(unit, rules);
-    expect(built.spec.attack).toMatchObject({ unarmed: true, level: 30 });
+    // Lv 30 맨손 적정 = 30 × 1.5 + 10 = 55
+    expect(built.spec.attack.dexAppropriateMilli).toBe(55_000);
     const preview = previewLabUnit(unit, rules);
-    // 맨손은 굴림 가운데 값(레벨 1로 셈하면 더 크다: 적정 DEX가 낮다)
     const cap = rules.coefficients.appropriateCapPm;
-    expect(preview.combat.realAttack).toBe(realAttackOf(built.spec.attack, 5000, cap, rules.coefficients));
-    expect(preview.combat.realAttack).toBeLessThan(
-      realAttackOf({ ...built.spec.attack, level: 1 }, 5000, cap, rules.coefficients),
-    );
+    expect(preview.combat.realAttack).toBe(realAttackOf(built.spec.attack, cap, rules.coefficients));
+    expect(preview.combat.appropriate.speed.appropriateMilli).toBe(55_000);
     // 명중 식을 덮어쓰면(세계의 계산식) 화면 요약도 그 식
     const formulas = combatFormulaSetFrom({ real_hit: "777" });
     expect(formulas.real_hit).not.toBe(DEFAULT_COMBAT_FORMULA_SET.real_hit);

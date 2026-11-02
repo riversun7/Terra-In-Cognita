@@ -9,8 +9,9 @@
 // 팀 프리셋은 시험끼리 DB를 같이 쓴다: 만든 프리셋은 시험 안에서 지운다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
-import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
+import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
+import { VIEWPORTS } from "./helpers/viewports.ts";
 
 /** 화면 안에서 tRPC를 부른다(같은 출처, 화면과 같은 쿠키) */
 async function trpcStatus(page: Page, procedure: string, input?: unknown): Promise<number> {
@@ -23,6 +24,54 @@ async function trpcStatus(page: Page, procedure: string, input?: unknown): Promi
     { procedure, input },
   );
 }
+
+/** 화면 안에서 tRPC 조회를 부르고 결과 자료(result.data)를 돌려준다 */
+async function trpcData(page: Page, procedure: string, input: unknown): Promise<unknown> {
+  return page.evaluate(
+    async ({ procedure: name, input: body }) => {
+      const response = await fetch(`/api/trpc/${name}?input=${encodeURIComponent(JSON.stringify(body))}`);
+      const json: unknown = await response.json();
+      const result: unknown =
+        typeof json === "object" && json !== null ? Reflect.get(json, "result") : undefined;
+      return typeof result === "object" && result !== null ? Reflect.get(result, "data") : undefined;
+    },
+    { procedure, input },
+  );
+}
+
+const at = (value: unknown, ...keys: string[]): unknown =>
+  keys.reduce<unknown>(
+    (current, key) =>
+      typeof current === "object" && current !== null ? Reflect.get(current, key) : undefined,
+    value,
+  );
+
+/** 1차 6개가 모두 v */
+const flat = (v: number) => ({ str: v, vit: v, int: v, wis: v, dex: v, agi: v });
+
+/** 실험 유닛(새 유닛 기본값과 같은 모양: 1차 모두 10, Lv 1) */
+const labUnit = (weapon: unknown, level = 1, value = 10) => {
+  return {
+    label: "",
+    kind: "cyborg",
+    level,
+    rebirths: 0,
+    initial: flat(value),
+    kPm: flat(0),
+    elements: Array.from({ length: 12 }, () => 0),
+    weapon,
+    equipment: [],
+    gear: {
+      rows: [],
+      defenseFlat: 0,
+      penetrationPm: 0,
+      resistPm: Array.from({ length: 12 }, () => 0),
+      primaries: flat(0),
+    },
+    skills: [],
+    row: "front",
+  };
+};
 
 async function labReady(page: Page): Promise<void> {
   await page.goto("/dev/balance");
@@ -110,6 +159,29 @@ test.describe("개발자", () => {
     expect(unexpected(deviceErrors)).toEqual([]);
   });
 
+  test("공격력 = 스탯 공격력 + 무기 몫(D-502): 새 사이보그 맨손 10·명중 73.8%, 검 10 + 8 = 18, 미리 보기 공격 표", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await labReady(page);
+    // 맨손(Lv 1, 1차 모두 10): 무기 몫 0, 적정 DEX = 1 × 1.5 + 10 = 11.5 → 850‰ × 10 ÷ 11.5 = 738‰
+    const bare = at(await trpcData(page, "battleLab.preview", labUnit({ kind: "natural" })), "combat");
+    expect([at(bare, "realAttack"), at(bare, "hitPm")]).toEqual([10, 738]);
+    expect(at(bare, "appropriate", "hit")).toEqual({ stat: 10, appropriateMilli: 11_500, ratioPm: 869 });
+    // 검(공격력 20·적정 STR 25): 10 + 20 × 10 ÷ 25 = 18, Lv 30 균형형(39) → 39 + 20 = 59
+    const sword = { kind: "item", id: "test_sword", pm: 0 };
+    const lv1 = at(await trpcData(page, "battleLab.preview", labUnit(sword)), "combat");
+    expect(at(lv1, "realAttack")).toBe(18);
+    const lv30 = at(await trpcData(page, "battleLab.preview", labUnit(sword, 30, 39)), "combat");
+    expect(at(lv30, "realAttack")).toBe(59);
+    // 화면: 편집 유닛의 공격 표에 스탯 공격력·무기 공격력·1차 ÷ 적정·비율 칸이 있다
+    await page.locator(".bl-team[data-team='a'] .bl-unit-pick").nth(1).click();
+    const basic = page.locator(".bl-attacks tr[data-attack='basic'] td");
+    await expect(basic).toHaveCount(6);
+    await expect(page.locator(".bl-attacks tr[data-appropriate='speed'] td").nth(4)).toContainText("÷");
+    expect(unexpected(deviceErrors)).toEqual([]);
+  });
+
   test("유닛 프리셋: 새로 저장 → 이름 바꾸기 → 복제 → 지우기, 샘플은 읽기 전용", async ({
     page,
     deviceErrors,
@@ -181,7 +253,12 @@ test.describe("배치·사진", () => {
 
   for (const { theme, language, width, height } of LAYOUTS) {
     test.describe(`${theme}·${language}·${width}px`, () => {
-      test.use({ devTheme: theme, language, viewport: { width, height } });
+      // 1440은 실제 데스크톱(마우스·터치 없음, 아이템 편집기 사진과 같다)
+      test.use({
+        devTheme: theme,
+        language,
+        ...(width >= 1000 ? VIEWPORTS.desktop : { viewport: { width, height } }),
+      });
 
       test("팀·유닛 편집·미리 보기·전투장(결과 포함): 가로 넘침·작은 누르는 곳 없음, 사진", async ({
         page,
@@ -193,6 +270,12 @@ test.describe("배치·사진", () => {
         await page.locator(".bl-lab details:not([open]) > summary").evaluateAll((elements) => {
           for (const element of elements) element.parentElement?.setAttribute("open", "");
         });
+        // 공격·적정 스탯 표(D-502: 스탯 공격력·무기 공격력·1차 ÷ 적정·비율·실제) — 샘플 유닛의 팩 무기로 먼저 찍는다
+        await expect(page.locator(".bl-attacks tr[data-attack='basic']")).toBeVisible();
+        await elementShot(
+          page.locator(".bl-scroll").filter({ has: page.locator(".bl-attacks") }),
+          `battle-lab-attacks-${theme}-${language}-${width}`,
+        );
         await page.locator(".bl-weapon-select").selectOption("custom");
         await runUntil(page, ".bl-battle", ".bl-result");
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
@@ -287,15 +370,13 @@ function worstTeams() {
         ? {
             kind: "custom",
             spec: {
-              physical: { attack: 1_000_000, appropriate: 1 },
-              elemental: { attack: 999_999, appropriate: 1 },
+              physical: { attack: 1_000_000 },
+              elemental: { attack: 999_999 },
               basic: "elemental",
+              appropriate: { str: 1, int: 1, dex: 1, agi: 1_000_000 },
               hitPm: 1_000_000,
-              hitAppropriate: 1,
               critPm: 1_000_000,
-              critAppropriate: 1,
               intervalMs: 60_000,
-              speedAppropriate: 1_000_000,
               range: 32,
               arc: true,
               staminaCost: 1_000_000,

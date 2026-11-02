@@ -5,8 +5,8 @@ import { DEFAULT_COMBAT_FORMULAS } from "@terra/shared/formula";
 import {
   DEFAULT_COMBAT_FORMULA_SET,
   TEST_STAT_TABLE,
+  attackValue,
   computeSecondary,
-  frameValue,
   TEST_COMBAT_COEFFICIENTS,
 } from "@terra/sim";
 import { describe, expect, it } from "vitest";
@@ -38,14 +38,14 @@ const formula = (id: string, source: string, packSource: string, updatedAtMs = 1
 const primaries = { str: 10, dex: 10, agi: 10, vit: 10, int: 10, wis: 10 };
 
 describe("계산식 칸", () => {
-  it("행 식 18개 + 전투 식 9개, 팩 식은 가중치에서 만든 식·팩 formulas 글", () => {
+  it("행 식 15개(켜진 행, D-502로 명중·크리·행동 속도 점수를 끔) + 전투 식 9개, 팩 식은 가중치에서 만든 식·팩 formulas 글", () => {
     const state = packState();
-    expect(state.formulaSlots.filter((slot) => slot.group === "stat")).toHaveLength(18);
+    expect(state.formulaSlots.filter((slot) => slot.group === "stat")).toHaveLength(15);
     expect(state.formulaSlots.filter((slot) => slot.group === "combat")).toHaveLength(9);
     expect(state.formulaSlot("hp.formula")?.packSource).toBe(
       "STR * 1.5 + DEX + AGI * 1.5 + VIT * 3 + INT + WIS * 1.2 + GEAR + BUFF",
     );
-    expect(state.formulaSlot("bare_attack")?.packSource).toBe(DEFAULT_COMBAT_FORMULAS.bare_attack);
+    expect(state.formulaSlot("bare_appropriate")?.packSource).toBe(DEFAULT_COMBAT_FORMULAS.bare_appropriate);
     // 팩 식 그대로면 판정 코드의 기본 묶음과 같은 객체(같은 결과·같은 캐시)
     expect(state.combatFormulas().real_attack).toBe(DEFAULT_COMBAT_FORMULA_SET.real_attack);
     expect(state.statTable()).toEqual(TEST_STAT_TABLE);
@@ -139,11 +139,12 @@ describe("바로 듦(install)", () => {
     const attack = state.formulaSlot("real_attack")?.packSource ?? "";
     state.install([], 3, [
       formula("hp.formula", "VIT * 10 + STR + DEX + AGI + INT + WIS", hp),
-      formula("real_attack", `2 * ${attack}`, attack),
+      formula("real_attack", `2 * (${attack})`, attack),
     ]);
     expect(computeSecondary(primaries, state.statTable()).hp).toBe(150);
     const c = { ...TEST_COMBAT_COEFFICIENTS, formulas: state.combatFormulas() };
-    expect(frameValue("real_attack", 20, 40, 40, 2000, c)).toBe(40);
+    // 2 × (스탯 공격력 0 + 무기 20 × min(1, STR 40 ÷ 적정 40)) = 40
+    expect(attackValue(0, 20, 40, 40_000, 1000, c)).toBe(40);
     expect(state.formulaOverrideCount()).toBe(2);
     expect(state.appliedCount()).toBe(2);
     // 칸만 바꾼 install은 식 덮어쓰기를 그대로 둔다

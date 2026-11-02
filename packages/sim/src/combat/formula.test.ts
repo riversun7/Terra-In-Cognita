@@ -10,6 +10,8 @@ import {
   resolveAttack,
   sightRadius,
   skillAttack,
+  statPlusWeapon,
+  weaponRatioPm,
   weaponScaled,
 } from "./formula.ts";
 
@@ -23,17 +25,17 @@ const FIRE = 2;
 const BLAZE = 3;
 const WIND = 4;
 
+/** 스탯 공격력 0 + 무기 100 × (STR 50 ÷ 적정 50) = 100. 명중·크리는 DEX 50 = 적정 50이라 무기 값 그대로 */
 const attacker: AttackProfile = {
   kind: "physical",
+  statAttack: 0,
   weaponAttack: 100,
-  attackStat: 50,
-  attackAppropriate: 50,
+  attackPrimary: 50,
+  attackAppropriateMilli: 50_000,
   weaponHitPm: 900,
-  hitStat: 500,
-  hitAppropriate: 500,
   weaponCritPm: 200,
-  critStat: 100,
-  critAppropriate: 100,
+  dex: 50,
+  dexAppropriateMilli: 50_000,
   critMulPm: 1500,
   penetrationPm: 0,
   skillMulPm: 1000,
@@ -57,11 +59,26 @@ const HIT = { hit: 0, evade: 9999, crit: 9999, critPos: 0 };
 /** 크리가 난 공격(방어 없는 상대)의 피해, 자리 굴림만 바꾼다 */
 const critAt = (critPos: number) => resolveAttack(attacker, open, { ...HIT, crit: 0, critPos }, c).amount;
 
-describe("무기 틀(D-420): 무기 값 × min(2, 유닛 값 ÷ 적정치)", () => {
-  it("적정치면 1배, 넘으면 2배까지, 모자라면 약하다", () => {
-    expect(weaponScaled(100, 50, 50)).toBe(100);
-    expect(weaponScaled(100, 500, 50)).toBe(200);
-    expect(weaponScaled(100, 25, 50)).toBe(50);
+describe("공격력 = 스탯 공격력 + 무기 몫(D-502, 사용자 답 296): 무기 몫 = 무기 값 × min(1, 1차 ÷ 적정)", () => {
+  it("적정이면 1배, 넘어도 1배(N10 1000‰ — 보너스 없음), 모자라면 그 비율로 준다", () => {
+    expect(weaponScaled(100, 50, 50_000)).toBe(100);
+    expect(weaponScaled(100, 500, 50_000)).toBe(100);
+    expect(weaponScaled(100, 25, 50_000)).toBe(50);
+    // 적정이 없으면(0) 비율 100%
+    expect(weaponScaled(100, 0, 0)).toBe(100);
+    expect(weaponRatioPm(7, 0, 1000)).toBe(1000);
+  });
+
+  it("사용자 예: 새 사이보그(1차 모두 10) + 공격력 20·적정 STR 25 검 → 10 + 8 = 18, 맨손 → 10, Lv 30 균형형(39) → 39 + 20 = 59", () => {
+    // 스탯 공격력 = (STR + VIT) ÷ 2 = 10
+    expect(statPlusWeapon(10, 20, 10, 25_000)).toBe(18);
+    expect(statPlusWeapon(10, 0, 10, 0)).toBe(10);
+    expect(statPlusWeapon(39, 20, 39, 25_000)).toBe(59);
+  });
+
+  it("맨손 명중(사용자 답 297): Lv 1 적정 = 1 × 1.5 + 10 = 11.5 → 850‰ × 10 ÷ 11.5 = 738‰(약 74%)", () => {
+    expect(weaponRatioPm(10, 11_500, 1000)).toBe(869);
+    expect(weaponScaled(850, 10, 11_500)).toBe(738);
   });
 });
 
@@ -298,7 +315,7 @@ describe("물리 몫과 속성 몫(D-459, 48 §4.5a)", () => {
       {
         ...flameSword,
         weaponAttack: 1_000_000,
-        attackStat: 10_000_000,
+        statAttack: 10_000_000,
         skillMulPm: 1_000_000,
         buffPm: 1_000_000,
         critMulPm: 1_000_000,

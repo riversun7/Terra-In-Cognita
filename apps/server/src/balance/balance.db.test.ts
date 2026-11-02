@@ -110,7 +110,8 @@ describe.skipIf(!TEST_DATABASE_URL)("밸런스 화면 (DB)", () => {
     expect((await trpcQuery(app, "balance.table", undefined, cookie.player)).statusCode).toBe(403);
     expect((await trpcQuery(app, "balance.table", undefined)).statusCode).toBe(401);
     const table = obj(resultOf(await trpcQuery(app, "balance.table", undefined, cookie.dev)));
-    expect(arr(table.rows)).toHaveLength(18);
+    // 켜진 행 15개(D-502로 명중·크리·행동 속도 점수 행은 꺼짐)
+    expect(arr(table.rows)).toHaveLength(15);
     const defaults = obj(table.defaults);
     const primaries = obj(defaults.primaries);
     const contribution = await trpcQuery(

@@ -128,7 +128,7 @@ export function rosterCatalogOf(
   const combatOf = (): CombatCatalog => {
     const base = latest().combat;
     const table = statTable?.() ?? base.statTable;
-    // 표가 바뀌면 1차 적정 스탯 무기의 적정치도 그 표로 다시 셈한다(D-496, 아이템 편집기 WP-5)
+    // 표가 바뀌면 그 표를 실은 묶음(무기 적정은 1차 스탯이라 다시 셈하지 않는다, D-502)
     if (cache?.base !== base || cache.table !== table)
       cache = { base, table, value: withStatTable(base, table) };
     return cache.value;

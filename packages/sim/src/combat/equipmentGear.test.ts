@@ -1,13 +1,13 @@
 // 장비 → 전투 연결 시험(아이템 편집기 WP-5, docs/adr/2026-11-01-item-editor.md "바뀜 (2026-11-02, WP-5)")
 // 속성값(D-450 출처 합·칸마다 10), 전투 직접 값(D-421·D-178 더하기), 양손 무기(보조 칸 무시, 던지지 않음), 입을 수 있는 유닛 종류
-// (D-494 전용 장비), 1차 적정 스탯 → 2차 적정치(D-496, 질문 290 가), 1차 합 넘침(던지지 않고 자름).
+// (D-494 전용 장비), 무기 1차 적정 스탯(D-502: 몫마다 하나, 1차와 바로 견줌), 1차 합 넘침(던지지 않고 자름).
 import { STAT_FORMULA_VARS, compileFormulaOrThrow } from "@terra/shared/formula";
 import { elementsToArray, sumElementSources, zeroElements } from "@terra/shared/cyborg";
 import { describe, expect, it } from "vitest";
-import { appropriateFromPrimaries } from "./appropriate.ts";
-import { TEST_COMBAT_CATALOG, UNARMED } from "./catalog.ts";
+import { TEST_COMBAT_CATALOG, UNARMED, withStatTable } from "./catalog.ts";
+import { TEST_COMBAT_COEFFICIENTS } from "./coefficients.ts";
 import { type EquipDef, type EquippedItem, itemAt, loadoutOf } from "./equipment.ts";
-import { resolveWeaponAppropriate, withStatTable } from "./equipmentAppropriate.ts";
+import { realAttackOf } from "./formula.ts";
 import { MAX_STAT_INPUT, type StatRow, TEST_STAT_TABLE } from "./stats.ts";
 import { specFromStats } from "./unitSpec.ts";
 
@@ -180,57 +180,51 @@ describe("입을 수 있는 유닛 종류(D-494 크리쳐 전용 장비 등)", (
   });
 });
 
-describe("1차 적정 스탯 → 2차 적정치(D-496, 질문 290 가: 착용 제한이 아니라 효율 기준)", () => {
+describe("무기 1차 적정 스탯(D-502, 사용자 답 296: 몫마다 하나, 가중치 표와 무관)", () => {
+  const swordWeapon = def("test_sword").weapon;
+  if (!swordWeapon) throw new Error("fixture test_sword");
   const knife: EquipDef = {
     ...def("test_sword"),
     id: "lab_knife",
-    appropriate: { str: 25, dex: 15 },
+    weapon: { ...swordWeapon, appropriate: { str: 25, dex: 15 } },
   };
 
-  it("무기 사양의 적정치 칸 = 그 1차만 가진 유닛의 2차 값(STR 25·DEX 15 → 물리 59·명중 18·크리 22·속도 54)", () => {
-    const weapon = resolveWeaponAppropriate(knife, TEST_STAT_TABLE);
-    expect(weapon?.physical?.attackAppropriate).toBe(59);
-    expect(weapon?.hitAppropriate).toBe(18);
-    expect(weapon?.critAppropriate).toBe(22);
-    expect(weapon?.speedAppropriate).toBe(54);
-    // 나머지 칸은 그대로
-    expect(weapon?.physical?.attack).toBe(20);
-    expect(weapon?.intervalMs).toBe(1000);
-  });
-
-  it("1차 적정 스탯이 없으면 직접 적은 적정치 그대로(같은 객체)", () => {
-    expect(resolveWeaponAppropriate(def("test_sword"), TEST_STAT_TABLE)).toBe(def("test_sword").weapon);
-  });
-
-  it("가중치 표가 바뀌면(밸런스 화면·행 식) 다시 셈한다: 명중 행 식 DEX × 2 → 30", () => {
-    const vars = STAT_FORMULA_VARS.map((item) => item.name);
-    const hitTwice: StatRow[] = TEST_STAT_TABLE.map((row) =>
-      row.id === "hit" ? { ...row, formula: compileFormulaOrThrow("DEX * 2", vars) } : row,
-    );
-    const catalog = withStatTable(
-      { ...TEST_COMBAT_CATALOG, equipment: [{ ...knife, weapon: resolveWeaponAppropriate(knife, table) }] },
-      hitTwice,
-    );
-    expect(catalog.statTable).toBe(hitTwice);
-    expect(catalog.equipment[0]?.weapon?.hitAppropriate).toBe(30);
-    expect(catalog.equipment[0]?.weapon?.hitAppropriate).toBe(
-      appropriateFromPrimaries({ str: 25, dex: 15 }, hitTwice).hit,
-    );
-    // 같은 표면 같은 묶음
-    expect(withStatTable(TEST_COMBAT_CATALOG, TEST_COMBAT_CATALOG.statTable)).toBe(TEST_COMBAT_CATALOG);
-  });
-
-  it("적정 STR 25·DEX 15 칼을 STR 10·DEX 10 유닛이 들면 물리 비율 = 26 ÷ 59(D-420 틀)", () => {
-    const weapon = resolveWeaponAppropriate(knife, table);
+  it("적정은 무기 사양 칸 그대로 전투에 간다(2차 적정치로 셈하지 않는다)", () => {
     const out = loadoutOf({
       base,
       slots: slotsOf("human"),
-      equipped: [itemAt({ ...knife, weapon }, 0)],
+      equipped: [itemAt(knife, 0)],
       table,
       unarmed: UNARMED,
     });
-    expect(out.weapon.physical?.attackAppropriate).toBe(59);
-    expect(out.stats.physical_attack).toBe(26);
+    expect(out.weapon.appropriate).toEqual({ str: 25, dex: 15 });
+    expect(out.stats.physical_attack).toBe(10);
+    const spec = specFromStats({
+      id: 1,
+      side: 1,
+      party: 1,
+      x: 0,
+      y: 0,
+      stats: out.stats,
+      weapon: out.weapon,
+      primaries: out.primaries,
+      moveIntervalMs: 1000,
+    });
+    // 10 + 20 × 10 ÷ 25 = 18, 적정 AGI 없음 → 간격 그대로
+    expect(realAttackOf(spec.attack, 1000, TEST_COMBAT_COEFFICIENTS)).toBe(18);
+    expect(spec.attack.dexAppropriateMilli).toBe(15_000);
+    expect(spec.attackIntervalMs).toBe(1000);
+  });
+
+  it("가중치 표가 바뀌어도(밸런스 화면·행 식) 무기 적정은 그대로이고, 같은 표면 같은 묶음", () => {
+    const vars = STAT_FORMULA_VARS.map((item) => item.name);
+    const doubled: StatRow[] = TEST_STAT_TABLE.map((row) =>
+      row.id === "physical_attack" ? { ...row, formula: compileFormulaOrThrow("STR * 2", vars) } : row,
+    );
+    const catalog = withStatTable({ ...TEST_COMBAT_CATALOG, equipment: [knife] }, doubled);
+    expect(catalog.statTable).toBe(doubled);
+    expect(catalog.equipment[0]).toBe(knife);
+    expect(withStatTable(TEST_COMBAT_CATALOG, TEST_COMBAT_CATALOG.statTable)).toBe(TEST_COMBAT_CATALOG);
   });
 });
 

@@ -138,8 +138,8 @@ function previewEquip(
 ): { equip: EquipPreview; middle: Loadout | null; def: ReturnType<typeof equipDefOf> } {
   const { combat } = ctx;
   const enabledSkills = new Set(combat.skills.map((skill) => skill.id));
-  // 실효 가중치 표로 1차 적정 스탯 → 2차 적정치를 셈한 장비 정의(전투 자료와 같은 변환, D-496)
-  const def = equipDefOf(item, enabledSkills, combat.statTable);
+  // 전투 자료와 같은 변환(무기의 1차 적정 스탯 D-502는 무기 사양 칸 그대로)
+  const def = equipDefOf(item, enabledSkills);
   const kind = combat.unitKinds.find((candidate) => candidate.id === unit.kind) ?? combat.unitKinds[0];
   const slots = kind?.slots ?? [];
   const byId = new Map(combat.equipment.map((gear) => [gear.id, gear]));
@@ -252,10 +252,8 @@ export function previewItem(
     if (spec && shown.middle)
       weapon = previewWeapon({
         spec,
-        appropriate: shown.def?.appropriate,
         middle: shown.middle,
         level: unit.level,
-        table: ctx.combat.statTable,
         tuning: ctx.tuning,
         coefficients: coefficientsOf(ctx.tuning),
       });

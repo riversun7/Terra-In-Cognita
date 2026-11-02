@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-03 05:30 | 건물 편집기(/dev/buildings)와 건설 재료 레벨 구간(D-508) | Claude Code | [03-0530-building-editor](worklog/2026/11/03-0530-building-editor.md) |
 | 2026-11-02 23:30 | 옛 1차 생산 규칙: 주 스탯 진행 속도·티어별 필요 진행·보조 스탯 수확량·하위 재료 (D-507) | Claude Code | [02-2330-primary-production](worklog/2026/11/02-2330-primary-production.md) |
 | 2026-11-02 21:35 | 채집·채굴 티어 추첨, 광석 1g과 거래 묶음 (질문 300~302, D-506) | Claude Code | [02-2135-gather-tier](worklog/2026/11/02-2135-gather-tier.md) |
 | 2026-11-02 21:30 | 옛 1차 자원 팩 커밋, 기준 가치 → 시작 시세, 금속 원석 1g·괴 1kg (질문 295, D-505) | Claude Code | [02-2130-old-resources](worklog/2026/11/02-2130-old-resources.md) |

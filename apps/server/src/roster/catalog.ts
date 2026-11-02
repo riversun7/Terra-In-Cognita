@@ -39,8 +39,6 @@ export interface RosterCatalog {
   readonly combat: CombatCatalog;
   /** 이름 표 전체(응답에는 쓴 ID만 넣는다, namesFor) */
   readonly names: RosterNames;
-  /** 아이템 기준 가격(최소 단위, 팩 baseValue). 없으면 0 */
-  readonly baseValue: ReadonlyMap<string, number>;
   /**
    * 설정 칸 실효 값(팩 tuning + 그 세계의 덮어쓰기)을 얹은 세력·사회 계수표(사이보그 만렙·스킬 등급 상한·환생 비용 N7·N34,
    * 생활비 N38, D-440·D-441). 읽을 때마다 지금 값이다(rosterCatalogOf의 society 접근자). 받아 두지 말고 쓸 때 읽는다
@@ -97,7 +95,7 @@ export function rosterCatalogOf(
   const packSociety = societyCoefficientsFrom(tuningOf(source));
   const current = society ?? (() => packSociety);
   const entriesNow = content ?? (() => packEntries);
-  /** 실효 항목 한 벌 → 전투 자료(팩 표)·이름 표·기준 가격 */
+  /** 실효 항목 한 벌 → 전투 자료(팩 표)·이름 표 */
   const build = (entries: RosterContentEntries) => ({
     entries,
     combat: combatCatalogFrom({
@@ -115,7 +113,6 @@ export function rosterCatalogOf(
       facilities: nameTable(facilities.filter((facility) => facility.enabled)),
       planets: nameTable(planets),
     },
-    baseValue: new Map(entries.items.map((item) => [item.id, item.baseValue])),
   });
   // 실효 항목(스킬 편집기 판)이나 가중치 표(덮어쓰기 판)가 바뀌면 새 묶음을 만든다. 옛 묶음을 든 쪽은 그 요청 안에서만 쓴다
   let built = build(entriesNow());
@@ -140,9 +137,6 @@ export function rosterCatalogOf(
     get names() {
       return latest().names;
     },
-    get baseValue() {
-      return latest().baseValue;
-    },
     get society() {
       return current();
     },
@@ -164,7 +158,6 @@ export function testRosterCatalog(): RosterCatalog {
       facilities: {},
       planets: {},
     },
-    baseValue: new Map(),
     society: TEST_SOCIETY_COEFFICIENTS,
   };
 }

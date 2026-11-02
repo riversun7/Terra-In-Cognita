@@ -26,7 +26,7 @@ describe("economyCatalogFromPack", () => {
   it("켜진 항목만 팩 차례로, 참조는 ID 글자, 금액은 10진 글자", () => {
     const catalog = packCatalog();
     expect(catalog.items.map((item) => item.id)).not.toContain("dev_placeholder");
-    expect(catalog.items[0]).toMatchObject({ id: "grain", category: "raw", tier: 0, baseValue: "4" });
+    expect(catalog.items[0]).toMatchObject({ id: "grain", category: "raw", tier: 0, startPrice: "4" });
     expect(catalog.items[0]?.name).toEqual({ ko: "곡물", en: "Grain" });
     const smelt = catalog.recipes.find((recipe) => recipe.id === "smelt_iron");
     expect(smelt).toMatchObject({
@@ -106,7 +106,7 @@ describe("시안 시장(sim 물자 거래소)", () => {
     location: 101,
     item: "iron_ore",
     currency: "placeholder_cur_01",
-    basePrice: 800n,
+    startPrice: 800n,
     taxBp: 200,
     mine: PREVIEW_MY_PLANS["101|iron_ore"] ?? [],
   };

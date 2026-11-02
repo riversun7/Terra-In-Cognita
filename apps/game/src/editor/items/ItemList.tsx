@@ -46,11 +46,11 @@ const SORT_TEXT: Readonly<Record<ItemSort, () => string>> = {
   name: m.dev_items_sort_name,
   id: m.dev_items_sort_id,
   tier: m.dev_items_sort_tier,
-  baseValue: m.dev_items_sort_value,
+  startPrice: m.dev_items_sort_value,
   weight: m.dev_items_sort_weight,
 };
 
-/** 한 줄 요약: 무기 = 공격 칸·적정 스탯, 방어구 = 주요 스탯, 소모품 = 효과, 자원 = 무게·기준 가치 */
+/** 한 줄 요약: 무기 = 공격 칸·적정 스탯, 방어구 = 주요 스탯, 소모품 = 효과, 자원 = 무게·시작 시세 */
 function summaryOf(row: ItemRow, list: ItemEditorListResponse, locale: "ko" | "en"): string {
   if (row.attack) {
     const parts = [
@@ -81,7 +81,7 @@ function summaryOf(row: ItemRow, list: ItemEditorListResponse, locale: "ko" | "e
   }
   return [
     row.weight === null ? null : weightText(row.weight),
-    m.dev_items_summary_value({ value: row.baseValue }),
+    m.dev_items_summary_value({ value: row.startPrice }),
   ]
     .filter((part) => part !== null)
     .join(" · ");

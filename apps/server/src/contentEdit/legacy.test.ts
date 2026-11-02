@@ -1,10 +1,11 @@
-// 옛 모양 덮어쓰기 줄 고쳐 읽기 시험(legacy.ts, 팩 core@26) — D-501 옛 효과량 칸(스탯 1점당 ‰)·범위 밖 오차, D-501 지운 중분류(ammo).
+// 옛 모양 덮어쓰기 줄 고쳐 읽기 시험(legacy.ts, 팩 core@26) — D-501 옛 효과량 칸(스탯 1점당 ‰)·범위 밖 오차, D-501 지운 중분류(ammo),
+// D-502 옛 무기 적정(core@27), 295 옛 기준 가치 칸 baseValue → 시작 시세 startPrice(core@28).
 // 켤 때 고르기에서 그 줄이 지워지지 않고(다른 고친 칸은 남는다) 싣기 뒤 실효 항목이 지금 스키마로 읽힌다.
 import { ITEM_SCHEMA_LIMITS } from "@terra/content";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { loadServerContent } from "../content.ts";
-import { LEGACY_VARIANCE_RANGE, upgradeLegacyRows } from "./legacy.ts";
+import { LEGACY_VARIANCE_RANGE, upgradeLegacyEntry, upgradeLegacyRows } from "./legacy.ts";
 import { type ContentOverrideRecord, type EntryJson, createContentEditState } from "./state.ts";
 
 const loaded = loadServerContent(DEFAULT_CONTENT_DIR);
@@ -71,9 +72,15 @@ describe("옛 모양 덮어쓰기 줄(팩 core@26)", () => {
     });
     expect(entry?.name).toEqual(oldPotion.name);
     // 고칠 것이 없는 줄은 같은 객체(키도 남기지 않는다)
+    const { baseValue, ...current } = oldPotion;
     const clean = record(
       "e2e_clean",
-      { ...oldPotion, subcategory: "medicine", use: { effects: oldPotion.use.effects.slice(2) } },
+      {
+        ...current,
+        startPrice: baseValue,
+        subcategory: "medicine",
+        use: { effects: oldPotion.use.effects.slice(2) },
+      },
       null,
     );
     const again = upgradeLegacyRows(state.core, [clean]);
@@ -204,5 +211,37 @@ describe("옛 모양 무기 줄(팩 core@27, D-502 무기 1차 적정 스탯)", 
     expect(rows[0]?.entry.naturalElementalWeapon).toMatchObject({ elemental: { attack: 0 }, unarmed: true });
     const selection = state.selectAtBoot([edited]);
     expect(selection.dropped).toEqual([]);
+  });
+});
+
+describe("옛 기준 가치 칸(팩 core@28, 295 시작 시세)", () => {
+  it("baseValue는 startPrice로 옮기고(같은 값), 둘 다 있으면 startPrice를 둔다", () => {
+    const state = fresh();
+    const pack = state.packEntry("items", "iron_ore");
+    const packHash = state.packHash("items", "iron_ore");
+    if (!pack || packHash === null) throw new Error("fixture iron_ore");
+    const { startPrice: _drop, ...rest } = pack;
+    const edited = record("iron_ore", { ...rest, baseValue: 12, weight: 500 }, packHash);
+    const { rows, upgraded } = upgradeLegacyRows(state.core, [edited]);
+    expect(upgraded).toEqual(["items/iron_ore"]);
+    expect(rows[0]?.entry).toEqual({ ...rest, startPrice: 12, weight: 500 });
+    const both = upgradeLegacyEntry(state.core, "items", "iron_ore", { ...pack, baseValue: 3 });
+    expect(both).toEqual(pack);
+    // 켤 때 지워지지 않고 실효 항목이 된다(고친 무게도 남는다)
+    expect(state.selectAtBoot([edited]).dropped).toEqual([]);
+    state.install([edited], 1);
+    const ore = state.effective().items.find((item) => item.id === "iron_ore");
+    expect([ore?.startPrice, ore?.weight]).toEqual([12, 500]);
+  });
+
+  it("감사 기록의 옛 판 항목(다시 담기)도 같은 함수로 읽는다: 고칠 것이 없으면 같은 객체", () => {
+    const state = fresh();
+    const pack = state.packEntry("items", "grain");
+    if (!pack) throw new Error("fixture grain");
+    expect(upgradeLegacyEntry(state.core, "items", "grain", pack)).toBe(pack);
+    expect(upgradeLegacyEntry(state.core, "effects", "burn", { id: "burn", baseValue: 1 })).toEqual({
+      id: "burn",
+      baseValue: 1,
+    });
   });
 });

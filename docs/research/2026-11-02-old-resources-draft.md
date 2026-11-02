@@ -1,7 +1,7 @@
 # 옛 1차 자원 변환본(검토용 초안) — 이름 바꿈 목록·출처 대조
 
 > 출처: 기술 세션(Claude Code), 2026-11-02 KST. 아이템 편집기 WP-7(설계안 `docs/research/2026-11-01-item-editor-design.md` 3.8 "옛 1차 자원 136개", 6장 WP-7).
-> 상태: **초안. 팩에 넣지 않았다.** 사용자가 이 문서를 확인한 뒤(D-487) 팩 커밋으로 넣는다. 변환본 파일: `docs/research/2026-11-02-old-resources-draft.json`.
+> 상태: **반영함**(2026-11-02, 질문 295 "검토 뒤 답"·기획 D-505, 팩 core@28, 가지 `work/old-resources`, ADR `docs/adr/2026-11-01-item-editor.md` "바뀜 (… 295·D-505 …)", 작업 기록 `docs/worklog/2026/11/02-2130-old-resources.md`). 아래는 답을 받기 전 초안 그대로 둔다. 팩에 들어간 판과 다른 점: 이름 바꿈 없음(미스릴 `mithril`·세계수의 이슬잎 `world_tree_dew_leaf`·오리할콘 그대로), 은·금·백금은 원자재·광석, 먹지 않는 목축 부산물 16개와 밍크 오일은 새 중분류 `livestock_byproduct`, 기준 가치 → 시작 시세(`startPrice`), 금속 원석 7개는 1단위 = 1g(무게 1), 괴 7개·제련 레시피 7개 더함, 철광석은 중분류 광석만(티어·무게는 사용자 선택 대기). 변환본 파일(`.json`, 옛 칸 이름 `baseValue`)은 대량 도구 가져오기가 지금도 읽는다(옛 이름을 `startPrice`로 읽음).
 
 ## 1. 무엇을 했나
 - 옛 프로젝트 `AntiGravt01/terra-server/scripts/seed_primary_materials.js`(1차 자원 136개)를 **글로만 읽어**(실행하지 않음) 새 팩 아이템 모양으로 바꿨다. 변환 도구는 저장소에 두지 않았다(한 번 쓰는 도구, 세션 임시 폴더).

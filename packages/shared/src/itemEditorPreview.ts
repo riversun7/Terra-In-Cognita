@@ -154,8 +154,9 @@ export interface ItemEditorPreviewResponse {
     }[];
   } | null;
   readonly value: {
-    readonly baseValue: number;
-    /** 이 아이템을 만드는 레시피마다 원가(입력 기준 가치 합 ÷ 출력 수량, 최소 단위 정수 글자) */
+    /** 시작 시세(295: 시장의 첫 가격) */
+    readonly startPrice: number;
+    /** 이 아이템을 만드는 레시피마다 원가(입력 시작 시세 합 ÷ 출력 수량, 최소 단위 정수 글자) */
     readonly recipes: readonly { readonly id: string; readonly cost: string; readonly outputQty: number }[];
   };
 }

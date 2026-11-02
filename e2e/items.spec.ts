@@ -7,7 +7,7 @@
 //   대량 도구(WP-7): CSV 가져오기의 틀린 줄은 줄 번호로, 고친 줄·새 줄은 담아 적용. 크리쳐 전용 장비(D-494): 미리 보기·전투 실험실.
 // - player: 권한 없음 화면, tRPC items.*는 403.
 // - 사진: 390·1440 × 개발 화면 테마 네온·라이트 × 한국어·영어, 보이는 화면 크기(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui). 소모품 효과량 칸·
-//   미리 보기 판도 같은 조합으로 찍는다.
+//   미리 보기 판도 같은 조합으로 찍는다. 옛 자원(295·D-505): 광석·목축 부산물 거르기 목록, 시작 시세 칸·지금 세계 시세(시세 없음).
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 아이템 편집기 분류의 덮어쓰기를 모두 지운다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
@@ -289,8 +289,8 @@ test.describe("개발자", () => {
     // 탭 A: 티어를 먼저 적용
     await editing(page).getByLabel(message("ko", "dev_items_field_tier"), { exact: true }).fill("2");
     await apply(page);
-    // 탭 B: 옛 해시로 기준 가치 → 검사가 entry_changed → 티어 2 위에 기준 가치만 바로 다시 얹는다 → 적용
-    await editing(other).getByLabel(message("ko", "dev_items_field_base_value"), { exact: true }).fill("9");
+    // 탭 B: 옛 해시로 시작 시세 → 검사가 entry_changed → 티어 2 위에 시작 시세만 바로 다시 얹는다 → 적용
+    await editing(other).getByLabel(message("ko", "dev_items_field_start_price"), { exact: true }).fill("9");
     await expect(other.locator(".ie-screen [role='alert']").first()).toContainText(
       message("ko", "dev_items_err_entry_changed"),
       { timeout: 15_000 },
@@ -303,7 +303,7 @@ test.describe("개발자", () => {
     const merged = await trpc(page, "items.get", { id: "iron_ore" });
     expect([
       field(field(merged.data, "entry"), "tier"),
-      field(field(merged.data, "entry"), "baseValue"),
+      field(field(merged.data, "entry"), "startPrice"),
     ]).toEqual([2, 9]);
 
     // 같은 칸(티어): A가 3으로 적용한 뒤 B가 4로 → 고르는 판, [서버 값 쓰기]면 3
@@ -465,6 +465,7 @@ test.describe("개발자", () => {
         text: `${message("ko", "dev_items_bulk_err_not_int")} (tier · x)`,
       }),
     );
+    // 옛 열 이름 baseValue(팩 core@27까지)도 시작 시세로 읽는다(295)
     await text.fill(
       "id,category,tier,baseValue,name.ko,name.en\niron_ore,,3,,,\ne2e_bulk_ore,raw,1,5,시험 광석,Test ore\n",
     );
@@ -481,7 +482,11 @@ test.describe("개발자", () => {
     expect(field(field(ore.data, "entry"), "tier")).toBe(3);
     const created = field((await trpc(page, "items.get", { id: "e2e_bulk_ore" })).data, "entry");
     // 새 줄은 꺼진 채로 만든다(덜 만든 아이템이 세계에 나오지 않게)
-    expect([field(created, "enabled"), field(field(created, "name"), "en")]).toEqual([false, "Test ore"]);
+    expect([
+      field(created, "enabled"),
+      field(field(created, "name"), "en"),
+      field(created, "startPrice"),
+    ]).toEqual([false, "Test ore", 5]);
     await resetItems(page);
     expect(deviceErrors).toEqual([]);
   });
@@ -646,6 +651,42 @@ test.describe("배치·사진", () => {
           detail(page).locator('.ie-preview [data-part="use"]'),
           `items-use-preview-${theme}-${language}-${width}`,
         );
+        expect(deviceErrors).toEqual([]);
+      });
+
+      test("옛 자원(295·D-505): 광석·목축 부산물 거르기 목록, 시작 시세 칸과 지금 세계 시세(시세 없음), 사진", async ({
+        page,
+        deviceErrors,
+      }) => {
+        await editorReady(page, "/dev/items?item=copper_ore");
+        await expect(detail(page)).toHaveAttribute("data-item", "copper_ore");
+        const value = detail(page).locator('[data-section="value"]');
+        await expect(
+          value.getByLabel(message(language, "dev_items_field_start_price"), { exact: true }),
+        ).toHaveValue("1");
+        // 서버가 물자 거래소를 아직 돌리지 않아 지금 세계 시세는 "시세 없음"
+        await expect(value.locator('[data-part="market-price"]')).toContainText(
+          message(language, "dev_items_world_price_none"),
+        );
+        await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await elementShot(value, `items-start-price-${theme}-${language}-${width}`);
+        await toList(page);
+        const filters = page.locator(".ie-filters");
+        await filters.locator("summary").click();
+        // 거르기 첫 칸이 중분류다(label 안 select라 이름에 고른 값이 붙는다)
+        const pick = filters.locator("select").first();
+        // 광석 10개(잡석·석재 + 금속 원석 8), 목축 부산물 17개(먹지 않는 16 + 밍크 오일)
+        for (const [subcategory, count] of [
+          ["ore", 10],
+          ["livestock_byproduct", 17],
+        ] as const) {
+          await pick.selectOption(subcategory);
+          await expect(page.locator(".ie-item")).toHaveCount(count);
+          expect(await horizontalOverflow(page)).toEqual([]);
+          await shot(page, `items-${subcategory}-${theme}-${language}-${width}`);
+        }
         expect(deviceErrors).toEqual([]);
       });
     });

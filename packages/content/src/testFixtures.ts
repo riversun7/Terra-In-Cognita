@@ -8,8 +8,8 @@ import { contentId, localizedText, ref } from "./schema/common.ts";
 /** 파일 이름 → 내용. 객체는 JSON으로 쓰고, 문자열은 그대로(문법 오류 시험), null은 파일 없음 */
 export type FixtureFiles = Record<string, unknown>;
 
-/** 아이템 항목의 경제 칸(대분류·티어·기준 가치·켬/끔) — 형식 시험이 이름·ID만 볼 때 붙인다 */
-export const ITEM_FIELDS = { category: "raw", tier: 0, baseValue: 1, enabled: true } as const;
+/** 아이템 항목의 경제 칸(대분류·티어·시작 시세·켬/끔) — 형식 시험이 이름·ID만 볼 때 붙인다 */
+export const ITEM_FIELDS = { category: "raw", tier: 0, startPrice: 1, enabled: true } as const;
 
 /** 기본 팩의 items 항목 */
 export const BASE_ITEMS = [

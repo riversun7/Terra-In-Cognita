@@ -37,7 +37,11 @@ const patch = z.strictObject({
   subcategory: contentId.nullable().optional(),
   tagsAdd: z.array(contentId).max(ITEM_LIMITS.tags).readonly().optional(),
   tagsRemove: z.array(contentId).max(ITEM_LIMITS.tags).readonly().optional(),
-  baseValuePm: z.int().min(ITEM_BULK_LIMITS.baseValuePm.min).max(ITEM_BULK_LIMITS.baseValuePm.max).optional(),
+  startPricePm: z
+    .int()
+    .min(ITEM_BULK_LIMITS.startPricePm.min)
+    .max(ITEM_BULK_LIMITS.startPricePm.max)
+    .optional(),
 });
 
 const change = z.discriminatedUnion("op", [

@@ -1,5 +1,6 @@
-// 아이템 편집 칸 — 기본(ID·이름·설명·켜기), 분류(대분류·중분류·태그), 값·무게·거래(티어·기준 가치·무게·스택·거래 가능·계정 귀속·
-// 보관 창고·거래 방식). 대분류별 묶음(장비·무기·소모품·신선도)은 ItemEquipFields·ItemWeaponFields·ItemUseFields. 구역은 접힌다(details).
+// 아이템 편집 칸 — 기본(ID·이름·설명·켜기), 분류(대분류·중분류·태그), 값·무게·거래(티어·시작 시세와 그 옆 지금 세계 시세·무게·스택·
+// 거래 가능·계정 귀속·보관 창고·거래 방식). 시작 시세(295)는 시장이 처음 열릴 때의 첫 가격으로만 쓰고, 그 뒤 값은 시장 시세다.
+// 대분류별 묶음(장비·무기·소모품·신선도)은 ItemEquipFields·ItemWeaponFields·ItemUseFields. 구역은 접힌다(details).
 // 칸마다 범위는 @terra/shared ITEM_LIMITS(서버가 다시 본다), 쓰는 곳 칩은 ITEM_FIELD_USES(설계안 3.4).
 import {
   ITEM_CATEGORY_IDS,
@@ -8,6 +9,7 @@ import {
   type ItemCategoryId,
   type ItemEditorListResponse,
   type ItemJson,
+  type ItemMarketPrice,
   defaultStorageOf,
   marketKindOf,
 } from "@terra/shared/itemEditor";
@@ -52,6 +54,35 @@ export function Section({
   );
 }
 
+/** 시세 값 하나(없으면 "없음") */
+const priceText = (value: string | null): string => value ?? m.dev_items_world_price_no_value();
+
+/** 지금 세계 시세(읽기만): 도시 시장마다 마지막 체결가·사는 값·파는 값. 서버 거래소가 없으면 "시세 없음" */
+function MarketPrice({ markets }: { markets: readonly ItemMarketPrice[] | null }) {
+  return (
+    <div className="field" data-part="market-price">
+      <span className="field-label">{m.dev_items_world_price_label()}</span>
+      {markets && markets.length > 0 ? (
+        <ul className="ie-plain">
+          {markets.map((row) => (
+            <li key={`${row.city}|${row.currency}`}>
+              {m.dev_items_world_price_row({
+                city: row.city,
+                last: priceText(row.lastPrice),
+                bid: priceText(row.bestBid),
+                ask: priceText(row.bestAsk),
+                currency: row.currency,
+              })}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="ie-readonly">{m.dev_items_world_price_none()}</p>
+      )}
+    </div>
+  );
+}
+
 export function ItemBasicSections({
   draft,
   onChange,
@@ -60,6 +91,7 @@ export function ItemBasicSections({
   locale,
   categoryLocked,
   problem,
+  markets,
 }: {
   draft: ItemJson;
   onChange: (next: ItemJson) => void;
@@ -70,6 +102,8 @@ export function ItemBasicSections({
   /** 팩 항목이면 대분류를 잠근다(팩 커밋으로 바꾼다) */
   categoryLocked: boolean;
   problem: (path: string) => string | undefined;
+  /** 지금 세계의 시장 시세(서버 items.get, 빈 목록·null = 시세 없음) */
+  markets: readonly ItemMarketPrice[] | null;
 }) {
   const L = ITEM_LIMITS;
   const description = draft.description ?? { ko: "", en: "" };
@@ -196,14 +230,15 @@ export function ItemBasicSections({
             onChange={(tier) => onChange({ ...draft, tier: tier ?? 0 })}
           />
           <NumberField
-            label={m.dev_items_field_base_value()}
-            value={draft.baseValue}
-            min={L.baseValue.min}
-            max={L.baseValue.max}
-            hint={fieldHint("baseValue", m.dev_items_placeholder_value())}
-            problem={problem("baseValue")}
-            onChange={(baseValue) => onChange({ ...draft, baseValue: baseValue ?? 1 })}
+            label={m.dev_items_field_start_price()}
+            value={draft.startPrice}
+            min={L.startPrice.min}
+            max={L.startPrice.max}
+            hint={fieldHint("startPrice", m.dev_items_start_price_hint())}
+            problem={problem("startPrice")}
+            onChange={(startPrice) => onChange({ ...draft, startPrice: startPrice ?? 1 })}
           />
+          <MarketPrice markets={markets} />
           <NumberField
             label={m.dev_items_field_weight()}
             value={draft.weight}

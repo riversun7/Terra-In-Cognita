@@ -2,8 +2,8 @@
 // - 내보내기: 서버 실효 아이템 통째(items.export) → 팩 파일 모양 JSON 또는 평평한 공통 칸 CSV. 글 칸과 내려받기.
 // - 가져오기: 붙여 넣거나 파일을 고르면 기기에서 읽어(@terra/shared parseItemsJson·parseItemsCsv) 틀린 머리·값을 줄 번호로 보이고,
 //   새로 / 고침 / 같음 차이를 보인 뒤 [담기]로 담은 변경(초안)에만 넣는다(PLAN 6.4). 묶음 검사는 서버가 한 번 한다(300개까지).
-// - 여러 개 고치기: 고른 아이템에 켜기·끄기, 티어, 중분류, 태그 더하기·빼기, 기준 가치 ‰를 서버 patch 명령 하나로 바로 적용한다(서버가
-//   지금 실효 항목에 그 칸만 얹고 기준 가치는 BigInt로 반올림 — 낡은 초안이 다른 칸을 덮지 않는다). 촘촘한 줄·작은 입력(D-498).
+// - 여러 개 고치기: 고른 아이템에 켜기·끄기, 티어, 중분류, 태그 더하기·빼기, 시작 시세 ‰를 서버 patch 명령 하나로 바로 적용한다(서버가
+//   지금 실효 항목에 그 칸만 얹고 시작 시세는 BigInt로 반올림 — 낡은 초안이 다른 칸을 덮지 않는다). 촘촘한 줄·작은 입력(D-498).
 import type { ContentIssueView } from "@terra/shared/contentEdit";
 import {
   ITEM_BULK_LIMITS,
@@ -20,7 +20,7 @@ import {
   itemsToJson,
   parseItemsCsv,
   parseItemsJson,
-  scaleBaseValue,
+  scaleStartPrice,
 } from "@terra/shared/itemEditor";
 import { useId, useState } from "react";
 import { api } from "../../net/api.ts";
@@ -243,7 +243,7 @@ interface PatchForm {
   readonly subcategory: string;
   readonly tagsAdd: string;
   readonly tagsRemove: string;
-  readonly baseValuePm: number | undefined;
+  readonly startPricePm: number | undefined;
 }
 
 const EMPTY_FORM: PatchForm = {
@@ -252,7 +252,7 @@ const EMPTY_FORM: PatchForm = {
   subcategory: "keep",
   tagsAdd: "",
   tagsRemove: "",
-  baseValuePm: undefined,
+  startPricePm: undefined,
 };
 
 const tagList = (text: string): string[] =>
@@ -270,7 +270,9 @@ function patchOf(form: PatchForm): ItemPatch {
       : { subcategory: form.subcategory === "none" ? null : form.subcategory }),
     ...(tagList(form.tagsAdd).length > 0 ? { tagsAdd: tagList(form.tagsAdd) } : {}),
     ...(tagList(form.tagsRemove).length > 0 ? { tagsRemove: tagList(form.tagsRemove) } : {}),
-    ...(form.baseValuePm === undefined || form.baseValuePm === 0 ? {} : { baseValuePm: form.baseValuePm }),
+    ...(form.startPricePm === undefined || form.startPricePm === 0
+      ? {}
+      : { startPricePm: form.startPricePm }),
   };
 }
 
@@ -380,20 +382,20 @@ function PatchPart({
         />
         <NumberField
           label={m.dev_items_bulk_value_pm()}
-          value={form.baseValuePm}
-          min={ITEM_BULK_LIMITS.baseValuePm.min}
-          max={ITEM_BULK_LIMITS.baseValuePm.max}
+          value={form.startPricePm}
+          min={ITEM_BULK_LIMITS.startPricePm.min}
+          max={ITEM_BULK_LIMITS.startPricePm.max}
           optional
           hint={
-            sample && form.baseValuePm
+            sample && form.startPricePm
               ? m.dev_items_bulk_value_example({
                   id: sample.id,
-                  before: sample.baseValue,
-                  after: scaleBaseValue(sample.baseValue, form.baseValuePm),
+                  before: sample.startPrice,
+                  after: scaleStartPrice(sample.startPrice, form.startPricePm),
                 })
               : m.dev_items_bulk_value_hint()
           }
-          onChange={(baseValuePm) => setForm({ ...form, baseValuePm })}
+          onChange={(startPricePm) => setForm({ ...form, startPricePm })}
         />
       </div>
       <p className="field-hint">

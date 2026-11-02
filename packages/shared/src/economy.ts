@@ -54,8 +54,8 @@ export interface CatalogItemView {
   readonly category: string;
   /** 티어 T0~T9(D-5001) */
   readonly tier: number;
-  /** [임시] 기준 가치(그 나라 화폐 최소 단위) */
-  readonly baseValue: DecimalString;
+  /** [임시] 시작 시세(그 나라 화폐 최소 단위, 295): 그 세계에서 이 물건 시장이 처음 열릴 때의 첫 가격. 그 뒤 화면 값은 시장 시세 */
+  readonly startPrice: DecimalString;
   /**
    * 거래 방식(marketKindOf). 이 칸이 없는 옛 서버면 화면은 옛 규칙(장비 → 경매, 문서 → 없음, 나머지 → 호가창)을 쓴다
    * (PWA 기기는 서버보다 옛것이거나 새것일 수 있다)

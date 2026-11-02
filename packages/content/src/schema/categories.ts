@@ -3,7 +3,7 @@
 // S2: 행성 정의(planets)와 바이옴 표(biomes)를 더했다(ADR 2026-10-29-s2-planet-lod, 임시 데이터).
 // 행성 표본(planet_templates): 편집기 시작점만, 서버가 굽지 않는다(ADR 2026-10-29-planet-editor-stage1 "행성 표본").
 // R4a: 효과 사전·스킬·유닛 종류(장비 칸)와 아이템 장비 칸(docs/adr/2026-10-31-combat-core.md 7절).
-// R2: 아이템에 대분류·티어·기준 가치·켬/끔을 더하고, 레시피·시설·생필품·국가 프리셋을 더했다(ADR 2026-10-31-economy-core).
+// R2: 아이템에 대분류·티어·기준 가치(core@28부터 시작 시세)·켬/끔을 더하고, 레시피·시설·생필품·국가 프리셋을 더했다(ADR 2026-10-31-economy-core).
 // 2차맵 소품(map_props): 2차맵 생성기의 배치 규칙(ADR 2026-10-31-second-map-from-planet 4절, 임시 데이터).
 // 전투 계산식(formulas): 개발자 모드에서 고치는 식(docs/adr/2026-11-01-formula-editor.md).
 // 아이템 분류 자료(item_subcategories·item_tags·weapon_types)와 아이템 공통 칸·묶음(docs/adr/2026-11-01-item-editor.md 2절).

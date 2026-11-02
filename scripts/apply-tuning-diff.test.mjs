@@ -59,7 +59,7 @@ const item = (id) => ({
   name: { ko: id, en: id },
   category: "raw",
   tier: 0,
-  baseValue: 1,
+  startPrice: 1,
   enabled: true,
 });
 

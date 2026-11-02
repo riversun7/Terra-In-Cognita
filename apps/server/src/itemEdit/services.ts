@@ -34,6 +34,7 @@ import {
 } from "@terra/shared/itemEditor";
 import { normalizeTuningNote } from "@terra/shared/tuning";
 import { sql } from "drizzle-orm";
+import { upgradeLegacyEntry } from "../contentEdit/legacy.ts";
 import { type ContentEditShared, applyContentBatch } from "../contentEdit/services.ts";
 import { type ContentPut, type ContentSnapshot, contentKey } from "../contentEdit/state.ts";
 import { readContentHistory, readContentHistoryEntry } from "../contentEdit/store.ts";
@@ -355,6 +356,8 @@ export function createItemEditorServices(deps: {
         override: overrideViewOf(snapshot.overrides.get(contentKey("items", id))),
         usage: await usageOf(item, id),
         advice: adviceOf(snapshot).get(id) ?? [],
+        // 지금 세계의 시장 시세(295): 서버가 물자 거래소를 아직 돌리지 않아(경제 ADR "결과", economy.marketItems도 not_ready) 늘 빈 목록
+        markets: [],
       };
     },
 
@@ -417,7 +420,7 @@ export function createItemEditorServices(deps: {
 
     preview(entry, unit) {
       const combat = shared.roster.combat;
-      const values = new Map(state.effective().items.map((item) => [item.id, item.baseValue]));
+      const values = new Map(state.effective().items.map((item) => [item.id, item.startPrice]));
       const variance = shared.tuning?.state.values().get(USE_VARIANCE_ID) ?? 0;
       return Promise.resolve(
         previewItem(
@@ -453,7 +456,9 @@ export function createItemEditorServices(deps: {
     },
 
     async historyEntry(auditId, category, id) {
-      return { entry: await readContentHistoryEntry(db, auditId, { category, id }) };
+      // 옛 판 항목(옛 기준 가치 칸 등)은 켤 때 덮어쓰기 줄처럼 지금 모양으로 읽는다(다시 담으면 지금 스키마로 검사된다)
+      const entry = await readContentHistoryEntry(db, auditId, { category, id });
+      return { entry: entry ? { ...upgradeLegacyEntry(state.core, category, id, entry) } : null };
     },
   };
 }

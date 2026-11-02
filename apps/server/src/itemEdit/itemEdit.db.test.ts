@@ -382,18 +382,18 @@ describe.skipIf(!TEST_DATABASE_URL)("아이템 편집기 (DB)", () => {
     );
     expect(obj(skillEffect.name).ko).toBe("시험 화상");
 
-    // 여러 개 고치기(WP-7): 티어·기준 가치 ‰만 얹는다(이름 등 다른 칸은 그대로). 기준 가치 = (값 × 1100 + 500) ÷ 1000
+    // 여러 개 고치기(WP-7): 티어·시작 시세 ‰만 얹는다(이름 등 다른 칸은 그대로). 시작 시세 = (값 × 1100 + 500) ÷ 1000
     const grainBefore = obj((await get("grain")).entry);
     const timberBefore = obj((await get("timber")).entry);
     const patched = await save([
-      { op: "patch", category: "items", ids: ["grain", "timber"], patch: { tier: 3, baseValuePm: 100 } },
+      { op: "patch", category: "items", ids: ["grain", "timber"], patch: { tier: 3, startPricePm: 100 } },
     ]);
     expect(patched.statusCode).toBe(200);
     const grain = obj((await get("grain")).entry);
     const timber = obj((await get("timber")).entry);
-    expect([grain.tier, grain.baseValue, grain.name]).toEqual([3, 4, grainBefore.name]);
+    expect([grain.tier, grain.startPrice, grain.name]).toEqual([3, 4, grainBefore.name]);
     // 5 × 1.1 = 5.5 → 0.5 올림 6
-    expect([timber.tier, timber.baseValue, timber.name]).toEqual([3, 6, timberBefore.name]);
+    expect([timber.tier, timber.startPrice, timber.name]).toEqual([3, 6, timberBefore.name]);
     expect(
       errorOf(await save([{ op: "patch", category: "items", ids: ["no_such_item"], patch: { tier: 1 } }])),
     ).toMatchObject({ reason: "unknown_entry" });
@@ -402,7 +402,7 @@ describe.skipIf(!TEST_DATABASE_URL)("아이템 편집기 (DB)", () => {
     const exported = obj(resultOf(await trpcQuery(app, "items.export", undefined, cookie.dev)));
     const entries = arr(exported.entries).map(obj);
     expect(entries.length).toBe(arr((await list()).items).length);
-    expect(obj(entries.find((entry) => entry.id === "timber"))).toMatchObject({ tier: 3, baseValue: 6 });
+    expect(obj(entries.find((entry) => entry.id === "timber"))).toMatchObject({ tier: 3, startPrice: 6 });
 
     // 되돌린다(뒤 시험이 팩 값을 보게)
     const fresh = await list();

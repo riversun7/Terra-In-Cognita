@@ -137,3 +137,33 @@
 - 권고: `advice_appropriate_zero`·`advice_appropriate_derived_zero` → `advice_appropriate_missing`(적정이 없는 몫 = 유닛 스탯을 타지 않음)·`advice_appropriate_unused`(무기에 없는 공격력 칸의 적정). 권고가 가중치 표를 읽지 않게 되어 권고 저장(캐시) 열쇠에서 표를 뺐다.
 - 소모품 효과량 상한(3차 1절)은 같은 N10 실효 값이고 1000‰이 됐다: 적정 이상이면 기준 ±오차(기준 40·±500‰ → 20~60).
 - 옛 모양 DB 줄은 `apps/server/src/contentEdit/legacy.ts`가 켤 때 고쳐 읽는다(전투 ADR 2절과 같다): 옛 2차 적정치 칸 뺌, 옛 1차 적정은 str·int·dex·agi 1 이상만, 남은 적정이 없으면 지금 팩 항목의 적정.
+
+## 바뀜 (2026-11-02, 295·D-505 — 시작 시세·광석 1g·괴 1kg, 옛 1차 자원 팩 커밋, 팩 core@28)
+- 까닭: 질문 295 "검토 뒤 답"(`docs/questions/2026-11-01-item-editor-3.md`, 기획 D-505 `docs/design/02_Decision_Log.md`). 가지 `work/old-resources`, 작업 기록 `docs/worklog/2026/11/02-2130-old-resources.md`. 경제 쪽 뜻은 ADR `2026-10-31-economy-core.md` "바뀜 (2026-11-02, 295·D-505 시작 시세)".
+
+### 1. 기준 가치 → 시작 시세 (`baseValue` → `startPrice`)
+- 1절 "아이템 공통 칸"과 경제 ADR 1절의 "기준 가치([임시] 처음 시세와 NPC 값 매기기의 출발점)"를 바꾼다: 칸 이름은 `startPrice`(시작 시세, 화폐 최소 단위 정수 ≥ 1)이고 뜻은 "그 세계에서 이 물건 시장이 처음 열릴 때의 첫 가격"뿐이다. 그 뒤 계산은 시장 시세다(D-505 "기준 가치는 없다").
+- 바꾼 곳: 팩 스키마(`packages/content` `itemEntrySchema`), 공용 타입(`ItemJson`·`ItemRow`·미리 보기 `value.startPrice`·경제 목록 `CatalogItemView.startPrice`), 서버 편집기(목록·항목·권고 경로 `startPrice`·미리 보기 원가), 경제 시안(`previewStartPrice`, 시안 시장 `startPrice`), 시뮬 목록(`CatalogItem.startPrice`·`PreparedCatalog.startPrice`), 대량 도구(CSV 열 `startPrice`, 여러 개 고치기 `startPricePm`·`scaleStartPrice`), 화면 칸·정렬·요약·미리 보기 문구(ko·en). 유닛 묶음(`roster/catalog.ts`)의 `baseValue` 표는 읽는 곳이 없어 지웠다.
+- 옛 이름 읽기: 켤 때 옛 덮어쓰기 줄(core@27까지 저장한 items)의 `baseValue`는 `apps/server/src/contentEdit/legacy.ts`가 `startPrice`로 옮겨 읽는다(같은 값, 둘 다 있으면 `startPrice`, DB 줄은 그대로·서버 기록 `content boot` `upgraded`). 감사 기록의 옛 판 항목(`items.historyEntry`, 다시 담기)도 같은 함수 `upgradeLegacyEntry`로 읽는다. 대량 도구 가져오기는 JSON 칸 `baseValue`와 CSV 열 `baseValue`를 `startPrice`로 읽는다(`ITEM_CSV_ALIASES`, 내보내기는 새 이름만). 옛 내보내기 차이(`pnpm tuning:apply`·`sim --tuning`의 `entries`)는 고쳐 읽지 않는다(스키마 문제, 앞 바뀜과 같은 방침).
+- 옛 PWA 기기(새 서버, 옛 화면)는 아이템 편집기 항목 모양 검사(`isItemJson`)가 `baseValue`를 찾아 항목을 담지 못한다. 개발 화면이라 새로 고침(새 판)으로 푼다. 여러 개 고치기의 옛 칸 `baseValuePm`은 입력 검사에서 400이다.
+- 편집기 값 구역: 시작 시세 칸 옆에 "지금 세계 시세"(읽기만). 서버 `items.get` 응답 `markets`(도시 시장마다 {도시, 화폐, 마지막 체결가, 사는 값·파는 값})이고, 서버가 물자 거래소를 아직 돌리지 않아(경제 ADR "결과", `economy.marketItems`도 `not_ready`) 지금은 늘 빈 목록 → "시세 없음 — 서버 거래소가 아직 열리지 않았습니다". 시안 시장(가짜 거래)은 쓰지 않는다(시험 자료를 시세로 보이지 않게). 서버가 거래소를 열면(R5·L1) 그 시장 표에서 이 칸을 채운다.
+- 권고 `advice_value_below_cost`·`advice_value_above_cost`는 그대로(시작 시세 ↔ 입력 시작 시세 합으로 셈한 레시피 원가, 문구만 바꿈).
+
+### 2. 옛 1차 자원 136개 팩 커밋
+- 변환본(`docs/research/2026-11-02-old-resources-draft.json`)에 답을 얹어 `content/core/items.json`에 넣었다: 새 항목 135개(모두 꺼짐, 시작 시세 1 [임시], 설명 없음) + 지금 `iron_ore`에 합침 1개.
+  - 이름: 미스릴 / Mithril(`mithril`), 세계수의 이슬잎 / World tree dew leaf(`world_tree_dew_leaf`), 오리할콘 / Orichalcum(`orichalcum`). 변환본 후보 ID `meteoric_iron`·`sacred_dew_leaf`는 쓰지 않았다(팩에 들어간 적 없는 ID라 id-changes 기록도 없다).
+  - 은·금·백금(`silver_ore`·`gold_ore`·`platinum_ore`)은 원자재·광석(변환본의 대분류 9는 틀림, D-505). 티타늄·미스릴·오리할콘도 원자재·광석.
+  - 새 중분류 `livestock_byproduct` 목축 부산물 / Livestock byproducts(원자재, 식품 아님, 축산물 뒤): 먹지 않는 목축 부산물 16개(깃털·사슴 가죽·사슴 뿔·양털·들소 가죽·들소 뿔·은빛 모피·엄니·악어 가죽·악어 이빨·맹금 부리·그리폰 깃털·정화의 뿔·유니콘 갈기·용 비늘·드래곤 하트 파편) + 밍크 오일. 처음 중분류 35 → 36.
+  - 어류 무게 = 옛 시드 값, 이름 길이 권고는 그대로(답 7·8).
+- 금속 원석 1단위 = 1g(무게 1): 구리·은·티타늄·금·백금·미스릴·오리할콘 원석. 잡석·석재는 괴를 만들지 않아 변환본 무게(1,000g) 그대로.
+- 괴(bar) 1kg 고정: `iron_ingot` 무게 1,000(이름·값·켬 그대로), 새 괴 7개 `copper_ingot`·`silver_ingot`·`titanium_ingot`·`gold_ingot`·`platinum_ingot`·`mithril_ingot`·`orichalcum_ingot`(구리 괴 / Copper bar …, 철 주괴와 같은 가공품·중분류 없음, 티어 = 원석 티어, 시작 시세 1 [임시], 꺼짐).
+- 제련 레시피 7개 `smelt_copper` … `smelt_orichalcum`(제련소, 원석 1,000 → 괴 1, 작업량 1,000, 손실 없음 [임시], 꺼짐). 손실은 레시피 편집기 값(D-505).
+
+### 3. 보류: 철광석의 1g·티어 3 (사용자 선택 대기, D-487)
+- `iron_ore`에는 중분류 광석만 얹었다. 티어 1 → 3과 무게 1g은 넣지 않았다: 켜진 시뮬 경제(econ16)가 쓰는 물건이라 둘 다 시뮬 규칙 출력·정수 시세를 바꾼다.
+  - 1g 단위: 지금 철광석 1개 = 시작 시세 8, 레시피 캐기 10개·제련 10개 → 철 주괴 7개(옛 시드 1개 = 1,000g). 1개를 1g로 하면 1g당 0.008 최소 단위라 정수 값이 안 된다(물자 호가창 값 = 1개당 최소 단위 정수, 경제 ADR 4절). 가장 작은 값 1이면 1kg에 1,000(지금의 125배).
+  - 티어 3: 레시피 티어 = 산출 최고 티어라 `mine_iron_ore`가 T3이 되고, econ16 광산(Lv1, 최고 T1)이 시작할 때 멈춘다("facility level too low"). 광산을 Lv2로 올리면 오염(레벨 × 6)이 두 배라 정원사·경제 출력이 바뀐다.
+- 고를 안(작업 기록 "사용자 결정 대기"): 가. 시장·레시피는 1kg 묶음(로트)으로 사고팔고 보유는 g로 센다, 나. 화폐 최소 단위를 1/1000로 낮춰 모든 값 × 1000, 다. 보유 물건이 생길 때까지 철광석 1개 = 1kg(무게 1,000)으로 두고 g 셈은 그때. 티어는 econ16 광산 Lv2(출력 바뀜) / 철광석 T1 유지.
+
+### 4. 결과
+- 시뮬 출력(war16 30일·stub16·econ16 180일, 시드 1): 머리 줄의 팩 판·해시와 `linesHash`만 다르다(새 항목은 모두 꺼짐, 철광석 중분류·철 주괴 무게는 시뮬이 읽지 않음) → `SIM_VERSION` 7 그대로(Verified, 작업 기록).

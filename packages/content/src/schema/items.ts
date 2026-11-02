@@ -167,8 +167,11 @@ export const itemEntrySchema = z
     /** 태그(거래소 거르기, D-5033) */
     tags: z.array(ref("item_tags")).max(ITEM_SCHEMA_LIMITS.tags).optional(),
     tier,
-    /** [임시] 기준 가치(그 나라 화폐 최소 단위, 처음 시세와 NPC 값 매기기의 출발점). 기획 수치 없음 */
-    baseValue: z.int().positive(),
+    /**
+     * [임시] 시작 시세(그 나라 화폐 최소 단위, 295 D-501). 그 세계에서 이 물건의 시장이 처음 열릴 때의 첫 가격으로만 쓴다(체결이 없을 때의
+     * NPC 매물 값, 물가 지수의 분모 = 그 세계의 첫 가격). 그 뒤 계산은 시장 시세다. 팩 core@27까지는 baseValue(기준 가치). 기획 수치 없음
+     */
+    startPrice: z.int().positive(),
     /** 무게(g, D-117 "모든 아이템에 무게가 있다"). 읽는 곳이 생기기 전까지는 권고 */
     weight: z.int().min(0).max(ITEM_SCHEMA_LIMITS.weightMax).optional(),
     /** 한 칸에 쌓는 수 상한(장비는 1). 보유 표가 생기면 읽는다 */

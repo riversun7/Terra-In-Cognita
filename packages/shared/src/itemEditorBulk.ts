@@ -1,6 +1,8 @@
-// 아이템 편집기 대량 도구(WP-7, 설계안 3.8) — 여러 개 고치기(patch: 켜기·끄기, 티어, 중분류, 태그 더하기·빼기, 기준 가치 ‰), JSON·CSV
+// 아이템 편집기 대량 도구(WP-7, 설계안 3.8) — 여러 개 고치기(patch: 켜기·끄기, 티어, 중분류, 태그 더하기·빼기, 시작 시세 ‰), JSON·CSV
 // 내보내기·가져오기. 서버(items.save의 patch 명령, items.export)와 화면(가져오기 읽기·차이)이 같이 쓰는 순수 함수다.
-// - 기준 가치 ‰: BigInt로 max(1, (값 × (1000 + ‰) + 500) ÷ 1000)(0.5는 올림), 상한은 안전한 정수.
+// - 시작 시세 ‰: BigInt로 max(1, (값 × (1000 + ‰) + 500) ÷ 1000)(0.5는 올림), 상한은 안전한 정수.
+// - 옛 칸 이름(팩 core@27까지 baseValue = 기준 가치, 295에서 시작 시세 startPrice로 바꿈): JSON 항목의 baseValue와 CSV 열 baseValue를
+//   startPrice로 읽는다(옛 내보내기·변환본을 그대로 가져온다). 내보내기는 새 이름만 쓴다.
 // - 가져오기: 글 900 KiB까지, 300줄(항목)까지, 항목 하나 4 KiB까지. 틀린 머리·값은 줄 번호로 알린다(CSV 1줄 = 머리). 가져온 것은 담은
 //   변경(초안)에만 들어가고, 묶음 검사는 서버가 한 번 한다(팩 검사기 하나).
 // - CSV는 평평한 공통 칸만(장비·효과는 JSON). 있는 아이템은 그 칸만 지금 항목 위에 얹는다.
@@ -15,8 +17,8 @@ export const ITEM_BULK_LIMITS = {
   rowsMax: 300,
   /** 항목 하나의 JSON 바이트 */
   entryBytesMax: 4096,
-  /** 기준 가치 ‰ 범위(−90% ~ +1000%) */
-  baseValuePm: { min: -900, max: 10_000 },
+  /** 시작 시세 ‰ 범위(−90% ~ +1000%) */
+  startPricePm: { min: -900, max: 10_000 },
   /** 한 번에 고치는 아이템 수 */
   patchIdsMax: 300,
 } as const;
@@ -29,12 +31,12 @@ export interface ItemPatch {
   readonly subcategory?: string | null | undefined;
   readonly tagsAdd?: readonly string[] | undefined;
   readonly tagsRemove?: readonly string[] | undefined;
-  /** 기준 가치 바꿈(‰, −900 ~ +10000) */
-  readonly baseValuePm?: number | undefined;
+  /** 시작 시세 바꿈(‰, −900 ~ +10000) */
+  readonly startPricePm?: number | undefined;
 }
 
-/** 기준 가치 × (1000 + ‰) ÷ 1000, 0.5는 올림, 1 이상·안전한 정수 이하(BigInt 셈) */
-export function scaleBaseValue(value: number, pm: number): number {
+/** 시작 시세 × (1000 + ‰) ÷ 1000, 0.5는 올림, 1 이상·안전한 정수 이하(BigInt 셈) */
+export function scaleStartPrice(value: number, pm: number): number {
   const scaled = (BigInt(value) * BigInt(1000 + pm) + 500n) / 1000n;
   if (scaled < 1n) return 1;
   return scaled > BigInt(Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : Number(scaled);
@@ -61,9 +63,9 @@ export function applyItemPatch(entry: ItemJson, patch: ItemPatch): ItemJson {
       next = tags.length === 0 ? rest : { ...rest, tags };
     }
   }
-  if (patch.baseValuePm !== undefined && patch.baseValuePm !== 0) {
-    const baseValue = scaleBaseValue(next.baseValue, patch.baseValuePm);
-    if (baseValue !== next.baseValue) next = { ...next, baseValue };
+  if (patch.startPricePm !== undefined && patch.startPricePm !== 0) {
+    const startPrice = scaleStartPrice(next.startPrice, patch.startPricePm);
+    if (startPrice !== next.startPrice) next = { ...next, startPrice };
   }
   return next;
 }
@@ -74,7 +76,7 @@ export const ITEM_CSV_COLUMNS = [
   "category",
   "subcategory",
   "tier",
-  "baseValue",
+  "startPrice",
   "weight",
   "stackMax",
   "tradable",
@@ -87,6 +89,16 @@ export const ITEM_CSV_COLUMNS = [
   "tags",
 ] as const;
 export type ItemCsvColumn = (typeof ITEM_CSV_COLUMNS)[number];
+
+/** 옛 CSV 열 이름 → 지금 열(팩 core@27까지의 내보내기를 그대로 읽는다) */
+export const ITEM_CSV_ALIASES: ReadonlyMap<string, ItemCsvColumn> = new Map([["baseValue", "startPrice"]]);
+
+/** 옛 JSON 칸 baseValue(기준 가치) → startPrice. 둘 다 있으면 startPrice를 둔다(바뀌지 않으면 같은 객체) */
+function withStartPrice(raw: Record<string, unknown>): Record<string, unknown> {
+  if (!("baseValue" in raw)) return raw;
+  const { baseValue, ...rest } = raw;
+  return "startPrice" in rest ? rest : { ...rest, startPrice: baseValue };
+}
 
 /** 가져오기 문제 하나: row = 줄 번호(CSV는 머리 = 1, JSON은 항목 차례 1부터, 0 = 글 전체) */
 export interface ItemImportProblem {
@@ -168,13 +180,14 @@ export function parseItemsJson(text: string): ItemImportResult {
   const entries: ItemJson[] = [];
   const rows: Record<string, number> = {};
   const problems: ItemImportProblem[] = [];
-  list.forEach((raw: unknown, index) => {
+  list.forEach((given: unknown, index) => {
     const row = index + 1;
-    if (!isRecord(raw) || typeof raw.id !== "string") {
+    if (!isRecord(given) || typeof given.id !== "string") {
       problems.push(problem(row, "bad_entry"));
       return;
     }
-    const id = raw.id;
+    const raw = withStartPrice(given);
+    const id = given.id;
     if (!ID.test(id)) problems.push(problem(row, "bad_id", "id", id));
     else if (rows[id] !== undefined) problems.push(problem(row, "duplicate_id", "id", id));
     if (utf8ByteLength(JSON.stringify(raw)) > ITEM_BULK_LIMITS.entryBytesMax)
@@ -199,7 +212,7 @@ function isItemShape(value: Record<string, unknown>): value is Record<string, un
     typeof name.en === "string" &&
     CATEGORIES.some((category) => category === value.category) &&
     typeof value.tier === "number" &&
-    typeof value.baseValue === "number" &&
+    typeof value.startPrice === "number" &&
     typeof value.enabled === "boolean"
   );
 }
@@ -240,7 +253,7 @@ function csvRowOf(entry: ItemJson): string {
     category: entry.category,
     subcategory: entry.subcategory ?? "",
     tier: String(entry.tier),
-    baseValue: String(entry.baseValue),
+    startPrice: String(entry.startPrice),
     weight: entry.weight === undefined ? "" : String(entry.weight),
     stackMax: entry.stackMax === undefined ? "" : String(entry.stackMax),
     tradable: entry.tradable === undefined ? "" : String(entry.tradable),
@@ -267,7 +280,7 @@ export function itemsToJson(entries: readonly ItemJson[]): string {
 
 const REQUIRED_COLUMNS: readonly ItemCsvColumn[] = ["id"];
 /** 새 항목에 꼭 있어야 하는 열 */
-const NEW_ITEM_COLUMNS: readonly ItemCsvColumn[] = ["category", "tier", "baseValue", "name.ko", "name.en"];
+const NEW_ITEM_COLUMNS: readonly ItemCsvColumn[] = ["category", "tier", "startPrice", "name.ko", "name.en"];
 
 /**
  * CSV 가져오기. current = 지금 실효 항목(ID → 항목): 있는 아이템은 적은 칸만 그 위에 얹고(빈 칸 = 그대로, 선택 칸은 "-" = 뺀다),
@@ -281,7 +294,7 @@ export function parseItemsCsv(text: string, current: ReadonlyMap<string, ItemJso
   const header = splitCsvLine(lines[0] ?? "");
   if (!header) return { entries: [], rows: {}, problems: [problem(1, "bad_quote")] };
   const problems: ItemImportProblem[] = [];
-  const columns = header.map((name) => name.trim());
+  const columns = header.map((name) => ITEM_CSV_ALIASES.get(name.trim()) ?? name.trim());
   const known = new Set<string>(ITEM_CSV_COLUMNS);
   const seen = new Set<string>();
   columns.forEach((name) => {
@@ -367,7 +380,7 @@ function rowEntry(
   if (category !== undefined && !validCategory)
     problems.push(problem(row, "bad_category", "category", category));
   const tier = int("tier");
-  const baseValue = int("baseValue");
+  const startPrice = int("startPrice");
   const weight = int("weight");
   const stackMax = int("stackMax");
   const tradable = bool("tradable");
@@ -381,13 +394,13 @@ function rowEntry(
     name: { ko: nameKo, en: nameEn },
     category: validCategory ?? "raw",
     tier: 0,
-    baseValue: 1,
+    startPrice: 1,
     enabled: false,
   };
   next = { ...next, name: { ko: nameKo, en: nameEn } };
   if (validCategory) next = { ...next, category: validCategory };
   if (typeof tier === "number") next = { ...next, tier };
-  if (typeof baseValue === "number") next = { ...next, baseValue };
+  if (typeof startPrice === "number") next = { ...next, startPrice };
   if (typeof enabled === "boolean") next = { ...next, enabled };
   next = withNumbers(next, weight, stackMax);
   next = withFlags(next, tradable, bound);

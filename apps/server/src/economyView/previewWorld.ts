@@ -16,7 +16,7 @@ import {
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 
-/** 시안 거래 가격 배율: 팩 기준 가치(임시, 4~100)가 작아 호가 한 칸이 너무 크다 → [임시] 100배로 본다 */
+/** 시안 거래 가격 배율: 팩 시작 시세(임시, 4~120)가 작아 호가 한 칸이 너무 크다 → [임시] 100배로 본다 */
 export const PREVIEW_PRICE_SCALE = 100n;
 
 /** 시안 "내" 소유 주체(가짜 거래자 1~6과 겹치지 않는다) */
@@ -114,9 +114,12 @@ export function tradesOnBook(item: CatalogItemView): boolean {
   return (item.market ?? marketKindOf(item)) === "book";
 }
 
-/** 그 도시·물건의 시안 기준 값(그 도시 화폐 최소 단위) */
-export function previewBasePrice(item: CatalogItemView, city: PreviewCity): bigint {
-  const base = BigInt(item.baseValue) * PREVIEW_PRICE_SCALE;
+/**
+ * 그 도시·물건의 시안 시장 시작 시세(그 도시 화폐 최소 단위). 아이템 시작 시세(295)는 시장이 처음 열릴 때의 첫 가격으로만 쓴다:
+ * 시안 시장은 이 값에서 가짜 거래를 시작하고, 화면 값(호가·체결·봉)은 그 시장 시세다
+ */
+export function previewStartPrice(item: CatalogItemView, city: PreviewCity): bigint {
+  const base = BigInt(item.startPrice) * PREVIEW_PRICE_SCALE;
   const scaled = (base * BigInt(city.currencyPm)) / 1000n;
   return scaled > 0n ? scaled : 1n;
 }

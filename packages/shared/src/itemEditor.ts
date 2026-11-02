@@ -71,7 +71,7 @@ export function defaultStorageOf(category: string, food: boolean): StorageKindId
  */
 export const ITEM_FIELD_USES: Readonly<Record<string, "combat" | "economy" | "screen" | "none">> = {
   tier: "economy",
-  baseValue: "economy",
+  startPrice: "economy",
   tradable: "economy",
   bound: "economy",
   enabled: "economy",
@@ -100,7 +100,7 @@ export const ITEM_FIELD_USES: Readonly<Record<string, "combat" | "economy" | "sc
 /** 입력 칸 범위(팩 스키마와 같다. 서버가 다시 본다) + 편집기 상한(묶음·글 크기·만든 항목 수, 서버도 본다) */
 export const ITEM_LIMITS = {
   tier: { min: 0, max: 9 },
-  baseValue: { min: 1, max: Number.MAX_SAFE_INTEGER },
+  startPrice: { min: 1, max: Number.MAX_SAFE_INTEGER },
   weight: { min: 0, max: 100_000_000 },
   stackMax: { min: 1, max: 1_000_000 },
   shelfLifeMs: { min: 3_600_000, max: 31_536_000_000 },
@@ -220,7 +220,8 @@ export interface ItemJson {
   readonly subcategory?: string | undefined;
   readonly tags?: readonly string[] | undefined;
   readonly tier: number;
-  readonly baseValue: number;
+  /** 시작 시세(295: 그 세계 시장이 처음 열릴 때의 첫 가격, 최소 단위). 팩 core@27까지 baseValue */
+  readonly startPrice: number;
   readonly weight?: number | undefined;
   readonly stackMax?: number | undefined;
   readonly tradable?: boolean | undefined;
@@ -274,7 +275,7 @@ export interface ItemRow {
   readonly subcategory: string | null;
   readonly tags: readonly string[];
   readonly tier: number;
-  readonly baseValue: number;
+  readonly startPrice: number;
   readonly weight: number | null;
   readonly enabled: boolean;
   readonly origin: ContentEditOrigin;
@@ -407,6 +408,24 @@ export interface ItemEditorGetResponse {
   readonly usage: ItemUsage;
   /** 권고(저장을 막지 않는다) */
   readonly advice: readonly ContentIssueView[];
+  /**
+   * 지금 세계의 시장 시세(295 "편집기는 지금 세계의 시장 시세를 보인다"): 그 물건을 사고파는 도시 시장마다 한 줄. 빈 목록 = 시세 없음
+   * (서버가 물자 거래소를 아직 돌리지 않는다). 이 칸이 없는 옛 서버도 시세 없음으로 본다
+   */
+  readonly markets?: readonly ItemMarketPrice[] | undefined;
+}
+
+/** 도시 시장 하나의 시세(최소 단위 정수 글자, 체결·호가가 없으면 null) */
+export interface ItemMarketPrice {
+  /** 시장이 있는 도시(세계 도시 ID) */
+  readonly city: string;
+  /** 값을 매기는 화폐 코드(그 도시 주인 나라 화폐) */
+  readonly currency: string;
+  /** 마지막 체결가 */
+  readonly lastPrice: string | null;
+  /** 가장 높은 사는 값·가장 낮은 파는 값 */
+  readonly bestBid: string | null;
+  readonly bestAsk: string | null;
 }
 
 /** 묶음의 바꿈 하나. baseHash = 고치기 시작할 때의 실효 항목 해시(새 항목이면 null) */
@@ -427,7 +446,7 @@ export type ItemEditorChange =
   /** 잠든 줄을 버린다(DB에서 지운다) */
   | { readonly op: "discard_sleeping"; readonly category: ItemEditCategory; readonly id: string }
   /**
-   * 여러 개 고치기(WP-7, 아이템만): 서버가 지금 실효 항목에 그 칸만 얹는다(applyItemPatch, 기준 가치 ‰는 BigInt). 항목 통째를 보내지
+   * 여러 개 고치기(WP-7, 아이템만): 서버가 지금 실효 항목에 그 칸만 얹는다(applyItemPatch, 시작 시세 ‰는 BigInt). 항목 통째를 보내지
    * 않아 낡은 초안이 다른 칸을 덮지 않는다
    */
   | {
@@ -508,7 +527,7 @@ export {
   itemsToJson,
   parseItemsCsv,
   parseItemsJson,
-  scaleBaseValue,
+  scaleStartPrice,
   type ItemCsvColumn,
   type ItemImportProblem,
   type ItemImportResult,

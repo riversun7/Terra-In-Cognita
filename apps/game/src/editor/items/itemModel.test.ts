@@ -32,7 +32,7 @@ const row = (id: string, extra: Partial<ItemRow> = {}): ItemRow => ({
   subcategory: null,
   tags: [],
   tier: 0,
-  baseValue: 1,
+  startPrice: 1,
   weight: null,
   enabled: true,
   origin: "pack",
@@ -57,7 +57,7 @@ const sword: ItemJson = {
   name: { ko: "시험 검", en: "Test sword" },
   category: "equipment",
   tier: 1,
-  baseValue: 100,
+  startPrice: 100,
   stackMax: 1,
   equip: {
     slot: "weapon",
@@ -159,7 +159,7 @@ describe("아이템 편집기 모델: 칸 맞추기", () => {
       name: { ko: "보석", en: "Gem" },
       category: "gem",
       tier: 0,
-      baseValue: 1,
+      startPrice: 1,
       bound: true,
       enabled: false,
     });
@@ -315,7 +315,7 @@ describe("아이템 편집기 모델: 코드 참조·다시 얹기", () => {
     const theirs: ItemJson = { ...sword, tier: 2 };
     const stage = stageItem(EMPTY_STAGE, sword.id, {
       op: "put",
-      entry: { ...sword, baseValue: 150 },
+      entry: { ...sword, startPrice: 150 },
       base: sword,
       baseHash: "a".repeat(64),
     });
@@ -327,7 +327,7 @@ describe("아이템 편집기 모델: 코드 참조·다시 얹기", () => {
     );
     expect(done.stage.items.get(sword.id)).toEqual({
       op: "put",
-      entry: { ...sword, tier: 2, baseValue: 150 },
+      entry: { ...sword, tier: 2, startPrice: 150 },
       base: theirs,
       baseHash: "c".repeat(64),
     });

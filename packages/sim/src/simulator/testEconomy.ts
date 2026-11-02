@@ -6,12 +6,12 @@ const st = (item: string, qty: number) => ({ item, qty: BigInt(qty) });
 
 export const TEST_CATALOG: EconomyCatalog = {
   items: [
-    { id: "grain", tier: 0, category: "raw", baseValue: 4n, enabled: true },
-    { id: "timber", tier: 0, category: "raw", baseValue: 5n, enabled: true },
-    { id: "iron_ore", tier: 1, category: "raw", baseValue: 8n, enabled: true },
-    { id: "iron_ingot", tier: 1, category: "processed", baseValue: 14n, enabled: true },
-    { id: "ration", tier: 0, category: "consumable", baseValue: 4n, enabled: true },
-    { id: "household_goods", tier: 1, category: "consumable", baseValue: 40n, enabled: true },
+    { id: "grain", tier: 0, category: "raw", startPrice: 4n, enabled: true },
+    { id: "timber", tier: 0, category: "raw", startPrice: 5n, enabled: true },
+    { id: "iron_ore", tier: 1, category: "raw", startPrice: 8n, enabled: true },
+    { id: "iron_ingot", tier: 1, category: "processed", startPrice: 14n, enabled: true },
+    { id: "ration", tier: 0, category: "consumable", startPrice: 4n, enabled: true },
+    { id: "household_goods", tier: 1, category: "consumable", startPrice: 40n, enabled: true },
   ],
   facilities: ["farm", "lumber_camp", "mine", "smelter", "kitchen", "workshop"].map((id) => ({
     id,

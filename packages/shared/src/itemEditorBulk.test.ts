@@ -1,4 +1,5 @@
-// 대량 도구 시험(아이템 편집기 WP-7): 기준 가치 ‰ BigInt 반올림, 여러 개 고치기, CSV 왕복, 틀린 머리·값의 줄 번호, 크기·줄 수 상한
+// 대량 도구 시험(아이템 편집기 WP-7): 시작 시세 ‰ BigInt 반올림, 여러 개 고치기, CSV 왕복, 틀린 머리·값의 줄 번호, 크기·줄 수 상한,
+// 옛 칸 이름 baseValue(팩 core@27까지)를 startPrice로 읽기(295)
 import { describe, expect, it } from "vitest";
 import type { ItemJson } from "./itemEditor.ts";
 import {
@@ -10,7 +11,7 @@ import {
   itemsToJson,
   parseItemsCsv,
   parseItemsJson,
-  scaleBaseValue,
+  scaleStartPrice,
   splitCsvLine,
 } from "./itemEditorBulk.ts";
 
@@ -20,7 +21,7 @@ const grain: ItemJson = {
   category: "raw",
   subcategory: "crop",
   tier: 0,
-  baseValue: 10,
+  startPrice: 10,
   weight: 1000,
   enabled: true,
 };
@@ -30,7 +31,7 @@ const sword: ItemJson = {
   description: { ko: "줄\n바꿈", en: "Line\nbreak" },
   category: "equipment",
   tier: 1,
-  baseValue: 100,
+  startPrice: 100,
   stackMax: 1,
   tags: ["sharp", "metal"],
   equip: { slot: "weapon", stats: [] },
@@ -38,29 +39,29 @@ const sword: ItemJson = {
 };
 const current = new Map([grain, sword].map((entry) => [entry.id, entry]));
 
-describe("기준 가치 ‰(BigInt, 0.5는 올림, 1 이상)", () => {
+describe("시작 시세 ‰(BigInt, 0.5는 올림, 1 이상)", () => {
   it("+10%·−10%·0.5 올림·하한 1·상한 안전한 정수", () => {
-    expect(scaleBaseValue(100, 100)).toBe(110);
-    expect(scaleBaseValue(100, -100)).toBe(90);
+    expect(scaleStartPrice(100, 100)).toBe(110);
+    expect(scaleStartPrice(100, -100)).toBe(90);
     // 15 × 1.1 = 16.5 → 17(올림), 15 × 0.9 = 13.5 → 14
-    expect(scaleBaseValue(15, 100)).toBe(17);
-    expect(scaleBaseValue(15, -100)).toBe(14);
-    expect(scaleBaseValue(1, -900)).toBe(1);
-    expect(scaleBaseValue(Number.MAX_SAFE_INTEGER, 10_000)).toBe(Number.MAX_SAFE_INTEGER);
+    expect(scaleStartPrice(15, 100)).toBe(17);
+    expect(scaleStartPrice(15, -100)).toBe(14);
+    expect(scaleStartPrice(1, -900)).toBe(1);
+    expect(scaleStartPrice(Number.MAX_SAFE_INTEGER, 10_000)).toBe(Number.MAX_SAFE_INTEGER);
     // 큰 값도 실수 오차 없이(9,007,199,254,740,991 × 0.5 = 4,503,599,627,370,495.5 → …496)
-    expect(scaleBaseValue(Number.MAX_SAFE_INTEGER, -500)).toBe(4_503_599_627_370_496);
+    expect(scaleStartPrice(Number.MAX_SAFE_INTEGER, -500)).toBe(4_503_599_627_370_496);
   });
 });
 
 describe("여러 개 고치기(patch)", () => {
-  it("켜기·티어·중분류·태그 더하기·빼기·기준 가치 ‰를 그 칸만 얹는다", () => {
+  it("켜기·티어·중분류·태그 더하기·빼기·시작 시세 ‰를 그 칸만 얹는다", () => {
     const next = applyItemPatch(sword, {
       enabled: false,
       tier: 3,
       subcategory: "weapon",
       tagsAdd: ["rare", "sharp"],
       tagsRemove: ["metal"],
-      baseValuePm: 250,
+      startPricePm: 250,
     });
     expect(next).toEqual({
       ...sword,
@@ -68,7 +69,7 @@ describe("여러 개 고치기(patch)", () => {
       tier: 3,
       subcategory: "weapon",
       tags: ["sharp", "rare"],
-      baseValue: 125,
+      startPrice: 125,
     });
     // 바뀐 것이 없으면 같은 객체, 중분류 null = 뺀다, 태그를 다 빼면 칸을 뺀다
     expect(applyItemPatch(grain, { enabled: true, tier: 0 })).toBe(grain);
@@ -92,7 +93,7 @@ describe("CSV 왕복", () => {
 
   it("새 아이템은 필수 열이 있어야 하고 꺼진 채, 있는 아이템은 적은 칸만(빈 칸 그대로, - 는 뺀다)", () => {
     const text = [
-      "id,category,tier,baseValue,name.ko,name.en,weight,subcategory",
+      "id,category,tier,startPrice,name.ko,name.en,weight,subcategory",
       "copper,raw,2,1,구리,Copper,1000,ore",
       "grain,,,,,,-,",
     ].join("\n");
@@ -103,7 +104,7 @@ describe("CSV 왕복", () => {
       name: { ko: "구리", en: "Copper" },
       category: "raw",
       tier: 2,
-      baseValue: 1,
+      startPrice: 1,
       enabled: false,
       weight: 1000,
       subcategory: "ore",
@@ -111,6 +112,29 @@ describe("CSV 왕복", () => {
     const { weight: _drop, ...noWeight } = grain;
     expect(parsed.entries[1]).toEqual(noWeight);
     expect(importDiff(parsed.entries, current)).toEqual({ added: ["copper"], changed: ["grain"], same: [] });
+  });
+});
+
+describe("옛 칸 이름 baseValue(팩 core@27까지, 295에서 startPrice)", () => {
+  it("CSV 열 baseValue와 JSON 칸 baseValue를 startPrice로 읽고, 내보내기는 새 이름만 쓴다", () => {
+    const csv = parseItemsCsv(
+      "id,category,tier,baseValue,name.ko,name.en\ncopper,raw,2,7,구리,Copper",
+      current,
+    );
+    expect(csv.problems).toEqual([]);
+    expect(csv.entries[0]).toMatchObject({ id: "copper", startPrice: 7 });
+    expect(csv.entries[0]).not.toHaveProperty("baseValue");
+    // 같은 칸을 두 이름으로 적으면 겹친 열
+    expect(parseItemsCsv("id,baseValue,startPrice\ngrain,1,2", current).problems).toEqual([
+      { row: 1, column: "startPrice", code: "duplicate_column", value: "startPrice" },
+    ]);
+    const { startPrice: _drop, ...noPrice } = grain;
+    const json = parseItemsJson(JSON.stringify({ entries: [{ ...noPrice, baseValue: 9 }] }));
+    expect(json.problems).toEqual([]);
+    expect(json.entries).toEqual([{ ...grain, startPrice: 9 }]);
+    // 둘 다 있으면 startPrice를 둔다
+    expect(parseItemsJson(JSON.stringify([{ ...grain, baseValue: 3 }])).entries).toEqual([grain]);
+    expect(itemsToCsv([grain]).split("\n")[0]).not.toContain("baseValue");
   });
 });
 
@@ -129,7 +153,7 @@ describe("틀린 머리·값은 줄 번호로", () => {
 
   it("값: 정수 아님·참거짓 아님·대분류·ID·칸 수·겹친 ID·새 항목 필수 칸", () => {
     const text = [
-      "id,category,tier,baseValue,name.ko,name.en,enabled",
+      "id,category,tier,startPrice,name.ko,name.en,enabled",
       "grain,raw,two,10,곡물,Grain,yes",
       "Bad-Id,raw,1,1,가,A,true",
       "grain,raw,1,10,곡물,Grain",
@@ -146,7 +170,7 @@ describe("틀린 머리·값은 줄 번호로", () => {
       [4, "column_count", null],
       [5, "bad_category", "category"],
       [6, "missing_value", "category"],
-      [6, "missing_value", "baseValue"],
+      [6, "missing_value", "startPrice"],
       [6, "missing_value", "name.ko"],
       [6, "missing_value", "name.en"],
       [8, "duplicate_id", "id"],

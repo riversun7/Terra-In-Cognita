@@ -78,7 +78,8 @@ export interface PreviewMarketSpec {
   readonly location: number;
   readonly item: string;
   readonly currency: string;
-  readonly basePrice: bigint;
+  /** 시안 시장의 시작 시세(그 도시 화폐 최소 단위, 아이템 시작 시세에서). 가짜 거래 값이 이 근처를 걷는다 */
+  readonly startPrice: bigint;
   readonly taxBp: number;
   readonly mine: readonly MyOrderPlan[];
 }
@@ -205,7 +206,7 @@ export function simulatePreviewMarket(spec: PreviewMarketSpec, nowMs: number): P
       }
     }
     const rng = createRng(mix32(spec.seed, bucket));
-    const fair = scalePm(spec.basePrice, fairPermille(spec.seed, bucket));
+    const fair = scalePm(spec.startPrice, fairPermille(spec.seed, bucket));
     // 양쪽에 걸어 두는 주문(기준 값에서 0.2~3.2% 떨어져서)
     for (const side of ["buy", "sell"] as const) {
       const offset = 2 + rng.nextInt(31);

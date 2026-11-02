@@ -12,7 +12,7 @@
       },
       "category": "raw",
       "tier": 0,
-      "baseValue": 1,
+      "startPrice": 1,
       "enabled": true
     },
     {
@@ -23,7 +23,7 @@
       },
       "category": "raw",
       "tier": 0,
-      "baseValue": 1,
+      "startPrice": 1,
       "enabled": true
     }
   ]

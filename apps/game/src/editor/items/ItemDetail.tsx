@@ -7,6 +7,7 @@ import type {
   ItemEditorListResponse,
   ItemEditorPreviewResponse,
   ItemJson,
+  ItemMarketPrice,
   ItemPreviewUnit,
   ItemUsage,
 } from "@terra/shared/itemEditor";
@@ -55,6 +56,8 @@ export interface ItemDetailProps {
   cascade: { readonly recipes: readonly string[]; readonly necessities: readonly string[] } | null;
   checking: boolean;
   usage: ItemUsage | null;
+  /** 지금 세계 시세(서버 items.get, 없으면 null) */
+  markets: readonly ItemMarketPrice[] | null;
   preview: ItemEditorPreviewResponse | null;
   previewPending: boolean;
   previewFailed: string | null;
@@ -179,6 +182,7 @@ export function ItemDetail(props: ItemDetailProps) {
               locale={locale}
               categoryLocked={!created}
               problem={problem}
+              markets={props.markets}
             />
             {askCategory ? (
               <div className="ie-confirm" role="alertdialog" aria-labelledby="ie-ask-category">

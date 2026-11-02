@@ -50,7 +50,7 @@ export interface PreviewContext {
   readonly tuning: TuningState | undefined;
   readonly effects: readonly EffectEntry[];
   readonly recipes: readonly RecipeEntry[];
-  /** 아이템 ID → 실효 기준 가치 */
+  /** 아이템 ID → 실효 시작 시세(295: 시장이 처음 열릴 때의 첫 가격) */
   readonly values: ReadonlyMap<string, number>;
 }
 
@@ -239,7 +239,7 @@ export function previewItem(
       equip: null,
       weapon: null,
       use: null,
-      value: { baseValue: 0, recipes: [] },
+      value: { startPrice: 0, recipes: [] },
     };
   const item = draft.item;
   const unit = unitInput ?? DEFAULT_PREVIEW_UNIT;
@@ -265,12 +265,12 @@ export function previewItem(
       })
     : null;
   const values = new Map(ctx.values);
-  values.set(item.id, item.baseValue);
+  values.set(item.id, item.startPrice);
   const recipes = ctx.recipes.flatMap((recipe) => {
     if (!recipe.enabled) return [];
     const out = recipe.outputs.find((stack) => stack.item.id === item.id);
     const cost = out ? recipeCost(recipe, item.id, values) : null;
     return out && cost !== null ? [{ id: recipe.id, cost: String(cost), outputQty: out.qty }] : [];
   });
-  return { ok: true, issues: [], equip, weapon, use, value: { baseValue: item.baseValue, recipes } };
+  return { ok: true, issues: [], equip, weapon, use, value: { startPrice: item.startPrice, recipes } };
 }

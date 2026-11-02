@@ -8,7 +8,7 @@
       },
       "category": "document",
       "tier": 0,
-      "baseValue": 1,
+      "startPrice": 1,
       "enabled": false
     },
     {
@@ -19,7 +19,7 @@
       },
       "category": "raw",
       "tier": 0,
-      "baseValue": 4,
+      "startPrice": 4,
       "enabled": true
     },
     {
@@ -30,7 +30,7 @@
       },
       "category": "raw",
       "tier": 0,
-      "baseValue": 5,
+      "startPrice": 5,
       "enabled": true
     },
     {
@@ -41,7 +41,7 @@
       },
       "category": "raw",
       "tier": 1,
-      "baseValue": 8,
+      "startPrice": 8,
       "enabled": true
     },
     {
@@ -52,7 +52,7 @@
       },
       "category": "processed",
       "tier": 1,
-      "baseValue": 14,
+      "startPrice": 14,
       "enabled": true
     },
     {
@@ -63,7 +63,7 @@
       },
       "category": "consumable",
       "tier": 0,
-      "baseValue": 4,
+      "startPrice": 4,
       "enabled": true
     },
     {
@@ -74,7 +74,7 @@
       },
       "category": "consumable",
       "tier": 1,
-      "baseValue": 40,
+      "startPrice": 40,
       "enabled": true
     },
     {
@@ -85,7 +85,7 @@
       },
       "category": "equipment",
       "tier": 1,
-      "baseValue": 100,
+      "startPrice": 100,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -117,7 +117,7 @@
       },
       "category": "equipment",
       "tier": 1,
-      "baseValue": 100,
+      "startPrice": 100,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -151,7 +151,7 @@
       },
       "category": "equipment",
       "tier": 1,
-      "baseValue": 100,
+      "startPrice": 100,
       "equip": {
         "slot": "body",
         "stats": [
@@ -177,7 +177,7 @@
       },
       "category": "equipment",
       "tier": 1,
-      "baseValue": 100,
+      "startPrice": 100,
       "equip": {
         "slot": "head",
         "stats": [
@@ -198,7 +198,7 @@
       },
       "category": "equipment",
       "tier": 1,
-      "baseValue": 100,
+      "startPrice": 100,
       "equip": {
         "slot": "accessory",
         "stats": [
@@ -219,7 +219,7 @@
       },
       "category": "equipment",
       "tier": 1,
-      "baseValue": 100,
+      "startPrice": 100,
       "equip": {
         "slot": "organ",
         "stats": [
@@ -250,7 +250,7 @@
       },
       "category": "equipment",
       "tier": 1,
-      "baseValue": 120,
+      "startPrice": 120,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -284,7 +284,7 @@
       },
       "category": "equipment",
       "tier": 1,
-      "baseValue": 120,
+      "startPrice": 120,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -323,7 +323,7 @@
       },
       "category": "equipment",
       "tier": 1,
-      "baseValue": 120,
+      "startPrice": 120,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -357,7 +357,7 @@
       },
       "category": "equipment",
       "tier": 1,
-      "baseValue": 120,
+      "startPrice": 120,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -396,7 +396,7 @@
       },
       "category": "equipment",
       "tier": 1,
-      "baseValue": 120,
+      "startPrice": 120,
       "equip": {
         "slot": "weapon",
         "stats": [
@@ -435,7 +435,7 @@
       },
       "category": "equipment",
       "tier": 1,
-      "baseValue": 120,
+      "startPrice": 120,
       "equip": {
         "slot": "weapon",
         "stats": [

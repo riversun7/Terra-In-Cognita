@@ -35,7 +35,7 @@ function writePack({ version = 1, ids = ["iron_ore", "copper_ore"], removed = []
         name: { ko: `이름 ${id}`, en: `Name ${id}` },
         category: "raw",
         tier: 0,
-        baseValue: 1,
+        startPrice: 1,
         enabled: true,
       })),
     }),

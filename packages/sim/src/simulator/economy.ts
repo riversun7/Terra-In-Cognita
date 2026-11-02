@@ -219,7 +219,7 @@ export function createEconomy(
         }
         for (const stock of group.stock ?? []) {
           const asset = itemAsset(stock.item);
-          if (stock.qty === 0n || !catalog.baseValue.has(asset)) continue;
+          if (stock.qty === 0n || !catalog.startPrice.has(asset)) continue;
           book.post({
             kind: "endow",
             atMs: startMs,
@@ -460,16 +460,19 @@ export function onCargo(economy: Economy, world: SimWorld, cargoId: number, nowM
   });
 }
 
-/** 화폐로 매긴 생필품 시세 ÷ 기준 가치(천분율). 시세가 없으면 undefined */
+/**
+ * 화폐로 매긴 생필품 시세 ÷ 시작 시세(천분율). 시작 시세 = 그 세계에서 그 물건 시장의 첫 가격(295)이라, 지수는 "세계가 처음 열릴 때 값의
+ * 몇 ‰인가"다(1000 = 첫 가격 그대로). 시세(체결)가 없으면 undefined
+ */
 export function priceIndexMilli(economy: Economy, currency: string): number | undefined {
   let sum = 0n;
   let count = 0n;
   for (const spec of economy.catalog.necessities) {
-    const baseValue = economy.catalog.baseValue.get(spec.asset) ?? 1n;
+    const startPrice = economy.catalog.startPrice.get(spec.asset) ?? 1n;
     for (const perItem of economy.markets.values()) {
       const market = perItem.get(spec.asset);
       if (!market || market.config.currency !== currency || market.lastPrice === undefined) continue;
-      sum += (market.lastPrice * 1000n) / baseValue;
+      sum += (market.lastPrice * 1000n) / startPrice;
       count += 1n;
     }
   }

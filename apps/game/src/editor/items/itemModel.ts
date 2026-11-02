@@ -26,7 +26,7 @@ import type { EquipSlot } from "@terra/shared/roster";
 
 export const ITEM_ORIGIN_FILTERS = ["all", "pack", "edited", "created"] as const;
 export type ItemOriginFilter = (typeof ITEM_ORIGIN_FILTERS)[number];
-export const ITEM_SORTS = ["name", "id", "tier", "baseValue", "weight"] as const;
+export const ITEM_SORTS = ["name", "id", "tier", "startPrice", "weight"] as const;
 export type ItemSort = (typeof ITEM_SORTS)[number];
 
 /** 목록 찾기·거르기(설계안 3.3). 등급으로는 거르지 않는다(등급은 만든 물건마다, D-5003) */
@@ -100,7 +100,7 @@ export function sortItems(rows: readonly ItemRow[], sort: ItemSort, locale: "ko"
     name: (a, b) => a.name[locale].localeCompare(b.name[locale], locale) || byId(a, b),
     id: byId,
     tier: (a, b) => a.tier - b.tier || byId(a, b),
-    baseValue: (a, b) => a.baseValue - b.baseValue || byId(a, b),
+    startPrice: (a, b) => a.startPrice - b.startPrice || byId(a, b),
     weight: (a, b) =>
       (a.weight ?? Number.MAX_SAFE_INTEGER) - (b.weight ?? Number.MAX_SAFE_INTEGER) || byId(a, b),
   };
@@ -144,7 +144,7 @@ export function newItemTemplate(
   category: ItemCategoryId,
   name: { ko: string; en: string },
 ): ItemJson {
-  const base: ItemJson = { id, name, category, tier: 0, baseValue: 1, enabled: false };
+  const base: ItemJson = { id, name, category, tier: 0, startPrice: 1, enabled: false };
   if (category === "equipment") return { ...base, stackMax: 1, equip: { slot: "head", stats: [] } };
   return base;
 }
@@ -371,7 +371,7 @@ export function isItemJson(value: unknown): value is ItemJson {
     isName(value.name) &&
     ITEM_CATEGORY_IDS.some((category) => category === value.category) &&
     typeof value.tier === "number" &&
-    typeof value.baseValue === "number" &&
+    typeof value.startPrice === "number" &&
     typeof value.enabled === "boolean"
   );
 }

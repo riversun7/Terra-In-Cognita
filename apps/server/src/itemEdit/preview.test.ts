@@ -29,7 +29,7 @@ function setup() {
     tuning,
     effects: content.effects,
     recipes: [],
-    values: new Map(content.effective().items.map((item) => [item.id, item.baseValue])),
+    values: new Map(content.effective().items.map((item) => [item.id, item.startPrice])),
   });
   return { tuning, content, roster, ctx };
 }

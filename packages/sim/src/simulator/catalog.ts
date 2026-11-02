@@ -8,7 +8,11 @@ export interface CatalogItem {
   readonly id: string;
   readonly tier: number;
   readonly category: string;
-  readonly baseValue: bigint;
+  /**
+   * 시작 시세(팩 startPrice, 295 D-501): 그 세계에서 이 물건의 시장이 처음 열릴 때의 첫 가격으로만 쓴다. 체결이 생기면 그 뒤 계산은
+   * 시장 시세(마지막 체결가)다: NPC 매물 값 = 마지막 체결가(없을 때만 시작 시세), 물가 지수 = 지금 시세 ÷ 시작 시세(그 세계의 첫 가격 대비)
+   */
+  readonly startPrice: bigint;
   readonly enabled: boolean;
 }
 
@@ -62,7 +66,8 @@ export const currencyAsset = (code: string): string => `cur:${code}`;
 export interface PreparedCatalog {
   /** 켜진 물건 자산 코드(목록 차례) */
   readonly items: readonly string[];
-  readonly baseValue: ReadonlyMap<string, bigint>;
+  /** 켜진 물건 자산 코드 → 시작 시세(시장의 첫 가격) */
+  readonly startPrice: ReadonlyMap<string, bigint>;
   readonly recipes: ReadonlyMap<string, RecipeSpec>;
   readonly facilities: ReadonlyMap<string, CatalogFacility>;
   readonly necessities: readonly NecessitySpec[];
@@ -88,7 +93,7 @@ export function prepareCatalog(catalog: EconomyCatalog): PreparedCatalog {
   }
   return {
     items: items.map((item) => itemAsset(item.id)),
-    baseValue: new Map(items.map((item) => [itemAsset(item.id), item.baseValue])),
+    startPrice: new Map(items.map((item) => [itemAsset(item.id), item.startPrice])),
     recipes,
     facilities: new Map(
       catalog.facilities.filter((facility) => facility.enabled).map((facility) => [facility.id, facility]),

@@ -95,7 +95,7 @@ export function economyCatalogFrom(
     name: { ko: item.name.ko, en: item.name.en },
     category: item.category,
     tier: item.tier,
-    baseValue: String(item.baseValue),
+    startPrice: String(item.startPrice),
     market: marketKindOf(item),
   }));
   const facilities: CatalogFacilityView[] = entries.facilities

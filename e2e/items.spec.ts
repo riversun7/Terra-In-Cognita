@@ -289,8 +289,8 @@ test.describe("개발자", () => {
     // 탭 A: 티어를 먼저 적용
     await editing(page).getByLabel(message("ko", "dev_items_field_tier"), { exact: true }).fill("2");
     await apply(page);
-    // 탭 B: 옛 해시로 기준 가치 → 검사가 entry_changed → 티어 2 위에 기준 가치만 바로 다시 얹는다 → 적용
-    await editing(other).getByLabel(message("ko", "dev_items_field_base_value"), { exact: true }).fill("9");
+    // 탭 B: 옛 해시로 시작 시세 → 검사가 entry_changed → 티어 2 위에 시작 시세만 바로 다시 얹는다 → 적용
+    await editing(other).getByLabel(message("ko", "dev_items_field_start_price"), { exact: true }).fill("9");
     await expect(other.locator(".ie-screen [role='alert']").first()).toContainText(
       message("ko", "dev_items_err_entry_changed"),
       { timeout: 15_000 },
@@ -303,7 +303,7 @@ test.describe("개발자", () => {
     const merged = await trpc(page, "items.get", { id: "iron_ore" });
     expect([
       field(field(merged.data, "entry"), "tier"),
-      field(field(merged.data, "entry"), "baseValue"),
+      field(field(merged.data, "entry"), "startPrice"),
     ]).toEqual([2, 9]);
 
     // 같은 칸(티어): A가 3으로 적용한 뒤 B가 4로 → 고르는 판, [서버 값 쓰기]면 3
@@ -465,6 +465,7 @@ test.describe("개발자", () => {
         text: `${message("ko", "dev_items_bulk_err_not_int")} (tier · x)`,
       }),
     );
+    // 옛 열 이름 baseValue(팩 core@27까지)도 시작 시세로 읽는다(295)
     await text.fill(
       "id,category,tier,baseValue,name.ko,name.en\niron_ore,,3,,,\ne2e_bulk_ore,raw,1,5,시험 광석,Test ore\n",
     );
@@ -481,7 +482,11 @@ test.describe("개발자", () => {
     expect(field(field(ore.data, "entry"), "tier")).toBe(3);
     const created = field((await trpc(page, "items.get", { id: "e2e_bulk_ore" })).data, "entry");
     // 새 줄은 꺼진 채로 만든다(덜 만든 아이템이 세계에 나오지 않게)
-    expect([field(created, "enabled"), field(field(created, "name"), "en")]).toEqual([false, "Test ore"]);
+    expect([
+      field(created, "enabled"),
+      field(field(created, "name"), "en"),
+      field(created, "startPrice"),
+    ]).toEqual([false, "Test ore", 5]);
     await resetItems(page);
     expect(deviceErrors).toEqual([]);
   });

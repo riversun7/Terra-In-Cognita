@@ -75,7 +75,7 @@ function catalogOf(source: PackSource): EconomyCatalog {
       id: item.id,
       tier: item.tier,
       category: item.category,
-      baseValue: BigInt(item.baseValue),
+      startPrice: BigInt(item.startPrice),
       enabled: item.enabled,
     })),
     recipes: parseFile(source, "recipes.json", (raw) => recipeEntrySchema.parse(raw)).map((recipe) => ({

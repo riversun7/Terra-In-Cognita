@@ -1,5 +1,5 @@
 // 아이템 권고 시험(설계안 2.7 "권고") — 실제 팩으로: 무게·중분류 없음, 이 무기로 못 쓰는 장비 스킬(D-490), 내구도 ≤ 파괴 문턱,
-// 끄면 멈추는 레시피·생필품, 기준 가치와 레시피 원가, 1차 적정 스탯으로 셈한 2차 적정치 0(WP-5), 입을 수 있는 종류·크리쳐 보유(WP-C),
+// 끄면 멈추는 레시피·생필품, 시작 시세와 레시피 원가, 1차 적정 스탯으로 셈한 2차 적정치 0(WP-5), 입을 수 있는 종류·크리쳐 보유(WP-C),
 // 탄약 장비의 내구도(D-497).
 import {
   itemEntrySchema,
@@ -107,8 +107,8 @@ describe("아이템 권고", () => {
     expect(cascade?.params.necessities).toContain("food");
   });
 
-  it("기준 가치가 레시피 원가보다 낮다", () => {
-    const cheap = item("iron_ingot", (raw) => ({ ...raw, baseValue: 1 }));
+  it("시작 시세가 레시피 원가보다 낮다", () => {
+    const cheap = item("iron_ingot", (raw) => ({ ...raw, startPrice: 1 }));
     expect(codes(cheap)).toContain("advice_value_below_cost");
   });
 });

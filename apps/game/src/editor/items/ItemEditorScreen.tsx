@@ -525,6 +525,7 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
                     cascade={cascade}
                     checking={stagedItem !== undefined && checked === null}
                     usage={got?.usage ?? null}
+                    markets={got?.markets ?? null}
                     preview={shownPreview?.result ?? null}
                     previewPending={previewKey !== "" && shownPreview?.key !== previewKey}
                     previewFailed={shownPreview?.failed ?? null}

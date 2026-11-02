@@ -11,6 +11,10 @@
 //   다르다). 옛 1차 적정 스탯(appropriate, D-496)은 str·int·dex·agi 가운데 1 이상만 남긴다(뜻이 같다: 몫마다 그 1차, 사용자 답 296).
 //   남은 적정이 없으면 지금 팩의 같은 항목 적정을 쓰고, 팩에도 없으면 칸을 뺀다(= 모든 몫 비율 100%). 맨손(unarmed)은 무기 몫 0·적정
 //   없음(D-502)이라 attack을 0으로 두고 적정을 뺀다. 옛 맨손 속성 자료(naturalElementalWeapon)는 지금 팩처럼 맨손(unarmed, attack 0)이다.
+// - items, 팩 core@28(295 "시작 시세"): 옛 기준 가치 칸 baseValue는 startPrice로 옮긴다(같은 값: 시장이 처음 열릴 때의 첫 가격으로만
+//   쓴다). 둘 다 있으면 startPrice를 두고 baseValue는 뺀다.
+// 감사 기록의 옛 판 항목(items.historyEntry, 다시 담기)도 같은 함수(upgradeLegacyEntry)로 읽는다.
+import type { ContentEditCategory } from "@terra/shared/contentEdit";
 import type { ContentOverrideRecord } from "./boot.ts";
 import { type ContentCore, type EntryJson, contentKey } from "./core.ts";
 
@@ -112,13 +116,20 @@ function upgradeUnitKind(entry: EntryJson, pack: EntryJson | undefined): EntryJs
   return { ...entry, naturalWeapon: weapon, naturalElementalWeapon: elemental };
 }
 
+/** 옛 기준 가치 칸(baseValue, 팩 core@27까지) → 시작 시세(startPrice, 295). 바뀌지 않으면 같은 객체 */
+function upgradeStartPrice(entry: EntryJson): EntryJson {
+  if (!("baseValue" in entry)) return entry;
+  const { baseValue, ...rest } = entry;
+  return "startPrice" in rest ? rest : { ...rest, startPrice: baseValue };
+}
+
 /** 아이템 항목 하나(바뀌지 않으면 같은 객체) */
 function upgradeItem(
   entry: EntryJson,
   removedSubcategories: ReadonlySet<string>,
   pack: EntryJson | undefined,
 ): EntryJson {
-  let next: EntryJson = entry;
+  let next: EntryJson = upgradeStartPrice(entry);
   const subcategory = entry.subcategory;
   if (typeof subcategory === "string" && removedSubcategories.has(subcategory)) {
     const { subcategory: _drop, ...rest } = next;
@@ -143,6 +154,19 @@ function removedSubcategoriesOf(core: ContentCore): Set<string> {
   );
 }
 
+/** 항목 하나를 지금 모양으로(바뀌지 않으면 같은 객체). removed = 팩이 지운 중분류(여러 줄이면 한 번 셈해 넘긴다) */
+export function upgradeLegacyEntry(
+  core: ContentCore,
+  category: ContentEditCategory,
+  id: string,
+  entry: EntryJson,
+  removed: ReadonlySet<string> = removedSubcategoriesOf(core),
+): EntryJson {
+  const pack = core.packEntry(category, id);
+  if (category === "items") return upgradeItem(entry, removed, pack);
+  return category === "unit_kinds" ? upgradeUnitKind(entry, pack) : entry;
+}
+
 /** 덮어쓰기 줄 목록을 지금 모양으로 읽는다. 고친 줄 키(`<분류>/<ID>`)도 돌려준다 */
 export function upgradeLegacyRows(
   core: ContentCore,
@@ -151,13 +175,7 @@ export function upgradeLegacyRows(
   const removed = removedSubcategoriesOf(core);
   const upgraded: string[] = [];
   const out = rows.map((row) => {
-    const pack = core.packEntry(row.category, row.id);
-    const entry =
-      row.category === "items"
-        ? upgradeItem(row.entry, removed, pack)
-        : row.category === "unit_kinds"
-          ? upgradeUnitKind(row.entry, pack)
-          : row.entry;
+    const entry = upgradeLegacyEntry(core, row.category, row.id, row.entry, removed);
     if (entry === row.entry) return row;
     upgraded.push(contentKey(row.category, row.id));
     return { ...row, entry };

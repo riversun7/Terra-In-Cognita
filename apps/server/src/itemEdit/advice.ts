@@ -6,7 +6,7 @@ import type { ContentIssueView } from "@terra/shared/contentEdit";
 import type { ContentEffective } from "../contentEdit/state.ts";
 import { equipAdvice } from "./adviceEquip.ts";
 
-/** 기준 가치가 레시피 원가의 몇 배를 넘으면 알리나(기술 상수) */
+/** 시작 시세가 레시피 원가의 몇 배를 넘으면 알리나(기술 상수) */
 const VALUE_OVER_COST = 10n;
 /** 이름 길이(F19 범위: 한글 2~8자, 영문 3~16자, 49_Settings.md. 대상이 크리쳐 등이라 권고만) */
 const NAME_LENGTH = { ko: { min: 2, max: 8 }, en: { min: 3, max: 16 } } as const;
@@ -44,7 +44,10 @@ const graphemes = (text: string): number => [...segmenter.segment(text.trim())].
 const enabledIds = (list: readonly { id: string; enabled: boolean }[]): Set<string> =>
   new Set(list.filter((entry) => entry.enabled).map((entry) => entry.id));
 
-/** 레시피 하나로 이 아이템 하나를 만드는 원가(입력 기준 가치 합 ÷ 이 아이템 출력 수량, 내림). 입력 값을 모르면 null */
+/**
+ * 레시피 하나로 이 아이템 하나를 만드는 원가(입력 시작 시세 합 ÷ 이 아이템 출력 수량, 내림). 입력 값을 모르면 null.
+ * 시작 시세(295)는 시장이 처음 열릴 때의 첫 가격이라, 이 원가도 "세계가 처음 열릴 때"의 원가다(그 뒤는 시장 시세)
+ */
 export function recipeCost(
   recipe: RecipeEntry,
   itemId: string,
@@ -99,8 +102,8 @@ export function itemAdvice(ctx: AdviceContext, item: ItemEntry): ContentIssueVie
 
   if (item.equip) equipAdvice(ctx, item.equip, add);
 
-  // 경제: 레시피 티어·원가, 끄면 멈추는 것, 생필품
-  const values = new Map(effective.items.map((entry) => [entry.id, entry.baseValue]));
+  // 경제: 레시피 티어·원가(시작 시세끼리), 끄면 멈추는 것, 생필품
+  const values = new Map(effective.items.map((entry) => [entry.id, entry.startPrice]));
   const tiers = new Map(effective.items.map((entry) => [entry.id, entry.tier]));
   for (const recipe of ctx.recipes) {
     if (!recipe.enabled || !recipe.outputs.some((stack) => stack.item.id === item.id)) continue;
@@ -109,10 +112,10 @@ export function itemAdvice(ctx: AdviceContext, item: ItemEntry): ContentIssueVie
       add("tier", "advice_tier_mismatch", { recipe: recipe.id, inputTier: top });
     const cost = recipeCost(recipe, item.id, values);
     if (cost === null || cost <= 0n) continue;
-    const value = BigInt(item.baseValue);
-    if (value < cost) add("baseValue", "advice_value_below_cost", { recipe: recipe.id, cost: String(cost) });
+    const value = BigInt(item.startPrice);
+    if (value < cost) add("startPrice", "advice_value_below_cost", { recipe: recipe.id, cost: String(cost) });
     else if (value > cost * VALUE_OVER_COST)
-      add("baseValue", "advice_value_above_cost", { recipe: recipe.id, cost: String(cost) });
+      add("startPrice", "advice_value_above_cost", { recipe: recipe.id, cost: String(cost) });
   }
   const needs = ctx.necessities.filter((need) => need.enabled && need.item.id === item.id);
   if (needs.length > 0 && (item.tradable === false || item.bound === true))

@@ -1,6 +1,7 @@
 // 옛 모양 덮어쓰기 줄 DB 시험(legacy.ts, 팩 core@26) — core@25가 저장한 아이템 줄(옛 효과량 칸 scale {stat, pmPerPoint}, 지운 중분류 ammo)을
 // core@26으로 켜면: 지우지 않고(감사 content.dropped 없음) 지금 모양으로 고쳐 실어 실효 항목이 되고, DB 줄 원본은 그대로다. 저장 뒤 다시
-// 읽어 싣는 길(install)도 같은 줄을 고쳐 읽어 팩 항목으로 물러나지 않는다. TEST_DATABASE_URL이 있을 때만.
+// 읽어 싣는 길(install)도 같은 줄을 고쳐 읽어 팩 항목으로 물러나지 않는다. 옛 기준 가치 칸(baseValue, core@27까지)은 시작 시세
+// (startPrice, core@28 295)로 옮겨 읽는다. TEST_DATABASE_URL이 있을 때만.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { loadServerContent } from "../content.ts";
@@ -57,6 +58,7 @@ describe.skipIf(!TEST_DATABASE_URL)("옛 모양 덮어쓰기 줄 켤 때 고쳐 
     const state = await boot();
     const potion = state.effective().items.find((item) => item.id === "editor_old_potion");
     expect(potion?.subcategory).toBeUndefined();
+    expect(potion?.startPrice).toBe(5);
     expect(potion?.use?.effects).toEqual([
       { effect: expect.objectContaining({ id: "mend" }), value: 40, chancePm: 1000 },
     ]);

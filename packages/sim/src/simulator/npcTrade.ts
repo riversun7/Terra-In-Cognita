@@ -51,9 +51,9 @@ function targets(economy: Economy, cityId: number): Map<string, bigint> {
   return need;
 }
 
-/** 거래소 기준값: 마지막 체결가, 없으면 기준 가치 */
+/** 거래소 기준값: 시장 시세(마지막 체결가). 체결이 아직 없으면 시작 시세(그 시장의 첫 가격, 295) */
 function refPrice(economy: Economy, cityId: number, asset: string): bigint {
-  return economy.markets.get(cityId)?.get(asset)?.lastPrice ?? economy.catalog.baseValue.get(asset) ?? 1n;
+  return economy.markets.get(cityId)?.get(asset)?.lastPrice ?? economy.catalog.startPrice.get(asset) ?? 1n;
 }
 
 /** 화폐 from의 금액을 to로(기준 통화 환율로) */
@@ -101,7 +101,7 @@ export function onTrade(
   const abroad: { asset: string; location: number; qty: bigint }[] = [];
   for (const account of book.accounts()) {
     if (account.ownerId !== factionId || account.location === null || account.balance <= 0n) continue;
-    if (faction.cities.has(account.location) || !economy.catalog.baseValue.has(account.asset)) continue;
+    if (faction.cities.has(account.location) || !economy.catalog.startPrice.has(account.asset)) continue;
     abroad.push({ asset: account.asset, location: account.location, qty: account.balance });
   }
   for (const held of abroad)

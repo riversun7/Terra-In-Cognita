@@ -11,6 +11,7 @@ import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
+import { VIEWPORTS } from "./helpers/viewports.ts";
 
 const field = (value: unknown, key: string): unknown =>
   typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
@@ -476,7 +477,12 @@ test.describe("배치·사진", () => {
 
   for (const { theme, language, width, height } of LAYOUTS) {
     test.describe(`${theme}·${language}·${width}px`, () => {
-      test.use({ devTheme: theme, language, viewport: { width, height } });
+      // 1440은 실제 데스크톱(마우스·터치 없음)이라 개발 화면 층의 촘촘한 값으로 찍힌다
+      test.use({
+        devTheme: theme,
+        language,
+        ...(width >= 1000 ? VIEWPORTS.desktop : { viewport: { width, height } }),
+      });
 
       test("목록·편집 판·분류·효과 사전·대량 도구: 가로 넘침·작은 누르는 곳 없음, 사진", async ({
         page,

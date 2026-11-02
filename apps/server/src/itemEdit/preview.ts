@@ -278,7 +278,13 @@ export function previewItem(
   const gather = ctx.gather
     ? previewGather(
         ctx.gather,
-        { id: item.id, subcategory: item.subcategory?.id, tier: item.tier, enabled: item.enabled },
+        {
+          id: item.id,
+          subcategory: item.subcategory?.id,
+          tier: item.tier,
+          enabled: item.enabled,
+          lotSize: item.lotSize,
+        },
         ctx.gather.items,
         unit,
       )

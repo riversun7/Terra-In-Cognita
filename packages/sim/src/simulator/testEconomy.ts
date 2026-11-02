@@ -75,7 +75,7 @@ export const TEST_CATALOG: EconomyCatalog = {
 };
 
 /** 농업 나라 둘 + 공업 나라 둘(서로 모자란 것을 사야 하는 세계) */
-export const TEST_ECONOMY_SCENARIO: Scenario = parseScenario({
+export const TEST_ECONOMY_SCENARIO_RAW = {
   id: "test_economy",
   factions: [
     {
@@ -126,4 +126,6 @@ export const TEST_ECONOMY_SCENARIO: Scenario = parseScenario({
     baseReserveBp: 2500,
     fxLot: "100",
   },
-});
+};
+
+export const TEST_ECONOMY_SCENARIO: Scenario = parseScenario(TEST_ECONOMY_SCENARIO_RAW);

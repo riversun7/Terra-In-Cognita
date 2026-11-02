@@ -93,6 +93,16 @@ export interface SocietyCoefficients {
    * 출발값 없음(사용자 확인 대기) → 10점(economy/gather.ts gatherStat)
    */
   readonly gatherLevelBonus: number;
+  /**
+   * 1차 생산 필요 진행(49 N44, D-507, 옛 BuildingGatherEngine tierRequiredProgress): 티어 T 한 번 = max(기본, 기본 + T × 걸음) 진행.
+   * 옛 값 기본 30·걸음 30(T0 30 … T9 300). 사다리(추첨·선택)에서 나오는 산출에 쓴다(레시피 작업량은 사다리 밖 산출)
+   */
+  readonly gatherTierProgressBase: number;
+  readonly gatherTierProgressStep: number;
+  /** 진행 1의 길이(49 N44): 기준 일꾼(진행 속도 1)이 진행 1을 쌓는 시간. 옛 1분 틱(server.js BuildingGatherTick 60,000ms) */
+  readonly gatherTickMs: number;
+  /** 광석 한 번 캘 때 g(49 N44, 기술 처리): 옛 1개 = 1kg(ITM-10 무게 1.0) → 1,000g. 기본 단위가 g인 아이템(묶음 > 1)에 쓴다 */
+  readonly gatherOreGrams: number;
   /** 포만감 효율 배율(N33): 포만감 이하 → 효율 ‰ (기존 50 이하 0.7, 30 이하 0) */
   readonly foodEfficiency: readonly { readonly atMost: number; readonly pm: number }[];
   /** 임금 비교 범위(N30 같은 도시 같은 직무 상위 25%, ‰) */
@@ -250,6 +260,10 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   productionMainDivisor: 20,
   productionSubYieldPm: 80,
   gatherLevelBonus: 10,
+  gatherTierProgressBase: 30,
+  gatherTierProgressStep: 30,
+  gatherTickMs: 60_000,
+  gatherOreGrams: 1000,
   foodEfficiency: [
     { atMost: 30, pm: 0 },
     { atMost: 50, pm: 700 },

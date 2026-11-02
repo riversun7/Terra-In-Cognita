@@ -433,17 +433,19 @@ export function createItemEditorServices(deps: {
       const combat = shared.roster.combat;
       const values = new Map(state.effective().items.map((item) => [item.id, item.startPrice]));
       const variance = shared.tuning?.state.values().get(USE_VARIANCE_ID) ?? 0;
-      // 채집 추첨 레벨 보너스(N43): 실효 세력·사회 계수표(설정 칸 덮어쓰기)를 쓸 때마다 읽는다
-      const levelBonus = (shared.tuning?.state.society() ?? TEST_SOCIETY_COEFFICIENTS).gatherLevelBonus;
+      // 채집 추첨 레벨 보너스(N43)·진행·수확량(N32·N44): 실효 세력·사회 계수표(설정 칸 덮어쓰기)를 쓸 때마다 읽는다
+      const society = shared.tuning?.state.society() ?? TEST_SOCIETY_COEFFICIENTS;
       const gather = {
         facilities: shared.facilities,
         bands: shared.gatherBands,
-        levelBonus,
+        levelBonus: society.gatherLevelBonus,
+        rules: society,
         items: state.effective().items.map((item) => ({
           id: item.id,
           subcategory: item.subcategory?.id,
           tier: item.tier,
           enabled: item.enabled,
+          lotSize: item.lotSize,
         })),
       };
       return Promise.resolve(

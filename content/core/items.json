@@ -476,7 +476,7 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "stone",
@@ -489,7 +489,7 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "copper_ore",
@@ -503,7 +503,7 @@
       "startPrice": 1,
       "weight": 1,
       "lotSize": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "silver_ore",
@@ -600,7 +600,7 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "birch_log",
@@ -613,7 +613,7 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "cypress_log",
@@ -626,7 +626,7 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "maple_log",

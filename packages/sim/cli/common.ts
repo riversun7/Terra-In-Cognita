@@ -101,6 +101,10 @@ function catalogOf(source: PackSource): EconomyCatalog {
                 primary: facility.gather.primary,
                 secondary: facility.gather.secondary,
                 subcategory: id(facility.gather.subcategory),
+                mode: facility.gather.mode ?? "roll",
+                yieldBase: facility.gather.yieldBase,
+                yieldPerStatPm: facility.gather.yieldPerStatPm,
+                yieldCap: facility.gather.yieldCap,
               },
             }
           : {}),

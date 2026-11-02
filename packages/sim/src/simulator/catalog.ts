@@ -4,9 +4,10 @@
 // 묶음 크기(302·D-506): 팩의 레시피·생필품 수량은 묶음 단위, 원장(창고)은 기본 단위다. prepareCatalog가 수량 × 묶음 크기로 바꿔
 // RecipeSpec·NecessitySpec은 기본 단위로 둔다. 거래소는 묶음 단위로 사고판다(goodsMarket lotSize).
 // 채집 티어 추첨(D-506): 시설에 gather가 있고 산출이 모두 그 중분류인 레시피는 산출 묶음마다 티어를 뽑는다(economy/gather.ts).
+// 선택 방식(gather.mode select, 농장·목장)은 뽑지 않고 일꾼 해금 티어에서 고른다(49 P8). 진행 속도·수확량은 simulator/economy.ts.
 import { GATHER_TIERS, type GatherBand, TEST_GATHER_BANDS } from "../economy/gather.ts";
 import { type NecessitySpec } from "../economy/upkeep.ts";
-import { type RecipeSpec } from "../economy/production.ts";
+import { type GatherMode, type RecipeSpec } from "../economy/production.ts";
 
 export interface CatalogItem {
   readonly id: string;
@@ -39,11 +40,26 @@ export interface CatalogFacility {
   readonly slotsPerLevel: number;
   /** 오염 값(레벨 1·1시간, 팩 facilities pollution, 없으면 0 — docs/adr/2026-11-01-gardener-r5b.md) */
   readonly pollution?: number | undefined;
-  /** 채집 티어 추첨(팩 facilities gather, D-506): 유효 스탯 = primary + secondary, 사다리 = 그 중분류 */
-  readonly gather?:
-    | { readonly primary: string; readonly secondary: string; readonly subcategory: string }
-    | undefined;
+  /**
+   * 채집(팩 facilities gather, D-506·D-507): 스탯 짝(primary 진행 속도, secondary 수확량), 사다리 = 그 중분류,
+   * mode roll(추첨, 유효 스탯 = primary + secondary) 또는 select(해금 티어, 49 P8), 수확량 규칙(옛 gather_type_config)
+   */
+  readonly gather?: CatalogGather | undefined;
   readonly enabled: boolean;
+}
+
+/** 시설의 채집 칸(수확량 칸이 없으면 기본 1개 + 설정 칸 N32 비율, 상한 없음) */
+export interface CatalogGather {
+  readonly primary: string;
+  readonly secondary: string;
+  readonly subcategory: string;
+  readonly mode?: GatherMode | undefined;
+  /** 옛 yield_base(개) */
+  readonly yieldBase?: number | undefined;
+  /** 옛 yield_per_stat(‰, 0.10 → 100) */
+  readonly yieldPerStatPm?: number | undefined;
+  /** 옛 yield_cap(개) */
+  readonly yieldCap?: number | undefined;
 }
 
 export interface CatalogNecessity {
@@ -137,7 +153,15 @@ export function prepareCatalog(catalog: EconomyCatalog): PreparedCatalog {
       outputs: recipe.outputs.map(base),
       work: recipe.work,
       tier: Math.max(...recipe.outputs.map((stack) => tierOf.get(stack.item) ?? 0)),
-      ...(rolled ? { gather: { subcategory: gather.subcategory, lots: Number(rolledLots) } } : {}),
+      ...(rolled
+        ? {
+            gather: {
+              subcategory: gather.subcategory,
+              lots: Number(rolledLots),
+              mode: gather.mode ?? "roll",
+            },
+          }
+        : {}),
     });
   }
   return {

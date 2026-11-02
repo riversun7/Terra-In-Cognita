@@ -68,6 +68,13 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "gardener.nomadLegionStep",
   // 아이템 편집기 미리 보기의 채집 티어 추첨(itemEdit/services.ts preview, D-506 N43): 미리 보기마다 읽는다
   "gatherLevelBonus",
+  // 같은 미리 보기의 진행 속도·수확량·필요 진행(D-507 N32·N44)
+  "productionMainDivisor",
+  "productionSubYieldPm",
+  "gatherTierProgressBase",
+  "gatherTierProgressStep",
+  "gatherTickMs",
+  "gatherOreGrams",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

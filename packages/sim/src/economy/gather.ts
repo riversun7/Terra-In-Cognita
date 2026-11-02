@@ -5,7 +5,13 @@
 // - 구간: from이 유효 스탯 이하인 마지막 구간(파일 차례 = from 차례, 첫 구간 from 0). 그 구간 가중치(‰, T0~T9, 합 1000)로 티어 하나.
 // - 아이템: 그 분류(중분류)의 그 티어 아이템. 없으면 더 낮은 티어로 내려간다. 같은 티어에 여럿이면 팩 차례 가운데 고르게 하나
 //   [Assumed: 옛 규칙이 같은 티어 여럿을 어떻게 골랐는지 확인하지 않았다]. T0까지 없으면 그 묶음은 아무것도 나오지 않는다.
-// - 산출 묶음 하나마다 한 번 뽑는다(옛 프로젝트 채집량 1개 고정 = 묶음 1개). 난수는 부르는 쪽이 준다(시드 흐름).
+// - 산출 묶음 하나마다 한 번 뽑는다(옛 채집 한 번 = 묶음 1개). 난수는 부르는 쪽이 준다(시드 흐름).
+// 옛 1차 생산 규칙(기획 D-507, 49 N32·P8, docs/research/2026-11-02-old-primary-production.md, ADR economy-core "바뀜 (옛 1차 생산 규칙)"):
+// - 진행 속도: 틱마다 진행 = max(1, ⌊주 스탯 ÷ 20⌋)(옛 BuildingGatherEngine.js 291·527). 시뮬은 시설의 시간당 작업량에 곱한다.
+// - 수확량: 한 번 캘 때 개수 = min(상한, 기본 + ⌊보조 스탯 × 비율⌋)(옛 gather_type_config yield_base·yield_per_stat·yield_cap,
+//   migrations/index.js 642~736). 옛 마지막 코드는 1개 고정이었고 기획 D-507이 켰다. 광석은 개수 = 묶음 수(1개 = 1kg 묶음, 49 N44).
+// - 선택 + 효율(농장·목장): 해금 티어 = min(⌊(주 + 보조) ÷ 20⌋, 9)(49 P8, 옛 calcAccessibleTier)에서 켜진 아이템이 있는 가장 높은
+//   티어를 고르고 같은 티어 여럿이면 고르게(옛 ORDER BY tier DESC, RANDOM()). 추첨하지 않는다.
 // 정수 연산만 쓴다(판정 코드 규칙).
 import type { Rng } from "@terra/shared";
 
@@ -39,6 +45,42 @@ export const TEST_GATHER_BANDS: readonly GatherBand[] = [
   { from: 200, weightsPm: [190, 190, 180, 160, 130, 80, 45, 20, 5, 0] },
   { from: 220, weightsPm: [195, 180, 170, 160, 130, 80, 40, 25, 15, 5] },
 ];
+
+/** 해금 티어 한 칸의 스탯 폭(49 P8 "÷ 20", 옛 calcAccessibleTier) */
+export const ACCESSIBLE_TIER_STEP = 20;
+
+/** 진행 속도(49 N32): 틱마다 진행 = max(1, ⌊주 스탯 ÷ 나눔⌋). 나눔 = 설정 칸 n32_main_divisor(옛 20) */
+export function gatherProgress(primary: number, divisor: number): number {
+  return Math.max(1, Math.floor(Math.max(0, primary) / Math.max(1, divisor)));
+}
+
+/** 수확량 규칙(시설마다, 옛 gather_type_config) */
+export interface GatherYieldRule {
+  /** 기본 개수(옛 yield_base 1) */
+  readonly base: number;
+  /** 보조 스탯 1점당 추가 개수(‰, 옛 yield_per_stat 0.10 → 100) */
+  readonly perStatPm: number;
+  /** 상한(옛 yield_cap). 없으면 상한 없음 */
+  readonly cap?: number | undefined;
+}
+
+/** 수확량: 한 번 캘 때 개수 = min(상한, 기본 + ⌊보조 × ‰ ÷ 1000⌋), 0 아래로 가지 않는다 */
+export function gatherYield(secondary: number, rule: GatherYieldRule): number {
+  const raw =
+    Math.max(0, rule.base) + Math.floor((Math.max(0, secondary) * Math.max(0, rule.perStatPm)) / 1000);
+  return rule.cap === undefined ? raw : Math.min(Math.max(0, rule.cap), raw);
+}
+
+/** 티어별 필요 진행(49 N44, 옛 tierRequiredProgress): max(기본, 기본 + 티어 × 걸음). 옛 값 30·30 → T0 30 … T9 300 */
+export function tierRequiredProgress(tier: number, base: number, step: number): number {
+  return Math.max(base, base + Math.max(0, tier) * step);
+}
+
+/** 선택 + 효율의 해금 티어(49 P8): min(⌊(주 + 보조) ÷ 20⌋, 9) */
+export function accessibleTier(primary: number, secondary: number): number {
+  const sum = Math.max(0, primary) + Math.max(0, secondary);
+  return Math.min(GATHER_TIERS - 1, Math.floor(sum / ACCESSIBLE_TIER_STEP));
+}
 
 /** 유효 스탯 = 일꾼 1차 + 2차 + 레벨 보너스 × (레벨 − 1). 레벨 1 아래는 보너스 0 */
 export function gatherStat(workerStat: number, level: number, bonusPerLevel: number): number {
@@ -92,40 +134,61 @@ export interface GatherRoll {
   readonly bands: readonly GatherBand[];
   /** 유효 스탯(gatherStat) */
   readonly stat: number;
-  /** 뽑을 묶음 수 */
+  /** 뽑을 묶음 수(캐는 횟수) */
   readonly lots: number;
   /** 아이템 자산 → 묶음 크기(기본 단위, 없으면 1) */
   readonly lotSize: ReadonlyMap<string, bigint>;
+  /** 선택 + 효율(농장·목장): 있으면 추첨하지 않고 이 해금 티어(accessibleTier)에서 고른다 */
+  readonly selectTier?: number | undefined;
+  /** 한 번 캘 때 나오는 개수(gatherYield, 없으면 1). 고른 아이템이 이만큼 나온다 */
+  readonly yieldPerLot?: number | undefined;
+  /**
+   * 기본 단위가 g이고 묶음이 큰 아이템(lotSize > 1, 광석)의 한 개 = 이 g(49 N44, 옛 1개 = 1kg → 1,000). 없으면 묶음 크기.
+   * 그 밖의 아이템은 한 개 = 기본 단위 하나 × 묶음 크기(1)
+   */
+  readonly harvestGrams?: bigint | undefined;
 }
 
 /**
- * 묶음마다 티어를 뽑아 산출(기본 단위)을 만든다. 같은 아이템은 합치고, 사다리 차례(티어 → 팩 차례)로 돌려준다.
- * 아무것도 나오지 않은 묶음은 빠진다. tiers = 뽑은 티어별 묶음 수(지표·시험)
+ * 한 번 캘 때마다 티어를 뽑아(선택 방식이면 해금 티어로) 산출(기본 단위)을 만든다. 한 번 캘 때 yieldPerLot개가 나온다. 같은 아이템은
+ * 합치고, 사다리 차례(티어 → 팩 차례)로 돌려준다. 아무것도 나오지 않은 번은 빠진다(empty). tiers = 뽑은 티어별 횟수,
+ * landed = 실제로 나온 아이템 티어별 횟수(더 낮은 티어로 내려간 것 포함, 필요 진행이 본다)
  */
 export function rollGatherOutputs(
   roll: GatherRoll,
   rng: Rng,
-): { outputs: { asset: string; qty: bigint }[]; tiers: number[]; empty: number } {
+): { outputs: { asset: string; qty: bigint }[]; tiers: number[]; landed: number[]; empty: number } {
   const lots = new Map<string, bigint>();
   const tiers = Array.from({ length: GATHER_TIERS }, () => 0);
+  const landed = Array.from({ length: GATHER_TIERS }, () => 0);
+  const each = BigInt(Math.max(0, roll.yieldPerLot ?? 1));
   let empty = 0;
   for (let i = 0; i < roll.lots; i++) {
-    const tier = rollGatherTier(roll.bands, roll.stat, rng);
+    const tier =
+      roll.selectTier === undefined
+        ? rollGatherTier(roll.bands, roll.stat, rng)
+        : Math.max(0, Math.min(GATHER_TIERS - 1, roll.selectTier));
     tiers[tier] = (tiers[tier] ?? 0) + 1;
     const asset = pickGatherItem(roll.ladder, tier, rng);
-    if (asset === undefined) {
+    if (asset === undefined || each === 0n) {
       empty += 1;
       continue;
     }
-    lots.set(asset, (lots.get(asset) ?? 0n) + 1n);
+    const at = roll.ladder.findIndex((choices) => choices.includes(asset));
+    landed[at] = (landed[at] ?? 0) + 1;
+    lots.set(asset, (lots.get(asset) ?? 0n) + each);
   }
+  const unitOf = (asset: string): bigint => {
+    const size = roll.lotSize.get(asset) ?? 1n;
+    return size > 1n && roll.harvestGrams !== undefined ? roll.harvestGrams : size;
+  };
   const outputs: { asset: string; qty: bigint }[] = [];
   for (const choices of roll.ladder)
     for (const asset of choices) {
       const count = lots.get(asset);
-      if (count !== undefined) outputs.push({ asset, qty: count * (roll.lotSize.get(asset) ?? 1n) });
+      if (count !== undefined) outputs.push({ asset, qty: count * unitOf(asset) });
     }
-  return { outputs, tiers, empty };
+  return { outputs, tiers, landed, empty };
 }
 
 /** 구간 하나에서 티어별 확률(‰, 표시·시험용): 뽑은 티어 → 나오는 아이템 티어(없으면 내려감)로 모은다 */

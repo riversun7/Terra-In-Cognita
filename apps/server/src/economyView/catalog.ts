@@ -23,10 +23,21 @@ import {
   type CatalogItemView,
   type CatalogNecessityView,
   type CatalogRecipeView,
+  type CatalogWorkerView,
   type EconomyCatalogResponse,
   marketKindOf,
 } from "@terra/shared/economy";
-import { BASE_EFFICIENCY, batchDurationMs } from "@terra/sim";
+import {
+  BASE_EFFICIENCY,
+  GATHER_TIERS,
+  TEST_SOCIETY_COEFFICIENTS,
+  accessibleTier,
+  batchDurationMs,
+  defaultGatherStat,
+  gatherProgress,
+  gatherYield,
+  tierRequiredProgress,
+} from "@terra/sim";
 
 /** 팩 분류의 항목을 정규 JSON으로 되돌려 스키마로 읽는다 */
 function entriesOf<T>(pack: ContentPack, category: string, parse: (raw: unknown) => T): T[] {
@@ -83,6 +94,58 @@ export function economyCatalogAccessor(
   };
 }
 
+/**
+ * 일꾼 스탯 효과를 셀 때 쓰는 계수(세력·사회 계수표 칸: N9 초기 합, N32 진행 나눔·기본 비율, N44 필요 진행·진행 1의 시간).
+ * 경제 목록은 팩 값(TEST_SOCIETY_COEFFICIENTS = 팩 tuning, 시험이 맞춰 본다)으로 센다(세계 덮어쓰기는 보지 않는다)
+ */
+type WorkerRules = Pick<
+  typeof TEST_SOCIETY_COEFFICIENTS,
+  | "productionMainDivisor"
+  | "productionSubYieldPm"
+  | "gatherTierProgressBase"
+  | "gatherTierProgressStep"
+  | "gatherTickMs"
+> & { readonly cyborg: { readonly initialSum: number } };
+
+/** 시설 스탯 짝 → 레시피 일꾼 효과(사다리 산출이면 티어별 한 번 시간, 선택 방식이면 해금 티어) */
+export function workerViewOf(
+  gather: NonNullable<FacilityEntry["gather"]>,
+  ladder: "roll" | "select" | null,
+  rules: WorkerRules = TEST_SOCIETY_COEFFICIENTS,
+): CatalogWorkerView {
+  const unitStat = defaultGatherStat(rules.cyborg.initialSum);
+  const yieldBase = gather.yieldBase ?? 1;
+  const yieldPerStatPm = gather.yieldPerStatPm ?? rules.productionSubYieldPm;
+  const yieldCap = gather.yieldCap ?? null;
+  const unitProgress = gatherProgress(unitStat, rules.productionMainDivisor);
+  return {
+    primary: gather.primary,
+    secondary: gather.secondary,
+    progressDivisor: rules.productionMainDivisor,
+    yieldBase,
+    yieldPerStatPm,
+    yieldCap,
+    unitStat,
+    unitProgress,
+    unitYield: gatherYield(unitStat, {
+      base: yieldBase,
+      perStatPm: yieldPerStatPm,
+      cap: yieldCap ?? undefined,
+    }),
+    tierHarvestMs:
+      ladder === null
+        ? null
+        : Array.from({ length: GATHER_TIERS }, (_, tier) =>
+            Math.ceil(
+              (tierRequiredProgress(tier, rules.gatherTierProgressBase, rules.gatherTierProgressStep) *
+                rules.gatherTickMs) /
+                unitProgress,
+            ),
+          ),
+    unitTier: ladder === "select" ? accessibleTier(unitStat, unitStat) : null,
+  };
+}
+
 /** 경제 분류 → 경제 화면 목록 */
 export function economyCatalogFrom(
   entries: EconomyCatalogEntries,
@@ -122,7 +185,7 @@ export function economyCatalogFrom(
     // 꺼진 시설·물건을 쓰는 레시피는 세계에 나오지 않는다(시뮬 prepareCatalog와 같은 규칙)
     if (!recipe.enabled || !facilityIds.has(facility) || stacks.some((stack) => !tierOf.has(stack.item.id)))
       continue;
-    // 채집 티어 추첨: 시설에 gather가 있고 산출이 모두 그 중분류(시뮬 prepareCatalog와 같은 규칙)
+    // 채집 티어 추첨(선택 방식 포함): 시설에 gather가 있고 산출이 모두 그 중분류(시뮬 prepareCatalog와 같은 규칙)
     const gather = gatherOf.get(facility);
     const rolled =
       gather !== undefined &&
@@ -142,9 +205,14 @@ export function economyCatalogFrom(
               primary: gather.primary,
               secondary: gather.secondary,
               subcategory: gather.subcategory.id,
+              mode: gather.mode ?? "roll",
             },
           }
         : {}),
+      // 스탯 짝이 있는 시설: 진행 속도·수확량(사다리 산출이면 티어별 한 번 시간도, D-507)
+      ...(gather === undefined
+        ? {}
+        : { worker: workerViewOf(gather, rolled ? (gather.mode ?? "roll") : null) }),
     });
   }
   const currencies: CatalogCurrencyView[] = entries.presets

@@ -503,6 +503,7 @@ export {
   type ItemEditorPreviewResponse,
   type ItemFormulaValue,
   type ItemGatherPreview,
+  type ItemGatherWork,
   type ItemPreviewIgnored,
   type ItemPreviewUnit,
   type UseAmount,

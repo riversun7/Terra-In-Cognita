@@ -164,8 +164,11 @@ function RecipeRow({ recipe, index }: { recipe: CatalogRecipeView; index: Catalo
   };
   const stacks = (list: CatalogRecipeView["inputs"]) => list.map(stackText).join(", ");
   const gather = recipe.gather;
+  const select = gather?.mode === "select";
+  const worker = recipe.worker;
+  const harvest = worker?.tierHarvestMs ?? null;
   return (
-    <li className="eco-row">
+    <li className="eco-row" data-recipe={recipe.id}>
       <span className="eco-row-main">
         <span className="eco-row-title">{recipeName(index, recipe.id)}</span>
         <span className="eco-row-meta">
@@ -174,19 +177,70 @@ function RecipeRow({ recipe, index }: { recipe: CatalogRecipeView; index: Catalo
         </span>
         {gather ? (
           <span className="eco-row-meta">
-            {m.economy_recipe_gather({ stats: statPairText(gather.primary, gather.secondary) })}
+            {(select ? m.economy_recipe_select : m.economy_recipe_gather)({
+              stats: statPairText(gather.primary, gather.secondary),
+            })}
           </span>
         ) : null}
+        {worker ? <WorkerLines worker={worker} /> : null}
       </span>
       <span className="eco-row-end">
         <span className="eco-tag">
-          {gather ? m.economy_tier_rolled() : m.economy_tier({ tier: recipe.tier })}
+          {select && worker?.unitTier !== null && worker?.unitTier !== undefined
+            ? m.economy_tier_select({ tier: worker.unitTier })
+            : gather
+              ? m.economy_tier_rolled()
+              : m.economy_tier({ tier: recipe.tier })}
         </span>
         <span className="eco-row-meta">
-          {m.economy_recipe_time({ time: formatDuration(recipe.baseDurationMs) })}
+          {/* 사다리 산출은 나온 티어가 시간을 정한다(모두 T0일 때 한 번 돌리는 시간부터, D-507). 그 밖은 레시피 작업량 시간 */}
+          {harvest
+            ? m.economy_recipe_time_from({
+                time: formatDuration(
+                  (harvest[0] ?? 0) * recipe.outputs.reduce((sum, stack) => sum + Number(stack.qty), 0),
+                ),
+              })
+            : m.economy_recipe_time({ time: formatDuration(recipe.baseDurationMs) })}
         </span>
       </span>
     </li>
+  );
+}
+
+/** 일꾼 스탯 효과(옛 1차 생산 규칙, D-507): 기준 유닛의 속도·한 번에 개수, 식, 사다리면 티어별 한 번 시간 */
+function WorkerLines({ worker }: { worker: NonNullable<CatalogRecipeView["worker"]> }) {
+  const primary = worker.primary.toUpperCase();
+  const secondary = worker.secondary.toUpperCase();
+  const rate = (worker.yieldPerStatPm / 1000).toFixed(2);
+  const formula = { primary, secondary, divisor: worker.progressDivisor, base: worker.yieldBase, rate };
+  const harvest = worker.tierHarvestMs;
+  return (
+    <>
+      <span className="eco-row-meta" data-part="worker-effect">
+        {m.economy_worker_effect({
+          stat: worker.unitStat,
+          primary,
+          progress: worker.unitProgress,
+          secondary,
+          count: worker.unitYield,
+        })}
+      </span>
+      <span className="eco-row-meta" data-part="worker-formula">
+        {worker.yieldCap === null
+          ? m.economy_worker_formula_open(formula)
+          : m.economy_worker_formula({ ...formula, cap: worker.yieldCap })}
+      </span>
+      {harvest ? (
+        <span className="eco-row-meta" data-part="worker-harvest">
+          {m.economy_worker_harvest({
+            t0: formatDuration(harvest[0] ?? 0),
+            t1: formatDuration(harvest[1] ?? 0),
+            t2: formatDuration(harvest[2] ?? 0),
+            t3: formatDuration(harvest[3] ?? 0),
+          })}
+        </span>
+      ) : null}
+    </>
   );
 }
 

@@ -47,7 +47,9 @@ function targets(economy: Economy, cityId: number): Map<string, bigint> {
   for (const facility of economy.facilities.values()) {
     if (facility.city !== cityId || facility.workers === 0) continue;
     const batches = BigInt(
-      Math.floor((INPUT_BUFFER_HOURS * facility.workers * BASE_EFFICIENCY) / facility.recipe.work),
+      Math.floor(
+        (INPUT_BUFFER_HOURS * facility.workers * BASE_EFFICIENCY * facility.progress) / facility.recipe.work,
+      ),
     );
     for (const input of facility.recipe.inputs) add(input.asset, input.qty * batches);
   }

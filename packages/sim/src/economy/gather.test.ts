@@ -1,16 +1,21 @@
 // 채집 티어 추첨(D-506, 49 N43) — 구간 찾기, 확률 분포, 가장 낮은 구간 T3 5%, 레벨 보너스, 아이템 고르기(더 낮은 티어로 내려감), 묶음 → 기본 단위
+// 옛 1차 생산 규칙(D-507, 49 N32·N44·P8) — 진행 속도, 티어별 필요 진행, 수확량, 해금 티어, 선택 방식, 광석 g 환산(옛 예시 값으로)
 import { createRng } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import {
   GATHER_TIERS,
   GATHER_WEIGHT_TOTAL,
   TEST_GATHER_BANDS,
+  accessibleTier,
   gatherBandIndex,
   gatherChancesPm,
+  gatherProgress,
   gatherStat,
+  gatherYield,
   pickGatherItem,
   rollGatherOutputs,
   rollGatherTier,
+  tierRequiredProgress,
 } from "./gather.ts";
 
 const ORE_LADDER: string[][] = [
@@ -151,5 +156,101 @@ describe("나올 확률(표시용)", () => {
     });
     // 60~79: T3 6% + T4 1%(은이 없어 철로 내려감)
     expect(gatherChancesPm(TEST_GATHER_BANDS, 60, onlyIron).tierPm[3]).toBe(70);
+  });
+});
+
+describe("옛 1차 생산 규칙(D-507, AntiGravt01 gather 엔진·ITM-10 값)", () => {
+  it("진행 속도 = max(1, ⌊주 스탯 ÷ 20⌋): 0~39는 1, 40은 2, 60은 3(옛 예시 VIT 60 → 3틱/수확)", () => {
+    expect([0, 10, 19, 20, 39, 40, 59, 60, 100, 240].map((stat) => gatherProgress(stat, 20))).toEqual([
+      1, 1, 1, 1, 1, 2, 2, 3, 5, 12,
+    ]);
+    expect(gatherProgress(-5, 20)).toBe(1);
+  });
+
+  it("티어별 필요 진행 = max(30, 30 + 티어 × 30): T0 30, T1 60, T2 90, T3 120 … T9 300(옛 주석 표)", () => {
+    expect(Array.from({ length: GATHER_TIERS }, (_, tier) => tierRequiredProgress(tier, 30, 30))).toEqual([
+      30, 60, 90, 120, 150, 180, 210, 240, 270, 300,
+    ]);
+    expect(tierRequiredProgress(-1, 30, 30)).toBe(30);
+  });
+
+  it("해금 티어 = min(⌊(주 + 보조) ÷ 20⌋, 9): 옛 예시 VIT 60 + INT 20 = 80 → T4, 합 0~19 T0 … 180 이상 T9", () => {
+    expect(accessibleTier(60, 20)).toBe(4);
+    expect([
+      accessibleTier(10, 9),
+      accessibleTier(10, 10),
+      accessibleTier(90, 89),
+      accessibleTier(90, 90),
+    ]).toEqual([0, 1, 8, 9]);
+    expect(accessibleTier(200, 200)).toBe(9);
+  });
+
+  it("수확량 = min(상한, 기본 + ⌊보조 × 비율⌋): 광산 1 + 0.10·상한 10, 농장 1 + 0.08·상한 8, 낚시터 상한 5", () => {
+    const mine = { base: 1, perStatPm: 100, cap: 10 };
+    expect([0, 9, 10, 25, 90, 200].map((stat) => gatherYield(stat, mine))).toEqual([1, 1, 2, 3, 10, 10]);
+    const farm = { base: 1, perStatPm: 80, cap: 8 };
+    // 옛 문서 예시의 보조 INT 20 → 1 + ⌊1.6⌋ = 2
+    expect([10, 12, 13, 20, 100].map((stat) => gatherYield(stat, farm))).toEqual([1, 1, 2, 2, 8]);
+    expect(gatherYield(100, { base: 1, perStatPm: 100, cap: 5 })).toBe(5);
+    // 상한이 없으면(설정 칸 N32 기본 비율만) 그대로 는다
+    expect(gatherYield(250, { base: 0, perStatPm: 80 })).toBe(20);
+  });
+
+  it("선택 방식: 해금 티어 이하에서 켜진 아이템이 있는 가장 높은 티어를 고르고, 같은 티어 여럿이면 고르게", () => {
+    const crops: string[][] = [["item:hay", "item:bean"], ["item:potato"], [], [], [], [], [], [], [], []];
+    const { outputs, tiers, landed } = rollGatherOutputs(
+      { ladder: crops, bands: TEST_GATHER_BANDS, stat: 0, lots: 20, lotSize: new Map(), selectTier: 4 },
+      createRng(2),
+    );
+    // T4 해금이지만 T2~T4가 비어 T1 감자만 나온다(뽑지 않음)
+    expect(outputs).toEqual([{ asset: "item:potato", qty: 20n }]);
+    expect(tiers[4]).toBe(20);
+    expect(landed[1]).toBe(20);
+    const low = rollGatherOutputs(
+      { ladder: crops, bands: TEST_GATHER_BANDS, stat: 0, lots: 2000, lotSize: new Map(), selectTier: 0 },
+      createRng(4),
+    );
+    const byAsset = new Map(low.outputs.map((stack) => [stack.asset, Number(stack.qty)]));
+    expect(Math.abs((byAsset.get("item:hay") ?? 0) - 1000)).toBeLessThan(80);
+    expect((byAsset.get("item:hay") ?? 0) + (byAsset.get("item:bean") ?? 0)).toBe(2000);
+  });
+
+  it("수확량 배·광석 g 환산(49 N44): 한 번에 2개면 고른 아이템 2개, 광석 한 개 = 1,000g(묶음 1kg), 잡석은 개", () => {
+    const lotSize = new Map([
+      ["item:copper_ore", 1000n],
+      ["item:iron_ore", 1000n],
+    ]);
+    const { outputs, landed, empty } = rollGatherOutputs(
+      {
+        ladder: ORE_LADDER,
+        bands: TEST_GATHER_BANDS,
+        stat: 20,
+        lots: 500,
+        lotSize,
+        yieldPerLot: 2,
+        harvestGrams: 1000n,
+      },
+      createRng(11),
+    );
+    expect(empty).toBe(0);
+    const byAsset = new Map(outputs.map((stack) => [stack.asset, stack.qty]));
+    expect(byAsset.get("item:rubble")).toBe(BigInt((landed[0] ?? 0) * 2));
+    expect(byAsset.get("item:iron_ore")).toBe(BigInt((landed[3] ?? 0) * 2) * 1000n);
+    // g 환산을 바꾸면(예: 500g) 광석만 바뀐다
+    const half = rollGatherOutputs(
+      {
+        ladder: ORE_LADDER,
+        bands: TEST_GATHER_BANDS,
+        stat: 20,
+        lots: 500,
+        lotSize,
+        yieldPerLot: 2,
+        harvestGrams: 500n,
+      },
+      createRng(11),
+    );
+    const halfBy = new Map(half.outputs.map((stack) => [stack.asset, stack.qty]));
+    expect(halfBy.get("item:iron_ore")).toBe((byAsset.get("item:iron_ore") ?? 0n) / 2n);
+    expect(halfBy.get("item:rubble")).toBe(byAsset.get("item:rubble"));
   });
 });

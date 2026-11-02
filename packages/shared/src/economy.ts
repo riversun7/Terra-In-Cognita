@@ -97,11 +97,43 @@ export interface CatalogRecipeView {
   readonly baseDurationMs: number;
   /**
    * 채집 티어 추첨(D-506): 산출 묶음마다 이 중분류에서 티어를 뽑는다(유효 스탯 = 일꾼 primary + secondary + 레벨 보너스).
-   * 시설 레벨은 티어를 막지 않는다. 없으면 산출 그대로(옛 서버도 없음)
+   * 시설 레벨은 티어를 막지 않는다. mode select(농장·목장)면 뽑지 않고 해금 티어에서 고른다(49 P8). 없으면 산출 그대로(옛 서버도 없음)
    */
   readonly gather?:
-    | { readonly primary: string; readonly secondary: string; readonly subcategory: string }
+    | {
+        readonly primary: string;
+        readonly secondary: string;
+        readonly subcategory: string;
+        readonly mode?: "roll" | "select" | undefined;
+      }
     | undefined;
+  /** 일꾼 스탯 효과(옛 1차 생산 규칙, D-507): 스탯 짝이 있는 시설(채집 단계)의 레시피에만. 옛 서버는 없음 */
+  readonly worker?: CatalogWorkerView | undefined;
+}
+
+/**
+ * 레시피의 일꾼 스탯 효과(옛 1차 생산 규칙, 기획 D-507·49 N32·N44·P8, 셈은 서버 @terra/sim gatherProgress·gatherYield):
+ * 주 스탯 → 진행 속도 max(1, ⌊주 ÷ 나눔⌋), 보조 스탯 → 한 번 캘 때 개수 min(상한, 기본 + ⌊보조 × ‰ ÷ 1000⌋).
+ * 사다리 산출(추첨·선택)은 한 번마다 티어별 필요 진행 max(30, 30 + 티어 × 30) × 진행 1의 시간(옛 1분)이 든다
+ */
+export interface CatalogWorkerView {
+  readonly primary: string;
+  readonly secondary: string;
+  /** 진행 나눔(N32 n32_main_divisor, 옛 20) */
+  readonly progressDivisor: number;
+  readonly yieldBase: number;
+  /** 보조 스탯 1점당 개수(‰, 옛 0.10 → 100) */
+  readonly yieldPerStatPm: number;
+  /** 한 번 캘 때 개수 상한(없으면 null) */
+  readonly yieldCap: number | null;
+  /** 기준 유닛(새 유닛 평균, ⌊N9 초기 합 ÷ 6⌋)의 스탯 하나와 그때 진행 속도·한 번에 개수 */
+  readonly unitStat: number;
+  readonly unitProgress: number;
+  readonly unitYield: number;
+  /** 사다리 산출이면 기준 유닛 한 명이 한 번 캐는 시간(ms, T0~T9). 아니면 null(레시피 작업량 시간) */
+  readonly tierHarvestMs: readonly number[] | null;
+  /** 선택 방식이면 기준 유닛의 해금 티어(49 P8). 아니면 null */
+  readonly unitTier: number | null;
 }
 
 export interface CatalogCurrencyView {

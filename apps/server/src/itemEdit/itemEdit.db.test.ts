@@ -308,21 +308,25 @@ describe.skipIf(!TEST_DATABASE_URL)("아이템 편집기 (DB)", () => {
     expect(obj(entry.entry).tier).toBe(2);
   });
 
-  it("이 판이 모르는 분류의 줄은 지우지 않고 잠든 줄로 보이고, 버리기로 지운다", async () => {
+  it("이 판이 모르는 분류·더 새 팩의 줄은 지우지 않고 잠든 줄로 보이고, 버리기로 지운다", async () => {
+    // 이 판이 아는 분류 7개는 이제 모두 고칠 수 있다(효과 사전 WP-6). 다음 판 앱이 분류 검사 제약을 넓힌 뒤 쓴 줄을
+    // 흉내 내려고 이 시험 DB에서만 제약을 뗀다. 효과 줄은 더 새 팩(core@99)에서 저장한 줄이라 newer_pack으로 잠든다
+    await test.db.$client.query("alter table content_overrides drop constraint content_overrides_category");
     await test.db.$client.query(
-      `insert into content_overrides (category, id, entry, pack_hash, content_version) values ('effects', 'future_buff', '{"id":"future_buff"}', null, 'core@99')`,
+      `insert into content_overrides (category, id, entry, pack_hash, content_version) values ('recipes', 'future_recipe', '{"id":"future_recipe"}', null, 'core@99'), ('effects', 'future_buff', '{"id":"future_buff"}', null, 'core@99')`,
     );
     await app.close();
     app = await start();
-    const left = await rows<{ id: string }>(
+    const left = await rows<{ key: string }>(
       test.db,
-      "select id from content_overrides where category = 'effects'",
+      "select category || '/' || id as key from content_overrides where content_version = 'core@99' order by 1",
       [],
     );
-    expect(left.map((row) => row.id)).toEqual(["future_buff"]);
+    expect(left.map((row) => row.key)).toEqual(["effects/future_buff", "recipes/future_recipe"]);
     expect(content.sleepingRows()).toEqual(
       expect.arrayContaining([
-        { category: "effects", id: "future_buff", reason: "unknown_category", contentVersion: "core@99" },
+        { category: "recipes", id: "future_recipe", reason: "unknown_category", contentVersion: "core@99" },
+        { category: "effects", id: "future_buff", reason: "newer_pack", contentVersion: "core@99" },
       ]),
     );
     // 아이템 쪽 잠든 줄: 만든 항목과 같은 ID가 팩에 생긴 줄(다른 내용)
@@ -332,13 +336,88 @@ describe.skipIf(!TEST_DATABASE_URL)("아이템 편집기 (DB)", () => {
     );
     await app.close();
     app = await start();
+    // 아이템 편집기 목록은 그 편집기 분류(아이템·분류 자료·효과)의 잠든 줄만 보인다(모르는 분류는 빠짐)
     const sleeping = arr((await list()).sleeping).map((row) => obj(row));
-    expect(sleeping).toEqual([
-      expect.objectContaining({ category: "items", id: "timber", reason: "id_collision" }),
+    expect(sleeping).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ category: "items", id: "timber", reason: "id_collision" }),
+        expect.objectContaining({ category: "effects", id: "future_buff", reason: "newer_pack" }),
+      ]),
+    );
+    expect(sleeping).toHaveLength(2);
+    const discard = await save([
+      { op: "discard_sleeping", category: "items", id: "timber" },
+      { op: "discard_sleeping", category: "effects", id: "future_buff" },
     ]);
-    const discard = await save([{ op: "discard_sleeping", category: "items", id: "timber" }]);
     expect(discard.statusCode).toBe(200);
     expect(arr((await list()).sleeping)).toEqual([]);
+    // 뒤 시험이 모르는 분류 줄을 보지 않게 지운다(제약은 이 시험 DB에서만 뗐다)
+    await test.db.$client.query("delete from content_overrides where category = 'recipes'");
+  });
+
+  it("효과 사전 줄은 아이템과 같은 묶음으로 고치고 스킬 편집기도 실효 효과를 읽는다. 여러 개 고치기(patch)는 지금 항목에 그 칸만 얹고, 내보내기는 실효 아이템 통째다", async () => {
+    // 효과 사전(WP-6): 팩 효과 줄을 고친다(baseHash = 지금 해시)
+    const listed = await list();
+    const burn = obj(
+      arr(listed.effectRows)
+        .map(obj)
+        .find((row) => obj(row.entry).id === "burn"),
+    );
+    const edited = { ...obj(burn.entry), durationMs: 4500, name: { ko: "시험 화상", en: "Test burn" } };
+    const put = await save([{ op: "put", category: "effects", entry: edited, baseHash: burn.hash }]);
+    expect(put.statusCode).toBe(200);
+    const after = await list();
+    const row = obj(
+      arr(after.effectRows)
+        .map(obj)
+        .find((item) => obj(item.entry).id === "burn"),
+    );
+    expect([row.origin, obj(row.entry).durationMs]).toEqual(["edited", 4500]);
+    expect(arr(obj(obj(after.effectUsage).burn).skills)).toEqual(expect.arrayContaining(["fire_bolt"]));
+    const skills = obj(resultOf(await trpcQuery(app, "skills.list", undefined, cookie.dev)));
+    const skillEffect = obj(
+      arr(skills.effects)
+        .map(obj)
+        .find((effect) => effect.id === "burn"),
+    );
+    expect(obj(skillEffect.name).ko).toBe("시험 화상");
+
+    // 여러 개 고치기(WP-7): 티어·기준 가치 ‰만 얹는다(이름 등 다른 칸은 그대로). 기준 가치 = (값 × 1100 + 500) ÷ 1000
+    const grainBefore = obj((await get("grain")).entry);
+    const timberBefore = obj((await get("timber")).entry);
+    const patched = await save([
+      { op: "patch", category: "items", ids: ["grain", "timber"], patch: { tier: 3, baseValuePm: 100 } },
+    ]);
+    expect(patched.statusCode).toBe(200);
+    const grain = obj((await get("grain")).entry);
+    const timber = obj((await get("timber")).entry);
+    expect([grain.tier, grain.baseValue, grain.name]).toEqual([3, 4, grainBefore.name]);
+    // 5 × 1.1 = 5.5 → 0.5 올림 6
+    expect([timber.tier, timber.baseValue, timber.name]).toEqual([3, 6, timberBefore.name]);
+    expect(
+      errorOf(await save([{ op: "patch", category: "items", ids: ["no_such_item"], patch: { tier: 1 } }])),
+    ).toMatchObject({ reason: "unknown_entry" });
+
+    // 내보내기: 그 세계의 실효 아이템 통째(고친 값 그대로)
+    const exported = obj(resultOf(await trpcQuery(app, "items.export", undefined, cookie.dev)));
+    const entries = arr(exported.entries).map(obj);
+    expect(entries.length).toBe(arr((await list()).items).length);
+    expect(obj(entries.find((entry) => entry.id === "timber"))).toMatchObject({ tier: 3, baseValue: 6 });
+
+    // 되돌린다(뒤 시험이 팩 값을 보게)
+    const fresh = await list();
+    const hashOf = (table: unknown, id: string) =>
+      obj(
+        arr(table)
+          .map(obj)
+          .find((item) => (item.entry === undefined ? item.id : obj(item.entry).id) === id),
+      ).hash;
+    const reverted = await save([
+      { op: "revert", category: "effects", id: "burn", baseHash: hashOf(fresh.effectRows, "burn") },
+      { op: "revert", category: "items", id: "grain", baseHash: hashOf(fresh.items, "grain") },
+      { op: "revert", category: "items", id: "timber", baseHash: hashOf(fresh.items, "timber") },
+    ]);
+    expect(reverted.statusCode).toBe(200);
   });
 
   it("묶음 상한(300)을 넘으면 입력 오류다", async () => {

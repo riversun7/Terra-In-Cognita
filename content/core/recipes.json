@@ -291,6 +291,50 @@
       ],
       "work": 1000,
       "enabled": false
+    },
+    {
+      "id": "saw_planks",
+      "name": {
+        "ko": "원목 제재",
+        "en": "Saw planks"
+      },
+      "facility": "sawmill",
+      "inputs": [
+        {
+          "item": "pine_log",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "plank",
+          "qty": 2
+        }
+      ],
+      "work": 500,
+      "enabled": true
+    },
+    {
+      "id": "fire_bricks",
+      "name": {
+        "ko": "벽돌 소성",
+        "en": "Fire bricks"
+      },
+      "facility": "kiln",
+      "inputs": [
+        {
+          "item": "rubble",
+          "qty": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item": "brick",
+          "qty": 2
+        }
+      ],
+      "work": 750,
+      "enabled": true
     }
   ]
 }

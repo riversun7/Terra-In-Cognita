@@ -760,6 +760,110 @@
       "max": 1000000000
     },
     {
+      "id": "m14_build_ms_per_kg",
+      "code": "M14",
+      "name": {
+        "ko": "건설 시간: 재료 1kg당(ms)",
+        "en": "Build time per kg of materials (ms)"
+      },
+      "value": 10000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 3600000
+    },
+    {
+      "id": "m14_time_factor_l1",
+      "code": "M14",
+      "name": {
+        "ko": "건설 시간 레벨 1 계수(‰)",
+        "en": "Build time factor, level 1 (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "m14_time_factor_l2",
+      "code": "M14",
+      "name": {
+        "ko": "건설 시간 레벨 2 계수(‰)",
+        "en": "Build time factor, level 2 (‰)"
+      },
+      "value": 1500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "m14_time_factor_l3",
+      "code": "M14",
+      "name": {
+        "ko": "건설 시간 레벨 3 계수(‰)",
+        "en": "Build time factor, level 3 (‰)"
+      },
+      "value": 2500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "m14_time_factor_l4",
+      "code": "M14",
+      "name": {
+        "ko": "건설 시간 레벨 4 계수(‰)",
+        "en": "Build time factor, level 4 (‰)"
+      },
+      "value": 2500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "m14_time_factor_l5",
+      "code": "M14",
+      "name": {
+        "ko": "건설 시간 레벨 5 계수(‰)",
+        "en": "Build time factor, level 5 (‰)"
+      },
+      "value": 2500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "m14_upkeep_pm",
+      "code": "M14",
+      "name": {
+        "ko": "건물 하루 유지비(비용 단위 합의 ‰)",
+        "en": "Building daily upkeep (‰ of cost units)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "m14_upkeep_min",
+      "code": "M14",
+      "name": {
+        "ko": "건물 하루 유지비 최소(비용 단위)",
+        "en": "Building daily upkeep minimum (cost units)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000000
+    },
+    {
       "id": "d130_shares_per_city",
       "code": "",
       "name": {

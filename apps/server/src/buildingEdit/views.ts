@@ -1,0 +1,108 @@
+// 건물 편집기 화면 자료(docs/adr/2026-11-02-building-editor.md) — 스냅숏 하나로 만든다.
+// 파싱한 팩 항목(참조 = ContentRef)을 화면 JSON(참조 = ID 글자)으로 칸마다 옮긴다(형 검사가 모양을 지킨다).
+import type { FacilityEntry, ItemEntry, ItemSubcategoryEntry, RecipeEntry } from "@terra/content";
+import type {
+  BuildingEditorFacility,
+  BuildingEditorItem,
+  BuildingEditorRecipe,
+  BuildingEditorSubcategory,
+  FacilityJson,
+} from "@terra/shared/buildingEditor";
+import { type ContentEditState, type ContentSnapshot, contentKey } from "../contentEdit/state.ts";
+import { originOf, overrideViewOf } from "../contentEdit/views.ts";
+
+const nameOf = (entry: { name: { ko: string; en: string } }) => ({ ko: entry.name.ko, en: entry.name.en });
+
+/** 파싱한 시설 → 화면 JSON(팩 파일 한 줄 모양, 없는 선택 칸은 적지 않는다) */
+export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
+  const { gather, build } = entry;
+  return {
+    id: entry.id,
+    name: nameOf(entry),
+    stage: entry.stage,
+    ...(entry.maxLevel === undefined ? {} : { maxLevel: entry.maxLevel }),
+    slotsPerLevel: entry.slotsPerLevel,
+    ...(entry.pollution === undefined ? {} : { pollution: entry.pollution }),
+    ...(gather
+      ? {
+          gather: {
+            primary: gather.primary,
+            secondary: gather.secondary,
+            subcategory: gather.subcategory.id,
+            ...(gather.mode === undefined ? {} : { mode: gather.mode }),
+            ...(gather.yieldBase === undefined ? {} : { yieldBase: gather.yieldBase }),
+            ...(gather.yieldPerStatPm === undefined ? {} : { yieldPerStatPm: gather.yieldPerStatPm }),
+            ...(gather.yieldCap === undefined ? {} : { yieldCap: gather.yieldCap }),
+          },
+        }
+      : {}),
+    ...(build
+      ? {
+          build: {
+            mulPm: build.mulPm,
+            levels: build.levels.map((band) => ({
+              from: band.from,
+              materials: band.materials.map((stack) => ({ item: stack.item.id, qty: stack.qty })),
+            })),
+          },
+        }
+      : {}),
+    enabled: entry.enabled,
+  };
+}
+
+/** 레시피 → 읽기 전용 줄 */
+export function recipeViewOf(recipe: RecipeEntry): BuildingEditorRecipe {
+  return {
+    id: recipe.id,
+    name: nameOf(recipe),
+    inputs: recipe.inputs.map((stack) => ({ item: stack.item.id, qty: stack.qty })),
+    outputs: recipe.outputs.map((stack) => ({ item: stack.item.id, qty: stack.qty })),
+    work: recipe.work,
+    enabled: recipe.enabled,
+  };
+}
+
+/** 시설 목록(실효 항목·팩 항목·덮어쓰기·해시·이 시설의 레시피) */
+export function facilityViews(
+  state: ContentEditState,
+  snapshot: ContentSnapshot,
+  recipes: readonly RecipeEntry[],
+): BuildingEditorFacility[] {
+  const packById = new Map(state.pack.facilities.map((entry) => [entry.id, entry]));
+  return snapshot.effective.facilities.map((entry) => {
+    const pack = packById.get(entry.id);
+    return {
+      entry: facilityJsonOf(entry),
+      origin: originOf(state, snapshot, "facilities", entry.id),
+      pack: pack ? facilityJsonOf(pack) : null,
+      override: overrideViewOf(snapshot.overrides.get(contentKey("facilities", entry.id))),
+      hash: state.hashOf("facilities", entry.id) ?? "",
+      recipes: recipes.filter((recipe) => recipe.facility.id === entry.id).map(recipeViewOf),
+    };
+  });
+}
+
+/** 재료 고르기 창의 아이템(실효 아이템, 파일 차례) */
+export function itemOptions(items: readonly ItemEntry[]): BuildingEditorItem[] {
+  return items.map((item) => ({
+    id: item.id,
+    name: nameOf(item),
+    category: item.category,
+    tier: item.tier,
+    subcategory: item.subcategory?.id ?? null,
+    weight: item.weight ?? null,
+    lotSize: item.lotSize ?? 1,
+    enabled: item.enabled,
+  }));
+}
+
+/** 채집 사다리 중분류 고르기(실효 중분류) */
+export function subcategoryOptions(entries: readonly ItemSubcategoryEntry[]): BuildingEditorSubcategory[] {
+  return entries.map((entry) => ({
+    id: entry.id,
+    name: nameOf(entry),
+    major: entry.major,
+    enabled: entry.enabled,
+  }));
+}

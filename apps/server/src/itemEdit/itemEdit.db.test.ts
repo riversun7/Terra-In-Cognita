@@ -80,7 +80,7 @@ describe.skipIf(!TEST_DATABASE_URL)("아이템 편집기 (DB)", () => {
       tuning: { state: tuning, packId: "core", limits: RELAXED },
       contentEdit: { state: content },
       balance: { runner: { kind: "inline" } },
-      economyCatalog: economyCatalogAccessor(loaded.pack, loaded.content, () => content.effective().items),
+      economyCatalog: economyCatalogAccessor(loaded.pack, loaded.content, () => content.effective()),
     });
     await built.ready();
     return built;

@@ -252,4 +252,43 @@ describe("pnpm tuning:apply", () => {
       JSON.parse(readFileSync(path.join(dir, "items.json"), "utf8")).entries.map((line) => line.id),
     ).toEqual(["grain", "old_loaf", "zinc"]);
   });
+  it("시설(건물 편집기)도 entries로 facilities.json에 넣는다: 해시가 맞으면 레벨 구간 재료를 통째로 바꾸고, 틀린 모양은 건너뛴다", () => {
+    const farm = {
+      id: "farm",
+      name: { ko: "농장", en: "Farm" },
+      stage: "gather",
+      slotsPerLevel: 10,
+      build: { mulPm: 800, levels: [{ from: 1, materials: [{ item: "pine_log", qty: 8 }] }] },
+      enabled: true,
+    };
+    writeFileSync(path.join(dir, "facilities.json"), json({ entries: [farm] }));
+    const edited = {
+      ...farm,
+      maxLevel: 4,
+      build: {
+        mulPm: 800,
+        levels: [
+          { from: 1, materials: [{ item: "pine_log", qty: 6 }] },
+          { from: 3, materials: [{ item: "plank", qty: 9 }] },
+        ],
+      },
+    };
+    const outcome = applyDiffToPack(dir, {
+      ...diff([]),
+      entries: [
+        { category: "facilities", id: "farm", from: hashEntry(farm), entry: edited },
+        // 옛 모양(materials만)은 스키마에 맞지 않아 건너뛴다
+        {
+          category: "facilities",
+          id: "mine",
+          from: null,
+          entry: { ...farm, id: "mine", build: { mulPm: 800, materials: [{ item: "stone", qty: 1 }] } },
+        },
+      ],
+    });
+    expect(outcome.entries.applied).toEqual([{ category: "facilities", id: "farm", kind: "replaced" }]);
+    expect(outcome.entries.skipped).toEqual([{ category: "facilities", id: "mine", reason: "invalid" }]);
+    expect(JSON.parse(readFileSync(path.join(dir, "facilities.json"), "utf8")).entries).toEqual([edited]);
+    expect(outcome.version).toBe(4);
+  });
 });

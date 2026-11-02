@@ -3,7 +3,7 @@
 //   (gather_bands_missing, 추첨 시설이 있을 때만).
 // - 시설 추첨(facilities.gather): 채집 단계(stage gather) 시설에만(gather_stage), 중분류는 원자재(raw) 중분류만(gather_subcategory_major).
 // - 수확량(facilities.gather.yield*, D-507): 상한이 기본 개수보다 작으면 오류(gather_yield_cap).
-// - 건설 재료(facilities.build, 49 M14 옛 값): 꺼진 아이템이면 알림(build_material_disabled — 그 재료는 세계에 나오지 않는다).
+// 건설 재료(facilities.build) 검사는 facilities.ts.
 // 참조가 없는 경우는 참조 단계가 알린다. 항목은 스키마를 통과한 파싱 결과(참조 = ContentRef)다(items.ts와 같은 방식).
 import type { ContentIssue } from "../issue.ts";
 import type { ContentPack } from "../pack.ts";
@@ -77,27 +77,6 @@ export function checkGather(pack: ContentPack): ContentIssue[] {
         "gather_yield_cap",
         `수확량 상한(${cap})이 기본 개수(${base})보다 작습니다. 상한을 기본 개수 이상으로 적으세요.`,
       );
-  }
-
-  // 건설 재료가 꺼진 아이템이면 알린다(오류 아님: 켬·끔은 개발자 페이지에서 바꾼다, D-398)
-  const enabledOf = new Map((pack.entries.get("items") ?? []).map((item) => [item.id, get(item, "enabled")]));
-  for (const facility of pack.entries.get("facilities") ?? []) {
-    const materials = get(get(facility, "build"), "materials");
-    if (!Array.isArray(materials)) continue;
-    materials.forEach((stack: unknown, index) => {
-      const item = get(stack, "item");
-      if (item instanceof ContentRef && enabledOf.get(item.id) === false)
-        issues.push({
-          stage: "references",
-          level: "warning",
-          file: "facilities.json",
-          id: facility.id,
-          path: `build.materials[${index}].item`,
-          message: `건설 재료 ${item.id}가 꺼져 있습니다. 그 아이템을 켜거나 재료를 바꾸세요.`,
-          code: "build_material_disabled",
-          params: { item: item.id },
-        });
-    });
   }
   return issues;
 }

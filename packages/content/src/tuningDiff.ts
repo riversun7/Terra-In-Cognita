@@ -52,7 +52,7 @@ export type StatRowsDiffChange = z.output<typeof statRowsDiffChangeSchema>;
 
 /**
  * 팩 항목 차이를 넣을 수 있는 분류(스킬 편집기·행동별 소모 docs/adr/2026-11-01-skill-editor.md 7절, 아이템 편집기·분류 자료
- * docs/adr/2026-11-01-item-editor.md 4절, 효과 사전 WP-6). 서버 @terra/shared CONTENT_EDIT_CATEGORIES·적용 스크립트 ENTRY_FILES와
+ * docs/adr/2026-11-01-item-editor.md 4절, 효과 사전 WP-6, 건물 편집기 시설 docs/adr/2026-11-02-building-editor.md). 서버 @terra/shared CONTENT_EDIT_CATEGORIES·적용 스크립트 ENTRY_FILES와
  * 같다(시험이 본다)
  */
 export const ENTRY_DIFF_CATEGORIES = [
@@ -63,6 +63,7 @@ export const ENTRY_DIFF_CATEGORIES = [
   "item_tags",
   "weapon_types",
   "effects",
+  "facilities",
 ] as const;
 
 export const entriesDiffChangeSchema = z.strictObject({

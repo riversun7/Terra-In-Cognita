@@ -4,12 +4,10 @@
 // - get: 항목 통째·팩 항목·덮어쓰기·쓰는 곳·권고. check: 묶음을 얹은 실효 팩 검사(코드가 붙은 문제) + 권고 + 끄면 멈추는 것
 // - preview: 저장 전 초안을 그 세계의 실효 자료·계산식으로 셈한다(preview.ts). save: baseHash 묶음. history: 감사 기록 요약
 import {
-  type FacilityEntry,
   type ItemEntry,
   type NecessityEntry,
   type RecipeEntry,
   type StatRowEntry,
-  facilityEntrySchema,
   gatherTierEntrySchema,
   itemEntrySchema,
   necessityEntrySchema,
@@ -80,8 +78,7 @@ export interface ItemEditShared {
   readonly necessities: readonly NecessityEntry[];
   readonly statRows: readonly StatRowEntry[];
   readonly codeRefs: ReadonlyMap<string, readonly ItemCodeRef[]>;
-  /** 팩 시설·채집 티어 확률표(덮어쓰지 않는다, 미리 보기 채집 추첨 D-506) */
-  readonly facilities: readonly FacilityEntry[];
+  /** 채집 티어 확률표(덮어쓰지 않는다, 미리 보기 채집 추첨 D-506). 시설은 실효 항목(건물 편집기)을 쓸 때마다 읽는다 */
   readonly gatherBands: readonly GatherBand[];
 }
 
@@ -102,7 +99,6 @@ export function createItemEditShared(options: {
     necessities: parseCategory(content, "necessities", (raw) => necessityEntrySchema.parse(raw)),
     statRows: parseCategory(content, "stat_rows", (raw) => statRowEntrySchema.parse(raw)),
     codeRefs: itemCodeRefs(),
-    facilities: parseCategory(content, "facilities", (raw) => facilityEntrySchema.parse(raw)),
     gatherBands: parseCategory(content, "gather_tiers", (raw) => gatherTierEntrySchema.parse(raw)).map(
       (band) => ({ from: band.from, weightsPm: [...band.weightsPm] }),
     ),
@@ -436,7 +432,8 @@ export function createItemEditorServices(deps: {
       // 채집 추첨 레벨 보너스(N43)·진행·수확량(N32·N44): 실효 세력·사회 계수표(설정 칸 덮어쓰기)를 쓸 때마다 읽는다
       const society = shared.tuning?.state.society() ?? TEST_SOCIETY_COEFFICIENTS;
       const gather = {
-        facilities: shared.facilities,
+        // 시설은 실효 항목(건물 편집기 덮어쓰기)
+        facilities: state.effective().facilities,
         bands: shared.gatherBands,
         levelBonus: society.gatherLevelBonus,
         rules: society,

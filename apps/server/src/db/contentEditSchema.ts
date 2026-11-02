@@ -22,7 +22,7 @@ import { users } from "./schema.ts";
 export const contentOverrides = pgTable(
   "content_overrides",
   {
-    /** 팩 분류(CONTENT_OVERRIDE_CATEGORIES. 지금 코드가 쓰는 것은 @terra/shared CONTENT_EDIT_CATEGORIES, effects는 WP-6) */
+    /** 팩 분류(지금 코드가 쓰는 것은 @terra/shared CONTENT_EDIT_CATEGORIES와 같다: 스킬·아이템·효과·분류 자료, 건물 편집기 facilities) */
     category: text("category").notNull(),
     id: text("id").notNull(),
     /** 항목 JSON(팩 파일 한 줄과 같은 모양, 저장 때 팩 스키마로 검사함) */
@@ -39,11 +39,11 @@ export const contentOverrides = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.category, table.id] }),
-    // 아이템 편집기 마이그레이션 하나에서 effects·아이템 분류 자료까지 넓혔다(뒤 WP에서 다시 넓히지 않는다). 직전 판 앱은 모르는 분류의
-    // 줄을 읽을 때 거른다(잠든 줄 unknown_category)
+    // 아이템 편집기 마이그레이션 하나에서 effects·아이템 분류 자료까지 넓혔다. 건물 편집기(docs/adr/2026-11-02-building-editor.md)가
+    // facilities를 더한다(넓히기만: 직전 판 앱은 모르는 분류의 줄을 읽을 때 거른다 — 잠든 줄 unknown_category)
     check(
       "content_overrides_category",
-      sql`${table.category} in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types')`,
+      sql`${table.category} in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types', 'facilities')`,
     ),
     check("content_overrides_id_format", sql`${table.id} ~ '^[a-z][a-z0-9_]{1,47}$'`),
     check("content_overrides_note_length", sql`${table.note} is null or char_length(${table.note}) <= 200`),
@@ -83,7 +83,7 @@ export const contentRetiredIds = pgTable(
     primaryKey({ columns: [table.category, table.id] }),
     check(
       "content_retired_ids_category",
-      sql`${table.category} in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types')`,
+      sql`${table.category} in ('skills', 'items', 'unit_kinds', 'effects', 'item_subcategories', 'item_tags', 'weapon_types', 'facilities')`,
     ),
     check("content_retired_ids_id_format", sql`${table.id} ~ '^[a-z][a-z0-9_]{1,47}$'`),
   ],

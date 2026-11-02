@@ -1,0 +1,1771 @@
+{
+  "entries": [
+    {
+      "id": "rubble",
+      "name": {
+        "ko": "잡석",
+        "en": "Rubble"
+      },
+      "category": "raw",
+      "subcategory": "ore",
+      "tier": 0,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "stone",
+      "name": {
+        "ko": "석재",
+        "en": "Stone"
+      },
+      "category": "raw",
+      "subcategory": "ore",
+      "tier": 1,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "copper_ore",
+      "name": {
+        "ko": "구리",
+        "en": "Copper ore"
+      },
+      "category": "raw",
+      "subcategory": "ore",
+      "tier": 2,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "iron_ore",
+      "name": {
+        "ko": "철광석",
+        "en": "Iron ore"
+      },
+      "category": "raw",
+      "tier": 3,
+      "baseValue": 8,
+      "enabled": true,
+      "weight": 1000,
+      "subcategory": "ore"
+    },
+    {
+      "id": "silver_ore",
+      "name": {
+        "ko": "은",
+        "en": "Silver ore"
+      },
+      "category": "precious",
+      "subcategory": "silver",
+      "tier": 4,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "titanium_ore",
+      "name": {
+        "ko": "티타늄",
+        "en": "Titanium ore"
+      },
+      "category": "raw",
+      "subcategory": "ore",
+      "tier": 5,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "gold_ore",
+      "name": {
+        "ko": "금",
+        "en": "Gold ore"
+      },
+      "category": "precious",
+      "subcategory": "gold",
+      "tier": 6,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "platinum_ore",
+      "name": {
+        "ko": "백금",
+        "en": "Platinum ore"
+      },
+      "category": "precious",
+      "tier": 7,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "meteoric_iron",
+      "name": {
+        "ko": "운철",
+        "en": "Meteoric iron"
+      },
+      "category": "raw",
+      "subcategory": "ore",
+      "tier": 8,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "orichalcum",
+      "name": {
+        "ko": "오리할콘",
+        "en": "Orichalcum"
+      },
+      "category": "raw",
+      "subcategory": "ore",
+      "tier": 9,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "pine_log",
+      "name": {
+        "ko": "소나무",
+        "en": "Pine log"
+      },
+      "category": "raw",
+      "subcategory": "wood",
+      "tier": 0,
+      "baseValue": 1,
+      "weight": 2000,
+      "enabled": false
+    },
+    {
+      "id": "birch_log",
+      "name": {
+        "ko": "자작나무",
+        "en": "Birch log"
+      },
+      "category": "raw",
+      "subcategory": "wood",
+      "tier": 1,
+      "baseValue": 1,
+      "weight": 2000,
+      "enabled": false
+    },
+    {
+      "id": "cypress_log",
+      "name": {
+        "ko": "편백나무",
+        "en": "Cypress log"
+      },
+      "category": "raw",
+      "subcategory": "wood",
+      "tier": 2,
+      "baseValue": 1,
+      "weight": 2000,
+      "enabled": false
+    },
+    {
+      "id": "maple_log",
+      "name": {
+        "ko": "단풍나무",
+        "en": "Maple log"
+      },
+      "category": "raw",
+      "subcategory": "wood",
+      "tier": 3,
+      "baseValue": 1,
+      "weight": 2000,
+      "enabled": false
+    },
+    {
+      "id": "oak_log",
+      "name": {
+        "ko": "참나무",
+        "en": "Oak log"
+      },
+      "category": "raw",
+      "subcategory": "wood",
+      "tier": 4,
+      "baseValue": 1,
+      "weight": 2000,
+      "enabled": false
+    },
+    {
+      "id": "ash_log",
+      "name": {
+        "ko": "물푸레나무",
+        "en": "Ash log"
+      },
+      "category": "raw",
+      "subcategory": "wood",
+      "tier": 5,
+      "baseValue": 1,
+      "weight": 2000,
+      "enabled": false
+    },
+    {
+      "id": "walnut_log",
+      "name": {
+        "ko": "호두나무",
+        "en": "Walnut log"
+      },
+      "category": "raw",
+      "subcategory": "wood",
+      "tier": 6,
+      "baseValue": 1,
+      "weight": 2000,
+      "enabled": false
+    },
+    {
+      "id": "teak_log",
+      "name": {
+        "ko": "티크나무",
+        "en": "Teak log"
+      },
+      "category": "raw",
+      "subcategory": "wood",
+      "tier": 7,
+      "baseValue": 1,
+      "weight": 2000,
+      "enabled": false
+    },
+    {
+      "id": "rosewood_log",
+      "name": {
+        "ko": "자단나무",
+        "en": "Rosewood log"
+      },
+      "category": "raw",
+      "subcategory": "wood",
+      "tier": 8,
+      "baseValue": 1,
+      "weight": 2000,
+      "enabled": false
+    },
+    {
+      "id": "ebony_log",
+      "name": {
+        "ko": "흑단나무",
+        "en": "Ebony log"
+      },
+      "category": "raw",
+      "subcategory": "wood",
+      "tier": 9,
+      "baseValue": 1,
+      "weight": 2000,
+      "enabled": false
+    },
+    {
+      "id": "hay",
+      "name": {
+        "ko": "건초",
+        "en": "Hay"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 0,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "bean",
+      "name": {
+        "ko": "콩",
+        "en": "Bean"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 0,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "barley",
+      "name": {
+        "ko": "보리",
+        "en": "Barley"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 0,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "potato",
+      "name": {
+        "ko": "감자",
+        "en": "Potato"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 1,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "napa_cabbage",
+      "name": {
+        "ko": "배추",
+        "en": "Napa cabbage"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 1,
+      "baseValue": 1,
+      "weight": 300,
+      "enabled": false
+    },
+    {
+      "id": "carrot",
+      "name": {
+        "ko": "당근",
+        "en": "Carrot"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 1,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "wheat",
+      "name": {
+        "ko": "밀",
+        "en": "Wheat"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 2,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "onion",
+      "name": {
+        "ko": "양파",
+        "en": "Onion"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 2,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "tomato",
+      "name": {
+        "ko": "토마토",
+        "en": "Tomato"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 2,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "rice",
+      "name": {
+        "ko": "쌀",
+        "en": "Rice"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 3,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "garlic",
+      "name": {
+        "ko": "마늘",
+        "en": "Garlic"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 3,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "green_onion",
+      "name": {
+        "ko": "대파",
+        "en": "Green onion"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 3,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "corn",
+      "name": {
+        "ko": "옥수수",
+        "en": "Corn"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 4,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "asparagus",
+      "name": {
+        "ko": "아스파라거스",
+        "en": "Asparagus"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 4,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "celery",
+      "name": {
+        "ko": "샐러리",
+        "en": "Celery"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 4,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "soybean",
+      "name": {
+        "ko": "대두",
+        "en": "Soybean"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 5,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "olive",
+      "name": {
+        "ko": "올리브",
+        "en": "Olive"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 5,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "sesame",
+      "name": {
+        "ko": "참깨",
+        "en": "Sesame"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 5,
+      "baseValue": 1,
+      "weight": 50,
+      "enabled": false
+    },
+    {
+      "id": "kabocha",
+      "name": {
+        "ko": "단호박",
+        "en": "Kabocha squash"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 6,
+      "baseValue": 1,
+      "weight": 500,
+      "enabled": false
+    },
+    {
+      "id": "artichoke",
+      "name": {
+        "ko": "아티초크",
+        "en": "Artichoke"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 6,
+      "baseValue": 1,
+      "weight": 400,
+      "enabled": false
+    },
+    {
+      "id": "shallot",
+      "name": {
+        "ko": "샬롯",
+        "en": "Shallot"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 6,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "quinoa",
+      "name": {
+        "ko": "퀴노아",
+        "en": "Quinoa"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 7,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "fresh_wasabi",
+      "name": {
+        "ko": "생와사비",
+        "en": "Fresh wasabi"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 7,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "ginger",
+      "name": {
+        "ko": "생강",
+        "en": "Ginger"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 7,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "black_maca",
+      "name": {
+        "ko": "블랙 마카",
+        "en": "Black maca"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 8,
+      "baseValue": 1,
+      "weight": 300,
+      "enabled": false
+    },
+    {
+      "id": "white_truffle",
+      "name": {
+        "ko": "화이트 트러플",
+        "en": "White truffle"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 8,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "lotus_seed",
+      "name": {
+        "ko": "연꽃 씨앗",
+        "en": "Lotus seed"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 8,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "divine_grain",
+      "name": {
+        "ko": "신의 낟알",
+        "en": "Divine grain"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 9,
+      "baseValue": 1,
+      "weight": 500,
+      "enabled": false
+    },
+    {
+      "id": "ambrosia",
+      "name": {
+        "ko": "암브로시아",
+        "en": "Ambrosia"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 9,
+      "baseValue": 1,
+      "weight": 500,
+      "enabled": false
+    },
+    {
+      "id": "golden_apple",
+      "name": {
+        "ko": "황금 사과",
+        "en": "Golden apple"
+      },
+      "category": "raw",
+      "subcategory": "crop",
+      "tier": 9,
+      "baseValue": 1,
+      "weight": 500,
+      "enabled": false
+    },
+    {
+      "id": "wild_herb",
+      "name": {
+        "ko": "자생초",
+        "en": "Wild herb"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 0,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "wild_chive",
+      "name": {
+        "ko": "들달래",
+        "en": "Wild chive"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 0,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "clover",
+      "name": {
+        "ko": "클로버",
+        "en": "Clover"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 0,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "aloe",
+      "name": {
+        "ko": "알로에",
+        "en": "Aloe"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 1,
+      "baseValue": 1,
+      "weight": 300,
+      "enabled": false
+    },
+    {
+      "id": "peppermint",
+      "name": {
+        "ko": "페퍼민트",
+        "en": "Peppermint"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 1,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "chamomile",
+      "name": {
+        "ko": "카모마일",
+        "en": "Chamomile"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 1,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "lavender",
+      "name": {
+        "ko": "라벤더",
+        "en": "Lavender"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 2,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "rosemary",
+      "name": {
+        "ko": "로즈마리",
+        "en": "Rosemary"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 2,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "thyme",
+      "name": {
+        "ko": "타임",
+        "en": "Thyme"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 2,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "angelica_root",
+      "name": {
+        "ko": "당귀",
+        "en": "Angelica root"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 3,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "licorice_root",
+      "name": {
+        "ko": "감초",
+        "en": "Licorice root"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 3,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "sweet_basil",
+      "name": {
+        "ko": "스위트 바질",
+        "en": "Sweet basil"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 3,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "belladonna",
+      "name": {
+        "ko": "벨라돈나",
+        "en": "Belladonna"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 4,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "wolfsbane",
+      "name": {
+        "ko": "투구꽃",
+        "en": "Wolfsbane"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 4,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "star_anise",
+      "name": {
+        "ko": "팔각",
+        "en": "Star anise"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 4,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "mandrake",
+      "name": {
+        "ko": "맨드레이크",
+        "en": "Mandrake"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 5,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "saffron",
+      "name": {
+        "ko": "샤프란",
+        "en": "Saffron"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 5,
+      "baseValue": 1,
+      "weight": 50,
+      "enabled": false
+    },
+    {
+      "id": "hemlock",
+      "name": {
+        "ko": "독미나리",
+        "en": "Hemlock"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 5,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "ginseng",
+      "name": {
+        "ko": "인삼",
+        "en": "Ginseng"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 6,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "fo_ti_root",
+      "name": {
+        "ko": "하수오",
+        "en": "Fo-ti root"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 6,
+      "baseValue": 1,
+      "weight": 300,
+      "enabled": false
+    },
+    {
+      "id": "black_truffle",
+      "name": {
+        "ko": "블랙 트러플",
+        "en": "Black truffle"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 6,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "gastrodia",
+      "name": {
+        "ko": "천마",
+        "en": "Gastrodia tuber"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 7,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "agarwood",
+      "name": {
+        "ko": "침향",
+        "en": "Agarwood"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 7,
+      "baseValue": 1,
+      "weight": 500,
+      "enabled": false
+    },
+    {
+      "id": "moonlight_laurel",
+      "name": {
+        "ko": "달빛 월계수",
+        "en": "Moonlight laurel"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 7,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "ancient_ginseng",
+      "name": {
+        "ko": "천년산삼",
+        "en": "Ancient ginseng"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 8,
+      "baseValue": 1,
+      "weight": 500,
+      "enabled": false
+    },
+    {
+      "id": "blood_lotus",
+      "name": {
+        "ko": "적혈연꽃",
+        "en": "Blood lotus"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 8,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "reishi",
+      "name": {
+        "ko": "영지버섯",
+        "en": "Reishi mushroom"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 8,
+      "baseValue": 1,
+      "weight": 300,
+      "enabled": false
+    },
+    {
+      "id": "snow_ginseng",
+      "name": {
+        "ko": "만년설삼",
+        "en": "Snow ginseng"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 9,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "sacred_dew_leaf",
+      "name": {
+        "ko": "신목 이슬잎",
+        "en": "Sacred dew leaf"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 9,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "starlight_moss",
+      "name": {
+        "ko": "별빛 이끼",
+        "en": "Starlight moss"
+      },
+      "category": "raw",
+      "subcategory": "herb",
+      "tier": 9,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "loach",
+      "name": {
+        "ko": "미꾸라지",
+        "en": "Loach"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 0,
+      "baseValue": 1,
+      "weight": 20,
+      "enabled": false
+    },
+    {
+      "id": "minnow",
+      "name": {
+        "ko": "피라미",
+        "en": "Minnow"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 0,
+      "baseValue": 1,
+      "weight": 10,
+      "enabled": false
+    },
+    {
+      "id": "carp",
+      "name": {
+        "ko": "잉어",
+        "en": "Carp"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 1,
+      "baseValue": 1,
+      "weight": 1500,
+      "enabled": false
+    },
+    {
+      "id": "crucian_carp",
+      "name": {
+        "ko": "붕어",
+        "en": "Crucian carp"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 1,
+      "baseValue": 1,
+      "weight": 500,
+      "enabled": false
+    },
+    {
+      "id": "salmon",
+      "name": {
+        "ko": "연어",
+        "en": "Salmon"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 2,
+      "baseValue": 1,
+      "weight": 4000,
+      "enabled": false
+    },
+    {
+      "id": "trout",
+      "name": {
+        "ko": "송어",
+        "en": "Trout"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 2,
+      "baseValue": 1,
+      "weight": 1500,
+      "enabled": false
+    },
+    {
+      "id": "saury",
+      "name": {
+        "ko": "꽁치",
+        "en": "Pacific saury"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 3,
+      "baseValue": 1,
+      "weight": 150,
+      "enabled": false
+    },
+    {
+      "id": "mackerel",
+      "name": {
+        "ko": "고등어",
+        "en": "Mackerel"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 3,
+      "baseValue": 1,
+      "weight": 500,
+      "enabled": false
+    },
+    {
+      "id": "squid",
+      "name": {
+        "ko": "오징어",
+        "en": "Squid"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 3,
+      "baseValue": 1,
+      "weight": 400,
+      "enabled": false
+    },
+    {
+      "id": "rockfish",
+      "name": {
+        "ko": "우럭",
+        "en": "Rockfish"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 4,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "olive_flounder",
+      "name": {
+        "ko": "광어",
+        "en": "Olive flounder"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 4,
+      "baseValue": 1,
+      "weight": 2000,
+      "enabled": false
+    },
+    {
+      "id": "sea_bream",
+      "name": {
+        "ko": "도미",
+        "en": "Sea bream"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 5,
+      "baseValue": 1,
+      "weight": 2500,
+      "enabled": false
+    },
+    {
+      "id": "sea_bass",
+      "name": {
+        "ko": "농어",
+        "en": "Sea bass"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 5,
+      "baseValue": 1,
+      "weight": 3000,
+      "enabled": false
+    },
+    {
+      "id": "octopus",
+      "name": {
+        "ko": "문어",
+        "en": "Octopus"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 6,
+      "baseValue": 1,
+      "weight": 5000,
+      "enabled": false
+    },
+    {
+      "id": "yellowtail",
+      "name": {
+        "ko": "방어",
+        "en": "Yellowtail"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 6,
+      "baseValue": 1,
+      "weight": 10000,
+      "enabled": false
+    },
+    {
+      "id": "marlin",
+      "name": {
+        "ko": "새치",
+        "en": "Marlin"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 6,
+      "baseValue": 1,
+      "weight": 150000,
+      "enabled": false
+    },
+    {
+      "id": "ocean_sunfish",
+      "name": {
+        "ko": "개복치",
+        "en": "Ocean sunfish"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 7,
+      "baseValue": 1,
+      "weight": 200000,
+      "enabled": false
+    },
+    {
+      "id": "sturgeon",
+      "name": {
+        "ko": "철갑상어",
+        "en": "Sturgeon"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 7,
+      "baseValue": 1,
+      "weight": 30000,
+      "enabled": false
+    },
+    {
+      "id": "sailfish",
+      "name": {
+        "ko": "돛새치",
+        "en": "Sailfish"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 7,
+      "baseValue": 1,
+      "weight": 80000,
+      "enabled": false
+    },
+    {
+      "id": "white_shark",
+      "name": {
+        "ko": "백상아리",
+        "en": "White shark"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 8,
+      "baseValue": 1,
+      "weight": 500000,
+      "enabled": false
+    },
+    {
+      "id": "bluefin_tuna",
+      "name": {
+        "ko": "참다랑어",
+        "en": "Bluefin tuna"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 8,
+      "baseValue": 1,
+      "weight": 80000,
+      "enabled": false
+    },
+    {
+      "id": "grouper",
+      "name": {
+        "ko": "다금바리",
+        "en": "Grouper"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 8,
+      "baseValue": 1,
+      "weight": 20000,
+      "enabled": false
+    },
+    {
+      "id": "giant_sea_bass",
+      "name": {
+        "ko": "돗돔",
+        "en": "Giant sea bass"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 8,
+      "baseValue": 1,
+      "weight": 100000,
+      "enabled": false
+    },
+    {
+      "id": "whale_shark",
+      "name": {
+        "ko": "고래상어",
+        "en": "Whale shark"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 9,
+      "baseValue": 1,
+      "weight": 150000,
+      "enabled": false
+    },
+    {
+      "id": "megalodon",
+      "name": {
+        "ko": "메갈로돈",
+        "en": "Megalodon"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 9,
+      "baseValue": 1,
+      "weight": 1000000,
+      "enabled": false
+    },
+    {
+      "id": "coelacanth",
+      "name": {
+        "ko": "실러캔스",
+        "en": "Coelacanth"
+      },
+      "category": "raw",
+      "subcategory": "fish",
+      "tier": 9,
+      "baseValue": 1,
+      "weight": 50000,
+      "enabled": false
+    },
+    {
+      "id": "raw_meat",
+      "name": {
+        "ko": "생고기",
+        "en": "Raw meat"
+      },
+      "category": "raw",
+      "subcategory": "livestock_product",
+      "tier": 0,
+      "baseValue": 1,
+      "weight": 500,
+      "enabled": false
+    },
+    {
+      "id": "egg",
+      "name": {
+        "ko": "계란",
+        "en": "Egg"
+      },
+      "category": "raw",
+      "subcategory": "livestock_product",
+      "tier": 0,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "feather",
+      "name": {
+        "ko": "깃털",
+        "en": "Feather"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 0,
+      "baseValue": 1,
+      "weight": 50,
+      "enabled": false
+    },
+    {
+      "id": "venison",
+      "name": {
+        "ko": "사슴 고기",
+        "en": "Venison"
+      },
+      "category": "raw",
+      "subcategory": "livestock_product",
+      "tier": 1,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "deer_hide",
+      "name": {
+        "ko": "사슴 가죽",
+        "en": "Deer hide"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 1,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "deer_antler",
+      "name": {
+        "ko": "사슴 뿔",
+        "en": "Deer antler"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 1,
+      "baseValue": 1,
+      "weight": 500,
+      "enabled": false
+    },
+    {
+      "id": "mutton",
+      "name": {
+        "ko": "양고기",
+        "en": "Mutton"
+      },
+      "category": "raw",
+      "subcategory": "livestock_product",
+      "tier": 2,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "wool",
+      "name": {
+        "ko": "몽실한 양털",
+        "en": "Fluffy wool"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 2,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "sheep_milk",
+      "name": {
+        "ko": "양유",
+        "en": "Sheep milk"
+      },
+      "category": "raw",
+      "subcategory": "livestock_product",
+      "tier": 2,
+      "baseValue": 1,
+      "weight": 500,
+      "enabled": false
+    },
+    {
+      "id": "prime_beef",
+      "name": {
+        "ko": "1등급 쇠고기",
+        "en": "Prime beef"
+      },
+      "category": "raw",
+      "subcategory": "livestock_product",
+      "tier": 3,
+      "baseValue": 1,
+      "weight": 1500,
+      "enabled": false
+    },
+    {
+      "id": "bison_hide",
+      "name": {
+        "ko": "두꺼운 들소가죽",
+        "en": "Thick bison hide"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 3,
+      "baseValue": 1,
+      "weight": 3500,
+      "enabled": false
+    },
+    {
+      "id": "bison_horn",
+      "name": {
+        "ko": "들소 뿔",
+        "en": "Bison horn"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 3,
+      "baseValue": 1,
+      "weight": 1500,
+      "enabled": false
+    },
+    {
+      "id": "fox_meat",
+      "name": {
+        "ko": "여우 고기",
+        "en": "Fox meat"
+      },
+      "category": "raw",
+      "subcategory": "livestock_product",
+      "tier": 4,
+      "baseValue": 1,
+      "weight": 800,
+      "enabled": false
+    },
+    {
+      "id": "silver_fur",
+      "name": {
+        "ko": "최고급 은빛 모피",
+        "en": "Silver fur"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 4,
+      "baseValue": 1,
+      "weight": 500,
+      "enabled": false
+    },
+    {
+      "id": "mink_oil",
+      "name": {
+        "ko": "밍크 오일",
+        "en": "Mink oil"
+      },
+      "category": "raw",
+      "subcategory": "livestock_product",
+      "tier": 4,
+      "baseValue": 1,
+      "weight": 200,
+      "enabled": false
+    },
+    {
+      "id": "acorn_pork",
+      "name": {
+        "ko": "상급 도토리 흑돈육",
+        "en": "Acorn-fed pork"
+      },
+      "category": "raw",
+      "subcategory": "livestock_product",
+      "tier": 5,
+      "baseValue": 1,
+      "weight": 1200,
+      "enabled": false
+    },
+    {
+      "id": "hard_tusk",
+      "name": {
+        "ko": "단단한 엄니",
+        "en": "Hard tusk"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 5,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "lard",
+      "name": {
+        "ko": "돼지 비계",
+        "en": "Lard"
+      },
+      "category": "raw",
+      "subcategory": "livestock_product",
+      "tier": 5,
+      "baseValue": 1,
+      "weight": 500,
+      "enabled": false
+    },
+    {
+      "id": "croc_tail_meat",
+      "name": {
+        "ko": "악어 꼬리 고기",
+        "en": "Croc tail meat"
+      },
+      "category": "raw",
+      "subcategory": "livestock_product",
+      "tier": 6,
+      "baseValue": 1,
+      "weight": 1500,
+      "enabled": false
+    },
+    {
+      "id": "croc_hide",
+      "name": {
+        "ko": "철갑 악어가죽",
+        "en": "Croc hide"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 6,
+      "baseValue": 1,
+      "weight": 2000,
+      "enabled": false
+    },
+    {
+      "id": "croc_tooth",
+      "name": {
+        "ko": "악어 이빨",
+        "en": "Croc tooth"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 6,
+      "baseValue": 1,
+      "weight": 500,
+      "enabled": false
+    },
+    {
+      "id": "gryphon_meat",
+      "name": {
+        "ko": "그리폰 고기",
+        "en": "Gryphon meat"
+      },
+      "category": "raw",
+      "subcategory": "livestock_product",
+      "tier": 7,
+      "baseValue": 1,
+      "weight": 2000,
+      "enabled": false
+    },
+    {
+      "id": "raptor_beak",
+      "name": {
+        "ko": "맹금의 부리",
+        "en": "Raptor beak"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 7,
+      "baseValue": 1,
+      "weight": 1500,
+      "enabled": false
+    },
+    {
+      "id": "gryphon_feather",
+      "name": {
+        "ko": "그리폰의 깃털",
+        "en": "Gryphon feather"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 7,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "unicorn_meat",
+      "name": {
+        "ko": "유니콘 고기",
+        "en": "Unicorn meat"
+      },
+      "category": "raw",
+      "subcategory": "livestock_product",
+      "tier": 8,
+      "baseValue": 1,
+      "weight": 1500,
+      "enabled": false
+    },
+    {
+      "id": "purifying_horn",
+      "name": {
+        "ko": "정화의 뿔",
+        "en": "Purifying horn"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 8,
+      "baseValue": 1,
+      "weight": 1000,
+      "enabled": false
+    },
+    {
+      "id": "unicorn_mane",
+      "name": {
+        "ko": "유니콘의 은빛 갈기",
+        "en": "Unicorn mane"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 8,
+      "baseValue": 1,
+      "weight": 100,
+      "enabled": false
+    },
+    {
+      "id": "dragon_meat",
+      "name": {
+        "ko": "고대룡의 고기",
+        "en": "Dragon meat"
+      },
+      "category": "raw",
+      "subcategory": "livestock_product",
+      "tier": 9,
+      "baseValue": 1,
+      "weight": 5000,
+      "enabled": false
+    },
+    {
+      "id": "dragon_scale",
+      "name": {
+        "ko": "고대룡의 적열 비늘",
+        "en": "Dragon scale"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 9,
+      "baseValue": 1,
+      "weight": 8000,
+      "enabled": false
+    },
+    {
+      "id": "drakeheart_shard",
+      "name": {
+        "ko": "드래곤 하트 파편",
+        "en": "Drakeheart shard"
+      },
+      "category": "raw",
+      "subcategory": "creature_material",
+      "tier": 9,
+      "baseValue": 1,
+      "weight": 10000,
+      "enabled": false
+    }
+  ]
+}

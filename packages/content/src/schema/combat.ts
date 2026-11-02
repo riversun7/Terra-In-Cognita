@@ -401,7 +401,7 @@ export const unitKindEntrySchema = z.strictObject({
   id: contentId,
   name: localizedText,
   /**
-   * 장비 칸 차례(구조 값 D-5054: 바꾸면 칸 번호에 기댄 곳이 흔들린다 — 편집기는 확인 창을 띄운다): 사람형 공통 6칸 + 종류별 강화 칸,
+   * 장비 칸 차례(구조 값 D-5054: 바꾸면 칸 번호에 기댄 곳이 흔들린다 — 편집기 화면에는 바꾸는 칸이 없고 팩 커밋으로만 바꾼다): 사람형 공통 6칸 + 종류별 강화 칸,
    * 크리쳐 3칸 무기·방어구·장신구(D-494가 D-422 "크리쳐 2칸"을 바꿈)
    */
   slots: z.array(z.enum(EQUIP_SLOT_KINDS)).min(1).max(32),

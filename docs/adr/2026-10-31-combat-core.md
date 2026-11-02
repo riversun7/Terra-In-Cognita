@@ -255,3 +255,21 @@
 ### 4. 결과 (Verified: 시드 1, 개발 컨테이너, 같은 명령 두 번 바이트 같음, 위반 0)
 - 전 main `b8a06f6`(core@18) / 뒤 이 가지(core@19): war16 30일 전투 123(조우 123)·공격 쪽 승 55·시간 초과 0·쓰러짐 428·틱 132,068 그대로, 줄 196·223·1,443 그대로. 시뮬레이터 유닛은 마법 스킬·지팡이를 쓰지 않고, 옛 스킬의 고르기·굴림 차례가 그대로라 전투 결과가 같다. 그래서 `SIM_VERSION`은 4 그대로다.
 - war16·stub16 요약은 콘텐츠 판·해시와 줄 해시만 바뀐다. econ16은 거래소가 도시마다 물건마다 열려서 시장 수 768 → 1,152, 원장 계정 4,728 → 5,622, 새 지팡이 거래량 0이 더해진다(거래·가격·잔고는 그대로).
+
+## 바뀜 (2026-11-02, 장비 전투 칸 — 아이템 편집기 WP-5·WP-C)
+- 까닭: 아이템 편집기 2차(ADR `2026-11-01-item-editor.md` "바뀜 (2026-11-02)" 1·2절). 사용자 답 D-496 290(착용 요구치 없음, 1차 적정 스탯 미달이면 효율 감소, 2차 적정치는 그 1차 적정 스탯으로 셈), D-494(크리쳐 전용 장비 3칸), 속성값 칸마다 상한 10(D-450). 작업 기록 `docs/worklog/2026/11/02-1100-item-editor-2.md`.
+
+### 1. 장비 정의·입은 물건 (`equipment.ts` `GearCombat`, 팩 `items` equip)
+- `EquipDef`·`EquippedItem`에 선택 칸: `elements`(12속성 점수), `resistPm`(속성 저항 ‰ 12칸), `defenseFlat`(고정 방어), `penetrationPm`(비율 관통 ‰), `twoHanded`, `kinds`(입을 유닛 종류, 없으면 그 칸이 있는 모든 종류). `EquipDef.appropriate` = 1차 적정 스탯.
+- `loadoutOf`(선택 `kind`·`elements`·`resistPm`·`defenseFlat`·`penetrationPm` = 유닛 자신의 값)
+  - `kind`가 장비의 `kinds`에 없으면 그 물건을 빼고 셈한다(`ignored` 이유 `kind`). 무기 칸에 입을 수 있는 양손 무기가 있으면 보조 칸 물건을 빼고 셈한다(`two_handed`). 둘 다 던지지 않는다(전투 실험실은 `dropped`로 알린다).
+  - 속성값 = 유닛 속성 + 장비 속성을 `sumElementSources`로 더한다(칸마다 10에서 멈춤, D-450). 직접 값은 더해서 유닛 사양(`specFromStats`)에 넣는다: 속성 저항 ‰ 칸마다, 고정 방어, 비율 관통 ‰.
+  - 1차 스탯과 장비 수치 줄은 `MAX_STAT_INPUT`(±10,000,000)에서 자른다(넘쳐도 던지지 않는다).
+- 1차 적정 스탯 → 2차 적정치(`equipmentAppropriate.ts`): `resolveWeaponAppropriate(정의, 가중치 표)` = 1차 적정 스탯만 가진 레벨 1 유닛(`appropriateFromPrimaries`)의 2차 값으로 무기의 물리·속성 공격 적정치와 명중·크리·속도 적정치를 바꾼다(셈이 던지면 적은 값). `withStatTable(전투 자료, 표)` = 표가 같으면 그대로, 다르면 1차 적정 스탯이 있는 무기만 다시 셈한다(밸런스 화면 가중치 덮어쓰기 → roster 전투 자료, 시뮬 `--tuning`·다시보기 시범). 예(시험 `equipmentGear.test.ts`, 지금 표): STR 25·DEX 15 → 물리 59(= 25 × 2 + 15 × 0.6)·명중 18·크리 22·속도 54. 효율은 D-420 틀 그대로(스탯 ÷ 적정, 상한).
+- 팩 → 전투 자료(`packCatalog.ts`): 무기 사양에는 숫자 칸만 남긴다(`appropriate`·`twoHanded`·`ammo`는 정의 쪽). 효과 사전의 1차 스탯 수치(`stat`이 str~wis)는 전투 효과에서 비운다(판정이 아직 1차 버프를 읽지 않음). 배타 묶음(`exclusive`)도 아직 읽지 않는다(질문 293).
+
+### 2. 크리쳐 장비 칸
+- 팩·`TEST_COMBAT_CATALOG` creature 칸 = `weapon`·`body`·`accessory`. 크리쳐가 무기 칸에 무기를 들면 타고난 무기 대신 그 무기다(`naturalWeaponIsWeapon` 그대로). 크리쳐 전용(`kinds: ["creature"]`) 장비를 사람형이 입으면 빼고 셈한다.
+
+### 3. 결과 (Verified: 시드 1, 개발 컨테이너, 같은 명령 두 번 바이트 같음, 위반 0)
+- war16 30일·stub16·econ16 180일: 콘텐츠 판·해시 칸과 그 값이 든 줄 해시를 빼면 줄·요약이 모두 같다. 시뮬레이터 유닛(휴먼, 시험 검·투구·조끼·반지)은 새 칸이 없는 장비만 입고, 속성값을 옮긴 `test_heart`는 입지 않아서다. 그래서 `SIM_VERSION`은 6 그대로다.

@@ -4,8 +4,8 @@
 
 /**
  * 덮어쓸 수 있는 팩 분류(코드 목록). 스킬 편집기 = skills(+ 행동별 소모: items 무기·unit_kinds 타고난 무기), 아이템 편집기 = items +
- * 분류 자료(item_subcategories·item_tags·weapon_types). DB 검사(content_overrides_category)는 effects까지 넓혀 두었다(효과 사전 편집 WP-6).
- * 이 판이 모르는 분류의 줄은 읽지도 지우지도 않는다(켤 때 잠든 줄 unknown_category)
+ * 분류 자료(item_subcategories·item_tags·weapon_types) + 효과 사전(effects, WP-6 — DB 검사 content_overrides_category는 WP-1에서
+ * 이미 넓혔다). 이 판이 모르는 분류의 줄은 읽지도 지우지도 않는다(켤 때 잠든 줄 unknown_category: 직전 판 앱이 effects 줄을 이렇게 둔다)
  */
 export const CONTENT_EDIT_CATEGORIES = [
   "skills",
@@ -14,6 +14,7 @@ export const CONTENT_EDIT_CATEGORIES = [
   "item_subcategories",
   "item_tags",
   "weapon_types",
+  "effects",
 ] as const;
 export type ContentEditCategory = (typeof CONTENT_EDIT_CATEGORIES)[number];
 

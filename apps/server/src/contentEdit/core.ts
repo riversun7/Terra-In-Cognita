@@ -146,6 +146,7 @@ export function createContentCore(source: PackSource): ContentCore {
       item_subcategories: [],
       item_tags: [],
       weapon_types: [],
+      effects: [],
     };
     for (const category of CONTENT_EDIT_CATEGORIES) out[category] = entries.get(category) ?? [];
     return out;

@@ -41,7 +41,9 @@ describe("샘플 프리셋([임시] 수치, 읽기 전용)", () => {
       for (const unit of units) {
         const kind = catalog.unitKinds.find((entry) => entry.id === unit.kind);
         const hasWeaponSlot = kind?.slots.includes("weapon") ?? false;
-        if (hasWeaponSlot) expect(unit.weapon.kind, preset.id).toBe("item");
+        // 타고난 무기를 무기로 치는 종류(크리쳐 발톱, D-490)는 무기 칸(D-494 3칸)을 비워 두어도 된다
+        if (hasWeaponSlot && kind?.naturalWeaponIsWeapon !== true)
+          expect(unit.weapon.kind, preset.id).toBe("item");
         expect(unit.equipment.length, preset.id).toBeGreaterThanOrEqual(1);
         expect(unit.skills.length, preset.id).toBeGreaterThanOrEqual(1);
         expect(unit.skills.length, preset.id).toBeLessThanOrEqual(2);

@@ -101,6 +101,8 @@ export function itemJsonOf(entry: ItemEntry): ItemJson {
               value: part.value,
               chancePm: part.chancePm,
               ...(part.durationMs === undefined ? {} : { durationMs: part.durationMs }),
+              ...(part.scale ? { scale: { ...part.scale } } : {}),
+              ...(part.variancePm === undefined ? {} : { variancePm: part.variancePm }),
             })),
           },
         }
@@ -134,6 +136,7 @@ export function weaponTypeJsonOf(entry: WeaponTypeEntry): WeaponTypeJson {
     name: name(entry.name),
     slot: entry.slot,
     ...(entry.order === undefined ? {} : { order: entry.order }),
+    ...(entry.ammo === undefined ? {} : { ammo: entry.ammo }),
     enabled: entry.enabled,
   };
 }

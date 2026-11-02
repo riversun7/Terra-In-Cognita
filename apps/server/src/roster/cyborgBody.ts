@@ -39,6 +39,8 @@ export function realCyborgBody(
       equipped: new Map(),
       innateSkills: [],
       source: "computed",
+      // 장비 밖 속성값(생성·환생 값 + 신앙 등 출처, D-450). 장비·인공장기 속성값은 bodySheet(loadoutOf)가 더한다
+      elements: elementsToArray(sumElementSources(record.elements ?? zeroElements(), elementSources)),
     },
     { revealGrowth: maxed },
   );
@@ -54,7 +56,6 @@ export function realCyborgBody(
     living: { unpaid: livingUnpaid, efficiencyPm: livingEfficiencyPm(livingUnpaid, catalog.society) },
     ...body,
     growth: maxed ? { initial: record.initial, kPm: record.kPm } : null,
-    elements: elementsToArray(sumElementSources(record.elements ?? zeroElements(), elementSources)),
     // 본체 피로는 아직 직무·생활 규칙이 없어 0이다(피로 회복은 주거에 따른다 D-430, D-445 178 — 그 규칙이 들어올 때 건다)
     fatigue: { value: 0, max: FATIGUE_MAX },
     inventory: [],

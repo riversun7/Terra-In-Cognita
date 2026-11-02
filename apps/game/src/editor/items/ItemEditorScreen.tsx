@@ -11,11 +11,13 @@ import {
   DEFAULT_PREVIEW_UNIT,
   ITEM_EDITOR_REASONS,
   ITEM_EDIT_CATEGORIES,
+  type EffectJson,
   type ItemCategoryId,
   type ItemEditorCheckResponse,
   type ItemEditorHistoryRow,
   type ItemEditorPreviewResponse,
   type ItemJson,
+  type ItemPatch,
   type ItemPreviewUnit,
   type ItemEditorReason,
 } from "@terra/shared/itemEditor";
@@ -36,8 +38,10 @@ import {
   sameJson,
   stableJson,
 } from "../content/contentEditorModel.ts";
+import { ItemBulk } from "./ItemBulk.tsx";
 import { ItemDetail } from "./ItemDetail.tsx";
-import { ExportPanel, ItemSummary, SleepingPanel } from "./ItemEditorPanels.tsx";
+import { ItemEffects } from "./ItemEffects.tsx";
+import { ExportPanel, ItemSummary, ItemTabs, RiskyConfirm, SleepingPanel } from "./ItemEditorPanels.tsx";
 import { ItemList } from "./ItemList.tsx";
 import { ItemNewForm } from "./ItemNewForm.tsx";
 import { type CheckState, ItemStageBar } from "./ItemStageBar.tsx";
@@ -52,9 +56,8 @@ import {
   codeRefRisks,
   cleanItem,
   duplicateItem,
-  isItemJson,
-  isTaxonomyJson,
   newItemTemplate,
+  stageEffect,
   stageItem,
   stageKeys,
   stageTaxonomy,
@@ -66,14 +69,21 @@ import {
   resolveConflict,
   splitKey,
   stageDiscard,
-  taxonomyRows,
 } from "./itemRebase.ts";
+import { restageFromHistory } from "./itemRestage.ts";
 import { useItemStage } from "./useItemStage.ts";
 import { DebouncedTask } from "./DebouncedTask.tsx";
 import { useItemEditorData } from "./useItemEditorData.ts";
 import "./itemEditor.css";
 
-type Tab = "items" | "taxonomy";
+type Tab = "items" | "taxonomy" | "effects" | "bulk";
+const TABS: readonly Tab[] = ["items", "taxonomy", "effects", "bulk"];
+const TAB_TEXT: Readonly<Record<Tab, () => string>> = {
+  items: m.dev_items_tab_items,
+  taxonomy: m.dev_items_tab_taxonomy,
+  effects: m.dev_items_tab_effects,
+  bulk: m.dev_items_tab_bulk,
+};
 type ErrorInfo = ContentErrorInfo<ItemEditorReason>;
 
 /** 사본 이름 꼬리: 팩 이름 칸은 두 언어를 함께 적는 콘텐츠 값이라 화면 언어와 상관없이 둘 다 붙인다(설계안 3.8) */
@@ -347,7 +357,7 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
   const pick = (key: string): void => {
     const { category, id } = splitKey(key);
     if (category !== "items") {
-      setTab("taxonomy");
+      setTab(category === "effects" ? "effects" : "taxonomy");
       return;
     }
     select(id);
@@ -365,43 +375,60 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
   };
 
   const restage = (line: ContentHistoryRow, change: ContentHistoryRow["changes"][number]): void => {
-    const category = ITEM_EDIT_CATEGORIES.find((item) => item === change.category);
-    const auditId = line.auditId;
-    if (!category || auditId === null || !list) return;
-    const id = change.id;
-    void (async () => {
-      try {
-        const { entry } = await api.items.historyEntry.query({ auditId, category, id });
-        if (!entry) {
-          problem.show([m.dev_items_restage_missing({ id })]);
-          return;
-        }
-        if (category === "items") {
-          if (!isItemJson(entry)) return;
-          const data = await api.items.get.query({ id });
-          staging.push(
-            stageItem(staging.current(), id, { op: "put", entry, base: data.entry, baseHash: data.hash }),
-          );
-          store.setDetail(id, data);
-          select(id, false);
-        } else {
-          if (!isTaxonomyJson(category, entry)) return;
-          const current = taxonomyRows(list, category).find((item) => item.entry.id === id);
-          staging.push(
-            stageTaxonomy(staging.current(), category, id, {
-              op: "put",
-              entry,
-              base: current?.entry ?? null,
-              baseHash: current?.hash ?? null,
-            }),
-          );
-          setTab("taxonomy");
-        }
-        notice.show([m.dev_items_restaged({ id })]);
-      } catch (error: unknown) {
-        fail(error);
-      }
-    })();
+    if (!list) return;
+    void restageFromHistory(
+      {
+        list,
+        current: staging.current,
+        push: (next) => staging.push(next),
+        setDetail: store.setDetail,
+        openItem: (id) => select(id, false),
+        openTab: setTab,
+        notice: notice.show,
+        problem: problem.show,
+        fail,
+      },
+      line,
+      change,
+    );
+  };
+
+  const stageEff = (id: string, next: Staged<EffectJson> | null): void =>
+    staging.push(stageEffect(staging.current(), id, next), `effects/${id}`);
+
+  /** 가져온 항목을 담는다(새로 = 바탕 없음, 고침 = 지금 항목·해시가 바탕, WP-7) */
+  const stageImport = (entries: readonly ItemJson[], current: ReadonlyMap<string, ItemJson>): void => {
+    let next = staging.current();
+    for (const entry of entries) {
+      const base = current.get(entry.id) ?? null;
+      next = stageItem(next, entry.id, {
+        op: "put",
+        entry,
+        base,
+        baseHash: byId.get(entry.id)?.hash ?? null,
+      });
+    }
+    staging.push(next);
+    notice.show([m.dev_items_bulk_staged_count({ count: entries.length })]);
+  };
+
+  /** 여러 개 고치기를 바로 적용한다(서버 patch 명령 하나, WP-7) */
+  const applyPatch = async (ids: readonly string[], patch: ItemPatch): Promise<boolean> => {
+    if (!list) return false;
+    try {
+      const next = await api.items.save.mutate({
+        expectedRevision: list.revision,
+        changes: [{ op: "patch", category: "items", ids: [...ids], patch }],
+        note: note.trim() === "" ? null : note,
+      });
+      store.setList(next);
+      notice.show([m.dev_items_applied({ count: ids.length, revision: next.revision })]);
+      return true;
+    } catch (error: unknown) {
+      const info = fail(error);
+      if (info.key === "revision_conflict") await reload();
+      return false;
+    }
   };
 
   return (
@@ -453,22 +480,13 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
           ) : null}
           <LiveMessage tone="success" lines={notice.lines} version={notice.version} />
           <LiveMessage tone="error" lines={problem.lines} version={problem.version} />
-          <div className="ie-tabs" role="tablist" aria-label={m.dev_items_tabs_label()} id={tabsId}>
-            {(["items", "taxonomy"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                id={`${tabsId}-${value}`}
-                aria-selected={tab === value}
-                aria-controls={`${tabsId}-${value}-panel`}
-                className="ie-tab"
-                onClick={() => setTab(value)}
-              >
-                {value === "items" ? m.dev_items_tab_items() : m.dev_items_tab_taxonomy()}
-              </button>
-            ))}
-          </div>
+          <ItemTabs
+            id={tabsId}
+            tabs={TABS.map((value) => ({ value, label: TAB_TEXT[value]() }))}
+            selected={tab}
+            label={m.dev_items_tabs_label()}
+            onSelect={setTab}
+          />
           {tab === "items" ? (
             <div
               className="ie-split"
@@ -537,26 +555,30 @@ export default function ItemEditorScreen({ initialId }: { initialId?: string | u
               </div>
             </div>
           ) : (
-            <div role="tabpanel" id={`${tabsId}-taxonomy-panel`} aria-labelledby={`${tabsId}-taxonomy`}>
-              <ItemTaxonomy list={list} stage={stage} locale={locale} onStage={stageTax} />
+            <div role="tabpanel" id={`${tabsId}-${tab}-panel`} aria-labelledby={`${tabsId}-${tab}`}>
+              {tab === "taxonomy" ? (
+                <ItemTaxonomy list={list} stage={stage} locale={locale} onStage={stageTax} />
+              ) : tab === "effects" ? (
+                <ItemEffects
+                  list={list}
+                  staged={stage.effects}
+                  locale={locale}
+                  onStage={stageEff}
+                  onOpenItem={(id) => select(id)}
+                />
+              ) : (
+                <ItemBulk
+                  list={list}
+                  locale={locale}
+                  issues={checked?.result?.issues ?? []}
+                  onStage={stageImport}
+                  onPatch={applyPatch}
+                />
+              )}
             </div>
           )}
           {askRisky ? (
-            <div className="ie-confirm" role="alertdialog" aria-labelledby="ie-ask-risky">
-              <p id="ie-ask-risky">{m.dev_items_confirm_code_ref({ ids: askRisky.join(", ") })}</p>
-              <div className="ie-inline-actions">
-                <button
-                  type="button"
-                  className="button-small button-primary ie-confirm-yes"
-                  onClick={() => void apply(true)}
-                >
-                  {m.dev_items_confirm_yes()}
-                </button>
-                <button type="button" className="button-small" onClick={() => setAskRisky(null)}>
-                  {m.dev_items_confirm_no()}
-                </button>
-              </div>
-            </div>
+            <RiskyConfirm ids={askRisky} onYes={() => void apply(true)} onNo={() => setAskRisky(null)} />
           ) : null}
           <ItemStageBar
             keys={keys}

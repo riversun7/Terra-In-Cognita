@@ -156,6 +156,13 @@ interface Kit {
   readonly innate: readonly { readonly id: string; readonly grade: number }[];
   readonly skillSlots: number;
   readonly dropped: readonly LabDropped[];
+  /** 유닛 자기 속성값·직접 값(장비 값은 loadoutOf가 더한다) */
+  readonly own: {
+    readonly elements: readonly number[];
+    readonly resistPm: readonly number[];
+    readonly defenseFlat: number;
+    readonly penetrationPm: number;
+  };
 }
 
 /** 유닛 종류·장비 칸·무기·스킬을 고른다(레벨과 무관: 레벨 표가 같은 장비로 줄마다 다시 계산한다) */
@@ -218,7 +225,13 @@ function kitOf(unit: LabUnit, rules: LabRules): Kit {
     unit.rebirths * kind.skillSlots.perRebirth,
     kind.skillSlots.max,
   );
-  return { kind, slots, equipped, weapon, innate, skillSlots, dropped };
+  const own = {
+    elements: unit.elements,
+    resistPm: unit.gear.resistPm,
+    defenseFlat: unit.gear.defenseFlat,
+    penetrationPm: unit.gear.penetrationPm,
+  };
+  return { kind, slots, equipped, weapon, innate, skillSlots, dropped, own };
 }
 
 function loadoutAt(kit: Kit, base: Primaries, rules: LabRules, level: number): Loadout {
@@ -234,8 +247,18 @@ function loadoutAt(kit: Kit, base: Primaries, rules: LabRules, level: number): L
     skillSlots: kit.skillSlots,
     // 행 식의 LV(docs/adr/2026-11-01-formula-editor.md)
     level,
+    // 입을 수 있는 유닛 종류(D-494), 유닛 자기 속성값·직접 값 위에 장비 값을 더한다(아이템 편집기 WP-5)
+    kind: kit.kind.id,
+    ...kit.own,
   });
 }
+
+/** 쓰지 않은 장비(양손 무기의 보조 칸·입을 수 없는 종류) → 화면 경고(레벨과 무관해 Lv 하나로 본다) */
+const ignoredOf = (loadout: Loadout): LabDropped[] =>
+  loadout.ignored.map((entry) => ({
+    kind: entry.reason === "two_handed" ? "two_handed" : "unit_kind",
+    id: entry.item,
+  }));
 
 /** 스킬 ID 목록 → 전투 스킬(고유 스킬은 그 등급, 장비 스킬은 등급 1) */
 function skillsFor(ids: readonly string[], kit: Kit, catalog: CombatCatalog): CombatSkill[] {
@@ -273,10 +296,11 @@ export function buildLabUnit(unit: LabUnit, rules: LabRules): BuiltLabUnit {
       primaries: loadout.primaries,
       // 맨손 식의 적정 DEX(D-488)
       level: unit.level,
-      elements: unit.elements,
-      resistPm: unit.gear.resistPm,
-      defenseFlat: unit.gear.defenseFlat,
-      penetrationPm: unit.gear.penetrationPm,
+      // 속성값·저항·고정 방어·관통 = 유닛 자기 값 + 장비 값(속성값은 칸마다 10에서 자름, D-450·D-178)
+      elements: loadout.elements,
+      resistPm: loadout.resistPm,
+      defenseFlat: loadout.defenseFlat,
+      penetrationPm: loadout.penetrationPm,
       cyborg: kit.kind.id === "cyborg",
       skills: skillsFor(loadout.skills, kit, rules.catalog),
     },
@@ -290,7 +314,7 @@ export function buildLabUnit(unit: LabUnit, rules: LabRules): BuiltLabUnit {
     grown,
     skillSlots: kit.skillSlots,
     weapon,
-    dropped: kit.dropped,
+    dropped: [...kit.dropped, ...ignoredOf(loadout)],
   };
 }
 

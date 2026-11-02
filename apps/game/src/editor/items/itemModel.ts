@@ -3,12 +3,14 @@
 // (docs/adr/2026-11-01-item-editor.md 3절).
 import type { ContentIssueView } from "@terra/shared/contentEdit";
 import {
+  EFFECT_KIND_IDS,
   ITEM_CATEGORY_IDS,
   ITEM_EDIT_CATEGORIES,
   ITEM_FORBIDDEN_ROWS,
   ITEM_PERISH_CATEGORIES,
   ITEM_PRIMARY_CODES,
   ITEM_PRIMARY_SLOTS,
+  type EffectJson,
   type ItemCategoryId,
   type ItemEditCategory,
   type ItemEditorChange,
@@ -222,15 +224,16 @@ export interface Staged<T> {
 }
 
 /** 분류 자료(중분류·태그·무기 종류) */
-export type TaxonomyCategory = Exclude<ItemEditCategory, "items">;
+export type TaxonomyCategory = "item_subcategories" | "item_tags" | "weapon_types";
 export type TaxonomyJson = SubcategoryJson | ItemTagJson | WeaponTypeJson;
 
-/** 담은 변경 전부(분류마다) */
+/** 담은 변경 전부(분류마다). 효과 사전(effects)은 [효과 사전] 탭이 고친다(WP-6) */
 export interface Stage {
   readonly items: ReadonlyMap<string, Staged<ItemJson>>;
   readonly item_subcategories: ReadonlyMap<string, Staged<TaxonomyJson>>;
   readonly item_tags: ReadonlyMap<string, Staged<TaxonomyJson>>;
   readonly weapon_types: ReadonlyMap<string, Staged<TaxonomyJson>>;
+  readonly effects: ReadonlyMap<string, Staged<EffectJson>>;
 }
 
 export const EMPTY_STAGE: Stage = {
@@ -238,12 +241,13 @@ export const EMPTY_STAGE: Stage = {
   item_subcategories: new Map(),
   item_tags: new Map(),
   weapon_types: new Map(),
+  effects: new Map(),
 };
 
 export const stageKey = (category: string, id: string): string => `${category}/${id}`;
 
 export function stageSize(stage: Stage): number {
-  return stage.items.size + stage.item_subcategories.size + stage.item_tags.size + stage.weapon_types.size;
+  return ITEM_EDIT_CATEGORIES.reduce((sum, category: ItemEditCategory) => sum + stage[category].size, 0);
 }
 
 /** 담은 변경 키 목록(분류/ID) */
@@ -283,6 +287,12 @@ export function stageTaxonomy(
   return { ...stage, weapon_types: setIn(stage.weapon_types, id, staged) };
 }
 
+/** 효과 사전 변경 하나를 바꾼 새 담은 변경(null = 뺀다, WP-6) */
+export const stageEffect = (stage: Stage, id: string, staged: Staged<EffectJson> | null): Stage => ({
+  ...stage,
+  effects: setIn(stage.effects, id, staged),
+});
+
 /** 항목 JSON → 보낼 객체(팩 파일 한 줄) */
 const toRecord = (value: object): Record<string, unknown> => Object.fromEntries(Object.entries(value));
 
@@ -293,10 +303,13 @@ function changeOf(category: ItemEditCategory, id: string, staged: Staged<object>
   return { op: "put", category, entry: toRecord(staged.entry), baseHash: staged.baseHash };
 }
 
-/** 담은 변경 → 서버 묶음: 분류 자료 먼저, 아이템은 다듬어서(cleanItem). 서버는 묶음 전체를 얹은 실효 팩으로 보니 차례는 읽기 편의다 */
+/**
+ * 담은 변경 → 서버 묶음: 분류 자료·효과 사전 먼저, 아이템은 다듬어서(cleanItem). 서버는 묶음 전체를 얹은 실효 팩으로 보니 차례는
+ * 읽기 편의다
+ */
 export function changesOf(stage: Stage): ItemEditorChange[] {
-  const taxonomy = (["item_subcategories", "item_tags", "weapon_types"] as const).flatMap((category) =>
-    [...stage[category]].map(([id, staged]) => changeOf(category, id, staged)),
+  const taxonomy = (["item_subcategories", "item_tags", "weapon_types", "effects"] as const).flatMap(
+    (category) => [...stage[category]].map(([id, staged]) => changeOf(category, id, staged)),
   );
   const items = [...stage.items].map(([id, staged]) =>
     changeOf("items", id, staged.entry ? { ...staged, entry: cleanItem(staged.entry) } : staged),
@@ -378,6 +391,22 @@ export function isTaxonomyJson(category: TaxonomyCategory, value: unknown): valu
   if (category === "item_subcategories") return ITEM_CATEGORY_IDS.some((major) => major === value.major);
   if (category === "weapon_types") return value.slot === "weapon" || value.slot === "offhand";
   return true;
+}
+
+/** 서버가 준 항목이 효과 사전 모양인가(칸마다의 규칙은 서버가 본다) */
+export function isEffectJson(value: unknown): value is EffectJson {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    isName(value.name) &&
+    EFFECT_KIND_IDS.some((kind) => kind === value.kind) &&
+    (value.valueMode === "flat" || value.valueMode === "permille") &&
+    typeof value.durationMs === "number" &&
+    typeof value.tickMs === "number" &&
+    (value.stacking === "refresh" || value.stacking === "stack" || value.stacking === "ignore") &&
+    typeof value.maxStacks === "number" &&
+    typeof value.enabled === "boolean"
+  );
 }
 
 /** 복제(설계안 3.8): 새 ID, 이름에 (복사)·(Copy), 꺼진 채로 */

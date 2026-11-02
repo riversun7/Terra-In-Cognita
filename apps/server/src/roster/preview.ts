@@ -16,7 +16,7 @@ import type {
   RosterPrisoner,
   RosterUnit,
 } from "@terra/shared/roster";
-import { elementsToArray, sumElementSources, zeroElements } from "@terra/shared/cyborg";
+import { elementsToArray, zeroElements } from "@terra/shared/cyborg";
 import { type Primaries, skillGradeCap } from "@terra/sim";
 import { TEST_MAP_KEY, TEST_PLANET_ID } from "../world/world.ts";
 import { type BodySpec, bodySheet, bodyView } from "./body.ts";
@@ -134,7 +134,8 @@ const UNITS: readonly PreviewUnitDef[] = [
     rebirths: 0,
     initial: p6([15, 8, 13, 14, 4, 6]),
     k: p6([1100, 900, 1050, 1050, 800, 900]),
-    gear: [[0, "test_ring", 500]],
+    // 크리쳐 칸: 0 무기·1 방어구(몸)·2 장신구(D-494, 아이템 편집기 WP-C). 무기 칸이 비면 타고난 무기(발톱)
+    gear: [[2, "test_ring", 500]],
     innate: ["shock_bash", "war_cry"],
     base: "Vega",
     job: null,
@@ -405,6 +406,9 @@ export function previewCyborg(catalog: RosterCatalog): CyborgBody {
     // 환생하면 추가 스킬을 얻는다(D-031): 시안은 함성
     innateSkills: ["war_cry"],
     source: "computed",
+    // 장비 밖 속성값(D-450): 생성 불 7·바람 3 + 종교 환생 빛 5. 인공장기(test_heart)의 불 2·빙결 3은 팩 장비 칸에서 더한다
+    // (아이템 편집기 WP-5: 코드에 박던 값을 팩 equip.elements로 옮겼다)
+    elements: elementsToArray({ ...zeroElements(), fire: 7, wind: 3, light: 5 }),
   });
   return {
     level: 23,
@@ -422,12 +426,8 @@ export function previewCyborg(catalog: RosterCatalog): CyborgBody {
     faithPoints: 140,
     living: { unpaid: false, efficiencyPm: 1000 },
     ...body,
-    // 시안은 Lv 23(만렙 아님)이라 K·처음 값을 보내지 않는다(D-449). 속성값 저장(D-450)이 생기기 전이라 0
+    // 시안은 Lv 23(만렙 아님)이라 K·처음 값을 보내지 않는다(D-449). 속성값은 body.elements(장비 밖 값 + 장비 속성값)
     growth: null,
-    // 속성값(D-450): 생성 불 7·바람 3 + 시안 인공장기(test_heart) 불 2·빙결 3 + 종교 환생 빛 5
-    elements: elementsToArray(
-      sumElementSources({ ...zeroElements(), fire: 7, wind: 3, light: 5 }, [{ fire: 2, frost: 3 }]),
-    ),
     fatigue: { value: 30, max: FATIGUE_MAX },
     inventory: [
       { id: "grain", amount: "40" },

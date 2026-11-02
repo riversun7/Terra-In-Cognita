@@ -538,11 +538,15 @@ export {
   wrongStatGroup,
   type EquipDef,
   type EquippedItem,
+  type GearCombat,
+  type IgnoredItem,
+  type IgnoredReason,
   type Loadout,
   type PrimaryCode,
   type SlotKind,
   type StatRange,
 } from "./combat/equipment.ts";
+export { resolveWeaponAppropriate, withStatTable } from "./combat/equipmentAppropriate.ts";
 export {
   TEST_COMBAT_CATALOG,
   UNARMED,

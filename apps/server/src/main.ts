@@ -6,13 +6,7 @@ import { loadServerContent } from "./content.ts";
 import { rosterCatalogOf } from "./roster/catalog.ts";
 import { effectNamesOf } from "./battleReplay/names.ts";
 import { createTuningState } from "./tuning/state.ts";
-import {
-  effectsOf,
-  formulaEntriesOf,
-  statRowsOf,
-  tuningEntriesOf,
-  unitKindNamesOf,
-} from "./world/combatCatalog.ts";
+import { formulaEntriesOf, statRowsOf, tuningEntriesOf, unitKindNamesOf } from "./world/combatCatalog.ts";
 import { createContentEditState } from "./contentEdit/state.ts";
 import { economyCatalogAccessor } from "./economyView/catalog.ts";
 import { nationPresetsOf } from "./npc/presets.ts";
@@ -88,7 +82,7 @@ const tuning = createTuningState(
 );
 // 팩 항목 실효 값(스킬·무기·유닛 종류 + 이 세계 DB의 덮어쓰기, docs/adr/2026-11-01-skill-editor.md 3·4절). 전투 자료를 읽는 곳은
 // 모두 이 접근자를 쓸 때마다 부른다(유닛 화면·정원사 웨이브 전투, 스킬 편집기 /dev/skills가 덮어쓴다)
-const contentEdit = createContentEditState(loaded.source, effectsOf(loaded.source));
+const contentEdit = createContentEditState(loaded.source);
 
 let app: FastifyInstance | undefined;
 const db = config.databaseUrl

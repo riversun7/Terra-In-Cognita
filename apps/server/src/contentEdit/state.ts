@@ -17,6 +17,7 @@ import {
   type SkillEntry,
   type UnitKindEntry,
   type WeaponTypeEntry,
+  effectEntrySchema,
   itemEntrySchema,
   itemSubcategoryEntrySchema,
   itemTagEntrySchema,
@@ -61,6 +62,8 @@ export interface ContentEffective {
   readonly itemSubcategories: readonly ItemSubcategoryEntry[];
   readonly itemTags: readonly ItemTagEntry[];
   readonly weaponTypes: readonly WeaponTypeEntry[];
+  /** 효과 사전(아이템 편집기 WP-6 효과 사전 탭이 덮어쓴다) */
+  readonly effects: readonly EffectEntry[];
 }
 
 export interface ContentSnapshot {
@@ -87,7 +90,7 @@ export interface ContentEditState {
   appliedCount(): number;
   /** 지금 실효 항목(스냅숏마다 같은 객체) */
   effective(): ContentEffective;
-  /** 팩의 효과 사전(덮어쓰지 않는다, 편집기의 특수 효과 고르기) */
+  /** 지금 실효 효과 사전(= effective().effects. 스킬·아이템 편집기의 효과 고르기, WP-6부터 덮어쓴 값) */
   readonly effects: readonly EffectEntry[];
   /** 팩 항목(덮어쓰기 없음, 파싱한 것) */
   readonly pack: ContentEffective;
@@ -134,16 +137,18 @@ function parseEffective(raw: RawEntries): ContentEffective {
     itemSubcategories: raw.item_subcategories.map((entry) => itemSubcategoryEntrySchema.parse(entry)),
     itemTags: raw.item_tags.map((entry) => itemTagEntrySchema.parse(entry)),
     weaponTypes: raw.weapon_types.map((entry) => weaponTypeEntrySchema.parse(entry)),
+    effects: raw.effects.map((entry) => effectEntrySchema.parse(entry)),
   };
 }
 
 const isEditCategory = (value: string): value is ContentEditCategory =>
   (CONTENT_EDIT_CATEGORIES as readonly string[]).includes(value);
 
-export function createContentEditState(
-  source: PackSource,
-  effects: readonly EffectEntry[],
-): ContentEditState {
+/** 실효 항목에서 거른 꺼진 참조(효과 사전도 실효 값, WP-6) */
+const referencesOf = (effective: ContentEffective): DroppedReferences =>
+  droppedReferences({ statRows: [], ...effective });
+
+export function createContentEditState(source: PackSource): ContentEditState {
   const core = createContentCore(source);
   const pack = parseEffective(core.packRaw);
   let current: ContentSnapshot = { revision: 0, overrides: new Map(), raw: core.packRaw, effective: pack };
@@ -155,8 +160,6 @@ export function createContentEditState(
   /** DB 줄 전부(잠든 줄 포함, 마지막 install) */
   let allRecords: readonly ContentOverrideRecord[] = [];
   const retired = new Map<ContentEditCategory, Set<string>>();
-  const referencesOf = (effective: ContentEffective): DroppedReferences =>
-    droppedReferences({ statRows: [], effects, ...effective });
   let dropped = referencesOf(pack);
 
   const hashOf = (category: ContentEditCategory, id: string): string | null => {
@@ -179,7 +182,9 @@ export function createContentEditState(
   };
 
   return {
-    effects,
+    get effects() {
+      return current.effective.effects;
+    },
     pack,
     core,
     snapshot: () => current,

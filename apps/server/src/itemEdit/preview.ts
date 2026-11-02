@@ -1,9 +1,9 @@
 // 아이템 미리 보기(서버가 셈한다, 설계안 3.7) — 기기는 판정 코드를 받지 않는다(경계 규칙).
 // - 장비: 기준 유닛(전투 실험실 기본 유닛 = 새 사이보그 평균 1차 10·Lv 1에 기본 무기·장비, 종류·레벨·1차는 화면이 바꾼다)에 초안을
 //   범위의 0·500·1000‰ 자리로 입혀 1차·2차 스탯을 입기 전·뒤로 셈한다. 유닛 화면과 같은 함수(itemAt·loadoutOf, 실효 가중치 표·행 식).
-// - 무기: 칸마다 실제 공격력·명중·크리·공격 간격을 그 세계의 실효 계산식(TuningState.combatFormulas)과 판정과 같은 변수 함수
-//   (@terra/shared/formula sampleScopes)로 셈한다(식을 여기에 박지 않는다). 1차 적정 스탯이 있으면 셈한 2차 적정치(D-496, WP-5 전)도.
-// - 소모품: 효과 줄마다 효과 사전 값(종류·수치·값 방식·실효 지속·중첩). 문장은 화면이 메시지 키로 만든다.
+//   전투 연결(아이템 편집기 WP-5): 속성값·저항·고정 방어·관통(입기 전·뒤), 양손 무기의 보조 칸·입을 수 없는 종류(ignored)도 보인다.
+// - 무기: previewWeapon.ts(실효 계산식 값, 1차 적정 스탯으로 셈한 2차 적정치와 풀이, 기준 유닛 효율).
+// - 소모품: previewUse.ts(효과 줄마다 효과 사전 값과 기준 유닛 스탯 비례·±오차 범위, D-496 286).
 // - 값: 이 아이템을 만드는 레시피마다 원가(BigInt, 글자로 보낸다).
 import {
   type EffectEntry,
@@ -14,16 +14,7 @@ import {
   koreanErrorMap,
   zodIssueCode,
 } from "@terra/content";
-import {
-  COMBAT_FORMULA_IDS,
-  COMBAT_FORMULA_SLOTS,
-  type FormulaCoefficients,
-  type FormulaSampleWeapon,
-  evaluateFormula,
-  evaluateFormulaInt,
-  sampleScopes,
-  staminaScoreScope,
-} from "@terra/shared/formula";
+import type { FormulaCoefficients } from "@terra/shared/formula";
 import {
   DEFAULT_PREVIEW_UNIT,
   ITEM_PRIMARY_CODES,
@@ -38,7 +29,6 @@ import {
   type Loadout,
   type SlotKind,
   UNARMED,
-  appropriateFromPrimaries,
   combatCoefficientsFrom,
   equipDefOf,
   itemAt,
@@ -50,6 +40,8 @@ import {
 import { LAB_SAMPLES } from "../battleLab/samples.ts";
 import type { TuningState } from "../tuning/state.ts";
 import { recipeCost } from "./advice.ts";
+import { previewUse } from "./previewUse.ts";
+import { previewWeapon } from "./previewWeapon.ts";
 
 export interface PreviewContext {
   /** 실효 전투 자료(유닛 종류·장비·스킬·실효 가중치 표) */
@@ -136,69 +128,61 @@ function coefficientsOf(tuning: TuningState | undefined): FormulaCoefficients {
   };
 }
 
-export function previewItem(
+type EquipPreview = NonNullable<ItemEditorPreviewResponse["equip"]>;
+
+/** 장비 미리 보기: 기본 장비에 초안을 자리마다 입혀 셈한다. 가운데 자리 몸(무기 미리 보기가 쓴다)도 돌려준다 */
+function previewEquip(
   ctx: PreviewContext,
-  entry: unknown,
-  unitInput: ItemPreviewUnit | undefined,
-): ItemEditorPreviewResponse {
-  const draft = parseDraft(entry);
-  if (!draft.ok)
-    return {
-      ok: false,
-      issues: draft.issues,
-      equip: null,
-      weapon: null,
-      use: null,
-      value: { baseValue: 0, recipes: [] },
-    };
-  const item = draft.item;
-  const unit = unitInput ?? DEFAULT_PREVIEW_UNIT;
+  item: ItemEntry,
+  unit: ItemPreviewUnit,
+): { equip: EquipPreview; middle: Loadout | null; def: ReturnType<typeof equipDefOf> } {
   const { combat } = ctx;
   const enabledSkills = new Set(combat.skills.map((skill) => skill.id));
-  const def = equipDefOf(item, enabledSkills);
-  let equip: ItemEditorPreviewResponse["equip"] = null;
-  let weapon: ItemEditorPreviewResponse["weapon"] = null;
-  let middle: Loadout | null = null;
-  if (def) {
-    const kind = combat.unitKinds.find((candidate) => candidate.id === unit.kind) ?? combat.unitKinds[0];
-    const slots = kind?.slots ?? [];
-    const byId = new Map(combat.equipment.map((gear) => [gear.id, gear]));
-    const base: (EquippedItem | null)[] = slots.map(() => null);
-    for (const gear of defaultGear()) {
-      const at = slots.findIndex((slot, index) => slot === gear.slot && base[index] === null);
-      const known = byId.get(gear.item);
-      if (at >= 0 && known && known.slot === gear.slot) base[at] = itemAt(known, gear.pm);
-    }
-    const slotIndex = slots.indexOf(def.slot);
-    const replaced = slotIndex >= 0 ? (base[slotIndex]?.item ?? null) : null;
-    const skillSlots = kind ? skillSlotCount(kind.skillSlots.base, 0, kind.skillSlots.max) : 0;
-    const loadout = (equipped: readonly (EquippedItem | null)[]) =>
-      loadoutOf({
-        base: primariesOf(unit),
-        slots,
-        equipped,
-        table: combat.statTable,
-        unarmed: kind?.naturalWeapon ?? UNARMED,
-        ...(kind ? { naturalIsWeapon: kind.naturalWeaponIsWeapon } : {}),
-        skillSlots,
-        level: unit.level,
-      });
-    let error: string | null = null;
-    try {
-      const before = loadout(base);
-      const after =
-        slotIndex < 0
-          ? []
-          : PREVIEW_PMS.map((pm) =>
-              loadout(base.map((gear, index) => (index === slotIndex ? itemAt(def, pm) : gear))),
-            );
-      middle = after[1] ?? null;
-      const usableWith = middle ?? before;
-      equip = {
-        unit,
-        slotIndex: slotIndex >= 0 ? slotIndex : null,
-        wearable: !item.equip?.kinds || item.equip.kinds.some((ref) => ref.id === kind?.id),
-        replaced,
+  // 실효 가중치 표로 1차 적정 스탯 → 2차 적정치를 셈한 장비 정의(전투 자료와 같은 변환, D-496)
+  const def = equipDefOf(item, enabledSkills, combat.statTable);
+  const kind = combat.unitKinds.find((candidate) => candidate.id === unit.kind) ?? combat.unitKinds[0];
+  const slots = kind?.slots ?? [];
+  const byId = new Map(combat.equipment.map((gear) => [gear.id, gear]));
+  const base: (EquippedItem | null)[] = slots.map(() => null);
+  for (const gear of defaultGear()) {
+    const at = slots.findIndex((slot, index) => slot === gear.slot && base[index] === null);
+    const known = byId.get(gear.item);
+    if (at >= 0 && known && known.slot === gear.slot) base[at] = itemAt(known, gear.pm);
+  }
+  const slotIndex = def ? slots.indexOf(def.slot) : -1;
+  const replaced = slotIndex >= 0 ? (base[slotIndex]?.item ?? null) : null;
+  const wearable = !item.equip?.kinds || item.equip.kinds.some((ref) => ref.id === kind?.id);
+  const skillSlots = kind ? skillSlotCount(kind.skillSlots.base, 0, kind.skillSlots.max) : 0;
+  const loadout = (equipped: readonly (EquippedItem | null)[]) =>
+    loadoutOf({
+      base: primariesOf(unit),
+      slots,
+      equipped,
+      table: combat.statTable,
+      unarmed: kind?.naturalWeapon ?? UNARMED,
+      ...(kind ? { naturalIsWeapon: kind.naturalWeaponIsWeapon, kind: kind.id } : {}),
+      skillSlots,
+      level: unit.level,
+    });
+  const shell = { unit, slotIndex: slotIndex >= 0 ? slotIndex : null, wearable, replaced };
+  if (!def)
+    return { equip: { ...shell, primaries: [], rows: [], skills: [], error: null }, middle: null, def };
+  try {
+    const before = loadout(base);
+    const after =
+      slotIndex < 0
+        ? []
+        : PREVIEW_PMS.map((pm) =>
+            loadout(base.map((gear, index) => (index === slotIndex ? itemAt(def, pm) : gear))),
+          );
+    const middle = after[1] ?? null;
+    const usableWith = middle ?? before;
+    const mid = middle ?? before;
+    return {
+      middle,
+      def,
+      equip: {
+        ...shell,
         primaries: ITEM_PRIMARY_CODES.map((stat) => ({
           stat,
           before: before.primaries[stat],
@@ -224,98 +208,59 @@ export function previewItem(
           };
         }),
         error: null,
-      };
-    } catch (caught) {
-      // 1차 스탯 합이 넘쳐 계산이 던짐 등(500으로 끝내지 않고 칸 오류로 보인다, 설계안 2.4)
-      error = caught instanceof RangeError ? "stat_overflow" : "preview_failed";
-      equip = {
-        unit,
-        slotIndex: slotIndex >= 0 ? slotIndex : null,
-        wearable: true,
-        replaced,
-        primaries: [],
-        rows: [],
-        skills: [],
-        error,
-      };
-    }
-  }
-  const spec = def?.weapon;
-  if (spec && middle) {
-    const tuning = ctx.tuning;
-    const formulas = tuning?.combatFormulas();
-    const overridden = new Set(tuning ? [...tuning.snapshot().formulas.keys()] : []);
-    const coefficients = coefficientsOf(tuning);
-    const p = middle.primaries;
-    const primaries = [p.str, p.dex, p.agi, p.vit, p.int, p.wis];
-    const fields = (["physical", "elemental"] as const).flatMap((kind) => {
-      const field = spec[kind];
-      if (!field || !formulas) return [];
-      const sample: FormulaSampleWeapon = {
-        kind,
-        attack: field.attack,
-        attackAppropriate: field.attackAppropriate,
-        hitPm: spec.hitPm,
-        hitAppropriate: spec.hitAppropriate,
-        critPm: spec.critPm,
-        critAppropriate: spec.critAppropriate,
-        intervalMs: spec.intervalMs,
-        speedAppropriate: spec.speedAppropriate,
-        staminaCost: spec.staminaCost,
-        unarmed: false,
-      };
-      const input = { primaries, level: unit.level, rows: [], weapon: sample, coefficients };
-      const staminaScore = evaluateFormulaInt(
-        formulas.stamina_score,
-        staminaScoreScope(primaries, coefficients.staminaWeightsPm),
-      );
-      const scopes = sampleScopes(input, middle?.stats ?? {}, staminaScore);
-      return [
-        {
-          kind,
-          values: COMBAT_FORMULA_IDS.filter((id) => id !== "bare_attack").map((id) => {
-            const slot = COMBAT_FORMULA_SLOTS[id];
-            return {
-              id,
-              value:
-                slot.result === "int"
-                  ? evaluateFormulaInt(formulas[id], scopes[id])
-                  : evaluateFormula(formulas[id], scopes[id]),
-              result: slot.result,
-              overridden: overridden.has(id),
-            };
-          }),
+        ignored: mid.ignored.map((entry) => ({ ...entry })),
+        gear: {
+          elements: { before: [...before.elements], after: [...mid.elements] },
+          resistPm: { before: [...before.resistPm], after: [...mid.resistPm] },
+          defenseFlat: { before: before.defenseFlat, after: mid.defenseFlat },
+          penetrationPm: { before: before.penetrationPm, after: mid.penetrationPm },
         },
-      ];
-    });
-    const appropriate = item.equip?.weapon?.appropriate;
-    let derived: NonNullable<ItemEditorPreviewResponse["weapon"]>["derived"] = null;
-    if (appropriate) {
-      try {
-        derived = appropriateFromPrimaries(appropriate, combat.statTable);
-      } catch {
-        derived = null;
-      }
-    }
-    weapon = { fields, derived };
+      },
+    };
+  } catch (caught) {
+    // 칸 묶음이 틀린 초안 등(500으로 끝내지 않고 칸 오류로 보인다, 설계안 2.4). 1차 합 넘침은 loadoutOf가 자른다
+    const error = caught instanceof RangeError ? "stat_overflow" : "preview_failed";
+    return { middle: null, def, equip: { ...shell, primaries: [], rows: [], skills: [], error } };
   }
-  const use = item.use
-    ? {
-        lines: item.use.effects.map((part) => {
-          const effect = ctx.effects.find((known) => known.id === part.effect.id);
-          return {
-            effect: part.effect.id,
-            kind: effect?.kind ?? null,
-            stat: effect?.stat ?? null,
-            valueMode: effect?.valueMode ?? null,
-            value: part.value,
-            chancePm: part.chancePm,
-            durationMs: part.durationMs ?? effect?.durationMs ?? null,
-            stacking: effect?.stacking ?? null,
-          };
-        }),
-      }
-    : null;
+}
+
+export function previewItem(
+  ctx: PreviewContext,
+  entry: unknown,
+  unitInput: ItemPreviewUnit | undefined,
+  /** 소모품 효과량의 기본 ±오차‰(설정 칸 d496_use_variance 실효 값) */
+  useVariancePm = 0,
+): ItemEditorPreviewResponse {
+  const draft = parseDraft(entry);
+  if (!draft.ok)
+    return {
+      ok: false,
+      issues: draft.issues,
+      equip: null,
+      weapon: null,
+      use: null,
+      value: { baseValue: 0, recipes: [] },
+    };
+  const item = draft.item;
+  const unit = unitInput ?? DEFAULT_PREVIEW_UNIT;
+  let equip: ItemEditorPreviewResponse["equip"] = null;
+  let weapon: ItemEditorPreviewResponse["weapon"] = null;
+  if (item.equip) {
+    const shown = previewEquip(ctx, item, unit);
+    equip = shown.equip;
+    const spec = shown.def?.weapon;
+    if (spec && shown.middle)
+      weapon = previewWeapon({
+        spec,
+        appropriate: shown.def?.appropriate,
+        middle: shown.middle,
+        level: unit.level,
+        table: ctx.combat.statTable,
+        tuning: ctx.tuning,
+        coefficients: coefficientsOf(ctx.tuning),
+      });
+  }
+  const use = item.use ? previewUse(item.use, ctx.effects, unit, useVariancePm) : null;
   const values = new Map(ctx.values);
   values.set(item.id, item.baseValue);
   const recipes = ctx.recipes.flatMap((recipe) => {

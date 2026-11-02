@@ -1,7 +1,7 @@
 // 미리 보기 판(설계안 3.7, 서버 items.preview가 셈한다 — 기기는 계산하지 않는다): 기준 유닛(종류·레벨·1차 6개, 기본 = 새 사이보그 평균),
-// 장비 = 담은 초안을 범위 최소·가운데·최대 자리로 입힌 1차·2차 수치(입기 전 → 뒤, 바뀌는 행만), 장비 스킬 쓸 수 있나(D-490),
-// 무기 = 공격 칸마다 그 세계의 실효 계산식 값(덮어쓴 식 표시)과 1차 적정 스탯으로 셈한 2차 적정치(D-496, 전투 연결 WP-5),
-// 소모품 = 효과 줄 문장, 값 = 레시피 원가(입력 기준 가치 합 ÷ 출력 수량)와 기준 가치 차이(BigInt).
+// 장비 = 담은 초안을 범위 최소·가운데·최대 자리로 입힌 1차·2차 수치(입기 전 → 뒤, 바뀌는 행만), 장비 스킬 쓸 수 있나(D-490), 전투 칸
+// (속성값·직접 값·쓰지 않은 장비, WP-5), 무기 = ItemPreviewParts(실효 계산식 값·셈한 적정치·효율), 소모품 = 효과 줄 문장과 기준 유닛으로
+// 셈한 효과량 범위(D-496 286), 값 = 레시피 원가(입력 기준 가치 합 ÷ 출력 수량)와 기준 가치 차이(BigInt).
 import {
   ITEM_PRIMARY_CODES,
   type ItemEditorListResponse,
@@ -11,7 +11,9 @@ import {
 import { useId } from "react";
 import { m } from "../../paraglide/messages.js";
 import { NumberField, SelectField } from "../content/contentEditorFields.tsx";
-import { PRIMARY_TEXT, effectSentence, formulaName, issueText, milliText } from "./itemMessages.ts";
+import { GearPart, WeaponPart } from "./ItemPreviewParts.tsx";
+import { amountText } from "./itemEffectsText.ts";
+import { PRIMARY_TEXT, effectSentence, issueText } from "./itemMessages.ts";
 
 type Preview = ItemEditorPreviewResponse;
 type EquipPreview = NonNullable<Preview["equip"]>;
@@ -143,6 +145,7 @@ function EquipTable({
       <p id={captionId} className="field-hint">
         {m.dev_items_preview_rows_hint()}
       </p>
+      <GearPart equip={equip} names={new Map(list.items.map((item) => [item.id, item.name[locale]]))} />
       {equip.skills.length > 0 ? (
         <ul className="ie-plain">
           {equip.skills.map((skill) => (
@@ -153,46 +156,6 @@ function EquipTable({
             </li>
           ))}
         </ul>
-      ) : null}
-    </>
-  );
-}
-
-function WeaponPart({ weapon }: { weapon: NonNullable<Preview["weapon"]> }) {
-  return (
-    <>
-      {weapon.fields.map((field) => (
-        <div key={field.kind} className="ie-table-wrap">
-          <table className="ie-table" data-field={field.kind}>
-            <caption>
-              {field.kind === "physical" ? m.dev_items_attack_physical() : m.dev_items_attack_elemental()}
-            </caption>
-            <tbody>
-              {field.values.map((value) => (
-                <tr key={value.id}>
-                  <th scope="row">{formulaName(value.id)}</th>
-                  <td>{value.result === "fixed" ? milliText(value.value) : value.value}</td>
-                  <td>
-                    {value.overridden ? (
-                      <span className="ie-chip">{m.dev_items_formula_overridden()}</span>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ))}
-      {weapon.derived ? (
-        <p className="field-hint" data-part="derived">
-          {m.dev_items_preview_derived({
-            physical: weapon.derived.physicalAttack,
-            elemental: weapon.derived.elementalAttack,
-            hit: weapon.derived.hit,
-            crit: weapon.derived.crit,
-            speed: weapon.derived.speed,
-          })}
-        </p>
       ) : null}
     </>
   );
@@ -276,7 +239,7 @@ export function ItemPreview({
       {preview?.weapon ? (
         <div className="ie-preview-part" data-part="weapon">
           <h3 className="ie-subheading">{m.dev_items_preview_weapon()}</h3>
-          <WeaponPart weapon={preview.weapon} />
+          <WeaponPart weapon={preview.weapon} list={list} locale={locale} />
         </div>
       ) : null}
       {preview?.use ? (
@@ -284,11 +247,23 @@ export function ItemPreview({
           <h3 className="ie-subheading">{m.dev_items_preview_use()}</h3>
           <ul className="ie-plain">
             {preview.use.lines.map((line, index) => (
-              <li key={`${index}-${line.effect}`}>
+              <li key={`${index}-${line.effect}`} data-line={index}>
                 {effectSentence(line, effects.get(line.effect) ?? line.effect, statNames)}
+                {line.amount ? (
+                  <>
+                    <br />
+                    <span className="ie-dim" data-part="amount">
+                      {amountText(line.amount)}
+                    </span>
+                  </>
+                ) : null}
+                {line.exclusive ? (
+                  <span className="ie-chip">{m.dev_items_preview_exclusive({ group: line.exclusive })}</span>
+                ) : null}
               </li>
             ))}
           </ul>
+          <p className="field-hint">{m.dev_items_preview_use_runtime()}</p>
         </div>
       ) : null}
       {preview?.ok ? (

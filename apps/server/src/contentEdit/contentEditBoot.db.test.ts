@@ -6,7 +6,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { loadServerContent } from "../content.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
-import { effectsOf } from "../world/combatCatalog.ts";
 import { bootContentEdit, createContentEditShared } from "./services.ts";
 import { type ContentEditState, createContentEditState, entryHash } from "./state.ts";
 import { CONTENT_AUDIT_ACTIONS, loadContentOverrides } from "./store.ts";
@@ -73,7 +72,7 @@ describe.skipIf(!TEST_DATABASE_URL)("스킬 편집기 켤 때 잠재우기 (DB)"
     );
   };
   const boot = async (source: PackSource): Promise<ContentEditState> => {
-    const state = createContentEditState(source, effectsOf(source));
+    const state = createContentEditState(source);
     const version = state.packVersion;
     const shared = createContentEditShared({
       state,
@@ -88,7 +87,7 @@ describe.skipIf(!TEST_DATABASE_URL)("스킬 편집기 켤 때 잠재우기 (DB)"
   beforeAll(async () => {
     test = await createTestDatabase();
     const n1 = packN1();
-    const n1State = createContentEditState(n1, effectsOf(n1));
+    const n1State = createContentEditState(n1);
     // N+1이 저장한 세 줄: 만든 항목, 해시가 같은 고친 항목(power_strike는 두 판이 같다), N에 없는 항목(n1_spark)
     await insert(
       "editor_nova",
@@ -119,7 +118,7 @@ describe.skipIf(!TEST_DATABASE_URL)("스킬 편집기 켤 때 잠재우기 (DB)"
 
   it("N+1이 저장한 줄(만든 항목·해시 같은 고친 항목·N에 없는 항목)은 N을 켜도 지우지 않고, 적용하지 않는다(감사 content.slept)", async () => {
     expect(entryHash(skillOf(packN, "power_strike"))).toBe(
-      createContentEditState(packN1(), effectsOf(packN1())).packHash("skills", "power_strike"),
+      createContentEditState(packN1()).packHash("skills", "power_strike"),
     );
     const state = await boot(packN);
     expect(state.packVersion).toBe(N);
@@ -158,7 +157,7 @@ describe.skipIf(!TEST_DATABASE_URL)("스킬 편집기 켤 때 잠재우기 (DB)"
 
   it("N+1에서 바뀐 팩 항목의 줄은 N을 켜면 팩이 이긴다(되돌림 배포가 그 항목을 바꿈, 감사 content.pack_won)", async () => {
     const changed = packN1(true);
-    const changedState = createContentEditState(changed, effectsOf(changed));
+    const changedState = createContentEditState(changed);
     await insert(
       "shock_bash",
       { ...skillOf(packN, "shock_bash"), cost: 50 },

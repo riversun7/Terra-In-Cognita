@@ -25,7 +25,7 @@ import {
   trpcQuery,
 } from "../testDb.ts";
 import { createTuningState } from "../tuning/state.ts";
-import { effectsOf, formulaEntriesOf, statRowsOf, tuningEntriesOf } from "../world/combatCatalog.ts";
+import { formulaEntriesOf, statRowsOf, tuningEntriesOf } from "../world/combatCatalog.ts";
 
 const PASSWORD = "fake pass phrase 7";
 const RELAXED = {
@@ -62,7 +62,7 @@ describe.skipIf(!TEST_DATABASE_URL)("아이템 편집기 (DB)", () => {
       statRowsOf(loaded.source),
       formulaEntriesOf(loaded.source),
     );
-    content = createContentEditState(loaded.source, effectsOf(loaded.source));
+    content = createContentEditState(loaded.source);
     roster = rosterCatalogOf(
       loaded.source,
       () => tuning.society(),

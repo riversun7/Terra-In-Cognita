@@ -132,7 +132,7 @@
         "ko": "크리쳐",
         "en": "Creature"
       },
-      "slots": ["accessory", "saddle"],
+      "slots": ["weapon", "body", "accessory"],
       "skillSlots": {
         "base": 4,
         "perRebirth": 1,

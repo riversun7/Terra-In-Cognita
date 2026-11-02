@@ -18,16 +18,19 @@ import type { ContentIssueView } from "@terra/shared/contentEdit";
 import {
   ITEM_EDITOR_HISTORY_LIMIT,
   ITEM_EDIT_CATEGORIES,
+  ITEM_LIMITS,
   type ItemCodeRef,
   type ItemEditCategory,
   type ItemEditorChange,
   type ItemEditorCheckResponse,
+  type ItemEditorExportResponse,
   type ItemEditorGetResponse,
   type ItemEditorHistoryRow,
   type ItemEditorListResponse,
   type ItemEditorPreviewResponse,
   type ItemPreviewUnit,
   type ItemUsage,
+  applyItemPatch,
 } from "@terra/shared/itemEditor";
 import { normalizeTuningNote } from "@terra/shared/tuning";
 import { sql } from "drizzle-orm";
@@ -43,6 +46,7 @@ import { reasonedError } from "../trpc/init.ts";
 import type { TuningShared } from "../tuning/services.ts";
 import { type AdviceContext, itemAdvice } from "./advice.ts";
 import { itemCodeRefs } from "./codeRefs.ts";
+import { effectJsonOf, effectUsageOf } from "./effectViews.ts";
 import { previewItem } from "./preview.ts";
 import {
   itemJsonOf,
@@ -58,6 +62,8 @@ import {
 export const ITEM_EDITOR_REJECTED = "ITEM_EDITOR_REJECTED";
 /** 장비 파괴 문턱 설정 칸(F12, 49_Settings.md) */
 const DESTROY_AT_ID = "f12_destroy_at";
+/** 소모품 효과량 기본 ±오차 설정 칸(D-496 286, 출발 250‰ [임시]) */
+const USE_VARIANCE_ID = "d496_use_variance";
 
 /** 서버가 켤 때 한 번 만든 것(두 편집기가 같은 덮어쓰기 층 ContentEditShared를 쓴다) */
 export interface ItemEditShared {
@@ -100,6 +106,8 @@ export interface ItemEditorSaveInput {
 export interface ItemEditorServices {
   list(): Promise<ItemEditorListResponse>;
   get(id: string): Promise<ItemEditorGetResponse>;
+  /** 실효 아이템 통째(대량 도구 내보내기·가져오기 차이, WP-7) */
+  exportEntries(): Promise<ItemEditorExportResponse>;
   check(changes: readonly ItemEditorChange[]): Promise<ItemEditorCheckResponse>;
   preview(entry: unknown, unit: ItemPreviewUnit | undefined): Promise<ItemEditorPreviewResponse>;
   save(viewer: Viewer, input: ItemEditorSaveInput): Promise<ItemEditorListResponse>;
@@ -121,8 +129,14 @@ const named = (entry: { id: string; name: { ko: string; en: string }; enabled: b
   enabled: entry.enabled,
 });
 
-/** 화면 바꿈 → 덮어쓰기 묶음(잠든 줄 버리기는 따로) */
-function putsOf(changes: readonly ItemEditorChange[]): {
+/**
+ * 화면 바꿈 → 덮어쓰기 묶음(잠든 줄 버리기는 따로). 여러 개 고치기(patch, WP-7)는 지금 실효 항목에 그 칸만 얹은 항목 통째로 바꾸고
+ * baseHash는 지금 해시다(그사이 누가 바꾸면 차례 안에서 entry_changed). 모르는 ID면 unknown_entry, 묶음 상한을 넘으면 invalid_entry
+ */
+function putsOf(
+  changes: readonly ItemEditorChange[],
+  state: ContentSnapshotReader,
+): {
   puts: ContentPut[];
   discard: { category: ItemEditCategory; id: string }[];
 } {
@@ -137,11 +151,35 @@ function putsOf(changes: readonly ItemEditorChange[]): {
       puts.push({ category: change.category, id: change.id, entry: null, baseHash: change.baseHash });
       continue;
     }
+    if (change.op === "patch") {
+      const items = new Map(state.effective().items.map((item) => [item.id, item]));
+      const missing = change.ids.filter((id) => !items.has(id));
+      if (missing.length > 0) throw rejected("unknown_entry", missing);
+      for (const id of new Set(change.ids)) {
+        const item = items.get(id);
+        if (!item) continue;
+        const before = itemJsonOf(item);
+        const after = applyItemPatch(before, change.patch);
+        if (after === before) continue;
+        puts.push({ category: "items", id, entry: toRecord(after), baseHash: state.hashOf("items", id) });
+      }
+      continue;
+    }
     const id = change.entry.id;
     if (typeof id !== "string") throw rejected("invalid_entry", ["id"]);
     puts.push({ category: change.category, id, entry: change.entry, baseHash: change.baseHash });
   }
+  if (puts.length > ITEM_LIMITS.changesMax) throw rejected("invalid_entry", ["changes"]);
   return { puts, discard };
+}
+
+/** 항목 JSON → 보낼 객체 */
+const toRecord = (value: object): Record<string, unknown> => Object.fromEntries(Object.entries(value));
+
+/** putsOf가 읽는 지금 실효 항목·해시 */
+interface ContentSnapshotReader {
+  effective(): { readonly items: readonly ItemEntry[] };
+  hashOf(category: "items", id: string): string | null;
 }
 
 export function createItemEditorServices(deps: {
@@ -158,20 +196,28 @@ export function createItemEditorServices(deps: {
     effective,
     effects: state.effects,
     statRows: shared.statRows,
+    statTable: shared.roster.combat.statTable,
     recipes: shared.recipes,
     necessities: shared.necessities,
     destroyAt: destroyAt(),
   });
-  /** 스냅숏·설정 판마다 한 번 셈한 권고 */
+  /** 스냅숏·설정 판·가중치 표마다 한 번 셈한 권고 */
   let adviceCache:
-    | { snapshot: ContentSnapshot; destroyAt: number | null; byId: Map<string, ContentIssueView[]> }
+    | {
+        snapshot: ContentSnapshot;
+        destroyAt: number | null;
+        table: unknown;
+        byId: Map<string, ContentIssueView[]>;
+      }
     | undefined;
   const adviceOf = (snapshot: ContentSnapshot): Map<string, ContentIssueView[]> => {
     const at = destroyAt();
-    if (adviceCache?.snapshot === snapshot && adviceCache.destroyAt === at) return adviceCache.byId;
+    const table = shared.roster.combat.statTable;
+    if (adviceCache?.snapshot === snapshot && adviceCache.destroyAt === at && adviceCache.table === table)
+      return adviceCache.byId;
     const ctx = adviceContext(snapshot.effective);
     const byId = new Map(snapshot.effective.items.map((item) => [item.id, itemAdvice(ctx, item)]));
-    adviceCache = { snapshot, destroyAt: at, byId };
+    adviceCache = { snapshot, destroyAt: at, table, byId };
     return byId;
   };
 
@@ -220,7 +266,7 @@ export function createItemEditorServices(deps: {
         bareHand: skill.bareHand === true,
         enabled: skill.enabled,
       })),
-      effects: state.effects.map((effect) => ({
+      effects: effective.effects.map((effect) => ({
         id: effect.id,
         name: { ko: effect.name.ko, en: effect.name.en },
         kind: effect.kind,
@@ -230,6 +276,7 @@ export function createItemEditorServices(deps: {
         stacking: effect.stacking,
         status: effect.status ?? null,
         enabled: effect.enabled,
+        exclusive: effect.exclusive ?? null,
       })),
       statRows: shared.statRows.map((row) => ({
         id: row.id,
@@ -242,10 +289,14 @@ export function createItemEditorServices(deps: {
         item_subcategories: state.retiredIds("item_subcategories"),
         item_tags: state.retiredIds("item_tags"),
         weapon_types: state.retiredIds("weapon_types"),
+        effects: state.retiredIds("effects"),
       },
       sleeping: state
         .sleepingRows()
         .filter((row) => (ITEM_EDIT_CATEGORIES as readonly string[]).includes(row.category)),
+      // 효과 사전 탭(WP-6): 항목 통째·출처·해시와 효과마다 쓰는 아이템·스킬
+      effectRows: taxonomyRows(state, snapshot, "effects", effective.effects, effectJsonOf),
+      effectUsage: effectUsageOf(effective),
     };
   };
 
@@ -311,8 +362,17 @@ export function createItemEditorServices(deps: {
       };
     },
 
+    exportEntries() {
+      const snapshot = state.snapshot();
+      return Promise.resolve({
+        contentVersion: content.pack.contentVersion,
+        revision: snapshot.revision,
+        entries: snapshot.effective.items.map(itemJsonOf),
+      });
+    },
+
     check(changes) {
-      const { puts } = putsOf(changes);
+      const { puts } = putsOf(changes, state);
       const plan = state.plan(puts);
       if (!plan.ok) {
         // entry_changed 등 검사기 밖의 까닭도 문제 한 줄로 보인다(코드 = 까닭)
@@ -362,11 +422,13 @@ export function createItemEditorServices(deps: {
     preview(entry, unit) {
       const combat = shared.roster.combat;
       const values = new Map(state.effective().items.map((item) => [item.id, item.baseValue]));
+      const variance = shared.tuning?.state.values().get(USE_VARIANCE_ID) ?? 0;
       return Promise.resolve(
         previewItem(
           { combat, tuning: shared.tuning?.state, effects: state.effects, recipes: shared.recipes, values },
           entry,
           unit,
+          variance,
         ),
       );
     },
@@ -374,7 +436,7 @@ export function createItemEditorServices(deps: {
     async save(viewer, input) {
       const note = normalizeTuningNote(input.note);
       if (note === false) throw rejected("invalid_note");
-      const { puts, discard } = putsOf(input.changes);
+      const { puts, discard } = putsOf(input.changes, state);
       await applyContentBatch(
         { db, shared: content, ip: deps.ip },
         viewer,

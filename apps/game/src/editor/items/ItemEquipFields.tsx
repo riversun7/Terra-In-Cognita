@@ -50,6 +50,8 @@ export function ItemEquipFields({
   const firstStat = statOptions[0]?.value ?? "str";
   const types = list.weaponTypes.filter((row) => row.entry.slot === equip.slot);
   const typed = equip.slot === "weapon" || equip.slot === "offhand";
+  // 탄약 장비(보조 칸 탄약 종류, D-497): 최대 내구도 = 담는 탄 수
+  const ammo = types.some((row) => row.entry.id === equip.weaponType && row.entry.ammo === true);
   const elements = equip.elements ?? [];
   const resist = equip.combat?.resistPm ?? [];
   const skills = equip.skills ?? [];
@@ -93,12 +95,15 @@ export function ItemEquipFields({
           />
         ) : null}
         <NumberField
-          label={m.dev_items_field_durability()}
+          label={ammo ? m.dev_items_field_ammo_capacity() : m.dev_items_field_durability()}
           value={equip.maxDurability}
           min={L.maxDurability.min}
           max={L.maxDurability.max}
           optional
-          hint={fieldHint("equip.maxDurability", m.dev_items_durability_hint())}
+          hint={fieldHint(
+            "equip.maxDurability",
+            ammo ? m.dev_items_ammo_capacity_hint() : m.dev_items_durability_hint(),
+          )}
           problem={problem("equip.maxDurability")}
           onChange={(maxDurability) => {
             const { maxDurability: _drop, ...rest } = equip;

@@ -201,7 +201,17 @@ const ISSUE_TEXT: Readonly<Record<string, (params: Params) => string>> = {
   advice_skills_over_slots: (p) => m.dev_items_advice_skills_over_slots({ slots: num(p, "slots") }),
   advice_skill_unusable: (p) => m.dev_items_advice_skill_unusable({ skill: num(p, "skill") }),
   advice_appropriate_zero: () => m.dev_items_advice_appropriate_zero(),
-  advice_appropriate_pending: () => m.dev_items_advice_appropriate_pending(),
+  advice_appropriate_derived_zero: (p) =>
+    m.dev_items_advice_appropriate_derived_zero({ rows: num(p, "rows") }),
+  advice_kind_no_slot: (p) => m.dev_items_advice_kind_no_slot({ kind: num(p, "kind"), slot: num(p, "slot") }),
+  advice_creature_unwearable: () => m.dev_items_advice_creature_unwearable(),
+  advice_ammo_capacity: () => m.dev_items_advice_ammo_capacity(),
+  advice_ammo_type_not_ammo: (p) => m.dev_items_advice_ammo_type_not_ammo({ type: num(p, "type") }),
+  effect_stat_required: () => m.dev_items_issue_effect_stat_required(),
+  effect_stat_kind: () => m.dev_items_issue_effect_stat_kind(),
+  effect_status_kind: () => m.dev_items_issue_effect_status_kind(),
+  effect_resist_kind: () => m.dev_items_issue_effect_resist_kind(),
+  weapon_type_ammo_slot: () => m.dev_items_issue_weapon_type_ammo_slot(),
   advice_durability_low: (p) => m.dev_items_advice_durability_low({ value: num(p, "destroyAt") }),
   advice_resist_immune: (p) =>
     m.dev_items_advice_resist_immune({ element: elementAt(Number(p.element ?? -1)) }),

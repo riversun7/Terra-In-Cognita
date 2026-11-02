@@ -23,7 +23,7 @@ import {
   trpcQuery,
 } from "../testDb.ts";
 import { createTuningState } from "../tuning/state.ts";
-import { effectsOf, tuningEntriesOf } from "../world/combatCatalog.ts";
+import { tuningEntriesOf } from "../world/combatCatalog.ts";
 import { type ContentEditState, createContentEditState } from "./state.ts";
 import { CONTENT_AUDIT_ACTIONS } from "./store.ts";
 
@@ -58,7 +58,7 @@ describe.skipIf(!TEST_DATABASE_URL)("스킬 편집기 (DB)", () => {
 
   const start = async () => {
     const tuning = createTuningState(tuningEntriesOf(loaded.source));
-    content = createContentEditState(loaded.source, effectsOf(loaded.source));
+    content = createContentEditState(loaded.source);
     roster = rosterCatalogOf(loaded.source, undefined, undefined, () => content.effective());
     const built = await buildApp({
       contentVersion: loaded.content.version,

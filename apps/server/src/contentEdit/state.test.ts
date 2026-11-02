@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { loadServerContent } from "../content.ts";
 import { rosterCatalogOf } from "../roster/catalog.ts";
-import { effectsOf } from "../world/combatCatalog.ts";
 import {
   type ContentOverrideRecord,
   type EntryJson,
@@ -18,7 +17,7 @@ import {
 const loaded = loadServerContent(DEFAULT_CONTENT_DIR);
 if (!loaded.ok) throw new Error(loaded.lines.join("\n"));
 const source = loaded.source;
-const fresh = () => createContentEditState(source, effectsOf(source));
+const fresh = () => createContentEditState(source);
 
 const packSkill = (id: string): Record<string, unknown> => {
   const entry = fresh().packEntry("skills", id);
@@ -145,7 +144,7 @@ describe("팩 항목 덮어쓰기 묶음(plan)", () => {
         removed: [{ category: "skills", id: "old_slash", since: 1, compensation: { kind: "none" } }],
       }),
     );
-    const state = createContentEditState({ packId: source.packId, files }, effectsOf(source));
+    const state = createContentEditState({ packId: source.packId, files });
     expect(state.retiredIds("skills")).toEqual(["old_slash"]);
     const reuse = { ...packSkill("power_strike"), id: "old_slash" };
     expect(state.plan([{ category: "skills", id: "old_slash", entry: reuse }])).toMatchObject({
@@ -213,11 +212,7 @@ describe("켤 때 고르기(가장 나중에 바꾼 것이 이긴다, D-461)", (
     ]);
     expect(selection.keep).toHaveLength(1);
     state.install(selection.keep, 1);
-    const catalog = combatCatalogFrom({
-      statRows: [],
-      effects: [...state.effects],
-      ...state.effective(),
-    });
+    const catalog = combatCatalogFrom({ statRows: [], ...state.effective() });
     expect(catalog.equipment.find((item) => item.id === "test_sword")?.weapon?.staminaCost).toBe(4);
   });
 });

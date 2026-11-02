@@ -1356,6 +1356,45 @@
       "structural": false
     },
     {
+      "id": "d496_wear_battle",
+      "code": "",
+      "name": {
+        "ko": "전투마다 장비 내구도 닳는 양(점, 이겨도)",
+        "en": "Equipment wear per battle (points, win or lose)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000000
+    },
+    {
+      "id": "d496_wear_loss",
+      "code": "",
+      "name": {
+        "ko": "패배 때 더 닳는 장비 내구도(점, 전투마다 값에 더함)",
+        "en": "Extra equipment wear on defeat (points, added to per-battle wear)"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000000
+    },
+    {
+      "id": "d496_use_variance",
+      "code": "",
+      "name": {
+        "ko": "소모품 효과량 오차(±‰)",
+        "en": "Consumable effect amount variance (±‰)"
+      },
+      "value": 250,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
       "id": "s19_trait_min",
       "code": "S19",
       "name": {

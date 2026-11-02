@@ -1,12 +1,23 @@
 // 장비 → 스탯 — docs/adr/2026-10-31-combat-core.md 7절, 기획 D-422(장비 칸)·D-423(올리는 스탯)·D-424(적정치 미달)·D-426·D-427(스킬 칸)
-// - 칸 배치는 유닛 종류마다 자료다(콘텐츠 팩 `unit_kinds`, 구조 값 D-5054): 사람형 공통 6칸 + 종류별 강화 칸, 크리쳐 2칸.
+// - 칸 배치는 유닛 종류마다 자료다(콘텐츠 팩 `unit_kinds`, 구조 값 D-5054): 사람형 공통 6칸 + 종류별 강화 칸, 크리쳐 3칸(D-494).
 // - 장비 하나 = 칸 종류 + 스탯 목록 {스탯 코드, 값}(팩에는 {최소, 최대}, 값은 만들 때 정한다) + (무기면) 무기 사양 + 장비 스킬.
 // - 무기·방어구(무기·보조·머리·몸·안장)는 2차 수치, 장신구·인공장기·부품은 1차 스탯을 올린다(D-423). 칸과 스탯 묶음이 맞지 않으면 거절한다.
 // - 착용에 스탯 요구가 없다(D-424). 성능은 판정 때 무기 틀 min(2, 유닛 값 ÷ 적정치)으로 준다(formula.ts weaponScaled).
 // 기획 48 §5와 맞췄다(안장 = 1차, 2차 공격력은 장비가 올리지 않음). [임시] 칸 이름(코드)·장비 스킬(소켓 인챈트 전 단계).
+// 전투 연결(아이템 편집기 WP-5, docs/adr/2026-11-01-item-editor.md "바뀜 (2026-11-02)"): 장비의 속성값은 자기 값과 더해 칸마다 10에서
+// 자르고(D-450, @terra/shared sumElementSources 하나), 저항‰·고정 방어·비율 관통‰은 더한다(D-178·D-421). 양손 무기를 든 동안 보조 칸
+// 장비와 그 유닛 종류가 입을 수 없는 장비(kinds, D-494)는 던지지 않고 빼서 ignored로 알린다. 1차·장비 2차 합은 입력 범위에서 자른다
+// (넘침에 던지지 않는다). 1차 적정 스탯 → 2차 적정치는 전투 자료를 만들 때 무기 사양에 넣는다(equipmentAppropriate.ts).
+import {
+  type ElementSource,
+  elementsFromArray,
+  elementsToArray,
+  sumElementSources,
+} from "@terra/shared/cyborg";
 import { EQUIP_SLOTS } from "@terra/shared/roster";
+import type { PrimaryAppropriate } from "./appropriate.ts";
 import type { GemRef } from "./gems.ts";
-import { type Primaries, type StatRow, computeSecondary } from "./stats.ts";
+import { MAX_STAT_INPUT, type Primaries, type StatRow, computeSecondary } from "./stats.ts";
 import type { WeaponSpec } from "./unitSpec.ts";
 
 export const PRIMARY_CODES = ["str", "dex", "agi", "vit", "int", "wis"] as const;
@@ -28,18 +39,37 @@ export interface StatRange {
   readonly max: number;
 }
 
+/** 장비 하나가 전투에 더하는 칸(정의에서 만든 물건으로 그대로 옮긴다. 없으면 0·없음) */
+export interface GearCombat {
+  /** 속성값 출처(D-450: 칸 ID → 1~10). 유닛 속성값 = 자기 값 + 출처 합, 칸마다 10에서 자름 */
+  readonly elements?: ElementSource | undefined;
+  /** 속성별 저항‰ 12칸(ELEMENT_IDS 차례, D-421). 장비마다 더한다(D-178) */
+  readonly resistPm?: readonly number[] | undefined;
+  /** 고정 방어(D-421) */
+  readonly defenseFlat?: number | undefined;
+  /** 비율 관통‰(D-421) */
+  readonly penetrationPm?: number | undefined;
+  /** 양손 무기(무기 칸, 48 §5.5): 든 동안 보조 칸 장비를 쓰지 않는다 */
+  readonly twoHanded?: boolean | undefined;
+  /** 입을 수 있는 유닛 종류(D-494 전용 장비 등). 없으면 그 칸을 가진 모든 종류 */
+  readonly kinds?: readonly string[] | undefined;
+}
+
 /** 장비 정의(팩 `items`의 equip 칸) */
-export interface EquipDef {
+export interface EquipDef extends GearCombat {
   readonly id: string;
   readonly slot: SlotKind;
   readonly stats: readonly StatRange[];
+  /** 무기 사양. 1차 적정 스탯(appropriate)이 있으면 적정치 칸은 그 값으로 셈한 2차 값이다(equipmentAppropriate.ts) */
   readonly weapon?: WeaponSpec | undefined;
   /** 장비 스킬(D-426. 지금은 아이템이 스킬을 바로 가진다. 스킬석 소켓은 뒤 단계) */
   readonly skills: readonly string[];
+  /** 무기의 1차 적정 스탯(D-496, 착용 제한 아님). 가중치 표가 바뀌면 이 값으로 적정치를 다시 셈한다 */
+  readonly appropriate?: PrimaryAppropriate | undefined;
 }
 
 /** 만들어진 장비 하나(스탯 값이 정해짐) */
-export interface EquippedItem {
+export interface EquippedItem extends GearCombat {
   readonly item: string;
   readonly slot: SlotKind;
   readonly values: readonly { readonly stat: string; readonly value: number }[];
@@ -50,6 +80,18 @@ export interface EquippedItem {
 }
 
 const isPrimary = (stat: string): stat is PrimaryCode => (PRIMARY_CODES as readonly string[]).includes(stat);
+
+/** 정의의 전투 칸 가운데 적은 것만(만든 물건이 정의와 같은 칸을 든다) */
+function gearCombatOf(def: GearCombat): GearCombat {
+  return {
+    ...(def.elements === undefined ? {} : { elements: def.elements }),
+    ...(def.resistPm === undefined ? {} : { resistPm: def.resistPm }),
+    ...(def.defenseFlat === undefined ? {} : { defenseFlat: def.defenseFlat }),
+    ...(def.penetrationPm === undefined ? {} : { penetrationPm: def.penetrationPm }),
+    ...(def.twoHanded === undefined ? {} : { twoHanded: def.twoHanded }),
+    ...(def.kinds === undefined ? {} : { kinds: def.kinds }),
+  };
+}
 
 /** 칸과 스탯 묶음이 맞는지(D-423). 틀리면 그 스탯 코드 */
 export function wrongStatGroup(
@@ -72,6 +114,7 @@ export function rollItem(def: EquipDef, roll: (n: number) => number): EquippedIt
     })),
     weapon: def.weapon,
     skills: def.skills,
+    ...gearCombatOf(def),
   };
 }
 
@@ -86,6 +129,7 @@ export function itemAt(def: EquipDef, pm: number): EquippedItem {
     })),
     weapon: def.weapon,
     skills: def.skills,
+    ...gearCombatOf(def),
   };
 }
 
@@ -94,8 +138,18 @@ export function skillSlotCount(base: number, rebirths: number, max: number): num
   return Math.max(0, Math.min(max, base + Math.max(0, rebirths)));
 }
 
+/** 끼웠지만 쓰지 않은 장비의 까닭: 양손 무기를 든 동안의 보조 칸, 그 유닛 종류가 입을 수 없음(kinds) */
+export type IgnoredReason = "two_handed" | "kind";
+
+export interface IgnoredItem {
+  /** 칸 번호(slots 차례) */
+  readonly index: number;
+  readonly item: string;
+  readonly reason: IgnoredReason;
+}
+
 export interface Loadout {
-  /** 1차 스탯(기본 + 장신구·인공장기·부품) */
+  /** 1차 스탯(기본 + 장신구·인공장기·부품). 입력 범위(±MAX_STAT_INPUT)에서 자른다 */
   readonly primaries: Primaries;
   /** 2차 스탯(가중치 표 + 무기·방어구 수치 + 버프) */
   readonly stats: Record<string, number>;
@@ -109,11 +163,29 @@ export interface Loadout {
   readonly bareHanded: boolean;
   /** 쓸 스킬 ID: 고유 스킬 먼저, 그다음 장비 스킬, 스킬 칸 수까지(D-426·D-427) */
   readonly skills: readonly string[];
+  /** 속성값 12칸(ELEMENT_IDS 차례): 자기 값 + 장비 출처, 칸마다 10에서 자름(D-450, sumElementSources) */
+  readonly elements: readonly number[];
+  /** 속성별 저항‰ 12칸: 자기 값 + 장비 합(D-178·D-421) */
+  readonly resistPm: readonly number[];
+  /** 고정 방어: 자기 값 + 장비 합 */
+  readonly defenseFlat: number;
+  /** 비율 관통‰: 자기 값 + 장비 합 */
+  readonly penetrationPm: number;
+  /** 끼웠지만 쓰지 않은 장비(화면이 "양손 무기라 보조 칸 꺼짐"·"이 종류는 못 입음"을 보인다) */
+  readonly ignored: readonly IgnoredItem[];
 }
+
+const ELEMENT_COUNT = 12;
+/** 입력 범위 안으로(1차·장비 2차 합의 넘침에 던지지 않는다) */
+const clampStat = (value: number): number => Math.max(-MAX_STAT_INPUT, Math.min(MAX_STAT_INPUT, value));
+/** 12칸 배열(모자란 칸 0) */
+const twelve = (values: readonly number[] | undefined): number[] =>
+  Array.from({ length: ELEMENT_COUNT }, (_, index) => values?.[index] ?? 0);
 
 /**
  * 칸 배치에 장비를 끼우고 스탯을 계산한다. equipped[i]는 slots[i] 칸의 장비(없으면 null).
- * 칸 종류가 다르거나 스탯 묶음이 틀리면 RangeError(팩 검사·서버가 먼저 막는 값). 스탯 요구 검사는 없다(D-424).
+ * 칸 종류가 다르거나 스탯 묶음이 틀리면 RangeError(팩 검사·서버가 먼저 막는 값, 부르는 쪽이 칸이 맞는 장비만 넣는다).
+ * 양손 무기를 든 동안의 보조 칸 장비와 그 종류(kind)가 입을 수 없는 장비는 던지지 않고 빼서 ignored에 적는다. 스탯 요구 검사는 없다(D-424).
  */
 export function loadoutOf(options: {
   readonly base: Primaries;
@@ -128,18 +200,45 @@ export function loadoutOf(options: {
   readonly buffs?: Readonly<Record<string, number>>;
   /** 레벨(행 식의 LV, 없으면 1) */
   readonly level?: number;
+  /** 유닛 종류 ID(장비 kinds 거르기, D-494). 없으면 거르지 않는다 */
+  readonly kind?: string;
+  /** 자기 속성값 12칸(생성·환생·신앙 등 장비 밖 출처의 합). 없으면 0 */
+  readonly elements?: readonly number[];
+  /** 자기 전투 직접 값(전투 실험실 직접 값 등). 없으면 0 */
+  readonly resistPm?: readonly number[];
+  readonly defenseFlat?: number;
+  readonly penetrationPm?: number;
 }): Loadout {
   const { slots, equipped } = options;
   if (equipped.length > slots.length) throw new RangeError("more items than slots");
+  const wearable = (item: EquippedItem): boolean =>
+    options.kind === undefined || item.kinds === undefined || item.kinds.includes(options.kind);
+  // 양손 무기(입을 수 있는 것만): 든 동안 보조 칸 장비를 쓰지 않는다
+  const twoHanded = equipped.some(
+    (item, index) => item?.twoHanded === true && slots[index] === "weapon" && wearable(item),
+  );
   const primary: Record<PrimaryCode, number> = { ...options.base };
   const gear: Record<string, number> = {};
   let weapon = options.unarmed;
   let armed = false;
   const equipSkills: string[] = [];
+  const ignored: IgnoredItem[] = [];
+  const sources: ElementSource[] = [];
+  const resist = twelve(options.resistPm);
+  let defenseFlat = options.defenseFlat ?? 0;
+  let penetrationPm = options.penetrationPm ?? 0;
   for (let i = 0; i < equipped.length; i++) {
     const item = equipped[i];
     if (!item) continue;
     if (item.slot !== slots[i]) throw new RangeError(`item ${item.item} does not fit slot ${slots[i]}`);
+    if (!wearable(item)) {
+      ignored.push({ index: i, item: item.item, reason: "kind" });
+      continue;
+    }
+    if (twoHanded && item.slot === "offhand") {
+      ignored.push({ index: i, item: item.item, reason: "two_handed" });
+      continue;
+    }
     const wrong = wrongStatGroup(item.slot, item.values);
     if (wrong !== undefined)
       throw new RangeError(`item ${item.item}: stat ${wrong} not allowed in ${item.slot}`);
@@ -156,7 +255,16 @@ export function loadoutOf(options: {
       if (gem.kind === "skill") equipSkills.push(gem.skill);
       else if (isPrimary(gem.stat)) primary[gem.stat] += gem.value;
     }
+    if (item.elements) sources.push(item.elements);
+    const itemResist = item.resistPm;
+    if (itemResist)
+      for (let e = 0; e < ELEMENT_COUNT; e++) resist[e] = (resist[e] ?? 0) + (itemResist[e] ?? 0);
+    defenseFlat += item.defenseFlat ?? 0;
+    penetrationPm += item.penetrationPm ?? 0;
   }
+  // 넘침에 던지지 않는다: 입력 범위(MAX_STAT_INPUT)에서 자른다(실제 값은 이보다 훨씬 작다, 기술 보호)
+  for (const code of PRIMARY_CODES) primary[code] = clampStat(primary[code]);
+  for (const row of Object.keys(gear)) gear[row] = clampStat(gear[row] ?? 0);
   const skills = [...new Set([...(options.innateSkills ?? []), ...equipSkills])];
   return {
     primaries: primary,
@@ -165,5 +273,10 @@ export function loadoutOf(options: {
     weapon,
     bareHanded: !armed && options.naturalIsWeapon !== true,
     skills: skills.slice(0, options.skillSlots ?? skills.length),
+    elements: elementsToArray(sumElementSources(elementsFromArray(twelve(options.elements)), sources)),
+    resistPm: resist,
+    defenseFlat,
+    penetrationPm,
+    ignored,
   };
 }

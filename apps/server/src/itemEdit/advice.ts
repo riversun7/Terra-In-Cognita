@@ -1,15 +1,14 @@
 // 아이템 권고 — 저장을 막지 않는 문제(설계안 2.7 "권고"). 서버가 그 세계의 실효 항목으로 셈해 목록에는 개수로, 편집 칸에는 줄로 보인다.
 // 코드(advice_*)와 값(params)을 단다: 화면은 메시지 키로 보인다. 규칙이 아니라 알림이다(문턱 값은 기술 상수 [A]).
+// 장비 칸 권고는 adviceEquip.ts(파일 크기).
 import type { EffectEntry, ItemEntry, NecessityEntry, RecipeEntry, StatRowEntry } from "@terra/content";
 import type { ContentIssueView } from "@terra/shared/contentEdit";
-import { ITEM_PRIMARY_SLOTS } from "@terra/shared/itemEditor";
-import { MAX_STAT_INPUT } from "@terra/sim";
+import type { StatRow } from "@terra/sim";
 import type { ContentEffective } from "../contentEdit/state.ts";
+import { equipAdvice } from "./adviceEquip.ts";
 
 /** 기준 가치가 레시피 원가의 몇 배를 넘으면 알리나(기술 상수) */
 const VALUE_OVER_COST = 10n;
-/** 1차 스탯 합이 상한의 몇 ‰를 넘으면 알리나 */
-const OVERFLOW_WARN_PM = 900;
 /** 이름 길이(F19 범위: 한글 2~8자, 영문 3~16자, 49_Settings.md. 대상이 크리쳐 등이라 권고만) */
 const NAME_LENGTH = { ko: { min: 2, max: 8 }, en: { min: 3, max: 16 } } as const;
 
@@ -17,6 +16,8 @@ export interface AdviceContext {
   readonly effective: ContentEffective;
   readonly effects: readonly EffectEntry[];
   readonly statRows: readonly StatRowEntry[];
+  /** 그 세계의 실효 가중치 표(1차 적정 스탯 → 2차 적정치 셈, D-496) */
+  readonly statTable: readonly StatRow[];
   readonly recipes: readonly RecipeEntry[];
   readonly necessities: readonly NecessityEntry[];
   /** 장비 파괴 문턱(설정 칸 F12 f12_destroy_at 실효 값). 없으면 null */
@@ -79,9 +80,7 @@ export function itemAdvice(ctx: AdviceContext, item: ItemEntry): ContentIssueVie
   }
 
   // 꺼진 것을 가리킨다(참조 검사는 켬·끔을 보지 않는다. 전투 자료는 꺼진 스킬·효과를 걸러 낸다)
-  const skillsOn = enabledIds(effective.skills);
   const effectsOn = enabledIds(ctx.effects);
-  const rowsOn = enabledIds(ctx.statRows);
   const itemsOn = enabledIds(effective.items);
   const disabledRef = (path: string, category: string, id: string, on: ReadonlySet<string>) => {
     if (!on.has(id)) add(path, "advice_disabled_ref", { category, id });
@@ -101,62 +100,7 @@ export function itemAdvice(ctx: AdviceContext, item: ItemEntry): ContentIssueVie
     disabledRef(`use.effects[${index}].effect`, "effects", part.effect.id, effectsOn);
   });
 
-  const equip = item.equip;
-  if (equip) {
-    const typesOn = enabledIds(effective.weaponTypes);
-    if (equip.weaponType) disabledRef("equip.weaponType", "weapon_types", equip.weaponType.id, typesOn);
-    if (equip.weapon?.ammo) disabledRef("equip.weapon.ammo", "weapon_types", equip.weapon.ammo.id, typesOn);
-    equip.stats.forEach((range, index) => {
-      if (typeof range.stat !== "string")
-        disabledRef(`equip.stats[${index}].stat`, "stat_rows", range.stat.id, rowsOn);
-    });
-    (equip.skills ?? []).forEach((skill, index) => {
-      disabledRef(`equip.skills[${index}]`, "skills", skill.id, skillsOn);
-    });
-    // 입을 수 있는 켜진 유닛 종류(그 칸이 있고, kinds가 있으면 그 안)
-    const allowed = equip.kinds ? new Set(equip.kinds.map((kind) => kind.id)) : null;
-    const wearers = effective.unitKinds.filter(
-      (kind) => kind.enabled && kind.slots.includes(equip.slot) && (!allowed || allowed.has(kind.id)),
-    );
-    if (wearers.length === 0) add("equip.slot", "advice_no_wearer", { slot: equip.slot });
-    const slotCount = wearers.length > 0 ? Math.min(...wearers.map((kind) => kind.skillSlots.base)) : 0;
-    const granted = equip.skills ?? [];
-    if (wearers.length > 0 && granted.length > slotCount)
-      add("equip.skills", "advice_skills_over_slots", { count: granted.length, slots: slotCount });
-    // 이 무기의 칸으로 쓸 수 없는 장비 스킬(D-490)
-    const weapon = equip.weapon;
-    if (weapon) {
-      const fields = new Set([
-        ...(weapon.physical ? ["physical"] : []),
-        ...(weapon.elemental ? ["elemental"] : []),
-      ]);
-      granted.forEach((ref, index) => {
-        const skill = effective.skills.find((entry) => entry.id === ref.id);
-        if (!skill || skill.bareHand === true) return;
-        const need = skill.weaponField ?? skill.base;
-        const usable = need === "any" ? fields.size > 0 : fields.has(need);
-        if (!usable) add(`equip.skills[${index}]`, "advice_skill_unusable", { skill: skill.id, field: need });
-      });
-      // 적정치 0: 실효 식 if(A <= 0, W, …)라 유닛 스탯과 상관없이 무기 값 그대로
-      const zero = (path: string, value: number | undefined) => {
-        if (value === 0) add(`equip.weapon.${path}`, "advice_appropriate_zero", { field: path });
-      };
-      zero("physical.attackAppropriate", weapon.physical?.attackAppropriate);
-      zero("elemental.attackAppropriate", weapon.elemental?.attackAppropriate);
-      zero("hitAppropriate", weapon.hitAppropriate);
-      zero("critAppropriate", weapon.critAppropriate);
-      if (weapon.appropriate) add("equip.weapon.appropriate", "advice_appropriate_pending");
-    }
-    if (equip.maxDurability !== undefined && ctx.destroyAt !== null && equip.maxDurability <= ctx.destroyAt)
-      add("equip.maxDurability", "advice_durability_low", { destroyAt: ctx.destroyAt });
-    (equip.combat?.resistPm ?? []).forEach((pm, index) => {
-      if (pm >= 1000) add(`equip.combat.resistPm[${index}]`, "advice_resist_immune", { element: index });
-    });
-    if (ITEM_PRIMARY_SLOTS.includes(equip.slot)) {
-      const sum = equip.stats.reduce((total, range) => total + Math.max(0, range.max), 0);
-      if (sum * 1000 > MAX_STAT_INPUT * OVERFLOW_WARN_PM) add("equip.stats", "advice_stat_overflow", { sum });
-    }
-  }
+  if (item.equip) equipAdvice(ctx, item.equip, add);
 
   // 경제: 레시피 티어·원가, 끄면 멈추는 것, 생필품
   const values = new Map(effective.items.map((entry) => [entry.id, entry.baseValue]));

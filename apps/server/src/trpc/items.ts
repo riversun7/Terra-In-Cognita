@@ -6,7 +6,7 @@
 // ITEM_EDITOR_REASONS — invalid_entry(+ data.details)·unknown_entry·retired_id·duplicate_entry·invalid_note·entry_changed(data.details
 // = 키)·category_locked·entry_too_large·created_limit. 하나라도 틀리면 묶음 전체를 받지 않는다), CONFLICT("revision_conflict"),
 // NOT_FOUND(message "ITEM_EDITOR_UNAVAILABLE": 인증이나 팩이 없는 서버).
-import { ITEM_EDIT_CATEGORIES, ITEM_LIMITS } from "@terra/shared/itemEditor";
+import { ITEM_BULK_LIMITS, ITEM_EDIT_CATEGORIES, ITEM_LIMITS } from "@terra/shared/itemEditor";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { TuningAction } from "./context.ts";
@@ -30,10 +30,26 @@ const entry = z.custom<Readonly<Record<string, unknown>>>(
     contentId.safeParse(Reflect.get(value, "id")).success,
 );
 
+/** 여러 개 고치기(WP-7): 칸 범위는 팩 스키마와 같다(서버가 얹은 항목을 팩 검사기로 다시 본다) */
+const patch = z.strictObject({
+  enabled: z.boolean().optional(),
+  tier: z.int().min(ITEM_LIMITS.tier.min).max(ITEM_LIMITS.tier.max).optional(),
+  subcategory: contentId.nullable().optional(),
+  tagsAdd: z.array(contentId).max(ITEM_LIMITS.tags).readonly().optional(),
+  tagsRemove: z.array(contentId).max(ITEM_LIMITS.tags).readonly().optional(),
+  baseValuePm: z.int().min(ITEM_BULK_LIMITS.baseValuePm.min).max(ITEM_BULK_LIMITS.baseValuePm.max).optional(),
+});
+
 const change = z.discriminatedUnion("op", [
   z.strictObject({ op: z.literal("put"), category, entry, baseHash }),
   z.strictObject({ op: z.literal("revert"), category, id: contentId, baseHash }),
   z.strictObject({ op: z.literal("discard_sleeping"), category, id: contentId }),
+  z.strictObject({
+    op: z.literal("patch"),
+    category: z.literal("items"),
+    ids: z.array(contentId).min(1).max(ITEM_BULK_LIMITS.patchIdsMax).readonly(),
+    patch,
+  }),
 ]);
 const changes = z.array(change).min(1).max(ITEM_LIMITS.changesMax);
 
@@ -64,6 +80,8 @@ export const itemsRouter = router({
   list: read.query(({ ctx }) => ctx.items.list()),
   /** 항목 하나 통째·팩 항목·덮어쓰기·쓰는 곳·권고 */
   get: read.input(z.strictObject({ id: contentId })).query(({ ctx, input }) => ctx.items.get(input.id)),
+  /** 실효 아이템 통째(대량 도구 JSON·CSV 내보내기와 가져오기 차이, WP-7) */
+  export: read.query(({ ctx }) => ctx.items.exportEntries()),
   /** 묶음 검사(저장하지 않음): 코드가 붙은 문제·권고·끄면 멈추는 것 */
   check: read.input(z.strictObject({ changes })).query(({ ctx, input }) => ctx.items.check(input.changes)),
   /** 저장 전 초안 미리 보기(기준 유닛·실효 계산식) */

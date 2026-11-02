@@ -1,0 +1,83 @@
+/* 아이템 편집기 [효과 사전]·[대량 도구] 탭(WP-6·WP-7) — 촘촘한 표 줄과 작은 입력(D-498 개발자 화면). tokens.css의 var(--…)만 쓴다. */
+
+.ie-tab-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-2);
+}
+.ie-tab-tools > * {
+  min-width: 0;
+  flex: 1 1 10em;
+}
+.ie-tab-form {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ie-fx-table th[scope="row"] {
+  white-space: normal;
+}
+.ie-fx-table tr[data-selected] th {
+  box-shadow: inset var(--border-w) 0 0 var(--color-focus);
+}
+.ie-fx-table tr[data-selected] th,
+.ie-fx-table tr[data-selected] td {
+  color: var(--color-focus);
+}
+.ie-fx-pick {
+  min-height: var(--tap-size);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-weight: var(--font-weight-strong);
+  text-align: start;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.ie-fx-link {
+  margin-inline-end: var(--space-1);
+  cursor: pointer;
+}
+.ie-scale-rows {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ie-scale-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  padding-block: var(--space-1);
+  border-block-end: var(--hairline) solid var(--color-border);
+}
+.ie-bulk {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ie-bulk-text {
+  width: 100%;
+  min-height: 8em;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+.ie-bulk-errors {
+  max-height: 14em;
+  overflow-y: auto;
+}
+.ie-bulk-pick {
+  max-height: 18em;
+  overflow-y: auto;
+}
+
+@media (min-width: 40em) {
+  .ie-scale-row {
+    grid-template-columns: minmax(8em, 1fr) repeat(3, minmax(0, 1fr));
+    align-items: end;
+  }
+}

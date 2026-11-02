@@ -3,6 +3,9 @@
 // 꺼진(또는 없는) 참조는 거른다(docs/adr/2026-11-01-skill-editor.md 2절): 켜진 장비가 가리키는 꺼진 스킬 ID, 켜진 스킬이 가리키는
 // 꺼진 효과 줄. 편집기로 스킬·효과를 꺼도 그것을 주는 장비·스킬로 전투 사양을 만들 때 던지지 않게 한다(뺀 것은 droppedReferences).
 // 행 식(stat_rows formula)과 전투 계산식(formulas)은 읽은 식 나무로 바꾼다(팩 검사가 이미 본 식, 틀리면 던진다).
+// 장비 전투 칸(아이템 편집기 WP-5): 속성값·저항·고정 방어·관통·양손·입을 수 있는 유닛 종류를 장비 정의로 옮기고, 1차 적정 스탯이 있는
+// 무기는 실효 가중치 표로 셈한 2차 적정치를 무기 사양에 넣는다(equipmentAppropriate.ts). 크리쳐 보유·내구도·무기 종류·탄약 연결은
+// 전투가 아직 읽지 않아 옮기지 않는다(조우·내구도·탄약 실행 줄기).
 import type {
   EffectEntry,
   FormulaEntry,
@@ -12,23 +15,64 @@ import type {
   UnitKindEntry,
 } from "@terra/content";
 import { STAT_FORMULA_VARS, compileFormulaOrThrow } from "@terra/shared/formula";
+import type { PrimaryAppropriate } from "./appropriate.ts";
 import type { CombatCatalog } from "./catalog.ts";
-import type { EffectDef } from "./effects.ts";
-import type { EquipDef } from "./equipment.ts";
+import type { EffectDef, ModifierStat } from "./effects.ts";
+import type { EquipDef, GearCombat } from "./equipment.ts";
+import { resolveWeaponAppropriate } from "./equipmentAppropriate.ts";
 import { type CombatFormulaSet, combatFormulaSetFrom } from "./formulas.ts";
 import type { SkillData } from "./skills.ts";
 import type { StatRow } from "./stats.ts";
 import type { WeaponSpec } from "./unitSpec.ts";
 
 type PackWeapon = NonNullable<NonNullable<ItemEntry["equip"]>["weapon"]>;
+type PackEquip = NonNullable<ItemEntry["equip"]>;
 
 /**
- * 팩 무기 사양 → 전투 무기 사양. 전투가 아직 읽지 않는 칸(1차 적정 스탯·양손·탄약 연결, docs/adr/2026-11-01-item-editor.md
- * 2절 — 전투 연결은 WP-5)은 뺀다(전투 사양·저장된 전투 시작 자료에 섞이지 않게. 칸이 없는 지금 팩 무기는 그대로)
+ * 팩 무기 사양 → 전투 무기 사양(숫자 칸만). 1차 적정 스탯·양손은 장비 정의(EquipDef appropriate·twoHanded)로 옮기고, 탄약 연결은
+ * 전투가 아직 읽지 않아 뺀다(전투 사양·저장된 전투 시작 자료에 섞이지 않게)
  */
 export function weaponSpecOf(weapon: PackWeapon): WeaponSpec {
   const { appropriate: _appropriate, twoHanded: _twoHanded, ammo: _ammo, ...spec } = weapon;
   return spec;
+}
+
+const COMBAT_STATS: readonly string[] = [
+  "attack",
+  "defense_rate",
+  "evade",
+  "penetration",
+  "crit_multiplier",
+  "move_speed",
+  "shield_regen",
+] satisfies readonly ModifierStat[];
+const isCombatStat = (stat: string): stat is ModifierStat => COMBAT_STATS.includes(stat);
+
+/** 효과의 수치 → 전투 수치(1차 스탯 버프는 전투가 아직 읽지 않아 없음) */
+function combatStatOf(stat: EffectEntry["stat"]): ModifierStat | undefined {
+  return stat !== undefined && isCombatStat(stat) ? stat : undefined;
+}
+
+/** 팩 1차 적정 스탯(적은 칸만) */
+function appropriateOf(weapon: PackWeapon | undefined): PrimaryAppropriate | undefined {
+  const value = weapon?.appropriate;
+  if (!value) return undefined;
+  return Object.fromEntries(Object.entries(value).filter(([, amount]) => amount !== undefined));
+}
+
+/** 팩 장비의 전투 칸(적은 것만): 속성값 출처(칸 ID → 값)·저항·고정 방어·관통·양손·입을 수 있는 유닛 종류 */
+function gearCombatOfPack(equip: PackEquip): GearCombat {
+  const combat = equip.combat;
+  return {
+    ...(equip.elements && equip.elements.length > 0
+      ? { elements: Object.fromEntries(equip.elements.map((cell) => [cell.element, cell.value])) }
+      : {}),
+    ...(combat?.resistPm === undefined ? {} : { resistPm: combat.resistPm }),
+    ...(combat?.defenseFlat === undefined ? {} : { defenseFlat: combat.defenseFlat }),
+    ...(combat?.penetrationPm === undefined ? {} : { penetrationPm: combat.penetrationPm }),
+    ...(equip.weapon?.twoHanded === true ? { twoHanded: true } : {}),
+    ...(equip.kinds === undefined ? {} : { kinds: equip.kinds.map((kind) => kind.id) }),
+  };
 }
 
 const idOf = (ref: { readonly id: string }): string => ref.id;
@@ -96,20 +140,30 @@ export function droppedReferences(pack: CombatPackEntries): DroppedReferences {
 
 /**
  * 팩 아이템 하나 → 장비 정의(장비가 아니면 undefined). 꺼진(또는 없는) 스킬은 뺀다(skillsOf가 모르는 스킬에서 던지지 않게).
- * 아이템 편집기 미리 보기(서버)가 저장 전 초안에 같은 변환을 쓴다
+ * table(실효 가중치 표)을 주면 1차 적정 스탯이 있는 무기의 적정치를 그 표로 셈한다(D-496). 아이템 편집기 미리 보기(서버)가 저장 전
+ * 초안에 같은 변환을 쓴다
  */
-export function equipDefOf(item: ItemEntry, enabledSkills: ReadonlySet<string>): EquipDef | undefined {
-  if (!item.equip) return undefined;
+export function equipDefOf(
+  item: ItemEntry,
+  enabledSkills: ReadonlySet<string>,
+  table?: readonly StatRow[],
+): EquipDef | undefined {
+  const equip = item.equip;
+  if (!equip) return undefined;
+  const appropriate = appropriateOf(equip.weapon);
+  const weapon = equip.weapon ? weaponSpecOf(equip.weapon) : undefined;
   return {
     id: item.id,
-    slot: item.equip.slot,
-    stats: item.equip.stats.map((range) => ({
+    slot: equip.slot,
+    stats: equip.stats.map((range) => ({
       stat: typeof range.stat === "string" ? range.stat : idOf(range.stat),
       min: range.min,
       max: range.max,
     })),
-    weapon: item.equip.weapon ? weaponSpecOf(item.equip.weapon) : undefined,
-    skills: (item.equip.skills ?? []).map(idOf).filter((skill) => enabledSkills.has(skill)),
+    weapon: table && appropriate ? resolveWeaponAppropriate({ weapon, appropriate }, table) : weapon,
+    skills: (equip.skills ?? []).map(idOf).filter((skill) => enabledSkills.has(skill)),
+    ...gearCombatOfPack(equip),
+    ...(appropriate ? { appropriate } : {}),
   };
 }
 
@@ -123,7 +177,8 @@ export function combatCatalogFrom(pack: CombatPackEntries): CombatCatalog {
       (entry): EffectDef => ({
         id: entry.id,
         kind: entry.kind,
-        stat: entry.stat,
+        // 1차 스탯 버프(요리 버프 D-472)는 전투가 아직 읽지 않는다: 수치 없는 버프로 둔다(modifiersOf가 건너뜀)
+        stat: combatStatOf(entry.stat),
         valueMode: entry.valueMode,
         durationMs: entry.durationMs,
         tickMs: entry.tickMs,
@@ -169,7 +224,7 @@ export function combatCatalogFrom(pack: CombatPackEntries): CombatCatalog {
       }),
     );
   const equipment = pack.items.flatMap((item): EquipDef[] => {
-    const def = item.enabled ? equipDefOf(item, enabledSkills) : undefined;
+    const def = item.enabled ? equipDefOf(item, enabledSkills, statTable) : undefined;
     return def ? [def] : [];
   });
   const unitKinds = pack.unitKinds

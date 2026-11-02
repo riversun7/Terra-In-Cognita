@@ -43,6 +43,8 @@ export interface BodySpec {
   readonly equipped: ReadonlyMap<number, { readonly item: string; readonly pm: number }>;
   readonly innateSkills: readonly string[];
   readonly source: RosterStats["source"];
+  /** 장비 밖 속성값 12칸(생성·환생·신앙 출처의 합, D-450). 없으면 0. 장비 속성값은 loadoutOf가 더한다 */
+  readonly elements?: readonly number[] | undefined;
 }
 
 export interface BodyView {
@@ -67,6 +69,8 @@ export interface BodySheet extends BodyView {
   readonly primarySources: Record<PrimaryStat, RosterPrimarySource[]>;
   readonly skillSlotsMax: number;
   readonly skillSlotUnlocks: number[];
+  /** 속성값 12칸 = 장비 밖 값(BodySpec.elements) + 장비·인공장기 속성값, 칸마다 10에서 자름(D-450, 아이템 편집기 WP-5) */
+  readonly elements: number[];
 }
 
 interface BodyParts {
@@ -102,9 +106,11 @@ function primarySources(
       list.push({ kind: "initial", value: spec.initial[stat] });
       list.push({ kind: "growth", value: parts.base[stat] - spec.initial[stat], kPm: k[stat] });
     } else list.push({ kind: "body", value: parts.base[stat] });
+    // 쓰지 않은 장비(양손 무기의 보조 칸·입을 수 없는 종류)는 출처가 아니다(loadoutOf ignored)
+    const ignored = new Set(parts.loadout.ignored.map((entry) => entry.index));
     parts.equipped.forEach((item, index) => {
       const slot = parts.slots[index];
-      if (!item || slot === undefined) return;
+      if (!item || slot === undefined || ignored.has(index)) return;
       let value = 0;
       for (const entry of item.values) if (entry.stat === stat) value += entry.value;
       for (const gem of item.gems ?? []) if (gem.kind === "stat" && gem.stat === stat) value += gem.value;
@@ -157,6 +163,7 @@ export function bodySheet(
     primarySources: primarySources(spec, parts, options.revealGrowth ?? false),
     skillSlotsMax: skillRule?.max ?? view.skills.slots,
     skillSlotUnlocks: unlocks,
+    elements: [...loadout.elements],
   };
 }
 
@@ -182,6 +189,9 @@ function bodyParts(catalog: RosterCatalog, spec: BodySpec): BodyParts {
     skillSlots,
     // 행 식의 LV(docs/adr/2026-11-01-formula-editor.md)
     level: spec.level,
+    // 입을 수 있는 유닛 종류(D-494)·장비 밖 속성값(D-450, 아이템 편집기 WP-5)
+    kind: spec.kind,
+    ...(spec.elements ? { elements: spec.elements } : {}),
   });
   const primary = (stat: PrimaryStat) => ({ base: base[stat], bonus: loadout.primaries[stat] - base[stat] });
   const primaries: RosterStats["primaries"] = {

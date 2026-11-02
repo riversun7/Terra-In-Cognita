@@ -314,7 +314,14 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
     },
     { id: "test_helmet", slot: "head", stats: [{ stat: "armor_hp", min: 10, max: 20 }], skills: [] },
     { id: "test_ring", slot: "accessory", stats: [{ stat: "str", min: 1, max: 3 }], skills: [] },
-    { id: "test_heart", slot: "organ", stats: [{ stat: "vit", min: 2, max: 4 }], skills: [] },
+    // 속성값 불 2·빙결 3(D-450: 인공장기 스탯 묶음의 속성값 칸). 사이보그 시안이 코드에 박던 값을 팩으로 옮겼다(아이템 편집기 WP-5)
+    {
+      id: "test_heart",
+      slot: "organ",
+      stats: [{ stat: "vit", min: 2, max: 4 }],
+      skills: [],
+      elements: { fire: 2, frost: 3 },
+    },
     ...MAGIC_STAFFS,
   ],
   unitKinds: [
@@ -342,9 +349,10 @@ export const TEST_COMBAT_CATALOG: CombatCatalog = {
       naturalElementalWeapon: UNARMED_ELEMENTAL,
       naturalWeaponIsWeapon: false,
     },
+    // 크리쳐 장비 3칸: 전용 무기·방어구(몸)·장신구(D-494, "크리쳐 2칸"을 바꿈). 타고난 무기(발톱)는 무기 칸이 비었을 때 쓴다
     {
       id: "creature",
-      slots: ["accessory", "saddle"],
+      slots: ["weapon", "body", "accessory"],
       skillSlots: { base: 4, perRebirth: 1, max: 10 },
       naturalWeapon: CLAWS,
       naturalElementalWeapon: UNARMED_ELEMENTAL,

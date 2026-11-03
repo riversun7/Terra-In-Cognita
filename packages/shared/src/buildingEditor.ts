@@ -127,7 +127,7 @@ export interface BuildingEditorListResponse {
   readonly facilities: readonly BuildingEditorFacility[];
   readonly items: readonly BuildingEditorItem[];
   readonly subcategories: readonly BuildingEditorSubcategory[];
-  /** 건설 시간·유지비 규칙(설정 칸 M14 실효 값) */
+  /** 건설 시간 규칙(설정 칸 M14 실효 값) */
   readonly rules: FacilityBuildRules;
   /** 채집 시설 레벨당 유효 스탯 보너스(설정 칸 N43 실효 값) */
   readonly gatherLevelBonus: number;

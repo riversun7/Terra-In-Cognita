@@ -2882,7 +2882,7 @@
   "dev_items_advice_necessity_untradable": "It is a necessity but cannot be traded.",
   "dev_items_advice_disable_cascade": "Switching off stops: recipes {recipes} · necessities {necessities}",
   "dev_items_advice_food_no_perish": "Food subcategory but no freshness.",
-  "dev_buildings_lead": "First levels are built from primary raw materials and most higher levels from processed goods (D-508). Edits are staged and [Apply] sends them as one batch, applied to this world right away. Build time and upkeep come from settings cell M14.",
+  "dev_buildings_lead": "First levels are built from primary raw materials and most higher levels from processed goods (D-508). Edits are staged and [Apply] sends them as one batch, applied to this world right away. Build time comes from settings cell M14. Facilities are always on (no on/off — swap out a material you do not want).",
   "dev_buildings_loading": "Loading facilities…",
   "dev_buildings_retry": "Retry",
   "dev_buildings_summary": "{count} facilities · revision {revision}",

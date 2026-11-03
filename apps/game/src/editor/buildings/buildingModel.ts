@@ -230,7 +230,7 @@ export interface LevelRow {
   readonly unknownWeight: readonly string[];
 }
 
-/** 레벨 1 ~ 최고 레벨의 재료·시간·유지비·자리 */
+/** 레벨 1 ~ 최고 레벨의 재료·시간·자리 */
 export function levelRows(
   entry: FacilityJson,
   items: readonly BuildingEditorItem[],

@@ -2882,7 +2882,7 @@
   "dev_items_advice_necessity_untradable": "생필품인데 거래하지 못합니다.",
   "dev_items_advice_disable_cascade": "끄면 함께 멈춤: 레시피 {recipes} · 생필품 {necessities}",
   "dev_items_advice_food_no_perish": "식품 중분류인데 신선도가 없습니다.",
-  "dev_buildings_lead": "처음 레벨은 1차 원자재로, 그 위 레벨 대부분은 가공품으로 짓습니다(D-508). 고친 칸은 담기고 [적용]이 한 묶음으로 보내 그 세계에 바로 넣습니다. 건설 시간·유지비는 설정 칸 M14입니다.",
+  "dev_buildings_lead": "처음 레벨은 1차 원자재로, 그 위 레벨 대부분은 가공품으로 짓습니다(D-508). 고친 칸은 담기고 [적용]이 한 묶음으로 보내 그 세계에 바로 넣습니다. 건설 시간은 설정 칸 M14입니다. 시설은 늘 켜져 있습니다(켜고 끄기 없음 — 쓰지 않을 재료는 다른 재료로 바꿉니다).",
   "dev_buildings_loading": "시설 목록을 읽는 중…",
   "dev_buildings_retry": "다시 시도",
   "dev_buildings_summary": "시설 {count}개 · 판 {revision}",

@@ -75,15 +75,13 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "gatherTierProgressStep",
   "gatherTickMs",
   "gatherOreGrams",
-  // 건물 편집기(buildingEdit/services.ts list, 49 M14·D-508): 레벨별 건설 시간·유지비 미리 보기. 짓기가 생기면 그쪽도 읽는다
+  // 건물 편집기(buildingEdit/services.ts list, 49 M14·D-508): 레벨별 건설 시간 미리 보기. 짓기가 생기면 그쪽도 읽는다
   "facilityBuild.msPerKg",
   "facilityBuild.timeFactorPm.0",
   "facilityBuild.timeFactorPm.1",
   "facilityBuild.timeFactorPm.2",
   "facilityBuild.timeFactorPm.3",
   "facilityBuild.timeFactorPm.4",
-  "facilityBuild.upkeepPm",
-  "facilityBuild.upkeepMin",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

@@ -215,13 +215,7 @@ export function BuildingLevels({
         <h3 id="be-levels-title" className="be-heading">
           {m.dev_buildings_levels_title()}
         </h3>
-        <p className="field-hint">
-          {m.dev_buildings_levels_hint({
-            msPerKg: list.rules.msPerKg,
-            upkeepPm: list.rules.upkeepPm,
-            upkeepMin: list.rules.upkeepMin,
-          })}
-        </p>
+        <p className="field-hint">{m.dev_buildings_levels_hint({ msPerKg: list.rules.msPerKg })}</p>
         <div className="dev-table-wrap">
           <table className="dev-table be-level-table">
             <thead>
@@ -232,9 +226,6 @@ export function BuildingLevels({
                 <th scope="col">{m.dev_buildings_col_materials()}</th>
                 <th scope="col" className="dev-num">
                   {m.dev_buildings_col_time()}
-                </th>
-                <th scope="col" className="dev-num">
-                  {m.dev_buildings_col_upkeep()}
                 </th>
                 <th scope="col" className="dev-num">
                   {m.dev_buildings_col_slots_total()}
@@ -282,7 +273,6 @@ export function BuildingLevels({
                     ) : null}
                   </td>
                   <td className="dev-num">{row.materials.length === 0 ? "—" : formatDuration(row.timeMs)}</td>
-                  <td className="dev-num">{row.materials.length === 0 ? "—" : row.upkeep}</td>
                   <td className="dev-num">{row.slots}</td>
                   {row.gatherBonus === null ? null : <td className="dev-num">+{row.gatherBonus}</td>}
                 </tr>

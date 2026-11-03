@@ -104,8 +104,6 @@ export function createBuildingEditorServices(deps: {
       rules: {
         msPerKg: rules.msPerKg,
         timeFactorPm: [...rules.timeFactorPm],
-        upkeepPm: rules.upkeepPm,
-        upkeepMin: rules.upkeepMin,
       },
       gatherLevelBonus: society.gatherLevelBonus,
       sleeping: state.sleepingRows().filter((row) => row.category === "facilities"),

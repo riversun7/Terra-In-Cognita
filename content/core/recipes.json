@@ -158,7 +158,7 @@
         }
       ],
       "work": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "smelt_silver",
@@ -180,7 +180,7 @@
         }
       ],
       "work": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "smelt_titanium",
@@ -202,7 +202,7 @@
         }
       ],
       "work": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "smelt_gold",
@@ -224,7 +224,7 @@
         }
       ],
       "work": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "smelt_platinum",
@@ -246,7 +246,7 @@
         }
       ],
       "work": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "smelt_mithril",
@@ -268,7 +268,7 @@
         }
       ],
       "work": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "smelt_orichalcum",
@@ -290,7 +290,7 @@
         }
       ],
       "work": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "saw_planks",

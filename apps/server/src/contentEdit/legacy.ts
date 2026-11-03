@@ -16,6 +16,8 @@
 // - items, 팩 core@29(302·D-506 "광석 1g, 거래·레시피는 묶음"): 묶음 크기 칸 lotSize가 생겼다. core@28까지 저장한 줄에 lotSize가 없고
 //   지금 팩 항목에 있으면(금속 원석 1,000) 팩 값을 넣는다. 그러지 않으면 옛 철광석 줄(값 8 = 1kg당)이 1g당 8로 읽힌다. 저장 판을 모르는
 //   감사 기록의 옛 판 항목도 같은 규칙(없으면 팩 값)이다. 무게(weight)는 옮기지 않는다(옛 줄 값 그대로).
+// - facilities, 팩 core@32(사용자 답 2026-11-03 "켜고 끄는건 말이 안된다"): 시설의 켬·끔 칸 enabled는 뺀다(true든 false든 = 늘 켜짐).
+//   core@31(건물 편집기)에서 저장한 시설 줄에 이 칸이 있다. 꺼 둔 시설 줄도 켜진 시설로 읽힌다.
 // 감사 기록의 옛 판 항목(items.historyEntry, 다시 담기)도 같은 함수(upgradeLegacyEntry)로 읽는다.
 import type { ContentEditCategory } from "@terra/shared/contentEdit";
 import type { ContentOverrideRecord } from "./boot.ts";
@@ -179,6 +181,13 @@ function removedSubcategoriesOf(core: ContentCore): Set<string> {
   );
 }
 
+/** 시설 하나: 옛 켬·끔 칸(enabled, core@31까지)을 뺀다. 바뀌지 않으면 같은 객체 */
+function upgradeFacility(entry: EntryJson): EntryJson {
+  if (!("enabled" in entry)) return entry;
+  const { enabled: _drop, ...rest } = entry;
+  return rest;
+}
+
 /**
  * 항목 하나를 지금 모양으로(바뀌지 않으면 같은 객체). removed = 팩이 지운 중분류(여러 줄이면 한 번 셈해 넘긴다),
  * savedVersion = 줄을 저장한 팩 판(`core@N`, 모르면 undefined)
@@ -193,6 +202,7 @@ export function upgradeLegacyEntry(
 ): EntryJson {
   const pack = core.packEntry(category, id);
   if (category === "items") return upgradeItem(entry, removed, pack, savedVersion);
+  if (category === "facilities") return upgradeFacility(entry);
   return category === "unit_kinds" ? upgradeUnitKind(entry, pack) : entry;
 }
 

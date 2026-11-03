@@ -48,6 +48,22 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "tuning",
+      "id": "m14_upkeep_pm",
+      "since": 32,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "m14_upkeep_min",
+      "since": 32,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

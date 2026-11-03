@@ -1,6 +1,6 @@
 // 채집 티어 추첨 미리 보기(D-506, 49 N43) — 팩 확률표 = 시뮬 TEST_GATHER_BANDS(둘을 함께 고치게, 팩 파일을 읽어야 해서 서버 시험),
-// 실제 팩으로 철광석(T3)·구리(T2, 켜짐)·은(꺼짐)·곡물(추첨 밖) 미리 보기. 옛 1차 생산 규칙(D-507): 진행 속도·수확량·필요 진행,
-// 농장 선택 방식(해금 티어)
+// 실제 팩으로 철광석(T3)·구리(T2)·은(T4)·곡물(추첨 밖) 미리 보기. 옛 1차 생산 규칙(D-507): 진행 속도·수확량·필요 진행,
+// 농장 선택 방식(해금 티어). 팩 core@32부터 옛 자원이 모두 켜져 있다(사용자 답 2026-11-03): 초안을 끄면(아이템 편집기 끄기) 빠진다
 import {
   facilityEntrySchema,
   gatherTierEntrySchema,
@@ -59,7 +59,7 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
     return item;
   };
 
-  it("철광석(T3)은 광산(STR + VIT) 사다리: 새 유닛 20 → Lv1 5.00%, Lv5(+40 = 60) 7.00%(꺼진 은 T4 몫이 철로 내려옴)", () => {
+  it("철광석(T3)은 광산(STR + VIT) 사다리: 새 유닛 20 → Lv1 5.00%, Lv5(+40 = 60) 6.00%(T4 몫 1%는 켜진 은)", () => {
     const shown = previewGather(ctx, find("iron_ore"), pack.items, DEFAULT_PREVIEW_UNIT);
     expect(shown).toMatchObject({
       facility: "mine",
@@ -77,20 +77,23 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
       // 40~59 구간은 옛 표 T3 3%(가장 낮은 구간 [임시] 5%보다 낮다)
       [3, 40, 2, 300],
       [4, 50, 2, 300],
-      [5, 60, 3, 700],
+      [5, 60, 3, 600],
     ]);
     expect(shown?.bands[0]).toEqual({ from: 0, to: 19, weightsPm: [700, 150, 100, 50, 0, 0, 0, 0, 0, 0] });
     expect(shown?.bands.at(-1)?.to).toBeNull();
   });
 
-  it("켜진 구리(T2)는 0~39 구간 10%, 꺼진 은(T4)은 0이고 초안을 켜면 Lv5(60~79) 1%", () => {
+  it("구리(T2)는 0~39 구간 10%, 은(T4)은 Lv5(60~79)에서 1%이고 초안을 끄면 0(그 몫은 철로 내려온다)", () => {
     expect(
       previewGather(ctx, find("copper_ore"), pack.items, DEFAULT_PREVIEW_UNIT)?.levels[0]?.chanceBp,
     ).toBe(1000);
     const silver = find("silver_ore");
-    expect(previewGather(ctx, silver, pack.items, DEFAULT_PREVIEW_UNIT)?.levels[4]?.chanceBp).toBe(0);
-    const on = previewGather(ctx, { ...silver, enabled: true }, pack.items, DEFAULT_PREVIEW_UNIT);
-    expect(on?.levels.map((row) => row.chanceBp)).toEqual([0, 0, 0, 0, 100]);
+    expect(silver.enabled).toBe(true);
+    expect(
+      previewGather(ctx, silver, pack.items, DEFAULT_PREVIEW_UNIT)?.levels.map((row) => row.chanceBp),
+    ).toEqual([0, 0, 0, 0, 100]);
+    const off = previewGather(ctx, { ...silver, enabled: false }, pack.items, DEFAULT_PREVIEW_UNIT);
+    expect(off?.levels[4]?.chanceBp).toBe(0);
   });
 
   it("진행·수확량(D-507): 철광석 = 새 유닛 속도 ×1·한 번에 2개(1 + ⌊10 × 0.10⌋)·T3 필요 진행 120 = 2시간, 광석 한 번 1,000g", () => {
@@ -127,12 +130,19 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
     });
   });
 
-  it("농장은 선택 + 효율(49 P8): VIT 10 + INT 10 = 20 → 해금 T1, 켠 감자(T1)가 늘 나온다(레벨 보너스 없음)", () => {
-    const potato = { ...find("potato"), enabled: true };
+  it("농장은 선택 + 효율(49 P8): VIT 10 + INT 10 = 20 → 해금 T1, T1 작물 셋(감자·배추·당근)이 나눠 나온다(레벨 보너스 없음)", () => {
+    const potato = find("potato");
     const shown = previewGather(ctx, potato, pack.items, DEFAULT_PREVIEW_UNIT);
-    expect(shown).toMatchObject({ facility: "farm", mode: "select", unitTier: 1, levelBonus: 0, tier: 1 });
+    expect(shown).toMatchObject({
+      facility: "farm",
+      mode: "select",
+      unitTier: 1,
+      levelBonus: 0,
+      tier: 1,
+      sameTier: 3,
+    });
     expect(shown?.levels.map((row) => [row.band, row.chanceBp])).toEqual(
-      Array.from({ length: 5 }, () => [-1, 10_000]),
+      Array.from({ length: 5 }, () => [-1, 3333]),
     );
     expect(shown?.work).toMatchObject({
       yieldPerStatPm: 80,
@@ -140,15 +150,16 @@ describe("미리 보기 채집 추첨(실제 팩)", () => {
       unitYield: 1,
       requiredProgress: 60,
     });
-    // 옛 예시 VIT 60 + INT 20 = 80 → T4: T2~T4 작물이 꺼져 있어 감자(T1)로 내려온다
+    // 옛 예시 VIT 60 + INT 20 = 80 → T4: T4 작물(옥수수·아스파라거스·셀러리)을 고르고 감자는 나오지 않는다
     const strong = {
       ...DEFAULT_PREVIEW_UNIT,
       primaries: { ...DEFAULT_PREVIEW_UNIT.primaries, vit: 60, int: 20 },
     };
-    const high = previewGather(ctx, potato, pack.items, strong);
-    expect(high).toMatchObject({ unitTier: 4 });
-    expect(high?.levels[0]?.chanceBp).toBe(10_000);
-    expect(high?.work).toMatchObject({ unitProgress: 3, unitYield: 2, unitHarvestMs: 1_200_000 });
+    expect(previewGather(ctx, potato, pack.items, strong)?.levels[0]?.chanceBp).toBe(0);
+    const high = previewGather(ctx, find("corn"), pack.items, strong);
+    expect(high).toMatchObject({ unitTier: 4, tier: 4, sameTier: 3 });
+    expect(high?.levels[0]?.chanceBp).toBe(3333);
+    expect(high?.work).toMatchObject({ unitProgress: 3, unitYield: 2 });
   });
 
   it("추첨 시설 사다리에 없는 아이템(곡물)은 null", () => {

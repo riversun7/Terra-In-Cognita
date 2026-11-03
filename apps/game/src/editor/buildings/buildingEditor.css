@@ -532,7 +532,7 @@
   color: var(--color-success);
 }
 .be-prob-tier-label[data-tier="t2"] {
-  color: var(--color-market-blue);
+  color: var(--color-stat-int);
 }
 .be-prob-tier-label[data-tier="t3"] {
   color: var(--color-stat-wis);
@@ -566,7 +566,7 @@
 }
 .be-prob-bar-fill[data-tier="t2"],
 .be-prob-stack-seg[data-tier="t2"] {
-  background-color: var(--color-market-blue);
+  background-color: var(--color-stat-int);
 }
 .be-prob-bar-fill[data-tier="t3"],
 .be-prob-stack-seg[data-tier="t3"] {

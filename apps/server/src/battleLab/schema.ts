@@ -2,6 +2,7 @@
 // 범위는 @terra/shared LAB_LIMITS(실험 도구 입력 범위, 넘침·비용 방지). 팩 참조(종류·무기·장비·스킬)가 있는지는 사양을 만들 때 본다
 // (없으면 빼고 dropped로 알린다 — 팩이 바뀌어도 저장된 프리셋을 읽을 수 있게).
 import { LAB_LIMITS, LAB_ROWS, normalizeLabName } from "@terra/shared/battleLab";
+import { FORMATION_X_MAX, FORMATION_X_MIN, FORMATION_Y_MAX, FORMATION_Y_MIN } from "@terra/shared/roster";
 import { z } from "zod";
 
 const L = LAB_LIMITS;
@@ -74,6 +75,12 @@ export const labUnitSchema = z.strictObject({
     .max(16)
     .readonly(),
   row: z.enum(LAB_ROWS),
+  pos: z
+    .strictObject({
+      x: int(FORMATION_X_MIN, FORMATION_X_MAX),
+      y: int(FORMATION_Y_MIN, FORMATION_Y_MAX),
+    })
+    .optional(),
 });
 
 export const labPartySchema = z.strictObject({

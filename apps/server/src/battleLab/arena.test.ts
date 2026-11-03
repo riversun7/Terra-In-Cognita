@@ -26,7 +26,7 @@ const fighter = (patch: Partial<LabUnit> = {}): LabUnit => ({
 });
 
 const party = (units: LabUnit[]) => ({
-  units: units.map((unit) => ({ spec: buildLabUnit(unit, rules).spec, row: unit.row })),
+  units: units.map((unit) => ({ spec: buildLabUnit(unit, rules).spec, row: unit.row, pos: unit.pos })),
   retreatHpPct: 0,
 });
 
@@ -63,6 +63,25 @@ describe("전투장(팀 A 대 팀 B, 파티 하나씩 최대 6명)", () => {
     expect(swapped.units.find((unit) => unit.id === 1)?.side).toBe(2);
     expect(init.parties.find((entry) => entry.id === 1)?.side).toBe(1);
     expect(() => createBattleMap(init.map)).not.toThrow();
+  });
+
+  it("자유 배치 좌표(pos): 9×6 배치 구역(x: -4..+4, y: 0..5)의 좌표대로 전투맵에 세운다", () => {
+    const vWing = [
+      fighter({ pos: { x: -4, y: 0 } }),
+      fighter({ pos: { x: 4, y: 0 } }),
+      fighter({ pos: { x: 0, y: 4 } }),
+    ];
+    const init = arenaInit(job(vWing, vWing), 1, false);
+    const center = ARENA_SIZE / 2;
+    const a = init.units.filter((unit) => unit.side === 1);
+    const b = init.units.filter((unit) => unit.side === 2);
+    // 서쪽 편(1): x = center - (4 + pos.y), y = center + pos.x
+    expect({ x: a[0]?.x, y: a[0]?.y }).toEqual({ x: center - 4, y: center - 4 });
+    expect({ x: a[1]?.x, y: a[1]?.y }).toEqual({ x: center - 4, y: center + 4 });
+    expect({ x: a[2]?.x, y: a[2]?.y }).toEqual({ x: center - 8, y: center });
+    // 동쪽 편(2): x = center + (4 + pos.y) - 1, y = center + pos.x
+    expect({ x: b[0]?.x, y: b[0]?.y }).toEqual({ x: center + 3, y: center - 4 });
+    expect({ x: b[2]?.x, y: b[2]?.y }).toEqual({ x: center + 7, y: center });
   });
 
   it("막힌 칸이면 가장 가까운 빈칸에 세운다", () => {

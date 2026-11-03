@@ -2,7 +2,7 @@
 // 서버(tRPC battleLab.*, apps/server/src/battleLab/)와 화면(apps/game/src/editor/balance/lab/)이 같이 쓴다. 계산은 서버만 한다
 // (기기는 판정 코드를 받지 않는다). 1차 스탯 키는 roster의 PrimaryStat, 속성 칸 차례는 ELEMENT_CODES(12칸)다.
 // 수치 칸의 범위는 실험 도구의 입력 범위(넘침·비용 방지)이지 게임 규칙이 아니다.
-import type { LocalizedName, PrimaryStat } from "./roster.ts";
+import type { FormationPoint, LocalizedName, PrimaryStat } from "./roster.ts";
 import { hasUnstorableText } from "./settings.ts";
 
 /** 1차 스탯 6개 */
@@ -130,6 +130,8 @@ export interface LabUnit {
   /** 스킬(목록 차례 = AI 우선순위, 전투 코어 [임시] 규칙). 칸 수를 넘는 것은 쓰지 않는다 */
   readonly skills: readonly LabSkill[];
   readonly row: LabRow;
+  /** 자유 배치 시작 좌표(x: -4..+4 좌우, y: 0..5 전후 깊이). 없으면 row 기준 기본 자리를 쓴다 */
+  readonly pos?: FormationPoint | undefined;
 }
 
 /** 파티 하나(편마다 하나) */

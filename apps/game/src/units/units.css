@@ -276,47 +276,159 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
-/* 진형: 앞줄 3칸 · 뒷줄 3칸. 줄 이름은 첫 열 */
-.units-formation {
-  display: grid;
-  grid-template-columns: auto repeat(3, minmax(0, 1fr));
-  grid-template-rows: auto auto;
-  gap: var(--space-2);
-  align-items: stretch;
+/* 진형 프리셋 버튼 막대: 2열 · 3열 · V자 · 역V · 방진 · 산개 */
+.units-formation-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
 }
-.units-formation-row-label {
-  grid-column: 1;
-  grid-row: 1;
-  align-self: center;
+.units-formation-presets > button {
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  padding: 0 var(--space-2);
+}
+.units-formation-presets > button[data-active="true"] {
+  border-color: var(--color-focus);
+  background-color: var(--color-surface-2);
+  color: var(--color-focus);
+  font-weight: var(--font-weight-strong);
+}
+.units-formation-desc {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* 9×6 자유 배치 사각형 구역(좌우 폭 x=-4..+4, 전후 깊이 y=0..5) */
+.units-formation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+}
+.units-formation-edge {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
   color: var(--color-text-muted);
 }
-.units-formation-back {
-  grid-row: 2;
+.units-formation-board {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+.units-formation-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  min-width: 0;
+  padding: var(--space-1);
+  border: var(--hairline) dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+}
+.units-formation-cell[data-center-x] {
+  border-inline-color: var(--color-border-strong);
+}
+.units-formation-cell[data-occupied] {
+  border-style: solid;
+  border-color: var(--color-primary);
+  background-color: var(--color-surface-2);
+}
+.units-formation-cell[data-selected] {
+  border-style: solid;
+  border-color: var(--color-focus);
+  box-shadow: inset 0 0 0 var(--hairline) var(--color-focus);
+}
+.units-cell-token {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  line-height: var(--line-height-tight);
+}
+.units-cell-num {
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-focus);
+}
+.units-cell-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--font-weight-strong);
+}
+.units-cell-coord {
+  color: var(--color-text-muted);
+  opacity: 0.45;
+}
+
+/* 6개 대원 슬롯 목록(고른 대원을 격자 칸 클릭이나 X/Y 선택기로 배치) */
+.units-spots-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@media (min-width: 30em) {
+  .units-spots-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 .units-spot {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-1);
-  min-width: 0;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
   padding: var(--space-2) var(--space-1);
   border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-sm);
   background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font: inherit;
   text-align: center;
+  cursor: pointer;
 }
-.units-spot[data-row="front"] {
-  grid-row: 1;
-}
-.units-spot[data-row="back"] {
-  grid-row: 2;
+.units-spot[data-selected] {
+  border-color: var(--color-focus);
+  box-shadow: inset 0 0 0 var(--hairline) var(--color-focus);
 }
 .units-spot[data-empty="true"] {
   justify-content: center;
   border-style: dashed;
   background-color: transparent;
+}
+.units-spot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+.units-spot-num {
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-focus);
+}
+.units-spot-coord {
+  color: var(--color-text-muted);
 }
 .units-spot-name {
   max-width: 100%;
@@ -328,6 +440,34 @@
 .units-spot-empty {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+}
+
+/* 고른 슬롯 X/Y 좌표 직접 선택 막대 */
+.units-coord-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-xs);
+}
+.units-coord-title {
+  flex: 1 1 auto;
+  font-weight: var(--font-weight-strong);
+}
+.units-coord-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.units-coord-field > select {
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  padding: 0 var(--space-2);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── 경매·포로 ────────────────────────────────── */

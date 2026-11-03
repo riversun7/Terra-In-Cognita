@@ -465,6 +465,24 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
 }
+/* 스태미나 표(D-511): 표본 유닛 줄과 이어짐·줄어듦 */
+.fx-stamina-unit {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.fx-sustain-ok,
+.fx-sustain-drains {
+  font-family: var(--font-body);
+  font-weight: var(--font-weight-strong);
+}
+.fx-sustain-ok {
+  color: var(--color-success);
+}
+.fx-sustain-drains {
+  color: var(--color-danger);
+}
 
 @media (min-width: 48em) {
   .fx-controls {

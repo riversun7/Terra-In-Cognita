@@ -226,16 +226,6 @@
       "structural": false
     },
     {
-      "id": "n13_appropriate",
-      "code": "N13",
-      "name": {
-        "ko": "적정 STA 점수",
-        "en": "Appropriate STA score"
-      },
-      "value": 80,
-      "structural": false
-    },
-    {
       "id": "n13_min_consume",
       "code": "N13",
       "name": {

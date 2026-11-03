@@ -43,9 +43,14 @@ export interface CombatUnitSpec {
   /** 스태미나·MP 최대와 공격 한 번에 드는 양(D-415·D-418) */
   readonly staminaMax: number;
   readonly staminaCost: number;
-  /** STA 점수(N13: 1차 AGI·VIT 가중합). 소모 배율을 정한다 */
+  /** STA 점수(N13: 1차 AGI·VIT 가중합). 적정 STA와 함께 소모 배율을 정한다 */
   readonly staminaScore: number;
-  /** 스태미나 회복(분당, 2차 스탯 stamina_regen D-458) */
+  /**
+   * 적정 STA 점수(밀리점, D-511 계산식 stamina_appropriate, 유닛 레벨). 소모 = 기본 × max(최소, 적정 ÷ 점수).
+   * 없으면(시험 유닛·옛 스냅숏) STA 점수와 같다(배율 1)
+   */
+  readonly staminaAppropriateMilli?: number | undefined;
+  /** 스태미나 회복(분당, 2차 스탯 stamina_regen × 적정 비율 — 계산식 real_stamina_regen, D-511) */
   readonly staminaRegen: number;
   readonly mpMax: number;
   readonly mpCost: number;

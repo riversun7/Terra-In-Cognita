@@ -185,7 +185,14 @@ test.describe("개발자", () => {
     await expect(page.locator('tr[data-key="evasive_move"]')).toContainText(
       message("ko", "dev_skills_status_unimplemented"),
     );
+    // 스태미나 기준(D-511): 보통 유닛 Lv 1·30 적정 STA 10·39, 회복 초당 12, 검 기본 공격은 이어짐
+    const basis = page.getByTestId("stamina-basis");
+    await expect(basis.locator('tr[data-level="1"] [data-cell="appropriate"]')).toHaveText("10");
+    await expect(basis.locator('tr[data-level="30"] [data-cell="appropriate"]')).toHaveText("39");
+    await expect(basis.locator('tr[data-level="30"] [data-cell="regen"]')).toHaveText("12");
     const sword = page.locator('tr[data-key="items/test_sword"]');
+    await expect(sword.locator(".sk-col-sustain")).toHaveAttribute("data-sustain", "ok");
+    await expect(page.locator('.sk-col-sustain[data-sustain="drains"]')).toHaveCount(0);
     await sword.locator("input").first().fill("7");
     await expect(sword).toHaveAttribute("data-changed", "");
     await sword.locator(".sk-cost-apply").click();

@@ -3,6 +3,7 @@
 //   여섯 줄. 담기 → [적용]이면 그 세계에 바로 든다(세계에서 바꾼 식 1, 시안 유닛 HP가 오름, [가중치 표]의 HP 행에 계산식 표시).
 //   팩 식으로 되돌리기 → 적용이면 HP가 돌아온다.
 //   이름 자동 완성(fl → floor(), Enter). 맨손 일반 공격 식: Lv 30 균형형·맨손이면 굴림 0 → 13, 9999 → 27(10 상한 없음).
+//   적정 STA 식(D-511): Lv 1 → 10, Lv 30 → 39. 스태미나 표: 보통 표본은 모든 무기로 일반 공격이 이어진다.
 // - player: tRPC formulas.list는 403.
 // - 배치·사진: 390·1440 × 파스텔·다크 × 한국어·영어(오류 상태를 펼친 채). 가로 넘침·작은 누르는 곳 없음.
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 덮어쓰기를 모두 지운다(밸런스 화면 시험과 같은 결).
@@ -168,6 +169,26 @@ test.describe("개발자", () => {
     await expect(page.locator(".fx-result-value")).toHaveText(/^602/);
     expect(unexpected(deviceErrors)).toEqual([]);
   });
+
+  test("적정 STA 식(D-511: 보통 유닛 STA 점수, Lv 1 → 10·Lv 30 → 39)과 스태미나 표(일반 공격 이어짐)", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await tabReady(page);
+    await pick(page, "stamina_appropriate");
+    await expect(page.locator(".fx-result-value")).toHaveText(/^10(?!\d)/);
+    const stamina = page.getByTestId("formula-stamina");
+    await expect(stamina.getByTestId("formula-stamina-unit")).toContainText("10");
+    await page.locator(".fx-controls select").nth(1).selectOption("even_lv30");
+    await expect(page.locator(".fx-result-value")).toHaveText(/^39(?!\d)/);
+    // Lv 30 균형형: 소모 10·회복 초당 12 → 모든 무기 줄이 이어짐
+    const rows = stamina.locator("tbody tr");
+    await expect(rows.first()).toBeVisible();
+    expect(await rows.count()).toBeGreaterThan(3);
+    await expect(stamina.locator('tbody tr[data-sustain="drains"]')).toHaveCount(0);
+    await expect(stamina.locator('tr[data-weapon="test_sword"] td').first()).toHaveText("10");
+    expect(unexpected(deviceErrors)).toEqual([]);
+  });
 });
 
 test.describe("플레이어", () => {
@@ -212,6 +233,13 @@ test.describe("배치·사진", () => {
         expect(await horizontalOverflow(page)).toEqual([]);
         expect(await smallTapTargets(page)).toEqual([]);
         await shot(page, `formulas-${theme}-${language}-${width}`);
+        // 적정 STA 식과 스태미나 표(D-511)
+        await pick(page, "stamina_appropriate");
+        await expect(page.locator(".fx-result-value")).toHaveText(/^39/);
+        await page.getByTestId("formula-stamina").scrollIntoViewIfNeeded();
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await shot(page, `formulas-stamina-${theme}-${language}-${width}`);
         // 오류 상태
         await pick(page, "hp.formula");
         await page.locator(".fx-input").fill("VIT * 3 + STRR");

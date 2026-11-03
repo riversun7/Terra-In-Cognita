@@ -1,6 +1,6 @@
 // 계산식 탭(밸런스 화면 /dev/balance 안) — docs/adr/2026-11-01-formula-editor.md "화면", 사용자 결정 D-488.
 // 2차 스탯 행 식과 전투 식을 글로 고친다: 이름 자동 완성, 오류 위치, 모르는 이름은 저장 전에 알림(오타 막기), 표본 유닛의 결과·항마다
-// 풀이·1차 스탯별 영향(비중·+10 차이), 무기마다 적정치. [담기]한 식은 [적용]으로 설정 칸 묶음(tuning.save formulas)에 실어 보낸다
+// 풀이·1차 스탯별 영향(비중·+10 차이), 무기마다 적정치·기본 공격 스태미나(D-511). [담기]한 식은 [적용]으로 설정 칸 묶음(tuning.save formulas)에 실어 보낸다
 // (서버가 같은 해석기로 다시 검사하고 감사 기록·세계 설정 판을 남긴다). 판 충돌이면 목록을 다시 받고 담은 식은 남긴다.
 // 이 탭은 혼자 서는 부품이다: 밸런스 화면 TABS의 [계산식] 줄이 <FormulaTab />로 그린다(진입 조각 BalancePanelScreen-* 안, 미리 캐시 밖).
 // 시험용 data-*: data-status(loading·ready·failed), data-revision, 칸 단추 data-slot.
@@ -28,10 +28,12 @@ import {
   previewOf,
   pruneDrafts,
   sampleBareAppropriateOf,
+  sampleStaminaOf,
   slotDefOf,
   sourceOf,
 } from "./formulaModel.ts";
 import { issueText, sampleText, unitText, varText } from "./formulaMessages.ts";
+import { StaminaTable } from "./StaminaTable.tsx";
 import "./formulaTab.css";
 
 type Load =
@@ -256,6 +258,17 @@ export default function FormulaTab() {
               list={list}
               primaries={sampleView.primaries}
               bareAppropriate={sampleBareAppropriateOf(list, drafts, sampleView.level)}
+              weaponName={weaponName}
+            />
+          </section>
+
+          <section className="fx-panel" aria-labelledby={`${slotId}-stamina`} data-testid="formula-stamina">
+            <h3 id={`${slotId}-stamina`} className="fx-panel-title">
+              {m.dev_formula_stamina_title()}
+            </h3>
+            <p className="field-hint">{m.dev_formula_stamina_hint()}</p>
+            <StaminaTable
+              rows={sampleStaminaOf(list, drafts, sampleView.primaries, sampleView.level)}
               weaponName={weaponName}
             />
           </section>

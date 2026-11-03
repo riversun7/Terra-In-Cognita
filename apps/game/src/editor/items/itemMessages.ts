@@ -118,6 +118,7 @@ const FORMULA_TEXT: Readonly<Record<string, Text>> = {
   attack_interval: m.dev_items_formula_attack_interval,
   stamina_score: m.dev_items_formula_stamina_score,
   stamina_cost: m.dev_items_formula_stamina_cost,
+  real_stamina_regen: m.dev_items_formula_real_stamina_regen,
   evade_chance: m.dev_items_formula_evade_chance,
 };
 

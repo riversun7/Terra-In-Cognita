@@ -11,6 +11,7 @@ import {
   evaluateFormula,
   evaluateFormulaInt,
   sampleScopes,
+  staminaAppropriateScope,
   staminaScoreScope,
 } from "@terra/shared/formula";
 import type { ItemEditorPreviewResponse, WeaponPartRatio } from "@terra/shared/itemEditor";
@@ -48,6 +49,9 @@ export function weaponParts(weapon: WeaponSpec, middle: Loadout, capPm: number):
   ];
 }
 
+/** 레벨만 보는 식(무기와 상관없음) */
+const LEVEL_ONLY_FORMULAS: ReadonlySet<string> = new Set(["bare_appropriate", "stamina_appropriate"]);
+
 export interface WeaponPreviewInput {
   /** 전투가 쓰는 무기 사양(1차 적정 스탯 포함) */
   readonly spec: WeaponSpec;
@@ -82,12 +86,17 @@ export function previewWeapon(input: WeaponPreviewInput): NonNullable<ItemEditor
       formulas.stamina_score,
       staminaScoreScope(primaries, coefficients.staminaWeightsPm),
     );
-    const scopes = sampleScopes(scopeInput, middle.stats, staminaScore);
+    // 적정 STA 점수(D-511 레벨 식): 기준 유닛 레벨로 셈해 소모·회복의 APP로 넣는다(판정과 같은 차례)
+    const staminaAppropriate = Math.max(
+      0,
+      evaluateFormula(formulas.stamina_appropriate, staminaAppropriateScope(input.level)),
+    );
+    const scopes = sampleScopes(scopeInput, middle.stats, staminaScore, 0, staminaAppropriate);
     return [
       {
         kind,
-        // 맨손 적정(bare_appropriate)은 아이템 무기에 쓰지 않는다
-        values: COMBAT_FORMULA_IDS.filter((id) => id !== "bare_appropriate").map((id) => {
+        // 레벨만 보는 식(맨손 적정 bare_appropriate·적정 STA stamina_appropriate)은 무기 값이 아니라 보이지 않는다
+        values: COMBAT_FORMULA_IDS.filter((id) => !LEVEL_ONLY_FORMULAS.has(id)).map((id) => {
           const slot = COMBAT_FORMULA_SLOTS[id];
           return {
             id,

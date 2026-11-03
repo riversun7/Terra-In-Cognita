@@ -51,6 +51,7 @@ const VAR_TEXT: Readonly<Record<string, () => string>> = {
   B: m.dev_formula_var_b,
   SC: m.dev_formula_var_sc,
   APP: m.dev_formula_var_app,
+  R: m.dev_formula_var_r,
   MIN: m.dev_formula_var_min,
   W_AGI: m.dev_formula_var_w_agi,
   W_VIT: m.dev_formula_var_w_vit,

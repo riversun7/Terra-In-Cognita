@@ -447,6 +447,36 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+/* 스태미나 기준(D-511): 보통 유닛 레벨마다, 무기 줄의 기본 공격 초당 소모 */
+.sk-basis {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  min-width: 0;
+}
+.sk-basis-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.sk-basis-table td,
+.sk-col-sustain {
+  white-space: nowrap;
+}
+.sk-sustain-values {
+  margin-inline-end: var(--space-2);
+}
+.sk-sustain-ok {
+  border-color: var(--color-success);
+  background-color: var(--color-success-surface);
+  color: var(--color-success);
+}
+.sk-sustain-drains {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+}
 .sk-cost-note {
   display: block;
   font-size: var(--font-size-xs);

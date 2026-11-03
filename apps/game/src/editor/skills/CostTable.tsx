@@ -1,27 +1,32 @@
 // 행동별 소모 화면(D-491) — 스태미나·MP를 쓰는 행동을 한 표로: 걷기·퇴각(무료, D-418), 무기마다 기본 공격, 유닛 종류마다 맨손 기본 공격,
 // 건물 공격(기본 공격 값), 회피 기동(미구현), 스킬마다 자원·소모. 줄마다 [적용]이 그 줄만 서버 묶음으로 보낸다(바로 듦, D-461).
-// 여기 값은 기본값이고 실제 소모 배율(STA 점수, N13)은 설정 칸 쪽이다(work/formulas가 식으로 연다).
+// 여기 값은 기본값이고 실제 소모 = 기본 × max(최소 소모 N13, 적정 STA ÷ STA 점수)다. 적정 STA는 레벨 식(계산식 stamina_appropriate, D-511).
+// 서버가 보통 유닛 기준(StaminaBasis.tsx)을 실으면 표 위에 레벨마다 적정 STA·회복을, 무기 줄에 기본 공격 초당 소모를 보인다.
 import {
   ACTION_COST_MAX,
   type ActionCostRow,
   SKILL_RESOURCES,
   type SkillEditorChange,
   type SkillJson,
+  type StaminaBasisView,
 } from "@terra/shared/skillEditor";
 import { useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { NumberField, SelectField } from "../content/contentEditorFields.tsx";
 import { KIND_TEXT, ORIGIN_TEXT, RESOURCE_TEXT, actionText, statusText } from "./skillMessages.ts";
+import { StaminaBasisTable, SustainCell, basisLevelsText } from "./StaminaBasis.tsx";
 
 type Locale = "ko" | "en";
 
 function WeaponRow({
   row,
+  basis,
   locale,
   busy,
   onApply,
 }: {
   row: Extract<ActionCostRow, { kind: "weapon" | "natural" }>;
+  basis: StaminaBasisView | null;
   locale: Locale;
   busy: boolean;
   onApply: (change: SkillEditorChange, name: string) => void;
@@ -67,6 +72,7 @@ function WeaponRow({
           <span className="sk-cost-note">{m.dev_skills_mp_basic_hint()}</span>
         ) : null}
       </td>
+      {basis ? <SustainCell basis={basis} attacks={basis.attacks[row.key]} /> : null}
       <td>
         <button
           type="button"
@@ -89,6 +95,7 @@ function WeaponRow({
 function SkillRow({
   row,
   entry,
+  sustainColumn,
   locale,
   busy,
   onApply,
@@ -96,6 +103,8 @@ function SkillRow({
 }: {
   row: Extract<ActionCostRow, { kind: "skill" }>;
   entry: SkillJson | undefined;
+  /** 기본 공격 초당 소모 열이 있나(스킬 줄은 빈 칸) */
+  sustainColumn: boolean;
   locale: Locale;
   busy: boolean;
   onApply: (change: SkillEditorChange, name: string) => void;
@@ -150,6 +159,7 @@ function SkillRow({
           />
         </div>
       </td>
+      {sustainColumn ? <td className="sk-col-sustain">—</td> : null}
       <td>
         <button
           type="button"
@@ -171,6 +181,7 @@ function SkillRow({
 export function CostTable({
   rows,
   skills,
+  stamina,
   revision,
   locale,
   busy,
@@ -179,18 +190,23 @@ export function CostTable({
 }: {
   rows: readonly ActionCostRow[];
   skills: ReadonlyMap<string, SkillJson>;
+  /** 보통 유닛 스태미나 기준(D-511). 없으면(옛 서버·설정 칸 없음) 기준 칸·초당 소모 열을 숨긴다 */
+  stamina: StaminaBasisView | null;
   revision: number;
   locale: Locale;
   busy: boolean;
   onApply: (change: SkillEditorChange, name: string) => void;
   onOpenSkill: (id: string) => void;
 }) {
+  // 기준 레벨이 없으면(보통 유닛을 셀 수 없음) 숨긴다
+  const basis = stamina && stamina.levels.length > 0 ? stamina : null;
   return (
     <section className="sk-costs" aria-labelledby="sk-costs-title">
       <h2 id="sk-costs-title" className="sk-heading">
         {m.dev_skills_costs_table()}
       </h2>
       <p className="field-hint">{m.dev_skills_costs_lead()}</p>
+      {basis ? <StaminaBasisTable basis={basis} /> : null}
       <div className="sk-table-wrap">
         <table className="sk-cost-table">
           <thead>
@@ -201,6 +217,9 @@ export function CostTable({
               </th>
               <th scope="col">{m.dev_skills_col_stamina()}</th>
               <th scope="col">{m.dev_skills_col_mp()}</th>
+              {basis ? (
+                <th scope="col">{m.dev_skills_col_sustain({ levels: basisLevelsText(basis) })}</th>
+              ) : null}
               <th scope="col">{m.dev_skills_col_apply()}</th>
             </tr>
           </thead>
@@ -211,7 +230,7 @@ export function CostTable({
                   <tr key={row.key} data-key={row.key} data-kind="fixed" data-status={row.status}>
                     <th scope="row">{actionText(row.key)}</th>
                     <td className="sk-col-kind">{KIND_TEXT.fixed()}</td>
-                    <td colSpan={3}>
+                    <td colSpan={basis ? 4 : 3}>
                       <span className={`sk-chip sk-status-${row.status}`}>{statusText(row.status)}</span>
                     </td>
                   </tr>
@@ -223,13 +242,14 @@ export function CostTable({
                   key={key}
                   row={row}
                   entry={skills.get(row.id)}
+                  sustainColumn={basis !== null}
                   locale={locale}
                   busy={busy}
                   onApply={onApply}
                   onOpen={onOpenSkill}
                 />
               ) : (
-                <WeaponRow key={key} row={row} locale={locale} busy={busy} onApply={onApply} />
+                <WeaponRow key={key} row={row} basis={basis} locale={locale} busy={busy} onApply={onApply} />
               );
             })}
           </tbody>

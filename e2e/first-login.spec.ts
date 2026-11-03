@@ -181,6 +181,9 @@ test.describe("첫 접속: 새 플레이어", () => {
 test.describe("첫 접속: 속성 분배 전에 만든 사이보그", () => {
   test.use({ account: "legacy" });
 
+  // 서버 최소 프로토콜이 6이 되어(보유 물건 판 6 → 구인 카드 판 7) 4판 인사로 분배 전 사이보그를 만들 수 없다(global-setup.ts).
+  // 분배 전 사이보그를 DB로 차리는 준비가 생기면 다시 켠다
+  test.skip(true, "legacy cyborg needs a protocol 4 handshake, which the server no longer accepts");
   test("다음 접속 때 /start의 속성 단계만 보이고, 한 번 나누면 홈으로 간다(D-450)", async ({
     page,
     deviceErrors,

@@ -288,17 +288,20 @@ const SETUP_CYBORGS = {
   legacy: "E2ELegacy",
 } as const satisfies Partial<Record<AccountName, string>>;
 
+/** 준비 단계가 인사하는 프로토콜 판(packages/protocol PROTOCOL_VERSION과 같게 올린다. 시험 틀은 작업공간 꾸러미를 가져오지 않는다) */
+const SETUP_PROTOCOL = 7;
+
 /**
  * 계정의 사이보그를 실제 프로토콜로 만든다(docs/adr/2026-11-01-first-login-cyborg.md 6절): 그 계정 세션의 브라우저에서
- * tRPC cyborg.creation(세력·시작 도시) → WebSocket hello(프로토콜 5, legacy만 4) → cyborg_roll → cyborg_create(5면 속성 분배 불 6·바람 4,
- * 4면 분배 없이 → 서버가 "분배 기다림"으로 만든다, D-450).
+ * tRPC cyborg.creation(세력·시작 도시) → WebSocket hello(지금 프로토콜 SETUP_PROTOCOL) → cyborg_roll → cyborg_create(속성 분배 불 6·바람 4,
+ * D-450). 분배 없이 만드는 4판 인사는 서버가 더는 받지 않는다(최소 판 6) → legacy 계정은 사이보그 없이 둔다.
  * 브라우저 안에서 열면 같은 출처라 쿠키·Origin이 저절로 실린다(Node WebSocket 머리글 타입을 쓰지 않으려고).
  */
 async function createSetupCyborg(
   baseURL: string,
   account: HarnessAccount,
   name: string,
-  protocolVersion: 4 | 5,
+  protocolVersion: number,
 ): Promise<void> {
   const browser = await chromium.launch();
   try {
@@ -608,13 +611,13 @@ export default async function globalSetup(config: FullConfig): Promise<() => Pro
     };
     await waitForPlanets(baseURL, accounts.admin.storageState);
     // 첫 접속을 마친 계정: player·dev·admin은 사이보그가 있어야 다른 시험의 화면이 열린다(없으면 /start로 간다).
-    // fresh·fresh_shots는 사이보그 없이 둔다(첫 접속 시험). legacy는 프로토콜 4로 만들어 속성 분배를 기다리게 둔다
+    // fresh·fresh_shots는 사이보그 없이 둔다(첫 접속 시험). legacy(속성 분배 전 사이보그)는 4판 인사로만 만들 수 있었는데 서버 최소 판이
+    // 6이 되어(packages/protocol MIN_SUPPORTED_PROTOCOL_VERSION) 만들지 않는다 — first-login.spec.ts의 그 시험은 건너뛴다
     for (const name of ["player", "dev", "admin"] as const) {
       const account = accounts[name];
-      await createSetupCyborg(baseURL, account, SETUP_CYBORGS[name], 5);
+      await createSetupCyborg(baseURL, account, SETUP_CYBORGS[name], SETUP_PROTOCOL);
     }
-    await createSetupCyborg(baseURL, accounts.legacy, SETUP_CYBORGS.legacy, 4);
-    log(`사이보그를 만든 계정: ${Object.keys(SETUP_CYBORGS).join("·")}`);
+    log("사이보그를 만든 계정: player·dev·admin");
     const harness: Harness = { baseURL, accounts };
     process.env[HARNESS_ENV] = JSON.stringify(harness);
   } catch (error) {

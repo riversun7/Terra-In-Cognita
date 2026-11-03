@@ -47,7 +47,7 @@ describe("구인 카드 옛 규칙(D-469·49 N45, 옛 hq_routes.js)", () => {
         });
       }
       // 균등 굴림이라 양 끝이 다 나온다
-      expect([...counts].toSorted()).toEqual(
+      expect([...counts].toSorted((a, b) => a - b)).toEqual(
         Array.from({ length: rule.cardsMax - rule.cardsMin + 1 }, (_, i) => rule.cardsMin + i),
       );
       expect(totals.has(rule.statsMin) && totals.has(rule.statsMax)).toBe(true);
@@ -81,7 +81,7 @@ describe("구인 카드 옛 규칙(D-469·49 N45, 옛 hq_routes.js)", () => {
       seen.add(active.length);
       for (const value of active) expect(value).toBeLessThanOrEqual(9);
     }
-    expect([...seen].toSorted()).toEqual([2, 3]);
+    expect([...seen].toSorted((a, b) => a - b)).toEqual([2, 3]);
   });
 
   it("속성 점수를 키워도 칸마다 상한 10을 넘지 않는다(설정값을 바꾼 세계)", () => {

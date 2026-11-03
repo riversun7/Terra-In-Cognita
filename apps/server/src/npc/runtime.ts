@@ -128,6 +128,12 @@ export function gardenerRulesOf(rules: GardenerCoefficients, wavesOn: boolean): 
 
 const nextDayEnd = (nowMs: number, dayMs: number): number => (Math.floor(nowMs / dayMs) + 1) * dayMs;
 
+/** 구인 카드로 온 휴먼의 레벨·스탯·속성(저장 값). 처음부터 있던 휴먼은 null */
+const recruitOf = (row: NpcHumanRow): SimUnit["recruit"] =>
+  row.stats && row.stats.length === 6
+    ? { level: row.level, stats: row.stats, elements: recruitElementsFromSlots(row.elements ?? []) }
+    : null;
+
 export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime> {
   const { ledger, writer, maps, log } = o;
   const c = o.rules();
@@ -248,11 +254,6 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     factions.get(unit.owner)?.units.add(id);
     return unit;
   };
-  /** 구인 카드로 온 휴먼의 레벨·스탯·속성(저장 값). 처음부터 있던 휴먼은 null */
-  const recruitOf = (row: NpcHumanRow): SimUnit["recruit"] =>
-    row.stats && row.stats.length === 6
-      ? { level: row.level, stats: row.stats, elements: recruitElementsFromSlots(row.elements ?? []) }
-      : null;
   for (const row of state.humans) {
     const at = onMap.get(row.unitId);
     if (!at) continue;

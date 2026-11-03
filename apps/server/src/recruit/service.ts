@@ -92,28 +92,28 @@ function cardView(card: RecruitCard, taken: number): RecruitCardView {
 
 const fail = (code: RecruitResultCode): RecruitHireResult => ({ ok: false, code });
 
+/** 구인 도시 목록(ID 차례) */
+function citiesOf(runtime: NpcRuntime): RecruitCityView[] {
+  const population = new Map<number, number>();
+  for (const unit of runtime.world.units.values())
+    population.set(unit.city, (population.get(unit.city) ?? 0) + 1);
+  return [...runtime.world.cities.values()]
+    .filter((city) => runtime.places.has(city.id))
+    .toSorted((a, b) => a.id - b.id)
+    .map((city) => ({
+      id: city.id,
+      adminLevel: city.adminLevel,
+      factionCode: runtime.world.factions.get(city.owner)?.code ?? null,
+      start: city.start,
+      population: population.get(city.id) ?? 0,
+      housing: city.housing,
+    }));
+}
+
 export function createRecruitService(o: RecruitServiceOptions): RecruitService {
   const draws = new Map<string, RecruitDraw>();
   for (const row of o.draws)
     draws.set(`${row.ownerId}:${row.cityId}`, { window: row.window, taken: row.taken });
-
-  /** 구인 도시 목록(ID 차례) */
-  const citiesOf = (runtime: NpcRuntime): RecruitCityView[] => {
-    const population = new Map<number, number>();
-    for (const unit of runtime.world.units.values())
-      population.set(unit.city, (population.get(unit.city) ?? 0) + 1);
-    return [...runtime.world.cities.values()]
-      .filter((city) => runtime.places.has(city.id))
-      .toSorted((a, b) => a.id - b.id)
-      .map((city) => ({
-        id: city.id,
-        adminLevel: city.adminLevel,
-        factionCode: runtime.world.factions.get(city.owner)?.code ?? null,
-        start: city.start,
-        population: population.get(city.id) ?? 0,
-        housing: city.housing,
-      }));
-  };
 
   return {
     board(viewer, cityId, nowMs) {

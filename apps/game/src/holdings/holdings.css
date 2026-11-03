@@ -1,0 +1,448 @@
+/*
+ * 보유 물건 — 물건 카드·막대·걸린 효과·쓰기 쿨·누르는 장비 칸·칸 고르기 창·교체 확인 창·개발 시험 받기.
+ * 옛 LocationInventory·EquipmentSelectionModal 모양(분류 색 왼쪽 띠, 수량·착용 표, 스탯 표, 60%·30% 문턱 색 막대)을 디자인 시스템 토큰으로.
+ * 값은 styles/tokens.css의 var(--…)만 쓴다. 창은 좁으면 화면 전체, 넓으면(37.5em 이상) 가운데 판(복귀 요약 창과 같은 경계).
+ */
+
+.holdings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.holdings-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.holdings-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.holdings-filter[aria-pressed="true"] {
+  --button-lip: var(--color-primary-lip);
+  border-color: transparent;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.holding-subtitle {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+
+/* ── 물건 카드 ─────────────────────────────── */
+.holding-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.holding-card {
+  --holding-accent: var(--color-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-inline-start: var(--border-w) solid var(--holding-accent);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.holding-card[data-group="equipment"] {
+  --holding-accent: var(--color-primary);
+}
+.holding-card[data-group="usable"] {
+  --holding-accent: var(--color-success);
+}
+.holding-card[data-broken="true"] {
+  --holding-accent: var(--color-danger);
+  background-color: var(--color-danger-surface);
+}
+.holding-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.holding-name {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.holding-qty {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+.holding-worn {
+  border-color: var(--color-primary-lip);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.holding-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.holding-stat {
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-success);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-success-surface);
+  color: var(--color-success);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.holding-stat[data-sign="minus"] {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+/* 막대: 이름 | 막대 | 값 */
+.holding-bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+.holding-bar-label {
+  color: var(--color-text-muted);
+}
+.holding-bar-track {
+  display: block;
+  height: var(--stat-bar);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  overflow: hidden;
+}
+.holding-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--color-success);
+}
+.holding-bar-track[data-tone="mid"] .holding-bar-fill {
+  background-color: var(--color-warning);
+}
+.holding-bar-track[data-tone="low"] .holding-bar-fill {
+  background-color: var(--color-danger);
+}
+.holding-bar-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-strong);
+}
+.holding-broken {
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.holding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.holding-wait {
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 걸린 효과·쓰기 쿨 ──────────────────────── */
+.holding-buffs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--space-3);
+}
+.holding-buff-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.holding-effects {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.holding-effect {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-success);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-success-surface);
+  font-size: var(--font-size-sm);
+}
+.holding-effect-name {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.holding-effect-value {
+  color: var(--color-success);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+.holding-effect-left,
+.holding-cooldown-left {
+  font-variant-numeric: tabular-nums;
+}
+.holding-effect-left {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.holding-cooldowns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.holding-cooldown {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: calc(var(--tap-size) / 2);
+  padding: 0 var(--space-3);
+  border: var(--hairline) solid var(--color-warning);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
+
+/* ── 누르는 장비 칸(사이보그 머리 판 .cyborg-slot, 유닛 상세 .roster-slot) ── */
+.holding-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--slot-min)), 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cyborg-slot.holding-slot,
+.roster-slot.holding-slot {
+  display: flex;
+  padding: 0;
+}
+.holding-slot[data-broken="true"] {
+  border-color: var(--color-danger);
+}
+.holding-slot-button {
+  --button-lip: transparent;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+  min-height: var(--tap-size);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  box-shadow: none;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  text-align: start;
+}
+.holding-slot-kind {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.holding-slot-name {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.holding-slot-values {
+  color: var(--color-success);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.holding-slot-durability {
+  color: var(--color-success);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+.holding-slot-durability[data-tone="mid"] {
+  color: var(--color-warning);
+}
+.holding-slot-durability[data-tone="low"] {
+  color: var(--color-danger);
+}
+
+/* ── 창(칸 고르기·교체 확인) ─────────────────── */
+.holdings-dialog {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  margin: 0;
+  padding: max(var(--space-6), env(safe-area-inset-top)) max(var(--space-4), env(safe-area-inset-right))
+    max(var(--space-6), env(safe-area-inset-bottom)) max(var(--space-4), env(safe-area-inset-left));
+  border: 0;
+  background-color: var(--color-bg);
+  background-image: var(--color-bg-image);
+  color: var(--color-text);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.holdings-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.holdings-dialog::backdrop {
+  background-color: var(--color-overlay);
+}
+.holdings-dialog-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--content-max);
+  margin: auto;
+  padding: var(--space-5) var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+.holdings-dialog-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.holdings-dialog-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+.holdings-dialog-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.holdings-dashed {
+  padding: var(--space-3);
+  border: var(--hairline) dashed var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.holding-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.holding-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap-size);
+  padding: var(--space-3);
+  border-width: var(--hairline);
+  border-inline-start: var(--border-w) solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  text-align: start;
+}
+.holding-choice[aria-disabled="true"] {
+  border-inline-start-color: var(--color-danger);
+}
+.holding-lost {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-inline-start: var(--space-5);
+  color: var(--color-danger);
+  font-weight: var(--font-weight-strong);
+}
+
+@media (min-width: 37.5em) {
+  .holdings-dialog {
+    width: min(100%, var(--content-max));
+    height: auto;
+    max-height: 100%;
+    margin: auto;
+    padding: var(--space-6) 0;
+    background: none;
+    overflow: visible;
+  }
+  .holdings-dialog-panel {
+    padding: var(--space-6) var(--space-5);
+  }
+}
+
+/* ── 개발 시험 받기(dev·admin) ───────────────── */
+.holdings-dev {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) dashed var(--color-warning);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-warning-surface);
+}
+.holdings-dev-summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap-size);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+.holdings-dev[open] {
+  gap: var(--space-3);
+}
+.holdings-dev-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: end;
+  gap: var(--space-3);
+}
+@media (min-width: 37.5em) {
+  .holdings-dev-form {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 8rem) auto;
+  }
+}

@@ -135,12 +135,15 @@ function resultText(id: number, result: CommandResult): string {
 
 const fail = (code: ResultCode): CommandResult => ({ ok: false, code });
 
-/** 명령을 2차맵에 적용한다(권한·제한 확인은 앞에서 끝났다) */
-function execute(map: SecondMap, message: CommandMessage): Promise<CommandResult> {
+/**
+ * 명령을 2차맵에 적용한다(권한·제한 확인은 앞에서 끝났다). 시험 건물은 놓은 사람의 소유 주체 것이다(없으면 주인 없음) —
+ * 노동 계약의 시설 주인(docs/adr/2026-11-03-labor-contracts.md)
+ */
+function execute(map: SecondMap, message: CommandMessage, ownerId: number | null): Promise<CommandResult> {
   if (message.t === "move_unit") return map.moveUnit(message.unitId, { x: message.x, y: message.y });
   if (message.t === "place_building") {
     const { x, y, width, height, rotation } = message;
-    return Promise.resolve(map.placeBuilding({ x, y, width, height, rotation }));
+    return Promise.resolve(map.placeBuilding({ x, y, width, height, rotation }, ownerId));
   }
   return Promise.resolve(map.removeBuilding(message.buildingId));
 }
@@ -229,7 +232,10 @@ export function createWorldGateway(options: {
         }
         if (!commandLimiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
         world.stats.commands += 1;
-        const result = await dedup.run(`${viewer.id}:${mapKey}:${message.id}`, () => execute(map, message));
+        const placer = world.ownerOfUser?.(viewer.id) ?? null;
+        const result = await dedup.run(`${viewer.id}:${mapKey}:${message.id}`, () =>
+          execute(map, message, placer),
+        );
         reply(message.id, result);
       };
 

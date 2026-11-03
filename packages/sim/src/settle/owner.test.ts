@@ -140,3 +140,69 @@ describe("소유 주체 정산(시험 직무·유지비, 서버·시뮬 공용)"
     expect(inside.lastUpkeepPaid).toBeNull();
   });
 });
+
+describe("소유 주체 정산 — 산출 구간(노동 계약, docs/adr/2026-11-03-labor-contracts.md)", () => {
+  it("구간대로 산출을 나누고(null = 일시 중지는 산출 없음), 직무 상태는 나누지 않은 것과 같다", () => {
+    const plain = bookWithCredit(3, 100n);
+    const whole = settleOwnerPeriod(
+      { ownerId: 3, jobs: [fresh, fresh], fromMs: 0, toMs: 3 * HOUR, offlineSinceMs: null },
+      plain,
+      testSettleAccounts(plain, 3),
+    );
+    const book = bookWithCredit(3, 100n);
+    const employerStock = () => book.ownerAccount(9, TEST_ASSET_ORE);
+    const split = settleOwnerPeriod(
+      {
+        ownerId: 3,
+        jobs: [fresh, fresh],
+        fromMs: 0,
+        toMs: 3 * HOUR,
+        offlineSinceMs: null,
+        // 첫 유닛: 1시간 고용주 몫 → 30분 일시 중지 → 나머지는 자기 몫. 둘째 유닛: 구간 없음(자기 몫)
+        outputs: [
+          [
+            { untilMs: HOUR, stock: employerStock },
+            { untilMs: HOUR + HOUR / 2, stock: null },
+          ],
+          undefined,
+        ],
+      },
+      book,
+      testSettleAccounts(book, 3),
+    );
+    expect(split.jobs).toEqual(whole.jobs);
+    expect(split.upkeepPaid).toBe(whole.upkeepPaid);
+    // 첫 유닛: 1시간 = 60주기는 고용주, 30분(30주기)은 사라지고, 나머지 일한 몫은 자기
+    expect(book.balanceOf(9, TEST_ASSET_ORE)).toBe(60n);
+    expect(split.discarded).toBe(30);
+    expect(split.cycles).toBe(whole.cycles - 30);
+    expect(book.balanceOf(3, TEST_ASSET_ORE)).toBe(BigInt(whole.cycles - 30 - 60));
+    expect(whole.discarded).toBeUndefined();
+  });
+
+  it("계약 몫이 자기 창고와 같으면 한 항목으로 합친다(예전 거래 모양 그대로)", () => {
+    const book = bookWithCredit(3, 10n);
+    const posted: number[] = [];
+    const stock = () => book.ownerAccount(3, TEST_ASSET_ORE);
+    settleOwnerPeriod(
+      {
+        ownerId: 3,
+        jobs: [fresh],
+        fromMs: 0,
+        toMs: HOUR,
+        offlineSinceMs: null,
+        outputs: [[{ untilMs: HOUR / 2, stock }]],
+      },
+      {
+        ...book,
+        post(tx) {
+          if (tx.kind === "job_output") posted.push(tx.entries.length);
+          return book.post(tx);
+        },
+      },
+      testSettleAccounts(book, 3),
+    );
+    expect(posted).toEqual([2]);
+    expect(book.balanceOf(3, TEST_ASSET_ORE)).toBe(60n);
+  });
+});

@@ -249,8 +249,13 @@ export interface SecondMap {
   /** 불변 조건 I7: 몸이 건물 칸에 걸친 서 있는 유닛 수 */
   unitsInBuildings(): number;
   moveUnit(unitId: number, target: Point): Promise<CommandResult>;
-  placeBuilding(placement: BuildingPlacement): CommandResult;
+  /** ownerId = 건물 주인 주체(시험 건물은 놓은 사람, 없으면 null) */
+  placeBuilding(placement: BuildingPlacement, ownerId?: number | null): CommandResult;
   removeBuilding(buildingId: number): CommandResult;
+  /** 건물 주인(노동 계약의 시설 주인). 건물이 없으면 undefined */
+  buildingOwner(buildingId: number): number | null | undefined;
+  /** 모든 건물 ID와 주인(노동 계약 화면) */
+  forEachBuilding(visit: (building: { readonly id: number; readonly ownerId: number | null }) => void): void;
   gauges(): { units: number; moving: number; planning: number };
   /** 유닛의 크기 등급·속도·지금 움직임·주인·상태·종류 코드(unitKinds.ts, 보유 물건 칸 배치가 읽는다) */
   unitInfo(unitId: number):
@@ -861,21 +866,28 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       if (unavailable(unit.condition, now())) return Promise.resolve({ ok: false, code: "invalid_request" });
       return new Promise((resolve) => requestRoute(unit, target, "command", COMMAND_NODE_BUDGET, resolve));
     },
-    placeBuilding(placement) {
+    placeBuilding(placement, ownerId = null) {
       if (buildings.size >= MAX_BUILDINGS) return { ok: false, code: "building_limit" };
       const check = validatePlacement(grid, placement);
       if (!check.ok)
         return { ok: false, code: check.problem === "invalid_input" ? "invalid_request" : check.problem };
       if (unitInRect(check.rect)) return { ok: false, code: "overlaps_unit" };
       const id = allocateBuildingId();
-      putBuilding(id, placement, null);
-      persist?.saveBuilding({ id, mapKey, planetId, domain: "land", ownerId: null, placement });
+      putBuilding(id, placement, ownerId);
+      persist?.saveBuilding({ id, mapKey, planetId, domain: "land", ownerId, placement });
       replanBlockedUnits();
       if (!edited) {
         edited = true;
         options.onFirstEdit?.();
       }
       return { ok: true, buildingId: id };
+    },
+    buildingOwner(buildingId) {
+      const building = buildings.get(buildingId);
+      return building ? building.ownerId : undefined;
+    },
+    forEachBuilding(visit) {
+      for (const building of buildings.values()) visit({ id: building.id, ownerId: building.ownerId });
     },
     removeBuilding(buildingId) {
       if (!buildings.has(buildingId)) return { ok: false, code: "unknown_building" };

@@ -13,6 +13,7 @@ import type {
   MarketCitiesResponse,
   MarketItemsResponse,
 } from "@terra/shared/economy";
+import type { LaborOverviewResponse } from "@terra/shared/labor";
 import { useEffect, useSyncExternalStore } from "react";
 import { refreshSession } from "../auth/session.ts";
 import { usePreviewOn } from "../inbox/preview.ts";
@@ -144,6 +145,11 @@ export const useOrders = createQuery<EconomyOrdersResponse>((_args, preview, sig
 );
 export const useExchange = createQuery<EconomyExchangeResponse>((_args, preview, signal) =>
   api.economy.exchange.query(previewInput(preview), { signal }),
+);
+
+/** 노동 계약(실제 자료만, 시안 자료 없음 — docs/adr/2026-11-03-labor-contracts.md) */
+export const useLabor = createQuery<LaborOverviewResponse>((_args, _preview, signal) =>
+  api.labor.overview.query(undefined, { signal }),
 );
 
 /** 매개변수 없는 조회의 args(같은 배열을 넘겨 열쇠가 그대로이게) */

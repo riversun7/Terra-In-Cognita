@@ -19,6 +19,7 @@ import { recruitRouter } from "./recruit.ts";
 import { cyborgRouter, unitsRouter } from "./roster.ts";
 import { settingsRouter } from "./settings.ts";
 import { itemsRouter } from "./items.ts";
+import { laborRouter } from "./labor.ts";
 import { skillsRouter } from "./skills.ts";
 import { summaryRouter } from "./summary.ts";
 import { systemRouter } from "./system.ts";
@@ -64,6 +65,8 @@ export const appRouter = router({
   territory: territoryRouter,
   // 보유 물건(아이템 인스턴스) 조회(docs/adr/2026-11-03-item-holdings.md 4절)
   holdings: holdingsRouter,
+  // 노동 계약(임금형·임대형) 조회(docs/adr/2026-11-03-labor-contracts.md)
+  labor: laborRouter,
 });
 
 export type AppRouter = typeof appRouter;

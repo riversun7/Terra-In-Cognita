@@ -75,6 +75,15 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "gatherTierProgressStep",
   "gatherTickMs",
   "gatherOreGrams",
+  // 노동 계약(labor/service.ts, 49 N48·D-479): 정산·명령·화면마다 읽는다. 임금 = 기준 단가(N27) × 고용주 조정(N28)
+  "labor.wageCycleMs",
+  "labor.depositDays",
+  "labor.warnDays",
+  "labor.rentCycleMs",
+  "labor.graceMs",
+  "wageRateMilli",
+  "employerAdjustMinPm",
+  "employerAdjustMaxPm",
   // 건물 편집기(buildingEdit/services.ts list, 49 M14·D-508): 레벨별 건설 시간 미리 보기. 짓기가 생기면 그쪽도 읽는다
   "facilityBuild.msPerKg",
   "facilityBuild.timeFactorPm.0",

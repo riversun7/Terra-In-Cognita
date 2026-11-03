@@ -14,7 +14,9 @@
  *    더하기만 했다. 5판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
  * 7: 영토 비콘(territory.ts, docs/adr/2026-11-03-territory-layer.md 4절) — beacon_place·beacon_remove → beacon_result.
  *    구인 카드 고용(recruit.ts, D-469, docs/adr/2026-10-31-faction-society-core.md "바뀜 (D-469 구인 카드)") — recruit_hire →
- *    recruit_result. 셋 다 더하기만 했다(세 가지를 한 번에 합쳐 판 하나로 올렸다). 6판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
+ *    recruit_result. 노동 계약(labor.ts, docs/adr/2026-11-03-labor-contracts.md) — labor_create·labor_terminate·labor_top_up·
+ *    labor_set_rent → labor_result. 셋 다 더하기만 했고 한 번에 합쳐 판 하나로 올렸다. 6판 기기는 그대로 받는다(이 메시지를
+ *    보내지 않는다).
  */
 export const PROTOCOL_VERSION = 7;
 

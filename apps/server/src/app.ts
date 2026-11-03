@@ -38,6 +38,7 @@ import { createRecruitGateway } from "./recruit/gateway.ts";
 import { holdingsConfigOf } from "./holdings/config.ts";
 import { createItemGateway } from "./holdings/gateway.ts";
 import { createHoldingsReads } from "./holdings/reads.ts";
+import { createLaborGateway } from "./labor/gateway.ts";
 import { type CyborgService, cyborgReadsOf } from "./cyborg/service.ts";
 import type { RecruitService } from "./recruit/service.ts";
 import { createWorldSummaryBackend } from "./world/summarySources.ts";
@@ -412,6 +413,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // 보유 물건(docs/adr/2026-11-03-item-holdings.md): 세계가 준비된 뒤의 접근(DB가 있는 월드만)
   const holdingsAccess = () =>
     world?.status().state === "ready" ? world.persistence?.holdings.access : undefined;
+  // 노동 계약(docs/adr/2026-11-03-labor-contracts.md): 세계가 준비된 뒤의 서비스(DB가 있는 월드만)
+  const laborService = () => (world?.status().state === "ready" ? world.persistence?.labor : undefined);
   if (world) {
     app.addHook("onReady", async () => world.ready);
     app.addHook("onClose", async () => {
@@ -533,6 +536,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           })
         : undefined,
       factionSource: world && options.db ? createWorldFactionSource(world) : undefined,
+      labor: laborService,
       factionRules: tuningState ? () => factionRulesFrom(tuningState.society()) : undefined,
       // 설정 칸 패널: 인증이 켜져 있을 때만 맥락이 서비스를 만든다
       tuning: tuningShared,
@@ -592,6 +596,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     ? createRecruitGateway({ service: recruitService, now, log: app.log })
     : undefined;
   const itemGateway = world ? createItemGateway({ access: holdingsAccess, now, log: app.log }) : undefined;
+  const laborGateway = world ? createLaborGateway({ service: laborService, now, log: app.log }) : undefined;
 
   if (planets && options.planets) {
     registerPlanetRoutes(app, { planets, viewer: httpViewer, now, limits: options.planets.limits });
@@ -614,6 +619,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         territory: territoryGateway,
         recruit: recruitGateway,
         items: itemGateway,
+        labor: laborGateway,
         viewer: socketViewer(request),
         // 접속 상태(D-136): 월드가 DB에 저장할 때만. 연결은 부팅 복구가 끝난 뒤에만 들어온다(listen이 기다린다)
         presence: world

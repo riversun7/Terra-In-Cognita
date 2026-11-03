@@ -9,6 +9,7 @@ import { BUILD_TUNING_KEYS } from "./tuningBuild.ts";
 import { RECRUIT_TUNING_KEYS } from "./tuningRecruit.ts";
 import { CYBORG_TUNING_KEYS } from "./tuningCyborg.ts";
 import { GARDENER_TUNING_KEYS } from "./tuningGardener.ts";
+import { LABOR_TUNING_KEYS } from "./tuningLabor.ts";
 import { NPC_TUNING_KEYS } from "./tuningNpc.ts";
 import { TERRITORY_TUNING_KEYS } from "./tuningTerritory.ts";
 
@@ -542,6 +543,7 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...TERRITORY_TUNING_KEYS,
   // 구인 카드(49 N45, D-469 — S39 출생 칸을 대신함): tuningRecruit.ts
   ...RECRUIT_TUNING_KEYS,
+  ...LABOR_TUNING_KEYS,
 ];
 
 function getPath(root: unknown, path: string): number {

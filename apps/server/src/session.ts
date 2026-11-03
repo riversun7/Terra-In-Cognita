@@ -12,6 +12,7 @@ import {
   TERRITORY_PROTOCOL_VERSION,
   RECRUIT_PROTOCOL_VERSION,
   ITEM_PROTOCOL_VERSION,
+  LABOR_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -24,6 +25,7 @@ import type { CyborgGateway, CyborgSocket } from "./cyborg/gateway.ts";
 import type { TerritoryGateway, TerritorySocket } from "./territory/gateway.ts";
 import type { RecruitGateway, RecruitSocket } from "./recruit/gateway.ts";
 import type { ItemGateway, ItemSocket } from "./holdings/gateway.ts";
+import type { LaborGateway, LaborSocket } from "./labor/gateway.ts";
 import type { WorldGateway, WorldSocket } from "./world/gateway.ts";
 
 export interface SessionContext {
@@ -40,6 +42,8 @@ export interface SessionContext {
   recruit?: RecruitGateway | undefined;
   /** 보유 물건(프로토콜 6, docs/adr/2026-11-03-item-holdings.md 5절). 없으면 busy */
   items?: ItemGateway | undefined;
+  /** 노동 계약 명령(docs/adr/2026-11-03-labor-contracts.md). 없으면 busy */
+  labor?: LaborGateway | undefined;
   /** 이 연결의 로그인 사용자(쿠키). 로그인하지 않았거나 인증이 꺼져 있으면 null */
   viewer?: (() => Promise<Viewer | null>) | undefined;
   /**
@@ -71,6 +75,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let territorySocket: TerritorySocket | undefined;
   let recruitSocket: RecruitSocket | undefined;
   let itemSocket: ItemSocket | undefined;
+  let laborSocket: LaborSocket | undefined;
   let releasePresence: (() => void) | undefined;
 
   const sendText = (text: string): void => {
@@ -105,6 +110,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
     territorySocket?.close();
     recruitSocket?.close();
     itemSocket?.close();
+    laborSocket?.close();
     releasePresence?.();
   });
 
@@ -254,6 +260,22 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         }
         itemSocket ??= context.items.open({ send: sendText, viewer: context.viewer ?? signedOut });
         itemSocket.handle(message);
+        return;
+      }
+      case "labor_create":
+      case "labor_terminate":
+      case "labor_top_up":
+      case "labor_set_rent": {
+        if (protocolVersion < LABOR_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.labor) {
+          send({ t: "labor_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        laborSocket ??= context.labor.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        laborSocket.handle(message);
         return;
       }
     }

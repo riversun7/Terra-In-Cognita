@@ -1,0 +1,81 @@
+/* 노동 계약 칸(LaborPanel.tsx) — 경제 화면 토큰만 쓴다(AGENTS 8장). 좁은 화면이 먼저다: 줄은 감싸고, 칸은 세로로 쌓는다 */
+.labor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.labor-contracts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.labor-contract {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  min-inline-size: 0;
+}
+.labor-contract[data-state="ended"] {
+  background-color: transparent;
+}
+.labor-contract-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+.labor-contract-head .eco-row-title {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+.labor-contract p {
+  margin: 0;
+}
+.labor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding-block-start: var(--space-1);
+}
+.labor-inline {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+.labor-inline .eco-input {
+  min-inline-size: 0;
+  inline-size: 100%;
+}
+.labor-rent {
+  inline-size: 100%;
+}
+.labor-rent .eco-input {
+  flex: 0 1 30%;
+}
+.labor-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block-start: var(--space-2);
+  border-block-start: var(--hairline) solid var(--color-border);
+}
+.labor-form .eco-input {
+  text-align: start;
+}
+.labor-rents {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}

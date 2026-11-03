@@ -413,7 +413,10 @@
         "en": "Base wage rate (milli per point)"
       },
       "value": 2000,
-      "structural": false
+      "structural": false,
+      "unit": "milli",
+      "min": 1,
+      "max": 1000000
     },
     {
       "id": "n27_elasticity",
@@ -463,7 +466,10 @@
         "en": "Employer adjust floor (‰)"
       },
       "value": 800,
-      "structural": false
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
     },
     {
       "id": "n28_adjust_max",
@@ -473,7 +479,10 @@
         "en": "Employer adjust ceiling (‰)"
       },
       "value": 1500,
-      "structural": false
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
     },
     {
       "id": "n29_restore",
@@ -2844,6 +2853,71 @@
       "unit": "points",
       "min": 1,
       "max": 100000
+    },
+    {
+      "id": "n48_wage_cycle_ms",
+      "code": "N48",
+      "name": {
+        "ko": "임금 주기(ms)",
+        "en": "Wage cycle (ms)"
+      },
+      "value": 86400000,
+      "structural": false,
+      "unit": "ms",
+      "min": 3600000,
+      "max": 604800000
+    },
+    {
+      "id": "n48_deposit_days",
+      "code": "N48",
+      "name": {
+        "ko": "보증금 = 임금 × 날수(일)",
+        "en": "Deposit = wage × days (days)"
+      },
+      "value": 30,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 365
+    },
+    {
+      "id": "n48_warn_days",
+      "code": "N48",
+      "name": {
+        "ko": "보증금 경고 남은 날수(일)",
+        "en": "Deposit warning, days left (days)"
+      },
+      "value": 7,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 365
+    },
+    {
+      "id": "n48_rent_cycle_ms",
+      "code": "N48",
+      "name": {
+        "ko": "임대료 주기(ms)",
+        "en": "Rent cycle (ms)"
+      },
+      "value": 3600000,
+      "structural": false,
+      "unit": "ms",
+      "min": 60000,
+      "max": 86400000
+    },
+    {
+      "id": "n48_grace_ms",
+      "code": "N48",
+      "name": {
+        "ko": "임대형 해지 뒤 유예(ms)",
+        "en": "Lease grace after termination (ms)"
+      },
+      "value": 604800000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 2592000000
     }
   ]
 }

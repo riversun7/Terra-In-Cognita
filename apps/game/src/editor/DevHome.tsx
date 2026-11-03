@@ -9,6 +9,7 @@
 import { ROUTES, type RouteId } from "@terra/shared";
 import type { ReactNode } from "react";
 import { m } from "../paraglide/messages.js";
+import { getLocale } from "../paraglide/runtime.js";
 import { AppLink } from "../shell/AppLink.tsx";
 import { BackButton } from "../shell/BackButton.tsx";
 import { Icon } from "../ui/icons.tsx";
@@ -35,17 +36,21 @@ interface DevTool {
   readonly name: () => string;
   readonly desc: () => string;
   readonly mark: ReactNode;
+  readonly tagKo: string;
+  readonly tagEn: string;
   /** false: 화면이 아직 준비 중 화면이다(줄에 "준비 중"을 붙인다). 그 도구 화면을 붙이면 true로 바꾼다 */
   readonly ready: boolean;
 }
 
-/** 도구마다 이름·설명·아이콘. 보이는 차례는 주소 표 차례다(TOOL_ROUTES) */
+/** 도구마다 이름·설명·아이콘·분류 표지 */
 const DEV_TOOLS = {
   // 행성 편집기 화면(ADR 38 WP-D)
   dev_planet_editor: {
     name: m.shell_route_dev_planet_editor,
     desc: m.dev_tool_planet_editor_desc,
     mark: <Icon name="globe" />,
+    tagKo: "3D WORLD · S2",
+    tagEn: "3D WORLD · S2",
     ready: true,
   },
   // 항성계 편집기(ADR 2026-10-31-star-system-editor)
@@ -53,6 +58,8 @@ const DEV_TOOLS = {
     name: m.shell_route_dev_star_system,
     desc: m.dev_tool_star_system_desc,
     mark: <OrbitIcon />,
+    tagKo: "ORBIT · 공전·자전",
+    tagEn: "ORBIT · System",
     ready: true,
   },
   // 2차맵 시험(ADR 46 "구현하며 정한 것 (개발자 2차맵 시험)"): 시각·자리·고저 과장을 바꿔 보는 보기 전용 화면
@@ -60,6 +67,8 @@ const DEV_TOOLS = {
     name: m.shell_route_dev_second_map,
     desc: m.dev_tool_second_map_desc,
     mark: <Icon name="map" />,
+    tagKo: "VIEWER · 지형",
+    tagEn: "VIEWER · Terrain",
     ready: true,
   },
   // 설정 칸 패널(docs/adr/2026-11-01-dev-settings-panel.md): 49 설정 칸을 보고 그 세계에서 바로 바꾼다
@@ -67,6 +76,8 @@ const DEV_TOOLS = {
     name: m.shell_route_dev_tuning,
     desc: m.dev_tool_tuning_desc,
     mark: <SlidersIcon />,
+    tagKo: "LIVE CONFIG · 49 N53",
+    tagEn: "LIVE CONFIG · 49 N53",
     ready: true,
   },
   // 밸런스·전투 실험실(docs/adr/2026-11-01-balance-screen.md "바뀜 (2026-11-01, 전투 실험실)"): 팀 A·B 파티 전투 + 가중치 표
@@ -74,6 +85,8 @@ const DEV_TOOLS = {
     name: m.shell_route_dev_balance,
     desc: m.dev_tool_balance_desc,
     mark: <ScaleIcon />,
+    tagKo: "SIMULATOR · 계산식",
+    tagEn: "SIMULATOR · Formulas",
     ready: true,
   },
   // 스킬 편집기·행동별 소모(docs/adr/2026-11-01-skill-editor.md): 스킬마다 모든 칸·특수 효과, 행동별 스태미나·MP
@@ -81,6 +94,8 @@ const DEV_TOOLS = {
     name: m.shell_route_dev_skills,
     desc: m.dev_tool_skills_desc,
     mark: <SparkIcon />,
+    tagKo: "LIVE EDIT · 스킬",
+    tagEn: "LIVE EDIT · Skills",
     ready: true,
   },
   // 아이템 편집기(docs/adr/2026-11-01-item-editor.md): 아이템마다 모든 칸·분류 자료, 서버가 셈하는 미리 보기, 담기 → 적용
@@ -88,13 +103,17 @@ const DEV_TOOLS = {
     name: m.shell_route_dev_items,
     desc: m.dev_tool_items_desc,
     mark: <CrateIcon />,
+    tagKo: "LIVE EDIT · 매장량 P1~P4",
+    tagEn: "LIVE EDIT · Reserves P1~P4",
     ready: true,
   },
-  // 건물 편집기(docs/adr/2026-11-02-building-editor.md): 시설마다 레벨 구간별 건설 재료·자리·채집 칸, 담기 → 적용
+  // 건물 편집기(docs/adr/2026-11-02-building-editor.md): 시설마다 레벨 구간별 건설 재료·자리·채집 칸 + N43 티어 확률 분포
   dev_buildings: {
     name: m.shell_route_dev_buildings,
     desc: m.dev_tool_buildings_desc,
     mark: <HouseIcon />,
+    tagKo: "LIVE EDIT · N43 티어 확률",
+    tagEn: "LIVE EDIT · N43 Tier Prob",
     ready: true,
   },
   // 영토 층(docs/adr/2026-11-03-territory-layer.md): 도시·비콘 볼록 껍질, 겹침 규칙, 1차맵 칸 표, 시험 세력 비콘 놓기
@@ -102,6 +121,8 @@ const DEV_TOOLS = {
     name: m.shell_route_dev_territory,
     desc: m.dev_tool_territory_desc,
     mark: <TerritoryIcon />,
+    tagKo: "TERRITORY · 볼록 껍질",
+    tagEn: "TERRITORY · Hull",
     ready: true,
   },
   // 구인 카드 시험(D-469): 도시마다 내 카드·도시 주인(NPC) 카드, WebSocket으로 고용해 본다(행정 건물 화면 전)
@@ -109,6 +130,8 @@ const DEV_TOOLS = {
     name: m.shell_route_dev_recruit,
     desc: m.dev_tool_recruit_desc,
     mark: <PersonCardIcon />,
+    tagKo: "LIVE TEST · 구인",
+    tagEn: "LIVE TEST · Recruit",
     ready: true,
   },
   // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md): 시범 6 대 6을 서버에서 기록해 3D 지도에서 되감고 배속으로 본다
@@ -116,19 +139,71 @@ const DEV_TOOLS = {
     name: m.shell_route_dev_battle_replay,
     desc: m.dev_tool_battle_replay_desc,
     mark: <ForwardIcon />,
+    tagKo: "3D REPLAY · 6v6",
+    tagEn: "3D REPLAY · 6v6",
     ready: true,
   },
   dev_gpu_bench: {
     name: m.shell_route_dev_gpu_bench,
     desc: m.dev_tool_gpu_bench_desc,
     mark: <GaugeIcon />,
+    tagKo: "BENCHMARK · GPU",
+    tagEn: "BENCHMARK · GPU",
     ready: true,
   },
 } satisfies Record<DevToolRoute, DevTool>;
 
-const TOOL_ROUTES = Object.keys(ROUTES).filter((id): id is DevToolRoute => Object.hasOwn(DEV_TOOLS, id));
+interface DevSection {
+  readonly id: string;
+  readonly titleKo: string;
+  readonly titleEn: string;
+  readonly subKo: string;
+  readonly subEn: string;
+  readonly routes: readonly DevToolRoute[];
+}
 
-function DevToolRow({ route }: { route: DevToolRoute }) {
+const DEV_SECTIONS: readonly DevSection[] = [
+  {
+    id: "data",
+    titleKo: "데이터 & 생산 에디터",
+    titleEn: "Data & Production Editors",
+    subKo:
+      "시설·채집 티어 확률(N43), 아이템·총량 자원(P1~P4), 스킬·소모, 구인 카드를 담고(Draft) 검사 뒤 즉시 반영합니다.",
+    subEn:
+      "Stage, validate, and live-apply facilities, N43 gather tier probabilities, items (P1~P4 reserves), skills, and recruitment.",
+    routes: ["dev_buildings", "dev_items", "dev_skills", "dev_recruit"],
+  },
+  {
+    id: "balance",
+    titleKo: "밸런싱 · 계산식 & 전투 시뮬레이터",
+    titleEn: "Balancing, Formulas & Combat Simulators",
+    subKo:
+      "스탯 가중치·전투 계산식(맨손·건물 피해 C32·건설 시간 M14), 49 설정 칸(N53 스위치 포함), 6v6 3D 전투 다시보기를 시험합니다.",
+    subEn:
+      "Test stat weights, combat/building formulas (C32, M14), 49 settings cells (including N53 switches), and 6v6 3D battle replays.",
+    routes: ["dev_balance", "dev_tuning", "dev_battle_replay"],
+  },
+  {
+    id: "world",
+    titleKo: "월드 · 행성 & 영토 에디터",
+    titleEn: "World, Planet & Territory Editors",
+    subKo:
+      "S2 구체 행성 지형·기후, 항성계 공전·자전, 도시·비콘 영토 볼록 껍질, 2차맵 지형을 편집·검증합니다.",
+    subEn:
+      "Edit and inspect S2 planetary terrain/climate, star system orbits, territory convex hulls, and secondary map terrain.",
+    routes: ["dev_planet_editor", "dev_star_system", "dev_territory", "dev_second_map"],
+  },
+  {
+    id: "diag",
+    titleKo: "그래픽 & 기기 성능 진단",
+    titleEn: "Graphics & Device Diagnostics",
+    subKo: "WebGL2·TSL 셰이더 경로별 프레임 시간과 기기 렌더링 성능을 측정합니다.",
+    subEn: "Benchmark frame times and rendering performance across WebGL2 and TSL shader paths.",
+    routes: ["dev_gpu_bench"],
+  },
+];
+
+function DevToolRow({ route, ko }: { readonly route: DevToolRoute; readonly ko: boolean }) {
   const tool: DevTool = DEV_TOOLS[route];
   return (
     <li>
@@ -137,6 +212,7 @@ function DevToolRow({ route }: { route: DevToolRoute }) {
         <span className="dev-tool-text">
           <span className="dev-tool-name">
             {tool.name()}
+            <span className="dev-tool-tag">{ko ? tool.tagKo : tool.tagEn}</span>
             {tool.ready ? null : (
               <>
                 {" "}
@@ -155,20 +231,55 @@ function DevToolRow({ route }: { route: DevToolRoute }) {
 }
 
 export default function DevHome() {
+  const ko = getLocale() !== "en";
   return (
-    <section className="screen" aria-labelledby="dev-home-title">
+    <section className="screen dev-home" aria-labelledby="dev-home-title">
       <div className="screen-header">
         <h1 id="dev-home-title" className="screen-title" tabIndex={-1}>
           {m.shell_dev()}
         </h1>
         <BackButton />
       </div>
-      <p className="lead">{m.dev_home_lead()}</p>
-      <ul className="dev-tools" aria-label={m.dev_home_tools()}>
-        {TOOL_ROUTES.map((route) => (
-          <DevToolRow key={route} route={route} />
+
+      {/* Part B 역할 배너 (개발 · 에디터 · 시뮬레이터 허브) */}
+      <div className="dev-role-banner">
+        <div className="dev-role-info">
+          <div className="dev-role-head">
+            <span className="dev-part-badge">PART B · EDITOR &amp; BALANCING HUB</span>
+            <div className="dev-workflow-pills" aria-label={ko ? "편집 작업 흐름" : "Editing workflow"}>
+              <span className="dev-workflow-pill">1. Draft {ko ? "담기" : "Stage"}</span>
+              <span className="dev-workflow-arrow" aria-hidden="true">
+                →
+              </span>
+              <span className="dev-workflow-pill">2. Preview {ko ? "시뮬·검사" : "Check"}</span>
+              <span className="dev-workflow-arrow" aria-hidden="true">
+                →
+              </span>
+              <span className="dev-workflow-pill">3. Apply {ko ? "즉시 반영" : "Live Apply"}</span>
+            </div>
+          </div>
+          <p className="lead">{m.dev_home_lead()}</p>
+        </div>
+        <AppLink to={{ route: "admin" }} className="dev-hub-link">
+          {ko ? "운영 & 라이브 관리 (/admin) 전환 →" : "Switch to Live Ops & Admin (/admin) →"}
+        </AppLink>
+      </div>
+
+      <div className="dev-sections" aria-label={m.dev_home_tools()}>
+        {DEV_SECTIONS.map((section) => (
+          <section key={section.id} className="dev-section">
+            <div className="dev-section-head">
+              <h2 className="dev-section-title">{ko ? section.titleKo : section.titleEn}</h2>
+              <p className="dev-section-sub">{ko ? section.subKo : section.subEn}</p>
+            </div>
+            <ul className="dev-tools">
+              {section.routes.map((route) => (
+                <DevToolRow key={route} route={route} ko={ko} />
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
     </section>
   );
 }

@@ -352,3 +352,247 @@
     display: none;
   }
 }
+
+/* ── 탭 막대 (시설 · 건설 재료 / 1차 생산 · 티어 확률 분포) ── */
+.be-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  border-bottom: var(--hairline) solid var(--color-border);
+  padding-bottom: var(--space-2);
+}
+.be-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-size);
+  padding: 0 var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  cursor: pointer;
+}
+.be-tab[data-active="true"] {
+  border-color: var(--color-primary);
+  background-color: var(--dev-row-selected);
+  color: var(--color-text);
+}
+
+/* ── 1차 생산 · 티어 확률 분포 탭 (N43) ── */
+.be-prob-tab {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.be-prob-banner-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.be-prob-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: var(--hairline) solid var(--color-border);
+}
+.be-prob-cards {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.be-prob-card[data-staged="true"] {
+  border-color: var(--color-focus);
+}
+.be-prob-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--hairline) solid var(--color-border);
+}
+.be-prob-stat-range {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  color: var(--color-primary);
+}
+.dev-badge[data-invalid="true"] {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+.be-prob-stack {
+  display: flex;
+  height: var(--space-2);
+  width: 100%;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  overflow: hidden;
+}
+.be-prob-stack-seg {
+  height: 100%;
+}
+.be-prob-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+}
+@media (min-width: 52em) {
+  .be-prob-body {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+.be-prob-chart,
+.be-prob-inputs {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.be-prob-bars {
+  display: grid;
+  gap: var(--space-1);
+}
+.be-prob-bar-row {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr) 6.5rem;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+.be-prob-bar-row[data-dim="true"] {
+  opacity: 0.45;
+}
+.be-prob-tier-label {
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-strong);
+}
+.be-prob-bar-track {
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  overflow: hidden;
+}
+.be-prob-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+}
+.be-prob-bar-pct {
+  font-family: var(--font-mono);
+  text-align: end;
+  color: var(--color-text-muted);
+}
+.be-prob-input-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: var(--space-2);
+}
+.be-prob-input-cell {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+}
+.be-prob-input-cell input {
+  width: 100%;
+  min-width: 0;
+  font-family: var(--font-mono);
+  text-align: end;
+}
+.be-prob-row-presets {
+  padding-top: var(--space-1);
+}
+.be-prob-facility-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.be-prob-facility-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-xs);
+}
+
+/* 티어 색 (T0~T9, tokens.css 변수만 사용) */
+.be-prob-tier-label[data-tier="t0"] {
+  color: var(--color-text-muted);
+}
+.be-prob-tier-label[data-tier="t1"] {
+  color: var(--color-success);
+}
+.be-prob-tier-label[data-tier="t2"] {
+  color: var(--color-market-blue);
+}
+.be-prob-tier-label[data-tier="t3"] {
+  color: var(--color-stat-wis);
+}
+.be-prob-tier-label[data-tier="t4"] {
+  color: var(--color-stat-vit);
+}
+.be-prob-tier-label[data-tier="t5"] {
+  color: var(--color-stat-dex);
+}
+.be-prob-tier-label[data-tier="t6"] {
+  color: var(--color-danger);
+}
+.be-prob-tier-label[data-tier="t7"] {
+  color: var(--color-sec-physical-attack);
+}
+.be-prob-tier-label[data-tier="t8"] {
+  color: var(--color-sec-elemental-attack);
+}
+.be-prob-tier-label[data-tier="t9"] {
+  color: var(--color-focus);
+}
+
+.be-prob-bar-fill[data-tier="t0"],
+.be-prob-stack-seg[data-tier="t0"] {
+  background-color: var(--color-text-muted);
+}
+.be-prob-bar-fill[data-tier="t1"],
+.be-prob-stack-seg[data-tier="t1"] {
+  background-color: var(--color-success);
+}
+.be-prob-bar-fill[data-tier="t2"],
+.be-prob-stack-seg[data-tier="t2"] {
+  background-color: var(--color-market-blue);
+}
+.be-prob-bar-fill[data-tier="t3"],
+.be-prob-stack-seg[data-tier="t3"] {
+  background-color: var(--color-stat-wis);
+}
+.be-prob-bar-fill[data-tier="t4"],
+.be-prob-stack-seg[data-tier="t4"] {
+  background-color: var(--color-stat-vit);
+}
+.be-prob-bar-fill[data-tier="t5"],
+.be-prob-stack-seg[data-tier="t5"] {
+  background-color: var(--color-stat-dex);
+}
+.be-prob-bar-fill[data-tier="t6"],
+.be-prob-stack-seg[data-tier="t6"] {
+  background-color: var(--color-danger);
+}
+.be-prob-bar-fill[data-tier="t7"],
+.be-prob-stack-seg[data-tier="t7"] {
+  background-color: var(--color-sec-physical-attack);
+}
+.be-prob-bar-fill[data-tier="t8"],
+.be-prob-stack-seg[data-tier="t8"] {
+  background-color: var(--color-sec-elemental-attack);
+}
+.be-prob-bar-fill[data-tier="t9"],
+.be-prob-stack-seg[data-tier="t9"] {
+  background-color: var(--color-focus);
+}

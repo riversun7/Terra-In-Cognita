@@ -120,10 +120,20 @@ export interface NpcRuntime {
 /** 다음 하루 끝(UTC 0시, 하루 길이를 줄였으면 그 배수) */
 /**
  * 웨이브를 끄면 도시 웨이브 확률 상한(chanceMaxPm)을 0으로 둔다: 굴림은 돌지만 늘 실패하고, 오염 층은 그대로 쌓인다.
- * 사용자 결정(2026-11-01 "합치되 웨이브 끔"), GARDENER_WAVES
+ * 사용자 결정(2026-11-01 "합치되 웨이브 끔", D-513 운영자 온/오프 스위치 49 N53 `n53_gardener_waves`), GARDENER_WAVES
  */
 export function gardenerRulesOf(rules: GardenerCoefficients, wavesOn: boolean): GardenerCoefficients {
   return wavesOn ? rules : { ...rules, chanceMaxPm: 0 };
+}
+
+/**
+ * 운영자 스위치(n53_gardener_waves = 1)가 켜져 있으면 환경변수(기본 false)가 꺼져 있어도 웨이브를 켠다.
+ * 환경변수를 주지 않은 시험(undefined)은 스위치가 기본값(0)이어도 기존 시험처럼 켜 둔다.
+ */
+export function gardenerWavesEnabled(envFlag: boolean | undefined, switchValue: number | undefined): boolean {
+  if (switchValue === 1) return true;
+  if (envFlag === undefined) return true;
+  return envFlag;
 }
 
 const nextDayEnd = (nowMs: number, dayMs: number): number => (Math.floor(nowMs / dayMs) + 1) * dayMs;
@@ -401,9 +411,14 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         return;
       }
       if (event.payload.kind === EVENT_DECIDE) {
-        decide(ctx, event.payload.subject, sim.nowMs);
-        metrics.decisions += 1;
-        metrics.decideMs += performance.now() - started;
+        if (o.rules().switches.npcAiEnabled === 0) {
+          const faction = world.factions.get(event.payload.subject);
+          if (faction?.alive) scheduleDecide(ctx, faction, sim.nowMs);
+        } else {
+          decide(ctx, event.payload.subject, sim.nowMs);
+          metrics.decisions += 1;
+          metrics.decideMs += performance.now() - started;
+        }
       } else if (event.payload.kind === EVENT_DAY) {
         endOfDay(sim.nowMs);
         metrics.days += 1;
@@ -449,7 +464,13 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     loop,
     recorder,
     society,
-    rules: () => gardenerRulesOf(o.rules().gardener, o.gardenerWaves !== false),
+    rules: () => {
+      const current = o.rules();
+      return gardenerRulesOf(
+        current.gardener,
+        gardenerWavesEnabled(o.gardenerWaves, current.switches.gardenerWaves),
+      );
+    },
     combatRules: o.combatRules ?? (() => TEST_COMBAT_COEFFICIENTS),
     catalog: o.combatCatalog ?? (() => TEST_COMBAT_CATALOG),
     cellOf: (cityId) => persist.places.get(cityId)?.mapKey,

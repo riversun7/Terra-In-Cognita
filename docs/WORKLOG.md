@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-04 01:45 | D-513 반영 — 49 N53 운영자 런타임 스위치, 49 N43 채집 티어 확률 편집, 운영자(/admin)·개발자(/dev) 화면 구분 | Claude Code | [04-0145-d513-admin-dev-n43-n53](worklog/2026/11/04-0145-d513-admin-dev-n43-n53.md) |
 | 2026-11-04 00:59 | 기획서 미러 동기화 (0596914, D-513) 및 설정 칸 목록 갱신 | Claude Code | [04-0059-design-mirror-sync](worklog/2026/11/04-0059-design-mirror-sync.md) |
 | 2026-11-03 15:15 | main CI 빨강 고침: 구인 카드 개발 화면 조각을 미리 캐시에서 뺌 | Claude Code | [03-1515-pwa-recruit-chunk](worklog/2026/11/03-1515-pwa-recruit-chunk.md) |
 | 2026-11-03 14:30 | 인벤토리 화면: 사이보그·유닛 상세의 보유 물건(장착·해제·사용·쿨·교체 확인·개발 받기) | Claude Code | [03-1430-inventory-ui](worklog/2026/11/03-1430-inventory-ui.md) |

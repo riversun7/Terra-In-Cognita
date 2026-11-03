@@ -142,6 +142,12 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   // (d510_potion_hp_threshold)은 아직 고리라 sim
   "consumables.potionCooldownMs",
   "consumables.foodCooldownMs",
+  // 운영자 런타임 온/오프 스위치(49 N53, D-513): 정원사 웨이브·NPC AI(npc/runtime.ts), 생산(labor/service.ts), 거래소·환전소(/admin 운영 제어판)
+  "switches.gardenerWaves",
+  "switches.marketEnabled",
+  "switches.exchangeEnabled",
+  "switches.productionEnabled",
+  "switches.npcAiEnabled",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

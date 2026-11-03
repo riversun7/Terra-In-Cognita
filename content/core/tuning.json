@@ -2908,6 +2908,71 @@
       "unit": "ms",
       "min": 0,
       "max": 2592000000
+    },
+    {
+      "id": "n53_gardener_waves",
+      "code": "N53",
+      "name": {
+        "ko": "운영 스위치: 정원 세력 웨이브(0=꺼짐, 1=켜짐)",
+        "en": "Operator switch: Gardener waves (0=off, 1=on)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1
+    },
+    {
+      "id": "n53_market_enabled",
+      "code": "N53",
+      "name": {
+        "ko": "운영 스위치: 물자 거래소 주문·체결(0=일시정지, 1=켜짐)",
+        "en": "Operator switch: Commodity market orders & matching (0=paused, 1=on)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1
+    },
+    {
+      "id": "n53_exchange_enabled",
+      "code": "N53",
+      "name": {
+        "ko": "운영 스위치: 화폐 환전소(0=일시정지, 1=켜짐)",
+        "en": "Operator switch: Currency exchange (0=paused, 1=on)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1
+    },
+    {
+      "id": "n53_production_enabled",
+      "code": "N53",
+      "name": {
+        "ko": "운영 스위치: 1차·가공 생산 루프(0=일시정지, 1=켜짐)",
+        "en": "Operator switch: Primary & crafting production loop (0=paused, 1=on)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1
+    },
+    {
+      "id": "n53_npc_ai_enabled",
+      "code": "N53",
+      "name": {
+        "ko": "운영 스위치: NPC 세력 자율 행동 AI(0=일시정지, 1=켜짐)",
+        "en": "Operator switch: NPC faction autonomous AI (0=paused, 1=on)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1
     }
   ]
 }

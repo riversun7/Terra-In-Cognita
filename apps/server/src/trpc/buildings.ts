@@ -6,7 +6,12 @@
 // BUILDING_EDITOR_REASONS — invalid_entry(+ data.details)·unknown_entry·duplicate_entry·invalid_note·entry_changed(data.details = 키)·
 // entry_too_large. 하나라도 틀리면 묶음 전체를 받지 않는다), CONFLICT("revision_conflict"), NOT_FOUND(message
 // "BUILDING_EDITOR_UNAVAILABLE": 인증이나 팩이 없는 서버).
-import { BUILDING_EDITOR_CHANGES_MAX, type FacilityJson } from "@terra/shared/buildingEditor";
+import {
+  BUILDING_EDITOR_CHANGES_MAX,
+  BUILDING_EDIT_CATEGORIES,
+  type FacilityJson,
+  type GatherTierJson,
+} from "@terra/shared/buildingEditor";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { TuningAction } from "./context.ts";
@@ -17,8 +22,16 @@ const revision = z.int().min(0).max(Number.MAX_SAFE_INTEGER);
 /** 고치기 시작할 때의 실효 항목 해시 */
 const baseHash = z.string().regex(/^[0-9a-f]{64}$/);
 
-/** 시설 항목은 모양만 크게 보고(객체, ID) 칸마다의 규칙은 서버가 팩 스키마로 본다(팩 검사기 하나) */
+/** 시설·확률표 항목은 모양만 크게 보고(객체, ID) 칸마다의 규칙은 서버가 팩 스키마로 본다(팩 검사기 하나) */
 const entry = z.custom<FacilityJson>(
+  (value) =>
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    contentId.safeParse(Reflect.get(value, "id")).success,
+);
+
+const gatherBandEntry = z.custom<GatherTierJson>(
   (value) =>
     typeof value === "object" &&
     value !== null &&
@@ -29,7 +42,13 @@ const entry = z.custom<FacilityJson>(
 const change = z.discriminatedUnion("op", [
   z.strictObject({ op: z.literal("put"), entry, baseHash }),
   z.strictObject({ op: z.literal("revert"), id: contentId, baseHash }),
-  z.strictObject({ op: z.literal("discard_sleeping"), id: contentId }),
+  z.strictObject({ op: z.literal("put_gather_band"), entry: gatherBandEntry, baseHash }),
+  z.strictObject({ op: z.literal("revert_gather_band"), id: contentId, baseHash }),
+  z.strictObject({
+    op: z.literal("discard_sleeping"),
+    id: contentId,
+    category: z.enum(BUILDING_EDIT_CATEGORIES).optional(),
+  }),
 ]);
 const changes = z.array(change).min(1).max(BUILDING_EDITOR_CHANGES_MAX);
 

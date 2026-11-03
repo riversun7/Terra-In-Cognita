@@ -465,6 +465,7 @@
   font-weight: var(--font-weight-strong);
   color: var(--color-text-muted);
 }
+.sk-basis-table th,
 .sk-basis-table td,
 .sk-col-sustain {
   white-space: nowrap;

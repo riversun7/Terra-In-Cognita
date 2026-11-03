@@ -41,7 +41,12 @@
 | 시험: sim `stamina.test.ts`(새)·`formulaParity.test.ts`·`formulaSample.test.ts`·`stats.test.ts`, 서버 `staminaBasis.test.ts`(새)·`balance.test.ts`·`roster.test.ts`·`formulaState.test.ts`, 게임 `formulaModel.test.ts`, e2e `formulas.spec.ts`·`skills.spec.ts` | 식·이어짐·비율·화면 |
 | `docs/adr/2026-10-31-combat-core.md`, `docs/PLAN.md`(14장), `docs/questions/2026-11-03-stamina-274.md`, 이 기록, `docs/WORKLOG.md` | 결정·상태·기록 |
 
-## 시험 (CHECK_RESULTS)
+## 시험 (Verified, Node 24.22.1, main `378852d`를 합친 뒤)
+- `TEST_DATABASE_URL=… pnpm check`: 통과(포맷·린트·타입·경계·크기·다국어 3,453키·대비·콘텐츠·단위 시험 390파일 3,281개, DB 시험 포함). `pnpm check:content main`(기준 `378852d`, 4b 호환 포함)·`pnpm check:docs main`·`pnpm docs:index --check`·`pnpm settings:cells`(바뀜 없음) 통과.
+- `pnpm build` 뒤 `pnpm check:bundle`: 첫 화면 JS 105,572 B / 상한 131,416 B(첫 화면 모듈 그대로 — 새 화면은 개발 화면 조각 안).
+- e2e(한 워커) `e2e/formulas.spec.ts`·`e2e/skills.spec.ts`: 24개 통과(1.2분). 새 시험: 적정 STA 식 Lv 1 → 10·Lv 30 → 39와 스태미나 표(줄어듦 0), 행동별 소모 기준 표(적정 10·39, 회복 초당 12)·검 줄 이어짐. 처음 실행에서 기준 표가 `.sk-cost-table` 클래스를 같이 써 기존 사진 시험 8개가 엄격 모드로 실패 → 클래스를 나눠 고침.
+- e2e 전역 준비 주의: main `378852d`의 `e2e/global-setup.ts`는 legacy 사이보그를 프로토콜 4로 만드는데, 보유 물건 합침으로 프로토콜 6(지원 5~6)이 되어 "no reply"로 멈춘다(main 문제, 이 가지에서 고치지 않음). 이 실행은 그 한 줄을 로컬에서만 건너뛰고 돌렸다(커밋 안 함).
+- 사진(저장소 밖): `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/stamina/shots/` — `formulas-stamina-{neon,light}-{ko,en}-{1440,390}.png`(계산식 탭 적정 STA 식·기본 공격 스태미나 패널), `skills-costs-{neon,light}-{ko,en}-{1440,390}.png`(행동별 소모 기준 표·초당 소모 열). 네온·라이트 두 테마에서 눈으로 확인.
 
 ## 함께 바꿔야 하는 파일
 - 식 칸을 더하거나 지우면: `COMBAT_FORMULA_IDS`(shared) → sim `formulas.ts` `setOf`, 게임 `formulaModel.ts` `programsOf`, 팩 `formulas.json`, 시험의 칸 수(sim `formulaSample.test.ts` 11개, 서버 `formulaState.test.ts`).

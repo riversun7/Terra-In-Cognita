@@ -274,7 +274,7 @@
 /* ── 담은 변경 막대(화면 아래에 붙음) ── */
 .be-stagebar {
   position: sticky;
-  bottom: var(--space-2);
+  bottom: calc(var(--dev-dock-bottom) + var(--space-2));
   z-index: 2;
   display: grid;
   gap: var(--space-2);
@@ -284,13 +284,6 @@
   border-radius: var(--radius-panel);
   background-color: var(--color-surface);
   box-shadow: var(--shadow-panel);
-}
-/* 하단 탭이 있으면 그 위에(새 버전 배너·곧 열림 알림과 같은 띄움, shell/shell.css) */
-:root[data-tabbar] .be-stagebar {
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--space-3));
-}
-:root[data-tabbar="c"] .be-stagebar {
-  bottom: calc(var(--tabbar-h) + var(--space-6) + env(safe-area-inset-bottom) + var(--space-3));
 }
 .be-stagebar:not([data-count="0"]) {
   border-color: var(--color-focus);

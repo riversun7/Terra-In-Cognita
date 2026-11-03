@@ -1,4 +1,4 @@
-// 건설 재료 판 — 분류 배율, 레벨 구간(시작 레벨 + 재료 줄: 아이템·수량), 레벨 표(레벨마다 재료·시간·유지비·자리·채집 보너스).
+// 건설 재료 판 — 분류 배율, 레벨 구간(시작 레벨 + 재료 줄: 아이템·수량), 레벨 표(레벨마다 재료·시간·자리·채집 보너스. 화폐 유지비 없음 — D-171·49 N50).
 // D-508: 처음 레벨(Lv1)은 1차 원자재, 그 위 대부분은 가공품. 식은 @terra/shared/facilityBuild(옛 building_seed.js, 49 M14) 하나다.
 // 옛 관리자 건물 편집기의 "건설 비용"(자원 코드 + 수량 줄)·"건설 시간"·"유지 비용" 칸을 레벨 구간 + 레벨 표로 옮겼다.
 import {
@@ -215,13 +215,7 @@ export function BuildingLevels({
         <h3 id="be-levels-title" className="be-heading">
           {m.dev_buildings_levels_title()}
         </h3>
-        <p className="field-hint">
-          {m.dev_buildings_levels_hint({
-            msPerKg: list.rules.msPerKg,
-            upkeepPm: list.rules.upkeepPm,
-            upkeepMin: list.rules.upkeepMin,
-          })}
-        </p>
+        <p className="field-hint">{m.dev_buildings_levels_hint({ msPerKg: list.rules.msPerKg })}</p>
         <div className="dev-table-wrap">
           <table className="dev-table be-level-table">
             <thead>
@@ -232,9 +226,6 @@ export function BuildingLevels({
                 <th scope="col">{m.dev_buildings_col_materials()}</th>
                 <th scope="col" className="dev-num">
                   {m.dev_buildings_col_time()}
-                </th>
-                <th scope="col" className="dev-num">
-                  {m.dev_buildings_col_upkeep()}
                 </th>
                 <th scope="col" className="dev-num">
                   {m.dev_buildings_col_slots_total()}
@@ -282,7 +273,6 @@ export function BuildingLevels({
                     ) : null}
                   </td>
                   <td className="dev-num">{row.materials.length === 0 ? "—" : formatDuration(row.timeMs)}</td>
-                  <td className="dev-num">{row.materials.length === 0 ? "—" : row.upkeep}</td>
                   <td className="dev-num">{row.slots}</td>
                   {row.gatherBonus === null ? null : <td className="dev-num">+{row.gatherBonus}</td>}
                 </tr>

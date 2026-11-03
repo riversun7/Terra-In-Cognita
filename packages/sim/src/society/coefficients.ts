@@ -137,7 +137,8 @@ export interface SocietyCoefficients {
   /** 오염·정원사 웨이브 계수(docs/adr/2026-11-01-gardener-r5b.md, 팩 tuning 경로 "gardener.*") */
   readonly gardener: GardenerCoefficients;
   /**
-   * 시설 건설 시간·유지비(49 M14, D-508, 팩 tuning 경로 "facilityBuild.*"): 옛 seeds/building_seed.js 값. 셈은 @terra/shared/facilityBuild.
+   * 시설 건설 시간(49 M14, D-508, 팩 tuning 경로 "facilityBuild.*"): 옛 seeds/building_seed.js 값. 셈은 @terra/shared/facilityBuild.
+   * 화폐 유지비는 없다(D-171, 49 N50: 건물 유지 = 내구도 + 수리 재료).
    * 지금 짓기가 없어 시뮬은 읽지 않는다(건물 편집기 미리 보기가 읽는다, docs/adr/2026-11-02-building-editor.md)
    */
   readonly facilityBuild: FacilityBuildRules;

@@ -1,5 +1,5 @@
 // 경제 화면 목록 — 콘텐츠 팩의 items·facilities·recipes·nation_presets·necessities에서 화면이 쓰는 모양을 만든다(economy.catalog).
-// ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)", R2 ADR 1절(팩 분류). 켜진(enabled) 항목만 팩 순서대로 보낸다(D-398).
+// ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)", R2 ADR 1절(팩 분류). 켜진(enabled) 항목만 팩 순서대로 보낸다(D-398). 시설은 늘 켜짐.
 // 팩 항목은 참조 검사(2단계)를 통과한 파싱 결과라 참조가 객체다. 정규 JSON(참조 → ID 글자)으로 되돌린 뒤 스키마로 다시 읽어
 // 타입을 얻는다(src/world/mapProps.ts와 같은 방식. 검증된 팩이라 실패하면 팩 코드가 틀린 것이다).
 // 아이템·시설은 그 세계의 실효 항목(아이템 편집기·건물 편집기 덮어쓰기, docs/adr/2026-11-01-item-editor.md 4절·
@@ -175,25 +175,20 @@ export function economyCatalogFrom(
     ...(item.weight === undefined ? {} : { weight: item.weight }),
   }));
   const subOf = new Map(items.map((item) => [item.id, item.subcategory?.id]));
-  const facilities: CatalogFacilityView[] = entries.facilities
-    .filter((facility) => facility.enabled)
-    .map((facility) => ({
-      id: facility.id,
-      name: facility.name,
-      stage: facility.stage,
-      slotsPerLevel: facility.slotsPerLevel,
-    }));
+  // 시설은 늘 켜짐(켬·끔 없음, 팩 core@32·사용자 답 2026-11-03)
+  const facilities: CatalogFacilityView[] = entries.facilities.map((facility) => ({
+    id: facility.id,
+    name: facility.name,
+    stage: facility.stage,
+    slotsPerLevel: facility.slotsPerLevel,
+  }));
   const facilityIds = new Set(facilities.map((facility) => facility.id));
-  const gatherOf = new Map(
-    entries.facilities
-      .filter((facility) => facility.enabled)
-      .map((facility) => [facility.id, facility.gather]),
-  );
+  const gatherOf = new Map(entries.facilities.map((facility) => [facility.id, facility.gather]));
   const recipes: CatalogRecipeView[] = [];
   for (const recipe of entries.recipes) {
     const facility = recipe.facility.id;
     const stacks = [...recipe.inputs, ...recipe.outputs];
-    // 꺼진 시설·물건을 쓰는 레시피는 세계에 나오지 않는다(시뮬 prepareCatalog와 같은 규칙)
+    // 꺼진 레시피·물건을 쓰는 레시피는 세계에 나오지 않는다(시뮬 prepareCatalog와 같은 규칙)
     if (!recipe.enabled || !facilityIds.has(facility) || stacks.some((stack) => !tierOf.has(stack.item.id)))
       continue;
     // 채집 티어 추첨(선택 방식 포함): 시설에 gather가 있고 산출이 모두 그 중분류(시뮬 prepareCatalog와 같은 규칙)

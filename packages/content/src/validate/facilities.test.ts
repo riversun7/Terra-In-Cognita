@@ -15,7 +15,7 @@ const items = {
 const stack = (item: string, qty: number) => ({ item, qty });
 
 function facility(build: unknown, extra: Record<string, unknown> = {}) {
-  return { id: "farm", name, stage: "gather", slotsPerLevel: 10, build, enabled: true, ...extra };
+  return { id: "farm", name, stage: "gather", slotsPerLevel: 10, build, ...extra };
 }
 
 function check(build: unknown, extra: Record<string, unknown> = {}) {
@@ -31,7 +31,7 @@ const codes = (issues: ReturnType<typeof check>) =>
   issues.map((issue) => [issue.level, issue.code, issue.path]);
 
 describe("시설 건설 재료(레벨 구간)", () => {
-  it("Lv1 원자재·Lv2부터 가공품 구간은 통과한다: 위 구간의 꺼진 가공품(아직 켜지 않은 판자)은 알리지 않는다", () => {
+  it("Lv1 원자재·Lv2부터 가공품 구간은 통과한다: 위 구간의 꺼진 재료(아이템 편집기로 끈 판자)는 알리지 않는다", () => {
     const issues = check({
       mulPm: 800,
       levels: [
@@ -42,14 +42,15 @@ describe("시설 건설 재료(레벨 구간)", () => {
     expect(issues).toEqual([]);
   });
 
-  it("처음 짓기(Lv1) 재료가 꺼져 있으면 알림(D-508: 처음 건물이 막히면 안 됨), 꺼진 시설은 알리지 않는다", () => {
+  it("처음 짓기(Lv1) 재료가 꺼져 있으면 알림(D-508: 처음 건물이 막히면 안 됨). 시설에는 켬·끔 칸이 없다(옛 enabled는 스키마 오류)", () => {
     const first = { mulPm: 800, levels: [{ from: 1, materials: [stack("stone", 1), stack("plank", 1)] }] };
     const issues = check(first);
     expect(codes(issues)).toEqual([
       ["warning", "build_material_disabled", "build.levels[0].materials[1].item"],
     ]);
     expect(issues[0]?.params).toEqual({ item: "plank" });
-    expect(check(first, { enabled: false })).toEqual([]);
+    // 시설은 늘 켜짐(팩 core@32, 사용자 답 2026-11-03): enabled 칸은 받지 않는다
+    expect(schemaCodes(first, { enabled: false })).toBe(1);
   });
 
   it("첫 구간은 레벨 1, from은 늘어나기만, 최고 레벨 이하", () => {

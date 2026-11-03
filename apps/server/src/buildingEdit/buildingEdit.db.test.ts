@@ -146,19 +146,18 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 편집기 (DB)", () => {
       ],
     });
     expect(arr(mine.recipes).map((recipe) => obj(recipe).id)).toEqual(["mine_iron_ore"]);
-    expect(obj(facilityOf(body, "kiln").entry)).toMatchObject({ enabled: false });
+    // 시설은 늘 켜짐(켬·끔 칸 없음, 팩 core@32)
+    expect("enabled" in obj(facilityOf(body, "kiln").entry)).toBe(false);
     expect(arr(facilityOf(body, "kiln").recipes).map((recipe) => obj(recipe).id)).toEqual(["fire_bricks"]);
     expect(obj(arr(body.items).find((item) => obj(item).id === "brick"))).toMatchObject({
       category: "construction",
       weight: 1500,
       lotSize: 1,
-      enabled: false,
+      enabled: true,
     });
     expect(body.rules).toEqual({
       msPerKg: 10_000,
       timeFactorPm: [1000, 1500, 2500, 2500, 2500],
-      upkeepPm: 10,
-      upkeepMin: 1,
     });
     expect(body.gatherLevelBonus).toBe(10);
   });
@@ -193,19 +192,18 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 편집기 (DB)", () => {
         ),
       ),
     );
-    // 팩 값(Lv2부터 꺼진 판자)은 권고가 없다: 위 구간의 꺼진 가공품은 미리 적어 둔 것이다
     expect(clean).toEqual({ ok: true, issues: [] });
-    // 처음 짓기(Lv1)에 꺼진 판자를 쓰면 권고(D-508, 저장은 막지 않는다)
-    const firstPlank = {
+    // 처음 짓기(Lv1)에 꺼진 아이템(팩에 꺼진 채 남은 형식 확인용 dev_placeholder)을 쓰면 권고(D-508, 저장은 막지 않는다)
+    const firstOff = {
       ...entry,
-      build: { mulPm: 800, levels: [{ from: 1, materials: [{ item: "plank", qty: 2 }] }] },
+      build: { mulPm: 800, levels: [{ from: 1, materials: [{ item: "dev_placeholder", qty: 2 }] }] },
     };
     const ok = obj(
       resultOf(
         await trpcQuery(
           app,
           "buildings.check",
-          { changes: [{ op: "put", entry: firstPlank, baseHash: farm.hash }] },
+          { changes: [{ op: "put", entry: firstOff, baseHash: farm.hash }] },
           cookie.dev,
         ),
       ),

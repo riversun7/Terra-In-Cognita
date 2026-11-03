@@ -1,5 +1,5 @@
 // 건물 편집기 모델 — 담은 변경(시설마다 put·revert, 잠든 줄 버리기), 시설 칸 고치기(레벨 구간·재료·채집), 레벨 표 셈(@terra/shared
-// facilityBuild 하나: 재료·시간·유지비). 계산이 없는 순수 함수만 둔다(시험: buildingModel.test.ts). docs/adr/2026-11-02-building-editor.md
+// facilityBuild 하나: 재료·시간. 화폐 유지비는 없다 — D-171·49 N50). 계산이 없는 순수 함수만 둔다(시험: buildingModel.test.ts). docs/adr/2026-11-02-building-editor.md
 import {
   type BuildLevelJson,
   type BuildStackJson,
@@ -15,7 +15,6 @@ import {
   buildCostAt,
   buildLevelAt,
   buildTimeAt,
-  buildUpkeepAt,
 } from "@terra/shared/buildingEditor";
 
 /** 시설 하나의 담은 변경: 고친 항목 통째 또는 팩 값으로 되돌리기. base·baseHash = 고치기 시작할 때의 실효 항목·해시 */
@@ -95,7 +94,6 @@ export function cleanFacility(entry: FacilityJson): FacilityJson {
     ...(entry.pollution === undefined ? {} : { pollution: entry.pollution }),
     ...(entry.gather === undefined ? {} : { gather: cleanGather(entry.gather) }),
     ...(entry.build === undefined ? {} : { build: entry.build }),
-    enabled: entry.enabled,
   };
 }
 
@@ -126,7 +124,6 @@ export function mergeFacility(
     pollution: pick("pollution"),
     gather: pick("gather"),
     build: pick("build"),
-    enabled: pick("enabled"),
   });
   return { entry, conflicts };
 }
@@ -223,7 +220,6 @@ export interface LevelRow {
   readonly from: number | null;
   readonly materials: readonly BuildStackJson[];
   readonly timeMs: number;
-  readonly upkeep: number;
   /** 일하는 자리(Lv × 레벨당 자리) */
   readonly slots: number;
   /** 채집 시설의 레벨 보너스(유효 스탯, N43 × (Lv − 1)). 채집 칸이 없으면 null */
@@ -234,7 +230,7 @@ export interface LevelRow {
   readonly unknownWeight: readonly string[];
 }
 
-/** 레벨 1 ~ 최고 레벨의 재료·시간·유지비·자리 */
+/** 레벨 1 ~ 최고 레벨의 재료·시간·자리 */
 export function levelRows(
   entry: FacilityJson,
   items: readonly BuildingEditorItem[],
@@ -257,7 +253,6 @@ export function levelRows(
       from: build ? (buildLevelAt(build, level)?.from ?? null) : null,
       materials,
       timeMs: time.ms,
-      upkeep: build && materials.length > 0 ? buildUpkeepAt(build, level, rules) : 0,
       slots: level * entry.slotsPerLevel,
       gatherBonus: entry.gather ? gatherLevelBonus * (level - 1) : null,
       disabled: materials

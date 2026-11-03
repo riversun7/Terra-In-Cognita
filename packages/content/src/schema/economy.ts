@@ -1,6 +1,6 @@
 // 경제 분류 — 아이템·레시피·시설·생필품·국가 프리셋 (docs/adr/2026-10-31-economy-core.md 1절)
 // 기획: 아이템 9대분류(D-5029)·티어 T0~T9와 시설 Lv1~5(D-5001)·생산 4단계(D-114)·유지비 = 생필품(D-150)·
-// 세력 화폐(D-124·D-131)·켬/끔(D-398: 모든 콘텐츠를 개발자 페이지에서 켜고 끈다).
+// 세력 화폐(D-124·D-131)·켬/끔(D-398: 개발자 페이지에서 켜고 끈다. 시설은 켬·끔 없이 늘 켜짐 — 사용자 답 2026-11-03).
 // 지금 팩은 형식 확인용 임시 데이터다(placeholder). 기획 출발값이 없는 칸(시작 시세·작업량·수량·세율)은 시험값이다.
 import { FACILITY_BUILD_LIMITS, FACILITY_LEVEL_MAX } from "@terra/shared/facilityBuild";
 import { z } from "zod";
@@ -26,6 +26,10 @@ const buildStack = z.strictObject({
   qty: z.int().min(FACILITY_BUILD_LIMITS.qty.min).max(FACILITY_BUILD_LIMITS.qty.max),
 });
 
+/**
+ * 시설. 켬·끔 칸(enabled)이 없다: 시설은 늘 켜져 있다(팩 core@32, 사용자 답 2026-11-03 "켜고 끄는건 말이 안된다. 다른 재료로 바꾸면
+ * 되지" — 쓰고 싶지 않은 재료는 건물 재료를 바꾼다). 옛 덮어쓰기 줄의 enabled는 서버 contentEdit/legacy.ts가 빼고 읽는다
+ */
 export const facilityEntrySchema = z.strictObject({
   id: contentId,
   name: localizedText,
@@ -87,7 +91,6 @@ export const facilityEntrySchema = z.strictObject({
         .max(FACILITY_BUILD_LIMITS.levels),
     })
     .optional(),
-  enabled,
 });
 export type FacilityEntry = z.output<typeof facilityEntrySchema>;
 

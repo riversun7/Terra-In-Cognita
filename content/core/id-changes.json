@@ -51,8 +51,24 @@
     },
     {
       "category": "tuning",
-      "id": "s39_birth_every",
+      "id": "m14_upkeep_pm",
       "since": 33,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "m14_upkeep_min",
+      "since": 33,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "s39_birth_every",
+      "since": 34,
       "compensation": {
         "kind": "none"
       }
@@ -60,7 +76,7 @@
     {
       "category": "tuning",
       "id": "s39_birth_chance",
-      "since": 33,
+      "since": 34,
       "compensation": {
         "kind": "none"
       }
@@ -68,7 +84,7 @@
     {
       "category": "tuning",
       "id": "s39_birth_satisfaction",
-      "since": 33,
+      "since": 34,
       "compensation": {
         "kind": "none"
       }

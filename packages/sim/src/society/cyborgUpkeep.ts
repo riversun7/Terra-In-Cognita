@@ -56,35 +56,60 @@ export function organWorks(organ: Durable): boolean {
   return organ.durability > 0;
 }
 
+/** 수리 한 번의 결과(인공장기·장비 공용, 비용 빼고) */
+export interface DurableRepair<T extends Durable> {
+  readonly item: T;
+  readonly destroyed: boolean;
+  readonly maxLoss: number;
+  /** 되찾은 내구도(파괴되면 0) */
+  readonly restored: number;
+}
+
 /**
- * 수리(D-5031): 감소‰ = 시설 레벨 감소% × 10 × (2000 − 실력‰) ÷ 2000(내림), 하한 F11. 줄어드는 최대 내구도 = ⌈최대 × 감소‰ ÷ 1000⌉.
- * 새 최대가 F12 이하면 파괴(내구도 0, 비용 없음). 아니면 내구도 = 새 최대, 비용 = 되찾은 내구도 × N38. 닳지 않았으면 그대로
+ * 수리(D-5031, 인공장기·장비 공용): 감소‰ = 시설 레벨 감소% × 10 × (2000 − 실력‰) ÷ 2000(내림), 하한 F11. 줄어드는 최대 내구도 =
+ * ⌈최대 × 감소‰ ÷ 1000⌉. 새 최대가 F12 이하면 파괴(내구도 0). 아니면 내구도 = 새 최대. 닳지 않았으면 그대로
+ * (보유 물건 수리 docs/adr/2026-11-03-item-holdings.md가 같은 함수를 쓴다)
  */
+export function repairDurable<T extends Durable>(
+  item: T,
+  facilityLevel: number,
+  skillPm: number,
+  c: Pick<SocietyCoefficients, "durability">,
+): DurableRepair<T> {
+  const table = c.durability.repairLossPct;
+  if (!Number.isInteger(facilityLevel) || facilityLevel < 1 || facilityLevel > table.length)
+    throw new RangeError("facility level out of range");
+  if (!Number.isInteger(skillPm) || skillPm < 0 || skillPm > 1000) throw new RangeError("skill out of range");
+  if (item.durability >= item.maxDurability) return { item, destroyed: false, maxLoss: 0, restored: 0 };
+  const basePm = (table[facilityLevel - 1] ?? 0) * 10;
+  const lossPm = Math.max(
+    c.durability.repairLossFloorPct * 10,
+    Math.floor((basePm * (2000 - skillPm)) / 2000),
+  );
+  const maxLoss = Math.floor((item.maxDurability * lossPm + 999) / 1000);
+  const maxDurability = Math.max(0, item.maxDurability - maxLoss);
+  if (maxDurability <= c.durability.destroyAtMax)
+    return { item: { ...item, durability: 0, maxDurability }, destroyed: true, maxLoss, restored: 0 };
+  return {
+    item: { ...item, durability: maxDurability, maxDurability },
+    destroyed: false,
+    maxLoss,
+    restored: Math.max(0, maxDurability - item.durability),
+  };
+}
+
+/** 인공장기 수리: repairDurable + 비용 = 되찾은 내구도 × N38(파괴되면 0) */
 export function repairOrgan<T extends Durable>(
   organ: T,
   facilityLevel: number,
   skillPm: number,
   c: SocietyCoefficients,
 ): RepairResult<T> {
-  const table = c.durability.repairLossPct;
-  if (!Number.isInteger(facilityLevel) || facilityLevel < 1 || facilityLevel > table.length)
-    throw new RangeError("facility level out of range");
-  if (!Number.isInteger(skillPm) || skillPm < 0 || skillPm > 1000) throw new RangeError("skill out of range");
-  if (organ.durability >= organ.maxDurability) return { organ, destroyed: false, maxLoss: 0, cost: 0n };
-  const basePm = (table[facilityLevel - 1] ?? 0) * 10;
-  const lossPm = Math.max(
-    c.durability.repairLossFloorPct * 10,
-    Math.floor((basePm * (2000 - skillPm)) / 2000),
-  );
-  const maxLoss = Math.floor((organ.maxDurability * lossPm + 999) / 1000);
-  const maxDurability = Math.max(0, organ.maxDurability - maxLoss);
-  if (maxDurability <= c.durability.destroyAtMax)
-    return { organ: { ...organ, durability: 0, maxDurability }, destroyed: true, maxLoss, cost: 0n };
-  const restored = Math.max(0, maxDurability - organ.durability);
+  const done = repairDurable(organ, facilityLevel, skillPm, c);
   return {
-    organ: { ...organ, durability: maxDurability, maxDurability },
-    destroyed: false,
-    maxLoss,
-    cost: BigInt(restored) * BigInt(c.cyborg.organRepairCost),
+    organ: done.item,
+    destroyed: done.destroyed,
+    maxLoss: done.maxLoss,
+    cost: BigInt(done.restored) * BigInt(c.cyborg.organRepairCost),
   };
 }

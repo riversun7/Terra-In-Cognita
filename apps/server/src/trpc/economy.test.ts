@@ -19,6 +19,7 @@ import { createEconomyServices } from "../economyView/services.ts";
 import { createFactionScreenServices } from "../factionScreen/overview.ts";
 import { createHomeServices } from "../home/services.ts";
 import { createMailServices } from "../mail/list.ts";
+import { NO_HOLDINGS } from "../holdings/reads.ts";
 import { createRosterServices } from "../roster/services.ts";
 import type { TrpcContext, Viewer } from "./context.ts";
 import { createCallerFactory } from "./init.ts";
@@ -45,6 +46,7 @@ function callerFor(viewer: Viewer | null, accounts = new Map<string, number>()) 
     roster: createRosterServices(),
     faction: createFactionScreenServices(),
     mail: createMailServices(),
+    holdings: NO_HOLDINGS,
     economy: createEconomyServices({
       catalog,
       world: {

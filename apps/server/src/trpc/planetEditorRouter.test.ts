@@ -10,6 +10,7 @@ import { createRosterServices } from "../roster/services.ts";
 import { SecondMapLabInputError, SecondMapLabNotReadyError } from "../world/secondMapLab.ts";
 import { createFactionScreenServices } from "../factionScreen/overview.ts";
 import { createMailServices } from "../mail/list.ts";
+import { NO_HOLDINGS } from "../holdings/reads.ts";
 import type {
   PlanetEditorAction,
   PlanetEditorCallKind,
@@ -98,6 +99,7 @@ function callerFor(viewer: Viewer, editor: PlanetEditorServices) {
     economy: createEconomyServices({ catalog: emptyEconomyCatalog("test") }),
     faction: createFactionScreenServices(),
     mail: createMailServices(),
+    holdings: NO_HOLDINGS,
   };
   return createCallerFactory(appRouter)(ctx);
 }
@@ -358,6 +360,7 @@ function withLab(viewer: Viewer, editor: PlanetEditorServices, lab: TrpcContext[
     economy: createEconomyServices({ catalog: emptyEconomyCatalog("test") }),
     faction: createFactionScreenServices(),
     mail: createMailServices(),
+    holdings: NO_HOLDINGS,
     secondMapLab: lab,
   };
   return createCallerFactory(appRouter)(ctx);

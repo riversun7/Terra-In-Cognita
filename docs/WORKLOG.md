@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-03 14:40 ~ 16:30 | 노동 계약 2: 손 해지 유예(기획 341)·구인 게시판(남의 유닛을 임금형으로) | Claude Code | [03-1530-labor-jobs](worklog/2026/11/03-1530-labor-jobs.md) |
 | 2026-11-03 15:15 | main CI 빨강 고침: 구인 카드 개발 화면 조각을 미리 캐시에서 뺌 | Claude Code | [03-1515-pwa-recruit-chunk](worklog/2026/11/03-1515-pwa-recruit-chunk.md) |
 | 2026-11-03 09:00 ~ 14:30 | 노동 계약(임금형·임대형): 규칙 한 벌·보증금 에스크로·서버 표·명령·조회·경제 화면 | Claude Code | [03-1400-labor-contracts](worklog/2026/11/03-1400-labor-contracts.md) |
 | 2026-11-03 13:30 | 스태미나 274: 적정 스탯 개념(D-511) — 적정 STA 레벨 식, 회복 = 기본 회복 × 적정 비율, 일반 공격이 이어지게 | Claude Code | [03-1330-stamina](worklog/2026/11/03-1330-stamina.md) |

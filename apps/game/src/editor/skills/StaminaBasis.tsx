@@ -30,7 +30,7 @@ export function StaminaBasisTable({ basis }: { basis: StaminaBasisView }) {
       <h3 className="sk-basis-title">{m.dev_skills_basis_title()}</h3>
       <p className="field-hint">{m.dev_skills_basis_lead()}</p>
       <div className="sk-table-wrap" tabIndex={0} role="region" aria-label={m.dev_skills_basis_title()}>
-        <table className="sk-cost-table sk-basis-table">
+        <table className="sk-basis-table">
           <thead>
             <tr>
               <th scope="col">{m.dev_skills_basis_col_level()}</th>

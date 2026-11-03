@@ -388,24 +388,29 @@
   border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-control);
 }
-.sk-cost-table {
+.sk-cost-table,
+.sk-basis-table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--font-size-md);
   font-variant-numeric: tabular-nums;
 }
-.sk-cost-table tbody tr:nth-child(even) {
+.sk-cost-table tbody tr:nth-child(even),
+.sk-basis-table tbody tr:nth-child(even) {
   background-color: var(--dev-row-alt);
 }
 .sk-cost-table th,
-.sk-cost-table td {
+.sk-cost-table td,
+.sk-basis-table th,
+.sk-basis-table td {
   height: var(--dev-row-h);
   padding: var(--space-1) var(--space-3);
   border-block-end: var(--hairline) solid var(--color-border);
   text-align: start;
   vertical-align: middle;
 }
-.sk-cost-table thead th {
+.sk-cost-table thead th,
+.sk-basis-table thead th {
   background-color: var(--dev-head-bg);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);

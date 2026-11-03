@@ -1,38 +1,28 @@
 // 노동 계약 칸(생산 칸 아래) — 임금형·임대형(D-479), 규칙 값 49 N48. docs/adr/2026-11-03-labor-contracts.md
-// - 자료는 tRPC labor.overview(실제 자료만, 시안 자료 없음), 바꾸는 명령은 WebSocket(laborCommands.ts)이다.
+// - 자료는 tRPC labor.overview·labor.jobs(실제 자료만, 시안 자료 없음), 바꾸는 명령은 WebSocket(laborCommands.ts)이다.
 // - 서버가 판정한다(소유·임금 식·보증금·잔고). 화면은 미리 셈(임금·보증금)만 보이고 결과 코드를 문구로 바꾼다.
-// - [임시] 시설·유닛은 번호로 보인다(서버 시설에 종류·이름이 아직 없다). 남의 유닛을 임금형으로 고용하는 흐름(모집 조건)은
-//   기획 UX가 없어 넣지 않았다(ADR "남은 것").
-import type { LaborResultCode } from "@terra/protocol";
+// - 차례: 잔고 → 내 계약 → 구인 게시판(남의 일자리를 내 유닛으로) → 새 계약(내 시설·내 유닛, 남의 시설 임대) → 내 구인 → 임대료.
+// - 임대형은 손 해지도 유예에 든다(기획 341). 유예는 손으로 끝내지 않아 [해지]가 없고, 남은 물건 안내는 표시만이다(시설 창고 없음).
+// - [임시] 시설·유닛은 번호로 보인다(서버 시설에 종류·이름이 아직 없다).
 import type { LaborContractView, LaborOverviewResponse } from "@terra/shared/labor";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { fmt, formatDuration } from "./economyText.ts";
-import { type LaborCommand, sendLaborCommand } from "./laborCommands.ts";
+import { LaborJobBoard, LaborMyJobs } from "./LaborJobs.tsx";
+import { sendLaborCommand } from "./laborCommands.ts";
+import {
+  LABOR_ERROR_TEXT,
+  type LaborRun,
+  adjustInRange,
+  isAmount,
+  isTerm,
+  isWhole,
+  previewWage,
+} from "./laborText.ts";
 import { Loaded } from "./parts.tsx";
 import { NO_ARGS, useLabor, useNowTick } from "./queries.ts";
 import "./labor.css";
-
-const DAY_MS = 86_400_000;
-
-const ERROR_TEXT: Readonly<Record<LaborResultCode | "offline" | "timeout", () => string>> = {
-  sign_in_required: m.labor_error_sign_in_required,
-  busy: m.labor_error_busy,
-  rate_limited: m.labor_error_rate_limited,
-  unknown_building: m.labor_error_unknown_building,
-  unknown_unit: m.labor_error_unknown_unit,
-  unknown_contract: m.labor_error_unknown_contract,
-  forbidden: m.labor_error_forbidden,
-  unit_busy: m.labor_error_unit_busy,
-  insufficient_funds: m.labor_error_insufficient_funds,
-  invalid_terms: m.labor_error_invalid_terms,
-  not_for_lease: m.labor_error_not_for_lease,
-  not_open: m.labor_error_not_open,
-  internal_error: m.labor_error_internal_error,
-  offline: m.labor_error_offline,
-  timeout: m.labor_error_timeout,
-};
 
 const STATE_TEXT: Readonly<Record<LaborContractView["state"], () => string>> = {
   active: m.labor_state_active,
@@ -57,12 +47,6 @@ const ROLE_TEXT: Readonly<Record<LaborContractView["role"], () => string>> = {
   both: m.labor_role_both,
 };
 
-/** 10진 글자인 양의 정수인가(금액 칸) */
-const isAmount = (value: string): boolean => /^[1-9][0-9]{0,17}$/.test(value);
-const isWhole = (value: string): boolean => /^(0|[1-9][0-9]{0,17})$/.test(value);
-
-type Run = (command: LaborCommand) => Promise<boolean>;
-
 function ContractRow({
   contract,
   data,
@@ -73,7 +57,7 @@ function ContractRow({
   contract: LaborContractView;
   data: LaborOverviewResponse;
   now: number;
-  run: Run;
+  run: LaborRun;
   busy: boolean;
 }) {
   const [amount, setAmount] = useState("");
@@ -120,12 +104,23 @@ function ContractRow({
         </p>
       ) : null}
       {contract.state === "grace" && contract.graceUntil !== null ? (
-        <p className="eco-row-meta">
-          {m.labor_grace_until({ time: formatDuration(contract.graceUntil - now) })}
-        </p>
+        <>
+          <p className="eco-row-meta">
+            {m.labor_grace_until({ time: formatDuration(contract.graceUntil - now) })}
+          </p>
+          <p className="eco-row-meta">{m.labor_grace_note()}</p>
+        </>
       ) : null}
       {contract.endReason !== null ? <p className="eco-row-meta">{END_TEXT[contract.endReason]()}</p> : null}
-      {open || contract.state === "grace" ? (
+      {contract.leftoversMovedAt !== null ? (
+        <p className="eco-row-meta">{m.labor_leftovers_moved()}</p>
+      ) : null}
+      {open && !wage ? (
+        <p className="eco-row-meta">
+          {m.labor_terminate_grace_hint({ grace: formatDuration(data.rules.graceMs) })}
+        </p>
+      ) : null}
+      {open ? (
         <div className="labor-actions">
           {canTopUp ? (
             <form
@@ -170,7 +165,7 @@ function ContractRow({
   );
 }
 
-function NewContract({ data, run, busy }: { data: LaborOverviewResponse; run: Run; busy: boolean }) {
+function NewContract({ data, run, busy }: { data: LaborOverviewResponse; run: LaborRun; busy: boolean }) {
   const [kind, setKind] = useState<"wage" | "lease">("wage");
   const [building, setBuilding] = useState("");
   const [unit, setUnit] = useState("");
@@ -184,15 +179,10 @@ function NewContract({ data, run, busy }: { data: LaborOverviewResponse; run: Ru
   const chosenUnit = units.find((entry) => String(entry.id) === unit) ?? units[0];
   const rules = data.rules;
   const adjustPm = Number(adjust);
-  const adjustOk =
-    Number.isInteger(adjustPm) && adjustPm >= rules.adjustMinPm && adjustPm <= rules.adjustMaxPm;
-  const termOk = term === "" || (/^[1-9][0-9]{0,3}$/.test(term) && Number(term) <= 24 * 365);
-  // 미리 셈: 하루 임금 = ⌊⌊효율 × 단가 ÷ 1000⌋ × 조정 ÷ 1000⌋(서버와 같은 식, 판정은 서버)
-  const daily = adjustOk
-    ? BigInt(Math.floor((Math.floor((rules.efficiency * rules.rateMilli) / 1000) * adjustPm) / 1000))
-    : 0n;
-  const perCycle =
-    rules.wageCycleMs === DAY_MS ? daily : (daily * BigInt(rules.wageCycleMs)) / BigInt(DAY_MS) || 1n;
+  const adjustOk = adjustInRange(adjustPm, rules);
+  const termOk = isTerm(term);
+  // 미리 셈(서버와 같은 식, 판정은 서버)
+  const perCycle = previewWage(rules, adjustPm);
   const ready =
     chosenBuilding !== undefined && chosenUnit !== undefined && termOk && (kind === "lease" || adjustOk);
   return (
@@ -305,7 +295,7 @@ function NewContract({ data, run, busy }: { data: LaborOverviewResponse; run: Ru
   );
 }
 
-function RentRow({ id, rent, run, busy }: { id: number; rent: string | null; run: Run; busy: boolean }) {
+function RentRow({ id, rent, run, busy }: { id: number; rent: string | null; run: LaborRun; busy: boolean }) {
   const [value, setValue] = useState(rent ?? "");
   const inputId = `labor-rent-${id}`;
   return (
@@ -346,12 +336,12 @@ export function LaborPanel() {
   const live = useLiveLines();
   const [busy, setBusy] = useState(false);
   const [tone, setTone] = useState<"success" | "error">("success");
-  const run: Run = async (command) => {
+  const run: LaborRun = async (command) => {
     setBusy(true);
     const outcome = await sendLaborCommand(command);
     setBusy(false);
     setTone(outcome.ok ? "success" : "error");
-    live.show([outcome.ok ? m.labor_done() : ERROR_TEXT[outcome.code]()]);
+    live.show([outcome.ok ? m.labor_done() : LABOR_ERROR_TEXT[outcome.code]()]);
     labor.refresh();
     return outcome.ok;
   };
@@ -397,7 +387,9 @@ export function LaborPanel() {
                   ))}
                 </ul>
               )}
+              <LaborJobBoard data={loaded} run={run} busy={busy} />
               <NewContract data={loaded} run={run} busy={busy} />
+              <LaborMyJobs data={loaded} run={run} busy={busy} />
               {loaded.buildings.some((entry) => entry.own) ? (
                 <div className="labor-rents">
                   <h3 className="eco-subtitle">{m.labor_rent_title()}</h3>

@@ -4,23 +4,26 @@
 //   정산하고(임금·임대료 거래), 유닛마다 산출 구간을 돌려준다(임금형 = 고용주 몫, 일시 중지 = 산출 없음, 임대형 = 임차인 몫).
 //   그래서 계약 정산과 직무 산출이 같은 동기 처리 = 같은 커밋에 들어간다.
 // - 명령: 바꾸기 전에 일하는 쪽 주체를 지금까지 정산한다(상호작용 전 정산). 돈이 움직이면 커밋을 기다린 뒤 답한다(U2).
-// - 유닛·시설이 사라지거나 유닛 주인이 바뀌면 마지막 정산 시각에 끝낸다(남은 보증금은 돌려준다).
-// - [임시] 화폐 = 서버 시험 화폐(s3_test_credit), 산출 = 시험 광석. 임금을 받는 곳 = 유닛 소유 주체 지갑(서버에 휴먼 지갑이 아직 없다).
-//   임금 = 효율점수 × 기준 단가(N27) × 고용주 조정(N28) — 유닛 스탯이 아직 없어 효율점수는 새 유닛 평균 1차 스탯 하나다.
+// - 유닛·시설이 사라지거나 유닛 주인이 바뀌면 마지막 정산 시각에 끝낸다(남은 보증금은 돌려준다). 임대형은 유닛이 사라져도 유예에
+//   들고(임차인 물건, D-161 해석), 시설이 사라지면 유예 없이(유예 중이면 유예만) 끝낸다.
+// - 구인 게시판(jobBoard.ts): 시설 주인이 일자리를 내고 남의 유닛 주인이 받으면 임금형 계약(고용주 ≠ 유닛 주인)이 된다.
+// - [임시] 화폐 = 서버 시험 화폐(s3_test_credit), 산출 = 시험 광석. 임금을 받는 곳 = 유닛 소유 주체 지갑(서버에 휴먼 지갑이 아직 없다,
+//   기획 342). 임금 = 효율점수 × 단가 × 고용주 조정(N28) — 유닛 스탯이 아직 없어 효율점수는 새 유닛 평균 1차 스탯 하나,
+//   단가는 도시 노동 시장이 아직 없어 N27 기준 단가 그대로다(rules.ts).
 import type { LaborResultCode } from "@terra/protocol";
 import type {
   LaborContractView,
   LaborOverviewResponse,
   LaborBuildingView,
+  LaborJobsResponse,
   LaborUnitView,
 } from "@terra/shared/labor";
 import {
   type LaborContract,
-  type LaborRules,
+  type LaborEndReason,
   type OutputSegment,
   type SocietyCoefficients,
   checkLaborEscrow,
-  defaultGatherStat,
   depositCyclesLeft,
   laborAccounts,
   laborWarning,
@@ -34,14 +37,19 @@ import {
   wagePerCycle,
 } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
+import type { CityRow } from "../world/cities.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, ASSET_ORE, type Settlement } from "../world/settlement.ts";
+import { type JobBoardFilter, type LaborPostInput, createJobBoard } from "./jobBoard.ts";
+import { wageRulesOf } from "./rules.ts";
 import { KEEP_ENDED_MS, type LoadedLabor, type RentRow, contractRow, rentRow } from "./store.ts";
 
 const HOUR_MS = 3_600_000;
 
-export type LaborCommandResult = { ok: true; contractId?: number } | { ok: false; code: LaborResultCode };
+export type LaborCommandResult =
+  | { ok: true; contractId?: number; jobId?: number }
+  | { ok: false; code: LaborResultCode };
 
 export interface LaborCreateInput {
   readonly kind: "wage" | "lease";
@@ -58,32 +66,18 @@ export interface LaborService {
   terminate(userId: string, contractId: number): Promise<LaborCommandResult>;
   topUp(userId: string, contractId: number, amount: bigint): Promise<LaborCommandResult>;
   setRent(userId: string, buildingId: number, rent: bigint): Promise<LaborCommandResult>;
+  /** 구인 내기(내 시설, 시설마다 열린 게시 하나 — 다시 내면 바꾼다) */
+  postJob(userId: string, input: LaborPostInput): Promise<LaborCommandResult>;
+  /** 구인 거두기(낸 사람만, 맺은 계약은 그대로) */
+  withdrawJob(userId: string, jobId: number): Promise<LaborCommandResult>;
+  /** 구인 받기(남의 시설 일자리를 내 유닛으로 → 임금형 계약) */
+  acceptJob(userId: string, jobId: number, unitId: number): Promise<LaborCommandResult>;
   overview(userId: string): LaborOverviewResponse;
+  /** 구인 게시판(남이 낸 열린 일자리, 도시·시설로 거름) */
+  jobs(userId: string, filter: JobBoardFilter): LaborJobsResponse;
   /** 메모리 불변 조건(I14: 에스크로 = 보증금) */
   check(): string[];
   readonly contracts: ReadonlyMap<number, LaborContract>;
-}
-
-/** 세력·사회 계수표에서 계약이 쓰는 값: N48 규칙과 임금 식(N27·N28) */
-interface WageRules {
-  readonly labor: LaborRules;
-  readonly efficiency: number;
-  readonly rateMilli: number;
-  readonly adjustMinPm: number;
-  readonly adjustMaxPm: number;
-  readonly society: SocietyCoefficients;
-}
-
-function wageRulesOf(c: SocietyCoefficients): WageRules {
-  return {
-    labor: c.labor,
-    // [임시] 기준 유닛 효율점수 = 새 유닛 평균 1차 스탯 하나(직무 가중치 합 1000‰이면 그대로, N9 초기 합 ÷ 6)
-    efficiency: defaultGatherStat(c.cyborg.initialSum),
-    rateMilli: c.wageRateMilli,
-    adjustMinPm: c.employerAdjustMinPm,
-    adjustMaxPm: c.employerAdjustMaxPm,
-    society: c,
-  };
 }
 
 function isOpen(c: LaborContract): boolean {
@@ -92,9 +86,14 @@ function isOpen(c: LaborContract): boolean {
 
 const fail = (code: LaborResultCode): LaborCommandResult => ({ ok: false, code });
 
+/** 끝난 계약이 완전히 끝난 시각: 유예를 거쳤으면 유예 끝(물건이 넘어간 시각), 아니면 해지 시각 */
+const finishedAt = (c: LaborContract): number => Math.max(c.endedAtMs ?? 0, c.leftoversMovedAtMs ?? 0);
+
 export function createLaborService(options: {
   loaded: LoadedLabor;
   maps: ReadonlyMap<number, SecondMap>;
+  /** 도시(부팅 때 읽은 것, 구인 게시판의 가까운 도시) */
+  cities?: readonly CityRow[] | undefined;
   settlement: Settlement;
   ledger: Ledger;
   writer: WorldWriter;
@@ -132,19 +131,21 @@ export function createLaborService(options: {
   };
   const stockOf = (ownerId: number) => (): number => ledger.ownerAccount(ownerId, ASSET_ORE);
 
-  /** 사라짐·주인 바뀜이면 마지막 정산 시각에 끝낸다. 끝냈으면 true */
-  const endIfGone = (c: LaborContract): boolean => {
-    const rules = wageRulesOf(options.rules()).labor;
+  /** 사라짐·주인 바뀜이면 그 사유(유닛이 먼저). 그대로면 null */
+  const goneReason = (c: LaborContract): LaborEndReason | null => {
     const unitOwner = unitOwnerOf(c.unitId);
+    if (unitOwner === undefined || unitOwner !== c.workerOwnerId) return "unit_gone";
     const buildingOwner = buildingOwnerOf(c.buildingId);
-    const reason =
-      unitOwner === undefined || unitOwner !== c.workerOwnerId
-        ? "unit_gone"
-        : buildingOwner === undefined || buildingOwner !== c.ownerId
-          ? "building_gone"
-          : null;
-    if (reason === null) return false;
-    terminateLabor(c, c.settledAtMs, reason, ledger, accounts, rules);
+    return buildingOwner === undefined || buildingOwner !== c.ownerId ? "building_gone" : null;
+  };
+  /**
+   * 사라짐·주인 바뀜이면 마지막 정산 시각에 해지한다(임금형 끝·임대형 유예, 시설이 사라지면 유예 없이). 유예 중이면 시설이
+   * 사라졌을 때만 유예를 끝낸다(유닛은 유예 동안 계약에 묶이지 않는다). 해지했으면 true
+   */
+  const endIfGone = (c: LaborContract): boolean => {
+    const reason = goneReason(c);
+    if (reason === null || (c.state === "grace" && reason !== "building_gone")) return false;
+    terminateLabor(c, c.settledAtMs, reason, ledger, accounts, wageRulesOf(options.rules()).labor);
     save(c);
     return true;
   };
@@ -161,7 +162,8 @@ export function createLaborService(options: {
     const rules = wageRulesOf(options.rules()).labor;
     const out = new Map<number, OutputSegment[]>();
     for (const c of mine) {
-      if (c.state !== "grace" && endIfGone(c)) continue;
+      // 사라진 유닛·시설의 산출은 나누지 않는다(유예에 들었으면 다음 정산부터 시각만 흐른다)
+      if (endIfGone(c)) continue;
       const start = c.settledAtMs;
       const segments = settleLabor(c, toMs, ledger, accounts, rules);
       save(c);
@@ -195,6 +197,37 @@ export function createLaborService(options: {
     // 돈·소유가 바뀌는 명령은 커밋 뒤에 답한다(S3 U2)
     await writer.durable();
     return result;
+  };
+
+  const board = createJobBoard({
+    loaded: options.loaded,
+    maps,
+    cities: options.cities ?? [],
+    settlement,
+    ledger,
+    writer,
+    accounts,
+    rules: () => wageRulesOf(options.rules()),
+    unitOwnerOf,
+    buildingOwnerOf,
+    unitBusy: (unitId) => openContractOf(unitId) !== undefined,
+    nextContractId: () => lastId + 1,
+    addContract: (c) => {
+      lastId = Math.max(lastId, c.id);
+      contracts.set(c.id, c);
+      save(c);
+    },
+  });
+  /** 구인 명령 공통: 세계 준비·내 주체 → 판단 → 바뀌었으면 커밋 뒤 답 */
+  const jobCommand = async (
+    userId: string,
+    run: (me: number, at: number) => LaborCommandResult,
+  ): Promise<LaborCommandResult> => {
+    const at = now();
+    const me = ownerFor(userId, at);
+    if (me === undefined) return fail("busy");
+    const result = run(me, at);
+    return result.ok ? done(result) : result;
   };
 
   return {
@@ -276,6 +309,8 @@ export function createLaborService(options: {
       if (!c) return fail("unknown_contract");
       if (me !== c.ownerId) return fail("forbidden");
       if (c.kind !== "wage") return fail("invalid_terms");
+      // 보증금이 나가는 고용주(남의 유닛을 고용했으면 일꾼 쪽과 다르다)와 계약을 정산하는 일꾼 쪽을 지금까지
+      settlement.settleOwner(c.ownerId, at);
       settlement.settleOwner(c.workerOwnerId, at);
       const result = topUpLabor(c, amount, at, ledger, accounts, wageRulesOf(options.rules()).labor);
       if (!result.ok) return fail(result.code);
@@ -308,6 +343,16 @@ export function createLaborService(options: {
       writer.upsert("laborRents", rentRow(row));
       return done({ ok: true });
     },
+    postJob: (userId, input) => jobCommand(userId, (me, at) => board.post(me, input, at)),
+    withdrawJob: (userId, jobId) => jobCommand(userId, (me, at) => board.withdraw(me, jobId, at)),
+    acceptJob: (userId, jobId, unitId) => jobCommand(userId, (me, at) => board.accept(me, jobId, unitId, at)),
+    jobs(userId, filter) {
+      return {
+        status: options.ready() ? "ready" : "not_ready",
+        generatedAt: now(),
+        ...board.board(settlement.findOwnerOfUser(userId), filter),
+      };
+    },
     overview(userId) {
       const at = now();
       const rules = wageRulesOf(options.rules());
@@ -331,6 +376,7 @@ export function createLaborService(options: {
         endReason: c.endReason,
         paidTotal: String(c.paidTotal),
         settledAt: c.settledAtMs,
+        leftoversMovedAt: c.leftoversMovedAtMs,
       });
       const list =
         me === undefined
@@ -339,7 +385,7 @@ export function createLaborService(options: {
               .filter(
                 (c) =>
                   (c.ownerId === me || c.workerOwnerId === me) &&
-                  (c.state !== "ended" || (c.endedAtMs ?? 0) > at - KEEP_ENDED_MS),
+                  (c.state !== "ended" || finishedAt(c) > at - KEEP_ENDED_MS),
               )
               .toSorted((a, b) => Number(!isOpen(a)) - Number(!isOpen(b)) || b.id - a.id)
               .map(view);
@@ -382,6 +428,7 @@ export function createLaborService(options: {
         contracts: list,
         buildings: buildings.toSorted((a, b) => Number(b.own) - Number(a.own) || a.id - b.id),
         units: units.toSorted((a, b) => a.id - b.id),
+        jobs: board.mine(me),
       };
     },
     check: () => checkLaborEscrow(contracts.values(), ledger),

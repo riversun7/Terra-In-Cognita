@@ -36,7 +36,7 @@ import { type LoadedCyborgs, loadCyborgs } from "../cyborg/state.ts";
 import { type HoldingsConfig, type WorldHoldings, createWorldHoldings } from "../holdings/world.ts";
 import { type LoadedHoldings, loadHoldings } from "../holdings/state.ts";
 import { type LaborService, createLaborService } from "../labor/service.ts";
-import { type LoadedLabor, loadLabor } from "../labor/store.ts";
+import { EMPTY_LABOR, type LoadedLabor, loadLabor } from "../labor/store.ts";
 import { TEST_NPC_FACTION_CODE } from "./unitKinds.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
 import { type MapTerrain, mapTerrainFromBuilt, mapTerrainFromTemp, terrainFromFile } from "./mapTerrain.ts";
@@ -363,7 +363,7 @@ export function startWorld(
     let cyborgData: LoadedCyborgs = { cyborgs: [], rolls: [], factions: [], fixedAppearances: 0 };
     let beaconRows: BeaconRow[] = [];
     let holdingData: LoadedHoldings = { holdings: [], effects: [], cooldowns: [], maxId: 0 };
-    let laborData: LoadedLabor = { contracts: [], rents: [], maxId: 0 };
+    let laborData: LoadedLabor = EMPTY_LABOR;
     for (let attempt = 1; !loaded; attempt++) {
       try {
         // 옛 시험 2차맵(깊은 바다 위)의 행을 지운다(지울 것이 없으면 그대로). U4 (가)
@@ -604,6 +604,7 @@ export function startWorld(
     const labor = createLaborService({
       loaded: laborData,
       maps,
+      cities,
       settlement,
       ledger,
       writer,

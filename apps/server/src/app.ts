@@ -72,6 +72,9 @@ import {
 import type { ReplayName } from "@terra/protocol/battleReplay";
 import { createTerrainService } from "./world/terrainService.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, type WorldConfig, startWorld } from "./world/world.ts";
+import { beaconFacilityView } from "./territory/facility.ts";
+import { createTerritoryGateway } from "./territory/gateway.ts";
+import type { TerritoryService } from "./territory/service.ts";
 
 /** WebSocket 연결의 로그인 사용자 조회를 기억하는 시간(ms). 명령마다 DB를 부르지 않는다 */
 export const SOCKET_VIEWER_TTL_MS = 15_000;
@@ -296,6 +299,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
 
   // 설정 칸 실효 값(팩 + 덮어쓰기): 서버에서 칸 값을 읽는 곳은 모두 이 접근자를 쓸 때마다 부른다
   const tuningState = options.tuning?.state;
+  const contentEditState = options.contentEdit?.state;
   const tuningShared = options.tuning
     ? createTuningShared({
         state: options.tuning.state,
@@ -381,6 +385,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         combatRules: tuningState
           ? () => combatCoefficientsFrom(tuningState.values(), undefined, tuningState.combatFormulas())
           : undefined,
+        // 영토 층(docs/adr/2026-11-03-territory-layer.md): 비콘 시설 = 팩 territory_beacon 실효 값(건물 편집기가 덮어쓴다, 켬끔·재료)
+        territory: {
+          beaconFacility: contentEditState ? () => beaconFacilityView(contentEditState) : undefined,
+          faceLevels: worldPlanet ? new Map([[worldPlanet.id, worldPlanet.faceLevel]]) : undefined,
+        },
         // 보유 물건(docs/adr/2026-11-03-item-holdings.md): 실효 콘텐츠·설정 칸 실효 값·사이보그 1차 스탯
         holdings: holdingsConfigOf({
           content: options.contentEdit?.state,
@@ -392,6 +401,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md): 세계가 준비된 뒤의 서비스(DB가 있는 월드만)
   const cyborgService = (): CyborgService | undefined =>
     world?.status().state === "ready" ? world.persistence?.cyborgs : undefined;
+  // 영토(docs/adr/2026-11-03-territory-layer.md): 같은 조건
+  const territoryService = (): TerritoryService | undefined =>
+    world?.status().state === "ready" ? world.persistence?.territory : undefined;
   // 보유 물건(docs/adr/2026-11-03-item-holdings.md): 세계가 준비된 뒤의 접근(DB가 있는 월드만)
   const holdingsAccess = () =>
     world?.status().state === "ready" ? world.persistence?.holdings.access : undefined;
@@ -505,6 +517,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         : undefined,
       // 개발자 2차맵 시험: 월드 행성의 2차맵 지형 주소·칸 값(보기 전용, src/world/secondMapLab.ts)
       secondMapLab,
+      // 영토 조회(내 세력·개발 화면 전체)
+      territory: territoryService,
       // 경제 화면: 팩 목록 + 월드 원장 잔고(읽기만) + 시안 자료
       economy: options.economyCatalog
         ? createEconomyServices({
@@ -565,6 +579,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const cyborgGateway = world
     ? createCyborgGateway({ service: cyborgService, now, log: app.log })
     : undefined;
+  const territoryGateway = world
+    ? createTerritoryGateway({ service: territoryService, now, log: app.log })
+    : undefined;
   const itemGateway = world ? createItemGateway({ access: holdingsAccess, now, log: app.log }) : undefined;
 
   if (planets && options.planets) {
@@ -585,6 +602,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         now,
         world: gateway,
         cyborg: cyborgGateway,
+        territory: territoryGateway,
         items: itemGateway,
         viewer: socketViewer(request),
         // 접속 상태(D-136): 월드가 DB에 저장할 때만. 연결은 부팅 복구가 끝난 뒤에만 들어온다(listen이 기다린다)

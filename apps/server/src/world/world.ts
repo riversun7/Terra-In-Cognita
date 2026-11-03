@@ -51,6 +51,13 @@ import {
 import { emptyWorldStats, resetWorldStats, summarizeWorldStats } from "./worldStats.ts";
 import { type NationPreset, ensureTestNations, nationName } from "../npc/nations.ts";
 import { type NpcRuntime, startNpcRuntime } from "../npc/runtime.ts";
+import type { TerritoryBeaconFacilityView } from "@terra/shared/territoryApi";
+import {
+  type BeaconRow,
+  type TerritoryService,
+  createTerritoryService,
+  loadBeacons,
+} from "../territory/service.ts";
 
 /**
  * 시험 2차맵 자리(ADR 2026-10-31-second-map-from-planet 8절): S2 시험 행성(면 레벨 9) 면 0의 (i, j) = (282, 328) 칸부터
@@ -114,6 +121,16 @@ export interface WorldConfig {
   combatCatalog?: (() => CombatCatalog) | undefined;
   combatRules?: (() => CombatCoefficients) | undefined;
   /**
+   * 영토 층(docs/adr/2026-11-03-territory-layer.md): 비콘 시설(팩 territory_beacon 실효 값, 켬끔·재료), 영토를 셈하는 행성의 면 레벨.
+   * 없으면 비콘 켬·재료 없음, 시험 행성(면 레벨 9)만. 계수는 cyborgRules(세력·사회 계수표)의 territory 칸
+   */
+  territory?:
+    | {
+        beaconFacility?: (() => TerritoryBeaconFacilityView) | undefined;
+        faceLevels?: ReadonlyMap<string, number> | undefined;
+      }
+    | undefined;
+  /**
    * NPC 사회 런타임(docs/adr/2026-11-01-npc-brain-r5.md 7절, NPC_SOCIETY). 없으면 끔. DB가 있을 때만 돈다.
    * testNations = 시험 국가 수(NPC_TEST_NATIONS), dayMs = 하루 길이(측정용, NPC_DAY_MS), manual = 타이머 없이(시험)
    */
@@ -160,6 +177,8 @@ export interface WorldPersistence {
   readonly battles: BattleService;
   /** 사이보그(계정당 하나, docs/adr/2026-11-01-first-login-cyborg.md) */
   readonly cyborgs: CyborgService;
+  /** 영토 비콘·영토 배치(docs/adr/2026-11-03-territory-layer.md) */
+  readonly territory: TerritoryService;
   /** 보유 물건(아이템 인스턴스, docs/adr/2026-11-03-item-holdings.md) */
   readonly holdings: WorldHoldings;
 }
@@ -334,6 +353,7 @@ export function startWorld(
     let npcOwnerId = 0;
     let cities: CityRow[] = [];
     let cyborgData: LoadedCyborgs = { cyborgs: [], rolls: [], factions: [], fixedAppearances: 0 };
+    let beaconRows: BeaconRow[] = [];
     let holdingData: LoadedHoldings = { holdings: [], effects: [], cooldowns: [], maxId: 0 };
     for (let attempt = 1; !loaded; attempt++) {
       try {
@@ -358,6 +378,7 @@ export function startWorld(
           });
         cities = await loadCities(db);
         cyborgData = await loadCyborgs(db);
+        beaconRows = await loadBeacons(db);
         holdingData = await loadHoldings(db);
         loaded = await loadWorld(db, now());
       } catch (error) {
@@ -532,6 +553,21 @@ export function startWorld(
       log,
       factionName: (code) => nationName(code, config.npc?.presets),
     });
+    const societyRules = config.cyborgRules ?? defaultCyborgRules;
+    const faceLevels = config.territory?.faceLevels ?? new Map([[TEST_PLANET_ID, EARTH_FACE_LEVEL]]);
+    const territory = createTerritoryService(
+      {
+        pool: db,
+        writer,
+        now,
+        rules: () => societyRules().territory,
+        beaconFacility: config.territory?.beaconFacility ?? (() => ({ enabled: true, materials: [] })),
+        faceLevelOf: (planetId) => faceLevels.get(planetId),
+        factionName: (code) => nationName(code, config.npc?.presets),
+        ready: () => status.state === "ready",
+      },
+      beaconRows,
+    );
     const holdings = createWorldHoldings({
       loaded: holdingData,
       writer,
@@ -552,6 +588,7 @@ export function startWorld(
       npcOwnerId,
       battles,
       cyborgs,
+      territory,
       holdings,
     };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)

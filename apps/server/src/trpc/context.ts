@@ -2,6 +2,7 @@
 // 이 타입은 AppRouter 타입에 들어가 게임 앱의 타입 검사에도 쓰인다.
 // 그래서 Node 전용 타입(fastify, pg, drizzle, better-auth 등)을 여기에 직접 넣지 않는다.
 // 넣으면 기기 코드에서 Node 전역(process, Buffer)이 타입 오류 없이 보이게 된다 — scripts/check-boundaries.mjs가 잡는다.
+import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
 import type { Role, UserSettings } from "@terra/shared";
 import type { DashboardCardsResponse } from "@terra/shared/dashboard";
 import type {
@@ -308,6 +309,12 @@ export interface MailServices {
   list(viewer: Viewer, query: HomeQuery): Promise<MailListResponse>;
 }
 
+/** 영토 조회(src/territory/service.ts). 없는 행성이면 undefined */
+export interface TerritoryReadServices {
+  planetView(planetId: string, userId: string | null): Promise<TerritoryPlanetView | undefined>;
+  mineView(planetId: string, userId: string): Promise<TerritoryPlanetView | undefined>;
+}
+
 export interface TrpcContext {
   /** 콘텐츠 팩 버전 */
   contentVersion: string;
@@ -329,6 +336,8 @@ export interface TrpcContext {
   cyborgs?: (() => CyborgReadServices | undefined) | undefined;
   /** 개발자 2차맵 시험. 월드·지형 서비스·행성 서비스가 다 있을 때만 */
   secondMapLab?: SecondMapLabServices | undefined;
+  /** 영토 조회(docs/adr/2026-11-03-territory-layer.md 5절). 세계(DB)가 없거나 부팅 복구 전이면 undefined */
+  territory?: (() => TerritoryReadServices | undefined) | undefined;
   /** 경제 화면 자료. 늘 있다(팩이 없으면 빈 목록, 월드가 없으면 잔고 없음) */
   economy: EconomyServices;
   /** 세력 화면. 늘 있다(DB·월드가 없으면 실제 자료가 빈 값이다) */

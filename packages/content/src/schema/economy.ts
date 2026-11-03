@@ -10,8 +10,8 @@ import { contentId, localizedText, ref } from "./common.ts";
 // 아이템 항목·대분류는 items.ts(공통 칸 + 대분류별 묶음, docs/adr/2026-11-01-item-editor.md). 옛 가져오기 길을 지킨다
 export { ITEM_CATEGORIES, itemEntrySchema, type ItemEntry } from "./items.ts";
 
-/** 생산 단계(D-114) */
-export const FACILITY_STAGES = ["gather", "process", "part", "finish"] as const;
+/** 생산 단계(D-114) + 영토(영토 비콘처럼 생산하지 않는 시설, D-485·49 N51 — docs/adr/2026-11-03-territory-layer.md) */
+export const FACILITY_STAGES = ["gather", "process", "part", "finish", "territory"] as const;
 
 /** 채집 방식: roll = 확률표 추첨, select = 선택 + 효율(옛 ITM-10) */
 export const GATHER_MODES = ["roll", "select"] as const;
@@ -36,8 +36,8 @@ export const facilityEntrySchema = z.strictObject({
   stage: z.enum(FACILITY_STAGES),
   /** 최고 레벨(D-5001 시설 Lv1~5). 없으면 5. 건설 재료 구간·편집기 레벨 표가 본다 */
   maxLevel: z.int().min(1).max(FACILITY_LEVEL_MAX).optional(),
-  /** [임시] 레벨당 일하는 자리 수(Lv × 이 값). 기획 수치 없음(E29 근처, 건물 데이터 D-5044) */
-  slotsPerLevel: z.int().positive().max(1000),
+  /** [임시] 레벨당 일하는 자리 수(Lv × 이 값). 기획 수치 없음(E29 근처, 건물 데이터 D-5044). 영토 비콘처럼 일하지 않는 시설은 0 */
+  slotsPerLevel: z.int().min(0).max(1000),
   /**
    * [임시] 오염 값: 레벨 1이 1시간 일할 때 그 1차맵 칸에 더하는 오염(D-460 200 "시설 레벨 × 시설 오염 값", D-464 215 출발값,
    * 개발자 페이지 콘텐츠 D-398). 없으면 0

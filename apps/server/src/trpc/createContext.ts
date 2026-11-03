@@ -41,6 +41,7 @@ import type {
   FormulaServices,
   EconomyServices,
   SecondMapLabServices,
+  TerritoryReadServices,
   TrpcContext,
   TrpcContextOptions,
   CyborgReadServices,
@@ -66,6 +67,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   roster?: Parameters<typeof createRosterServices>[0] | undefined;
   /** 개발자 2차맵 시험(월드·지형 서비스·행성 서비스가 다 있을 때, src/world/secondMapLab.ts) */
   secondMapLab?: SecondMapLabServices | undefined;
+  /** 영토 조회(세계가 준비되면 서비스, docs/adr/2026-11-03-territory-layer.md 5절). 없으면 늘 준비 전 */
+  territory?: (() => TerritoryReadServices | undefined) | undefined;
   /** 경제 화면 자료(팩 목록·월드 원장). 없으면 빈 목록·잔고 없음 */
   economy?: EconomyServices | undefined;
   /** 세력 화면 실제 자료(DB·월드가 있을 때) */
@@ -163,6 +166,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       roster,
       cyborgs: options.cyborgs ?? noCyborgs,
       secondMapLab: options.secondMapLab,
+      territory: options.territory,
       economy,
       faction,
       mail,

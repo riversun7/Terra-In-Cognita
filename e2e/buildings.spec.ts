@@ -95,8 +95,9 @@ test.describe("개발자", () => {
     deviceErrors,
   }) => {
     await freshEditor(page);
-    // 표: 시설 8개(제재소·가마 포함). 시설은 늘 켜져 있어 꺼짐 표지가 없다(팩 core@32, 사용자 답 2026-11-03)
-    await expect(page.locator(".be-table tbody tr")).toHaveCount(8);
+    // 표: 시설 9개(제재소·가마·영토 비콘 포함, 영토 비콘은 docs/adr/2026-11-03-territory-layer.md). 시설은 늘 켜져 있어 꺼짐 표지가
+    // 없다(팩 core@32, 사용자 답 2026-11-03)
+    await expect(page.locator(".be-table tbody tr")).toHaveCount(9);
     await expect(page.locator(".be-table .be-badge-off")).toHaveCount(0);
     await row(page, "farm").locator(".be-row-button").click();
     await expect(detail(page)).toHaveAttribute("data-facility", "farm");

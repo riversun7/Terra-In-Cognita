@@ -1,0 +1,298 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "1aec0a6f-79a7-4418-a66d-0acacc3e1408",
+  "prevIds": [
+    "c1f2bbdb-6c33-4b1e-810a-525114df0d19"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "territory_beacons"
+      ],
+      "writes": [
+        "s|tbl|public.territory_beacons",
+        "n|tbl|public.territory_beacons",
+        "e|tbl|public.territory_beacons",
+        "n|rel|public.territory_beacons",
+        "n|type|public.territory_beacons",
+        "n|rel|public.territory_beacons_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "territory_beacons",
+        "territory_beacons_cell_idx"
+      ],
+      "writes": [
+        "s|idx|public.territory_beacons_cell_idx",
+        "n|idx|public.territory_beacons_cell_idx",
+        "e|idx|public.territory_beacons_cell_idx",
+        "n|rel|public.territory_beacons_cell_idx"
+      ],
+      "reads": [
+        "n|tbl|public.territory_beacons",
+        "n|sch|public",
+        "n|col|public.territory_beacons.planet_id",
+        "n|col|public.territory_beacons.cell_key"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "territory_beacons",
+        "territory_beacons_faction_idx"
+      ],
+      "writes": [
+        "s|idx|public.territory_beacons_faction_idx",
+        "n|idx|public.territory_beacons_faction_idx",
+        "e|idx|public.territory_beacons_faction_idx",
+        "n|rel|public.territory_beacons_faction_idx"
+      ],
+      "reads": [
+        "n|tbl|public.territory_beacons",
+        "n|sch|public",
+        "n|col|public.territory_beacons.faction_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "territory_beacons",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "territory_beacons",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "territory_beacons",
+        "name": "planet_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'s2_test_planet'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "territory_beacons",
+        "name": "cell_key",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "territory_beacons",
+        "name": "faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "territory_beacons",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "territory_beacons",
+        "name": "durability",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "territory_beacons",
+        "name": "built_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "territory_beacons",
+        "name": "built_by",
+        "type": "uuid",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "territory_beacons",
+        "name": "territory_beacons_cell_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "planet_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "cell_key",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "territory_beacons",
+        "name": "territory_beacons_faction_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "faction_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "territory_beacons",
+        "name": "territory_beacons_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "territory_beacons",
+        "name": "territory_beacons_durability",
+        "value": "\"durability\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "territory_beacons",
+        "name": "territory_beacons_planet_id_format",
+        "value": "\"planet_id\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

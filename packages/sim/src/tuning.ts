@@ -9,6 +9,7 @@ import { BUILD_TUNING_KEYS } from "./tuningBuild.ts";
 import { CYBORG_TUNING_KEYS } from "./tuningCyborg.ts";
 import { GARDENER_TUNING_KEYS } from "./tuningGardener.ts";
 import { NPC_TUNING_KEYS } from "./tuningNpc.ts";
+import { TERRITORY_TUNING_KEYS } from "./tuningTerritory.ts";
 
 export interface TuningKey {
   /** 팩 항목 ID */
@@ -546,6 +547,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...GARDENER_TUNING_KEYS,
   // 시설 건설 시간·유지비(49 M14, D-508): tuningBuild.ts
   ...BUILD_TUNING_KEYS,
+  // 영토 층(49 M2·M3·N42·N51, D-104·D-485·D-486): tuningTerritory.ts
+  ...TERRITORY_TUNING_KEYS,
 ];
 
 function getPath(root: unknown, path: string): number {

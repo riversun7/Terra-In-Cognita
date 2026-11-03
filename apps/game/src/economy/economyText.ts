@@ -123,6 +123,7 @@ const STAGE_NAMES: Readonly<Record<string, () => string>> = {
   process: m.economy_stage_process,
   part: m.economy_stage_part,
   finish: m.economy_stage_finish,
+  territory: m.economy_stage_territory,
 };
 
 export function stageName(stage: string): string {

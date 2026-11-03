@@ -103,3 +103,14 @@ export function HouseIcon() {
     </DevIcon>
   );
 }
+
+/** 영토 층(꼭짓점 넷을 이은 볼록 도형과 꼭짓점) */
+export function TerritoryIcon() {
+  return (
+    <DevIcon>
+      <path d="M5 8.5 11 4l8 5-2 10-10-1.5Z" />
+      <circle cx="11" cy="4" r="1.2" />
+      <circle cx="17" cy="19" r="1.2" />
+    </DevIcon>
+  );
+}

@@ -55,7 +55,8 @@ describe("isProtocolSupported", () => {
   it("현재 버전은 지원하고 범위 밖은 거부한다", () => {
     expect(isProtocolSupported(PROTOCOL_VERSION)).toBe(true);
     // 3은 예외로 직전 버전(2)을 받지 않는다: 시야 전송은 보안 규칙이라 걸러지지 않은 2판 흐름을 남기지 않는다(version.ts).
-    // 4는 더하기만 해서(사이보그 만들기) 직전 버전 3을 받았다. 5(속성 분배)는 직전 버전 4를 받는다(현재 + 직전 1개, ADR 7)
+    // 4는 더하기만 해서(사이보그 만들기) 직전 버전 3을 받았다. 5(속성 분배)는 직전 버전 4를 받는다(현재 + 직전 1개, ADR 7).
+    // 6(보유 물건)·7(영토 비콘)도 현재 + 직전 1개다(ADR 7)
     expect(isProtocolSupported(MIN_SUPPORTED_PROTOCOL_VERSION)).toBe(true);
     expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
     expect(isProtocolSupported(MIN_SUPPORTED_PROTOCOL_VERSION - 1)).toBe(false);

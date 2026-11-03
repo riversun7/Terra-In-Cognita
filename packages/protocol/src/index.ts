@@ -50,6 +50,11 @@ export {
 } from "./cyborg.ts";
 export { ITEM_PROTOCOL_VERSION, ITEM_RESULT_CODES, type ItemResultCode } from "./items.ts";
 export {
+  BEACON_RESULT_CODES,
+  TERRITORY_PROTOCOL_VERSION,
+  type BeaconResultCode,
+} from "./territory.ts";
+export {
   TERRAIN_CACHE_CONTROL,
   TERRAIN_FORMAT_V1,
   TERRAIN_FORMAT_VERSION,

@@ -34,6 +34,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { type FullConfig, chromium, request } from "@playwright/test";
+// 기기 판과 같은 값으로 인사한다(판을 올릴 때마다 여기를 고치지 않게, 의존이 없는 파일 하나만 읽는다)
+import { PROTOCOL_VERSION } from "../packages/protocol/src/version.ts";
 import { type AccountName, HARNESS_ENV, type Harness, type HarnessAccount } from "./helpers/harness.ts";
 import {
   type ProcessRef,
@@ -209,6 +211,24 @@ async function adminQuery(adminUrl: string, text: string): Promise<void> {
   }
 }
 
+/** legacy 계정 사이보그의 속성값을 비운다(속성 분배 전에 만든 사이보그 흉내). 꼭 한 줄이 바뀌어야 한다 */
+async function resetLegacyElements(dbUrl: string, username: string): Promise<void> {
+  const pg: unknown = createRequire(path.join(ROOT, "apps/server/package.json"))("pg");
+  if (!isPgModule(pg)) throw new Error("apps/server의 pg 꾸러미를 읽지 못했습니다(pnpm install)");
+  const client = new pg.Client({ connectionString: dbUrl });
+  await client.connect();
+  try {
+    const result = await client.query(
+      `update cyborgs set elements = null where user_id = (select id from users where username = '${username}')`,
+    );
+    const changed = fieldOf(result, "rowCount");
+    if (changed !== 1)
+      throw new Error(`legacy 사이보그 속성값을 비우지 못했습니다(바뀐 줄 ${String(changed)})`);
+  } finally {
+    await client.end();
+  }
+}
+
 /** 서버 기록의 끝 몇 줄(실패 안내용) */
 function logTail(file: string, lines = 30): string {
   try {
@@ -290,16 +310,11 @@ const SETUP_CYBORGS = {
 
 /**
  * 계정의 사이보그를 실제 프로토콜로 만든다(docs/adr/2026-11-01-first-login-cyborg.md 6절): 그 계정 세션의 브라우저에서
- * tRPC cyborg.creation(세력·시작 도시) → WebSocket hello(프로토콜 5, legacy만 4) → cyborg_roll → cyborg_create(5면 속성 분배 불 6·바람 4,
- * 4면 분배 없이 → 서버가 "분배 기다림"으로 만든다, D-450).
+ * tRPC cyborg.creation(세력·시작 도시) → WebSocket hello(지금 프로토콜 판) → cyborg_roll → cyborg_create(속성 분배 불 6·바람 4, D-450).
+ * "분배 기다림" 사이보그(legacy)는 기기가 더 만들 수 없어(최소 판 6) 만든 뒤 DB에서 속성값을 비운다(resetLegacyElements).
  * 브라우저 안에서 열면 같은 출처라 쿠키·Origin이 저절로 실린다(Node WebSocket 머리글 타입을 쓰지 않으려고).
  */
-async function createSetupCyborg(
-  baseURL: string,
-  account: HarnessAccount,
-  name: string,
-  protocolVersion: 4 | 5,
-): Promise<void> {
+async function createSetupCyborg(baseURL: string, account: HarnessAccount, name: string): Promise<void> {
   const browser = await chromium.launch();
   try {
     const context = await browser.newContext({ baseURL, storageState: account.storageState });
@@ -361,12 +376,12 @@ async function createSetupCyborg(
           accent: "lemon",
         };
         const create = { t: "cyborg_create", id: 2, name: cyborgName, appearance, factionId, cityId };
-        socket.send(JSON.stringify(protocol >= 5 ? { ...create, elements: { fire: 6, wind: 4 } } : create));
+        socket.send(JSON.stringify({ ...create, elements: { fire: 6, wind: 4 } }));
         const created = await next(result(2));
         socket.close();
         return field(created, "ok") === true ? "created" : `create failed: ${String(field(created, "code"))}`;
       },
-      { cyborgName: name, protocol: protocolVersion },
+      { cyborgName: name, protocol: PROTOCOL_VERSION },
     );
     if (outcome !== "created" && outcome !== "already")
       throw new Error(`${account.id} 사이보그를 만들지 못했습니다: ${outcome}`);
@@ -565,37 +580,46 @@ export default async function globalSetup(config: FullConfig): Promise<() => Pro
     ]);
 
     const logStream = createWriteStream(logFile);
-    const server = spawn(process.execPath, ["apps/server/dist/main.js"], {
-      cwd: ROOT,
-      env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    state.server = server.pid === undefined ? null : processRef(server.pid);
-    saveState();
-    server.stdout.pipe(logStream);
-    server.stderr.pipe(logStream);
-    // 실행기가 전역 정리 없이 끝나도 서버를 남기지 않는다: 오류 등으로 끝날 때(exit), SIGTERM·SIGHUP을 받을 때
-    const killServer = (): void => {
-      server.kill("SIGKILL");
+    // 서버를 켠다. legacy 사이보그 준비 때 한 번 껐다 다시 켜므로 함수로 둔다(기록 파일은 하나로 이어 쓴다)
+    // 켜진 서버를 끄는 함수(닫힘 안에서 바꾸므로 객체 칸에 둔다: let이면 타입 검사가 늘 null로 좁힌다)
+    const running: { stop: (() => Promise<void>) | null } = { stop: null };
+    const launchServer = async (): Promise<void> => {
+      const server = spawn(process.execPath, ["apps/server/dist/main.js"], {
+        cwd: ROOT,
+        env,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      state.server = server.pid === undefined ? null : processRef(server.pid);
+      saveState();
+      server.stdout.pipe(logStream, { end: false });
+      server.stderr.pipe(logStream, { end: false });
+      // 실행기가 전역 정리 없이 끝나도 서버를 남기지 않는다: 오류 등으로 끝날 때(exit), SIGTERM·SIGHUP을 받을 때
+      const killServer = (): void => {
+        server.kill("SIGKILL");
+      };
+      const onStopSignal = (signal: NodeJS.Signals): void => {
+        killServer();
+        // 듣는 함수를 모두 떼고 같은 신호로 다시: Node 기본 동작대로 끝난다(종료 코드 128 + 신호 번호)
+        process.off("exit", killServer);
+        for (const other of STOP_SIGNALS) process.off(other, onStopSignal);
+        process.kill(process.pid, signal);
+      };
+      process.once("exit", killServer);
+      for (const signal of STOP_SIGNALS) process.once(signal, onStopSignal);
+      running.stop = async () => {
+        process.off("exit", killServer);
+        for (const signal of STOP_SIGNALS) process.off(signal, onStopSignal);
+        await stopServer(server);
+      };
+      const started = Date.now();
+      await waitForServer(baseURL, server, logFile);
+      log(`서버 ${baseURL} (DB ${dbName}, ${((Date.now() - started) / 1000).toFixed(1)}초, 기록 ${logFile})`);
     };
-    const onStopSignal = (signal: NodeJS.Signals): void => {
-      killServer();
-      // 듣는 함수를 모두 떼고 같은 신호로 다시: Node 기본 동작대로 끝난다(종료 코드 128 + 신호 번호)
-      process.off("exit", killServer);
-      for (const other of STOP_SIGNALS) process.off(other, onStopSignal);
-      process.kill(process.pid, signal);
-    };
-    process.once("exit", killServer);
-    for (const signal of STOP_SIGNALS) process.once(signal, onStopSignal);
     cleanups.push(async () => {
-      process.off("exit", killServer);
-      for (const signal of STOP_SIGNALS) process.off(signal, onStopSignal);
-      await stopServer(server);
+      await running.stop?.();
       await new Promise<void>((resolve) => logStream.end(resolve));
     });
-    const started = Date.now();
-    await waitForServer(baseURL, server, logFile);
-    log(`서버 ${baseURL} (DB ${dbName}, ${((Date.now() - started) / 1000).toFixed(1)}초, 기록 ${logFile})`);
+    await launchServer();
 
     // 차례로 들어간다(객체 칸은 적은 차례대로 기다린다)
     const accounts: Record<AccountName, HarnessAccount> = {
@@ -608,12 +632,16 @@ export default async function globalSetup(config: FullConfig): Promise<() => Pro
     };
     await waitForPlanets(baseURL, accounts.admin.storageState);
     // 첫 접속을 마친 계정: player·dev·admin은 사이보그가 있어야 다른 시험의 화면이 열린다(없으면 /start로 간다).
-    // fresh·fresh_shots는 사이보그 없이 둔다(첫 접속 시험). legacy는 프로토콜 4로 만들어 속성 분배를 기다리게 둔다
-    for (const name of ["player", "dev", "admin"] as const) {
-      const account = accounts[name];
-      await createSetupCyborg(baseURL, account, SETUP_CYBORGS[name], 5);
+    // fresh·fresh_shots는 사이보그 없이 둔다(첫 접속 시험). legacy는 속성 분배를 기다리는 사이보그로 둔다(아래)
+    for (const name of ["player", "dev", "admin", "legacy"] as const) {
+      await createSetupCyborg(baseURL, accounts[name], SETUP_CYBORGS[name]);
     }
-    await createSetupCyborg(baseURL, accounts.legacy, SETUP_CYBORGS.legacy, 4);
+    // "분배 기다림"(elements null)은 최소 판 6부터 기기가 만들 수 없다(속성 분배 전에 만든 옛 사이보그만 그렇다).
+    // 서버는 켤 때 사이보그를 DB에서 읽으므로: 끄고(쓰기 대기열을 비운다) → DB에서 속성값을 비우고 → 다시 켠다
+    await running.stop?.();
+    running.stop = null;
+    await resetLegacyElements(dbUrl.toString(), ACCOUNTS.legacy.id);
+    await launchServer();
     log(`사이보그를 만든 계정: ${Object.keys(SETUP_CYBORGS).join("·")}`);
     const harness: Harness = { baseURL, accounts };
     process.env[HARNESS_ENV] = JSON.stringify(harness);

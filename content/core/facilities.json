@@ -348,6 +348,34 @@
           }
         ]
       }
+    },
+    {
+      "id": "territory_beacon",
+      "name": {
+        "ko": "영토 비콘",
+        "en": "Territory beacon"
+      },
+      "stage": "territory",
+      "maxLevel": 1,
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 800,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 4
+              },
+              {
+                "item": "stone",
+                "qty": 4
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }

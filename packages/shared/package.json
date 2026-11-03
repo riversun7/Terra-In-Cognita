@@ -24,6 +24,8 @@
     "./planetCalendar": "./src/planetCalendar.ts",
     "./roster": "./src/roster.ts",
     "./skillEditor": "./src/skillEditor.ts",
+    "./territory": "./src/territory.ts",
+    "./territoryApi": "./src/territoryApi.ts",
     "./tuning": "./src/tuning.ts"
   },
   "scripts": {

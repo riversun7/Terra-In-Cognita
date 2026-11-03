@@ -37,8 +37,8 @@ async function query(
   );
 }
 
-/** 모든 비콘을 치운다(WebSocket beacon_remove, 개발 권한) */
-async function clearBeacons(page: Page): Promise<void> {
+/** 모든 비콘을 치운다(WebSocket beacon_remove, 개발 권한). 속도 제한 등으로 남으면 잠시 뒤 한 번 더 */
+async function clearBeacons(page: Page, attempt = 1): Promise<void> {
   const view = await query(page, "territory.planet", { planetId: PLANET });
   const ids = list(field(view.data, "beacons")).map((beacon) => field(beacon, "id"));
   if (ids.length === 0) return;
@@ -70,7 +70,10 @@ async function clearBeacons(page: Page): Promise<void> {
     socket.close();
     return [...replies.values()].filter((ok) => ok !== true).length;
   }, ids);
-  expect(failed).toBe(0);
+  if (failed === 0) return;
+  expect(attempt).toBeLessThan(3);
+  await page.waitForTimeout(1500);
+  await clearBeacons(page, attempt + 1);
 }
 
 const screen = (page: Page) => page.locator(".tl-screen");

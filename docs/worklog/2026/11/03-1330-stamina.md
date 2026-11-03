@@ -5,6 +5,7 @@
 - 관련: 질문 `docs/questions/2026-11-03-stamina-274.md`(사용자 답 → 기획 D-511, 미러 `f530fbd` 48 §4.1), ADR `docs/adr/2026-10-31-combat-core.md` "바뀜 (274 스태미나 적정 스탯 개념)", 측정 기준 `docs/research/2026-11-03-gardener-stamina-measure.md`, 가지 `work/stamina`(main `f530fbd`에서 시작)
 
 - 합칠 때(2026-11-03, 조정자): 영토·구인·노동 계약 합치기(main `146d898`)가 먼저 core@34·`SIM_VERSION` 11을 써서 이 가지를 core@35·`SIM_VERSION` 12로 올렸다(`n13_appropriate` 지움 기록 `since` 35). 아래 검증 표의 해시·판은 합치기 전 이 가지 값이다.
+- 합친 뒤 검사(Verified, 조정자): `TEST_DATABASE_URL=… pnpm check` 406파일 3,371개 통과, `check:docs`·`check:content`(core@35) 통과. 화면 시험 formulas·skills·balance·battleLab·recruit 66개 중 65개 통과, `balance.spec.ts` 큰 숫자·en·390px 하나가 기여 표를 20초 안에 못 받아 실패(다른 줄기 검사와 겹친 부하) → `balance.spec.ts`만 다시 돌려 14/14 통과.
 
 ## 한 일
 - 적정 STA 점수를 설정 칸 80에서 레벨 계산식 칸 `stamina_appropriate`로 바꿨다(맨손 적정과 같은 틀). 출발 식 `10 * (1 + 0.1 * (LV - 1))` = 보통 유닛(1차 처음 10, 성장률 N5 100‰, K 1)의 STA 점수라 보통 유닛은 어느 레벨이든 소모·회복 배율이 1이다(유도는 ADR 1절).

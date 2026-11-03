@@ -47,7 +47,9 @@
 
 ## 미검증·TODO·알려진 문제
 - 시뮬 전·뒤(시드 1): ADR "바뀜 (D-469 구인 카드)" 7절 표. stub16은 수입이 없어 국고가 마른 뒤(120일) 인구가 줄어 180일 103명(전 1,064) — D-469(인구 = 돈) 그대로의 결과이고 N1은 econ16(Assumed). econ16은 구인이 만족도를 보지 않아 굶는 도시도 다시 채워 반란 이김 103 → 136.
-- 시험: (검사 결과는 아래 줄에 적는다)
+- 시험(Verified, 실행, main `378852d` 합친 뒤 `17ebbea`): `TEST_DATABASE_URL=… pnpm check` 통과(시험 파일 394·시험 3,302, DB 시험 포함 — 새 시험: sim `recruitment.test.ts`·`societyRecruit.test.ts`·`policy.test.ts` 구인 규칙식·`tuningChecks` `n45_fit`, 프로토콜 `recruit.test.ts`, 서버 `recruit/gateway.test.ts`·`recruit.db.test.ts`(NPC 구인 저장·다시 켜기, 유저 고용·거절 코드·잔고 모자람), 게임 `recruitModel.test.ts`), `pnpm check:docs origin/main`, `pnpm check:content origin/main`(4b 호환 포함, core@34), `pnpm --filter @terra/server db:generate` = 변경 없음.
+- 첫 화면 JS(Verified, `pnpm build` 뒤 `pnpm check:bundle`): 105,745 B / 상한 131,416 B — 통과(구인 화면은 지연 조각, 미리 캐시 밖 `[Rr]ecruitLab`).
+- 화면 시험(Verified, `pnpm e2e recruit.spec.ts units.spec.ts first-login.spec.ts`, 헤드리스 Chromium, 한 작업자): 34 통과·1 건너뜀(legacy). 구인: admin이 가장 싼 카드를 고용 → 성공 알림·"고용함"·잔고 줄어듦, 다른 도시 고르기(?city=), player는 권한 없음·`recruit.board` 200(주인 카드 없음), 390·1440 × 네온·라이트 × 한국어·영어 가로 넘침·작은 누르는 곳 없음. 사진 8장: `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/recruit/shots/`(저장소 밖). 390 한국어 주인 카드 표의 상태 칸("남음")이 두 줄로 꺾인다(보기만).
 - main `1938e24`의 화면 시험 준비가 깨져 있었다(Verified: 코드 읽기): 보유 물건 판이 최소 프로토콜을 5로 올렸는데 `e2e/global-setup.ts`가 legacy 사이보그를 4판 인사로 만든다 → 인사 거절 → 준비 단계 실패. 이 가지는 준비를 7판으로 바꾸고 legacy 시험(`first-login.spec.ts` 속성 분배 전 사이보그)을 건너뛴다. 분배 전 사이보그를 DB로 차리는 준비는 다음 줄기.
 - 행정 건물 레벨은 모든 도시 Lv1 [임시](올리는 길·화면 없음). 유저는 런타임의 어느 도시에서든 고용 [임시]. 유저 휴먼의 수명·만족도·상속은 아직 돌지 않는다.
 - NPC 구인 [임시] 손잡이 `npc_recruit_target` 1000‰·`npc_recruit_reserve` 2000‰. Lv4·5 카드 수·토탈 범위 [임시].

@@ -425,8 +425,9 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       onResult(message);
       return;
     }
-    // 사이보그 만들기 결과(프로토콜 4)는 만들기 화면이, 보유 물건 결과(프로토콜 6)는 그 화면이 받는다
-    if (message.t === "cyborg_result" || message.t === "item_result") return;
+    // 사이보그 만들기 결과(프로토콜 4)는 만들기 화면이, 보유 물건 결과(프로토콜 6)·구인 카드 고용 결과(프로토콜 7)는 그 화면이 받는다
+    if (message.t === "cyborg_result" || message.t === "item_result" || message.t === "recruit_result")
+      return;
     if (message.mapKey !== mapKey) return;
     if (message.t === "map_snapshot") {
       onSnapshotPart(message, size);

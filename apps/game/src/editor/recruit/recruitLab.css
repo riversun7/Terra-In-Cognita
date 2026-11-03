@@ -1,0 +1,162 @@
+/*
+ * 구인 카드 시험(/dev/recruit, D-469) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast). 촘촘(data-density="compact").
+ * 개발 화면 층(ADR 2026-11-02-dev-ui): 도시 표·주인 카드 표는 공용 .dev-table, 표지는 .dev-badge.
+ * 스탯 막대 색은 1차 스탯 묶음 색(--color-stat-*, ADR 2026-11-01-ui-visibility, D-448).
+ * 390px: 카드가 한 줄에 하나. 넓은 화면(40em~): 카드 둘, (64em~): 셋.
+ * 조각 RecruitLabScreen-*와 함께 내려온다(미리 캐시 밖, [Rr]ecruitLab).
+ */
+.rl-screen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  min-width: 0;
+}
+.rl-lead,
+.rl-gap {
+  margin: 0;
+}
+.rl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.rl-panel {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.rl-heading {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+}
+.rl-city {
+  min-height: var(--tap-size);
+  font-weight: var(--font-weight-strong);
+}
+.rl-cities tr[aria-selected="true"] > * {
+  background-color: var(--dev-row-selected);
+}
+.rl-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+.rl-balance {
+  margin-inline-start: auto;
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 카드 ── */
+.rl-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rl-card {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+.rl-card[data-state="taken"] {
+  border-style: dashed;
+  color: var(--color-text-muted);
+}
+.rl-card-head,
+.rl-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.rl-total {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+.rl-cost {
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+.rl-elements {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.rl-stats {
+  display: grid;
+  gap: var(--space-1);
+}
+.rl-stat-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.rl-stat {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  --rl-stat: var(--color-stat-str);
+}
+.rl-stat[data-stat="vit"] {
+  --rl-stat: var(--color-stat-vit);
+}
+.rl-stat[data-stat="int"] {
+  --rl-stat: var(--color-stat-int);
+}
+.rl-stat[data-stat="wis"] {
+  --rl-stat: var(--color-stat-wis);
+}
+.rl-stat[data-stat="dex"] {
+  --rl-stat: var(--color-stat-dex);
+}
+.rl-stat[data-stat="agi"] {
+  --rl-stat: var(--color-stat-agi);
+}
+.rl-stat-code {
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-strong);
+  color: var(--rl-stat);
+}
+.rl-stat-bar {
+  display: block;
+  block-size: var(--stat-bar);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-border);
+  overflow: hidden;
+}
+.rl-stat-fill {
+  display: block;
+  block-size: 100%;
+  border-radius: var(--radius-pill);
+  background-color: var(--rl-stat);
+}
+
+@media (min-width: 40em) {
+  .rl-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 64em) {
+  .rl-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

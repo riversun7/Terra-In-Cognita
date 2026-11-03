@@ -137,6 +137,17 @@ describe.skipIf(!TEST_DATABASE_URL)("보유 물건 저장", () => {
       ["hold_rotten_fish", null, 5, worker],
     ]);
     expect(listed.holdings[0]?.stats).toEqual(before.holdings[0]?.stats);
+    // 화면 자료: 입는 칸·쓰기 쿨 종류·쓰는 효과, 든 유닛의 칸 배치(시험 일꾼 = human, 사이보그 없음)
+    expect(listed.holdings.map((h) => [h.item, h.equipSlot, h.useCooldown])).toEqual([
+      ["hold_vest", "body", null],
+      ["hold_stew", null, "food"],
+      ["hold_rotten_fish", null, null],
+    ]);
+    expect(listed.holdings[1]?.uses?.map((line) => line.effect)).toEqual(["hold_meal_str"]);
+    expect(listed.cyborgUnit).toBeNull();
+    expect(listed.units?.map((entry) => [entry.unit, entry.kind, entry.slots[3]])).toEqual([
+      [worker, "human", "body"],
+    ]);
     // 효과는 1시간이라 끝났다
     expect(listed.effects).toEqual([]);
     await q.writer.durable();

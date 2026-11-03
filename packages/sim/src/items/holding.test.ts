@@ -12,13 +12,16 @@ import {
   holdingKindOf,
   pickPotion,
   planEffects,
+  preservePmOf,
   rangePositionPm,
   refillAmmo,
   repairMaterialQty,
   rollHoldingStats,
   settleSpoilage,
   spoilAtMs,
+  STORAGE_PLACES,
   stackMaxOf,
+  storagePlaceOfLocation,
   wearDurable,
   wearable,
 } from "./holding.ts";
@@ -85,21 +88,33 @@ describe("닳기(D-496 289, 옛 BattleResult 25%)", () => {
 
   it("확률 1000이면 늘, 0이면 안 닳는다. 지면 더 닳는다", () => {
     const always = { chancePm: 1000, amount: 1, lossChancePm: 1000, lossAmount: 4 };
-    expect(battleWearAmount(true, always, createRng(1))).toBe(1);
-    expect(battleWearAmount(false, always, createRng(1))).toBe(5);
-    expect(battleWearAmount(false, { ...always, chancePm: 0, lossChancePm: 0 }, createRng(1))).toBe(0);
+    expect(battleWearAmount("won", always, createRng(1))).toBe(1);
+    expect(battleWearAmount("lost", always, createRng(1))).toBe(5);
+    expect(battleWearAmount("lost", { ...always, chancePm: 0, lossChancePm: 0 }, createRng(1))).toBe(0);
+  });
+
+  it("퇴각은 패배 닳음이 없다(D-512 324, D-190): 전투마다 닳음만 이긴 편과 같다", () => {
+    const always = { chancePm: 1000, amount: 1, lossChancePm: 1000, lossAmount: 4 };
+    expect(battleWearAmount("retreated", always, createRng(1))).toBe(1);
+    expect(battleWearAmount("retreated", { ...always, chancePm: 0 }, createRng(1))).toBe(0);
+    // 난수 흐름은 셋 다 같다(두 번)
+    const [a, b, c] = [createRng(9), createRng(9), createRng(9)];
+    battleWearAmount("won", rules, a);
+    battleWearAmount("lost", rules, b);
+    battleWearAmount("retreated", rules, c);
+    expect(new Set([a.nextU32(), b.nextU32(), c.nextU32()]).size).toBe(1);
   });
 
   it("25% 확률은 많이 굴리면 약 25%(같은 시드 = 같은 흐름, 이김·짐과 상관없이 난수 두 번)", () => {
     const rng = createRng(42);
     let worn = 0;
-    for (let i = 0; i < 4000; i++) worn += battleWearAmount(true, rules, rng);
+    for (let i = 0; i < 4000; i++) worn += battleWearAmount("won", rules, rng);
     expect(worn).toBeGreaterThan(900);
     expect(worn).toBeLessThan(1100);
     const a = createRng(3);
     const b = createRng(3);
-    battleWearAmount(true, rules, a);
-    battleWearAmount(false, rules, b);
+    battleWearAmount("won", rules, a);
+    battleWearAmount("lost", rules, b);
     expect(a.nextU32()).toBe(b.nextU32());
   });
 
@@ -177,6 +192,24 @@ describe("신선도(옛 GDD 4장, D-496 288)", () => {
     expect(agedAt(state, 10 * HOUR, 0)).toBe(0);
     expect(spoilAtMs(state, 72 * HOUR, 2000)).toBe(144 * HOUR);
     expect(spoilAtMs(state, 72 * HOUR, 0)).toBeNull();
+  });
+
+  it("보관 곳마다 보존 배율(D-512 322): 출발값 = 옛 문서(냉장 ×2·절임 ×3·통조림 ×5·냉동 멈춤), 유닛 ×1, 거래소 멈춤", () => {
+    const table = TEST_SOCIETY_COEFFICIENTS.consumables.preservePm;
+    expect(STORAGE_PLACES.map((place) => preservePmOf(place, table))).toEqual([
+      1000, 1000, 2000, 3000, 5000, 0, 0,
+    ]);
+    // 유통기한 72시간 생선: 냉장 144시간, 통조림 360시간, 냉동·거래소 안 썩는다
+    const state = { agedMs: 0, atMs: 0 };
+    expect(spoilAtMs(state, 72 * HOUR, preservePmOf("fridge", table))).toBe(144 * HOUR);
+    expect(spoilAtMs(state, 72 * HOUR, preservePmOf("can", table))).toBe(360 * HOUR);
+    expect(spoilAtMs(state, 72 * HOUR, preservePmOf("freezer", table))).toBeNull();
+    expect(spoilAtMs(state, 72 * HOUR, preservePmOf("exchange", table))).toBeNull();
+    // 음수 값은 멈춤으로 친다
+    expect(preservePmOf("unit", { ...table, unit: -5 })).toBe(0);
+    // 자리 기본값: 음수(−유닛) = 유닛이 듦, 양수 = 창고
+    expect(storagePlaceOfLocation(-7)).toBe("unit");
+    expect(storagePlaceOfLocation(12)).toBe("storage");
   });
 
   const defs = new Map([

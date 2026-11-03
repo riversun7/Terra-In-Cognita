@@ -1,5 +1,5 @@
 // 사이보그 설정 칸 값 ↔ 계수표 — tuning.ts에서 나눈 사이보그·장비 수리 칸(파일 크기, AGENTS.md 4장).
-// docs/adr/2026-10-31-faction-society-core.md "설정 칸 대응"·"바뀜 (2026-11-01, D-450~D-453)", 기획 49 §6.5 N6·N7·N9·N34·N36~N39·F11·F12.
+// docs/adr/2026-10-31-faction-society-core.md "설정 칸 대응"·"바뀜 (2026-11-01, D-450~D-453)", 기획 49 §6.5 N6·N7·N9·N34·N36~N39·F11·F12·N49.
 // 팩 항목 ID ↔ 세력·사회 계수표 칸(경로). 출발값이 없는 칸은 설정값 출발값(D-5032)이고 값은 계수표 TEST_SOCIETY_COEFFICIENTS다.
 import type { TuningKey } from "./tuning.ts";
 
@@ -19,6 +19,17 @@ const k = (
   ko,
   en,
 });
+
+/** 보존 배율 칸: 보관 곳·이름(ko·en). 칸 ID = n49_preserve_<보관 곳> */
+const PRESERVE_PLACES: readonly (readonly [string, string, string])[] = [
+  ["unit", "보존 배율: 유닛이 든 것(‰, 1000 = ×1)", "Preservation: carried by a unit (‰, 1000 = ×1)"],
+  ["storage", "보존 배율: 창고(보존 시설 없음, ‰)", "Preservation: storage without preservation (‰)"],
+  ["fridge", "보존 배율: 냉장(‰)", "Preservation: refrigerated (‰)"],
+  ["pickle", "보존 배율: 절임(‰)", "Preservation: pickled (‰)"],
+  ["can", "보존 배율: 통조림(‰)", "Preservation: canned (‰)"],
+  ["freezer", "보존 배율: 냉동(‰, 0 = 멈춤)", "Preservation: frozen (‰, 0 = stopped)"],
+  ["exchange", "보존 배율: 거래소(‰, 0 = 멈춤)", "Preservation: goods exchange (‰, 0 = stopped)"],
+];
 
 export const CYBORG_TUNING_KEYS: readonly TuningKey[] = [
   // 사이보그 성장·환생 (N5·N6·N7·N9·N34, D-417·D-440·D-441·D-451)
@@ -237,5 +248,17 @@ export const CYBORG_TUNING_KEYS: readonly TuningKey[] = [
     "consumables.potionHpThresholdPm",
     "자동 물약 HP 문턱 기본값(‰, 유닛 AI 전술 설정의 출발값)",
     "Auto potion HP threshold default (‰, unit AI tactic default)",
+  ),
+  // 보관 곳마다 보존 배율(D-512 322, 옛 문서 Consolidated_Item.md:1862~1868 — items/holding.ts STORAGE_PLACES)
+  ...PRESERVE_PLACES.map(([place, ko, en]) =>
+    k(`n49_preserve_${place}`, "N49", `consumables.preservePm.${place}`, ko, en),
+  ),
+  // 장인 실력의 적정 점수(D-512 323 ④, D-420 틀) — 수리 최대 내구도 감소(F11)의 장인 실력
+  k(
+    "f11_craft_appropriate",
+    "F11",
+    "durability.craftAppropriate",
+    "장인 실력 적정 점수(제작 직무 점수, 이만큼이면 감소 절반)",
+    "Craftsman skill appropriate score (crafting job score that halves the loss)",
   ),
 ];

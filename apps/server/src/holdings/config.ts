@@ -1,5 +1,6 @@
 // 보유 물건 월드 설정 만들기(app.ts가 부른다) — docs/adr/2026-11-03-item-holdings.md 4절.
-// 실효 콘텐츠(팩 + 그 세계의 덮어쓰기, 아이템 편집기가 바꾸면 바로 든다), 설정 칸 실효 값(닳기·효과량 상한·오차·수리),
+// 실효 콘텐츠(팩 + 그 세계의 덮어쓰기, 아이템 편집기가 바꾸면 바로 든다), 설정 칸 실효 값(닳기·효과량 상한·오차·수리·보존 배율),
+// 가중치 표 실효 값(수리 장인 실력의 제작 직무 행, 밸런스 화면 덮어쓰기),
 // 사이보그 본체의 1차 스탯(유닛 화면과 같은 셈: 성장 + 장비)을 부를 때마다 읽는다.
 import { combatCoefficientsFrom } from "@terra/sim";
 import type { ContentEditState } from "../contentEdit/state.ts";
@@ -26,6 +27,7 @@ export function holdingsConfigOf(options: {
             tuning.society(),
           )
       : undefined,
+    statTable: tuning ? () => tuning.statTable() : undefined,
     cyborgPrimaries: roster
       ? (record) => {
           const { primaries } = realCyborgBody(roster, record, false).stats;

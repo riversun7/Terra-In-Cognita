@@ -230,6 +230,11 @@ export interface SocietyCoefficients {
     readonly wearLossAmount: number;
     /** 탄약 보충 한 번에 줄어드는 최대 내구도(‰, 올림, D-509 "최대내구도 점차 감소" — 값 [임시]) */
     readonly ammoRefillLossPm: number;
+    /**
+     * 장인 실력의 적정 점수(D-512 323 ④, D-420 틀): 장인 실력‰ = min(1000, 제작 직무 점수 × 1000 ÷ 이 값). 제작 직무 점수 = 가중치 표의
+     * 제작 직무 행(팩 stat_rows job_crafting, 48 §7.2). 값 [임시] 50(새 유닛 평균 1차 10이면 200‰, 48 §3.5 Lv30 예 ≈ 44.5 → 890‰)
+     */
+    readonly craftAppropriate: number;
   };
   /**
    * 소모품 사용(D-509·D-510): 물약은 전투·비전투 상관없이 유닛마다 한 번 쓰면 potionCooldownMs 뒤에 다시 쓴다(스태미나 소모 없음),
@@ -240,6 +245,19 @@ export interface SocietyCoefficients {
     readonly potionCooldownMs: number;
     readonly foodCooldownMs: number;
     readonly potionHpThresholdPm: number;
+    /**
+     * 보관 곳마다 보존 배율(‰, 1000 = ×1, 0 = 멈춤 — D-512 322, 49 N49). 출발값 = 옛 문서 Consolidated_Item.md:1862~1868(냉장 ×2·절임 ×3·
+     * 통조림 ×5·냉동 멈춤), 유닛이 듦 ×1·거래소 멈춤(D-289), 창고(보존 시설 없음) ×1 [임시]. 칸 이름 = @terra/sim items/holding.ts STORAGE_PLACES
+     */
+    readonly preservePm: {
+      readonly unit: number;
+      readonly storage: number;
+      readonly fridge: number;
+      readonly pickle: number;
+      readonly can: number;
+      readonly freezer: number;
+      readonly exchange: number;
+    };
   };
 }
 
@@ -375,10 +393,12 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     wearLossChancePm: 150,
     wearLossAmount: 4,
     ammoRefillLossPm: 50,
+    craftAppropriate: 50,
   },
   consumables: {
     potionCooldownMs: 30_000,
     foodCooldownMs: 300_000,
     potionHpThresholdPm: 400,
+    preservePm: { unit: 1000, storage: 1000, fridge: 2000, pickle: 3000, can: 5000, freezer: 0, exchange: 0 },
   },
 };

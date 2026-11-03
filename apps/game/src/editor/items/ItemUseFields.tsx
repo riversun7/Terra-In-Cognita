@@ -131,6 +131,7 @@ export function ItemUseFields({
         effects={list.effects}
         locale={locale}
         max={ITEM_LIMITS.effectsMax}
+        durationMax={ITEM_LIMITS.useDurationMs.max}
         classes={{
           section: "ie-sub",
           title: "field-label",

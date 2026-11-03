@@ -1,6 +1,7 @@
 // 건물 편집기 화면 시험 — /dev/buildings (docs/adr/2026-11-02-building-editor.md, 기획 D-508·49 M14).
 // - dev: 시설 표에서 농장을 열어 Lv1 원자재 수량을 고치면 담기고(막대·레벨 표), [적용]하면 그 세계에 바로 든다(buildings.list·내보내기
 //   차이). 레벨 구간을 더하면 레벨 표의 구간이 바뀐다. 구간 시작 레벨을 거꾸로 적으면 검사가 막는다. [팩 값으로]를 담아 적용하면 팩 값.
+// - 수리 줄(D-512 323): 공방의 옛 REPAIR_MAP 출발값 넷, 기본 양을 고쳐 적용, 칸·무기 종류를 다 빼면 검사가 막는다.
 // - player: 권한 없음 화면, tRPC buildings.*는 403.
 // - 사진: 390·1440(VIEWPORTS.desktop) × 개발 화면 테마 네온·라이트 × 한국어·영어(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui).
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 시설 덮어쓰기를 모두 지운다.
@@ -191,6 +192,67 @@ test.describe("개발자", () => {
   });
 });
 
+test.describe("수리 줄(D-512 323)", () => {
+  test.use({ account: "dev", ...VIEWPORTS.desktop });
+
+  const repairRule = (page: Page, index: number) =>
+    detail(page).locator(`.be-repair-rule[data-repair="${index}"]`);
+
+  test("공방 수리 줄 넷(옛 REPAIR_MAP 출발값): 기본 양을 고쳐 적용하면 든다, 칸·무기 종류를 다 빼면 검사가 막는다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await freshEditor(page, "/dev/buildings?facility=workshop");
+    await expect(detail(page)).toHaveAttribute("data-facility", "workshop");
+    await expect(detail(page).locator(".be-repair-rule")).toHaveCount(4);
+    // 첫 줄 = 옛 무기 공방(근접 무기 종류, 주괴 2), 셋째 줄 = 옛 방어구 공방(머리·몸 + 방패, 주괴 1·가죽 1)
+    const blade = message("ko", "dev_buildings_repair_weapon_types");
+    await expect(repairRule(page, 0).getByRole("group", { name: blade })).toBeVisible();
+    await expect(repairRule(page, 0).getByLabel("검·도", { exact: true })).toBeChecked();
+    await expect(repairRule(page, 0).getByLabel("활", { exact: true })).not.toBeChecked();
+    await expect(
+      repairRule(page, 0).locator('.be-material[data-item="iron_ingot"] .be-material-qty input'),
+    ).toHaveValue("2");
+    await expect(
+      repairRule(page, 2).getByLabel(message("ko", "roster_slot_head"), { exact: true }),
+    ).toBeChecked();
+    await expect(repairRule(page, 2).getByLabel("방패", { exact: true })).toBeChecked();
+
+    // 첫 줄 주괴 2 → 3: 담기고 검사 통과 → 적용하면 세계에 든다
+    await repairRule(page, 0)
+      .locator('.be-material[data-item="iron_ingot"] .be-material-qty input')
+      .fill("3");
+    await expect(stagebar(page)).toHaveAttribute("data-count", "1");
+    await expect(stagebar(page)).toHaveAttribute("data-check", "ok", { timeout: 10_000 });
+    await stagebar(page).locator(".be-apply").click();
+    await expect(stagebar(page)).toHaveAttribute("data-count", "0");
+    const after = await trpc(page, "buildings.list");
+    const workshop = list(field(after.data, "facilities")).find(
+      (entry) => field(field(entry, "entry"), "id") === "workshop",
+    );
+    const rules = list(field(field(workshop, "entry"), "repair"));
+    expect(rules).toHaveLength(4);
+    expect(field(rules[0], "materials")).toEqual([{ item: "iron_ingot", qty: 3 }]);
+
+    // 장신구 줄의 칸을 빼면 칸·무기 종류가 없는 줄 → 검사가 막는다
+    await repairRule(page, 3).getByLabel(message("ko", "roster_slot_accessory"), { exact: true }).uncheck();
+    await expect(stagebar(page)).toHaveAttribute("data-check", "blocked", { timeout: 10_000 });
+    await expect(detail(page).locator(".be-issues")).toContainText(
+      message("ko", "dev_buildings_issue_repair_targets"),
+    );
+    // 그 줄을 빼면 다시 통과(줄 셋)
+    await repairRule(page, 3).locator(".be-remove-repair").click();
+    await expect(detail(page).locator(".be-repair-rule")).toHaveCount(3);
+    await expect(stagebar(page)).toHaveAttribute("data-check", "ok", { timeout: 10_000 });
+    await stagebar(page)
+      .getByRole("button", { name: message("ko", "dev_buildings_clear"), exact: true })
+      .click();
+    await stagebar(page).locator(".be-confirm .button-primary").click();
+    await resetBuildings(page);
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
 test.describe("플레이어", () => {
   test.use({ account: "player" });
 
@@ -265,6 +327,14 @@ test.describe("배치·사진", () => {
           .click();
         await stagebar(page).locator(".be-confirm .button-primary").click();
         await expect(stagebar(page)).toHaveAttribute("data-count", "0");
+        // 수리 줄(D-512 323): 공방을 열어 수리 판을 가운데로
+        await editorReady(page, "/dev/buildings?facility=workshop");
+        await expect(detail(page)).toHaveAttribute("data-facility", "workshop");
+        await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        await detail(page)
+          .locator('[data-section="repair"]')
+          .evaluate((section) => section.scrollIntoView({ block: "center" }));
+        await check("buildings-repair");
         expect(deviceErrors).toEqual([]);
       });
     });

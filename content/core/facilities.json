@@ -265,7 +265,57 @@
             ]
           }
         ]
-      }
+      },
+      "repair": [
+        {
+          "slots": [],
+          "weaponTypes": ["blade", "greatsword", "blunt", "spear", "axe", "fist"],
+          "materials": [
+            {
+              "item": "iron_ingot",
+              "qty": 2
+            }
+          ]
+        },
+        {
+          "slots": [],
+          "weaponTypes": ["bow", "crossbow", "gun", "staff", "wand"],
+          "materials": [
+            {
+              "item": "plank",
+              "qty": 2
+            },
+            {
+              "item": "iron_ingot",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "slots": ["head", "body"],
+          "weaponTypes": ["shield"],
+          "materials": [
+            {
+              "item": "iron_ingot",
+              "qty": 1
+            },
+            {
+              "item": "deer_hide",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "slots": ["accessory"],
+          "weaponTypes": [],
+          "materials": [
+            {
+              "item": "silver_ingot",
+              "qty": 1
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "sawmill",

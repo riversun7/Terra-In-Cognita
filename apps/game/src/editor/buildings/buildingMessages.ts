@@ -1,5 +1,5 @@
 // 건물 편집기 문구 표 — 단계·스탯·채집 방식·출처·문제 코드·오류 → 메시지(oxlint: 메시지 이름을 계산해 읽지 않는다, 표로 적는다).
-// 단계는 경제 화면 문구(economy_stage_*), 스탯 코드는 유닛 화면 문구(roster_stat_*_code)를 쓴다. 이 조각에만 든다.
+// 단계는 경제 화면 문구(economy_stage_*), 스탯 코드·장비 칸은 유닛 화면 문구(roster_stat_*_code·roster_slot_*)를 쓴다. 이 조각에만 든다.
 import type {
   BuildingEditorReason,
   FacilityStageId,
@@ -7,6 +7,7 @@ import type {
   GatherModeId,
 } from "@terra/shared/buildingEditor";
 import type { ContentEditOrigin, ContentIssueView } from "@terra/shared/contentEdit";
+import type { EquipSlot } from "@terra/shared/roster";
 import { m } from "../../paraglide/messages.js";
 import type { ContentErrorInfo } from "../content/contentEditorModel.ts";
 
@@ -27,6 +28,18 @@ export const STAT_TEXT: Readonly<Record<FacilityStatId, Text>> = {
   vit: m.roster_stat_vit_code,
   int: m.roster_stat_int_code,
   wis: m.roster_stat_wis_code,
+};
+
+/** 장비 칸(수리 줄, D-512 323) — 유닛 화면 문구(roster_slot_*) */
+export const EQUIP_SLOT_TEXT: Readonly<Record<EquipSlot, Text>> = {
+  weapon: m.roster_slot_weapon,
+  offhand: m.roster_slot_offhand,
+  head: m.roster_slot_head,
+  body: m.roster_slot_body,
+  accessory: m.roster_slot_accessory,
+  organ: m.roster_slot_organ,
+  part: m.roster_slot_part,
+  saddle: m.roster_slot_saddle,
 };
 
 export const MODE_TEXT: Readonly<Record<GatherModeId, Text>> = {
@@ -82,6 +95,8 @@ export function issueText(issue: ContentIssueView): string {
       return m.dev_buildings_issue_gather_major();
     case "gather_yield_cap":
       return m.dev_buildings_issue_yield_cap();
+    case "repair_targets_empty":
+      return m.dev_buildings_issue_repair_targets();
     case "ref_missing":
       return m.dev_buildings_issue_ref_missing({ id: param(issue, "id") });
     case "too_small":

@@ -17,13 +17,16 @@ import {
   mergeFacility,
   newBuild,
   newGather,
+  newRepairRule,
   removeBand,
   removeMaterial,
   setGather,
   setMaterial,
+  setRepair,
   stageDiscard,
   stageFacility,
   stageKeys,
+  toggleIn,
 } from "./buildingModel.ts";
 
 const item = (id: string, weight: number | null, enabled = true, lotSize = 1): BuildingEditorItem => ({
@@ -212,5 +215,43 @@ describe("레벨 표", () => {
     expect(formatDuration(272_000)).toBe("0:04:32");
     expect(formatDuration(4_860_000)).toBe("1:21:00");
     expect(formatDuration(360_000_000)).toBe("100:00:00");
+  });
+});
+
+describe("수리 줄(D-512 323, 옛 REPAIR_MAP)", () => {
+  const ARMOR = {
+    slots: ["head", "body"],
+    weaponTypes: ["shield"],
+    materials: [{ item: "iron_ingot", qty: 1 }],
+  };
+
+  it("새 줄 = 칸·무기 종류 없음 + 첫 재료 아이템 1, 빈 목록이면 칸을 뺀다", () => {
+    expect(newRepairRule(ITEMS)).toEqual({
+      slots: [],
+      weaponTypes: [],
+      materials: [{ item: "pine_log", qty: 1 }],
+    });
+    expect(newRepairRule([{ ...item("sword", null), category: "equipment" }])).toBeNull();
+    const withRepair = setRepair(MINE, [ARMOR]);
+    expect(withRepair.repair).toEqual([ARMOR]);
+    expect("repair" in setRepair(withRepair, [])).toBe(false);
+    expect("repair" in setRepair(withRepair, undefined)).toBe(false);
+  });
+
+  it("칸 고르기는 정한 차례를 지킨다(팩 줄과 같은 차례로 견준다)", () => {
+    const order = ["weapon", "offhand", "head", "body", "accessory"];
+    expect(toggleIn(["body"], "head", true, order)).toEqual(["head", "body"]);
+    expect(toggleIn(["head", "body"], "head", false, order)).toEqual(["body"]);
+    expect(toggleIn([], "zzz", true, order)).toEqual(["zzz"]);
+  });
+
+  it("정리·3방향 합치기에 수리 칸이 남는다", () => {
+    const mine = setRepair(MINE, [ARMOR]);
+    expect(cleanFacility(mine).repair).toEqual([ARMOR]);
+    const theirs = { ...MINE, slotsPerLevel: 7 };
+    const merged = mergeFacility(MINE, mine, theirs);
+    expect(merged.entry.repair).toEqual([ARMOR]);
+    expect(merged.entry.slotsPerLevel).toBe(7);
+    expect(merged.conflicts).toEqual([]);
   });
 });

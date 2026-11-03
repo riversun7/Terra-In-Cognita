@@ -1,11 +1,18 @@
 // 건물 편집기 화면 자료(docs/adr/2026-11-02-building-editor.md) — 스냅숏 하나로 만든다.
 // 파싱한 팩 항목(참조 = ContentRef)을 화면 JSON(참조 = ID 글자)으로 칸마다 옮긴다(형 검사가 모양을 지킨다).
-import type { FacilityEntry, ItemEntry, ItemSubcategoryEntry, RecipeEntry } from "@terra/content";
+import type {
+  FacilityEntry,
+  ItemEntry,
+  ItemSubcategoryEntry,
+  RecipeEntry,
+  WeaponTypeEntry,
+} from "@terra/content";
 import type {
   BuildingEditorFacility,
   BuildingEditorItem,
   BuildingEditorRecipe,
   BuildingEditorSubcategory,
+  BuildingEditorWeaponType,
   FacilityJson,
 } from "@terra/shared/buildingEditor";
 import { type ContentEditState, type ContentSnapshot, contentKey } from "../contentEdit/state.ts";
@@ -15,7 +22,7 @@ const nameOf = (entry: { name: { ko: string; en: string } }) => ({ ko: entry.nam
 
 /** 파싱한 시설 → 화면 JSON(팩 파일 한 줄 모양, 없는 선택 칸은 적지 않는다) */
 export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
-  const { gather, build } = entry;
+  const { gather, build, repair } = entry;
   return {
     id: entry.id,
     name: nameOf(entry),
@@ -45,6 +52,15 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
               materials: band.materials.map((stack) => ({ item: stack.item.id, qty: stack.qty })),
             })),
           },
+        }
+      : {}),
+    ...(repair
+      ? {
+          repair: repair.map((rule) => ({
+            slots: [...rule.slots],
+            weaponTypes: rule.weaponTypes.map((type) => type.id),
+            materials: rule.materials.map((stack) => ({ item: stack.item.id, qty: stack.qty })),
+          })),
         }
       : {}),
   };
@@ -104,4 +120,9 @@ export function subcategoryOptions(entries: readonly ItemSubcategoryEntry[]): Bu
     major: entry.major,
     enabled: entry.enabled,
   }));
+}
+
+/** 수리 줄 무기 종류 고르기(실효 무기 종류, 파일 차례, D-512 323) */
+export function weaponTypeOptions(entries: readonly WeaponTypeEntry[]): BuildingEditorWeaponType[] {
+  return entries.map((entry) => ({ id: entry.id, name: nameOf(entry), slot: entry.slot }));
 }

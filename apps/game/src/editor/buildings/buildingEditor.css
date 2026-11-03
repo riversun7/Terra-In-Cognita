@@ -240,8 +240,28 @@
   flex: 0 1 8rem;
 }
 .be-add-material,
-.be-add-band {
+.be-add-band,
+.be-add-repair {
   justify-self: start;
+}
+
+/* 수리 줄(D-512 323): 고치는 칸·무기 종류 고르기 — 이름표가 누르는 곳이라 여러 줄로 감싼다 */
+.be-targets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.be-targets > legend {
+  padding: 0;
+  margin-block-end: var(--space-1);
+}
+.be-repair-rule > .field-label {
+  margin: 0;
 }
 
 /* 레벨 표 */

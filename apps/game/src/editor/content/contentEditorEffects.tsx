@@ -75,6 +75,7 @@ export function EffectRows({
     add: "ce-add",
   },
   problemOf,
+  durationMax = EFFECT_ROW_LIMITS.durationMs.max,
 }: {
   legend: string;
   rows: readonly EffectRowJson[];
@@ -84,6 +85,8 @@ export function EffectRows({
   max: number;
   classes?: { section: string; title: string; rows: string; row: string; add: string };
   problemOf?: (index: number, field: "effect" | "value" | "chancePm" | "durationMs") => string | undefined;
+  /** 지속 칸 상한(ms). 없으면 효과 줄 범위(1시간, 전투 효과). 아이템 사용 효과는 상한이 없다(D-512 328, 기술 범위만) */
+  durationMax?: number;
 }) {
   const firstEffect = effects.find((effect) => effect.enabled)?.id ?? effects[0]?.id ?? "burn";
   const L = EFFECT_ROW_LIMITS;
@@ -112,7 +115,7 @@ export function EffectRows({
               label={m.dev_content_field_duration()}
               value={part.durationMs}
               min={L.durationMs.min}
-              max={L.durationMs.max}
+              max={durationMax}
               optional
               problem={problemOf?.(index, "durationMs")}
               onChange={(durationMs) => {

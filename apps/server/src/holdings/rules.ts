@@ -2,7 +2,7 @@
 // 닳기(D-496 289, 49 N49·C20)·수리 최대 내구도 감소·파괴 문턱(F11·F12)은 세력·사회 계수표 durability 칸(@terra/sim TUNING_KEYS,
 // 반영 범위는 tuning/scope.ts), 소모품 효과량 상한은 N10 실효 값(= 전투 계수표 appropriateCapPm), 오차는 d496_use_variance(아이템 편집기
 // 미리 보기와 같은 칸). 부를 때마다 읽는다(개발자 패널 덮어쓰기가 바로 든다).
-import type { SocietyCoefficients, WearRules } from "@terra/sim";
+import type { SocietyCoefficients, UnitResult, WearOutcome, WearRules } from "@terra/sim";
 import { TEST_COMBAT_COEFFICIENTS, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 
 export interface HoldingRules {
@@ -50,4 +50,12 @@ export function holdingRulesFrom(
     durability: society.durability,
     consumables: society.consumables,
   };
+}
+
+/**
+ * 전투 결과 한 줄 → 닳기 모양(D-512 324): 퇴각(retreated)은 패배 닳음이 없다(D-190), 이긴 편에 남음(stays) = won, 진 편(귀환·포로) = lost
+ */
+export function wearOutcomeOf(result: Pick<UnitResult, "outcome">): WearOutcome {
+  if (result.outcome === "retreated") return "retreated";
+  return result.outcome === "stays" ? "won" : "lost";
 }

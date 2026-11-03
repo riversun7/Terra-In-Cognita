@@ -5,8 +5,10 @@
 //   물약보다 더 많이 채울 수 있다.
 // - 셈은 정수만(BigInt): 가운데 값 = ⌊기준 × 비율‰ ÷ 1000⌋, 범위 = ⌊가운데 × (1000 ∓ 오차‰) ÷ 1000⌋(음수 기준 값도 아래로 내림).
 //   결과가 안전 정수를 넘으면 그 값으로 자른다(기술 보호, 게임 규칙이 아님).
-// - 굴림: [최소, 최대] 안 균등한 정수 하나(시드 난수). 실제로 먹고 쓰는 실행은 보유 물건(인스턴스) 뒤 소비 줄기이고, 지금은 아이템 편집기
-//   미리 보기(서버)가 범위만 셈한다.
+// - 신선도(D-512 320, 옛 문서 Consolidated_Item.md:1844~1845 "실효 버프·회복 = 기준 × 신선도"): 신선도 묶음은 가운데 값에 신선도(‰)를
+//   한 번 더 곱한다(⌊기준 × 비율‰ × 신선도‰ ÷ 10^6⌋, 신선도 1000이면 지금과 같은 값). 거래소 안 식품은 최대 신선도라 같다(D-289).
+// - 굴림: [최소, 최대] 안 균등한 정수 하나(시드 난수). 쓰는 실행은 보유 물건 서비스(apps/server/src/holdings/service.ts use)이고,
+//   아이템 편집기 미리 보기(서버)는 갓 만든 것(신선도 1000)으로 범위만 셈한다.
 import type { Rng } from "@terra/shared";
 import { appropriateRatioPm } from "./formula.ts";
 
@@ -38,19 +40,22 @@ function floorDiv(a: bigint, b: bigint): bigint {
 
 /**
  * 효과 줄 하나의 효과량 범위. capPm = 적정 비율 상한(무기 효율과 같은 계수표 appropriateCapPm), variancePm = ±오차(줄 값 또는 설정 칸
- * d496_use_variance). 적정 스탯이 1보다 작으면(스키마가 막는다) 기준 값 그대로 셈한다
+ * d496_use_variance), freshnessPm = 그 물건의 신선도(‰, 0~1000으로 자름, 신선도가 없는 물건·편집기 미리 보기는 1000, D-512 320).
+ * 적정 스탯이 1보다 작으면(스키마가 막는다) 기준 값 그대로 셈한다
  */
 export function useAmountRange(
   base: number,
   scale: UseScale | null,
   capPm: number,
   variancePm: number,
+  freshnessPm = 1000,
 ): UseAmountRange {
   const ratioPm =
     scale === null || scale.appropriate < 1
       ? 1000
       : appropriateRatioPm(scale.statValue, scale.appropriate, capPm);
-  const scaled = floorDiv(BigInt(base) * BigInt(ratioPm), 1000n);
+  const fresh = BigInt(Math.max(0, Math.min(1000, Math.trunc(freshnessPm))));
+  const scaled = floorDiv(BigInt(base) * BigInt(ratioPm) * fresh, 1_000_000n);
   const low = floorDiv(scaled * BigInt(1000 - variancePm), 1000n);
   const high = floorDiv(scaled * BigInt(1000 + variancePm), 1000n);
   return {

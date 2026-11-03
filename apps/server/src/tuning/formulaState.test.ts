@@ -38,9 +38,9 @@ const formula = (id: string, source: string, packSource: string, updatedAtMs = 1
 const primaries = { str: 10, dex: 10, agi: 10, vit: 10, int: 10, wis: 10 };
 
 describe("계산식 칸", () => {
-  it("행 식 15개(켜진 행, D-502로 명중·크리·행동 속도 점수를 끔) + 전투 식 9개, 팩 식은 가중치에서 만든 식·팩 formulas 글", () => {
+  it("행 식 16개(켜진 행, D-502로 명중·크리·행동 속도 점수를 끔, D-512 323 제작 직무 행) + 전투 식 9개, 팩 식은 가중치에서 만든 식·팩 formulas 글", () => {
     const state = packState();
-    expect(state.formulaSlots.filter((slot) => slot.group === "stat")).toHaveLength(15);
+    expect(state.formulaSlots.filter((slot) => slot.group === "stat")).toHaveLength(16);
     expect(state.formulaSlots.filter((slot) => slot.group === "combat")).toHaveLength(9);
     expect(state.formulaSlot("hp.formula")?.packSource).toBe(
       "STR * 1.5 + DEX + AGI * 1.5 + VIT * 3 + INT + WIS * 1.2 + GEAR + BUFF",

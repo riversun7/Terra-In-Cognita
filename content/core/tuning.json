@@ -1958,6 +1958,110 @@
       "max": 1000
     },
     {
+      "id": "n49_preserve_unit",
+      "code": "N49",
+      "name": {
+        "ko": "보존 배율: 유닛이 든 것(‰, 1000 = ×1)",
+        "en": "Preservation: carried by a unit (‰, 1000 = ×1)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n49_preserve_storage",
+      "code": "N49",
+      "name": {
+        "ko": "보존 배율: 창고(보존 시설 없음, ‰)",
+        "en": "Preservation: storage without preservation (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n49_preserve_fridge",
+      "code": "N49",
+      "name": {
+        "ko": "보존 배율: 냉장(‰)",
+        "en": "Preservation: refrigerated (‰)"
+      },
+      "value": 2000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n49_preserve_pickle",
+      "code": "N49",
+      "name": {
+        "ko": "보존 배율: 절임(‰)",
+        "en": "Preservation: pickled (‰)"
+      },
+      "value": 3000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n49_preserve_can",
+      "code": "N49",
+      "name": {
+        "ko": "보존 배율: 통조림(‰)",
+        "en": "Preservation: canned (‰)"
+      },
+      "value": 5000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n49_preserve_freezer",
+      "code": "N49",
+      "name": {
+        "ko": "보존 배율: 냉동(‰, 0 = 멈춤)",
+        "en": "Preservation: frozen (‰, 0 = stopped)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n49_preserve_exchange",
+      "code": "N49",
+      "name": {
+        "ko": "보존 배율: 거래소(‰, 0 = 멈춤)",
+        "en": "Preservation: goods exchange (‰, 0 = stopped)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "f11_craft_appropriate",
+      "code": "F11",
+      "name": {
+        "ko": "장인 실력 적정 점수(제작 직무 점수, 이만큼이면 감소 절반)",
+        "en": "Craftsman skill appropriate score (crafting job score that halves the loss)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 1000000
+    },
+    {
       "id": "d496_use_variance",
       "code": "",
       "name": {

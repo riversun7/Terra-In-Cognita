@@ -1,5 +1,6 @@
 // 건물 편집기 편집 판 — 시설 하나: 머리(이름·ID·출처·고친 사람), 기본(이름·단계·최고 레벨·레벨당 자리·오염), 건설 재료(레벨 구간·
-// 레벨 표, BuildingLevels), 채집(스탯 짝·사다리 중분류·방식·수확량), 레시피(읽기만, 아이템 편집기로 가는 고리), 검사 문제.
+// 레벨 표, BuildingLevels), 채집(스탯 짝·사다리 중분류·방식·수확량), 장비 수리 줄(BuildingRepair, D-512 323), 레시피(읽기만, 아이템
+// 편집기로 가는 고리), 검사 문제.
 // 시설에는 켜기·끄기가 없다(늘 켜짐, 사용자 답 2026-11-03 "켜고 끄는건 말이 안된다" — 쓰고 싶지 않은 재료는 다른 재료로 바꾼다).
 // 옛 관리자 건물 편집기의 편집 폼(기본 정보 | 생산·저장·주거 | 계층·군사·기타)에서 우리 자료에 있는 칸만 둔다(ADR 3절 표).
 import type {
@@ -20,6 +21,7 @@ import { m } from "../../paraglide/messages.js";
 import { AppLink } from "../../shell/AppLink.tsx";
 import { NumberField, SelectField, TextField } from "../content/contentEditorFields.tsx";
 import { BuildingLevels } from "./BuildingLevels.tsx";
+import { BuildingRepair } from "./BuildingRepair.tsx";
 import { MODE_TEXT, ORIGIN_TEXT, STAGE_TEXT, STAT_TEXT, issueText, issueWhere } from "./buildingMessages.ts";
 import { newGather, setGather } from "./buildingModel.ts";
 
@@ -309,6 +311,7 @@ export function BuildingDetail({
         </section>
         <BuildingLevels list={list} entry={draft} locale={locale} onEdit={edit} />
         <GatherSection list={list} entry={draft} locale={locale} onEdit={edit} />
+        <BuildingRepair list={list} entry={draft} locale={locale} onEdit={edit} />
       </fieldset>
       <RecipeSection list={list} row={row} locale={locale} />
     </article>

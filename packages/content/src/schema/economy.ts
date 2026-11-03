@@ -2,9 +2,13 @@
 // 기획: 아이템 9대분류(D-5029)·티어 T0~T9와 시설 Lv1~5(D-5001)·생산 4단계(D-114)·유지비 = 생필품(D-150)·
 // 세력 화폐(D-124·D-131)·켬/끔(D-398: 개발자 페이지에서 켜고 끈다. 시설은 켬·끔 없이 늘 켜짐 — 사용자 답 2026-11-03).
 // 지금 팩은 형식 확인용 임시 데이터다(placeholder). 기획 출발값이 없는 칸(시작 시세·작업량·수량·세율)은 시험값이다.
-import { FACILITY_BUILD_LIMITS, FACILITY_LEVEL_MAX } from "@terra/shared/facilityBuild";
+import {
+  FACILITY_BUILD_LIMITS,
+  FACILITY_LEVEL_MAX,
+  FACILITY_REPAIR_LIMITS,
+} from "@terra/shared/facilityBuild";
 import { z } from "zod";
-import { PRIMARY_STAT_CODES } from "./combat.ts";
+import { EQUIP_SLOT_KINDS, PRIMARY_STAT_CODES } from "./combat.ts";
 import { contentId, localizedText, ref } from "./common.ts";
 
 // 아이템 항목·대분류는 items.ts(공통 칸 + 대분류별 묶음, docs/adr/2026-11-01-item-editor.md). 옛 가져오기 길을 지킨다
@@ -25,6 +29,39 @@ const buildStack = z.strictObject({
   item: ref("items"),
   qty: z.int().min(FACILITY_BUILD_LIMITS.qty.min).max(FACILITY_BUILD_LIMITS.qty.max),
 });
+
+/**
+ * 장비 수리 줄(기획 D-512 323, 옛 enhancement_routes.js REPAIR_MAP 878~883): 무기 종류(weaponTypes)가 맞거나 칸(slots)이 맞는 장비를 고친다
+ * (위에서부터 첫 맞는 줄). 재료는 기본 양이고 수리 한 번 = max(1, ⌈기본 × 티어 × 잃은 ÷ 최대⌉)(@terra/sim items/repair.ts). 칸·무기
+ * 종류가 하나도 없으면 아무것도 고치지 못해 막는다
+ */
+const repairRule = z
+  .strictObject({
+    slots: z.array(z.enum(EQUIP_SLOT_KINDS)).max(FACILITY_REPAIR_LIMITS.targets),
+    weaponTypes: z.array(ref("weapon_types")).max(FACILITY_REPAIR_LIMITS.targets),
+    materials: z
+      .array(
+        z.strictObject({
+          item: ref("items"),
+          qty: z.int().min(FACILITY_REPAIR_LIMITS.qty.min).max(FACILITY_REPAIR_LIMITS.qty.max),
+        }),
+      )
+      .min(1)
+      .max(FACILITY_REPAIR_LIMITS.materials),
+  })
+  .superRefine((rule, ctx) => {
+    // 필드 검사가 실패해도 불린다(AGENTS 6장 Zod 4.6.7): 모양을 다시 보고 틀리면 건너뛴다
+    const slots: unknown = rule.slots;
+    const types: unknown = rule.weaponTypes;
+    if (!Array.isArray(slots) || !Array.isArray(types)) return;
+    if (slots.length === 0 && types.length === 0)
+      ctx.addIssue({
+        code: "custom",
+        path: ["slots"],
+        message: "수리 줄은 칸(slots)이나 무기 종류(weaponTypes)를 적어도 하나 적습니다.",
+        params: { rule: "repair_targets_empty" },
+      });
+  });
 
 /**
  * 시설. 켬·끔 칸(enabled)이 없다: 시설은 늘 켜져 있다(팩 core@32, 사용자 답 2026-11-03 "켜고 끄는건 말이 안된다. 다른 재료로 바꾸면
@@ -91,6 +128,12 @@ export const facilityEntrySchema = z.strictObject({
         .max(FACILITY_BUILD_LIMITS.levels),
     })
     .optional(),
+  /**
+   * 장비 수리 줄(D-512 323): 이 시설이 고치는 장비와 기본 재료. 출발값 = 옛 공방 넷(무기 공방 주괴 2, 원거리 공방 목재 2 + 주괴 1, 방어구
+   * 공방 주괴 1 + 가죽 1, 장신구 공방 크리스탈 1 — 팩에 크리스탈이 없어 [임시] 은 괴)이고 건물 편집기(/dev/buildings)에서 고친다.
+   * 없으면 수리하지 않는 시설. 수리는 끝까지만, 수수료 없음(노동 = 장인의 직무 시간 D-171)
+   */
+  repair: z.array(repairRule).min(1).max(FACILITY_REPAIR_LIMITS.rules).optional(),
 });
 export type FacilityEntry = z.output<typeof facilityEntrySchema>;
 

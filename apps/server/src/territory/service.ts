@@ -4,6 +4,9 @@
 //   행성마다 셈한 배치를 VIEW_TTL_MS 동안 쓴다(비콘이 바뀌면 바로 버린다). 사라진 세력(dissolved_at_ms)의 도시·비콘은 셈에서 뺀다.
 // - 셈: @terra/shared/territory(껍질·소속·겹침·놓기 검사) + @terra/planet/territory(칸 → 점, 칸 표). 둘 다 결정적이다.
 // - 비콘 시설: 팩 시설 territory_beacon(건설 재료 D-508, 시설은 늘 켜져 있고 팩에 없을 때만 disabled). 지금 놓을 때 재료를 쓰지 않고(짓기 흐름이 없다) 내구도만 적는다(N51).
+// - 기준 도시를 빼앗기면 비콘도 도시와 함께 넘어간다(D-512 335, 사용자 답): 도시 주인이 바뀌는 길(NPC 사회 런타임의 점령·반란·독립)은 모두
+//   런타임 저장(npc/persist.ts flush)의 도시 줄 쓰기를 거치고, 그 자리에서 cityOwnerChanged를 같은 묶음으로 부른다. 셈(compute)도 DB 도시
+//   주인과 다른 비콘을 옮겨 맞춘다(옛 판이 남긴 줄·다른 길). 개수·거리는 새 주인 세력 기준으로 다시 센다(배치를 새로 셈).
 import { type CellKey, cellLevel, isCellKey, parseCellKey } from "@terra/planet";
 import {
   placementCellKey,
@@ -78,6 +81,11 @@ export interface TerritoryService {
   planetView(planetId: string, userId: string | null): Promise<TerritoryPlanetView | undefined>;
   /** 내 세력 것만 거른 영토(세력 영토·비콘 목록). 세력이 없으면 myFactionId null·빈 목록 */
   mineView(planetId: string, userId: string): Promise<TerritoryPlanetView | undefined>;
+  /**
+   * 도시 주인이 바뀌었다(D-512 335): 그 도시가 기준 도시인 비콘을 새 주인 세력으로 옮긴다(쓰기 대기열, 부르는 쪽의 도시 줄과 같은 묶음).
+   * 옮긴 수
+   */
+  cityOwnerChanged(cityId: number, factionId: number): number;
   readonly beaconCount: () => number;
 }
 
@@ -185,10 +193,33 @@ export function createTerritoryService(
     }));
   };
 
+  /** 기준 도시가 cityId인 비콘을 factionId로 옮긴다(메모리 → 쓰기 대기열, 배치 캐시는 버린다). 옮긴 수 */
+  const moveWithCity = (cityId: number, factionId: number): number => {
+    let moved = 0;
+    for (const beacon of [...beacons.values()].toSorted((a, b) => a.id - b.id)) {
+      if (beacon.cityId !== cityId || beacon.factionId === factionId) continue;
+      const next: BeaconRow = { ...beacon, factionId };
+      beacons.set(next.id, next);
+      writer.upsert("beacons", beaconRow(next));
+      cache.delete(next.planetId);
+      moved += 1;
+    }
+    return moved;
+  };
+
   /** 행성 배치를 새로 셈한다(도시·세력은 DB에서, 비콘은 메모리에서) */
   const compute = async (planetId: string, faceLevel: number): Promise<Computed> => {
     await writer.durable();
     const [factions, allCities] = await Promise.all([loadFactions(), loadCityRecords(planetId)]);
+    // 기준 도시의 주인과 다른 비콘은 도시를 따라간다(D-512 335). 런타임 저장이 이미 옮겼으면 할 일이 없다
+    const ownerOf = new Map(allCities.map((city) => [city.id, city.factionId]));
+    let adopted = 0;
+    for (const beacon of [...beacons.values()]) {
+      if (beacon.planetId !== planetId || beacon.cityId === null) continue;
+      const owner = ownerOf.get(beacon.cityId);
+      if (owner !== undefined && owner !== beacon.factionId) adopted += moveWithCity(beacon.cityId, owner);
+    }
+    if (adopted > 0) await writer.durable();
     const rules = options.rules();
     const cities = allCities.filter((city) => factions.has(city.factionId) && isCellKey(city.mapKey));
     const planetBeacons = [...beacons.values()]
@@ -400,6 +431,7 @@ export function createTerritoryService(
         cells: full.cells.filter((cell) => cell[1] === mine),
       };
     },
+    cityOwnerChanged: (cityId, factionId) => moveWithCity(cityId, factionId),
     beaconCount: () => beacons.size,
   };
 }

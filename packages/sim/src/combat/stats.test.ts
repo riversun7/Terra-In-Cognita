@@ -58,7 +58,7 @@ describe("스탯 계산기(D-414·D-417, 정수 ‰)", () => {
     expect(computeSecondary(agiOnly(0), TEST_STAT_TABLE).evade).toBe(0);
   });
 
-  it("2차 스탯 14개(D-458에서 명중·크리·행동 속도 점수를 끔, D-502)와 시야: 확률 모양은 회피·물리/속성 방어율, 나머지는 양 모양", () => {
+  it("2차 스탯 14개(D-458에서 명중·크리·행동 속도 점수를 끔, D-502)와 시야·제작 직무: 확률 모양은 회피·물리/속성 방어율, 나머지는 양 모양", () => {
     const shapes = Object.fromEntries(TEST_STAT_TABLE.map((row) => [row.id, row.shape]));
     expect(shapes).toEqual({
       // 생존 5
@@ -80,8 +80,9 @@ describe("스탯 계산기(D-414·D-417, 정수 ‰)", () => {
       mp: "quantity",
       mp_regen: "quantity",
       shield_regen: "quantity",
-      // 활동 수치(48 §3.3)
+      // 활동 수치(48 §3.3): 시야, 직무 효율(제작 — 수리 장인 실력, D-512 323)
       sight: "quantity",
+      job_crafting: "quantity",
     });
     const stats = computeSecondary(flat, TEST_STAT_TABLE);
     for (const row of TEST_STAT_TABLE) expect(Number.isInteger(stats[row.id])).toBe(true);

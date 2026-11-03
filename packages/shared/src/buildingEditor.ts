@@ -10,11 +10,12 @@ import type {
   ContentSleepingRow,
   LocalizedName,
 } from "./contentEdit.ts";
-import type { FacilityBuildJson, FacilityBuildRules } from "./facilityBuild.ts";
+import type { FacilityBuildJson, FacilityBuildRules, FacilityRepairJson } from "./facilityBuild.ts";
 
 export {
   FACILITY_BUILD_LIMITS,
   FACILITY_LEVEL_MAX,
+  FACILITY_REPAIR_LIMITS,
   OLD_FACILITY_BUILD_RULES,
   buildCostAt,
   buildLevelAt,
@@ -23,6 +24,7 @@ export {
   type BuildStackJson,
   type FacilityBuildJson,
   type FacilityBuildRules,
+  type FacilityRepairJson,
 } from "./facilityBuild.ts";
 
 /** 건물 편집기 묶음이 고칠 수 있는 분류 */
@@ -64,6 +66,8 @@ export interface FacilityJson {
   readonly pollution?: number | undefined;
   readonly gather?: FacilityGatherJson | undefined;
   readonly build?: FacilityBuildJson | undefined;
+  /** 장비 수리 줄(D-512 323, 옛 공방 REPAIR_MAP). 없으면 수리하지 않는 시설 */
+  readonly repair?: readonly FacilityRepairJson[] | undefined;
 }
 
 /** 입력 칸 범위(팩 스키마와 같다. 서버 시험이 맞춰 본다) */
@@ -112,6 +116,14 @@ export interface BuildingEditorItem {
   readonly enabled: boolean;
 }
 
+/** 수리 줄의 무기 종류 고르기(실효 무기 종류) */
+export interface BuildingEditorWeaponType {
+  readonly id: string;
+  readonly name: LocalizedName;
+  /** 들어가는 칸(무기·보조) */
+  readonly slot: string;
+}
+
 /** 채집 사다리 중분류 고르기(실효 중분류) */
 export interface BuildingEditorSubcategory {
   readonly id: string;
@@ -127,6 +139,8 @@ export interface BuildingEditorListResponse {
   readonly facilities: readonly BuildingEditorFacility[];
   readonly items: readonly BuildingEditorItem[];
   readonly subcategories: readonly BuildingEditorSubcategory[];
+  /** 수리 줄 무기 종류(실효 무기 종류, D-512 323) */
+  readonly weaponTypes: readonly BuildingEditorWeaponType[];
   /** 건설 시간 규칙(설정 칸 M14 실효 값) */
   readonly rules: FacilityBuildRules;
   /** 채집 시설 레벨당 유효 스탯 보너스(설정 칸 N43 실효 값) */

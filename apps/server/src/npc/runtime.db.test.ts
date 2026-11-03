@@ -1,5 +1,6 @@
 // NPC 사회 런타임 DB 통합 시험(docs/adr/2026-11-01-npc-brain-r5.md 7절) — TEST_DATABASE_URL이 있을 때만. 값은 모두 시험용 가짜다.
 // 시험 국가를 만들고 봇을 휴먼으로 들이고, 하루 끝·마을 세우기·사망을 DB·2차맵에 맞추고, 다시 켜면 이어 돈다.
+import { cellKey, decodeCellKey, parseCellKey } from "@terra/planet";
 import { DAY_MS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
@@ -130,5 +131,61 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 사회 런타임", () => {
     const reloaded = again.npc?.world.factions.get(house.id);
     expect(reloaded?.overlord).toBe(parent.id);
     expect(reloaded?.units.size).toBe(8);
+  });
+
+  it("점령으로 도시 주인이 바뀌면 그 도시의 영토 비콘도 새 주인에게 넘어간다(D-512 335, 같은 저장 묶음)", async () => {
+    const world = await boot(30);
+    const npc = world.npc;
+    const territory = world.persistence?.territory;
+    if (!npc || !world.persistence || !territory) throw new Error("npc runtime");
+    // 시작 도시는 빼앗지 않는다(occupy가 막음) → 붐비는 도시에서 마을을 세워 그 마을을 빼앗는다
+    const parent = [...npc.world.factions.values()]
+      .filter((f) => f.units.size >= 8)
+      .toSorted((a, b) => b.units.size - a.units.size)[0];
+    if (!parent) throw new Error("no crowded nation");
+    for (const id of parent.cities) {
+      const city = npc.world.cities.get(id);
+      if (city) city.housing = 4;
+    }
+    parent.traits = { aggression: 100, commerce: 500, faith: 500, station: 500 };
+    npc.society.found(parent, clock);
+    await npc.tick(true);
+    await world.persistence.writer.durable();
+    const house = [...npc.world.factions.values()].find((f) => f.overlord === parent.id);
+    const townId = house ? [...house.cities][0] : undefined;
+    const place = townId === undefined ? undefined : npc.places.get(townId);
+    const attacker = [...npc.world.factions.values()].find(
+      (f) => f.cities.size > 0 && f.id !== house?.id && f.id !== parent.id,
+    );
+    if (!house || townId === undefined || !place || !attacker) throw new Error("town and attacker");
+    const rowOf = async (ownerId: number): Promise<number> =>
+      Number(
+        (
+          await rows<{ faction_id: string }>(test.db, "select faction_id from world_owners where id = $1", [
+            ownerId,
+          ])
+        )[0]?.faction_id,
+      );
+    const [houseRow, attackerRow] = [await rowOf(house.id), await rowOf(attacker.id)];
+    // 마을이 있는 1차맵 칸에서 5칸 떨어진 곳에 마을 세력 비콘(개발 권한으로 대신 놓기)
+    const dev = await rows<{ id: string }>(
+      test.db,
+      `insert into users (name, email, username) values ('FollowDev', 'followdev@id.placeholder.invalid', 'followdev') returning id`,
+    );
+    const { face, level, i, j } = decodeCellKey(parseCellKey(place.mapKey));
+    const placed = await territory.place(
+      { userId: String(dev[0]?.id), devPlace: true },
+      { planetId: place.planetId, cellKey: cellKey(face, level, i + 5, j), factionId: houseRow },
+    );
+    expect(placed.ok).toBe(true);
+    npc.society.occupy(attacker, house, townId, { treatment: "integrate", shares: "keep" }, clock);
+    await npc.tick(true);
+    await world.persistence.writer.durable();
+    const beacon = await rows<{ faction_id: string; city_id: string }>(
+      test.db,
+      "select faction_id, city_id from territory_beacons",
+    );
+    expect(beacon).toEqual([{ faction_id: String(attackerRow), city_id: String(townId) }]);
+    expect(attackerRow).not.toBe(houseRow);
   });
 });

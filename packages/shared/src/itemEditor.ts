@@ -131,6 +131,8 @@ export const ITEM_LIMITS = {
   elementPm: { min: -100_000, max: 100_000 },
   effectValue: { min: -1_000_000, max: 1_000_000 },
   effectDurationMs: { min: 0, max: 3_600_000 },
+  /** 사용 효과 줄 지속(ms): 1시간 상한 없음(D-512 328), 365일은 기술 범위(팩 스키마 useDurationMaxMs와 같다) */
+  useDurationMs: { min: 0, max: 31_536_000_000 },
   chancePm: { min: 0, max: 1000 },
   /** 사용 효과 적정 스탯(D-496 286, D-501) */
   useAppropriate: { min: 1, max: 10_000_000 },

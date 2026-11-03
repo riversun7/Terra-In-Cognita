@@ -200,6 +200,17 @@
       "base": 10,
       "weights": [0, 0, 50, 0, 0, 100],
       "enabled": true
+    },
+    {
+      "id": "job_crafting",
+      "name": {
+        "ko": "제작 (직무)",
+        "en": "Crafting (job)"
+      },
+      "shape": "quantity",
+      "base": 0,
+      "weights": [200, 500, 0, 0, 200, 100],
+      "enabled": true
     }
   ]
 }

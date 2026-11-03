@@ -47,7 +47,6 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
           },
         }
       : {}),
-    enabled: entry.enabled,
   };
 }
 

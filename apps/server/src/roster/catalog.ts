@@ -113,7 +113,8 @@ export function rosterCatalogOf(
       stats: nameTable(statRows.filter((row) => row.enabled)),
       items: nameTable(entries.items.filter((item) => item.enabled)),
       skills: nameTable(entries.skills.filter((skill) => skill.enabled)),
-      facilities: nameTable((entries.facilities ?? facilities).filter((facility) => facility.enabled)),
+      // 시설은 늘 켜짐(켬·끔 없음, 팩 core@32)
+      facilities: nameTable(entries.facilities ?? facilities),
       planets: nameTable(planets),
     },
   });

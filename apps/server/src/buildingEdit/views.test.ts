@@ -30,7 +30,6 @@ const base = {
   name: { ko: "농장", en: "Farm" },
   stage: "gather",
   slotsPerLevel: 10,
-  enabled: true,
 };
 const ok = (extra: Record<string, unknown>) => facilityEntrySchema.safeParse({ ...base, ...extra }).success;
 

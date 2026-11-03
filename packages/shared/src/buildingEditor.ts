@@ -19,7 +19,6 @@ export {
   buildCostAt,
   buildLevelAt,
   buildTimeAt,
-  buildUpkeepAt,
   type BuildLevelJson,
   type BuildStackJson,
   type FacilityBuildJson,
@@ -53,7 +52,7 @@ export interface FacilityGatherJson {
   readonly yieldCap?: number | undefined;
 }
 
-/** 팩 facilities.json 한 줄(JSON 모양) */
+/** 팩 facilities.json 한 줄(JSON 모양). 켜기·끄기 칸은 없다(시설은 늘 켜짐, 사용자 답 2026-11-03) */
 export interface FacilityJson {
   readonly id: string;
   readonly name: LocalizedName;
@@ -65,7 +64,6 @@ export interface FacilityJson {
   readonly pollution?: number | undefined;
   readonly gather?: FacilityGatherJson | undefined;
   readonly build?: FacilityBuildJson | undefined;
-  readonly enabled: boolean;
 }
 
 /** 입력 칸 범위(팩 스키마와 같다. 서버 시험이 맞춰 본다) */
@@ -129,7 +127,7 @@ export interface BuildingEditorListResponse {
   readonly facilities: readonly BuildingEditorFacility[];
   readonly items: readonly BuildingEditorItem[];
   readonly subcategories: readonly BuildingEditorSubcategory[];
-  /** 건설 시간·유지비 규칙(설정 칸 M14 실효 값) */
+  /** 건설 시간 규칙(설정 칸 M14 실효 값) */
   readonly rules: FacilityBuildRules;
   /** 채집 시설 레벨당 유효 스탯 보너스(설정 칸 N43 실효 값) */
   readonly gatherLevelBonus: number;

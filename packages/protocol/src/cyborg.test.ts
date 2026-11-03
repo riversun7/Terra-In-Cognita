@@ -38,9 +38,12 @@ describe("사이보그 만들기 메시지", () => {
     expect(PROTOCOL_VERSION).toBe(7);
     expect(CYBORG_PROTOCOL_VERSION).toBe(4);
     expect(CYBORG_ELEMENTS_PROTOCOL_VERSION).toBe(5);
-    expect(isProtocolSupported(4)).toBe(false);
+    // 4는 예외로 받는다: 화면 시험 전역 준비의 legacy 계정이 4판 만들기("분배 기다림")를 쓴다(version.ts)
+    expect(isProtocolSupported(3)).toBe(false);
+    expect(isProtocolSupported(4)).toBe(true);
     expect(isProtocolSupported(5)).toBe(true);
     expect(isProtocolSupported(6)).toBe(true);
+    expect(isProtocolSupported(7)).toBe(true);
   });
 
   it("굴리기·만들기 명령이 왕복한다", () => {

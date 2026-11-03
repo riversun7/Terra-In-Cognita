@@ -1,6 +1,6 @@
 // 영토 비콘·영토 배치 DB 통합 시험(docs/adr/2026-11-03-territory-layer.md) — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
 // 서버 규칙: 가입한 세력만 놓는다(개발 시험은 다른 세력 대신), 1차맵 칸 하나에 하나, N42 거리·개수(기준 도시), 다른 세력 도시 영향권(D-486),
-// 켬끔(팩 시설), 커밋 뒤 답·다시 켜도 남음, 치우면 꼭짓점이 빠져 다시 셈, 조회(내 세력·전체)
+// 팩에 비콘 시설이 없으면 disabled, 커밋 뒤 답·다시 켜도 남음, 치우면 꼭짓점이 빠져 다시 셈, 조회(내 세력·전체)
 import { EARTH_FACE_LEVEL, cellKey } from "@terra/planet";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";

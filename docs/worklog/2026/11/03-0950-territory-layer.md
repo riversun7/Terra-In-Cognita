@@ -9,7 +9,7 @@
 - `@terra/shared/territory`: 정수 점(칸 중심 × 2^16)의 구면 볼록 껍질(26개 기준 방향 + 단조 사슬, 삼중곱 정확), 안팎 판정, 세력별 묶음(비콘 거리로 잇기), 소속·겹침(도시 영향권 우선·영향력 가중, 비콘 영역끼리 가까운 꼭짓점, 지방 = 가까운 도시), 비콘 놓기 검사, 계수 출발값·도시 등급. 결정성 검사 대상에 넣었다.
 - `@terra/planet/territory`: 칸 → 점, 거리 환산(평균 칸 1.5007km), 1차맵 칸 표(16 표본 다수결).
 - 서버: 표 `territory_beacons`(마이그레이션 `20261103001754_territory_beacons`, 더하기만), 영토 서비스(놓기·치우기·조회, 쓰기 대기열·커밋 뒤 답, 조회 30초 캐시), WebSocket `beacon_place`·`beacon_remove` → `beacon_result`(프로토콜 7 — main의 보유 물건이 6을 먼저 써서 7로 올림, 4~6판도 받음), tRPC `territory.mine`·`territory.planet`, 권한 `territory: observe·dev-place`(dev·admin).
-- 팩 core@32: 시설 `territory_beacon`(새 단계 `territory`, 자리 0, Lv1 재료 [임시]), 설정 칸 24개(M2 문턱 5·M3 반경 6·N42 수 6·거리 6·N51 내구도), 서버 live.
+- 팩 core@32(main 합치기 뒤 core@34): 시설 `territory_beacon`(새 단계 `territory`, 자리 0, Lv1 재료 [임시]), 설정 칸 24개(M2 문턱 5·M3 반경 6·N42 수 6·거리 6·N51 내구도), 서버 live.
 - 개발 화면 `/dev/territory`(개발 화면 층): 중심 투영 캔버스(세밀 경계·칸 격자·서버 칸 표·껍질·영향권·도시·비콘), 칸 고르기 → 세력 골라 놓기·치우기, 세력·도시 표.
 
 ## 바꾼 파일과 이유
@@ -49,7 +49,7 @@
 
 ## 시험 (실행함)
 - 단위: `packages/shared/src/territory.test.ts`(13), `packages/planet/src/territory.test.ts`(5, 골든 [45, 23373753]), `packages/protocol`(71), `apps/server/src/territory/gateway.test.ts`(3), `apps/game/src/editor/territory/territoryModel.test.ts`(3), 권한·주소·설정 칸 시험 — 통과.
-- DB: `TEST_DATABASE_URL=… vitest run apps/server/src/territory`(3, 놓기 검사·저장·다시 켜도 같은 칸 표·치우기·남의 도시·켬끔) — 통과.
+- DB: `TEST_DATABASE_URL=… vitest run apps/server/src/territory`(3, 놓기 검사·저장·다시 켜도 같은 칸 표·치우기·남의 도시·팩에 시설 없음) — 통과.
 - 화면: `pnpm e2e territory.spec.ts dev.spec.ts --workers=1` — 18개 통과(영토 6: 관리자 놓기·상한·두 세력·치우기, 플레이어 권한, 배치·사진 4). 사진 `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/territory/shots/territory-*.png`(네온·라이트 × 390·1440, 표, 두 세력).
 - `pnpm check:bundle`: 첫 화면 JS 105,765 B / 상한 131,416 B(상한 그대로).
 
@@ -64,6 +64,7 @@
 - 보유 물건이 프로토콜 6을 먼저 써서 영토 비콘을 7로 올렸다(`TERRITORY_PROTOCOL_VERSION` 7). 둘 다 더하기만 했다.
 - main 6판은 최소 판을 5로 올렸다. 그러면 화면 시험 전역 준비의 legacy 계정(4판 만들기)이 거절돼 멈춘다(코드로 확인). 최소 판을 4로 되돌렸다(조정자 확인 필요).
 - 팩: main core@32(보유 물건 칸)와 이 가지 core@32(영토 칸)를 합쳐 core@33.
+- 다시 main(`378852d` 콘텐츠 켬·끔 없앰·건물 화폐 유지비 없앰·작은 고침)을 합쳤다: 시설에 켬·끔 칸이 없어 `territory_beacon`에서 `enabled`를 빼고, 비콘 시설 보기는 팩에 시설이 있으면 놓을 수 있게(`disabled` = 팩에 시설 없음). 팩 core@34.
 
 ## 사용자 결정 대기
 - 묶음 해석: 같은 세력 꼭짓점을 비콘 거리 안이면 이어 한 껍질로 본다(먼 도시 둘을 잇지 않음). 기획 문구 "도시나 비콘 사이에 포함된 영역"의 기술 해석.

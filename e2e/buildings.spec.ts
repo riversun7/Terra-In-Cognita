@@ -95,19 +95,22 @@ test.describe("개발자", () => {
     deviceErrors,
   }) => {
     await freshEditor(page);
-    // 표: 시설 8개(꺼진 제재소·가마 포함), 농장 Lv1 재료는 소나무 8
-    await expect(page.locator(".be-table tbody tr")).toHaveCount(8);
-    await expect(row(page, "kiln")).toContainText(message("ko", "dev_content_disabled"));
+    // 표: 시설 9개(제재소·가마·영토 비콘 포함, 영토 비콘은 docs/adr/2026-11-03-territory-layer.md). 시설은 늘 켜져 있어 꺼짐 표지가
+    // 없다(팩 core@32, 사용자 답 2026-11-03)
+    await expect(page.locator(".be-table tbody tr")).toHaveCount(9);
+    await expect(page.locator(".be-table .be-badge-off")).toHaveCount(0);
     await row(page, "farm").locator(".be-row-button").click();
     await expect(detail(page)).toHaveAttribute("data-facility", "farm");
-    // 팩 값: Lv1 = 소나무 round(8 × 0.8) = 6, Lv2~ = 판자(꺼짐) round(8 × 4 × 0.8) = 26
+    // 편집 판에 켜기 칸이 없다
+    await expect(detail(page).locator('input[type="checkbox"]')).toHaveCount(0);
+    // 팩 값: Lv1 = 소나무 round(8 × 0.8) = 6, Lv2~ = 판자(켜짐) round(8 × 4 × 0.8) = 26
     await expect(levelRow(page, 1)).toContainText(
       message("ko", "dev_buildings_material_qty", { name: "소나무", qty: 6 }),
     );
     await expect(levelRow(page, 2)).toContainText(
       message("ko", "dev_buildings_material_qty", { name: "판자", qty: 26 }),
     );
-    await expect(levelRow(page, 2).locator(".be-badge-off")).toBeVisible();
+    await expect(levelRow(page, 2).locator(".be-badge-off")).toHaveCount(0);
     const before = await screen(page).getAttribute("data-revision");
 
     // Lv1 소나무 8 → 10: 담기고 레벨 표가 바로 바뀐다(round(10 × 0.8) = 8)

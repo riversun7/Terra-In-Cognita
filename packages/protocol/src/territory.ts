@@ -1,7 +1,7 @@
 // 영토 비콘 메시지 (프로토콜 7부터) — docs/adr/2026-11-03-territory-layer.md 4절, 기획 D-485·D-486·49 N42·N51.
 // - 바꾸는 명령: 비콘 놓기(beacon_place), 치우기(beacon_remove). 조회(세력 영토·비콘 목록)는 tRPC territory.*다.
 // - 서버가 판정한다: 세력(가입한 세력, 개발 시험은 factionId로 다른 세력), 칸(그 행성 면 레벨 칸), 같은 칸 비콘, 기준 도시(N42 거리·개수),
-//   다른 세력 도시 영향권(D-486), 켬끔(팩 시설 territory_beacon, D-398). 결과는 beacon_result 하나(id = 요청 id). 오류는 코드다.
+//   다른 세력 도시 영향권(D-486), 팩 시설 territory_beacon이 있는지(시설은 늘 켜져 있다). 결과는 beacon_result 하나(id = 요청 id). 오류는 코드다.
 // 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다: 셀 키 검사·행성 ID 목록은 서버가 본다.
 import { z } from "zod";
 
@@ -60,7 +60,7 @@ export const BEACON_RESULT_CODES = [
   "beacon_limit",
   /** 다른 세력 도시의 영향권 안(D-486) */
   "foreign_city",
-  /** 영토 비콘을 끈 세계(팩 시설 territory_beacon enabled = false, D-398) */
+  /** 팩에 영토 비콘 시설(territory_beacon)이 없다(시설은 늘 켜져 있고, 켬·끔 칸이 없다) */
   "disabled",
   "unknown_beacon",
   "internal_error",

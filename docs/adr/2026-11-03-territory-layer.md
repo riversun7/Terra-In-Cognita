@@ -2,7 +2,7 @@
 
 - 상태: 확정
 - 날짜: 2026-11-03
-- 관련: 기획 D-485(영토 비콘, 사용자 원문)·D-486(영토 층 그리기, 사용자 선택)·D-104(도시 영향권)·D-100·D-101·D-171·D-398·D-487·D-507·D-508, 기획 `docs/design/40_Systems/42_Map_Territory.md` §2.2, `49_Settings.md` M2·M3·N42·N51, docs/PLAN.md 14장, ADR `2026-10-29-cell-key-layout.md`·`2026-10-29-s2-planet-lod.md`(결정적 투영)·`2026-11-02-building-editor.md`(시설 재료)·`2026-11-02-dev-ui.md`(개발 화면 층)·`2026-10-28-time-and-session-protocol.md`(프로토콜 판), 작업 기록 `docs/worklog/2026/11/03-0950-territory-layer.md`
+- 관련: 기획 D-485(영토 비콘, 사용자 원문)·D-486(영토 층 그리기, 사용자 선택)·D-104(도시 영향권)·D-100·D-101·D-171·D-487·D-507·D-508, 기획 `docs/design/40_Systems/42_Map_Territory.md` §2.2, `49_Settings.md` M2·M3·N42·N51, docs/PLAN.md 14장, ADR `2026-10-29-cell-key-layout.md`·`2026-10-29-s2-planet-lod.md`(결정적 투영)·`2026-11-02-building-editor.md`(시설 재료)·`2026-11-02-dev-ui.md`(개발 화면 층)·`2026-10-28-time-and-session-protocol.md`(프로토콜 판), 작업 기록 `docs/worklog/2026/11/03-0950-territory-layer.md`
 
 ## 배경
 
@@ -58,7 +58,7 @@
 ### 4. 명령 (WebSocket, 프로토콜 7)
 
 - `beacon_place {id, planetId, cellKey, factionId?}`, `beacon_remove {id, beaconId}` → `beacon_result {id, ok, beaconId? | code}`. 바꾸는 명령이라 WebSocket으로만(AGENTS 4장). 같은 사용자·같은 요청 번호면 10분 동안 같은 결과(두 번 놓지 않음).
-- 서버 검사 차례: 세계 준비 → 켬끔(팩 시설 `territory_beacon` enabled, D-398) → 행성(영토를 셈하는 세계 행성) → 칸(그 행성 면 레벨 칸 키) → 세력(가입한 세력, `factionId`가 내 세력이 아니면 권한 `territory: dev-place`) → 같은 칸 비콘 → `checkBeaconPlacement`: 다른 세력 도시 영향권 안이면 `foreign_city`, 거리(N42) 안 그 세력 도시 가운데 비콘 수(N42)가 남은 가장 가까운 도시가 기준 도시, 없으면 `beacon_limit`(거리 안 도시가 있음)·`out_of_range`.
+- 서버 검사 차례: 세계 준비 → 팩 시설 `territory_beacon`이 있나(시설은 늘 켜져 있다: 팩 core@32 켬·끔 없앰, 사용자 답 2026-11-03. 팩에 없으면 `disabled`) → 행성(영토를 셈하는 세계 행성) → 칸(그 행성 면 레벨 칸 키) → 세력(가입한 세력, `factionId`가 내 세력이 아니면 권한 `territory: dev-place`) → 같은 칸 비콘 → `checkBeaconPlacement`: 다른 세력 도시 영향권 안이면 `foreign_city`, 거리(N42) 안 그 세력 도시 가운데 비콘 수(N42)가 남은 가장 가까운 도시가 기준 도시, 없으면 `beacon_limit`(거리 안 도시가 있음)·`out_of_range`.
 - 놓을 때 내구도 = N51. 재료는 쓰지 않는다(서버에 짓기 흐름이 없다, 건물 편집기 ADR "지금 짓기가 없다"). 치우기 = 내 세력 비콘만(개발 권한은 아무 비콘) — 공격으로 부숨(D-485)은 전투 쪽이 같은 치우기 길을 쓰면 된다.
 - 프로토콜 7(보유 물건이 6을 먼저 썼다, ADR `2026-11-03-item-holdings.md`)은 더하기만 했다. **예외로 4판도 그대로 받는다**(현재 + 직전 3개): 화면 시험의 legacy 계정이 4판 만들기("분배 기다림" 사이보그)를 쓴다(`e2e/global-setup.ts`). main의 6판이 최소 판을 5로 올렸는데, 그러면 화면 시험 전역 준비가 legacy 계정에서 멈춘다(4판 인사가 거절돼 답을 15초 기다리다 실패, 코드로 확인, 실행은 하지 않음). 그래서 4로 되돌렸다. 4판을 끊는 것은 그 시험을 바꿀 때 함께 한다(`codec.test.ts`가 4를 적어 둔다).
 
@@ -79,7 +79,7 @@
 | `n51_beacon_durability` 비콘 내구도 | N51 | 10 | N51 옛 영토 신호기 |
 | 팩 시설 `territory_beacon` 레벨 1 재료 | N51·M14 | 소나무 원목 4·돌 4(× 배율 800‰) | [임시] (D-508 처음 건물 = 1차 원자재) |
 
-팩 시설 단계에 `territory`(생산하지 않는 시설)를 더했고, 일하지 않는 시설을 위해 `slotsPerLevel` 최소를 0으로 낮췄다(팩 core@32).
+팩 시설 단계에 `territory`(생산하지 않는 시설)를 더했고, 일하지 않는 시설을 위해 `slotsPerLevel` 최소를 0으로 낮췄다(팩 core@32, main 합치기 뒤 core@34).
 
 ## 이유
 

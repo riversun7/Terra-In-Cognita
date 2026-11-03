@@ -838,32 +838,6 @@
       "max": 100000
     },
     {
-      "id": "m14_upkeep_pm",
-      "code": "M14",
-      "name": {
-        "ko": "건물 하루 유지비(비용 단위 합의 ‰)",
-        "en": "Building daily upkeep (‰ of cost units)"
-      },
-      "value": 10,
-      "structural": false,
-      "unit": "pm",
-      "min": 0,
-      "max": 1000
-    },
-    {
-      "id": "m14_upkeep_min",
-      "code": "M14",
-      "name": {
-        "ko": "건물 하루 유지비 최소(비용 단위)",
-        "en": "Building daily upkeep minimum (cost units)"
-      },
-      "value": 1,
-      "structural": false,
-      "unit": "count",
-      "min": 0,
-      "max": 1000000
-    },
-    {
       "id": "d130_shares_per_city",
       "code": "",
       "name": {

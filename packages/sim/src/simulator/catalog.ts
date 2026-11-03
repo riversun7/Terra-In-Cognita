@@ -1,6 +1,6 @@
 // 경제 목록(시뮬 쪽 평범한 자료) — docs/adr/2026-10-31-economy-core.md 1절
 // 실행 도구(cli/common.ts)가 콘텐츠 팩의 items·recipes·facilities·necessities·nation_presets에서 만든다. 시뮬 코드는 팩 형식(zod)을
-// 모른다. 켬·끔(D-398): 꺼진 항목은 세계에 새로 놓지 않는다(지금 시뮬은 처음 차릴 때만 본다).
+// 모른다. 켬·끔(D-398): 꺼진 항목은 세계에 새로 놓지 않는다(지금 시뮬은 처음 차릴 때만 본다). 시설은 켬·끔 없이 늘 켜짐(사용자 답 2026-11-03).
 // 묶음 크기(302·D-506): 팩의 레시피·생필품 수량은 묶음 단위, 원장(창고)은 기본 단위다. prepareCatalog가 수량 × 묶음 크기로 바꿔
 // RecipeSpec·NecessitySpec은 기본 단위로 둔다. 거래소는 묶음 단위로 사고판다(goodsMarket lotSize).
 // 채집 티어 추첨(D-506): 시설에 gather가 있고 산출이 모두 그 중분류인 레시피는 산출 묶음마다 티어를 뽑는다(economy/gather.ts).
@@ -45,7 +45,6 @@ export interface CatalogFacility {
    * mode roll(추첨, 유효 스탯 = primary + secondary) 또는 select(해금 티어, 49 P8), 수확량 규칙(옛 gather_type_config)
    */
   readonly gather?: CatalogGather | undefined;
-  readonly enabled: boolean;
 }
 
 /** 시설의 채집 칸(수확량 칸이 없으면 기본 1개 + 설정 칸 N32 비율, 상한 없음) */
@@ -119,9 +118,8 @@ export function prepareCatalog(catalog: EconomyCatalog): PreparedCatalog {
   const tierOf = new Map(items.map((item) => [item.id, item.tier]));
   const subOf = new Map(items.map((item) => [item.id, item.subcategory]));
   const lots = new Map(items.map((item) => [item.id, item.lotSize ?? 1n]));
-  const facilities = new Map(
-    catalog.facilities.filter((facility) => facility.enabled).map((facility) => [facility.id, facility]),
-  );
+  // 시설은 켬·끔이 없다(늘 켜짐, 팩 core@32·사용자 답 2026-11-03)
+  const facilities = new Map(catalog.facilities.map((facility) => [facility.id, facility]));
   // 추첨 시설이 가리키는 중분류의 사다리(티어마다 켜진 물건, 팩 차례)
   const gatherLadders = new Map<string, string[][]>();
   for (const facility of facilities.values()) {

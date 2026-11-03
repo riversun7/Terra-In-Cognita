@@ -1,5 +1,6 @@
 // 옛 모양 덮어쓰기 줄 고쳐 읽기 시험(legacy.ts, 팩 core@26) — D-501 옛 효과량 칸(스탯 1점당 ‰)·범위 밖 오차, D-501 지운 중분류(ammo),
-// D-502 옛 무기 적정(core@27), 295 옛 기준 가치 칸 baseValue → 시작 시세 startPrice(core@28), 302 묶음 크기 칸 lotSize(core@29).
+// D-502 옛 무기 적정(core@27), 295 옛 기준 가치 칸 baseValue → 시작 시세 startPrice(core@28), 302 묶음 크기 칸 lotSize(core@29),
+// 시설 켬·끔 칸 enabled 뺌(core@32).
 // 켤 때 고르기에서 그 줄이 지워지지 않고(다른 고친 칸은 남는다) 싣기 뒤 실효 항목이 지금 스키마로 읽힌다.
 import { ITEM_SCHEMA_LIMITS } from "@terra/content";
 import { describe, expect, it } from "vitest";
@@ -281,5 +282,29 @@ describe("묶음 크기 칸(팩 core@29, 302·D-506 광석 1g·1kg 묶음)", () 
     const grain = state.packEntry("items", "grain");
     if (!grain) throw new Error("fixture grain");
     expect(upgradeLegacyEntry(state.core, "items", "grain", grain)).toBe(grain);
+  });
+});
+
+describe("시설 켬·끔 칸(팩 core@32, 사용자 답 2026-11-03: 시설은 늘 켜짐)", () => {
+  it("core@31에서 저장한 시설 줄의 enabled(꺼짐 포함)는 빼고 읽어 켜진 시설이 된다: 다른 고친 칸은 남는다", () => {
+    const state = fresh();
+    const pack = state.packEntry("facilities", "kiln");
+    const packHash = state.packHash("facilities", "kiln");
+    if (!pack || packHash === null) throw new Error("fixture kiln");
+    expect("enabled" in pack).toBe(false);
+    const edited = {
+      ...record("kiln", { ...pack, slotsPerLevel: 12, enabled: false }, packHash),
+      category: "facilities" as const,
+      contentVersion: "core@31",
+    };
+    const { rows, upgraded } = upgradeLegacyRows(state.core, [edited]);
+    expect(upgraded).toEqual(["facilities/kiln"]);
+    expect(rows[0]?.entry).toEqual({ ...pack, slotsPerLevel: 12 });
+    expect(state.selectAtBoot([edited]).dropped).toEqual([]);
+    state.install([edited], 1);
+    const kiln = state.effective().facilities.find((facility) => facility.id === "kiln");
+    expect(kiln?.slotsPerLevel).toBe(12);
+    // 칸이 없으면 같은 객체(고칠 것이 없다)
+    expect(upgradeLegacyEntry(state.core, "facilities", "kiln", pack)).toBe(pack);
   });
 });

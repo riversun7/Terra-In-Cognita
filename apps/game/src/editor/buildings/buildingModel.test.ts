@@ -1,4 +1,4 @@
-// 건물 편집기 모델 시험 — 담은 변경 → 묶음, 레벨 구간·재료 고치기, 레벨 표(재료·시간·유지비·자리·채집 보너스·꺼진 재료)
+// 건물 편집기 모델 시험 — 담은 변경 → 묶음, 레벨 구간·재료 고치기, 레벨 표(재료·시간·자리·채집 보너스·꺼진 재료)
 import {
   type BuildingEditorItem,
   type FacilityJson,
@@ -63,7 +63,6 @@ const MINE: FacilityJson = {
       { from: 2, materials: [{ item: "plank", qty: 12 }] },
     ],
   },
-  enabled: true,
 };
 
 describe("담은 변경", () => {
@@ -94,9 +93,9 @@ describe("담은 변경", () => {
 describe("3방향 합치기(entry_changed 뒤)", () => {
   it("내가 바꾼 칸만 서버 항목 위에 얹고, 양쪽이 다르게 바꾼 칸은 내 값·충돌로 알린다", () => {
     const mine = { ...MINE, slotsPerLevel: 12, pollution: 3 };
-    const theirs = { ...MINE, enabled: false, pollution: 9 };
+    const theirs = { ...MINE, maxLevel: 4, pollution: 9 };
     const merged = mergeFacility(MINE, mine, theirs);
-    expect(merged.entry).toEqual({ ...MINE, slotsPerLevel: 12, enabled: false, pollution: 3 });
+    expect(merged.entry).toEqual({ ...MINE, slotsPerLevel: 12, maxLevel: 4, pollution: 3 });
     expect(merged.conflicts).toEqual(["pollution"]);
     expect(mergeFacility(MINE, MINE, theirs)).toEqual({ entry: theirs, conflicts: [] });
   });
@@ -137,7 +136,6 @@ describe("레벨 구간·재료 고치기", () => {
       name: { ko: "회관", en: "Hall" },
       stage: "finish",
       slotsPerLevel: 1,
-      enabled: true,
     };
     expect(newBuild(bare, ITEMS).build).toEqual({
       mulPm: 1000,
@@ -155,7 +153,7 @@ describe("레벨 구간·재료 고치기", () => {
 });
 
 describe("레벨 표", () => {
-  it("레벨마다 그 구간 재료(round(qty × L² × 배율)), 시간, 유지비, 자리, 채집 보너스, 꺼진 재료", () => {
+  it("레벨마다 그 구간 재료(round(qty × L² × 배율)), 시간, 자리, 채집 보너스, 꺼진 재료", () => {
     const rows = levelRows(MINE, ITEMS, OLD_FACILITY_BUILD_RULES, 10);
     expect(rows).toHaveLength(5);
     expect(rows[0]).toEqual({
@@ -166,7 +164,6 @@ describe("레벨 표", () => {
         { item: "stone", qty: 8 },
       ],
       timeMs: 272_000,
-      upkeep: 1,
       slots: 10,
       gatherBonus: 0,
       disabled: [],
@@ -207,7 +204,6 @@ describe("레벨 표", () => {
     ).toMatchObject({
       from: null,
       materials: [],
-      upkeep: 0,
       gatherBonus: null,
     });
   });

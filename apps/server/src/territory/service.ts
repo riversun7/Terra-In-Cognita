@@ -3,7 +3,7 @@
 // - 도시: world_cities를 그때 읽는다(NPC 사회 런타임이 주인·발전도를 바꾸고 새 마을을 넣는다). 명령은 대기열을 비운 뒤 새로 읽고, 조회는
 //   행성마다 셈한 배치를 VIEW_TTL_MS 동안 쓴다(비콘이 바뀌면 바로 버린다). 사라진 세력(dissolved_at_ms)의 도시·비콘은 셈에서 뺀다.
 // - 셈: @terra/shared/territory(껍질·소속·겹침·놓기 검사) + @terra/planet/territory(칸 → 점, 칸 표). 둘 다 결정적이다.
-// - 비콘 시설: 팩 시설 territory_beacon(켬끔 D-398, 건설 재료 D-508). 지금 놓을 때 재료를 쓰지 않고(짓기 흐름이 없다) 내구도만 적는다(N51).
+// - 비콘 시설: 팩 시설 territory_beacon(건설 재료 D-508, 시설은 늘 켜져 있고 팩에 없을 때만 disabled). 지금 놓을 때 재료를 쓰지 않고(짓기 흐름이 없다) 내구도만 적는다(N51).
 import { type CellKey, cellLevel, isCellKey, parseCellKey } from "@terra/planet";
 import {
   placementCellKey,
@@ -87,7 +87,7 @@ export interface TerritoryServiceOptions {
   readonly now: () => number;
   /** 영토 계수(설정 칸 실효 값), 부를 때마다 읽는다 */
   readonly rules: () => TerritoryCoefficients;
-  /** 팩 시설 territory_beacon 실효 값(켬끔·재료). 없으면 켬·재료 없음 */
+  /** 팩 시설 territory_beacon 실효 값(팩에 있나·재료). 없으면 있음·재료 없음 */
   readonly beaconFacility: () => TerritoryBeaconFacilityView;
   /** 영토를 셈하는 행성의 면 레벨(세계 행성만) */
   readonly faceLevelOf: (planetId: string) => number | undefined;

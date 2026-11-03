@@ -4,7 +4,7 @@
 import type { LocalizedName } from "./roster.ts";
 import type { TerritoryCoefficients, TerritoryVec, TerritoryVertexKind } from "./territory.ts";
 
-/** 비콘을 시설로 다루는 팩 시설 ID(건물 편집기 재료 D-508·켬끔 D-398, 49 N51) */
+/** 비콘을 시설로 다루는 팩 시설 ID(건물 편집기 재료 D-508, 49 N51). 시설은 늘 켜져 있다(팩 core@32) */
 export const TERRITORY_BEACON_FACILITY = "territory_beacon";
 
 export interface TerritoryFactionView {
@@ -64,7 +64,7 @@ export type TerritoryCellRow = readonly [
   samples: number,
 ];
 
-/** 비콘 시설(팩 territory_beacon 실효 값): 켬끔·레벨 1 건설 재료(D-508). 지금 놓을 때 재료를 쓰지 않는다(짓기 흐름 없음) */
+/** 비콘 시설(팩 territory_beacon 실효 값): 팩에 있나(enabled)·레벨 1 건설 재료(D-508). 지금 놓을 때 재료를 쓰지 않는다(짓기 흐름 없음) */
 export interface TerritoryBeaconFacilityView {
   readonly enabled: boolean;
   readonly materials: readonly { readonly item: string; readonly qty: number }[];

@@ -17,7 +17,6 @@ export const TEST_CATALOG: EconomyCatalog = {
     id,
     stage: "gather",
     slotsPerLevel: 10,
-    enabled: true,
   })),
   recipes: [
     { id: "farm_grain", facility: "farm", inputs: [], outputs: [st("grain", 20)], work: 1000, enabled: true },

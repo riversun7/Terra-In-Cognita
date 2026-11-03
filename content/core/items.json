@@ -45,7 +45,8 @@
       "startPrice": 8,
       "weight": 1,
       "lotSize": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "metal_ore"
     },
     {
       "id": "iron_ingot",
@@ -57,7 +58,9 @@
       "tier": 1,
       "startPrice": 14,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "subcategory": "metal",
+      "microcategory": "ingot"
     },
     {
       "id": "plank",
@@ -70,7 +73,8 @@
       "tier": 0,
       "startPrice": 3,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "plank_board"
     },
     {
       "id": "brick",
@@ -83,7 +87,8 @@
       "tier": 0,
       "startPrice": 3,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "masonry"
     },
     {
       "id": "ration",
@@ -94,7 +99,9 @@
       "category": "consumable",
       "tier": 0,
       "startPrice": 4,
-      "enabled": true
+      "enabled": true,
+      "subcategory": "dish",
+      "microcategory": "ration_meal"
     },
     {
       "id": "household_goods",
@@ -105,7 +112,9 @@
       "category": "consumable",
       "tier": 1,
       "startPrice": 40,
-      "enabled": true
+      "enabled": true,
+      "subcategory": "buff_item",
+      "microcategory": "utility_serum"
     },
     {
       "id": "test_sword",
@@ -141,9 +150,12 @@
           "arc": false,
           "staminaCost": 10,
           "mpCost": 0
-        }
+        },
+        "weaponType": "blade"
       },
-      "enabled": true
+      "enabled": true,
+      "subcategory": "weapon",
+      "microcategory": "blade"
     },
     {
       "id": "test_staff",
@@ -181,9 +193,12 @@
           "mpCost": 5,
           "skillElementsPm": [0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         },
-        "skills": ["fire_bolt"]
+        "skills": ["fire_bolt"],
+        "weaponType": "staff"
       },
-      "enabled": true
+      "enabled": true,
+      "subcategory": "weapon",
+      "microcategory": "staff"
     },
     {
       "id": "test_vest",
@@ -209,7 +224,9 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "subcategory": "armor",
+      "microcategory": "body"
     },
     {
       "id": "test_helmet",
@@ -230,7 +247,9 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "subcategory": "armor",
+      "microcategory": "head"
     },
     {
       "id": "test_ring",
@@ -251,7 +270,9 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "subcategory": "accessory",
+      "microcategory": "ring"
     },
     {
       "id": "test_heart",
@@ -282,7 +303,9 @@
           }
         ]
       },
-      "enabled": true
+      "enabled": true,
+      "subcategory": "implant",
+      "microcategory": "organ"
     },
     {
       "id": "fire_staff",
@@ -320,9 +343,12 @@
           "mpCost": 5,
           "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         },
-        "skills": ["flame_burst"]
+        "skills": ["flame_burst"],
+        "weaponType": "staff"
       },
-      "enabled": true
+      "enabled": true,
+      "subcategory": "weapon",
+      "microcategory": "staff"
     },
     {
       "id": "water_staff",
@@ -365,9 +391,12 @@
           "mpCost": 5,
           "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         },
-        "skills": ["frost_bolt"]
+        "skills": ["frost_bolt"],
+        "weaponType": "staff"
       },
-      "enabled": true
+      "enabled": true,
+      "subcategory": "weapon",
+      "microcategory": "staff"
     },
     {
       "id": "wind_staff",
@@ -405,9 +434,12 @@
           "mpCost": 5,
           "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0]
         },
-        "skills": ["chain_lightning"]
+        "skills": ["chain_lightning"],
+        "weaponType": "staff"
       },
-      "enabled": true
+      "enabled": true,
+      "subcategory": "weapon",
+      "microcategory": "staff"
     },
     {
       "id": "earth_staff",
@@ -450,9 +482,12 @@
           "mpCost": 5,
           "skillElementsPm": [0, 0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0]
         },
-        "skills": ["stone_spike"]
+        "skills": ["stone_spike"],
+        "weaponType": "staff"
       },
-      "enabled": true
+      "enabled": true,
+      "subcategory": "weapon",
+      "microcategory": "staff"
     },
     {
       "id": "light_staff",
@@ -495,9 +530,12 @@
           "mpCost": 5,
           "skillElementsPm": [0, 0, 0, 0, 0, 0, 0, 0, 50, 0, 0, 0]
         },
-        "skills": ["light_heal", "radiant_ward"]
+        "skills": ["light_heal", "radiant_ward"],
+        "weaponType": "staff"
       },
-      "enabled": true
+      "enabled": true,
+      "subcategory": "weapon",
+      "microcategory": "staff"
     },
     {
       "id": "dark_staff",
@@ -535,9 +573,12 @@
           "mpCost": 5,
           "skillElementsPm": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 0]
         },
-        "skills": ["dark_curse"]
+        "skills": ["dark_curse"],
+        "weaponType": "staff"
       },
-      "enabled": true
+      "enabled": true,
+      "subcategory": "weapon",
+      "microcategory": "staff"
     },
     {
       "id": "rubble",
@@ -550,7 +591,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "stone_mineral"
     },
     {
       "id": "stone",
@@ -563,7 +605,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "stone_mineral"
     },
     {
       "id": "copper_ore",
@@ -577,7 +620,8 @@
       "startPrice": 1,
       "weight": 1,
       "lotSize": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "metal_ore"
     },
     {
       "id": "silver_ore",
@@ -591,7 +635,8 @@
       "startPrice": 1,
       "weight": 1,
       "lotSize": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "metal_ore"
     },
     {
       "id": "titanium_ore",
@@ -605,7 +650,8 @@
       "startPrice": 1,
       "weight": 1,
       "lotSize": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "metal_ore"
     },
     {
       "id": "gold_ore",
@@ -619,7 +665,8 @@
       "startPrice": 1,
       "weight": 1,
       "lotSize": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "metal_ore"
     },
     {
       "id": "platinum_ore",
@@ -633,7 +680,8 @@
       "startPrice": 1,
       "weight": 1,
       "lotSize": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "metal_ore"
     },
     {
       "id": "mithril",
@@ -647,7 +695,8 @@
       "startPrice": 1,
       "weight": 1,
       "lotSize": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "metal_ore"
     },
     {
       "id": "orichalcum",
@@ -661,7 +710,8 @@
       "startPrice": 1,
       "weight": 1,
       "lotSize": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "metal_ore"
     },
     {
       "id": "pine_log",
@@ -674,7 +724,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "softwood"
     },
     {
       "id": "birch_log",
@@ -687,7 +738,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "softwood"
     },
     {
       "id": "cypress_log",
@@ -700,7 +752,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "softwood"
     },
     {
       "id": "maple_log",
@@ -713,7 +766,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "hardwood"
     },
     {
       "id": "oak_log",
@@ -726,7 +780,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "hardwood"
     },
     {
       "id": "ash_log",
@@ -739,7 +794,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "hardwood"
     },
     {
       "id": "walnut_log",
@@ -752,7 +808,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "hardwood"
     },
     {
       "id": "teak_log",
@@ -765,7 +822,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "hardwood"
     },
     {
       "id": "rosewood_log",
@@ -778,7 +836,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "hardwood"
     },
     {
       "id": "ebony_log",
@@ -791,7 +850,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "hardwood"
     },
     {
       "id": "hay",
@@ -804,7 +864,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "grain"
     },
     {
       "id": "bean",
@@ -817,7 +878,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "vegetable"
     },
     {
       "id": "barley",
@@ -830,7 +892,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "grain"
     },
     {
       "id": "potato",
@@ -843,7 +906,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "vegetable"
     },
     {
       "id": "napa_cabbage",
@@ -856,7 +920,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 300,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "vegetable"
     },
     {
       "id": "carrot",
@@ -869,7 +934,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "vegetable"
     },
     {
       "id": "wheat",
@@ -882,7 +948,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "grain"
     },
     {
       "id": "onion",
@@ -895,7 +962,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "vegetable"
     },
     {
       "id": "tomato",
@@ -908,7 +976,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "fruit"
     },
     {
       "id": "rice",
@@ -921,7 +990,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "grain"
     },
     {
       "id": "garlic",
@@ -934,7 +1004,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "vegetable"
     },
     {
       "id": "green_onion",
@@ -947,7 +1018,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "vegetable"
     },
     {
       "id": "corn",
@@ -960,7 +1032,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "grain"
     },
     {
       "id": "asparagus",
@@ -973,7 +1046,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "vegetable"
     },
     {
       "id": "celery",
@@ -986,7 +1060,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "vegetable"
     },
     {
       "id": "soybean",
@@ -999,7 +1074,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "grain"
     },
     {
       "id": "olive",
@@ -1012,7 +1088,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "fruit"
     },
     {
       "id": "sesame",
@@ -1025,7 +1102,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 50,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "grain"
     },
     {
       "id": "kabocha",
@@ -1038,7 +1116,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "vegetable"
     },
     {
       "id": "artichoke",
@@ -1051,7 +1130,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 400,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "vegetable"
     },
     {
       "id": "shallot",
@@ -1064,7 +1144,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "vegetable"
     },
     {
       "id": "quinoa",
@@ -1077,7 +1158,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "grain"
     },
     {
       "id": "fresh_wasabi",
@@ -1090,7 +1172,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "vegetable"
     },
     {
       "id": "ginger",
@@ -1103,7 +1186,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "vegetable"
     },
     {
       "id": "black_maca",
@@ -1116,7 +1200,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 300,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "vegetable"
     },
     {
       "id": "white_truffle",
@@ -1129,7 +1214,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "crop_mushroom"
     },
     {
       "id": "lotus_seed",
@@ -1142,7 +1228,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "grain"
     },
     {
       "id": "divine_grain",
@@ -1155,7 +1242,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "grain"
     },
     {
       "id": "ambrosia",
@@ -1168,7 +1256,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "fruit"
     },
     {
       "id": "golden_apple",
@@ -1181,7 +1270,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "fruit"
     },
     {
       "id": "wild_herb",
@@ -1194,7 +1284,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "medicinal_herb"
     },
     {
       "id": "wild_chive",
@@ -1207,7 +1298,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "spice_herb"
     },
     {
       "id": "clover",
@@ -1220,7 +1312,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "medicinal_herb"
     },
     {
       "id": "aloe",
@@ -1233,7 +1326,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 300,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "medicinal_herb"
     },
     {
       "id": "peppermint",
@@ -1246,7 +1340,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "spice_herb"
     },
     {
       "id": "chamomile",
@@ -1259,7 +1354,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "medicinal_herb"
     },
     {
       "id": "lavender",
@@ -1272,7 +1368,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "medicinal_herb"
     },
     {
       "id": "rosemary",
@@ -1285,7 +1382,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "spice_herb"
     },
     {
       "id": "thyme",
@@ -1298,7 +1396,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "spice_herb"
     },
     {
       "id": "angelica_root",
@@ -1311,7 +1410,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "medicinal_herb"
     },
     {
       "id": "licorice_root",
@@ -1324,7 +1424,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "medicinal_herb"
     },
     {
       "id": "sweet_basil",
@@ -1337,7 +1438,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "spice_herb"
     },
     {
       "id": "belladonna",
@@ -1350,7 +1452,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "mystic_herb"
     },
     {
       "id": "wolfsbane",
@@ -1363,7 +1466,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "mystic_herb"
     },
     {
       "id": "star_anise",
@@ -1376,7 +1480,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "spice_herb"
     },
     {
       "id": "mandrake",
@@ -1389,7 +1494,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "mystic_herb"
     },
     {
       "id": "saffron",
@@ -1402,7 +1508,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 50,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "spice_herb"
     },
     {
       "id": "hemlock",
@@ -1415,7 +1522,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "mystic_herb"
     },
     {
       "id": "ginseng",
@@ -1428,7 +1536,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "medicinal_herb"
     },
     {
       "id": "fo_ti_root",
@@ -1441,7 +1550,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 300,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "medicinal_herb"
     },
     {
       "id": "black_truffle",
@@ -1454,7 +1564,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "herb_mushroom"
     },
     {
       "id": "gastrodia",
@@ -1467,7 +1578,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "herb_mushroom"
     },
     {
       "id": "agarwood",
@@ -1480,7 +1592,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "medicinal_herb"
     },
     {
       "id": "moonlight_laurel",
@@ -1493,7 +1606,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "spice_herb"
     },
     {
       "id": "ancient_ginseng",
@@ -1506,7 +1620,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "medicinal_herb"
     },
     {
       "id": "blood_lotus",
@@ -1519,7 +1634,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "mystic_herb"
     },
     {
       "id": "reishi",
@@ -1532,7 +1648,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 300,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "herb_mushroom"
     },
     {
       "id": "snow_ginseng",
@@ -1545,7 +1662,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "medicinal_herb"
     },
     {
       "id": "world_tree_dew_leaf",
@@ -1558,7 +1676,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "mystic_herb"
     },
     {
       "id": "starlight_moss",
@@ -1571,7 +1690,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "mystic_herb"
     },
     {
       "id": "loach",
@@ -1584,7 +1704,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 20,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "freshwater_fish"
     },
     {
       "id": "minnow",
@@ -1597,7 +1718,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 10,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "freshwater_fish"
     },
     {
       "id": "carp",
@@ -1610,7 +1732,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "freshwater_fish"
     },
     {
       "id": "crucian_carp",
@@ -1623,7 +1746,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "freshwater_fish"
     },
     {
       "id": "salmon",
@@ -1636,7 +1760,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 4000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "freshwater_fish"
     },
     {
       "id": "trout",
@@ -1649,7 +1774,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "freshwater_fish"
     },
     {
       "id": "saury",
@@ -1662,7 +1788,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 150,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "saltwater_fish"
     },
     {
       "id": "mackerel",
@@ -1675,7 +1802,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "saltwater_fish"
     },
     {
       "id": "squid",
@@ -1688,7 +1816,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 400,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "cephalopod"
     },
     {
       "id": "rockfish",
@@ -1701,7 +1830,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "saltwater_fish"
     },
     {
       "id": "olive_flounder",
@@ -1714,7 +1844,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "saltwater_fish"
     },
     {
       "id": "sea_bream",
@@ -1727,7 +1858,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 2500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "saltwater_fish"
     },
     {
       "id": "sea_bass",
@@ -1740,7 +1872,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 3000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "saltwater_fish"
     },
     {
       "id": "octopus",
@@ -1753,7 +1886,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 5000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "cephalopod"
     },
     {
       "id": "yellowtail",
@@ -1766,7 +1900,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 10000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "saltwater_fish"
     },
     {
       "id": "marlin",
@@ -1779,7 +1914,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 150000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "apex_fish"
     },
     {
       "id": "ocean_sunfish",
@@ -1792,7 +1928,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 200000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "apex_fish"
     },
     {
       "id": "sturgeon",
@@ -1805,7 +1942,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 30000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "freshwater_fish"
     },
     {
       "id": "sailfish",
@@ -1818,7 +1956,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 80000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "apex_fish"
     },
     {
       "id": "white_shark",
@@ -1831,7 +1970,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 500000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "apex_fish"
     },
     {
       "id": "bluefin_tuna",
@@ -1844,7 +1984,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 80000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "apex_fish"
     },
     {
       "id": "grouper",
@@ -1857,7 +1998,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 20000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "saltwater_fish"
     },
     {
       "id": "giant_sea_bass",
@@ -1870,7 +2012,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 100000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "apex_fish"
     },
     {
       "id": "whale_shark",
@@ -1883,7 +2026,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 150000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "apex_fish"
     },
     {
       "id": "megalodon",
@@ -1896,7 +2040,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 1000000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "apex_fish"
     },
     {
       "id": "coelacanth",
@@ -1909,7 +2054,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 50000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "apex_fish"
     },
     {
       "id": "raw_meat",
@@ -1922,7 +2068,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "meat"
     },
     {
       "id": "egg",
@@ -1935,7 +2082,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "dairy_egg"
     },
     {
       "id": "feather",
@@ -1948,7 +2096,8 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 50,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "feather_wool"
     },
     {
       "id": "venison",
@@ -1961,7 +2110,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "meat"
     },
     {
       "id": "deer_hide",
@@ -1974,7 +2124,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "hide_fur"
     },
     {
       "id": "deer_antler",
@@ -1987,7 +2138,8 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "bone_horn"
     },
     {
       "id": "mutton",
@@ -2000,7 +2152,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "meat"
     },
     {
       "id": "wool",
@@ -2013,7 +2166,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "feather_wool"
     },
     {
       "id": "sheep_milk",
@@ -2026,7 +2180,8 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "dairy_egg"
     },
     {
       "id": "prime_beef",
@@ -2039,7 +2194,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "meat"
     },
     {
       "id": "bison_hide",
@@ -2052,7 +2208,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 3500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "hide_fur"
     },
     {
       "id": "bison_horn",
@@ -2065,7 +2222,8 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "bone_horn"
     },
     {
       "id": "fox_meat",
@@ -2078,7 +2236,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 800,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "meat"
     },
     {
       "id": "silver_fur",
@@ -2091,7 +2250,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "hide_fur"
     },
     {
       "id": "mink_oil",
@@ -2104,7 +2264,8 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "mystic_byproduct"
     },
     {
       "id": "acorn_pork",
@@ -2117,7 +2278,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 1200,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "meat"
     },
     {
       "id": "hard_tusk",
@@ -2130,7 +2292,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "bone_horn"
     },
     {
       "id": "lard",
@@ -2143,7 +2306,8 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "dairy_egg"
     },
     {
       "id": "croc_tail_meat",
@@ -2156,7 +2320,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "meat"
     },
     {
       "id": "croc_hide",
@@ -2169,7 +2334,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "hide_fur"
     },
     {
       "id": "croc_tooth",
@@ -2182,7 +2348,8 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "bone_horn"
     },
     {
       "id": "gryphon_meat",
@@ -2195,7 +2362,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "meat"
     },
     {
       "id": "raptor_beak",
@@ -2208,7 +2376,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "bone_horn"
     },
     {
       "id": "gryphon_feather",
@@ -2221,7 +2390,8 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "feather_wool"
     },
     {
       "id": "unicorn_meat",
@@ -2234,7 +2404,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "meat"
     },
     {
       "id": "purifying_horn",
@@ -2247,7 +2418,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "bone_horn"
     },
     {
       "id": "unicorn_mane",
@@ -2260,7 +2432,8 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 100,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "mystic_byproduct"
     },
     {
       "id": "dragon_meat",
@@ -2273,7 +2446,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 5000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "meat"
     },
     {
       "id": "dragon_scale",
@@ -2286,7 +2460,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 8000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "hide_fur"
     },
     {
       "id": "drakeheart_shard",
@@ -2299,7 +2474,8 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 10000,
-      "enabled": true
+      "enabled": true,
+      "microcategory": "mystic_byproduct"
     },
     {
       "id": "copper_ingot",
@@ -2311,7 +2487,9 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "subcategory": "metal",
+      "microcategory": "ingot"
     },
     {
       "id": "silver_ingot",
@@ -2323,7 +2501,9 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "subcategory": "metal",
+      "microcategory": "ingot"
     },
     {
       "id": "titanium_ingot",
@@ -2335,7 +2515,9 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "subcategory": "metal",
+      "microcategory": "ingot"
     },
     {
       "id": "gold_ingot",
@@ -2347,7 +2529,9 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "subcategory": "metal",
+      "microcategory": "ingot"
     },
     {
       "id": "platinum_ingot",
@@ -2359,7 +2543,9 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "subcategory": "metal",
+      "microcategory": "ingot"
     },
     {
       "id": "mithril_ingot",
@@ -2371,7 +2557,9 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "subcategory": "metal",
+      "microcategory": "ingot"
     },
     {
       "id": "orichalcum_ingot",
@@ -2383,7 +2571,9 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": true
+      "enabled": true,
+      "subcategory": "metal",
+      "microcategory": "ingot"
     }
   ]
 }

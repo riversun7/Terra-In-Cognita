@@ -56,7 +56,10 @@ function apply(state: ReturnType<typeof fresh>, puts: Parameters<ReturnType<type
 }
 
 const ration = packEntry("items", "ration");
-const newItem = (id: string, extra: Record<string, unknown> = {}) => ({ ...ration, id, ...extra });
+const newItem = (id: string, extra: Record<string, unknown> = {}) => {
+  const { subcategory: _sub, microcategory: _micro, ...base } = ration;
+  return { ...base, id, ...extra };
+};
 
 describe("baseHash: 같은 항목을 누가 먼저 고쳤을 때만 충돌", () => {
   it("지금 실효 해시와 같으면 받고, 다르면 entry_changed(키), 새 항목(null)인데 그새 생겼으면 entry_changed", () => {

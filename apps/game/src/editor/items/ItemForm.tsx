@@ -15,9 +15,9 @@ import {
 } from "@terra/shared/itemEditor";
 import type { ReactNode } from "react";
 import { m } from "../../paraglide/messages.js";
-import { CheckField, NumberField, SelectField, TextField } from "../content/contentEditorFields.tsx";
-import { CATEGORY_TEXT, MARKET_TEXT, STORAGE_TEXT } from "./itemMessages.ts";
-import { weightText } from "./itemModel.ts";
+import { CheckField, NumberField, TextField } from "../content/contentEditorFields.tsx";
+import { CATEGORY_TEXT, MARKET_TEXT, SLOT_TEXT, STORAGE_TEXT } from "./itemMessages.ts";
+import { weightText, withMicrocategory, withSubcategory } from "./itemModel.ts";
 
 const USE_TEXT = {
   combat: m.dev_items_use_combat,
@@ -117,9 +117,16 @@ export function ItemBasicSections({
   const description = draft.description ?? { ko: "", en: "" };
   const subcategories = list.subcategories.filter((row) => row.entry.major === draft.category);
   const sub = subcategories.find((row) => row.entry.id === draft.subcategory)?.entry;
+  const micros = sub?.micros ?? [];
+  const micro = micros.find((item) => item.id === draft.microcategory);
   const storage = sub?.storage ?? defaultStorageOf(draft.category, sub?.food === true);
   const tags = new Set(draft.tags ?? []);
   const equipment = draft.category === "equipment";
+  const pathParts = [
+    CATEGORY_TEXT[draft.category](),
+    sub ? sub.name[locale] : draft.subcategory,
+    micro ? micro.name[locale] : draft.microcategory,
+  ].filter((part): part is string => Boolean(part));
   return (
     <>
       <Section title={m.dev_items_section_basic()} name="basic">
@@ -163,47 +170,100 @@ export function ItemBasicSections({
       </Section>
 
       <Section title={m.dev_items_section_class()} name="class">
-        <div className="ie-grid">
-          {categoryLocked ? (
-            <div className="field">
-              <span className="field-label">{m.dev_items_field_category()}</span>
-              <p className="ie-readonly">
-                {CATEGORY_TEXT[draft.category]()}{" "}
-                <span className="ie-chip">{m.dev_items_category_locked()}</span>
-              </p>
-            </div>
-          ) : (
-            <SelectField
-              label={m.dev_items_field_category()}
-              value={draft.category}
-              options={ITEM_CATEGORY_IDS.map((value) => ({ value, label: CATEGORY_TEXT[value]() }))}
-              problem={problem("category")}
-              onChange={onCategory}
-            />
-          )}
-          <SelectField
-            label={m.dev_items_field_subcategory()}
-            value={draft.subcategory ?? ""}
-            options={[
-              { value: "", label: m.dev_items_none() },
-              ...subcategories.map((row) => ({
-                value: row.entry.id,
-                label: row.entry.enabled
-                  ? row.entry.name[locale]
-                  : `${row.entry.name[locale]} (${m.dev_items_disabled()})`,
-              })),
-              ...(draft.subcategory !== undefined &&
-              !subcategories.some((row) => row.entry.id === draft.subcategory)
-                ? [{ value: draft.subcategory, label: draft.subcategory }]
-                : []),
-            ]}
-            problem={problem("subcategory")}
-            onChange={(value) => {
-              const { subcategory: _drop, ...rest } = draft;
-              onChange(value === "" ? rest : { ...rest, subcategory: value });
-            }}
-          />
+        <div className="field" data-part="class-path">
+          <span className="field-label">{m.dev_items_class_path()}</span>
+          <p className="ie-readonly">
+            <span className="ie-cat" data-category={draft.category}>
+              {pathParts.join(" › ")}
+            </span>
+            {draft.equip ? <span className="ie-chip">{SLOT_TEXT[draft.equip.slot]()}</span> : null}
+          </p>
         </div>
+        <div className="field">
+          <span className="field-label">{m.dev_items_field_category()}</span>
+          {categoryLocked ? (
+            <p className="ie-readonly">
+              {CATEGORY_TEXT[draft.category]()}{" "}
+              <span className="ie-chip">{m.dev_items_category_locked()}</span>
+            </p>
+          ) : (
+            <div className="ie-tiles" role="group" aria-label={m.dev_items_field_category()}>
+              {ITEM_CATEGORY_IDS.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className="ie-tile"
+                  aria-pressed={draft.category === value}
+                  onClick={() => onCategory(value)}
+                >
+                  <span className="ie-tile-name">{CATEGORY_TEXT[value]()}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {problem("category") ? <p className="field-error ce-problem">{problem("category")}</p> : null}
+        </div>
+        <div className="field">
+          <span className="field-label">{m.dev_items_field_subcategory()}</span>
+          <div className="ie-tiles" role="group" aria-label={m.dev_items_field_subcategory()}>
+            <button
+              type="button"
+              className="ie-tile"
+              aria-pressed={draft.subcategory === undefined}
+              onClick={() => onChange(withSubcategory(draft, undefined))}
+            >
+              <span className="ie-tile-name">{m.dev_items_none()}</span>
+            </button>
+            {subcategories.map((row) => (
+              <button
+                key={row.entry.id}
+                type="button"
+                className="ie-tile"
+                aria-pressed={draft.subcategory === row.entry.id}
+                onClick={() => onChange(withSubcategory(draft, row.entry))}
+              >
+                <span className="ie-tile-name">
+                  {row.entry.enabled
+                    ? row.entry.name[locale]
+                    : `${row.entry.name[locale]} (${m.dev_items_disabled()})`}
+                </span>
+              </button>
+            ))}
+          </div>
+          {problem("subcategory") ? <p className="field-error ce-problem">{problem("subcategory")}</p> : null}
+        </div>
+        {micros.length > 0 ? (
+          <div className="field">
+            <span className="field-label">{m.dev_items_field_microcategory()}</span>
+            <div className="ie-tiles" role="group" aria-label={m.dev_items_field_microcategory()}>
+              <button
+                type="button"
+                className="ie-tile"
+                aria-pressed={draft.microcategory === undefined}
+                onClick={() => onChange(withMicrocategory(draft, undefined))}
+              >
+                <span className="ie-tile-name">{m.dev_items_none()}</span>
+              </button>
+              {micros.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className="ie-tile"
+                  aria-pressed={draft.microcategory === entry.id}
+                  onClick={() => onChange(withMicrocategory(draft, entry))}
+                >
+                  <span className="ie-tile-name">
+                    {entry.enabled ? entry.name[locale] : `${entry.name[locale]} (${m.dev_items_disabled()})`}
+                  </span>
+                  {entry.slot ? <span className="ie-tile-count">{SLOT_TEXT[entry.slot]()}</span> : null}
+                </button>
+              ))}
+            </div>
+            {problem("microcategory") ? (
+              <p className="field-error ce-problem">{problem("microcategory")}</p>
+            ) : null}
+          </div>
+        ) : null}
         <fieldset className="ie-tags">
           <legend className="field-label">{m.dev_items_field_tags()}</legend>
           {list.tags.length === 0 ? <p className="field-hint">{m.dev_items_tags_empty()}</p> : null}

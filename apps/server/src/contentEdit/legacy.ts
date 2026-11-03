@@ -157,9 +157,18 @@ function upgradeItem(
   savedVersion: string | undefined,
 ): EntryJson {
   let next: EntryJson = upgradeLotSize(upgradeStartPrice(entry), pack, savedVersion);
+  if (next.category === "precious") {
+    const nextCat =
+      typeof pack?.category === "string"
+        ? pack.category
+        : next.subcategory === "energy_resource"
+          ? "raw"
+          : "gem";
+    next = { ...next, category: nextCat };
+  }
   const subcategory = entry.subcategory;
   if (typeof subcategory === "string" && removedSubcategories.has(subcategory)) {
-    const { subcategory: _drop, ...rest } = next;
+    const { subcategory: _drop, microcategory: _dropMicro, ...rest } = next;
     next = rest;
   }
   const use = entry.use;
@@ -170,6 +179,19 @@ function upgradeItem(
       next = { ...next, use: { ...use, effects: lines } };
   }
   return upgradeItemWeapon(next, pack);
+}
+
+/** 중분류 하나: 옛 precious 대분류를 옮기고, 옛 줄에 소분류(micros)가 없으면 팩 소분류를 넣는다 */
+function upgradeSubcategory(entry: EntryJson, id: string, pack: EntryJson | undefined): EntryJson {
+  let next = entry;
+  if (next.major === "precious") {
+    const major = typeof pack?.major === "string" ? pack.major : id === "energy_resource" ? "raw" : "gem";
+    next = { ...next, major };
+  }
+  if (!("micros" in next) && Array.isArray(pack?.micros)) {
+    next = { ...next, micros: pack.micros };
+  }
+  return next;
 }
 
 /** 팩이 지운(이름을 바꾼) 중분류 중 지금 팩에 없는 것 */
@@ -202,6 +224,7 @@ export function upgradeLegacyEntry(
 ): EntryJson {
   const pack = core.packEntry(category, id);
   if (category === "items") return upgradeItem(entry, removed, pack, savedVersion);
+  if (category === "item_subcategories") return upgradeSubcategory(entry, id, pack);
   if (category === "facilities") return upgradeFacility(entry);
   return category === "unit_kinds" ? upgradeUnitKind(entry, pack) : entry;
 }

@@ -24,6 +24,15 @@ export function checkItems(pack: ContentPack): ContentIssue[] {
   const issues: ContentIssue[] = [];
   const items = pack.entries.get("items") ?? [];
   const majorOf = fieldById(pack, "item_subcategories", "major");
+  const microsOf = new Map<string, Set<string>>(
+    (pack.entries.get("item_subcategories") ?? []).map((entry) => {
+      const micros = get(entry, "micros");
+      const ids = Array.isArray(micros)
+        ? micros.map((micro) => text(get(micro, "id"))).filter((id): id is string => id !== undefined)
+        : [];
+      return [entry.id, new Set(ids)];
+    }),
+  );
   const typeSlotOf = fieldById(pack, "weapon_types", "slot");
   const error = (id: string, path: string, code: string, message: string, params?: ContentIssue["params"]) =>
     issues.push({
@@ -49,6 +58,16 @@ export function checkItems(pack: ContentPack): ContentIssue[] {
         "item_subcategory_major",
         `중분류 ${sub}는 대분류 ${major}의 것입니다(이 아이템은 ${category ?? "?"}). 같은 대분류의 중분류를 고르세요.`,
         { subcategory: sub, major },
+      );
+    const micro = text(get(item, "microcategory"));
+    const microSet = sub === undefined ? undefined : microsOf.get(sub);
+    if (micro !== undefined && sub !== undefined && microSet !== undefined && !microSet.has(micro))
+      error(
+        item.id,
+        "microcategory",
+        "item_microcategory_missing",
+        `소분류 ${micro}는 중분류 ${sub}의 소분류 목록에 없습니다.`,
+        { subcategory: sub, microcategory: micro },
       );
     const equip = get(item, "equip");
     const slot = text(get(equip, "slot"));

@@ -25,7 +25,6 @@ export const ITEM_CATEGORY_IDS = [
   "gem",
   "construction",
   "document",
-  "precious",
 ] as const;
 export type ItemCategoryId = (typeof ITEM_CATEGORY_IDS)[number];
 
@@ -76,6 +75,7 @@ export const ITEM_FIELD_USES: Readonly<Record<string, "combat" | "economy" | "sc
   bound: "economy",
   enabled: "economy",
   subcategory: "screen",
+  microcategory: "screen",
   tags: "screen",
   weight: "none",
   lotSize: "economy",
@@ -108,6 +108,7 @@ export const ITEM_LIMITS = {
   stackMax: { min: 1, max: 1_000_000 },
   shelfLifeMs: { min: 3_600_000, max: 31_536_000_000 },
   tags: 16,
+  micros: 64,
   effectsMax: 8,
   order: { min: 0, max: 10_000 },
   statValue: { min: -10_000_000, max: 10_000_000 },
@@ -221,6 +222,7 @@ export interface ItemJson {
   readonly description?: LocalizedName | undefined;
   readonly category: ItemCategoryId;
   readonly subcategory?: string | undefined;
+  readonly microcategory?: string | undefined;
   readonly tags?: readonly string[] | undefined;
   readonly tier: number;
   /** 시작 시세(295: 그 세계 시장이 처음 열릴 때의 첫 가격, 최소 단위). 팩 core@27까지 baseValue */
@@ -238,6 +240,17 @@ export interface ItemJson {
   readonly enabled: boolean;
 }
 
+/** 중분류 안의 소분류(3단 분류: 대분류 → 중분류 → 소분류) */
+export interface MicrocategoryJson {
+  readonly id: string;
+  readonly name: LocalizedName;
+  /** 장비 소분류가 자동으로 정하는 장착 칸(장비 중분류만) */
+  readonly slot?: EquipSlot | undefined;
+  /** 보조 무기 탄약 종류 여부(화살통·마도서 등) */
+  readonly ammo?: boolean | undefined;
+  readonly enabled: boolean;
+}
+
 export interface SubcategoryJson {
   readonly id: string;
   readonly name: LocalizedName;
@@ -246,6 +259,7 @@ export interface SubcategoryJson {
   readonly storage?: StorageKindId | undefined;
   readonly food?: boolean | undefined;
   readonly foodFamily?: FoodFamilyId | undefined;
+  readonly micros?: readonly MicrocategoryJson[] | undefined;
   readonly enabled: boolean;
 }
 
@@ -278,6 +292,7 @@ export interface ItemRow {
   readonly name: LocalizedName;
   readonly category: ItemCategoryId;
   readonly subcategory: string | null;
+  readonly microcategory: string | null;
   readonly tags: readonly string[];
   readonly tier: number;
   readonly startPrice: number;

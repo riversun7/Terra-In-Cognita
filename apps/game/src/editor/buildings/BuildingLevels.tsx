@@ -26,7 +26,7 @@ import {
 } from "./buildingModel.ts";
 
 /** 재료로 고를 수 있는 아이템 대분류(장비·소모품·문서는 건설 재료로 쓰지 않는다) */
-const MATERIAL_CATEGORIES = new Set(["raw", "processed", "part", "construction", "gem", "precious"]);
+const MATERIAL_CATEGORIES = new Set(["raw", "processed", "part", "construction", "gem"]);
 
 function optionsFor(
   items: readonly BuildingEditorItem[],

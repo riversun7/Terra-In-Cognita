@@ -27,7 +27,9 @@ import {
   type ItemSort,
   categoryCounts,
   filterItems,
+  microcategoryCounts,
   sortItems,
+  subcategoryCounts,
   weightText,
 } from "./itemModel.ts";
 import "./itemList.css";
@@ -118,10 +120,14 @@ export function ItemList({
     return () => clearTimeout(timer);
   }, [typed]);
   const counts = categoryCounts(list.items);
+  const subCounts = subcategoryCounts(list.items, query.category);
+  const microCounts = microcategoryCounts(list.items, query.subcategory);
   const shown = sortItems(filterItems(list.items, query, staged), sort, locale);
   const subcategories = list.subcategories.filter(
     (row) => query.category === "all" || row.entry.major === query.category,
   );
+  const activeSub = list.subcategories.find((row) => row.entry.id === query.subcategory)?.entry;
+  const micros = activeSub?.micros ?? [];
   const set = (patch: Partial<ItemQuery>) => {
     setQuery((now) => ({ ...now, ...patch }));
     setLimit(PAGE);
@@ -132,7 +138,7 @@ export function ItemList({
       type="button"
       className="ie-tile"
       aria-pressed={query.category === category}
-      onClick={() => set({ category, subcategory: "all" })}
+      onClick={() => set({ category, subcategory: "all", microcategory: "all" })}
     >
       <span className="ie-tile-name">{label}</span>
       <span className="ie-tile-count">{count}</span>
@@ -144,6 +150,56 @@ export function ItemList({
         {tile("all", m.dev_items_filter_all(), list.items.length)}
         {ITEM_CATEGORY_IDS.map((category) => tile(category, CATEGORY_TEXT[category](), counts[category]))}
       </div>
+      {query.category !== "all" && subcategories.length > 0 ? (
+        <div className="ie-tiles ie-sub-tiles" role="group" aria-label={m.dev_items_field_subcategory()}>
+          <button
+            type="button"
+            className="ie-tile"
+            aria-pressed={query.subcategory === "all"}
+            onClick={() => set({ subcategory: "all", microcategory: "all" })}
+          >
+            <span className="ie-tile-name">{m.dev_items_filter_all()}</span>
+            <span className="ie-tile-count">{counts[query.category]}</span>
+          </button>
+          {subcategories.map((row) => (
+            <button
+              key={row.entry.id}
+              type="button"
+              className="ie-tile"
+              aria-pressed={query.subcategory === row.entry.id}
+              onClick={() => set({ subcategory: row.entry.id, microcategory: "all" })}
+            >
+              <span className="ie-tile-name">{row.entry.name[locale]}</span>
+              <span className="ie-tile-count">{subCounts.get(row.entry.id) ?? 0}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {activeSub && micros.length > 0 ? (
+        <div className="ie-tiles ie-micro-tiles" role="group" aria-label={m.dev_items_field_microcategory()}>
+          <button
+            type="button"
+            className="ie-tile"
+            aria-pressed={query.microcategory === "all"}
+            onClick={() => set({ microcategory: "all" })}
+          >
+            <span className="ie-tile-name">{m.dev_items_filter_all()}</span>
+            <span className="ie-tile-count">{subCounts.get(activeSub.id) ?? 0}</span>
+          </button>
+          {micros.map((micro) => (
+            <button
+              key={micro.id}
+              type="button"
+              className="ie-tile"
+              aria-pressed={query.microcategory === micro.id}
+              onClick={() => set({ microcategory: micro.id })}
+            >
+              <span className="ie-tile-name">{micro.name[locale]}</span>
+              <span className="ie-tile-count">{microCounts.get(micro.id) ?? 0}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="field ie-search">
         <label className="field-label" htmlFor={searchId}>
           {m.dev_items_search_label()}
@@ -163,7 +219,10 @@ export function ItemList({
         <div className="ie-filter-grid">
           <label className="field">
             <span className="field-label">{m.dev_items_field_subcategory()}</span>
-            <select value={query.subcategory} onChange={(event) => set({ subcategory: event.target.value })}>
+            <select
+              value={query.subcategory}
+              onChange={(event) => set({ subcategory: event.target.value, microcategory: "all" })}
+            >
               <option value="all">{m.dev_items_filter_all()}</option>
               {subcategories.map((row) => (
                 <option key={row.entry.id} value={row.entry.id}>

@@ -21,7 +21,9 @@ import {
   stageTaxonomy,
   weightText,
   withCategory,
+  withMicrocategory,
   withSlot,
+  withSubcategory,
 } from "./itemModel.ts";
 import { changedKeysOf, rebaseStage, stageDiscard } from "./itemRebase.ts";
 
@@ -30,6 +32,7 @@ const row = (id: string, extra: Partial<ItemRow> = {}): ItemRow => ({
   name: { ko: `한 ${id}`, en: `En ${id}` },
   category: "raw",
   subcategory: null,
+  microcategory: null,
   tags: [],
   tier: 0,
   startPrice: 1,
@@ -144,6 +147,26 @@ describe("아이템 편집기 모델: 칸 맞추기", () => {
     expect(equipment.stackMax).toBe(1);
     expect(equipment.equip).toEqual({ slot: "head", stats: [] });
     expect(droppedBundles(sword, "raw")).toEqual(["equip"]);
+    // 장비 중분류·소분류를 바꾸면 장착 칸과 무기 종류도 함께 바뀐다
+    const armorSub = {
+      id: "armor",
+      name: { ko: "방어구", en: "Armor" },
+      major: "equipment" as const,
+      micros: [
+        { id: "head_armor", name: { ko: "머리", en: "Head" }, slot: "head" as const, enabled: true },
+        { id: "body_armor", name: { ko: "몸", en: "Body" }, slot: "body" as const, enabled: true },
+      ],
+      enabled: true,
+    };
+    const asHelmet = withSubcategory(sword, armorSub);
+    expect([
+      asHelmet.subcategory,
+      asHelmet.microcategory,
+      asHelmet.equip?.slot,
+      asHelmet.equip?.weaponType,
+    ]).toEqual(["armor", "head_armor", "head", undefined]);
+    const asBody = withMicrocategory(asHelmet, armorSub.micros[1]);
+    expect([asBody.microcategory, asBody.equip?.slot]).toEqual(["body_armor", "body"]);
   });
 
   it("보낼 항목은 빈 설명·빈 태그를 빼고, 계정 귀속이면 거래 가능을 뺀다", () => {

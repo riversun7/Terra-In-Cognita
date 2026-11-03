@@ -3,7 +3,7 @@
 import { ITEM_CATEGORY_IDS, ITEM_LIMITS, type ItemCategoryId } from "@terra/shared/itemEditor";
 import { useState } from "react";
 import { m } from "../../paraglide/messages.js";
-import { SelectField, TextField } from "../content/contentEditorFields.tsx";
+import { TextField } from "../content/contentEditorFields.tsx";
 import { CONTENT_ID_PATTERN, suggestId } from "../content/contentEditorModel.ts";
 import { CATEGORY_TEXT } from "./itemMessages.ts";
 
@@ -36,13 +36,24 @@ export function ItemNewForm({
       <h2 id="ie-new-title" className="ie-heading">
         {m.dev_items_new_title()}
       </h2>
+      <div className="field">
+        <span className="field-label">{m.dev_items_field_category()}</span>
+        <div className="ie-tiles" role="group" aria-label={m.dev_items_field_category()}>
+          {ITEM_CATEGORY_IDS.map((value) => (
+            <button
+              key={value}
+              type="button"
+              className="ie-tile"
+              aria-pressed={category === value}
+              data-category={value}
+              onClick={() => setCategory(value)}
+            >
+              <span>{CATEGORY_TEXT[value]()}</span>
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="ie-grid">
-        <SelectField
-          label={m.dev_items_field_category()}
-          value={category}
-          options={ITEM_CATEGORY_IDS.map((value) => ({ value, label: CATEGORY_TEXT[value]() }))}
-          onChange={setCategory}
-        />
         <TextField
           label={m.dev_items_field_name_ko()}
           value={ko}

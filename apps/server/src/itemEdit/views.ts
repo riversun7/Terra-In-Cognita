@@ -78,6 +78,7 @@ export function itemJsonOf(entry: ItemEntry): ItemJson {
     ...(entry.description ? { description: name(entry.description) } : {}),
     category: entry.category,
     ...(entry.subcategory ? { subcategory: entry.subcategory.id } : {}),
+    ...(entry.microcategory === undefined ? {} : { microcategory: entry.microcategory }),
     ...(entry.tags ? { tags: entry.tags.map(idOf) } : {}),
     tier: entry.tier,
     startPrice: entry.startPrice,
@@ -118,6 +119,17 @@ export function subcategoryJsonOf(entry: ItemSubcategoryEntry): SubcategoryJson 
     ...(entry.storage === undefined ? {} : { storage: entry.storage }),
     ...(entry.food === undefined ? {} : { food: entry.food }),
     ...(entry.foodFamily === undefined ? {} : { foodFamily: entry.foodFamily }),
+    ...(entry.micros
+      ? {
+          micros: entry.micros.map((micro) => ({
+            id: micro.id,
+            name: name(micro.name),
+            ...(micro.slot === undefined ? {} : { slot: micro.slot }),
+            ...(micro.ammo === undefined ? {} : { ammo: micro.ammo }),
+            enabled: micro.enabled,
+          })),
+        }
+      : {}),
     enabled: entry.enabled,
   };
 }
@@ -187,6 +199,7 @@ export function itemRowOf(
     name: name(entry.name),
     category: entry.category,
     subcategory: entry.subcategory?.id ?? null,
+    microcategory: entry.microcategory ?? null,
     tags: (entry.tags ?? []).map(idOf),
     tier: entry.tier,
     startPrice: entry.startPrice,

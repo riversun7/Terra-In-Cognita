@@ -54,11 +54,12 @@ describe("시작 시세 ‰(BigInt, 0.5는 올림, 1 이상)", () => {
 });
 
 describe("여러 개 고치기(patch)", () => {
-  it("켜기·티어·중분류·태그 더하기·빼기·시작 시세 ‰를 그 칸만 얹는다", () => {
+  it("켜기·티어·중분류·소분류·태그 더하기·빼기·시작 시세 ‰를 그 칸만 얹는다", () => {
     const next = applyItemPatch(sword, {
       enabled: false,
       tier: 3,
       subcategory: "weapon",
+      microcategory: "blade",
       tagsAdd: ["rare", "sharp"],
       tagsRemove: ["metal"],
       startPricePm: 250,
@@ -68,12 +69,15 @@ describe("여러 개 고치기(patch)", () => {
       enabled: false,
       tier: 3,
       subcategory: "weapon",
+      microcategory: "blade",
       tags: ["sharp", "rare"],
       startPrice: 125,
     });
-    // 바뀐 것이 없으면 같은 객체, 중분류 null = 뺀다, 태그를 다 빼면 칸을 뺀다
+    // 바뀐 것이 없으면 같은 객체, 중분류를 바꾸거나 null로 빼면 소분류도 함께 뺀다, 태그를 다 빼면 칸을 뺀다
     expect(applyItemPatch(grain, { enabled: true, tier: 0 })).toBe(grain);
-    expect(applyItemPatch(grain, { subcategory: null }).subcategory).toBeUndefined();
+    expect(applyItemPatch(next, { subcategory: "armor" }).microcategory).toBeUndefined();
+    expect(applyItemPatch(next, { subcategory: null }).subcategory).toBeUndefined();
+    expect(applyItemPatch(next, { subcategory: null }).microcategory).toBeUndefined();
     expect(applyItemPatch(sword, { tagsRemove: ["sharp", "metal"] }).tags).toBeUndefined();
   });
 });
@@ -150,6 +154,17 @@ describe("옛 칸 이름 baseValue(팩 core@27까지, 295에서 startPrice)", ()
     // 둘 다 있으면 startPrice를 둔다
     expect(parseItemsJson(JSON.stringify([{ ...grain, baseValue: 3 }])).entries).toEqual([grain]);
     expect(itemsToCsv([grain]).split("\n")[0]).not.toContain("baseValue");
+    // 옛 대분류 precious는 결정·보석(gem)으로 읽는다
+    const oldPrecious = parseItemsCsv(
+      "id,category,tier,startPrice,name.ko,name.en\ngold_bar,precious,3,50,금괴,Gold Bar",
+      current,
+    );
+    expect(oldPrecious.problems).toEqual([]);
+    expect(oldPrecious.entries[0]?.category).toBe("gem");
+    expect(
+      parseItemsJson(JSON.stringify([{ ...grain, id: "gold_bar", category: "precious" }])).entries[0]
+        ?.category,
+    ).toBe("gem");
   });
 });
 

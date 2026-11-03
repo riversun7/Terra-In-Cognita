@@ -7,15 +7,17 @@ import {
   STORAGE_KIND_IDS,
   type ItemEditorListResponse,
   type ItemTagJson,
+  type MicrocategoryJson,
   type SubcategoryJson,
   type TaxonomyRow,
   type WeaponTypeJson,
 } from "@terra/shared/itemEditor";
+import { EQUIP_SLOTS } from "@terra/shared/roster";
 import { type ReactNode, useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
-import { CheckField, NumberField, SelectField, TextField } from "../content/contentEditorFields.tsx";
+import { CheckField, NumberField, RemoveButton, TextField } from "../content/contentEditorFields.tsx";
 import { CONTENT_ID_PATTERN, sameJson, suggestId } from "../content/contentEditorModel.ts";
-import { CATEGORY_TEXT, FAMILY_TEXT, ORIGIN_TEXT, STORAGE_TEXT } from "./itemMessages.ts";
+import { CATEGORY_TEXT, FAMILY_TEXT, ORIGIN_TEXT, SLOT_TEXT, STORAGE_TEXT } from "./itemMessages.ts";
 import type { Stage, Staged, TaxonomyCategory, TaxonomyJson } from "./itemModel.ts";
 import "./itemList.css";
 
@@ -107,38 +109,71 @@ function SubcategoryFields({
   draft: SubcategoryJson;
   onChange: (next: SubcategoryJson) => void;
 }) {
+  const micros = draft.micros ?? [];
+  const setMicros = (next: readonly MicrocategoryJson[]) => {
+    const { micros: _drop, ...rest } = draft;
+    onChange(next.length === 0 ? rest : { ...rest, micros: next });
+  };
+  const updateMicro = (index: number, next: MicrocategoryJson) =>
+    setMicros(micros.map((entry, i) => (i === index ? next : entry)));
   return (
-    <div className="ie-grid">
-      <SelectField
-        label={m.dev_items_field_category()}
-        value={draft.major}
-        options={ITEM_CATEGORY_IDS.map((value) => ({ value, label: CATEGORY_TEXT[value]() }))}
-        onChange={(major) => onChange({ ...draft, major })}
-      />
-      <NumberField
-        label={m.dev_items_field_order()}
-        value={draft.order}
-        min={ITEM_LIMITS.order.min}
-        max={ITEM_LIMITS.order.max}
-        optional
-        onChange={(order) => {
-          const { order: _drop, ...rest } = draft;
-          onChange(order === undefined ? rest : { ...rest, order });
-        }}
-      />
-      <SelectField
-        label={m.dev_items_field_storage()}
-        value={draft.storage ?? ""}
-        options={[
-          { value: "", label: m.dev_items_storage_default() },
-          ...STORAGE_KIND_IDS.map((value) => ({ value, label: STORAGE_TEXT[value]() })),
-        ]}
-        onChange={(value) => {
-          const storage = STORAGE_KIND_IDS.find((item) => item === value);
-          const { storage: _drop, ...rest } = draft;
-          onChange(storage ? { ...rest, storage } : rest);
-        }}
-      />
+    <>
+      <div className="field">
+        <span className="field-label">{m.dev_items_field_category()}</span>
+        <div className="ie-tiles" role="group" aria-label={m.dev_items_field_category()}>
+          {ITEM_CATEGORY_IDS.map((major) => (
+            <button
+              key={major}
+              type="button"
+              className="ie-tile"
+              aria-pressed={draft.major === major}
+              onClick={() => onChange({ ...draft, major })}
+            >
+              <span>{CATEGORY_TEXT[major]()}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="ie-grid">
+        <NumberField
+          label={m.dev_items_field_order()}
+          value={draft.order}
+          min={ITEM_LIMITS.order.min}
+          max={ITEM_LIMITS.order.max}
+          optional
+          onChange={(order) => {
+            const { order: _drop, ...rest } = draft;
+            onChange(order === undefined ? rest : { ...rest, order });
+          }}
+        />
+      </div>
+      <div className="field">
+        <span className="field-label">{m.dev_items_field_storage()}</span>
+        <div className="ie-tiles" role="group" aria-label={m.dev_items_field_storage()}>
+          <button
+            type="button"
+            className="ie-tile"
+            aria-pressed={draft.storage === undefined}
+            onClick={() => {
+              const { storage: _drop, ...rest } = draft;
+              onChange(rest);
+            }}
+          >
+            <span>{m.dev_items_storage_default()}</span>
+          </button>
+          {STORAGE_KIND_IDS.map((storage) => (
+            <button
+              key={storage}
+              type="button"
+              className="ie-tile"
+              aria-pressed={draft.storage === storage}
+              onClick={() => onChange({ ...draft, storage })}
+            >
+              <span>{STORAGE_TEXT[storage]()}</span>
+            </button>
+          ))}
+        </div>
+      </div>
       <CheckField
         label={m.dev_items_field_food()}
         checked={draft.food === true}
@@ -148,21 +183,116 @@ function SubcategoryFields({
         }}
       />
       {draft.food === true ? (
-        <SelectField
-          label={m.dev_items_field_food_family()}
-          value={draft.foodFamily ?? ""}
-          options={[
-            { value: "", label: m.dev_items_none() },
-            ...FOOD_FAMILY_IDS.map((value) => ({ value, label: FAMILY_TEXT[value]() })),
-          ]}
-          onChange={(value) => {
-            const foodFamily = FOOD_FAMILY_IDS.find((item) => item === value);
-            const { foodFamily: _drop, ...rest } = draft;
-            onChange(foodFamily ? { ...rest, foodFamily } : rest);
-          }}
-        />
+        <div className="field">
+          <span className="field-label">{m.dev_items_field_food_family()}</span>
+          <div className="ie-tiles" role="group" aria-label={m.dev_items_field_food_family()}>
+            <button
+              type="button"
+              className="ie-tile"
+              aria-pressed={draft.foodFamily === undefined}
+              onClick={() => {
+                const { foodFamily: _drop, ...rest } = draft;
+                onChange(rest);
+              }}
+            >
+              <span>{m.dev_items_none()}</span>
+            </button>
+            {FOOD_FAMILY_IDS.map((foodFamily) => (
+              <button
+                key={foodFamily}
+                type="button"
+                className="ie-tile"
+                aria-pressed={draft.foodFamily === foodFamily}
+                onClick={() => onChange({ ...draft, foodFamily })}
+              >
+                <span>{FAMILY_TEXT[foodFamily]()}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       ) : null}
-    </div>
+      <fieldset className="ie-sub" data-part="micros">
+        <legend className="field-label">
+          {m.dev_items_tax_microcategories()} <span className="ie-dim">{micros.length}</span>
+        </legend>
+        {micros.length > 0 ? (
+          <ul className="ie-tax-list">
+            {micros.map((micro, index) => (
+              <li key={micro.id}>
+                <details className="ie-tax-row" data-micro={micro.id}>
+                  <summary>
+                    <span>{micro.name.ko}</span> <span className="ie-dim">{micro.id}</span>
+                    {micro.slot ? <span className="ie-chip">{SLOT_TEXT[micro.slot]()}</span> : null}
+                    {micro.enabled ? null : <span className="ie-chip">{m.dev_items_disabled()}</span>}
+                  </summary>
+                  <div className="ie-tax-body">
+                    <div className="ie-grid">
+                      <TextField
+                        label={m.dev_items_field_name_ko()}
+                        value={micro.name.ko}
+                        maxLength={ITEM_LIMITS.nameMax}
+                        onChange={(ko) => updateMicro(index, { ...micro, name: { ...micro.name, ko } })}
+                      />
+                      <TextField
+                        label={m.dev_items_field_name_en()}
+                        value={micro.name.en}
+                        maxLength={ITEM_LIMITS.nameMax}
+                        onChange={(en) => updateMicro(index, { ...micro, name: { ...micro.name, en } })}
+                      />
+                    </div>
+                    <CheckField
+                      label={m.dev_items_field_enabled()}
+                      checked={micro.enabled}
+                      onChange={(enabled) => updateMicro(index, { ...micro, enabled })}
+                    />
+                    {draft.major === "equipment" ? (
+                      <div className="field">
+                        <span className="field-label">{m.dev_items_field_slot()}</span>
+                        <div className="ie-tiles" role="group" aria-label={m.dev_items_field_slot()}>
+                          {EQUIP_SLOTS.map((slot) => (
+                            <button
+                              key={slot}
+                              type="button"
+                              className="ie-tile"
+                              aria-pressed={micro.slot === slot}
+                              onClick={() => updateMicro(index, { ...micro, slot })}
+                            >
+                              <span>{SLOT_TEXT[slot]()}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    <div className="ie-inline-actions">
+                      <RemoveButton
+                        name={micro.id}
+                        onClick={() => setMicros(micros.filter((_, i) => i !== index))}
+                      />
+                    </div>
+                  </div>
+                </details>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {micros.length < ITEM_LIMITS.micros ? (
+          <details className="ie-tax-new">
+            <summary>{m.dev_items_add_microcategory()}</summary>
+            <NewEntryForm
+              taken={new Set(micros.map((item) => item.id))}
+              onCreate={(id, name) =>
+                setMicros([
+                  ...micros,
+                  draft.major === "equipment"
+                    ? { id, name, slot: "weapon", enabled: true }
+                    : { id, name, enabled: true },
+                ])
+              }
+            />
+          </details>
+        ) : null}
+      </fieldset>
+    </>
   );
 }
 
@@ -175,19 +305,26 @@ function WeaponTypeFields({
 }) {
   return (
     <div className="ie-grid">
-      <SelectField
-        label={m.dev_items_field_slot()}
-        value={draft.slot}
-        options={[
-          { value: "weapon", label: m.roster_slot_weapon() },
-          { value: "offhand", label: m.roster_slot_offhand() },
-        ]}
-        onChange={(slot) => {
-          // 탄약 종류는 보조 칸만(D-497): 무기 칸으로 바꾸면 뺀다
-          const { ammo: _drop, ...rest } = draft;
-          onChange(slot === "offhand" ? { ...draft, slot } : { ...rest, slot });
-        }}
-      />
+      <div className="field">
+        <span className="field-label">{m.dev_items_field_slot()}</span>
+        <div className="ie-tiles" role="group" aria-label={m.dev_items_field_slot()}>
+          {(["weapon", "offhand"] as const).map((slot) => (
+            <button
+              key={slot}
+              type="button"
+              className="ie-tile"
+              aria-pressed={draft.slot === slot}
+              onClick={() => {
+                // 탄약 종류는 보조 칸만(D-497): 무기 칸으로 바꾸면 뺀다
+                const { ammo: _drop, ...rest } = draft;
+                onChange(slot === "offhand" ? { ...draft, slot } : { ...rest, slot });
+              }}
+            >
+              <span>{SLOT_TEXT[slot]()}</span>
+            </button>
+          ))}
+        </div>
+      </div>
       <NumberField
         label={m.dev_items_field_order()}
         value={draft.order}
@@ -271,7 +408,13 @@ function Section({
             <li key={id}>
               <details className="ie-tax-row" data-entry={id} data-staged={stagedRow ? "" : undefined}>
                 <summary>
+                  {isSubcategory(draft) ? (
+                    <span className="ie-cat">{CATEGORY_TEXT[draft.major]()}</span>
+                  ) : null}
                   <span>{draft.name[locale]}</span> <span className="ie-dim">{id}</span>
+                  {isSubcategory(draft) && (draft.micros?.length ?? 0) > 0 ? (
+                    <span className="ie-chip">{draft.micros?.length}</span>
+                  ) : null}
                   {row && row.origin !== "pack" ? (
                     <span className={`ie-chip ie-origin-${row.origin}`}>{ORIGIN_TEXT[row.origin]()}</span>
                   ) : null}

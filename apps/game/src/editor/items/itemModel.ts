@@ -19,6 +19,7 @@ import {
   type ItemRow,
   type ItemTagJson,
   type ItemWeaponJson,
+  type MicrocategoryJson,
   type SubcategoryJson,
   type WeaponTypeJson,
 } from "@terra/shared/itemEditor";
@@ -35,6 +36,8 @@ export interface ItemQuery {
   readonly category: ItemCategoryId | "all";
   /** 중분류 ID, "all" = 거르지 않음 */
   readonly subcategory: string;
+  /** 소분류 ID, "all" = 거르지 않음 */
+  readonly microcategory: string;
   readonly slot: EquipSlot | "all";
   /** 유닛 종류 ID, "all" = 거르지 않음 */
   readonly kind: string;
@@ -52,6 +55,7 @@ export const EMPTY_QUERY: ItemQuery = {
   text: "",
   category: "all",
   subcategory: "all",
+  microcategory: "all",
   slot: "all",
   kind: "all",
   origin: "all",
@@ -74,6 +78,7 @@ export function filterItems(
   return rows.filter((row) => {
     if (query.category !== "all" && row.category !== query.category) return false;
     if (query.subcategory !== "all" && row.subcategory !== query.subcategory) return false;
+    if (query.microcategory !== "all" && row.microcategory !== query.microcategory) return false;
     if (query.slot !== "all" && row.slot !== query.slot) return false;
     if (query.kind !== "all" && row.kinds.length > 0 && !row.kinds.includes(query.kind)) return false;
     if (query.origin !== "all" && row.origin !== query.origin) return false;
@@ -118,9 +123,34 @@ export function categoryCounts(rows: readonly ItemRow[]): Record<ItemCategoryId,
     gem: 0,
     construction: 0,
     document: 0,
-    precious: 0,
   };
   for (const row of rows) out[row.category] += 1;
+  return out;
+}
+
+/** 중분류마다 개수(고른 대분류 안) */
+export function subcategoryCounts(
+  rows: readonly ItemRow[],
+  category: ItemCategoryId | "all",
+): ReadonlyMap<string, number> {
+  const out = new Map<string, number>();
+  for (const row of rows) {
+    if (category !== "all" && row.category !== category) continue;
+    if (row.subcategory) out.set(row.subcategory, (out.get(row.subcategory) ?? 0) + 1);
+  }
+  return out;
+}
+
+/** 소분류마다 개수(고른 중분류 안) */
+export function microcategoryCounts(
+  rows: readonly ItemRow[],
+  subcategory: string,
+): ReadonlyMap<string, number> {
+  const out = new Map<string, number>();
+  for (const row of rows) {
+    if (row.subcategory !== subcategory) continue;
+    if (row.microcategory) out.set(row.microcategory, (out.get(row.microcategory) ?? 0) + 1);
+  }
   return out;
 }
 
@@ -168,9 +198,17 @@ export function withSlot(equip: ItemEquipJson, slot: EquipSlot): ItemEquipJson {
   };
 }
 
-/** 대분류를 바꾸면 맞지 않는 묶음을 뺀다(장비 칸·신선도·사용 효과·중분류), 장비면 스택 1과 장비 칸 */
+/** 대분류를 바꾸면 맞지 않는 묶음을 뺀다(장비 칸·신선도·사용 효과·중분류·소분류), 장비면 스택 1과 장비 칸 */
 export function withCategory(item: ItemJson, category: ItemCategoryId): ItemJson {
-  const { equip, perish, use, subcategory: _subcategory, stackMax, ...rest } = item;
+  const {
+    equip,
+    perish,
+    use,
+    subcategory: _subcategory,
+    microcategory: _microcategory,
+    stackMax,
+    ...rest
+  } = item;
   const next: ItemJson = { ...rest, category };
   return {
     ...next,
@@ -182,6 +220,31 @@ export function withCategory(item: ItemJson, category: ItemCategoryId): ItemJson
     ...(perish && ITEM_PERISH_CATEGORIES.includes(category) ? { perish } : {}),
     ...(use && category === "consumable" ? { use } : {}),
   };
+}
+
+/** 소분류를 바꾸면 소분류를 맞추고, 장비 소분류에 장착 칸(slot)이 있으면 장착 칸·무기 종류도 함께 맞춘다 */
+export function withMicrocategory(item: ItemJson, micro: MicrocategoryJson | undefined): ItemJson {
+  const { microcategory: _drop, ...rest } = item;
+  if (!micro) return rest;
+  let equip = rest.equip;
+  if (rest.category === "equipment" && micro.slot) {
+    const slotted = withSlot(equip ?? { slot: micro.slot, stats: [] }, micro.slot);
+    equip =
+      micro.slot === "weapon" || micro.slot === "offhand" ? { ...slotted, weaponType: micro.id } : slotted;
+  }
+  return {
+    ...rest,
+    microcategory: micro.id,
+    ...(equip ? { equip } : {}),
+  };
+}
+
+/** 중분류를 바꾸면 첫 소분류를 기본으로 고르고, 장비면 장착 칸·무기 종류도 함께 맞춘다 */
+export function withSubcategory(item: ItemJson, subcategory: SubcategoryJson | undefined): ItemJson {
+  const { subcategory: _dropSub, microcategory: _dropMicro, ...rest } = item;
+  if (!subcategory) return rest;
+  const firstMicro = subcategory.micros?.find((micro) => micro.enabled) ?? subcategory.micros?.[0];
+  return withMicrocategory({ ...rest, subcategory: subcategory.id }, firstMicro);
 }
 
 /** 대분류를 바꾸면 빠지는 묶음(먼저 묻는다) */

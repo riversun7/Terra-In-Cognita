@@ -29,6 +29,8 @@ export interface ItemPatch {
   readonly tier?: number | undefined;
   /** 중분류(null = 뺀다) */
   readonly subcategory?: string | null | undefined;
+  /** 소분류(null = 뺀다) */
+  readonly microcategory?: string | null | undefined;
   readonly tagsAdd?: readonly string[] | undefined;
   readonly tagsRemove?: readonly string[] | undefined;
   /** 시작 시세 바꿈(‰, −900 ~ +10000) */
@@ -49,8 +51,15 @@ export function applyItemPatch(entry: ItemJson, patch: ItemPatch): ItemJson {
     next = { ...next, enabled: patch.enabled };
   if (patch.tier !== undefined && patch.tier !== next.tier) next = { ...next, tier: patch.tier };
   if (patch.subcategory !== undefined && patch.subcategory !== (next.subcategory ?? null)) {
-    const { subcategory: _drop, ...rest } = next;
+    const { subcategory: _drop, microcategory: _dropMicro, ...rest } = next;
     next = patch.subcategory === null ? rest : { ...rest, subcategory: patch.subcategory };
+  }
+  if (patch.microcategory !== undefined && patch.microcategory !== (next.microcategory ?? null)) {
+    const { microcategory: _drop, ...rest } = next;
+    next =
+      patch.microcategory === null || !next.subcategory
+        ? rest
+        : { ...next, microcategory: patch.microcategory };
   }
   if ((patch.tagsAdd?.length ?? 0) + (patch.tagsRemove?.length ?? 0) > 0) {
     const remove = new Set(patch.tagsRemove ?? []);
@@ -75,6 +84,7 @@ export const ITEM_CSV_COLUMNS = [
   "id",
   "category",
   "subcategory",
+  "microcategory",
   "tier",
   "startPrice",
   "weight",
@@ -95,11 +105,15 @@ export type ItemCsvColumn = (typeof ITEM_CSV_COLUMNS)[number];
 /** 옛 CSV 열 이름 → 지금 열(팩 core@27까지의 내보내기를 그대로 읽는다) */
 export const ITEM_CSV_ALIASES: ReadonlyMap<string, ItemCsvColumn> = new Map([["baseValue", "startPrice"]]);
 
-/** 옛 JSON 칸 baseValue(기준 가치) → startPrice. 둘 다 있으면 startPrice를 둔다(바뀌지 않으면 같은 객체) */
+/** 옛 JSON 칸 baseValue(기준 가치) → startPrice, 옛 대분류 precious → gem(바뀌지 않으면 같은 객체) */
 function withStartPrice(raw: Record<string, unknown>): Record<string, unknown> {
-  if (!("baseValue" in raw)) return raw;
-  const { baseValue, ...rest } = raw;
-  return "startPrice" in rest ? rest : { ...rest, startPrice: baseValue };
+  let next = raw;
+  if ("baseValue" in next) {
+    const { baseValue, ...rest } = next;
+    next = "startPrice" in rest ? rest : { ...rest, startPrice: baseValue };
+  }
+  if (next.category === "precious") next = { ...next, category: "gem" };
+  return next;
 }
 
 /** 가져오기 문제 하나: row = 줄 번호(CSV는 머리 = 1, JSON은 항목 차례 1부터, 0 = 글 전체) */
@@ -146,7 +160,6 @@ const CATEGORIES: readonly ItemCategoryId[] = [
   "gem",
   "construction",
   "document",
-  "precious",
 ];
 
 const problem = (
@@ -254,6 +267,7 @@ function csvRowOf(entry: ItemJson): string {
     id: entry.id,
     category: entry.category,
     subcategory: entry.subcategory ?? "",
+    microcategory: entry.microcategory ?? "",
     tier: String(entry.tier),
     startPrice: String(entry.startPrice),
     weight: entry.weight === undefined ? "" : String(entry.weight),
@@ -378,10 +392,11 @@ function rowEntry(
     problems.push(problem(row, "bad_bool", column, raw));
     return undefined;
   };
-  const category = text("category");
+  const rawCategory = text("category");
+  const category = rawCategory === "precious" ? "gem" : rawCategory;
   const validCategory = CATEGORIES.find((item) => item === category);
   if (category !== undefined && !validCategory)
-    problems.push(problem(row, "bad_category", "category", category));
+    problems.push(problem(row, "bad_category", "category", rawCategory));
   const tier = int("tier");
   const startPrice = int("startPrice");
   const weight = int("weight");
@@ -410,8 +425,18 @@ function rowEntry(
   next = withFlags(next, tradable, bound);
   const sub = text("subcategory");
   if (sub !== undefined) {
-    const { subcategory: _drop, ...rest } = next;
-    next = sub === "-" ? rest : { ...rest, subcategory: sub };
+    const { subcategory: _drop, microcategory: _dropMicro, ...rest } = next;
+    next =
+      sub === "-"
+        ? rest
+        : sub === next.subcategory && next.microcategory
+          ? { ...rest, subcategory: sub, microcategory: next.microcategory }
+          : { ...rest, subcategory: sub };
+  }
+  const micro = text("microcategory");
+  if (micro !== undefined) {
+    const { microcategory: _drop, ...rest } = next;
+    next = micro === "-" || !next.subcategory ? rest : { ...rest, microcategory: micro };
   }
   const descKo = text("description.ko");
   const descEn = text("description.en");

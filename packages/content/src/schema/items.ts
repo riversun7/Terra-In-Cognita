@@ -7,10 +7,10 @@
 // 여러 칸을 함께 보는 검사는 superRefine이다(필드 검사가 실패해도 불리므로 값의 모양을 다시 본다, AGENTS 6장 Zod 4.6.7).
 // 문제마다 params.rule에 규칙 코드를 단다(편집기가 메시지 키로 보인다, issue.ts code).
 import { z } from "zod";
-import { PRIMARY_STAT_CODES, equipSchema } from "./combat.ts";
+import { EQUIP_SLOT_KINDS, PRIMARY_STAT_CODES, equipSchema } from "./combat.ts";
 import { contentId, localizedText, ref } from "./common.ts";
 
-/** 아이템 대분류(D-5029·D-5033, 생산 흐름 순). 대분류마다 붙는 칸 묶음이 정해져 있어 코드 목록이다 */
+/** 아이템 대분류(D-5029·D-5033, 생산 흐름 순, 보석·귀금속은 결정·보석 gem 하나로 통합). 대분류마다 붙는 칸 묶음이 정해져 있어 코드 목록이다 */
 export const ITEM_CATEGORIES = [
   "raw",
   "processed",
@@ -20,7 +20,6 @@ export const ITEM_CATEGORIES = [
   "gem",
   "construction",
   "document",
-  "precious",
 ] as const;
 export type ItemCategory = (typeof ITEM_CATEGORIES)[number];
 
@@ -52,6 +51,8 @@ export const ITEM_SCHEMA_LIMITS = {
   useVarianceMaxPm: 500,
   /** 거래 묶음 크기 상한(기본 단위 개수, 302·D-506: 광석 1,000 = 1kg) */
   lotSizeMax: 1_000_000,
+  /** 중분류 하나 안의 소분류 수 상한 */
+  microsMax: 64,
 } as const;
 
 const enabled = z.boolean({ error: "enabled가 없습니다. true 또는 false로 적으세요(D-398 켬·끔)." });
@@ -131,6 +132,13 @@ function checkItemEntry(entry: unknown, ctx: z.RefinementCtx): void {
     );
   if (get("use") !== undefined && category !== "consumable")
     fail(ctx, ["use"], "item_use_category", "사용 효과(use)는 식품·소모품(consumable)에만 씁니다.");
+  if (get("microcategory") !== undefined && get("subcategory") === undefined)
+    fail(
+      ctx,
+      ["microcategory"],
+      "item_microcategory_orphan",
+      "소분류(microcategory)는 중분류(subcategory)와 함께 적습니다.",
+    );
   const stackMax = get("stackMax");
   if (equipment && typeof stackMax === "number" && stackMax !== 1)
     fail(
@@ -166,6 +174,8 @@ export const itemEntrySchema = z
     category: z.enum(ITEM_CATEGORIES),
     /** 중분류(D-5033): 그 대분류의 중분류만(팩 검사). 보관 창고·식품 판정이 이 칸을 본다 */
     subcategory: ref("item_subcategories").optional(),
+    /** 소분류(3단 분류): 그 중분류의 micros 안 ID(팩 검사) */
+    microcategory: contentId.optional(),
     /** 태그(거래소 거르기, D-5033) */
     tags: z.array(ref("item_tags")).max(ITEM_SCHEMA_LIMITS.tags).optional(),
     tier,
@@ -200,9 +210,30 @@ export const itemEntrySchema = z
   .superRefine(checkItemEntry);
 export type ItemEntry = z.output<typeof itemEntrySchema>;
 
+/** 소분류(3단 분류, 중분류 안의 세부 항목). 장비 소분류는 대응 장착 칸(slot)과 보조 탄약(ammo)을 함께 적는다 */
+export const itemMicrocategorySchema = z
+  .strictObject({
+    id: contentId,
+    name: localizedText,
+    slot: z.enum(EQUIP_SLOT_KINDS).optional(),
+    ammo: z.boolean().optional(),
+    enabled,
+  })
+  .superRefine((entry, ctx) => {
+    if (typeof entry !== "object" || entry === null) return;
+    if (entry.ammo === true && entry.slot !== "offhand")
+      fail(
+        ctx,
+        ["ammo"],
+        "weapon_type_ammo_slot",
+        "탄약 종류(ammo)는 보조 칸(offhand) 소분류에만 씁니다(D-497).",
+      );
+  });
+export type ItemMicrocategoryEntry = z.output<typeof itemMicrocategorySchema>;
+
 /**
- * 중분류(D-5033 표의 중분류): 대분류 하나에 속한다. storage = 보관 창고(없으면 대분류 기본: 장비 무기고, 식품 식량 창고, 나머지 일반),
- * food = 식품·식재료(보관·거래 방식·신선도 권고가 본다), foodFamily = 식재료 계열(food일 때만)
+ * 중분류(D-5033 표의 중분류): 대분류 하나에 속하고 소분류(micros) 목록을 품는다. storage = 보관 창고(없으면 대분류 기본: 장비 무기고,
+ * 식품 식량 창고, 나머지 일반), food = 식품·식재료(보관·거래 방식·신선도 권고가 본다), foodFamily = 식재료 계열(food일 때만)
  */
 export const itemSubcategoryEntrySchema = z
   .strictObject({
@@ -214,6 +245,8 @@ export const itemSubcategoryEntrySchema = z
     storage: z.enum(STORAGE_KINDS).optional(),
     food: z.boolean().optional(),
     foodFamily: z.enum(FOOD_FAMILIES).optional(),
+    /** 이 중분류에 속한 소분류(3단 분류) 목록 */
+    micros: z.array(itemMicrocategorySchema).max(ITEM_SCHEMA_LIMITS.microsMax).optional(),
     enabled,
   })
   .superRefine((entry, ctx) => {
@@ -225,6 +258,30 @@ export const itemSubcategoryEntrySchema = z
         "subcategory_food_family",
         "식재료 계열(foodFamily)은 식품·식재료 중분류(food: true)에만 씁니다.",
       );
+    if (Array.isArray(entry.micros)) {
+      const seen = new Set<string>();
+      entry.micros.forEach((micro, index) => {
+        if (typeof micro !== "object" || micro === null) return;
+        const id = Reflect.get(micro, "id");
+        if (typeof id === "string") {
+          if (seen.has(id))
+            fail(
+              ctx,
+              ["micros", index, "id"],
+              "microcategory_duplicate",
+              `소분류 ${id}가 이 중분류 안에 두 번 있습니다.`,
+            );
+          seen.add(id);
+        }
+        if (entry.major !== "equipment" && Reflect.get(micro, "slot") !== undefined)
+          fail(
+            ctx,
+            ["micros", index, "slot"],
+            "microcategory_slot_category",
+            "장착 칸(slot)은 장비(equipment) 대분류의 소분류에만 적습니다.",
+          );
+      });
+    }
   });
 export type ItemSubcategoryEntry = z.output<typeof itemSubcategoryEntrySchema>;
 

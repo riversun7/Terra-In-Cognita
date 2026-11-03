@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-04 08:15 | 아이템 3단 분류 체계(대분류·중분류·소분류) 통합, 결정·보석 합침·에너지 자원 원자재 이동, 타일 고르기 화면 | Antigravity | [04-0815-item-taxonomy](worklog/2026/11/04-0815-item-taxonomy.md) |
 | 2026-11-03 15:15 | main CI 빨강 고침: 구인 카드 개발 화면 조각을 미리 캐시에서 뺌 | Claude Code | [03-1515-pwa-recruit-chunk](worklog/2026/11/03-1515-pwa-recruit-chunk.md) |
 | 2026-11-03 14:30 | 인벤토리 화면: 사이보그·유닛 상세의 보유 물건(장착·해제·사용·쿨·교체 확인·개발 받기) | Claude Code | [03-1430-inventory-ui](worklog/2026/11/03-1430-inventory-ui.md) |
 | 2026-11-03 09:00 ~ 14:30 | 노동 계약(임금형·임대형): 규칙 한 벌·보증금 에스크로·서버 표·명령·조회·경제 화면 | Claude Code | [03-1400-labor-contracts](worklog/2026/11/03-1400-labor-contracts.md) |

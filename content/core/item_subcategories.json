@@ -7,7 +7,25 @@
         "en": "Ore"
       },
       "major": "raw",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "metal_ore",
+          "name": {
+            "ko": "금속 원석",
+            "en": "Metal ore"
+          },
+          "enabled": true
+        },
+        {
+          "id": "stone_mineral",
+          "name": {
+            "ko": "석재·비금속",
+            "en": "Stone & mineral"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "wood",
@@ -16,7 +34,25 @@
         "en": "Wood"
       },
       "major": "raw",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "softwood",
+          "name": {
+            "ko": "침엽수·일반목",
+            "en": "Softwood"
+          },
+          "enabled": true
+        },
+        {
+          "id": "hardwood",
+          "name": {
+            "ko": "활엽수·특수목",
+            "en": "Hardwood"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "crop",
@@ -28,7 +64,41 @@
       "storage": "food",
       "food": true,
       "foodFamily": "crop",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "grain",
+          "name": {
+            "ko": "곡물·씨앗",
+            "en": "Grain & seed"
+          },
+          "enabled": true
+        },
+        {
+          "id": "vegetable",
+          "name": {
+            "ko": "채소·구근",
+            "en": "Vegetable"
+          },
+          "enabled": true
+        },
+        {
+          "id": "fruit",
+          "name": {
+            "ko": "과일·열매",
+            "en": "Fruit"
+          },
+          "enabled": true
+        },
+        {
+          "id": "crop_mushroom",
+          "name": {
+            "ko": "식용 버섯",
+            "en": "Mushroom"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "herb",
@@ -40,7 +110,41 @@
       "storage": "food",
       "food": true,
       "foodFamily": "crop",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "medicinal_herb",
+          "name": {
+            "ko": "치유·보약초",
+            "en": "Medicinal herb"
+          },
+          "enabled": true
+        },
+        {
+          "id": "spice_herb",
+          "name": {
+            "ko": "향신 허브",
+            "en": "Spice herb"
+          },
+          "enabled": true
+        },
+        {
+          "id": "mystic_herb",
+          "name": {
+            "ko": "독초·영초",
+            "en": "Toxic & mystic herb"
+          },
+          "enabled": true
+        },
+        {
+          "id": "herb_mushroom",
+          "name": {
+            "ko": "약용 버섯",
+            "en": "Medicinal mushroom"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "fish",
@@ -52,7 +156,41 @@
       "storage": "food",
       "food": true,
       "foodFamily": "fishing",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "freshwater_fish",
+          "name": {
+            "ko": "담수어",
+            "en": "Freshwater fish"
+          },
+          "enabled": true
+        },
+        {
+          "id": "saltwater_fish",
+          "name": {
+            "ko": "해수어",
+            "en": "Saltwater fish"
+          },
+          "enabled": true
+        },
+        {
+          "id": "cephalopod",
+          "name": {
+            "ko": "두족류",
+            "en": "Cephalopod"
+          },
+          "enabled": true
+        },
+        {
+          "id": "apex_fish",
+          "name": {
+            "ko": "대형·심해어",
+            "en": "Apex & deep-sea"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "livestock_product",
@@ -64,7 +202,25 @@
       "storage": "food",
       "food": true,
       "foodFamily": "livestock",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "meat",
+          "name": {
+            "ko": "육류",
+            "en": "Meat"
+          },
+          "enabled": true
+        },
+        {
+          "id": "dairy_egg",
+          "name": {
+            "ko": "유제품·알·지방",
+            "en": "Dairy & eggs"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "livestock_byproduct",
@@ -73,7 +229,41 @@
         "en": "Livestock byproducts"
       },
       "major": "raw",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "hide_fur",
+          "name": {
+            "ko": "가죽·모피·비늘",
+            "en": "Hide & fur"
+          },
+          "enabled": true
+        },
+        {
+          "id": "bone_horn",
+          "name": {
+            "ko": "뿔·뼈·이빨",
+            "en": "Bone & horn"
+          },
+          "enabled": true
+        },
+        {
+          "id": "feather_wool",
+          "name": {
+            "ko": "깃털·양털",
+            "en": "Feather & wool"
+          },
+          "enabled": true
+        },
+        {
+          "id": "mystic_byproduct",
+          "name": {
+            "ko": "특수·마력 부산물",
+            "en": "Mystic byproduct"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "creature_material",
@@ -82,7 +272,53 @@
         "en": "Creature materials"
       },
       "major": "raw",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "gene_sample",
+          "name": {
+            "ko": "유전자·생체 표본",
+            "en": "Gene & sample"
+          },
+          "enabled": true
+        },
+        {
+          "id": "monster_core",
+          "name": {
+            "ko": "코어·정수",
+            "en": "Core & essence"
+          },
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "id": "energy_resource",
+      "name": {
+        "ko": "에너지 자원",
+        "en": "Energy resources"
+      },
+      "major": "raw",
+      "storage": "tank",
+      "enabled": true,
+      "micros": [
+        {
+          "id": "crude_fuel",
+          "name": {
+            "ko": "원유·화석 연료",
+            "en": "Crude & fossil"
+          },
+          "enabled": true
+        },
+        {
+          "id": "energy_mineral",
+          "name": {
+            "ko": "에너지 광물·가스",
+            "en": "Energy mineral & gas"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "metal",
@@ -91,7 +327,25 @@
         "en": "Metal"
       },
       "major": "processed",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "ingot",
+          "name": {
+            "ko": "괴",
+            "en": "Ingot"
+          },
+          "enabled": true
+        },
+        {
+          "id": "alloy",
+          "name": {
+            "ko": "합금",
+            "en": "Alloy"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "lumber",
@@ -100,7 +354,25 @@
         "en": "Lumber"
       },
       "major": "processed",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "plank_board",
+          "name": {
+            "ko": "판재",
+            "en": "Plank"
+          },
+          "enabled": true
+        },
+        {
+          "id": "plywood",
+          "name": {
+            "ko": "합판·가공목",
+            "en": "Plywood"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "textile",
@@ -109,7 +381,25 @@
         "en": "Textiles"
       },
       "major": "processed",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "cloth",
+          "name": {
+            "ko": "천·직물",
+            "en": "Cloth"
+          },
+          "enabled": true
+        },
+        {
+          "id": "synthetic_fiber",
+          "name": {
+            "ko": "합성 섬유",
+            "en": "Synthetic fiber"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "leather",
@@ -118,7 +408,25 @@
         "en": "Leather"
       },
       "major": "processed",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "tanned_leather",
+          "name": {
+            "ko": "무두 가죽",
+            "en": "Tanned leather"
+          },
+          "enabled": true
+        },
+        {
+          "id": "reinforced_leather",
+          "name": {
+            "ko": "강화 피혁",
+            "en": "Reinforced leather"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "chemical",
@@ -127,7 +435,25 @@
         "en": "Chemicals"
       },
       "major": "processed",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "compound",
+          "name": {
+            "ko": "화합물·수지",
+            "en": "Compound"
+          },
+          "enabled": true
+        },
+        {
+          "id": "refined_fuel",
+          "name": {
+            "ko": "정제 연료·오일",
+            "en": "Refined fuel & oil"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "circuit",
@@ -136,7 +462,25 @@
         "en": "Circuits"
       },
       "major": "part",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "pcb",
+          "name": {
+            "ko": "회로 기판",
+            "en": "Circuit board"
+          },
+          "enabled": true
+        },
+        {
+          "id": "chip_sensor",
+          "name": {
+            "ko": "칩·센서",
+            "en": "Chip & sensor"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "machine_part",
@@ -145,7 +489,33 @@
         "en": "Machine parts"
       },
       "major": "part",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "actuator",
+          "name": {
+            "ko": "구동부·모터",
+            "en": "Actuator"
+          },
+          "enabled": true
+        },
+        {
+          "id": "frame_casing",
+          "name": {
+            "ko": "외장·프레임",
+            "en": "Frame & casing"
+          },
+          "enabled": true
+        },
+        {
+          "id": "battery_cell",
+          "name": {
+            "ko": "배터리·동력원",
+            "en": "Battery & cell"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "reagent",
@@ -154,7 +524,25 @@
         "en": "Reagents"
       },
       "major": "part",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "catalyst",
+          "name": {
+            "ko": "촉매",
+            "en": "Catalyst"
+          },
+          "enabled": true
+        },
+        {
+          "id": "extract",
+          "name": {
+            "ko": "추출액·용매",
+            "en": "Extract"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "weapon",
@@ -164,7 +552,108 @@
       },
       "major": "equipment",
       "storage": "armory",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "blade",
+          "name": {
+            "ko": "검·도",
+            "en": "Blade"
+          },
+          "slot": "weapon",
+          "enabled": true
+        },
+        {
+          "id": "greatsword",
+          "name": {
+            "ko": "대검",
+            "en": "Greatsword"
+          },
+          "slot": "weapon",
+          "enabled": true
+        },
+        {
+          "id": "blunt",
+          "name": {
+            "ko": "둔기",
+            "en": "Blunt weapon"
+          },
+          "slot": "weapon",
+          "enabled": true
+        },
+        {
+          "id": "spear",
+          "name": {
+            "ko": "창",
+            "en": "Spear"
+          },
+          "slot": "weapon",
+          "enabled": true
+        },
+        {
+          "id": "axe",
+          "name": {
+            "ko": "도끼",
+            "en": "Axe"
+          },
+          "slot": "weapon",
+          "enabled": true
+        },
+        {
+          "id": "bow",
+          "name": {
+            "ko": "활",
+            "en": "Bow"
+          },
+          "slot": "weapon",
+          "enabled": true
+        },
+        {
+          "id": "crossbow",
+          "name": {
+            "ko": "석궁",
+            "en": "Crossbow"
+          },
+          "slot": "weapon",
+          "enabled": true
+        },
+        {
+          "id": "gun",
+          "name": {
+            "ko": "총",
+            "en": "Gun"
+          },
+          "slot": "weapon",
+          "enabled": true
+        },
+        {
+          "id": "staff",
+          "name": {
+            "ko": "지팡이",
+            "en": "Staff"
+          },
+          "slot": "weapon",
+          "enabled": true
+        },
+        {
+          "id": "wand",
+          "name": {
+            "ko": "완드",
+            "en": "Wand"
+          },
+          "slot": "weapon",
+          "enabled": true
+        },
+        {
+          "id": "fist",
+          "name": {
+            "ko": "권갑",
+            "en": "Fist weapon"
+          },
+          "slot": "weapon",
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "offhand_weapon",
@@ -174,7 +663,38 @@
       },
       "major": "equipment",
       "storage": "armory",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "shield",
+          "name": {
+            "ko": "방패",
+            "en": "Shield"
+          },
+          "slot": "offhand",
+          "enabled": true
+        },
+        {
+          "id": "quiver",
+          "name": {
+            "ko": "화살통",
+            "en": "Quiver"
+          },
+          "slot": "offhand",
+          "ammo": true,
+          "enabled": true
+        },
+        {
+          "id": "magazine",
+          "name": {
+            "ko": "탄창",
+            "en": "Magazine"
+          },
+          "slot": "offhand",
+          "ammo": true,
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "armor",
@@ -184,7 +704,27 @@
       },
       "major": "equipment",
       "storage": "armory",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "head",
+          "name": {
+            "ko": "머리·투구",
+            "en": "Headgear"
+          },
+          "slot": "head",
+          "enabled": true
+        },
+        {
+          "id": "body",
+          "name": {
+            "ko": "몸·갑옷",
+            "en": "Body armor"
+          },
+          "slot": "body",
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "accessory",
@@ -194,7 +734,27 @@
       },
       "major": "equipment",
       "storage": "armory",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "ring",
+          "name": {
+            "ko": "반지",
+            "en": "Ring"
+          },
+          "slot": "accessory",
+          "enabled": true
+        },
+        {
+          "id": "necklace",
+          "name": {
+            "ko": "목걸이",
+            "en": "Necklace"
+          },
+          "slot": "accessory",
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "implant",
@@ -204,7 +764,36 @@
       },
       "major": "equipment",
       "storage": "armory",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "organ",
+          "name": {
+            "ko": "인공장기",
+            "en": "Cybernetic organ"
+          },
+          "slot": "organ",
+          "enabled": true
+        },
+        {
+          "id": "part",
+          "name": {
+            "ko": "안드로이드 부품",
+            "en": "Android part"
+          },
+          "slot": "part",
+          "enabled": true
+        },
+        {
+          "id": "saddle",
+          "name": {
+            "ko": "크리쳐 안장",
+            "en": "Creature saddle"
+          },
+          "slot": "saddle",
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "dish",
@@ -215,7 +804,41 @@
       "major": "consumable",
       "storage": "food",
       "food": true,
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "ration_meal",
+          "name": {
+            "ko": "배급·주식",
+            "en": "Ration & staple"
+          },
+          "enabled": true
+        },
+        {
+          "id": "combat_meal",
+          "name": {
+            "ko": "전투 요리",
+            "en": "Combat dish"
+          },
+          "enabled": true
+        },
+        {
+          "id": "defense_meal",
+          "name": {
+            "ko": "방어 요리",
+            "en": "Defense dish"
+          },
+          "enabled": true
+        },
+        {
+          "id": "remedy_meal",
+          "name": {
+            "ko": "치유·특식",
+            "en": "Remedy & special dish"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "drink",
@@ -226,7 +849,25 @@
       "major": "consumable",
       "storage": "food",
       "food": true,
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "tea_coffee",
+          "name": {
+            "ko": "차·커피",
+            "en": "Tea & coffee"
+          },
+          "enabled": true
+        },
+        {
+          "id": "tonic_drink",
+          "name": {
+            "ko": "기능성 음료",
+            "en": "Tonic drink"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "medicine",
@@ -235,7 +876,33 @@
         "en": "Medicine"
       },
       "major": "consumable",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "hp_medicine",
+          "name": {
+            "ko": "체력 회복제",
+            "en": "HP recovery"
+          },
+          "enabled": true
+        },
+        {
+          "id": "mp_medicine",
+          "name": {
+            "ko": "마나 회복제",
+            "en": "MP recovery"
+          },
+          "enabled": true
+        },
+        {
+          "id": "antidote_cure",
+          "name": {
+            "ko": "해독·치료제",
+            "en": "Antidote & cure"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "buff_item",
@@ -244,7 +911,25 @@
         "en": "Buff items"
       },
       "major": "consumable",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "combat_stim",
+          "name": {
+            "ko": "전투 자극제",
+            "en": "Combat stimulant"
+          },
+          "enabled": true
+        },
+        {
+          "id": "utility_serum",
+          "name": {
+            "ko": "보조·생활용품",
+            "en": "Utility & supply"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "gem_stone",
@@ -253,7 +938,33 @@
         "en": "Gems"
       },
       "major": "gem",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "stat_gem",
+          "name": {
+            "ko": "능력치 보석",
+            "en": "Stat gem"
+          },
+          "enabled": true
+        },
+        {
+          "id": "element_gem",
+          "name": {
+            "ko": "속성 결정",
+            "en": "Elemental crystal"
+          },
+          "enabled": true
+        },
+        {
+          "id": "skill_stone",
+          "name": {
+            "ko": "스킬석",
+            "en": "Skill stone"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "building_material",
@@ -262,7 +973,25 @@
         "en": "Building materials"
       },
       "major": "construction",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "masonry",
+          "name": {
+            "ko": "벽돌·석재 자재",
+            "en": "Masonry"
+          },
+          "enabled": true
+        },
+        {
+          "id": "structural_frame",
+          "name": {
+            "ko": "철골·구조재",
+            "en": "Structural frame"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "furniture",
@@ -271,7 +1000,33 @@
         "en": "Furniture"
       },
       "major": "construction",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "bedding",
+          "name": {
+            "ko": "침구·휴식",
+            "en": "Bedding"
+          },
+          "enabled": true
+        },
+        {
+          "id": "storage_box",
+          "name": {
+            "ko": "보관함",
+            "en": "Storage"
+          },
+          "enabled": true
+        },
+        {
+          "id": "decor",
+          "name": {
+            "ko": "장식·조명",
+            "en": "Decor"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "facility_module",
@@ -280,7 +1035,25 @@
         "en": "Facility modules"
       },
       "major": "construction",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "production_module",
+          "name": {
+            "ko": "생산 설비",
+            "en": "Production"
+          },
+          "enabled": true
+        },
+        {
+          "id": "utility_module",
+          "name": {
+            "ko": "발전·의료·수리",
+            "en": "Utility & medical"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "defense_structure",
@@ -289,7 +1062,25 @@
         "en": "Defenses"
       },
       "major": "construction",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "turret",
+          "name": {
+            "ko": "포탑",
+            "en": "Turret"
+          },
+          "enabled": true
+        },
+        {
+          "id": "barrier_trap",
+          "name": {
+            "ko": "방벽·함정",
+            "en": "Barrier & trap"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "blueprint",
@@ -298,7 +1089,25 @@
         "en": "Blueprints"
       },
       "major": "document",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "equip_blueprint",
+          "name": {
+            "ko": "장비 설계도",
+            "en": "Equipment blueprint"
+          },
+          "enabled": true
+        },
+        {
+          "id": "facility_blueprint",
+          "name": {
+            "ko": "시설·건물 설계도",
+            "en": "Facility blueprint"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "recipe_book",
@@ -307,7 +1116,25 @@
         "en": "Recipes"
       },
       "major": "document",
-      "enabled": true
+      "enabled": true,
+      "micros": [
+        {
+          "id": "cooking_recipe",
+          "name": {
+            "ko": "요리 비법서",
+            "en": "Cooking recipe"
+          },
+          "enabled": true
+        },
+        {
+          "id": "craft_recipe",
+          "name": {
+            "ko": "가공·연금 도면",
+            "en": "Crafting recipe"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "gold",
@@ -315,8 +1142,18 @@
         "ko": "금",
         "en": "Gold"
       },
-      "major": "precious",
-      "enabled": true
+      "major": "gem",
+      "enabled": true,
+      "micros": [
+        {
+          "id": "gold_bullion",
+          "name": {
+            "ko": "금 세공·괴",
+            "en": "Gold bullion"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "silver",
@@ -324,8 +1161,18 @@
         "ko": "은",
         "en": "Silver"
       },
-      "major": "precious",
-      "enabled": true
+      "major": "gem",
+      "enabled": true,
+      "micros": [
+        {
+          "id": "silver_bullion",
+          "name": {
+            "ko": "은 세공·괴",
+            "en": "Silver bullion"
+          },
+          "enabled": true
+        }
+      ]
     },
     {
       "id": "diamond",
@@ -333,18 +1180,26 @@
         "ko": "다이아몬드",
         "en": "Diamond"
       },
-      "major": "precious",
-      "enabled": true
-    },
-    {
-      "id": "energy_resource",
-      "name": {
-        "ko": "에너지 자원",
-        "en": "Energy resources"
-      },
-      "major": "precious",
-      "storage": "tank",
-      "enabled": true
+      "major": "gem",
+      "enabled": true,
+      "micros": [
+        {
+          "id": "rough_diamond",
+          "name": {
+            "ko": "원석 다이아몬드",
+            "en": "Rough diamond"
+          },
+          "enabled": true
+        },
+        {
+          "id": "cut_diamond",
+          "name": {
+            "ko": "세공 다이아몬드",
+            "en": "Cut diamond"
+          },
+          "enabled": true
+        }
+      ]
     }
   ]
 }

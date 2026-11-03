@@ -10,13 +10,12 @@ import {
   type ItemEditorListResponse,
   type ItemEquipJson,
 } from "@terra/shared/itemEditor";
-import { EQUIP_SLOTS, type ElementCode, type EquipSlot } from "@terra/shared/roster";
+import type { ElementCode } from "@terra/shared/roster";
 import { m } from "../../paraglide/messages.js";
 import { AppLink } from "../../shell/AppLink.tsx";
 import { CheckField, NumberField, RemoveButton, SelectField } from "../content/contentEditorFields.tsx";
 import { fieldHint } from "./ItemForm.tsx";
 import { PRIMARY_TEXT, SLOT_TEXT, elementName } from "./itemMessages.ts";
-import { withSlot } from "./itemModel.ts";
 
 const replaceAt = <T,>(list: readonly T[], index: number, item: T): T[] =>
   list.map((entry, i) => (i === index ? item : entry));
@@ -49,7 +48,6 @@ export function ItemEquipFields({
         }));
   const firstStat = statOptions[0]?.value ?? "str";
   const types = list.weaponTypes.filter((row) => row.entry.slot === equip.slot);
-  const typed = equip.slot === "weapon" || equip.slot === "offhand";
   // 탄약 장비(보조 칸 탄약 종류, D-497): 최대 내구도 = 담는 탄 수
   const ammo = types.some((row) => row.entry.id === equip.weaponType && row.entry.ammo === true);
   const elements = equip.elements ?? [];
@@ -71,29 +69,11 @@ export function ItemEquipFields({
   };
   return (
     <>
+      <p className="field-hint">{m.dev_items_equip_from_class({ slot: SLOT_TEXT[equip.slot]() })}</p>
+      {(problem("equip.slot") ?? problem("equip.weaponType")) ? (
+        <p className="field-error ce-problem">{problem("equip.slot") ?? problem("equip.weaponType")}</p>
+      ) : null}
       <div className="ie-grid">
-        <SelectField
-          label={m.dev_items_field_slot()}
-          value={equip.slot}
-          options={EQUIP_SLOTS.map((slot) => ({ value: slot, label: SLOT_TEXT[slot]() }))}
-          problem={problem("equip.slot")}
-          onChange={(slot: EquipSlot) => onChange(withSlot(equip, slot))}
-        />
-        {typed ? (
-          <SelectField
-            label={m.dev_items_field_weapon_type()}
-            value={equip.weaponType ?? ""}
-            options={[
-              { value: "", label: m.dev_items_none() },
-              ...types.map((row) => ({ value: row.entry.id, label: row.entry.name[locale] })),
-            ]}
-            problem={problem("equip.weaponType")}
-            onChange={(value) => {
-              const { weaponType: _drop, ...rest } = equip;
-              onChange(value === "" ? rest : { ...rest, weaponType: value });
-            }}
-          />
-        ) : null}
         <NumberField
           label={ammo ? m.dev_items_field_ammo_capacity() : m.dev_items_field_durability()}
           value={equip.maxDurability}

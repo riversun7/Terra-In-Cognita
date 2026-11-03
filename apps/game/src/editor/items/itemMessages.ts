@@ -28,7 +28,6 @@ export const CATEGORY_TEXT: Readonly<Record<ItemCategoryId, Text>> = {
   gem: m.economy_cat_gem,
   construction: m.economy_cat_construction,
   document: m.economy_cat_document,
-  precious: m.economy_cat_precious,
 };
 
 export const SLOT_TEXT: Readonly<Record<EquipSlot, Text>> = {
@@ -178,6 +177,10 @@ const ISSUE_TEXT: Readonly<Record<string, (params: Params) => string>> = {
   item_bound_tradable: () => m.dev_items_issue_bound_tradable(),
   item_tag_duplicate: () => m.dev_items_issue_tag_duplicate(),
   item_subcategory_major: () => m.dev_items_issue_subcategory_major(),
+  item_microcategory_missing: (p) => m.dev_items_issue_microcategory_missing({ id: num(p, "id") }),
+  item_microcategory_orphan: () => m.dev_items_issue_microcategory_orphan(),
+  subcategory_micro_duplicate: () => m.dev_items_issue_microcategory_duplicate(),
+  subcategory_micro_slot: () => m.dev_items_issue_microcategory_slot(),
   item_weapon_type_slot: () => m.dev_items_issue_weapon_type_slot(),
   equip_weapon_type_slot: () => m.dev_items_issue_weapon_type_slot(),
   item_ammo_type: () => m.dev_items_issue_ammo_type(),

@@ -3,17 +3,7 @@
 // 한 프레임: 목표점 높이 맞추기 → 카메라 → 유닛 위치(서버 시계로 보간) → 표현 단계(실제 크기/아이콘) → 빛 → 그리기.
 // 유닛이 가는 중이거나 카메라가 움직이면 다음 프레임을 예약하고, 아니면 멈춘다(FrameScheduler).
 // 낮밤(lighting/): 1차맵과 같은 하늘 모드·달력으로 그 2차맵 자리의 빛을 1초마다 계산하고, 눈에 띄게 바뀔 때만 한 번 그린다.
-import {
-  Color,
-  DirectionalLight,
-  Frustum,
-  HemisphereLight,
-  Matrix4,
-  PerspectiveCamera,
-  Scene,
-  Vector3,
-  type WebGLRenderer,
-} from "three";
+import { Frustum, Matrix4, PerspectiveCamera, Scene, type WebGLRenderer } from "three";
 import type { BuildingFootprint } from "./buildings/footprint.ts";
 import { BuildingView } from "./buildings/buildingView.ts";
 import {
@@ -32,7 +22,7 @@ import {
   spanForDistance,
 } from "./camera/cameraMath.ts";
 import { attachControls } from "./camera/controls.ts";
-import { inertEngine, lightStats } from "./engineParts.ts";
+import { inertEngine } from "./engineParts.ts";
 import type {
   EngineStats,
   EngineStatus,
@@ -41,14 +31,9 @@ import type {
   UnitSpawn,
   UnitState,
 } from "./engineTypes.ts";
-import {
-  type SecondMapLight,
-  UNIT_NIGHT_LIFT,
-  nightAmount,
-  secondMapPlace,
-} from "./lighting/secondMapLight.ts";
-import { SKY_TICK_MS, SecondMapSky } from "./lighting/secondMapSky.ts";
-import { pickNearest, rayHitsTerrain } from "./picking.ts";
+import { SceneLight } from "./lighting/sceneLight.ts";
+import { secondMapPlace } from "./lighting/secondMapLight.ts";
+import { rayHitsTerrain } from "./picking.ts";
 import { FrameScheduler } from "./render/frameScheduler.ts";
 import { RenderTimer } from "./render/renderStats.ts";
 import { EngineLayers, createLayerView } from "./render/engineLayers.ts";
@@ -65,7 +50,8 @@ import {
 import { type NeighbourTerrain, NeighbourTerrains } from "./terrain/neighbourTerrains.ts";
 import { TerrainView } from "./terrain/terrainView.ts";
 import { type PropSource, PropView } from "./props/propView.ts";
-import { type UnitPath, UnitMotionStore } from "./units/unitMotion.ts";
+import type { UnitPath } from "./units/unitMotion.ts";
+import { UnitRoster } from "./units/unitRoster.ts";
 import { UnitView } from "./units/unitView.ts";
 
 /** 지형이 오기 전 2차맵 크기(평균 칸 11.7m) */
@@ -75,8 +61,6 @@ const REFERENCE_UNIT_HEIGHT_M = 1.8;
 const DEFAULT_ICON_THRESHOLD_PX = 8;
 /** 아이콘 → 실제 크기로 돌아갈 때는 조금 더 커져야 한다(경계에서 깜박이지 않게) */
 const ICON_HYSTERESIS = 1.15;
-/** 누르는 반경(CSS px) — 누름 영역 44px의 반 */
-const TAP_RADIUS_PX = 22;
 /** 목표점 높이를 땅에 맞추는 빠르기(ms, 지수 감쇠 시간) */
 const TARGET_Y_SMOOTH_MS = 120;
 const DEFAULT_UNIT_CAPACITY = 2048;
@@ -108,18 +92,17 @@ export function createSecondMapEngine(
   canvas.style.height = "100%";
   container.append(canvas);
 
-  // 하늘(2차맵 밖) 색과 빛은 낮밤 빛(applyLight)이 정한다 — 세계 색은 화면 테마와 상관없다(D-070)
   const scene = new Scene();
-  const background = new Color();
-  scene.background = background;
   const camera = new PerspectiveCamera((CAMERA_FOV_RAD * 180) / Math.PI, 1, 1, 10_000);
-  // 빛 수는 늘 둘이다(반구 하나 + 방향 하나: 낮에는 항성, 밤에는 달) — 바뀌지 않아 셰이더를 다시 만들지 않는다
-  const hemisphere = new HemisphereLight();
-  const sun = new DirectionalLight();
-  scene.add(hemisphere, sun);
-  const sky = new SecondMapSky(
+  // 하늘(2차맵 밖) 색과 빛 둘은 낮밤 빛 장치가 정한다(lighting/sceneLight.ts). 유닛 밤 빛과 다시 그리기는 엔진에 부탁한다
+  const sceneLight = new SceneLight(
+    scene,
     options.mapKey === undefined ? null : secondMapPlace(options.mapKey),
     options.sky ?? { kind: "off" },
+    {
+      setNightLift: (lift) => unitView.setNightLift(lift),
+      redraw: () => scheduler.request(),
+    },
   );
 
   const terrainView = new TerrainView();
@@ -128,9 +111,8 @@ export function createSecondMapEngine(
   scene.add(terrainView.group, buildingView.group, unitView.group);
   // 땅이 오기 전에는 유닛을 그리지 않는다(허공에 뜬 유닛이 잠깐 보이지 않게)
   unitView.group.visible = false;
-  const motion = new UnitMotionStore(capacity);
-  const slots = new Map<number, number>();
-  let ids: number[] = [];
+  const roster = new UnitRoster(unitView, capacity, serverNow);
+  const motion = roster.motion;
 
   let terrain: TerrainInput | null = null;
   let terrainVersion = 0;
@@ -144,7 +126,6 @@ export function createSecondMapEngine(
   let state: CameraState = initialCamera(mapSize, limits);
   let cameraPlaced = false;
   let gestureActive = false;
-  let selectedSlot = -1;
   let moving = 0;
   let pixelRatio = 1;
   let contextLost = false;
@@ -153,13 +134,8 @@ export function createSecondMapEngine(
   let terrainSource: "worker" | "main" | null = null;
   const timer = new RenderTimer();
   const builder = createTerrainBuilder();
-  const projected = new Vector3();
   const frustum = new Frustum();
   const viewProjection = new Matrix4();
-  const screenX = new Float32Array(capacity);
-  const screenY = new Float32Array(capacity);
-  const onScreen = new Uint8Array(capacity);
-  const pickExtra = new Float32Array(capacity);
 
   const neighbours = new NeighbourTerrains(builder);
   const propView = new PropView();
@@ -192,18 +168,6 @@ export function createSecondMapEngine(
     const base = cameraLimitsFor(mapSize, viewport);
     const bounds = neighbours.bounds(mapSize);
     return { ...base, ...bounds };
-  };
-
-  // 빛을 three 빛·하늘 색·유닛 밤 빛에 넣는다(숫자 몇 개라 프레임마다 넣어도 싸다)
-  const applyLight = (light: SecondMapLight): void => {
-    hemisphere.color.setRGB(...light.hemisphereSky);
-    hemisphere.groundColor.setRGB(...light.hemisphereGround);
-    hemisphere.intensity = light.hemisphereIntensity;
-    sun.color.setRGB(...light.directColor);
-    sun.intensity = light.directIntensity;
-    sun.position.set(...light.direction);
-    background.setRGB(...light.background);
-    unitView.setNightLift(UNIT_NIGHT_LIFT * nightAmount(light));
   };
 
   const applyCamera = (): void => {
@@ -259,12 +223,11 @@ export function createSecondMapEngine(
       lastView = view;
       options.onView?.(state);
     }
-    const blending = sky.frame(performance.now());
-    applyLight(sky.light);
+    const blending = sceneLight.frame(performance.now());
     moving = motion.update(serverNow());
     const ppm = pixelsPerMetre(state.distance, viewport);
     chooseUnitMode(ppm);
-    unitView.update(motion.x, motion.y, cellM, groundAt, frustum, selectedSlot, ppm);
+    unitView.update(motion.x, motion.y, cellM, groundAt, frustum, roster.selectedSlot, ppm);
     layers.after(layerView);
     renderer.render(scene, camera);
     const info = renderer.info.render;
@@ -275,21 +238,7 @@ export function createSecondMapEngine(
   const scheduler = new FrameScheduler(frame);
 
   // 하늘 시계: 시계 모드면 1초마다 빛을 다시 계산하고, 눈에 띄게 바뀌었을 때만 그린다(숨긴 탭에서는 쉰다)
-  let skyTimer: ReturnType<typeof setInterval> | null = null;
-  const skyTick = (): void => {
-    if (document.visibilityState === "hidden") return;
-    if (sky.tick(performance.now())) scheduler.request();
-  };
-  const syncSkyTimer = (): void => {
-    if (sky.ticking && skyTimer === null) skyTimer = setInterval(skyTick, SKY_TICK_MS);
-    if (!sky.ticking && skyTimer !== null) {
-      clearInterval(skyTimer);
-      skyTimer = null;
-    }
-  };
-  sky.tick(performance.now());
-  applyLight(sky.light);
-  syncSkyTimer();
+  sceneLight.start(performance.now());
 
   const resize = (): void => {
     const rect = container.getBoundingClientRect();
@@ -311,26 +260,7 @@ export function createSecondMapEngine(
     scheduler.request();
   };
 
-  // 누른 곳: 유닛(화면 거리) → 없으면 땅
-  const pickUnit = (point: ScreenPoint): number => {
-    const n = motion.size;
-    const ppm = pixelsPerMetre(state.distance, viewport);
-    const model = unitView.mode === "model";
-    for (let slot = 0; slot < n; slot++) {
-      const wx = (motion.x[slot] ?? 0) * cellM;
-      const wz = (motion.y[slot] ?? 0) * cellM;
-      const height = unitView.heightOf(slot);
-      projected.set(wx, groundAt(wx, wz) + height / 2, wz).project(camera);
-      const visible = projected.z > -1 && projected.z < 1;
-      onScreen[slot] = visible ? 1 : 0;
-      screenX[slot] = ((projected.x + 1) / 2) * viewport.width;
-      screenY[slot] = ((1 - projected.y) / 2) * viewport.height;
-      // 실제 크기로 크게 보이는 유닛은 몸 전체를 누를 수 있게 반경을 늘린다
-      pickExtra[slot] = model ? (height * ppm * Math.cos(state.pitch)) / 2 : 0;
-    }
-    return pickNearest(screenX, screenY, onScreen, n, point, TAP_RADIUS_PX, pickExtra);
-  };
-
+  // 누른 곳: 유닛(화면 거리, units/unitRoster.ts) → 없으면 땅
   const pickGround = (point: ScreenPoint): { x: number; z: number } | null => {
     if (!terrain) return null;
     const ray = screenRay(state, viewport, point);
@@ -356,11 +286,11 @@ export function createSecondMapEngine(
       if (!active) scheduler.request();
     },
     onTap: (point) => {
-      const slot = pickUnit(point);
+      const slot = roster.pick(point, { camera, state, viewport, cellM, groundAt });
       if (slot >= 0) {
-        selectedSlot = slot;
+        roster.selectedSlot = slot;
         scheduler.request();
-        options.onSelect?.(ids[slot] ?? null);
+        options.onSelect?.(roster.idAt(slot));
         return;
       }
       const ground = pickGround(point);
@@ -385,12 +315,10 @@ export function createSecondMapEngine(
   // 숨겨졌다 돌아오면 유닛이 그동안 움직였으니 한 번은 그린다
   const onVisibility = (): void => {
     if (document.visibilityState !== "visible") return;
-    sky.tick(performance.now());
+    sceneLight.wake(performance.now());
     scheduler.request();
   };
   document.addEventListener("visibilitychange", onVisibility);
-
-  const slotOf = (id: number): number => slots.get(id) ?? -1;
 
   emit({ kind: "loading" });
 
@@ -459,46 +387,20 @@ export function createSecondMapEngine(
     },
 
     setUnits(units: readonly UnitSpawn[]) {
-      if (units.length > capacity) throw new RangeError(`too many units: ${units.length} > ${capacity}`);
-      slots.clear();
-      ids = units.map((unit) => unit.id);
-      motion.resize(units.length);
-      unitView.setCount(units.length);
-      const now = serverNow();
-      units.forEach((unit, slot) => {
-        slots.set(unit.id, slot);
-        unitView.setLook(slot, unit.look);
-        motion.setPath(slot, { points: [unit.x, unit.y], departAtMs: now, speedCellsPerSec: 0 });
-      });
-      selectedSlot = -1;
+      roster.set(units);
       scheduler.request();
     },
 
     setUnitPath(id: number, path: UnitPath) {
-      const slot = slotOf(id);
-      if (slot < 0) return;
-      motion.setPath(slot, path);
-      scheduler.request();
+      if (roster.setPath(id, path)) scheduler.request();
     },
 
     stopUnit(id: number) {
-      const slot = slotOf(id);
-      if (slot < 0) return;
-      const now = serverNow();
-      motion.compute(slot, now);
-      motion.setPath(slot, {
-        points: [motion.x[slot] ?? 0, motion.y[slot] ?? 0],
-        departAtMs: now,
-        speedCellsPerSec: 0,
-      });
-      scheduler.request();
+      if (roster.stop(id)) scheduler.request();
     },
 
     unitState(id: number): UnitState | null {
-      const slot = slotOf(id);
-      if (slot < 0) return null;
-      const isMoving = motion.compute(slot, serverNow());
-      return { x: motion.x[slot] ?? 0, y: motion.y[slot] ?? 0, moving: isMoving };
+      return roster.state(id);
     },
 
     setExplored(bits) {
@@ -515,12 +417,12 @@ export function createSecondMapEngine(
     },
 
     select(id) {
-      selectedSlot = id === null ? -1 : slotOf(id);
+      roster.select(id);
       scheduler.request();
     },
 
     selected() {
-      return selectedSlot >= 0 ? (ids[selectedSlot] ?? null) : null;
+      return roster.selectedId();
     },
 
     stats(): EngineStats {
@@ -545,7 +447,7 @@ export function createSecondMapEngine(
         terrainBuildMs,
         terrainSource,
         contextLost,
-        light: lightStats(sky),
+        light: sceneLight.stats(),
         neighbours: neighbours.count,
         props: propView.drawn,
         propSpanM: propView.limits.spanM,
@@ -559,8 +461,7 @@ export function createSecondMapEngine(
     },
 
     setSky(mode) {
-      if (sky.setMode(mode, performance.now())) scheduler.request();
-      syncSkyTimer();
+      sceneLight.setMode(mode, performance.now());
     },
 
     setViewOptions(view) {
@@ -588,10 +489,7 @@ export function createSecondMapEngine(
     },
 
     setUnitLook(id, look) {
-      const slot = slotOf(id);
-      if (slot < 0) return;
-      unitView.setLook(slot, look);
-      scheduler.request();
+      if (roster.setLook(id, look)) scheduler.request();
     },
 
     setView(view) {
@@ -605,7 +503,7 @@ export function createSecondMapEngine(
       disposed = true;
       layers.clear();
       scheduler.stop();
-      if (skyTimer !== null) clearInterval(skyTimer);
+      sceneLight.dispose();
       detachControls();
       resizeObserver?.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
@@ -617,8 +515,6 @@ export function createSecondMapEngine(
       terrainView.dispose();
       buildingView.dispose();
       unitView.dispose();
-      hemisphere.dispose();
-      sun.dispose();
       scene.clear();
       releaseRenderer(owner);
     },

@@ -380,7 +380,7 @@
 - 밸런스 화면 대결(`runStatDuels`)에는 레벨 칸이 없어 맨손 적정이 늘 Lv 1(11.5)이다. 맨손 기준 유닛의 레벨별 비교는 전투 실험실(레벨이 있음)에서 본다.
 - 시뮬 정원사 웨이브·NPC 유닛의 무기 적정은 팩 [임시] 값을 그대로 쓴다. 크리쳐 종별 적정은 크리쳐 생성 에디터(D-5024) 몫.
 
-## 바뀜 (2026-11-03, 274 스태미나 적정 스탯 개념 — D-511, SIM_VERSION 10)
+## 바뀜 (2026-11-03, 274 스태미나 적정 스탯 개념 — D-511, SIM_VERSION 11)
 - 까닭: 새 사이보그(1차 모두 10)끼리 대결이 10분 안에 끝나지 않았다(기본 공격 한 번 80 = 기본 10 × 적정 STA 80 ÷ 점수 10, 회복 분당 22). 질문 274를 사용자에게 직접 물었고 답은 D-511이다(`docs/questions/2026-11-03-stamina-274.md`, 기획 미러 `f530fbd` 48 §4.1·결정 로그 D-511): 값은 개발자 페이지에서 맞추고, 일반 공격은 계속 이어지게 하고(초당 회복을 올리거나 소모를 줄임), 소모·회복은 **적정 스탯 개념**(적정 STA 점수 = 레벨에 따라 오르는 계산식 칸, 맨손 적정과 같은 틀)으로 센다. 측정 기준은 `docs/research/2026-11-03-gardener-stamina-measure.md` 4장. 1절의 "스태미나·MP는 틱마다 …", "바뀜 (D-457~D-459)" 3·4절의 스태미나 회복 행(AGI 1575·VIT 675 = "STA 점수 80에서 초당 3")과 N13 적정 80(설정 칸 `n13_appropriate`)이 이 절로 바뀐다. 작업 기록 `docs/worklog/2026/11/03-1330-stamina.md`.
 
 ### 1. 식 (`formulas.ts`·`unitSpec.ts`·`coefficients.ts`, 팩 `formulas`·`stat_rows`·`tuning`)
@@ -392,7 +392,7 @@
 
 - 출발 식의 근거(적정 = 보통 유닛의 STA 점수): 1차 성장 = 처음 × (1 + 성장률 × K × (레벨 − 1))(D-417), 성장률 = 설정 칸 N5 100‰, K = 1(사이보그 K는 0.8~1.2 무작위), 처음 = 새 사이보그 평균 10(N9 합 60 ÷ 6). 그래서 보통 유닛의 1차는 모두 10 × (1 + 0.1 × (레벨 − 1)) = 레벨 + 9이고, STA 점수(AGI × 0.7 + VIT × 0.3, 가중치 합 1)도 같은 값이다. 보통 유닛은 어느 레벨이든 소모 배율 = 회복 배율 = 1이다(sim `formulaParity.test.ts`가 Lv 1~200에서 `primaryAtLevel`로 본다). 레벨에 견준 1차가 보통보다 낮으면(STA 점수 ÷ 적정 < 1) 소모가 늘고 회복이 준다. 맨손 적정(`bare_appropriate` 레벨 × 1.5 + 10)은 옛 규칙이라 이 식과 기울기가 다르다(따로 맞춘다).
 - 판정: 사양(`CombatUnitSpec`)에 `staminaAppropriateMilli`(유닛 레벨로 한 번 셈)를 더했다. 기본 공격·스킬 소모는 `specStaminaCostMilli(유닛, 기본 소모)`(점수·적정을 유닛에서 읽음), 회복 `staminaRegen` = `real_stamina_regen`(사양을 만들 때 한 번). 칸이 없는 시험 유닛·옛 스냅숏은 적정 = 점수(배율 1). 1차가 없는 시험 몸은 점수 = 적정(레벨 식)이다.
-- 지운 것: 설정 칸 `n13_appropriate`(팩 `id-changes` removed since 33, 계수표 `stamina.appropriateScore`, 화면 계수 `staminaAppropriate`). 그 세계 덮어쓰기 줄은 켤 때 `unknown_entry`로 지워진다(설정 칸 ADR 그대로). N13의 남은 칸은 STA 점수 가중치(`n13_weight_agi`·`n13_weight_vit`)와 최소 소모(`n13_min_consume` 500‰). 49 N13 "적정 STA 점수 80"은 D-511로 레벨 식이 됐다(48 §4.1).
+- 지운 것: 설정 칸 `n13_appropriate`(팩 `id-changes` removed since 34, 계수표 `stamina.appropriateScore`, 화면 계수 `staminaAppropriate`). 그 세계 덮어쓰기 줄은 켤 때 `unknown_entry`로 지워진다(설정 칸 ADR 그대로). N13의 남은 칸은 STA 점수 가중치(`n13_weight_agi`·`n13_weight_vit`)와 최소 소모(`n13_min_consume` 500‰). 49 N13 "적정 STA 점수 80"은 D-511로 레벨 식이 됐다(48 §4.1).
 - 시뮬 유닛(1차 40 + 기술 × 8, `combatRun.ts` `specOf`)에 레벨 = 그 1차에 닿는 보통 성장 레벨 31 + 기술 × 8(`simUnitLevel`)을 준다. 레벨이 없으면 Lv 1 적정(10)이라 STA 점수 64인 유닛이 소모 최소·회복 2배가 된다(적정 스탯 개념과 맞지 않음). 정원사 웨이브 크리쳐·수비 휴먼도 같은 함수다(서버 웨이브 포함).
 - 밸런스 화면 대결 `StatFighter`에 `level`(선택, 없으면 1)을 더했다(측정 도구가 Lv 30 유닛에 쓴다). 밸런스 화면에는 아직 레벨 칸이 없다(6절 한계 그대로).
 
@@ -414,7 +414,7 @@
 - 스킬 편집기 [행동별 소모]: 표 위 "보통 유닛 스태미나 기준"(Lv 1·30의 1차·적정 STA·STA 점수·최대·회복/초), 무기·타고난 무기 줄에 "보통 유닛 초당 소모(Lv 1 · Lv 30)"와 이어짐/줄어듦. 값은 서버가 판정 함수(`specFromStats`)로 실효 전투 자료·설정 칸·계산식에서 셈한다(`apps/server/src/contentEdit/staminaBasis.ts`, `skills.list`의 `stamina`, 설정 칸 접근자가 없으면 null).
 - 아이템 편집기 무기 미리 보기: 레벨만 보는 식(`bare_appropriate`·`stamina_appropriate`)은 빼고 `real_stamina_regen`을 보인다. 전투 실험실 스태미나 칸은 레벨이 있는 사양 값 그대로(소모·회복이 레벨 식을 따른다).
 
-### 4. SIM_VERSION 10과 결과 (Verified: 시드 1, 개발 컨테이너, 각 한 번, 위반 0)
+### 4. SIM_VERSION 11과 결과 (Verified: 시드 1, 개발 컨테이너, 각 한 번, 위반 0)
 - 앞 = main `f530fbd`(core@31, SIM 9), 뒤 = 이 가지(core@33, SIM 10 — main의 보유 물건 core@32를 합친 뒤 다시 돌려 같은 값을 확인했다).
 
 | 시나리오 | 줄(앞 → 뒤) | `linesHash` | 전투 |

@@ -1,11 +1,12 @@
-// 시설 짓기·레벨 올림의 재료·시간·유지비 — 기획 49 M14·D-508, 옛 seeds/building_seed.js(buildCost·buildTime·buildMaintenance).
-// 콘텐츠 팩 facilities.build(레벨 구간별 재료)와 설정 칸 M14(시간·유지비)로 셈한다. 팩 형식 검사(@terra/content), 서버, 건물 편집기
+// 시설 짓기·레벨 올림의 재료·시간 — 기획 49 M14·D-508, 옛 seeds/building_seed.js(buildCost·buildTime).
+// 콘텐츠 팩 facilities.build(레벨 구간별 재료)와 설정 칸 M14(시간)로 셈한다. 팩 형식 검사(@terra/content), 서버, 건물 편집기
 // 화면(/dev/buildings, docs/adr/2026-11-02-building-editor.md)이 같은 함수를 쓴다. 정수(BigInt)로만 셈한다(실수 없음).
 // - 재료: 레벨 L에는 from ≤ L인 마지막 구간의 재료를 쓴다(D-508: 처음 레벨은 1차 원자재, 그 위는 가공품). 줄마다
 //   round(qty × L² × mulPm ÷ 1000)(옛 Base × Tier² × 분류 배율, 옛 "티어" = 새 시설 레벨로 읽은 것은 기술 해석 ⏳).
 // - 시간: round(Σ 재료 한 단위 무게(kg) × qty × L² × mulPm ÷ 1000 × M14 kg당 ms × 레벨 계수‰ ÷ 1000)(옛 무게 합 × 10초 × 티어 계수.
 //   옛 식처럼 줄마다 반올림하기 전 수량으로 셈한다). 무게가 없는 아이템은 0으로 셈하고 알린다.
-// - 유지비: max(최소, round(Σ qty × L² × mulPm ÷ 1000 × M14 ‰ ÷ 1000))(옛 하루 비용 단위 합의 1%, 최소 1). 무엇으로 내는지는 정하지 않았다.
+// - 화폐 유지비는 없다(기획 D-171 사용자 선택, 49 N50 — 옛 buildMaintenance를 따르지 않음): 건물 유지 = 내구도 + 수리 재료(수리 1회 = 최대
+//   내구도의 10%까지, 건설 재료의 10%, 노동 필요). 내구도(49 M15)가 아직 없어 수리 셈은 두지 않았다.
 // 지금 시설을 짓거나 레벨을 올리는 곳은 없다(시설은 시나리오 처음부터 있다). 이 식은 편집기 미리 보기와 앞으로의 짓기가 쓴다.
 
 /** 시설 레벨 상한(D-5001: 시설 Lv1~5) */
@@ -40,16 +41,12 @@ export interface FacilityBuildJson {
   readonly levels: readonly BuildLevelJson[];
 }
 
-/** 설정 칸 M14의 시간·유지비 규칙(세력·사회 계수표 facilityBuild 칸) */
+/** 설정 칸 M14의 시간 규칙(세력·사회 계수표 facilityBuild 칸) */
 export interface FacilityBuildRules {
   /** 재료 1kg당 건설 시간(ms). 옛 10초 */
   readonly msPerKg: number;
   /** 레벨 계수(‰, 번호 = 레벨 − 1). 옛 티어 계수 T1 1.0·T2 1.5·T3 2.5 */
   readonly timeFactorPm: readonly number[];
-  /** 하루 유지비 = 비용 단위 합의 ‰. 옛 1% = 10 */
-  readonly upkeepPm: number;
-  /** 하루 유지비 최소. 옛 1 */
-  readonly upkeepMin: number;
 }
 
 /**
@@ -58,8 +55,6 @@ export interface FacilityBuildRules {
 export const OLD_FACILITY_BUILD_RULES: FacilityBuildRules = {
   msPerKg: 10_000,
   timeFactorPm: [1000, 1500, 2500, 2500, 2500],
-  upkeepPm: 10,
-  upkeepMin: 1,
 };
 
 /** 레벨 L에 쓰는 구간(from ≤ L인 마지막 구간). 구간이 없으면 undefined */
@@ -112,16 +107,4 @@ export function buildTimeAt(
   // g × L² × mulPm(‰) × ms/kg × 계수(‰) ÷ (1000 × 1000 g/kg × 1000)
   const total = grams * big(level) * big(level) * big(build.mulPm) * big(rules.msPerKg) * factor;
   return { ms: Number(roundDiv(total, 1_000_000_000n)), unknownWeight: unknown };
-}
-
-/** 레벨 L의 하루 유지비(비용 단위). max(최소, round(Σ qty × L² × mulPm ÷ 1000 × ‰ ÷ 1000)) */
-export function buildUpkeepAt(build: FacilityBuildJson, level: number, rules: FacilityBuildRules): number {
-  const band = buildLevelAt(build, level);
-  if (!band) return 0;
-  let units = 0n;
-  for (const stack of band.materials) units += big(stack.qty);
-  const value = Number(
-    roundDiv(units * big(level) * big(level) * big(build.mulPm) * big(rules.upkeepPm), 1_000_000n),
-  );
-  return Math.max(rules.upkeepMin, value);
 }

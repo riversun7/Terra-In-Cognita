@@ -353,7 +353,7 @@
 .sk-actions {
   min-width: 0;
   position: sticky;
-  bottom: var(--space-2);
+  bottom: calc(var(--dev-dock-bottom) + var(--space-2));
   z-index: 2;
   display: flex;
   flex-wrap: wrap;

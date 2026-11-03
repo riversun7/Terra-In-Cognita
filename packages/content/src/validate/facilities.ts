@@ -2,9 +2,9 @@
 // - 구간(facilities.build.levels): 첫 구간 from 1(build_levels_start), from이 늘어나기만(build_levels_order), 최고 레벨(maxLevel,
 //   없으면 5) 이하(build_level_max). 레벨 L은 from ≤ L인 마지막 구간을 쓴다(@terra/shared/facilityBuild).
 // - 한 구간 안에서 같은 아이템은 한 줄(build_material_duplicate — 옛 raw는 재료 코드마다 한 칸이었다).
-// - 켜진 시설의 처음 짓기 구간(Lv1)에 꺼진 아이템이 있으면 알림(build_material_disabled, 오류 아님 — 켬·끔은 개발자 페이지에서 바꾼다,
-//   D-398). D-508: 처음 건물은 1차 원자재로 지어 초기 발전이 막히지 않아야 한다. 위 구간(가공품)의 꺼진 재료는 알리지 않는다: 판자·벽돌처럼
-//   아직 켜지 않은 가공품을 미리 적어 두는 것이 정상이고, 건물 편집기 레벨 표가 레벨마다 꺼진 재료를 보인다. 꺼진 시설도 알리지 않는다.
+// - 시설의 처음 짓기 구간(Lv1)에 꺼진 아이템이 있으면 알림(build_material_disabled, 오류 아님). D-508: 처음 건물은 1차 원자재로 지어 초기
+//   발전이 막히지 않아야 한다. 시설은 켬·끔이 없어(늘 켜짐, 팩 core@32·사용자 답 2026-11-03) 모든 시설을 본다. 아이템을 끄는 길은 아이템
+//   편집기의 끄기(은퇴 대신)만 남았다. 위 구간의 꺼진 재료는 알리지 않는다(건물 편집기 레벨 표가 레벨마다 꺼진 재료를 보인다).
 // 참조가 없는 경우는 참조 단계가 알린다. 항목은 스키마를 통과한 파싱 결과(참조 = ContentRef)다(items.ts와 같은 방식).
 import { FACILITY_LEVEL_MAX } from "@terra/shared/facilityBuild";
 import type { ContentIssue } from "../issue.ts";
@@ -81,7 +81,7 @@ export function checkFacilities(pack: ContentPack): ContentIssue[] {
             { item: item.id },
           );
         seen.add(item.id);
-        if (index === 0 && get(facility, "enabled") === true && enabledOf.get(item.id) === false)
+        if (index === 0 && enabledOf.get(item.id) === false)
           issues.push({
             stage: "references",
             level: "warning",

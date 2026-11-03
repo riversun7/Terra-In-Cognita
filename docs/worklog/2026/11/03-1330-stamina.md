@@ -30,9 +30,9 @@
 | `packages/sim/src/combat/duels.ts` | `StatFighter.level` |
 | `packages/sim/src/simulator/combatRun.ts` | 시뮬 유닛 레벨 `simUnitLevel`(31 + 기술 × 8) |
 | `packages/sim/src/tuning.ts` | 설정 칸 `n13_appropriate` 지움 |
-| `packages/sim/src/version.ts`·`index.ts` | `SIM_VERSION` 10, 내보내기 |
+| `packages/sim/src/version.ts`·`index.ts` | `SIM_VERSION` 11, 내보내기 |
 | `packages/sim/cli/stamina-duels.ts` | 새 규칙·레벨·적정 비율 확인 |
-| `content/core/formulas.json`·`stat_rows.json`·`tuning.json`·`id-changes.json`·`manifest.json` | 새 식 둘, 회복 행 출발값, 설정 칸 지움(removed since 33), 판 33 |
+| `content/core/formulas.json`·`stat_rows.json`·`tuning.json`·`id-changes.json`·`manifest.json` | 새 식 둘, 회복 행 출발값, 설정 칸 지움(removed since 34), 판 34 |
 | `apps/server/src/contentEdit/staminaBasis.ts`(새)·`services.ts`, `apps/server/src/app.ts` | 행동별 소모 화면 스태미나 기준(실효 자료·설정 칸·계산식, 판정 함수) |
 | `apps/server/src/battleLab/build.ts`·`formulas/services.ts`·`itemEdit/preview.ts`·`itemEdit/previewWeapon.ts` | 새 소모 함수, 화면 계수, 아이템 미리 보기(레벨만 보는 식 뺌) |
 | `apps/game/src/editor/balance/formulaModel.ts`·`StaminaTable.tsx`(새)·`FormulaTab.tsx`·`formulaMessages.ts`·`formulaTab.css` | 계산식 탭 스태미나 패널, 변수 R |

@@ -83,6 +83,22 @@
   font-size: 0.95em;
 }
 
+/*
+ * 화면 아래에 붙는 막대(편집기의 담은 변경 막대 등)를 띄울 높이 — --dev-sticky-top의 아래쪽 짝.
+ * 막대는 position: sticky; bottom: calc(var(--dev-dock-bottom) + 제 여백)으로 쓴다. 하단 탭이 있으면(좁은 폭, Shell.tsx가
+ * <html data-tabbar="배치">) 그 위로 띄운다: 새 버전 배너와 같은 띄움(shell/shell.css), 배치 C는 가운데 지도 버튼이 띠 위로
+ * 솟는 만큼(tabbar.css의 음수 위 여백 --space-6) 더. 뜻은 e2e/dev-stagebar.spec.ts가 390px에서 본다.
+ */
+:root {
+  --dev-dock-bottom: 0px;
+}
+:root[data-tabbar] {
+  --dev-dock-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+}
+:root[data-tabbar="c"] {
+  --dev-dock-bottom: calc(var(--tabbar-h) + var(--space-6) + env(safe-area-inset-bottom));
+}
+
 /* 위 띠의 개발 화면 테마 단추(shell/TopBar.tsx) */
 .topbar-dev-theme {
   margin-inline-end: var(--space-2);

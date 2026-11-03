@@ -70,7 +70,7 @@
       "tier": 0,
       "startPrice": 3,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "brick",
@@ -83,7 +83,7 @@
       "tier": 0,
       "startPrice": 3,
       "weight": 1500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "ration",
@@ -591,7 +591,7 @@
       "startPrice": 1,
       "weight": 1,
       "lotSize": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "titanium_ore",
@@ -605,7 +605,7 @@
       "startPrice": 1,
       "weight": 1,
       "lotSize": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "gold_ore",
@@ -619,7 +619,7 @@
       "startPrice": 1,
       "weight": 1,
       "lotSize": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "platinum_ore",
@@ -633,7 +633,7 @@
       "startPrice": 1,
       "weight": 1,
       "lotSize": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "mithril",
@@ -647,7 +647,7 @@
       "startPrice": 1,
       "weight": 1,
       "lotSize": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "orichalcum",
@@ -661,7 +661,7 @@
       "startPrice": 1,
       "weight": 1,
       "lotSize": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "pine_log",
@@ -713,7 +713,7 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "oak_log",
@@ -726,7 +726,7 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "ash_log",
@@ -739,7 +739,7 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "walnut_log",
@@ -752,7 +752,7 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "teak_log",
@@ -765,7 +765,7 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rosewood_log",
@@ -778,7 +778,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "ebony_log",
@@ -791,7 +791,7 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "hay",
@@ -804,7 +804,7 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "bean",
@@ -817,7 +817,7 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "barley",
@@ -830,7 +830,7 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "potato",
@@ -843,7 +843,7 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "napa_cabbage",
@@ -856,7 +856,7 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 300,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "carrot",
@@ -869,7 +869,7 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "wheat",
@@ -882,7 +882,7 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "onion",
@@ -895,7 +895,7 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "tomato",
@@ -908,7 +908,7 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rice",
@@ -921,7 +921,7 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "garlic",
@@ -934,7 +934,7 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "green_onion",
@@ -947,7 +947,7 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "corn",
@@ -960,7 +960,7 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "asparagus",
@@ -973,7 +973,7 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "celery",
@@ -986,7 +986,7 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "soybean",
@@ -999,7 +999,7 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "olive",
@@ -1012,7 +1012,7 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "sesame",
@@ -1025,7 +1025,7 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 50,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "kabocha",
@@ -1038,7 +1038,7 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "artichoke",
@@ -1051,7 +1051,7 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 400,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "shallot",
@@ -1064,7 +1064,7 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "quinoa",
@@ -1077,7 +1077,7 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "fresh_wasabi",
@@ -1090,7 +1090,7 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "ginger",
@@ -1103,7 +1103,7 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "black_maca",
@@ -1116,7 +1116,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 300,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "white_truffle",
@@ -1129,7 +1129,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "lotus_seed",
@@ -1142,7 +1142,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "divine_grain",
@@ -1155,7 +1155,7 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "ambrosia",
@@ -1168,7 +1168,7 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "golden_apple",
@@ -1181,7 +1181,7 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "wild_herb",
@@ -1194,7 +1194,7 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "wild_chive",
@@ -1207,7 +1207,7 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "clover",
@@ -1220,7 +1220,7 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "aloe",
@@ -1233,7 +1233,7 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 300,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "peppermint",
@@ -1246,7 +1246,7 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "chamomile",
@@ -1259,7 +1259,7 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "lavender",
@@ -1272,7 +1272,7 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rosemary",
@@ -1285,7 +1285,7 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "thyme",
@@ -1298,7 +1298,7 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "angelica_root",
@@ -1311,7 +1311,7 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "licorice_root",
@@ -1324,7 +1324,7 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "sweet_basil",
@@ -1337,7 +1337,7 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "belladonna",
@@ -1350,7 +1350,7 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "wolfsbane",
@@ -1363,7 +1363,7 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "star_anise",
@@ -1376,7 +1376,7 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "mandrake",
@@ -1389,7 +1389,7 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "saffron",
@@ -1402,7 +1402,7 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 50,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "hemlock",
@@ -1415,7 +1415,7 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "ginseng",
@@ -1428,7 +1428,7 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "fo_ti_root",
@@ -1441,7 +1441,7 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 300,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "black_truffle",
@@ -1454,7 +1454,7 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "gastrodia",
@@ -1467,7 +1467,7 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "agarwood",
@@ -1480,7 +1480,7 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "moonlight_laurel",
@@ -1493,7 +1493,7 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "ancient_ginseng",
@@ -1506,7 +1506,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "blood_lotus",
@@ -1519,7 +1519,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "reishi",
@@ -1532,7 +1532,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 300,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "snow_ginseng",
@@ -1545,7 +1545,7 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "world_tree_dew_leaf",
@@ -1558,7 +1558,7 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "starlight_moss",
@@ -1571,7 +1571,7 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "loach",
@@ -1584,7 +1584,7 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 20,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "minnow",
@@ -1597,7 +1597,7 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 10,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "carp",
@@ -1610,7 +1610,7 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "crucian_carp",
@@ -1623,7 +1623,7 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "salmon",
@@ -1636,7 +1636,7 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 4000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "trout",
@@ -1649,7 +1649,7 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "saury",
@@ -1662,7 +1662,7 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 150,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "mackerel",
@@ -1675,7 +1675,7 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "squid",
@@ -1688,7 +1688,7 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 400,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rockfish",
@@ -1701,7 +1701,7 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "olive_flounder",
@@ -1714,7 +1714,7 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "sea_bream",
@@ -1727,7 +1727,7 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 2500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "sea_bass",
@@ -1740,7 +1740,7 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 3000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "octopus",
@@ -1753,7 +1753,7 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 5000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "yellowtail",
@@ -1766,7 +1766,7 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 10000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "marlin",
@@ -1779,7 +1779,7 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 150000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "ocean_sunfish",
@@ -1792,7 +1792,7 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 200000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "sturgeon",
@@ -1805,7 +1805,7 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 30000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "sailfish",
@@ -1818,7 +1818,7 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 80000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "white_shark",
@@ -1831,7 +1831,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 500000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "bluefin_tuna",
@@ -1844,7 +1844,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 80000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "grouper",
@@ -1857,7 +1857,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 20000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "giant_sea_bass",
@@ -1870,7 +1870,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 100000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "whale_shark",
@@ -1883,7 +1883,7 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 150000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "megalodon",
@@ -1896,7 +1896,7 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 1000000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "coelacanth",
@@ -1909,7 +1909,7 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 50000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "raw_meat",
@@ -1922,7 +1922,7 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "egg",
@@ -1935,7 +1935,7 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "feather",
@@ -1948,7 +1948,7 @@
       "tier": 0,
       "startPrice": 1,
       "weight": 50,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "venison",
@@ -1961,7 +1961,7 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "deer_hide",
@@ -1974,7 +1974,7 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "deer_antler",
@@ -1987,7 +1987,7 @@
       "tier": 1,
       "startPrice": 1,
       "weight": 500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "mutton",
@@ -2000,7 +2000,7 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "wool",
@@ -2013,7 +2013,7 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "sheep_milk",
@@ -2026,7 +2026,7 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "prime_beef",
@@ -2039,7 +2039,7 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "bison_hide",
@@ -2052,7 +2052,7 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 3500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "bison_horn",
@@ -2065,7 +2065,7 @@
       "tier": 3,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "fox_meat",
@@ -2078,7 +2078,7 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 800,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "silver_fur",
@@ -2091,7 +2091,7 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "mink_oil",
@@ -2104,7 +2104,7 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "acorn_pork",
@@ -2117,7 +2117,7 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 1200,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "hard_tusk",
@@ -2130,7 +2130,7 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "lard",
@@ -2143,7 +2143,7 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "croc_tail_meat",
@@ -2156,7 +2156,7 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "croc_hide",
@@ -2169,7 +2169,7 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "croc_tooth",
@@ -2182,7 +2182,7 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "gryphon_meat",
@@ -2195,7 +2195,7 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 2000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "raptor_beak",
@@ -2208,7 +2208,7 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "gryphon_feather",
@@ -2221,7 +2221,7 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "unicorn_meat",
@@ -2234,7 +2234,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 1500,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "purifying_horn",
@@ -2247,7 +2247,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "unicorn_mane",
@@ -2260,7 +2260,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 100,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "dragon_meat",
@@ -2273,7 +2273,7 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 5000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "dragon_scale",
@@ -2286,7 +2286,7 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 8000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "drakeheart_shard",
@@ -2299,7 +2299,7 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 10000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "copper_ingot",
@@ -2311,7 +2311,7 @@
       "tier": 2,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "silver_ingot",
@@ -2323,7 +2323,7 @@
       "tier": 4,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "titanium_ingot",
@@ -2335,7 +2335,7 @@
       "tier": 5,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "gold_ingot",
@@ -2347,7 +2347,7 @@
       "tier": 6,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "platinum_ingot",
@@ -2359,7 +2359,7 @@
       "tier": 7,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "mithril_ingot",
@@ -2371,7 +2371,7 @@
       "tier": 8,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "orichalcum_ingot",
@@ -2383,7 +2383,7 @@
       "tier": 9,
       "startPrice": 1,
       "weight": 1000,
-      "enabled": false
+      "enabled": true
     }
   ]
 }

@@ -6,7 +6,6 @@ import {
   buildCostAt,
   buildLevelAt,
   buildTimeAt,
-  buildUpkeepAt,
 } from "./facilityBuild.ts";
 
 /** 옛 광산(raw {WOOD 12, STONE 10}, PRIMARY 0.8)을 Lv1 원자재·Lv2부터 가공품으로 나눈 것 */
@@ -77,14 +76,6 @@ describe("시설 건설 식(49 M14)", () => {
       OLD_FACILITY_BUILD_RULES,
     );
     expect(unknown).toEqual({ ms: Math.round(12 * 4 * 0.8 * 10_000 * 1.5), unknownWeight: ["brick"] });
-  });
-
-  it("유지비 = max(최소, round(비용 단위 합 × ‰)), 옛 하루 1%·최소 1", () => {
-    // Lv1: (12 + 10) × 0.8 = 17.6 × 1% = 0.176 → 0 → 최소 1
-    expect(buildUpkeepAt(MINE, 1, OLD_FACILITY_BUILD_RULES)).toBe(1);
-    // Lv5: 22 × 25 × 0.8 = 440 × 1% = 4.4 → 4
-    expect(buildUpkeepAt(MINE, 5, OLD_FACILITY_BUILD_RULES)).toBe(4);
-    expect(buildUpkeepAt(MINE, 5, { ...OLD_FACILITY_BUILD_RULES, upkeepPm: 25, upkeepMin: 0 })).toBe(11);
   });
 
   it("큰 값도 정수로 넘치지 않는다(BigInt)", () => {

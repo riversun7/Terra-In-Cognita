@@ -77,7 +77,10 @@ describe("볼록 껍질(정수 정확)", () => {
     expect(new Set(hull)).toEqual(new Set([0, 1, 2]));
     expect(
       polygonContains(
-        (hull ?? []).flatMap((i) => points[i] ?? []),
+        (hull ?? []).flatMap((i) => {
+          const point = points[i];
+          return point ? [point] : [];
+        }),
         [S, S, S],
       ),
     ).toBe(true);

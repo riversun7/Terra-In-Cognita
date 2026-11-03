@@ -1,4 +1,4 @@
-// 영토 비콘 명령(WebSocket, 프로토콜 6) — beacon_place·beacon_remove를 보내고 같은 요청 번호의 beacon_result를 기다린다.
+// 영토 비콘 명령(WebSocket, 프로토콜 7) — beacon_place·beacon_remove를 보내고 같은 요청 번호의 beacon_result를 기다린다.
 // docs/adr/2026-11-03-territory-layer.md 4절. 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장). 사이보그 명령(start/cyborgCommands.ts)과 같은 흐름:
 // 인사 전이면 기다렸다 보내고, 끊기면 "offline", 답이 TIMEOUT_MS 안에 없으면 "timeout"(서버가 받았는지 모르므로 화면이 다시 읽는다).
 import type { BeaconResultCode, ClientMessageOf } from "@terra/protocol";

@@ -7,8 +7,8 @@ import { PROTOCOL_VERSION } from "./version.ts";
 const bad = (message: object) => JSON.stringify(message);
 
 describe("영토 비콘 메시지", () => {
-  it("프로토콜 6부터, 놓기·치우기·결과가 왕복한다", () => {
-    expect(TERRITORY_PROTOCOL_VERSION).toBe(6);
+  it("프로토콜 7부터, 놓기·치우기·결과가 왕복한다", () => {
+    expect(TERRITORY_PROTOCOL_VERSION).toBe(7);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(TERRITORY_PROTOCOL_VERSION);
     const place = {
       t: "beacon_place",

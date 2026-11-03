@@ -7,6 +7,7 @@ import { battleLabRouter } from "./battleLab.ts";
 import { battleReplayRouter } from "./battleReplay.ts";
 import { buildingsRouter } from "./buildings.ts";
 import { formulasRouter } from "./formulas.ts";
+import { holdingsRouter } from "./holdings.ts";
 import { dashboardRouter } from "./dashboard.ts";
 import { economyRouter } from "./economy.ts";
 import { factionRouter } from "./faction.ts";
@@ -58,6 +59,8 @@ export const appRouter = router({
   mail: mailRouter,
   // 영토 층 조회(docs/adr/2026-11-03-territory-layer.md 5절). 비콘 놓기·치우기는 WebSocket
   territory: territoryRouter,
+  // 보유 물건(아이템 인스턴스) 조회(docs/adr/2026-11-03-item-holdings.md 4절)
+  holdings: holdingsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -1,4 +1,4 @@
-// 영토 비콘 메시지 (프로토콜 6부터) — docs/adr/2026-11-03-territory-layer.md 4절, 기획 D-485·D-486·49 N42·N51.
+// 영토 비콘 메시지 (프로토콜 7부터) — docs/adr/2026-11-03-territory-layer.md 4절, 기획 D-485·D-486·49 N42·N51.
 // - 바꾸는 명령: 비콘 놓기(beacon_place), 치우기(beacon_remove). 조회(세력 영토·비콘 목록)는 tRPC territory.*다.
 // - 서버가 판정한다: 세력(가입한 세력, 개발 시험은 factionId로 다른 세력), 칸(그 행성 면 레벨 칸), 같은 칸 비콘, 기준 도시(N42 거리·개수),
 //   다른 세력 도시 영향권(D-486), 켬끔(팩 시설 territory_beacon, D-398). 결과는 beacon_result 하나(id = 요청 id). 오류는 코드다.
@@ -6,7 +6,7 @@
 import { z } from "zod";
 
 /** 영토 메시지에 필요한 가장 낮은 프로토콜 버전. 더 낮게 인사한 연결이 보내면 invalid_message로 거절한다 */
-export const TERRITORY_PROTOCOL_VERSION = 6;
+export const TERRITORY_PROTOCOL_VERSION = 7;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;

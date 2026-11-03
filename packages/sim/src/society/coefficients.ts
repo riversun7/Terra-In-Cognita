@@ -210,12 +210,30 @@ export interface SocietyCoefficients {
   };
   /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
-   * 최대 내구도가 이 값 이하면 파괴(분해만 가능)
+   * 최대 내구도가 이 값 이하면 파괴(분해만 가능).
+   * 장비 전투 닳기(D-496 289, 49 N49·C20, docs/adr/2026-11-03-item-holdings.md): 전투마다 입은 장비가 wearChancePm(‰) 확률로 wearAmount
+   * (이겨도, 옛 BattleResult 25%·1), 지면 wearLossChancePm 확률로 wearLossAmount를 더(옛 문서 "약 15% 확률로 크게", 양은 [임시] 4)
    */
   readonly durability: {
     readonly repairLossPct: readonly number[];
     readonly repairLossFloorPct: number;
     readonly destroyAtMax: number;
+    readonly wearChancePm: number;
+    readonly wearAmount: number;
+    readonly wearLossChancePm: number;
+    readonly wearLossAmount: number;
+    /** 탄약 보충 한 번에 줄어드는 최대 내구도(‰, 올림, D-509 "최대내구도 점차 감소" — 값 [임시]) */
+    readonly ammoRefillLossPm: number;
+  };
+  /**
+   * 소모품 사용(D-509·D-510): 물약은 전투·비전투 상관없이 유닛마다 한 번 쓰면 potionCooldownMs 뒤에 다시 쓴다(스태미나 소모 없음),
+   * 요리(식품)는 foodCooldownMs(5분, 생필품 포만감 N33은 따로). 자동 물약: HP가 문턱(‰, 플레이어 AI 작전 슬라이더 D-5039의 출발값 [임시] — D-510 예 40%) 아래면
+   * 모자란 HP를 가장 덜 넘치게 채우는 물약(docs/adr/2026-11-03-item-holdings.md)
+   */
+  readonly consumables: {
+    readonly potionCooldownMs: number;
+    readonly foodCooldownMs: number;
+    readonly potionHpThresholdPm: number;
   };
 }
 
@@ -344,5 +362,15 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     repairLossPct: [30, 25, 20, 15, 10],
     repairLossFloorPct: 5,
     destroyAtMax: 10,
+    wearChancePm: 250,
+    wearAmount: 1,
+    wearLossChancePm: 150,
+    wearLossAmount: 4,
+    ammoRefillLossPm: 50,
+  },
+  consumables: {
+    potionCooldownMs: 30_000,
+    foodCooldownMs: 300_000,
+    potionHpThresholdPm: 400,
   },
 };

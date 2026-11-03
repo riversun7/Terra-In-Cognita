@@ -5,7 +5,9 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-03 10:00 | 정원사 웨이브 다시 재기와 스태미나(274) 견주기 — 측정만 | Claude Code | [03-1000-gardener-cal](worklog/2026/11/03-1000-gardener-cal.md) |
 | 2026-11-03 09:50 | 영토 층: 도시·영토 비콘 볼록 껍질, 겹침 규칙, 비콘 놓기, 개발 화면 /dev/territory (D-485·D-486) | Claude Code | [03-0950-territory-layer](worklog/2026/11/03-0950-territory-layer.md) |
+| 2026-11-03 09:40 ~ 13:40 | 보유 물건(아이템 인스턴스) 층: 표·얻는 때 굴림·입기·전투 닳기·수리·탄약 보충 고리·소모품 쓰기·물약·요리 쿨·자동 물약 고르기·썩기·프로토콜 6 | Claude Code | [03-0940-item-holdings](worklog/2026/11/03-0940-item-holdings.md) |
 | 2026-11-03 05:30 | 건물 편집기(/dev/buildings)와 건설 재료 레벨 구간(D-508) | Claude Code | [03-0530-building-editor](worklog/2026/11/03-0530-building-editor.md) |
 | 2026-11-02 23:30 | 옛 1차 생산 규칙: 주 스탯 진행 속도·티어별 필요 진행·보조 스탯 수확량·하위 재료 (D-507) | Claude Code | [02-2330-primary-production](worklog/2026/11/02-2330-primary-production.md) |
 | 2026-11-02 21:35 | 채집·채굴 티어 추첨, 광석 1g과 거래 묶음 (질문 300~302, D-506) | Claude Code | [02-2135-gather-tier](worklog/2026/11/02-2135-gather-tier.md) |

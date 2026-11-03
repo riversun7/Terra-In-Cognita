@@ -8,7 +8,7 @@
 - 옛 프로젝트(AntiGravt01 `0ea5299`)에서 영토 규칙을 찾았다: `AREA_BEACON`(금화 100·유지 2·내구 10), 사령부 비콘 6개·15km, 중앙 통제소 8개·20km(`database_init/schema.js`), 영토 도형 = `turf.concave(maxEdge 30)` 또는 볼록, 겹침 = 남의 껍질 차집합(`docs/GDD/Map/Consolidated_Map.md` 893~1001행), 프로방스 = 가까운 영토 건물(`game/territory/TerritoryEngine.js`). 기획이 다르게 정한 것(볼록·겹침 규칙·개수·화폐 유지비 없음)은 기획을 따랐다(ADR 표).
 - `@terra/shared/territory`: 정수 점(칸 중심 × 2^16)의 구면 볼록 껍질(26개 기준 방향 + 단조 사슬, 삼중곱 정확), 안팎 판정, 세력별 묶음(비콘 거리로 잇기), 소속·겹침(도시 영향권 우선·영향력 가중, 비콘 영역끼리 가까운 꼭짓점, 지방 = 가까운 도시), 비콘 놓기 검사, 계수 출발값·도시 등급. 결정성 검사 대상에 넣었다.
 - `@terra/planet/territory`: 칸 → 점, 거리 환산(평균 칸 1.5007km), 1차맵 칸 표(16 표본 다수결).
-- 서버: 표 `territory_beacons`(마이그레이션 `20261103001754_territory_beacons`, 더하기만), 영토 서비스(놓기·치우기·조회, 쓰기 대기열·커밋 뒤 답, 조회 30초 캐시), WebSocket `beacon_place`·`beacon_remove` → `beacon_result`(프로토콜 6, 4·5판도 받음), tRPC `territory.mine`·`territory.planet`, 권한 `territory: observe·dev-place`(dev·admin).
+- 서버: 표 `territory_beacons`(마이그레이션 `20261103001754_territory_beacons`, 더하기만), 영토 서비스(놓기·치우기·조회, 쓰기 대기열·커밋 뒤 답, 조회 30초 캐시), WebSocket `beacon_place`·`beacon_remove` → `beacon_result`(프로토콜 7 — main의 보유 물건이 6을 먼저 써서 7로 올림, 4~6판도 받음), tRPC `territory.mine`·`territory.planet`, 권한 `territory: observe·dev-place`(dev·admin).
 - 팩 core@32: 시설 `territory_beacon`(새 단계 `territory`, 자리 0, Lv1 재료 [임시]), 설정 칸 24개(M2 문턱 5·M3 반경 6·N42 수 6·거리 6·N51 내구도), 서버 live.
 - 개발 화면 `/dev/territory`(개발 화면 층): 중심 투영 캔버스(세밀 경계·칸 격자·서버 칸 표·껍질·영향권·도시·비콘), 칸 고르기 → 세력 골라 놓기·치우기, 세력·도시 표.
 
@@ -18,7 +18,7 @@
 | `packages/shared/src/territory.ts`(새)·`.test.ts`, `territoryApi.ts`(새), `package.json` | 껍질·소속·겹침·놓기 검사·계수, 조회 응답 모양, 내보내기 경로 |
 | `packages/planet/src/territory.ts`(새)·`.test.ts`, `package.json` | 칸 → 점·거리 환산·칸 표, 진입점 `./territory` |
 | `scripts/check-boundaries.mjs` | 결정성 검사 대상에 `shared/territory` |
-| `packages/protocol/src/territory.ts`(새)·`.test.ts`, `messages.ts`, `index.ts`, `version.ts`, `codec.test.ts`, `cyborg.test.ts` | 비콘 메시지, 프로토콜 6(4판도 받는 예외) |
+| `packages/protocol/src/territory.ts`(새)·`.test.ts`, `messages.ts`, `index.ts`, `version.ts`, `codec.test.ts`, `cyborg.test.ts` | 비콘 메시지, 프로토콜 7(4판도 받는 예외 — main의 최소 판 5를 4로 되돌림) |
 | `packages/sim/src/tuningTerritory.ts`(새), `tuning.ts`, `society/coefficients.ts` | 설정 칸 ↔ 계수표 `territory`(시뮬은 읽지 않음) |
 | `packages/content/src/schema/economy.ts`, `packages/shared/src/buildingEditor.ts` | 시설 단계 `territory`, 자리 최소 0 |
 | `content/core/facilities.json`·`tuning.json`·`manifest.json` | 비콘 시설, 설정 칸 24개, 판 32 |
@@ -41,7 +41,7 @@
 - `TerritoryMap.tsx` `MAP_RADIUS` ↔ `e2e/territory.spec.ts` `MAP_RADIUS`(칸 누르기 좌표).
 - `@terra/shared` `FACILITY_STAGE_IDS` ↔ `@terra/content` `FACILITY_STAGES` ↔ 단계 문구 표 둘(`economyText.ts`·`buildingMessages.ts`).
 - 설정 칸 경로 `territory.*`: `tuningTerritory.ts` ↔ `content/core/tuning.json` ↔ `apps/server/src/tuning/scope.ts`.
-- 프로토콜 판: `version.ts` ↔ `codec.test.ts`·`cyborg.test.ts`·`territory.test.ts`·`e2e/territory.spec.ts`(hello 6).
+- 프로토콜 판: `version.ts` ↔ `codec.test.ts`·`cyborg.test.ts`·`territory.test.ts`·`e2e/territory.spec.ts`(hello 7).
 
 ## 건드리지 말 것
 - 점 배율 2^16(`TERRITORY_POINT_SCALE`·planet `SCALE`): 키우면 삼중곱이 2^53을 넘는다(정확성이 깨진다).
@@ -59,6 +59,11 @@
 - 비콘 재료를 쓰지 않는다(짓기 흐름 없음), 내구도는 닳지 않는다(D-171 규칙 없음), 공격으로 부수기(D-175)·NPC 비콘 놓기 없음, 지형 검사(바다 위) 없음.
 - 기준 도시를 잃어도 비콘은 남고 개수만 다시 센다(Assumed 기본안).
 - 서버 명령 속도 제한(순간 20·분당 120)은 Assumed 값.
+
+## main 합치기(2026-11-03, `1938e24` 보유 물건)
+- 보유 물건이 프로토콜 6을 먼저 써서 영토 비콘을 7로 올렸다(`TERRITORY_PROTOCOL_VERSION` 7). 둘 다 더하기만 했다.
+- main 6판은 최소 판을 5로 올렸다. 그러면 화면 시험 전역 준비의 legacy 계정(4판 만들기)이 거절돼 멈춘다(코드로 확인). 최소 판을 4로 되돌렸다(조정자 확인 필요).
+- 팩: main core@32(보유 물건 칸)와 이 가지 core@32(영토 칸)를 합쳐 core@33.
 
 ## 사용자 결정 대기
 - 묶음 해석: 같은 세력 꼭짓점을 비콘 거리 안이면 이어 한 껍질로 본다(먼 도시 둘을 잇지 않음). 기획 문구 "도시나 비콘 사이에 포함된 영역"의 기술 해석.

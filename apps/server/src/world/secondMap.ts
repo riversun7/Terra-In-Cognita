@@ -252,11 +252,16 @@ export interface SecondMap {
   placeBuilding(placement: BuildingPlacement): CommandResult;
   removeBuilding(buildingId: number): CommandResult;
   gauges(): { units: number; moving: number; planning: number };
-  /** 시험·확인용: 유닛의 크기 등급·속도·지금 움직임 */
-  unitInfo(
-    unitId: number,
-  ):
-    | { size: SizeClass; speed: number; motion: Motion; ownerId: number; condition: UnitCondition }
+  /** 유닛의 크기 등급·속도·지금 움직임·주인·상태·종류 코드(unitKinds.ts, 보유 물건 칸 배치가 읽는다) */
+  unitInfo(unitId: number):
+    | {
+        size: SizeClass;
+        speed: number;
+        motion: Motion;
+        ownerId: number;
+        condition: UnitCondition;
+        kind: number;
+      }
     | undefined;
   stop(): void;
 }
@@ -903,6 +908,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
             motion: unit.motion,
             ownerId: unit.ownerId,
             condition: unit.condition,
+            kind: unit.kind,
           }
         : undefined;
     },

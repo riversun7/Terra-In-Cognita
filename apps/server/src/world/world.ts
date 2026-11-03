@@ -33,6 +33,8 @@ import {
   defaultCyborgRules,
 } from "../cyborg/service.ts";
 import { type LoadedCyborgs, loadCyborgs } from "../cyborg/state.ts";
+import { type HoldingsConfig, type WorldHoldings, createWorldHoldings } from "../holdings/world.ts";
+import { type LoadedHoldings, loadHoldings } from "../holdings/state.ts";
 import { TEST_NPC_FACTION_CODE } from "./unitKinds.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
 import { type MapTerrain, mapTerrainFromBuilt, mapTerrainFromTemp, terrainFromFile } from "./mapTerrain.ts";
@@ -143,6 +145,8 @@ export interface WorldConfig {
         presets?: readonly NationPreset[] | undefined;
       }
     | undefined;
+  /** 보유 물건(실효 콘텐츠·설정 칸 실효 값·사이보그 1차 스탯). 없으면 빈 콘텐츠(시험) */
+  holdings?: HoldingsConfig | undefined;
 }
 
 export interface WorldLog extends MapLog {
@@ -175,6 +179,8 @@ export interface WorldPersistence {
   readonly cyborgs: CyborgService;
   /** 영토 비콘·영토 배치(docs/adr/2026-11-03-territory-layer.md) */
   readonly territory: TerritoryService;
+  /** 보유 물건(아이템 인스턴스, docs/adr/2026-11-03-item-holdings.md) */
+  readonly holdings: WorldHoldings;
 }
 
 export interface WorldStatus {
@@ -348,6 +354,7 @@ export function startWorld(
     let cities: CityRow[] = [];
     let cyborgData: LoadedCyborgs = { cyborgs: [], rolls: [], factions: [], fixedAppearances: 0 };
     let beaconRows: BeaconRow[] = [];
+    let holdingData: LoadedHoldings = { holdings: [], effects: [], cooldowns: [], maxId: 0 };
     for (let attempt = 1; !loaded; attempt++) {
       try {
         // 옛 시험 2차맵(깊은 바다 위)의 행을 지운다(지울 것이 없으면 그대로). U4 (가)
@@ -372,6 +379,7 @@ export function startWorld(
         cities = await loadCities(db);
         cyborgData = await loadCyborgs(db);
         beaconRows = await loadBeacons(db);
+        holdingData = await loadHoldings(db);
         loaded = await loadWorld(db, now());
       } catch (error) {
         if (attempt >= BOOT_ATTEMPTS || stopped) throw error;
@@ -500,6 +508,11 @@ export function startWorld(
       // 끝 시각에 한 번: 부상·귀환·포로·탈취를 세계에 적용한다(battleResults.ts, docs/adr/2026-10-31-combat-core.md 8절)
       apply: (battleId, init, outcome, atMs) => {
         const applied = applyBattleOutcome(battleWorld, battleId, init, outcome, atMs);
+        // 장비 닳기(D-496 289·N49): 결과 적용과 같은 동기 처리 → 같은 커밋(두 번 닳지 않는다)
+        const wear = holdings.service.applyBattle(
+          init.seed,
+          outcome.units.map((unit) => ({ unit: unit.unit, won: unit.side === outcome.result.winner })),
+        );
         log.info(
           {
             battleId,
@@ -507,6 +520,7 @@ export function startWorld(
             reason: outcome.result.reason,
             ...applied,
             looted: String(applied.looted),
+            ...wear,
           },
           "battle ended",
         );
@@ -554,6 +568,16 @@ export function startWorld(
       },
       beaconRows,
     );
+    const holdings = createWorldHoldings({
+      loaded: holdingData,
+      writer,
+      maps,
+      cyborgs,
+      settlement,
+      config: config.holdings,
+      now,
+      seed: () => randomInt(0x1_0000_0000),
+    });
     persistence = {
       writer,
       pool: db,
@@ -565,6 +589,7 @@ export function startWorld(
       battles,
       cyborgs,
       territory,
+      holdings,
     };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)
     if (
@@ -743,6 +768,7 @@ export function startWorld(
       npc?.stop();
       persistence?.settlement.stop();
       persistence?.battles.stop();
+      persistence?.holdings.stop();
       for (const map of maps.values()) map.stop();
       if (persistence) {
         persistence.writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
@@ -757,6 +783,7 @@ export function startWorld(
       await persistence?.writer.crash(inFlight);
       persistence?.settlement.stop();
       persistence?.battles.stop();
+      persistence?.holdings.stop();
       if (heartbeat) clearInterval(heartbeat);
       for (const map of maps.values()) map.stop();
       await paths.close();

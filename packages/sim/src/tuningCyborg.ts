@@ -179,4 +179,63 @@ export const CYBORG_TUNING_KEYS: readonly TuningKey[] = [
     "파괴 문턱(최대 내구도 이하)",
     "Destroyed at or below max durability",
   ),
+  // 장비 전투 닳기(D-496 289, 49 N49·C20, 보유 물건 docs/adr/2026-11-03-item-holdings.md)
+  k(
+    "n49_wear_chance",
+    "N49",
+    "durability.wearChancePm",
+    "전투마다 입은 장비가 닳을 확률(‰, 이겨도)",
+    "Chance an equipped item wears per battle (‰, win or lose)",
+  ),
+  k(
+    "d496_wear_battle",
+    "N49",
+    "durability.wearAmount",
+    "전투마다 장비 내구도 닳는 양(점, 이겨도)",
+    "Equipment wear per battle (points, win or lose)",
+  ),
+  k(
+    "n49_wear_loss_chance",
+    "N49",
+    "durability.wearLossChancePm",
+    "패배 때 더 닳을 확률(‰)",
+    "Chance of extra wear on defeat (‰)",
+  ),
+  k(
+    "d496_wear_loss",
+    "N49",
+    "durability.wearLossAmount",
+    "패배 때 더 닳는 장비 내구도(점, 전투마다 값에 더함)",
+    "Extra equipment wear on defeat (points, added to per-battle wear)",
+  ),
+  // 탄약 보충·물약 쿨(D-509, 보유 물건 docs/adr/2026-11-03-item-holdings.md)
+  k(
+    "d509_ammo_refill_loss",
+    "N49",
+    "durability.ammoRefillLossPm",
+    "탄약 보충 한 번에 줄어드는 최대 내구도(‰)",
+    "Max durability lost per ammo refill (‰)",
+  ),
+  k(
+    "d509_potion_cooldown",
+    "N49",
+    "consumables.potionCooldownMs",
+    "물약 다시 쓰기까지(ms, 전투·비전투 같음)",
+    "Potion cooldown (ms, in and out of battle)",
+  ),
+  // 요리 쿨·자동 물약 HP 문턱(D-510)
+  k(
+    "d510_food_cooldown",
+    "N49",
+    "consumables.foodCooldownMs",
+    "요리 다시 먹기까지(ms)",
+    "Food cooldown (ms)",
+  ),
+  k(
+    "d510_potion_hp_threshold",
+    "N49",
+    "consumables.potionHpThresholdPm",
+    "자동 물약 HP 문턱 기본값(‰, 유닛 AI 전술 설정의 출발값)",
+    "Auto potion HP threshold default (‰, unit AI tactic default)",
+  ),
 ];

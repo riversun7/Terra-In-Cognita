@@ -5,7 +5,9 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-03 15:15 | main CI 빨강 고침: 구인 카드 개발 화면 조각을 미리 캐시에서 뺌 | Claude Code | [03-1515-pwa-recruit-chunk](worklog/2026/11/03-1515-pwa-recruit-chunk.md) |
 | 2026-11-03 09:00 ~ 14:30 | 노동 계약(임금형·임대형): 규칙 한 벌·보증금 에스크로·서버 표·명령·조회·경제 화면 | Claude Code | [03-1400-labor-contracts](worklog/2026/11/03-1400-labor-contracts.md) |
+| 2026-11-03 13:30 | 스태미나 274: 적정 스탯 개념(D-511) — 적정 STA 레벨 식, 회복 = 기본 회복 × 적정 비율, 일반 공격이 이어지게 | Claude Code | [03-1330-stamina](worklog/2026/11/03-1330-stamina.md) |
 | 2026-11-03 10:00 | 정원사 웨이브 다시 재기와 스태미나(274) 견주기 — 측정만 | Claude Code | [03-1000-gardener-cal](worklog/2026/11/03-1000-gardener-cal.md) |
 | 2026-11-03 09:50 | 영토 층: 도시·영토 비콘 볼록 껍질, 겹침 규칙, 비콘 놓기, 개발 화면 /dev/territory (D-485·D-486) | Claude Code | [03-0950-territory-layer](worklog/2026/11/03-0950-territory-layer.md) |
 | 2026-11-03 09:40 ~ 13:40 | 보유 물건(아이템 인스턴스) 층: 표·얻는 때 굴림·입기·전투 닳기·수리·탄약 보충 고리·소모품 쓰기·물약·요리 쿨·자동 물약 고르기·썩기·프로토콜 6 | Claude Code | [03-0940-item-holdings](worklog/2026/11/03-0940-item-holdings.md) |

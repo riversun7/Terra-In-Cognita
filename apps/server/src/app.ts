@@ -53,6 +53,7 @@ import { type TuningLimits, bootTuning, createTuningShared } from "./tuning/serv
 import { type BalanceLimits, createBalanceServices } from "./balance/services.ts";
 import type { ContentEditState } from "./contentEdit/state.ts";
 import { bootContentEdit, createContentEditShared } from "./contentEdit/services.ts";
+import { staminaBasisOf } from "./contentEdit/staminaBasis.ts";
 import { createItemEditShared } from "./itemEdit/services.ts";
 import { createFormulaServices } from "./formulas/services.ts";
 import { createHeavyGate } from "./balance/gate.ts";
@@ -345,12 +346,30 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     app.addHook("onReady", async () => bootTuning(tuningDb, tuningShared));
   }
   // 팩 항목 덮어쓰기(스킬 편집기): 설정 칸 패널과 같은 차례로 켤 때 싣는다
+  // 행동별 소모 화면의 스태미나 기준(D-511): 실효 전투 자료·설정 칸·계산식으로 보통 유닛을 셈한다(요청마다 지금 값)
+  const staminaRoster = options.roster;
   const contentEdit = options.contentEdit
     ? createContentEditShared({
         state: options.contentEdit.state,
         pack: { packId: options.tuning?.packId ?? "core", contentVersion: options.contentVersion },
         now,
         log: app.log,
+        staminaBasis:
+          tuningState && staminaRoster
+            ? (rows) =>
+                staminaBasisOf(
+                  {
+                    combat: staminaRoster.combat,
+                    coefficients: combatCoefficientsFrom(
+                      tuningState.values(),
+                      undefined,
+                      tuningState.combatFormulas(),
+                    ),
+                    growthPm: tuningState.society().cyborg.growthPm,
+                  },
+                  rows,
+                )
+            : undefined,
       })
     : undefined;
   if (contentEdit && tuningDb) {

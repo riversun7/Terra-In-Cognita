@@ -10,7 +10,12 @@ import type { CombatUnitSpec } from "./battleTypes.ts";
 import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS, staminaScore } from "./coefficients.ts";
 import { UNARMED, UNARMED_ELEMENTAL } from "./catalog.ts";
 import { type AttackProfile, ELEMENT_COUNT } from "./formula.ts";
-import { attackIntervalMs, bareAppropriateMilli } from "./formulas.ts";
+import {
+  attackIntervalMs,
+  bareAppropriateMilli,
+  realStaminaRegen,
+  staminaAppropriateMilli,
+} from "./formulas.ts";
 import type { CombatSkill } from "./skills.ts";
 import type { Primaries } from "./stats.ts";
 
@@ -94,7 +99,7 @@ export interface UnitBody {
   readonly buildingMulPm?: number | undefined;
   /** 1차 스탯(장비 포함, 상태이상 저항 D-429) */
   readonly primaries?: Primaries | undefined;
-  /** 레벨(맨손 적정 DEX·AGI bare_appropriate, D-502). 없으면 1 */
+  /** 레벨(맨손 적정 DEX·AGI bare_appropriate D-502, 적정 STA 점수 stamina_appropriate D-511). 없으면 1 */
   readonly level?: number | undefined;
   readonly skills?: readonly CombatSkill[] | undefined;
 }
@@ -145,6 +150,10 @@ export function specFromStats(
   const w = body.weapon;
   // 맨손 적정 DEX·AGI(밀리점): 유닛 레벨로 한 번 셈한다(계산식 bare_appropriate)
   const bareMilli = bareAppropriateMilli(body.level ?? 1, c);
+  // 적정 STA 점수(밀리점, D-511 계산식 stamina_appropriate): 유닛 레벨로 한 번. 1차가 없으면(시험) 적정 점수를 STA 점수로 본다(배율 1)
+  const levelStaminaMilli = staminaAppropriateMilli(body.level ?? 1, c);
+  const sta = p ? staminaScore(primaries, c) : Math.floor(levelStaminaMilli / 1000);
+  const staAppropriate = p ? levelStaminaMilli : sta * 1000;
   /**
    * 무기의 한 칸 → 공격 사양(D-502): 스탯 공격력(물리 칸 = 물리 공격력, 속성 칸 = 속성 공격력) + 무기 몫(무기 공격력 × 적정 비율,
    * 맨손 0). 명중·크리·옵션 계수는 무기 값, 적정은 무기의 1차 적정 스탯(맨손은 레벨 식)
@@ -235,9 +244,10 @@ export function specFromStats(
     moveIntervalMs: body.moveIntervalMs,
     staminaMax: Math.max(0, s("stamina")),
     staminaCost: w.staminaCost,
-    // 1차가 없으면(시험) 적정 점수로 본다: 소모 배율 1
-    staminaScore: p ? staminaScore(primaries, c) : c.stamina.appropriateScore,
-    staminaRegen: Math.max(0, s("stamina_regen")),
+    staminaScore: sta,
+    staminaAppropriateMilli: staAppropriate,
+    // 실제 회복 = 2차 스탯 스태미나 회복 × min(2, 점수 ÷ 적정)(계산식 real_stamina_regen, D-511)
+    staminaRegen: realStaminaRegen(Math.max(0, s("stamina_regen")), sta, staAppropriate, c),
     mpMax: Math.max(0, s("mp")),
     mpCost: w.mpCost,
     mpRegen: Math.max(0, s("mp_regen")),

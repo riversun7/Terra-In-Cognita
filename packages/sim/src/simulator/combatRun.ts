@@ -95,7 +95,10 @@ export function kitOf(catalog: CombatCatalog) {
   };
 }
 
-/** [임시] 1차 스탯 = 40 + 기술 단계 × 8(모두 같게, 48 §3.5 예의 Lv30 휴먼 근처), 장비·스킬은 kitOf, 2차는 스탯 계산기 */
+/**
+ * [임시] 1차 스탯 = 40 + 기술 단계 × 8(모두 같게, 48 §3.5 예의 Lv30 휴먼 근처), 장비·스킬은 kitOf, 2차는 스탯 계산기.
+ * 레벨 = 그 1차에 닿는 보통 유닛 성장의 레벨(simUnitLevel): 적정 STA 점수(D-511)·맨손 적정이 이 레벨을 본다(보통 유닛처럼 배율 1)
+ */
 export function specOf(
   unit: SimUnit,
   tech: number,
@@ -141,9 +144,15 @@ export function specOf(
       resistPm: out.resistPm,
       defenseFlat: out.defenseFlat,
       penetrationPm: out.penetrationPm,
+      level: simUnitLevel(tech),
     },
     c,
   );
+}
+
+/** [임시] 시뮬레이터 유닛 레벨: 1차 40 + 기술 × 8에 닿는 보통 유닛 성장(1차 = 10 × (1 + 0.1 × (레벨 − 1)) = 레벨 + 9) → 31 + 기술 × 8 */
+export function simUnitLevel(tech: number): number {
+  return 31 + tech * 8;
 }
 
 /** 공격 쪽 = 편 1(서쪽 변), 수비 쪽 = 편 2(동쪽 변) */

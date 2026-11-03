@@ -1,5 +1,5 @@
 // 전투 상태 만들기와 유닛 도우미 — battle.ts가 쓴다. docs/adr/2026-10-31-combat-core.md
-import { type CombatCoefficients, msToTicks, staminaCostMilli } from "./coefficients.ts";
+import { type CombatCoefficients, msToTicks, specStaminaCostMilli } from "./coefficients.ts";
 import { applyPassives } from "./skills.ts";
 import type { BattleInit, BattleState, CombatUnitSpec, SideState, UnitState } from "./battleTypes.ts";
 
@@ -12,14 +12,14 @@ export function active(unit: UnitState): boolean {
 export function ready(unit: UnitState, nowMs: number, c: CombatCoefficients): boolean {
   return (
     nowMs >= unit.nextActionMs &&
-    unit.staminaMilli >= staminaCostMilli(unit.staminaCost, unit.staminaScore, c) &&
+    unit.staminaMilli >= specStaminaCostMilli(unit, unit.staminaCost, c) &&
     (unit.attack.kind !== "elemental" || unit.mpMilli >= unit.mpCost * 1000)
   );
 }
 
 /** 행동을 쓴다: 자원을 쓰고 다음 행동 시각을 정한다(빗나가도 쓴다) */
 export function spend(unit: UnitState, nowMs: number, c: CombatCoefficients): void {
-  unit.staminaMilli -= staminaCostMilli(unit.staminaCost, unit.staminaScore, c);
+  unit.staminaMilli -= specStaminaCostMilli(unit, unit.staminaCost, c);
   if (unit.attack.kind === "elemental") unit.mpMilli -= unit.mpCost * 1000;
   unit.nextActionMs = nowMs + unit.attackIntervalMs;
 }

@@ -57,12 +57,28 @@
       "expression": "floor(AGI * W_AGI + VIT * W_VIT)"
     },
     {
+      "id": "stamina_appropriate",
+      "name": {
+        "ko": "적정 STA 점수(레벨)",
+        "en": "Appropriate STA score (level)"
+      },
+      "expression": "# [임시] 보통 유닛의 STA 점수(D-511): 1차 처음 모두 10, 성장률 N5 100‰ × K 1 → 1차 = 10 × (1 + 0.1 × (레벨 − 1))\n# STA 점수 = AGI × 0.7 + VIT × 0.3 = 같은 값(Lv 1 = 10, Lv 30 = 39). 보통 유닛은 어느 레벨이든 소모·회복 배율 1\n10 * (1 + 0.1 * (LV - 1))"
+    },
+    {
       "id": "stamina_cost",
       "name": {
         "ko": "스태미나 소모(행동 한 번)",
         "en": "Stamina cost (one action)"
       },
       "expression": "B * if(SC <= 0, APP, max(MIN, APP / SC))"
+    },
+    {
+      "id": "real_stamina_regen",
+      "name": {
+        "ko": "실제 스태미나 회복(분당)",
+        "en": "Actual stamina regen (per minute)"
+      },
+      "expression": "# [임시] 회복 = 2차 스탯 스태미나 회복 × min(2, STA 점수 ÷ 적정 STA)(옛 CHR 회복 배수 상한 2배, D-511)\nif(APP <= 0, R, floor(R * min(2, max(0, SC) / APP)))"
     },
     {
       "id": "evade_chance",

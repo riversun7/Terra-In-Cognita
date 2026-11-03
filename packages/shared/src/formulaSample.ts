@@ -13,7 +13,9 @@ import {
   critMultiplierScope,
   dexFrameScope,
   evadeScope,
+  staminaAppropriateScope,
   staminaCostScope,
+  staminaRegenScope,
   staminaScoreScope,
   statRowScope,
 } from "./formulaSlots.ts";
@@ -62,13 +64,12 @@ export function weaponAppropriateMilli(
   };
 }
 
-/** 식 변수에 드는 설정 칸 값(N10·N11·N12·N13) */
+/** 식 변수에 드는 설정 칸 값(N10·N11·N12·N13). 적정 STA 점수는 설정 칸이 아니라 레벨 식(stamina_appropriate, D-511)이다 */
 export interface FormulaCoefficients {
   readonly capPm: number;
   readonly critSpreadPm: number;
   /** STA 점수 가중치 6칸(‰, STR·DEX·AGI·VIT·INT·WIS) */
   readonly staminaWeightsPm: readonly number[];
-  readonly staminaAppropriate: number;
   readonly staminaMinPm: number;
   readonly evadeRelative: EvadeRelativeValues;
 }
@@ -105,13 +106,15 @@ const primaryAt = (primaries: readonly number[], index: number): number => prima
 
 /**
  * 표본의 전투 식 변수(식 ID → 변수). stats = sampleSecondary 결과, bareMilli = 맨손 적정(bare_appropriate 식 값, 밀리점 —
- * runFormulaSample이 셈한다. 맨손이 아닌 무기면 쓰지 않는다)
+ * runFormulaSample이 셈한다. 맨손이 아닌 무기면 쓰지 않는다), staminaAppropriateMilli = 적정 STA 점수(stamina_appropriate 식 값,
+ * 밀리점. 없으면 STA 점수와 같게 = 배율 1)
  */
 export function sampleScopes(
   input: FormulaSampleInput,
   stats: Readonly<Record<string, number>>,
   staminaScore: number,
   bareMilli = 0,
+  staminaAppropriateMilli = staminaScore * 1000,
 ): Record<CombatFormulaId, FormulaScope> {
   const { weapon, coefficients: c, primaries } = input;
   const s = (id: string): number => stats[id] ?? 0;
@@ -135,7 +138,13 @@ export function sampleScopes(
     crit_multiplier: critMultiplierScope(s("crit_multiplier"), c.critSpreadPm, roll),
     attack_interval: attackIntervalScope(weapon.intervalMs, agi, appropriate.agi, c.capPm),
     stamina_score: staminaScoreScope(primaries, c.staminaWeightsPm),
-    stamina_cost: staminaCostScope(weapon.staminaCost, staminaScore, c.staminaAppropriate, c.staminaMinPm),
+    stamina_appropriate: staminaAppropriateScope(input.level),
+    stamina_cost: staminaCostScope(weapon.staminaCost, staminaScore, staminaAppropriateMilli, c.staminaMinPm),
+    real_stamina_regen: staminaRegenScope(
+      Math.max(0, s("stamina_regen")),
+      staminaScore,
+      staminaAppropriateMilli,
+    ),
     evade_chance: evadeScope(s("evade"), agi, input.opponentAgi ?? agi, c.evadeRelative),
   };
 }
@@ -158,9 +167,13 @@ export function runFormulaSample(
     combat.stamina_score,
     staminaScoreScope(input.primaries, input.coefficients.staminaWeightsPm),
   );
-  // 맨손 적정(밀리점)을 먼저 셈해 명중·크리·공격 간격의 A로 넣는다(판정 specFromStats와 같은 차례)
+  // 맨손 적정·적정 STA(밀리점)를 먼저 셈해 명중·크리·공격 간격의 A, 스태미나 소모·회복의 APP로 넣는다(판정 specFromStats와 같은 차례)
   const bareMilli = evaluateFormula(combat.bare_appropriate, bareAppropriateScope(input.level));
-  const scopes = sampleScopes(input, stats, staminaScore, bareMilli);
+  const staminaAppropriateMilli = Math.max(
+    0,
+    evaluateFormula(combat.stamina_appropriate, staminaAppropriateScope(input.level)),
+  );
+  const scopes = sampleScopes(input, stats, staminaScore, bareMilli, staminaAppropriateMilli);
   const values: Record<CombatFormulaId, number> = {
     real_attack: evaluateFormula(combat.real_attack, scopes.real_attack),
     real_hit: evaluateFormula(combat.real_hit, scopes.real_hit),
@@ -169,7 +182,9 @@ export function runFormulaSample(
     crit_multiplier: evaluateFormula(combat.crit_multiplier, scopes.crit_multiplier),
     attack_interval: evaluateFormula(combat.attack_interval, scopes.attack_interval),
     stamina_score: evaluateFormula(combat.stamina_score, scopes.stamina_score),
+    stamina_appropriate: staminaAppropriateMilli,
     stamina_cost: evaluateFormula(combat.stamina_cost, scopes.stamina_cost),
+    real_stamina_regen: evaluateFormula(combat.real_stamina_regen, scopes.real_stamina_regen),
     evade_chance: evaluateFormula(combat.evade_chance, scopes.evade_chance),
   };
   return { stats, staminaScore, scopes, values };

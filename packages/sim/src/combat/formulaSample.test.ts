@@ -12,13 +12,14 @@ import {
 } from "@terra/shared/formula";
 import { describe, expect, it } from "vitest";
 import { UNARMED } from "./catalog.ts";
-import { TEST_COMBAT_COEFFICIENTS, staminaCostMilli, staminaScore } from "./coefficients.ts";
+import { TEST_COMBAT_COEFFICIENTS, specStaminaCostMilli, staminaScore } from "./coefficients.ts";
 import { realAttackOf, realCritPm, realHitPm } from "./formula.ts";
 import {
   DEFAULT_COMBAT_FORMULA_SET,
   bareAppropriateMilli,
   critMultiplierPm,
   evadeChancePm,
+  staminaAppropriateMilli,
 } from "./formulas.ts";
 import { TEST_STAT_TABLE, computeSecondary } from "./stats.ts";
 import { type WeaponSpec, specFromStats } from "./unitSpec.ts";
@@ -33,7 +34,6 @@ const coefficients = {
   capPm: c.appropriateCapPm,
   critSpreadPm: c.critSpreadPm,
   staminaWeightsPm: c.stamina.scoreWeightsPm,
-  staminaAppropriate: c.stamina.appropriateScore,
   staminaMinPm: c.stamina.minConsumePm,
   evadeRelative: c.evadeRelative,
 };
@@ -63,7 +63,7 @@ const sampleWeapon = (weapon: WeaponSpec): FormulaSampleWeapon => ({
 describe("미리 보기 = 판정", () => {
   it("무작위 1차·레벨·무기(칼·맨손)에서 2차 스탯·전투 식 값이 같다", () => {
     const rng = createRng(7);
-    expect(COMBAT_FORMULA_IDS).toHaveLength(9);
+    expect(COMBAT_FORMULA_IDS).toHaveLength(11);
     for (let round = 0; round < 300; round++) {
       const p = Array.from({ length: 6 }, () => 1 + rng.nextInt(200));
       const level = 1 + rng.nextInt(60);
@@ -99,7 +99,11 @@ describe("미리 보기 = 판정", () => {
       expect(fxToInt(v.attack_interval)).toBe(spec.attackIntervalMs);
       expect(fxToInt(v.stamina_score)).toBe(spec.staminaScore);
       expect(sample.staminaScore).toBe(staminaScore(p, c));
-      expect(v.stamina_cost).toBe(staminaCostMilli(weapon.staminaCost, spec.staminaScore, c));
+      // 적정 STA(레벨 식, D-511)·소모·실제 회복
+      expect(v.stamina_appropriate).toBe(staminaAppropriateMilli(level, c));
+      expect(spec.staminaAppropriateMilli).toBe(v.stamina_appropriate);
+      expect(v.stamina_cost).toBe(specStaminaCostMilli(spec, weapon.staminaCost, c));
+      expect(fxToInt(v.real_stamina_regen)).toBe(spec.staminaRegen);
       expect(fxToInt(v.real_hit)).toBe(realHitPm(spec.attack, c));
       expect(fxToInt(v.real_crit)).toBe(realCritPm(spec.attack, c));
       // 공격력 = 스탯 공격력 + 무기 몫(맨손은 무기 몫 0, D-502). 맨손 적정은 레벨 식(밀리점)

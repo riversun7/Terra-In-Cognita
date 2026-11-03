@@ -155,8 +155,9 @@ describe("몸 계산", () => {
     const ward = row("elemental_defense_rate");
     expect([ward.shape, ward.cap, ward.halfConstant]).toEqual(["probability", 700, 100]);
     expect(ward.terms.map((term) => term.stat)).toEqual(["vit", "wis"]);
-    // 스태미나 회복 = AGI × 1.575 + VIT × 0.675, MP 회복 = INT × 1 + WIS × 2 (분당)
-    expect(row("stamina_regen").value).toBe(Math.floor((total("agi") * 1575 + total("vit") * 675) / 1000));
+    // 스태미나 회복 = 적정 STA에서 분당 720(D-511, 1차 항 없음 — 적정 비율은 전투 사양이 곱한다), MP 회복 = INT × 1 + WIS × 2 (분당)
+    expect(row("stamina_regen").value).toBe(720);
+    expect(row("stamina_regen").terms).toEqual([]);
     expect(row("mp_regen").value).toBe(Math.floor((total("int") * 1000 + total("wis") * 2000) / 1000));
     expect(catalog.names.stats.elemental_defense_rate).toEqual({
       ko: "속성 방어율",

@@ -1,8 +1,9 @@
-// 스태미나 견주기(질문 274) — docs/research/2026-11-03-gardener-stamina-measure.md
+// 스태미나 견주기(질문 274·D-511) — docs/research/2026-11-03-gardener-stamina-measure.md, ADR combat-core "바뀜 (274 스태미나 적정 스탯 개념)"
 // 밸런스 화면 대결과 같은 판(statFighterSpecs → duelInit → runBattle, 시드 가르기도 runDuels와 같다)을 팩 가중치 표·설정 칸·
-// 계산식·무기로 돌려, 새 사이보그(1차 모두 10)끼리 맨손·시험 검 대결이 걸리는 시간을 지금 스태미나 값과 다른 값 몇 벌에서 잰다.
-// 다른 값은 메모리에서만 얹는다(팩·판정 코드는 그대로, 수치는 사용자 결정 D-487). 대조로 Lv 30 균형형(1차 모두 39) 검 대 검도 잰다.
-// 사용: pnpm --filter @terra/sim duel:stamina [--runs 20] [--seed 1] [--limit 600] [--map 64] [--only now,basic_free,…]
+// 계산식·무기로 돌려, 새 사이보그(1차 모두 10, Lv 1)끼리 맨손·시험 검 대결이 걸리는 시간을 지금 스태미나 값과 다른 값에서 잰다.
+// 다른 값은 메모리에서만 얹는다(팩·판정 코드는 그대로, 값은 개발자 페이지에서 맞춘다 D-511). 대조로 Lv 30 균형형(1차 모두 39, Lv 30)
+// 검 대 검과, 적정 비율 확인(같은 1차 39를 Lv 60으로 = 적정 STA 69, 점수 39 → 비율 0.57) 검 대 검도 잰다.
+// 사용: pnpm --filter @terra/sim duel:stamina [--runs 20] [--seed 1] [--limit 600] [--map 64] [--only now,basic_free]
 //   결과는 같은 입력이면 같다. 걸린 시간은 표준 오류.
 import { parseArgs } from "node:util";
 import {
@@ -17,7 +18,8 @@ import {
   mix32,
   parseScenario,
   runBattle,
-  staminaCostMilli,
+  specStaminaCostMilli,
+  staminaAppropriateOf,
   statFighterSpecs,
 } from "../src/index.ts";
 import { DEFAULT_PACK_DIR, readPack } from "./common.ts";
@@ -44,15 +46,11 @@ interface StaminaSetting {
 }
 
 const SETTINGS: readonly StaminaSetting[] = [
-  { id: "now", label: "지금: 무기 소모 10 × max(0.5, 적정 80 ÷ STA 점수)" },
-  { id: "basic_free", label: "옛 모의 배틀: 기본 공격 소모 0", weaponCost: 0 },
-  { id: "old_doc", label: "옛 문서 표: 기본 공격 8 × max(0.5, 80 ÷ 점수)", weaponCost: 8 },
-  { id: "app10", label: "적정 STA 점수 80 → 10(N13)", tuning: { n13_appropriate: 10 } },
   {
-    id: "cap2",
-    label: "소모 배율 상한 2배: 10 × clamp(80 ÷ 점수, 0.5, 2)",
-    costFormula: "B * if(SC <= 0, 2, clamp(APP / SC, MIN, 2))",
+    id: "now",
+    label: "팩: 무기 소모 10 × max(0.5, 적정 STA(레벨 식) ÷ STA 점수), 회복 720/분 × min(2, 점수 ÷ 적정)",
   },
+  { id: "basic_free", label: "옛 모의 배틀: 기본 공격 소모 0", weaponCost: 0 },
 ];
 
 const scenario = parseScenario({
@@ -86,6 +84,8 @@ interface Side {
   readonly primaries: Primaries;
   readonly weapon: "bare" | "sword";
   readonly count: number;
+  /** 레벨(적정 STA·맨손 적정). 없으면 1 */
+  readonly level?: number;
 }
 interface Matchup {
   readonly label: string;
@@ -120,8 +120,18 @@ const MATCHUPS: readonly Matchup[] = [
   },
   {
     label: "Lv30 검 3:3(대조)",
-    a: { primaries: LV30, weapon: "sword", count: 3 },
-    b: { primaries: LV30, weapon: "sword", count: 3 },
+    a: { primaries: LV30, weapon: "sword", count: 3, level: 30 },
+    b: { primaries: LV30, weapon: "sword", count: 3, level: 30 },
+  },
+  {
+    label: "Lv30 검 3:3, 같은 1차로 Lv 60(적정 비율 0.57) 대 Lv 30",
+    a: { primaries: LV30, weapon: "sword", count: 3, level: 60 },
+    b: { primaries: LV30, weapon: "sword", count: 3, level: 30 },
+  },
+  {
+    label: "Lv30 검 1:1, 같은 1차로 Lv 60 대 Lv 30",
+    a: { primaries: LV30, weapon: "sword", count: 1, level: 60 },
+    b: { primaries: LV30, weapon: "sword", count: 1, level: 30 },
   },
 ];
 
@@ -147,16 +157,21 @@ function prepared(setting: StaminaSetting): {
 
 /** 한 편의 전투 사양(밸런스 화면과 같은 변환) */
 function specs(side: Side, weapon: WeaponSpec, c: CombatCoefficients): CombatUnitSpec[] {
-  return statFighterSpecs({ primaries: side.primaries, weapon, count: side.count }, pack.combat.statTable, c);
+  return statFighterSpecs(
+    { primaries: side.primaries, weapon, count: side.count, level: side.level },
+    pack.combat.statTable,
+    c,
+  );
 }
 
 /** 사양 하나의 스태미나 숫자: 최대·분당 회복·한 번 소모·간격, 버티는 분당 공격 수 */
 function staminaLine(spec: CombatUnitSpec, c: CombatCoefficients): string {
-  const cost = staminaCostMilli(spec.staminaCost, spec.staminaScore, c) / 1000;
+  const cost = specStaminaCostMilli(spec, spec.staminaCost, c) / 1000;
   const perMinute = Math.min(60_000 / spec.attackIntervalMs, cost <= 0 ? Infinity : spec.staminaRegen / cost);
-  return `최대 ${spec.staminaMax}·회복 분당 ${spec.staminaRegen}·소모 ${cost}·간격 ${spec.attackIntervalMs}ms → 처음 ${
+  const appropriate = staminaAppropriateOf(spec) / 1000;
+  return `STA 점수 ${spec.staminaScore}·적정 ${appropriate}·최대 ${spec.staminaMax}·회복 분당 ${spec.staminaRegen}·소모 ${cost}·간격 ${spec.attackIntervalMs}ms → 처음 ${
     cost <= 0 ? "∞" : Math.floor(spec.staminaMax / cost)
-  }번, 그 뒤 분당 ${perMinute.toFixed(1)}번`;
+  }번, 그 뒤 분당 ${perMinute.toFixed(1)}번(간격대로면 ${(60_000 / spec.attackIntervalMs).toFixed(1)}번)`;
 }
 
 const percentile = (sorted: readonly number[], p: number): number =>
@@ -170,12 +185,14 @@ for (const setting of SETTINGS) {
   if (only.length > 0 && !only.includes(setting.id)) continue;
   const { c, weapon } = prepared(setting);
   console.log(`\n## ${setting.id} — ${setting.label}`);
-  for (const [name, primaries] of [
-    ["새 사이보그", NEW],
-    ["Lv30 균형형", LV30],
+  for (const [name, primaries, level] of [
+    ["새 사이보그(Lv 1)", NEW, 1],
+    ["Lv30 균형형(Lv 30)", LV30, 30],
+    ["Lv30 균형형 1차, Lv 60(적정 비율 0.57)", LV30, 60],
+    ["Lv30 균형형, AGI·VIT 19(STA 점수 절반 → 비율 0.49)", { ...LV30, agi: 19, vit: 19 }, 30],
   ] as const)
     for (const kind of ["bare", "sword"] as const) {
-      const spec = specs({ primaries, weapon: kind, count: 1 }, weapon(kind), c)[0];
+      const spec = specs({ primaries, weapon: kind, count: 1, level }, weapon(kind), c)[0];
       if (spec) console.log(`- ${name} ${kind === "bare" ? "맨손" : "검"}: ${staminaLine(spec, c)}`);
     }
   for (const matchup of MATCHUPS) {

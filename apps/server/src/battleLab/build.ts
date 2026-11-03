@@ -41,7 +41,7 @@ import {
   skillFromData,
   skillSlotCount,
   specFromStats,
-  staminaCostMilli,
+  specStaminaCostMilli,
   weaponRatioPm,
 } from "@terra/sim";
 
@@ -390,7 +390,7 @@ function combatView(built: BuiltLabUnit, c: CombatCoefficients): LabCombatView {
     attackIntervalMs: spec.attackIntervalMs,
     range: spec.range,
     staminaMax: spec.staminaMax,
-    staminaPerAttackMilli: staminaCostMilli(spec.staminaCost, spec.staminaScore, c),
+    staminaPerAttackMilli: specStaminaCostMilli(spec, spec.staminaCost, c),
     staminaRegen: spec.staminaRegen,
     mpMax: spec.mpMax,
     mpRegen: spec.mpRegen,

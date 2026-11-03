@@ -529,6 +529,7 @@ export default function SkillEditorScreen() {
             <div role="tabpanel" id={`${tabsId}-costs-panel`} aria-labelledby={`${tabsId}-costs`}>
               <CostTable
                 rows={list.actions}
+                stamina={list.stamina ?? null}
                 skills={new Map(skills.map((skill): [string, SkillJson] => [skill.entry.id, skill.entry]))}
                 revision={list.revision}
                 locale={locale}

@@ -198,6 +198,38 @@ export type ActionCostRow =
       readonly status: "free" | "same_as_basic" | "unimplemented";
     };
 
+/**
+ * 행동별 소모 화면의 스태미나 기준 한 레벨(D-511): 보통 유닛(1차 처음 모두 10, K 1, 성장률 = 설정 칸 N5)이 그 레벨에서 갖는 값.
+ * 서버가 판정 함수로 셈한다(apps/server/src/contentEdit/staminaBasis.ts)
+ */
+export interface StaminaBasisLevel {
+  readonly level: number;
+  /** 1차(여섯 모두 같은 값) */
+  readonly primary: number;
+  /** 적정 STA 점수(밀리점, 계산식 stamina_appropriate) */
+  readonly appropriateMilli: number;
+  /** STA 점수(계산식 stamina_score) */
+  readonly score: number;
+  /** 최대 스태미나(2차 스탯 stamina) */
+  readonly max: number;
+  /** 실제 회복(분당, 계산식 real_stamina_regen) */
+  readonly regenPerMinute: number;
+}
+
+/** 무기·타고난 무기 줄 하나의 보통 유닛 기본 공격(한 레벨) */
+export interface StaminaBasisAttack {
+  /** 한 번 소모(밀리점, 계산식 stamina_cost) */
+  readonly costMilli: number;
+  /** 공격 간격(ms, 계산식 attack_interval) */
+  readonly intervalMs: number;
+}
+
+export interface StaminaBasisView {
+  readonly levels: readonly StaminaBasisLevel[];
+  /** 줄 키(ActionCostRow key, 무기·타고난 무기 줄만) → 레벨마다(levels와 같은 차례) */
+  readonly attacks: Readonly<Record<string, readonly StaminaBasisAttack[]>>;
+}
+
 export interface SkillEditorListResponse {
   readonly contentVersion: string;
   /** 스킬·장비 덮어쓰기 판(skills.save의 expectedRevision) */
@@ -207,6 +239,8 @@ export interface SkillEditorListResponse {
   readonly actions: readonly ActionCostRow[];
   /** 한 번 쓰고 지운 스킬 ID(팩 id-changes). 새 스킬 ID로 다시 쓰지 못한다 */
   readonly retiredSkillIds: readonly string[];
+  /** 보통 유닛 스태미나 기준(D-511). 설정 칸 접근자가 없는 서버(시험)면 null. 옛 서버는 칸이 없다 */
+  readonly stamina?: StaminaBasisView | null | undefined;
 }
 
 /**

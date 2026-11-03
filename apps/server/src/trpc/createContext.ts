@@ -22,6 +22,7 @@ import { createFactionScreenServices } from "../factionScreen/overview.ts";
 import type { FactionScreenRules } from "../factionScreen/tuning.ts";
 import type { FactionSource } from "../factionScreen/source.ts";
 import { createMailServices } from "../mail/list.ts";
+import { type HoldingsReadServices, NO_HOLDINGS } from "../holdings/reads.ts";
 import {
   type PlanetEditorShared,
   betterAuthPermissionCheck,
@@ -87,6 +88,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   formulas?: FormulaServices | undefined;
   /** 사이보그 만들기 조회(세계가 준비되면 서비스, docs/adr/2026-11-01-first-login-cyborg.md 4절). 없으면 늘 준비 전 */
   cyborgs?: (() => CyborgReadServices | undefined) | undefined;
+  /** 보유 물건 조회(월드가 있을 때, docs/adr/2026-11-03-item-holdings.md). 없으면 늘 빈 목록 */
+  holdings?: HoldingsReadServices | undefined;
 }
 
 /** 읽기 요청(출처 규칙이 쓰기보다 느슨하다: 주소창에서 연 것도 받는다). tRPC 조회는 GET, 쓰기는 POST다 */
@@ -163,6 +166,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       economy,
       faction,
       mail,
+      holdings: options.holdings ?? NO_HOLDINGS,
       tuning:
         authDeps && request && tuning
           ? createTuningServices({

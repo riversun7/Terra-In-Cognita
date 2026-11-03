@@ -9,6 +9,7 @@ import {
   SECOND_MAP_PROTOCOL_VERSION,
   CYBORG_PROTOCOL_VERSION,
   CYBORG_ELEMENTS_PROTOCOL_VERSION,
+  ITEM_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -18,6 +19,7 @@ import type { WebSocket } from "@fastify/websocket";
 import type { RawData } from "ws";
 import type { Viewer } from "./trpc/context.ts";
 import type { CyborgGateway, CyborgSocket } from "./cyborg/gateway.ts";
+import type { ItemGateway, ItemSocket } from "./holdings/gateway.ts";
 import type { WorldGateway, WorldSocket } from "./world/gateway.ts";
 
 export interface SessionContext {
@@ -28,6 +30,8 @@ export interface SessionContext {
   world?: WorldGateway | undefined;
   /** 사이보그 만들기(프로토콜 4, docs/adr/2026-11-01-first-login-cyborg.md 4절). 없으면 busy */
   cyborg?: CyborgGateway | undefined;
+  /** 보유 물건(프로토콜 6, docs/adr/2026-11-03-item-holdings.md 5절). 없으면 busy */
+  items?: ItemGateway | undefined;
   /** 이 연결의 로그인 사용자(쿠키). 로그인하지 않았거나 인증이 꺼져 있으면 null */
   viewer?: (() => Promise<Viewer | null>) | undefined;
   /**
@@ -56,6 +60,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let closed = false;
   let worldSocket: WorldSocket | undefined;
   let cyborgSocket: CyborgSocket | undefined;
+  let itemSocket: ItemSocket | undefined;
   let releasePresence: (() => void) | undefined;
 
   const sendText = (text: string): void => {
@@ -87,6 +92,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
     clearInterval(heartbeat);
     worldSocket?.close();
     cyborgSocket?.close();
+    itemSocket?.close();
     releasePresence?.();
   });
 
@@ -190,6 +196,23 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           protocolVersion,
         });
         cyborgSocket.handle(message);
+        return;
+      }
+      case "item_equip":
+      case "item_unequip":
+      case "item_use":
+      case "dev_grant_item": {
+        // 프로토콜 6의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다(사이보그 메시지와 같은 규칙)
+        if (protocolVersion < ITEM_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.items) {
+          send({ t: "item_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        itemSocket ??= context.items.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        itemSocket.handle(message);
         return;
       }
     }

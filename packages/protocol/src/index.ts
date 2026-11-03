@@ -48,6 +48,7 @@ export {
   type CyborgResultCode,
   type CyborgRollWire,
 } from "./cyborg.ts";
+export { ITEM_PROTOCOL_VERSION, ITEM_RESULT_CODES, type ItemResultCode } from "./items.ts";
 export {
   TERRAIN_CACHE_CONTROL,
   TERRAIN_FORMAT_V1,

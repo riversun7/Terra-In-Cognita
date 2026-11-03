@@ -9,6 +9,7 @@ import { createEconomyServices } from "../economyView/services.ts";
 import { createFactionScreenServices } from "../factionScreen/overview.ts";
 import { createHomeServices } from "../home/services.ts";
 import { createMailServices } from "../mail/list.ts";
+import { NO_HOLDINGS } from "../holdings/reads.ts";
 import { createCallerFactory } from "../trpc/init.ts";
 import { appRouter } from "../trpc/router.ts";
 import { BASELINE_PRIMARY, baselineBody, bodyView } from "./body.ts";
@@ -389,6 +390,7 @@ function callerFor(viewer: Viewer) {
     economy: createEconomyServices({ catalog: emptyEconomyCatalog("test") }),
     faction: createFactionScreenServices(),
     mail: createMailServices(),
+    holdings: NO_HOLDINGS,
   };
   return createCallerFactory(appRouter)(ctx);
 }

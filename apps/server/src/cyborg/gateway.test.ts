@@ -41,6 +41,7 @@ function fakeService(calls: string[]): CyborgService {
     livingUnpaid: () => false,
     record: () => undefined,
     isBodyUnit: () => false,
+    userOfUnit: () => undefined,
     repairUnits: () => 0,
   };
 }

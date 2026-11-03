@@ -1534,8 +1534,21 @@
       "structural": false
     },
     {
+      "id": "n49_wear_chance",
+      "code": "N49",
+      "name": {
+        "ko": "전투마다 입은 장비가 닳을 확률(‰, 이겨도)",
+        "en": "Chance an equipped item wears per battle (‰, win or lose)"
+      },
+      "value": 250,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
       "id": "d496_wear_battle",
-      "code": "",
+      "code": "N49",
       "name": {
         "ko": "전투마다 장비 내구도 닳는 양(점, 이겨도)",
         "en": "Equipment wear per battle (points, win or lose)"
@@ -1547,8 +1560,21 @@
       "max": 1000000
     },
     {
+      "id": "n49_wear_loss_chance",
+      "code": "N49",
+      "name": {
+        "ko": "패배 때 더 닳을 확률(‰)",
+        "en": "Chance of extra wear on defeat (‰)"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
       "id": "d496_wear_loss",
-      "code": "",
+      "code": "N49",
       "name": {
         "ko": "패배 때 더 닳는 장비 내구도(점, 전투마다 값에 더함)",
         "en": "Extra equipment wear on defeat (points, added to per-battle wear)"
@@ -1558,6 +1584,58 @@
       "unit": "points",
       "min": 0,
       "max": 1000000
+    },
+    {
+      "id": "d509_ammo_refill_loss",
+      "code": "N49",
+      "name": {
+        "ko": "탄약 보충 한 번에 줄어드는 최대 내구도(‰)",
+        "en": "Max durability lost per ammo refill (‰)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "d509_potion_cooldown",
+      "code": "N49",
+      "name": {
+        "ko": "물약 다시 쓰기까지(ms, 전투·비전투 같음)",
+        "en": "Potion cooldown (ms, in and out of battle)"
+      },
+      "value": 30000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 3600000
+    },
+    {
+      "id": "d510_food_cooldown",
+      "code": "N49",
+      "name": {
+        "ko": "요리 다시 먹기까지(ms)",
+        "en": "Food cooldown (ms)"
+      },
+      "value": 300000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 86400000
+    },
+    {
+      "id": "d510_potion_hp_threshold",
+      "code": "N49",
+      "name": {
+        "ko": "자동 물약 HP 문턱 기본값(‰, 유닛 AI 전술 설정의 출발값)",
+        "en": "Auto potion HP threshold default (‰, unit AI tactic default)"
+      },
+      "value": 400,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
     },
     {
       "id": "d496_use_variance",

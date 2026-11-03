@@ -7,6 +7,7 @@ import { battleLabRouter } from "./battleLab.ts";
 import { battleReplayRouter } from "./battleReplay.ts";
 import { buildingsRouter } from "./buildings.ts";
 import { formulasRouter } from "./formulas.ts";
+import { holdingsRouter } from "./holdings.ts";
 import { dashboardRouter } from "./dashboard.ts";
 import { economyRouter } from "./economy.ts";
 import { factionRouter } from "./faction.ts";
@@ -55,6 +56,8 @@ export const appRouter = router({
   // 세력·우편 화면(조회만, D-439·D-270)
   faction: factionRouter,
   mail: mailRouter,
+  // 보유 물건(아이템 인스턴스) 조회(docs/adr/2026-11-03-item-holdings.md 4절)
+  holdings: holdingsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -214,7 +214,8 @@ export function createTerritoryService(
     // 기준 도시의 주인과 다른 비콘은 도시를 따라간다(D-512 335). 런타임 저장이 이미 옮겼으면 할 일이 없다
     const ownerOf = new Map(allCities.map((city) => [city.id, city.factionId]));
     let adopted = 0;
-    for (const beacon of [...beacons.values()]) {
+    // 돌면서 있는 키의 값만 바꾼다(새 키를 넣지 않는다)
+    for (const beacon of beacons.values()) {
       if (beacon.planetId !== planetId || beacon.cityId === null) continue;
       const owner = ownerOf.get(beacon.cityId);
       if (owner !== undefined && owner !== beacon.factionId) adopted += moveWithCity(beacon.cityId, owner);

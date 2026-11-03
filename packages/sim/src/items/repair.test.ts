@@ -38,6 +38,13 @@ const OLD_RULES: readonly RepairRule[] = [
   { slots: ["accessory"], weaponTypes: [], materials: [{ item: "silver_ingot", qty: 1 }] },
 ];
 
+/** 옛 줄 하나(없으면 시험 자료가 틀림) */
+function ruleAt(index: number): RepairRule {
+  const rule = OLD_RULES[index];
+  if (!rule) throw new Error(`no rule ${index}`);
+  return rule;
+}
+
 /** 제작 직무 행(옛 salary_engine crafting: DEX 0.5·STR 0.2·INT 0.2·WIS 0.1 → STR·DEX·AGI·VIT·INT·WIS ‰) */
 const CRAFT_ROW: StatRow = {
   id: CRAFT_JOB_ROW,
@@ -65,12 +72,12 @@ describe("수리 줄 고르기(옛 REPAIR_MAP)", () => {
 
 describe("수리 재료(옛 955~960: max(1, ⌈기본 × 티어 × 잃은 ÷ 최대⌉))", () => {
   it("무기 공방 주괴 2: 티어 1·반 잃음 → 1, 티어 3·90% 잃음 → 6", () => {
-    expect(repairMaterials(OLD_RULES[0] as RepairRule, 1, 50, 100)).toEqual([{ item: "iron_ingot", qty: 1 }]);
-    expect(repairMaterials(OLD_RULES[0] as RepairRule, 3, 90, 100)).toEqual([{ item: "iron_ingot", qty: 6 }]);
+    expect(repairMaterials(ruleAt(0), 1, 50, 100)).toEqual([{ item: "iron_ingot", qty: 1 }]);
+    expect(repairMaterials(ruleAt(0), 3, 90, 100)).toEqual([{ item: "iron_ingot", qty: 6 }]);
   });
 
   it("줄마다 따로 셈하고 같은 아이템은 합친다. 잃은 것이 없으면 빈 목록", () => {
-    expect(repairMaterials(OLD_RULES[1] as RepairRule, 2, 30, 100)).toEqual([
+    expect(repairMaterials(ruleAt(1), 2, 30, 100)).toEqual([
       { item: "plank", qty: 2 },
       { item: "iron_ingot", qty: 1 },
     ]);
@@ -83,7 +90,7 @@ describe("수리 재료(옛 955~960: max(1, ⌈기본 × 티어 × 잃은 ÷ 최
       ],
     };
     expect(repairMaterials(twice, 1, 100, 100)).toEqual([{ item: "iron_ingot", qty: 3 }]);
-    expect(repairMaterials(OLD_RULES[0] as RepairRule, 1, 0, 100)).toEqual([]);
+    expect(repairMaterials(ruleAt(0), 1, 0, 100)).toEqual([]);
   });
 });
 
@@ -106,7 +113,7 @@ describe("장인 실력(제작 직무 행 ÷ 적정, D-420 틀)", () => {
 
 describe("끝까지 수리(F11·F12, 재료뿐 — 수수료 없음)", () => {
   const c = TEST_SOCIETY_COEFFICIENTS;
-  const rule = OLD_RULES[0] as RepairRule;
+  const rule = ruleAt(0);
 
   it("Lv1(−30%)·실력 0 → 최대 100 → 70, 실력 1000 → 85(반). 내구도 = 새 최대(절반 수리 없음)", () => {
     const item = { durability: 40, maxDurability: 100 };

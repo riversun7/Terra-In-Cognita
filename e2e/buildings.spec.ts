@@ -76,6 +76,8 @@ const band = (page: Page, index: number) => detail(page).locator(`.be-band[data-
 const levelRow = (page: Page, level: number) =>
   detail(page).locator(`.be-level-table tr[data-level="${level}"]`);
 const stagebar = (page: Page) => page.locator(".be-stagebar");
+const repairRule = (page: Page, index: number) =>
+  detail(page).locator(`.be-repair-rule[data-repair="${index}"]`);
 
 /** 시험이 일부러 받는 거절(권한 없음 403)의 브라우저 줄을 뺀 기기 오류 */
 const unexpected = (errors: readonly { kind: string; text: string }[], status: 403) =>
@@ -194,9 +196,6 @@ test.describe("개발자", () => {
 
 test.describe("수리 줄(D-512 323)", () => {
   test.use({ account: "dev", ...VIEWPORTS.desktop });
-
-  const repairRule = (page: Page, index: number) =>
-    detail(page).locator(`.be-repair-rule[data-repair="${index}"]`);
 
   test("공방 수리 줄 넷(옛 REPAIR_MAP 출발값): 기본 양을 고쳐 적용하면 든다, 칸·무기 종류를 다 빼면 검사가 막는다", async ({
     page,

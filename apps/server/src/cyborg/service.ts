@@ -118,6 +118,8 @@ export interface CyborgService {
   record(userId: string): CyborgRecord | undefined;
   /** 세계 유닛이 사이보그 본체인지(보유 유닛 수·정산에서 뺀다) */
   isBodyUnit(unitId: number): boolean;
+  /** 사이보그 본체 유닛의 사용자(본체가 아니면 undefined, 보유 물건 효과량의 1차 스탯) */
+  userOfUnit(unitId: number): string | undefined;
   /** 부팅: 유닛 행이 없는 사이보그를 시작 도시에 다시 놓는다. 다시 놓은 수 */
   repairUnits(knownUnitIds: ReadonlySet<number>): number;
   readonly size: number;
@@ -478,6 +480,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
     livingUnpaid: (userId) => settlement.upkeepUnpaid(userId),
     record: (userId) => byUser.get(userId),
     isBodyUnit: (unitId) => bodyUnits.has(unitId),
+    userOfUnit: (unitId) => bodyUnits.get(unitId),
     repairUnits(knownUnitIds) {
       let repaired = 0;
       for (const record of byUser.values()) {

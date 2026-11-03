@@ -26,6 +26,7 @@ import type { MailListResponse } from "@terra/shared/mail";
 import type { TuningExportResponse, TuningHistoryResponse, TuningListResponse } from "@terra/shared/tuning";
 import type { SkillEditorServices } from "../contentEdit/services.ts";
 import type { ItemEditorServices } from "../itemEdit/services.ts";
+import type { HoldingsReadServices } from "../holdings/reads.ts";
 import type { BuildingEditorServices } from "../buildingEdit/services.ts";
 import type { FormulaListResponse } from "@terra/shared/formula";
 import type { BattleLabShared } from "../battleLab/services.ts";
@@ -348,6 +349,8 @@ export interface TrpcContext {
   faction: FactionScreenServices;
   /** 우편. 늘 있다(우편 표가 아직 없어 실제 우편함은 비어 있다) */
   mail: MailServices;
+  /** 보유 물건 조회. 늘 있다(월드가 없거나 준비 전이면 빈 목록, docs/adr/2026-11-03-item-holdings.md) */
+  holdings: HoldingsReadServices;
   /** 설정 칸 패널. 인증(DB)과 팩 설정 칸 접근자가 있을 때만 */
   tuning?: TuningServices | undefined;
   /** 밸런스 화면. 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */

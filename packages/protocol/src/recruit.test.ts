@@ -20,9 +20,9 @@ function decodes(decode: (text: string) => unknown, message: unknown): boolean {
   }
 }
 
-describe("구인 카드 고용 메시지(프로토콜 6)", () => {
+describe("구인 카드 고용 메시지(프로토콜 7)", () => {
   it("고용 명령이 왕복하고, 창·자리·값 모양을 본다", () => {
-    expect(RECRUIT_PROTOCOL_VERSION).toBe(6);
+    expect(RECRUIT_PROTOCOL_VERSION).toBe(7);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(RECRUIT_PROTOCOL_VERSION);
     const hire = { t: "recruit_hire", id: 7, cityId: 3, window: 40_000, slot: 2, cost: "65" } as const;
     expect(decodeClientMessage(encodeMessage(hire))).toEqual(hire);

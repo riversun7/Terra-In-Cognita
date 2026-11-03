@@ -48,6 +48,7 @@ export {
   type CyborgResultCode,
   type CyborgRollWire,
 } from "./cyborg.ts";
+export { ITEM_PROTOCOL_VERSION, ITEM_RESULT_CODES, type ItemResultCode } from "./items.ts";
 export {
   RECRUIT_PROTOCOL_VERSION,
   RECRUIT_RESULT_CODES,

@@ -1,4 +1,4 @@
-// 구인 카드 고용 메시지 (프로토콜 6부터) — 기획 D-469(출생 없음, 인구는 정부기관(행정 건물) 구인 카드로만), 49 N45,
+// 구인 카드 고용 메시지 (프로토콜 7부터) — 기획 D-469(출생 없음, 인구는 정부기관(행정 건물) 구인 카드로만), 49 N45,
 // docs/adr/2026-10-31-faction-society-core.md "바뀜 (D-469 구인 카드)".
 // - 바꾸는 명령: 그 도시 행정 건물의 지금 창 카드 한 장을 고용한다(recruit_hire). 카드 목록·잔고 조회는 tRPC recruit.board다.
 // - 기기는 본 창·자리·값을 함께 보낸다: 그 사이 창이 바뀌었거나(갱신) 설정 칸 값이 바뀌어 카드가 달라졌으면 서버가 cards_changed로
@@ -8,7 +8,7 @@
 import { z } from "zod";
 
 /** 구인 메시지에 필요한 가장 낮은 프로토콜 버전. 더 낮게 인사한 연결이 보내면 invalid_message로 거절한다 */
-export const RECRUIT_PROTOCOL_VERSION = 6;
+export const RECRUIT_PROTOCOL_VERSION = 7;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);

@@ -10,6 +10,7 @@ import {
   CYBORG_PROTOCOL_VERSION,
   CYBORG_ELEMENTS_PROTOCOL_VERSION,
   RECRUIT_PROTOCOL_VERSION,
+  ITEM_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -20,6 +21,7 @@ import type { RawData } from "ws";
 import type { Viewer } from "./trpc/context.ts";
 import type { CyborgGateway, CyborgSocket } from "./cyborg/gateway.ts";
 import type { RecruitGateway, RecruitSocket } from "./recruit/gateway.ts";
+import type { ItemGateway, ItemSocket } from "./holdings/gateway.ts";
 import type { WorldGateway, WorldSocket } from "./world/gateway.ts";
 
 export interface SessionContext {
@@ -30,8 +32,10 @@ export interface SessionContext {
   world?: WorldGateway | undefined;
   /** 사이보그 만들기(프로토콜 4, docs/adr/2026-11-01-first-login-cyborg.md 4절). 없으면 busy */
   cyborg?: CyborgGateway | undefined;
-  /** 구인 카드 고용(프로토콜 6, D-469). 없으면 busy */
+  /** 구인 카드 고용(프로토콜 7, D-469). 없으면 busy */
   recruit?: RecruitGateway | undefined;
+  /** 보유 물건(프로토콜 6, docs/adr/2026-11-03-item-holdings.md 5절). 없으면 busy */
+  items?: ItemGateway | undefined;
   /** 이 연결의 로그인 사용자(쿠키). 로그인하지 않았거나 인증이 꺼져 있으면 null */
   viewer?: (() => Promise<Viewer | null>) | undefined;
   /**
@@ -61,6 +65,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let worldSocket: WorldSocket | undefined;
   let cyborgSocket: CyborgSocket | undefined;
   let recruitSocket: RecruitSocket | undefined;
+  let itemSocket: ItemSocket | undefined;
   let releasePresence: (() => void) | undefined;
 
   const sendText = (text: string): void => {
@@ -93,6 +98,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
     worldSocket?.close();
     cyborgSocket?.close();
     recruitSocket?.close();
+    itemSocket?.close();
     releasePresence?.();
   });
 
@@ -199,7 +205,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         return;
       }
       case "recruit_hire": {
-        // 구인 카드 고용은 프로토콜 6의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        // 구인 카드 고용은 프로토콜 7의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
         if (protocolVersion < RECRUIT_PROTOCOL_VERSION) {
           reject("invalid_message");
           return;
@@ -210,6 +216,23 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         }
         recruitSocket ??= context.recruit.open({ send: sendText, viewer: context.viewer ?? signedOut });
         recruitSocket.handle(message);
+        return;
+      }
+      case "item_equip":
+      case "item_unequip":
+      case "item_use":
+      case "dev_grant_item": {
+        // 프로토콜 6의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다(사이보그 메시지와 같은 규칙)
+        if (protocolVersion < ITEM_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.items) {
+          send({ t: "item_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        itemSocket ??= context.items.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        itemSocket.handle(message);
         return;
       }
     }

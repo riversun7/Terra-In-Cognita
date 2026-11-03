@@ -1,4 +1,4 @@
-// 구인 카드 고용 연결 처리 시험 — 로그인, 세계 준비 전, 속도 제한, 차례 처리, 결과 메시지 모양(D-469, 프로토콜 6)
+// 구인 카드 고용 연결 처리 시험 — 로그인, 세계 준비 전, 속도 제한, 차례 처리, 결과 메시지 모양(D-469, 프로토콜 7)
 import { decodeServerMessage } from "@terra/protocol";
 import { describe, expect, it } from "vitest";
 import type { Viewer } from "../trpc/context.ts";

@@ -101,6 +101,15 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
     `recruit.levels.${level}.statsMin`,
     `recruit.levels.${level}.statsMax`,
   ]),
+  // 보유 물건 전투 닳기(holdings/service.ts applyBattle, 49 N49·C20): 전투가 끝날 때마다 읽는다. 수리(F11·F12)는 아직 고리라 sim
+  "durability.wearChancePm",
+  "durability.wearAmount",
+  "durability.wearLossChancePm",
+  "durability.wearLossAmount",
+  // 물약·요리 쿨(holdings/service.ts use, D-509·D-510): 쓸 때마다 읽는다. 탄약 보충 감소(d509_ammo_refill_loss)·자동 물약 HP 문턱
+  // (d510_potion_hp_threshold)은 아직 고리라 sim
+  "consumables.potionCooldownMs",
+  "consumables.foodCooldownMs",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

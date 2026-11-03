@@ -1,5 +1,5 @@
 // 구인 카드 화면 자료(tRPC recruit.board) — 기획 D-469(출생 없음, 인구는 정부기관(행정 건물) 구인 카드로만), 49 N45,
-// docs/adr/2026-10-31-faction-society-core.md "바뀜 (D-469 구인 카드)". 고용은 WebSocket recruit_hire(프로토콜 6)다.
+// docs/adr/2026-10-31-faction-society-core.md "바뀜 (D-469 구인 카드)". 고용은 WebSocket recruit_hire(프로토콜 7)다.
 // 서버(src/recruit/service.ts)와 개발자 구인 화면(/dev/recruit)이 같이 쓴다. 값(화폐)은 최소 단위 10진 문자열이다.
 import type { PrimaryStat } from "./roster.ts";
 

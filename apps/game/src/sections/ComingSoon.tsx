@@ -34,6 +34,7 @@ type ComingSoonRoute = Exclude<
   | "dev_skills"
   | "dev_items"
   | "dev_buildings"
+  | "dev_recruit"
   | "dev_battle_replay"
   | "economy"
   | "economy_warehouse"

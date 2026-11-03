@@ -246,6 +246,8 @@ describe("주소 표", () => {
       // 아이템 편집기(docs/adr/2026-11-01-item-editor.md)
       dev_items: ["/dev/items", "dev", "shown", "dev_admin", ["item"]],
       dev_buildings: ["/dev/buildings", "dev", "shown", "dev_admin", ["facility"]],
+      // 구인 카드 시험(D-469)
+      dev_recruit: ["/dev/recruit", "dev", "shown", "dev_admin", ["city"]],
       // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 7절)
       dev_battle_replay: ["/dev/battle-replay", "dev", "hidden", "dev_admin", []],
       dev_gpu_bench: ["/dev/gpu-bench", "dev", "shown", "dev_admin", []],

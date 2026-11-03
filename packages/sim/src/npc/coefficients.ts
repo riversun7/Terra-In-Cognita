@@ -64,6 +64,12 @@ export interface NpcCoefficients {
   readonly tradeMarkupPerPct: number;
   readonly spendDivisorShort: number;
   readonly spendDivisor: number;
+  /**
+   * [임시] 구인 규칙식(D-469 "NPC도 이런 경로를 통해 인구를 늘리며 생산발전", 기술 출발값): 도시 휴먼이 주거 × 목표 ‰보다 적으면 구인 카드를
+   * 산다. 카드 값 × 예비 ‰만큼 국고가 남을 때만 산다(국고를 다 쓰지 않게)
+   */
+  readonly recruitTargetPm: number;
+  readonly recruitReservePm: number;
   /** 굶어 멈춤(D-220, 기술 정의): 국고 0 + 생필품 충족 이 ‰ 미만이 이 날 수 이어짐 */
   readonly stallFoodPm: number;
   readonly stallDays: number;
@@ -112,6 +118,8 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   tradeMarkupPerPct: 250,
   spendDivisorShort: 2,
   spendDivisor: 4,
+  recruitTargetPm: 1000,
+  recruitReservePm: 2000,
   stallFoodPm: 500,
   stallDays: 7,
 };

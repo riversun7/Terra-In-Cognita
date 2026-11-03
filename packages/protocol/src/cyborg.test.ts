@@ -34,8 +34,8 @@ function decodes(decode: (text: string) => unknown, message: unknown): boolean {
 }
 
 describe("사이보그 만들기 메시지", () => {
-  it("만들기는 프로토콜 4부터, 속성 분배는 5부터. 지금 판 5와 직전 판 4를 받는다(3은 받지 않는다)", () => {
-    expect(PROTOCOL_VERSION).toBe(5);
+  it("만들기는 프로토콜 4부터, 속성 분배는 5부터. 지금 판 6(구인 카드를 더함)과 5·4를 받는다(3은 받지 않는다)", () => {
+    expect(PROTOCOL_VERSION).toBe(6);
     expect(CYBORG_PROTOCOL_VERSION).toBe(4);
     expect(CYBORG_ELEMENTS_PROTOCOL_VERSION).toBe(5);
     expect(isProtocolSupported(3)).toBe(false);

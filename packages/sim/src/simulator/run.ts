@@ -48,8 +48,10 @@ import {
  * 6: 요약 npc 칸(NPC 판단 행동 수·강화 거절·세율 바꿈), society 칸에 wars·stalled(docs/adr/2026-11-01-npc-brain-r5.md),
  * 7: wave 줄(웨이브·유목 예고·결과)·gardener 하루 줄, battle 줄 city 칸, 요약 gardener 칸, society 칸 ruins(docs/adr/2026-11-01-gardener-r5b.md)
  * 8: econ 줄·요약 economy 칸에 produced(생산한 양, 물건 자산 → 기본 단위. 채집 티어 추첨 D-506 확인용)
+ * 9: 출생 없음(D-469): 요약 society 칸 births → recruited(구인 카드로 고용한 휴먼)·recruitSpent(자산 → 쓴 값), 하루 줄 세력 칸 recruited
+ *    (그날 고용 수), 요약 npc 칸 recruits(구인 규칙식이 산 카드). born 줄은 그대로 세력이 생긴 사건이다(D-391)
  */
-export const SIM_OUTPUT_FORMAT = 8;
+export const SIM_OUTPUT_FORMAT = 9;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 정원사 합성 격자 한 변(도시마다 3칸 간격, 한 줄 32도시 — 1만 도시까지), 웨이브 전투 기본값(시나리오에 combat 칸이 없을 때) */

@@ -49,6 +49,12 @@ export {
   type CyborgRollWire,
 } from "./cyborg.ts";
 export {
+  RECRUIT_PROTOCOL_VERSION,
+  RECRUIT_RESULT_CODES,
+  recruitHireMessage,
+  type RecruitResultCode,
+} from "./recruit.ts";
+export {
   TERRAIN_CACHE_CONTROL,
   TERRAIN_FORMAT_V1,
   TERRAIN_FORMAT_VERSION,

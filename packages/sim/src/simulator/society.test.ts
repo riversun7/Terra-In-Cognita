@@ -167,12 +167,15 @@ describe("시뮬 세력·사회", () => {
     expect(world.cities.get(5)?.owner).toBe(born?.faction);
   });
 
-  it("하루가 지나면 만족도는 목표값(먹고 살 곳 있음 = 80)으로 다가가고 출생이 있다", () => {
+  it("하루가 지나면 만족도는 목표값(먹고 살 곳 있음 = 80)으로 다가가고, 출생은 없다(D-469)", () => {
     const { world, society } = setup();
+    const before = world.units.size;
     for (let day = 1; day <= 10; day++) society.endOfDay(day * DAY_MS);
     const avg = [...world.units.values()].reduce((sum, u) => sum + u.satisfactionMilli, 0) / world.units.size;
     expect(avg).toBeGreaterThan(70_000);
-    expect(society.summary().births).toBeGreaterThan(0);
+    // 하루 끝만 돌리면(구인 없음) 휴먼은 늘지 않는다
+    expect(world.units.size).toBeLessThanOrEqual(before);
+    expect(society.summary().recruited).toBe(0);
   });
 });
 

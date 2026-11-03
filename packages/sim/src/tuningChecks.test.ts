@@ -31,6 +31,12 @@ describe("설정 칸 여러 칸 규칙 검사(D1)", () => {
     ["wage_order", [["n27_rate_min", 2500]]],
     ["employer_order", [["n28_adjust_max", 700]]],
     ["food_order", [["n33_food_zero_at", 60]]],
+    ["n45_fit", [["n45_cards_min_l2", 6]]],
+    ["n45_fit", [["n45_stats_max_l4", 70]]],
+    ["n45_fit", [["n45_elements_max", 5]]],
+    ["n45_fit", [["n45_element_points", 21]]],
+    ["n45_fit", [["n45_element_points", 2]]],
+    ["n45_fit", [["n45_refresh_every", 0]]],
   ] as const)("%s ← %j", (problem, values) => {
     expect(tuningProblems(withValues(values))).toEqual([problem]);
   });

@@ -84,6 +84,23 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "facilityBuild.timeFactorPm.4",
   "facilityBuild.upkeepPm",
   "facilityBuild.upkeepMin",
+  // 유저 구인(recruit/service.ts, 49 N45·D-469): 카드 조회·고용마다 읽는다. NPC 사회 런타임은 켤 때 읽은 값으로 돈다
+  // 같은 고용이 휴먼 수명을 굴린다(T4)
+  "lifespanMinMs",
+  "lifespanMaxMs",
+  "recruit.refreshMs",
+  "recruit.costPerLevel",
+  "recruit.costPerStat",
+  "recruit.elementPoints",
+  "recruit.elementsMin",
+  "recruit.elementsMax",
+  "recruit.startLevel",
+  ...[0, 1, 2, 3, 4].flatMap((level) => [
+    `recruit.levels.${level}.cardsMin`,
+    `recruit.levels.${level}.cardsMax`,
+    `recruit.levels.${level}.statsMin`,
+    `recruit.levels.${level}.statsMax`,
+  ]),
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

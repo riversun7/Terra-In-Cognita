@@ -1,0 +1,467 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "989e10a8-8514-4921-a3bf-3843abc448cd",
+  "prevIds": [
+    "c1f2bbdb-6c33-4b1e-810a-525114df0d19"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "recruit_draws"
+      ],
+      "writes": [
+        "s|tbl|public.recruit_draws",
+        "n|tbl|public.recruit_draws",
+        "e|tbl|public.recruit_draws",
+        "n|rel|public.recruit_draws",
+        "n|type|public.recruit_draws",
+        "n|rel|public.recruit_draws_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_cities",
+        "admin_level"
+      ],
+      "writes": [
+        "s|col|public.world_cities.admin_level",
+        "n|col|public.world_cities.admin_level",
+        "e|col|public.world_cities.admin_level"
+      ],
+      "reads": [
+        "n|tbl|public.world_cities",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_humans",
+        "level"
+      ],
+      "writes": [
+        "s|col|public.world_humans.level",
+        "n|col|public.world_humans.level",
+        "e|col|public.world_humans.level"
+      ],
+      "reads": [
+        "n|tbl|public.world_humans",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_humans",
+        "stats"
+      ],
+      "writes": [
+        "s|col|public.world_humans.stats",
+        "n|col|public.world_humans.stats",
+        "e|col|public.world_humans.stats"
+      ],
+      "reads": [
+        "n|tbl|public.world_humans",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_humans",
+        "elements"
+      ],
+      "writes": [
+        "s|col|public.world_humans.elements",
+        "n|col|public.world_humans.elements",
+        "e|col|public.world_humans.elements"
+      ],
+      "reads": [
+        "n|tbl|public.world_humans",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "recruit_draws"
+      ],
+      "writes": [
+        "s|fk|public.recruit_draws.recruit_draws_owner_id_world_owners_id_fkey",
+        "n|fk|public.recruit_draws.recruit_draws_owner_id_world_owners_id_fkey",
+        "e|fk|public.recruit_draws.recruit_draws_owner_id_world_owners_id_fkey",
+        "n|con|public.recruit_draws.recruit_draws_owner_id_world_owners_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.recruit_draws",
+        "n|sch|public",
+        "n|tbl|public.world_owners",
+        "n|sch|public",
+        "n|col|public.recruit_draws.owner_id",
+        "n|col|public.world_owners.id",
+        "e|uniqueness|public.world_owners.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "recruit_draws"
+      ],
+      "writes": [
+        "s|fk|public.recruit_draws.recruit_draws_city_id_world_cities_id_fkey",
+        "n|fk|public.recruit_draws.recruit_draws_city_id_world_cities_id_fkey",
+        "e|fk|public.recruit_draws.recruit_draws_city_id_world_cities_id_fkey",
+        "n|con|public.recruit_draws.recruit_draws_city_id_world_cities_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.recruit_draws",
+        "n|sch|public",
+        "n|tbl|public.world_cities",
+        "n|sch|public",
+        "n|col|public.recruit_draws.city_id",
+        "n|col|public.world_cities.id",
+        "e|uniqueness|public.world_cities.id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_cities"
+      ],
+      "writes": [
+        "s|ck|public.world_cities.world_cities_admin_level",
+        "n|ck|public.world_cities.world_cities_admin_level",
+        "e|ck|public.world_cities.world_cities_admin_level",
+        "n|con|public.world_cities.world_cities_admin_level"
+      ],
+      "reads": [
+        "n|tbl|public.world_cities",
+        "n|sch|public",
+        "n|col|public.world_cities.admin_level"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_humans"
+      ],
+      "writes": [
+        "s|ck|public.world_humans.world_humans_level",
+        "n|ck|public.world_humans.world_humans_level",
+        "e|ck|public.world_humans.world_humans_level",
+        "n|con|public.world_humans.world_humans_level"
+      ],
+      "reads": [
+        "n|tbl|public.world_humans",
+        "n|sch|public",
+        "n|col|public.world_humans.level"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_humans"
+      ],
+      "writes": [
+        "s|ck|public.world_humans.world_humans_stats",
+        "n|ck|public.world_humans.world_humans_stats",
+        "e|ck|public.world_humans.world_humans_stats",
+        "n|con|public.world_humans.world_humans_stats"
+      ],
+      "reads": [
+        "n|tbl|public.world_humans",
+        "n|sch|public",
+        "n|col|public.world_humans.stats"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_humans"
+      ],
+      "writes": [
+        "s|ck|public.world_humans.world_humans_elements",
+        "n|ck|public.world_humans.world_humans_elements",
+        "e|ck|public.world_humans.world_humans_elements",
+        "n|con|public.world_humans.world_humans_elements"
+      ],
+      "reads": [
+        "n|tbl|public.world_humans",
+        "n|sch|public",
+        "n|col|public.world_humans.elements"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "recruit_draws",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "recruit_draws",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "recruit_draws",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "recruit_draws",
+        "name": "window_index",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "recruit_draws",
+        "name": "taken",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "admin_level",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "level",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "stats",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "elements",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "recruit_draws",
+        "name": "recruit_draws_owner_id_world_owners_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "owner_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_owners",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "recruit_draws",
+        "name": "recruit_draws_city_id_world_cities_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "city_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_cities",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "recruit_draws",
+        "name": "recruit_draws_pkey",
+        "columns": [
+          "owner_id",
+          "city_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "recruit_draws",
+        "name": "recruit_draws_taken",
+        "value": "\"taken\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "world_cities_admin_level",
+        "value": "\"admin_level\" between 1 and 5",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "world_humans_level",
+        "value": "\"level\" >= 1",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "world_humans_stats",
+        "value": "\"stats\" is null or cardinality(\"stats\") = 6",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "world_humans_elements",
+        "value": "\"elements\" is null or (cardinality(\"elements\") = 12 and 0 <= all(\"elements\") and 10 >= all(\"elements\"))",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

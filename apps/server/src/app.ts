@@ -34,7 +34,9 @@ import { registerTrpc } from "./trpc/plugin.ts";
 import { appRouter } from "./trpc/router.ts";
 import { cacheViewer, createWorldGateway } from "./world/gateway.ts";
 import { createCyborgGateway } from "./cyborg/gateway.ts";
+import { createRecruitGateway } from "./recruit/gateway.ts";
 import { type CyborgService, cyborgReadsOf } from "./cyborg/service.ts";
+import type { RecruitService } from "./recruit/service.ts";
 import { createWorldSummaryBackend } from "./world/summarySources.ts";
 import { type RosterCatalog, testRosterCatalog } from "./roster/catalog.ts";
 import { createWorldRosterSource } from "./roster/worldUnits.ts";
@@ -383,6 +385,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md): 세계가 준비된 뒤의 서비스(DB가 있는 월드만)
   const cyborgService = (): CyborgService | undefined =>
     world?.status().state === "ready" ? world.persistence?.cyborgs : undefined;
+  // 구인 카드(D-469): 세계가 준비되고 NPC 사회 런타임이 돌 때만(거울 도시·시드가 런타임에 있다)
+  const recruitService = (): RecruitService | undefined =>
+    world?.status().state === "ready" && world.npc ? world.persistence?.recruits : undefined;
   if (world) {
     app.addHook("onReady", async () => world.ready);
     app.addHook("onClose", async () => {
@@ -485,6 +490,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         const service = cyborgService();
         return service ? cyborgReadsOf(service) : undefined;
       },
+      recruits: recruitService,
       // 개발자 2차맵 시험: 월드 행성의 2차맵 지형 주소·칸 값(보기 전용, src/world/secondMapLab.ts)
       secondMapLab,
       // 경제 화면: 팩 목록 + 월드 원장 잔고(읽기만) + 시안 자료
@@ -547,6 +553,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const cyborgGateway = world
     ? createCyborgGateway({ service: cyborgService, now, log: app.log })
     : undefined;
+  const recruitGateway = world
+    ? createRecruitGateway({ service: recruitService, now, log: app.log })
+    : undefined;
 
   if (planets && options.planets) {
     registerPlanetRoutes(app, { planets, viewer: httpViewer, now, limits: options.planets.limits });
@@ -566,6 +575,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         now,
         world: gateway,
         cyborg: cyborgGateway,
+        recruit: recruitGateway,
         viewer: socketViewer(request),
         // 접속 상태(D-136): 월드가 DB에 저장할 때만. 연결은 부팅 복구가 끝난 뒤에만 들어온다(listen이 기다린다)
         presence: world

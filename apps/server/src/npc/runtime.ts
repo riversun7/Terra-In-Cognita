@@ -2,13 +2,13 @@
 // 서버가 NPC 국가·도시에 세력·사회 규칙을 실제 시간으로 돌린다. 규칙과 판단은 시뮬레이터와 같은 함수다(@terra/sim attachSociety·decide):
 // - 부팅: DB(세력·소유 주체·도시·휴먼·전쟁)로 시뮬 세계 모양(거울 세계)을 차린다. 세력 ID = 그 세력의 소유 주체 ID, 원장 = 서버 원장.
 //   시험 봇(유닛 종류 0) 가운데 휴먼이 아닌 것은 가장 가까운 도시의 휴먼으로 들인다(주인 = 그 도시 세력).
-// - 실제 시각 루프: 시뮬 루프(createSimLoop)를 TICK_MS마다 지금까지 민다. 판단 예약은 시뮬과 같고, 하루 끝(UTC 0시)에 endOfDay
-//   (만족도·출생·수명·반란·독립·백지 강화·연구, 7일마다 배당·공물).
+// - 실제 시각 루프: 시뮬 루프(createSimLoop)를 TICK_MS마다 지금까지 민다. 판단 예약은 시뮬과 같고(판단마다 구인 규칙식이 행정 건물
+//   구인 카드를 산다, D-469 출생 없음), 하루 끝(UTC 0시)에 endOfDay(만족도·수명·상속·반란·독립·백지 강화·연구, 7일마다 배당·공물).
 // - 처리 뒤 거울 세계의 바뀜을 쓰기 대기열·2차맵에 맞춘다(persist.ts).
 // - 정원사(docs/adr/2026-11-01-gardener-r5b.md 5절, gardener.ts): 하루 끝에 칸 오염·도시 웨이브 굴림·유목 부대, 웨이브 도착은
 //   서버 전투 서비스의 공성 전투로 싸운다(결과가 오면 다음 틱에 피해·폐허·쉬는 시간).
 // - 서버에서 아직 안 하는 것: 실시간 공성(NPC 공격은 전투 없이 점령 — 시뮬 "전투 끔"과 같은 규칙), NPC 시장·세금(배당 0),
-//   휴먼 지갑(상속은 빈 지갑), 편입 제안 저장(메모리), NPC 생산 시설의 오염(시설이 없다).
+//   휴먼 지갑(상속은 빈 지갑), 편입 제안 저장(메모리), NPC 생산 시설의 오염(시설이 없다), 행정 건물 올리기(모든 도시 Lv1 [임시]).
 import { randomInt } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import {
@@ -43,6 +43,7 @@ import {
   lifespanMs,
   newFaction,
   positionAt,
+  recruitElementsFromSlots,
   rollTraits,
   scheduleDecide,
   streamRng,
@@ -56,6 +57,7 @@ import { ASSET_CREDIT, NPC_START_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/se
 import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type CityPlace, type NpcPersist, createNpcPersist } from "./persist.ts";
+import type { NpcHumanRow } from "./state.ts";
 import { loadNpcState } from "./state.ts";
 
 /** 루프를 미는 간격(ms). 판단·하루 끝은 그 시각에만 돌고, 나머지 틱은 할 일이 없으면 바로 끝난다 */
@@ -105,6 +107,8 @@ export interface NpcRuntime {
   tick(force?: boolean): Promise<void>;
   /** 거울 세계(시험·관리 조회용, 바꾸지 않는다) */
   readonly world: SimWorld;
+  /** 도시 자리(2차맵 칸). 유저 구인(recruit/service.ts)이 고용한 휴먼을 그 둘레에 세운다 */
+  readonly places: ReadonlyMap<number, CityPlace>;
   readonly society: SocietyRun;
   /** 정원사(오염·웨이브·유목 부대) */
   readonly gardener: ServerGardener;
@@ -179,6 +183,10 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
 
   // 도시: NPC 세력의 도시만(띄운 2차맵에 있는 것)
   const cities = new Map<number, SimCity>();
+  const drawOf = (ownerId: number, cityId: number): SimCity["recruitDraw"] => {
+    const row = state.draws.find((draw) => draw.ownerId === ownerId && draw.cityId === cityId);
+    return row ? { window: row.window, taken: row.taken, hirer: ownerId } : null;
+  };
   const places = new Map<number, CityPlace>();
   for (const row of state.cities) {
     const owner = ownerOfRow.get(row.factionRowId);
@@ -192,6 +200,9 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       researchLevel: row.researchLevel,
       development: row.development,
       nextRebellionMs: row.nextRebellionMs,
+      adminLevel: row.adminLevel,
+      // 도시 주인(NPC 세력)이 지금 창에 산 구인 카드 칸(recruit_draws, 고용 주체 = 세력 소유 주체)
+      recruitDraw: drawOf(faction.id, row.id),
     });
     places.set(row.id, {
       planetId: row.planetId,
@@ -229,7 +240,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       satisfactionMilli: ADOPT_SATISFACTION,
       bornAtMs: startMs,
       lifespanMs: 0,
-      parents: [],
+      recruit: null,
       rebirths: 0,
       ...fields,
     };
@@ -237,6 +248,11 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     factions.get(unit.owner)?.units.add(id);
     return unit;
   };
+  /** 구인 카드로 온 휴먼의 레벨·스탯·속성(저장 값). 처음부터 있던 휴먼은 null */
+  const recruitOf = (row: NpcHumanRow): SimUnit["recruit"] =>
+    row.stats && row.stats.length === 6
+      ? { level: row.level, stats: row.stats, elements: recruitElementsFromSlots(row.elements ?? []) }
+      : null;
   for (const row of state.humans) {
     const at = onMap.get(row.unitId);
     if (!at) continue;
@@ -249,6 +265,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         bornAtMs: row.bornAtMs,
         lifespanMs: row.lifespanMs,
         rebirths: row.rebirths,
+        recruit: recruitOf(row),
       });
       continue;
     }
@@ -258,6 +275,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       bornAtMs: row.bornAtMs,
       lifespanMs: row.lifespanMs,
       rebirths: row.rebirths,
+      recruit: recruitOf(row),
     });
   }
   let nextCity = state.maxCityId;
@@ -357,7 +375,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     decideMs: 0,
     dayMs: 0,
     persistMs: 0,
-    births: 0,
+    recruited: 0,
     deaths: 0,
     days: 0,
     gardenerMs: 0,
@@ -503,7 +521,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       const result = await persist.flush(society.currentDay());
       await persist.refillSpares(SPARE_FACTIONS);
       metrics.persistMs += performance.now() - started;
-      metrics.births += result.births;
+      metrics.recruited += result.recruited;
       metrics.deaths += result.deaths;
     } catch (error) {
       log.error({ err: error }, "npc society tick failed");
@@ -517,6 +535,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   return {
     tick,
     world,
+    places: persist.places,
     society,
     gardener,
     takeMetrics() {
@@ -525,7 +544,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         npcDecideMs: Math.round(metrics.decideMs * 10) / 10,
         npcDayMs: Math.round(metrics.dayMs * 10) / 10,
         npcPersistMs: Math.round(metrics.persistMs * 10) / 10,
-        npcBirths: metrics.births,
+        npcRecruited: metrics.recruited,
         npcDeaths: metrics.deaths,
         npcHumans: world.units.size,
         npcFactions: [...world.factions.values()].filter((f) => f.alive).length,
@@ -538,7 +557,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       metrics.decideMs = 0;
       metrics.dayMs = 0;
       metrics.persistMs = 0;
-      metrics.births = 0;
+      metrics.recruited = 0;
       metrics.deaths = 0;
       metrics.days = 0;
       metrics.gardenerMs = 0;

@@ -480,18 +480,25 @@ export const worldCities = pgTable(
     nextRebellionMs: bigint("next_rebellion_ms", { mode: "number" }).notNull().default(0),
     /** 정원사 웨이브를 막아 낸 뒤 확률이 줄어드는 기간의 끝(C18, docs/adr/2026-11-01-gardener-r5b.md). 0 = 없음 */
     waveCooldownUntilMs: bigint("wave_cooldown_until_ms", { mode: "number" }).notNull().default(0),
+    /**
+     * 행정 건물(정부기관) 레벨 1~5(D-469 구인 카드: 카드 수·토탈 스탯 범위, 49 N45). [임시] 모든 도시 1(옛 마을회관) — 올리는 길이 아직 없다.
+     * docs/adr/2026-10-31-faction-society-core.md "바뀜 (D-469 구인 카드)"
+     */
+    adminLevel: smallint("admin_level").notNull().default(1),
   },
   (table) => [
     index("world_cities_map_idx").on(table.mapKey),
     index("world_cities_faction_idx").on(table.factionId),
     check("world_cities_research", sql`${table.researchLevel} between 0 and 5`),
+    check("world_cities_admin_level", sql`${table.adminLevel} between 1 and 5`),
     check("world_cities_planet_id_format", sql`${table.planetId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
   ],
 );
 
 /**
- * NPC 나라의 휴먼(docs/adr/2026-11-01-npc-brain-r5.md 7절): 시험 봇 유닛 하나 = 휴먼 하나. 사는 도시·만족도(D-219, 밀리점)·
- * 태어난 시각·수명(T4)·환생 수. 유닛이 지워지면 함께 지워진다
+ * 휴먼(docs/adr/2026-11-01-npc-brain-r5.md 7절): 유닛 하나 = 휴먼 하나. NPC 나라의 휴먼(시험 봇) + 유저가 구인 카드로 고용한 휴먼
+ * (D-469, 유닛 종류 4). 사는 도시·만족도(D-219, 밀리점)·태어난 시각(구인 = 고용한 때)·수명(T4)·환생 수, 구인 카드로 온 휴먼의
+ * 레벨·스탯·속성. 유닛이 지워지면 함께 지워진다. NPC 사회 런타임은 시험 봇 휴먼만 돌린다(유저 휴먼의 수명·만족도는 아직 안 돈다)
  */
 export const worldHumans = pgTable(
   "world_humans",
@@ -505,10 +512,47 @@ export const worldHumans = pgTable(
     bornAtMs: bigint("born_at_ms", { mode: "number" }).notNull(),
     lifespanMs: bigint("lifespan_ms", { mode: "number" }).notNull(),
     rebirths: smallint("rebirths").notNull().default(0),
+    /** 레벨(구인 휴먼은 1에서 시작, 49 N45). 처음부터 있던 휴먼(시험 봇)도 1 */
+    level: smallint("level").notNull().default(1),
+    /** 구인 카드의 1차 스탯 STR·DEX·AGI·VIT·INT·WIS(사이보그 스탯 배열과 같은 차례). null = 처음부터 있던 휴먼(구인 전) */
+    stats: smallint("stats").array(),
+    /** 구인 카드의 속성값 12칸(@terra/shared ELEMENT_IDS 차례, 칸마다 0~10). null = 처음부터 있던 휴먼 */
+    elements: smallint("elements").array(),
   },
   (table) => [
     index("world_humans_city_idx").on(table.cityId),
     check("world_humans_satisfaction", sql`${table.satisfactionMilli} between 0 and 100000`),
+    check("world_humans_level", sql`${table.level} >= 1`),
+    check("world_humans_stats", sql`${table.stats} is null or cardinality(${table.stats}) = 6`),
+    check(
+      "world_humans_elements",
+      sql`${table.elements} is null or (cardinality(${table.elements}) = 12 and 0 <= all(${table.elements}) and 10 >= all(${table.elements}))`,
+    ),
+  ],
+);
+
+/**
+ * 구인 카드 산 칸(D-469, 49 N45): 고용 주체(소유 주체 = 유저 또는 NPC 세력) × 도시마다 한 줄, 지금 창과 그 창에 산 칸 비트.
+ * 카드 묶음은 (세계 시드, 도시, 고용 주체, 창)으로 정해져 저장하지 않는다(@terra/sim recruitCards). 창이 지나면 산 칸은 0으로 본다
+ * (쌓이지 않음). 도시가 지워지면 함께 지운다
+ */
+export const recruitDraws = pgTable(
+  "recruit_draws",
+  {
+    ownerId: bigint("owner_id", { mode: "number" })
+      .notNull()
+      .references(() => worldOwners.id),
+    cityId: bigint("city_id", { mode: "number" })
+      .notNull()
+      .references(() => worldCities.id, { onDelete: "cascade" }),
+    /** 갱신 창 = ⌊시각 ÷ 갱신 주기⌋ */
+    windowIndex: bigint("window_index", { mode: "number" }).notNull(),
+    /** 그 창에 산 칸(자리 k = 1 << k) */
+    taken: integer("taken").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.ownerId, table.cityId] }),
+    check("recruit_draws_taken", sql`${table.taken} >= 0`),
   ],
 );
 

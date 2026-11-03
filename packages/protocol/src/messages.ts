@@ -1,7 +1,9 @@
 // 메시지 정의 (Zod 스키마 = 런타임 검증 + 타입)
-// 2차맵 메시지(구독·명령·전송)는 secondMap.ts(프로토콜 2부터), 사이보그 만들기 메시지는 cyborg.ts(프로토콜 4부터)에 있다.
+// 2차맵 메시지(구독·명령·전송)는 secondMap.ts(프로토콜 2부터), 사이보그 만들기 메시지는 cyborg.ts(프로토콜 4부터),
+// 구인 카드 고용 메시지는 recruit.ts(프로토콜 6부터)에 있다.
 import { z } from "zod";
 import { cyborgClientMessages, cyborgServerMessages } from "./cyborg.ts";
+import { recruitClientMessages, recruitServerMessages } from "./recruit.ts";
 import { secondMapClientMessages, secondMapServerMessages } from "./secondMap.ts";
 
 const nonNegativeInt = z.number().int().nonnegative();
@@ -28,6 +30,7 @@ export const clientMessageSchema = z.discriminatedUnion("t", [
   pingMessage,
   ...secondMapClientMessages,
   ...cyborgClientMessages,
+  ...recruitClientMessages,
 ]);
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
 
@@ -61,6 +64,7 @@ export const serverMessageSchema = z.discriminatedUnion("t", [
   pongMessage,
   ...secondMapServerMessages,
   ...cyborgServerMessages,
+  ...recruitServerMessages,
 ]);
 export type ServerMessage = z.infer<typeof serverMessageSchema>;
 

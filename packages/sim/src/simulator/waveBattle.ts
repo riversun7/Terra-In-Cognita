@@ -129,7 +129,7 @@ function creatureUnit(id: number): SimUnit {
     satisfactionMilli: 0,
     bornAtMs: 0,
     lifespanMs: 0,
-    parents: [],
+    recruit: null,
     rebirths: 0,
   };
 }

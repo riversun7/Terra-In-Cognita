@@ -1,6 +1,7 @@
 // 시뮬레이터 세력·사회 — docs/adr/2026-10-31-faction-society-core.md "시뮬레이터"
 // 진짜 규칙(society/*.ts)을 시뮬 세계에 붙인다: 도시 지분, 점령(대리 판단이 고른 약탈·통합·지분 처리) + 편입 제안,
-// 하루마다 만족도(목표값으로 다가감)·출생·수명·환생·상속·반란(전투가 켜져 있으면 도시 안 공성)·자본주의 독립·연구·기술 후퇴,
+// 하루마다 만족도(목표값으로 다가감)·수명·환생·상속(소유자에게만, D-469)·반란(전투가 켜져 있으면 도시 안 공성)·자본주의 독립·연구·기술 후퇴,
+// 행정 건물 구인 카드(D-469 출생 없음: 인구는 구인으로만, societyRecruit.ts — 언제 살지는 NPC 규칙식 npc/policy.ts recruitPicks),
 // 배당 주기마다 도시 세금 정산(D-304: 이자 → 운영비 → 남은 이익을 체제대로), 공물 주기마다 봉신 공물.
 // 전쟁·강화(D-256·D-290·D-292): 선포 비용, 교전 시각, 백지 강화(S5), 강화 조약의 불가침(society/wars.ts).
 // 무엇을 해 볼지(치기·마을·지분·연구·강화·봉신 독립)는 NPC 판단(npcRun.ts → npc/brain.ts), 고를 수 있는 칸(점령 처리·마을 체제·
@@ -9,7 +10,6 @@ import type { LedgerBook } from "../ledger/ledgerBook.ts";
 import { type OccupationChoice, answerOffer, foundingChoice, independenceYes } from "../npc/policy.ts";
 import { inheritTraits } from "../npc/traits.ts";
 import { declareWar, endWar, endedWars, makePeace, recordFight, warCost } from "../society/wars.ts";
-import { JOB_GATHER, PHASE_WORK } from "../settle/settle.ts";
 import { satisfactionTarget, satisfactionToward, shiftSatisfaction } from "../society/labor.ts";
 import {
   type IncorporationOffer,
@@ -18,7 +18,7 @@ import {
   resolveOffer,
   settleShares,
 } from "../society/occupation.ts";
-import { birthRoll, canBirth, deathFate, inherit, lifespanMs } from "../society/population.ts";
+import { deathFate, inherit, lifespanMs } from "../society/population.ts";
 import {
   type Regime,
   holdingsOf,
@@ -32,6 +32,7 @@ import { capitalistIndependence, independenceAllowed, rebelsOf } from "../societ
 import { DAY_MS } from "./metrics.ts";
 import { checkSociety } from "./societyCheck.ts";
 import { createSocietyPayouts } from "./societyPayouts.ts";
+import { createSocietyRecruit } from "./societyRecruit.ts";
 import type { SocietyOptions, SocietyRun } from "./societyTypes.ts";
 import {
   HOMELESS,
@@ -64,7 +65,6 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
   const book: LedgerBook = world.book;
   const s = o.settings;
   const counts = {
-    births: 0,
     deaths: 0,
     reborn: 0,
     deified: 0,
@@ -98,6 +98,13 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
 
   const treasuryAsset = (f: SimFaction): string => o.hooks?.treasuryAsset(f) ?? TEST_ASSET_CREDIT;
   const payouts = createSocietyPayouts(world, c, o.hooks, treasuryAsset);
+  const recruits = createSocietyRecruit({
+    world,
+    c,
+    hooks: o.hooks,
+    treasuryAsset,
+    scheduleUnit: o.scheduleUnit,
+  });
   const treasury = (f: SimFaction): bigint => book.balanceOf(f.id, treasuryAsset(f));
   const unitsByCity = (): Map<number, SimUnit[]> => {
     const map = new Map<number, SimUnit[]>();
@@ -306,6 +313,9 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         start: false,
         housing: crowded.housing,
         researchLevel: 0,
+        // [임시] 새 마을 행정 건물 = Lv1(옛 마을회관, D-469). 올리는 길은 아직 없다
+        adminLevel: 1,
+        recruitDraw: null,
         development: 0,
         nextRebellionMs: nowMs,
       };
@@ -455,8 +465,12 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       counts.vassalBreaks += 1;
     },
 
+    recruitView: (hirer, cityId, nowMs) => recruits.view(hirer, cityId, nowMs),
+    recruit: (hirer, cityId, slot, nowMs) => recruits.hire(hirer, cityId, slot, nowMs),
+
     endOfDay(nowMs) {
       day += 1;
+      recruits.rollDay();
       const rng = streamRng(world.seed, STREAM_SOCIETY, 0, day);
       // 노숙 휴먼(D-296): 세력에 도시가 있으면 가장 오래된 도시로 든다. 없으면 노숙인 채 만족도가 노숙 목표로 다가간다
       for (const unit of [...world.units.values()].toSorted((a, b) => a.id - b.id)) {
@@ -511,37 +525,9 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
           100,
           Math.floor(avg / 2000) + Math.min(30, units.length * 2) + city.researchLevel * 4,
         );
-        // 출생(질문 120): 하루에 출생 주기 수만큼 굴린다
-        let population = units.length;
-        for (let k = 0; k < Math.floor(DAY_MS / c.birthEveryMs); k++) {
-          const roll = rng.nextInt(10_000);
-          if (!canBirth(population, city.housing, avg, c) || !birthRoll(roll, c)) continue;
-          const parents =
-            units.length >= 2 ? [units[rng.nextInt(units.length)]?.id ?? 0, units[0]?.id ?? 0] : [];
-          const unit: SimUnit = {
-            id: world.nextUnitId(),
-            city: city.id,
-            owner: owner.id,
-            job: { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 0 },
-            pos: { x: rng.nextInt(0x4_0000), y: rng.nextInt(0x4_0000) },
-            tripStep: 0,
-            eventId: undefined,
-            satisfactionMilli: avg,
-            bornAtMs: nowMs,
-            lifespanMs: lifespanMs(rng.nextInt(10_000), c),
-            parents,
-            rebirths: 0,
-          };
-          world.units.set(unit.id, unit);
-          owner.units.add(unit.id);
-          o.hooks?.unitsChanged?.(city.id, 1);
-          o.scheduleUnit(unit.id, nowMs);
-          population += 1;
-          counts.births += 1;
-        }
       }
 
-      // 수명(D-021·D-395): 환생 → 신격화 → 사망과 상속(D-332)
+      // 수명(D-021·D-395): 환생 → 신격화 → 사망과 상속(D-469: 상속세는 도시 국고, 나머지는 소유자에게만. 자녀·배우자 없음)
       for (const unit of [...world.units.values()].toSorted((a, b) => a.id - b.id)) {
         if (unit.bornAtMs + unit.lifespanMs > nowMs) continue;
         const fate = deathFate(rng.nextInt(10_000), c);
@@ -554,18 +540,9 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         }
         if (fate === "deified") counts.deified += 1;
         else {
-          const heirs: number[] = [];
-          for (const other of world.units.values())
-            if (other.id !== unit.id && other.parents.includes(unit.id)) heirs.push(WALLET_BASE + other.id);
-          const owner = world.cities.get(unit.city)?.owner ?? unit.owner;
-          inherit(
-            book,
-            WALLET_BASE + unit.id,
-            heirs.toSorted((a, b) => a - b),
-            owner,
-            nowMs,
-            c,
-          );
+          // 국고 = 사는 도시 주인(노숙이면 소유 세력), 소유자 = 그 휴먼의 주인(NPC 세력)
+          const treasuryOwner = world.cities.get(unit.city)?.owner ?? unit.owner;
+          inherit(book, WALLET_BASE + unit.id, unit.owner, treasuryOwner, nowMs, c);
           counts.deaths += 1;
         }
         removeUnit(unit);
@@ -711,6 +688,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         satisfaction: Math.floor(average(units) / 1000),
         regime: faction.regime,
         overlord: faction.overlord,
+        recruited: recruits.dayCount(faction.id),
       };
     },
 
@@ -720,8 +698,12 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     currentDay: () => day,
     summary() {
       const units = [...world.units.values()];
+      const spent: Record<string, string> = {};
+      for (const asset of [...recruits.counts.spent.keys()].toSorted())
+        spent[asset] = String(recruits.counts.spent.get(asset) ?? 0n);
       return {
-        births: counts.births,
+        recruited: recruits.counts.recruited,
+        recruitSpent: spent,
         deaths: counts.deaths,
         reborn: counts.reborn,
         deified: counts.deified,

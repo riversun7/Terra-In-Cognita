@@ -44,6 +44,8 @@ export interface FactionDay {
   /** 정권 체제·상위 세력(R4b) */
   readonly regime?: string | undefined;
   readonly overlord?: number | null | undefined;
+  /** 그날 구인 카드로 고용한 휴먼 수(D-469, 출력 형식 판 9) */
+  readonly recruited?: number | undefined;
 }
 
 export interface CountByCause {

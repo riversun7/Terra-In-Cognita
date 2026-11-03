@@ -38,7 +38,7 @@ import type { SimWorld } from "./world.ts";
 /** 시스템 계정 앞머리 → 건드려도 되는 거래 종류(물건·돈이 생기고 사라지는 사건을 정해 둔다) */
 const SYSTEM_KINDS: Readonly<Record<string, readonly string[]>> = {
   issue: ["issue"],
-  sink: ["burn", "produce", "upkeep"],
+  sink: ["burn", "produce", "upkeep", "recruit"],
   source: ["produce", "endow"],
   reserve: ["job_output"],
   escrow: ["order_escrow", "order_fill", "order_refund", "fx_escrow", "fx_clear"],

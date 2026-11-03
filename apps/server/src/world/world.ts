@@ -49,6 +49,8 @@ import {
 import { emptyWorldStats, resetWorldStats, summarizeWorldStats } from "./worldStats.ts";
 import { type NationPreset, ensureTestNations, nationName } from "../npc/nations.ts";
 import { type NpcRuntime, startNpcRuntime } from "../npc/runtime.ts";
+import { loadRecruitDraws } from "../npc/state.ts";
+import { type RecruitService, createRecruitService } from "../recruit/service.ts";
 
 /**
  * 시험 2차맵 자리(ADR 2026-10-31-second-map-from-planet 8절): S2 시험 행성(면 레벨 9) 면 0의 (i, j) = (282, 328) 칸부터
@@ -156,6 +158,8 @@ export interface WorldPersistence {
   readonly battles: BattleService;
   /** 사이보그(계정당 하나, docs/adr/2026-11-01-first-login-cyborg.md) */
   readonly cyborgs: CyborgService;
+  /** 유저 구인(정부기관 구인 카드, D-469). NPC 사회 런타임이 없으면 조회는 undefined, 고용은 busy */
+  readonly recruits: RecruitService;
 }
 
 export interface WorldStatus {
@@ -518,7 +522,30 @@ export function startWorld(
       log,
       factionName: (code) => nationName(code, config.npc?.presets),
     });
-    persistence = { writer, pool: db, nextId, owners, ledger, settlement, npcOwnerId, battles, cyborgs };
+    const recruits = createRecruitService({
+      runtime: () => npc,
+      maps,
+      settlement,
+      ledger,
+      writer,
+      nextUnitId: nextId.unit,
+      cyborgOf: (userId) => cyborgs.record(userId),
+      rules: config.cyborgRules ?? defaultCyborgRules,
+      now,
+      draws: await loadRecruitDraws(db),
+    });
+    persistence = {
+      writer,
+      pool: db,
+      nextId,
+      owners,
+      ledger,
+      settlement,
+      npcOwnerId,
+      battles,
+      cyborgs,
+      recruits,
+    };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)
     if (
       !loaded.accounts.some((account) => account.ownerId === npcOwnerId && account.asset === ASSET_CREDIT)

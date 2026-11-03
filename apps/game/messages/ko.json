@@ -2016,6 +2016,7 @@
   "dev_tuning_problem_wage_order": "N27: 단가 하한 ≤ 상한",
   "dev_tuning_problem_employer_order": "N28: 조정 하한 ≤ 상한",
   "dev_tuning_problem_food_order": "N33: 포만감 0 문턱 ≤ 낮음 문턱",
+  "dev_tuning_problem_n45_fit": "N45: 구인 카드 레벨마다 카드 수·토탈 스탯 최소 ≤ 최대(카드 16장 이하, 토탈 6 이상), 원소 수 1~4, 속성 점수가 원소 수 안(칸마다 1~10)",
   "dev_tuning_confirm_structural_title": "구조 값을 바꿉니다",
   "dev_tuning_confirm_structural_body": "담은 칸에 결정으로 정한 구조 값(D-5054)이 {count}개 있습니다. 이대로 적용할까요?",
   "dev_tuning_confirm": "적용",

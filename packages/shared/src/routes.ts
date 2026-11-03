@@ -208,6 +208,15 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
+  // 구인 카드 시험(D-469, docs/adr/2026-10-31-faction-society-core.md "바뀜 (D-469 구인 카드)"): 틀 안. 행정 건물 화면(UX)이 정해지기
+  // 전, 도시마다 내 카드·도시 주인(NPC) 카드를 보고 WebSocket recruit_hire로 고용해 본다. ?city=<ID>는 그 도시를 바로 연다
+  dev_recruit: {
+    path: "/dev/recruit",
+    search: ["city"],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
   // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 7절): 틀을 숨긴 전체 화면. 서버가 시범 6 대 6을 기록해 3D 지도에서 재생한다
   dev_battle_replay: {
     path: "/dev/battle-replay",

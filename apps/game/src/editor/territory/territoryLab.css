@@ -1,0 +1,134 @@
+/*
+ * 영토 층 화면(/dev/territory) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast). 촘촘(data-density="compact").
+ * 개발 화면 층(ADR 2026-11-02-dev-ui): 세력·도시 표는 공용 .dev-table, 표지는 .dev-badge.
+ * 390px: 지도 → 판이 한 칸씩 쌓인다. 넓은 화면(64em~): 지도 3 : 판 2. 지도 캔버스는 판 폭을 따라 정사각(TerritoryMap.tsx).
+ * 조각 TerritoryLabScreen-*와 함께 내려온다(미리 캐시 밖, [Tt]erritoryLab).
+ */
+.tl-screen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  min-width: 0;
+}
+.tl-lead {
+  margin: 0;
+}
+.tl-actions,
+.tl-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--font-size-sm);
+}
+.tl-summary .button-small {
+  margin-inline-start: auto;
+}
+
+/* ── 범례: 표시 모양을 글자 앞에 ── */
+.tl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.tl-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.tl-legend li::before {
+  content: "";
+  display: inline-block;
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
+  border: var(--border-w) solid var(--color-stat-int);
+}
+.tl-legend li[data-mark="fine"]::before {
+  border-color: transparent;
+  background-color: var(--color-stat-int);
+  opacity: 0.35;
+}
+.tl-legend li[data-mark="hull"]::before {
+  border-width: var(--focus-w);
+}
+.tl-legend li[data-mark="influence"]::before {
+  border-style: dashed;
+  border-radius: 50%;
+}
+.tl-legend li[data-mark="city"]::before {
+  background-color: var(--color-stat-int);
+  border-color: var(--color-text);
+}
+.tl-legend li[data-mark="beacon"]::before {
+  background-color: var(--color-stat-int);
+  border-color: var(--color-text);
+  transform: rotate(45deg) scale(0.8);
+}
+
+/* ── 지도 + 판 ── */
+.tl-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  min-width: 0;
+}
+@media (min-width: 64em) {
+  .tl-split {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+  }
+}
+.tl-map {
+  min-width: 0;
+}
+.tl-canvas {
+  display: block;
+  max-inline-size: 100%;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+.tl-panel {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.tl-panel p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.tl-field {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+.tl-cell {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  font-size: var(--font-size-sm);
+}
+.tl-heading {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+}
+.tl-swatch {
+  display: inline-block;
+  inline-size: var(--status-dot);
+  block-size: var(--status-dot);
+  margin-inline-end: var(--space-2);
+  border-radius: 50%;
+  vertical-align: middle;
+}

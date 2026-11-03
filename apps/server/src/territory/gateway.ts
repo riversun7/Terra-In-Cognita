@@ -1,6 +1,7 @@
 // WebSocket 연결 하나의 영토 비콘 메시지 처리(src/session.ts가 넘긴다) — docs/adr/2026-11-03-territory-layer.md 4절
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩(서비스도 모든 명령을 차례로 처리한다).
-// - 사용자별 속도 제한(놓기·치우기 합쳐 순간 10번, 분당 30번). 밀린 요청이 MAX_PENDING을 넘으면 busy.
+// - 사용자별 속도 제한(놓기·치우기 합쳐 순간 20번, 분당 120번 — Assumed: 손으로 누르는 속도의 몇 배, 개발 화면·시험이 연달아 놓고 치운다).
+//   밀린 요청이 MAX_PENDING을 넘으면 busy.
 // - 다른 세력 대신(factionId가 내 세력이 아님·남의 비콘 치우기)은 권한 territory: dev-place(dev·admin)만. 판정·저장은 서비스.
 // - 같은 사용자·같은 요청 번호면 10분 동안 같은 결과를 다시 준다(끊긴 뒤 다시 보낸 명령이 두 번 실행되지 않게, 2차맵 명령과 같다).
 import { type BeaconResultCode, type ClientMessageOf, encodeMessage } from "@terra/protocol";
@@ -12,7 +13,7 @@ import type { BeaconCommandResult, TerritoryService } from "./service.ts";
 export type TerritoryClientMessage = ClientMessageOf<"beacon_place" | "beacon_remove">;
 
 const MAX_PENDING = 8;
-const LIMIT = { capacity: 10, refillPerMinute: 30 };
+const LIMIT = { capacity: 20, refillPerMinute: 120 };
 const DEDUP_TTL_MS = 10 * 60_000;
 const DEDUP_MAX_ENTRIES = 5_000;
 /** 다시 해 볼 수 있는 실패는 기억하지 않는다 */

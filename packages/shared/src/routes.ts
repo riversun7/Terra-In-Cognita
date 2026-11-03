@@ -208,6 +208,14 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
+  // 영토 층(docs/adr/2026-11-03-territory-layer.md 5절): 틀 안 촘촘한 화면. 도시·비콘 껍질과 1차맵 칸 표를 보고 시험 세력 비콘을 놓는다
+  dev_territory: {
+    path: "/dev/territory",
+    search: [],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
   // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 7절): 틀을 숨긴 전체 화면. 서버가 시범 6 대 6을 기록해 3D 지도에서 재생한다
   dev_battle_replay: {
     path: "/dev/battle-replay",

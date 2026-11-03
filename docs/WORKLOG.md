@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-03 10:00 | 정원사 웨이브 다시 재기와 스태미나(274) 견주기 — 측정만 | Claude Code | [03-1000-gardener-cal](worklog/2026/11/03-1000-gardener-cal.md) |
 | 2026-11-03 09:30 | 콘텐츠 켬·끔 없앰(시설 늘 켜짐, 꺼진 아이템·레시피 켬)과 건물 화폐 유지비 없앰 (core@32) | Claude Code | [03-0930-content-on](worklog/2026/11/03-0930-content-on.md) |
 | 2026-11-03 05:30 | 건물 편집기(/dev/buildings)와 건설 재료 레벨 구간(D-508) | Claude Code | [03-0530-building-editor](worklog/2026/11/03-0530-building-editor.md) |
 | 2026-11-02 23:30 | 옛 1차 생산 규칙: 주 스탯 진행 속도·티어별 필요 진행·보조 스탯 수확량·하위 재료 (D-507) | Claude Code | [02-2330-primary-production](worklog/2026/11/02-2330-primary-production.md) |

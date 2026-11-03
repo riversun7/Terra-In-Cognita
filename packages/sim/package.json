@@ -11,7 +11,8 @@
     "bench": "node bench/pathfinding.ts",
     "sim": "node cli/sim.ts",
     "sim:speed": "node cli/speed.ts",
-    "gardener:cal": "node cli/gardener-cal.ts"
+    "gardener:cal": "node cli/gardener-cal.ts",
+    "duel:stamina": "node cli/stamina-duels.ts"
   },
   "devDependencies": {
     "@terra/content": "workspace:*",

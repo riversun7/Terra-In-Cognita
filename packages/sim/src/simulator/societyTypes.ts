@@ -5,10 +5,14 @@ import type { CombatRun } from "./combatRun.ts";
 import type { MetricsRecorder } from "./metrics.ts";
 import type { ScenarioSociety } from "./scenario.ts";
 import type { SimHooks } from "./npcRun.ts";
-import type { SimFaction, SimWorld } from "./world.ts";
+import type { RecruitView } from "./societyRecruit.ts";
+import type { SimFaction, SimUnit, SimWorld } from "./world.ts";
 
 export interface SocietySummary {
-  readonly births: number;
+  /** 구인 카드로 고용한 휴먼 수(D-469 출생 없음, 출력 형식 판 9에서 births를 바꿈) */
+  readonly recruited: number;
+  /** 구인에 쓴(소각한) 값, 국고 화폐 자산 → 최소 단위 */
+  readonly recruitSpent: Record<string, string>;
   readonly deaths: number;
   readonly reborn: number;
   readonly deified: number;
@@ -62,14 +66,23 @@ export interface SocietyRun {
   /** 그 도시 지분 100주를 국고가 가장 많은 다른 세력에 판다(어느 도시를 팔지는 판단이 고른다) */
   sellShares(seller: SimFaction, cityId: number, nowMs: number): void;
   buildResearch(faction: SimFaction, nowMs: number): void;
+  /** 도시 주인이 그 도시 행정 건물에서 지금 보는 구인 카드(D-469). 주인이 아니면 undefined */
+  recruitView(hirer: SimFaction, cityId: number, nowMs: number): RecruitView | undefined;
+  /** 구인 카드 한 장을 산다(도시 주인만, 값은 국고에서 소각). 산 휴먼, 못 사면 undefined */
+  recruit(hirer: SimFaction, cityId: number, slot: number, nowMs: number): SimUnit | undefined;
   breakVassal(faction: SimFaction): void;
   /** 웨이브에 진 시작 도시가 아닌 도시: 폐허(D-105·D-464 217) */
   ruin(cityId: number, nowMs: number): void;
   /** 웨이브에 진 시작 도시: 건물 피해(D-341) */
   damage(cityId: number, nowMs: number): void;
   endOfDay(nowMs: number): void;
-  /** 하루 줄의 세력 칸(만족도·체제·상위) */
-  dayFields(faction: SimFaction): { satisfaction: number; regime: string; overlord: number | null };
+  /** 하루 줄의 세력 칸(만족도·체제·상위·그날 구인 수) */
+  dayFields(faction: SimFaction): {
+    satisfaction: number;
+    regime: string;
+    overlord: number | null;
+    recruited: number;
+  };
   check(nowMs: number): string[];
   summary(): SocietySummary;
   /** 지금까지 돈 하루 끝 수(이어 돌리기 저장용) */

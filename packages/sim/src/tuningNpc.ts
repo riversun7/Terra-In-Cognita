@@ -39,4 +39,18 @@ export const NPC_TUNING_KEYS: readonly TuningKey[] = [
     "NPC new war satisfaction floor",
   ),
   k("d220_stall_days", "", "stallDays", "굶어 멈춤으로 세는 날 수", "Days counted as stalled"),
+  k(
+    "npc_recruit_target",
+    "",
+    "recruitTargetPm",
+    "NPC 구인 목표(주거 ‰, D-469)",
+    "NPC recruit target (‰ of housing, D-469)",
+  ),
+  k(
+    "npc_recruit_reserve",
+    "",
+    "recruitReservePm",
+    "NPC 구인 예비금(카드 값 ‰)",
+    "NPC recruit reserve (‰ of card cost)",
+  ),
 ];

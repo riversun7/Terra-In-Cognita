@@ -193,10 +193,10 @@ test.describe("admin + 실제 자료", () => {
     const rows = page.locator(".units-row");
     expect(await rows.count()).toBeGreaterThanOrEqual(5);
     await expect(page.locator(".units-row .roster-tag-preview")).toHaveCount(0);
-    await expect(rows.first().locator(".units-row-name")).toContainText(
-      message("ko", "roster_type_test_worker"),
-    );
-    await rows.first().locator(".units-row-main").click();
+    // admin은 구인 카드 시험(recruit.spec.ts)에서 고용한 휴먼도 가질 수 있다 → 시험 일꾼 줄을 골라 본다
+    const worker = rows.filter({ hasText: message("ko", "roster_type_test_worker") }).first();
+    await expect(worker.locator(".units-row-name")).toContainText(message("ko", "roster_type_test_worker"));
+    await worker.locator(".units-row-main").click();
     await expect(page.locator(".units-detail")).toContainText(message("ko", "roster_stats_baseline"));
     await expect(page.locator(".units-detail")).toContainText(message("ko", "roster_job_test_gather"));
     expect(deviceErrors).toEqual([]);

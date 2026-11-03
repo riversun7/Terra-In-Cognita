@@ -10,6 +10,7 @@
 | 2026-11-03 09:40 ~ 13:40 | 보유 물건(아이템 인스턴스) 층: 표·얻는 때 굴림·입기·전투 닳기·수리·탄약 보충 고리·소모품 쓰기·물약·요리 쿨·자동 물약 고르기·썩기·프로토콜 6 | Claude Code | [03-0940-item-holdings](worklog/2026/11/03-0940-item-holdings.md) |
 | 2026-11-03 09:30 | 콘텐츠 켬·끔 없앰(시설 늘 켜짐, 꺼진 아이템·레시피 켬)과 건물 화폐 유지비 없앰 (core@33) | Claude Code | [03-0930-content-on](worklog/2026/11/03-0930-content-on.md) |
 | 2026-11-03 09:20 | 작은 고침 셋: 개발 편집기 막대가 하단 탭에 가림, 다국어 겹친 키 검사, 2차맵 엔진 파일 나누기 | Claude Code | [03-0920-small-fixes](worklog/2026/11/03-0920-small-fixes.md) |
+| 2026-11-03 09:20 ~ 14:30 | 출생 없음 — 행정 건물 구인 카드(D-469): 규칙·시뮬·NPC 판단·서버·유저 고용 명령·개발자 화면, 상속은 소유자에게만 | Claude Code | [03-0920-recruit](worklog/2026/11/03-0920-recruit.md) |
 | 2026-11-03 05:30 | 건물 편집기(/dev/buildings)와 건설 재료 레벨 구간(D-508) | Claude Code | [03-0530-building-editor](worklog/2026/11/03-0530-building-editor.md) |
 | 2026-11-02 23:30 | 옛 1차 생산 규칙: 주 스탯 진행 속도·티어별 필요 진행·보조 스탯 수확량·하위 재료 (D-507) | Claude Code | [02-2330-primary-production](worklog/2026/11/02-2330-primary-production.md) |
 | 2026-11-02 21:35 | 채집·채굴 티어 추첨, 광석 1g과 거래 묶음 (질문 300~302, D-506) | Claude Code | [02-2135-gather-tier](worklog/2026/11/02-2135-gather-tier.md) |

@@ -15,6 +15,7 @@ import { inboxRouter } from "./inbox.ts";
 import { router } from "./init.ts";
 import { mailRouter } from "./mail.ts";
 import { planetEditorRouter } from "./planetEditor.ts";
+import { recruitRouter } from "./recruit.ts";
 import { cyborgRouter, unitsRouter } from "./roster.ts";
 import { settingsRouter } from "./settings.ts";
 import { itemsRouter } from "./items.ts";
@@ -52,6 +53,8 @@ export const appRouter = router({
   // 유닛·사이보그 화면 자료(ADR 2026-10-29-app-shell "구현하며 정한 것 (유닛·사이보그 화면)")
   units: unitsRouter,
   cyborg: cyborgRouter,
+  // 구인 카드(D-469, 조회만 — 고용은 WebSocket recruit_hire)
+  recruit: recruitRouter,
   // 경제 화면(창고·생산·거래창·환전) 조회(ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)")
   economy: economyRouter,
   // 세력·우편 화면(조회만, D-439·D-270)

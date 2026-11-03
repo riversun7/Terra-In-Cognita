@@ -6,6 +6,7 @@ import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "./combat/coef
 import type { CombatFormulaSet } from "./combat/formulas.ts";
 import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "./society/coefficients.ts";
 import { BUILD_TUNING_KEYS } from "./tuningBuild.ts";
+import { RECRUIT_TUNING_KEYS } from "./tuningRecruit.ts";
 import { CYBORG_TUNING_KEYS } from "./tuningCyborg.ts";
 import { GARDENER_TUNING_KEYS } from "./tuningGardener.ts";
 import { NPC_TUNING_KEYS } from "./tuningNpc.ts";
@@ -518,16 +519,6 @@ export const TUNING_KEYS: readonly TuningKey[] = [
     "수명 끝 신격화 확률(‰)",
     "Deification chance at end of life (‰)",
   ),
-  k("s39_birth_every", "S39", "society", "birthEveryMs", "출생 판정 주기(ms)", "Birth roll period (ms)"),
-  k("s39_birth_chance", "S39", "society", "birthPm", "출생 확률(‰)", "Birth chance (‰)"),
-  k(
-    "s39_birth_satisfaction",
-    "S39",
-    "society",
-    "birthSatisfactionMin",
-    "출생 만족도 문턱",
-    "Birth satisfaction threshold",
-  ),
   k("q121_tech_max", "", "society", "techGroundMax", "지상 기술 단계 상한", "Ground tech max", true),
   k("q121_research_work", "", "society", "researchWorkBase", "단계당 연구 작업량", "Research work per level"),
   k(
@@ -549,6 +540,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...BUILD_TUNING_KEYS,
   // 영토 층(49 M2·M3·N42·N51, D-104·D-485·D-486): tuningTerritory.ts
   ...TERRITORY_TUNING_KEYS,
+  // 구인 카드(49 N45, D-469 — S39 출생 칸을 대신함): tuningRecruit.ts
+  ...RECRUIT_TUNING_KEYS,
 ];
 
 function getPath(root: unknown, path: string): number {

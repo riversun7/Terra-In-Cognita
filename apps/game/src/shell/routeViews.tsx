@@ -56,6 +56,8 @@ const ItemEditorScreen = lazy(() => import("../editor/items/ItemEditorScreen.tsx
 const BuildingEditorScreen = lazy(() => import("../editor/buildings/BuildingEditorScreen.tsx"));
 // 영토 층(틀 안): 조각 이름 TerritoryLabScreen-*(미리 캐시 규칙 [Tt]erritoryLab)
 const TerritoryLabScreen = lazy(() => import("../editor/territory/TerritoryLabScreen.tsx"));
+// 구인 카드 시험(틀 안, D-469): 조각 이름 RecruitLabScreen-*(미리 캐시 규칙 [Rr]ecruitLab)
+const RecruitLabScreen = lazy(() => import("../editor/recruit/RecruitLabScreen.tsx"));
 // 전투 다시보기(틀 숨김): 조각 이름 BattleReplayLabScreen-*(미리 캐시 규칙 [Bb]attleReplayLab). 보기 화면(src/battle/)·엔진은 같이 쓴다
 const BattleReplayLabScreen = lazy(() => import("../editor/battleReplayLab/BattleReplayLabScreen.tsx"));
 // 지도: Three.js·엔진은 이 조각들과 함께만 내려온다. 떠나면 내린다(ADR 37 11절). 화면은 { onClose, monitor }만 받는다
@@ -93,6 +95,7 @@ export const ROUTE_TITLES = {
   dev_items: m.shell_route_dev_items,
   dev_buildings: m.shell_route_dev_buildings,
   dev_territory: m.shell_route_dev_territory,
+  dev_recruit: m.shell_route_dev_recruit,
   dev_battle_replay: m.shell_route_dev_battle_replay,
   dev_gpu_bench: m.shell_route_dev_gpu_bench,
 } satisfies Record<RouteId, () => string>;
@@ -199,6 +202,8 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <BuildingEditorScreen initialId={match.search.facility} />;
     case "dev_territory":
       return <TerritoryLabScreen />;
+    case "dev_recruit":
+      return <RecruitLabScreen initialCity={match.search.city} />;
     case "dev_battle_replay":
       return <BattleReplayLabScreen onClose={goBack} />;
     case "faction":

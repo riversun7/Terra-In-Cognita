@@ -7,6 +7,7 @@ import {
   independenceYes,
   nextTaxBp,
   occupationChoice,
+  recruitPicks,
   tradePolicy,
 } from "./policy.ts";
 import type { Traits } from "./traits.ts";
@@ -75,5 +76,30 @@ describe("점령 처리·마을·편입 제안·독립 투표(질문 198 가)", 
     expect(independenceYes(t(0, 600), false, c)).toBe(true);
     expect(independenceYes(t(0, 400), true, c)).toBe(true);
     expect(independenceYes(t(0, 400), false, c)).toBe(false);
+  });
+});
+
+describe("구인 규칙식(D-469, [임시] 목표 = 주거, 예비금 = 카드 값 × 2)", () => {
+  const cards = [
+    { slot: 0, total: 35, cost: 60n },
+    { slot: 1, total: 44, cost: 78n },
+    { slot: 2, total: 44, cost: 70n },
+    { slot: 3, total: 30, cost: 50n },
+  ];
+  const base = { cards, taken: 0, population: 8, housing: 10, treasury: 10_000n };
+
+  it("모자란 만큼만, 토탈 스탯 높은 차례(같으면 싼 것)로 산다", () => {
+    expect(recruitPicks(base, c)).toEqual([2, 1]);
+    expect(recruitPicks({ ...base, population: 10 }, c)).toEqual([]);
+    expect(recruitPicks({ ...base, population: 0 }, c)).toEqual([2, 1, 0, 3]);
+  });
+
+  it("이미 산 칸은 건너뛰고, 국고가 카드 값 × 예비 ‰ 아래면 그 카드는 사지 않는다", () => {
+    expect(recruitPicks({ ...base, taken: 0b0100 }, c)).toEqual([1, 0]);
+    // 국고 150: 70 × 2 = 140 ≤ 150 → 산 뒤 80, 78 × 2 > 80 → 못 삼, 60 × 2 > 80, 50 × 2 > 80
+    expect(recruitPicks({ ...base, population: 0, treasury: 150n }, c)).toEqual([2]);
+    expect(recruitPicks({ ...base, treasury: 0n }, c)).toEqual([]);
+    // 목표 ‰ = 500이면 주거 10의 절반(5)까지만
+    expect(recruitPicks({ ...base, population: 4 }, { ...c, recruitTargetPm: 500 })).toEqual([2]);
   });
 });

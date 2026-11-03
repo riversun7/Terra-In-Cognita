@@ -1,5 +1,6 @@
 // NPC 사회 런타임의 DB 읽기 — docs/adr/2026-11-01-npc-brain-r5.md 7절
-// 부팅 때 한 번(쓰기 대기열이 돌기 전, 월드 복구 뒤): NPC 세력·소유 주체·도시·휴먼·전쟁·런타임 상태 한 줄과 예비 세력 행.
+// 부팅 때 한 번(쓰기 대기열이 돌기 전, 월드 복구 뒤): NPC 세력·소유 주체·도시·휴먼·전쟁·런타임 상태 한 줄과 예비 세력 행,
+// 구인 카드 산 칸(D-469, recruit_draws — NPC 세력 몫은 거울 도시에, 유저 몫은 구인 서비스가 따로 읽는다).
 // int8은 pg가 문자열로 주므로 숫자로 바꾼다.
 import type { QueryPool } from "../world/persist/load.ts";
 
@@ -33,6 +34,8 @@ export interface NpcCityRow {
   readonly nextRebellionMs: number;
   /** 웨이브를 막아 낸 뒤 쉬는 시간 끝(0 = 없음) */
   readonly waveCooldownUntilMs: number;
+  /** 행정 건물 레벨(1~5, D-469) */
+  readonly adminLevel: number;
 }
 
 export interface NpcHumanRow {
@@ -43,6 +46,18 @@ export interface NpcHumanRow {
   readonly bornAtMs: number;
   readonly lifespanMs: number;
   readonly rebirths: number;
+  readonly level: number;
+  /** 구인 카드의 스탯 6·속성 12칸(처음부터 있던 휴먼은 null) */
+  readonly stats: number[] | null;
+  readonly elements: number[] | null;
+}
+
+/** 구인 카드 산 칸(고용 주체 × 도시) */
+export interface RecruitDrawRow {
+  readonly ownerId: number;
+  readonly cityId: number;
+  readonly window: number;
+  readonly taken: number;
 }
 
 export interface NpcWarRow {
@@ -71,6 +86,7 @@ export interface NpcState {
   readonly factions: NpcFactionRow[];
   readonly cities: NpcCityRow[];
   readonly humans: NpcHumanRow[];
+  readonly draws: RecruitDrawRow[];
   readonly wars: NpcWarRow[];
   readonly society: { seed: number; day: number; gardener: unknown } | null;
   /** 1차맵 칸 오염(그 행성) */
@@ -86,11 +102,25 @@ export interface NpcState {
 const num = (value: unknown): number => Number(value);
 const numOrNull = (value: unknown): number | null =>
   value === null || value === undefined ? null : Number(value);
+const numsOrNull = (value: unknown): number[] | null => (Array.isArray(value) ? value.map(num) : null);
 const regimeOf = (value: unknown): NpcFactionRow["regime"] =>
   value === "dictatorship" || value === "capitalism" ? value : "democracy";
 
+/** 구인 카드 산 칸 모두(고용 주체 × 도시). NPC 런타임과 유저 구인 서비스가 읽는다 */
+export async function loadRecruitDraws(pool: QueryPool): Promise<RecruitDrawRow[]> {
+  const found = await pool.query(
+    `select owner_id, city_id, window_index, taken from recruit_draws order by owner_id, city_id`,
+  );
+  return found.rows.map((row) => ({
+    ownerId: num(row.owner_id),
+    cityId: num(row.city_id),
+    window: num(row.window_index),
+    taken: num(row.taken),
+  }));
+}
+
 export async function loadNpcState(pool: QueryPool, planetId: string): Promise<NpcState> {
-  const [factions, cities, humans, wars, society, spares, maxCity, pollution, waves, maxWave] =
+  const [factions, cities, humans, wars, society, spares, maxCity, pollution, waves, maxWave, draws] =
     await Promise.all([
       pool.query(
         `select f.id, o.id as owner_id, f.code, f.regime, f.fixed, f.parent_id, f.tech_level, f.tech_blueprint,
@@ -100,10 +130,11 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
       ),
       pool.query(
         `select id, faction_id, planet_id, map_key, cell_x, cell_y, start, housing, research_level, founded_at_ms,
-              development, next_rebellion_ms, wave_cooldown_until_ms from world_cities order by id`,
+              development, next_rebellion_ms, wave_cooldown_until_ms, admin_level from world_cities order by id`,
       ),
       pool.query(
-        `select unit_id, city_id, satisfaction_milli, born_at_ms, lifespan_ms, rebirths from world_humans order by unit_id`,
+        `select unit_id, city_id, satisfaction_milli, born_at_ms, lifespan_ms, rebirths, level, stats, elements
+       from world_humans order by unit_id`,
       ),
       pool.query(`select faction_a, faction_b, state, at_ms from faction_wars order by faction_a, faction_b`),
       pool.query(`select seed, day, gardener from npc_society where id = 1`),
@@ -123,6 +154,7 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
         [planetId],
       ),
       pool.query(`select coalesce(max(id), 0) as id from gardener_waves`),
+      loadRecruitDraws(pool),
     ]);
   const societyRow = society.rows[0];
   return {
@@ -154,6 +186,7 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
       development: num(row.development),
       nextRebellionMs: num(row.next_rebellion_ms),
       waveCooldownUntilMs: num(row.wave_cooldown_until_ms ?? 0),
+      adminLevel: Math.max(1, num(row.admin_level ?? 1)),
     })),
     humans: humans.rows.map((row) => ({
       unitId: num(row.unit_id),
@@ -162,7 +195,11 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
       bornAtMs: num(row.born_at_ms),
       lifespanMs: num(row.lifespan_ms),
       rebirths: num(row.rebirths),
+      level: Math.max(1, num(row.level ?? 1)),
+      stats: numsOrNull(row.stats),
+      elements: numsOrNull(row.elements),
     })),
+    draws,
     wars: wars.rows.map((row) => ({
       a: num(row.faction_a),
       b: num(row.faction_b),

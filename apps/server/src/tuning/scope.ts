@@ -107,6 +107,23 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "territory.beaconRangeMilli.4",
   "territory.beaconRangeMilli.5",
   "territory.beaconDurability",
+  // 유저 구인(recruit/service.ts, 49 N45·D-469): 카드 조회·고용마다 읽는다. NPC 사회 런타임은 켤 때 읽은 값으로 돈다
+  // 같은 고용이 휴먼 수명을 굴린다(T4)
+  "lifespanMinMs",
+  "lifespanMaxMs",
+  "recruit.refreshMs",
+  "recruit.costPerLevel",
+  "recruit.costPerStat",
+  "recruit.elementPoints",
+  "recruit.elementsMin",
+  "recruit.elementsMax",
+  "recruit.startLevel",
+  ...[0, 1, 2, 3, 4].flatMap((level) => [
+    `recruit.levels.${level}.cardsMin`,
+    `recruit.levels.${level}.cardsMax`,
+    `recruit.levels.${level}.statsMin`,
+    `recruit.levels.${level}.statsMax`,
+  ]),
   // 보유 물건 전투 닳기(holdings/service.ts applyBattle, 49 N49·C20): 전투가 끝날 때마다 읽는다. 수리(F11·F12)는 아직 고리라 sim
   "durability.wearChancePm",
   "durability.wearAmount",

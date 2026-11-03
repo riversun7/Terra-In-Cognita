@@ -79,6 +79,7 @@ const PROBLEM_TEXT: Readonly<Record<TuningProblem, () => string>> = {
   wage_order: m.dev_tuning_problem_wage_order,
   employer_order: m.dev_tuning_problem_employer_order,
   food_order: m.dev_tuning_problem_food_order,
+  n45_fit: m.dev_tuning_problem_n45_fit,
   stat_primary_unused: m.dev_tuning_problem_stat_primary_unused,
 };
 

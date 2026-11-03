@@ -93,6 +93,17 @@ export function CrateIcon() {
   );
 }
 
+/** 구인 카드 시험(사람 카드) */
+export function PersonCardIcon() {
+  return (
+    <DevIcon>
+      <rect x="4" y="3.5" width="16" height="17" rx="2.5" />
+      <circle cx="12" cy="10" r="2.6" />
+      <path d="M7.5 17.5c.9-2.2 2.6-3.3 4.5-3.3s3.6 1.1 4.5 3.3" />
+    </DevIcon>
+  );
+}
+
 /** 건물 편집기(지붕 있는 집) */
 export function HouseIcon() {
   return (

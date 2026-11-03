@@ -13,7 +13,8 @@
  * 6: 보유 물건(items.ts, docs/adr/2026-11-03-item-holdings.md 5절) — item_equip·item_unequip·item_use·dev_grant_item → item_result.
  *    더하기만 했다. 5판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
  * 7: 영토 비콘(territory.ts, docs/adr/2026-11-03-territory-layer.md 4절) — beacon_place·beacon_remove → beacon_result.
- *    더하기만 했다. 6판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
+ *    구인 카드 고용(recruit.ts, D-469, docs/adr/2026-10-31-faction-society-core.md "바뀜 (D-469 구인 카드)") — recruit_hire →
+ *    recruit_result. 셋 다 더하기만 했다(세 가지를 한 번에 합쳐 판 하나로 올렸다). 6판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
  */
 export const PROTOCOL_VERSION = 7;
 

@@ -215,6 +215,7 @@ export {
   foundingChoice,
   independenceYes,
   nextTaxBp,
+  recruitPicks,
   occupationChoice,
   tradePolicy,
   type FoundingChoice,
@@ -749,7 +750,33 @@ export {
   type PrimaryStat,
   type StatRolls,
 } from "./society/cyborgStats.ts";
-export { birthRoll, canBirth, deathFate, inherit, lifespanMs, type DeathFate } from "./society/population.ts";
+export { deathFate, inherit, lifespanMs, type DeathFate } from "./society/population.ts";
+export {
+  ADMIN_LEVEL_MAX,
+  OLD_RECRUIT_COEFFICIENTS,
+  RECRUIT_CARDS_CAP,
+  RECRUIT_STAT_COUNT,
+  distributeRecruitElements,
+  distributeRecruitStats,
+  recruitCards,
+  recruitCost,
+  recruitElementSlots,
+  recruitElementsFromSlots,
+  recruitLevelRule,
+  recruitProfileOf,
+  recruitWindow,
+  recruitWindowEndMs,
+  rollRecruitCards,
+  takeRecruitSlot,
+  takenNow,
+  type RecruitCard,
+  type RecruitCoefficients,
+  type RecruitDraw,
+  type RecruitElements,
+  type RecruitLevelRule,
+  type RecruitProfile,
+} from "./society/recruitment.ts";
+export { STREAM_RECRUIT, type RecruitView, type SocietyRecruit } from "./simulator/societyRecruit.ts";
 export {
   advanceTech,
   researchCost,

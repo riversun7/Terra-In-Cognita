@@ -40,6 +40,7 @@ import type {
   BalanceTableResponse,
 } from "@terra/shared/balance";
 import type { BattleReplayDemoResponse } from "@terra/shared/battleReplay";
+import type { RecruitBoardResponse } from "@terra/shared/recruit";
 import type { PlanetLibraryBase } from "@terra/shared";
 import type {
   PlanetDraftRevisionInfo,
@@ -266,6 +267,17 @@ export interface CyborgReadServices {
 }
 
 /**
+ * 구인 카드 조회(recruit.board, D-469). 고용은 WebSocket recruit_hire다. owner = dev·admin(그 도시 주인 NPC 세력의 카드도 본다)
+ */
+export interface RecruitReadServices {
+  board(
+    viewer: { readonly id: string; readonly owner: boolean },
+    cityId: number | undefined,
+    nowMs: number,
+  ): RecruitBoardResponse | undefined;
+}
+
+/**
  * 개발자 2차맵 시험(planetEditor.secondMap, ADR 46 "구현하며 정한 것 (개발자 2차맵 시험)"): 월드 행성의 2차맵 지형 주소·행성 칸 값.
  * 실패: SecondMapLabInputError(틀린 키) → BAD_REQUEST, SecondMapLabNotReadyError(지형 서비스 준비 전) → PRECONDITION_FAILED
  */
@@ -334,6 +346,8 @@ export interface TrpcContext {
   roster: RosterServices;
   /** 사이보그 만들기 조회. 세계(DB)가 없거나 부팅 복구 전이면 undefined(프로시저가 PRECONDITION_FAILED) */
   cyborgs?: (() => CyborgReadServices | undefined) | undefined;
+  /** 구인 카드 조회(D-469). 세계·NPC 사회 런타임이 없거나 부팅 복구 전이면 undefined(프로시저가 PRECONDITION_FAILED) */
+  recruits?: (() => RecruitReadServices | undefined) | undefined;
   /** 개발자 2차맵 시험. 월드·지형 서비스·행성 서비스가 다 있을 때만 */
   secondMapLab?: SecondMapLabServices | undefined;
   /** 영토 조회(docs/adr/2026-11-03-territory-layer.md 5절). 세계(DB)가 없거나 부팅 복구 전이면 undefined */

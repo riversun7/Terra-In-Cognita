@@ -45,6 +45,7 @@ import type {
   TrpcContext,
   TrpcContextOptions,
   CyborgReadServices,
+  RecruitReadServices,
   Viewer,
 } from "./context.ts";
 import { reasonedError } from "./init.ts";
@@ -91,6 +92,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   formulas?: FormulaServices | undefined;
   /** 사이보그 만들기 조회(세계가 준비되면 서비스, docs/adr/2026-11-01-first-login-cyborg.md 4절). 없으면 늘 준비 전 */
   cyborgs?: (() => CyborgReadServices | undefined) | undefined;
+  /** 구인 카드 조회(세계·NPC 사회 런타임이 준비되면 서비스, D-469). 없으면 늘 준비 전 */
+  recruits?: (() => RecruitReadServices | undefined) | undefined;
   /** 보유 물건 조회(월드가 있을 때, docs/adr/2026-11-03-item-holdings.md). 없으면 늘 빈 목록 */
   holdings?: HoldingsReadServices | undefined;
 }
@@ -165,6 +168,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       home,
       roster,
       cyborgs: options.cyborgs ?? noCyborgs,
+      recruits: options.recruits,
       secondMapLab: options.secondMapLab,
       territory: options.territory,
       economy,

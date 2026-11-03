@@ -122,14 +122,31 @@ export const WORLD_TABLES = {
       "development",
       "next_rebellion_ms",
       "wave_cooldown_until_ms",
+      "admin_level",
     ],
     key: ["id"],
   },
-  /** NPC 나라의 휴먼(봇 유닛 하나 = 휴먼 하나). 유닛 다음에 쓰고 유닛보다 먼저 지운다 */
+  /** 휴먼(유닛 하나 = 휴먼 하나: NPC 나라의 시험 봇·유저가 고용한 휴먼). 유닛 다음에 쓰고 유닛보다 먼저 지운다 */
   humans: {
     name: "world_humans",
-    columns: ["unit_id", "city_id", "satisfaction_milli", "born_at_ms", "lifespan_ms", "rebirths"],
+    columns: [
+      "unit_id",
+      "city_id",
+      "satisfaction_milli",
+      "born_at_ms",
+      "lifespan_ms",
+      "rebirths",
+      "level",
+      "stats",
+      "elements",
+    ],
     key: ["unit_id"],
+  },
+  /** 구인 카드 산 칸(D-469): 고용 주체 × 도시마다 한 줄(소유 주체·도시 다음에 쓴다) */
+  recruitDraws: {
+    name: "recruit_draws",
+    columns: ["owner_id", "city_id", "window_index", "taken"],
+    key: ["owner_id", "city_id"],
   },
   /** 세력 상태(고치기만: 새 세력 행은 정체 열이라 런타임이 DB에 먼저 넣는다) */
   factionState: {
@@ -263,6 +280,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "cities",
   "units",
   "humans",
+  "recruitDraws",
   "factionWars",
   "npcSociety",
   "pollution",

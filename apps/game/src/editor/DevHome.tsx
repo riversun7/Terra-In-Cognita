@@ -18,6 +18,7 @@ import {
   GaugeIcon,
   HouseIcon,
   OrbitIcon,
+  PersonCardIcon,
   ScaleIcon,
   SlidersIcon,
   SparkIcon,
@@ -101,6 +102,13 @@ const DEV_TOOLS = {
     name: m.shell_route_dev_territory,
     desc: m.dev_tool_territory_desc,
     mark: <TerritoryIcon />,
+    ready: true,
+  },
+  // 구인 카드 시험(D-469): 도시마다 내 카드·도시 주인(NPC) 카드, WebSocket으로 고용해 본다(행정 건물 화면 전)
+  dev_recruit: {
+    name: m.shell_route_dev_recruit,
+    desc: m.dev_tool_recruit_desc,
+    mark: <PersonCardIcon />,
     ready: true,
   },
   // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md): 시범 6 대 6을 서버에서 기록해 3D 지도에서 되감고 배속으로 본다

@@ -112,6 +112,8 @@ export const TUNING_PROBLEMS = [
   "wage_order",
   "employer_order",
   "food_order",
+  // N45 구인 카드(D-469): 레벨마다 카드 수·토탈 스탯 최소 ≤ 최대, 원소 수 1~4·최소 ≤ 최대, 속성 점수가 원소 수 안에 들어감
+  "n45_fit",
   // 가중치 표(stat_rows): 켜진 모든 행에서 가중치가 0인 1차 스탯(가치 없는 1차, D-458). docs/adr/2026-11-01-balance-screen.md 1절
   "stat_primary_unused",
 ] as const;

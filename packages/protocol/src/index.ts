@@ -54,6 +54,11 @@ export {
   TERRITORY_PROTOCOL_VERSION,
   type BeaconResultCode,
 } from "./territory.ts";
+  RECRUIT_PROTOCOL_VERSION,
+  RECRUIT_RESULT_CODES,
+  recruitHireMessage,
+  type RecruitResultCode,
+} from "./recruit.ts";
 export {
   TERRAIN_CACHE_CONTROL,
   TERRAIN_FORMAT_V1,

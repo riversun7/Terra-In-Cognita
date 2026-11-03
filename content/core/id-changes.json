@@ -64,6 +64,30 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "tuning",
+      "id": "s39_birth_every",
+      "since": 34,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "s39_birth_chance",
+      "since": 34,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "s39_birth_satisfaction",
+      "since": 34,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

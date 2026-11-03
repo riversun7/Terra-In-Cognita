@@ -98,7 +98,7 @@ const unit = (id: number): SimUnit => ({
   satisfactionMilli: 60_000,
   bornAtMs: 0,
   lifespanMs: 0,
-  parents: [],
+  recruit: null,
   rebirths: 0,
 });
 const defenders = Array.from({ length: defendersN }, (_, index) => unit(index + 1));

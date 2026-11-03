@@ -2,10 +2,11 @@
 // 거울 세계(SimWorld)를 마지막으로 저장한 모습과 견줘 바뀐 것만 월드 쓰기 대기열에 넣고, 2차맵 유닛(출생·사망·주인)을 맞춘다.
 // - 세력 ID(거울) = 소유 주체 ID. 세력 행 ID와는 rowOf로 잇는다. 새 세력은 예비 세력 행(이미 DB에 있음)을 받아 동기로 ID를 얻는다
 //   → 같은 처리에서 생긴 원장 계정이 소유 주체를 가리켜도 외래 키가 깨지지 않는다. 예비 행은 처리 뒤 채운다(refillSpares).
-// - 새 도시(마을)는 부모 도시 둘레의 빈 자리에 둔다. 출생 = 그 도시 둘레에 봇을 세움, 사망 = 휴먼 행·유닛을 지움.
+// - 새 도시(마을)는 부모 도시 둘레의 빈 자리에 둔다. 구인(D-469, 출생 없음) = 그 도시 둘레에 봇을 세움(레벨·스탯·속성은 휴먼 행),
+//   사망 = 휴먼 행·유닛을 지움. 도시 주인이 산 구인 카드 칸은 recruit_draws(고용 주체 = 세력 소유 주체)에 쓴다.
 // - 정원사(docs/adr/2026-11-01-gardener-r5b.md 5절): 바뀐 칸 오염(0이 되면 지움), 웨이브 줄(예고·전투 ID·결과), 도시 쉬는 시간,
 //   npc_society.gardener(모함 칸·유목 부대). 폐허가 된 도시는 도시 행을 지우고(휴먼을 먼저 옮긴 같은 묶음), 노숙 휴먼은 city_id null.
-import { HOMELESS, type SimFaction, type SimWorld, traitsToArray } from "@terra/sim";
+import { HOMELESS, type SimFaction, type SimWorld, recruitElementSlots, traitsToArray } from "@terra/sim";
 import { type ServerGardener, storedGardenerOf } from "./gardener.ts";
 import type { QueryPool, OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
@@ -20,8 +21,8 @@ export interface CityPlace {
   readonly foundedAtMs: number;
 }
 
-/** 출생 봇을 세우는 도시 둘레 반경(칸) */
-const BIRTH_RADIUS_CELLS = 8;
+/** 구인 휴먼(봇)을 세우는 도시 둘레 반경(칸) */
+const RECRUIT_RADIUS_CELLS = 8;
 /** 새 마을 자리: 부모 도시에서 떨어진 거리(칸)와 다른 도시와 띄울 거리 */
 const TOWN_DISTANCES = [28, 40, 52] as const;
 const TOWN_SPACING = 14;
@@ -74,7 +75,7 @@ export interface NpcPersist {
   /** 그 세력을 다음 저장에 다시 쓴다(부팅 때 성향을 새로 굴린 세력) */
   dirtyFaction(id: number): void;
   /** 바뀐 것을 쓰기 대기열에 넣는다. 늦게 넣을 세력 행이 있으면 기다린다 */
-  flush(day: number): Promise<{ rows: number; births: number; deaths: number; owners: number }>;
+  flush(day: number): Promise<{ rows: number; recruited: number; deaths: number; owners: number }>;
 }
 
 /** 웨이브 줄의 저장 모습(바뀌었는지 견줄 때) */
@@ -112,6 +113,7 @@ export function createNpcPersist(
   const late = new Set<number>();
   const savedFactions = new Map<number, string>();
   const savedCities = new Map<number, string>();
+  const savedDraws = new Map<number, string>();
   const savedHumans = new Map<number, { sig: string; owner: number }>();
   const savedWars = new Map<string, string>();
   let savedDay = -1;
@@ -130,8 +132,15 @@ export function createNpcPersist(
           city.development,
           city.nextRebellionMs,
           o.gardener()?.run.cooldownUntil.get(id) ?? 0,
+          city.adminLevel,
         ])
       : "";
+  };
+
+  /** 도시 주인이 산 구인 카드 칸의 저장 모습(없으면 빈 문자열) */
+  const drawSig = (id: number): string => {
+    const draw = world.cities.get(id)?.recruitDraw;
+    return draw ? JSON.stringify([draw.hirer, draw.window, draw.taken]) : "";
   };
 
   const humanSig = (id: number): string => {
@@ -144,6 +153,7 @@ export function createNpcPersist(
           unit.bornAtMs,
           unit.lifespanMs,
           unit.rebirths,
+          unit.recruit?.level ?? 1,
         ])
       : "";
   };
@@ -319,7 +329,10 @@ export function createNpcPersist(
     },
     markSaved(day) {
       for (const f of world.factions.values()) savedFactions.set(f.id, factionSig(f));
-      for (const id of world.cities.keys()) savedCities.set(id, citySig(id));
+      for (const id of world.cities.keys()) {
+        savedCities.set(id, citySig(id));
+        savedDraws.set(id, drawSig(id));
+      }
       for (const unit of world.units.values())
         savedHumans.set(unit.id, { sig: humanSig(unit.id), owner: unit.owner });
       for (const [key, row] of warRows()) savedWars.set(key, JSON.stringify(row));
@@ -331,7 +344,7 @@ export function createNpcPersist(
       }
     },
     async flush(day) {
-      const count = { rows: 0, births: 0, deaths: 0, owners: 0 };
+      const count = { rows: 0, recruited: 0, deaths: 0, owners: 0 };
       // 늦게 넣는 세력 행(예비가 모자랐을 때)
       // Set·Map은 돌면서 지금 항목을 지워도 된다
       for (const ownerId of late) {
@@ -390,6 +403,7 @@ export function createNpcPersist(
           founded_at_ms: place.foundedAtMs,
           development: city.development,
           next_rebellion_ms: city.nextRebellionMs,
+          admin_level: city.adminLevel,
         });
         savedCities.set(id, sig);
         count.rows += 1;
@@ -400,6 +414,7 @@ export function createNpcPersist(
         if (world.cities.has(id)) continue;
         writer.remove("cities", { id });
         savedCities.delete(id);
+        savedDraws.delete(id);
         count.rows += 1;
       }
       // 휴먼: 사망 = 거울에서 사라짐 → 휴먼 행·유닛 지움
@@ -419,20 +434,20 @@ export function createNpcPersist(
           // 처음 들인 휴먼(이미 2차맵에 있는 시험 봇): 주인만 맞춘다
           existing.setOwner(unit.id, unit.owner);
         } else if (!saved) {
-          // 출생: 그 도시 둘레에 봇을 세운다. 설 곳이 없으면 그 휴먼은 없던 것으로 한다
+          // 구인(D-469): 그 도시 둘레에 봇을 세운다. 설 곳이 없으면 그 휴먼은 없던 것으로 한다(값은 이미 소각됨 — 드묾, 기록만)
           const place = places.get(unit.city);
           const map = mapOfCity(unit.city);
           if (
             !place ||
             !map ||
-            !map.spawnBotNear(unit.id, unit.owner, { x: place.cellX, y: place.cellY }, BIRTH_RADIUS_CELLS)
+            !map.spawnBotNear(unit.id, unit.owner, { x: place.cellX, y: place.cellY }, RECRUIT_RADIUS_CELLS)
           ) {
             world.units.delete(unit.id);
             world.factions.get(unit.owner)?.units.delete(unit.id);
-            o.log.warn({ unitId: unit.id, cityId: unit.city }, "npc society: no room for a newborn");
+            o.log.warn({ unitId: unit.id, cityId: unit.city }, "npc society: no room for a recruit");
             continue;
           }
-          count.births += 1;
+          count.recruited += 1;
         } else if (saved.owner !== unit.owner) {
           for (const map of maps.values()) if (map.setOwner(unit.id, unit.owner)) break;
           count.owners += 1;
@@ -444,8 +459,25 @@ export function createNpcPersist(
           born_at_ms: unit.bornAtMs,
           lifespan_ms: unit.lifespanMs,
           rebirths: unit.rebirths,
+          level: unit.recruit?.level ?? 1,
+          stats: unit.recruit ? [...unit.recruit.stats] : null,
+          elements: unit.recruit ? recruitElementSlots(unit.recruit.elements) : null,
         });
         savedHumans.set(unit.id, { sig, owner: unit.owner });
+        count.rows += 1;
+      }
+      // 구인 카드 산 칸(도시 주인 = 고용 주체). 도시 행 다음에 쓴다(쓰기 대기열 차례)
+      for (const [id, city] of [...world.cities].toSorted((a, b) => a[0] - b[0])) {
+        const draw = city.recruitDraw;
+        const sig = drawSig(id);
+        if (!draw || savedDraws.get(id) === sig || !rowOf.has(draw.hirer)) continue;
+        writer.upsert("recruitDraws", {
+          owner_id: draw.hirer,
+          city_id: id,
+          window_index: draw.window,
+          taken: draw.taken,
+        });
+        savedDraws.set(id, sig);
         count.rows += 1;
       }
       // 전쟁·불가침

@@ -1,13 +1,13 @@
 // NPC 판단 실행 — docs/adr/2026-11-01-npc-brain-r5.md 3·6절 (옛 stubRules.ts, R1 대리 규칙을 대신함)
 // 세력마다 판단 예약("decide")에서: 세계 → 지표(FactionView·RivalView) → npc/brain.ts가 고른 행동 하나 → 세력·사회 규칙(society.ts)·
-// 전투(combatRun.ts)로 실행한다. 세율(경제가 있을 때)은 판단마다 규칙식(npc/policy.ts)으로 따로 돈다.
-// 결과(점령·반란·독립·출생·기술·백지 강화)는 규칙이 정한다. 서버(apps/server/src/npc/)도 같은 함수를 실제 시각으로 부른다.
+// 전투(combatRun.ts)로 실행한다. 세율(경제가 있을 때)과 구인(D-469, 행정 건물 구인 카드)은 판단마다 규칙식(npc/policy.ts)으로 따로 돈다.
+// 결과(점령·반란·독립·구인 휴먼·기술·백지 강화)는 규칙이 정한다. 서버(apps/server/src/npc/)도 같은 함수를 실제 시각으로 부른다.
 // 합성 이동 부하(유닛마다 "arrive")는 서버와 같은 이동 함수로 도착 시각을 낸다.
 import { WALK_SPEED } from "../units.ts";
 import { arrivalAt, createMotion } from "../motion/motion.ts";
 import type { EventKey } from "../events/eventKey.ts";
 import { type FactionView, type NpcAction, type RivalView, decideAction, peaceScore } from "../npc/brain.ts";
-import { nextTaxBp, occupationChoice } from "../npc/policy.ts";
+import { nextTaxBp, occupationChoice, recruitPicks } from "../npc/policy.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
 import { shareAsset } from "../society/shares.ts";
 import { inTruce, recordFight } from "../society/wars.ts";
@@ -67,6 +67,8 @@ export interface NpcCounts {
   readonly actions: Record<NpcAction["kind"], number>;
   peaceRefused: number;
   taxChanges: number;
+  /** 구인 규칙식으로 산 카드 수(D-469) */
+  recruits: number;
 }
 
 export function emptyNpcCounts(): NpcCounts {
@@ -74,6 +76,7 @@ export function emptyNpcCounts(): NpcCounts {
     actions: { idle: 0, attack: 0, found: 0, research: 0, sell_shares: 0, peace: 0, break_vassal: 0 },
     peaceRefused: 0,
     taxChanges: 0,
+    recruits: 0,
   };
 }
 
@@ -323,6 +326,33 @@ function taxPolicy(ctx: NpcContext, faction: SimFaction, view: FactionView, nowM
   ctx.counts.taxChanges += 1;
 }
 
+/**
+ * 구인 규칙식(D-469 "NPC도 이런 경로를 통해 인구를 늘리며 생산발전", npc/policy.ts recruitPicks): 그 세력 도시마다(ID 차례) 휴먼이
+ * 목표보다 적으면 그 창의 남은 카드를 산다. 행동 하나와 따로 판단마다 돈다(세율과 같은 자리)
+ */
+function recruitPolicy(ctx: NpcContext, faction: SimFaction, nowMs: number): void {
+  const society = ctx.society;
+  if (!society) return;
+  const byCity = citizens(ctx, faction);
+  const asset = treasuryAssetOf(ctx, faction);
+  for (const cityId of [...faction.cities].toSorted((a, b) => a - b)) {
+    const city = ctx.world.cities.get(cityId);
+    const view = society.recruitView(faction, cityId, nowMs);
+    if (!city || !view) continue;
+    const picks = recruitPicks(
+      {
+        cards: view.cards,
+        taken: view.taken,
+        population: byCity.get(cityId)?.n ?? 0,
+        housing: city.housing,
+        treasury: ctx.world.book.balanceOf(faction.id, asset),
+      },
+      ctx.c.npc,
+    );
+    for (const slot of picks) if (society.recruit(faction, cityId, slot, nowMs)) ctx.counts.recruits += 1;
+  }
+}
+
 /** 세력 판단 하나 */
 export function decide(ctx: NpcContext, factionId: number, nowMs: number): void {
   const faction = ctx.world.factions.get(factionId);
@@ -367,6 +397,7 @@ export function decide(ctx: NpcContext, factionId: number, nowMs: number): void 
   }
   // 세율은 판단을 시작할 때 본 국고끼리 견준다(행동이 쓴 돈과 섞이지 않게)
   if (faction.alive) taxPolicy(ctx, faction, view, nowMs);
+  if (faction.alive) recruitPolicy(ctx, faction, nowMs);
   if (ctx.combat && rng.nextInt(1000) < (ctx.encounterPerMille ?? 0) && faction.alive)
     ctx.combat.encounter(faction, rng.nextInt(0x1_0000), nowMs);
   // 판단 난수는 차례 2k, 다음 시각 난수는 2k+1(k = 판단 횟수)이라 겹치지 않는다

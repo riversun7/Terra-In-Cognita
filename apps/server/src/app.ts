@@ -34,10 +34,12 @@ import { registerTrpc } from "./trpc/plugin.ts";
 import { appRouter } from "./trpc/router.ts";
 import { cacheViewer, createWorldGateway } from "./world/gateway.ts";
 import { createCyborgGateway } from "./cyborg/gateway.ts";
+import { createRecruitGateway } from "./recruit/gateway.ts";
 import { holdingsConfigOf } from "./holdings/config.ts";
 import { createItemGateway } from "./holdings/gateway.ts";
 import { createHoldingsReads } from "./holdings/reads.ts";
 import { type CyborgService, cyborgReadsOf } from "./cyborg/service.ts";
+import type { RecruitService } from "./recruit/service.ts";
 import { createWorldSummaryBackend } from "./world/summarySources.ts";
 import { type RosterCatalog, testRosterCatalog } from "./roster/catalog.ts";
 import { createWorldRosterSource } from "./roster/worldUnits.ts";
@@ -404,6 +406,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // 영토(docs/adr/2026-11-03-territory-layer.md): 같은 조건
   const territoryService = (): TerritoryService | undefined =>
     world?.status().state === "ready" ? world.persistence?.territory : undefined;
+  // 구인 카드(D-469): 세계가 준비되고 NPC 사회 런타임이 돌 때만(거울 도시·시드가 런타임에 있다)
+  const recruitService = (): RecruitService | undefined =>
+    world?.status().state === "ready" && world.npc ? world.persistence?.recruits : undefined;
   // 보유 물건(docs/adr/2026-11-03-item-holdings.md): 세계가 준비된 뒤의 접근(DB가 있는 월드만)
   const holdingsAccess = () =>
     world?.status().state === "ready" ? world.persistence?.holdings.access : undefined;
@@ -509,6 +514,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         const service = cyborgService();
         return service ? cyborgReadsOf(service) : undefined;
       },
+      recruits: recruitService,
       holdings: world
         ? createHoldingsReads({
             access: holdingsAccess,
@@ -582,6 +588,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const territoryGateway = world
     ? createTerritoryGateway({ service: territoryService, now, log: app.log })
     : undefined;
+  const recruitGateway = world
+    ? createRecruitGateway({ service: recruitService, now, log: app.log })
+    : undefined;
   const itemGateway = world ? createItemGateway({ access: holdingsAccess, now, log: app.log }) : undefined;
 
   if (planets && options.planets) {
@@ -603,6 +612,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         world: gateway,
         cyborg: cyborgGateway,
         territory: territoryGateway,
+        recruit: recruitGateway,
         items: itemGateway,
         viewer: socketViewer(request),
         // 접속 상태(D-136): 월드가 DB에 저장할 때만. 연결은 부팅 복구가 끝난 뒤에만 들어온다(listen이 기다린다)

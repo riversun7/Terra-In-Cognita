@@ -12,3 +12,8 @@ export const UNIT_KIND_TEST = 2;
 export const TEST_NPC_FACTION_CODE = "s3_test_npc";
 /** 사이보그 본체(플레이어 하나에 하나, docs/adr/2026-11-01-first-login-cyborg.md 2절). 보유 유닛 수·유지비에 넣지 않는다 */
 export const UNIT_KIND_CYBORG = 3;
+/**
+ * 유저가 정부기관 구인 카드로 고용한 휴먼(D-469, src/recruit/service.ts). 레벨·스탯·속성·수명은 world_humans 행이다.
+ * NPC 나라의 휴먼은 시험 봇(0)이다
+ */
+export const UNIT_KIND_HUMAN = 4;

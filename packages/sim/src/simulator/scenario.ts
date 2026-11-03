@@ -28,6 +28,8 @@ export interface ScenarioFaction {
   readonly housing: number;
   /** 첫 도시 연구 시설 레벨(기본: min(5, tech)) */
   readonly researchLevel: number;
+  /** 도시마다 행정 건물 레벨(1~5, D-469 구인 카드). [임시] 기본 1(옛 마을회관) — 행정 건물을 올리는 길이 아직 없다 */
+  readonly adminLevel: number;
 }
 
 export interface ScenarioFacilityPlan {
@@ -230,6 +232,7 @@ export function parseScenario(value: unknown): Scenario {
         Math.min(5, Number(field(item, "tech") ?? 1)),
         5,
       ),
+      adminLevel: optionalInt(field(item, "adminLevel"), `${at}.adminLevel`, 1, 1, 5),
     };
   });
   const npcValue = field(value, "npc");

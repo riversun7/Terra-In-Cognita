@@ -10,6 +10,7 @@ import {
   CYBORG_PROTOCOL_VERSION,
   CYBORG_ELEMENTS_PROTOCOL_VERSION,
   TERRITORY_PROTOCOL_VERSION,
+  RECRUIT_PROTOCOL_VERSION,
   ITEM_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
@@ -21,6 +22,7 @@ import type { RawData } from "ws";
 import type { Viewer } from "./trpc/context.ts";
 import type { CyborgGateway, CyborgSocket } from "./cyborg/gateway.ts";
 import type { TerritoryGateway, TerritorySocket } from "./territory/gateway.ts";
+import type { RecruitGateway, RecruitSocket } from "./recruit/gateway.ts";
 import type { ItemGateway, ItemSocket } from "./holdings/gateway.ts";
 import type { WorldGateway, WorldSocket } from "./world/gateway.ts";
 
@@ -34,6 +36,8 @@ export interface SessionContext {
   cyborg?: CyborgGateway | undefined;
   /** 영토 비콘(프로토콜 7, docs/adr/2026-11-03-territory-layer.md 4절). 없으면 busy */
   territory?: TerritoryGateway | undefined;
+  /** 구인 카드 고용(프로토콜 7, D-469). 없으면 busy */
+  recruit?: RecruitGateway | undefined;
   /** 보유 물건(프로토콜 6, docs/adr/2026-11-03-item-holdings.md 5절). 없으면 busy */
   items?: ItemGateway | undefined;
   /** 이 연결의 로그인 사용자(쿠키). 로그인하지 않았거나 인증이 꺼져 있으면 null */
@@ -65,6 +69,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let worldSocket: WorldSocket | undefined;
   let cyborgSocket: CyborgSocket | undefined;
   let territorySocket: TerritorySocket | undefined;
+  let recruitSocket: RecruitSocket | undefined;
   let itemSocket: ItemSocket | undefined;
   let releasePresence: (() => void) | undefined;
 
@@ -98,6 +103,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
     worldSocket?.close();
     cyborgSocket?.close();
     territorySocket?.close();
+    recruitSocket?.close();
     itemSocket?.close();
     releasePresence?.();
   });
@@ -217,6 +223,20 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         }
         territorySocket ??= context.territory.open({ send: sendText, viewer: context.viewer ?? signedOut });
         territorySocket.handle(message);
+        return;
+      }
+      case "recruit_hire": {
+        // 구인 카드 고용은 프로토콜 7의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        if (protocolVersion < RECRUIT_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.recruit) {
+          send({ t: "recruit_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        recruitSocket ??= context.recruit.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        recruitSocket.handle(message);
         return;
       }
       case "item_equip":

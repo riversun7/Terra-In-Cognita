@@ -838,6 +838,357 @@
       "max": 100000
     },
     {
+      "id": "n45_refresh_every",
+      "code": "N45",
+      "name": {
+        "ko": "구인 카드 갱신 주기(ms)",
+        "en": "Recruit card refresh period (ms)"
+      },
+      "value": 43200000,
+      "structural": false,
+      "unit": "ms",
+      "min": 60000,
+      "max": 2592000000
+    },
+    {
+      "id": "n45_cost_per_level",
+      "code": "N45",
+      "name": {
+        "ko": "구인 비용: 등급당(최소 단위)",
+        "en": "Recruit cost per grade (minor units)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000
+    },
+    {
+      "id": "n45_cost_per_stat",
+      "code": "N45",
+      "name": {
+        "ko": "구인 비용: 최소를 넘는 토탈 스탯 1점당(최소 단위)",
+        "en": "Recruit cost per stat point above the minimum (minor units)"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000
+    },
+    {
+      "id": "n45_element_points",
+      "code": "N45",
+      "name": {
+        "ko": "구인 휴먼 속성 점수",
+        "en": "Recruit element points"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 40
+    },
+    {
+      "id": "n45_elements_min",
+      "code": "N45",
+      "name": {
+        "ko": "구인 휴먼 속성 원소 수 최소",
+        "en": "Recruit element count min"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 4
+    },
+    {
+      "id": "n45_elements_max",
+      "code": "N45",
+      "name": {
+        "ko": "구인 휴먼 속성 원소 수 최대",
+        "en": "Recruit element count max"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 4
+    },
+    {
+      "id": "n45_start_level",
+      "code": "N45",
+      "name": {
+        "ko": "구인 휴먼 시작 레벨",
+        "en": "Recruit start level"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "level",
+      "min": 1,
+      "max": 50
+    },
+    {
+      "id": "n45_cards_min_l1",
+      "code": "N45",
+      "name": {
+        "ko": "구인 카드 수 최소, 행정 건물 Lv1",
+        "en": "Recruit cards min, administrative building level 1"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 16
+    },
+    {
+      "id": "n45_cards_max_l1",
+      "code": "N45",
+      "name": {
+        "ko": "구인 카드 수 최대, 행정 건물 Lv1",
+        "en": "Recruit cards max, administrative building level 1"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 16
+    },
+    {
+      "id": "n45_stats_min_l1",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 스탯 최소, 행정 건물 Lv1",
+        "en": "Recruit total stats min, administrative building level 1"
+      },
+      "value": 30,
+      "structural": false,
+      "unit": "points",
+      "min": 6,
+      "max": 1000
+    },
+    {
+      "id": "n45_stats_max_l1",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 스탯 최대, 행정 건물 Lv1",
+        "en": "Recruit total stats max, administrative building level 1"
+      },
+      "value": 45,
+      "structural": false,
+      "unit": "points",
+      "min": 6,
+      "max": 1000
+    },
+    {
+      "id": "n45_cards_min_l2",
+      "code": "N45",
+      "name": {
+        "ko": "구인 카드 수 최소, 행정 건물 Lv2",
+        "en": "Recruit cards min, administrative building level 2"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 16
+    },
+    {
+      "id": "n45_cards_max_l2",
+      "code": "N45",
+      "name": {
+        "ko": "구인 카드 수 최대, 행정 건물 Lv2",
+        "en": "Recruit cards max, administrative building level 2"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 16
+    },
+    {
+      "id": "n45_stats_min_l2",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 스탯 최소, 행정 건물 Lv2",
+        "en": "Recruit total stats min, administrative building level 2"
+      },
+      "value": 45,
+      "structural": false,
+      "unit": "points",
+      "min": 6,
+      "max": 1000
+    },
+    {
+      "id": "n45_stats_max_l2",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 스탯 최대, 행정 건물 Lv2",
+        "en": "Recruit total stats max, administrative building level 2"
+      },
+      "value": 60,
+      "structural": false,
+      "unit": "points",
+      "min": 6,
+      "max": 1000
+    },
+    {
+      "id": "n45_cards_min_l3",
+      "code": "N45",
+      "name": {
+        "ko": "구인 카드 수 최소, 행정 건물 Lv3",
+        "en": "Recruit cards min, administrative building level 3"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 16
+    },
+    {
+      "id": "n45_cards_max_l3",
+      "code": "N45",
+      "name": {
+        "ko": "구인 카드 수 최대, 행정 건물 Lv3",
+        "en": "Recruit cards max, administrative building level 3"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 16
+    },
+    {
+      "id": "n45_stats_min_l3",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 스탯 최소, 행정 건물 Lv3",
+        "en": "Recruit total stats min, administrative building level 3"
+      },
+      "value": 60,
+      "structural": false,
+      "unit": "points",
+      "min": 6,
+      "max": 1000
+    },
+    {
+      "id": "n45_stats_max_l3",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 스탯 최대, 행정 건물 Lv3",
+        "en": "Recruit total stats max, administrative building level 3"
+      },
+      "value": 80,
+      "structural": false,
+      "unit": "points",
+      "min": 6,
+      "max": 1000
+    },
+    {
+      "id": "n45_cards_min_l4",
+      "code": "N45",
+      "name": {
+        "ko": "구인 카드 수 최소, 행정 건물 Lv4",
+        "en": "Recruit cards min, administrative building level 4"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 16
+    },
+    {
+      "id": "n45_cards_max_l4",
+      "code": "N45",
+      "name": {
+        "ko": "구인 카드 수 최대, 행정 건물 Lv4",
+        "en": "Recruit cards max, administrative building level 4"
+      },
+      "value": 6,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 16
+    },
+    {
+      "id": "n45_stats_min_l4",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 스탯 최소, 행정 건물 Lv4",
+        "en": "Recruit total stats min, administrative building level 4"
+      },
+      "value": 80,
+      "structural": false,
+      "unit": "points",
+      "min": 6,
+      "max": 1000
+    },
+    {
+      "id": "n45_stats_max_l4",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 스탯 최대, 행정 건물 Lv4",
+        "en": "Recruit total stats max, administrative building level 4"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 6,
+      "max": 1000
+    },
+    {
+      "id": "n45_cards_min_l5",
+      "code": "N45",
+      "name": {
+        "ko": "구인 카드 수 최소, 행정 건물 Lv5",
+        "en": "Recruit cards min, administrative building level 5"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 16
+    },
+    {
+      "id": "n45_cards_max_l5",
+      "code": "N45",
+      "name": {
+        "ko": "구인 카드 수 최대, 행정 건물 Lv5",
+        "en": "Recruit cards max, administrative building level 5"
+      },
+      "value": 7,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 16
+    },
+    {
+      "id": "n45_stats_min_l5",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 스탯 최소, 행정 건물 Lv5",
+        "en": "Recruit total stats min, administrative building level 5"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 6,
+      "max": 1000
+    },
+    {
+      "id": "n45_stats_max_l5",
+      "code": "N45",
+      "name": {
+        "ko": "구인 토탈 스탯 최대, 행정 건물 Lv5",
+        "en": "Recruit total stats max, administrative building level 5"
+      },
+      "value": 120,
+      "structural": false,
+      "unit": "points",
+      "min": 6,
+      "max": 1000
+    },
+    {
       "id": "d130_shares_per_city",
       "code": "",
       "name": {
@@ -1043,7 +1394,10 @@
         "en": "Human lifespan min (ms)"
       },
       "value": 5184000000,
-      "structural": false
+      "structural": false,
+      "unit": "ms",
+      "min": 86400000,
+      "max": 315360000000
     },
     {
       "id": "t4_lifespan_max",
@@ -1053,7 +1407,10 @@
         "en": "Human lifespan max (ms)"
       },
       "value": 7776000000,
-      "structural": false
+      "structural": false,
+      "unit": "ms",
+      "min": 86400000,
+      "max": 315360000000
     },
     {
       "id": "d395_rebirth",
@@ -1073,36 +1430,6 @@
         "en": "Deification chance at end of life (‰)"
       },
       "value": 10,
-      "structural": false
-    },
-    {
-      "id": "s39_birth_every",
-      "code": "S39",
-      "name": {
-        "ko": "출생 판정 주기(ms)",
-        "en": "Birth roll period (ms)"
-      },
-      "value": 21600000,
-      "structural": false
-    },
-    {
-      "id": "s39_birth_chance",
-      "code": "S39",
-      "name": {
-        "ko": "출생 확률(‰)",
-        "en": "Birth chance (‰)"
-      },
-      "value": 250,
-      "structural": false
-    },
-    {
-      "id": "s39_birth_satisfaction",
-      "code": "S39",
-      "name": {
-        "ko": "출생 만족도 문턱",
-        "en": "Birth satisfaction threshold"
-      },
-      "value": 50,
       "structural": false
     },
     {
@@ -1763,6 +2090,32 @@
       },
       "value": 7,
       "structural": false
+    },
+    {
+      "id": "npc_recruit_target",
+      "code": "",
+      "name": {
+        "ko": "NPC 구인 목표(주거 ‰, D-469)",
+        "en": "NPC recruit target (‰ of housing, D-469)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 5000
+    },
+    {
+      "id": "npc_recruit_reserve",
+      "code": "",
+      "name": {
+        "ko": "NPC 구인 예비금(카드 값 ‰)",
+        "en": "NPC recruit reserve (‰ of card cost)"
+      },
+      "value": 2000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
     },
     {
       "id": "p15_cell_max",

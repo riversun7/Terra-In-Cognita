@@ -17,6 +17,7 @@ import {
 import { JOB_GATHER, PHASE_WORK, type JobState } from "../settle/settle.ts";
 import { type NpcCoefficients, TEST_NPC_COEFFICIENTS } from "../npc/coefficients.ts";
 import { type Traits, rollTraits } from "../npc/traits.ts";
+import type { RecruitDraw, RecruitProfile } from "../society/recruitment.ts";
 import type { Regime } from "../society/shares.ts";
 import type { WarState } from "../society/wars.ts";
 import type { Scenario } from "./scenario.ts";
@@ -70,8 +71,12 @@ export interface SimCity {
   owner: number;
   /** 기본 NPC 국가의 시작 도시(D-341: 주인이 바뀌지 않는다) */
   readonly start: boolean;
-  /** 휴먼 주거 수(출생 상한, 넘으면 노숙) */
+  /** 휴먼 주거 수(구인 목표, 넘으면 노숙) */
   housing: number;
+  /** 행정 건물(정부기관) 레벨(1~5, D-469). 구인 카드 수·토탈 스탯 범위를 정한다(49 N45) */
+  adminLevel: number;
+  /** 도시 주인(고용 주체)이 지금 창에 산 구인 카드 칸. 주인이 바뀌었거나 창이 지났으면 새 묶음이다 */
+  recruitDraw: (RecruitDraw & { readonly hirer: number }) | null;
   /** 연구 시설 레벨(0~5, 질문 121) */
   researchLevel: number;
   /** 발전도(0~100, [임시] 인구·만족도로 계산) */
@@ -98,8 +103,8 @@ export interface SimUnit {
   /** 태어난 시각·수명(D-021·T4). 환생하면 다시 센다 */
   bornAtMs: number;
   lifespanMs: number;
-  /** 부모(태어날 때 기록, 상속 D-332) */
-  readonly parents: readonly number[];
+  /** 구인 카드로 온 휴먼의 레벨·스탯·속성(D-469). 처음부터 있던 휴먼은 null. 유닛에게는 부모·자녀가 없다(D-469) */
+  readonly recruit: RecruitProfile | null;
   /** 그 유닛의 환생 횟수(D-438 4) */
   rebirths: number;
 }
@@ -230,6 +235,8 @@ export function createWorld(
           housing: group.housing,
           // 첫 도시에 처음 기술 단계만큼의 연구 시설, 나머지는 하나 낮게
           researchLevel: Math.max(0, group.researchLevel - (c === 0 ? 0 : 1)),
+          adminLevel: group.adminLevel,
+          recruitDraw: null,
           development: 0,
           nextRebellionMs: startMs,
         };
@@ -251,7 +258,7 @@ export function createWorld(
           // 나이·수명은 세력·사회(society.ts)가 차릴 때 흩는다
           bornAtMs: startMs,
           lifespanMs: 0,
-          parents: [],
+          recruit: null,
           rebirths: 0,
         };
         units.set(unit.id, unit);

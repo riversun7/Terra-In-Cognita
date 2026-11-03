@@ -96,3 +96,35 @@ export function answerOffer(
 export function independenceYes(traits: Traits, atWarWithRuler: boolean, c: NpcCoefficients): boolean {
   return atWarWithRuler || traits.commerce >= c.voteCommerce;
 }
+
+/**
+ * 구인 규칙식(D-469, [임시] 기술 출발값): 도시 휴먼이 목표(주거 × recruitTargetPm ÷ 1000)보다 적으면 그 창의 남은 카드를 토탈 스탯이 높은
+ * 차례로(같으면 싼 것, 같으면 앞 자리) 산다. 카드 하나를 살 때마다 국고가 그 값 × recruitReservePm ÷ 1000 이상이어야 한다.
+ * 산 자리 목록(산 차례). 사람(유저 세력)이면 이 자리에 유저 명령이 들어간다
+ */
+export function recruitPicks(
+  input: {
+    readonly cards: readonly { readonly slot: number; readonly total: number; readonly cost: bigint }[];
+    readonly taken: number;
+    readonly population: number;
+    readonly housing: number;
+    readonly treasury: bigint;
+  },
+  c: NpcCoefficients,
+): number[] {
+  const target = Math.floor((input.housing * c.recruitTargetPm) / 1000);
+  let gap = target - input.population;
+  let treasury = input.treasury;
+  const picks: number[] = [];
+  const open = input.cards
+    .filter((card) => (input.taken & (1 << card.slot)) === 0)
+    .toSorted((a, b) => b.total - a.total || (a.cost < b.cost ? -1 : a.cost > b.cost ? 1 : a.slot - b.slot));
+  for (const card of open) {
+    if (gap <= 0) break;
+    if (treasury * 1000n < card.cost * BigInt(c.recruitReservePm) || treasury < card.cost) continue;
+    picks.push(card.slot);
+    treasury -= card.cost;
+    gap -= 1;
+  }
+  return picks;
+}

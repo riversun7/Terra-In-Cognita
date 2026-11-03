@@ -6,6 +6,7 @@
 import { BASIC_ELEMENTS, ELEMENT_MAX } from "@terra/shared/cyborg";
 import type { TuningProblem } from "@terra/shared/tuning";
 import type { SocietyCoefficients } from "./society/coefficients.ts";
+import { RECRUIT_CARDS_CAP } from "./society/recruitment.ts";
 
 /** 1차 스탯 수(N9 합을 칸마다 나눈다) */
 const PRIMARY_COUNT = 6;
@@ -55,6 +56,29 @@ export function tuningProblems(c: SocietyCoefficients): TuningProblem[] {
   if (c.employerAdjustMinPm > c.employerAdjustMaxPm) problems.push("employer_order");
   // N33: 포만감 효율 구간 문턱이 오른다
   if (!ascending(c.foodEfficiency.map((band) => band.atMost))) problems.push("food_order");
+  // N45 구인 카드(D-469): 레벨마다 카드 수 0~16·최소 ≤ 최대, 토탈 스탯 6 이상(칸마다 1점)·최소 ≤ 최대, 원소 수 1~4·최소 ≤ 최대,
+  // 속성 점수 = 원소 수 최대 이상(칸마다 1점) ~ 원소 수 최소 × 칸 상한(10) 이하, 갱신 주기 > 0, 시작 레벨 ≥ 1, 비용 계수 ≥ 0
+  const r = c.recruit;
+  if (
+    r.refreshMs < 1 ||
+    r.startLevel < 1 ||
+    r.costPerLevel < 0 ||
+    r.costPerStat < 0 ||
+    r.elementsMin < 1 ||
+    r.elementsMin > r.elementsMax ||
+    r.elementsMax > BASIC_ELEMENTS.length ||
+    r.elementPoints < r.elementsMax ||
+    r.elementPoints > r.elementsMin * ELEMENT_MAX ||
+    r.levels.some(
+      (level) =>
+        level.cardsMin < 0 ||
+        level.cardsMin > level.cardsMax ||
+        level.cardsMax > RECRUIT_CARDS_CAP ||
+        level.statsMin < PRIMARY_COUNT ||
+        level.statsMin > level.statsMax,
+    )
+  )
+    problems.push("n45_fit");
   return problems;
 }
 

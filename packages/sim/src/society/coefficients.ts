@@ -6,6 +6,7 @@ import { START_TERRITORY_COEFFICIENTS, type TerritoryCoefficients } from "@terra
 import { type GardenerCoefficients, TEST_GARDENER_COEFFICIENTS } from "../gardener/coefficients.ts";
 import { type NpcCoefficients, TEST_NPC_COEFFICIENTS } from "../npc/coefficients.ts";
 import type { CyborgTemperament } from "./cyborgStats.ts";
+import { OLD_RECRUIT_COEFFICIENTS, type RecruitCoefficients } from "./recruitment.ts";
 
 export interface SocietyCoefficients {
   /** 도시 주식 수(D-130) */
@@ -46,10 +47,11 @@ export interface SocietyCoefficients {
   /** [임시] 수명이 다했을 때 환생·신격화 확률(‰, D-395 시설 서비스 전 단계) */
   readonly rebirthPm: number;
   readonly deifyPm: number;
-  /** [임시] 도시 출생(S39 출발값 없음): 판정 주기, 판정마다 확률 ‰, 만족도 문턱(질문 120 기본안) */
-  readonly birthEveryMs: number;
-  readonly birthPm: number;
-  readonly birthSatisfactionMin: number;
+  /**
+   * 구인 카드(D-469 출생 없음 → 인구는 행정 건물 구인 카드로만, 49 N45 옛 hq_routes.js 값, Lv4·Lv5 [임시]). 팩 tuning 경로 "recruit.*".
+   * 규칙은 society/recruitment.ts
+   */
+  readonly recruit: RecruitCoefficients;
   /** 지상 기술 단계 상한(질문 121 기본안: 시설 Lv1~5 사다리) */
   readonly techGroundMax: number;
   /** [임시] 단계 n으로 오르는 연구 작업량(효율 1000인 연구 일꾼 한 시간 = 1000) = researchWorkBase × n */
@@ -262,9 +264,10 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   lifespanMaxMs: 90 * DAY,
   rebirthPm: 100,
   deifyPm: 10,
-  birthEveryMs: 6 * HOUR,
-  birthPm: 250,
-  birthSatisfactionMin: 50,
+  recruit: {
+    ...OLD_RECRUIT_COEFFICIENTS,
+    levels: OLD_RECRUIT_COEFFICIENTS.levels.map((level) => ({ ...level })),
+  },
   techGroundMax: 5,
   researchWorkBase: 48_000,
   developmentPerTech: 20,

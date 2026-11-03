@@ -22,6 +22,7 @@
     "./itemEditor": "./src/itemEditor.ts",
     "./mail": "./src/mail.ts",
     "./planetCalendar": "./src/planetCalendar.ts",
+    "./recruit": "./src/recruit.ts",
     "./roster": "./src/roster.ts",
     "./skillEditor": "./src/skillEditor.ts",
     "./territory": "./src/territory.ts",

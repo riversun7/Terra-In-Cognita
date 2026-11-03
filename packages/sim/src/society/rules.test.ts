@@ -3,7 +3,7 @@ import { createLedgerAudit } from "../ledger/audit.ts";
 import { createLedgerBook } from "../ledger/ledgerBook.ts";
 import { TEST_SOCIETY_COEFFICIENTS as c } from "./coefficients.ts";
 import { makeOffers, occupationShifts, resolveOffer, settleShares } from "./occupation.ts";
-import { birthRoll, canBirth, deathFate, inherit, lifespanMs } from "./population.ts";
+import { deathFate, inherit, lifespanMs } from "./population.ts";
 import {
   allocateShares,
   holdingsOf,
@@ -281,12 +281,7 @@ describe("반란·독립", () => {
 });
 
 describe("인구", () => {
-  it("출생은 빈 주거 + 만족도 문턱, 수명은 범위 안, 수명 끝은 환생 → 신격화 → 사망", () => {
-    expect(canBirth(9, 10, 50_000, c)).toBe(true);
-    expect(canBirth(10, 10, 90_000, c)).toBe(false);
-    expect(canBirth(1, 10, 49_999, c)).toBe(false);
-    expect(birthRoll(2499, c)).toBe(true);
-    expect(birthRoll(2500, c)).toBe(false);
+  it("수명은 범위 안, 수명 끝은 환생 → 신격화 → 사망(출생은 없다, D-469)", () => {
     expect(lifespanMs(0, c)).toBe(c.lifespanMinMs);
     expect(lifespanMs(9999, c)).toBeLessThan(c.lifespanMaxMs);
     expect([deathFate(999, c), deathFate(1000, c), deathFate(1099, c), deathFate(1100, c)]).toEqual([
@@ -297,19 +292,23 @@ describe("인구", () => {
     ]);
   });
 
-  it("상속: 상속세(50%)는 도시 국고, 나머지는 상속자에게 고르게, 상속자가 없으면 전부 국고(D-332)", () => {
+  it("상속: 상속세(50%)는 도시 국고, 나머지는 소유자에게만(D-469, D-332 대체), 소유자가 없으면 전부 국고", () => {
     const { book, audit, give } = setup();
     give(100, "cur:a", 101n);
-    expect(inherit(book, 100, [201, 202], 9, 1, c)).toBe(1);
-    // 세금 50 + 나머지 51을 둘이 25씩, 남는 1은 국고
-    expect([book.balanceOf(9, "cur:a"), book.balanceOf(201, "cur:a"), book.balanceOf(202, "cur:a")]).toEqual([
-      51n,
-      25n,
-      25n,
-    ]);
+    give(100, "cur:b", 7n);
+    expect(inherit(book, 100, 201, 9, 1, c)).toBe(2);
+    // 세금 ⌊101 × 50%⌋ = 50은 국고, 나머지 51은 소유자. 자산마다 따로
+    expect([book.balanceOf(9, "cur:a"), book.balanceOf(201, "cur:a")]).toEqual([50n, 51n]);
+    expect([book.balanceOf(9, "cur:b"), book.balanceOf(201, "cur:b")]).toEqual([3n, 4n]);
+    expect(book.balanceOf(100, "cur:a")).toBe(0n);
+    // 소유자 = 국고 주체(NPC 휴먼이 자기 세력 도시에 삶): 전부 한 계정으로
     give(101, "cur:a", 40n);
-    inherit(book, 101, [], 9, 2, c);
-    expect(book.balanceOf(9, "cur:a")).toBe(91n);
+    inherit(book, 101, 9, 9, 2, c);
+    expect(book.balanceOf(9, "cur:a")).toBe(90n);
+    // 소유자가 없으면 전부 국고
+    give(102, "cur:a", 10n);
+    inherit(book, 102, null, 9, 3, c);
+    expect(book.balanceOf(9, "cur:a")).toBe(100n);
     expect(audit.check(book.accounts())).toEqual([]);
   });
 });

@@ -484,37 +484,23 @@ export const worldCities = pgTable(
     nextRebellionMs: bigint("next_rebellion_ms", { mode: "number" }).notNull().default(0),
     /** 정원사 웨이브를 막아 낸 뒤 확률이 줄어드는 기간의 끝(C18, docs/adr/2026-11-01-gardener-r5b.md). 0 = 없음 */
     waveCooldownUntilMs: bigint("wave_cooldown_until_ms", { mode: "number" }).notNull().default(0),
+    /**
+     * 행정 건물(정부기관) 레벨 1~5(D-469 구인 카드: 카드 수·토탈 스탯 범위, 49 N45). [임시] 모든 도시 1(옛 마을회관) — 올리는 길이 아직 없다.
+     * docs/adr/2026-10-31-faction-society-core.md "바뀜 (D-469 구인 카드)"
+     */
+    adminLevel: smallint("admin_level").notNull().default(1),
   },
   (table) => [
     index("world_cities_map_idx").on(table.mapKey),
     index("world_cities_faction_idx").on(table.factionId),
     check("world_cities_research", sql`${table.researchLevel} between 0 and 5`),
+    check("world_cities_admin_level", sql`${table.adminLevel} between 1 and 5`),
     check("world_cities_planet_id_format", sql`${table.planetId} ~ '^[a-z][a-z0-9_]{1,47}$'`),
   ],
 );
 
-/**
- * NPC 나라의 휴먼(docs/adr/2026-11-01-npc-brain-r5.md 7절): 시험 봇 유닛 하나 = 휴먼 하나. 사는 도시·만족도(D-219, 밀리점)·
- * 태어난 시각·수명(T4)·환생 수. 유닛이 지워지면 함께 지워진다
- */
-export const worldHumans = pgTable(
-  "world_humans",
-  {
-    unitId: bigint("unit_id", { mode: "number" })
-      .primaryKey()
-      .references((): AnyPgColumn => worldUnits.id, { onDelete: "cascade" }),
-    /** 사는 도시. null = 노숙(도시를 모두 잃은 떠도는 세력의 휴먼, D-294·D-296·D-464 217) */
-    cityId: bigint("city_id", { mode: "number" }).references(() => worldCities.id),
-    satisfactionMilli: integer("satisfaction_milli").notNull(),
-    bornAtMs: bigint("born_at_ms", { mode: "number" }).notNull(),
-    lifespanMs: bigint("lifespan_ms", { mode: "number" }).notNull(),
-    rebirths: smallint("rebirths").notNull().default(0),
-  },
-  (table) => [
-    index("world_humans_city_idx").on(table.cityId),
-    check("world_humans_satisfaction", sql`${table.satisfactionMilli} between 0 and 100000`),
-  ],
-);
+// 휴먼·구인 카드 산 칸(D-469): populationSchema.ts
+export { recruitDraws, worldHumans } from "./populationSchema.ts";
 
 /** 세력 쌍의 전쟁·불가침(D-256·D-290·D-292, 작은 ID가 앞). 하나도 아니면 행이 없다 */
 export const factionWars = pgTable(

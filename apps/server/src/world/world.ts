@@ -58,6 +58,8 @@ import {
   createTerritoryService,
   loadBeacons,
 } from "../territory/service.ts";
+import { loadRecruitDraws } from "../npc/state.ts";
+import { type RecruitService, createRecruitService } from "../recruit/service.ts";
 
 /**
  * 시험 2차맵 자리(ADR 2026-10-31-second-map-from-planet 8절): S2 시험 행성(면 레벨 9) 면 0의 (i, j) = (282, 328) 칸부터
@@ -179,6 +181,8 @@ export interface WorldPersistence {
   readonly cyborgs: CyborgService;
   /** 영토 비콘·영토 배치(docs/adr/2026-11-03-territory-layer.md) */
   readonly territory: TerritoryService;
+  /** 유저 구인(정부기관 구인 카드, D-469). NPC 사회 런타임이 없으면 조회는 undefined, 고용은 busy */
+  readonly recruits: RecruitService;
   /** 보유 물건(아이템 인스턴스, docs/adr/2026-11-03-item-holdings.md) */
   readonly holdings: WorldHoldings;
 }
@@ -568,6 +572,18 @@ export function startWorld(
       },
       beaconRows,
     );
+    const recruits = createRecruitService({
+      runtime: () => npc,
+      maps,
+      settlement,
+      ledger,
+      writer,
+      nextUnitId: nextId.unit,
+      cyborgOf: (userId) => cyborgs.record(userId),
+      rules: config.cyborgRules ?? defaultCyborgRules,
+      now,
+      draws: await loadRecruitDraws(db),
+    });
     const holdings = createWorldHoldings({
       loaded: holdingData,
       writer,
@@ -589,6 +605,7 @@ export function startWorld(
       battles,
       cyborgs,
       territory,
+      recruits,
       holdings,
     };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)

@@ -259,7 +259,6 @@ describe("pnpm tuning:apply", () => {
       stage: "gather",
       slotsPerLevel: 10,
       build: { mulPm: 800, levels: [{ from: 1, materials: [{ item: "pine_log", qty: 8 }] }] },
-      enabled: true,
     };
     writeFileSync(path.join(dir, "facilities.json"), json({ entries: [farm] }));
     const edited = {
@@ -284,10 +283,15 @@ describe("pnpm tuning:apply", () => {
           from: null,
           entry: { ...farm, id: "mine", build: { mulPm: 800, materials: [{ item: "stone", qty: 1 }] } },
         },
+        // 켬·끔 칸이 있던 옛 시설 줄(core@31까지)도 스키마에 맞지 않아 건너뛴다(시설은 늘 켜짐, core@32)
+        { category: "facilities", id: "kiln", from: null, entry: { ...farm, id: "kiln", enabled: true } },
       ],
     });
     expect(outcome.entries.applied).toEqual([{ category: "facilities", id: "farm", kind: "replaced" }]);
-    expect(outcome.entries.skipped).toEqual([{ category: "facilities", id: "mine", reason: "invalid" }]);
+    expect(outcome.entries.skipped).toEqual([
+      { category: "facilities", id: "mine", reason: "invalid" },
+      { category: "facilities", id: "kiln", reason: "invalid" },
+    ]);
     expect(JSON.parse(readFileSync(path.join(dir, "facilities.json"), "utf8")).entries).toEqual([edited]);
     expect(outcome.version).toBe(4);
   });

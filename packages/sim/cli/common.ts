@@ -108,7 +108,6 @@ function catalogOf(source: PackSource): EconomyCatalog {
               },
             }
           : {}),
-        enabled: facility.enabled,
       }),
     ),
     necessities: parseFile(source, "necessities.json", (raw) => necessityEntrySchema.parse(raw)).map(

@@ -1,5 +1,5 @@
 // 건물 편집기 시설 표(공용 .dev-table) — 옛 관리자 건물 편집기의 표(건물·카테고리·티어·유닛·생산 타입)를 우리 자료 칸으로: 시설(이름·ID),
-// 생산 단계, 최고 레벨, 레벨당 자리, Lv1(처음 짓기) 재료, 상태(출처·담김·꺼짐). 줄 이름 칸이 단추다(누르면 편집 판).
+// 생산 단계, 최고 레벨, 레벨당 자리, Lv1(처음 짓기) 재료, 상태(출처·담김. 시설은 늘 켜져 있어 꺼짐 표지가 없다). 줄 이름 칸이 단추다(누르면 편집 판).
 import type { BuildingEditorListResponse } from "@terra/shared/buildingEditor";
 import { m } from "../../paraglide/messages.js";
 import { ORIGIN_TEXT, STAGE_TEXT } from "./buildingMessages.ts";
@@ -74,9 +74,6 @@ export function BuildingList({
                       {entry ? (
                         <span className="dev-badge be-badge-staged">{m.dev_buildings_state_staged()}</span>
                       ) : null}
-                      {shown.enabled ? null : (
-                        <span className="dev-badge be-badge-off">{m.dev_content_disabled()}</span>
-                      )}
                     </span>
                   </td>
                 </tr>

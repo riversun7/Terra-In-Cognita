@@ -103,7 +103,8 @@ export function previewGather(
 ): ItemGatherPreview | null {
   const sub = draft.subcategory;
   if (sub === undefined || ctx.bands.length === 0) return null;
-  const facility = ctx.facilities.find((entry) => entry.enabled && entry.gather?.subcategory.id === sub);
+  // 시설은 늘 켜짐(켬·끔 없음, 팩 core@32)
+  const facility = ctx.facilities.find((entry) => entry.gather?.subcategory.id === sub);
   const gather = facility?.gather;
   if (!facility || !gather) return null;
   // 사다리: 초안이 같은 ID의 실효 항목을 대신한다(새로 만드는 초안이면 더한다)

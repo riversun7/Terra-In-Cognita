@@ -54,8 +54,9 @@ test.describe("플레이어(실제 자료)", () => {
     await expect(economy(page).locator(".eco-not-ready")).toContainText(
       message("ko", "economy_not_ready_market"),
     );
-    // 팩의 거래할 물건(장비 빼고): 곡물·원목·철광석·철 주괴·배급 식량·생활용품 + 하위 재료(D-507) 잡석·석재·구리·소나무·자작나무·편백나무
-    await expect(economy(page).locator(".eco-row-link")).toHaveCount(12);
+    // 팩의 거래할 물건(장비·문서 빼고): 켜진 아이템 162개 − 장비 12개 = 150개(core@32에서 옛 자원 129·괴 7·판자·벽돌을 켬,
+    // 형식 확인용 dev_placeholder는 꺼짐)
+    await expect(economy(page).locator(".eco-row-link")).toHaveCount(150);
     // 하위 화면에서도 하단 탭의 경제가 지금 화면이다(menuRoute)
     await expect(page.locator('nav.tabbar a[aria-current="page"]')).toHaveText(message("ko", "nav_economy"));
     await page.goto("/economy/market/iron_ore/101");

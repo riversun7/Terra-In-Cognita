@@ -52,6 +52,7 @@
 - DB: `TEST_DATABASE_URL=… vitest run apps/server/src/territory`(3, 놓기 검사·저장·다시 켜도 같은 칸 표·치우기·남의 도시·팩에 시설 없음) — 통과.
 - 화면: `pnpm e2e territory.spec.ts dev.spec.ts --workers=1` — 18개 통과(영토 6: 관리자 놓기·상한·두 세력·치우기, 플레이어 권한, 배치·사진 4). 사진 `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/territory/shots/territory-*.png`(네온·라이트 × 390·1440, 표, 두 세력).
 - `pnpm check:bundle`: 첫 화면 JS 105,765 B / 상한 131,416 B(상한 그대로).
+- main 두 번 합친 뒤(`378852d`): `TEST_DATABASE_URL=… pnpm check` — 3,297개 중 하나(보유 물건의 최소 판 시험 `cyborg.test.ts`) 실패 → 최소 판 4에 맞춰 고친 뒤 `packages/protocol` 75개 통과. `pnpm check:docs origin/main`·`pnpm check:content origin/main`(core@34, 기준 378852d) 통과. `pnpm check:bundle` 105,758 B. 화면 시험 `territory`·`dev`·`buildings` 작업자 하나: 첫 실행 28 통과·1 실패(사진 시험의 비콘 치우기가 속도 제한에 걸림) → 비콘 명령 제한을 2차맵 명령과 같게(순간 30·초당 10)·치우기 다시 해 보기 → `territory`·`buildings` 17개 통과.
 
 ## 미검증·TODO·알려진 문제
 - 1차맵 행성 엔진 영토 층(칸 표를 덮개로)은 하지 않았다. 2차맵 경계선도 없다.

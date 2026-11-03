@@ -87,12 +87,13 @@ describe("스탯 계산기(D-414·D-417, 정수 ‰)", () => {
     for (const row of TEST_STAT_TABLE) expect(Number.isInteger(stats[row.id])).toBe(true);
   });
 
-  it("새 행 출발값(분당): 쉴드 재생 = 1분에 WIS만큼(L11), 스태미나 회복 = STA 점수 80에서 초당 3(L13)", () => {
+  it("새 행 출발값(분당): 쉴드 재생 = 1분에 WIS만큼(L11), 스태미나 회복 = 적정 STA에서 분당 720(D-511, 1차와 상관없음)", () => {
     const wisOnly: Primaries = { str: 0, dex: 0, agi: 0, vit: 0, int: 0, wis: 35 };
     expect(computeSecondary(wisOnly, TEST_STAT_TABLE).shield_regen).toBe(35);
-    // STA 점수 = AGI × 0.7 + VIT × 0.3 = 80 → 초당 3 = 분당 180
+    // 스태미나 회복 행은 적정 STA에서의 회복(초당 12)이다. 적정 비율은 전투 사양이 곱한다(계산식 real_stamina_regen)
     const sta80: Primaries = { str: 0, dex: 0, agi: 80, vit: 80, int: 0, wis: 0 };
-    expect(computeSecondary(sta80, TEST_STAT_TABLE).stamina_regen).toBe(180);
+    expect(computeSecondary(sta80, TEST_STAT_TABLE).stamina_regen).toBe(720);
+    expect(computeSecondary(wisOnly, TEST_STAT_TABLE).stamina_regen).toBe(720);
   });
 
   it("속성 방어율은 WIS·VIT로 오르고(D-458) STR은 보탬이 없다, 물리 방어율은 그 반대 쪽", () => {

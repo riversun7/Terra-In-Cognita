@@ -93,7 +93,9 @@ function programsOf(
       crit_multiplier: pick("crit_multiplier"),
       attack_interval: pick("attack_interval"),
       stamina_score: pick("stamina_score"),
+      stamina_appropriate: pick("stamina_appropriate"),
       stamina_cost: pick("stamina_cost"),
+      real_stamina_regen: pick("real_stamina_regen"),
       evade_chance: pick("evade_chance"),
     },
   };
@@ -191,6 +193,56 @@ export function sampleStatsOf(
   const weapon = defaultWeapon(list);
   if (!programs || !weapon) return {};
   return sampleSecondary({ primaries, level, rows: programs.rows, weapon, coefficients: list.coefficients });
+}
+
+/** 표본 유닛이 무기 하나로 기본 공격을 할 때의 스태미나(D-511 적정 스탯 개념, 담은 식 포함) */
+export interface SampleStamina {
+  readonly weapon: FormulaWeaponView;
+  /** 적정 STA 점수(밀리점, 식 stamina_appropriate) */
+  readonly appropriateMilli: number;
+  readonly score: number;
+  /** 최대 스태미나(2차 스탯 stamina) */
+  readonly max: number;
+  /** 실제 회복(분당, 식 real_stamina_regen) */
+  readonly regenPerMinute: number;
+  /** 기본 공격 한 번 소모(밀리점, 식 stamina_cost) */
+  readonly costMilli: number;
+  /** 공격 간격(ms, 식 attack_interval) */
+  readonly intervalMs: number;
+  /** 초당 회복 ≥ 초당 소모(일반 공격이 이어진다, D-511) */
+  readonly sustained: boolean;
+}
+
+/** 표본 1차·레벨에서 무기마다 기본 공격 스태미나(판정 specFromStats와 같은 식·변수). 식이 틀리면 빈 목록 */
+export function sampleStaminaOf(
+  list: FormulaListResponse,
+  drafts: FormulaDrafts,
+  primaries: readonly number[],
+  level: number,
+): SampleStamina[] {
+  const programs = programsOf(list, drafts);
+  if (!programs) return [];
+  return list.weapons.map((weapon) => {
+    const result = runFormulaSample(
+      { primaries, level, rows: programs.rows, weapon, coefficients: list.coefficients },
+      programs.combat,
+    );
+    const v = result.values;
+    const costMilli = Math.max(0, v.stamina_cost);
+    const intervalMs = Math.max(1, Math.floor(v.attack_interval / 1000));
+    const regenPerMinute = Math.max(0, Math.floor(v.real_stamina_regen / 1000));
+    return {
+      weapon,
+      appropriateMilli: v.stamina_appropriate,
+      score: result.staminaScore,
+      max: Math.max(0, result.stats["stamina"] ?? 0),
+      regenPerMinute,
+      costMilli,
+      intervalMs,
+      // 분당 회복 × 간격 ≥ 60 × 한 번 소모(밀리점) ⇔ 초당 회복 ≥ 소모 ÷ 간격
+      sustained: regenPerMinute * intervalMs >= 60 * costMilli,
+    };
+  });
 }
 
 /** 이 무기로 판정이 이 식을 쓰나(맨손 적정 식은 맨손일 때만. 실제 공격력은 맨손도 쓴다: 스탯 공격력 + 무기 몫 0, D-502) */

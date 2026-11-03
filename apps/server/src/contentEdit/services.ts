@@ -15,6 +15,7 @@ import {
   type SkillEditorHistoryRow,
   type SkillEditorListResponse,
 } from "@terra/shared/skillEditor";
+import type { ActionCostRow, StaminaBasisView } from "@terra/shared/skillEditor";
 import { normalizeTuningNote } from "@terra/shared/tuning";
 import type { AuditActor } from "../auth/store.ts";
 import type { Database } from "../db/client.ts";
@@ -56,6 +57,11 @@ export interface ContentEditShared {
   readonly pack: { readonly packId: string; readonly contentVersion: string };
   readonly now: () => number;
   readonly log: TuningLog;
+  /**
+   * 행동별 소모 화면의 스태미나 기준(D-511, staminaBasis.ts): 설정 칸·계산식·전투 자료 실효 값이 있을 때만(app.ts가 넣는다).
+   * 없으면 목록의 stamina = null(화면은 기준 칸을 숨긴다)
+   */
+  readonly staminaBasis?: ((rows: readonly ActionCostRow[]) => StaminaBasisView) | undefined;
   serial<T>(task: () => Promise<T>): Promise<T>;
 }
 
@@ -64,6 +70,7 @@ export function createContentEditShared(options: {
   pack: ContentEditShared["pack"];
   now: () => number;
   log: TuningLog;
+  staminaBasis?: ContentEditShared["staminaBasis"];
 }): ContentEditShared {
   let tail: Promise<unknown> = Promise.resolve();
   return {
@@ -157,13 +164,15 @@ export async function bootContentEdit(
 export function skillEditorList(shared: ContentEditShared): SkillEditorListResponse {
   const { state } = shared;
   const snapshot = state.snapshot();
+  const actions = actionRows(state, snapshot);
   return {
     contentVersion: shared.pack.contentVersion,
     revision: snapshot.revision,
     skills: skillViews(state, snapshot),
     effects: state.effects.map(effectViewOf),
-    actions: actionRows(state, snapshot),
+    actions,
     retiredSkillIds: state.retiredIds("skills"),
+    stamina: shared.staminaBasis?.(actions) ?? null,
   };
 }
 

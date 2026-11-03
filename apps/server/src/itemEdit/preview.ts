@@ -125,7 +125,6 @@ function coefficientsOf(tuning: TuningState | undefined): FormulaCoefficients {
     capPm: c.appropriateCapPm,
     critSpreadPm: c.critSpreadPm,
     staminaWeightsPm: [...c.stamina.scoreWeightsPm],
-    staminaAppropriate: c.stamina.appropriateScore,
     staminaMinPm: c.stamina.minConsumePm,
     evadeRelative: { ...c.evadeRelative },
   };

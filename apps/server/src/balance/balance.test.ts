@@ -310,17 +310,25 @@ describe("꼬임 가드", () => {
     const { state, roster } = setup();
     const sword = roster.combat.equipment.find((item) => item.id === "test_sword")?.weapon;
     if (!sword) throw new Error("test_sword");
-    const specs = statFighterSpecs({ primaries: flat(40), weapon: sword, count: 2 }, state.statTable());
+    // 레벨 100(적정 STA 109 > STA 점수 40, D-511)이라 스태미나에 묶여 30초를 넘긴다(스냅숏이 생기게)
+    const specs = statFighterSpecs(
+      { primaries: flat(40), weapon: sword, count: 2, level: 100 },
+      state.statTable(),
+    );
     const init = duelInit(specs, specs, 7, 32);
     const snapshots: string[] = [];
     const full = runBattle(init, [], (snapshot) => snapshots.push(snapshot));
     // 전투 도중에 가중치 표를 크게 바꾼다(HP를 낮춤) — 전투는 표를 읽지 않는다
     state.install([record("hp.vit", 100, 3000), record("hp.str", 100, 1500)], 1);
     const restored = restoreBattle(init, snapshots[0] ?? "");
+    expect(snapshots.length).toBeGreaterThan(0);
     const resumed = restored.runToEnd([]);
     expect(snapshotBattle(resumed.state)).toBe(full.finalState);
     // 새 표로 만든 사양은 다르다(다음 전투부터만 든다)
-    const lower = statFighterSpecs({ primaries: flat(40), weapon: sword, count: 2 }, state.statTable());
+    const lower = statFighterSpecs(
+      { primaries: flat(40), weapon: sword, count: 2, level: 100 },
+      state.statTable(),
+    );
     expect(lower[0]?.maxHp).toBeLessThan(specs[0]?.maxHp ?? 0);
     const battle = createBattle(init);
     for (let i = 0; i < 300; i++) {

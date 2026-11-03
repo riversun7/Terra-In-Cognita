@@ -438,9 +438,12 @@ export {
   affinityRatePm,
   msToTicks,
   regenOnTick,
+  specStaminaCostMilli,
+  staminaAppropriateOf,
   staminaCostMilli,
   staminaScore,
   type CombatCoefficients,
+  type StaminaOwner,
 } from "./combat/coefficients.ts";
 export {
   ELEMENT_COUNT,
@@ -479,6 +482,8 @@ export {
   dexFrameValue,
   evadeChancePm,
   isValidCombatFormula,
+  realStaminaRegen,
+  staminaAppropriateMilli,
   staminaCostMilliOf,
   staminaScoreOf,
   type CombatFormulaSet,

@@ -34,8 +34,10 @@ import {
   critMultiplierPm,
   dexFrameValue,
   evadeChancePm,
+  realStaminaRegen,
+  staminaAppropriateMilli,
 } from "./formulas.ts";
-import { type StatRow, TEST_STAT_TABLE, computeSecondary } from "./stats.ts";
+import { type StatRow, TEST_STAT_TABLE, computeSecondary, primaryAtLevel } from "./stats.ts";
 import { specFromStats } from "./unitSpec.ts";
 
 const c = TEST_COMBAT_COEFFICIENTS;
@@ -48,12 +50,17 @@ function oldStaminaScore(primaries: readonly number[]): number {
   for (let i = 0; i < 6; i++) sum += (primaries[i] ?? 0) * (c.stamina.scoreWeightsPm[i] ?? 0);
   return Math.floor(sum / 1000);
 }
-function oldStaminaCostMilli(baseCost: number, score: number): number {
+/** 스태미나 소모(N13 모양, D-511로 적정이 밀리점 레벨 식 값): 기본 × max(최소 소모, 적정 ÷ 점수) */
+function ruleStaminaCostMilli(baseCost: number, score: number, appropriateMilli: number): number {
   const factor =
-    score <= 0
-      ? c.stamina.appropriateScore * 1000
-      : Math.max(c.stamina.minConsumePm, Math.floor((c.stamina.appropriateScore * 1000) / score));
+    score <= 0 ? appropriateMilli : Math.max(c.stamina.minConsumePm, Math.floor(appropriateMilli / score));
   return baseCost * factor;
+}
+/** 실제 회복(D-511): 분당 회복 × min(2, 점수 ÷ 적정), 적정이 0 이하면 그대로 */
+function ruleRegen(regen: number, score: number, appropriateMilli: number): number {
+  if (appropriateMilli <= 0) return regen;
+  const ratioMilli = Math.min(2000, Math.floor((Math.max(0, score) * 1_000_000) / appropriateMilli));
+  return Math.floor((regen * ratioMilli) / 1000);
 }
 /** 공격 간격(D-502 사용자 답 297): 무기 간격 ÷ min(N10, AGI ÷ 적정 AGI). 적정(밀리점)이 없으면 무기 간격 그대로 */
 function ruleInterval(intervalMs: number, agi: number, appropriateMilli: number): number {
@@ -163,13 +170,30 @@ describe("기본 식 = 바꾸기 전 공식(무작위 입력)", () => {
     expect(attackIntervalMs(1000, 39, 12_000, c)).toBe(1000);
   });
 
-  it("STA 점수·스태미나 소모(N13)", () => {
+  it("STA 점수·스태미나 소모(N13, 적정 = 레벨 식 밀리점 D-511)·실제 회복", () => {
     for (let round = 0; round < 3000; round++) {
       const primaries = Array.from({ length: 6 }, () => int(round % 4 === 0 ? 20 : 1_000_000));
       expect(staminaScore(primaries, c)).toBe(oldStaminaScore(primaries));
       const base = int(round % 3 === 0 ? 20 : 100_000);
       const score = int(round % 5 === 0 ? 3 : 1_000_000) - (round % 7 === 0 ? 2 : 0);
-      expect(staminaCostMilli(base, score, c)).toBe(oldStaminaCostMilli(base, score));
+      // 적정(밀리점): 레벨 식 값(정수 점 × 1000), 소수 적정, 0
+      const appropriate = round % 11 === 0 ? 0 : round % 2 === 0 ? 1000 * (1 + int(500)) : 1 + int(900_000);
+      expect(staminaCostMilli(base, score, appropriate, c)).toBe(
+        ruleStaminaCostMilli(base, score, appropriate),
+      );
+      const regen = int(round % 3 === 0 ? 2000 : 1_000_000);
+      expect(realStaminaRegen(regen, score, appropriate, c)).toBe(ruleRegen(regen, score, appropriate));
+    }
+  });
+
+  it("적정 STA 점수 = 보통 유닛(1차 처음 10, 성장률 100‰ × K 1)의 STA 점수(D-511, Lv 1 = 10, Lv 30 = 39)", () => {
+    expect(staminaAppropriateMilli(1, c)).toBe(10_000);
+    expect(staminaAppropriateMilli(30, c)).toBe(39_000);
+    for (let level = 1; level <= 200; level++) {
+      const p = primaryAtLevel(10, 100, 1000, level);
+      const typical = staminaScore([p, p, p, p, p, p], c);
+      expect(staminaAppropriateMilli(level, c)).toBe(typical * 1000);
+      expect(staminaAppropriateMilli(level, c)).toBe((level + 9) * 1000);
     }
   });
 

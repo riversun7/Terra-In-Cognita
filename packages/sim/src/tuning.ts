@@ -173,7 +173,6 @@ export const TUNING_KEYS: readonly TuningKey[] = [
     "STA 점수 VIT 가중치(‰)",
     "STA score VIT weight (‰)",
   ),
-  k("n13_appropriate", "N13", "combat", "stamina.appropriateScore", "적정 STA 점수", "Appropriate STA score"),
   k(
     "n13_min_consume",
     "N13",
@@ -183,6 +182,7 @@ export const TUNING_KEYS: readonly TuningKey[] = [
     "Minimum consumption (‰)",
   ),
   // N13 회복(기본 회복/초·회복 배수 상한)·N15 MP 회복은 D-458 2차 스탯 행(stamina_regen·mp_regen, N40)으로 옮겼다(팩 stat_rows)
+  // N13 적정 STA 점수(80 고정)는 D-511로 레벨 계산식 stamina_appropriate가 됐다(팩 formulas, id-changes core@34)
   // N40 피격 뒤 쉴드 재생 지연은 D-490(쉴드 재생은 맞는 중에도 일정하게 계속)으로 없앴다(팩 id-changes core@21)
   // 노동 (49 §6.5 N21~N33, §7 S25)
   k("n21_fatigue_max", "N21", "society", "fatigueMax", "피로 상한", "Fatigue max", true),

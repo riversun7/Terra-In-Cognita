@@ -4,7 +4,8 @@
 // 출발값: 기획 설정 칸(49 5장·6.5 N1~N33)에 있는 값은 그대로, 없는 값은 [임시]. 배율은 ‰, 확률 굴림은 0~9999.
 // 정본은 기획 48(수치·공식)이다. 콘텐츠 팩 `tuning`(N 칸 값)이 있으면 실행 도구가 이 표를 그 값으로 바꾼다(tuning.ts).
 // 게임 상한은 없다(D-421: 하드캡·속성 하한 거둠).
-// 식(실제 공격력·명중·크리·맨손 적정·크리 배율·공격 간격·STA 점수·스태미나 소모·최종 회피)은 개발자 모드에서 고치는 계산식이다
+// 식(실제 공격력·명중·크리·맨손 적정·크리 배율·공격 간격·STA 점수·적정 STA·스태미나 소모·실제 스태미나 회복·최종 회피)은
+// 개발자 모드에서 고치는 계산식이다
 // (formulas.ts, docs/adr/2026-11-01-formula-editor.md). 이 표의 수(N10·N11·N12·N13)는 식의 변수로 들어간다.
 import { type CombatFormulaSet, staminaCostMilliOf, staminaScoreOf } from "./formulas.ts";
 
@@ -46,12 +47,13 @@ export interface CombatCoefficients {
   /** 크리 배율 범위 폭(N12: 최대 − 최소 = 2000 − 1500 = 500‰) */
   readonly critSpreadPm: number;
   /**
-   * 스태미나 소모(N13, 48 §4.1): STA 점수 = 1차 가중합(AGI 700·VIT 300‰), 소모 = 기본 × max(최소 소모‰, 적정 × 1000 ÷ 점수) ÷ 1000.
-   * 회복은 2차 스탯 "스태미나 회복"(D-458, 가중치 표 행 stamina_regen, 분당)이다. MP 회복·쉴드 재생도 같다(mp_regen·shield_regen)
+   * 스태미나 소모(N13, 48 §4.1·D-511): STA 점수 = 1차 가중합(AGI 700·VIT 300‰), 소모 = 기본 × max(최소 소모‰, 적정 ÷ 점수).
+   * 적정 STA 점수는 설정 칸이 아니라 레벨 식(계산식 stamina_appropriate, 적정 스탯 개념 D-511 — 옛 N13 적정 80 고정을 바꿈)이다.
+   * 회복 = 2차 스탯 "스태미나 회복"(D-458, 가중치 표 행 stamina_regen, 분당) × min(2, 점수 ÷ 적정)(계산식 real_stamina_regen).
+   * MP 회복·쉴드 재생은 2차 스탯 그대로다(mp_regen·shield_regen)
    */
   readonly stamina: {
     readonly scoreWeightsPm: readonly number[];
-    readonly appropriateScore: number;
     readonly minConsumePm: number;
   };
   /**
@@ -101,7 +103,6 @@ export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
   critSpreadPm: 500,
   stamina: {
     scoreWeightsPm: [0, 0, 700, 300, 0, 0],
-    appropriateScore: 80,
     minConsumePm: 500,
   },
 };
@@ -111,9 +112,34 @@ export function staminaScore(primaries: readonly number[], c: CombatCoefficients
   return staminaScoreOf(primaries, c);
 }
 
-/** 행동 한 번의 스태미나 소모(밀리점, N13): 식 stamina_cost(기본 = 기본 소모 × max(최소 소모, 적정 ÷ 점수)) */
-export function staminaCostMilli(baseCost: number, score: number, c: CombatCoefficients): number {
-  return staminaCostMilliOf(baseCost, score, c);
+/**
+ * 행동 한 번의 스태미나 소모(밀리점, N13·D-511): 식 stamina_cost(기본 = 기본 소모 × max(최소 소모, 적정 ÷ 점수)). 적정 = 적정 STA 점수
+ * (밀리점, 식 stamina_appropriate 값)
+ */
+export function staminaCostMilli(
+  baseCost: number,
+  score: number,
+  appropriateMilli: number,
+  c: CombatCoefficients,
+): number {
+  return staminaCostMilliOf(baseCost, score, appropriateMilli, c);
+}
+
+/** 전투 유닛의 스태미나 칸(사양·상태) */
+export interface StaminaOwner {
+  readonly staminaScore: number;
+  /** 적정 STA 점수(밀리점). 없으면(시험 유닛·옛 스냅숏) STA 점수와 같다(배율 1) */
+  readonly staminaAppropriateMilli?: number | undefined;
+}
+
+/** 유닛의 적정 STA 점수(밀리점): 사양 값, 없으면 STA 점수 × 1000(배율 1) */
+export function staminaAppropriateOf(unit: StaminaOwner): number {
+  return unit.staminaAppropriateMilli ?? unit.staminaScore * 1000;
+}
+
+/** 유닛이 기본 소모 baseCost인 행동 한 번에 쓰는 스태미나(밀리점, 그 유닛의 STA 점수·적정 STA) */
+export function specStaminaCostMilli(unit: StaminaOwner, baseCost: number, c: CombatCoefficients): number {
+  return staminaCostMilliOf(baseCost, unit.staminaScore, staminaAppropriateOf(unit), c);
 }
 
 const MINUTE_MS = 60_000;

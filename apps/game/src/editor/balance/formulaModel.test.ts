@@ -12,6 +12,7 @@ import {
   localsIn,
   previewOf,
   pruneDrafts,
+  sampleStaminaOf,
   suggestionsFor,
   wordAt,
 } from "./formulaModel.ts";
@@ -71,7 +72,6 @@ const list: FormulaListResponse = {
     capPm: 1000,
     critSpreadPm: 500,
     staminaWeightsPm: [0, 0, 700, 300, 0, 0],
-    staminaAppropriate: 80,
     staminaMinPm: 500,
     evadeRelative: { favorSlopePm: 300, favorCapPm: 400, unfavorSlopePm: 400, unfavorCapPm: 300 },
   },
@@ -205,5 +205,76 @@ describe("미리 보기", () => {
       weapon: { ...weapon, unarmed: false },
     });
     expect(armed?.unused).toBe(true);
+  });
+});
+
+describe("스태미나(D-511 적정 스탯 개념)", () => {
+  // 맨손 표본 무기(간격 1000ms·소모 10)와 스태미나 두 행(시험 목록에는 hp·physical_attack 행만 있어 회복 행을 더한다)
+  const withRegen: FormulaListResponse = {
+    ...list,
+    slots: [
+      ...list.slots,
+      {
+        ...hp,
+        key: "stamina.formula",
+        row: { id: "stamina", shape: "quantity" },
+        packSource: "100 + AGI * 0.7 + VIT * 0.3 + GEAR + BUFF",
+        source: "100 + AGI * 0.7 + VIT * 0.3 + GEAR + BUFF",
+      },
+      {
+        ...hp,
+        key: "stamina_regen.formula",
+        row: { id: "stamina_regen", shape: "quantity" },
+        packSource: "720 + GEAR + BUFF",
+        source: "720 + GEAR + BUFF",
+      },
+    ],
+  };
+
+  it("적정 STA 식: Lv 1 → 10, Lv 30 → 39(보통 유닛 STA 점수)", () => {
+    const slot = combat("stamina_appropriate");
+    for (const [level, value] of [
+      [1, 10_000],
+      [30, 39_000],
+    ] as const) {
+      const preview = previewOf({
+        list: withRegen,
+        drafts: new Map(),
+        slot,
+        source: slot.source,
+        primaries: [39, 39, 39, 39, 39, 39],
+        level,
+        weapon: human,
+      });
+      expect(preview?.value).toBe(value);
+    }
+  });
+
+  it("보통 유닛(Lv 1 1차 10·Lv 30 1차 39)은 소모 10·회복 초당 12로 일반 공격이 이어지고, 같은 1차로 Lv 60이면 줄어든다", () => {
+    const [lv1] = sampleStaminaOf(withRegen, new Map(), [10, 10, 10, 10, 10, 10], 1);
+    expect(lv1).toMatchObject({ appropriateMilli: 10_000, score: 10, max: 110, regenPerMinute: 720 });
+    expect(lv1?.costMilli).toBe(10_000);
+    expect(lv1?.sustained).toBe(true);
+    const [lv30] = sampleStaminaOf(withRegen, new Map(), [39, 39, 39, 39, 39, 39], 30);
+    expect(lv30).toMatchObject({
+      appropriateMilli: 39_000,
+      costMilli: 10_000,
+      regenPerMinute: 720,
+      sustained: true,
+    });
+    const [lv60] = sampleStaminaOf(withRegen, new Map(), [39, 39, 39, 39, 39, 39], 60);
+    // 10 × 69 ÷ 39 = 17.69, 720 × 39 ÷ 69 = 406 → 초당 6.8 < 17.7
+    expect(lv60).toMatchObject({
+      appropriateMilli: 69_000,
+      costMilli: 17_690,
+      regenPerMinute: 406,
+      sustained: false,
+    });
+  });
+
+  it("담은 식이 든다: 회복 식을 R ÷ 4로 바꾸면 Lv 1에서도 줄어든다", () => {
+    const drafts = new Map<string, string | null>([["real_stamina_regen", "floor(R / 4)"]]);
+    const [lv1] = sampleStaminaOf(withRegen, drafts, [10, 10, 10, 10, 10, 10], 1);
+    expect(lv1).toMatchObject({ regenPerMinute: 180, sustained: false });
   });
 });

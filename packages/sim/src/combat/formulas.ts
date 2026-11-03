@@ -1,5 +1,6 @@
 // 전투 계산식 — docs/adr/2026-11-01-formula-editor.md "판정 코드"
-// 실제 공격력(스탯 공격력 + 무기 몫, D-502)·명중·크리, 맨손 적정 DEX·AGI, 크리 배율, 공격 간격, STA 점수·스태미나 소모, 최종 회피를
+// 실제 공격력(스탯 공격력 + 무기 몫, D-502)·명중·크리, 맨손 적정 DEX·AGI, 크리 배율, 공격 간격, STA 점수·적정 STA 점수(레벨 식, D-511)·
+// 스태미나 소모·실제 스태미나 회복, 최종 회피를
 // 개발자 모드에서 고치는 식(@terra/shared/formula)으로 셈한다. 식은 계수표(CombatCoefficients.formulas)에 실린다: 읽은 구문 나무는
 // 직렬화할 수 있는 값이라 전투 시작 자료·스냅숏과 같이 다닌다. 식이 없으면 기본 식(= 지금 코드와 같은 결과)이다.
 // 변수 값은 shared의 …Scope 함수가 만든다(화면 미리 보기와 같은 값). 결과는 칸 규칙대로 정수(내림) 또는 밀리점이다.
@@ -19,7 +20,9 @@ import {
   evaluateFormulaInt,
   parseFormula,
   slotVarNames,
+  staminaAppropriateScope,
   staminaCostScope,
+  staminaRegenScope,
   staminaScoreScope,
 } from "@terra/shared/formula";
 import type { CombatCoefficients } from "./coefficients.ts";
@@ -40,7 +43,9 @@ function setOf(make: (id: CombatFormulaId) => FormulaProgram): CombatFormulaSet 
     crit_multiplier: make("crit_multiplier"),
     attack_interval: make("attack_interval"),
     stamina_score: make("stamina_score"),
+    stamina_appropriate: make("stamina_appropriate"),
     stamina_cost: make("stamina_cost"),
+    real_stamina_regen: make("real_stamina_regen"),
     evade_chance: make("evade_chance"),
   };
 }
@@ -146,14 +151,27 @@ export function staminaScoreOf(primaries: readonly number[], c: CombatCoefficien
   );
 }
 
-/** 같은 (식, 기본 소모, 점수)의 소모를 한 번만 셈한다(틱마다 유닛마다 부른다). 식마다 따로 */
+/**
+ * 적정 STA 점수(밀리점, D-511 식 stamina_appropriate — 기본 = 보통 유닛의 STA 점수 10 × (1 + 0.1 × (레벨 − 1))). 0 이상.
+ * 소모(staminaCostMilliOf)·회복(realStaminaRegen)의 APP다
+ */
+export function staminaAppropriateMilli(level: number, c: CombatCoefficients): number {
+  return nonNegative(evaluateFormula(formulaOf("stamina_appropriate", c), staminaAppropriateScope(level)));
+}
+
+/** 같은 (식, 기본 소모, 점수, 적정)의 소모를 한 번만 셈한다(틱마다 유닛마다 부른다). 식마다 따로 */
 const costCache = new WeakMap<FormulaProgram, Map<string, number>>();
 
-/** 행동 한 번의 스태미나 소모(밀리점, N13) 식. 0 이상 */
-export function staminaCostMilliOf(baseCost: number, score: number, c: CombatCoefficients): number {
+/** 행동 한 번의 스태미나 소모(밀리점, N13·D-511) 식: 적정 = 적정 STA 점수(밀리점). 0 이상 */
+export function staminaCostMilliOf(
+  baseCost: number,
+  score: number,
+  appropriateMilli: number,
+  c: CombatCoefficients,
+): number {
   const program = formulaOf("stamina_cost", c);
   const s = c.stamina;
-  const key = `${baseCost}|${score}|${s.appropriateScore}|${s.minConsumePm}`;
+  const key = `${baseCost}|${score}|${appropriateMilli}|${s.minConsumePm}`;
   let cache = costCache.get(program);
   if (!cache) {
     cache = new Map();
@@ -162,10 +180,28 @@ export function staminaCostMilliOf(baseCost: number, score: number, c: CombatCoe
   const hit = cache.get(key);
   if (hit !== undefined) return hit;
   const value = nonNegative(
-    evaluateFormula(program, staminaCostScope(baseCost, score, s.appropriateScore, s.minConsumePm)),
+    evaluateFormula(program, staminaCostScope(baseCost, score, appropriateMilli, s.minConsumePm)),
   );
   if (cache.size < 4096) cache.set(key, value);
   return value;
+}
+
+/**
+ * 실제 스태미나 회복(분당, D-511 식 real_stamina_regen — 기본 = 2차 스탯 스태미나 회복 × min(2, STA 점수 ÷ 적정 STA)). 0 이상 정수.
+ * 사양을 만들 때 한 번 셈한다(unitSpec.ts)
+ */
+export function realStaminaRegen(
+  regenPerMinute: number,
+  score: number,
+  appropriateMilli: number,
+  c: CombatCoefficients,
+): number {
+  return nonNegative(
+    evaluateFormulaInt(
+      formulaOf("real_stamina_regen", c),
+      staminaRegenScope(regenPerMinute, score, appropriateMilli),
+    ),
+  );
 }
 
 /** 최종 회피(‰, N11 상대 보정 포함) 식 */

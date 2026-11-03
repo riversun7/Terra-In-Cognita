@@ -153,8 +153,8 @@
         "en": "Stamina regen"
       },
       "shape": "quantity",
-      "base": 0,
-      "weights": [0, 0, 1575, 675, 0, 0],
+      "base": 720,
+      "weights": [0, 0, 0, 0, 0, 0],
       "enabled": true
     },
     {

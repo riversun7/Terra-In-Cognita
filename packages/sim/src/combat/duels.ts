@@ -152,6 +152,8 @@ export interface StatFighter {
   /** 속성값 12칸(0~10)·속성별 저항 ‰. 없으면 0 */
   readonly elements?: readonly number[] | undefined;
   readonly resistPm?: readonly number[] | undefined;
+  /** 레벨(맨손 적정 DEX·AGI·적정 STA 점수, D-502·D-511). 없으면 1(밸런스 화면은 레벨 칸이 없다) */
+  readonly level?: number | undefined;
 }
 
 /** 1차 스탯 + 가중치 표 → 2차 스탯(computeSecondary) → 전투 사양(specFromStats). 자리·편은 duelInit이 다시 정한다 */
@@ -167,10 +169,11 @@ export function statFighterSpecs(
       party: 1,
       x: 0,
       y: 0,
-      stats: computeSecondary(fighter.primaries, table),
+      stats: computeSecondary(fighter.primaries, table, {}, {}, fighter.level ?? 1),
       weapon: fighter.weapon,
       moveIntervalMs: 1000,
       primaries: fighter.primaries,
+      level: fighter.level,
       elements: fighter.elements,
       resistPm: fighter.resistPm,
     },

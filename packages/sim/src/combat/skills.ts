@@ -6,7 +6,7 @@
 // shape(ADR "바뀜 (2026-11-01, 마법 스킬)").
 // [임시] 부품 종류·등급 표 적용 방식·AI(목록 앞 스킬부터)·연쇄·아군 고르기는 기술 기본안이다(질문 260~264).
 // 스킬석 인챈트·유전자 추출·스킬 생성기 화면은 뒤 단계(D2)다.
-import { type CombatCoefficients, staminaCostMilli } from "./coefficients.ts";
+import { type CombatCoefficients, specStaminaCostMilli } from "./coefficients.ts";
 import { type EffectDef, applyEffect, hasEffect, hasStatus, modifiersOf, statusResistPm } from "./effects.ts";
 import {
   type AttackProfile,
@@ -232,9 +232,9 @@ function conditionsMet(unit: UnitState, target: UnitState | undefined, skill: Co
   return true;
 }
 
-/** 스킬 비용(밀리점): MP 스킬은 그대로, 스태미나 스킬은 STA 점수 배율(N13) */
+/** 스킬 비용(밀리점): MP 스킬은 그대로, 스태미나 스킬은 적정 STA ÷ STA 점수 배율(N13·D-511) */
 function costMilli(unit: UnitState, skill: CombatSkill, c: CombatCoefficients): number {
-  return skill.resource === "mp" ? skill.cost * 1000 : staminaCostMilli(skill.cost, unit.staminaScore, c);
+  return skill.resource === "mp" ? skill.cost * 1000 : specStaminaCostMilli(unit, skill.cost, c);
 }
 
 function affordable(unit: UnitState, skill: CombatSkill, c: CombatCoefficients): boolean {

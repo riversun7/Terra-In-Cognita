@@ -121,14 +121,18 @@ describe.skipIf(!TEST_DATABASE_URL)("계산식 탭 (DB)", () => {
     await test?.drop();
   });
 
-  it("player는 FORBIDDEN, dev는 칸 24개(켜진 행 식 15 + 전투 식 9)·무기(맨손 포함)·표본 둘", async () => {
+  it("player는 FORBIDDEN, dev는 칸 26개(켜진 행 식 15 + 전투 식 11)·무기(맨손 포함)·표본 둘", async () => {
     expect((await list("player")).statusCode).toBe(403);
     const res = await list("dev");
     expect(res.statusCode, res.body).toBe(200);
     const body = obj(resultOf(res));
-    expect(arr(body.slots)).toHaveLength(24);
+    expect(arr(body.slots)).toHaveLength(26);
     expect(slotOf(body, "hp.formula")).toMatchObject({ group: "stat", generated: true, override: null });
     expect(slotOf(body, "bare_appropriate")).toMatchObject({ group: "combat", generated: false });
+    // 적정 STA 레벨 식·실제 회복(D-511), 화면 계수에 적정 STA 설정 칸은 없다
+    expect(slotOf(body, "stamina_appropriate")).toMatchObject({ group: "combat", generated: false });
+    expect(slotOf(body, "real_stamina_regen")).toMatchObject({ group: "combat", generated: false });
+    expect(obj(body.coefficients).staminaAppropriate).toBeUndefined();
     const weapons = arr(body.weapons).map(obj);
     // 맨손(D-502): 무기 몫 0, 적정은 레벨 식(빈 적정)
     expect(weapons.find((weapon) => weapon.id === "natural_human")).toMatchObject({

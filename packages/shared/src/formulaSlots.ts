@@ -6,6 +6,8 @@
 // - 전투 식(팩 formulas): 칸 키 = 식 ID. 기본 식(DEFAULT_COMBAT_FORMULAS)은 지금 코드와 같은 결과를 내는 식이다.
 //   공격력 = 스탯 공격력 + 무기 몫(D-502): 무기 몫·명중·크리·공격 간격은 무기의 1차 적정 스탯(몫마다 하나: 공격 STR·INT, 명중·크리 DEX,
 //   공격 간격 AGI) 대비 비율을 N10(1000‰)까지 곱한다(사용자 답 296~298). 맨손의 적정 DEX·AGI는 bare_appropriate(옛 규칙 레벨 × 1.5 + 10).
+//   스태미나 소모·회복도 적정 스탯 개념이다(D-511): 적정 STA 점수 = 레벨 식 stamina_appropriate(맨손 적정과 같은 틀), 소모는 적정 ÷ 점수를
+//   곱하고(stamina_cost), 회복은 2차 스탯 스태미나 회복 × 점수 ÷ 적정(real_stamina_regen). 보통 유닛은 어느 레벨이든 배율 1이다.
 // - 단위: points(점수·정수), pm(천분율 ‰), x(배, 비율), ms, roll(굴림 0~9999), level(레벨).
 // 결정성 검사 대상이다(scripts/check-boundaries.mjs).
 import { FX_SCALE, fxFormat, fxFromInt, fxFromPm } from "./formulaFixed.ts";
@@ -50,7 +52,9 @@ export const COMBAT_FORMULA_IDS = [
   "crit_multiplier",
   "attack_interval",
   "stamina_score",
+  "stamina_appropriate",
   "stamina_cost",
+  "real_stamina_regen",
   "evade_chance",
 ] as const;
 export type CombatFormulaId = (typeof COMBAT_FORMULA_IDS)[number];
@@ -116,13 +120,29 @@ export const COMBAT_FORMULA_SLOTS: Readonly<Record<CombatFormulaId, FormulaSlot>
     min: 0,
     max: null,
   }),
-  // 행동 한 번 스태미나 소모(N13): B 행동 기본 소모, SC STA 점수, APP 적정 STA 점수, MIN 최소 소모(배). 결과는 점(소수 셋째 자리)
+  // 적정 STA 점수(D-511, 맨손 적정과 같은 틀): LV 레벨. 결과는 점(소수 셋째 자리). 소모·회복 식의 APP로 든다
+  stamina_appropriate: combatSlot(
+    "stamina_appropriate",
+    [v("LV", "level")],
+    "points",
+    { min: 1, max: null },
+    "fixed",
+  ),
+  // 행동 한 번 스태미나 소모(N13·D-511): B 행동 기본 소모, SC STA 점수, APP 적정 STA 점수(stamina_appropriate 값), MIN 최소 소모(배).
+  // 결과는 점(소수 셋째 자리)
   stamina_cost: combatSlot(
     "stamina_cost",
     [v("B", "points"), v("SC", "points"), v("APP", "points"), v("MIN", "x")],
     "points",
     { min: 0, max: null },
     "fixed",
+  ),
+  // 실제 스태미나 회복(D-511): R 2차 스탯 스태미나 회복(분당, 적정 STA에서의 회복), SC STA 점수, APP 적정 STA 점수. 결과는 분당 정수
+  real_stamina_regen: combatSlot(
+    "real_stamina_regen",
+    [v("R", "points"), v("SC", "points"), v("APP", "points")],
+    "points",
+    { min: 0, max: null },
   ),
   // 최종 회피(N11): E 회피(2차 ‰), DA 방어자 AGI, AA 공격자 AGI, 상대 보정 기울기·끝값(‰)
   evade_chance: combatSlot(
@@ -153,7 +173,16 @@ export const DEFAULT_COMBAT_FORMULAS: Readonly<Record<CombatFormulaId, string>> 
   crit_multiplier: "max(0, M) + floor(SPREAD * ROLL / 10000)",
   attack_interval: "if(A <= 0, I, max(1, floor(I / max(0.001, min(CAP, max(0, AGI) / A)))))",
   stamina_score: "floor(AGI * W_AGI + VIT * W_VIT)",
+  stamina_appropriate: [
+    "# [임시] 보통 유닛의 STA 점수(D-511): 1차 처음 모두 10, 성장률 N5 100‰ × K 1 → 1차 = 10 × (1 + 0.1 × (레벨 − 1))",
+    "# STA 점수 = AGI × 0.7 + VIT × 0.3 = 같은 값(Lv 1 = 10, Lv 30 = 39). 보통 유닛은 어느 레벨이든 소모·회복 배율 1",
+    "10 * (1 + 0.1 * (LV - 1))",
+  ].join("\n"),
   stamina_cost: "B * if(SC <= 0, APP, max(MIN, APP / SC))",
+  real_stamina_regen: [
+    "# [임시] 회복 = 2차 스탯 스태미나 회복 × min(2, STA 점수 ÷ 적정 STA)(옛 CHR 회복 배수 상한 2배, D-511)",
+    "if(APP <= 0, R, floor(R * min(2, max(0, SC) / APP)))",
+  ].join("\n"),
   evade_chance: [
     "r = max(0, DA) / AA",
     "favor = min(FAVOR_CAP, floor(FAVOR_SLOPE * (r - 1)))",
@@ -323,14 +352,28 @@ export function staminaScoreScope(primaries: readonly number[], weightsPm: reado
   return { ...statRowScope(primaries, 1, 0, 0), W_AGI: pm(weightsPm[2] ?? 0), W_VIT: pm(weightsPm[3] ?? 0) };
 }
 
-/** 스태미나 소모 식: 행동 기본 소모·STA 점수·적정 점수·최소 소모(‰) */
+/** 적정 STA 점수 식(stamina_appropriate, D-511): 레벨 */
+export function staminaAppropriateScope(level: number): FormulaScope {
+  return { LV: int(level) };
+}
+
+/** 스태미나 소모 식: 행동 기본 소모·STA 점수·적정 STA 점수(밀리점, stamina_appropriate 값)·최소 소모(‰) */
 export function staminaCostScope(
   baseCost: number,
   score: number,
-  appropriateScore: number,
+  appropriateMilli: number,
   minConsumePm: number,
 ): FormulaScope {
-  return { B: int(baseCost), SC: int(score), APP: int(appropriateScore), MIN: pm(minConsumePm) };
+  return { B: int(baseCost), SC: int(score), APP: pm(appropriateMilli), MIN: pm(minConsumePm) };
+}
+
+/** 실제 스태미나 회복 식(real_stamina_regen, D-511): 2차 스탯 스태미나 회복(분당)·STA 점수·적정 STA 점수(밀리점) */
+export function staminaRegenScope(
+  regenPerMinute: number,
+  score: number,
+  appropriateMilli: number,
+): FormulaScope {
+  return { R: int(regenPerMinute), SC: int(score), APP: pm(appropriateMilli) };
 }
 
 /** 회피 상대 보정(N11) 칸 값(‰) */

@@ -19,6 +19,8 @@ import { defaultStatements } from "better-auth/plugins/admin/access";
  *   - read: 행성 정의·내 초안·판 목록 조회 / write: 초안 저장·되돌리기·지우기
  * tuning: 개발자 설정 칸 패널(docs/adr/2026-11-01-dev-settings-panel.md 8절). dev·admin만.
  *   - read: 칸 목록·최근 바꿈·내보내기 / write: 덮어쓰기 저장·되돌리기(그 세계의 실효 값을 바꾼다, 감사 기록)
+ * territory: 영토 층 개발 도구(/dev/territory, docs/adr/2026-11-03-territory-layer.md 5절). dev·admin만.
+ *   - observe: 모든 세력의 영토·비콘 보기(territory.planet) / dev-place: 다른 세력(NPC 시험 세력) 대신 비콘 놓기·치우기(WebSocket)
  */
 export const statements = {
   ...defaultStatements,
@@ -26,6 +28,7 @@ export const statements = {
   home: ["preview", "template"],
   planetEditor: ["read", "write"],
   tuning: ["read", "write"],
+  territory: ["observe", "dev-place"],
 } as const;
 
 export const ac = createAccessControl(statements);
@@ -45,6 +48,7 @@ export const roles = {
     home: ["preview", "template"],
     planetEditor: ["read", "write"],
     tuning: ["read", "write"],
+    territory: ["observe", "dev-place"],
   }),
   admin: ac.newRole({
     user: ["create", "list", "get", "set-role", "ban", "set-password"],
@@ -53,6 +57,7 @@ export const roles = {
     home: ["preview", "template"],
     planetEditor: ["read", "write"],
     tuning: ["read", "write"],
+    territory: ["observe", "dev-place"],
   }),
 } satisfies Record<Role, unknown>;
 

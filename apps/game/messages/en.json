@@ -1458,6 +1458,7 @@
   "economy_stage_process": "Process",
   "economy_stage_part": "Parts",
   "economy_stage_finish": "Finished goods",
+  "economy_stage_territory": "Territory",
   "economy_market_title": "Trade",
   "economy_market_home": "Prices in {city}",
   "economy_market_cities": "Cities: {count}",

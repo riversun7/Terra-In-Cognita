@@ -2127,6 +2127,318 @@
       "unit": "points",
       "min": 1,
       "max": 100000
+    },
+    {
+      "id": "m2_grade_l2",
+      "code": "M2",
+      "name": {
+        "ko": "도시 등급 문턱: 읍(발전도)",
+        "en": "City grade threshold: town (development points)"
+      },
+      "value": 17,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "m2_grade_l3",
+      "code": "M2",
+      "name": {
+        "ko": "도시 등급 문턱: 소도시(발전도)",
+        "en": "City grade threshold: small city (development points)"
+      },
+      "value": 34,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "m2_grade_l4",
+      "code": "M2",
+      "name": {
+        "ko": "도시 등급 문턱: 도시(발전도)",
+        "en": "City grade threshold: city (development points)"
+      },
+      "value": 51,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "m2_grade_l5",
+      "code": "M2",
+      "name": {
+        "ko": "도시 등급 문턱: 대도시(발전도)",
+        "en": "City grade threshold: metropolis (development points)"
+      },
+      "value": 68,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "m2_grade_l6",
+      "code": "M2",
+      "name": {
+        "ko": "도시 등급 문턱: 거대도시(발전도)",
+        "en": "City grade threshold: megacity (development points)"
+      },
+      "value": 85,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "m3_city_radius_l1",
+      "code": "M3",
+      "name": {
+        "ko": "도시 영향권 반경: 마을(1/1000칸)",
+        "en": "City influence radius: village (1/1000 cell)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 50000
+    },
+    {
+      "id": "m3_city_radius_l2",
+      "code": "M3",
+      "name": {
+        "ko": "도시 영향권 반경: 읍(1/1000칸)",
+        "en": "City influence radius: town (1/1000 cell)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 50000
+    },
+    {
+      "id": "m3_city_radius_l3",
+      "code": "M3",
+      "name": {
+        "ko": "도시 영향권 반경: 소도시(1/1000칸)",
+        "en": "City influence radius: small city (1/1000 cell)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 50000
+    },
+    {
+      "id": "m3_city_radius_l4",
+      "code": "M3",
+      "name": {
+        "ko": "도시 영향권 반경: 도시(1/1000칸)",
+        "en": "City influence radius: city (1/1000 cell)"
+      },
+      "value": 1100,
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 50000
+    },
+    {
+      "id": "m3_city_radius_l5",
+      "code": "M3",
+      "name": {
+        "ko": "도시 영향권 반경: 대도시(1/1000칸)",
+        "en": "City influence radius: metropolis (1/1000 cell)"
+      },
+      "value": 1900,
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 50000
+    },
+    {
+      "id": "m3_city_radius_l6",
+      "code": "M3",
+      "name": {
+        "ko": "도시 영향권 반경: 거대도시(1/1000칸)",
+        "en": "City influence radius: megacity (1/1000 cell)"
+      },
+      "value": 3600,
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 50000
+    },
+    {
+      "id": "n42_beacons_l1",
+      "code": "N42",
+      "name": {
+        "ko": "영토 비콘 수: 마을",
+        "en": "Territory beacons: village (count)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 50
+    },
+    {
+      "id": "n42_beacons_l2",
+      "code": "N42",
+      "name": {
+        "ko": "영토 비콘 수: 읍",
+        "en": "Territory beacons: town (count)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 50
+    },
+    {
+      "id": "n42_beacons_l3",
+      "code": "N42",
+      "name": {
+        "ko": "영토 비콘 수: 소도시",
+        "en": "Territory beacons: small city (count)"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 50
+    },
+    {
+      "id": "n42_beacons_l4",
+      "code": "N42",
+      "name": {
+        "ko": "영토 비콘 수: 도시",
+        "en": "Territory beacons: city (count)"
+      },
+      "value": 4,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 50
+    },
+    {
+      "id": "n42_beacons_l5",
+      "code": "N42",
+      "name": {
+        "ko": "영토 비콘 수: 대도시",
+        "en": "Territory beacons: metropolis (count)"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 50
+    },
+    {
+      "id": "n42_beacons_l6",
+      "code": "N42",
+      "name": {
+        "ko": "영토 비콘 수: 거대도시",
+        "en": "Territory beacons: megacity (count)"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 50
+    },
+    {
+      "id": "n42_range_l1",
+      "code": "N42",
+      "name": {
+        "ko": "영토 비콘 최대 거리: 마을(1/1000칸)",
+        "en": "Territory beacon max distance: village (1/1000 cell)"
+      },
+      "value": 10000,
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n42_range_l2",
+      "code": "N42",
+      "name": {
+        "ko": "영토 비콘 최대 거리: 읍(1/1000칸)",
+        "en": "Territory beacon max distance: town (1/1000 cell)"
+      },
+      "value": 10000,
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n42_range_l3",
+      "code": "N42",
+      "name": {
+        "ko": "영토 비콘 최대 거리: 소도시(1/1000칸)",
+        "en": "Territory beacon max distance: small city (1/1000 cell)"
+      },
+      "value": 10000,
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n42_range_l4",
+      "code": "N42",
+      "name": {
+        "ko": "영토 비콘 최대 거리: 도시(1/1000칸)",
+        "en": "Territory beacon max distance: city (1/1000 cell)"
+      },
+      "value": 13333,
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n42_range_l5",
+      "code": "N42",
+      "name": {
+        "ko": "영토 비콘 최대 거리: 대도시(1/1000칸)",
+        "en": "Territory beacon max distance: metropolis (1/1000 cell)"
+      },
+      "value": 13333,
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n42_range_l6",
+      "code": "N42",
+      "name": {
+        "ko": "영토 비콘 최대 거리: 거대도시(1/1000칸)",
+        "en": "Territory beacon max distance: megacity (1/1000 cell)"
+      },
+      "value": 13333,
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n51_beacon_durability",
+      "code": "N51",
+      "name": {
+        "ko": "영토 비콘 내구도",
+        "en": "Territory beacon durability (points)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 100000
     }
   ]
 }

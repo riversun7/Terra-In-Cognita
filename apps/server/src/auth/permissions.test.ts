@@ -81,6 +81,8 @@ describe("개발 도구 권한(home·planetEditor·tuning)", () => {
     { planetEditor: ["read", "write"] },
     { tuning: ["read"] },
     { tuning: ["write"] },
+    { territory: ["observe"] },
+    { territory: ["dev-place"] },
   ];
   // 역할마다 기대값. 표에 역할이 늘면 이 표도 늘려야 한다(아래 시험이 확인)
   const EXPECTED: Record<Role, boolean> = { player: false, gm: false, dev: true, admin: true };
@@ -89,6 +91,7 @@ describe("개발 도구 권한(home·planetEditor·tuning)", () => {
     expect(statements.home).toEqual(["preview", "template"]);
     expect(statements.planetEditor).toEqual(["read", "write"]);
     expect(statements.tuning).toEqual(["read", "write"]);
+    expect(statements.territory).toEqual(["observe", "dev-place"]);
   });
 
   it("역할마다: player·gm은 못 하고 dev·admin은 한다", () => {

@@ -1,0 +1,228 @@
+// 영토 비콘·영토 배치 DB 통합 시험(docs/adr/2026-11-03-territory-layer.md) — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
+// 서버 규칙: 가입한 세력만 놓는다(개발 시험은 다른 세력 대신), 1차맵 칸 하나에 하나, N42 거리·개수(기준 도시), 다른 세력 도시 영향권(D-486),
+// 켬끔(팩 시설), 커밋 뒤 답·다시 켜도 남음, 치우면 꼭짓점이 빠져 다시 셈, 조회(내 세력·전체)
+import { EARTH_FACE_LEVEL, cellKey } from "@terra/planet";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
+import { silentLog } from "../world/testSupport.ts";
+import { TEST_MAP_KEY, TEST_PLANET_ID, type World, startWorld } from "../world/world.ts";
+
+let test: TestDatabase;
+let clock = 1_800_000_000_000;
+const worlds: World[] = [];
+let beaconOn = true;
+
+beforeEach(async () => {
+  if (!TEST_DATABASE_URL) return;
+  test = await createTestDatabase();
+  clock = 1_800_000_000_000;
+  beaconOn = true;
+});
+afterEach(async () => {
+  if (!TEST_DATABASE_URL) return;
+  for (const world of worlds.splice(0)) await world.stop().catch(() => undefined);
+  await test.drop();
+});
+
+async function boot(): Promise<World> {
+  const world = startWorld({
+    testBots: 0,
+    paths: { kind: "inline" },
+    now: () => clock,
+    log: silentLog,
+    pool: test.db.$client,
+    writeIntervalMs: 10,
+    onFatal: (error) => {
+      throw error;
+    },
+    territory: { beaconFacility: () => ({ enabled: beaconOn, materials: [{ item: "pine_log", qty: 3 }] }) },
+  });
+  worlds.push(world);
+  await world.ready;
+  return world;
+}
+
+function territoryOf(world: World) {
+  const found = world.persistence?.territory;
+  if (!found) throw new Error("no territory service");
+  return found;
+}
+
+async function fakeUser(name: string): Promise<string> {
+  const found = await rows<{ id: string }>(
+    test.db,
+    `insert into users (name, email, username) values ($1, $2, $3) returning id`,
+    [name, `${name}@id.placeholder.invalid`, name.toLowerCase()],
+  );
+  return String(found[0]?.id);
+}
+
+async function join(userId: string, factionId: number): Promise<void> {
+  await rows(test.db, `insert into faction_members (user_id, faction_id) values ($1, $2)`, [
+    userId,
+    factionId,
+  ]);
+}
+
+async function testFaction(): Promise<number> {
+  const found = await rows<{ id: string }>(test.db, `select id from factions where code = 's3_test_npc'`);
+  return Number(found[0]?.id);
+}
+
+/** 시험 2차맵 칸(면 0의 (282, 328))에서 (di, dj) 칸 떨어진 1차맵 칸(같은 면 안) */
+function near(di: number, dj: number): number {
+  return cellKey(0, EARTH_FACE_LEVEL, 282 + di, 328 + dj);
+}
+
+const player = (userId: string) => ({ userId, devPlace: false });
+const developer = (userId: string) => ({ userId, devPlace: true });
+
+describe.skipIf(!TEST_DATABASE_URL)("영토 비콘", () => {
+  it("놓기 검사(칸·같은 칸·거리·개수·세력)와 저장, 조회의 껍질·칸 표", async () => {
+    const world = await boot();
+    const territory = territoryOf(world);
+    const faction = await testFaction();
+    const member = await fakeUser("TerritoryMember");
+    const outsider = await fakeUser("TerritoryOutsider");
+    await join(member, faction);
+    const place = (userId: string, key: number) =>
+      territory.place(player(userId), { planetId: TEST_PLANET_ID, cellKey: key });
+
+    expect(await place(outsider, near(4, 0))).toEqual({ ok: false, code: "no_faction" });
+    expect(await place(member, TEST_MAP_KEY + 1)).toEqual({ ok: false, code: "invalid_cell" });
+    expect(
+      await territory.place(player(member), { planetId: "nowhere_planet", cellKey: near(1, 0) }),
+    ).toEqual({
+      ok: false,
+      code: "unknown_planet",
+    });
+    // N42 마을 거리 10칸 밖
+    expect(await place(member, near(12, 0))).toEqual({ ok: false, code: "out_of_range" });
+    const first = await place(member, near(5, 0));
+    expect(first).toEqual({ ok: true, beaconId: 1 });
+    expect(await place(member, near(5, 0))).toEqual({ ok: false, code: "cell_taken" });
+    expect((await place(member, near(0, 5))).ok).toBe(true);
+    expect((await place(member, near(5, 5))).ok).toBe(true);
+    // 마을(발전도 0 = 등급 1) 비콘 수 3
+    expect(await place(member, near(-5, 0))).toEqual({ ok: false, code: "beacon_limit" });
+    // 다른 세력 대신은 개발 권한만
+    expect(
+      await territory.place(player(member), {
+        planetId: TEST_PLANET_ID,
+        cellKey: near(-5, 0),
+        factionId: faction + 99,
+      }),
+    ).toEqual({ ok: false, code: "forbidden" });
+
+    const saved = await rows<{ cell_key: string; city_id: string; durability: number; built_by: string }>(
+      test.db,
+      `select cell_key, city_id, durability, built_by from territory_beacons order by id`,
+    );
+    expect(saved.map((row) => Number(row.cell_key))).toEqual([near(5, 0), near(0, 5), near(5, 5)]);
+    expect(saved.every((row) => row.durability === 10 && row.built_by === member)).toBe(true);
+
+    const view = await territory.planetView(TEST_PLANET_ID, member);
+    expect(view?.myFactionId).toBe(faction);
+    expect(view?.groups).toHaveLength(1);
+    expect(view?.groups[0]?.hull?.map((vertex) => vertex.kind).toSorted()).toEqual([
+      "beacon",
+      "beacon",
+      "beacon",
+      "city",
+    ]);
+    const city = view?.cities[0];
+    expect([city?.grade, city?.beaconsUsed, city?.beaconsMax, city?.rangeMilli]).toEqual([1, 3, 3, 10_000]);
+    // 칸 중심 (0,0)~(5,5) 정사각형(도시는 칸 가운데 배치 칸) → 안쪽 16칸 + 가장자리 20칸 안팎
+    expect(view?.cells.length).toBeGreaterThan(25);
+    expect(view?.cells.every(([, owner, province]) => owner === faction && province === city?.id)).toBe(true);
+    expect(view?.beacon).toEqual({ enabled: true, materials: [{ item: "pine_log", qty: 3 }] });
+
+    // 세력이 없으면 내 영토는 비었다
+    const empty = await territory.mineView(TEST_PLANET_ID, outsider);
+    expect([empty?.myFactionId, empty?.cells.length, empty?.beacons.length]).toEqual([null, 0, 0]);
+    expect((await territory.mineView(TEST_PLANET_ID, member))?.cells.length).toBe(view?.cells.length);
+
+    // 다시 켜도 비콘·칸 표가 같다(결정성)
+    await world.stop();
+    worlds.splice(0);
+    const again = territoryOf(await boot());
+    expect(again.beaconCount()).toBe(3);
+    const reloaded = await again.planetView(TEST_PLANET_ID, member);
+    expect(reloaded?.cells).toEqual(view?.cells);
+    expect(reloaded?.groups).toEqual(view?.groups);
+  });
+
+  it("치우기: 내 세력 비콘만(개발 권한은 아무 비콘), 꼭짓점이 빠지면 껍질이 사라진다", async () => {
+    const world = await boot();
+    const territory = territoryOf(world);
+    const faction = await testFaction();
+    const member = await fakeUser("RemoveMember");
+    const stranger = await fakeUser("RemoveStranger");
+    const dev = await fakeUser("RemoveDev");
+    await join(member, faction);
+    for (const key of [near(4, 0), near(0, 4), near(4, 4)])
+      expect((await territory.place(player(member), { planetId: TEST_PLANET_ID, cellKey: key })).ok).toBe(
+        true,
+      );
+    expect((await territory.planetView(TEST_PLANET_ID, null))?.groups[0]?.hull).not.toBeNull();
+    expect(await territory.remove(player(stranger), 1)).toEqual({ ok: false, code: "forbidden" });
+    expect(await territory.remove(player(member), 1)).toEqual({ ok: true });
+    expect(await territory.remove(player(member), 1)).toEqual({ ok: false, code: "unknown_beacon" });
+    expect(await territory.remove(developer(dev), 2)).toEqual({ ok: true });
+    const view = await territory.planetView(TEST_PLANET_ID, null);
+    // 도시 + 비콘 하나 = 꼭짓점 둘 → 껍질 없음, 마을 영향권(0.1칸)은 칸 표에 남지 않는다
+    expect(view?.groups[0]?.hull).toBeNull();
+    expect(view?.cells).toEqual([]);
+    expect(await rows(test.db, `select id from territory_beacons`)).toEqual([{ id: "3" }]);
+  });
+
+  it("다른 세력 도시 영향권 안에는 놓지 못하고(D-486), 개발 권한은 다른 세력 대신 놓는다. 끈 세계는 disabled", async () => {
+    const world = await boot();
+    const territory = territoryOf(world);
+    const testNpc = await testFaction();
+    const dev = await fakeUser("TerritoryDev");
+    // 두 번째 세력과 그 도시(시험 2차맵에서 3칸 옆 칸 가운데)
+    const other = await rows<{ id: string }>(
+      test.db,
+      `insert into factions (kind, code, regime, fixed) values ('npc', 'territory_other', 'democracy', true) returning id`,
+    );
+    const otherId = Number(other[0]?.id);
+    await rows(
+      test.db,
+      `insert into world_cities (id, faction_id, planet_id, map_key, cell_x, cell_y, start, housing, research_level, founded_at_ms)
+       values (900, $1, $2, $3, 128, 128, false, 0, 0, $4)`,
+      [otherId, TEST_PLANET_ID, near(3, 0), clock],
+    );
+    // 시험 NPC 세력이 남의 도시 칸에 놓으려 함 → 그 도시 영향권 안(칸 가운데)
+    expect(
+      await territory.place(developer(dev), {
+        planetId: TEST_PLANET_ID,
+        cellKey: near(3, 0),
+        factionId: testNpc,
+      }),
+    ).toEqual({ ok: false, code: "foreign_city" });
+    const placed = await territory.place(developer(dev), {
+      planetId: TEST_PLANET_ID,
+      cellKey: near(6, 0),
+      factionId: otherId,
+    });
+    expect(placed.ok).toBe(true);
+    const anchor = await rows<{ city_id: string; faction_id: string }>(
+      test.db,
+      `select city_id, faction_id from territory_beacons`,
+    );
+    expect(anchor).toEqual([{ city_id: "900", faction_id: String(otherId) }]);
+    beaconOn = false;
+    expect(
+      await territory.place(developer(dev), {
+        planetId: TEST_PLANET_ID,
+        cellKey: near(0, 6),
+        factionId: testNpc,
+      }),
+    ).toEqual({ ok: false, code: "disabled" });
+    const view = await territory.planetView(TEST_PLANET_ID, dev);
+    expect(view?.factions.map((faction) => faction.code)).toEqual(["s3_test_npc", "territory_other"]);
+    expect(view?.myFactionId).toBeNull();
+    expect(cellKey(0, EARTH_FACE_LEVEL, 282, 328)).toBe(TEST_MAP_KEY);
+  });
+});

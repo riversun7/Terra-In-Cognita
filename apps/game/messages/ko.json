@@ -1458,6 +1458,7 @@
   "economy_stage_process": "가공",
   "economy_stage_part": "부품",
   "economy_stage_finish": "완제품",
+  "economy_stage_territory": "영토",
   "economy_market_title": "거래",
   "economy_market_home": "{city} 기준 값",
   "economy_market_cities": "{count}개 도시",

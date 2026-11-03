@@ -10,14 +10,18 @@
  * 5: 사이보그 속성 분배(D-450, 첫 접속 ADR "바뀜 (D-450~D-453)") — cyborg_create에 elements(5판 연결은 꼭), 한 번 분배
  *    cyborg_elements, 결과 코드 elements_invalid·elements_locked·no_cyborg. 4판 기기의 만들기(elements 없음)는 그대로 받고
  *    "분배 기다림"으로 만든다. 새 코드는 5판 연결에만 간다(4판 기기는 그 코드를 부르는 메시지를 보내지 않는다).
+ * 6: 영토 비콘(territory.ts, docs/adr/2026-11-03-territory-layer.md 4절) — beacon_place·beacon_remove → beacon_result.
+ *    더하기만 했다. 4·5판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
  */
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 /**
  * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7). 5부터 3판 기기는 인사에서
  * protocol_unsupported를 받고 새 앱을 받는다(PWA 강제 적용).
  * (3에서는 예외로 2를 받지 않았다: 2판 기기는 걸러지지 않은 2차맵 흐름을 기대하는데, 시야 전송은 보안 규칙이라 그 흐름을 남기지
  * 않는다, S3 ADR 3절.)
+ * 6에서는 예외로 4를 그대로 받는다(현재 + 직전 2개): 6은 더하기만 했고, 4판 만들기("분배 기다림" 사이보그)를 화면 시험의 legacy 계정이
+ * 쓴다(e2e/global-setup.ts). 4판을 끊는 것은 그 시험을 바꿀 때 함께 한다(docs/adr/2026-11-03-territory-layer.md 4절).
  */
 export const MIN_SUPPORTED_PROTOCOL_VERSION = 4;
 

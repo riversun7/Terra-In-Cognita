@@ -20,6 +20,7 @@ import { itemsRouter } from "./items.ts";
 import { skillsRouter } from "./skills.ts";
 import { summaryRouter } from "./summary.ts";
 import { systemRouter } from "./system.ts";
+import { territoryRouter } from "./territory.ts";
 import { tuningRouter } from "./tuning.ts";
 
 export const appRouter = router({
@@ -55,6 +56,8 @@ export const appRouter = router({
   // 세력·우편 화면(조회만, D-439·D-270)
   faction: factionRouter,
   mail: mailRouter,
+  // 영토 층 조회(docs/adr/2026-11-03-territory-layer.md 5절). 비콘 놓기·치우기는 WebSocket
+  territory: territoryRouter,
 });
 
 export type AppRouter = typeof appRouter;

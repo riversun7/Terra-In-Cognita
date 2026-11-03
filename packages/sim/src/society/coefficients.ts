@@ -2,6 +2,7 @@
 // 세력·도시·인구·기술·노동 규칙의 수치를 이 표 하나에 모은다. 기획 설정 칸(49 §6.5 N·§7 S·T)에 출발값이 있으면 그 값, 없으면 [임시].
 // 노동 공식(labor.ts)의 정본은 기획 48 §7이다. 시각은 실제 시간 ms, 배율은 ‰. N·S 코드 ↔ 칸 대응은 ADR faction-society-core.
 import { type FacilityBuildRules, OLD_FACILITY_BUILD_RULES } from "@terra/shared/facilityBuild";
+import { START_TERRITORY_COEFFICIENTS, type TerritoryCoefficients } from "@terra/shared/territory";
 import { type GardenerCoefficients, TEST_GARDENER_COEFFICIENTS } from "../gardener/coefficients.ts";
 import { type NpcCoefficients, TEST_NPC_COEFFICIENTS } from "../npc/coefficients.ts";
 import type { CyborgTemperament } from "./cyborgStats.ts";
@@ -139,6 +140,11 @@ export interface SocietyCoefficients {
    * 지금 짓기가 없어 시뮬은 읽지 않는다(건물 편집기 미리 보기가 읽는다, docs/adr/2026-11-02-building-editor.md)
    */
   readonly facilityBuild: FacilityBuildRules;
+  /**
+   * 영토 층(49 M2·M3·N42·N51, D-104·D-485·D-486, 팩 tuning 경로 "territory.*", docs/adr/2026-11-03-territory-layer.md): 도시 등급 문턱·
+   * 영향권 반경·비콘 수·거리·내구도. 셈은 @terra/shared/territory. 시뮬은 아직 읽지 않는다(서버 영토 서비스가 읽는다)
+   */
+  readonly territory: TerritoryCoefficients;
   /** 사이보그 성장·환생·속성·유지·정착 지원금(48 §2, D-417·D-440·D-441·D-450~D-453·D-455, 49 N6·N7·N9·N34·N36~N39) */
   readonly cyborg: {
     /** 만렙(N7 기본 50, 구조 값). 특수 만렙 60은 누가 받는지 정해지지 않아 두지 않는다 */
@@ -293,6 +299,13 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   npc: TEST_NPC_COEFFICIENTS,
   gardener: TEST_GARDENER_COEFFICIENTS,
   facilityBuild: { ...OLD_FACILITY_BUILD_RULES, timeFactorPm: [...OLD_FACILITY_BUILD_RULES.timeFactorPm] },
+  territory: {
+    influenceMilli: [...START_TERRITORY_COEFFICIENTS.influenceMilli],
+    beaconRangeMilli: [...START_TERRITORY_COEFFICIENTS.beaconRangeMilli],
+    beaconsPerCity: [...START_TERRITORY_COEFFICIENTS.beaconsPerCity],
+    gradeAtDevelopment: [...START_TERRITORY_COEFFICIENTS.gradeAtDevelopment],
+    beaconDurability: START_TERRITORY_COEFFICIENTS.beaconDurability,
+  },
   cyborg: {
     maxLevel: 50,
     growthPm: 100,

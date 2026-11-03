@@ -197,6 +197,21 @@ export const WORLD_TABLES = {
     columns: ["tx_id", "account_id", "amount"],
     key: [],
   },
+  /** 영토 비콘(docs/adr/2026-11-03-territory-layer.md). 놓기·치우기는 영토 서비스가 넣고 커밋 뒤 답한다 */
+  beacons: {
+    name: "territory_beacons",
+    columns: [
+      "id",
+      "planet_id",
+      "cell_key",
+      "faction_id",
+      "city_id",
+      "durability",
+      "built_at_ms",
+      "built_by",
+    ],
+    key: ["id"],
+  },
   /** 전투 결과 적용 기록(추가만, 전투마다 한 줄 — 유닛 바뀜·탈취 거래와 같은 묶음) */
   battleResults: {
     name: "world_battle_results",
@@ -219,6 +234,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "npcSociety",
   "pollution",
   "gardenerWaves",
+  "beacons",
   "buildings",
   "presence",
   "exploration",

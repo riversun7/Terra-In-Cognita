@@ -29,8 +29,8 @@ export {
 /** 건물 편집기 묶음이 고칠 수 있는 분류 */
 export const BUILDING_EDIT_CATEGORIES = ["facilities"] as const;
 
-/** 생산 단계(@terra/content FACILITY_STAGES와 같다, D-114) */
-export const FACILITY_STAGE_IDS = ["gather", "process", "part", "finish"] as const;
+/** 생산 단계(@terra/content FACILITY_STAGES와 같다, D-114) + 영토(영토 비콘, D-485·49 N51) */
+export const FACILITY_STAGE_IDS = ["gather", "process", "part", "finish", "territory"] as const;
 export type FacilityStageId = (typeof FACILITY_STAGE_IDS)[number];
 
 /** 채집 방식(@terra/content GATHER_MODES와 같다): roll = 확률표 추첨, select = 선택 + 효율 */
@@ -70,7 +70,7 @@ export interface FacilityJson {
 
 /** 입력 칸 범위(팩 스키마와 같다. 서버 시험이 맞춰 본다) */
 export const FACILITY_LIMITS = {
-  slotsPerLevel: { min: 1, max: 1000 },
+  slotsPerLevel: { min: 0, max: 1000 },
   pollution: { min: 0, max: 10_000 },
   yieldBase: { min: 0, max: 1000 },
   yieldPerStatPm: { min: 0, max: 100_000 },

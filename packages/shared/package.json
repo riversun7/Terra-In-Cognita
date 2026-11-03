@@ -17,6 +17,7 @@
     "./facilityBuild": "./src/facilityBuild.ts",
     "./faction": "./src/faction.ts",
     "./formula": "./src/formula.ts",
+    "./holdings": "./src/holdings.ts",
     "./inbox": "./src/inbox.ts",
     "./itemEditor": "./src/itemEditor.ts",
     "./mail": "./src/mail.ts",

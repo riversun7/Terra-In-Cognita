@@ -34,13 +34,13 @@ function decodes(decode: (text: string) => unknown, message: unknown): boolean {
 }
 
 describe("사이보그 만들기 메시지", () => {
-  it("만들기는 프로토콜 4부터, 속성 분배는 5부터. 지금 판 5와 직전 판 4를 받는다(3은 받지 않는다)", () => {
-    expect(PROTOCOL_VERSION).toBe(5);
+  it("만들기는 프로토콜 4부터, 속성 분배는 5부터. 지금 판 6과 직전 판 5를 받는다(4는 받지 않는다, 보유 물건 판 6)", () => {
+    expect(PROTOCOL_VERSION).toBe(6);
     expect(CYBORG_PROTOCOL_VERSION).toBe(4);
     expect(CYBORG_ELEMENTS_PROTOCOL_VERSION).toBe(5);
-    expect(isProtocolSupported(3)).toBe(false);
-    expect(isProtocolSupported(4)).toBe(true);
+    expect(isProtocolSupported(4)).toBe(false);
     expect(isProtocolSupported(5)).toBe(true);
+    expect(isProtocolSupported(6)).toBe(true);
   });
 
   it("굴리기·만들기 명령이 왕복한다", () => {

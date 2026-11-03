@@ -187,6 +187,39 @@ export const WORLD_TABLES = {
     ],
     key: ["id"],
   },
+  /** 보유 물건(아이템 인스턴스, docs/adr/2026-11-03-item-holdings.md 2절). stats는 JSON 글자로 넣는다(pg가 배열을 Postgres 배열로 바꾸지 않게) */
+  holdings: {
+    name: "item_holdings",
+    columns: [
+      "id",
+      "owner_id",
+      "item_id",
+      "location",
+      "slot",
+      "quantity",
+      "stats",
+      "score_pm",
+      "durability",
+      "max_durability",
+      "aged_ms",
+      "aged_at_ms",
+      "created_at_ms",
+      "source",
+    ],
+    key: ["id"],
+  },
+  /** 유닛에 걸린 효과(소모품 사용 D-501, 끝난 줄은 지운다) */
+  unitEffects: {
+    name: "unit_effects",
+    columns: ["unit_id", "effect_id", "value", "until_ms", "exclusive", "item_id"],
+    key: ["unit_id", "effect_id"],
+  },
+  /** 유닛 쓰기 쿨(물약 D-509, 끝난 줄은 지운다) */
+  unitCooldowns: {
+    name: "unit_cooldowns",
+    columns: ["unit_id", "kind", "until_ms"],
+    key: ["unit_id", "kind"],
+  },
   transactions: {
     name: "ledger_transactions",
     columns: ["id", "kind", "at_ms", "idempotency_key"],
@@ -226,6 +259,9 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "factionMembers",
   "cyborgs",
   "cyborgRolls",
+  "holdings",
+  "unitEffects",
+  "unitCooldowns",
   "transactions",
   "entries",
   "battleResults",

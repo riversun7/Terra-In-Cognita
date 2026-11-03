@@ -437,7 +437,7 @@
 /* ── 담은 변경 막대(화면 아래 붙음) ── */
 .bp-pending {
   position: sticky;
-  bottom: var(--space-2);
+  bottom: calc(var(--dev-dock-bottom) + var(--space-2));
   z-index: 3;
   display: flex;
   flex-wrap: wrap;

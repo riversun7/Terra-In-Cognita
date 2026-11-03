@@ -12,6 +12,8 @@
  *    "분배 기다림"으로 만든다. 새 코드는 5판 연결에만 간다(4판 기기는 그 코드를 부르는 메시지를 보내지 않는다).
  * 6: 보유 물건(items.ts, docs/adr/2026-11-03-item-holdings.md 5절) — item_equip·item_unequip·item_use·dev_grant_item → item_result.
  *    더하기만 했다. 5판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
+ *    같은 판에 노동 계약(labor.ts, docs/adr/2026-11-03-labor-contracts.md) — labor_create·labor_terminate·labor_top_up·
+ *    labor_set_rent → labor_result를 더했다(판을 또 올리지 않음, 더하기만).
  */
 export const PROTOCOL_VERSION = 6;
 

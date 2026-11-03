@@ -41,7 +41,17 @@ const SYSTEM_KINDS: Readonly<Record<string, readonly string[]>> = {
   sink: ["burn", "produce", "upkeep"],
   source: ["produce", "endow"],
   reserve: ["job_output"],
-  escrow: ["order_escrow", "order_fill", "order_refund", "fx_escrow", "fx_clear"],
+  // 노동 계약 보증금(escrow:labor:<계약>, docs/adr/2026-11-03-labor-contracts.md): 넣기·임금·돌려주기
+  escrow: [
+    "order_escrow",
+    "order_fill",
+    "order_refund",
+    "fx_escrow",
+    "fx_clear",
+    "labor_deposit",
+    "labor_wage",
+    "labor_refund",
+  ],
   transit: ["ship", "cargo"],
 };
 

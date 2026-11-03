@@ -12,6 +12,7 @@
 import {
   JOB_GATHER,
   type JobState,
+  type OutputSegment,
   PHASE_WORK,
   type SizeClass,
   TEST_ASSET_CREDIT,
@@ -71,8 +72,19 @@ export interface Settlement {
   giveWorkers(userId: string, mapKey: number, count: number, nowMs: number): number[];
   /** 시험 명령: 시험 화폐를 발행해 준다 */
   grantCredit(ownerId: number, amount: bigint, nowMs: number): void;
+  /**
+   * 산출 나누기 고리(노동 계약, docs/adr/2026-11-03-labor-contracts.md): 주체를 정산할 때마다 (주체, 구간 시작, 끝)으로 불러
+   * 유닛 ID → 산출 구간을 받는다. 계약 정산(임금·임대료)은 고리 안에서 같은 동기 처리로 한다
+   */
+  routeOutputs(router: OutputRouter | undefined): void;
   stop(): void;
 }
+
+export type OutputRouter = (
+  ownerId: number,
+  fromMs: number,
+  toMs: number,
+) => ReadonlyMap<number, readonly OutputSegment[]> | undefined;
 
 function sameJob(a: UnitJob, b: JobState): boolean {
   return a.job === b.job && a.phase === b.phase && a.progressMs === b.progressMs && a.fatigue === b.fatigue;
@@ -135,9 +147,13 @@ export function createSettlement(options: {
     return state.connections > 0 ? null : state.offlineSinceMs;
   };
 
+  let router: OutputRouter | undefined;
+
   const settleWith = (owner: OwnerRow, units: readonly UnitRef[], toMs: number): SettleReport => {
     const from = owner.settledAtMs;
     if (toMs <= from) return { cycles: 0, upkeepPaid: 0, upkeepUnpaid: 0 };
+    // 노동 계약을 같은 시각까지 정산하고 유닛마다 산출 구간을 받는다(계약이 없으면 undefined → 예전과 같다)
+    const routes = router?.(owner.id, from, toMs);
     // 판정은 @terra/sim 공용 함수(시뮬레이터와 같다). 여기서는 결과를 2차맵·소유 주체 행에 적기만 한다
     const result = settleOwnerPeriod(
       {
@@ -146,6 +162,7 @@ export function createSettlement(options: {
         fromMs: from,
         toMs,
         offlineSinceMs: offlineOf(owner),
+        outputs: routes ? units.map((unit) => routes.get(unit.id)) : undefined,
       },
       ledger,
       testSettleAccounts(ledger, owner.id),
@@ -279,6 +296,9 @@ export function createSettlement(options: {
           { account: ledger.ownerAccount(ownerId, ASSET_CREDIT), amount },
         ],
       });
+    },
+    routeOutputs(next) {
+      router = next;
     },
     stop() {
       clearInterval(sweepTimer);

@@ -1,11 +1,12 @@
 // 불변 조건 검사 — docs/adr/2026-10-31-s3-server-stage.md 2절 표(I1~I8), 전투 결과 I9~I12(docs/adr/2026-10-31-combat-core.md 8절),
-// 사이보그 본체 I13(docs/adr/2026-11-01-first-login-cyborg.md 2절)
+// 사이보그 본체 I13(docs/adr/2026-11-01-first-login-cyborg.md 2절), 노동 계약 에스크로 I14(docs/adr/2026-11-03-labor-contracts.md)
 // 부팅 뒤(world.ts), 시험, 관리 명령(`node dist/cli.js check-world`, DB 몫만)에서 부른다. 위반은 문장 목록으로 돌려준다.
 import {
   INVARIANT_I1_ASSETS,
   INVARIANT_I1_TRANSACTIONS,
   INVARIANT_I2_BALANCE,
   INVARIANT_I2_NEGATIVE,
+  INVARIANT_LABOR_ESCROW,
 } from "@terra/sim";
 import type { QueryPool } from "./persist/load.ts";
 
@@ -79,6 +80,16 @@ export async function checkSqlInvariants(pool: QueryPool, nowMs: number): Promis
     "I12 cargo on missing units",
     `select a.id from ledger_accounts a where a.location < 0
      and not exists (select 1 from world_units u where u.id = -a.location)`,
+  );
+  // 노동 계약(docs/adr/2026-11-03-labor-contracts.md): 보증금 에스크로 = 열린 임금형 계약의 보증금(끝났거나 임대형이면 0),
+  // 계약 없는 에스크로는 비어 있다. 문구는 시뮬 메모리 검사(@terra/sim checkLaborEscrow)와 같다
+  await count(
+    INVARIANT_LABOR_ESCROW,
+    `select c.id from labor_contracts c left join ledger_accounts a on a.system_code = 'escrow:labor:' || c.id
+     where coalesce(a.balance, 0) <> case when c.kind = 'wage' and c.state in ('active', 'paused') then c.deposit else 0 end
+     union all
+     select -a.id from ledger_accounts a where a.system_code like 'escrow:labor:%' and a.balance <> 0
+     and not exists (select 1 from labor_contracts c where a.system_code = 'escrow:labor:' || c.id)`,
   );
   // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md 2절): 본체 유닛이 그 사용자의 것으로 있다(없으면 부팅이 다시 놓는다)
   await count(

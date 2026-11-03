@@ -57,6 +57,18 @@ export interface OwnerSettleInput {
   readonly rules?: JobRules | undefined;
   readonly upkeepPerUnit?: bigint | undefined;
   readonly upkeepPeriodMs?: number | undefined;
+  /**
+   * 유닛마다 산출이 가는 곳을 구간으로 나눈다(노동 계약, docs/adr/2026-11-03-labor-contracts.md). 입력 jobs와 같은 차례.
+   * 구간은 fromMs부터 차례로 덮고, 마지막 구간 뒤는 accounts.stock()이다. stock이 null이면 그 구간 산출은 없다(일시 중지).
+   * 직무 상태는 나눠 정산해도 같다(settle.ts). 없으면 모두 accounts.stock() — 예전과 같은 거래 하나
+   */
+  readonly outputs?: readonly (readonly OutputSegment[] | undefined)[] | undefined;
+}
+
+/** 산출 구간: 직전 구간 끝부터 untilMs까지의 산출이 stock 계정으로 간다(null = 산출 없음) */
+export interface OutputSegment {
+  readonly untilMs: number;
+  readonly stock: (() => number) | null;
 }
 
 export interface OwnerSettleResult {
@@ -71,6 +83,8 @@ export interface OwnerSettleResult {
    * 돈다(D-453, society/cyborgUpkeep.ts). 부르는 쪽이 상태로 적는다
    */
   readonly lastUpkeepPaid: boolean | null;
+  /** 일시 중지 구간이라 내지 않은 일 주기(노동 계약, cycles에 들지 않는다). 0이면 칸이 없다 */
+  readonly discarded?: number | undefined;
 }
 
 /**
@@ -87,11 +101,42 @@ export function settleOwnerPeriod(
     return { jobs: input.jobs, cycles: 0, upkeepPaid: 0, upkeepUnpaid: 0, lastUpkeepPaid: null };
   const rules = input.rules ?? TEST_JOB_RULES;
   let cycles = 0;
-  const jobs = input.jobs.map((job) => {
+  // 계약 몫으로 간 산출(계정 → 수, 처음 나온 차례). 기본 창고 몫은 cycles − 이 합
+  const routed = new Map<number, number>();
+  let routedTotal = 0;
+  let discarded = 0;
+  const jobs = input.jobs.map((job, index) => {
     if (job.job === JOB_NONE) return job;
-    const result = settleJob(job, fromMs, toMs, input.offlineSinceMs, rules);
-    cycles += result.cycles;
-    return result.state;
+    const segments = input.outputs?.[index];
+    if (!segments || segments.length === 0) {
+      const result = settleJob(job, fromMs, toMs, input.offlineSinceMs, rules);
+      cycles += result.cycles;
+      return result.state;
+    }
+    let state = job;
+    let from = fromMs;
+    for (const segment of segments) {
+      const until = Math.min(segment.untilMs, toMs);
+      if (until <= from) continue;
+      const result = settleJob(state, from, until, input.offlineSinceMs, rules);
+      state = result.state;
+      from = until;
+      if (result.cycles === 0) continue;
+      if (segment.stock === null) {
+        discarded += result.cycles;
+        continue;
+      }
+      const account = segment.stock();
+      cycles += result.cycles;
+      routedTotal += result.cycles;
+      routed.set(account, (routed.get(account) ?? 0) + result.cycles);
+    }
+    if (from < toMs) {
+      const result = settleJob(state, from, toMs, input.offlineSinceMs, rules);
+      state = result.state;
+      cycles += result.cycles;
+    }
+    return state;
   });
   let upkeepPaid = 0;
   let upkeepUnpaid = 0;
@@ -119,14 +164,17 @@ export function settleOwnerPeriod(
   }
   if (cycles > 0) {
     const amount = BigInt(cycles);
-    book.post({
-      kind: "job_output",
-      atMs: toMs,
-      entries: [
-        { account: accounts.reserve(), amount: -amount },
-        { account: accounts.stock(), amount },
-      ],
-    });
+    // 산출 거래 하나: 매장량 → 기본 창고(+ 계약 몫 창고들). 계약 몫이 없으면 예전과 같은 두 항목
+    const entries = [{ account: accounts.reserve(), amount: -amount }];
+    const own = cycles - routedTotal;
+    if (own > 0) {
+      // 계약 몫이 기본 창고와 같은 계정이면(자기 시설·자기 임대) 한 항목으로 합친다
+      const stock = accounts.stock();
+      entries.push({ account: stock, amount: BigInt(own + (routed.get(stock) ?? 0)) });
+      routed.delete(stock);
+    }
+    for (const [account, count] of routed) entries.push({ account, amount: BigInt(count) });
+    book.post({ kind: "job_output", atMs: toMs, entries });
   }
-  return { jobs, cycles, upkeepPaid, upkeepUnpaid, lastUpkeepPaid };
+  return { jobs, cycles, upkeepPaid, upkeepUnpaid, lastUpkeepPaid, ...(discarded > 0 ? { discarded } : {}) };
 }

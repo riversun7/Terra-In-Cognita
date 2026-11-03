@@ -16,6 +16,8 @@ import type { BattleLabShared } from "../battleLab/services.ts";
 import type { Database } from "../db/client.ts";
 import { emptyEconomyCatalog } from "../economyView/catalog.ts";
 import { createEconomyServices } from "../economyView/services.ts";
+import type { LaborService } from "../labor/service.ts";
+import { createLaborScreenServices } from "../labor/views.ts";
 import { createHomeServices } from "../home/services.ts";
 import { createRosterServices } from "../roster/services.ts";
 import { createFactionScreenServices } from "../factionScreen/overview.ts";
@@ -70,6 +72,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   economy?: EconomyServices | undefined;
   /** 세력 화면 실제 자료(DB·월드가 있을 때) */
   factionSource?: FactionSource | undefined;
+  /** 노동 계약 서비스(세계가 준비되고 DB가 있을 때). 없으면 labor.overview는 not_ready */
+  labor?: (() => LaborService | undefined) | undefined;
   /** 세력 화면 규칙 설정값(설정 칸 실효 값: 공물·민심 문턱·주기, 부를 때마다 읽는다). 없으면 sim 시험 계수표 */
   factionRules?: (() => FactionScreenRules) | undefined;
   /** 설정 칸 패널(접근자·속도 제한기·쓰기 차례, src/tuning/services.ts). 인증이 켜져 있어야 쓴다 */
@@ -127,6 +131,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
   // 세력 화면·우편 조회도 앱에 하나다
   const faction = createFactionScreenServices({ source: options.factionSource, rules: options.factionRules });
   const mail = createMailServices();
+  const labor = createLaborScreenServices(options.labor);
   return (opts?: { req: FastifyRequest; res?: FastifyReply }): TrpcContext => {
     const authDeps = options.auth;
     const request = opts?.req;
@@ -167,6 +172,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       faction,
       mail,
       holdings: options.holdings ?? NO_HOLDINGS,
+      labor,
       tuning:
         authDeps && request && tuning
           ? createTuningServices({

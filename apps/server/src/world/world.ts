@@ -35,6 +35,8 @@ import {
 import { type LoadedCyborgs, loadCyborgs } from "../cyborg/state.ts";
 import { type HoldingsConfig, type WorldHoldings, createWorldHoldings } from "../holdings/world.ts";
 import { type LoadedHoldings, loadHoldings } from "../holdings/state.ts";
+import { type LaborService, createLaborService } from "../labor/service.ts";
+import { type LoadedLabor, loadLabor } from "../labor/store.ts";
 import { TEST_NPC_FACTION_CODE } from "./unitKinds.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
 import { type MapTerrain, mapTerrainFromBuilt, mapTerrainFromTemp, terrainFromFile } from "./mapTerrain.ts";
@@ -162,6 +164,8 @@ export interface WorldPersistence {
   readonly cyborgs: CyborgService;
   /** 보유 물건(아이템 인스턴스, docs/adr/2026-11-03-item-holdings.md) */
   readonly holdings: WorldHoldings;
+  /** 노동 계약(임금형·임대형, docs/adr/2026-11-03-labor-contracts.md) */
+  readonly labor: LaborService;
 }
 
 export interface WorldStatus {
@@ -335,6 +339,7 @@ export function startWorld(
     let cities: CityRow[] = [];
     let cyborgData: LoadedCyborgs = { cyborgs: [], rolls: [], factions: [], fixedAppearances: 0 };
     let holdingData: LoadedHoldings = { holdings: [], effects: [], cooldowns: [], maxId: 0 };
+    let laborData: LoadedLabor = { contracts: [], rents: [], maxId: 0 };
     for (let attempt = 1; !loaded; attempt++) {
       try {
         // 옛 시험 2차맵(깊은 바다 위)의 행을 지운다(지울 것이 없으면 그대로). U4 (가)
@@ -359,6 +364,7 @@ export function startWorld(
         cities = await loadCities(db);
         cyborgData = await loadCyborgs(db);
         holdingData = await loadHoldings(db);
+        laborData = await loadLabor(db, now());
         loaded = await loadWorld(db, now());
       } catch (error) {
         if (attempt >= BOOT_ATTEMPTS || stopped) throw error;
@@ -542,6 +548,18 @@ export function startWorld(
       now,
       seed: () => randomInt(0x1_0000_0000),
     });
+    // 노동 계약: 소유 주체 정산이 계약을 같은 시각까지 정산하고 산출을 계약 몫으로 나눈다
+    const labor = createLaborService({
+      loaded: laborData,
+      maps,
+      settlement,
+      ledger,
+      writer,
+      rules: config.cyborgRules ?? defaultCyborgRules,
+      now,
+      ready: () => status.state === "ready",
+    });
+    settlement.routeOutputs((ownerId, fromMs, toMs) => labor.outputsFor(ownerId, fromMs, toMs));
     persistence = {
       writer,
       pool: db,
@@ -553,6 +571,7 @@ export function startWorld(
       battles,
       cyborgs,
       holdings,
+      labor,
     };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)
     if (
@@ -600,6 +619,7 @@ export function startWorld(
 
     const problems = [
       ...checkMemoryInvariants(memoryChecks({ badUnits, badBuildings })),
+      ...labor.check(),
       ...(await checkSqlInvariants(db, now())),
     ];
     status.issues = problems.length;
@@ -707,7 +727,11 @@ export function startWorld(
       const memory = checkMemoryInvariants(memoryChecks({}));
       if (!persistence) return memory;
       await persistence.writer.durable();
-      return [...memory, ...(await checkSqlInvariants(persistence.pool, now()))];
+      return [
+        ...memory,
+        ...persistence.labor.check(),
+        ...(await checkSqlInvariants(persistence.pool, now())),
+      ];
     },
     takeMetrics() {
       const at = now();

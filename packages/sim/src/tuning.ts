@@ -8,6 +8,7 @@ import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "./society/c
 import { BUILD_TUNING_KEYS } from "./tuningBuild.ts";
 import { CYBORG_TUNING_KEYS } from "./tuningCyborg.ts";
 import { GARDENER_TUNING_KEYS } from "./tuningGardener.ts";
+import { LABOR_TUNING_KEYS } from "./tuningLabor.ts";
 import { NPC_TUNING_KEYS } from "./tuningNpc.ts";
 
 export interface TuningKey {
@@ -546,6 +547,7 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...GARDENER_TUNING_KEYS,
   // 시설 건설 시간·유지비(49 M14, D-508): tuningBuild.ts
   ...BUILD_TUNING_KEYS,
+  ...LABOR_TUNING_KEYS,
 ];
 
 function getPath(root: unknown, path: string): number {

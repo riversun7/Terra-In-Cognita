@@ -1,4 +1,5 @@
-// 생산(/economy/production) — 시설(레벨·일꾼·상태·지금 만드는 것·예약), 반복 예약(D-6016), 급여(D-431·D-432), 레시피 목록(팩).
+// 생산(/economy/production) — 시설(레벨·일꾼·상태·지금 만드는 것·예약), 반복 예약(D-6016), 급여(D-431·D-432),
+// 노동 계약(임금형·임대형, D-479 — LaborPanel.tsx, 실제 자료), 레시피 목록(팩).
 // 시설·예약은 서버가 생산을 돌릴 때까지 시안 자료에서만 보인다. 레시피 목록은 실제 팩 자료다.
 // 예약 단추는 명령을 보내지 않는다(곧 열림, 생산 예약 명령은 WebSocket으로 붙인다).
 import type {
@@ -25,6 +26,7 @@ import {
   stageName,
   statPairText,
 } from "./economyText.ts";
+import { LaborPanel } from "./LaborPanel.tsx";
 import { NotReady, PreviewTag } from "./parts.tsx";
 import { NO_ARGS, useCatalog, useNowTick, useProduction } from "./queries.ts";
 import { dailyWage, progressOf } from "./shape.ts";
@@ -312,6 +314,7 @@ export default function ProductionView() {
           </section>
         </>
       )}
+      <LaborPanel />
       <section className="panel" aria-labelledby="eco-recipes-title">
         <h2 id="eco-recipes-title" className="eco-section-title">
           {m.economy_recipes_title()}

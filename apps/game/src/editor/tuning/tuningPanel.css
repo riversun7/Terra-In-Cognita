@@ -364,7 +364,7 @@
 /* ── 담은 변경 막대(화면 아래에 붙음) ── */
 .tp-pending {
   position: sticky;
-  bottom: var(--space-4);
+  bottom: calc(var(--dev-dock-bottom) + var(--space-4));
   z-index: 2;
   display: flex;
   flex-wrap: wrap;

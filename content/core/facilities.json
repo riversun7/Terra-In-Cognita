@@ -725,7 +725,7 @@
         "en": "Government hall"
       },
       "stage": "government",
-      "maxLevel": 1,
+      "maxLevel": 3,
       "slotsPerLevel": 0,
       "build": {
         "mulPm": 3000,
@@ -740,6 +740,40 @@
               {
                 "item": "stone",
                 "qty": 15
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 20
+              },
+              {
+                "item": "brick",
+                "qty": 12
+              },
+              {
+                "item": "iron_ingot",
+                "qty": 5
+              }
+            ]
+          },
+          {
+            "from": 3,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 18
+              },
+              {
+                "item": "brick",
+                "qty": 14
+              },
+              {
+                "item": "iron_ingot",
+                "qty": 6
               }
             ]
           }

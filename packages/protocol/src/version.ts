@@ -46,11 +46,14 @@
  *    시설에 돈 없이 둔다(새 결과 코드 not_workplace·facility_full·not_assigned는 이 메시지의 답에만 간다). 물자 거래소(market.ts, 같은 ADR
  *    "WP4 도시 경제·거래소") — market_place·market_cancel·market_watch → market_result, 체결 알림 market_fill(알림을 켠 연결에만). 두 줄기를
  *    배포 전에 합쳐 한 판으로 올렸다. 더하기만 했고 13판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
- * 15: 직무 위치 조건 + 환전(docs/adr/2026-11-07-play-flow.md "WP8"·"WP6", 기획 정리 D-518 522 ①·534 가, 같은 판에 묶음)
+ * 15: 직무 위치 조건 + 환전 + 폐허 2(docs/adr/2026-11-07-play-flow.md "WP8"·"WP6", 기획 정리 D-518 522 ①·534 가, 같은 판에 묶음 — 폐허 2도 같은 15)
  *    - 직무(labor.ts 결과 코드 wrong_map): 직무 배치·노동 계약·구인 받기는 유닛이 그 시설과 같은 2차맵에 있어야 한다. 새 코드는 15판 연결에만
  *      가고 14판 연결은 invalid_terms를 받는다.
  *    - 환전(market.ts fx_place·fx_cancel → fx_result): 나라 화폐 ↔ 기준 통화 동시호가에 주문 내기·회차 전 거두기. 더하기만 했고 14판 기기는
  *      그대로 받는다(이 메시지를 보내지 않는다). 거래소 값이 나라 화폐가 되어 market_* 메시지의 값은 그 도시 화폐 최소 단위다(모양은 같다).
+ *    - 폐허 2(ruins.ts, docs/adr/2026-11-07-ruins-restoration.md "바뀜 (기획 답 480~489, 472, 535)") — restoration_result 새 코드
+ *      not_built(정부 건물을 다 지어야 모금을 열고 넣는다)·expired(모금 기한이 지났다)는 15판 연결에만 가고 더 낮은 판은 not_claimed를 받는다.
+ *      더하기만 했고 14판 기기는 그대로 받는다.
  */
 export const PROTOCOL_VERSION = 15;
 

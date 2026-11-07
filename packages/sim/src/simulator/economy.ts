@@ -704,8 +704,25 @@ export function beforeCityTransfer(
 }
 
 /**
+ * 폐허가 된 도시 창고 물건의 갈 곳(기획 D-518 535): 주인 → 그 주인의 도시 창고(도시 ID), null(자리 없음 — 원장 보유, 주인이 그대로 본다),
+ * "burn"(옛 규칙대로 소각 — NPC 세력 물건, 확인 대기 질문 540). 폐허가 될 도시는 아직 세계에 있으니 고르지 않는다(골라도 자리 없음으로 친다)
+ */
+export type RuinedGoodsHome = (ownerId: number, ruinedCityId: number) => number | null | "burn";
+
+/**
+ * 시뮬 기본 갈 곳: 세력(NPC) 물건은 옛 규칙대로 소각(D-464 217 해석 — 535는 유저 물건을 지킨다. NPC 물건까지 옮기면 econ16에서 도시·인구가
+ * 크게 줄었다, ADR 폐허 2 잰 값), 세력이 아닌 주인(서버의 유저)은 자리 없음. 시뮬 주인은 모두 세력이라 소각만 돈다. 서버는 유저를 그 나라의
+ * 가장 가까운 도시 창고로 보낸다(apps/server/src/npc/ruinsRuntime.ts)
+ */
+export function simGoodsHome(world: SimWorld): RuinedGoodsHome {
+  return (ownerId) => (world.factions.has(ownerId) ? "burn" : null);
+}
+
+/**
  * 도시가 폐허가 되기 바로 전(docs/adr/2026-11-01-gardener-r5b.md 4절, D-464 217): 그 도시 거래소의 걸린 주문을 돌려주고 거래소를
- * 닫는다, 그 도시 시설은 멈춘다, 그 도시 창고(누구 것이든)의 물건은 소각한다. 운송 중인 화물은 그대로 도착한다(받을 곳 없음)
+ * 닫는다, 그 도시 시설은 멈춘다. 그 도시 창고의 물건은 주인마다 갈 곳(homeOf)으로: 유저 물건은 소각하지 않고 그 주인의 도시 창고로 옮기고
+ * (기획 D-518 535 — 소유는 점령으로만 바뀐다 D-161, 건물이 사라질 때 416과 같은 결), NPC 세력 물건은 옛 규칙대로 소각한다. 걸린 주문을 먼저
+ * 돌려주므로 묶였던 물건도 함께 간다. 운송 중인 화물은 그대로 도착한다(받을 곳 없음)
  */
 export function cityRuined(
   economy: Economy,
@@ -713,6 +730,7 @@ export function cityRuined(
   loop: SimLoop<SimEvent>,
   cityId: number,
   nowMs: number,
+  homeOf: RuinedGoodsHome = simGoodsHome(world),
 ): void {
   for (const market of economy.markets.get(cityId)?.values() ?? []) {
     const owners = [...new Set(market.orders().map((order) => order.owner))].toSorted((a, b) => a - b);
@@ -725,16 +743,46 @@ export function cityRuined(
     economy.facilities.delete(id);
   }
   economy.cityUnits.delete(cityId);
-  const entries = [];
-  for (const account of world.book.accounts()) {
-    if (account.ownerId === null || account.location !== cityId || account.balance <= 0n) continue;
-    entries.push({ account: account.id, amount: -account.balance });
-    entries.push({
-      account: world.book.systemAccount(`sink:${account.asset}`, account.asset),
-      amount: account.balance,
-    });
+  rehomeRuinedGoods(world, cityId, nowMs, homeOf);
+}
+
+/**
+ * 그 도시 창고의 물건을 주인마다 갈 곳으로(535). 소각 몫은 거래 하나(burn → sink), 옮기는 몫은 거래 하나(storage_rehome — 서버 건물 창고
+ * 옮기기와 같은 종류). 옮기거나 태운 계정 수
+ */
+export function rehomeRuinedGoods(
+  world: SimWorld,
+  cityId: number,
+  nowMs: number,
+  homeOf: RuinedGoodsHome,
+): number {
+  const found = [...world.book.accounts()]
+    .filter((account) => account.ownerId !== null && account.location === cityId && account.balance > 0n)
+    .toSorted((a, b) => a.id - b.id);
+  const homes = new Map<number, number | null | "burn">();
+  const burned = [];
+  const moved = [];
+  for (const account of found) {
+    const owner = account.ownerId ?? 0;
+    if (!homes.has(owner)) {
+      const home = homeOf(owner, cityId);
+      homes.set(owner, home === cityId ? null : home);
+    }
+    const home = homes.get(owner) ?? null;
+    if (home === "burn") {
+      burned.push({ account: account.id, amount: -account.balance });
+      burned.push({
+        account: world.book.systemAccount(`sink:${account.asset}`, account.asset),
+        amount: account.balance,
+      });
+      continue;
+    }
+    moved.push({ account: account.id, amount: -account.balance });
+    moved.push({ account: world.book.ownerAccount(owner, account.asset, home), amount: account.balance });
   }
-  if (entries.length > 0) world.book.post({ kind: "burn", atMs: nowMs, entries });
+  if (burned.length > 0) world.book.post({ kind: "burn", atMs: nowMs, entries: burned });
+  if (moved.length > 0) world.book.post({ kind: "storage_rehome", atMs: nowMs, entries: moved });
+  return found.length;
 }
 
 /** 반란 세력은 부모 화폐·세율을 빌려 쓴다 */

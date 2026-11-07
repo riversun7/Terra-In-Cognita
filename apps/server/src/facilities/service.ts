@@ -15,8 +15,10 @@
 // - "바뀜 (창고·직무)"(D-516 361·364·382): 재료는 건물이 선 도시 창고 + 그 도시의 내 창고 시설 + 그 2차맵 내 유닛 화물에서만 꺼낸다
 //   (places.ts). 작업(짓기·레벨업·수리·장비 수리)에 묶인 유닛은 그 동안 원래 직무 산출을 내지 않는다(소유 주체 정산이 pausesFor를 물어
 //   그 구간 산출을 버린다, 작업이 끝나거나 지워지기 전에 그 시각까지 정산한다). 창고 시설 넣기·꺼내기는 storage.ts.
-// - 행정 건물(단계 government, D-510 폐허 정부): 주인 없는 폐허 자리(그 칸에서 가장 가까운 도시·폐허 = 그 폐허)에만 짓고, 짓기 시작한 쪽이
-//   폐허 주인이 된다(고리 GovernmentHook = 폐허 서비스, docs/adr/2026-11-07-ruins-restoration.md). 같은 동기 처리 = 같은 커밋.
+// - 행정 건물(단계 government, D-510 폐허 정부): 주인 없는(또는 정부 건물이 0%·사라진, 487 다) 폐허 자리(그 칸에서 가장 가까운 도시·폐허 =
+//   그 폐허)에만 짓고, 짓기 시작한 쪽이 폐허 주인이 된다(고리 GovernmentHook = 폐허 서비스, docs/adr/2026-11-07-ruins-restoration.md). 같은
+//   동기 처리 = 같은 커밋. 시설 줄 도시는 그 폐허(되살아날 도시 ID)다 — 되살아난 도시의 행정 레벨 = 그 건물 레벨(489 다). 짓는 재료는
+//   지금처럼 그 칸에서 가장 가까운 도시 창고·창고 시설·화물에서.
 import type { FacilityResultCode } from "@terra/protocol";
 import { type CityCell, cityLocation, cityOfCell } from "@terra/shared/goodsPlaces";
 import { buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
@@ -519,7 +521,8 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         conditionAtMs: at + ms,
         builtAtMs: at,
         builtBy: userId,
-        cityId,
+        // 행정 건물은 그 폐허(되살아날 도시)의 시설이다(489 다)
+        cityId: ruinId ?? cityId,
       };
       facilities.set(record.buildingId, record);
       saveFacility(record);

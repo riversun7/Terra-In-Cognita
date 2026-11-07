@@ -1,0 +1,48 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "fa80ebab-944a-4bcd-97d2-5f64c81e0c25",
+  "prevIds": [
+    "fe0c6aba-b539-4da4-b3a2-3aa24a61a263",
+    "e62c11b4-4467-480d-89bc-1124abd9d05f"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_ruins",
+        "deadline_ms"
+      ],
+      "writes": [
+        "s|col|public.world_ruins.deadline_ms",
+        "n|col|public.world_ruins.deadline_ms",
+        "e|col|public.world_ruins.deadline_ms"
+      ],
+      "reads": [
+        "n|tbl|public.world_ruins",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "deadline_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

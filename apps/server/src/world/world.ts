@@ -78,6 +78,7 @@ import { EMPTY_FACILITIES, type LoadedFacilities, loadFacilities } from "../faci
 import { type RecruitService, createRecruitService } from "../recruit/service.ts";
 import { geneCatalogFrom } from "../fusion/genes.ts";
 import { type FusionService, createFusionService } from "../fusion/service.ts";
+import { npcRuinsInputOf } from "../ruins/runtimeInput.ts";
 import { type RuinService, createRuins } from "../ruins/service.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { npcEconomyInputOf } from "../market/worldInput.ts";
@@ -833,6 +834,8 @@ export function startWorld(
           // 수호신 만족도 버프(기획 답 470 가): 하루 끝에 그 도시 휴먼마다
           guardianSatisfaction: () => persistence?.fusion.temple.citySatisfaction() ?? new Map(),
           economy: npcEconomyInputOf(config.economy, facilities, maps, config.npc.presets),
+          // 폐허 2: 정부 건물·행정 레벨(489 다)·수호신(472 가)·유저 나라(535 폐허 창고 물건)
+          ruins: npcRuinsInputOf(() => persistence, owners, now),
         });
       } catch (error) {
         log.error({ err: error }, "npc society failed to start; bots keep walking");

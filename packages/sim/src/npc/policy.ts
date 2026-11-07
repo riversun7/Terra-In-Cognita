@@ -50,13 +50,14 @@ export function tradePolicy(traits: Traits, foodShort: boolean, c: NpcCoefficien
 }
 
 export interface OccupationChoice {
-  readonly treatment: "loot" | "integrate";
+  /** 약탈(점령) · 통합 · 약탈하고 폐허로 둠(점령하지 않음, 기획 답 486 나 — D-161 고르기에 한 칸) */
+  readonly treatment: "loot" | "integrate" | "raze";
   readonly shares: "delist" | "keep";
 }
 
 /**
- * 점령 처리(46 §5.1): 공격 성향이 높고 약탈 뒤에도 도시 평균 만족도가 반란 문턱 + 여유보다 높으면 약탈, 아니면 통합.
- * 상장폐지는 아주 공격적일 때만(독재가 과반을 못 쥐면 규칙이 상장폐지로 바꾼다)
+ * 점령 처리(46 §5.1): 공격 성향이 폐허 문턱 이상이면 약탈하고 폐허로 둔다(486 나). 아니면 공격 성향이 높고 약탈 뒤에도 도시 평균 만족도가
+ * 반란 문턱 + 여유보다 높으면 약탈, 아니면 통합. 상장폐지는 아주 공격적일 때만(독재가 과반을 못 쥐면 규칙이 상장폐지로 바꾼다)
  */
 export function occupationChoice(
   traits: Traits,
@@ -65,8 +66,9 @@ export function occupationChoice(
   sc: SocietyCoefficients,
 ): OccupationChoice {
   const lootSafe = citySatisfaction - sc.lootSatisfactionDrop > sc.rebellionThreshold + c.lootMargin;
+  const raze = traits.aggression >= c.razeAggression;
   return {
-    treatment: traits.aggression >= c.lootAggression && lootSafe ? "loot" : "integrate",
+    treatment: raze ? "raze" : traits.aggression >= c.lootAggression && lootSafe ? "loot" : "integrate",
     shares: traits.aggression >= c.delistAggression ? "delist" : "keep",
   };
 }

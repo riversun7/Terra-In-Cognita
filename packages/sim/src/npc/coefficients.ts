@@ -75,6 +75,15 @@ export interface NpcCoefficients {
    */
   readonly recruitTargetPm: number;
   readonly recruitReservePm: number;
+  /**
+   * [임시] 폐허 정부 짓기 행동 점수(기획 답 484 다, 성향 가중 — 상업 성향 ÷ 4를 더한다): 기본 점수·옛 내 도시 더하기·가진 도시마다 빼기(확장 —
+   * 도시가 적을수록). 복원 사업에 넣기·투자는 하루 끝 규칙식이라 점수가 없다
+   */
+  readonly restoreClaimScore: number;
+  readonly restoreFormerBonus: number;
+  readonly restoreCityPenalty: number;
+  /** [임시] 공성에서 이겨 약탈하고 폐허로 두는 공격 성향 문턱(기획 답 486 나, 약탈 문턱보다 높게) */
+  readonly razeAggression: number;
   /** 굶어 멈춤(D-220, 기술 정의): 국고 0 + 생필품 충족 이 ‰ 미만이 이 날 수 이어짐 */
   readonly stallFoodPm: number;
   readonly stallDays: number;
@@ -126,6 +135,10 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   cityBidPct: 90,
   recruitTargetPm: 1000,
   recruitReservePm: 2000,
+  restoreClaimScore: 400,
+  restoreFormerBonus: 150,
+  restoreCityPenalty: 40,
+  razeAggression: 900,
   stallFoodPm: 500,
   stallDays: 7,
 };

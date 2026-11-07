@@ -10,8 +10,11 @@
 //   보호 레이드(판단의 치기 → onAttack)·막아 낸 웨이브 보상(waveRewards.ts).
 // - 도시 경제(docs/adr/2026-11-07-play-flow.md WP4, economy.ts): 시뮬과 같은 경제 실행(생산·생필품 유지비·NPC 거래·거래세)을 같은 루프에서
 //   돌리고 세력·사회에 경제 고리(생필품 충족·거래세 배당·세율·도시 주인 바뀜의 창고·거래소)를 준다. 거래소는 market/books.ts(저장·복원).
+// - 폐허 2(ruinsRuntime.ts): 정부 건물 상태·행정 레벨 = 그 도시 안 행정 건물 레벨(489 다, 틱마다 맞춤)·수호신만 있는 도시의 웨이브 전투
+//   (472 가)·폐허가 된 도시 창고 물건을 주인 나라의 가장 가까운 도시 창고로(535).
 // - 서버에서 아직 안 하는 것: 실시간 공성(NPC 공격은 전투 없이 점령 — 시뮬 "전투 끔"과 같은 규칙), 환전·세력 화폐(시험 화폐 하나),
-//   휴먼 지갑(상속은 빈 지갑), 편입 제안 저장(메모리), NPC 생산 시설의 오염(정원사 칸 오염에 넣지 않음), 행정 건물 올리기(모든 도시 Lv1 [임시]).
+//   휴먼 지갑(상속은 빈 지갑), 편입 제안 저장(메모리), NPC 생산 시설의 오염(정원사 칸 오염에 넣지 않음), NPC의 행정 건물 올리기(NPC는 짓지
+//   않는다 — 씨앗 행정 건물 Lv1 그대로).
 import { randomInt } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import {
@@ -63,6 +66,7 @@ import { type NpcEconomyInput, type ServerEconomy, startServerEconomy } from "./
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { type CityPlace, type NpcPersist, createNpcPersist } from "./persist.ts";
+import { type NpcRuinsInput, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsRuntime.ts";
 import { ruinsOf } from "./ruinsState.ts";
 import type { NpcHumanRow } from "./state.ts";
 import { loadNpcState } from "./state.ts";
@@ -117,6 +121,11 @@ export interface NpcRuntimeOptions {
   readonly guardianSatisfaction?: (() => ReadonlyMap<number, number>) | undefined;
   /** 도시 경제 입력(경제 목록·도시 시설, docs/adr/2026-11-07-play-flow.md WP4). 없으면 경제 없이 돈다(시험) */
   readonly economy?: NpcEconomyInput | undefined;
+  /**
+   * 폐허 2 고리(npc/ruinsRuntime.ts): 정부 건물 상태(480·487 다)·도시 행정 건물 레벨(489 다)·수호신(472 가)·유저 나라(535 폐허 창고 물건의
+   * 갈 곳). 없으면 정부 건물이 있는 폐허도 다 지은 것으로 치고, 행정 레벨은 그대로, 수호신만 있는 도시는 전투 없이 진다(시험)
+   */
+  readonly ruins?: NpcRuinsInput | undefined;
 }
 
 export interface NpcRuntime {
@@ -463,6 +472,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         startMs,
         now: o.now,
         log,
+        goodsHome: ruinedGoodsHomeOf(world, persist.places, o.ruins?.nationOf),
       })
     : undefined;
   econRef.current = econ;
@@ -494,6 +504,9 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     startMs,
   );
   ctx.society = society;
+  if (o.ruins?.government) society.ruins.attachGovernment(o.ruins.government);
+  // 행정 레벨 = 그 도시 안 행정 건물 레벨(489 다): 처음과 틱마다 맞춘다
+  syncAdminLevels(world, o.ruins?.governmentLevels?.());
   // 정원사: 칸 = 도시의 2차맵 키(F9), 이웃 = 행성 이웃 8칸. 계수는 설정 칸 실효 값을 부를 때마다 읽는다
   const gardener = attachServerGardener({
     world,
@@ -517,6 +530,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     treasuryOf: (ownerId) => ledger.balanceOf(ownerId, ASSET_CREDIT),
     timeScale: dayMs / DAY_MS,
     startBattle: o.startBattle,
+    hasGuardians: o.ruins?.hasGuardians,
     grantReward: o.waveRewardItems
       ? (ownerId, reward, atMs) =>
           grantWaveReward(ledger, ownerId, reward, o.waveRewardItems?.() ?? NO_ITEMS, atMs)
@@ -595,13 +609,14 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       // 끝난 웨이브 전투(전투 서비스가 알려 줌)의 결과를 먼저 넣는다
       const results = gardener.applyPending(o.now());
       metrics.waveResults += results;
+      const lifted = syncAdminLevels(world, o.ruins?.governmentLevels?.());
       loop.runUntil(o.now() + 1);
       // 걸어 둔 거래소 주문의 만료(쓰기 대기열로 바로 간다)
       if (econ && o.now() - expiredAt >= EXPIRE_EVERY_MS) {
         expiredAt = o.now();
         econ.expire(expiredAt);
       }
-      if (loop.processed === before && results === 0 && !force) return;
+      if (loop.processed === before && results === 0 && lifted === 0 && !force) return;
       const started = performance.now();
       const result = await persist.flush(society.currentDay());
       await persist.refillSpares(SPARE_FACTIONS);

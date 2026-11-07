@@ -66,7 +66,10 @@ describe("점령 처리·마을·편입 제안·독립 투표(질문 198 가)", 
     // 80 − 25(약탈) = 55 ≤ 40 + 10? 아니다 → 약탈. 70 − 25 = 45 ≤ 50 → 통합
     expect(occupationChoice(t(700), 70, c, sc)).toEqual({ treatment: "integrate", shares: "keep" });
     expect(occupationChoice(t(300), 90, c, sc)).toEqual({ treatment: "integrate", shares: "keep" });
-    expect(occupationChoice(t(900), 90, c, sc)).toEqual({ treatment: "loot", shares: "delist" });
+    expect(occupationChoice(t(850), 90, c, sc)).toEqual({ treatment: "loot", shares: "delist" });
+    // 폐허 문턱(900) 이상이면 약탈하고 폐허로 둔다(486 나) — 만족도와 상관없이
+    expect(occupationChoice(t(900), 90, c, sc)).toEqual({ treatment: "raze", shares: "delist" });
+    expect(occupationChoice(t(950), 30, c, sc).treatment).toBe("raze");
   });
 
   it("마을: 공격 성향이 높은 가문은 독립하고 가장 큰 축이 체제, 아니면 봉신", () => {

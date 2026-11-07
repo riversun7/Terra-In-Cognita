@@ -11,6 +11,7 @@ import {
   EVENT_UPKEEP,
   type Economy,
   type GatherSettings,
+  type RuinedGoodsHome,
   bankDay,
   beforeCityTransfer,
   cityRuined,
@@ -122,13 +123,15 @@ export function attachEconomy(
 /**
  * 차린 경제(시나리오 createEconomy 또는 서버가 거울 세계에서 차린 것)에 사건 나누기·세력·사회 고리·하루 줄·불변 조건을 붙인다.
  * 서버 NPC 사회 런타임(apps/server/src/npc/economy.ts)이 같은 함수로 도시 경제를 돌린다(docs/adr/2026-11-07-play-flow.md WP4).
- * 예약(scheduleEconomy 등)은 부르는 쪽이 한다
+ * 예약(scheduleEconomy 등)은 부르는 쪽이 한다. goodsHome = 폐허가 된 도시 창고 물건의 갈 곳(기획 D-518 535, 없으면 시뮬 기본 —
+ * NPC 세력 물건은 소각, economy.ts simGoodsHome)
  */
 export function runEconomy(
   economy: Economy,
   world: SimWorld,
   loop: SimLoop<SimEvent>,
   npc: NpcCoefficients,
+  goodsHome?: RuinedGoodsHome,
 ): EconomyRun {
   const totals = {
     trades: 0,
@@ -156,7 +159,7 @@ export function runEconomy(
     beforeCityTransfer: (cityId, from, to, nowMs) =>
       beforeCityTransfer(economy, world, cityId, from, to, nowMs),
     factionBorn: (child, parent) => factionBorn(economy, child, parent),
-    cityRuined: (cityId, nowMs) => cityRuined(economy, world, loop, cityId, nowMs),
+    cityRuined: (cityId, nowMs) => cityRuined(economy, world, loop, cityId, nowMs, goodsHome),
     factionDied: (target, attacker, nowMs) => {
       for (const perItem of economy.markets.values())
         for (const market of perItem.values()) market.cancelOwner(target.id, nowMs);

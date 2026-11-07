@@ -10,10 +10,12 @@ export {
   defaultGatherStat,
   scheduleEconomy,
   scheduleProduce,
+  simGoodsHome,
   workerEffects,
   type EcoFacility,
   type Economy,
   type GatherSettings,
+  type RuinedGoodsHome,
 } from "./economy.ts";
 export { runEconomy, type EconomyRun, type EconomySummary } from "./economyRun.ts";
 export { cityTargets, marketRefPrice, onTrade, placeCityBids } from "./npcTrade.ts";

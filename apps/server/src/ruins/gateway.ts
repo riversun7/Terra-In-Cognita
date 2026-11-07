@@ -3,7 +3,14 @@
 // - 사용자별 속도 제한(순간 10번, 분당 30번 — 건물 명령과 같음). 밀린 요청이 MAX_PENDING을 넘으면 busy. 세계가 아직 없으면 busy.
 // - 개발 시험(dev_make_ruin)은 dev·admin(secondMap dev-spawn — 다른 개발 시험과 같은 권한).
 // - 판정·저장은 서비스(service.ts, 규칙은 거울 세계 @terra/sim SocietyRuins)가 한다.
-import { type ClientMessageOf, type RestorationResultCode, encodeMessage } from "@terra/protocol";
+// - 폐허 2(프로토콜 15)의 새 결과 코드 not_built·expired는 15판 연결에만 가고 더 낮은 판은 not_claimed를 받는다(그 판 기기는 모르는 코드다).
+import {
+  type ClientMessageOf,
+  RUINS_DEADLINE_CODES,
+  RUINS_DEADLINE_PROTOCOL_VERSION,
+  type RestorationResultCode,
+  encodeMessage,
+} from "@terra/protocol";
 import { rolesAllow } from "../auth/permissions.ts";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
@@ -17,6 +24,8 @@ const LIMIT = { capacity: 10, refillPerMinute: 30 };
 export interface RuinLink {
   send(text: string): void;
   viewer(): Promise<Viewer | null>;
+  /** 연결이 인사한 프로토콜 버전(없으면 지금 판으로 친다 — 시험) */
+  protocolVersion?: number | undefined;
 }
 
 export interface RuinSocket {
@@ -71,8 +80,12 @@ export function createRuinGateway(options: {
       let chain: Promise<void> = Promise.resolve();
       let pending = 0;
       let closed = false;
+      const old = (link.protocolVersion ?? RUINS_DEADLINE_PROTOCOL_VERSION) < RUINS_DEADLINE_PROTOCOL_VERSION;
       const reply = (id: number, result: RuinCommandResult): void => {
-        if (!closed) link.send(resultText(id, result));
+        if (closed) return;
+        const shown =
+          old && !result.ok && RUINS_DEADLINE_CODES.includes(result.code) ? fail("not_claimed") : result;
+        link.send(resultText(id, shown));
       };
 
       const process = async (message: RuinClientMessage): Promise<void> => {

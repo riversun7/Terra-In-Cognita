@@ -1,6 +1,7 @@
 // 폐허 복원 화면 시험 — 생산 칸 "폐허 복원"(D-510·D-339·D-343·D-344, docs/adr/2026-11-07-ruins-restoration.md).
-// - admin: [시험 폐허 만들기] → 카드(주인 없음) → [행정 건물 재료 받기(시험)] → [행정 건물 짓기] = 주인(주인만 넣음) → 시험 화폐 →
-//   4,000 넣기 → [모금 열기](모금 중) → 남은 6,000 넣기 = 도시가 되살아남(카드가 빠짐). 둘째 폐허는 주인·모금 중·일부 모인 채 남겨 사진에 쓴다.
+// - admin: [시험 폐허 만들기] → 카드(주인 없음) → [행정 건물 재료 받기(시험)] → [행정 건물 짓기] = 주인(정부 짓는 중 — 모금 닫힘, 폐허 2
+//   480 다) → [행정 건물 바로 짓기(시험)](주인만 넣음, 모금 기한 줄) → 시험 화폐 → 4,000 넣기 → [모금 열기](모금 중) → 6,000 넣기(목표 =
+//   옛 주거 8 × 700 = 5,600이라 남은 몫만 받음) = 도시가 되살아남(카드가 빠짐). 둘째 폐허는 주인·모금 중·일부 모인 채 남겨 사진에 쓴다.
 // - 사진(E2E_SHOTS_DIR): 폐허 칸 390 파스텔 한국어·390 다크 영어·1440 파스텔 한국어·1440 다크 영어.
 // 복귀 요약은 띄우지 않는다(hideSummary).
 import type { Locator, Page } from "@playwright/test";
@@ -40,12 +41,18 @@ async function makeRuin(page: Page): Promise<Locator> {
   return card;
 }
 
-/** 재료 받기 → 행정 건물 짓기 = 주인 */
+/** 재료 받기 → 행정 건물 짓기 = 주인(짓는 중엔 모금 닫힘, 폐허 2 480 다) → 바로 짓기(시험) = 주인만 넣음 */
 async function claim(page: Page, card: Locator): Promise<void> {
   await clickFor(page, card.locator(".ruins-dev-materials"), message("ko", "ruins_dev_materials_done"));
   await clickFor(page, card.locator(".ruins-build"), head("ruins_claimed", { id: "@" }));
-  await expect(card).toHaveAttribute("data-state", "owner_only", { timeout: 15_000 });
+  await expect(card).toHaveAttribute("data-state", "building", { timeout: 15_000 });
   await expect(card).toContainText(message("ko", "ruins_mine_tag"));
+  await expect(card.locator(".ruins-open")).toHaveCount(0);
+  await expect(card).toContainText(message("ko", "ruins_fund_not_built"));
+  await clickFor(page, card.locator(".ruins-dev-finish"), message("ko", "ruins_dev_finish_done"));
+  await expect(card).toHaveAttribute("data-state", "owner_only", { timeout: 15_000 });
+  await expect(card.locator('[data-part="ruin-hall"]')).toHaveAttribute("data-state", "up");
+  await expect(card.locator('[data-part="ruin-deadline"]')).toBeVisible();
 }
 
 /** 넣기 */

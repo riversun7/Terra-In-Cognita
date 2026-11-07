@@ -35,6 +35,7 @@ const sigOf = (ruin: SimRuin): string =>
     String(ruin.goal),
     ruin.currency,
     ruin.open,
+    ruin.deadlineMs,
   ]);
 
 export function createRuinsPersist(o: RuinsPersistOptions): RuinsPersist {
@@ -60,6 +61,7 @@ export function createRuinsPersist(o: RuinsPersistOptions): RuinsPersist {
       goal: claimed ? ruin.goal : null,
       currency: claimed ? ruin.currency : null,
       open: claimed && ruin.open,
+      deadline_ms: claimed && ruin.deadlineMs > 0 ? ruin.deadlineMs : null,
     };
   };
 

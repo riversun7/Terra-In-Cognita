@@ -34,22 +34,15 @@ function decodes(decode: (text: string) => unknown, message: unknown): boolean {
 }
 
 describe("사이보그 만들기 메시지", () => {
-  it("만들기는 프로토콜 4부터, 속성 분배는 5부터. 지금 판 15와 직전 판 14를 받는다(4~13은 받지 않는다, 직무 위치·환전 판 15)", () => {
-    expect(PROTOCOL_VERSION).toBe(15);
+  it("만들기는 프로토콜 4부터, 속성 분배는 5부터. 지금 판과 직전 판만 받는다(폐허 2 판 15 — 14·15)", () => {
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(15);
     expect(CYBORG_PROTOCOL_VERSION).toBe(4);
     expect(CYBORG_ELEMENTS_PROTOCOL_VERSION).toBe(5);
-    expect(isProtocolSupported(4)).toBe(false);
-    expect(isProtocolSupported(5)).toBe(false);
-    expect(isProtocolSupported(6)).toBe(false);
-    expect(isProtocolSupported(7)).toBe(false);
-    expect(isProtocolSupported(8)).toBe(false);
-    expect(isProtocolSupported(9)).toBe(false);
-    expect(isProtocolSupported(10)).toBe(false);
-    expect(isProtocolSupported(11)).toBe(false);
-    expect(isProtocolSupported(12)).toBe(false);
-    expect(isProtocolSupported(13)).toBe(false);
-    expect(isProtocolSupported(14)).toBe(true);
-    expect(isProtocolSupported(15)).toBe(true);
+    for (let version = 4; version < PROTOCOL_VERSION - 1; version++)
+      expect(isProtocolSupported(version)).toBe(false);
+    expect(isProtocolSupported(PROTOCOL_VERSION - 1)).toBe(true);
+    expect(isProtocolSupported(PROTOCOL_VERSION)).toBe(true);
+    expect(isProtocolSupported(PROTOCOL_VERSION + 1)).toBe(false);
   });
 
   it("굴리기·만들기 명령이 왕복한다", () => {

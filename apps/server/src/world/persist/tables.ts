@@ -267,6 +267,7 @@ export const WORLD_TABLES = {
       "goal",
       "currency",
       "open",
+      "deadline_ms",
     ],
     key: ["id"],
   },

@@ -25,6 +25,7 @@ import {
   EVENT_UPKEEP,
   type GatherSettings,
   HOUR_MS,
+  type RuinedGoodsHome,
   type ScenarioEconomy,
   type ScheduledEvent,
   type SimEvent,
@@ -152,6 +153,8 @@ export interface ServerEconomyOptions {
   readonly startMs: number;
   readonly now: () => number;
   readonly log: { info(obj: object, message: string): void; warn(obj: object, message: string): void };
+  /** 폐허가 된 도시 창고 물건의 갈 곳(기획 D-518 535, npc/ruinsRuntime.ts). 없으면 시뮬 기본(주인 세력의 가장 오래된 다른 도시) */
+  readonly goodsHome?: RuinedGoodsHome | undefined;
 }
 
 /** 세력·사회 계수표 → 채집 손잡이(시뮬 run.ts와 같은 칸) */
@@ -275,7 +278,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       produced: new Map(),
     },
   };
-  const run = runEconomy(economy, world, loop, o.rules().npc);
+  const run = runEconomy(economy, world, loop, o.rules().npc, o.goodsHome);
   // 처음 발행(E6): 찍는 나라마다 한 번
   for (const [currency, amount] of mintNationCurrencies({
     world,

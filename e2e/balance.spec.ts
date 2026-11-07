@@ -4,20 +4,27 @@
 //   [적용]하면 그 세계에 바로 든다(세계에서 바뀐 칸 1, 시안 유닛 HP가 오름, 설정 칸 패널 머리에 가중치 칸 수). 되돌리기 → 적용이면 팩 값.
 //   모든 WIS 가중치를 0으로 담으면 담은 변경 막대가 "적용하면 받지 않음(가치 없는 1차)"을 미리 보이고, 적용은 거절된다.
 // - player: 권한 없음 화면, tRPC balance.*는 403.
-// - 배치·사진: 390·1440 × 파스텔·다크 × 한국어·영어, 큰 숫자(1차 10,000·가중치 100,000). 가로 넘침(표는 안에서 민다)·작은 누르는 곳 없음.
+// - 배치·사진: 390·1440 × 네온·라이트 × 한국어·영어, 큰 숫자(1차 10,000·가중치 100,000). 가로 넘침(표는 안에서 민다)·작은 누르는 곳 없음.
+//   세계 값 칸은 서버에 저장하지 않고 가중치 표 응답에 넣는다. 화면을 여는 조회는 처음 한 번만 서버에 묻는다(replayTrpc, 아래 LAYOUT_READS).
+// - 대결 속도 제한: 서버 제한(사용자마다 순간 2·분당 4)을 다 쓰면 [승률 돌리기]가 "요청이 너무 잦습니다"를 보인다(실제 서버).
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 덮어쓰기를 모두 지운다(설정 칸 패널 시험과 같은 결).
+// 사용자별 속도 제한도 같이 쓴다(서버를 켤 때마다 처음부터): 설정 칸 계열 조회(실험실 목록·미리 보기, 가중치 표·기여·대결,
+// tuning.list 등)는 순간 30·분당 120, 대결은 순간 2·분당 4. 같은 계정으로 화면을 여러 번 여는 배치·사진 시험이 실제 서버에
+// 다 물으면 조회 제한을 다 써서 뒤 시험의 기여 조회가 TOO_MANY_REQUESTS로 막혔다(2026-11-07 확인: 큰 숫자·en의 trace에서
+// balance.contribution 429). 그래서 배치·사진 시험은 서버 상태를 바꾸지 않고 같은 입력의 조회를 다시 쓴다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
+import { createTrpcReplay, replayTrpc } from "./helpers/trpc.ts";
 
-/** 화면 안에서 tRPC를 부른다(같은 출처, 화면과 같은 쿠키). 결과 data 또는 오류 코드 */
+/** 화면 안에서 tRPC를 부른다(같은 출처, 화면과 같은 쿠키, 묶지 않음 → replayTrpc를 거치지 않는다). 결과 data 또는 오류 코드·까닭 */
 async function trpc(
   page: Page,
   procedure: string,
   input?: unknown,
   kind: "query" | "mutation" = input === undefined ? "query" : "mutation",
-): Promise<{ status: number; data: unknown; code: unknown }> {
+): Promise<{ status: number; data: unknown; code: unknown; reason: unknown }> {
   return page.evaluate(
     async ({ procedure: name, input: body, kind: how }) => {
       // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
@@ -36,6 +43,7 @@ async function trpc(
         status: response.status,
         data: field(field(json, "result"), "data"),
         code: field(field(field(json, "error"), "data"), "code"),
+        reason: field(field(field(json, "error"), "data"), "reason"),
       };
     },
     { procedure, input, kind },
@@ -95,10 +103,15 @@ async function stageCell(page: Page, row: string, fieldName: string, value: stri
   await expect(cell(page, row, fieldName)).toHaveAttribute("data-state", "staged");
 }
 
-/** 작은 설정(판 4, 60초)으로 [승률 돌리기]. 대결 속도 제한(사용자마다 순간 2·분당 4)에 걸리면 기다렸다 한 번 더 */
-async function runDuels(page: Page): Promise<void> {
+/** 대결 설정을 작게(판 4, 60초) */
+async function smallDuelSettings(page: Page): Promise<void> {
   await page.locator(".bp-settings select").nth(2).selectOption("4");
   await page.locator(".bp-settings select").nth(3).selectOption("60");
+}
+
+/** 작은 설정으로 [승률 돌리기]. 대결 속도 제한(사용자마다 순간 2·분당 4)에 걸리면 기다렸다 한 번 더 */
+async function runDuels(page: Page): Promise<void> {
+  await smallDuelSettings(page);
   for (let attempt = 0; attempt < 3; attempt++) {
     await page.locator(".bp-run").click();
     await expect(page.locator(".bp-run")).not.toHaveAttribute("aria-disabled", "true", { timeout: 60_000 });
@@ -256,6 +269,46 @@ async function fullShot(page: Page, name: string): Promise<void> {
   await shot(page, name);
 }
 
+/** 배치·사진·속도 제한 시험(admin)이 함께 쓰는 서버 답. 이 시험들은 서버 상태(덮어쓰기)를 바꾸지 않는다 */
+const layoutReplay = createTrpcReplay();
+/** 화면을 열 때 부르는 조회: 실험실 목록·프리셋·미리 보기(기본 탭), 가중치 표·기여 */
+const LAYOUT_READS = [
+  "battleLab.catalog",
+  "battleLab.presets",
+  "battleLab.preview",
+  "balance.table",
+  "balance.contribution",
+] as const;
+
+/** 세계 값 칸으로 보일 칸(회피 행 AGI) — 서버에 저장하지 않고 가중치 표 응답의 그 칸에 덮어쓰기를 넣는다 */
+const WORLD_CELL = { row: "evade", field: "agi" } as const;
+
+/** balance.table data → WORLD_CELL 칸이 세계 값(팩과 다른 실효 값 + 덮어쓰기 기록)이다. 모양이 바뀌었으면 시험이 멈춘다 */
+function withWorldCell(data: unknown): void {
+  const rows = field(data, "rows");
+  const row: unknown = Array.isArray(rows)
+    ? rows.find((entry: unknown) => field(entry, "id") === WORLD_CELL.row)
+    : undefined;
+  const cells = field(row, "cells");
+  const target: unknown = Array.isArray(cells)
+    ? cells.find((entry: unknown) => field(entry, "field") === WORLD_CELL.field)
+    : undefined;
+  const pack = field(target, "pack");
+  const contentVersion = field(data, "contentVersion");
+  if (typeof target !== "object" || target === null || typeof pack !== "number")
+    throw new Error("balance.table 응답에 회피 행 AGI 칸이 없습니다");
+  const value = pack + 200;
+  Reflect.set(target, "value", value);
+  Reflect.set(target, "override", {
+    value,
+    packValueAtSave: pack,
+    contentVersionAtSave: contentVersion,
+    note: "e2e",
+    updatedBy: "admin",
+    updatedAt: Date.UTC(2026, 10, 1),
+  });
+}
+
 test.describe("배치·사진", () => {
   test.use({ account: "admin" });
 
@@ -267,26 +320,25 @@ test.describe("배치·사진", () => {
         page,
         deviceErrors,
       }) => {
-        test.setTimeout(180_000);
-        await screenReady(page);
-        await resetTuning(page);
-        const list = await trpc(page, "tuning.list");
-        const saved = await trpc(page, "tuning.save", {
-          expectedRevision: field(list.data, "revision"),
-          changes: [{ id: "evade.agi", value: 1400 }],
+        test.setTimeout(120_000);
+        // 대결도 다시 쓴다: 실제 대결은 이 묶음 처음 한 번만 돈다(대결 속도 제한을 쓰지 않는다)
+        await replayTrpc(page, layoutReplay, [...LAYOUT_READS, "balance.duels"], {
+          "balance.table": withWorldCell,
         });
-        expect(saved.status).toBe(200);
-        await page.reload();
-        await weightsReady(page);
+        await screenReady(page);
+        await expect(cell(page, WORLD_CELL.row, WORLD_CELL.field)).toHaveAttribute("data-state", "override");
+        await expect(page.locator(".bp-overrides")).toHaveAttribute("data-count", "1");
         await stageCell(page, "hp", "vit", "4500");
         await stageCell(page, "physical_attack", "str", "2600");
-        // 승률은 네온에서만 돌린다(대결 속도 제한), 라이트는 비어 있는 상태를 찍는다
-        if (theme === "neon") await runDuels(page);
+        // 승률은 네온에서만 채운다, 라이트는 비어 있는 상태를 찍는다
+        if (theme === "neon") {
+          await runDuels(page);
+          await expect(page.locator(".bp-duel")).toHaveCount(6);
+        }
         await page.evaluate(() => document.fonts.ready.then(() => undefined));
         expect(await horizontalOverflow(page)).toEqual([]);
         expect(await smallTapTargets(page)).toEqual([]);
         await shot(page, `balance-${theme}-${language}-${width}`);
-        await resetTuning(page);
         expect(unexpected(deviceErrors)).toEqual([]);
       });
     });
@@ -297,6 +349,7 @@ test.describe("배치·사진", () => {
       test.use({ theme: "pastel", language, viewport: { width: 390, height: 844 } });
 
       test("1차 10,000·가중치 100,000에서도 쪽이 가로로 밀리지 않는다", async ({ page, deviceErrors }) => {
+        await replayTrpc(page, layoutReplay, LAYOUT_READS);
         await screenReady(page);
         const inputs = page.locator(".bp-primary-input");
         for (let index = 0; index < 6; index++) await inputs.nth(index).fill("10000");
@@ -310,4 +363,53 @@ test.describe("배치·사진", () => {
       });
     });
   }
+});
+
+test.describe("대결 속도 제한", () => {
+  test.use({ account: "admin" });
+
+  test("대결을 사용자 제한(순간 2·분당 4)만큼 쓰면 서버는 rate_limited, [승률 돌리기]는 '요청이 너무 잦습니다'", async ({
+    page,
+    deviceErrors,
+  }) => {
+    // 화면을 여는 조회만 다시 쓴다. 대결은 실제 서버로 간다
+    await replayTrpc(page, layoutReplay, LAYOUT_READS);
+    await screenReady(page);
+    await smallDuelSettings(page);
+    // 가장 작은 대결을 거절될 때까지 차례로 부른다(한 번에 하나라 서버 바쁨 busy는 없다)
+    const input = {
+      primaries: { str: 10, vit: 10, int: 10, wis: 10, dex: 10, agi: 10 },
+      weapon: "unarmed",
+      count: 1,
+      runs: 2,
+      seed: 1,
+      limitSec: 30,
+      edits: [],
+    };
+    const statuses: number[] = [];
+    let refused: Awaited<ReturnType<typeof trpc>> | undefined;
+    for (let attempt = 0; attempt < 4 && refused === undefined; attempt++) {
+      const duels = await trpc(page, "balance.duels", input, "query");
+      statuses.push(duels.status);
+      if (duels.status !== 200) refused = duels;
+    }
+    // 순간 2개까지 받는다: 세 번째 안에 거절된다
+    expect(statuses.length).toBeLessThanOrEqual(3);
+    expect([refused?.status, refused?.code, refused?.reason]).toEqual([
+      429,
+      "TOO_MANY_REQUESTS",
+      "rate_limited",
+    ]);
+    // 거절은 대결 제한이다: 같은 계정의 조회(설정 칸 계열 조회 제한)는 아직 받는다
+    expect((await trpc(page, "balance.table")).status).toBe(200);
+    // 한 개가 다시 차기까지 15초 — 그 안에 화면에서 누르면 거절 문구가 뜨고 결과는 비어 있다
+    await page.locator(".bp-run").click();
+    const duelPanel = page.locator("section[aria-labelledby='bp-duels-title']");
+    await expect(duelPanel.locator("[role='alert']")).toContainText(
+      message("ko", "dev_balance_err_rate_limited"),
+    );
+    await expect(page.locator(".bp-run")).not.toHaveAttribute("aria-disabled", "true");
+    await expect(page.locator(".bp-duel")).toHaveCount(0);
+    expect(unexpected(deviceErrors)).toEqual([]);
+  });
 });

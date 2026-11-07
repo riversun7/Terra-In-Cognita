@@ -10,6 +10,7 @@ import { TEST_COMBAT_COEFFICIENTS, createBattleMap } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { rosterCatalogOf } from "../roster/catalog.ts";
+import { tsWorkerUrl } from "../testWorkers.ts";
 import { ErrorReason } from "../trpc/init.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { createTuningShared } from "../tuning/services.ts";
@@ -235,7 +236,7 @@ describe("다시보기 서비스", () => {
 
   it("워커 스레드 결과 = 같은 스레드 결과", async () => {
     const worker = workerJobRunner<ReplayJob, ReplayJobResult>({
-      workerUrl: new URL("./replayWorker.ts", import.meta.url),
+      workerUrl: tsWorkerUrl("./replayWorker.ts", import.meta.url),
       timeoutMs: 60_000,
       heapMb: 128,
     });

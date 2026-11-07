@@ -21,6 +21,7 @@ import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createPlanetSource } from "../planet/sources.ts";
 import { packTestPlanetSpec } from "../planet/testSupport.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase } from "../testDb.ts";
+import { tsWorkerUrl } from "../testWorkers.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { TERRAIN_VERSION_PATTERN } from "./mapTerrain.ts";
 import { mapPropInputsFromPack } from "./mapProps.ts";
@@ -179,7 +180,7 @@ describe("2차맵 지형 서비스", () => {
     const key = testMapKey(5);
     const inline = await service().get(key);
     const worker = service({
-      runner: { kind: "worker", workerUrl: new URL("./terrainWorker.ts", import.meta.url) },
+      runner: { kind: "worker", workerUrl: tsWorkerUrl("./terrainWorker.ts", import.meta.url) },
     });
     const fromWorker = await worker.get(key);
     expect(fromWorker.version).toBe(inline.version);

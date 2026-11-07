@@ -78,18 +78,28 @@ export interface GardenerCoefficients {
   readonly relationOthersMax: number;
   /**
    * 하루 관계도 바뀜(D-510 "세력 오염이 쌓이면 내려가고 정화·평화로 올라간다", 양은 [임시]): 세력 오염 relationPollutionStep마다 −1
-   * (하루 최대 relationDropMax), 전쟁이 없는 날 +relationPeaceDaily, 그 세력 칸 정화 한 번 +relationPurifyGain
+   * (하루 최대 relationDropMax), 평화 몫 = relationPeaceEveryDays일마다 한 번, 그날 전쟁이 없으면 +relationPeaceDaily
+   * (출발값 3일마다 +1 → 동맹 70까지 210일, 기획 답 385: 고정 국가 대부분이 180일 안에 동맹이 되지 않게), 그 세력 칸 정화 한 번
+   * +relationPurifyGain
    */
   readonly relationPollutionStep: number;
   readonly relationDropMax: number;
   readonly relationPeaceDaily: number;
+  readonly relationPeaceEveryDays: number;
   readonly relationPurifyGain: number;
-  /** 단계별 도시 웨이브 확률 배율(‰, 동맹·우호·중립·경계·적대 차례). 동맹 0 = 웨이브 없음(협력, D-500) [임시] */
+  /**
+   * 단계별 도시 웨이브 확률 배율(‰, 동맹·우호·중립·경계·적대 차례) [임시]. 동맹도 드물게 받는다(기획 답 385 ③ 나, D-499 "세력에 맞는
+   * 콘텐츠": 출발값 100‰)
+   */
   readonly stageChancePm: readonly number[];
   /** 세기 로그 안 세력 오염 항의 나눗수(C16 보완, D-509 "세력 오염이 세기를 정한다") [임시] */
   readonly strengthPollutionUnit: number;
-  /** 전쟁 중인 세력의 도시 칸에 하루마다 더하는 오염(P15 보완, D-509 "전쟁이면 훨씬 크게") [임시] */
+  /**
+   * 전선 도시의 칸에 하루마다 더하는 오염(P15 보완, D-509 "전쟁이면 훨씬 크게", 기획 답 389 나) [임시]. 전선 도시 = 전쟁 상대 세력의
+   * 도시가 frontRadius 칸(이웃 걸음) 안에 있는 도시. 전투가 난 칸 +battle(D-464 223)은 따로
+   */
   readonly warDaily: number;
+  readonly frontRadius: number;
   /** 보호 레이드(D-500): 세기 = 공격자 웨이브 세기 × raidStrengthPm ÷ 1000, 물리형 ‰ = raidPhysicalPm [임시] */
   readonly raidStrengthPm: number;
   readonly raidPhysicalPm: number;
@@ -148,11 +158,13 @@ export const TEST_GARDENER_COEFFICIENTS: GardenerCoefficients = {
   relationOthersMax: 0,
   relationPollutionStep: 30_000,
   relationDropMax: 10,
-  relationPeaceDaily: 2,
+  relationPeaceDaily: 1,
+  relationPeaceEveryDays: 3,
   relationPurifyGain: 1,
-  stageChancePm: [0, 500, 1000, 1250, 1500],
+  stageChancePm: [100, 500, 1000, 1250, 1500],
   strengthPollutionUnit: 100_000,
   warDaily: 100,
+  frontRadius: 3,
   raidStrengthPm: 2000,
   raidPhysicalPm: 500,
   rewardRenownPer: 10,

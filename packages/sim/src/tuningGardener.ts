@@ -126,12 +126,13 @@ export const GARDENER_TUNING_KEYS: readonly TuningKey[] = [
     "Faction pollution per daily relation −1 (points)",
   ),
   k("n52_drop_max", "N52", "relationDropMax", "관계도 하루 최대 감소", "Max daily relation drop"),
+  k("n52_peace_daily", "N52", "relationPeaceDaily", "평화 몫 관계도 증가", "Relation gain per peace step"),
   k(
-    "n52_peace_daily",
+    "n52_peace_every_days",
     "N52",
-    "relationPeaceDaily",
-    "평화로운 날 관계도 증가",
-    "Daily relation gain at peace",
+    "relationPeaceEveryDays",
+    "평화 몫 간격(일)",
+    "Peace step interval (days)",
   ),
   k(
     "n52_purify_gain",
@@ -183,13 +184,8 @@ export const GARDENER_TUNING_KEYS: readonly TuningKey[] = [
     "세기 세력 오염 나눗수",
     "Strength faction pollution divisor (points)",
   ),
-  k(
-    "p15_war_daily",
-    "P15",
-    "warDaily",
-    "전쟁 중 도시 칸 하루 오염",
-    "Daily pollution per city at war (points)",
-  ),
+  k("p15_war_daily", "P15", "warDaily", "전선 도시 칸 하루 오염", "Daily pollution per front city (points)"),
+  k("p15_front_radius", "P15", "frontRadius", "전선 도시 거리(칸)", "Front city range (cells)"),
   // 보호 레이드(D-500), 막아 낸 웨이브 보상(D-499)
   k(
     "d500_raid_strength",

@@ -132,7 +132,7 @@ describe("정원사 2: 보호 레이드(D-500)", () => {
 });
 
 describe("정원사 2: 관계도·세력 오염·목표 순위(49 N52, D-509·D-510)", () => {
-  it("세력 오염이 쌓이면 관계도가 내려가고(전쟁이면 평화 몫 없음), 필수 NPC 세력은 평화로 양수까지 오른다", () => {
+  it("세력 오염이 쌓이면 관계도가 내려가고(전쟁이면 평화 몫 없음), 필수 NPC 세력은 평화 몫 날에 양수로 오른다", () => {
     const { gardener, faction, cellOf } = setup({
       ...TEST_GARDENER_COEFFICIENTS,
       chanceMaxPm: 0,
@@ -145,11 +145,12 @@ describe("정원사 2: 관계도·세력 오염·목표 순위(49 N52, D-509·D-
       const cell = cellOf(cityId);
       if (cell !== undefined) gardener.layer().set(cell, 9000);
     }
-    gardener.endOfDay(DAY_MS, 1);
+    // 3일째 = 평화 몫 날(3일마다)
+    gardener.endOfDay(3 * DAY_MS, 3);
     expect(gardener.factionPollution.get(two.id)).toBeGreaterThan(17_000);
     expect(gardener.relations.get(two.id)).toBe(0);
-    // 필수 NPC 세력(오염 0, 평화) +2/일
-    expect(gardener.relations.get(home.id)).toBe(2);
+    // 필수 NPC 세력(오염 0, 평화) +1
+    expect(gardener.relations.get(home.id)).toBe(1);
     // 큰 오염(칸마다 10,000 상한 × 9칸 × 2도시 = 180,000 → 6걸음): 전쟁 중이면 −6
     for (const cityId of two.cities) {
       const cell = cellOf(cityId);
@@ -158,13 +159,15 @@ describe("정원사 2: 관계도·세력 오염·목표 순위(49 N52, D-509·D-
       for (const other of squareGrid(64).neighbors(cell)) gardener.layer().set(other, 10_000);
     }
     two.wars.add(faction("one").id);
-    gardener.endOfDay(2 * DAY_MS, 2);
+    gardener.endOfDay(4 * DAY_MS, 4);
     expect(gardener.relations.get(two.id)).toBeLessThanOrEqual(-5);
+    // 평화 몫 날이 아니면 오르지 않는다
+    expect(gardener.relations.get(home.id)).toBe(1);
     const summary = gardener.summary();
     expect(summary.relations.friendly + summary.relations.neutral + summary.relations.wary).toBe(3);
   });
 
-  it("관계도 동맹이면 도시 웨이브가 없고, 적대면 확률이 오른다", () => {
+  it("관계도 동맹이면 도시 웨이브 확률이 100‰로 드물다(기획 답 385 ③)", () => {
     const pressure = {
       ...TEST_GARDENER_COEFFICIENTS,
       chanceDivisor: 1,
@@ -183,25 +186,36 @@ describe("정원사 2: 관계도·세력 오염·목표 순위(49 N52, D-509·D-
       if (cell !== undefined) allied.gardener.layer().set(cell, 2000);
     }
     allied.gardener.endOfDay(DAY_MS, 1);
-    expect(allied.gardener.summary().waves.noticed).toBe(0);
+    const notices = allied.lines.filter((line) => line.t === "wave" && line.phase === "notice");
+    for (const notice of notices) expect(notice.chancePm).toBe(100);
     const plain = setup(pressure);
     for (const city of plain.world.cities.values()) {
       const cell = plain.cellOf(city.id);
       if (cell !== undefined) plain.gardener.layer().set(cell, 2000);
     }
     plain.gardener.endOfDay(DAY_MS, 1);
-    expect(plain.gardener.summary().waves.noticed).toBeGreaterThan(0);
+    expect(plain.gardener.summary().waves.noticed).toBe(6);
+    expect(allied.gardener.summary().waves.noticed).toBeLessThan(6);
   });
 
-  it("전쟁 중인 세력의 도시 칸은 하루마다 오염이 오른다", () => {
-    const { gardener, faction, cellOf } = setup({ ...TEST_GARDENER_COEFFICIENTS, chanceMaxPm: 0 });
+  it("전선 도시(전쟁 상대 도시가 가까운 도시)의 칸만 하루마다 오염이 오른다(기획 답 389 나)", () => {
+    // 도시 칸은 4칸 간격: 세력 two의 도시 5와 세력 one의 도시 6이 4칸 → 전선 거리 4면 둘만 전선
+    const { gardener, faction, cellOf } = setup({
+      ...TEST_GARDENER_COEFFICIENTS,
+      chanceMaxPm: 0,
+      frontRadius: 4,
+    });
     const two = faction("two");
-    two.wars.add(faction("one").id);
+    const one = faction("one");
+    two.wars.add(one.id);
+    one.wars.add(two.id);
     gardener.endOfDay(DAY_MS, 1);
-    for (const cityId of two.cities)
-      expect(gardener.layer().get(cellOf(cityId) ?? -1) ?? 0).toBeGreaterThan(0);
-    for (const cityId of faction("home").cities)
-      expect(gardener.layer().get(cellOf(cityId) ?? -1)).toBeUndefined();
+    const polluted = (cityId: number) => (gardener.layer().get(cellOf(cityId) ?? -1) ?? 0) > 0;
+    const [far, near] = [...two.cities].toSorted((a, b) => a - b);
+    expect(polluted(near ?? 0)).toBe(true);
+    expect(polluted([...one.cities][0] ?? 0)).toBe(true);
+    expect(polluted(far ?? 0)).toBe(false);
+    for (const cityId of faction("home").cities) expect(polluted(cityId)).toBe(false);
   });
 
   it("모함 몫이 모자라면 세력 오염이 높은 세력의 도시가 먼저 웨이브를 받는다(목표 순위)", () => {

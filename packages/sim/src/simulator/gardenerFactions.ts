@@ -2,9 +2,21 @@
 // gardenerRun.ts(시뮬·서버 공용 접착)가 하루 끝에 부른다. 기획 D-509(세력 오염 = 목표 순위·세기), D-510·49 N52(관계도), D-499(명성).
 // - 세력 오염: 그 세력 도시들의 영향권 칸(겹치면 한 번) 오염 합. 노숙만 남은 떠도는 세력은 0.
 // - 관계도: 세력마다 하나(없으면 시작값). 하루 끝에 세력 오염·평화로 바뀐다(gardener/relations.ts). 사라진 세력은 지운다.
+// - 전선 도시(기획 답 389 나): 전쟁 중인 세력의 도시 가운데 전쟁 상대 세력의 도시가 frontRadius 칸(이웃 걸음) 안에 있는 것.
 import type { GardenerCoefficients } from "../gardener/coefficients.ts";
-import { type PollutionGrid, type PollutionLayer, unionInfluenceSum } from "../gardener/pollution.ts";
-import { type RelationStage, clampRelation, nextRelation, relationStage } from "../gardener/relations.ts";
+import {
+  type PollutionGrid,
+  type PollutionLayer,
+  influenceCells,
+  unionInfluenceSum,
+} from "../gardener/pollution.ts";
+import {
+  type RelationStage,
+  clampRelation,
+  isPeaceDay,
+  nextRelation,
+  relationStage,
+} from "../gardener/relations.ts";
 import type { SimFaction, SimWorld } from "./world.ts";
 
 /** 살아 있는 세력마다 세력 오염(세력 ID 차례) */
@@ -37,14 +49,16 @@ export function relationOf(
   return clampRelation(relations.get(faction.id) ?? c.relationStart, faction.fixed, c);
 }
 
-/** 하루 끝 관계도 바뀜(세력 ID 차례). 사라진 세력의 기록은 지운다 */
+/** 하루 끝(day일째) 관계도 바뀜(세력 ID 차례). 평화 몫은 평화 몫 날에 전쟁이 없는 세력만. 사라진 세력의 기록은 지운다 */
 export function updateRelations(
   world: SimWorld,
   relations: Map<number, number>,
   pollution: ReadonlyMap<number, number>,
+  day: number,
   c: GardenerCoefficients,
 ): void {
   for (const id of relations.keys()) if (world.factions.get(id)?.alive !== true) relations.delete(id);
+  const peaceDay = isPeaceDay(day, c);
   for (const faction of [...world.factions.values()].toSorted((a, b) => a.id - b.id)) {
     if (!faction.alive) continue;
     relations.set(
@@ -52,12 +66,44 @@ export function updateRelations(
       nextRelation(
         relationOf(relations, faction, c),
         pollution.get(faction.id) ?? 0,
-        faction.wars.size === 0,
+        peaceDay && faction.wars.size === 0,
         faction.fixed,
         c,
       ),
     );
   }
+}
+
+/**
+ * 전선 도시(기획 답 389 나, D-509 "전쟁인경우 더크게"): 살아 있는 세력의 전쟁 상대마다, 그 상대의 도시 칸이 radius 칸(이웃 걸음) 안에
+ * 있는 내 도시. 도시 ID 차례. 영토·전선 층이 생기면 맞닿음 판정만 바꾼다
+ */
+export function frontCitiesOf(
+  world: SimWorld,
+  grid: PollutionGrid,
+  cellOf: (cityId: number) => number | undefined,
+  radius: number,
+): number[] {
+  const out: number[] = [];
+  for (const faction of [...world.factions.values()].toSorted((a, b) => a.id - b.id)) {
+    if (!faction.alive || faction.wars.size === 0) continue;
+    const enemy = new Set<number>();
+    for (const otherId of faction.wars) {
+      const other = world.factions.get(otherId);
+      if (!other?.alive) continue;
+      for (const cityId of other.cities) {
+        const cell = cellOf(cityId);
+        if (cell !== undefined) enemy.add(cell);
+      }
+    }
+    if (enemy.size === 0) continue;
+    for (const cityId of [...faction.cities].toSorted((a, b) => a - b)) {
+      const cell = cellOf(cityId);
+      if (cell !== undefined && influenceCells(cell, grid, radius).some((near) => enemy.has(near)))
+        out.push(cityId);
+    }
+  }
+  return out.toSorted((a, b) => a - b);
 }
 
 /** 살아 있는 세력의 관계도 단계별 수와 최저·최고(요약·하루 줄) */

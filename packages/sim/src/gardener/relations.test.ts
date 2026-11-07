@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { TEST_GARDENER_COEFFICIENTS as C } from "./coefficients.ts";
 import {
   clampRelation,
+  isPeaceDay,
   nextRelation,
   relationCap,
   relationChancePm,
@@ -34,24 +35,36 @@ describe("정원 세력 관계도(49 N52, D-500·D-510)", () => {
     expect(clampRelation(5, false, { ...C, relationOthersMax: 30 })).toBe(5);
   });
 
-  it("하루 바뀜: 세력 오염 걸음마다 −1(하루 상한), 전쟁이 없는 날 +평화 몫", () => {
-    // 세력 오염 90,000 = 3걸음 → −3, 평화 +2 → −1
-    expect(nextRelation(0, 90_000, true, true, C)).toBe(-1);
+  it("평화 몫은 3일마다 한 번(기획 답 385: 고정 국가가 180일 안에 동맹이 되지 않게, 70까지 210일)", () => {
+    expect([1, 2, 3, 4, 5, 6].map((day) => isPeaceDay(day, C))).toEqual([
+      false,
+      false,
+      true,
+      false,
+      false,
+      true,
+    ]);
+    expect(isPeaceDay(7, { relationPeaceEveryDays: 1 })).toBe(true);
+  });
+
+  it("하루 바뀜: 세력 오염 걸음마다 −1(하루 상한), 평화 몫 날에 전쟁이 없으면 +1", () => {
+    // 세력 오염 90,000 = 3걸음 → −3, 평화 +1 → −2
+    expect(nextRelation(0, 90_000, true, true, C)).toBe(-2);
     // 전쟁 중이면 평화 몫이 없다
     expect(nextRelation(0, 90_000, false, true, C)).toBe(-3);
     // 하루 상한 10
     expect(nextRelation(0, 9_000_000, false, true, C)).toBe(-10);
     // 오염이 없고 평화로우면 오른다(필수 NPC 세력은 양수로, 다른 세력은 0에서 멈춤)
-    expect(nextRelation(68, 0, true, true, C)).toBe(70);
-    expect(nextRelation(-5, 0, true, false, C)).toBe(-3);
+    expect(nextRelation(69, 0, true, true, C)).toBe(70);
+    expect(nextRelation(-5, 0, true, false, C)).toBe(-4);
     expect(nextRelation(-1, 0, true, false, C)).toBe(0);
     // 하한
     expect(nextRelation(-99, 900_000, false, false, C)).toBe(-100);
   });
 
-  it("단계 배율이 도시 웨이브 확률에 곱해진다(동맹 = 웨이브 없음, 1000 상한)", () => {
-    expect(stageChancePm("allied", C)).toBe(0);
-    expect(relationChancePm(300, "allied", C)).toBe(0);
+  it("단계 배율이 도시 웨이브 확률에 곱해진다(동맹도 드물게 받는다 — 기획 답 385 ③, 1000 상한)", () => {
+    expect(stageChancePm("allied", C)).toBe(100);
+    expect(relationChancePm(300, "allied", C)).toBe(30);
     expect(relationChancePm(300, "friendly", C)).toBe(150);
     expect(relationChancePm(300, "neutral", C)).toBe(300);
     expect(relationChancePm(300, "wary", C)).toBe(375);

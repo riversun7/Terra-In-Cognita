@@ -1,9 +1,11 @@
 // 정원 세력 관계도 — docs/adr/2026-11-01-gardener-r5b.md "바뀜 (2026-11-07, 정원사 2)", 기획 49 N52, D-499·D-500·D-509·D-510
 // 정원 세력은 세력마다 관계도(친화도) 하나를 둔다. 눈금은 옛 NPC 외교 우호도(옛 ai/NpcDiplomacyAI.js): −100~+100, 시작 0,
 // 단계 = 동맹 70 이상 · 우호 30 이상 · 중립 −20 이상 · 경계 −50 이상 · 그 아래 적대(D-510).
-// 하루 바뀜(D-510 "세력 오염이 쌓이면 내려가고 정화·평화로 올라간다"): 세력 오염 걸음마다 −1(하루 상한), 전쟁이 없는 날 +, 정화 한 번 +.
+// 하루 바뀜(D-510 "세력 오염이 쌓이면 내려가고 정화·평화로 올라간다"): 세력 오염 걸음마다 −1(하루 상한), 평화 몫(며칠마다 한 번, 그날 전쟁이
+// 없으면 +), 정화 한 번 +.
 // 필수 NPC 세력(고정 국가)만 양수까지 오른다(D-500 "필수 NPC 세력은 관계도가 양수가 될 수 있고 협력도 가능"). 다른 세력의 상한은 설정 칸.
-// 관계도 단계는 그 세력 도시의 웨이브 확률 배율을 정한다(동맹 = 웨이브 없음). 순수 정수 함수(판정 코드).
+// 관계도 단계는 그 세력 도시의 웨이브 확률 배율을 정한다(동맹도 드물게 받는다, 기획 답 385 ③). 세기에는 들지 않는다(385 ①).
+// 순수 정수 함수(판정 코드).
 import type { GardenerCoefficients } from "./coefficients.ts";
 
 export const RELATION_STAGES = ["allied", "friendly", "neutral", "wary", "hostile"] as const;
@@ -22,6 +24,7 @@ type RelationRules = Pick<
   | "relationPollutionStep"
   | "relationDropMax"
   | "relationPeaceDaily"
+  | "relationPeaceEveryDays"
   | "relationPurifyGain"
   | "stageChancePm"
 >;
@@ -45,9 +48,14 @@ export function clampRelation(value: number, fixed: boolean, c: RelationRules): 
   return Math.max(c.relationMin, Math.min(relationCap(fixed, c), Math.trunc(value)));
 }
 
+/** 그날(하루 끝 차례 day, 1부터)이 평화 몫을 받는 날인가: relationPeaceEveryDays일마다 한 번 */
+export function isPeaceDay(day: number, c: Pick<RelationRules, "relationPeaceEveryDays">): boolean {
+  return day % Math.max(1, c.relationPeaceEveryDays) === 0;
+}
+
 /**
- * 하루 바뀜 뒤 관계도: 지난 값 − min(하루 상한, ⌊세력 오염 ÷ 걸음⌋) + (전쟁이 없으면 평화 몫), 범위·상한 안으로.
- * 세력 오염 = 그 세력 도시 영향권 칸 오염의 합(D-509·D-511 기술 해석)
+ * 하루 바뀜 뒤 관계도: 지난 값 − min(하루 상한, ⌊세력 오염 ÷ 걸음⌋) + (평화 몫을 받으면 relationPeaceDaily), 범위·상한 안으로.
+ * atPeace = 그날이 평화 몫 날(isPeaceDay)이고 그 세력이 전쟁 중이 아님. 세력 오염 = 그 세력 도시 영향권 칸 오염의 합(D-509·D-511 해석)
  */
 export function nextRelation(
   value: number,

@@ -272,6 +272,7 @@ export {
   RELATION_STAGES,
   type RelationStage,
   clampRelation,
+  isPeaceDay,
   nextRelation,
   relationCap,
   relationChancePm,

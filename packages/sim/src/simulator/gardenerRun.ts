@@ -6,7 +6,7 @@
 // 전투 한 번(공성·반란·조우·웨이브)은 그때 그 칸에 +battle. 웨이브 도착: 수비 휴먼이 없으면 웨이브가 이긴다.
 // 이기면 시작 도시는 건물 피해(society.damage), 다른 도시는 폐허(society.ruin, 떠도는 세력 D-464 217). 지면 그 도시 쉬는 시간.
 // 굴림 수는 날마다 같다(도시마다 하나, 유목 부대마다 하나 — 무엇이 일어나든 다음 굴림이 밀리지 않게).
-// 정원사 2("바뀜 (2026-11-07)"): 하루 끝에 전쟁 중인 세력의 도시 칸 오염(D-509) → 세력 오염·관계도(gardenerFactions.ts, 49 N52) →
+// 정원사 2("바뀜 (2026-11-07)"): 하루 끝에 전선 도시 칸 오염(D-509, 기획 답 389) → 세력 오염·관계도(gardenerFactions.ts, 49 N52) →
 // 도시 굴림은 관계도 단계 배율을 곱하고, 웨이브는 세력 오염이 높은 세력부터 모함 몫을 받는다(목표 순위, D-509). 세기에 세력 오염 항.
 // 필수 NPC 세력의 도시를 친 세력에게 보호 레이드(protect, D-500: 보상 없음). 막아 낸 도시 웨이브는 보상(D-499, onReward).
 import type { GardenerCoefficients } from "../gardener/coefficients.ts";
@@ -43,6 +43,7 @@ import {
 } from "../gardener/waves.ts";
 import {
   factionPollutionOf,
+  frontCitiesOf,
   oldestCityOf,
   relationCounts,
   relationOf,
@@ -389,14 +390,12 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
       for (const cityId of [...workToday.keys()].toSorted((a, b) => a - b))
         addAt(cityId, facilityPollution(workToday.get(cityId) ?? 0));
       workToday.clear();
-      // 전쟁 중인 세력의 도시 칸(D-509 "전쟁이면 훨씬 크게"): 전투 한 번(+battle)과 따로 하루마다
-      for (const faction of [...world.factions.values()].toSorted((a, b) => a.id - b.id))
-        if (faction.alive && faction.wars.size > 0)
-          for (const cityId of [...faction.cities].toSorted((a, b) => a - b)) addAt(cityId, c.warDaily);
+      // 전선 도시 칸(D-509 "전쟁이면 훨씬 크게", 기획 답 389 나): 전투가 난 칸 +battle과 따로 하루마다
+      for (const cityId of frontCitiesOf(world, grid, o.cellOf, c.frontRadius)) addAt(cityId, c.warDaily);
       layer = dailyPollutionStep(layer, grid, c, o.isForest);
       // 세력 오염(D-509) → 관계도(49 N52, D-510)
       factionPollution = factionPollutionOf(world, layer, grid, o.cellOf, c.influenceRadius);
-      updateRelations(world, relations, factionPollution, c);
+      updateRelations(world, relations, factionPollution, day, c);
 
       // 도시 웨이브: 도시마다 굴림 하나(진군 중인 도시도 굴림은 뺀다 — 굴림 수를 같게). 확률 = 칸 오염(C14) × 관계도 단계 배율
       const rng = streamRng(o.seed, STREAM_GARDENER, 0, day);

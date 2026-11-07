@@ -2973,14 +2973,27 @@
       "id": "n52_peace_daily",
       "code": "N52",
       "name": {
-        "ko": "평화로운 날 관계도 증가",
-        "en": "Daily relation gain at peace"
+        "ko": "평화 몫 관계도 증가",
+        "en": "Relation gain per peace step"
       },
-      "value": 2,
+      "value": 1,
       "structural": false,
       "unit": "points",
       "min": 0,
       "max": 1000
+    },
+    {
+      "id": "n52_peace_every_days",
+      "code": "N52",
+      "name": {
+        "ko": "평화 몫 간격(일)",
+        "en": "Peace step interval (days)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 365
     },
     {
       "id": "n52_purify_gain",
@@ -3002,7 +3015,7 @@
         "ko": "동맹 세력 웨이브 확률 배율(‰)",
         "en": "Wave chance factor: allied (‰)"
       },
-      "value": 0,
+      "value": 100,
       "structural": false,
       "unit": "pm",
       "min": 0,
@@ -3077,14 +3090,27 @@
       "id": "p15_war_daily",
       "code": "P15",
       "name": {
-        "ko": "전쟁 중 도시 칸 하루 오염",
-        "en": "Daily pollution per city at war (points)"
+        "ko": "전선 도시 칸 하루 오염",
+        "en": "Daily pollution per front city (points)"
       },
       "value": 100,
       "structural": false,
       "unit": "points",
       "min": 0,
       "max": 10000
+    },
+    {
+      "id": "p15_front_radius",
+      "code": "P15",
+      "name": {
+        "ko": "전선 도시 거리(칸)",
+        "en": "Front city range (cells)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 16
     },
     {
       "id": "d500_raid_strength",

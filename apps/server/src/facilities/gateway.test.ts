@@ -9,6 +9,10 @@ const player: Viewer = { id: "user-1", loginId: "tester", roles: ["player"] };
 const dev: Viewer = { id: "dev-1", loginId: "dev", roles: ["dev"] };
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+const notUsed = (): never => {
+  throw new Error("not used");
+};
+
 function fakeService(calls: string[]): FacilityService {
   return {
     facilities: new Map(),
@@ -17,6 +21,13 @@ function fakeService(calls: string[]): FacilityService {
     age: () => 0,
     works: () => true,
     holdingLocked: () => false,
+    unitInJob: () => false,
+    pausesFor: () => undefined,
+    places: { maps: new Map(), facilities: new Map(), catalog: notUsed, cities: () => [] },
+    storageMove: (userId, input) => {
+      calls.push(`move:${userId}:${input.buildingId}:${input.asset}:${input.qty}:${input.direction}`);
+      return Promise.resolve({ ok: false, code: "storage_full" });
+    },
     stop: () => {},
     build: (userId, input) => {
       calls.push(
@@ -36,8 +47,8 @@ function fakeService(calls: string[]): FacilityService {
       calls.push(`equipment:${userId}:${buildingId}:${holdingId}:${unitIds.join(",")}`);
       return Promise.resolve({ ok: false, code: "equipped" });
     },
-    devFacilityGrant: (userId, item, qty) => {
-      calls.push(`grant:${userId}:${item}:${qty}`);
+    devFacilityGrant: (userId, item, qty, at) => {
+      calls.push(`grant:${userId}:${item}:${qty}${at ? `@${at.mapKey}:${at.x}:${at.y}` : ""}`);
       return Promise.resolve({ ok: true });
     },
     devFinish: (userId, target) => {
@@ -74,18 +85,21 @@ describe("건물 연결 처리", () => {
     socket.handle({ t: "facility_upgrade", id: 2, buildingId: 7 });
     socket.handle({ t: "facility_repair", id: 3, beaconId: 2, steps: 10, unitIds: [5, 6] });
     socket.handle({ t: "equipment_repair", id: 4, buildingId: 7, holdingId: 11, unitIds: [5] });
+    socket.handle({ t: "storage_move", id: 5, buildingId: 8, asset: "item:plank", qty: 3, direction: "in" });
     for (let i = 0; i < 10; i++) await settle();
     expect(calls).toEqual([
       "build:user-1:farm:3:4:90:1",
       "upgrade:user-1:7:0",
       'repair:user-1:{"beaconId":2}:10:5,6',
       "equipment:user-1:7:11:5",
+      "move:user-1:8:item:plank:3:in",
     ]);
     expect(sent).toEqual([
       { t: "facility_result", id: 1, ok: true, buildingId: 7, doneAtMs: 1_000 },
       { t: "facility_result", id: 2, ok: false, code: "insufficient_materials" },
       { t: "facility_result", id: 3, ok: true, doneAtMs: 2_000 },
       { t: "facility_result", id: 4, ok: false, code: "equipped" },
+      { t: "facility_result", id: 5, ok: false, code: "storage_full" },
     ]);
   });
 
@@ -94,7 +108,7 @@ describe("건물 연결 처리", () => {
     const asPlayer = open(fakeService(calls), player);
     asPlayer.socket.handle({ t: "dev_facility_grant", id: 1, item: "pine_log", qty: 3 });
     const asDev = open(fakeService(calls), dev);
-    asDev.socket.handle({ t: "dev_facility_grant", id: 2, item: "pine_log", qty: 3 });
+    asDev.socket.handle({ t: "dev_facility_grant", id: 2, item: "pine_log", qty: 3, mapKey: 9, x: 40 });
     asDev.socket.handle({ t: "dev_facility_finish", id: 3, buildingId: 7 });
     const signedOut = open(fakeService(calls), null);
     signedOut.socket.handle({ t: "facility_upgrade", id: 4, buildingId: 7 });
@@ -106,7 +120,8 @@ describe("건물 연결 처리", () => {
       { t: "facility_result", id: 2, ok: true },
       { t: "facility_result", id: 3, ok: true },
     ]);
-    expect(calls).toEqual(["grant:dev-1:pine_log:3", 'finish:dev-1:{"buildingId":7}']);
+    // 자리 칸(12): y가 없으면 가운데 칸
+    expect(calls).toEqual(["grant:dev-1:pine_log:3@9:40:128", 'finish:dev-1:{"buildingId":7}']);
     expect(signedOut.sent).toEqual([{ t: "facility_result", id: 4, ok: false, code: "sign_in_required" }]);
     expect(booting.sent).toEqual([{ t: "facility_result", id: 5, ok: false, code: "busy" }]);
   });

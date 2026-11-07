@@ -9,7 +9,11 @@
 // - 작업 끝: 1초마다 끝난 작업을 끝 시각으로 적용한다(다시 켜면 지난 작업을 그 시각으로 바로 적용 — 복구).
 // - 30% 미만·짓는 중인 시설은 일하지 않는다: 노동 계약 정산(labor/service.ts)이 works를 물어 그 구간 산출을 없앤다.
 // - 영토 비콘(기획 336)은 영토 서비스가 짓기·노화를 하고, 수리 작업만 여기서 한다(같은 재료·노동 규칙).
+// - "바뀜 (창고·직무)"(D-516 361·364·382): 재료는 건물이 선 도시 창고 + 그 도시의 내 창고 시설 + 그 2차맵 내 유닛 화물에서만 꺼낸다
+//   (places.ts). 작업(짓기·레벨업·수리·장비 수리)에 묶인 유닛은 그 동안 원래 직무 산출을 내지 않는다(소유 주체 정산이 pausesFor를 물어
+//   그 구간 산출을 버린다, 작업이 끝나거나 지워지기 전에 그 시각까지 정산한다). 창고 시설 넣기·꺼내기는 storage.ts.
 import type { FacilityResultCode } from "@terra/protocol";
+import { type CityCell, cityLocation, cityOfCell } from "@terra/shared/goodsPlaces";
 import { buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
 import {
   CONDITION_FULL,
@@ -23,6 +27,7 @@ import {
   withBuilders,
 } from "@terra/shared/facilityRuntime";
 import {
+  PLACEMENT_SIZE,
   type Primaries,
   type Rotation,
   type SocietyCoefficients,
@@ -39,7 +44,9 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { Settlement } from "../world/settlement.ts";
 import type { FacilityCatalog, FacilityDef } from "./catalog.ts";
-import { grantGoods, hasGoods, spendGoods } from "./materials.ts";
+import { type GoodsScope, grantGoods, hasGoods, spendGoods } from "./materials.ts";
+import { type PlaceWorld, buildingOfLocation, buildingPlace, cityAt, materialScope } from "./places.ts";
+import { type StorageMoveInput, moveStorage, rehomeBuildingGoods } from "./storage.ts";
 import {
   type FacilityRecord,
   type JobKind,
@@ -85,7 +92,15 @@ export interface FacilityService {
     holdingId: number,
     unitIds: readonly number[],
   ): Promise<FacilityCommandResult>;
-  devFacilityGrant(userId: string, item: string, qty: number): Promise<FacilityCommandResult>;
+  /** 개발 시험 재료 받기: at(짓는 자리)이 속한 도시 창고로(없으면 첫 2차맵 가운데 칸, 도시가 없으면 내 첫 유닛 화물) */
+  devFacilityGrant(
+    userId: string,
+    item: string,
+    qty: number,
+    at?: { readonly mapKey: number; readonly x: number; readonly y: number },
+  ): Promise<FacilityCommandResult>;
+  /** 창고 시설 넣기·꺼내기(storage.ts) */
+  storageMove(userId: string, input: StorageMoveInput): Promise<FacilityCommandResult>;
   devFinish(userId: string, target: FacilityTarget): Promise<FacilityCommandResult>;
   /** 끝난 작업을 적용한다(끝 시각 차례). 적용한 수 */
   finishDue(nowMs: number): number;
@@ -95,6 +110,15 @@ export interface FacilityService {
   works(buildingId: number): boolean;
   /** 공방에서 고치는 중인 물건인가 */
   holdingLocked(holdingId: number): boolean;
+  /** 그 유닛이 건물 작업(짓기·레벨업·수리·장비 수리)에 묶였나 — 노동 계약을 맺지 못한다 */
+  unitInJob(unitId: number): boolean;
+  /**
+   * 작업에 묶인 유닛 → 산출 없는 구간(작업 시작 ~ 끝, D-516 364). 소유 주체 정산이 부른다. 지금 메모리에 있는 작업만 본다(끝나거나 지우기 전에
+   * 그 시각까지 정산하므로 지난 작업의 구간은 이미 정산됐다)
+   */
+  pausesFor(ownerId: number): ReadonlyMap<number, readonly { fromMs: number; untilMs: number }[]> | undefined;
+  /** 물건 자리 셈의 세계(화면 자료가 쓴다) */
+  readonly places: PlaceWorld;
   readonly facilities: ReadonlyMap<number, FacilityRecord>;
   readonly jobs: ReadonlyMap<number, JobRecord>;
   stop(): void;
@@ -111,6 +135,8 @@ export interface FacilityServiceOptions {
   /** 실효 시설·아이템(건물 편집기 덮어쓰기가 바로 든다) */
   readonly catalog: () => FacilityCatalog;
   readonly holdings: WorldHoldings;
+  /** 띄운 2차맵의 도시 자리(건물이 선 도시 = 가장 가까운 도시, 부를 때마다 읽는다). 없으면 도시 없음(재료는 화물만) */
+  readonly cities?: (() => readonly CityCell[]) | undefined;
   /** 영토 서비스(비콘 수리). 없으면 비콘 수리는 unknown_beacon */
   readonly territory?: (() => TerritoryService | undefined) | undefined;
   /** 유닛이 노동 계약 중인가 / 건물에 일하는 계약이 있나(사용 닳음) */
@@ -159,9 +185,33 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
   let lastJobId = options.loaded.maxJobId;
   const runtime = (): FacilityRuntimeRules => options.rules().facilityRuntime;
   const saveFacility = (record: FacilityRecord): void => writer.upsert("facilities", facilityRow(record));
-  const dropJob = (job: JobRecord): void => {
+  /**
+   * 작업을 지운다. 일꾼이 있으면 먼저 그 주체를 atMs(작업 끝 또는 지우는 때)까지 정산한다: 작업 동안의 직무 산출을 버린 채 정산되고,
+   * 지운 뒤에는 다시 산출이 난다(D-516 364)
+   */
+  const dropJob = (job: JobRecord, atMs: number): void => {
+    if (job.unitIds.length > 0) settlement.settleOwner(job.ownerId, Math.min(atMs, job.doneAtMs));
     jobs.delete(job.id);
     writer.remove("facilityJobs", { id: job.id });
+  };
+  const places: PlaceWorld = {
+    maps,
+    facilities,
+    catalog: options.catalog,
+    cities: options.cities ?? (() => []),
+  };
+  /** 건물 재료를 꺼내는 자리(그 건물이 선 도시·2차맵) */
+  const scopeOf = (me: number, buildingId: number): GoodsScope => {
+    const place = buildingPlace(places, buildingId);
+    return place ? materialScope(places, me, place.mapKey, place.cityId) : [];
+  };
+  /** 시설 줄에 도시가 없으면(직전 판 앱이 넣은 줄) 건물 칸에서 정해 적는다 */
+  const fillCity = (record: FacilityRecord): void => {
+    if (record.cityId !== null) return;
+    const place = buildingPlace(places, record.buildingId);
+    if (!place || place.cityId === null) return;
+    record.cityId = place.cityId;
+    saveFacility(record);
   };
 
   const buildingAt = (buildingId: number): { map: SecondMap; owner: number | null } | undefined => {
@@ -227,7 +277,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
   /** 작업을 끝 시각으로 적용한다(대상이 사라졌으면 지우기만) */
   const finish = (job: JobRecord): void => {
     const at = job.doneAtMs;
-    dropJob(job);
+    dropJob(job, at);
     if (job.kind === "beacon_repair") {
       if (job.beaconId !== null) options.territory?.()?.repairBeacon(job.beaconId, job.restorePpm ?? 0, at);
       return;
@@ -276,6 +326,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     if (!record) return "not_facility";
     const def = options.catalog().facility(record.facilityId);
     if (!def) return "unknown_facility";
+    fillCity(record);
     return { record, def };
   };
 
@@ -298,11 +349,14 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     for (const record of facilities.values()) {
       // 건물이 사라졌으면(관리자 지움) 시설 줄과 작업을 지운다
       if (!buildingAt(record.buildingId)) {
+        for (const job of jobs.values()) if (job.buildingId === record.buildingId) dropJob(job, nowMs);
+        // 창고 시설·임대 몫의 물건은 주인마다 그 도시 창고로(도시를 모르면 위치 없음)
+        rehomeBuildingGoods(ledger, record.buildingId, record.cityId, nowMs);
         facilities.delete(record.buildingId);
         writer.remove("facilities", { building_id: record.buildingId });
-        for (const job of jobs.values()) if (job.buildingId === record.buildingId) dropJob(job);
         continue;
       }
+      fillCity(record);
       const before = Math.floor(record.conditionPpm / 1000);
       advance(record, nowMs);
       if (Math.floor(record.conditionPpm / 1000) !== before) {
@@ -310,6 +364,19 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         saved += 1;
       }
     }
+    // 시설 줄이 없는 사라진 건물(관리자 시험 건물의 임대 몫)의 물건도 돌려놓는다(도시를 모르면 위치 없음)
+    const gone = new Set<number>();
+    for (const account of ledger.accounts()) {
+      const buildingId = buildingOfLocation(account.location);
+      if (
+        buildingId !== undefined &&
+        account.balance > 0n &&
+        !facilities.has(buildingId) &&
+        !buildingAt(buildingId)
+      )
+        gone.add(buildingId);
+    }
+    for (const buildingId of gone) rehomeBuildingGoods(ledger, buildingId, null, nowMs);
     return saved;
   };
 
@@ -330,6 +397,20 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     },
     holdingLocked: (holdingId) =>
       jobOn((job) => job.kind === "equipment" && job.holdingId === holdingId) !== undefined,
+    unitInJob,
+    places,
+    pausesFor(ownerId) {
+      const out = new Map<number, { fromMs: number; untilMs: number }[]>();
+      for (const job of jobs.values()) {
+        if (job.ownerId !== ownerId) continue;
+        for (const unitId of job.unitIds) {
+          const list = out.get(unitId) ?? [];
+          list.push({ fromMs: job.startedAtMs, untilMs: job.doneAtMs });
+          out.set(unitId, list);
+        }
+      }
+      return out.size > 0 ? out : undefined;
+    },
 
     async build(userId, input) {
       const at = now();
@@ -344,7 +425,10 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const unitProblem = checkUnits(me, unitIds);
       if (unitProblem) return fail(unitProblem);
       const cost = levelCost(def, 1);
-      if (!hasGoods(ledger, me, cost.materials)) return fail("insufficient_materials");
+      // 재료 자리(D-516 361): 짓는 칸이 속한 도시의 창고·창고 시설 + 그 2차맵 내 유닛 화물
+      const cityId = cityAt(places, input.mapKey, input.x, input.y);
+      const scope = materialScope(places, me, input.mapKey, cityId);
+      if (!hasGoods(ledger, me, cost.materials, scope)) return fail("insufficient_materials");
       // 땅: 서버에 필지가 아직 없다(D-149) → 2차맵 빈 칸이면 짓는다(확인 대기). 칸 검사·놓기는 2차맵이 한다
       const placed = map.placeBuilding(
         {
@@ -358,7 +442,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       );
       if (!placed.ok) return fail(PLACE_CODES[placed.code] ?? "out_of_bounds");
       if (placed.buildingId === undefined) return fail("internal_error");
-      spendGoods(ledger, me, cost.materials, at, "facility_build");
+      spendGoods(ledger, me, cost.materials, at, "facility_build", scope);
       const ms = withBuilders(cost.ms, unitIds.length, runtime());
       const record: FacilityRecord = {
         buildingId: placed.buildingId,
@@ -368,6 +452,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         conditionAtMs: at + ms,
         builtAtMs: at,
         builtBy: userId,
+        cityId,
       };
       facilities.set(record.buildingId, record);
       saveFacility(record);
@@ -402,7 +487,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const unitProblem = checkUnits(me, unitIds);
       if (unitProblem) return fail(unitProblem);
       const cost = levelCost(def, record.level + 1);
-      if (!spendGoods(ledger, me, cost.materials, at, "facility_upgrade"))
+      if (!spendGoods(ledger, me, cost.materials, at, "facility_upgrade", scopeOf(me, buildingId)))
         return fail("insufficient_materials");
       const ms = withBuilders(cost.ms, unitIds.length, runtime());
       const job = newJob({
@@ -432,6 +517,8 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       let cost: { materials: JobMaterial[]; ms: number };
       let buildingId: number | null = null;
       let beaconId: number | null = null;
+      // 1차맵에 서는 영토 비콘은 도시·2차맵이 없어 모든 자리에서 꺼낸다 [임시](질문 410)
+      let scope: GoodsScope = "anywhere";
       if ("buildingId" in target) {
         const found = myFacility(me, target.buildingId);
         if (typeof found === "string") return fail(found);
@@ -443,6 +530,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         condition = found.record.conditionPpm;
         cost = levelCost(found.def, found.record.level);
         buildingId = target.buildingId;
+        scope = scopeOf(me, target.buildingId);
       } else {
         const territory = options.territory?.();
         const state = territory?.beaconState(target.beaconId, at);
@@ -462,7 +550,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const restore = repairRestorePpm(condition, steps, runtime());
       if (restore <= 0) return fail("not_damaged");
       const materials = repairMaterialsFor(cost.materials, restore);
-      if (!spendGoods(ledger, me, materials, started, "facility_repair"))
+      if (!spendGoods(ledger, me, materials, started, "facility_repair", scope))
         return fail("insufficient_materials");
       const ms = repairTimeMs(cost.ms, restore, unitIds.length, runtime());
       const job = newJob({
@@ -512,7 +600,8 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const unitProblem = checkUnits(me, unitIds);
       if (unitProblem) return fail(unitProblem);
       const materials = repairMaterials(rule, itemDef.tier, lost, held.maxDurability);
-      if (!spendGoods(ledger, me, materials, at, "equipment_repair")) return fail("insufficient_materials");
+      if (!spendGoods(ledger, me, materials, at, "equipment_repair", scopeOf(me, buildingId)))
+        return fail("insufficient_materials");
       const scores = unitIds.map(craftScoreOf);
       const avg = scores.reduce((total, score) => total + score, 0) / Math.max(1, scores.length);
       const ms = equipmentRepairMs(
@@ -536,13 +625,40 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       return done({ ok: true, doneAtMs: at + ms });
     },
 
-    async devFacilityGrant(userId, item, qty) {
+    async devFacilityGrant(userId, item, qty, place) {
       const at = now();
       const me = ownerFor(userId, at);
       if (me === undefined) return fail("busy");
       if (!options.catalog().isGoods(item)) return fail("unknown_item");
-      grantGoods(ledger, me, item, qty, at);
+      const mapKey = place?.mapKey ?? [...maps.keys()][0];
+      const map = mapKey === undefined ? undefined : maps.get(mapKey);
+      if (mapKey === undefined || !map) return fail("unknown_map");
+      // 짓는 자리(없으면 2차맵 가운데 칸)가 속한 도시 창고. 그 2차맵에 도시가 없으면 내 첫 유닛 화물(재료를 꺼내는 자리와 같다)
+      const center = PLACEMENT_SIZE >> 1;
+      const city = cityOfCell(places.cities(), mapKey, place?.x ?? center, place?.y ?? center);
+      let location: number | undefined = city ? cityLocation(city.id) : undefined;
+      if (location === undefined) location = materialScope(places, me, mapKey, null)[0];
+      if (location === undefined) return fail("no_place");
+      grantGoods(ledger, me, item, qty, at, location);
       return done({ ok: true });
+    },
+
+    async storageMove(userId, input) {
+      const at = now();
+      const me = ownerFor(userId, at);
+      if (me === undefined) return fail("busy");
+      const record = facilities.get(input.buildingId);
+      if (record) {
+        fillCity(record);
+        advance(record, at);
+      }
+      const code = moveStorage(
+        { world: places, ledger, catalog: options.catalog(), rules: runtime() },
+        me,
+        input,
+        at,
+      );
+      return code === null ? done({ ok: true }) : fail(code);
     },
 
     async devFinish(userId, target) {

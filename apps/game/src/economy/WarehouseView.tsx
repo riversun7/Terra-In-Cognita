@@ -25,6 +25,7 @@ function placeTitle(place: HoldingPlace): string {
   if (place.name !== null) return place.name;
   if (place.kind === "ledger") return m.economy_place_ledger();
   if (place.kind === "cargo") return m.economy_place_cargo({ id: place.id.replace(/^cargo_/, "") });
+  if (place.kind === "building") return m.economy_place_building({ id: place.id.replace(/^building_/, "") });
   return m.economy_place_unnamed({ id: place.id });
 }
 

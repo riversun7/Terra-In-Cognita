@@ -1,6 +1,7 @@
 // 노동 계약 DB 통합 시험(docs/adr/2026-11-03-labor-contracts.md) — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
 // 가짜 시계로 임금형(보증금·자동 해고·일시 중지·채우기)·임대형(임대료·유예, 손 해지 유예 = 기획 341)·구인 게시(남의 유닛 고용)를
 // 돌리고, 원장 불변 조건(I1·I2·I14)과 다시 켠 뒤의 복구를 본다.
+import { buildingLocation } from "@terra/shared/goodsPlaces";
 import { UPKEEP_PERIOD_MS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
@@ -195,9 +196,24 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
     expect(view.contracts[0]?.graceUntil).toBe(T0 + 3 * HOUR + 7 * DAY);
     expect(view.buildings).toEqual([{ id: owner.buildingId, own: false, rent: "30" }]);
     expect(p.labor.overview(owner.userId).contracts.map((c) => c.role)).toEqual(["owner"]);
+    // 임차인 몫 산출은 그 건물 창고(위치 = 건물)에 쌓였다(D-516 382). 유예 동안 하나를 꺼내 간다(그 도시의 내 도시 창고로)
+    const here = buildingLocation(owner.buildingId);
+    const share = p.ledger.balanceOf(tenant.ownerId, ASSET_ORE, here);
+    expect(share).toBeGreaterThan(1n);
+    expect(
+      await p.facilities.service.storageMove(tenant.userId, {
+        buildingId: owner.buildingId,
+        asset: ASSET_ORE,
+        qty: 1,
+        direction: "out",
+      }),
+    ).toEqual({ ok: true });
     clock = T0 + 8 * DAY;
     p.settlement.settleOwner(tenant.ownerId, clock);
     expect(contract?.state).toBe("ended");
+    // 유예가 끝나 남은 몫은 시설 주인 것이 됐다(같은 건물 창고, 옛 StorageUtils)
+    expect(p.ledger.balanceOf(tenant.ownerId, ASSET_ORE, here)).toBe(0n);
+    expect(p.ledger.balanceOf(owner.ownerId, ASSET_ORE, here)).toBe(share - 1n);
     expect(await world.checkInvariants()).toEqual([]);
     // 끝난 계약은 유예 끝(남은 물건이 넘어간 시각)부터 7일 화면에 남고, 그 뒤 빠진다(DB에는 남는다)
     expect(p.labor.overview(tenant.userId).contracts[0]?.leftoversMovedAt).toBe(T0 + 3 * HOUR + 7 * DAY);

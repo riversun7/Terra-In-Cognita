@@ -1,6 +1,8 @@
 // 건물 DB 통합 시험(docs/adr/2026-11-07-buildings-runtime.md) — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
 // 가짜 시계로 짓기(재료 빼기·일꾼 단축·끝)·노화(30% 멈춤·사용 닳음)·30% 미만 생산 멈춤·수리·장비 수리·다시 켠 뒤 복구를 본다.
+// "바뀜 (창고·직무)": 재료 자리(도시 창고·창고 시설·화물만), 창고 시설 넣기·꺼내기·용량, 사라진 창고의 물건, 작업 동안 직무 산출 없음.
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
+import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import { UPKEEP_PERIOD_MS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_HOLDING_CONTENT } from "../holdings/testContent.ts";
@@ -8,7 +10,9 @@ import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "
 import { ASSET_ORE } from "../world/settlement.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
-import { goodsStock } from "./materials.ts";
+import { facilityScreenSourceOf } from "./appSource.ts";
+import { goodsAsset, goodsStock, grantGoods } from "./materials.ts";
+import { facilitiesOverview } from "./views.ts";
 import { TEST_FACILITY_SOURCE } from "./testFacilities.ts";
 
 const HOUR = 3_600_000;
@@ -337,5 +341,127 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     service.age(clock);
     expect(service.facilities.get(buildingId)).toMatchObject({ level: 1, conditionPpm: 650_000 });
     expect(await second.checkInvariants()).toEqual([]);
+  });
+
+  it("재료 자리·창고 시설: 도시 창고·창고 시설·화물에서만 꺼내고, 넣기는 용량까지, 작업 동안 그 일꾼은 직무 산출이 없다", async () => {
+    const world = await boot();
+    const p = persistence(world);
+    const service = p.facilities.service;
+    const a = await setup(world, "keeper", 1, { pine_log: 22 });
+    const unitId = a.units[0] ?? 0;
+    const cityId = service.places.cities().find((city) => city.mapKey === a.map.mapKey)?.id ?? 0;
+    const pine = goodsAsset("pine_log");
+    // 개발 재료는 짓는 자리(기본 = 2차맵 가운데)의 도시 창고로 온다. 위치 없는 옛 물자는 짓기에 쓰지 않는다
+    expect(p.ledger.balanceOf(a.ownerId, pine, cityLocation(cityId))).toBe(22n);
+    grantGoods(p.ledger, a.ownerId, "iron_ore", 50, clock, null);
+    expect(
+      await service.build(a.userId, {
+        mapKey: a.map.mapKey,
+        facility: "workshop",
+        x: 40,
+        y: 40,
+        rotation: 0,
+      }),
+    ).toEqual({ ok: false, code: "insufficient_materials" });
+
+    // 야적장(창고 단계, 옛 1t): 소나무 2 → 다 지으면 도시가 시설 줄에 남는다
+    const yard = await service.build(a.userId, {
+      mapKey: a.map.mapKey,
+      facility: "stockpile",
+      x: 60,
+      y: 60,
+      rotation: 0,
+    });
+    const yardId = yard.ok ? (yard.buildingId ?? 0) : 0;
+    expect(
+      await service.storageMove(a.userId, { buildingId: yardId, asset: pine, qty: 1, direction: "in" }),
+    ).toEqual({ ok: false, code: "under_construction" });
+    clock += 3_600_000;
+    service.finishDue(clock);
+    expect(service.facilities.get(yardId)).toMatchObject({ level: 1, cityId });
+    // 넣기: 도시 창고에서 10 → 창고. 용량 1,000kg = 소나무(2kg) 500 → 600 더는 넘친다. 물자가 아닌 시험 광석은 넣지 않는다
+    expect(
+      await service.storageMove(a.userId, { buildingId: yardId, asset: pine, qty: 10, direction: "in" }),
+    ).toEqual({
+      ok: true,
+    });
+    expect(
+      await service.storageMove(a.userId, { buildingId: yardId, asset: pine, qty: 600, direction: "in" }),
+    ).toEqual({ ok: false, code: "storage_full" });
+    expect(
+      await service.storageMove(a.userId, { buildingId: yardId, asset: ASSET_ORE, qty: 1, direction: "in" }),
+    ).toEqual({ ok: false, code: "not_storage" });
+    expect(p.ledger.balanceOf(a.ownerId, pine, cityLocation(cityId))).toBe(10n);
+    expect(p.ledger.balanceOf(a.ownerId, pine, buildingLocation(yardId))).toBe(10n);
+    const other = await setup(world, "stranger", 0, {});
+    expect(
+      await service.storageMove(other.userId, { buildingId: yardId, asset: pine, qty: 1, direction: "in" }),
+    ).toEqual({ ok: false, code: "forbidden" });
+
+    // 공방: 소나무 12 = 도시 창고 10 → 창고 시설 2, 철광석 7은 도시 창고(받은 것). 일꾼은 짓는 동안 직무 산출이 없다
+    await service.devFacilityGrant(a.userId, "iron_ore", 7, { mapKey: a.map.mapKey, x: 40, y: 40 });
+    p.settlement.settleOwner(a.ownerId, clock);
+    const oreBefore = p.ledger.balanceOf(a.ownerId, ASSET_ORE);
+    const built = await service.build(a.userId, {
+      mapKey: a.map.mapKey,
+      facility: "workshop",
+      x: 40,
+      y: 40,
+      rotation: 0,
+      unitIds: [unitId],
+    });
+    expect(built.ok).toBe(true);
+    expect(p.ledger.balanceOf(a.ownerId, pine, cityLocation(cityId))).toBe(0n);
+    expect(p.ledger.balanceOf(a.ownerId, pine, buildingLocation(yardId))).toBe(8n);
+    expect(goodsStock(p.ledger, a.ownerId, "iron_ore")).toBe(50n);
+    // 작업에 묶인 유닛은 노동 계약도 맺지 못한다
+    expect(await p.labor.create(a.userId, { kind: "wage", buildingId: yardId, unitId })).toEqual({
+      ok: false,
+      code: "unit_busy",
+    });
+    clock = built.ok ? (built.doneAtMs ?? clock) : clock;
+    p.settlement.settleOwner(a.ownerId, clock - 60_000);
+    expect(service.finishDue(clock)).toBe(1);
+    expect(p.ledger.balanceOf(a.ownerId, ASSET_ORE)).toBe(oreBefore);
+    clock += 10 * 60_000;
+    p.settlement.settleOwner(a.ownerId, clock);
+    expect(p.ledger.balanceOf(a.ownerId, ASSET_ORE)).toBeGreaterThan(oreBefore);
+
+    // 화면 자료: 자리 목록(빈 도시 창고는 빠지고 건물 창고 → 위치 없음), 창고 시설 카드의 든 무게, 건물이 선 도시
+    const source = facilityScreenSourceOf(world);
+    if (!source) throw new Error("no screen source");
+    const view = facilitiesOverview(
+      source.view,
+      { userId: a.userId, ownerId: a.ownerId, nowMs: clock, dev: true },
+      [],
+    );
+    expect(view.places.map((place) => [place.key, place.storage])).toEqual([
+      [`building_${yardId}`, true],
+      ["ledger", false],
+    ]);
+    expect(view.facilities.find((facility) => facility.buildingId === yardId)).toMatchObject({
+      storage: true,
+      storageKg: 1000,
+      storedKg: 16,
+      cityId,
+    });
+    expect(view.cities.some((city) => city.id === cityId)).toBe(true);
+
+    // 꺼내기: 창고 → 도시 창고. 모자라면 거절. 창고 건물이 사라지면 남은 물건은 그 도시 창고로 돌아온다
+    expect(
+      await service.storageMove(a.userId, { buildingId: yardId, asset: pine, qty: 3, direction: "out" }),
+    ).toEqual({
+      ok: true,
+    });
+    expect(
+      await service.storageMove(a.userId, { buildingId: yardId, asset: pine, qty: 9, direction: "out" }),
+    ).toEqual({ ok: false, code: "insufficient_materials" });
+    expect(a.map.removeBuilding(yardId)).toEqual({ ok: true });
+    service.age(clock);
+    expect(service.facilities.has(yardId)).toBe(false);
+    expect(p.ledger.balanceOf(a.ownerId, pine, buildingLocation(yardId))).toBe(0n);
+    expect(p.ledger.balanceOf(a.ownerId, pine, cityLocation(cityId))).toBe(8n);
+    await p.writer.durable();
+    expect(await world.checkInvariants()).toEqual([]);
   });
 });

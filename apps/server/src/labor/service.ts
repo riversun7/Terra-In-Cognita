@@ -10,6 +10,11 @@
 // - [임시] 화폐 = 서버 시험 화폐(s3_test_credit), 산출 = 시험 광석. 임금을 받는 곳 = 유닛 소유 주체 지갑(서버에 휴먼 지갑이 아직 없다,
 //   기획 342). 임금 = 효율점수 × 단가 × 고용주 조정(N28) — 유닛 스탯이 아직 없어 효율점수는 새 유닛 평균 1차 스탯 하나,
 //   단가는 도시 노동 시장이 아직 없어 N27 기준 단가 그대로다(rules.ts).
+// - 시설 창고(docs/adr/2026-11-07-buildings-runtime.md "바뀜 (창고·직무)", D-516 382): 임대형 임차인 몫 산출은 그 건물 창고(원장 위치 = 그
+//   건물, @terra/shared/goodsPlaces buildingLocation)에 쌓인다. 유예 동안 임차인이 꺼내 가고(storage_move out), 유예가 끝나면 남은 것이
+//   시설 주인 것이 된다(옛 StorageUtils expireGraceStorage — 같은 건물 창고에서 주인만 바뀐다). 옮기기는 산출 거래를 넣은 뒤(정산 뒤 고리)
+//   한다. 임금형 몫은 예전처럼 고용주 기본 창고다(시설에 일꾼 물건이 남지 않는다).
+// - 건물 작업(짓기·수리 등)에 묶인 유닛은 계약을 맺지 못한다(unit_busy, D-516 364 — 작업 동안 직무 산출이 없다).
 import type { LaborResultCode } from "@terra/protocol";
 import type {
   LaborContractView,
@@ -36,6 +41,7 @@ import {
   wage,
   wagePerCycle,
 } from "@terra/sim";
+import { buildingLocation } from "@terra/shared/goodsPlaces";
 import type { Ledger } from "../economy/ledger.ts";
 import type { CityRow } from "../world/cities.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
@@ -82,6 +88,8 @@ export interface LaborService {
   unitBusy(unitId: number): boolean;
   /** 건물에 지금 일하는 계약(active)이 있나 — 건물 사용 닳음(D-509) */
   buildingInUse(buildingId: number): boolean;
+  /** 정산 뒤 고리(소유 주체 정산이 산출 거래를 넣은 뒤 부른다): 그 주체의 유예가 끝난 임대형 계약의 남은 물건을 시설 주인에게 */
+  afterSettle(ownerId: number, toMs: number): void;
 }
 
 function isOpen(c: LaborContract): boolean {
@@ -110,6 +118,8 @@ export function createLaborService(options: {
    * 없다(임금·임대료는 계약대로 — 고치는 것은 주인 몫)
    */
   buildingWorks?: ((buildingId: number) => boolean) | undefined;
+  /** 그 유닛이 건물 작업에 묶였나(건물 서비스). 묶였으면 계약을 맺지 못한다. 없으면 늘 false */
+  unitInJob?: ((unitId: number) => boolean) | undefined;
 }): LaborService {
   const { maps, settlement, ledger, writer, now } = options;
   const contracts = new Map<number, LaborContract>(options.loaded.contracts.map((c) => [c.id, c]));
@@ -139,6 +149,14 @@ export function createLaborService(options: {
     return undefined;
   };
   const stockOf = (ownerId: number) => (): number => ledger.ownerAccount(ownerId, ASSET_ORE);
+  /** 임대형 임차인 몫 = 그 건물 창고(위치 = 건물) */
+  const buildingStockOf = (ownerId: number, buildingId: number) => (): number =>
+    ledger.ownerAccount(ownerId, ASSET_ORE, buildingLocation(buildingId));
+  /** 계약·건물 작업 중인 유닛 */
+  const unitBusy = (unitId: number): boolean =>
+    openContractOf(unitId) !== undefined || (options.unitInJob?.(unitId) ?? false);
+  /** 이번 정산에서 유예가 끝난 임대형 계약(정산 뒤 고리가 남은 물건을 옮긴다) */
+  const leftoverQueue: LaborContract[] = [];
 
   /** 사라짐·주인 바뀜이면 그 사유(유닛이 먼저). 그대로면 null */
   const goneReason = (c: LaborContract): LaborEndReason | null => {
@@ -176,8 +194,12 @@ export function createLaborService(options: {
       // 사라진 유닛·시설의 산출은 나누지 않는다(유예에 들었으면 다음 정산부터 시각만 흐른다)
       if (endIfGone(c)) continue;
       const start = c.settledAtMs;
+      const movedBefore = c.leftoversMovedAtMs;
       const segments = settleLabor(c, toMs, ledger, accounts, rules);
       save(c);
+      // 이번 정산에서 유예가 끝났으면(한 번에 일함 → 유예 → 끝이어도) 정산 뒤에 남은 물건을 옮긴다
+      if (c.kind === "lease" && c.leftoversMovedAtMs !== null && c.leftoversMovedAtMs !== movedBefore)
+        leftoverQueue.push(c);
       if (c.state === "grace" || c.state === "ended") {
         if (!segments.some((segment) => segment.mode !== "free")) continue;
       }
@@ -194,7 +216,9 @@ export function createLaborService(options: {
               ? null
               : segment.mode === "work" && c.kind === "wage"
                 ? stockOf(c.ownerId)
-                : stockOf(ownerId),
+                : segment.mode === "work"
+                  ? buildingStockOf(ownerId, c.buildingId)
+                  : stockOf(ownerId),
         });
       }
       out.set(c.unitId, list);
@@ -223,7 +247,7 @@ export function createLaborService(options: {
     rules: () => wageRulesOf(options.rules()),
     unitOwnerOf,
     buildingOwnerOf,
-    unitBusy: (unitId) => openContractOf(unitId) !== undefined,
+    unitBusy,
     nextContractId: () => lastId + 1,
     addContract: (c) => {
       lastId = Math.max(lastId, c.id);
@@ -247,6 +271,40 @@ export function createLaborService(options: {
     outputsFor,
     contracts,
     unitBusy: (unitId) => openContractOf(unitId) !== undefined,
+    afterSettle(ownerId) {
+      for (const c of leftoverQueue.splice(0)) {
+        if (c.workerOwnerId !== ownerId) {
+          leftoverQueue.push(c);
+          continue;
+        }
+        // 같은 건물에 그 임차인의 다른 임대형 계약이 아직 열려 있거나 유예 중이면 그 물건은 그 계약 몫이라 그대로 둔다
+        const shared = [...contracts.values()].some(
+          (other) =>
+            other.id !== c.id &&
+            other.kind === "lease" &&
+            other.workerOwnerId === c.workerOwnerId &&
+            other.buildingId === c.buildingId &&
+            other.state !== "ended",
+        );
+        if (shared) continue;
+        const here = buildingLocation(c.buildingId);
+        const entries: { account: number; amount: bigint }[] = [];
+        // 먼저 모은다(옮길 계정을 만들며 장부를 도는 동안 계정이 늘지 않게)
+        const left = [...ledger.accounts()].filter(
+          (account) =>
+            account.ownerId === c.workerOwnerId && account.location === here && account.balance > 0n,
+        );
+        for (const account of left) {
+          entries.push({ account: account.id, amount: -account.balance });
+          entries.push({
+            account: ledger.ownerAccount(c.ownerId, account.asset, here),
+            amount: account.balance,
+          });
+        }
+        if (entries.length > 0)
+          ledger.post({ kind: "labor_leftovers", atMs: c.leftoversMovedAtMs ?? 0, entries });
+      }
+    },
     buildingInUse(buildingId) {
       for (const c of contracts.values())
         if (c.buildingId === buildingId && c.state === "active") return true;
@@ -261,7 +319,7 @@ export function createLaborService(options: {
       const unitOwner = unitOwnerOf(input.unitId);
       if (unitOwner === undefined) return fail("unknown_unit");
       if (unitOwner !== me) return fail("forbidden");
-      if (openContractOf(input.unitId)) return fail("unit_busy");
+      if (unitBusy(input.unitId)) return fail("unit_busy");
       const rules = wageRulesOf(options.rules());
       let ownerId: number;
       let rate: bigint;
@@ -423,8 +481,7 @@ export function createLaborService(options: {
         });
         if (me !== undefined)
           map.forEachUnit((unit) => {
-            if (unit.ownerId === me)
-              units.push({ id: unit.id, kind: unit.kind, busy: openContractOf(unit.id) !== undefined });
+            if (unit.ownerId === me) units.push({ id: unit.id, kind: unit.kind, busy: unitBusy(unit.id) });
           });
       }
       return {

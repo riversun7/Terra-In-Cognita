@@ -65,6 +65,7 @@ export {
   FACILITY_PROTOCOL_VERSION,
   FACILITY_RESULT_CODES,
   type FacilityResultCode,
+  STORAGE_PROTOCOL_VERSION,
 } from "./facilities.ts";
 export {
   LABOR_JOBS_PROTOCOL_VERSION,

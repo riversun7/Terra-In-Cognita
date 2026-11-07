@@ -7,7 +7,9 @@ import type {
   FacilityJobView,
   FacilityStackView,
   FacilityView,
+  GoodsPlaceView,
 } from "@terra/shared/facilities";
+import { placeKey, placeOfLocation, sourceOrder } from "@terra/shared/goodsPlaces";
 import { buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
 import {
   advanceCondition,
@@ -35,6 +37,7 @@ import type { SecondMap } from "../world/secondMap.ts";
 import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
 import type { FacilityCatalog, FacilityDef } from "./catalog.ts";
 import { goodsStock } from "./materials.ts";
+import { type PlaceWorld, buildingPlace, isStorage, storedGrams } from "./places.ts";
 import type { FacilityService } from "./service.ts";
 import type { JobRecord } from "./state.ts";
 
@@ -47,6 +50,61 @@ export interface FacilityViewSource {
   readonly rules: () => SocietyCoefficients;
   readonly catalog: () => FacilityCatalog;
   readonly unitBusy: (unitId: number) => boolean;
+}
+
+/** 화폐(지갑)는 자리 목록에 넣지 않는다 */
+const isCash = (asset: string): boolean => asset.startsWith("cur:") || asset === "s3_test_credit";
+
+/** 내 물건이 있는 자리(잔고 > 0, 화폐 빼고) — 도시 창고 → 건물 창고 → 화물 → 자리 없음 차례 */
+function placesOf(
+  world: PlaceWorld,
+  ledger: Ledger,
+  catalog: FacilityCatalog,
+  ownerId: number,
+): GoodsPlaceView[] {
+  const byKey = new Map<
+    string,
+    { view: Omit<GoodsPlaceView, "lines">; lines: GoodsPlaceView["lines"][number][] }
+  >();
+  for (const account of ledger.accounts()) {
+    if (account.ownerId !== ownerId || account.balance <= 0n || isCash(account.asset)) continue;
+    const place = placeOfLocation(account.location);
+    const key = placeKey(place);
+    let entry = byKey.get(key);
+    if (!entry) {
+      let cityId: number | null = null;
+      let mapKey: number | null = null;
+      let storage = false;
+      let facilityId: string | null = null;
+      if (place.kind === "city") cityId = place.id;
+      else if (place.kind === "building" && place.id !== null) {
+        const found = buildingPlace(world, place.id);
+        cityId = found?.cityId ?? null;
+        mapKey = found?.mapKey ?? null;
+        storage = found?.ownerId === ownerId && isStorage(world, place.id);
+        facilityId = world.facilities.get(place.id)?.facilityId ?? null;
+      } else if (place.kind === "cargo" && place.id !== null)
+        for (const map of world.maps.values()) if (map.unitInfo(place.id)) mapKey = map.mapKey;
+      entry = {
+        view: { key, kind: place.kind, id: place.id, cityId, mapKey, storage, facilityId },
+        lines: [],
+      };
+      byKey.set(key, entry);
+    }
+    const item = account.asset.startsWith("item:") ? account.asset.slice(5) : null;
+    entry.lines.push({
+      asset: account.asset,
+      item,
+      name: item === null ? null : (catalog.itemName(item) ?? null),
+      qty: String(account.balance),
+    });
+  }
+  return [...byKey.values()]
+    .map((entry) => ({
+      ...entry.view,
+      lines: entry.lines.toSorted((a, b) => (a.asset < b.asset ? -1 : a.asset > b.asset ? 1 : 0)),
+    }))
+    .toSorted(sourceOrder);
 }
 
 const jobView = (job: JobRecord): FacilityJobView => ({
@@ -158,6 +216,12 @@ export function facilitiesOverview(
         durability: durabilityPoints(condition, max),
         maxDurability: max,
         storageKg: def.storageKg === undefined ? null : storageCapacityAt(def.storageKg, level, rt),
+        storage: def.stage === "storage",
+        storedKg:
+          def.stage === "storage"
+            ? Number((storedGrams(source.ledger, catalog, building.id) + 999n) / 1000n)
+            : null,
+        cityId: record.cityId ?? buildingPlace(service.places, building.id)?.cityId ?? null,
         job: jobFor((job) => job.buildingId === building.id && job.kind !== "equipment"),
         upgrade:
           next !== null && def.build
@@ -275,6 +339,8 @@ export function facilitiesOverview(
     generatedAt: nowMs,
     rules: { ...rt },
     maps: [...source.maps.keys()],
+    cities: service.places.cities().filter((city) => source.maps.has(city.mapKey)),
+    places: ownerId === undefined ? [] : placesOf(service.places, source.ledger, catalog, ownerId),
     catalog: catalogViews,
     facilities: facilities.toSorted((a, b) => a.buildingId - b.buildingId),
     beacons,

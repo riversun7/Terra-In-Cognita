@@ -1,0 +1,48 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "178c8ab5-af30-4bfb-b2d4-cf8b7f90ad8b",
+  "prevIds": [
+    "7d899bea-10e6-4f66-a02a-4f8248110eb0",
+    "58429802-d1f4-46d4-9b24-2aeed39d24b0"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_facilities",
+        "city_id"
+      ],
+      "writes": [
+        "s|col|public.world_facilities.city_id",
+        "n|col|public.world_facilities.city_id",
+        "e|col|public.world_facilities.city_id"
+      ],
+      "reads": [
+        "n|tbl|public.world_facilities",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_facilities",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

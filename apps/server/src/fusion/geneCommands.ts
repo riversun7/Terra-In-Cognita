@@ -1,9 +1,12 @@
 // 유전자 명령(서버) — 기획 D-478(수명이 다한 휴먼·크리쳐의 스탯·스킬이 유전자로 남음, 스킬 유전자는 주입, 스탯 유전자는 인큐베이터),
 // D-481(조합 속성 = 평균 + 오차), D-516(스탯 유전자 = 총합·분포·속성 인스턴스, 총합·주력 스탯 골라 적용, 합성은 확률로 오름·내림·그대로),
 // D-099(사망은 수명이 다했을 때만), docs/adr/2026-11-07-cyborg-fusion-genes.md "바뀜 (D-516)". 판정은 @terra/sim society/genes.ts 한 벌이다.
-// - 수명(expireDue·devExpire): 유저 휴먼(유닛 종류 4)의 태어난 시각 + 수명 ≤ 지금이면 1분 안에 수명이 다한다 → 그 유닛의 스탯 유전자 하나
-//   (총합·분포·속성)와 배운 스킬마다 스킬 유전자 하나를 소유자에게 남기고, 지닌 물건·화물을 소유자에게 옮긴 뒤 유닛이 떠난다(지워진다).
-//   [임시] 남는 곳 = 소유자 사이보그 본체가 듦(창고 자리는 질문 361). NPC 세력 휴먼은 유전자를 남기지 않는다(쓰는 곳이 없다, 질문).
+// - 수명(D-517, docs/adr/2026-11-07-temple-religion.md): 유저 휴먼(유닛 종류 4)은 수명이 다하면 비활성이 되고(일하지 않음, src/temple/),
+//   고르지 않으면 그대로 남는다. 바뀌는 길은 둘: 신전 환생·신격화(src/temple/service.ts) 또는 생명과학 연구소 유전자 변환(convert) → 그 유닛의
+//   스탯 유전자 하나(총합·분포·속성)와 배운 스킬마다 스킬 유전자 하나를 소유자에게 남기고, 지닌 물건·화물을 소유자에게 옮긴 뒤 유닛이 떠난다
+//   (지워진다). [임시] 남는 곳 = 소유자 사이보그 본체가 듦(창고 자리는 질문 396). 비활성 상한(설정 칸, 출발값 없음 = 상한 없음)을 두면
+//   수명 끝 + 상한에 같은 변환으로 떠난다(expireDue, [임시] 질문). 신격화는 같은 길로 떠나되 유전자는 남기지 않는다(release).
+//   NPC 세력 휴먼은 유전자를 남기지 않는다(쓰는 곳이 없다, 질문 397). devExpire = 개발 시험 바로 변환(연구소·비활성·값 없이).
 // - 합성(synthesize): 같은 종 스탯 유전자 둘 → 새 스탯 유전자 하나(둘 다 사라짐). 시드 굴림 하나.
 // - 주입(inject): 스킬 유전자 하나 → 내 휴먼이 그 스킬을 등급 1로 배운다(스킬 칸 규칙 = 팩 unit_kinds skillSlots, 이미 배운 스킬은 거절).
 // - 인큐베이터(incubate): 휴먼 스탯 유전자 하나 → 새 휴먼(유닛 종류 4) 하나가 사이보그 본체 둘레에 태어난다(총합 또는 주력 스탯 적용, 속성은
@@ -35,7 +38,9 @@ import { carriedBy } from "../holdings/state.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import type { Settlement } from "../world/settlement.ts";
+import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
+import type { WorldFacilities } from "../facilities/world.ts";
+import { BIOTECH_STAGE, payServiceFee, serviceFacility, unitCity } from "../temple/places.ts";
 import { UNIT_KIND_CYBORG, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import { geneItemsOf, statGeneOfPayload } from "./genes.ts";
 import { HUMAN_COLUMNS, HUMAN_SPECIES, type HumanRow, humanOf, readHuman, readSkills } from "./humans.ts";
@@ -90,6 +95,8 @@ export interface GeneCommandOptions {
   readonly seed: () => number;
   readonly ready: () => boolean;
   readonly log?: { warn(obj: object, message: string): void } | undefined;
+  /** 건물(생명과학 연구소 시설 줄·일함·도시 자리, D-517 변환). 없으면 연구소가 없다 */
+  readonly facilities?: WorldFacilities | undefined;
 }
 
 export interface GeneCommands {
@@ -104,8 +111,21 @@ export interface GeneCommands {
     input: { readonly kind: "stat" | "skill"; readonly skill?: string | undefined },
   ): Promise<GeneCommandResult>;
   devExpire(userId: string, input: { readonly unit: number }): Promise<GeneCommandResult>;
-  /** 수명이 다한 유저 휴먼을 처리한다(1분마다). 처리한 휴먼 수 */
-  expireDue(nowMs: number): Promise<number>;
+  /**
+   * 비활성인 내 휴먼을 그 생명과학 연구소에서 유전자로 바꾼다(D-517): 연구소(생명공학 단계, 다 지음·30% 이상)·그 유닛이 선 도시 = 연구소 도시·
+   * 본 값 = 변환 화폐(설정 칸 n47_convert_currency [임시]) → 화폐(남의 연구소 = 주인 수입, 내 연구소 = 소각) → 유전자를 남기고 떠남
+   */
+  convert(
+    userId: string,
+    input: { readonly buildingId: number; readonly unit: number; readonly cost: string },
+  ): Promise<GeneCommandResult>;
+  /** 비활성 상한(설정 칸, 0 = 상한 없음)이 지난 유저 휴먼을 유전자로 바꿔 떠나보낸다(1분마다). 처리한 휴먼 수 */
+  readonly expireDue: (nowMs: number) => Promise<number>;
+  /**
+   * 유저 휴먼 하나를 유전자 없이 떠나보낸다(신격화, 한 번의 동기 처리): 지닌 것·화물을 소유자에게, 배운 스킬·신앙·휴먼 행·유닛을 지운다.
+   * 메모리 유닛이 없거나 휴먼이 아니거나 주인이 바뀌었으면 false
+   */
+  readonly release: (ownerId: number, human: HumanRow, skills: readonly string[], atMs: number) => boolean;
 }
 
 const fail = (code: FusionResultCode): GeneCommandResult => ({ ok: false, code });
@@ -152,14 +172,15 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
   };
 
   /**
-   * 수명이 다한 휴먼 하나(한 번의 동기 처리): 유전자를 남기고, 지닌 것·화물을 소유자에게 옮기고, 유닛이 떠난다. 남은 유전자 칸 ID.
-   * 메모리 유닛이 이미 없거나 휴먼이 아니거나 주인이 바뀌었으면 아무것도 하지 않는다(undefined)
+   * 떠나는 휴먼 하나(한 번의 동기 처리): 유전자를 남기고(leaveGenes — 신격화는 남기지 않음), 지닌 것·화물을 소유자에게 옮기고, 유닛이
+   * 떠난다. 남은 유전자 칸 ID. 메모리 유닛이 이미 없거나 휴먼이 아니거나 주인이 바뀌었으면 아무것도 하지 않는다(undefined)
    */
   const retire = (
     ownerId: number,
     human: HumanRow,
     skills: readonly string[],
     atMs: number,
+    leaveGenes = true,
   ): number[] | undefined => {
     const found = unitOf(human.unitId);
     if (!found || found.info.kind !== UNIT_KIND_HUMAN || found.info.ownerId !== ownerId) return undefined;
@@ -176,8 +197,10 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
         const id = holdings.addGene({ ownerId, item, location: place, gene, atMs, source: "lifespan" });
         if (id !== undefined) created.push(id);
       };
-      add(statItem, { kind: "stat", ...statGeneOf(human.stats, human.elements), generation: 0, ...origin });
-      for (const skill of skills) add(skillItem, { kind: "skill", skill, ...origin });
+      if (leaveGenes) {
+        add(statItem, { kind: "stat", ...statGeneOf(human.stats, human.elements), generation: 0, ...origin });
+        for (const skill of skills) add(skillItem, { kind: "skill", skill, ...origin });
+      }
       holdings.moveCarried(human.unitId, place);
     } else {
       o.log?.warn({ unitId: human.unitId, ownerId }, "genes: owner has no cyborg unit; no genes left");
@@ -196,9 +219,21 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
         ],
       });
     for (const skill of skills) writer.remove("unitSkills", { unit_id: human.unitId, skill_id: skill });
+    writer.remove("unitFaith", { unit_id: human.unitId });
     writer.remove("humans", { unit_id: human.unitId });
     found.map.removeUnit(human.unitId);
     return created;
+  };
+
+  /** 생명과학 연구소 확인(생명공학 단계 시설, 다 지었고 30% 이상) */
+  const labOf = (
+    buildingId: number,
+  ):
+    | { readonly ok: true; readonly cityId: number | null; readonly ownerId: number | null }
+    | { readonly ok: false; readonly code: FusionResultCode } => {
+    const found = serviceFacility(o.facilities, buildingId, BIOTECH_STAGE);
+    if (found.ok) return found;
+    return { ok: false, code: found.reason === "closed" ? "lab_closed" : "not_lab" };
   };
 
   let expiring = false;
@@ -251,6 +286,8 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
       await writer.durable();
       const human = await readHuman(o.pool, input.unit);
       if (!human) return fail("unknown_unit");
+      // 비활성(수명이 다한 휴먼, D-517)은 일하지 않는다 — 주입도 받지 않는다(docs/adr/2026-11-07-temple-religion.md)
+      if (human.bornAtMs + human.lifespanMs <= o.now()) return fail("wrong_kind");
       const learned = (await readSkills(o.pool, [input.unit])).get(input.unit) ?? [];
       // 읽는 동안 바뀌었을 수 있다 → 메모리로 다시 본다. 여기부터 커밋 전까지 기다림이 없다
       const again = myHuman(owner.ownerId, input.unit);
@@ -386,10 +423,13 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
       expiring = true;
       try {
         await writer.durable();
+        // 비활성 상한(설정 칸, 부를 때마다 읽는다)이 있을 때만: 수명 끝 + 상한이 지난 휴먼이 떠난다. 0 = 상한 없음(D-517 "고르지 않으면 남음")
+        const wait = o.rules().temple.inactiveCapMs;
+        if (wait <= 0) return 0;
         const due = await o.pool.query(
           `select ${HUMAN_COLUMNS}, u.owner_id from world_humans h join world_units u on u.id = h.unit_id
-            where u.kind = $1 and h.born_at_ms + h.lifespan_ms <= $2 order by h.unit_id limit $3`,
-          [UNIT_KIND_HUMAN, nowMs, EXPIRE_BATCH],
+            where u.kind = $1 and h.born_at_ms + h.lifespan_ms + $4 <= $2 order by h.unit_id limit $3`,
+          [UNIT_KIND_HUMAN, nowMs, EXPIRE_BATCH, wait],
         );
         if (due.rows.length === 0) return 0;
         const humans = due.rows.map((row) => ({ ownerId: Number(row.owner_id), human: humanOf(row) }));
@@ -405,6 +445,38 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
       } finally {
         expiring = false;
       }
+    },
+
+    release: (ownerId, human, skills, atMs) => retire(ownerId, human, skills, atMs, false) !== undefined,
+
+    async convert(userId, input) {
+      const owner = ownerFor(userId);
+      if ("fail" in owner) return fail(owner.fail);
+      const first = myHuman(owner.ownerId, input.unit);
+      if (first) return fail(first);
+      const lab = labOf(input.buildingId);
+      if (!lab.ok) return fail(lab.code);
+      await writer.durable();
+      const human = await readHuman(o.pool, input.unit);
+      if (!human) return fail("unknown_unit");
+      const skills = (await readSkills(o.pool, [input.unit])).get(input.unit) ?? [];
+      // 읽는 동안 바뀌었을 수 있다 → 메모리로 다시 본다. 여기부터 커밋 전까지 기다림이 없다
+      const again = myHuman(owner.ownerId, input.unit);
+      if (again) return fail(again);
+      const checked = labOf(input.buildingId);
+      if (!checked.ok) return fail(checked.code);
+      const at = o.now();
+      if (human.bornAtMs + human.lifespanMs > at) return fail("not_inactive");
+      if (checked.cityId === null || unitCity(o.maps, o.facilities, input.unit, at) !== checked.cityId)
+        return fail("wrong_city");
+      const cost = BigInt(Math.max(0, o.rules().fusion.geneConvertCurrency));
+      if (String(cost) !== input.cost) return fail("cost_changed");
+      if (ledger.balanceOf(owner.ownerId, ASSET_CREDIT) < cost) return fail("insufficient_funds");
+      payServiceFee(ledger, owner.ownerId, checked.ownerId, cost, at, "gene_convert");
+      const genes = retire(owner.ownerId, human, skills, at);
+      if (!genes) return fail("unknown_unit");
+      await writer.durable();
+      return { ok: true, unitId: input.unit, genes };
     },
   };
 }

@@ -50,8 +50,20 @@ export interface BuildingEditorGatherBand {
   readonly hash: string;
 }
 
-/** 생산 단계(@terra/content FACILITY_STAGES와 같다, D-114) + 영토(영토 비콘, D-485·49 N51) + 창고(일하지 않는 시설, N50·382) */
-export const FACILITY_STAGE_IDS = ["gather", "process", "part", "finish", "territory", "storage"] as const;
+/**
+ * 생산 단계(@terra/content FACILITY_STAGES와 같다, D-114) + 영토(영토 비콘, D-485·49 N51) + 창고(일하지 않는 시설, N50·382)
+ * + 신앙(신전, 46 §7·D-311) + 생명공학(생명과학 연구소, D-517)
+ */
+export const FACILITY_STAGE_IDS = [
+  "gather",
+  "process",
+  "part",
+  "finish",
+  "territory",
+  "storage",
+  "religion",
+  "biotech",
+] as const;
 export type FacilityStageId = (typeof FACILITY_STAGE_IDS)[number];
 
 /** 채집 방식(@terra/content GATHER_MODES와 같다): roll = 확률표 추첨, select = 선택 + 효율 */

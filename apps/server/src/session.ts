@@ -20,6 +20,8 @@ import {
   STORAGE_PROTOCOL_VERSION,
   FUSION_PROTOCOL_VERSION,
   GENE_PROTOCOL_VERSION,
+  GENE_CONVERT_PROTOCOL_VERSION,
+  TEMPLE_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -35,6 +37,7 @@ import type { ItemGateway, ItemSocket } from "./holdings/gateway.ts";
 import type { LaborGateway, LaborSocket } from "./labor/gateway.ts";
 import type { FacilityGateway, FacilitySocket } from "./facilities/gateway.ts";
 import type { FusionGateway, FusionSocket } from "./fusion/gateway.ts";
+import type { TempleGateway, TempleSocket } from "./temple/gateway.ts";
 import type { WorldGateway, WorldSocket } from "./world/gateway.ts";
 
 export interface SessionContext {
@@ -57,6 +60,8 @@ export interface SessionContext {
   fusion?: FusionGateway | undefined;
   /** 건물 짓기·수리 명령(프로토콜 10, docs/adr/2026-11-07-buildings-runtime.md). 없으면 busy */
   facilities?: FacilityGateway | undefined;
+  /** 신전 기도·헌금·의식(프로토콜 12, docs/adr/2026-11-07-temple-religion.md). 없으면 busy */
+  temple?: TempleGateway | undefined;
   /** 이 연결의 로그인 사용자(쿠키). 로그인하지 않았거나 인증이 꺼져 있으면 null */
   viewer?: (() => Promise<Viewer | null>) | undefined;
   /**
@@ -91,6 +96,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let laborSocket: LaborSocket | undefined;
   let fusionSocket: FusionSocket | undefined;
   let facilitySocket: FacilitySocket | undefined;
+  let templeSocket: TempleSocket | undefined;
   let releasePresence: (() => void) | undefined;
 
   const sendText = (text: string): void => {
@@ -128,6 +134,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
     laborSocket?.close();
     fusionSocket?.close();
     facilitySocket?.close();
+    templeSocket?.close();
     releasePresence?.();
   });
 
@@ -319,12 +326,15 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "gene_inject":
       case "gene_incubate":
       case "dev_grant_gene":
-      case "dev_expire_unit": {
-        // 융합·개발 물자 받기는 프로토콜 9, 유전자 명령은 11의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+      case "dev_expire_unit":
+      case "gene_convert": {
+        // 융합·개발 물자 받기는 프로토콜 9, 유전자 명령은 11, 비활성 휴먼 유전자 변환은 12의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
         const needs =
           message.t === "cyborg_fuse" || message.t === "dev_grant_goods"
             ? FUSION_PROTOCOL_VERSION
-            : GENE_PROTOCOL_VERSION;
+            : message.t === "gene_convert"
+              ? GENE_CONVERT_PROTOCOL_VERSION
+              : GENE_PROTOCOL_VERSION;
         if (protocolVersion < needs) {
           reject("invalid_message");
           return;
@@ -362,6 +372,23 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         }
         facilitySocket ??= context.facilities.open({ send: sendText, viewer: context.viewer ?? signedOut });
         facilitySocket.handle(message);
+        return;
+      }
+      case "temple_pray":
+      case "temple_offer":
+      case "temple_rite":
+      case "dev_inactivate_unit": {
+        // 신전 명령은 프로토콜 12의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        if (protocolVersion < TEMPLE_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.temple) {
+          send({ t: "temple_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        templeSocket ??= context.temple.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        templeSocket.handle(message);
         return;
       }
     }

@@ -984,6 +984,8 @@ export { laborContracts, laborPostings, laborRents } from "./laborSchema.ts";
 export { facilityJobs, worldFacilities } from "./facilitySchema.ts";
 /** 랭킹 집계 표(docs/adr/2026-11-07-ranking.md) */
 export { rankingFactionScores, rankingPathScores, rankingState } from "./rankingSchema.ts";
+/** 신전·종교 표(docs/adr/2026-11-07-temple-religion.md) */
+export { templeDevotions, templeGuardians, unitFaith } from "./templeSchema.ts";
 
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

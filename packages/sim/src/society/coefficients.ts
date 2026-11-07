@@ -12,6 +12,7 @@ import { type SystemSwitches, TEST_SYSTEM_SWITCHES } from "../tuningSwitches.ts"
 import type { CyborgTemperament } from "./cyborgStats.ts";
 import { type FusionCoefficients, OLD_FUSION_COEFFICIENTS } from "./fusion.ts";
 import { OLD_RECRUIT_COEFFICIENTS, type RecruitCoefficients } from "./recruitment.ts";
+import { OLD_TEMPLE_COEFFICIENTS, type TempleCoefficients } from "./temple.ts";
 
 export interface SocietyCoefficients {
   /** 도시 주식 수(D-130) */
@@ -62,6 +63,11 @@ export interface SocietyCoefficients {
    * "fusion.*". 규칙은 society/fusion.ts·genes.ts. 시뮬은 읽지 않는다(서버 융합·유전자 명령이 읽는다)
    */
   readonly fusion: FusionCoefficients;
+  /**
+   * 신전·종교(유저 휴먼 망령·환생·신격화·기도·헌금 — D-311·D-441·D-451·기획 정리 395 나, 49 S15 + [임시]). 팩 tuning 경로 "temple.*".
+   * 규칙은 society/temple.ts. 시뮬은 읽지 않는다(서버 신전 명령·수명 처리가 읽는다, docs/adr/2026-11-07-temple-religion.md)
+   */
+  readonly temple: TempleCoefficients;
   /** 지상 기술 단계 상한(질문 121 기본안: 시설 Lv1~5 사다리) */
   readonly techGroundMax: number;
   /** [임시] 단계 n으로 오르는 연구 작업량(효율 1000인 연구 일꾼 한 시간 = 1000) = researchWorkBase × n */
@@ -316,6 +322,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     levels: OLD_RECRUIT_COEFFICIENTS.levels.map((level) => ({ ...level })),
   },
   fusion: { ...OLD_FUSION_COEFFICIENTS },
+  temple: { ...OLD_TEMPLE_COEFFICIENTS },
   techGroundMax: 5,
   researchWorkBase: 48_000,
   developmentPerTech: 20,

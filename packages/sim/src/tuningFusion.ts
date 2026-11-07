@@ -86,4 +86,11 @@ export const FUSION_TUNING_KEYS: readonly TuningKey[] = [
     "인큐베이터 휴먼의 바탕 1차 스탯",
     "Incubator human base primary stat",
   ),
+  k(
+    "n47_convert_currency",
+    "N47",
+    "geneConvertCurrency",
+    "유전자 변환 화폐(생명과학 연구소, 최소 단위)",
+    "Gene conversion currency (biotech lab, minor units)",
+  ),
 ];

@@ -48,6 +48,11 @@ export interface FusionCoefficients {
   readonly geneElementVariance: number;
   /** 인큐베이터로 태어나는 휴먼의 바탕 1차 스탯(칸마다, 유닛 화면 기본 몸과 같은 10) [임시] */
   readonly incubateBaseStat: number;
+  /**
+   * 비활성 휴먼을 유전자로 바꾸는 값(생명과학 연구소, D-517 "유전자 조각(생명과학연구소)으로 변환", 화폐 최소 단위) [임시] — 값이 없어
+   * 기술이 정했다(docs/adr/2026-11-07-temple-religion.md)
+   */
+  readonly geneConvertCurrency: number;
 }
 
 /** 옛 값(위 머리 주석의 옛 코드). [임시] 칸은 출발값이 없어 기술이 정한 값 */
@@ -68,6 +73,7 @@ export const OLD_FUSION_COEFFICIENTS: FusionCoefficients = {
   geneTotalMax: 600,
   geneElementVariance: 1,
   incubateBaseStat: 10,
+  geneConvertCurrency: 1000,
 };
 
 /** 배열을 1차 스탯 6칸으로 맞춘다(모자라면 0, 정수가 아니면 0, 음수면 0) */

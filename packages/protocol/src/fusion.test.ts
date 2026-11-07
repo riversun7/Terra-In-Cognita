@@ -4,6 +4,7 @@ import {
   DEV_GRANT_GOODS_MAX,
   FUSION_PROTOCOL_VERSION,
   FUSION_RESULT_CODES,
+  GENE_CONVERT_PROTOCOL_VERSION,
   GENE_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
   ProtocolError,
@@ -80,5 +81,18 @@ describe("유전자 메시지(프로토콜 11, D-516)", () => {
     for (const code of FUSION_RESULT_CODES)
       expect(decodes(decodeServerMessage, { t: "fusion_result", id: 1, ok: false, code })).toBe(true);
     expect(decodes(decodeServerMessage, { t: "fusion_result", id: 1, ok: false, code: "alive" })).toBe(false);
+  });
+});
+
+describe("유전자 변환 메시지(프로토콜 12, D-517)", () => {
+  it("비활성 휴먼 변환이 왕복하고 값 모양을 본다", () => {
+    expect(GENE_CONVERT_PROTOCOL_VERSION).toBe(12);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(GENE_CONVERT_PROTOCOL_VERSION);
+    const convert = { t: "gene_convert", id: 6, buildingId: 9, unit: 41, cost: "1000" } as const;
+    expect(decodeClientMessage(encodeMessage(convert))).toEqual(convert);
+    expect(decodes(decodeClientMessage, { ...convert, buildingId: 0 })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...convert, cost: "01" })).toBe(false);
+    for (const code of ["not_inactive", "not_lab", "lab_closed", "wrong_city"])
+      expect(decodes(decodeServerMessage, { t: "fusion_result", id: 6, ok: false, code })).toBe(true);
   });
 });

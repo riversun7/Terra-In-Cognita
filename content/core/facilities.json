@@ -620,6 +620,100 @@
       },
       "durability": 600,
       "storageKg": 500000
+    },
+    {
+      "id": "temple",
+      "name": {
+        "ko": "신전",
+        "en": "Temple"
+      },
+      "stage": "religion",
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 12
+              },
+              {
+                "item": "stone",
+                "qty": 15
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 12
+              },
+              {
+                "item": "stone",
+                "qty": 10
+              },
+              {
+                "item": "brick",
+                "qty": 5
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "durability": 300
+    },
+    {
+      "id": "biotech_lab",
+      "name": {
+        "ko": "생명과학 연구소",
+        "en": "Biotech lab"
+      },
+      "stage": "biotech",
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 800,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 12
+              },
+              {
+                "item": "stone",
+                "qty": 10
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 12
+              },
+              {
+                "item": "brick",
+                "qty": 10
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "durability": 200
     }
   ]
 }

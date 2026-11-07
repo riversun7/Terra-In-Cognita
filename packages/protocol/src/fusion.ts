@@ -16,6 +16,11 @@ import { z } from "zod";
 export const FUSION_PROTOCOL_VERSION = 9;
 /** 유전자 메시지(합성·주입·인큐베이터·개발 시험)에 필요한 가장 낮은 프로토콜 버전 */
 export const GENE_PROTOCOL_VERSION = 11;
+/**
+ * 비활성 휴먼 유전자 변환(gene_convert, D-517 "유전자 조각(생명과학연구소)으로 변환", docs/adr/2026-11-07-temple-religion.md)에 필요한 가장
+ * 낮은 프로토콜 버전. 이 메시지의 답에만 새 코드(not_inactive·not_lab·lab_closed·wrong_city)가 간다
+ */
+export const GENE_CONVERT_PROTOCOL_VERSION = 12;
 /** 개발 시험 물자 받기 한 번의 상한(기본 단위 개 또는 화폐 최소 단위) */
 export const DEV_GRANT_GOODS_MAX = 1_000_000;
 /** 개발 시험 물자 받기에서 화폐(시험 화폐)를 가리키는 값 */
@@ -87,11 +92,26 @@ export const devGrantGeneMessage = z.object({
   skill: listId.optional(),
 });
 
-/** 개발 시험: 내 휴먼의 수명을 지금 끝낸다(수명이 다할 때의 처리를 바로 한다 — 유전자가 남고 유닛이 떠난다, dev·admin) */
+/**
+ * 개발 시험: 내 휴먼을 바로 유전자로 바꾼다(연구소·비활성·값 없이 변환 처리만 — 유전자가 남고 유닛이 떠난다, dev·admin). 이름은 판 11 그대로다.
+ * 수명을 끝내 비활성으로 만드는 시험은 temple.ts dev_inactivate_unit
+ */
 export const devExpireUnitMessage = z.object({
   t: z.literal("dev_expire_unit"),
   id: requestId,
   unit: rowId,
+});
+
+/**
+ * 비활성인 내 휴먼을 그 생명과학 연구소에서 유전자로 바꾼다(스탯 유전자 하나 + 배운 스킬마다 스킬 유전자, 유닛은 떠난다, D-517). 연구소가 선
+ * 도시에 그 유닛이 있어야 한다. cost = 기기가 본 변환 화폐(10진 문자열). 프로토콜 12부터
+ */
+export const geneConvertMessage = z.object({
+  t: z.literal("gene_convert"),
+  id: requestId,
+  buildingId: rowId,
+  unit: rowId,
+  cost: amount,
 });
 
 // ---------- 서버 → 기기 ----------
@@ -137,6 +157,14 @@ export const FUSION_RESULT_CODES = [
   "no_skill_slot",
   /** 새 휴먼을 세울 빈 칸이 없다 */
   "no_room",
+  /** 비활성이 아니다(수명이 남았다, 변환 — 판 12) */
+  "not_inactive",
+  /** 생명과학 연구소가 아니거나 없다(판 12) */
+  "not_lab",
+  /** 연구소가 짓는 중이거나 기능 정지(30% 미만, 판 12) */
+  "lab_closed",
+  /** 그 유닛이 연구소가 선 도시에 있지 않다(판 12) */
+  "wrong_city",
 ] as const;
 export type FusionResultCode = (typeof FUSION_RESULT_CODES)[number];
 
@@ -155,7 +183,7 @@ const fusionResultMessage = z.discriminatedUnion("ok", [
     bonusPm: z.number().int().nonnegative().max(1_000_000).optional(),
     /** 새로 생긴 유전자(합성·개발 시험 받기, 보유 물건 ID) */
     gene: rowId.optional(),
-    /** 수명이 다해 남은 유전자(개발 시험 수명 끝내기) */
+    /** 변환으로 남은 유전자(gene_convert·개발 시험) */
     genes: z.array(rowId).max(64).optional(),
     /** 합성 결과 총합(오름·내림·그대로)과 새 총합 */
     outcome: z.enum(GENE_OUTCOMES).optional(),
@@ -179,5 +207,6 @@ export const fusionClientMessages = [
   geneIncubateMessage,
   devGrantGeneMessage,
   devExpireUnitMessage,
+  geneConvertMessage,
 ] as const;
 export const fusionServerMessages = [fusionResultMessage] as const;

@@ -20,6 +20,7 @@ export type FusionClientMessage = ClientMessageOf<
   | "gene_incubate"
   | "dev_grant_gene"
   | "dev_expire_unit"
+  | "gene_convert"
 >;
 
 const MAX_PENDING = 8;
@@ -83,6 +84,12 @@ async function run(service: FusionService, viewer: Viewer, message: FusionClient
     case "dev_expire_unit":
       if (!canDevGrant(viewer)) return fail("forbidden");
       return service.devExpire(viewer.id, { unit: message.unit });
+    case "gene_convert":
+      return service.convert(viewer.id, {
+        buildingId: message.buildingId,
+        unit: message.unit,
+        cost: message.cost,
+      });
     default: {
       const unknown: never = message;
       return unknown;

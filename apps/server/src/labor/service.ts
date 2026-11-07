@@ -15,6 +15,7 @@
 //   시설 주인 것이 된다(옛 StorageUtils expireGraceStorage — 같은 건물 창고에서 주인만 바뀐다). 옮기기는 산출 거래를 넣은 뒤(정산 뒤 고리)
 //   한다. 임금형 몫은 예전처럼 고용주 기본 창고다(시설에 일꾼 물건이 남지 않는다).
 // - 건물 작업(짓기·수리 등)에 묶인 유닛은 계약을 맺지 못한다(unit_busy, D-516 364 — 작업 동안 직무 산출이 없다).
+// - 비활성(수명이 다한 휴먼, D-517)은 일하지 않는다: 계약을 맺지 못하고 열린 계약은 "유닛 사라짐"으로 끝난다(docs/adr/2026-11-07-temple-religion.md).
 import type { LaborResultCode } from "@terra/protocol";
 import type {
   LaborContractView,
@@ -84,7 +85,7 @@ export interface LaborService {
   /** 메모리 불변 조건(I14: 에스크로 = 보증금) */
   check(): string[];
   readonly contracts: ReadonlyMap<number, LaborContract>;
-  /** 유닛에 열린 계약(일함·일시 중지)이 있나 — 건물 작업 일꾼 확인 */
+  /** 유닛에 열린 계약(일함·일시 중지)이 있거나 비활성(D-517)인가 — 건물 작업 일꾼 확인 */
   unitBusy(unitId: number): boolean;
   /** 건물에 지금 일하는 계약(active)이 있나 — 건물 사용 닳음(D-509) */
   buildingInUse(buildingId: number): boolean;
@@ -120,6 +121,11 @@ export function createLaborService(options: {
   buildingWorks?: ((buildingId: number) => boolean) | undefined;
   /** 그 유닛이 건물 작업에 묶였나(건물 서비스). 묶였으면 계약을 맺지 못한다. 없으면 늘 false */
   unitInJob?: ((unitId: number) => boolean) | undefined;
+  /**
+   * 그 유닛이 일을 멈췄나(비활성 — 수명이 다한 휴먼, D-517, docs/adr/2026-11-07-temple-religion.md). 멈췄으면 계약을
+   * 맺지 못하고, 열린 계약은 다음 정산에서 "유닛 사라짐"으로 끝난다(옛 LifeEngine _processWraith "활성 계약 종료"). 없으면 늘 false
+   */
+  unitAway?: ((unitId: number) => boolean) | undefined;
 }): LaborService {
   const { maps, settlement, ledger, writer, now } = options;
   const contracts = new Map<number, LaborContract>(options.loaded.contracts.map((c) => [c.id, c]));
@@ -154,14 +160,18 @@ export function createLaborService(options: {
     ledger.ownerAccount(ownerId, ASSET_ORE, buildingLocation(buildingId));
   /** 계약·건물 작업 중인 유닛 */
   const unitBusy = (unitId: number): boolean =>
-    openContractOf(unitId) !== undefined || (options.unitInJob?.(unitId) ?? false);
+    openContractOf(unitId) !== undefined ||
+    (options.unitInJob?.(unitId) ?? false) ||
+    (options.unitAway?.(unitId) ?? false);
   /** 이번 정산에서 유예가 끝난 임대형 계약(정산 뒤 고리가 남은 물건을 옮긴다) */
   const leftoverQueue: LaborContract[] = [];
 
   /** 사라짐·주인 바뀜이면 그 사유(유닛이 먼저). 그대로면 null */
   const goneReason = (c: LaborContract): LaborEndReason | null => {
     const unitOwner = unitOwnerOf(c.unitId);
-    if (unitOwner === undefined || unitOwner !== c.workerOwnerId) return "unit_gone";
+    // 비활성(일하지 않음)도 유닛이 사라진 것처럼 끝낸다
+    if (unitOwner === undefined || unitOwner !== c.workerOwnerId || (options.unitAway?.(c.unitId) ?? false))
+      return "unit_gone";
     const buildingOwner = buildingOwnerOf(c.buildingId);
     return buildingOwner === undefined || buildingOwner !== c.ownerId ? "building_gone" : null;
   };
@@ -270,7 +280,7 @@ export function createLaborService(options: {
   return {
     outputsFor,
     contracts,
-    unitBusy: (unitId) => openContractOf(unitId) !== undefined,
+    unitBusy: (unitId) => openContractOf(unitId) !== undefined || (options.unitAway?.(unitId) ?? false),
     afterSettle(ownerId) {
       for (const c of leftoverQueue.splice(0)) {
         if (c.workerOwnerId !== ownerId) {

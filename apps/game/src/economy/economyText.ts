@@ -125,6 +125,8 @@ const STAGE_NAMES: Readonly<Record<string, () => string>> = {
   finish: m.economy_stage_finish,
   territory: m.economy_stage_territory,
   storage: m.economy_stage_storage,
+  religion: m.economy_stage_religion,
+  biotech: m.economy_stage_biotech,
 };
 
 export function stageName(stage: string): string {

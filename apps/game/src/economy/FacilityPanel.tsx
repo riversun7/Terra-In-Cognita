@@ -24,7 +24,7 @@ import {
   stockAt,
 } from "./facilityText.ts";
 import { Loaded } from "./parts.tsx";
-import { NO_ARGS, useFacilities, useNowTick } from "./queries.ts";
+import { NO_ARGS, useFacilities, useNowTick, useTemple } from "./queries.ts";
 import { PlacesList } from "./StorageParts.tsx";
 import "./facilities.css";
 
@@ -249,6 +249,8 @@ export function FacilityPanel() {
     setTone(outcome.ok ? "success" : "error");
     live.show([outcome.ok ? m.facility_done() : FACILITY_ERROR_TEXT[outcome.code]()]);
     facilities.refresh();
+    // 신전·연구소 칸(TemplePanel.tsx)도 건물 목록을 보인다
+    useTemple.refreshAll();
     return outcome.ok;
   };
   const data = facilities.data;

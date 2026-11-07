@@ -154,6 +154,35 @@ export const WORLD_TABLES = {
     columns: ["unit_id", "skill_id", "grade", "source", "learned_at_ms"],
     key: ["unit_id", "skill_id"],
   },
+  /** 유닛 신앙(D-451, 유저 휴먼): 유닛 다음에 쓰고, 유닛이 지워지면 DB가 함께 지운다(docs/adr/2026-11-07-temple-religion.md) */
+  unitFaith: {
+    name: "unit_faith",
+    columns: ["unit_id", "faith", "faith_points"],
+    key: ["unit_id"],
+  },
+  /** 기도 쿨다운(소유 주체마다 마지막 기도 시각, 소유 주체 다음에 쓴다) */
+  templeDevotions: {
+    name: "temple_devotions",
+    columns: ["owner_id", "last_prayed_at_ms"],
+    key: ["owner_id"],
+  },
+  /** 수호신 기록(D-311, 바탕 유닛 ID 열쇠 — 소유 주체·도시 다음에 쓴다) */
+  templeGuardians: {
+    name: "temple_guardians",
+    columns: [
+      "unit_id",
+      "owner_id",
+      "city_id",
+      "temple_id",
+      "level",
+      "rebirths",
+      "stats",
+      "elements",
+      "faith",
+      "deified_at_ms",
+    ],
+    key: ["unit_id"],
+  },
   /** 구인 카드 산 칸(D-469): 고용 주체 × 도시마다 한 줄(소유 주체·도시 다음에 쓴다) */
   recruitDraws: {
     name: "recruit_draws",
@@ -406,6 +435,9 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "humans",
   "cyborgUnits",
   "unitSkills",
+  "unitFaith",
+  "templeDevotions",
+  "templeGuardians",
   "recruitDraws",
   "factionWars",
   "npcSociety",

@@ -27,15 +27,15 @@ export interface CyborgRecord {
   readonly level: number;
   readonly exp: number;
   readonly rebirths: number;
-  /** 신앙도(D-451: 쌓이는 문턱 점수, 0~100) */
-  readonly faith: number;
+  /** 신앙도(D-451: 쌓이는 문턱 점수, 0~100). 신전 기도·헌금이 올린다(docs/adr/2026-11-07-temple-religion.md) */
+  faith: number;
   readonly createdAtMs: number;
   /** 생성·환생 속성값(D-450). null = 아직 나누지 않음(한 번 나누면 채운다) */
   elements: ElementValues | null;
   /** 종교 코드(D-451, 지금은 고르는 길이 없어 null) */
   readonly religion: string | null;
   /** 신앙 포인트(D-451) */
-  readonly faithPoints: number;
+  faithPoints: number;
   /**
    * 받은 정착 지원금(D-455 190: 강하 때, D-456: 지원금 전에 만든 사이보그는 한 번 속성 분배 때). null = 아직 받지 않음
    */

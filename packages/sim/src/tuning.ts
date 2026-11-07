@@ -7,6 +7,7 @@ import type { CombatFormulaSet } from "./combat/formulas.ts";
 import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "./society/coefficients.ts";
 import { BUILD_TUNING_KEYS } from "./tuningBuild.ts";
 import { FUSION_TUNING_KEYS } from "./tuningFusion.ts";
+import { TEMPLE_TUNING_KEYS } from "./tuningTemple.ts";
 import { RECRUIT_TUNING_KEYS } from "./tuningRecruit.ts";
 import { CYBORG_TUNING_KEYS } from "./tuningCyborg.ts";
 import { GARDENER_TUNING_KEYS } from "./tuningGardener.ts";
@@ -553,6 +554,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...LABOR_TUNING_KEYS,
   // 사이보그 유닛 융합·유전자 조각(49 N46·N47, D-470·D-478·D-481): tuningFusion.ts
   ...FUSION_TUNING_KEYS,
+  // 신전·종교(49 S15, D-311·D-441·D-451·기획 정리 395 나): tuningTemple.ts
+  ...TEMPLE_TUNING_KEYS,
   // 운영자 시스템 온/오프 스위치(49 N53, D-513): tuningSwitches.ts
   ...SWITCH_TUNING_KEYS,
 ];

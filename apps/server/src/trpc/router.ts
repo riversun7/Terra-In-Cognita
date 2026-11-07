@@ -19,6 +19,7 @@ import { planetEditorRouter } from "./planetEditor.ts";
 import { rankingRouter } from "./ranking.ts";
 import { recruitRouter } from "./recruit.ts";
 import { fusionRouter } from "./fusion.ts";
+import { templeRouter } from "./temple.ts";
 import { cyborgRouter, unitsRouter } from "./roster.ts";
 import { settingsRouter } from "./settings.ts";
 import { itemsRouter } from "./items.ts";
@@ -60,8 +61,10 @@ export const appRouter = router({
   cyborg: cyborgRouter,
   // 구인 카드(D-469, 조회만 — 고용은 WebSocket recruit_hire)
   recruit: recruitRouter,
-  // 사이보그 유닛 융합·유전자(D-470·D-478, 조회만 — 명령은 WebSocket cyborg_fuse·unit_rebirth)
+  // 사이보그 유닛 융합·유전자(D-470·D-478, 조회만 — 명령은 WebSocket cyborg_fuse·gene_*)
   fusion: fusionRouter,
+  // 신전·종교(조회만 — 명령은 WebSocket temple_*, docs/adr/2026-11-07-temple-religion.md)
+  temple: templeRouter,
   // 경제 화면(창고·생산·거래창·환전) 조회(ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)")
   economy: economyRouter,
   // 세력·우편 화면(조회만, D-439·D-270)

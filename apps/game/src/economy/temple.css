@@ -1,0 +1,91 @@
+/* 신전·생명과학 연구소 칸(TemplePanel.tsx, D-517) — 경제 화면 토큰만 쓴다(AGENTS 8장). 노동 계약 칸(labor.css)의 카드·단추 줄을 같이 쓴다.
+   좁은 화면이 먼저다: 줄은 감싸고, 칸은 세로로 쌓는다 */
+.temple-rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-inline-start: var(--space-4);
+  font-size: var(--font-size-sm);
+}
+.temple-faith {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.temple-list,
+.temple-humans {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.temple-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  min-inline-size: 0;
+}
+.temple-card p,
+.temple-human p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.temple-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+.temple-card-title {
+  font-weight: var(--font-weight-strong);
+}
+.temple-card-head .eco-tag {
+  margin-inline-start: var(--space-2);
+}
+.temple-human {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  min-inline-size: 0;
+}
+.temple-human[data-inactive="true"] {
+  border-color: var(--color-warning);
+}
+.temple-inactive {
+  margin-inline-end: var(--space-2);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+}
+.temple-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+.temple-field {
+  display: flex;
+  flex: 1 1 12em;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  font-size: var(--font-size-sm);
+}
+.temple-field input {
+  min-inline-size: 0;
+  inline-size: 100%;
+}

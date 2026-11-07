@@ -33,8 +33,10 @@
  *    facility_result(새 코드 not_storage·storage_full·no_place는 이 판 메시지의 답에만 간다), dev_facility_grant에 짓는 자리 칸
  *    (mapKey·x·y, 선택). 두 줄기를 배포 전에 합쳐 한 판으로 올렸다.
  * 12: 건물·영토 비콘 공격(facilities.ts facility_attack, 질문 381, docs/adr/2026-11-07-buildings-runtime.md "바뀜 (전투·건물)") →
- *    facility_result(doneAtMs = 전투 결과 적용 시각, 새 코드 own_target·target_ruined·out_of_reach·safe_zone은 이 메시지의 답에만 간다). 더하기만
- *    했다. 11판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
+ *    facility_result(doneAtMs = 전투 결과 적용 시각, 새 코드 own_target·target_ruined·out_of_reach·safe_zone은 이 메시지의 답에만 간다).
+ *    신전·종교(temple.ts, docs/adr/2026-11-07-temple-religion.md, D-517) — temple_pray·temple_offer·temple_rite·dev_inactivate_unit →
+ *    temple_result. 비활성 휴먼 유전자 변환(fusion.ts gene_convert → fusion_result, 새 코드 not_inactive·not_lab·lab_closed·wrong_city는
+ *    이 판 메시지의 답에만 간다). 두 줄기를 배포 전에 합쳐 한 판으로 올렸다. 더하기만 했고 11판 기기는 그대로 받는다.
  */
 export const PROTOCOL_VERSION = 12;
 

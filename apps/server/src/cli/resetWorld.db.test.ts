@@ -107,9 +107,10 @@ describe.skipIf(!TEST_DATABASE_URL)("reset-world (DB)", () => {
 
   it("다른 연결이 없으면 세계 표를 모두 비우고 계정·감사 기록·개발 도구 자료는 남긴다", async () => {
     const factionsBefore = await count(test.db, "factions");
-    // 앱이 멈춘 상태를 흉내: 시험 연결을 닫는다
+    // 앱이 멈춘 상태를 흉내: 시험 연결을 닫는다. 닫은 연결이 서버의 연결 목록(pg_stat_activity)에서 빠지는 데 잠깐 걸리므로
+    // 운영 워크플로처럼 기다린다(--wait 0이면 그 틈에 "다른 연결 있음"으로 거절된다 — CI PostgreSQL 18에서 봄)
     await closeDatabase(test.db);
-    const result = await cli(["reset-world", "--confirm", RESET_CONFIRM, "--wait", "0"], env);
+    const result = await cli(["reset-world", "--confirm", RESET_CONFIRM, "--wait", "10"], env);
     expect(result.code, result.err.join("\n")).toBe(0);
     expect(result.out[0]).toMatch(/^세계를 비웠습니다/);
 

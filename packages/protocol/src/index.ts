@@ -49,7 +49,12 @@ export {
   type CyborgRollWire,
 } from "./cyborg.ts";
 export { ITEM_PROTOCOL_VERSION, ITEM_RESULT_CODES, type ItemResultCode } from "./items.ts";
-export { LABOR_PROTOCOL_VERSION, LABOR_RESULT_CODES, type LaborResultCode } from "./labor.ts";
+export {
+  LABOR_JOBS_PROTOCOL_VERSION,
+  LABOR_PROTOCOL_VERSION,
+  LABOR_RESULT_CODES,
+  type LaborResultCode,
+} from "./labor.ts";
 export {
   BEACON_RESULT_CODES,
   TERRITORY_PROTOCOL_VERSION,

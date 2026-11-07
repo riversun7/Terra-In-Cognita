@@ -158,7 +158,7 @@ describe("노동 계약 — 임금형(옛 salary_engine·WAGE)", () => {
     expect(audit.check(book.accounts())).toEqual([]);
   });
 
-  it("해고하면 남은 보증금을 돌려준다(옛 fireMinion). 이미 끝난 계약은 다시 해지하지 않는다", () => {
+  it("해고하면 남은 보증금을 돌려주고 바로 끝(일꾼 물건이 없어 유예 없음). 이미 끝난 계약은 다시 해지하지 않는다", () => {
     const { book, audit, accounts } = world();
     const c = open(book, accounts);
     expect(terminateLabor(c, 3 * DAY + 1, "owner", book, accounts, rules)).toBe(true);
@@ -167,6 +167,8 @@ describe("노동 계약 — 임금형(옛 salary_engine·WAGE)", () => {
     expect(book.balanceOf(EMPLOYER, CUR)).toBe(ISSUED - 80n);
     expect(book.balance(accounts.escrow(c))).toBe(0n);
     expect(c.endReason).toBe("owner");
+    expect(c.state).toBe("ended");
+    expect(c.graceUntilMs).toBeNull();
     expect(terminateLabor(c, 4 * DAY, "worker", book, accounts, rules)).toBe(false);
     expect(checkLaborEscrow([c], book)).toEqual([]);
     expect(audit.check(book.accounts())).toEqual([]);
@@ -264,15 +266,69 @@ describe("노동 계약 — 임대형(D-479 시간당, 옛 독점형)", () => {
     expect(setLeaseRent(c, 0n)).toBe(false);
   });
 
-  it("첫 임대료를 못 내면 맺지 않는다. 손으로 해지하면 유예 없이 끝난다", () => {
+  it("첫 임대료를 못 내면 맺지 않는다", () => {
     const { book, accounts } = world(0n, 9n);
     expect(openLabor(lease(), book, accounts, rules)).toEqual({ ok: false, code: "insufficient_funds" });
-    const rich = world(0n, 1000n);
-    const result = openLabor(lease(), rich.book, rich.accounts, rules);
+  });
+
+  it("손으로 해지해도(어느 쪽이든) 7일 유예에 든다(기획 341). 유예는 손으로 일찍 끝내지 않는다", () => {
+    for (const reason of ["owner", "worker"] as const) {
+      const { book, audit, accounts } = world(0n, 1000n);
+      const result = openLabor(lease(), book, accounts, rules);
+      if (!result.ok) throw new Error(result.code);
+      const c = result.contract;
+      expect(terminateLabor(c, HOUR / 2, reason, book, accounts, rules)).toBe(true);
+      expect(c.state).toBe("grace");
+      expect(c.endReason).toBe(reason);
+      expect(c.endedAtMs).toBe(HOUR / 2);
+      expect(c.graceUntilMs).toBe(HOUR / 2 + 7 * DAY);
+      expect(c.leftoversMovedAtMs).toBeNull();
+      // 유예 중에는 임대료가 나가지 않고, 어느 쪽도 손으로 끝내지 못한다
+      expect(terminateLabor(c, DAY, "owner", book, accounts, rules)).toBe(false);
+      expect(terminateLabor(c, DAY, "worker", book, accounts, rules)).toBe(false);
+      expect(c.state).toBe("grace");
+      expect(c.paidTotal).toBe(10n);
+      expect(audit.check(book.accounts())).toEqual([]);
+    }
+  });
+
+  it("유예가 끝나면 남은 물건이 시설 주인에게 넘어간 시각을 적는다(옛 StorageUtils, 기록만)", () => {
+    const { book, accounts } = world(0n, 1000n);
+    const result = openLabor(lease(), book, accounts, rules);
     if (!result.ok) throw new Error(result.code);
-    expect(terminateLabor(result.contract, HOUR / 2, "worker", rich.book, rich.accounts, rules)).toBe(true);
-    expect(result.contract.state).toBe("ended");
-    expect(result.contract.graceUntilMs).toBeNull();
+    const c = result.contract;
+    terminateLabor(c, HOUR, "owner", book, accounts, rules);
+    const segments = settleLabor(c, 10 * DAY, book, accounts, rules);
+    expect(c.state).toBe("ended");
+    expect(c.graceUntilMs).toBeNull();
+    expect(c.leftoversMovedAtMs).toBe(HOUR + 7 * DAY);
+    expect(c.endReason).toBe("owner");
+    expect(segments).toEqual([{ untilMs: 10 * DAY, mode: "free" }]);
+  });
+
+  it("시설이 사라지면 유예 없이 끝나고(옮길 곳이 없다), 유예 중이면 유예만 끝낸다(넘어간 물건 없음)", () => {
+    const { book, accounts } = world(0n, 1000n);
+    const gone = openLabor(lease(), book, accounts, rules);
+    if (!gone.ok) throw new Error(gone.code);
+    expect(terminateLabor(gone.contract, HOUR, "building_gone", book, accounts, rules)).toBe(true);
+    expect(gone.contract.state).toBe("ended");
+    expect(gone.contract.graceUntilMs).toBeNull();
+    const later = openLabor(lease({ id: 8 }), book, accounts, rules);
+    if (!later.ok) throw new Error(later.code);
+    terminateLabor(later.contract, HOUR, "worker", book, accounts, rules);
+    expect(terminateLabor(later.contract, 2 * DAY, "building_gone", book, accounts, rules)).toBe(true);
+    expect(later.contract.state).toBe("ended");
+    expect(later.contract.endReason).toBe("worker");
+    expect(later.contract.leftoversMovedAtMs).toBeNull();
+  });
+
+  it("유닛이 사라져도 임차인 물건을 위해 유예에 든다(D-161 해석)", () => {
+    const { book, accounts } = world(0n, 1000n);
+    const result = openLabor(lease(), book, accounts, rules);
+    if (!result.ok) throw new Error(result.code);
+    expect(terminateLabor(result.contract, HOUR, "unit_gone", book, accounts, rules)).toBe(true);
+    expect(result.contract.state).toBe("grace");
+    expect(result.contract.endReason).toBe("unit_gone");
   });
 });
 

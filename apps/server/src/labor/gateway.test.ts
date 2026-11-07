@@ -1,4 +1,4 @@
-// 노동 계약 연결 처리 시험 — 로그인, 세계 준비 전, 차례 처리, 금액 글자 → BigInt, 결과 메시지 모양
+// 노동 계약 연결 처리 시험 — 로그인, 세계 준비 전, 차례 처리, 금액 글자 → BigInt, 결과 메시지 모양, 구인 게시 셋
 import { decodeServerMessage } from "@terra/protocol";
 import { describe, expect, it } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
@@ -33,7 +33,22 @@ function fakeService(calls: string[]): LaborService {
       calls.push(`rent:${userId}:${id}:${rent}`);
       return Promise.resolve({ ok: true });
     },
+    postJob: (userId, input) => {
+      calls.push(
+        `post:${userId}:${input.buildingId}:${input.adjustPm}:${input.slots}:${input.termHours ?? "-"}`,
+      );
+      return Promise.resolve({ ok: true, jobId: 4 });
+    },
+    withdrawJob: (userId, jobId) => {
+      calls.push(`withdraw:${userId}:${jobId}`);
+      return Promise.resolve({ ok: false, code: "job_not_open" });
+    },
+    acceptJob: (userId, jobId, unitId) => {
+      calls.push(`accept:${userId}:${jobId}:${unitId}`);
+      return Promise.resolve({ ok: true, contractId: 12 });
+    },
     overview: notUsed,
+    jobs: notUsed,
     check: () => [],
   };
 }
@@ -68,6 +83,21 @@ describe("노동 계약 연결 처리", () => {
       { t: "labor_result", id: 2, ok: true },
       { t: "labor_result", id: 3, ok: true },
       { t: "labor_result", id: 4, ok: false, code: "not_open" },
+    ]);
+  });
+
+  it("구인 내기·거두기·받기를 넘기고 결과에 새 게시·계약 ID를 싣는다", async () => {
+    const calls: string[] = [];
+    const { sent, socket } = open(fakeService(calls), viewer);
+    socket.handle({ t: "labor_post_job", id: 1, buildingId: 3, adjustPm: 1200, slots: 2, termHours: 48 });
+    socket.handle({ t: "labor_withdraw_job", id: 2, jobId: 4 });
+    socket.handle({ t: "labor_accept_job", id: 3, jobId: 4, unitId: 9 });
+    for (let i = 0; i < 8; i++) await settle();
+    expect(calls).toEqual(["post:user-1:3:1200:2:48", "withdraw:user-1:4", "accept:user-1:4:9"]);
+    expect(sent).toEqual([
+      { t: "labor_result", id: 1, ok: true, jobId: 4 },
+      { t: "labor_result", id: 2, ok: false, code: "job_not_open" },
+      { t: "labor_result", id: 3, ok: true, contractId: 12 },
     ]);
   });
 

@@ -6,9 +6,13 @@
 //   일시 중지(옛 ContractDistributor.js INSUFFICIENT_WAGE_BUDGET). 채우면 바로 다시 일한다(옛 ProductionRepository 자동 재개).
 //   해고·만료면 남은 보증금을 고용주에게 돌려준다(옛 fireMinion). 산출은 고용주 몫(옛 "100% 건물 창고").
 // - 임대형: 임차인(유닛 소유 주체)이 시설을 빌린다. 시간당 임대료(오너가 정함, D-479)를 매시간 먼저(선불) 임차인 지갑에서 오너
-//   지갑으로 바로 낸다. 산출은 임차인 몫. 못 내거나 기간이 끝나면 해지하고 유예(N48 7일, 옛 독점형 grace_expires_at)에 든다.
-//   유예는 시설 창고에 남은 임차인 물건을 가져갈 기간이다(옛 StorageUtils.js expireGraceStorage). 시설 창고가 아직 없어
-//   지금은 상태만 있다(부르는 쪽이 유예 끝을 듣는다).
+//   지갑으로 바로 낸다. 산출은 임차인 몫. 못 내거나 기간이 끝나거나 손으로 해지하면(어느 쪽이든, 기획 341) 유예(N48 7일, 옛 독점형
+//   grace_expires_at)에 든다. 유예는 시설 창고에 남은 임차인 물건을 가져갈 기간이다. 유예 없이 물건이 시설 주인에게 가면 점령이
+//   아닌 소유 이전이 된다(D-161, 시설 주인이 해지해 임차인 물건을 가져가는 길을 막는다). 유예는 시각으로만 끝난다(손으로 일찍
+//   끝내지 않는다, 옛 자정 일괄 처리처럼). 유예가 끝나면 남은 물건이 시설 주인 창고로 넘어간다(옛 StorageUtils.js:286-298
+//   expireGraceStorage) — 그 시각을 leftoversMovedAtMs에 적는다. 시설 창고가 아직 없어 옮길 물건은 없다(규칙·기록만).
+//   시설이 사라지면(building_gone) 옮길 곳이 없어 유예 없이 끝난다.
+// - 임금형은 산출이 모두 고용주 몫이라(옛 ContractDistributor.js:129-130) 시설에 일꾼 물건이 남지 않는다 → 손 해지도 유예 없이 끝.
 // - 해지는 시설 주인·유닛 소유 주체가 언제든(옛 production_routes.js:407). 기간은 선택 칸, 위약금은 없다(옛 규칙 없음).
 // - 지급 시각마다 거래 하나(중복 방지 키 labor:<계약>:<시각>). 정산은 (지난 정산, toMs]를 시각 차례대로 돌고, 그 사이 유닛이
 //   일했는지(구간)를 돌려준다 → 부르는 쪽이 직무 산출을 계약 몫으로 나눈다(settle/owner.ts outputs).
@@ -43,7 +47,7 @@ export const OLD_LABOR_RULES: LaborRules = {
 export const LABOR_KINDS = ["wage", "lease"] as const;
 export type LaborKind = (typeof LABOR_KINDS)[number];
 
-/** active 일함, paused 일시 중지(임금형 보증금 모자람), grace 해지 뒤 유예(임대형), ended 끝 */
+/** active 일함, paused 일시 중지(임금형 보증금 모자람), grace 해지 뒤 유예(임대형: 미납·만료·손 해지·유닛 사라짐), ended 끝 */
 export const LABOR_STATES = ["active", "paused", "grace", "ended"] as const;
 export type LaborState = (typeof LABOR_STATES)[number];
 
@@ -83,13 +87,18 @@ export interface LaborContract {
   /** 다음 지급 시각(선불: 이 시각부터 한 주기 몫을 낸다) */
   nextDueMs: number;
   state: LaborState;
-  /** 유예 끝(임대형 미납·만료). 유예가 아니면 null */
+  /** 유예 끝(임대형 해지 뒤). 유예가 아니면 null */
   graceUntilMs: number | null;
   /** 해지된 시각(유예에 들 때도 그 시각) */
   endedAtMs: number | null;
   endReason: LaborEndReason | null;
   /** 지금까지 낸 임금·임대료 합 */
   paidTotal: bigint;
+  /**
+   * 유예가 끝나 시설 창고에 남은 임차인 물건이 시설 주인 창고로 넘어간 시각(옛 StorageUtils.js expireGraceStorage).
+   * 유예를 거치지 않고 끝났거나 아직이면 null. 시설 창고가 아직 없어 넘어간 물건은 없다(기록만)
+   */
+  leftoversMovedAtMs: number | null;
 }
 
 /**
@@ -195,7 +204,7 @@ function end(c: LaborContract, atMs: number, reason: LaborEndReason): void {
   c.endReason = reason;
 }
 
-/** 해지하고 유예에 든다(임대형 미납·만료) */
+/** 해지하고 유예에 든다(임대형 미납·만료·손 해지·유닛 사라짐) */
 function enterGrace(c: LaborContract, atMs: number, reason: LaborEndReason, rules: LaborRules): void {
   c.state = "grace";
   c.graceUntilMs = atMs + rules.graceMs;
@@ -276,8 +285,10 @@ export function settleLabor(
     if (at > toMs) break;
     push(at);
     if (c.state === "grace") {
+      // 유예 끝: 남은 물건이 시설 주인에게 넘어간다(기록만)
       c.state = "ended";
       c.graceUntilMs = null;
+      c.leftoversMovedAtMs = at;
     } else if (c.endsAtMs !== null && at >= c.endsAtMs) {
       if (c.kind === "wage") {
         refund(c, at, book, accounts);
@@ -336,6 +347,7 @@ export function openLabor(
     endedAtMs: null,
     endReason: null,
     paidTotal: 0n,
+    leftoversMovedAtMs: null,
   };
   if (input.kind === "wage") {
     const deposit = requiredDeposit(input.rate, rules);
@@ -392,8 +404,11 @@ export function topUpLabor(
 }
 
 /**
- * 해지한다(시설 주인·유닛 소유 주체 언제든, 유닛·시설이 사라졌을 때). 임금형은 남은 보증금을 고용주에게 돌려준다.
- * 손으로 해지하면 유예 없이 끝난다(유예는 미납·만료만, N48). 이미 끝났으면 false
+ * 해지한다(시설 주인·유닛 소유 주체 언제든, 유닛·시설이 사라졌을 때).
+ * - 임금형: 남은 보증금을 고용주에게 돌려주고 바로 끝(시설에 일꾼 물건이 없다).
+ * - 임대형: 유예에 든다(손 해지도, 기획 341·N48). 시설이 사라졌으면(building_gone) 옮길 곳이 없어 바로 끝.
+ * - 유예 중이면 시설이 사라졌을 때만 유예를 끝낸다(남은 물건은 넘어가지 않는다). 손으로는 유예를 일찍 끝내지 않는다(false).
+ * 이미 끝났으면 false
  */
 export function terminateLabor(
   c: LaborContract,
@@ -406,9 +421,14 @@ export function terminateLabor(
   settleLabor(c, atMs, book, accounts, rules);
   if (c.state === "ended") return false;
   if (c.state === "grace") {
-    // 유예 중 해지: 유예만 끝낸다(해지 사유·시각은 그대로)
+    if (reason !== "building_gone") return false;
+    // 유예 중 시설이 사라짐: 유예만 끝낸다(해지 사유·시각은 그대로, 넘어간 물건 없음)
     c.state = "ended";
     c.graceUntilMs = null;
+    return true;
+  }
+  if (c.kind === "lease" && reason !== "building_gone") {
+    enterGrace(c, atMs, reason, rules);
     return true;
   }
   refund(c, atMs, book, accounts);

@@ -1,10 +1,10 @@
 // 노동 계약 DB 통합 시험(docs/adr/2026-11-03-labor-contracts.md) — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
-// 가짜 시계로 임금형(보증금·자동 해고·일시 중지·채우기)·임대형(임대료·유예)을 돌리고, 원장 불변 조건(I1·I2·I14)과
-// 다시 켠 뒤의 복구를 본다.
+// 가짜 시계로 임금형(보증금·자동 해고·일시 중지·채우기)·임대형(임대료·유예, 손 해지 유예 = 기획 341)·구인 게시(남의 유닛 고용)를
+// 돌리고, 원장 불변 조건(I1·I2·I14)과 다시 켠 뒤의 복구를 본다.
 import { UPKEEP_PERIOD_MS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
-import { ASSET_CREDIT } from "../world/settlement.ts";
+import { ASSET_CREDIT, ASSET_ORE } from "../world/settlement.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { laborEscrowCode } from "@terra/sim";
@@ -199,7 +199,9 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
     p.settlement.settleOwner(tenant.ownerId, clock);
     expect(contract?.state).toBe("ended");
     expect(await world.checkInvariants()).toEqual([]);
-    // 끝난 지 7일이 지난 계약은 화면에서 빠진다(DB에는 남는다)
+    // 끝난 계약은 유예 끝(남은 물건이 넘어간 시각)부터 7일 화면에 남고, 그 뒤 빠진다(DB에는 남는다)
+    expect(p.labor.overview(tenant.userId).contracts[0]?.leftoversMovedAt).toBe(T0 + 3 * HOUR + 7 * DAY);
+    clock = T0 + 15 * DAY;
     expect(p.labor.overview(tenant.userId).contracts).toEqual([]);
   });
 
@@ -235,5 +237,226 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
     // 두 계약의 남은 보증금(560씩)이 돌아온다(유지비 2를 빼고)
     expect(q.ledger.balanceOf(a.ownerId, ASSET_CREDIT)).toBe(before + 1120n - 2n);
     expect(await second.checkInvariants()).toEqual([]);
+  });
+
+  it("구인 게시: 시설 주인이 일자리를 내고 남의 유닛 주인이 받으면 임금형(고용주 = 시설 주인, 산출은 고용주 몫)", async () => {
+    const world = await boot();
+    const p = persistence(world);
+    const boss = await setup(world, "boss", { workers: 0, credit: 100_000n, building: 40 });
+    const hand = await setup(world, "hand", { workers: 2, credit: 1_000n });
+    const [unitA = 0, unitB = 0] = hand.units;
+    // 남의 시설에는 내지 못한다. 조정이 N28 범위(800~1500‰) 밖이면 내지 못한다
+    expect(
+      await p.labor.postJob(hand.userId, { buildingId: boss.buildingId, adjustPm: 1200, slots: 1 }),
+    ).toEqual({ ok: false, code: "forbidden" });
+    expect(
+      await p.labor.postJob(boss.userId, { buildingId: boss.buildingId, adjustPm: 2000, slots: 1 }),
+    ).toEqual({ ok: false, code: "invalid_terms" });
+    expect(
+      await p.labor.postJob(boss.userId, {
+        buildingId: boss.buildingId,
+        adjustPm: 1200,
+        slots: 2,
+        termHours: 72,
+      }),
+    ).toEqual({ ok: true, jobId: 1 });
+    // 게시판: 남에게 보인다(임금 = 효율 10 × 단가 2.0 × 1.2 = 24, 한 명에 보증금 720). 낸 사람은 "내 구인"에서 본다
+    const seen = p.labor.jobs(hand.userId, {});
+    expect(seen.jobs.map((j) => [j.id, j.buildingId, j.wage, j.deposit, j.slots, j.filled, j.own])).toEqual([
+      [1, boss.buildingId, "24", "720", 2, 0, false],
+    ]);
+    const cityId = seen.jobs[0]?.cityId ?? null;
+    expect(cityId).not.toBeNull();
+    expect(seen.cities).toEqual([{ id: cityId, jobs: 1 }]);
+    expect(p.labor.jobs(hand.userId, { cityId: (cityId ?? 0) + 1000 }).jobs).toEqual([]);
+    expect(p.labor.jobs(hand.userId, { buildingId: boss.buildingId }).total).toBe(1);
+    expect(p.labor.jobs(boss.userId, {}).jobs).toEqual([]);
+    expect(p.labor.overview(boss.userId).jobs.map((j) => [j.id, j.own, j.filled])).toEqual([[1, true, 0]]);
+
+    const bossBefore = p.ledger.balanceOf(boss.ownerId, ASSET_CREDIT);
+    expect(await p.labor.acceptJob(hand.userId, 1, unitA)).toEqual({ ok: true, contractId: 1 });
+    const first = p.labor.contracts.get(1);
+    expect([
+      first?.kind,
+      first?.ownerId,
+      first?.workerOwnerId,
+      first?.rate,
+      first?.deposit,
+      first?.endsAtMs,
+    ]).toEqual(["wage", boss.ownerId, hand.ownerId, 24n, 696n, clock + 72 * HOUR]);
+    expect(p.ledger.balanceOf(boss.ownerId, ASSET_CREDIT)).toBe(bossBefore - 720n);
+    expect(await p.labor.acceptJob(hand.userId, 1, unitA)).toEqual({ ok: false, code: "unit_busy" });
+    expect(p.labor.overview(hand.userId).contracts.map((c) => [c.id, c.kind, c.role])).toEqual([
+      [1, "wage", "worker"],
+    ]);
+    expect(p.labor.overview(boss.userId).contracts.map((c) => [c.id, c.role])).toEqual([[1, "owner"]]);
+    // 두 번째로 받으면 자리가 다 차서 닫힌다
+    expect(await p.labor.acceptJob(hand.userId, 1, unitB)).toEqual({ ok: true, contractId: 2 });
+    expect(p.labor.overview(boss.userId).jobs).toEqual([]);
+    expect(p.labor.jobs(hand.userId, {}).jobs).toEqual([]);
+    expect(await p.labor.acceptJob(hand.userId, 1, unitB)).toEqual({ ok: false, code: "job_not_open" });
+    expect(await rows(test.db, "select state, filled from labor_postings where id = 1")).toEqual([
+      { state: "filled", filled: 2 },
+    ]);
+
+    // 일한 산출은 고용주 몫(일꾼 주인 창고에는 들어오지 않는다)
+    const handOre = p.ledger.balanceOf(hand.ownerId, ASSET_ORE);
+    const bossOre = p.ledger.balanceOf(boss.ownerId, ASSET_ORE);
+    clock += 6 * HOUR;
+    p.settlement.settleOwner(hand.ownerId, clock);
+    expect(p.ledger.balanceOf(boss.ownerId, ASSET_ORE)).toBeGreaterThan(bossOre);
+    expect(p.ledger.balanceOf(hand.ownerId, ASSET_ORE)).toBe(handOre);
+
+    // 어느 쪽이든 해지한다: 남은 보증금은 고용주에게(임금형은 유예 없이 끝)
+    const bossNow = p.ledger.balanceOf(boss.ownerId, ASSET_CREDIT);
+    expect(await p.labor.terminate(hand.userId, 1)).toEqual({ ok: true });
+    expect([first?.state, first?.endReason]).toEqual(["ended", "worker"]);
+    expect(await p.labor.terminate(boss.userId, 2)).toEqual({ ok: true });
+    expect(p.labor.contracts.get(2)?.endReason).toBe("owner");
+    expect(p.ledger.balanceOf(boss.ownerId, ASSET_CREDIT)).toBe(bossNow + 696n + 696n);
+    expect(await world.checkInvariants()).toEqual([]);
+  });
+
+  it("구인: 다시 내면 바꾸고, 거두면 더 받지 않으며(맺은 계약은 그대로), 시설이 사라지면 받을 때 닫는다", async () => {
+    const first = await boot();
+    const p = persistence(first);
+    const boss = await setup(first, "chief", { workers: 1, credit: 900n, building: 40 });
+    const hand = await setup(first, "helper", { workers: 2, credit: 1_000n });
+    const [unitA = 0, unitB = 0] = hand.units;
+    const bossUnit = boss.units[0] ?? 0;
+    expect(
+      await p.labor.postJob(boss.userId, { buildingId: boss.buildingId, adjustPm: 1000, slots: 3 }),
+    ).toEqual({ ok: true, jobId: 1 });
+    // 같은 시설에 다시 내면 바꾼다(앞 게시는 거둠)
+    expect(
+      await p.labor.postJob(boss.userId, { buildingId: boss.buildingId, adjustPm: 800, slots: 3 }),
+    ).toEqual({ ok: true, jobId: 2 });
+    expect(p.labor.jobs(hand.userId, {}).jobs.map((j) => [j.id, j.wage, j.deposit])).toEqual([
+      [2, "16", "480"],
+    ]);
+    expect(await p.labor.acceptJob(hand.userId, 1, unitA)).toEqual({ ok: false, code: "job_not_open" });
+    // 자기 게시·없는 유닛·남의 유닛으로는 받지 않는다
+    expect(await p.labor.acceptJob(boss.userId, 2, bossUnit)).toEqual({ ok: false, code: "invalid_terms" });
+    expect(await p.labor.acceptJob(hand.userId, 2, 999_999)).toEqual({ ok: false, code: "unknown_unit" });
+    expect(await p.labor.acceptJob(hand.userId, 2, bossUnit)).toEqual({ ok: false, code: "forbidden" });
+    // 고용주 900 → 첫 사람 보증금 480, 남은 420으로는 두 번째를 받지 못한다
+    expect(await p.labor.acceptJob(hand.userId, 2, unitA)).toEqual({ ok: true, contractId: 1 });
+    expect(await p.labor.acceptJob(hand.userId, 2, unitB)).toEqual({
+      ok: false,
+      code: "employer_insufficient_funds",
+    });
+    // 거두기는 낸 사람만. 거둬도 맺은 계약은 그대로
+    expect(await p.labor.withdrawJob(hand.userId, 2)).toEqual({ ok: false, code: "forbidden" });
+    expect(await p.labor.withdrawJob(boss.userId, 2)).toEqual({ ok: true });
+    expect(await p.labor.withdrawJob(boss.userId, 2)).toEqual({ ok: false, code: "job_not_open" });
+    expect(await p.labor.acceptJob(hand.userId, 2, unitB)).toEqual({ ok: false, code: "job_not_open" });
+    expect(p.labor.contracts.get(1)?.state).toBe("active");
+    await p.writer.durable();
+    expect(await rows(test.db, "select id, state, filled from labor_postings order by id")).toEqual([
+      { id: "1", state: "withdrawn", filled: 0 },
+      { id: "2", state: "withdrawn", filled: 1 },
+    ]);
+
+    // 열린 게시는 다시 켜도 이어진다
+    expect(
+      await p.labor.postJob(boss.userId, { buildingId: boss.buildingId, adjustPm: 900, slots: 1 }),
+    ).toEqual({ ok: true, jobId: 3 });
+    await p.writer.durable();
+    await first.crashForTest("commit");
+    const second = await boot();
+    const q = persistence(second);
+    expect([...q.labor.contracts.keys()]).toEqual([1]);
+    expect(q.labor.jobs(hand.userId, {}).jobs.map((j) => j.id)).toEqual([3]);
+    // 시설이 사라지면 게시판에서 빠지고, 받으려 하면 닫는다(gone)
+    expect(second.maps.get(boss.map.mapKey)?.removeBuilding(boss.buildingId)).toEqual({ ok: true });
+    expect(q.labor.jobs(hand.userId, {}).jobs).toEqual([]);
+    expect(await q.labor.acceptJob(hand.userId, 3, unitB)).toEqual({ ok: false, code: "job_not_open" });
+    await q.writer.durable();
+    expect(await rows(test.db, "select state from labor_postings where id = 3")).toEqual([{ state: "gone" }]);
+    expect(await second.checkInvariants()).toEqual([]);
+  });
+
+  it("임대형 손 해지(기획 341): 어느 쪽이든 7일 유예, 유예 중에는 손으로 끝내지 않고, 끝나면 넘어간 시각을 적는다", async () => {
+    const first = await boot();
+    const p = persistence(first);
+    const owner = await setup(first, "lessor", { workers: 0, credit: 0n, building: 40 });
+    const tenant = await setup(first, "lessee", { workers: 1, credit: 1_000n });
+    const unitId = tenant.units[0] ?? 0;
+    expect(await p.labor.setRent(owner.userId, owner.buildingId, 10n)).toEqual({ ok: true });
+    expect(
+      await p.labor.create(tenant.userId, { kind: "lease", buildingId: owner.buildingId, unitId }),
+    ).toEqual({ ok: true, contractId: 1 });
+    clock += HOUR / 2;
+    const stoppedAt = clock;
+    // 시설 주인이 해지해도 바로 끝나지 않는다(임차인 물건을 가져가지 못하게, D-161)
+    expect(await p.labor.terminate(owner.userId, 1)).toEqual({ ok: true });
+    const contract = p.labor.contracts.get(1);
+    expect([contract?.state, contract?.endReason, contract?.graceUntilMs]).toEqual([
+      "grace",
+      "owner",
+      stoppedAt + 7 * DAY,
+    ]);
+    expect(await p.labor.terminate(owner.userId, 1)).toEqual({ ok: false, code: "not_open" });
+    expect(await p.labor.terminate(tenant.userId, 1)).toEqual({ ok: false, code: "not_open" });
+    const view = p.labor.overview(tenant.userId);
+    expect(view.contracts.map((c) => [c.state, c.graceUntil, c.leftoversMovedAt])).toEqual([
+      ["grace", stoppedAt + 7 * DAY, null],
+    ]);
+    // 유예 동안 유닛은 계약에 묶이지 않는다
+    expect(view.units.find((u) => u.id === unitId)?.busy).toBe(false);
+    expect(p.ledger.balanceOf(owner.ownerId, ASSET_CREDIT)).toBe(10n);
+
+    // 다시 켜도 유예가 이어지고, 유예가 끝나면 남은 물건이 넘어간 시각(= 유예 끝)을 적는다
+    await p.writer.durable();
+    await first.crashForTest("commit");
+    const second = await boot();
+    const q = persistence(second);
+    expect(q.labor.contracts.get(1)?.state).toBe("grace");
+    clock = stoppedAt + 8 * DAY;
+    q.settlement.settleOwner(tenant.ownerId, clock);
+    await q.writer.durable();
+    expect(
+      await rows(
+        test.db,
+        "select state, end_reason, grace_until_ms, leftovers_moved_at_ms from labor_contracts",
+      ),
+    ).toEqual([
+      {
+        state: "ended",
+        end_reason: "owner",
+        grace_until_ms: null,
+        leftovers_moved_at_ms: String(stoppedAt + 7 * DAY),
+      },
+    ]);
+    expect(q.labor.overview(tenant.userId).contracts[0]?.leftoversMovedAt).toBe(stoppedAt + 7 * DAY);
+    expect(q.ledger.balanceOf(owner.ownerId, ASSET_CREDIT)).toBe(10n);
+    expect(await second.checkInvariants()).toEqual([]);
+  });
+
+  it("임대형: 시설이 사라지면 유예 없이 끝나고, 유예 중이면 유예만 끝난다(넘어간 물건 없음)", async () => {
+    const world = await boot();
+    const p = persistence(world);
+    const owner = await setup(world, "landowner", { workers: 0, credit: 0n, building: 40 });
+    const tenant = await setup(world, "renter", { workers: 2, credit: 1_000n });
+    const [unitA = 0, unitB = 0] = tenant.units;
+    await p.labor.setRent(owner.userId, owner.buildingId, 5n);
+    await p.labor.create(tenant.userId, { kind: "lease", buildingId: owner.buildingId, unitId: unitA });
+    await p.labor.create(tenant.userId, { kind: "lease", buildingId: owner.buildingId, unitId: unitB });
+    expect(await p.labor.terminate(tenant.userId, 1)).toEqual({ ok: true });
+    expect(p.labor.contracts.get(1)?.state).toBe("grace");
+    expect(owner.map.removeBuilding(owner.buildingId)).toEqual({ ok: true });
+    clock += HOUR;
+    p.settlement.settleOwner(tenant.ownerId, clock);
+    expect([p.labor.contracts.get(1)?.state, p.labor.contracts.get(1)?.endReason]).toEqual([
+      "ended",
+      "worker",
+    ]);
+    expect(p.labor.contracts.get(1)?.leftoversMovedAtMs).toBeNull();
+    expect([p.labor.contracts.get(2)?.state, p.labor.contracts.get(2)?.endReason]).toEqual([
+      "ended",
+      "building_gone",
+    ]);
+    expect(p.labor.contracts.get(2)?.graceUntilMs).toBeNull();
+    expect(await world.checkInvariants()).toEqual([]);
   });
 });

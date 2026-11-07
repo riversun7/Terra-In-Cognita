@@ -8,6 +8,7 @@
 | 2026-11-04 08:10 | 파티 9×6 자유 배치 사각형 진형 및 기본 진형 프리셋 6종 추가 | Claude Code | [04-0810-party-free-formation-presets](worklog/2026/11/04-0810-party-free-formation-presets.md) |
 | 2026-11-04 01:45 | D-513 반영 — 49 N53 운영자 런타임 스위치, 49 N43 채집 티어 확률 편집, 운영자(/admin)·개발자(/dev) 화면 구분 | Claude Code | [04-0145-d513-admin-dev-n43-n53](worklog/2026/11/04-0145-d513-admin-dev-n43-n53.md) |
 | 2026-11-04 00:59 | 기획서 미러 동기화 (0596914, D-513) 및 설정 칸 목록 갱신 | Claude Code | [04-0059-design-mirror-sync](worklog/2026/11/04-0059-design-mirror-sync.md) |
+| 2026-11-03 14:40 ~ 16:30, 2026-11-07 09:30 ~ 10:10 (KST, 주간 사용량 한도로 멈췄다가 이어서) | 노동 계약 2: 손 해지 유예(기획 341)·구인 게시판(남의 유닛을 임금형으로) | Claude Code | [03-1530-labor-jobs](worklog/2026/11/03-1530-labor-jobs.md) |
 | 2026-11-03 15:15 | main CI 빨강 고침: 구인 카드 개발 화면 조각을 미리 캐시에서 뺌 | Claude Code | [03-1515-pwa-recruit-chunk](worklog/2026/11/03-1515-pwa-recruit-chunk.md) |
 | 2026-11-03 14:30 | 인벤토리 화면: 사이보그·유닛 상세의 보유 물건(장착·해제·사용·쿨·교체 확인·개발 받기) | Claude Code | [03-1430-inventory-ui](worklog/2026/11/03-1430-inventory-ui.md) |
 | 2026-11-03 09:00 ~ 14:30 | 노동 계약(임금형·임대형): 규칙 한 벌·보증금 에스크로·서버 표·명령·조회·경제 화면 | Claude Code | [03-1400-labor-contracts](worklog/2026/11/03-1400-labor-contracts.md) |

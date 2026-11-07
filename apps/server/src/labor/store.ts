@@ -1,12 +1,17 @@
 // 노동 계약 읽기·쓰기 행 — docs/adr/2026-11-03-labor-contracts.md
-// 부팅 때 한 번 읽고(쓰기 대기열이 돌기 전), 바뀌면 월드 쓰기 대기열(labor_contracts·labor_rents)로 쓴다. int8은 pg가 문자열로
+// 부팅 때 한 번 읽고(쓰기 대기열이 돌기 전), 바뀌면 월드 쓰기 대기열(labor_contracts·labor_postings·labor_rents)로 쓴다. int8은 pg가 문자열로
 // 주므로 시각·ID는 숫자, 금액은 BigInt로 바꾼다.
 import {
   LABOR_END_REASONS,
+  LABOR_JOB_KINDS,
+  LABOR_JOB_STATES,
   LABOR_KINDS,
   LABOR_STATES,
   type LaborContract,
   type LaborEndReason,
+  type LaborJob,
+  type LaborJobKind,
+  type LaborJobState,
   type LaborKind,
   type LaborState,
 } from "@terra/sim";
@@ -27,9 +32,16 @@ export interface LoadedLabor {
   readonly rents: RentRow[];
   /** 가장 큰 계약 ID(없으면 0). 끝나서 읽지 않은 줄도 센다 */
   readonly maxId: number;
+  /** 열린 구인 게시(닫힌 줄은 읽지 않는다, DB에는 남는다) */
+  readonly jobs: LaborJob[];
+  /** 가장 큰 게시 ID(없으면 0). 닫힌 줄도 센다 */
+  readonly maxJobId: number;
 }
 
-/** 끝난 계약을 화면에 남기는 기간(이보다 오래 끝난 줄은 읽지 않는다, DB에는 남는다) */
+/** 비어 있는 노동 계약 자료(DB 없는 부팅) */
+export const EMPTY_LABOR: LoadedLabor = { contracts: [], rents: [], maxId: 0, jobs: [], maxJobId: 0 };
+
+/** 끝난 계약을 화면에 남기는 기간(이보다 오래 끝난 줄은 읽지 않는다, DB에는 남는다). 유예를 거쳤으면 유예 끝부터 센다 */
 export const KEEP_ENDED_MS = 7 * 24 * 60 * 60 * 1000;
 
 const num = (value: unknown): number => Number(value);
@@ -47,12 +59,30 @@ const pick = <T extends string>(list: readonly T[], value: unknown, fallback: T)
 export async function loadLabor(pool: QueryPool, nowMs: number): Promise<LoadedLabor> {
   const max = await pool.query(`select coalesce(max(id), 0) as id from labor_contracts`);
   const rows = await pool.query(
-    `select * from labor_contracts where state <> 'ended' or ended_at_ms > $1 order by id`,
+    `select * from labor_contracts
+     where state <> 'ended' or ended_at_ms > $1 or leftovers_moved_at_ms > $1 order by id`,
     [nowMs - KEEP_ENDED_MS],
   );
   const rents = await pool.query(`select * from labor_rents order by building_id`);
+  const maxJob = await pool.query(`select coalesce(max(id), 0) as id from labor_postings`);
+  const jobs = await pool.query(`select * from labor_postings where state = 'open' order by id`);
   return {
     maxId: num(max.rows[0]?.id ?? 0),
+    maxJobId: num(maxJob.rows[0]?.id ?? 0),
+    jobs: jobs.rows.map((row) => ({
+      id: num(row.id),
+      buildingId: num(row.building_id),
+      ownerId: num(row.owner_id),
+      job: pick<LaborJobKind>(LABOR_JOB_KINDS, row.job, "gather"),
+      asset: String(row.asset),
+      adjustPm: num(row.adjust_pm),
+      slots: num(row.slots),
+      filled: num(row.filled),
+      termHours: numOrNull(row.term_hours),
+      postedAtMs: num(row.posted_at_ms),
+      state: pick<LaborJobState>(LABOR_JOB_STATES, row.state, "withdrawn"),
+      closedAtMs: numOrNull(row.closed_at_ms),
+    })),
     contracts: rows.rows.map((row) => ({
       id: num(row.id),
       kind: pick<LaborKind>(LABOR_KINDS, row.kind, "wage"),
@@ -75,6 +105,7 @@ export async function loadLabor(pool: QueryPool, nowMs: number): Promise<LoadedL
           ? null
           : pick<LaborEndReason>(LABOR_END_REASONS, row.end_reason, "owner"),
       paidTotal: big(row.paid_total),
+      leftoversMovedAtMs: numOrNull(row.leftovers_moved_at_ms),
     })),
     rents: rents.rows.map((row) => ({
       buildingId: num(row.building_id),
@@ -106,6 +137,24 @@ export function contractRow(c: LaborContract): Row {
     ended_at_ms: c.endedAtMs,
     end_reason: c.endReason,
     paid_total: c.paidTotal,
+    leftovers_moved_at_ms: c.leftoversMovedAtMs,
+  };
+}
+
+export function jobRow(job: LaborJob): Row {
+  return {
+    id: job.id,
+    building_id: job.buildingId,
+    owner_id: job.ownerId,
+    job: job.job,
+    asset: job.asset,
+    adjust_pm: job.adjustPm,
+    slots: job.slots,
+    filled: job.filled,
+    term_hours: job.termHours,
+    state: job.state,
+    posted_at_ms: job.postedAtMs,
+    closed_at_ms: job.closedAtMs,
   };
 }
 

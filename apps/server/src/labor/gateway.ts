@@ -1,4 +1,4 @@
-// WebSocket 연결 하나의 노동 계약 명령 처리(src/session.ts가 넘긴다) — docs/adr/2026-11-03-labor-contracts.md
+// WebSocket 연결 하나의 노동 계약 명령 처리(src/session.ts가 넘긴다, 구인 게시 셋은 판 8) — docs/adr/2026-11-03-labor-contracts.md
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다(같은 유닛·계약을 차례로 바꾼다).
 // - 사용자별 속도 제한(순간 10번, 분당 30번). 밀린 요청이 MAX_PENDING을 넘으면 busy.
 // - 판정·저장은 서비스(service.ts)가 한다. 세계가 아직 없으면(부팅 중·DB 없음) busy.
@@ -8,7 +8,13 @@ import type { Viewer } from "../trpc/context.ts";
 import type { LaborCommandResult, LaborService } from "./service.ts";
 
 export type LaborClientMessage = ClientMessageOf<
-  "labor_create" | "labor_terminate" | "labor_top_up" | "labor_set_rent"
+  | "labor_create"
+  | "labor_terminate"
+  | "labor_top_up"
+  | "labor_set_rent"
+  | "labor_post_job"
+  | "labor_withdraw_job"
+  | "labor_accept_job"
 >;
 
 const MAX_PENDING = 8;
@@ -30,11 +36,13 @@ export interface LaborGateway {
 
 function resultText(id: number, result: LaborCommandResult): string {
   if (!result.ok) return encodeMessage({ t: "labor_result", id, ok: false, code: result.code });
-  return encodeMessage(
-    result.contractId === undefined
-      ? { t: "labor_result", id, ok: true }
-      : { t: "labor_result", id, ok: true, contractId: result.contractId },
-  );
+  return encodeMessage({
+    t: "labor_result",
+    id,
+    ok: true,
+    ...(result.contractId === undefined ? {} : { contractId: result.contractId }),
+    ...(result.jobId === undefined ? {} : { jobId: result.jobId }),
+  });
 }
 
 const fail = (code: LaborResultCode): LaborCommandResult => ({ ok: false, code });
@@ -59,6 +67,17 @@ function run(
       return service.topUp(userId, message.contractId, BigInt(message.amount));
     case "labor_set_rent":
       return service.setRent(userId, message.buildingId, BigInt(message.rent));
+    case "labor_post_job":
+      return service.postJob(userId, {
+        buildingId: message.buildingId,
+        adjustPm: message.adjustPm,
+        slots: message.slots,
+        termHours: message.termHours,
+      });
+    case "labor_withdraw_job":
+      return service.withdrawJob(userId, message.jobId);
+    case "labor_accept_job":
+      return service.acceptJob(userId, message.jobId, message.unitId);
     default: {
       const unhandled: never = message;
       return unhandled;

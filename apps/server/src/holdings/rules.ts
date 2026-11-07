@@ -14,6 +14,8 @@ export interface HoldingRules {
   readonly durability: SocietyCoefficients["durability"];
   /** 물약 쿨(D-509) */
   readonly consumables: SocietyCoefficients["consumables"];
+  /** 부상 불이익(D-514 N54, 몸의 1차 스탯 — gearOf가 읽는다) */
+  readonly vitals: SocietyCoefficients["vitals"];
 }
 
 export const USE_VARIANCE_CELL = "d496_use_variance";
@@ -26,6 +28,7 @@ export const TEST_HOLDING_RULES: HoldingRules = {
   useVariancePm: DEFAULT_USE_VARIANCE_PM,
   durability: TEST_SOCIETY_COEFFICIENTS.durability,
   consumables: TEST_SOCIETY_COEFFICIENTS.consumables,
+  vitals: TEST_SOCIETY_COEFFICIENTS.vitals,
 };
 
 /** 계수표 durability 칸 → 전투 닳기 규칙 */
@@ -42,13 +45,14 @@ export function wearRulesOf(durability: SocietyCoefficients["durability"]): Wear
 export function holdingRulesFrom(
   values: ReadonlyMap<string, number>,
   appropriateCapPm: number,
-  society: Pick<SocietyCoefficients, "durability" | "consumables">,
+  society: Pick<SocietyCoefficients, "durability" | "consumables" | "vitals">,
 ): HoldingRules {
   return {
     appropriateCapPm,
     useVariancePm: values.get(USE_VARIANCE_CELL) ?? DEFAULT_USE_VARIANCE_PM,
     durability: society.durability,
     consumables: society.consumables,
+    vitals: society.vitals,
   };
 }
 

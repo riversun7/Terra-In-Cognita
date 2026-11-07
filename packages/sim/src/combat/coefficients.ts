@@ -116,7 +116,7 @@ export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
 };
 
 /** 아머 회복(분당) = ⌊최대 아머 HP × armorRegenPm ÷ 1000⌋(D-514, 음수는 0) */
-export function armorRegenOf(armorHp: number, c: CombatCoefficients): number {
+export function armorRegenOf(armorHp: number, c: Pick<CombatCoefficients, "armorRegenPm">): number {
   const pm = c.armorRegenPm ?? 0;
   if (armorHp <= 0 || pm <= 0) return 0;
   return Math.floor((armorHp * pm) / 1000);

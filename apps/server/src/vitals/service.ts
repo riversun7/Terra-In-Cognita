@@ -2,14 +2,16 @@
 // 전투·비전투 상관없이 쓴다), D-099·D-145(부상 단계는 그대로 함께 쓴다). docs/adr/2026-10-31-combat-core.md "바뀜 (D-512 …)".
 // - 저장: 다친 유닛만 줄이 있다(값 + 그 값의 시각). 줄이 없으면 세 칸 모두 가득이다. 가득이 되면 줄을 지운다.
 // - 회복: 읽을 때·쓸 때 분 단위로 셈한다(@terra/shared vitalsAt — 기기 표시와 같은 함수). 틱이나 주기 타이머로 값을 고치지 않는다.
-//   분당 회복은 전투가 쓰는 2차 스탯 그대로다: 쉴드 = 쉴드 재생(D-458, 맞는 중에도 차는 값 D-490). HP·아머는 전투에도 회복 규칙이
-//   없어 0이다("회복계산도 그대로 적용" — 기획 질문 343·344로 물었다).
+//   분당 회복은 전투가 쓰는 값 그대로다: HP = 2차 스탯 HP 회복(D-514), 아머 = 최대 아머 × 설정 칸 ‰(D-514 "쉴드처럼"), 쉴드 = 쉴드
+//   재생(D-458, 맞는 중에도 차는 값 D-490). 쓰러진(HP 0) 유닛도 찬다(D-514). 부상 단계가 나을 때까지 HP 회복이 느리고, 전투 밖 주기
+//   회복 물건이 걸린 동안 빠르다(회복 구간 phases.ts — 세계가 읽어 준다). 병원 치료(treat)는 HP를 가득 채운다(옛 병원 코드, D-514).
 // - 최대·회복: 세계가 그 유닛의 지금 몸 자료를 알면(사이보그) 그것, 모르면(전투 사양에서만 스탯이 나오는 NPC 휴먼) 그 값을 쓸 때의
 //   최대·회복(줄에 함께 둔다). 줄도 몸 자료도 없으면 화면 기본 몸 자료(유닛 화면 baselineBody와 같다)로 가득을 보인다.
 // - 전투: 시작 자료에 남은 값을 넣고(sim CombatUnitSpec.start, HP 0이면 쓰러진 채 들어온다), 끝 값을 결과 적용과 같은 동기
 //   처리에서 저장한다(world_battle_results와 한 커밋 — 다시 켜도 한 번만). 스태미나·MP는 그대로 전투마다 가득에서 시작한다.
 // - 모든 쓰기는 동기다: 한 번의 동기 처리 = 한 커밋(S3 U2).
 import { type VitalPools, type VitalsSnapshot, vitalsAt, vitalsFull } from "@terra/shared/vitals";
+import { NO_MODIFIERS, type VitalsModifiers, regenPhases } from "./phases.ts";
 import type { BattleInit, CombatUnitSpec, UnitResult } from "@terra/sim";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { type VitalsBody, type VitalsRecord, vitalsRow } from "./state.ts";
@@ -22,6 +24,8 @@ export interface VitalsWorld {
   bodyOf(unitId: number, nowMs: number): VitalsBody | undefined;
   /** 줄도 지금 몸 자료도 없을 때의 몸 자료(유닛 상세와 같은 셈, [임시] 1차 모두 10 + 입은 장비·버프). 없으면 undefined */
   defaultBody(unitId: number, nowMs: number): VitalsBody | undefined;
+  /** 회복을 바꾸는 것(부상·전투 밖 주기 회복, D-514). 없으면 바꾸는 것 없음 */
+  modifiersOf?(unitId: number, nowMs: number): VitalsModifiers | undefined;
 }
 
 /** 회복 한 번(효과 사전 heal: flat = 값 그대로, permille = 최대 HP의 ‰) */
@@ -35,6 +39,13 @@ export interface VitalsService {
   read(unitId: number, nowMs: number): VitalsSnapshot | undefined;
   /** HP를 채운다(전투 밖 회복 물약, D-512). 실제로 찬 양(몸 자료를 모르면 0) */
   heal(unitId: number, amount: HealAmount, nowMs: number): number;
+  /** 병원 치료(D-514, 옛 병원 코드): HP를 가득 채운다. 실제로 찬 양 */
+  treat(unitId: number, nowMs: number): number;
+  /**
+   * 지금 값을 저장해 시각을 마지막 분 경계로 옮긴다(전투 밖 주기 회복을 걸기 전 — 걸기 전 분에 소급하지 않게). 돌려주는 값은 그 분 경계
+   * (줄이 없으면 nowMs)
+   */
+  touch(unitId: number, nowMs: number): number;
   /** 전투 시작 자료에 남은 값을 넣는다(줄이 있는 세계 유닛만, 칸마다 그 전투 사양의 최대로 자른다) */
   battleStart(init: BattleInit, nowMs: number): BattleInit;
   /** 전투 끝 값을 저장한다(결과 적용과 같은 동기 처리). 저장하거나 지운 유닛 수 */
@@ -44,7 +55,7 @@ export interface VitalsService {
   readonly size: number;
 }
 
-/** 전투 사양의 몸 자료(최대 = 그 전투의 최대, 회복 = 쉴드 재생) */
+/** 전투 사양의 몸 자료(최대 = 그 전투의 최대, 회복 = 그 전투의 HP 회복·아머 회복·쉴드 재생) */
 export function bodyOfSpec(spec: CombatUnitSpec): VitalsBody {
   return {
     max: {
@@ -52,7 +63,11 @@ export function bodyOfSpec(spec: CombatUnitSpec): VitalsBody {
       armor: Math.max(0, spec.armorHp),
       shield: Math.max(0, spec.shieldHp),
     },
-    regen: { hp: 0, armor: 0, shield: Math.max(0, spec.shieldRegen) },
+    regen: {
+      hp: Math.max(0, spec.hpRegen ?? 0),
+      armor: Math.max(0, spec.armorRegen ?? 0),
+      shield: Math.max(0, spec.shieldRegen),
+    },
   };
 }
 
@@ -77,10 +92,13 @@ export function createVitalsService(options: {
     options.loaded.map((record) => [record.unitId, record.snapshot]),
   );
 
-  /** 지금 몸 자료를 얹은 줄(세계가 모르면 줄 그대로) */
+  /** 지금 몸 자료와 회복 구간(부상·주기 회복)을 얹은 줄(세계가 몸을 모르면 줄의 최대·회복) */
   const withBody = (unitId: number, snapshot: VitalsSnapshot, nowMs: number): VitalsSnapshot => {
     const body = world.bodyOf(unitId, nowMs);
-    return body ? { ...snapshot, max: body.max, regen: body.regen } : snapshot;
+    const based = body ? { ...snapshot, max: body.max, regen: body.regen } : snapshot;
+    const phases = regenPhases(based.regen, world.modifiersOf?.(unitId, nowMs) ?? NO_MODIFIERS, based.at);
+    const { phases: _old, ...plain } = based;
+    return phases.length > 0 ? { ...plain, phases } : plain;
   };
 
   const current = (unitId: number, nowMs: number): VitalsSnapshot | undefined => {
@@ -90,8 +108,9 @@ export function createVitalsService(options: {
     return body ? fullOf(body, nowMs) : undefined;
   };
 
-  /** 저장한다(가득이면 줄을 지운다). 값은 이미 0~최대다(vitalsAt이 자른다) */
-  const store = (unitId: number, snapshot: VitalsSnapshot): void => {
+  /** 저장한다(가득이면 줄을 지운다). 값은 이미 0~최대다(vitalsAt이 자른다). 회복 구간은 저장하지 않는다(읽을 때 세계에서 다시 만든다) */
+  const store = (unitId: number, withPhases: VitalsSnapshot): void => {
+    const { phases: _phases, ...snapshot } = withPhases;
     if (vitalsFull(snapshot)) {
       if (records.delete(unitId)) writer.remove("vitals", { unit_id: unitId });
       return;
@@ -120,6 +139,22 @@ export function createVitalsService(options: {
       const gained = hp - now.values.hp;
       if (gained > 0) store(unitId, { ...now, values: { ...now.values, hp } });
       return gained;
+    },
+
+    treat(unitId, nowMs) {
+      const now = current(unitId, nowMs);
+      if (!now) return 0;
+      const gained = Math.max(0, now.max.hp - now.values.hp);
+      if (gained > 0) store(unitId, { ...now, values: { ...now.values, hp: now.max.hp } });
+      return gained;
+    },
+
+    touch(unitId, nowMs) {
+      if (!records.has(unitId)) return nowMs;
+      const now = current(unitId, nowMs);
+      if (!now) return nowMs;
+      store(unitId, now);
+      return now.at;
     },
 
     battleStart(init, nowMs) {

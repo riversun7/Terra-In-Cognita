@@ -43,11 +43,13 @@ import {
   settleSpoilage,
   spoilAtMs,
   stackMaxOf,
+  potionHeal,
   useAmountRange,
   wearDurable,
   wearable,
 } from "@terra/sim";
 import { wearRulesOf } from "./rules.ts";
+import { hotPerMinute, potionOf } from "./battleKit.ts";
 import {
   type CooldownKind,
   type HoldingRecord,
@@ -71,6 +73,8 @@ import type {
 
 export type {
   AcquireInput,
+  BattleKit,
+  BattleUse,
   BattleUnitWear,
   BattleWearSummary,
   HeldDef,
@@ -125,6 +129,7 @@ export function heldDefOf(item: ItemEntry): HeldDef {
             ...(equip.maxDurability === undefined ? {} : { maxDurability: equip.maxDurability }),
             ...(equip.weaponType ? { weaponType: equip.weaponType.id } : {}),
             ...(equip.kinds ? { kinds: equip.kinds.map((kind) => kind.id) } : {}),
+            ...(equip.weapon?.ammo ? { ammo: equip.weapon.ammo.id } : {}),
           },
         }
       : {}),
@@ -168,9 +173,13 @@ const wearSeed = (battleSeed: number, holdingId: number): number =>
 const timedOutside = (kind: string, durationMs: number): boolean =>
   (kind === "buff" || kind === "debuff") && durationMs > 0;
 
-/** 전투 밖에서 HP를 한 번에 채우는 회복인가(D-512, 주기 회복·쉴드 회복은 전투 중에만). 세계에 생명 수치가 있을 때만 */
+/** 전투 밖에서 HP를 한 번에 채우는 회복인가(D-512). 세계에 생명 수치가 있을 때만 */
 const healsOutside = (effect: EffectEntry, vitals: HoldingVitals | undefined): boolean =>
   vitals !== undefined && effect.kind === "heal" && effect.tickMs <= 0;
+
+/** 전투 밖 주기 회복인가(D-514 346: 분 단위 틱 — 걸린 효과로 두고 생명 수치가 분당 양을 더한다). 생명 수치가 있을 때만 */
+const hotOutside = (effect: EffectEntry, vitals: HoldingVitals | undefined): boolean =>
+  vitals?.touch !== undefined && effect.kind === "heal" && effect.tickMs > 0;
 
 const byId = (a: { readonly id: number }, b: { readonly id: number }): number => a.id - b.id;
 
@@ -300,10 +309,80 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
       )
       .toSorted(byId);
 
+  /** 유닛이 든 물약(물약 쿨 종류, 회복 줄이 있는 것, 칸 ID 차례) → 판정 사양(287·D-510, battleKit.ts potionOf) */
+  const carriedPotions = (
+    unitId: number,
+    maxHp: number,
+    nowMs: number,
+    map: Lookup,
+    rules: ReturnType<typeof options.rules>,
+  ) => {
+    const primaries = world.unitPrimaries(unitId);
+    const table = preserveTable();
+    return [...holdings.values()]
+      .filter((record) => record.location === carriedBy(unitId))
+      .toSorted(byId)
+      .flatMap((record) => {
+        const def = map.items.get(record.itemId);
+        if (!def?.use || cooldownKindOf(def, map) !== "potion") return [];
+        const potion = potionOf(record, def, (id) => map.effects.get(id), {
+          primaries,
+          rules,
+          freshPm: freshNow(record, nowMs, map, table),
+          maxHp,
+        });
+        return potion ? [potion] : [];
+      });
+  };
+
   const equippedOn = (unitId: number): HoldingRecord[] =>
     [...holdings.values()]
       .filter((record) => record.location === carriedBy(unitId) && record.slot !== null)
       .toSorted((a, b) => (a.slot ?? 0) - (b.slot ?? 0) || a.id - b.id);
+
+  /** 원거리 타격 shots번: 입은 탄약 내구도를 줄이고 0이면 같은 종류 예비를 입힌다(D-497·D-501 294) */
+  const spendAmmo = (unitId: number, shots: number): { spent: number; replacedBy: number | null } => {
+    if (shots <= 0) return { spent: 0, replacedBy: null };
+    const map = lookup();
+    const ammoOf = (record: HoldingRecord): string | undefined => {
+      const type = map.items.get(record.itemId)?.equip?.weaponType;
+      return type !== undefined && map.ammoTypes.has(type) ? type : undefined;
+    };
+    const worn = equippedOn(unitId).find(
+      (record) => ammoOf(record) !== undefined && record.durability !== null,
+    );
+    if (!worn || worn.durability === null) return { spent: 0, replacedBy: null };
+    const spent = Math.min(worn.durability, shots);
+    worn.durability -= spent;
+    let replacedBy: number | null = null;
+    if (worn.durability === 0) {
+      const slot = worn.slot;
+      const type = ammoOf(worn);
+      worn.slot = null;
+      const spare = [...holdings.values()]
+        .filter(
+          (record) =>
+            record.location === worn.location &&
+            record.slot === null &&
+            record.id !== worn.id &&
+            ammoOf(record) === type &&
+            (record.durability ?? 0) > 0,
+        )
+        .toSorted(
+          (a, b) =>
+            Number(b.itemId === worn.itemId) - Number(a.itemId === worn.itemId) ||
+            (b.durability ?? 0) - (a.durability ?? 0) ||
+            a.id - b.id,
+        )[0];
+      if (spare && slot !== null) {
+        spare.slot = slot;
+        save(spare);
+        replacedBy = spare.id;
+      }
+    }
+    save(worn);
+    return { spent, replacedBy };
+  };
 
   return {
     list(ownerId, nowMs) {
@@ -451,11 +530,13 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
       /** 전투 밖 회복 줄(D-512, 확률에 든 것만): 시간 효과가 아니라 저장한 HP를 채운다 */
       const heals: { effect: string; mode: "flat" | "permille"; value: number }[] = [];
       let healLines = 0;
+      let hotLines = 0;
       for (const line of lines) {
         const effect = map.effects.get(line.effect);
         const durationMs = line.durationMs ?? effect?.durationMs ?? 0;
         const heal = effect !== undefined && healsOutside(effect, world.vitals);
-        if (!effect || (!timedOutside(effect.kind, durationMs) && !heal))
+        const hot = effect !== undefined && durationMs > 0 && hotOutside(effect, world.vitals);
+        if (!effect || (!timedOutside(effect.kind, durationMs) && !heal && !hot))
           return { ok: false, code: "battle_only" };
         const scale = line.scale
           ? { statValue: primaries[line.scale.stat], appropriate: line.scale.appropriate }
@@ -472,6 +553,27 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
         if (heal) {
           healLines += 1;
           if (hit) heals.push({ effect: line.effect, mode: effect.valueMode, value: amount });
+          continue;
+        }
+        if (hot) {
+          // 분당 양으로 바꿔 걸린 효과로 둔다(끝 = 생명 수치의 마지막 분 경계 + 분 수 — 그 분 경계부터 분마다 더한다, D-514 346)
+          healLines += 1;
+          hotLines += 1;
+          const perTick =
+            effect.valueMode === "permille"
+              ? Math.floor(((world.vitals?.hp(unitId, use.nowMs)?.max ?? 0) * amount) / 1000)
+              : amount;
+          const { perMinute, minutes } = hotPerMinute(perTick, effect.tickMs, durationMs);
+          const from = world.vitals?.touch?.(unitId, use.nowMs) ?? use.nowMs;
+          rolled.push({
+            line: {
+              effect: line.effect,
+              value: perMinute,
+              untilMs: from + minutes * 60_000,
+              group: effect.exclusive ?? null,
+            },
+            hit,
+          });
           continue;
         }
         rolled.push({
@@ -491,7 +593,8 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
       // 시간 효과도 있는 물건은 시간 효과가 나을 때만 쓴다. HP가 모자라면 시간 효과가 낫지 않아도(not_better) 회복으로 쓴다
       const hp = healLines > 0 ? world.vitals?.hp(unitId, use.nowMs) : undefined;
       const healUseful = hp !== undefined && hp.current < hp.max;
-      if (rolled.length === 0 && !healUseful) return { ok: false, code: "not_better" };
+      if ((rolled.length === 0 || rolled.length === hotLines) && !healUseful)
+        return { ok: false, code: "not_better" };
       // 거절(낭비 막기·확인)은 굴린 값 전체로 본다. 확률에 빠진 줄은 걸리지 않지만 물건은 쓴다(그 아이템의 설계)
       const active = unitEffects(unitId, use.nowMs);
       if (rolled.length > 0) {
@@ -557,48 +660,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
       return { worn, broken };
     },
 
-    spendAmmo(unitId, shots) {
-      if (shots <= 0) return { spent: 0, replacedBy: null };
-      const map = lookup();
-      const ammoOf = (record: HoldingRecord): string | undefined => {
-        const type = map.items.get(record.itemId)?.equip?.weaponType;
-        return type !== undefined && map.ammoTypes.has(type) ? type : undefined;
-      };
-      const worn = equippedOn(unitId).find(
-        (record) => ammoOf(record) !== undefined && record.durability !== null,
-      );
-      if (!worn || worn.durability === null) return { spent: 0, replacedBy: null };
-      const spent = Math.min(worn.durability, shots);
-      worn.durability -= spent;
-      let replacedBy: number | null = null;
-      if (worn.durability === 0) {
-        const slot = worn.slot;
-        const type = ammoOf(worn);
-        worn.slot = null;
-        const spare = [...holdings.values()]
-          .filter(
-            (record) =>
-              record.location === worn.location &&
-              record.slot === null &&
-              record.id !== worn.id &&
-              ammoOf(record) === type &&
-              (record.durability ?? 0) > 0,
-          )
-          .toSorted(
-            (a, b) =>
-              Number(b.itemId === worn.itemId) - Number(a.itemId === worn.itemId) ||
-              (b.durability ?? 0) - (a.durability ?? 0) ||
-              a.id - b.id,
-          )[0];
-        if (spare && slot !== null) {
-          spare.slot = slot;
-          save(spare);
-          replacedBy = spare.id;
-        }
-      }
-      save(worn);
-      return { spent, replacedBy };
-    },
+    spendAmmo,
 
     repair(holdingId, input) {
       const map = lookup();
@@ -727,34 +789,60 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
       if (!belowPotionThreshold(hp.current, hp.max, thresholdPm ?? rules.consumables.potionHpThresholdPm))
         return null;
       if (cooldownUntil(unitId, "potion") > nowMs) return null;
-      const primaries = world.unitPrimaries(unitId);
-      const table = preserveTable();
-      const candidates = [...holdings.values()]
-        .filter((record) => record.location === carriedBy(unitId))
-        .toSorted(byId)
-        .flatMap((record) => {
-          const def = map.items.get(record.itemId);
-          if (!def?.use || cooldownKindOf(def, map) !== "potion") return [];
-          const fresh = freshNow(record, nowMs, map, table);
-          let heal = 0;
-          for (const line of def.use.effects) {
-            const effect = map.effects.get(line.effect);
-            if (effect?.kind !== "heal") continue;
-            const scale = line.scale
-              ? { statValue: primaries[line.scale.stat], appropriate: line.scale.appropriate }
-              : null;
-            const { scaled } = useAmountRange(
-              line.value,
-              scale,
-              rules.appropriateCapPm,
-              line.variancePm ?? rules.useVariancePm,
-              fresh,
-            );
-            heal += effect.valueMode === "permille" ? Math.floor((hp.max * scaled) / 1000) : scaled;
-          }
-          return heal > 0 ? [{ holding: record.id, heal }] : [];
-        });
+      const candidates = carriedPotions(unitId, hp.max, nowMs, map, rules).map((potion) => ({
+        holding: potion.id,
+        heal: potionHeal(potion),
+      }));
       return pickPotion(Math.max(0, hp.max - hp.current), candidates);
+    },
+
+    battleKit(unitId, maxHp, nowMs, thresholdPm) {
+      const map = lookup();
+      const rules = options.rules();
+      const items = carriedPotions(unitId, maxHp, nowMs, map, rules);
+      // 든 무기(무기 칸, 내구도 > 0)가 탄약 종류를 쓰면 입은 그 종류 탄약의 내구도 = 남은 탄(D-497, 없으면 0)
+      const ammoType = equippedOn(unitId)
+        .filter((record) => wearable(record))
+        .map((record) => map.items.get(record.itemId)?.equip)
+        .find((equip) => equip?.slot === "weapon" && equip.ammo !== undefined)?.ammo;
+      const ammoWorn =
+        ammoType === undefined
+          ? undefined
+          : equippedOn(unitId).find((record) => map.items.get(record.itemId)?.equip?.weaponType === ammoType);
+      return {
+        ...(items.length > 0
+          ? {
+              potions: {
+                items,
+                thresholdPm: thresholdPm ?? rules.consumables.potionHpThresholdPm,
+                cooldownMs: cooldownMs("potion"),
+                readyMs: Math.max(0, cooldownUntil(unitId, "potion") - nowMs),
+              },
+            }
+          : {}),
+        ...(ammoType === undefined ? {} : { ammo: ammoWorn?.durability ?? 0 }),
+      };
+    },
+
+    applyBattleUse(unitId, used) {
+      let drunk = 0;
+      for (const entry of used.potions ?? []) {
+        const record = holdings.get(entry.id);
+        if (!record || record.location !== carriedBy(unitId) || entry.used <= 0) continue;
+        const take = Math.min(record.quantity, entry.used);
+        drunk += take;
+        record.quantity -= take;
+        if (record.quantity <= 0) drop(record);
+        else save(record);
+      }
+      const until = used.potionReadyAtMs ?? 0;
+      if (drunk > 0 && until > cooldownUntil(unitId, "potion")) {
+        const entry: UnitCooldownRecord = { unitId, kind: "potion", untilMs: until };
+        cooldowns.set(`${unitId}:potion`, entry);
+        writer.upsert("unitCooldowns", unitCooldownRow(entry));
+      }
+      if ((used.shots ?? 0) > 0) spendAmmo(unitId, used.shots ?? 0);
+      return drunk;
     },
     equippedOn,
     effectsOn: unitEffects,

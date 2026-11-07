@@ -2,7 +2,8 @@
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다(사이보그 메시지와 같은 틀).
 // - 사용자별 속도 제한(순간 20번, 분당 120번). 밀린 요청이 MAX_PENDING을 넘으면 busy.
 // - 판정은 서비스(service.ts)가 동기로 하고, 바뀐 것이 있으면 커밋을 기다린 뒤 답한다(물건·소유는 커밋 뒤 응답, S3 U2).
-// - 개발 시험 받기(dev_grant_item)는 dev·admin(secondMap dev-spawn — "개발 시험 명령으로 내 시험 것 받기"와 같은 권한).
+// - 개발 시험 받기(dev_grant_item)·병원 치료(dev_treat_unit, D-514)는 dev·admin(secondMap dev-spawn — "개발 시험 명령으로 내 시험 것
+//   받기"와 같은 권한).
 import { type ClientMessageOf, type ItemResultCode, encodeMessage } from "@terra/protocol";
 import { rolesAllow } from "../auth/permissions.ts";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
@@ -11,7 +12,7 @@ import type { HoldingService } from "./service.ts";
 import { carriedBy } from "./state.ts";
 
 export type ItemClientMessage = ClientMessageOf<
-  "item_equip" | "item_unequip" | "item_use" | "dev_grant_item"
+  "item_equip" | "item_unequip" | "item_use" | "dev_grant_item" | "dev_treat_unit"
 >;
 
 const MAX_PENDING = 8;
@@ -28,6 +29,8 @@ export interface HoldingsAccess {
   durable(): Promise<void>;
   /** 굴림 시드(운영: crypto) */
   seed(): number;
+  /** 병원 치료(D-514, 개발 시험 dev_treat_unit): 부상을 지우고 HP를 가득. 세계에 없는 유닛이면 false. 없으면 고리 없음 */
+  treat?: ((unitId: number, nowMs: number) => boolean) | undefined;
 }
 
 export interface ItemLink {
@@ -103,7 +106,10 @@ async function run(
   now: number,
 ): Promise<Reply> {
   const ownerId = access.ownerOf(viewer.id);
-  if (message.t === "dev_grant_item" && !rolesAllow(viewer.roles, { secondMap: ["dev-spawn"] }))
+  if (
+    (message.t === "dev_grant_item" || message.t === "dev_treat_unit") &&
+    !rolesAllow(viewer.roles, { secondMap: ["dev-spawn"] })
+  )
     return fail("forbidden");
   if (ownerId === undefined) return fail("no_owner");
   const { service } = access;
@@ -118,10 +124,15 @@ async function run(
     });
     return settled(access, result, result.ok ? { effects: result.effects } : {});
   }
-  // dev_grant_item: 내 유닛(없으면 내 사이보그)이 든 것으로 받는다
+  // dev_grant_item: 내 유닛(없으면 내 사이보그)이 든 것으로 받는다. dev_treat_unit: 그 유닛을 병원 치료한다
   const unitId = message.unit ?? access.cyborgUnitOf(viewer.id);
   if (unitId === undefined) return fail("no_owner");
   if (access.unitOwner(unitId) !== ownerId) return fail("unknown_unit");
+  if (message.t === "dev_treat_unit") {
+    if (!access.treat?.(unitId, now)) return fail("unknown_unit");
+    await access.durable();
+    return { ok: true };
+  }
   const result = service.acquire({
     ownerId,
     item: message.item,

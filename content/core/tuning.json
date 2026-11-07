@@ -3095,8 +3095,8 @@
       "id": "n54_injury_regen_1",
       "code": "N54",
       "name": {
-        "ko": "경상 회복 속도(‰, 생명 수치 분당 회복에 곱함)",
-        "en": "Regen speed while light injury (‰ of per-minute regen)"
+        "ko": "경상 HP 회복 속도(‰, 분당 HP 회복에 곱함)",
+        "en": "HP regen speed while light injury (‰ of per-minute HP regen)"
       },
       "value": 500,
       "structural": false,
@@ -3108,8 +3108,8 @@
       "id": "n54_injury_regen_2",
       "code": "N54",
       "name": {
-        "ko": "중상 회복 속도(‰, 생명 수치 분당 회복에 곱함)",
-        "en": "Regen speed while serious injury (‰ of per-minute regen)"
+        "ko": "중상 HP 회복 속도(‰, 분당 HP 회복에 곱함)",
+        "en": "HP regen speed while serious injury (‰ of per-minute HP regen)"
       },
       "value": 250,
       "structural": false,
@@ -3121,8 +3121,8 @@
       "id": "n54_injury_regen_3",
       "code": "N54",
       "name": {
-        "ko": "중태 회복 속도(‰, 생명 수치 분당 회복에 곱함)",
-        "en": "Regen speed while critical injury (‰ of per-minute regen)"
+        "ko": "중태 HP 회복 속도(‰, 분당 HP 회복에 곱함)",
+        "en": "HP regen speed while critical injury (‰ of per-minute HP regen)"
       },
       "value": 100,
       "structural": false,

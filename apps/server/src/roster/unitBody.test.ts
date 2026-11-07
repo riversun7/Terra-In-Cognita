@@ -163,6 +163,24 @@ describe("입은 장비 → 사이보그 화면(cyborg.get 몸)", () => {
     ]);
   });
 
+  it("부상 불이익(D-514): 성장값 + 버프에서 ‰만큼 빼고(효과 출처 injury), 장비 1차 보너스에는 걸지 않는다. 몸을 다시 만들 까닭은 아니다", () => {
+    const injured: UnitGear = { ...gear([], [effect({ effect: "food_str", value: 5 })]), injuryPm: 400 };
+    const body = realCyborgBody(catalog, record, false, injured);
+    // STR: 10 + 5 = 15 → −⌊15 × 0.4⌋ = −6, 나머지 10 → −4
+    expect(body.stats.primaries.str).toEqual({ base: 10, bonus: -1 });
+    expect(body.stats.primaries.vit).toEqual({ base: 10, bonus: -4 });
+    expect(body.primarySources.str).toEqual([
+      { kind: "body", value: 10 },
+      { kind: "effect", id: "food_str", value: 5 },
+      { kind: "effect", id: "injury", value: -6 },
+    ]);
+    // 2차 스탯도 깎인 1차로 센다(HP 행)
+    const fresh = realCyborgBody(catalog, record, false);
+    const hp = (view: typeof body) => view.stats.secondary.find((row) => row.id === "hp")?.value ?? 0;
+    expect(hp(body)).toBeLessThan(hp(fresh));
+    expect(hasGear({ ...NO_GEAR, injuryPm: 400 })).toBe(false);
+  });
+
   it("실제 스태미나 회복 = 행 값 × min(2, STA 점수 ÷ 적정 STA)(D-511 real_stamina_regen)", () => {
     const fresh = realCyborgBody(catalog, record, false);
     expect(fresh.combat?.staminaRegen).toEqual({ row: 720, score: 10, appropriateMilli: 10_000, real: 720 });

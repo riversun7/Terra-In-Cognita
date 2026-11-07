@@ -114,14 +114,15 @@ describe("settleJob — 접속 상태", () => {
   });
 });
 
-describe("직무 없는 유닛의 쉼(D-430, WP8 525 ①)", () => {
-  const idle = (fatigue: number, phase = PHASE_WORK, progressMs = 0): JobState => ({
-    job: JOB_NONE,
-    phase,
-    progressMs,
-    fatigue,
-  });
+/** 직무 없는 유닛 상태 */
+const idle = (fatigue: number, phase = PHASE_WORK, progressMs = 0): JobState => ({
+  job: JOB_NONE,
+  phase,
+  progressMs,
+  fatigue,
+});
 
+describe("직무 없는 유닛의 쉼(D-430, WP8 525 ①)", () => {
   it("손 계산: 걸음마다 피로 −1, 0이 되면 일 단계·진행 0, 피로 0이면 그대로", () => {
     // SMALL 걸음 5ms: 피로 3 → 12ms 뒤 1(2걸음 + 2ms)
     expect(restIdle(idle(3), 12, SMALL)).toEqual(idle(1, PHASE_WORK, 2));

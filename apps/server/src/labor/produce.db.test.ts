@@ -151,6 +151,12 @@ const cropAssets = TEST_HOLDING_CONTENT.items
   .filter((item) => item.subcategory?.id === "crop")
   .map((item) => goodsAsset(item.id));
 
+/** 원장 자산 한 기본 단위의 무게(g, 시험 아이템) */
+const weightOf = (asset: string): bigint => {
+  const item = TEST_HOLDING_CONTENT.items.find((entry) => goodsAsset(entry.id) === asset);
+  return BigInt(item?.weight ?? 0);
+};
+
 describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
   it("직무 배치: 내 휴먼을 내 벌목장에 두면 그 도시 창고에 원목이 쌓이고, 풀면 멈춘다. 배치 밖에서는 시험 광석이 없다", async () => {
     const world = await boot();
@@ -330,10 +336,6 @@ describe.skipIf(!TEST_DATABASE_URL)("플레이어 생산(서버)", () => {
     });
     clock += 4 * HOUR;
     p.settlement.settleOwner(tenant.ownerId, clock);
-    const weightOf = (asset: string): bigint => {
-      const item = TEST_HOLDING_CONTENT.items.find((entry) => goodsAsset(entry.id) === asset);
-      return BigInt(item?.weight ?? 0);
-    };
     let tenantGrams = 0n;
     let totalGrams = 0n;
     for (const account of p.ledger.accounts()) {

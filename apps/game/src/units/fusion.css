@@ -1,5 +1,5 @@
 /*
- * 유닛 화면 [융합] 칸 — 사이보그 유닛 융합·유전자 조각(D-470·D-478). 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 유닛 화면 [융합] 칸 — 사이보그 유닛 융합·유전자(D-470·D-478·D-516). 값은 styles/tokens.css의 var(--…)만 쓴다.
  * 390px 먼저: 카드 한 줄에 하나, 스탯 여섯 칸은 3 × 2 격자. 넓으면(48em 이상) 카드를 둘씩, 스탯은 한 줄.
  */
 
@@ -62,8 +62,7 @@
 }
 
 /* ── 카드 ─────────────────────────────────────── */
-.fusion-list,
-.fusion-genes {
+.fusion-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
@@ -137,35 +136,54 @@
   color: var(--color-stat-wis);
 }
 
-/* ── 유전자 조각 ───────────────────────────────── */
-.fusion-gene {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-1) var(--space-3);
-  align-items: baseline;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-control);
-  background-color: var(--color-surface-2);
-  min-width: 0;
+/* ── 유전자(D-516: 총합·칸 값·주력·속성, 합성·인큐베이터·주입) ───────────── */
+/* 주력 칸: 테두리만(바탕색을 바꾸면 다크 테마에서 스탯 글자 대비가 무너진다) */
+.fusion-stat[data-main] {
+  outline: var(--border-w) solid var(--color-primary);
+  outline-offset: calc(var(--border-w) * -1);
 }
-.fusion-gene-name {
+.fusion-gene-total {
+  margin: 0;
+  font-weight: 700;
   overflow-wrap: anywhere;
 }
-.fusion-gene .field-hint {
-  grid-column: 1;
+.fusion-elements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.fusion-gene-qty {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: center;
+.fusion-element {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-sm);
+}
+.fusion-pick,
+.fusion-target {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-size);
+  min-width: 0;
+}
+.fusion-pick input {
+  inline-size: var(--space-4);
+  block-size: var(--space-4);
+}
+.fusion-target select {
+  min-height: var(--tap-size);
+  max-inline-size: 100%;
 }
 
 @media (min-width: 48em) {
   .fusion-costs {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .fusion-list,
-  .fusion-genes {
+  .fusion-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .fusion-stats {

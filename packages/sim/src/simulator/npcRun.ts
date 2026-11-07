@@ -2,6 +2,7 @@
 // 세력마다 판단 예약("decide")에서: 세계 → 지표(FactionView·RivalView) → npc/brain.ts가 고른 행동 하나 → 세력·사회 규칙(society.ts)·
 // 전투(combatRun.ts)로 실행한다. 세율(경제가 있을 때)과 구인(D-469, 행정 건물 구인 카드)은 판단마다 규칙식(npc/policy.ts)으로 따로 돈다.
 // 결과(점령·반란·독립·구인 휴먼·기술·백지 강화)는 규칙이 정한다. 서버(apps/server/src/npc/)도 같은 함수를 실제 시각으로 부른다.
+// 폐허 복원(기획 답 484 다): 후보는 폐허 규칙(societyRuins.ts npcOptions)이 고르고, 판단이 고르면 같은 규칙이 실행한다(npcAct).
 // 합성 이동 부하(유닛마다 "arrive")는 서버와 같은 이동 함수로 도착 시각을 낸다.
 import { WALK_SPEED } from "../units.ts";
 import { arrivalAt, createMotion } from "../motion/motion.ts";
@@ -73,7 +74,16 @@ export interface NpcCounts {
 
 export function emptyNpcCounts(): NpcCounts {
   return {
-    actions: { idle: 0, attack: 0, found: 0, research: 0, sell_shares: 0, peace: 0, break_vassal: 0 },
+    actions: {
+      idle: 0,
+      attack: 0,
+      found: 0,
+      research: 0,
+      sell_shares: 0,
+      peace: 0,
+      break_vassal: 0,
+      restore: 0,
+    },
     peaceRefused: 0,
     taxChanges: 0,
     recruits: 0,
@@ -154,8 +164,8 @@ function sellableCity(ctx: NpcContext, faction: SimFaction, cityId: number): boo
   return have > SHARE_LOT && (have - SHARE_LOT) * 1000n >= keep * BigInt(ctx.c.sharesPerCity);
 }
 
-/** 세력 하나의 지표(npc/brain.ts FactionView) */
-export function factionView(ctx: NpcContext, faction: SimFaction): FactionView {
+/** 세력 하나의 지표(npc/brain.ts FactionView). nowMs = 폐허 복원 후보를 고르는 시각 */
+export function factionView(ctx: NpcContext, faction: SimFaction, nowMs: number): FactionView {
   const { world, c, settings } = ctx;
   const byCity = citizens(ctx, faction);
   let sum = 0;
@@ -206,6 +216,7 @@ export function factionView(ctx: NpcContext, faction: SimFaction): FactionView {
     poor: treasury < settings.foundCost,
     overlord: overlord?.alive ? { id: overlord.id, strength: overlord.units.size } : null,
     vassals,
+    restores: ctx.society?.ruins.npcOptions(faction, nowMs) ?? [],
   };
 }
 
@@ -306,7 +317,7 @@ function attack(ctx: NpcContext, attacker: SimFaction, targetId: number, roll: n
 function proposePeace(ctx: NpcContext, from: SimFaction, toId: number, nowMs: number): void {
   const to = ctx.world.factions.get(toId);
   if (!to?.alive || !from.wars.has(toId)) return;
-  if (peaceScore(factionView(ctx, to), rivalView(ctx, to, from, nowMs), ctx.c.npc) > 0)
+  if (peaceScore(factionView(ctx, to, nowMs), rivalView(ctx, to, from, nowMs), ctx.c.npc) > 0)
     ctx.society?.makePeace(from, to, nowMs);
   else ctx.counts.peaceRefused += 1;
 }
@@ -367,7 +378,7 @@ export function decide(ctx: NpcContext, factionId: number, nowMs: number): void 
   const rng = streamRng(ctx.world.seed, STREAM_DECIDE, faction.id, faction.aiStep * 2);
   // 굴림 수는 판단마다 같다(무엇을 하든 다음 굴림이 밀리지 않게): 같은 점수 고르기, 도시 고르기, 지분 고르기
   const rolls = [rng.nextInt(0x1_0000), rng.nextInt(0x1_0000), rng.nextInt(0x1_0000)];
-  const view = factionView(ctx, faction);
+  const view = factionView(ctx, faction, nowMs);
   const action = decideAction(view, rivalsOf(ctx, faction, nowMs), rolls[0] ?? 0, ctx.c.npc);
   ctx.counts.actions[action.kind] += 1;
   const society = ctx.society;
@@ -397,6 +408,9 @@ export function decide(ctx: NpcContext, factionId: number, nowMs: number): void 
       break;
     case "break_vassal":
       society?.breakVassal(faction);
+      break;
+    case "restore":
+      society?.ruins.npcAct(faction, action.ruin, action.mode, nowMs);
       break;
     case "idle":
       break;

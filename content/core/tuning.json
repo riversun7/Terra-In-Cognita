@@ -4221,14 +4221,40 @@
       "id": "d510_restore_goal",
       "code": "",
       "name": {
-        "ko": "복원 목표(최소 단위)",
-        "en": "Restoration goal (minor units)"
+        "ko": "복원 목표 기본값(옛 주거를 모를 때, 최소 단위)",
+        "en": "Restoration goal fallback (unknown housing, minor units)"
       },
       "value": 10000,
       "structural": false,
       "unit": "minor",
       "min": 1,
       "max": 1000000000000
+    },
+    {
+      "id": "d510_goal_per_housing",
+      "code": "",
+      "name": {
+        "ko": "복원 목표의 주거 1당 값(최소 단위)",
+        "en": "Restoration goal per housing (minor units)"
+      },
+      "value": 700,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000000
+    },
+    {
+      "id": "d510_fund_days",
+      "code": "",
+      "name": {
+        "ko": "복원 모금 기한(일, 0 = 없음)",
+        "en": "Restoration funding deadline (days, 0 = none)"
+      },
+      "value": 30,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 3650
     },
     {
       "id": "d510_npc_claim_after_days",
@@ -4247,8 +4273,8 @@
       "id": "d510_npc_fund_pm",
       "code": "",
       "name": {
-        "ko": "주인 NPC 하루 넣는 국고 몫(‰)",
-        "en": "Owner NPC daily funding (‰ of treasury)"
+        "ko": "주인 NPC 한 번 넣는 국고 몫(‰)",
+        "en": "Owner NPC funding per action (‰ of treasury)"
       },
       "value": 100,
       "structural": false,
@@ -4260,14 +4286,40 @@
       "id": "d510_npc_invest_pm",
       "code": "",
       "name": {
-        "ko": "다른 NPC 하루 투자 몫(‰, 상업 1000일 때)",
-        "en": "Other NPC daily investment (‰ at commerce 1000)"
+        "ko": "다른 NPC 한 번 투자 몫(‰, 상업 1000일 때)",
+        "en": "Other NPC investment per action (‰ at commerce 1000)"
       },
       "value": 20,
       "structural": false,
       "unit": "pm",
       "min": 0,
       "max": 1000
+    },
+    {
+      "id": "d510_npc_restore_score",
+      "code": "",
+      "name": {
+        "ko": "NPC 폐허 정부 짓기 기본 점수",
+        "en": "NPC ruin claim base score"
+      },
+      "value": 250,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "d510_raze_aggression",
+      "code": "",
+      "name": {
+        "ko": "약탈하고 폐허로 두는 공격 성향 문턱",
+        "en": "Aggression threshold to raze a conquered city"
+      },
+      "value": 900,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1001
     },
     {
       "id": "d311_guardian_defense_pm",

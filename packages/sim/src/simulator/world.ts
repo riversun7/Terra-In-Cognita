@@ -101,13 +101,21 @@ export interface SimRuin {
   /** 복원하면 도시가 드는 세력(NPC 주인은 그 세력, 유저 주인은 그 유저의 나라 — 확인 대기 질문 481) */
   joinFaction: number | null;
   claimedAtMs: number;
-  /** 정부 건물 ID(유저가 2차맵에 지었을 때, 서버만). 없으면 null */
+  /**
+   * 정부 건물 ID(유저가 2차맵에 지었을 때, 서버만). 없으면 null(NPC는 시설 칸 없이 값을 내고 바로 다 지은 것으로 친다). 건물이 다 지어지고
+   * 서 있어야 복원 사업을 연다(480 다), 0%·사라지면 다시 지은 쪽이 주인(487 다) — 상태는 서버가 고리로 알려 준다(attachGovernment)
+   */
   building: number | null;
   /** 복원 목표·화폐(주인이 될 때 정함, 0n·"" = 주인 없음) */
   goal: bigint;
   currency: string;
   /** 주인이 모금을 열었나(열면 누구나 넣는다, D-343) */
   open: boolean;
+  /**
+   * 모금 기한(ms, 기획 답 485 다: 처음 주인이 된 때 + 기한 날 수, 다시 지은 주인도 그대로 잇는다). 0 = 정하지 않음(주인 없음, 또는 기한 칸이
+   * 생기기 전에 주인이 된 줄 — 그때는 주인이 된 때 + 기한 날 수로 본다)
+   */
+  deadlineMs: number;
   /** 낸 값(소유 주체 → 최소 단위). 값은 에스크로 계정에 있다(restoreEscrow) */
   readonly contributions: Map<number, bigint>;
 }

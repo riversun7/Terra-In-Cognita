@@ -116,6 +116,11 @@ export interface GardenerOptions {
   readonly cancel: (eventId: number) => void;
   /** 웨이브 공성 전투: true = 웨이브가 이김, false = 짐, "pending" = 나중에 resolve(서버) */
   readonly fight: (wave: GardenerWave, defenders: readonly SimUnit[], nowMs: number) => boolean | "pending";
+  /**
+   * 그 도시에 싸울 수 있는 수호신이 있나(기획 답 472 가, D-311 "방어전에 나선다"): 있으면 수비 휴먼이 없어도 웨이브 전투를 연다(서버 = 신전
+   * 서비스, 전투 시작 길이 수호신을 수비 편에 넣는다). 없으면(시뮬) 수비 휴먼이 없는 도시는 전투 없이 웨이브가 이긴다(질문 218 가)
+   */
+  readonly hasGuardians?: ((cityId: number) => boolean) | undefined;
   /** 세력 국고(질문 220 가: 그 세력 화폐 그대로) */
   readonly treasuryOf: (faction: SimFaction) => bigint;
   /** 시간 배율(예고·쉬는 시간·유목 제외 기간에 곱한다). 서버 측정용 하루 줄이기(NPC_DAY_MS)만 1 아래로 쓴다 */

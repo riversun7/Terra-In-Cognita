@@ -55,8 +55,11 @@ import {
  *    관계도]), 요약 gardener 칸 protection·relations·rewards
  * 11: 폐허 복원(docs/adr/2026-11-07-ruins-restoration.md): 요약 society.ruins 칸에 left(남은 폐허)·claimed(정부를 지은 수)·
  *    restored(복원된 수)·released(돌려준 수)·contributions(넣은 거래 수)·raised(자산 → 넣은 값)
+ * 12: 폐허 2(기획 답 480~489, docs/adr/2026-11-07-ruins-restoration.md "바뀜"): 요약 society.occupations에 razed(약탈하고 폐허로 둔 도시,
+ *    486 나), society.ruins에 expired(모금 기한이 지나 돌려준 수, 485 다)·reclaimed(정부 건물이 무너져 다시 지은 쪽이 주인, 487 다),
+ *    요약 npc.actions에 restore(폐허 복원 행동, 484 다)
  */
-export const SIM_OUTPUT_FORMAT = 11;
+export const SIM_OUTPUT_FORMAT = 12;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 정원사 합성 격자 한 변(도시마다 3칸 간격, 한 줄 32도시 — 1만 도시까지), 웨이브 전투 기본값(시나리오에 combat 칸이 없을 때) */

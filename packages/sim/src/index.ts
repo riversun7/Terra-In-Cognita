@@ -208,6 +208,7 @@ export {
   scoreActions,
   type FactionView,
   type NpcAction,
+  type RestoreView,
   type RivalView,
   type ScoredAction,
 } from "./npc/brain.ts";
@@ -270,11 +271,18 @@ export {
   type SimWorld,
 } from "./simulator/world.ts";
 // 폐허 복원(docs/adr/2026-11-07-ruins-restoration.md): 규칙·시뮬·서버 같은 실행
-export type { RuinResult, RuinsSummary, SocietyRuins } from "./simulator/societyRuins.ts";
+export type {
+  GovernmentLookup,
+  GovernmentStatus,
+  RuinResult,
+  RuinsSummary,
+  SocietyRuins,
+} from "./simulator/societyRuins.ts";
 export {
   START_RESTORATION_COEFFICIENTS,
   contributionList,
   raisedOf,
+  restorationGoal,
   restorationShares,
 } from "./society/restoration.ts";
 export type { RestorationCoefficients } from "./society/restoration.ts";

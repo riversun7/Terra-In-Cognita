@@ -88,6 +88,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     whitePeace: 0,
     stalled: 0,
     ruined: 0,
+    razed: 0,
     damaged: 0,
     fled: 0,
     homeless: 0,
@@ -240,7 +241,58 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       ],
     });
   };
-  // 폐허 복원(D-510, societyRuins.ts): 폐허 기록·정부 짓기·모금·복원, 하루 끝 NPC 규칙식
+  /** 약탈: 도시 금고 몫(국고 ÷ 도시 수 × 만분율)을 가져간다(D-186) */
+  const lootTreasury = (attacker: SimFaction, target: SimFaction, nowMs: number): void => {
+    const share =
+      (treasury(target) * BigInt(c.lootTakeBp)) / 10_000n / BigInt(Math.max(1, target.cities.size));
+    if (share > 0n)
+      book.post({
+        kind: "loot",
+        atMs: nowMs,
+        entries: [
+          { account: book.ownerAccount(target.id, treasuryAsset(target)), amount: -share },
+          { account: book.ownerAccount(attacker.id, treasuryAsset(target)), amount: share },
+        ],
+      });
+  };
+  /**
+   * 도시를 폐허로(웨이브 D-105·D-464 217, 전쟁 약탈 486 나): 도시가 세계에서 빠지고 폐허로 남는다(D-510: 정부를 먼저 지은 쪽이 주인 → 복원
+   * 사업, societyRuins.ts). 휴먼은 같은 세력의 가장 오래된 도시로 피난, 없으면 노숙(떠도는 세력). 도시 지분은 쓸모없는 채로 남는다(D-464 217).
+   * 마지막 도시면 세력이 사라지거나(구성원도 없을 때 — cause·into) 떠돈다. 화폐 소멸(D-299)은 화폐를 찍는 세력만
+   */
+  const ruinCity = (
+    city: SimCity,
+    owner: SimFaction,
+    nowMs: number,
+    cause: string,
+    into: SimFaction | undefined,
+  ): void => {
+    const cityId = city.id;
+    o.hooks?.cityRuined?.(cityId, nowMs);
+    ruins.record(city, nowMs);
+    const refuge = [...owner.cities].filter((id) => id !== cityId).toSorted((a, b) => a - b)[0];
+    for (const unit of [...world.units.values()].toSorted((a, b) => a.id - b.id)) {
+      if (unit.city !== cityId) continue;
+      if (refuge === undefined) {
+        unit.city = HOMELESS;
+        counts.homeless += 1;
+      } else {
+        unit.city = refuge;
+        o.hooks?.unitsChanged?.(refuge, 1);
+        counts.fled += 1;
+      }
+    }
+    owner.cities.delete(cityId);
+    world.cities.delete(cityId);
+    payouts.cityMoved(cityId);
+    recordTech(owner, nowMs, 0, "city_ruined");
+    if (owner.cities.size === 0) {
+      dieIfEmpty(owner, cause, into, nowMs);
+      if (owner.alive) counts.wandering += 1;
+      else counts.dispersed += 1;
+    }
+  };
+  // 폐허 복원(D-510, societyRuins.ts): 폐허 기록·정부 짓기·모금·복원, 하루 끝(기한·사라진 세력), NPC "폐허 복원" 행동의 후보·실행
   const ruins = createSocietyRuins({
     world,
     c,
@@ -256,6 +308,16 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       if (!city || city.start) return;
       // 점령자가 고른 처리(NPC 규칙식 npc/policy.ts occupationChoice, 질문 198 가)
       const { treatment, shares: choice } = decision;
+      if (treatment === "raze") {
+        // 약탈하고 폐허로 둔다(기획 답 486 나): 점령하지 않는다 — 도시 금고 몫을 가져가고, 도시는 웨이브 폐허와 같은 길로 폐허가 된다
+        // (옛 주인 = 진 세력, 지분은 쓸모없는 채로 남음, 휴먼 피난·노숙, 정부를 먼저 지은 쪽이 주인 → 복원 사업)
+        counts.razed += 1;
+        lootTreasury(attacker, target, nowMs);
+        if (attacker.wars.has(target.id)) recordFight(attacker, attacker.id, target, target.id, nowMs);
+        else declareWar(attacker, attacker.id, target, target.id, nowMs);
+        ruinCity(city, target, nowMs, "conquered", attacker);
+        return;
+      }
       const occupier = {
         treasury: attacker.id,
         regime: attacker.regime,
@@ -269,18 +331,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       if (treatment === "loot") {
         counts.loot += 1;
         city.researchLevel = Math.max(0, city.researchLevel - 1);
-        // 약탈: 도시 금고 몫(국고 ÷ 도시 수 × 만분율)을 가져간다(D-186)
-        const share =
-          (treasury(target) * BigInt(c.lootTakeBp)) / 10_000n / BigInt(Math.max(1, target.cities.size));
-        if (share > 0n)
-          book.post({
-            kind: "loot",
-            atMs: nowMs,
-            entries: [
-              { account: book.ownerAccount(target.id, treasuryAsset(target)), amount: -share },
-              { account: book.ownerAccount(attacker.id, treasuryAsset(target)), amount: share },
-            ],
-          });
+        lootTreasury(attacker, target, nowMs);
       } else counts.integrate += 1;
       if (decided === "delist") counts.delisted += 1;
       offers.push(...makeOffers(book, cityId, attacker.id, new Set([target.id]), nowMs, c));
@@ -428,36 +479,12 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     },
 
     ruin(cityId, nowMs) {
-      // 폐허(D-105·D-464 217): 도시가 세계에서 빠진다. 휴먼은 같은 세력의 가장 오래된 도시로 피난, 없으면 노숙(떠도는 세력)
+      // 웨이브 폐허(D-105·D-464 217): 시작 도시는 폐허가 되지 않는다(D-341)
       const city = world.cities.get(cityId);
       const owner = city ? world.factions.get(city.owner) : undefined;
       if (!city || !owner || city.start) return;
-      o.hooks?.cityRuined?.(cityId, nowMs);
-      // 폐허로 남긴다(D-510: 정부를 먼저 지은 쪽이 주인 → 복원 사업, societyRuins.ts)
-      ruins.record(city, nowMs);
-      const refuge = [...owner.cities].filter((id) => id !== cityId).toSorted((a, b) => a - b)[0];
-      for (const unit of [...world.units.values()].toSorted((a, b) => a.id - b.id)) {
-        if (unit.city !== cityId) continue;
-        if (refuge === undefined) {
-          unit.city = HOMELESS;
-          counts.homeless += 1;
-        } else {
-          unit.city = refuge;
-          o.hooks?.unitsChanged?.(refuge, 1);
-          counts.fled += 1;
-        }
-      }
-      owner.cities.delete(cityId);
-      world.cities.delete(cityId);
-      payouts.cityMoved(cityId);
       counts.ruined += 1;
-      recordTech(owner, nowMs, 0, "city_ruined");
-      // 도시 지분은 쓸모없는 채로 남는다(D-464 217). 화폐 소멸(D-299)은 화폐를 찍는 세력만 — 고정 국가는 시작 도시를 잃지 않는다
-      if (owner.cities.size === 0) {
-        dieIfEmpty(owner, "dispersed", undefined, nowMs);
-        if (owner.alive) counts.wandering += 1;
-        else counts.dispersed += 1;
-      }
+      ruinCity(city, owner, nowMs, "dispersed", undefined);
     },
 
     damage(cityId, nowMs) {
@@ -725,7 +752,12 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         rebellions: { won: counts.won, suppressed: counts.suppressed, calmed: counts.calmed },
         independence: counts.independence,
         founded: counts.founded,
-        occupations: { loot: counts.loot, integrate: counts.integrate, delisted: counts.delisted },
+        occupations: {
+          loot: counts.loot,
+          integrate: counts.integrate,
+          delisted: counts.delisted,
+          razed: counts.razed,
+        },
         offers: { accepted: counts.accepted, refused: counts.refused, expired: counts.expired },
         shareSales: counts.shareSales,
         researchBuilt: counts.researchBuilt,

@@ -223,7 +223,8 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
       return;
     }
     const defenders = unitsIn(city.id);
-    if (defenders.length === 0) {
+    // 수비 휴먼이 없어도 수호신이 있으면 전투를 연다(472 가)
+    if (defenders.length === 0 && !(o.hasGuardians?.(city.id) ?? false)) {
       counts.undefended += 1;
       resolve(wave.id, true, nowMs);
       return;

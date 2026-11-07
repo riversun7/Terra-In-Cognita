@@ -20,7 +20,13 @@ export interface SocietySummary {
   readonly rebellions: { readonly won: number; readonly suppressed: number; readonly calmed: number };
   readonly independence: number;
   readonly founded: number;
-  readonly occupations: { readonly loot: number; readonly integrate: number; readonly delisted: number };
+  /** 점령 처리 수(46 §5.1). razed = 약탈하고 폐허로 둔 도시(기획 답 486 나, 출력 형식 12) */
+  readonly occupations: {
+    readonly loot: number;
+    readonly integrate: number;
+    readonly delisted: number;
+    readonly razed: number;
+  };
   readonly offers: { readonly accepted: number; readonly refused: number; readonly expired: number };
   readonly shareSales: number;
   readonly researchBuilt: number;
@@ -36,7 +42,8 @@ export interface SocietySummary {
   /**
    * 정원사 웨이브 결과(docs/adr/2026-11-01-gardener-r5b.md, D-464 217): 폐허가 된 도시, 건물 피해를 받은 시작 도시, 피난한·노숙이 된
    * 휴먼, 떠도는 세력이 된 수, 구성원이 모두 떠나 사라진 떠도는 세력 수. 폐허 복원(docs/adr/2026-11-07-ruins-restoration.md, 출력 형식 11):
-   * 남은 폐허·정부를 지은 수·복원된 수·돌려준 수·넣은 거래 수·넣은 값
+   * 남은 폐허·정부를 지은 수·복원된 수·돌려준 수·넣은 거래 수·넣은 값. 출력 형식 12(기획 답 480~489): 기한이 지나 돌려준 수(expired)·
+   * 정부 건물이 무너져 다시 지은 쪽이 주인이 된 수(reclaimed)
    */
   readonly ruins: RuinsSummary & {
     readonly ruined: number;

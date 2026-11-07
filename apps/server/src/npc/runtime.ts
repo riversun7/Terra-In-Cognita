@@ -8,8 +8,10 @@
 // - 정원사(docs/adr/2026-11-01-gardener-r5b.md 5절, gardener.ts): 하루 끝에 칸 오염·도시 웨이브 굴림·유목 부대, 웨이브 도착은
 //   서버 전투 서비스의 공성 전투로 싸운다(결과가 오면 다음 틱에 피해·폐허·쉬는 시간). 정원사 2: 정원 세력 관계도·세력 오염·
 //   보호 레이드(판단의 치기 → onAttack)·막아 낸 웨이브 보상(waveRewards.ts).
-// - 서버에서 아직 안 하는 것: 실시간 공성(NPC 공격은 전투 없이 점령 — 시뮬 "전투 끔"과 같은 규칙), NPC 시장·세금(배당 0),
-//   휴먼 지갑(상속은 빈 지갑), 편입 제안 저장(메모리), NPC 생산 시설의 오염(시설이 없다), 행정 건물 올리기(모든 도시 Lv1 [임시]).
+// - 도시 경제(docs/adr/2026-11-07-play-flow.md WP4, economy.ts): 시뮬과 같은 경제 실행(생산·생필품 유지비·NPC 거래·거래세)을 같은 루프에서
+//   돌리고 세력·사회에 경제 고리(생필품 충족·거래세 배당·세율·도시 주인 바뀜의 창고·거래소)를 준다. 거래소는 market/books.ts(저장·복원).
+// - 서버에서 아직 안 하는 것: 실시간 공성(NPC 공격은 전투 없이 점령 — 시뮬 "전투 끔"과 같은 규칙), 환전·세력 화폐(시험 화폐 하나),
+//   휴먼 지갑(상속은 빈 지갑), 편입 제안 저장(메모리), NPC 생산 시설의 오염(정원사 칸 오염에 넣지 않음), 행정 건물 올리기(모든 도시 Lv1 [임시]).
 import { randomInt } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import {
@@ -57,6 +59,7 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, NPC_START_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
+import { type NpcEconomyInput, type ServerEconomy, startServerEconomy } from "./economy.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { type CityPlace, type NpcPersist, createNpcPersist } from "./persist.ts";
@@ -72,6 +75,8 @@ const SPARE_FACTIONS = 16;
 const ADOPT_SATISFACTION = 60_000;
 /** 하루 끝 사건 종류 */
 const EVENT_DAY = "npc_day";
+/** 걸어 둔 거래소 주문의 만료를 거두는 간격(ms) */
+const EXPIRE_EVERY_MS = 60_000;
 
 export interface NpcRuntimeOptions {
   readonly pool: QueryPool;
@@ -110,6 +115,8 @@ export interface NpcRuntimeOptions {
   readonly waveRewardItems?: (() => WaveRewardItems) | undefined;
   /** 도시마다 수호신 만족도 버프(하루 끝에 그 도시 휴먼 만족도 + 밀리점, 기획 답 470 가 — 신전 서비스). 없으면 버프 없음 */
   readonly guardianSatisfaction?: (() => ReadonlyMap<number, number>) | undefined;
+  /** 도시 경제 입력(경제 목록·도시 시설, docs/adr/2026-11-07-play-flow.md WP4). 없으면 경제 없이 돈다(시험) */
+  readonly economy?: NpcEconomyInput | undefined;
 }
 
 export interface NpcRuntime {
@@ -122,6 +129,8 @@ export interface NpcRuntime {
   readonly society: SocietyRun;
   /** 정원사(오염·웨이브·유목 부대) */
   readonly gardener: ServerGardener;
+  /** 도시 경제·거래소(경제 입력이 있을 때만) */
+  readonly economy: ServerEconomy | undefined;
   /** 폐허·복원 사업 바뀜을 바로 쓰기 대기열에 넣는다(유저 폐허 명령 뒤 같은 동기 처리, ruinsPersist.ts) */
   flushRuins(): void;
   /** 지난 호출 뒤 구간의 지표(서버 1분 지표 한 줄에 붙인다) */
@@ -412,11 +421,13 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     sink: (line) => log.info({ npcMetrics: line }, "npc society metrics"),
   });
   const ctxRef: { ctx?: NpcContext } = {};
+  const econRef: { current?: ServerEconomy | undefined } = {};
   const loop = createSimLoop<SimEvent>({
     startMs,
     handle: (event, sim) => {
       const ctx = ctxRef.ctx;
       if (!ctx) return;
+      if (econRef.current?.handle(event, sim.nowMs)) return;
       const started = performance.now();
       if (gardenerRef.current?.run.handle(event.payload.kind, event.payload.subject, sim.nowMs)) {
         metrics.gardenerMs += performance.now() - started;
@@ -439,6 +450,22 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       }
     },
   });
+  // 도시 경제(사회 규칙보다 먼저: 사회·판단이 경제 고리를 받는다)
+  const econ = o.economy
+    ? await startServerEconomy({
+        world,
+        writer,
+        pool: o.pool,
+        owners: o.owners,
+        loop,
+        rules: o.rules,
+        input: o.economy,
+        startMs,
+        now: o.now,
+        log,
+      })
+    : undefined;
+  econRef.current = econ;
   const ctx: NpcContext = {
     world,
     loop,
@@ -448,6 +475,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     settings: DEFAULT_SCENARIO_SOCIETY,
     trips: undefined,
     counts: emptyNpcCounts(),
+    hooks: econ?.hooks,
   };
   ctxRef.ctx = ctx;
   const society = attachSociety(
@@ -456,7 +484,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       settings: DEFAULT_SCENARIO_SOCIETY,
       recorder,
       c,
-      hooks: undefined,
+      hooks: econ?.hooks,
       combat: undefined,
       scheduleFaction: (faction, nowMs) => scheduleDecide(ctx, faction, nowMs),
       scheduleUnit: () => {},
@@ -505,6 +533,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   });
 
   function endOfDay(nowMs: number): void {
+    econ?.beforeDay(nowMs);
     society.endOfDay(nowMs);
     // 수호신 만족도 버프(470 가): 사회 규칙의 하루 끝 다음에 그 도시 휴먼마다 더한다(상한에서 자름 [임시]). 바뀜은 휴먼 저장이 줄 비교로 쓴다
     const lift = o.guardianSatisfaction?.();
@@ -529,6 +558,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       });
     }
     recorder.day(society.currentDay(), rows);
+    econ?.afterDay(nowMs, society.currentDay());
   }
 
   recorder.start(
@@ -555,6 +585,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
 
   let busy = false;
   let stopped = false;
+  let expiredAt = startMs;
   const tick = async (force = false): Promise<void> => {
     if (busy || stopped) return;
     busy = true;
@@ -564,6 +595,11 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       const results = gardener.applyPending(o.now());
       metrics.waveResults += results;
       loop.runUntil(o.now() + 1);
+      // 걸어 둔 거래소 주문의 만료(쓰기 대기열로 바로 간다)
+      if (econ && o.now() - expiredAt >= EXPIRE_EVERY_MS) {
+        expiredAt = o.now();
+        econ.expire(expiredAt);
+      }
       if (loop.processed === before && results === 0 && !force) return;
       const started = performance.now();
       const result = await persist.flush(society.currentDay());
@@ -586,6 +622,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     places: persist.places,
     society,
     gardener,
+    economy: econ,
     flushRuins: () => void persist.flushRuins(),
     takeMetrics() {
       const out = {
@@ -601,6 +638,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         gardenerWaves: gardener.run.waves.size,
         gardenerWaveResults: metrics.waveResults,
         pollutionCells: gardener.run.layer().size,
+        ...econ?.takeMetrics(),
       };
       metrics.decisions = 0;
       metrics.decideMs = 0;

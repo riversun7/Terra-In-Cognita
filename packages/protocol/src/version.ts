@@ -43,8 +43,9 @@
  *    인큐베이터(fusion.ts gene_incubate에 연구소 칸 buildingId·cost, 칸이 없으면 판 11 그대로 개발 시험)·개발 편집 수호신 버프
  *    (temple.ts dev_guardian_buff → temple_result). 두 줄기를 배포 전에 합쳐 한 판으로 올렸다. 더하기만 했고 12판 기기는 그대로 받는다.
  * 14: 직무 배치(labor.ts labor_assign·labor_unassign → labor_result, docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산") — 내 유닛을 내 채집
- *    시설에 돈 없이 둔다. 새 결과 코드 not_workplace·facility_full·not_assigned는 이 메시지의 답에만 간다. 더하기만 했고 13판 기기는 그대로
- *    받는다(이 메시지를 보내지 않는다).
+ *    시설에 돈 없이 둔다(새 결과 코드 not_workplace·facility_full·not_assigned는 이 메시지의 답에만 간다). 물자 거래소(market.ts, 같은 ADR
+ *    "WP4 도시 경제·거래소") — market_place·market_cancel·market_watch → market_result, 체결 알림 market_fill(알림을 켠 연결에만). 두 줄기를
+ *    배포 전에 합쳐 한 판으로 올렸다. 더하기만 했고 13판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
  */
 export const PROTOCOL_VERSION = 14;
 

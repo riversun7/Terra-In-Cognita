@@ -2,8 +2,8 @@
 // 건물 짓기·노화·수리·채집 시설 직무 배치(FacilityPanel.tsx, 실제 자료), 정부기관 구인 카드 고용(RecruitPanel.tsx, D-469 — docs/adr/2026-11-07-play-flow.md
 // "WP3 플레이어 생산"), 신전(TemplePanel.tsx), 폐허 복원(RuinsPanel.tsx, D-510), 노동 계약(임금형·임대형, D-479 — LaborPanel.tsx, 실제 자료),
 // 레시피 목록(팩).
-// 시설·예약은 서버가 생산을 돌릴 때까지 시안 자료에서만 보인다. 레시피 목록은 실제 팩 자료다.
-// 예약 단추는 명령을 보내지 않는다(곧 열림, 생산 예약 명령은 WebSocket으로 붙인다).
+// 실제 자료(서버 도시 경제, 같은 ADR WP4): 내 기준 도시의 생산 현황(NPC 시설·도시 직무의 지금 만드는 것·일꾼).
+// 반복 예약·급여·예약 단추는 시안 자료에서만 보인다(유저 생산 예약은 아직 없다, 곧 열림). 레시피 목록은 실제 팩 자료다.
 import type {
   CatalogRecipeView,
   EconomyProductionResponse,
@@ -48,6 +48,8 @@ function FacilityCard({
   now: number;
   preview: boolean;
 }) {
+  // 도시 직무(건물 없이 휴먼이 돌리는 생산)는 ID가 job_로 시작한다(서버 market/views.ts)
+  const cityJob = facility.id.startsWith("job_");
   const run = facility.current;
   const progress = run ? progressOf(run.startedAt, run.endsAt, now) : 0;
   const queued = facility.queue.reduce((sum, entry) => sum + entry.batches, 0);
@@ -58,7 +60,9 @@ function FacilityCard({
         <h3 id={titleId} className="eco-place-title">
           {facilityName(index, facility.facility)}
         </h3>
-        <span className="eco-tag">{m.economy_facility_level({ level: facility.level })}</span>
+        <span className="eco-tag">
+          {cityJob ? m.market_city_job() : m.economy_facility_level({ level: facility.level })}
+        </span>
         {preview ? <PreviewTag /> : null}
       </div>
       <p className="eco-facility-meta">
@@ -86,19 +90,21 @@ function FacilityCard({
           </span>
         </div>
       ) : null}
-      <div className="eco-facility-foot">
-        <span className="eco-facility-queue">
-          {queued > 0 ? m.economy_queue({ count: queued }) : m.economy_queue_none()}
-        </span>
-        <button
-          type="button"
-          className="button-small"
-          aria-disabled="true"
-          aria-describedby="eco-production-soon"
-        >
-          {m.economy_queue_add()}
-        </button>
-      </div>
+      {preview ? (
+        <div className="eco-facility-foot">
+          <span className="eco-facility-queue">
+            {queued > 0 ? m.economy_queue({ count: queued }) : m.economy_queue_none()}
+          </span>
+          <button
+            type="button"
+            className="button-small"
+            aria-disabled="true"
+            aria-describedby="eco-production-soon"
+          >
+            {m.economy_queue_add()}
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -252,6 +258,39 @@ function WorkerLines({ worker }: { worker: NonNullable<CatalogRecipeView["worker
   );
 }
 
+/** 반복 예약·급여(시안 자료에서만 — 유저 생산 예약·급여 표는 아직 서버에 없다) */
+function PreviewPlans({ data, index }: { data: EconomyProductionResponse; index: CatalogIndex }) {
+  return (
+    <>
+      <section className="panel" aria-labelledby="eco-repeats-title">
+        <h2 id="eco-repeats-title" className="eco-section-title">
+          {m.economy_repeats_title()}
+        </h2>
+        {data.repeats.length === 0 ? (
+          <p className="eco-empty">{m.economy_repeats_empty()}</p>
+        ) : (
+          <ul className="eco-rows">
+            {data.repeats.map((repeat) => (
+              <RepeatRow key={repeat.id} repeat={repeat} data={data} index={index} />
+            ))}
+          </ul>
+        )}
+      </section>
+      <section className="panel" aria-labelledby="eco-wages-title">
+        <h2 id="eco-wages-title" className="eco-section-title">
+          {m.economy_wages_title()}
+        </h2>
+        <p className="eco-footnote">{m.economy_wage_formula()}</p>
+        <ul className="eco-rows">
+          {data.wages.map((wage) => (
+            <WageRow key={`${wage.job}-${wage.place}`} wage={wage} index={index} />
+          ))}
+        </ul>
+      </section>
+    </>
+  );
+}
+
 export default function ProductionView() {
   const catalog = useCatalog(NO_ARGS);
   const production = useProduction(NO_ARGS);
@@ -281,7 +320,19 @@ export default function ProductionView() {
         <NotReady body={m.economy_not_ready_production()} />
       ) : (
         <>
-          <h2 className="eco-section-title">{m.economy_facilities_title()}</h2>
+          {data.preview ? (
+            <h2 className="eco-section-title">{m.economy_facilities_title()}</h2>
+          ) : (
+            <>
+              <h2 className="eco-section-title">
+                {m.market_city_production_title({ city: data.facilities[0]?.place ?? "—" })}
+              </h2>
+              <p className="eco-footnote">{m.market_city_production_note()}</p>
+              {data.facilities.length === 0 ? (
+                <p className="eco-empty">{m.market_city_production_empty()}</p>
+              ) : null}
+            </>
+          )}
           <div className="eco-places">
             {data.facilities.map((facility) => (
               <FacilityCard
@@ -293,31 +344,7 @@ export default function ProductionView() {
               />
             ))}
           </div>
-          <section className="panel" aria-labelledby="eco-repeats-title">
-            <h2 id="eco-repeats-title" className="eco-section-title">
-              {m.economy_repeats_title()}
-            </h2>
-            {data.repeats.length === 0 ? (
-              <p className="eco-empty">{m.economy_repeats_empty()}</p>
-            ) : (
-              <ul className="eco-rows">
-                {data.repeats.map((repeat) => (
-                  <RepeatRow key={repeat.id} repeat={repeat} data={data} index={index} />
-                ))}
-              </ul>
-            )}
-          </section>
-          <section className="panel" aria-labelledby="eco-wages-title">
-            <h2 id="eco-wages-title" className="eco-section-title">
-              {m.economy_wages_title()}
-            </h2>
-            <p className="eco-footnote">{m.economy_wage_formula()}</p>
-            <ul className="eco-rows">
-              {data.wages.map((wage) => (
-                <WageRow key={`${wage.job}-${wage.place}`} wage={wage} index={index} />
-              ))}
-            </ul>
-          </section>
+          {data.preview ? <PreviewPlans data={data} index={index} /> : null}
         </>
       )}
       <FacilityPanel />

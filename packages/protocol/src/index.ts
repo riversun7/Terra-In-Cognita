@@ -79,6 +79,12 @@ export {
   type RestorationResultCode,
 } from "./ruins.ts";
 export {
+  MARKET_EXPIRY_DAYS_MAX,
+  MARKET_PROTOCOL_VERSION,
+  MARKET_RESULT_CODES,
+  type MarketResultCode,
+} from "./market.ts";
+export {
   GUARDIAN_BUFF_IDS,
   GUARDIAN_BUFF_PROTOCOL_VERSION,
   TEMPLE_PROTOCOL_VERSION,

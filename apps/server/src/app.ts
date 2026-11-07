@@ -38,6 +38,9 @@ import { createRecruitGateway } from "./recruit/gateway.ts";
 import { createFusionGateway } from "./fusion/gateway.ts";
 import { createTempleGateway } from "./temple/gateway.ts";
 import { createRuinGateway } from "./ruins/gateway.ts";
+import { marketSourceOf } from "./market/appSource.ts";
+import { serverEconomyCatalogAccessor } from "./market/catalog.ts";
+import { createMarketGateway } from "./market/gateway.ts";
 import { holdingsConfigOf } from "./holdings/config.ts";
 import { vitalsConfigOf } from "./vitals/config.ts";
 import { createVitalsReads } from "./vitals/reads.ts";
@@ -449,6 +452,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         roster: rosterCatalog ? () => rosterCatalog : undefined,
         // 건물 짓기·노화·수리(docs/adr/2026-11-07-buildings-runtime.md): 실효 시설·아이템(건물·아이템 편집기 덮어쓰기가 바로 든다)
         facilities: contentEditState ? { content: () => contentEditState.effective() } : undefined,
+        // NPC 도시 경제·거래소(docs/adr/2026-11-07-play-flow.md WP4): 경제 화면 목록 + 실효 아이템·시설·채집 확률표
+        economy: serverEconomyCatalogAccessor(
+          options.economyCatalog,
+          contentEditState ? () => contentEditState.effective() : undefined,
+        ),
       })
     : undefined;
   // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md): 세계가 준비된 뒤의 서비스(DB가 있는 월드만)
@@ -472,6 +480,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // 폐허 복원(docs/adr/2026-11-07-ruins-restoration.md): 세계가 준비되고 NPC 사회 런타임이 돌 때만(거울 세계 규칙)
   const ruinService = () =>
     world?.status().state === "ready" && world.npc ? world.persistence?.ruins : undefined;
+  // 물자 거래소(docs/adr/2026-11-07-play-flow.md WP4): 세계가 준비되고 NPC 사회 런타임이 도시 경제를 돌릴 때만
+  const marketSource = marketSourceOf(world, now);
   // 건물(docs/adr/2026-11-07-buildings-runtime.md): 같은 조건
   const facilityService = () =>
     world?.status().state === "ready" ? world.persistence?.facilities.service : undefined;
@@ -644,7 +654,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       economy: options.economyCatalog
         ? createEconomyServices({
             catalog: options.economyCatalog,
-            world: world ? worldEconomySource(world) : undefined,
+            world: world ? worldEconomySource(world, () => marketSource()?.views) : undefined,
           })
         : undefined,
       factionSource: world && options.db ? createWorldFactionSource(world) : undefined,
@@ -726,6 +736,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     ? createTempleGateway({ service: templeService, now, log: app.log })
     : undefined;
   const ruinGateway = world ? createRuinGateway({ service: ruinService, now, log: app.log }) : undefined;
+  const marketGateway = world
+    ? createMarketGateway({ service: () => marketSource()?.service, now, log: app.log })
+    : undefined;
 
   if (planets && options.planets) {
     registerPlanetRoutes(app, { planets, viewer: httpViewer, now, limits: options.planets.limits });
@@ -753,6 +766,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         facilities: facilityGateway,
         temple: templeGateway,
         ruins: ruinGateway,
+        market: marketGateway,
         viewer: socketViewer(request),
         // 접속 상태(D-136): 월드가 DB에 저장할 때만. 연결은 부팅 복구가 끝난 뒤에만 들어온다(listen이 기다린다)
         presence: world

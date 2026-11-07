@@ -34,7 +34,7 @@ function decodes(decode: (text: string) => unknown, message: unknown): boolean {
 }
 
 describe("사이보그 만들기 메시지", () => {
-  it("만들기는 프로토콜 4부터, 속성 분배는 5부터. 지금 판 14와 직전 판 13을 받는다(4~12는 받지 않는다, 직무 배치 판 14)", () => {
+  it("만들기는 프로토콜 4부터, 속성 분배는 5부터. 지금 판 14와 직전 판 13을 받는다(4~12는 받지 않는다, 직무 배치·거래소 판 14)", () => {
     expect(PROTOCOL_VERSION).toBe(14);
     expect(CYBORG_PROTOCOL_VERSION).toBe(4);
     expect(CYBORG_ELEMENTS_PROTOCOL_VERSION).toBe(5);

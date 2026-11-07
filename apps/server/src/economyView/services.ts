@@ -1,8 +1,11 @@
 // 경제 화면 자료 — tRPC economy.*(조회만, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)").
-// - 실제 자료: 팩 목록(economy.catalog), 로그인한 본인의 원장 잔고(economy.holdings, 월드 원장 메모리 장부를 읽기만 한다).
+// - 실제 자료: 팩 목록(economy.catalog), 로그인한 본인의 원장 잔고(economy.holdings, 월드 원장 메모리 장부를 읽기만 한다),
+//   물자 거래소(거래 물건·도시별 값·호가창·체결·봉·내 주문)와 내 기준 도시의 생산(NPC 도시 경제, docs/adr/2026-11-07-play-flow.md WP4 —
+//   market/views.ts). 거래소·생산은 NPC 사회 런타임이 도시 경제를 돌릴 때만 ready다.
 // - 시안 자료(preview, 권한 home: preview를 프로시저가 본 뒤): 창고·생산·거래창·내 주문·환전(previewWorld·Market·Exchange·Production).
-// - 시안이 아니면 서버가 아직 돌리지 않는 시스템(거래소·생산·환전)은 status "not_ready"와 빈 목록이다(지어내지 않는다, [결정 2]).
-// 게임 상태를 바꾸지 않는다(주문·예약 명령은 WebSocket, 서버 거래소가 열릴 때).
+// - 시안이 아니면 서버가 아직 돌리지 않는 시스템(환전, 도시 경제가 없는 세계의 거래소·생산)은 status "not_ready"와 빈 목록이다
+//   (지어내지 않는다, [결정 2]).
+// 게임 상태를 바꾸지 않는다(주문·취소 명령은 WebSocket market_place·market_cancel, packages/protocol/src/market.ts).
 import type {
   EconomyCatalogResponse,
   EconomyExchangeResponse,
@@ -19,6 +22,7 @@ import type {
   MyOrderDone,
 } from "@terra/shared/economy";
 import { placeKey, placeOfLocation } from "@terra/shared/goodsPlaces";
+import type { MarketViews } from "../market/views.ts";
 import { reasonedError } from "../trpc/init.ts";
 import type { EconomyQuery, EconomyServices, Viewer } from "../trpc/context.ts";
 import { bookLevels, candles, changeBp, recentTrades, tradeStats } from "./marketShape.ts";
@@ -62,6 +66,8 @@ export interface EconomyWorldSource {
   ownerOf(userId: string): number | undefined;
   /** 그 주체의 계정(잔고 포함) */
   accountsOf(ownerId: number): readonly EconomyAccountRow[];
+  /** 실제 거래소·도시 생산 화면 자료(도시 경제가 돌 때만) */
+  readonly market?: (() => MarketViews | undefined) | undefined;
 }
 
 /** [임시] 남은 주문 한도(D-148·D-6034). 거래소 유닛 INT·WIS 식은 기획 Step 5 */
@@ -257,12 +263,28 @@ export function createEconomyServices(options: {
       };
     },
 
-    production(_viewer: Viewer, query: EconomyQuery): EconomyProductionResponse {
-      if (!query.preview) return { ...head(query, false), facilities: [], repeats: [], wages: [] };
+    production(viewer: Viewer, query: EconomyQuery): EconomyProductionResponse {
+      if (!query.preview) {
+        const real = world?.market?.();
+        if (real) return { ...head(query, true), ...real.production(viewer.id) };
+        return { ...head(query, false), facilities: [], repeats: [], wages: [] };
+      }
       return { ...head(query, true), ...previewProduction(view().catalog, query.now) };
     },
 
-    marketItems(_viewer: Viewer, query: EconomyQuery): MarketItemsResponse {
+    marketItems(viewer: Viewer, query: EconomyQuery): MarketItemsResponse {
+      if (!query.preview) {
+        const real = world?.market?.();
+        if (real)
+          return {
+            ...head(query, true),
+            ...real.items(
+              viewer.id,
+              view().bookItems.map((item) => item.id),
+              query.now,
+            ),
+          };
+      }
       if (!query.preview || !homeCity) return { ...head(query, false), homeCity: null, items: [] };
       const { catalog, bookItems } = view();
       const items = bookItems.map((item) => {
@@ -291,10 +313,14 @@ export function createEconomyServices(options: {
       return { ...head(query, true), homeCity: { id: homeCity.id, name: homeCity.name }, items };
     },
 
-    marketCities(_viewer: Viewer, itemId: string, query: EconomyQuery): MarketCitiesResponse {
+    marketCities(viewer: Viewer, itemId: string, query: EconomyQuery): MarketCitiesResponse {
       ensureItem(itemId);
       const { catalog } = view();
-      if (!query.preview) return { ...head(query, false), item: itemId, rows: [] };
+      if (!query.preview) {
+        const real = world?.market?.();
+        if (real) return { ...head(query, true), ...real.cities(viewer.id, itemId, query.now) };
+        return { ...head(query, false), item: itemId, rows: [] };
+      }
       const rows: MarketCityRow[] = [];
       for (const city of PREVIEW_CITIES) {
         const state = marketOf(city, itemId, query.now);
@@ -325,8 +351,17 @@ export function createEconomyServices(options: {
       return { ...head(query, true), item: itemId, rows };
     },
 
-    marketBook(_viewer: Viewer, itemId: string, cityId: string, query: EconomyQuery): MarketBookResponse {
+    marketBook(viewer: Viewer, itemId: string, cityId: string, query: EconomyQuery): MarketBookResponse {
       ensureItem(itemId);
+      if (!query.preview) {
+        const real = world?.market?.();
+        if (real) {
+          const id = Number(cityId);
+          const book = Number.isSafeInteger(id) ? real.book(viewer.id, itemId, id, query.now) : undefined;
+          if (!book) throw reasonedError("NOT_FOUND", "UNKNOWN_CITY", "unknown_city");
+          return { ...head(query, true), ...book };
+        }
+      }
       const { catalog } = view();
       const city = PREVIEW_CITIES.find((entry) => entry.id === cityId);
       const empty = {
@@ -383,7 +418,9 @@ export function createEconomyServices(options: {
       };
     },
 
-    orders(_viewer: Viewer, query: EconomyQuery): EconomyOrdersResponse {
+    orders(viewer: Viewer, query: EconomyQuery): EconomyOrdersResponse {
+      const real = query.preview ? undefined : world?.market?.();
+      if (real) return { ...head(query, true), ...real.orders(viewer.id, query.now) };
       if (!query.preview) {
         return {
           ...head(query, false),

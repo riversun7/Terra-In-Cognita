@@ -1,7 +1,9 @@
-// 건물(시설) 명령 (프로토콜 10부터) — docs/adr/2026-11-07-buildings-runtime.md, 기획 49 N50·M14·M15·N54, D-171·D-508·D-509·D-514
+// 건물(시설) 명령 (프로토콜 10부터, 창고 옮기기는 12부터) — docs/adr/2026-11-07-buildings-runtime.md, 기획 49 N50·M14·M15·N54,
+// D-171·D-508·D-509·D-514·D-516(361·382)
 // - 바꾸는 명령: 짓기(facility_build), 레벨업(facility_upgrade), 건물·영토 비콘 수리(facility_repair), 공방 장비 수리(equipment_repair),
 //   개발 시험(dev_facility_grant: 재료 받기, dev_facility_finish: 하던 작업 바로 끝내기 — 권한 secondMap: dev-spawn).
-//   조회는 tRPC facilities.overview다.
+//   창고 옮기기(storage_move, 프로토콜 11): 도시 창고·화물 ↔ 창고 시설, 건물 창고(임대 몫) → 도시 창고. 조회는 tRPC facilities.overview다.
+// - 재료를 꺼내는 자리(12부터 서버 규칙, D-516 361): 건물이 선 도시 창고 + 그 도시의 내 창고 시설 + 그 2차맵 내 유닛 화물(@terra/shared/goodsPlaces).
 // - 서버가 판정한다: 소유(내 건물·내 유닛·내 물건), 재료(주인 원장의 재료를 뺀다), 배치(2차맵 칸), 시간(M14 식 × 일꾼 단축),
 //   상태(30% 미만 기능 정지). 결과는 facility_result 하나(id = 요청 id). 오류는 코드다(기기가 번역).
 // 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다: 시설·아이템 ID가 팩에 있는지는 서버가 본다.
@@ -9,6 +11,8 @@ import { z } from "zod";
 
 /** 건물 메시지에 필요한 가장 낮은 프로토콜 버전. 더 낮게 인사한 연결이 보내면 invalid_message로 거절한다 */
 export const FACILITY_PROTOCOL_VERSION = 10;
+/** 창고 옮기기(storage_move)·개발 재료 받기 자리 칸(mapKey·x·y)이 생긴 프로토콜 버전 */
+export const STORAGE_PROTOCOL_VERSION = 11;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -76,13 +80,40 @@ export const equipmentRepairMessage = z.object({
   unitIds: units.min(1),
 });
 
-/** 개발 시험: 재료(쌓이는 물자) 받기 — 내 원장으로(권한 secondMap: dev-spawn) */
+/**
+ * 개발 시험: 재료(쌓이는 물자) 받기(권한 secondMap: dev-spawn). 12부터 mapKey·x·y(짓는 자리)를 주면 그 칸이 속한 도시 창고로, 없으면
+ * 첫 2차맵 가운데 칸의 도시 창고로 받는다(그 2차맵에 도시가 없으면 내 첫 유닛 화물)
+ */
 export const devFacilityGrantMessage = z.object({
   t: z.literal("dev_facility_grant"),
   id: requestId,
   item: contentId,
   /** 입력 한도(게임 값 아님) */
   qty: z.number().int().min(1).max(100_000),
+  mapKey: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
+  x: cell.optional(),
+  y: cell.optional(),
+});
+
+/** 원장 자산 코드 모양(물자 item:<ID>, 시험 광석 등). 쓸 수 있는 자산인지는 서버가 본다 */
+const assetCode = z
+  .string()
+  .min(2)
+  .max(97)
+  .regex(/^[a-z][a-z0-9_]{1,47}(:[a-z][a-z0-9_]{1,47})?$/);
+
+/**
+ * 창고 옮기기(프로토콜 11, 49 N50·D-121·D-516 382): direction in = 그 건물이 선 도시의 내 도시 창고 → 그 2차맵 내 유닛 화물 차례로 꺼내
+ * 내 창고 시설(창고 단계, 다 지었고 30% 이상)에 넣는다(무게 합 ≤ 용량, 물자만). out = 그 건물 창고의 내 몫(창고 시설·임대 몫, 남의 건물이어도
+ * 된다)을 그 도시의 내 도시 창고로. 수량은 원장 단위(재료와 같은 묶음 수). [임시] 같은 도시 안은 바로 옮긴다(운송은 운송 줄기)
+ */
+export const storageMoveMessage = z.object({
+  t: z.literal("storage_move"),
+  id: requestId,
+  buildingId: rowId,
+  asset: assetCode,
+  qty: z.number().int().min(1).max(1_000_000),
+  direction: z.enum(["in", "out"]),
 });
 
 /** 개발 시험: 하던 작업(짓기·레벨업·수리·장비 수리) 바로 끝내기(권한 secondMap: dev-spawn) */
@@ -146,6 +177,12 @@ export const FACILITY_RESULT_CODES = [
   "holding_busy",
   /** 파괴된 장비(분해만, F12) */
   "broken",
+  /** 창고 시설이 아니거나(창고 단계·내 건물) 넣을 수 없는 자산(12) */
+  "not_storage",
+  /** 창고 용량(무게)을 넘는다(12) */
+  "storage_full",
+  /** 물건을 둘 자리가 없다: 그 2차맵에 도시가 없고(도시 창고 없음) 내 유닛도 없다(12) */
+  "no_place",
   "internal_error",
 ] as const;
 export type FacilityResultCode = (typeof FACILITY_RESULT_CODES)[number];
@@ -175,5 +212,6 @@ export const facilityClientMessages = [
   equipmentRepairMessage,
   devFacilityGrantMessage,
   devFacilityFinishMessage,
+  storageMoveMessage,
 ] as const;
 export const facilityServerMessages = [facilityResultMessage] as const;

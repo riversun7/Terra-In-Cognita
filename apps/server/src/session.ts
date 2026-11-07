@@ -16,6 +16,7 @@ import {
   LABOR_PROTOCOL_VERSION,
   LABOR_JOBS_PROTOCOL_VERSION,
   FACILITY_PROTOCOL_VERSION,
+  STORAGE_PROTOCOL_VERSION,
   FUSION_PROTOCOL_VERSION,
   GENE_PROTOCOL_VERSION,
   type ServerMessage,
@@ -340,9 +341,11 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "facility_repair":
       case "equipment_repair":
       case "dev_facility_grant":
-      case "dev_facility_finish": {
-        // 건물 명령은 프로토콜 10의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
-        if (protocolVersion < FACILITY_PROTOCOL_VERSION) {
+      case "dev_facility_finish":
+      case "storage_move": {
+        // 건물 명령은 프로토콜 10, 창고 옮기기는 12의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        const needs = message.t === "storage_move" ? STORAGE_PROTOCOL_VERSION : FACILITY_PROTOCOL_VERSION;
+        if (protocolVersion < needs) {
           reject("invalid_message");
           return;
         }

@@ -29,7 +29,9 @@
  * 11: 유전자(fusion.ts, docs/adr/2026-11-07-cyborg-fusion-genes.md "바뀜 (D-516)") — 유전자 환생 unit_rebirth를 뺐다(D-516 "무작위 +1은
  *    불가능", 10판 기기가 보내면 invalid_message). gene_synthesize·gene_inject·gene_incubate·dev_grant_gene·dev_expire_unit을 더했고
  *    fusion_result의 결과 코드(alive·insufficient_genes를 빼고 unknown_gene 등을 더함)와 성공 칸(shards를 빼고 gene·genes·outcome·
- *    total·skill)이 바뀌었다. 빼기와 더하기를 한 판에 했다.
+ *    total·skill)이 바뀌었다. 창고 옮기기(facilities.ts storage_move, docs/adr/2026-11-07-buildings-runtime.md "바뀜 (창고·직무)") →
+ *    facility_result(새 코드 not_storage·storage_full·no_place는 이 판 메시지의 답에만 간다), dev_facility_grant에 짓는 자리 칸
+ *    (mapKey·x·y, 선택). 두 줄기를 배포 전에 합쳐 한 판으로 올렸다.
  */
 export const PROTOCOL_VERSION = 11;
 

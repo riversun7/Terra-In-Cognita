@@ -1,0 +1,1 @@
+ALTER TABLE "world_facilities" ADD COLUMN "city_id" bigint;

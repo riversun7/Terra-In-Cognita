@@ -9,6 +9,9 @@
 // - 사이보그 본체도 유닛 유지비(D-150 = 생활비)를 낸다(D-453이 D-445 178 "유지비 없음"을 대체). 직무는 없다. 마지막 유지비 경계를
 //   못 냈으면 그 경계 시각을 주체에 적는다(upkeep_unpaid_at_ms) → 본체가 효율 불이익(N38)으로 돈다(@terra/sim livingEfficiencyPm).
 //   보유 유닛 수(주거 상한 D-153)에서는 그대로 뺀다(roster/worldUnits.ts).
+// - 직무 멈춤(D-516 364, docs/adr/2026-11-07-buildings-runtime.md "바뀜 (창고·직무)"): 건물 작업(짓기·레벨업·수리·장비 수리)에 묶인 유닛은
+//   그 구간 산출을 내지 않는다. 산출 구간(노동 계약 몫)에 멈춤 구간을 겹쳐 그 구간 창고를 null(산출 버림)로 바꾼다(mergePauses).
+//   직무 상태(진행·피로)는 그대로 흐른다(노동 계약 일시 중지와 같은 모양). 정산 뒤 고리(afterSettle)는 노동 계약 유예 끝의 남은 물건 옮기기.
 import {
   JOB_GATHER,
   type JobState,
@@ -77,7 +80,49 @@ export interface Settlement {
    * 유닛 ID → 산출 구간을 받는다. 계약 정산(임금·임대료)은 고리 안에서 같은 동기 처리로 한다
    */
   routeOutputs(router: OutputRouter | undefined): void;
+  /** 직무 멈춤 고리(건물 작업): 주체를 정산할 때마다 불러 유닛 ID → 산출 없는 구간을 받는다 */
+  pauseOutputs(pauses: OutputPauses | undefined): void;
+  /** 정산 뒤 고리: 산출 거래를 넣은 뒤 같은 동기 처리 안에서 부른다(노동 계약 유예 끝 물건 옮기기) */
+  afterSettle(hook: ((ownerId: number, toMs: number) => void) | undefined): void;
   stop(): void;
+}
+
+/** 산출 없는 구간(fromMs, untilMs] */
+export interface PauseWindow {
+  readonly fromMs: number;
+  readonly untilMs: number;
+}
+
+export type OutputPauses = (ownerId: number) => ReadonlyMap<number, readonly PauseWindow[]> | undefined;
+
+/**
+ * 산출 구간에 멈춤 구간을 겹친다(순수 함수): (fromMs, toMs]를 모든 경계로 잘라, 멈춤 구간 안이면 창고 null, 아니면 원래 구간의 창고
+ * (구간이 없거나 마지막 구간 뒤면 base). 결과는 fromMs부터 toMs까지 차례로 덮는다
+ */
+export function mergePauses(
+  segments: readonly OutputSegment[] | undefined,
+  pauses: readonly PauseWindow[],
+  fromMs: number,
+  toMs: number,
+  base: () => number,
+): OutputSegment[] {
+  const edges = new Set<number>([toMs]);
+  for (const segment of segments ?? [])
+    if (segment.untilMs > fromMs && segment.untilMs < toMs) edges.add(segment.untilMs);
+  for (const pause of pauses)
+    for (const edge of [pause.fromMs, pause.untilMs]) if (edge > fromMs && edge < toMs) edges.add(edge);
+  const out: OutputSegment[] = [];
+  let from = fromMs;
+  for (const until of [...edges].toSorted((a, b) => a - b)) {
+    const paused = pauses.some((pause) => pause.fromMs <= from && pause.untilMs >= until);
+    const own = (segments ?? []).find((segment) => segment.untilMs >= until);
+    const stock = paused ? null : own ? own.stock : base;
+    const last = out.at(-1);
+    if (last && last.stock === stock) out[out.length - 1] = { untilMs: until, stock };
+    else out.push({ untilMs: until, stock });
+    from = until;
+  }
+  return out;
 }
 
 export type OutputRouter = (
@@ -153,6 +198,8 @@ export function createSettlement(options: {
   };
 
   let router: OutputRouter | undefined;
+  let pauser: OutputPauses | undefined;
+  let after: ((ownerId: number, toMs: number) => void) | undefined;
   const weightOf = options.upkeepWeightPm;
 
   const settleWith = (owner: OwnerRow, units: readonly UnitRef[], toMs: number): SettleReport => {
@@ -160,6 +207,14 @@ export function createSettlement(options: {
     if (toMs <= from) return { cycles: 0, upkeepPaid: 0, upkeepUnpaid: 0 };
     // 노동 계약을 같은 시각까지 정산하고 유닛마다 산출 구간을 받는다(계약이 없으면 undefined → 예전과 같다)
     const routes = router?.(owner.id, from, toMs);
+    // 건물 작업에 묶인 유닛은 그 구간 산출이 없다(D-516 364). 멈춤이 없는 유닛은 계약 몫 구간 그대로
+    const pauses = pauser?.(owner.id);
+    const own = testSettleAccounts(ledger, owner.id);
+    const base = (): number => own.stock();
+    const outputOf = (unitId: number): readonly OutputSegment[] | undefined => {
+      const windows = pauses?.get(unitId);
+      return windows ? mergePauses(routes?.get(unitId), windows, from, toMs, base) : routes?.get(unitId);
+    };
     // 판정은 @terra/sim 공용 함수(시뮬레이터와 같다). 여기서는 결과를 2차맵·소유 주체 행에 적기만 한다
     const result = settleOwnerPeriod(
       {
@@ -168,7 +223,7 @@ export function createSettlement(options: {
         fromMs: from,
         toMs,
         offlineSinceMs: offlineOf(owner),
-        outputs: routes ? units.map((unit) => routes.get(unit.id)) : undefined,
+        outputs: routes || pauses ? units.map((unit) => outputOf(unit.id)) : undefined,
         upkeepWeightPm: weightOf ? units.reduce((sum, unit) => sum + weightOf(unit.kind), 0) : undefined,
       },
       ledger,
@@ -185,6 +240,7 @@ export function createSettlement(options: {
       owner.upkeepUnpaidAtMs = Math.floor(toMs / UPKEEP_PERIOD_MS) * UPKEEP_PERIOD_MS;
     owner.settledAtMs = toMs;
     saveOwner(owner);
+    after?.(owner.id, toMs);
     return { cycles: result.cycles, upkeepPaid: result.upkeepPaid, upkeepUnpaid: result.upkeepUnpaid };
   };
 
@@ -306,6 +362,12 @@ export function createSettlement(options: {
     },
     routeOutputs(next) {
       router = next;
+    },
+    pauseOutputs(next) {
+      pauser = next;
+    },
+    afterSettle(hook) {
+      after = hook;
     },
     stop() {
       clearInterval(sweepTimer);

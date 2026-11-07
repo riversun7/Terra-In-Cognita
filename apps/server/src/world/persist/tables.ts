@@ -335,6 +335,7 @@ export const WORLD_TABLES = {
       "condition_at_ms",
       "built_at_ms",
       "built_by",
+      "city_id",
     ],
     key: ["building_id"],
   },

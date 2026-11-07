@@ -28,6 +28,8 @@ function notReady(nowMs: number, dev: boolean): FacilitiesOverviewResponse {
     catalog: [],
     facilities: [],
     beacons: [],
+    cities: [],
+    places: [],
     materials: [],
     units: [],
     holdings: [],

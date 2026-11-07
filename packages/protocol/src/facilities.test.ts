@@ -1,16 +1,47 @@
 import { describe, expect, it } from "vitest";
 import { decodeClientMessage, decodeServerMessage } from "./codec.ts";
 import { encodeMessage } from "./encode.ts";
-import { FACILITY_PROTOCOL_VERSION } from "./facilities.ts";
+import { FACILITY_PROTOCOL_VERSION, STORAGE_PROTOCOL_VERSION } from "./facilities.ts";
 import { MIN_SUPPORTED_PROTOCOL_VERSION, PROTOCOL_VERSION } from "./version.ts";
 
 const bad = (message: object) => JSON.stringify(message);
 
-describe("건물 메시지(프로토콜 10)", () => {
-  it("판 10부터(지금 판 11, 최소 판 10)", () => {
+describe("건물 메시지(프로토콜 10, 창고 11)", () => {
+  it("판 10부터(창고 옮기기 11), 지금 판 11·최소 판 10", () => {
     expect(FACILITY_PROTOCOL_VERSION).toBe(10);
+    expect(STORAGE_PROTOCOL_VERSION).toBe(11);
     expect(PROTOCOL_VERSION).toBe(11);
     expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(10);
+  });
+
+  it("창고 옮기기(11)·개발 재료 받기 자리 칸이 왕복하고, 틀린 방향·자산·수량은 받지 않는다", () => {
+    const move = {
+      t: "storage_move" as const,
+      id: 8,
+      buildingId: 9,
+      asset: "item:pine_log",
+      qty: 30,
+      direction: "in" as const,
+    };
+    expect(decodeClientMessage(encodeMessage(move))).toEqual(move);
+    const out = { ...move, asset: "s3_test_ore", direction: "out" as const };
+    expect(decodeClientMessage(encodeMessage(out))).toEqual(out);
+    const grant = {
+      t: "dev_facility_grant",
+      id: 6,
+      item: "pine_log",
+      qty: 4,
+      mapKey: 3,
+      x: 10,
+      y: 255,
+    } as const;
+    expect(decodeClientMessage(encodeMessage(grant))).toEqual(grant);
+    expect(() => decodeClientMessage(bad({ ...move, direction: "up" }))).toThrow();
+    expect(() => decodeClientMessage(bad({ ...move, asset: "Item:Pine" }))).toThrow();
+    expect(() => decodeClientMessage(bad({ ...move, qty: 0 }))).toThrow();
+    expect(() => decodeClientMessage(bad({ ...grant, x: 256 }))).toThrow();
+    const full = { t: "facility_result", id: 8, ok: false, code: "storage_full" } as const;
+    expect(decodeServerMessage(encodeMessage(full))).toEqual(full);
   });
 
   it("짓기·레벨업·수리·장비 수리·개발 명령·결과가 왕복한다", () => {

@@ -2,6 +2,7 @@
 // 규칙(점령·반란·독립·출생·기술)은 @terra/sim society/*이고, 서버는 지금 표(world_cities)와 안전한 곳 찾기만 한다.
 // 세계에서 세력·도시를 실제로 돌리는 일(NPC 두뇌, 도시 만들기·점령 명령)은 R5다.
 // [임시] 시험 NPC 세력에게 시험 2차맵마다 시작 도시 하나를 둔다(가운데 칸). 진 유닛이 돌아갈 "가장 가까운 안전 도시"가 된다.
+import type { CityCell } from "@terra/shared/goodsPlaces";
 import { PLACEMENT_SIZE } from "@terra/sim";
 import type { QueryPool } from "./persist/load.ts";
 
@@ -75,4 +76,24 @@ export function nearestSafeCity(
     }
   }
   return best;
+}
+
+/**
+ * 띄운 2차맵의 도시 자리(건물이 선 도시 = 가장 가까운 도시, docs/adr/2026-11-07-buildings-runtime.md "바뀜 (창고·직무)"):
+ * 부팅 때 읽은 도시 + NPC 런타임이 새로 세운 도시(같은 ID면 런타임 값)
+ */
+export function cityCellsOf(
+  boot: readonly CityRow[],
+  live: ReadonlyMap<number, { planetId: string; mapKey: number; cellX: number; cellY: number }> | undefined,
+  planetId: string,
+  maps: { has(mapKey: number): boolean },
+): CityCell[] {
+  const byId = new Map<number, CityCell>();
+  for (const city of boot)
+    if (city.planetId === planetId && maps.has(city.mapKey))
+      byId.set(city.id, { id: city.id, mapKey: city.mapKey, x: city.cellX, y: city.cellY });
+  for (const [id, place] of live ?? [])
+    if (place.planetId === planetId && maps.has(place.mapKey))
+      byId.set(id, { id, mapKey: place.mapKey, x: place.cellX, y: place.cellY });
+  return [...byId.values()];
 }

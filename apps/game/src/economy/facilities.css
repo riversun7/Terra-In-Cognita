@@ -109,3 +109,35 @@
 .facility-holding {
   flex-wrap: wrap;
 }
+/* 창고 시설 넣기·꺼내기(StorageParts.tsx) — 일꾼 고르기와 같은 틀 */
+.facility-move {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  min-inline-size: 0;
+}
+.facility-move legend {
+  padding: 0 var(--space-1);
+}
+.facility-move p {
+  margin: 0;
+}
+/* 내 창고·화물 줄: 꺼내기 단추는 다음 줄로 감싼다 */
+.facility-place {
+  flex-wrap: wrap;
+}
+.facility-place .eco-row-meta {
+  overflow-wrap: anywhere;
+}
+/* 물건 고르기는 이름·수량이 길어 넓게, 수량은 좁게 */
+.facility-move .facility-cells {
+  grid-template-columns: minmax(0, 2fr) minmax(5rem, 1fr);
+}
+.facility-move .eco-select {
+  min-inline-size: 0;
+  inline-size: 100%;
+}

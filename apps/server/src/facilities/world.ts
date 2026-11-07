@@ -5,6 +5,7 @@ import type { SocietyCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";
 import type { LaborService } from "../labor/service.ts";
+import type { CityCell } from "@terra/shared/goodsPlaces";
 import type { BeaconConstruction, TerritoryService } from "../territory/service.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
@@ -30,7 +31,10 @@ export interface WorldFacilities {
   attachLabor(labor: LaborService): void;
 }
 
-/** 비콘 짓기(영토 서비스 construction 칸): 놓는 사용자의 주인 원장에서 레벨 1 재료를 뺀다 */
+/**
+ * 비콘 짓기(영토 서비스 construction 칸): 놓는 사용자의 주인 원장에서 레벨 1 재료를 뺀다. 비콘은 1차맵 칸이라 도시·2차맵이 없어 모든
+ * 자리에서 꺼낸다 [임시](질문 410)
+ */
 export function beaconConstructionOf(options: {
   readonly ledger: Ledger;
   readonly settlement: Settlement;
@@ -45,6 +49,7 @@ export function beaconConstructionOf(options: {
         materials,
         atMs,
         "beacon_build",
+        "anywhere",
       ),
   };
 }
@@ -59,6 +64,8 @@ export function createWorldFacilities(input: {
   readonly config: FacilitiesConfig | undefined;
   readonly holdings: WorldHoldings;
   readonly territory: () => TerritoryService | undefined;
+  /** 띄운 2차맵의 도시 자리(건물이 선 도시) */
+  readonly cities: () => readonly CityCell[];
   readonly now: () => number;
   readonly ready: () => boolean;
 }): WorldFacilities {
@@ -74,6 +81,7 @@ export function createWorldFacilities(input: {
     catalog,
     holdings: input.holdings,
     territory: input.territory,
+    cities: input.cities,
     labor: {
       unitBusy: (unitId) => labor?.unitBusy(unitId) ?? false,
       buildingInUse: (buildingId) => labor?.buildingInUse(buildingId) ?? false,

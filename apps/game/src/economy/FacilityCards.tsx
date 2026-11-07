@@ -21,11 +21,14 @@ import {
   type FacilityRun,
   JOB_TEXT,
   STATE_TEXT,
+  anywhereStock,
   canAfford,
   cutTime,
   percentOf,
   stacksText,
+  stockAt,
 } from "./facilityText.ts";
+import { StorageMoveForm } from "./StorageParts.tsx";
 
 /** 상태 막대(색만으로 알리지 않는다: 글로 %, 카드 머리에 상태 이름). 상태(N50 문턱)에 따라 색이 바뀐다 */
 export function ConditionBar({ ppm, label, state }: { ppm: number; label: string; state: string }) {
@@ -96,6 +99,8 @@ export function FacilityCard({
   const one = repairPlan(data, facility.conditionPpm, 1, cost, units.length);
   const full = repairPlan(data, facility.conditionPpm, 10, cost, units.length);
   const idle = facility.job === null && facility.level >= 1;
+  // 재료 자리: 이 건물이 선 도시 창고 + 그 도시의 내 창고 시설 + 이 2차맵 내 유닛 화물(D-516 361)
+  const stock = stockAt(data, facility.mapKey, facility.cityId);
   return (
     <li className="facility-card" data-state={facility.state} data-part="facility-card">
       <div className="facility-head">
@@ -117,7 +122,11 @@ export function FacilityCard({
           x: facility.x,
           y: facility.y,
         })}
-        {facility.storageKg === null ? "" : ` · ${m.facility_storage({ kg: facility.storageKg })}`}
+        {facility.storageKg === null
+          ? ""
+          : facility.storage
+            ? ` · ${m.facility_storage_used({ used: facility.storedKg ?? 0, kg: facility.storageKg })}`
+            : ` · ${m.facility_storage({ kg: facility.storageKg })}`}
       </p>
       {facility.idleMsToDisabled !== null && facility.works ? (
         <p className="eco-footnote">
@@ -131,8 +140,8 @@ export function FacilityCard({
             type="button"
             className="button-small"
             aria-describedby={titleId}
-            disabled={busy || !canAfford(data, facility.upgrade.materials)}
-            title={stacksText(data, facility.upgrade.materials)}
+            disabled={busy || !canAfford(stock, facility.upgrade.materials)}
+            title={stacksText(data, stock, facility.upgrade.materials)}
             onClick={() =>
               void run({ t: "facility_upgrade", buildingId: facility.buildingId, unitIds: [...units] })
             }
@@ -149,7 +158,7 @@ export function FacilityCard({
               type="button"
               className="button-small"
               aria-describedby={titleId}
-              disabled={busy || units.length === 0 || !canAfford(data, one.materials)}
+              disabled={busy || units.length === 0 || !canAfford(stock, one.materials)}
               onClick={() =>
                 void run({
                   t: "facility_repair",
@@ -165,7 +174,7 @@ export function FacilityCard({
               type="button"
               className="button-small"
               aria-describedby={titleId}
-              disabled={busy || units.length === 0 || !canAfford(data, full.materials)}
+              disabled={busy || units.length === 0 || !canAfford(stock, full.materials)}
               onClick={() =>
                 void run({
                   t: "facility_repair",
@@ -195,13 +204,16 @@ export function FacilityCard({
         <p className="eco-footnote">
           {units.length === 0
             ? m.facility_repair_needs_units()
-            : m.facility_repair_cost({ materials: stacksText(data, full.materials) })}
+            : m.facility_repair_cost({ materials: stacksText(data, stock, full.materials) })}
         </p>
       ) : null}
       {idle && facility.upgrade ? (
         <p className="eco-footnote">
-          {m.facility_upgrade_cost({ materials: stacksText(data, facility.upgrade.materials) })}
+          {m.facility_upgrade_cost({ materials: stacksText(data, stock, facility.upgrade.materials) })}
         </p>
+      ) : null}
+      {facility.storage && facility.level >= 1 ? (
+        <StorageMoveForm facility={facility} data={data} run={run} busy={busy} />
       ) : null}
     </li>
   );
@@ -220,6 +232,8 @@ export function BeaconCard({
   const cost = data.catalog.find((entry) => entry.id === "territory_beacon")?.levels[0];
   const plan = repairPlan(data, beacon.conditionPpm, 10, cost, units.length);
   const ready = beacon.readyAtMs === null;
+  // 1차맵 비콘은 도시·2차맵이 없어 모든 자리에서 꺼낸다 [임시](질문 410)
+  const stock = anywhereStock(data);
   return (
     <li className="facility-card" data-state={beacon.state} data-part="facility-beacon">
       <div className="facility-head">
@@ -247,7 +261,7 @@ export function BeaconCard({
               type="button"
               className="button-small"
               aria-describedby={titleId}
-              disabled={busy || units.length === 0 || !canAfford(data, plan.materials)}
+              disabled={busy || units.length === 0 || !canAfford(stock, plan.materials)}
               onClick={() =>
                 void run({ t: "facility_repair", beaconId: beacon.id, steps: 10, unitIds: [...units] })
               }
@@ -258,7 +272,7 @@ export function BeaconCard({
           <p className="eco-footnote">
             {units.length === 0
               ? m.facility_repair_needs_units()
-              : m.facility_repair_cost({ materials: stacksText(data, plan.materials) })}
+              : m.facility_repair_cost({ materials: stacksText(data, stock, plan.materials) })}
           </p>
         </>
       ) : null}
@@ -302,6 +316,12 @@ export function HoldingRepairRow({
     data.rules,
   );
   const blocked = holding.busy || holding.equipped || !chosen || units.length === 0;
+  const shopView = chosen
+    ? data.facilities.find((entry) => entry.buildingId === chosen.buildingId)
+    : undefined;
+  const stock: ReadonlyMap<string, bigint> = shopView
+    ? stockAt(data, shopView.mapKey, shopView.cityId)
+    : new Map();
   return (
     <li className="eco-row facility-holding" data-part="facility-holding">
       <div className="eco-row-main">
@@ -322,7 +342,7 @@ export function HoldingRepairRow({
         </span>
         {chosen ? (
           <span className="eco-row-meta">
-            {m.facility_repair_cost({ materials: stacksText(data, chosen.materials) })}
+            {m.facility_repair_cost({ materials: stacksText(data, stock, chosen.materials) })}
           </span>
         ) : (
           <span className="eco-row-meta">{m.facility_holding_no_shop()}</span>
@@ -346,7 +366,7 @@ export function HoldingRepairRow({
         type="button"
         className="button-small"
         aria-describedby={titleId}
-        disabled={busy || blocked || (chosen !== undefined && !canAfford(data, chosen.materials))}
+        disabled={busy || blocked || (chosen !== undefined && !canAfford(stock, chosen.materials))}
         onClick={() => {
           if (chosen)
             void run({

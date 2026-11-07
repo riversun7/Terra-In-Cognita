@@ -13,6 +13,8 @@ export interface FacilityRecord {
   conditionAtMs: number;
   readonly builtAtMs: number;
   readonly builtBy: string | null;
+  /** 건물이 선 도시(재료를 꺼내는 도시 창고, D-516 361). 모르면 null(직전 판 앱이 넣은 줄 — 건물 서비스가 칸에서 다시 정한다) */
+  cityId: number | null;
 }
 
 export const JOB_KINDS = ["build", "upgrade", "repair", "beacon_repair", "equipment"] as const;
@@ -69,7 +71,7 @@ const numOrNull = (value: unknown): number | null => (value === null ? null : Nu
 
 export async function loadFacilities(pool: QueryPool): Promise<LoadedFacilities> {
   const facilities = await pool.query(
-    `select building_id, facility_id, level, condition_ppm, condition_at_ms, built_at_ms, built_by
+    `select building_id, facility_id, level, condition_ppm, condition_at_ms, built_at_ms, built_by, city_id
      from world_facilities order by building_id`,
   );
   const jobs = await pool.query(
@@ -87,6 +89,7 @@ export async function loadFacilities(pool: QueryPool): Promise<LoadedFacilities>
       conditionAtMs: Number(row.condition_at_ms),
       builtAtMs: Number(row.built_at_ms),
       builtBy: typeof row.built_by === "string" ? row.built_by : null,
+      cityId: numOrNull(row.city_id),
     })),
     jobs: jobs.rows.flatMap((row) => {
       const kind: unknown = row.kind;
@@ -121,6 +124,7 @@ export const facilityRow = (record: FacilityRecord) => ({
   condition_at_ms: record.conditionAtMs,
   built_at_ms: record.builtAtMs,
   built_by: record.builtBy,
+  city_id: record.cityId,
 });
 
 export const jobRow = (job: JobRecord) => ({

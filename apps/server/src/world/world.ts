@@ -26,7 +26,7 @@ import { type PathService, createInlinePathService } from "./pathService.ts";
 import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
 import { type BattleWorld, applyBattleOutcome } from "./battleResults.ts";
 import { type BattleItems, battleStartedAt, createBattleItems } from "./battleItems.ts";
-import { type CityRow, ensureTestStartCities, loadCities, nearestSafeCity } from "./cities.ts";
+import { type CityRow, cityCellsOf, ensureTestStartCities, loadCities, nearestSafeCity } from "./cities.ts";
 import {
   type CyborgRules,
   type CyborgService,
@@ -687,6 +687,8 @@ export function startWorld(
       exists: (unitId) => [...maps.values()].some((map) => map.unitInfo(unitId) !== undefined),
     });
     // 건물: 짓기·노화·수리(노동 계약 정산이 시설이 일하는지 묻는다 — 서로 고리라 계약 서비스는 뒤에 잇는다)
+    // 건물이 선 도시(재료·창고 자리, D-516 361): 부팅 때 읽은 도시 + NPC 런타임이 새로 세운 도시
+    const cityCells = () => cityCellsOf(cities, npc?.places, TEST_PLANET_ID, maps);
     const facilities = createWorldFacilities({
       loaded: facilityData,
       maps,
@@ -697,6 +699,7 @@ export function startWorld(
       config: config.facilities,
       holdings,
       territory: () => territory,
+      cities: cityCells,
       now,
       ready: () => status.state === "ready",
     });
@@ -712,9 +715,13 @@ export function startWorld(
       now,
       ready: () => status.state === "ready",
       buildingWorks: (buildingId) => facilities.service.works(buildingId),
+      unitInJob: (unitId) => facilities.service.unitInJob(unitId),
     });
     facilities.attachLabor(labor);
     settlement.routeOutputs((ownerId, fromMs, toMs) => labor.outputsFor(ownerId, fromMs, toMs));
+    // 건물 작업에 묶인 유닛은 그 동안 직무 산출이 없다(D-516 364). 정산 뒤 노동 계약 유예 끝 물건 옮기기(382)
+    settlement.pauseOutputs((ownerId) => facilities.service.pausesFor(ownerId));
+    settlement.afterSettle((ownerId, toMs) => labor.afterSettle(ownerId, toMs));
     // 사이보그 유닛 융합·유전자(D-516 인스턴스 = 보유 물건, 유저 휴먼 수명): 재료·유전자 = 실효 팩 아이템, 규칙 = 설정 칸 실효 값
     const fusion = createFusionService({
       maps,

@@ -15,8 +15,11 @@ import { contentId, localizedText, ref } from "./common.ts";
 // 아이템 항목·대분류는 items.ts(공통 칸 + 대분류별 묶음, docs/adr/2026-11-01-item-editor.md). 옛 가져오기 길을 지킨다
 export { ITEM_CATEGORIES, itemEntrySchema, type ItemEntry } from "./items.ts";
 
-/** 생산 단계(D-114) + 영토(영토 비콘처럼 생산하지 않는 시설, D-485·49 N51 — docs/adr/2026-11-03-territory-layer.md) */
-export const FACILITY_STAGES = ["gather", "process", "part", "finish", "territory"] as const;
+/**
+ * 생산 단계(D-114) + 영토(영토 비콘처럼 생산하지 않는 시설, D-485·49 N51 — docs/adr/2026-11-03-territory-layer.md) + 창고(일하지 않고
+ * 물건을 두는 시설, 옛 야적장·창고·중앙창고·대규모 창고, 49 N50·D-121·D-516 382 — docs/adr/2026-11-07-buildings-runtime.md "바뀜 (창고·직무)")
+ */
+export const FACILITY_STAGES = ["gather", "process", "part", "finish", "territory", "storage"] as const;
 
 /** 채집 방식: roll = 확률표 추첨, select = 선택 + 효율(옛 ITM-10) */
 export const GATHER_MODES = ["roll", "select"] as const;
@@ -156,7 +159,8 @@ export const facilityEntrySchema = z.strictObject({
     .optional(),
   /**
    * 레벨 1 창고 용량(kg, 49 N50 "기본 1t·10t·100t·500t"). 레벨 L = 이 값 × (1 + (L − 1) × 설정 칸 n50_storage_step).
-   * 없으면 창고가 없는 시설(지금 팩 시설은 모두 없음 — 시설 창고에 물건을 두는 일은 다음 줄기)
+   * 창고 단계(stage storage) 시설만 물건을 넣는다(원장 위치 = 그 건물, 무게 합 ≤ 용량). 그 밖 시설은 칸이 있어도 넣지 않는다.
+   * 출발값 = 옛 야적장 1t·창고 10t·중앙창고 100t·대규모 창고 500t(seeds/building_seed.js weight_limit)
    */
   storageKg: z
     .int()

@@ -466,6 +466,160 @@
           }
         ]
       }
+    },
+    {
+      "id": "stockpile",
+      "name": {
+        "ko": "야적장",
+        "en": "Stockpile"
+      },
+      "stage": "storage",
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 2
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 2
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "durability": 30,
+      "storageKg": 1000
+    },
+    {
+      "id": "storehouse",
+      "name": {
+        "ko": "창고",
+        "en": "Storehouse"
+      },
+      "stage": "storage",
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 18
+              },
+              {
+                "item": "stone",
+                "qty": 10
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 18
+              },
+              {
+                "item": "brick",
+                "qty": 10
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "durability": 400,
+      "storageKg": 10000
+    },
+    {
+      "id": "warehouse",
+      "name": {
+        "ko": "중앙창고",
+        "en": "Warehouse"
+      },
+      "stage": "storage",
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 15
+              },
+              {
+                "item": "brick",
+                "qty": 8
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 4,
+        "height": 4
+      },
+      "durability": 500,
+      "storageKg": 100000
+    },
+    {
+      "id": "grand_warehouse",
+      "name": {
+        "ko": "대규모 창고",
+        "en": "Grand warehouse"
+      },
+      "stage": "storage",
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 14
+              },
+              {
+                "item": "brick",
+                "qty": 10
+              },
+              {
+                "item": "iron_ingot",
+                "qty": 5
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 5,
+        "height": 5
+      },
+      "durability": 600,
+      "storageKg": 500000
     }
   ]
 }

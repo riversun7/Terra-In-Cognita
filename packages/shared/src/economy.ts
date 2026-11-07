@@ -198,9 +198,12 @@ export type StoreKind = "general" | "food" | "armory";
 
 /** 보유가 있는 곳 */
 export interface HoldingPlace {
-  /** 곳 ID: 창고 위치(도시) ID, 위치 없는 계정은 "ledger", 유닛이 실은 화물은 "cargo_<유닛 ID>" */
+  /**
+   * 곳 ID: 창고 위치(도시) ID, 위치 없는 계정은 "ledger", 유닛이 실은 화물은 "cargo_<유닛 ID>", 건물 창고(창고 시설·임대 몫)는
+   * "building_<건물 ID>"(@terra/shared/goodsPlaces)
+   */
   readonly id: string;
-  readonly kind: "warehouse" | "ledger" | "cargo";
+  readonly kind: "warehouse" | "ledger" | "cargo" | "building";
   /** 도시 이름(번역하지 않는다). 모르면 null */
   readonly name: string | null;
   readonly store: StoreKind | null;

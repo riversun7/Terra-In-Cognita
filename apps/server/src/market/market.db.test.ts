@@ -2,7 +2,7 @@
 // 도시 직무 생산·생필품 처음 창고·NPC 매물(남는 물건 팔기)·도시 매입 호가 → 유저가 사고(체결·창고로 들어옴)·팔고(에스크로)·취소(돌려받음)
 // → 다시 켜면 걸린 주문·체결이 그대로(에스크로 불변식 M1).
 import { loadContentPack } from "@terra/content/node";
-import { DAY_MS, HOUR_MS } from "@terra/sim";
+import { DAY_MS, HOUR_MS, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
@@ -24,6 +24,11 @@ const economy = serverEconomyCatalogAccessor(
 
 let test: TestDatabase;
 const worlds: World[] = [];
+/** 시작 도시는 국가마다 하나(세계 씨앗 칸 — 이 시험은 도시 셋을 센다, docs/adr/2026-11-07-play-flow.md WP1) */
+const ONE_CITY = {
+  ...TEST_SOCIETY_COEFFICIENTS,
+  worldSeed: { ...TEST_SOCIETY_COEFFICIENTS.worldSeed, startCitiesMin: 1, startCitiesMax: 1 },
+};
 let clock = 0;
 
 beforeEach(async () => {
@@ -50,6 +55,7 @@ async function boot(): Promise<World> {
       throw error;
     },
     npc: { testNations: 3, manual: true },
+    cyborgRules: () => ONE_CITY,
     holdings: { content: () => pack },
     facilities: { content: () => pack },
     economy,
@@ -97,9 +103,9 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     const econ = npc?.economy;
     if (!npc || !persistence || !econ) throw new Error("city economy");
     const { ledger, writer } = persistence;
-    // 도시 직무: 도시 셋 × (농장·주방·벌목장), 처음 창고는 도시마다 한 번
+    // 도시 셋 × (세계 씨앗 시설 농장·벌목장·광산 + 주방 건물이 없어 도시 직무 주방), 처음 창고는 도시마다 한 번
     expect(npc.world.cities.size).toBe(3);
-    expect(econ.economy.facilities.size).toBe(9);
+    expect(econ.economy.facilities.size).toBe(12);
     await writer.durable();
     expect(await count(`select id from ledger_transactions where idempotency_key like 'npc_endow:%'`)).toBe(
       3,

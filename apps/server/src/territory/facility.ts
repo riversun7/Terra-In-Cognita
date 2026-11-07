@@ -3,7 +3,12 @@
 // docs/adr/2026-11-07-buildings-runtime.md). 시설은 늘 켜져 있다(팩 core@32 켬·끔 없앰, 사용자 답 2026-11-03).
 // 시설 항목이 팩에 없을 때만 놓을 수 없다(disabled).
 import type { FacilityEntry, ItemEntry } from "@terra/content";
-import { type FacilityBuildRules, OLD_FACILITY_BUILD_RULES, buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
+import {
+  type FacilityBuildRules,
+  OLD_FACILITY_BUILD_RULES,
+  buildCostAt,
+  buildTimeAt,
+} from "@terra/shared/facilityBuild";
 import { TERRITORY_BEACON_FACILITY, type TerritoryBeaconFacilityView } from "@terra/shared/territoryApi";
 
 export function beaconFacilityView(

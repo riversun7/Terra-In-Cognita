@@ -415,7 +415,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         territory: {
           beaconFacility: contentEditState
             ? () =>
-                beaconFacilityView(contentEditState, tuningState ? () => tuningState.society().facilityBuild : undefined)
+                beaconFacilityView(
+                  contentEditState,
+                  tuningState ? () => tuningState.society().facilityBuild : undefined,
+                )
             : undefined,
           faceLevels: worldPlanet ? new Map([[worldPlanet.id, worldPlanet.faceLevel]]) : undefined,
         },

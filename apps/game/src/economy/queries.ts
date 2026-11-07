@@ -13,6 +13,7 @@ import type {
   MarketCitiesResponse,
   MarketItemsResponse,
 } from "@terra/shared/economy";
+import type { FacilitiesOverviewResponse } from "@terra/shared/facilities";
 import type { LaborJobsResponse, LaborOverviewResponse } from "@terra/shared/labor";
 import { useEffect, useSyncExternalStore } from "react";
 import { refreshSession } from "../auth/session.ts";
@@ -154,6 +155,11 @@ export const useLabor = createQuery<LaborOverviewResponse>((_args, _preview, sig
 /** 구인 게시판. args = [도시 ID 글자 또는 ""(모든 도시)] */
 export const useLaborJobs = createQuery<LaborJobsResponse>(([city = ""], _preview, signal) =>
   api.labor.jobs.query(city === "" ? undefined : { cityId: Number(city) }, { signal }),
+);
+
+/** 건물(짓기·레벨업·노화·수리, docs/adr/2026-11-07-buildings-runtime.md) */
+export const useFacilities = createQuery<FacilitiesOverviewResponse>((_args, _preview, signal) =>
+  api.facilities.overview.query(undefined, { signal }),
 );
 
 /** 매개변수 없는 조회의 args(같은 배열을 넘겨 열쇠가 그대로이게) */

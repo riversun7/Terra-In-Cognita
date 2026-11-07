@@ -103,7 +103,10 @@ export interface TerritoryService {
   cityOwnerChanged(cityId: number, factionId: number): number;
   readonly beaconCount: () => number;
   /** 비콘 하나(없으면 undefined)와 지금 상태(ppm) */
-  beaconState(beaconId: number, atMs: number): { readonly row: BeaconRow; readonly conditionPpm: number } | undefined;
+  beaconState(
+    beaconId: number,
+    atMs: number,
+  ): { readonly row: BeaconRow; readonly conditionPpm: number } | undefined;
   /** 그 사용자가 이 비콘을 고칠 수 있나(내 세력 비콘) */
   canManage(userId: string, beaconId: number): Promise<boolean>;
   /** 수리를 더한다(건물 서비스의 수리 작업이 끝날 때, 쓰기 대기열). 없으면 false */

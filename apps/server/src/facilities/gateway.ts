@@ -48,7 +48,11 @@ function resultText(id: number, result: FacilityCommandResult): string {
 
 const fail = (code: FacilityResultCode): FacilityCommandResult => ({ ok: false, code });
 
-function run(service: FacilityService, userId: string, message: FacilityClientMessage): Promise<FacilityCommandResult> {
+function run(
+  service: FacilityService,
+  userId: string,
+  message: FacilityClientMessage,
+): Promise<FacilityCommandResult> {
   switch (message.t) {
     case "facility_build":
       return service.build(userId, {
@@ -64,7 +68,9 @@ function run(service: FacilityService, userId: string, message: FacilityClientMe
     case "facility_repair":
       return service.repair(
         userId,
-        message.buildingId === undefined ? { beaconId: message.beaconId ?? 0 } : { buildingId: message.buildingId },
+        message.buildingId === undefined
+          ? { beaconId: message.beaconId ?? 0 }
+          : { buildingId: message.buildingId },
         message.steps,
         message.unitIds,
       );
@@ -75,7 +81,9 @@ function run(service: FacilityService, userId: string, message: FacilityClientMe
     case "dev_facility_finish":
       return service.devFinish(
         userId,
-        message.buildingId === undefined ? { beaconId: message.beaconId ?? 0 } : { buildingId: message.buildingId },
+        message.buildingId === undefined
+          ? { beaconId: message.beaconId ?? 0 }
+          : { buildingId: message.buildingId },
       );
     default: {
       const unhandled: never = message;
@@ -104,7 +112,8 @@ export function createFacilityGateway(options: {
         if (closed) return;
         if (!viewer) return reply(message.id, fail("sign_in_required"));
         const dev = message.t === "dev_grant_goods" || message.t === "dev_facility_finish";
-        if (dev && !rolesAllow(viewer.roles, { secondMap: ["dev-spawn"] })) return reply(message.id, fail("forbidden"));
+        if (dev && !rolesAllow(viewer.roles, { secondMap: ["dev-spawn"] }))
+          return reply(message.id, fail("forbidden"));
         const service = options.service();
         if (!service) return reply(message.id, fail("busy"));
         if (!limiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));

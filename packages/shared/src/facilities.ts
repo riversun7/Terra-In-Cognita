@@ -1,7 +1,7 @@
 // 건물(시설) 화면 자료 모양 — tRPC facilities.overview(조회만, 바꾸는 명령은 WebSocket facility_*, 프로토콜 9).
 // docs/adr/2026-11-07-buildings-runtime.md. 서버(apps/server/src/facilities/views.ts)와 경제 화면(apps/game/src/economy/FacilityPanel.tsx)이 같이 쓴다.
 // 수량은 묶음 단위 정수, 원장 잔고는 10진 글자(BigInt). 상태는 ppm(가득 1,000,000, @terra/shared/facilityRuntime).
-import type { ConditionState } from "./facilityRuntime.ts";
+import type { ConditionState, FacilityRuntimeRules } from "./facilityRuntime.ts";
 import type { LocalizedName } from "./roster.ts";
 
 export type { ConditionState } from "./facilityRuntime.ts";
@@ -22,7 +22,11 @@ export interface FacilityCatalogView {
   /** 레벨 1 최대 내구도 */
   readonly durability: number;
   /** 레벨마다 재료·건설 시간(일꾼 없이, ms) */
-  readonly levels: readonly { readonly level: number; readonly materials: readonly FacilityStackView[]; readonly timeMs: number }[];
+  readonly levels: readonly {
+    readonly level: number;
+    readonly materials: readonly FacilityStackView[];
+    readonly timeMs: number;
+  }[];
   /** 장비를 고치는 시설(공방) */
   readonly repairsEquipment: boolean;
 }
@@ -43,7 +47,7 @@ export interface FacilityJobView {
   readonly doneAtMs: number;
 }
 
-/** 다음 한 걸음 미리 셈(재료·일꾼 없이 시간) */
+/** 다음 한 걸음 미리 셈(재료, 일꾼 없이 걸리는 시간) */
 export interface FacilityStepView {
   readonly materials: readonly FacilityStackView[];
   readonly timeMs: number;
@@ -113,23 +117,14 @@ export interface FacilityHoldingView {
   /** 지금 고치는 중 */
   readonly busy: boolean;
   /** 이 장비를 받는 내 공방(건물 ID)과 그 공방에서의 재료(고치기 전 잃은 양으로 셈) */
-  readonly shops: readonly { readonly buildingId: number; readonly materials: readonly FacilityStackView[] }[];
+  readonly shops: readonly {
+    readonly buildingId: number;
+    readonly materials: readonly FacilityStackView[];
+  }[];
 }
 
-export interface FacilityRulesView {
-  readonly damagedPm: number;
-  readonly disabledPm: number;
-  readonly idleFloorPm: number;
-  readonly idleDecayMs: number;
-  readonly useWearPmPerDay: number;
-  readonly repairStepPm: number;
-  readonly builderCutPm: number;
-  readonly builderCutMaxPm: number;
-  readonly equipRepairBaseMs: number;
-  readonly craftTimeScale: number;
-  readonly craftTimeMinPm: number;
-  readonly craftTimeMaxPm: number;
-}
+/** 설정 칸 N50·M15·N54 실효 값(화면 미리 셈이 @terra/shared/facilityRuntime 함수에 그대로 넘긴다) */
+export type FacilityRulesView = FacilityRuntimeRules;
 
 export interface FacilitiesOverviewResponse {
   readonly status: "ready" | "not_ready";
@@ -141,7 +136,11 @@ export interface FacilitiesOverviewResponse {
   readonly facilities: readonly FacilityView[];
   readonly beacons: readonly FacilityBeaconView[];
   /** 건설·수리 재료로 쓰는 물자와 내 잔고(모든 자리 합, 10진 글자) */
-  readonly materials: readonly { readonly item: string; readonly name: LocalizedName | null; readonly have: string }[];
+  readonly materials: readonly {
+    readonly item: string;
+    readonly name: LocalizedName | null;
+    readonly have: string;
+  }[];
   readonly units: readonly FacilityUnitView[];
   readonly holdings: readonly FacilityHoldingView[];
   /** 개발 시험 명령(재료 받기·바로 끝내기)을 쓸 수 있나 */

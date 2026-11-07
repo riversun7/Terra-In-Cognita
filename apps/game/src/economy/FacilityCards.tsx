@@ -1,0 +1,364 @@
+// 건물 칸의 카드 — 내 시설(상태 막대·작업·레벨업·수리), 내 세력 영토 비콘(수리), 고칠 장비(공방 장비 수리)
+// docs/adr/2026-11-07-buildings-runtime.md. 판정은 서버, 화면은 미리 셈(@terra/shared/facilityRuntime 같은 식)과 결과 문구만.
+import type {
+  FacilitiesOverviewResponse,
+  FacilityBeaconView,
+  FacilityHoldingView,
+  FacilityJobView,
+  FacilityView,
+} from "@terra/shared/facilities";
+import {
+  conditionStateOf,
+  equipmentRepairMs,
+  repairMaterialsFor,
+  repairRestorePpm,
+  repairTimeMs,
+} from "@terra/shared/facilityRuntime";
+import { useState } from "react";
+import { m } from "../paraglide/messages.js";
+import { formatDuration, pickName } from "./economyText.ts";
+import {
+  type FacilityRun,
+  JOB_TEXT,
+  STATE_TEXT,
+  canAfford,
+  cutTime,
+  percentOf,
+  stacksText,
+} from "./facilityText.ts";
+
+/** 상태 막대(색만으로 알리지 않는다: 글로 %, 카드 머리에 상태 이름). 상태(N50 문턱)에 따라 색이 바뀐다 */
+export function ConditionBar({ ppm, label, state }: { ppm: number; label: string; state: string }) {
+  const pct = percentOf(ppm);
+  return (
+    <div className="facility-meter-row">
+      <div
+        className="facility-meter"
+        role="meter"
+        aria-label={label}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={pct}
+        aria-valuetext={`${pct}%`}
+        data-state={state}
+      >
+        <span className="facility-meter-fill" style={{ inlineSize: `${pct}%` }} />
+      </div>
+      <span className="facility-meter-text eco-num">{pct}%</span>
+    </div>
+  );
+}
+
+function JobLine({ job, now }: { job: FacilityJobView; now: number }) {
+  const left = Math.max(0, job.doneAtMs - now);
+  return (
+    <p className="facility-job" data-part="facility-job">
+      {m.facility_job_line({ job: JOB_TEXT[job.kind](), left: formatDuration(left) })}
+    </p>
+  );
+}
+
+export interface CardProps {
+  readonly data: FacilitiesOverviewResponse;
+  readonly units: readonly number[];
+  readonly now: number;
+  readonly run: FacilityRun;
+  readonly busy: boolean;
+}
+
+/** 수리 단계 미리 셈(서버와 같은 식): steps번 이어서, 모자란 만큼까지 */
+function repairPlan(
+  data: FacilitiesOverviewResponse,
+  ppm: number,
+  steps: number,
+  cost: { readonly materials: readonly { item: string; qty: number }[]; readonly timeMs: number } | undefined,
+  units: number,
+) {
+  const restore = repairRestorePpm(ppm, steps, data.rules);
+  return {
+    restore,
+    materials: cost ? repairMaterialsFor(cost.materials, restore) : [],
+    timeMs: cost ? repairTimeMs(cost.timeMs, restore, units, data.rules) : 0,
+  };
+}
+
+export function FacilityCard({
+  facility,
+  data,
+  units,
+  now,
+  run,
+  busy,
+}: CardProps & { facility: FacilityView }) {
+  const titleId = `facility-${facility.buildingId}`;
+  const level = Math.max(1, facility.level);
+  const cost = data.catalog.find((entry) => entry.id === facility.facilityId)?.levels[level - 1];
+  const one = repairPlan(data, facility.conditionPpm, 1, cost, units.length);
+  const full = repairPlan(data, facility.conditionPpm, 10, cost, units.length);
+  const idle = facility.job === null && facility.level >= 1;
+  return (
+    <li className="facility-card" data-state={facility.state} data-part="facility-card">
+      <div className="facility-head">
+        <span id={titleId} className="eco-row-title">
+          {m.facility_card_title({
+            name: pickName(facility.name, facility.facilityId),
+            level: facility.level,
+          })}
+        </span>
+        <span className="eco-tag" data-state={facility.state}>
+          {facility.level < 1 ? m.facility_state_building() : STATE_TEXT[facility.state]()}
+        </span>
+      </div>
+      <ConditionBar ppm={facility.conditionPpm} label={m.facility_condition_label()} state={facility.state} />
+      <p className="eco-row-meta">
+        {m.facility_card_meta({
+          durability: facility.durability,
+          max: facility.maxDurability,
+          x: facility.x,
+          y: facility.y,
+        })}
+        {facility.storageKg === null ? "" : ` · ${m.facility_storage({ kg: facility.storageKg })}`}
+      </p>
+      {facility.idleMsToDisabled !== null && facility.works ? (
+        <p className="eco-footnote">
+          {m.facility_idle_left({ left: formatDuration(facility.idleMsToDisabled) })}
+        </p>
+      ) : null}
+      {facility.job ? <JobLine job={facility.job} now={now} /> : null}
+      <div className="labor-actions">
+        {idle && facility.upgrade ? (
+          <button
+            type="button"
+            className="button-small"
+            aria-describedby={titleId}
+            disabled={busy || !canAfford(data, facility.upgrade.materials)}
+            title={stacksText(data, facility.upgrade.materials)}
+            onClick={() =>
+              void run({ t: "facility_upgrade", buildingId: facility.buildingId, unitIds: [...units] })
+            }
+          >
+            {m.facility_upgrade({
+              level: facility.level + 1,
+              time: formatDuration(cutTime(facility.upgrade.timeMs, units.length, data)),
+            })}
+          </button>
+        ) : null}
+        {idle && one.restore > 0 ? (
+          <>
+            <button
+              type="button"
+              className="button-small"
+              aria-describedby={titleId}
+              disabled={busy || units.length === 0 || !canAfford(data, one.materials)}
+              onClick={() =>
+                void run({
+                  t: "facility_repair",
+                  buildingId: facility.buildingId,
+                  steps: 1,
+                  unitIds: [...units],
+                })
+              }
+            >
+              {m.facility_repair_step({ pct: percentOf(one.restore) })}
+            </button>
+            <button
+              type="button"
+              className="button-small"
+              aria-describedby={titleId}
+              disabled={busy || units.length === 0 || !canAfford(data, full.materials)}
+              onClick={() =>
+                void run({
+                  t: "facility_repair",
+                  buildingId: facility.buildingId,
+                  steps: 10,
+                  unitIds: [...units],
+                })
+              }
+            >
+              {m.facility_repair_full({ time: formatDuration(full.timeMs) })}
+            </button>
+          </>
+        ) : null}
+        {data.dev && facility.job ? (
+          <button
+            type="button"
+            className="button-small"
+            aria-describedby={titleId}
+            disabled={busy}
+            onClick={() => void run({ t: "dev_facility_finish", buildingId: facility.buildingId })}
+          >
+            {m.facility_dev_finish()}
+          </button>
+        ) : null}
+      </div>
+      {idle && one.restore > 0 ? (
+        <p className="eco-footnote">
+          {units.length === 0
+            ? m.facility_repair_needs_units()
+            : m.facility_repair_cost({ materials: stacksText(data, full.materials) })}
+        </p>
+      ) : null}
+      {idle && facility.upgrade ? (
+        <p className="eco-footnote">
+          {m.facility_upgrade_cost({ materials: stacksText(data, facility.upgrade.materials) })}
+        </p>
+      ) : null}
+    </li>
+  );
+}
+
+export function BeaconCard({
+  beacon,
+  data,
+  units,
+  now,
+  run,
+  busy,
+}: CardProps & { beacon: FacilityBeaconView }) {
+  const titleId = `facility-beacon-${beacon.id}`;
+  // 비콘 수리 재료·시간 = 레벨 1 건설 재료·시간 × 고친 비율(건물 규칙, 기획 336)
+  const cost = data.catalog.find((entry) => entry.id === "territory_beacon")?.levels[0];
+  const plan = repairPlan(data, beacon.conditionPpm, 10, cost, units.length);
+  const ready = beacon.readyAtMs === null;
+  return (
+    <li className="facility-card" data-state={beacon.state} data-part="facility-beacon">
+      <div className="facility-head">
+        <span id={titleId} className="eco-row-title">
+          {m.facility_beacon_title({ id: beacon.id })}
+        </span>
+        <span className="eco-tag" data-state={beacon.state}>
+          {ready
+            ? STATE_TEXT[conditionStateOf(beacon.conditionPpm, data.rules)]()
+            : m.facility_state_building()}
+        </span>
+      </div>
+      <ConditionBar ppm={beacon.conditionPpm} label={m.facility_condition_label()} state={beacon.state} />
+      <p className="eco-row-meta">
+        {m.facility_beacon_meta({ durability: beacon.durability, max: beacon.maxDurability })}
+        {beacon.readyAtMs === null
+          ? ""
+          : ` · ${m.facility_ready_in({ left: formatDuration(beacon.readyAtMs - now) })}`}
+      </p>
+      {beacon.job ? <JobLine job={beacon.job} now={now} /> : null}
+      {ready && !beacon.job && plan.restore > 0 ? (
+        <>
+          <div className="labor-actions">
+            <button
+              type="button"
+              className="button-small"
+              aria-describedby={titleId}
+              disabled={busy || units.length === 0 || !canAfford(data, plan.materials)}
+              onClick={() =>
+                void run({ t: "facility_repair", beaconId: beacon.id, steps: 10, unitIds: [...units] })
+              }
+            >
+              {m.facility_repair_full({ time: formatDuration(plan.timeMs) })}
+            </button>
+          </div>
+          <p className="eco-footnote">
+            {units.length === 0
+              ? m.facility_repair_needs_units()
+              : m.facility_repair_cost({ materials: stacksText(data, plan.materials) })}
+          </p>
+        </>
+      ) : null}
+      {data.dev && (beacon.job || !ready) ? (
+        <div className="labor-actions">
+          <button
+            type="button"
+            className="button-small"
+            aria-describedby={titleId}
+            disabled={busy}
+            onClick={() => void run({ t: "dev_facility_finish", beaconId: beacon.id })}
+          >
+            {m.facility_dev_finish()}
+          </button>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+export function HoldingRepairRow({
+  holding,
+  data,
+  units,
+  run,
+  busy,
+}: Omit<CardProps, "now"> & { holding: FacilityHoldingView }) {
+  const [shop, setShop] = useState("");
+  const chosen = holding.shops.find((entry) => String(entry.buildingId) === shop) ?? holding.shops[0];
+  const titleId = `facility-holding-${holding.id}`;
+  const scores = data.units.filter((unit) => units.includes(unit.id)).map((unit) => unit.craftScore);
+  const avg = scores.length === 0 ? 0 : scores.reduce((total, score) => total + score, 0) / scores.length;
+  const ms = equipmentRepairMs(
+    {
+      tier: holding.tier,
+      lost: holding.maxDurability - holding.durability,
+      maxDurability: holding.maxDurability,
+      avgScore: avg,
+      units: Math.max(1, units.length),
+    },
+    data.rules,
+  );
+  const blocked = holding.busy || holding.equipped || !chosen || units.length === 0;
+  return (
+    <li className="eco-row facility-holding" data-part="facility-holding">
+      <div className="eco-row-main">
+        <span id={titleId} className="eco-row-title">
+          {pickName(holding.name ?? undefined, holding.item)}
+        </span>
+        <span className="eco-row-meta">
+          {m.facility_holding_meta({
+            durability: holding.durability,
+            max: holding.maxDurability,
+            tier: holding.tier,
+          })}
+          {holding.busy
+            ? ` · ${m.facility_holding_busy()}`
+            : holding.equipped
+              ? ` · ${m.facility_holding_equipped()}`
+              : ""}
+        </span>
+        {chosen ? (
+          <span className="eco-row-meta">
+            {m.facility_repair_cost({ materials: stacksText(data, chosen.materials) })}
+          </span>
+        ) : (
+          <span className="eco-row-meta">{m.facility_holding_no_shop()}</span>
+        )}
+      </div>
+      {holding.shops.length > 1 ? (
+        <select
+          className="eco-select"
+          aria-label={m.facility_field_shop()}
+          value={chosen ? String(chosen.buildingId) : ""}
+          onChange={(event) => setShop(event.target.value)}
+        >
+          {holding.shops.map((entry) => (
+            <option key={entry.buildingId} value={String(entry.buildingId)}>
+              {m.facility_option_building({ id: entry.buildingId })}
+            </option>
+          ))}
+        </select>
+      ) : null}
+      <button
+        type="button"
+        className="button-small"
+        aria-describedby={titleId}
+        disabled={busy || blocked || (chosen !== undefined && !canAfford(data, chosen.materials))}
+        onClick={() => {
+          if (chosen)
+            void run({
+              t: "equipment_repair",
+              buildingId: chosen.buildingId,
+              holdingId: holding.id,
+              unitIds: [...units],
+            });
+        }}
+      >
+        {m.facility_equipment_repair({ time: formatDuration(ms) })}
+      </button>
+    </li>
+  );
+}

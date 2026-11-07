@@ -76,7 +76,8 @@ async function join(userId: string, factionId: number, logs = 100): Promise<void
     factionId,
   ]);
   const p = worlds.at(-1)?.persistence;
-  if (p && logs > 0) grantGoods(p.ledger, p.settlement.ownerOfUser(userId, clock).id, "pine_log", logs, clock);
+  if (p && logs > 0)
+    grantGoods(p.ledger, p.settlement.ownerOfUser(userId, clock).id, "pine_log", logs, clock);
 }
 
 async function testFaction(): Promise<number> {
@@ -257,17 +258,25 @@ describe.skipIf(!TEST_DATABASE_URL)("영토 비콘", () => {
       code: "insufficient_materials",
     });
     for (const key of [near(5, 0), near(0, 5), near(5, 5)])
-      expect((await territory.place(player(member), { planetId: TEST_PLANET_ID, cellKey: key })).ok).toBe(true);
+      expect((await territory.place(player(member), { planetId: TEST_PLANET_ID, cellKey: key })).ok).toBe(
+        true,
+      );
     const ownerId = p.settlement.ownerOfUser(member, clock).id;
     expect(goodsStock(p.ledger, ownerId, "pine_log")).toBe(91n);
     // 짓는 동안은 꼭짓점이 아니다(목록에는 보인다), 개수는 센다
     const building = await territory.planetView(TEST_PLANET_ID, member);
     expect(building?.groups[0]?.hull).toBeNull();
-    expect(building?.beacons.map((beacon) => beacon.readyAtMs)).toEqual([clock + 60_000, clock + 60_000, clock + 60_000]);
-    expect(await territory.place(player(member), { planetId: TEST_PLANET_ID, cellKey: near(-5, 0) })).toEqual({
-      ok: false,
-      code: "beacon_limit",
-    });
+    expect(building?.beacons.map((beacon) => beacon.readyAtMs)).toEqual([
+      clock + 60_000,
+      clock + 60_000,
+      clock + 60_000,
+    ]);
+    expect(await territory.place(player(member), { planetId: TEST_PLANET_ID, cellKey: near(-5, 0) })).toEqual(
+      {
+        ok: false,
+        code: "beacon_limit",
+      },
+    );
     clock += 60_000 + 30 * 86_400_000;
     const built = await territory.planetView(TEST_PLANET_ID, member);
     expect(built?.groups[0]?.hull).not.toBeNull();

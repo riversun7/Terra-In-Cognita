@@ -21,7 +21,13 @@ import {
   repairTimeMs,
   storageCapacityAt,
 } from "@terra/shared/facilityRuntime";
-import { type SocietyCoefficients, TEST_STAT_TABLE, craftScore, repairMaterials, repairRuleFor } from "@terra/sim";
+import {
+  type SocietyCoefficients,
+  TEST_STAT_TABLE,
+  craftScore,
+  repairMaterials,
+  repairRuleFor,
+} from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";
 import type { TerritoryService } from "../territory/service.ts";
@@ -57,7 +63,11 @@ const jobView = (job: JobRecord): FacilityJobView => ({
   doneAtMs: job.doneAtMs,
 });
 
-function catalogView(def: FacilityDef, catalog: FacilityCatalog, rules: SocietyCoefficients): FacilityCatalogView {
+function catalogView(
+  def: FacilityDef,
+  catalog: FacilityCatalog,
+  rules: SocietyCoefficients,
+): FacilityCatalogView {
   const weightOf = (item: string) => catalog.weightOf(item);
   return {
     id: def.id,
@@ -84,7 +94,12 @@ function catalogView(def: FacilityDef, catalog: FacilityCatalog, rules: SocietyC
 /** 로그인한 사용자(소유 주체 ownerId)의 건물 화면 자료 */
 export function facilitiesOverview(
   source: FacilityViewSource,
-  input: { readonly userId: string; readonly ownerId: number | undefined; readonly nowMs: number; readonly dev: boolean },
+  input: {
+    readonly userId: string;
+    readonly ownerId: number | undefined;
+    readonly nowMs: number;
+    readonly dev: boolean;
+  },
   beaconsOfFaction: readonly { readonly id: number; readonly planetId: string; readonly cellKey: number }[],
 ): FacilitiesOverviewResponse {
   const rules = source.rules();
@@ -120,7 +135,10 @@ export function facilitiesOverview(
       const weightOf = (item: string) => catalog.weightOf(item);
       const next = record.level >= 1 && record.level < def.maxLevel && def.build ? record.level + 1 : null;
       const current = def.build
-        ? { materials: buildCostAt(def.build, level), ms: buildTimeAt(def.build, level, weightOf, rules.facilityBuild).ms }
+        ? {
+            materials: buildCostAt(def.build, level),
+            ms: buildTimeAt(def.build, level, weightOf, rules.facilityBuild).ms,
+          }
         : { materials: [], ms: 0 };
       const restore = record.level >= 1 ? repairRestorePpm(condition, 1, rt) : 0;
       const works = record.level >= 1 && conditionWorks(condition, rt);
@@ -153,7 +171,7 @@ export function facilitiesOverview(
             ? {
                 restorePpm: restore,
                 materials: repairMaterialsFor(current.materials, restore),
-                timeMs: repairTimeMs(current.ms, restore, 1, rt),
+                timeMs: repairTimeMs(current.ms, restore, 0, rt),
               }
             : null,
         idleMsToDisabled: record.level >= 1 ? idleMsUntil(condition, rt.disabledPm, rt) : null,
@@ -191,7 +209,7 @@ export function facilitiesOverview(
             ? {
                 restorePpm: restore,
                 materials: repairMaterialsFor(beaconCost.materials, restore),
-                timeMs: repairTimeMs(beaconCost.ms, restore, 1, rt),
+                timeMs: repairTimeMs(beaconCost.ms, restore, 0, rt),
               }
             : null,
       },
@@ -235,9 +253,17 @@ export function facilitiesOverview(
         equipped: record.slot !== null,
         busy,
         shops: shops.flatMap((shop) => {
-          const rule = repairRuleFor(shop.def.repair ?? [], { slot: equip.slot, weaponType: equip.weaponType });
+          const rule = repairRuleFor(shop.def.repair ?? [], {
+            slot: equip.slot,
+            weaponType: equip.weaponType,
+          });
           return rule && shop.works
-            ? [{ buildingId: shop.buildingId, materials: repairMaterials(rule, def.tier, lost, record.maxDurability ?? 0) }]
+            ? [
+                {
+                  buildingId: shop.buildingId,
+                  materials: repairMaterials(rule, def.tier, lost, record.maxDurability ?? 0),
+                },
+              ]
             : [];
         }),
       });
@@ -247,20 +273,7 @@ export function facilitiesOverview(
   return {
     status: "ready",
     generatedAt: nowMs,
-    rules: {
-      damagedPm: rt.damagedPm,
-      disabledPm: rt.disabledPm,
-      idleFloorPm: rt.idleFloorPm,
-      idleDecayMs: rt.idleDecayMs,
-      useWearPmPerDay: rt.useWearPmPerDay,
-      repairStepPm: rt.repairStepPm,
-      builderCutPm: rt.builderCutPm,
-      builderCutMaxPm: rt.builderCutMaxPm,
-      equipRepairBaseMs: rt.equipRepairBaseMs,
-      craftTimeScale: rt.craftTimeScale,
-      craftTimeMinPm: rt.craftTimeMinPm,
-      craftTimeMaxPm: rt.craftTimeMaxPm,
-    },
+    rules: { ...rt },
     maps: [...source.maps.keys()],
     catalog: catalogViews,
     facilities: facilities.toSorted((a, b) => a.buildingId - b.buildingId),

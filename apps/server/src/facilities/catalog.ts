@@ -68,7 +68,9 @@ function defOf(entry: FacilityEntry): FacilityDef {
 
 /** 실효 콘텐츠 접근자 → 시설 목록(목록 객체가 바뀔 때만 다시 만든다) */
 export function facilityCatalogOf(source: () => CatalogSource): () => FacilityCatalog {
-  let cached: { facilities: readonly FacilityEntry[]; items: readonly ItemEntry[]; value: FacilityCatalog } | undefined;
+  let cached:
+    | { facilities: readonly FacilityEntry[]; items: readonly ItemEntry[]; value: FacilityCatalog }
+    | undefined;
   return () => {
     const current = source();
     if (cached?.facilities === current.facilities && cached.items === current.items) return cached.value;

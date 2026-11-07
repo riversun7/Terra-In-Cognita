@@ -55,6 +55,9 @@ const BASELINE: Primaries = {
   wis: BASELINE_PRIMARY,
 };
 
+/** 건물 서비스가 잇기 전: 고치는 중인 물건 없음 */
+const NEVER_LOCKED = (_holdingId: number): boolean => false;
+
 /** 썩기·효과 정리 간격 */
 export const HOLDINGS_SWEEP_MS = 60_000;
 
@@ -131,7 +134,7 @@ export function createWorldHoldings(input: {
     if (record) return config?.cyborgPrimaries?.(record, gearOf(unitId, input.now())) ?? BASELINE;
     return config?.defaultPrimaries?.(gearOf(unitId, input.now())) ?? BASELINE;
   };
-  let locked: (holdingId: number) => boolean = () => false;
+  let locked: (holdingId: number) => boolean = NEVER_LOCKED;
   const service = createHoldingService({
     loaded: input.loaded,
     writer: input.writer,

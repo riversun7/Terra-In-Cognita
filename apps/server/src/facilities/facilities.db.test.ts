@@ -106,11 +106,23 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     // 재료가 모자라면 아무것도 바뀌지 않는다
     const poor = await setup(world, "poor", 0, { pine_log: 1 });
     expect(
-      await service.build(poor.userId, { mapKey: a.map.mapKey, facility: "workshop", x: 60, y: 60, rotation: 0 }),
+      await service.build(poor.userId, {
+        mapKey: a.map.mapKey,
+        facility: "workshop",
+        x: 60,
+        y: 60,
+        rotation: 0,
+      }),
     ).toEqual({ ok: false, code: "insufficient_materials" });
     expect(goodsStock(p.ledger, poor.ownerId, "pine_log")).toBe(1n);
     expect(
-      await service.build(a.userId, { mapKey: a.map.mapKey, facility: "territory_beacon", x: 60, y: 60, rotation: 0 }),
+      await service.build(a.userId, {
+        mapKey: a.map.mapKey,
+        facility: "territory_beacon",
+        x: 60,
+        y: 60,
+        rotation: 0,
+      }),
     ).toEqual({ ok: false, code: "not_buildable" });
 
     // 일꾼 하나 = 20% 단축(옛 ConstructionEngine), 재료 = 소나무 12·철광석 7
@@ -122,7 +134,11 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
       rotation: 0,
       unitIds: a.units,
     });
-    expect(built).toEqual({ ok: true, buildingId: expect.any(Number), doneAtMs: clock + WORKSHOP_L1_MS * 0.8 });
+    expect(built).toEqual({
+      ok: true,
+      buildingId: expect.any(Number),
+      doneAtMs: clock + WORKSHOP_L1_MS * 0.8,
+    });
     const buildingId = built.ok ? (built.buildingId ?? 0) : 0;
     expect(goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(18n);
     expect(goodsStock(p.ledger, a.ownerId, "iron_ore")).toBe(13n);
@@ -157,7 +173,10 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     expect(sinks).toEqual([{ balance: "12" }]);
 
     // 레벨업: 다음 레벨 재료(가공품 판자·주괴)가 없으면 거절, 있으면 레벨 2
-    expect(await service.upgrade(a.userId, buildingId, [])).toEqual({ ok: false, code: "insufficient_materials" });
+    expect(await service.upgrade(a.userId, buildingId, [])).toEqual({
+      ok: false,
+      code: "insufficient_materials",
+    });
     await service.devGrantGoods(a.userId, "plank", 100);
     await service.devGrantGoods(a.userId, "iron_ingot", 100);
     const up = await service.upgrade(a.userId, buildingId, []);
@@ -206,7 +225,10 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     expect(oneWorkerDay).toBeGreaterThan(0n);
     expect(contracted).toBeLessThanOrEqual(oneWorkerDay);
     await p.writer.durable();
-    const saved = await rows<{ condition_ppm: number }>(test.db, "select condition_ppm from world_facilities");
+    const saved = await rows<{ condition_ppm: number }>(
+      test.db,
+      "select condition_ppm from world_facilities",
+    );
     expect(saved).toEqual([{ condition_ppm: 230_000 }]);
     expect(await world.checkInvariants()).toEqual([]);
   });
@@ -217,16 +239,25 @@ describe.skipIf(!TEST_DATABASE_URL)("건물 짓기·노화·수리(서버)", () 
     const service = p.facilities.service;
     const a = await setup(world, "repairer", 1, { pine_log: 60, iron_ore: 40 });
     const buildingId = await workshop(world, a, 40);
-    expect(await service.repair(a.userId, { buildingId }, 1, a.units)).toEqual({ ok: false, code: "not_damaged" });
+    expect(await service.repair(a.userId, { buildingId }, 1, a.units)).toEqual({
+      ok: false,
+      code: "not_damaged",
+    });
     clock += 5 * DAY;
     service.age(clock);
-    expect(await service.repair(a.userId, { buildingId }, 1, [])).toEqual({ ok: false, code: "unknown_unit" });
+    expect(await service.repair(a.userId, { buildingId }, 1, [])).toEqual({
+      ok: false,
+      code: "unknown_unit",
+    });
     const before = goodsStock(p.ledger, a.ownerId, "pine_log");
     // 65% → 10단계 요청이어도 모자란 35%만: 소나무 ⌈12 × 0.35⌉ = 5, 철광석 ⌈7 × 0.35⌉ = 3, 시간 = 312초 × 0.35 × 0.8
     const fixed = await service.repair(a.userId, { buildingId }, 10, a.units);
     expect(fixed).toEqual({ ok: true, doneAtMs: clock + Math.round(WORKSHOP_L1_MS * 0.35 * 0.8) });
     expect(before - goodsStock(p.ledger, a.ownerId, "pine_log")).toBe(5n);
-    expect(await service.repair(a.userId, { buildingId }, 1, a.units)).toEqual({ ok: false, code: "job_running" });
+    expect(await service.repair(a.userId, { buildingId }, 1, a.units)).toEqual({
+      ok: false,
+      code: "job_running",
+    });
     clock = fixed.ok ? (fixed.doneAtMs ?? clock) : clock;
     service.finishDue(clock);
     // 고치는 동안(87.36초)에도 노화는 흐른다: 70만 ppm × 87,360 ÷ 10일 = 70 ppm

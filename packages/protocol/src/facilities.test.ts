@@ -15,23 +15,23 @@ describe("건물 메시지(프로토콜 9)", () => {
 
   it("짓기·레벨업·수리·장비 수리·개발 명령·결과가 왕복한다", () => {
     const build = {
-      t: "facility_build",
+      t: "facility_build" as const,
       id: 1,
       mapKey: 312_905_547_382_793,
       facility: "farm",
       x: 10,
       y: 20,
-      rotation: 90,
+      rotation: 90 as const,
       unitIds: [3, 4],
-    } as const;
+    };
     expect(decodeClientMessage(encodeMessage(build))).toEqual(build);
     const upgrade = { t: "facility_upgrade", id: 2, buildingId: 7 } as const;
     expect(decodeClientMessage(encodeMessage(upgrade))).toEqual(upgrade);
-    const repair = { t: "facility_repair", id: 3, buildingId: 7, steps: 10, unitIds: [3] } as const;
+    const repair = { t: "facility_repair" as const, id: 3, buildingId: 7, steps: 10, unitIds: [3] };
     expect(decodeClientMessage(encodeMessage(repair))).toEqual(repair);
-    const beacon = { t: "facility_repair", id: 4, beaconId: 2, steps: 1, unitIds: [3] } as const;
+    const beacon = { t: "facility_repair" as const, id: 4, beaconId: 2, steps: 1, unitIds: [3] };
     expect(decodeClientMessage(encodeMessage(beacon))).toEqual(beacon);
-    const equip = { t: "equipment_repair", id: 5, buildingId: 7, holdingId: 11, unitIds: [3] } as const;
+    const equip = { t: "equipment_repair" as const, id: 5, buildingId: 7, holdingId: 11, unitIds: [3] };
     expect(decodeClientMessage(encodeMessage(equip))).toEqual(equip);
     const grant = { t: "dev_grant_goods", id: 6, item: "pine_log", qty: 40 } as const;
     expect(decodeClientMessage(encodeMessage(grant))).toEqual(grant);
@@ -44,9 +44,7 @@ describe("건물 메시지(프로토콜 9)", () => {
   });
 
   it("수리는 대상 하나·일꾼 하나 이상, 틀린 칸·회전·결과 코드는 받지 않는다", () => {
-    expect(() =>
-      decodeClientMessage(bad({ t: "facility_repair", id: 1, steps: 1, unitIds: [3] })),
-    ).toThrow();
+    expect(() => decodeClientMessage(bad({ t: "facility_repair", id: 1, steps: 1, unitIds: [3] }))).toThrow();
     expect(() =>
       decodeClientMessage(
         bad({ t: "facility_repair", id: 1, buildingId: 1, beaconId: 2, steps: 1, unitIds: [3] }),

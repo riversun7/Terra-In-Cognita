@@ -8,5 +8,7 @@ const notReady = createFacilityScreenServices();
 
 export const facilitiesRouter = router({
   /** 로그인한 본인의 시설·작업·재료·유닛·고칠 장비·내 세력 비콘, 지을 수 있는 시설 목록, N50 규칙 값 */
-  overview: signedInProcedure.query(({ ctx }) => (ctx.facilities ?? notReady).overview(ctx.viewer, ctx.now())),
+  overview: signedInProcedure.query(({ ctx }) =>
+    (ctx.facilities ?? notReady).overview(ctx.viewer, ctx.now()),
+  ),
 });

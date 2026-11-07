@@ -248,7 +248,8 @@ export function createLaborService(options: {
     contracts,
     unitBusy: (unitId) => openContractOf(unitId) !== undefined,
     buildingInUse(buildingId) {
-      for (const c of contracts.values()) if (c.buildingId === buildingId && c.state === "active") return true;
+      for (const c of contracts.values())
+        if (c.buildingId === buildingId && c.state === "active") return true;
       return false;
     },
     async create(userId, input) {

@@ -309,7 +309,15 @@ export const WORLD_TABLES = {
   /** 건물(시설) 상태(docs/adr/2026-11-07-buildings-runtime.md) — 짓기·수리 재료 거래와 같은 묶음 */
   facilities: {
     name: "world_facilities",
-    columns: ["building_id", "facility_id", "level", "condition_ppm", "condition_at_ms", "built_at_ms", "built_by"],
+    columns: [
+      "building_id",
+      "facility_id",
+      "level",
+      "condition_ppm",
+      "condition_at_ms",
+      "built_at_ms",
+      "built_by",
+    ],
     key: ["building_id"],
   },
   /** 시간이 걸리는 건물 작업(짓기·레벨업·수리·장비 수리, 끝나면 지운다). materials는 JSON 글자로 넣는다 */

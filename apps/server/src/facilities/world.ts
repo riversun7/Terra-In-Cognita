@@ -39,7 +39,13 @@ export function beaconConstructionOf(options: {
   return {
     rules: () => options.rules().facilityRuntime,
     spend: (userId, materials, atMs) =>
-      spendGoods(options.ledger, options.settlement.ownerOfUser(userId, atMs).id, materials, atMs, "beacon_build"),
+      spendGoods(
+        options.ledger,
+        options.settlement.ownerOfUser(userId, atMs).id,
+        materials,
+        atMs,
+        "beacon_build",
+      ),
   };
 }
 

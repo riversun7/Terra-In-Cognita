@@ -10,9 +10,11 @@ import type { JobMaterial } from "./state.ts";
 /** 아이템의 원장 자산 코드(@terra/sim itemAsset과 같다) */
 export const goodsAsset = (item: string): string => `item:${item}`;
 
+/** 자리 묶음 차례: 위치 없음 0 → 창고 1 → 화물 2 */
+const rank = (location: number | null): number => (location === null ? 0 : location > 0 ? 1 : 2);
+
 /** 꺼내는 차례: 위치 없음 → 창고(작은 위치) → 화물(음수 위치) */
 function locationOrder(a: number | null, b: number | null): number {
-  const rank = (location: number | null): number => (location === null ? 0 : location > 0 ? 1 : 2);
   return rank(a) - rank(b) || Math.abs(a ?? 0) - Math.abs(b ?? 0);
 }
 
@@ -65,7 +67,10 @@ export function spendGoods(
       entries.push({ account: account.id, amount: -take });
       left -= take;
     }
-    entries.push({ account: ledger.systemAccount(`sink:${goodsAsset(item)}`, goodsAsset(item)), amount: qty });
+    entries.push({
+      account: ledger.systemAccount(`sink:${goodsAsset(item)}`, goodsAsset(item)),
+      amount: qty,
+    });
   }
   ledger.post({ kind, atMs, entries });
   return true;

@@ -115,7 +115,10 @@ export interface FacilityServiceOptions {
   readonly territory?: (() => TerritoryService | undefined) | undefined;
   /** 유닛이 노동 계약 중인가 / 건물에 일하는 계약이 있나(사용 닳음) */
   readonly labor?:
-    | { readonly unitBusy: (unitId: number) => boolean; readonly buildingInUse: (buildingId: number) => boolean }
+    | {
+        readonly unitBusy: (unitId: number) => boolean;
+        readonly buildingInUse: (buildingId: number) => boolean;
+      }
     | undefined;
   readonly now: () => number;
   readonly ready: () => boolean;
@@ -139,7 +142,14 @@ const PLACE_CODES: Readonly<Record<string, FacilityResultCode>> = {
 function averagePrimaries(list: readonly Primaries[]): Primaries {
   const n = Math.max(1, list.length);
   const sum = (key: keyof Primaries) => Math.floor(list.reduce((total, p) => total + p[key], 0) / n);
-  return { str: sum("str"), dex: sum("dex"), agi: sum("agi"), vit: sum("vit"), int: sum("int"), wis: sum("wis") };
+  return {
+    str: sum("str"),
+    dex: sum("dex"),
+    agi: sum("agi"),
+    vit: sum("vit"),
+    int: sum("int"),
+    wis: sum("wis"),
+  };
 }
 
 export function createFacilityService(options: FacilityServiceOptions): FacilityService {
@@ -284,12 +294,13 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
 
   const age = (nowMs: number): number => {
     let saved = 0;
-    for (const record of [...facilities.values()]) {
+    // Map을 돌면서 지금 줄을 지워도 된다(남은 줄은 그대로 돈다)
+    for (const record of facilities.values()) {
       // 건물이 사라졌으면(관리자 지움) 시설 줄과 작업을 지운다
       if (!buildingAt(record.buildingId)) {
         facilities.delete(record.buildingId);
         writer.remove("facilities", { building_id: record.buildingId });
-        for (const job of [...jobs.values()]) if (job.buildingId === record.buildingId) dropJob(job);
+        for (const job of jobs.values()) if (job.buildingId === record.buildingId) dropJob(job);
         continue;
       }
       const before = Math.floor(record.conditionPpm / 1000);
@@ -304,10 +315,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
 
   const timers = options.manual
     ? []
-    : [
-        setInterval(() => finishDue(now()), JOB_TICK_MS),
-        setInterval(() => age(now()), CONDITION_TICK_MS),
-      ];
+    : [setInterval(() => finishDue(now()), JOB_TICK_MS), setInterval(() => age(now()), CONDITION_TICK_MS)];
   for (const timer of timers) timer.unref();
 
   return {
@@ -339,7 +347,13 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       if (!hasGoods(ledger, me, cost.materials)) return fail("insufficient_materials");
       // 땅: 서버에 필지가 아직 없다(D-149) → 2차맵 빈 칸이면 짓는다(확인 대기). 칸 검사·놓기는 2차맵이 한다
       const placed = map.placeBuilding(
-        { x: input.x, y: input.y, width: def.footprint.width, height: def.footprint.height, rotation: input.rotation },
+        {
+          x: input.x,
+          y: input.y,
+          width: def.footprint.width,
+          height: def.footprint.height,
+          rotation: input.rotation,
+        },
         me,
       );
       if (!placed.ok) return fail(PLACE_CODES[placed.code] ?? "out_of_bounds");
@@ -381,13 +395,15 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const found = myFacility(me, buildingId);
       if (typeof found === "string") return fail(found);
       const { record, def } = found;
-      if (jobOn((job) => job.buildingId === buildingId && job.kind !== "equipment")) return fail("job_running");
+      if (jobOn((job) => job.buildingId === buildingId && job.kind !== "equipment"))
+        return fail("job_running");
       if (record.level < 1) return fail("under_construction");
       if (record.level >= def.maxLevel || !def.build) return fail("max_level");
       const unitProblem = checkUnits(me, unitIds);
       if (unitProblem) return fail(unitProblem);
       const cost = levelCost(def, record.level + 1);
-      if (!spendGoods(ledger, me, cost.materials, at, "facility_upgrade")) return fail("insufficient_materials");
+      if (!spendGoods(ledger, me, cost.materials, at, "facility_upgrade"))
+        return fail("insufficient_materials");
       const ms = withBuilders(cost.ms, unitIds.length, runtime());
       const job = newJob({
         kind: "upgrade",
@@ -446,7 +462,8 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const restore = repairRestorePpm(condition, steps, runtime());
       if (restore <= 0) return fail("not_damaged");
       const materials = repairMaterialsFor(cost.materials, restore);
-      if (!spendGoods(ledger, me, materials, started, "facility_repair")) return fail("insufficient_materials");
+      if (!spendGoods(ledger, me, materials, started, "facility_repair"))
+        return fail("insufficient_materials");
       const ms = repairTimeMs(cost.ms, restore, unitIds.length, runtime());
       const job = newJob({
         kind,
@@ -479,13 +496,17 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       const held = holdings.list(me, at).holdings.find((entry) => entry.id === holdingId);
       if (!held) return fail("unknown_holding");
       const itemDef = holdings.defOf(held.itemId);
-      if (held.durability === null || held.maxDurability === null || !itemDef?.equip) return fail("not_equipment");
+      if (held.durability === null || held.maxDurability === null || !itemDef?.equip)
+        return fail("not_equipment");
       if (held.slot !== null) return fail("equipped");
       if (jobOn((job) => job.holdingId === holdingId)) return fail("holding_busy");
       if (held.maxDurability <= options.rules().durability.destroyAtMax) return fail("broken");
       const lost = held.maxDurability - held.durability;
       if (lost <= 0) return fail("not_damaged");
-      const rule = repairRuleFor(def.repair, { slot: itemDef.equip.slot, weaponType: itemDef.equip.weaponType });
+      const rule = repairRuleFor(def.repair, {
+        slot: itemDef.equip.slot,
+        weaponType: itemDef.equip.weaponType,
+      });
       if (!rule) return fail("cannot_repair");
       if (unitIds.length === 0) return fail("unknown_unit");
       const unitProblem = checkUnits(me, unitIds);

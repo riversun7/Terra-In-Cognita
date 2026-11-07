@@ -110,6 +110,7 @@ export {
   type FormulasApplyResult,
 } from "./formulaDiff.ts";
 export {
+  EFFECT_COMBAT_STATS,
   EQUIP_SLOT_KINDS,
   PRIMARY_STAT_CODES,
   PRIMARY_STAT_SLOTS,

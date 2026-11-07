@@ -7,13 +7,16 @@
 // - 장비·인공장기 칸과 인벤토리는 보유 물건(holdings/, tRPC holdings.list + WebSocket 프로토콜 6)이다: 칸을 누르면 칸 고르기 창
 //   (옛 EquipmentSlot → EquipmentSelectionModal), 인벤토리는 옛 LocationInventory 카드(장착·해제·사용, 걸린 효과·쓰기 쿨, D-501 교체 확인).
 //   시안 자료를 켜면 시안 본체의 칸·인벤토리를 그대로 보인다(바꾸는 동작 없음). docs/adr/2026-11-03-item-holdings.md "바뀜 (화면)".
+// - 핵심 사양·상세 전투 스펙에는 입은 장비·인공장기·1차 스탯 버프가 든다(서버 셈, 같은 ADR "바뀜 (2026-11-07 …)"). 보유 물건 목록이
+//   다시 오면(장착·해제·사용 뒤) 사이보그 자료를 다시 받는다.
 // - 환생은 "곧 열림"이다. 환생 단추는 "가장 가까운 환생 시설로 가는 길"이다(D-441).
 // - 좁은 폭은 판을 위에서 아래로(머리 → 핵심 사양 → 전투 스펙 → 스킬 → 속성 → 인벤토리 → 환생 → 랭킹),
 //   넓은 폭(64em 이상)은 머리 판을 가로로 길게(인공장기 | 그림 | 장비) 두고 그 아래 두 열(왼쪽 핵심 사양·전투 스펙, 오른쪽 나머지).
 // 지연 로딩 조각(routeViews.tsx). 그림·이 화면 코드는 첫 화면 묶음에 들어가지 않는다.
 import type { CyborgBody, CyborgGetResponse, RosterNames, RosterSlot } from "@terra/shared/roster";
+import type { HoldingsListResponse } from "@terra/shared/holdings";
 import type { VitalsSnapshot } from "@terra/shared/vitals";
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import { DevGrant } from "../holdings/DevGrant.tsx";
 import { SlotTileButton } from "../holdings/HoldingParts.tsx";
 import { ReplaceDialog, SlotSheet } from "../holdings/HoldingsDialogs.tsx";
@@ -53,7 +56,7 @@ export default function CyborgScreen() {
         <BackButton />
       </div>
       {state.status === "ready" ? (
-        <CyborgBodyView data={state.data} />
+        <CyborgBodyView data={state.data} onHoldingsChanged={query.reload} />
       ) : (
         <LoadState state={state} onRetry={query.reload} />
       )}
@@ -62,9 +65,19 @@ export default function CyborgScreen() {
 }
 
 /** 만든 사이보그(시안이 아님)면 보유 물건을 받아 칸·인벤토리에 쓴다 */
-function CyborgBodyView({ data }: { data: CyborgGetResponse }) {
+function CyborgBodyView({
+  data,
+  onHoldingsChanged,
+}: {
+  data: CyborgGetResponse;
+  onHoldingsChanged: () => void;
+}) {
   const real = !data.preview && data.body !== null && !data.body.preview;
-  return real ? <WithHoldings data={data} /> : <BodyLayout data={data} holdings={null} />;
+  return real ? (
+    <WithHoldings data={data} onHoldingsChanged={onHoldingsChanged} />
+  ) : (
+    <BodyLayout data={data} holdings={null} />
+  );
 }
 
 /** 보유 물건 조작 묶음 + 사이보그 유닛의 칸·든 물건(사이보그가 아직 세계에 없으면 view = null) */
@@ -73,9 +86,26 @@ interface CyborgHoldings {
   readonly view: UnitHoldings | null;
 }
 
-function WithHoldings({ data }: { data: CyborgGetResponse }) {
+/**
+ * 보유 물건 목록이 다시 오면(장착·해제·사용 뒤, 처음 받은 것은 빼고) 사이보그 자료(cyborg.get)를 다시 받는다: 입은 장비·버프가 스탯·공격
+ * 값에 든다(docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07 …)"). 다시 받는 동안 앞 자료를 그린다(useRosterQuery)
+ */
+function WithHoldings({
+  data,
+  onHoldingsChanged,
+}: {
+  data: CyborgGetResponse;
+  onHoldingsChanged: () => void;
+}) {
   const controller = useHoldings();
   const state = controller.state;
+  const listed = state.status === "ready" ? state.data : null;
+  const seen = useRef<HoldingsListResponse | null>(null);
+  useEffect(() => {
+    if (!listed) return;
+    if (seen.current !== null && seen.current !== listed) onHoldingsChanged();
+    seen.current = listed;
+  }, [listed, onHoldingsChanged]);
   const unit = state.status === "ready" ? (state.data.cyborgUnit ?? null) : null;
   const view =
     state.status === "ready" && unit !== null

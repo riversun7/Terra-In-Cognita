@@ -47,7 +47,16 @@ const vitalsOf = (vitals: VitalsNow | undefined, unit: RosterUnit): VitalsSnapsh
   return id === null ? undefined : vitals?.of(id);
 };
 
-export function UnitList({ data, vitals }: { data: UnitsListResponse; vitals?: VitalsNow | undefined }) {
+export function UnitList({
+  data,
+  vitals,
+  onHoldingsChanged,
+}: {
+  data: UnitsListResponse;
+  vitals?: VitalsNow | undefined;
+  /** 보유 물건 목록이 다시 왔을 때(장착·해제·사용 뒤): 생명 수치와 유닛 목록(입은 장비가 든 스탯)을 다시 받는다 */
+  onHoldingsChanged?: (() => void) | undefined;
+}) {
   const [filter, setFilter] = useState<UnitFilter>(NO_FILTER);
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   const [openId, setOpenId] = useState<string | null>(null);
@@ -195,7 +204,7 @@ export function UnitList({ data, vitals }: { data: UnitsListResponse; vitals?: V
             unit={open}
             data={data}
             vitals={vitalsOf(vitals, open)}
-            onVitalsStale={vitals?.reload}
+            onVitalsStale={onHoldingsChanged ?? vitals?.reload}
             onClose={closeDetail}
           />
         ) : (

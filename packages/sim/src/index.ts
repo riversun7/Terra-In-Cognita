@@ -566,6 +566,7 @@ export type {
   Command,
   Edge,
   PartyState,
+  StartEffect,
   UnitState,
   UnitStatus,
 } from "./combat/battleTypes.ts";

@@ -1,10 +1,10 @@
-// 생명 수치 월드 설정 만들기(app.ts가 부른다) — 기획 D-512. 몸 자료는 유닛·사이보그 화면과 같은 셈(roster/body.ts)의 2차 스탯이다:
+// 생명 수치 월드 설정 만들기(app.ts가 부른다) — 기획 D-512. 몸 자료는 유닛·사이보그 화면과 같은 셈(roster/unitBody.ts — 입은 장비·
+// 1차 스탯 버프 포함, docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07 …)")의 2차 스탯이다:
 // 최대 = HP·아머 HP·쉴드 HP 행, 분당 회복 = 쉴드 재생 행(D-458). HP·아머 회복 행은 기획에 없어 0이다(질문 343·344).
 // 부를 때마다 지금 카탈로그(가중치 표·설정 칸 실효 값)로 셈한다.
 import type { RosterStats } from "@terra/shared/roster";
-import { baselineBody } from "../roster/body.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
-import { realCyborgBody } from "../roster/cyborgBody.ts";
+import { BASELINE_BASE, effectiveView } from "../roster/unitBody.ts";
 import type { VitalsBody } from "./state.ts";
 import type { VitalsConfig } from "./world.ts";
 
@@ -24,7 +24,7 @@ export function vitalsBodyOf(stats: RosterStats): VitalsBody {
 export function vitalsConfigOf(roster: RosterCatalog | undefined): VitalsConfig | undefined {
   if (!roster) return undefined;
   return {
-    cyborgBody: (record) => vitalsBodyOf(realCyborgBody(roster, record, false).stats),
-    defaultBody: () => vitalsBodyOf(baselineBody(roster).stats),
+    cyborgBody: (record, gear) => vitalsBodyOf(effectiveView(roster, { kind: "cyborg", record }, gear).stats),
+    defaultBody: (gear) => vitalsBodyOf(effectiveView(roster, BASELINE_BASE, gear).stats),
   };
 }

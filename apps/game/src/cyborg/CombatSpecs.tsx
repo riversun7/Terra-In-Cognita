@@ -2,18 +2,20 @@
 // ADR 2026-11-01-ui-visibility "바뀜": 묶음 칸(VITALS 전투자원·OFFENSE 공격·DEFENSE 방어·MOBILITY 기동·EFFICIENCY 효율) 안에 줄마다
 // ▶ 펼침 + 아이콘 + 이름 + 한 색 막대 + 오른쪽 값. 색은 2차 스탯 색(--color-sec-*, 1차 스탯 색과 겹치지 않음). 1차 스탯 기여로 칠하지 않는다.
 // 펼치면 옛 화면의 공식 상자: "공식 … | 캡 …", 입력 줄(STR(43)×1.5 = 64.5 …), "= 결과". 값·항은 서버가 팩 stat_rows 식으로 계산해 보낸다.
+// 판정 값(서버 CyborgBody.combat, 입은 장비·버프가 든 몸): 공격 묶음 끝에 실제 공격력·명중·크리·간격, 스태미나 회복 줄은 실제 회복(D-511).
 import {
   type CyborgBody,
   PRIMARY_STATS,
+  type RosterCombat,
   type RosterNames,
   type RosterStatBreakdown,
 } from "@terra/shared/roster";
-import { useId, useState } from "react";
+import { useId } from "react";
 import { m } from "../paraglide/messages.js";
 import { PreviewTag } from "../roster/parts.tsx";
 import { formatMilli, formatNumber, formatStat, localName, primaryCode } from "../roster/rosterText.ts";
+import { AttackRows, SpecRow, StaminaRealLines } from "./CombatAttack.tsx";
 import { type CombatGroup, barFill, combatGroups, termMilliSum } from "./cyborgText.ts";
-import { StatIcon } from "./statIcons.tsx";
 import "./combatSpecs.css";
 
 const GROUP_TEXT = {
@@ -25,7 +27,6 @@ const GROUP_TEXT = {
   other: { tag: m.cyborg_sec_other_tag, name: m.cyborg_sec_other },
 } satisfies Record<CombatGroup, { tag: () => string; name: () => string }>;
 
-const pct = (share: number): string => `${String(Math.round(share * 1000) / 10)}%`;
 const signed = (value: number): string => `${value >= 0 ? "+" : ""}${formatNumber(value)}`;
 
 export function CombatSpecs({ body, names }: { body: CyborgBody; names: RosterNames }) {
@@ -57,8 +58,14 @@ export function CombatSpecs({ body, names }: { body: CyborgBody; names: RosterNa
             </h3>
             <ul className="combat-rows">
               {rows.map((row) => (
-                <CombatRow key={row.id} row={row} name={localName(names.stats[row.id], row.id)} />
+                <CombatRow
+                  key={row.id}
+                  row={row}
+                  name={localName(names.stats[row.id], row.id)}
+                  combat={body.combat}
+                />
               ))}
+              {group === "offense" && body.combat ? <AttackRows combat={body.combat} names={names} /> : null}
             </ul>
           </section>
         ))}
@@ -70,34 +77,33 @@ export function CombatSpecs({ body, names }: { body: CyborgBody; names: RosterNa
   );
 }
 
-/** 옛 StatRow: 줄 전체가 누르는 곳(▶/▼), 펼치면 공식 상자 */
-function CombatRow({ row, name }: { row: RosterStatBreakdown; name: string }) {
-  const id = useId();
-  const [open, setOpen] = useState(false);
-  const shown = formatStat(row);
+/**
+ * 옛 StatRow: 줄 전체가 누르는 곳(▶/▼), 펼치면 공식 상자. 스태미나 회복 줄은 판정 값(실제 회복 = 행 값 × 적정 STA 비율, D-511)을
+ * 보이고 공식 상자 끝에 그 셈을 더한다(판정 값이 없는 시안·옛 서버는 행 값)
+ */
+function CombatRow({
+  row,
+  name,
+  combat,
+}: {
+  row: RosterStatBreakdown;
+  name: string;
+  combat: RosterCombat | undefined;
+}) {
+  const regen = row.id === "stamina_regen" ? combat?.staminaRegen : undefined;
+  const rowShown = formatStat(row);
+  const shown = regen ? formatStat({ ...row, value: regen.real }) : rowShown;
   return (
-    <li className="combat-row" data-sec={row.id} data-open={open ? "true" : undefined}>
-      <button
-        type="button"
-        className="combat-toggle"
-        aria-expanded={open}
-        aria-controls={`${id}-detail`}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <span className="combat-caret" aria-hidden="true" />
-        <StatIcon id={row.id} />
-        <span className="combat-main">
-          <span className="combat-label">{name}</span>
-          <span className="combat-bar" aria-hidden="true">
-            <span className="combat-bar-fill" style={{ inlineSize: pct(barFill(row)) }} />
-          </span>
-        </span>
-        <span className="combat-value">{shown}</span>
-      </button>
-      <div id={`${id}-detail`} className="combat-detail" hidden={!open}>
-        {row.formula ? <FormulaLines row={row} shown={shown} /> : <WeightLines row={row} shown={shown} />}
-      </div>
-    </li>
+    <SpecRow
+      sec={row.id}
+      real={regen ? "stamina_regen" : undefined}
+      name={name}
+      shown={shown}
+      fill={barFill(regen ? { ...row, value: regen.real } : row)}
+    >
+      {row.formula ? <FormulaLines row={row} shown={rowShown} /> : <WeightLines row={row} shown={rowShown} />}
+      {regen ? <StaminaRealLines regen={regen} /> : null}
+    </SpecRow>
   );
 }
 

@@ -2,6 +2,7 @@
 import { type CombatCoefficients, msToTicks, specStaminaCostMilli } from "./coefficients.ts";
 import { applyPassives } from "./skills.ts";
 import type { BattleInit, BattleState, CombatUnitSpec, SideState, UnitState } from "./battleTypes.ts";
+import type { ActiveEffect } from "./effects.ts";
 
 /** 살아 있고 빠지지 않은 유닛 */
 export function active(unit: UnitState): boolean {
@@ -24,6 +25,24 @@ export function spend(unit: UnitState, nowMs: number, c: CombatCoefficients): vo
   unit.nextActionMs = nowMs + unit.attackIntervalMs;
 }
 
+/** 들어올 때 걸려 있는 효과 → 걸린 효과(끝나는 시각이 지난 것은 뺀다, 쌓임 1·주기 없음) */
+function startEffectsOf(spec: CombatUnitSpec): ActiveEffect[] {
+  return (spec.startEffects ?? [])
+    .filter((effect) => effect.untilMs > 0)
+    .map((effect) => ({
+      id: effect.id,
+      kind: effect.kind,
+      stat: effect.stat,
+      valueMode: effect.valueMode,
+      status: null,
+      tickMs: 0,
+      value: effect.value,
+      stacks: 1,
+      untilMs: effect.untilMs,
+      nextTickMs: 0,
+    }));
+}
+
 /** 0~최대로 자른 정수(들어올 때의 값) */
 const clampStart = (value: number, max: number): number => Math.min(max, Math.max(0, Math.floor(value)));
 
@@ -44,7 +63,8 @@ export function unitFrom(spec: CombatUnitSpec): UnitState {
     nextMoveMs: 0,
     revealUntilMs: -1,
     bandSinceMs: -1,
-    effects: [],
+    // 들어올 때 걸려 있던 아이템 버프(D-501). 없으면 빈 목록(옛 시작 자료와 같다)
+    effects: startEffectsOf(spec),
     skillReadyMs: spec.skills.map(() => 0),
     cast: null,
     command: null,

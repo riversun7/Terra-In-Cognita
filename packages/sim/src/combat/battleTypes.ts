@@ -1,11 +1,25 @@
 // 전투 판정 타입 — battle.ts가 쓰는 사양·상태·결과 모양(직렬화할 수 있는 값만). docs/adr/2026-10-31-combat-core.md
 import type { BattleMapInput } from "./battleMap.ts";
-import type { ActiveEffect } from "./effects.ts";
+import type { ActiveEffect, ModifierStat } from "./effects.ts";
 import type { AttackProfile, DefenseProfile } from "./formula.ts";
 import type { CastState, CombatSkill } from "./skills.ts";
 
 /** 편의 가장자리(들어오는 변): 0 북(y 작음), 1 동, 2 남, 3 서 */
 export type Edge = 0 | 1 | 2 | 3;
+
+/**
+ * 전투 전에 걸려 있던 버프·디버프 하나(아이템 사용 효과 D-501 — 서버 표 unit_effects). 판정의 걸린 효과(effects.ts ActiveEffect)로
+ * 들어가 효과 합(modifiersOf·moveIntervalMs·shieldRegenPerMinute)이 그대로 읽는다(새 식 없음). untilMs = 전투 시각(처음 0) 기준 끝나는
+ * 시각(ms), 0 이하면 넣지 않는다. 1차 스탯 버프는 여기가 아니라 사양을 만들 때 1차 스탯에 든다(48 §2.3)
+ */
+export interface StartEffect {
+  readonly id: string;
+  readonly kind: "buff" | "debuff";
+  readonly stat: ModifierStat;
+  readonly valueMode: "flat" | "permille";
+  readonly value: number;
+  readonly untilMs: number;
+}
 
 export interface CombatUnitSpec {
   readonly id: number;
@@ -21,6 +35,11 @@ export interface CombatUnitSpec {
    * 채 들어온다(D-099). 없으면 모두 가득(옛 시작 자료·시뮬레이터와 같다)
    */
   readonly start?: { readonly hp: number; readonly armor: number; readonly shield: number } | undefined;
+  /**
+   * 들어올 때 걸려 있는 효과(아이템 버프 D-501, unit_effects). 칸 차례로 걸린 효과에 넣는다. 없으면 걸린 효과 없이 시작한다(옛 시작
+   * 자료·시뮬레이터와 같다)
+   */
+  readonly startEffects?: readonly StartEffect[] | undefined;
   readonly attack: AttackProfile;
   /**
    * 스킬 기반별 공격 사양(D-463 211): 물리 = 든 무기의 물리 칸·물리 공격력, 속성 = 든 무기의 속성 칸·속성 공격력. 든 무기에 그 칸이

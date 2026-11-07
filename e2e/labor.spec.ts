@@ -77,11 +77,27 @@ async function sendCommands(page: Page, commands: readonly Record<string, unknow
   );
 }
 
-/** 시험 건물을 빈 칸에 놓는다(지형·유닛에 막히면 다음 자리). 건물 ID */
-async function placeBuilding(page: Page): Promise<number> {
+/**
+ * player 사이보그 본체가 선 2차맵. 세계 배치(docs/adr/2026-11-07-world-layout.md)로 시작 도시가 시험 2차맵 줄 밖(국가 자리)에 서므로, 임대·구인
+ * 받기(같은 2차맵이어야 한다)를 시험할 시설은 그 2차맵에 놓는다. 자리를 모르거나 건너뛰는 중이면 시험 2차맵
+ */
+async function cyborgMapKey(page: Page): Promise<number> {
+  const key = await page.evaluate(async () => {
+    const reply: unknown = await fetch("/api/trpc/world.myPosition").then((response) => response.json());
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
+    const pick = (value: unknown, name: string): unknown =>
+      typeof value === "object" && value !== null ? Reflect.get(value, name) : undefined;
+    const position = pick(pick(pick(reply, "result"), "data"), "position");
+    return pick(position, "hidden") === true ? undefined : pick(position, "mapKey");
+  });
+  return typeof key === "number" ? key : S1_TEST_MAP_KEY;
+}
+
+/** 시험 건물을 그 2차맵의 빈 칸에 놓는다(지형·유닛에 막히면 다음 자리). 건물 ID */
+async function placeBuilding(page: Page, mapKey: number): Promise<number> {
   for (const cell of [24, 40, 56, 72, 180, 200, 220]) {
     const [reply] = await sendCommands(page, [
-      { t: "place_building", mapKey: S1_TEST_MAP_KEY, x: cell, y: cell, width: 2, height: 2, rotation: 0 },
+      { t: "place_building", mapKey, x: cell, y: cell, width: 2, height: 2, rotation: 0 },
     ]);
     const id = typeof reply === "object" && reply !== null ? Reflect.get(reply, "buildingId") : undefined;
     if (typeof id === "number") return id;
@@ -120,14 +136,19 @@ test.describe("노동 계약", () => {
     deviceErrors,
   }) => {
     test.setTimeout(180_000);
+    // player 기기를 먼저 열어 사이보그 본체의 2차맵을 안다(임대·구인 받기는 그 2차맵 시설만 — 세계 배치)
+    const tenant = await otherDevice(browser, { theme: "pastel", language: "ko", viewport: "phone" });
+    await rewriteTrpc(tenant.page, { "summary.get": hideSummary });
+    await tenant.page.goto("/");
+    const mapKey = await cyborgMapKey(tenant.page);
     // 일꾼 60(시험 화폐 1,440: 내 임금형 보증금 480 + 채우기 10 + 구인 받힘 보증금 720) + 시험 건물
     const spawned = await sendCommands(page, [
-      { t: "dev_spawn_units", mapKey: S1_TEST_MAP_KEY, count: 20 },
-      { t: "dev_spawn_units", mapKey: S1_TEST_MAP_KEY, count: 20 },
-      { t: "dev_spawn_units", mapKey: S1_TEST_MAP_KEY, count: 20 },
+      { t: "dev_spawn_units", mapKey, count: 20 },
+      { t: "dev_spawn_units", mapKey, count: 20 },
+      { t: "dev_spawn_units", mapKey, count: 20 },
     ]);
     expect(spawned.every((reply) => Reflect.get(Object(reply), "ok") === true)).toBe(true);
-    const buildingId = await placeBuilding(page);
+    const buildingId = await placeBuilding(page, mapKey);
     const day = await unitText(page, 1, "day");
 
     const labor = await openLabor(page);
@@ -179,7 +200,6 @@ test.describe("노동 계약", () => {
     await elementShot(labor, "labor-admin-pastel-ko-390");
 
     // player: 사이보그 본체로 admin 시설을 빌린 뒤 해지 → 유예(손으로 끝내지 않는다)
-    const tenant = await otherDevice(browser, { theme: "pastel", language: "ko", viewport: "phone" });
     const leasePanel = await openLabor(tenant.page);
     const leaseForm = leasePanel.locator("form.labor-form").first();
     await leaseForm.getByLabel(message("ko", "labor_field_kind")).selectOption("lease");

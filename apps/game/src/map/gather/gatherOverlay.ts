@@ -1,5 +1,6 @@
 // 2차맵 원자재 오브젝트·채집 줄 덧그림 — docs/adr/2026-11-07-gather-objects.md 6절. 엔진 덧그림 층(after(보기))에서 프레임마다 화면 좌표로 놓는다
-// (다시보기 HUD battleHud.ts와 같은 방식: transform·data-*·글자만 바꾼다, 색·크기는 gather.css 토큰).
+// (다시보기 HUD battleHud.ts와 같은 방식: transform·data-*·글자만 바꾼다, 색·크기는 gather.css 토큰). 자리는 도시 표시(CityOverlay)처럼 정수 px로
+// 놓는다 — 소수 px 이동이면 단추 상자가 44px에서 부동소수 오차만큼 모자라게 재진다(화면 시험 smallTapTargets, 합치기 2026-11-08).
 // - 오브젝트 표시: 누를 수 있는 단추(누르면 채집 판). 화면 안 가장 가운데에 가까운 MARKERS개만 놓는다(묶음 하나에 하나라 2차맵 하나에 많아야 1,024개).
 //   떨어진 오브젝트는 다른 모양(data-state="depleted": 속 빈 회색 고리). 멀리서 보면(1m가 MIN_PX_PER_M보다 작게) 숨긴다.
 // - 건물 표시: 화면 안 가장 가운데에 가까운 BUILDING_MARKERS개 건물 위 작은 단추(누르면 건물 판 — 들어가기·안에 있는 유닛). 땅을 눌러도 같은 판이 열린다.
@@ -141,7 +142,7 @@ export function attachGatherOverlay(
           String(state.sheet?.kind === "object" && state.sheet.id === object.id),
         );
       }
-      const transform = `translate(${entry.x.toFixed(1)}px, ${entry.y.toFixed(1)}px) translate(-50%, -50%)`;
+      const transform = `translate(${Math.round(entry.x)}px, ${Math.round(entry.y)}px) translate(-50%, -50%)`;
       if (marker.transform !== transform) {
         marker.transform = transform;
         marker.button.style.transform = transform;
@@ -182,7 +183,7 @@ export function attachGatherOverlay(
         marker.button.textContent = m.gather_building_marker_text();
         marker.button.setAttribute("aria-label", m.gather_building_marker({ id: entry.id }));
       }
-      const transform = `translate(${entry.x.toFixed(1)}px, ${entry.y.toFixed(1)}px) translate(-50%, -50%)`;
+      const transform = `translate(${Math.round(entry.x)}px, ${Math.round(entry.y)}px) translate(-50%, -50%)`;
       if (marker.transform !== transform) {
         marker.transform = transform;
         marker.button.style.transform = transform;
@@ -214,7 +215,7 @@ export function attachGatherOverlay(
         chip.root.textContent = text;
         chip.root.dataset.phase = loop.phase;
       }
-      const transform = `translate(${point.x.toFixed(1)}px, ${point.y.toFixed(1)}px) translate(-50%, -100%)`;
+      const transform = `translate(${Math.round(point.x)}px, ${Math.round(point.y)}px) translate(-50%, -100%)`;
       if (chip.transform !== transform) {
         chip.transform = transform;
         chip.root.style.transform = transform;

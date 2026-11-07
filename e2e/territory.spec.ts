@@ -86,6 +86,10 @@ const screen = (page: Page) => page.locator(".tl-screen");
 const canvas = (page: Page) => page.locator(".tl-canvas");
 
 async function openScreen(page: Page): Promise<void> {
+  // 앞 시험(거래·생산·채집 등)이 남긴 일이 있으면 복귀 요약이 떠서 지도를 가린다 — 뜨면 Esc로 닫는다(recruit.spec.ts와 같다)
+  await page.addLocatorHandler(page.locator("dialog.summary-dialog[open]"), async () => {
+    await page.keyboard.press("Escape");
+  });
   await page.goto("/dev/territory");
   await expect(screen(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
 }

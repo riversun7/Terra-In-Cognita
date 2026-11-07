@@ -48,6 +48,28 @@ async function meanBrightness(page: Page, clip: { x: number; y: number; width: n
 }
 
 /** HUD를 피한 지도 부분(390×844: 위 판 아래·아래 안내 위·오른쪽 단추 왼쪽) */
+/**
+ * 끌기 시작 높이: 시작점(x)이 덧그림 단추(채집·건물 표시 — 누르면 판이 열리고 지도를 끌지 않는다, 숲 2차맵에서는 빽빽하다)가 아니라 지도
+ * 캔버스에 닿는 첫 높이(화면 35~80%). 없으면 fallback
+ */
+async function canvasY(
+  page: Page,
+  x: number,
+  box: { readonly y: number; readonly height: number },
+  fallback: number,
+): Promise<number> {
+  return page.evaluate(
+    ({ px, top, height, otherwise }) => {
+      for (let k = 0; k <= 30; k++) {
+        const py = top + height * (0.35 + k * 0.015);
+        if (document.elementFromPoint(px, py) instanceof HTMLCanvasElement) return py;
+      }
+      return otherwise;
+    },
+    { px: x, top: box.y, height: box.height, otherwise: fallback },
+  );
+}
+
 const MAP_CLIP = { x: 20, y: 480, width: 280, height: 200 };
 
 test.describe("dev", () => {
@@ -251,17 +273,20 @@ test.describe("경계 너머 보기", () => {
     }
     for (let k = 0; k < 16; k++) {
       if ((await screen.getAttribute("data-view-map")) === "1,0") break;
-      await page.mouse.move(box.x + box.width * 0.85, y);
+      // 채집·건물 표시에서 시작하면 지도가 끌리지 않는다(합치기 2026-11-08) — 캔버스에 닿는 높이에서 끈다
+      const dragY = await canvasY(page, box.x + box.width * 0.85, box, y);
+      await page.mouse.move(box.x + box.width * 0.85, dragY);
       await page.mouse.down();
-      await page.mouse.move(box.x + box.width * 0.15, y, { steps: 8 });
+      await page.mouse.move(box.x + box.width * 0.15, dragY, { steps: 8 });
       await page.mouse.up();
       await page.waitForTimeout(1100);
     }
     await expect(screen).toHaveAttribute("data-view-map", "1,0", { timeout: 5_000 });
     // 경계를 걸친 자리로 조금 되돌려 사진(경계가 화면 가운데쯤)
-    await page.mouse.move(box.x + box.width * 0.3, y);
+    const backY = await canvasY(page, box.x + box.width * 0.3, box, y);
+    await page.mouse.move(box.x + box.width * 0.3, backY);
     await page.mouse.down();
-    await page.mouse.move(box.x + box.width * 0.75, y, { steps: 8 });
+    await page.mouse.move(box.x + box.width * 0.75, backY, { steps: 8 });
     await page.mouse.up();
     await page.waitForTimeout(1200);
     await shot(page, "second-map-neighbour-edge");

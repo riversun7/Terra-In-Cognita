@@ -1,6 +1,14 @@
 import { START_WORLD_SEED, startCitiesFor } from "@terra/sim";
 import { describe, expect, it } from "vitest";
-import { MAX_TEST_NATIONS, START_CITY_SLOTS, nationCode, nationName, planStartCities } from "./nations.ts";
+import {
+  MAX_TEST_NATIONS,
+  START_CITY_SLOTS,
+  nationCode,
+  nationName,
+  nextCityName,
+  planStartCities,
+  presetOfCode,
+} from "./nations.ts";
 
 const presets = [
   { code: "placeholder_nation_01", name: { ko: "임시 국가 1", en: "Placeholder nation 1" } },
@@ -38,11 +46,27 @@ describe("시험 국가 코드·이름(질문 203 가, D-460)", () => {
 });
 
 describe("시작 도시 자리(세계 씨앗, D-6041)", () => {
-  it("국가마다 도시 수 = 설정 칸 아래 끝 → 위 끝을 차례로 돈다(거꾸로 넣어도 같다, 1~4 안)", () => {
-    expect([1, 2, 3, 4].map((n) => startCitiesFor(n, START_WORLD_SEED))).toEqual([2, 3, 2, 3]);
+  it("국가마다 도시 수 = 프리셋 성격 칸을 설정 칸 아래~위 끝 안으로(504 다), 칸이 없으면 모든 국가 아래 끝(504 나)", () => {
+    expect([undefined, 4, 3, 2].map((count) => startCitiesFor(START_WORLD_SEED, count))).toEqual([
+      2, 4, 3, 2,
+    ]);
+    // 위 끝 3이면 큰 나라(4)도 3, 아래 끝보다 작은 칸은 아래 끝
+    const capped = { ...START_WORLD_SEED, startCitiesMin: 2, startCitiesMax: 3 };
+    expect([undefined, 4, 1].map((count) => startCitiesFor(capped, count))).toEqual([2, 3, 2]);
+    // 거꾸로 넣어도 같고, 1~4 밖은 자른다. 시험이 아래·위 끝을 1로 두면 모든 국가 하나
     const swapped = { ...START_WORLD_SEED, startCitiesMin: 4, startCitiesMax: 2 };
-    expect([1, 2, 3, 4].map((n) => startCitiesFor(n, swapped))).toEqual([2, 3, 4, 2]);
-    expect(startCitiesFor(1, { ...START_WORLD_SEED, startCitiesMin: 0, startCitiesMax: 9 })).toBe(1);
+    expect([undefined, 3].map((count) => startCitiesFor(swapped, count))).toEqual([2, 3]);
+    expect(startCitiesFor({ ...START_WORLD_SEED, startCitiesMin: 0, startCitiesMax: 9 }, 7)).toBe(4);
+    expect(startCitiesFor({ ...START_WORLD_SEED, startCitiesMin: 1, startCitiesMax: 1 }, 4)).toBe(1);
+  });
+
+  it("세력 코드 → 프리셋(1번 = 16번째), 도시 이름은 쓰지 않은 첫 이름(510 다)", () => {
+    expect(presetOfCode("s3_test_npc", sixteen)?.code).toBe("placeholder_nation_16");
+    expect(presetOfCode("placeholder_nation_02", sixteen)?.code).toBe("placeholder_nation_02");
+    expect(presetOfCode("npc_nation_04", sixteen)).toBeUndefined();
+    expect(nextCityName(["A", "B", "C"], new Set(["A", "C"]))).toBe("B");
+    expect(nextCityName(["A"], new Set(["A"]))).toBeUndefined();
+    expect(nextCityName(undefined, new Set())).toBeUndefined();
   });
 
   it("빈 세계: 자리 차례마다 2차맵을 돌아 국가 하나의 도시가 서로 다른 2차맵에, 2차맵마다 1~2곳", () => {

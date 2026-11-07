@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
 import { economyCatalogFromPack } from "../economyView/catalog.ts";
+import { type NationPreset, presetOfCode } from "../npc/nations.ts";
+import { nationPresetsOf } from "../npc/presets.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { ASSET_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { silentLog } from "../world/testSupport.ts";
@@ -17,6 +19,7 @@ import { serverEconomyCatalogAccessor } from "./catalog.ts";
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source || !loaded.pack) throw new Error("content pack");
 const pack = createContentEditState(loaded.source).effective();
+const packPresets = nationPresetsOf(loaded.pack);
 const economy = serverEconomyCatalogAccessor(
   economyCatalogFromPack(loaded.pack, { version: "core@test", placeholder: true }),
   () => pack,
@@ -43,7 +46,7 @@ afterEach(async () => {
   await test.drop();
 });
 
-async function boot(): Promise<World> {
+async function boot(presets?: readonly NationPreset[]): Promise<World> {
   const world = startWorld({
     testBots: 30,
     paths: { kind: "inline" },
@@ -54,7 +57,7 @@ async function boot(): Promise<World> {
     onFatal: (error) => {
       throw error;
     },
-    npc: { testNations: 3, manual: true },
+    npc: { testNations: 3, manual: true, presets },
     cyborgRules: () => ONE_CITY,
     holdings: { content: () => pack },
     facilities: { content: () => pack },
@@ -230,5 +233,40 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     const restored = marketSourceOf(again, () => clock)();
     expect(restored?.views.orders(buyer.userId, clock).open[0]?.id).toBe(String(sell.orderId));
     expect(await again.checkInvariants()).toEqual([]);
+  });
+
+  it("나라 성격(531 다·533 다): 국가마다 도시 직무·처음 창고가 다르고, 모자란 생필품은 굶음 먼저 일꾼을 둔다(532 나)", async () => {
+    const presets = packPresets;
+    const world = await boot(presets);
+    const npc = world.npc;
+    const econ = npc?.economy;
+    const ledger = world.persistence?.ledger;
+    if (!npc || !econ || !ledger) throw new Error("city economy");
+    // 국가 2·3 = 팩 프리셋 1(농업)·2(공업). 도시는 국가마다 하나(설정 칸)
+    for (const faction of npc.world.factions.values()) {
+      const personality = presetOfCode(faction.code, presets)?.personality;
+      const [cityId] = [...faction.cities];
+      if (cityId === undefined) continue;
+      const recipes = econ.production(cityId).map((run) => run.facility.recipe.id);
+      // 도시 직무: 그 시설 건물이 없는 것만(씨앗 시설 농장·벌목장·광산은 건물이 대신한다)
+      const jobs = (personality?.cityJobs ?? [{ facility: "kitchen", recipe: "cook_ration" }]).filter(
+        (job) => !["farm", "lumber_camp", "mine"].includes(job.facility),
+      );
+      for (const job of jobs) expect(recipes).toContain(job.recipe);
+      // 처음 창고: 성격 칸 startStock(팩 수량 × 묶음 크기 1 — 철 주괴는 아직 아무도 쓰지 않았다)
+      const iron = personality?.startStock?.find((line) => line.item === "iron_ingot");
+      if (iron) expect(ledger.balanceOf(faction.id, "item:iron_ingot", cityId)).toBe(BigInt(iron.qty));
+      // 일꾼: 주방(배급 식량)이 있는 도시는 주방에 먼저 일꾼이 있다
+      const kitchen = econ.production(cityId).find((run) => run.facility.recipe.id === "cook_ration");
+      if (kitchen && (econ.economy.cityUnits.get(cityId) ?? 0) > 0)
+        expect(kitchen.facility.workers).toBeGreaterThan(0);
+    }
+    const industrial = [...npc.world.factions.values()].find((faction) => faction.code === presets[1]?.code);
+    const [indCity] = [...(industrial?.cities ?? [])];
+    expect(indCity).toBeDefined();
+    expect(econ.production(indCity ?? 0).map((run) => run.facility.recipe.id)).toEqual(
+      expect.arrayContaining(["smelt_iron", "make_household_goods", "cook_ration"]),
+    );
+    expect(await world.checkInvariants()).toEqual([]);
   });
 });

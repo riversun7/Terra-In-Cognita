@@ -1,6 +1,7 @@
 // 세계 씨앗 DB 통합 시험 — docs/adr/2026-11-07-play-flow.md "WP1 세계 씨앗". TEST_DATABASE_URL이 있을 때만. 값은 모두 시험용 가짜다.
-// 고정 국가마다 시작 도시 2~3곳을 시험 2차맵들에 나누고, 시작 도시마다 기본 시설을 다 지은 채로 세우며, 다시 켜도 그대로(멱등)이고,
-// 옛 세계(국가마다 첫 장 도시 하나)에서 켜면 모자란 도시만 더하는지, 사이보그 만들기 목록에 그대로 보이는지 본다.
+// 고정 국가마다 시작 도시(나라 성격 칸: 큰 나라 4·보통 3·작은 나라 2, 칸 없는 국가 = 아래 끝 2 — WP5)를 시험 2차맵들에 나누고, 도시마다
+// 팩 도시 이름(510 다)을 붙이고, 시작 도시마다 기본 시설을 다 지은 채로 세우며, 다시 켜도 그대로(멱등)이고, 옛 세계(국가마다 첫 장 도시
+// 하나)에서 켜면 모자란 도시만 더하는지, 사이보그 만들기 목록에 그대로 보이는지 본다.
 import { loadContentPack } from "@terra/content/node";
 import { DAY_MS, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -75,11 +76,12 @@ type CityLine = {
   map_key: string;
   cell_x: number;
   cell_y: number;
+  name: string | null;
 };
 const startCities = () =>
   rows<CityLine>(
     test.db,
-    `select c.id, f.code, c.map_key, c.cell_x, c.cell_y from world_cities c join factions f on f.id = c.faction_id
+    `select c.id, f.code, c.map_key, c.cell_x, c.cell_y, c.name from world_cities c join factions f on f.id = c.faction_id
      where c.start order by c.id`,
   );
 const seeded = () =>
@@ -91,15 +93,23 @@ const seeded = () =>
      from world_facilities wf join world_buildings b on b.id = wf.building_id order by wf.city_id, wf.facility_id`,
   );
 const codes = ["s3_test_npc", ...presets.slice(0, 3).map((preset) => preset.code)];
+/** 국가 1 = 16번째 프리셋(성격 칸 없음 → 아래 끝 2), 2~4 = 프리셋 1~3(팩 성격 칸 4·3·2) */
+const nationPresets = [presets[15], ...presets.slice(0, 3)];
+const WANT = [2, 4, 3, 2];
 
 describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·기본 시설)", () => {
-  it("빈 세계: 국가 넷 × 2~3곳을 2차맵 셋에 나누고, 도시마다 기본 시설 다섯(주인 = 그 국가), 다시 켜도 그대로", async () => {
+  it("빈 세계: 국가 넷 × 나라 성격 수(2·4·3·2)를 2차맵 셋에 나누고, 팩 도시 이름, 도시마다 기본 시설 다섯, 다시 켜도 그대로", async () => {
     const world = await boot({ testMaps: 3 });
     const cities = await startCities();
     const perNation = codes.map((code) => cities.filter((city) => city.code === code));
-    expect(perNation.map((list) => list.length)).toEqual([2, 3, 2, 3]);
-    // 국가 하나의 도시는 서로 다른 2차맵에, 2차맵마다 도시가 있다(국가 1이 모든 2차맵에 있지는 않다)
-    for (const list of perNation) expect(new Set(list.map((city) => city.map_key)).size).toBe(list.length);
+    expect(perNation.map((list) => list.length)).toEqual(WANT);
+    // 국가 하나의 도시는 2차맵 수까지 서로 다른 2차맵에, 2차맵마다 도시가 있다(국가 1이 모든 2차맵에 있지는 않다)
+    for (const list of perNation)
+      expect(new Set(list.map((city) => city.map_key)).size).toBe(Math.min(list.length, 3));
+    // 도시 이름 = 그 국가 프리셋 목록 차례(510 다, 번역하지 않는다)
+    perNation.forEach((list, index) =>
+      expect(list.map((city) => city.name)).toEqual(nationPresets[index]?.cityNames?.slice(0, list.length)),
+    );
     const mapKeys = [0, 1, 2].map((k) => String(testMapKey(k)));
     for (const mapKey of mapKeys) expect(cities.some((city) => city.map_key === mapKey)).toBe(true);
     expect(perNation[0]?.map((city) => city.map_key)).toEqual(mapKeys.slice(0, 2));
@@ -116,9 +126,12 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
       ]);
     expect(facilities.every((row) => row.level === 1 && row.owner_ok)).toBe(true);
 
-    // 사이보그 만들기 목록: 국가 넷, 국가마다 2~3곳, 이름 = 팩 국가 프리셋(국가 1 = 16번째 프리셋)
+    // 사이보그 만들기 목록: 국가 넷, 국가마다 나라 성격 수, 이름 = 팩 국가 프리셋(국가 1 = 16번째 프리셋), 도시 이름 = 팩
     const creation = world.persistence?.cyborgs.creation("fake-user", clock);
-    expect(creation?.factions.map((faction) => faction.cities.length)).toEqual([2, 3, 2, 3]);
+    expect(creation?.factions.map((faction) => faction.cities.length)).toEqual(WANT);
+    expect(
+      creation?.factions[1]?.cities.every((city) => presets[0]?.cityNames?.includes(city.name ?? "")),
+    ).toBe(true);
     expect(creation?.factions[0]?.name).toEqual(presets[15]?.name);
     expect(creation?.factions[1]?.name).toEqual(presets[0]?.name);
     expect(await world.checkInvariants()).toEqual([]);
@@ -139,7 +152,8 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·
     const world = await boot({ testMaps: 3 });
     const after = await startCities();
     expect(after.slice(0, before.length)).toEqual(before);
-    expect(codes.map((code) => after.filter((city) => city.code === code).length)).toEqual([2, 3, 2, 3]);
+    expect(codes.map((code) => after.filter((city) => city.code === code).length)).toEqual(WANT);
+    expect(after.every((city) => city.name !== null)).toBe(true);
     // 새 도시는 옛 도시와 32칸 넘게 떨어진다
     for (const city of after.slice(before.length))
       for (const other of before)

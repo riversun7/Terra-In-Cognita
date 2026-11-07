@@ -5,7 +5,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { CityRow } from "../world/cities.ts";
 import { type TestMap, createTestMap } from "../world/testSupport.ts";
 import { facilityCatalogOf } from "./catalog.ts";
-import { SEED_MARGIN, SEED_PLAZA_RADIUS, seedNpcFacilities, seedPlan } from "./npcSeed.ts";
+import {
+  SEED_MARGIN,
+  SEED_PLAZA_RADIUS,
+  type SeedLand,
+  landGather,
+  seedNpcFacilities,
+  seedPlan,
+} from "./npcSeed.ts";
 import type { FacilityRecord } from "./state.ts";
 import { TEST_FACILITY_SOURCE } from "./testFacilities.ts";
 
@@ -119,5 +126,51 @@ describe("NPC 시작 도시 기본 시설(세계 씨앗)", () => {
     });
     expect(result).toEqual({ placed: 4, missing: 1 });
     expect(facilities.size).toBe(4);
+  });
+
+  it("채집 시설은 둘레 땅을 따른다(503 다): 숲 → 벌목장, 높은 땅 → 광산, 따뜻하고 비 오는 땅 → 농장, 아무것도 아니면 농장", () => {
+    // 시험 2차맵 줄(초지·숲 밀도 15·고도 75m·15°C·강수 261mm)과 같은 값
+    const grass: SeedLand = { elevationM: 75, temperatureC: 15, precipitationMm: 261, forest: 15 };
+    expect(landGather(grass, START_WORLD_SEED)).toEqual({ farm: true, lumber: true, mine: false });
+    // 화면 숲 표시 문턱(밀도 13 ≈ 5%)과 같다
+    expect(landGather({ ...grass, forest: 12 }, START_WORLD_SEED).lumber).toBe(false);
+    expect(landGather({ ...grass, forest: 13 }, START_WORLD_SEED).lumber).toBe(true);
+    expect(
+      landGather({ elevationM: 900, temperatureC: -5, precipitationMm: 100, forest: 0 }, START_WORLD_SEED),
+    ).toEqual({ farm: false, lumber: false, mine: true });
+    expect(
+      landGather({ elevationM: 10, temperatureC: 30, precipitationMm: 50, forest: 0 }, START_WORLD_SEED),
+    ).toEqual({
+      farm: true,
+      lumber: false,
+      mine: false,
+    });
+    const plan = seedPlan(START_WORLD_SEED, grass);
+    expect(plan.filter((item) => item.count > 0).map((item) => item.facility)).toEqual([
+      "government_hall",
+      "storehouse",
+      "farm",
+      "lumber_camp",
+    ]);
+
+    const { map, facilities, service } = setup();
+    const result = seedNpcFacilities({
+      maps: new Map([[9, map]]),
+      cities: [city(1, 100, 128, 128)],
+      planetId: "p",
+      ownerOfFaction: () => 7,
+      service,
+      catalog,
+      seed: START_WORLD_SEED,
+      landOf: (mapKey) => (mapKey === 9 ? grass : undefined),
+      nowMs: 1_000,
+    });
+    expect(result).toEqual({ placed: 4, missing: 0 });
+    expect([...facilities.values()].map((record) => record.facilityId).toSorted()).toEqual([
+      "farm",
+      "government_hall",
+      "lumber_camp",
+      "storehouse",
+    ]);
   });
 });

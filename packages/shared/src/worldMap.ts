@@ -37,8 +37,10 @@ export interface WorldMapLand {
 export interface WorldMapCity {
   readonly id: number;
   readonly factionId: number;
-  /** 그 국가 도시 가운데 차례(1부터, ID 차례) — [임시] 도시 이름 칸이 없어 "도시 N"으로 부른다(질문 510) */
+  /** 그 국가 도시 가운데 차례(1부터, ID 차례) — 이름이 없는 도시는 "<국가> 도시 N"으로 부른다 */
   readonly number: number;
+  /** 도시 이름(번역하지 않는다 D-476, NPC 도시는 팩 국가 프리셋 목록 — 기획 답 510 다). 없으면 null */
+  readonly name: string | null;
   /** 2차맵 키(1차맵 칸 셀 키, 면 레벨 F) */
   readonly mapKey: number;
   /** 1차맵 칸(면 레벨 F) */

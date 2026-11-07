@@ -25,6 +25,9 @@ import { crowdingText, temperamentText } from "./startText.ts";
 const StartCityMap = lazy(() => import("./StartCityMap.tsx"));
 
 const localName = (name: { ko: string; en: string }): string => (getLocale() === "en" ? name.en : name.ko);
+/** 시작 도시 이름: 서버가 준 이름(번역 안 함 D-476, 기획 답 510 다), 없으면 "시작 도시 N" */
+const startCityName = (city: { readonly name: string | null; readonly number: number }): string =>
+  city.name ?? m.start_city_name({ number: formatNumber(city.number) });
 
 export function FactionStep({
   data,
@@ -115,7 +118,7 @@ export function CityStep({
             />
             <span className="start-choice-body">
               <span className="start-choice-name">
-                {m.start_city_name({ number: formatNumber(city.number) })}
+                {startCityName(city)}
                 <span className="start-badge" data-crowding={city.crowding}>
                   {crowdingText(city.crowding)}
                 </span>
@@ -203,7 +206,7 @@ export function DescentStep({
         </div>
         <div>
           <dt>{m.start_step_city()}</dt>
-          <dd>{m.start_city_name({ number: formatNumber(city.number) })}</dd>
+          <dd>{startCityName(city)}</dd>
         </div>
       </dl>
       <p className="start-hint">{m.start_descent_note()}</p>

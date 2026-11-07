@@ -65,6 +65,11 @@ export interface NpcCoefficients {
   readonly spendDivisorShort: number;
   readonly spendDivisor: number;
   /**
+   * [임시] 도시 매입 호가(기획 답 530 가, D-518): 거래 판단 끝에 자기 도시의 모자란 물건(목표 재고 − 재고 − 오는 중)을 지난 값의 이 %로
+   * 상시 매수 주문한다(시뮬·서버 같은 규칙, simulator/npcTrade.ts placeCityBids)
+   */
+  readonly cityBidPct: number;
+  /**
    * [임시] 구인 규칙식(D-469 "NPC도 이런 경로를 통해 인구를 늘리며 생산발전", 기술 출발값): 도시 휴먼이 주거 × 목표 ‰보다 적으면 구인 카드를
    * 산다. 카드 값 × 예비 ‰만큼 국고가 남을 때만 산다(국고를 다 쓰지 않게)
    */
@@ -118,6 +123,7 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   tradeMarkupPerPct: 250,
   spendDivisorShort: 2,
   spendDivisor: 4,
+  cityBidPct: 90,
   recruitTargetPm: 1000,
   recruitReservePm: 2000,
   stallFoodPm: 500,

@@ -1,7 +1,9 @@
 // 시험 세계 NPC 국가 — docs/adr/2026-11-01-npc-brain-r5.md 7절, 질문 203 가(D-460), docs/adr/2026-11-07-play-flow.md "WP1 세계 씨앗"
 // NAS 시험 세계(S2 시험 행성, 시험 2차맵)에 고정 NPC 국가 N개(기본 4)를 둔다: 시험 NPC 세력(s3_test_npc)이 1번이고, 나머지는 팩 국가
 // 프리셋 차례의 코드(프리셋이 없으면 npc_nation_02…)다. 모두 고정(D-324)이다.
-// 세계 씨앗(D-6041 "세력마다 시작 도시 여러 곳", 60 §7.1 "2~4곳"): 국가마다 시작 도시 수 = 설정 칸 worldSeed(국가 차례로 아래 끝 → 위 끝).
+// 세계 씨앗(D-6041 "세력마다 시작 도시 여러 곳", 60 §7.1 "2~4곳"): 국가마다 시작 도시 수 = 국가 프리셋 성격 칸(큰 나라·작은 나라, 기획 답
+// 504 다)을 설정 칸 worldSeed 아래 끝~위 끝 안으로 자른 값, 칸이 없으면 아래 끝(모든 국가 같은 수). NPC 도시 이름은 프리셋 도시 이름 목록을
+// 차례로 쓴다(기획 답 510 다, D-476 번역 안 함 — 이름이 없는 도시만 켤 때 채운다). docs/adr/2026-11-07-play-flow.md "WP5 나라 성격".
 // 시작 도시는 띄운 시험 2차맵들에 고르게 나눈다(자리 차례 = 칸 자리마다 2차맵을 돈다). 켤 때마다 모자란 도시만 더한다(있는 도시는 그대로,
 // 옛 세계의 첫 장 고정 자리 도시도 그대로 — 멱등). 시작 도시는 주인이 바뀌지 않으므로(D-325·D-341) 지우거나 옮기지 않는다.
 // 체제는 국가 차례로 셋을 돌리고(시뮬 "mixed"와 같다), 성향은 NPC 사회 런타임이 세계 시드로 굴려 채운다(D-327).
@@ -45,10 +47,23 @@ export const START_CITY_SLOTS: readonly (readonly [number, number])[] = [
 /** 이 거리(칸) 안에 같은 2차맵 도시가 있으면 그 자리는 찼다 */
 export const START_CITY_GAP = 32;
 
-/** 팩 국가 프리셋(D-086) 하나: 시험 국가의 코드·이름(질문 203 가: 시험 세력 + 프리셋 차례) */
+/** 나라 성격(팩 국가 프리셋 personality, 기획 답 504 다·531 다·533 다). 칸마다 없으면 모든 국가가 같은 기본 */
+export interface NationPersonality {
+  /** 시작 도시 수(설정 칸 아래 끝~위 끝 안으로 자른다) */
+  readonly startCities?: number | undefined;
+  /** 도시 직무: 그 시설 건물이 없는 NPC 도시의 휴먼이 돌리는 레시피(npc/economy.ts) */
+  readonly cityJobs?: readonly { readonly facility: string; readonly recipe: string }[] | undefined;
+  /** 처음 창고: NPC 도시 하나가 한 번 받는 물건(팩 수량 = 묶음 단위) */
+  readonly startStock?: readonly { readonly item: string; readonly qty: number }[] | undefined;
+}
+
+/** 팩 국가 프리셋(D-086) 하나: 시험 국가의 코드·이름(질문 203 가: 시험 세력 + 프리셋 차례)·성격·도시 이름 */
 export interface NationPreset {
   readonly code: string;
   readonly name: { readonly ko: string; readonly en: string };
+  readonly personality?: NationPersonality | undefined;
+  /** NPC 도시 이름(번역하지 않는다, D-476) */
+  readonly cityNames?: readonly string[] | undefined;
 }
 
 /** n번째 국가 코드(1번 = 시험 NPC 세력, 2번부터 = 팩 프리셋 차례, 프리셋이 없으면 npc_nation_NN) */
@@ -66,17 +81,29 @@ export function nationName(
   code: string,
   presets: readonly NationPreset[] = [],
 ): { ko: string; en: string } | undefined {
-  if (code === TEST_NPC_FACTION_CODE) {
-    const spare = presets[MAX_TEST_NATIONS - 1];
-    return spare
-      ? { ko: spare.name.ko, en: spare.name.en }
-      : { ko: "시험 NPC 국가 1", en: "Test NPC nation 1" };
-  }
-  const preset = presets.find((entry) => entry.code === code);
+  const preset = presetOfCode(code, presets);
   if (preset) return { ko: preset.name.ko, en: preset.name.en };
+  if (code === TEST_NPC_FACTION_CODE) return { ko: "시험 NPC 국가 1", en: "Test NPC nation 1" };
   if (!code.startsWith(NATION_CODE_PREFIX)) return undefined;
   const n = Number(code.slice(NATION_CODE_PREFIX.length));
   return Number.isInteger(n) ? { ko: `시험 NPC 국가 ${n}`, en: `Test NPC nation ${n}` } : undefined;
+}
+
+/**
+ * 세력 코드의 국가 프리셋(이름·성격·도시 이름): 1번(시험 NPC 세력)은 MAX_TEST_NATIONS번째(팩 16번째) 프리셋, 2번부터는 코드가 같은 프리셋.
+ * 없으면 undefined(프리셋 없는 시험 국가 npc_nation_NN·유저 세력)
+ */
+export function presetOfCode(code: string, presets: readonly NationPreset[] = []): NationPreset | undefined {
+  if (code === TEST_NPC_FACTION_CODE) return presets[MAX_TEST_NATIONS - 1];
+  return presets.find((entry) => entry.code === code);
+}
+
+/** 이름 목록에서 아직 쓰지 않은 첫 이름(없으면 undefined) */
+export function nextCityName(
+  names: readonly string[] | undefined,
+  used: ReadonlySet<string>,
+): string | undefined {
+  return names?.find((name) => !used.has(name));
 }
 
 /** 시작 도시 자리(2차맵 키, 칸) */
@@ -164,10 +191,10 @@ export async function ensureTestNations(
   const have = new Map<number, number>();
   for (const row of cities.rows)
     if (row.start === true) have.set(Number(row.faction_id), (have.get(Number(row.faction_id)) ?? 0) + 1);
-  const nations = codes.flatMap((code, index) => {
+  const nations = codes.flatMap((code) => {
     const factionId = idOf.get(code);
     if (factionId === undefined) return [];
-    const want = startCitiesFor(index + 1, options.seed);
+    const want = startCitiesFor(options.seed, presetOfCode(code, options.presets)?.personality?.startCities);
     return [{ factionId, missing: Math.max(0, want - (have.get(factionId) ?? 0)) }];
   });
   // 폐허 자리(docs/adr/2026-11-07-ruins-restoration.md)도 찬 자리로 친다(복원되면 같은 자리에 도시가 돌아온다)
@@ -186,7 +213,50 @@ export async function ensureTestNations(
        select coalesce((select max(id) from world_cities), 0) + 1, $1, $2, $3, $4, $5, true, $6, 1, $7`,
       [factionId, options.planetId, spot.mapKey, spot.x, spot.y, START_CITY_HOUSING, options.nowMs],
     );
+  await nameNationCities(
+    pool,
+    options.planetId,
+    codes.flatMap((code) => {
+      const factionId = idOf.get(code);
+      const names = presetOfCode(code, options.presets)?.cityNames;
+      return factionId === undefined || !names ? [] : [{ factionId, names }];
+    }),
+  );
   return planned.length;
+}
+
+/**
+ * NPC 도시 이름(기획 답 510 다): 국가마다 그 행성의 이름 없는 도시(ID 차례)에 프리셋 목록에서 그 국가 도시가 아직 쓰지 않은 이름을 붙인다.
+ * 이미 붙은 이름은 고치지 않는다(멱등 — 목록을 바꿔도 옛 이름은 그대로). 목록이 모자라면 남은 도시는 이름 없이 둔다(화면이 "도시 N").
+ * 붙인 수를 돌려준다
+ */
+export async function nameNationCities(
+  pool: QueryPool,
+  planetId: string,
+  nations: readonly { readonly factionId: number; readonly names: readonly string[] }[],
+): Promise<number> {
+  if (nations.length === 0) return 0;
+  const result = await pool.query(
+    `select id, faction_id, name from world_cities where planet_id = $1 and faction_id = any($2::bigint[]) order by id`,
+    [planetId, nations.map((nation) => nation.factionId)],
+  );
+  let named = 0;
+  for (const nation of nations) {
+    const mine = result.rows.filter((row) => Number(row.faction_id) === nation.factionId);
+    const used = new Set(mine.flatMap((row) => (typeof row.name === "string" ? [row.name] : [])));
+    for (const row of mine) {
+      if (typeof row.name === "string") continue;
+      const name = nextCityName(nation.names, used);
+      if (name === undefined) break;
+      used.add(name);
+      await pool.query(`update world_cities set name = $1 where id = $2 and name is null`, [
+        name,
+        Number(row.id),
+      ]);
+      named += 1;
+    }
+  }
+  return named;
 }
 
 /**

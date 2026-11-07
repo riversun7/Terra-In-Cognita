@@ -4,11 +4,13 @@
 // - 화폐: 서버는 시험 화폐 하나(ASSET_CREDIT)를 모든 세력·거래소에 쓴다(D-441 해석과 같은 [임시], 환전은 다음 줄기). 거래세 = 국가 프리셋 세율
 //   (반란 세력은 부모 것, 없으면 DEFAULT_TAX_BP). 중앙은행 발행은 돌지 않는다(발행 나라 없음 — 시험 화폐는 처음 국고 1e9).
 // - 거래소: market/books.ts 모음(도시 × 물건, 저장·복원). 시뮬 Economy.markets가 그 표를 그대로 본다.
-// - 생산 시설: 그 도시에 선 NPC 세력 시설(건물, 다 지은 것)의 첫 레시피 + 건물이 없는 기본 직무(도시 직무: 농장·주방·벌목장 [임시]).
-//   일꾼 = 그 도시 휴먼을 시설마다 한 명씩 돌려 자리 수(레벨 × 자리)까지 [임시]. 처음·하루 끝·새 도시마다 다시 맞춘다.
-// - 처음 창고: NPC 도시마다 한 번 생필품 48시간분(휴먼 수 기준, 시뮬 목표 재고와 같은 시간)을 넣는다(원장 endow, 중복 방지 키 npc_endow:<도시>).
-// - 도시 매입 호가: NPC 거래 판단(onTrade) 뒤에 자기 도시의 모자란 물건(목표 재고 − 재고)을 지난 값의 BID_PCT%로 상시 매수 주문한다
-//   (시뮬에는 아직 없는 서버 규칙 [임시], 질문 530). 다음 판단이 onTrade의 주문 거두기로 함께 거둔다.
+// - 생산 시설: 그 도시에 선 NPC 세력 시설(건물, 다 지은 것)의 첫 레시피 + 건물이 없는 도시 직무(나라 특산: 국가 프리셋 성격 칸 cityJobs,
+//   없으면 기본 셋 농장·주방·벌목장 [임시] — 기획 답 531 다). 일꾼 = 그 도시 휴먼을 굶음 먼저(생필품 사슬에 하루 몫만큼, 기획 답 532 나) 둔 뒤
+//   시설마다 한 명씩 돌려 자리 수(레벨 × 자리)까지(@terra/sim assignCityWorkers). 처음·하루 끝·새 도시마다 다시 맞춘다.
+// - 처음 창고: NPC 도시마다 한 번 국가 프리셋 성격 칸 startStock(나라 특산, 기획 답 533 다), 없으면 생필품 48시간분(휴먼 수 기준, 시뮬 목표
+//   재고와 같은 시간)을 넣는다(원장 endow, 중복 방지 키 npc_endow:<도시>). 반란 세력은 부모 국가의 성격을 쓴다.
+// - 도시 매입 호가(기획 답 530 가): 시뮬 NPC 거래 판단(onTrade)의 마지막 차례가 자기 도시의 모자란 물건을 지난 값의 90%로 상시 매수 주문한다
+//   (시뮬·서버 같은 함수 placeCityBids — docs/adr/2026-11-07-play-flow.md "WP5 나라 성격"). 다음 판단이 주문 거두기로 함께 거둔다.
 // - 운송은 즉시다(shipMs 0: 화물 줄을 저장하지 않아도 같은 처리 안에서 도착한다 [임시]). 운영 스위치(49 N53): 생산 끔이면 생산을 건너뛰고 다음
 //   차례만 잡고, 거래소 끔이면 NPC 거래 판단을 건너뛴다(주문 명령은 거래소 서비스가 막는다).
 import {
@@ -30,15 +32,15 @@ import {
   type SimLoop,
   type SimWorld,
   type SocietyCoefficients,
-  cityTargets,
+  assignCityWorkers,
+  type CityWorkSlot,
   defaultGatherStat,
+  itemAsset,
   lotSizeOf,
-  marketRefPrice,
   prepareCatalog,
   runEconomy,
   scheduleEconomy,
   scheduleProduce,
-  tradePolicy,
   workerEffects,
 } from "@terra/sim";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
@@ -47,20 +49,19 @@ import { loadMarkets } from "../market/load.ts";
 import type { OwnerRow, QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
+import { type NationPersonality, type NationPreset, presetOfCode } from "./nations.ts";
 
 /** [임시] 국가 프리셋이 없는 세력의 거래세(만분율, 팩 프리셋 값과 같다) */
 export const DEFAULT_TAX_BP = 200;
-/** [임시] 도시 매입 호가 = 지난 값의 이 %(시뮬 매도 101%·싸게 팔기 95%와 짝) */
-export const BID_PCT = 90n;
 /** 처음 창고: 생필품 몇 시간분(시뮬 목표 재고 NECESSITY_BUFFER_HOURS와 같다) */
 const ENDOW_HOURS = 48n;
 /** 처음 창고 중복 방지 키 앞머리 */
 const ENDOW_KEY = "npc_endow:";
-/** 도시 직무 시설 ID(건물 ID와 겹치지 않게 큰 수부터, 도시마다 16칸) */
+/** 도시 직무 시설 ID(건물 ID와 겹치지 않게 큰 수부터, 도시마다 16칸 — 팩 성격 칸 cityJobs는 8개까지) */
 const CITY_JOB_BASE = 1_000_000_000_000;
 /**
- * [임시] 도시 직무: 그 도시에 이 시설 건물이 없으면 휴먼이 이 레시피를 Lv1로 돌린다(시뮬 econ16 농업 나라 계획과 같은 세 가지 —
- * 생필품 식량 사슬과 목재). 건물이 있으면 건물이 대신한다
+ * [임시] 기본 도시 직무(국가 프리셋에 성격 칸 cityJobs가 없을 때, 기획 답 531 다의 "칸이 없으면"): 그 도시에 이 시설 건물이 없으면 휴먼이
+ * 이 레시피를 Lv1로 돌린다(시뮬 econ16 농업 나라 계획과 같은 세 가지 — 생필품 식량 사슬과 목재). 건물이 있으면 건물이 대신한다
  */
 export const CITY_JOBS: readonly { readonly facility: string; readonly recipe: string }[] = [
   { facility: "farm", recipe: "farm_grain" },
@@ -96,6 +97,8 @@ export interface CityFacility {
 export interface NpcEconomyInput {
   /** 시뮬 경제 목록(없으면 경제 끔) */
   readonly catalog: () => ServerEconomyCatalog | undefined;
+  /** 팩 국가 프리셋(나라 성격: 도시 직무·처음 창고). 없으면 모든 국가가 기본 */
+  readonly presets?: readonly NationPreset[] | undefined;
   /** 그 도시에 선 시설(다 지은 것, 일하는 상태) */
   readonly facilitiesIn: (cityId: number) => readonly CityFacility[];
 }
@@ -174,11 +177,22 @@ function taxOfFaction(
   return DEFAULT_TAX_BP;
 }
 
-const pct = (value: bigint, percent: bigint): bigint => {
-  const out = (value * percent) / 100n;
-  return out > 0n ? out : 1n;
-};
-const ceilDiv = (a: bigint, b: bigint): bigint => (a + b - 1n) / b;
+/** 세력의 나라 성격: 그 세력 코드의 국가 프리셋 → 반란 부모·종주 → 없음(거래세와 같은 차례) */
+export function personalityOfFaction(
+  world: SimWorld,
+  faction: SimFaction,
+  presets: readonly NationPreset[],
+  seen = new Set<number>(),
+): NationPersonality | undefined {
+  const preset = presetOfCode(faction.code, presets);
+  if (preset) return preset.personality;
+  seen.add(faction.id);
+  for (const parentId of [faction.rebelOf, faction.overlord]) {
+    const parent = parentId === null ? undefined : world.factions.get(parentId);
+    if (parent && !seen.has(parent.id)) return personalityOfFaction(world, parent, presets, seen);
+  }
+  return undefined;
+}
 
 export async function startServerEconomy(o: ServerEconomyOptions): Promise<ServerEconomy | undefined> {
   const source = o.input.catalog();
@@ -268,6 +282,13 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   const escrow = registry.check();
   if (escrow.length > 0) o.log.warn({ problems: escrow }, "market escrow differs after restore");
 
+  const presets = o.input.presets ?? [];
+  /** 도시 주인의 나라 성격(없으면 undefined = 기본) */
+  const personalityOfCity = (cityId: number): NationPersonality | undefined => {
+    const owner = world.factions.get(world.cities.get(cityId)?.owner ?? -1);
+    return owner ? personalityOfFaction(world, owner, presets) : undefined;
+  };
+
   const recount = (): void => {
     economy.cityUnits.clear();
     for (const unit of world.units.values())
@@ -275,18 +296,32 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   };
   recount();
 
-  /** 처음 창고(도시마다 한 번): 생필품 48시간분 */
+  /** 처음 창고(도시마다 한 번): 나라 성격 칸 startStock(팩 수량 × 묶음 크기), 없으면 생필품 48시간분 */
   const endow = (cityId: number, atMs: number): void => {
     const key = `${ENDOW_KEY}${cityId}`;
     const city = world.cities.get(cityId);
     if (endowed.has(key) || !city) return;
-    const humans = BigInt(Math.max(1, economy.cityUnits.get(cityId) ?? 0));
+    const stock: { asset: string; qty: bigint }[] = [];
+    const special = personalityOfCity(cityId)?.startStock;
+    if (special) {
+      for (const line of special) {
+        const asset = itemAsset(line.item);
+        if (catalog.startPrice.has(asset))
+          stock.push({ asset, qty: BigInt(line.qty) * lotSizeOf(catalog, asset) });
+      }
+    } else {
+      const humans = BigInt(Math.max(1, economy.cityUnits.get(cityId) ?? 0));
+      for (const spec of catalog.necessities)
+        stock.push({
+          asset: spec.asset,
+          qty: (humans * spec.perUnit * ENDOW_HOURS) / BigInt(spec.periodHours),
+        });
+    }
     const entries = [];
-    for (const spec of catalog.necessities) {
-      const qty = (humans * spec.perUnit * ENDOW_HOURS) / BigInt(spec.periodHours);
+    for (const { asset, qty } of stock) {
       if (qty <= 0n) continue;
-      entries.push({ account: book.systemAccount(`source:${spec.asset}`, spec.asset), amount: -qty });
-      entries.push({ account: book.ownerAccount(city.owner, spec.asset, cityId), amount: qty });
+      entries.push({ account: book.systemAccount(`source:${asset}`, asset), amount: -qty });
+      entries.push({ account: book.ownerAccount(city.owner, asset, cityId), amount: qty });
     }
     endowed.add(key);
     if (entries.length > 0) book.post({ kind: "endow", atMs, key, entries });
@@ -330,10 +365,11 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
           slots: spec.slotsPerLevel * entry.level,
         });
       }
-      CITY_JOBS.forEach((job, index) => {
+      (personalityOfCity(cityId)?.cityJobs ?? CITY_JOBS).forEach((job, index) => {
         if (buildings.some((entry) => entry.facility === job.facility)) return;
         const spec = catalog.facilities.get(job.facility);
-        if (!spec || !catalog.recipes.has(job.recipe)) return;
+        // 레시피의 시설이 직무 시설과 다르면 쓰지 않는다(팩 성격 칸은 참조만 검사한다)
+        if (!spec || catalog.recipes.get(job.recipe)?.facility !== job.facility) return;
         wanted.set(CITY_JOB_BASE + cityId * 16 + index, {
           recipe: job.recipe,
           facility: job.facility,
@@ -343,22 +379,22 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         });
       });
     }
-    // 일꾼: 휴먼을 시설마다 한 명씩 돌려 자리 수까지
-    const workers = new Map<number, number>();
-    let free = economy.cityUnits.get(cityId) ?? 0;
-    const ids = [...wanted.keys()];
-    while (free > 0) {
-      let placed = false;
-      for (const id of ids) {
-        const want = wanted.get(id);
-        const now = workers.get(id) ?? 0;
-        if (!want || free <= 0 || now >= want.slots) continue;
-        workers.set(id, now + 1);
-        free -= 1;
-        placed = true;
-      }
-      if (!placed) break;
+    // 일꾼: 굶음 먼저(생필품 사슬에 하루 몫만큼) → 남은 휴먼은 시설마다 한 명씩 돌려 자리 수까지(기획 답 532 나)
+    const slots: CityWorkSlot[] = [];
+    for (const [id, want] of wanted) {
+      const recipe = catalog.recipes.get(want.recipe);
+      const spec = catalog.facilities.get(want.facility);
+      if (!recipe || !spec) continue;
+      const effects = workerEffects(spec.gather, { level: want.level }, economy.gather);
+      slots.push({
+        id,
+        recipe,
+        slots: want.slots,
+        progress: effects.progress,
+        yieldPerLot: effects.yieldPerLot,
+      });
     }
+    const workers = assignCityWorkers(slots, economy.cityUnits.get(cityId) ?? 0, catalog.necessities);
     // 지금 시설과 견준다: 없어진 것은 멈추고, 새것·바뀐 것은 새로 놓는다
     for (const [id, facility] of economy.facilities) {
       if (facility.city !== cityId) continue;
@@ -413,44 +449,11 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   scheduleEconomy(economy, world, loop, o.startMs);
   syncAll(o.startMs);
 
-  const metrics = { produced: 0, trades: 0, bids: 0, expired: 0 };
+  const metrics = { produced: 0, trades: 0, expired: 0 };
+  let bidsSeen = 0;
   registry.onFill(() => {
     metrics.trades += 1;
   });
-
-  /** 도시 매입 호가: 자기 도시의 모자란 물건을 지난 값의 BID_PCT%로 산다(모자란 양만큼, 국고 몫 안) */
-  const placeBids = (factionId: number, nowMs: number): void => {
-    const faction = world.factions.get(factionId);
-    if (!faction?.alive || faction.cities.size === 0) return;
-    const currency = currencyOf.get(factionId) ?? ASSET_CREDIT;
-    const c = o.rules();
-    const foodShort = [...faction.cities].some((cityId) => (economy.today.shortByCity.get(cityId) ?? 0) > 0);
-    let budget =
-      book.balanceOf(factionId, currency) / tradePolicy(faction.traits, foodShort, c.npc).spendDivisor;
-    for (const cityId of [...faction.cities].toSorted((a, b) => a - b)) {
-      for (const [asset, target] of cityTargets(economy, cityId)) {
-        const gap = target - book.balanceOf(factionId, asset, cityId);
-        if (gap <= 0n || !source.bookItems.has(asset.slice(5))) continue;
-        const market = registry.book(cityId, asset)?.market;
-        if (!market) continue;
-        const price = pct(marketRefPrice(economy, cityId, asset), BID_PCT);
-        let lots = ceilDiv(gap, lotSizeOf(catalog, asset));
-        if (price * lots > budget) lots = budget / price;
-        if (lots <= 0n) continue;
-        const result = market.place(
-          factionId,
-          "buy",
-          price,
-          lots,
-          nowMs,
-          nowMs + economy.settings.orderLifeMs,
-        );
-        if (!result.ok) continue;
-        budget -= price * lots;
-        metrics.bids += 1;
-      }
-    }
-  };
 
   const hooks: SimHooks = {
     ...run.hooks,
@@ -493,9 +496,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         loop.schedule(nowMs + economy.settings.tradeEveryMs, { kind: EVENT_TRADE, subject });
         return true;
       }
-      if (!run.handle(event, nowMs)) return false;
-      if (kind === EVENT_TRADE) placeBids(subject, nowMs);
-      return true;
+      return run.handle(event, nowMs);
     },
     beforeDay(nowMs) {
       run.endOfDay(nowMs);
@@ -524,16 +525,17 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       return count;
     },
     takeMetrics() {
+      const bids = run.bidsPlaced();
       const out = {
         econProduced: metrics.produced,
         econTrades: metrics.trades,
-        econBids: metrics.bids,
+        econBids: bids - bidsSeen,
         econExpired: metrics.expired,
         econFacilities: economy.facilities.size,
       };
       metrics.produced = 0;
       metrics.trades = 0;
-      metrics.bids = 0;
+      bidsSeen = bids;
       metrics.expired = 0;
       return out;
     },

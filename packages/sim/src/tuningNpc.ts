@@ -53,4 +53,11 @@ export const NPC_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 구인 예비금(카드 값 ‰)",
     "NPC recruit reserve (‰ of card cost)",
   ),
+  k(
+    "d530_city_bid_pct",
+    "",
+    "cityBidPct",
+    "NPC 도시 매입 호가(지난 값의 %)",
+    "NPC city standing bid (% of last price)",
+  ),
 ];

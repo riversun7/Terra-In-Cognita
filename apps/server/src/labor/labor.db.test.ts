@@ -194,7 +194,9 @@ describe.skipIf(!TEST_DATABASE_URL)("노동 계약(서버)", () => {
       [1, "lease", "worker", "grace"],
     ]);
     expect(view.contracts[0]?.graceUntil).toBe(T0 + 3 * HOUR + 7 * DAY);
-    expect(view.buildings).toEqual([{ id: owner.buildingId, own: false, rent: "30" }]);
+    expect(view.buildings).toEqual([
+      { id: owner.buildingId, own: false, rent: "30", mapKey: owner.map.mapKey },
+    ]);
     expect(p.labor.overview(owner.userId).contracts.map((c) => c.role)).toEqual(["owner"]);
     // 임차인 몫 산출은 그 건물 창고(위치 = 건물)에 쌓였다(D-516 382). 유예 동안 하나를 꺼내 간다(그 도시의 내 도시 창고로)
     const here = buildingLocation(owner.buildingId);

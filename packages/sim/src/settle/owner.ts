@@ -144,7 +144,8 @@ export function settleOwnerPeriod(
   const goodsFrom = new Map<number, bigint>();
   const goodsTo = new Map<number, bigint>();
   const jobs = input.jobs.map((job, index) => {
-    if (job.job === JOB_NONE) return job;
+    // 직무 없는 유닛은 산출 없이 쉰다(피로 회복, settle.ts restIdle)
+    if (job.job === JOB_NONE) return settleJob(job, fromMs, toMs, input.offlineSinceMs, rules).state;
     const segments = input.outputs?.[index];
     if (!segments || segments.length === 0) {
       const result = settleJob(job, fromMs, toMs, input.offlineSinceMs, rules);

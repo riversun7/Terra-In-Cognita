@@ -26,6 +26,7 @@ export const LABOR_ERROR_TEXT: Readonly<Record<LaborResultCode | "offline" | "ti
   not_workplace: m.labor_error_not_workplace,
   facility_full: m.labor_error_facility_full,
   not_assigned: m.labor_error_not_assigned,
+  wrong_map: m.labor_error_wrong_map,
   offline: m.labor_error_offline,
   timeout: m.labor_error_timeout,
 };

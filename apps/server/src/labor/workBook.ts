@@ -5,11 +5,14 @@
 //   건물 창고)로 간다.
 // - 채집 산출: 채집 시설에서 일한 주기(직무 배치·노동 계약 work 구간)를 시험 광석 대신 진짜 물건으로 바꾸는 산출 구간(goods)을 만든다
 //   (gatherWork.ts, 시뮬과 같은 규칙 함수). 쌓인 진행·묶음 차례는 unit_work 줄에 남긴다(work.ts).
-// - 직무 켜기·끄기: 일을 시작하면(배치·계약) 유닛 직무를 채집(JOB_GATHER)으로, 일이 끝나면 직무 없음(JOB_NONE)으로 바꾼다. 피로·단계는
-//   그대로 둔다(배치를 다시 해 피로를 지우지 못하게 [임시]). 정산 뒤 고리에서 일이 없는 플레이어 유닛의 직무를 끈다.
+// - 직무 켜기·끄기: 일을 시작하면(배치·계약) 유닛 직무를 채집(JOB_GATHER)으로, 일이 끝나면 직무 없음(JOB_NONE)으로 바꾼다(@terra/sim
+//   switchJob — 피로·단계 그대로, 진행 0). 직무 없는 동안은 정산이 쉬게 해 피로가 시간만큼 풀린다(D-430 회복 꼴, 기획 정리 D-518 525 ① —
+//   다시 배치해도 피로가 지워지지 않는다). 정산 뒤 고리에서 일이 없는 플레이어 유닛의 직무를 끈다.
+// - 임대형 상한(523 ②): 임대형 임차인 몫(그 건물 창고)은 그 건물 창고 상한까지만 쌓인다(leaseRooms — 정산 하나 안에서 함께 줄이는 남은 자리).
+//   넘친 물건은 나오지 않는다(묶음 진행은 쓴다, 확인 대기 질문 580). 임금형·직무 배치(도시 창고)는 상한이 없다(질문 411).
 // - 사라짐: 유닛·시설이 사라지거나 주인이 바뀌거나 유닛이 일을 멈추면(비활성·수호신) 다음 정산에서 배치를 푼다(그 구간 산출 없음).
 import type { Primaries, SocietyCoefficients, OutputSegment, GoodsLine } from "@terra/sim";
-import { JOB_GATHER, JOB_NONE, TEST_JOB_RULES } from "@terra/sim";
+import { JOB_GATHER, JOB_NONE, TEST_JOB_RULES, switchJob } from "@terra/sim";
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
@@ -29,6 +32,18 @@ export interface ProductionSource {
   site(buildingId: number): (GatherSite & { readonly slots: number }) | undefined;
   /** 유닛의 1차 스탯(입은 장비·버프 포함, 공방 장인 실력과 같은 셈 — holdings primariesOf) */
   primaries(unitId: number): Primaries;
+  /**
+   * 그 건물 창고의 남은 자리(g) = 상한(팩 시설 storageKg × 레벨, N50) − 지금 든 무게(모든 주인). 상한이 없는 건물이면 undefined(임대형 상한,
+   * 523 ②). 없으면 상한 없음
+   */
+  roomGrams?(buildingId: number): bigint | undefined;
+  /** 자산 한 기본 단위의 무게(g, 물자가 아니면 0). 없으면 0 */
+  weightGrams?(asset: string): bigint;
+}
+
+/** 정산 하나 안의 건물 창고 남은 자리(임대형 몫, 523 ②): 그 자산 qty 가운데 들어가는 양을 돌려주고 자리를 줄인다 */
+export interface LeaseRooms {
+  take(buildingId: number, asset: string, qty: bigint): bigint;
 }
 
 /** 산출을 받는 곳: 그 주체의 그 위치 계정(아이템 자산마다) */
@@ -57,12 +72,16 @@ export interface WorkBook {
     workerOwnerId: number,
     buildingId: number,
     receiver: (site: GatherSite) => GoodsReceiver,
+    /** 임대형 몫이면 그 건물 창고 남은 자리(넘친 물건은 나오지 않는다). 없으면 상한 없음 */
+    rooms?: LeaseRooms,
   ): OutputSegment["goods"];
+  /** 정산 하나에 쓰는 건물 창고 남은 자리(처음 물을 때 원장에서 센다) */
+  leaseRooms(): LeaseRooms;
   /** 직무 배치를 만든다(검사는 부르는 쪽, 정산 뒤에 부른다) */
   assign(unitId: number, ownerId: number, buildingId: number, atMs: number): void;
   /** 직무 배치를 푼다(정산 뒤에 부른다). 풀었으면 true */
   unassign(unitId: number, atMs: number): boolean;
-  /** 유닛 직무를 채집으로 켠다(피로·단계 그대로) */
+  /** 유닛 직무를 채집으로 켠다(피로·단계 그대로, 진행 0) */
   startJob(unitId: number): void;
   /** 일이 없는 그 주체의 플레이어 유닛 직무를 끈다(정산 뒤 고리) */
   stopIdle(ownerId: number, working: (unitId: number) => boolean): void;
@@ -136,7 +155,22 @@ export function createWorkBook(options: {
       }
       return false;
     },
-    goodsFor(unitId, workerOwnerId, buildingId, receiver) {
+    leaseRooms() {
+      const left = new Map<number, bigint | null>();
+      return {
+        take(buildingId, asset, qty) {
+          const weight = production?.weightGrams?.(asset) ?? 0n;
+          if (qty <= 0n || weight <= 0n) return qty;
+          if (!left.has(buildingId)) left.set(buildingId, production?.roomGrams?.(buildingId) ?? null);
+          const room = left.get(buildingId) ?? null;
+          if (room === null) return qty;
+          const fits = room / weight < qty ? room / weight : qty;
+          left.set(buildingId, room - fits * weight);
+          return fits;
+        },
+      };
+    },
+    goodsFor(unitId, workerOwnerId, buildingId, receiver, rooms) {
       const site = production?.site(buildingId);
       if (!site || !production) return undefined;
       const source = production;
@@ -159,11 +193,18 @@ export function createWorkBook(options: {
         record.updatedAtMs = options.now();
         save(record);
         const to = receiver(site);
-        return result.outputs.map((stack) => ({
-          source: ledger.systemAccount(`source:${stack.asset}`, stack.asset),
-          account: ledger.ownerAccount(to.ownerId, stack.asset, to.location),
-          qty: stack.qty,
-        }));
+        const lines: GoodsLine[] = [];
+        for (const stack of result.outputs) {
+          // 임대형 몫은 건물 창고 상한까지만(넘친 양은 나오지 않는다)
+          const qty = rooms ? rooms.take(buildingId, stack.asset, stack.qty) : stack.qty;
+          if (qty <= 0n) continue;
+          lines.push({
+            source: ledger.systemAccount(`source:${stack.asset}`, stack.asset),
+            account: ledger.ownerAccount(to.ownerId, stack.asset, to.location),
+            qty,
+          });
+        }
+        return lines;
       };
     },
     assign(unitId, ownerId, buildingId, atMs) {
@@ -186,14 +227,15 @@ export function createWorkBook(options: {
     startJob(unitId) {
       const unit = unitOf(unitId);
       if (!unit?.job || unit.job.job === JOB_GATHER) return;
-      unit.map.setJob(unitId, { ...unit.job, job: JOB_GATHER });
+      unit.map.setJob(unitId, switchJob(unit.job, JOB_GATHER));
     },
     stopIdle(ownerId, working) {
       for (const map of maps.values())
         map.forEachUnit((unit) => {
           if (unit.ownerId !== ownerId || unit.job.job === JOB_NONE || !PLAYER_KINDS.has(unit.kind)) return;
           if (working(unit.id)) return;
-          map.setJob(unit.id, { ...unit.job, job: JOB_NONE });
+          // 피로·단계는 그대로: 직무 없는 동안 정산이 쉬게 해 시간만큼 푼다(525 ①)
+          map.setJob(unit.id, switchJob(unit.job, JOB_NONE));
         });
     },
     check(openContract) {

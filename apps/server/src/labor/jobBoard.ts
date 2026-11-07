@@ -5,6 +5,7 @@
 //   게시 줄이 같은 동기 처리 = 같은 커밋. 시설이 사라졌거나 주인이 바뀐 게시는 받을 때 gone으로 닫는다(화면 목록에서는 뺀다).
 // - 도시: [임시] 시설 기준 칸에서 가장 가까운 도시(같은 2차맵, 부팅 때 읽은 도시 목록). 도시 노동 시장 단가(D-432)가 아직 없어
 //   도시마다 단가가 같고(rules.ts), 도시는 게시판 거르기에만 쓴다.
+// - 받기는 유닛이 그 시설과 같은 2차맵에 있어야 한다(wrong_map, docs/adr/2026-11-07-play-flow.md "WP8" 522 ①).
 import type { LaborResultCode } from "@terra/protocol";
 import { LABOR_JOBS_LIMIT, type LaborJobView, type LaborJobsResponse } from "@terra/shared/labor";
 import {
@@ -53,10 +54,11 @@ export interface JobBoard {
   readonly jobs: ReadonlyMap<number, LaborJob>;
 }
 
-/** 시설 하나의 주인·가까운 도시 */
+/** 시설 하나의 주인·가까운 도시·2차맵 */
 interface BuildingSpot {
   readonly ownerId: number | null;
   readonly cityId: number | null;
+  readonly mapKey: number;
 }
 
 const fail = (code: LaborResultCode): JobCommandResult => ({ ok: false, code });
@@ -92,14 +94,15 @@ function nearestCity(
 function jobView(
   job: LaborJob,
   rules: WageRules,
-  cityId: number | null,
+  spot: BuildingSpot | undefined,
   me: number | undefined,
 ): LaborJobView {
   const wage = laborJobWage(job, rules.efficiency, rules.rateMilli, rules.society, rules.labor);
   return {
     id: job.id,
     buildingId: job.buildingId,
-    cityId,
+    mapKey: spot?.mapKey ?? null,
+    cityId: spot?.cityId ?? null,
     job: job.job,
     adjustPm: job.adjustPm,
     wage: String(wage),
@@ -130,6 +133,8 @@ export function createJobBoard(options: {
   unitOwnerOf: (unitId: number) => number | undefined;
   buildingOwnerOf: (buildingId: number) => number | null | undefined;
   unitBusy: (unitId: number) => boolean;
+  /** 유닛이 그 시설과 같은 2차맵에 있나(522 ①) */
+  onSiteMap: (unitId: number, buildingId: number) => boolean;
   /** 새 계약 ID(쓰기 전에 보기만 한다) */
   nextContractId: () => number;
   /** 맺은 계약을 서비스에 넣고 저장한다 */
@@ -152,6 +157,7 @@ export function createJobBoard(options: {
         out.set(building.id, {
           ownerId: building.ownerId,
           cityId: nearestCity(options.cities, map.planetId, map.mapKey, building.x, building.y),
+          mapKey: map.mapKey,
         }),
       );
     return out;
@@ -205,6 +211,8 @@ export function createJobBoard(options: {
       if (unitOwner === undefined) return fail("unknown_unit");
       if (unitOwner !== me) return fail("forbidden");
       if (job.ownerId === me) return fail("invalid_terms");
+      // 그 시설과 같은 2차맵의 유닛만 받는다(522 ①)
+      if (!options.onSiteMap(unitId, job.buildingId)) return fail("wrong_map");
       if (options.unitBusy(unitId)) return fail("unit_busy");
       // 보증금이 나가는 고용주와 계약이 시작하는 일꾼 쪽을 지금까지 정산한 뒤 맺는다
       settlement.settleOwner(job.ownerId, at);
@@ -238,7 +246,7 @@ export function createJobBoard(options: {
       return [...jobs.values()]
         .filter((job) => job.ownerId === me && job.state === "open")
         .toSorted((a, b) => a.id - b.id)
-        .map((job) => jobView(job, rules, where.get(job.buildingId)?.cityId ?? null, me));
+        .map((job) => jobView(job, rules, where.get(job.buildingId), me));
     },
     board(me, filter) {
       const rules = options.rules();
@@ -257,7 +265,7 @@ export function createJobBoard(options: {
       // 같은 효율이면 조정이 큰 쪽이 임금이 높다(D-479 "더 높은 임금을 주는 작업장으로"). 같으면 먼저 낸 게시
       const sorted = open.toSorted((a, b) => b.job.adjustPm - a.job.adjustPm || a.job.id - b.job.id);
       return {
-        jobs: sorted.slice(0, LABOR_JOBS_LIMIT).map(({ job, spot }) => jobView(job, rules, spot.cityId, me)),
+        jobs: sorted.slice(0, LABOR_JOBS_LIMIT).map(({ job, spot }) => jobView(job, rules, spot, me)),
         total: sorted.length,
         cities: [...perCity.entries()]
           .toSorted((a, b) => a[0] - b[0])

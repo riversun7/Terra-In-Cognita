@@ -26,6 +26,12 @@ export const LABOR_JOBS_PROTOCOL_VERSION = 8;
  */
 export const LABOR_ASSIGN_PROTOCOL_VERSION = 14;
 
+/**
+ * 결과 코드 wrong_map(유닛이 그 시설과 같은 2차맵에 없다, docs/adr/2026-11-07-play-flow.md "WP8", 기획 정리 D-518 522 ①)을 받는 가장 낮은
+ * 프로토콜 버전. 더 낮은 판 연결은 같은 경우에 invalid_terms를 받는다(그 판 기기는 이 코드를 모른다)
+ */
+export const LABOR_MAP_PROTOCOL_VERSION = 15;
+
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -165,6 +171,8 @@ export const LABOR_RESULT_CODES = [
   "facility_full",
   /** (판 14) 그 유닛은 직무 배치되어 있지 않다 */
   "not_assigned",
+  /** (판 15) 그 유닛은 그 시설과 같은 2차맵에 있지 않다(직무 배치·노동 계약·구인 받기, 14판 이하 연결은 invalid_terms) */
+  "wrong_map",
 ] as const;
 export type LaborResultCode = (typeof LABOR_RESULT_CODES)[number];
 

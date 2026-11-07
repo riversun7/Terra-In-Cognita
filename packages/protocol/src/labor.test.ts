@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   LABOR_ASSIGN_PROTOCOL_VERSION,
   LABOR_JOBS_PROTOCOL_VERSION,
+  LABOR_MAP_PROTOCOL_VERSION,
   LABOR_PROTOCOL_VERSION,
   LABOR_RESULT_CODES,
   PROTOCOL_VERSION,
@@ -83,21 +84,22 @@ describe("노동 계약 메시지", () => {
     });
   });
 
-  it("계약 명령은 판 7, 구인 게시는 판 8, 직무 배치는 판 14(메시지를 더해 올렸다)", () => {
+  it("계약 명령은 판 7, 구인 게시는 판 8, 직무 배치는 판 14(메시지를 더해 올렸다), wrong_map은 판 15", () => {
     expect(LABOR_PROTOCOL_VERSION).toBe(7);
     expect(LABOR_JOBS_PROTOCOL_VERSION).toBe(8);
     expect(LABOR_ASSIGN_PROTOCOL_VERSION).toBe(14);
-    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(LABOR_ASSIGN_PROTOCOL_VERSION);
+    expect(LABOR_MAP_PROTOCOL_VERSION).toBe(15);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(LABOR_MAP_PROTOCOL_VERSION);
   });
 
-  it("직무 배치·풀기(판 14)가 왕복하고 유닛·시설 ID 모양을 본다. 새 결과 코드 셋", () => {
+  it("직무 배치·풀기(판 14)가 왕복하고 유닛·시설 ID 모양을 본다. 새 결과 코드(wrong_map은 판 15)", () => {
     const assign = { t: "labor_assign", id: 1, buildingId: 3, unitId: 9 } as const;
     const unassign = { t: "labor_unassign", id: 2, unitId: 9 } as const;
     expect(decodeClientMessage(encodeMessage(assign))).toEqual(assign);
     expect(decodeClientMessage(encodeMessage(unassign))).toEqual(unassign);
     expect(decodes(decodeClientMessage, { ...assign, unitId: 0 })).toBe(false);
     expect(decodes(decodeClientMessage, { t: "labor_assign", id: 1, unitId: 9 })).toBe(false);
-    for (const code of ["not_workplace", "facility_full", "not_assigned"] as const) {
+    for (const code of ["not_workplace", "facility_full", "not_assigned", "wrong_map"] as const) {
       expect(LABOR_RESULT_CODES).toContain(code);
       expect(decodeServerMessage(encodeMessage({ t: "labor_result", id: 3, ok: false, code }))).toEqual({
         t: "labor_result",

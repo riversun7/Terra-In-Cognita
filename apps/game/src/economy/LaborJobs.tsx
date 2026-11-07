@@ -93,6 +93,8 @@ export function LaborJobBoard({
               <ul className="labor-jobs">
                 {loaded.jobs.map((job) => {
                   const titleId = `labor-job-${job.id}`;
+                  // 고른 유닛과 다른 2차맵의 일자리는 받을 수 없다(522 ①, 서버 wrong_map)
+                  const away = chosen !== undefined && job.mapKey !== null && job.mapKey !== chosen.mapKey;
                   return (
                     <li key={job.id} className="labor-job" data-job={job.id}>
                       <div className="labor-job-main">
@@ -105,13 +107,14 @@ export function LaborJobBoard({
                             : m.labor_job_city({ id: job.cityId })}
                           {" · "}
                           {jobMeta(job, data.rules.wageCycleMs)}
+                          {away ? ` · ${m.labor_job_other_map()}` : ""}
                         </span>
                       </div>
                       <button
                         type="button"
                         className="button-small"
                         aria-describedby={titleId}
-                        disabled={busy || !chosen}
+                        disabled={busy || !chosen || away}
                         onClick={() => void take(job.id)}
                       >
                         {m.labor_job_accept()}

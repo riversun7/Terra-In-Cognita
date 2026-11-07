@@ -53,6 +53,8 @@ export type LaborJobKindView = "gather";
 export interface LaborJobView {
   readonly id: number;
   readonly buildingId: number;
+  /** 시설이 선 2차맵(같은 2차맵의 유닛만 받을 수 있다, 522 ①). 시설을 못 찾으면 null */
+  readonly mapKey: number | null;
   /** [임시] 시설에서 가장 가까운 도시(같은 2차맵) 번호. 없으면 null */
   readonly cityId: number | null;
   readonly job: LaborJobKindView;
@@ -97,6 +99,8 @@ export interface LaborBuildingView {
   readonly own: boolean;
   /** 시간당 임대료(빌려주지 않으면 null) */
   readonly rent: LaborAmount | null;
+  /** 시설이 선 2차맵(같은 2차맵의 유닛만 일한다, 기획 정리 D-518 522 ①) */
+  readonly mapKey: number;
 }
 
 export interface LaborUnitView {
@@ -105,6 +109,8 @@ export interface LaborUnitView {
   readonly kind: number;
   /** 열린 계약(일함·일시 중지)이 있다 */
   readonly busy: boolean;
+  /** 유닛이 있는 2차맵 */
+  readonly mapKey: number;
 }
 
 /** N48 규칙과 임금 식의 지금 값(화면이 보증금·임금을 미리 셈한다) */

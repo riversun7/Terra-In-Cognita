@@ -172,8 +172,9 @@ export const facilityEntrySchema = z.strictObject({
     .optional(),
   /**
    * 레벨 1 창고 용량(kg, 49 N50 "기본 1t·10t·100t·500t"). 레벨 L = 이 값 × (1 + (L − 1) × 설정 칸 n50_storage_step).
-   * 창고 단계(stage storage) 시설만 물건을 넣는다(원장 위치 = 그 건물, 무게 합 ≤ 용량). 그 밖 시설은 칸이 있어도 넣지 않는다.
-   * 출발값 = 옛 야적장 1t·창고 10t·중앙창고 100t·대규모 창고 500t(seeds/building_seed.js weight_limit)
+   * 창고 단계(stage storage) 시설만 물건을 넣는다(원장 위치 = 그 건물, 무게 합 ≤ 용량). 채집 시설은 임대형 임차인 몫이 쌓이는 그 건물
+   * 창고의 상한이다(넘친 산출은 나오지 않는다, 기획 정리 D-518 523 ②·414 — 넣기 명령은 받지 않는다).
+   * 출발값 = 옛 야적장 1t·창고 10t·중앙창고 100t·대규모 창고 500t, 벌목장·광산 200kg·농장 300kg(seeds/building_seed.js weight_limit)
    */
   storageKg: z
     .int()

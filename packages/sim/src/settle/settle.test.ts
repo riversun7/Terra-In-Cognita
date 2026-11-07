@@ -11,8 +11,10 @@ import {
   PHASE_REST,
   PHASE_WORK,
   advanceJob,
+  restIdle,
   settleJob,
   settleUpkeep,
+  switchJob,
   upkeepBoundaries,
 } from "./settle.ts";
 
@@ -109,6 +111,66 @@ describe("settleJob — 접속 상태", () => {
       }
       expect({ state, cycles }).toEqual(whole);
     }
+  });
+});
+
+describe("직무 없는 유닛의 쉼(D-430, WP8 525 ①)", () => {
+  const idle = (fatigue: number, phase = PHASE_WORK, progressMs = 0): JobState => ({
+    job: JOB_NONE,
+    phase,
+    progressMs,
+    fatigue,
+  });
+
+  it("손 계산: 걸음마다 피로 −1, 0이 되면 일 단계·진행 0, 피로 0이면 그대로", () => {
+    // SMALL 걸음 5ms: 피로 3 → 12ms 뒤 1(2걸음 + 2ms)
+    expect(restIdle(idle(3), 12, SMALL)).toEqual(idle(1, PHASE_WORK, 2));
+    // 쉼 단계에서 풀린 유닛도 같은 값으로 풀리고, 0이 되면 일 단계
+    expect(restIdle(idle(2, PHASE_REST, 4), 6, SMALL)).toEqual(idle(0));
+    expect(restIdle(idle(2, PHASE_REST, 4), 5, SMALL)).toEqual(idle(1, PHASE_REST, 4));
+    expect(restIdle(idle(0, PHASE_WORK, 0), 1_000, SMALL)).toEqual(idle(0));
+    expect(restIdle(idle(4), 0, SMALL)).toEqual(idle(4));
+  });
+
+  it("settleJob: 접속 상태와 상관없이 구간 내내 쉰다(산출 0)", () => {
+    expect(settleJob(idle(4), 0, 20, null, SMALL)).toEqual({ state: idle(0), cycles: 0 });
+    // 끊긴 뒤 24시간이 지나도 회복은 멈추지 않는다
+    expect(settleJob(idle(4), OFFLINE_WORK_MS * 3, OFFLINE_WORK_MS * 3 + 7, 0, SMALL)).toEqual({
+      state: idle(3, PHASE_WORK, 2),
+      cycles: 0,
+    });
+  });
+
+  it("나눠 셈해도 한 번에 한 것과 같다(무작위 자르기)", () => {
+    const rng = createRng(11);
+    for (let round = 0; round < 500; round++) {
+      const start = idle(rng.nextInt(SMALL.fatigueMax + 1), rng.nextInt(2), rng.nextInt(SMALL.restStepMs));
+      const end = rng.nextInt(60);
+      const whole = restIdle(start, end, SMALL);
+      let state = start;
+      let from = 0;
+      const cuts = Array.from({ length: rng.nextInt(8) }, () => rng.nextInt(end + 1)).toSorted(
+        (a, b) => a - b,
+      );
+      for (const cut of [...cuts, end]) {
+        state = restIdle(state, cut - from, SMALL);
+        from = cut;
+      }
+      expect(state).toEqual(whole);
+    }
+  });
+
+  it("풀었다 다시 배치해도 피로가 지워지지 않는다: 바꿀 때 진행만 0, 다시 일하면 남은 피로에서 이어 간다", () => {
+    const tired: JobState = { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 3, fatigue: 3 };
+    const off = switchJob(tired, JOB_NONE);
+    expect(off).toEqual(idle(3));
+    const back = switchJob(off, JOB_GATHER);
+    expect(back).toEqual({ ...tired, progressMs: 0 });
+    // 쉼 단계에서 바로 다시 받으면 쉼을 마저 한다(피로 0이 될 때까지 일하지 않는다)
+    const resting: JobState = { job: JOB_GATHER, phase: PHASE_REST, progressMs: 2, fatigue: 4 };
+    expect(advanceJob(switchJob(switchJob(resting, JOB_NONE), JOB_GATHER), 19, SMALL).cycles).toBe(0);
+    // 피로 0이면 일 단계로 바꾼다
+    expect(switchJob({ ...resting, fatigue: 0 }, JOB_NONE)).toEqual(idle(0));
   });
 });
 

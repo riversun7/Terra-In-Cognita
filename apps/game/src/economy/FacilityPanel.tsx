@@ -108,7 +108,14 @@ function BuildForm({
   const [map, setMap] = useState<number | null>(picked?.mapKey ?? null);
   const [rotation, setRotation] = useState<(typeof ROTATIONS)[number]>(0);
   const chosen = buildable.find((entry) => entry.id === facility) ?? buildable[0];
-  const mapKey = map !== null && data.maps.includes(map) ? map : data.maps[0];
+  // 처음 2차맵 = 내 사이보그 본체가 있는 2차맵(같은 2차맵의 유닛만 일하고 시작 재료는 그 시작 도시 창고에 있다), 없으면 띄운 첫 2차맵
+  const home = data.units.find((unit) => unit.cyborg)?.mapKey;
+  const mapKey =
+    map !== null && data.maps.includes(map)
+      ? map
+      : home !== undefined && data.maps.includes(home)
+        ? home
+        : data.maps[0];
   const level1 = chosen?.levels[0];
   const ready =
     chosen !== undefined && level1 !== undefined && mapKey !== undefined && isCell(x) && isCell(y);

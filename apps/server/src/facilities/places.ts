@@ -116,10 +116,13 @@ export function materialScope(
 export const beaconMaterialScope = (world: PlaceWorld, ownerId: number, supply: BeaconSupply): number[] =>
   materialScope(world, ownerId, supply.mapKey, supply.cityId, false);
 
-/** 자산 한 단위(재료 묶음)의 무게(g). 물자가 아니면(시험 광석 등) 0 */
+/**
+ * 원장 자산 한 기본 단위의 무게(g). 물자가 아니면(시험 광석 등) 0. 원장 잔고는 기본 단위(광석 1g, 묶음 1kg — 302·D-506)라 묶음 무게(weightOf)가
+ * 아니라 기본 단위 무게로 센다(예전에는 묶음 무게로 세어 광석 창고 무게가 1,000배였다, docs/adr/2026-11-07-play-flow.md "WP8")
+ */
 export function assetWeightG(catalog: FacilityCatalog, asset: string): bigint {
   if (!asset.startsWith("item:")) return 0n;
-  const weight = catalog.weightOf(asset.slice(5));
+  const weight = catalog.unitWeightOf(asset.slice(5));
   return weight === undefined || weight <= 0 ? 0n : BigInt(weight);
 }
 

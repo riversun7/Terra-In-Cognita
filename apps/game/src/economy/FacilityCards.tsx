@@ -130,8 +130,8 @@ export function FacilityCard({
         })}
         {facility.storageKg === null
           ? ""
-          : facility.storage
-            ? ` · ${m.facility_storage_used({ used: facility.storedKg ?? 0, kg: facility.storageKg })}`
+          : facility.storedKg !== null
+            ? ` · ${m.facility_storage_used({ used: facility.storedKg, kg: facility.storageKg })}`
             : ` · ${m.facility_storage({ kg: facility.storageKg })}`}
       </p>
       {facility.idleMsToDisabled !== null && facility.works ? (

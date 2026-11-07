@@ -335,7 +335,11 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send({ t: "labor_result", id: message.id, ok: false, code: "busy" });
           return;
         }
-        laborSocket ??= context.labor.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        laborSocket ??= context.labor.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          protocolVersion,
+        });
         laborSocket.handle(message);
         return;
       }

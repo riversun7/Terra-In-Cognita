@@ -88,6 +88,12 @@ export interface FacilityJson {
   readonly build?: FacilityBuildJson | undefined;
   /** 장비 수리 줄(D-512 323, 옛 공방 REPAIR_MAP). 없으면 수리하지 않는 시설 */
   readonly repair?: readonly FacilityRepairJson[] | undefined;
+  /** 2차맵 칸 크기(회전 전). 없으면 2차맵에 지을 수 없다(docs/adr/2026-11-07-buildings-runtime.md) */
+  readonly footprint?: { readonly width: number; readonly height: number } | undefined;
+  /** 레벨 1 최대 내구도(49 M15). 없으면 100 */
+  readonly durability?: number | undefined;
+  /** 레벨 1 창고 용량(kg, 49 N50). 없으면 창고 없음 */
+  readonly storageKg?: number | undefined;
 }
 
 /** 입력 칸 범위(팩 스키마와 같다. 서버 시험이 맞춰 본다) */

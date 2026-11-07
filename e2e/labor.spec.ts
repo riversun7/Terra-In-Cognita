@@ -8,6 +8,7 @@
 //   넓은 화면 시험이 볼 수 있게 구인 하나를 열어 둔다.
 // - 사진(E2E_SHOTS_DIR): 390 파스텔 한국어(admin·player), 390 다크 영어(admin·player), 1440 파스텔 한국어·다크 영어(admin·player).
 import type { Browser, Locator, Page } from "@playwright/test";
+import { PROTOCOL_VERSION } from "../packages/protocol/src/version.ts";
 import { message } from "./helpers/messages.ts";
 import { elementShot, horizontalOverflow } from "./helpers/screen.ts";
 import { type Language, type Theme, deviceOptions, expect, test, watchDeviceErrors } from "./helpers/test.ts";
@@ -29,48 +30,51 @@ function unitText(page: Page, value: number, unit: "day" | "hour", locale = "ko"
 /** 브라우저에서 WebSocket 명령을 차례로 보낸다(같은 출처라 쿠키가 실린다). 결과 메시지들 */
 async function sendCommands(page: Page, commands: readonly Record<string, unknown>[]): Promise<unknown[]> {
   await page.goto("/health");
-  return page.evaluate(async (list) => {
-    const socket = new WebSocket(`${location.origin.replace(/^http/, "ws")}/ws`);
-    const replies: unknown[] = [];
-    socket.addEventListener("message", (event) => {
-      if (typeof event.data === "string") replies.push(JSON.parse(event.data));
-    });
-    // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
-    const wait = (predicate: (message: unknown) => boolean): Promise<unknown> =>
-      new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error("no reply")), 15_000);
-        const check = (): void => {
-          const found = replies.find(predicate);
-          if (found === undefined) setTimeout(check, 20);
-          else {
-            clearTimeout(timer);
-            resolve(found);
-          }
-        };
-        check();
+  return page.evaluate(
+    async ({ list, protocolVersion }) => {
+      const socket = new WebSocket(`${location.origin.replace(/^http/, "ws")}/ws`);
+      const replies: unknown[] = [];
+      socket.addEventListener("message", (event) => {
+        if (typeof event.data === "string") replies.push(JSON.parse(event.data));
       });
-    await new Promise((resolve) => socket.addEventListener("open", resolve, { once: true }));
-    socket.send(JSON.stringify({ t: "hello", protocolVersion: 8, clientBuild: "e2e-labor" }));
-    await wait(
-      (reply) => typeof reply === "object" && reply !== null && Reflect.get(reply, "t") === "welcome",
-    );
-    const out: unknown[] = [];
-    for (const [index, command] of list.entries()) {
-      const id = 9000 + index;
-      socket.send(JSON.stringify({ ...command, id }));
-      out.push(
-        await wait(
-          (reply) =>
-            typeof reply === "object" &&
-            reply !== null &&
-            Reflect.get(reply, "t") === "result" &&
-            Reflect.get(reply, "id") === id,
-        ),
+      // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
+      const wait = (predicate: (message: unknown) => boolean): Promise<unknown> =>
+        new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error("no reply")), 15_000);
+          const check = (): void => {
+            const found = replies.find(predicate);
+            if (found === undefined) setTimeout(check, 20);
+            else {
+              clearTimeout(timer);
+              resolve(found);
+            }
+          };
+          check();
+        });
+      await new Promise((resolve) => socket.addEventListener("open", resolve, { once: true }));
+      socket.send(JSON.stringify({ t: "hello", protocolVersion, clientBuild: "e2e-labor" }));
+      await wait(
+        (reply) => typeof reply === "object" && reply !== null && Reflect.get(reply, "t") === "welcome",
       );
-    }
-    socket.close();
-    return out;
-  }, commands);
+      const out: unknown[] = [];
+      for (const [index, command] of list.entries()) {
+        const id = 9000 + index;
+        socket.send(JSON.stringify({ ...command, id }));
+        out.push(
+          await wait(
+            (reply) =>
+              typeof reply === "object" &&
+              reply !== null &&
+              Reflect.get(reply, "t") === "result" &&
+              Reflect.get(reply, "id") === id,
+          ),
+        );
+      }
+      socket.close();
+      return out;
+    },
+    { list: commands, protocolVersion: PROTOCOL_VERSION },
+  );
 }
 
 /** 시험 건물을 빈 칸에 놓는다(지형·유닛에 막히면 다음 자리). 건물 ID */
@@ -130,7 +134,8 @@ test.describe("노동 계약", () => {
     await expect(labor.getByRole("heading", { name: message("ko", "labor_title") })).toBeVisible();
     // 새 계약: 임금형(기본), 내 시설, 쉬는 유닛, 조정 800‰ → 임금 16/일, 보증금 480
     const form = labor.locator("form.labor-form").first();
-    await expect(form.getByLabel(message("ko", "labor_field_building"))).toHaveValue(String(buildingId));
+    // 건물 시험(facilities.spec.ts)이 먼저 지은 admin 공방도 내 시설이라 시험 건물을 고른다
+    await form.getByLabel(message("ko", "labor_field_building")).selectOption(String(buildingId));
     await form.getByLabel(message("ko", "labor_field_adjust", { min: 800, max: 1500 })).fill("800");
     await expect(form.locator('[data-part="labor-preview"]')).toHaveText(
       message("ko", "labor_preview_wage", { wage: "16", cycle: day, deposit: "480" }),
@@ -148,7 +153,8 @@ test.describe("노동 계약", () => {
     await expect(wageRow).toContainText(message("ko", "labor_deposit", { amount: "474", cycles: 29 }));
 
     // 내 시설 임대료 5/시간
-    const rents = labor.locator(".labor-rents");
+    // 건물 시험이 지은 admin 공방도 임대료 줄이 있어 시험 건물 줄만 고른다
+    const rents = labor.locator(`.labor-rents li:has(#labor-rent-${buildingId})`);
     await rents.getByLabel(message("ko", "labor_option_building", { id: buildingId })).fill("5");
     await rents.getByRole("button", { name: message("ko", "labor_rent_save") }).click();
     await expect(rents).toContainText(message("ko", "labor_rent_now", { rent: "5" }));
@@ -157,6 +163,7 @@ test.describe("노동 계약", () => {
     const myJobs = labor.locator('[data-part="labor-my-jobs"]');
     await expect(myJobs).toContainText(message("ko", "labor_my_jobs_empty"));
     const post = myJobs.locator('form[data-part="labor-post"]');
+    await post.getByLabel(message("ko", "labor_field_building")).selectOption(String(buildingId));
     await post.getByLabel(message("ko", "labor_field_adjust", { min: 800, max: 1500 })).fill("1200");
     await expect(post.locator('[data-part="labor-post-preview"]')).toHaveText(
       message("ko", "labor_post_preview", { wage: "24", cycle: day, deposit: "720" }),
@@ -236,6 +243,7 @@ test.describe("노동 계약", () => {
 
     // 넓은 화면 시험이 볼 구인 하나를 열어 둔다(자리 2, 기간 72시간)
     const repost = adminPanel.locator('form[data-part="labor-post"]');
+    await repost.getByLabel(message("ko", "labor_field_building")).selectOption(String(buildingId));
     await repost.getByLabel(message("ko", "labor_field_slots")).fill("2");
     await repost.getByLabel(message("ko", "labor_field_term")).fill("72");
     await repost.getByRole("button", { name: message("ko", "labor_post_submit") }).click();

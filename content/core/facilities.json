@@ -40,7 +40,12 @@
             ]
           }
         ]
-      }
+      },
+      "footprint": {
+        "width": 4,
+        "height": 4
+      },
+      "durability": 150
     },
     {
       "id": "lumber_camp",
@@ -89,7 +94,12 @@
             ]
           }
         ]
-      }
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "durability": 200
     },
     {
       "id": "mine",
@@ -138,7 +148,12 @@
             ]
           }
         ]
-      }
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "durability": 300
     },
     {
       "id": "smelter",
@@ -179,7 +194,12 @@
             ]
           }
         ]
-      }
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "durability": 300
     },
     {
       "id": "kitchen",
@@ -224,7 +244,12 @@
             ]
           }
         ]
-      }
+      },
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "durability": 180
     },
     {
       "id": "workshop",
@@ -315,7 +340,12 @@
             }
           ]
         }
-      ]
+      ],
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "durability": 300
     },
     {
       "id": "sawmill",
@@ -356,7 +386,12 @@
             ]
           }
         ]
-      }
+      },
+      "footprint": {
+        "width": 3,
+        "height": 2
+      },
+      "durability": 250
     },
     {
       "id": "kiln",
@@ -397,7 +432,12 @@
             ]
           }
         ]
-      }
+      },
+      "footprint": {
+        "width": 2,
+        "height": 2
+      },
+      "durability": 250
     },
     {
       "id": "territory_beacon",

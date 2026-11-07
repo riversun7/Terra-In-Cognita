@@ -4,6 +4,8 @@
 //   시드 대결 승률(balance.duels, [승률 돌리기])을 지금 표·고친 표로 견준다. 계산은 모두 서버가 한다(기기는 판정 코드를 받지 않는다).
 // - [적용]은 담은 칸을 설정 칸 패널과 같은 묶음(tuning.save)으로 보낸다: 서버가 검사하고 그 세계에 바로 넣는다(감사 기록·설정 판).
 //   판 충돌이면 표를 다시 받고 담은 칸은 남긴다(바뀔 것이 없어진 칸은 뺀다). 받지 않을 묶음은 기여 조회가 미리 알린다.
+// - 기여 조회가 거절되면(사용자별 조회 속도 제한 429·연결 등) 거절 문구와 "잠시 뒤 다시 묻습니다"를 보이고 2초 → 4초 → … 최대 30초 뒤
+//   같은 입력으로 다시 묻는다(contributionRetryMs). 담은 칸·기준 1차가 바뀌면 곧바로(조금 기다려) 새로 묻는다. 권한·세션 문제는 다시 묻지 않는다.
 // 시험용 data-*: .bp-weights-tab data-status(loading·ready·failed), data-revision.
 import {
   BALANCE_LIMITS,
@@ -37,6 +39,7 @@ import {
   type Pending,
   RUN_OPTIONS,
   balanceErrorOf,
+  contributionRetryMs,
   duelKey,
   editsOf,
   keyOfReason,
@@ -142,27 +145,42 @@ export function WeightTab({ data, locale }: { data: LabData; locale: string }) {
   const currentKey = settings ? duelKey(settings, pending) : "";
   const revision = table?.revision ?? -1;
 
-  // 기여: 표(판)·기준 1차·담은 칸이 바뀌면 조금 기다렸다가 다시 묻는다(늦게 온 옛 응답은 버린다)
+  // 기여: 표(판)·기준 1차·담은 칸이 바뀌면 조금 기다렸다가 다시 묻는다(늦게 온 옛 응답은 버린다). 거절되면(속도 제한 등) 문구를 보이고
+  // 점점 길게 기다렸다 같은 입력으로 다시 묻는다(한 번 거절로 표가 비어 남지 않게)
   useEffect(() => {
     if (revision < 0 || !parsed) return undefined;
     const seq = contributionSeq.current + 1;
     contributionSeq.current = seq;
-    const timer = setTimeout(() => {
-      api.balance.contribution.query({ primaries: parsed, edits: editsOf(pending) }).then(
+    const input = { primaries: parsed, edits: editsOf(pending) };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let refusals = 0;
+    // 입력이 바뀌거나 화면을 떠나면 false: 늦게 온 응답이 상태를 바꾸거나 다시 묻기를 예약하지 않는다
+    let live = true;
+    const ask = (): void => {
+      api.balance.contribution.query(input).then(
         (result) => {
-          if (contributionSeq.current !== seq) return;
+          if (!live || contributionSeq.current !== seq) return;
           setContribution(result);
           setContributionError(null);
         },
         (error: unknown) => {
-          if (contributionSeq.current !== seq) return;
+          if (!live || contributionSeq.current !== seq) return;
           const info = balanceErrorOf(error);
           if (info.sessionEnded) void refreshSession();
-          setContributionError(errorLines(info));
+          const wait = contributionRetryMs(info, refusals);
+          refusals += 1;
+          setContributionError(
+            wait === null ? errorLines(info) : [...errorLines(info), m.dev_balance_contrib_retrying()],
+          );
+          if (wait !== null) timer = setTimeout(ask, wait);
         },
       );
-    }, CONTRIBUTION_DELAY_MS);
-    return () => clearTimeout(timer);
+    };
+    timer = setTimeout(ask, CONTRIBUTION_DELAY_MS);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
   }, [revision, parsed, pending]);
 
   const stage = (row: BalanceRowView, cell: BalanceCellView, value: number | null): void => {

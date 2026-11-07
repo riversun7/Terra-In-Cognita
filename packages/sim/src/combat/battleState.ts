@@ -2,7 +2,14 @@
 import { type CombatCoefficients, msToTicks, specStaminaCostMilli } from "./coefficients.ts";
 import { applyPassives } from "./skills.ts";
 import { consumableState, hasAmmo, spendShot } from "./consumables.ts";
-import type { BattleInit, BattleState, CombatUnitSpec, SideState, UnitState } from "./battleTypes.ts";
+import type {
+  BattleInit,
+  BattleState,
+  CombatUnitSpec,
+  SideState,
+  StartEffect,
+  UnitState,
+} from "./battleTypes.ts";
 import type { ActiveEffect } from "./effects.ts";
 
 /** 살아 있고 빠지지 않은 유닛 */
@@ -28,9 +35,12 @@ export function spend(unit: UnitState, nowMs: number, c: CombatCoefficients): vo
   unit.nextActionMs = nowMs + unit.attackIntervalMs;
 }
 
-/** 들어올 때 걸려 있는 효과 → 걸린 효과(끝나는 시각이 지난 것은 뺀다, 쌓임 1·주기 없음) */
-function startEffectsOf(spec: CombatUnitSpec): ActiveEffect[] {
-  return (spec.startEffects ?? [])
+/**
+ * 들어올 때 걸려 있는 효과 → 걸린 효과(끝나는 시각이 지난 것은 뺀다, 쌓임 1·주기 없음). 서버 사이보그 판의 버프 몫도 같은 변환으로
+ * 효과 합(modifiersOf 등)을 읽는다(docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07, 사이보그 판 버프 몫 …)")
+ */
+export function activeStartEffects(effects: readonly StartEffect[] | undefined): ActiveEffect[] {
+  return (effects ?? [])
     .filter((effect) => effect.untilMs > 0)
     .map((effect) => ({
       id: effect.id,
@@ -67,7 +77,7 @@ export function unitFrom(spec: CombatUnitSpec): UnitState {
     revealUntilMs: -1,
     bandSinceMs: -1,
     // 들어올 때 걸려 있던 아이템 버프(D-501). 없으면 빈 목록(옛 시작 자료와 같다)
-    effects: startEffectsOf(spec),
+    effects: activeStartEffects(spec.startEffects),
     skillReadyMs: spec.skills.map(() => 0),
     cast: null,
     command: null,

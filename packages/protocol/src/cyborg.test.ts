@@ -34,16 +34,17 @@ function decodes(decode: (text: string) => unknown, message: unknown): boolean {
 }
 
 describe("사이보그 만들기 메시지", () => {
-  it("만들기는 프로토콜 4부터, 속성 분배는 5부터. 지금 판 9와 직전 판 8을 받는다(4~7은 받지 않는다, 병원 치료·융합·유전자 판 9)", () => {
-    expect(PROTOCOL_VERSION).toBe(9);
+  it("만들기는 프로토콜 4부터, 속성 분배는 5부터. 지금 판 10과 직전 판 9를 받는다(4~8은 받지 않는다, 건물 판 10)", () => {
+    expect(PROTOCOL_VERSION).toBe(10);
     expect(CYBORG_PROTOCOL_VERSION).toBe(4);
     expect(CYBORG_ELEMENTS_PROTOCOL_VERSION).toBe(5);
     expect(isProtocolSupported(4)).toBe(false);
     expect(isProtocolSupported(5)).toBe(false);
     expect(isProtocolSupported(6)).toBe(false);
     expect(isProtocolSupported(7)).toBe(false);
-    expect(isProtocolSupported(8)).toBe(true);
+    expect(isProtocolSupported(8)).toBe(false);
     expect(isProtocolSupported(9)).toBe(true);
+    expect(isProtocolSupported(10)).toBe(true);
   });
 
   it("굴리기·만들기 명령이 왕복한다", () => {

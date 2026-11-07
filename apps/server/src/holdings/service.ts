@@ -477,6 +477,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
     equip(ownerId, holdingId, slot) {
       const record = owned(ownerId, holdingId);
       if (!record) return { ok: false, code: "unknown_holding" };
+      if (options.locked?.(holdingId)) return { ok: false, code: "busy" };
       const unitId = carrierOf(record.location);
       if (unitId === null) return { ok: false, code: "not_carried" };
       const kind = world.unitKind(unitId);
@@ -502,6 +503,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
     unequip(ownerId, holdingId) {
       const record = owned(ownerId, holdingId);
       if (!record) return { ok: false, code: "unknown_holding" };
+      if (options.locked?.(holdingId)) return { ok: false, code: "busy" };
       if (record.slot !== null) {
         record.slot = null;
         save(record);

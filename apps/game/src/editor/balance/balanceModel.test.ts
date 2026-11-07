@@ -1,9 +1,11 @@
-// 밸런스 화면 순수 코드 시험 — 담은 칸·칸 상태·입력 글·약한 1차·오류 키
+// 밸런스 화면 순수 코드 시험 — 담은 칸·칸 상태·입력 글·약한 1차·오류 키·기여 조회 다시 묻기
 import type { BalanceDuelRow, BalanceRowView } from "@terra/shared/balance";
 import { describe, expect, it } from "vitest";
 import {
+  CONTRIBUTION_RETRY_MS,
   balanceErrorOf,
   cellState,
+  contributionRetryMs,
   editsOf,
   formatDelta,
   marginText,
@@ -119,5 +121,24 @@ describe("대결·숫자", () => {
     ).toEqual({ key: "rules_conflict", problems: ["stat_primary_unused"], sessionEnded: false });
     expect(balanceErrorOf({ data: { code: "UNAUTHORIZED" } })).toMatchObject({ sessionEnded: true });
     expect(balanceErrorOf(new Error("offline")).key).toBe("network");
+    // 까닭 없는 429도 속도 제한
+    expect(balanceErrorOf({ data: { code: "TOO_MANY_REQUESTS" } }).key).toBe("rate_limited");
+  });
+
+  it("기여 조회 거절: 속도 제한·연결은 2초부터 두 배씩(최대 30초) 다시 묻고, 권한·세션·입력은 다시 묻지 않는다", () => {
+    const limited = balanceErrorOf({ data: { code: "TOO_MANY_REQUESTS", reason: "rate_limited" } });
+    expect([0, 1, 2, 3, 4, 5, 20].map((attempt) => contributionRetryMs(limited, attempt))).toEqual([
+      2000, 4000, 8000, 16_000, 30_000, 30_000, 30_000,
+    ]);
+    expect(CONTRIBUTION_RETRY_MS.max).toBe(30_000);
+    expect(contributionRetryMs(balanceErrorOf(new Error("offline")), 0)).toBe(2000);
+    expect(
+      contributionRetryMs(balanceErrorOf({ data: { code: "TOO_MANY_REQUESTS", reason: "busy" } }), 1),
+    ).toBe(4000);
+    expect(contributionRetryMs(balanceErrorOf({ data: { code: "FORBIDDEN" } }), 0)).toBeNull();
+    expect(contributionRetryMs(balanceErrorOf({ data: { code: "UNAUTHORIZED" } }), 0)).toBeNull();
+    expect(
+      contributionRetryMs(balanceErrorOf({ data: { code: "BAD_REQUEST", reason: "invalid_settings" } }), 0),
+    ).toBeNull();
   });
 });

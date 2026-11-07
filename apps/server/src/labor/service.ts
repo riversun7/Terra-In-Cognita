@@ -78,6 +78,10 @@ export interface LaborService {
   /** 메모리 불변 조건(I14: 에스크로 = 보증금) */
   check(): string[];
   readonly contracts: ReadonlyMap<number, LaborContract>;
+  /** 유닛에 열린 계약(일함·일시 중지)이 있나 — 건물 작업 일꾼 확인 */
+  unitBusy(unitId: number): boolean;
+  /** 건물에 지금 일하는 계약(active)이 있나 — 건물 사용 닳음(D-509) */
+  buildingInUse(buildingId: number): boolean;
 }
 
 function isOpen(c: LaborContract): boolean {
@@ -101,6 +105,11 @@ export function createLaborService(options: {
   rules: () => SocietyCoefficients;
   now: () => number;
   ready: () => boolean;
+  /**
+   * 그 건물(시설)이 지금 일하나(건물 서비스: 짓는 중·30% 미만이면 false, 49 N50). 없으면 늘 true. false면 그 계약의 일한 구간은 산출이
+   * 없다(임금·임대료는 계약대로 — 고치는 것은 주인 몫)
+   */
+  buildingWorks?: ((buildingId: number) => boolean) | undefined;
 }): LaborService {
   const { maps, settlement, ledger, writer, now } = options;
   const contracts = new Map<number, LaborContract>(options.loaded.contracts.map((c) => [c.id, c]));
@@ -175,11 +184,13 @@ export function createLaborService(options: {
       const list: OutputSegment[] = [];
       // 계약이 정산한 앞(주체 정산 구간이 더 이르면)은 계약 없는 몫
       if (start > fromMs) list.push({ untilMs: start, stock: productionOn ? stockOf(ownerId) : null });
+      // 시설이 일하지 않으면(짓는 중·30% 미만, N50) 계약대로 일한 구간도 산출이 없다. 정산하는 때의 상태로 본다(분 단위 노화)
+      const works = options.buildingWorks?.(c.buildingId) ?? true;
       for (const segment of segments) {
         list.push({
           untilMs: segment.untilMs,
           stock:
-            !productionOn || segment.mode === "idle"
+            !productionOn || segment.mode === "idle" || (segment.mode === "work" && !works)
               ? null
               : segment.mode === "work" && c.kind === "wage"
                 ? stockOf(c.ownerId)
@@ -235,6 +246,12 @@ export function createLaborService(options: {
   return {
     outputsFor,
     contracts,
+    unitBusy: (unitId) => openContractOf(unitId) !== undefined,
+    buildingInUse(buildingId) {
+      for (const c of contracts.values())
+        if (c.buildingId === buildingId && c.state === "active") return true;
+      return false;
+    },
     async create(userId, input) {
       const at = now();
       const me = ownerFor(userId, at);

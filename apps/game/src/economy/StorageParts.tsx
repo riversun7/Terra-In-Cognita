@@ -6,6 +6,7 @@
 import type { FacilitiesOverviewResponse, FacilityView, GoodsPlaceView } from "@terra/shared/facilities";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { type CityText, useCityText } from "./cityText.ts";
 import { fmt, pickName } from "./economyText.ts";
 import type { FacilityRun } from "./facilityText.ts";
 
@@ -16,9 +17,9 @@ const lineName = (line: GoodsPlaceView["lines"][number]): string =>
   pickName(line.name ?? undefined, line.item ?? line.asset);
 
 /** 자리 이름 */
-function placeTitle(place: GoodsPlaceView, data: FacilitiesOverviewResponse): string {
+function placeTitle(place: GoodsPlaceView, data: FacilitiesOverviewResponse, cityText: CityText): string {
   const id = place.id ?? 0;
-  if (place.kind === "city") return m.facility_place_city({ id });
+  if (place.kind === "city") return m.facility_place_city({ city: cityText(id) });
   if (place.kind === "cargo") return m.facility_place_cargo({ id });
   if (place.kind === "ledger") return m.facility_place_ledger();
   const mine = data.facilities.find((facility) => facility.buildingId === id);
@@ -144,13 +145,14 @@ export function PlacesList({
   run: FacilityRun;
   busy: boolean;
 }) {
+  const cityText = useCityText();
   if (data.places.length === 0) return <p className="eco-empty">{m.facility_places_empty()}</p>;
   return (
     <ul className="eco-rows" data-part="facility-places">
       {data.places.map((place) => (
         <li key={place.key} className="eco-row facility-place" data-kind={place.kind}>
           <div className="eco-row-main">
-            <span className="eco-row-title">{placeTitle(place, data)}</span>
+            <span className="eco-row-title">{placeTitle(place, data, cityText)}</span>
             <span className="eco-row-meta">
               {place.lines.map((line) => `${lineName(line)} ${fmt(line.qty)}`).join(" · ")}
             </span>

@@ -60,11 +60,13 @@ test.describe("플레이어(실제 자료)", () => {
     await expect(economy(page).locator(".eco-not-ready")).toHaveCount(0);
     // 하위 화면에서도 하단 탭의 경제가 지금 화면이다(menuRoute)
     await expect(page.locator('nav.tabbar a[aria-current="page"]')).toHaveText(message("ko", "nav_economy"));
-    // 도시 목록: NPC 도시마다 거래소(이름 칸이 없어 #도시 ID [임시]), 기준 도시(내 시작 도시)가 맨 앞 "여기"
+    // 도시 목록: NPC 도시마다 거래소, 기준 도시(내 시작 도시)가 맨 앞 "여기". 도시 이름 = 팩 도시 이름(이름 없는 도시만 "#ID" — 고정 나라
+    // 도시는 모두 이름이 있다, docs/adr/2026-11-07-play-flow.md "WP12 특산·이름 마무리")
     await page.goto("/economy/market/ration");
     const cities = economy(page).locator(".eco-city");
     await expect(cities.first()).toBeVisible();
     await expect(cities.first()).toContainText(message("ko", "economy_here"));
+    await expect(economy(page).locator(".eco-city-name", { hasText: /^#\d+$/ })).toHaveCount(0);
     await cities.first().click();
     await expect(page).toHaveURL(/\/economy\/market\/ration\/\d+$/);
     await expect(economy(page)).toHaveAttribute("data-density", "compact");

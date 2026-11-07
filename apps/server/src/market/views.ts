@@ -1,7 +1,8 @@
 // 거래창·내 주문·도시 생산 화면 자료(실제 거래소) — docs/adr/2026-11-07-play-flow.md WP4. economyView/services.ts가 시안이 아닐 때 부른다.
 // 읽기만 한다(거래소를 새로 만들지 않는다: 아직 쓰지 않은 도시 × 물건은 빈 호가창으로 보인다). 모양 만들기는 시안과 같은 함수(economyView/marketShape.ts).
 // - 기준 도시 = 내 사이보그 시작 도시(없으면 내 창고가 있는 첫 도시, 그것도 없으면 가장 작은 도시 ID).
-// - 도시 이름 칸이 아직 없어 "#<도시 ID>"로 보인다 [임시]. 시야·운임은 아직 없다(모두 지금 값, 운임 없음).
+// - 도시 이름 = 도시 자리의 이름(world_cities.name, 팩 도시 이름 — 번역하지 않는다 D-476), 이름 없는 도시만 "#<도시 ID>"(폐허 카드와 같은
+//   대체, docs/adr/2026-11-07-play-flow.md "WP12 특산·이름 마무리"). 시야·운임은 아직 없다(모두 지금 값, 운임 없음).
 // - 화폐(WP6): 값은 그 도시 거래소 화폐(주인 나라 화폐)다. 화면에는 팩 화폐 코드(원장 자산 cur:<코드>의 코드, 기준 통화는 자산 코드 그대로)로 보낸다.
 import type {
   EconomyOrdersResponse,
@@ -64,7 +65,9 @@ export interface MarketViews {
   exchange(userId: string, now: number): FxExchangeView;
 }
 
-export const cityLabel = (cityId: number): string => `#${cityId}`;
+/** 도시 이름(NPC 런타임 도시 자리의 이름), 없으면 "#<도시 ID>" */
+export const cityLabel = (places: NpcRuntime["places"], cityId: number): string =>
+  places.get(cityId)?.name ?? `#${cityId}`;
 
 /** 창 안 체결(TradeLike 모양) */
 function windowTrades(trades: readonly TradeRecord[], from: number): TradeRecord[] {
@@ -133,7 +136,7 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
       id: String(order.id),
       item: book.item,
       city: String(book.cityId),
-      cityName: cityLabel(book.cityId),
+      cityName: cityLabel(runtime.places, book.cityId),
       currency: currencyCode(book.market.config.currency),
       side: order.side,
       type: "limit",
@@ -182,7 +185,10 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
             : [],
         };
       });
-      return { homeCity: home === undefined ? null : { id: String(home), name: cityLabel(home) }, items };
+      return {
+        homeCity: home === undefined ? null : { id: String(home), name: cityLabel(runtime.places, home) },
+        items,
+      };
     },
 
     cities(userId, item, now) {
@@ -198,7 +204,7 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
         const ask = found?.market.best("sell");
         return {
           city: String(cityId),
-          name: cityLabel(cityId),
+          name: cityLabel(runtime.places, cityId),
           currency: currencyCode(currencyOf(cityId, found)),
           bestBid: bid ? String(bid.price) : null,
           bestAsk: ask ? String(ask.price) : null,
@@ -233,7 +239,7 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
       return {
         item,
         city: String(cityId),
-        cityName: cityLabel(cityId),
+        cityName: cityLabel(runtime.places, cityId),
         currency: currencyCode(currency),
         taxBp: found?.market.config.taxBp ?? taxOf(cityId),
         ...levels,
@@ -273,7 +279,7 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
           id: String(row.id),
           item: book.item,
           city: String(book.cityId),
-          cityName: cityLabel(book.cityId),
+          cityName: cityLabel(runtime.places, book.cityId),
           currency: currencyCode(book.market.config.currency),
           side: row.side,
           price: String(row.price),
@@ -298,7 +304,7 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
           return {
             id: run.buildingId === null ? `job_${run.facility.id}` : String(run.buildingId),
             facility: run.facility.recipe.facility,
-            place: cityLabel(home),
+            place: cityLabel(runtime.places, home),
             level: run.facility.level,
             workers: run.facility.workers,
             slots: (spec?.slotsPerLevel ?? 0) * run.facility.level,

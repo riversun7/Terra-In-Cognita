@@ -19,6 +19,7 @@ import { formatAmount, formatNumber } from "../roster/rosterText.ts";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { sendFusionCommand } from "../units/fusionCommands.ts";
 import { RESULT_TEXT as FUSION_RESULT_TEXT } from "../units/fusionParts.tsx";
+import { useCityText } from "./cityText.ts";
 import { formatDuration, pickName } from "./economyText.ts";
 import { Loaded } from "./parts.tsx";
 import { NO_ARGS, useNowTick, useTemple } from "./queries.ts";
@@ -94,12 +95,13 @@ function GuardianRow({
   run: Run;
 }) {
   const key = `buff-${guardian.unitId}`;
+  const cityText = useCityText();
   return (
     <li className="temple-human" data-guardian={guardian.unitId} data-buff={guardian.buff}>
       <p>
         {m.temple_guardian_line({
           id: guardian.unitId,
-          city: guardian.cityId,
+          city: cityText(guardian.cityId),
           level: guardian.level,
           rebirths: guardian.rebirths,
           buff: BUFF_TEXT[guardian.buff](),
@@ -153,6 +155,7 @@ const inactiveIn = (data: TempleOverviewResponse, place: TempleView): TempleHuma
   data.humans.filter((human) => human.inactive && !human.captive && human.cityId === place.cityId);
 
 function PlaceHead({ place }: { place: TempleView }) {
+  const cityText = useCityText();
   return (
     <div className="temple-card-head">
       <p className="temple-card-title">
@@ -164,7 +167,7 @@ function PlaceHead({ place }: { place: TempleView }) {
       </p>
       <p className="eco-footnote">
         {m.temple_card_meta({
-          city: place.cityId === null ? "—" : `#${place.cityId}`,
+          city: place.cityId === null ? "—" : cityText(place.cityId),
           state: Math.round(place.conditionPpm / 10_000),
         })}
         {place.mine ? <span className="eco-tag">{m.temple_card_mine()}</span> : null}
@@ -382,6 +385,7 @@ function HumanRow({
   busy: string | null;
   run: Run;
 }) {
+  const cityText = useCityText();
   return (
     <li className="temple-human" data-unit={human.unitId} data-inactive={human.inactive}>
       <p>
@@ -396,10 +400,10 @@ function HumanRow({
         {human.inactive ? <span className="eco-tag temple-inactive">{m.temple_inactive_tag()}</span> : null}
         {human.inactive
           ? human.departsAtMs === null
-            ? m.temple_inactive_stays({ city: human.cityId === null ? "—" : `#${human.cityId}` })
+            ? m.temple_inactive_stays({ city: human.cityId === null ? "—" : cityText(human.cityId) })
             : m.temple_inactive_departs({
                 wait: formatDuration(Math.max(0, human.departsAtMs - now)),
-                city: human.cityId === null ? "—" : `#${human.cityId}`,
+                city: human.cityId === null ? "—" : cityText(human.cityId),
               })
           : m.temple_lifespan_left({ wait: formatDuration(Math.max(0, human.lifespanEndsAtMs - now)) })}
       </p>

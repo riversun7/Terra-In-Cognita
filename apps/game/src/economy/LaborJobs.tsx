@@ -2,10 +2,12 @@
 // docs/adr/2026-11-03-labor-contracts.md "바뀜 (기획 338~342·구인 게시판)". 화면 흐름은 기술 기본안이다(기획 UX 없음).
 // - 게시판: 남이 낸 열린 일자리(tRPC labor.jobs, 도시로 거름, 임금 높은 차례). 보낼 유닛을 하나 고르고 줄마다 [받기].
 // - 내 구인: 내가 낸 열린 게시(labor.overview jobs)와 [거두기], 구인 내기 폼(시설·조정·자리·기간, 기준 유닛 임금·보증금 미리 셈).
-// - [임시] 시설·도시는 번호로 보인다(서버 시설·도시에 이름이 아직 없다). 직무는 시설이 정한다(지금은 채집 하나).
+// - [임시] 시설은 번호로 보인다(서버 시설에 이름이 아직 없다). 도시는 도시 이름(이름 없는 도시만 "#ID", cityText.ts). 직무는 시설이 정한다
+//   (지금은 채집 하나).
 import type { LaborJobView, LaborOverviewResponse } from "@terra/shared/labor";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { useCityText } from "./cityText.ts";
 import { fmt, formatDuration } from "./economyText.ts";
 import { type LaborRun, adjustInRange, isTerm, previewWage } from "./laborText.ts";
 import { Loaded } from "./parts.tsx";
@@ -40,6 +42,7 @@ export function LaborJobBoard({
   const [city, setCity] = useState("");
   const [unit, setUnit] = useState("");
   const jobs = useLaborJobs([city]);
+  const cityText = useCityText();
   const free = data.units.filter((entry) => !entry.busy);
   const chosen = free.find((entry) => String(entry.id) === unit) ?? free[0];
   const take = async (jobId: number): Promise<void> => {
@@ -65,7 +68,7 @@ export function LaborJobBoard({
                   </option>
                   {loaded.cities.map((entry) => (
                     <option key={entry.id} value={String(entry.id)}>
-                      {m.labor_jobs_city_option({ id: entry.id, count: entry.jobs })}
+                      {m.labor_jobs_city_option({ city: cityText(entry.id), count: entry.jobs })}
                     </option>
                   ))}
                 </select>
@@ -104,7 +107,7 @@ export function LaborJobBoard({
                         <span className="eco-row-meta">
                           {job.cityId === null
                             ? m.labor_job_city_none()
-                            : m.labor_job_city({ id: job.cityId })}
+                            : m.labor_job_city({ city: cityText(job.cityId) })}
                           {" · "}
                           {jobMeta(job, data.rules.wageCycleMs)}
                           {away ? ` · ${m.labor_job_other_map()}` : ""}

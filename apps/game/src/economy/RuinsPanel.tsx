@@ -5,6 +5,8 @@
 //   모금 열기·넣기·개발 시험 폐허(ruinsCommands.ts, 프로토콜 13). 서버가 판정한다(폐허 자리·주인·모금 열림·잔고·남은 몫). 화면은 막는 까닭만 보인다.
 // - 차례: 설명·규칙(행정 건물 재료) → 개발 시험 → 내 잔고 → 폐허 카드(옛 주인·자리, 주인 없음 = [정부 짓기], 주인 있음 = 모금 막대·내 몫·지분
 //   미리 셈·[모금 열기]·넣기).
+// - 폐허 2(기획 답 480 다·482 나·485 다·487 다·489 다, 프로토콜 15): 정부 건물 상태(짓는 중이면 모금 닫힘, 0%·사라지면 [다시 짓기] — 다시 지은
+//   쪽이 주인, 낸 값은 남음)·모금 기한·목표 = 옛 주거 비례·행정 레벨 = 건물 레벨 규칙 줄.
 import type { RuinView, RuinsOverviewResponse } from "@terra/shared/ruins";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
@@ -12,7 +14,7 @@ import { formatAmount } from "../roster/rosterText.ts";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { sendFusionCommand } from "../units/fusionCommands.ts";
 import { RESULT_TEXT as FUSION_RESULT_TEXT } from "../units/fusionParts.tsx";
-import { pickName } from "./economyText.ts";
+import { formatClock, pickName } from "./economyText.ts";
 import { sendFacilityCommand } from "./facilityCommands.ts";
 import { FACILITY_ERROR_TEXT } from "./facilityText.ts";
 import { Loaded } from "./parts.tsx";
@@ -38,6 +40,8 @@ const RUIN_ERROR_TEXT: Readonly<Record<RuinCode, () => string>> = {
   invalid_amount: m.ruins_err_invalid_amount,
   no_faction: m.ruins_err_no_faction,
   no_place: m.ruins_err_no_place,
+  not_built: m.ruins_err_not_built,
+  expired: m.ruins_err_expired,
   offline: m.ruins_err_offline,
   timeout: m.ruins_err_timeout,
 };
@@ -66,17 +70,32 @@ const ruinAction =
       : { ok: false, text: RUIN_ERROR_TEXT[outcome.code]() };
   };
 
-/** 카드 상태: 주인 없음 · 주인만 넣음 · 모금 중 */
-function stateOf(ruin: RuinView): "unclaimed" | "owner_only" | "open" {
+type CardState = "unclaimed" | "building" | "hall_down" | "owner_only" | "open";
+
+/** 카드 상태: 주인 없음 · 정부 짓는 중 · 정부 무너짐 · 주인만 넣음 · 모금 중 */
+function stateOf(ruin: RuinView): CardState {
   if (ruin.project === null) return "unclaimed";
+  const hall = ruin.owner?.hall?.state;
+  if (hall === "building") return "building";
+  if (hall === "down") return "hall_down";
   return ruin.project.open ? "open" : "owner_only";
 }
 
-const STATE_TEXT = {
+const STATE_TEXT: Readonly<Record<CardState, () => string>> = {
   unclaimed: m.ruins_state_unclaimed,
+  building: m.ruins_state_building,
+  hall_down: m.ruins_state_hall_down,
   owner_only: m.ruins_state_owner_only,
   open: m.ruins_state_open,
-} as const;
+};
+
+/** 넣기가 닫힌 까닭: 정부 건물이 서 있지 않음 · 기한 지남 · 모금이 열리지 않음 */
+function closedText(ruin: RuinView, nowMs: number): string {
+  const project = ruin.project;
+  if (project && !project.ready) return m.ruins_fund_not_built();
+  if (project?.deadlineAtMs != null && nowMs >= project.deadlineAtMs) return m.ruins_fund_expired();
+  return m.ruins_fund_closed();
+}
 
 /** 모인 값 ‰(0~1000) */
 function raisedPm(goal: string, raised: string): number {
@@ -85,7 +104,17 @@ function raisedPm(goal: string, raised: string): number {
   return Number((BigInt(raised) * 1000n) / total);
 }
 
-function ProjectPart({ ruin, busy, run }: { ruin: RuinView; busy: string | null; run: Run }) {
+function ProjectPart({
+  ruin,
+  nowMs,
+  busy,
+  run,
+}: {
+  ruin: RuinView;
+  nowMs: number;
+  busy: string | null;
+  run: Run;
+}) {
   const [amount, setAmount] = useState("");
   const project = ruin.project;
   if (project === null) return null;
@@ -112,6 +141,11 @@ function ProjectPart({ ruin, busy, run }: { ruin: RuinView; busy: string | null;
         {m.ruins_progress({ raised: formatAmount(project.raised), goal: formatAmount(project.goal) })}
       </p>
       <p className="eco-footnote">{m.ruins_mine({ amount: formatAmount(project.mine) })}</p>
+      {project.deadlineAtMs === null ? null : (
+        <p className="eco-footnote" data-part="ruin-deadline">
+          {m.ruins_deadline({ at: formatClock(project.deadlineAtMs, nowMs) })}
+        </p>
+      )}
       {project.shares.length > 0 ? (
         <ul className="ruins-shares" aria-label={m.ruins_shares_title()}>
           {project.shares.slice(0, 4).map((row) => (
@@ -124,7 +158,7 @@ function ProjectPart({ ruin, busy, run }: { ruin: RuinView; busy: string | null;
           ))}
         </ul>
       ) : null}
-      {ruin.owner?.mine && !project.open ? (
+      {ruin.owner?.mine && !project.open && project.ready ? (
         <div className="labor-actions">
           <button
             type="button"
@@ -178,8 +212,61 @@ function ProjectPart({ ruin, busy, run }: { ruin: RuinView; busy: string | null;
           </button>
         </form>
       ) : (
-        <p className="field-hint">{m.ruins_fund_closed()}</p>
+        <p className="field-hint">{closedText(ruin, nowMs)}</p>
       )}
+    </>
+  );
+}
+
+/** 정부 건물 상태 한 줄(유저가 지은 것. NPC 주인은 줄 없음). 개발 시험: 내 정부 건물을 바로 다 짓는다(건물 칸 [바로 끝내기]와 같은 명령) */
+function HallLine({
+  ruin,
+  dev,
+  busy,
+  run,
+}: {
+  ruin: RuinView;
+  dev: boolean;
+  busy: string | null;
+  run: Run;
+}) {
+  const hall = ruin.owner?.hall;
+  if (!hall) return null;
+  const text =
+    hall.state === "building"
+      ? m.ruins_hall_building()
+      : hall.state === "down"
+        ? m.ruins_hall_down()
+        : m.ruins_hall_up({ level: hall.level });
+  return (
+    <>
+      <p className="eco-footnote" data-part="ruin-hall" data-state={hall.state}>
+        {text}
+      </p>
+      {dev && ruin.owner?.mine && hall.state === "building" ? (
+        <div className="labor-actions">
+          <button
+            type="button"
+            className="button-small ruins-dev-finish"
+            disabled={busy !== null}
+            aria-busy={busy === `finish-${ruin.id}`}
+            onClick={() =>
+              void run(`finish-${ruin.id}`, async () => {
+                const outcome = await sendFacilityCommand({
+                  t: "dev_facility_finish",
+                  buildingId: hall.buildingId,
+                });
+                useFacilities.refreshAll();
+                return outcome.ok
+                  ? { ok: true, text: m.ruins_dev_finish_done() }
+                  : { ok: false, text: FACILITY_ERROR_TEXT[outcome.code]() };
+              })
+            }
+          >
+            {m.ruins_dev_finish()}
+          </button>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -221,11 +308,13 @@ function RuinCard({
           })}
         </p>
       ) : null}
-      {ruin.project ? (
-        <ProjectPart ruin={ruin} busy={busy} run={run} />
-      ) : government && at ? (
+      <HallLine ruin={ruin} dev={data.dev} busy={busy} run={run} />
+      {ruin.project ? <ProjectPart ruin={ruin} nowMs={data.generatedAt} busy={busy} run={run} /> : null}
+      {government && at ? (
         <>
-          <p className="field-hint">{m.ruins_build_hint({ x: at.x, y: at.y })}</p>
+          <p className="field-hint">
+            {ruin.project ? m.ruins_rebuild_hint({ x: at.x, y: at.y }) : m.ruins_build_hint({ x: at.x, y: at.y })}
+          </p>
           <div className="labor-actions">
             {data.dev ? (
               <button
@@ -281,7 +370,7 @@ function RuinCard({
             </button>
           </div>
         </>
-      ) : (
+      ) : ruin.project ? null : (
         <p className="field-hint">{m.ruins_build_no_room()}</p>
       )}
     </li>
@@ -319,8 +408,11 @@ export function RuinsPanel() {
             <>
               <ul className="ruins-rules">
                 <li>{m.ruins_rule_owner()}</li>
+                <li>{m.ruins_rule_hall()}</li>
                 <li>{m.ruins_rule_fund()}</li>
+                <li>{m.ruins_rule_goal()}</li>
                 <li>{m.ruins_rule_dictatorship()}</li>
+                {government ? <li>{m.ruins_rule_level({ max: government.maxLevel })}</li> : null}
                 {government ? (
                   <li>
                     {m.ruins_rule_materials({

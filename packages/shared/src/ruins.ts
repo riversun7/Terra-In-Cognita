@@ -25,6 +25,8 @@ export interface RuinHallView {
   readonly state: "building" | "up" | "down";
   /** 지금 레벨(짓는 중·사라짐이면 0) */
   readonly level: number;
+  /** 2차맵 건물 ID(개발 시험 [바로 짓기]가 쓴다) */
+  readonly buildingId: number;
 }
 
 /** 폐허 하나 */

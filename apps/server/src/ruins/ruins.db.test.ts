@@ -185,7 +185,11 @@ describe.skipIf(!TEST_DATABASE_URL)("폐허 복원(D-510)", () => {
     expect(await ruins.fund(one.userId, ruinId, "1000")).toEqual({ ok: false, code: "not_built" });
     expect(await ruins.open(one.userId, ruinId)).toEqual({ ok: false, code: "not_built" });
     view = ruins.overview({ id: one.userId, devGrant: true }, clock);
-    expect(view?.ruins.find((r) => r.id === ruinId)?.owner?.hall).toEqual({ state: "building", level: 0 });
+    expect(view?.ruins.find((r) => r.id === ruinId)?.owner?.hall).toEqual({
+      state: "building",
+      level: 0,
+      buildingId: hallOne,
+    });
     expect(await facilities.service.devFinish(one.userId, { buildingId: hallOne })).toEqual({ ok: true });
 
     // 목표 = 옛 주거 8 × 주거 1당 값 700 = 5,600(482 나), 기한 = 주인이 된 때 + 30일(485 다)

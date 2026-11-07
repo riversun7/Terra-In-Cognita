@@ -265,7 +265,10 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
                   label: labelOf(runtime, ruin.claimant),
                   joins: factionView(runtime, ruin.joinFaction),
                   // 정부 건물(유저가 지은 것). NPC 주인은 건물 없이 값으로 지어 늘 서 있다
-                  hall: ruin.building === null ? null : governmentStatus(ruin.building),
+                  hall:
+                    ruin.building === null
+                      ? null
+                      : { ...governmentStatus(ruin.building), buildingId: ruin.building },
                 },
           project: claimed
             ? {

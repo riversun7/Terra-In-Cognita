@@ -60,6 +60,14 @@
   background-color: var(--color-success-surface);
   color: var(--color-success);
 }
+/* 폐허 2: 정부 건물이 0%·사라짐 = 다시 지을 수 있음 */
+.ruins-state[data-state="hall_down"] {
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+.ruins-card[data-state="hall_down"] {
+  border-style: dashed;
+}
 .ruins-shares {
   gap: var(--space-1);
   font-size: var(--font-size-sm);

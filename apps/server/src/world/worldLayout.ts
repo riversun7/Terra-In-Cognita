@@ -177,7 +177,6 @@ function pickHomes(
   candidates: readonly CellKey[],
 ): { homes: Map<number, CellKey>; regionCells: number; minGapMilli: number | null } {
   const metric = territoryMetric(input.faceLevel);
-  const point = (key: CellKey) => territoryPoint(key);
   const fixed = new Map<number, CellKey>();
   for (const nation of input.nations) {
     const first = nation.placed[0];
@@ -189,16 +188,16 @@ function pickHomes(
     anchor = candidates[mix(input.worldSeed) % candidates.length];
   const planetMilli = Math.PI * metric.milliPerRadian;
   const gapMilli = input.seed.layoutNationGapCells * 1000;
-  const anchorPoint = anchor === undefined ? undefined : point(anchor);
+  const anchorPoint = anchor === undefined ? undefined : territoryPoint(anchor);
   // 후보마다 점·첫 수도와의 거리를 한 번만 셈한다
   const pool = candidates.map((key) => {
-    const p = point(key);
+    const p = territoryPoint(key);
     return { key, p, fromAnchor: anchorPoint ? territoryDistanceMilli(p, anchorPoint, metric) : 0 };
   });
   let regionCells = Math.max(1, input.seed.layoutRegionCells);
   for (;;) {
     const homes = new Map(fixed);
-    const chosen: TerritoryVec[] = [...fixed.values()].map(point);
+    const chosen: TerritoryVec[] = [...fixed.values()].map((key) => territoryPoint(key));
     const region = pool.filter((entry) => entry.fromAnchor <= regionCells * 1000);
     // 후보마다 이미 고른 수도와의 가장 짧은 거리(새 수도마다 줄인다)
     const nearest = region.map((entry) =>

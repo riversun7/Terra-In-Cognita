@@ -769,7 +769,8 @@ export function startWorld(
     let badBuildings = 0;
     let orphanUnits = 0;
     // 옮긴 옛 자리 도시의 휴먼·사이보그를 새 도시 둘레에 세운다(relayout.ts, 복구 직전)
-    const units = relocateUnits(loaded.units, seeded?.relayout, maps, persist.saveUnit, now()).rows;
+    const save = (row: Parameters<MapPersist["saveUnit"]>[0]) => persist.saveUnit(row);
+    const units = relocateUnits(loaded.units, seeded?.relayout, maps, save, now()).rows;
     for (const [mapKey, map] of maps) {
       const onMap = (row: { planetId: string; mapKey: number }) =>
         row.planetId === map.planetId && row.mapKey === mapKey;

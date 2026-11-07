@@ -352,8 +352,8 @@ describe("꺼진 아이템을 입고 있으면(질문 355 → D-515·D-512)", ()
   const source = loaded.source;
   if (!source) throw new Error("content pack");
   const entriesIn = <T>(file: string, parse: (raw: unknown) => T): T[] => {
-    const value: unknown = parseJson(source.files.get(file) ?? "{}");
-    const list: unknown = typeof value === "object" && value !== null ? Reflect.get(value, "entries") : [];
+    const parsed: unknown = parseJson(source.files.get(file) ?? "{}");
+    const list: unknown = typeof parsed === "object" && parsed !== null ? Reflect.get(parsed, "entries") : [];
     return Array.isArray(list) ? list.map((raw: unknown) => parse(raw)) : [];
   };
   const entries: RosterContentEntries = {

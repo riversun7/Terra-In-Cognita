@@ -26,7 +26,7 @@ import {
   placementAtLatLon,
 } from "@terra/engine/planet";
 import type { WorldCitiesResponse, WorldMapCity, WorldPosition } from "@terra/shared/worldMap";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { refreshSession } from "../auth/session.ts";
 import { serverLink } from "../net/serverLink.ts";
 import { navigate } from "../shell/routerStore.ts";
@@ -141,7 +141,8 @@ function PlanetMapView({
     if (reached !== null && reached === commandMapRef.current) setCommanding(false);
   }, []);
   const { travel, refresh: refreshTravel } = useMyTravel(me?.unitId ?? null, onTravelEvent);
-  const shownMe = liveMe(me, travel);
+  // 같은 값이면 같은 객체(덧그림이 바뀐 때만 다시 그린다)
+  const shownMe = useMemo(() => liveMe(me, travel), [me, travel]);
 
   useEffect(() => {
     const host = hostRef.current;

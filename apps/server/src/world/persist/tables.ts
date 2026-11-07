@@ -529,7 +529,7 @@ export const WORLD_TABLES = {
     key: [],
   },
   /** 영토 비콘(docs/adr/2026-11-03-territory-layer.md). 놓기·치우기는 영토 서비스가 넣고 커밋 뒤 답한다 */
-  /** 2차맵 사이 이동(docs/adr/2026-11-07-play-flow.md WP9) — 2차맵을 넘을 때 유닛 행과 같은 커밋 */
+  /** 2차맵 사이 이동(docs/adr/2026-11-07-play-flow.md WP9·WP11) — 2차맵을 넘을 때 유닛 행과 같은 커밋 */
   travels: {
     name: "world_travels",
     columns: [
@@ -543,6 +543,12 @@ export const WORLD_TABLES = {
       "target_y",
       "started_at_ms",
       "arrive_at_ms",
+      "user_id",
+      "origin_map_key",
+      "origin_x",
+      "origin_y",
+      "scouted_map_key",
+      "hidden_until_ms",
     ],
     key: ["unit_id"],
   },

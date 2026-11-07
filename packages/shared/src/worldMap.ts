@@ -103,22 +103,44 @@ export interface WorldPosition {
   readonly unitId: number;
   /** 시작 도시 ID */
   readonly startCityId: number;
+  /**
+   * 띄우지 않은 2차맵을 건너뛰는 중(질문 593 나): mapKey는 그 2차맵(서버가 띄우지 않음), 칸은 곧은 선을 따라 지금 있을 자리(보기 값).
+   * 2차맵 화면은 이 자리를 열지 않는다
+   */
+  readonly hidden: boolean;
 }
 
 export interface WorldPositionResponse {
   readonly status: "ready" | "not_ready";
-  /** 사이보그가 없거나 본체가 띄운 2차맵에 없으면 null */
+  /** 사이보그가 없거나 본체가 띄운 2차맵에 없으면(건너뛰는 중은 빼고) null */
   readonly position: WorldPosition | null;
   /** 내 자리가 없을 때 2차맵 화면이 여는 맵(띄운 첫 2차맵, 없으면 null) */
   readonly fallbackMapKey: number | null;
   readonly generatedAt: number;
 }
 
-/**
+/*
  * 2차맵 사이 이동(tRPC world.travelPlan·world.travels, WebSocket travel_start·travel_cancel) — docs/adr/2026-11-07-play-flow.md
  * "WP9 2차맵 사이 이동", 기획 D-197·D-6019·D-6021·질문 571 가. 1차맵 명령 판의 확인 단계(길·걸리는 시간)와 가는 중 표시가 쓴다.
- * 시각은 서버 ms, 거리 m·시간 ms는 보기 값(곧은 거리 ÷ 유닛 속도 — 실제 길은 2차맵마다 서버가 찾는다)
+ * 시각은 서버 ms, 거리 m·시간 ms는 보기 값(곧은 거리 ÷ 유닛 속도 — 실제 길은 2차맵마다 서버가 찾는다).
+ * WP11(질문 590 나·591 나·593 나·594 나): 줄에 띄우지 않은 2차맵이 들 수 있고(건너뛴다), 확인 단계에 위험 구간·비용이 붙는다.
  */
+/** 확인 단계의 위험 구간 하나(내가 아는 것만 — 안개 규칙, 질문 594 나) */
+export interface WorldTravelDanger {
+  /** 지나는 2차맵의 route 차례(출발 = 0은 넣지 않는다) */
+  readonly leg: number;
+  readonly mapKey: number;
+  /** 그 2차맵의 정원사 오염(내가 아는 2차맵만, 모르면 null) */
+  readonly pollution: number | null;
+  /** 오염이 위험 문턱 이상(유목 부대가 노리는 오염 — 설정 칸 S17) */
+  readonly pollutionHigh: boolean;
+  /** 그 2차맵에 내가 아는 도시가 있는 전쟁 중 세력(세력 행 ID 차례) */
+  readonly warFactionIds: readonly number[];
+}
+
+/** 비용 종류: 걷기는 돈·물자가 들지 않는다(탈것·운송이 생기면 연료·운임 — 질문 594 다) */
+export type WorldTravelCost = "walk";
+
 export interface WorldTravelPlan {
   /** 보낼 유닛(지정하지 않으면 내 사이보그 본체) */
   readonly unitId: number;
@@ -130,7 +152,17 @@ export interface WorldTravelPlan {
   readonly arriveAt: number;
   /** 지금 직무(채집·계약)가 있다 — 출발 2차맵을 떠나면 직무가 끝난다(질문 582) */
   readonly working: boolean;
+  /** 줄에 든 띄우지 않은 2차맵 수(그 구간은 건너뛴다 — 그동안 지도에 보이지 않는다, 질문 593 나) */
+  readonly hiddenMaps: number;
+  readonly cost: WorldTravelCost;
+  /** 위험 구간(내가 아는 것만, route 차례) */
+  readonly dangers: readonly WorldTravelDanger[];
+  /** 내가 모르는 2차맵 수(출발을 뺀 줄에서 — 위험을 알 수 없다) */
+  readonly unknownMaps: number;
 }
+
+/** 이동 서비스가 정하는 몫(위험 구간은 조회가 붙인다) */
+export type WorldTravelRoute = Omit<WorldTravelPlan, "dangers" | "unknownMaps">;
 
 /** 확인 단계에서 보낼 수 없는 까닭(WebSocket travel_result 코드와 같은 이름, no_cyborg = 보낼 유닛이 없다) */
 export type WorldTravelProblem =
@@ -141,7 +173,9 @@ export type WorldTravelProblem =
   | "no_route"
   | "border_blocked"
   | "goal_blocked"
-  | "unavailable";
+  | "unavailable"
+  /** 띄우지 않은 2차맵을 건너뛰는 중(다음 띄운 2차맵에 나타난 뒤 보낼 수 있다) */
+  | "in_transit";
 
 export interface WorldTravelPlanResponse {
   readonly status: "ready" | "not_ready";
@@ -176,6 +210,12 @@ export interface WorldTravel {
   /** going 가는 중, arrived 도착(최근 10분), stopped 멈춤(최근 10분, 까닭 stop) */
   readonly state: "going" | "arrived" | "stopped";
   readonly stop: WorldTravelStop | null;
+  /** 정찰이 목표를 보고 출발한 자리로 돌아오는 중(또는 돌아왔다) — route·target은 돌아오는 길(질문 591 나) */
+  readonly returning: boolean;
+  /** 정찰한 2차맵(돌아오는 정찰만, 아니면 null) */
+  readonly scoutedMapKey: number | null;
+  /** 띄우지 않은 2차맵을 건너뛰는 중(mapKey·칸은 곧은 선을 따라 지금 있을 자리, 질문 593 나) */
+  readonly hidden: boolean;
 }
 
 export interface WorldTravelsResponse {

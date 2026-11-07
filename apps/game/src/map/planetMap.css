@@ -202,6 +202,10 @@
   color: var(--color-danger);
   font-weight: var(--font-weight-strong);
 }
+/* 확인 단계의 위험 구간 줄(WP11, 질문 594 나): 아는 오염·전쟁 */
+.planet-command-danger {
+  color: var(--color-danger);
+}
 /* 가까이 본 곳의 2차맵 들어가기·내 위치 — 조작 판 첫 줄 */
 .planet-jump {
   display: flex;

@@ -47,7 +47,8 @@ export function useTravelFollow(
 ): { going: WorldTravel | null; crossedTo: number | null } {
   const travel = useCyborgTravel(unitId);
   const going = travel?.state === "going" ? travel : null;
-  const crossedTo = going !== null && going.mapKey !== mapKey ? going.mapKey : null;
+  // 띄우지 않은 2차맵을 건너뛰는 중이면 따라가지 않는다(열 수 없다 — 다음 띄운 2차맵에 나타나면 그때, WP11 593 나)
+  const crossedTo = going !== null && !going.hidden && going.mapKey !== mapKey ? going.mapKey : null;
   useEffect(() => {
     if (crossedTo === null || !following) return () => undefined;
     const timer = setTimeout(() => openMap(crossedTo), CROSSING_MS);

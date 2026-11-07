@@ -2,6 +2,8 @@
 // 가짜 시계로: 내 휴먼을 내 벌목장에 직무 배치하고 다른 2차맵으로 보낸다 → 첫 2차맵 변을 넘으면 유닛 행(새 2차맵 키)과 길 줄(다음 구간)이 함께
 // 저장되고, 넘기 직전 정산으로 그때까지의 원목이 들고, 다음 정산에서 직무 배치가 풀린다(떠난 뒤 산출 없음). 서버를 다시 켜도 길이 이어져
 // 목적 2차맵 목표 칸 둘레에 닿는다. 노동 계약(임금형)도 떠나면 "유닛 사라짐"으로 끝난다.
+// WP11(같은 ADR "WP11"): 정찰은 닿으면 돌아오는 길로 바뀌어 줄(정찰한 2차맵·출발 자리·보낸 사용자)이 저장되고 본 2차맵의 탐사 기록이
+// world_exploration에 남는다(그래서 확인 단계가 그 2차맵 오염을 안다 — 질문 594 나). 다시 켜도 돌아오는 길이 이어진다.
 import { cityLocation } from "@terra/shared/goodsPlaces";
 import { JOB_GATHER, JOB_NONE, UPKEEP_PERIOD_MS, WALK_SPEED, arrivalAt } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -9,10 +11,12 @@ import { goodsAsset } from "../facilities/materials.ts";
 import { TEST_FACILITY_SOURCE } from "../facilities/testFacilities.ts";
 import { TEST_HOLDING_CONTENT } from "../holdings/testContent.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
+import type { Viewer } from "../trpc/context.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
-import { type World, startWorld } from "../world/world.ts";
+import { TEST_PLANET_ID, type World, startWorld } from "../world/world.ts";
+import { createTravelDanger } from "../worldMap/travelDanger.ts";
 
 const HOUR = 3_600_000;
 /** 정시 + 1ms에서 시작 */
@@ -222,6 +226,92 @@ describe.skipIf(!TEST_DATABASE_URL)("2차맵 사이 이동(서버·DB)", () => {
     expect(await mapAt(second, 2).vision.canView({ userId: a.userId, ownerId: a.ownerId })).toBe(true);
     await q.writer.durable();
     expect(await rows(test.db, "select unit_id from world_travels")).toEqual([]);
+    expect(await second.checkInvariants()).toEqual([]);
+  });
+
+  it("정찰: 닿으면 돌아오는 길(줄 저장)·탐사 기록(확인 단계가 오염을 안다), 다시 켜도 돌아와 출발 자리에 선다", async () => {
+    const first = await boot();
+    const p = persistence(first);
+    const a = await setup(first, "scout", 240, 40);
+    const scouted = mapAt(first, 1).mapKey;
+    const viewer: Viewer = { id: a.userId, loginId: "fake_scout", roles: ["player"] };
+    const danger = createTravelDanger({
+      pool: test.db.$client,
+      planetId: TEST_PLANET_ID,
+      maps: first.maps,
+      directory: first,
+      threshold: () => 2_000,
+    });
+    await test.db.$client.query(
+      `insert into planet_pollution (planet_id, cell_key, value, updated_at_ms) values ($1, $2, 3000, $3)`,
+      [TEST_PLANET_ID, scouted, clock],
+    );
+    const route = [mapAt(first, 0).mapKey, scouted];
+    // 아직 모르는 2차맵: 오염이 높아도 보이지 않는다
+    expect(await danger(viewer, route)).toEqual({ dangers: [], unknownMaps: 1 });
+
+    expect(
+      (await p.travel.start(a.userId, { unitId: a.unitId, mapKey: scouted, x: 20, y: 40, kind: "scout" })).ok,
+    ).toBe(true);
+    await walkLeg(first, a.unitId);
+    expect(whereIs(first, a.unitId)).toBe(1);
+    await walkLeg(first, a.unitId);
+    expect(p.travel.list(a.userId)).toMatchObject([
+      { state: "going", returning: true, scoutedMapKey: scouted },
+    ]);
+    await expect
+      .poll(async () => {
+        await p.writer.durable();
+        return rows(
+          test.db,
+          `select scouted_map_key, user_id, origin_map_key, origin_x, origin_y, target_x, target_y, leg
+           from world_travels where unit_id = $1`,
+          [a.unitId],
+        );
+      })
+      .toEqual([
+        {
+          scouted_map_key: String(scouted),
+          user_id: a.userId,
+          origin_map_key: String(mapAt(first, 0).mapKey),
+          origin_x: 240,
+          origin_y: 40,
+          target_x: 240,
+          target_y: 40,
+          leg: 0,
+        },
+      ]);
+    await expect
+      .poll(async () => {
+        await p.writer.durable();
+        return (
+          await rows<{ n: string }>(
+            test.db,
+            `select count(*) as n from world_exploration where user_id = $1 and map_key = $2`,
+            [a.userId, scouted],
+          )
+        )[0]?.n;
+      })
+      .toBe("1");
+    // 이제 아는 2차맵: 오염 위험이 보인다
+    expect(await danger(viewer, route)).toEqual({
+      dangers: [{ leg: 1, mapKey: scouted, pollution: 3000, pollutionHigh: true, warFactionIds: [] }],
+      unknownMaps: 0,
+    });
+
+    // 다시 켠다: 돌아오는 길이 이어져 출발 자리 (240, 40)에 선다
+    await first.stop();
+    worlds.splice(worlds.indexOf(first), 1);
+    const second = await boot();
+    const q = persistence(second);
+    await flush();
+    expect(q.travel.list(a.userId)).toMatchObject([
+      { state: "going", returning: true, scoutedMapKey: scouted },
+    ]);
+    for (let step = 0; step < 4 && q.travel.active > 0; step++) await walkLeg(second, a.unitId);
+    expect(q.travel.list(a.userId)).toMatchObject([
+      { state: "arrived", returning: true, mapKey: mapAt(second, 0).mapKey, cellX: 240, cellY: 40 },
+    ]);
     expect(await second.checkInvariants()).toEqual([]);
   });
 

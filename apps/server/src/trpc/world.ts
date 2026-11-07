@@ -1,7 +1,7 @@
 // world 라우터 — 지도 흐름 조회(docs/adr/2026-11-07-play-flow.md "WP2 지도 흐름", 기획 60 §4.1·§7.1). 응답 타입은 @terra/shared/worldMap이다.
 // - cities: 1차맵에 그릴 도시·국가(색·이름)·영토 껍질, 도시마다 시작 도시 여부·둘레 땅(행성 값)·띄운 맵인지·내가 볼 수 있는지.
 // - myPosition: 내 사이보그 본체가 있는 2차맵·배치 칸(2차맵 화면이 그 맵을 열고 카메라를 맞춘다), 없으면 띄운 첫 2차맵.
-// - travelPlan·travels(WP9 2차맵 사이 이동): 1차맵 명령 판의 확인 단계(지나는 2차맵·거리·걸리는 시간)와 내 유닛의 가는 중인 길·최근 도착.
+// - travelPlan·travels(WP9·WP11 2차맵 사이 이동): 1차맵 명령 판의 확인 단계(지나는 2차맵·거리·걸리는 시간·위험 구간)와 내 유닛의 가는 중인 길·최근 도착.
 // 읽기만 한다. 게임 상태를 바꾸는 명령은 WebSocket이다(AGENTS 4장 — 보내기·멈추기는 travel_start·travel_cancel).
 // 오류(error.data.code): UNAUTHORIZED(로그인 안 함·정지), BAD_REQUEST(틀린 입력). 세계(DB)가 없거나 부팅 복구 전이면 status "not_ready"(빈 목록)
 import type {
@@ -52,12 +52,14 @@ export const worldRouter = router({
     return services ? services.position(ctx.viewer, ctx.now()) : notReadyPosition(ctx.now());
   }),
   /** 2차맵 사이 이동 확인 단계(보내지 않는다) */
-  travelPlan: signedInProcedure.input(travelPlanInput).query(({ ctx, input }): WorldTravelPlanResponse => {
-    const services = ctx.worldMap?.();
-    return services?.travelPlan
-      ? services.travelPlan(ctx.viewer, input, ctx.now())
-      : { status: "not_ready", plan: null, problem: null, generatedAt: ctx.now() };
-  }),
+  travelPlan: signedInProcedure
+    .input(travelPlanInput)
+    .query(async ({ ctx, input }): Promise<WorldTravelPlanResponse> => {
+      const services = ctx.worldMap?.();
+      return services?.travelPlan
+        ? services.travelPlan(ctx.viewer, input, ctx.now())
+        : { status: "not_ready", plan: null, problem: null, generatedAt: ctx.now() };
+    }),
   /** 내 유닛의 길(가는 중 + 최근 끝난 것) */
   travels: signedInProcedure.query(({ ctx }): WorldTravelsResponse => {
     const services = ctx.worldMap?.();

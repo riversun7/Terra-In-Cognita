@@ -6,16 +6,18 @@ import { m } from "../paraglide/messages.js";
 import { clockText } from "./travelData.ts";
 import { openMap } from "./useCyborgTravel.ts";
 
-/** 아래 판의 가는 중 한 줄(2차맵 몇 번째·도착 예상) */
+/** 아래 판의 가는 중 한 줄(2차맵 몇 번째·도착 예상). 건너뛰는 중·정찰이 돌아오는 중은 그 문구(WP11) */
 export function TravelLine({ going }: { readonly going: WorldTravel | null }) {
   if (!going) return null;
+  const time = clockText(going.arriveAt, serverLink.clockOffsetMs());
+  const step = { at: going.leg + 1, total: going.route.length, time };
   return (
     <p className="map-command map-travel">
-      {m.map_travel_going({
-        at: going.leg + 1,
-        total: going.route.length,
-        time: clockText(going.arriveAt, serverLink.clockOffsetMs()),
-      })}
+      {going.hidden
+        ? m.map_travel_hidden({ time })
+        : going.returning
+          ? m.map_travel_returning(step)
+          : m.map_travel_going(step)}
     </p>
   );
 }

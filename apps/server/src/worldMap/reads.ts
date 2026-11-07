@@ -6,13 +6,14 @@
 // - 들어갈 수 있나: 띄운 2차맵(loaded)과 내 시야 규칙(viewable = 구독과 같은 canViewSecondMap).
 // - 도시 안개(WP7, 기획 정리 D-518 514): 내가 아는 도시만 보낸다(knownCities.ts — 시작 도시·내 국가·본 적 있는 자리·전체 보기 권한).
 //   "도시 N" 차례는 모든 도시로 센다(알게 된 도시가 늘어도 이름이 바뀌지 않게). 껍질은 그 덩이의 도시를 모두 알 때만.
-// - 내 자리: 사이보그 본체 유닛이 있는 띄운 2차맵과 지금 시각의 배치 칸.
+// - 내 자리: 사이보그 본체 유닛이 있는 띄운 2차맵과 지금 시각의 배치 칸. 띄우지 않은 2차맵을 건너뛰는 중이면 이동 서비스가 주는 곧은 선
+//   위 자리(hidden, WP11 질문 593 나).
 // 세계 규칙은 바꾸지 않는다(조회만). 표·쓰기 대기열·NPC 런타임 파일은 건드리지 않는다.
 import { type CellKey, decodeCellKey, isCellKey } from "@terra/planet";
 import { cellCenter } from "@terra/planet/projection";
 import { placementCellKey } from "@terra/planet/territory";
 import { planetCellValuesFromFile } from "@terra/planet/secondMap";
-import { CELL_UNITS, PLACEMENT_SIZE, positionAt } from "@terra/sim";
+import { CELL_UNITS, PLACEMENT_SIZE, TEST_GARDENER_COEFFICIENTS, positionAt } from "@terra/sim";
 import type { LocalizedName } from "@terra/shared/roster";
 import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
 import type {
@@ -33,6 +34,7 @@ import { TEST_NPC_FACTION_CODE } from "../world/unitKinds.ts";
 import type { World } from "../world/world.ts";
 import { canObserve, canViewSecondMap } from "../world/visibility.ts";
 import { hullKnown, isCityKnown, knownWithoutSight } from "./knownCities.ts";
+import { createTravelDanger } from "./travelDanger.ts";
 import { type TravelReads, createTravelReads } from "./travelReads.ts";
 
 /** 이 모듈이 세계에서 읽는 것(시험은 가짜를 넣는다) */
@@ -47,6 +49,8 @@ export interface WorldMapSource {
   sighted?: ((mapKey: number, viewer: Viewer) => Promise<Uint8Array | undefined>) | undefined;
   /** 영토 셈(조회 캐시). 없으면(영토 서비스 없음) undefined */
   territory?: ((planetId: string, userId: string) => Promise<TerritoryPlanetView | undefined>) | undefined;
+  /** 띄우지 않은 2차맵을 건너뛰는 유닛의 지금 자리(이동 서비스 hiddenAt). 없으면 그런 유닛은 자리 없음 */
+  travelling?: ((unitId: number) => { mapKey: number; cellX: number; cellY: number } | undefined) | undefined;
 }
 
 export interface WorldMapReadDeps {
@@ -331,8 +335,27 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
             ...placeLatLon(mapKey, cellX, cellY),
             unitId,
             startCityId: cyborg.startCityId,
+            hidden: false,
           };
           break;
+        }
+        // 띄우지 않은 2차맵을 건너뛰는 중: 곧은 선 위 자리(2차맵 화면은 열지 않는다)
+        const away = position ? undefined : source.travelling?.(unitId);
+        if (away && isCellKey(away.mapKey)) {
+          const cell = decodeCellKey(away.mapKey);
+          position = {
+            planetId,
+            mapKey: away.mapKey,
+            face: cell.face,
+            i: cell.i,
+            j: cell.j,
+            cellX: away.cellX,
+            cellY: away.cellY,
+            ...placeLatLon(away.mapKey, away.cellX, away.cellY),
+            unitId,
+            startCityId: cyborg.startCityId,
+            hidden: true,
+          };
         }
       }
       return { status: "ready", position, fallbackMapKey, generatedAt: nowMs };
@@ -364,8 +387,13 @@ export function worldMapReadsOf(options: {
   readonly faceLevel: number;
   readonly presets?: readonly NationPreset[] | undefined;
   readonly planets?: WorldMapPlanets | undefined;
+  /** 확인 단계 오염 위험 문턱(설정 칸 실효 값, 없으면 시험 계수 — 유목 목표 오염 문턱 S17) */
+  readonly pollutionDanger?: (() => number) | undefined;
 }): () => (WorldMapReadServices & TravelReads) | undefined {
   const { world, planets, planetId } = options;
+  const sighted = (mapKey: number, viewer: Viewer) =>
+    world.maps.get(mapKey)?.vision.sighted({ userId: viewer.id, ownerId: world.ownerOfUser?.(viewer.id) }) ??
+    Promise.resolve(undefined);
   const reads = createWorldMapReads({
     planetId,
     faceLevel: options.faceLevel,
@@ -374,23 +402,29 @@ export function worldMapReadsOf(options: {
       maps: world.maps,
       directory: world,
       cyborgOf: (userId) => world.persistence?.cyborgs.record(userId),
-      sighted: (mapKey, viewer) =>
-        world.maps
-          .get(mapKey)
-          ?.vision.sighted({ userId: viewer.id, ownerId: world.ownerOfUser?.(viewer.id) }) ??
-        Promise.resolve(undefined),
+      sighted,
       territory: (id, userId) =>
         world.persistence?.territory.planetView(id, userId) ?? Promise.resolve(undefined),
+      travelling: (unitId) => world.persistence?.travel.hiddenAt(unitId),
     },
     values: planets ? () => planets.planetValues(planetId) : undefined,
     biomeName: (id) => planets?.manifest(planetId)?.biomes.find((biome) => biome.id === id)?.name,
     factionName: (code) =>
       code === TEST_NPC_FACTION_CODE ? TEST_FACTION_NAME : nationName(code, options.presets),
   });
-  // 2차맵 사이 이동 조회(WP9): 확인 단계·가는 중인 길(이동 서비스, 지금 자리의 위도·경도를 붙인다)
+  // 2차맵 사이 이동 조회(WP9·WP11): 확인 단계(+ 위험 구간, 질문 594 나)·가는 중인 길(이동 서비스, 지금 자리의 위도·경도를 붙인다)
+  const danger = createTravelDanger({
+    pool: options.pool,
+    planetId,
+    maps: world.maps,
+    directory: world,
+    sighted,
+    threshold: options.pollutionDanger ?? (() => TEST_GARDENER_COEFFICIENTS.nomadThreshold),
+  });
   const travel = createTravelReads(
     () => world.persistence?.travel,
     (mapKey, x, y) => (isCellKey(mapKey) ? placeLatLon(mapKey, x, y) : { latDeg: 0, lonDeg: 0 }),
+    danger,
   );
   const services = { ...reads, ...travel };
   return () => (world.status().state === "ready" && world.persistence ? services : undefined);

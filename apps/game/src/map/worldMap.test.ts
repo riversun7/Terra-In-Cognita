@@ -59,6 +59,7 @@ const position = (overrides: Partial<WorldPositionResponse> = {}): WorldPosition
     lonDeg: 2,
     unitId: 77,
     startCityId: 3,
+    hidden: false,
   },
   fallbackMapKey: 400,
   generatedAt: 0,
@@ -136,6 +137,18 @@ describe("2차맵 화면이 열 맵", () => {
     expect(chooseMapTarget(undefined, position({ position: null, fallbackMapKey: null }))).toEqual({
       kind: "none",
     });
+  });
+
+  it("띄우지 않은 2차맵을 건너뛰는 중(WP11)이면 그 2차맵을 열지 않고 띄운 첫 맵, 주소 키 맵에도 내 사이보그 카메라 없음", () => {
+    const away = position();
+    const hidden = position({ position: away.position ? { ...away.position, hidden: true } : null });
+    expect(chooseMapTarget(undefined, hidden)).toEqual({
+      kind: "ready",
+      mapKey: 400,
+      focus: null,
+      cyborg: null,
+    });
+    expect(chooseMapTarget("500", hidden)).toEqual({ kind: "ready", mapKey: 500, focus: null, cyborg: null });
   });
 
   it("내 자리를 받지 못하면: 주소 키가 있으면 그 맵(카메라 없이), 없으면 실패", () => {

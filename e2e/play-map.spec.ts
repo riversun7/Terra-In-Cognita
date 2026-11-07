@@ -13,6 +13,10 @@
 //   [내 사이보그] → [멈추기] = travel_cancel(멈췄습니다). 시험이 끝나면 내 사이보그는 출발한 2차맵에 서 있다(뒤 시험이 그 자리를 쓴다).
 // - 572 다: 내 사이보그가 있는 2차맵도 ?at=이면 그곳을 보고 [내 사이보그]로 돌아간다.
 // - 사진: 가는 중인 명령 판 390 × 파스텔·다크 × 한국어·영어, 가는 중인 2차맵 390 × 파스텔·다크(한국어).
+// WP11(이동 2, docs/adr/2026-11-07-play-flow.md "WP11", 질문 590·591·593·594 나):
+// - 확인 단계에 정찰·이동의 다른 점(정찰은 돌아온다)·비용(걷기 = 없음)·위험 구간 줄(아는 것만)이 보인다.
+// - 가는 동안 1차맵 내 자리 표시가 따라간다(data-me-travel = going, data-me-at이 바뀐다 — WP9은 열 때·도착 때만 받았다).
+// - 정찰이 돌아오는 것·건너뛰는 구간은 시험 세계(띄운 2차맵 6장이 한 줄)와 걷는 시간(2차맵 한 장 약 10분) 때문에 서버 시험이 본다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
@@ -271,8 +275,15 @@ test.describe("도시 안개·들어가기·카메라(WP7): 플레이어", () =>
     await expect(order).toHaveAttribute("data-travel", "ready", { timeout: 15_000 });
     expect(Number(await order.getAttribute("data-route-maps"))).toBeGreaterThanOrEqual(2);
     await expect(order.locator(".planet-command-confirm")).toBeEnabled();
+    // WP11: 정찰은 돌아온다는 안내, 비용(걷기)·위험 구간 줄, 띄운 2차맵만 지나 건너뛰는 2차맵 없음
+    await expect(order.locator(".planet-command-note")).toHaveText(message("ko", "world_command_scout_note"));
+    const plan = order.locator(".planet-command-plan");
+    await expect(plan).toContainText(message("ko", "world_travel_cost_walk"));
+    await expect(order).toHaveAttribute("data-dangers", /^\d+$/);
+    await expect(order).toHaveAttribute("data-hidden-maps", "0");
     await order.getByRole("button", { name: message("ko", "world_command_move") }).click();
     await expect(order).toHaveAttribute("data-order", "move");
+    await expect(order.locator(".planet-command-note")).toHaveText(message("ko", "world_command_move_note"));
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);
     // 닫으면 도시 판으로 돌아간다
@@ -330,6 +341,13 @@ test.describe("2차맵 사이 이동(WP9): 플레이어", () => {
     expect(await myTravel(page)).toEqual({ state: "going", stop: null, target: city.mapKey });
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);
+    // WP11: 가는 동안 1차맵 내 자리 표시가 따라간다(다시 묻는 간격 5초 — 걷는 만큼 위도·경도가 바뀐다)
+    const planet = page.locator(".planet-screen");
+    await expect(planet).toHaveAttribute("data-me-travel", "going", { timeout: 10_000 });
+    const firstAt = await planet.getAttribute("data-me-at");
+    await expect
+      .poll(async () => (await planet.getAttribute("data-me-at")) !== firstAt, { timeout: 20_000 })
+      .toBe(true);
 
     // 2차맵 화면(키 없음 = 내 사이보그를 따라 연다): 가는 중 한 줄(2차맵 1/N)·[내 사이보그]
     await page.goto("/map");

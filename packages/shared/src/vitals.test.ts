@@ -1,6 +1,13 @@
 // 생명 수치 분 단위 회복 시험 — D-512
 import { describe, expect, it } from "vitest";
-import { VITALS_MINUTE_MS, type VitalsSnapshot, vitalsAt, vitalsFull, vitalsNextChange } from "./vitals.ts";
+import {
+  VITALS_MINUTE_MS,
+  type VitalsSnapshot,
+  vitalsAt,
+  vitalsFull,
+  vitalsNextChange,
+  vitalsRegenNow,
+} from "./vitals.ts";
 
 const base: VitalsSnapshot = {
   values: { hp: 10, armor: 3, shield: 5 },
@@ -41,5 +48,44 @@ describe("vitalsAt", () => {
     const shieldFull = { ...base, values: { hp: 10, armor: 3, shield: 48 } };
     expect(vitalsNextChange(shieldFull)).toBeNull();
     expect(vitalsFull({ ...base, values: base.max })).toBe(true);
+  });
+});
+
+describe("회복 구간(D-514: 부상 중 느린 회복·주기 회복 물건)", () => {
+  const M = VITALS_MINUTE_MS;
+  // 3분 동안 느림(HP 2/분), 그다음 5분까지 물건으로 빠름(HP 20/분), 그 뒤 보통(HP 10/분)
+  const phased: VitalsSnapshot = {
+    values: { hp: 0, armor: 0, shield: 0 },
+    max: { hp: 1000, armor: 100, shield: 100 },
+    regen: { hp: 10, armor: 1, shield: 0 },
+    at: 0,
+    phases: [
+      { until: 3 * M, regen: { hp: 2, armor: 0, shield: 0 } },
+      { until: 5 * M, regen: { hp: 20, armor: 1, shield: 0 } },
+    ],
+  };
+
+  it("분 경계마다 그 경계를 포함하는 구간의 회복을 쓴다", () => {
+    expect(vitalsAt(phased, 3 * M).values.hp).toBe(6);
+    expect(vitalsAt(phased, 5 * M).values.hp).toBe(46);
+    expect(vitalsAt(phased, 7 * M).values).toEqual({ hp: 66, armor: 4, shield: 0 });
+  });
+
+  it("나눠 세도 같고, 지난 구간은 뺀다", () => {
+    const step = vitalsAt(vitalsAt(vitalsAt(phased, 2.5 * M), 4 * M + 1), 7 * M);
+    expect(step).toEqual(vitalsAt(phased, 7 * M));
+    expect(vitalsAt(phased, 4 * M).phases).toEqual([phased.phases?.[1]]);
+    expect(vitalsAt(phased, 5 * M).phases).toBeUndefined();
+  });
+
+  it("다음 경계의 회복과 다음 바뀌는 시각: 지금 구간 회복이 0이어도 뒤에 있으면 다시 본다", () => {
+    expect(vitalsRegenNow(phased).hp).toBe(2);
+    expect(vitalsRegenNow(vitalsAt(phased, 3 * M)).hp).toBe(20);
+    const stalled: VitalsSnapshot = {
+      ...phased,
+      regen: { hp: 10, armor: 0, shield: 0 },
+      phases: [{ until: 2 * M, regen: { hp: 0, armor: 0, shield: 0 } }],
+    };
+    expect(vitalsNextChange(stalled)).toBe(M);
   });
 });

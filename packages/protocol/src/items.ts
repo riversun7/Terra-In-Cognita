@@ -1,7 +1,8 @@
 // 보유 물건 메시지(프로토콜 6부터) — docs/adr/2026-11-03-item-holdings.md 5절, 기획 D-496·D-501·N49.
 // - 바꾸는 명령: 입기(item_equip, 내구도 0이면 못 입음)·벗기(item_unequip)·쓰기(item_use, 효과량은 서버가 D-501 식으로 굴림, 수량 −1,
 //   물약은 유닛마다 쿨 D-509)·
-//   개발 시험 받기(dev_grant_item, dev·admin). 조회(가진 물건·걸린 효과)는 tRPC holdings.list다.
+//   개발 시험 받기(dev_grant_item, dev·admin)·개발 시험 병원 치료(dev_treat_unit, dev·admin, 프로토콜 9, D-514). 조회(가진 물건·걸린
+//   효과)는 tRPC holdings.list, 생명 수치는 vitals.list다.
 // - 서버가 판정한다: 소유·자리·칸·내구도·효과 교체(같은 효과는 높은 것만, 같은 묶음의 다른 효과는 confirm). 기기는 결과만 보인다.
 // - 결과는 item_result 하나로 온다(id = 요청 id). 오류는 코드다(기기가 번역).
 // 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다: 아이템 ID 목록은 서버가 확인하고, 여기서는 모양만 본다.
@@ -47,6 +48,16 @@ export const devGrantItemMessage = z.object({
   quantity: z.number().int().positive().max(1000),
   unit: rowId.optional(),
 });
+
+/** 개발 시험(D-514): 내 유닛(없으면 내 사이보그)을 병원 치료한다 — 부상을 지우고 HP를 가득(dev·admin, 병원 시설이 생기기 전 규칙 고리) */
+export const devTreatUnitMessage = z.object({
+  t: z.literal("dev_treat_unit"),
+  id: requestId,
+  unit: rowId.optional(),
+});
+
+/** 개발 시험 병원 치료에 필요한 가장 낮은 프로토콜 버전 */
+export const TREAT_PROTOCOL_VERSION = 9;
 
 // ---------- 서버 → 기기 ----------
 
@@ -116,5 +127,6 @@ export const itemClientMessages = [
   itemUnequipMessage,
   itemUseMessage,
   devGrantItemMessage,
+  devTreatUnitMessage,
 ] as const;
 export const itemServerMessages = [itemResultMessage] as const;

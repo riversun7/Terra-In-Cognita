@@ -3,12 +3,12 @@
 // 세계 유닛(w…)의 장비 칸은 보유 물건(holdings/UnitHoldings.tsx: 칸 고르기·장착·해제·사용, docs/adr/2026-11-03-item-holdings.md
 // "바뀜 (화면)"), 시안 유닛은 시안 칸 목록.
 import type { RosterUnit, UnitsListResponse } from "@terra/shared/roster";
-import type { VitalsSnapshot } from "@terra/shared/vitals";
 import { useEffect, useId, useRef } from "react";
 import { m } from "../paraglide/messages.js";
 import { UnitHoldings } from "../holdings/UnitHoldings.tsx";
 import { Meter, PreviewTag, Section, SkillList, SlotList, SoonButton, StatBlock } from "../roster/parts.tsx";
 import { VitalsMeters } from "../roster/VitalsMeters.tsx";
+import type { VitalsShown } from "../roster/useVitals.ts";
 import {
   assetLabel,
   formatAmount,
@@ -64,7 +64,7 @@ export function UnitDetail({
   unit: RosterUnit;
   data: UnitsListResponse;
   /** 지금 생명 수치(실제 세계 유닛만, D-512). 없으면 막대를 그리지 않는다 */
-  vitals?: VitalsSnapshot | undefined;
+  vitals?: VitalsShown | undefined;
   /** 보유 물건이 바뀐 뒤(회복 물약 등) 생명 수치를 다시 받는다 */
   onVitalsStale?: (() => void) | undefined;
   onClose: () => void;

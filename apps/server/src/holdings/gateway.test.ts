@@ -131,4 +131,32 @@ describe("보유 물건 WebSocket", () => {
     });
     expect(done).toMatchObject({ t: "item_result", id: 5, ok: true, effects: [{ effect: "hold_meal_int" }] });
   });
+
+  it("개발 시험 병원 치료(D-514): dev·admin만, 내 유닛이어야 하고, 고리가 치료한 뒤 커밋을 기다린다", async () => {
+    const durable: string[] = [];
+    const treated: number[] = [];
+    const found: HoldingsAccess = {
+      ...access(durable),
+      treat: (unitId) => {
+        treated.push(unitId);
+        return true;
+      },
+    };
+    const plain = open(found, player);
+    plain.socket.handle({ t: "dev_treat_unit", id: 1, unit: UNIT });
+    const { sent, socket } = open(found, dev);
+    socket.handle({ t: "dev_treat_unit", id: 2 });
+    socket.handle({ t: "dev_treat_unit", id: 3, unit: 999 });
+    const noHook = open(access([]), dev);
+    noHook.socket.handle({ t: "dev_treat_unit", id: 4 });
+    await settle();
+    expect(plain.sent).toEqual([{ t: "item_result", id: 1, ok: false, code: "forbidden" }]);
+    expect(sent).toEqual([
+      { t: "item_result", id: 2, ok: true },
+      { t: "item_result", id: 3, ok: false, code: "unknown_unit" },
+    ]);
+    expect(noHook.sent).toEqual([{ t: "item_result", id: 4, ok: false, code: "unknown_unit" }]);
+    expect(treated).toEqual([UNIT]);
+    expect(durable).toEqual(["durable"]);
+  });
 });

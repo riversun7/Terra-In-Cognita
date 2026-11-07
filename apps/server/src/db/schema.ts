@@ -503,6 +503,8 @@ export const worldCities = pgTable(
 
 // 휴먼·구인 카드 산 칸(D-469): populationSchema.ts
 export { recruitDraws, worldHumans } from "./populationSchema.ts";
+// 사이보그 유닛(D-470 융합): fusionSchema.ts
+export { cyborgUnits } from "./fusionSchema.ts";
 
 /** 세력 쌍의 전쟁·불가침(D-256·D-290·D-292, 작은 ID가 앞). 하나도 아니면 행이 없다 */
 export const factionWars = pgTable(

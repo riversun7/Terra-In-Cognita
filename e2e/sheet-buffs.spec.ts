@@ -1,9 +1,11 @@
 // 사이보그 판 버프 몫 화면 시험 — 질문 354 → 기획 D-515 "기본값과 버프를 나눠(버프 몫은 다른 색) 보인다", D-448.
 // docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07, 사이보그 판 버프 몫·꺼진 아이템)".
 // - 팩에는 아직 쓰는 물건이 없어서, 시험이 아이템 편집기(tRPC items.save, 그 세계 덮어쓰기)로 시험 효과 다섯과 그 효과를 한 번에 거는
-//   시험 물약을 만든다(STR +3 고정값, 공격 +100‰, 방어율 +50‰, 이동 속도 −200‰ 디버프, AGI −2 디버프, 한 시간).
-// - admin 계정(사이보그 있음, 개발 받기): 받기 → [사용] → 핵심 사양 STR 줄 = 기본 + 알약 "+3"(버프 색), AGI 줄 알약 "-2"(디버프 색),
-//   상세 전투 스펙: 물리 공격력·방어율 줄 버프 알약, 회피 줄 디버프 알약, 실제 공격력 줄은 공격 ‰까지 든 몫(펼치면 "전투 수치 버프 +10%"),
+//   시험 물약을 만든다(STR +4 고정값, 공격 +100‰, 방어율 +40‰, 이동 속도 −200‰ 디버프, AGI −4 디버프, 한 시간). 효과량은 쓸 때
+//   ±오차로 굴린다(D-501, 설정 칸 d496_use_variance 출발값 ±50%) — 그래서 값은 화면에서 읽어 맞춰 본다(0이 나오지 않는 크기로 둔다).
+// - admin 계정(사이보그 있음, 개발 받기): 받기 → [사용] → 핵심 사양 STR 줄 = 기본 + 알약 "+n"(버프 색, 상세 판 합계 = 기본 + n),
+//   AGI 줄 알약 "-m"(디버프 색, 막대 끝 깎인 몫), 상세 전투 스펙: 물리 공격력·방어율 줄 버프 알약, 회피 줄 디버프 알약, 실제 공격력 줄은
+//   공격 ‰까지 든 몫(펼치면 "전투 수치 버프 +n%"),
 //   기동 묶음에 이동 속도 줄(−20%). 버프는 한 시간 남으므로 이 계정의 공격 값을 보는 equip-stats.spec은 기본값(.combat-value-base)을 읽는다.
 //   dev 계정의 칸·효과를 세는 inventory.spec과 겹치지 않게 admin을 쓴다.
 // - 사진: 390·1440 × 파스텔·다크 × 한국어·영어 — 핵심 사양 판, 공격·방어·기동 묶음. 폴더는 E2E_SHOTS_DIR.
@@ -107,11 +109,11 @@ async function ensureTestItems(page: Page): Promise<void> {
         enabled: true,
         use: {
           effects: [
-            line(ID.str, 3),
+            line(ID.str, 4),
             line(ID.attack, 100),
-            line(ID.guard, 50),
+            line(ID.guard, 40),
             line(ID.slow, 200),
-            line(ID.agi, 2),
+            line(ID.agi, 4),
           ],
         },
       },
@@ -162,11 +164,18 @@ async function ensureBuffed(page: Page, language: Language): Promise<void> {
   await card.first().locator('[data-action="use"]').click();
   await expect(notice(page)).toContainText(message(language, "holdings_done_use", { item: FEAST[language] }));
   // 보유 물건 목록이 다시 오면 cyborg.get도 다시 받는다 → 버프 몫이 보인다
-  await expect(coreRow(page, "str")).toHaveAttribute("data-buff", "3", { timeout: 15_000 });
+  await expect(coreRow(page, "str")).toHaveAttribute("data-buff", /^\d+$/, { timeout: 15_000 });
 }
 
 /** 줄 값 글의 수(자리 나눔을 뺀다) */
 const numberIn = (text: string | null): number => Number((text ?? "").replaceAll(/[^\d-]/g, ""));
+/** "전투 수치 버프 +n%" 문구(굴린 값이라 수는 아무것) */
+const combatBuffLine = (language: Language): RegExp =>
+  new RegExp(
+    message(language, "cyborg_buff_combat", { value: "VALUE" })
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      .replace("VALUE", "\\+[\\d.]+%"),
+  );
 
 test.describe("관리자 계정: 버프 물약 → 사이보그 판 버프 몫", () => {
   test.use({ account: "admin" });
@@ -181,20 +190,23 @@ test.describe("관리자 계정: 버프 물약 → 사이보그 판 버프 몫",
     await cyborgReady(page);
     await ensureBuffed(page, "ko");
 
-    // 핵심 사양: STR = 기본 + 알약 "+3"(버프), 상세 판 합계 = 기본 + 3
+    // 핵심 사양: STR = 기본 + 알약 "+n"(버프), 상세 판 합계 = 기본 + n
     const str = coreRow(page, "str");
+    const strShare = Number(await str.getAttribute("data-buff"));
+    expect(strShare).toBeGreaterThan(0);
     await expect(str.locator(".buff-chip")).toHaveAttribute("data-tone", "up");
-    await expect(str.locator(".buff-chip")).toContainText("+3");
+    await expect(str.locator(".buff-chip")).toContainText(`+${String(strShare)}`);
     await expect(str.locator(".buff-chip")).toContainText(message("ko", "cyborg_buff_up"));
     const strBase = numberIn(await str.locator(".core-total-value").textContent());
     await str.locator(".core-toggle").click();
-    await expect(str.locator(".core-pop-sum")).toHaveText(String(strBase + 3));
+    await expect(str.locator(".core-pop-sum")).toHaveText(String(strBase + strShare));
     await expect(str.locator('.core-seg[data-part="effect"]')).toHaveCount(1);
     // AGI 디버프 −2: 디버프 색 알약, 막대 끝이 깎인 몫, 범례에 디버프
     const agi = coreRow(page, "agi");
-    await expect(agi).toHaveAttribute("data-buff", "-2");
+    await expect(agi).toHaveAttribute("data-buff", /^-\d+$/);
+    const agiShare = Number(await agi.getAttribute("data-buff"));
     await expect(agi.locator(".buff-chip")).toHaveAttribute("data-tone", "down");
-    await expect(agi.locator(".buff-chip")).toContainText("-2");
+    await expect(agi.locator(".buff-chip")).toContainText(String(agiShare));
     await expect(agi.locator('.core-seg[data-part="debuff"]')).toHaveCount(1);
     await expect(page.locator('.core-legend-item[data-part="debuff"]')).toBeVisible();
 
@@ -204,24 +216,22 @@ test.describe("관리자 계정: 버프 물약 → 사이보그 판 버프 몫",
     await expect(secRow(page, "defense_rate")).toHaveAttribute("data-buff", "up");
     await expect(secRow(page, "evade")).toHaveAttribute("data-buff", "down");
     await expect(secRow(page, "defense_rate").locator(".combat-bar-buff")).toHaveCount(1);
-    // 방어율 줄을 펴면 전투 수치 버프 +5%와 "버프 … → 전투 …"
+    // 방어율 줄을 펴면 "전투 수치 버프 +n%"와 "버프 … → 전투 …"
     await secRow(page, "defense_rate").locator(".combat-toggle").click();
     const defense = secRow(page, "defense_rate").locator(".combat-detail");
-    await expect(defense).toContainText(message("ko", "cyborg_buff_combat", { value: "+5%" }));
+    await expect(defense).toContainText(combatBuffLine("ko"));
     await expect(defense.locator(".combat-buff-line")).toBeVisible();
 
-    // 실제 공격력: 기본값 옆 버프 알약, 펼치면 공격 ‰ 버프 +10%
+    // 실제 공격력: 기본값 옆 버프 알약, 펼치면 공격 ‰ 버프 "+n%"
     const attack = realRow(page, "attack");
     await expect(attack).toHaveAttribute("data-buff", "up");
     await attack.locator(".combat-toggle").click();
-    await expect(attack.locator(".combat-detail")).toContainText(
-      message("ko", "cyborg_buff_combat", { value: "+10%" }),
-    );
-    // 이동 속도(2차 행 없음): 기동 묶음에 100% + 디버프 알약 −20%
+    await expect(attack.locator(".combat-detail")).toContainText(combatBuffLine("ko"));
+    // 이동 속도(2차 행 없음): 기동 묶음에 100% + 디버프 알약 "-n%"
     const move = realRow(page, "move_speed");
     await expect(page.locator('.combat-group[data-group="mobility"]').locator(move)).toBeVisible();
     await expect(move.locator(".combat-value-base")).toHaveText("100%");
-    await expect(move.locator(".buff-chip")).toContainText("-20%");
+    await expect(move.locator(".buff-chip")).toContainText(/-\d+(\.\d+)?%/);
     await expect(move).toHaveAttribute("data-buff", "down");
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);

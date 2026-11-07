@@ -85,6 +85,6 @@ describe("노동 계약 메시지", () => {
   it("계약 명령은 판 7, 구인 게시는 판 8(메시지를 더해 올렸다)", () => {
     expect(LABOR_PROTOCOL_VERSION).toBe(7);
     expect(LABOR_JOBS_PROTOCOL_VERSION).toBe(8);
-    expect(LABOR_JOBS_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(LABOR_JOBS_PROTOCOL_VERSION);
   });
 });

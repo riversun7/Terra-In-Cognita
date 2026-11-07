@@ -450,6 +450,7 @@ export {
   AFFINITY_RELATION,
   TEST_COMBAT_COEFFICIENTS,
   affinityRatePm,
+  armorRegenOf,
   msToTicks,
   regenOnTick,
   specStaminaCostMilli,
@@ -562,6 +563,8 @@ export type {
   BattleInit,
   BattleInput,
   BattlePartySpec,
+  BattlePotion,
+  BattlePotions,
   BattleResult,
   BattleSideSpec,
   BattleState,
@@ -573,6 +576,13 @@ export type {
   UnitState,
   UnitStatus,
 } from "./combat/battleTypes.ts";
+export {
+  consumablesUsed,
+  drinkPotion,
+  potionHeal,
+  type ConsumablesUsed,
+  type PotionDrink,
+} from "./combat/consumables.ts";
 export {
   postLoot,
   resolveOutcomes,
@@ -851,6 +861,22 @@ export {
   type RecruitProfile,
 } from "./society/recruitment.ts";
 export { STREAM_RECRUIT, type RecruitView, type SocietyRecruit } from "./simulator/societyRecruit.ts";
+export {
+  FUSION_STAT_COUNT,
+  OLD_FUSION_COEFFICIENTS,
+  deathGeneDrops,
+  fuseStatRange,
+  fuseStats,
+  fusionBonusPm,
+  geneRebirthBonus,
+  geneRebirthCost,
+  partsDonorStats,
+  rebirthGeneOf,
+  sixStats,
+  upkeepWeightPm,
+  type FusionCoefficients,
+  type GeneItem,
+} from "./society/fusion.ts";
 export {
   advanceTech,
   researchCost,

@@ -171,6 +171,24 @@ describe("입은 장비 → 사이보그 화면(cyborg.get 몸)", () => {
     ]);
   });
 
+  it("부상 불이익(D-514): 성장값 + 버프에서 ‰만큼 빼고(효과 출처 injury), 장비 1차 보너스에는 걸지 않는다. 몸을 다시 만들 까닭은 아니다", () => {
+    const injured: UnitGear = { ...gear([], [effect({ effect: "food_str", value: 5 })]), injuryPm: 400 };
+    const body = realCyborgBody(catalog, record, false, injured);
+    // STR: 10 + 5 = 15 → −⌊15 × 0.4⌋ = −6, 나머지 10 → −4
+    expect(body.stats.primaries.str).toEqual({ base: 10, bonus: -1 });
+    expect(body.stats.primaries.vit).toEqual({ base: 10, bonus: -4 });
+    expect(body.primarySources.str).toEqual([
+      { kind: "body", value: 10 },
+      { kind: "effect", id: "food_str", value: 5 },
+      { kind: "effect", id: "injury", value: -6 },
+    ]);
+    // 2차 스탯도 깎인 1차로 센다(HP 행)
+    const fresh = realCyborgBody(catalog, record, false);
+    const hp = (view: typeof body) => view.stats.secondary.find((entry) => entry.id === "hp")?.value ?? 0;
+    expect(hp(body)).toBeLessThan(hp(fresh));
+    expect(hasGear({ ...NO_GEAR, injuryPm: 400 })).toBe(false);
+  });
+
   it("실제 스태미나 회복 = 행 값 × min(2, STA 점수 ÷ 적정 STA)(D-511 real_stamina_regen)", () => {
     const fresh = realCyborgBody(catalog, record, false);
     expect(fresh.combat?.staminaRegen).toEqual({ row: 720, score: 10, appropriateMilli: 10_000, real: 720 });
@@ -333,6 +351,17 @@ describe("사이보그 판 버프 몫(질문 354 → D-515: 기본값과 버프�
     });
     // 1차 스탯 줄의 몫은 출처의 효과 칸(그대로)
     expect(body.primarySources.str).toContainEqual({ kind: "effect", id: "food_str", value: 5 });
+  });
+
+  it("부상 불이익(D-514)도 걸린 효과의 몫이다: 1차 출처 effect injury와 2차 행 몫이 같은 것을 센다", () => {
+    const hurt = realCyborgBody(catalog, record, false, { equipped: [], effects: [], injuryPm: 300 }, NOW);
+    // 1차: 성장값 10 − ⌊10 × 300 ÷ 1000⌋ = 7, 출처에 effect injury −3
+    expect(hurt.primarySources.vit).toContainEqual({ kind: "effect", id: "injury", value: -3 });
+    // 2차 풀이는 불이익 전 기본, 몫은 음수(디버프)
+    const plain = realCyborgBody(catalog, record, false, NO_GEAR, NOW);
+    expect(hurt.breakdown.map((entry) => entry.value)).toEqual(plain.breakdown.map((entry) => entry.value));
+    expect(hurt.buffs?.rows.hp ?? 0).toBeLessThan(0);
+    expect(value(hurt.breakdown, "hp") + (hurt.buffs?.rows.hp ?? 0)).toBe(value(hurt.stats.secondary, "hp"));
   });
 
   it("이동 속도 디버프는 판정 하한(100‰)까지만 몫이 된다", () => {

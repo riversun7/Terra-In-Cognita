@@ -8,6 +8,7 @@ import { type GardenerCoefficients, TEST_GARDENER_COEFFICIENTS } from "../garden
 import { type NpcCoefficients, TEST_NPC_COEFFICIENTS } from "../npc/coefficients.ts";
 import { type SystemSwitches, TEST_SYSTEM_SWITCHES } from "../tuningSwitches.ts";
 import type { CyborgTemperament } from "./cyborgStats.ts";
+import { type FusionCoefficients, OLD_FUSION_COEFFICIENTS } from "./fusion.ts";
 import { OLD_RECRUIT_COEFFICIENTS, type RecruitCoefficients } from "./recruitment.ts";
 
 export interface SocietyCoefficients {
@@ -54,6 +55,11 @@ export interface SocietyCoefficients {
    * 규칙은 society/recruitment.ts
    */
   readonly recruit: RecruitCoefficients;
+  /**
+   * 사이보그 유닛 융합·유전자 조각(D-470·D-478·D-481, 49 N46·N47, 옛 craftCyborg·LifeEngine·reincarnate 값). 팩 tuning 경로 "fusion.*".
+   * 규칙은 society/fusion.ts. 시뮬은 읽지 않는다(서버 융합·환생·사망 조각이 읽는다)
+   */
+  readonly fusion: FusionCoefficients;
   /** 지상 기술 단계 상한(질문 121 기본안: 시설 Lv1~5 사다리) */
   readonly techGroundMax: number;
   /** [임시] 단계 n으로 오르는 연구 작업량(효율 1000인 연구 일꾼 한 시간 = 1000) = researchWorkBase × n */
@@ -260,6 +266,14 @@ export interface SocietyCoefficients {
       readonly exchange: number;
     };
   };
+  /**
+   * 생명 수치 회복(D-514, 49 N54): 부상 단계(0 없음·1 경상·2 중상·3 중태, D-145)마다 분당 HP 회복에 곱하는 ‰와 1차 스탯
+   * 불이익(‰ 감소). 0번 칸은 다치지 않은 유닛(1000·0, 구조 값). [임시] 출발값
+   */
+  readonly vitals: {
+    readonly injuryRegenPm: readonly number[];
+    readonly injuryPenaltyPm: readonly number[];
+  };
   /** 운영자 런타임 온/오프 스위치(49 N53, D-513, 팩 tuning 경로 "switches.*") */
   readonly switches: SystemSwitches;
 }
@@ -292,6 +306,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     ...OLD_RECRUIT_COEFFICIENTS,
     levels: OLD_RECRUIT_COEFFICIENTS.levels.map((level) => ({ ...level })),
   },
+  fusion: { ...OLD_FUSION_COEFFICIENTS },
   techGroundMax: 5,
   researchWorkBase: 48_000,
   developmentPerTech: 20,
@@ -404,5 +419,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     potionHpThresholdPm: 400,
     preservePm: { unit: 1000, storage: 1000, fridge: 2000, pickle: 3000, can: 5000, freezer: 0, exchange: 0 },
   },
+  // [임시] D-514: 부상 중 회복은 경상 ½·중상 ¼·중태 ⅒, 불이익은 D-145 범위 가운데(경상 15%·중상 40%)·중태 50%
+  vitals: { injuryRegenPm: [1000, 500, 250, 100], injuryPenaltyPm: [0, 150, 400, 500] },
   switches: { ...TEST_SYSTEM_SWITCHES },
 };

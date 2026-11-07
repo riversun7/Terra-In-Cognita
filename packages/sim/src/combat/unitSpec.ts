@@ -6,8 +6,14 @@
 // 무기의 속성 계수(skillElementsPm)는 물리 칸이면 옵션(속성 몫, D-459)이다.
 // 무기는 공격력 칸을 물리·속성 하나 또는 둘 가진다(D-465). 스킬은 기반에 맞는 칸, 기본 공격은 basic 칸(질문 235 가).
 // 맨손으로는 스킬을 쓸 수 없다(D-490, 맨손 스킬 제외): 사양에 든 무기의 칸 목록(weaponFields)을 적고, 맨손 스킬은 타고난 무기로 센다.
+// HP 회복 = 2차 스탯 hp_regen, 아머 회복 = 최대 아머 HP × 설정 칸 ‰(D-514, 둘 다 분당).
 import type { CombatUnitSpec } from "./battleTypes.ts";
-import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS, staminaScore } from "./coefficients.ts";
+import {
+  type CombatCoefficients,
+  TEST_COMBAT_COEFFICIENTS,
+  armorRegenOf,
+  staminaScore,
+} from "./coefficients.ts";
 import { UNARMED, UNARMED_ELEMENTAL } from "./catalog.ts";
 import { type AttackProfile, ELEMENT_COUNT } from "./formula.ts";
 import {
@@ -252,6 +258,9 @@ export function specFromStats(
     mpCost: w.mpCost,
     mpRegen: Math.max(0, s("mp_regen")),
     shieldRegen: Math.max(0, s("shield_regen")),
+    // HP 회복(2차 스탯 hp_regen, D-514)·아머 회복(최대 × N54 설정 칸): 전투 중에도 쉴드처럼 찬다
+    hpRegen: Math.max(0, s("hp_regen")),
+    armorRegen: armorRegenOf(Math.max(0, s("armor_hp")), c),
     sight: Math.max(0, s("sight")),
     eye: body.eye ?? 16 * 180,
     air: body.air ?? false,

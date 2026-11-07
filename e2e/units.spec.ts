@@ -37,7 +37,7 @@ test.describe("플레이어(실제 자료)", () => {
     await unitsReady(page);
     await expect(page.locator(".roster-preview-switch")).toHaveCount(0);
     await expect(page.locator(".roster-notice")).toHaveCount(0);
-    await expect(page.getByRole("tab")).toHaveCount(6);
+    await expect(page.getByRole("tab")).toHaveCount(7);
     await expect(page.locator(".roster-empty-title")).toHaveText(message("ko", "units_empty_title"));
     await tab(page, "units_tab_parties").click();
     await expect(page.locator(".roster-empty-title")).toHaveText(message("ko", "units_parties_empty_title"));
@@ -45,7 +45,9 @@ test.describe("플레이어(실제 자료)", () => {
     await expect(page.locator(".roster-empty-title")).toHaveText(message("ko", "units_auction_empty_title"));
     await tab(page, "units_tab_prisoners").click();
     await expect(page.getByText(message("ko", "units_prisoners_held_empty"))).toBeVisible();
-    // ←·→로 칸을 옮긴다(탭 패턴)
+    // ←·→로 칸을 옮긴다(탭 패턴): 포로 → 융합 → (끝에서 처음으로) 목록
+    await page.keyboard.press("ArrowRight");
+    await expect(tab(page, "units_tab_fusion")).toHaveAttribute("aria-selected", "true");
     await page.keyboard.press("ArrowRight");
     await expect(tab(page, "units_tab_list")).toHaveAttribute("aria-selected", "true");
     expect(await horizontalOverflow(page)).toEqual([]);

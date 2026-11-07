@@ -309,8 +309,8 @@ describe("수리 고리(D-512 323·D-5031·F11·F12)", () => {
   });
 });
 
-describe("퇴각과 패배 닳음(D-512 324, D-190)", () => {
-  it("진 편은 패배 닳음을 더 받고, 퇴각은 전투마다 닳음만(이긴 편과 같다)", () => {
+describe("퇴각과 패배 닳음(D-512 324, D-514 352, D-190)", () => {
+  it("진 편은 패배 닳음을 더 받고, 퇴각은 닳지 않는다(전투마다 닳음도 없음)", () => {
     const rules = rulesWithWear({ chancePm: 1000, amount: 1, lossChancePm: 1000, lossAmount: 4 });
     const after = (outcome: "won" | "lost" | "retreated"): number | null | undefined => {
       const { service } = setup();
@@ -333,7 +333,7 @@ describe("퇴각과 패배 닳음(D-512 324, D-190)", () => {
     };
     expect(after("won")).toBe(99);
     expect(after("lost")).toBe(95);
-    expect(after("retreated")).toBe(99);
+    expect(after("retreated")).toBe(100);
   });
 });
 

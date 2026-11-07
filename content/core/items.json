@@ -2384,6 +2384,89 @@
       "startPrice": 1,
       "weight": 1000,
       "enabled": true
+    },
+    {
+      "id": "microchip",
+      "name": {
+        "ko": "마이크로칩",
+        "en": "Microchip"
+      },
+      "category": "part",
+      "subcategory": "circuit",
+      "tier": 4,
+      "startPrice": 1,
+      "weight": 10,
+      "enabled": true
+    },
+    {
+      "id": "gene_stat_human",
+      "name": {
+        "ko": "휴먼 스탯 유전자 조각",
+        "en": "Human stat gene shard"
+      },
+      "category": "part",
+      "subcategory": "gene",
+      "tier": 3,
+      "startPrice": 1,
+      "weight": 1,
+      "gene": {
+        "kind": "stat",
+        "species": "human",
+        "drops": ["death"]
+      },
+      "enabled": true
+    },
+    {
+      "id": "gene_skill_human",
+      "name": {
+        "ko": "휴먼 스킬 유전자 조각",
+        "en": "Human skill gene shard"
+      },
+      "category": "part",
+      "subcategory": "gene",
+      "tier": 3,
+      "startPrice": 1,
+      "weight": 1,
+      "gene": {
+        "kind": "skill",
+        "species": "human"
+      },
+      "enabled": true
+    },
+    {
+      "id": "gene_stat_creature",
+      "name": {
+        "ko": "크리쳐 스탯 유전자 조각",
+        "en": "Creature stat gene shard"
+      },
+      "category": "part",
+      "subcategory": "gene",
+      "tier": 3,
+      "startPrice": 1,
+      "weight": 1,
+      "gene": {
+        "kind": "stat",
+        "species": "creature",
+        "drops": ["death"]
+      },
+      "enabled": true
+    },
+    {
+      "id": "gene_skill_creature",
+      "name": {
+        "ko": "크리쳐 스킬 유전자 조각",
+        "en": "Creature skill gene shard"
+      },
+      "category": "part",
+      "subcategory": "gene",
+      "tier": 3,
+      "startPrice": 1,
+      "weight": 1,
+      "gene": {
+        "kind": "skill",
+        "species": "creature"
+      },
+      "enabled": true
     }
   ]
 }

@@ -1,8 +1,8 @@
 // 보유 물건 서비스를 월드에 잇는다 — docs/adr/2026-11-03-item-holdings.md 4절. world.ts가 부팅 복구 때 한 번 부른다.
 // - 유닛 주인·종류는 2차맵 메모리에서, 쓰는 유닛의 1차 스탯은 유닛 화면과 같은 셈(config.cyborgPrimaries·defaultPrimaries — 입은 장비·
 //   1차 스탯 버프 포함, roster/unitBody.ts)에서 읽는다. 설정이 없으면 [임시] 기본값(1차 모두 10, roster/body.ts BASELINE_PRIMARY).
-// - 유닛이 지닌 것(gearOf: 입은 물건·걸린 효과 + 효과 사전 칸)을 사이보그 화면·유닛 상세·생명 수치·세계 전투 시작이 읽는다
-//   (docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07, 입은 장비·버프 → 스탯·전투)").
+// - 유닛이 지닌 것(gearOf: 입은 물건·걸린 효과 + 효과 사전 칸)과 부상 불이익(D-514 — 부상 단계 × 설정 칸)을 사이보그 화면·유닛 상세·
+//   생명 수치·세계 전투 시작이 읽는다(docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07, 입은 장비·버프 → 스탯·전투)").
 // - 유닛 종류 코드(world_units.kind) → 팩 unit_kinds: 사이보그(3) = cyborg, 그 밖 = human(유닛 화면 baselineBody와 같다).
 // - 1분마다 썩은 묶음을 바꾸고 끝난 효과를 지운다(목록을 읽을 때도 먼저 셈한다).
 import type { EffectEntry } from "@terra/content";
@@ -14,7 +14,8 @@ import type { UnitGear } from "../roster/unitBody.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { Settlement } from "../world/settlement.ts";
-import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
+import { UNIT_KIND_CYBORG, UNIT_KIND_CYBORG_UNIT } from "../world/unitKinds.ts";
+import { injuryAt } from "../world/unitCondition.ts";
 import type { HoldingsAccess } from "./gateway.ts";
 import { type HoldingRules, TEST_HOLDING_RULES } from "./rules.ts";
 import {
@@ -94,7 +95,15 @@ export function createWorldHoldings(input: {
     if (effectDefs?.source !== list) effectDefs = { source: list, byId: new Map(list.map((e) => [e.id, e])) };
     return effectDefs.byId.get(id);
   };
+  /** 부상 불이익(D-514): 그 시각 부상 단계의 ‰(설정 칸 n54_injury_penalty_1~3) */
+  const injuryPmOf = (unitId: number, nowMs: number): number => {
+    const condition = infoOf(unitId)?.condition;
+    const stage = condition ? injuryAt(condition, nowMs) : 0;
+    if (stage === 0) return 0;
+    return (config?.rules?.() ?? TEST_HOLDING_RULES).vitals.injuryPenaltyPm[stage] ?? 0;
+  };
   const gearOf = (unitId: number, nowMs: number): UnitGear => ({
+    injuryPm: injuryPmOf(unitId, nowMs),
     equipped: service.equippedOn(unitId).map((record) => ({
       item: record.itemId,
       slot: record.slot ?? 0,
@@ -130,7 +139,8 @@ export function createWorldHoldings(input: {
       unitKind: (unitId) => {
         const info = infoOf(unitId);
         if (!info) return undefined;
-        return info.kind === UNIT_KIND_CYBORG ? "cyborg" : "human";
+        // 사이보그 본체·융합한 사이보그 유닛(D-470)은 사이보그 칸 배치(인공장기 칸). 휴먼 칸 배치의 앞 여섯 칸과 차례가 같다
+        return info.kind === UNIT_KIND_CYBORG || info.kind === UNIT_KIND_CYBORG_UNIT ? "cyborg" : "human";
       },
       // 쓰는 유닛의 1차 스탯(소모품 효과량 D-501): 입은 장비·지금 걸린 1차 스탯 버프 포함
       unitPrimaries: (unitId) => {
@@ -155,6 +165,18 @@ export function createWorldHoldings(input: {
     unitOwner: (unitId) => infoOf(unitId)?.ownerId,
     durable: () => input.writer.durable(),
     seed: input.seed,
+    // 병원 치료(D-514, 옛 병원 코드: 부상을 지우고 HP를 최대로) — 병원 시설이 생기기 전 개발 시험 고리
+    treat: (unitId, nowMs) => {
+      for (const map of maps.values()) {
+        const info = map.unitInfo(unitId);
+        if (!info) continue;
+        if (info.condition.injury > 0 || info.condition.injuryUntilMs !== null)
+          map.setCondition(unitId, { ...info.condition, injury: 0, injuryUntilMs: null });
+        input.vitals?.treat?.(unitId, nowMs);
+        return true;
+      }
+      return false;
+    },
   };
   return {
     service,

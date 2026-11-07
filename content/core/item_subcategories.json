@@ -157,6 +157,15 @@
       "enabled": true
     },
     {
+      "id": "gene",
+      "name": {
+        "ko": "유전자",
+        "en": "Genes"
+      },
+      "major": "part",
+      "enabled": true
+    },
+    {
       "id": "weapon",
       "name": {
         "ko": "무기",

@@ -1,7 +1,6 @@
 // 유닛 목록 칸 — 걸러 보기(종류·상태·거점)·다중 선택(D-6016)·상세. 좁은 폭은 목록 ↔ 상세, 넓은 폭은 목록 옆 상세 판.
 // 정렬은 손이 필요한 순이다(질문 137 기본안 → D-443, rosterText.ts sortUnits). 고른 유닛에 줄 명령은 아직 "곧 열림"이다.
 import type { RosterUnit, UnitsListResponse } from "@terra/shared/roster";
-import type { VitalsSnapshot } from "@terra/shared/vitals";
 import { useMemo, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { PreviewTag, SoonButton } from "../roster/parts.tsx";
@@ -23,16 +22,25 @@ import {
   unitLabel,
   unitStatus,
 } from "../roster/rosterText.ts";
-import { type VitalsNow, worldUnitId } from "../roster/useVitals.ts";
+import { type VitalsNow, type VitalsShown, worldUnitId } from "../roster/useVitals.ts";
 import { UnitAvatar, UnitDetail } from "./UnitDetail.tsx";
 
-const TYPE_FILTERS = ["all", "human", "creature", "android", "test"] as const satisfies readonly TypeFilter[];
+// 사이보그 = 융합한 사이보그 유닛(D-470 "유닛 탭 종류에 사이보그도"). 본체는 사이보그 화면이다
+const TYPE_FILTERS = [
+  "all",
+  "human",
+  "creature",
+  "android",
+  "cyborg",
+  "test",
+] as const satisfies readonly TypeFilter[];
 
 const TYPE_FILTER_LABELS = {
   all: m.units_filter_all,
   human: m.roster_type_human,
   creature: m.roster_type_creature,
   android: m.roster_type_android,
+  cyborg: m.roster_type_cyborg,
   test: m.units_filter_test,
 } satisfies Record<TypeFilter, () => string>;
 
@@ -42,7 +50,7 @@ const isStatusFilter = (value: string): value is StatusFilter =>
   value === "all" || (UNIT_STATUSES as readonly string[]).includes(value);
 
 /** 화면 유닛의 지금 생명 수치(실제 세계 유닛만, D-512) */
-const vitalsOf = (vitals: VitalsNow | undefined, unit: RosterUnit): VitalsSnapshot | undefined => {
+const vitalsOf = (vitals: VitalsNow | undefined, unit: RosterUnit): VitalsShown | undefined => {
   const id = worldUnitId(unit.id);
   return id === null ? undefined : vitals?.of(id);
 };
@@ -229,7 +237,7 @@ function UnitRow({
 }: {
   unit: RosterUnit;
   data: UnitsListResponse;
-  vitals: VitalsSnapshot | undefined;
+  vitals: VitalsShown | undefined;
   checked: boolean;
   current: boolean;
   onToggle: () => void;

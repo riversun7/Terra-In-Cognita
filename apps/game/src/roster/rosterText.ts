@@ -255,7 +255,7 @@ export function injuryLabel(stage: number, locale: Locale = getLocale()): string
 }
 
 /** 걸러 보기의 종류 묶음: 시험 유닛 둘은 한 묶음 */
-export type TypeFilter = "all" | "human" | "creature" | "android" | "test";
+export type TypeFilter = "all" | "human" | "creature" | "android" | "cyborg" | "test";
 export type StatusFilter = "all" | UnitStatus;
 
 export interface UnitFilter {

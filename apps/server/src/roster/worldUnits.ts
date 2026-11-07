@@ -4,7 +4,12 @@
 // 세계 표는 바꾸지 않는다(읽기만). 저장된 스탯·장비가 아직 없어 화면 스탯은 [임시] 기본값이다(body.ts baselineBody).
 import type { RosterCargo, RosterDomain, RosterInjury, RosterJob, UnitType } from "@terra/shared/roster";
 import { JOB_GATHER, JOB_HUNT, PHASE_REST, arrivalAt } from "@terra/sim";
-import { UNIT_KIND_CYBORG, UNIT_KIND_HUMAN, UNIT_KIND_WORKER } from "../world/unitKinds.ts";
+import {
+  UNIT_KIND_CYBORG,
+  UNIT_KIND_CYBORG_UNIT,
+  UNIT_KIND_HUMAN,
+  UNIT_KIND_WORKER,
+} from "../world/unitKinds.ts";
 import type { World } from "../world/world.ts";
 
 /** 실제 유닛 한 줄(화면 모양으로 바꾸기 전) */
@@ -44,9 +49,13 @@ export const EMPTY_WORLD_ROSTER: WorldRosterSource = {
 
 const DOMAINS: readonly RosterDomain[] = ["space", "sky", "land", "sea"];
 
-/** 세계 유닛 종류 코드 → 화면 종류: 시험 일꾼(1), 구인으로 고용한 휴먼(4, D-469), 그 밖(관리자 시험 유닛 2, NPC 세력만 갖는 봇 0)은 시험 유닛 */
+/**
+ * 세계 유닛 종류 코드 → 화면 종류: 시험 일꾼(1), 구인으로 고용한 휴먼(4, D-469), 융합한 사이보그 유닛(5, D-470),
+ * 그 밖(관리자 시험 유닛 2, NPC 세력만 갖는 봇 0)은 시험 유닛
+ */
 export function unitTypeOf(kind: number): UnitType {
   if (kind === UNIT_KIND_HUMAN) return "human";
+  if (kind === UNIT_KIND_CYBORG_UNIT) return "cyborg";
   return kind === UNIT_KIND_WORKER ? "test_worker" : "test_unit";
 }
 

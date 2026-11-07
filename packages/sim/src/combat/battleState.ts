@@ -1,6 +1,7 @@
 // 전투 상태 만들기와 유닛 도우미 — battle.ts가 쓴다. docs/adr/2026-10-31-combat-core.md
 import { type CombatCoefficients, msToTicks, specStaminaCostMilli } from "./coefficients.ts";
 import { applyPassives } from "./skills.ts";
+import { consumableState, hasAmmo, spendShot } from "./consumables.ts";
 import type {
   BattleInit,
   BattleState,
@@ -16,18 +17,20 @@ export function active(unit: UnitState): boolean {
   return unit.status === "alive";
 }
 
-/** 행동할 수 있나: 다음 행동 시각이 됐고 자원이 충분(D-418) */
+/** 기본 공격할 수 있나: 다음 행동 시각이 됐고 자원이 충분(D-418), 탄을 쓰는 무기면 탄이 남음(D-497) */
 export function ready(unit: UnitState, nowMs: number, c: CombatCoefficients): boolean {
   return (
     nowMs >= unit.nextActionMs &&
+    hasAmmo(unit) &&
     unit.staminaMilli >= specStaminaCostMilli(unit, unit.staminaCost, c) &&
     (unit.attack.kind !== "elemental" || unit.mpMilli >= unit.mpCost * 1000)
   );
 }
 
-/** 행동을 쓴다: 자원을 쓰고 다음 행동 시각을 정한다(빗나가도 쓴다) */
+/** 기본 공격을 쓴다: 자원·탄을 쓰고 다음 행동 시각을 정한다(빗나가도 쓴다) */
 export function spend(unit: UnitState, nowMs: number, c: CombatCoefficients): void {
   unit.staminaMilli -= specStaminaCostMilli(unit, unit.staminaCost, c);
+  spendShot(unit);
   if (unit.attack.kind === "elemental") unit.mpMilli -= unit.mpCost * 1000;
   unit.nextActionMs = nowMs + unit.attackIntervalMs;
 }
@@ -79,6 +82,8 @@ export function unitFrom(spec: CombatUnitSpec): UnitState {
     cast: null,
     command: null,
     lastCommandMs: -1_000_000_000,
+    // 가지고 들어온 탄·물약(287). 사양에 없으면 칸을 두지 않는다(옛 상태 모양 그대로)
+    ...consumableState(spec),
   };
   // 쓰러진 채 들어온 유닛에는 지속형 스킬을 걸지 않는다(회복 부품이 쓰러진 유닛을 일으키지 않게)
   if (unit.status === "alive") applyPassives(unit);

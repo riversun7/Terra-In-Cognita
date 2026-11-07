@@ -191,6 +191,17 @@
       "enabled": true
     },
     {
+      "id": "hp_regen",
+      "name": {
+        "ko": "HP 회복",
+        "en": "HP regen"
+      },
+      "shape": "quantity",
+      "base": 60,
+      "weights": [0, 0, 0, 4800, 0, 2400],
+      "enabled": true
+    },
+    {
       "id": "sight",
       "name": {
         "ko": "시야",

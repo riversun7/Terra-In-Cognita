@@ -132,9 +132,9 @@ describe("몸 계산", () => {
     expect(body.preview).toBe(true);
   });
 
-  it("사이보그 풀이: 켜진 2차 스탯 14개 + 시야 + 제작 직무(D-458, D-502로 명중·크리·행동 속도 점수는 끔, D-512 323), 새 네 행도 공식 항과 함께 온다", () => {
+  it("사이보그 풀이: 켜진 2차 스탯 15개 + 시야 + 제작 직무(D-458, D-502로 명중·크리·행동 속도 점수는 끔, D-512 323, HP 회복 D-514), 새 행도 공식 항과 함께 온다", () => {
     const body = previewCyborg(catalog);
-    expect(body.breakdown).toHaveLength(16);
+    expect(body.breakdown).toHaveLength(17);
     // 물리 공격력 = (STR + VIT) ÷ 2(D-502): 항 STR·VIT 500‰
     const attack = body.breakdown.find((entry) => entry.id === "physical_attack");
     expect(attack?.terms.map((term) => [term.stat, term.weightPm])).toEqual([
@@ -152,6 +152,12 @@ describe("몸 계산", () => {
     // 쉴드 재생 = 1분에 WIS만큼(L11): 항 WIS × 1000‰ 하나
     expect(row("shield_regen").terms.map((term) => [term.stat, term.weightPm])).toEqual([["wis", 1000]]);
     expect(row("shield_regen").value).toBe(total("wis"));
+    // HP 회복(D-514) = 분당 60 + VIT × 4.8 + WIS × 2.4(옛 문서 초당 식 × 60 [임시])
+    expect(row("hp_regen").terms.map((term) => [term.stat, term.weightPm])).toEqual([
+      ["vit", 4800],
+      ["wis", 2400],
+    ]);
+    expect(row("hp_regen").value).toBe(60 + Math.floor((total("vit") * 4800 + total("wis") * 2400) / 1000));
     // 속성 방어율: 확률 모양(상한 700‰·반감 100), 항은 화면 차례 VIT·WIS
     const ward = row("elemental_defense_rate");
     expect([ward.shape, ward.cap, ward.halfConstant]).toEqual(["probability", 700, 100]);

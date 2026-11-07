@@ -43,6 +43,7 @@ import type {
 } from "@terra/shared/balance";
 import type { BattleReplayDemoResponse } from "@terra/shared/battleReplay";
 import type { RecruitBoardResponse } from "@terra/shared/recruit";
+import type { FusionOverviewResponse } from "@terra/shared/fusion";
 import type { PlanetLibraryBase } from "@terra/shared";
 import type {
   PlanetDraftRevisionInfo,
@@ -269,6 +270,17 @@ export interface CyborgReadServices {
 }
 
 /**
+ * 사이보그 유닛 융합·유전자 조회(fusion.overview, D-470·D-478). 바꾸는 명령은 WebSocket cyborg_fuse·unit_rebirth·dev_grant_goods다.
+ * devGrant = dev·admin(개발 시험 물자 받기 버튼)
+ */
+export interface FusionReadServices {
+  overview(
+    viewer: { readonly id: string; readonly devGrant: boolean },
+    nowMs: number,
+  ): Promise<FusionOverviewResponse>;
+}
+
+/**
  * 구인 카드 조회(recruit.board, D-469). 고용은 WebSocket recruit_hire다. owner = dev·admin(그 도시 주인 NPC 세력의 카드도 본다)
  */
 export interface RecruitReadServices {
@@ -350,6 +362,8 @@ export interface TrpcContext {
   cyborgs?: (() => CyborgReadServices | undefined) | undefined;
   /** 구인 카드 조회(D-469). 세계·NPC 사회 런타임이 없거나 부팅 복구 전이면 undefined(프로시저가 PRECONDITION_FAILED) */
   recruits?: (() => RecruitReadServices | undefined) | undefined;
+  /** 융합·유전자 조회(D-470·D-478). 세계(DB)가 없거나 부팅 복구 전이면 undefined(프로시저가 PRECONDITION_FAILED) */
+  fusion?: (() => FusionReadServices | undefined) | undefined;
   /** 개발자 2차맵 시험. 월드·지형 서비스·행성 서비스가 다 있을 때만 */
   secondMapLab?: SecondMapLabServices | undefined;
   /** 영토 조회(docs/adr/2026-11-03-territory-layer.md 5절). 세계(DB)가 없거나 부팅 복구 전이면 undefined */

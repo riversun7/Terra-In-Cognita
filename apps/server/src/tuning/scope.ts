@@ -138,10 +138,19 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "durability.wearAmount",
   "durability.wearLossChancePm",
   "durability.wearLossAmount",
-  // 물약·요리 쿨(holdings/service.ts use, D-509·D-510): 쓸 때마다 읽는다. 탄약 보충 감소(d509_ammo_refill_loss)·자동 물약 HP 문턱
-  // (d510_potion_hp_threshold)은 아직 고리라 sim
+  // 물약·요리 쿨(holdings/service.ts use, D-509·D-510): 쓸 때마다 읽는다. 자동 물약 HP 문턱(d510_potion_hp_threshold)은 세계 전투를 열
+  // 때마다 읽는다(287 battleKit). 탄약 보충 감소(d509_ammo_refill_loss)는 아직 고리라 sim
   "consumables.potionCooldownMs",
   "consumables.foodCooldownMs",
+  "consumables.potionHpThresholdPm",
+  // 생명 수치 회복(D-514 N54): 부상 단계별 HP 회복 속도(vitals/world.ts, 읽을 때마다)·1차 스탯 불이익(holdings/world.ts gearOf, 몸을
+  // 셀 때마다). 아머 회복(n54_armor_regen)은 전투 계수표 칸이라 이 표(세력·사회 경로)에 없다(반영 범위 표시는 sim)
+  "vitals.injuryRegenPm.1",
+  "vitals.injuryRegenPm.2",
+  "vitals.injuryRegenPm.3",
+  "vitals.injuryPenaltyPm.1",
+  "vitals.injuryPenaltyPm.2",
+  "vitals.injuryPenaltyPm.3",
   // 보관 곳마다 보존 배율(holdings/service.ts 썩기·신선도, D-512 322): 셀 때마다 읽는다. 수리 장인 적정 점수(f11_craft_appropriate)는
   // 수리 고리라 sim
   "consumables.preservePm.unit",
@@ -157,6 +166,21 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "switches.exchangeEnabled",
   "switches.productionEnabled",
   "switches.npcAiEnabled",
+  // 사이보그 유닛 융합·유전자 환생·사망 조각(fusion/service.ts, 49 N46·N47): 명령·조회마다 읽는다. 유지비 배율은 정산마다
+  // (world.ts createSettlement upkeepWeightPm)
+  "fusion.currency",
+  "fusion.titaniumQty",
+  "fusion.microchipQty",
+  "fusion.physicalDonorPm",
+  "fusion.mentalHumanPm",
+  "fusion.bonusMinPm",
+  "fusion.bonusMaxPm",
+  "fusion.partsStat",
+  "fusion.upkeepPm",
+  "fusion.geneLevelDivisor",
+  "fusion.geneMin",
+  "fusion.genePoints",
+  "fusion.geneDeathDrop",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

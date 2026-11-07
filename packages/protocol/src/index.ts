@@ -48,7 +48,19 @@ export {
   type CyborgResultCode,
   type CyborgRollWire,
 } from "./cyborg.ts";
-export { ITEM_PROTOCOL_VERSION, ITEM_RESULT_CODES, type ItemResultCode } from "./items.ts";
+export {
+  ITEM_PROTOCOL_VERSION,
+  ITEM_RESULT_CODES,
+  TREAT_PROTOCOL_VERSION,
+  type ItemResultCode,
+} from "./items.ts";
+export {
+  DEV_GRANT_CURRENCY,
+  DEV_GRANT_GOODS_MAX,
+  FUSION_PROTOCOL_VERSION,
+  FUSION_RESULT_CODES,
+  type FusionResultCode,
+} from "./fusion.ts";
 export {
   LABOR_JOBS_PROTOCOL_VERSION,
   LABOR_PROTOCOL_VERSION,

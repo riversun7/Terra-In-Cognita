@@ -1,5 +1,6 @@
-// 구인 카드 시험 화면의 순수 셈 — 고용 단추 상태, 스탯 묶음(D-448 STR·VIT / INT·WIS / DEX·AGI), 속성 칸, 다음 갱신까지 남은 시간.
-// 화면(RecruitLabScreen.tsx)이 쓰고 시험(recruitModel.test.ts)이 본다. 문구는 고르지 않고 키·값만 돌려준다.
+// 구인 카드 화면의 순수 셈 — 고용 단추 상태, 스탯 묶음(D-448 STR·VIT / INT·WIS / DEX·AGI), 속성 칸, 다음 갱신까지 남은 시간.
+// 화면(경제 구인 칸 economy/RecruitPanel.tsx·개발자 구인 화면 RecruitLabScreen.tsx)이 쓰고 시험(recruitModel.test.ts)이 본다.
+// 문구는 고르지 않고 키·값만 돌려준다.
 import type { PrimaryStat } from "@terra/shared/roster";
 import { RECRUIT_ELEMENTS, type RecruitCardView, type RecruitElement } from "@terra/shared/recruit";
 

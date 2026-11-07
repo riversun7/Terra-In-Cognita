@@ -381,6 +381,21 @@ export const WORLD_TABLES = {
     columns: ["building_id", "owner_id", "asset", "rent_per_hour", "updated_at_ms"],
     key: ["building_id"],
   },
+  /** 유닛 직무(직무 배치·채집 진행, docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산") — 산출 거래와 같은 묶음 */
+  unitWork: {
+    name: "unit_work",
+    columns: [
+      "unit_id",
+      "owner_id",
+      "building_id",
+      "assigned_at_ms",
+      "gather_building_id",
+      "gather_points",
+      "gather_seq",
+      "updated_at_ms",
+    ],
+    key: ["unit_id"],
+  },
   /** 건물(시설) 상태(docs/adr/2026-11-07-buildings-runtime.md) — 짓기·수리 재료 거래와 같은 묶음 */
   facilities: {
     name: "world_facilities",
@@ -488,6 +503,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "laborContracts",
   "laborPostings",
   "laborRents",
+  "unitWork",
   "facilities",
   "facilityJobs",
   "transactions",

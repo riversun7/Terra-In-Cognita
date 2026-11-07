@@ -140,6 +140,21 @@ export const CYBORG_TUNING_KEYS: readonly TuningKey[] = [
     "정착 지원금 배율 걸음(시작 사이보그 1명당 ‰)",
     "Settlement grant multiplier step per cyborg (‰)",
   ),
+  // 시작 재료(기획 칸 없음 → [임시] 설정값, docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산", 질문 520)
+  k(
+    "start_goods_pine_log",
+    "",
+    "cyborg.startPineLog",
+    "시작 재료: 소나무 원목(개, 시작 도시 창고)",
+    "Starting goods: pine logs (count, start city storage)",
+  ),
+  k(
+    "start_goods_stone",
+    "",
+    "cyborg.startStone",
+    "시작 재료: 석재(개, 시작 도시 창고)",
+    "Starting goods: stone (count, start city storage)",
+  ),
   // 장비·인공장기 수리(F11 시설 Lv별 최대 내구도 감소 %, 하한 %, F12 파괴 문턱, D-5031)
   k(
     "f11_repair_lv1",

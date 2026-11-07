@@ -6,7 +6,6 @@
 // - 가운데: 내 카드(고용 주체 = 나). 카드마다 토탈·스탯 묶음 막대·속성·값과 [고용]. 390px에서는 한 줄에 하나, 넓으면 여럿.
 // - 아래: 도시 주인(NPC 세력)이 같은 창에 보는 카드(dev·admin, 산 칸 표시) — NPC 구인 규칙식이 무엇을 샀는지 본다.
 // 조각 이름 RecruitLabScreen-*([Rr]ecruitLab).
-import type { RecruitResultCode } from "@terra/protocol";
 import type { RecruitBoardResponse, RecruitCardView } from "@terra/shared/recruit";
 import { useEffect, useRef, useState } from "react";
 import { refreshSession } from "../../auth/session.ts";
@@ -18,8 +17,14 @@ import { BackButton } from "../../shell/BackButton.tsx";
 import { navigate } from "../../shell/routerStore.ts";
 import { LiveMessage, useLiveLines } from "../../ui/LiveMessage.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
-import { sendRecruitHire } from "./recruitCommands.ts";
-import { RECRUIT_STAT_PAIRS, activeElements, hireState, refreshLeft, statShare } from "./recruitModel.ts";
+import { RECRUIT_RESULT_TEXT, sendRecruitHire } from "../../recruit/recruitCommands.ts";
+import {
+  RECRUIT_STAT_PAIRS,
+  activeElements,
+  hireState,
+  refreshLeft,
+  statShare,
+} from "../../recruit/recruitModel.ts";
 import "./recruitLab.css";
 
 type Load =
@@ -43,20 +48,7 @@ const ELEMENT_NAME = {
   earth: m.cyborg_element_earth,
 } as const;
 
-const RESULT_TEXT: Readonly<Record<RecruitResultCode | "offline" | "timeout", () => string>> = {
-  sign_in_required: m.dev_recruit_err_sign_in,
-  busy: m.dev_recruit_err_busy,
-  rate_limited: m.dev_recruit_err_rate_limited,
-  no_cyborg: m.dev_recruit_err_no_cyborg,
-  unknown_city: m.dev_recruit_err_unknown_city,
-  cards_changed: m.dev_recruit_err_cards_changed,
-  taken: m.dev_recruit_err_taken,
-  insufficient_funds: m.dev_recruit_err_funds,
-  no_room: m.dev_recruit_err_no_room,
-  internal_error: m.dev_recruit_err_internal,
-  offline: m.dev_recruit_err_offline,
-  timeout: m.dev_recruit_err_timeout,
-};
+const RESULT_TEXT = RECRUIT_RESULT_TEXT;
 
 /** 조회 실패 문구: 런타임이 꺼져 있거나 부팅 중(PRECONDITION_FAILED)은 따로 알린다 */
 function loadError(error: unknown): string {

@@ -241,6 +241,13 @@ export interface SocietyCoefficients {
     readonly grantMaxPm: number;
     readonly grantMinPm: number;
     readonly grantStepPm: number;
+    /**
+     * 시작 재료(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산", 기획 칸 없음 → [임시] 설정값, 질문 520): 사이보그를 만들 때 그 시작
+     * 도시의 내 도시 창고에 넣는 첫 건물 재료(소나무 원목·석재 개수, 0이면 주지 않는다). 출발값 = 벌목장(원목 10·석재 5)과 농장(원목 8)을
+     * 하나씩 지을 만큼 + 여유
+     */
+    readonly startPineLog: number;
+    readonly startStone: number;
   };
   /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
@@ -430,6 +437,8 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     grantMaxPm: 1500,
     grantMinPm: 1000,
     grantStepPm: 50,
+    startPineLog: 20,
+    startStone: 10,
   },
   durability: {
     repairLossPct: [30, 25, 20, 15, 10],

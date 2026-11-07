@@ -235,4 +235,43 @@ describe("소유 주체 정산 — 산출 구간(노동 계약, docs/adr/2026-11
     expect(book.balanceOf(9, TEST_ASSET_ORE)).toBe(66n);
     expect(result.cycles).toBe(66);
   });
+
+  it("진짜 물건 구간(goods): 그 구간 주기를 시험 광석 대신 부르는 쪽 줄(생산원 → 받는 계정)로 내고, 나머지 구간은 예전대로", () => {
+    const book = bookWithCredit(3, 10n);
+    const log: number[] = [];
+    const source = () => book.systemAccount("source:item:pine_log", "item:pine_log");
+    const city = () => book.ownerAccount(3, "item:pine_log", 7);
+    const result = settleOwnerPeriod(
+      {
+        ownerId: 3,
+        jobs: [fresh, fresh],
+        fromMs: 0,
+        toMs: HOUR,
+        offlineSinceMs: null,
+        outputs: [
+          [
+            {
+              untilMs: HOUR,
+              stock: () => {
+                throw new Error("물건 구간은 시험 광석 계정을 만들지 않는다");
+              },
+              goods: (made) => {
+                log.push(made);
+                // 주기 10번마다 원목 1개
+                return [{ source: source(), account: city(), qty: BigInt(Math.floor(made / 10)) }];
+              },
+            },
+          ],
+          undefined,
+        ],
+      },
+      book,
+      testSettleAccounts(book, 3),
+    );
+    expect(log).toEqual([60]);
+    expect(book.balanceOf(3, "item:pine_log", 7)).toBe(6n);
+    // 둘째 유닛(구간 없음)은 예전대로 시험 광석
+    expect(book.balanceOf(3, TEST_ASSET_ORE)).toBe(60n);
+    expect(result.cycles).toBe(120);
+  });
 });

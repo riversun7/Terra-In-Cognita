@@ -1,5 +1,6 @@
-// 건물 칸의 카드 — 내 시설(상태 막대·작업·레벨업·수리), 내 세력 영토 비콘(수리), 고칠 장비(공방 장비 수리)
+// 건물 칸의 카드 — 내 시설(상태 막대·작업·레벨업·수리·채집 시설 일꾼 칸), 내 세력 영토 비콘(수리), 고칠 장비(공방 장비 수리)
 // docs/adr/2026-11-07-buildings-runtime.md. 판정은 서버, 화면은 미리 셈(@terra/shared/facilityRuntime 같은 식)과 결과 문구만.
+// 채집 시설 일꾼 칸(직무 배치)은 WorkerParts.tsx(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산").
 import type {
   FacilitiesOverviewResponse,
   FacilityBeaconView,
@@ -28,7 +29,9 @@ import {
   stacksText,
   stockAt,
 } from "./facilityText.ts";
+import type { LaborRun } from "./laborText.ts";
 import { StorageMoveForm } from "./StorageParts.tsx";
+import { FacilityWorkers } from "./WorkerParts.tsx";
 
 /** 상태 막대(색만으로 알리지 않는다: 글로 %, 카드 머리에 상태 이름). 상태(N50 문턱)에 따라 색이 바뀐다 */
 export function ConditionBar({ ppm, label, state }: { ppm: number; label: string; state: string }) {
@@ -67,6 +70,8 @@ export interface CardProps {
   readonly now: number;
   readonly run: FacilityRun;
   readonly busy: boolean;
+  /** 직무 배치 명령(노동 계약 길, 프로토콜 14). 없으면 일꾼 칸을 그리지 않는다 */
+  readonly runLabor?: LaborRun | undefined;
 }
 
 /** 수리 단계 미리 셈(서버와 같은 식): steps번 이어서, 모자란 만큼까지 */
@@ -92,6 +97,7 @@ export function FacilityCard({
   now,
   run,
   busy,
+  runLabor,
 }: CardProps & { facility: FacilityView }) {
   const titleId = `facility-${facility.buildingId}`;
   const level = Math.max(1, facility.level);
@@ -214,6 +220,9 @@ export function FacilityCard({
       ) : null}
       {facility.storage && facility.level >= 1 ? (
         <StorageMoveForm facility={facility} data={data} run={run} busy={busy} />
+      ) : null}
+      {facility.gather && runLabor ? (
+        <FacilityWorkers facility={facility} data={data} runLabor={runLabor} busy={busy} />
       ) : null}
     </li>
   );

@@ -33,6 +33,7 @@ import {
 } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";
+import type { LaborWorkerEntry } from "../labor/service.ts";
 import type { TerritoryService } from "../territory/service.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
@@ -51,6 +52,8 @@ export interface FacilityViewSource {
   readonly rules: () => SocietyCoefficients;
   readonly catalog: () => FacilityCatalog;
   readonly unitBusy: (unitId: number) => boolean;
+  /** 그 시설에서 일하는 유닛(노동 계약 서비스 workersAt — 직무 배치·열린 계약). 없으면 빈 목록 */
+  readonly workersOf?: ((buildingId: number) => readonly LaborWorkerEntry[]) | undefined;
 }
 
 /** 내 세력 비콘 하나(영토 서비스)와 재료를 꺼내는 도시(그 세력에서 가장 가까운 도시, 질문 410 ①) */
@@ -188,6 +191,16 @@ export function facilitiesOverview(
   for (const def of catalog.facilities) for (const rule of def.repair ?? []) note(rule.materials);
 
   const facilities: FacilityView[] = [];
+  /** 유닛 종류(사이보그 본체 표시) */
+  const kindOf = (unitId: number): number | undefined => {
+    for (const map of source.maps.values()) {
+      const info = map.unitInfo(unitId);
+      if (info) return info.kind;
+    }
+    return undefined;
+  };
+  /** 내 유닛 → 직무 배치된 내 시설(유닛 목록이 보인다) */
+  const myWork = new Map<number, number>();
   const shops: { buildingId: number; def: FacilityDef; works: boolean }[] = [];
   for (const map of source.maps.values())
     map.forEachBuilding((building) => {
@@ -251,6 +264,24 @@ export function facilitiesOverview(
             : null,
         idleMsToDisabled: record.level >= 1 ? idleMsUntil(condition, rt.disabledPm, rt) : null,
         repairsEquipment: (def.repair?.length ?? 0) > 0,
+        gather: def.gather
+          ? {
+              primary: def.gather.primary,
+              secondary: def.gather.secondary,
+              subcategory: def.gather.subcategory,
+              mode: def.gather.mode === "select" ? "select" : "roll",
+            }
+          : null,
+        slots: def.gather ? Math.max(0, record.level) * Math.max(0, def.slotsPerLevel) : 0,
+        workers: (source.workersOf?.(building.id) ?? []).map((worker) => {
+          if (worker.via === "assign") myWork.set(worker.unitId, building.id);
+          return {
+            unitId: worker.unitId,
+            via: worker.via,
+            mine: worker.workerOwnerId === ownerId,
+            cyborg: kindOf(worker.unitId) === UNIT_KIND_CYBORG,
+          };
+        }),
       });
     });
 
@@ -300,11 +331,22 @@ export function facilitiesOverview(
         const busy =
           source.unitBusy(unit.id) || [...service.jobs.values()].some((job) => job.unitIds.includes(unit.id));
         const table = source.holdings.statTable() ?? TEST_STAT_TABLE;
+        const primaries = source.holdings.primariesOf(unit.id);
+        const assigned = myWork.get(unit.id) ?? null;
         units.push({
           id: unit.id,
           cyborg: unit.kind === UNIT_KIND_CYBORG,
           busy,
-          craftScore: craftScore(source.holdings.primariesOf(unit.id), table),
+          craftScore: craftScore(primaries, table),
+          stats: {
+            str: primaries.str,
+            dex: primaries.dex,
+            agi: primaries.agi,
+            vit: primaries.vit,
+            int: primaries.int,
+            wis: primaries.wis,
+          },
+          assignedTo: assigned,
         });
       });
   units.sort((a, b) => Number(b.cyborg) - Number(a.cyborg) || a.id - b.id);

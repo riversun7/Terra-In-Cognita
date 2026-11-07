@@ -87,6 +87,7 @@ export {
   type TempleResultCode,
 } from "./temple.ts";
 export {
+  LABOR_ASSIGN_PROTOCOL_VERSION,
   LABOR_JOBS_PROTOCOL_VERSION,
   LABOR_PROTOCOL_VERSION,
   LABOR_RESULT_CODES,

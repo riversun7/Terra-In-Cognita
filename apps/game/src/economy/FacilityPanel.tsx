@@ -6,15 +6,22 @@
 //   칠 수 있는 건물(질문 381, AttackParts.tsx) → 내 창고·화물. 비콘 재료는 그 세력의 가장 가까운 도시 창고(질문 410 ①).
 // - 재료 자리(D-516 361, "바뀜 (창고·직무)"): 짓는 칸이 속한 도시(같은 2차맵의 가장 가까운 도시) 창고 + 그 도시의 내 창고 시설 + 그 2차맵
 //   내 유닛 화물. 미리 셈·단추 막기도 그 자리의 물자로 센다(@terra/shared/facilities materialStockAt). 개발 재료 받기는 그 칸의 도시 창고로.
+// - 플레이어 생산(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 채집 시설 카드에 일꾼 칸(직무 배치, WorkerParts.tsx — 명령은 노동 계약 길
+//   labor_assign·labor_unassign, 프로토콜 14). 짓기 폼은 2차맵을 고르고(서버가 띄운 것이 여럿이면), [지도에서 고르기]로 2차맵에서 칸을 눌러
+//   X·Y를 채운다(buildPick.ts 연결점).
 import type { FacilitiesOverviewResponse } from "@terra/shared/facilities";
 import { cityOfCell } from "@terra/shared/goodsPlaces";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { navigate } from "../shell/routerStore.ts";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { formatDuration, pickName } from "./economyText.ts";
 import { TargetList } from "./AttackParts.tsx";
 import { BeaconCard, FacilityCard, HoldingRepairRow } from "./FacilityCards.tsx";
+import { clearBuildPick, peekBuildPick, requestBuildPick } from "./buildPick.ts";
 import { sendFacilityCommand } from "./facilityCommands.ts";
+import { sendLaborCommand } from "./laborCommands.ts";
+import { LABOR_ERROR_TEXT, type LaborRun } from "./laborText.ts";
 import {
   FACILITY_ERROR_TEXT,
   type FacilityRun,
@@ -24,7 +31,7 @@ import {
   stockAt,
 } from "./facilityText.ts";
 import { Loaded } from "./parts.tsx";
-import { NO_ARGS, useFacilities, useNowTick, useRuins, useTemple } from "./queries.ts";
+import { NO_ARGS, useFacilities, useLabor, useNowTick, useRuins, useTemple } from "./queries.ts";
 import { PlacesList } from "./StorageParts.tsx";
 import "./facilities.css";
 
@@ -92,12 +99,16 @@ function BuildForm({
   busy: boolean;
 }) {
   const buildable = data.catalog.filter((entry) => entry.footprint !== null && entry.levels.length > 0);
-  const [facility, setFacility] = useState("");
-  const [x, setX] = useState("120");
-  const [y, setY] = useState("120");
+  // 2차맵에서 고른 칸(buildPick.ts)이 있으면 그 시설·2차맵·칸으로 시작한다(처음 그릴 때 한 번 읽고 지운다)
+  const [picked] = useState(peekBuildPick);
+  useEffect(() => clearBuildPick(), []);
+  const [facility, setFacility] = useState(picked?.facility ?? "");
+  const [x, setX] = useState(picked ? String(picked.x) : "120");
+  const [y, setY] = useState(picked ? String(picked.y) : "120");
+  const [map, setMap] = useState<number | null>(picked?.mapKey ?? null);
   const [rotation, setRotation] = useState<(typeof ROTATIONS)[number]>(0);
   const chosen = buildable.find((entry) => entry.id === facility) ?? buildable[0];
-  const mapKey = data.maps[0];
+  const mapKey = map !== null && data.maps.includes(map) ? map : data.maps[0];
   const level1 = chosen?.levels[0];
   const ready =
     chosen !== undefined && level1 !== undefined && mapKey !== undefined && isCell(x) && isCell(y);
@@ -128,6 +139,22 @@ function BuildForm({
       <h3 id="facility-new-title" className="eco-subtitle">
         {m.facility_new_title()}
       </h3>
+      {data.maps.length > 1 ? (
+        <label className="eco-field">
+          <span>{m.facility_field_map()}</span>
+          <select
+            className="eco-select"
+            value={mapKey === undefined ? "" : String(mapKey)}
+            onChange={(event) => setMap(Number(event.target.value))}
+          >
+            {data.maps.map((key) => (
+              <option key={key} value={String(key)}>
+                {m.facility_option_map({ key })}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <label className="eco-field">
         <span>{m.facility_field_facility()}</span>
         <select
@@ -200,6 +227,20 @@ function BuildForm({
         {city ? m.facility_build_city({ id: city.id }) : m.facility_build_no_city()}
       </p>
       <div className="labor-actions">
+        <button
+          type="button"
+          className="button-small"
+          data-part="facility-map-pick"
+          disabled={!chosen}
+          onClick={() => {
+            if (!chosen) return;
+            // 2차맵에서 칸을 누르면 이 폼으로 돌아와 X·Y가 채워진다(판정은 지을 때 서버)
+            requestBuildPick({ facility: chosen.id });
+            navigate({ route: "map" });
+          }}
+        >
+          {m.facility_map_pick()}
+        </button>
         {data.dev && level1 ? (
           <button
             type="button"
@@ -254,6 +295,17 @@ export function FacilityPanel() {
     useRuins.refreshAll();
     return outcome.ok;
   };
+  // 직무 배치(채집 시설 일꾼 칸): 노동 계약 길로 보내고 건물·노동 계약 목록을 다시 받는다
+  const runLabor: LaborRun = async (command) => {
+    setBusy(true);
+    const outcome = await sendLaborCommand(command);
+    setBusy(false);
+    setTone(outcome.ok ? "success" : "error");
+    live.show([outcome.ok ? m.facility_worker_done() : LABOR_ERROR_TEXT[outcome.code]()]);
+    facilities.refresh();
+    useLabor.refreshAll();
+    return outcome.ok;
+  };
   const data = facilities.data;
   const now = data ? data.generatedAt + Math.max(0, tick - facilities.receivedAt) : tick;
   const rules = data?.rules;
@@ -278,7 +330,7 @@ export function FacilityPanel() {
           if (loaded.status === "not_ready") return <p className="eco-empty">{m.facility_not_ready()}</p>;
           // 고른 일꾼 가운데 지금도 쓸 수 있는 것만 보낸다(작업이 시작되면 바쁨)
           const units = picked.filter((id) => loaded.units.some((unit) => unit.id === id && !unit.busy));
-          const props = { data: loaded, units, now, run, busy };
+          const props = { data: loaded, units, now, run, busy, runLabor };
           return (
             <>
               <UnitPicker data={loaded} picked={units} onChange={setPicked} />

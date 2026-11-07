@@ -1,4 +1,4 @@
-// 노동 계약 연결 처리 시험 — 로그인, 세계 준비 전, 차례 처리, 금액 글자 → BigInt, 결과 메시지 모양, 구인 게시 셋
+// 노동 계약 연결 처리 시험 — 로그인, 세계 준비 전, 차례 처리, 금액 글자 → BigInt, 결과 메시지 모양, 구인 게시 셋, 직무 배치 둘
 import { decodeServerMessage } from "@terra/protocol";
 import { describe, expect, it } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
@@ -51,6 +51,16 @@ function fakeService(calls: string[]): LaborService {
       calls.push(`accept:${userId}:${jobId}:${unitId}`);
       return Promise.resolve({ ok: true, contractId: 12 });
     },
+    assign: (userId, buildingId, unitId) => {
+      calls.push(`assign:${userId}:${buildingId}:${unitId}`);
+      return Promise.resolve({ ok: true });
+    },
+    unassign: (userId, unitId) => {
+      calls.push(`unassign:${userId}:${unitId}`);
+      return Promise.resolve({ ok: false, code: "not_assigned" });
+    },
+    workersAt: () => [],
+    attachProduction: () => {},
     overview: notUsed,
     jobs: notUsed,
     check: () => [],
@@ -102,6 +112,19 @@ describe("노동 계약 연결 처리", () => {
       { t: "labor_result", id: 1, ok: true, jobId: 4 },
       { t: "labor_result", id: 2, ok: false, code: "job_not_open" },
       { t: "labor_result", id: 3, ok: true, contractId: 12 },
+    ]);
+  });
+
+  it("직무 배치·풀기(판 14)를 넘기고 결과 코드를 돌려준다", async () => {
+    const calls: string[] = [];
+    const { sent, socket } = open(fakeService(calls), viewer);
+    socket.handle({ t: "labor_assign", id: 1, buildingId: 3, unitId: 9 });
+    socket.handle({ t: "labor_unassign", id: 2, unitId: 9 });
+    for (let i = 0; i < 8; i++) await settle();
+    expect(calls).toEqual(["assign:user-1:3:9", "unassign:user-1:9"]);
+    expect(sent).toEqual([
+      { t: "labor_result", id: 1, ok: true },
+      { t: "labor_result", id: 2, ok: false, code: "not_assigned" },
     ]);
   });
 

@@ -12,8 +12,11 @@
 // - 직무 멈춤(D-516 364, docs/adr/2026-11-07-buildings-runtime.md "바뀜 (창고·직무)"): 건물 작업(짓기·레벨업·수리·장비 수리)에 묶인 유닛은
 //   그 구간 산출을 내지 않는다. 산출 구간(노동 계약 몫)에 멈춤 구간을 겹쳐 그 구간 창고를 null(산출 버림)로 바꾼다(mergePauses).
 //   직무 상태(진행·피로)는 그대로 흐른다(노동 계약 일시 중지와 같은 모양). 정산 뒤 고리(afterSettle)는 노동 계약 유예 끝의 남은 물건 옮기기.
+// - 플레이어 생산(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 산출 구간이 없는 유닛의 기본 산출(시험 광석 → 주인 기본 창고)은 개발
+//   시험 일꾼(UNIT_KIND_WORKER)만 낸다. 플레이어 유닛은 노동 계약·직무 배치 구간(채집 시설이면 진짜 물건, labor/workBook.ts)에서만 낸다.
 import {
   JOB_GATHER,
+  JOB_NONE,
   type JobState,
   type OutputSegment,
   PHASE_WORK,
@@ -117,9 +120,13 @@ export function mergePauses(
     const paused = pauses.some((pause) => pause.fromMs <= from && pause.untilMs >= until);
     const own = (segments ?? []).find((segment) => segment.untilMs >= until);
     const stock = paused ? null : own ? own.stock : base;
+    // 멈추지 않은 조각은 원래 구간의 덤·진짜 물건 칸을 그대로 잇는다(WP3 플레이어 생산)
+    const extra: Pick<OutputSegment, "bonusPm" | "goods"> =
+      !paused && own ? { bonusPm: own.bonusPm, goods: own.goods } : {};
     const last = out.at(-1);
-    if (last && last.stock === stock) out[out.length - 1] = { untilMs: until, stock };
-    else out.push({ untilMs: until, stock });
+    if (last && last.stock === stock && last.goods === extra.goods && last.bonusPm === extra.bonusPm)
+      out[out.length - 1] = { ...last, untilMs: until };
+    else out.push({ untilMs: until, stock, ...extra });
     from = until;
   }
   return out;
@@ -211,10 +218,16 @@ export function createSettlement(options: {
     const pauses = pauser?.(owner.id);
     const own = testSettleAccounts(ledger, owner.id);
     const base = (): number => own.stock();
-    const outputOf = (unitId: number): readonly OutputSegment[] | undefined => {
-      const windows = pauses?.get(unitId);
-      return windows ? mergePauses(routes?.get(unitId), windows, from, toMs, base) : routes?.get(unitId);
+    // 산출 구간이 없는 플레이어 유닛(개발 시험 일꾼이 아닌 유닛)은 기본 산출이 없다
+    const noOutput: readonly OutputSegment[] = [{ untilMs: toMs, stock: null }];
+    const defaultOf = (unit: UnitRef): readonly OutputSegment[] | undefined =>
+      unit.kind === UNIT_KIND_WORKER || unit.job.job === JOB_NONE ? undefined : noOutput;
+    const outputOf = (unit: UnitRef): readonly OutputSegment[] | undefined => {
+      const windows = pauses?.get(unit.id);
+      const route = routes?.get(unit.id) ?? defaultOf(unit);
+      return windows ? mergePauses(route, windows, from, toMs, base) : route;
     };
+    const special = routes !== undefined || pauses !== undefined || units.some((unit) => defaultOf(unit));
     // 판정은 @terra/sim 공용 함수(시뮬레이터와 같다). 여기서는 결과를 2차맵·소유 주체 행에 적기만 한다
     const result = settleOwnerPeriod(
       {
@@ -223,7 +236,7 @@ export function createSettlement(options: {
         fromMs: from,
         toMs,
         offlineSinceMs: offlineOf(owner),
-        outputs: routes || pauses ? units.map((unit) => outputOf(unit.id)) : undefined,
+        outputs: special ? units.map(outputOf) : undefined,
         upkeepWeightPm: weightOf ? units.reduce((sum, unit) => sum + weightOf(unit.kind), 0) : undefined,
       },
       ledger,

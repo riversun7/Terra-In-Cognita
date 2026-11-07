@@ -20,6 +20,12 @@ export const LABOR_PROTOCOL_VERSION = 7;
  */
 export const LABOR_JOBS_PROTOCOL_VERSION = 8;
 
+/**
+ * 직무 배치 메시지(labor_assign·labor_unassign, docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산")에 필요한 가장 낮은 프로토콜 버전.
+ * 메시지를 더해 판을 올렸다(ADR 7). 13판 기기는 이 메시지를 보내지 않는다(새 결과 코드는 이 메시지의 답에만 간다)
+ */
+export const LABOR_ASSIGN_PROTOCOL_VERSION = 14;
+
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -108,6 +114,24 @@ export const laborAcceptJobMessage = z.object({
   unitId: rowId,
 });
 
+/**
+ * 직무 배치(판 14): 내 유닛을 내 채집 시설(다 지은 것)에 둔다. 돈이 오가지 않는다(노동 계약이 아니다). 산출은 그 시설이 선 도시의 내 도시
+ * 창고로 간다. 자리 = 시설 레벨 × 레벨당 자리(직무 배치 + 열린 노동 계약)
+ */
+export const laborAssignMessage = z.object({
+  t: z.literal("labor_assign"),
+  id: requestId,
+  buildingId: rowId,
+  unitId: rowId,
+});
+
+/** 직무 배치 풀기(판 14, 배치한 사람만). 그때까지 일한 몫은 정산해 낸다 */
+export const laborUnassignMessage = z.object({
+  t: z.literal("labor_unassign"),
+  id: requestId,
+  unitId: rowId,
+});
+
 // ---------- 서버 → 기기 ----------
 
 export const LABOR_RESULT_CODES = [
@@ -135,6 +159,12 @@ export const LABOR_RESULT_CODES = [
   "job_not_open",
   /** (판 8) 시설 주인 잔고가 보증금보다 적어 받을 수 없다 */
   "employer_insufficient_funds",
+  /** (판 14) 그 시설은 일터가 아니다(채집 시설이 아니거나 아직 짓는 중) */
+  "not_workplace",
+  /** (판 14) 그 시설의 일꾼 자리가 다 찼다(레벨 × 레벨당 자리) */
+  "facility_full",
+  /** (판 14) 그 유닛은 직무 배치되어 있지 않다 */
+  "not_assigned",
 ] as const;
 export type LaborResultCode = (typeof LABOR_RESULT_CODES)[number];
 
@@ -164,5 +194,7 @@ export const laborClientMessages = [
   laborPostJobMessage,
   laborWithdrawJobMessage,
   laborAcceptJobMessage,
+  laborAssignMessage,
+  laborUnassignMessage,
 ] as const;
 export const laborServerMessages = [laborResultMessage] as const;

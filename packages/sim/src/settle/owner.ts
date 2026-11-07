@@ -79,6 +79,19 @@ export interface OutputSegment {
   readonly untilMs: number;
   readonly stock: (() => number) | null;
   readonly bonusPm?: number | undefined;
+  /**
+   * 진짜 물건 산출(서버 채집 시설 직무, docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 있으면 그 구간에 끝난 일 주기(덤 포함)를
+   * 시험 광석 대신 이 함수에 넘기고, 돌려준 줄(생산원 → 받는 계정)을 같은 산출 거래에 넣는다. 주기 → 물건 셈(진행 쌓기·티어 추첨)은 부르는
+   * 쪽이 한다. stock이 null이면 부르지 않는다(산출 없음). 시뮬은 쓰지 않는다(없으면 예전과 같다)
+   */
+  readonly goods?: ((made: number) => readonly GoodsLine[]) | undefined;
+}
+
+/** 진짜 물건 산출 한 줄: source(생산원 시스템 계정) → account(받는 계정)로 qty(기본 단위). 두 계정은 같은 자산이어야 한다 */
+export interface GoodsLine {
+  readonly source: number;
+  readonly account: number;
+  readonly qty: bigint;
 }
 
 /**
@@ -122,10 +135,14 @@ export function settleOwnerPeriod(
     return { jobs: input.jobs, cycles: 0, upkeepPaid: 0, upkeepUnpaid: 0, lastUpkeepPaid: null };
   const rules = input.rules ?? TEST_JOB_RULES;
   let cycles = 0;
-  // 계약 몫으로 간 산출(계정 → 수, 처음 나온 차례). 기본 창고 몫은 cycles − 이 합
+  // 계약 몫으로 간 산출(계정 → 수, 처음 나온 차례). 기본 창고 몫은 cycles − 물건 산출 주기 − 이 합
   const routed = new Map<number, number>();
   let routedTotal = 0;
   let discarded = 0;
+  // 진짜 물건으로 바꾼 주기와 그 줄(생산원·받는 계정마다 합, 처음 나온 차례)
+  let goodsCycles = 0;
+  const goodsFrom = new Map<number, bigint>();
+  const goodsTo = new Map<number, bigint>();
   const jobs = input.jobs.map((job, index) => {
     if (job.job === JOB_NONE) return job;
     const segments = input.outputs?.[index];
@@ -147,7 +164,6 @@ export function settleOwnerPeriod(
         discarded += result.cycles;
         continue;
       }
-      const account = segment.stock();
       // 수호신 생산 버프(서버만): 덤은 같은 계정으로, 매장량에서 함께 나온다
       const made =
         result.cycles +
@@ -157,6 +173,17 @@ export function settleOwnerPeriod(
           Math.imul(input.ownerId, 0x9e37_79b1) ^ Math.imul(index + 1, 0x85eb_ca6b) ^ (until % 0x1_0000_0000),
         );
       cycles += made;
+      if (segment.goods) {
+        // 진짜 물건(서버 채집 직무): 시험 광석 대신 부르는 쪽이 정한 물건 줄
+        goodsCycles += made;
+        for (const line of segment.goods(made)) {
+          if (line.qty <= 0n) continue;
+          goodsFrom.set(line.source, (goodsFrom.get(line.source) ?? 0n) + line.qty);
+          goodsTo.set(line.account, (goodsTo.get(line.account) ?? 0n) + line.qty);
+        }
+        continue;
+      }
+      const account = segment.stock();
       routedTotal += made;
       routed.set(account, (routed.get(account) ?? 0) + made);
     }
@@ -195,11 +222,12 @@ export function settleOwnerPeriod(
     upkeepUnpaid = result.unpaid;
     lastUpkeepPaid = result.paid.at(-1) === boundaries.at(-1);
   }
-  if (cycles > 0) {
-    const amount = BigInt(cycles);
+  const oreCycles = cycles - goodsCycles;
+  const entries: { account: number; amount: bigint }[] = [];
+  if (oreCycles > 0) {
     // 산출 거래 하나: 매장량 → 기본 창고(+ 계약 몫 창고들). 계약 몫이 없으면 예전과 같은 두 항목
-    const entries = [{ account: accounts.reserve(), amount: -amount }];
-    const own = cycles - routedTotal;
+    entries.push({ account: accounts.reserve(), amount: -BigInt(oreCycles) });
+    const own = oreCycles - routedTotal;
     if (own > 0) {
       // 계약 몫이 기본 창고와 같은 계정이면(자기 시설·자기 임대) 한 항목으로 합친다
       const stock = accounts.stock();
@@ -207,7 +235,10 @@ export function settleOwnerPeriod(
       routed.delete(stock);
     }
     for (const [account, count] of routed) entries.push({ account, amount: BigInt(count) });
-    book.post({ kind: "job_output", atMs: toMs, entries });
   }
+  // 진짜 물건 줄(서버 채집 직무): 생산원 → 받는 계정. 물건이 없으면 예전과 같은 거래
+  for (const [account, qty] of goodsFrom) entries.push({ account, amount: -qty });
+  for (const [account, qty] of goodsTo) entries.push({ account, amount: qty });
+  if (entries.length > 0) book.post({ kind: "job_output", atMs: toMs, entries });
   return { jobs, cycles, upkeepPaid, upkeepUnpaid, lastUpkeepPaid, ...(discarded > 0 ? { discarded } : {}) };
 }

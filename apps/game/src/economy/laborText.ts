@@ -23,6 +23,9 @@ export const LABOR_ERROR_TEXT: Readonly<Record<LaborResultCode | "offline" | "ti
   internal_error: m.labor_error_internal_error,
   job_not_open: m.labor_error_job_not_open,
   employer_insufficient_funds: m.labor_error_employer_insufficient_funds,
+  not_workplace: m.labor_error_not_workplace,
+  facility_full: m.labor_error_facility_full,
+  not_assigned: m.labor_error_not_assigned,
   offline: m.labor_error_offline,
   timeout: m.labor_error_timeout,
 };

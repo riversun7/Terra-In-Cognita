@@ -6,6 +6,7 @@
 
 ## 한 일
 - 기획 D-520 공성 결과 셋을 시뮬·서버 같은 함수로 넣었다: 약탈(금고 몫 + 공공 창고 몫, 소유 그대로, 폐허 없음)·점령·귀속(옛 통합 + 재건 비용 소각 + 만족도 회복 불이익)·점령 상태(소유 그대로, 기간마다 그 도시 몫 세금, 기간·주인 바뀜·사라짐에 끝). NPC는 성향 가중 굴림으로 고른다.
+- 약탈한 세력은 7일(설정 칸 `d520_raid_cooldown_days` [임시]) 동안 그 도시를 다시 치지 않는다(685 나 — 추천을 지금 코드로). 쉬는 날 없이 넣은 판은 NPC 치기가 판단마다 되풀이됐다(ADR 잰 값 ①).
 - 486을 가로 되돌렸다: `raze`·`razeAggression`·설정 칸 `d510_raze_aggression`을 지우고 팩 `id-changes.json`에 기록(core@51). 545는 없어졌다.
 - 휴먼 환생 어드밴티지: 확률로 초기 스탯 하나 +2 또는 K 하나 +50‰(설정 칸 넷 [임시]), 서버 신전 환생이 굴리고 K는 새 칸 `world_humans.k_pm`.
 - 서버: 표 `war_outcomes`(결과 기록·남은 상태, 다시 켜면 복원), 세력 화면 점령 칸 실제 자료(우리 도시가 당한 줄·결과 값), 복귀 요약 "습격·방어" 칸.
@@ -19,11 +20,11 @@
 | `packages/sim/src/simulator/societyWar.ts`(새)·`societyWar.test.ts`(새) | 약탈·점령 상태·점령·귀속 실행, 하루 끝 세금·끝, 불변 조건 W1~W3 |
 | `packages/sim/src/simulator/society.ts` | occupy가 결과 셋을 부름, raze 지움, 회복 불이익을 하루 만족도에, 새 세력 bornOf |
 | `packages/sim/src/simulator/world.ts` | `SimOccupation`·`world.occupations`, `SimFaction.bornOf` |
-| `packages/sim/src/npc/policy.ts`·`coefficients.ts`·`simulator/npcRun.ts` | 성향 가중 고르기(셋째 굴림), 옛 약탈·폐허 문턱 지움, 내가 점령 상태로 둔 도시는 다시 치지 않음 |
+| `packages/sim/src/npc/policy.ts`·`coefficients.ts`·`simulator/npcRun.ts` | 성향 가중 고르기(셋째 굴림), 옛 약탈·폐허 문턱 지움, 칠 수 있는 도시(`targetable` — 점령 상태로 둔 도시·약탈 뒤 쉬는 날)를 판단 상대 보기와 치기가 같이 씀 |
 | `packages/sim/src/society/temple.ts`·`tuningTemple.ts` | 환생 어드밴티지 규칙·설정 칸 넷 |
 | `packages/sim/src/tuningWar.ts`(새)·`tuning.ts`·`tuningRestoration.ts`·`society/coefficients.ts` | war 설정 칸 아홉, raze 칸 뺌 |
 | `packages/sim/src/simulator/societyTypes.ts`·`run.ts`·`version.ts`·`warEntry.ts`(새)·`index.ts` | 요약 칸·`onWarOutcome` 고리, 출력 형식 13, SIM 20, 진입점(index.ts 줄 수 그대로) |
-| `content/core/tuning.json`·`id-changes.json`·`manifest.json` | 설정 칸 13 더함·1 뺌(기록), core@51 |
+| `content/core/tuning.json`·`id-changes.json`·`manifest.json` | 설정 칸 14 더함·1 뺌(기록), core@51 |
 | `apps/server/src/db/warSchema.ts`(새)·`schema.ts`·`populationSchema.ts`·`drizzle/20261107151720_war_outcomes/` | 새 표·`born_of`·`k_pm`, 마이그레이션(더하기만). schema.ts는 주석을 줄여 줄 수를 늘리지 않음 |
 | `apps/server/src/npc/warOutcomes.ts`(새)·`warOutcomes.db.test.ts`(새)·`runtime.ts` | 결과 저장·남은 상태 복원, 런타임 연결 |
 | `apps/server/src/npc/persist.ts`·`state.ts`·`currency.ts`·`nations.ts` | 620 나: born_of 저장·읽기, 화폐·이름 고리 |

@@ -12,6 +12,7 @@ import { type SystemSwitches, TEST_SYSTEM_SWITCHES } from "../tuningSwitches.ts"
 import type { CyborgTemperament } from "./cyborgStats.ts";
 import { type FusionCoefficients, OLD_FUSION_COEFFICIENTS } from "./fusion.ts";
 import { OLD_RECRUIT_COEFFICIENTS, type RecruitCoefficients } from "./recruitment.ts";
+import { type RestorationCoefficients, START_RESTORATION_COEFFICIENTS } from "./restoration.ts";
 import { OLD_TEMPLE_COEFFICIENTS, type TempleCoefficients } from "./temple.ts";
 
 export interface SocietyCoefficients {
@@ -68,6 +69,11 @@ export interface SocietyCoefficients {
    * 규칙은 society/temple.ts. 시뮬은 읽지 않는다(서버 신전 명령·수명 처리가 읽는다, docs/adr/2026-11-07-temple-religion.md)
    */
   readonly temple: TempleCoefficients;
+  /**
+   * 폐허 복원(D-510·D-339·D-343·D-344, 49에 칸 없음 [임시]). 팩 tuning 경로 "restoration.*". 규칙은 society/restoration.ts,
+   * 실행은 simulator/societyRuins.ts(시뮬·서버 같은 함수, docs/adr/2026-11-07-ruins-restoration.md)
+   */
+  readonly restoration: RestorationCoefficients;
   /** 지상 기술 단계 상한(질문 121 기본안: 시설 Lv1~5 사다리) */
   readonly techGroundMax: number;
   /** [임시] 단계 n으로 오르는 연구 작업량(효율 1000인 연구 일꾼 한 시간 = 1000) = researchWorkBase × n */
@@ -323,6 +329,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   },
   fusion: { ...OLD_FUSION_COEFFICIENTS },
   temple: { ...OLD_TEMPLE_COEFFICIENTS },
+  restoration: { ...START_RESTORATION_COEFFICIENTS },
   techGroundMax: 5,
   researchWorkBase: 48_000,
   developmentPerTech: 20,

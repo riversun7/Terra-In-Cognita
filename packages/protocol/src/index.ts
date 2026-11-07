@@ -73,6 +73,11 @@ export {
   STORAGE_PROTOCOL_VERSION,
 } from "./facilities.ts";
 export {
+  RESTORATION_RESULT_CODES,
+  RUINS_PROTOCOL_VERSION,
+  type RestorationResultCode,
+} from "./ruins.ts";
+export {
   TEMPLE_PROTOCOL_VERSION,
   TEMPLE_RESULT_CODES,
   TEMPLE_RITE_IDS,

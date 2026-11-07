@@ -3,6 +3,7 @@
 // 구인 카드 산 칸(D-469, recruit_draws — NPC 세력 몫은 거울 도시에, 유저 몫은 구인 서비스가 따로 읽는다).
 // int8은 pg가 문자열로 주므로 숫자로 바꾼다.
 import type { QueryPool } from "../world/persist/load.ts";
+import { type RuinRow, loadRuins } from "./ruinsState.ts";
 
 export interface NpcFactionRow {
   readonly rowId: number;
@@ -98,7 +99,10 @@ export interface NpcState {
   readonly maxWaveId: number;
   /** 예비 세력 행(이름 없음·사라짐 표시, 소유 주체 있음): 새 세력이 동기로 ID를 받는 자리 */
   readonly spares: { rowId: number; ownerId: number }[];
+  /** 도시·폐허 ID의 가장 큰 값(폐허가 된 도시 ID를 새 도시가 다시 쓰지 않게 — 복원하면 같은 ID로 돌아온다) */
   readonly maxCityId: number;
+  /** 폐허·복원 사업(docs/adr/2026-11-07-ruins-restoration.md) */
+  readonly ruins: RuinRow[];
 }
 
 const num = (value: unknown): number => Number(value);
@@ -122,7 +126,7 @@ export async function loadRecruitDraws(pool: QueryPool): Promise<RecruitDrawRow[
 }
 
 export async function loadNpcState(pool: QueryPool, planetId: string): Promise<NpcState> {
-  const [factions, cities, humans, wars, society, spares, maxCity, pollution, waves, maxWave, draws] =
+  const [factions, cities, humans, wars, society, spares, maxCity, pollution, waves, maxWave, draws, ruins] =
     await Promise.all([
       pool.query(
         `select f.id, o.id as owner_id, f.code, f.regime, f.fixed, f.parent_id, f.tech_level, f.tech_blueprint,
@@ -144,7 +148,9 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
         `select f.id, o.id as owner_id from factions f join world_owners o on o.faction_id = f.id
        where f.kind = 'npc' and f.code is null and f.dissolved_at_ms is not null order by f.id`,
       ),
-      pool.query(`select coalesce(max(id), 0) as id from world_cities`),
+      pool.query(
+        `select greatest((select coalesce(max(id), 0) from world_cities), (select coalesce(max(id), 0) from world_ruins)) as id`,
+      ),
       pool.query(`select cell_key, value from planet_pollution where planet_id = $1 order by cell_key`, [
         planetId,
       ]),
@@ -157,6 +163,7 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
       ),
       pool.query(`select coalesce(max(id), 0) as id from gardener_waves`),
       loadRecruitDraws(pool),
+      loadRuins(pool, planetId),
     ]);
   const societyRow = society.rows[0];
   return {
@@ -228,5 +235,6 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
     spares: spares.rows.map((row) => ({ rowId: num(row.id), ownerId: num(row.owner_id) })),
     maxCityId: num(maxCity.rows[0]?.id ?? 0),
     maxWaveId: num(maxWave.rows[0]?.id ?? 0),
+    ruins,
   };
 }

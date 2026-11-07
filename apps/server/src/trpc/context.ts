@@ -47,6 +47,7 @@ import type { BattleReplayDemoResponse } from "@terra/shared/battleReplay";
 import type { RecruitBoardResponse } from "@terra/shared/recruit";
 import type { FusionOverviewResponse } from "@terra/shared/fusion";
 import type { TempleOverviewResponse } from "@terra/shared/temple";
+import type { RuinsOverviewResponse } from "@terra/shared/ruins";
 import type { PlanetLibraryBase } from "@terra/shared";
 import type {
   PlanetDraftRevisionInfo,
@@ -295,6 +296,17 @@ export interface TempleReadServices {
 }
 
 /**
+ * 폐허 복원 조회(ruins.overview, docs/adr/2026-11-07-ruins-restoration.md). 바꾸는 명령은 WebSocket facility_build(행정 건물)·
+ * restoration_open·restoration_fund·dev_make_ruin이다. devGrant = dev·admin(개발 시험 폐허 만들기). NPC 사회 런타임이 없으면 undefined
+ */
+export interface RuinReadServices {
+  overview(
+    viewer: { readonly id: string; readonly devGrant: boolean },
+    nowMs: number,
+  ): RuinsOverviewResponse | undefined;
+}
+
+/**
  * 구인 카드 조회(recruit.board, D-469). 고용은 WebSocket recruit_hire다. owner = dev·admin(그 도시 주인 NPC 세력의 카드도 본다)
  */
 export interface RecruitReadServices {
@@ -380,6 +392,8 @@ export interface TrpcContext {
   fusion?: (() => FusionReadServices | undefined) | undefined;
   /** 신전 조회. 세계(DB)가 없거나 부팅 복구 전이면 undefined(프로시저가 PRECONDITION_FAILED) */
   temple?: (() => TempleReadServices | undefined) | undefined;
+  /** 폐허 복원 조회. 세계·NPC 사회 런타임이 없거나 부팅 복구 전이면 undefined(프로시저가 PRECONDITION_FAILED) */
+  ruins?: (() => RuinReadServices | undefined) | undefined;
   /** 개발자 2차맵 시험. 월드·지형 서비스·행성 서비스가 다 있을 때만 */
   secondMapLab?: SecondMapLabServices | undefined;
   /** 영토 조회(docs/adr/2026-11-03-territory-layer.md 5절). 세계(DB)가 없거나 부팅 복구 전이면 undefined */

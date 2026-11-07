@@ -1,0 +1,684 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "50b051d2-61ee-479a-bd01-6edc3f3f033d",
+  "prevIds": [
+    "94eafeb7-f764-4dac-9656-7b45ba06484b",
+    "5c45c76e-d1a3-45ff-b3a1-a773751f3458"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "restoration_contributions"
+      ],
+      "writes": [
+        "s|tbl|public.restoration_contributions",
+        "n|tbl|public.restoration_contributions",
+        "e|tbl|public.restoration_contributions",
+        "n|rel|public.restoration_contributions",
+        "n|type|public.restoration_contributions",
+        "n|rel|public.restoration_contributions_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_ruins"
+      ],
+      "writes": [
+        "s|tbl|public.world_ruins",
+        "n|tbl|public.world_ruins",
+        "e|tbl|public.world_ruins",
+        "n|rel|public.world_ruins",
+        "n|type|public.world_ruins",
+        "n|rel|public.world_ruins_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "world_ruins",
+        "world_ruins_map_idx"
+      ],
+      "writes": [
+        "s|idx|public.world_ruins_map_idx",
+        "n|idx|public.world_ruins_map_idx",
+        "e|idx|public.world_ruins_map_idx",
+        "n|rel|public.world_ruins_map_idx"
+      ],
+      "reads": [
+        "n|tbl|public.world_ruins",
+        "n|sch|public",
+        "n|col|public.world_ruins.map_key"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "restoration_contributions"
+      ],
+      "writes": [
+        "s|fk|public.restoration_contributions.restoration_contributions_ruin_id_world_ruins_id_fkey",
+        "n|fk|public.restoration_contributions.restoration_contributions_ruin_id_world_ruins_id_fkey",
+        "e|fk|public.restoration_contributions.restoration_contributions_ruin_id_world_ruins_id_fkey",
+        "n|con|public.restoration_contributions.restoration_contributions_ruin_id_world_ruins_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.restoration_contributions",
+        "n|sch|public",
+        "n|tbl|public.world_ruins",
+        "n|sch|public",
+        "n|col|public.restoration_contributions.ruin_id",
+        "n|col|public.world_ruins.id",
+        "e|uniqueness|public.world_ruins.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "restoration_contributions"
+      ],
+      "writes": [
+        "s|fk|public.restoration_contributions.restoration_contributions_owner_id_world_owners_id_fkey",
+        "n|fk|public.restoration_contributions.restoration_contributions_owner_id_world_owners_id_fkey",
+        "e|fk|public.restoration_contributions.restoration_contributions_owner_id_world_owners_id_fkey",
+        "n|con|public.restoration_contributions.restoration_contributions_owner_id_world_owners_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.restoration_contributions",
+        "n|sch|public",
+        "n|tbl|public.world_owners",
+        "n|sch|public",
+        "n|col|public.restoration_contributions.owner_id",
+        "n|col|public.world_owners.id",
+        "e|uniqueness|public.world_owners.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_ruins"
+      ],
+      "writes": [
+        "s|fk|public.world_ruins.world_ruins_former_faction_id_factions_id_fkey",
+        "n|fk|public.world_ruins.world_ruins_former_faction_id_factions_id_fkey",
+        "e|fk|public.world_ruins.world_ruins_former_faction_id_factions_id_fkey",
+        "n|con|public.world_ruins.world_ruins_former_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_ruins",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.world_ruins.former_faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_ruins"
+      ],
+      "writes": [
+        "s|fk|public.world_ruins.world_ruins_claimant_owner_id_world_owners_id_fkey",
+        "n|fk|public.world_ruins.world_ruins_claimant_owner_id_world_owners_id_fkey",
+        "e|fk|public.world_ruins.world_ruins_claimant_owner_id_world_owners_id_fkey",
+        "n|con|public.world_ruins.world_ruins_claimant_owner_id_world_owners_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_ruins",
+        "n|sch|public",
+        "n|tbl|public.world_owners",
+        "n|sch|public",
+        "n|col|public.world_ruins.claimant_owner_id",
+        "n|col|public.world_owners.id",
+        "e|uniqueness|public.world_owners.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_ruins"
+      ],
+      "writes": [
+        "s|fk|public.world_ruins.world_ruins_join_faction_id_factions_id_fkey",
+        "n|fk|public.world_ruins.world_ruins_join_faction_id_factions_id_fkey",
+        "e|fk|public.world_ruins.world_ruins_join_faction_id_factions_id_fkey",
+        "n|con|public.world_ruins.world_ruins_join_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.world_ruins",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.world_ruins.join_faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "restoration_contributions",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "world_ruins",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "restoration_contributions",
+        "name": "ruin_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "restoration_contributions",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "restoration_contributions",
+        "name": "amount",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "planet_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'s2_test_planet'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "map_key",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "cell_x",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "cell_y",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "former_faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "ruined_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "housing",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "claimant_owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "join_faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "claimed_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "government_building_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "goal",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "currency",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "open",
+        "type": "boolean",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "false",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "world_ruins_map_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "map_key",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "restoration_contributions",
+        "name": "restoration_contributions_ruin_id_world_ruins_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "ruin_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_ruins",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "restoration_contributions",
+        "name": "restoration_contributions_owner_id_world_owners_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "owner_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_owners",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "world_ruins_former_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "former_faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "world_ruins_claimant_owner_id_world_owners_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "claimant_owner_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_owners",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "world_ruins_join_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "join_faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "restoration_contributions",
+        "name": "restoration_contributions_pkey",
+        "columns": [
+          "ruin_id",
+          "owner_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "world_ruins_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "restoration_contributions",
+        "name": "restoration_contributions_amount",
+        "value": "\"amount\" > 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "world_ruins_claim",
+        "value": "(\"claimant_owner_id\" is null) = (\"join_faction_id\" is null) and (\"claimant_owner_id\" is null) = (\"goal\" is null)",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "world_ruins_goal",
+        "value": "\"goal\" is null or \"goal\" > 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "world_ruins_planet_id_format",
+        "value": "\"planet_id\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

@@ -20,6 +20,7 @@ import { rankingRouter } from "./ranking.ts";
 import { recruitRouter } from "./recruit.ts";
 import { fusionRouter } from "./fusion.ts";
 import { templeRouter } from "./temple.ts";
+import { ruinsRouter } from "./ruins.ts";
 import { cyborgRouter, unitsRouter } from "./roster.ts";
 import { settingsRouter } from "./settings.ts";
 import { itemsRouter } from "./items.ts";
@@ -65,6 +66,8 @@ export const appRouter = router({
   fusion: fusionRouter,
   // 신전·종교(조회만 — 명령은 WebSocket temple_*, docs/adr/2026-11-07-temple-religion.md)
   temple: templeRouter,
+  // 폐허 복원(조회만 — 명령은 WebSocket restoration_*·행정 건물 facility_build, docs/adr/2026-11-07-ruins-restoration.md)
+  ruins: ruinsRouter,
   // 경제 화면(창고·생산·거래창·환전) 조회(ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)")
   economy: economyRouter,
   // 세력·우편 화면(조회만, D-439·D-270)

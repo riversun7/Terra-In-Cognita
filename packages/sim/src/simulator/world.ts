@@ -85,6 +85,36 @@ export interface SimCity {
   nextRebellionMs: number;
 }
 
+/**
+ * 폐허(웨이브에 무너진 도시, D-105·D-464 217·D-510, docs/adr/2026-11-07-ruins-restoration.md). ID = 무너진 도시 ID(복원하면 같은 ID로
+ * 돌아온다 — 도시 지분 share_<ID>·자리·칸 오염 칸이 이어진다). 도시처럼 세계에 있지 않다(영토·주인·휴먼 없음)
+ */
+export interface SimRuin {
+  readonly id: number;
+  /** 무너지기 전 주인 세력 */
+  readonly formerOwner: number;
+  readonly ruinedAtMs: number;
+  /** 무너지기 전 주거 수(복원하면 그대로 — 휴먼은 구인 카드로 다시 든다) */
+  readonly housing: number;
+  /** 정부(행정 건물)를 먼저 지은 주체(소유 주체 ID — 시뮬은 세력, 서버는 유저 주체도). null = 주인 없음 */
+  claimant: number | null;
+  /** 복원하면 도시가 드는 세력(NPC 주인은 그 세력, 유저 주인은 그 유저의 나라 — 확인 대기 질문 481) */
+  joinFaction: number | null;
+  claimedAtMs: number;
+  /** 정부 건물 ID(유저가 2차맵에 지었을 때, 서버만). 없으면 null */
+  building: number | null;
+  /** 복원 목표·화폐(주인이 될 때 정함, 0n·"" = 주인 없음) */
+  goal: bigint;
+  currency: string;
+  /** 주인이 모금을 열었나(열면 누구나 넣는다, D-343) */
+  open: boolean;
+  /** 낸 값(소유 주체 → 최소 단위). 값은 에스크로 계정에 있다(restoreEscrow) */
+  readonly contributions: Map<number, bigint>;
+}
+
+/** 복원 사업 에스크로 시스템 계정 코드(폐허·화폐마다 하나) */
+export const restoreEscrow = (ruinId: number, asset: string): string => `escrow:restore:${ruinId}:${asset}`;
+
 /** 노숙(갈 도시가 없는 휴먼, D-296)의 도시 칸 값. 도시 ID는 1부터다 */
 export const HOMELESS = 0;
 
@@ -114,6 +144,8 @@ export interface SimWorld {
   readonly factions: Map<number, SimFaction>;
   readonly cities: Map<number, SimCity>;
   readonly units: Map<number, SimUnit>;
+  /** 폐허(도시 ID → 폐허, docs/adr/2026-11-07-ruins-restoration.md) */
+  readonly ruins: Map<number, SimRuin>;
   readonly book: LedgerBook;
   readonly audit: LedgerAudit;
   /** 시험 직무 정산(S3 settle)을 돌리나. 경제를 돌리는 시나리오는 끈다(일꾼은 시설에서 일한다) */
@@ -283,6 +315,7 @@ export function createWorld(
     factions,
     cities,
     units,
+    ruins: new Map(),
     book,
     audit,
     testJobs: scenario.economy === undefined,

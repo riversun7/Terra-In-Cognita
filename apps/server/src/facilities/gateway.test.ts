@@ -25,6 +25,7 @@ function fakeService(calls: string[]): FacilityService {
     unitInJob: () => false,
     pausesFor: () => undefined,
     damage: () => false,
+    attachGovernment: () => {},
     places: { maps: new Map(), facilities: new Map(), catalog: notUsed, cities: () => [] },
     storageMove: (userId, input) => {
       calls.push(`move:${userId}:${input.buildingId}:${input.asset}:${input.qty}:${input.direction}`);
@@ -60,7 +61,18 @@ function fakeService(calls: string[]): FacilityService {
   };
 }
 
-function open(service: FacilityService | undefined, who: Viewer | null, attack?: BuildingAttack) {
+/** 행정 건물 짓기가 늘 그 코드로 실패하는 서비스 */
+const ruinService = (code: "not_ruin" | "ruin_claimed"): FacilityService => ({
+  ...fakeService([]),
+  build: () => Promise.resolve({ ok: false, code }),
+});
+
+function open(
+  service: FacilityService | undefined,
+  who: Viewer | null,
+  attack?: BuildingAttack,
+  protocolVersion?: number,
+) {
   const sent: unknown[] = [];
   const gateway = createFacilityGateway({
     service: () => service,
@@ -71,6 +83,7 @@ function open(service: FacilityService | undefined, who: Viewer | null, attack?:
   const socket = gateway.open({
     send: (text) => sent.push(decodeServerMessage(text)),
     viewer: () => Promise.resolve(who),
+    protocolVersion,
   });
   return { sent, socket };
 }
@@ -155,5 +168,27 @@ describe("건물 연결 처리", () => {
       { t: "facility_result", id: 2, ok: false, code: "own_target" },
     ]);
     expect(unarmed.sent).toEqual([{ t: "facility_result", id: 3, ok: false, code: "busy" }]);
+  });
+
+  it("행정 건물(폐허 정부)의 새 코드 not_ruin·ruin_claimed는 13판 연결에만, 12판은 not_buildable(docs/adr/2026-11-07-ruins-restoration.md)", async () => {
+    const build = {
+      t: "facility_build",
+      id: 1,
+      mapKey: 9,
+      facility: "government_hall",
+      x: 3,
+      y: 4,
+      rotation: 0,
+    } as const;
+    const now = open(ruinService("not_ruin"), player, undefined, 13);
+    now.socket.handle(build);
+    const claimed = open(ruinService("ruin_claimed"), player);
+    claimed.socket.handle(build);
+    const old = open(ruinService("ruin_claimed"), player, undefined, 12);
+    old.socket.handle(build);
+    for (let i = 0; i < 10; i++) await settle();
+    expect(now.sent).toEqual([{ t: "facility_result", id: 1, ok: false, code: "not_ruin" }]);
+    expect(claimed.sent).toEqual([{ t: "facility_result", id: 1, ok: false, code: "ruin_claimed" }]);
+    expect(old.sent).toEqual([{ t: "facility_result", id: 1, ok: false, code: "not_buildable" }]);
   });
 });

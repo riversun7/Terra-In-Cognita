@@ -59,6 +59,7 @@ import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { type CityPlace, type NpcPersist, createNpcPersist } from "./persist.ts";
+import { ruinsOf } from "./ruinsState.ts";
 import type { NpcHumanRow } from "./state.ts";
 import { loadNpcState } from "./state.ts";
 
@@ -113,17 +114,17 @@ export interface NpcRuntime {
   tick(force?: boolean): Promise<void>;
   /** 거울 세계(시험·관리 조회용, 바꾸지 않는다) */
   readonly world: SimWorld;
-  /** 도시 자리(2차맵 칸). 유저 구인(recruit/service.ts)이 고용한 휴먼을 그 둘레에 세운다 */
-  readonly places: ReadonlyMap<number, CityPlace>;
+  /** 도시·폐허 자리(2차맵 칸). 유저 구인이 고용한 휴먼을 그 둘레에 세우고, 개발 시험 폐허(ruins/service.ts)가 자리를 더한다 */
+  readonly places: Map<number, CityPlace>;
   readonly society: SocietyRun;
   /** 정원사(오염·웨이브·유목 부대) */
   readonly gardener: ServerGardener;
+  /** 폐허·복원 사업 바뀜을 바로 쓰기 대기열에 넣는다(유저 폐허 명령 뒤 같은 동기 처리, ruinsPersist.ts) */
+  flushRuins(): void;
   /** 지난 호출 뒤 구간의 지표(서버 1분 지표 한 줄에 붙인다) */
   takeMetrics(): Record<string, number>;
   stop(): void;
 }
-
-/** 다음 하루 끝(UTC 0시, 하루 길이를 줄였으면 그 배수) */
 /**
  * 웨이브를 끄면 도시 웨이브 확률 상한(chanceMaxPm)과 보호 레이드 세기 배율(raidStrengthPm, D-500)을 0으로 둔다: 굴림은 돌지만 늘
  * 실패하고 레이드는 생기지 않으며, 오염 층·관계도는 그대로 돈다.
@@ -142,7 +143,7 @@ export function gardenerWavesEnabled(envFlag: boolean | undefined, switchValue: 
   if (envFlag === undefined) return true;
   return envFlag;
 }
-
+/** 다음 하루 끝(UTC 0시, 하루 길이를 줄였으면 그 배수) */
 const nextDayEnd = (nowMs: number, dayMs: number): number => (Math.floor(nowMs / dayMs) + 1) * dayMs;
 const NO_ITEMS: WaveRewardItems = { genes: [], materials: [] };
 
@@ -237,7 +238,6 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     });
     faction.cities.add(row.id);
   }
-
   // 휴먼: 저장된 휴먼(유닛이 2차맵에 있는 것) + 아직 휴먼이 아닌 시험 봇
   const onMap = new Map<number, { map: SecondMap; ownerId: number; cell: { x: number; y: number } }>();
   for (const map of maps.values())
@@ -305,6 +305,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     factions,
     cities,
     units,
+    // 폐허(도시 ID, docs/adr/2026-11-07-ruins-restoration.md): 자리도 places에 채운다(칸 오염·복원한 도시 자리)
+    ruins: ruinsOf(state.ruins, places, (mapKey) => maps.has(mapKey)),
     book: ledger,
     // 서버 원장은 DB가 감사한다(불변 조건 I1·I2 SQL) → 메모리 감사는 쓰지 않는다
     audit: createLedgerAudit([]),
@@ -387,9 +389,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       ],
     });
   }
-
   await persist.refillSpares(SPARE_FACTIONS);
-
   const metrics = {
     decisions: 0,
     decideMs: 0,
@@ -463,7 +463,6 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     startMs,
   );
   ctx.society = society;
-
   // 정원사: 칸 = 도시의 2차맵 키(F9), 이웃 = 행성 이웃 8칸. 계수는 설정 칸 실효 값을 부를 때마다 읽는다
   const gardener = attachServerGardener({
     world,
@@ -577,6 +576,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     places: persist.places,
     society,
     gardener,
+    flushRuins: () => void persist.flushRuins(),
     takeMetrics() {
       const out = {
         npcDecisions: metrics.decisions,

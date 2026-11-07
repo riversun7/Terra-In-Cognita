@@ -38,7 +38,8 @@ import type { SimWorld } from "./world.ts";
 /** 시스템 계정 앞머리 → 건드려도 되는 거래 종류(물건·돈이 생기고 사라지는 사건을 정해 둔다) */
 const SYSTEM_KINDS: Readonly<Record<string, readonly string[]>> = {
   issue: ["issue"],
-  sink: ["burn", "produce", "upkeep", "recruit"],
+  // 폐허 복원 비용(restore_spend: 에스크로 → 소각, docs/adr/2026-11-07-ruins-restoration.md)
+  sink: ["burn", "produce", "upkeep", "recruit", "restore_spend"],
   source: ["produce", "endow"],
   reserve: ["job_output"],
   // 노동 계약 보증금(escrow:labor:<계약>, docs/adr/2026-11-03-labor-contracts.md): 넣기·임금·돌려주기
@@ -51,6 +52,10 @@ const SYSTEM_KINDS: Readonly<Record<string, readonly string[]>> = {
     "labor_deposit",
     "labor_wage",
     "labor_refund",
+    // 복원 사업 에스크로(escrow:restore:<폐허>:<화폐>): 넣기·복원(소각)·돌려주기
+    "restore_fund",
+    "restore_spend",
+    "restore_refund",
   ],
   transit: ["ship", "cargo"],
 };

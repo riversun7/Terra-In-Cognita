@@ -30,6 +30,7 @@
     "./recruit": "./src/recruit.ts",
     "./fusion": "./src/fusion.ts",
     "./temple": "./src/temple.ts",
+    "./ruins": "./src/ruins.ts",
     "./roster": "./src/roster.ts",
     "./skillEditor": "./src/skillEditor.ts",
     "./territory": "./src/territory.ts",

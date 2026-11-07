@@ -80,6 +80,7 @@ import { EMPTY_FACILITIES, type LoadedFacilities, loadFacilities } from "../faci
 import { type RecruitService, createRecruitService } from "../recruit/service.ts";
 import { geneCatalogFrom } from "../fusion/genes.ts";
 import { type FusionService, createFusionService } from "../fusion/service.ts";
+import { type RuinService, createRuins } from "../ruins/service.ts";
 
 /**
  * 시험 2차맵 자리(ADR 2026-10-31-second-map-from-planet 8절): S2 시험 행성(면 레벨 9) 면 0의 (i, j) = (282, 328) 칸부터
@@ -112,7 +113,6 @@ export const HEARTBEAT_MS = 10_000;
 /** 부팅 때 DB를 기다리는 횟수·간격(배포 때 DB가 늦게 켜질 수 있다) */
 const BOOT_ATTEMPTS = 30;
 const BOOT_RETRY_MS = 2_000;
-
 /** 경로 서비스 고르기: 운영은 워커, 시험은 같은 스레드 */
 export type WorldPathsConfig = { kind: "workers"; workerUrl: URL; workers: number } | { kind: "inline" };
 
@@ -176,7 +176,6 @@ export interface WorldConfig {
   /** 건물 짓기·노화·수리(실효 시설·아이템, docs/adr/2026-11-07-buildings-runtime.md). 없으면 빈 목록(시험) */
   facilities?: FacilitiesConfig | undefined;
 }
-
 export interface WorldLog extends MapLog {
   info(obj: object, message: string): void;
 }
@@ -223,8 +222,9 @@ export interface WorldPersistence {
   readonly fusion: FusionService;
   /** 건물 짓기·레벨업·노화·수리·장비 수리(docs/adr/2026-11-07-buildings-runtime.md) */
   readonly facilities: WorldFacilities;
+  /** 폐허·복원 사업(docs/adr/2026-11-07-ruins-restoration.md): 행정 건물 짓기 고리·모금. NPC 사회 런타임이 없으면 busy */
+  readonly ruins: RuinService;
 }
-
 export interface WorldStatus {
   state: "recovering" | "ready" | "failed";
   /** 부팅 뒤 불변 조건 위반 수(0이어야 한다) */
@@ -232,7 +232,6 @@ export interface WorldStatus {
   /** 부팅에 걸린 시간(ms) */
   bootMs: number | undefined;
 }
-
 export interface World extends WorldDirectory {
   readonly maps: ReadonlyMap<number, SecondMap>;
   /** 2차맵 지형 서비스(있으면). 지형 경로가 띄우지 않은 이웃 2차맵의 지형을 줄 때 쓴다 */
@@ -673,7 +672,7 @@ export function startWorld(
       );
     // 건물: 짓기·노화·수리(노동 계약 정산이 시설이 일하는지 묻는다 — 서로 고리라 계약 서비스는 뒤에 잇는다)
     // 건물이 선 도시(재료·창고 자리, D-516 361): 부팅 때 읽은 도시 + NPC 런타임이 새로 세운 도시
-    const cityCells = () => cityCellsOf(cities, npc?.places, TEST_PLANET_ID, maps);
+    const cityCells = () => cityCellsOf(cities, npc?.places, TEST_PLANET_ID, maps, npc?.world.ruins);
     const facilities = createWorldFacilities({
       loaded: facilityData,
       maps,
@@ -758,6 +757,7 @@ export function startWorld(
       labor,
       fusion,
       facilities,
+      ruins: createRuins({ owners, ledger, settlement, writer, cyborgs, facilities, now }, () => npc),
     };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)
     if (

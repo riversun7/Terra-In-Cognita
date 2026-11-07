@@ -6,7 +6,8 @@
 //   내구도 = 지금 정의의 최대 내구도. 신선도 묶음은 같은 숙성 상태끼리, 쌓이는 소모품은 같은 것끼리 stackMax까지 쌓는다.
 // - 입기(equip): 내구도 0이면 못 입는다(N49 286). 그 칸에 있던 것은 벗는다. 칸 종류·입을 수 있는 유닛 종류는 지금 정의를 읽는다.
 // - 쓰기(use): 효과량 = @terra/sim useAmountRange·rollUseAmount(D-501), 교체는 planEffects(같은 효과는 높은 것만, 다른 효과는 확인),
-//   수량 −1(0이면 칸을 지운다). 전투 중 회복(287)·자동 사용 판단식은 기획 질문이라 밖(전투 밖) 시간 버프만 건다.
+//   수량 −1(0이면 칸을 지운다). 전투 밖에서는 시간 버프와 한 번에 채우는 HP 회복(D-512, 저장한 HP — src/vitals/)만 건다.
+//   주기 회복·상태·도트와 전투 중 사용(287)·자동 사용 판단식은 전투 사용 줄기다.
 // - 썩기(spoilDue): 신선도 0이 된 묶음을 고른 아이템으로 바꾼다(사슬, 꺼진 대상이면 버림). 목록을 읽기 전과 타이머가 부른다.
 // - 탄약(spendAmmo)·수리(repair)는 고리다: 전투 판정이 원거리 타격 수를 알려 주면(다음 줄기) spendAmmo를 부른다. 탄약 보충(291·294)과
 //   수리 시설·장인·재료(D-5031)는 기획·시설 줄기에서 정해지면 부른다.
@@ -78,6 +79,23 @@ export interface HoldingWorld {
   unitKind(unitId: number): string | undefined;
   /** 쓰는 유닛의 1차 스탯(소모품 효과량 D-501) */
   unitPrimaries(unitId: number): Primaries;
+  /**
+   * 전투 밖 HP(D-512: HP는 전투 뒤에도 남고 회복 물약은 전투 밖에서도 채운다, 생명 수치 서비스 src/vitals/). 없으면 회복은 전투 중에만
+   * (battle_only, 시험 세계)
+   */
+  readonly vitals?: HoldingVitals | undefined;
+}
+
+/** 보유 물건이 쓰는 생명 수치 고리(src/vitals/service.ts) */
+export interface HoldingVitals {
+  /** 지금 HP와 최대(분 단위 회복을 셈한 값). 몸 자료를 모르면 undefined */
+  hp(unitId: number, nowMs: number): { readonly current: number; readonly max: number } | undefined;
+  /** HP를 채운다(flat = 값, permille = 최대 HP의 ‰). 실제로 찬 양 */
+  heal(
+    unitId: number,
+    amount: { readonly mode: "flat" | "permille"; readonly value: number },
+    nowMs: number,
+  ): number;
 }
 
 /** 명령 실패 코드(@terra/protocol ITEM_RESULT_CODES 가운데 서비스가 내는 것) */
@@ -329,6 +347,10 @@ const wearSeed = (battleSeed: number, holdingId: number): number =>
 /** 효과가 전투 밖에서 시간 버프로 걸리는가(전투 중 회복·상태·도트는 287 전투 사용 줄기) */
 const timedOutside = (kind: string, durationMs: number): boolean =>
   (kind === "buff" || kind === "debuff") && durationMs > 0;
+
+/** 전투 밖에서 HP를 한 번에 채우는 회복인가(D-512, 주기 회복·쉴드 회복은 전투 중에만). 세계에 생명 수치가 있을 때만 */
+const healsOutside = (effect: EffectEntry, vitals: HoldingVitals | undefined): boolean =>
+  vitals !== undefined && effect.kind === "heal" && effect.tickMs <= 0;
 
 const byId = (a: { readonly id: number }, b: { readonly id: number }): number => a.id - b.id;
 
@@ -589,10 +611,15 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
       const primaries = world.unitPrimaries(unitId);
       const rng = createRng(use.seed);
       const rolled: { line: IncomingEffect; hit: boolean }[] = [];
+      /** 전투 밖 회복 줄(D-512, 확률에 든 것만): 시간 효과가 아니라 저장한 HP를 채운다 */
+      const heals: { effect: string; mode: "flat" | "permille"; value: number }[] = [];
+      let healLines = 0;
       for (const line of lines) {
         const effect = map.effects.get(line.effect);
         const durationMs = line.durationMs ?? effect?.durationMs ?? 0;
-        if (!effect || !timedOutside(effect.kind, durationMs)) return { ok: false, code: "battle_only" };
+        const heal = effect !== undefined && healsOutside(effect, world.vitals);
+        if (!effect || (!timedOutside(effect.kind, durationMs) && !heal))
+          return { ok: false, code: "battle_only" };
         const scale = line.scale
           ? { statValue: primaries[line.scale.stat], appropriate: line.scale.appropriate }
           : null;
@@ -604,6 +631,11 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
         );
         const amount = rollUseAmount(range, rng);
         const hit = rng.nextInt(1000) < line.chancePm;
+        if (heal) {
+          healLines += 1;
+          if (hit) heals.push({ effect: line.effect, mode: effect.valueMode, value: amount });
+          continue;
+        }
         rolled.push({
           line: {
             effect: line.effect,
@@ -617,16 +649,24 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
       // 쿨(D-509: 물약은 전투·비전투 같은 30초). 효과가 맞는지 본 뒤에 본다(전투 중에만 쓰는 물건은 battle_only가 먼저)
       const readyAt = cooldownUntil(unitId, kind);
       if (readyAt > use.nowMs) return { ok: false, code: "cooldown", readyAt };
+      // 낭비 막기(D-501 "같거나 낮으면 쓰지 않음"을 회복에도, 해석): HP가 가득이면 회복 줄은 쓸모가 없다. 회복 줄만 있는 물건은 쓰지 않고,
+      // 시간 효과도 있는 물건은 시간 효과가 나을 때만 쓴다. HP가 모자라면 시간 효과가 낫지 않아도(not_better) 회복으로 쓴다
+      const hp = healLines > 0 ? world.vitals?.hp(unitId, use.nowMs) : undefined;
+      const healUseful = hp !== undefined && hp.current < hp.max;
+      if (rolled.length === 0 && !healUseful) return { ok: false, code: "not_better" };
       // 거절(낭비 막기·확인)은 굴린 값 전체로 본다. 확률에 빠진 줄은 걸리지 않지만 물건은 쓴다(그 아이템의 설계)
       const active = unitEffects(unitId, use.nowMs);
-      const check = planEffects(
-        active,
-        rolled.map((entry) => entry.line),
-        record.itemId,
-        use.nowMs,
-        { confirm: use.confirm, auto: false },
-      );
-      if (!check.ok) return { ok: false, code: check.code, effects: check.effects };
+      if (rolled.length > 0) {
+        const check = planEffects(
+          active,
+          rolled.map((entry) => entry.line),
+          record.itemId,
+          use.nowMs,
+          { confirm: use.confirm, auto: false },
+        );
+        if (!check.ok && !(check.code === "not_better" && healUseful))
+          return { ok: false, code: check.code, effects: check.effects };
+      }
       const hits = rolled.filter((entry) => entry.hit).map((entry) => entry.line);
       const applied = planEffects(active, hits, record.itemId, use.nowMs, { confirm: true, auto: false });
       if (applied.ok) replaceEffects(unitId, applied.next);
@@ -639,7 +679,15 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
         cooldowns.set(`${unitId}:${kind}`, entry);
         writer.upsert("unitCooldowns", unitCooldownRow(entry));
       }
-      return { ok: true, effects: hits.map((line) => ({ effect: line.effect, amount: line.value })) };
+      // 전투 밖 회복(D-512): 같은 동기 처리 → 물건 −1·쿨과 한 커밋
+      for (const heal of heals) world.vitals?.heal(unitId, heal, use.nowMs);
+      return {
+        ok: true,
+        effects: [
+          ...hits.map((line) => ({ effect: line.effect, amount: line.value })),
+          ...heals.map((heal) => ({ effect: heal.effect, amount: heal.value })),
+        ],
+      };
     },
 
     applyBattle(battleSeed, units) {

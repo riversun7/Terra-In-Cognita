@@ -1,9 +1,11 @@
 // 유닛 상세 — 상태(직무·피로/배터리·부상·포로·이동·만족도), 스탯(서버 계산), 장비 칸, 스킬, 화물, 동작(곧 열림).
 // 좁은 폭은 목록 대신 보이고 [목록으로]가 닫는다. 넓은 폭은 목록 옆 판이다(UnitList.tsx).
 import type { RosterUnit, UnitsListResponse } from "@terra/shared/roster";
+import type { VitalsSnapshot } from "@terra/shared/vitals";
 import { useEffect, useId, useRef } from "react";
 import { m } from "../paraglide/messages.js";
 import { Meter, PreviewTag, Section, SkillList, SlotList, SoonButton, StatBlock } from "../roster/parts.tsx";
+import { VitalsMeters } from "../roster/VitalsMeters.tsx";
 import {
   assetLabel,
   formatAmount,
@@ -52,10 +54,13 @@ export function UnitAvatar({
 export function UnitDetail({
   unit,
   data,
+  vitals,
   onClose,
 }: {
   unit: RosterUnit;
   data: UnitsListResponse;
+  /** 지금 생명 수치(실제 세계 유닛만, D-512). 없으면 막대를 그리지 않는다 */
+  vitals?: VitalsSnapshot | undefined;
   onClose: () => void;
 }) {
   const id = useId();
@@ -141,6 +146,7 @@ export function UnitDetail({
             </div>
           ) : null}
         </dl>
+        {vitals ? <VitalsMeters vitals={vitals} /> : null}
         {unit.energy.kind === "battery" ? (
           <Meter
             label={m.roster_battery()}

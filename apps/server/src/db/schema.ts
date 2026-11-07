@@ -378,6 +378,8 @@ export { territoryBeacons } from "./territorySchema.ts";
 export { contentOverrideRevision, contentOverrides, contentRetiredIds } from "./contentEditSchema.ts";
 // 보유 물건·유닛 효과 표(docs/adr/2026-11-03-item-holdings.md)도 같은 까닭으로 따로 둔다
 export { itemHoldings, unitCooldowns, unitEffects } from "./holdingsSchema.ts";
+// 유닛 생명 수치 표(D-512: HP·아머·쉴드가 전투 뒤에도 남는다)도 같은 까닭으로 따로 둔다
+export { unitVitals } from "./vitalsSchema.ts";
 export const WORLD_DOMAINS = ["space", "sky", "land", "sea"] as const;
 export type WorldDomain = (typeof WORLD_DOMAINS)[number];
 

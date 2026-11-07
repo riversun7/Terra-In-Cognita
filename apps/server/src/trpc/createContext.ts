@@ -25,6 +25,7 @@ import type { FactionScreenRules } from "../factionScreen/tuning.ts";
 import type { FactionSource } from "../factionScreen/source.ts";
 import { createMailServices } from "../mail/list.ts";
 import { type HoldingsReadServices, NO_HOLDINGS } from "../holdings/reads.ts";
+import { NO_VITALS, type VitalsReadServices } from "../vitals/reads.ts";
 import {
   type PlanetEditorShared,
   betterAuthPermissionCheck,
@@ -100,6 +101,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   recruits?: (() => RecruitReadServices | undefined) | undefined;
   /** 보유 물건 조회(월드가 있을 때, docs/adr/2026-11-03-item-holdings.md). 없으면 늘 빈 목록 */
   holdings?: HoldingsReadServices | undefined;
+  /** 생명 수치 조회(월드가 있을 때, D-512). 없으면 늘 빈 목록 */
+  vitals?: VitalsReadServices | undefined;
 }
 
 /** 읽기 요청(출처 규칙이 쓰기보다 느슨하다: 주소창에서 연 것도 받는다). tRPC 조회는 GET, 쓰기는 POST다 */
@@ -180,6 +183,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       faction,
       mail,
       holdings: options.holdings ?? NO_HOLDINGS,
+      vitals: options.vitals ?? NO_VITALS,
       labor,
       tuning:
         authDeps && request && tuning

@@ -41,6 +41,7 @@ export function Meter({
   valueText,
   warnAt,
   lowIsBad = false,
+  kind,
 }: {
   label: string;
   value: number;
@@ -50,11 +51,13 @@ export function Meter({
   warnAt?: number;
   /** 낮을수록 나쁜 값(배터리) */
   lowIsBad?: boolean;
+  /** 막대 색 종류(생명 수치 hp·armor·shield = 그 2차 스탯 색, 없으면 기본 색) */
+  kind?: "hp" | "armor" | "shield" | undefined;
 }) {
   const ratio = max > 0 ? Math.min(1, Math.max(0, value / max)) : 0;
   const warn = warnAt !== undefined && (lowIsBad ? ratio <= warnAt : ratio >= warnAt);
   return (
-    <div className="roster-meter">
+    <div className="roster-meter" data-kind={kind}>
       <div className="roster-meter-head">
         <span>{label}</span>
         <span className="roster-meter-value">{valueText}</span>

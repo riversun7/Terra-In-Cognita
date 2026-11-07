@@ -36,6 +36,8 @@ import { cacheViewer, createWorldGateway } from "./world/gateway.ts";
 import { createCyborgGateway } from "./cyborg/gateway.ts";
 import { createRecruitGateway } from "./recruit/gateway.ts";
 import { holdingsConfigOf } from "./holdings/config.ts";
+import { vitalsConfigOf } from "./vitals/config.ts";
+import { createVitalsReads } from "./vitals/reads.ts";
 import { createItemGateway } from "./holdings/gateway.ts";
 import { createHoldingsReads } from "./holdings/reads.ts";
 import { createLaborGateway } from "./labor/gateway.ts";
@@ -418,6 +420,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           tuning: tuningState,
           roster: rosterCatalog,
         }),
+        // 생명 수치(D-512): 사이보그·유닛 화면과 같은 몸 자료(최대 HP·아머·쉴드, 쉴드 재생)
+        vitals: vitalsConfigOf(rosterCatalog),
       })
     : undefined;
   // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md): 세계가 준비된 뒤의 서비스(DB가 있는 월드만)
@@ -542,6 +546,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
             access: holdingsAccess,
             content: () => options.contentEdit?.state.effective(),
           })
+        : undefined,
+      // 생명 수치(D-512): 세계가 준비된 뒤(DB가 있는 월드만)
+      vitals: world
+        ? createVitalsReads(() => (world.status().state === "ready" ? world.persistence?.vitals : undefined))
         : undefined,
       // 개발자 2차맵 시험: 월드 행성의 2차맵 지형 주소·칸 값(보기 전용, src/world/secondMapLab.ts)
       secondMapLab,

@@ -8,6 +8,7 @@ import { battleReplayRouter } from "./battleReplay.ts";
 import { buildingsRouter } from "./buildings.ts";
 import { formulasRouter } from "./formulas.ts";
 import { holdingsRouter } from "./holdings.ts";
+import { vitalsRouter } from "./vitals.ts";
 import { dashboardRouter } from "./dashboard.ts";
 import { economyRouter } from "./economy.ts";
 import { factionRouter } from "./faction.ts";
@@ -65,6 +66,8 @@ export const appRouter = router({
   territory: territoryRouter,
   // 보유 물건(아이템 인스턴스) 조회(docs/adr/2026-11-03-item-holdings.md 4절)
   holdings: holdingsRouter,
+  // 유닛 생명 수치(HP·아머·쉴드) 조회(D-512). 회복 물약은 WebSocket item_use
+  vitals: vitalsRouter,
   // 노동 계약(임금형·임대형) 조회(docs/adr/2026-11-03-labor-contracts.md)
   labor: laborRouter,
 });

@@ -10,6 +10,7 @@ import { createFactionScreenServices } from "../factionScreen/overview.ts";
 import { createHomeServices } from "../home/services.ts";
 import { createMailServices } from "../mail/list.ts";
 import { NO_HOLDINGS } from "../holdings/reads.ts";
+import { NO_VITALS } from "../vitals/reads.ts";
 import { createCallerFactory } from "../trpc/init.ts";
 import { appRouter } from "../trpc/router.ts";
 import { BASELINE_PRIMARY, baselineBody, bodyView } from "./body.ts";
@@ -391,6 +392,7 @@ function callerFor(viewer: Viewer) {
     faction: createFactionScreenServices(),
     mail: createMailServices(),
     holdings: NO_HOLDINGS,
+    vitals: NO_VITALS,
   };
   return createCallerFactory(appRouter)(ctx);
 }

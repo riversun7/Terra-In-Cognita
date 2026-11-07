@@ -237,6 +237,24 @@ export const WORLD_TABLES = {
     columns: ["unit_id", "kind", "until_ms"],
     key: ["unit_id", "kind"],
   },
+  /** 유닛 생명 수치(D-512: HP·아머·쉴드가 전투 뒤에도 남는다, 전투 결과·전투 밖 회복약과 같은 묶음). 가득이면 줄을 지운다 */
+  vitals: {
+    name: "unit_vitals",
+    columns: [
+      "unit_id",
+      "hp",
+      "armor",
+      "shield",
+      "max_hp",
+      "max_armor",
+      "max_shield",
+      "regen_hp",
+      "regen_armor",
+      "regen_shield",
+      "updated_at_ms",
+    ],
+    key: ["unit_id"],
+  },
   /** 노동 계약(docs/adr/2026-11-03-labor-contracts.md) — 보증금·임금·임대료 거래와 같은 묶음 */
   laborContracts: {
     name: "labor_contracts",
@@ -327,6 +345,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "holdings",
   "unitEffects",
   "unitCooldowns",
+  "vitals",
   "laborContracts",
   "laborRents",
   "transactions",

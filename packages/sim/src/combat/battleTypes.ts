@@ -16,6 +16,11 @@ export interface CombatUnitSpec {
   readonly maxHp: number;
   readonly armorHp: number;
   readonly shieldHp: number;
+  /**
+   * 들어올 때의 HP·아머 HP·쉴드 HP(D-512: 전투가 끝나도 남은 값으로 다음 전투를 시작한다). 칸마다 0~최대로 자른다. HP 0이면 쓰러진
+   * 채 들어온다(D-099). 없으면 모두 가득(옛 시작 자료·시뮬레이터와 같다)
+   */
+  readonly start?: { readonly hp: number; readonly armor: number; readonly shield: number } | undefined;
   readonly attack: AttackProfile;
   /**
    * 스킬 기반별 공격 사양(D-463 211): 물리 = 든 무기의 물리 칸·물리 공격력, 속성 = 든 무기의 속성 칸·속성 공격력. 든 무기에 그 칸이

@@ -16,16 +16,28 @@ export interface UnitResult {
   readonly side: number;
   readonly outcome: UnitOutcome;
   readonly injured: boolean;
+  /** 끝났을 때 남은 HP·아머 HP·쉴드 HP(D-512: 세계가 저장해 다음 전투·전투 밖 회복에 쓴다) */
+  readonly hp: number;
+  readonly armor: number;
+  readonly shield: number;
 }
 
 export function resolveOutcomes(state: BattleState, options: { war: boolean }): UnitResult[] {
   const winner = state.result?.winner;
-  return state.units.map((unit) => {
+  return state.units.map((unit): UnitResult => {
     const injured = unit.hp <= 0;
-    if (unit.status === "retreated") return { unit: unit.id, side: unit.side, outcome: "retreated", injured };
-    if (unit.side === winner) return { unit: unit.id, side: unit.side, outcome: "stays", injured };
-    if (unit.cyborg || !options.war) return { unit: unit.id, side: unit.side, outcome: "returned", injured };
-    return { unit: unit.id, side: unit.side, outcome: "prisoner", injured };
+    const left = {
+      unit: unit.id,
+      side: unit.side,
+      injured,
+      hp: Math.max(0, unit.hp),
+      armor: Math.max(0, unit.armor),
+      shield: Math.max(0, unit.shield),
+    };
+    if (unit.status === "retreated") return { ...left, outcome: "retreated" };
+    if (unit.side === winner) return { ...left, outcome: "stays" };
+    if (unit.cyborg || !options.war) return { ...left, outcome: "returned" };
+    return { ...left, outcome: "prisoner" };
   });
 }
 

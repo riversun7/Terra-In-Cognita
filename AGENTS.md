@@ -131,6 +131,7 @@
   - `@fastify/websocket` 11.3.4 `injectWS`의 가짜 요청에는 `socket`이 없어 `request.ip`가 오류를 낸다 → 시험은 `injectWS(path, { headers, socket })`에 `remoteAddress`를 단 `net.Socket`을 넣는다.
   - `Buffer#slice`는 복사가 아니라 보기를 돌려준다. 이진 해석기는 받은 값을 일반 `Uint8Array` 보기로 바꾼 뒤 자른다(`packages/protocol` `decodeTerrain`).
   - oxlint 1.89.0 `unicorn(require-post-message-target-origin)`은 worker_threads의 `worker.postMessage`도 잡는다(브라우저 window 규칙이라 해당 없음) → 보내는 도우미 하나에서만 끈다(`src/world/pathPool.ts`의 `post`).
+  - (2026-11-07 확인: 재현·core 덤프, Node 24.22.1 = V8 13.6.233.17) Node 타입 지우기로 `.ts` 진입 워커를 띄우면 워커마다 타입 지우개(amaro, WebAssembly)가 돈다. 한 프로세스에서 그런 워커를 띄우고 끝내기를 되풀이하면, 새 워커가 이미 지워진 wasm 모듈의 코드를 다시 풀어 프로세스 전체가 SIGSEGV·SIGTRAP("Check failed: jit_page.has_value()")으로 가끔 죽는다(V8 버그, vitest 시험 프로세스에서 봄). 메인 스레드가 타입 지우개를 한 번 써 두면 재현에서 죽지 않았다 → 서버 시험은 워커 주소를 `tsWorkerUrl`(`apps/server/src/testWorkers.ts`)로 만든다(`testWorkers.test.ts`가 본다). `terminate` 대신 워커가 스스로 끝나게 해도 고쳐지지 않는다(더 자주 죽었다). 운영 빌드 워커(`dist/*.js`)는 타입 지우기를 쓰지 않는다.
 - **Node 24 워커 메모리·fetch** (2026-10-29 확인: S2 타일·서버 구현 중 시험 스크립트·빌드한 서버, Node 24.22.1)
   - 워커 안 `process.memoryUsage()`의 `rss`는 프로세스 전체 값이고, `heapUsed`·`external`·`arrayBuffers`는 그 스레드 값이다(워커가 200MB 버퍼를 들면 워커는 arrayBuffers 200MB, 메인은 0).
   - `resourceLimits.maxOldGenerationSizeMb`는 JS 객체 힙만 막는다. 타입 배열(ArrayBuffer)은 막지 않는다(상한 64MB 워커가 200MB 타입 배열은 만들고, 객체 500만 개에서는 `ERR_WORKER_OUT_OF_MEMORY`. 메인 스레드는 `error` 이벤트만 받는다).

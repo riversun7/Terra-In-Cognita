@@ -5,12 +5,15 @@
 //   이름 자동 완성(fl → floor(), Enter). 맨손 일반 공격 식: Lv 30 균형형·맨손이면 굴림 0 → 13, 9999 → 27(10 상한 없음).
 //   적정 STA 식(D-511): Lv 1 → 10, Lv 30 → 39. 스태미나 표: 보통 표본은 모든 무기로 일반 공격이 이어진다.
 // - player: tRPC formulas.list는 403.
-// - 배치·사진: 390·1440 × 파스텔·다크 × 한국어·영어(오류 상태를 펼친 채). 가로 넘침·작은 누르는 곳 없음.
+// - 배치·사진: 390·1440 × 네온·라이트 × 한국어·영어(오류 상태를 펼친 채). 가로 넘침·작은 누르는 곳 없음.
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 덮어쓰기를 모두 지운다(밸런스 화면 시험과 같은 결).
+// 사용자별 조회 속도 제한(설정 칸 계열 순간 30·분당 120)도 같이 쓴다: 배치·사진 시험은 서버 상태를 바꾸지 않으므로 화면을 여는
+// 조회를 처음 한 번만 서버에 묻는다(replayTrpc, 밸런스 화면 시험과 같은 결).
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
+import { createTrpcReplay, replayTrpc } from "./helpers/trpc.ts";
 
 /** 화면 안에서 tRPC를 부른다(같은 출처, 화면과 같은 쿠키). 결과 data 또는 오류 코드 */
 async function trpc(
@@ -212,8 +215,21 @@ const LAYOUTS: readonly { theme: DevTheme; language: Language; width: number; he
   ]),
 );
 
+/** 배치·사진 시험(admin)이 함께 쓰는 서버 답 */
+const layoutReplay = createTrpcReplay();
+/** 화면을 열 때 부르는 조회: 실험실 목록·프리셋·미리 보기(기본 탭), 식 목록 */
+const LAYOUT_READS = [
+  "battleLab.catalog",
+  "battleLab.presets",
+  "battleLab.preview",
+  "formulas.list",
+] as const;
+
 test.describe("배치·사진", () => {
   test.use({ account: "admin" });
+  test.beforeEach(async ({ page }) => {
+    await replayTrpc(page, layoutReplay, LAYOUT_READS);
+  });
 
   for (const { theme, language, width, height } of LAYOUTS) {
     test.describe(`${theme}·${language}·${width}px`, () => {

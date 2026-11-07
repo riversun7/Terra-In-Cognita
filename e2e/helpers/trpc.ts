@@ -3,7 +3,9 @@
 // - 응답은 프로시저 차례대로의 배열이다. 변환기가 없어 JSON 그대로다: [{ result: { data } } | { error }].
 // - watchTrpc는 그 화면(page)이 보낸 요청만 센다(서비스 워커가 보낸 요청은 없다. 맥락마다 첫 화면은 서비스 워커 밖이다).
 // - rewriteTrpc는 서버 답을 받은 뒤 그 프로시저의 data만 고쳐 돌려준다(서버가 아직 보내지 않는 값을 넣어 볼 때).
-import { type Page, type Request, expect } from "@playwright/test";
+// - replayTrpc는 같은 입력의 조회를 처음 한 번만 서버에 묻고 그다음은 담아 둔 답으로 돌려준다(배치·사진 시험이 사용자별
+//   속도 제한을 다 쓰지 않게. 서버 상태를 바꾸지 않는 시험끼리만 같은 저장소를 쓴다).
+import { type Page, type Request, type Route, expect } from "@playwright/test";
 
 /** packages/protocol의 TRPC_PATH(/api/trpc) 아래 */
 const TRPC_PREFIX = "/api/trpc/";
@@ -118,20 +120,99 @@ export async function rewriteTrpc(
       }
       const response = await route.fetch();
       const body: unknown = await response.json();
-      if (Array.isArray(body)) {
-        for (const [index, name] of procedures.entries()) {
-          const edit = Object.hasOwn(edits, name) ? edits[name] : undefined;
-          const data = resultData(body[index]);
-          if (edit !== undefined && data !== undefined) edit(data);
-        }
-      }
-      // 본문을 바꾸므로 길이·압축 머리글은 빼고 다시 단다
-      const headers = Object.fromEntries(
-        Object.entries(response.headers()).filter(
-          ([name]) => name !== "content-length" && name !== "content-encoding",
-        ),
+      await fulfillEdited(
+        route,
+        procedures,
+        edits,
+        response.status(),
+        rewrittenHeaders(response.headers()),
+        body,
       );
-      await route.fulfill({ status: response.status(), headers, body: JSON.stringify(body) });
     },
   );
+}
+
+/** 본문을 바꿔 돌려줄 때의 머리글: 길이·압축 머리글은 빼고 다시 단다 */
+function rewrittenHeaders(headers: Readonly<Record<string, string>>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(headers).filter(([name]) => name !== "content-length" && name !== "content-encoding"),
+  );
+}
+
+/** replayTrpc가 담아 둔 서버 답: "프로시저 이름 + 입력 JSON" → data JSON. 시험 파일 하나가 모듈 범위에 하나 만들어 시험끼리 함께 쓴다 */
+export type TrpcReplay = Map<string, string>;
+
+export function createTrpcReplay(): TrpcReplay {
+  return new Map();
+}
+
+/**
+ * 같은 입력의 tRPC 호출(procedures에 든 것만)은 처음 한 번만 서버에 묻고, 그다음은 담아 둔 답으로 돌려준다.
+ * 왜: 개발 화면 조회는 사용자마다 속도 제한이 있다(설정 칸 계열 조회 순간 30·분당 120, 밸런스 대결 순간 2·분당 4,
+ * 전투 실험실 전투 순간 4·분당 8 — 서버 보호라 그대로 둔다). 한 계정으로 화면을 여러 번 여는 배치·사진 시험이 그 제한을
+ * 다 쓰면 뒤 시험의 조회가 TOO_MANY_REQUESTS로 막힌다. 서버 결과가 같기만 하면 되는 시험은 이것으로 서버에 덜 묻는다.
+ * - 기기가 묶어 보낸 요청(?batch=1)만 본다. 시험이 page.evaluate로 직접 부르는 요청(묶지 않음)은 늘 서버로 간다.
+ * - 묶음의 프로시저가 모두 procedures에 들고 모두 담겨 있으면 서버에 보내지 않는다. 하나라도 없으면 묶음 그대로 서버에
+ *   묻고 성공한 칸만 담는다(오류 칸은 담지 않고 그대로 돌려준다).
+ * - edits: 돌려주기 전에 그 프로시저의 data를 고친다(rewriteTrpc와 같다. 담아 둔 값은 바꾸지 않는다).
+ * 화면 하나에 한 번 부른다(rewriteTrpc와 함께 쓰지 않는다). 같은 저장소는 같은 계정·서버 상태를 보는 시험끼리만 쓴다:
+ * 담은 답은 서버 상태가 바뀌어도 그대로다(그래서 이 저장소를 쓰는 시험은 서버 상태를 바꾸지 않는다).
+ */
+export async function replayTrpc(
+  page: Page,
+  replay: TrpcReplay,
+  procedures: readonly string[],
+  edits: Readonly<Record<string, (data: unknown) => void>> = {},
+): Promise<void> {
+  const replayable = new Set(procedures);
+  await page.route(
+    (url) => url.pathname.startsWith(TRPC_PREFIX) && url.searchParams.get("batch") === "1",
+    async (route) => {
+      const request = route.request();
+      const names = trpcProcedures(request.url()) ?? [];
+      if (!names.some((name) => replayable.has(name) || Object.hasOwn(edits, name))) {
+        await route.fallback();
+        return;
+      }
+      const inputs = trpcInputs(request, names.length);
+      const keys = names.map((name, index) =>
+        replayable.has(name) ? `${name} ${JSON.stringify(inputs[index] ?? null)}` : null,
+      );
+      const cached = keys.map((key) => (key === null ? undefined : replay.get(key)));
+      if (cached.every((data) => data !== undefined)) {
+        // 모두 담겨 있다: 서버에 묻지 않는다(묶음 응답 모양 그대로)
+        const body = cached.map((data) => ({ result: { data: JSON.parse(data) } }));
+        await fulfillEdited(route, names, edits, 200, { "content-type": "application/json" }, body);
+        return;
+      }
+      const response = await route.fetch();
+      const body: unknown = await response.json();
+      if (Array.isArray(body)) {
+        for (const [index, key] of keys.entries()) {
+          const data = resultData(body[index]);
+          if (key !== null && data !== undefined) replay.set(key, JSON.stringify(data));
+        }
+      }
+      await fulfillEdited(route, names, edits, response.status(), rewrittenHeaders(response.headers()), body);
+    },
+  );
+}
+
+/** 묶음 응답(body)의 칸마다 edits를 적용해 돌려준다 */
+async function fulfillEdited(
+  route: Route,
+  names: readonly string[],
+  edits: Readonly<Record<string, (data: unknown) => void>>,
+  status: number,
+  headers: Record<string, string>,
+  body: unknown,
+): Promise<void> {
+  if (Array.isArray(body)) {
+    for (const [index, name] of names.entries()) {
+      const edit = Object.hasOwn(edits, name) ? edits[name] : undefined;
+      const data = resultData(body[index]);
+      if (edit !== undefined && data !== undefined) edit(data);
+    }
+  }
+  await route.fulfill({ status, headers, body: JSON.stringify(body) });
 }

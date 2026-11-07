@@ -34,6 +34,9 @@ function fakeService(calls: string[]): TerritoryService {
     canManage: () => Promise.resolve(false),
     repairBeacon: () => false,
     finishBeacon: () => false,
+    supplyCity: () => Promise.resolve(null),
+    urbanCity: () => Promise.resolve(null),
+    damageBeacon: () => false,
   };
 }
 

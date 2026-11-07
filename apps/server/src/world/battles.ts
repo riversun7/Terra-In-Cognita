@@ -35,6 +35,11 @@ import { type Scheduler, createScheduler } from "./scheduler.ts";
 export interface BattleOutcome {
   readonly result: BattleResult;
   readonly units: readonly UnitResult[];
+  /**
+   * 끝 상태의 건물 내구도(전투 건물 ID마다). 세계 건물·영토 비콘을 넥서스로 쓴 전투는 시작 내구도와의 차이를 세계에 적용한다
+   * (battleTargets.ts, 질문 381). 이 칸이 없던 판의 결과 기록도 읽는다(건물 피해 없음)
+   */
+  readonly buildings?: readonly { readonly id: number; readonly durability: number }[] | undefined;
 }
 
 /** 빨리감기 한 번의 비용(서버 기록) */
@@ -241,7 +246,11 @@ export function createBattleService(options: {
     }
     const { result, state } = await compute(battleId, battle.init, battle.inputs, 0x7fff_ffff);
     if (applied.has(battleId)) return;
-    const outcome: BattleOutcome = { result, units: resolveOutcomes(state, { war: battle.war }) };
+    const outcome: BattleOutcome = {
+      result,
+      units: resolveOutcomes(state, { war: battle.war }),
+      buildings: state.buildings.map((building) => ({ id: building.id, durability: building.durability })),
+    };
     // 여기부터 기다림 없이: 세계 바뀜과 결과 기록이 같은 쓰기 묶음에 들어간다
     applied.add(battleId);
     options.apply(battleId, battle.init, outcome, battle.endsAtMs);

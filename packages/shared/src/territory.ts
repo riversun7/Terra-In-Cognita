@@ -464,3 +464,36 @@ export function checkBeaconPlacement(
   if (best) return { ok: true, anchorCity: best.id };
   return { ok: false, problem: inRange ? "beacon_limit" : "out_of_range" };
 }
+
+/** 시가지 반경 = 영향권 반경 ÷ 이 값(기획 D-104·49 M4 "영향권은 시가지 반경의 3배다") */
+export const URBAN_RADIUS_DIVISOR = 3;
+
+/**
+ * 점이 어느 도시의 시가지(안전지대, D-146) 안인가: 도시 중심에서 시가지 반경(영향권 반경 ÷ 3) 안인 도시 가운데 작은 ID. 없으면 null.
+ * 시가지 안의 건물은 공성 시간에만 공격받는다(D-174·D-184, 기획 45 "시가지 안의 시설은 공성 시간에 공격받는다") — 건물 공격 판정이 쓴다
+ */
+export function urbanCityAt(layout: TerritoryLayout, point: TerritoryVec): number | null {
+  for (const city of layout.cities)
+    if (territoryDistanceMilli(point, city.point, layout.metric) * URBAN_RADIUS_DIVISOR <= city.radiusMilli)
+      return city.id;
+  return null;
+}
+
+/**
+ * 그 세력에서 점과 가장 가까운 도시(같으면 작은 ID). 없으면 null. 영토 비콘(1차맵) 짓기·수리 재료를 꺼내는 도시다(질문 410 ①, 기획
+ * D-121 "가장 가까운 창고" 포인터): 기준 도시(비콘 수가 남은 도시)와 다를 수 있다. 서버 판정과 화면 미리 셈이 같은 함수를 쓴다
+ */
+export function nearestFactionCity(
+  cities: readonly { readonly id: number; readonly faction: number; readonly point: TerritoryVec }[],
+  faction: number,
+  point: TerritoryVec,
+): number | null {
+  let best: { readonly id: number; readonly cos: number } | undefined;
+  for (const city of cities) {
+    if (city.faction !== faction || !isTerritoryVec(city.point)) continue;
+    const value = cosine(point, city.point);
+    if (!best || value > best.cos || (value === best.cos && city.id < best.id))
+      best = { id: city.id, cos: value };
+  }
+  return best?.id ?? null;
+}

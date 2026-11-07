@@ -9,6 +9,7 @@ import { gunzipSync } from "node:zlib";
 import { type CellKey, EARTH_FACE_LEVEL, cellKey, stepCell } from "@terra/planet";
 import { DEFAULT_WORLD_PLANET_ID } from "../db/schema.ts";
 import {
+  type BattleInit,
   CELL_UNITS,
   type CombatCatalog,
   type CombatCoefficients,
@@ -24,8 +25,9 @@ import { type WorldWriter, type WriterPool, createWorldWriter } from "./persist/
 import { createWorkerPathService } from "./pathPool.ts";
 import { type PathService, createInlinePathService } from "./pathService.ts";
 import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
-import { type BattleWorld, applyBattleOutcome } from "./battleResults.ts";
-import { type BattleItems, battleStartedAt, createBattleItems } from "./battleItems.ts";
+import type { BattleWorld } from "./battleResults.ts";
+import { createBattleApply } from "./battleApply.ts";
+import { type BattleItems, createBattleItems } from "./battleItems.ts";
 import { type CityRow, cityCellsOf, ensureTestStartCities, loadCities, nearestSafeCity } from "./cities.ts";
 import {
   type CyborgRules,
@@ -36,7 +38,6 @@ import {
 import { type LoadedCyborgs, loadCyborgs } from "../cyborg/state.ts";
 import { type HoldingsConfig, type WorldHoldings, createWorldHoldings } from "../holdings/world.ts";
 import { type LoadedHoldings, loadHoldings } from "../holdings/state.ts";
-import { wearOutcomeOf } from "../holdings/rules.ts";
 import { type VitalsRecord, loadVitals } from "../vitals/state.ts";
 import { type VitalsConfig, type WorldVitals, createWorldVitals } from "../vitals/world.ts";
 import { type LaborService, createLaborService } from "../labor/service.ts";
@@ -552,48 +553,22 @@ export function startWorld(
       ownerExists: (ownerId) => owners.has(ownerId) || ownerId === npcOwnerId,
       ledger,
     };
-    // 전투가 끝났을 때 알려 줄 곳(NPC 런타임의 정원사 웨이브, docs/adr/2026-11-01-gardener-r5b.md 5절)
-    // 듣는 곳이 붙기 전에 끝난 전투(부팅 때 restore가 바로 적용한 것)는 모아 두었다가 붙을 때 넘긴다
+    // 끝 시각에 한 번: 부상·귀환·포로·탈취·장비 닳기·물약·탄·생명 수치·건물 피해를 세계에 적용한다(battleApply.ts, 결과 기록과 같은 커밋).
     // 전투 물건(287): 보유 물건 서비스를 만든 뒤 채운다(그 전에는 아무것도 붙이지 않는다)
     let items: BattleItems = { battleStart: (init) => init, apply: () => ({ potions: 0, shots: 0 }) };
-    const battleEnded = new Set<(battleId: number, attackerWon: boolean) => void>();
-    const endedBeforeListen: [number, boolean][] = [];
+    const battleApply = createBattleApply({
+      world: battleWorld,
+      holdings: () => holdings,
+      items: () => items,
+      vitals: () => vitals,
+      buildings: () => facilities.damage,
+      log,
+    });
     const battles = createBattleService({
       pool: db,
       writer,
       now,
-      // 끝 시각에 한 번: 부상·귀환·포로·탈취를 세계에 적용한다(battleResults.ts, docs/adr/2026-10-31-combat-core.md 8절)
-      apply: (battleId, init, outcome, atMs) => {
-        const applied = applyBattleOutcome(battleWorld, battleId, init, outcome, atMs);
-        // 장비 닳기(D-496 289·N49): 결과 적용과 같은 동기 처리 → 같은 커밋(두 번 닳지 않는다). 퇴각은 닳지 않음(D-514 352)
-        const wear = holdings.service.applyBattle(
-          init.seed,
-          outcome.units.map((unit) => ({ unit: unit.unit, outcome: wearOutcomeOf(unit) })),
-        );
-        // 전투 중 쓴 물약·탄(287): 같은 커밋. 물약 쿨은 전투 시작 실제 시각 + 판정의 쿨 끝
-        const used = items.apply(outcome.units, battleStartedAt(atMs, outcome.result.endTick));
-        // 끝 HP·아머·쉴드(D-512): 같은 동기 처리 → 같은 커밋. 끝 시각부터 전투 밖 회복을 센다
-        const vitalsWritten = vitals.service.applyBattle(init, outcome.units, atMs);
-        log.info(
-          {
-            battleId,
-            winner: outcome.result.winner,
-            reason: outcome.result.reason,
-            ...applied,
-            looted: String(applied.looted),
-            ...wear,
-            potionsUsed: used.potions,
-            shots: used.shots,
-            vitalsWritten,
-          },
-          "battle ended",
-        );
-        const attacker = init.sides.find((side) => !side.defender)?.id;
-        const attackerWon = outcome.result.winner === attacker;
-        if (battleEnded.size === 0 && endedBeforeListen.length < 1000)
-          endedBeforeListen.push([battleId, attackerWon]);
-        for (const listener of battleEnded) listener(battleId, attackerWon);
-      },
+      apply: battleApply.apply,
       onError: (error) => log.error({ err: error }, "battle failed"),
       onComputed: (cost) => log.info(cost, "battle computed"),
     });
@@ -629,8 +604,13 @@ export function startWorld(
         faceLevelOf: (planetId) => faceLevels.get(planetId),
         factionName: (code) => nationName(code, config.npc?.presets),
         ready: () => status.state === "ready",
-        // 건물 규칙(기획 336): 비콘도 재료·건설 시간·노화(docs/adr/2026-11-07-buildings-runtime.md)
-        construction: beaconConstructionOf({ ledger, settlement, rules: societyRules }),
+        // 건물 규칙(기획 336): 비콘도 재료(가장 가까운 세력 도시 창고, 질문 410 ①)·건설 시간·노화(docs/adr/2026-11-07-buildings-runtime.md)
+        construction: beaconConstructionOf({
+          ledger,
+          settlement,
+          rules: societyRules,
+          places: () => facilities.service.places,
+        }),
       },
       beaconRows,
     );
@@ -686,6 +666,14 @@ export function startWorld(
       holdings: holdings.service,
       exists: (unitId) => [...maps.values()].some((map) => map.unitInfo(unitId) !== undefined),
     });
+    // 세계 전투를 여는 한 길(정원사 웨이브·건물 공격): 몸(입은 장비·버프) → 남은 HP·아머·쉴드(D-512) → 물약·탄(287)
+    const startWorldBattle = (init: BattleInit, war: boolean) =>
+      battles.start(
+        items.battleStart(vitals.service.battleStart(bodies.battleStart(init, now()), now()), now()),
+        {
+          war,
+        },
+      );
     // 건물: 짓기·노화·수리(노동 계약 정산이 시설이 일하는지 묻는다 — 서로 고리라 계약 서비스는 뒤에 잇는다)
     // 건물이 선 도시(재료·창고 자리, D-516 361): 부팅 때 읽은 도시 + NPC 런타임이 새로 세운 도시
     const cityCells = () => cityCellsOf(cities, npc?.places, TEST_PLANET_ID, maps);
@@ -700,6 +688,16 @@ export function startWorld(
       holdings,
       territory: () => territory,
       cities: cityCells,
+      // 건물 공격(질문 381): 같은 길로 공성 전투를 연다
+      battles: {
+        owners,
+        pool: db,
+        combatRules: config.combatRules,
+        bodies,
+        startBattle: startWorldBattle,
+        endsAt: async (battleId) => (await battles.get(battleId))?.endsAtMs,
+        seed: () => randomInt(0x1_0000_0000),
+      },
       now,
       ready: () => status.state === "ready",
     });
@@ -829,17 +827,8 @@ export function startWorld(
           manual: config.npc.manual,
           gardenerWaves: config.npc.gardenerWaves,
           planetId: TEST_PLANET_ID,
-          // 세계가 몸을 아는 유닛은 입은 장비·버프로 다시 만들고(사이보그 화면과 같은 셈), 남은 HP·아머·쉴드로 시작한다(D-512)
-          startBattle: (init) =>
-            battles.start(
-              items.battleStart(vitals.service.battleStart(bodies.battleStart(init, now()), now()), now()),
-              { war: false },
-            ),
-          onBattleEnded: (listener) => {
-            battleEnded.add(listener);
-            for (const [battleId, attackerWon] of endedBeforeListen.splice(0))
-              listener(battleId, attackerWon);
-          },
+          startBattle: (init) => startWorldBattle(init, false),
+          onBattleEnded: (listener) => battleApply.onEnded(listener),
           combatCatalog: config.combatCatalog,
           combatRules: config.combatRules,
           // 기준 도시를 빼앗기면 영토 비콘도 함께 넘어간다(D-512 335, 도시 줄과 같은 쓰기 묶음)

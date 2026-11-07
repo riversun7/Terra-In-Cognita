@@ -1,4 +1,4 @@
-// 건물(시설) 화면 자료 모양 — tRPC facilities.overview(조회만, 바꾸는 명령은 WebSocket facility_*, 프로토콜 9).
+// 건물(시설) 화면 자료 모양 — tRPC facilities.overview(조회만, 바꾸는 명령은 WebSocket facility_*·storage_move, 프로토콜 10~12).
 // docs/adr/2026-11-07-buildings-runtime.md. 서버(apps/server/src/facilities/views.ts)와 경제 화면(apps/game/src/economy/FacilityPanel.tsx)이 같이 쓴다.
 // 수량은 묶음 단위 정수, 원장 잔고는 10진 글자(BigInt). 상태는 ppm(가득 1,000,000, @terra/shared/facilityRuntime).
 import type { ConditionState, FacilityRuntimeRules } from "./facilityRuntime.ts";
@@ -100,6 +100,34 @@ export interface FacilityBeaconView {
   readonly readyAtMs: number | null;
   readonly job: FacilityJobView | null;
   readonly repairStep: (FacilityStepView & { readonly restorePpm: number }) | null;
+  /**
+   * 재료를 꺼내는 도시: 그 세력에서 비콘 칸과 가장 가까운 도시(질문 410 ①, @terra/shared/territory nearestFactionCity). 그 도시의 내 도시
+   * 창고 + 그 도시의 내 창고 시설에서만 꺼낸다(화물 없음). 세력 도시가 없으면 null(재료를 꺼낼 곳이 없다)
+   */
+  readonly supplyCityId: number | null;
+}
+
+/**
+ * 칠 수 있는 남의 시설·다른 세력 영토 비콘 하나(질문 381, 명령 facility_attack 프로토콜 12). 내 유닛이 있는 2차맵의 것만(비콘은 그 칸의
+ * 2차맵), 내 것·내 세력 것·도시 시가지(안전지대, D-146) 안의 것은 뺀다. 상태 0%(폐허)도 보이되 칠 수 없다(target_ruined)
+ */
+export interface FacilityTargetView {
+  readonly kind: "facility" | "beacon";
+  /** 시설 = 2차맵 건물 ID, 비콘 = 비콘 ID */
+  readonly id: number;
+  /** 시설의 팩 ID(비콘은 null) */
+  readonly facilityId: string | null;
+  readonly name: LocalizedName | null;
+  readonly mapKey: number;
+  /** 시설의 2차맵 기준 칸(비콘은 null) */
+  readonly x: number | null;
+  readonly y: number | null;
+  readonly conditionPpm: number;
+  readonly state: ConditionState;
+  readonly durability: number;
+  readonly maxDurability: number;
+  /** 그 2차맵에 있는 내 유닛 가운데 공격에 쓸 수 있는 것(작업·계약·부상·포로가 아님) */
+  readonly unitIds: readonly number[];
 }
 
 export interface FacilityUnitView {
@@ -179,14 +207,19 @@ export interface FacilitiesOverviewResponse {
   }[];
   readonly units: readonly FacilityUnitView[];
   readonly holdings: readonly FacilityHoldingView[];
+  /** 칠 수 있는 남의 시설·다른 세력 비콘(질문 381) */
+  readonly targets: readonly FacilityTargetView[];
   /** 개발 시험 명령(재료 받기·바로 끝내기)을 쓸 수 있나 */
   readonly dev: boolean;
 }
 
-/** 그 도시·2차맵에서 건물 재료로 쓸 수 있는 물자 합(아이템 ID → 수량) — 서버 materialScope와 같은 자리 규칙(D-516 361) */
+/**
+ * 그 도시·2차맵에서 건물 재료로 쓸 수 있는 물자 합(아이템 ID → 수량) — 서버 materialScope와 같은 자리 규칙(D-516 361). mapKey가 null이면
+ * 화물을 빼고 그 도시 창고 + 그 도시의 내 창고 시설만(영토 비콘 재료, 질문 410 ①)
+ */
 export function materialStockAt(
   places: readonly GoodsPlaceView[],
-  mapKey: number,
+  mapKey: number | null,
   cityId: number | null,
 ): Map<string, bigint> {
   const out = new Map<string, bigint>();

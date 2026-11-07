@@ -4,6 +4,7 @@
 // 건물 규칙(기획 336, docs/adr/2026-11-07-buildings-runtime.md): 재료 빼기·건설 시간 뒤 꼭짓점·노화 30% 멈춤·수리
 import { EARTH_FACE_LEVEL, cellKey } from "@terra/planet";
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
+import { cityLocation } from "@terra/shared/goodsPlaces";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { goodsStock, grantGoods } from "../facilities/materials.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
@@ -69,15 +70,24 @@ async function fakeUser(name: string): Promise<string> {
   return String(found[0]?.id);
 }
 
-/** 세력에 넣고, 비콘 재료(소나무 원목)를 넉넉히 준다(건물 규칙: 놓을 때 재료를 뺀다) */
+/**
+ * 세력에 넣고, 비콘 재료(소나무 원목)를 넉넉히 준다(건물 규칙: 놓을 때 재료를 뺀다). 재료는 그 세력에서 비콘 칸과 가장 가까운 도시의 도시
+ * 창고에서만 꺼내므로(질문 410 ①) 그 세력 첫 도시(시험 도시 하나)의 창고에 둔다
+ */
 async function join(userId: string, factionId: number, logs = 100): Promise<void> {
   await rows(test.db, `insert into faction_members (user_id, faction_id) values ($1, $2)`, [
     userId,
     factionId,
   ]);
+  const city = await rows<{ id: string }>(
+    test.db,
+    `select id from world_cities where faction_id = $1 order by id limit 1`,
+    [factionId],
+  );
   const p = worlds.at(-1)?.persistence;
+  const location = city[0] ? cityLocation(Number(city[0].id)) : null;
   if (p && logs > 0)
-    grantGoods(p.ledger, p.settlement.ownerOfUser(userId, clock).id, "pine_log", logs, clock, null);
+    grantGoods(p.ledger, p.settlement.ownerOfUser(userId, clock).id, "pine_log", logs, clock, location);
 }
 
 async function testFaction(): Promise<number> {

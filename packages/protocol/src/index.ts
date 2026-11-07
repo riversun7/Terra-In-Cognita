@@ -65,6 +65,7 @@ export {
   type FusionResultCode,
 } from "./fusion.ts";
 export {
+  ATTACK_PROTOCOL_VERSION,
   FACILITY_PROTOCOL_VERSION,
   FACILITY_RESULT_CODES,
   type FacilityResultCode,

@@ -6,6 +6,7 @@ import type {
   FacilityHoldingView,
   FacilityJobView,
   FacilityStackView,
+  FacilityTargetView,
   FacilityView,
   GoodsPlaceView,
 } from "@terra/shared/facilities";
@@ -50,6 +51,14 @@ export interface FacilityViewSource {
   readonly rules: () => SocietyCoefficients;
   readonly catalog: () => FacilityCatalog;
   readonly unitBusy: (unitId: number) => boolean;
+}
+
+/** 내 세력 비콘 하나(영토 서비스)와 재료를 꺼내는 도시(그 세력에서 가장 가까운 도시, 질문 410 ①) */
+export interface BeaconEntry {
+  readonly id: number;
+  readonly planetId: string;
+  readonly cellKey: number;
+  readonly supplyCityId?: number | null | undefined;
 }
 
 /** 화폐(지갑)는 자리 목록에 넣지 않는다 */
@@ -158,7 +167,9 @@ export function facilitiesOverview(
     readonly nowMs: number;
     readonly dev: boolean;
   },
-  beaconsOfFaction: readonly { readonly id: number; readonly planetId: string; readonly cellKey: number }[],
+  beaconsOfFaction: readonly BeaconEntry[],
+  /** 칠 수 있는 남의 시설·다른 세력 비콘(targets.ts, 질문 381) */
+  targets: readonly FacilityTargetView[] = [],
 ): FacilitiesOverviewResponse {
   const rules = source.rules();
   const rt = rules.facilityRuntime;
@@ -276,6 +287,7 @@ export function facilitiesOverview(
                 timeMs: repairTimeMs(beaconCost.ms, restore, 0, rt),
               }
             : null,
+        supplyCityId: entry.supplyCityId ?? null,
       },
     ];
   });
@@ -351,6 +363,7 @@ export function facilitiesOverview(
     })),
     units,
     holdings,
+    targets,
     dev: input.dev,
   };
 }

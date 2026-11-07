@@ -48,6 +48,10 @@ export const FACILITY_ERROR_TEXT: Readonly<Record<FacilityResultCode | "offline"
     not_storage: m.facility_error_not_storage,
     storage_full: m.facility_error_storage_full,
     no_place: m.facility_error_no_place,
+    own_target: m.facility_error_own_target,
+    target_ruined: m.facility_error_target_ruined,
+    out_of_reach: m.facility_error_out_of_reach,
+    safe_zone: m.facility_error_safe_zone,
     internal_error: m.facility_error_internal_error,
     offline: m.facility_error_offline,
     timeout: m.facility_error_timeout,
@@ -92,10 +96,12 @@ export type Stock = ReadonlyMap<string, bigint>;
 export const stockAt = (data: FacilitiesOverviewResponse, mapKey: number, cityId: number | null): Stock =>
   materialStockAt(data.places, mapKey, cityId);
 
-/** 모든 자리 합(1차맵에 서는 영토 비콘 재료, 질문 410) */
-export function anywhereStock(data: FacilitiesOverviewResponse): Stock {
-  return new Map(data.materials.map((entry) => [entry.item, BigInt(entry.have)]));
-}
+/**
+ * 영토 비콘(1차맵) 재료로 쓸 수 있는 물자(서버와 같은 자리 규칙, 질문 410 ①): 그 세력에서 비콘 칸과 가장 가까운 도시의 내 도시 창고 + 그
+ * 도시의 내 창고 시설(화물 없음). 도시가 없으면 비었다
+ */
+export const beaconStock = (data: FacilitiesOverviewResponse, cityId: number | null): Stock =>
+  cityId === null ? new Map() : materialStockAt(data.places, null, cityId);
 
 /** 재료가 다 있나 */
 export function canAfford(stock: Stock, stacks: readonly FacilityStackView[]): boolean {

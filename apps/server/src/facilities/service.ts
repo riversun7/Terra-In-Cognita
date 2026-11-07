@@ -8,7 +8,10 @@
 //   30% 아래로도). ‰가 바뀔 때만 저장한다(저장한 (값, 시각) 짝이 늘 맞아 다시 켜도 같은 식으로 잇는다).
 // - 작업 끝: 1초마다 끝난 작업을 끝 시각으로 적용한다(다시 켜면 지난 작업을 그 시각으로 바로 적용 — 복구).
 // - 30% 미만·짓는 중인 시설은 일하지 않는다: 노동 계약 정산(labor/service.ts)이 works를 물어 그 구간 산출을 없앤다.
-// - 영토 비콘(기획 336)은 영토 서비스가 짓기·노화를 하고, 수리 작업만 여기서 한다(같은 재료·노동 규칙).
+// - 영토 비콘(기획 336)은 영토 서비스가 짓기·노화를 하고, 수리 작업만 여기서 한다(같은 재료·노동 규칙). 비콘 재료는 그 세력에서 비콘
+//   칸과 가장 가까운 도시의 내 도시 창고 + 그 도시의 내 창고 시설에서만(질문 410 ①, places.ts beaconMaterialScope).
+// - 전투 피해(질문 381, "바뀜 (전투·건물)"): damage가 잃은 내구도만큼 상태를 줄인다(0 = 폐허 = 기능 정지, 칸은 그대로·수리로 되돌림).
+//   공격 명령·전투 시작은 attack.ts, 결과 적용 고리는 world/battleTargets.ts.
 // - "바뀜 (창고·직무)"(D-516 361·364·382): 재료는 건물이 선 도시 창고 + 그 도시의 내 창고 시설 + 그 2차맵 내 유닛 화물에서만 꺼낸다
 //   (places.ts). 작업(짓기·레벨업·수리·장비 수리)에 묶인 유닛은 그 동안 원래 직무 산출을 내지 않는다(소유 주체 정산이 pausesFor를 물어
 //   그 구간 산출을 버린다, 작업이 끝나거나 지워지기 전에 그 시각까지 정산한다). 창고 시설 넣기·꺼내기는 storage.ts.
@@ -21,6 +24,7 @@ import {
   advanceCondition,
   conditionWorks,
   equipmentRepairMs,
+  maxDurabilityAt,
   repairMaterialsFor,
   repairRestorePpm,
   repairTimeMs,
@@ -45,7 +49,14 @@ import type { SecondMap } from "../world/secondMap.ts";
 import type { Settlement } from "../world/settlement.ts";
 import type { FacilityCatalog, FacilityDef } from "./catalog.ts";
 import { type GoodsScope, grantGoods, hasGoods, spendGoods } from "./materials.ts";
-import { type PlaceWorld, buildingOfLocation, buildingPlace, cityAt, materialScope } from "./places.ts";
+import {
+  type PlaceWorld,
+  beaconMaterialScope,
+  buildingOfLocation,
+  buildingPlace,
+  cityAt,
+  materialScope,
+} from "./places.ts";
 import { type StorageMoveInput, moveStorage, rehomeBuildingGoods } from "./storage.ts";
 import {
   type FacilityRecord,
@@ -102,6 +113,11 @@ export interface FacilityService {
   /** 창고 시설 넣기·꺼내기(storage.ts) */
   storageMove(userId: string, input: StorageMoveInput): Promise<FacilityCommandResult>;
   devFinish(userId: string, target: FacilityTarget): Promise<FacilityCommandResult>;
+  /**
+   * 전투 피해(질문 381): 잃은 내구도 점만큼 상태(ppm)를 줄인다(destroyed면 0 = 폐허, 칸은 그대로·수리로 되돌림 — 366). 짓는 중이어도 준다
+   * (다 지으면 그 상태로 선다). 쓰기 대기열에만 쓴다(전투 결과 기록과 같은 커밋). 시설이 아니면 false
+   */
+  damage(buildingId: number, lost: number, destroyed: boolean, atMs: number): boolean;
   /** 끝난 작업을 적용한다(끝 시각 차례). 적용한 수 */
   finishDue(nowMs: number): number;
   /** 다 지은 시설의 상태를 nowMs까지 흐르게 한다. 저장한 수 */
@@ -285,8 +301,8 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     const record = job.buildingId === null ? undefined : facilities.get(job.buildingId);
     if (!record) return;
     if (job.kind === "build") {
+      // 짓기 시작 때 가득(CONDITION_FULL)으로 둔 상태 그대로 선다. 짓는 동안 전투 피해를 받았으면 그만큼 준 채로(질문 381)
       record.level = job.targetLevel ?? 1;
-      record.conditionPpm = CONDITION_FULL;
       record.conditionAtMs = at;
     } else if (job.kind === "upgrade") {
       advance(record, at);
@@ -390,6 +406,17 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     jobs,
     finishDue,
     age,
+    damage(buildingId, lost, destroyed, atMs) {
+      const record = facilities.get(buildingId);
+      const def = record ? options.catalog().facility(record.facilityId) : undefined;
+      if (!record || !def) return false;
+      advance(record, atMs);
+      const max = maxDurabilityAt(def.durability, Math.max(1, record.level), runtime());
+      const loss = destroyed ? record.conditionPpm : Math.ceil((lost * CONDITION_FULL) / Math.max(1, max));
+      record.conditionPpm = Math.max(0, record.conditionPpm - loss);
+      saveFacility(record);
+      return true;
+    },
     works(buildingId) {
       const record = facilities.get(buildingId);
       if (!record) return true;
@@ -517,8 +544,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       let cost: { materials: JobMaterial[]; ms: number };
       let buildingId: number | null = null;
       let beaconId: number | null = null;
-      // 1차맵에 서는 영토 비콘은 도시·2차맵이 없어 모든 자리에서 꺼낸다 [임시](질문 410)
-      let scope: GoodsScope = "anywhere";
+      let scope: GoodsScope = [];
       if ("buildingId" in target) {
         const found = myFacility(me, target.buildingId);
         if (typeof found === "string") return fail(found);
@@ -539,6 +565,9 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         if (state.row.readyAtMs !== null && state.row.readyAtMs > now()) return fail("under_construction");
         if (jobOn((job) => job.beaconId === target.beaconId)) return fail("job_running");
         const def = options.catalog().facility("territory_beacon");
+        // 재료 자리(질문 410 ①): 그 세력에서 비콘 칸과 가장 가까운 도시의 내 도시 창고 + 그 도시의 내 창고 시설(화물 없음)
+        const supply = await territory.supplyCity(target.beaconId);
+        scope = supply ? beaconMaterialScope(places, me, supply) : [];
         kind = "beacon_repair";
         condition = territory.beaconState(target.beaconId, now())?.conditionPpm ?? state.conditionPpm;
         cost = def ? levelCost(def, 1) : { materials: [], ms: 0 };

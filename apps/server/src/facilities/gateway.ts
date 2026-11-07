@@ -1,4 +1,5 @@
-// WebSocket 연결 하나의 건물 명령 처리(src/session.ts가 넘긴다, 프로토콜 10 — 창고 옮기기 12) — docs/adr/2026-11-07-buildings-runtime.md
+// WebSocket 연결 하나의 건물 명령 처리(src/session.ts가 넘긴다, 프로토콜 10 — 창고 옮기기 11, 건물·비콘 공격 12) —
+// docs/adr/2026-11-07-buildings-runtime.md
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다(같은 건물·유닛을 차례로 바꾼다).
 // - 사용자별 속도 제한(순간 10번, 분당 30번 — 노동 계약 명령과 같은 값). 밀린 요청이 MAX_PENDING을 넘으면 busy.
 // - 개발 시험 명령(dev_facility_grant·dev_facility_finish)은 dev·admin(secondMap dev-spawn — 보유 물건 dev_grant_item과 같은 권한).
@@ -8,6 +9,7 @@ import { PLACEMENT_SIZE } from "@terra/sim";
 import { rolesAllow } from "../auth/permissions.ts";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
+import type { BuildingAttack } from "./attack.ts";
 import type { FacilityCommandResult, FacilityService } from "./service.ts";
 
 export type FacilityClientMessage = ClientMessageOf<
@@ -18,6 +20,7 @@ export type FacilityClientMessage = ClientMessageOf<
   | "dev_facility_grant"
   | "dev_facility_finish"
   | "storage_move"
+  | "facility_attack"
 >;
 
 const MAX_PENDING = 8;
@@ -54,10 +57,20 @@ const fail = (code: FacilityResultCode): FacilityCommandResult => ({ ok: false, 
 
 function run(
   service: FacilityService,
+  attack: BuildingAttack | undefined,
   userId: string,
   message: FacilityClientMessage,
 ): Promise<FacilityCommandResult> {
   switch (message.t) {
+    case "facility_attack":
+      if (!attack) return Promise.resolve(fail("busy"));
+      return attack.attack(
+        userId,
+        message.buildingId === undefined
+          ? { beaconId: message.beaconId ?? 0 }
+          : { buildingId: message.buildingId },
+        message.unitIds,
+      );
     case "facility_build":
       return service.build(userId, {
         mapKey: message.mapKey,
@@ -113,6 +126,8 @@ function run(
 export function createFacilityGateway(options: {
   /** 세계가 준비되면 서비스(없으면 busy) */
   service: () => FacilityService | undefined;
+  /** 건물·영토 비콘 공격(질문 381, 프로토콜 12). 없으면 busy */
+  attack?: (() => BuildingAttack | undefined) | undefined;
   now: () => number;
   log: { error(obj: object, message: string): void };
 }): FacilityGateway {
@@ -135,7 +150,7 @@ export function createFacilityGateway(options: {
         const service = options.service();
         if (!service) return reply(message.id, fail("busy"));
         if (!limiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
-        reply(message.id, await run(service, viewer.id, message));
+        reply(message.id, await run(service, options.attack?.(), viewer.id, message));
       };
       return {
         handle(message) {

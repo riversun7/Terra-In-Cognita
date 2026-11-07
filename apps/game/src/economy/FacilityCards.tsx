@@ -21,7 +21,7 @@ import {
   type FacilityRun,
   JOB_TEXT,
   STATE_TEXT,
-  anywhereStock,
+  beaconStock,
   canAfford,
   cutTime,
   percentOf,
@@ -232,8 +232,8 @@ export function BeaconCard({
   const cost = data.catalog.find((entry) => entry.id === "territory_beacon")?.levels[0];
   const plan = repairPlan(data, beacon.conditionPpm, 10, cost, units.length);
   const ready = beacon.readyAtMs === null;
-  // 1차맵 비콘은 도시·2차맵이 없어 모든 자리에서 꺼낸다 [임시](질문 410)
-  const stock = anywhereStock(data);
+  // 재료 자리(질문 410 ①): 그 세력에서 비콘 칸과 가장 가까운 도시의 내 도시 창고 + 그 도시의 내 창고 시설(화물 없음)
+  const stock = beaconStock(data, beacon.supplyCityId);
   return (
     <li className="facility-card" data-state={beacon.state} data-part="facility-beacon">
       <div className="facility-head">
@@ -273,6 +273,11 @@ export function BeaconCard({
             {units.length === 0
               ? m.facility_repair_needs_units()
               : m.facility_repair_cost({ materials: stacksText(data, stock, plan.materials) })}
+          </p>
+          <p className="eco-footnote" data-part="facility-beacon-source">
+            {beacon.supplyCityId === null
+              ? m.facility_beacon_no_city()
+              : m.facility_beacon_city({ id: beacon.supplyCityId })}
           </p>
         </>
       ) : null}

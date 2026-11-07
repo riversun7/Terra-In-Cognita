@@ -1,6 +1,5 @@
-// 건물 명령(WebSocket, 프로토콜 10 — 창고 옮기기 12) — facility_build·facility_upgrade·facility_repair·equipment_repair·storage_move와
-// 개발 시험 명령을 보내고
-// 같은 요청 번호의 facility_result를 기다린다. docs/adr/2026-11-07-buildings-runtime.md. 바꾸는 명령은 WebSocket으로만(AGENTS.md 4장).
+// 건물 명령(WebSocket, 프로토콜 10 — 창고 옮기기 11, 공격 12) — facility_build·facility_upgrade·facility_repair·equipment_repair·
+// storage_move·facility_attack과 개발 시험 명령을 보내고 같은 요청 번호의 facility_result를 기다린다. docs/adr/2026-11-07-buildings-runtime.md. 바꾸는 명령은 WebSocket으로만(AGENTS.md 4장).
 // - 연결이 아직 인사 전이면 인사가 끝날 때까지 기다렸다 보낸다. 기다림·답 모두 TIMEOUT_MS 안.
 // - 끊기면(down) 기다리던 명령은 "offline"으로 끝난다. 서버가 받았는지 모르므로 화면은 목록을 다시 받는다.
 // 경제 지연 조각 안에서만 쓴다.
@@ -14,7 +13,8 @@ export type FacilityCommand =
   | Omit<ClientMessageOf<"equipment_repair">, "id">
   | Omit<ClientMessageOf<"dev_facility_grant">, "id">
   | Omit<ClientMessageOf<"dev_facility_finish">, "id">
-  | Omit<ClientMessageOf<"storage_move">, "id">;
+  | Omit<ClientMessageOf<"storage_move">, "id">
+  | Omit<ClientMessageOf<"facility_attack">, "id">;
 
 export type FacilityCommandOutcome =
   | { readonly ok: true; readonly buildingId?: number; readonly doneAtMs?: number }

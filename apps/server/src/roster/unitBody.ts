@@ -8,26 +8,42 @@
 // - 걸린 효과(unit_effects, D-501): 1차 스탯 버프·디버프(고정값)는 성장값 뒤에 더한다(48 §2.3). 전투 수치 버프(공격 ‰·방어율·회피·관통·
 //   크리 배율·이동 속도·쉴드 재생)는 판정의 걸린 효과로 전투 시작 때 넣는다(sim CombatUnitSpec.startEffects — 효과 합 modifiersOf가
 //   그대로 읽는다). 1차 스탯 ‰ 버프는 규칙 모양이 없어 넣지 않는다(질문, 작업 기록).
+// - 사이보그 판의 버프 몫(buffSharesOf, 질문 354 → D-515): 걸린 효과를 뺀 몸과 든 몸을 같은 함수로 셈한 차이 + 전투 수치 버프를 판정이
+//   전투 시작 때 얹는 함수(withAttackModifiers·withDefenseModifiers·shieldRegenPerMinute·이동 속도 하한)로 얹은 몫.
 // - 셈은 모두 @terra/sim 판정 함수다(loadoutOf·computeSecondary·specFromStats·realAttackOf·realHitPm·realCritPm·weaponRatioPm). 새 식은 없다.
 import { EFFECT_COMBAT_STATS, PRIMARY_STAT_CODES } from "@terra/content";
 import { elementsToArray, sumElementSources, zeroElements } from "@terra/shared/cyborg";
-import type { PrimaryStat, RosterCombat, RosterStats } from "@terra/shared/roster";
+import type {
+  PrimaryStat,
+  RosterBuffs,
+  RosterCombat,
+  RosterModifierStat,
+  RosterStats,
+} from "@terra/shared/roster";
 import {
   type CombatSkill,
   type CombatUnitSpec,
+  type EffectHolder,
+  MIN_MOVE_SPEED_PM,
   type ModifierStat,
+  type Modifiers,
   type Primaries,
   type StartEffect,
+  activeStartEffects,
   appropriateMilliOf,
   bareAppropriateMilli,
   basicFieldOf,
+  modifiersOf,
   realAttackOf,
   realCritPm,
   realHitPm,
+  shieldRegenPerMinute,
   skillFromData,
   specFromStats,
   weaponRatioPm,
   wearable,
+  withAttackModifiers,
+  withDefenseModifiers,
 } from "@terra/sim";
 import type { CyborgRecord } from "../cyborg/state.ts";
 import {
@@ -325,5 +341,92 @@ export function combatSummaryOfSpec(catalog: RosterCatalog, spec: BodySpec, part
       appropriateMilli: unit.staminaAppropriateMilli ?? unit.staminaScore * 1000,
       real: unit.staminaRegen,
     },
+  };
+}
+
+/** 몸 사양과 그 몸 묶음 한 벌(버프 몫을 셀 때 걸린 효과를 뺀 몸·든 몸을 나란히 둔다) */
+export interface BodyPair {
+  readonly spec: BodySpec;
+  readonly parts: BodyParts;
+}
+
+/** 걸린 효과를 뺀 몸 사양(1차 스탯 버프 없음 — 사이보그 판 줄 값의 기본) */
+export const withoutBuffs = (spec: BodySpec): BodySpec => ({ ...spec, buffs: [] });
+
+/** 효과 합을 읽는 판정 그릇: 전투 시작 때 걸리는 효과(battleState와 같은 변환)만 든다 */
+function holderOf(effects: readonly StartEffect[]): EffectHolder {
+  return { hp: 1, maxHp: 1, status: "alive", effects: activeStartEffects(effects), command: null };
+}
+
+const modifierRecord = (mods: Modifiers): Record<RosterModifierStat, number> => ({
+  attack: mods.attackPm,
+  defense_rate: mods.defenseRatePm,
+  evade: mods.evadePm,
+  penetration: mods.penetrationPm,
+  crit_multiplier: mods.critMulPm,
+  move_speed: mods.moveSpeedPm,
+  shield_regen: mods.shieldRegenPm,
+});
+
+/**
+ * 사이보그 판의 버프 몫(질문 354 → D-515 "기본값과 버프를 나눠 보인다"). plain = 걸린 효과를 뺀 몸, buffed = 1차 스탯 버프가 든 몸,
+ * effects = 전투 시작 때 걸릴 전투 수치 버프(startEffectsOf). 판정과 같은 함수만 쓴다:
+ * - 2차 행: 든 몸 − 뺀 몸(1차 스탯 버프 몫) + 방어율·회피(withDefenseModifiers)·크리 배율(withAttackModifiers)·쉴드 재생
+ *   (shieldRegenPerMinute)을 얹은 차이.
+ * - 실제 공격력: 공격 ‰는 피해에 곱하는 버프 항(withAttackModifiers buffPm)이라 공격력 단위로 바꿔 몫에 넣는다(⌊실제 × 버프 항 ÷ 1000⌋).
+ * - 관통 = 장비 몫(기본) + 버프, 이동 속도 = 하한(MIN_MOVE_SPEED_PM)을 넣은 ‰ 몫
+ */
+export function buffSharesOf(
+  catalog: RosterCatalog,
+  plain: BodyPair,
+  buffed: BodyPair,
+  effects: readonly StartEffect[],
+): RosterBuffs {
+  const c = catalog.coefficients;
+  const cap = c.appropriateCapPm;
+  const base = specOfParts(catalog, plain.spec, plain.parts, SUMMARY_PLACE);
+  const unit = specOfParts(catalog, buffed.spec, buffed.parts, SUMMARY_PLACE);
+  const holder = holderOf(effects);
+  const mods = modifiersOf(holder);
+  const attack = withAttackModifiers(unit.attack, mods);
+  const defense = withDefenseModifiers(unit.defense, mods);
+  /** 그 행에 전투 수치 버프가 얹는 몫(판정 값 − 행 값) */
+  const combatShare = (id: string): number => {
+    switch (id) {
+      case "defense_rate":
+        return defense.defenseRatePm - unit.defense.defenseRatePm;
+      case "evade":
+        return defense.evadePm - unit.defense.evadePm;
+      case "crit_multiplier":
+        return attack.critMulPm - unit.attack.critMulPm;
+      case "shield_regen":
+        return shieldRegenPerMinute(holder, unit.shieldRegen) - unit.shieldRegen;
+      default:
+        return 0;
+    }
+  };
+  const rows: Record<string, number> = {};
+  for (const row of catalog.combat.statTable) {
+    const share =
+      (buffed.parts.loadout.stats[row.id] ?? 0) -
+      (plain.parts.loadout.stats[row.id] ?? 0) +
+      combatShare(row.id);
+    if (share !== 0) rows[row.id] = share;
+  }
+  const effective = (a: CombatUnitSpec["attack"]): number =>
+    Math.floor((realAttackOf(a, cap, c) * Math.max(0, a.buffPm)) / 1000);
+  return {
+    rows,
+    attack: effective(attack) - effective(base.attack),
+    hit: realHitPm(unit.attack, c) - realHitPm(base.attack, c),
+    crit: realCritPm(unit.attack, c) - realCritPm(base.attack, c),
+    interval: unit.attackIntervalMs - base.attackIntervalMs,
+    staminaRegen: unit.staminaRegen - base.staminaRegen,
+    penetration: {
+      basePm: base.attack.penetrationPm,
+      buffPm: attack.penetrationPm - unit.attack.penetrationPm,
+    },
+    moveSpeedPm: mods.moveSpeedPm === 0 ? 0 : Math.max(MIN_MOVE_SPEED_PM, 1000 + mods.moveSpeedPm) - 1000,
+    modifiers: modifierRecord(mods),
   };
 }

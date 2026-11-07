@@ -474,6 +474,8 @@ export {
   statPlusWeapon,
   weaponRatioPm,
   weaponScaled,
+  withAttackModifiers,
+  withDefenseModifiers,
   type AttackOutcome,
   type AttackProfile,
   type AttackResult,
@@ -554,6 +556,7 @@ export {
 } from "./combat/replay.ts";
 export { DEMO_ROLES, demoSkirmish, type DemoRole, type DemoSkirmish } from "./combat/replayDemo.ts";
 export { arenaFromSecondMap, pickArenaOrigin, type SecondMapLayers } from "./combat/arena.ts";
+export { activeStartEffects } from "./combat/battleState.ts";
 export type {
   Battle,
   BattleInit,
@@ -598,7 +601,9 @@ export {
   tickEffects,
   type ActiveEffect,
   type EffectDef,
+  type EffectHolder,
   type EffectKind,
+  type Modifiers,
   type ModifierStat,
   type StatusKind,
 } from "./combat/effects.ts";

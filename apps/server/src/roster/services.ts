@@ -129,6 +129,7 @@ export function createRosterServices(
               record,
               cyborgs?.livingUnpaid(viewer.id) ?? false,
               gearOf(record.unitId, query.now),
+              query.now,
             )
           : null;
       const names = body

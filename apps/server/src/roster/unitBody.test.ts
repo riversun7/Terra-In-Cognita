@@ -1,13 +1,21 @@
 // 유닛 실효 몸 시험 — 입은 장비(굴린 값·무기 사양, 내구도 > 0만)·인공장기·걸린 효과가 사이보그 화면 스탯·공격 값과 전투 사양에 든다.
 // 실제 팩(content/core)으로: 새 사이보그(1차 모두 10, Lv 1)에 시험 검(공격력 20·적정 STR 25·DEX 12·AGI 12)을 쥐면
 // 공격력 10 → 18(D-502 사용자 예), 부서진 검은 아무것도 주지 않는다. 장신구 두 칸은 더한다(옛 utils/item/equipment.js getEquipmentTotals).
+import {
+  EFFECT_COMBAT_STATS,
+  itemEntrySchema,
+  parseJson,
+  skillEntrySchema,
+  unitKindEntrySchema,
+} from "@terra/content";
 import { loadContentPack } from "@terra/content/node";
 import { DEFAULT_CYBORG_APPEARANCE, zeroElements } from "@terra/shared/cyborg";
+import { ROSTER_MODIFIER_STATS } from "@terra/shared/roster";
 import { realStaminaRegen } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import type { CyborgRecord } from "../cyborg/state.ts";
-import { rosterCatalogOf } from "./catalog.ts";
+import { type RosterContentEntries, rosterCatalogOf } from "./catalog.ts";
 import { realCyborgBody } from "./cyborgBody.ts";
 import {
   BASELINE_BASE,
@@ -242,5 +250,128 @@ describe("유닛 상세(기본 몸) · 전투 사양", () => {
     // 1차 버프(STR +5)는 사양의 1차 스탯에 든다
     expect(spec.primaries[0]).toBe(15);
     expect(combatSpecOf(catalog, cyborg, NO_GEAR, place, NOW).startEffects).toBeUndefined();
+  });
+});
+
+/** 행 목록에서 그 행 값(없으면 0) */
+const value = (rows: readonly { id: string; value: number }[], id: string): number =>
+  rows.find((entry) => entry.id === id)?.value ?? 0;
+
+describe("사이보그 판 버프 몫(질문 354 → D-515: 기본값과 버프를 나눠 보인다)", () => {
+  it("버프가 없으면 몫은 0, 풀이는 2차 스탯과 같다", () => {
+    const body = realCyborgBody(catalog, record, false, gear([sword()]), NOW);
+    expect(body.buffs).toEqual({
+      rows: {},
+      attack: 0,
+      hit: 0,
+      crit: 0,
+      interval: 0,
+      staminaRegen: 0,
+      penetration: { basePm: 0, buffPm: 0 },
+      moveSpeedPm: 0,
+      modifiers: {
+        attack: 0,
+        defense_rate: 0,
+        evade: 0,
+        penetration: 0,
+        crit_multiplier: 0,
+        move_speed: 0,
+        shield_regen: 0,
+      },
+    });
+    expect(body.breakdown.map((entry) => entry.value)).toEqual(
+      body.stats.secondary.map((entry) => entry.value),
+    );
+  });
+
+  it("1차 스탯 버프·전투 수치 버프: 줄 값은 버프 뺀 기본, 몫 = 판정 값 − 기본(판정과 같은 함수)", () => {
+    const buffs = gear(
+      [],
+      [
+        effect({ effect: "food_str", value: 5 }),
+        effect({ effect: "atk_up", stat: "attack", valueMode: "permille", value: 300 }),
+        effect({ effect: "guard", stat: "defense_rate", value: 50 }),
+        effect({ effect: "dodge", stat: "evade", value: 30 }),
+        effect({ effect: "pierce", stat: "penetration", value: 100 }),
+        effect({ effect: "keen", stat: "crit_multiplier", value: 100 }),
+        effect({ effect: "slow", kind: "debuff", stat: "move_speed", valueMode: "permille", value: 200 }),
+        effect({ effect: "ward", stat: "shield_regen", valueMode: "permille", value: 500 }),
+        // 끝난 효과는 몫에 들지 않는다
+        effect({ effect: "gone", stat: "evade", value: 999, untilMs: NOW }),
+      ],
+    );
+    const body = realCyborgBody(catalog, record, false, buffs, NOW);
+    const shares = body.buffs;
+    // 줄 값(풀이·공격 값)은 기본: STR 10 그대로의 물리 공격력 ⌊(10 + 10) ÷ 2⌋ = 10, 2차 스탯은 버프 든 값 ⌊(15 + 10) ÷ 2⌋ = 12
+    expect(value(body.breakdown, "physical_attack")).toBe(10);
+    expect(value(body.stats.secondary, "physical_attack")).toBe(12);
+    expect(shares?.rows.physical_attack).toBe(2);
+    // 방어율은 STR이 가중치로 바꾼 몫 + 버프 50‰(withDefenseModifiers), 회피·크리 배율은 버프 그대로
+    expect(shares?.rows.defense_rate).toBe(
+      value(body.stats.secondary, "defense_rate") + 50 - value(body.breakdown, "defense_rate"),
+    );
+    expect(shares?.rows.evade).toBe(30);
+    expect(shares?.rows.crit_multiplier).toBe(100);
+    // 쉴드 재생 = WIS 10 × (1000 + 500) ÷ 1000 − 10
+    expect(value(body.breakdown, "shield_regen")).toBe(10);
+    expect(shares?.rows.shield_regen).toBe(5);
+    // 실제 공격력: 기본 10(맨손), 든 값 12 × 1.3(공격 ‰ 버프 항) = 15 → 몫 5
+    expect(body.combat?.attack.real).toBe(10);
+    expect(shares?.attack).toBe(5);
+    expect(shares?.hit).toBe(0);
+    expect(shares?.interval).toBe(0);
+    expect(shares?.penetration).toEqual({ basePm: 0, buffPm: 100 });
+    expect(shares?.moveSpeedPm).toBe(-200);
+    expect(shares?.modifiers).toEqual({
+      attack: 300,
+      defense_rate: 50,
+      evade: 30,
+      penetration: 100,
+      crit_multiplier: 100,
+      move_speed: -200,
+      shield_regen: 500,
+    });
+    // 1차 스탯 줄의 몫은 출처의 효과 칸(그대로)
+    expect(body.primarySources.str).toContainEqual({ kind: "effect", id: "food_str", value: 5 });
+  });
+
+  it("이동 속도 디버프는 판정 하한(100‰)까지만 몫이 된다", () => {
+    const slow = gear(
+      [],
+      [effect({ effect: "frozen", kind: "debuff", stat: "move_speed", valueMode: "permille", value: 5000 })],
+    );
+    expect(realCyborgBody(catalog, record, false, slow, NOW).buffs?.moveSpeedPm).toBe(-900);
+  });
+
+  it("화면 전투 수치 목록은 효과 사전 목록과 같다", () => {
+    expect([...ROSTER_MODIFIER_STATS]).toEqual([...EFFECT_COMBAT_STATS]);
+  });
+});
+
+describe("꺼진 아이템을 입고 있으면(질문 355 → D-515·D-512)", () => {
+  const source = loaded.source;
+  if (!source) throw new Error("content pack");
+  const entriesIn = <T>(file: string, parse: (raw: unknown) => T): T[] => {
+    const value: unknown = parseJson(source.files.get(file) ?? "{}");
+    const list: unknown = typeof value === "object" && value !== null ? Reflect.get(value, "entries") : [];
+    return Array.isArray(list) ? list.map((raw: unknown) => parse(raw)) : [];
+  };
+  const entries: RosterContentEntries = {
+    items: entriesIn("items.json", (raw) => itemEntrySchema.parse(raw)).map((item) =>
+      item.id === "test_sword" ? { ...item, enabled: false } : item,
+    ),
+    skills: entriesIn("skills.json", (raw) => skillEntrySchema.parse(raw)),
+    unitKinds: entriesIn("unit_kinds.json", (raw) => unitKindEntrySchema.parse(raw)),
+  };
+  const off = rosterCatalogOf(source, undefined, undefined, () => entries);
+
+  it("이미 입은 물건은 스탯·무기 사양을 그대로 준다(고르는 목록에는 없다)", () => {
+    expect(off.combat.equipment.some((item) => item.id === "test_sword")).toBe(false);
+    const body = realCyborgBody(off, record, false, gear([sword()]), NOW);
+    expect(body.slots[0]?.item?.id).toBe("test_sword");
+    expect(body.combat?.weapon).toBe("test_sword");
+    expect(body.combat?.attack.real).toBe(18);
+    expect(off.names.items.test_sword).toEqual({ ko: "시험용 검", en: "Test sword" });
+    expect(combatSpecOf(off, cyborg, gear([sword()]), place, NOW).attack.weaponAttack).toBe(20);
   });
 });

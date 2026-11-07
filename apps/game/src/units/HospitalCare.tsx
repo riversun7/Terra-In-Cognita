@@ -138,13 +138,15 @@ export function HospitalCare({
       {shown.healPm !== undefined && shown.healPm > 1000 ? (
         <p className="roster-note">{m.injury_treated({ speed: times(shown.healPm) })}</p>
       ) : null}
-      <p className="field-hint">
-        {m.injury_rule({
-          red: formatDuration(heal[3] ?? 0),
-          yellow: formatDuration(heal[2] ?? 0),
-          white: formatDuration(heal[1] ?? 0),
-        })}
-      </p>
+      {data ? (
+        <p className="field-hint">
+          {m.injury_rule({
+            red: formatDuration(heal[3] ?? 0),
+            yellow: formatDuration(heal[2] ?? 0),
+            white: formatDuration(heal[1] ?? 0),
+          })}
+        </p>
+      ) : null}
       {load.status === "loading" ? <p className="field-hint">{m.hospital_loading()}</p> : null}
       {load.status === "failed" ? (
         <div className="units-panel-actions">

@@ -67,6 +67,11 @@ export interface RuinService extends RuinReadServices {
   open(userId: string, ruinId: number): Promise<RuinCommandResult>;
   fund(userId: string, ruinId: number, amount: string): Promise<RuinCommandResult>;
   devMakeRuin(userId: string): Promise<RuinCommandResult>;
+  /**
+   * 이 유저가 폐허에 넣는 화폐 = 들어갈 나라의 화폐(시뮬 treasuryAsset — 거래소 나라 화폐 534 가 뒤 나라 화폐, 질문 546). 사이보그·나라·경제가
+   * 없으면 undefined(개발 시험 화폐 받기가 이 화폐도 같이 준다)
+   */
+  fundCurrencyOf(userId: string): string | undefined;
   /** 정부 건물 상태(건물 서비스 시설 줄): 짓는 중·서 있음·0%·사라짐(기획 답 480 다·487 다) */
   governmentStatus(buildingId: number): GovernmentStatus;
   /**
@@ -350,6 +355,15 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
         raised: String(outcome.restored ? 0n : raised),
         restored: outcome.restored,
       });
+    },
+
+    fundCurrencyOf(userId) {
+      const runtime = live();
+      const me = d.settlement.findOwnerOfUser(userId);
+      if (!runtime || me === undefined) return undefined;
+      const join = joinOf(runtime, me);
+      const faction = join === undefined ? undefined : runtime.world.factions.get(join);
+      return faction ? runtime.economy?.hooks.treasuryAsset(faction) : undefined;
     },
 
     async devMakeRuin(userId) {

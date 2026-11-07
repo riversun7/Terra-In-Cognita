@@ -115,6 +115,10 @@ export interface FusionServiceOptions {
   readonly facilities?: WorldFacilities | undefined;
   /** 사이보그(신전 기도·헌금이 본체 신앙도를 올린다) */
   readonly cyborgs?: CyborgService | undefined;
+  /**
+   * 개발 시험 화폐 받기가 기준 통화와 함께 주는 화폐(그 유저 나라의 화폐 — 폐허 모금 화폐, 질문 546). 없거나 기준 통화와 같으면 기준 통화만
+   */
+  readonly devExtraCurrency?: ((userId: string) => string | undefined) | undefined;
 }
 
 export interface FusionService extends Omit<GeneCommands, "expireDue"> {
@@ -378,6 +382,16 @@ export function createFusionService(o: FusionServiceOptions): FusionService {
             { account: ledger.ownerAccount(owner.id, ASSET_CREDIT), amount: quantity },
           ],
         });
+        const extra = o.devExtraCurrency?.(userId);
+        if (extra !== undefined && extra !== ASSET_CREDIT)
+          ledger.post({
+            kind: "dev_grant",
+            atMs: at,
+            entries: [
+              { account: ledger.systemAccount(`issue:${extra}`, extra), amount: -quantity },
+              { account: ledger.ownerAccount(owner.id, extra), amount: quantity },
+            ],
+          });
       } else {
         // 쌓이는 물자만(장비·신선도·사용 효과는 보유 물건 dev_grant_item, 유전자는 값이 있는 인스턴스라 dev_grant_gene)
         const entry = o.content().items.find((item) => item.id === input.item && item.enabled);

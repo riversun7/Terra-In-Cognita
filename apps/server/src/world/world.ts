@@ -727,6 +727,7 @@ export function startWorld(
       ready: () => status.state === "ready",
       log,
       manual: config.npc?.manual,
+      devExtraCurrency: (userId) => persistence?.ruins.fundCurrencyOf(userId),
     });
     persistence = {
       writer,

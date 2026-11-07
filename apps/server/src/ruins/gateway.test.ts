@@ -28,6 +28,7 @@ function fakeService(calls: string[]): RuinService {
       calls.push(`make:${userId}`);
       return Promise.resolve({ ok: true, ruinId: 40 });
     },
+    fundCurrencyOf: () => undefined,
     governmentStatus: () => ({ state: "up", level: 1 }),
     governmentLevels: () => new Map(),
   };

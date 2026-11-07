@@ -18,6 +18,8 @@
 - 묶음 검사에서 고친 것:
   - 첫 실행 린트가 화면 문구 키 54개를 "없음"으로 막았다. 원본(ko·en)에는 있고, 이 작업 트리의 생성 파일(`apps/game/src/paraglide/`)이 옛 것이었다(`pnpm check`는 린트를 타입 검사보다 먼저 돌려서, 타입 검사가 문구를 다시 만들기 전에 옛 파일을 본다). `paraglide-js compile`로 다시 만들고 다시 돌렸다. 코드는 바꾸지 않았다.
   - 둘째 실행에서 `apps/server/src/ruins/ruins.db.test.ts` 하나가 실패했다(3,738개 가운데 1개). 폐허 모금 화폐는 들어갈 나라의 화폐(시뮬 `treasuryAsset`)이고, 거래소 줄기 뒤로 이 값이 시험 화폐에서 나라 화폐가 됐는데, 시험은 유저에게 시험 화폐만 줬다. 시험이 모금 화폐를 유저에게 바로 주게 고쳤다(규칙은 그대로).
+  - 셋째 단계(빌드·PWA·첫 화면 크기·화면 시험 73개)에서 `e2e/ruins.spec.ts` 하나가 같은 까닭으로 실패했다(화면에서 4,000을 넣는데 나라 화폐가 없음). 개발 시험 [시험 화폐 받기](`dev_grant_goods` 화폐)가 기준 통화와 함께 그 유저 나라의 화폐(= 폐허 모금 화폐, 폐허 서비스 `fundCurrencyOf`)도 같은 양을 주게 했다(융합 서비스 `devExtraCurrency`, dev·admin만). 그 뒤 `ruins`·`temple` 화면 시험 9개 통과.
+- 묶음 검사 결과: `pnpm check`(시험 467파일 3,738개 — 마지막 실행의 실패 1개는 고친 뒤 그 파일 다시 통과)·`check:docs`·빌드·`check-pwa`·`check:bundle`(첫 화면 JS 106,138 B / 상한 131,416 B) 통과, 화면 시험 8파일 73개 가운데 72개 통과 + 고친 뒤 `ruins`·`temple` 9개 통과.
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
@@ -27,6 +29,7 @@
 | `apps/server/src/npc/economy.ts` | 나라 화폐·환전 + 시뮬 매입 호가·나라 성격 + 폐허 창고 물건 옮기기 |
 | `apps/server/src/world/world.ts` | 경제 입력에 국가 프리셋, 폐허 입력 |
 | `apps/server/src/ruins/ruins.db.test.ts` | 모금 화폐가 나라 화폐가 된 뒤에도 시험이 그 화폐를 준다 |
+| `apps/server/src/ruins/service.ts`(`fundCurrencyOf`), `apps/server/src/fusion/service.ts`(`devExtraCurrency`), `apps/server/src/world/world.ts`, `apps/server/src/ruins/gateway.test.ts` | 개발 시험 화폐 받기가 그 유저 나라의 화폐도 준다(폐허 모금을 개발 시험으로 해 볼 수 있게) |
 | `docs/adr/2026-11-07-play-flow.md`, `docs/PLAN.md`, 질문 문서 | 줄기들의 절·줄을 모두 남김 |
 
 ## 함께 바꿔야 하는 파일

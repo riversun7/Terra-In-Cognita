@@ -29,6 +29,8 @@ async function adminQuery(statement: string): Promise<void> {
 
 export interface TestDatabase {
   db: Database;
+  /** 이 시험 DB 주소(관리 명령을 따로 연결해 돌리는 시험용). db를 먼저 닫아도 drop이 된다 */
+  url: string;
   drop(): Promise<void>;
 }
 
@@ -41,8 +43,9 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   await runMigrations(db, MIGRATIONS);
   return {
     db,
+    url: url.toString(),
     async drop() {
-      await closeDatabase(db);
+      if (!db.$client.ending) await closeDatabase(db);
       await adminQuery(`drop database if exists ${name}`);
     },
   };

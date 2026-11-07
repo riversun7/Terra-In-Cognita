@@ -1,6 +1,7 @@
 // DB 표 정의 — 원본은 여기. 바꾼 뒤 `pnpm --filter @terra/server db:generate`로 마이그레이션을 만든다.
 // 적용된 마이그레이션(apps/server/drizzle/)은 고치지 않고 새로 추가만 한다 (docs/PROTECTED.md).
 // Drizzle 1.0 RC에는 열 이름 자동 변환(casing) 설정이 없어서 열 이름을 직접 적는다.
+// 세계 밖 표(계정·개발 도구·운영 기록)를 더하면 src/cli/resetWorld.ts WORLD_RESET_KEEP에도 넣는다(안 넣으면 세계 새로 시작 때 비워진다).
 import type { PerfReport } from "@terra/protocol";
 import type { PlanetLibraryBase, SettingsObject, StarSystemDefinition } from "@terra/shared";
 import { sql } from "drizzle-orm";

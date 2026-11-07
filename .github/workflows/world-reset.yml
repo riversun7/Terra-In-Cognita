@@ -1,0 +1,160 @@
+# 시험 세계 새로 시작(수동 실행) — NAS 운영 DB의 세계 표를 모두 비우고(계정·감사 기록·개발 도구 자료는 남김) 앱을 다시 켜서
+# 세계를 새로 만들게 한다. docs/adr/2026-11-08-world-reset.md, 기획 질문 645 답 다(사용자 결정 2026-11-08 "다) 제대로 다시").
+# 차례: 입력 확인 → 앱 이미지 확인 → 새 백업(reset-*.dump, 실패하면 멈춤) → 앱 컨테이너만 멈춤(DB는 그대로)
+#       → 같은 이미지의 새 컨테이너로 reset-world(트랜잭션 하나) → 앱 다시 켬(앞이 실패해도) → 헬스체크(월드 ready)·불변 조건·자동 점검 → 요약
+# 되돌리기: 백업 파일로 DB를 되살린다(ops/nas-setup.md "시험 세계 새로 시작").
+# 보안:
+# - set -x를 쓰지 않는다. 컨테이너 환경(DATABASE_URL·BETTER_AUTH_SECRET 등)은 compose가 NAS의 .env에서 컨테이너 안으로만 넘기고 찍지 않는다.
+# - 입력값은 env로만 넘기고 실행 스크립트 안에 ${{ }}로 넣지 않는다(명령 주입 방지).
+name: world-reset
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: NAS 시험 세계를 모두 지웁니다(계정·감사 기록·개발 도구 자료는 남김). 하려면 RESET-WORLD를 정확히 적습니다
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+# 배포와 같은 줄에 서서 배포 중(앱 교체 중)에는 돌지 않는다
+concurrency:
+  group: deploy-nas
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    # 배포와 같이 main에서 실행할 때만(다른 브랜치의 고친 작업 파일로 운영 DB를 건드리지 않게)
+    if: vars.NAS_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, nas]
+    timeout-minutes: 20
+    steps:
+      - name: 입력 확인
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          if [ "$CONFIRM" != "RESET-WORLD" ]; then
+            echo "확인 글이 RESET-WORLD가 아닙니다 — 아무것도 하지 않습니다"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+
+      - name: 앱 이미지 확인
+        id: tag
+        run: |
+          set -euo pipefail
+          DATA_DIR="${TERRA_DATA_DIR:-/volume1/docker/terra-in-cognita}"
+          TAG="$(cat "$DATA_DIR/deployed-tag")"
+          IMAGE="$(docker inspect -f '{{.Config.Image}}' tic-app)"
+          # 지금 떠 있는 앱과 배포 기록이 같은 이미지일 때만(명령을 다른 판 코드로 돌리지 않게)
+          if [ "$IMAGE" != "ghcr.io/${GITHUB_REPOSITORY,,}:$TAG" ]; then
+            echo "tic-app 이미지($IMAGE)가 배포 기록($TAG)과 다릅니다 — 배포를 먼저 끝냅니다"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "앱 이미지: $IMAGE"
+
+      - name: 백업 (실패하면 멈춘다)
+        id: backup
+        run: bash ops/backup.sh reset
+
+      - name: 앱 멈춤 (DB는 그대로)
+        id: stop
+        run: |
+          set -euo pipefail
+          # SIGTERM → 앱이 쓰기 대기열을 비우고 끝난다(60초 넘으면 SIGKILL). restart: unless-stopped라 스스로 다시 켜지지 않는다
+          docker stop -t 60 tic-app
+
+      - name: 세계 비우기 (reset-world)
+        id: reset
+        env:
+          TERRA_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          DATA_DIR="${TERRA_DATA_DIR:-/volume1/docker/terra-in-cognita}"
+          # 감사 기록에 남길 실행자(비밀값 아님)
+          ACTOR="github:${GITHUB_ACTOR}:run ${GITHUB_RUN_ID}"
+          # 앱과 같은 이미지·환경(.env의 비밀값)·네트워크로 새 컨테이너 하나를 띄워 돌리고 지운다(포트는 열지 않는다).
+          # 같은 DB에 다른 연결이 남아 있으면 15초까지 기다렸다가 거절한다(종료 코드 3, 아무것도 지우지 않음)
+          docker compose -p tic -f ops/compose.yml --env-file "$DATA_DIR/.env" run --rm --no-deps -T \
+            -e "TIC_ACTOR=$ACTOR" app node dist/cli.js reset-world --confirm RESET-WORLD 2>&1 \
+            | tee "$RUNNER_TEMP/reset-world.txt"
+
+      - name: 앱 다시 켬 (앞 단계가 실패해도)
+        id: start
+        if: always() && steps.stop.outcome != 'skipped'
+        run: |
+          set -euo pipefail
+          docker start tic-app
+
+      - name: 헬스체크 (월드 ready) + 불변 조건 + 자동 점검
+        id: health
+        if: always() && steps.start.outcome == 'success'
+        run: |
+          set -euo pipefail
+          # 빈 세계면 앱이 켜질 때 NPC 국가·도시·시설을 새로 만든다(듣기 전에 끝낸다). 행성 캐시가 있으면 보통 1분 안
+          status=none
+          for _ in $(seq 1 90); do
+            status="$(docker inspect -f '{{.State.Health.Status}}' tic-app 2>/dev/null)" || status=none
+            [ "$status" = healthy ] && break
+            sleep 2
+          done
+          if [ "$status" != healthy ]; then
+            echo "tic-app 헬스체크 실패 (상태: $status)"
+            docker logs --tail 50 tic-app || true
+            exit 1
+          fi
+          # /health에서 월드 상태만 뽑는다(비밀값 없음). 월드가 ready이고 부팅 뒤 불변 조건 위반이 0이어야 한다
+          docker exec -i tic-app node --input-type=module - << 'EOF' | tee "$RUNNER_TEMP/health.txt"
+          const url = `http://127.0.0.1:${process.env.PORT || "4100"}/health`;
+          let health = {};
+          for (let i = 0; i < 30; i++) {
+            health = await fetch(url).then((r) => r.json()).catch(() => ({}));
+            if (health.world === "ready") break;
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+          const { status, db, world, worldIssues, worldBootMs, contentVersion } = health;
+          console.log(JSON.stringify({ status, db, world, worldIssues, worldBootMs, contentVersion }));
+          if (world !== "ready" || worldIssues !== 0) process.exit(1);
+          EOF
+          docker exec tic-app node dist/cli.js check-world | tee -a "$RUNNER_TEMP/health.txt"
+          docker exec -i -e EXPECT_DB=ok tic-app node --input-type=module - < ops/smoke.mjs | tee -a "$RUNNER_TEMP/health.txt"
+
+      - name: 요약
+        if: always()
+        env:
+          BACKUP_FILE: ${{ steps.backup.outputs.file }}
+          BACKUP_OUTCOME: ${{ steps.backup.outcome }}
+          RESET_OUTCOME: ${{ steps.reset.outcome }}
+          START_OUTCOME: ${{ steps.start.outcome }}
+          HEALTH_OUTCOME: ${{ steps.health.outcome }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## 시험 세계 새로 시작"
+            echo "- 백업: ${BACKUP_OUTCOME} \`${BACKUP_FILE:-(없음)}\`"
+            echo "- 세계 비우기: ${RESET_OUTCOME}"
+            echo "- 앱 다시 켬: ${START_OUTCOME}, 헬스체크·불변 조건·점검: ${HEALTH_OUTCOME}"
+            if [ -s "$RUNNER_TEMP/reset-world.txt" ]; then
+              echo
+              # 결과 첫 줄(지운 표·행 수) 또는 거절 까닭. compose 진행 줄은 건너뛴다
+              grep -m 1 -E '^(세계를 비웠습니다|✗)' "$RUNNER_TEMP/reset-world.txt" || true
+              echo
+              echo "<details><summary>표별 행 수</summary>"
+              echo
+              echo '```'
+              cat "$RUNNER_TEMP/reset-world.txt"
+              echo '```'
+              echo "</details>"
+            fi
+            if [ -s "$RUNNER_TEMP/health.txt" ]; then
+              echo
+              echo '```'
+              cat "$RUNNER_TEMP/health.txt"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

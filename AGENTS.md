@@ -186,6 +186,7 @@
 | `pnpm --filter @terra/server db:migrate` | 밀린 마이그레이션 적용(`DATABASE_URL` 필요) |
 | `TEST_DATABASE_URL=postgres://… pnpm test` | DB 통합 테스트 포함(없으면 DB 테스트는 건너뜀. 접속 계정에 CREATEDB 권한 필요) |
 | GitHub Actions `account-admin` (수동 실행) | NAS 운영 컨테이너에서 계정 만들기·역할 바꾸기·비밀번호 바꾸기(`dist/cli.js`, 감사 기록 남음). 비밀번호는 로그에 가려진다 |
+| GitHub Actions `world-reset` (수동 실행, 입력 `RESET-WORLD`) | NAS 시험 세계 새로 시작(ADR `2026-11-08-world-reset.md`): 백업 `reset-*.dump` → 앱만 멈춤 → `node dist/cli.js reset-world --confirm RESET-WORLD`(남길 표 목록 `WORLD_RESET_KEEP` 밖의 public 표를 모두 TRUNCATE, 감사 기록 `world.reset`) → 앱 켬 → 월드 ready·`check-world`·자동 점검. 세계 밖 표(계정·개발 도구·운영 기록)를 더하면 `apps/server/src/cli/resetWorld.ts`의 남길 표 목록에 넣는다(안 넣으면 새로 시작 때 비워진다) |
 | GitHub Actions `nas-metrics` (수동 실행) | NAS 운영 지표를 Summary에 모은다(읽기만): 서버 1분 지표, 컨테이너 CPU·메모리, 기기 성능·오류. 입력은 최근 몇 분(1~1440). 배포로 앱 컨테이너가 바뀌면 그 전 서버 지표 줄은 없다 |
 | GitHub Actions `s3-ramp` (수동 실행) | 규모 계단 시험(S3 ADR 6·7절): 같은 이미지로 짧게 사는 컨테이너(`tic-s3-ramp`, 공개 포트 없음)를 따로 띄우고 시험 전용 DB 컨테이너(`tic-s3-ramp-db`, 전용 네트워크)를 잠깐 띄워, 봇 수를 1천 → 10만까지 올리며 처음 무너지는 계단(루프 p99 > 50ms·RSS > 900MB·죽음)에서 멈춘다. 계단마다 SIGKILL 복구도 잰다. 끝나면 시험 컨테이너·DB·네트워크를 지운다. 입력은 계단·분·이미지 태그. 결과 표는 Summary. 스크립트 `ops/s3-ramp.sh`, 요약 `ops/s3-ramp-summary.mjs`. 운영 컨테이너는 건드리지 않는다 |
 | `BETTER_AUTH_URL=http://localhost:5173 pnpm dev:server` | 개발 중 로그인 시험(같은 출처 검사가 Vite 개발 서버 주소를 기준으로 하게). DB(`DATABASE_URL`)가 있어야 인증이 켜진다 |

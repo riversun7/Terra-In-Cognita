@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-07 13:00 | 건물 런타임: 짓기·레벨업·노화·수리·장비 수리(서버·화면), 영토 비콘도 건물 규칙 | Claude Code | [07-1300-buildings-runtime](worklog/2026/11/07-1300-buildings-runtime.md) |
 | 2026-11-07 11:50 | 입은 장비·인공장기·아이템 버프를 유닛 스탯과 전투에 넣기 (사이보그 화면·유닛 상세·생명 수치 최대·세계 전투 시작) | Claude Code | [07-1150-equip-stats](worklog/2026/11/07-1150-equip-stats.md) |
 | 2026-11-07 09:45 | 생명 수치: HP·아머·쉴드가 전투 뒤에도 남고 전투 밖에서 분 단위로 회복, 전투 밖 회복 물약 (D-512) | Claude Code | [07-0945-vitals](worklog/2026/11/07-0945-vitals.md) |
 | 2026-11-04 08:10 | 파티 9×6 자유 배치 사각형 진형 및 기본 진형 프리셋 6종 추가 | Claude Code | [04-0810-party-free-formation-presets](worklog/2026/11/04-0810-party-free-formation-presets.md) |

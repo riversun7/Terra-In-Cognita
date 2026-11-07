@@ -130,7 +130,8 @@ test.describe("노동 계약", () => {
     await expect(labor.getByRole("heading", { name: message("ko", "labor_title") })).toBeVisible();
     // 새 계약: 임금형(기본), 내 시설, 쉬는 유닛, 조정 800‰ → 임금 16/일, 보증금 480
     const form = labor.locator("form.labor-form").first();
-    await expect(form.getByLabel(message("ko", "labor_field_building"))).toHaveValue(String(buildingId));
+    // 건물 시험(facilities.spec.ts)이 먼저 지은 admin 공방도 내 시설이라 시험 건물을 고른다
+    await form.getByLabel(message("ko", "labor_field_building")).selectOption(String(buildingId));
     await form.getByLabel(message("ko", "labor_field_adjust", { min: 800, max: 1500 })).fill("800");
     await expect(form.locator('[data-part="labor-preview"]')).toHaveText(
       message("ko", "labor_preview_wage", { wage: "16", cycle: day, deposit: "480" }),

@@ -159,7 +159,7 @@ export function FacilityCard({
                 })
               }
             >
-              {m.facility_repair_step({ pct: percentOf(one.restore) })}
+              {m.facility_repair_step({ pct: Math.ceil(one.restore / 10_000) })}
             </button>
             <button
               type="button"

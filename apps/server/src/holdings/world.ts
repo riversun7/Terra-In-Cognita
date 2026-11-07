@@ -13,7 +13,12 @@ import type { Settlement } from "../world/settlement.ts";
 import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
 import type { HoldingsAccess } from "./gateway.ts";
 import { type HoldingRules, TEST_HOLDING_RULES } from "./rules.ts";
-import { type HoldingContent, type HoldingService, createHoldingService } from "./service.ts";
+import {
+  type HoldingContent,
+  type HoldingService,
+  type HoldingVitals,
+  createHoldingService,
+} from "./service.ts";
 import type { LoadedHoldings } from "./state.ts";
 
 /** 월드 설정의 보유 물건 칸(app.ts가 실효 콘텐츠·설정 칸 접근자를 넘긴다) */
@@ -62,6 +67,8 @@ export function createWorldHoldings(input: {
   readonly config: HoldingsConfig | undefined;
   readonly now: () => number;
   readonly seed: () => number;
+  /** 전투 밖 HP(D-512, 생명 수치 서비스). 없으면 회복 물약은 전투 중에만 */
+  readonly vitals?: HoldingVitals | undefined;
 }): WorldHoldings {
   const { maps, cyborgs, config } = input;
   const infoOf = (unitId: number) => {
@@ -89,6 +96,7 @@ export function createWorldHoldings(input: {
         const record = userId === undefined ? undefined : cyborgs.record(userId);
         return record && config?.cyborgPrimaries ? config.cyborgPrimaries(record) : BASELINE;
       },
+      vitals: input.vitals,
     },
   });
   const timer = setInterval(() => {

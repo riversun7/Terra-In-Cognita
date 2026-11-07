@@ -12,6 +12,7 @@
 //   넓은 폭(64em 이상)은 머리 판을 가로로 길게(인공장기 | 그림 | 장비) 두고 그 아래 두 열(왼쪽 핵심 사양·전투 스펙, 오른쪽 나머지).
 // 지연 로딩 조각(routeViews.tsx). 그림·이 화면 코드는 첫 화면 묶음에 들어가지 않는다.
 import type { CyborgBody, CyborgGetResponse, RosterNames, RosterSlot } from "@terra/shared/roster";
+import type { VitalsSnapshot } from "@terra/shared/vitals";
 import { useId } from "react";
 import { DevGrant } from "../holdings/DevGrant.tsx";
 import { SlotTileButton } from "../holdings/HoldingParts.tsx";
@@ -29,6 +30,8 @@ import { LoadState, Meter, PreviewTag, Section, SoonButton, slotValueText } from
 import { PreviewSwitch } from "../roster/PreviewSwitch.tsx";
 import { formatNumber, localName, slotLabel } from "../roster/rosterText.ts";
 import { loadCyborg, useRosterQuery } from "../roster/useRosterQuery.ts";
+import { useVitals } from "../roster/useVitals.ts";
+import { VitalsMeters } from "../roster/VitalsMeters.tsx";
 import { CyborgAvatar } from "./CyborgAvatar.tsx";
 import { CombatSpecs } from "./CombatSpecs.tsx";
 import { CoreStats } from "./CoreStats.tsx";
@@ -123,10 +126,14 @@ function InventoryBody({
 function BodyLayout({ data, holdings }: { data: CyborgGetResponse; holdings: CyborgHoldings | null }) {
   const id = useId();
   const body = data.body;
+  // 생명 수치(D-512): 실제 본체만(시안 본체에는 붙이지 않는다). 보유 물건 목록이 다시 오면(회복 물약 등) 같이 다시 받는다
+  const holdingsData =
+    holdings?.controller.state.status === "ready" ? holdings.controller.state.data : undefined;
+  const vitals = useVitals(holdingsData);
   return (
     <>
       {data.preview ? <p className="roster-notice">{m.roster_preview_notice()}</p> : null}
-      <Hero data={data} holdings={holdings} />
+      <Hero data={data} holdings={holdings} vitals={data.preview ? undefined : vitals.cyborg} />
       <div className="cyborg-columns">
         <div className="cyborg-column">
           {body ? (
@@ -185,8 +192,16 @@ function Later({ text }: { text: string }) {
   return <p className="roster-empty">{text}</p>;
 }
 
-/** 머리 판: 이름·레벨, 그림(가운데)과 인공장기·장비 칸, 막대 */
-function Hero({ data, holdings }: { data: CyborgGetResponse; holdings: CyborgHoldings | null }) {
+/** 머리 판: 이름·레벨, 그림(가운데)과 인공장기·장비 칸, 막대(생명 수치 D-512 → 경험치·피로) */
+function Hero({
+  data,
+  holdings,
+  vitals,
+}: {
+  data: CyborgGetResponse;
+  holdings: CyborgHoldings | null;
+  vitals: VitalsSnapshot | undefined;
+}) {
   const id = useId();
   const body = data.body;
   return (
@@ -246,6 +261,7 @@ function Hero({ data, holdings }: { data: CyborgGetResponse; holdings: CyborgHol
       </div>
       {body ? (
         <div className="cyborg-meters">
+          {vitals ? <VitalsMeters vitals={vitals} /> : null}
           <Meter
             label={m.cyborg_exp()}
             value={body.exp.into}

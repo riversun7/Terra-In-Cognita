@@ -273,12 +273,15 @@ test.describe("개발 계정: 받기 → 목록 → 장착·해제 → 사용·�
     await expect(tonicUse.locator(".holding-wait")).toContainText(/0:[0-3]\d/);
     await expect(card(page, ID.tonic)).not.toContainText(message("ko", "holdings_quantity", { count: 2 }));
 
-    // 연고(회복): 지금 서버는 전투 밖 회복을 받지 않는다(battle_only). 전투 밖 회복이 열리면(지속 HP 줄기) 같은 물약 쿨이라 막 쓴
-    // 물약 때문에 cooldown이 된다 — 어느 쪽이든 쓰지 않고 실패 문구를 보이며 물건은 그대로다
+    // 연고(회복): 같은 물약 쿨이라 버튼이 막혀 있고(클릭은 쿨이 끝날 때까지 기다린다), 쿨이 끝나면 서버가 판정한다 — 전투 밖 회복이
+    // 없던 서버는 battle_only, 전투 밖 회복(D-512)이 열린 서버는 HP가 가득이라 낭비 막기 not_better. 어느 쪽이든 쓰지 않고 실패
+    // 문구를 보이며 물건은 그대로다(쿨 중에 보내면 cooldown)
     await card(page, ID.salve).locator('[data-action="use"]').click();
     const coolPrefix = message("ko", "holdings_error_cooldown", { time: "TIME" }).split("TIME")[0] ?? "";
     await expect(notice(page).locator(".message-error")).toContainText(
-      new RegExp(`${message("ko", "holdings_error_battle_only")}|${coolPrefix.trim()}`),
+      new RegExp(
+        `${message("ko", "holdings_error_battle_only")}|${message("ko", "holdings_error_not_better")}|${coolPrefix.trim()}`,
+      ),
     );
     await expect(card(page, ID.salve)).toBeVisible();
 

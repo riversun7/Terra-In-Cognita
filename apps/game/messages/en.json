@@ -3749,5 +3749,11 @@
   "dev_recruit_err_no_room": "No free cell around the city.",
   "dev_recruit_err_internal": "Hiring failed because of a server error.",
   "dev_recruit_err_offline": "Disconnected. Check the cards after reconnecting.",
-  "dev_recruit_err_timeout": "No reply in time. Check the cards again."
+  "dev_recruit_err_timeout": "No reply in time. Check the cards again.",
+  "vitals_hp": "HP",
+  "vitals_armor": "Armor",
+  "vitals_shield": "Shield",
+  "vitals_hp_short": "HP {value}/{max}",
+  "vitals_regen_note": "Shield refills by {amount} every minute.",
+  "vitals_no_regen_note": "HP and armor don't refill on their own. Use a recovery potion to restore HP."
 }

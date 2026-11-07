@@ -3749,5 +3749,11 @@
   "dev_recruit_err_no_room": "도시 둘레에 세울 빈 칸이 없습니다.",
   "dev_recruit_err_internal": "서버 오류로 고용하지 못했습니다.",
   "dev_recruit_err_offline": "연결이 끊겼습니다. 다시 연결되면 카드를 확인해 주세요.",
-  "dev_recruit_err_timeout": "답이 늦습니다. 카드를 다시 확인해 주세요."
+  "dev_recruit_err_timeout": "답이 늦습니다. 카드를 다시 확인해 주세요.",
+  "vitals_hp": "HP",
+  "vitals_armor": "아머",
+  "vitals_shield": "쉴드",
+  "vitals_hp_short": "HP {value}/{max}",
+  "vitals_regen_note": "쉴드는 1분마다 {amount}씩 찹니다.",
+  "vitals_no_regen_note": "HP와 아머는 저절로 차지 않습니다. HP는 회복 물약으로 채웁니다."
 }

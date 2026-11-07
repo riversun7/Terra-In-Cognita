@@ -28,7 +28,8 @@
     "./skillEditor": "./src/skillEditor.ts",
     "./territory": "./src/territory.ts",
     "./territoryApi": "./src/territoryApi.ts",
-    "./tuning": "./src/tuning.ts"
+    "./tuning": "./src/tuning.ts",
+    "./vitals": "./src/vitals.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"

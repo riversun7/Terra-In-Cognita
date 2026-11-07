@@ -1,6 +1,7 @@
 // 유닛 목록 칸 — 걸러 보기(종류·상태·거점)·다중 선택(D-6016)·상세. 좁은 폭은 목록 ↔ 상세, 넓은 폭은 목록 옆 상세 판.
 // 정렬은 손이 필요한 순이다(질문 137 기본안 → D-443, rosterText.ts sortUnits). 고른 유닛에 줄 명령은 아직 "곧 열림"이다.
 import type { RosterUnit, UnitsListResponse } from "@terra/shared/roster";
+import type { VitalsSnapshot } from "@terra/shared/vitals";
 import { useMemo, useRef, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { PreviewTag, SoonButton } from "../roster/parts.tsx";
@@ -22,6 +23,7 @@ import {
   unitLabel,
   unitStatus,
 } from "../roster/rosterText.ts";
+import { type VitalsNow, worldUnitId } from "../roster/useVitals.ts";
 import { UnitAvatar, UnitDetail } from "./UnitDetail.tsx";
 
 const TYPE_FILTERS = ["all", "human", "creature", "android", "test"] as const satisfies readonly TypeFilter[];
@@ -39,7 +41,13 @@ const isTypeFilter = (value: string): value is TypeFilter =>
 const isStatusFilter = (value: string): value is StatusFilter =>
   value === "all" || (UNIT_STATUSES as readonly string[]).includes(value);
 
-export function UnitList({ data }: { data: UnitsListResponse }) {
+/** 화면 유닛의 지금 생명 수치(실제 세계 유닛만, D-512) */
+const vitalsOf = (vitals: VitalsNow | undefined, unit: RosterUnit): VitalsSnapshot | undefined => {
+  const id = worldUnitId(unit.id);
+  return id === null ? undefined : vitals?.of(id);
+};
+
+export function UnitList({ data, vitals }: { data: UnitsListResponse; vitals?: VitalsNow | undefined }) {
   const [filter, setFilter] = useState<UnitFilter>(NO_FILTER);
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   const [openId, setOpenId] = useState<string | null>(null);
@@ -152,6 +160,7 @@ export function UnitList({ data }: { data: UnitsListResponse }) {
                 key={unit.id}
                 unit={unit}
                 data={data}
+                vitals={vitalsOf(vitals, unit)}
                 checked={selected.has(unit.id)}
                 current={unit.id === openId}
                 onToggle={() => toggle(unit.id)}
@@ -181,7 +190,14 @@ export function UnitList({ data }: { data: UnitsListResponse }) {
       </div>
       <div className="units-detail-pane">
         {open ? (
-          <UnitDetail key={open.id} unit={open} data={data} onClose={closeDetail} />
+          <UnitDetail
+            key={open.id}
+            unit={open}
+            data={data}
+            vitals={vitalsOf(vitals, open)}
+            onVitalsStale={vitals?.reload}
+            onClose={closeDetail}
+          />
         ) : (
           <div className="panel units-detail-placeholder">
             <p className="lead">{m.units_detail_pick()}</p>
@@ -195,6 +211,7 @@ export function UnitList({ data }: { data: UnitsListResponse }) {
 function UnitRow({
   unit,
   data,
+  vitals,
   checked,
   current,
   onToggle,
@@ -203,6 +220,7 @@ function UnitRow({
 }: {
   unit: RosterUnit;
   data: UnitsListResponse;
+  vitals: VitalsSnapshot | undefined;
   checked: boolean;
   current: boolean;
   onToggle: () => void;
@@ -246,6 +264,18 @@ function UnitRow({
             {injury ? (
               <span className="roster-tag" data-tone="injured">
                 {heal ? m.roster_injury_heal({ stage: injury, time: heal }) : injury}
+              </span>
+            ) : null}
+            {vitals ? (
+              <span
+                className="roster-tag"
+                data-vitals="hp"
+                data-tone={vitals.values.hp < vitals.max.hp ? "injured" : undefined}
+              >
+                {m.vitals_hp_short({
+                  value: formatNumber(vitals.values.hp),
+                  max: formatNumber(vitals.max.hp),
+                })}
               </span>
             ) : null}
             {unit.moving ? <span className="roster-tag">{m.roster_moving()}</span> : null}

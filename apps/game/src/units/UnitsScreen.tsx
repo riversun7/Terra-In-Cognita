@@ -13,6 +13,7 @@ import { BackButton } from "../shell/BackButton.tsx";
 import { LoadState } from "../roster/parts.tsx";
 import { PreviewSwitch } from "../roster/PreviewSwitch.tsx";
 import { loadUnits, useRosterQuery } from "../roster/useRosterQuery.ts";
+import { type VitalsNow, useVitals } from "../roster/useVitals.ts";
 import { formatNumber } from "../roster/rosterText.ts";
 import { UnitList } from "./UnitList.tsx";
 import { AuctionPanel, ManagersPanel, PartiesPanel, PresetsPanel, PrisonersPanel } from "./UnitPanels.tsx";
@@ -33,6 +34,8 @@ const TAB_LABELS = {
 export default function UnitsScreen() {
   const preview = usePreviewOn();
   const query = useRosterQuery(loadUnits, preview);
+  // 생명 수치(D-512): 실제 세계 유닛만, 기기가 분 단위로 셈한다
+  const vitals = useVitals();
   const [tab, setTab] = useState<Tab>("list");
   const baseId = useId();
   const state = query.state;
@@ -115,7 +118,7 @@ export default function UnitsScreen() {
         className="units-panel"
       >
         {state.status === "ready" ? (
-          <TabBody tab={tab} data={state.data} />
+          <TabBody tab={tab} data={state.data} vitals={vitals} />
         ) : (
           <LoadState state={state} onRetry={query.reload} />
         )}
@@ -124,10 +127,10 @@ export default function UnitsScreen() {
   );
 }
 
-function TabBody({ tab, data }: { tab: Tab; data: UnitsListResponse }) {
+function TabBody({ tab, data, vitals }: { tab: Tab; data: UnitsListResponse; vitals: VitalsNow }) {
   switch (tab) {
     case "list":
-      return <UnitList data={data} />;
+      return <UnitList data={data} vitals={vitals} />;
     case "parties":
       return <PartiesPanel data={data} />;
     case "presets":

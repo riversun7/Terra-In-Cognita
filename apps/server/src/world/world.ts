@@ -36,6 +36,8 @@ import { type LoadedCyborgs, loadCyborgs } from "../cyborg/state.ts";
 import { type HoldingsConfig, type WorldHoldings, createWorldHoldings } from "../holdings/world.ts";
 import { type LoadedHoldings, loadHoldings } from "../holdings/state.ts";
 import { wearOutcomeOf } from "../holdings/rules.ts";
+import { type VitalsRecord, loadVitals } from "../vitals/state.ts";
+import { type VitalsConfig, type WorldVitals, createWorldVitals } from "../vitals/world.ts";
 import { type LaborService, createLaborService } from "../labor/service.ts";
 import { EMPTY_LABOR, type LoadedLabor, loadLabor } from "../labor/store.ts";
 import { TEST_NPC_FACTION_CODE } from "./unitKinds.ts";
@@ -152,6 +154,8 @@ export interface WorldConfig {
     | undefined;
   /** 보유 물건(실효 콘텐츠·설정 칸 실효 값·사이보그 1차 스탯). 없으면 빈 콘텐츠(시험) */
   holdings?: HoldingsConfig | undefined;
+  /** 생명 수치 몸 자료(D-512, 사이보그·유닛 화면과 같은 셈). 없으면 저장한 줄만 보인다(시험) */
+  vitals?: VitalsConfig | undefined;
 }
 
 export interface WorldLog extends MapLog {
@@ -188,6 +192,8 @@ export interface WorldPersistence {
   readonly recruits: RecruitService;
   /** 보유 물건(아이템 인스턴스, docs/adr/2026-11-03-item-holdings.md) */
   readonly holdings: WorldHoldings;
+  /** 유닛 생명 수치(D-512: HP·아머·쉴드가 전투 뒤에도 남고 전투 밖에서도 분 단위로 회복) */
+  readonly vitals: WorldVitals;
   /** 노동 계약(임금형·임대형, docs/adr/2026-11-03-labor-contracts.md) */
   readonly labor: LaborService;
 }
@@ -364,6 +370,7 @@ export function startWorld(
     let cyborgData: LoadedCyborgs = { cyborgs: [], rolls: [], factions: [], fixedAppearances: 0 };
     let beaconRows: BeaconRow[] = [];
     let holdingData: LoadedHoldings = { holdings: [], effects: [], cooldowns: [], maxId: 0 };
+    let vitalsData: VitalsRecord[] = [];
     let laborData: LoadedLabor = EMPTY_LABOR;
     for (let attempt = 1; !loaded; attempt++) {
       try {
@@ -390,6 +397,7 @@ export function startWorld(
         cyborgData = await loadCyborgs(db);
         beaconRows = await loadBeacons(db);
         holdingData = await loadHoldings(db);
+        vitalsData = await loadVitals(db);
         laborData = await loadLabor(db, now());
         loaded = await loadWorld(db, now());
       } catch (error) {
@@ -524,6 +532,8 @@ export function startWorld(
           init.seed,
           outcome.units.map((unit) => ({ unit: unit.unit, outcome: wearOutcomeOf(unit) })),
         );
+        // 끝 HP·아머·쉴드(D-512): 같은 동기 처리 → 같은 커밋. 끝 시각부터 전투 밖 회복을 센다
+        const vitalsWritten = vitals.service.applyBattle(init, outcome.units, atMs);
         log.info(
           {
             battleId,
@@ -532,6 +542,7 @@ export function startWorld(
             ...applied,
             looted: String(applied.looted),
             ...wear,
+            vitalsWritten,
           },
           "battle ended",
         );
@@ -591,6 +602,16 @@ export function startWorld(
       now,
       draws: await loadRecruitDraws(db),
     });
+    // 생명 수치(D-512): 보유 물건이 전투 밖 회복 물약을 쓸 때 부른다(holdings/world.ts) → 보유 물건보다 먼저 만든다
+    const vitals = createWorldVitals({
+      loaded: vitalsData,
+      writer,
+      maps,
+      cyborgs,
+      settlement,
+      config: config.vitals,
+      now,
+    });
     const holdings = createWorldHoldings({
       loaded: holdingData,
       writer,
@@ -600,6 +621,13 @@ export function startWorld(
       config: config.holdings,
       now,
       seed: () => randomInt(0x1_0000_0000),
+      vitals: {
+        hp: (unitId, nowMs) => {
+          const read = vitals.service.read(unitId, nowMs);
+          return read ? { current: read.values.hp, max: read.max.hp } : undefined;
+        },
+        heal: (unitId, amount, nowMs) => vitals.service.heal(unitId, amount, nowMs),
+      },
     });
     // 노동 계약: 소유 주체 정산이 계약을 같은 시각까지 정산하고 산출을 계약 몫으로 나눈다
     const labor = createLaborService({
@@ -627,6 +655,7 @@ export function startWorld(
       territory,
       recruits,
       holdings,
+      vitals,
       labor,
     };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)
@@ -697,7 +726,8 @@ export function startWorld(
           manual: config.npc.manual,
           gardenerWaves: config.npc.gardenerWaves,
           planetId: TEST_PLANET_ID,
-          startBattle: (init) => battles.start(init, { war: false }),
+          // 남은 HP·아머·쉴드로 시작한다(D-512, 줄이 있는 세계 유닛만)
+          startBattle: (init) => battles.start(vitals.service.battleStart(init, now()), { war: false }),
           onBattleEnded: (listener) => {
             battleEnded.add(listener);
             for (const [battleId, attackerWon] of endedBeforeListen.splice(0))
@@ -817,6 +847,7 @@ export function startWorld(
       persistence?.settlement.stop();
       persistence?.battles.stop();
       persistence?.holdings.stop();
+      persistence?.vitals.stop();
       for (const map of maps.values()) map.stop();
       if (persistence) {
         persistence.writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
@@ -832,6 +863,7 @@ export function startWorld(
       persistence?.settlement.stop();
       persistence?.battles.stop();
       persistence?.holdings.stop();
+      persistence?.vitals.stop();
       if (heartbeat) clearInterval(heartbeat);
       for (const map of maps.values()) map.stop();
       await paths.close();

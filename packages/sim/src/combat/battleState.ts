@@ -24,15 +24,22 @@ export function spend(unit: UnitState, nowMs: number, c: CombatCoefficients): vo
   unit.nextActionMs = nowMs + unit.attackIntervalMs;
 }
 
+/** 0~최대로 자른 정수(들어올 때의 값) */
+const clampStart = (value: number, max: number): number => Math.min(max, Math.max(0, Math.floor(value)));
+
 export function unitFrom(spec: CombatUnitSpec): UnitState {
+  // 들어올 때의 값(D-512: 앞 전투·전투 밖에서 남은 값). 없으면 가득. 스태미나·MP는 그대로 가득에서 시작한다
+  const start = spec.start;
+  const hp = start ? clampStart(start.hp, spec.maxHp) : spec.maxHp;
   const unit: UnitState = {
     ...spec,
-    hp: spec.maxHp,
-    armor: spec.armorHp,
-    shield: spec.shieldHp,
+    hp,
+    armor: start ? clampStart(start.armor, spec.armorHp) : spec.armorHp,
+    shield: start ? clampStart(start.shield, spec.shieldHp) : spec.shieldHp,
     staminaMilli: spec.staminaMax * 1000,
     mpMilli: spec.mpMax * 1000,
-    status: "alive",
+    // HP 0으로 들어오면 쓰러진 채다(D-099: 체력 0 = 쓰러짐). 행동·피격 대상이 아니다
+    status: hp > 0 ? "alive" : "down",
     nextActionMs: 0,
     nextMoveMs: 0,
     revealUntilMs: -1,
@@ -43,7 +50,8 @@ export function unitFrom(spec: CombatUnitSpec): UnitState {
     command: null,
     lastCommandMs: -1_000_000_000,
   };
-  applyPassives(unit);
+  // 쓰러진 채 들어온 유닛에는 지속형 스킬을 걸지 않는다(회복 부품이 쓰러진 유닛을 일으키지 않게)
+  if (unit.status === "alive") applyPassives(unit);
   return unit;
 }
 

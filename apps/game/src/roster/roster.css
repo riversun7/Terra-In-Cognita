@@ -182,8 +182,29 @@
   background-color: var(--color-primary-lip);
   transition: inline-size var(--duration-slow) var(--easing-out);
 }
+/* 생명 수치 막대(D-512): 그 2차 스탯 색(상세 전투 스펙 막대와 같은 색). 경고(HP 낮음)는 아래 규칙이 이긴다 */
+.roster-meter[data-kind="hp"] .roster-meter-fill {
+  background-color: var(--color-sec-hp);
+}
+.roster-meter[data-kind="armor"] .roster-meter-fill {
+  background-color: var(--color-sec-armor-hp);
+}
+.roster-meter[data-kind="shield"] .roster-meter-fill {
+  background-color: var(--color-sec-shield-hp);
+}
 .roster-meter-track[data-warn="true"] .roster-meter-fill {
   background-color: var(--color-warning);
+}
+/* 생명 수치 묶음: 좁은 폭은 한 줄씩, 넓으면 나란히. 사이보그 머리 판 막대 격자에서는 한 줄을 다 쓴다 */
+.roster-vitals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: var(--space-2) var(--space-3);
+  grid-column: 1 / -1;
+}
+.roster-vitals > .roster-note {
+  grid-column: 1 / -1;
+  margin: 0;
 }
 
 /* ── 사실 목록(이름: 값) ─────────────────────────── */

@@ -1,6 +1,6 @@
 // 정원사 표(docs/adr/2026-11-01-gardener-r5b.md 5절) — schema.ts가 다시 내보낸다(drizzle-kit 표 정의 진입점은 schema.ts)
 import { sql } from "drizzle-orm";
-import { bigint, check, index, integer, pgTable, primaryKey, text } from "drizzle-orm/pg-core";
+import { bigint, check, index, integer, jsonb, pgTable, primaryKey, text } from "drizzle-orm/pg-core";
 import { planetIdColumn } from "./planetColumns.ts";
 
 /**
@@ -25,7 +25,9 @@ export const planetPollution = pgTable(
 /**
  * 정원사 도시 웨이브(docs/adr/2026-11-01-gardener-r5b.md 2·5절, D-188·D-192·D-196·D-230): 예고(생성)부터 결과까지 한 줄.
  * state = marching(진군, 도착 예약) | fighting(전투 서비스 battle_id) | won | repelled | disbanded. 끝난 줄은 기록으로 남긴다.
- * 도시가 폐허가 되면 도시 행이 지워지므로 city_id에 외래 키를 두지 않는다
+ * 도시가 폐허가 되면 도시 행이 지워지므로 city_id에 외래 키를 두지 않는다.
+ * 정원사 2(ADR "바뀜 (2026-11-07, 정원사 2)"): kind = city(도시 웨이브) | protection(보호 레이드 D-500, 보상 없음),
+ * reward = 막아 낸 도시 웨이브의 보상(D-499: 양과 준 아이템, 없으면 null)
  */
 export const gardenerWaves = pgTable(
   "gardener_waves",
@@ -43,6 +45,8 @@ export const gardenerWaves = pgTable(
     state: text("state").notNull(),
     battleId: bigint("battle_id", { mode: "number" }),
     resolvedAtMs: bigint("resolved_at_ms", { mode: "number" }),
+    kind: text("kind").notNull().default("city"),
+    reward: jsonb("reward"),
   },
   (table) => [
     index("gardener_waves_state_idx").on(table.state),
@@ -51,5 +55,6 @@ export const gardenerWaves = pgTable(
       "gardener_waves_state",
       sql`${table.state} in ('marching', 'fighting', 'won', 'repelled', 'disbanded')`,
     ),
+    check("gardener_waves_kind", sql`${table.kind} in ('city', 'protection')`),
   ],
 );

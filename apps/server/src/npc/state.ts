@@ -80,6 +80,8 @@ export interface NpcWaveRow {
   readonly battleId: number | null;
   /** 싸우던 웨이브의 전투 결과가 이미 적혔으면 이긴 편(1 = 정원사). 없으면 null */
   readonly battleWinner: number | null;
+  /** 도시 웨이브 | 보호 레이드(D-500, 정원사 2) */
+  readonly kind: "city" | "protection";
 }
 
 export interface NpcState {
@@ -148,7 +150,7 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
       ]),
       pool.query(
         `select w.id, w.city_id, w.faction_id, w.strength, w.physical, w.created_at_ms, w.arrive_at_ms, w.state, w.battle_id,
-              r.result -> 'result' ->> 'winner' as winner
+              w.kind, r.result -> 'result' ->> 'winner' as winner
        from gardener_waves w left join world_battle_results r on r.battle_id = w.battle_id
        where w.planet_id = $1 and w.state in ('marching', 'fighting') order by w.id`,
         [planetId],
@@ -221,6 +223,7 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
       state: row.state === "fighting" ? "fighting" : "marching",
       battleId: numOrNull(row.battle_id),
       battleWinner: numOrNull(row.winner),
+      kind: row.kind === "protection" ? "protection" : "city",
     })),
     spares: spares.rows.map((row) => ({ rowId: num(row.id), ownerId: num(row.owner_id) })),
     maxCityId: num(maxCity.rows[0]?.id ?? 0),

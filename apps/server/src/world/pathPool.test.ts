@@ -2,11 +2,12 @@
 // 사본 만들기, 편집을 따라 한 뒤의 경로, 어긋난 사본이면 워커를 새로 띄우기, 닫으면 기다리던 작업은 busy
 import { anchorCenter, createPlacementGrid } from "@terra/sim";
 import { afterEach, describe, expect, it } from "vitest";
+import { tsWorkerUrl } from "../testWorkers.ts";
 import type { MapReplicaInit } from "./pathMessages.ts";
 import { createWorkerPathService } from "./pathPool.ts";
 import type { PathRequest, PathService } from "./pathService.ts";
 
-const WORKER_URL = new URL("./pathWorker.ts", import.meta.url);
+const WORKER_URL = tsWorkerUrl("./pathWorker.ts", import.meta.url);
 const MAP = 9;
 const center = (x: number, y: number) => anchorCenter(x, y, 1);
 

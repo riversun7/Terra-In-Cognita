@@ -30,9 +30,10 @@ import {
   definitionHashOf,
   planetSpecsFromPack,
 } from "./sources.ts";
+import { tsWorkerUrl } from "../testWorkers.ts";
 import { packTestPlanetSpec, smallSource } from "./testSupport.ts";
 
-const WORKER_URL = new URL("./bakeWorker.ts", import.meta.url);
+const WORKER_URL = tsWorkerUrl("./bakeWorker.ts", import.meta.url);
 
 let baker: PlanetBaker | undefined;
 afterEach(async () => {

@@ -65,6 +65,8 @@ export interface WorldMapReadDeps {
 export interface WorldMapReadServices {
   cities(viewer: Viewer, nowMs: number): Promise<WorldCitiesResponse>;
   position(viewer: Viewer, nowMs: number): WorldPositionResponse;
+  /** 내가 아는 도시 ID(도시 안개, cities와 같은 규칙 — 경제 화면 도시 이름이 같은 도시만 보인다, 기획 답 621 나) */
+  knownCityIds(viewer: Viewer): Promise<ReadonlySet<number>>;
 }
 
 const DEG = 180 / Math.PI;
@@ -205,7 +207,36 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
   const nameOf = (code: string | null): LocalizedName | null =>
     code === null ? null : (deps.factionName?.(code) ?? null);
 
+  // 도시 안개: 시작 도시·내 국가 도시가 아닌 도시가 있는 2차맵만 내 시야 칸을 읽는다(DB 탐사 기록, 띄운 맵은 지금 시야까지)
+  const knownOf = async (
+    viewer: Viewer,
+    records: readonly CityRecord[],
+    myFactionId: number | null,
+  ): Promise<CityRecord[]> => {
+    const knowing = { observer: canObserve(viewer), myFactionId };
+    const unsure = new Set(
+      records.filter((record) => !knownWithoutSight(record, knowing)).map((record) => record.mapKey),
+    );
+    const sighted =
+      unsure.size > 0 ? await exploredOf(pool, planetId, viewer.id) : new Map<number, Uint8Array>();
+    await Promise.all(
+      [...unsure].map(async (key) => {
+        const bits = source.maps.has(key) ? await source.sighted?.(key, viewer) : undefined;
+        if (bits) sighted.set(key, bits);
+      }),
+    );
+    return records.filter((record) => isCityKnown(record, { ...knowing, sighted }));
+  };
+
   return {
+    async knownCityIds(viewer) {
+      const [records, myFactionId] = await Promise.all([
+        loadCityRecords(pool, planetId),
+        myFactionOf(pool, viewer.id),
+      ]);
+      return new Set((await knownOf(viewer, records, myFactionId)).map((record) => record.id));
+    },
+
     async cities(viewer, nowMs) {
       const [records, myFactionId, territory, bytes] = await Promise.all([
         loadCityRecords(pool, planetId),
@@ -216,21 +247,8 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
       const territoryCities = new Map((territory?.cities ?? []).map((city) => [city.id, city]));
       const factions = new Map<number, WorldMapFaction>();
       const numbers = new Map<number, number>();
-      // 도시 안개: 시작 도시·내 국가 도시가 아닌 도시가 있는 2차맵만 내 시야 칸을 읽는다(DB 탐사 기록, 띄운 맵은 지금 시야까지)
       const observer = canObserve(viewer);
-      const knowing = { observer, myFactionId };
-      const unsure = new Set(
-        records.filter((record) => !knownWithoutSight(record, knowing)).map((record) => record.mapKey),
-      );
-      const sighted =
-        unsure.size > 0 ? await exploredOf(pool, planetId, viewer.id) : new Map<number, Uint8Array>();
-      await Promise.all(
-        [...unsure].map(async (key) => {
-          const bits = source.maps.has(key) ? await source.sighted?.(key, viewer) : undefined;
-          if (bits) sighted.set(key, bits);
-        }),
-      );
-      const known = records.filter((record) => isCityKnown(record, { ...knowing, sighted }));
+      const known = await knownOf(viewer, records, myFactionId);
       const knownIds = new Set(known.map((record) => record.id));
       // 띄운 2차맵마다 내 시야(구독과 같은 규칙)를 한 번씩 본다
       const loadedKeys = [...new Set(known.map((record) => record.mapKey))].filter((key) =>

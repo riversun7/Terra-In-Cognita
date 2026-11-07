@@ -16,8 +16,8 @@ const bookInput = z.strictObject({ item: idField, city: idField, preview: previe
 export const economyRouter = router({
   /** 팩 목록(물건·시설·레시피·화폐·생필품). 실제 자료다 */
   catalog: signedInProcedure.query(({ ctx }) => ctx.economy.catalog()),
-  /** 도시 이름(구인·노동·건물·신전 칸의 도시 표시, 이름 없는 도시는 빠진다). 실제 자료다 */
-  cityNames: signedInProcedure.query(({ ctx }) => ctx.economy.cityNames()),
+  /** 도시 이름(구인·노동·건물·신전 칸의 도시 표시, 이름 없는 도시·모르는 도시는 빠진다 — 621 나). 실제 자료다 */
+  cityNames: signedInProcedure.query(({ ctx }) => ctx.economy.cityNames(ctx.viewer)),
   /** 내 원장 잔고(+ 시안 자료) */
   holdings: signedInProcedure.input(previewOnly).query(({ ctx, input }) =>
     ctx.economy.holdings(ctx.viewer, {

@@ -342,8 +342,8 @@ export interface EconomyQuery {
  */
 export interface EconomyServices {
   catalog(): EconomyCatalogResponse;
-  /** 도시 이름(이름 있는 도시만, 도시 ID 차례) */
-  cityNames(): EconomyCityNamesResponse;
+  /** 도시 이름(이름 있는 도시 가운데 그 사용자가 아는 도시만, 도시 ID 차례 — 기획 답 621 나) */
+  cityNames(viewer: Viewer): Promise<EconomyCityNamesResponse>;
   holdings(viewer: Viewer, query: EconomyQuery): Promise<EconomyHoldingsResponse>;
   production(viewer: Viewer, query: EconomyQuery): EconomyProductionResponse;
   marketItems(viewer: Viewer, query: EconomyQuery): MarketItemsResponse;

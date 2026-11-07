@@ -655,7 +655,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       economy: options.economyCatalog
         ? createEconomyServices({
             catalog: options.economyCatalog,
-            world: world ? worldEconomySource(world, () => marketSource()?.views) : undefined,
+            world: world
+              ? worldEconomySource(
+                  world,
+                  () => marketSource()?.views,
+                  // 경제 화면 도시 이름 = 1차맵 도시 안개와 같은 아는 도시(기획 답 621 나)
+                  async (viewer) => worldMapService?.()?.knownCityIds(viewer),
+                )
+              : undefined,
           })
         : undefined,
       factionSource: world && options.db ? createWorldFactionSource(world) : undefined,

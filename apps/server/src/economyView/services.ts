@@ -72,6 +72,11 @@ export interface EconomyWorldSource {
   readonly cityName?: ((cityId: number) => string | undefined) | undefined;
   /** 이름 있는 도시 모두(도시 ID 차례) */
   readonly cityNames?: (() => readonly { readonly id: number; readonly name: string }[]) | undefined;
+  /**
+   * 그 사용자가 아는 도시 ID(1차맵 도시 안개와 같은 규칙 worldMap/knownCities.ts — 기획 답 621 나). 지도 조회가 아직 없으면 undefined
+   * (그때는 이름을 보내지 않는다: 모르는 도시 이름이 새지 않게)
+   */
+  readonly knownCityIds?: ((viewer: Viewer) => Promise<ReadonlySet<number> | undefined>) | undefined;
 }
 
 /** [임시] 남은 주문 한도(D-148·D-6034). 거래소 유닛 INT·WIS 식은 기획 Step 5 */
@@ -251,7 +256,13 @@ export function createEconomyServices(options: {
 
   return {
     catalog: () => view().catalog,
-    cityNames: () => ({ cities: world?.cityNames?.() ?? [] }),
+    // 아는 도시만(기획 답 621 나): 모르는 도시는 화면이 "#ID"로 보인다
+    async cityNames(viewer) {
+      const all = world?.cityNames?.() ?? [];
+      if (all.length === 0) return { cities: [] };
+      const known = await world?.knownCityIds?.(viewer);
+      return { cities: known ? all.filter((city) => known.has(city.id)) : [] };
+    },
 
     async holdings(viewer: Viewer, query: EconomyQuery): Promise<EconomyHoldingsResponse> {
       const { catalog } = view();

@@ -43,8 +43,13 @@ export interface TerritoryBeaconView {
   /** 1차맵 칸 키 */
   readonly cellKey: number;
   readonly point: TerritoryVec;
+  /** 지금 내구도 점(최대 = N51 × 상태, 건물 규칙 기획 336 — docs/adr/2026-11-07-buildings-runtime.md) */
   readonly durability: number;
   readonly builtAtMs: number;
+  /** 지금 상태(ppm, 가득 1,000,000). 쓰지 않는 건물이라 30%까지만 노화한다(D-509). 30% 미만이면 꼭짓점이 아니다 */
+  readonly conditionPpm?: number | undefined;
+  /** 다 지어지는 시각(짓는 중일 때만). 다 짓기 전에는 꼭짓점이 아니다 */
+  readonly readyAtMs?: number | null | undefined;
 }
 
 export interface TerritoryGroupView {
@@ -64,10 +69,15 @@ export type TerritoryCellRow = readonly [
   samples: number,
 ];
 
-/** 비콘 시설(팩 territory_beacon 실효 값): 팩에 있나(enabled)·레벨 1 건설 재료(D-508). 지금 놓을 때 재료를 쓰지 않는다(짓기 흐름 없음) */
+/**
+ * 비콘 시설(팩 territory_beacon 실효 값): 팩에 있나(enabled)·레벨 1 건설 재료(D-508). 놓을 때 이 재료를 주인 원장에서 빼고 건설 시간(M14)
+ * 뒤에 꼭짓점이 된다(개발 대신 놓기는 옛 관리자처럼 재료 없이 바로, docs/adr/2026-11-07-buildings-runtime.md)
+ */
 export interface TerritoryBeaconFacilityView {
   readonly enabled: boolean;
   readonly materials: readonly { readonly item: string; readonly qty: number }[];
+  /** 건설 시간(ms, M14 식). 없으면 바로 */
+  readonly buildMs?: number | undefined;
 }
 
 export interface TerritoryPlanetView {

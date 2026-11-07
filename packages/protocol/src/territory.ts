@@ -63,6 +63,8 @@ export const BEACON_RESULT_CODES = [
   /** 팩에 영토 비콘 시설(territory_beacon)이 없다(시설은 늘 켜져 있고, 켬·끔 칸이 없다) */
   "disabled",
   "unknown_beacon",
+  /** 비콘 건설 재료가 모자람(판 9부터, docs/adr/2026-11-07-buildings-runtime.md — 8판 연결에는 forbidden으로 간다) */
+  "insufficient_materials",
   "internal_error",
 ] as const;
 export type BeaconResultCode = (typeof BEACON_RESULT_CODES)[number];

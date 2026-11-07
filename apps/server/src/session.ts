@@ -14,6 +14,7 @@ import {
   ITEM_PROTOCOL_VERSION,
   LABOR_PROTOCOL_VERSION,
   LABOR_JOBS_PROTOCOL_VERSION,
+  FACILITY_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -27,6 +28,7 @@ import type { TerritoryGateway, TerritorySocket } from "./territory/gateway.ts";
 import type { RecruitGateway, RecruitSocket } from "./recruit/gateway.ts";
 import type { ItemGateway, ItemSocket } from "./holdings/gateway.ts";
 import type { LaborGateway, LaborSocket } from "./labor/gateway.ts";
+import type { FacilityGateway, FacilitySocket } from "./facilities/gateway.ts";
 import type { WorldGateway, WorldSocket } from "./world/gateway.ts";
 
 export interface SessionContext {
@@ -45,6 +47,8 @@ export interface SessionContext {
   items?: ItemGateway | undefined;
   /** 노동 계약 명령(docs/adr/2026-11-03-labor-contracts.md). 없으면 busy */
   labor?: LaborGateway | undefined;
+  /** 건물 짓기·수리 명령(프로토콜 9, docs/adr/2026-11-07-buildings-runtime.md). 없으면 busy */
+  facilities?: FacilityGateway | undefined;
   /** 이 연결의 로그인 사용자(쿠키). 로그인하지 않았거나 인증이 꺼져 있으면 null */
   viewer?: (() => Promise<Viewer | null>) | undefined;
   /**
@@ -77,6 +81,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let recruitSocket: RecruitSocket | undefined;
   let itemSocket: ItemSocket | undefined;
   let laborSocket: LaborSocket | undefined;
+  let facilitySocket: FacilitySocket | undefined;
   let releasePresence: (() => void) | undefined;
 
   const sendText = (text: string): void => {
@@ -112,6 +117,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
     recruitSocket?.close();
     itemSocket?.close();
     laborSocket?.close();
+    facilitySocket?.close();
     releasePresence?.();
   });
 
@@ -228,7 +234,11 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send({ t: "beacon_result", id: message.id, ok: false, code: "busy" });
           return;
         }
-        territorySocket ??= context.territory.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        territorySocket ??= context.territory.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          protocolVersion,
+        });
         territorySocket.handle(message);
         return;
       }
@@ -287,6 +297,25 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         }
         laborSocket ??= context.labor.open({ send: sendText, viewer: context.viewer ?? signedOut });
         laborSocket.handle(message);
+        return;
+      }
+      case "facility_build":
+      case "facility_upgrade":
+      case "facility_repair":
+      case "equipment_repair":
+      case "dev_grant_goods":
+      case "dev_facility_finish": {
+        // 건물 명령은 프로토콜 9의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        if (protocolVersion < FACILITY_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.facilities) {
+          send({ t: "facility_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        facilitySocket ??= context.facilities.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        facilitySocket.handle(message);
         return;
       }
     }

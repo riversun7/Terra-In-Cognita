@@ -3,7 +3,10 @@
 // - 도시: world_cities를 그때 읽는다(NPC 사회 런타임이 주인·발전도를 바꾸고 새 마을을 넣는다). 명령은 대기열을 비운 뒤 새로 읽고, 조회는
 //   행성마다 셈한 배치를 VIEW_TTL_MS 동안 쓴다(비콘이 바뀌면 바로 버린다). 사라진 세력(dissolved_at_ms)의 도시·비콘은 셈에서 뺀다.
 // - 셈: @terra/shared/territory(껍질·소속·겹침·놓기 검사) + @terra/planet/territory(칸 → 점, 칸 표). 둘 다 결정적이다.
-// - 비콘 시설: 팩 시설 territory_beacon(건설 재료 D-508, 시설은 늘 켜져 있고 팩에 없을 때만 disabled). 지금 놓을 때 재료를 쓰지 않고(짓기 흐름이 없다) 내구도만 적는다(N51).
+// - 비콘 시설: 팩 시설 territory_beacon(건설 재료 D-508, 시설은 늘 켜져 있고 팩에 없을 때만 disabled). 건물 규칙(기획 336,
+//   docs/adr/2026-11-07-buildings-runtime.md): 놓을 때 레벨 1 재료를 놓는 사용자의 주인 원장에서 빼고(construction.spend), 건설 시간(M14)
+//   뒤에 꼭짓점이 된다. 상태는 쓰지 않는 건물이라 노화만(30%에서 멈춤, D-509) — 그때 셈한다. 30% 미만(공격·옛 줄)이면 꼭짓점에서 빠진다.
+//   개발 대신 놓기(territory: dev-place)는 옛 관리자 짓기처럼 재료 없이 바로 선다. 수리는 건물 서비스가 작업으로 하고 repairBeacon으로 더한다.
 // - 기준 도시를 빼앗기면 비콘도 도시와 함께 넘어간다(D-512 335, 사용자 답): 도시 주인이 바뀌는 길(NPC 사회 런타임의 점령·반란·독립)은 모두
 //   런타임 저장(npc/persist.ts flush)의 도시 줄 쓰기를 거치고, 그 자리에서 cityOwnerChanged를 같은 묶음으로 부른다. 셈(compute)도 DB 도시
 //   주인과 다른 비콘을 옮겨 맞춘다(옛 판이 남긴 줄·다른 길). 개수·거리는 새 주인 세력 기준으로 다시 센다(배치를 새로 셈).
@@ -29,6 +32,13 @@ import type {
   TerritoryPlanetView,
 } from "@terra/shared/territoryApi";
 import type { LocalizedName } from "@terra/shared/roster";
+import {
+  CONDITION_FULL,
+  type FacilityRuntimeRules,
+  advanceCondition,
+  conditionWorks,
+  durabilityPoints,
+} from "@terra/shared/facilityRuntime";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 
@@ -44,6 +54,11 @@ export interface BeaconRow {
   readonly durability: number;
   readonly builtAtMs: number;
   readonly builtBy: string | null;
+  /** 상태(ppm)와 그 시각(null = 다 지은 시각부터) */
+  readonly conditionPpm: number;
+  readonly conditionAtMs: number | null;
+  /** 다 지어지는 시각(null = 다 지음) */
+  readonly readyAtMs: number | null;
 }
 
 interface CityRecord {
@@ -87,6 +102,25 @@ export interface TerritoryService {
    */
   cityOwnerChanged(cityId: number, factionId: number): number;
   readonly beaconCount: () => number;
+  /** 비콘 하나(없으면 undefined)와 지금 상태(ppm) */
+  beaconState(beaconId: number, atMs: number): { readonly row: BeaconRow; readonly conditionPpm: number } | undefined;
+  /** 그 사용자가 이 비콘을 고칠 수 있나(내 세력 비콘) */
+  canManage(userId: string, beaconId: number): Promise<boolean>;
+  /** 수리를 더한다(건물 서비스의 수리 작업이 끝날 때, 쓰기 대기열). 없으면 false */
+  repairBeacon(beaconId: number, restorePpm: number, atMs: number): boolean;
+  /** 짓기를 바로 끝낸다(개발 시험). 짓는 중이 아니면 false */
+  finishBeacon(beaconId: number, atMs: number): boolean;
+}
+
+/** 비콘 짓기(건물 규칙, 기획 336): 설정 칸 N50과 재료 빼기 */
+export interface BeaconConstruction {
+  readonly rules: () => FacilityRuntimeRules;
+  /** 놓는 사용자의 주인 원장에서 재료를 뺀다. 모자라면 false(아무것도 바꾸지 않는다) */
+  readonly spend: (
+    userId: string,
+    materials: readonly { readonly item: string; readonly qty: number }[],
+    atMs: number,
+  ) => boolean;
 }
 
 export interface TerritoryServiceOptions {
@@ -103,11 +137,14 @@ export interface TerritoryServiceOptions {
   readonly factionName?: ((code: string) => LocalizedName | undefined) | undefined;
   /** 세계가 준비됐나(아니면 busy) */
   readonly ready: () => boolean;
+  /** 건물 규칙(재료·건설 시간·노화). 없으면 옛처럼 재료 없이 바로·노화 없음(시험) */
+  readonly construction?: BeaconConstruction | undefined;
 }
 
 export async function loadBeacons(pool: QueryPool): Promise<BeaconRow[]> {
   const result = await pool.query(
-    `select id, planet_id, cell_key, faction_id, city_id, durability, built_at_ms, built_by
+    `select id, planet_id, cell_key, faction_id, city_id, durability, built_at_ms, built_by,
+            condition_ppm, condition_at_ms, ready_at_ms
      from territory_beacons order by id`,
   );
   return result.rows.map((row) => ({
@@ -119,6 +156,9 @@ export async function loadBeacons(pool: QueryPool): Promise<BeaconRow[]> {
     durability: Number(row.durability),
     builtAtMs: Number(row.built_at_ms),
     builtBy: typeof row.built_by === "string" ? row.built_by : null,
+    conditionPpm: Number(row.condition_ppm),
+    conditionAtMs: row.condition_at_ms === null ? null : Number(row.condition_at_ms),
+    readyAtMs: row.ready_at_ms === null ? null : Number(row.ready_at_ms),
   }));
 }
 
@@ -131,6 +171,9 @@ const beaconRow = (beacon: BeaconRow) => ({
   durability: beacon.durability,
   built_at_ms: beacon.builtAtMs,
   built_by: beacon.builtBy,
+  condition_ppm: beacon.conditionPpm,
+  condition_at_ms: beacon.conditionAtMs,
+  ready_at_ms: beacon.readyAtMs,
 });
 
 const fail = (code: BeaconResultCode): BeaconCommandResult => ({ ok: false, code });
@@ -160,6 +203,26 @@ export function createTerritoryService(
     const next = chain.then(run, run);
     chain = next.catch(() => undefined);
     return next;
+  };
+
+  /** 지금 상태(ppm): 다 지은 뒤 노화만(쓰지 않는 건물, D-509). 건물 규칙이 없으면 적힌 값 그대로 */
+  const conditionNow = (beacon: BeaconRow, at: number): number => {
+    const rules = options.construction?.rules();
+    if (!rules) return beacon.conditionPpm;
+    if (beacon.readyAtMs !== null && beacon.readyAtMs > at) return beacon.conditionPpm;
+    const from = beacon.conditionAtMs ?? beacon.readyAtMs ?? beacon.builtAtMs;
+    return advanceCondition(beacon.conditionPpm, at - from, false, rules);
+  };
+  /** 꼭짓점이 되나: 다 지었고 30% 이상(N50 기능 정지 문턱) */
+  const works = (beacon: BeaconRow, at: number): boolean => {
+    if (beacon.readyAtMs !== null && beacon.readyAtMs > at) return false;
+    const rules = options.construction?.rules();
+    return !rules || conditionWorks(conditionNow(beacon, at), rules);
+  };
+  const saveBeacon = (beacon: BeaconRow): void => {
+    beacons.set(beacon.id, beacon);
+    writer.upsert("beacons", beaconRow(beacon));
+    cache.delete(beacon.planetId);
   };
 
   const loadFactions = async (): Promise<Map<number, FactionRecord>> => {
@@ -223,9 +286,12 @@ export function createTerritoryService(
     if (adopted > 0) await writer.durable();
     const rules = options.rules();
     const cities = allCities.filter((city) => factions.has(city.factionId) && isCellKey(city.mapKey));
+    const at = now();
     const planetBeacons = [...beacons.values()]
       .filter((beacon) => beacon.planetId === planetId && factions.has(beacon.factionId))
       .toSorted((a, b) => a.id - b.id);
+    // 짓는 중·30% 미만 비콘은 꼭짓점이 아니다(건물 규칙, 기획 336). 목록(view)에는 모두 보인다
+    const vertexBeacons = planetBeacons.filter((beacon) => works(beacon, at));
     const layout = buildTerritory(
       cities.map((city) => ({
         id: city.id,
@@ -233,7 +299,7 @@ export function createTerritoryService(
         point: territoryPoint(placementCellKey(parseCellKey(city.mapKey), city.cellX, city.cellY)),
         grade: cityGrade(city.development, rules),
       })),
-      planetBeacons.map((beacon) => ({
+      vertexBeacons.map((beacon) => ({
         id: beacon.id,
         faction: beacon.factionId,
         point: territoryPoint(parseCellKey(beacon.cellKey)),
@@ -244,11 +310,11 @@ export function createTerritoryService(
     );
     const seeds = [
       ...cities.map((city) => parseCellKey(city.mapKey)),
-      ...planetBeacons.map((beacon) => parseCellKey(beacon.cellKey)),
+      ...vertexBeacons.map((beacon) => parseCellKey(beacon.cellKey)),
     ];
     const cells = rasterizeTerritory(layout, seeds, faceLevel);
     const computed: Computed = {
-      atMs: now(),
+      atMs: at,
       layout,
       faceLevel,
       rules,
@@ -330,15 +396,22 @@ export function createTerritoryService(
           },
         ];
       }),
-      beacons: computed.beacons.map((beacon) => ({
-        id: beacon.id,
-        factionId: beacon.factionId,
-        cityId: beacon.cityId,
-        cellKey: beacon.cellKey,
-        point: territoryPoint(parseCellKey(beacon.cellKey)),
-        durability: beacon.durability,
-        builtAtMs: beacon.builtAtMs,
-      })),
+      beacons: computed.beacons.map((beacon) => {
+        const condition = conditionNow(beacon, computed.atMs);
+        return {
+          id: beacon.id,
+          factionId: beacon.factionId,
+          cityId: beacon.cityId,
+          cellKey: beacon.cellKey,
+          point: territoryPoint(parseCellKey(beacon.cellKey)),
+          durability: options.construction
+            ? durabilityPoints(condition, computed.rules.beaconDurability)
+            : beacon.durability,
+          builtAtMs: beacon.builtAtMs,
+          conditionPpm: condition,
+          readyAtMs: beacon.readyAtMs,
+        };
+      }),
       groups: computed.layout.groups.map((group) => ({
         factionId: group.faction,
         members: group.members.map((member) => ({ kind: member.kind, id: member.id })),
@@ -381,6 +454,19 @@ export function createTerritoryService(
           territoryPoint(input.cellKey),
         );
         if (!check.ok) return fail(check.problem);
+        // 짓는 중·멈춘 비콘도 기준 도시의 개수에 센다(배치 셈에는 꼭짓점만 들어간다)
+        const anchor = computed.layout.cities.find((city) => city.id === check.anchorCity);
+        const limit = anchor ? gradeValue(computed.rules.beaconsPerCity, anchor.grade) : 0;
+        let used = 0;
+        for (const beacon of beacons.values()) if (beacon.cityId === check.anchorCity) used += 1;
+        if (anchor && used >= limit) return fail("beacon_limit");
+        // 건물 규칙(기획 336): 재료를 빼고 건설 시간 뒤에 선다. 개발 대신 놓기는 옛 관리자처럼 재료 없이 바로
+        const at = now();
+        const facility = options.beaconFacility();
+        const build = options.construction && !actor.devPlace;
+        if (build && !options.construction?.spend(actor.userId, facility.materials, at))
+          return fail("insufficient_materials");
+        const buildMs = build ? (facility.buildMs ?? 0) : 0;
         lastId += 1;
         const beacon: BeaconRow = {
           id: lastId,
@@ -389,12 +475,13 @@ export function createTerritoryService(
           factionId: faction,
           cityId: check.anchorCity,
           durability: computed.rules.beaconDurability,
-          builtAtMs: now(),
+          builtAtMs: at,
           builtBy: actor.userId,
+          conditionPpm: CONDITION_FULL,
+          conditionAtMs: buildMs > 0 ? at + buildMs : at,
+          readyAtMs: buildMs > 0 ? at + buildMs : null,
         };
-        beacons.set(beacon.id, beacon);
-        writer.upsert("beacons", beaconRow(beacon));
-        cache.delete(input.planetId);
+        saveBeacon(beacon);
         await writer.durable();
         return { ok: true, beaconId: beacon.id };
       });
@@ -434,5 +521,26 @@ export function createTerritoryService(
     },
     cityOwnerChanged: (cityId, factionId) => moveWithCity(cityId, factionId),
     beaconCount: () => beacons.size,
+    beaconState(beaconId, atMs) {
+      const row = beacons.get(beaconId);
+      return row ? { row, conditionPpm: conditionNow(row, atMs) } : undefined;
+    },
+    async canManage(userId, beaconId) {
+      const row = beacons.get(beaconId);
+      return row !== undefined && (await factionOfUser(userId)) === row.factionId;
+    },
+    repairBeacon(beaconId, restorePpm, atMs) {
+      const row = beacons.get(beaconId);
+      if (!row) return false;
+      const next = Math.min(CONDITION_FULL, conditionNow(row, atMs) + Math.max(0, restorePpm));
+      saveBeacon({ ...row, conditionPpm: next, conditionAtMs: atMs });
+      return true;
+    },
+    finishBeacon(beaconId, atMs) {
+      const row = beacons.get(beaconId);
+      if (!row || row.readyAtMs === null || row.readyAtMs <= atMs) return false;
+      saveBeacon({ ...row, readyAtMs: null, conditionAtMs: atMs });
+      return true;
+    },
   };
 }

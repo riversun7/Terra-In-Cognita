@@ -20,18 +20,22 @@
  * 8: 구인 게시(labor.ts, docs/adr/2026-11-03-labor-contracts.md "바뀜 (기획 338~342·구인 게시판)") — labor_post_job·
  *    labor_withdraw_job·labor_accept_job → labor_result(jobId, 결과 코드 job_not_open·employer_insufficient_funds).
  *    더하기만 했다. 7판 기기는 그대로 받는다(이 메시지를 보내지 않고, 새 코드는 이 메시지에만 간다).
+ * 9: 건물 짓기·레벨업·수리·장비 수리(facilities.ts, docs/adr/2026-11-07-buildings-runtime.md) — facility_build·facility_upgrade·
+ *    facility_repair·equipment_repair·dev_grant_goods·dev_facility_finish → facility_result. 영토 비콘 놓기에 재료가 들어
+ *    beacon_result에 insufficient_materials가 생겼다(9판 연결에만 간다, 8판은 forbidden). 8판 기기는 그대로 받는다.
  */
-export const PROTOCOL_VERSION = 8;
+export const PROTOCOL_VERSION = 9;
 
 /**
  * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7). 5부터 3판 기기는 인사에서
- * protocol_unsupported를 받고 새 앱을 받는다(PWA 강제 적용). 6부터 4판 기기도, 7부터 5판 기기도, 8부터 6판 기기도 같다(현재 + 직전 1개).
+ * protocol_unsupported를 받고 새 앱을 받는다(PWA 강제 적용). 6부터 4판 기기도, 7부터 5판 기기도, 8부터 6판 기기도, 9부터 7판 기기도 같다
+ * (현재 + 직전 1개).
  * (3에서는 예외로 2를 받지 않았다: 2판 기기는 걸러지지 않은 2차맵 흐름을 기대하는데, 시야 전송은 보안 규칙이라 그 흐름을 남기지
  * 않는다, S3 ADR 3절.)
  * 속성 분배 전 사이보그(elements null)는 이제 기기가 만들지 않는다(5판부터 만들기에 분배가 꼭 든다). 화면 시험의 legacy 계정은
  * 지금 판으로 만든 뒤 서버를 끄고 DB에서 속성값을 비워 다시 켠다(e2e/global-setup.ts).
  */
-export const MIN_SUPPORTED_PROTOCOL_VERSION = 7;
+export const MIN_SUPPORTED_PROTOCOL_VERSION = 8;
 
 /** WebSocket 메시지 1개의 최대 크기 (바이트) */
 export const MAX_MESSAGE_BYTES = 64 * 1024;

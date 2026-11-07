@@ -77,7 +77,9 @@ export type HoldingFailure =
   | "battle_only"
   | "not_better"
   | "confirm_replace"
-  | "cooldown";
+  | "cooldown"
+  /** 공방에서 고치는 중(docs/adr/2026-11-07-buildings-runtime.md) — 끝날 때까지 입기·쓰기·벗기를 받지 않는다 */
+  | "busy";
 
 export type HoldingResult<T = object> =
   | ({ readonly ok: true } & T)
@@ -224,6 +226,8 @@ export interface HoldingServiceOptions {
   readonly storagePlaceOf?: ((location: number) => StoragePlace) | undefined;
   /** 가중치 표 실효 값(수리 장인 실력의 제작 직무 행). 없으면 시험 표 */
   readonly statTable?: (() => readonly StatRow[]) | undefined;
+  /** 공방 수리 작업 중인 물건(건물 서비스가 잇는다). 그 물건은 입기·벗기·쓰기를 busy로 거절한다 */
+  readonly locked?: ((holdingId: number) => boolean) | undefined;
 }
 
 /** 팩 아이템 항목에서 보유 판정이 읽는 칸(참조 ContentRef → ID 글자) */

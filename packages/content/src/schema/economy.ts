@@ -7,6 +7,7 @@ import {
   FACILITY_LEVEL_MAX,
   FACILITY_REPAIR_LIMITS,
 } from "@terra/shared/facilityBuild";
+import { FACILITY_RUNTIME_LIMITS } from "@terra/shared/facilityRuntime";
 import { z } from "zod";
 import { EQUIP_SLOT_KINDS, PRIMARY_STAT_CODES } from "./combat.ts";
 import { contentId, localizedText, ref } from "./common.ts";
@@ -111,8 +112,8 @@ export const facilityEntrySchema = z.strictObject({
    * 새 시설 레벨로 읽은 것은 기술 해석 ⏳). 셈은 @terra/shared/facilityBuild 하나다. D-508: 처음 레벨은 1차 원자재로 지어 초기 발전이
    * 막히지 않게, 그 위 레벨 대부분은 가공품(판자·벽돌·주괴). 출발값(옛 raw → Lv1 원자재·Lv2부터 가공품)은 [임시]이고 건물 편집기
    * (/dev/buildings)에서 고친다. 구간 규칙(첫 from 1·늘어나기만·최고 레벨 이하·같은 아이템 한 줄)은 2단계 검사(validate/facilities.ts).
-   * 수량은 레시피와 같은 묶음 단위다. mulPm = 옛 분류 배율(PRIMARY 0.8 → 800, SECONDARY 1.2 → 1200). 지금 짓기·레벨 올림·수리를 셈하는
-   * 곳은 없다(시설은 처음부터 있다)
+   * 수량은 레시피와 같은 묶음 단위다. mulPm = 옛 분류 배율(PRIMARY 0.8 → 800, SECONDARY 1.2 → 1200). 짓기·레벨 올림·수리는 서버
+   * 건물 서비스(docs/adr/2026-11-07-buildings-runtime.md)가 셈한다
    */
   build: z
     .strictObject({
@@ -134,6 +135,34 @@ export const facilityEntrySchema = z.strictObject({
    * 없으면 수리하지 않는 시설. 수리는 끝까지만, 수수료 없음(노동 = 장인의 직무 시간 D-171)
    */
   repair: z.array(repairRule).min(1).max(FACILITY_REPAIR_LIMITS.rules).optional(),
+  /**
+   * 2차맵에 짓는 칸 크기(배치 칸, 회전 전 가로·세로, D-102·D-5041 레벨이 올라도 넓히지 않음). [임시] 출발값, 건물 편집기에서 고친다.
+   * 없으면 2차맵에 지을 수 없다(영토 비콘은 1차맵 칸에 놓아 칸 크기가 없다). docs/adr/2026-11-07-buildings-runtime.md
+   */
+  footprint: z
+    .strictObject({
+      width: z.int().min(FACILITY_RUNTIME_LIMITS.footprint.min).max(FACILITY_RUNTIME_LIMITS.footprint.max),
+      height: z.int().min(FACILITY_RUNTIME_LIMITS.footprint.min).max(FACILITY_RUNTIME_LIMITS.footprint.max),
+    })
+    .optional(),
+  /**
+   * 레벨 1 최대 내구도(49 M15 "건물 에디터 입력값"). 레벨 L = 이 값 × (1 + (L − 1) × 설정 칸 m15_durability_step). 출발값 = 옛
+   * seeds/building_seed.js hp. 없으면 100(옛 코드 기본 max_durability). 영토 비콘은 설정 칸 n51_beacon_durability를 쓴다
+   */
+  durability: z
+    .int()
+    .min(FACILITY_RUNTIME_LIMITS.durability.min)
+    .max(FACILITY_RUNTIME_LIMITS.durability.max)
+    .optional(),
+  /**
+   * 레벨 1 창고 용량(kg, 49 N50 "기본 1t·10t·100t·500t"). 레벨 L = 이 값 × (1 + (L − 1) × 설정 칸 n50_storage_step).
+   * 없으면 창고가 없는 시설(지금 팩 시설은 모두 없음 — 시설 창고에 물건을 두는 일은 다음 줄기)
+   */
+  storageKg: z
+    .int()
+    .min(FACILITY_RUNTIME_LIMITS.storageKg.min)
+    .max(FACILITY_RUNTIME_LIMITS.storageKg.max)
+    .optional(),
 });
 export type FacilityEntry = z.output<typeof facilityEntrySchema>;
 

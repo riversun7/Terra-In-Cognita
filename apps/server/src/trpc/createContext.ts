@@ -18,6 +18,7 @@ import { emptyEconomyCatalog } from "../economyView/catalog.ts";
 import { createEconomyServices } from "../economyView/services.ts";
 import type { LaborService } from "../labor/service.ts";
 import { createLaborScreenServices } from "../labor/views.ts";
+import { type FacilityScreenSource, createFacilityScreenServices } from "../facilities/screen.ts";
 import { createHomeServices } from "../home/services.ts";
 import { createRosterServices } from "../roster/services.ts";
 import { createFactionScreenServices } from "../factionScreen/overview.ts";
@@ -79,6 +80,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   factionSource?: FactionSource | undefined;
   /** 노동 계약 서비스(세계가 준비되고 DB가 있을 때). 없으면 labor.overview는 not_ready */
   labor?: (() => LaborService | undefined) | undefined;
+  /** 건물 화면 자료(세계가 준비되고 DB가 있을 때). 없으면 facilities.overview는 not_ready */
+  facilities?: (() => FacilityScreenSource | undefined) | undefined;
   /** 세력 화면 규칙 설정값(설정 칸 실효 값: 공물·민심 문턱·주기, 부를 때마다 읽는다). 없으면 sim 시험 계수표 */
   factionRules?: (() => FactionScreenRules) | undefined;
   /** 설정 칸 패널(접근자·속도 제한기·쓰기 차례, src/tuning/services.ts). 인증이 켜져 있어야 쓴다 */
@@ -141,6 +144,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
   const faction = createFactionScreenServices({ source: options.factionSource, rules: options.factionRules });
   const mail = createMailServices();
   const labor = createLaborScreenServices(options.labor);
+  const facilities = createFacilityScreenServices(options.facilities);
   return (opts?: { req: FastifyRequest; res?: FastifyReply }): TrpcContext => {
     const authDeps = options.auth;
     const request = opts?.req;
@@ -185,6 +189,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       holdings: options.holdings ?? NO_HOLDINGS,
       vitals: options.vitals ?? NO_VITALS,
       labor,
+      facilities,
       tuning:
         authDeps && request && tuning
           ? createTuningServices({

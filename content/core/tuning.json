@@ -837,6 +837,188 @@
       "max": 100000
     },
     {
+      "id": "n50_damaged",
+      "code": "N50",
+      "name": {
+        "ko": "손상 문턱(‰)",
+        "en": "Damaged below (‰)"
+      },
+      "value": 700,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n50_disabled",
+      "code": "N50",
+      "name": {
+        "ko": "기능 정지 문턱(‰)",
+        "en": "Stops working below (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n50_idle_floor",
+      "code": "N50",
+      "name": {
+        "ko": "쓰지 않을 때 노화가 멈추는 곳(‰)",
+        "en": "Idle decay stops at (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n50_idle_decay_ms",
+      "code": "N50",
+      "name": {
+        "ko": "가득에서 멈추는 곳까지 노화 시간(ms)",
+        "en": "Idle decay time to the floor (ms)"
+      },
+      "value": 864000000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 31536000000
+    },
+    {
+      "id": "n50_use_wear",
+      "code": "N50",
+      "name": {
+        "ko": "쓸 때 더 닳는 양(‰/일)",
+        "en": "Extra wear while used (‰/day)"
+      },
+      "value": 70,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n50_repair_step",
+      "code": "N50",
+      "name": {
+        "ko": "수리 한 번의 최대 회복(‰)",
+        "en": "Repair per step, max (‰)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 1000
+    },
+    {
+      "id": "n50_builder_cut",
+      "code": "N50",
+      "name": {
+        "ko": "일꾼 하나당 시간 단축(‰)",
+        "en": "Time cut per builder (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n50_builder_cut_max",
+      "code": "N50",
+      "name": {
+        "ko": "일꾼 단축 상한(‰)",
+        "en": "Builder time cut, max (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "m15_durability_step",
+      "code": "M15",
+      "name": {
+        "ko": "레벨당 최대 내구도 증가(‰)",
+        "en": "Max durability per level (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n50_storage_step",
+      "code": "N50",
+      "name": {
+        "ko": "레벨당 창고 용량 증가(‰)",
+        "en": "Storage capacity per level (‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n54_repair_base_ms",
+      "code": "N54",
+      "name": {
+        "ko": "장비 수리 기준 시간(ms)",
+        "en": "Equipment repair base time (ms)"
+      },
+      "value": 600000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 86400000
+    },
+    {
+      "id": "n50_craft_scale",
+      "code": "N50",
+      "name": {
+        "ko": "장인 보정 분자(10 ÷ 평균 × √수)",
+        "en": "Craft time scale (10 ÷ avg × √n)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n50_craft_min",
+      "code": "N50",
+      "name": {
+        "ko": "장인 보정 하한(‰)",
+        "en": "Craft time factor, min (‰)"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n50_craft_max",
+      "code": "N50",
+      "name": {
+        "ko": "장인 보정 상한(‰)",
+        "en": "Craft time factor, max (‰)"
+      },
+      "value": 2000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
       "id": "n45_refresh_every",
       "code": "N45",
       "name": {

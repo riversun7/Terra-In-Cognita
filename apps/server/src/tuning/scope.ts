@@ -84,13 +84,29 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "wageRateMilli",
   "employerAdjustMinPm",
   "employerAdjustMaxPm",
-  // 건물 편집기(buildingEdit/services.ts list, 49 M14·D-508): 레벨별 건설 시간 미리 보기. 짓기가 생기면 그쪽도 읽는다
+  // 건물 편집기(buildingEdit/services.ts list, 49 M14·D-508): 레벨별 건설 시간 미리 보기. 건물 서비스(facilities/service.ts)가 짓기·
+  // 레벨업·수리 시간을 셀 때마다 읽는다
   "facilityBuild.msPerKg",
   "facilityBuild.timeFactorPm.0",
   "facilityBuild.timeFactorPm.1",
   "facilityBuild.timeFactorPm.2",
   "facilityBuild.timeFactorPm.3",
   "facilityBuild.timeFactorPm.4",
+  // 건물 노화·수리·장비 수리(facilities/service.ts, 49 N50·M15·N54, docs/adr/2026-11-07-buildings-runtime.md): 분마다·명령마다 읽는다
+  "facilityRuntime.damagedPm",
+  "facilityRuntime.disabledPm",
+  "facilityRuntime.idleFloorPm",
+  "facilityRuntime.idleDecayMs",
+  "facilityRuntime.useWearPmPerDay",
+  "facilityRuntime.repairStepPm",
+  "facilityRuntime.builderCutPm",
+  "facilityRuntime.builderCutMaxPm",
+  "facilityRuntime.durabilityLevelStepPm",
+  "facilityRuntime.storageLevelStepPm",
+  "facilityRuntime.equipRepairBaseMs",
+  "facilityRuntime.craftTimeScale",
+  "facilityRuntime.craftTimeMinPm",
+  "facilityRuntime.craftTimeMaxPm",
   // 영토 서비스(territory/service.ts, docs/adr/2026-11-03-territory-layer.md): 배치를 셈할 때마다(조회 30초·명령마다) 읽는다
   "territory.gradeAtDevelopment.0",
   "territory.gradeAtDevelopment.1",
@@ -143,7 +159,7 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "consumables.potionCooldownMs",
   "consumables.foodCooldownMs",
   // 보관 곳마다 보존 배율(holdings/service.ts 썩기·신선도, D-512 322): 셀 때마다 읽는다. 수리 장인 적정 점수(f11_craft_appropriate)는
-  // 수리 고리라 sim
+  // 아래 장비 수리 명령이 읽는다
   "consumables.preservePm.unit",
   "consumables.preservePm.storage",
   "consumables.preservePm.fridge",
@@ -151,6 +167,15 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "consumables.preservePm.can",
   "consumables.preservePm.freezer",
   "consumables.preservePm.exchange",
+  // 장비 수리 명령(facilities/service.ts → holdings/service.ts repair, D-512 323·D-514 351): 수리가 끝날 때마다 읽는다(F11·F12·적정 점수)
+  "durability.repairLossPct.0",
+  "durability.repairLossPct.1",
+  "durability.repairLossPct.2",
+  "durability.repairLossPct.3",
+  "durability.repairLossPct.4",
+  "durability.repairLossFloorPct",
+  "durability.destroyAtMax",
+  "durability.craftAppropriate",
   // 운영자 런타임 온/오프 스위치(49 N53, D-513): 정원사 웨이브·NPC AI(npc/runtime.ts), 생산(labor/service.ts), 거래소·환전소(/admin 운영 제어판)
   "switches.gardenerWaves",
   "switches.marketEnabled",

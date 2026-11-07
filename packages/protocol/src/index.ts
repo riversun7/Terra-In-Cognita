@@ -50,6 +50,11 @@ export {
 } from "./cyborg.ts";
 export { ITEM_PROTOCOL_VERSION, ITEM_RESULT_CODES, type ItemResultCode } from "./items.ts";
 export {
+  FACILITY_PROTOCOL_VERSION,
+  FACILITY_RESULT_CODES,
+  type FacilityResultCode,
+} from "./facilities.ts";
+export {
   LABOR_JOBS_PROTOCOL_VERSION,
   LABOR_PROTOCOL_VERSION,
   LABOR_RESULT_CODES,

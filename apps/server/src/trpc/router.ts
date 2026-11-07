@@ -21,6 +21,7 @@ import { cyborgRouter, unitsRouter } from "./roster.ts";
 import { settingsRouter } from "./settings.ts";
 import { itemsRouter } from "./items.ts";
 import { laborRouter } from "./labor.ts";
+import { facilitiesRouter } from "./facilities.ts";
 import { skillsRouter } from "./skills.ts";
 import { summaryRouter } from "./summary.ts";
 import { systemRouter } from "./system.ts";
@@ -70,6 +71,8 @@ export const appRouter = router({
   vitals: vitalsRouter,
   // 노동 계약(임금형·임대형) 조회(docs/adr/2026-11-03-labor-contracts.md)
   labor: laborRouter,
+  // 건물 짓기·레벨업·노화·수리 조회(docs/adr/2026-11-07-buildings-runtime.md). 바꾸는 명령은 WebSocket facility_*
+  facilities: facilitiesRouter,
 });
 
 export type AppRouter = typeof appRouter;

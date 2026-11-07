@@ -63,6 +63,12 @@ export interface WorldHoldings {
   readonly access: HoldingsAccess;
   /** 유닛이 지닌 것: 입은 물건(칸 차례)과 nowMs에 걸린 효과(켜진 효과 사전 항목만, 종류·수치·값 방식을 붙임) */
   readonly gearOf: (unitId: number, nowMs: number) => UnitGear;
+  /** 유닛의 1차 스탯(입은 장비·버프 포함, 사이보그 화면과 같은 셈) — 공방 장인 실력·수리 시간(건물 서비스) */
+  readonly primariesOf: (unitId: number) => Primaries;
+  /** 가중치 표 실효 값(제작 직무 행) */
+  readonly statTable: () => readonly StatRow[] | undefined;
+  /** 공방 수리 작업 중인 물건 확인을 잇는다(건물 서비스가 만들어진 뒤) */
+  setLocked(locked: (holdingId: number) => boolean): void;
   stop(): void;
 }
 
@@ -118,12 +124,21 @@ export function createWorldHoldings(input: {
         : [];
     }),
   });
+  // 쓰는 유닛의 1차 스탯(소모품 효과량 D-501·장인 실력): 입은 장비·지금 걸린 1차 스탯 버프 포함
+  const primariesOf = (unitId: number): Primaries => {
+    const userId = cyborgs.userOfUnit(unitId);
+    const record = userId === undefined ? undefined : cyborgs.record(userId);
+    if (record) return config?.cyborgPrimaries?.(record, gearOf(unitId, input.now())) ?? BASELINE;
+    return config?.defaultPrimaries?.(gearOf(unitId, input.now())) ?? BASELINE;
+  };
+  let locked: (holdingId: number) => boolean = () => false;
   const service = createHoldingService({
     loaded: input.loaded,
     writer: input.writer,
     content,
     rules: config?.rules ?? (() => TEST_HOLDING_RULES),
     statTable: config?.statTable,
+    locked: (holdingId) => locked(holdingId),
     world: {
       unitOwner: (unitId) => infoOf(unitId)?.ownerId,
       unitKind: (unitId) => {
@@ -131,13 +146,7 @@ export function createWorldHoldings(input: {
         if (!info) return undefined;
         return info.kind === UNIT_KIND_CYBORG ? "cyborg" : "human";
       },
-      // 쓰는 유닛의 1차 스탯(소모품 효과량 D-501): 입은 장비·지금 걸린 1차 스탯 버프 포함
-      unitPrimaries: (unitId) => {
-        const userId = cyborgs.userOfUnit(unitId);
-        const record = userId === undefined ? undefined : cyborgs.record(userId);
-        if (record) return config?.cyborgPrimaries?.(record, gearOf(unitId, input.now())) ?? BASELINE;
-        return config?.defaultPrimaries?.(gearOf(unitId, input.now())) ?? BASELINE;
-      },
+      unitPrimaries: primariesOf,
       vitals: input.vitals,
     },
   });
@@ -159,6 +168,11 @@ export function createWorldHoldings(input: {
     service,
     access,
     gearOf,
+    primariesOf,
+    statTable: () => config?.statTable?.(),
+    setLocked(next) {
+      locked = next;
+    },
     stop: () => clearInterval(timer),
   };
 }

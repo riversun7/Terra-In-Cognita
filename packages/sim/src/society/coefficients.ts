@@ -2,6 +2,7 @@
 // 세력·도시·인구·기술·노동 규칙의 수치를 이 표 하나에 모은다. 기획 설정 칸(49 §6.5 N·§7 S·T)에 출발값이 있으면 그 값, 없으면 [임시].
 // 노동 공식(labor.ts)의 정본은 기획 48 §7이다. 시각은 실제 시간 ms, 배율은 ‰. N·S 코드 ↔ 칸 대응은 ADR faction-society-core.
 import { type FacilityBuildRules, OLD_FACILITY_BUILD_RULES } from "@terra/shared/facilityBuild";
+import { type FacilityRuntimeRules, OLD_FACILITY_RUNTIME_RULES } from "@terra/shared/facilityRuntime";
 import { START_TERRITORY_COEFFICIENTS, type TerritoryCoefficients } from "@terra/shared/territory";
 import { type LaborRules, OLD_LABOR_RULES } from "../economy/laborContract.ts";
 import { type GardenerCoefficients, TEST_GARDENER_COEFFICIENTS } from "../gardener/coefficients.ts";
@@ -145,6 +146,11 @@ export interface SocietyCoefficients {
    * 지금 짓기가 없어 시뮬은 읽지 않는다(건물 편집기 미리 보기가 읽는다, docs/adr/2026-11-02-building-editor.md)
    */
   readonly facilityBuild: FacilityBuildRules;
+  /**
+   * 건물 노화·상태 문턱·수리·일꾼 단축·레벨별 내구도·창고·장비 수리 시간(49 N50·M15·N54, D-509·D-514, 팩 tuning 경로 "facilityRuntime.*",
+   * docs/adr/2026-11-07-buildings-runtime.md). 셈은 @terra/shared/facilityRuntime. 시뮬은 읽지 않는다(서버 건물 서비스가 읽는다)
+   */
+  readonly facilityRuntime: FacilityRuntimeRules;
   /**
    * 영토 층(49 M2·M3·N42·N51, D-104·D-485·D-486, 팩 tuning 경로 "territory.*", docs/adr/2026-11-03-territory-layer.md): 도시 등급 문턱·
    * 영향권 반경·비콘 수·거리·내구도. 셈은 @terra/shared/territory. 시뮬은 아직 읽지 않는다(서버 영토 서비스가 읽는다)
@@ -345,6 +351,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   npc: TEST_NPC_COEFFICIENTS,
   gardener: TEST_GARDENER_COEFFICIENTS,
   facilityBuild: { ...OLD_FACILITY_BUILD_RULES, timeFactorPm: [...OLD_FACILITY_BUILD_RULES.timeFactorPm] },
+  facilityRuntime: { ...OLD_FACILITY_RUNTIME_RULES },
   territory: {
     influenceMilli: [...START_TERRITORY_COEFFICIENTS.influenceMilli],
     beaconRangeMilli: [...START_TERRITORY_COEFFICIENTS.beaconRangeMilli],

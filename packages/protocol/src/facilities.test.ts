@@ -1,0 +1,72 @@
+import { describe, expect, it } from "vitest";
+import { decodeClientMessage, decodeServerMessage } from "./codec.ts";
+import { encodeMessage } from "./encode.ts";
+import { FACILITY_PROTOCOL_VERSION } from "./facilities.ts";
+import { MIN_SUPPORTED_PROTOCOL_VERSION, PROTOCOL_VERSION } from "./version.ts";
+
+const bad = (message: object) => JSON.stringify(message);
+
+describe("건물 메시지(프로토콜 9)", () => {
+  it("판 9부터, 최소 판 8", () => {
+    expect(FACILITY_PROTOCOL_VERSION).toBe(9);
+    expect(PROTOCOL_VERSION).toBe(9);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(8);
+  });
+
+  it("짓기·레벨업·수리·장비 수리·개발 명령·결과가 왕복한다", () => {
+    const build = {
+      t: "facility_build",
+      id: 1,
+      mapKey: 312_905_547_382_793,
+      facility: "farm",
+      x: 10,
+      y: 20,
+      rotation: 90,
+      unitIds: [3, 4],
+    } as const;
+    expect(decodeClientMessage(encodeMessage(build))).toEqual(build);
+    const upgrade = { t: "facility_upgrade", id: 2, buildingId: 7 } as const;
+    expect(decodeClientMessage(encodeMessage(upgrade))).toEqual(upgrade);
+    const repair = { t: "facility_repair", id: 3, buildingId: 7, steps: 10, unitIds: [3] } as const;
+    expect(decodeClientMessage(encodeMessage(repair))).toEqual(repair);
+    const beacon = { t: "facility_repair", id: 4, beaconId: 2, steps: 1, unitIds: [3] } as const;
+    expect(decodeClientMessage(encodeMessage(beacon))).toEqual(beacon);
+    const equip = { t: "equipment_repair", id: 5, buildingId: 7, holdingId: 11, unitIds: [3] } as const;
+    expect(decodeClientMessage(encodeMessage(equip))).toEqual(equip);
+    const grant = { t: "dev_grant_goods", id: 6, item: "pine_log", qty: 40 } as const;
+    expect(decodeClientMessage(encodeMessage(grant))).toEqual(grant);
+    const finish = { t: "dev_facility_finish", id: 7, buildingId: 7 } as const;
+    expect(decodeClientMessage(encodeMessage(finish))).toEqual(finish);
+    const ok = { t: "facility_result", id: 1, ok: true, buildingId: 7, doneAtMs: 1_000 } as const;
+    expect(decodeServerMessage(encodeMessage(ok))).toEqual(ok);
+    const no = { t: "facility_result", id: 2, ok: false, code: "insufficient_materials" } as const;
+    expect(decodeServerMessage(encodeMessage(no))).toEqual(no);
+  });
+
+  it("수리는 대상 하나·일꾼 하나 이상, 틀린 칸·회전·결과 코드는 받지 않는다", () => {
+    expect(() =>
+      decodeClientMessage(bad({ t: "facility_repair", id: 1, steps: 1, unitIds: [3] })),
+    ).toThrow();
+    expect(() =>
+      decodeClientMessage(
+        bad({ t: "facility_repair", id: 1, buildingId: 1, beaconId: 2, steps: 1, unitIds: [3] }),
+      ),
+    ).toThrow();
+    expect(() =>
+      decodeClientMessage(bad({ t: "facility_repair", id: 1, buildingId: 1, steps: 1, unitIds: [] })),
+    ).toThrow();
+    expect(() =>
+      decodeClientMessage(
+        bad({ t: "facility_build", id: 1, mapKey: 1, facility: "farm", x: 256, y: 0, rotation: 0 }),
+      ),
+    ).toThrow();
+    expect(() =>
+      decodeClientMessage(
+        bad({ t: "facility_build", id: 1, mapKey: 1, facility: "farm", x: 0, y: 0, rotation: 45 }),
+      ),
+    ).toThrow();
+    expect(() =>
+      decodeServerMessage(bad({ t: "facility_result", id: 1, ok: false, code: "nope" })),
+    ).toThrow();
+  });
+});

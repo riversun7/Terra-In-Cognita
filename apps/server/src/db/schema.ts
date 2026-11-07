@@ -972,6 +972,8 @@ export const tuningRevision = pgTable(
 export { battleLabPresets, formulaOverrides } from "./devToolsSchema.ts";
 /** 노동 계약 표(docs/adr/2026-11-03-labor-contracts.md) */
 export { laborContracts, laborPostings, laborRents } from "./laborSchema.ts";
+/** 건물(시설) 상태·작업 표(docs/adr/2026-11-07-buildings-runtime.md) */
+export { facilityJobs, worldFacilities } from "./facilitySchema.ts";
 
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

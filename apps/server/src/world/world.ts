@@ -67,6 +67,13 @@ import {
   loadBeacons,
 } from "../territory/service.ts";
 import { loadRecruitDraws } from "../npc/state.ts";
+import {
+  type FacilitiesConfig,
+  type WorldFacilities,
+  beaconConstructionOf,
+  createWorldFacilities,
+} from "../facilities/world.ts";
+import { EMPTY_FACILITIES, type LoadedFacilities, loadFacilities } from "../facilities/state.ts";
 import { type RecruitService, createRecruitService } from "../recruit/service.ts";
 
 /**
@@ -164,6 +171,8 @@ export interface WorldConfig {
    * 싸우게 한다(battleBodies.ts). 없으면 시작 자료 그대로(시험)
    */
   roster?: (() => RosterCatalog) | undefined;
+  /** 건물 짓기·노화·수리(실효 시설·아이템, docs/adr/2026-11-07-buildings-runtime.md). 없으면 빈 목록(시험) */
+  facilities?: FacilitiesConfig | undefined;
 }
 
 export interface WorldLog extends MapLog {
@@ -206,6 +215,8 @@ export interface WorldPersistence {
   readonly bodies: BattleBodies;
   /** 노동 계약(임금형·임대형, docs/adr/2026-11-03-labor-contracts.md) */
   readonly labor: LaborService;
+  /** 건물 짓기·레벨업·노화·수리·장비 수리(docs/adr/2026-11-07-buildings-runtime.md) */
+  readonly facilities: WorldFacilities;
 }
 
 export interface WorldStatus {
@@ -384,6 +395,7 @@ export function startWorld(
     let holdingData: LoadedHoldings = { holdings: [], effects: [], cooldowns: [], maxId: 0 };
     let vitalsData: VitalsRecord[] = [];
     let laborData: LoadedLabor = EMPTY_LABOR;
+    let facilityData: LoadedFacilities = EMPTY_FACILITIES;
     for (let attempt = 1; !loaded; attempt++) {
       try {
         // 옛 시험 2차맵(깊은 바다 위)의 행을 지운다(지울 것이 없으면 그대로). U4 (가)
@@ -411,6 +423,7 @@ export function startWorld(
         holdingData = await loadHoldings(db);
         vitalsData = await loadVitals(db);
         laborData = await loadLabor(db, now());
+        facilityData = await loadFacilities(db);
         loaded = await loadWorld(db, now());
       } catch (error) {
         if (attempt >= BOOT_ATTEMPTS || stopped) throw error;
@@ -599,6 +612,8 @@ export function startWorld(
         faceLevelOf: (planetId) => faceLevels.get(planetId),
         factionName: (code) => nationName(code, config.npc?.presets),
         ready: () => status.state === "ready",
+        // 건물 규칙(기획 336): 비콘도 재료·건설 시간·노화(docs/adr/2026-11-07-buildings-runtime.md)
+        construction: beaconConstructionOf({ ledger, settlement, rules: societyRules }),
       },
       beaconRows,
     );
@@ -647,6 +662,20 @@ export function startWorld(
     gearOf = holdings.gearOf;
     // 세계 전투 시작 사양의 몸: 사이보그 화면·유닛 상세와 같은 셈(입은 장비·인공장기·버프)
     const bodies = createBattleBodies({ maps, cyborgs, gearOf: holdings.gearOf, catalog: config.roster });
+    // 건물: 짓기·노화·수리(노동 계약 정산이 시설이 일하는지 묻는다 — 서로 고리라 계약 서비스는 뒤에 잇는다)
+    const facilities = createWorldFacilities({
+      loaded: facilityData,
+      maps,
+      settlement,
+      ledger,
+      writer,
+      rules: societyRules,
+      config: config.facilities,
+      holdings,
+      territory: () => territory,
+      now,
+      ready: () => status.state === "ready",
+    });
     // 노동 계약: 소유 주체 정산이 계약을 같은 시각까지 정산하고 산출을 계약 몫으로 나눈다
     const labor = createLaborService({
       loaded: laborData,
@@ -658,7 +687,9 @@ export function startWorld(
       rules: config.cyborgRules ?? defaultCyborgRules,
       now,
       ready: () => status.state === "ready",
+      buildingWorks: (buildingId) => facilities.service.works(buildingId),
     });
+    facilities.attachLabor(labor);
     settlement.routeOutputs((ownerId, fromMs, toMs) => labor.outputsFor(ownerId, fromMs, toMs));
     persistence = {
       writer,
@@ -676,6 +707,7 @@ export function startWorld(
       vitals,
       bodies,
       labor,
+      facilities,
     };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)
     if (
@@ -868,6 +900,7 @@ export function startWorld(
       persistence?.battles.stop();
       persistence?.holdings.stop();
       persistence?.vitals.stop();
+      persistence?.facilities.service.stop();
       for (const map of maps.values()) map.stop();
       if (persistence) {
         persistence.writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
@@ -884,6 +917,7 @@ export function startWorld(
       persistence?.battles.stop();
       persistence?.holdings.stop();
       persistence?.vitals.stop();
+      persistence?.facilities.service.stop();
       if (heartbeat) clearInterval(heartbeat);
       for (const map of maps.values()) map.stop();
       await paths.close();

@@ -41,6 +41,8 @@ import { createVitalsReads } from "./vitals/reads.ts";
 import { createItemGateway } from "./holdings/gateway.ts";
 import { createHoldingsReads } from "./holdings/reads.ts";
 import { createLaborGateway } from "./labor/gateway.ts";
+import { createFacilityGateway } from "./facilities/gateway.ts";
+import { facilityScreenSourceOf } from "./facilities/appSource.ts";
 import { type CyborgService, cyborgReadsOf } from "./cyborg/service.ts";
 import type { RecruitService } from "./recruit/service.ts";
 import { createWorldSummaryBackend } from "./world/summarySources.ts";
@@ -411,7 +413,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           : undefined,
         // 영토 층(docs/adr/2026-11-03-territory-layer.md): 비콘 시설 = 팩 territory_beacon 실효 값(건물 편집기가 덮어쓴다, 켬끔·재료)
         territory: {
-          beaconFacility: contentEditState ? () => beaconFacilityView(contentEditState) : undefined,
+          beaconFacility: contentEditState
+            ? () =>
+                beaconFacilityView(contentEditState, tuningState ? () => tuningState.society().facilityBuild : undefined)
+            : undefined,
           faceLevels: worldPlanet ? new Map([[worldPlanet.id, worldPlanet.faceLevel]]) : undefined,
         },
         // 보유 물건(docs/adr/2026-11-03-item-holdings.md): 실효 콘텐츠·설정 칸 실효 값·사이보그 1차 스탯
@@ -424,6 +429,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         vitals: vitalsConfigOf(rosterCatalog),
         // 세계 전투 시작 사양의 몸(입은 장비·버프, 사이보그 화면과 같은 셈 — docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07 …)")
         roster: rosterCatalog ? () => rosterCatalog : undefined,
+        // 건물 짓기·노화·수리(docs/adr/2026-11-07-buildings-runtime.md): 실효 시설·아이템(건물·아이템 편집기 덮어쓰기가 바로 든다)
+        facilities: contentEditState ? { content: () => contentEditState.effective() } : undefined,
       })
     : undefined;
   // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md): 세계가 준비된 뒤의 서비스(DB가 있는 월드만)
@@ -440,6 +447,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     world?.status().state === "ready" ? world.persistence?.holdings.access : undefined;
   // 노동 계약(docs/adr/2026-11-03-labor-contracts.md): 세계가 준비된 뒤의 서비스(DB가 있는 월드만)
   const laborService = () => (world?.status().state === "ready" ? world.persistence?.labor : undefined);
+  // 건물(docs/adr/2026-11-07-buildings-runtime.md): 같은 조건
+  const facilityService = () =>
+    world?.status().state === "ready" ? world.persistence?.facilities.service : undefined;
   if (world) {
     app.addHook("onReady", async () => world.ready);
     app.addHook("onClose", async () => {
@@ -568,6 +578,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         : undefined,
       factionSource: world && options.db ? createWorldFactionSource(world) : undefined,
       labor: laborService,
+      facilities: world ? () => facilityScreenSourceOf(world) : undefined,
       factionRules: tuningState ? () => factionRulesFrom(tuningState.society()) : undefined,
       // 설정 칸 패널: 인증이 켜져 있을 때만 맥락이 서비스를 만든다
       tuning: tuningShared,
@@ -628,6 +639,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     : undefined;
   const itemGateway = world ? createItemGateway({ access: holdingsAccess, now, log: app.log }) : undefined;
   const laborGateway = world ? createLaborGateway({ service: laborService, now, log: app.log }) : undefined;
+  const facilityGateway = world
+    ? createFacilityGateway({ service: facilityService, now, log: app.log })
+    : undefined;
 
   if (planets && options.planets) {
     registerPlanetRoutes(app, { planets, viewer: httpViewer, now, limits: options.planets.limits });
@@ -651,6 +665,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         recruit: recruitGateway,
         items: itemGateway,
         labor: laborGateway,
+        facilities: facilityGateway,
         viewer: socketViewer(request),
         // 접속 상태(D-136): 월드가 DB에 저장할 때만. 연결은 부팅 복구가 끝난 뒤에만 들어온다(listen이 기다린다)
         presence: world

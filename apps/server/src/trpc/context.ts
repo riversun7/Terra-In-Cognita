@@ -34,6 +34,7 @@ import type { FormulaListResponse } from "@terra/shared/formula";
 import type { BattleLabShared } from "../battleLab/services.ts";
 import type { Database } from "../db/client.ts";
 import type { LaborScreenServices } from "../labor/views.ts";
+import type { FacilityScreenServices } from "../facilities/screen.ts";
 import type {
   BalanceContributionInput,
   BalanceContributionResponse,
@@ -366,6 +367,8 @@ export interface TrpcContext {
   vitals: VitalsReadServices;
   /** 노동 계약 조회(src/labor/views.ts). 맥락 팩토리는 늘 넣는다(세계·DB가 없으면 status "not_ready"). 없으면(시험 맥락) not_ready */
   labor?: LaborScreenServices | undefined;
+  /** 건물 조회(src/facilities/screen.ts). 맥락 팩토리는 늘 넣는다(세계·DB가 없으면 status "not_ready"). 없으면(시험 맥락) not_ready */
+  facilities?: FacilityScreenServices | undefined;
   /** 설정 칸 패널. 인증(DB)과 팩 설정 칸 접근자가 있을 때만 */
   tuning?: TuningServices | undefined;
   /** 밸런스 화면. 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */

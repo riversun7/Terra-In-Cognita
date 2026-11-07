@@ -49,6 +49,7 @@ import type { FusionOverviewResponse } from "@terra/shared/fusion";
 import type { TempleOverviewResponse } from "@terra/shared/temple";
 import type { RuinsOverviewResponse } from "@terra/shared/ruins";
 import type { WorldCitiesResponse, WorldPositionResponse } from "@terra/shared/worldMap";
+import type { TravelReads } from "../worldMap/travelReads.ts";
 import type { PlanetLibraryBase } from "@terra/shared";
 import type {
   PlanetDraftRevisionInfo,
@@ -366,6 +367,9 @@ export interface MailServices {
 export interface WorldMapReads {
   cities(viewer: Viewer, nowMs: number): Promise<WorldCitiesResponse>;
   position(viewer: Viewer, nowMs: number): WorldPositionResponse;
+  /** 2차맵 사이 이동(docs/adr/2026-11-07-play-flow.md WP9, src/worldMap/travelReads.ts). 없으면 not_ready */
+  travels?: TravelReads["travels"];
+  travelPlan?: TravelReads["travelPlan"];
 }
 
 /** 영토 조회(src/territory/service.ts). 없는 행성이면 undefined */

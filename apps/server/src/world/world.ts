@@ -82,6 +82,7 @@ import { npcRuinsInputOf } from "../ruins/runtimeInput.ts";
 import { type RuinService, createRuins } from "../ruins/service.ts";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { npcEconomyInputOf } from "../market/worldInput.ts";
+import { type TravelService, createWorldTravel } from "../travel/service.ts";
 
 /**
  * 시험 2차맵 자리(ADR 2026-10-31-second-map-from-planet 8절): S2 시험 행성(면 레벨 9) 면 0의 (i, j) = (282, 328) 칸부터
@@ -227,6 +228,8 @@ export interface WorldPersistence {
   readonly facilities: WorldFacilities;
   /** 폐허·복원 사업(docs/adr/2026-11-07-ruins-restoration.md): 행정 건물 짓기 고리·모금. NPC 사회 런타임이 없으면 busy */
   readonly ruins: RuinService;
+  /** 2차맵 사이 이동(docs/adr/2026-11-07-play-flow.md WP9): 1차맵 명령 [확정] → 이웃 2차맵을 하나씩 지나 걷는다 */
+  readonly travel: TravelService;
 }
 export interface WorldStatus {
   state: "recovering" | "ready" | "failed";
@@ -729,7 +732,10 @@ export function startWorld(
       manual: config.npc?.manual,
       devExtraCurrency: (userId) => persistence?.ruins.fundCurrencyOf(userId),
     });
+    const travelParts = { maps, writer, pool: db, now, log, settlement, cyborgs, planetId: TEST_PLANET_ID };
+    const travel = createWorldTravel({ ...travelParts, ready: () => status.state === "ready" });
     persistence = {
+      travel,
       writer,
       pool: db,
       nextId,
@@ -785,6 +791,7 @@ export function startWorld(
     spawnBots();
     // 유닛을 다시 놓은 뒤에 전투 끝을 다시 건다(지난 끝 시각은 곧바로 적용된다)
     await battles.restore();
+    await travel.restore();
     // 유닛 행이 없는 사이보그를 시작 도시에 다시 놓는다(불변 조건 I13). 검사가 DB를 읽기 전에 커밋한다
     const repaired = cyborgs.repairUnits(new Set(loaded.units.map((unit) => unit.id)));
     if (repaired > 0) {
@@ -947,6 +954,7 @@ export function startWorld(
       persistence?.vitals.stop();
       persistence?.facilities.service.stop();
       persistence?.fusion.stop();
+      persistence?.travel.stop();
       for (const map of maps.values()) map.stop();
       if (persistence) {
         persistence.writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
@@ -965,6 +973,7 @@ export function startWorld(
       persistence?.vitals.stop();
       persistence?.facilities.service.stop();
       persistence?.fusion.stop();
+      persistence?.travel.stop();
       if (heartbeat) clearInterval(heartbeat);
       for (const map of maps.values()) map.stop();
       await paths.close();

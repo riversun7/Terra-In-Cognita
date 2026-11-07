@@ -28,6 +28,7 @@ import {
   FX_PROTOCOL_VERSION,
   MARKET_PROTOCOL_VERSION,
   RUINS_PROTOCOL_VERSION,
+  TRAVEL_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -46,6 +47,7 @@ import type { FusionGateway, FusionSocket } from "./fusion/gateway.ts";
 import type { TempleGateway, TempleSocket } from "./temple/gateway.ts";
 import type { RuinGateway, RuinSocket } from "./ruins/gateway.ts";
 import type { MarketGateway, MarketSocket } from "./market/gateway.ts";
+import type { TravelGateway, TravelSocket } from "./travel/gateway.ts";
 import type { WorldGateway, WorldSocket } from "./world/gateway.ts";
 
 export interface SessionContext {
@@ -74,6 +76,8 @@ export interface SessionContext {
   ruins?: RuinGateway | undefined;
   /** 물자 거래소 주문·취소·체결 알림(프로토콜 14, docs/adr/2026-11-07-play-flow.md WP4). 없으면 busy */
   market?: MarketGateway | undefined;
+  /** 2차맵 사이 이동(프로토콜 16, docs/adr/2026-11-07-play-flow.md WP9). 없으면 busy */
+  travel?: TravelGateway | undefined;
   /** 이 연결의 로그인 사용자(쿠키). 로그인하지 않았거나 인증이 꺼져 있으면 null */
   viewer?: (() => Promise<Viewer | null>) | undefined;
   /**
@@ -111,6 +115,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let templeSocket: TempleSocket | undefined;
   let ruinSocket: RuinSocket | undefined;
   let marketSocket: MarketSocket | undefined;
+  let travelSocket: TravelSocket | undefined;
   let releasePresence: (() => void) | undefined;
 
   const sendText = (text: string): void => {
@@ -151,6 +156,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
     templeSocket?.close();
     ruinSocket?.close();
     marketSocket?.close();
+    travelSocket?.close();
     releasePresence?.();
   });
 
@@ -463,6 +469,21 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         }
         marketSocket ??= context.market.open({ send: sendText, viewer: context.viewer ?? signedOut });
         marketSocket.handle(message);
+        return;
+      }
+      case "travel_start":
+      case "travel_cancel": {
+        // 2차맵 사이 이동은 프로토콜 16의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        if (protocolVersion < TRAVEL_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.travel) {
+          send({ t: "travel_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        travelSocket ??= context.travel.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        travelSocket.handle(message);
         return;
       }
     }

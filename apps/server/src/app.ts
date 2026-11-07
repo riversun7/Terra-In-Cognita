@@ -41,6 +41,7 @@ import { createRuinGateway } from "./ruins/gateway.ts";
 import { marketSourceOf } from "./market/appSource.ts";
 import { serverEconomyCatalogAccessor } from "./market/catalog.ts";
 import { createMarketGateway } from "./market/gateway.ts";
+import { createTravelGateway } from "./travel/gateway.ts";
 import { holdingsConfigOf } from "./holdings/config.ts";
 import { vitalsConfigOf } from "./vitals/config.ts";
 import { createVitalsReads } from "./vitals/reads.ts";
@@ -739,6 +740,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const marketGateway = world
     ? createMarketGateway({ service: () => marketSource()?.service, now, log: app.log })
     : undefined;
+  // 2차맵 사이 이동(docs/adr/2026-11-07-play-flow.md WP9): 세계가 준비된 뒤(DB가 있는 월드만)
+  const travelGateway = world
+    ? createTravelGateway({
+        service: () => (world.status().state === "ready" ? world.persistence?.travel : undefined),
+        now,
+        log: app.log,
+      })
+    : undefined;
 
   if (planets && options.planets) {
     registerPlanetRoutes(app, { planets, viewer: httpViewer, now, limits: options.planets.limits });
@@ -767,6 +776,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         temple: templeGateway,
         ruins: ruinGateway,
         market: marketGateway,
+        travel: travelGateway,
         viewer: socketViewer(request),
         // 접속 상태(D-136): 월드가 DB에 저장할 때만. 연결은 부팅 복구가 끝난 뒤에만 들어온다(listen이 기다린다)
         presence: world

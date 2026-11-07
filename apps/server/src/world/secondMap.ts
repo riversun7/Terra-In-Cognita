@@ -17,33 +17,28 @@ import {
   terrainPath,
 } from "@terra/protocol";
 import {
-  CELL_UNITS,
   DEFAULT_NODE_BUDGET,
-  HALF_CELL_UNITS,
   PLACEMENT_SIZE,
   type BuildingPlacement,
   type CellRect,
   type Motion,
-  type PlacementGrid,
   type Point,
   type SizeClass,
-  anchorAt,
   anchorCenter,
   applyPlacement,
   footprintRect,
   arrivalAt,
   createMotion,
   createPlacementGrid,
-  distanceAt,
   isPassable,
   positionAt,
-  positionAtDistance,
   compareEventKeys,
   removeBuilding,
   validatePlacement,
 } from "@terra/sim";
 import type { Rng } from "@terra/shared";
 import { botPlan, botRng, idleMs, pickDestination, pickSpawn, retryMs, startDelayMs } from "./bots.ts";
+import { bodyCells, failureCode, lastPoint, rectsOverlap, remainingPathBlocked } from "./mapGeometry.ts";
 import type { MapTerrain, TerrainFile } from "./mapTerrain.ts";
 import { type MapStream, createMapStream } from "./mapStream.ts";
 import type { MapReplicaInit } from "./pathMessages.ts";
@@ -247,6 +242,17 @@ export interface SecondMap {
   removeUnit(unitId: number): boolean;
   /** 안전한 곳(기준 칸 = 가장 가까운 안전 도시, 없으면 가운데)으로 바로 옮긴다(질문 108 기본안·D-351). 하던 이동은 버린다 */
   relocateToSafety(unitId: number, near?: { readonly x: number; readonly y: number }): boolean;
+  /**
+   * 2차맵 사이 이동(docs/adr/2026-11-07-play-flow.md WP9): 유닛을 이 2차맵에서 빼고 저장할 한 줄을 돌려준다. 행은 지우지 않는다
+   * (곧 옆 2차맵의 transferIn이 같은 줄을 새 2차맵 키로 쓴다 — 같은 쓰기 묶음). 봇이거나 없으면 undefined
+   */
+  transferOut(unitId: number): UnitRow | undefined;
+  /** 다른 2차맵에서 넘어온 유닛을 기준 칸 (x, y)에 세운다(직무·상태·판단 횟수 그대로, 저장한다). ID가 있거나 설 수 없으면 false */
+  transferIn(row: UnitRow, cellX: number, cellY: number): boolean;
+  /** 그 크기 등급이 기준 칸 (x, y)에 설 수 있나(지형·건물만 본다, 유닛은 보지 않는다) */
+  isStandable(cellX: number, cellY: number, size: SizeClass): boolean;
+  /** 하던 이동을 멈추고 지금 자리에 세운다(2차맵 사이 이동 취소). 봇이거나 없으면 false */
+  halt(unitId: number): boolean;
   /** 불변 조건 I5: 예약이 없는 봇 수(경로를 기다리는 봇은 뺀다) */
   missingEvents(): number;
   /** 불변 조건 I7: 몸이 건물 칸에 걸친 서 있는 유닛 수 */
@@ -278,94 +284,15 @@ export interface SecondMap {
         ownerId: number;
         condition: UnitCondition;
         kind: number;
+        /** 정산 직무 상태(2차맵 사이 이동 확인 단계가 "직무가 끝난다"를 알린다) */
+        job: UnitJob;
       }
     | undefined;
   stop(): void;
 }
 
-/** 경로 결과 상태 → 명령 결과 코드 */
-function failureCode(status: PathOutcome["status"]): ResultCode {
-  switch (status) {
-    case "no_path":
-    case "budget_exceeded":
-    case "start_blocked":
-    case "goal_blocked":
-    case "busy":
-      return status;
-    case "dropped":
-      return "superseded";
-    case "invalid_request":
-      return "invalid_request";
-    case "unknown_map":
-      // 워커 사본에 2차맵이 아직 없다(부팅 차례 등): 기기는 "열려 있지 않은 2차맵"으로 알린다
-      return "unknown_map";
-    default:
-      return "internal_error";
-  }
-}
-
-/** 크기 등급 size 유닛의 몸(s×s 정사각형)이 덮는 칸 범위 — 칸 사이를 지날 때는 한 칸 더 걸친다 */
-function bodyCells(point: Point, size: SizeClass): { x0: number; y0: number; x1: number; y1: number } {
-  const half = size * HALF_CELL_UNITS;
-  return {
-    x0: Math.floor((point.x - half) / CELL_UNITS),
-    y0: Math.floor((point.y - half) / CELL_UNITS),
-    x1: Math.floor((point.x + half - 1) / CELL_UNITS),
-    y1: Math.floor((point.y + half - 1) / CELL_UNITS),
-  };
-}
-
-function rectsOverlap(cells: { x0: number; y0: number; x1: number; y1: number }, rect: CellRect): boolean {
-  return (
-    cells.x0 < rect.x + rect.width &&
-    cells.x1 >= rect.x &&
-    cells.y0 < rect.y + rect.height &&
-    cells.y1 >= rect.y
-  );
-}
-
-/**
- * 지금(now)부터 남은 경로가 막혔는가. 꺾이는 점 사이는 8방향 직선이라 기준 칸을 한 칸씩 밟아 본다
- * (A*와 같은 규칙: 설 수 있음 + 대각선은 양옆 두 칸도).
- */
-export function remainingPathBlocked(
-  grid: PlacementGrid,
-  motion: Motion,
-  size: SizeClass,
-  now: number,
-): boolean {
-  const travelled = distanceAt(motion, now);
-  const { waypoints, distances } = motion;
-  let segment = 0;
-  while (segment + 1 < distances.length && (distances[segment + 1] ?? 0) <= travelled) segment++;
-  let cell = anchorAt(positionAtDistance(motion, travelled), size);
-  if (!isPassable(grid, cell.x, cell.y, size)) return true;
-  for (let next = segment + 1; next < waypoints.length; next++) {
-    const point = waypoints[next];
-    if (!point) break;
-    const target = anchorAt(point, size);
-    while (cell.x !== target.x || cell.y !== target.y) {
-      const dx = Math.sign(target.x - cell.x);
-      const dy = Math.sign(target.y - cell.y);
-      const step = { x: cell.x + dx, y: cell.y + dy };
-      if (!isPassable(grid, step.x, step.y, size)) return true;
-      if (
-        dx !== 0 &&
-        dy !== 0 &&
-        (!isPassable(grid, step.x, cell.y, size) || !isPassable(grid, cell.x, step.y, size))
-      ) {
-        return true;
-      }
-      cell = step;
-    }
-  }
-  return false;
-}
-
-/** 움직임의 마지막 점(서 있는 유닛이면 지금 자리) */
-function lastPoint(motion: Motion): Point {
-  return motion.waypoints[motion.waypoints.length - 1] ?? motion.waypoints[0] ?? { x: 0, y: 0 };
-}
+// 칸·경로 도우미는 mapGeometry.ts(이 파일 1,000줄 상한). 시험이 이 파일에서 가져온다
+export { remainingPathBlocked };
 
 export function createSecondMap(options: SecondMapOptions): SecondMap {
   const { mapKey, terrain, paths, now, stats, log, persist } = options;
@@ -434,11 +361,10 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     onError: (error) => log.error({ err: error, mapKey }, "map event failed"),
   });
 
-  const save = (unit: UnitState): void => {
-    if (!persist) return;
+  const rowOf = (unit: UnitState): UnitRow => {
     const path: number[] = [];
     for (const point of unit.motion.waypoints) path.push(point.x, point.y);
-    persist.saveUnit({
+    return {
       id: unit.id,
       ownerId: unit.ownerId,
       kind: unit.kind,
@@ -453,8 +379,9 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       aiStep: unit.aiStep,
       job: unit.job,
       condition: unit.condition,
-    });
+    };
   };
+  const save = (unit: UnitState): void => persist?.saveUnit(rowOf(unit));
 
   const setMotion = (unit: UnitState, motion: Motion): void => {
     unit.motion = motion;
@@ -867,6 +794,37 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       if (unit.bot) scheduleEvent(unit, "wake", now() + startDelayMs(nextRng(unit)));
       return true;
     },
+    transferOut(unitId) {
+      const unit = units.get(unitId);
+      if (!unit || unit.bot) return undefined;
+      const row = rowOf(unit);
+      cancelEvent(unit);
+      // 진행 중인 경로 결과는 버려진다(isCurrent가 뺀 유닛을 거른다)
+      unit.routeSeq += 1;
+      units.delete(unitId);
+      rev += 1;
+      stream.unitHidden(rev, unitId);
+      vision.unitRemoved(unitId, unit.ownerId);
+      return row;
+    },
+    transferIn(row, cellX, cellY) {
+      if (units.has(row.id) || row.kind === UNIT_KIND_BOT || !isPassable(grid, cellX, cellY, row.size))
+        return false;
+      save(createUnit({ ...row, motion: standing(anchorCenter(cellX, cellY, row.size), row.speed) }));
+      return true;
+    },
+    isStandable: (cellX, cellY, size) => isPassable(grid, cellX, cellY, size),
+    halt(unitId) {
+      const unit = units.get(unitId);
+      if (!unit || unit.bot) return false;
+      cancelEvent(unit);
+      unit.routeSeq += 1;
+      unit.planning = false;
+      const at = positionAt(unit.motion, now());
+      unit.destination = at;
+      setMotion(unit, standing(at, unit.speed));
+      return true;
+    },
     missingEvents() {
       let missing = 0;
       for (const unit of units.values())
@@ -961,6 +919,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
             ownerId: unit.ownerId,
             condition: unit.condition,
             kind: unit.kind,
+            job: unit.job,
           }
         : undefined;
     },

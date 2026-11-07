@@ -1,7 +1,8 @@
 // 2차맵 화면이 열 맵 고르기 — 순수 함수(시험 대상). docs/adr/2026-11-07-play-flow.md "WP2 지도 흐름", 기획 60 §4.1(D-6017 "지도는 내 사이보그
 // 위치에서 연다"). 주소 ?key=가 있으면 그 맵, 없으면 내 사이보그가 있는 맵, 그것도 없으면 서버가 띄운 첫 맵(사이보그 없는 개발 계정 등).
-// 카메라("WP7", 기획 정리 D-518 515 "내 사이보그가 없는 맵의 카메라 = 1차맵에서 고른 곳"): 연 맵에 내 사이보그가 있으면 그 자리,
-// 없으면 주소 ?at=(1차맵에서 고른 배치 칸), 그것도 없으면 그 2차맵 도시의 시청 자리(내가 아는 도시, 시작 도시 먼저), 없으면 엔진 기본(맵 가운데).
+// 카메라("WP7", 기획 정리 D-518 515 "내 사이보그가 없는 맵의 카메라 = 1차맵에서 고른 곳", 572 다 "고른 곳을 보고 [내 사이보그]로 돌아간다"):
+// 주소 ?at=(1차맵에서 고른 배치 칸)이 있으면 늘 그곳, 없으면 연 맵의 내 사이보그 자리, 그것도 없으면 그 2차맵 도시의 시청 자리(내가 아는 도시,
+// 시작 도시 먼저), 없으면 엔진 기본(맵 가운데). 연 맵에 내 사이보그가 있으면 cyborg에 따로 실어 화면이 [내 사이보그] 단추를 띄운다.
 import type { WorldMapCity, WorldPositionResponse } from "@terra/shared/worldMap";
 import { parseMapKey } from "./worldMapData.ts";
 
@@ -19,7 +20,13 @@ export interface MapFocus {
 }
 
 export type MapTarget =
-  | { readonly kind: "ready"; readonly mapKey: number; readonly focus: MapFocus | null }
+  | {
+      readonly kind: "ready";
+      readonly mapKey: number;
+      readonly focus: MapFocus | null;
+      /** 연 맵에 내 사이보그가 있으면 그 자리([내 사이보그] 단추, 572 다). 없으면 null */
+      readonly cyborg: MapFocus | null;
+    }
   /** 열 수 있는 맵이 없다(서버가 띄운 맵이 없거나 세계 준비 전) */
   | { readonly kind: "none" }
   /** 내 자리를 받지 못했고 주소에도 맵이 없다(다시 시도) */
@@ -76,15 +83,19 @@ export function chooseMapTarget(
   const mine = position?.position ?? null;
   if (asked !== null) {
     const picked = parseAtParam(options.at);
+    const cyborg = cyborgFocus(position, asked);
     const focus =
-      cyborgFocus(position, asked) ??
       (picked ? { unitId: null, cellX: picked.x, cellY: picked.y, source: "picked" as const } : null) ??
+      cyborg ??
       cityFocus(options.cities ?? null, asked);
-    return { kind: "ready", mapKey: asked, focus };
+    return { kind: "ready", mapKey: asked, focus, cyborg };
   }
-  if (mine) return { kind: "ready", mapKey: mine.mapKey, focus: cyborgFocus(position, mine.mapKey) };
+  if (mine) {
+    const cyborg = cyborgFocus(position, mine.mapKey);
+    return { kind: "ready", mapKey: mine.mapKey, focus: cyborg, cyborg };
+  }
   if (position === null) return { kind: "failed" };
   if (position.fallbackMapKey !== null)
-    return { kind: "ready", mapKey: position.fallbackMapKey, focus: null };
+    return { kind: "ready", mapKey: position.fallbackMapKey, focus: null, cyborg: null };
   return { kind: "none" };
 }

@@ -113,17 +113,25 @@ describe("들어가기", () => {
 
 describe("2차맵 화면이 열 맵", () => {
   it("주소 키 > 내 사이보그 맵 > 띄운 첫 맵, 카메라는 그 맵에 내가 있을 때만", () => {
+    const mine = { unitId: 77, cellX: 120, cellY: 131, source: "cyborg" };
     expect(chooseMapTarget("500", position())).toEqual({
       kind: "ready",
       mapKey: 500,
-      focus: { unitId: 77, cellX: 120, cellY: 131, source: "cyborg" },
+      focus: mine,
+      cyborg: mine,
     });
-    expect(chooseMapTarget("600", position())).toEqual({ kind: "ready", mapKey: 600, focus: null });
+    expect(chooseMapTarget("600", position())).toEqual({
+      kind: "ready",
+      mapKey: 600,
+      focus: null,
+      cyborg: null,
+    });
     expect(chooseMapTarget(undefined, position())).toMatchObject({ mapKey: 500, focus: { unitId: 77 } });
     expect(chooseMapTarget(undefined, position({ position: null }))).toEqual({
       kind: "ready",
       mapKey: 400,
       focus: null,
+      cyborg: null,
     });
     expect(chooseMapTarget(undefined, position({ position: null, fallbackMapKey: null }))).toEqual({
       kind: "none",
@@ -131,7 +139,7 @@ describe("2차맵 화면이 열 맵", () => {
   });
 
   it("내 자리를 받지 못하면: 주소 키가 있으면 그 맵(카메라 없이), 없으면 실패", () => {
-    expect(chooseMapTarget("600", null)).toEqual({ kind: "ready", mapKey: 600, focus: null });
+    expect(chooseMapTarget("600", null)).toEqual({ kind: "ready", mapKey: 600, focus: null, cyborg: null });
     expect(chooseMapTarget(undefined, null)).toEqual({ kind: "failed" });
     expect(chooseMapTarget("x", null)).toEqual({ kind: "failed" });
   });
@@ -149,9 +157,10 @@ describe("2차맵 화면이 열 맵", () => {
       focus: { unitId: null, cellX: 200, cellY: 210, source: "city" },
     });
     expect(chooseMapTarget("800", position(), { cities })).toMatchObject({ mapKey: 800, focus: null });
-    // 내 사이보그가 있으면 ?at=보다 내 사이보그(D-6017)
+    // 572 다: 내 사이보그가 있는 맵이어도 ?at=(1차맵에서 고른 곳)을 보고, 내 사이보그는 [내 사이보그] 단추로(cyborg)
     expect(chooseMapTarget("500", position(), { at: "1,1", cities })).toMatchObject({
-      focus: { source: "cyborg", unitId: 77 },
+      focus: { source: "picked", unitId: null, cellX: 1, cellY: 1 },
+      cyborg: { source: "cyborg", unitId: 77 },
     });
     // 도시 목록이 필요한 때: 주소 맵에 내 사이보그가 없고 ?at=도 없을 때만
     expect(needsCities("600", undefined, position())).toBe(true);

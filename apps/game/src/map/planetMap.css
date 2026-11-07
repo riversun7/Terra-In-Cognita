@@ -187,6 +187,21 @@
 .planet-city-note {
   flex: 1 1 12em;
 }
+/* 1차맵 명령 판의 확인·가는 중 줄(PlanetCommandPanel.tsx, docs/adr/2026-11-07-play-flow.md "WP9"): 길·걸리는 시간·직무 경고·결과 */
+.planet-command-plan {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
+}
+.planet-command-plan p {
+  margin: 0;
+}
+.planet-command-notice {
+  color: var(--color-danger);
+  font-weight: var(--font-weight-strong);
+}
 /* 가까이 본 곳의 2차맵 들어가기·내 위치 — 조작 판 첫 줄 */
 .planet-jump {
   display: flex;

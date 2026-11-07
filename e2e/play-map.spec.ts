@@ -1,6 +1,6 @@
 // 지도 흐름 화면 시험(docs/adr/2026-11-07-play-flow.md "WP2 지도 흐름", 기획 60 §4.1·§7.1) — player(사이보그가 있는 계정)
 // - 1차맵: 내 사이보그 자리를 가운데로 연다(data-me), 도시 표시가 생긴다(묶음은 누르면 다가간다) → 도시를 누르면 도시 판(국가·둘레 땅·[들어가기])
-//   → [들어가기] = /map?key=<그 2차맵>(바꾸기), 2차맵이 그 키로 열리고 내 사이보그에 카메라를 맞춘다(data-focus) → [1차맵] = /map/planet?key=같은 키.
+//   → [들어가기] = /map?key=<그 2차맵>&at=<시청>(바꾸기), 2차맵이 그 키로 열리고 시청 자리를 본다(572 다, 내 사이보그 맵이면 [내 사이보그]) → [1차맵] = /map/planet?key=같은 키.
 // - /map(키 없음) = 내 사이보그가 있는 2차맵(world.myPosition과 같은 키).
 // - 사진: 1차맵 도시 판·2차맵, 390 × 파스텔·다크(한국어·영어), 1440 × 파스텔·다크. 넘침·작은 누르는 곳 없음.
 // WP7(도시 안개·들어가기·카메라, docs/adr/2026-11-07-play-flow.md "WP7"):
@@ -8,6 +8,11 @@
 // - 서버가 띄우지 않은 2차맵 = "아직 열려 있지 않습니다"(다시 시도 없음, unknown_map).
 // - 내 사이보그가 없는 2차맵(dev = 전체 보기): ?at= 자리, 없으면 그 2차맵 도시 시청에 카메라(515).
 // - 사진: 1차맵 명령 판 390 × 파스텔·다크 × 한국어·영어, 열리지 않은 2차맵 안내 390 × 파스텔·다크.
+// WP9(2차맵 사이 이동, docs/adr/2026-11-07-play-flow.md "WP9", 질문 571 가·572 다):
+// - 1차맵 명령 판: 서버가 정한 길(지나는 2차맵 수·거리·걸리는 시간) → [확정] = travel_start → 가는 중(2차맵 몇 번째) → 2차맵 화면에 가는 중 한 줄·
+//   [내 사이보그] → [멈추기] = travel_cancel(멈췄습니다). 시험이 끝나면 내 사이보그는 출발한 2차맵에 서 있다(뒤 시험이 그 자리를 쓴다).
+// - 572 다: 내 사이보그가 있는 2차맵도 ?at=이면 그곳을 보고 [내 사이보그]로 돌아간다.
+// - 사진: 가는 중인 명령 판 390 × 파스텔·다크 × 한국어·영어, 가는 중인 2차맵 390 × 파스텔·다크(한국어).
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
@@ -140,6 +145,39 @@ async function openCityPanel(page: Page): Promise<void> {
   await expect(panel).toBeVisible();
 }
 
+/** 볼 수 없는 2차맵 도시의 1차맵 명령 판을 연다(서버가 길을 정할 때까지) */
+async function openCommandPanel(page: Page, city: CityRow): Promise<void> {
+  await openPlanet(page, `?key=${String(city.mapKey)}`);
+  await openCityPanelFor(page, city.id);
+  await page.locator(".planet-city-scout").click();
+  await expect(page.locator(".planet-command")).toHaveAttribute("data-travel", /^(ready|going)$/, {
+    timeout: 20_000,
+  });
+}
+
+/** 명령 판 [멈추기] → 다시 보낼 수 있는 확인 단계 + "멈췄습니다" */
+async function stopTravel(page: Page, language: Language = "ko"): Promise<void> {
+  const order = page.locator(".planet-command");
+  await order.locator(".planet-command-cancel").click();
+  await expect(order).toHaveAttribute("data-travel", "ready", { timeout: 15_000 });
+  await expect(order.locator(".planet-command-plan")).toContainText(
+    message(language, "world_travel_stopped_cancelled"),
+  );
+}
+
+/** 내 사이보그의 길(world.travels 첫 줄의 상태·멈춘 까닭·목적 2차맵) */
+async function myTravel(page: Page): Promise<{ state: unknown; stop: unknown; target: unknown } | null> {
+  const list = field(await trpcData(page, "world.travels"), "travels");
+  const first: unknown = Array.isArray(list) ? list[0] : undefined;
+  if (first === undefined) return null;
+  const route = field(first, "route");
+  return {
+    state: field(first, "state"),
+    stop: field(first, "stop"),
+    target: Array.isArray(route) ? route.at(-1) : undefined,
+  };
+}
+
 test.describe("지도 흐름: 플레이어", () => {
   test.use({ account: "player" });
 
@@ -172,7 +210,12 @@ test.describe("지도 흐름: 플레이어", () => {
     const map = page.locator(".map-screen");
     await expect(map).toHaveAttribute("data-map-key", key ?? "");
     await expect(map).toHaveAttribute("data-feed", "live", { timeout: 20_000 });
-    if (key === mine) await expect(map).toHaveAttribute("data-focus", /\d+/);
+    // 572 다: [들어가기]는 도시 시청 자리(?at=)를 넘기므로 내 사이보그가 있는 맵이어도 그곳을 보고, [내 사이보그]로 돌아간다
+    await expect(map).toHaveAttribute("data-focus-source", "picked");
+    if (key === mine) {
+      await expect(map).toHaveAttribute("data-cyborg", /\d+/);
+      await expect(page.locator(".map-go-cyborg")).toBeVisible();
+    }
     await shot(page, "play-map-second-390");
 
     // [1차맵] = 같은 키로 1차맵(그 2차맵 자리를 가운데로)
@@ -198,7 +241,7 @@ test.describe("지도 흐름: 플레이어", () => {
 test.describe("도시 안개·들어가기·카메라(WP7): 플레이어", () => {
   test.use({ account: "player" });
 
-  test("볼 수 없는 2차맵: 까닭 + [1차맵에서 보기] → [정찰 보내기] → 1차맵 명령 판", async ({
+  test("볼 수 없는 2차맵: 까닭 + [1차맵에서 보기] → [정찰 보내기] → 1차맵 명령 판(확인 단계)", async ({
     page,
     deviceErrors,
   }) => {
@@ -224,7 +267,10 @@ test.describe("도시 안개·들어가기·카메라(WP7): 플레이어", () =>
     const order = page.locator(".planet-command");
     await expect(order).toBeVisible();
     await expect(order).toHaveAttribute("data-order", "scout");
-    await expect(order.locator(".planet-command-confirm")).toBeDisabled();
+    // WP9: 서버가 정한 길(2차맵 둘 이상을 지난다)이 오면 [확정]이 열린다
+    await expect(order).toHaveAttribute("data-travel", "ready", { timeout: 15_000 });
+    expect(Number(await order.getAttribute("data-route-maps"))).toBeGreaterThanOrEqual(2);
+    await expect(order.locator(".planet-command-confirm")).toBeEnabled();
     await order.getByRole("button", { name: message("ko", "world_command_move") }).click();
     await expect(order).toHaveAttribute("data-order", "move");
     expect(await horizontalOverflow(page)).toEqual([]);
@@ -258,6 +304,79 @@ test.describe("도시 안개·들어가기·카메라(WP7): 플레이어", () =>
     await page.waitForTimeout(2_000);
     await expect(map).toHaveAttribute("data-feed", "failed");
     expect(await map.getAttribute("data-subscribes")).toBe(subscribes);
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+test.describe("2차맵 사이 이동(WP9): 플레이어", () => {
+  test.use({ account: "player" });
+
+  test("[확정] → 내 사이보그가 가는 중(2차맵 화면 한 줄·[내 사이보그]) → [멈추기]", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(240_000);
+    await rewriteTrpc(page, { "summary.get": hideSummary });
+    await page.goto("/");
+    const city = await hiddenCity(page);
+    const mine = await myMapKey(page);
+    await openCommandPanel(page, city);
+    const order = page.locator(".planet-command");
+    await expect(order).toHaveAttribute("data-travel", "ready");
+    await order.locator(".planet-command-confirm").click();
+    await expect(order).toHaveAttribute("data-travel", "going", { timeout: 15_000 });
+    await expect(order).toHaveAttribute("data-travel-leg", "0");
+    await expect(order.locator(".planet-command-cancel")).toBeVisible();
+    expect(await myTravel(page)).toEqual({ state: "going", stop: null, target: city.mapKey });
+    expect(await horizontalOverflow(page)).toEqual([]);
+    expect(await smallTapTargets(page)).toEqual([]);
+
+    // 2차맵 화면(키 없음 = 내 사이보그를 따라 연다): 가는 중 한 줄(2차맵 1/N)·[내 사이보그]
+    await page.goto("/map");
+    const map = page.locator(".map-screen[data-map-key]");
+    await expect(map).toHaveAttribute("data-feed", "live", { timeout: 20_000 });
+    await expect(map).toHaveAttribute("data-map-key", mine);
+    await expect(map).toHaveAttribute("data-travel", /^1\/\d+$/, { timeout: 15_000 });
+    await expect(page.locator(".map-travel")).toBeVisible();
+    await expect(page.locator(".map-go-cyborg")).toBeVisible();
+
+    // 다시 명령 판: 가는 중을 그대로 보이고 [멈추기]로 그 자리에 선다
+    await openCommandPanel(page, city);
+    await expect(order).toHaveAttribute("data-travel", "going");
+    await stopTravel(page);
+    expect(await myTravel(page)).toEqual({ state: "stopped", stop: "cancelled", target: city.mapKey });
+    expect(await myMapKey(page)).toBe(mine);
+    expect(deviceErrors).toEqual([]);
+  });
+
+  test("572 다: 내 사이보그가 있는 2차맵도 ?at=이면 그곳을 보고 [내 사이보그]로 돌아간다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(120_000);
+    await rewriteTrpc(page, { "summary.get": hideSummary });
+    await page.goto("/");
+    const mine = await myMapKey(page);
+    await page.goto(`/map?key=${mine}&at=12,12`);
+    const map = page.locator(".map-screen[data-map-key]");
+    await expect(map).toHaveAttribute("data-feed", "live", { timeout: 20_000 });
+    await expect(map).toHaveAttribute("data-focus-source", "picked");
+    await expect(map).toHaveAttribute("data-focus-at", "12,12");
+    await expect(map).toHaveAttribute("data-cyborg", /\d+/);
+    const ratio = async (): Promise<number> => {
+      const [x = 0, z = 1] = ((await map.getAttribute("data-camera")) ?? "").split(",").map(Number);
+      return x / z;
+    };
+    await expect.poll(async () => Math.abs((await ratio()) - 1) < 0.02, { timeout: 20_000 }).toBe(true);
+    // [내 사이보그]: 카메라가 내 사이보그 자리로(배치 칸 비율)
+    const position = field(await trpcData(page, "world.myPosition"), "position");
+    const cell = { x: Number(field(position, "cellX")), y: Number(field(position, "cellY")) };
+    await page.locator(".map-go-cyborg").click();
+    await expect
+      .poll(async () => Math.abs((await ratio()) - (cell.x + 0.5) / (cell.y + 0.5)) < 0.05, {
+        timeout: 10_000,
+      })
+      .toBe(true);
     expect(deviceErrors).toEqual([]);
   });
 });
@@ -306,7 +425,7 @@ test.describe("도시 안개·들어가기·카메라(WP7): 전체 보기 계정
   });
 });
 
-// 사진(WP7): 1차맵 명령 판 390 × 파스텔·다크 × 한국어·영어, 열리지 않은 2차맵 안내 390 × 파스텔·다크(한국어)
+// 사진(WP7·WP9): 1차맵 명령 판(확인·가는 중) 390 × 파스텔·다크 × 한국어·영어, 가는 중인 2차맵·열리지 않은 2차맵 안내 390 × 파스텔·다크(한국어)
 test.describe("도시 안개 사진", () => {
   test.use({ account: "player" });
 
@@ -316,17 +435,35 @@ test.describe("도시 안개 사진", () => {
         test.use({ ...VIEWPORTS.phone, theme, language });
 
         test(`1차맵 명령 판 (390·${theme}·${language})`, async ({ page, deviceErrors }) => {
-          test.setTimeout(120_000);
+          test.setTimeout(240_000);
           await rewriteTrpc(page, { "summary.get": hideSummary });
           await page.goto("/");
           const city = await hiddenCity(page);
           await openPlanet(page, `?key=${String(city.mapKey)}`);
           await openCityPanelFor(page, city.id);
           await page.locator(".planet-city-scout").click();
-          await expect(page.locator(".planet-command")).toBeVisible();
+          const order = page.locator(".planet-command");
+          await expect(order).toHaveAttribute("data-travel", "ready", { timeout: 20_000 });
           expect(await horizontalOverflow(page)).toEqual([]);
           expect(await smallTapTargets(page)).toEqual([]);
           await shot(page, `play-fog-command-390-${theme}-${language}`);
+          // WP9: [확정] → 가는 중 판
+          await order.locator(".planet-command-confirm").click();
+          await expect(order).toHaveAttribute("data-travel", "going", { timeout: 15_000 });
+          expect(await horizontalOverflow(page)).toEqual([]);
+          expect(await smallTapTargets(page)).toEqual([]);
+          await shot(page, `play-move-going-390-${theme}-${language}`);
+          if (language === "ko") {
+            await page.goto("/map");
+            const map = page.locator(".map-screen[data-map-key]");
+            await expect(map).toHaveAttribute("data-feed", "live", { timeout: 20_000 });
+            await expect(page.locator(".map-travel")).toBeVisible({ timeout: 15_000 });
+            expect(await horizontalOverflow(page)).toEqual([]);
+            expect(await smallTapTargets(page)).toEqual([]);
+            await shot(page, `play-move-second-390-${theme}`);
+            await openCommandPanel(page, city);
+          }
+          await stopTravel(page, language);
           expect(deviceErrors).toEqual([]);
         });
 

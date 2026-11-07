@@ -3,7 +3,7 @@
 // 지도 흐름(docs/adr/2026-11-07-play-flow.md "WP2"): 도시·국가 표시·영토 경계(CityOverlay, world.cities), 도시를 누르면 도시 판(이름·국가·
 // 둘레 땅·[들어가기] → /map?key=&at=), [내 위치], 가장 가까이(5단계)에서 들어갈 수 있는 2차맵이 가운데면 [이 2차맵으로 들어가기](기획 60 §4.1).
 // WP7: 도시는 서버가 아는 도시만 준다(안개, 514). 들어갈 때 고른 곳(도시 시청·화면 가운데 배치 칸)을 ?at=로 넘긴다(515). 볼 수 없는 맵의
-// 도시는 [정찰 보내기] → 1차맵 명령 판(PlanetCommandPanel, 513).
+// 도시는 [정찰 보내기] → 1차맵 명령 판(PlanetCommandPanel, 513) → [확정]이면 내 사이보그가 이웃 2차맵을 지나 걸어간다(WP9, 571 가).
 // 처음 볼 곳: ?planet-view= > ?key=(그 2차맵) > 내 사이보그 자리 > 엔진 기본.
 // 타일은 서버 이진 그대로 엔진에 넘기고 메시 워커가 푼다(planetSource.ts, ADR 36 "서버 굽기·전송").
 // 앱 화면 흐름(홈·아래 탭)이 정해지면 이 화면을 그곳으로 옮긴다: onClose·monitor만 받는다.
@@ -126,6 +126,15 @@ function PlanetMapView({
   const [commanding, setCommanding] = useState(false);
   const [planet, setPlanet] = useState<{ faceLevel: number; radiusM: number } | null>(null);
   const requestFrame = useCallback(() => engineRef.current?.requestFrame(), []);
+  // 2차맵 사이 이동이 그 도시 2차맵에 닿으면(WP9): 도시 목록(볼 수 있음)·내 자리를 다시 받고 도시 판으로 돌아간다([들어가기])
+  const reloadWorld = useCallback(() => {
+    loadWorldCities().then(setWorld, () => undefined);
+    loadMyPosition().then(
+      (answer) => setMe(answer.position),
+      () => undefined,
+    );
+    setCommanding(false);
+  }, []);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -475,7 +484,7 @@ function PlanetMapView({
             city={city}
             factions={world.factions}
             me={me}
-            radiusM={planet?.radiusM ?? null}
+            onArrived={reloadWorld}
             onClose={() => setCommanding(false)}
           />
         ) : null}

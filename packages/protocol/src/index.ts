@@ -90,6 +90,13 @@ export {
   type MarketResultCode,
 } from "./market.ts";
 export {
+  TRAVEL_KINDS,
+  TRAVEL_PROTOCOL_VERSION,
+  TRAVEL_RESULT_CODES,
+  type TravelKind,
+  type TravelResultCode,
+} from "./travel.ts";
+export {
   GUARDIAN_BUFF_IDS,
   GUARDIAN_BUFF_PROTOCOL_VERSION,
   TEMPLE_PROTOCOL_VERSION,

@@ -3,7 +3,7 @@ import type { Primaries } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { Row, WorldTable } from "../world/persist/tables.ts";
-import { TEST_HOLDING_RULES } from "./rules.ts";
+import { type HoldingRules, TEST_HOLDING_RULES } from "./rules.ts";
 import { type HoldingService, createHoldingService } from "./service.ts";
 import { carriedBy } from "./state.ts";
 import { HOUR_MS, TEST_HOLDING_CONTENT, rulesWithWear } from "./testContent.ts";
@@ -38,13 +38,13 @@ const flat = (value: number): Primaries => ({
   wis: value,
 });
 
-function setup(options: { vit?: number } = {}) {
+function setup(options: { vit?: number; rules?: HoldingRules } = {}) {
   const { writer, ops } = fakeWriter();
   const service = createHoldingService({
     loaded: { holdings: [], effects: [], cooldowns: [], maxId: 100 },
     writer,
     content: () => TEST_HOLDING_CONTENT,
-    rules: () => TEST_HOLDING_RULES,
+    rules: () => options.rules ?? TEST_HOLDING_RULES,
     world: {
       unitOwner: (unitId) => (unitId === UNIT ? OWNER : unitId === BOT ? OTHER : undefined),
       unitKind: (unitId) => (unitId === UNIT ? "cyborg" : unitId === BOT ? "human" : undefined),
@@ -363,6 +363,37 @@ describe("물약 쿨(D-509)", () => {
       code: "battle_only",
     });
     expect(service.cooldownUntil(UNIT, "potion")).toBe(0);
+  });
+});
+
+describe("화면 자료(칸 배치·쓰기 쿨 종류, 사이보그 화면 인벤토리)", () => {
+  it("유닛 칸 배치는 팩 unit_kinds 차례, 쿨 종류는 식품 중분류 = food·그 밖 = potion·쓸 수 없으면 null", () => {
+    const { service } = setup();
+    expect(service.unitLayout(UNIT)?.kind).toBe("cyborg");
+    expect(service.unitLayout(UNIT)?.slots.slice(0, 4)).toEqual(["weapon", "offhand", "head", "body"]);
+    expect(service.unitLayout(BOT)?.kind).toBe("human");
+    expect(service.unitLayout(999)).toBeUndefined();
+    expect(service.useCooldownOf("hold_tonic")).toBe("potion");
+    expect(service.useCooldownOf("hold_stew")).toBe("food");
+    expect(service.useCooldownOf("hold_vest")).toBeNull();
+    expect(service.useCooldownOf("no_such_item")).toBeNull();
+  });
+
+  it("효과가 끝나도 쿨이 남았으면 목록에 쿨이 보인다", () => {
+    // 쿨(3시간)이 효과(1시간)보다 긴 규칙: 효과를 정리한 뒤에도 쿨이 남는다
+    const long = 3 * HOUR_MS;
+    const rules: HoldingRules = {
+      ...TEST_HOLDING_RULES,
+      consumables: { ...TEST_HOLDING_RULES.consumables, potionCooldownMs: long },
+    };
+    const { service } = setup({ rules });
+    const [tonic = 0] = ids(grant(service, "hold_tonic", 2));
+    expect(service.use(OWNER, tonic, { confirm: false, nowMs: T0, seed: 1 }).ok).toBe(true);
+    const later = T0 + HOUR_MS + 1;
+    expect(service.sweepEffects(later)).toBeGreaterThanOrEqual(1);
+    const listed = service.list(OWNER, later);
+    expect(listed.effects).toEqual([]);
+    expect(listed.cooldowns).toEqual([{ unitId: UNIT, kind: "potion", untilMs: T0 + long }]);
   });
 });
 

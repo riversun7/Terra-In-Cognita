@@ -17,6 +17,7 @@ export const CONTENT_EDIT_CATEGORIES = [
   "weapon_types",
   "effects",
   "facilities",
+  "gather_tiers",
 ] as const;
 export type ContentEditCategory = (typeof CONTENT_EDIT_CATEGORIES)[number];
 

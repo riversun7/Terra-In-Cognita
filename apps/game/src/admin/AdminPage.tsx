@@ -12,6 +12,7 @@ import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { text } from "../ui/text.ts";
 import { useMountFocus } from "../ui/useMountFocus.ts";
 import { adminErrorInfo } from "./adminErrors.ts";
+import { AdminOpsPanel } from "./AdminSwitches.tsx";
 import { type AdminUserRow, UserCard } from "./UserCard.tsx";
 import "./admin.css";
 
@@ -109,71 +110,74 @@ export default function AdminPage({ viewer, onClose }: AdminPageProps) {
           {m.admin_back()}
         </button>
       </div>
-      <h2 className="admin-subtitle">{m.admin_users_title()}</h2>
-      <form role="search" className="field" onSubmit={search}>
-        <label className="field-label" htmlFor={searchId}>
-          {m.admin_search_label()}
-        </label>
-        <div className="admin-search-row">
-          <input
-            id={searchId}
-            className="input"
-            type="search"
-            name="search"
-            maxLength={SEARCH_MAX_LENGTH}
-            autoCapitalize="none"
-            autoCorrect="off"
-            autoComplete="off"
-            spellCheck={false}
-            enterKeyHint="search"
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-          />
-          <button type="submit">{m.admin_search()}</button>
-        </div>
-      </form>
-      <LiveMessage tone="error" lines={failureLines} version={failureVersion} />
-      <p className="status" role="status">
-        {loading
-          ? m.admin_loading()
-          : list === null
-            ? ""
-            : list.users.length === 0
-              ? m.admin_empty()
-              : m.admin_range({
-                  from: list.offset + 1,
-                  to: list.offset + list.users.length,
-                  total: list.total,
-                })}
-      </p>
-      {list !== null && list.users.length > 0 ? (
-        <ul className="user-list" aria-busy={loading}>
-          {list.users.map((row) => (
-            <UserCard
-              // 목록을 새로 불러오면 고르던 역할도 서버 값으로 다시 시작한다
-              key={`${list.version}:${row.id}`}
-              row={row}
-              isSelf={row.id === viewer.id}
-              onSaved={replaceRow}
+      <AdminOpsPanel totalUsers={list?.total ?? null} />
+      <div className="admin-users-panel">
+        <h2 className="admin-subtitle">{m.admin_users_title()}</h2>
+        <form role="search" className="field" onSubmit={search}>
+          <label className="field-label" htmlFor={searchId}>
+            {m.admin_search_label()}
+          </label>
+          <div className="admin-search-row">
+            <input
+              id={searchId}
+              className="input"
+              type="search"
+              name="search"
+              maxLength={SEARCH_MAX_LENGTH}
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
+              enterKeyHint="search"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
             />
-          ))}
-        </ul>
-      ) : null}
-      <div className="form-actions">
-        <button
-          type="button"
-          aria-disabled={!hasPrev || loading}
-          onClick={() => (hasPrev && list ? goTo(Math.max(0, list.offset - PAGE_SIZE)) : undefined)}
-        >
-          {m.admin_prev()}
-        </button>
-        <button
-          type="button"
-          aria-disabled={!hasNext || loading}
-          onClick={() => (hasNext && list ? goTo(list.offset + PAGE_SIZE) : undefined)}
-        >
-          {m.admin_next()}
-        </button>
+            <button type="submit">{m.admin_search()}</button>
+          </div>
+        </form>
+        <LiveMessage tone="error" lines={failureLines} version={failureVersion} />
+        <p className="status" role="status">
+          {loading
+            ? m.admin_loading()
+            : list === null
+              ? ""
+              : list.users.length === 0
+                ? m.admin_empty()
+                : m.admin_range({
+                    from: list.offset + 1,
+                    to: list.offset + list.users.length,
+                    total: list.total,
+                  })}
+        </p>
+        {list !== null && list.users.length > 0 ? (
+          <ul className="user-list" aria-busy={loading}>
+            {list.users.map((row) => (
+              <UserCard
+                // 목록을 새로 불러오면 고르던 역할도 서버 값으로 다시 시작한다
+                key={`${list.version}:${row.id}`}
+                row={row}
+                isSelf={row.id === viewer.id}
+                onSaved={replaceRow}
+              />
+            ))}
+          </ul>
+        ) : null}
+        <div className="form-actions">
+          <button
+            type="button"
+            aria-disabled={!hasPrev || loading}
+            onClick={() => (hasPrev && list ? goTo(Math.max(0, list.offset - PAGE_SIZE)) : undefined)}
+          >
+            {m.admin_prev()}
+          </button>
+          <button
+            type="button"
+            aria-disabled={!hasNext || loading}
+            onClick={() => (hasNext && list ? goTo(list.offset + PAGE_SIZE) : undefined)}
+          >
+            {m.admin_next()}
+          </button>
+        </div>
       </div>
     </section>
   );

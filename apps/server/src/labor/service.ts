@@ -159,7 +159,9 @@ export function createLaborService(options: {
       .filter((c) => c.workerOwnerId === ownerId && c.state !== "ended")
       .toSorted((a, b) => a.id - b.id);
     if (mine.length === 0) return undefined;
-    const rules = wageRulesOf(options.rules()).labor;
+    const society = options.rules();
+    const rules = wageRulesOf(society).labor;
+    const productionOn = society.switches.productionEnabled !== 0;
     const out = new Map<number, OutputSegment[]>();
     for (const c of mine) {
       // 사라진 유닛·시설의 산출은 나누지 않는다(유예에 들었으면 다음 정산부터 시각만 흐른다)
@@ -172,12 +174,12 @@ export function createLaborService(options: {
       }
       const list: OutputSegment[] = [];
       // 계약이 정산한 앞(주체 정산 구간이 더 이르면)은 계약 없는 몫
-      if (start > fromMs) list.push({ untilMs: start, stock: stockOf(ownerId) });
+      if (start > fromMs) list.push({ untilMs: start, stock: productionOn ? stockOf(ownerId) : null });
       for (const segment of segments) {
         list.push({
           untilMs: segment.untilMs,
           stock:
-            segment.mode === "idle"
+            !productionOn || segment.mode === "idle"
               ? null
               : segment.mode === "work" && c.kind === "wage"
                 ? stockOf(c.ownerId)

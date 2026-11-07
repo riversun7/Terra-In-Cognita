@@ -1,12 +1,20 @@
 // 건물 편집기 화면 자료(docs/adr/2026-11-02-building-editor.md) — 스냅숏 하나로 만든다.
 // 파싱한 팩 항목(참조 = ContentRef)을 화면 JSON(참조 = ID 글자)으로 칸마다 옮긴다(형 검사가 모양을 지킨다).
-import type { FacilityEntry, ItemEntry, ItemSubcategoryEntry, RecipeEntry } from "@terra/content";
+import type {
+  FacilityEntry,
+  GatherTierEntry,
+  ItemEntry,
+  ItemSubcategoryEntry,
+  RecipeEntry,
+} from "@terra/content";
 import type {
   BuildingEditorFacility,
+  BuildingEditorGatherBand,
   BuildingEditorItem,
   BuildingEditorRecipe,
   BuildingEditorSubcategory,
   FacilityJson,
+  GatherTierJson,
 } from "@terra/shared/buildingEditor";
 import { type ContentEditState, type ContentSnapshot, contentKey } from "../contentEdit/state.ts";
 import { originOf, overrideViewOf } from "../contentEdit/views.ts";
@@ -104,4 +112,31 @@ export function subcategoryOptions(entries: readonly ItemSubcategoryEntry[]): Bu
     major: entry.major,
     enabled: entry.enabled,
   }));
+}
+
+/** 파싱한 채집 티어 구간 → 화면 JSON(팩 gather_tiers.json 한 줄 모양) */
+export function gatherTierJsonOf(entry: GatherTierEntry): GatherTierJson {
+  return {
+    id: entry.id,
+    from: entry.from,
+    weightsPm: [...entry.weightsPm],
+  };
+}
+
+/** 1차 생산 티어 확률표 목록(실효 항목·팩 항목·덮어쓰기·해시) */
+export function gatherBandViews(
+  state: ContentEditState,
+  snapshot: ContentSnapshot,
+): BuildingEditorGatherBand[] {
+  const packById = new Map(state.pack.gatherTiers.map((entry) => [entry.id, entry]));
+  return snapshot.effective.gatherTiers.map((entry) => {
+    const pack = packById.get(entry.id);
+    return {
+      entry: gatherTierJsonOf(entry),
+      origin: originOf(state, snapshot, "gather_tiers", entry.id),
+      pack: pack ? gatherTierJsonOf(pack) : null,
+      override: overrideViewOf(snapshot.overrides.get(contentKey("gather_tiers", entry.id))),
+      hash: state.hashOf("gather_tiers", entry.id) ?? "",
+    };
+  });
 }

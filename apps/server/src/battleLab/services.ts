@@ -126,7 +126,7 @@ function partyOf(party: LabParty, rules: LabRules): { party: ArenaParty; dropped
   const built = party.units.map((unit) => ({ unit, built: build(unit, rules) }));
   return {
     party: {
-      units: built.map(({ unit, built: b }) => ({ spec: b.spec, row: unit.row })),
+      units: built.map(({ unit, built: b }) => ({ spec: b.spec, row: unit.row, pos: unit.pos })),
       retreatHpPct: party.retreatHpPct,
     },
     dropped: uniqueDropped(built.map(({ built: b }) => b.dropped)),

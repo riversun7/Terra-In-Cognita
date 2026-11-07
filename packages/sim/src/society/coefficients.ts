@@ -6,6 +6,7 @@ import { START_TERRITORY_COEFFICIENTS, type TerritoryCoefficients } from "@terra
 import { type LaborRules, OLD_LABOR_RULES } from "../economy/laborContract.ts";
 import { type GardenerCoefficients, TEST_GARDENER_COEFFICIENTS } from "../gardener/coefficients.ts";
 import { type NpcCoefficients, TEST_NPC_COEFFICIENTS } from "../npc/coefficients.ts";
+import { type SystemSwitches, TEST_SYSTEM_SWITCHES } from "../tuningSwitches.ts";
 import type { CyborgTemperament } from "./cyborgStats.ts";
 import { OLD_RECRUIT_COEFFICIENTS, type RecruitCoefficients } from "./recruitment.ts";
 
@@ -241,6 +242,8 @@ export interface SocietyCoefficients {
     readonly foodCooldownMs: number;
     readonly potionHpThresholdPm: number;
   };
+  /** 운영자 런타임 온/오프 스위치(49 N53, D-513, 팩 tuning 경로 "switches.*") */
+  readonly switches: SystemSwitches;
 }
 
 const DAY = 86_400_000;
@@ -381,4 +384,5 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     foodCooldownMs: 300_000,
     potionHpThresholdPm: 400,
   },
+  switches: { ...TEST_SYSTEM_SWITCHES },
 };

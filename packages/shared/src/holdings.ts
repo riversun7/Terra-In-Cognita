@@ -5,6 +5,17 @@ import type { LocalizedName } from "./roster.ts";
 /** 보유 모양: 장비 하나하나·신선도 묶음·쌓이는 소모품(그 밖 물자는 원장 economy.holdings) */
 export type HoldingKindView = "instance" | "lot" | "stack";
 
+/** 쓰기 쿨 종류(D-509 물약 30초·D-510 요리 5분) */
+export type HoldingCooldownKind = "potion" | "food";
+
+/** 쓰는 효과 한 줄(실효 정의 — 효과량은 쓸 때 서버가 굴린다, D-501) */
+export interface HoldingUseView {
+  readonly effect: string;
+  readonly name: LocalizedName | null;
+  /** 지속(ms, 0 = 전투 중 한 번 — 전투 밖에서는 battle_only) */
+  readonly durationMs: number;
+}
+
 /** 굴린 스탯 하나(값과 범위 안 자리 ‰) */
 export interface HoldingStatView {
   readonly stat: string;
@@ -38,6 +49,20 @@ export interface HoldingView {
   readonly createdAt: number;
   /** 얻은 길(dev_grant·craft·drop·gather·spoil 등) */
   readonly source: string;
+  /** 입는 칸 종류(장비 정의의 칸, 장비가 아니거나 팩에서 사라졌으면 null). 옛 서버는 보내지 않는다 */
+  readonly equipSlot?: string | null | undefined;
+  /** 쓰기 쿨 종류(쓸 수 있는 물건만, 아니면 null). 옛 서버는 보내지 않는다 */
+  readonly useCooldown?: HoldingCooldownKind | null | undefined;
+  /** 쓰는 효과(쓸 수 있는 물건만). 옛 서버는 보내지 않는다 */
+  readonly uses?: readonly HoldingUseView[] | undefined;
+}
+
+/** 유닛 칸 배치(slot 번호 = 차례, 팩 unit_kinds) — 화면이 칸 번호를 칸 종류로 읽는다 */
+export interface HoldingUnitView {
+  readonly unit: number;
+  /** 팩 unit_kinds ID(사이보그 = cyborg, 그 밖 세계 유닛 = human) */
+  readonly kind: string;
+  readonly slots: readonly string[];
 }
 
 /** 유닛에 걸린 효과 하나(소모품 사용, D-501) */
@@ -49,6 +74,8 @@ export interface UnitEffectView {
   readonly until: number;
   readonly exclusive: string | null;
   readonly item: string;
+  /** 값 단위(flat = 그대로, permille = ‰). 옛 서버는 보내지 않는다 */
+  readonly valueMode?: "flat" | "permille" | undefined;
 }
 
 /** 유닛 쓰기 쿨 하나(D-509: 물약은 전투·비전투 같은 쿨) */
@@ -66,4 +93,8 @@ export interface HoldingsListResponse {
   readonly effects: readonly UnitEffectView[];
   /** 아직 끝나지 않은 쓰기 쿨 */
   readonly cooldowns: readonly UnitCooldownView[];
+  /** 내 사이보그 유닛(없으면 null). 옛 서버는 보내지 않는다 */
+  readonly cyborgUnit?: number | null | undefined;
+  /** 칸 배치: 내 사이보그 유닛 + 물건을 든 유닛(유닛 ID 차례). 옛 서버는 보내지 않는다 */
+  readonly units?: readonly HoldingUnitView[] | undefined;
 }

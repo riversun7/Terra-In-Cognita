@@ -35,6 +35,7 @@ import { BuildingDetail } from "./BuildingDetail.tsx";
 import { BuildingList } from "./BuildingList.tsx";
 import { BuildingExport, BuildingSleeping, BuildingStageBar, type CheckState } from "./BuildingPanels.tsx";
 import { CheckLater } from "./CheckLater.tsx";
+import { GatherProbTab } from "./GatherProbTab.tsx";
 import { errorText } from "./buildingMessages.ts";
 import {
   type BuildingStage,
@@ -45,6 +46,7 @@ import {
   mergeFacility,
   stageDiscard,
   stageFacility,
+  stageGatherBand,
   stageKeys,
 } from "./buildingModel.ts";
 import "./buildingEditor.css";
@@ -74,6 +76,7 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
   const locale = getLocale() === "en" ? "en" : "ko";
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const [load, setLoad] = useState<Load>({ status: "loading" });
+  const [tab, setTab] = useState<"facilities" | "gather_prob">("facilities");
   const [selected, setSelected] = useState<string | null>(initialId ?? null);
   const [view, setView] = useState<"list" | "detail">(initialId ? "detail" : "list");
   const [stage, setStage] = useState<BuildingStage>(EMPTY_STAGE);
@@ -197,6 +200,63 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
     if (selected) pushStage(stageFacility(stageRef.current, selected, null));
   };
 
+  /** 1차 생산 티어 확률표 한 구간 가중치 고치기 */
+  const editBand = (id: string, weightsPm: readonly number[]): void => {
+    if (!list) return;
+    const bandRow = list.gatherBands.find((b) => b.entry.id === id);
+    if (!bandRow) return;
+    const current = stageRef.current.gatherBands.get(id);
+    const base = current ? current.base : bandRow.entry;
+    const baseHash = current ? current.baseHash : bandRow.hash;
+    const nextEntry = { id: bandRow.entry.id, from: bandRow.entry.from, weightsPm: [...weightsPm] };
+    pushStage(
+      stageGatherBand(
+        stageRef.current,
+        id,
+        sameJson(nextEntry, base) ? null : { op: "put_gather_band", entry: nextEntry, base, baseHash },
+      ),
+    );
+  };
+
+  /** 전체 구간 일괄 프리셋 적용 */
+  const editAllBands = (nextById: ReadonlyMap<string, readonly number[]>): void => {
+    if (!list) return;
+    let nextStage = stageRef.current;
+    for (const bandRow of list.gatherBands) {
+      const id = bandRow.entry.id;
+      const weightsPm = nextById.get(id);
+      if (!weightsPm) continue;
+      const current = nextStage.gatherBands.get(id);
+      const base = current ? current.base : bandRow.entry;
+      const baseHash = current ? current.baseHash : bandRow.hash;
+      const nextEntry = { id, from: bandRow.entry.from, weightsPm: [...weightsPm] };
+      nextStage = stageGatherBand(
+        nextStage,
+        id,
+        sameJson(nextEntry, base) ? null : { op: "put_gather_band", entry: nextEntry, base, baseHash },
+      );
+    }
+    pushStage(nextStage);
+  };
+
+  const revertBand = (id: string): void => {
+    if (!list) return;
+    const bandRow = list.gatherBands.find((b) => b.entry.id === id);
+    if (!bandRow) return;
+    const current = stageRef.current.gatherBands.get(id);
+    pushStage(
+      stageGatherBand(stageRef.current, id, {
+        op: "revert_gather_band",
+        base: current ? current.base : bandRow.entry,
+        baseHash: current ? current.baseHash : bandRow.hash,
+      }),
+    );
+  };
+
+  const unstageBand = (id: string): void => {
+    pushStage(stageGatherBand(stageRef.current, id, null));
+  };
+
   const runCheck = (key: string, batch: readonly BuildingEditorChange[]): void => {
     if (batch.length === 0) return;
     api.buildings.check.query({ changes: [...batch] }).then(
@@ -273,7 +333,14 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
   };
 
   const pick = (key: string): void => {
-    if (!key.startsWith("sleeping/")) select(key);
+    if (key.startsWith("gather_tiers/")) {
+      setTab("gather_prob");
+      return;
+    }
+    if (!key.startsWith("sleeping/")) {
+      setTab("facilities");
+      select(key);
+    }
   };
 
   return (
@@ -342,30 +409,74 @@ export default function BuildingEditorScreen({ initialId }: { initialId?: string
           ) : null}
           <LiveMessage tone="success" lines={notice.lines} version={notice.version} />
           <LiveMessage tone="error" lines={problem.lines} version={problem.version} />
-          <div className="be-split" data-view={view}>
-            <BuildingList list={list} locale={locale} selected={selected} stage={stage} onSelect={select} />
-            <div className="be-detail-pane">
-              {selected && row && draft ? (
-                <BuildingDetail
-                  key={selected}
-                  list={list}
-                  row={row}
-                  draft={draft}
-                  locale={locale}
-                  staged={staged !== undefined}
-                  reverting={reverting}
-                  issues={issues.filter((issue) => issue.id === null || issue.id === selected)}
-                  checking={staged !== undefined && checked === null}
-                  onEdit={edit}
-                  onRevert={revert}
-                  onUnstage={unstage}
-                  onBack={() => setView("list")}
-                />
-              ) : (
-                <p className="field-hint be-pick">{m.dev_buildings_pick()}</p>
-              )}
-            </div>
+          <div className="be-tabs" role="tablist" aria-label={m.shell_route_dev_buildings()}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "facilities"}
+              className="be-tab"
+              data-active={tab === "facilities" ? "true" : undefined}
+              onClick={() => setTab("facilities")}
+            >
+              {locale === "en"
+                ? `Facilities & Build Materials (${list.facilities.length})`
+                : `시설 · 건설 재료 (${list.facilities.length})`}
+              {stage.facilities.size > 0 ? (
+                <span className="dev-badge be-badge-staged">{stage.facilities.size}</span>
+              ) : null}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "gather_prob"}
+              className="be-tab"
+              data-active={tab === "gather_prob" ? "true" : undefined}
+              onClick={() => setTab("gather_prob")}
+            >
+              {locale === "en"
+                ? `Primary Production · Tier Probability (N43 · ${list.gatherBands.length})`
+                : `1차 생산 · 티어 확률 분포 (N43 · ${list.gatherBands.length}구간)`}
+              {stage.gatherBands.size > 0 ? (
+                <span className="dev-badge be-badge-staged">{stage.gatherBands.size}</span>
+              ) : null}
+            </button>
           </div>
+          {tab === "facilities" ? (
+            <div className="be-split" data-view={view}>
+              <BuildingList list={list} locale={locale} selected={selected} stage={stage} onSelect={select} />
+              <div className="be-detail-pane">
+                {selected && row && draft ? (
+                  <BuildingDetail
+                    key={selected}
+                    list={list}
+                    row={row}
+                    draft={draft}
+                    locale={locale}
+                    staged={staged !== undefined}
+                    reverting={reverting}
+                    issues={issues.filter((issue) => issue.id === null || issue.id === selected)}
+                    checking={staged !== undefined && checked === null}
+                    onEdit={edit}
+                    onRevert={revert}
+                    onUnstage={unstage}
+                    onBack={() => setView("list")}
+                  />
+                ) : (
+                  <p className="field-hint be-pick">{m.dev_buildings_pick()}</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <GatherProbTab
+              list={list}
+              stage={stage}
+              locale={locale}
+              onEditBand={editBand}
+              onEditAllBands={editAllBands}
+              onRevertBand={revertBand}
+              onUnstageBand={unstageBand}
+            />
+          )}
           <BuildingStageBar
             keys={keys}
             check={checkState}

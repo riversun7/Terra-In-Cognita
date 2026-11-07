@@ -26,7 +26,27 @@ export {
 } from "./facilityBuild.ts";
 
 /** 건물 편집기 묶음이 고칠 수 있는 분류 */
-export const BUILDING_EDIT_CATEGORIES = ["facilities"] as const;
+export const BUILDING_EDIT_CATEGORIES = ["facilities", "gather_tiers"] as const;
+export type BuildingEditCategory = (typeof BUILDING_EDIT_CATEGORIES)[number];
+
+/** 1차 생산 티어 수(T0~T9 = 10, @terra/content GATHER_TIER_COUNT) 및 가중치 합(1000‰) */
+export const GATHER_TIER_SLOTS = 10;
+export const GATHER_BAND_WEIGHT_TOTAL = 1000;
+
+/** 팩 gather_tiers.json 한 줄(JSON 모양, 49 N43, D-513) */
+export interface GatherTierJson {
+  readonly id: string;
+  readonly from: number;
+  readonly weightsPm: readonly number[];
+}
+
+export interface BuildingEditorGatherBand {
+  readonly entry: GatherTierJson;
+  readonly origin: ContentEditOrigin;
+  readonly pack: GatherTierJson | null;
+  readonly override: ContentOverrideView | null;
+  readonly hash: string;
+}
 
 /** 생산 단계(@terra/content FACILITY_STAGES와 같다, D-114) + 영토(영토 비콘, D-485·49 N51) */
 export const FACILITY_STAGE_IDS = ["gather", "process", "part", "finish", "territory"] as const;
@@ -125,13 +145,15 @@ export interface BuildingEditorListResponse {
   /** 팩 항목 덮어쓰기 판(buildings.save의 expectedRevision, 스킬·아이템 편집기와 같은 판) */
   readonly revision: number;
   readonly facilities: readonly BuildingEditorFacility[];
+  /** 1차 생산 스탯 구간별 티어 확률 분포(49 N43, D-513) */
+  readonly gatherBands: readonly BuildingEditorGatherBand[];
   readonly items: readonly BuildingEditorItem[];
   readonly subcategories: readonly BuildingEditorSubcategory[];
   /** 건설 시간 규칙(설정 칸 M14 실효 값) */
   readonly rules: FacilityBuildRules;
   /** 채집 시설 레벨당 유효 스탯 보너스(설정 칸 N43 실효 값) */
   readonly gatherLevelBonus: number;
-  /** 잠든 시설 줄(켤 때 적용하지 않고 DB에 둔 것) */
+  /** 잠든 시설·확률표 줄(켤 때 적용하지 않고 DB에 둔 것) */
   readonly sleeping: readonly ContentSleepingRow[];
 }
 
@@ -141,8 +163,16 @@ export type BuildingEditorChange =
   | { readonly op: "put"; readonly entry: FacilityJson; readonly baseHash: string }
   /** 덮어쓰기를 지운다(팩 값으로) */
   | { readonly op: "revert"; readonly id: string; readonly baseHash: string }
+  /** 1차 생산 티어 확률표 한 구간 통째로(49 N43, D-513) */
+  | { readonly op: "put_gather_band"; readonly entry: GatherTierJson; readonly baseHash: string }
+  /** 1차 생산 티어 확률표 덮어쓰기를 지운다(팩 값으로) */
+  | { readonly op: "revert_gather_band"; readonly id: string; readonly baseHash: string }
   /** 잠든 줄 버리기 */
-  | { readonly op: "discard_sleeping"; readonly id: string };
+  | {
+      readonly op: "discard_sleeping";
+      readonly id: string;
+      readonly category?: BuildingEditCategory | undefined;
+    };
 
 /** 한 묶음의 바꿈 수 상한 */
 export const BUILDING_EDITOR_CHANGES_MAX = 50;

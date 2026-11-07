@@ -11,6 +11,7 @@
 import {
   type EffectEntry,
   type FacilityEntry,
+  type GatherTierEntry,
   type ItemEntry,
   type ItemSubcategoryEntry,
   type ItemTagEntry,
@@ -20,6 +21,7 @@ import {
   type WeaponTypeEntry,
   effectEntrySchema,
   facilityEntrySchema,
+  gatherTierEntrySchema,
   itemEntrySchema,
   itemSubcategoryEntrySchema,
   itemTagEntrySchema,
@@ -69,6 +71,8 @@ export interface ContentEffective {
   readonly effects: readonly EffectEntry[];
   /** 시설(건물 편집기가 덮어쓴다, docs/adr/2026-11-02-building-editor.md). 경제 목록·유닛 화면 이름·아이템 편집기 채집 미리 보기가 읽는다 */
   readonly facilities: readonly FacilityEntry[];
+  /** 1차 생산 스탯 구간별 티어 확률 분포(49 N43, D-513, 건물 편집기가 덮어쓴다). 채집 미리 보기·생산 시뮬이 읽는다 */
+  readonly gatherTiers: readonly GatherTierEntry[];
 }
 
 export interface ContentSnapshot {
@@ -144,6 +148,7 @@ function parseEffective(raw: RawEntries): ContentEffective {
     weaponTypes: raw.weapon_types.map((entry) => weaponTypeEntrySchema.parse(entry)),
     effects: raw.effects.map((entry) => effectEntrySchema.parse(entry)),
     facilities: raw.facilities.map((entry) => facilityEntrySchema.parse(entry)),
+    gatherTiers: raw.gather_tiers.map((entry) => gatherTierEntrySchema.parse(entry)),
   };
 }
 

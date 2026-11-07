@@ -12,6 +12,7 @@ import { createWorld } from "./world.ts";
 /** 점령 처리 선택(시험이 고른다) */
 const INTEGRATE_KEEP: OccupationChoice = { treatment: "integrate", shares: "keep" };
 const LOOT_DELIST: OccupationChoice = { treatment: "loot", shares: "delist" };
+const INTEGRATE_DELIST: OccupationChoice = { treatment: "integrate", shares: "delist" };
 
 /** 세력 셋(도시 셋씩): 1 독재(고정), 2 자본주의, 3 민주주의 */
 function setup(options: { hooks?: SimHooks; c?: SocietyCoefficients } = {}) {
@@ -116,13 +117,13 @@ describe("시뮬 세력·사회", () => {
     expect([...world.cities.values()].filter((city) => city.owner === 3)).toEqual([]);
   });
 
-  it("약탈 + 상장폐지 + 독재로 바뀜은 만족도를 크게 떨어뜨려 반란이 일어나고, 반란군은 새 세력(전쟁)이 된다", () => {
+  it("점령·귀속 + 상장폐지 + 독재로 바뀜은 만족도를 크게 떨어뜨려 반란이 일어나고, 반란군은 새 세력(전쟁)이 된다", () => {
     const { world, society, lines, scheduled, faction } = setup();
-    // 독재(1)가 민주주의(3) 도시 7을 약탈(0)·상장폐지(0)
-    society.occupy(faction(1), faction(3), 7, LOOT_DELIST, 1000);
+    // 독재(1)가 민주주의(3) 도시 7을 점령·귀속·상장폐지
+    society.occupy(faction(1), faction(3), 7, INTEGRATE_DELIST, 1000);
     const unitsIn7 = [...world.units.values()].filter((u) => u.city === 7);
-    // 60 − 25(약탈) − 15(상장폐지) − 20(독재로) = 0
-    expect(unitsIn7.every((u) => u.satisfactionMilli === 0)).toBe(true);
+    // 60 − 5(점령·귀속) − 15(상장폐지) − 20(독재로) = 20 ≤ 반란 문턱 40(회복 불이익으로 하루 끝에도 거의 오르지 않는다)
+    expect(unitsIn7.every((u) => u.satisfactionMilli === 20_000)).toBe(true);
     society.endOfDay(DAY_MS);
     const born = lines.find((line) => line.t === "born" && line.cause === "rebellion");
     expect(born).toBeDefined();
@@ -274,11 +275,21 @@ describe("시뮬 배당·공물(D-304·D-338·D-443)", () => {
     expect(society.check(9 * DAY_MS)).toEqual([]);
   });
 
-  it("반란 세력은 원래 나라를 기억한다(반란의 반란도 맨 처음 나라)", () => {
+  it("반란 세력은 원래 나라를 기억한다(반란의 반란도 맨 처음 나라), 태어날 때 부모도 적는다(620 나)", () => {
     const { world, society, lines, faction } = setup();
-    society.occupy(faction(1), faction(3), 7, LOOT_DELIST, 1000);
+    society.occupy(faction(1), faction(3), 7, INTEGRATE_DELIST, 1000);
     society.endOfDay(DAY_MS);
     const born = lines.find((line) => line.t === "born" && line.cause === "rebellion");
-    expect(world.factions.get(born?.faction ?? 0)?.rebelOf).toBe(1);
+    expect(world.factions.get(born?.faction ?? 0)).toMatchObject({ rebelOf: 1, bornOf: 1 });
+  });
+
+  it("약탈(D-520)은 도시를 옮기지 않는다: 도시·지분은 그대로, 만족도만 약탈 하락", () => {
+    const { world, society, faction } = setup();
+    society.occupy(faction(1), faction(3), 7, LOOT_DELIST, 1000);
+    expect(world.cities.get(7)?.owner).toBe(3);
+    expect(holdingsOf(world.book, 7)).toEqual([{ owner: 3, amount: 1000n }]);
+    const unitsIn7 = [...world.units.values()].filter((u) => u.city === 7);
+    expect(unitsIn7.every((u) => u.satisfactionMilli === 35_000)).toBe(true);
+    expect(society.check(1000)).toEqual([]);
   });
 });

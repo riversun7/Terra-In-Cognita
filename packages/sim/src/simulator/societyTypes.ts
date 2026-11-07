@@ -1,12 +1,14 @@
 // 시뮬 세력·사회의 모양(society.ts가 쓴다) — docs/adr/2026-10-31-faction-society-core.md "시뮬레이터"
 import type { OccupationChoice } from "../npc/policy.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
+import type { WarOutcome } from "../society/warOutcomes.ts";
 import type { CombatRun } from "./combatRun.ts";
 import type { MetricsRecorder } from "./metrics.ts";
 import type { ScenarioSociety } from "./scenario.ts";
 import type { SimHooks } from "./npcRun.ts";
 import type { RecruitView } from "./societyRecruit.ts";
 import type { RuinsSummary, SocietyRuins } from "./societyRuins.ts";
+import type { WarSummary } from "./societyWar.ts";
 import type { SimFaction, SimUnit, SimWorld } from "./world.ts";
 
 export interface SocietySummary {
@@ -20,12 +22,15 @@ export interface SocietySummary {
   readonly rebellions: { readonly won: number; readonly suppressed: number; readonly calmed: number };
   readonly independence: number;
   readonly founded: number;
-  /** 점령 처리 수(46 §5.1). razed = 약탈하고 폐허로 둔 도시(기획 답 486 나, 출력 형식 12) */
-  readonly occupations: {
+  /**
+   * 공성 결과 수(D-520, 출력 형식 13 — 12의 razed는 뺐다): 약탈(소유 그대로)·점령·귀속·점령 상태, 상장폐지, 점령 상태 세금 거래·끝난 수,
+   * 재건 비용을 낸 수, 끝 날 남은 점령 상태·회복 불이익 수(societyWar.ts WarSummary)
+   */
+  readonly occupations: WarSummary & {
     readonly loot: number;
     readonly integrate: number;
+    readonly occupy: number;
     readonly delisted: number;
-    readonly razed: number;
   };
   readonly offers: { readonly accepted: number; readonly refused: number; readonly expired: number };
   readonly shareSales: number;
@@ -60,7 +65,7 @@ export interface SocietySummary {
 export interface SocietyRun {
   /** 폐허 복원(D-510): 정부 짓기·모금·복원. 서버 유저 명령도 이 함수를 부른다 */
   readonly ruins: SocietyRuins;
-  /** 공성에서 이긴 뒤: 점령 처리(46 §5.1). decision = 점령자가 고른 처리(NPC 규칙식) */
+  /** 공성에서 이긴 뒤: 결과 셋(D-520 약탈·점령 상태·점령·귀속 — 점령·귀속이면 46 §5.1 처리). decision = 점령자가 고른 결과(NPC 규칙식) */
   occupy(
     attacker: SimFaction,
     target: SimFaction,
@@ -123,4 +128,18 @@ export interface SocietyOptions {
    * 시뮬레이터도 넘기지 않는다(출력 그대로)
    */
   readonly onDeath?: ((unit: SimUnit, nowMs: number) => void) | undefined;
+  /** 공성 결과 하나(D-520, 서버가 기록 표·복귀 요약에 적는다). 시뮬레이터는 넘기지 않는다 */
+  readonly onWarOutcome?: ((event: WarOutcomeEvent) => void) | undefined;
+}
+
+/** 공성 결과 하나(D-520): 약탈 = taken(가져간 국고 몫), 점령·귀속 = taken(재건 비용)·shares, untilMs = 점령 상태 끝·회복 불이익 끝 */
+export interface WarOutcomeEvent {
+  readonly atMs: number;
+  readonly city: number;
+  readonly attacker: SimFaction;
+  readonly target: SimFaction;
+  readonly outcome: WarOutcome;
+  readonly taken: bigint;
+  readonly shares?: "delist" | "keep" | undefined;
+  readonly untilMs?: number | undefined;
 }

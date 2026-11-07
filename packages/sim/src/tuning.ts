@@ -9,6 +9,7 @@ import { BUILD_TUNING_KEYS } from "./tuningBuild.ts";
 import { FUSION_TUNING_KEYS } from "./tuningFusion.ts";
 import { TEMPLE_TUNING_KEYS } from "./tuningTemple.ts";
 import { RESTORATION_TUNING_KEYS } from "./tuningRestoration.ts";
+import { WAR_TUNING_KEYS } from "./tuningWar.ts";
 import { RECRUIT_TUNING_KEYS } from "./tuningRecruit.ts";
 import { CYBORG_TUNING_KEYS } from "./tuningCyborg.ts";
 import { GARDENER_TUNING_KEYS } from "./tuningGardener.ts";
@@ -560,6 +561,7 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...TEMPLE_TUNING_KEYS,
   // 폐허 복원(D-510·D-339·D-343·D-344, 49에 칸 없음 [임시]): tuningRestoration.ts
   ...RESTORATION_TUNING_KEYS,
+  ...WAR_TUNING_KEYS,
   // 세계 씨앗(D-6041·46 §9.2, 49에 칸 없음 [임시]): tuningWorldSeed.ts
   ...WORLD_SEED_TUNING_KEYS,
   // 운영자 시스템 온/오프 스위치(49 N53, D-513): tuningSwitches.ts

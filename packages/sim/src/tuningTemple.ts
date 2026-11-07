@@ -74,4 +74,33 @@ export const TEMPLE_TUNING_KEYS: readonly TuningKey[] = [
     "수호신 생산 버프: 그 도시 시설 산출 +(‰, 수호신마다)",
     "Guardian production buff: city facility output (‰ per guardian)",
   ),
+  // 휴먼 환생 어드밴티지(D-520 "어드벤티지를 준다. 초기스탯이나 k값 증가이나 확률로.") [임시]
+  k(
+    "d520_rebirth_stat_chance_bp",
+    "",
+    "rebirthStatChanceBp",
+    "휴먼 환생: 초기 스탯 증가 확률(만분율)",
+    "Human rebirth: initial stat boost chance (bp)",
+  ),
+  k(
+    "d520_rebirth_k_chance_bp",
+    "",
+    "rebirthKChanceBp",
+    "휴먼 환생: K 증가 확률(만분율)",
+    "Human rebirth: K boost chance (bp)",
+  ),
+  k(
+    "d520_rebirth_stat_amount",
+    "",
+    "rebirthStatAmount",
+    "휴먼 환생: 초기 스탯 증가량(스탯 하나)",
+    "Human rebirth: initial stat boost (one stat)",
+  ),
+  k(
+    "d520_rebirth_k_amount_pm",
+    "",
+    "rebirthKAmountPm",
+    "휴먼 환생: K 증가량(‰, 스탯 하나)",
+    "Human rebirth: K boost (‰, one stat)",
+  ),
 ];

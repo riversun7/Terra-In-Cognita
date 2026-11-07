@@ -6,13 +6,16 @@ import { FAITH_MAX } from "./faith.ts";
 import {
   GUARDIAN_BUFFS,
   OLD_TEMPLE_COEFFICIENTS as C,
+  HUMAN_BASE_K_PM,
   addDevotion,
+  applyRebirthAdvantage,
   devotionGain,
   guardianBuffValue,
   guardianDefensePm,
   inactiveWindow,
   isGuardianBuff,
   isInactiveAt,
+  rebirthAdvantage,
   rebirthHuman,
   riteBlockers,
   riteCost,
@@ -104,5 +107,46 @@ describe("신전·종교", () => {
     expect(guardianBuffValue(buffs, "production", C)).toBe(C.guardianProductionPm);
     expect(guardianBuffValue(buffs, "defense", C)).toBe(guardianDefensePm(buffs, C));
     expect(guardianBuffValue(["production"], "production", { ...C, guardianProductionPm: -1 })).toBe(0);
+  });
+});
+
+describe("휴먼 환생 어드밴티지(D-520)", () => {
+  const T = {
+    ...C,
+    rebirthStatChanceBp: 3000,
+    rebirthKChanceBp: 2000,
+    rebirthStatAmount: 2,
+    rebirthKAmountPm: 50,
+  };
+
+  it("굴림: 0~2999 초기 스탯, 3000~4999 K, 나머지 없음. 어느 스탯인지는 둘째 굴림 % 6", () => {
+    expect(rebirthAdvantage(0, 3, T)).toEqual({ kind: "stat", stat: 3, amount: 2 });
+    expect(rebirthAdvantage(2999, 7, T)).toEqual({ kind: "stat", stat: 1, amount: 2 });
+    expect(rebirthAdvantage(3000, 0, T)).toEqual({ kind: "k", stat: 0, amount: 50 });
+    expect(rebirthAdvantage(4999, 5, T)).toEqual({ kind: "k", stat: 5, amount: 50 });
+    expect(rebirthAdvantage(5000, 0, T)).toEqual({ kind: "none" });
+    expect(rebirthAdvantage(19_999, 0, T)).toEqual({ kind: "none" });
+    // 확률 합이 10,000을 넘으면 스탯 몫이 먼저, K는 남은 만큼. 증가량이 0이면 없음
+    expect(rebirthAdvantage(9999, 0, { ...T, rebirthStatChanceBp: 9000, rebirthKChanceBp: 5000 }).kind).toBe(
+      "k",
+    );
+    expect(rebirthAdvantage(0, 0, { ...T, rebirthStatAmount: 0 })).toEqual({ kind: "none" });
+  });
+
+  it("적용: 스탯 하나 + 값, K가 없던 휴먼은 바탕 K 여섯 칸에서 시작", () => {
+    const stats = [10, 11, 12, 13, 14, 15];
+    expect(applyRebirthAdvantage(stats, null, { kind: "stat", stat: 2, amount: 2 })).toEqual({
+      stats: [10, 11, 14, 13, 14, 15],
+      kPm: null,
+    });
+    const k = applyRebirthAdvantage(stats, null, { kind: "k", stat: 4, amount: 50 });
+    expect(k.stats).toEqual(stats);
+    expect(k.kPm).toEqual(
+      [1000, 1000, 1000, 1000, 1050, 1000].map((v) => (v === 1000 ? HUMAN_BASE_K_PM : v)),
+    );
+    expect(
+      applyRebirthAdvantage(stats, [900, 900, 900, 900, 900, 900], { kind: "k", stat: 0, amount: 50 }).kPm,
+    ).toEqual([950, 900, 900, 900, 900, 900]);
+    expect(applyRebirthAdvantage(stats, null, { kind: "none" })).toEqual({ stats, kPm: null });
   });
 });

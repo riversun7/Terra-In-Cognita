@@ -4,8 +4,8 @@
 // docs/adr/2026-11-07-temple-religion.md.
 // - 비활성: 수명 끝(태어난 시각 + 수명) ≤ 지금. 일하지 않고, 고르지 않으면 그대로 남는다. 기다림 상한(설정 칸)은 출발값이 없어 0 = 상한 없음
 //   이고, 0보다 크면 수명 끝 + 상한에 떠난다(유전자를 남김 — [임시], 질문). 저장하지 않고 셈한다.
-// - 신전 의식: 환생(레벨 1·태어난 시각 = 지금·수명 다시(T4)·환생 +1·신앙도 0) / 신격화(그 도시 수호신, 도시당 상한). 비용 = 신앙도 문턱 + 화폐.
-//   유전자는 들지 않는다(D-517). 유전자로 바꾸는 길은 생명과학 연구소(서버 유전자 명령)다.
+// - 신전 의식: 환생(레벨 1·태어난 시각 = 지금·수명 다시(T4)·환생 +1·신앙도 0 + 확률로 어드밴티지 — 초기 스탯 하나 또는 K 하나 증가, D-520) /
+//   신격화(그 도시 수호신, 도시당 상한). 비용 = 신앙도 문턱 + 화폐. 유전자는 들지 않는다(D-517). 유전자로 바꾸는 길은 생명과학 연구소(서버 유전자 명령)다.
 // - 신앙도 얻는 길(옛 REL-1 기도·헌금): 기도 = 한 번에 prayFaith(쿨다운), 헌금 = max(1, ⌊금액 ÷ offeringPerFaith⌋). 신앙도는 FAITH_MAX에서
 //   멈추고 신앙 포인트는 다 쌓인다(D-451·D-455 186).
 // - 수호신(기획 답 456 가·470 가·471 가): 새 종류 유닛으로 그 도시에 남아 방어전에 나서고 도시 버프 하나. 버프 종류는 기획이 고르지 않고
@@ -43,6 +43,14 @@ export interface TempleCoefficients {
   readonly guardianSatisfactionMilli: number;
   /** 수호신 생산 버프(기획 답 470 가): 그 도시 시설 산출 + ‰(수호신마다 더함) [임시] */
   readonly guardianProductionPm: number;
+  /**
+   * 휴먼 환생 어드밴티지(D-520 "어드벤티지를 준다. 초기스탯이나 k값 증가이나 확률로."): 초기 스탯 증가 확률·K 증가 확률(만분율, 합이 10,000을
+   * 넘으면 앞에서 자른다), 스탯 하나에 더하는 초기 스탯·K(‰) [임시]
+   */
+  readonly rebirthStatChanceBp: number;
+  readonly rebirthKChanceBp: number;
+  readonly rebirthStatAmount: number;
+  readonly rebirthKAmountPm: number;
 }
 
 const HOUR_MS = 3_600_000;
@@ -65,6 +73,10 @@ export const OLD_TEMPLE_COEFFICIENTS: TempleCoefficients = {
   guardianDefensePm: 100,
   guardianSatisfactionMilli: 1000,
   guardianProductionPm: 100,
+  rebirthStatChanceBp: 3000,
+  rebirthKChanceBp: 2000,
+  rebirthStatAmount: 2,
+  rebirthKAmountPm: 50,
 };
 
 /**
@@ -170,8 +182,8 @@ export interface RebornHuman {
 }
 
 /**
- * 휴먼 환생(D-440·D-451): 레벨 1, 태어난 시각 = 지금, 수명 = T4 굴림(0~9999), 환생 횟수 +1, 신앙도 0. 스탯·속성·배운 스킬은 그대로
- * [임시](휴먼 행에 K가 없다). 신앙 포인트는 남는다(D-451)
+ * 휴먼 환생(D-440·D-451): 레벨 1, 태어난 시각 = 지금, 수명 = T4 굴림(0~9999), 환생 횟수 +1, 신앙도 0. 속성·배운 스킬은 그대로, 스탯은 확률로
+ * 어드밴티지(rebirthAdvantage·applyRebirthAdvantage, D-520 — 455 "스탯 그대로"를 대체). 신앙 포인트는 남는다(D-451)
  */
 export function rebirthHuman<T extends RebornHuman>(
   human: T,
@@ -187,6 +199,62 @@ export function rebirthHuman<T extends RebornHuman>(
     lifespanMs: lifespanMs(lifespanRoll, society),
     faith: 0,
   };
+}
+
+/** 휴먼 K가 아직 없을 때(구인·처음부터 있던 휴먼) 어드밴티지가 더해지는 바탕 K(‰, ×1 — 성장 그대로) */
+export const HUMAN_BASE_K_PM = 1000;
+/** 스탯·K 칸의 저장 상한(DB smallint) */
+const STORED_MAX = 32_767;
+
+/** 환생 어드밴티지 한 번: 없음 / 초기 스탯 하나 + amount / K 하나 + amount(‰). stat = 1차 스탯 칸 번호(STR·DEX·AGI·VIT·INT·WIS 차례) */
+export type RebirthAdvantage =
+  | { readonly kind: "none" }
+  | { readonly kind: "stat" | "k"; readonly stat: number; readonly amount: number };
+
+/**
+ * 환생 어드밴티지 굴림(D-520): kindRoll(0~9999) < 스탯 확률이면 초기 스탯, < 스탯 + K 확률이면 K, 아니면 없음. 어느 스탯인지는
+ * statRoll % 6. 더하는 값이 0 이하면 없음
+ */
+export function rebirthAdvantage(
+  kindRoll: number,
+  statRoll: number,
+  c: TempleCoefficients,
+): RebirthAdvantage {
+  const roll = ((Math.trunc(kindRoll) % 10_000) + 10_000) % 10_000;
+  const statChance = Math.max(0, Math.min(10_000, Math.trunc(c.rebirthStatChanceBp)));
+  const kChance = Math.max(0, Math.min(10_000 - statChance, Math.trunc(c.rebirthKChanceBp)));
+  const stat = ((Math.trunc(statRoll) % 6) + 6) % 6;
+  if (roll < statChance) {
+    const amount = Math.trunc(c.rebirthStatAmount);
+    return amount > 0 ? { kind: "stat", stat, amount } : { kind: "none" };
+  }
+  if (roll < statChance + kChance) {
+    const amount = Math.trunc(c.rebirthKAmountPm);
+    return amount > 0 ? { kind: "k", stat, amount } : { kind: "none" };
+  }
+  return { kind: "none" };
+}
+
+/**
+ * 어드밴티지를 휴먼 스탯·K에 더한다(새 배열). K가 없던 휴먼(null)이 K를 받으면 바탕 K(HUMAN_BASE_K_PM) 여섯 칸에서 시작한다. 저장 상한에서 자른다
+ */
+export function applyRebirthAdvantage(
+  stats: readonly number[],
+  kPm: readonly number[] | null,
+  advantage: RebirthAdvantage,
+): { readonly stats: number[]; readonly kPm: number[] | null } {
+  const nextStats = [...stats];
+  let nextK = kPm === null ? null : [...kPm];
+  if (advantage.kind === "stat")
+    nextStats[advantage.stat] = Math.min(STORED_MAX, (nextStats[advantage.stat] ?? 0) + advantage.amount);
+  if (advantage.kind === "k") {
+    nextK ??= Array.from({ length: 6 }, () => HUMAN_BASE_K_PM);
+    nextK[advantage.stat] = Math.min(
+      STORED_MAX,
+      (nextK[advantage.stat] ?? HUMAN_BASE_K_PM) + advantage.amount,
+    );
+  }
+  return { stats: nextStats, kPm: nextK };
 }
 
 /** 기도·헌금 한 번이 쌓는 양: 기도 = prayFaith, 헌금 = max(1, ⌊금액 ÷ offeringPerFaith⌋)(옛 religion_routes.js). 신앙 포인트 상한에서 자른다 */

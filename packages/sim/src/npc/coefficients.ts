@@ -53,13 +53,14 @@ export interface NpcCoefficients {
   readonly taxStepBp: number;
   readonly taxMaxBp: number;
   readonly taxSatisfactionFloor: number;
-  /** 규칙식 문턱(질문 198 가): 약탈·상장폐지·독립 마을·편입 거부의 공격 성향, 독립 찬성의 상업 성향, 약탈 여유 만족도 */
-  readonly lootAggression: number;
+  /**
+   * 규칙식 문턱(질문 198 가): 상장폐지·독립 마을·편입 거부의 공격 성향, 독립 찬성의 상업 성향. 공성 결과(약탈·점령·귀속·점령 상태)는 성향 가중
+   * 고르기(D-520, npc/policy.ts occupationChoice — 가중치는 war.npcAnnexWeight)라 문턱이 없다
+   */
   readonly delistAggression: number;
   readonly independentAggression: number;
   readonly refuseAggression: number;
   readonly voteCommerce: number;
-  readonly lootMargin: number;
   /** 거래: 상업 성향 이 값마다 매도 값 +1%, 생필품이 모자랄 때·평소 판단 한 번에 쓰는 국고 몫(분모) */
   readonly tradeMarkupPerPct: number;
   readonly spendDivisorShort: number;
@@ -82,8 +83,6 @@ export interface NpcCoefficients {
   readonly restoreClaimScore: number;
   readonly restoreFormerBonus: number;
   readonly restoreCityPenalty: number;
-  /** [임시] 공성에서 이겨 약탈하고 폐허로 두는 공격 성향 문턱(기획 답 486 나, 약탈 문턱보다 높게) */
-  readonly razeAggression: number;
   /** 굶어 멈춤(D-220, 기술 정의): 국고 0 + 생필품 충족 이 ‰ 미만이 이 날 수 이어짐 */
   readonly stallFoodPm: number;
   readonly stallDays: number;
@@ -123,12 +122,10 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   taxStepBp: 100,
   taxMaxBp: 2000,
   taxSatisfactionFloor: 50,
-  lootAggression: 600,
   delistAggression: 800,
   independentAggression: 600,
   refuseAggression: 500,
   voteCommerce: 500,
-  lootMargin: 10,
   tradeMarkupPerPct: 250,
   spendDivisorShort: 2,
   spendDivisor: 4,
@@ -138,7 +135,6 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   restoreClaimScore: 400,
   restoreFormerBonus: 150,
   restoreCityPenalty: 40,
-  razeAggression: 900,
   stallFoodPm: 500,
   stallDays: 7,
 };

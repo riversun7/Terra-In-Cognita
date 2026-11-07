@@ -1,8 +1,8 @@
 // NPC 규칙식 — docs/adr/2026-11-01-npc-brain-r5.md 4절, 기획 D-323(정책 값은 규칙식), 질문 197·198 가
 // 판단 틀의 행동 하나와 따로, 고를 수 있는 칸(세율·거래 값·점령 처리·마을 체제·편입 답·독립 찬성)을 성향과 상태로 정한다.
 // 순수 함수다. 사람(유저 세력)이면 이 자리에 유저 명령이 들어간다.
-import type { SocietyCoefficients } from "../society/coefficients.ts";
 import type { Regime } from "../society/shares.ts";
+import type { WarCoefficients, WarOutcome } from "../society/warOutcomes.ts";
 import type { NpcCoefficients } from "./coefficients.ts";
 import type { Traits } from "./traits.ts";
 
@@ -50,27 +50,42 @@ export function tradePolicy(traits: Traits, foodShort: boolean, c: NpcCoefficien
 }
 
 export interface OccupationChoice {
-  /** 약탈(점령) · 통합 · 약탈하고 폐허로 둠(점령하지 않음, 기획 답 486 나 — D-161 고르기에 한 칸) */
-  readonly treatment: "loot" | "integrate" | "raze";
+  /** 공성 결과 셋(D-520): 약탈(경제 이득만, 소유 그대로) · 점령·귀속(도시를 가져감, 재건 비용·느린 회복) · 점령 상태(소유 그대로, 기간마다 세금) */
+  readonly treatment: WarOutcome;
+  /** 지분 처리(점령·귀속에만 쓴다, 46 §5.1 ③) */
   readonly shares: "delist" | "keep";
 }
 
 /**
- * 점령 처리(46 §5.1): 공격 성향이 폐허 문턱 이상이면 약탈하고 폐허로 둔다(486 나). 아니면 공격 성향이 높고 약탈 뒤에도 도시 평균 만족도가
- * 반란 문턱 + 여유보다 높으면 약탈, 아니면 통합. 상장폐지는 아주 공격적일 때만(독재가 과반을 못 쥐면 규칙이 상장폐지로 바꾼다)
+ * 공성 결과 고르기(D-520, 성향 가중 [임시] — 확인 대기 683): 가중치 약탈 = 공격 성향, 점령 상태 = 상업 성향, 점령·귀속 = war.npcAnnexWeight
+ * (재건 비용을 낼 국고가 없으면 0). roll(0 이상)을 가중치 합으로 나눈 나머지로 점령·귀속 → 점령 상태 → 약탈 차례에서 고른다. 합이 0이면 낼 수
+ * 있으면 점령·귀속, 아니면 약탈. 상장폐지는 아주 공격적일 때만(독재가 과반을 못 쥐면 규칙이 상장폐지로 바꾼다)
  */
 export function occupationChoice(
   traits: Traits,
-  citySatisfaction: number,
+  roll: number,
+  canAnnex: boolean,
   c: NpcCoefficients,
-  sc: SocietyCoefficients,
+  war: WarCoefficients,
 ): OccupationChoice {
-  const lootSafe = citySatisfaction - sc.lootSatisfactionDrop > sc.rebellionThreshold + c.lootMargin;
-  const raze = traits.aggression >= c.razeAggression;
-  return {
-    treatment: raze ? "raze" : traits.aggression >= c.lootAggression && lootSafe ? "loot" : "integrate",
-    shares: traits.aggression >= c.delistAggression ? "delist" : "keep",
-  };
+  const weights: readonly [WarOutcome, number][] = [
+    ["integrate", canAnnex ? Math.max(0, Math.trunc(war.npcAnnexWeight)) : 0],
+    ["occupy", Math.max(0, traits.commerce)],
+    ["loot", Math.max(0, traits.aggression)],
+  ];
+  const total = weights.reduce((sum, [, weight]) => sum + weight, 0);
+  let treatment: WarOutcome = canAnnex ? "integrate" : "loot";
+  if (total > 0) {
+    let left = Math.abs(Math.trunc(roll)) % total;
+    for (const [outcome, weight] of weights) {
+      if (left < weight) {
+        treatment = outcome;
+        break;
+      }
+      left -= weight;
+    }
+  }
+  return { treatment, shares: traits.aggression >= c.delistAggression ? "delist" : "keep" };
 }
 
 export type FoundingChoice = { readonly vassal: true } | { readonly vassal: false; readonly regime: Regime };

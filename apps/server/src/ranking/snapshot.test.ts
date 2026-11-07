@@ -72,9 +72,9 @@ describe("다음 판", () => {
       ]),
       stocks: new Map([[8, stocks(1)]]),
       factions: [
-        { factionId: 1, cities: 2, developmentSum: 0, humans: 10, treasury: 0n },
-        { factionId: 2, cities: 0, developmentSum: 0, humans: 0, treasury: 0n },
-        { factionId: 3, cities: 3, developmentSum: 0, humans: 0, treasury: 0n },
+        { factionId: 1, cities: 2, developmentSum: 0, humans: 10, treasury: 0n, renown: 40 },
+        { factionId: 2, cities: 0, developmentSum: 0, humans: 0, treasury: 0n, renown: null },
+        { factionId: 3, cities: 3, developmentSum: 0, humans: 0, treasury: 0n, renown: null },
       ],
       coefficients: TEST_RANKING_COEFFICIENTS,
       periods: 1,
@@ -92,11 +92,11 @@ describe("다음 판", () => {
     // 산출 3 → log2(4) = 2000 × 가중치 500‰ = 1000
     expect(landlord.map((row) => [row.ownerId, row.score])).toEqual([[7, 1000]]);
     expect(next.paths.some((row) => row.pathId === "trader")).toBe(false);
-    // 세력 판: 3 = 3000, 1 = 2000 + 휴먼 10 × 100 = 3000(같은 점수 → 같은 순위, 키 작은 순), 2 = 0(빠짐)
+    // 세력 판: 3 = 3000, 1 = 2000 + 휴먼 10 × 100 = 3000(같은 점수 → 같은 순위, 키 작은 순, 명성은 점수에 더하지 않음), 2 = 0(빠짐)
     expect(
       next.factions.map((row) => [row.factionId, row.score, row.rank, row.prevRank, row.renown]),
     ).toEqual([
-      [1, 3000, 1, 2, null],
+      [1, 3000, 1, 2, 40],
       [3, 3000, 1, null, null],
     ]);
   });

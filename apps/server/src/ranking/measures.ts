@@ -6,7 +6,8 @@
 //   전쟁 전투(world_battles.war)는 war_wins, 그 밖(웨이브 방어 포함)은 battle_wins. 정원사 편(소유 주체가 아님)은 받지 않는다
 // - 도시(cities_held): 세력이 가진 도시 수·발전도 합 → 그 세력의 소유 주체
 // - 시설(facilities): 지은 사람(world_facilities.built_by)의 소유 주체에 Σ 레벨 × 상태(ppm), 다 지은 것(레벨 1 이상)만
-// - 세력 규모(세력 판): 사라지지 않은 세력마다 도시·발전도·휴먼(그 세력 도시에 사는)·국고(시험 화폐, 위치 없는 계정)
+// - 세력 규모(세력 판): 사라지지 않은 세력마다 도시·발전도·휴먼(그 세력 도시에 사는)·국고(시험 화폐, 위치 없는 계정)·명성(정원사 2)
+// - 보호 레이드(D-500, gardener_waves.kind = protection) 전투는 랭킹 점수가 없다 → 전투 승리에서 뺀다
 import { underdogPm } from "@terra/sim";
 
 /** pg Pool·Client 모양(query만) */
@@ -91,6 +92,7 @@ async function readBattles(
        join world_battles b on b.id = r.battle_id
        cross join lateral jsonb_array_elements(b.init->'sides') s
       where r.applied_at_ms >= $1 and r.applied_at_ms < $2
+        and not exists (select 1 from gardener_waves w where w.battle_id = b.id and w.kind = 'protection')
       order by b.id, side`,
     [fromMs, toMs],
   );
@@ -174,6 +176,8 @@ export interface FactionScaleRow {
   readonly developmentSum: number;
   readonly humans: number;
   readonly treasury: bigint;
+  /** 세력 명성(정원사 2가 쌓은 값, 없으면 null). 세력 판 점수에 더하지 않고 따로 보인다(질문 427 가) */
+  readonly renown: number | null;
 }
 
 /** 사라지지 않은 세력마다 규모. 국고 = 그 세력 소유 주체의 creditAsset 위치 없는 계정 잔고 */
@@ -190,11 +194,30 @@ export async function readFactionScales(db: Queryable, creditAsset: string): Pro
       order by f.id`,
     [creditAsset],
   );
+  const renown = await readFactionRenown(db);
   return result.rows.map((row) => ({
     factionId: num(row.id),
     cities: num(row.cities),
     developmentSum: num(row.dev),
     humans: num(row.humans),
     treasury: big(row.treasury),
+    renown: renown.get(num(row.id)) ?? null,
   }));
+}
+
+/**
+ * 세력 명성(정원사 2, D-499 → 질문 394 "다"): npc_society.gardener의 renown = [세력 소유 주체 ID, 값] 쌍 → 세력 ID마다 값.
+ * 쌓은 적 없는 세력은 없다(화면 "명성 아직 없음")
+ */
+async function readFactionRenown(db: Queryable): Promise<Map<number, number>> {
+  const result = await db.query(
+    `select o.faction_id, (r->>1)::bigint as renown
+       from npc_society s
+       cross join lateral jsonb_array_elements(
+         case when jsonb_typeof(s.gardener->'renown') = 'array' then s.gardener->'renown' else '[]'::jsonb end
+       ) r
+       join world_owners o on o.id = (r->>0)::bigint
+      where s.id = 1 and o.faction_id is not null and jsonb_typeof(r) = 'array'`,
+  );
+  return new Map(result.rows.map((row) => [num(row.faction_id), num(row.renown)]));
 }

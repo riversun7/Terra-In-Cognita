@@ -2,7 +2,7 @@
 // - 경계 = 집계 주기(설정 칸 ranking_period)의 배수(UTC). 마지막 집계의 끝(to) 다음 경계가 지나면 [to, 경계)를 한 번에 센다.
 //   빠진 경계가 여럿이면(서버가 꺼져 있었음) 감쇠만 그 수만큼 하고 이번 기간 점수는 기간 전체를 한 번 센다. 처음이면 [경계 − 주기, 경계).
 // - 연 경로(팩 ranking_paths open)만 판을 만든다. 닫힌 경로의 줄은 지운다. 점수 0은 판에서 빠진다(줄을 지운다).
-// - 세력 판은 집계 때의 규모(감쇠 없음). 명성 칸은 아직 없어 null(정원사 2 — 확인 대기).
+// - 세력 판은 집계 때의 규모(감쇠 없음). 명성 칸 = 정원사 2가 쌓은 세력 명성(점수에 더하지 않음, 질문 427 가).
 // - 쓰기는 한 트랜잭션: 두 판을 통째로 바꾸고 상태 줄을 앞 값과 맞을 때만 고친다(두 번 세지 않는다).
 import type { RankingPathInfo } from "@terra/shared/ranking";
 import {
@@ -119,7 +119,7 @@ export function computeSnapshot(input: SnapshotInput): {
     tierPm: tierPmOf(entry.rank, rankedFactions.length, c.tiersPm),
     cities: sizes.get(entry.key)?.cities ?? 0,
     humans: sizes.get(entry.key)?.humans ?? 0,
-    renown: null,
+    renown: sizes.get(entry.key)?.renown ?? null,
   }));
   return { paths, factions };
 }

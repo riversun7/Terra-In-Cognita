@@ -50,8 +50,11 @@ import {
  * 8: econ 줄·요약 economy 칸에 produced(생산한 양, 물건 자산 → 기본 단위. 채집 티어 추첨 D-506 확인용)
  * 9: 출생 없음(D-469): 요약 society 칸 births → recruited(구인 카드로 고용한 휴먼)·recruitSpent(자산 → 쓴 값), 하루 줄 세력 칸 recruited
  *    (그날 고용 수), 요약 npc 칸 recruits(구인 규칙식이 산 카드). born 줄은 그대로 세력이 생긴 사건이다(D-391)
+ * 10: 정원사 2(docs/adr/2026-11-01-gardener-r5b.md "바뀜 (2026-11-07)"): wave 줄 kind "protection"(보호 레이드 예고·결과, D-500),
+ *    도시 웨이브 예고에 factionSum(세력 오염), 막아 낸 도시 웨이브 결과에 reward(D-499), gardener 하루 줄 factions([세력, 세력 오염,
+ *    관계도]), 요약 gardener 칸 protection·relations·rewards
  */
-export const SIM_OUTPUT_FORMAT = 9;
+export const SIM_OUTPUT_FORMAT = 10;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 정원사 합성 격자 한 변(도시마다 3칸 간격, 한 줄 32도시 — 1만 도시까지), 웨이브 전투 기본값(시나리오에 combat 칸이 없을 때) */
@@ -306,6 +309,10 @@ export function runSimulation(options: RunOptions): RunSummary {
     });
     gardenerRef.run = gardener;
     if (econ) econ.onWork = (cityId, weightedWorkMs) => gardener.addWork(cityId, weightedWorkMs);
+    // 보호 레이드(D-500): 필수 NPC 세력의 도시를 치는 세력에게
+    ctx.onAttack = (attacker, target, cityId, nowMs) => {
+      gardener.protect(attacker, target, cityId, nowMs);
+    };
   }
 
   recorder.start(

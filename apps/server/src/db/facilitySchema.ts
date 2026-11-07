@@ -8,7 +8,9 @@ import { bigint, check, index, integer, jsonb, pgTable, smallint, text, uuid } f
 /**
  * 시설 한 줄(2차맵 건물 하나 = 시설 하나). facility_id = 팩 시설 ID, level = 다 지은 레벨(처음 짓는 동안 0).
  * condition_ppm = 상태(가득 1,000,000, @terra/shared/facilityRuntime), condition_at_ms = 그 값의 시각(분마다 노화·사용 닳음을 더한다).
- * built_by = 지은 사용자(관리자 시험 건물에는 시설 줄이 없다)
+ * built_by = 지은 사용자(관리자 시험 건물에는 시설 줄이 없다). city_id = 건물이 선 도시(지을 때 정한다, 같은 2차맵의 가장 가까운 도시 —
+ * @terra/shared/goodsPlaces cityOfCell, 재료를 꺼내는 도시 창고·창고 시설이 속한 도시, D-516 361·382). 열 더하기만 했다(직전 판 앱은 null로
+ * 넣고, 이 판은 null이면 건물 칸에서 다시 정해 적는다)
  */
 export const worldFacilities = pgTable(
   "world_facilities",
@@ -20,6 +22,7 @@ export const worldFacilities = pgTable(
     conditionAtMs: bigint("condition_at_ms", { mode: "number" }).notNull(),
     builtAtMs: bigint("built_at_ms", { mode: "number" }).notNull(),
     builtBy: uuid("built_by"),
+    cityId: bigint("city_id", { mode: "number" }),
   },
   (table) => [
     check("world_facilities_level", sql`${table.level} between 0 and 5`),

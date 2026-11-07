@@ -19,6 +19,7 @@ import type {
   WearOutcome,
 } from "@terra/sim";
 import type { WorldWriter } from "../world/persist/writer.ts";
+import type { GenePayload } from "./genePayload.ts";
 import type { HoldingRules } from "./rules.ts";
 import type {
   CooldownKind,
@@ -121,6 +122,17 @@ export interface AcquireInput {
   readonly seed: number;
 }
 
+/** 유전자 하나 넣기(addGene) */
+export interface GeneInput {
+  readonly ownerId: number;
+  readonly item: string;
+  readonly location: number;
+  readonly gene: GenePayload;
+  readonly atMs: number;
+  /** 얻은 길(lifespan·synthesis·dev_grant) */
+  readonly source: string;
+}
+
 /** 전투 하나에서 유닛 하나(이김·짐·퇴각 — 퇴각은 패배 닳음 없음, D-512 324) */
 export interface BattleUnitWear {
   readonly unit: number;
@@ -158,6 +170,17 @@ export interface HoldingService {
     readonly cooldowns: readonly UnitCooldownRecord[];
   };
   acquire(input: AcquireInput): HoldingResult<{ readonly holdings: readonly number[] }>;
+  /**
+   * 유전자 하나(D-516: 값이 다른 인스턴스, 수량 1)를 넣는다. 새 칸 ID. 아이템이 없거나 꺼졌거나 그 종류(stat·skill)의 유전자 아이템이
+   * 아니면 undefined. 한 번의 동기 처리 안에서 부른다(쓰기 대기열)
+   */
+  addGene(input: GeneInput): number | undefined;
+  /** 그 주체의 유전자 칸(값이 있는 것만). 없거나 남의 것이면 undefined */
+  geneOf(ownerId: number, holdingId: number): HoldingRecord | undefined;
+  /** 칸을 지운다(쓴 유전자). 없으면 false */
+  remove(holdingId: number): boolean;
+  /** 유닛이 든 것을 모두 그 자리로 옮긴다(입은 것은 벗는다 — 수명이 다해 떠나는 유닛). 옮긴 칸 수 */
+  moveCarried(unitId: number, location: number): number;
   equip(ownerId: number, holdingId: number, slot: number): HoldingResult;
   unequip(ownerId: number, holdingId: number): HoldingResult;
   use(
@@ -259,6 +282,8 @@ export interface HoldingServiceOptions {
 /** 팩 아이템 항목에서 보유 판정이 읽는 칸(참조 ContentRef → ID 글자) */
 export interface HeldDef extends HoldableDef {
   readonly id: string;
+  /** 유전자 아이템이면 종류·종(D-516) */
+  readonly gene?: { readonly kind: "stat" | "skill"; readonly species: string } | undefined;
   readonly name: ItemEntry["name"];
   readonly enabled: boolean;
   readonly subcategory?: string | undefined;

@@ -18,6 +18,7 @@ import type {
   MyOrder,
   MyOrderDone,
 } from "@terra/shared/economy";
+import { placeKey, placeOfLocation } from "@terra/shared/goodsPlaces";
 import { reasonedError } from "../trpc/init.ts";
 import type { EconomyQuery, EconomyServices, Viewer } from "../trpc/context.ts";
 import { bookLevels, candles, changeBp, recentTrades, tradeStats } from "./marketShape.ts";
@@ -91,11 +92,11 @@ export function holdingsFromAccounts(rows: readonly EconomyAccountRow[]): {
       wallet.push(line);
       continue;
     }
-    // 위치 없음 = 장부에만 있는 자산, 음수 = 유닛이 실은 화물(−유닛 ID, R3 ADR 8절), 양수 = 창고 위치
-    const id =
-      row.location === null ? "ledger" : row.location < 0 ? `cargo_${-row.location}` : String(row.location);
-    const kind: HoldingPlace["kind"] =
-      row.location === null ? "ledger" : row.location < 0 ? "cargo" : "warehouse";
+    // 위치 없음 = 장부에만 있는 자산, 음수 = 유닛이 실은 화물(−유닛 ID, R3 ADR 8절), 양수 = 도시 창고 위치,
+    // 건물 창고 위치(@terra/shared/goodsPlaces, 창고 시설·임대 몫)
+    const where = placeOfLocation(row.location);
+    const id = where.kind === "city" ? String(where.id) : placeKey(where);
+    const kind: HoldingPlace["kind"] = where.kind === "city" ? "warehouse" : where.kind;
     const place = byPlace.get(id) ?? { kind, lines: [] };
     place.lines.push(line);
     byPlace.set(id, place);

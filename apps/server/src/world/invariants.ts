@@ -76,9 +76,10 @@ export async function checkSqlInvariants(pool: QueryPool, nowMs: number): Promis
     `select b.id from world_battles b where b.status = 'ended'
      and not exists (select 1 from world_battle_results r where r.battle_id = b.id)`,
   );
+  // 수명이 다해 떠난 유닛(D-099·D-516)의 화물은 소유자에게 옮기고 빈 계정만 남는다(원장 계정은 지우지 않는다) → 잔고가 있는 것만 센다
   await count(
     "I12 cargo on missing units",
-    `select a.id from ledger_accounts a where a.location < 0
+    `select a.id from ledger_accounts a where a.location < 0 and a.balance <> 0
      and not exists (select 1 from world_units u where u.id = -a.location)`,
   );
   // 노동 계약(docs/adr/2026-11-03-labor-contracts.md): 보증금 에스크로 = 열린 임금형 계약의 보증금(끝났거나 임대형이면 0),

@@ -11,7 +11,7 @@
 - **팩(core@43)**: 새 분류 `ranking_paths`(26경로, 연 것 넷 = 정복자·용병·투사·대지주·건축가, 나머지 곧 열림), 설정 칸 12(`ranking_*`, 49 코드 없음, 서버 live).
 - **서버**: 표 3(`ranking_state`·`ranking_path_scores`·`ranking_faction_scores`, `rankingSchema.ts`, 마이그레이션 `20261107061337_ranking`), 지표 읽기(원장 산출·전투 결과 언더독·도시·시설·세력 규모), 집계(1분마다 경계 확인 → 쓰기 대기열이 닿은 뒤 한 트랜잭션), 조회(판·내 자리·사이보그 칸, 이름 = 사이보그 이름·국가 프리셋 이름), 시안 자료, tRPC `ranking.board`·`ranking.mine`, `cyborg.get` 랭킹 칸 채움.
 - **화면**: 주소 `/cyborg/ranking`(?path=)·`/faction/ranking`(지연 조각 `ranking/RankingScreen.tsx`), 사이보그 랭킹 칸 경로 줄 → 그 경로 순위표 + "모든 경로 순위 보기", 세력 화면 옆 판 "세력 순위" 칸(`faction/FactionRanking.tsx`). 판 고르기·재는 것·내 자리(유저 명성 칸 자리)·등급 문턱·순위(위 50 + 내 줄)·집계 안내. 토큰만, 문구 61개 ko·en.
-- **정원사 명성**: main에 없어 자리만(세력 판 `renown` 열·화면 "명성 아직 없음", `ranking.mine`·`ranking.board`의 유저 명성 null). ADR 확인 대기에 합칠 때 할 일 둘(세력 명성 싣기, 보호 레이드 전투 빼기).
+- **정원사 명성**: 작업 지시 때는 main에 없어 자리만(세력 판 `renown` 열·유저 명성 칸) 만들었는데, origin/main을 합치니 정원사 2(`8cb4529`)가 들어와 있어 세력 명성을 실었다(`npc_society.gardener.renown` → 세력 판 `renown`, 점수에는 더하지 않음)·보호 레이드 전투(D-500)는 전투 승리에서 뺐다. 유저 명성은 쌓는 곳이 없어 칸만(값 없음).
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
@@ -39,8 +39,11 @@
 ## 검사·시험 (Verified, 개발 컨테이너, main `fa2cbbd` 위, 무거운 잠금 안)
 - `TEST_DATABASE_URL=… pnpm check` 통과: 시험 434파일 3,564개(DB 시험 포함), 다국어 4,010키, 대비 738쌍, 콘텐츠 core@43. 새 시험: sim `ranking/score.test.ts` 9개, 서버 `ranking/snapshot.test.ts` 2개·`ranking/ranking.db.test.ts` 5개(처음 집계·같은 경계 다시 안 셈·판·내 자리·사이보그 칸·경로 비우면 고름·다음 경계 감쇠·지난 순위·401·403·400·시안), 게임 `ranking/rankingText.test.ts` 4개, 주소 표 시험에 두 줄.
 - 화면 시험 `pnpm e2e ranking.spec.ts` 9개 통과(1.1분, 빌드 포함): 플레이어 실제 자료(서버가 켜질 때 센 첫 집계 — 세력 화면 세력 순위 칸 → 세력 순위표 내 세력 줄, 정복자 판에 NPC 세력, 무역상 곧 열림, 누르는 곳 44px), 사이보그 랭킹 칸 → 모든 경로 순위(서버가 경로를 고름), dev 시안(50줄 + 내 줄 63위·문턱 넷·최상위 셋, 세력 판 16줄), 긴 이름·큰 수 390 ko·en 넘침 없음, 사진 12장.
-- 사진(세션 임시 폴더 `ranking-shots`, 저장소 밖): `ranking-path-{pastel,dark}-ko-390`·`ranking-path-{pastel,dark}-en-1440`, 같은 꼴로 `ranking-faction-*`·`ranking-faction-card-*`. 파스텔·다크에서 눈으로 확인(390 경로 판 파스텔·다크, 1440 다크 세력 판, 390 다크 세력 화면 칸). 확인 중 고친 것: 내 세력 자리의 "휴먼 328명성 아직 없음"이 붙어 보여 " · "로 잇고, 영어 "1 cities"를 "Cities 1"로 바꿨다(그 뒤 형식·린트·다국어·게임 타입 검사만 다시 돌림, 화면 시험은 다시 돌리지 않음).
-- `pnpm check:docs`·`pnpm check:content origin/main`: 아래 합친 뒤 결과.
+- 사진(세션 임시 폴더 `ranking-shots`, 저장소 밖): `ranking-path-{pastel,dark}-ko-390`·`ranking-path-{pastel,dark}-en-1440`, 같은 꼴로 `ranking-faction-*`·`ranking-faction-card-*`. 파스텔·다크에서 눈으로 확인(390 경로 판 파스텔·다크, 1440 다크 세력 판, 390 다크 세력 화면 칸). 확인 중 고친 것: 내 세력 자리의 "휴먼 328명성 아직 없음"이 붙어 보여 " · "로 잇고, 영어 "1 cities"를 "Cities 1"로 바꿨다(아래 합친 뒤 검사·화면 시험에서 다시 확인).
+- **origin/main 합침**(`7fedbba`: 정원사 2·유전자 2·창고·직무가 먼저 들어옴): 충돌은 `content/core/manifest.json`(판 43으로)·`docs/WORKLOG.md`(목차 다시 만듦) 둘. 마이그레이션 갈래(`gardener_two`·`genes_2`·`facility_city`와 `ranking`, 같은 부모) — 합친 뒤 `db:generate` "No schema changes". 합친 뒤 정원사 2의 세력 명성 싣기·보호 레이드 전투 빼기를 더하고(DB 시험에 둘 더함), 시안 세력 명성 값·명성 안내 문구를 고쳤다.
+- 합친 뒤 `TEST_DATABASE_URL=… pnpm check` 통과: 시험 440파일 3,604개, 다국어 4,063키, 대비 738쌍, 콘텐츠 core@43. (처음 한 번은 합친 메시지로 Paraglide 생성 파일이 옛것이라 린트 `import(namespace)` 67개가 났다 → 생성 파일을 다시 만든 뒤 통과. 코드 문제 아님)
+- 합친 뒤 `pnpm e2e ranking.spec.ts` 9개 다시 통과(43초, 빌드 포함), 사진 12장 다시 찍음(세력 판 명성 값·내 세력 자리 " · " 잇기 확인).
+- `pnpm check:docs`·`pnpm check:content origin/main`: 통과(커밋 직전).
 
 ## [임시] 값
 - 집계 하루(UTC 0시), 감쇠 18‰/집계, 등급 문턱 10·50·200·500‰, 최상위 1~3위, 언더독 상한 4000‰, 세력 판 도시 1000·발전도 10·휴먼 100·국고 1000단위 = 1점, 경로 가중치 모두 1000‰, 판 줄 50(옛 LIMIT 50), 시안 참가 1,284·내 순위 63·세력 16.
@@ -48,7 +51,7 @@
 ## 함께 바꿔야 하는 파일
 - 새 지표를 더하면: `packages/shared/src/ranking.ts` `RANKING_MEASURES`(끝에), `apps/server/src/ranking/measures.ts`(읽기)·`snapshot.ts` `measureValues`, 화면 `rankingText.ts` `MEASURE_NAMES`, 문구 ko·en.
 - 경로를 열면: 팩 `ranking_paths.json`(`open`·`measures`)과 `manifest.json` 판.
-- 정원사 2를 합치면: `snapshot.ts`·`measures.ts`(세력 명성 → `renown`, 보호 레이드 전투 빼기), `reads.ts`(유저 명성).
+- 정원사 명성 저장 모양(`npc_society.gardener.renown` = [소유 주체 ID, 값])이 바뀌면 `measures.ts` `readFactionRenown`. 유저 명성이 생기면 `reads.ts`(`renown` 칸).
 
 ## 건드리지 말 것
 - 랭킹 표는 집계가 통째로 바꿔 쓰는 파생 자료다. 손으로 고치면 다음 집계의 감쇠·지난 순위가 그 값에서 이어진다.

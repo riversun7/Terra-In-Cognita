@@ -2,17 +2,28 @@
 // docs/adr/2026-11-07-buildings-runtime.md. 기술 기본 화면: 값은 건물 편집기(/dev/buildings)·설정 패널에서 고친다.
 // - 자료는 tRPC facilities.overview(실제 자료만), 바꾸는 명령은 WebSocket(facilityCommands.ts, 프로토콜 10)이다.
 // - 서버가 판정한다(소유·배치·재료·시간). 화면은 미리 셈(재료·시간, 같은 식)과 결과 코드 문구만 보인다.
-// - 차례: 규칙 한 줄 → 일꾼 고르기(짓기·레벨업 단축, 수리·장비 수리에 꼭) → 내 시설 → 새로 짓기 → 고칠 장비 → 내 세력 비콘 → 내 재료.
+// - 차례: 규칙 한 줄 → 일꾼 고르기(짓기·레벨업 단축, 수리·장비 수리에 꼭) → 내 시설 → 새로 짓기 → 고칠 장비 → 내 세력 비콘 → 내 창고·화물.
+// - 재료 자리(D-516 361, "바뀜 (창고·직무)"): 짓는 칸이 속한 도시(같은 2차맵의 가장 가까운 도시) 창고 + 그 도시의 내 창고 시설 + 그 2차맵
+//   내 유닛 화물. 미리 셈·단추 막기도 그 자리의 물자로 센다(@terra/shared/facilities materialStockAt). 개발 재료 받기는 그 칸의 도시 창고로.
 import type { FacilitiesOverviewResponse } from "@terra/shared/facilities";
+import { cityOfCell } from "@terra/shared/goodsPlaces";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
-import { fmt, formatDuration, pickName } from "./economyText.ts";
+import { formatDuration, pickName } from "./economyText.ts";
 import { BeaconCard, FacilityCard, HoldingRepairRow } from "./FacilityCards.tsx";
 import { sendFacilityCommand } from "./facilityCommands.ts";
-import { FACILITY_ERROR_TEXT, type FacilityRun, canAfford, cutTime, stacksText } from "./facilityText.ts";
+import {
+  FACILITY_ERROR_TEXT,
+  type FacilityRun,
+  canAfford,
+  cutTime,
+  stacksText,
+  stockAt,
+} from "./facilityText.ts";
 import { Loaded } from "./parts.tsx";
 import { NO_ARGS, useFacilities, useNowTick } from "./queries.ts";
+import { PlacesList } from "./StorageParts.tsx";
 import "./facilities.css";
 
 const ROTATIONS = [0, 90, 180, 270] as const;
@@ -88,6 +99,12 @@ function BuildForm({
   const level1 = chosen?.levels[0];
   const ready =
     chosen !== undefined && level1 !== undefined && mapKey !== undefined && isCell(x) && isCell(y);
+  // 짓는 칸이 속한 도시와 그 자리의 재료(서버와 같은 규칙)
+  const city =
+    mapKey !== undefined && isCell(x) && isCell(y)
+      ? cityOfCell(data.cities, mapKey, Number(x), Number(y))
+      : undefined;
+  const stock = stockAt(data, mapKey ?? -1, city?.id ?? null);
   return (
     <form
       className="labor-form"
@@ -172,11 +189,14 @@ function BuildForm({
       {level1 ? (
         <p className="eco-have" data-part="facility-preview">
           {m.facility_build_preview({
-            materials: stacksText(data, level1.materials),
+            materials: stacksText(data, stock, level1.materials),
             time: formatDuration(cutTime(level1.timeMs, units.length, data)),
           })}
         </p>
       ) : null}
+      <p className="eco-footnote" data-part="facility-source">
+        {city ? m.facility_build_city({ id: city.id }) : m.facility_build_no_city()}
+      </p>
       <div className="labor-actions">
         {data.dev && level1 ? (
           <button
@@ -191,6 +211,10 @@ function BuildForm({
                   t: "dev_facility_grant",
                   item: stack.item,
                   qty: Math.min(100_000, stack.qty * 2),
+                  // 짓는 칸이 속한 도시 창고로(서버가 칸으로 도시를 정한다)
+                  ...(mapKey !== undefined && isCell(x) && isCell(y)
+                    ? { mapKey, x: Number(x), y: Number(y) }
+                    : {}),
                 });
             }}
           >
@@ -200,7 +224,7 @@ function BuildForm({
         <button
           type="submit"
           className="eco-submit"
-          disabled={busy || !ready || (level1 !== undefined && !canAfford(data, level1.materials))}
+          disabled={busy || !ready || (level1 !== undefined && !canAfford(stock, level1.materials))}
         >
           {m.facility_build()}
         </button>
@@ -250,7 +274,6 @@ export function FacilityPanel() {
           // 고른 일꾼 가운데 지금도 쓸 수 있는 것만 보낸다(작업이 시작되면 바쁨)
           const units = picked.filter((id) => loaded.units.some((unit) => unit.id === id && !unit.busy));
           const props = { data: loaded, units, now, run, busy };
-          const owned = loaded.materials.filter((entry) => entry.have !== "0");
           return (
             <>
               <UnitPicker data={loaded} picked={units} onChange={setPicked} />
@@ -292,14 +315,8 @@ export function FacilityPanel() {
                   </ul>
                 </>
               ) : null}
-              <h3 className="eco-subtitle">{m.facility_materials_title()}</h3>
-              <p className="eco-have" data-part="facility-materials">
-                {owned.length === 0
-                  ? m.facility_materials_empty()
-                  : owned
-                      .map((entry) => `${pickName(entry.name ?? undefined, entry.item)} ${fmt(entry.have)}`)
-                      .join(" · ")}
-              </p>
+              <h3 className="eco-subtitle">{m.facility_places_title()}</h3>
+              <PlacesList data={loaded} run={run} busy={busy} />
             </>
           );
         }}

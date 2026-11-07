@@ -107,8 +107,9 @@ export interface SocietyOptions {
   readonly scheduleUnit: (unitId: number, nowMs: number) => void;
   readonly cancel: (eventId: number) => void;
   /**
-   * 수명이 다해 죽은 휴먼(환생·신격화가 아닌 사망, 상속 뒤 지우기 전)을 알린다. 서버가 그 종의 유전자 조각을 소유자에게 준다
-   * (D-478, docs/adr/2026-11-07-cyborg-fusion-genes.md). 시뮬레이터는 넘기지 않는다(출력 그대로)
+   * 수명이 다해 죽은 휴먼(환생·신격화가 아닌 사망, 상속 뒤 지우기 전)을 알리는 고리(D-478, docs/adr/2026-11-07-cyborg-fusion-genes.md).
+   * 지금은 아무도 넘기지 않는다: NPC 세력 휴먼의 유전자는 남기지 않는다(D-516 줄기 — 쓰는 곳이 없고 인스턴스가 끝없이 쌓인다, 질문 397).
+   * 시뮬레이터도 넘기지 않는다(출력 그대로)
    */
   readonly onDeath?: ((unit: SimUnit, nowMs: number) => void) | undefined;
 }

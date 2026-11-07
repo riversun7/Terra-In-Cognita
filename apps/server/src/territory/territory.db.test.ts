@@ -77,7 +77,7 @@ async function join(userId: string, factionId: number, logs = 100): Promise<void
   ]);
   const p = worlds.at(-1)?.persistence;
   if (p && logs > 0)
-    grantGoods(p.ledger, p.settlement.ownerOfUser(userId, clock).id, "pine_log", logs, clock);
+    grantGoods(p.ledger, p.settlement.ownerOfUser(userId, clock).id, "pine_log", logs, clock, null);
 }
 
 async function testFaction(): Promise<number> {

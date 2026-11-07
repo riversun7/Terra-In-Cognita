@@ -2,7 +2,7 @@
 // 안에서 연다(D-6010). 지연 로딩 조각이다(default export, shell/routeViews.tsx). docs/adr/2026-11-07-ranking.md.
 // - 자료: ranking.board 하나(판마다 다시 받는다 — 판 주소가 바뀌면 key로 새로 그린다). 셈은 서버 집계(하루 한 번 [임시]).
 // - 배치(모바일 우선): 판 고르기 → 재는 것 → 내 자리 → 등급 문턱 → 순위(위 50줄, 내 줄이 밖이면 끝에 한 줄 더) → 집계 안내.
-// - 안 연 경로는 "곧 열림"(D-392). 시간제 버프는 빼고 센다는 안내(D-7022). 명성 칸은 자리만(정원사 2 — 확인 대기).
+// - 안 연 경로는 "곧 열림"(D-392). 시간제 버프는 빼고 센다는 안내(D-7022). 세력 명성은 정원사 2 값, 유저 명성은 칸만(값 없음 — 확인 대기).
 import type { RouteMatch } from "@terra/shared";
 import type { RankingBoardRequest, RankingBoardResponse, RankingRow } from "@terra/shared/ranking";
 import { useId, useState } from "react";

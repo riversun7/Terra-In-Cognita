@@ -19,6 +19,7 @@
     "./facilityRuntime": "./src/facilityRuntime.ts",
     "./faction": "./src/faction.ts",
     "./formula": "./src/formula.ts",
+    "./goodsPlaces": "./src/goodsPlaces.ts",
     "./holdings": "./src/holdings.ts",
     "./inbox": "./src/inbox.ts",
     "./itemEditor": "./src/itemEditor.ts",

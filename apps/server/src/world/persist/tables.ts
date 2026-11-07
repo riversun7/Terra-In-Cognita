@@ -148,6 +148,12 @@ export const WORLD_TABLES = {
     columns: ["unit_id", "level", "stats", "elements", "human_stats", "donor", "bonus_pm", "fused_at_ms"],
     key: ["unit_id"],
   },
+  /** 유닛이 배운 스킬(스킬 유전자 주입 D-516, 유닛·스킬마다 한 줄). 유닛 다음에 쓰고, 유닛이 지워지면 DB가 함께 지운다 */
+  unitSkills: {
+    name: "unit_skills",
+    columns: ["unit_id", "skill_id", "grade", "source", "learned_at_ms"],
+    key: ["unit_id", "skill_id"],
+  },
   /** 구인 카드 산 칸(D-469): 고용 주체 × 도시마다 한 줄(소유 주체·도시 다음에 쓴다) */
   recruitDraws: {
     name: "recruit_draws",
@@ -191,7 +197,7 @@ export const WORLD_TABLES = {
     columns: ["planet_id", "cell_key", "value", "updated_at_ms"],
     key: ["planet_id", "cell_key"],
   },
-  /** 정원사 도시 웨이브(예고부터 결과까지 한 줄) */
+  /** 정원사 도시 웨이브·보호 레이드(예고부터 결과까지 한 줄). reward는 JSON 글자로 넣는다 */
   gardenerWaves: {
     name: "gardener_waves",
     columns: [
@@ -207,10 +213,15 @@ export const WORLD_TABLES = {
       "state",
       "battle_id",
       "resolved_at_ms",
+      "kind",
+      "reward",
     ],
     key: ["id"],
   },
-  /** 보유 물건(아이템 인스턴스, docs/adr/2026-11-03-item-holdings.md 2절). stats는 JSON 글자로 넣는다(pg가 배열을 Postgres 배열로 바꾸지 않게) */
+  /**
+   * 보유 물건(아이템 인스턴스, docs/adr/2026-11-03-item-holdings.md 2절). stats·gene(유전자 값 D-516)은 JSON 글자로 넣는다(pg가 배열을
+   * Postgres 배열로 바꾸지 않게)
+   */
   holdings: {
     name: "item_holdings",
     columns: [
@@ -228,6 +239,7 @@ export const WORLD_TABLES = {
       "aged_at_ms",
       "created_at_ms",
       "source",
+      "gene",
     ],
     key: ["id"],
   },
@@ -323,6 +335,7 @@ export const WORLD_TABLES = {
       "condition_at_ms",
       "built_at_ms",
       "built_by",
+      "city_id",
     ],
     key: ["building_id"],
   },
@@ -392,6 +405,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "units",
   "humans",
   "cyborgUnits",
+  "unitSkills",
   "recruitDraws",
   "factionWars",
   "npcSociety",

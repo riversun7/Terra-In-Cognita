@@ -15,6 +15,7 @@ function fakeService(calls: string[]): LaborService {
   return {
     contracts: new Map(),
     outputsFor: () => undefined,
+    afterSettle: () => {},
     unitBusy: () => false,
     buildingInUse: () => false,
     create: (userId, input) => {

@@ -36,15 +36,19 @@ export interface EconomyResponseHead {
  */
 export type MarketKind = "book" | "auction" | "none";
 
-/** 거래 방식 규칙 하나(서버 경제 시안·아이템 편집기·화면 옛 규칙 사본을 모았다, 아이템 편집기 설계안 5.1) */
+/**
+ * 거래 방식 규칙 하나(서버 경제 시안·아이템 편집기·화면 옛 규칙 사본을 모았다, 아이템 편집기 설계안 5.1).
+ * 유전자(팩 gene 칸)는 하나하나 값이 다른 인스턴스라(D-516) 장비처럼 경매 매물이다(같은 것끼리 바꿔 쓰는 호가창이 아니다)
+ */
 export function marketKindOf(item: {
   readonly category: string;
   readonly tradable?: boolean | undefined;
   readonly bound?: boolean | undefined;
+  readonly gene?: unknown;
 }): MarketKind {
   if (item.bound === true || item.tradable === false) return "none";
   if (item.category === "document") return "none";
-  return item.category === "equipment" ? "auction" : "book";
+  return item.category === "equipment" || item.gene !== undefined ? "auction" : "book";
 }
 
 export interface CatalogItemView {
@@ -194,9 +198,12 @@ export type StoreKind = "general" | "food" | "armory";
 
 /** 보유가 있는 곳 */
 export interface HoldingPlace {
-  /** 곳 ID: 창고 위치(도시) ID, 위치 없는 계정은 "ledger", 유닛이 실은 화물은 "cargo_<유닛 ID>" */
+  /**
+   * 곳 ID: 창고 위치(도시) ID, 위치 없는 계정은 "ledger", 유닛이 실은 화물은 "cargo_<유닛 ID>", 건물 창고(창고 시설·임대 몫)는
+   * "building_<건물 ID>"(@terra/shared/goodsPlaces)
+   */
   readonly id: string;
-  readonly kind: "warehouse" | "ledger" | "cargo";
+  readonly kind: "warehouse" | "ledger" | "cargo" | "building";
   /** 도시 이름(번역하지 않는다). 모르면 null */
   readonly name: string | null;
   readonly store: StoreKind | null;

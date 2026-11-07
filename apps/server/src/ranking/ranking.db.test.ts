@@ -173,7 +173,8 @@ describe.skipIf(!TEST_DATABASE_URL)("랭킹 집계·조회 (DB)", () => {
       `insert into ledger_entries (tx_id, account_id, amount) values (1, 1, -100), (1, 2, 100), (2, 1, -900), (2, 2, 900)`,
     );
     // 전투: 플레이어(편 2, 유닛 1)가 다른 유저(편 1, 유닛 3)에게 전쟁에서 이김 → 언더독 3000‰.
-    // 다른 유저(편 1, 유닛 2)가 플레이어(편 2, 유닛 2)를 전쟁 아닌 전투에서 이김 → 1000‰. 정원사(소유 주체 아님)가 이긴 전투는 0
+    // 다른 유저(편 1, 유닛 2)가 플레이어(편 2, 유닛 2)를 전쟁 아닌 전투에서 이김 → 1000‰. 정원사(소유 주체 아님)가 이긴 전투는 0.
+    // 세력 B가 정원사 보호 레이드(D-500, 4번)를 막아도 랭킹 점수는 없다
     const battles: [number, boolean, unknown, number][] = [
       [
         1,
@@ -188,6 +189,7 @@ describe.skipIf(!TEST_DATABASE_URL)("랭킹 집계·조회 (DB)", () => {
         1,
       ],
       [3, false, { sides: [side(1, 0), side(2, 2)], units: [unit(1, 1), unit(2, 2)] }, 1],
+      [4, false, { sides: [side(1, 0), side(2, 2)], units: [unit(1, 1), unit(2, 2)] }, 2],
     ];
     for (const [id, war, init, winner] of battles) {
       await sql(
@@ -201,6 +203,24 @@ describe.skipIf(!TEST_DATABASE_URL)("랭킹 집계·조회 (DB)", () => {
         JSON.stringify({ result: { winner, reason: "wipe", endTick: 1 }, units: [] }),
       ]);
     }
+    await sql(
+      `insert into gardener_waves (id, city_id, cell_key, faction_id, strength, physical, created_at_ms, arrive_at_ms, state, battle_id, kind)
+         values (1, 3, 0, $1, 5, 0, $2, $2, 'repelled', 4, 'protection')`,
+      [factionB, IN_WINDOW],
+    );
+    // 정원사 2 세력 명성: 세력 A 소유 주체(1)에 120, 없는 주체(99)는 건너뜀
+    await sql(`insert into npc_society (id, seed, day, updated_at_ms, gardener) values (1, 7, 3, 0, $1)`, [
+      JSON.stringify({
+        mothershipCell: 0,
+        nextWaveId: 2,
+        relations: [],
+        renown: [
+          [1, 120],
+          [99, 5],
+        ],
+        nomads: [],
+      }),
+    ]);
     // 시설: 플레이어가 지은 2레벨(상태 가득) 하나 + 짓는 중(레벨 0) 하나
     await sql(
       `insert into world_facilities (building_id, facility_id, level, condition_ppm, condition_at_ms, built_at_ms, built_by)
@@ -262,7 +282,7 @@ describe.skipIf(!TEST_DATABASE_URL)("랭킹 집계·조회 (DB)", () => {
       ["conqueror", 1, 1632, 2],
       ["conqueror", 2, 1321, 3],
     ]);
-    // 용병: 다른 유저 1000(정원사가 이긴 전투는 세지 않는다)
+    // 용병: 다른 유저 1000(정원사가 이긴 전투·보호 레이드는 세지 않는다)
     expect(table.filter((row) => row[0] === "mercenary")).toEqual([["mercenary", 11, 1000, 1]]);
     // 대지주: 기간 안 산출 100만 → log2(101) ≈ 6658
     expect(table.filter((row) => row[0] === "landlord")).toEqual([["landlord", 10, 6658, 1]]);
@@ -282,7 +302,7 @@ describe.skipIf(!TEST_DATABASE_URL)("랭킹 집계·조회 (DB)", () => {
         row.renown,
       ]),
     ).toEqual([
-      [factionA, 2405, 1, 2, 3, null],
+      [factionA, 2405, 1, 2, 3, "120"],
       [factionB, 1500, 2, 1, 0, null],
     ]);
   });
@@ -328,7 +348,7 @@ describe.skipIf(!TEST_DATABASE_URL)("랭킹 집계·조회 (DB)", () => {
     expect(mine.faction).toMatchObject({
       name: { ko: "시험 국가 가", en: "Test nation A" },
       standing: { rank: 1, total: 2, score: 2405 },
-      detail: { cities: 2, humans: 3, renown: null },
+      detail: { cities: 2, humans: 3, renown: 120 },
     });
     expect(mine.renown).toBeNull();
 

@@ -120,6 +120,27 @@ export function influenceSum(
   return sum;
 }
 
+/**
+ * 세력 오염(D-509, D-511 기술 해석 "그 세력 칸 오염의 합으로 시작"): 그 세력 도시들의 영향권 칸을 합친 집합(겹치는 칸은 한 번)의
+ * 오염 합. 세력 오염은 목표 순위·세기를 정하고 정원 세력 관계도를 깎는다
+ */
+export function unionInfluenceSum(
+  layer: PollutionLayer,
+  cells: readonly number[],
+  grid: PollutionGrid,
+  radius: number,
+): number {
+  const seen = new Set<number>();
+  let sum = 0;
+  for (const cell of cells)
+    for (const other of influenceCells(cell, grid, radius))
+      if (!seen.has(other)) {
+        seen.add(other);
+        sum += layer.get(other) ?? 0;
+      }
+  return sum;
+}
+
 /** 합성 정사각 격자(한 변 size, 칸 = y × size + x, 이웃 8칸, 가장자리 밖은 없다). 시뮬레이터·시험용 */
 export interface SquareGrid extends PollutionGrid {
   readonly size: number;

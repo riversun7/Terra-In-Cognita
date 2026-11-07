@@ -88,7 +88,12 @@ function factionRow(rank: number, c: RankingCoefficients, me: boolean): RankingR
     tierPm: tierPmOf(rank, PREVIEW_FACTION_TOTAL, c.tiersPm),
     top: rank <= c.topRanks,
     me,
-    detail: { cities: Math.max(1, 14 - rank), humans: Math.max(10, 420 - rank * 23), renown: null },
+    // 명성: 위 12개 세력만 쌓았다(나머지는 "아직 없음")
+    detail: {
+      cities: Math.max(1, 14 - rank),
+      humans: Math.max(10, 420 - rank * 23),
+      renown: rank <= 12 ? (17 - rank) * 30 : null,
+    },
     preview: true,
   };
 }
@@ -173,7 +178,7 @@ export function previewMine(
         tierPm: tierPmOf(PREVIEW_MY_FACTION_RANK, PREVIEW_FACTION_TOTAL, c.tiersPm),
         top: PREVIEW_MY_FACTION_RANK <= c.topRanks,
       },
-      detail: { cities: 10, humans: 328, renown: null },
+      detail: { cities: 10, humans: 328, renown: (17 - PREVIEW_MY_FACTION_RANK) * 30 },
     },
     renown: null,
   };

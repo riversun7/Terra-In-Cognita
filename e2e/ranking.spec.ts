@@ -1,7 +1,7 @@
 // 랭킹 화면 시험 — /cyborg/ranking·/faction/ranking(docs/adr/2026-11-07-ranking.md, D-040·D-041·D-392·D-6010).
 // - 플레이어(실제 자료): 서버가 켜질 때 센 첫 집계(바로 앞 하루 + 지금 재고). 세력 화면 옆 판의 세력 순위 칸 → 세력 순위표(내 세력 줄),
 //   판 고르기로 정복자(NPC 세력이 도시를 가져 판에 있다)·안 연 경로(곧 열림)로 옮긴다. 사이보그 화면 랭킹 칸 → 모든 경로 순위.
-// - dev + 시안 자료: 50줄 + 내 줄(63위, 위 50줄 밖이라 끝에 한 줄 더), 세력 판 16줄·명성 "아직 없음".
+// - dev + 시안 자료: 50줄 + 내 줄(63위, 위 50줄 밖이라 끝에 한 줄 더), 세력 판 16줄·세력 명성(위 12개만, 나머지 "아직 없음").
 // - 긴 이름·큰 수는 ranking.board 응답을 고쳐 넣는다(helpers/trpc.ts rewriteTrpc).
 // - 사진: 390·1440 × 파스텔·다크(경로 판·세력 판, 390은 한국어·1440은 영어) + 세력 화면 옆 판(E2E_SHOTS_DIR).
 // 자리는 화면 부품의 class로 찾는다(apps/game/src/ranking/RankingScreen.tsx, faction/FactionRanking.tsx). 문구는 메시지 원본.
@@ -137,7 +137,7 @@ test.describe("플레이어(실제 자료)", () => {
 test.describe("dev 시안 자료", () => {
   test.use({ account: "dev", preview: "dev" });
 
-  test("경로 판: 50줄 + 내 줄(63위, 끝에), 등급 문턱 넷, 시험 자료 안내 / 세력 판: 16줄·규모·명성 아직 없음", async ({
+  test("경로 판: 50줄 + 내 줄(63위, 끝에), 등급 문턱 넷, 시험 자료 안내 / 세력 판: 16줄·규모·세력 명성", async ({
     page,
     deviceErrors,
   }) => {
@@ -162,7 +162,11 @@ test.describe("dev 시안 자료", () => {
     await rankingReady(page);
     await expect(screen.locator(".ranking-row")).toHaveCount(16);
     await expect(screen.locator(".ranking-row[data-me]")).toHaveCount(1);
-    await expect(screen.locator(".ranking-row").first()).toContainText(message("ko", "ranking_renown_none"));
+    // 명성(정원사 2 세력 명성): 시안 1위 480, 16위는 아직 없음
+    await expect(screen.locator(".ranking-row").first()).toContainText(
+      message("ko", "ranking_renown", { renown: "480" }),
+    );
+    await expect(screen.locator(".ranking-row").last()).toContainText(message("ko", "ranking_renown_none"));
     expect(deviceErrors).toEqual([]);
   });
 });

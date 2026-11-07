@@ -1,0 +1,273 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "7add08bf-1998-4745-9c2b-a2731c05e426",
+  "prevIds": [
+    "7d899bea-10e6-4f66-a02a-4f8248110eb0",
+    "58429802-d1f4-46d4-9b24-2aeed39d24b0"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "unit_skills"
+      ],
+      "writes": [
+        "s|tbl|public.unit_skills",
+        "n|tbl|public.unit_skills",
+        "e|tbl|public.unit_skills",
+        "n|rel|public.unit_skills",
+        "n|type|public.unit_skills",
+        "n|rel|public.unit_skills_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "item_holdings",
+        "gene"
+      ],
+      "writes": [
+        "s|col|public.item_holdings.gene",
+        "n|col|public.item_holdings.gene",
+        "e|col|public.item_holdings.gene"
+      ],
+      "reads": [
+        "n|tbl|public.item_holdings",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "unit_skills"
+      ],
+      "writes": [
+        "s|fk|public.unit_skills.unit_skills_unit_id_world_units_id_fkey",
+        "n|fk|public.unit_skills.unit_skills_unit_id_world_units_id_fkey",
+        "e|fk|public.unit_skills.unit_skills_unit_id_world_units_id_fkey",
+        "n|con|public.unit_skills.unit_skills_unit_id_world_units_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.unit_skills",
+        "n|sch|public",
+        "n|tbl|public.world_units",
+        "n|sch|public",
+        "n|col|public.unit_skills.unit_id",
+        "n|col|public.world_units.id",
+        "e|uniqueness|public.world_units.id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "item_holdings"
+      ],
+      "writes": [
+        "s|ck|public.item_holdings.item_holdings_gene",
+        "n|ck|public.item_holdings.item_holdings_gene",
+        "e|ck|public.item_holdings.item_holdings_gene",
+        "n|con|public.item_holdings.item_holdings_gene"
+      ],
+      "reads": [
+        "n|tbl|public.item_holdings",
+        "n|sch|public",
+        "n|col|public.item_holdings.gene",
+        "n|col|public.item_holdings.quantity"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "unit_skills",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "item_holdings",
+        "name": "gene",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_skills",
+        "name": "unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_skills",
+        "name": "skill_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_skills",
+        "name": "grade",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_skills",
+        "name": "source",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_skills",
+        "name": "learned_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_skills",
+        "name": "unit_skills_unit_id_world_units_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "unit_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_units",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_skills",
+        "name": "unit_skills_pkey",
+        "columns": [
+          "unit_id",
+          "skill_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "item_holdings",
+        "name": "item_holdings_gene",
+        "value": "\"gene\" is null or \"quantity\" = 1",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_skills",
+        "name": "unit_skills_skill_format",
+        "value": "\"skill_id\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_skills",
+        "name": "unit_skills_grade",
+        "value": "\"grade\" between 1 and 10",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_skills",
+        "name": "unit_skills_source_format",
+        "value": "\"source\" ~ '^[a-z][a-z0-9_]{1,31}$'",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

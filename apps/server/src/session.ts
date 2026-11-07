@@ -16,7 +16,9 @@ import {
   LABOR_PROTOCOL_VERSION,
   LABOR_JOBS_PROTOCOL_VERSION,
   FACILITY_PROTOCOL_VERSION,
+  STORAGE_PROTOCOL_VERSION,
   FUSION_PROTOCOL_VERSION,
+  GENE_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -50,7 +52,7 @@ export interface SessionContext {
   items?: ItemGateway | undefined;
   /** 노동 계약 명령(docs/adr/2026-11-03-labor-contracts.md). 없으면 busy */
   labor?: LaborGateway | undefined;
-  /** 사이보그 유닛 융합·유전자 환생·개발 물자 받기(프로토콜 9, docs/adr/2026-11-07-cyborg-fusion-genes.md). 없으면 busy */
+  /** 사이보그 유닛 융합·개발 물자 받기(프로토콜 9)·유전자(11, docs/adr/2026-11-07-cyborg-fusion-genes.md). 없으면 busy */
   fusion?: FusionGateway | undefined;
   /** 건물 짓기·수리 명령(프로토콜 10, docs/adr/2026-11-07-buildings-runtime.md). 없으면 busy */
   facilities?: FacilityGateway | undefined;
@@ -311,10 +313,18 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         return;
       }
       case "cyborg_fuse":
-      case "unit_rebirth":
-      case "dev_grant_goods": {
-        // 융합·유전자 환생·개발 물자 받기는 프로토콜 9의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
-        if (protocolVersion < FUSION_PROTOCOL_VERSION) {
+      case "dev_grant_goods":
+      case "gene_synthesize":
+      case "gene_inject":
+      case "gene_incubate":
+      case "dev_grant_gene":
+      case "dev_expire_unit": {
+        // 융합·개발 물자 받기는 프로토콜 9, 유전자 명령은 11의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        const needs =
+          message.t === "cyborg_fuse" || message.t === "dev_grant_goods"
+            ? FUSION_PROTOCOL_VERSION
+            : GENE_PROTOCOL_VERSION;
+        if (protocolVersion < needs) {
           reject("invalid_message");
           return;
         }
@@ -331,9 +341,11 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "facility_repair":
       case "equipment_repair":
       case "dev_facility_grant":
-      case "dev_facility_finish": {
-        // 건물 명령은 프로토콜 10의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
-        if (protocolVersion < FACILITY_PROTOCOL_VERSION) {
+      case "dev_facility_finish":
+      case "storage_move": {
+        // 건물 명령은 프로토콜 10, 창고 옮기기는 12의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        const needs = message.t === "storage_move" ? STORAGE_PROTOCOL_VERSION : FACILITY_PROTOCOL_VERSION;
+        if (protocolVersion < needs) {
           reject("invalid_message");
           return;
         }

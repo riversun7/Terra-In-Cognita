@@ -85,7 +85,7 @@ export interface RankingStanding {
   readonly top: boolean;
 }
 
-/** 세력 판 한 줄의 덧붙임: 규모와 명성(정원사 명성은 아직 없어 null — docs/adr/2026-11-07-ranking.md 확인 대기) */
+/** 세력 판 한 줄의 덧붙임: 규모와 세력 명성(정원사 2가 쌓은 값, 쌓은 적 없으면 null — 점수에 더하지 않는다) */
 export interface RankingFactionDetail {
   readonly cities: number;
   readonly humans: number;
@@ -133,7 +133,7 @@ export interface RankingBoardResponse {
   /** 내 줄(위 N줄에 있어도 같은 값을 다시 보낸다). 판에 없으면 null */
   readonly me: RankingRow | null;
   readonly tiers: readonly RankingTierCut[];
-  /** 유저 명성(내 자리 칸, D-499 → 질문 394 "다"). 정원사 명성이 main에 들어오기 전이라 null — ADR 확인 대기 */
+  /** 유저 명성(내 자리 칸, D-499 → 질문 394 "다"). 유저에게 명성을 쌓는 곳이 아직 없어 null — ADR 확인 대기 */
   readonly renown: number | null;
 }
 
@@ -157,7 +157,7 @@ export interface RankingMineResponse {
     readonly standing: RankingStanding | null;
     readonly detail: RankingFactionDetail | null;
   } | null;
-  /** 유저 명성(D-499 → 질문 394 "다"). 정원사 명성이 main에 들어오기 전이라 null — ADR 확인 대기 */
+  /** 유저 명성(D-499 → 질문 394 "다"). 유저에게 명성을 쌓는 곳이 아직 없어 null — ADR 확인 대기 */
   readonly renown: number | null;
 }
 

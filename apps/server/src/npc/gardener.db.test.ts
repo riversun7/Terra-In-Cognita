@@ -177,10 +177,47 @@ describe.skipIf(!TEST_DATABASE_URL)("정원사(서버)", () => {
     // 시작 도시는 폐허가 되지 않는다(D-341)
     expect(after.filter((row) => done.some((wave) => wave.city_id === row.id))).toHaveLength(3);
     // 정원사 상태(모함 칸·유목 부대)가 저장된다
-    const society = await rows<{ gardener: { mothershipCell: number; nomads: unknown[] } | null }>(
-      test.db,
-      `select gardener from npc_society where id = 1`,
-    );
+    const society = await rows<{
+      gardener: { mothershipCell: number; nomads: unknown[]; relations: [number, number][] } | null;
+    }>(test.db, `select gardener from npc_society where id = 1`);
     expect(society[0]?.gardener?.nomads).toHaveLength(3);
+    // 정원사 2: 세력마다 정원 세력 관계도(49 N52, 시험 국가 셋 이상), 웨이브 종류 = 도시, 막아 낸 웨이브만 보상 기록(D-499)
+    expect(society[0]?.gardener?.relations.length).toBeGreaterThanOrEqual(3);
+    const recorded = await rows<{
+      kind: string;
+      state: string;
+      strength: number;
+      reward: { renown: number; genes: number; items: unknown[] } | null;
+    }>(test.db, `select kind, state, strength, reward from gardener_waves order by id`);
+    for (const wave of recorded) {
+      expect(wave.kind).toBe("city");
+      if (wave.state === "repelled") expect(wave.reward?.renown).toBe(wave.strength * 10);
+      else expect(wave.reward).toBeNull();
+    }
+  }, 120_000);
+
+  it("보호 레이드(D-500): 필수 NPC 세력을 친 세력의 가장 오래된 도시로, 종류 protection으로 저장되고 다시 켜도 남는다", async () => {
+    const first = await boot();
+    const npc = first.npc;
+    const writer = first.persistence?.writer;
+    if (!npc || !writer) throw new Error("npc runtime");
+    const nations = [...npc.world.factions.values()]
+      .filter((faction) => faction.alive && faction.fixed && faction.cities.size > 0)
+      .toSorted((a, b) => a.id - b.id);
+    const [target, attacker] = nations;
+    if (!target || !attacker) throw new Error("test nations");
+    const home = Math.min(...attacker.cities);
+    expect(npc.gardener.run.protect(attacker, target, Math.min(...target.cities), clock)).toBe(true);
+    await npc.tick(true);
+    await writer.durable();
+    const saved = await rows<{ kind: string; state: string; city_id: string; reward: unknown }>(
+      test.db,
+      `select kind, state, city_id, reward from gardener_waves`,
+    );
+    expect(saved).toEqual([{ kind: "protection", state: "marching", city_id: String(home), reward: null }]);
+    await first.stop();
+    const second = await boot();
+    const restored = [...(second.npc?.gardener.run.waves.values() ?? [])];
+    expect(restored.map((wave) => [wave.kind, wave.city])).toEqual([["protection", home]]);
   }, 120_000);
 });

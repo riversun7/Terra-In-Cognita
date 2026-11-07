@@ -22,6 +22,8 @@ import { worldOwners } from "./schema.ts";
  * - score_pm: 등급 점수(D-5006, 만든 직후 값). durability·max_durability: 내구도가 있는 장비만(수리로 최대가 준다 D-5031)
  * - aged_ms·aged_at_ms: 신선도 묶음의 숙성 상태(실제 시간 ÷ 보존 배율의 합, aged_at_ms까지). 신선도 = 1 − 숙성 ÷ 유통기한(실효 값)
  * - source: 얻은 길(dev_grant·craft·drop·gather·spoil 등, 감사용)
+ * - gene: 유전자 하나의 값(D-516, 유전자 아이템만): 스탯 유전자 = 총합·분포(‰)·속성 12칸, 스킬 유전자 = 스킬 ID, 둘 다 종·남긴 유닛
+ *   (src/holdings/genePayload.ts). 유전자는 하나하나 값이 달라 수량 1인 인스턴스다
  */
 export const itemHoldings = pgTable(
   "item_holdings",
@@ -42,6 +44,7 @@ export const itemHoldings = pgTable(
     agedAtMs: bigint("aged_at_ms", { mode: "number" }),
     createdAtMs: bigint("created_at_ms", { mode: "number" }).notNull(),
     source: text("source").notNull(),
+    gene: jsonb("gene"),
   },
   (table) => [
     index("item_holdings_owner_idx").on(table.ownerId),
@@ -51,6 +54,7 @@ export const itemHoldings = pgTable(
     check("item_holdings_location", sql`${table.location} <> 0`),
     check("item_holdings_slot", sql`${table.slot} is null or (${table.slot} >= 0 and ${table.location} < 0)`),
     check("item_holdings_quantity", sql`${table.quantity} >= 1`),
+    check("item_holdings_gene", sql`${table.gene} is null or ${table.quantity} = 1`),
     check("item_holdings_score", sql`${table.scorePm} is null or ${table.scorePm} between 0 and 1000`),
     check(
       "item_holdings_durability",

@@ -79,6 +79,33 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "gardener.nomadScoutSize",
   "gardener.nomadLegionAt",
   "gardener.nomadLegionStep",
+  // 정원사 2(ADR "바뀜 (2026-11-07, 정원사 2)"): 관계도 N52·세력 오염 세기·전쟁 오염(하루 끝), 보호 레이드(치기마다), 보상(결과마다)
+  "gardener.relationMin",
+  "gardener.relationMax",
+  "gardener.relationStart",
+  "gardener.relationAllied",
+  "gardener.relationFriendly",
+  "gardener.relationNeutral",
+  "gardener.relationWary",
+  "gardener.relationOthersMax",
+  "gardener.relationPollutionStep",
+  "gardener.relationDropMax",
+  "gardener.relationPeaceDaily",
+  "gardener.relationPeaceEveryDays",
+  "gardener.relationPurifyGain",
+  "gardener.stageChancePm.0",
+  "gardener.stageChancePm.1",
+  "gardener.stageChancePm.2",
+  "gardener.stageChancePm.3",
+  "gardener.stageChancePm.4",
+  "gardener.strengthPollutionUnit",
+  "gardener.warDaily",
+  "gardener.frontRadius",
+  "gardener.raidStrengthPm",
+  "gardener.raidPhysicalPm",
+  "gardener.rewardRenownPer",
+  "gardener.rewardGenes",
+  "gardener.rewardMaterialsPm",
   // 아이템 편집기 미리 보기의 채집 티어 추첨(itemEdit/services.ts preview, D-506 N43): 미리 보기마다 읽는다
   "gatherLevelBonus",
   // 같은 미리 보기의 진행 속도·수확량·필요 진행(D-507 N32·N44)
@@ -204,7 +231,7 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "switches.exchangeEnabled",
   "switches.productionEnabled",
   "switches.npcAiEnabled",
-  // 사이보그 유닛 융합·유전자 환생·사망 조각(fusion/service.ts, 49 N46·N47): 명령·조회마다 읽는다. 유지비 배율은 정산마다
+  // 사이보그 유닛 융합·유전자 합성·인큐베이터(fusion/service.ts·geneCommands.ts, 49 N46·N47): 명령·조회마다 읽는다. 유지비 배율은 정산마다
   // (world.ts createSettlement upkeepWeightPm)
   "fusion.currency",
   "fusion.titaniumQty",
@@ -215,10 +242,13 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "fusion.bonusMaxPm",
   "fusion.partsStat",
   "fusion.upkeepPm",
-  "fusion.geneLevelDivisor",
-  "fusion.geneMin",
-  "fusion.genePoints",
-  "fusion.geneDeathDrop",
+  "fusion.geneUpPm",
+  "fusion.geneDownPm",
+  "fusion.geneKeepPm",
+  "fusion.geneStepPm",
+  "fusion.geneTotalMax",
+  "fusion.geneElementVariance",
+  "fusion.incubateBaseStat",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

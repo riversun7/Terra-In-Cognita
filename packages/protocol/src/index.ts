@@ -59,12 +59,16 @@ export {
   DEV_GRANT_GOODS_MAX,
   FUSION_PROTOCOL_VERSION,
   FUSION_RESULT_CODES,
+  GENE_APPLY_MODES,
+  GENE_OUTCOMES,
+  GENE_PROTOCOL_VERSION,
   type FusionResultCode,
 } from "./fusion.ts";
 export {
   FACILITY_PROTOCOL_VERSION,
   FACILITY_RESULT_CODES,
   type FacilityResultCode,
+  STORAGE_PROTOCOL_VERSION,
 } from "./facilities.ts";
 export {
   LABOR_JOBS_PROTOCOL_VERSION,

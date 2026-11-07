@@ -43,8 +43,8 @@ export const rankingPathScores = pgTable(
 );
 
 /**
- * 세력 판 한 줄(세력 규모, 감쇠 없음 — 집계 때의 값). cities·humans = 그때의 규모, renown = 세력 명성(정원사 2 줄기가 쌓는 값,
- * 아직 main에 없어 null — ADR 확인 대기)
+ * 세력 판 한 줄(세력 규모, 감쇠 없음 — 집계 때의 값). cities·humans = 그때의 규모, renown = 그때의 세력 명성(정원사 2가
+ * npc_society.gardener에 쌓는 값, 쌓은 적 없으면 null — 점수에 더하지 않는다)
  */
 export const rankingFactionScores = pgTable(
   "ranking_faction_scores",

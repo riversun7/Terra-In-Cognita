@@ -2,7 +2,7 @@
 // 원장 계정 = (주체, 자산, 위치)라 곳마다 줄이 나뉜다(R2 ADR 3절). 식품은 상하기 시작하는 시각을 보인다(실제 시간, D-5030).
 // 시안 창고 줄은 "시험"이 붙고, 거래할 수 있는 물건은 그 도시 거래창으로 가는 링크가 있다.
 // 보유 양은 원장 기본 단위다(광석 g). 거래 묶음이 1보다 크면 묶음 크기와 묶음 수(버림)를 덧붙인다(302·D-506).
-import type { HoldingLine, HoldingPlace } from "@terra/shared/economy";
+import { type HoldingLine, type HoldingPlace, marketKindOf } from "@terra/shared/economy";
 import { m } from "../paraglide/messages.js";
 import { AppLink } from "../shell/AppLink.tsx";
 import { toBig } from "./amount.ts";
@@ -25,13 +25,14 @@ function placeTitle(place: HoldingPlace): string {
   if (place.name !== null) return place.name;
   if (place.kind === "ledger") return m.economy_place_ledger();
   if (place.kind === "cargo") return m.economy_place_cargo({ id: place.id.replace(/^cargo_/, "") });
+  if (place.kind === "building") return m.economy_place_building({ id: place.id.replace(/^building_/, "") });
   return m.economy_place_unnamed({ id: place.id });
 }
 
-/** 호가창으로 사고파는 물건인지(장비·문서는 아니다, 서버 previewWorld.tradesOnBook과 같은 [임시] 규칙) */
+/** 호가창으로 사고파는 물건인지(장비·유전자·문서는 아니다, 서버 previewWorld.tradesOnBook과 같은 규칙) */
 function tradable(index: CatalogIndex, itemId: string): boolean {
-  const category = index.items.get(itemId)?.category;
-  return category !== undefined && category !== "equipment" && category !== "document";
+  const item = index.items.get(itemId);
+  return item !== undefined && (item.market ?? marketKindOf(item)) === "book";
 }
 
 function HoldingRow({

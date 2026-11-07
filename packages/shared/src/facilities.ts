@@ -2,6 +2,7 @@
 // docs/adr/2026-11-07-buildings-runtime.md. 서버(apps/server/src/facilities/views.ts)와 경제 화면(apps/game/src/economy/FacilityPanel.tsx)이 같이 쓴다.
 // 수량은 묶음 단위 정수, 원장 잔고는 10진 글자(BigInt). 상태는 ppm(가득 1,000,000, @terra/shared/facilityRuntime).
 import type { ConditionState, FacilityRuntimeRules } from "./facilityRuntime.ts";
+import { type CityCell, type GoodsPlaceKind, isMaterialSource } from "./goodsPlaces.ts";
 import type { LocalizedName } from "./roster.ts";
 
 export type { ConditionState } from "./facilityRuntime.ts";
@@ -71,6 +72,12 @@ export interface FacilityView {
   readonly maxDurability: number;
   /** 창고 용량(kg, 지금 레벨). 창고 없는 시설은 null */
   readonly storageKg: number | null;
+  /** 창고 시설(창고 단계)인가 — 물건을 넣고 꺼낸다(storage_move, 프로토콜 11) */
+  readonly storage: boolean;
+  /** 창고 시설에 든 무게(kg, 모든 주인, 올림). 창고 시설이 아니면 null */
+  readonly storedKg: number | null;
+  /** 건물이 선 도시(재료를 꺼내는 도시 창고, @terra/shared/goodsPlaces). 그 2차맵에 도시가 없으면 null */
+  readonly cityId: number | null;
   readonly job: FacilityJobView | null;
   /** 레벨업(최고 레벨이면 null) */
   readonly upgrade: FacilityStepView | null;
@@ -123,6 +130,31 @@ export interface FacilityHoldingView {
   }[];
 }
 
+/** 내 물건이 있는 자리 하나(도시 창고·건물 창고·화물·자리 없음, @terra/shared/goodsPlaces) */
+export interface GoodsPlaceView {
+  /** 화면 key(city_3·building_42·cargo_17·ledger) */
+  readonly key: string;
+  readonly kind: GoodsPlaceKind;
+  /** 도시 ID·건물 ID·유닛 ID(자리 없음은 null) */
+  readonly id: number | null;
+  /** 도시 창고 = 그 도시, 건물 창고 = 건물이 선 도시, 화물·자리 없음 = null */
+  readonly cityId: number | null;
+  /** 건물이 선·유닛이 있는 2차맵(도시 창고·자리 없음은 null) */
+  readonly mapKey: number | null;
+  /** 건물 창고: 내 창고 시설인가(재료를 꺼내는 자리). 남의 건물(임대 몫)·창고가 아닌 시설이면 false */
+  readonly storage: boolean;
+  /** 건물 창고: 그 건물의 팩 시설 ID(시설이 아니면 null) */
+  readonly facilityId: string | null;
+  readonly lines: readonly {
+    /** 원장 자산 코드(item:<ID>, 시험 광석 등) */
+    readonly asset: string;
+    /** 물자면 아이템 ID */
+    readonly item: string | null;
+    readonly name: LocalizedName | null;
+    readonly qty: string;
+  }[];
+}
+
 /** 설정 칸 N50·M15·N54 실효 값(화면 미리 셈이 @terra/shared/facilityRuntime 함수에 그대로 넘긴다) */
 export type FacilityRulesView = FacilityRuntimeRules;
 
@@ -135,7 +167,11 @@ export interface FacilitiesOverviewResponse {
   readonly catalog: readonly FacilityCatalogView[];
   readonly facilities: readonly FacilityView[];
   readonly beacons: readonly FacilityBeaconView[];
-  /** 건설·수리 재료로 쓰는 물자와 내 잔고(모든 자리 합, 10진 글자) */
+  /** 띄운 2차맵의 도시 자리(짓는 칸이 속한 도시 = 가장 가까운 도시, @terra/shared/goodsPlaces cityOfCell) */
+  readonly cities: readonly CityCell[];
+  /** 내 물건이 있는 자리(잔고 0은 뺀다). 재료는 그 도시 창고 + 그 도시의 내 창고 시설 + 그 2차맵 내 유닛 화물에서만 꺼낸다(D-516 361) */
+  readonly places: readonly GoodsPlaceView[];
+  /** 건설·수리 재료로 쓰는 물자와 내 잔고(모든 자리 합, 10진 글자 — 옛 화면용. 짓는 자리의 재료는 places로 센다) */
   readonly materials: readonly {
     readonly item: string;
     readonly name: LocalizedName | null;
@@ -145,4 +181,19 @@ export interface FacilitiesOverviewResponse {
   readonly holdings: readonly FacilityHoldingView[];
   /** 개발 시험 명령(재료 받기·바로 끝내기)을 쓸 수 있나 */
   readonly dev: boolean;
+}
+
+/** 그 도시·2차맵에서 건물 재료로 쓸 수 있는 물자 합(아이템 ID → 수량) — 서버 materialScope와 같은 자리 규칙(D-516 361) */
+export function materialStockAt(
+  places: readonly GoodsPlaceView[],
+  mapKey: number,
+  cityId: number | null,
+): Map<string, bigint> {
+  const out = new Map<string, bigint>();
+  for (const place of places) {
+    if (!isMaterialSource(place, cityId, mapKey)) continue;
+    for (const line of place.lines)
+      if (line.item !== null) out.set(line.item, (out.get(line.item) ?? 0n) + BigInt(line.qty));
+  }
+  return out;
 }

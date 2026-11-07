@@ -1,6 +1,8 @@
 // 오염·정원사 설정 칸 값 ↔ 계수표 — docs/adr/2026-11-01-gardener-r5b.md, D-460(질문 199~202)·D-464(질문 214~225)
 // 팩 항목 ID ↔ 세력·사회 계수표 gardener 칸(경로). 49 P15·S14·M3·C14~C18·S16·S17에 출발값이 없어 D-460·D-464 값이 출발값이고
 // 값은 계수표 TEST_GARDENER_COEFFICIENTS다. 팩 항목의 단위·기술 범위(unit·min·max)는 content/core/tuning.json에 적는다.
+// 정원사 2(ADR "바뀜 (2026-11-07, 정원사 2)"): 관계도 N52(범위·단계 문턱은 D-510 결정이라 구조 값), 세력 오염 세기 C16, 전쟁 오염 P15,
+// 보호 레이드(D-500)·웨이브 보상(D-499)은 49에 칸이 없어 결정 번호를 ID 앞머리로 쓴다(d130_* 같은 틀). 값은 모두 [임시](D-515).
 import type { TuningKey } from "./tuning.ts";
 
 const k = (
@@ -100,5 +102,124 @@ export const GARDENER_TUNING_KEYS: readonly TuningKey[] = [
     "nomadLegionStep",
     "정화 군단 규모 오염 걸음",
     "Legion size pollution step (points)",
+  ),
+  // 정원 세력 관계도(49 N52, D-500·D-510)
+  k("n52_relation_min", "N52", "relationMin", "정원 관계도 하한", "Gardener relation minimum", true),
+  k("n52_relation_max", "N52", "relationMax", "정원 관계도 상한", "Gardener relation maximum", true),
+  k("n52_relation_start", "N52", "relationStart", "정원 관계도 시작값", "Gardener relation start", true),
+  k("n52_allied", "N52", "relationAllied", "관계도 동맹 문턱", "Relation allied threshold", true),
+  k("n52_friendly", "N52", "relationFriendly", "관계도 우호 문턱", "Relation friendly threshold", true),
+  k("n52_neutral", "N52", "relationNeutral", "관계도 중립 문턱", "Relation neutral threshold", true),
+  k("n52_wary", "N52", "relationWary", "관계도 경계 문턱", "Relation wary threshold", true),
+  k(
+    "n52_others_max",
+    "N52",
+    "relationOthersMax",
+    "필수 NPC 세력이 아닌 세력의 관계도 상한",
+    "Relation cap for non-core factions",
+  ),
+  k(
+    "n52_pollution_step",
+    "N52",
+    "relationPollutionStep",
+    "관계도 −1당 세력 오염(하루)",
+    "Faction pollution per daily relation −1 (points)",
+  ),
+  k("n52_drop_max", "N52", "relationDropMax", "관계도 하루 최대 감소", "Max daily relation drop"),
+  k("n52_peace_daily", "N52", "relationPeaceDaily", "평화 몫 관계도 증가", "Relation gain per peace step"),
+  k(
+    "n52_peace_every_days",
+    "N52",
+    "relationPeaceEveryDays",
+    "평화 몫 간격(일)",
+    "Peace step interval (days)",
+  ),
+  k(
+    "n52_purify_gain",
+    "N52",
+    "relationPurifyGain",
+    "정화 한 번 관계도 증가",
+    "Relation gain per purification",
+  ),
+  k(
+    "n52_chance_allied",
+    "N52",
+    "stageChancePm.0",
+    "동맹 세력 웨이브 확률 배율(‰)",
+    "Wave chance factor: allied (‰)",
+  ),
+  k(
+    "n52_chance_friendly",
+    "N52",
+    "stageChancePm.1",
+    "우호 세력 웨이브 확률 배율(‰)",
+    "Wave chance factor: friendly (‰)",
+  ),
+  k(
+    "n52_chance_neutral",
+    "N52",
+    "stageChancePm.2",
+    "중립 세력 웨이브 확률 배율(‰)",
+    "Wave chance factor: neutral (‰)",
+  ),
+  k(
+    "n52_chance_wary",
+    "N52",
+    "stageChancePm.3",
+    "경계 세력 웨이브 확률 배율(‰)",
+    "Wave chance factor: wary (‰)",
+  ),
+  k(
+    "n52_chance_hostile",
+    "N52",
+    "stageChancePm.4",
+    "적대 세력 웨이브 확률 배율(‰)",
+    "Wave chance factor: hostile (‰)",
+  ),
+  // 세력 오염 → 세기(C16 보완, D-509), 전쟁 칸 오염(P15 보완, D-509)
+  k(
+    "c16_strength_pollution",
+    "C16",
+    "strengthPollutionUnit",
+    "세기 세력 오염 나눗수",
+    "Strength faction pollution divisor (points)",
+  ),
+  k("p15_war_daily", "P15", "warDaily", "전선 도시 칸 하루 오염", "Daily pollution per front city (points)"),
+  k("p15_front_radius", "P15", "frontRadius", "전선 도시 거리(칸)", "Front city range (cells)"),
+  // 보호 레이드(D-500), 막아 낸 웨이브 보상(D-499)
+  k(
+    "d500_raid_strength",
+    "",
+    "raidStrengthPm",
+    "보호 레이드 세기 배율(‰)",
+    "Protection raid strength factor (‰)",
+  ),
+  k(
+    "d500_raid_physical",
+    "",
+    "raidPhysicalPm",
+    "보호 레이드 물리형 비율(‰)",
+    "Protection raid physical share (‰)",
+  ),
+  k(
+    "d499_reward_renown",
+    "",
+    "rewardRenownPer",
+    "웨이브 보상 명성(마리당)",
+    "Wave reward renown per creature",
+  ),
+  k(
+    "d499_reward_genes",
+    "",
+    "rewardGenes",
+    "웨이브 보상 유전자 조각(종류마다)",
+    "Wave reward gene fragments (each)",
+  ),
+  k(
+    "d499_reward_materials",
+    "",
+    "rewardMaterialsPm",
+    "웨이브 보상 크리쳐 재료(마리당 ‰)",
+    "Wave reward creature materials per creature (‰)",
   ),
 ];

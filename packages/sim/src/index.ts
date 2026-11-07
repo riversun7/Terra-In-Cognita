@@ -269,6 +269,24 @@ export {
 // 오염·정원사(R5b, docs/adr/2026-11-01-gardener-r5b.md): 순수 규칙, 시뮬·서버가 같이 쓰는 실행 접착·웨이브 전투
 export { TEST_GARDENER_COEFFICIENTS, type GardenerCoefficients } from "./gardener/coefficients.ts";
 export {
+  RELATION_STAGES,
+  type RelationStage,
+  clampRelation,
+  isPeaceDay,
+  nextRelation,
+  relationCap,
+  relationChancePm,
+  relationStage,
+  stageChancePm,
+} from "./gardener/relations.ts";
+export {
+  type GardenerWaveKind,
+  NO_REWARD,
+  type WaveReward,
+  isEmptyReward,
+  waveReward,
+} from "./gardener/rewards.ts";
+export {
   addPollution,
   dailyPollutionStep,
   facilityPollution,
@@ -277,6 +295,7 @@ export {
   influenceSum,
   purify,
   squareGrid,
+  unionInfluenceSum,
   type PollutionGrid,
   type PollutionLayer,
 } from "./gardener/pollution.ts";
@@ -287,6 +306,7 @@ export {
   mothershipCap,
   physicalCount,
   physicalPm,
+  raidStrength,
   waveArrivalMs,
   waveChancePm,
   waveStrength,
@@ -889,19 +909,31 @@ export { STREAM_RECRUIT, type RecruitView, type SocietyRecruit } from "./simulat
 export {
   FUSION_STAT_COUNT,
   OLD_FUSION_COEFFICIENTS,
-  deathGeneDrops,
+  waveGeneDrops,
   fuseStatRange,
   fuseStats,
   fusionBonusPm,
-  geneRebirthBonus,
-  geneRebirthCost,
+  geneItemOf,
   partsDonorStats,
-  rebirthGeneOf,
   sixStats,
   upkeepWeightPm,
   type FusionCoefficients,
   type GeneItem,
 } from "./society/fusion.ts";
+export {
+  GENE_DIST_TOTAL,
+  GENE_ELEMENT_COUNT,
+  apportion,
+  geneStatValues,
+  incubateStats,
+  mainStatIndex,
+  statGeneOf,
+  synthesizeStatGenes,
+  twelveElements,
+  type GeneApply,
+  type GeneSynthesisOutcome,
+  type StatGene,
+} from "./society/genes.ts";
 export {
   advanceTech,
   researchCost,

@@ -31,8 +31,9 @@ const weaponTile = (page: Page): Locator =>
 const attackRow = (page: Page): Locator => page.locator('.combat-row[data-real="attack"]');
 /** 줄 값 글의 수(자리 나눔 쉼표를 뺀다) */
 const numberIn = (text: string | null): number => Number((text ?? "").replaceAll(/[^\d]/g, ""));
+/** 줄 값(버프 몫 알약을 뺀 기본값 — sheet-buffs.spec.ts가 admin에 버프를 걸어도 같은 값) */
 const attackValue = async (page: Page): Promise<number> =>
-  numberIn(await attackRow(page).locator(".combat-value").textContent());
+  numberIn(await attackRow(page).locator(".combat-value-base").textContent());
 
 /** 개발 받기 판으로 아이템을 받는다(접혀 있으면 편다). 사이보그 화면이면 사이보그, 유닛 상세면 그 유닛이 받는다 */
 async function grant(page: Page, language: Language, item: string, name: string): Promise<void> {
@@ -140,11 +141,11 @@ test.describe("관리자 계정: 입은 장비 → 사이보그 스탯·공격 �
 
     // 스태미나 회복 줄: 실제 회복(분당)과 그 셈(D-511)
     const regen = page.locator('.combat-row[data-real="stamina_regen"]');
-    await expect(regen.locator(".combat-value")).toContainText("/분");
+    await expect(regen.locator(".combat-value-base")).toContainText("/분");
     await regen.locator(".combat-toggle").click();
     await expect(regen.locator(".combat-detail")).toContainText(message("ko", "cyborg_stamina_real_formula"));
     // 줄 값 = 셈의 끝 값(예: 적정보다 STA가 높으면 행 값 720보다 크다)
-    const shownRegen = (await regen.locator(".combat-value").textContent()) ?? "";
+    const shownRegen = (await regen.locator(".combat-value-base").textContent()) ?? "";
     await expect(regen.locator(".combat-detail .combat-result").last()).toContainText(`= ${shownRegen}`);
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);

@@ -7,6 +7,7 @@
 // - 배치·사진: 390·1440 × 네온·라이트 × 한국어·영어, 큰 숫자(1차 10,000·가중치 100,000). 가로 넘침(표는 안에서 민다)·작은 누르는 곳 없음.
 //   세계 값 칸은 서버에 저장하지 않고 가중치 표 응답에 넣는다. 화면을 여는 조회는 처음 한 번만 서버에 묻는다(replayTrpc, 아래 LAYOUT_READS).
 // - 대결 속도 제한: 서버 제한(사용자마다 순간 2·분당 4)을 다 쓰면 [승률 돌리기]가 "요청이 너무 잦습니다"를 보인다(실제 서버).
+// - 기여 조회 거절: 기여 조회가 429로 두 번 막혀도(요청을 바꿔 본다) 문구·"잠시 뒤 다시 묻습니다"를 보인 뒤 저절로 다시 물어 표가 찬다.
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 덮어쓰기를 모두 지운다(설정 칸 패널 시험과 같은 결).
 // 사용자별 속도 제한도 같이 쓴다(서버를 켤 때마다 처음부터): 설정 칸 계열 조회(실험실 목록·미리 보기, 가중치 표·기여·대결,
 // tuning.list 등)는 순간 30·분당 120, 대결은 순간 2·분당 4. 같은 계정으로 화면을 여러 번 여는 배치·사진 시험이 실제 서버에
@@ -410,6 +411,68 @@ test.describe("대결 속도 제한", () => {
     );
     await expect(page.locator(".bp-run")).not.toHaveAttribute("aria-disabled", "true");
     await expect(page.locator(".bp-duel")).toHaveCount(0);
+    expect(unexpected(deviceErrors)).toEqual([]);
+  });
+});
+
+test.describe("기여 조회 거절", () => {
+  test.use({ account: "admin" });
+
+  test("기여 조회가 속도 제한(429)으로 거절되면 문구·'잠시 뒤 다시 묻습니다'를 보이고, 손대지 않아도 다시 물어 표를 채운다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    // 화면을 여는 조회는 다시 쓴다(서버 상태를 바꾸지 않는다). 기여 조회 처음 두 번만 429로 막는다(서버 사용자별 조회 제한과 같은 답)
+    await replayTrpc(page, layoutReplay, LAYOUT_READS);
+    let refused = 0;
+    await page.route(
+      (url) => url.pathname.startsWith("/api/trpc/"),
+      async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        const names = decodeURIComponent(path.slice("/api/trpc/".length)).split(",");
+        if (refused >= 2 || names.length !== 1 || names[0] !== "balance.contribution") {
+          await route.fallback();
+          return;
+        }
+        refused += 1;
+        await route.fulfill({
+          status: 429,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify([
+            {
+              error: {
+                message: "RATE_LIMITED",
+                code: -32029,
+                data: {
+                  code: "TOO_MANY_REQUESTS",
+                  httpStatus: 429,
+                  path: "balance.contribution",
+                  reason: "rate_limited",
+                },
+              },
+            },
+          ]),
+        });
+      },
+    );
+    await page.goto("/dev/balance");
+    await expect(page.locator(".bp-screen")).toBeVisible({ timeout: 20_000 });
+    await page.locator("#bp-tab-weights").click();
+    await expect(page.locator(".bp-weights-tab")).toHaveAttribute("data-status", "ready", {
+      timeout: 20_000,
+    });
+    const panel = page.locator("section[aria-labelledby='bp-contrib-title']");
+    // 거절 문구와 다시 묻는다는 안내(2초 → 4초 뒤 다시 묻는 동안 보인다)
+    await expect(panel.locator("[role='alert']")).toContainText(
+      message("ko", "dev_balance_err_rate_limited"),
+    );
+    await expect(panel.locator("[role='alert']")).toContainText(
+      message("ko", "dev_balance_contrib_retrying"),
+    );
+    // 아무것도 담지 않아도 다시 물어 기여 표가 찬다(두 번 거절 뒤 세 번째)
+    await expect(page.locator(".bp-contrib tbody tr").first()).toBeVisible({ timeout: 20_000 });
+    await expect(panel.locator("[role='alert']")).toHaveCount(0);
+    expect(refused).toBe(2);
     expect(unexpected(deviceErrors)).toEqual([]);
   });
 });

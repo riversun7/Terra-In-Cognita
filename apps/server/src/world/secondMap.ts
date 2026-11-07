@@ -296,8 +296,10 @@ function failureCode(status: PathOutcome["status"]): ResultCode {
       return "superseded";
     case "invalid_request":
       return "invalid_request";
+    case "unknown_map":
+      // 워커 사본에 2차맵이 아직 없다(부팅 차례 등): 기기는 "열려 있지 않은 2차맵"으로 알린다
+      return "unknown_map";
     default:
-      // unknown_map: 워커 사본에 2차맵이 없다(서버 버그)
       return "internal_error";
   }
 }
@@ -544,8 +546,15 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       waiter?.({ ok: false, code: "superseded" });
       return;
     }
-    if (outcome.status !== "busy" && outcome.status !== "dropped" && outcome.version < blockingVersion) {
-      // 그사이 건물이 놓였다 → 지금 격자로 다시
+    if (
+      outcome.status !== "busy" &&
+      outcome.status !== "dropped" &&
+      outcome.status !== "unknown_map" &&
+      outcome.version < blockingVersion
+    ) {
+      // 그사이 건물이 놓였다 → 지금 격자로 다시. 워커 사본에 2차맵이 없다는 답(unknown_map, 판 −1)은 격자 판과 상관없어 다시 찾지 않는다:
+      // 다시 물으면 같은 답이 곧바로 와서 마이크로태스크가 끝없이 돈다(docs/adr/2026-11-07-play-flow.md WP1 9절·WP7). 명령은 unknown_map으로 끝나고
+      // 봇은 아래에서 잠시 뒤 다시 깬다
       stats.paths.staleReplans += 1;
       requestRoute(unit, to, priority, nodeBudget, waiter);
       return;

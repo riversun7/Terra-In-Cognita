@@ -149,7 +149,8 @@ test.describe("노동 계약", () => {
     await expect(wageRow).toContainText(message("ko", "labor_deposit", { amount: "474", cycles: 29 }));
 
     // 내 시설 임대료 5/시간
-    const rents = labor.locator(".labor-rents");
+    // 건물 시험이 지은 admin 공방도 임대료 줄이 있어 시험 건물 줄만 고른다
+    const rents = labor.locator(`.labor-rents li:has(#labor-rent-${buildingId})`);
     await rents.getByLabel(message("ko", "labor_option_building", { id: buildingId })).fill("5");
     await rents.getByRole("button", { name: message("ko", "labor_rent_save") }).click();
     await expect(rents).toContainText(message("ko", "labor_rent_now", { rent: "5" }));
@@ -158,6 +159,7 @@ test.describe("노동 계약", () => {
     const myJobs = labor.locator('[data-part="labor-my-jobs"]');
     await expect(myJobs).toContainText(message("ko", "labor_my_jobs_empty"));
     const post = myJobs.locator('form[data-part="labor-post"]');
+    await post.getByLabel(message("ko", "labor_field_building")).selectOption(String(buildingId));
     await post.getByLabel(message("ko", "labor_field_adjust", { min: 800, max: 1500 })).fill("1200");
     await expect(post.locator('[data-part="labor-post-preview"]')).toHaveText(
       message("ko", "labor_post_preview", { wage: "24", cycle: day, deposit: "720" }),
@@ -237,6 +239,7 @@ test.describe("노동 계약", () => {
 
     // 넓은 화면 시험이 볼 구인 하나를 열어 둔다(자리 2, 기간 72시간)
     const repost = adminPanel.locator('form[data-part="labor-post"]');
+    await repost.getByLabel(message("ko", "labor_field_building")).selectOption(String(buildingId));
     await repost.getByLabel(message("ko", "labor_field_slots")).fill("2");
     await repost.getByLabel(message("ko", "labor_field_term")).fill("72");
     await repost.getByRole("button", { name: message("ko", "labor_post_submit") }).click();

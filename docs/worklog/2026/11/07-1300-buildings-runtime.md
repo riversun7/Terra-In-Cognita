@@ -37,7 +37,12 @@
 | `docs/adr/…`, `docs/questions/2026-11-07-buildings-runtime.md`(새), `docs/PLAN.md`(14장), 이 기록, `docs/WORKLOG.md` | 결정·질문·상태·기록 |
 
 ## 검사·시험 (Verified, 개발 컨테이너, Node 24.22.1, 무거운 잠금 안)
-- (마지막 검사 결과는 아래 "마지막 검사"에 적는다)
+- 시뮬 비교(시드 1, 이 가지 코드에 이 가지 팩 core@38 ↔ main 팩 core@37 `--pack`): war16 30일 236줄·stub16 180일 421줄·econ16 60일 817줄 모두 줄 수가 같고, 다른 줄은 머리(팩 판·해시)와 요약의 팩 판·해시·`linesHash`뿐이다(본문 줄 바이트까지 같음). main → 이 가지 `linesHash` war16 be74f1f5 → f93bacee, stub16 d4421787 → c834bcd2, econ16 38524eb6 → 9e7c68e3(머리가 바뀐 몫). 시뮬은 건물 셈·새 칸을 읽지 않는다 → `SIM_VERSION` 12 그대로.
+- 새 시험: 공용 셈 `facilityRuntime.test.ts` 11개, 프로토콜 `facilities.test.ts` 3개, 서버 `facilities/gateway.test.ts` 2개, DB `facilities/facilities.db.test.ts` 5개(공방 짓기 = 소나무 12·철광석 7·일꾼 하나 20% 단축·짓는 동안 일하지 않음·일꾼 바쁨·레벨업 판자 48 / 5일 65%·35일 30% 멈춤·임금형 계약 하루 23%·기능 정지·그 계약 산출 없음 / 수리 65% → 끝까지 = 소나무 ⌈12 × 0.35⌉ = 5·시간 87.36초·끝나면 가득 − 고치는 동안 노화 70ppm / 조끼 내구도 40/100 → 철 주괴·사슴 가죽 1씩·10분 × 0.6 = 360초·고치는 동안 입기 busy·끝나면 최대 감소(F11)·끝까지 / 짓다가 끄고 5일 뒤 켜면 작업이 돌아와 그 시각으로 끝나고 65%), `territory.db.test.ts` 새 1개(재료 모자람·소나무 9개 빠짐·짓는 동안 꼭짓점 아님·개수는 셈·30일 뒤 30%·내구도 3·수리). 기존 영토 DB 시험은 놓는 사람에게 재료를 준다(건물 규칙).
+- 처음 돌렸을 때 실패를 고쳤다: ① DB 원장 자산 코드 검사가 `item:<ID>`를 막았다 → 검사를 넓힘(마이그레이션 같은 폴더에 다시 만듦, main에 올라가기 전). ② 설정 칸 반영 범위 시험: live 칸은 단위·범위가 있어야 한다 → F11·F12 칸에 `pct`·`points`. ③ 화면 시험: 일꾼 고르기 칸 32px(작은 누르는 곳) → `--tap-size`. ④ 노동 계약 화면 시험이 admin의 첫 시설을 시험 건물로 여겼다(건물 시험이 먼저 공방을 지음) → 시험 건물을 골라 쓴다(계약·구인·임대료 줄).
+- `TEST_DATABASE_URL=… pnpm check` 통과(origin/main `064fd98`을 합친 뒤): 시험 422파일 3,486개(DB 시험 포함, 건너뜀 없음), 다국어 3,874키, 대비 738쌍, 모듈 경계·파일 크기(`world.ts` 926줄·`db/schema.ts` 984줄 — 다음에 표를 더하면 `<영역>Schema.ts`로). `pnpm build && node scripts/check-pwa.mjs && pnpm check:bundle` 통과(첫 화면 JS 105,930 B / 상한 131,416 B — 건물 칸은 경제 생산 지연 조각 안). `pnpm check:content origin/main` 통과(core@38, 4b 호환 포함). `pnpm check:docs`·`pnpm docs:index` 통과.
+- 화면 시험 `pnpm e2e facilities.spec.ts labor.spec.ts territory.spec.ts economy.spec.ts`: 35개 통과(3.7분). 새 `facilities` 4개: 개발 [시험 재료 받기] → 빈 칸 찾아 공방 짓기(짓는 중·작업 줄) → [바로 끝내기] → Lv1·정상·100%·300/300 → Lv2 올리기 → Lv2·360/360, 고칠 장비 없음 안내, 넘침 없음, 사진 4장.
+- 사진(저장소 밖): `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/facility-shots/facilities-{pastel-ko-390,dark-en-390,pastel-ko-1440,dark-en-1440}.png`(건물 칸) + 같은 실행의 economy·labor·territory 사진. 눈으로 확인: 390 파스텔 한국어, 390 다크 영어, 1440 다크 영어(이때 "0% 수리"로 보이던 작은 닳음은 올림으로 고쳤다).
 
 ## 함께 바꿔야 하는 파일
 - 시설 칸을 더하면 `packages/content` 스키마 ↔ `@terra/shared/buildingEditor` `FacilityJson` ↔ `apps/server/src/buildingEdit/views.ts` `facilityJsonOf`(빠지면 편집기 저장 때 그 칸이 사라진다) ↔ `facilities/catalog.ts`.

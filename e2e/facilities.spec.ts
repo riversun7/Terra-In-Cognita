@@ -43,7 +43,10 @@ async function buildWorkshop(page: Page, facilities: Locator): Promise<void> {
 test.describe("건물", () => {
   test.use({ account: "admin" });
 
-  test("admin: 시험 재료 → 공방 짓기 → 바로 끝내기 → Lv1 정상 → 레벨업 → Lv2", async ({ page, deviceErrors }) => {
+  test("admin: 시험 재료 → 공방 짓기 → 바로 끝내기 → Lv1 정상 → 레벨업 → Lv2", async ({
+    page,
+    deviceErrors,
+  }) => {
     test.setTimeout(120_000);
     const facilities = await openFacilities(page);
     await expect(facilities.getByRole("heading", { name: message("ko", "facility_title") })).toBeVisible();
@@ -51,7 +54,9 @@ test.describe("건물", () => {
     await form.getByLabel(message("ko", "facility_field_facility")).selectOption("workshop");
     await form.getByRole("button", { name: message("ko", "facility_dev_grant") }).click();
     // 공방 Lv1 = 소나무 원목 12·철광석 7 → 두 번 지을 만큼(24·14) + Lv2 재료(판자 48·철 주괴 29 × 2)
-    await expect(facilities.locator('[data-part="facility-materials"]')).toContainText("96", { timeout: 15_000 });
+    await expect(facilities.locator('[data-part="facility-materials"]')).toContainText("96", {
+      timeout: 15_000,
+    });
     await expect(form.locator('[data-part="facility-preview"]')).not.toContainText(
       message("ko", "facility_have_short", { have: "0" }),
     );
@@ -67,7 +72,9 @@ test.describe("건물", () => {
 
     // 레벨업: 판자·철 주괴(가공품, D-508) → 짓는 중 → 바로 끝내기 → Lv2, 최대 내구도 360(M15 단계 20%)
     await card.getByRole("button", { name: /Lv2/ }).click();
-    await expect(card.locator('[data-part="facility-job"]')).toContainText(message("ko", "facility_job_upgrade"));
+    await expect(card.locator('[data-part="facility-job"]')).toContainText(
+      message("ko", "facility_job_upgrade"),
+    );
     await card.getByRole("button", { name: message("ko", "facility_dev_finish") }).click();
     await expect(card).toContainText(message("ko", "facility_card_title", { name: "공방", level: 2 }));
     await expect(card).toContainText("360/360");

@@ -41,7 +41,7 @@ const buff = (
 
 /**
  * 시험 아이템: 내구도 장비, 탄약(화살통 3발·50발), 신선도 묶음(72시간 → 썩은 생선), 신선도 있는 음료, 요리·버프 아이템(같은 배타 묶음,
- * 쿨 종류는 다름), 24시간 버프 약, 회복약(전투 중만), 꺼진 장비, 내구도 있는 검, 1차 스탯(STR) 버프 빵
+ * 쿨 종류는 다름), 24시간 버프 약, 회복약, 꺼진 장비, 내구도 있는 검, 탄약을 쓰는 활, 주기 회복 연고, 1차 스탯(STR) 버프 빵
  */
 export const TEST_HOLDING_ITEMS: readonly ItemEntry[] = [
   item({
@@ -172,6 +172,34 @@ export const TEST_HOLDING_ITEMS: readonly ItemEntry[] = [
       maxDurability: 10,
     },
   }),
+  // 탄약을 쓰는 활(287·D-497: 화살통 종류, 원거리 6칸)
+  item({
+    id: "hold_bow",
+    category: "equipment",
+    equip: {
+      slot: "weapon",
+      stats: [],
+      weapon: {
+        physical: { attack: 18 },
+        appropriate: { str: 10, dex: 10, agi: 10 },
+        hitPm: 900,
+        critPm: 100,
+        intervalMs: 1000,
+        range: 6,
+        arc: false,
+        staminaCost: 10,
+        mpCost: 0,
+        ammo: "quiver",
+      },
+    },
+  }),
+  // 주기 회복 연고(D-514 346: 1초마다 5, 10초 — 전투 중에는 걸린 효과, 전투 밖에서는 분 단위)
+  item({
+    id: "hold_regen_salve",
+    category: "consumable",
+    subcategory: "medicine",
+    use: { effects: [{ effect: "hold_regen", value: 5, chancePm: 1000, durationMs: 10_000 }] },
+  }),
   // 1차 스탯 버프 요리(D-472 모양: STR 고정값 +, 1시간)
   item({
     id: "hold_bread",
@@ -187,6 +215,17 @@ export const TEST_HOLDING_EFFECTS: readonly EffectEntry[] = [
   buff("hold_mend", undefined, "heal", 0),
   buff("hold_vigor", undefined),
   buff("hold_food_str", "meal", "buff", HOUR_MS, "str"),
+  effectEntrySchema.parse({
+    id: "hold_regen",
+    name: name("hold_regen"),
+    durationMs: 10_000,
+    kind: "heal",
+    valueMode: "flat",
+    tickMs: 1000,
+    stacking: "refresh",
+    maxStacks: 1,
+    enabled: true,
+  }),
 ];
 
 /** 팩 스킬(실효 항목, 유닛 화면 전투 자료를 시험 아이템과 함께 만들 때) */

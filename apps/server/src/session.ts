@@ -12,6 +12,7 @@ import {
   TERRITORY_PROTOCOL_VERSION,
   RECRUIT_PROTOCOL_VERSION,
   ITEM_PROTOCOL_VERSION,
+  TREAT_PROTOCOL_VERSION,
   LABOR_PROTOCOL_VERSION,
   LABOR_JOBS_PROTOCOL_VERSION,
   type ServerMessage,
@@ -249,9 +250,13 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "item_equip":
       case "item_unequip":
       case "item_use":
-      case "dev_grant_item": {
-        // 프로토콜 6의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다(사이보그 메시지와 같은 규칙)
-        if (protocolVersion < ITEM_PROTOCOL_VERSION) {
+      case "dev_grant_item":
+      case "dev_treat_unit": {
+        // 프로토콜 6의 메시지다(병원 치료는 9). 더 낮게 인사한 연결은 모르는 메시지로 본다(사이보그 메시지와 같은 규칙)
+        if (
+          protocolVersion < ITEM_PROTOCOL_VERSION ||
+          (message.t === "dev_treat_unit" && protocolVersion < TREAT_PROTOCOL_VERSION)
+        ) {
           reject("invalid_message");
           return;
         }

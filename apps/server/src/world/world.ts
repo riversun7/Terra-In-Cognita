@@ -25,6 +25,7 @@ import { createWorkerPathService } from "./pathPool.ts";
 import { type PathService, createInlinePathService } from "./pathService.ts";
 import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
 import { type BattleWorld, applyBattleOutcome } from "./battleResults.ts";
+import { type BattleItems, battleStartedAt, createBattleItems } from "./battleItems.ts";
 import { type CityRow, ensureTestStartCities, loadCities, nearestSafeCity } from "./cities.ts";
 import {
   type CyborgRules,
@@ -204,6 +205,8 @@ export interface WorldPersistence {
   readonly vitals: WorldVitals;
   /** 세계 전투 시작 사양의 몸(입은 장비·버프 — 사이보그 화면과 같은 셈). NPC 런타임 startBattle이 거친다 */
   readonly bodies: BattleBodies;
+  /** 전투에 가지고 들어가는 물약·탄(287). NPC 런타임 startBattle이 생명 수치 다음에 거친다 */
+  readonly items: BattleItems;
   /** 노동 계약(임금형·임대형, docs/adr/2026-11-03-labor-contracts.md) */
   readonly labor: LaborService;
 }
@@ -530,6 +533,8 @@ export function startWorld(
     };
     // 전투가 끝났을 때 알려 줄 곳(NPC 런타임의 정원사 웨이브, docs/adr/2026-11-01-gardener-r5b.md 5절)
     // 듣는 곳이 붙기 전에 끝난 전투(부팅 때 restore가 바로 적용한 것)는 모아 두었다가 붙을 때 넘긴다
+    // 전투 물건(287): 보유 물건 서비스를 만든 뒤 채운다(그 전에는 아무것도 붙이지 않는다)
+    let items: BattleItems = { battleStart: (init) => init, apply: () => ({ potions: 0, shots: 0 }) };
     const battleEnded = new Set<(battleId: number, attackerWon: boolean) => void>();
     const endedBeforeListen: [number, boolean][] = [];
     const battles = createBattleService({
@@ -539,11 +544,13 @@ export function startWorld(
       // 끝 시각에 한 번: 부상·귀환·포로·탈취를 세계에 적용한다(battleResults.ts, docs/adr/2026-10-31-combat-core.md 8절)
       apply: (battleId, init, outcome, atMs) => {
         const applied = applyBattleOutcome(battleWorld, battleId, init, outcome, atMs);
-        // 장비 닳기(D-496 289·N49): 결과 적용과 같은 동기 처리 → 같은 커밋(두 번 닳지 않는다). 퇴각은 패배 닳음 없음(D-512 324)
+        // 장비 닳기(D-496 289·N49): 결과 적용과 같은 동기 처리 → 같은 커밋(두 번 닳지 않는다). 퇴각은 닳지 않음(D-514 352)
         const wear = holdings.service.applyBattle(
           init.seed,
           outcome.units.map((unit) => ({ unit: unit.unit, outcome: wearOutcomeOf(unit) })),
         );
+        // 전투 중 쓴 물약·탄(287): 같은 커밋. 물약 쿨은 전투 시작 실제 시각 + 판정의 쿨 끝
+        const used = items.apply(outcome.units, battleStartedAt(atMs, outcome.result.endTick));
         // 끝 HP·아머·쉴드(D-512): 같은 동기 처리 → 같은 커밋. 끝 시각부터 전투 밖 회복을 센다
         const vitalsWritten = vitals.service.applyBattle(init, outcome.units, atMs);
         log.info(
@@ -554,6 +561,8 @@ export function startWorld(
             ...applied,
             looted: String(applied.looted),
             ...wear,
+            potionsUsed: used.potions,
+            shots: used.shots,
             vitalsWritten,
           },
           "battle ended",
@@ -642,11 +651,18 @@ export function startWorld(
           return read ? { current: read.values.hp, max: read.max.hp } : undefined;
         },
         heal: (unitId, amount, nowMs) => vitals.service.heal(unitId, amount, nowMs),
+        touch: (unitId, nowMs) => vitals.service.touch(unitId, nowMs),
+        treat: (unitId, nowMs) => vitals.service.treat(unitId, nowMs),
       },
     });
     gearOf = holdings.gearOf;
     // 세계 전투 시작 사양의 몸: 사이보그 화면·유닛 상세와 같은 셈(입은 장비·인공장기·버프)
     const bodies = createBattleBodies({ maps, cyborgs, gearOf: holdings.gearOf, catalog: config.roster });
+    // 전투에 가지고 들어가는 물약·탄(287): 생명 수치 다음에 붙인다
+    items = createBattleItems({
+      holdings: holdings.service,
+      exists: (unitId) => [...maps.values()].some((map) => map.unitInfo(unitId) !== undefined),
+    });
     // 노동 계약: 소유 주체 정산이 계약을 같은 시각까지 정산하고 산출을 계약 몫으로 나눈다
     const labor = createLaborService({
       loaded: laborData,
@@ -675,6 +691,7 @@ export function startWorld(
       holdings,
       vitals,
       bodies,
+      items,
       labor,
     };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)
@@ -747,7 +764,10 @@ export function startWorld(
           planetId: TEST_PLANET_ID,
           // 세계가 몸을 아는 유닛은 입은 장비·버프로 다시 만들고(사이보그 화면과 같은 셈), 남은 HP·아머·쉴드로 시작한다(D-512)
           startBattle: (init) =>
-            battles.start(vitals.service.battleStart(bodies.battleStart(init, now()), now()), { war: false }),
+            battles.start(
+              items.battleStart(vitals.service.battleStart(bodies.battleStart(init, now()), now()), now()),
+              { war: false },
+            ),
           onBattleEnded: (listener) => {
             battleEnded.add(listener);
             for (const [battleId, attackerWon] of endedBeforeListen.splice(0))

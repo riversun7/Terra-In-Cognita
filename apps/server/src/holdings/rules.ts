@@ -14,6 +14,8 @@ export interface HoldingRules {
   readonly durability: SocietyCoefficients["durability"];
   /** 물약 쿨(D-509) */
   readonly consumables: SocietyCoefficients["consumables"];
+  /** 부상 불이익(D-514 N54, 몸의 1차 스탯 — gearOf가 읽는다) */
+  readonly vitals: SocietyCoefficients["vitals"];
 }
 
 export const USE_VARIANCE_CELL = "d496_use_variance";
@@ -26,6 +28,7 @@ export const TEST_HOLDING_RULES: HoldingRules = {
   useVariancePm: DEFAULT_USE_VARIANCE_PM,
   durability: TEST_SOCIETY_COEFFICIENTS.durability,
   consumables: TEST_SOCIETY_COEFFICIENTS.consumables,
+  vitals: TEST_SOCIETY_COEFFICIENTS.vitals,
 };
 
 /** 계수표 durability 칸 → 전투 닳기 규칙 */
@@ -42,18 +45,19 @@ export function wearRulesOf(durability: SocietyCoefficients["durability"]): Wear
 export function holdingRulesFrom(
   values: ReadonlyMap<string, number>,
   appropriateCapPm: number,
-  society: Pick<SocietyCoefficients, "durability" | "consumables">,
+  society: Pick<SocietyCoefficients, "durability" | "consumables" | "vitals">,
 ): HoldingRules {
   return {
     appropriateCapPm,
     useVariancePm: values.get(USE_VARIANCE_CELL) ?? DEFAULT_USE_VARIANCE_PM,
     durability: society.durability,
     consumables: society.consumables,
+    vitals: society.vitals,
   };
 }
 
 /**
- * 전투 결과 한 줄 → 닳기 모양(D-512 324): 퇴각(retreated)은 패배 닳음이 없다(D-190), 이긴 편에 남음(stays) = won, 진 편(귀환·포로) = lost
+ * 전투 결과 한 줄 → 닳기 모양(D-512 324): 퇴각(retreated)은 닳지 않는다(D-514 352, D-190), 이긴 편에 남음(stays) = won, 진 편(귀환·포로) = lost
  */
 export function wearOutcomeOf(result: Pick<UnitResult, "outcome">): WearOutcome {
   if (result.outcome === "retreated") return "retreated";

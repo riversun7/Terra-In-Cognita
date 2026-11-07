@@ -4,6 +4,7 @@ import {
   ITEM_PROTOCOL_VERSION,
   ITEM_RESULT_CODES,
   PROTOCOL_VERSION,
+  TREAT_PROTOCOL_VERSION,
   ProtocolError,
   type ServerMessage,
   decodeClientMessage,
@@ -12,9 +13,10 @@ import {
 } from "./index.ts";
 
 describe("보유 물건 메시지", () => {
-  it("프로토콜 6부터다", () => {
+  it("프로토콜 6부터다(개발 시험 병원 치료는 9부터, D-514)", () => {
     expect(ITEM_PROTOCOL_VERSION).toBe(6);
-    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(ITEM_PROTOCOL_VERSION);
+    expect(TREAT_PROTOCOL_VERSION).toBe(9);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(TREAT_PROTOCOL_VERSION);
   });
 
   it("입기·벗기·쓰기·개발 받기 명령이 왕복한다", () => {
@@ -23,6 +25,8 @@ describe("보유 물건 메시지", () => {
       { t: "item_unequip", id: 2, holding: 10 },
       { t: "item_use", id: 3, holding: 11, confirm: true },
       { t: "dev_grant_item", id: 4, item: "test_vest", quantity: 2, unit: 7 },
+      { t: "dev_treat_unit", id: 5, unit: 7 },
+      { t: "dev_treat_unit", id: 6 },
     ] as const;
     for (const message of messages) expect(decodeClientMessage(encodeMessage(message))).toEqual(message);
   });
@@ -33,6 +37,7 @@ describe("보유 물건 메시지", () => {
       { t: "item_equip", id: 1, holding: 0, slot: 3 },
       { t: "dev_grant_item", id: 4, item: "Test Vest", quantity: 1 },
       { t: "dev_grant_item", id: 4, item: "test_vest", quantity: 1001 },
+      { t: "dev_treat_unit", id: 5, unit: 0 },
     ];
     for (const message of bad)
       expect(() => decodeClientMessage(JSON.stringify(message))).toThrow(ProtocolError);

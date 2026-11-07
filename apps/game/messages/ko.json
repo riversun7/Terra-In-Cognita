@@ -3770,5 +3770,11 @@
   "vitals_shield": "쉴드",
   "vitals_hp_short": "HP {value}/{max}",
   "vitals_regen_note": "쉴드는 1분마다 {amount}씩 찹니다.",
-  "vitals_no_regen_note": "HP와 아머는 저절로 차지 않습니다. HP는 회복 물약으로 채웁니다."
+  "vitals_no_regen_note": "HP와 아머는 이 유닛에서 저절로 차지 않습니다. HP는 회복 물약으로 채웁니다.",
+  "vitals_regen_hp_note": "HP는 1분마다 {amount}씩 찹니다.",
+  "vitals_regen_armor_note": "아머는 1분마다 {amount}씩 찹니다.",
+  "vitals_injury_note": "부상({stage}): 나을 때까지 HP 회복이 느리고 능력치가 낮습니다.",
+  "holdings_dev_treat": "병원 치료(개발 시험)",
+  "holdings_dev_treat_note": "부상을 지우고 HP를 가득 채웁니다. 병원 시설이 생기기 전 시험용입니다.",
+  "holdings_done_treat": "치료했습니다. 부상이 낫고 HP가 가득 찼습니다."
 }

@@ -3770,5 +3770,11 @@
   "vitals_shield": "Shield",
   "vitals_hp_short": "HP {value}/{max}",
   "vitals_regen_note": "Shield refills by {amount} every minute.",
-  "vitals_no_regen_note": "HP and armor don't refill on their own. Use a recovery potion to restore HP."
+  "vitals_no_regen_note": "HP and armor don't refill on their own for this unit. Use a recovery potion to restore HP.",
+  "vitals_regen_hp_note": "HP refills by {amount} every minute.",
+  "vitals_regen_armor_note": "Armor refills by {amount} every minute.",
+  "vitals_injury_note": "Injured ({stage}): HP regen is slower and stats are lower until healed.",
+  "holdings_dev_treat": "Hospital treatment (dev test)",
+  "holdings_dev_treat_note": "Clears the injury and refills HP. A test hook until hospitals exist.",
+  "holdings_done_treat": "Treated. The injury is healed and HP is full."
 }

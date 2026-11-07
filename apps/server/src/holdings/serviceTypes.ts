@@ -8,6 +8,7 @@ import type {
   WeaponTypeEntry,
 } from "@terra/content";
 import type {
+  BattlePotions,
   HoldableDef,
   Primaries,
   RepairMaterial,
@@ -62,6 +63,23 @@ export interface HoldingVitals {
     amount: { readonly mode: "flat" | "permille"; readonly value: number },
     nowMs: number,
   ): number;
+  /** 지금 값을 저장하고 마지막 분 경계를 돌려준다(전투 밖 주기 회복을 걸기 전, D-514 346). 없으면 nowMs를 분 경계로 친다 */
+  touch?(unitId: number, nowMs: number): number;
+  /** 병원 치료(D-514): HP를 가득 채운다. 실제로 찬 양 */
+  treat?(unitId: number, nowMs: number): number;
+}
+
+/** 전투에 가지고 들어가는 것(287): 자동 물약 사양과 남은 탄(든 무기가 탄약 종류를 쓸 때만) */
+export interface BattleKit {
+  readonly potions?: BattlePotions | undefined;
+  readonly ammo?: number | undefined;
+}
+
+/** 전투에서 쓴 것(판정 결과 UnitResult의 shots·potions, 물약 쿨 끝 = 실제 시각) */
+export interface BattleUse {
+  readonly shots?: number | undefined;
+  readonly potions?: readonly { readonly id: number; readonly used: number }[] | undefined;
+  readonly potionReadyAtMs?: number | undefined;
 }
 
 /** 명령 실패 코드(@terra/protocol ITEM_RESULT_CODES 가운데 서비스가 내는 것) */
@@ -193,6 +211,14 @@ export interface HoldingService {
     nowMs: number,
     thresholdPm?: number,
   ): { readonly holding: number; readonly heal: number } | null;
+  /**
+   * 전투 시작(287): 그 유닛이 든 물약(물약 쿨 종류, 회복 줄이 있는 것 — 칸 ID 차례)을 판정 사양으로(양 = 효과량 가운데 값 × 신선도, ‰는 maxHp
+   * 기준), 문턱 = thresholdPm 또는 설정 칸 d510_potion_hp_threshold, 쿨 = 설정 칸, 남은 쿨 = 지금 물약 쿨 끝 − nowMs. 든 무기가 탄약 종류를
+   * 쓰면 입은 그 종류 탄약의 내구도(없으면 0)
+   */
+  battleKit(unitId: number, maxHp: number, nowMs: number, thresholdPm?: number): BattleKit;
+  /** 전투 끝(결과 적용과 같은 동기 처리, 287): 마신 물약 수량을 빼고 물약 쿨을 그 끝까지 걸고, 쏜 탄을 spendAmmo로 뺀다. 뺀 물약 수 */
+  applyBattleUse(unitId: number, use: BattleUse): number;
   /** 유닛이 입은 물건(칸 차례) */
   equippedOn(unitId: number): readonly HoldingRecord[];
   /** 유닛에 지금 걸린 효과(끝나지 않은 것, 스탯 몸·전투 시작 사양이 읽는다) */
@@ -254,6 +280,8 @@ export interface HeldDef extends HoldableDef {
         readonly maxDurability?: number | undefined;
         readonly weaponType?: string | undefined;
         readonly kinds?: readonly string[] | undefined;
+        /** 무기가 쓰는 탄약 종류(보조 칸 무기 종류, D-497). 없으면 탄을 쓰지 않는 무기 */
+        readonly ammo?: string | undefined;
       }
     | undefined;
 }

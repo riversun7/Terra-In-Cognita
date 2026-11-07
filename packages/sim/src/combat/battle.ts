@@ -1,8 +1,9 @@
 // 전투 판정 코어 — docs/adr/2026-10-31-combat-core.md, ADR 35(전투맵 인스턴스)
 // 한 틱(tickMs, 100ms) = 입력 적용 → 편마다 시야(틱 시작 위치) → 흐름장(fieldMs마다) → 파티 퇴각 기준 → 유닛마다(틱마다 (시드, 틱)으로
 // 섞은 차례, SIM_VERSION 4) 행동(공격 또는 한 걸음) → 퇴각 판정 → 끝 판정. 행동 시각은 ms로 들고, 그 시각이 된 첫 틱 경계에서 한다(D-418 실시간).
-// 공격 = 다음 행동 시각이 됐고 스태미나(속성이면 MP도)가 충분할 때. 걷기는 자원이 없다. 스태미나·MP·쉴드는 2차 스탯(분당 회복,
-// D-458)대로 틱마다 찬다. 피해는 두 몫이다(D-459): 물리 몫은 아머 HP부터, 속성 몫은 쉴드 HP부터 깎는다.
+// 공격 = 다음 행동 시각이 됐고 스태미나(속성이면 MP도)가 충분할 때(탄을 쓰는 무기면 탄도, D-497). 걷기는 자원이 없다. 스태미나·MP·
+// 쉴드·HP·아머는 분당 회복(2차 스탯 D-458·D-514, 아머는 최대 × 설정 칸)대로 틱마다 찬다. 피해는 두 몫이다(D-459): 물리 몫은 아머 HP부터,
+// 속성 몫은 쉴드 HP부터 깎는다. HP가 문턱 아래면 가진 물약을 저절로 마신다(287·D-510, consumables.ts).
 // 정수·시드 굴림만 쓴다(굴림 하나 = 0~9999, (시드, 틱)마다 새 흐름, 공격마다 셋: 명중·회피·크리, D-419).
 // 실시간·빨리감기·재생이 같은 함수다. 상태는 직렬화할 수 있는 값만 들고(스냅숏), 흐름장은 상태에서 다시 나오는 캐시다.
 // [임시] 파티 AI는 "보이는 가장 가까운 적"과 퇴각 기준선(⑦)만 한다. 작전 슬라이더 ①~⑥은 R5(D-5040).
@@ -18,6 +19,7 @@ import { visibleEnemies } from "./sight.ts";
 import { pickSkill, resolveSkill, singleAlly, startSkill, takeDamage } from "./skills.ts";
 import type { BattleTrace } from "./battleTrace.ts";
 import { active, electCommander, initialState, ready, spend, unitFrom } from "./battleState.ts";
+import { drinkPotion } from "./consumables.ts";
 import type {
   BattleInit,
   BattleInput,
@@ -371,6 +373,11 @@ function makeBattle(
   ): void => {
     const nowMs = state.tick * c.tickMs;
     if (hasStatus(unit, "stun")) return;
+    // 자동 물약(D-510): 스태미나·행동 시각을 쓰지 않는다(D-509). 시전·이동·공격과 같은 틱에 함께 한다
+    if (unit.potions) {
+      const drink = drinkPotion(unit, nowMs);
+      if (drink && trace) trace.heal(unit, unit, { hp: drink.healed, shield: 0 }, "potion");
+    }
     if (unit.cast) {
       if (nowMs >= unit.cast.atMs) finishCast(unit, rng, gone, nowMs);
       return;
@@ -425,11 +432,18 @@ function makeBattle(
   };
 
   /**
-   * 스태미나·MP(밀리점)·쉴드가 틱마다 찬다: 2차 스탯 분당 회복을 틱에 나눈 몫(regenOnTick), 최대에서 멈춘다(D-458).
-   * 쉴드는 맞는 중에도 일정하게 찬다(D-490). 쉴드 재생 효과(저주·버프, 효과 사전 stat shield_regen ‰)가 분당 재생을 바꾼다
+   * 스태미나·MP(밀리점)·쉴드·HP·아머가 틱마다 찬다: 분당 회복을 틱에 나눈 몫(regenOnTick), 최대에서 멈춘다(D-458).
+   * 쉴드는 맞는 중에도 일정하게 찬다(D-490). 쉴드 재생 효과(저주·버프, 효과 사전 stat shield_regen ‰)가 분당 재생을 바꾼다.
+   * HP(2차 스탯 hp_regen)·아머(최대 × n54_armor_regen ‰)도 전투 중에 쉴드처럼 찬다(D-514). 산 유닛만 부른다(쓰러진 유닛은 일어나지 않는다)
    */
   const regen = (unit: UnitState): void => {
     const tick = state.tick;
+    const hpRegen = unit.hpRegen ?? 0;
+    if (hpRegen > 0 && unit.hp < unit.maxHp)
+      unit.hp = Math.min(unit.maxHp, unit.hp + regenOnTick(hpRegen, tick, 1, c));
+    const armorRegen = unit.armorRegen ?? 0;
+    if (armorRegen > 0 && unit.armor < unit.armorHp)
+      unit.armor = Math.min(unit.armorHp, unit.armor + regenOnTick(armorRegen, tick, 1, c));
     if (unit.staminaMilli < unit.staminaMax * 1000)
       unit.staminaMilli = Math.min(
         unit.staminaMax * 1000,

@@ -58,7 +58,7 @@ describe("스탯 계산기(D-414·D-417, 정수 ‰)", () => {
     expect(computeSecondary(agiOnly(0), TEST_STAT_TABLE).evade).toBe(0);
   });
 
-  it("2차 스탯 14개(D-458에서 명중·크리·행동 속도 점수를 끔, D-502)와 시야·제작 직무: 확률 모양은 회피·물리/속성 방어율, 나머지는 양 모양", () => {
+  it("2차 스탯 15개(D-458에서 명중·크리·행동 속도 점수를 끔, D-502 — HP 회복 D-514 더함)와 시야·제작 직무: 확률 모양은 회피·물리/속성 방어율, 나머지는 양 모양", () => {
     const shapes = Object.fromEntries(TEST_STAT_TABLE.map((row) => [row.id, row.shape]));
     expect(shapes).toEqual({
       // 생존 5
@@ -74,18 +74,25 @@ describe("스탯 계산기(D-414·D-417, 정수 ‰)", () => {
       evade: "probability",
       crit_multiplier: "quantity",
       // 속도 0(행동 속도 점수는 D-502로 무기 간격 ÷ AGI 비율이 되어 껐다)
-      // 자원 5
+      // 자원 6(HP 회복 D-514)
       stamina: "quantity",
       stamina_regen: "quantity",
       mp: "quantity",
       mp_regen: "quantity",
       shield_regen: "quantity",
+      hp_regen: "quantity",
       // 활동 수치(48 §3.3): 시야, 직무 효율(제작 — 수리 장인 실력, D-512 323)
       sight: "quantity",
       job_crafting: "quantity",
     });
     const stats = computeSecondary(flat, TEST_STAT_TABLE);
     for (const row of TEST_STAT_TABLE) expect(Number.isInteger(stats[row.id])).toBe(true);
+  });
+
+  it("HP 회복(D-514) 출발값 = 옛 문서 초당 1 + VIT × 0.08 + WIS × 0.04를 분당으로: 새 사이보그(1차 10) 분당 132, VIT 40·WIS 40 분당 348", () => {
+    expect(computeSecondary(flat, TEST_STAT_TABLE).hp_regen).toBe(60 + 48 + 24);
+    const forty = { str: 40, dex: 40, agi: 40, vit: 40, int: 40, wis: 40 };
+    expect(computeSecondary(forty, TEST_STAT_TABLE).hp_regen).toBe(60 + 192 + 96);
   });
 
   it("새 행 출발값(분당): 쉴드 재생 = 1분에 WIS만큼(L11), 스태미나 회복 = 적정 STA에서 분당 720(D-511, 1차와 상관없음)", () => {

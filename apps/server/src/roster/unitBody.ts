@@ -5,6 +5,7 @@
 // - 입은 장비(보유 물건 item_holdings, 입은 칸만): 굴린 값(N49 285) + 지금 정의의 무기 사양(공격력 칸·적정 STR·INT·DEX·AGI·명중·크리·간격,
 //   D-502)·속성·저항·스킬(실효 아이템). 내구도 0인 물건은 아무것도 주지 않는다(N49 286 "0이면 장착 불가", 옛 BattleResult가 0이면 벗김).
 //   인공장기·장신구는 1차, 무기·방어구는 2차 행(D-423). 칸마다 더한다(옛 utils/item/equipment.js getEquipmentTotals가 칸마다 더함).
+// - 부상 불이익(D-514·D-145 "능력치 감소"): 그 시각 부상 단계의 ‰(설정 칸)만큼 성장값 + 버프를 깎는다(효과 출처 "injury").
 // - 걸린 효과(unit_effects, D-501): 1차 스탯 버프·디버프(고정값)는 성장값 뒤에 더한다(48 §2.3). 전투 수치 버프(공격 ‰·방어율·회피·관통·
 //   크리 배율·이동 속도·쉴드 재생)는 판정의 걸린 효과로 전투 시작 때 넣는다(sim CombatUnitSpec.startEffects — 효과 합 modifiersOf가
 //   그대로 읽는다). 1차 스탯 ‰ 버프는 규칙 모양이 없어 넣지 않는다(질문, 작업 기록).
@@ -63,10 +64,12 @@ export interface GearEffect {
   readonly valueMode: "flat" | "permille";
 }
 
-/** 유닛이 지닌 것(입은 물건·걸린 효과) — 보유 물건 서비스가 읽는다(holdings/world.ts gearOf) */
+/** 유닛이 지닌 것(입은 물건·걸린 효과)과 부상 불이익 — 보유 물건 서비스가 읽는다(holdings/world.ts gearOf) */
 export interface UnitGear {
   readonly equipped: readonly GearItem[];
   readonly effects: readonly GearEffect[];
+  /** 부상 불이익(1차 스탯 ‰ 감소, D-514 — 그 시각의 부상 단계 × 설정 칸). 없으면 0. 몸을 다시 만들 까닭(hasGear)에는 넣지 않는다 */
+  readonly injuryPm?: number | undefined;
 }
 
 export const NO_GEAR: UnitGear = { equipped: [], effects: [] };
@@ -164,6 +167,7 @@ export function bodySpecOf(base: BodyBase, gear: UnitGear): BodySpec {
       innateSkills: [],
       source: "baseline",
       buffs,
+      injuryPm: gear.injuryPm,
     };
   const { record } = base;
   return {
@@ -178,6 +182,7 @@ export function bodySpecOf(base: BodyBase, gear: UnitGear): BodySpec {
     // 장비 밖 속성값(생성·환생 값, D-450). 장비·인공장기 속성값은 loadoutOf가 더한다
     elements: elementsToArray(sumElementSources(record.elements ?? zeroElements(), [])),
     buffs,
+    injuryPm: gear.injuryPm,
   };
 }
 

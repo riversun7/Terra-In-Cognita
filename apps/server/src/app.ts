@@ -420,8 +420,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           tuning: tuningState,
           roster: rosterCatalog,
         }),
-        // 생명 수치(D-512): 사이보그·유닛 화면과 같은 몸 자료(최대 HP·아머·쉴드, 쉴드 재생 — 입은 장비·버프 포함)
-        vitals: vitalsConfigOf(rosterCatalog),
+        // 생명 수치(D-512·D-514): 사이보그·유닛 화면과 같은 몸 자료(최대 HP·아머·쉴드, HP 회복·아머 회복·쉴드 재생 — 입은 장비·버프·
+        // 부상 불이익 포함)와 부상 단계별 HP 회복 속도(설정 칸 실효 값)
+        vitals: vitalsConfigOf(rosterCatalog, tuningState),
         // 세계 전투 시작 사양의 몸(입은 장비·버프, 사이보그 화면과 같은 셈 — docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07 …)")
         roster: rosterCatalog ? () => rosterCatalog : undefined,
       })

@@ -3,6 +3,7 @@
 // 판정 밖의 정리다(같은 결과 상태 → 같은 처리). 세계(서버·시뮬)가 이 결과대로 유닛과 원장을 바꾼다.
 import type { LedgerBook, LedgerEntry } from "../ledger/ledgerBook.ts";
 import type { BattleState } from "./battleTypes.ts";
+import { consumablesUsed } from "./consumables.ts";
 
 /** 유닛 하나의 결과. injured = 쓰러졌었다(HP 0) → 지면 부상(D-099·D-145) */
 export type UnitOutcome =
@@ -20,6 +21,12 @@ export interface UnitResult {
   readonly hp: number;
   readonly armor: number;
   readonly shield: number;
+  /** 쏜 탄 수(사양에 탄이 있을 때만, 287 — 세계가 탄약 장비 내구도에서 뺀다) */
+  readonly shots?: number;
+  /** 마신 물약(보유 물건 칸 ID·수, 287 — 세계가 수량에서 빼고 물약 쿨을 건다) */
+  readonly potions?: readonly { readonly id: number; readonly used: number }[];
+  /** 마신 물약이 있으면 물약 쿨이 끝나는 전투 시각(ms) */
+  readonly potionReadyMs?: number;
 }
 
 export function resolveOutcomes(state: BattleState, options: { war: boolean }): UnitResult[] {
@@ -33,6 +40,7 @@ export function resolveOutcomes(state: BattleState, options: { war: boolean }): 
       hp: Math.max(0, unit.hp),
       armor: Math.max(0, unit.armor),
       shield: Math.max(0, unit.shield),
+      ...consumablesUsed(unit),
     };
     if (unit.status === "retreated") return { ...left, outcome: "retreated" };
     if (unit.side === winner) return { ...left, outcome: "stays" };

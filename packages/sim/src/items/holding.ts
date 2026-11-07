@@ -8,8 +8,8 @@
 //   굴린 값은 만들 때 정해지고(N49, 옛 user_equipments bonus_*), 그 밖 칸(무기 사양·속성·칸 등)은 실효 아이템 정의를 그때그때 읽는다
 //   (옛 CharacterRepository가 template 값을 늘 읽음, 기획 285 해석). 다시 굴리기는 개발자 소급 명령만(D-496).
 // - 닳기(D-496 289, 옛 BattleResult.processDurability): 전투가 끝날 때 입은 장비마다 확률로 깎는다(이겨도), 지면 더 깎을 수 있다.
-//   확률·양은 설정 칸(N49·C20). 0이면 입지 못한다(옛: 내구도 0 → 강제로 벗김). 퇴각한 유닛은 패배 닳음을 받지 않는다(D-512 324,
-//   D-190 "퇴각하면 장비 내구도를 잃지 않는다": 전투마다 닳음만 이긴 쪽과 같다).
+//   확률·양은 설정 칸(N49·C20). 0이면 입지 못한다(옛: 내구도 0 → 강제로 벗김). 퇴각한 유닛은 닳지 않는다(D-514 352 — D-190
+//   "퇴각하면 장비 내구도를 잃지 않는다": 전투마다 닳음도 패배 닳음도 없다).
 // - 수리(D-5031·F11·F12): 최대 내구도 감소는 society/cyborgUpkeep.ts repairDurable 하나. 재료 양 = max(1, ⌈기본 양 × 티어 × 잃은 ÷ 최대⌉)
 //   (옛 enhancement_routes.js 장비 수리, 티어 0은 1로 친다 — 옛 `Number(tier) || 1`).
 // - 신선도(D-285·D-496 288, 옛 GDD Consolidated_Item 4장): 신선도 = max(0, 1 − 경과 ÷ 유통기한). 경과는 실제 시간을 보존 배율로 나눈
@@ -96,18 +96,18 @@ function chance(rng: Rng, pm: number): boolean {
 
 /**
  * 전투 하나에서 유닛 하나가 끝난 모양(닳기에 드는 것): 이긴 편(won), 진 편(lost), 퇴각(retreated — 이긴 편이든 진 편이든 가장자리로
- * 빠짐, D-190·D-205). 퇴각은 패배 닳음을 받지 않는다(D-512 324)
+ * 빠짐, D-190·D-205). 퇴각은 닳음이 아예 없다(D-514 352 — D-190 "퇴각하면 장비 내구도를 잃지 않는다", 전투 기본 닳음도 없음)
  */
 export type WearOutcome = "won" | "lost" | "retreated";
 
 /**
- * 장비 하나가 전투 하나에서 닳는 양. 난수는 늘 두 번 뽑는다(이겨도·퇴각해도 패배 굴림을 버린다 — 같은 시드면 끝난 모양과 상관없이 같은
- * 흐름). 패배 닳음은 진 편(lost)만
+ * 장비 하나가 전투 하나에서 닳는 양. 난수는 늘 두 번 뽑는다(이겨도·퇴각해도 굴림을 버린다 — 같은 시드면 끝난 모양과 상관없이 같은
+ * 흐름). 패배 닳음은 진 편(lost)만, 퇴각(retreated)은 0(D-514 352)
  */
 export function battleWearAmount(outcome: WearOutcome, rules: WearRules, rng: Rng): number {
   const base = chance(rng, rules.chancePm) ? Math.max(0, rules.amount) : 0;
   const extra = chance(rng, rules.lossChancePm) && outcome === "lost" ? Math.max(0, rules.lossAmount) : 0;
-  return base + extra;
+  return outcome === "retreated" ? 0 : base + extra;
 }
 
 /** 닳게 한다(0에서 멈춘다). 양이 0이거나 이미 0이면 같은 객체 */

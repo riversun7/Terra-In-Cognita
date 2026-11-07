@@ -53,7 +53,15 @@ export interface BodySpec {
   readonly elements?: readonly number[] | undefined;
   /** 1차 스탯 버프(걸린 효과마다, 디버프는 음수, D-501). 성장값 뒤에 더한다(48 §2.3) */
   readonly buffs?: readonly PrimaryBuff[] | undefined;
+  /**
+   * 부상 불이익(‰, D-514·D-145 "능력치 감소" — 설정 칸 n54_injury_penalty_1~3). 성장값 + 버프에서 스탯마다 ⌊값 × ‰ ÷ 1000⌋을 뺀다
+   * (장비 1차 보너스에는 걸지 않는다). 효과 출처 ID "injury"로 보인다. 없거나 0이면 불이익 없음
+   */
+  readonly injuryPm?: number | undefined;
 }
+
+/** 부상 불이익의 효과 출처 ID(사이보그 화면 1차 출처의 "효과" 칸에 든다) */
+export const INJURY_BUFF_ID = "injury";
 
 /** 장비 칸 하나: 범위 자리(‰, 시안·미리 보기) 또는 굴린 값(보유 물건, 만들 때 정해짐 N49 285) */
 export type EquippedSpec =
@@ -96,6 +104,8 @@ export interface BodySheet extends BodyView {
 export interface BodyParts {
   readonly view: BodyView;
   readonly loadout: Loadout;
+  /** 1차 스탯에 더한 버프(걸린 효과 + 부상 불이익) */
+  readonly buffs: readonly PrimaryBuff[];
   /** 성장값(버프·장비 전) */
   readonly base: Primaries;
   /** 유닛 종류(칸 배치·타고난 무기). 팩에 없으면 undefined */
@@ -139,7 +149,7 @@ function primarySources(
       for (const gem of item.gems ?? []) if (gem.kind === "stat" && gem.stat === stat) value += gem.value;
       if (value !== 0) list.push({ kind: "item", slot, item: item.item, value });
     });
-    for (const buff of spec.buffs ?? [])
+    for (const buff of parts.buffs)
       if (buff.stat === stat && buff.value !== 0)
         list.push({ kind: "effect", id: buff.id, value: buff.value });
     return list;
@@ -201,6 +211,19 @@ function withBuffs(base: Primaries, buffs: readonly PrimaryBuff[] | undefined): 
   return out;
 }
 
+/** 걸린 효과 버프 + 부상 불이익(성장값 + 버프에서 ‰만큼 빼는 음수 버프, D-514) */
+function buffsWithInjury(base: Primaries, spec: BodySpec): readonly PrimaryBuff[] {
+  const buffs = spec.buffs ?? [];
+  const pm = Math.min(1000, Math.max(0, spec.injuryPm ?? 0));
+  if (pm === 0) return buffs;
+  const buffed = withBuffs(base, buffs);
+  const injury = PRIMARY_STATS.flatMap((stat): PrimaryBuff[] => {
+    const cut = Math.floor((Math.max(0, buffed[stat]) * pm) / 1000);
+    return cut > 0 ? [{ id: INJURY_BUFF_ID, stat, value: -cut }] : [];
+  });
+  return [...buffs, ...injury];
+}
+
 /**
  * 칸 하나의 장비 → 만든 물건. 굴린 값은 지금 정의의 칸 묶음에 맞는 것만 남긴다(정의의 칸이 바뀌어 1차·2차 묶음이 달라진 줄은 빼고,
  * 무기 사양·속성·스킬은 지금 정의를 읽는다 — N49 "굴린 값만 두고 나머지는 그때 읽음")
@@ -225,11 +248,12 @@ export function bodyParts(catalog: RosterCatalog, spec: BodySpec): BodyParts {
     return wanted && def && def.slot === slot ? equippedItemOf(def, wanted) : null;
   });
   const base = grown(spec, catalog.society.cyborg.growthPm);
+  const buffs = buffsWithInjury(base, spec);
   const skillSlots = kind
     ? skillSlotCount(kind.skillSlots.base, spec.rebirths * kind.skillSlots.perRebirth, kind.skillSlots.max)
     : 0;
   const loadout = loadoutOf({
-    base: withBuffs(base, spec.buffs),
+    base: withBuffs(base, buffs),
     slots,
     equipped,
     table: catalog.combat.statTable,
@@ -273,7 +297,7 @@ export function bodyParts(catalog: RosterCatalog, spec: BodySpec): BodyParts {
       list: loadout.skills.map((id) => ({ id, source: innate.has(id) ? "innate" : "equipment" })),
     },
   };
-  return { view, loadout, base, kind, slots, equipped, skillRule: kind ? kind.skillSlots : null };
+  return { view, loadout, buffs, base, kind, slots, equipped, skillRule: kind ? kind.skillSlots : null };
 }
 
 /** [임시] 저장된 스탯이 없는 시험 유닛(휴먼 칸 배치, 1차 모두 10, 레벨 1, 장비 없음) */

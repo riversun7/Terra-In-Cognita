@@ -93,9 +93,9 @@ describe("닳기(D-496 289, 옛 BattleResult 25%)", () => {
     expect(battleWearAmount("lost", { ...always, chancePm: 0, lossChancePm: 0 }, createRng(1))).toBe(0);
   });
 
-  it("퇴각은 패배 닳음이 없다(D-512 324, D-190): 전투마다 닳음만 이긴 편과 같다", () => {
+  it("퇴각은 닳음이 아예 없다(D-514 352, D-190): 전투마다 닳음도 패배 닳음도 없다", () => {
     const always = { chancePm: 1000, amount: 1, lossChancePm: 1000, lossAmount: 4 };
-    expect(battleWearAmount("retreated", always, createRng(1))).toBe(1);
+    expect(battleWearAmount("retreated", always, createRng(1))).toBe(0);
     expect(battleWearAmount("retreated", { ...always, chancePm: 0 }, createRng(1))).toBe(0);
     // 난수 흐름은 셋 다 같다(두 번)
     const [a, b, c] = [createRng(9), createRng(9), createRng(9)];

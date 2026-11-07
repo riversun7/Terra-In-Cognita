@@ -13,6 +13,7 @@ import { LABOR_TUNING_KEYS } from "./tuningLabor.ts";
 import { NPC_TUNING_KEYS } from "./tuningNpc.ts";
 import { SWITCH_TUNING_KEYS } from "./tuningSwitches.ts";
 import { TERRITORY_TUNING_KEYS } from "./tuningTerritory.ts";
+import { VITALS_TUNING_KEYS } from "./tuningVitals.ts";
 
 export interface TuningKey {
   /** 팩 항목 ID */
@@ -542,6 +543,7 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...BUILD_TUNING_KEYS,
   // 영토 층(49 M2·M3·N42·N51, D-104·D-485·D-486): tuningTerritory.ts
   ...TERRITORY_TUNING_KEYS,
+  ...VITALS_TUNING_KEYS,
   // 구인 카드(49 N45, D-469 — S39 출생 칸을 대신함): tuningRecruit.ts
   ...RECRUIT_TUNING_KEYS,
   ...LABOR_TUNING_KEYS,

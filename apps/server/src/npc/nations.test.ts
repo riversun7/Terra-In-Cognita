@@ -4,7 +4,9 @@ import {
   MAX_TEST_NATIONS,
   START_CITY_SLOTS,
   nationCode,
+  type NationLink,
   nationName,
+  nationPresetOf,
   nextCityName,
   planStartCities,
   presetOfCode,
@@ -70,6 +72,40 @@ describe("시작 도시 자리(세계 씨앗, D-6041)", () => {
     expect(nextCityName(["A", "B"], new Set(["A", "B", "A 2", "B 2"]))).toBe("A 3");
     expect(nextCityName(undefined, new Set())).toBeUndefined();
     expect(nextCityName([], new Set())).toBeUndefined();
+  });
+
+  it("세력이 따르는 나라(601 나): 자기 프리셋 → 반란 부모 → 종주 → 태어날 때 부모, 고리가 돌면 멈춘다", () => {
+    const links = new Map<number, NationLink>([
+      // 고정 나라(프리셋 2번)
+      [1, { code: "placeholder_nation_02", rebelOf: null, overlord: null }],
+      // 반란의 반란: 반란 부모(1)가 종주(5)보다 먼저
+      [2, { code: "rebel_2", rebelOf: 1, overlord: 5 }],
+      [3, { code: "rebel_3", rebelOf: 2, overlord: null }],
+      // 봉신 가문: 종주(1)
+      [4, { code: "house_4", rebelOf: null, overlord: 1 }],
+      [5, { code: "placeholder_nation_01", rebelOf: null, overlord: null }],
+      // 독립 가문: 태어날 때 부모(4)만 안다 → 4의 종주 1
+      [6, { code: "house_6", rebelOf: null, overlord: null, bornOf: 4 }],
+      // 부모 없는 세력·서로를 가리키는 고리
+      [7, { code: "free_7", rebelOf: null, overlord: null }],
+      [8, { code: "rebel_8", rebelOf: 9, overlord: null }],
+      [9, { code: "rebel_9", rebelOf: 8, overlord: null }],
+    ]);
+    const nation = (id: number) => nationPresetOf(id, (key) => links.get(key), sixteen)?.code;
+    expect(nation(1)).toBe("placeholder_nation_02");
+    expect(nation(3)).toBe("placeholder_nation_02");
+    expect(nation(4)).toBe("placeholder_nation_02");
+    expect(nation(6)).toBe("placeholder_nation_02");
+    expect(nation(7)).toBeUndefined();
+    expect(nation(8)).toBeUndefined();
+    // 모르는 부모는 건너뛰고 다음 고리
+    expect(
+      nationPresetOf(
+        10,
+        (key) => (key === 10 ? { code: "x_10", rebelOf: 99, overlord: 5 } : links.get(key)),
+        sixteen,
+      )?.code,
+    ).toBe("placeholder_nation_01");
   });
 
   it("빈 세계: 자리 차례마다 2차맵을 돌아 국가 하나의 도시가 서로 다른 2차맵에, 2차맵마다 1~2곳", () => {

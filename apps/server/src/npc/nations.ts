@@ -4,6 +4,8 @@
 // 세계 씨앗(D-6041 "세력마다 시작 도시 여러 곳", 60 §7.1 "2~4곳"): 국가마다 시작 도시 수 = 국가 프리셋 성격 칸(큰 나라·작은 나라, 기획 답
 // 504 다)을 설정 칸 worldSeed 아래 끝~위 끝 안으로 자른 값, 칸이 없으면 아래 끝(모든 국가 같은 수). NPC 도시 이름은 프리셋 도시 이름 목록을
 // 차례로 쓴다(기획 답 510 다, D-476 번역 안 함 — 이름이 없는 도시만 켤 때 채운다). docs/adr/2026-11-07-play-flow.md "WP5 나라 성격".
+// 고정 나라가 아닌 세력(반란·독립·새 가문)의 도시는 그 세력이 따르는 나라(반란 부모 → 종주 → 태어날 때 부모, 화폐·성격과 같은 차례)의 목록에서
+// 이름을 받는다(기획 답 601 나, nationPresetOf). 따르는 나라가 없을 때만 이름 없이 둔다(화면은 "<국가> 도시 N").
 // 시작 도시는 띄운 시험 2차맵들에 고르게 나눈다(자리 차례 = 칸 자리마다 2차맵을 돈다). 켤 때마다 모자란 도시만 더한다(있는 도시는 그대로,
 // 옛 세계의 첫 장 고정 자리 도시도 그대로 — 멱등). 시작 도시는 주인이 바뀌지 않으므로(D-325·D-341) 지우거나 옮기지 않는다.
 // 체제는 국가 차례로 셋을 돌리고(시뮬 "mixed"와 같다), 성향은 NPC 사회 런타임이 세계 시드로 굴려 채운다(D-327).
@@ -98,6 +100,38 @@ export function nationName(
 export function presetOfCode(code: string, presets: readonly NationPreset[] = []): NationPreset | undefined {
   if (code === TEST_NPC_FACTION_CODE) return presets[MAX_TEST_NATIONS - 1];
   return presets.find((entry) => entry.code === code);
+}
+
+/** 나라를 따라 올라가는 세력 하나(거울 세계 SimFaction·세력 행 모두 이 모양) */
+export interface NationLink {
+  readonly code: string;
+  /** 반란으로 생긴 세력이면 되찾으려는 원래 세력 */
+  readonly rebelOf: number | null;
+  /** 종주(봉신 관계) */
+  readonly overlord: number | null;
+  /** 태어날 때 부모(실행 중에만 안다 — 독립을 고른 새 가문처럼 반란 부모·종주가 없는 세력). 모르면 null·없음 */
+  readonly bornOf?: number | null | undefined;
+}
+
+/**
+ * 세력이 따르는 나라 프리셋(기획 답 601 나 — 화폐·성격과 같은 "부모 나라를 따른다" 차례): 자기 코드의 프리셋 → 반란 부모 → 종주 → 태어날 때
+ * 부모 가운데 처음 있는 세력을 따라 올라간다. 끝까지 없으면 undefined(프리셋 없는 시험 국가·유저 세력·부모 없는 세력)
+ */
+export function nationPresetOf(
+  id: number,
+  linkOf: (id: number) => NationLink | undefined,
+  presets: readonly NationPreset[],
+  seen = new Set<number>(),
+): NationPreset | undefined {
+  const link = linkOf(id);
+  if (!link) return undefined;
+  const own = presetOfCode(link.code, presets);
+  if (own) return own;
+  seen.add(id);
+  for (const parentId of [link.rebelOf, link.overlord, link.bornOf ?? null])
+    if (parentId !== null && !seen.has(parentId) && linkOf(parentId) !== undefined)
+      return nationPresetOf(parentId, linkOf, presets, seen);
+  return undefined;
 }
 
 /** 이름이 모자랄 때 붙이는 번호의 끝(목록 32개 × 이 수까지 — 넘으면 이름 없이 둔다) */
@@ -229,16 +263,47 @@ export async function ensureTestNations(
        select coalesce((select max(id) from world_cities), 0) + 1, $1, $2, $3, $4, $5, true, $6, 1, $7`,
       [factionId, options.planetId, spot.mapKey, spot.x, spot.y, START_CITY_HOUSING, options.nowMs],
     );
-  await nameNationCities(
-    pool,
-    options.planetId,
-    codes.flatMap((code) => {
-      const factionId = idOf.get(code);
-      const names = presetOfCode(code, options.presets)?.cityNames;
-      return factionId === undefined || !names ? [] : [{ factionId, names }];
-    }),
-  );
+  const fixedNames = codes.flatMap((code) => {
+    const factionId = idOf.get(code);
+    const names = presetOfCode(code, options.presets)?.cityNames;
+    return factionId === undefined || !names ? [] : [{ factionId, names }];
+  });
+  // 고정 나라 다음에 그 밖의 NPC 세력(세력 ID 차례)이 따르는 나라 목록에서(601 나 — 실행 중에 이름을 받지 못한 옛 마을)
+  await nameNationCities(pool, options.planetId, [
+    ...fixedNames,
+    ...(await followerNames(pool, new Set(idOf.values()), options.presets ?? [])),
+  ]);
   return planned.length;
+}
+
+/**
+ * 고정 나라가 아닌 NPC 세력마다 따르는 나라의 도시 이름 목록(601 나): 세력 행의 반란 부모(rebel_of)·종주(parent_id)를 따라 올라간다(사라진
+ * 세력 행도 고리로 쓴다). 태어날 때 부모는 저장하지 않아 켤 때는 모른다(실행 중에 세운 마을은 세울 때 이름을 받는다, npc/persist.ts)
+ */
+async function followerNames(
+  pool: QueryPool,
+  fixed: ReadonlySet<number>,
+  presets: readonly NationPreset[],
+): Promise<{ factionId: number; names: readonly string[] }[]> {
+  if (presets.length === 0) return [];
+  const found = await pool.query(
+    `select id, code, parent_id, rebel_of from factions where kind = 'npc' order by id`,
+  );
+  const links = new Map<number, NationLink>(
+    found.rows.map((row) => [
+      Number(row.id),
+      {
+        code: typeof row.code === "string" ? row.code : "",
+        rebelOf: row.rebel_of === null ? null : Number(row.rebel_of),
+        overlord: row.parent_id === null ? null : Number(row.parent_id),
+      },
+    ]),
+  );
+  return [...links.keys()].flatMap((factionId) => {
+    if (fixed.has(factionId)) return [];
+    const names = nationPresetOf(factionId, (id) => links.get(id), presets)?.cityNames;
+    return names ? [{ factionId, names }] : [];
+  });
 }
 
 /**

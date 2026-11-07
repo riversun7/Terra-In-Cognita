@@ -1,5 +1,5 @@
-// NPC 도시 계획 — 나라 특산이 건물 레시피를 고름(553 나), 처음 창고 = 생필품 몇 시간분 + 특산 고정 양(554 다).
-// docs/adr/2026-11-07-play-flow.md "WP10 경제 마무리"
+// NPC 도시 계획 — 나라 특산이 건물 레시피를 고름(553 나), 건물이 받지 못한 특산은 도시 직무(600 나), 처음 창고 = 생필품 몇 시간분 + 특산
+// 고정 양(554 다). docs/adr/2026-11-07-play-flow.md "WP10 경제 마무리"·"WP12 특산·이름 마무리"
 import { describe, expect, it } from "vitest";
 import { type EconomyCatalog, prepareCatalog } from "./catalog.ts";
 import { cityStartStock, planCityFacilities } from "./cityPlan.ts";
@@ -27,7 +27,7 @@ const CATALOG: EconomyCatalog = {
 };
 const catalog = prepareCatalog(CATALOG);
 
-describe("도시 시설(553 나)", () => {
+describe("도시 시설(553 나·600 나)", () => {
   it("건물은 그 시설의 특산 레시피를 특산 차례로 돌아가며 받고, 특산이 없는 시설은 팩 첫 레시피, 건물이 없는 시설만 특산 직무", () => {
     const jobs = [
       { facility: "lumber_camp", recipe: "cut_logs" },
@@ -53,9 +53,27 @@ describe("도시 시설(553 나)", () => {
       { buildingId: 20, jobIndex: null, facility: "mine", recipe: "mine_iron_ore", level: 1, slots: 10 },
       { buildingId: 30, jobIndex: null, facility: "lumber_camp", recipe: "cut_timber", level: 1, slots: 10 },
       { buildingId: 50, jobIndex: null, facility: "lumber_camp", recipe: "cut_logs", level: 1, slots: 10 },
-      // 벌목장 건물이 있어 벌목장 특산 직무는 휴먼이 돌리지 않고, 주방은 건물이 없어 휴먼이 Lv1로
+      // 벌목장 특산 둘은 벌목장 건물이 다 받아 휴먼이 돌리지 않고, 주방은 건물이 없어 휴먼이 Lv1로
       { buildingId: null, jobIndex: 2, facility: "kitchen", recipe: "cook_ration", level: 1, slots: 10 },
     ]);
+  });
+
+  it("건물보다 그 시설 특산이 많으면 남는 특산은 휴먼이 도시 직무로 Lv1(600 나)", () => {
+    const jobs = [
+      { facility: "lumber_camp", recipe: "cut_timber" },
+      { facility: "lumber_camp", recipe: "cut_logs" },
+      { facility: "kitchen", recipe: "cook_ration" },
+    ];
+    // 벌목장 건물 하나(Lv2) = 첫 특산(목재), 남은 통나무는 도시 직무, 주방은 건물이 없어 도시 직무
+    expect(planCityFacilities([{ buildingId: 7, facility: "lumber_camp", level: 2 }], jobs, catalog)).toEqual(
+      [
+        { buildingId: 7, jobIndex: null, facility: "lumber_camp", recipe: "cut_timber", level: 2, slots: 20 },
+        { buildingId: null, jobIndex: 1, facility: "lumber_camp", recipe: "cut_logs", level: 1, slots: 10 },
+        { buildingId: null, jobIndex: 2, facility: "kitchen", recipe: "cook_ration", level: 1, slots: 10 },
+      ],
+    );
+    // 건물이 없으면 그 시설 특산이 모두 도시 직무(531 다 그대로)
+    expect(planCityFacilities([], jobs, catalog).map((plan) => plan.jobIndex)).toEqual([0, 1, 2]);
   });
 
   it("특산이 없으면(기본 직무도 없음) 건물만 팩 첫 레시피로 돌린다", () => {

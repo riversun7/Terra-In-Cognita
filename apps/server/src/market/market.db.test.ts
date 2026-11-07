@@ -353,8 +353,19 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     expect(await again.checkInvariants()).toEqual([]);
   });
 
-  it("나라 성격(531 다·533 다·553 나·554 다): 국가마다 도시 직무·처음 창고가 다르고, 모자란 생필품은 굶음 먼저 일꾼을 둔다(532 나)", async () => {
-    const presets = packPresets;
+  it("나라 성격(531 다·533 다·553 나·554 다·600 나): 국가마다 도시 직무·처음 창고가 다르고, 모자란 생필품은 굶음 먼저 일꾼을 둔다(532 나)", async () => {
+    // 농업 나라(팩 프리셋 1)에 벌목장 특산을 하나 더 얹는다(벌목장 건물 하나 < 벌목장 특산 둘 — 600 나)
+    const presets = packPresets.map((preset, index) =>
+      index === 0 && preset.personality?.cityJobs
+        ? {
+            ...preset,
+            personality: {
+              ...preset.personality,
+              cityJobs: [...preset.personality.cityJobs, { facility: "lumber_camp", recipe: "cut_logs" }],
+            },
+          }
+        : preset,
+    );
     const world = await boot(presets);
     const npc = world.npc;
     const econ = npc?.economy;
@@ -366,11 +377,9 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
       const [cityId] = [...faction.cities];
       if (cityId === undefined) continue;
       const recipes = econ.production(cityId).map((run) => run.facility.recipe.id);
-      // 도시 직무: 그 시설 건물이 없는 것만(씨앗 시설 농장·벌목장·광산은 건물이 대신한다)
-      const jobs = (personality?.cityJobs ?? [{ facility: "kitchen", recipe: "cook_ration" }]).filter(
-        (job) => !["farm", "lumber_camp", "mine"].includes(job.facility),
-      );
-      for (const job of jobs) expect(recipes).toContain(job.recipe);
+      // 나라 특산은 건물 수와 상관없이 모두 돈다(건물 = 씨앗 시설 농장·벌목장·광산, 남는 특산은 휴먼의 도시 직무 — 531 다·553 나·600 나)
+      for (const job of personality?.cityJobs ?? [{ facility: "kitchen", recipe: "cook_ration" }])
+        expect(recipes).toContain(job.recipe);
       // 처음 창고: 성격 칸 startStock(팩 수량 × 묶음 크기 1 — 철 주괴는 아직 아무도 쓰지 않았다)
       const iron = personality?.startStock?.find((line) => line.item === "iron_ingot");
       if (iron) expect(ledger.balanceOf(faction.id, "item:iron_ingot", cityId)).toBe(BigInt(iron.qty));
@@ -390,10 +399,23 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     for (const run of econ.production(indCity ?? 0))
       if (run.buildingId !== null && run.facility.recipe.facility === "lumber_camp")
         expect(run.facility.recipe.id).toBe("cut_timber");
-    // 554 다: 처음 창고 = 생필품 몇 시간분(휴먼 수 비례) + 특산 고정 양(농업 나라 곡물 60, 공업 나라 철 주괴 20 — 생필품은 고정 양이 아님)
-    await world.persistence?.writer.durable();
+    // 600 나: 농업 나라 도시의 벌목장 건물 하나는 첫 벌목장 특산(목재), 남은 특산(통나무)은 휴먼이 도시 직무 Lv1로
     const agri = [...npc.world.factions.values()].find((faction) => faction.code === presets[0]?.code);
     const [agriCity] = [...(agri?.cities ?? [])];
+    const lumber = econ
+      .production(agriCity ?? 0)
+      .filter((run) => run.facility.recipe.facility === "lumber_camp")
+      .map((run) => ({
+        recipe: run.facility.recipe.id,
+        building: run.buildingId !== null,
+        level: run.facility.level,
+      }));
+    expect(lumber).toEqual([
+      { recipe: "cut_timber", building: true, level: 1 },
+      { recipe: "cut_logs", building: false, level: 1 },
+    ]);
+    // 554 다: 처음 창고 = 생필품 몇 시간분(휴먼 수 비례) + 특산 고정 양(농업 나라 곡물 60, 공업 나라 철 주괴 20 — 생필품은 고정 양이 아님)
+    await world.persistence?.writer.durable();
     const agriStock = await endowOf(agriCity ?? 0);
     expect(agriStock["item:grain"]).toBe("60");
     expect(BigInt(agriStock["item:ration"] ?? "0") % 72n).toBe(0n);

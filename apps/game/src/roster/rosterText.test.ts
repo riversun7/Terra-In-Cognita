@@ -130,10 +130,10 @@ describe("상태·정렬·걸러 보기", () => {
     expect(basesOf(all, "ko")).toEqual(["Nova", "Vega"]);
   });
 
-  it("부상 이름: 0은 없음", () => {
+  it("부상 이름: 0은 없음, 1~3은 흰·노랑·빨강(D-521)", () => {
     expect(injuryLabel(0, "ko")).toBeNull();
-    expect(injuryLabel(2, "ko")).toBe("중상");
-    expect(injuryLabel(3, "en")).toBe("Critical");
+    expect(injuryLabel(2, "ko")).toBe("노랑 부상");
+    expect(injuryLabel(3, "en")).toBe("Red injury");
   });
 });
 

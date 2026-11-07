@@ -50,6 +50,7 @@ import type { TempleOverviewResponse } from "@terra/shared/temple";
 import type { RuinsOverviewResponse } from "@terra/shared/ruins";
 import type { WorldCitiesResponse, WorldPositionResponse } from "@terra/shared/worldMap";
 import type { TravelReads } from "../worldMap/travelReads.ts";
+import type { GatherReads } from "../gather/reads.ts";
 import type { PlanetLibraryBase } from "@terra/shared";
 import type {
   PlanetDraftRevisionInfo,
@@ -411,6 +412,8 @@ export interface TrpcContext {
   territory?: (() => TerritoryReadServices | undefined) | undefined;
   /** 지도 흐름 조회(docs/adr/2026-11-07-play-flow.md "WP2"). 세계(DB)가 없거나 부팅 복구 전이면 undefined(not_ready로 답한다) */
   worldMap?: (() => WorldMapReads | undefined) | undefined;
+  /** 원자재 오브젝트 채집·건물 들어가기 조회(docs/adr/2026-11-07-gather-objects.md). 세계(DB)가 없으면 undefined(not_ready로 답한다) */
+  gather?: (() => GatherReads | undefined) | undefined;
   /** 경제 화면 자료. 늘 있다(팩이 없으면 빈 목록, 월드가 없으면 잔고 없음) */
   economy: EconomyServices;
   /** 세력 화면. 늘 있다(DB·월드가 없으면 실제 자료가 빈 값이다) */

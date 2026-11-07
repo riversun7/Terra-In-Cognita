@@ -237,6 +237,12 @@ export const WORLD_TABLES = {
     columns: ["planet_id", "cell_key", "value", "updated_at_ms"],
     key: ["planet_id", "cell_key"],
   },
+  /** 원자재 오브젝트 남은 번수·다시 자라는 시각(docs/adr/2026-11-07-gather-objects.md) — 채집 거래와 같은 커밋 */
+  gatherObjects: {
+    name: "gather_object_states",
+    columns: ["planet_id", "map_key", "object_id", "uses_left", "regrow_at_ms"],
+    key: ["planet_id", "map_key", "object_id"],
+  },
   /** 정원사 도시 웨이브·보호 레이드(예고부터 결과까지 한 줄). reward는 JSON 글자로 넣는다 */
   gardenerWaves: {
     name: "gardener_waves",
@@ -592,6 +598,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "factionWars",
   "npcSociety",
   "pollution",
+  "gatherObjects",
   "gardenerWaves",
   "ruins",
   "restorationContributions",

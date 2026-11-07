@@ -19,6 +19,7 @@ import { planetEditorRouter } from "./planetEditor.ts";
 import { rankingRouter } from "./ranking.ts";
 import { recruitRouter } from "./recruit.ts";
 import { fusionRouter } from "./fusion.ts";
+import { gatherRouter } from "./gather.ts";
 import { templeRouter } from "./temple.ts";
 import { ruinsRouter } from "./ruins.ts";
 import { cyborgRouter, unitsRouter } from "./roster.ts";
@@ -88,6 +89,7 @@ export const appRouter = router({
   facilities: facilitiesRouter,
   // 지도 흐름 조회(1차맵 도시·국가, 내 사이보그 자리 — docs/adr/2026-11-07-play-flow.md "WP2 지도 흐름")
   world: worldRouter,
+  gather: gatherRouter,
 });
 
 export type AppRouter = typeof appRouter;

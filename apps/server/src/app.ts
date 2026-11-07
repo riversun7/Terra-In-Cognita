@@ -42,6 +42,10 @@ import { marketSourceOf } from "./market/appSource.ts";
 import { serverEconomyCatalogAccessor } from "./market/catalog.ts";
 import { createMarketGateway } from "./market/gateway.ts";
 import { createTravelGateway } from "./travel/gateway.ts";
+import { createGatherGateway } from "./gather/gateway.ts";
+import type { GatherKind } from "./gather/kinds.ts";
+import { gatherReadsOf } from "./gather/reads.ts";
+import { startWorldGather } from "./gather/world.ts";
 import { holdingsConfigOf } from "./holdings/config.ts";
 import { vitalsConfigOf } from "./vitals/config.ts";
 import { createVitalsReads } from "./vitals/reads.ts";
@@ -221,6 +225,8 @@ export interface AppOptions {
    * 설정 칸 ranking_period)을 돌리고 ranking.* 조회가 집계 표를 읽는다. 없으면 빈 판
    */
   ranking?: { paths: readonly RankingPathInfo[]; nations?: NationNames | undefined } | undefined;
+  /** 2차맵 원자재 오브젝트 종류(팩 gather_objects, docs/adr/2026-11-07-gather-objects.md). 없으면 채집 오브젝트가 없다 */
+  gatherObjects?: readonly GatherKind[] | undefined;
   /**
    * 시험용: 요청의 로그인 사용자를 직접 정한다(DB 없는 시험). 주면 인증 세션 조회와 WebSocket 출처 검사를 하지 않는다.
    * 운영 코드는 쓰지 않는다.
@@ -507,6 +513,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     });
   }
 
+  // 원자재 오브젝트 채집·건물 들어가기(docs/adr/2026-11-07-gather-objects.md): 세계가 준비된 뒤(DB가 있는 월드만)
+  const worldGather =
+    world && options.db
+      ? startWorldGather(world, { kinds: () => options.gatherObjects ?? [], now, log: app.log })
+      : undefined;
+  if (worldGather) app.addHook("onClose", async () => worldGather.stop());
+  const gatherReads = worldGather ? gatherReadsOf(() => worldGather.current()) : undefined;
+
   // 랭킹(docs/adr/2026-11-07-ranking.md): 설정 칸 실효 값(부를 때마다), 집계 일정은 월드가 준비된 뒤 1분마다 경계를 본다(DB가 있는 월드만)
   const rankingCoefficients = tuningState ? () => tuningState.society().ranking : undefined;
   const rankingPaths = options.ranking?.paths ?? [];
@@ -651,6 +665,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       // 영토 조회(내 세력·개발 화면 전체)
       territory: territoryService,
       worldMap: worldMapService,
+      gather: gatherReads ? () => (worldGather?.current() ? gatherReads : undefined) : undefined,
       // 경제 화면: 팩 목록 + 월드 원장 잔고(읽기만) + 시안 자료
       economy: options.economyCatalog
         ? createEconomyServices({
@@ -749,6 +764,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       })
     : undefined;
 
+  const gatherGateway = worldGather
+    ? createGatherGateway({
+        service: () => (world?.status().state === "ready" ? worldGather.current()?.service : undefined),
+        now,
+        log: app.log,
+      })
+    : undefined;
+
   if (planets && options.planets) {
     registerPlanetRoutes(app, { planets, viewer: httpViewer, now, limits: options.planets.limits });
     app.addHook("onClose", async () => planets.close());
@@ -777,6 +800,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         ruins: ruinGateway,
         market: marketGateway,
         travel: travelGateway,
+        gather: gatherGateway,
         viewer: socketViewer(request),
         // 접속 상태(D-136): 월드가 DB에 저장할 때만. 연결은 부팅 복구가 끝난 뒤에만 들어온다(listen이 기다린다)
         presence: world

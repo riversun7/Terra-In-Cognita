@@ -103,7 +103,12 @@ describe("2차맵 지형 서비스", () => {
     expect(data.art?.length).toBe(256 * 256);
     expect(data.cellSizeMm).toBeGreaterThan(10_000);
     expect(terrain.costs).toEqual(
-      placementCostsFromLayers({ heights: data.heights, surface: data.surface, cover: data.cover }),
+      placementCostsFromLayers({
+        heights: data.heights,
+        surface: data.surface,
+        cover: data.cover,
+        art: data.art,
+      }),
     );
   });
 

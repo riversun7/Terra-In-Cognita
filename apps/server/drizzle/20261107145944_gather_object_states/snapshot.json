@@ -1,0 +1,167 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "3ff444e3-acb1-4fe1-b993-4667d1e231a4",
+  "prevIds": [
+    "ee304024-c36f-4db2-b03e-88253507b668",
+    "c24eaeec-0223-4a23-9ea1-db6709eeb0e4"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "gather_object_states"
+      ],
+      "writes": [
+        "s|tbl|public.gather_object_states",
+        "n|tbl|public.gather_object_states",
+        "e|tbl|public.gather_object_states",
+        "n|rel|public.gather_object_states",
+        "n|type|public.gather_object_states",
+        "n|rel|public.gather_object_states_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "gather_object_states",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "gather_object_states",
+        "name": "planet_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'s2_test_planet'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "gather_object_states",
+        "name": "map_key",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "gather_object_states",
+        "name": "object_id",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "gather_object_states",
+        "name": "uses_left",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "gather_object_states",
+        "name": "regrow_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "gather_object_states",
+        "name": "gather_object_states_pkey",
+        "columns": [
+          "planet_id",
+          "map_key",
+          "object_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "gather_object_states",
+        "name": "gather_object_states_object",
+        "value": "\"object_id\" between 0 and 65535",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "gather_object_states",
+        "name": "gather_object_states_uses",
+        "value": "\"uses_left\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "gather_object_states",
+        "name": "gather_object_states_regrow",
+        "value": "\"regrow_at_ms\" >= 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

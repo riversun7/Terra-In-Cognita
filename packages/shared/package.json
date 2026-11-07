@@ -29,6 +29,7 @@
     "./ranking": "./src/ranking.ts",
     "./recruit": "./src/recruit.ts",
     "./fusion": "./src/fusion.ts",
+    "./gather": "./src/gather.ts",
     "./temple": "./src/temple.ts",
     "./ruins": "./src/ruins.ts",
     "./roster": "./src/roster.ts",

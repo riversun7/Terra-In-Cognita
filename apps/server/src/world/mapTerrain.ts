@@ -150,7 +150,13 @@ export function buildTerrain(
       definitionHash: Number.parseInt(versions.definitionHash.slice(0, 8), 16) >>> 0,
     }),
   );
-  const costs = placementCostsFromLayers({ heights: map.heightsCm, surface: map.surface, cover: map.cover });
+  // 소품 그림 층도 준다: 나무가 선 숲 칸은 숲 비용으로 지나간다(SIM_VERSION 19, docs/adr/2026-11-07-gather-objects.md)
+  const costs = placementCostsFromLayers({
+    heights: map.heightsCm,
+    surface: map.surface,
+    cover: map.cover,
+    art: map.art,
+  });
   return {
     mapKey,
     version: terrainVersionToken(versions),
@@ -178,7 +184,12 @@ export function terrainFromFile(
   if (data.terrainSize !== SM_TERRAIN || (data.cover && data.placementSize !== SM_PLACEMENT)) {
     throw new RangeError("terrain file has another map size");
   }
-  const costs = placementCostsFromLayers({ heights: data.heights, surface: data.surface, cover: data.cover });
+  const costs = placementCostsFromLayers({
+    heights: data.heights,
+    surface: data.surface,
+    cover: data.cover,
+    art: data.art,
+  });
   return {
     mapKey,
     version,

@@ -116,7 +116,7 @@ export function StatBlock({ stats, names }: { stats: RosterStats; names: RosterN
             <h3 className="roster-secondary-group-title">{statGroupLabel(group)}</h3>
             <dl className="roster-secondary">
               {rows.map((stat) => (
-                <div key={stat.id} className="roster-secondary-row">
+                <div key={stat.id} className="roster-secondary-row" data-stat={stat.id}>
                   <dt>{localName(names.stats[stat.id], stat.id)}</dt>
                   <dd>{formatStat(stat)}</dd>
                 </div>

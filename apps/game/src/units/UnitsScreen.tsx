@@ -6,7 +6,7 @@
 // - 고른 칸·상세·걸러 보기·다중 선택은 화면 안 상태다(주소에 남기지 않는다. [임시] 뒤로는 화면을 떠난다).
 // 지연 로딩 조각(routeViews.tsx).
 import type { UnitsListResponse } from "@terra/shared/roster";
-import { type KeyboardEvent, useId, useMemo, useState } from "react";
+import { type KeyboardEvent, useCallback, useId, useMemo, useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { usePreviewOn } from "../inbox/preview.ts";
 import { BackButton } from "../shell/BackButton.tsx";
@@ -36,6 +36,13 @@ export default function UnitsScreen() {
   const query = useRosterQuery(loadUnits, preview);
   // 생명 수치(D-512): 실제 세계 유닛만, 기기가 분 단위로 셈한다
   const vitals = useVitals();
+  // 장착·해제·버프 뒤: 생명 수치(최대가 장비를 따른다)와 유닛 목록(스탯에 입은 장비·버프가 든다)을 다시 받는다
+  const reloadVitals = vitals.reload;
+  const reloadUnits = query.reload;
+  const onHoldingsChanged = useCallback(() => {
+    reloadVitals();
+    reloadUnits();
+  }, [reloadVitals, reloadUnits]);
   const [tab, setTab] = useState<Tab>("list");
   const baseId = useId();
   const state = query.state;
@@ -118,7 +125,7 @@ export default function UnitsScreen() {
         className="units-panel"
       >
         {state.status === "ready" ? (
-          <TabBody tab={tab} data={state.data} vitals={vitals} />
+          <TabBody tab={tab} data={state.data} vitals={vitals} onHoldingsChanged={onHoldingsChanged} />
         ) : (
           <LoadState state={state} onRetry={query.reload} />
         )}
@@ -127,10 +134,20 @@ export default function UnitsScreen() {
   );
 }
 
-function TabBody({ tab, data, vitals }: { tab: Tab; data: UnitsListResponse; vitals: VitalsNow }) {
+function TabBody({
+  tab,
+  data,
+  vitals,
+  onHoldingsChanged,
+}: {
+  tab: Tab;
+  data: UnitsListResponse;
+  vitals: VitalsNow;
+  onHoldingsChanged: () => void;
+}) {
   switch (tab) {
     case "list":
-      return <UnitList data={data} vitals={vitals} />;
+      return <UnitList data={data} vitals={vitals} onHoldingsChanged={onHoldingsChanged} />;
     case "parties":
       return <PartiesPanel data={data} />;
     case "presets":

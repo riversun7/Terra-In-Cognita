@@ -267,6 +267,11 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "temple.guardianDefensePm",
   "temple.guardianSatisfactionMilli",
   "temple.guardianProductionPm",
+  // 휴먼 환생 어드밴티지(D-520): 신전 환생 명령·조회가 읽는다
+  "temple.rebirthStatChanceBp",
+  "temple.rebirthKChanceBp",
+  "temple.rebirthStatAmount",
+  "temple.rebirthKAmountPm",
   // 세계 씨앗(npc/nations.ts·facilities/npcSeed.ts, docs/adr/2026-11-07-play-flow.md WP1): 켤 때 한 번 읽는다(바꾸면 다음 켤 때 모자란
   // 시작 도시·기본 시설만 더한다 — 이미 있는 것은 줄이지 않는다)
   "worldSeed.startCitiesMin",

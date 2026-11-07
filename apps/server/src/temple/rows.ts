@@ -14,6 +14,8 @@ export interface FullHumanRow extends HumanRow {
   readonly satisfactionMilli: number;
   /** DB 원래 스탯(null = 처음부터 있던 휴먼, HumanRow.stats는 기본 몸으로 채운 값) */
   readonly rawStats: number[] | null;
+  /** 성장 K(‰ 6칸, 환생 어드밴티지 D-520로 생김). null = K 없음 */
+  readonly kPm: number[] | null;
 }
 
 export interface FaithRow {
@@ -29,7 +31,7 @@ const intArrayOrNull = (value: unknown): number[] | null =>
 /** 휴먼 행 하나(없으면 undefined) */
 export async function readFullHuman(pool: QueryPool, unitId: number): Promise<FullHumanRow | undefined> {
   const result = await pool.query(
-    `select ${HUMAN_COLUMNS}, h.city_id, h.satisfaction_milli from world_humans h where h.unit_id = $1`,
+    `select ${HUMAN_COLUMNS}, h.city_id, h.satisfaction_milli, h.k_pm from world_humans h where h.unit_id = $1`,
     [unitId],
   );
   const row = result.rows[0];
@@ -39,10 +41,11 @@ export async function readFullHuman(pool: QueryPool, unitId: number): Promise<Fu
     cityId: row.city_id === null || row.city_id === undefined ? null : Number(row.city_id),
     satisfactionMilli: Number(row.satisfaction_milli),
     rawStats: intArrayOrNull(row.stats),
+    kPm: intArrayOrNull(row.k_pm),
   };
 }
 
-/** 휴먼 행을 다시 쓴다(바뀐 칸만 넘긴다, 나머지는 읽은 값) */
+/** 휴먼 행을 다시 쓴다(바뀐 칸만 넘긴다, 나머지는 읽은 값). stats = 환생 어드밴티지로 바뀐 스탯(없으면 읽은 값) */
 export function writeHuman(
   writer: WorldWriter,
   human: FullHumanRow,
@@ -51,6 +54,7 @@ export function writeHuman(
     readonly lifespanMs: number;
     readonly rebirths: number;
     readonly level: number;
+    readonly stats?: readonly number[] | undefined;
   },
 ): void {
   writer.upsert("humans", {
@@ -61,9 +65,14 @@ export function writeHuman(
     lifespan_ms: change.lifespanMs,
     rebirths: change.rebirths,
     level: change.level,
-    stats: human.rawStats,
+    stats: change.stats ? [...change.stats] : human.rawStats,
     elements: human.elements,
   });
+}
+
+/** 휴먼 성장 K만 고친다(환생 어드밴티지 D-520, 쓰기 대기열 humanGrowth — humans 행 쓰기가 덮지 않는 칸) */
+export function writeHumanGrowth(writer: WorldWriter, unitId: number, kPm: readonly number[] | null): void {
+  writer.upsert("humanGrowth", { unit_id: unitId, k_pm: kPm === null ? null : [...kPm] });
 }
 
 /** 유닛마다 신앙(줄이 없으면 0) */

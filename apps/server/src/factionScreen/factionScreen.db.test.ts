@@ -97,7 +97,11 @@ describe.skipIf(!TEST_DATABASE_URL)("세력·우편 화면 조회 (DB)", () => {
 
   it("실제 자료 읽기: 주체가 없으면 null, 소속·국고·위 세력·유닛·건물·잔고(위치 없는 0 아닌 계정만)", async () => {
     const userId = await userIdOf("fake_faction1");
-    expect(await readFactionReal(test.db.$client, userId)).toEqual({ owner: null, faction: null });
+    expect(await readFactionReal(test.db.$client, userId)).toEqual({
+      owner: null,
+      faction: null,
+      occupations: null,
+    });
 
     await sql(`insert into factions (kind, code) values ('npc', 'test_crown'), ('npc', 'test_house')`);
     const crown = Number((await sql(`select id from factions where code = 'test_crown'`)).rows[0]?.id);
@@ -153,5 +157,7 @@ describe.skipIf(!TEST_DATABASE_URL)("세력·우편 화면 조회 (DB)", () => {
     );
     const real = await readFactionReal(test.db.$client, userId);
     expect(real.faction).toMatchObject({ id: house, regime: "capitalism", fixed: true, cityCount: 2 });
+    // 공성 결과가 없으면 점령 칸은 빈 목록(세력이 있으니 곧 열림이 아니다, D-520)
+    expect(real.occupations).toEqual([]);
   });
 });

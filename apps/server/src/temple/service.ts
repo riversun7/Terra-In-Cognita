@@ -28,10 +28,12 @@ import {
   type SocietyCoefficients,
   type TempleRite,
   addDevotion,
+  applyRebirthAdvantage,
   devotionGain,
   guardianBuffValue,
   inactiveWindow,
   positionAt,
+  rebirthAdvantage,
   rebirthHuman,
   riteBlockers,
   riteCost,
@@ -57,6 +59,7 @@ import {
   writeFaith,
   writeGuardian,
   writeHuman,
+  writeHumanGrowth,
 } from "./rows.ts";
 
 export type TempleCommandResult =
@@ -279,9 +282,17 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
       if (blockers.includes("guardian_cap")) return fail("guardian_cap");
       payServiceFee(ledger, owner.ownerId, temple.ownerId, cost.currency, at, `temple_${input.rite}`);
       if (input.rite === "rebirth") {
-        const roll = createRng(o.seed()).nextInt(10_000);
+        // 굴림 차례: 수명(T4) → 어드밴티지 종류 → 어느 스탯(D-520 "어드벤티지를 준다. 초기스탯이나 k값 증가이나 확률로.")
+        const rng = createRng(o.seed());
+        const roll = rng.nextInt(10_000);
         const next = rebirthHuman({ ...human, faith: faith.faith }, at, roll, society);
-        writeHuman(writer, human, next);
+        const advantage = rebirthAdvantage(rng.nextInt(10_000), rng.nextInt(6), c);
+        const grown = applyRebirthAdvantage(human.stats, human.kPm, advantage);
+        writeHuman(writer, human, {
+          ...next,
+          ...(advantage.kind === "stat" ? { stats: grown.stats } : {}),
+        });
+        if (advantage.kind === "k") writeHumanGrowth(writer, input.unit, grown.kPm);
         writeFaith(writer, input.unit, { faith: next.faith, faithPoints: faith.faithPoints });
       } else {
         // 수호신 줄 → 같은 유닛이 수호신 유닛(종류 6)이 되어 선 칸에 멈춘다 → 휴먼 행(수명)을 지운다. 지닌 것·배운 스킬·신앙은 그대로

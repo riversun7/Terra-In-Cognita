@@ -26,6 +26,14 @@ export interface TempleRulesView {
   readonly guardianSatisfactionMilli: number;
   /** 수호신 생산 버프: 그 도시 시설 산출 + ‰(수호신마다, d311_guardian_production_pm [임시], 기획 답 470 가) */
   readonly guardianProductionPm: number;
+  /**
+   * 휴먼 환생 어드밴티지(D-520, 설정 칸 d520_rebirth_* [임시]): 초기 스탯 증가 확률·K 증가 확률(만분율), 스탯 하나에 더하는 초기 스탯·K(‰).
+   * 더 옛 서버는 보내지 않는다(화면은 줄을 빼고 그린다)
+   */
+  readonly rebirthStatChanceBp?: number;
+  readonly rebirthKChanceBp?: number;
+  readonly rebirthStatAmount?: number;
+  readonly rebirthKAmountPm?: number;
 }
 
 /** 수호신 도시 버프 종류(기획 답 456 가: 수호신마다 편집기 칸, 출발값 방어 — 효과는 470 가: 방어·만족도·생산) */

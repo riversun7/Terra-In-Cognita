@@ -52,6 +52,7 @@ function factionSig(f: SimFaction): string {
     traitsToArray(f.traits),
     f.aiStep,
     f.rebelOf,
+    f.bornOf,
   ]);
 }
 
@@ -484,6 +485,8 @@ export function createNpcPersist(
           ai_step: f.aiStep,
           dissolved_at_ms: f.alive ? null : (diedAt.get(f.id) ?? nowMs),
           rebel_of: f.rebelOf === null ? null : (rowOf.get(f.rebelOf) ?? null),
+          // 태어날 때 부모(기획 답 620 나): 다시 켜도 화폐·나라 성격·도시 이름이 부모 나라를 따른다
+          born_of: f.bornOf === null ? null : (rowOf.get(f.bornOf) ?? null),
         });
         savedFactions.set(f.id, sig);
         count.rows += 1;

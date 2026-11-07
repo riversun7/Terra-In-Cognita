@@ -5,6 +5,7 @@
 // - 거래 칸(질문 538 다, docs/adr/2026-11-07-play-flow.md WP6): 마지막 확인 뒤 내 걸린 거래소 주문이 남과 체결된 수(내가 걸어 둔 쪽 = maker),
 //   만료된 내 주문 수, 회차가 끝나 체결된 내 환전 주문 수. 실시간 체결 알림(market_fill)은 거래창을 연 동안 그대로 가고, 없는 동안 체결된 것은
 //   돌아와서 이 칸으로 본다(D-6014 복귀 요약과 같은 흐름). 숫자를 누르면 내 주문 화면.
+// - 습격·방어 칸(D-520, docs/adr/2026-11-07-war-outcomes.md): 마지막 확인 뒤 내 세력의 공성 결과 수(war_outcomes). 숫자를 누르면 세력 화면.
 import type { SummaryBackend, SummarySource } from "../summary/summary.ts";
 import { ASSET_ORE } from "./settlement.ts";
 import type { World } from "./world.ts";
@@ -66,9 +67,43 @@ function marketSource(world: World): SummarySource {
   };
 }
 
+/**
+ * 습격·방어 칸(D-6014, 공성 결과 셋 D-520 — docs/adr/2026-11-07-war-outcomes.md): 마지막 확인 뒤 내 세력이 이기거나 당한 공성 결과 수
+ * (war_outcomes, 약탈·점령 상태·점령·귀속). params = 이긴 수·당한 수·결과마다 수. 숫자를 누르면 세력 화면(점령 칸)
+ */
+function raidSource(world: World): SummarySource {
+  return {
+    kind: "raid",
+    async collect(account, since, until) {
+      const empty = { kind: "raid", count: 0, params: {}, target: null };
+      const persistence = world.persistence;
+      if (!persistence) return empty;
+      await persistence.writer.durable();
+      const result = await persistence.pool.query(
+        `select w.outcome, (w.attacker_faction_id = m.faction_id) as won, count(*)::int as n
+           from war_outcomes w join faction_members m on m.user_id = $1
+          where (w.attacker_faction_id = m.faction_id or w.target_faction_id = m.faction_id)
+            and w.at_ms > $2 and w.at_ms <= $3
+          group by w.outcome, won`,
+        [account.userId, since ?? -1, until],
+      );
+      const params = { won: 0, lost: 0, loot: 0, integrate: 0, occupy: 0 };
+      for (const row of result.rows) {
+        const n = Number(row.n ?? 0);
+        if (row.won === true) params.won += n;
+        else params.lost += n;
+        if (row.outcome === "loot" || row.outcome === "integrate" || row.outcome === "occupy")
+          params[row.outcome] += n;
+      }
+      const count = params.won + params.lost;
+      return { kind: "raid", count, params, target: count > 0 ? { route: "faction" } : null };
+    },
+  };
+}
+
 export function createWorldSummaryBackend(world: World): SummaryBackend {
   return {
-    sources: [productionSource(world), marketSource(world)],
+    sources: [productionSource(world), raidSource(world), marketSource(world)],
     async lastAck(userId) {
       const pool = world.persistence?.pool;
       if (!pool) return null;

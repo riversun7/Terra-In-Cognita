@@ -1,0 +1,607 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "4c125381-097d-47a1-bec4-5131f4a3d75a",
+  "prevIds": [
+    "ee304024-c36f-4db2-b03e-88253507b668",
+    "c24eaeec-0223-4a23-9ea1-db6709eeb0e4"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "war_outcomes"
+      ],
+      "writes": [
+        "s|tbl|public.war_outcomes",
+        "n|tbl|public.war_outcomes",
+        "e|tbl|public.war_outcomes",
+        "n|rel|public.war_outcomes",
+        "n|type|public.war_outcomes",
+        "n|rel|public.war_outcomes_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "factions",
+        "born_of"
+      ],
+      "writes": [
+        "s|col|public.factions.born_of",
+        "n|col|public.factions.born_of",
+        "e|col|public.factions.born_of"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_humans",
+        "k_pm"
+      ],
+      "writes": [
+        "s|col|public.world_humans.k_pm",
+        "n|col|public.world_humans.k_pm",
+        "e|col|public.world_humans.k_pm"
+      ],
+      "reads": [
+        "n|tbl|public.world_humans",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "war_outcomes",
+        "war_outcomes_attacker_idx"
+      ],
+      "writes": [
+        "s|idx|public.war_outcomes_attacker_idx",
+        "n|idx|public.war_outcomes_attacker_idx",
+        "e|idx|public.war_outcomes_attacker_idx",
+        "n|rel|public.war_outcomes_attacker_idx"
+      ],
+      "reads": [
+        "n|tbl|public.war_outcomes",
+        "n|sch|public",
+        "n|col|public.war_outcomes.attacker_faction_id",
+        "n|col|public.war_outcomes.at_ms"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "war_outcomes",
+        "war_outcomes_target_idx"
+      ],
+      "writes": [
+        "s|idx|public.war_outcomes_target_idx",
+        "n|idx|public.war_outcomes_target_idx",
+        "e|idx|public.war_outcomes_target_idx",
+        "n|rel|public.war_outcomes_target_idx"
+      ],
+      "reads": [
+        "n|tbl|public.war_outcomes",
+        "n|sch|public",
+        "n|col|public.war_outcomes.target_faction_id",
+        "n|col|public.war_outcomes.at_ms"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "factions"
+      ],
+      "writes": [
+        "s|fk|public.factions.factions_born_of_factions_id_fkey",
+        "n|fk|public.factions.factions_born_of_factions_id_fkey",
+        "e|fk|public.factions.factions_born_of_factions_id_fkey",
+        "n|con|public.factions.factions_born_of_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.factions.born_of",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "war_outcomes"
+      ],
+      "writes": [
+        "s|fk|public.war_outcomes.war_outcomes_attacker_faction_id_factions_id_fkey",
+        "n|fk|public.war_outcomes.war_outcomes_attacker_faction_id_factions_id_fkey",
+        "e|fk|public.war_outcomes.war_outcomes_attacker_faction_id_factions_id_fkey",
+        "n|con|public.war_outcomes.war_outcomes_attacker_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.war_outcomes",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.war_outcomes.attacker_faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "war_outcomes"
+      ],
+      "writes": [
+        "s|fk|public.war_outcomes.war_outcomes_target_faction_id_factions_id_fkey",
+        "n|fk|public.war_outcomes.war_outcomes_target_faction_id_factions_id_fkey",
+        "e|fk|public.war_outcomes.war_outcomes_target_faction_id_factions_id_fkey",
+        "n|con|public.war_outcomes.war_outcomes_target_faction_id_factions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.war_outcomes",
+        "n|sch|public",
+        "n|tbl|public.factions",
+        "n|sch|public",
+        "n|col|public.war_outcomes.target_faction_id",
+        "n|col|public.factions.id",
+        "e|uniqueness|public.factions.id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_humans"
+      ],
+      "writes": [
+        "s|ck|public.world_humans.world_humans_k_pm",
+        "n|ck|public.world_humans.world_humans_k_pm",
+        "e|ck|public.world_humans.world_humans_k_pm",
+        "n|con|public.world_humans.world_humans_k_pm"
+      ],
+      "reads": [
+        "n|tbl|public.world_humans",
+        "n|sch|public",
+        "n|col|public.world_humans.k_pm"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "war_outcomes",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "born_of",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "attacker_faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "target_faction_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "outcome",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "share_choice",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "until_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "next_tax_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "ended_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "taken",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "taken_asset",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "k_pm",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "war_outcomes_attacker_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "attacker_faction_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "at_ms",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "war_outcomes_target_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "target_faction_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "at_ms",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "factions",
+        "name": "factions_born_of_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "born_of"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "war_outcomes_attacker_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "attacker_faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "war_outcomes_target_faction_id_factions_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "target_faction_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "factions",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "war_outcomes_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "war_outcomes_outcome",
+        "value": "\"outcome\" in ('loot', 'integrate', 'occupy')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "war_outcomes_share_choice",
+        "value": "\"share_choice\" is null or \"share_choice\" in ('keep', 'delist')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "war_outcomes_taken",
+        "value": "\"taken\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_humans",
+        "name": "world_humans_k_pm",
+        "value": "\"k_pm\" is null or cardinality(\"k_pm\") = 6",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

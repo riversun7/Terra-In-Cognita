@@ -37,12 +37,18 @@ export const worldHumans = pgTable(
     stats: smallint("stats").array(),
     /** 구인 카드의 속성값 12칸(@terra/shared ELEMENT_IDS 차례, 칸마다 0~10). null = 처음부터 있던 휴먼 */
     elements: smallint("elements").array(),
+    /**
+     * 성장 K(‰, 1차 스탯 6칸 — 스탯 배열과 같은 차례). 신전 환생 어드밴티지(D-520)로 처음 생긴다. null = K 없음(성장 없음, 저장된 스탯 그대로).
+     * 쓰기 대기열 humans 행은 이 칸을 쓰지 않는다(humanGrowth만 — 다른 쓰기가 덮지 않게)
+     */
+    kPm: smallint("k_pm").array(),
   },
   (table) => [
     index("world_humans_city_idx").on(table.cityId),
     check("world_humans_satisfaction", sql`${table.satisfactionMilli} between 0 and 100000`),
     check("world_humans_level", sql`${table.level} >= 1`),
     check("world_humans_stats", sql`${table.stats} is null or cardinality(${table.stats}) = 6`),
+    check("world_humans_k_pm", sql`${table.kPm} is null or cardinality(${table.kPm}) = 6`),
     check(
       "world_humans_elements",
       sql`${table.elements} is null or (cardinality(${table.elements}) = 12 and 0 <= all(${table.elements}) and 10 >= all(${table.elements}))`,

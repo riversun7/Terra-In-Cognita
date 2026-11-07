@@ -414,6 +414,8 @@ export const factions = pgTable(
     dissolvedAtMs: bigint("dissolved_at_ms", { mode: "number" }),
     /** 반란으로 생긴 세력이면 되찾으려는 원래 세력(46 §2.4) */
     rebelOf: bigint("rebel_of", { mode: "number" }).references((): AnyPgColumn => factions.id),
+    /** 태어날 때 부모 세력(반란·새 마을 — 화폐·나라 성격·도시 이름이 부모 나라를 따른다, 기획 답 620 나·601 나). null = 처음부터 있던 세력 */
+    bornOf: bigint("born_of", { mode: "number" }).references((): AnyPgColumn => factions.id),
   },
   (table) => [
     check("factions_kind", sql`${table.kind} in ('npc', 'player')`),
@@ -450,10 +452,7 @@ export const worldOwners = pgTable(
     settledAtMs: bigint("settled_at_ms", { mode: "number" }).notNull(),
     /** 내지 못한 유지비 횟수[임시] */
     upkeepArrears: integer("upkeep_arrears").notNull().default(0),
-    /**
-     * 마지막 유지비 경계(정시)를 못 냈으면 그 경계 시각(냈으면 null). 사이보그 본체가 효율 불이익(N38)으로 돈다(D-453,
-     * docs/adr/2026-11-01-first-login-cyborg.md "바뀜 (D-450~D-453)")
-     */
+    /** 못 낸 마지막 유지비 경계 시각(냈으면 null) — 본체 효율 불이익 N38(D-453, ADR first-login-cyborg "바뀜 (D-450~D-453)") */
     upkeepUnpaidAtMs: bigint("upkeep_unpaid_at_ms", { mode: "number" }),
   },
   (table) => [check("world_owners_one_kind", sql`num_nonnulls(${table.userId}, ${table.factionId}) = 1`)],
@@ -486,10 +485,7 @@ export const worldCities = pgTable(
     nextRebellionMs: bigint("next_rebellion_ms", { mode: "number" }).notNull().default(0),
     /** 정원사 웨이브를 막아 낸 뒤 확률이 줄어드는 기간의 끝(C18, docs/adr/2026-11-01-gardener-r5b.md). 0 = 없음 */
     waveCooldownUntilMs: bigint("wave_cooldown_until_ms", { mode: "number" }).notNull().default(0),
-    /**
-     * 행정 건물(정부기관) 레벨 1~5(D-469 구인 카드: 카드 수·토탈 스탯 범위, 49 N45). [임시] 모든 도시 1(옛 마을회관) — 올리는 길이 아직 없다.
-     * docs/adr/2026-10-31-faction-society-core.md "바뀜 (D-469 구인 카드)"
-     */
+    /** 행정 건물 레벨 1~5(D-469 구인 카드 수·토탈 스탯 범위, 49 N45 — ADR faction-society-core "바뀜 (D-469 구인 카드)") */
     adminLevel: smallint("admin_level").notNull().default(1),
     /** 도시 이름(번역하지 않음 D-476, NPC 도시는 팩 국가 프리셋 목록 — 기획 답 510 다). null = 아직 없음(화면이 "<국가> 도시 N") */
     name: text("name"),
@@ -944,6 +940,8 @@ export { restorationContributions, worldRuins } from "./ruinsSchema.ts";
 export { fxOrders, fxPairs, fxRounds, marketBooks, marketOrders, marketTrades } from "./marketSchema.ts";
 /** 2차맵 사이 이동 표(docs/adr/2026-11-07-play-flow.md WP9) */
 export { worldTravels } from "./travelSchema.ts";
+/** 공성 결과 표(docs/adr/2026-11-07-war-outcomes.md) */
+export { warOutcomes } from "./warSchema.ts";
 
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

@@ -4,7 +4,14 @@
 // (유전자를 남기고 떠남)·인큐베이터(연구소 둘레에 태어나고 사는 도시 = 연구소 도시, 459 가) / 도시 방어(수호신이 수비로 들고 방어 버프, 비활성
 // 휴먼은 빠짐 — 452 다·456 가)를 본다.
 import { loadContentPack } from "@terra/content/node";
-import { CELL_UNITS, DAY_MS, OLD_TEMPLE_COEFFICIENTS as C, positionAt } from "@terra/sim";
+import {
+  CELL_UNITS,
+  DAY_MS,
+  OLD_TEMPLE_COEFFICIENTS as C,
+  type SocietyCoefficients,
+  TEST_SOCIETY_COEFFICIENTS,
+  positionAt,
+} from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
@@ -37,8 +44,9 @@ afterEach(async () => {
   await test.drop();
 });
 
-async function boot(): Promise<World> {
+async function boot(rules?: () => SocietyCoefficients): Promise<World> {
   const world = startWorld({
+    ...(rules ? { cyborgRules: rules } : {}),
     testBots: 12,
     paths: { kind: "inline" },
     now: () => clock,
@@ -57,6 +65,9 @@ async function boot(): Promise<World> {
   await world.ready;
   return world;
 }
+
+/** 수 배열의 합 */
+const sum = (values: readonly number[]): number => values.reduce((total, value) => total + value, 0);
 
 function persistenceOf(world: World) {
   const found = world.persistence;
@@ -434,5 +445,65 @@ describe.skipIf(!TEST_DATABASE_URL)("신전·종교(D-517)", () => {
     clock += 120_000;
     await persistence.fusion.expireDue(clock);
     expect(persistence.fusion.temple.isInactive(unit)).toBe(true);
+  });
+
+  it("환생 어드밴티지(D-520): 확률 100%면 K 하나 +값(K가 없던 휴먼은 바탕 1000에서), 초기 스탯 100%면 스탯 하나 +값", async () => {
+    let temple = { ...TEST_SOCIETY_COEFFICIENTS.temple, rebirthStatChanceBp: 0, rebirthKChanceBp: 10_000 };
+    const world = await boot(() => ({ ...TEST_SOCIETY_COEFFICIENTS, temple }));
+    const persistence = persistenceOf(world);
+    const service = persistence.fusion.temple;
+    const { userId, units } = await withHumans(world, "TempleBonus");
+    const [first] = units;
+    if (first === undefined) throw new Error("human");
+    const templeId = await buildNear(world, userId, first, "temple");
+    expect((await service.overview({ id: userId, devGrant: true }, clock)).rules).toMatchObject({
+      rebirthStatChanceBp: 0,
+      rebirthKChanceBp: 10_000,
+      rebirthKAmountPm: temple.rebirthKAmountPm,
+    });
+    const before = await rows<{ stats: number[] }>(
+      test.db,
+      `select stats from world_humans where unit_id = $1`,
+      [first],
+    );
+    const rebirth = async () => {
+      expect(await service.devInactivate(userId, { unit: first })).toMatchObject({ ok: true });
+      expect(await service.offer(userId, { buildingId: templeId, amount: "5000" })).toMatchObject({
+        ok: true,
+      });
+      expect(
+        await service.rite(userId, {
+          buildingId: templeId,
+          unit: first,
+          rite: "rebirth",
+          cost: String(temple.rebirthCurrency),
+        }),
+      ).toEqual({ ok: true, unitId: first });
+      await persistence.writer.durable();
+      const [row] = await rows<{ stats: number[]; k_pm: number[] | null; rebirths: number }>(
+        test.db,
+        `select stats, k_pm, rebirths from world_humans where unit_id = $1`,
+        [first],
+      );
+      if (!row) throw new Error("human row");
+      return row;
+    };
+    const once = await rebirth();
+    expect(once.stats).toEqual(before[0]?.stats);
+    expect(once.k_pm?.toSorted((a, b) => a - b)).toEqual([
+      1000,
+      1000,
+      1000,
+      1000,
+      1000,
+      1000 + temple.rebirthKAmountPm,
+    ]);
+    // 초기 스탯 100%: 스탯 합이 rebirthStatAmount만큼 오르고 K는 그대로(다른 쓰기가 덮지 않음)
+    temple = { ...temple, rebirthStatChanceBp: 10_000, rebirthKChanceBp: 0 };
+    clock += 60_000;
+    const twice = await rebirth();
+    expect(sum(twice.stats)).toBe(sum(once.stats) + temple.rebirthStatAmount);
+    expect(twice.k_pm).toEqual(once.k_pm);
+    expect(twice.rebirths).toBe(2);
   });
 });

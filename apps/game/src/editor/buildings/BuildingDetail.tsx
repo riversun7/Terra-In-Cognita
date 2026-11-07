@@ -1,6 +1,7 @@
 // 건물 편집기 편집 판 — 시설 하나: 머리(이름·ID·출처·고친 사람), 기본(이름·단계·최고 레벨·레벨당 자리·오염), 건설 재료(레벨 구간·
 // 레벨 표, BuildingLevels), 채집(스탯 짝·사다리 중분류·방식·수확량), 장비 수리 줄(BuildingRepair, D-512 323), 레시피(읽기만, 아이템
-// 편집기로 가는 고리), 검사 문제.
+// 편집기로 가는 고리), 검사 문제. 기본 칸에 건물 런타임 값(2차맵 칸 크기·레벨 1 최대 내구도 M15·창고 용량 N50,
+// docs/adr/2026-11-07-buildings-runtime.md)도 둔다.
 // 시설에는 켜기·끄기가 없다(늘 켜짐, 사용자 답 2026-11-03 "켜고 끄는건 말이 안된다" — 쓰고 싶지 않은 재료는 다른 재료로 바꾼다).
 // 옛 관리자 건물 편집기의 편집 폼(기본 정보 | 생산·저장·주거 | 계층·군사·기타)에서 우리 자료에 있는 칸만 둔다(ADR 3절 표).
 import type {
@@ -17,6 +18,7 @@ import {
   GATHER_MODE_IDS,
 } from "@terra/shared/buildingEditor";
 import type { ContentIssueView } from "@terra/shared/contentEdit";
+import { FACILITY_RUNTIME_LIMITS } from "@terra/shared/facilityRuntime";
 import { m } from "../../paraglide/messages.js";
 import { AppLink } from "../../shell/AppLink.tsx";
 import { NumberField, SelectField, TextField } from "../content/contentEditorFields.tsx";
@@ -306,6 +308,53 @@ export function BuildingDetail({
               min={FACILITY_LIMITS.pollution.min}
               max={FACILITY_LIMITS.pollution.max}
               onChange={(pollution) => edit({ ...draft, pollution })}
+            />
+            <NumberField
+              label={m.dev_buildings_field_footprint_w()}
+              optional
+              value={draft.footprint?.width}
+              min={FACILITY_RUNTIME_LIMITS.footprint.min}
+              max={FACILITY_RUNTIME_LIMITS.footprint.max}
+              hint={m.dev_buildings_footprint_hint()}
+              onChange={(width) =>
+                edit({
+                  ...draft,
+                  footprint:
+                    width === undefined ? undefined : { width, height: draft.footprint?.height ?? width },
+                })
+              }
+            />
+            <NumberField
+              label={m.dev_buildings_field_footprint_h()}
+              optional
+              value={draft.footprint?.height}
+              min={FACILITY_RUNTIME_LIMITS.footprint.min}
+              max={FACILITY_RUNTIME_LIMITS.footprint.max}
+              onChange={(height) =>
+                edit({
+                  ...draft,
+                  footprint:
+                    height === undefined ? undefined : { width: draft.footprint?.width ?? height, height },
+                })
+              }
+            />
+            <NumberField
+              label={m.dev_buildings_field_durability()}
+              optional
+              value={draft.durability}
+              min={FACILITY_RUNTIME_LIMITS.durability.min}
+              max={FACILITY_RUNTIME_LIMITS.durability.max}
+              hint={m.dev_buildings_durability_hint()}
+              onChange={(durability) => edit({ ...draft, durability })}
+            />
+            <NumberField
+              label={m.dev_buildings_field_storage()}
+              optional
+              value={draft.storageKg}
+              min={FACILITY_RUNTIME_LIMITS.storageKg.min}
+              max={FACILITY_RUNTIME_LIMITS.storageKg.max}
+              hint={m.dev_buildings_storage_hint()}
+              onChange={(storageKg) => edit({ ...draft, storageKg })}
             />
           </div>
         </section>

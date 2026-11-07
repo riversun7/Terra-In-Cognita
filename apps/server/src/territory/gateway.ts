@@ -5,7 +5,12 @@
 //   밀린 요청이 MAX_PENDING을 넘으면 busy.
 // - 다른 세력 대신(factionId가 내 세력이 아님·남의 비콘 치우기)은 권한 territory: dev-place(dev·admin)만. 판정·저장은 서비스.
 // - 같은 사용자·같은 요청 번호면 10분 동안 같은 결과를 다시 준다(끊긴 뒤 다시 보낸 명령이 두 번 실행되지 않게, 2차맵 명령과 같다).
-import { type BeaconResultCode, type ClientMessageOf, encodeMessage } from "@terra/protocol";
+import {
+  type BeaconResultCode,
+  type ClientMessageOf,
+  FACILITY_PROTOCOL_VERSION,
+  encodeMessage,
+} from "@terra/protocol";
 import { rolesAllow } from "../auth/permissions.ts";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
@@ -23,6 +28,8 @@ const TRANSIENT: ReadonlySet<BeaconResultCode> = new Set(["busy", "internal_erro
 export interface TerritoryLink {
   send(text: string): void;
   viewer(): Promise<Viewer | null>;
+  /** 인사한 프로토콜 판(없으면 지금 판). 재료 모자람 코드는 판 10부터라 9판 연결에는 forbidden으로 보낸다 */
+  protocolVersion?: number | undefined;
 }
 
 export interface TerritorySocket {
@@ -78,8 +85,13 @@ export function createTerritoryGateway(options: {
       let chain: Promise<void> = Promise.resolve();
       let pending = 0;
       let closed = false;
+      const old = (link.protocolVersion ?? FACILITY_PROTOCOL_VERSION) < FACILITY_PROTOCOL_VERSION;
       const reply = (id: number, result: BeaconCommandResult): void => {
-        if (!closed) link.send(resultText(id, result));
+        if (closed) return;
+        // 9판 기기는 insufficient_materials를 모른다(디코드 실패) → 그 판이 아는 가장 가까운 거절
+        const sent: BeaconCommandResult =
+          old && !result.ok && result.code === "insufficient_materials" ? fail("forbidden") : result;
+        link.send(resultText(id, sent));
       };
 
       const process = async (message: TerritoryClientMessage): Promise<void> => {

@@ -15,6 +15,8 @@ function fakeService(calls: string[]): LaborService {
   return {
     contracts: new Map(),
     outputsFor: () => undefined,
+    unitBusy: () => false,
+    buildingInUse: () => false,
     create: (userId, input) => {
       calls.push(
         `create:${userId}:${input.kind}:${input.buildingId}:${input.unitId}:${input.adjustPm ?? "-"}`,

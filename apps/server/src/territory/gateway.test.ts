@@ -30,6 +30,10 @@ function fakeService(calls: string[]): TerritoryService {
     mineView: () => Promise.resolve(undefined),
     cityOwnerChanged: () => 0,
     beaconCount: () => next,
+    beaconState: () => undefined,
+    canManage: () => Promise.resolve(false),
+    repairBeacon: () => false,
+    finishBeacon: () => false,
   };
 }
 

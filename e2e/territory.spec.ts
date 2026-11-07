@@ -5,6 +5,7 @@
 // - 사진: 1440(VIEWPORTS.desktop)·390 × 개발 화면 테마 네온·라이트(E2E_SHOTS_DIR, ADR 2026-11-02-dev-ui).
 // 시험끼리 서버·DB를 같이 쓴다: 비콘을 놓는 시험은 처음과 끝에 모든 비콘을 치운다(WebSocket beacon_remove).
 import type { Page } from "@playwright/test";
+import { PROTOCOL_VERSION } from "../packages/protocol/src/version.ts";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot } from "./helpers/screen.ts";
 import { type DevTheme, expect, test } from "./helpers/test.ts";
@@ -42,34 +43,37 @@ async function clearBeacons(page: Page, attempt = 1): Promise<void> {
   const view = await query(page, "territory.planet", { planetId: PLANET });
   const ids = list(field(view.data, "beacons")).map((beacon) => field(beacon, "id"));
   if (ids.length === 0) return;
-  const failed = await page.evaluate(async (beaconIds) => {
-    const socket = new WebSocket(`${location.origin.replace(/^http/, "ws")}/ws`);
-    const replies = new Map<number, unknown>();
-    // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
-    let welcomed: () => void = () => {};
-    const ready = new Promise<void>((resolve) => {
-      welcomed = resolve;
-    });
-    socket.addEventListener("message", (event) => {
-      const data: unknown = JSON.parse(String(event.data));
-      if (typeof data !== "object" || data === null) return;
-      const t: unknown = Reflect.get(data, "t");
-      if (t === "welcome") welcomed();
-      if (t === "beacon_result") replies.set(Number(Reflect.get(data, "id")), Reflect.get(data, "ok"));
-    });
-    await new Promise((resolve) => socket.addEventListener("open", resolve));
-    socket.send(JSON.stringify({ t: "hello", protocolVersion: 8, clientBuild: "e2e-territory" }));
-    await ready;
-    // 요청 번호는 부를 때마다 새로(서버는 같은 사용자·같은 번호면 10분 동안 처음 결과를 다시 준다)
-    const base = Math.floor(Math.random() * 1_000_000_000);
-    beaconIds.forEach((beaconId, index) =>
-      socket.send(JSON.stringify({ t: "beacon_remove", id: base + index, beaconId })),
-    );
-    for (let wait = 0; wait < 100 && replies.size < beaconIds.length; wait++)
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    socket.close();
-    return [...replies.values()].filter((ok) => ok !== true).length;
-  }, ids);
+  const failed = await page.evaluate(
+    async ({ beaconIds, protocolVersion }) => {
+      const socket = new WebSocket(`${location.origin.replace(/^http/, "ws")}/ws`);
+      const replies = new Map<number, unknown>();
+      // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
+      let welcomed: () => void = () => {};
+      const ready = new Promise<void>((resolve) => {
+        welcomed = resolve;
+      });
+      socket.addEventListener("message", (event) => {
+        const data: unknown = JSON.parse(String(event.data));
+        if (typeof data !== "object" || data === null) return;
+        const t: unknown = Reflect.get(data, "t");
+        if (t === "welcome") welcomed();
+        if (t === "beacon_result") replies.set(Number(Reflect.get(data, "id")), Reflect.get(data, "ok"));
+      });
+      await new Promise((resolve) => socket.addEventListener("open", resolve));
+      socket.send(JSON.stringify({ t: "hello", protocolVersion, clientBuild: "e2e-territory" }));
+      await ready;
+      // 요청 번호는 부를 때마다 새로(서버는 같은 사용자·같은 번호면 10분 동안 처음 결과를 다시 준다)
+      const base = Math.floor(Math.random() * 1_000_000_000);
+      beaconIds.forEach((beaconId, index) =>
+        socket.send(JSON.stringify({ t: "beacon_remove", id: base + index, beaconId })),
+      );
+      for (let wait = 0; wait < 100 && replies.size < beaconIds.length; wait++)
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      socket.close();
+      return [...replies.values()].filter((ok) => ok !== true).length;
+    },
+    { beaconIds: ids, protocolVersion: PROTOCOL_VERSION },
+  );
   if (failed === 0) return;
   expect(attempt).toBeLessThan(3);
   await page.waitForTimeout(1500);

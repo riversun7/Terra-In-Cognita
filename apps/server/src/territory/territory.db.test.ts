@@ -1,8 +1,11 @@
 // 영토 비콘·영토 배치 DB 통합 시험(docs/adr/2026-11-03-territory-layer.md) — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
 // 서버 규칙: 가입한 세력만 놓는다(개발 시험은 다른 세력 대신), 1차맵 칸 하나에 하나, N42 거리·개수(기준 도시), 다른 세력 도시 영향권(D-486),
-// 팩에 비콘 시설이 없으면 disabled, 커밋 뒤 답·다시 켜도 남음, 치우면 꼭짓점이 빠져 다시 셈, 조회(내 세력·전체)
+// 팩에 비콘 시설이 없으면 disabled, 커밋 뒤 답·다시 켜도 남음, 치우면 꼭짓점이 빠져 다시 셈, 조회(내 세력·전체),
+// 건물 규칙(기획 336, docs/adr/2026-11-07-buildings-runtime.md): 재료 빼기·건설 시간 뒤 꼭짓점·노화 30% 멈춤·수리
 import { EARTH_FACE_LEVEL, cellKey } from "@terra/planet";
+import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { goodsStock, grantGoods } from "../facilities/materials.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, type World, startWorld } from "../world/world.ts";
@@ -11,12 +14,15 @@ let test: TestDatabase;
 let clock = 1_800_000_000_000;
 const worlds: World[] = [];
 let beaconOn = true;
+/** 비콘 건설 시간(0 = 바로) */
+let beaconBuildMs = 0;
 
 beforeEach(async () => {
   if (!TEST_DATABASE_URL) return;
   test = await createTestDatabase();
   clock = 1_800_000_000_000;
   beaconOn = true;
+  beaconBuildMs = 0;
 });
 afterEach(async () => {
   if (!TEST_DATABASE_URL) return;
@@ -35,7 +41,13 @@ async function boot(): Promise<World> {
     onFatal: (error) => {
       throw error;
     },
-    territory: { beaconFacility: () => ({ enabled: beaconOn, materials: [{ item: "pine_log", qty: 3 }] }) },
+    territory: {
+      beaconFacility: () => ({
+        enabled: beaconOn,
+        materials: [{ item: "pine_log", qty: 3 }],
+        ...(beaconBuildMs > 0 ? { buildMs: beaconBuildMs } : {}),
+      }),
+    },
   });
   worlds.push(world);
   await world.ready;
@@ -57,11 +69,15 @@ async function fakeUser(name: string): Promise<string> {
   return String(found[0]?.id);
 }
 
-async function join(userId: string, factionId: number): Promise<void> {
+/** 세력에 넣고, 비콘 재료(소나무 원목)를 넉넉히 준다(건물 규칙: 놓을 때 재료를 뺀다) */
+async function join(userId: string, factionId: number, logs = 100): Promise<void> {
   await rows(test.db, `insert into faction_members (user_id, faction_id) values ($1, $2)`, [
     userId,
     factionId,
   ]);
+  const p = worlds.at(-1)?.persistence;
+  if (p && logs > 0)
+    grantGoods(p.ledger, p.settlement.ownerOfUser(userId, clock).id, "pine_log", logs, clock);
 }
 
 async function testFaction(): Promise<number> {
@@ -224,6 +240,64 @@ describe.skipIf(!TEST_DATABASE_URL)("영토 비콘", () => {
     expect(view?.factions.map((faction) => faction.code)).toEqual(["s3_test_npc", "territory_other"]);
     expect(view?.myFactionId).toBeNull();
     expect(cellKey(0, EARTH_FACE_LEVEL, 282, 328)).toBe(TEST_MAP_KEY);
+  });
+
+  it("건물 규칙(기획 336): 재료를 빼고 건설 시간 뒤에야 꼭짓점, 노화는 30%에서 멈춰 꼭짓점이 남고, 수리로 오른다", async () => {
+    beaconBuildMs = 60_000;
+    const world = await boot();
+    const territory = territoryOf(world);
+    const p = world.persistence;
+    if (!p) throw new Error("no persistence");
+    const faction = await testFaction();
+    const poor = await fakeUser("BeaconPoor");
+    const member = await fakeUser("BeaconBuilder");
+    await join(poor, faction, 2);
+    await join(member, faction);
+    expect(await territory.place(player(poor), { planetId: TEST_PLANET_ID, cellKey: near(5, 0) })).toEqual({
+      ok: false,
+      code: "insufficient_materials",
+    });
+    for (const key of [near(5, 0), near(0, 5), near(5, 5)])
+      expect((await territory.place(player(member), { planetId: TEST_PLANET_ID, cellKey: key })).ok).toBe(
+        true,
+      );
+    const ownerId = p.settlement.ownerOfUser(member, clock).id;
+    expect(goodsStock(p.ledger, ownerId, "pine_log")).toBe(91n);
+    // 짓는 동안은 꼭짓점이 아니다(목록에는 보인다), 개수는 센다
+    const building = await territory.planetView(TEST_PLANET_ID, member);
+    expect(building?.groups[0]?.hull).toBeNull();
+    expect(building?.beacons.map((beacon) => beacon.readyAtMs)).toEqual([
+      clock + 60_000,
+      clock + 60_000,
+      clock + 60_000,
+    ]);
+    expect(await territory.place(player(member), { planetId: TEST_PLANET_ID, cellKey: near(-5, 0) })).toEqual(
+      {
+        ok: false,
+        code: "beacon_limit",
+      },
+    );
+    clock += 60_000 + 30 * 86_400_000;
+    const built = await territory.planetView(TEST_PLANET_ID, member);
+    expect(built?.groups[0]?.hull).not.toBeNull();
+    // 쓰지 않는 건물: 30%(N50 문턱 = 기능 정지 직전)에서 멈춰 꼭짓점이 남는다. 내구도 = 10 × 30%
+    expect(built?.beacons.map((beacon) => [beacon.conditionPpm, beacon.durability])).toEqual([
+      [300_000, 3],
+      [300_000, 3],
+      [300_000, 3],
+    ]);
+    // 수리(건물 서비스의 작업이 끝날 때 더함)
+    expect(territory.repairBeacon(1, 500_000, clock)).toBe(true);
+    expect(territory.beaconState(1, clock)?.conditionPpm).toBe(800_000);
+    expect(territory.repairBeacon(1, CONDITION_FULL, clock)).toBe(true);
+    expect(territory.beaconState(1, clock)?.conditionPpm).toBe(CONDITION_FULL);
+    await p.writer.durable();
+    const saved = await rows<{ condition_ppm: number; ready_at_ms: string | null }>(
+      test.db,
+      `select condition_ppm, ready_at_ms from territory_beacons where id = 1`,
+    );
+    expect(saved).toEqual([{ condition_ppm: CONDITION_FULL, ready_at_ms: String(clock - 30 * 86_400_000) }]);
+    expect(await world.checkInvariants()).toEqual([]);
   });
 
   it("기준 도시를 빼앗기면 비콘이 도시와 함께 넘어간다(D-512 335): 개수·거리는 새 주인 기준, 다시 켜도 남음", async () => {

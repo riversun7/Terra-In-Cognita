@@ -185,3 +185,8 @@
 ### 결과
 - 팩 core@38(설정 칸 N54 일곱, 2차 스탯 행 `hp_regen`), `SIM_VERSION` 13(전투 ADR). 시험: 서버 `holdings/battleKit.test.ts` 6개, `holdings/gateway.test.ts` 병원 치료 1개, `holdings/service.test.ts`·sim `holding.test.ts` 퇴각 닳음 0으로 고침, DB `world/battleItems.db.test.ts` 2개.
 - 하지 않은 것: 유닛마다 물약 문턱(AI 작전 슬라이더 D-5039), 전투 중 예비 탄약 교체·스킬의 탄, 병원 시설·비용·치료 시간, 밸런스 화면·전투 실험실의 물약·탄 칸.
+
+## 바뀜 (2026-11-07, 장비 수리 명령 — 건물 런타임)
+- 위 "바뀜 (D-512)" 3절 끝의 "시설·장인 배치·재료 차감이 서버에 없어 수리 명령(WebSocket)은 더하지 않았다"와 결과의 "수리 한 번의 장인 직무 시간 길이 규칙, 수리 명령·재료 차감·시설 배치"를 ADR `2026-11-07-buildings-runtime.md`가 닫는다: `equipment_repair {buildingId, holdingId, unitIds}`(프로토콜 9) → 내 공방(다 지었고 30% 이상)·내 장비(입지 않음)·그 줄이 받는 칸, 재료(`repairMaterials`)를 시작할 때 주인 원장에서 빼고, 시간 = 기준 × max(1, 티어) × 잃은 ÷ 최대 × 장인 보정(D-514 351), 끝날 때 `HoldingService.repair`(장인 1차 스탯 = 일한 유닛들의 평균, 시설 Lv = 공방 레벨).
+- 고치는 동안 그 물건은 입기·벗기가 `busy`(서비스 선택 칸 `locked`, 실패 코드 `busy`를 `HoldingFailure`에 더함). 보유 물건 월드에 `primariesOf`·`statTable`·`setLocked`를 더했다.
+

@@ -20,6 +20,7 @@ export const BEACON_CODE_TEXT: Readonly<Record<BeaconResultCode | "offline" | "t
   foreign_city: m.dev_territory_code_foreign_city,
   disabled: m.dev_territory_code_disabled,
   unknown_beacon: m.dev_territory_code_unknown_beacon,
+  insufficient_materials: m.dev_territory_code_insufficient_materials,
   internal_error: m.dev_territory_code_internal_error,
   offline: m.dev_territory_code_offline,
   timeout: m.dev_territory_code_timeout,

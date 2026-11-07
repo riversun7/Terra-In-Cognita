@@ -802,7 +802,12 @@ export const ledgerAccounts = pgTable(
     ),
     check("ledger_accounts_one_kind", sql`num_nonnulls(${table.ownerId}, ${table.systemCode}) = 1`),
     check("ledger_accounts_owner_nonnegative", sql`${table.systemCode} is not null or ${table.balance} >= 0`),
-    check("ledger_accounts_asset_format", sql`${table.asset} ~ '^[a-z][a-z0-9_]{1,47}$'`),
+    // 자산 코드 = ID 모양, 또는 앞머리:ID(물자 item:<아이템 ID>, @terra/sim itemAsset — 건물 재료, docs/adr/2026-11-07-buildings-runtime.md).
+    // 넓히기만 했다(직전 판 앱의 자산 코드는 그대로 맞는다)
+    check(
+      "ledger_accounts_asset_format",
+      sql`${table.asset} ~ '^[a-z][a-z0-9_]{1,47}(:[a-z][a-z0-9_]{1,47})?$'`,
+    ),
   ],
 );
 
@@ -974,6 +979,8 @@ export const tuningRevision = pgTable(
 export { battleLabPresets, formulaOverrides } from "./devToolsSchema.ts";
 /** 노동 계약 표(docs/adr/2026-11-03-labor-contracts.md) */
 export { laborContracts, laborPostings, laborRents } from "./laborSchema.ts";
+/** 건물(시설) 상태·작업 표(docs/adr/2026-11-07-buildings-runtime.md) */
+export { facilityJobs, worldFacilities } from "./facilitySchema.ts";
 
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

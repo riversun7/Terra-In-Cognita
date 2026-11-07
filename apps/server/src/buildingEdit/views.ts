@@ -66,6 +66,12 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
           })),
         }
       : {}),
+    // 건물 런타임 칸(docs/adr/2026-11-07-buildings-runtime.md): 칸 크기·레벨 1 최대 내구도(M15)·창고 용량(N50)
+    ...(entry.footprint
+      ? { footprint: { width: entry.footprint.width, height: entry.footprint.height } }
+      : {}),
+    ...(entry.durability === undefined ? {} : { durability: entry.durability }),
+    ...(entry.storageKg === undefined ? {} : { storageKg: entry.storageKg }),
   };
 }
 

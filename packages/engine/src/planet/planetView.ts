@@ -34,14 +34,18 @@ import {
   createTileMaterial,
 } from "./planetMaterials.ts";
 import type { PickedCell } from "./planetTypes.ts";
+import { Starfield } from "./starfield.ts";
 import { type TileMeshArrays, tileGpuBytes, tileIndices } from "./tileMesh.ts";
 import type { GpuTile } from "./tilePipeline.ts";
 import { tileShape } from "./tileShape.ts";
 import { type TileNode, nodeSTRange } from "./tileTree.ts";
 import { type Vec3, dot } from "./vec3.ts";
 
-/** 우주(행성 밖) 색 — 세계 색은 화면 테마와 상관없다(D-070). 달은 켜지는 동안 이 색에서 나타난다 */
-export const SPACE_COLOR = 0x1e2a4a;
+/**
+ * 우주(행성 밖) 색 = 검정 — 세계 색은 화면 테마와 상관없다(D-070). 달은 켜지는 동안 이 색에서 나타난다.
+ * 사용자 요청 2026-11-07 "1차맵 확대시 우주 배경이 검은색"(ADR 2026-11-07-planet-view 3절, 그 전 남색 0x1e2a4a). 별 점은 starfield.ts
+ */
+export const SPACE_COLOR = 0x000000;
 /** 바탕 구는 해수면보다 이만큼 아래(타일이 있으면 늘 가린다) */
 const BASE_GLOBE_DEPTH_M = 1500;
 /** 고른 칸 둘레 구름 비우기: 칸 각 크기의 2.5배(1° 아래로는 줄이지 않는다), 바깥 가장자리는 1.6배까지 옅게 */
@@ -89,6 +93,7 @@ export class PlanetView {
   private readonly tiles = new Group();
   private readonly baseGlobe: Mesh<SphereGeometry, ShaderMaterial>;
   private readonly atmosphere: Mesh<SphereGeometry, ShaderMaterial>;
+  private readonly stars = new Starfield();
   private readonly index: BufferAttribute;
   /**
    * 함께 쓰는 인덱스를 들고 있는 보이지 않는 메시. 타일 지오메트리는 버리기 전에 인덱스를 뗀다(three는 지오메트리를 버릴 때
@@ -131,9 +136,10 @@ export class PlanetView {
     );
     this.atmosphere.frustumCulled = false;
     this.atmosphere.visible = !debugCracks;
-    // 그리는 차례: 타일(가까운 것 먼저) → 바탕 구 → 대기 띠(투명)
+    // 그리는 차례: 별(깊이 없음, 맨 먼저) → 타일(가까운 것 먼저) → 바탕 구 → 대기 띠(투명). 틈 찾기는 별을 끈다(자홍 바탕만)
     this.baseGlobe.renderOrder = 1_000_000;
-    this.scene.add(this.tiles, this.baseGlobe, this.atmosphere, this.indexKeeper);
+    this.stars.points.visible = !debugCracks;
+    this.scene.add(this.stars.points, this.tiles, this.baseGlobe, this.atmosphere, this.indexKeeper);
   }
 
   /** 카메라: 원점에 두고 회전만. near·far는 엔진이 정한다 */
@@ -155,6 +161,11 @@ export class PlanetView {
     const center = cameraRelative([0, 0, 0], pose.position);
     this.baseGlobe.position.set(center[0], center[1], center[2]);
     this.atmosphere.position.set(center[0], center[1], center[2]);
+  }
+
+  /** 별 점 크기를 기기 픽셀 비율에 맞춘다 */
+  setPixelRatio(ratio: number): void {
+    this.stars.setPixelRatio(ratio);
   }
 
   /** 대기 띠를 보일지(가까우면 끈다) */
@@ -269,6 +280,7 @@ export class PlanetView {
     this.baseGlobe.material.dispose();
     this.atmosphere.geometry.dispose();
     this.atmosphere.material.dispose();
+    this.stars.dispose();
     this.shared.uPalette.value.dispose();
   }
 }

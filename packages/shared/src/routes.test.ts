@@ -206,6 +206,7 @@ describe("주소 표", () => {
         "everyone",
         [
           "key",
+          "stage",
           "planet-debug",
           "pixel-ratio",
           "planet-time",

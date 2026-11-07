@@ -63,6 +63,11 @@ export interface SecondMapEngineOptions {
    * 카메라가 바뀐 프레임마다(그리기 전). 나침반·이웃 2차맵 받기에 쓴다 — 가볍게 처리한다(React 상태를 프레임마다 바꾸지 않는다)
    */
   onView?: (camera: Readonly<CameraState>) => void;
+  /**
+   * 이미 가장 가까이(in)·가장 멀리(out)에 닿은 채 다시 키우기·줄이기를 했을 때(두 손가락·휠, ADR 2026-11-07-planet-view 2절).
+   * 화면이 정한다: out = 1차맵 5단계로(D-6018)
+   */
+  onZoomEdge?: (edge: "in" | "out") => void;
 }
 
 export interface EngineStats {
@@ -171,6 +176,10 @@ export interface SecondMapEngine {
   requestFrame(): void;
   /** 유닛 하나의 모습(키·굵기·색)을 바꾼다(쓰러짐 등). 없는 유닛이면 아무것도 하지 않는다 */
   setUnitLook(id: number, look: UnitLook): void;
+  /**
+   * 확대 한 칸(1 = 키우기 [+] 거리 ÷ 2, −1 = 줄이기 [−] 거리 × 2), 화면 가운데 기준. 이미 그쪽 끝이면 false(화면이 1차맵으로 넘어간다)
+   */
+  zoomStep(direction: 1 | -1): boolean;
   /** 카메라 목표(배치 칸)와 화면 짧은 변에 보일 길이(m, 없으면 거리 그대로). 한계 안으로 자른다 */
   setView(view: { x: number; y: number; spanM?: number | undefined }): void;
   /** 모두 버린다: 그리기 멈춤, 입력·워커·지오메트리·재질 정리, 캔버스 떼기(렌더러는 다음 화면이 다시 쓴다) */

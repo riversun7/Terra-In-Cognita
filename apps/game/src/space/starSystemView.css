@@ -1,34 +1,46 @@
 /*
- * 항성계 그림(StarSystemView) — 색은 디자인 토큰만 쓴다. 선 두께·크기는 SVG 속성(그림 몫 단위)이 정한다.
- * - 생명 가능 지대 띠: 성공 색을 옅게. 궤도 고리: 테두리 색. 소행성대 고리: 흐린 글자 색 점선.
- * - 행성 점: 지대 안은 성공 색, 안쪽(더움)은 위험 색, 바깥(추움)은 주 색. 고른 천체는 초점 색 고리.
+ * 항성계 그림(StarSystemView) — 우주 그림이라 화면 테마와 상관없이 검정 바탕 + 우주 색(tokens.css --color-space-*, D-070).
+ * 개발자 항성계 편집기와 1차맵 항성계 보기가 같은 모습이다(ADR 2026-11-07-planet-view 3절). 선 두께·크기는 SVG 속성(그림 몫)이 정한다.
+ * - 생명 가능 지대 띠: 초록을 옅게. 궤도 고리: 우주 선 색. 소행성대: 고리 대신 먼지 점.
+ * - 행성 점: 지대 안 초록, 안쪽(더움) 붉은색, 바깥(추움) 푸른색, 가스 행성은 모래색. 고른 천체는 하늘색 고리, 지금 행성은 노란 고리.
+ * - 이름표(HTML 층): 천체 바깥쪽에 붙는다(data-side). 검정 위 밝은 글자, 그림자로 고리 위에서도 읽힌다.
  */
+.ssv-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-panel);
+  background-color: var(--color-space);
+  color: var(--color-space-text);
+  overflow: hidden;
+}
 .ssv {
   display: block;
   width: 100%;
-  height: auto;
-  aspect-ratio: 1;
+  height: 100%;
   touch-action: manipulation;
 }
 .ssv-hz {
-  stroke: var(--color-success);
-  opacity: 0.28;
+  stroke: var(--color-space-habitable);
+  opacity: 0.16;
 }
 .ssv-ring {
-  stroke: var(--color-border);
-}
-.ssv-ring[data-kind="asteroid_belt"] {
-  stroke: var(--color-text-muted);
+  stroke: var(--color-space-line);
 }
 .ssv-ring[data-selected] {
-  stroke: var(--color-focus);
+  stroke: var(--color-space-focus);
+  opacity: 0.7;
+}
+.ssv-dust circle {
+  fill: var(--color-space-dust);
+  opacity: 0.55;
+}
+.ssv-dust[data-selected] circle {
+  fill: var(--color-space-focus);
+  opacity: 0.7;
 }
 .ssv-star-glow {
-  opacity: 0.35;
-}
-.ssv-star {
-  stroke: var(--color-text);
-  stroke-opacity: 0.25;
+  opacity: 0.22;
 }
 .ssv-body {
   cursor: pointer;
@@ -38,31 +50,114 @@
   fill: transparent;
   stroke: none;
 }
-.ssv-body[aria-pressed="true"] .ssv-hit {
-  fill: var(--color-highlight);
-  fill-opacity: 0.5;
-  stroke: var(--color-focus);
+.ssv-select {
+  stroke: transparent;
 }
-.ssv-body:focus-visible .ssv-hit {
-  stroke: var(--color-focus);
+.ssv-body[aria-pressed="true"] .ssv-select,
+.ssv-body:focus-visible .ssv-select {
+  stroke: var(--color-space-focus);
+}
+.ssv-current {
+  stroke: var(--color-space-current);
 }
 .ssv-planet {
-  fill: var(--color-primary);
-  stroke: var(--color-surface);
+  fill: var(--color-space-cold);
+  stroke: var(--color-space);
 }
 .ssv-body[data-zone="habitable"] .ssv-planet {
-  fill: var(--color-success);
+  fill: var(--color-space-habitable);
 }
 .ssv-body[data-zone="hot"] .ssv-planet {
-  fill: var(--color-danger);
+  fill: var(--color-space-hot);
+}
+.ssv-body[data-kind="gas_giant"] .ssv-planet {
+  fill: var(--color-space-gas);
+}
+.ssv-moon {
+  fill: var(--color-space-muted);
 }
 .ssv-structure {
-  fill: var(--color-warning);
-  stroke: var(--color-surface);
+  fill: var(--color-space-structure);
 }
 .ssv-belt circle {
-  fill: var(--color-text-muted);
+  fill: var(--color-space-dust);
 }
 .ssv-empty {
-  stroke: var(--color-text-muted);
+  stroke: var(--color-space-muted);
+  stroke-dasharray: 0.02 0.016;
+}
+
+/* ── 이름표 ── */
+.ssv-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ssv-label {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  max-width: 34%;
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-tight);
+  text-shadow:
+    0 0 var(--space-1) var(--color-space),
+    0 0 var(--space-1) var(--color-space);
+  white-space: nowrap;
+}
+/* 자리는 이미 천체에서 띄웠다(StarSystemView LABEL_CLEAR): 글은 그 점에서 --space-1만큼 더 떨어져 붙는다 */
+.ssv-label[data-side="right"] {
+  transform: translate(var(--space-1), -50%);
+  align-items: flex-start;
+}
+.ssv-label[data-side="left"] {
+  transform: translate(calc(-100% - var(--space-1)), -50%);
+  align-items: flex-end;
+  text-align: end;
+}
+/* 위아래: 가운데 맞춤, 또는 천체에서 시작(오른쪽으로 뻗음)·끝(왼쪽으로 뻗음) */
+.ssv-label[data-side="top"] {
+  transform: translate(-50%, calc(-100% - var(--space-1)));
+  align-items: center;
+  text-align: center;
+}
+.ssv-label[data-side="bottom"] {
+  transform: translate(-50%, var(--space-1));
+  align-items: center;
+  text-align: center;
+}
+.ssv-label[data-side="top"][data-align="start"] {
+  transform: translate(calc(-1 * var(--space-2)), calc(-100% - var(--space-1)));
+  align-items: flex-start;
+  text-align: start;
+}
+.ssv-label[data-side="bottom"][data-align="start"] {
+  transform: translate(calc(-1 * var(--space-2)), var(--space-1));
+  align-items: flex-start;
+  text-align: start;
+}
+.ssv-label[data-side="top"][data-align="end"] {
+  transform: translate(calc(-100% + var(--space-2)), calc(-100% - var(--space-1)));
+  align-items: flex-end;
+  text-align: end;
+}
+.ssv-label[data-side="bottom"][data-align="end"] {
+  transform: translate(calc(-100% + var(--space-2)), var(--space-1));
+  align-items: flex-end;
+  text-align: end;
+}
+.ssv-label-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: var(--font-weight-strong);
+}
+.ssv-label-note {
+  color: var(--color-space-muted);
+}
+.ssv-label[data-current] .ssv-label-name {
+  color: var(--color-space-current);
+}
+.ssv-label[data-selected] .ssv-label-name {
+  color: var(--color-space-focus);
 }

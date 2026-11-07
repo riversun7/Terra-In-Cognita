@@ -1,6 +1,6 @@
 /*
  * 1차맵 시험 화면 — map.css(2차맵 HUD: 화면 전체 지도, 위아래 판)를 함께 쓰고 1차맵만의 판을 더한다:
- * 누른 칸 안내, 단계 표시, 레이어(지형·기후), 고도 과장 막대. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 누른 칸 안내, 레이어(지형·기후), 고도 과장 막대. 확대 단계는 zoomLadder.css(1·2차맵 같이). 값은 styles/tokens.css의 var(--…)만 쓴다.
  * 판은 불투명하다: 세계(행성) 색은 테마와 상관없으므로 다크 테마에서도 판 위 글자가 읽혀야 한다(D-070).
  */
 
@@ -41,34 +41,6 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2) var(--space-3);
-}
-
-/* 단계 표시: "단계 3/5" + 점 5개(장식, 읽기 프로그램은 글만 읽는다) */
-.planet-level {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0;
-  font-family: var(--font-display);
-  font-weight: var(--font-weight-display);
-  font-size: var(--font-size-lg);
-  line-height: var(--line-height-tight);
-  font-variant-numeric: tabular-nums;
-}
-.planet-level-dots {
-  display: inline-flex;
-  gap: var(--space-1);
-}
-.planet-level-dot {
-  width: var(--status-dot);
-  height: var(--status-dot);
-  border: var(--hairline) solid var(--color-border);
-  border-radius: var(--radius-pill);
-  background-color: var(--color-surface-2);
-}
-.planet-level-dot[data-on="true"] {
-  border-color: var(--color-primary-lip);
-  background-color: var(--color-primary);
 }
 
 /* 레이어 고르기: 두 버튼 중 고른 것을 잎색으로(aria-pressed) */
@@ -211,4 +183,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+/* 항성계 보기(PlanetSystemView) 동안 감추는 판: 아래 판·성능 줄(둘 다 display를 정해서 hidden 속성만으로는 안 숨는다) */
+.planet-screen .map-hud[hidden],
+.planet-screen .map-perf[hidden] {
+  display: none;
 }

@@ -164,6 +164,32 @@
   --slot-min: 92px;
 }
 
+/*
+ * 우주 그림 — 1차맵 항성계 보기·항성계 편집기 그림(space/StarSystemView, ADR 2026-11-07-planet-view 3절).
+ * 세계 색이라 화면 테마와 상관없다(D-070): 바탕은 늘 검정(1차맵 엔진의 우주 색 planetView.ts SPACE_COLOR와 같다), 그 위 선·글자는
+ * 어두운 바탕용 밝은 색이다. 글자(--color-space-text·muted)는 검정 위 대비 7:1 이상.
+ */
+:root {
+  --color-space: #000000;
+  /* 우주 위에 뜨는 판(항성계 보기의 카드·확대 단계) — 거의 검정인 남색 */
+  --color-space-panel: #0d1324;
+  --color-space-text: #eef2fc;
+  --color-space-muted: #a7b3cc;
+  /* 궤도 고리·판 테두리 */
+  --color-space-line: #3a4768;
+  /* 생명 가능 지대 띠와 그 안 행성, 안쪽(더움)·바깥(추움) 행성, 가스 행성 */
+  --color-space-habitable: #5ad796;
+  --color-space-hot: #ff8f7f;
+  --color-space-cold: #7fbcff;
+  --color-space-gas: #e8c194;
+  /* 소행성대 먼지 */
+  --color-space-dust: #a8a196;
+  --color-space-structure: #ffc957;
+  /* 고른 천체 고리, 지금 행성 고리 */
+  --color-space-focus: #7df9ff;
+  --color-space-current: #ffd66e;
+}
+
 /* 파스텔(기본) — 하늘에서 풀밭으로. 버튼은 밝은 잎색 + 짙은 글자 */
 :root,
 :root[data-theme="pastel"],

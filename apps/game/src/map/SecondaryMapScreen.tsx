@@ -18,6 +18,8 @@
 // (2차맵은 면 격자 틀이라 북쪽이 2차맵마다 돌아가 있다, 사용자 결정 U1).
 // 탐사한 곳이 없으면(유닛 없는 계정, S3 시야 안개) 온통 어두운 까닭을 알리고, dev·admin에게는 [시험 일꾼 받기]·[운영자 모드]와
 // 개발자 2차맵 시험(/dev/second-map)을 가리킨다.
+// 확대 단계(ADR 2026-11-07-planet-view 1·2절): 오른쪽 사다리(ZoomLadder, "2차맵 지역") [+]·[−]. 가장 멀리에서 [−]나 한 번 더 줄이기
+// (휠·두 손가락) = 이 2차맵 자리의 1차맵 5단계(D-6018, /map/planet?key=&stage=5).
 import {
   type EngineStats,
   type EngineStatus,
@@ -52,6 +54,7 @@ import type { MapFocus } from "./mapTarget.ts";
 import { MapTargetGate } from "./MapTargetGate.tsx";
 import { screenNotice } from "./secondMapNotice.ts";
 import { CrossingNotice, CyborgActions, TravelLine } from "./SecondMapTravel.tsx";
+import { ZoomLadder } from "./ZoomLadder.tsx";
 import { useTravelFollow } from "./useCyborgTravel.ts";
 import type { MapUnit } from "@terra/shared/mapUnits";
 import {
@@ -96,6 +99,11 @@ interface SecondaryMapScreenProps {
 }
 
 /** 열 맵을 정한 뒤(MapTargetGate) 그 맵을 그린다. 맵이 바뀌면 화면을 새로 만든다 */
+/** 이 2차맵 자리를 가운데로 1차맵 5단계를 연다(바꾸기: 뒤로 = 지도를 떠남, MapSwitch와 같다) */
+function openPlanetStage(mapKey: number): void {
+  navigate({ route: "map_planet", search: { key: String(mapKey), stage: "5" } }, { replace: true });
+}
+
 export default function SecondaryMapScreen({ mapKey, at, ...props }: SecondaryMapScreenProps) {
   return (
     <MapTargetGate keyParam={mapKey} atParam={at} onClose={props.onClose}>
@@ -207,6 +215,10 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
     };
     const engine = createSecondMapEngine(host, {
       serverNow,
+      // 가장 멀리에서 한 번 더 줄이면 1차맵 5단계(D-6018)
+      onZoomEdge: (edge) => {
+        if (edge === "out") openPlanetStage(mapKey);
+      },
       unitCapacity: UNIT_CAPACITY,
       mapKey,
       sky: skyMode(),
@@ -516,6 +528,13 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
             </span>
           </span>
         </div>
+        <ZoomLadder
+          rung={{ kind: "local" }}
+          onZoomIn={() => engineRef.current?.zoomStep(1)}
+          onZoomOut={() => {
+            if (engineRef.current && !engineRef.current.zoomStep(-1)) openPlanetStage(mapKey);
+          }}
+        />
         <MapPerfPanel perf={perf} stats={stats} feed={feed} />
       </header>
       {notice ? (

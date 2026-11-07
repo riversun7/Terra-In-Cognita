@@ -1,0 +1,71 @@
+/*
+ * 확대 단계 표시(ZoomLadder) — 지도 위 판 줄(map.css .map-hud-top) 안, 머리 판 옆의 가로 판: [−] 1차맵 3/5(점 다섯) [+].
+ * 위 판 줄은 줄바꿈되므로 좁으면 다음 줄로 내려간다. 아래 판·오른쪽 1·2차맵 전환 단추와 겹치지 않는다.
+ * 판은 불투명하다(세계 색은 테마와 상관없다, D-070). 누르는 곳은 --tap-size 이상. 값은 tokens.css의 var(--…)만 쓴다.
+ */
+.zoom-ladder {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+  color: var(--color-text);
+}
+.zoom-ladder-step {
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  padding: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-tight);
+  touch-action: manipulation;
+}
+.zoom-ladder-where {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: calc(var(--tap-size) * 1.2);
+  margin: 0;
+  padding: 0 var(--space-1);
+  text-align: center;
+}
+.zoom-ladder-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+.zoom-ladder-caption {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-tight);
+}
+.zoom-ladder-value {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* 점 다섯 개(장식): 지금 단계까지 잎색 */
+.zoom-ladder-dots {
+  display: flex;
+  gap: var(--hairline);
+}
+.zoom-ladder-dot {
+  width: calc(var(--status-dot) * 0.7);
+  height: calc(var(--status-dot) * 0.7);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+}
+.zoom-ladder-dot[data-on] {
+  border-color: var(--color-primary-lip);
+  background-color: var(--color-primary);
+}

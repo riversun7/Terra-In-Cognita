@@ -6,6 +6,8 @@
 // - 그림(space/StarSystemView)과 배치·제안 계산(space/starSystemLayout, @terra/shared starSystem)은 나중 게임 항성계 화면이 같이 쓴다.
 //   이 화면은 그 위의 편집 껍데기다. 게임 규칙(공전·이동·건물)은 넣지 않는다(기획 질문 100~103).
 // - [제안 적용]은 행성 편집기와 같은 작업 사본(이 기기 localStorage)에만 쓴다. 서버의 행성은 바꾸지 않는다.
+// - 화면 틀(ADR 2026-11-07-planet-view 3절): 휴대폰은 화면 전체가 한 번에 스크롤되고 이름·[이름 바꾸기]·[저장] 줄만 위에 붙는다.
+//   [항성계 지우기]는 판 맨 아래(지우기 칸)에 둔다. 그림은 1차맵 항성계 보기와 같은 우주 그림(이름표 포함)이다.
 // 화면 시험은 e2e/star-system.spec.ts.
 import {
   type RouteTarget,
@@ -17,7 +19,7 @@ import {
 import { useEffect, useId, useMemo, useState } from "react";
 import { useSession } from "../../auth/session.ts";
 import { m } from "../../paraglide/messages.js";
-import { StarSystemView } from "../../space/StarSystemView.tsx";
+import { type SystemBodyView, StarSystemView } from "../../space/StarSystemView.tsx";
 import { LiveMessage } from "../../ui/LiveMessage.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
 import { type ConfirmRequest, ConfirmDialog } from "../planet/ConfirmDialog.tsx";
@@ -356,6 +358,18 @@ function SystemLoader({ onClose, onNavigate, onRetry }: StarSystemScreenProps & 
   };
 
   const planetName = (id: string): string | null => library.find((item) => item.id === id)?.name ?? null;
+  /** 그림에 놓을 천체: 이름표 = 천체 이름 + 거리 */
+  const bodiesOf = (current: SystemDoc): SystemBodyView[] =>
+    current.definition.orbits.map((item, index) => ({
+      distanceAu: item.distanceMilliAu / 1000,
+      kind: item.body.kind,
+      label: orbitLabel(current, index),
+      name:
+        item.body.kind === "planet"
+          ? (planetName(item.body.planetId) ?? m.star_system_planet_missing())
+          : bodyKindText(item.body.kind),
+      note: m.star_system_label_au({ distance: formatAu(item.distanceMilliAu) }),
+    }));
   const orbitLabel = (current: SystemDoc, index: number): string => {
     const item = current.definition.orbits[index];
     if (!item) return "";
@@ -442,14 +456,9 @@ function SystemLoader({ onClose, onNavigate, onRetry }: StarSystemScreenProps & 
               </p>
             </div>
             <div className="ss-toolbar-actions">
-              <button type="button" className="button-small" onClick={() => rename(shown)}>
+              <button type="button" className="button-small ss-rename" onClick={() => rename(shown)}>
                 {m.star_system_rename()}
               </button>
-              {canRemove ? (
-                <button type="button" className="button-small ss-remove" onClick={() => remove(shown)}>
-                  {m.star_system_remove()}
-                </button>
-              ) : null}
               <button
                 type="button"
                 className="button-small button-primary ss-save"
@@ -471,12 +480,12 @@ function SystemLoader({ onClose, onNavigate, onRetry }: StarSystemScreenProps & 
           <div className="ss-main">
             <div className="ss-stage">
               <StarSystemView
-                definition={shown.definition}
+                starTypeId={shown.definition.star.type}
+                bodies={bodiesOf(shown)}
                 label={m.star_system_view_label({
                   star: starTypeName(starType(shown.definition.star.type)?.id ?? "g2v"),
                   count: String(shown.definition.orbits.length),
                 })}
-                bodyLabel={(index) => orbitLabel(shown, index)}
                 selected={orbit}
                 onSelect={setOrbit}
               />
@@ -533,6 +542,16 @@ function SystemLoader({ onClose, onNavigate, onRetry }: StarSystemScreenProps & 
                   setOrbit(null);
                 }}
               />
+              {canRemove ? (
+                <section className="ss-section ss-danger" aria-label={m.star_system_remove()}>
+                  <p className="field-hint">{m.star_system_remove_hint()}</p>
+                  <div className="form-actions">
+                    <button type="button" className="button-small ss-remove" onClick={() => remove(shown)}>
+                      {m.star_system_remove()}
+                    </button>
+                  </div>
+                </section>
+              ) : null}
             </div>
           </div>
         </>

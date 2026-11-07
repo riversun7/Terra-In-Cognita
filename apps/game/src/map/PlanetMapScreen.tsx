@@ -14,6 +14,8 @@
 // 하늘(ADR 2026-10-29-primary-map-sky 9절): 서버 시계로 낮밤·달·구름(planetSky.ts). 동작 줄이기면 연 시각에 멈춘다(바뀌면 setSky).
 // 시험·측정 주소: ?planet-time= 시각 멈춤, ?planet-sky=off, ?planet-sky-skip=night,moon,clouds, ?planet-sky-bench=<1|2|4>(HUD 하늘 줄),
 // ?planet-view=<위도>,<경도>[,<거리 km>] 처음 볼 곳(planetViewParam.ts).
+// 확대 단계(ADR 2026-11-07-planet-view): 오른쪽 사다리 [+]·[−](ZoomLadder, 엔진 zoomStep). 5단계 끝에서 더 키우면 가운데 2차맵으로
+// 들어가고(D-6018), 1단계 끝에서 더 줄이면 항성계 보기(PlanetSystemView)로 바뀐다. ?stage=<1~5>는 처음 단계(2차맵을 끝까지 줄여 오면 5).
 import {
   type PickedCell,
   type PlanetEngine,
@@ -57,6 +59,8 @@ import { type LoadPhase, type TileProblem, screenNotice } from "./planetNotice.t
 import { clusterView, focusView } from "./planetFocus.ts";
 import { PlanetCityPanel } from "./PlanetCityPanel.tsx";
 import { PlanetCommandPanel } from "./PlanetCommandPanel.tsx";
+import { PlanetSystemView } from "./PlanetSystemView.tsx";
+import { ZoomLadder } from "./ZoomLadder.tsx";
 import { formatAtParam } from "./mapTarget.ts";
 import { type MyTravelEvent, liveMe, reachedMap, useMyTravel } from "./useMyTravel.ts";
 import { enterableAt, loadMyPosition, loadWorldCities, parseMapKey } from "./worldMapData.ts";
@@ -65,7 +69,7 @@ import "./planetMap.css";
 
 /** [임시] 시험 화면이 여는 행성 = 콘텐츠 팩 S2 시험 행성. 행성을 고르는 화면이 생기면 그쪽에서 받는다 */
 const PLANET_ID = "s2_test_planet";
-/** 1차맵 가장 고운 단계 — 여기서 가운데 2차맵에 들어갈 수 있다(기획 60 §4.1) */
+/** 1차맵 가장 가까운 확대 단계 — 여기서 가운데 2차맵에 들어갈 수 있다(기획 60 §4.1, D-6018) */
 const FINEST_LEVEL = 5;
 /** 성능 보고에 붙이는 화면 이름 */
 const TELEMETRY_VIEW = "planet-map";
@@ -73,7 +77,12 @@ const TELEMETRY_VIEW = "planet-map";
 const DEFAULT_EXAGGERATION = 6;
 const MIN_EXAGGERATION = 1;
 const MAX_EXAGGERATION = 20;
-const LEVELS = [1, 2, 3, 4, 5] as const;
+
+/** 주소 ?stage=<1~5>(처음 확대 단계). 없거나 틀리면 undefined */
+function stageParam(search: string): number | undefined {
+  const value = Number(new URLSearchParams(search).get("stage"));
+  return Number.isInteger(value) && value >= 1 && value <= FINEST_LEVEL ? value : undefined;
+}
 
 interface PlanetMapScreenProps {
   onClose: () => void;
@@ -127,6 +136,13 @@ function PlanetMapView({
   // 고른 도시의 판 대신 1차맵 명령 판(볼 수 없는 맵의 [정찰 보내기])
   const [commanding, setCommanding] = useState(false);
   const [planet, setPlanet] = useState<{ faceLevel: number; radiusM: number } | null>(null);
+  // 확대 단계(엔진이 바뀔 때 알린다)와 항성계 보기(1단계보다 더 줄였을 때)
+  const [zoomStage, setZoomStage] = useState(0);
+  const [systemView, setSystemView] = useState(false);
+  // 끝 너머 밀기(엔진 onZoomEdge)는 엔진을 만들 때 넘기므로, 지금 화면 값(가운데 2차맵)으로 처리하는 함수를 따로 들고 있는다
+  const zoomEdge = useRef<(edge: "in" | "out") => void>(() => undefined);
+  // 위 판 줄(항성계 보기가 그 아래부터 내용을 놓는다)
+  const headerRef = useRef<HTMLElement>(null);
   const requestFrame = useCallback(() => engineRef.current?.requestFrame(), []);
   // 2차맵 사이 이동(WP9·WP11): 길이 끝나거나 정찰이 돌아서면 도시 목록(볼 수 있음)·내 자리를 다시 받고, 그 도시 명령 판이면 도시 판으로
   // 돌아간다([들어가기])
@@ -181,7 +197,11 @@ function PlanetMapView({
         if (controller.signal.aborted) return;
         setMe(mine);
         setPlanet({ faceLevel: manifest.faceLevel, radiusM: manifest.radiusM });
-        const focus = focusView(parseMapKey(keyParam), mine, manifest.radiusM);
+        const firstStage = stageParam(search);
+        const place = focusView(parseMapKey(keyParam), mine, manifest.radiusM);
+        // ?stage=가 있으면 거리는 그 단계로(처음 볼 곳의 거리를 쓰지 않는다)
+        const focus =
+          place && firstStage !== undefined ? { latDeg: place.latDeg, lonDeg: place.lonDeg } : place;
         try {
           // 바이옴 이름은 서버 범례(자료, ko·en)에서
           const english = getLocale() === "en";
@@ -202,6 +222,7 @@ function PlanetMapView({
             debugCracks,
             ...pixelRatioOption(search),
             ...(focus ? { initialView: focus } : {}),
+            ...(firstStage === undefined ? {} : { initialStage: firstStage }),
             ...planetViewOption(search),
             sky: skyMode(),
             ...(skyParams.benchRepeat === null ? {} : { gpuBenchRepeat: skyParams.benchRepeat }),
@@ -215,6 +236,8 @@ function PlanetMapView({
               });
             },
             onOverlay: (projector) => overlayDraw.current?.(projector),
+            onZoomStage: setZoomStage,
+            onZoomEdge: (edge) => zoomEdge.current(edge),
           });
           engine = created;
           engineRef.current = created;
@@ -289,17 +312,33 @@ function PlanetMapView({
   // 가장 고운 단계에서 화면 가운데 2차맵에 들어갈 수 있으면 [이 2차맵으로 들어가기](기획 60 §4.1 "그곳 줌인 → 그 2차맵")
   const centerKey =
     stats && planet ? mapKeyAtLatLon(stats.camera.latDeg, stats.camera.lonDeg, planet.faceLevel) : null;
-  const here =
-    stats?.primaryLevel === FINEST_LEVEL && centerKey !== null ? enterableAt(cities, centerKey) : null;
+  const here = zoomStage === FINEST_LEVEL && centerKey !== null ? enterableAt(cities, centerKey) : null;
   // 화면 가운데 배치 칸(그 2차맵 카메라가 볼 곳, 515). 못 구하면 그 도시 시청
   const enterHere = (target: WorldMapCity): void => {
     const at =
       stats && planet ? placementAtLatLon(stats.camera.latDeg, stats.camera.lonDeg, planet.faceLevel) : null;
     enterMap(target.mapKey, at?.mapKey === target.mapKey ? at : { x: target.cellX, y: target.cellY });
   };
+  // 확대 단계 끝: 가장 가까이에서 더 키우면 가운데 2차맵(없으면 안내), 가장 멀리에서 더 줄이면 항성계 보기
+  const atEdge = (edge: "in" | "out"): void => {
+    if (edge === "out") {
+      setSystemView(true);
+      setCityId(null);
+    } else if (here) enterHere(here);
+    else setPicked({ cell: null, lines: [m.zoom_no_local_map()] });
+  };
+  useEffect(() => {
+    zoomEdge.current = atEdge;
+  });
+  const zoomIn = (): void => {
+    if (systemView) setSystemView(false);
+    else if (engineRef.current && !engineRef.current.zoomStep(1)) atEdge("in");
+  };
+  const zoomOut = (): void => {
+    if (!systemView && engineRef.current && !engineRef.current.zoomStep(-1)) atEdge("out");
+  };
 
   const shown = screenNotice(load, tileProblem, status);
-  const level = stats?.primaryLevel ?? 0;
   const camera = stats?.camera;
   const cell = picked?.cell ?? null;
   const firstMs = stats?.firstDisplayMs ?? null;
@@ -390,9 +429,12 @@ function PlanetMapView({
       data-me-at={shownMe ? `${fixed(shownMe.latDeg, 5)},${fixed(shownMe.lonDeg, 5)}` : undefined}
       data-me-travel={travel?.state === "going" ? (travel.hidden ? "hidden" : "going") : undefined}
       data-center-key={centerKey ?? undefined}
+      data-zoom-stage={zoomStage > 0 ? zoomStage : undefined}
+      data-system-view={systemView ? "true" : undefined}
     >
       <div ref={hostRef} className="map-view" role="img" aria-label={m.planet_view_label()} />
-      {world?.status === "ready" ? (
+      {systemView ? <PlanetSystemView onBack={() => setSystemView(false)} headerRef={headerRef} /> : null}
+      {world?.status === "ready" && !systemView ? (
         <CityOverlay
           cities={cities}
           factions={world.factions}
@@ -409,7 +451,7 @@ function PlanetMapView({
           requestFrame={requestFrame}
         />
       ) : null}
-      <header className="map-hud map-hud-top">
+      <header className="map-hud map-hud-top" ref={headerRef}>
         <div className="map-panel map-heading">
           <button type="button" className="button-small" onClick={onClose}>
             {m.map_back()}
@@ -418,7 +460,15 @@ function PlanetMapView({
             {m.planet_title()}
           </h1>
         </div>
-        <p className="map-panel map-perf">
+        {load.kind === "ready" ? (
+          <ZoomLadder
+            rung={systemView ? { kind: "system" } : { kind: "planet", stage: zoomStage }}
+            onZoomIn={zoomIn}
+            onZoomOut={zoomOut}
+            canZoomOut={!systemView}
+          />
+        ) : null}
+        <p className="map-panel map-perf" hidden={systemView}>
           <span>
             {perf
               ? m.map_perf_frames({ fps: perf.fps, ms: perf.p95Ms })
@@ -492,7 +542,7 @@ function PlanetMapView({
           ) : null}
         </div>
       ) : null}
-      <footer className="map-hud map-hud-bottom planet-bottom">
+      <footer className="map-hud map-hud-bottom planet-bottom" hidden={systemView}>
         {city && world && commanding ? (
           <PlanetCommandPanel
             city={city}
@@ -544,14 +594,6 @@ function PlanetMapView({
             </div>
           ) : null}
           <div className="planet-row">
-            <p className="planet-level">
-              <span>{m.planet_level({ level: level > 0 ? level : "–" })}</span>
-              <span className="planet-level-dots" aria-hidden="true">
-                {LEVELS.map((step) => (
-                  <span key={step} className="planet-level-dot" data-on={step <= level ? "true" : "false"} />
-                ))}
-              </span>
-            </p>
             <div className="planet-segment" role="group" aria-label={m.planet_layer()}>
               <button
                 type="button"

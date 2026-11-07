@@ -230,6 +230,15 @@ export interface PlanetEngineOptions {
    */
   onOverlay?: (projector: PlanetProjector) => void;
   /**
+   * 이미 가장 가까이(in)·가장 멀리(out)에 닿은 채 다시 키우기·줄이기를 했을 때(두 손가락·휠, ADR 2026-11-07-planet-view 2절).
+   * 화면이 정한다: in = 가운데 2차맵 들어가기(D-6018), out = 항성계 보기(사용자 요청 2026-11-07)
+   */
+  onZoomEdge?: (edge: "in" | "out") => void;
+  /** 확대 단계(1~5, zoomStages.ts)가 바뀌었을 때(처음 한 번 포함). 화면의 단계 표시가 1초 요약을 기다리지 않게 */
+  onZoomStage?: (stage: number) => void;
+  /** 처음 확대 단계(1~5): 처음 볼 곳에 거리가 없을 때 그 단계의 대표 거리로 연다(2차맵을 끝까지 줄여 온 1차맵 = 5, D-6018) */
+  initialStage?: number;
+  /**
    * [재기 모드] 프레임마다 장면을 이 횟수(1 ~ 4)만큼 그리고 1화소 읽기로 GPU 끝을 기다린 시간을 잰다(stats().gpuBench).
    * 휴대폰 GPU 몫을 재는 데만 쓴다(화면 주소 ?planet-sky-bench=). 없으면 재지 않는다
    */
@@ -284,9 +293,11 @@ export interface PlanetStats {
   memoryBytes: number;
   /** 시야 거르기·누르기에 쓰는 가장 높은 땅(게임 m): 행성 설명 값과 받은 타일 중 높은 것 */
   maxElevationM: number;
-  /** 화면 가운데에 그린 타일의 1차맵 단계(1~5, 없으면 0)와 맵 레벨 */
+  /** 화면 가운데에 그린 타일의 1차맵 단계(1~5, 없으면 0)와 맵 레벨(LOD) */
   primaryLevel: number;
   mapLevel: number;
+  /** 화면 확대 단계(1 = 행성 전체 ~ 5 = 가장 가까이, 카메라 거리로 정한다 — zoomStages.ts). 그리지 않는 엔진은 0 */
+  zoomStage: number;
   /** 보이는 곳 중 그릴 타일이 없어 바탕 구가 보이는 곳이 있다 */
   incomplete: boolean;
   /** 엔진을 만든 때부터 첫 표시까지(ms) */
@@ -316,6 +327,11 @@ export interface PlanetEngine {
   pickAt(point: { x: number; y: number }): PickedCell | null;
   /** 그곳으로 카메라를 옮긴다(움직임 없이) */
   lookAt(view: PlanetView): void;
+  /**
+   * 확대 단계 한 칸(1 = 키우기 [+], −1 = 줄이기 [−]): 화면 가운데를 붙잡고 이웃 단계 거리로 움직인다.
+   * 이미 그쪽 끝이면 움직이지 않고 false(화면이 2차맵·항성계로 넘어간다)
+   */
+  zoomStep(direction: 1 | -1): boolean;
   /** 한 번 더 그린다(덧그림 자료가 바뀌었을 때 — onOverlay가 다시 불린다) */
   requestFrame(): void;
   stats(): PlanetStats;

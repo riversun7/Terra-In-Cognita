@@ -3,6 +3,7 @@
 import type { AgeState, RolledStat } from "@terra/sim";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { Row } from "../world/persist/tables.ts";
+import { type GenePayload, genePayloadOf } from "./genePayload.ts";
 
 /** 보유 물건 한 칸 */
 export interface HoldingRecord {
@@ -22,6 +23,8 @@ export interface HoldingRecord {
   age: AgeState | null;
   readonly createdAtMs: number;
   source: string;
+  /** 유전자 하나의 값(D-516, 유전자 아이템만 — 하나하나 값이 다른 인스턴스). 없으면 유전자가 아니다 */
+  readonly gene?: GenePayload | null | undefined;
 }
 
 /** 유닛에 걸린 효과 하나(D-501) */
@@ -75,6 +78,7 @@ export function holdingRow(record: HoldingRecord): Row {
     aged_at_ms: record.age?.atMs ?? null,
     created_at_ms: record.createdAtMs,
     source: record.source,
+    gene: record.gene ? JSON.stringify(record.gene) : null,
   };
 }
 
@@ -122,7 +126,7 @@ export async function loadHoldings(pool: QueryPool): Promise<LoadedHoldings> {
   const [holdings, effects, cooldowns, max] = await Promise.all([
     pool.query(
       `select id, owner_id, item_id, location, slot, quantity, stats, score_pm, durability, max_durability,
-              aged_ms, aged_at_ms, created_at_ms, source from item_holdings order by id`,
+              aged_ms, aged_at_ms, created_at_ms, source, gene from item_holdings order by id`,
     ),
     pool.query(
       `select unit_id, effect_id, value, until_ms, exclusive, item_id from unit_effects order by unit_id, effect_id`,
@@ -148,6 +152,7 @@ export async function loadHoldings(pool: QueryPool): Promise<LoadedHoldings> {
         age: agedMs === null || agedAtMs === null ? null : { agedMs, atMs: agedAtMs },
         createdAtMs: num(row.created_at_ms),
         source: String(row.source),
+        gene: genePayloadOf(row.gene),
       };
     }),
     effects: effects.rows.map(

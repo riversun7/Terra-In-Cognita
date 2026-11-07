@@ -191,7 +191,7 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "switches.exchangeEnabled",
   "switches.productionEnabled",
   "switches.npcAiEnabled",
-  // 사이보그 유닛 융합·유전자 환생·사망 조각(fusion/service.ts, 49 N46·N47): 명령·조회마다 읽는다. 유지비 배율은 정산마다
+  // 사이보그 유닛 융합·유전자 합성·인큐베이터(fusion/service.ts·geneCommands.ts, 49 N46·N47): 명령·조회마다 읽는다. 유지비 배율은 정산마다
   // (world.ts createSettlement upkeepWeightPm)
   "fusion.currency",
   "fusion.titaniumQty",
@@ -202,10 +202,13 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "fusion.bonusMaxPm",
   "fusion.partsStat",
   "fusion.upkeepPm",
-  "fusion.geneLevelDivisor",
-  "fusion.geneMin",
-  "fusion.genePoints",
-  "fusion.geneDeathDrop",
+  "fusion.geneUpPm",
+  "fusion.geneDownPm",
+  "fusion.geneKeepPm",
+  "fusion.geneStepPm",
+  "fusion.geneTotalMax",
+  "fusion.geneElementVariance",
+  "fusion.incubateBaseStat",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

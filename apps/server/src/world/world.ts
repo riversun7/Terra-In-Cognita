@@ -76,7 +76,8 @@ import {
 } from "../facilities/world.ts";
 import { EMPTY_FACILITIES, type LoadedFacilities, loadFacilities } from "../facilities/state.ts";
 import { type RecruitService, createRecruitService } from "../recruit/service.ts";
-import { type FusionService, HUMAN_SPECIES, createFusionService } from "../fusion/service.ts";
+import { geneCatalogFrom } from "../fusion/genes.ts";
+import { type FusionService, createFusionService } from "../fusion/service.ts";
 
 /**
  * 시험 2차맵 자리(ADR 2026-10-31-second-map-from-planet 8절): S2 시험 행성(면 레벨 9) 면 0의 (i, j) = (282, 328) 칸부터
@@ -713,19 +714,24 @@ export function startWorld(
     });
     facilities.attachLabor(labor);
     settlement.routeOutputs((ownerId, fromMs, toMs) => labor.outputsFor(ownerId, fromMs, toMs));
-    // 사이보그 유닛 융합·유전자 환생: 재료·조각 = 실효 팩 아이템(보유 물건과 같은 접근자), 규칙 = 설정 칸 실효 값
+    // 사이보그 유닛 융합·유전자(D-516 인스턴스 = 보유 물건, 유저 휴먼 수명): 재료·유전자 = 실효 팩 아이템, 규칙 = 설정 칸 실효 값
     const fusion = createFusionService({
       maps,
       settlement,
       ledger,
       writer,
       pool: db,
+      holdings: holdings.service,
       hasCyborg: (userId) => cyborgs.record(userId) !== undefined,
       rules: config.cyborgRules ?? defaultCyborgRules,
       content: () => config.holdings?.content() ?? { items: [] },
+      catalog: config.roster ? geneCatalogFrom(config.roster) : undefined,
+      nextUnitId: nextId.unit,
       now,
       seed: () => randomInt(0x1_0000_0000),
       ready: () => status.state === "ready",
+      log,
+      manual: config.npc?.manual,
     });
     persistence = {
       writer,
@@ -832,10 +838,6 @@ export function startWorld(
           onCityOwner: (cityId, factionId) => {
             const moved = territory.cityOwnerChanged(cityId, factionId);
             if (moved > 0) log.info({ cityId, factionId, moved }, "beacons follow city owner");
-          },
-          // 수명으로 죽은 휴먼 → 소유 세력에게 휴먼 유전자 조각(D-478, 옛 LifeEngine)
-          onHumanDied: (ownerId, nowMs) => {
-            fusion.dropOnDeath(ownerId, HUMAN_SPECIES, nowMs);
           },
         });
       } catch (error) {
@@ -946,6 +948,7 @@ export function startWorld(
       persistence?.holdings.stop();
       persistence?.vitals.stop();
       persistence?.facilities.service.stop();
+      persistence?.fusion.stop();
       for (const map of maps.values()) map.stop();
       if (persistence) {
         persistence.writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
@@ -963,6 +966,7 @@ export function startWorld(
       persistence?.holdings.stop();
       persistence?.vitals.stop();
       persistence?.facilities.service.stop();
+      persistence?.fusion.stop();
       if (heartbeat) clearInterval(heartbeat);
       for (const map of maps.values()) map.stop();
       await paths.close();

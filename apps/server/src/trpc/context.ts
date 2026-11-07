@@ -271,7 +271,7 @@ export interface CyborgReadServices {
 }
 
 /**
- * 사이보그 유닛 융합·유전자 조회(fusion.overview, D-470·D-478). 바꾸는 명령은 WebSocket cyborg_fuse·unit_rebirth·dev_grant_goods다.
+ * 사이보그 유닛 융합·유전자 조회(fusion.overview, D-470·D-478·D-516). 바꾸는 명령은 WebSocket cyborg_fuse·dev_grant_goods·gene_*다.
  * devGrant = dev·admin(개발 시험 물자 받기 버튼)
  */
 export interface FusionReadServices {

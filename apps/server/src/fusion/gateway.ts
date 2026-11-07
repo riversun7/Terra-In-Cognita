@@ -1,8 +1,10 @@
-// WebSocket 연결 하나의 융합·유전자 환생·개발 물자 받기 메시지 처리(src/session.ts가 넘긴다) — D-470·D-478,
+// WebSocket 연결 하나의 융합·유전자·개발 시험 메시지 처리(src/session.ts가 넘긴다) — D-470·D-478·D-516,
 // docs/adr/2026-11-07-cyborg-fusion-genes.md. 구인 카드 게이트웨이(recruit/gateway.ts)와 같은 틀이다:
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다(잔고·재료·조각을 차례로 본다).
-// - 사용자별 속도 제한(순간 10번, 분당 30번). 밀린 요청이 MAX_PENDING을 넘으면 busy. 세계가 아직 없으면 busy.
-// - 개발 시험 물자 받기(dev_grant_goods)는 dev·admin(secondMap dev-spawn — 보유 물건 dev_grant_item과 같은 권한).
+// - 사용자별 속도 제한(순간 20번, 분당 60번 — 유전자 명령이 더해져 보유 물건 순간 20과 맞춤). 밀린 요청이 MAX_PENDING을 넘으면 busy.
+//   세계가 아직 없으면 busy.
+// - 개발 시험(dev_grant_goods·dev_grant_gene·dev_expire_unit)과 인큐베이터(gene_incubate — 팩에 인큐베이터 시설이 아직 없다)는 dev·admin
+//   (secondMap dev-spawn — 보유 물건 dev_grant_item과 같은 권한).
 // - 판정·저장은 서비스(service.ts)가 한다.
 import { type ClientMessageOf, type FusionResultCode, encodeMessage } from "@terra/protocol";
 import { rolesAllow } from "../auth/permissions.ts";
@@ -10,10 +12,18 @@ import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { FusionCommandResult, FusionService } from "./service.ts";
 
-export type FusionClientMessage = ClientMessageOf<"cyborg_fuse" | "unit_rebirth" | "dev_grant_goods">;
+export type FusionClientMessage = ClientMessageOf<
+  | "cyborg_fuse"
+  | "dev_grant_goods"
+  | "gene_synthesize"
+  | "gene_inject"
+  | "gene_incubate"
+  | "dev_grant_gene"
+  | "dev_expire_unit"
+>;
 
 const MAX_PENDING = 8;
-const LIMIT = { capacity: 10, refillPerMinute: 30 };
+const LIMIT = { capacity: 20, refillPerMinute: 60 };
 
 export interface FusionLink {
   send(text: string): void;
@@ -38,7 +48,11 @@ function resultText(id: number, result: FusionCommandResult): string {
     ...(result.unitId === undefined ? {} : { unitId: result.unitId }),
     ...(result.stats === undefined ? {} : { stats: result.stats }),
     ...(result.bonusPm === undefined ? {} : { bonusPm: result.bonusPm }),
-    ...(result.shards === undefined ? {} : { shards: result.shards }),
+    ...(result.gene === undefined ? {} : { gene: result.gene }),
+    ...(result.genes === undefined ? {} : { genes: result.genes }),
+    ...(result.outcome === undefined ? {} : { outcome: result.outcome }),
+    ...(result.total === undefined ? {} : { total: result.total }),
+    ...(result.skill === undefined ? {} : { skill: result.skill }),
   });
 }
 
@@ -52,11 +66,23 @@ async function run(service: FusionService, viewer: Viewer, message: FusionClient
   switch (message.t) {
     case "cyborg_fuse":
       return service.fuse(viewer.id, { human: message.human, cost: message.cost });
-    case "unit_rebirth":
-      return service.rebirth(viewer.id, { unit: message.unit, shards: message.shards });
     case "dev_grant_goods":
       if (!canDevGrant(viewer)) return fail("forbidden");
       return service.devGrant(viewer.id, { item: message.item, quantity: message.quantity });
+    case "gene_synthesize":
+      return service.synthesize(viewer.id, { a: message.a, b: message.b });
+    case "gene_inject":
+      return service.inject(viewer.id, { gene: message.gene, unit: message.unit });
+    case "gene_incubate":
+      // 인큐베이터 시설이 팩에 아직 없어 개발 시험으로만 연다(시설 줄기에서 플레이어 명령으로)
+      if (!canDevGrant(viewer)) return fail("forbidden");
+      return service.incubate(viewer.id, { gene: message.gene, apply: message.apply });
+    case "dev_grant_gene":
+      if (!canDevGrant(viewer)) return fail("forbidden");
+      return service.devGrantGene(viewer.id, { kind: message.kind, skill: message.skill });
+    case "dev_expire_unit":
+      if (!canDevGrant(viewer)) return fail("forbidden");
+      return service.devExpire(viewer.id, { unit: message.unit });
     default: {
       const unknown: never = message;
       return unknown;

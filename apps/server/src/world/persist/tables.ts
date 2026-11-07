@@ -142,6 +142,12 @@ export const WORLD_TABLES = {
     ],
     key: ["unit_id"],
   },
+  /** 사이보그 유닛(D-470 융합, 유닛 하나 = 한 줄). 유닛 다음에 쓰고 유닛보다 먼저 지운다 */
+  cyborgUnits: {
+    name: "cyborg_units",
+    columns: ["unit_id", "level", "stats", "elements", "human_stats", "donor", "bonus_pm", "fused_at_ms"],
+    key: ["unit_id"],
+  },
   /** 구인 카드 산 칸(D-469): 고용 주체 × 도시마다 한 줄(소유 주체·도시 다음에 쓴다) */
   recruitDraws: {
     name: "recruit_draws",
@@ -349,6 +355,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "cities",
   "units",
   "humans",
+  "cyborgUnits",
   "recruitDraws",
   "factionWars",
   "npcSociety",

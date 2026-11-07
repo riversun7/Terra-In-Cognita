@@ -40,7 +40,7 @@ import { type VitalsRecord, loadVitals } from "../vitals/state.ts";
 import { type VitalsConfig, type WorldVitals, createWorldVitals } from "../vitals/world.ts";
 import { type LaborService, createLaborService } from "../labor/service.ts";
 import { EMPTY_LABOR, type LoadedLabor, loadLabor } from "../labor/store.ts";
-import { TEST_NPC_FACTION_CODE } from "./unitKinds.ts";
+import { TEST_NPC_FACTION_CODE, UNIT_KIND_CYBORG_UNIT } from "./unitKinds.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
 import { type BattleBodies, createBattleBodies } from "./battleBodies.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
@@ -68,6 +68,7 @@ import {
 } from "../territory/service.ts";
 import { loadRecruitDraws } from "../npc/state.ts";
 import { type RecruitService, createRecruitService } from "../recruit/service.ts";
+import { type FusionService, HUMAN_SPECIES, createFusionService } from "../fusion/service.ts";
 
 /**
  * 시험 2차맵 자리(ADR 2026-10-31-second-map-from-planet 8절): S2 시험 행성(면 레벨 9) 면 0의 (i, j) = (282, 328) 칸부터
@@ -206,6 +207,8 @@ export interface WorldPersistence {
   readonly bodies: BattleBodies;
   /** 노동 계약(임금형·임대형, docs/adr/2026-11-03-labor-contracts.md) */
   readonly labor: LaborService;
+  /** 사이보그 유닛 융합·유전자 환생·사망 조각(docs/adr/2026-11-07-cyborg-fusion-genes.md) */
+  readonly fusion: FusionService;
 }
 
 export interface WorldStatus {
@@ -509,6 +512,9 @@ export function startWorld(
       nextUnitId: nextId.unit,
       presence: loaded.presence,
       now,
+      // 사이보그 유닛은 유지비가 비싸다(D-470, 설정 칸 n46_upkeep 실효 값을 정산할 때마다 읽는다)
+      upkeepWeightPm: (kind) =>
+        kind === UNIT_KIND_CYBORG_UNIT ? (config.cyborgRules ?? defaultCyborgRules)().fusion.upkeepPm : 1000,
     });
     const battleWorld: BattleWorld = {
       mapOf: (unitId) => [...maps.values()].find((map) => map.unitInfo(unitId) !== undefined),
@@ -660,6 +666,20 @@ export function startWorld(
       ready: () => status.state === "ready",
     });
     settlement.routeOutputs((ownerId, fromMs, toMs) => labor.outputsFor(ownerId, fromMs, toMs));
+    // 사이보그 유닛 융합·유전자 환생: 재료·조각 = 실효 팩 아이템(보유 물건과 같은 접근자), 규칙 = 설정 칸 실효 값
+    const fusion = createFusionService({
+      maps,
+      settlement,
+      ledger,
+      writer,
+      pool: db,
+      hasCyborg: (userId) => cyborgs.record(userId) !== undefined,
+      rules: config.cyborgRules ?? defaultCyborgRules,
+      content: () => config.holdings?.content() ?? { items: [] },
+      now,
+      seed: () => randomInt(0x1_0000_0000),
+      ready: () => status.state === "ready",
+    });
     persistence = {
       writer,
       pool: db,
@@ -676,6 +696,7 @@ export function startWorld(
       vitals,
       bodies,
       labor,
+      fusion,
     };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)
     if (
@@ -759,6 +780,10 @@ export function startWorld(
           onCityOwner: (cityId, factionId) => {
             const moved = territory.cityOwnerChanged(cityId, factionId);
             if (moved > 0) log.info({ cityId, factionId, moved }, "beacons follow city owner");
+          },
+          // 수명으로 죽은 휴먼 → 소유 세력에게 휴먼 유전자 조각(D-478, 옛 LifeEngine)
+          onHumanDied: (ownerId, nowMs) => {
+            fusion.dropOnDeath(ownerId, HUMAN_SPECIES, nowMs);
           },
         });
       } catch (error) {

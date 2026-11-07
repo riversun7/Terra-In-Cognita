@@ -100,6 +100,11 @@ export function createSettlement(options: {
   /** 부팅 때 읽은 접속 상태(접속 중으로 남은 것은 이미 끊김으로 고쳤다) */
   presence: readonly { userId: string; offlineSinceMs: number | null }[];
   now: () => number;
+  /**
+   * 유닛 종류 코드 → 유지비 무게(‰, 보통 유닛 1000). 사이보그 유닛은 비싸다(D-470, 설정 칸 n46_upkeep). 정산할 때마다 읽는다.
+   * 없으면 모두 1000(예전과 같다)
+   */
+  upkeepWeightPm?: ((kind: number) => number) | undefined;
 }): Settlement {
   const { maps, owners, ledger, writer } = options;
   const ownerByUser = new Map<string, number>();
@@ -121,7 +126,7 @@ export function createSettlement(options: {
   const savePresence = (userId: string, offlineSinceMs: number | null, at: number): void =>
     writer.upsert("presence", { user_id: userId, offline_since_ms: offlineSinceMs, updated_at_ms: at });
 
-  type UnitRef = { map: SecondMap; id: number; job: UnitJob };
+  type UnitRef = { map: SecondMap; id: number; kind: number; job: UnitJob };
   const unitsOf = (ownerIds: ReadonlySet<number>): Map<number, UnitRef[]> => {
     const out = new Map<number, UnitRef[]>();
     for (const map of maps.values()) {
@@ -133,7 +138,7 @@ export function createSettlement(options: {
           list = [];
           out.set(unit.ownerId, list);
         }
-        list.push({ map, id: unit.id, job: unit.job });
+        list.push({ map, id: unit.id, kind: unit.kind, job: unit.job });
       });
     }
     return out;
@@ -148,6 +153,7 @@ export function createSettlement(options: {
   };
 
   let router: OutputRouter | undefined;
+  const weightOf = options.upkeepWeightPm;
 
   const settleWith = (owner: OwnerRow, units: readonly UnitRef[], toMs: number): SettleReport => {
     const from = owner.settledAtMs;
@@ -163,6 +169,7 @@ export function createSettlement(options: {
         toMs,
         offlineSinceMs: offlineOf(owner),
         outputs: routes ? units.map((unit) => routes.get(unit.id)) : undefined,
+        upkeepWeightPm: weightOf ? units.reduce((sum, unit) => sum + weightOf(unit.kind), 0) : undefined,
       },
       ledger,
       testSettleAccounts(ledger, owner.id),

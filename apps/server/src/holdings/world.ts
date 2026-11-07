@@ -14,7 +14,7 @@ import type { UnitGear } from "../roster/unitBody.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { Settlement } from "../world/settlement.ts";
-import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
+import { UNIT_KIND_CYBORG, UNIT_KIND_CYBORG_UNIT } from "../world/unitKinds.ts";
 import type { HoldingsAccess } from "./gateway.ts";
 import { type HoldingRules, TEST_HOLDING_RULES } from "./rules.ts";
 import {
@@ -129,7 +129,8 @@ export function createWorldHoldings(input: {
       unitKind: (unitId) => {
         const info = infoOf(unitId);
         if (!info) return undefined;
-        return info.kind === UNIT_KIND_CYBORG ? "cyborg" : "human";
+        // 사이보그 본체·융합한 사이보그 유닛(D-470)은 사이보그 칸 배치(인공장기 칸). 휴먼 칸 배치의 앞 여섯 칸과 차례가 같다
+        return info.kind === UNIT_KIND_CYBORG || info.kind === UNIT_KIND_CYBORG_UNIT ? "cyborg" : "human";
       },
       // 쓰는 유닛의 1차 스탯(소모품 효과량 D-501): 입은 장비·지금 걸린 1차 스탯 버프 포함
       unitPrimaries: (unitId) => {

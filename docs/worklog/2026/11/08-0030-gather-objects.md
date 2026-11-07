@@ -31,7 +31,9 @@
 
 ## 검사·시험 (개발 컨테이너, Node 24.22.1)
 - 작업 중(Verified): sim `terrain`·`tuning` 시험, 프로토콜 21파일 140개, 서버 `gather/` 시험(순수 5 + 서비스 3), DB 시험 `gather.db.test.ts` 1개(채집 → 화물·남은 번수 저장 → 다시 켜도 그대로), 게임 `map/gather` 3개·`mapFeed` 시험 통과. 서버·게임 타입 검사, 바꾼 파일 oxlint 통과. `check:content --no-compat` 통과.
-- 끝 검사·화면 시험: 아래 "끝 검사" 절.
+- 끝 검사(Verified, 무거운 잠금 안, 문구 다시 만든 뒤): `TEST_DATABASE_URL=… pnpm check` 통과(포맷·린트·타입·경계·크기·다국어·대비·콘텐츠·시험 479파일 3,781개, DB 시험 포함), `pnpm check:docs origin/main`·`pnpm check:content origin/main`(4b 호환 포함) 통과. 크기 경고(600줄 넘음, 실패 아님): `SecondaryMapScreen.tsx` 606줄(잇는 줄 여섯 곳으로 600 → 606), `mapFeed.ts` 605줄, `gather/service.ts` 845줄.
+- 화면 시험(Verified, `pnpm e2e gather.spec.ts`, 빌드한 앱·서버, 헤드리스 Chromium, 390): 마지막 실행 5개 모두 통과(1.2분) — 오브젝트 표시 → 판([정보]) → [채집] → 채집 줄(서버 `gather.loops` 단계 to_object·gathering) → [멈추기](stopped) → 건물 표시 → 건물 판, 사진 4묶음. 앞 두 번은 시험 쪽 문제로 실패했다: 첫 실행 사진 시험 4개(가운데에 가장 가까운 표시가 위 판에 가려 누르기가 막힘 → 가리지 않은 표시를 고르고 없으면 휠로 멀리 보게), 둘째 실행 1개(1초마다 커지는 성능 줄이 고른 표시를 가림 → 누르기 2초 제한 뒤 다시 고르게). 화면 코드는 바꾸지 않았다.
+- 사진(390, 넘침·작은 누르는 곳 없음): `gather-object-390-{pastel,dark}-{ko,en}`(약초 덤불 판: 나오는 것·남은 번수·맡는 시설 없음·[정보] 줄·보낼 유닛·[채집]·[정보]·[닫기]), `gather-loop-390-*`(내 사이보그 머리 위 "오브젝트로 가는 중 0/80kg"·아래 채집 줄·[멈추기]·보냈습니다), `gather-building-390-*`(농장 Lv 1·남의 건물·들어가면 안에 머뭅니다·안에 있는 유닛 없음·[들어가기]). 눈으로 본 것: 파스텔·다크 모두 판 글자가 판 안에 들고 넘치지 않는다. 시작 도시 둘레 초지는 오브젝트가 드물어 표시가 화면 위쪽(판 뒤)에 몰리는 때가 있다. 머리 위 이름표는 상한 폭에서 말줄임된다. 사진 폴더(저장소 밖): 개발 컨테이너 임시 폴더 `gather-shots`.
 
 ## 함께 바꿔야 하는 파일
 - 프로토콜 판을 다른 줄기와 합칠 때: `packages/protocol/src/version.ts`(17 설명), `gather.test.ts`·`travel.test.ts`(현재 − 1을 본다).

@@ -59,8 +59,10 @@ import {
  * 12: 폐허 2(기획 답 480~489, docs/adr/2026-11-07-ruins-restoration.md "바뀜"): 요약 society.occupations에 razed(약탈하고 폐허로 둔 도시,
  *    486 나), society.ruins에 expired(모금 기한이 지나 돌려준 수, 485 다)·reclaimed(정부 건물이 무너져 다시 지은 쪽이 주인, 487 다),
  *    요약 npc.actions에 restore(폐허 복원 행동, 484 다)
+ * 13: 공성 결과 셋(D-520, docs/adr/2026-11-07-war-outcomes.md): 요약 society.occupations에서 razed를 빼고 occupy(점령 상태)·occupationTaxes
+ *    (점령 상태 세금 거래)·occupationsEnded·rebuilt(재건 비용을 낸 점령·귀속)·occupied·annexed(끝 날 남은 상태)를 더함
  */
-export const SIM_OUTPUT_FORMAT = 12;
+export const SIM_OUTPUT_FORMAT = 13;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 정원사 합성 격자 한 변(도시마다 3칸 간격, 한 줄 32도시 — 1만 도시까지), 웨이브 전투 기본값(시나리오에 combat 칸이 없을 때) */

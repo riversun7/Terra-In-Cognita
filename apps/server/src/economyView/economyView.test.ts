@@ -13,7 +13,7 @@ import {
 } from "./previewMarket.ts";
 import { previewProduction } from "./previewProduction.ts";
 import { lotSizeOfItem, previewGoods, previewPlaces } from "./previewWorld.ts";
-import { holdingsFromAccounts } from "./services.ts";
+import { createEconomyServices, holdingsFromAccounts } from "./services.ts";
 
 const NOW = Date.UTC(2026, 9, 31, 9, 3, 0);
 
@@ -275,5 +275,28 @@ describe("holdingsFromAccounts", () => {
       ["102", null],
       ["cargo_12", null],
     ]);
+  });
+});
+
+describe("economy.cityNames (기획 답 621 나)", () => {
+  const viewer = { id: "u1", loginId: "u1", roles: [] };
+  const names = [
+    { id: 101, name: "Verdane" },
+    { id: 102, name: "Osric" },
+  ];
+  const services = (known: (() => Promise<ReadonlySet<number> | undefined>) | undefined) =>
+    createEconomyServices({
+      catalog: packCatalog(),
+      world: { ownerOf: () => undefined, accountsOf: () => [], cityNames: () => names, knownCityIds: known },
+    });
+
+  it("이름 있는 도시 가운데 아는 도시만 보낸다", async () => {
+    const result = await services(async () => new Set([102])).cityNames(viewer);
+    expect(result.cities).toEqual([{ id: 102, name: "Osric" }]);
+  });
+
+  it("아는 도시를 셀 수 없으면(지도 조회 없음) 이름을 보내지 않는다", async () => {
+    expect((await services(async () => undefined).cityNames(viewer)).cities).toEqual([]);
+    expect((await services(undefined).cityNames(viewer)).cities).toEqual([]);
   });
 });

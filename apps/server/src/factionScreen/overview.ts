@@ -1,6 +1,6 @@
 // 세력 화면 응답 만들기(faction.overview) — 실제 자료(소유 주체·세력 소속·잔고)와 시안 자료를 화면 한 장의 모양으로 묶는다(D-439).
-// - 실제 자료: 내 몫(늘), 소속 세력 요약(있으면: 도시 수·체제·고정 표시는 DB에서). 도시·외교·전쟁·정권·지분·점령 칸은
-//   세계가 아직 돌리지 않아(R5) not_ready(화면 "곧 열림").
+// - 실제 자료: 내 몫(늘), 소속 세력 요약(있으면: 도시 수·체제·고정 표시는 DB에서), 점령 칸(내 세력의 공성 결과 — D-520 war_outcomes).
+//   도시·외교·전쟁·정권·지분 칸은 세계가 아직 돌리지 않아(R5) not_ready(화면 "곧 열림").
 // - 시안 자료(dev·admin이 켰을 때): 세력 요약과 여섯 칸을 시안 장면으로 채우고 preview를 붙인다. 내 몫은 그대로 실제 자료다.
 // - 잠긴 메뉴(D-5055, S32)는 도시 수로 서버가 정해 보낸다(아래 LOCK_RULES).
 import type {
@@ -132,7 +132,8 @@ export function buildFactionOverview(
     wars: NOT_READY,
     regime: NOT_READY,
     shares: NOT_READY,
-    occupations: NOT_READY,
+    // 공성 결과(D-520): 세력이 있으면 실제 자료(war_outcomes), 없으면 곧 열림
+    occupations: real.occupations ? { status: "ready", data: real.occupations } : NOT_READY,
   };
 }
 

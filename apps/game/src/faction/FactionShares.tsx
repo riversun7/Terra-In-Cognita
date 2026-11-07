@@ -1,7 +1,8 @@
 // 지분 탭 — 도시 지분(46 §3, D-130 도시마다 1000주): 내 지분, 최대 주주, 최근 배당(D-304·D-338: 이자 소각 → 운영비 → 남은 이익을
 // 체제대로, 민주주의 = 국고라 배당 없음), 독립하는 길(체제마다, §3.2)과 열린 독립 투표.
 // 그 아래 점령 처리(46 §5.1 다섯 가지): 우리가 점령한 도시, 내 자산이 있는 도시에 온 편입 제안(거부 = 빼앗김·쫓겨남·적대, D-342·D-348),
-// 복원 모금(낸 돈만큼 지분, D-339·D-343). 고르기·답·모금은 곧 열림.
+// 복원 모금(낸 돈만큼 지분, D-339·D-343). 공성 결과 셋(D-520): 약탈(소유 그대로)·점령 상태(기간마다 세금)는 ①만 하고 나머지는 넘김, 결과 값
+// (가져간 몫·거둔 세금·재건 비용·끝 시각) 한 줄. 우리 도시가 당한 결과도 보인다. 고르기·답·모금은 곧 열림.
 import {
   type CityShareRow,
   OCCUPATION_STEPS,
@@ -112,12 +113,20 @@ function ShareCard({ row, now }: { row: CityShareRow; now: number }) {
 
 const STEP_TONES = { done: "good", pending: "warn", skipped: "plain" } as const;
 
-/** 처리 하나의 덧붙임 글(① 고른 것, ② 체제, ③ 주식, ④ 제안 수·기한, ⑤ 모금) */
+/** ① 고른 것(D-520 공성 결과 셋) */
+const OUTCOME_NAMES = {
+  loot: m.faction_occ_loot,
+  integrate: m.faction_occ_integrate,
+  occupy: m.faction_occ_occupy,
+} as const satisfies Record<NonNullable<OccupationRow["lootChoice"]>, () => string>;
+
+/** 처리 하나의 덧붙임 글(① 고른 것, ② 체제, ③ 주식, ④ 제안 수·기한, ⑤ 모금). 넘긴 처리는 글이 없다 */
 function stepDetail(row: OccupationRow, step: (typeof OCCUPATION_STEPS)[number], now: number): string | null {
+  if (row.steps[step] === "skipped") return null;
   switch (step) {
     case "loot_or_integrate":
       if (row.lootChoice === null) return null;
-      return row.lootChoice === "loot" ? m.faction_occ_loot() : m.faction_occ_integrate();
+      return OUTCOME_NAMES[row.lootChoice]();
     case "regime":
       return m.faction_occ_regime_follow();
     case "shares":
@@ -156,9 +165,58 @@ function restorationPm(row: OccupationRow): number {
   return Number((BigInt(row.restoration.raised) * 1000n) / goal);
 }
 
+/** 결과 값 한 줄(D-520): 약탈 = 넘어간 금고 몫, 점령 상태 = 거둔 세금·끝, 점령·귀속 = 재건 비용·회복 불이익 끝 */
+function outcomeText(row: OccupationRow, now: number): string | null {
+  const outcome = row.outcome;
+  if (outcome === undefined || row.lootChoice === null) return null;
+  const amount = amountText(outcome.taken);
+  const currency = outcome.currency ?? "";
+  const ended = outcome.endedAt !== null || outcome.untilAt === null;
+  switch (row.lootChoice) {
+    case "loot":
+      return m.faction_occ_outcome_loot({ amount, currency });
+    case "occupy":
+      return ended
+        ? m.faction_occ_outcome_occupy_ended({ amount, currency })
+        : m.faction_occ_outcome_occupy({ amount, currency, time: relativeText(outcome.untilAt ?? now, now) });
+    case "integrate":
+      return ended
+        ? m.faction_occ_outcome_integrate_ended({ amount, currency })
+        : m.faction_occ_outcome_integrate({
+            amount,
+            currency,
+            time: relativeText(outcome.untilAt ?? now, now),
+          });
+    default: {
+      const unhandled: never = row.lootChoice;
+      return unhandled;
+    }
+  }
+}
+
+/** 카드 머리 아래 한 줄: 누가 누구에게 */
+function sideText(row: OccupationRow): string {
+  switch (row.side) {
+    case "as_occupier":
+      // 약탈·점령 상태는 도시를 가져오지 않는다(소유 그대로) → "옛 주인"이 아니라 "상대"
+      return row.lootChoice === "loot" || row.lootChoice === "occupy"
+        ? m.faction_occ_as_winner({ name: row.other.name })
+        : m.faction_occ_as_occupier({ name: row.other.name });
+    case "as_target":
+      return m.faction_occ_as_target({ name: row.other.name });
+    case "offer_to_me":
+      return m.faction_occ_offer_to_me({ name: row.other.name, count: formatCount(row.offers.myBuildings) });
+    default: {
+      const unhandled: never = row.side;
+      return unhandled;
+    }
+  }
+}
+
 function OccupationCard({ row, now }: { row: OccupationRow; now: number }) {
   const titleId = `faction-occ-${row.id}`;
   const mine = row.offers.mine;
+  const result = outcomeText(row, now);
   return (
     <li>
       <article className="faction-item" aria-labelledby={titleId}>
@@ -168,11 +226,8 @@ function OccupationCard({ row, now }: { row: OccupationRow; now: number }) {
           </h3>
           <span className="faction-muted">{relativeText(row.occurredAt, now)}</span>
         </div>
-        <p className="faction-vote-detail">
-          {row.side === "as_occupier"
-            ? m.faction_occ_as_occupier({ name: row.other.name })
-            : m.faction_occ_offer_to_me({ name: row.other.name, count: formatCount(row.offers.myBuildings) })}
-        </p>
+        <p className="faction-vote-detail">{sideText(row)}</p>
+        {result === null ? null : <p className="faction-muted">{result}</p>}
         <ol className="faction-steps">
           {OCCUPATION_STEPS.map((step) => {
             const state = row.steps[step];
@@ -216,7 +271,9 @@ function OccupationCard({ row, now }: { row: OccupationRow; now: number }) {
           </div>
         ) : null}
         <ActionRow>
-          {row.side === "as_occupier" && row.shareChoice === null ? (
+          {row.side === "as_occupier" &&
+          row.shareChoice === null &&
+          (row.lootChoice === null || row.lootChoice === "integrate") ? (
             <>
               <SoonButton label={m.faction_occ_choose_keep()} />
               <SoonButton label={m.faction_occ_choose_delist()} />

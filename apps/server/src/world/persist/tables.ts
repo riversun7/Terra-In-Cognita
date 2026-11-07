@@ -152,6 +152,13 @@ export const WORLD_TABLES = {
     ],
     key: ["unit_id"],
   },
+  /** 휴먼 성장 K만 고친다(신전 환생 어드밴티지 D-520). humans 행은 이 칸을 쓰지 않는다(다른 쓰기가 덮지 않게) */
+  humanGrowth: {
+    name: "world_humans",
+    columns: ["unit_id", "k_pm"],
+    key: ["unit_id"],
+    updateOnly: true,
+  },
   /** 사이보그 유닛(D-470 융합, 유닛 하나 = 한 줄). 유닛 다음에 쓰고 유닛보다 먼저 지운다 */
   cyborgUnits: {
     name: "cyborg_units",
@@ -215,6 +222,7 @@ export const WORLD_TABLES = {
       "ai_step",
       "dissolved_at_ms",
       "rebel_of",
+      "born_of",
     ],
     key: ["id"],
     updateOnly: true,
@@ -292,6 +300,39 @@ export const WORLD_TABLES = {
     name: "restoration_contributions",
     columns: ["ruin_id", "owner_id", "amount"],
     key: ["ruin_id", "owner_id"],
+  },
+  /** 공성 결과(docs/adr/2026-11-07-war-outcomes.md): 한 줄 = 결과 하나, 남은 상태(끝·다음 세금·거둔 세금)를 고친다 */
+  warOutcomes: {
+    name: "war_outcomes",
+    columns: [
+      "id",
+      "city_id",
+      "attacker_faction_id",
+      "target_faction_id",
+      "outcome",
+      "share_choice",
+      "at_ms",
+      "until_ms",
+      "next_tax_ms",
+      "ended_at_ms",
+      "taken",
+      "taken_asset",
+    ],
+    key: ["id"],
+  },
+  /** 공성 결과 줄의 남은 상태만 고친다(점령 상태의 다음 세금·거둔 세금) */
+  warOutcomeState: {
+    name: "war_outcomes",
+    columns: ["id", "next_tax_ms", "taken"],
+    key: ["id"],
+    updateOnly: true,
+  },
+  /** 공성 결과 줄의 끝난 시각만 고친다(남은 상태가 끝남) */
+  warOutcomeEnds: {
+    name: "war_outcomes",
+    columns: ["id", "ended_at_ms"],
+    key: ["id"],
+    updateOnly: true,
   },
   /**
    * 보유 물건(아이템 인스턴스, docs/adr/2026-11-03-item-holdings.md 2절). stats·gene(유전자 값 D-516)은 JSON 글자로 넣는다(pg가 배열을
@@ -595,6 +636,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "units",
   "travels",
   "humans",
+  "humanGrowth",
   "cyborgUnits",
   "unitSkills",
   "unitFaith",
@@ -608,6 +650,9 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "gardenerWaves",
   "ruins",
   "restorationContributions",
+  "warOutcomes",
+  "warOutcomeState",
+  "warOutcomeEnds",
   "beacons",
   "buildings",
   "presence",

@@ -14,6 +14,7 @@ import { type FusionCoefficients, OLD_FUSION_COEFFICIENTS } from "./fusion.ts";
 import { OLD_RECRUIT_COEFFICIENTS, type RecruitCoefficients } from "./recruitment.ts";
 import { type RestorationCoefficients, START_RESTORATION_COEFFICIENTS } from "./restoration.ts";
 import { OLD_TEMPLE_COEFFICIENTS, type TempleCoefficients } from "./temple.ts";
+import { START_WAR_COEFFICIENTS, type WarCoefficients } from "./warOutcomes.ts";
 import { START_WORLD_SEED, type WorldSeedCoefficients } from "./worldSeed.ts";
 import { type GatherObjectCoefficients, START_GATHER_OBJECTS } from "./gatherObjects.ts";
 
@@ -76,6 +77,8 @@ export interface SocietyCoefficients {
    * 실행은 simulator/societyRuins.ts(시뮬·서버 같은 함수, docs/adr/2026-11-07-ruins-restoration.md)
    */
   readonly restoration: RestorationCoefficients;
+  /** 공성 결과 셋(D-520 약탈·점령·귀속·점령 상태, 49에 칸 없음 [임시]). 팩 tuning 경로 "war.*". 규칙은 society/warOutcomes.ts */
+  readonly war: WarCoefficients;
   /**
    * 세계 씨앗(고정 NPC 국가 시작 도시 수·기본 시설 수, D-6041·46 §9.2, 49에 칸 없음 [임시]). 팩 tuning 경로 "worldSeed.*".
    * 시뮬은 읽지 않는다(서버가 켤 때 시험 세계를 차린다, docs/adr/2026-11-07-play-flow.md "WP1 세계 씨앗")
@@ -346,6 +349,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   fusion: { ...OLD_FUSION_COEFFICIENTS },
   temple: { ...OLD_TEMPLE_COEFFICIENTS },
   restoration: { ...START_RESTORATION_COEFFICIENTS },
+  war: { ...START_WAR_COEFFICIENTS },
   worldSeed: { ...START_WORLD_SEED },
   gatherObjects: { ...START_GATHER_OBJECTS },
   techGroundMax: 5,

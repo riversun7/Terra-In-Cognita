@@ -60,16 +60,30 @@ describe("거래 정책(D-323 운임 = 원가 + 성향별 이익률)", () => {
   });
 });
 
-describe("점령 처리·마을·편입 제안·독립 투표(질문 198 가)", () => {
-  it("공격 성향이 높고 약탈 뒤에도 반란 문턱 위면 약탈, 아니면 통합. 상장폐지는 아주 공격적일 때만", () => {
-    expect(occupationChoice(t(700), 80, c, sc)).toEqual({ treatment: "loot", shares: "keep" });
-    // 80 − 25(약탈) = 55 ≤ 40 + 10? 아니다 → 약탈. 70 − 25 = 45 ≤ 50 → 통합
-    expect(occupationChoice(t(700), 70, c, sc)).toEqual({ treatment: "integrate", shares: "keep" });
-    expect(occupationChoice(t(300), 90, c, sc)).toEqual({ treatment: "integrate", shares: "keep" });
-    expect(occupationChoice(t(850), 90, c, sc)).toEqual({ treatment: "loot", shares: "delist" });
-    // 폐허 문턱(900) 이상이면 약탈하고 폐허로 둔다(486 나) — 만족도와 상관없이
-    expect(occupationChoice(t(900), 90, c, sc)).toEqual({ treatment: "raze", shares: "delist" });
-    expect(occupationChoice(t(950), 30, c, sc).treatment).toBe("raze");
+describe("공성 결과·마을·편입 제안·독립 투표(질문 198 가, D-520)", () => {
+  it("공성 결과(D-520): 가중치 점령·귀속(war.npcAnnexWeight) → 점령 상태(상업) → 약탈(공격) 차례로 굴림을 나눈다", () => {
+    const war = { ...sc.war, npcAnnexWeight: 300 };
+    // 공격 700·상업 200: 합 1200 = 점령·귀속 0~299, 점령 상태 300~499, 약탈 500~1199
+    expect(occupationChoice(t(700, 200), 0, true, c, war)).toEqual({
+      treatment: "integrate",
+      shares: "keep",
+    });
+    expect(occupationChoice(t(700, 200), 299, true, c, war).treatment).toBe("integrate");
+    expect(occupationChoice(t(700, 200), 300, true, c, war).treatment).toBe("occupy");
+    expect(occupationChoice(t(700, 200), 499, true, c, war).treatment).toBe("occupy");
+    expect(occupationChoice(t(700, 200), 500, true, c, war).treatment).toBe("loot");
+    expect(occupationChoice(t(700, 200), 1200, true, c, war).treatment).toBe("integrate");
+    // 재건 비용을 낼 수 없으면 점령·귀속 가중 0: 합 900 = 점령 상태 0~199, 약탈 200~899
+    expect(occupationChoice(t(700, 200), 0, false, c, war).treatment).toBe("occupy");
+    expect(occupationChoice(t(700, 200), 250, false, c, war).treatment).toBe("loot");
+    // 가중치가 모두 0이면 낼 수 있을 때 점령·귀속, 아니면 약탈. 상장폐지는 아주 공격적일 때만
+    const none = { ...war, npcAnnexWeight: 0 };
+    expect(occupationChoice(t(0, 0), 7, true, c, none).treatment).toBe("integrate");
+    expect(occupationChoice(t(0, 0), 7, false, c, none).treatment).toBe("loot");
+    expect(occupationChoice(t(850, 0), 0, true, c, war)).toEqual({
+      treatment: "integrate",
+      shares: "delist",
+    });
   });
 
   it("마을: 공격 성향이 높은 가문은 독립하고 가장 큰 축이 체제, 아니면 봉신", () => {

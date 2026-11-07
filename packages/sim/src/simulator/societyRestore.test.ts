@@ -237,23 +237,6 @@ describe("폐허 복원(D-510·D-339·D-343·D-344)", () => {
     expect(problems(3000)).toEqual([]);
   });
 
-  it("약탈하고 폐허로 둠(486 나): 점령하지 않고 도시가 폐허가 된다(금고 몫을 가져감, 옛 주인 = 진 세력)", () => {
-    const { world, society, problems, credit } = setup(MANUAL);
-    const two = world.factions.get(2);
-    const three = world.factions.get(3);
-    if (!two || !three) throw new Error("factions");
-    const before = credit(3);
-    society.occupy(three, two, 5, { treatment: "raze", shares: "delist" }, 2000);
-    expect(world.cities.has(5)).toBe(false);
-    expect(world.ruins.get(5)).toMatchObject({ formerOwner: 2, claimant: null });
-    expect(two.cities.has(5)).toBe(false);
-    expect(three.cities.has(5)).toBe(false);
-    expect(credit(3)).toBeGreaterThan(before);
-    expect(three.wars.has(2)).toBe(true);
-    expect(society.summary().occupations.razed).toBe(1);
-    expect(problems(2000)).toEqual([]);
-  });
-
   it("폐허가 된 도시 창고 물건(535·540 나): NPC 세력·유저 모두 주인의 가장 가까운 다른 도시 창고로, 다른 도시가 없는 NPC 세력 물건만 소각", () => {
     const { world } = setup(MANUAL);
     const asset = "item:plank";

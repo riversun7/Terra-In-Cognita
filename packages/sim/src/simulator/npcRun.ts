@@ -12,6 +12,7 @@ import { type FactionView, type NpcAction, type RivalView, decideAction, peaceSc
 import { nextTaxBp, occupationChoice, recruitPicks } from "../npc/policy.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
 import { shareAsset } from "../society/shares.ts";
+import { rebuildCost } from "../society/warOutcomes.ts";
 import { inTruce, recordFight } from "../society/wars.ts";
 import type { CombatRun } from "./combatRun.ts";
 import type { MetricsRecorder } from "./metrics.ts";
@@ -248,6 +249,17 @@ export function blocsOf(world: SimWorld): Blocs {
   return { topOf, strengthOf };
 }
 
+/**
+ * attacker가 지금 칠 수 있는 남의 도시인가: 시작 도시가 아니고(D-341 — 주인이 바뀌지 않는다), 내가 점령 상태로 둔 도시가 아니고, 내가 약탈한
+ * 뒤 쉬는 날이 지났다(D-520, 확인 대기 685)
+ */
+function targetable(world: SimWorld, attacker: SimFaction, cityId: number, nowMs: number): boolean {
+  if (world.cities.get(cityId)?.start !== false) return false;
+  const held = world.occupations.get(cityId);
+  if (held?.kind === "occupied" && held.occupier === attacker.id) return false;
+  return (attacker.raided.get(cityId) ?? 0) <= nowMs;
+}
+
 /** 다른 세력 하나를 faction이 본 모습 */
 export function rivalView(
   ctx: NpcContext,
@@ -257,7 +269,7 @@ export function rivalView(
   blocs: Blocs = blocsOf(ctx.world),
 ): RivalView {
   let takeable = 0;
-  for (const cityId of other.cities) if (ctx.world.cities.get(cityId)?.start === false) takeable += 1;
+  for (const cityId of other.cities) if (targetable(ctx.world, faction, cityId, nowMs)) takeable += 1;
   const top = blocs.topOf.get(other.id) ?? other.id;
   return {
     id: other.id,
@@ -278,25 +290,23 @@ function rivalsOf(ctx: NpcContext, faction: SimFaction, nowMs: number): RivalVie
   return out;
 }
 
-/** 도시 하나의 휴먼 평균 만족도(0~100, 사람이 없으면 0) */
-function cityAverage(ctx: NpcContext, cityId: number): number {
-  let n = 0;
-  let sum = 0;
-  for (const unit of ctx.world.units.values())
-    if (unit.city === cityId) {
-      n += 1;
-      sum += unit.satisfactionMilli;
-    }
-  return n === 0 ? 0 : Math.floor(sum / n / 1000);
-}
-
-/** 치기: (선포했으면) 남의 도시 하나를 고르고, 전투가 켜져 있으면 공성에서 이겨야 점령한다 */
-function attack(ctx: NpcContext, attacker: SimFaction, targetId: number, roll: number, nowMs: number): void {
+/**
+ * 치기: (선포했으면) 남의 도시 하나를 고르고, 전투가 켜져 있으면 공성에서 이겨야 한다. 이긴 뒤 결과(약탈·점령 상태·점령·귀속, D-520)는 성향 가중
+ * 규칙식이 outcomeRoll로 고른다
+ */
+function attack(
+  ctx: NpcContext,
+  attacker: SimFaction,
+  targetId: number,
+  roll: number,
+  outcomeRoll: number,
+  nowMs: number,
+): void {
   const { world } = ctx;
   const target = world.factions.get(targetId);
   if (!target?.alive) return;
-  // 시작 도시는 주인이 바뀌지 않는다(D-341). 난수로 고른 도시(넣은 차례가 아니라)
-  const takeable = [...target.cities].filter((cityId) => world.cities.get(cityId)?.start === false);
+  // 칠 수 있는 도시(targetable) 가운데 난수로 고른 도시(넣은 차례가 아니라)
+  const takeable = [...target.cities].filter((cityId) => targetable(world, attacker, cityId, nowMs));
   const cityId = takeable[roll % Math.max(1, takeable.length)];
   if (cityId === undefined) return;
   ctx.onAttack?.(attacker, target, cityId, nowMs);
@@ -305,11 +315,15 @@ function attack(ctx: NpcContext, attacker: SimFaction, targetId: number, roll: n
     recordFight(attacker, attacker.id, target, target.id, nowMs);
     if (!won) return;
   }
+  // 점령·귀속은 재건 비용을 낼 국고가 있어야 고른다
+  const housing = world.cities.get(cityId)?.housing ?? 0;
+  const funds = world.book.balanceOf(attacker.id, treasuryAssetOf(ctx, attacker));
+  const canAnnex = funds >= rebuildCost(housing, ctx.c.war);
   ctx.society?.occupy(
     attacker,
     target,
     cityId,
-    occupationChoice(attacker.traits, cityAverage(ctx, cityId), ctx.c.npc, ctx.c),
+    occupationChoice(attacker.traits, outcomeRoll, canAnnex, ctx.c.npc, ctx.c.war),
     nowMs,
   );
 }
@@ -377,7 +391,7 @@ export function decide(ctx: NpcContext, factionId: number, nowMs: number): void 
   if (!faction?.alive) return;
   faction.eventId = undefined;
   const rng = streamRng(ctx.world.seed, STREAM_DECIDE, faction.id, faction.aiStep * 2);
-  // 굴림 수는 판단마다 같다(무엇을 하든 다음 굴림이 밀리지 않게): 같은 점수 고르기, 도시 고르기, 지분 고르기
+  // 굴림 수는 판단마다 같다(무엇을 하든 다음 굴림이 밀리지 않게): 같은 점수 고르기, 도시 고르기, 지분 고르기·공성 결과 고르기
   const rolls = [rng.nextInt(0x1_0000), rng.nextInt(0x1_0000), rng.nextInt(0x1_0000)];
   const view = factionView(ctx, faction, nowMs);
   const action = decideAction(view, rivalsOf(ctx, faction, nowMs), rolls[0] ?? 0, ctx.c.npc);
@@ -387,7 +401,7 @@ export function decide(ctx: NpcContext, factionId: number, nowMs: number): void 
     case "attack": {
       const target = ctx.world.factions.get(action.target);
       if (action.declare && target) society?.declareWar(faction, target, nowMs);
-      attack(ctx, faction, action.target, rolls[1] ?? 0, nowMs);
+      attack(ctx, faction, action.target, rolls[1] ?? 0, rolls[2] ?? 0, nowMs);
       break;
     }
     case "found":

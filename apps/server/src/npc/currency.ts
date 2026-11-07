@@ -2,7 +2,7 @@
 // 시뮬 createEconomy의 화폐 차리기(나라마다 국가 프리셋 화폐, 반란 세력은 부모 화폐, 처음 발행 E6)를 서버 세계에 맞게 둔다:
 // - 나라 = 그 세력 코드의 국가 프리셋(시험 NPC 세력은 16번째 프리셋 — 화면 이름과 같은 규칙, npc/nations.ts nationName. 프리셋 없이 만든
 //   npc_nation_NN은 nationCode가 그 자리에 둘 프리셋 = NN−1번째). 프리셋이 없는 세력은
-//   반란 부모 → 종주를 따라 올라간 나라의 화폐·세율을 쓴다(시뮬 factionBorn과 같다). 그래도 없으면 기준 통화·DEFAULT_TAX_BP.
+//   반란 부모 → 종주 → 태어날 때 부모(기획 답 620 나)를 따라 올라간 나라의 화폐·세율을 쓴다(시뮬 factionBorn과 같다). 그래도 없으면 기준 통화·DEFAULT_TAX_BP.
 // - 화폐를 찍는 곳 = 자기 프리셋을 가진 고정 나라(D-131, 시작 도시를 잃지 않는다 D-341). 반란·마을 세력은 찍지 않는다.
 // - 기준 통화 = 서버 시험 화폐(s3_test_credit, 기술 해석 [임시] — 시뮬은 첫 나라 화폐). 유저 지갑·정착 지원금·임금·신전·구인 같은 서버 돈이
 //   모두 이 화폐라 그대로 두고, 도시 거래소 값만 나라 화폐로 매긴다. 고정 나라가 처음 받은 시험 화폐(NPC_START_CREDIT)가 시뮬의 기준 통화 준비금
@@ -47,7 +47,7 @@ export function presetOfFaction(
   const own = ownPresetOf(faction, catalog);
   if (own) return own;
   seen.add(faction.id);
-  for (const parentId of [faction.rebelOf, faction.overlord]) {
+  for (const parentId of [faction.rebelOf, faction.overlord, faction.bornOf]) {
     const parent = parentId === null ? undefined : world.factions.get(parentId);
     if (parent && !seen.has(parent.id)) return presetOfFaction(world, parent, catalog, seen);
   }

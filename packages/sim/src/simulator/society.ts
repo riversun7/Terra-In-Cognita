@@ -1,5 +1,5 @@
 // 시뮬레이터 세력·사회 — docs/adr/2026-10-31-faction-society-core.md "시뮬레이터"
-// 진짜 규칙(society/*.ts)을 시뮬 세계에 붙인다: 도시 지분, 점령(대리 판단이 고른 약탈·통합·지분 처리) + 편입 제안,
+// 진짜 규칙(society/*.ts)을 시뮬 세계에 붙인다: 도시 지분, 공성 결과 셋(D-520 약탈·점령·귀속·점령 상태, societyWar.ts) + 편입 제안,
 // 하루마다 만족도(목표값으로 다가감)·수명·환생·상속(소유자에게만, D-469)·반란(전투가 켜져 있으면 도시 안 공성)·자본주의 독립·연구·기술 후퇴,
 // 행정 건물 구인 카드(D-469 출생 없음: 인구는 구인으로만, societyRecruit.ts — 언제 살지는 NPC 규칙식 npc/policy.ts recruitPicks),
 // 배당 주기마다 도시 세금 정산(D-304: 이자 → 운영비 → 남은 이익을 체제대로), 공물 주기마다 봉신 공물.
@@ -34,6 +34,7 @@ import { checkSociety } from "./societyCheck.ts";
 import { createSocietyPayouts } from "./societyPayouts.ts";
 import { createSocietyRecruit } from "./societyRecruit.ts";
 import { createSocietyRuins } from "./societyRuins.ts";
+import { createSocietyWar } from "./societyWar.ts";
 import type { SocietyOptions, SocietyRun } from "./societyTypes.ts";
 import {
   HOMELESS,
@@ -88,7 +89,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     whitePeace: 0,
     stalled: 0,
     ruined: 0,
-    razed: 0,
+    occupied: 0,
     damaged: 0,
     fled: 0,
     homeless: 0,
@@ -202,6 +203,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       traits: inheritTraits(parent.traits, streamRng(world.seed, STREAM_TRAITS, id, 0), c.npc),
     });
     child.research = { progress: 0, blueprint: parent.research.blueprint };
+    child.bornOf = parent.id;
     world.factions.set(id, child);
     o.hooks?.factionBorn(child, parent);
     return child;
@@ -241,22 +243,8 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       ],
     });
   };
-  /** 약탈: 도시 금고 몫(국고 ÷ 도시 수 × 만분율)을 가져간다(D-186) */
-  const lootTreasury = (attacker: SimFaction, target: SimFaction, nowMs: number): void => {
-    const share =
-      (treasury(target) * BigInt(c.lootTakeBp)) / 10_000n / BigInt(Math.max(1, target.cities.size));
-    if (share > 0n)
-      book.post({
-        kind: "loot",
-        atMs: nowMs,
-        entries: [
-          { account: book.ownerAccount(target.id, treasuryAsset(target)), amount: -share },
-          { account: book.ownerAccount(attacker.id, treasuryAsset(target)), amount: share },
-        ],
-      });
-  };
   /**
-   * 도시를 폐허로(웨이브 D-105·D-464 217, 전쟁 약탈 486 나): 도시가 세계에서 빠지고 폐허로 남는다(D-510: 정부를 먼저 지은 쪽이 주인 → 복원
+   * 도시를 폐허로(웨이브 D-105·D-464 217 — 전쟁은 폐허를 만들지 않는다, D-520): 도시가 세계에서 빠지고 폐허로 남는다(D-510: 정부를 먼저 지은 쪽이 주인 → 복원
    * 사업, societyRuins.ts). 휴먼은 같은 세력의 가장 오래된 도시로 피난, 없으면 노숙(떠도는 세력). 도시 지분은 쓸모없는 채로 남는다(D-464 217).
    * 마지막 도시면 세력이 사라지거나(구성원도 없을 때 — cause·into) 떠돈다. 화폐 소멸(D-299)은 화폐를 찍는 세력만
    */
@@ -300,45 +288,79 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     treasuryAsset,
     onRestored: (faction, _city, nowMs) => recordTech(faction, nowMs, 0, "city_restored"),
   });
+  // 공성 결과 셋(D-520, societyWar.ts): 약탈·점령 상태·점령·귀속 불이익
+  const war = createSocietyWar({ world, c, hooks: o.hooks, treasuryAsset });
 
   return {
     ruins,
     occupy(attacker, target, cityId, decision: OccupationChoice, nowMs) {
       const city = world.cities.get(cityId);
       if (!city || city.start) return;
-      // 점령자가 고른 처리(NPC 규칙식 npc/policy.ts occupationChoice, 질문 198 가)
+      // 점령자가 고른 결과(D-520 — NPC 규칙식 npc/policy.ts occupationChoice): 약탈 · 점령 상태 · 점령·귀속
       const { treatment, shares: choice } = decision;
-      if (treatment === "raze") {
-        // 약탈하고 폐허로 둔다(기획 답 486 나): 점령하지 않는다 — 도시 금고 몫을 가져가고, 도시는 웨이브 폐허와 같은 길로 폐허가 된다
-        // (옛 주인 = 진 세력, 지분은 쓸모없는 채로 남음, 휴먼 피난·노숙, 정부를 먼저 지은 쪽이 주인 → 복원 사업)
-        counts.razed += 1;
-        lootTreasury(attacker, target, nowMs);
+      const cityUnits = (): SimUnit[] => [...world.units.values()].filter((unit) => unit.city === cityId);
+      // 공성 승리는 교전이다(전쟁이 아니었으면 전쟁이 된다. 선포 비용은 판단이 선포할 때 냈다)
+      const fight = (): void => {
         if (attacker.wars.has(target.id)) recordFight(attacker, attacker.id, target, target.id, nowMs);
         else declareWar(attacker, attacker.id, target, target.id, nowMs);
-        ruinCity(city, target, nowMs, "conquered", attacker);
+      };
+      if (treatment === "loot") {
+        // 약탈: 경제 이득만(도시 금고·공공 창고 몫), 소유는 원래 세력 그대로, 폐허가 되지 않는다. 공공 건물 일부가 부서진다(45 §10.4 — 연구 시설 −1)
+        counts.loot += 1;
+        const taken = war.raid(attacker, target, city, nowMs);
+        const { satisfactionShift } = occupationShifts("loot", "keep", target.regime, target.regime, c);
+        for (const unit of cityUnits())
+          unit.satisfactionMilli = shiftSatisfaction(unit.satisfactionMilli, satisfactionShift);
+        city.researchLevel = Math.max(0, city.researchLevel - 1);
+        fight();
+        recordTech(target, nowMs, 0, "raided");
+        o.onWarOutcome?.({ atMs: nowMs, city: cityId, attacker, target, outcome: "loot", taken });
         return;
       }
+      if (treatment === "occupy") {
+        // 점령 상태: 소유는 그대로, 점령자가 기간마다 그 도시 몫 세금을 거둔다(하루 끝, societyWar.ts)
+        counts.occupied += 1;
+        const entry = war.occupy(attacker, target, city, nowMs);
+        for (const unit of cityUnits())
+          unit.satisfactionMilli = shiftSatisfaction(unit.satisfactionMilli, -c.war.occupySatisfactionDrop);
+        fight();
+        o.onWarOutcome?.({
+          atMs: nowMs,
+          city: cityId,
+          attacker,
+          target,
+          outcome: "occupy",
+          taken: 0n,
+          untilMs: entry.untilMs,
+        });
+        return;
+      }
+      // 점령·귀속: 도시를 가져간다(46 §5.1 ②~⑤) + 재건 비용(소각)·회복 불이익(societyWar.ts)
       const occupier = {
         treasury: attacker.id,
         regime: attacker.regime,
         rulingFamily: rulingFamilyOf(attacker),
       };
       const decided = settleShares(book, cityId, target.id, occupier, choice, nowMs, c);
-      const shifts = occupationShifts(treatment, decided, target.regime, attacker.regime, c);
-      for (const unit of world.units.values())
-        if (unit.city === cityId)
-          unit.satisfactionMilli = shiftSatisfaction(unit.satisfactionMilli, shifts.satisfactionShift);
-      if (treatment === "loot") {
-        counts.loot += 1;
-        city.researchLevel = Math.max(0, city.researchLevel - 1);
-        lootTreasury(attacker, target, nowMs);
-      } else counts.integrate += 1;
+      const shifts = occupationShifts("integrate", decided, target.regime, attacker.regime, c);
+      for (const unit of cityUnits())
+        unit.satisfactionMilli = shiftSatisfaction(unit.satisfactionMilli, shifts.satisfactionShift);
+      counts.integrate += 1;
       if (decided === "delist") counts.delisted += 1;
       offers.push(...makeOffers(book, cityId, attacker.id, new Set([target.id]), nowMs, c));
-      // 점령은 교전이다(전쟁이 아니었으면 전쟁이 된다. 선포 비용은 판단이 선포할 때 냈다)
-      if (attacker.wars.has(target.id)) recordFight(attacker, attacker.id, target, target.id, nowMs);
-      else declareWar(attacker, attacker.id, target, target.id, nowMs);
+      fight();
       moveCity(cityId, target, attacker, nowMs);
+      const cost = war.annex(attacker, target, city, nowMs);
+      o.onWarOutcome?.({
+        atMs: nowMs,
+        city: cityId,
+        attacker,
+        target,
+        outcome: "integrate",
+        shares: decided,
+        taken: cost,
+        untilMs: world.occupations.get(cityId)?.untilMs,
+      });
       recordTech(target, nowMs, 0, "city_lost");
       dieIfEmpty(target, "conquered", attacker, nowMs);
     },
@@ -558,7 +580,9 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
             },
             c,
           );
-          unit.satisfactionMilli = satisfactionToward(unit.satisfactionMilli, target, 1000, c);
+          // 점령·귀속 회복 불이익(D-520): 오르는 빠르기만 느리다
+          const dayPm = war.recoveryPm(city.id, unit.satisfactionMilli, target, nowMs);
+          unit.satisfactionMilli = satisfactionToward(unit.satisfactionMilli, target, dayPm, c);
         });
         const avg = average(units);
         // [임시] 발전도(D-254 7요소 전): 만족도 몫(0~50) + 인구 몫(유닛 × 2, 30까지) + 연구 시설 Lv × 4
@@ -707,6 +731,8 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         recordTech(faction, nowMs, output, "regression");
       }
 
+      // 점령 상태 세금·끝, 회복 불이익 끝(D-520, societyWar.ts) — 배당 정산 전(점령자가 가져간 뒤 남은 국고로 정산)
+      war.endOfDay(nowMs);
       if (day % periodDays(c.dividendEveryMs) === 0) payouts.settleDividends(nowMs);
       if (day % periodDays(c.tributeEveryMs) === 0) payouts.payTribute(nowMs);
       // 폐허 복원 NPC 규칙식(정부 짓기·넣기·투자, societyRuins.ts)
@@ -737,7 +763,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     },
 
     check(nowMs) {
-      return [...checkSociety(world, offers, c, nowMs), ...ruins.check()];
+      return [...checkSociety(world, offers, c, nowMs), ...ruins.check(), ...war.check()];
     },
     currentDay: () => day,
     summary() {
@@ -757,8 +783,9 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         occupations: {
           loot: counts.loot,
           integrate: counts.integrate,
+          occupy: counts.occupied,
           delisted: counts.delisted,
-          razed: counts.razed,
+          ...war.summary(),
         },
         offers: { accepted: counts.accepted, refused: counts.refused, expired: counts.expired },
         shareSales: counts.shareSales,

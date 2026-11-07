@@ -73,6 +73,7 @@ import { type NpcRuinsInput, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsR
 import { ruinsOf } from "./ruinsState.ts";
 import type { NpcHumanRow } from "./state.ts";
 import { loadNpcState } from "./state.ts";
+import { createWarOutcomePersist, loadWarOutcomes } from "./warOutcomes.ts";
 
 /** 루프를 미는 간격(ms). 판단·하루 끝은 그 시각에만 돌고, 나머지 틱은 할 일이 없으면 바로 끝난다 */
 export const TICK_MS = 5_000;
@@ -213,8 +214,15 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     };
     faction.aiStep = row.aiStep;
     faction.rebelOf = row.rebelOfRowId === null ? null : (ownerOfRow.get(row.rebelOfRowId) ?? null);
+    // 태어날 때 부모(기획 답 620 나 — 세력 행 born_of). 부모 세력이 사라졌으면(거울에 없음) 모른다
+    faction.bornOf = row.bornOfRowId === null ? null : (ownerOfRow.get(row.bornOfRowId) ?? null);
     factions.set(faction.id, faction);
   }
+  // 공성 결과의 남은 상태(D-520, war_outcomes): 점령 상태·점령·귀속 회복 불이익
+  const raidCooldownMs = Math.max(0, c.war.raidCooldownDays) * DAY_MS;
+  const warState = await loadWarOutcomes(o.pool, ownerOfRow, startMs - raidCooldownMs);
+  for (const raid of warState.raids)
+    factions.get(raid.attacker)?.raided.set(raid.city, raid.atMs + raidCooldownMs);
   for (const war of state.wars) {
     const a = factions.get(ownerOfRow.get(war.a) ?? -1);
     const b = factions.get(ownerOfRow.get(war.b) ?? -1);
@@ -332,6 +340,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     units,
     // 폐허(도시 ID, docs/adr/2026-11-07-ruins-restoration.md): 자리도 places에 채운다(칸 오염·복원한 도시 자리)
     ruins: ruinsOf(state.ruins, places, (mapKey) => maps.has(mapKey)),
+    occupations: warState.occupations,
     book: ledger,
     // 서버 원장은 DB가 감사한다(불변 조건 I1·I2 SQL) → 메모리 감사는 쓰지 않는다
     audit: createLedgerAudit([]),
@@ -348,8 +357,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     nextUnitId: o.nextUnitId,
   };
   // 도시 이름(기획 답 601 나): 실행 중에 세운 마을은 주인이 따르는 나라(반란 부모 → 종주 → 태어날 때 부모)의 목록에서. 태어날 때 부모는
-  // 메모리만 든다(독립을 고른 새 가문 — 경제 고리 factionBorn이 채운다). 쓴 이름 = 그 행성 모든 도시·폐허 줄(띄우지 않은 2차맵도)
-  const bornOf = new Map<number, number>();
+  // 거울 세력 칸(bornOf — 세력 행 born_of, 기획 답 620 나). 쓴 이름 = 그 행성 모든 도시·폐허 줄(띄우지 않은 2차맵도)
   const presets = o.economy?.presets ?? [];
   const takenNames = new Set(
     [...state.cities, ...state.ruins].flatMap((row) => (row.name === null ? [] : [row.name])),
@@ -364,7 +372,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
               code: faction.code,
               rebelOf: faction.rebelOf,
               overlord: faction.overlord,
-              bornOf: bornOf.get(id),
+              bornOf: faction.bornOf,
             }
           : undefined;
       },
@@ -391,6 +399,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     { rowOf, places, spares: state.spares },
   );
   persistRef.current = persist;
+  // 공성 결과 저장(warOutcomes.ts): 세력 행을 저장한 뒤 flush한다
+  const warPersist = createWarOutcomePersist({ world, writer, rowOf: persist.rowOf, state: warState, log });
   // DB에서 읽은 그대로를 저장된 것으로 친다. 아래(들이기·주거·성향·처음 화폐)에서 바꾼 것만 처음 저장에 들어간다
   persist.markSaved(state.society?.day ?? -1);
   for (const id of rolled) persist.dirtyFaction(id);
@@ -506,16 +516,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       })
     : undefined;
   econRef.current = econ;
-  // 사회·판단 고리 = 경제 고리 + 태어날 때 부모 적기(도시 이름, 위)
-  const hooks: SimHooks | undefined = econ
-    ? {
-        ...econ.hooks,
-        factionBorn: (child, parent) => {
-          bornOf.set(child.id, parent.id);
-          econ.hooks.factionBorn(child, parent);
-        },
-      }
-    : undefined;
+  // 사회·판단 고리 = 경제 고리(태어날 때 부모는 규칙이 세력 칸 bornOf에 적는다 — 기획 답 620 나)
+  const hooks: SimHooks | undefined = econ?.hooks;
   const ctx: NpcContext = {
     world,
     loop,
@@ -547,6 +549,11 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         if (!site) return false;
         places.set(nextCity + 1, site);
         return true;
+      },
+      // 공성 결과(D-520): 약탈·점령 상태 = 대상 국고 화폐, 점령·귀속(재건 비용) = 점령자 국고 화폐
+      onWarOutcome: (event) => {
+        const payer = event.outcome === "integrate" ? event.attacker : event.target;
+        warPersist.record(event, econ?.hooks.treasuryAsset(payer) ?? ASSET_CREDIT);
       },
     },
     startMs,
@@ -634,6 +641,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   for (const faction of world.factions.values()) if (faction.alive) scheduleDecide(ctx, faction, startMs);
   loop.schedule(nextDayEnd(startMs, dayMs), { kind: EVENT_DAY, subject: 0 });
   const first = await persist.flush(society.currentDay());
+  warPersist.flush(o.now());
   log.info(
     {
       factions: [...factions.values()].filter((f) => f.alive).length,
@@ -667,6 +675,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       if (loop.processed === before && results === 0 && lifted === 0 && !force) return;
       const started = performance.now();
       const result = await persist.flush(society.currentDay());
+      warPersist.flush(o.now());
       await persist.refillSpares(SPARE_FACTIONS);
       metrics.persistMs += performance.now() - started;
       metrics.recruited += result.recruited;

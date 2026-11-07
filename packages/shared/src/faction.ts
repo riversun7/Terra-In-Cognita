@@ -456,18 +456,31 @@ export interface CityShareRow {
   } | null;
 }
 
-/** 점령 처리 한 줄(46 §5.1). side: 우리가 점령했는지(as_occupier), 내 자산이 있는 도시가 점령됐는지(offer_to_me) */
+/**
+ * 점령 처리 한 줄(46 §5.1, 공성 결과 셋 D-520). side: 우리가 이겼는지(as_occupier), 내 자산이 있는 도시가 점령됐는지(offer_to_me), 우리 도시가
+ * 당했는지(as_target — 약탈·점령 상태·점령·귀속)
+ */
 export interface OccupationRow {
   readonly id: string;
-  readonly side: "as_occupier" | "offer_to_me";
+  readonly side: "as_occupier" | "offer_to_me" | "as_target";
   readonly cityName: string;
   /** 상대(우리가 점령했으면 옛 주인, 편입 제안이면 점령자) */
   readonly other: FactionRef;
   readonly occurredAt: number;
   /** 다섯 처리의 상태(OCCUPATION_STEPS 순서) */
   readonly steps: Readonly<Record<OccupationStep, StepState>>;
-  /** ① 고른 것 */
-  readonly lootChoice: "loot" | "integrate" | null;
+  /** ① 고른 것(D-520): 약탈(경제 이득만, 소유 그대로) · 점령·귀속 · 점령 상태(소유 그대로, 기간마다 세금) */
+  readonly lootChoice: "loot" | "integrate" | "occupy" | null;
+  /**
+   * 결과 값(D-520, 실제 자료): taken = 약탈이 가져간 국고 몫·점령 상태가 거둔 세금 합·점령·귀속 재건 비용(최소 단위 글자), currency = 그 화폐,
+   * untilAt = 점령 상태 끝·회복 불이익 끝, endedAt = 남은 상태가 끝난 시각(약탈은 그때). 없으면 undefined(시안·옛 서버)
+   */
+  readonly outcome?: {
+    readonly taken: string;
+    readonly currency: string | null;
+    readonly untilAt: number | null;
+    readonly endedAt: number | null;
+  };
   /** ③ 도시 주식: 고른 것(null = 아직) */
   readonly shareChoice: "delist" | "keep" | null;
   /** ④ 편입 제안: 기한(S30)과 답 수(as_occupier) 또는 내 상태(offer_to_me) */

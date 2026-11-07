@@ -111,7 +111,7 @@ export interface NationLink {
   readonly rebelOf: number | null;
   /** 종주(봉신 관계) */
   readonly overlord: number | null;
-  /** 태어날 때 부모(실행 중에만 안다 — 독립을 고른 새 가문처럼 반란 부모·종주가 없는 세력). 모르면 null·없음 */
+  /** 태어날 때 부모(세력 행 born_of, 기획 답 620 나 — 독립을 고른 새 가문처럼 반란 부모·종주가 없는 세력). 모르면 null·없음 */
   readonly bornOf?: number | null | undefined;
 }
 
@@ -317,7 +317,7 @@ export async function ensureTestNations(
 
 /**
  * 고정 나라가 아닌 NPC 세력마다 따르는 나라의 도시 이름 목록(601 나): 세력 행의 반란 부모(rebel_of)·종주(parent_id)를 따라 올라간다(사라진
- * 세력 행도 고리로 쓴다). 태어날 때 부모는 저장하지 않아 켤 때는 모른다(실행 중에 세운 마을은 세울 때 이름을 받는다, npc/persist.ts)
+ * 세력 행도 고리로 쓴다)·태어날 때 부모(born_of, 기획 답 620 나 — 이 판 전에 태어난 세력은 비어 있어 모른다)
  */
 async function followerNames(
   pool: QueryPool,
@@ -326,7 +326,7 @@ async function followerNames(
 ): Promise<{ factionId: number; names: readonly string[] }[]> {
   if (presets.length === 0) return [];
   const found = await pool.query(
-    `select id, code, parent_id, rebel_of from factions where kind = 'npc' order by id`,
+    `select id, code, parent_id, rebel_of, born_of from factions where kind = 'npc' order by id`,
   );
   const links = new Map<number, NationLink>(
     found.rows.map((row) => [
@@ -335,6 +335,7 @@ async function followerNames(
         code: typeof row.code === "string" ? row.code : "",
         rebelOf: row.rebel_of === null ? null : Number(row.rebel_of),
         overlord: row.parent_id === null ? null : Number(row.parent_id),
+        bornOf: row.born_of === null || row.born_of === undefined ? null : Number(row.born_of),
       },
     ]),
   );

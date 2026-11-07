@@ -44,6 +44,16 @@ export interface SimFaction extends WarState {
   stalledDays: number;
   /** 반란으로 생긴 세력이면 원래 세력(정부가 소탕한다, 46 §2.4). 아니면 null */
   rebelOf: number | null;
+  /**
+   * 태어날 때 부모 세력(반란·새 마을, 기획 답 620 나 — 서버는 세력 행 born_of에 저장). 처음부터 있던 세력은 null. 독립을 고른 새 가문처럼 반란
+   * 부모·종주가 없어도 화폐·나라 성격·도시 이름이 부모 나라를 따른다(601 나)
+   */
+  bornOf: number | null;
+  /**
+   * 내가 약탈한 도시 → 다시 치지 않는 끝 시각(D-520, 확인 대기 685 — 한 세력이 한 도시를 거듭 털지 않게). 하루 끝에 지난 것을 지운다.
+   * 서버는 저장하지 않고 켤 때 war_outcomes 약탈 줄에서 다시 만든다
+   */
+  readonly raided: Map<number, number>;
   /** 연구 작업 진행·설계도(가장 높았던 단계, D-396) */
   research: { progress: number; blueprint: number };
   /** 도시 ID(넣은 차례) */
@@ -123,6 +133,25 @@ export interface SimRuin {
   readonly contributions: Map<number, bigint>;
 }
 
+/**
+ * 공성 결과의 남은 상태(D-520, docs/adr/2026-11-07-war-outcomes.md) — 도시 ID마다 하나. occupied = 점령 상태(소유는 owner 그대로, occupier가
+ * nextTaxMs마다 세금, untilMs에 끝남), annexed = 점령·귀속 불이익(그 도시 휴먼 만족도 회복이 untilMs까지 느림). 끝나면 지운다
+ */
+export interface SimOccupation {
+  readonly city: number;
+  readonly kind: "occupied" | "annexed";
+  /** 점령자(점령 상태) · 새 주인(점령·귀속) */
+  readonly occupier: number;
+  /** 시작할 때 도시 주인(점령 상태 = 소유 그대로인 주인, 점령·귀속 = 옛 주인) */
+  readonly owner: number;
+  readonly sinceMs: number;
+  readonly untilMs: number;
+  /** 다음 세금 시각(점령 상태). 점령·귀속은 untilMs */
+  nextTaxMs: number;
+  /** 지금까지 거둔 세금(그때 주인 국고 화폐 최소 단위 합 — 화면·기록용) */
+  taken: bigint;
+}
+
 /** 복원 사업 에스크로 시스템 계정 코드(폐허·화폐마다 하나) */
 export const restoreEscrow = (ruinId: number, asset: string): string => `escrow:restore:${ruinId}:${asset}`;
 
@@ -157,6 +186,8 @@ export interface SimWorld {
   readonly units: Map<number, SimUnit>;
   /** 폐허(도시 ID → 폐허, docs/adr/2026-11-07-ruins-restoration.md) */
   readonly ruins: Map<number, SimRuin>;
+  /** 공성 결과의 남은 상태(도시 ID → 점령 상태·점령·귀속 불이익, D-520) */
+  readonly occupations: Map<number, SimOccupation>;
   readonly book: LedgerBook;
   readonly audit: LedgerAudit;
   /** 시험 직무 정산(S3 settle)을 돌리나. 경제를 돌리는 시나리오는 끈다(일꾼은 시설에서 일한다) */
@@ -194,6 +225,8 @@ export function newFaction(
     taxBefore: null,
     stalledDays: 0,
     rebelOf: null,
+    bornOf: null,
+    raided: new Map(),
     research: { progress: 0, blueprint: fields.tech },
     cities: new Set(),
     units: new Set(),
@@ -327,6 +360,7 @@ export function createWorld(
     cities,
     units,
     ruins: new Map(),
+    occupations: new Map(),
     book,
     audit,
     testJobs: scenario.economy === undefined,

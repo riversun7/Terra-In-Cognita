@@ -3,7 +3,8 @@
 //   스위치 없음). faction.overview를 preview 없이 묻는다.
 // - dev + 시안 자료(test.use의 preview): 시안 장면(apps/server/src/factionScreen/preview.ts) — 나라 Solace(자본주의), 도시 4
 //   (민심 네 단계), 외교 4 + 정원사(글 한 줄), 전쟁 2(공성 선포·공격 변), 투표 4(열린 3, 시장 임명 포함), 지분 4(민주주의 도시
-//   하나는 배당 없음), 점령 처리 2(복원 모금 지분). 칸마다 "시험 자료". 곧 열림 단추는 WebSocket 명령을 보내지 않는다.
+//   하나는 배당 없음), 점령 처리 4(복원 모금 지분, 공성 결과 셋 D-520 — 약탈당함·점령 상태). 칸마다 "시험 자료". 곧 열림 단추는
+//   WebSocket 명령을 보내지 않는다.
 //   독재가 아니라 시장 임명·선전포고는 [안건 올리기]다(기획 세력 화면 검토 C4). 조약 제안은 카드마다 "투표 필요" 칸을 따른다
 //   (D-444 167: 동맹·보호·속국·영토 이전·휴전·강화는 안건, 휴전·강화는 짧은 투표, 나머지는 지도자가 바로 제안). 독재로 고친
 //   응답에서는 모든 카드가 바로 제안이다.
@@ -224,7 +225,16 @@ test.describe("dev 시안 자료", () => {
     await tabOf(page, "ko", "diplomacy").focus();
     await page.keyboard.press("End");
     await expect(tabOf(page, "ko", "shares")).toHaveAttribute("aria-selected", "true");
-    await expect(panel.locator(".faction-step")).toHaveCount(10);
+    await expect(panel.locator(".faction-step")).toHaveCount(20);
+    // 공성 결과 셋(D-520): 우리 도시가 약탈당함(소유 그대로)·우리가 점령 상태로 둠(거둔 세금·끝)
+    await expect(panel).toContainText(message("ko", "faction_occ_as_target", { name: "Kestrel League" }));
+    await expect(panel).toContainText(
+      message("ko", "faction_occ_outcome_loot", { amount: "18,400", currency: "Sol" }),
+    );
+    await expect(panel).toContainText(message("ko", "faction_occ_occupy"));
+    const saltmere = panel.locator(".faction-item", { hasText: "Saltmere" });
+    await expect(saltmere).toContainText("7,250 Sol");
+    await expect(saltmere).toContainText(message("ko", "faction_occ_as_winner", { name: "Driftwood" }));
     // 편입 거부 = 빼앗김·쫓겨남·적대(C6), 복원 모금 = 낸 만큼 지분(C5: 6,000 / 120,000 → 50주)
     await expect(panel).toContainText(message("ko", "faction_occ_offer_hint"));
     await expect(panel).toContainText(message("ko", "faction_occ_restoration_hint", { count: "1,000" }));

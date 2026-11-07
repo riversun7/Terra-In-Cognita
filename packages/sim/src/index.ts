@@ -217,10 +217,8 @@ export {
   independenceYes,
   nextTaxBp,
   recruitPicks,
-  occupationChoice,
   tradePolicy,
   type FoundingChoice,
-  type OccupationChoice,
   type TradePolicy,
 } from "./npc/policy.ts";
 export {
@@ -268,8 +266,9 @@ export {
   type SimUnit,
   type SimWorld,
 } from "./simulator/world.ts";
-// 폐허 복원(docs/adr/2026-11-07-ruins-restoration.md): 규칙·시뮬·서버 같은 실행
+// 폐허 복원(docs/adr/2026-11-07-ruins-restoration.md)·공성 결과 셋(docs/adr/2026-11-07-war-outcomes.md): 규칙·시뮬·서버 같은 실행
 export * from "./simulator/ruinsEntry.ts";
+export * from "./simulator/warEntry.ts";
 // 세계 씨앗(docs/adr/2026-11-07-play-flow.md "WP1 세계 씨앗"): 고정 NPC 국가 시작 도시 수·기본 시설 수 [임시]. 서버만 읽는다
 export {
   START_CITIES_LIMIT,

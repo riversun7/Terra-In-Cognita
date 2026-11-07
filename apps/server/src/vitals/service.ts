@@ -18,10 +18,10 @@ import { type VitalsBody, type VitalsRecord, vitalsRow } from "./state.ts";
 export interface VitalsWorld {
   /** 세계 유닛이 있는가(전투 크리쳐처럼 세계에 없는 전투 유닛은 건너뛴다) */
   exists(unitId: number): boolean;
-  /** 그 유닛의 지금 몸 자료(사이보그: 사이보그 화면과 같은 셈). 모르면 undefined → 줄에 둔 값 */
-  bodyOf(unitId: number): VitalsBody | undefined;
-  /** 줄도 지금 몸 자료도 없을 때의 몸 자료(유닛 화면 기본 몸 자료, [임시] 1차 모두 10). 없으면 undefined */
-  defaultBody(unitId: number): VitalsBody | undefined;
+  /** 그 유닛의 nowMs 몸 자료(사이보그: 사이보그 화면과 같은 셈, 입은 장비·버프 포함). 모르면 undefined → 줄에 둔 값 */
+  bodyOf(unitId: number, nowMs: number): VitalsBody | undefined;
+  /** 줄도 지금 몸 자료도 없을 때의 몸 자료(유닛 상세와 같은 셈, [임시] 1차 모두 10 + 입은 장비·버프). 없으면 undefined */
+  defaultBody(unitId: number, nowMs: number): VitalsBody | undefined;
 }
 
 /** 회복 한 번(효과 사전 heal: flat = 값 그대로, permille = 최대 HP의 ‰) */
@@ -78,15 +78,15 @@ export function createVitalsService(options: {
   );
 
   /** 지금 몸 자료를 얹은 줄(세계가 모르면 줄 그대로) */
-  const withBody = (unitId: number, snapshot: VitalsSnapshot): VitalsSnapshot => {
-    const body = world.bodyOf(unitId);
+  const withBody = (unitId: number, snapshot: VitalsSnapshot, nowMs: number): VitalsSnapshot => {
+    const body = world.bodyOf(unitId, nowMs);
     return body ? { ...snapshot, max: body.max, regen: body.regen } : snapshot;
   };
 
   const current = (unitId: number, nowMs: number): VitalsSnapshot | undefined => {
     const stored = records.get(unitId);
-    if (stored) return vitalsAt(withBody(unitId, stored), nowMs);
-    const body = world.bodyOf(unitId) ?? world.defaultBody(unitId);
+    if (stored) return vitalsAt(withBody(unitId, stored, nowMs), nowMs);
+    const body = world.bodyOf(unitId, nowMs) ?? world.defaultBody(unitId, nowMs);
     return body ? fullOf(body, nowMs) : undefined;
   };
 
@@ -147,7 +147,8 @@ export function createVitalsService(options: {
       for (const result of [...units].toSorted((a, b) => a.unit - b.unit)) {
         if (!world.exists(result.unit)) continue;
         const spec = specs.get(result.unit);
-        const body = world.bodyOf(result.unit) ?? (spec ? bodyOfSpec(spec) : world.defaultBody(result.unit));
+        const body =
+          world.bodyOf(result.unit, atMs) ?? (spec ? bodyOfSpec(spec) : world.defaultBody(result.unit, atMs));
         if (!body) continue;
         // 끝 값을 그 몸 자료의 최대로 자른다(분 수 0인 vitalsAt). 시각 = 실시간으로 끝나는 시각(그때부터 회복을 센다)
         store(
@@ -176,7 +177,7 @@ export function createVitalsService(options: {
           removed += 1;
           continue;
         }
-        if (vitalsFull(vitalsAt(withBody(unitId, snapshot), nowMs))) {
+        if (vitalsFull(vitalsAt(withBody(unitId, snapshot, nowMs), nowMs))) {
           records.delete(unitId);
           writer.remove("vitals", { unit_id: unitId });
           removed += 1;

@@ -195,6 +195,8 @@ export interface HoldingService {
   ): { readonly holding: number; readonly heal: number } | null;
   /** 유닛이 입은 물건(칸 차례) */
   equippedOn(unitId: number): readonly HoldingRecord[];
+  /** 유닛에 지금 걸린 효과(끝나지 않은 것, 스탯 몸·전투 시작 사양이 읽는다) */
+  effectsOn(unitId: number, nowMs: number): readonly UnitEffectRecord[];
   /** 유닛의 칸 배치(팩 unit_kinds ID와 칸 차례 — 화면이 칸 번호를 칸 종류로 읽는다). 없는 유닛·종류면 undefined */
   unitLayout(unitId: number): { readonly kind: string; readonly slots: readonly string[] } | undefined;
   /** 쓸 수 있는 물건의 쓰기 쿨 종류(D-509·D-510). 쓸 수 없거나 팩에서 사라졌으면 null */

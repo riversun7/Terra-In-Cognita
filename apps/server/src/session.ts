@@ -14,6 +14,7 @@ import {
   ITEM_PROTOCOL_VERSION,
   TREAT_PROTOCOL_VERSION,
   LABOR_PROTOCOL_VERSION,
+  LABOR_ASSIGN_PROTOCOL_VERSION,
   LABOR_JOBS_PROTOCOL_VERSION,
   ATTACK_PROTOCOL_VERSION,
   FACILITY_PROTOCOL_VERSION,
@@ -308,14 +309,18 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "labor_set_rent":
       case "labor_post_job":
       case "labor_withdraw_job":
-      case "labor_accept_job": {
-        // 구인 게시 셋은 판 8부터(그 앞 판 기기는 보내지 않는다)
+      case "labor_accept_job":
+      case "labor_assign":
+      case "labor_unassign": {
+        // 구인 게시 셋은 판 8부터, 직무 배치 둘은 판 14부터(그 앞 판 기기는 보내지 않는다)
         const needs =
-          message.t === "labor_post_job" ||
-          message.t === "labor_withdraw_job" ||
-          message.t === "labor_accept_job"
-            ? LABOR_JOBS_PROTOCOL_VERSION
-            : LABOR_PROTOCOL_VERSION;
+          message.t === "labor_assign" || message.t === "labor_unassign"
+            ? LABOR_ASSIGN_PROTOCOL_VERSION
+            : message.t === "labor_post_job" ||
+                message.t === "labor_withdraw_job" ||
+                message.t === "labor_accept_job"
+              ? LABOR_JOBS_PROTOCOL_VERSION
+              : LABOR_PROTOCOL_VERSION;
         if (protocolVersion < needs) {
           reject("invalid_message");
           return;

@@ -1,6 +1,7 @@
 // 생산(/economy/production) — 시설(레벨·일꾼·상태·지금 만드는 것·예약), 반복 예약(D-6016), 급여(D-431·D-432),
-// 건물 짓기·노화·수리(FacilityPanel.tsx, 실제 자료), 신전(TemplePanel.tsx), 폐허 복원(RuinsPanel.tsx, D-510), 노동 계약(임금형·임대형, D-479 —
-// LaborPanel.tsx, 실제 자료), 레시피 목록(팩).
+// 건물 짓기·노화·수리·채집 시설 직무 배치(FacilityPanel.tsx, 실제 자료), 정부기관 구인 카드 고용(RecruitPanel.tsx, D-469 — docs/adr/2026-11-07-play-flow.md
+// "WP3 플레이어 생산"), 신전(TemplePanel.tsx), 폐허 복원(RuinsPanel.tsx, D-510), 노동 계약(임금형·임대형, D-479 — LaborPanel.tsx, 실제 자료),
+// 레시피 목록(팩).
 // 시설·예약은 서버가 생산을 돌릴 때까지 시안 자료에서만 보인다. 레시피 목록은 실제 팩 자료다.
 // 예약 단추는 명령을 보내지 않는다(곧 열림, 생산 예약 명령은 WebSocket으로 붙인다).
 import type {
@@ -29,6 +30,7 @@ import {
 } from "./economyText.ts";
 import { FacilityPanel } from "./FacilityPanel.tsx";
 import { LaborPanel } from "./LaborPanel.tsx";
+import { RecruitPanel } from "./RecruitPanel.tsx";
 import { RuinsPanel } from "./RuinsPanel.tsx";
 import { TemplePanel } from "./TemplePanel.tsx";
 import { NotReady, PreviewTag } from "./parts.tsx";
@@ -319,6 +321,7 @@ export default function ProductionView() {
         </>
       )}
       <FacilityPanel />
+      <RecruitPanel />
       <TemplePanel />
       <RuinsPanel />
       <LaborPanel />

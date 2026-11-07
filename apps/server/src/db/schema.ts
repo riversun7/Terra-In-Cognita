@@ -929,7 +929,7 @@ export const tuningRevision = pgTable(
 /** 개발자 도구 표(전투 실험실 프리셋·계산식 덮어쓰기 등)는 따로 둔다(이 파일 1,000줄 상한) */
 export { battleLabPresets, formulaOverrides } from "./devToolsSchema.ts";
 /** 노동 계약 표(docs/adr/2026-11-03-labor-contracts.md) */
-export { laborContracts, laborPostings, laborRents } from "./laborSchema.ts";
+export { laborContracts, laborPostings, laborRents, unitWork } from "./laborSchema.ts";
 /** 건물(시설) 상태·작업 표(docs/adr/2026-11-07-buildings-runtime.md) */
 export { facilityJobs, worldFacilities } from "./facilitySchema.ts";
 /** 랭킹 집계 표(docs/adr/2026-11-07-ranking.md) */

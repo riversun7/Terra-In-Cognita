@@ -1956,6 +1956,32 @@
       "max": 10000
     },
     {
+      "id": "start_goods_pine_log",
+      "code": "",
+      "name": {
+        "ko": "시작 재료: 소나무 원목(개, 시작 도시 창고)",
+        "en": "Starting goods: pine logs (count, start city storage)"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "start_goods_stone",
+      "code": "",
+      "name": {
+        "ko": "시작 재료: 석재(개, 시작 도시 창고)",
+        "en": "Starting goods: stone (count, start city storage)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 100000
+    },
+    {
       "id": "f11_repair_lv1",
       "code": "F11",
       "name": {

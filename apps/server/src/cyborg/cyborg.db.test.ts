@@ -3,6 +3,7 @@
 // 계정당 하나, 시작 도시 둘레에 세계 유닛으로 놓기(시야로 2차맵이 열림), 한 커밋 저장, 부팅이 잃은 본체를 다시 놓기(I13),
 // 속성 분배(D-450, N36: 4원소 두 칸까지 합 10, 분배 없는 옛 사이보그는 한 번 나눔), 본체 생활비(D-453: 유지비를 내고 못 내면 비효율).
 import { DEFAULT_CYBORG_APPEARANCE, zeroElements } from "@terra/shared/cyborg";
+import { cityLocation } from "@terra/shared/goodsPlaces";
 import { CELL_UNITS, positionAt } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { testRosterCatalog } from "../roster/catalog.ts";
@@ -408,6 +409,15 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 만들기", () => {
     // 발행 계정은 그대로(국고에서 옮겼다)
     expect(issued()).toBe(issuedBefore);
     expect(service.record(first)?.startGrant).toBe(108n);
+    // 시작 재료(WP3 플레이어 생산, 설정 칸 [임시] 원목 20·석재 10): 그 시작 도시의 내 도시 창고(위치 = 도시 ID)로, 생산원에서
+    const startCity = service.record(first)?.startCityId ?? 0;
+    expect(persistence.ledger.balanceOf(owner, "item:pine_log", cityLocation(startCity))).toBe(20n);
+    expect(persistence.ledger.balanceOf(owner, "item:stone", cityLocation(startCity))).toBe(10n);
+    const goods = await rows<{ idempotency_key: string }>(
+      test.db,
+      `select idempotency_key from ledger_transactions where kind = 'start_goods'`,
+    );
+    expect(goods).toEqual([{ idempotency_key: `start_goods:${first}` }]);
     const [tx] = await rows<{ kind: string; idempotency_key: string; grant: string }>(
       test.db,
       `select t.kind, t.idempotency_key, c.start_grant as grant

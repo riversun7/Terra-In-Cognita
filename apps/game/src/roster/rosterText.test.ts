@@ -81,7 +81,7 @@ describe("이름", () => {
     expect(localName({ ko: "광산", en: "Mine" }, "mine", "en")).toBe("Mine");
     expect(localName(undefined, "mine", "ko")).toBe("mine");
     expect(jobLabel({ kind: "facility", facility: "mine", phase: "work" }, NAMES, "ko")).toBe("광산");
-    expect(jobLabel({ kind: "test_gather", phase: "work" }, NAMES, "en")).toBe("Test gathering");
+    expect(jobLabel({ kind: "test_gather", phase: "work" }, NAMES, "en")).toBe("Gathering");
   });
 
   it("자산 이름: 팩 아이템 → 시험 자산 → 코드", () => {

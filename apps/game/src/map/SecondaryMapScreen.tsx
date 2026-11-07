@@ -23,6 +23,7 @@ import {
 } from "@terra/engine";
 import { useEffect, useRef, useState } from "react";
 import { refreshSession, useSession } from "../auth/session.ts";
+import { offerBuildPick, pendingBuildPick } from "../economy/buildPick.ts";
 import { hasDevTools, isAdmin } from "../auth/sessionState.ts";
 import { serverLink } from "../net/serverLink.ts";
 import { navigate } from "../shell/routerStore.ts";
@@ -246,6 +247,11 @@ function SecondMapView({ onClose, monitor, mapKey, focus }: SecondMapViewProps) 
       },
       // 고른 유닛이 있으면 누른 칸으로 보낸다(관리자만). 경로는 서버가 찾아 unit_paths로 보낸다
       onGroundTap: (cell) => {
+        // 경제 화면 [지도에서 고르기](WP3 연결점, economy/buildPick.ts): 짓기 자리를 고르는 중이면 그 칸을 돌려주고 생산 칸으로 돌아간다
+        if (offerBuildPick(mapKey, cell)) {
+          navigate({ route: "economy_production" });
+          return;
+        }
         const unitId = selectedRef.current;
         const current = feedRef.current;
         if (unitId === null || !current) return;
@@ -374,11 +380,13 @@ function SecondMapView({ onClose, monitor, mapKey, focus }: SecondMapViewProps) 
   // 탐사한 곳이 하나도 없으면(유닛 없는 계정) 안개로 온통 어둡다: 까닭과 할 일을 알린다(전체 보기면 안개가 없다)
   const dark = !notice && !observe && feed?.explored === 0;
   const hint =
-    selected === null
-      ? m.map_hint()
-      : admin
-        ? m.map_selected({ id: selected })
-        : m.map_selected_view({ id: selected });
+    pendingBuildPick() !== null
+      ? m.map_build_pick_hint()
+      : selected === null
+        ? m.map_hint()
+        : admin
+          ? m.map_selected({ id: selected })
+          : m.map_selected_view({ id: selected });
 
   return (
     <section

@@ -116,3 +116,33 @@ export const laborPostings = pgTable(
     check("labor_postings_asset_format", sql`${table.asset} ~ '^[a-z][a-z0-9_]{1,47}$'`),
   ],
 );
+
+/**
+ * 유닛 직무(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 유닛마다 한 줄.
+ * - 직무 배치(building_id·assigned_at_ms): 내 유닛을 내 채집 시설에 돈 없이 둔다(노동 계약이 아니다, 질문 521). null = 배치 없음.
+ *   owner_id = 배치한 소유 주체(유닛 주인이 바뀌면 다음 정산에서 끝낸다).
+ * - 채집 진행(gather_*): 채집 시설에서 일한 진행(진행 속도 × 일한 ms)을 쌓아 두고, 다음 묶음(차례 gather_seq의 티어 추첨)의 필요 진행만큼
+ *   차면 물건을 낸다. 노동 계약으로 일해도 같은 줄을 쓴다. gather_building_id = 쌓은 진행의 시설(다른 시설에서 일하면 0부터).
+ * 새 표라 직전 판 앱은 모른 채 돈다. 유닛·건물에 외래 키를 두지 않는다(노동 계약과 같은 까닭: 정산할 때 사라짐으로 끝낸다)
+ */
+export const unitWork = pgTable(
+  "unit_work",
+  {
+    unitId: bigint("unit_id", { mode: "number" }).primaryKey(),
+    ownerId: bigint("owner_id", { mode: "number" }).notNull(),
+    buildingId: bigint("building_id", { mode: "number" }),
+    assignedAtMs: bigint("assigned_at_ms", { mode: "number" }),
+    gatherBuildingId: bigint("gather_building_id", { mode: "number" }),
+    /** 쌓인 진행(진행 속도 × 일한 ms) */
+    gatherPoints: bigint("gather_points", { mode: "number" }).notNull().default(0),
+    /** 다음 묶음 차례(티어 추첨 난수를 정한다) */
+    gatherSeq: bigint("gather_seq", { mode: "number" }).notNull().default(0),
+    updatedAtMs: bigint("updated_at_ms", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("unit_work_owner_idx").on(table.ownerId),
+    index("unit_work_building_idx").on(table.buildingId),
+    check("unit_work_assigned", sql`(${table.buildingId} is null) = (${table.assignedAtMs} is null)`),
+    check("unit_work_gather", sql`${table.gatherPoints} >= 0 and ${table.gatherSeq} >= 0`),
+  ],
+);

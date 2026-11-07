@@ -12,6 +12,9 @@
 //   중복 방지 키 settlement_grant:<사용자>, 사이보그 행 start_grant에 기록 — 세력을 바꿔도 다시 주지 않는다). 새 화폐를 만들지 않는다:
 //   국고가 모자라면 국고에 있는 만큼만 준다. [임시] 세력 화폐가 서버에 없어 국고의 시험 화폐(유지비와 같은 자산)로 낸다.
 //   지원금 전에 만든 사이보그(start_grant null)는 다음 접속의 한 번 속성 분배 때 같은 키로 한 번 받는다(D-456).
+// - 시작 재료(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산", 질문 520): 같은 동기 처리에서 첫 건물 재료(설정 칸 [임시] 소나무 원목·석재
+//   개수)를 그 시작 도시의 내 도시 창고(원장 위치 = 도시 ID)에 넣는다. 생산원 source:item:<ID>에서 나온다(시뮬 시작 물자·개발 재료와 같은
+//   계정). 원장 거래 start_goods, 중복 방지 키 start_goods:<사용자>. 지원금 전에 만든 사이보그에는 주지 않는다.
 // 쓰는 프로세스는 하나다(ADR 3): 메모리 표가 원본의 캐시이고, 같은 스레드라 두 요청이 같은 값을 보지 않는다.
 import type {
   CreationFaction,
@@ -21,6 +24,7 @@ import type {
   CyborgStatusResponse,
 } from "@terra/shared/cyborg";
 import { checkElementAllocation, isCyborgAppearance, parseCyborgName } from "@terra/shared/cyborg";
+import { cityLocation } from "@terra/shared/goodsPlaces";
 import type { LocalizedName } from "@terra/shared/roster";
 import type { CyborgResultCode, CyborgRollWire } from "@terra/protocol";
 import { createRng } from "@terra/shared";
@@ -283,6 +287,30 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
     return paid;
   };
 
+  /** 시작 재료(설정 칸 [임시]): 생산원 → 그 시작 도시의 내 도시 창고. 넣은 줄 수 */
+  const giveStartGoods = (
+    userId: string,
+    ownerId: number,
+    cityId: number,
+    rules: CyborgRules,
+    at: number,
+  ): number => {
+    const location = cityLocation(cityId);
+    const entries: { account: number; amount: bigint }[] = [];
+    for (const [item, qty] of [
+      ["pine_log", rules.cyborg.startPineLog],
+      ["stone", rules.cyborg.startStone],
+    ] as const) {
+      if (!Number.isSafeInteger(qty) || qty <= 0) continue;
+      const asset = `item:${item}`;
+      entries.push({ account: ledger.systemAccount(`source:${asset}`, asset), amount: -BigInt(qty) });
+      entries.push({ account: ledger.ownerAccount(ownerId, asset, location), amount: BigInt(qty) });
+    }
+    if (entries.length > 0)
+      ledger.post({ kind: "start_goods", atMs: at, key: `start_goods:${userId}`, entries });
+    return entries.length / 2;
+  };
+
   return {
     get size() {
       return byUser.size;
@@ -432,6 +460,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       const unitId = place(city, owner.id);
       if (unitId === undefined) return fail("no_room");
       const paid = payGrant(userId, owner.id, faction.id, grant, at);
+      giveStartGoods(userId, owner.id, city.id, rules, at);
       const record: CyborgRecord = {
         userId,
         name: parsed.display,

@@ -86,6 +86,31 @@ export interface FacilityView {
   /** 30%까지 노화가 걸리는 남은 시간(쓰지 않을 때, 화면 안내). 이미 아래면 null */
   readonly idleMsToDisabled: number | null;
   readonly repairsEquipment: boolean;
+  /** 채집 시설이면 스탯 짝·중분류·방식(D-506·D-507) — 직무 배치 칸이 보인다(docs/adr/2026-11-07-play-flow.md "WP3"). 아니면 null */
+  readonly gather: FacilityGatherView | null;
+  /** 일꾼 자리 = 다 지은 레벨 × 레벨당 자리(직무 배치 + 열린 노동 계약). 채집 시설이 아니면 0 */
+  readonly slots: number;
+  /** 이 시설에서 일하는 유닛(직무 배치·노동 계약, 유닛 ID 차례) */
+  readonly workers: readonly FacilityWorkerView[];
+}
+
+/** 채집 시설의 스탯 짝(주 = 진행 속도, 보조 = 수확량)·중분류·방식(roll 추첨, select 해금 티어에서 고름) */
+export interface FacilityGatherView {
+  readonly primary: string;
+  readonly secondary: string;
+  readonly subcategory: string;
+  readonly mode: "roll" | "select";
+}
+
+/** 시설에서 일하는 유닛 하나 */
+export interface FacilityWorkerView {
+  readonly unitId: number;
+  /** assign = 직무 배치(돈 없음), wage·lease = 노동 계약 */
+  readonly via: "assign" | "wage" | "lease";
+  /** 내 유닛인가(직무 배치는 늘 내 유닛) */
+  readonly mine: boolean;
+  /** 사이보그 본체인가 */
+  readonly cyborg: boolean;
 }
 
 /** 내 세력 영토 비콘(건물 규칙, 기획 336) */
@@ -138,6 +163,10 @@ export interface FacilityUnitView {
   readonly busy: boolean;
   /** 제작 직무 점수(가중치 표 job_crafting, 장인 보정) */
   readonly craftScore: number;
+  /** 1차 스탯(입은 장비·버프 포함) — 채집 시설 직무 배치 고르기가 스탯 짝을 보인다 */
+  readonly stats: Readonly<Record<"str" | "dex" | "agi" | "vit" | "int" | "wis", number>>;
+  /** 직무 배치된 시설(건물 ID). 없으면 null */
+  readonly assignedTo: number | null;
 }
 
 /** 고칠 수 있는 내 장비(닳은 것) */

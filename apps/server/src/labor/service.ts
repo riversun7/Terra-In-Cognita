@@ -16,6 +16,10 @@
 //   한다. 임금형 몫은 예전처럼 고용주 기본 창고다(시설에 일꾼 물건이 남지 않는다).
 // - 건물 작업(짓기·수리 등)에 묶인 유닛은 계약을 맺지 못한다(unit_busy, D-516 364 — 작업 동안 직무 산출이 없다).
 // - 비활성(수명이 다한 휴먼, D-517)은 일하지 않는다: 계약을 맺지 못하고 열린 계약은 "유닛 사라짐"으로 끝난다(docs/adr/2026-11-07-temple-religion.md).
+// - 플레이어 생산(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 채집 시설(팩 gather)에서 일한 구간은 시험 광석 대신 진짜 물건을 낸다
+//   (workBook.ts goodsFor — 임금형·직무 배치 = 그 건물이 선 도시의 도시 창고, 임대형 = 그 건물 창고). 계약 밖 구간(앞·끝 뒤)은 개발 시험 일꾼만
+//   시험 광석을 내고 플레이어 유닛은 내지 않는다. 계약을 맺으면 유닛 직무를 채집으로 켜고, 일이 끝나면 정산 뒤 고리가 끈다.
+//   직무 배치(assign·unassign, 프로토콜 14)는 내 유닛을 내 채집 시설에 돈 없이 둔다(질문 521, 자리 = 레벨 × 레벨당 자리).
 import type { LaborResultCode } from "@terra/protocol";
 import type {
   LaborContractView,
@@ -44,6 +48,7 @@ import {
 } from "@terra/sim";
 import { buildingLocation } from "@terra/shared/goodsPlaces";
 import type { Ledger } from "../economy/ledger.ts";
+import { type ProductionSource, buildingReceiver, cityReceiver, createWorkBook } from "./workBook.ts";
 import type { CityRow } from "../world/cities.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
@@ -91,8 +96,28 @@ export interface LaborService {
   unitAway(unitId: number): boolean;
   /** 건물에 지금 일하는 계약(active)이 있나 — 건물 사용 닳음(D-509) */
   buildingInUse(buildingId: number): boolean;
-  /** 정산 뒤 고리(소유 주체 정산이 산출 거래를 넣은 뒤 부른다): 그 주체의 유예가 끝난 임대형 계약의 남은 물건을 시설 주인에게 */
+  /**
+   * 정산 뒤 고리(소유 주체 정산이 산출 거래를 넣은 뒤 부른다): 그 주체의 유예가 끝난 임대형 계약의 남은 물건을 시설 주인에게, 일이 끝난
+   * 플레이어 유닛의 직무 끄기
+   */
   afterSettle(ownerId: number, toMs: number): void;
+  /** 직무 배치(프로토콜 14): 내 유닛을 내 채집 시설에 돈 없이 둔다(질문 521) */
+  assign(userId: string, buildingId: number, unitId: number): Promise<LaborCommandResult>;
+  /** 직무 배치 풀기(배치한 사람만) */
+  unassign(userId: string, unitId: number): Promise<LaborCommandResult>;
+  /** 그 시설에서 일하는 유닛(직무 배치 + 열린 노동 계약, 유닛 ID 차례) — 건물 화면 */
+  workersAt(buildingId: number): readonly LaborWorkerEntry[];
+  /** 채집 산출 자료를 잇는다(건물 서비스 — facilities/world.ts attachLabor) */
+  attachProduction(source: ProductionSource | undefined): void;
+}
+
+/** 시설에서 일하는 유닛 하나 */
+export interface LaborWorkerEntry {
+  readonly unitId: number;
+  /** assign = 직무 배치, wage·lease = 노동 계약 */
+  readonly via: "assign" | "wage" | "lease";
+  /** 유닛 소유 주체 */
+  readonly workerOwnerId: number;
 }
 
 function isOpen(c: LaborContract): boolean {
@@ -137,6 +162,14 @@ export function createLaborService(options: {
   let lastId = options.loaded.maxId;
   const accounts = laborAccounts(ledger);
   const save = (c: LaborContract): void => writer.upsert("laborContracts", contractRow(c));
+  const work = createWorkBook({
+    loaded: options.loaded.work ?? [],
+    maps,
+    ledger,
+    writer,
+    rules: options.rules,
+    now,
+  });
 
   /** 유닛 주인(없으면 undefined) */
   const unitOwnerOf = (unitId: number): number | undefined => {
@@ -162,11 +195,38 @@ export function createLaborService(options: {
   /** 임대형 임차인 몫 = 그 건물 창고(위치 = 건물) */
   const buildingStockOf = (ownerId: number, buildingId: number) => (): number =>
     ledger.ownerAccount(ownerId, ASSET_ORE, buildingLocation(buildingId));
-  /** 계약·건물 작업 중인 유닛 */
+  /** 계약·직무 배치·건물 작업 중인 유닛 */
   const unitBusy = (unitId: number): boolean =>
     openContractOf(unitId) !== undefined ||
+    work.assignedTo(unitId) !== undefined ||
     (options.unitInJob?.(unitId) ?? false) ||
     (options.unitAway?.(unitId) ?? false);
+  /** 지금 일하는 유닛(열린 계약 또는 직무 배치) — 정산 뒤 직무 끄기가 남긴다 */
+  const working = (unitId: number): boolean =>
+    openContractOf(unitId) !== undefined || work.assignedTo(unitId) !== undefined;
+  /** 계약 밖 구간(계약 앞·끝난 뒤): 개발 시험 일꾼만 시험 광석, 플레이어 유닛은 산출 없음 */
+  const idleStockOf = (ownerId: number, unitId: number) =>
+    work.isTestWorker(unitId) ? stockOf(ownerId) : null;
+  /** 그 시설에서 일하는 유닛 */
+  const workersAt = (buildingId: number): LaborWorkerEntry[] => {
+    const out: LaborWorkerEntry[] = [];
+    for (const c of contracts.values())
+      if (c.buildingId === buildingId && isOpen(c))
+        out.push({ unitId: c.unitId, via: c.kind, workerOwnerId: c.workerOwnerId });
+    for (const unitId of work.assignedAt(buildingId)) {
+      const owner = unitOwnerOf(unitId);
+      if (owner !== undefined) out.push({ unitId, via: "assign", workerOwnerId: owner });
+    }
+    return out.toSorted((a, b) => a.unitId - b.unitId);
+  };
+  /**
+   * 직무 배치가 끝날 까닭(유닛 사라짐·주인 바뀜·일 멈춤, 시설 사라짐·주인 바뀜·채집 시설 아님). 그대로면 false. 풀면 그 구간 산출은 없다
+   */
+  const assignmentGone = (unitId: number, ownerId: number, buildingId: number): boolean =>
+    unitOwnerOf(unitId) !== ownerId ||
+    (options.unitAway?.(unitId) ?? false) ||
+    buildingOwnerOf(buildingId) !== ownerId ||
+    work.source()?.site(buildingId) === undefined;
   /** 이번 정산에서 유예가 끝난 임대형 계약(정산 뒤 고리가 남은 물건을 옮긴다) */
   const leftoverQueue: LaborContract[] = [];
 
@@ -199,14 +259,18 @@ export function createLaborService(options: {
     const mine = [...contracts.values()]
       .filter((c) => c.workerOwnerId === ownerId && c.state !== "ended")
       .toSorted((a, b) => a.id - b.id);
-    if (mine.length === 0) return undefined;
+    const assigned = work.assignmentsOf(ownerId);
+    if (mine.length === 0 && assigned.length === 0) return undefined;
     const society = options.rules();
     const rules = wageRulesOf(society).labor;
     const productionOn = society.switches.productionEnabled !== 0;
     const out = new Map<number, OutputSegment[]>();
     for (const c of mine) {
-      // 사라진 유닛·시설의 산출은 나누지 않는다(유예에 들었으면 다음 정산부터 시각만 흐른다)
-      if (endIfGone(c)) continue;
+      // 사라진 유닛·시설의 산출은 나누지 않는다(유예에 들었으면 다음 정산부터 시각만 흐른다). 플레이어 유닛은 그 구간 산출이 없다
+      if (endIfGone(c)) {
+        if (!work.isTestWorker(c.unitId)) out.set(c.unitId, [{ untilMs: toMs, stock: null }]);
+        continue;
+      }
       const start = c.settledAtMs;
       const movedBefore = c.leftoversMovedAtMs;
       const segments = settleLabor(c, toMs, ledger, accounts, rules);
@@ -218,16 +282,26 @@ export function createLaborService(options: {
         if (!segments.some((segment) => segment.mode !== "free")) continue;
       }
       const list: OutputSegment[] = [];
+      const idle = productionOn ? idleStockOf(ownerId, c.unitId) : null;
       // 계약이 정산한 앞(주체 정산 구간이 더 이르면)은 계약 없는 몫
-      if (start > fromMs) list.push({ untilMs: start, stock: productionOn ? stockOf(ownerId) : null });
+      if (start > fromMs) list.push({ untilMs: start, stock: idle });
       // 시설이 일하지 않으면(짓는 중·30% 미만, N50) 계약대로 일한 구간도 산출이 없다. 정산하는 때의 상태로 본다(분 단위 노화)
       const works = options.buildingWorks?.(c.buildingId) ?? true;
       // 그 도시 수호신 생산 버프(470 가): 일한 구간 산출에 ‰ 덤
       const bonusPm = works ? (options.outputBonusPm?.(c.buildingId) ?? 0) : 0;
+      // 채집 시설이면 진짜 물건(임금형 = 고용주의 그 도시 창고, 임대형 = 임차인의 그 건물 창고). 아니면 예전처럼 시험 광석
+      const goods = work.goodsFor(
+        c.unitId,
+        ownerId,
+        c.buildingId,
+        c.kind === "wage" ? cityReceiver(c.ownerId) : buildingReceiver(ownerId),
+      );
       for (const segment of segments) {
+        const producing = productionOn && segment.mode === "work" && works;
         list.push({
           untilMs: segment.untilMs,
           ...(bonusPm > 0 && segment.mode === "work" ? { bonusPm } : {}),
+          ...(producing && goods ? { goods } : {}),
           stock:
             !productionOn || segment.mode === "idle" || (segment.mode === "work" && !works)
               ? null
@@ -235,10 +309,31 @@ export function createLaborService(options: {
                 ? stockOf(c.ownerId)
                 : segment.mode === "work"
                   ? buildingStockOf(ownerId, c.buildingId)
-                  : stockOf(ownerId),
+                  : idle,
         });
       }
       out.set(c.unitId, list);
+    }
+    // 직무 배치(돈 없음, 질문 521): 정산 구간 내내 그 시설에서 일한다(배치·풀기 전에 정산하므로 구간 안에서 바뀌지 않는다)
+    for (const record of assigned) {
+      const buildingId = record.buildingId;
+      if (buildingId === null) continue;
+      if (assignmentGone(record.unitId, ownerId, buildingId)) {
+        work.unassign(record.unitId, fromMs);
+        if (unitOwnerOf(record.unitId) !== undefined)
+          out.set(record.unitId, [{ untilMs: toMs, stock: null }]);
+        continue;
+      }
+      const works = productionOn && (options.buildingWorks?.(buildingId) ?? true);
+      const bonusPm = works ? (options.outputBonusPm?.(buildingId) ?? 0) : 0;
+      const goods = works
+        ? work.goodsFor(record.unitId, ownerId, buildingId, cityReceiver(ownerId))
+        : undefined;
+      out.set(record.unitId, [
+        goods
+          ? { untilMs: toMs, stock: stockOf(ownerId), goods, ...(bonusPm > 0 ? { bonusPm } : {}) }
+          : { untilMs: toMs, stock: null },
+      ]);
     }
     return out.size > 0 ? out : undefined;
   };
@@ -270,6 +365,8 @@ export function createLaborService(options: {
       lastId = Math.max(lastId, c.id);
       contracts.set(c.id, c);
       save(c);
+      // 받은 유닛이 일을 시작한다(직무 = 채집)
+      work.startJob(c.unitId);
     },
   });
   /** 구인 명령 공통: 세계 준비·내 주체 → 판단 → 바뀌었으면 커밋 뒤 답 */
@@ -287,9 +384,13 @@ export function createLaborService(options: {
   return {
     outputsFor,
     contracts,
-    unitBusy: (unitId) => openContractOf(unitId) !== undefined || (options.unitAway?.(unitId) ?? false),
+    unitBusy: (unitId) => working(unitId) || (options.unitAway?.(unitId) ?? false),
     unitAway: (unitId) => options.unitAway?.(unitId) ?? false,
+    workersAt,
+    attachProduction: (source) => work.attach(source),
     afterSettle(ownerId) {
+      // 일이 끝난 플레이어 유닛(계약 끝·배치 풀림)의 직무를 끈다(그 구간 산출은 이미 없었다)
+      work.stopIdle(ownerId, working);
       for (const c of leftoverQueue.splice(0)) {
         if (c.workerOwnerId !== ownerId) {
           leftoverQueue.push(c);
@@ -326,7 +427,7 @@ export function createLaborService(options: {
     buildingInUse(buildingId) {
       for (const c of contracts.values())
         if (c.buildingId === buildingId && c.state === "active") return true;
-      return false;
+      return work.assignedAt(buildingId).length > 0;
     },
     async create(userId, input) {
       const at = now();
@@ -380,6 +481,8 @@ export function createLaborService(options: {
       lastId += 1;
       contracts.set(result.contract.id, result.contract);
       save(result.contract);
+      // 계약한 유닛이 일을 시작한다(직무 = 채집). 정산은 위에서 이 시각까지 했다
+      work.startJob(input.unitId);
       return done({ ok: true, contractId: result.contract.id });
     },
     async terminate(userId, contractId) {
@@ -394,6 +497,8 @@ export function createLaborService(options: {
       if (!terminateLabor(c, at, me === c.ownerId ? "owner" : "worker", ledger, accounts, rules))
         return fail("not_open");
       save(c);
+      // 일이 끝난 유닛의 직무를 끈다(유예 중에도 유닛은 묶이지 않는다)
+      work.stopIdle(c.workerOwnerId, working);
       return done({ ok: true });
     },
     async topUp(userId, contractId, amount) {
@@ -525,6 +630,42 @@ export function createLaborService(options: {
         jobs: board.mine(me),
       };
     },
-    check: () => checkLaborEscrow(contracts.values(), ledger),
+    check: () => [
+      ...checkLaborEscrow(contracts.values(), ledger),
+      ...work.check((unitId) => openContractOf(unitId) !== undefined),
+    ],
+    async assign(userId, buildingId, unitId) {
+      const at = now();
+      const me = ownerFor(userId, at);
+      if (me === undefined) return fail("busy");
+      const buildingOwner = buildingOwnerOf(buildingId);
+      if (buildingOwner === undefined) return fail("unknown_building");
+      const unitOwner = unitOwnerOf(unitId);
+      if (unitOwner === undefined) return fail("unknown_unit");
+      if (buildingOwner !== me || unitOwner !== me) return fail("forbidden");
+      // 다 지은 채집 시설만(팩 gather가 있는 시설, 레벨 1 이상)
+      const site = work.source()?.site(buildingId);
+      if (!site || site.level < 1) return fail("not_workplace");
+      if (unitBusy(unitId)) return fail("unit_busy");
+      if (workersAt(buildingId).length >= site.slots) return fail("facility_full");
+      // 바꾸기 전에 지금까지 정산한다(배치 구간이 이 시각에서 시작한다)
+      settlement.settleOwner(me, at);
+      work.assign(unitId, me, buildingId, at);
+      work.startJob(unitId);
+      return done({ ok: true });
+    },
+    async unassign(userId, unitId) {
+      const at = now();
+      const me = ownerFor(userId, at);
+      if (me === undefined) return fail("busy");
+      const buildingId = work.assignedTo(unitId);
+      if (buildingId === undefined) return fail("not_assigned");
+      if (unitOwnerOf(unitId) !== me) return fail("forbidden");
+      settlement.settleOwner(me, at);
+      // 정산이 사라짐으로 이미 풀었으면 그대로 끝
+      work.unassign(unitId, at);
+      work.stopIdle(me, working);
+      return done({ ok: true });
+    },
   };
 }

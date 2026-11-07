@@ -3,9 +3,12 @@
 //   늦게 잇는다). 보유 물건: 공방에서 고치는 중인 물건은 입기·벗기를 막는다. 영토: 비콘 짓기 재료를 같은 원장 빼기로 한다.
 // - 건물 공격(질문 381, attack.ts): 세계 전투를 여는 길(몸·생명 수치·물약·탄 → 전투 서비스)을 받아 공성 전투를 열고, 결과의 건물 피해는
 //   damage(건물 서비스·영토 서비스)가 받는다.
+// - 플레이어 생산(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 계약 서비스를 이을 때 채집 산출 자료(채집 시설의 정의·레벨·도시·
+//   자리 수, 유닛 1차 스탯)를 함께 넘긴다(gatherSiteOf).
 import type { SocietyCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";
+import type { GatherSite } from "../labor/gatherWork.ts";
 import type { LaborService } from "../labor/service.ts";
 import { type CityCell, cityLocation } from "@terra/shared/goodsPlaces";
 import type { BeaconConstruction, TerritoryService } from "../territory/service.ts";
@@ -21,7 +24,7 @@ import {
 } from "./attack.ts";
 import { type CatalogSource, type FacilityCatalog, facilityCatalogOf } from "./catalog.ts";
 import { spendGoods } from "./materials.ts";
-import { type PlaceWorld, beaconMaterialScope } from "./places.ts";
+import { type PlaceWorld, beaconMaterialScope, buildingPlace } from "./places.ts";
 import { type FacilityService, createFacilityService } from "./service.ts";
 import type { LoadedFacilities } from "./state.ts";
 
@@ -69,6 +72,31 @@ export function beaconConstructionOf(options: {
           : [cityLocation(supply.cityId)];
       return spendGoods(options.ledger, ownerId, materials, atMs, "beacon_build", scope);
     },
+  };
+}
+
+/**
+ * 그 건물이 채집 시설(팩 gather가 있는 시설)이면 채집 산출 자료: 정의·다 지은 레벨·사다리·확률표·묶음 크기·건물이 선 도시·자리 수(레벨 ×
+ * 레벨당 자리, 레벨 0이면 0). 시설 줄이 없거나 채집 시설이 아니면 undefined
+ */
+export function gatherSiteOf(
+  service: Pick<FacilityService, "facilities" | "places">,
+  catalog: FacilityCatalog,
+  buildingId: number,
+): (GatherSite & { readonly slots: number }) | undefined {
+  const record = service.facilities.get(buildingId);
+  const def = record ? catalog.facility(record.facilityId) : undefined;
+  if (!record || !def?.gather) return undefined;
+  return {
+    buildingId,
+    facilityId: def.id,
+    level: record.level,
+    rule: def.gather,
+    ladder: catalog.gatherLadder(def.gather.subcategory),
+    bands: catalog.gatherBands,
+    lotSize: catalog.lotSize,
+    cityId: record.cityId ?? buildingPlace(service.places, buildingId)?.cityId ?? null,
+    slots: Math.max(0, record.level) * Math.max(0, def.slotsPerLevel),
   };
 }
 
@@ -135,6 +163,10 @@ export function createWorldFacilities(input: {
     rules: input.rules,
     attachLabor(next) {
       labor = next;
+      next.attachProduction({
+        site: (buildingId) => gatherSiteOf(service, catalog(), buildingId),
+        primaries: (unitId) => input.holdings.primariesOf(unitId),
+      });
     },
   };
 }

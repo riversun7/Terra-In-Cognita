@@ -1,0 +1,70 @@
+/* 구인 칸(RecruitPanel.tsx) — 경제 화면 토큰만 쓴다(AGENTS 8장). 노동 계약·건물 칸(labor.css·facilities.css)의 카드·폼 모양을 같이 쓴다.
+   좁은 화면이 먼저다: 카드는 한 줄에 하나, 넓으면 둘 이상. 스탯은 묶음(STR·VIT / INT·WIS / DEX·AGI)마다 감싼다 */
+.recruit-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 40em) {
+  .recruit-cards {
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  }
+}
+.recruit-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  min-inline-size: 0;
+}
+.recruit-card p {
+  margin: 0;
+}
+.recruit-card[data-state="taken"] {
+  color: var(--color-text-muted);
+}
+.recruit-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.recruit-pair {
+  display: inline-flex;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+}
+.recruit-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+.recruit-stat-code {
+  font-weight: var(--font-weight-strong);
+}
+.recruit-stat[data-stat="str"] .recruit-stat-code {
+  color: var(--color-stat-str);
+}
+.recruit-stat[data-stat="vit"] .recruit-stat-code {
+  color: var(--color-stat-vit);
+}
+.recruit-stat[data-stat="int"] .recruit-stat-code {
+  color: var(--color-stat-int);
+}
+.recruit-stat[data-stat="wis"] .recruit-stat-code {
+  color: var(--color-stat-wis);
+}
+.recruit-stat[data-stat="dex"] .recruit-stat-code {
+  color: var(--color-stat-dex);
+}
+.recruit-stat[data-stat="agi"] .recruit-stat-code {
+  color: var(--color-stat-agi);
+}

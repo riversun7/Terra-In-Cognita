@@ -179,6 +179,7 @@ export {
   bonusCycles,
   settleOwnerPeriod,
   testSettleAccounts,
+  type GoodsLine,
   type OutputSegment,
   type OwnerSettleInput,
   type OwnerSettleResult,

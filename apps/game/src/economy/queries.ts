@@ -16,6 +16,7 @@ import type {
 } from "@terra/shared/economy";
 import type { FacilitiesOverviewResponse } from "@terra/shared/facilities";
 import type { LaborJobsResponse, LaborOverviewResponse } from "@terra/shared/labor";
+import type { RecruitBoardResponse } from "@terra/shared/recruit";
 import type { RuinsOverviewResponse } from "@terra/shared/ruins";
 import type { TempleOverviewResponse } from "@terra/shared/temple";
 import { useEffect, useSyncExternalStore } from "react";
@@ -192,6 +193,14 @@ export const useTemple = createQuery<TempleOverviewResponse>((_args, _preview, s
 /** 폐허 복원(정부를 먼저 지은 쪽이 주인 → 복원 사업 모금, D-510 — docs/adr/2026-11-07-ruins-restoration.md) */
 export const useRuins = createQuery<RuinsOverviewResponse>((_args, _preview, signal) =>
   api.ruins.overview.query(undefined, { signal }),
+);
+
+/**
+ * 정부기관 구인 카드(D-469, 고용은 WebSocket recruit_hire — docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"). args = [도시 ID 글자 또는
+ * ""(내 시작 도시)]
+ */
+export const useRecruitBoard = createQuery<RecruitBoardResponse>(([city = ""], _preview, signal) =>
+  api.recruit.board.query(city === "" ? undefined : { cityId: Number(city) }, { signal }),
 );
 
 /** 매개변수 없는 조회의 args(같은 배열을 넘겨 열쇠가 그대로이게) */

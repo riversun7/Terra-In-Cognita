@@ -53,7 +53,7 @@ export function holdingRulesFrom(
 }
 
 /**
- * 전투 결과 한 줄 → 닳기 모양(D-512 324): 퇴각(retreated)은 패배 닳음이 없다(D-190), 이긴 편에 남음(stays) = won, 진 편(귀환·포로) = lost
+ * 전투 결과 한 줄 → 닳기 모양(D-512 324): 퇴각(retreated)은 닳지 않는다(D-514 352, D-190), 이긴 편에 남음(stays) = won, 진 편(귀환·포로) = lost
  */
 export function wearOutcomeOf(result: Pick<UnitResult, "outcome">): WearOutcome {
   if (result.outcome === "retreated") return "retreated";

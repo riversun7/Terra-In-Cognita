@@ -21,6 +21,38 @@ export interface StartEffect {
   readonly untilMs: number;
 }
 
+/**
+ * 전투에 가지고 들어온 물약 하나(287, D-509·D-510 — 서버가 그 유닛이 든 보유 물건에서 만든다). 판정은 HP가 문턱 아래로 떨어지면
+ * 쿨이 끝났을 때 모자란 HP를 가장 덜 넘치게 채우는 것을 마신다(스태미나 없음, 행동 시각과 따로). 양은 서버가 굴림 가운데 값·신선도·
+ * ‰ 회복(최대 HP 기준)으로 미리 셈한 정수다(판정은 굴리지 않는다)
+ */
+export interface BattlePotion {
+  /** 보유 물건 칸 ID(결과에 쓴 수를 돌려준다) */
+  readonly id: number;
+  /** 가지고 들어온 수 */
+  readonly count: number;
+  /** 한 번에 채우는 HP */
+  readonly instant: number;
+  /** 주기 회복 줄(효과 사전 heal, 주기 > 0): 효과 ID·주기마다 양·주기·지속 */
+  readonly over?:
+    | readonly {
+        readonly effect: string;
+        readonly amount: number;
+        readonly tickMs: number;
+        readonly durationMs: number;
+      }[]
+    | undefined;
+}
+
+/** 전투 자동 물약(D-510): 가진 물약, HP 문턱(‰, AI 작전 슬라이더 D-5039 — 지금은 설정 칸), 물약 쿨(D-509 30초), 처음 쓸 수 있는 전투 시각 */
+export interface BattlePotions {
+  readonly items: readonly BattlePotion[];
+  readonly thresholdPm: number;
+  readonly cooldownMs: number;
+  /** 전투 밖에서 걸린 물약 쿨이 남았으면 그 끝(전투 시각 ms), 아니면 0 */
+  readonly readyMs: number;
+}
+
 export interface CombatUnitSpec {
   readonly id: number;
   readonly side: number;
@@ -82,6 +114,17 @@ export interface CombatUnitSpec {
   readonly mpRegen: number;
   /** 쉴드 재생(분당, 2차 스탯 shield_regen D-458). 맞는 중에도 일정하게 찬다(D-490). 쉴드 재생 효과(shield_regen ‰)가 바꾼다 */
   readonly shieldRegen: number;
+  /** HP 회복(분당, 2차 스탯 hp_regen D-514). 전투 중에도 쉴드처럼 일정하게 찬다(산 유닛만). 없으면 0(옛 시작 자료·시험 유닛) */
+  readonly hpRegen?: number | undefined;
+  /** 아머 회복(분당, 최대 아머 HP × 설정 칸 n54_armor_regen ‰, D-514 "쉴드처럼"). 없으면 0 */
+  readonly armorRegen?: number | undefined;
+  /**
+   * 남은 탄(287, D-497: 든 무기가 탄약 종류를 쓰면 보조 칸 탄약 장비의 내구도). 기본 공격 한 번에 1 쓰고, 0이면 기본 공격을 못 한다.
+   * 없으면 탄을 쓰지 않는 무기(옛 시작 자료·시뮬레이터와 같다)
+   */
+  readonly ammo?: number | undefined;
+  /** 전투 자동 물약(287, D-510). 없으면 물약 없음 */
+  readonly potions?: BattlePotions | undefined;
   /** 스탯 시야(칸, 가중치 표 sight 행) */
   readonly sight: number;
   /** 시선 높이(16배 cm) */
@@ -165,6 +208,11 @@ export interface UnitState extends CombatUnitSpec {
   cast: CastState | null;
   command: Command | null;
   lastCommandMs: number;
+  /** 남은 탄(사양에 ammo가 있을 때만, 287) */
+  ammoLeft?: number;
+  /** 물약마다 남은 수(사양 potions.items 차례)·다시 마실 수 있는 시각(사양에 potions가 있을 때만, 287) */
+  potionsLeft?: number[];
+  potionReadyMs?: number;
 }
 
 export interface PartyState extends BattlePartySpec {

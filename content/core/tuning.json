@@ -3077,6 +3077,97 @@
       "unit": "count",
       "min": 0,
       "max": 1
+    },
+    {
+      "id": "n54_armor_regen",
+      "code": "N54",
+      "name": {
+        "ko": "아머 회복(분당 최대 아머 HP의 ‰, 전투 중에도)",
+        "en": "Armor regen (‰ of max armor HP per minute, also in battle)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n54_injury_regen_1",
+      "code": "N54",
+      "name": {
+        "ko": "경상 회복 속도(‰, 생명 수치 분당 회복에 곱함)",
+        "en": "Regen speed while light injury (‰ of per-minute regen)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n54_injury_regen_2",
+      "code": "N54",
+      "name": {
+        "ko": "중상 회복 속도(‰, 생명 수치 분당 회복에 곱함)",
+        "en": "Regen speed while serious injury (‰ of per-minute regen)"
+      },
+      "value": 250,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n54_injury_regen_3",
+      "code": "N54",
+      "name": {
+        "ko": "중태 회복 속도(‰, 생명 수치 분당 회복에 곱함)",
+        "en": "Regen speed while critical injury (‰ of per-minute regen)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n54_injury_penalty_1",
+      "code": "N54",
+      "name": {
+        "ko": "경상 불이익(1차 스탯 ‰ 감소)",
+        "en": "Penalty while light injury (‰ off primary stats)"
+      },
+      "value": 150,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n54_injury_penalty_2",
+      "code": "N54",
+      "name": {
+        "ko": "중상 불이익(1차 스탯 ‰ 감소)",
+        "en": "Penalty while serious injury (‰ off primary stats)"
+      },
+      "value": 400,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n54_injury_penalty_3",
+      "code": "N54",
+      "name": {
+        "ko": "중태 불이익(1차 스탯 ‰ 감소)",
+        "en": "Penalty while critical injury (‰ off primary stats)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
     }
   ]
 }

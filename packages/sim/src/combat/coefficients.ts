@@ -57,6 +57,12 @@ export interface CombatCoefficients {
     readonly minConsumePm: number;
   };
   /**
+   * 아머 회복(D-514 "아머 HP도 쉴드처럼 저절로 차오른다", 49 N54): 분당 최대 아머 HP × 이 값 ÷ 1000(버림). 전투 중에도 쉴드처럼
+   * 일정하게, 전투 밖은 분 단위(생명 수치). 2차 스탯 행이 아니라 설정 칸이다(D-514가 2차 스탯을 HP 회복 하나만 더해 18개로 정함).
+   * 없으면 0(옛 계수표)
+   */
+  readonly armorRegenPm?: number | undefined;
+  /**
    * 전투 계산식 묶음(팩 formulas + 그 세계의 덮어쓰기, docs/adr/2026-11-01-formula-editor.md). 없으면 기본 식
    * (DEFAULT_COMBAT_FORMULA_SET = 지금 코드와 같은 결과)
    */
@@ -105,7 +111,16 @@ export const TEST_COMBAT_COEFFICIENTS: CombatCoefficients = {
     scoreWeightsPm: [0, 0, 700, 300, 0, 0],
     minConsumePm: 500,
   },
+  // [임시] N54 아머 회복: 분당 최대의 10%(가득까지 10분, 쉴드 재생 새 사이보그 WIS 10 ÷ 쉴드 48 ≈ 21%보다 느림)
+  armorRegenPm: 100,
 };
+
+/** 아머 회복(분당) = ⌊최대 아머 HP × armorRegenPm ÷ 1000⌋(D-514, 음수는 0) */
+export function armorRegenOf(armorHp: number, c: CombatCoefficients): number {
+  const pm = c.armorRegenPm ?? 0;
+  if (armorHp <= 0 || pm <= 0) return 0;
+  return Math.floor((armorHp * pm) / 1000);
+}
 
 /** STA 점수(N13): 식 stamina_score(기본 = ⌊AGI × 가중치 + VIT × 가중치⌋) */
 export function staminaScore(primaries: readonly number[], c: CombatCoefficients): number {

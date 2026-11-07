@@ -1,6 +1,7 @@
 // 경제·거래창 화면 시험 — /economy 아래 칸(한눈에·창고·생산·거래·환전), 거래창 흐름(물건 → 도시 → 호가 + 주문표), 내 주문.
 // ADR 2026-10-29-app-shell 끝 "구현하며 정한 것 (경제·거래창 화면)", 기획 60_UX §6(D-6032~D-6035).
-// - 플레이어: 실제 자료(팩 목록·원장 잔고)만, 거래소·생산·환전은 "곧 열림". 시안 자료를 묻지 않는다.
+// - 플레이어: 실제 자료(팩 목록·원장 잔고, 서버 도시 경제의 거래소·내 주문·기준 도시 생산 — docs/adr/2026-11-07-play-flow.md WP4). 환전은
+//   "곧 열림". 시안 자료를 묻지 않는다. 실제 거래소의 [주문]은 명령을 보낸다(주문 넣기·체결·취소 셈은 서버 DB 시험 market.db.test.ts가 본다).
 // - admin + 시안 자료: 서버가 sim 거래소로 만든 시험 호가·체결(apps/server/src/economyView/). 앱을 켤 때 뜨는 복귀 요약은
 //   summary.get 응답을 고쳐 띄우지 않는다(helpers/trpc.ts hideSummary).
 // - 주문표: 호가 줄을 누르면 값이 들어가고, 거래세·묶이는 돈 미리 보기가 바뀌며, [주문]은 "곧 열림"으로 잠겨 있다(명령 없음).
@@ -41,7 +42,7 @@ async function fullShot(page: Page, name: string): Promise<void> {
 test.describe("플레이어(실제 자료)", () => {
   test.use({ account: "player" });
 
-  test("한눈에·거래·환전: 거래소는 곧 열림, 팩 목록은 보인다, 시안 자료를 묻지 않는다, 탭은 경제가 지금 화면", async ({
+  test("한눈에·거래·환전: 실제 거래소(NPC 도시 매물)·내 주문·도시 생산, 환전은 곧 열림, 시안 자료를 묻지 않는다", async ({
     page,
     deviceErrors,
   }) => {
@@ -51,23 +52,39 @@ test.describe("플레이어(실제 자료)", () => {
     await expect(page.locator("#economy-title")).toHaveText(message("ko", "nav_economy"));
     await page.getByRole("link", { name: message("ko", "economy_tab_market"), exact: true }).click();
     await expect(page).toHaveURL(/\/economy\/market$/);
-    await expect(economy(page).locator(".eco-not-ready")).toContainText(
-      message("ko", "economy_not_ready_market"),
-    );
-    // 팩의 호가창 물건(장비·유전자·문서 빼고): 켜진 아이템 167개 − 장비 12개 − 유전자 4개 = 151개(core@32에서 옛 자원 129·괴 7·
-    // 판자·벽돌을 켬, core@38에서 마이크로칩·유전자 4개를 더함, core@41에서 유전자는 인스턴스라 경매 매물 D-516, 형식 확인용
-    // dev_placeholder는 꺼짐)
+    // 서버 도시 경제가 돌아 거래소가 열려 있다. 팩의 호가창 물건(장비·유전자·문서 빼고): 켜진 아이템 167개 − 장비 12개 − 유전자 4개 = 151개
+    // (core@32에서 옛 자원 129·괴 7·판자·벽돌을 켬, core@38에서 마이크로칩·유전자 4개를 더함, core@41에서 유전자는 인스턴스라 경매 매물 D-516,
+    // 형식 확인용 dev_placeholder는 꺼짐)
     await expect(economy(page).locator(".eco-row-link")).toHaveCount(151);
+    await expect(economy(page).locator(".eco-not-ready")).toHaveCount(0);
     // 하위 화면에서도 하단 탭의 경제가 지금 화면이다(menuRoute)
     await expect(page.locator('nav.tabbar a[aria-current="page"]')).toHaveText(message("ko", "nav_economy"));
-    await page.goto("/economy/market/iron_ore/101");
-    await expect(economy(page).locator(".eco-not-ready")).toBeVisible();
+    // 도시 목록: NPC 도시마다 거래소(이름 칸이 없어 #도시 ID [임시]), 기준 도시(내 시작 도시)가 맨 앞 "여기"
+    await page.goto("/economy/market/ration");
+    const cities = economy(page).locator(".eco-city");
+    await expect(cities.first()).toBeVisible();
+    await expect(cities.first()).toContainText(message("ko", "economy_here"));
+    await cities.first().click();
+    await expect(page).toHaveURL(/\/economy\/market\/ration\/\d+$/);
+    await expect(economy(page)).toHaveAttribute("data-density", "compact");
+    // 실제 거래소의 [주문]은 "곧 열림"이 아니라 쪽에 맞는 보내기 단추다. 조건 주문은 아직 서버에 없어 잠근다
+    const submit = economy(page).locator(".eco-submit");
+    await expect(submit).toHaveText(message("ko", "market_submit_buy"));
+    await page.getByLabel(message("ko", "economy_kind_label")).selectOption("conditional");
+    await expect(submit).toHaveAttribute("aria-disabled", "true");
+    await expect(economy(page).getByText(message("ko", "market_conditional_soon"))).toBeVisible();
+    await page.goto("/economy/orders");
+    await expect(economy(page).locator(".eco-not-ready")).toHaveCount(0);
+    await expect(economy(page).locator(".eco-limit-line")).toHaveText(
+      message("ko", "economy_limit", { left: 10, max: 10 }),
+    );
     await page.goto("/economy/exchange");
     await expect(economy(page).locator(".eco-not-ready")).toContainText(
       message("ko", "economy_not_ready_exchange"),
     );
     await page.goto("/economy/production");
-    // 레시피 목록은 실제 팩 자료다
+    // 기준 도시의 생산(NPC 시설·도시 직무)과 실제 팩 레시피 목록
+    await expect(economy(page).getByText(message("ko", "market_city_production_note"))).toBeVisible();
     await expect(economy(page).getByText("철 제련", { exact: true })).toBeVisible();
     const economyCalls = calls.filter((call) => call.procedures.some((name) => name.startsWith("economy.")));
     expect(economyCalls.length).toBeGreaterThan(0);
@@ -406,6 +423,49 @@ test.describe("배치·사진", () => {
           expect(await horizontalOverflow(page), screen.name).toEqual([]);
           expect(await smallTapTargets(page, { ignore: DENSE_TARGETS }), screen.name).toEqual([]);
           await fullShot(page, `economy-${screen.name}-${theme}-${language}-${width}`);
+        }
+        expect(deviceErrors).toEqual([]);
+      });
+    });
+  }
+});
+
+/** 실제 거래소(서버 도시 경제, docs/adr/2026-11-07-play-flow.md WP4) 화면 사진: 기본 테마 둘 × 한국어·영어, 390px */
+const LIVE_LAYOUTS: readonly { theme: Theme; language: Language }[] = [
+  { theme: "pastel", language: "ko" },
+  { theme: "pastel", language: "en" },
+  { theme: "dark", language: "ko" },
+  { theme: "dark", language: "en" },
+];
+
+test.describe("실제 거래소 사진", () => {
+  test.use({ account: "player" });
+
+  for (const { theme, language } of LIVE_LAYOUTS) {
+    test.describe(`${theme}·${language}`, () => {
+      test.use({ theme, language, viewport: { width: 390, height: 844 } });
+
+      test("거래창·내 주문·도시 생산: 가로 넘침·작은 누르는 곳 없음, 사진", async ({
+        page,
+        deviceErrors,
+      }) => {
+        test.setTimeout(120_000);
+        await rewriteTrpc(page, { "summary.get": hideSummary });
+        await page.goto("/economy/market/ration");
+        await economy(page).locator(".eco-city").first().click();
+        await expect(economy(page).locator(".eco-submit")).toBeVisible();
+        const screens = [
+          { name: "live-book", ready: ".eco-submit", path: null },
+          { name: "live-orders", ready: ".eco-limit-line", path: "/economy/orders" },
+          { name: "live-production", ready: ".eco-facility", path: "/economy/production" },
+        ];
+        for (const screen of screens) {
+          if (screen.path !== null) await page.goto(screen.path);
+          await expect(economy(page).locator(screen.ready).first()).toBeVisible();
+          await page.evaluate(() => document.fonts.ready.then(() => undefined));
+          expect(await horizontalOverflow(page), screen.name).toEqual([]);
+          expect(await smallTapTargets(page, { ignore: DENSE_TARGETS }), screen.name).toEqual([]);
+          await fullShot(page, `economy-${screen.name}-${theme}-${language}-390`);
         }
         expect(deviceErrors).toEqual([]);
       });

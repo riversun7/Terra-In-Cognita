@@ -1,5 +1,6 @@
 // 내 주문(/economy/orders, D-329 = PLAN 14장 질문 94 가) — 걸린 주문(남은 양·만료)과 끝난 주문(체결·만료·취소), 남은 주문 수.
-// 처리할 일 order_filled·order_expired도 이리로 온다. [취소]는 명령을 보내지 않는다(곧 열림, 취소 명령은 WebSocket으로 붙인다).
+// 처리할 일 order_filled·order_expired도 이리로 온다. 실제 거래소(docs/adr/2026-11-07-play-flow.md WP4)면 [취소]가 WebSocket market_cancel을
+// 보낸다. 시안 자료는 명령을 보내지 않는다(곧 열림).
 import type { MyOrder, MyOrderDone } from "@terra/shared/economy";
 import { m } from "../paraglide/messages.js";
 import { AppLink } from "../shell/AppLink.tsx";
@@ -12,6 +13,7 @@ import {
   indexCatalog,
   itemName,
 } from "./economyText.ts";
+import { CancelOrderButton } from "./market/CancelOrderButton.tsx";
 import { Loaded, NotReady, PreviewTag } from "./parts.tsx";
 import { NO_ARGS, useCatalog, useOrders } from "./queries.ts";
 
@@ -62,14 +64,18 @@ function OpenRow({
       </span>
       <span className="eco-row-end">
         {preview ? <PreviewTag /> : null}
-        <button
-          type="button"
-          className="button-small"
-          aria-disabled="true"
-          aria-describedby="eco-orders-soon"
-        >
-          {m.economy_order_cancel()}
-        </button>
+        {preview ? (
+          <button
+            type="button"
+            className="button-small"
+            aria-disabled="true"
+            aria-describedby="eco-orders-soon"
+          >
+            {m.economy_order_cancel()}
+          </button>
+        ) : (
+          <CancelOrderButton orderId={order.id} />
+        )}
       </span>
     </li>
   );

@@ -495,3 +495,20 @@ button.eco-level {
     filter: none;
   }
 }
+
+/* 실제 거래소 주문 결과(docs/adr/2026-11-07-play-flow.md WP4): 성공은 성공 색, 실패는 위험 색. 비어 있으면 자리를 차지하지 않는다 */
+.eco-sent {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
+}
+.eco-sent:empty {
+  display: none;
+}
+.eco-sent[data-tone="ok"] {
+  color: var(--color-success);
+}
+.eco-sent[data-tone="error"] {
+  color: var(--color-danger);
+}

@@ -466,7 +466,8 @@ function nextBatch(economy: Economy, world: SimWorld, facility: EcoFacility): Pe
   return { outputs: result.outputs, durationMs };
 }
 
-function scheduleProduce(
+/** 시설 하나의 다음 생산을 예약한다(서버가 거울 세계에 시설을 새로 붙일 때도 부른다) */
+export function scheduleProduce(
   economy: Economy,
   world: SimWorld,
   loop: SimLoop<SimEvent>,

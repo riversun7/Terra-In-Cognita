@@ -1,10 +1,13 @@
 // 주문표 — D-6033(오른쪽: 주문 종류·가격·수량·매수/매도, "남은 주문 7/10")·D-6034(누르면 늘리는 법, 한도면 잠그고 다시 되는 시각)·
 // D-6035(지정가 = 만료 기간, 시장가 = 최대 가격 안전망, 조건 = 가격 도달). 검사·미리 보기는 순수 함수(orderForm.ts)다.
-// 거래소가 아직 열리지 않아 [주문]은 "곧 열림"으로 잠근다(aria-disabled: 초점은 남고 누르면 아무 일도 없다). 명령은 WebSocket으로 붙인다.
-// 칸 오류는 사람이 그 칸을 건드린 뒤에만 보인다(처음부터 빨간 글이 뜨지 않게).
+// 실제 거래소(live: 서버 도시 경제, docs/adr/2026-11-07-play-flow.md WP4)면 [주문]이 WebSocket market_place를 보내고 결과를 알린다(지정가·시장가.
+// 조건 주문은 아직 서버에 없어 잠근다). 시안 자료·거래소가 없는 세계는 "곧 열림"으로 잠근다(aria-disabled: 초점은 남고 누르면 아무 일도 없다).
+// 칸 오류는 사람이 그 칸을 건드린 뒤에만 보인다(처음부터 빨간 글이 뜨지 않게). [주문]을 누르면 모든 칸을 건드린 것으로 친다.
 import { type Dispatch, type ReactNode, type SetStateAction, useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
 import { formatRate } from "../amount.ts";
+import { sendMarketCommand } from "./marketCommands.ts";
+import { MARKET_ERROR_TEXT, refreshMarket, wireAmount } from "./marketText.ts";
 import { fmt, formatClock, formatDays } from "../economyText.ts";
 import {
   type FieldError,
@@ -162,6 +165,14 @@ export interface OrderFormProps {
   /** 지난 값(값 칸이 비었을 때 올리기·내리기의 시작) */
   readonly lastPrice: bigint | null;
   readonly now: number;
+  /** 실제 거래소면 보낼 도시·물건(시안 자료·거래소 없음이면 null — 보내지 않는다) */
+  readonly live?: { readonly city: number; readonly item: string } | null | undefined;
+}
+
+/** 보낸 주문의 결과 문구 */
+interface Sent {
+  readonly ok: boolean;
+  readonly text: string;
 }
 
 export function OrderFormPanel({
@@ -173,10 +184,13 @@ export function OrderFormPanel({
   hasWarehouse,
   lastPrice,
   now,
+  live,
 }: OrderFormProps) {
   const id = useId();
   const [touched, setTouched] = useState<ReadonlySet<OrderField>>(() => new Set());
   const [helpOpen, setHelpOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState<Sent | null>(null);
   const check = checkOrder(draft, context);
   const touch = (field: OrderField) => () =>
     setTouched((previous) => (previous.has(field) ? previous : new Set([...previous, field])));
@@ -379,19 +393,112 @@ export function OrderFormPanel({
           {m.economy_limit_help()}
         </p>
       ) : null}
+      {live ? (
+        <LiveSubmit
+          id={id}
+          draft={draft}
+          ok={check.ok}
+          sending={sending}
+          sent={sent}
+          onSubmit={() => {
+            setTouched(new Set<OrderField>(["price", "qty", "guard", "trigger"]));
+            if (!check.ok || sending || draft.kind === "conditional") return;
+            const price = wireAmount(draft.kind === "market" ? draft.guard : draft.price);
+            const qty = wireAmount(draft.qty);
+            if (price === null || qty === null) return;
+            setSending(true);
+            setSent(null);
+            void sendMarketCommand({
+              t: "market_place",
+              city: live.city,
+              item: live.item,
+              side: draft.side,
+              kind: draft.kind,
+              price,
+              qty,
+              ...(draft.kind === "limit" ? { expiryDays: draft.expiryDays } : {}),
+            }).then((outcome) => {
+              setSending(false);
+              if (!outcome.ok) {
+                setSent({ ok: false, text: MARKET_ERROR_TEXT[outcome.code]() });
+                return;
+              }
+              setSent({
+                ok: true,
+                text: m.market_placed({
+                  filled: fmt(outcome.filled ?? "0"),
+                  resting: fmt(outcome.resting ?? "0"),
+                }),
+              });
+              setDraft((previous) => ({ ...previous, qty: "" }));
+              refreshMarket();
+            });
+          }}
+        />
+      ) : (
+        <>
+          <button
+            type="button"
+            className="button-primary eco-submit"
+            data-side={draft.side}
+            aria-disabled="true"
+            aria-describedby={`${id}-soon`}
+          >
+            {m.economy_submit_soon()}
+          </button>
+          <p id={`${id}-soon`} className="eco-footnote">
+            {m.economy_submit_hint()}
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
+/** 실제 거래소의 [주문]: 보내는 중에는 잠그고, 결과를 알린다. 조건 주문은 아직 서버에 없어 잠근다 */
+function LiveSubmit({
+  id,
+  draft,
+  ok,
+  sending,
+  sent,
+  onSubmit,
+}: {
+  id: string;
+  draft: OrderDraft;
+  ok: boolean;
+  sending: boolean;
+  sent: Sent | null;
+  onSubmit: () => void;
+}) {
+  const conditional = draft.kind === "conditional";
+  const locked = conditional || sending;
+  return (
+    <>
       <button
         type="button"
         className="button-primary eco-submit"
         data-side={draft.side}
-        aria-disabled="true"
-        aria-describedby={`${id}-soon`}
+        aria-disabled={locked || !ok ? "true" : undefined}
+        aria-describedby={conditional ? `${id}-conditional` : sent ? `${id}-sent` : undefined}
+        onClick={onSubmit}
       >
-        {m.economy_submit_soon()}
+        {sending ? m.market_sending() : draft.side === "buy" ? m.market_submit_buy() : m.market_submit_sell()}
       </button>
-      <p id={`${id}-soon`} className="eco-footnote">
-        {m.economy_submit_hint()}
+      {conditional ? (
+        <p id={`${id}-conditional`} className="eco-footnote">
+          {m.market_conditional_soon()}
+        </p>
+      ) : null}
+      <p
+        id={`${id}-sent`}
+        className="eco-sent"
+        role="status"
+        data-tone={sent ? (sent.ok ? "ok" : "error") : undefined}
+      >
+        {sent?.text ?? ""}
       </p>
-    </section>
+    </>
   );
 }
 

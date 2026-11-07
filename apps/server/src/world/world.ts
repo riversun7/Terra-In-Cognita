@@ -78,6 +78,8 @@ import { type RecruitService, createRecruitService } from "../recruit/service.ts
 import { geneCatalogFrom } from "../fusion/genes.ts";
 import { type FusionService, createFusionService } from "../fusion/service.ts";
 import { type RuinService, createRuins } from "../ruins/service.ts";
+import type { ServerEconomyCatalog } from "../market/catalog.ts";
+import { npcEconomyInputOf } from "../market/worldInput.ts";
 
 /**
  * 시험 2차맵 자리(ADR 2026-10-31-second-map-from-planet 8절): S2 시험 행성(면 레벨 9) 면 0의 (i, j) = (282, 328) 칸부터
@@ -172,6 +174,8 @@ export interface WorldConfig {
   roster?: (() => RosterCatalog) | undefined;
   /** 건물 짓기·노화·수리(실효 시설·아이템, docs/adr/2026-11-07-buildings-runtime.md). 없으면 빈 목록(시험) */
   facilities?: FacilitiesConfig | undefined;
+  /** NPC 도시 경제·거래소의 경제 목록(docs/adr/2026-11-07-play-flow.md WP4, market/catalog.ts). 없으면 경제 없음(시험) */
+  economy?: (() => ServerEconomyCatalog) | undefined;
 }
 export interface WorldLog extends MapLog {
   info(obj: object, message: string): void;
@@ -829,6 +833,7 @@ export function startWorld(
           waveRewardItems: () => waveRewardItemsOf(config.holdings?.content().items ?? []),
           // 수호신 만족도 버프(기획 답 470 가): 하루 끝에 그 도시 휴먼마다
           guardianSatisfaction: () => persistence?.fusion.temple.citySatisfaction() ?? new Map(),
+          economy: npcEconomyInputOf(config.economy, facilities, maps),
         });
       } catch (error) {
         log.error({ err: error }, "npc society failed to start; bots keep walking");

@@ -114,6 +114,20 @@ export function attachEconomy(
 ): EconomyRun {
   const economy = createEconomy(world, scenario, catalog, startMs, gather);
   scheduleEconomy(economy, world, loop, startMs);
+  return runEconomy(economy, world, loop, npc);
+}
+
+/**
+ * 차린 경제(시나리오 createEconomy 또는 서버가 거울 세계에서 차린 것)에 사건 나누기·세력·사회 고리·하루 줄·불변 조건을 붙인다.
+ * 서버 NPC 사회 런타임(apps/server/src/npc/economy.ts)이 같은 함수로 도시 경제를 돌린다(docs/adr/2026-11-07-play-flow.md WP4).
+ * 예약(scheduleEconomy 등)은 부르는 쪽이 한다
+ */
+export function runEconomy(
+  economy: Economy,
+  world: SimWorld,
+  loop: SimLoop<SimEvent>,
+  npc: NpcCoefficients,
+): EconomyRun {
   const totals = {
     trades: 0,
     volume: new Map<string, bigint>(),

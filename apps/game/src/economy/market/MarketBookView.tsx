@@ -2,6 +2,8 @@
 // 넓은 화면(64em 이상)은 옆 패널에 차트를 크게, 이 시장의 내 주문 목록을 둔다. 촘촘(data-density="compact")은 경제 화면 틀이 단다.
 // 주문표 상태는 이 화면이 들고, 호가 줄을 누르면 값이 주문표에 들어간다.
 // 묶음 크기가 1보다 큰 물건(광석 1kg)은 가격·수량이 묶음 단위라는 알림을 시세 아래 둔다(302·D-506).
+// 실제 거래소(서버 도시 경제, docs/adr/2026-11-07-play-flow.md WP4)면 주문표가 명령을 보내고, 화면을 연 동안 체결 알림을 켜서 알림마다 다시 받는다.
+// 내 걸린 주문은 여기서도 거둘 수 있다.
 import type { EconomyOrdersResponse, MarketBookResponse } from "@terra/shared/economy";
 import { useState } from "react";
 import { m } from "../../paraglide/messages.js";
@@ -21,6 +23,9 @@ import type { OrderContext, OrderDraft } from "../orderForm.ts";
 import { Change, Loaded, NotReady, PreviewTag } from "../parts.tsx";
 import { NO_ARGS, useCatalog, useMarketBook, useMarketCities, useOrders } from "../queries.ts";
 import { toDepthLevels } from "../shape.ts";
+import { useMarketFills } from "./marketCommands.ts";
+import { refreshMarket } from "./marketText.ts";
+import { CancelOrderButton } from "./CancelOrderButton.tsx";
 import { OrderBookPanel } from "./OrderBookPanel.tsx";
 import { OrderFormPanel, initialDraft } from "./OrderFormPanel.tsx";
 import { PriceChart } from "./PriceChart.tsx";
@@ -78,10 +83,12 @@ function MarketOrders({
   orders,
   itemId,
   cityId,
+  live,
 }: {
   orders: EconomyOrdersResponse | null;
   itemId: string;
   cityId: string;
+  live: boolean;
 }) {
   const mine = orders?.open.filter((order) => order.item === itemId && order.city === cityId) ?? [];
   return (
@@ -109,6 +116,11 @@ function MarketOrders({
                   {m.economy_order_remaining({ remaining: fmt(order.remaining), qty: fmt(order.qty) })}
                 </span>
               </span>
+              {live ? (
+                <span className="eco-row-end">
+                  <CancelOrderButton orderId={order.id} />
+                </span>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -211,11 +223,18 @@ function BookTrader({
         hasWarehouse={hasWarehouse}
         lastPrice={lastPrice}
         now={book.generatedAt}
+        live={book.preview ? null : { city: Number(book.city), item: book.item }}
       />
       <TradesList book={book} />
-      <MarketOrders orders={orders} itemId={book.item} cityId={book.city} />
+      <MarketOrders orders={orders} itemId={book.item} cityId={book.city} live={!book.preview} />
     </div>
   );
+}
+
+/** 실제 거래소 화면을 연 동안 체결 알림을 켠다(알림마다 다시 받는다) */
+function LiveFills() {
+  useMarketFills(refreshMarket);
+  return null;
 }
 
 export default function MarketBookView({ itemId, cityId }: { itemId: string; cityId: string }) {
@@ -231,13 +250,16 @@ export default function MarketBookView({ itemId, cityId }: { itemId: string; cit
         data.status === "not_ready" ? (
           <NotReady body={m.economy_not_ready_market()} />
         ) : (
-          <BookTrader
-            key={`${data.item}|${data.city}`}
-            book={data}
-            orders={orders.data}
-            hasWarehouse={hasWarehouse}
-            itemLabel={itemName(index, itemId)}
-          />
+          <>
+            {data.preview ? null : <LiveFills />}
+            <BookTrader
+              key={`${data.item}|${data.city}`}
+              book={data}
+              orders={orders.data}
+              hasWarehouse={hasWarehouse}
+              itemLabel={itemName(index, itemId)}
+            />
+          </>
         )
       }
     </Loaded>

@@ -1,0 +1,950 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "e62c11b4-4467-480d-89bc-1124abd9d05f",
+  "prevIds": [
+    "50b051d2-61ee-479a-bd01-6edc3f3f033d",
+    "b1011e2c-efc6-40b8-9f16-da60338cc551"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "market_books"
+      ],
+      "writes": [
+        "s|tbl|public.market_books",
+        "n|tbl|public.market_books",
+        "e|tbl|public.market_books",
+        "n|rel|public.market_books",
+        "n|type|public.market_books",
+        "n|rel|public.market_books_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "market_orders"
+      ],
+      "writes": [
+        "s|tbl|public.market_orders",
+        "n|tbl|public.market_orders",
+        "e|tbl|public.market_orders",
+        "n|rel|public.market_orders",
+        "n|type|public.market_orders",
+        "n|rel|public.market_orders_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "market_trades"
+      ],
+      "writes": [
+        "s|tbl|public.market_trades",
+        "n|tbl|public.market_trades",
+        "e|tbl|public.market_trades",
+        "n|rel|public.market_trades",
+        "n|type|public.market_trades",
+        "n|rel|public.market_trades_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "market_books",
+        "market_books_city_item"
+      ],
+      "writes": [
+        "s|idx|public.market_books_city_item",
+        "n|idx|public.market_books_city_item",
+        "e|idx|public.market_books_city_item",
+        "n|rel|public.market_books_city_item"
+      ],
+      "reads": [
+        "n|tbl|public.market_books",
+        "n|sch|public",
+        "n|col|public.market_books.city_id",
+        "n|col|public.market_books.item"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "market_orders",
+        "market_orders_market_idx"
+      ],
+      "writes": [
+        "s|idx|public.market_orders_market_idx",
+        "n|idx|public.market_orders_market_idx",
+        "e|idx|public.market_orders_market_idx",
+        "n|rel|public.market_orders_market_idx"
+      ],
+      "reads": [
+        "n|tbl|public.market_orders",
+        "n|sch|public",
+        "n|col|public.market_orders.market_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "market_orders",
+        "market_orders_owner_idx"
+      ],
+      "writes": [
+        "s|idx|public.market_orders_owner_idx",
+        "n|idx|public.market_orders_owner_idx",
+        "e|idx|public.market_orders_owner_idx",
+        "n|rel|public.market_orders_owner_idx"
+      ],
+      "reads": [
+        "n|tbl|public.market_orders",
+        "n|sch|public",
+        "n|col|public.market_orders.owner_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "market_trades",
+        "market_trades_market_at_idx"
+      ],
+      "writes": [
+        "s|idx|public.market_trades_market_at_idx",
+        "n|idx|public.market_trades_market_at_idx",
+        "e|idx|public.market_trades_market_at_idx",
+        "n|rel|public.market_trades_market_at_idx"
+      ],
+      "reads": [
+        "n|tbl|public.market_trades",
+        "n|sch|public",
+        "n|col|public.market_trades.market_id",
+        "n|col|public.market_trades.at_ms"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "market_orders"
+      ],
+      "writes": [
+        "s|fk|public.market_orders.market_orders_market_id_market_books_id_fkey",
+        "n|fk|public.market_orders.market_orders_market_id_market_books_id_fkey",
+        "e|fk|public.market_orders.market_orders_market_id_market_books_id_fkey",
+        "n|con|public.market_orders.market_orders_market_id_market_books_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.market_orders",
+        "n|sch|public",
+        "n|tbl|public.market_books",
+        "n|sch|public",
+        "n|col|public.market_orders.market_id",
+        "n|col|public.market_books.id",
+        "e|uniqueness|public.market_books.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "market_orders"
+      ],
+      "writes": [
+        "s|fk|public.market_orders.market_orders_owner_id_world_owners_id_fkey",
+        "n|fk|public.market_orders.market_orders_owner_id_world_owners_id_fkey",
+        "e|fk|public.market_orders.market_orders_owner_id_world_owners_id_fkey",
+        "n|con|public.market_orders.market_orders_owner_id_world_owners_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.market_orders",
+        "n|sch|public",
+        "n|tbl|public.world_owners",
+        "n|sch|public",
+        "n|col|public.market_orders.owner_id",
+        "n|col|public.world_owners.id",
+        "e|uniqueness|public.world_owners.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "market_trades"
+      ],
+      "writes": [
+        "s|fk|public.market_trades.market_trades_market_id_market_books_id_fkey",
+        "n|fk|public.market_trades.market_trades_market_id_market_books_id_fkey",
+        "e|fk|public.market_trades.market_trades_market_id_market_books_id_fkey",
+        "n|con|public.market_trades.market_trades_market_id_market_books_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.market_trades",
+        "n|sch|public",
+        "n|tbl|public.market_books",
+        "n|sch|public",
+        "n|col|public.market_trades.market_id",
+        "n|col|public.market_books.id",
+        "e|uniqueness|public.market_books.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "market_books",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "market_orders",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "market_trades",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_books",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_books",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_books",
+        "name": "item",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_books",
+        "name": "created_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "market_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "side",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "price",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "qty",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "remaining",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "locked",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "seq",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "placed_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "expires_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "state",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "done_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "market_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "price",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "qty",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "taker_side",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "maker_order_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "taker_order_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "maker_owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "taker_owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_books",
+        "name": "market_books_city_item",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "city_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "item",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "market_orders_market_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "market_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "market_orders_owner_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "owner_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "market_trades_market_at_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "market_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "at_ms",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "market_orders_market_id_market_books_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "market_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "market_books",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "market_orders_owner_id_world_owners_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "owner_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_owners",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "market_trades_market_id_market_books_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "market_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "market_books",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_books",
+        "name": "market_books_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "market_orders_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "market_trades_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "market_orders_side",
+        "value": "\"side\" in ('buy', 'sell')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "market_orders_state",
+        "value": "\"state\" in ('open', 'filled', 'cancelled', 'expired')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "market_orders_amounts",
+        "value": "\"price\" > 0 and \"qty\" > 0 and \"remaining\" >= 0 and \"remaining\" <= \"qty\" and \"locked\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_orders",
+        "name": "market_orders_done",
+        "value": "(\"state\" = 'open') = (\"done_at_ms\" is null)",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "market_trades_side",
+        "value": "\"taker_side\" in ('buy', 'sell')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "market_trades_amounts",
+        "value": "\"price\" > 0 and \"qty\" > 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

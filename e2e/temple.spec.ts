@@ -220,6 +220,10 @@ test.describe("신전·생명과학 연구소", () => {
     const lab = panel.locator('li[data-part="lab-card"]').last();
     await clickFor(page, lab.locator(`li[data-unit="${String(b)}"] .temple-convert`), `#${String(b)}`);
     await expect(rowB).toHaveCount(0);
+    // 환생 어드밴티지 규칙 줄(D-520, 설정 칸 출발값 30%·+2·20%·+50‰)
+    await expect(panel).toContainText(
+      message("ko", "temple_rule_rebirth_advantage", { stat: "30", statAmount: 2, k: "20", kAmount: 50 }),
+    );
     expect(await horizontalOverflow(page)).toEqual([]);
     await elementShot(panel, "temple-pastel-ko-390");
 

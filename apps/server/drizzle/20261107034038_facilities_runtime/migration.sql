@@ -32,4 +32,5 @@ ALTER TABLE "territory_beacons" ADD COLUMN "condition_ppm" integer DEFAULT 10000
 ALTER TABLE "territory_beacons" ADD COLUMN "condition_at_ms" bigint;--> statement-breakpoint
 ALTER TABLE "territory_beacons" ADD COLUMN "ready_at_ms" bigint;--> statement-breakpoint
 CREATE INDEX "facility_jobs_building_idx" ON "facility_jobs" ("building_id");--> statement-breakpoint
-ALTER TABLE "territory_beacons" ADD CONSTRAINT "territory_beacons_condition" CHECK ("condition_ppm" between 0 and 1000000);
+ALTER TABLE "territory_beacons" ADD CONSTRAINT "territory_beacons_condition" CHECK ("condition_ppm" between 0 and 1000000);--> statement-breakpoint
+ALTER TABLE "ledger_accounts" DROP CONSTRAINT "ledger_accounts_asset_format", ADD CONSTRAINT "ledger_accounts_asset_format" CHECK ("asset" ~ '^[a-z][a-z0-9_]{1,47}(:[a-z][a-z0-9_]{1,47})?$');

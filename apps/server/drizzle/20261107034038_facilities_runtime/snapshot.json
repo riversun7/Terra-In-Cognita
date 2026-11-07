@@ -2,7 +2,7 @@
   "type": "diff",
   "version": "9",
   "dialect": "postgres",
-  "id": "13c3bd86-e17b-4d4c-bb51-b192bdd9c838",
+  "id": "7d899bea-10e6-4f66-a02a-4f8248110eb0",
   "prevIds": [
     "afeda4f7-a278-4719-8d44-4e61892951fd",
     "e45afa41-dcee-44f8-be8d-105c1ae1af6f",
@@ -139,6 +139,24 @@
         "n|sch|public",
         "n|col|public.territory_beacons.condition_ppm"
       ]
+    },
+    {
+      "statementType": "alter_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "ledger_accounts"
+      ],
+      "writes": [
+        "s|ck|public.ledger_accounts.ledger_accounts_asset_format"
+      ],
+      "reads": [
+        "n|tbl|public.ledger_accounts",
+        "n|sch|public",
+        "n|col|public.ledger_accounts.asset",
+        "e|col|public.ledger_accounts.asset"
+      ],
+      "sqlHash": "1bdc39bab32fbe5a"
     }
   ],
   "deltas": [
@@ -620,6 +638,13 @@
         "name": "world_facilities_id_format",
         "value": "\"facility_id\" ~ '^[a-z][a-z0-9_]{1,47}$'",
         "entityType": "checks"
+      }
+    },
+    {
+      "op": "alter",
+      "key": "checks\u0000[\"public\",\"ledger_accounts\",\"ledger_accounts_asset_format\"]",
+      "set": {
+        "value": "\"asset\" ~ '^[a-z][a-z0-9_]{1,47}(:[a-z][a-z0-9_]{1,47})?$'"
       }
     }
   ]

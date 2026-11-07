@@ -8,6 +8,7 @@
 // 전투 계산식(formulas): 개발자 모드에서 고치는 식(docs/adr/2026-11-01-formula-editor.md).
 // 아이템 분류 자료(item_subcategories·item_tags·weapon_types)와 아이템 공통 칸·묶음(docs/adr/2026-11-01-item-editor.md 2절).
 // 채집·채굴 티어 확률표(gather_tiers, 49 N43·D-506): 유효 스탯 구간마다 T0~T9 가중치(docs/adr/2026-10-31-economy-core.md "바뀜 (300~302)").
+// 경로 랭킹 목록(ranking_paths, D-392·20 §7·§8): 경로마다 공개 여부·재는 것(docs/adr/2026-11-07-ranking.md).
 import { z } from "zod";
 import {
   facilityEntrySchema,
@@ -26,6 +27,7 @@ import { mapPropEntrySchema } from "./mapProps.ts";
 import { effectEntrySchema, skillEntrySchema, unitKindEntrySchema } from "./combat.ts";
 import { biomeEntrySchema, planetEntrySchema, planetTemplateEntrySchema } from "./planets.ts";
 import { formulaEntrySchema } from "./formulas.ts";
+import { rankingPathEntrySchema } from "./ranking.ts";
 import { statRowEntrySchema } from "./stats.ts";
 import { tuningEntrySchema } from "./tuning.ts";
 
@@ -59,6 +61,7 @@ export const CATEGORIES: CategoryRegistry = {
   necessities: { entry: necessityEntrySchema },
   nation_presets: { entry: nationPresetEntrySchema },
   gather_tiers: { entry: gatherTierEntrySchema },
+  ranking_paths: { entry: rankingPathEntrySchema },
   stat_rows: { entry: statRowEntrySchema },
   formulas: { entry: formulaEntrySchema },
   effects: { entry: effectEntrySchema },

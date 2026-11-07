@@ -27,6 +27,7 @@ import type { FactionSource } from "../factionScreen/source.ts";
 import { createMailServices } from "../mail/list.ts";
 import { type HoldingsReadServices, NO_HOLDINGS } from "../holdings/reads.ts";
 import { NO_VITALS, type VitalsReadServices } from "../vitals/reads.ts";
+import { type RankingServices, createRankingServices } from "../ranking/services.ts";
 import {
   type PlanetEditorShared,
   betterAuthPermissionCheck,
@@ -109,6 +110,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   holdings?: HoldingsReadServices | undefined;
   /** 생명 수치 조회(월드가 있을 때, D-512). 없으면 늘 빈 목록 */
   vitals?: VitalsReadServices | undefined;
+  /** 랭킹 조회(docs/adr/2026-11-07-ranking.md). 없으면 빈 판(경로 목록 없음) */
+  ranking?: RankingServices | undefined;
 }
 
 /** 읽기 요청(출처 규칙이 쓰기보다 느슨하다: 주소창에서 연 것도 받는다). tRPC 조회는 GET, 쓰기는 POST다 */
@@ -148,6 +151,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
   const mail = createMailServices();
   const labor = createLaborScreenServices(options.labor);
   const facilities = createFacilityScreenServices(options.facilities);
+  const ranking = options.ranking ?? createRankingServices({ paths: [] });
   return (opts?: { req: FastifyRequest; res?: FastifyReply }): TrpcContext => {
     const authDeps = options.auth;
     const request = opts?.req;
@@ -192,6 +196,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       mail,
       holdings: options.holdings ?? NO_HOLDINGS,
       vitals: options.vitals ?? NO_VITALS,
+      ranking,
       labor,
       facilities,
       tuning:

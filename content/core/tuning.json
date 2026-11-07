@@ -3490,6 +3490,162 @@
       "max": 100000
     },
     {
+      "id": "ranking_period",
+      "code": "",
+      "name": {
+        "ko": "랭킹 집계 주기(ms)",
+        "en": "Ranking period (ms)"
+      },
+      "value": 86400000,
+      "structural": true,
+      "unit": "ms",
+      "min": 60000,
+      "max": 2592000000
+    },
+    {
+      "id": "ranking_decay",
+      "code": "",
+      "name": {
+        "ko": "랭킹 점수 감쇠(집계마다 ‰)",
+        "en": "Ranking score decay (‰ per period)"
+      },
+      "value": 18,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "ranking_tier_1",
+      "code": "",
+      "name": {
+        "ko": "백분위 등급 1 문턱(상위 ‰)",
+        "en": "Percentile tier 1 cut (top ‰)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 1000
+    },
+    {
+      "id": "ranking_tier_2",
+      "code": "",
+      "name": {
+        "ko": "백분위 등급 2 문턱(상위 ‰)",
+        "en": "Percentile tier 2 cut (top ‰)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 1000
+    },
+    {
+      "id": "ranking_tier_3",
+      "code": "",
+      "name": {
+        "ko": "백분위 등급 3 문턱(상위 ‰)",
+        "en": "Percentile tier 3 cut (top ‰)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 1000
+    },
+    {
+      "id": "ranking_tier_4",
+      "code": "",
+      "name": {
+        "ko": "백분위 등급 4 문턱(상위 ‰)",
+        "en": "Percentile tier 4 cut (top ‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 1000
+    },
+    {
+      "id": "ranking_top_ranks",
+      "code": "",
+      "name": {
+        "ko": "최상위 표시 순위(1…n)",
+        "en": "Top ranks shown (1…n)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "ranking_underdog_cap",
+      "code": "",
+      "name": {
+        "ko": "전투 승리 언더독 배율 상한(‰)",
+        "en": "Battle win underdog cap (‰)"
+      },
+      "value": 4000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "ranking_faction_city",
+      "code": "",
+      "name": {
+        "ko": "세력 판: 도시 하나 점수",
+        "en": "Faction board: points per city"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000000
+    },
+    {
+      "id": "ranking_faction_development",
+      "code": "",
+      "name": {
+        "ko": "세력 판: 도시 발전도 1점 점수",
+        "en": "Faction board: points per development"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "ranking_faction_human",
+      "code": "",
+      "name": {
+        "ko": "세력 판: 휴먼 하나 점수",
+        "en": "Faction board: points per human"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "ranking_faction_treasury_unit",
+      "code": "",
+      "name": {
+        "ko": "세력 판: 국고 몇 단위가 1점(최소 단위)",
+        "en": "Faction board: treasury per point (minor units)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "minor",
+      "min": 1,
+      "max": 1000000000
+    },
+    {
       "id": "n48_wage_cycle_ms",
       "code": "N48",
       "name": {

@@ -36,6 +36,19 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "tributePm",
   "tributeEveryMs",
   "dividendEveryMs",
+  // 랭킹(ranking/services.ts·snapshot.ts, docs/adr/2026-11-07-ranking.md): 집계마다·조회마다 읽는다
+  "ranking.periodMs",
+  "ranking.decayPm",
+  "ranking.tiersPm.0",
+  "ranking.tiersPm.1",
+  "ranking.tiersPm.2",
+  "ranking.tiersPm.3",
+  "ranking.topRanks",
+  "ranking.underdogCapPm",
+  "ranking.faction.cityPoints",
+  "ranking.faction.developmentPoints",
+  "ranking.faction.humanPoints",
+  "ranking.faction.treasuryUnit",
   // 정원사(npc/gardener.ts → @terra/sim attachGardener, docs/adr/2026-11-01-gardener-r5b.md): 하루 끝·웨이브 도착마다 읽는다.
   // 유목 부대 수(s16_nomad_scouts·legions)는 처음 차릴 때만 읽어서 여기 없다(sim)
   "gardener.cellMax",

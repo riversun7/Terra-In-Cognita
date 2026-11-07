@@ -1,7 +1,13 @@
 // 유닛·사이보그 화면 자료 서비스 — tRPC 맥락의 roster(units.list·cyborg.get). 앱을 만들 때 한 번 만든다(trpc/createContext.ts).
 // 실제 자료(세계 유닛·화물·포로, 계정 이름)에 시안 자료(preview, dev·admin만: 프로시저가 권한을 본 뒤 true)를 더한다.
 // 응답의 이름 표는 응답에 나온 ID만 담는다(catalog.ts namesFor).
-import type { CyborgGetResponse, RosterPrisoner, RosterUnit, UnitsListResponse } from "@terra/shared/roster";
+import type {
+  CyborgGetResponse,
+  CyborgRanking,
+  RosterPrisoner,
+  RosterUnit,
+  UnitsListResponse,
+} from "@terra/shared/roster";
 import type { HomeQuery, RosterServices, Viewer } from "../trpc/context.ts";
 import type { CyborgService } from "../cyborg/service.ts";
 import { realCyborgBody } from "./cyborgBody.ts";
@@ -87,6 +93,8 @@ export function createRosterServices(
     cyborgs?: (() => Pick<CyborgService, "record" | "livingUnpaid"> | undefined) | undefined;
     /** 유닛이 입은 물건·걸린 효과(세계가 준비되면 보유 물건 서비스). 없으면 빈 몸 */
     gear?: (() => GearReader | undefined) | undefined;
+    /** 사이보그 화면 랭킹 칸(경로마다 내 자리, docs/adr/2026-11-07-ranking.md). 없으면 빈 칸 */
+    rankings?: ((userId: string) => Promise<CyborgRanking[]>) | undefined;
   } = {},
 ): RosterServices {
   const catalog = options.catalog ?? testRosterCatalog();
@@ -124,13 +132,16 @@ export function createRosterServices(
       const body = query.preview
         ? previewCyborg(catalog)
         : record
-          ? realCyborgBody(
-              catalog,
-              record,
-              cyborgs?.livingUnpaid(viewer.id) ?? false,
-              gearOf(record.unitId, query.now),
-              query.now,
-            )
+          ? {
+              ...realCyborgBody(
+                catalog,
+                record,
+                cyborgs?.livingUnpaid(viewer.id) ?? false,
+                gearOf(record.unitId, query.now),
+                query.now,
+              ),
+              rankings: (await options.rankings?.(viewer.id)) ?? [],
+            }
           : null;
       const names = body
         ? namesFor(catalog, {

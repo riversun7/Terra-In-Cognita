@@ -982,6 +982,8 @@ export { battleLabPresets, formulaOverrides } from "./devToolsSchema.ts";
 export { laborContracts, laborPostings, laborRents } from "./laborSchema.ts";
 /** 건물(시설) 상태·작업 표(docs/adr/2026-11-07-buildings-runtime.md) */
 export { facilityJobs, worldFacilities } from "./facilitySchema.ts";
+/** 랭킹 집계 표(docs/adr/2026-11-07-ranking.md) */
+export { rankingFactionScores, rankingPathScores, rankingState } from "./rankingSchema.ts";
 
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

@@ -78,6 +78,7 @@ export {
 export { mapPropEntrySchema, type MapPropEntry } from "./schema/mapProps.ts";
 export { statRowEntrySchema, type StatRowEntry } from "./schema/stats.ts";
 export { formulaEntrySchema, type FormulaEntry } from "./schema/formulas.ts";
+export { rankingPathEntrySchema, type RankingPathEntry } from "./schema/ranking.ts";
 export { tuningEntrySchema, tuningValueInRange, type TuningEntry } from "./schema/tuning.ts";
 export {
   ENTRY_DIFF_CATEGORIES,

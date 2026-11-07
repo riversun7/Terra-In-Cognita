@@ -1,5 +1,5 @@
 // 세력 화면 옆 판 — 내 세력·가문 요약(46 §1), 내 몫(실제 자료), 잠긴 메뉴(D-5055). 넓은 화면은 왼쪽 옆 판, 좁으면 맨 위.
-// 고정 NPC 국가(D-324)는 표를 붙인다. 공물은 주마다 국고의 비율이다(D-443 설정값).
+// 고정 NPC 국가(D-324)는 표를 붙인다. 공물은 주마다 국고의 비율이다(D-443 설정값). 세력 순위 칸은 FactionRanking.tsx(ranking.mine).
 import type {
   FactionOverviewResponse,
   FactionRules,
@@ -13,6 +13,7 @@ import { getLocale } from "../paraglide/runtime.js";
 import { Fact, PreviewTag, SoonButton, StateChip } from "../sections/screenParts.tsx";
 import { amountText, dateText, durationText } from "../sections/screenText.ts";
 import { Icon } from "../ui/icons.tsx";
+import { FactionRanking } from "./FactionRanking.tsx";
 import { KIND_NAMES, LOCK_NAMES, REGIME_NAMES, STAGE_NAMES, assetName } from "./factionText.ts";
 import { formatPermille } from "./factionView.ts";
 
@@ -225,6 +226,7 @@ export function FactionSide({ view }: { view: FactionOverviewResponse }) {
     <aside className="faction-side" aria-label={m.faction_side_label()}>
       {view.faction === null ? <NoFaction /> : <FactionCard faction={view.faction} rules={view.rules} />}
       <MyHoldings me={view.me} />
+      <FactionRanking />
       <Locks locks={view.locks} />
     </aside>
   );

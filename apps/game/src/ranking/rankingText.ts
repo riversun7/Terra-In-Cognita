@@ -1,0 +1,119 @@
+// 랭킹 화면 글·순수 셈 — 등급·순위 변화·이름·판 주소(시험 대상). 셈 자체(점수·순위·등급)는 서버가 한다(서버 권위).
+import type { LocalizedName } from "@terra/shared/faction";
+import type {
+  RankingArea,
+  RankingBoardKey,
+  RankingBoardRequest,
+  RankingMeasure,
+  RankingPathInfo,
+  RankingSubjectKind,
+} from "@terra/shared/ranking";
+import type { RouteMatch, RouteTarget } from "@terra/shared";
+import { formatCount } from "../home/numbers.ts";
+import { m } from "../paraglide/messages.js";
+import { type Locale, getLocale } from "../paraglide/runtime.js";
+
+export const AREA_NAMES: Record<RankingArea, () => string> = {
+  force: m.ranking_area_force,
+  life: m.ranking_area_life,
+  wealth: m.ranking_area_wealth,
+  tech: m.ranking_area_tech,
+  frontier: m.ranking_area_frontier,
+  influence: m.ranking_area_influence,
+  living: m.ranking_area_living,
+};
+
+export const MEASURE_NAMES: Record<RankingMeasure, () => string> = {
+  war_wins: m.ranking_measure_war_wins,
+  battle_wins: m.ranking_measure_battle_wins,
+  cities_held: m.ranking_measure_cities_held,
+  production: m.ranking_measure_production,
+  facilities: m.ranking_measure_facilities,
+};
+
+export const KIND_NAMES: Record<RankingSubjectKind, () => string> = {
+  user: m.ranking_kind_user,
+  npc_faction: m.ranking_kind_npc_faction,
+  player_faction: m.ranking_kind_player_faction,
+};
+
+/** 등급 문턱(‰) → 퍼센트 글자(10 → "1", 5 → "0.5") */
+export const tierPercent = (tierPm: number): string => formatCount(tierPm / 10);
+
+/** 든 등급 글: "상위 5%" 또는 "등급 밖" */
+export function tierText(tierPm: number | null): string {
+  return tierPm === null ? m.ranking_no_tier() : m.ranking_tier({ percent: tierPercent(tierPm) });
+}
+
+export type RankChange =
+  | { readonly kind: "new" }
+  | { readonly kind: "same" }
+  | { readonly kind: "up" | "down"; readonly steps: number };
+
+/** 지난 집계와 비교한 순위 변화(순위는 작을수록 위) */
+export function rankChange(rank: number, prevRank: number | null): RankChange {
+  if (prevRank === null) return { kind: "new" };
+  if (prevRank === rank) return { kind: "same" };
+  return prevRank > rank ? { kind: "up", steps: prevRank - rank } : { kind: "down", steps: rank - prevRank };
+}
+
+export function rankChangeText(change: RankChange): string {
+  switch (change.kind) {
+    case "new":
+      return m.ranking_change_new();
+    case "same":
+      return m.ranking_change_same();
+    case "up":
+      return m.ranking_change_up({ steps: formatCount(change.steps) });
+    case "down":
+      return m.ranking_change_down({ steps: formatCount(change.steps) });
+    default: {
+      const unhandled: never = change;
+      return unhandled;
+    }
+  }
+}
+
+/** 이름(두 언어 값) → 지금 언어. 없으면 "이름 없음" */
+export function nameText(name: LocalizedName | null, locale: Locale = getLocale()): string {
+  if (name === null) return m.ranking_unnamed();
+  return locale === "en" ? name.en : name.ko;
+}
+
+/** 주소 → 판 요청: 세력 판 주소, 경로 판 주소(?path= 없으면 서버가 고른다) */
+export function boardRequestOf(match: RouteMatch): RankingBoardRequest {
+  if (match.id === "faction_ranking") return { kind: "faction" };
+  if (match.id === "cyborg_ranking") return { kind: "path", path: match.search.path ?? null };
+  return { kind: "path", path: null };
+}
+
+/** 판 → 주소(고르기 칸이 바꾼다) */
+export function boardTarget(board: RankingBoardKey): RouteTarget {
+  return board.kind === "faction"
+    ? { route: "faction_ranking" }
+    : { route: "cyborg_ranking", search: { path: board.path } };
+}
+
+/** 판 고르기 칸 값(세력 = "faction:", 경로 = "path:<ID>") ↔ 판 */
+export const boardValue = (board: RankingBoardKey): string =>
+  board.kind === "faction" ? "faction:" : `path:${board.path}`;
+
+export function boardFromValue(value: string): RankingBoardKey | null {
+  if (value === "faction:") return { kind: "faction" };
+  if (value.startsWith("path:") && value.length > "path:".length)
+    return { kind: "path", path: value.slice(5) };
+  return null;
+}
+
+/** 경로를 영역마다 묶는다(팩 차례 그대로, 빈 영역은 뺀다) */
+export function pathsByArea(
+  paths: readonly RankingPathInfo[],
+): { area: RankingArea; paths: RankingPathInfo[] }[] {
+  const groups = new Map<RankingArea, RankingPathInfo[]>();
+  for (const path of paths) {
+    const list = groups.get(path.area) ?? [];
+    list.push(path);
+    groups.set(path.area, list);
+  }
+  return [...groups].map(([area, list]) => ({ area, paths: list }));
+}

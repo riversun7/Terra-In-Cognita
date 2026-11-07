@@ -698,6 +698,31 @@ export {
   type TuningKey,
 } from "./tuning.ts";
 export { newTuningProblems, statTableProblems, tuningProblems } from "./tuningChecks.ts";
+// 랭킹(20 §8, docs/adr/2026-11-07-ranking.md): 감쇠형 점수·백분위 등급·언더독·로그 압축(정수), 계수표 ranking 칸
+export {
+  type RankingCoefficients,
+  type RankingFactionWeights,
+  TEST_RANKING_COEFFICIENTS,
+} from "./ranking/coefficients.ts";
+export {
+  type FactionSize,
+  type RankedEntry,
+  type ScoredEntry,
+  citiesValue,
+  decayScore,
+  facilitiesValue,
+  factionScore,
+  log2Milli,
+  logOver,
+  nextScore,
+  periodGain,
+  productionValue,
+  rankEntries,
+  tierCuts,
+  tierPmOf,
+  underdogPm,
+} from "./ranking/score.ts";
+export { RANKING_TUNING_KEYS } from "./tuningRanking.ts";
 export { TEST_SOCIETY_COEFFICIENTS, type SocietyCoefficients } from "./society/coefficients.ts";
 export { SWITCH_TUNING_KEYS, TEST_SYSTEM_SWITCHES, type SystemSwitches } from "./tuningSwitches.ts";
 export {

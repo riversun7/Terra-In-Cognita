@@ -1,0 +1,31 @@
+// 경로 랭킹 목록 — 콘텐츠 팩 `ranking_paths`(D-392 공개 여부 표시, 20 §7·§8)를 화면·집계 모양으로 읽는다.
+// 팩이 검증을 통과했으므로 다시 읽기는 실패하지 않는다. 팩에 분류 파일이 없으면 빈 목록(랭킹 판 없음).
+import { type ContentPack, rankingPathEntrySchema } from "@terra/content";
+import type { LocalizedName } from "@terra/shared/faction";
+import type { RankingPathInfo } from "@terra/shared/ranking";
+import { z } from "zod";
+
+const entriesSchema = z.array(rankingPathEntrySchema);
+
+export function rankingPathsOf(pack: ContentPack): RankingPathInfo[] {
+  return entriesSchema.parse(pack.entries.get("ranking_paths") ?? []).map((entry) => ({
+    id: entry.id,
+    name: { ko: entry.name.ko, en: entry.name.en },
+    area: entry.area,
+    open: entry.open,
+    measures: entry.measures.map((item) => ({ measure: item.measure, weightPm: item.weightPm })),
+  }));
+}
+
+/** 국가 프리셋 코드 → 이름(세력 행 code가 프리셋 ID인 시험 국가, src/npc/nations.ts). 판의 세력 이름에 쓴다 */
+export type NationNames = ReadonlyMap<string, LocalizedName>;
+
+const nationSchema = z.array(
+  z.looseObject({ id: z.string(), name: z.strictObject({ ko: z.string(), en: z.string() }) }),
+);
+
+export function nationNamesOf(pack: ContentPack): NationNames {
+  return new Map(
+    nationSchema.parse(pack.entries.get("nation_presets") ?? []).map((entry) => [entry.id, entry.name]),
+  );
+}

@@ -7,6 +7,7 @@ import { START_TERRITORY_COEFFICIENTS, type TerritoryCoefficients } from "@terra
 import { type LaborRules, OLD_LABOR_RULES } from "../economy/laborContract.ts";
 import { type GardenerCoefficients, TEST_GARDENER_COEFFICIENTS } from "../gardener/coefficients.ts";
 import { type NpcCoefficients, TEST_NPC_COEFFICIENTS } from "../npc/coefficients.ts";
+import { type RankingCoefficients, TEST_RANKING_COEFFICIENTS } from "../ranking/coefficients.ts";
 import { type SystemSwitches, TEST_SYSTEM_SWITCHES } from "../tuningSwitches.ts";
 import type { CyborgTemperament } from "./cyborgStats.ts";
 import { type FusionCoefficients, OLD_FUSION_COEFFICIENTS } from "./fusion.ts";
@@ -164,6 +165,8 @@ export interface SocietyCoefficients {
   readonly territory: TerritoryCoefficients;
   /** 노동 계약(49 N48, D-479, 팩 tuning 경로 "labor.*"): 옛 규칙 값. docs/adr/2026-11-03-labor-contracts.md */
   readonly labor: LaborRules;
+  /** 랭킹(20 §8, 팩 tuning 경로 "ranking.*" [임시]): 집계 주기·감쇠·등급 문턱·세력 판 점수. docs/adr/2026-11-07-ranking.md */
+  readonly ranking: RankingCoefficients;
   /** 사이보그 성장·환생·속성·유지·정착 지원금(48 §2, D-417·D-440·D-441·D-450~D-453·D-455, 49 N6·N7·N9·N34·N36~N39) */
   readonly cyborg: {
     /** 만렙(N7 기본 50, 구조 값). 특수 만렙 60은 누가 받는지 정해지지 않아 두지 않는다 */
@@ -375,6 +378,11 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     beaconDurability: START_TERRITORY_COEFFICIENTS.beaconDurability,
   },
   labor: { ...OLD_LABOR_RULES },
+  ranking: {
+    ...TEST_RANKING_COEFFICIENTS,
+    tiersPm: [...TEST_RANKING_COEFFICIENTS.tiersPm],
+    faction: { ...TEST_RANKING_COEFFICIENTS.faction },
+  },
   cyborg: {
     maxLevel: 50,
     growthPm: 100,

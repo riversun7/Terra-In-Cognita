@@ -5,6 +5,7 @@ import type { CyborgBody, CyborgGetResponse, CyborgRebirthRule, RosterNames } fr
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import { SoonButton } from "../roster/parts.tsx";
+import { AppLink } from "../shell/AppLink.tsx";
 import { assetLabel, formatAmount, formatNumber, localName } from "../roster/rosterText.ts";
 import { elementFamilies, elementLabel } from "./cyborgText.ts";
 
@@ -165,8 +166,22 @@ export function Rebirth({ body, rule }: { body: CyborgBody | null; rule: CyborgR
   );
 }
 
+/** 랭킹 칸(질문 134 가: 점수 있는 경로만, 점수 높은 순). 경로 줄을 누르면 그 경로 순위표, 끝에 모든 경로 순위(docs/adr/2026-11-07-ranking.md) */
 export function Rankings({ body }: { body: CyborgBody }) {
-  if (body.rankings.length === 0) return <p className="roster-empty">{m.cyborg_ranking_empty()}</p>;
+  const all = (
+    <p className="cyborg-rank-all">
+      <AppLink className="cyborg-rank-link" to={{ route: "cyborg_ranking" }}>
+        {m.cyborg_ranking_open_all()}
+      </AppLink>
+    </p>
+  );
+  if (body.rankings.length === 0)
+    return (
+      <>
+        <p className="roster-empty">{m.cyborg_ranking_empty()}</p>
+        {all}
+      </>
+    );
   return (
     <>
       <p className="roster-note">{m.cyborg_ranking_note()}</p>
@@ -174,7 +189,12 @@ export function Rankings({ body }: { body: CyborgBody }) {
         {body.rankings.map((row) => (
           <li key={row.path} className="roster-list-row">
             <span className="roster-list-main">
-              <span className="roster-list-title">{localName(row.name, row.path)}</span>
+              <AppLink
+                className="roster-list-title cyborg-rank-link"
+                to={{ route: "cyborg_ranking", search: { path: row.path } }}
+              >
+                {localName(row.name, row.path)}
+              </AppLink>
               <span className="roster-meta">
                 {m.cyborg_ranking_score({ score: formatNumber(row.score) })}
               </span>
@@ -190,6 +210,7 @@ export function Rankings({ body }: { body: CyborgBody }) {
           </li>
         ))}
       </ul>
+      {all}
     </>
   );
 }

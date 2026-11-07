@@ -2474,7 +2474,7 @@
         "ko": "물리형 비율 나눗수",
         "en": "Physical share divisor"
       },
-      "value": 100,
+      "value": 250,
       "structural": false,
       "unit": "points",
       "min": 1,

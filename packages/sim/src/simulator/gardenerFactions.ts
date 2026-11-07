@@ -44,7 +44,7 @@ export function updateRelations(
   pollution: ReadonlyMap<number, number>,
   c: GardenerCoefficients,
 ): void {
-  for (const id of [...relations.keys()]) if (world.factions.get(id)?.alive !== true) relations.delete(id);
+  for (const id of relations.keys()) if (world.factions.get(id)?.alive !== true) relations.delete(id);
   for (const faction of [...world.factions.values()].toSorted((a, b) => a.id - b.id)) {
     if (!faction.alive) continue;
     relations.set(

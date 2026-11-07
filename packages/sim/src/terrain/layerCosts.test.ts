@@ -1,7 +1,14 @@
 // 지형 층 → 배치 칸 비용: 지표 표, 벼랑, 차폐 엄폐, 임시 지형과 같은 결과
 import { describe, expect, it } from "vitest";
 import { PLACEMENT_CELLS, TERRAIN_SIZE, TERRAIN_VERTEX_SIZE } from "../units.ts";
-import { CLIFF_RELIEF_CM, COVER_BLOCKING, SURFACE_COST, placementCostsFromLayers } from "./layerCosts.ts";
+import {
+  CLIFF_RELIEF_CM,
+  COVER_BLOCKING,
+  FOREST_COST_PM,
+  SURFACE_COST,
+  isTreeArt,
+  placementCostsFromLayers,
+} from "./layerCosts.ts";
 import { generateTempTerrain, placementCostsFromTerrain, seedFromCellKey } from "./tempTerrain.ts";
 
 const flat = () => ({
@@ -28,6 +35,30 @@ describe("지형 층 비용", () => {
     expect([costs[2], costs[3]]).toEqual([0, 0]);
     expect(costs[256 * 10 + 10]).toBe(0);
     expect(costs[256 * 10 + 11]).toBe(1000);
+  });
+
+  it("그림 층이 있으면 나무가 선 차폐 칸은 숲 비용으로 지나가고, 큰 바위(그림 6) 차폐는 막힘", () => {
+    const layers = flat();
+    const cover = new Uint8Array(PLACEMENT_CELLS);
+    const art = new Uint8Array(PLACEMENT_CELLS);
+    for (const [cell, code] of [
+      [256 * 4 + 4, 1],
+      [256 * 4 + 5, 2],
+      [256 * 4 + 6, 3],
+      [256 * 4 + 7, 6],
+    ] as const) {
+      cover[cell] = COVER_BLOCKING;
+      art[cell] = code;
+    }
+    const costs = placementCostsFromLayers({ ...layers, cover, art });
+    const forest = Math.floor((1000 * FOREST_COST_PM) / 1000);
+    expect([costs[256 * 4 + 4], costs[256 * 4 + 5], costs[256 * 4 + 6]]).toEqual([forest, forest, forest]);
+    expect(costs[256 * 4 + 7]).toBe(0);
+    // 그림 층이 없으면 예전 그대로 막힘
+    expect(placementCostsFromLayers({ ...layers, cover })[256 * 4 + 4]).toBe(0);
+    expect([1, 2, 3].every(isTreeArt)).toBe(true);
+    expect([0, 4, 5, 6, 7].some(isTreeArt)).toBe(false);
+    expect(() => placementCostsFromLayers({ ...layers, cover, art: new Uint8Array(3) })).toThrow(RangeError);
   });
 
   it("네 꼭짓점 높이 차가 벼랑 기준 이상이면 막힘", () => {

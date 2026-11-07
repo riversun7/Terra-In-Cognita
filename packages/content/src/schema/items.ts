@@ -116,6 +116,21 @@ export const useSchema = z.strictObject({
     .max(ITEM_SCHEMA_LIMITS.effectsMax),
 });
 
+/** 유전자 조각 종류(D-478): 스탯 유전자(속성 포함)·스킬 유전자 */
+export const GENE_KINDS = ["stat", "skill"] as const;
+/** 유전자 조각을 얻는 길(D-478 "얻는 길은 데이터", 49 N47): death = 그 종 유닛이 죽으면 소유자에게(옛 LifeEngine) */
+export const GENE_SOURCES = ["death"] as const;
+
+/**
+ * 유전자 조각(D-478·D-481, 49 N47, docs/adr/2026-11-07-cyborg-fusion-genes.md): 어느 종(유닛 종류)의 어떤 유전자인지와 얻는 길.
+ * 한 번 쓰면 사라진다. 쌓이는 물자(원장)라 거래소에서 사고판다. 쓰는 곳(환생 조각 수·효과량)은 설정 칸 N47이다
+ */
+export const geneSchema = z.strictObject({
+  kind: z.enum(GENE_KINDS),
+  species: ref("unit_kinds"),
+  drops: z.array(z.enum(GENE_SOURCES)).max(GENE_SOURCES.length).optional(),
+});
+
 /** 대분류와 묶음·거래 칸이 맞는지(필드 검사가 실패해도 불린다: 값의 모양을 다시 보고 틀리면 건너뛴다) */
 function checkItemEntry(entry: unknown, ctx: z.RefinementCtx): void {
   if (typeof entry !== "object" || entry === null) return;
@@ -200,6 +215,8 @@ export const itemEntrySchema = z
     perish: perishSchema.optional(),
     /** 사용 효과(식품·소모품만) */
     use: useSchema.optional(),
+    /** 유전자 조각이면 종·종류·얻는 길(D-478) */
+    gene: geneSchema.optional(),
     enabled,
   })
   .superRefine(checkItemEntry);

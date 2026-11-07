@@ -6,6 +6,7 @@ import { type CombatCoefficients, TEST_COMBAT_COEFFICIENTS } from "./combat/coef
 import type { CombatFormulaSet } from "./combat/formulas.ts";
 import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "./society/coefficients.ts";
 import { BUILD_TUNING_KEYS } from "./tuningBuild.ts";
+import { FUSION_TUNING_KEYS } from "./tuningFusion.ts";
 import { RECRUIT_TUNING_KEYS } from "./tuningRecruit.ts";
 import { CYBORG_TUNING_KEYS } from "./tuningCyborg.ts";
 import { GARDENER_TUNING_KEYS } from "./tuningGardener.ts";
@@ -545,6 +546,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   // 구인 카드(49 N45, D-469 — S39 출생 칸을 대신함): tuningRecruit.ts
   ...RECRUIT_TUNING_KEYS,
   ...LABOR_TUNING_KEYS,
+  // 사이보그 유닛 융합·유전자 조각(49 N46·N47, D-470·D-478·D-481): tuningFusion.ts
+  ...FUSION_TUNING_KEYS,
   // 운영자 시스템 온/오프 스위치(49 N53, D-513): tuningSwitches.ts
   ...SWITCH_TUNING_KEYS,
 ];

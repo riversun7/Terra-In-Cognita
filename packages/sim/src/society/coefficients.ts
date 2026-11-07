@@ -8,6 +8,7 @@ import { type GardenerCoefficients, TEST_GARDENER_COEFFICIENTS } from "../garden
 import { type NpcCoefficients, TEST_NPC_COEFFICIENTS } from "../npc/coefficients.ts";
 import { type SystemSwitches, TEST_SYSTEM_SWITCHES } from "../tuningSwitches.ts";
 import type { CyborgTemperament } from "./cyborgStats.ts";
+import { type FusionCoefficients, OLD_FUSION_COEFFICIENTS } from "./fusion.ts";
 import { OLD_RECRUIT_COEFFICIENTS, type RecruitCoefficients } from "./recruitment.ts";
 
 export interface SocietyCoefficients {
@@ -54,6 +55,11 @@ export interface SocietyCoefficients {
    * 규칙은 society/recruitment.ts
    */
   readonly recruit: RecruitCoefficients;
+  /**
+   * 사이보그 유닛 융합·유전자 조각(D-470·D-478·D-481, 49 N46·N47, 옛 craftCyborg·LifeEngine·reincarnate 값). 팩 tuning 경로 "fusion.*".
+   * 규칙은 society/fusion.ts. 시뮬은 읽지 않는다(서버 융합·환생·사망 조각이 읽는다)
+   */
+  readonly fusion: FusionCoefficients;
   /** 지상 기술 단계 상한(질문 121 기본안: 시설 Lv1~5 사다리) */
   readonly techGroundMax: number;
   /** [임시] 단계 n으로 오르는 연구 작업량(효율 1000인 연구 일꾼 한 시간 = 1000) = researchWorkBase × n */
@@ -292,6 +298,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     ...OLD_RECRUIT_COEFFICIENTS,
     levels: OLD_RECRUIT_COEFFICIENTS.levels.map((level) => ({ ...level })),
   },
+  fusion: { ...OLD_FUSION_COEFFICIENTS },
   techGroundMax: 5,
   researchWorkBase: 48_000,
   developmentPerTech: 20,

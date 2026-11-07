@@ -3014,6 +3014,175 @@
       "max": 2592000000
     },
     {
+      "id": "n46_currency",
+      "code": "N46",
+      "name": {
+        "ko": "사이보그 융합 화폐(최소 단위)",
+        "en": "Cyborg fusion currency (minor units)"
+      },
+      "value": 5000,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000
+    },
+    {
+      "id": "n46_titanium",
+      "code": "N46",
+      "name": {
+        "ko": "사이보그 융합 티타늄 괴 수",
+        "en": "Cyborg fusion titanium bars"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000000
+    },
+    {
+      "id": "n46_microchip",
+      "code": "N46",
+      "name": {
+        "ko": "사이보그 융합 마이크로칩 수",
+        "en": "Cyborg fusion microchips"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000000
+    },
+    {
+      "id": "n46_physical_donor",
+      "code": "N46",
+      "name": {
+        "ko": "융합 STR·DEX·AGI의 안드로이드(부품) 몫(‰)",
+        "en": "Fusion STR·DEX·AGI android (parts) share (‰)"
+      },
+      "value": 700,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n46_mental_human",
+      "code": "N46",
+      "name": {
+        "ko": "융합 VIT·INT·WIS의 휴먼 몫(‰)",
+        "en": "Fusion VIT·INT·WIS human share (‰)"
+      },
+      "value": 700,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n46_bonus_min",
+      "code": "N46",
+      "name": {
+        "ko": "융합 보너스 배율 최소(‰)",
+        "en": "Fusion bonus multiplier min (‰)"
+      },
+      "value": 1050,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "n46_bonus_max",
+      "code": "N46",
+      "name": {
+        "ko": "융합 보너스 배율 최대(‰)",
+        "en": "Fusion bonus multiplier max (‰)"
+      },
+      "value": 1150,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "n46_parts_stat",
+      "code": "N46",
+      "name": {
+        "ko": "융합 부품 쪽 1차 스탯",
+        "en": "Fusion parts-side primary stat"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n46_upkeep",
+      "code": "N46",
+      "name": {
+        "ko": "사이보그 유닛 유지비 배율(‰)",
+        "en": "Cyborg unit upkeep multiplier (‰)"
+      },
+      "value": 3000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000000
+    },
+    {
+      "id": "n47_rebirth_divisor",
+      "code": "N47",
+      "name": {
+        "ko": "환생 유전자 조각: 레벨 나눗수",
+        "en": "Rebirth gene shards: level divisor"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "level",
+      "min": 1,
+      "max": 1000
+    },
+    {
+      "id": "n47_rebirth_min",
+      "code": "N47",
+      "name": {
+        "ko": "환생 유전자 조각 최소",
+        "en": "Rebirth gene shards minimum"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n47_gene_points",
+      "code": "N47",
+      "name": {
+        "ko": "유전자 조각 1개의 스탯 +",
+        "en": "Stat points per gene shard"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "n47_death_drop",
+      "code": "N47",
+      "name": {
+        "ko": "사망 때 주는 유전자 조각 수",
+        "en": "Gene shards dropped on death"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 100
+    },
+    {
       "id": "n53_gardener_waves",
       "code": "N53",
       "name": {

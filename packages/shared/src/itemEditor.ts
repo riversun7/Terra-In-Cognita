@@ -237,6 +237,14 @@ export interface ItemJson {
   readonly equip?: ItemEquipJson | undefined;
   readonly perish?: { readonly shelfLifeMs: number; readonly spoilsTo: string } | undefined;
   readonly use?: { readonly effects: readonly ItemEffectJson[] } | undefined;
+  /** 유전자 조각(D-478, docs/adr/2026-11-07-cyborg-fusion-genes.md): 종류·종(유닛 종류 ID)·얻는 길. 편집기는 그대로 넘긴다 */
+  readonly gene?:
+    | {
+        readonly kind: "stat" | "skill";
+        readonly species: string;
+        readonly drops?: readonly "death"[] | undefined;
+      }
+    | undefined;
   readonly enabled: boolean;
 }
 

@@ -22,6 +22,7 @@ const KIND_TITLES = {
   building_stopped: (count, locale) => m.inbox_building_stopped_title({ count }, { locale }),
   contract_match: (_count, locale) => m.inbox_contract_match_title({}, { locale }),
   craft_done: (_count, locale) => m.inbox_craft_done_title({}, { locale }),
+  scout_returned: (_count, locale) => m.inbox_scout_returned_title({}, { locale }),
 } satisfies Record<InboxKindId, (count: string, locale: Locale) => string>;
 
 /**

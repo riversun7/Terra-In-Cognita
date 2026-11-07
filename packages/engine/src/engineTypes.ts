@@ -173,6 +173,11 @@ export interface SecondMapEngine {
   setUnitLook(id: number, look: UnitLook): void;
   /** 카메라 목표(배치 칸)와 화면 짧은 변에 보일 길이(m, 없으면 거리 그대로). 한계 안으로 자른다 */
   setView(view: { x: number; y: number; spanM?: number | undefined }): void;
+  /**
+   * 보기 범위(배치 칸 원 여러 개 — 가운데 x·y, 반지름 r): 카메라 목표점이 그 원들 가운데 하나 안에 머물고, 가장 멀리 줄여도 가장 큰 원 지름의
+   * 두 배까지만 보인다. null이면 범위 없음(2차맵·이웃 전체). 플레이어 카메라 묶기(기획 정리 630) — 운영자 모드는 null
+   */
+  setViewArea(area: readonly { x: number; y: number; r: number }[] | null): void;
   /** 모두 버린다: 그리기 멈춤, 입력·워커·지오메트리·재질 정리, 캔버스 떼기(렌더러는 다음 화면이 다시 쓴다) */
   dispose(): void;
 }

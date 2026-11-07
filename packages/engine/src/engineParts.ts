@@ -70,6 +70,7 @@ export function inertEngine(): SecondMapEngine {
     requestFrame: () => undefined,
     setUnitLook: () => undefined,
     setView: () => undefined,
+    setViewArea: () => undefined,
     dispose: () => undefined,
   };
 }

@@ -3,6 +3,7 @@
 // 각 모듈의 create…가 정한다. 지금은 모두 0개라 DB를 받지 않는다. 시스템이 생겨 DB·월드가 필요하면 여기로 넘긴다.
 import { collectInbox, checkProviders, createInboxProviders } from "../inbox/registry.ts";
 import type { InboxAccount } from "../inbox/types.ts";
+import type { TravelService } from "../travel/service.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import { EMPTY_SUMMARY_BACKEND, type SummaryBackend, collectSummary } from "../summary/summary.ts";
 import type { HomeServices, Viewer } from "../trpc/context.ts";
@@ -13,11 +14,16 @@ const accountOf = (viewer: Viewer): InboxAccount => ({ userId: viewer.id, roles:
 /**
  * summary: 복귀 요약 자료(DB·월드가 있을 때 app.ts가 만든다, src/world/summarySources.ts).
  * pool: 처리할 일 제공 함수가 읽는 DB(웨이브 예고 wave_incoming, DB가 있을 때)
+ * travel: 정찰 끝(scout_returned)이 읽는 이동 서비스(세계가 준비된 뒤, 없으면 undefined)
  */
 export function createHomeServices(
-  options: { summary?: SummaryBackend | undefined; pool?: QueryPool | undefined } = {},
+  options: {
+    summary?: SummaryBackend | undefined;
+    pool?: QueryPool | undefined;
+    travel?: (() => Pick<TravelService, "list"> | undefined) | undefined;
+  } = {},
 ): HomeServices {
-  const inboxProviders = createInboxProviders({ pool: options.pool });
+  const inboxProviders = createInboxProviders({ pool: options.pool, travel: options.travel });
   checkProviders(inboxProviders);
   const summary = options.summary ?? EMPTY_SUMMARY_BACKEND;
   const cardProviders = createServerCardProviders();

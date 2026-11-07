@@ -376,6 +376,8 @@ export interface WorldMapReads {
   travelPlan?: TravelReads["travelPlan"];
   /** 2차맵 화면의 내 유닛 목록(docs/adr/2026-11-07-unit-control.md, src/worldMap/mapUnits.ts). 없으면 not_ready */
   mapUnits?: MapUnitReads["mapUnits"];
+  /** 누른 남의 유닛의 세력·종류(기획 답 636 나, 같은 모듈). 없으면 not_ready */
+  unitGlance?: MapUnitReads["unitGlance"];
 }
 
 /** 영토 조회(src/territory/service.ts). 없는 행성이면 undefined */

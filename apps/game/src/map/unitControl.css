@@ -118,3 +118,14 @@
   line-height: 1;
   white-space: nowrap;
 }
+
+/* "다른 곳에 내 유닛 N" 한 줄(기획 답 632 다) — 목록 아래, 누르면 유닛 화면. 긴 영어도 줄바꿈 */
+.map-units-elsewhere {
+  margin: 0;
+}
+.map-units-elsewhere-open {
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: start;
+}

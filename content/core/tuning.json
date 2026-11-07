@@ -3204,6 +3204,58 @@
       "max": 1000000
     },
     {
+      "id": "travel_raid_base",
+      "code": "",
+      "name": {
+        "ko": "이동 도중 습격 기본 확률(건너뛰는 2차맵마다 ‰)",
+        "en": "Travel raid base chance per skipped map (‰)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "travel_raid_pollution_div",
+      "code": "",
+      "name": {
+        "ko": "이동 도중 습격: 오염 나눗수(오염 ÷ 이 값 = 더하는 ‰)",
+        "en": "Travel raid: pollution divisor (pollution ÷ this = added ‰)"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 100000
+    },
+    {
+      "id": "travel_raid_max",
+      "code": "",
+      "name": {
+        "ko": "이동 도중 습격 확률 상한(‰)",
+        "en": "Travel raid chance cap (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "travel_raid_creatures",
+      "code": "",
+      "name": {
+        "ko": "이동 도중 습격 크리쳐 수",
+        "en": "Travel raid creatures"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 50
+    },
+    {
       "id": "m2_grade_l2",
       "code": "M2",
       "name": {

@@ -71,7 +71,7 @@ describe("2차맵 사이 이동 문구", () => {
     for (const problem of ["no_cyborg", "offline", "timeout", "in_transit"] as const)
       expect(travelProblemText(problem).length).toBeGreaterThan(0);
     expect(travelProblemText("no_route")).toBe("그곳은 너무 멀어 한 번에 보낼 수 없습니다.");
-    for (const stop of ["cancelled", "interrupted", "blocked", "unavailable"] as const)
+    for (const stop of ["cancelled", "interrupted", "blocked", "unavailable", "raided"] as const)
       expect(travelStopText(stop).length).toBeGreaterThan(0);
   });
 });
@@ -97,7 +97,7 @@ describe("WP11 확인 단계·가는 중", () => {
     expect(lines.map((line) => line.text)).toEqual([
       "비용: 없음(걸어서 감)",
       "위험: 2차맵 2번째 · 오염 2,500",
-      "위험: 2차맵 3번째 · 전쟁 중: 농업국",
+      "위험: 2차맵 3번째 · 나와 전쟁 중: 농업국",
       "위험 구간 1곳 더",
       "모르는 2차맵 2장은 위험을 알 수 없습니다.",
     ]);

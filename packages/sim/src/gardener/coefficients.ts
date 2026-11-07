@@ -110,6 +110,15 @@ export interface GardenerCoefficients {
   readonly rewardRenownPer: number;
   readonly rewardGenes: number;
   readonly rewardMaterialsPm: number;
+  /**
+   * 2차맵 사이 이동이 띄우지 않은 2차맵을 건너뛸 때의 도중 습격(기획 답 593 나 "도중 습격은 확률"·610 나, docs/adr/2026-11-07-play-flow.md "WP13"):
+   * 건너뛰는 2차맵마다 확률 ‰ = min(travelRaidMaxPm, travelRaidBasePm + 그 2차맵 오염 ÷ travelRaidPollutionDivisor), 습격하는 정원사 크리쳐
+   * travelRaidCreatures마리(웨이브 크리쳐와 같은 몸). 서버 이동 서비스만 읽는다(시뮬 규칙에 쓰지 않는다). 값은 모두 [임시](D-515)
+   */
+  readonly travelRaidBasePm: number;
+  readonly travelRaidPollutionDivisor: number;
+  readonly travelRaidMaxPm: number;
+  readonly travelRaidCreatures: number;
 }
 
 const HOUR_MS = 3_600_000;
@@ -170,4 +179,8 @@ export const TEST_GARDENER_COEFFICIENTS: GardenerCoefficients = {
   rewardRenownPer: 10,
   rewardGenes: 1,
   rewardMaterialsPm: 500,
+  travelRaidBasePm: 50,
+  travelRaidPollutionDivisor: 20,
+  travelRaidMaxPm: 500,
+  travelRaidCreatures: 2,
 };

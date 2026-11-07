@@ -185,8 +185,11 @@ export interface WorldTravelPlanResponse {
   readonly generatedAt: number;
 }
 
-/** 멈춘 까닭: 멈추기·다른 명령·전투 등으로 길에서 벗어남·막힘(넘는 변·목표·길 없음)·움직일 수 없음 */
-export type WorldTravelStop = "cancelled" | "interrupted" | "blocked" | "unavailable";
+/**
+ * 멈춘 까닭: 멈추기·다른 명령·전투 등으로 길에서 벗어남·막힘(넘는 변·목표·길 없음)·움직일 수 없음·띄우지 않은 2차맵을 건너뛰는 동안 습격을 받아
+ * 졌다(raided — 다음 띄운 2차맵 변에서 부상으로 멈춤, 기획 답 610 나, docs/adr/2026-11-07-play-flow.md "WP13")
+ */
+export type WorldTravelStop = "cancelled" | "interrupted" | "blocked" | "unavailable" | "raided";
 
 export interface WorldTravel {
   readonly unitId: number;

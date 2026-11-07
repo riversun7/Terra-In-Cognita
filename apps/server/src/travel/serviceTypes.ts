@@ -21,6 +21,7 @@ import type {
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap, UnitRow } from "../world/secondMap.ts";
+import type { TravelRaids } from "./raid.ts";
 import type { Hop } from "./route.ts";
 import type { TravelRecord } from "./store.ts";
 
@@ -63,6 +64,11 @@ export interface TravelService {
   list(userId: string): TravelView[];
   /** 띄우지 않은 2차맵을 건너뛰는 중인 유닛의 지금 자리(아니면 undefined) */
   hiddenAt(unitId: number): HiddenPlace | undefined;
+  /**
+   * 도중 습격(기획 답 610 나, raid.ts)을 붙인다. 앱이 세계가 준비된 뒤 전투 자료·설정 칸으로 만든다(없으면 습격 없음). 굴림은 나타날 때라
+   * 부팅 복구가 다시 숨긴 길도 붙인 뒤에 나타나면 굴린다
+   */
+  attachRaids(raids: TravelRaids | undefined): void;
   /** 부팅: 저장한 길을 다시 잇는다(유닛을 다시 놓은 뒤). 다시 시작한 수 */
   restore(): Promise<number>;
   /** 지금 시각까지 확인할 길을 처리한다(타이머가 부른다. 시험은 가짜 시계를 옮긴 뒤 부른다) */
@@ -92,6 +98,8 @@ export interface TravelDeps {
   readonly pool?: QueryPool | undefined;
   /** 세계가 명령을 받을 수 있나(부팅 복구 끝) */
   ready(): boolean;
+  /** 도중 습격(raid.ts). 없으면 습격 없음(attachRaids로 나중에 붙일 수 있다) */
+  readonly raids?: TravelRaids | undefined;
 }
 
 /** 건너뛰는 중(메모리): 들고 있는 유닛 행, 사라진 점(route[hop.from] 틀), 나타날 곳 */

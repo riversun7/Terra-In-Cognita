@@ -13,6 +13,7 @@ import {
   cameraLimitsFor,
   cameraPosition,
   clampCamera,
+  clampToArea,
   distanceForSpan,
   groundUnder,
   initialCamera,
@@ -82,6 +83,26 @@ describe("clampCamera", () => {
     expect(state.targetX).toBe(0);
     expect(state.targetZ).toBe(MAP);
     expect(clampCamera({ ...state, pitch: 10 * DEG }, limits).pitch).toBeCloseTo(MIN_PITCH_RAD, 9);
+  });
+
+  it("보기 범위(원 여러 개)가 있으면 목표점을 가장 가까운 원 안으로 옮긴다(안이면 그대로, 기획 정리 630)", () => {
+    const area = [
+      { x: 100, z: 100, r: 50 },
+      { x: 400, z: 100, r: 20 },
+    ];
+    const at = (x: number, z: number) =>
+      clampCamera({ ...initialCamera(MAP, limits), targetX: x, targetZ: z }, { ...limits, area });
+    // 첫 원 안: 그대로
+    expect([at(120, 90).targetX, at(120, 90).targetZ]).toEqual([120, 90]);
+    // 첫 원 동쪽 밖: 첫 원 가장자리로
+    expect(at(200, 100).targetX).toBeCloseTo(150, 9);
+    expect(at(200, 100).targetZ).toBeCloseTo(100, 9);
+    // 둘째 원 쪽이 더 가깝다
+    expect(at(370, 100).targetX).toBeCloseTo(380, 9);
+    // 원 목록이 비면 상자 범위만
+    const free = clampCamera({ ...initialCamera(MAP, limits), targetX: 700 }, { ...limits, area: [] });
+    expect(free.targetX).toBe(700);
+    expect(clampToArea({ x: 5, z: 5 }, [])).toEqual({ x: 5, z: 5 });
   });
 
   it("방위는 (-π, π]로 접는다(회전은 자유)", () => {

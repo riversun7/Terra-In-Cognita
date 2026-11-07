@@ -106,6 +106,11 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "gardener.rewardRenownPer",
   "gardener.rewardGenes",
   "gardener.rewardMaterialsPm",
+  // 2차맵 사이 이동 도중 습격(travel/raid.ts, docs/adr/2026-11-07-play-flow.md "WP13"): 건너뛰기를 시작할 때·나타날 때 읽는다
+  "gardener.travelRaidBasePm",
+  "gardener.travelRaidPollutionDivisor",
+  "gardener.travelRaidMaxPm",
+  "gardener.travelRaidCreatures",
   // 아이템 편집기 미리 보기의 채집 티어 추첨(itemEdit/services.ts preview, D-506 N43): 미리 보기마다 읽는다
   "gatherLevelBonus",
   // 같은 미리 보기의 진행 속도·수확량·필요 진행(D-507 N32·N44)

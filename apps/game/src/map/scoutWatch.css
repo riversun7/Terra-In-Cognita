@@ -1,0 +1,51 @@
+/*
+ * 정찰 끝 화면 알림(기획 답 612 나, ScoutWatch.tsx) — 위 띠 바로 아래에 떠 있는 판(지도 아래 판·하단 탭·새 버전 배너와 겹치지 않게 위쪽).
+ * 값은 styles/tokens.css의 var(--…)만 쓴다. 모바일 우선(390px): 판 너비, 단추는 글 아래로 줄바꿈.
+ */
+.scout-notice {
+  position: fixed;
+  top: calc(var(--space-3) + env(safe-area-inset-top));
+  left: max(var(--space-3), env(safe-area-inset-left));
+  right: max(var(--space-3), env(safe-area-inset-right));
+  z-index: 11;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  border: var(--border-w) solid var(--color-primary-lip);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-panel);
+}
+/* 틀이 보이는 화면(위 띠가 있다)에서는 띠 아래로 */
+:root[data-topbar] .scout-notice {
+  top: calc(var(--topbar-h) + env(safe-area-inset-top) + var(--space-3));
+}
+.scout-notice-text {
+  flex: 1 1 14rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.scout-notice-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-tight);
+}
+.scout-notice-body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.scout-notice-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}

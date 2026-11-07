@@ -1,7 +1,7 @@
 // 2차맵 사이 이동 서비스 시험(DB 없음, 가짜 시계) — 평평한 시험 2차맵 셋을 한 줄로 두고 내 유닛이 변 끝까지 걸어 옆 2차맵으로 넘어가고(실제 유닛·
 // 지나는 2차맵 시야), 넘기 직전 정산, 마지막 2차맵에서 목표 둘레 설 칸에 닿아 끝난다. 확인 단계·멈추기·길에서 벗어남·소유 확인·쓰기 대기열 줄
 // (docs/adr/2026-11-07-play-flow.md "WP9", 질문 571 가·582). WP11: 정찰은 닿으면 돌아오고 탐사 기록을 남긴다(591 나), 띄우지 않은 2차맵은
-// 건너뛴다(593 나 — 사라졌다 나타남·멈추기·다시 켜면 다시 숨김)
+// 건너뛴다(593 나 — 사라졌다 나타남·멈추기·다시 켜면 다시 숨김). WP13: 건너뛰는 동안 확률 습격(610 나 — 지면 부상으로 그 자리에 멈춤)
 import { performance } from "node:perf_hooks";
 import { CELL_UNITS, WALK_SPEED, anchorCenter, arrivalAt, positionAt } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -267,6 +267,58 @@ describe("2차맵 사이 이동", () => {
       { state: "stopped", stop: "cancelled", mapKey: K[2], cellX: 0, cellY: 100 },
     ]);
     expect(r.travels.at(-1)).toEqual({ op: "remove", row: { unit_id: 1 } });
+    r.travel.stop();
+  });
+
+  it("610 나: 건너뛴 2차맵에서 습격이 나면 나타난 자리에서 싸우고, 지면 부상으로 그 자리에 멈춘다(raided)", async () => {
+    const r = rig([0, 2]);
+    placeMine(r, 250, 100);
+    const rolled: { skipped: readonly number[]; seed: number }[] = [];
+    const fought: { mapKey: number; unitId: number; seed: number }[] = [];
+    r.travel.attachRaids({
+      raidAt: (skipped, seed) => {
+        rolled.push({ skipped, seed });
+        return skipped[0] ?? null;
+      },
+      fight: (map, unitId, seed, nowMs) => {
+        fought.push({ mapKey: map.mapKey, unitId, seed });
+        const info = map.unitInfo(unitId);
+        if (info) map.setCondition(unitId, { ...info.condition, injury: 2, injuryUntilMs: nowMs + 60_000 });
+        return { lost: true, creatures: 2, ticks: 100 };
+      },
+    });
+    expect(
+      (await r.travel.start(USER, { unitId: 1, mapKey: K[2] ?? 0, x: 100, y: 100, kind: "move" })).ok,
+    ).toBe(true);
+    await vi.advanceTimersByTimeAsync(700_000);
+    // 건너뛴 2차맵(K[1])을 굴렸고, 나타난 K[2]에서 싸웠다(같은 씨앗)
+    expect(rolled.map((entry) => entry.skipped)).toEqual([[K[1]]]);
+    expect(fought).toEqual([{ mapKey: K[2], unitId: 1, seed: rolled[0]?.seed }]);
+    expect(r.maps.get(K[2] ?? 0)?.unitInfo(1)?.condition.injury).toBe(2);
+    expect(r.travel.list(USER)).toMatchObject([
+      { state: "stopped", stop: "raided", mapKey: K[2], cellX: 0, cellY: 100 },
+    ]);
+    expect(r.travels.at(-1)).toEqual({ op: "remove", row: { unit_id: 1 } });
+    r.travel.stop();
+  });
+
+  it("610 나: 습격이 나지 않거나 이기면 그대로 간다", async () => {
+    const r = rig([0, 2]);
+    placeMine(r, 250, 100);
+    let fights = 0;
+    r.travel.attachRaids({
+      raidAt: (skipped) => skipped[0] ?? null,
+      fight: () => {
+        fights += 1;
+        return { lost: false, creatures: 2, ticks: 50 };
+      },
+    });
+    expect(
+      (await r.travel.start(USER, { unitId: 1, mapKey: K[2] ?? 0, x: 10, y: 100, kind: "move" })).ok,
+    ).toBe(true);
+    await vi.advanceTimersByTimeAsync(800_000);
+    expect(fights).toBe(1);
+    expect(r.travel.list(USER)).toMatchObject([{ state: "arrived", mapKey: K[2] }]);
     r.travel.stop();
   });
 

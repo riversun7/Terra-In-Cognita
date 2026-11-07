@@ -40,6 +40,7 @@ import { createTempleGateway } from "./temple/gateway.ts";
 import { createRuinGateway } from "./ruins/gateway.ts";
 import { marketSourceOf } from "./market/appSource.ts";
 import { serverEconomyCatalogAccessor } from "./market/catalog.ts";
+import { createTravelRaids } from "./travel/raid.ts";
 import { createMarketGateway } from "./market/gateway.ts";
 import { createTravelGateway } from "./travel/gateway.ts";
 import { holdingsConfigOf } from "./holdings/config.ts";
@@ -500,7 +501,23 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         })
       : undefined;
   if (world) {
-    app.addHook("onReady", async () => world.ready);
+    app.addHook("onReady", async () => {
+      await world.ready;
+      // 2차맵 사이 이동 도중 습격(docs/adr/2026-11-07-play-flow.md "WP13", 기획 답 610 나): 팩 전투 자료·설정 칸 실효 값·NPC 런타임 오염
+      const persistence = world.persistence;
+      if (rosterCatalog && persistence)
+        persistence.travel.attachRaids(
+          createTravelRaids({
+            rules: tuningState ? () => tuningState.society().gardener : undefined,
+            pollutionOf: (mapKey) => world.npc?.gardener.run.layer().get(mapKey) ?? 0,
+            catalog: () => rosterCatalog.combat,
+            combat: tuningState
+              ? () => combatCoefficientsFrom(tuningState.values(), undefined, tuningState.combatFormulas())
+              : undefined,
+            bodies: persistence.bodies,
+          }),
+        );
+    });
     app.addHook("onClose", async () => {
       // 지형 서비스를 먼저 닫는다: 행성 값을 기다리던 부팅이 실패로 끝나야 world.stop이 기다리지 않는다
       await terrain?.close();
@@ -617,6 +634,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       summary: world && options.db ? createWorldSummaryBackend(world) : undefined,
       // 처리할 일: 정원사 웨이브 예고(wave_incoming, DB가 있을 때)
       inboxPool: options.db?.$client,
+      // 처리할 일: 정찰 끝(scout_returned, 기획 답 612 나 — 이동 서비스 메모리)
+      inboxTravel: () => (world?.status().state === "ready" ? world.persistence?.travel : undefined),
       // 유닛·사이보그 화면: 실제 유닛은 DB가 있는 월드만(복귀 요약과 같은 읽는 차례)
       roster: {
         catalog: options.roster,

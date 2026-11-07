@@ -9,11 +9,12 @@
 // 지금 화면을 다시 고르면(라우터 reselects) focusId 칸에 초점을 두거나 맨 위로 올린다.
 // 복귀 요약(W3, summary/ReturnSummary.tsx)은 틀 밖 겹침으로 맨 아래에 그린다. 종 배지는 TopBar.tsx, 화면은 routeViews.tsx.
 import { type AccountView, ROUTES, canOpenRoute, menuRoute } from "@terra/shared";
-import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { type ReactNode, Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useInboxMenuBadges } from "../inbox/store.ts";
 import { m } from "../paraglide/messages.js";
 import type { FrameMonitor } from "../perf/frameMonitor.ts";
 import { ReturnSummary } from "../summary/ReturnSummary.tsx";
+import { ChunkErrorBoundary } from "../ui/ChunkErrorBoundary.tsx";
 import { ConnectionNotice } from "./ConnectionNotice.tsx";
 import { MapSwitch } from "./MapSwitch.tsx";
 import { OrientationHint } from "./OrientationHint.tsx";
@@ -30,6 +31,9 @@ import { useLayout } from "./useLayout.ts";
 import { gateHolds, gateRedirect, useCyborgGate } from "../start/cyborgGate.ts";
 import "./shell.css";
 import "./overlays.css";
+
+// 정찰 끝 화면 알림(기획 답 612 나, map/ScoutWatch.tsx): 지연 조각 — 첫 화면 묶음에 tRPC 클라이언트를 넣지 않는다
+const ScoutWatch = lazy(() => import("../map/ScoutWatch.tsx"));
 
 /** 칸 열쇠 → 그 칸에서 보던 스크롤 위치(뒤로·앞으로) */
 const entryScroll = new Map<string, number>();
@@ -327,6 +331,13 @@ export function Shell({ user, monitor }: { user: AccountView; monitor: FrameMoni
       {frame}
       {/* 복귀 요약: 어느 주소 위에도 뜨는 겹침, 기록 칸을 쌓지 않는다. 숫자를 누르면 닫고 그 화면으로(쌓기) */}
       <ReturnSummary onNavigate={navigate} />
+      {holding ? null : (
+        <ChunkErrorBoundary fallback={null}>
+          <Suspense fallback={null}>
+            <ScoutWatch />
+          </Suspense>
+        </ChunkErrorBoundary>
+      )}
     </>
   );
 }

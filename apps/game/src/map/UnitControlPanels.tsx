@@ -1,9 +1,11 @@
 // 2차맵 화면의 유닛 조종 몫 — 내 유닛 목록(접고 펴기)·고른 유닛 단추([멈추기]·[선택 해제])·운영자 표시와 개발 단추.
 // docs/adr/2026-11-07-unit-control.md(사용자 지적 2026-11-07 "사이보그 포함 유닛 목록을 통해 선택하여 명령. 운영자는 다른 유닛 조종이나 시야
 // 자유이동이 가능"). 상태는 화면(SecondaryMapScreen.tsx)이 갖고, 여기는 그리기만 한다. 모바일 우선(390px): 목록은 아래 판 위에 펼치고 접는다.
+// 기획 답 632 다: 목록 끝에 "다른 곳에 내 유닛 N" 한 줄 — 누르면 유닛 화면(모든 유닛).
 import type { MapUnit } from "@terra/shared/mapUnits";
 import { m } from "../paraglide/messages.js";
-import { unitName, unitStatusText } from "./mapUnits.ts";
+import { navigate } from "../shell/routerStore.ts";
+import { elsewhereText, unitName, unitStatusText } from "./mapUnits.ts";
 import "./unitControl.css";
 
 /** 목록 id(접기 단추의 aria-controls) */
@@ -35,6 +37,7 @@ export function UnitsToggle({
 export function MyUnitsPanel({
   units,
   failed,
+  elsewhere,
   moving,
   selected,
   onPick,
@@ -42,6 +45,8 @@ export function MyUnitsPanel({
 }: {
   readonly units: readonly MapUnit[] | null;
   readonly failed: boolean;
+  /** 이 2차맵 밖의 내 유닛 수(632 다) */
+  readonly elsewhere: number;
   /** 엔진이 지금 가는 중이라고 하는 유닛(1초마다) */
   readonly moving: ReadonlySet<number>;
   readonly selected: number | null;
@@ -98,7 +103,25 @@ export function MyUnitsPanel({
           ))}
         </ul>
       )}
+      <ElsewhereLine count={elsewhere} />
     </section>
+  );
+}
+
+/** "다른 곳에 내 유닛 N" 한 줄(632 다): 누르면 유닛 화면 */
+function ElsewhereLine({ count }: { readonly count: number }) {
+  const text = elsewhereText(count);
+  if (text === null) return null;
+  return (
+    <p className="map-units-elsewhere" data-elsewhere={count}>
+      <button
+        type="button"
+        className="button-small map-units-elsewhere-open"
+        onClick={() => navigate({ route: "units" })}
+      >
+        {text}
+      </button>
+    </p>
   );
 }
 

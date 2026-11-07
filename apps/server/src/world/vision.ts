@@ -86,6 +86,11 @@ export interface MapVision {
    * (docs/adr/2026-11-07-play-flow.md "WP7")
    */
   sighted(viewer: VisionViewer): Promise<Uint8Array>;
+  /**
+   * 이 사람이 지금 이 유닛을 보는가: 내 유닛이거나 지금 내 유닛·건물의 시야 칸 안(시야 전송이 보내는 것과 같은 규칙). 없는 유닛이면 false.
+   * 남의 유닛 한눈 정보(질문 636 나, docs/adr/2026-11-07-unit-control.md "바뀜 (기획 답 630~637)")가 묻는다
+   */
+  sees(viewer: VisionViewer, unitId: number): boolean;
   subscribe(subscriber: StreamSubscriber, viewer: VisionViewer): void;
   unsubscribe(subscriber: StreamSubscriber): void;
   unitChanged(unit: VisionUnit): void;
@@ -446,6 +451,15 @@ export function createMapVision(options: {
         group.rev += 1;
         group.stream.buildingRemoved(group.rev, buildingId);
       }
+    },
+    sees(viewer, unitId) {
+      const unit = source.unit(unitId);
+      if (!unit) return false;
+      if (owns(viewer, unit.ownerId)) return true;
+      // 구독 중인 무리면 지금 보내 둔 것과 같게, 아니면 지금 시야를 다시 센다
+      const group = groups.get(groupKeyOf(viewer));
+      if (group) return group.visible.has(unitId);
+      return (coverOf(viewer.ownerId)[visionCellOf(positionAt(unit.motion, now()))] ?? 0) > 0;
     },
     tick,
     get groupCount() {

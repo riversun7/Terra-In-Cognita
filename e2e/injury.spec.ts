@@ -173,13 +173,17 @@ test.describe("부상·병원", () => {
     });
     expect(await horizontalOverflow(page)).toEqual([]);
     await elementShot(care, "injury-care-pastel-ko-390");
-    await elementShot(row, "injury-row-pastel-ko-390");
     // [병원 치료 · 값] → 치료 중 안내, 같은 병원 견적은 사라짐(지금보다 빠르지 않음)
     await option.getByRole("button").click();
     await expect(care.locator(".message-success")).toBeVisible({ timeout: 15_000 });
     await expect(care.locator('[data-part="hospital-option"]')).toHaveCount(0);
+    await expect(care).toContainText(message("ko", "hospital_not_faster"));
     await expect(care).toContainText(message("ko", "injury_treated", { speed: "@" }).split("@")[0] ?? "");
     await elementShot(care, "injury-treated-pastel-ko-390");
+    // 좁은 폭은 상세만 보인다 → [목록으로] 뒤 목록 줄의 단계 표
+    await page.getByRole("button", { name: message("ko", "units_detail_back"), exact: true }).click();
+    await expect(row.locator('[data-part="injury-badge"]')).toBeVisible();
+    await elementShot(row, "injury-row-pastel-ko-390");
     expect(deviceErrors).toEqual([]);
   });
 });

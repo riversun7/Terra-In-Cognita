@@ -164,7 +164,9 @@ export function HospitalCare({
           {mine.captive ? (
             <p className="roster-note">{m.hospital_captive()}</p>
           ) : mine.options.length === 0 ? (
-            <p className="roster-empty">{m.hospital_none_here()}</p>
+            <p className="roster-empty">
+              {mine.healPm > 1000 ? m.hospital_not_faster() : m.hospital_none_here()}
+            </p>
           ) : (
             <ul className="hospital-options">
               {mine.options.map((option) => {

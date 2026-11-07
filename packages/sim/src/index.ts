@@ -272,21 +272,7 @@ export {
   type SimWorld,
 } from "./simulator/world.ts";
 // 폐허 복원(docs/adr/2026-11-07-ruins-restoration.md): 규칙·시뮬·서버 같은 실행
-export type {
-  GovernmentLookup,
-  GovernmentStatus,
-  RuinResult,
-  RuinsSummary,
-  SocietyRuins,
-} from "./simulator/societyRuins.ts";
-export {
-  START_RESTORATION_COEFFICIENTS,
-  contributionList,
-  raisedOf,
-  restorationGoal,
-  restorationShares,
-} from "./society/restoration.ts";
-export type { RestorationCoefficients } from "./society/restoration.ts";
+export * from "./simulator/ruinsEntry.ts";
 // 세계 씨앗(docs/adr/2026-11-07-play-flow.md "WP1 세계 씨앗"): 고정 NPC 국가 시작 도시 수·기본 시설 수 [임시]. 서버만 읽는다
 export {
   START_CITIES_LIMIT,

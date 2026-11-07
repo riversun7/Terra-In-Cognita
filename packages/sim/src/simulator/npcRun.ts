@@ -249,6 +249,17 @@ export function blocsOf(world: SimWorld): Blocs {
   return { topOf, strengthOf };
 }
 
+/**
+ * attacker가 지금 칠 수 있는 남의 도시인가: 시작 도시가 아니고(D-341 — 주인이 바뀌지 않는다), 내가 점령 상태로 둔 도시가 아니고, 내가 약탈한
+ * 뒤 쉬는 날이 지났다(D-520, 확인 대기 685)
+ */
+function targetable(world: SimWorld, attacker: SimFaction, cityId: number, nowMs: number): boolean {
+  if (world.cities.get(cityId)?.start !== false) return false;
+  const held = world.occupations.get(cityId);
+  if (held?.kind === "occupied" && held.occupier === attacker.id) return false;
+  return (attacker.raided.get(cityId) ?? 0) <= nowMs;
+}
+
 /** 다른 세력 하나를 faction이 본 모습 */
 export function rivalView(
   ctx: NpcContext,
@@ -258,7 +269,7 @@ export function rivalView(
   blocs: Blocs = blocsOf(ctx.world),
 ): RivalView {
   let takeable = 0;
-  for (const cityId of other.cities) if (ctx.world.cities.get(cityId)?.start === false) takeable += 1;
+  for (const cityId of other.cities) if (targetable(ctx.world, faction, cityId, nowMs)) takeable += 1;
   const top = blocs.topOf.get(other.id) ?? other.id;
   return {
     id: other.id,
@@ -294,14 +305,8 @@ function attack(
   const { world } = ctx;
   const target = world.factions.get(targetId);
   if (!target?.alive) return;
-  // 시작 도시는 주인이 바뀌지 않는다(D-341). 내가 이미 점령 상태로 둔 도시는 다시 치지 않는다. 난수로 고른 도시(넣은 차례가 아니라)
-  const takeable = [...target.cities].filter((cityId) => {
-    const held = world.occupations.get(cityId);
-    return (
-      world.cities.get(cityId)?.start === false &&
-      !(held?.kind === "occupied" && held.occupier === attacker.id)
-    );
-  });
+  // 칠 수 있는 도시(targetable) 가운데 난수로 고른 도시(넣은 차례가 아니라)
+  const takeable = [...target.cities].filter((cityId) => targetable(world, attacker, cityId, nowMs));
   const cityId = takeable[roll % Math.max(1, takeable.length)];
   if (cityId === undefined) return;
   ctx.onAttack?.(attacker, target, cityId, nowMs);

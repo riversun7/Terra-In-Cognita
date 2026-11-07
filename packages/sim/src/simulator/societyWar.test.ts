@@ -78,6 +78,8 @@ describe("공성 결과 셋(D-520)", () => {
     expect(two.cities.has(5)).toBe(true);
     expect(world.ruins.has(5)).toBe(false);
     expect(three.wars.has(2)).toBe(true);
+    // 그 세력은 쉬는 날(7일) 동안 이 도시를 다시 치지 않는다(685), 하루 끝에 지난 것을 지운다
+    expect(three.raided.get(5)).toBe(2000 + TEST_SOCIETY_COEFFICIENTS.war.raidCooldownDays * DAY_MS);
     expect(society.summary().occupations).toMatchObject({ loot: 1, integrate: 0, occupy: 0, delisted: 0 });
     expect(problems(2000)).toEqual([]);
   });

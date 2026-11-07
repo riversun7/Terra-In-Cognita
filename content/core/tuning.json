@@ -4348,6 +4348,19 @@
       "max": 10000
     },
     {
+      "id": "d520_raid_cooldown_days",
+      "code": "",
+      "name": {
+        "ko": "약탈한 세력이 그 도시를 다시 치지 않는 날(일)",
+        "en": "Days a raider leaves the raided city alone"
+      },
+      "value": 7,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 3650
+    },
+    {
       "id": "d520_rebuild_per_housing",
       "code": "",
       "name": {

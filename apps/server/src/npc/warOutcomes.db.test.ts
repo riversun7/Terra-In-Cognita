@@ -176,6 +176,9 @@ describe.skipIf(!TEST_DATABASE_URL)("공성 결과 셋(D-520)", () => {
       [townId],
     );
     expect(still[0]?.faction_id).toBe(String(secondRow));
+    // 약탈한 세력은 쉬는 날 동안 그 도시를 다시 치지 않는다(685) — 다시 켜도 약탈 줄에서 돌아온다
+    const cooldown = clock + TEST_SOCIETY_COEFFICIENTS.war.raidCooldownDays * DAY_MS;
+    expect(raider.raided.get(townId)).toBe(cooldown);
     // 세력 화면 점령 칸: 친 쪽(첫 세력)은 약탈·점령 상태 두 줄(as_occupier), 당한 쪽(둘째)은 약탈을 as_target으로
     const firstView = await readOccupationRows(test.db.$client, firstRow);
     expect(firstView.map((row) => [row.side, row.lootChoice])).toEqual([
@@ -188,6 +191,8 @@ describe.skipIf(!TEST_DATABASE_URL)("공성 결과 셋(D-520)", () => {
       ["as_occupier", "integrate"],
     ]);
     expect(await world.checkInvariants()).toEqual([]);
+    world = await restart(world);
+    expect(world.npc?.world.factions.get(first.id)?.raided.get(townId)).toBe(cooldown);
   });
 
   it("태어날 때 부모(620 나): 마을 세력 행에 born_of, 다시 켜도 거울 세력이 안다", async () => {

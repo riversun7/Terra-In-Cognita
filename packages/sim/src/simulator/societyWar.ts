@@ -12,6 +12,7 @@ import {
   bpShare,
   nextOccupationTaxMs,
   occupationWindow,
+  raidCooldownUntil,
   rebuildCost,
   recoveryDayPm,
 } from "../society/warOutcomes.ts";
@@ -84,6 +85,9 @@ export function createSocietyWar(o: {
   return {
     raid(attacker, target, city, nowMs) {
       const taken = takeTreasury(target, attacker, c.lootTakeBp, "loot", nowMs);
+      // 그 세력은 쉬는 날 동안 이 도시를 다시 치지 않는다(확인 대기 685)
+      const until = raidCooldownUntil(nowMs, c.war);
+      if (until > nowMs) attacker.raided.set(city.id, until);
       // 공공 창고 = 그 도시 창고의 도시 주인 세력 물건(유저·다른 세력 물건은 사유 자산이라 건드리지 않는다, D-161)
       const home = [...attacker.cities].filter((id) => world.cities.has(id)).toSorted((a, b) => a - b)[0];
       const entries = [];
@@ -154,6 +158,8 @@ export function createSocietyWar(o: {
     },
 
     endOfDay(nowMs) {
+      for (const faction of world.factions.values())
+        for (const [cityId, until] of faction.raided) if (until <= nowMs) faction.raided.delete(cityId);
       for (const entry of [...world.occupations.values()].toSorted((a, b) => a.city - b.city)) {
         const city = world.cities.get(entry.city);
         if (entry.kind === "annexed") {

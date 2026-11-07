@@ -21,6 +21,12 @@ export const WAR_TUNING_KEYS: readonly TuningKey[] = [
     "Raid: share of the city's public storage taken (bp)",
   ),
   k(
+    "d520_raid_cooldown_days",
+    "raidCooldownDays",
+    "약탈한 세력이 그 도시를 다시 치지 않는 날(일)",
+    "Days a raider leaves the raided city alone",
+  ),
+  k(
     "d520_rebuild_per_housing",
     "rebuildPerHousing",
     "점령·귀속 재건 비용(주거 1당, 최소 단위)",

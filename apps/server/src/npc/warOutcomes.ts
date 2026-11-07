@@ -1,5 +1,6 @@
 // 공성 결과 저장(NPC 사회 런타임) — docs/adr/2026-11-07-war-outcomes.md, 기획 D-520. 표 war_outcomes(db/warSchema.ts).
 // - 켤 때: 끝나지 않은 남은 상태(점령 상태·점령·귀속 회복 불이익)를 거울 세계 world.occupations로 읽는다(세력 행 → 거울 세력 = 소유 주체 ID).
+//   쉬는 날 안의 약탈 줄은 그 세력의 raided(약탈한 도시 → 다시 칠 수 있는 시각, 확인 대기 685)로 돌린다.
 // - 결과 하나(attachSociety onWarOutcome): 새 줄을 기다리는 줄에 넣는다(세력 행 ID는 flush 때 잇는다 — 예비 행이 모자라 늦게 넣는 새 세력이
 //   있어서). 남은 상태가 생기는 결과(점령 상태·점령·귀속)는 그 도시의 줄 번호를 적어 둔다.
 // - flush(세력·도시 저장 뒤): 새 줄을 쓰고, 남은 상태의 다음 세금·거둔 세금이 바뀌었으면 고치고, 거울에서 사라진 상태는 ended_at_ms = 지금.
@@ -23,6 +24,8 @@ interface StoredOccupation {
 export interface WarOutcomeState {
   /** 끝나지 않은 남은 상태(도시 ID → 상태) */
   readonly occupations: Map<number, SimOccupation>;
+  /** 쉬는 날 안의 약탈(거울 세력·도시·시각, 세력·도시마다 가장 늦은 것) */
+  readonly raids: readonly { readonly attacker: number; readonly city: number; readonly atMs: number }[];
   readonly stored: ReadonlyMap<number, StoredOccupation>;
   readonly maxId: number;
 }
@@ -31,19 +34,32 @@ const num = (value: unknown): number => Number(value);
 const numOrNull = (value: unknown): number | null =>
   value === null || value === undefined ? null : Number(value);
 
-/** 끝나지 않은 남은 상태와 가장 큰 줄 번호. ownerOfRow = 세력 행 → 거울 세력(소유 주체). 어느 쪽 세력을 모르면(사라짐) 그 줄은 끝난 것으로 둔다 */
+/**
+ * 끝나지 않은 남은 상태와 가장 큰 줄 번호, raidSinceMs 뒤의 약탈. ownerOfRow = 세력 행 → 거울 세력(소유 주체). 어느 쪽 세력을 모르면(사라짐) 그
+ * 줄은 끝난 것으로 둔다
+ */
 export async function loadWarOutcomes(
   pool: QueryPool,
   ownerOfRow: ReadonlyMap<number, number>,
+  raidSinceMs: number,
 ): Promise<WarOutcomeState & { readonly orphaned: readonly number[] }> {
-  const [active, max] = await Promise.all([
+  const [active, max, raidRows] = await Promise.all([
     pool.query(
       `select id, city_id, attacker_faction_id, target_faction_id, outcome, share_choice, at_ms, until_ms, next_tax_ms,
               taken::text as taken, taken_asset
        from war_outcomes where ended_at_ms is null and outcome in ('integrate', 'occupy') order by id`,
     ),
     pool.query(`select coalesce(max(id), 0) as id from war_outcomes`),
+    pool.query(
+      `select attacker_faction_id, city_id, max(at_ms) as at_ms from war_outcomes
+       where outcome = 'loot' and at_ms > $1 group by attacker_faction_id, city_id order by attacker_faction_id, city_id`,
+      [raidSinceMs],
+    ),
   ]);
+  const raids = raidRows.rows.flatMap((row) => {
+    const attacker = ownerOfRow.get(num(row.attacker_faction_id));
+    return attacker === undefined ? [] : [{ attacker, city: num(row.city_id), atMs: num(row.at_ms) }];
+  });
   const occupations = new Map<number, SimOccupation>();
   const stored = new Map<number, StoredOccupation>();
   const orphaned: number[] = [];
@@ -86,7 +102,7 @@ export async function loadWarOutcomes(
       occupation,
     });
   }
-  return { occupations, stored, maxId: num(max.rows[0]?.id ?? 0), orphaned };
+  return { occupations, raids, stored, maxId: num(max.rows[0]?.id ?? 0), orphaned };
 }
 
 export interface WarOutcomePersist {

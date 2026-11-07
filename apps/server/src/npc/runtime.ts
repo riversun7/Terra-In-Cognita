@@ -218,7 +218,10 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     factions.set(faction.id, faction);
   }
   // 공성 결과의 남은 상태(D-520, war_outcomes): 점령 상태·점령·귀속 회복 불이익
-  const warState = await loadWarOutcomes(o.pool, ownerOfRow);
+  const raidCooldownMs = Math.max(0, c.war.raidCooldownDays) * DAY_MS;
+  const warState = await loadWarOutcomes(o.pool, ownerOfRow, startMs - raidCooldownMs);
+  for (const raid of warState.raids)
+    factions.get(raid.attacker)?.raided.set(raid.city, raid.atMs + raidCooldownMs);
   for (const war of state.wars) {
     const a = factions.get(ownerOfRow.get(war.a) ?? -1);
     const b = factions.get(ownerOfRow.get(war.b) ?? -1);

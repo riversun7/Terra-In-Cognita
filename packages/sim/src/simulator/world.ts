@@ -49,6 +49,11 @@ export interface SimFaction extends WarState {
    * 부모·종주가 없어도 화폐·나라 성격·도시 이름이 부모 나라를 따른다(601 나)
    */
   bornOf: number | null;
+  /**
+   * 내가 약탈한 도시 → 다시 치지 않는 끝 시각(D-520, 확인 대기 685 — 한 세력이 한 도시를 거듭 털지 않게). 하루 끝에 지난 것을 지운다.
+   * 서버는 저장하지 않고 켤 때 war_outcomes 약탈 줄에서 다시 만든다
+   */
+  readonly raided: Map<number, number>;
   /** 연구 작업 진행·설계도(가장 높았던 단계, D-396) */
   research: { progress: number; blueprint: number };
   /** 도시 ID(넣은 차례) */
@@ -221,6 +226,7 @@ export function newFaction(
     stalledDays: 0,
     rebelOf: null,
     bornOf: null,
+    raided: new Map(),
     research: { progress: 0, blueprint: fields.tech },
     cities: new Set(),
     units: new Set(),

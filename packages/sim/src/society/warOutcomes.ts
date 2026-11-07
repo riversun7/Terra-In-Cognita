@@ -20,6 +20,8 @@ export const isWarOutcome = (value: unknown): value is WarOutcome =>
 export interface WarCoefficients {
   /** 약탈: 그 도시 창고의 도시 주인 세력 물건 가운데 가져가는 몫(만분율). 금고 몫은 lootTakeBp(D-186) */
   readonly raidGoodsBp: number;
+  /** 약탈한 세력이 그 도시를 다시 치지 않는 날 수(확인 대기 685, 0 = 바로 다시 칠 수 있음) */
+  readonly raidCooldownDays: number;
   /** 점령·귀속 재건 비용 = 주거 1당 이 값(점령자 국고 화폐 최소 단위, 소각). 국고가 모자라면 NPC는 고르지 않는다 */
   readonly rebuildPerHousing: number;
   /** 점령·귀속 불이익 기간(일, 0 = 없음) */
@@ -39,12 +41,13 @@ export interface WarCoefficients {
 }
 
 /**
- * 출발값(모두 [임시], 기획 값 없음 — D-515): 약탈 창고 몫 = 금고 몫(D-186 5000)의 절반, 재건 비용 주거 1당 500(폐허 복원 목표 주거 1당 700보다
+ * 출발값(모두 [임시], 기획 값 없음 — D-515): 약탈 창고 몫 = 금고 몫(D-186 5000)의 절반, 약탈 뒤 쉬는 날 7(배당 주기와 같게), 재건 비용 주거 1당 500(폐허 복원 목표 주거 1당 700보다
  * 조금 싸게 — 복원보다 싸지만 "매우 큼"), 불이익 30일 동안 회복 ⅕(200‰), 점령 상태 30일·7일마다(배당 주기와 같게) 그 도시 몫 국고 10%,
  * 점령 상태 만족도 −10, 점령·귀속 가중 300(공격·상업 성향 0~1000과 견준다)
  */
 export const START_WAR_COEFFICIENTS: WarCoefficients = {
   raidGoodsBp: 2500,
+  raidCooldownDays: 7,
   rebuildPerHousing: 500,
   annexPenaltyDays: 30,
   annexRecoveryPm: 200,
@@ -61,6 +64,11 @@ const DAY_MS = 86_400_000;
 export function bpShare(amount: bigint, bp: number): bigint {
   if (amount <= 0n || bp <= 0) return 0n;
   return (amount * BigInt(Math.min(10_000, Math.trunc(bp)))) / 10_000n;
+}
+
+/** 약탈 뒤 그 세력이 그 도시를 다시 칠 수 있는 시각 */
+export function raidCooldownUntil(nowMs: number, c: WarCoefficients): number {
+  return nowMs + Math.max(0, Math.trunc(c.raidCooldownDays)) * DAY_MS;
 }
 
 /** 점령·귀속 재건 비용(주거 × 주거 1당 값, 음수는 0) */

@@ -37,7 +37,7 @@
 - 작업 중(Verified): 서버 `travel/` 4파일(DB 포함 13개), 프로토콜 18파일 106개, 게임 `travelData`·`worldMap`·`mapFeed` 56개 통과. 서버·게임 타입 검사, 바꾼 파일 oxlint 통과.
 - 화면 시험(Verified, `pnpm e2e play-map.spec.ts`, 빌드한 앱·서버, 헤드리스 Chromium): 19개 중 18개 통과, 1개(WP2 "[들어가기] → 2차맵") 실패 — [들어가기]가 `?at=`(시청)을 넘기므로 572 다로 카메라가 내 사이보그가 아니라 시청을 보게 된 것(바뀐 동작) → 기대를 `data-focus-source=picked` + [내 사이보그]로 고치고 그 시험만 다시 돌려 통과. WP9 [확정] → 가는 중(판 `data-travel=going`, `world.travels` going, 2차맵 화면 `data-travel=1/N`·가는 중 한 줄·[내 사이보그]) → [멈추기](멈췄습니다, `stopped`/`cancelled`, 내 사이보그는 출발한 2차맵) 통과, 572 다 시험 통과.
 - 사진(390, 넘침·작은 누르는 곳 없음): `play-fog-command-390-{pastel,dark}-{ko,en}`(확인 단계: 멈췄습니다·지나는 2차맵 2장·약 1.5km·걸리는 시간 약 10분·도착 예상), `play-move-going-390-{pastel,dark}-{ko,en}`(가는 중: 2차맵 1/2·남은 시간·[멈추기]), `play-move-second-390-{pastel,dark}`(2차맵 아래 판 가는 중 한 줄 + [내 사이보그]). 눈으로 본 것: 파스텔·다크 모두 글자·단추가 판 안에 들어가고 넘치지 않는다. 오른쪽 위 [2차맵]·[1차맵] 전환 단추가 판 머리 줄 오른쪽에 겹쳐 보이는 것은 WP7부터 있던 배치다(바꾸지 않음). 사진 폴더(저장소 밖): 개발 컨테이너 임시 폴더 `move-shots`.
-- 끝 검사: (아래 "끝 검사"에 적는다)
+- 끝 검사(Verified, 무거운 잠금 안): `TEST_DATABASE_URL=… pnpm check` 통과(포맷·린트·타입·경계·크기·다국어·대비·콘텐츠·시험 473파일 3,760개, DB 시험 포함) — 첫 실행은 `travel/route.test.ts`의 2차맵 키 배열 타입(`CellKey[]`에 `includes(number)`, TS2345)으로 서버 타입 검사에서 멈춤 → `number[]`로 고쳐 다시 돌려 통과. `pnpm check:docs origin/main` 통과. 크기 경고는 `mapFeed.ts` 604줄(전에도 601줄, 1,000줄 상한 안).
 
 ## 함께 바꿔야 하는 파일
 - 프로토콜 판을 다른 줄기와 합칠 때: `packages/protocol/src/version.ts`(16 설명), `travel.test.ts`(16·최소 15를 본다).

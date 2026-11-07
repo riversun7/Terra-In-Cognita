@@ -16,7 +16,7 @@ import {
   travelMs,
 } from "./route.ts";
 
-const K = Array.from({ length: 6 }, (_, index) => testMapKey(index));
+const K: number[] = Array.from({ length: 6 }, (_, index) => testMapKey(index));
 const loadedSix = (key: number) => K.includes(key);
 const everywhere: Standable = () => true;
 /** (100, 100) 둘레 5×5(시청 건물)는 설 수 없다 */

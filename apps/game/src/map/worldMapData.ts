@@ -37,8 +37,12 @@ export function factionName(factions: readonly WorldMapFaction[], factionId: num
   return faction?.code ?? `#${factionId}`;
 }
 
-/** 도시 이름: "<국가> 도시 N"([임시] 도시 이름 칸이 없다, 질문 510) */
-export function cityLabel(factions: readonly WorldMapFaction[], city: WorldMapCity): string {
+/** 도시 이름: 서버가 준 이름(번역하지 않는다 D-476, NPC 도시는 팩 — 기획 답 510 다), 없으면 "<국가> 도시 N" */
+export function cityLabel(
+  factions: readonly WorldMapFaction[],
+  city: Pick<WorldMapCity, "factionId" | "number" | "name">,
+): string {
+  if (city.name) return city.name;
   return m.world_city_name({ nation: factionName(factions, city.factionId), number: city.number });
 }
 

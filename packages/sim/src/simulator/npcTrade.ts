@@ -7,13 +7,15 @@
 // 5. 모자란 것은 남의 도시 거래소 매도 호가를 싼 차례로 산다(값은 환율로 내 화폐로 바꿔 견준다).
 //    그 화폐가 모자라면 환전 주문을 낸다(기준 통화를 거쳐서). 자기 화폐를 발행하는 나라는 자기 화폐를 팔지 않는다
 //    (시장 조성 quoteFx가 이미 내므로, 같은 회차의 자기 주문끼리 맞물리지 않게).
+// 6. 자기 도시마다 모자란 것은 그 도시 거래소에 지난 값의 90%로 상시 매수 주문을 건다(도시 매입 호가 placeCityBids, 기획 답 530 가 —
+//    서버 WP4에서 옮겨 시뮬·서버가 같은 규칙. 유저가 NPC 도시에 모자란 물건을 팔 곳이 된다).
 // 쓰는 돈은 판단 한 번에 국고의 1/4까지다(생필품이 모자라면 1/2). 발행 나라는 환전 회차마다 자기 화폐 양쪽 값을 낸다(quoteFx, 가진 것의 5%씩).
 // 묶음(302·D-506): 목표 재고·남는 양·운송은 기본 단위(광석 g), 거래소 주문은 묶음 단위다. 팔 때는 남는 양 ÷ 묶음(버림, 묶음 하나가
 // 안 되면 팔지 않음), 살 때는 모자란 양 ÷ 묶음(올림).
 import type { FxMarket } from "../economy/fxMarket.ts";
 import { BASE_EFFICIENCY } from "../economy/production.ts";
 import type { NpcCoefficients } from "../npc/coefficients.ts";
-import { tradePolicy } from "../npc/policy.ts";
+import { type TradePolicy, tradePolicy } from "../npc/policy.ts";
 import { lotSizeOf } from "./catalog.ts";
 import { type Economy, EVENT_TRADE, fxRate, ship } from "./economy.ts";
 import type { SimLoop } from "./loop.ts";
@@ -67,6 +69,7 @@ function convert(economy: Economy, amount: bigint, from: string, to: string): bi
   return (amount * fxRate(economy, from)) / fxRate(economy, to);
 }
 
+/** 세력 거래 판단 한 번. 건 도시 매입 호가 수를 돌려준다(지표) */
 export function onTrade(
   economy: Economy,
   world: SimWorld,
@@ -74,11 +77,11 @@ export function onTrade(
   factionId: number,
   nowMs: number,
   npc: NpcCoefficients,
-): void {
+): number {
   const faction = world.factions.get(factionId);
-  if (!faction?.alive) return;
+  if (!faction?.alive) return 0;
   loop.schedule(nowMs + economy.settings.tradeEveryMs, { kind: EVENT_TRADE, subject: factionId });
-  if (faction.cities.size === 0) return;
+  if (faction.cities.size === 0) return 0;
   const { book } = world;
   const currency = economy.currencyOf.get(factionId) ?? economy.base;
   for (const perItem of economy.markets.values())
@@ -145,6 +148,60 @@ export function onTrade(
     // 5. 모자란 것 사기
     if (shortfall > 0n) importGoods(economy, world, faction, currency, asset, shortfall, budget, nowMs);
   }
+  // 6. 자기 도시 매입 호가
+  return placeCityBids(economy, world, faction, policy, nowMs);
+}
+
+/**
+ * 도시 매입 호가(기획 답 530 가, D-518 — 서버 WP4 규칙을 옮김): 자기 도시마다 목표 재고(cityTargets)보다 모자란 물건(목표 − 그 도시 재고 −
+ * 그 도시로 오는 중인 내 화물)을 지난 값(marketRefPrice)의 bidPct%로, 모자란 양만큼(묶음 올림) 그 도시 거래소에 매수 주문한다.
+ * 국고 ÷ 지출 분모(판단 끝 잔고 기준) 안에서 도시 ID 차례·목표 차례로 건다. 다음 판단의 주문 거두기(1)가 함께 거둔다. 건 주문 수를 돌려준다
+ */
+export function placeCityBids(
+  economy: Economy,
+  world: SimWorld,
+  faction: SimFaction,
+  policy: TradePolicy,
+  nowMs: number,
+): number {
+  const { book } = world;
+  const currency = economy.currencyOf.get(faction.id) ?? economy.base;
+  // 오는 중인 내 화물(도시|자산 → 양): 남의 도시에서 보낸 것·내 도시끼리 나눈 것
+  const incoming = new Map<string, bigint>();
+  for (const cargo of economy.cargo.values()) {
+    if (cargo.owner !== faction.id) continue;
+    const key = `${cargo.to}|${cargo.asset}`;
+    incoming.set(key, (incoming.get(key) ?? 0n) + cargo.qty);
+  }
+  let budget = book.balanceOf(faction.id, currency) / policy.spendDivisor;
+  let placed = 0;
+  for (const cityId of [...faction.cities].toSorted((a, b) => a - b)) {
+    const perItem = economy.markets.get(cityId);
+    if (!perItem) continue;
+    for (const [asset, target] of cityTargets(economy, cityId)) {
+      const gap =
+        target - book.balanceOf(faction.id, asset, cityId) - (incoming.get(`${cityId}|${asset}`) ?? 0n);
+      if (gap <= 0n) continue;
+      const market = perItem.get(asset);
+      if (!market) continue;
+      const price = pct(marketRefPrice(economy, cityId, asset), policy.bidPct);
+      let lots = ceilDiv(gap, lotSizeOf(economy.catalog, asset));
+      if (price * lots > budget) lots = budget / price;
+      if (lots <= 0n) continue;
+      const result = market.place(
+        faction.id,
+        "buy",
+        price,
+        lots,
+        nowMs,
+        nowMs + economy.settings.orderLifeMs,
+      );
+      if (!result.ok) continue;
+      budget -= price * lots;
+      placed += 1;
+    }
+  }
+  return placed;
 }
 
 function importGoods(

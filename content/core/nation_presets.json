@@ -14,6 +14,34 @@
         }
       },
       "tradeTaxBp": 200,
+      "personality": {
+        "startCities": 4,
+        "cityJobs": [
+          {
+            "facility": "farm",
+            "recipe": "farm_grain"
+          },
+          {
+            "facility": "kitchen",
+            "recipe": "cook_ration"
+          },
+          {
+            "facility": "lumber_camp",
+            "recipe": "cut_timber"
+          }
+        ],
+        "startStock": [
+          {
+            "item": "ration",
+            "qty": 240
+          },
+          {
+            "item": "household_goods",
+            "qty": 10
+          }
+        ]
+      },
+      "cityNames": ["Verdane", "Ashfield", "Millbrook", "Harrowgate", "Sheafton"],
       "enabled": true
     },
     {
@@ -30,6 +58,42 @@
         }
       },
       "tradeTaxBp": 200,
+      "personality": {
+        "startCities": 3,
+        "cityJobs": [
+          {
+            "facility": "mine",
+            "recipe": "mine_iron_ore"
+          },
+          {
+            "facility": "smelter",
+            "recipe": "smelt_iron"
+          },
+          {
+            "facility": "workshop",
+            "recipe": "make_household_goods"
+          },
+          {
+            "facility": "kitchen",
+            "recipe": "cook_ration"
+          }
+        ],
+        "startStock": [
+          {
+            "item": "ration",
+            "qty": 120
+          },
+          {
+            "item": "household_goods",
+            "qty": 40
+          },
+          {
+            "item": "iron_ingot",
+            "qty": 20
+          }
+        ]
+      },
+      "cityNames": ["Ironhold", "Cinderforge", "Anvilmere", "Slagport", "Bellows"],
       "enabled": true
     },
     {
@@ -46,6 +110,42 @@
         }
       },
       "tradeTaxBp": 200,
+      "personality": {
+        "startCities": 2,
+        "cityJobs": [
+          {
+            "facility": "lumber_camp",
+            "recipe": "cut_timber"
+          },
+          {
+            "facility": "lumber_camp",
+            "recipe": "cut_logs"
+          },
+          {
+            "facility": "sawmill",
+            "recipe": "saw_planks"
+          },
+          {
+            "facility": "kitchen",
+            "recipe": "cook_ration"
+          }
+        ],
+        "startStock": [
+          {
+            "item": "ration",
+            "qty": 200
+          },
+          {
+            "item": "household_goods",
+            "qty": 10
+          },
+          {
+            "item": "pine_log",
+            "qty": 30
+          }
+        ]
+      },
+      "cityNames": ["Pinecrest", "Timberlake", "Barkmoor", "Resinvale", "Logrun"],
       "enabled": true
     },
     {
@@ -62,6 +162,7 @@
         }
       },
       "tradeTaxBp": 200,
+      "cityNames": ["Northwatch", "Greystone", "Kettlebay", "Fernhill", "Marrow"],
       "enabled": true
     },
     {
@@ -78,6 +179,34 @@
         }
       },
       "tradeTaxBp": 200,
+      "personality": {
+        "startCities": 4,
+        "cityJobs": [
+          {
+            "facility": "farm",
+            "recipe": "farm_grain"
+          },
+          {
+            "facility": "kitchen",
+            "recipe": "cook_ration"
+          },
+          {
+            "facility": "lumber_camp",
+            "recipe": "cut_timber"
+          }
+        ],
+        "startStock": [
+          {
+            "item": "ration",
+            "qty": 240
+          },
+          {
+            "item": "household_goods",
+            "qty": 10
+          }
+        ]
+      },
+      "cityNames": ["Goldfield", "Oatmere", "Ryeholm", "Furrowdale", "Haybridge"],
       "enabled": true
     },
     {
@@ -94,6 +223,42 @@
         }
       },
       "tradeTaxBp": 200,
+      "personality": {
+        "startCities": 3,
+        "cityJobs": [
+          {
+            "facility": "mine",
+            "recipe": "mine_iron_ore"
+          },
+          {
+            "facility": "smelter",
+            "recipe": "smelt_iron"
+          },
+          {
+            "facility": "workshop",
+            "recipe": "make_household_goods"
+          },
+          {
+            "facility": "kitchen",
+            "recipe": "cook_ration"
+          }
+        ],
+        "startStock": [
+          {
+            "item": "ration",
+            "qty": 120
+          },
+          {
+            "item": "household_goods",
+            "qty": 40
+          },
+          {
+            "item": "iron_ingot",
+            "qty": 20
+          }
+        ]
+      },
+      "cityNames": ["Steelvale", "Coalmouth", "Hammerton", "Forgefall", "Rivetby"],
       "enabled": true
     },
     {
@@ -110,6 +275,42 @@
         }
       },
       "tradeTaxBp": 200,
+      "personality": {
+        "startCities": 2,
+        "cityJobs": [
+          {
+            "facility": "lumber_camp",
+            "recipe": "cut_timber"
+          },
+          {
+            "facility": "lumber_camp",
+            "recipe": "cut_logs"
+          },
+          {
+            "facility": "sawmill",
+            "recipe": "saw_planks"
+          },
+          {
+            "facility": "kitchen",
+            "recipe": "cook_ration"
+          }
+        ],
+        "startStock": [
+          {
+            "item": "ration",
+            "qty": 200
+          },
+          {
+            "item": "household_goods",
+            "qty": 10
+          },
+          {
+            "item": "pine_log",
+            "qty": 30
+          }
+        ]
+      },
+      "cityNames": ["Cedarfall", "Larchford", "Sprucewick", "Oakhollow", "Birchend"],
       "enabled": true
     },
     {
@@ -126,6 +327,7 @@
         }
       },
       "tradeTaxBp": 200,
+      "cityNames": ["Saltmarsh", "Dunmere", "Windrest", "Brackwater", "Lowtide"],
       "enabled": true
     },
     {
@@ -142,6 +344,34 @@
         }
       },
       "tradeTaxBp": 200,
+      "personality": {
+        "startCities": 4,
+        "cityJobs": [
+          {
+            "facility": "farm",
+            "recipe": "farm_grain"
+          },
+          {
+            "facility": "kitchen",
+            "recipe": "cook_ration"
+          },
+          {
+            "facility": "lumber_camp",
+            "recipe": "cut_timber"
+          }
+        ],
+        "startStock": [
+          {
+            "item": "ration",
+            "qty": 240
+          },
+          {
+            "item": "household_goods",
+            "qty": 10
+          }
+        ]
+      },
+      "cityNames": ["Grainhaven", "Millstead", "Orchardine", "Plowmere", "Seedholm"],
       "enabled": true
     },
     {
@@ -158,6 +388,42 @@
         }
       },
       "tradeTaxBp": 200,
+      "personality": {
+        "startCities": 3,
+        "cityJobs": [
+          {
+            "facility": "mine",
+            "recipe": "mine_iron_ore"
+          },
+          {
+            "facility": "smelter",
+            "recipe": "smelt_iron"
+          },
+          {
+            "facility": "workshop",
+            "recipe": "make_household_goods"
+          },
+          {
+            "facility": "kitchen",
+            "recipe": "cook_ration"
+          }
+        ],
+        "startStock": [
+          {
+            "item": "ration",
+            "qty": 120
+          },
+          {
+            "item": "household_goods",
+            "qty": 40
+          },
+          {
+            "item": "iron_ingot",
+            "qty": 20
+          }
+        ]
+      },
+      "cityNames": ["Copperton", "Brassmoor", "Smelterby", "Ingotvale", "Furnace Rock"],
       "enabled": true
     },
     {
@@ -174,6 +440,42 @@
         }
       },
       "tradeTaxBp": 200,
+      "personality": {
+        "startCities": 2,
+        "cityJobs": [
+          {
+            "facility": "lumber_camp",
+            "recipe": "cut_timber"
+          },
+          {
+            "facility": "lumber_camp",
+            "recipe": "cut_logs"
+          },
+          {
+            "facility": "sawmill",
+            "recipe": "saw_planks"
+          },
+          {
+            "facility": "kitchen",
+            "recipe": "cook_ration"
+          }
+        ],
+        "startStock": [
+          {
+            "item": "ration",
+            "qty": 200
+          },
+          {
+            "item": "household_goods",
+            "qty": 10
+          },
+          {
+            "item": "pine_log",
+            "qty": 30
+          }
+        ]
+      },
+      "cityNames": ["Alderwood", "Thornwick", "Mapleton", "Elmstead", "Rowanby"],
       "enabled": true
     },
     {
@@ -190,6 +492,7 @@
         }
       },
       "tradeTaxBp": 200,
+      "cityNames": ["Stonereach", "Cliffmark", "Quarryhill", "Pebbleton", "Shalecross"],
       "enabled": true
     },
     {
@@ -206,6 +509,34 @@
         }
       },
       "tradeTaxBp": 200,
+      "personality": {
+        "startCities": 4,
+        "cityJobs": [
+          {
+            "facility": "farm",
+            "recipe": "farm_grain"
+          },
+          {
+            "facility": "kitchen",
+            "recipe": "cook_ration"
+          },
+          {
+            "facility": "lumber_camp",
+            "recipe": "cut_timber"
+          }
+        ],
+        "startStock": [
+          {
+            "item": "ration",
+            "qty": 240
+          },
+          {
+            "item": "household_goods",
+            "qty": 10
+          }
+        ]
+      },
+      "cityNames": ["Wheatley", "Barleyford", "Cornhollow", "Malting", "Granary"],
       "enabled": true
     },
     {
@@ -222,6 +553,42 @@
         }
       },
       "tradeTaxBp": 200,
+      "personality": {
+        "startCities": 3,
+        "cityJobs": [
+          {
+            "facility": "mine",
+            "recipe": "mine_iron_ore"
+          },
+          {
+            "facility": "smelter",
+            "recipe": "smelt_iron"
+          },
+          {
+            "facility": "workshop",
+            "recipe": "make_household_goods"
+          },
+          {
+            "facility": "kitchen",
+            "recipe": "cook_ration"
+          }
+        ],
+        "startStock": [
+          {
+            "item": "ration",
+            "qty": 120
+          },
+          {
+            "item": "household_goods",
+            "qty": 40
+          },
+          {
+            "item": "iron_ingot",
+            "qty": 20
+          }
+        ]
+      },
+      "cityNames": ["Tinmouth", "Leadwater", "Zincfold", "Gearhaven", "Boltwick"],
       "enabled": true
     },
     {
@@ -238,6 +605,42 @@
         }
       },
       "tradeTaxBp": 200,
+      "personality": {
+        "startCities": 2,
+        "cityJobs": [
+          {
+            "facility": "lumber_camp",
+            "recipe": "cut_timber"
+          },
+          {
+            "facility": "lumber_camp",
+            "recipe": "cut_logs"
+          },
+          {
+            "facility": "sawmill",
+            "recipe": "saw_planks"
+          },
+          {
+            "facility": "kitchen",
+            "recipe": "cook_ration"
+          }
+        ],
+        "startStock": [
+          {
+            "item": "ration",
+            "qty": 200
+          },
+          {
+            "item": "household_goods",
+            "qty": 10
+          },
+          {
+            "item": "pine_log",
+            "qty": 30
+          }
+        ]
+      },
+      "cityNames": ["Hollyhurst", "Yewdale", "Willowmere", "Ashgrove", "Hazelbrook"],
       "enabled": true
     },
     {
@@ -254,6 +657,7 @@
         }
       },
       "tradeTaxBp": 200,
+      "cityNames": ["Highmoor", "Duskvale", "Emberly", "Frostmere", "Gloamhill"],
       "enabled": true
     }
   ]

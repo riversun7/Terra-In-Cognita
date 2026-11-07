@@ -491,6 +491,8 @@ export const worldCities = pgTable(
      * docs/adr/2026-10-31-faction-society-core.md "바뀜 (D-469 구인 카드)"
      */
     adminLevel: smallint("admin_level").notNull().default(1),
+    /** 도시 이름(번역하지 않음 D-476, NPC 도시는 팩 국가 프리셋 목록 — 기획 답 510 다). null = 아직 없음(화면이 "<국가> 도시 N") */
+    name: text("name"),
   },
   (table) => [
     index("world_cities_map_idx").on(table.mapKey),

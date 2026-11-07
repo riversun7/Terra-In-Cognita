@@ -16,5 +16,7 @@ export {
   type GatherSettings,
 } from "./economy.ts";
 export { runEconomy, type EconomyRun, type EconomySummary } from "./economyRun.ts";
-export { cityTargets, marketRefPrice, onTrade } from "./npcTrade.ts";
+export { cityTargets, marketRefPrice, onTrade, placeCityBids } from "./npcTrade.ts";
+// 도시 일꾼 나누기(굶음 먼저, 기획 답 532 나 — docs/adr/2026-11-07-play-flow.md WP5)
+export { assignCityWorkers, type CityWorkSlot } from "./cityWorkers.ts";
 export type { ScenarioEconomy } from "./scenario.ts";

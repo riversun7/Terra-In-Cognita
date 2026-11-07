@@ -42,8 +42,10 @@ export type CrowdingBand = (typeof CROWDING_BANDS)[number];
 
 export interface CreationCity {
   readonly id: number;
-  /** 세력 안 차례(1부터). 도시 이름이 생기기 전 [임시] 이름 "시작 도시 n" */
+  /** 세력 안 차례(1부터). 이름이 없는 도시의 [임시] 이름 "시작 도시 n" */
   readonly number: number;
+  /** 도시 이름(번역하지 않는다 D-476, NPC 도시는 팩 국가 프리셋 목록 — 기획 답 510 다). 없으면 null */
+  readonly name: string | null;
   /** 2차맵 키(셀 키, 16자리까지라 글자) */
   readonly mapKey: string;
   /** 그 도시에서 시작한 사이보그 수 */

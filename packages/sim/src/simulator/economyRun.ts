@@ -90,6 +90,8 @@ export interface EconomyRun {
   dayLine(): Record<string, unknown>;
   check(): string[];
   summary(): EconomySummary;
+  /** 지금까지 건 도시 매입 호가 수(누적, 서버 1분 지표가 차이를 쓴다) */
+  bidsPlaced(): number;
   /** 시설이 생산했을 때(도시, 레벨 × 오염 값 × 일한 ms). 정원사(gardenerRun.ts)가 붙인다 */
   onWork?: ((cityId: number, weightedWorkMs: number) => void) | undefined;
 }
@@ -147,6 +149,7 @@ export function runEconomy(
     return { trades, volume };
   };
   let lastTotals = marketTotals();
+  let bids = 0;
 
   const hooks: SimHooks = {
     treasuryAsset: (faction) => economy.currencyOf.get(faction.id) ?? economy.base,
@@ -212,7 +215,7 @@ export function runEconomy(
         const work = onProduce(economy, world, loop, subject, nowMs);
         if (work && work.weightedWorkMs > 0) run.onWork?.(work.city, work.weightedWorkMs);
       } else if (kind === EVENT_UPKEEP) onUpkeep(economy, world, loop, subject, nowMs);
-      else if (kind === EVENT_TRADE) onTrade(economy, world, loop, subject, nowMs, npc);
+      else if (kind === EVENT_TRADE) bids += onTrade(economy, world, loop, subject, nowMs, npc);
       else if (kind === EVENT_FX) onFx(economy, world, loop, nowMs, quoteFx(economy, world, nowMs));
       else if (kind === EVENT_CARGO) onCargo(economy, world, subject, nowMs);
       else return false;
@@ -221,6 +224,7 @@ export function runEconomy(
     endOfDay(nowMs) {
       bankDay(economy, world, nowMs);
     },
+    bidsPlaced: () => bids,
     dayLine() {
       const now = marketTotals();
       const volume = new Map<string, string>();

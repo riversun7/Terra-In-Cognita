@@ -16,11 +16,13 @@ export interface CityRow {
   readonly cellX: number;
   readonly cellY: number;
   readonly start: boolean;
+  /** 도시 이름(번역 안 함 D-476, NPC 도시는 팩 프리셋 목록 — 기획 답 510 다). 없으면 null(화면이 "도시 N") */
+  readonly name?: string | null | undefined;
 }
 
 export async function loadCities(pool: QueryPool): Promise<CityRow[]> {
   const result = await pool.query(
-    `select id, faction_id, planet_id, map_key, cell_x, cell_y, start from world_cities order by id`,
+    `select id, faction_id, planet_id, map_key, cell_x, cell_y, start, name from world_cities order by id`,
   );
   return result.rows.map((row) => ({
     id: Number(row.id),
@@ -30,6 +32,7 @@ export async function loadCities(pool: QueryPool): Promise<CityRow[]> {
     cellX: Number(row.cell_x),
     cellY: Number(row.cell_y),
     start: row.start === true,
+    name: typeof row.name === "string" ? row.name : null,
   }));
 }
 

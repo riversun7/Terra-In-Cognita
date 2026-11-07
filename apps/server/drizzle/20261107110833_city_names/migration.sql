@@ -1,0 +1,1 @@
+ALTER TABLE "world_cities" ADD COLUMN "name" text;

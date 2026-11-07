@@ -1,8 +1,11 @@
 // NPC 시작 도시 기본 시설(세계 씨앗) — docs/adr/2026-11-07-play-flow.md "WP1 세계 씨앗", 기획 90 §2.1(기본 NPC 국가·시작 도시 배치)·
 // 46 §9.2(고정 국가 시작 도시), 건물 규칙은 docs/adr/2026-11-07-buildings-runtime.md.
 // 켤 때 한 번(world.ts 부팅 복구, 2차맵에 건물·유닛을 다시 놓은 뒤·봇을 채우기 전): 띄운 2차맵의 시작 도시마다 기본 시설(행정 건물 하나 +
-// 창고·농장·벌목장·광산 — 수는 설정 칸 worldSeed [임시])을 도시 가운데 둘레 빈 칸에 다 지은 상태(레벨 1·상태 가득)로 세운다. 주인 = 그 도시
+// 창고 + 채집 시설 — 수는 설정 칸 worldSeed [임시])을 도시 가운데 둘레 빈 칸에 다 지은 상태(레벨 1·상태 가득)로 세운다. 주인 = 그 도시
 // 세력의 소유 주체. 맵 건물 칸 + world_facilities 줄(같은 쓰기 묶음).
+// 채집 시설 종류는 둘레 땅을 따른다(기획 답 503 다, 60 §7.1 "주변 자원" — docs/adr/2026-11-07-play-flow.md "WP5 나라 성격"): 시작 도시 고르기
+// 판이 보이는 그 2차맵 칸의 행성 값으로 숲이 보이면 벌목장, 높은 땅이면 광산, 따뜻하고 비가 오면 농장(문턱은 설정 칸 [임시]). 아무것도 맞지
+// 않으면 농장(식량 사슬 — 굶음 먼저, 532). 행성 값을 모르면(지형 서비스 없는 시험·개발) 셋 다(WP1 그대로). 레벨은 1.
 // 멱등: 도시마다 그 세력이 가진 같은 시설 줄(도시 ID 같음) 수를 세어 모자란 것만 더한다(있는 것은 그대로 — 관리자가 지운 시설은 다음 켤 때
 // 다시 선다). 재료·작업·일꾼 없이 선다(세계를 차리는 일이라 원장을 거치지 않는다 — 확인 대기, docs/questions/2026-11-07-play-seed.md).
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
@@ -27,17 +30,39 @@ export interface SeedItem {
   readonly count: number;
 }
 
+/** 시작 도시 둘레 땅: 그 2차맵 칸의 행성 값(시작 도시 고르기 판·1차맵 도시 판과 같은 값, worldMap/reads.ts) 가운데 씨앗이 보는 것 */
+export interface SeedLand {
+  readonly elevationM: number;
+  readonly temperatureC: number;
+  readonly precipitationMm: number;
+  /** 숲 밀도 0 ~ 255(화면 "숲 N%" = ⌊밀도 × 100 ÷ 255⌉) */
+  readonly forest: number;
+}
+
+/** 둘레 땅에 맞는 채집 시설(기획 답 503 다). 아무것도 맞지 않으면 농장 하나 */
+export function landGather(
+  land: SeedLand,
+  seed: WorldSeedCoefficients,
+): { farm: boolean; lumber: boolean; mine: boolean } {
+  const lumber = land.forest * 100 >= seed.lumberMinForestPct * 255;
+  const mine = land.elevationM >= seed.mineMinHeightM;
+  const farm = land.temperatureC >= seed.farmMinTempC && land.precipitationMm >= seed.farmMinRainMm;
+  if (!farm && !lumber && !mine) return { farm: true, lumber: false, mine: false };
+  return { farm, lumber, mine };
+}
+
 /**
  * 시작 도시 하나의 기본 시설 차례(앞 것이 가운데에 가깝다). 행정 건물(government_hall)은 도시 하나에 하나(D-510 행정 건물, 수 칸 없음),
- * 나머지 수는 설정 칸. 시설 ID는 팩 content/core/facilities.json
+ * 나머지 수는 설정 칸. 채집 시설은 둘레 땅에 맞는 것만(land가 없으면 셋 다). 시설 ID는 팩 content/core/facilities.json
  */
-export function seedPlan(seed: WorldSeedCoefficients): SeedItem[] {
+export function seedPlan(seed: WorldSeedCoefficients, land?: SeedLand): SeedItem[] {
+  const gather = land ? landGather(land, seed) : { farm: true, lumber: true, mine: true };
   return [
     { facility: "government_hall", count: 1 },
     { facility: "storehouse", count: seed.storehouses },
-    { facility: "farm", count: seed.farms },
-    { facility: "lumber_camp", count: seed.lumberCamps },
-    { facility: "mine", count: seed.mines },
+    { facility: "farm", count: gather.farm ? seed.farms : 0 },
+    { facility: "lumber_camp", count: gather.lumber ? seed.lumberCamps : 0 },
+    { facility: "mine", count: gather.mine ? seed.mines : 0 },
   ];
 }
 
@@ -74,6 +99,8 @@ export interface NpcSeedInput {
   readonly service: Pick<FacilityService, "facilities" | "seedBuilt">;
   readonly catalog: FacilityCatalog;
   readonly seed: WorldSeedCoefficients;
+  /** 2차맵 키 → 둘레 땅(행성 값). 없거나 undefined면 채집 시설 셋 다 */
+  readonly landOf?: ((mapKey: number) => SeedLand | undefined) | undefined;
   readonly nowMs: number;
 }
 
@@ -87,7 +114,6 @@ export interface NpcSeedResult {
 /** 띄운 2차맵의 시작 도시마다 모자란 기본 시설을 세운다(위 머리 주석) */
 export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
   const { maps, catalog, service } = input;
-  const plan = seedPlan(input.seed);
   const anchorsOf = (mapKey: number): CityCell[] =>
     input.cities
       .filter((city) => city.planetId === input.planetId && city.mapKey === mapKey)
@@ -101,6 +127,7 @@ export function seedNpcFacilities(input: NpcSeedInput): NpcSeedResult {
     const map = maps.get(city.mapKey);
     const ownerId = input.ownerOfFaction(city.factionId);
     if (!map || ownerId === undefined) continue;
+    const plan = seedPlan(input.seed, input.landOf?.(city.mapKey));
     const anchors = anchorsOf(city.mapKey);
     const have = new Map<string, number>();
     for (const record of service.facilities.values())
@@ -174,6 +201,8 @@ export function seedNpcFacilitiesAtBoot(options: {
   readonly owners: ReadonlyMap<number, { readonly id: number; readonly factionId: number | null }>;
   readonly facilities: { readonly service: NpcSeedInput["service"]; readonly catalog: () => FacilityCatalog };
   readonly rules: () => { readonly worldSeed: WorldSeedCoefficients };
+  /** 2차맵 지형 서비스(cellValues = 2차맵 칸의 행성 값). 없으면 채집 시설 셋 다 */
+  readonly terrain?: { cellValues?(mapKey: number): SeedLand | undefined } | undefined;
   readonly log: { info(obj: object, message: string): void };
   readonly nowMs: number;
 }): NpcSeedResult {
@@ -188,6 +217,7 @@ export function seedNpcFacilitiesAtBoot(options: {
     service: options.facilities.service,
     catalog: options.facilities.catalog(),
     seed: options.rules().worldSeed,
+    landOf: (mapKey) => options.terrain?.cellValues?.(mapKey),
     nowMs: options.nowMs,
   });
   if (result.placed > 0 || result.missing > 0)

@@ -353,6 +353,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
             return {
               id: city.id,
               number: index + 1,
+              name: city.name ?? null,
               mapKey: String(city.mapKey),
               cyborgs,
               crowding: crowdingBand(cyborgs, rules),

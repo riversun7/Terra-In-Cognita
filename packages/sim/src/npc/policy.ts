@@ -35,6 +35,8 @@ export interface TradePolicy {
   readonly glutPct: bigint;
   /** 판단 한 번에 쓰는 국고 몫(분모) */
   readonly spendDivisor: bigint;
+  /** 자기 도시 매입 호가(지난 값의 %, 기획 답 530 가) */
+  readonly bidPct: bigint;
 }
 
 /** 거래 정책(D-323 "운임 = 원가 + 성향별 이익률"): 상업 성향만큼 이익률, 생필품이 모자라면 국고를 더 쓴다 */
@@ -43,6 +45,7 @@ export function tradePolicy(traits: Traits, foodShort: boolean, c: NpcCoefficien
     sellPct: 101n + BigInt(Math.floor(traits.commerce / c.tradeMarkupPerPct)),
     glutPct: 95n,
     spendDivisor: BigInt(foodShort ? c.spendDivisorShort : c.spendDivisor),
+    bidPct: BigInt(Math.max(1, Math.trunc(c.cityBidPct))),
   };
 }
 

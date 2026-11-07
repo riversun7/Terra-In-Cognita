@@ -242,6 +242,33 @@ export const necessityEntrySchema = z.strictObject({
 });
 export type NecessityEntry = z.output<typeof necessityEntrySchema>;
 
+/** 국가 프리셋 도시 이름 하나(D-476: 도시 이름은 번역하지 않는다 — ko·en이 같은 글자 하나). 제어 문자 없이 1~24자 */
+const cityName = z
+  .string()
+  .min(1)
+  .max(24)
+  .refine((text) => text.trim() === text && text !== "" && !/\p{Cc}/u.test(text), {
+    error: "도시 이름은 앞뒤 빈칸·제어 문자 없이 1~24자로 적으세요(번역하지 않는다, D-476).",
+    params: { rule: "city_name" },
+  });
+
+/**
+ * 국가 성격(기획 답 504 다·531 다·533 다, D-518 — docs/adr/2026-11-07-play-flow.md "WP5 나라 성격"). 칸이 없으면 모든 국가가 같은 기본이다
+ * (시작 도시 수 = 설정 칸 아래 끝, 도시 직무 = 서버 기본 셋, 처음 창고 = 생필품 48시간분).
+ * - startCities: 큰 나라·작은 나라(고정 NPC 국가의 시작 도시 수, 설정 칸 d6041_start_cities_min~max 안으로 자른다)
+ * - cityJobs: 특산 — 그 시설 건물이 없는 NPC 도시의 휴먼이 이 레시피를 Lv1로 돌린다(레시피의 시설이 facility와 같아야 쓴다)
+ * - startStock: NPC 도시 하나가 처음 한 번 받는 물건(팩 수량 = 묶음 단위)
+ */
+const nationPersonality = z.strictObject({
+  startCities: z.int().min(1).max(4).optional(),
+  cityJobs: z
+    .array(z.strictObject({ facility: ref("facilities"), recipe: ref("recipes") }))
+    .min(1)
+    .max(8)
+    .optional(),
+  startStock: z.array(stack).max(16).optional(),
+});
+
 export const nationPresetEntrySchema = z.strictObject({
   id: contentId,
   name: localizedText,
@@ -249,6 +276,20 @@ export const nationPresetEntrySchema = z.strictObject({
   currency: z.strictObject({ code: contentId, name: localizedText }),
   /** [임시] 거래세(만분율). NPC 세율은 규칙식(D-323, R5)이 바꾼다 */
   tradeTaxBp: z.int().min(0).max(10_000),
+  /** 나라 성격(위). 없으면 모든 국가가 같은 기본 */
+  personality: nationPersonality.optional(),
+  /**
+   * NPC 도시 이름(기획 답 510 다, D-476 번역 안 함): 그 국가의 NPC 도시가 차례로 쓴다(도시 ID 차례, 쓴 이름은 건너뜀). 없거나 모자라면
+   * 화면이 "<국가> 도시 N"으로 부른다. 목록 안에서 겹치지 않는다
+   */
+  cityNames: z
+    .array(cityName)
+    .max(32)
+    .refine((names) => new Set(names).size === names.length, {
+      error: "도시 이름이 겹칩니다. 한 국가 안에서 하나씩 적으세요.",
+      params: { rule: "city_name_unique" },
+    })
+    .optional(),
   enabled,
 });
 export type NationPresetEntry = z.output<typeof nationPresetEntrySchema>;

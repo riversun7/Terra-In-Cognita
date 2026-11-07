@@ -6,7 +6,7 @@
 // 시험·DB 없는 개발은 같은 스레드("inline")로 돈다.
 import { performance } from "node:perf_hooks";
 import { Worker } from "node:worker_threads";
-import type { MapPropInput } from "@terra/planet/secondMap";
+import { type MapPropInput, type PlanetCellValues, planetCellValuesFromFile } from "@terra/planet/secondMap";
 import { type BuiltTerrain, type MapTerrain, mapTerrainFromBuilt } from "./mapTerrain.ts";
 import { createTerrainCore } from "./terrainCore.ts";
 import type { FromTerrainWorker, TerrainWorkerInit, ToTerrainWorker } from "./terrainMessages.ts";
@@ -50,6 +50,11 @@ export interface TerrainService {
   peek(mapKey: number): MapTerrain | undefined;
   /** 미리 만들어 둔다(기다리지 않는다, 실패는 경고만) */
   prefetch(mapKeys: readonly number[]): void;
+  /**
+   * 그 2차맵 칸의 행성 값(바이옴·고도·기후·숲 — 시작 도시 고르기 판과 같은 값). 행성 값을 아직 받지 않았거나 키가 틀리면 undefined.
+   * 세계 씨앗이 둘레 땅에 맞춰 NPC 시작 도시의 채집 시설을 고를 때 쓴다(facilities/npcSeed.ts, 기획 답 503 다)
+   */
+  cellValues?(mapKey: number): PlanetCellValues | undefined;
   takeMetrics(): Record<string, number>;
   close(): Promise<void>;
 }
@@ -105,8 +110,11 @@ export function createTerrainService(options: TerrainServiceOptions): TerrainSer
   // ── 만드는 쪽: 워커 또는 같은 스레드 ──
   let buildBuilt: (mapKey: number) => Promise<BuiltTerrain> = notReady;
   let stopRunner: () => Promise<void> = nothing;
+  /** 받은 행성 값(행성 서비스가 든 바이트를 그대로 가리킨다 — 복사하지 않는다) */
+  let valueBytes: Uint8Array | undefined;
   const ready = (async () => {
     const values = await options.values();
+    valueBytes = values;
     const init: Omit<TerrainWorkerInit, "type"> = {
       values: copyBytes(values),
       props: options.props,
@@ -260,6 +268,15 @@ export function createTerrainService(options: TerrainServiceOptions): TerrainSer
     version: () => currentVersion,
     get,
     peek: (mapKey) => memory.get(mapKey),
+    cellValues(mapKey) {
+      if (!valueBytes) return undefined;
+      try {
+        return planetCellValuesFromFile(valueBytes, mapKey);
+      } catch {
+        // 면 레벨이 다른 키 등
+        return undefined;
+      }
+    },
     prefetch(mapKeys) {
       for (const mapKey of mapKeys) {
         if (memory.has(mapKey) || inFlight.has(mapKey)) continue;

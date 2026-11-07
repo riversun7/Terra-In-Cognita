@@ -45,8 +45,18 @@ describe("세율 규칙식(D-323, 질문 197 가)", () => {
 
 describe("거래 정책(D-323 운임 = 원가 + 성향별 이익률)", () => {
   it("상업 성향이 높을수록 비싸게 내놓고, 생필품이 모자라면 국고를 더 쓴다", () => {
-    expect(tradePolicy(t(0, 0), false, c)).toEqual({ sellPct: 101n, glutPct: 95n, spendDivisor: 4n });
-    expect(tradePolicy(t(0, 1000), true, c)).toEqual({ sellPct: 105n, glutPct: 95n, spendDivisor: 2n });
+    expect(tradePolicy(t(0, 0), false, c)).toEqual({
+      sellPct: 101n,
+      glutPct: 95n,
+      spendDivisor: 4n,
+      bidPct: 90n,
+    });
+    expect(tradePolicy(t(0, 1000), true, c)).toEqual({
+      sellPct: 105n,
+      glutPct: 95n,
+      spendDivisor: 2n,
+      bidPct: 90n,
+    });
   });
 });
 

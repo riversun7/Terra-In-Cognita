@@ -4351,8 +4351,8 @@
       "id": "d6041_start_cities_min",
       "code": "",
       "name": {
-        "ko": "고정 NPC 국가 시작 도시 수 아래 끝",
-        "en": "Fixed NPC nation start cities (low)"
+        "ko": "고정 NPC 국가 시작 도시 수 아래 끝(프리셋 성격 칸이 없으면 이 수)",
+        "en": "Fixed NPC nation start cities (low, used when the preset has none)"
       },
       "value": 2,
       "structural": false,
@@ -4364,10 +4364,10 @@
       "id": "d6041_start_cities_max",
       "code": "",
       "name": {
-        "ko": "고정 NPC 국가 시작 도시 수 위 끝",
-        "en": "Fixed NPC nation start cities (high)"
+        "ko": "고정 NPC 국가 시작 도시 수 위 끝(프리셋 성격 칸 상한)",
+        "en": "Fixed NPC nation start cities (high, cap for the preset value)"
       },
-      "value": 3,
+      "value": 4,
       "structural": false,
       "unit": "count",
       "min": 1,
@@ -4424,6 +4424,68 @@
       "unit": "count",
       "min": 0,
       "max": 4
+    },
+    {
+      "id": "npc_seed_lumber_forest_pct",
+      "code": "",
+      "name": {
+        "ko": "NPC 시작 도시 벌목장: 둘레 숲 % 문턱",
+        "en": "NPC start city lumber camp: surrounding forest % from"
+      },
+      "value": 5,
+      "structural": false,
+      "unit": "pct",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "npc_seed_mine_height_m",
+      "code": "",
+      "name": {
+        "ko": "NPC 시작 도시 광산: 칸 고도 문턱(m)",
+        "en": "NPC start city mine: cell height from (m)"
+      },
+      "value": 500,
+      "structural": false,
+      "min": -12000,
+      "max": 12000
+    },
+    {
+      "id": "npc_seed_farm_temp_c",
+      "code": "",
+      "name": {
+        "ko": "NPC 시작 도시 농장: 기온 문턱(°C)",
+        "en": "NPC start city farm: temperature from (°C)"
+      },
+      "value": 5,
+      "structural": false,
+      "min": -100,
+      "max": 100
+    },
+    {
+      "id": "npc_seed_farm_rain_mm",
+      "code": "",
+      "name": {
+        "ko": "NPC 시작 도시 농장: 강수 문턱(mm)",
+        "en": "NPC start city farm: precipitation from (mm)"
+      },
+      "value": 250,
+      "structural": false,
+      "min": 0,
+      "max": 20000
+    },
+    {
+      "id": "d530_city_bid_pct",
+      "code": "",
+      "name": {
+        "ko": "NPC 도시 매입 호가(지난 값의 %)",
+        "en": "NPC city standing bid (% of last price)"
+      },
+      "value": 90,
+      "structural": false,
+      "unit": "pct",
+      "min": 1,
+      "max": 100
     }
   ]
 }

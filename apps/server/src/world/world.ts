@@ -777,7 +777,7 @@ export function startWorld(
       if (unit.planetId !== TEST_PLANET_ID || !maps.has(unit.mapKey)) orphanUnits += 1;
     }
     // 세계 씨앗: NPC 시작 도시 기본 시설(봇을 채우기 전, 모자란 것만, 동기 — facilities/npcSeed.ts)
-    const seedWith = { maps, cities, owners, facilities, log, rules: societyRules };
+    const seedWith = { maps, cities, owners, facilities, log, rules: societyRules, terrain: terrainService };
     if (config.npc) seedNpcFacilitiesAtBoot({ ...seedWith, planetId: TEST_PLANET_ID, nowMs: now() });
     paths.start();
     spawnBots();
@@ -832,7 +832,7 @@ export function startWorld(
           waveRewardItems: () => waveRewardItemsOf(config.holdings?.content().items ?? []),
           // 수호신 만족도 버프(기획 답 470 가): 하루 끝에 그 도시 휴먼마다
           guardianSatisfaction: () => persistence?.fusion.temple.citySatisfaction() ?? new Map(),
-          economy: npcEconomyInputOf(config.economy, facilities, maps),
+          economy: npcEconomyInputOf(config.economy, facilities, maps, config.npc.presets),
         });
       } catch (error) {
         log.error({ err: error }, "npc society failed to start; bots keep walking");

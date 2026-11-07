@@ -26,6 +26,7 @@ function city(overrides: Partial<WorldMapCity>): WorldMapCity {
     id: 1,
     factionId: 1,
     number: 1,
+    name: null,
     mapKey: 1000,
     face: 0,
     i: 282,
@@ -90,6 +91,8 @@ describe("국가 색·이름·도시 이름", () => {
     expect(factionName(FACTIONS, 7)).toBe("npc_nation_02");
     expect(factionName(FACTIONS, 42)).toBe("#42");
     expect(cityLabel(FACTIONS, city({ number: 3 }))).toBe("시험 NPC 세력 도시 3");
+    // 팩 도시 이름이 있으면 그 이름(번역하지 않는다, D-476·기획 답 510 다)
+    expect(cityLabel(FACTIONS, city({ number: 3, name: "Verdane" }))).toBe("Verdane");
   });
 });
 

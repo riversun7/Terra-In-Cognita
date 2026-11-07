@@ -4,6 +4,9 @@ import { type ContentPack, rankingPathEntrySchema } from "@terra/content";
 import type { LocalizedName } from "@terra/shared/faction";
 import type { RankingPathInfo } from "@terra/shared/ranking";
 import { z } from "zod";
+import { nationName } from "../npc/nations.ts";
+import { nationPresetsOf } from "../npc/presets.ts";
+import { TEST_NPC_FACTION_CODE } from "../world/unitKinds.ts";
 
 const entriesSchema = z.array(rankingPathEntrySchema);
 
@@ -17,7 +20,10 @@ export function rankingPathsOf(pack: ContentPack): RankingPathInfo[] {
   }));
 }
 
-/** 국가 프리셋 코드 → 이름(세력 행 code가 프리셋 ID인 시험 국가, src/npc/nations.ts). 판의 세력 이름에 쓴다 */
+/**
+ * 세력 코드 → 이름(세력 행 code가 프리셋 ID인 시험 국가, src/npc/nations.ts). 판의 세력 이름에 쓴다. 국가 1(시험 NPC 세력 s3_test_npc)은
+ * 사이보그 만들기·지도와 같은 이름(16번째 프리셋, nationName)이다 — 전에는 코드가 그대로 보였다
+ */
 export type NationNames = ReadonlyMap<string, LocalizedName>;
 
 const nationSchema = z.array(
@@ -25,7 +31,10 @@ const nationSchema = z.array(
 );
 
 export function nationNamesOf(pack: ContentPack): NationNames {
-  return new Map(
+  const names = new Map<string, LocalizedName>(
     nationSchema.parse(pack.entries.get("nation_presets") ?? []).map((entry) => [entry.id, entry.name]),
   );
+  const first = nationName(TEST_NPC_FACTION_CODE, nationPresetsOf(pack));
+  if (first) names.set(TEST_NPC_FACTION_CODE, first);
+  return names;
 }

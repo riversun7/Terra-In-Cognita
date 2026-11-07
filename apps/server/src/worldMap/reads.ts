@@ -97,13 +97,14 @@ interface CityRecord {
   readonly cellX: number;
   readonly cellY: number;
   readonly start: boolean;
+  readonly name: string | null;
   readonly code: string | null;
   readonly kind: "npc" | "player";
 }
 
 async function loadCityRecords(pool: QueryPool, planetId: string): Promise<CityRecord[]> {
   const result = await pool.query(
-    `select c.id, c.faction_id, c.map_key, c.cell_x, c.cell_y, c.start, f.code, f.kind
+    `select c.id, c.faction_id, c.map_key, c.cell_x, c.cell_y, c.start, c.name, f.code, f.kind
      from world_cities c join factions f on f.id = c.faction_id
      where c.planet_id = $1 and f.dissolved_at_ms is null
      order by c.id`,
@@ -116,6 +117,7 @@ async function loadCityRecords(pool: QueryPool, planetId: string): Promise<CityR
     cellX: Number(row.cell_x),
     cellY: Number(row.cell_y),
     start: row.start === true,
+    name: typeof row.name === "string" ? row.name : null,
     code: typeof row.code === "string" ? row.code : null,
     kind: row.kind === "player" ? "player" : "npc",
   }));
@@ -263,6 +265,7 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
           id: record.id,
           factionId: record.factionId,
           number,
+          name: record.name,
           mapKey: record.mapKey,
           face: cell.face,
           i: cell.i,

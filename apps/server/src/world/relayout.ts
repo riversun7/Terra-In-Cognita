@@ -3,7 +3,7 @@
 // 켤 때 옛 자리의 고정 국가 시작 도시 가운데 "플레이어 것이 걸리지 않은" 도시만 새 배치 자리로 옮긴다(WORLD_RELAYOUT = 1일 때만,
 // 꺼져 있으면 무엇을 옮길지 기록만 남긴다). 플레이어 자료는 지우지 않는다.
 // - 막는 것(하나라도 있으면 그 도시는 그대로 두고 까닭을 기록): 돌고 있는 전투(있으면 모두), 그 도시에 선 플레이어 건물, 그 도시 시설의 노동
-//   계약·직무 배치·플레이어 작업, 그 도시 수호신, 그 2차맵의 플레이어 유닛(사이보그 본체 빼고), 그 도시가 시작 도시인 사이보그가 그
+//   계약·직무 배치·플레이어 작업, 그 도시 수호신, 그 도시를 기준으로 놓은 영토 비콘, 그 2차맵의 플레이어 유닛(사이보그 본체 빼고), 그 도시가 시작 도시인 사이보그가 그
 //   2차맵에서 일·이동·포로 중, 그 도시 NPC 휴먼의 노동 계약, 그 도시 NPC 건물 창고에 든 물건.
 // - 옮기는 것(한 트랜잭션 + 감사 기록): 도시 줄의 2차맵·칸(도시 ID는 그대로 → 도시 창고·거래소 주문·지분·구인 칸·도시 이름이 따라간다),
 //   그 도시의 NPC 시설(건물·시설 줄·작업 줄을 지우고 같은 부팅의 기본 시설 세우기가 새 자리에 다시 세운다 — NPC 자료), 열린 NPC 구인 게시는
@@ -52,6 +52,7 @@ export const RELAYOUT_REASONS = [
   "facility_contract",
   "player_job",
   "guardian",
+  "beacon",
   "player_unit_on_map",
   "cyborg_busy",
   "npc_human_contract",
@@ -139,6 +140,8 @@ export async function inspectLegacyCity(
     ).rows,
   );
   add("guardian", (await pool.query(`select unit_id from temple_guardians where city_id = $1`, [id])).rows);
+  // 그 도시를 기준으로 놓은 영토 비콘(1차맵 칸에 선다 — 도시만 옮기면 껍질이 옛 자리까지 늘어난다)
+  add("beacon", (await pool.query(`select id from territory_beacons where city_id = $1`, [id])).rows);
   add(
     "player_unit_on_map",
     (

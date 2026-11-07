@@ -412,15 +412,12 @@ export function startWorld(
         }
         npcOwnerId = await ensureTestNpcOwner(db, now());
         // 세계 씨앗(WP1·docs/adr/2026-11-07-world-layout.md): 고정 국가·시작 도시(행성 위 국가마다 자기 자리, 모자란 것만)·띄울 2차맵
-        const seedAt = {
-          planetId: TEST_PLANET_ID,
-          testMapKeys: testKeys,
-          nowMs: now(),
-          terrain: terrainService,
-        };
+        // 다시 시도해도 앞 시도가 옮긴 계획은 남긴다(옮긴 도시의 유닛을 복구 직전에 새 자리로)
+        const seedAt = { planetId: TEST_PLANET_ID, testMapKeys: testKeys, nowMs: now(), log };
         const rules = (config.cyborgRules ?? defaultCyborgRules)();
-        const relayout = config.relayout ?? false;
-        seeded = await bootWorldSeed(db, { npc: config.npc, ...seedAt, rules, relayout, log });
+        const opts = { npc: config.npc, terrain: terrainService, rules, relayout: config.relayout ?? false };
+        const boot = await bootWorldSeed(db, { ...seedAt, ...opts });
+        seeded = { ...boot, relayout: boot.relayout ?? seeded?.relayout };
         cities = await loadCities(db);
         cyborgData = await loadCyborgs(db);
         beaconRows = await loadBeacons(db);

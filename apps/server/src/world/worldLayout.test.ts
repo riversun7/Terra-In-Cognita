@@ -1,6 +1,6 @@
 // 세계 배치 시험(docs/adr/2026-11-07-world-layout.md) — 가짜 행성 값(면 레벨 6, 땅·물 무늬)으로 국가 수도가 서로 멀고, 시작 도시가 2차맵마다
 // 하나·수도와 붙은 2차맵 먼저·알맞은 땅·다른 세력 영향권 밖에 서는지, 같은 입력이면 같은 결과인지 본다.
-import { type CellKey, cellKey, decodeCellKey, neighbors4 } from "@terra/planet";
+import { type CellKey, cellKey, decodeCellKey, neighbors4, parseCellKey } from "@terra/planet";
 import { territoryMetric } from "@terra/planet/territory";
 import { territoryDistanceMilli } from "@terra/shared/territory";
 import { START_WORLD_SEED } from "@terra/sim";
@@ -95,10 +95,10 @@ describe("세계 배치(국가 자리·시작 도시)", () => {
     for (const { factionId, spot } of result.spots) {
       expect(spot.x).toBe(CITY_CELL);
       expect(spot.y).toBe(CITY_CELL);
-      expect(isSettleLand(land(spot.mapKey as CellKey), seed)).toBe(true);
+      expect(isSettleLand(land(parseCellKey(spot.mapKey)), seed)).toBe(true);
       const home = result.homes.get(factionId);
       // 첫 도시 = 수도, 나머지는 수도의 변 이웃(이 가짜 땅에서는 넉넉하다)
-      if (spot.mapKey !== home) expect(neighbors4(home as CellKey)).toContain(spot.mapKey);
+      if (home !== undefined && spot.mapKey !== home) expect(neighbors4(home)).toContain(spot.mapKey);
     }
     // 다른 국가 도시끼리는 국가 간격의 절반보다 멀다(영토가 닿지 않는다)
     for (const a of result.spots)

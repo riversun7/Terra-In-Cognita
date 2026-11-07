@@ -5,7 +5,7 @@
 // 2. 옛 세계(시작 도시가 시험 2차맵 줄): WORLD_RELAYOUT이 꺼져 있으면 계획만 기록하고 그대로, 켜면 플레이어 것이 걸리지 않은 도시만 옮기고
 //    (사이보그·NPC 휴먼은 새 도시 둘레로, NPC 시설은 새 자리에 다시), 플레이어 일꾼이 선 2차맵의 도시는 그대로 두고 까닭을 남긴다.
 import { loadContentPack } from "@terra/content/node";
-import { type CellKey, decodeCellKey } from "@terra/planet";
+import { decodeCellKey, parseCellKey } from "@terra/planet";
 import type { PlanetCellValues } from "@terra/planet/secondMap";
 import { territoryMetric, territoryPoint, placementCellKey } from "@terra/planet/territory";
 import { territoryDistanceMilli } from "@terra/shared/territory";
@@ -28,7 +28,7 @@ const metric = territoryMetric(9);
 
 /** 가짜 행성 값: 면 5는 바다, 나머지는 풀밭(15°C·강수 400mm·숲 없음·고도 120m) */
 function cellValues(mapKey: number): PlanetCellValues {
-  const { face, i, j } = decodeCellKey(mapKey as CellKey);
+  const { face, i, j } = decodeCellKey(parseCellKey(mapKey));
   const sea = face === 5;
   return {
     mapKey,
@@ -119,7 +119,7 @@ const startCities = () =>
     `select id, faction_id, map_key, cell_x, cell_y from world_cities where start order by id`,
   );
 const pointOf = (city: CityLine) =>
-  territoryPoint(placementCellKey(Number(city.map_key) as CellKey, city.cell_x, city.cell_y));
+  territoryPoint(placementCellKey(parseCellKey(Number(city.map_key)), city.cell_x, city.cell_y));
 
 async function newUser(name: string): Promise<string> {
   const found = await rows<{ id: string }>(
@@ -185,11 +185,10 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 배치(국가마다 행성 위 자�
     expect(world.maps.size).toBe(cities.length + 2);
     // 한 국가 도시는 수도에서 한 칸, 다른 국가 도시와는 국가 간격(30칸)에 가깝게 멀다
     const lists = [...byFaction.values()];
-    for (const list of lists)
-      for (const city of list)
-        expect(territoryDistanceMilli(pointOf(city), pointOf(list[0] as CityLine), metric)).toBeLessThan(
-          1600,
-        );
+    for (const [capital, ...rest] of lists)
+      for (const city of rest)
+        if (capital)
+          expect(territoryDistanceMilli(pointOf(city), pointOf(capital), metric)).toBeLessThan(1600);
     for (const [a, listA] of lists.entries())
       for (const [b, listB] of lists.entries())
         if (a !== b)
@@ -217,11 +216,12 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 배치(국가마다 행성 위 자�
     expect(legacy.every((city) => testKeys.has(city.map_key))).toBe(true);
     const mover = await newUser("LayoutMover");
     const worker = await newUser("LayoutWorker");
-    const firstCity = legacy[0] as CityLine;
+    const firstCity = legacy[0];
+    if (!firstCity) throw new Error("no legacy city");
     await makeCyborg(legacyWorld, mover, Number(firstCity.id));
     // 플레이어 일꾼이 선 2차맵(셋째 시험 2차맵)의 도시는 옮기지 않는다
     const blockedMap = String(testMapKey(2));
-    expect(legacyWorld.devSpawn(worker, Number(blockedMap), 2)).toBe(2);
+    expect(legacyWorld.devSpawn?.(worker, Number(blockedMap), 2)).toBe(2);
     await legacyWorld.persistence?.writer.durable();
     expect(await cyborgMap(mover)).toBe(firstCity.map_key);
     await stop(legacyWorld);
@@ -238,7 +238,8 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 배치(국가마다 행성 위 자�
     const after = await startCities();
     expect(after.map((city) => city.id)).toEqual(legacy.map((city) => city.id));
     for (const [index, city] of after.entries()) {
-      const before = legacy[index] as CityLine;
+      const before = legacy[index];
+      if (!before) throw new Error("legacy city");
       if (before.map_key === blockedMap) expect(city).toEqual(before);
       else {
         expect(testKeys.has(city.map_key)).toBe(false);
@@ -258,9 +259,9 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 배치(국가마다 행성 위 자�
         kept.every((entry: unknown) => JSON.stringify(entry).includes("player_unit_on_map")),
     ).toBe(true);
     // 사이보그는 옮긴 시작 도시의 새 2차맵에
-    const movedFirst = after[0] as CityLine;
-    expect(movedFirst.map_key).not.toBe(firstCity.map_key);
-    expect(await cyborgMap(mover)).toBe(movedFirst.map_key);
+    const movedFirst = after[0];
+    expect(movedFirst?.map_key).not.toBe(firstCity.map_key);
+    expect(await cyborgMap(mover)).toBe(movedFirst?.map_key);
     // 일꾼은 그대로(플레이어 자료를 옮기거나 지우지 않는다)
     const workers = await rows<{ map_key: string }>(
       test.db,

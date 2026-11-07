@@ -11,6 +11,7 @@
 //    foundingConflict — NPC 마을 자리와 같은 규칙)만 고른다. 자리가 모자라면 고른 만큼만 돌려준다(부르는 쪽이 기록에 남긴다).
 import {
   type CellKey,
+  FACES,
   cellKey,
   cellsPerSide,
   decodeCellKey,
@@ -160,10 +161,10 @@ export function sampleLand(input: Pick<LayoutInput, "faceLevel" | "land" | "seed
   const n = cellsPerSide(input.faceLevel);
   const step = Math.max(1, Math.floor(n / SAMPLE_CELLS_PER_FACE));
   const out: CellKey[] = [];
-  for (let face = 0; face < 6; face++)
+  for (const face of FACES)
     for (let j = step >> 1; j < n; j += step)
       for (let i = step >> 1; i < n; i += step) {
-        const key = cellKey(face as 0 | 1 | 2 | 3 | 4 | 5, input.faceLevel, i, j);
+        const key = cellKey(face, input.faceLevel, i, j);
         if (input.avoidMaps?.has(key)) continue;
         if (isSettleLand(input.land(key), input.seed)) out.push(key);
       }

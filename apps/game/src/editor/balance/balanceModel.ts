@@ -200,11 +200,36 @@ export function balanceErrorOf(error: unknown): BalanceErrorInfo {
       return { key: "forbidden", problems, sessionEnded: false };
     case "NOT_FOUND":
       return { key: "unavailable", problems, sessionEnded: false };
+    // 까닭이 없는 429(다른 제한기)도 속도 제한 문구
+    case "TOO_MANY_REQUESTS":
+      return { key: "rate_limited", problems, sessionEnded: false };
     case undefined:
       return { key: "network", problems, sessionEnded: false };
     default:
       return { key: "unknown", problems, sessionEnded: false };
   }
+}
+
+/** 기여 조회를 다시 묻기까지(ms): 첫 거절 뒤 2초, 그다음 두 배씩, 최대 30초 */
+export const CONTRIBUTION_RETRY_MS = { first: 2_000, max: 30_000 } as const;
+
+/** 다시 물으면 나아질 수 있는 거절: 속도 제한(사용자별 조회 제한)·바쁨·연결·서버 일시 오류 */
+const RETRYABLE: ReadonlySet<BalanceErrorKey> = new Set<BalanceErrorKey>([
+  "rate_limited",
+  "busy",
+  "network",
+  "timeout",
+  "failed",
+  "unknown",
+]);
+
+/**
+ * 기여 조회가 거절된 뒤 다시 묻기까지(ms). null = 다시 묻지 않는다(권한·세션·입력 문제는 다시 물어도 같다).
+ * attempt = 같은 입력으로 거절된 횟수 − 1(0부터). 담은 칸·기준 1차가 바뀌면 새 입력이라 처음부터 다시 센다(WeightTab)
+ */
+export function contributionRetryMs(info: BalanceErrorInfo, attempt: number): number | null {
+  if (!RETRYABLE.has(info.key)) return null;
+  return Math.min(CONTRIBUTION_RETRY_MS.max, CONTRIBUTION_RETRY_MS.first * 2 ** Math.max(0, attempt));
 }
 
 /** 미리 검사(contribution.problem)의 까닭 글 → 문구 키(모르는 까닭은 unknown) */

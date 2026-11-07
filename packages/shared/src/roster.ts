@@ -509,7 +509,8 @@ export interface RosterWeaponPart {
 
 /**
  * 판정에 들어가는 공격 값(서버가 전투 사양 specFromStats와 같은 함수로 셈해 보낸다, 기기는 보이기만). 입은 장비(굴린 값·무기 사양,
- * 내구도 > 0만)·1차 스탯 버프가 든 몸이다(docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07, 입은 장비·버프 → 스탯·전투)").
+ * 내구도 > 0만)가 든 몸이고 걸린 효과(버프)는 뺀 기본이다 — 버프 몫은 CyborgBody.buffs(docs/adr/2026-11-03-item-holdings.md
+ * "바뀜 (2026-11-07, 입은 장비·버프 → 스탯·전투)", "바뀜 (2026-11-07, 사이보그 판 버프 몫 …)").
  * 공격력 = 스탯 공격력 + 무기 공격력 × 비율(STR·INT), 명중·크리 = 무기 값 × 비율(DEX), 간격 = 무기 간격 ÷ 비율(AGI)(D-502),
  * 스태미나 회복 = 행 값 × min(2, STA 점수 ÷ 적정 STA)(D-511 real_stamina_regen)
  */
@@ -536,6 +537,47 @@ export interface RosterCombat {
   };
 }
 
+/**
+ * 버프·디버프가 바꾸는 전투 수치(효과 사전 stat 가운데 1차 스탯이 아닌 것). @terra/content EFFECT_COMBAT_STATS·@terra/sim ModifierStat과
+ * 같은 목록이다(이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다 — 서버 시험이 둘이 같은지 본다)
+ */
+export const ROSTER_MODIFIER_STATS = [
+  "attack",
+  "defense_rate",
+  "evade",
+  "penetration",
+  "crit_multiplier",
+  "move_speed",
+  "shield_regen",
+] as const;
+export type RosterModifierStat = (typeof ROSTER_MODIFIER_STATS)[number];
+
+/**
+ * 사이보그 판의 버프 몫(질문 354 → 기획 D-515: 기본값과 버프를 나눠 보인다, D-448). 서버가 판정과 같은 함수로 셈해 보낸다.
+ * 줄 값(CyborgBody.breakdown·combat = 걸린 효과를 뺀 기본) + 이 몫 = 판정에 들어가는 값. 1차 스탯 줄은 primarySources의 effect가 몫이다.
+ * 걸린 효과: 1차 스탯 버프(고정값, 성장값 뒤에 더함 48 §2.3 → 가중치로 2차 행을 바꾼다)와 전투 수치 버프(전투 시작 때 판정의 걸린 효과로
+ * 드는 공격 ‰·방어율·회피·관통·크리 배율·이동 속도·쉴드 재생 — docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07, 사이보그 판 버프 몫 …)")
+ */
+export interface RosterBuffs {
+  /**
+   * 2차 행 ID → 몫(행 단위, 0이 아닌 행만): 1차 스탯 버프가 바꾼 몫 + 그 행을 바꾸는 전투 수치 버프(방어율·회피·크리 배율 = ‰ 더하기,
+   * 쉴드 재생 = ‰ 배율. 판정 withDefenseModifiers·withAttackModifiers·shieldRegenPerMinute와 같은 셈)
+   */
+  readonly rows: Readonly<Record<string, number>>;
+  /** 판정 값 줄의 몫: 실제 공격력(공격 ‰ 배율까지 — 피해에 곱하는 버프 항을 공격력 단위로), 명중·크리(‰), 간격(ms), 실제 스태미나 회복 */
+  readonly attack: number;
+  readonly hit: number;
+  readonly crit: number;
+  readonly interval: number;
+  readonly staminaRegen: number;
+  /** 관통(‰): 기본(장비, 2차 행이 없다)과 버프 몫 */
+  readonly penetration: { readonly basePm: number; readonly buffPm: number };
+  /** 이동 속도 몫(‰, 기본 1000 = 100%. 판정 moveIntervalMs와 같은 하한을 넣은 값) */
+  readonly moveSpeedPm: number;
+  /** 전투 수치 버프 합(‰, 판정 modifiersOf와 같은 합: 버프 +, 디버프 −) — 펼친 줄의 풀이 */
+  readonly modifiers: Readonly<Record<RosterModifierStat, number>>;
+}
+
 /** 사이보그 본체(D-018·D-026·D-040). 만든 사이보그(첫 접속, docs/adr/2026-11-01-first-login-cyborg.md)나 dev·admin 시안에서 온다 */
 export interface CyborgBody {
   readonly level: number;
@@ -560,7 +602,10 @@ export interface CyborgBody {
    */
   readonly living: { readonly unpaid: boolean; readonly efficiencyPm: number };
   readonly stats: RosterStats;
-  /** 2차 스탯 풀이(stats.secondary와 같은 행·같은 값, 상세 전투 스펙의 펼친 줄) */
+  /**
+   * 2차 스탯 풀이(stats.secondary와 같은 행, 상세 전투 스펙의 펼친 줄). 값은 걸린 효과를 뺀 기본이다: 버프가 없으면 stats.secondary와 같고,
+   * 있으면 기본 + buffs.rows가 판정 값이다(1차 스탯 버프는 stats.secondary에 이미 들어 있다)
+   */
   readonly breakdown: readonly RosterStatBreakdown[];
   /**
    * 처음 값과 성장 K(‰, 800~1200) — K가 보이는 곳에서만 보낸다(D-449: 환생 시설·생명공학 시설·만렙). cyborg.get은 만렙(N7)일 때만,
@@ -587,8 +632,13 @@ export interface CyborgBody {
   readonly skillSlotsMax: number;
   readonly skillSlotUnlocks: readonly number[];
   readonly fatigue: { readonly value: number; readonly max: number };
-  /** 판정에 들어가는 공격·스태미나 회복 값(만든 사이보그만, 시안·옛 서버는 없음 → 화면은 2차 스탯 행만 보인다) */
+  /**
+   * 판정에 들어가는 공격·스태미나 회복 값(만든 사이보그만, 시안·옛 서버는 없음 → 화면은 2차 스탯 행만 보인다). 걸린 효과를 뺀 기본이고,
+   * 버프 몫은 buffs
+   */
   readonly combat?: RosterCombat | undefined;
+  /** 버프 몫(만든 사이보그만, 걸린 효과가 없으면 0들). 없으면(시안·옛 서버) 화면은 몫을 보이지 않는다 */
+  readonly buffs?: RosterBuffs | undefined;
   readonly inventory: readonly CyborgItem[];
   readonly rankings: readonly CyborgRanking[];
   /** 시안 자료인지(만든 사이보그면 false) */

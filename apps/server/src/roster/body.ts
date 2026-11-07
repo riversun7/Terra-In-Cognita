@@ -244,7 +244,8 @@ export function bodyParts(catalog: RosterCatalog, spec: BodySpec): BodyParts {
   const slots = kind?.slots ?? [];
   const equipped: (EquippedItem | null)[] = slots.map((slot, index) => {
     const wanted = spec.equipped.get(index);
-    const def = wanted ? catalog.combat.equipment.find((item) => item.id === wanted.item) : undefined;
+    // 꺼진 항목도 찾는다(이미 입은 물건은 스탯을 준다, 질문 355 → D-515·D-512)
+    const def = wanted ? catalog.heldEquipment.find((item) => item.id === wanted.item) : undefined;
     return wanted && def && def.slot === slot ? equippedItemOf(def, wanted) : null;
   });
   const base = grown(spec, catalog.society.cyborg.growthPm);

@@ -2,21 +2,56 @@
 // ADR 2026-11-01-ui-visibility "바뀜": 묶음 칸(VITALS 전투자원·OFFENSE 공격·DEFENSE 방어·MOBILITY 기동·EFFICIENCY 효율) 안에 줄마다
 // ▶ 펼침 + 아이콘 + 이름 + 한 색 막대 + 오른쪽 값. 색은 2차 스탯 색(--color-sec-*, 1차 스탯 색과 겹치지 않음). 1차 스탯 기여로 칠하지 않는다.
 // 펼치면 옛 화면의 공식 상자: "공식 … | 캡 …", 입력 줄(STR(43)×1.5 = 64.5 …), "= 결과". 값·항은 서버가 팩 stat_rows 식으로 계산해 보낸다.
-// 판정 값(서버 CyborgBody.combat, 입은 장비·버프가 든 몸): 공격 묶음 끝에 실제 공격력·명중·크리·간격, 스태미나 회복 줄은 실제 회복(D-511).
+// 판정 값(서버 CyborgBody.combat, 입은 장비가 든 몸): 공격 묶음 끝에 실제 공격력·명중·크리·간격, 스태미나 회복 줄은 실제 회복(D-511).
+// 버프 몫(질문 354 → D-515 "기본값과 버프를 나눠 보인다"): 줄 값·풀이는 걸린 효과를 뺀 기본(서버 breakdown·combat), 값 옆 알약과
+// 막대 빗금 칸이 몫(CyborgBody.buffs — 1차 스탯 버프 몫 + 방어율·회피·크리 배율·쉴드 재생 등 전투 수치 버프, 판정과 같은 셈).
+// 펼치면 공식 끝에 "버프 +n → 전투 m". 몫이 하나라도 있으면 카드 머리 아래에 알약의 뜻을 적는다.
 import {
   type CyborgBody,
   PRIMARY_STATS,
+  type RosterBuffs,
   type RosterCombat,
+  type RosterModifierStat,
   type RosterNames,
   type RosterStatBreakdown,
 } from "@terra/shared/roster";
 import { useId } from "react";
 import { m } from "../paraglide/messages.js";
 import { PreviewTag } from "../roster/parts.tsx";
-import { formatMilli, formatNumber, formatStat, localName, primaryCode } from "../roster/rosterText.ts";
-import { AttackRows, SpecRow, StaminaRealLines } from "./CombatAttack.tsx";
-import { type CombatGroup, barFill, combatGroups, termMilliSum } from "./cyborgText.ts";
+import {
+  formatMilli,
+  formatNumber,
+  formatStat,
+  formatStatShare,
+  localName,
+  primaryCode,
+} from "../roster/rosterText.ts";
+import { AttackRows, BuffLines, MoveSpeedRow, SpecRow, StaminaRealLines, shareOf } from "./CombatAttack.tsx";
+import { type CombatGroup, combatGroups, termMilliSum } from "./cyborgText.ts";
 import "./combatSpecs.css";
+
+/** 2차 행 → 그 행을 바꾸는 전투 수치 버프(펼친 공식의 "전투 수치 버프 +n%" 줄) */
+const ROW_MODIFIER: Readonly<Record<string, RosterModifierStat>> = {
+  defense_rate: "defense_rate",
+  evade: "evade",
+  crit_multiplier: "crit_multiplier",
+  shield_regen: "shield_regen",
+};
+
+/** 몫이 하나라도 있나(알약 뜻 줄을 보일지) */
+function hasShare(buffs: RosterBuffs | undefined): boolean {
+  if (!buffs) return false;
+  return (
+    Object.keys(buffs.rows).length > 0 ||
+    buffs.attack !== 0 ||
+    buffs.hit !== 0 ||
+    buffs.crit !== 0 ||
+    buffs.interval !== 0 ||
+    buffs.staminaRegen !== 0 ||
+    buffs.penetration.buffPm !== 0 ||
+    buffs.moveSpeedPm !== 0
+  );
+}
 
 const GROUP_TEXT = {
   vitals: { tag: m.cyborg_sec_vitals_tag, name: m.cyborg_sec_vitals },
@@ -47,6 +82,12 @@ export function CombatSpecs({ body, names }: { body: CyborgBody; names: RosterNa
         <span className="combat-card-sub">{m.cyborg_combat_subtitle()}</span>
         {body.preview ? <PreviewTag /> : null}
       </div>
+      {hasShare(body.buffs) ? (
+        <p className="combat-buff-legend">
+          <span className="buff-swatch" aria-hidden="true" />
+          {m.cyborg_buff_legend()}
+        </p>
+      ) : null}
       <div className="combat-card-body">
         {combatGroups(body.breakdown).map(({ group, rows }) => (
           <section key={group} className="combat-group" data-group={group} aria-labelledby={`${id}-${group}`}>
@@ -63,9 +104,15 @@ export function CombatSpecs({ body, names }: { body: CyborgBody; names: RosterNa
                   row={row}
                   name={localName(names.stats[row.id], row.id)}
                   combat={body.combat}
+                  buffs={body.buffs}
                 />
               ))}
-              {group === "offense" && body.combat ? <AttackRows combat={body.combat} names={names} /> : null}
+              {group === "offense" && body.combat ? (
+                <AttackRows combat={body.combat} names={names} buffs={body.buffs} />
+              ) : null}
+              {group === "mobility" && body.buffs && body.buffs.moveSpeedPm !== 0 ? (
+                <MoveSpeedRow buffs={body.buffs} />
+              ) : null}
             </ul>
           </section>
         ))}
@@ -79,30 +126,44 @@ export function CombatSpecs({ body, names }: { body: CyborgBody; names: RosterNa
 
 /**
  * 옛 StatRow: 줄 전체가 누르는 곳(▶/▼), 펼치면 공식 상자. 스태미나 회복 줄은 판정 값(실제 회복 = 행 값 × 적정 STA 비율, D-511)을
- * 보이고 공식 상자 끝에 그 셈을 더한다(판정 값이 없는 시안·옛 서버는 행 값)
+ * 보이고 공식 상자 끝에 그 셈을 더한다(판정 값이 없는 시안·옛 서버는 행 값). 버프 몫이 있으면 값 옆 알약·막대 빗금 칸, 공식 끝에 버프 줄
  */
 function CombatRow({
   row,
   name,
   combat,
+  buffs,
 }: {
   row: RosterStatBreakdown;
   name: string;
   combat: RosterCombat | undefined;
+  buffs: RosterBuffs | undefined;
 }) {
   const regen = row.id === "stamina_regen" ? combat?.staminaRegen : undefined;
   const rowShown = formatStat(row);
-  const shown = regen ? formatStat({ ...row, value: regen.real }) : rowShown;
+  const base = regen ? regen.real : row.value;
+  const share = (regen ? buffs?.staminaRegen : buffs?.rows[row.id]) ?? 0;
+  const shareText = formatStatShare({ id: row.id, shape: row.shape, value: share });
+  const bar = shareOf(row, base, share, shareText);
+  const modifier = ROW_MODIFIER[row.id];
   return (
     <SpecRow
       sec={row.id}
       real={regen ? "stamina_regen" : undefined}
       name={name}
-      shown={shown}
-      fill={barFill(regen ? { ...row, value: regen.real } : row)}
+      shown={formatStat({ ...row, value: base })}
+      fill={bar.fill}
+      buff={bar.buff}
     >
       {row.formula ? <FormulaLines row={row} shown={rowShown} /> : <WeightLines row={row} shown={rowShown} />}
       {regen ? <StaminaRealLines regen={regen} /> : null}
+      {bar.buff ? (
+        <BuffLines
+          share={shareText}
+          total={formatStat({ ...row, value: base + share })}
+          modifierPm={modifier ? buffs?.modifiers[modifier] : undefined}
+        />
+      ) : null}
     </SpecRow>
   );
 }

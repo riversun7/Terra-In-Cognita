@@ -1,7 +1,8 @@
 /*
  * 핵심 사양 — 옛 프로젝트 StatBar 모양: 범례(진하기 = 출처), 줄 = 약자·이름 | 막대 | 합계, 올리거나 누르면 출처 상세 판.
  * 스탯 색은 roster/statPairs.css의 [data-stat] → --stat, 묶음 두 색 띠는 [data-pair] → --pair-a·--pair-b(D-448).
- * 진하기: 몸 값·처음 값 = 스탯 색 그대로, 레벨 성장 = 옅게, 장비 = 글자 색 쪽으로 섞은 색, 인공장기 = 그 색 빗금, 스킬·효과 = 더 섞고 빛.
+ * 진하기: 몸 값·처음 값 = 스탯 색 그대로, 레벨 성장 = 옅게, 장비 = 글자 색 쪽으로 섞은 색, 인공장기 = 그 색 빗금.
+ * 걸린 효과(버프)·디버프로 깎인 몫은 스탯 색이 아니라 버프 색 빗금(buffChip.css, 질문 354 → D-515). 합계 옆 알약이 버프 몫이다.
  * 값은 var(--…)만 쓴다.
  */
 
@@ -17,9 +18,6 @@
 [data-part="gear"],
 [data-part="organ"] {
   --part: color-mix(in srgb, var(--stat) 55%, var(--color-text));
-}
-[data-part="effect"] {
-  --part: color-mix(in srgb, var(--stat) 35%, var(--color-text));
 }
 /* 범례는 스탯이 정해지지 않아 테마의 버튼 턱 색으로 진하기만 보인다 */
 .core-legend {
@@ -53,9 +51,6 @@
     var(--stat) 0 var(--hairline),
     var(--part) var(--hairline) var(--space-1)
   );
-}
-.core-seg[data-part="effect"] {
-  box-shadow: 0 0 var(--space-2) var(--stat);
 }
 
 /* ── 묶음과 줄 ─────────────────────────────── */
@@ -159,6 +154,11 @@
   border-inline-start: var(--hairline) solid var(--color-surface);
 }
 .core-total {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--space-1);
   color: var(--stat);
   font-family: var(--font-display);
   font-weight: var(--font-weight-display);

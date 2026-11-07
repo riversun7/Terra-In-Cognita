@@ -2,11 +2,20 @@
 // 서버가 전투 사양(specFromStats)과 같은 함수로 셈해 보낸 값(CyborgBody.combat)을 보이기만 한다(입은 장비·1차 스탯 버프가 든 몸,
 // docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07, 입은 장비·버프 → 스탯·전투)"). 줄 모양은 2차 스탯 줄과 같다(SpecRow).
 // 공식 글은 D-502: 공격력 = 스탯 공격력 + 무기 공격력 × 비율(STR·INT ÷ 적정), 명중·크리 = 무기 값 × 비율(DEX), 간격 = 무기 간격 ÷ 비율(AGI).
-import type { RosterCombat, RosterNames, RosterWeaponPart } from "@terra/shared/roster";
+// 버프 몫(질문 354 → D-515): 줄 값은 걸린 효과를 뺀 기본, 옆 알약·막대 빗금 칸이 몫(CyborgBody.buffs, 공격은 공격 ‰ 배율까지).
+// 2차 행이 없는 전투 수치(관통·이동 속도)는 값이 있을 때만 줄을 더한다.
+import type {
+  RosterBuffs,
+  RosterCombat,
+  RosterNames,
+  RosterStatBreakdown,
+  RosterWeaponPart,
+} from "@terra/shared/roster";
 import { type ReactNode, useId, useState } from "react";
 import { m } from "../paraglide/messages.js";
-import { formatMilli, formatNumber, localName, primaryCode } from "../roster/rosterText.ts";
-import { barFill } from "./cyborgText.ts";
+import { formatMilli, formatNumber, formatSigned, localName, primaryCode } from "../roster/rosterText.ts";
+import { BuffChip } from "./BuffChip.tsx";
+import { barFill, barSplit, buffTone } from "./cyborgText.ts";
 import { StatIcon } from "./statIcons.tsx";
 
 const pct = (share: number): string => `${String(Math.round(share * 1000) / 10)}%`;
@@ -15,13 +24,67 @@ const ratioText = (ratioPm: number): string => `${formatNumber(Math.round(ratioP
 /** 확률 ‰ → "74.9%" */
 const chanceText = (pm: number): string => `${formatMilli(pm * 100)}%`;
 
-/** 2차 스탯 줄과 같은 모양(▶ 펼침 + 아이콘 + 이름 + 막대 + 값, 펼치면 공식 상자) */
+/** 부호 붙인 확률 ‰ → "+1.2%" */
+const signedChance = (pm: number): string => `${pm < 0 ? "-" : "+"}${chanceText(Math.abs(pm))}`;
+/** 전투 수치 버프 ‰ → "+5%"(효과 사전 값 그대로를 백분율로) */
+export const modifierText = (pm: number): string =>
+  `${pm < 0 ? "-" : "+"}${formatMilli(Math.abs(pm) * 100)}%`;
+
+/** 줄의 버프 몫 표(알약 글·쪽·막대 몫 칸) */
+export interface SpecBuff {
+  readonly text: string;
+  readonly tone: "up" | "down";
+  readonly extra: number;
+}
+
+/**
+ * 기본값·몫 → 막대 두 칸과 알약(몫이 0이면 알약 없음). 막대 끝은 기본과 판정 값 가운데 큰 값(barSplit). lowerIsBetter: 공격 간격처럼
+ * 작을수록 좋은 값
+ */
+export function shareOf(
+  row: Pick<RosterStatBreakdown, "shape" | "cap">,
+  base: number,
+  share: number,
+  text: string,
+  lowerIsBetter = false,
+): { fill: number; buff: SpecBuff | undefined } {
+  if (share === 0) return { fill: barFill({ ...row, value: base }), buff: undefined };
+  const { fill, extra } = barSplit(row, base, base + share);
+  return { fill, buff: { text, tone: buffTone(share, lowerIsBetter), extra } };
+}
+
+/** 펼친 공식 상자 끝의 버프 줄: (전투 수치 버프 ‰) + "버프 +n → 전투 m" */
+export function BuffLines({
+  share,
+  total,
+  modifierPm = 0,
+}: {
+  share: string;
+  total: string;
+  modifierPm?: number | undefined;
+}) {
+  return (
+    <>
+      {modifierPm === 0 ? null : (
+        <p className="combat-line" translate="no">
+          {m.cyborg_buff_combat({ value: modifierText(modifierPm) })}
+        </p>
+      )}
+      <p className="combat-line combat-buff-line" translate="no">
+        {m.cyborg_buff_line({ share, total })}
+      </p>
+    </>
+  );
+}
+
+/** 2차 스탯 줄과 같은 모양(▶ 펼침 + 아이콘 + 이름 + 막대 + 값, 펼치면 공식 상자). buff = 기본값 옆 버프 몫(알약·막대 빗금 칸) */
 export function SpecRow({
   sec,
   name,
   shown,
   fill,
   real,
+  buff,
   children,
 }: {
   sec: string;
@@ -30,12 +93,19 @@ export function SpecRow({
   fill: number;
   /** 판정 값 줄 표지(시험·스타일) */
   real?: string | undefined;
+  buff?: SpecBuff | undefined;
   children: ReactNode;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
   return (
-    <li className="combat-row" data-sec={sec} data-real={real} data-open={open ? "true" : undefined}>
+    <li
+      className="combat-row"
+      data-sec={sec}
+      data-real={real}
+      data-buff={buff?.tone}
+      data-open={open ? "true" : undefined}
+    >
       <button
         type="button"
         className="combat-toggle"
@@ -47,11 +117,25 @@ export function SpecRow({
         <StatIcon id={sec} />
         <span className="combat-main">
           <span className="combat-label">{name}</span>
-          <span className="combat-bar" aria-hidden="true">
+          <span
+            className="combat-bar"
+            aria-hidden="true"
+            data-split={buff && buff.extra > 0 ? "" : undefined}
+          >
             <span className="combat-bar-fill" style={{ inlineSize: pct(fill) }} />
+            {buff && buff.extra > 0 ? (
+              <span
+                className="combat-bar-buff"
+                data-tone={buff.tone}
+                style={{ inlineSize: pct(buff.extra) }}
+              />
+            ) : null}
           </span>
         </span>
-        <span className="combat-value">{shown}</span>
+        <span className="combat-value">
+          <span className="combat-value-base">{shown}</span>
+          {buff ? <BuffChip text={buff.text} tone={buff.tone} /> : null}
+        </span>
       </button>
       <div id={`${id}-detail`} className="combat-detail" hidden={!open}>
         {children}
@@ -76,9 +160,29 @@ function PartLine({ code, part }: { code: string; part: RosterWeaponPart }) {
   );
 }
 
-/** 공격 묶음 아래 판정 값 네 줄(든 무기·맨손 표지 포함) */
-export function AttackRows({ combat, names }: { combat: RosterCombat; names: RosterNames }) {
+const QUANTITY = { shape: "quantity", cap: null } as const;
+const CHANCE = { shape: "probability", cap: 1000 } as const;
+
+/** 공격 묶음 아래 판정 값 네 줄(든 무기·맨손 표지 포함)과 관통(값이 있을 때). buffs = 버프 몫(없으면 몫을 보이지 않는다) */
+export function AttackRows({
+  combat,
+  names,
+  buffs,
+}: {
+  combat: RosterCombat;
+  names: RosterNames;
+  buffs?: RosterBuffs | undefined;
+}) {
   const { attack, hit, crit, interval } = combat;
+  const attackShare = buffs?.attack ?? 0;
+  const hitShare = buffs?.hit ?? 0;
+  const critShare = buffs?.crit ?? 0;
+  const intervalShare = buffs?.interval ?? 0;
+  const attackBar = shareOf(QUANTITY, attack.real, attackShare, formatSigned(attackShare));
+  const hitBar = shareOf(CHANCE, hit.real, hitShare, signedChance(hitShare));
+  const critBar = shareOf(CHANCE, crit.real, critShare, signedChance(critShare));
+  const intervalText = `${intervalShare < 0 ? "-" : "+"}${m.cyborg_ms({ value: formatNumber(Math.abs(intervalShare)) })}`;
+  const intervalBar = shareOf(QUANTITY, interval.real, intervalShare, intervalText, true);
   const attackCode = primaryCode(attack.kind === "physical" ? "str" : "int");
   const dex = primaryCode("dex");
   const agi = primaryCode("agi");
@@ -93,7 +197,8 @@ export function AttackRows({ combat, names }: { combat: RosterCombat; names: Ros
         real="attack"
         name={m.cyborg_attack_real()}
         shown={formatNumber(attack.real)}
-        fill={barFill({ shape: "quantity", value: attack.real, cap: null })}
+        fill={attackBar.fill}
+        buff={attackBar.buff}
       >
         <p className="combat-formula">
           <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
@@ -109,13 +214,21 @@ export function AttackRows({ combat, names }: { combat: RosterCombat; names: Ros
             real: formatNumber(attack.real),
           })}
         </p>
+        {attackBar.buff ? (
+          <BuffLines
+            share={attackBar.buff.text}
+            total={formatNumber(attack.real + attackShare)}
+            modifierPm={buffs?.modifiers.attack}
+          />
+        ) : null}
       </SpecRow>
       <SpecRow
         sec="hit"
         real="hit"
         name={m.cyborg_attack_hit()}
         shown={chanceText(hit.real)}
-        fill={barFill({ shape: "probability", value: hit.real, cap: 1000 })}
+        fill={hitBar.fill}
+        buff={hitBar.buff}
       >
         <PartLine code={dex} part={hit.part} />
         <p className="combat-line combat-result" translate="no">
@@ -125,13 +238,15 @@ export function AttackRows({ combat, names }: { combat: RosterCombat; names: Ros
             real: chanceText(hit.real),
           })}
         </p>
+        {hitBar.buff ? <BuffLines share={hitBar.buff.text} total={chanceText(hit.real + hitShare)} /> : null}
       </SpecRow>
       <SpecRow
         sec="crit_chance"
         real="crit"
         name={m.cyborg_attack_crit()}
         shown={chanceText(crit.real)}
-        fill={barFill({ shape: "probability", value: crit.real, cap: 1000 })}
+        fill={critBar.fill}
+        buff={critBar.buff}
       >
         <PartLine code={dex} part={crit.part} />
         <p className="combat-line combat-result" translate="no">
@@ -141,13 +256,17 @@ export function AttackRows({ combat, names }: { combat: RosterCombat; names: Ros
             real: chanceText(crit.real),
           })}
         </p>
+        {critBar.buff ? (
+          <BuffLines share={critBar.buff.text} total={chanceText(crit.real + critShare)} />
+        ) : null}
       </SpecRow>
       <SpecRow
         sec="action_speed"
         real="interval"
         name={m.cyborg_attack_interval()}
         shown={m.cyborg_ms({ value: formatNumber(interval.real) })}
-        fill={barFill({ shape: "quantity", value: interval.real, cap: null })}
+        fill={intervalBar.fill}
+        buff={intervalBar.buff}
       >
         <PartLine code={agi} part={interval.part} />
         <p className="combat-line combat-result" translate="no">
@@ -157,8 +276,68 @@ export function AttackRows({ combat, names }: { combat: RosterCombat; names: Ros
             real: formatNumber(interval.real),
           })}
         </p>
+        {intervalBar.buff ? (
+          <BuffLines
+            share={intervalBar.buff.text}
+            total={m.cyborg_ms({ value: formatNumber(interval.real + intervalShare) })}
+          />
+        ) : null}
       </SpecRow>
+      {buffs && (buffs.penetration.basePm !== 0 || buffs.penetration.buffPm !== 0) ? (
+        <PenetrationRow penetration={buffs.penetration} />
+      ) : null}
     </>
+  );
+}
+
+/** 관통(‰, 2차 행이 없다): 장비 몫 + 버프 몫. 값이 있을 때만 */
+function PenetrationRow({ penetration }: { penetration: RosterBuffs["penetration"] }) {
+  const { basePm, buffPm } = penetration;
+  const bar = shareOf(CHANCE, basePm, buffPm, signedChance(buffPm));
+  return (
+    <SpecRow
+      sec="penetration"
+      real="penetration"
+      name={m.cyborg_penetration()}
+      shown={chanceText(basePm)}
+      fill={bar.fill}
+      buff={bar.buff}
+    >
+      <p className="combat-line" translate="no">
+        {m.cyborg_penetration_line({ gear: chanceText(basePm) })}
+      </p>
+      {bar.buff ? (
+        <BuffLines share={bar.buff.text} total={chanceText(basePm + buffPm)} modifierPm={buffPm} />
+      ) : null}
+    </SpecRow>
+  );
+}
+
+/** 이동 속도(기동 묶음, 2차 행이 없다): 기본 100% + 버프 몫(판정 하한을 넣은 값). 몫이 있을 때만 */
+export function MoveSpeedRow({ buffs }: { buffs: RosterBuffs }) {
+  const share = buffs.moveSpeedPm;
+  const bar = shareOf(CHANCE, 1000, share, signedChance(share));
+  return (
+    <SpecRow
+      sec="move_speed"
+      real="move_speed"
+      name={m.cyborg_move_speed()}
+      shown={chanceText(1000)}
+      fill={bar.fill}
+      buff={bar.buff}
+    >
+      <p className="combat-formula">
+        <span className="combat-formula-label">{m.cyborg_formula_label()} </span>
+        {m.cyborg_move_speed_formula()}
+      </p>
+      {bar.buff ? (
+        <BuffLines
+          share={bar.buff.text}
+          total={chanceText(1000 + share)}
+          modifierPm={buffs.modifiers.move_speed}
+        />
+      ) : null}
+    </SpecRow>
   );
 }
 

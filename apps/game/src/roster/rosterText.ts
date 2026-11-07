@@ -205,6 +205,21 @@ export function formatStat(stat: RosterStat, locale: Locale = getLocale()): stri
   return numberFormat(locale, 0).format(stat.value);
 }
 
+/** 부호 붙인 수("+3", "-2") — 버프 몫 */
+export const formatSigned = (value: number, locale: Locale = getLocale()): string =>
+  `${value > 0 ? "+" : ""}${numberFormat(locale, 0).format(value)}`;
+
+/**
+ * 2차 스탯 버프 몫(부호 붙임, 질문 354 → D-515): 확률 모양 "+5.0%", ‰ 양 "+0.10"(배율 더하기), 분당 양 "+5/분", 나머지 "+5".
+ * 값은 서버가 보낸 몫 그대로다
+ */
+export function formatStatShare(stat: RosterStat, locale: Locale = getLocale()): string {
+  const sign = stat.value < 0 ? "-" : "+";
+  const size = { ...stat, value: Math.abs(stat.value) };
+  if (PERMILLE_QUANTITIES.has(stat.id)) return `${sign}${numberFormat(locale, 2).format(size.value / 1000)}`;
+  return `${sign}${formatStat(size, locale)}`;
+}
+
 /** 유닛 상태 분류(걸러 보기·정렬·줄 표시). 손이 필요한 것부터 */
 export const UNIT_STATUSES = ["captive", "injured", "idle", "resting", "working"] as const;
 export type UnitStatus = (typeof UNIT_STATUSES)[number];

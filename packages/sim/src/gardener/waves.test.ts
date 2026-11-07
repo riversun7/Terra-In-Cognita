@@ -68,18 +68,18 @@ describe("정원사 웨이브 공식(D-460 201, C14~C18)", () => {
     expect(grantGardenerUnits(12, 6_000, c)).toBe(0);
   });
 
-  it("출발값: 세기 기본·물리형 나눗수는 D-468 목표(C16a: 합 ≥ 30,000 웨이브의 약 1/3 승)로 맞춘 5·100", () => {
+  it("출발값: 세기 기본·물리형 나눗수는 D-468 목표(C16a: 합 ≥ 30,000 웨이브의 약 1/3 승)로 맞춘 5·250(D-514 HP 회복 뒤 다시 맞춤, [임시])", () => {
     expect([
       TEST_GARDENER_COEFFICIENTS.strengthBase,
       TEST_GARDENER_COEFFICIENTS.physicalDivisor,
       TEST_GARDENER_COEFFICIENTS.targetWinPm,
       TEST_GARDENER_COEFFICIENTS.targetSum,
-    ]).toEqual([5, 100, 333, 30_000]);
-    // 4도시 세력 세기 15, 합 30,000 → 물리형 ⌊15 × 300‰⌋ = 4
+    ]).toEqual([5, 250, 333, 30_000]);
+    // 4도시 세력 세기 15, 합 30,000 → 물리형 ⌊15 × 120‰⌋ = 1 (나눗수 250: 30,000 ÷ 250 = 120‰)
     const t = TEST_GARDENER_COEFFICIENTS;
     expect(
       physicalCount(waveStrength({ cities: 4, humans: 40, treasury: 0n }, t), physicalPm(30_000, t)),
-    ).toBe(4);
+    ).toBe(1);
   });
 
   it("쉬는 시간 길이는 7일", () => {

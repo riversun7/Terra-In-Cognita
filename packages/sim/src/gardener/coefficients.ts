@@ -88,7 +88,7 @@ export const TEST_GARDENER_COEFFICIENTS: GardenerCoefficients = {
   noticeMs: 8 * HOUR_MS,
   cooldownMs: 7 * DAY_MS,
   cooldownChanceBp: 5000,
-  physicalDivisor: 100,
+  physicalDivisor: 250,
   physicalMaxPm: 500,
   unitBudget: 100_000,
   mothershipBp: 500,

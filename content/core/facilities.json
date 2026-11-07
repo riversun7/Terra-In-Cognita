@@ -784,6 +784,51 @@
         "height": 3
       },
       "durability": 500
+    },
+    {
+      "id": "hospital",
+      "name": {
+        "ko": "병원",
+        "en": "Hospital"
+      },
+      "stage": "medical",
+      "slotsPerLevel": 2,
+      "build": {
+        "mulPm": 1000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 12
+              },
+              {
+                "item": "stone",
+                "qty": 12
+              }
+            ]
+          },
+          {
+            "from": 2,
+            "materials": [
+              {
+                "item": "plank",
+                "qty": 12
+              },
+              {
+                "item": "brick",
+                "qty": 10
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "durability": 250
     }
   ]
 }

@@ -4,6 +4,7 @@
 //   고르게 하고(기획 정리 D-518 522 ①, 다른 2차맵 유닛 수는 한 줄로) 자리가 차면 단추를 막는다.
 // - 스탯 짝(주 = 진행 속도, 보조 = 수확량)을 유닛 고르기에 함께 보인다(유닛 1차 스탯, 입은 장비 포함).
 // - 산출은 그 시설이 선 도시의 내 도시 창고로 간다(도시가 없으면 이 건물 창고).
+// - 병원(의료 단계, D-521 — docs/adr/2026-11-08-injury.md): 같은 칸으로 의사를 직무 배치한다. 스탯은 INT + WIS(치료 배율), 산출 없음.
 import type { FacilitiesOverviewResponse, FacilityView, FacilityWorkerView } from "@terra/shared/facilities";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
@@ -49,17 +50,19 @@ export function FacilityWorkers({
   busy: boolean;
 }) {
   const gather = facility.gather;
+  const medical = facility.medical === true;
   const idle = data.units.filter((unit) => !unit.busy);
   // 같은 2차맵의 유닛만 둘 수 있다(522 ①)
   const free = idle.filter((unit) => unit.mapKey === facility.mapKey);
   const elsewhere = idle.length - free.length;
   const [picked, setPicked] = useState<number | null>(null);
   const cityText = useCityText();
-  if (!gather) return null;
+  if (!gather && !medical) return null;
   const unitId = free.some((unit) => unit.id === picked) ? picked : (free[0]?.id ?? null);
   const full = facility.workers.length >= facility.slots;
   const built = facility.level >= 1;
   const statText = (unit: (typeof free)[number]): string => {
+    if (!gather) return m.facility_worker_stats_medical({ stat: unit.stats.int + unit.stats.wis });
     const main = isStat(gather.primary) ? unit.stats[gather.primary] : 0;
     const sub = isStat(gather.secondary) ? unit.stats[gather.secondary] : 0;
     return m.facility_worker_stats({
@@ -76,14 +79,20 @@ export function FacilityWorkers({
         {m.facility_workers_title({ count: facility.workers.length, slots: facility.slots })}
       </legend>
       <p className="eco-footnote">
-        {m.facility_workers_rule({
-          primary: statName(gather.primary),
-          secondary: statName(gather.secondary),
-        })}
-        {" · "}
-        {facility.cityId === null
-          ? m.facility_workers_output_building()
-          : m.facility_workers_output_city({ city: cityText(facility.cityId) })}
+        {gather ? (
+          <>
+            {m.facility_workers_rule({
+              primary: statName(gather.primary),
+              secondary: statName(gather.secondary),
+            })}
+            {" · "}
+            {facility.cityId === null
+              ? m.facility_workers_output_building()
+              : m.facility_workers_output_city({ city: cityText(facility.cityId) })}
+          </>
+        ) : (
+          m.facility_workers_rule_medical()
+        )}
       </p>
       {facility.workers.length === 0 ? (
         <p className="eco-empty">{m.facility_workers_none()}</p>

@@ -3,7 +3,8 @@
 // 쓰기 대기열이 비기를 기다린 뒤(DB가 메모리를 따라잡은 뒤) 읽는다. 이동 중인지는 메모리의 움직임으로 본다.
 // 세계 표는 바꾸지 않는다(읽기만). 저장된 스탯·장비가 아직 없어 화면 스탯은 [임시] 기본값이다(body.ts baselineBody).
 import type { RosterCargo, RosterDomain, RosterInjury, RosterJob, UnitType } from "@terra/shared/roster";
-import { JOB_GATHER, JOB_HUNT, PHASE_REST, arrivalAt } from "@terra/sim";
+import { JOB_GATHER, JOB_HUNT, NATURAL_HEAL_PM, PHASE_REST, arrivalAt, injuryGreenAtMs } from "@terra/sim";
+import { injuryNowOf, injuryRules } from "../world/unitCondition.ts";
 import {
   UNIT_KIND_CYBORG,
   UNIT_KIND_CYBORG_UNIT,
@@ -69,11 +70,26 @@ export function jobOf(job: number, phase: number): RosterJob | null {
   return null;
 }
 
-/** 부상(나을 시각이 지났으면 없음, world/unitCondition.ts injuryAt과 같은 규칙) */
-export function injuryOf(stage: number, untilMs: number | null, now: number): RosterInjury {
-  if (stage <= 0 || untilMs === null || now >= untilMs) return { stage: 0, untilMs: null };
-  const clamped = stage >= 3 ? 3 : stage === 2 ? 2 : 1;
-  return { stage: clamped, untilMs };
+/** 부상(D-521, world/unitCondition.ts injuryAt과 같은 규칙): 지금 단계·다음 단계 시각·초록 시각·치료 배율 */
+export function injuryOf(
+  stage: number,
+  untilMs: number | null,
+  now: number,
+  healPm: number = NATURAL_HEAL_PM,
+): RosterInjury {
+  if (stage <= 0 || untilMs === null) return { stage: 0, untilMs: null };
+  const state = injuryNowOf(
+    { injury: stage, injuryUntilMs: untilMs, injuryHealPm: healPm, heldBy: null },
+    now,
+  );
+  if (state.stage <= 0 || state.untilMs === null) return { stage: 0, untilMs: null };
+  const clamped = state.stage >= 3 ? 3 : state.stage === 2 ? 2 : 1;
+  return {
+    stage: clamped,
+    untilMs: state.untilMs,
+    greenAtMs: injuryGreenAtMs(state, now, injuryRules()),
+    ...(state.healPm === NATURAL_HEAL_PM ? {} : { healPm: state.healPm }),
+  };
 }
 
 const num = (value: unknown): number => Number(value);
@@ -104,7 +120,8 @@ export function createWorldRosterSource(world: World): WorldRosterSource {
       const { ownerId, pool } = found;
       const [unitRows, cargoRows] = await Promise.all([
         pool.query(
-          `select id, owner_id, kind, map_key, planet_id, domain, job, job_phase, fatigue, injury, injury_until_ms, held_by
+          `select id, owner_id, kind, map_key, planet_id, domain, job, job_phase, fatigue, injury, injury_until_ms,
+                  injury_heal_pm, held_by
              from world_units where owner_id = $1 or held_by = $1 order by id`,
           [ownerId],
         ),
@@ -138,7 +155,12 @@ export function createWorldRosterSource(world: World): WorldRosterSource {
           domain: DOMAINS.find((domain) => domain === row.domain) ?? "land",
           job: jobOf(num(row.job), num(row.job_phase)),
           fatigue: num(row.fatigue),
-          injury: injuryOf(num(row.injury), numOrNull(row.injury_until_ms), now),
+          injury: injuryOf(
+            num(row.injury),
+            numOrNull(row.injury_until_ms),
+            now,
+            num(row.injury_heal_pm ?? 1000),
+          ),
           captive: mine && heldBy !== null,
           moving: moving(mapKey, id, now),
           // 화물은 주인 계정이다: 내가 잡은 포로의 화물은 보이지 않는다

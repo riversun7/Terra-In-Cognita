@@ -221,7 +221,8 @@ export function FacilityCard({
       {facility.storage && facility.level >= 1 ? (
         <StorageMoveForm facility={facility} data={data} run={run} busy={busy} />
       ) : null}
-      {facility.gather && runLabor ? (
+      {/* 채집 시설 = 일꾼, 병원 = 의사(D-521 — 같은 직무 배치 칸, 산출 없음) */}
+      {(facility.gather || facility.medical) && runLabor ? (
         <FacilityWorkers facility={facility} data={data} runLabor={runLabor} busy={busy} />
       ) : null}
     </li>

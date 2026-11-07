@@ -11,6 +11,7 @@ import { type OccupationChoice, answerOffer, foundingChoice, independenceYes } f
 import { inheritTraits } from "../npc/traits.ts";
 import { declareWar, endWar, endedWars, makePeace, recordFight, warCost } from "../society/wars.ts";
 import { satisfactionTarget, satisfactionToward, shiftSatisfaction } from "../society/labor.ts";
+import { NO_INJURY, injuryNow } from "../society/injury.ts";
 import {
   type IncorporationOffer,
   makeOffers,
@@ -553,7 +554,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
             topAverageWage: 0,
             faith: false,
             war: (owner?.wars.size ?? 0) > 0,
-            injured: false,
+            injured: injuryNow(unit.injury ?? NO_INJURY, nowMs, c.injury).stage > 0,
           },
           c,
         );
@@ -576,7 +577,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
               topAverageWage: 0,
               faith: false,
               war: owner.wars.size > 0,
-              injured: false,
+              injured: injuryNow(unit.injury ?? NO_INJURY, nowMs, c.injury).stage > 0,
             },
             c,
           );

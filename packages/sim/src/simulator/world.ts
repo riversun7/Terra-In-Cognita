@@ -14,7 +14,14 @@ import {
   settleOwnerPeriod,
   testSettleAccounts,
 } from "../settle/owner.ts";
-import { JOB_GATHER, PHASE_WORK, type JobState } from "../settle/settle.ts";
+import { JOB_GATHER, PHASE_WORK, TEST_JOB_RULES, type JobState } from "../settle/settle.ts";
+import {
+  type InjuryCoefficients,
+  type InjuryState,
+  NO_INJURY,
+  START_INJURY_COEFFICIENTS,
+  settleWorkInjury,
+} from "../society/injury.ts";
 import { type NpcCoefficients, TEST_NPC_COEFFICIENTS } from "../npc/coefficients.ts";
 import { type Traits, rollTraits } from "../npc/traits.ts";
 import type { RecruitDraw, RecruitProfile } from "../society/recruitment.ts";
@@ -177,6 +184,8 @@ export interface SimUnit {
   readonly recruit: RecruitProfile | null;
   /** 그 유닛의 환생 횟수(D-438 4) */
   rebirths: number;
+  /** 부상(D-521: 작업 중·전투 뒤 확률, 단계별 자연 치유). 없으면 초록 */
+  injury?: InjuryState | undefined;
 }
 
 export interface SimWorld {
@@ -192,6 +201,8 @@ export interface SimWorld {
   readonly audit: LedgerAudit;
   /** 시험 직무 정산(S3 settle)을 돌리나. 경제를 돌리는 시나리오는 끈다(일꾼은 시설에서 일한다) */
   readonly testJobs: boolean;
+  /** 부상 설정 칸(D-521, 49 N55 — 시나리오 설정 칸을 얹은 값, run.ts가 넣는다). 없으면 출발값 */
+  injury?: InjuryCoefficients | undefined;
   nextFactionId(): number;
   nextCityId(): number;
   nextUnitId(): number;
@@ -378,6 +389,24 @@ export function settleFaction(world: SimWorld, faction: SimFaction, toMs: number
   }
   if (toMs <= faction.settledAtMs) return;
   const list = [...faction.units].map((id) => world.units.get(id)).filter((unit) => unit !== undefined);
+  // 작업 중 부상(D-521): 정산 전 직무 상태로 구간 안 작업 주기 경계를 굴린다(서버 settlement.ts와 같은 함수)
+  const injury = world.injury ?? START_INJURY_COEFFICIENTS;
+  for (const unit of list) {
+    const next = settleWorkInjury(
+      {
+        injury: unit.injury ?? NO_INJURY,
+        job: unit.job,
+        unit: unit.id,
+        seed: world.seed,
+        fromMs: faction.settledAtMs,
+        toMs,
+        offlineSinceMs: null,
+        rules: TEST_JOB_RULES,
+      },
+      injury,
+    );
+    unit.injury = next.stage > 0 ? next : undefined;
+  }
   const result = settleOwnerPeriod(
     {
       ownerId: faction.id,

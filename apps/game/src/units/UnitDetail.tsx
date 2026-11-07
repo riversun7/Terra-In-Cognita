@@ -1,4 +1,5 @@
 // 유닛 상세 — 상태(직무·피로/배터리·부상·포로·이동·만족도), 스탯(서버 계산), 장비 칸, 스킬, 화물, 동작(곧 열림).
+// 부상(D-521): 상태 칸에 단계 색 표(InjuryBadge), 세계 유닛은 [부상·병원] 칸(HospitalCare.tsx — 견적·치료, docs/adr/2026-11-08-injury.md).
 // 좁은 폭은 목록 대신 보이고 [목록으로]가 닫는다. 넓은 폭은 목록 옆 판이다(UnitList.tsx).
 // 세계 유닛(w…)의 장비 칸은 보유 물건(holdings/UnitHoldings.tsx: 칸 고르기·장착·해제·사용, docs/adr/2026-11-03-item-holdings.md
 // "바뀜 (화면)"), 시안 유닛은 시안 칸 목록.
@@ -7,19 +8,19 @@ import { useEffect, useId, useRef } from "react";
 import { m } from "../paraglide/messages.js";
 import { UnitHoldings } from "../holdings/UnitHoldings.tsx";
 import { Meter, PreviewTag, Section, SkillList, SlotList, SoonButton, StatBlock } from "../roster/parts.tsx";
+import { InjuryBadge } from "../roster/InjuryBadge.tsx";
 import { VitalsMeters } from "../roster/VitalsMeters.tsx";
 import type { VitalsShown } from "../roster/useVitals.ts";
 import {
   assetLabel,
   formatAmount,
   formatNumber,
-  injuryLabel,
   jobLabel,
   localName,
-  remaining,
   typeLabel,
   unitLabel,
 } from "../roster/rosterText.ts";
+import { HospitalCare } from "./HospitalCare.tsx";
 
 /** [임시] 피로 경고 몫(한도 120의 80%), 배터리 경고 몫(20%). 기획 피로 구간(D-430)이 정해지면 그 값 */
 const FATIGUE_WARN = 0.8;
@@ -73,8 +74,6 @@ export function UnitDetail({
   const titleRef = useRef<HTMLHeadingElement>(null);
   const names = data.names;
   const now = data.generatedAt;
-  const injury = injuryLabel(unit.injury.stage);
-  const heal = unit.injury.untilMs === null ? null : remaining(unit.injury.untilMs, now);
   const place = unit.place;
   // 세계 유닛 번호("w42" → 42). 시안 유닛이면 null
   const worldUnit = !unit.preview && /^w\d+$/.test(unit.id) ? Number(unit.id.slice(1)) : null;
@@ -133,12 +132,8 @@ export function UnitDetail({
           </div>
           <div>
             <dt>{m.units_fact_injury()}</dt>
-            <dd data-tone={injury ? "injured" : undefined}>
-              {injury
-                ? heal
-                  ? m.roster_injury_heal({ stage: injury, time: heal })
-                  : injury
-                : m.units_fact_none()}
+            <dd data-tone={unit.injury.stage > 0 ? "injured" : undefined}>
+              <InjuryBadge injury={unit.injury} now={now} showHealthy />
             </dd>
           </div>
           {unit.captive ? (
@@ -199,6 +194,17 @@ export function UnitDetail({
         ) : null}
       </Section>
 
+      {worldUnit !== null ? (
+        <HospitalCare
+          key={unit.id}
+          id={`${id}-hospital`}
+          unit={worldUnit}
+          injury={unit.injury}
+          now={now}
+          onChanged={onVitalsStale}
+        />
+      ) : null}
+
       <Section id={`${id}-stats`} title={m.roster_stats_title()}>
         <StatBlock stats={unit.stats} names={names} />
       </Section>
@@ -244,7 +250,9 @@ export function UnitDetail({
       <div className="units-detail-actions">
         <SoonButton label={m.units_action_assign_job()} small={false} />
         <SoonButton label={m.units_action_add_party()} small={false} />
-        {unit.injury.stage > 0 ? <SoonButton label={m.units_action_treat()} small={false} /> : null}
+        {unit.injury.stage > 0 && worldUnit === null ? (
+          <SoonButton label={m.units_action_treat()} small={false} />
+        ) : null}
       </div>
     </article>
   );

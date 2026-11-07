@@ -48,6 +48,7 @@ import type { BattleReplayDemoResponse } from "@terra/shared/battleReplay";
 import type { RecruitBoardResponse } from "@terra/shared/recruit";
 import type { FusionOverviewResponse } from "@terra/shared/fusion";
 import type { TempleOverviewResponse } from "@terra/shared/temple";
+import type { HospitalOverviewResponse } from "@terra/shared/hospital";
 import type { RuinsOverviewResponse } from "@terra/shared/ruins";
 import type { WorldCitiesResponse, WorldPositionResponse } from "@terra/shared/worldMap";
 import type { MapUnitReads } from "../worldMap/mapUnits.ts";
@@ -289,6 +290,14 @@ export interface FusionReadServices {
   ): Promise<FusionOverviewResponse>;
 }
 
+/** 부상·병원 조회(hospital.overview, docs/adr/2026-11-08-injury.md). 바꾸는 명령은 WebSocket hospital_treat·dev_injure_unit이다 */
+export interface HospitalReadServices {
+  overview(
+    viewer: { readonly id: string; readonly devGrant: boolean },
+    nowMs: number,
+  ): Promise<HospitalOverviewResponse>;
+}
+
 /**
  * 신전 조회(temple.overview, docs/adr/2026-11-07-temple-religion.md). 바꾸는 명령은 WebSocket temple_*·dev_ghost_unit이다.
  * devGrant = dev·admin(개발 시험 비활성 만들기)
@@ -410,6 +419,8 @@ export interface TrpcContext {
   fusion?: (() => FusionReadServices | undefined) | undefined;
   /** 신전 조회. 세계(DB)가 없거나 부팅 복구 전이면 undefined(프로시저가 PRECONDITION_FAILED) */
   temple?: (() => TempleReadServices | undefined) | undefined;
+  /** 부상·병원 조회(D-521). 세계(DB)가 없거나 부팅 복구 전이면 undefined(프로시저가 PRECONDITION_FAILED) */
+  hospital?: (() => HospitalReadServices | undefined) | undefined;
   /** 폐허 복원 조회. 세계·NPC 사회 런타임이 없거나 부팅 복구 전이면 undefined(프로시저가 PRECONDITION_FAILED) */
   ruins?: (() => RuinReadServices | undefined) | undefined;
   /** 개발자 2차맵 시험. 월드·지형 서비스·행성 서비스가 다 있을 때만 */

@@ -37,6 +37,9 @@ import { createCyborgGateway } from "./cyborg/gateway.ts";
 import { createRecruitGateway } from "./recruit/gateway.ts";
 import { createFusionGateway } from "./fusion/gateway.ts";
 import { createTempleGateway } from "./temple/gateway.ts";
+import { hospitalServiceOf } from "./hospital/attach.ts";
+import { createHospitalGateway } from "./hospital/gateway.ts";
+import { configureInjuryRules } from "./world/unitCondition.ts";
 import { createRuinGateway } from "./ruins/gateway.ts";
 import { marketSourceOf } from "./market/appSource.ts";
 import { serverEconomyCatalogAccessor } from "./market/catalog.ts";
@@ -412,6 +415,15 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       })
     : undefined;
 
+  // 부상 4단계(D-521, docs/adr/2026-11-08-injury.md): 세계 유닛 상태·전투 결과·작업 중 부상·병원이 부를 때마다 설정 칸 실효 값(N55)을 읽는다
+  const injuryRoster = options.roster;
+  configureInjuryRules(
+    tuningState
+      ? () => tuningState.society().injury
+      : injuryRoster
+        ? () => injuryRoster.society.injury
+        : undefined,
+  );
   // 월드: DB가 있으면 저장·부팅 복구(S3 ADR 1·2절). 준비(listen·ready)는 부팅 복구가 끝날 때까지 기다린다.
   // 지형 서비스가 있으면 부팅이 행성 값(행성 서비스의 캐시 읽기·굽기)도 기다린다
   const rosterCatalog = options.roster;
@@ -484,6 +496,11 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const fusionService = () => (world?.status().state === "ready" ? world.persistence?.fusion : undefined);
   // 신전·종교(docs/adr/2026-11-07-temple-religion.md): 융합 서비스 안의 신전(같은 조건)
   const templeService = () => fusionService()?.temple;
+  // 병원 치료(docs/adr/2026-11-08-injury.md): 세계가 준비된 뒤(DB가 있는 월드만). 의사 치유 스킬 = 실효 스킬 자료의 모양 heal
+  const hospitalService = hospitalServiceOf(world, {
+    skills: rosterCatalog ? () => rosterCatalog.combat.skills : undefined,
+    now,
+  });
   // 폐허 복원(docs/adr/2026-11-07-ruins-restoration.md): 세계가 준비되고 NPC 사회 런타임이 돌 때만(거울 세계 규칙)
   const ruinService = () =>
     world?.status().state === "ready" && world.npc ? world.persistence?.ruins : undefined;
@@ -648,6 +665,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       recruits: recruitService,
       fusion: fusionService,
       temple: templeService,
+      hospital: hospitalService,
       ruins: ruinService,
       holdings: world
         ? createHoldingsReads({
@@ -771,6 +789,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     ? createTempleGateway({ service: templeService, now, log: app.log })
     : undefined;
   const ruinGateway = world ? createRuinGateway({ service: ruinService, now, log: app.log }) : undefined;
+  const hospitalGateway = world
+    ? createHospitalGateway({ service: hospitalService, now, log: app.log })
+    : undefined;
   const marketGateway = world
     ? createMarketGateway({ service: () => marketSource()?.service, now, log: app.log })
     : undefined;
@@ -820,6 +841,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         market: marketGateway,
         travel: travelGateway,
         gather: gatherGateway,
+        hospital: hospitalGateway,
         viewer: socketViewer(request),
         // 접속 상태(D-136): 월드가 DB에 저장할 때만. 연결은 부팅 복구가 끝난 뒤에만 들어온다(listen이 기다린다)
         presence: world

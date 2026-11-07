@@ -4,6 +4,7 @@
 import type { SocietyCoefficients } from "@terra/sim";
 import type { PlaceWorld } from "../facilities/places.ts";
 import type { StorageContext } from "../facilities/storage.ts";
+import { createGatherInjury } from "../world/unitCondition.ts";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
 import type { GatherKind } from "./kinds.ts";
 import { type GatherService, createGatherService } from "./service.ts";
@@ -83,6 +84,8 @@ export function startWorldGather(
         workersAt,
         primaries: (unitId) => parts.holdings.primariesOf(unitId),
         pollution: (mapKey) => world.npc?.gardener.run.layer().get(mapKey) ?? 0,
+        // 채집 중 부상(D-521, docs/adr/2026-11-08-injury.md 5절): 직무 정산과 같은 판정·시드
+        workInjury: createGatherInjury(),
         ready: () => world.status().state === "ready",
       });
       built = {

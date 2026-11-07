@@ -93,10 +93,15 @@ export type RosterJob =
   | { readonly kind: "facility"; readonly facility: string; readonly phase: "work" | "rest" }
   | { readonly kind: "test_gather" | "test_hunt"; readonly phase: "work" | "rest" };
 
-/** 부상(D-099·D-145): 0 없음, 1 경상, 2 중상, 3 중태(활동 불가). untilMs = 저절로 낫는 시각(UTC ms) */
+/**
+ * 부상(D-521): 0 초록(정상), 1 흰, 2 노랑, 3 빨강(활동 불가). untilMs = 한 단계 내려가는 시각(UTC ms, 자연 치유는 빨강 → 노랑 → 흰 → 초록
+ * 한 단계씩). greenAtMs = 초록이 되는 시각, healPm = 병원 치료 배율(‰, 치료 중일 때만)
+ */
 export interface RosterInjury {
   readonly stage: 0 | 1 | 2 | 3;
   readonly untilMs: number | null;
+  readonly greenAtMs?: number | null | undefined;
+  readonly healPm?: number | undefined;
 }
 
 /** 화물 한 줄(원장 자산 코드, 양 = 정수 문자열) */

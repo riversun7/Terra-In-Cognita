@@ -1,13 +1,20 @@
-// 전투 결과를 세계에 적용 — docs/adr/2026-10-31-combat-core.md 8절, 기획 D-099·D-145(부상)·D-173(탈취)·D-187(포로)·
+// 전투 결과를 세계에 적용 — docs/adr/2026-10-31-combat-core.md 8절, 기획 D-099·D-145·D-521(부상)·D-173(탈취)·D-187(포로)·
 // D-190(퇴각 손실 없음)·D-351(사이보그 즉시 귀환)·질문 108 기본안(D-381: 진 유닛은 같은 때 안전한 곳으로, 전쟁이면 포로 — 수호신은 빼고)
 // 전투 서비스(battles.ts)가 끝 시각에 한 번 부른다. 모든 바뀜(유닛 상태·자리, 탈취 거래)은 동기로 쓰기 대기열에 들어가고,
 // 전투 서비스가 같은 묶음에 결과 기록(world_battle_results)을 더한다 → 한 커밋이라 두 번 적용되지 않는다.
 // 전투에서 죽지 않는다(D-099: 사망은 수명만). 전투 유닛 ID = 세계 유닛 ID, 편의 faction = 소유 주체 ID([임시] 서버 해석).
-import { type BattleInit, TEST_COMBAT_COEFFICIENTS, type UnitResult, postLoot } from "@terra/sim";
+// 부상(D-521, docs/adr/2026-11-08-injury.md): 유닛마다 쓰러짐(HP 0)·잃은 HP 몫으로 확률 굴림(@terra/sim combatInjuryStage, 시뮬과 같은 함수).
+import {
+  type BattleInit,
+  TEST_COMBAT_COEFFICIENTS,
+  type UnitResult,
+  combatInjuryStage,
+  postLoot,
+} from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { BattleOutcome } from "./battles.ts";
 import type { SecondMap } from "./secondMap.ts";
-import { DOWNED_INJURY, type UnitCondition, injure } from "./unitCondition.ts";
+import { type UnitCondition, injure, injuryRules } from "./unitCondition.ts";
 import { UNIT_KIND_GUARDIAN } from "./unitKinds.ts";
 
 export interface BattleWorld {
@@ -57,9 +64,29 @@ export function applyBattleOutcome(
     }
     // 수호신(기획 답 456 가)은 그 도시에 머문다: 다쳐도 잡히거나 옮겨지지 않는다 [임시]
     const guardian = info.kind === UNIT_KIND_GUARDIAN;
-    const next = conditionAfter(info.condition, result, guardian ? undefined : captor, info.ownerId, atMs);
+    const spec = init.units.find((unit) => unit.id === result.unit);
+    const stage = spec
+      ? combatInjuryStage(
+          {
+            seed: init.seed,
+            unit: result.unit,
+            maxHp: spec.maxHp,
+            startHp: spec.start?.hp ?? spec.maxHp,
+            endHp: result.hp,
+          },
+          injuryRules(),
+        )
+      : 0;
+    const next = conditionAfter(
+      info.condition,
+      result,
+      stage,
+      guardian ? undefined : captor,
+      info.ownerId,
+      atMs,
+    );
     if (next !== info.condition) map.setCondition(result.unit, next);
-    if (result.injured) injured += 1;
+    if (stage > 0) injured += 1;
     if (result.outcome === "stays" && receiver === null) receiver = cargoLocation(result.unit);
     if (!guardian && (result.outcome === "returned" || result.outcome === "prisoner")) {
       // 질문 108 기본안·D-351: 끝나는 때 바로 가장 가까운 안전 도시로(포로는 잡은 쪽 세력의 도시)
@@ -91,15 +118,16 @@ export function applyBattleOutcome(
   return { missing, injured, returned, prisoners, looted };
 }
 
-/** 유닛 하나의 다음 상태: 쓰러졌으면 부상, 전쟁에서 진 유닛(사이보그 빼고)은 포로 */
+/** 유닛 하나의 다음 상태: 굴린 부상 단계(0 = 없음), 전쟁에서 진 유닛(사이보그 빼고)은 포로 */
 function conditionAfter(
   condition: UnitCondition,
   result: UnitResult,
+  stage: number,
   captor: number | undefined,
   ownerId: number,
   atMs: number,
 ): UnitCondition {
-  let next = result.injured ? injure(condition, DOWNED_INJURY, atMs) : condition;
+  let next = stage > 0 ? injure(condition, stage, atMs) : condition;
   if (result.outcome === "prisoner" && captor !== undefined && captor !== ownerId)
     next = { ...next, heldBy: captor };
   return next;

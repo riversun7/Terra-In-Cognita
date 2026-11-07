@@ -4,7 +4,7 @@
 //   둘 다 입은 장비·1차 스탯 버프를 넣는다(gearOf = 보유 물건, 최대 HP·쉴드가 장비를 따른다).
 // - 1분마다 세계에 없는 유닛의 줄과 다 찬 줄을 지운다(값은 읽을 때 셈하므로 주기 타이머가 값을 고치지는 않는다).
 import type { VitalsListResponse, VitalsView } from "@terra/shared/vitals";
-import { TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
+import { TEST_SOCIETY_COEFFICIENTS, stageHealMs } from "@terra/sim";
 import type { CyborgService } from "../cyborg/service.ts";
 import type { CyborgRecord } from "../cyborg/state.ts";
 import { NO_GEAR, type UnitGear } from "../roster/unitBody.ts";
@@ -12,7 +12,7 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { Settlement } from "../world/settlement.ts";
 import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
-import { injuryAt } from "../world/unitCondition.ts";
+import { injuryNowOf, injuryRules } from "../world/unitCondition.ts";
 import type { VitalsModifiers } from "./phases.ts";
 import { type VitalsService, createVitalsService } from "./service.ts";
 import type { VitalsBody, VitalsRecord } from "./state.ts";
@@ -63,15 +63,22 @@ export function createWorldVitals(input: {
    */
   const modifiersOf = (unitId: number, nowMs: number): VitalsModifiers => {
     const condition = infoOf(unitId)?.condition;
-    const stage = condition ? injuryAt(condition, nowMs) : 0;
-    const regenPm = (config?.rules?.() ?? TEST_SOCIETY_COEFFICIENTS.vitals).injuryRegenPm[stage] ?? 1000;
+    const injury = condition ? injuryNowOf(condition, nowMs) : undefined;
+    const regenPm = (config?.rules?.() ?? TEST_SOCIETY_COEFFICIENTS.vitals).injuryRegenPm;
     const hot = gearOf(unitId, nowMs)
       .effects.filter((effect) => effect.kind === "heal")
       .map((effect) => ({ untilMs: effect.untilMs, hpPerMinute: effect.value }));
+    if (!injury || injury.stage <= 0 || injury.untilMs === null) return { hot };
+    // 부상 4단계(D-521): 지금 단계 끝 뒤로 아래 단계마다 구간(그 단계 자연 치유 시간 ÷ 치료 배율)
+    const later: { untilMs: number; regenPm: number }[] = [];
+    let until = injury.untilMs;
+    for (let stage = injury.stage - 1; stage > 0; stage--) {
+      until += stageHealMs(stage, injury.healPm, injuryRules());
+      later.push({ untilMs: until, regenPm: regenPm[stage] ?? 1000 });
+    }
     return {
-      ...(stage > 0 && condition?.injuryUntilMs != null
-        ? { injury: { stage, untilMs: condition.injuryUntilMs, regenPm } }
-        : {}),
+      injury: { stage: injury.stage, untilMs: injury.untilMs, regenPm: regenPm[injury.stage] ?? 1000 },
+      later,
       hot,
     };
   };

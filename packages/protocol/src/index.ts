@@ -91,6 +91,12 @@ export {
   type MarketResultCode,
 } from "./market.ts";
 export {
+  HOSPITAL_PROTOCOL_VERSION,
+  HOSPITAL_RESULT_CODES,
+  type HospitalResultCode,
+  INJURY_STAGE_MAX,
+} from "./hospital.ts";
+export {
   TRAVEL_KINDS,
   TRAVEL_PROTOCOL_VERSION,
   TRAVEL_RESULT_CODES,

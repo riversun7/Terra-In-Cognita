@@ -88,10 +88,12 @@ export interface FacilityView {
   readonly repairsEquipment: boolean;
   /** 채집 시설이면 스탯 짝·중분류·방식(D-506·D-507) — 직무 배치 칸이 보인다(docs/adr/2026-11-07-play-flow.md "WP3"). 아니면 null */
   readonly gather: FacilityGatherView | null;
-  /** 일꾼 자리 = 다 지은 레벨 × 레벨당 자리(직무 배치 + 열린 노동 계약). 채집 시설이 아니면 0 */
+  /** 일꾼 자리 = 다 지은 레벨 × 레벨당 자리(직무 배치 + 열린 노동 계약). 채집 시설·병원이 아니면 0 */
   readonly slots: number;
   /** 이 시설에서 일하는 유닛(직무 배치·노동 계약, 유닛 ID 차례) */
   readonly workers: readonly FacilityWorkerView[];
+  /** 병원(의료 단계 시설, D-521)이면 true — 의사 직무 배치 칸이 보인다(산출 없음, docs/adr/2026-11-08-injury.md). 아니면 없음 */
+  readonly medical?: boolean | undefined;
 }
 
 /** 채집 시설의 스탯 짝(주 = 진행 속도, 보조 = 수확량)·중분류·방식(roll 추첨, select 해금 티어에서 고름) */

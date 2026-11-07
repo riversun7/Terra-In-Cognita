@@ -273,7 +273,12 @@ export function facilitiesOverview(
               mode: def.gather.mode === "select" ? "select" : "roll",
             }
           : null,
-        slots: def.gather ? Math.max(0, record.level) * Math.max(0, def.slotsPerLevel) : 0,
+        // 병원(의료 단계, D-521)도 의사 직무 배치 자리가 있다(산출 없음)
+        slots:
+          def.gather || def.stage === "medical"
+            ? Math.max(0, record.level) * Math.max(0, def.slotsPerLevel)
+            : 0,
+        ...(def.stage === "medical" ? { medical: true } : {}),
         workers: (source.workersOf?.(building.id) ?? []).map((worker) => {
           if (worker.via === "assign") myWork.set(worker.unitId, building.id);
           return {

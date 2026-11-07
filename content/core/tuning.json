@@ -4026,8 +4026,8 @@
       "id": "n54_injury_regen_1",
       "code": "N54",
       "name": {
-        "ko": "경상 HP 회복 속도(‰, 분당 HP 회복에 곱함)",
-        "en": "HP regen speed while light injury (‰ of per-minute HP regen)"
+        "ko": "흰 부상 HP 회복 속도(‰, 분당 HP 회복에 곱함)",
+        "en": "HP regen speed while white injury (‰ of per-minute HP regen)"
       },
       "value": 500,
       "structural": false,
@@ -4039,8 +4039,8 @@
       "id": "n54_injury_regen_2",
       "code": "N54",
       "name": {
-        "ko": "중상 HP 회복 속도(‰, 분당 HP 회복에 곱함)",
-        "en": "HP regen speed while serious injury (‰ of per-minute HP regen)"
+        "ko": "노랑 부상 HP 회복 속도(‰, 분당 HP 회복에 곱함)",
+        "en": "HP regen speed while yellow injury (‰ of per-minute HP regen)"
       },
       "value": 250,
       "structural": false,
@@ -4052,8 +4052,8 @@
       "id": "n54_injury_regen_3",
       "code": "N54",
       "name": {
-        "ko": "중태 HP 회복 속도(‰, 분당 HP 회복에 곱함)",
-        "en": "HP regen speed while critical injury (‰ of per-minute HP regen)"
+        "ko": "빨강 부상 HP 회복 속도(‰, 분당 HP 회복에 곱함)",
+        "en": "HP regen speed while red injury (‰ of per-minute HP regen)"
       },
       "value": 100,
       "structural": false,
@@ -4065,8 +4065,8 @@
       "id": "n54_injury_penalty_1",
       "code": "N54",
       "name": {
-        "ko": "경상 불이익(1차 스탯 ‰ 감소)",
-        "en": "Penalty while light injury (‰ off primary stats)"
+        "ko": "흰 부상 불이익(1차 스탯 ‰ 감소)",
+        "en": "Penalty while white injury (‰ off primary stats)"
       },
       "value": 150,
       "structural": false,
@@ -4078,8 +4078,8 @@
       "id": "n54_injury_penalty_2",
       "code": "N54",
       "name": {
-        "ko": "중상 불이익(1차 스탯 ‰ 감소)",
-        "en": "Penalty while serious injury (‰ off primary stats)"
+        "ko": "노랑 부상 불이익(1차 스탯 ‰ 감소)",
+        "en": "Penalty while yellow injury (‰ off primary stats)"
       },
       "value": 400,
       "structural": false,
@@ -4091,14 +4091,326 @@
       "id": "n54_injury_penalty_3",
       "code": "N54",
       "name": {
-        "ko": "중태 불이익(1차 스탯 ‰ 감소)",
-        "en": "Penalty while critical injury (‰ off primary stats)"
+        "ko": "빨강 부상 불이익(1차 스탯 ‰ 감소)",
+        "en": "Penalty while red injury (‰ off primary stats)"
       },
       "value": 500,
       "structural": false,
       "unit": "pm",
       "min": 0,
       "max": 1000
+    },
+    {
+      "id": "n55_heal_white_ms",
+      "code": "N55",
+      "name": {
+        "ko": "자연 치유: 흰 → 초록(ms)",
+        "en": "Natural healing: white → green (ms)"
+      },
+      "value": 86400000,
+      "structural": false,
+      "unit": "ms",
+      "min": 60000,
+      "max": 2592000000
+    },
+    {
+      "id": "n55_heal_yellow_ms",
+      "code": "N55",
+      "name": {
+        "ko": "자연 치유: 노랑 → 흰(ms)",
+        "en": "Natural healing: yellow → white (ms)"
+      },
+      "value": 172800000,
+      "structural": false,
+      "unit": "ms",
+      "min": 60000,
+      "max": 2592000000
+    },
+    {
+      "id": "n55_heal_red_ms",
+      "code": "N55",
+      "name": {
+        "ko": "자연 치유: 빨강 → 노랑(ms)",
+        "en": "Natural healing: red → yellow (ms)"
+      },
+      "value": 259200000,
+      "structural": false,
+      "unit": "ms",
+      "min": 60000,
+      "max": 2592000000
+    },
+    {
+      "id": "n55_work_period_ms",
+      "code": "N55",
+      "name": {
+        "ko": "작업 중 부상 굴림 주기(ms)",
+        "en": "Work injury roll period (ms)"
+      },
+      "value": 3600000,
+      "structural": false,
+      "unit": "ms",
+      "min": 60000,
+      "max": 604800000
+    },
+    {
+      "id": "n55_work_chance",
+      "code": "N55",
+      "name": {
+        "ko": "작업 주기마다 부상 확률(‰, 피로 0)",
+        "en": "Injury chance per work period (‰, no fatigue)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n55_work_fatigue",
+      "code": "N55",
+      "name": {
+        "ko": "피로 가득일 때 더하는 확률 몫(‰)",
+        "en": "Extra chance at full fatigue (‰ of chance)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "n55_work_stage_1",
+      "code": "N55",
+      "name": {
+        "ko": "작업 중 부상 단계표: 흰 무게",
+        "en": "Work injury table: white weight"
+      },
+      "value": 800,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n55_work_stage_2",
+      "code": "N55",
+      "name": {
+        "ko": "작업 중 부상 단계표: 노랑 무게",
+        "en": "Work injury table: yellow weight"
+      },
+      "value": 180,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n55_work_stage_3",
+      "code": "N55",
+      "name": {
+        "ko": "작업 중 부상 단계표: 빨강 무게",
+        "en": "Work injury table: red weight"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n55_combat_downed",
+      "code": "N55",
+      "name": {
+        "ko": "전투에서 쓰러지면 부상 확률(‰)",
+        "en": "Injury chance when downed (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n55_combat_downed_stage_1",
+      "code": "N55",
+      "name": {
+        "ko": "쓰러짐 부상 단계표: 흰 무게",
+        "en": "Downed injury table: white weight"
+      },
+      "value": 300,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n55_combat_downed_stage_2",
+      "code": "N55",
+      "name": {
+        "ko": "쓰러짐 부상 단계표: 노랑 무게",
+        "en": "Downed injury table: yellow weight"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n55_combat_downed_stage_3",
+      "code": "N55",
+      "name": {
+        "ko": "쓰러짐 부상 단계표: 빨강 무게",
+        "en": "Downed injury table: red weight"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n55_combat_hit",
+      "code": "N55",
+      "name": {
+        "ko": "전투 피해 부상 확률(‰, HP를 모두 잃었을 때, 잃은 몫에 비례)",
+        "en": "Battle damage injury chance (‰ at full HP lost, proportional)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n55_combat_hit_stage_1",
+      "code": "N55",
+      "name": {
+        "ko": "전투 피해 부상 단계표: 흰 무게",
+        "en": "Battle damage injury table: white weight"
+      },
+      "value": 900,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n55_combat_hit_stage_2",
+      "code": "N55",
+      "name": {
+        "ko": "전투 피해 부상 단계표: 노랑 무게",
+        "en": "Battle damage injury table: yellow weight"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n55_combat_hit_stage_3",
+      "code": "N55",
+      "name": {
+        "ko": "전투 피해 부상 단계표: 빨강 무게",
+        "en": "Battle damage injury table: red weight"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n55_hospital_base",
+      "code": "N55",
+      "name": {
+        "ko": "병원 기본 치유 배율(‰, 레벨 1·의사 없음)",
+        "en": "Hospital base healing speed (‰)"
+      },
+      "value": 4000,
+      "structural": false,
+      "unit": "pm",
+      "min": 1000,
+      "max": 100000
+    },
+    {
+      "id": "n55_hospital_level",
+      "code": "N55",
+      "name": {
+        "ko": "병원 레벨마다 더하는 배율(‰)",
+        "en": "Hospital speed per level (‰)"
+      },
+      "value": 2000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n55_hospital_stat",
+      "code": "N55",
+      "name": {
+        "ko": "의사 INT + WIS 1당 배율(‰)",
+        "en": "Speed per doctor INT + WIS point (‰)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "n55_hospital_skill",
+      "code": "N55",
+      "name": {
+        "ko": "의사 치유 스킬 등급 1당 배율(‰)",
+        "en": "Speed per doctor heal skill grade (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "n55_hospital_max",
+      "code": "N55",
+      "name": {
+        "ko": "병원 치유 배율 상한(‰)",
+        "en": "Hospital speed cap (‰)"
+      },
+      "value": 30000,
+      "structural": false,
+      "unit": "pm",
+      "min": 1000,
+      "max": 1000000
+    },
+    {
+      "id": "n55_hospital_cost_day",
+      "code": "N55",
+      "name": {
+        "ko": "병원 값: 남은 치유 하루당(최소 단위)",
+        "en": "Hospital fee per remaining healing day (minor units)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000
+    },
+    {
+      "id": "n55_hospital_cost_level",
+      "code": "N55",
+      "name": {
+        "ko": "병원 레벨마다 값에 더하는 몫(‰)",
+        "en": "Hospital fee per level (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
     },
     {
       "id": "d517_inactive_cap_ms",

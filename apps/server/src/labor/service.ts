@@ -228,6 +228,9 @@ export function createLaborService(options: {
     }
     return out.toSorted((a, b) => a.unitId - b.unitId);
   };
+  /** 직무 배치를 받는 일터: 채집 시설 또는 채집이 아닌 일터(병원 의사, D-521 — 산출 없음) */
+  const workplaceOf = (buildingId: number): { readonly level: number; readonly slots: number } | undefined =>
+    work.source()?.site(buildingId) ?? work.source()?.workplace?.(buildingId);
   /**
    * 직무 배치가 끝날 까닭(유닛 사라짐·주인 바뀜·일 멈춤, 시설 사라짐·주인 바뀜·채집 시설 아님). 그대로면 false. 풀면 그 구간 산출은 없다
    */
@@ -235,7 +238,7 @@ export function createLaborService(options: {
     unitOwnerOf(unitId) !== ownerId ||
     (options.unitAway?.(unitId) ?? false) ||
     buildingOwnerOf(buildingId) !== ownerId ||
-    work.source()?.site(buildingId) === undefined ||
+    workplaceOf(buildingId) === undefined ||
     !onSiteMap(unitId, buildingId);
   /** 이번 정산에서 유예가 끝난 임대형 계약(정산 뒤 고리가 남은 물건을 옮긴다) */
   const leftoverQueue: LaborContract[] = [];
@@ -661,8 +664,8 @@ export function createLaborService(options: {
       const unitOwner = unitOwnerOf(unitId);
       if (unitOwner === undefined) return fail("unknown_unit");
       if (buildingOwner !== me || unitOwner !== me) return fail("forbidden");
-      // 다 지은 채집 시설만(팩 gather가 있는 시설, 레벨 1 이상)
-      const site = work.source()?.site(buildingId);
+      // 다 지은 채집 시설·병원만(팩 gather가 있는 시설 또는 의료 단계 시설, 레벨 1 이상)
+      const site = workplaceOf(buildingId);
       if (!site || site.level < 1) return fail("not_workplace");
       if (!onSiteMap(unitId, buildingId)) return fail("wrong_map");
       if (unitBusy(unitId)) return fail("unit_busy");

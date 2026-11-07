@@ -34,6 +34,8 @@ const dev: Viewer = { id: "u-dev", loginId: "Dev1", roles: ["player", "dev"] };
 const own: HomeQuery = { preview: false, now: NOW };
 const withPreview: HomeQuery = { preview: true, now: NOW };
 
+const DAY = 86_400_000;
+
 describe("팩 이름 표", () => {
   it("스탯·아이템·스킬·시설 이름을 두 언어로 갖고, 응답에는 쓴 ID만 고른다", () => {
     expect(catalog.names.stats.hp).toEqual({ ko: "HP", en: "HP" });
@@ -296,9 +298,18 @@ describe("실제 유닛 줄", () => {
     expect(jobOf(1, 0)).toEqual({ kind: "test_gather", phase: "work" });
     expect(jobOf(2, 1)).toEqual({ kind: "test_hunt", phase: "rest" });
     expect(jobOf(0, 0)).toBeNull();
-    expect(injuryOf(2, NOW + 1000, NOW)).toEqual({ stage: 2, untilMs: NOW + 1000 });
-    // 나을 시각이 지났으면 없음
-    expect(injuryOf(2, NOW - 1, NOW)).toEqual({ stage: 0, untilMs: null });
+    // 노랑: 다음 단계(흰) 시각, 흰 1일 뒤 초록(D-521 자연 치유)
+    expect(injuryOf(2, NOW + 1000, NOW)).toEqual({
+      stage: 2,
+      untilMs: NOW + 1000,
+      greenAtMs: NOW + 1000 + DAY,
+    });
+    // 노랑의 끝이 지났으면 한 단계 내려가 흰(그 끝 + 1일)
+    expect(injuryOf(2, NOW - 1, NOW)).toMatchObject({ stage: 1, untilMs: NOW - 1 + DAY });
+    // 흰의 끝이 지났으면 초록
+    expect(injuryOf(1, NOW - 1, NOW)).toEqual({ stage: 0, untilMs: null });
+    // 병원 치료 배율은 함께 보인다
+    expect(injuryOf(1, NOW + 1000, NOW, 4000)).toMatchObject({ stage: 1, healPm: 4000 });
   });
 
   it("실제 유닛은 이름·레벨 없음, 기본값 스탯, 시안 아님. 포로의 원래 주인은 보이지 않는다", () => {

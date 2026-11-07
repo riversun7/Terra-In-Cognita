@@ -31,6 +31,7 @@ import {
   TRAVEL_PROTOCOL_VERSION,
   UNIT_CONTROL_PROTOCOL_VERSION,
   GATHER_PROTOCOL_VERSION,
+  HOSPITAL_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -51,6 +52,7 @@ import type { RuinGateway, RuinSocket } from "./ruins/gateway.ts";
 import type { MarketGateway, MarketSocket } from "./market/gateway.ts";
 import type { TravelGateway, TravelSocket } from "./travel/gateway.ts";
 import type { GatherGateway, GatherSocket } from "./gather/gateway.ts";
+import type { HospitalGateway, HospitalSocket } from "./hospital/gateway.ts";
 import type { WorldGateway, WorldSocket } from "./world/gateway.ts";
 
 export interface SessionContext {
@@ -83,6 +85,8 @@ export interface SessionContext {
   travel?: TravelGateway | undefined;
   /** 원자재 오브젝트 채집·건물 들어가기(프로토콜 17, docs/adr/2026-11-07-gather-objects.md) */
   gather?: GatherGateway | undefined;
+  /** 병원 치료(프로토콜 17, docs/adr/2026-11-08-injury.md). 없으면 busy */
+  hospital?: HospitalGateway | undefined;
   /** 이 연결의 로그인 사용자(쿠키). 로그인하지 않았거나 인증이 꺼져 있으면 null */
   viewer?: (() => Promise<Viewer | null>) | undefined;
   /**
@@ -122,6 +126,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let marketSocket: MarketSocket | undefined;
   let travelSocket: TravelSocket | undefined;
   let gatherSocket: GatherSocket | undefined;
+  let hospitalSocket: HospitalSocket | undefined;
   let releasePresence: (() => void) | undefined;
 
   const sendText = (text: string): void => {
@@ -164,6 +169,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
     marketSocket?.close();
     travelSocket?.close();
     gatherSocket?.close();
+    hospitalSocket?.close();
     releasePresence?.();
   });
 
@@ -511,6 +517,21 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         }
         gatherSocket ??= context.gather.open({ send: sendText, viewer: context.viewer ?? signedOut });
         gatherSocket.handle(message);
+        return;
+      }
+      case "hospital_treat":
+      case "dev_injure_unit": {
+        // 병원 치료는 프로토콜 17의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        if (protocolVersion < HOSPITAL_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.hospital) {
+          send({ t: "hospital_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        hospitalSocket ??= context.hospital.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        hospitalSocket.handle(message);
         return;
       }
     }

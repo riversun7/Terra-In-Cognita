@@ -1,0 +1,2 @@
+ALTER TABLE "world_units" ADD COLUMN "injury_heal_pm" integer DEFAULT 1000 NOT NULL;--> statement-breakpoint
+ALTER TABLE "world_units" ADD CONSTRAINT "world_units_injury_heal" CHECK ("injury_heal_pm" >= 1);

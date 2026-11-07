@@ -14,6 +14,8 @@
 //   직무 상태(진행·피로)는 그대로 흐른다(노동 계약 일시 중지와 같은 모양). 정산 뒤 고리(afterSettle)는 노동 계약 유예 끝의 남은 물건 옮기기.
 // - 플레이어 생산(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 산출 구간이 없는 유닛의 기본 산출(시험 광석 → 주인 기본 창고)은 개발
 //   시험 일꾼(UNIT_KIND_WORKER)만 낸다. 플레이어 유닛은 노동 계약·직무 배치 구간(채집 시설이면 진짜 물건, labor/workBook.ts)에서만 낸다.
+// - 작업 중 부상(D-521, docs/adr/2026-11-08-injury.md): 정산 전 직무 상태로 구간 안 작업 주기 경계를 굴리는 고리(injureWork, world/unitCondition.ts createWorkInjury)를
+//   직무 정산과 같은 동기 처리에서 부른다(나눠 정산해도 같다 — 경계·난수가 실제 시각·유닛으로만 정해진다).
 import {
   JOB_GATHER,
   JOB_NONE,
@@ -87,8 +89,18 @@ export interface Settlement {
   pauseOutputs(pauses: OutputPauses | undefined): void;
   /** 정산 뒤 고리: 산출 거래를 넣은 뒤 같은 동기 처리 안에서 부른다(노동 계약 유예 끝 물건 옮기기) */
   afterSettle(hook: ((ownerId: number, toMs: number) => void) | undefined): void;
+  /** 작업 중 부상 고리(D-521): 직무 정산 전에 유닛마다 (정산 전 직무, 구간, 접속 상태)로 부른다 */
+  injureWork(hook: WorkInjuryHook | undefined): void;
   stop(): void;
 }
+
+/** 작업 중 부상 고리 하나(유닛 하나, 정산 전 직무 상태, 구간, 접속 상태) */
+export type WorkInjuryHook = (
+  unit: { readonly map: SecondMap; readonly id: number; readonly kind: number; readonly job: JobState },
+  fromMs: number,
+  toMs: number,
+  offlineSinceMs: number | null,
+) => void;
 
 /** 산출 없는 구간(fromMs, untilMs] */
 export interface PauseWindow {
@@ -207,6 +219,7 @@ export function createSettlement(options: {
   let router: OutputRouter | undefined;
   let pauser: OutputPauses | undefined;
   let after: ((ownerId: number, toMs: number) => void) | undefined;
+  let injury: WorkInjuryHook | undefined;
   const weightOf = options.upkeepWeightPm;
 
   const settleWith = (owner: OwnerRow, units: readonly UnitRef[], toMs: number): SettleReport => {
@@ -228,6 +241,9 @@ export function createSettlement(options: {
       return windows ? mergePauses(route, windows, from, toMs, base) : route;
     };
     const special = routes !== undefined || pauses !== undefined || units.some((unit) => defaultOf(unit));
+    const offline = offlineOf(owner);
+    // 작업 중 부상(D-521): 정산 전 직무 상태로 굴린다(직무가 있는 유닛만)
+    if (injury) for (const unit of units) if (unit.job.job !== JOB_NONE) injury(unit, from, toMs, offline);
     // 판정은 @terra/sim 공용 함수(시뮬레이터와 같다). 여기서는 결과를 2차맵·소유 주체 행에 적기만 한다
     const result = settleOwnerPeriod(
       {
@@ -235,7 +251,7 @@ export function createSettlement(options: {
         jobs: units.map((unit) => unit.job),
         fromMs: from,
         toMs,
-        offlineSinceMs: offlineOf(owner),
+        offlineSinceMs: offline,
         outputs: special ? units.map(outputOf) : undefined,
         upkeepWeightPm: weightOf ? units.reduce((sum, unit) => sum + weightOf(unit.kind), 0) : undefined,
       },
@@ -381,6 +397,9 @@ export function createSettlement(options: {
     },
     afterSettle(hook) {
       after = hook;
+    },
+    injureWork(hook) {
+      injury = hook;
     },
     stop() {
       clearInterval(sweepTimer);

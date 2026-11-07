@@ -26,7 +26,7 @@ import type { Ledger } from "../economy/ledger.ts";
 import type { PlaceWorld } from "../facilities/places.ts";
 import type { StorageContext } from "../facilities/storage.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { unavailable } from "../world/unitCondition.ts";
+import { type GatherInjuryHook, unavailable } from "../world/unitCondition.ts";
 import { UNIT_KIND_BOT, UNIT_KIND_GUARDIAN } from "../world/unitKinds.ts";
 import { statOf } from "../labor/gatherWork.ts";
 import {
@@ -98,6 +98,11 @@ export interface GatherDeps {
   primaries(unitId: number): Primaries;
   /** 2차맵(= 1차맵 칸)의 오염 값(0 ~ 100,000) */
   pollution(mapKey: number): number;
+  /**
+   * 채집 중 부상(docs/adr/2026-11-08-injury.md 5절, world/unitCondition.ts createGatherInjury): 캐기가 끝날 때마다 지난번 뒤로 지난 작업 주기
+   * 경계를 굴린다. 없으면 다치지 않는다(시험)
+   */
+  workInjury?: GatherInjuryHook | undefined;
   ready(): boolean;
 }
 
@@ -121,6 +126,8 @@ interface Action {
   campLevel: number | null;
   yieldCarryPm: number;
   fatigueCarryPm: number;
+  /** 채집 중 부상을 마지막으로 굴린 시각(이 뒤의 작업 주기 경계를 굴린다) */
+  injuryCheckedMs: number;
   readonly assets: Set<string>;
   gatheredLots: number;
   depositedUnits: number;
@@ -519,6 +526,17 @@ export function createGatherService(deps: GatherDeps): GatherService {
       where.map.setJob(action.unitId, { ...job, fatigue: value });
       tired = value >= rules.fatigueMax;
     }
+    // 채집 중 부상(D-521): 지난번 뒤로 지난 작업 주기 경계를 굴린다. 빨강(활동 불가)이면 그 자리에서 끝(든 화물은 그대로)
+    if (deps.workInjury) {
+      const fatigueNow = where.map.unitInfo(action.unitId)?.job.fatigue ?? where.info.job.fatigue;
+      deps.workInjury(where.map, action.unitId, fatigueNow, rules.fatigueMax, action.injuryCheckedMs, at);
+      action.injuryCheckedMs = at;
+      const condition = where.map.unitInfo(action.unitId)?.condition;
+      if (condition && unavailable(condition, at)) {
+        finish(action, "interrupted");
+        return;
+      }
+    }
     action.updatedAt = at;
     // 다음: 화물이 차면 넣으러, 피로 상한이면 넣고 끝, 오브젝트가 남았으면 또 캐기, 떨어졌으면 다음 오브젝트
     const weight = BigInt(catalog.unitWeightOf(kind.item) ?? 0) * (catalog.lotSize.get(asset) ?? 1n);
@@ -670,6 +688,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
     campLevel: null,
     yieldCarryPm: 0,
     fatigueCarryPm: 0,
+    injuryCheckedMs: now(),
     assets: new Set(),
     gatheredLots: 0,
     depositedUnits: 0,

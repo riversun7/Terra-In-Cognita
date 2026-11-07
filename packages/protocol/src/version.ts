@@ -65,6 +65,8 @@
  *    - 원자재 오브젝트 채집·건물 들어가기(gather.ts gather_start·gather_stop·unit_enter → gather_result,
  *      docs/adr/2026-11-07-gather-objects.md, 사용자 지적 2026-11-07 문제 2·3) — 내 유닛이 오브젝트로 걸어가 캐고 넣는 곳에 넣기를 되풀이하고,
  *      건물로 걸어가 화물 넣기·직무 받기·안에 머물기를 한다.
+ *    - 병원 치료(hospital.ts hospital_treat·dev_injure_unit → hospital_result, docs/adr/2026-11-08-injury.md, 기획 D-521) — 다친 내 유닛을
+ *      그 유닛이 선 도시의 병원(의료 단계 시설)에서 화폐를 내고 빨리 낫게 한다.
  */
 export const PROTOCOL_VERSION = 17;
 

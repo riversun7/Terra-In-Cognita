@@ -42,7 +42,10 @@
 
 ## 검사 결과
 - 작업 중(고친 꾸러미만): 프로토콜 18파일 105개 통과, 서버 `gateway`·`permissions`·`mapUnits` 33개 통과, 게임 `src/map` 18파일 143개 통과, 서버·게임 타입 검사 통과, 고친 파일 oxlint·biome 통과.
-- 끝에 한 번: (아래에 채움)
+- 끝에 한 번(Verified): 메시지 다시 만들기 → `TEST_DATABASE_URL=… pnpm check` 통과(시험 476파일 3,779개, DB 시험 포함, 다국어 4,424키, 디자인 값·경계·파일 크기 통과), `pnpm check:docs origin/main` 통과.
+- 화면 시험(Verified): `pnpm e2e e2e/unit-control.spec.ts e2e/vision.spec.ts e2e/play-map.spec.ts` 39개 통과·1개 건너뜀(측정 시험, `E2E_MEASURE` 없음), 7.7분. 새 `unit-control.spec.ts` 7개: 목록 → 사이보그 고르기 → 땅 = 이동(ok) → [멈추기](ok), 남의 유닛 정보만·move_unit 0개, 운영자 모드(표시·전체 보기·운영자 다룸), 사진 4장.
+- 사진(390, 세션 임시 폴더 `unit-control-shots/`): `unit-control-list-390-{pastel,dark}`(내 유닛 목록 펼침), `unit-control-operator-390-{pastel,dark}`(위 판 "운영자" 알약·운영자 선택 안내), `unit-control-moving-390`(가는 중 [멈추기]). 눈으로 봄: 넘침 없음, 다크에서 목록·알약 글자 읽힘.
+- 빌드·`check-pwa`·`check:bundle`은 돌리지 않았다(지시 — 합치는 묶음에서). 화면 시험의 전역 준비가 빌드는 했다.
 
 ## 미검증·TODO·알려진 문제
 - 질문 630~637(확인 대기, 모양만 — 답이 없으면 지금 코드).

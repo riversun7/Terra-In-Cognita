@@ -232,6 +232,9 @@ test.describe("경계 너머 보기", () => {
     const screen = page.locator(".map-screen");
     await expect(screen).toHaveAttribute("data-neighbours", "8", { timeout: 30_000 });
     await expect(page.locator(".map-compass")).toHaveAttribute("aria-label", /./);
+    // 경계 너머까지 끌려면 운영자 모드(시야 자유 이동 — 플레이어 카메라는 내 유닛 둘레로 묶인다, 기획 정리 630)
+    await page.locator(".map-operator-toggle").click();
+    await expect(screen).toHaveAttribute("data-operator", "on");
     await page.waitForTimeout(1200);
     await shot(page, "second-map-neighbours-3x3");
 

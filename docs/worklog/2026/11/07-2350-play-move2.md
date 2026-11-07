@@ -30,7 +30,9 @@
 
 ## 검사·시험 (개발 컨테이너, Node 24.22.1, 무거운 잠금 안)
 - 작업 중(Verified): 서버 `travel/`·`worldMap/`·`world/vision`·`testWorkers` 9파일 36개(DB 포함) 통과, 게임 `travelData`·`worldMap`·`mapFeed` 통과, 서버·게임 타입 검사, 바꾼 파일 oxlint 통과.
-- 끝 검사: 아래 "끝 검사 결과"에 적는다.
+- 끝 검사(Verified, 무거운 잠금 안, 커밋 `7d0ffa3` 위 — 메시지 생성 뒤): `TEST_DATABASE_URL=… pnpm check` 통과(포맷·린트·타입·경계·크기·다국어 4,415키·대비 738쌍·콘텐츠 core@50·시험 476파일 3,783개, DB 시험 포함). `pnpm check:docs origin/main` 통과. 크기 경고는 `travel/service.ts` 691줄(1,000줄 상한 안 — 모양·도우미를 `serviceTypes.ts`로 나눈 뒤).
+- 화면 시험(Verified, `pnpm e2e e2e/play-map.spec.ts`, 빌드한 앱·서버, 헤드리스 Chromium): 19개 모두 통과(4.3분). WP7 확인 단계 시험에 정찰·이동 안내 줄·비용 줄·`data-dangers`·`data-hidden-maps = 0`, WP9 시험에 가는 동안 `data-me-travel = going`·`data-me-at`이 20초 안에 바뀜(5초마다 다시 묻기).
+- 사진(390, 넘침·작은 누르는 곳 없음, 저장소 밖 임시 폴더 `move2-shots`): `play-fog-command-390-{pastel,dark}-{ko,en}`(확인 단계: 정찰 안내·지나는 2차맵 2장·약 1.4km·약 10분·비용 없음·알려진 위험 없음·모르는 2차맵 1장), `play-move-going-390-{pastel,dark}-{ko,en}`(가는 중), `play-move-second-390-{pastel,dark}`. 눈으로 본 것: 파스텔·다크 모두 줄이 판 안에 들어간다. 오른쪽 [2차맵] 전환 단추(WP7부터 있던 배치)가 영어의 긴 정찰 안내 줄 끝을 가렸다 → 영어 문구를 줄였다("Scout: looks at the target, then comes back.", 사진은 줄이기 전). 영어 복수형("1 local maps")도 "…: {count}" 꼴로 바꿨다(메시지만, 다시 돌리지 않음 — 다국어 검사만 다시 통과).
 
 ## 함께 바꿔야 하는 파일
 - 마이그레이션이 다른 줄기와 같은 부모에서 갈라지면 그대로 합친다(AGENTS 6장 Drizzle — 다시 만들지 않는다).
@@ -44,6 +46,7 @@
 ## 미검증·TODO·알려진 문제
 - 시험 세계(띄운 2차맵 6장이 한 줄)에서는 건너뛰기·대각선 줄이 일어나지 않는다 — 서버 시험(가짜 2차맵)만 본다. 화면에서 건너뛰는 중 문구·정찰이 돌아오는 화면은 사진이 없다(걷는 시간 2차맵 한 장 약 10분).
 - 1차맵 내 자리는 5초마다 바뀐다(사이 보간 없음).
+- 오른쪽 [2차맵]·[1차맵] 전환 단추가 명령 판 오른쪽 줄 끝에 겹치는 배치(WP7부터)는 그대로다 — 긴 줄이 가려질 수 있다.
 - 건너뛰는 동안 습격 없음(질문 610), 위험 문턱 = 유목 문턱·전쟁 영토 = 도시 2차맵(질문 611), 정찰 결과 알림 없음(질문 612).
 
 ## 사용자 결정 대기

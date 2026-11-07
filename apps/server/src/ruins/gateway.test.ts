@@ -33,6 +33,15 @@ function fakeService(calls: string[]): RuinService {
   };
 }
 
+/** 폐허 2 새 코드로 실패하는 서비스(열기 = code, 넣기 = expired) */
+function failing(code: "not_built" | "expired"): RuinService {
+  return {
+    ...fakeService([]),
+    open: () => Promise.resolve({ ok: false, code }),
+    fund: () => Promise.resolve({ ok: false, code: "expired" }),
+  };
+}
+
 function connect(service: RuinService | undefined, who: Viewer | null, protocolVersion?: number) {
   const sent: unknown[] = [];
   const gateway = createRuinGateway({ service: () => service, now: () => 0, log: { error: () => {} } });
@@ -74,11 +83,6 @@ describe("폐허 복원 연결 처리", () => {
   });
 
   it("폐허 2 결과 코드 not_built·expired는 15판 연결에만, 14판 연결은 not_claimed(모르는 코드라 풀지 못한다)", async () => {
-    const failing = (code: "not_built" | "expired"): RuinService => ({
-      ...fakeService([]),
-      open: () => Promise.resolve({ ok: false, code }),
-      fund: () => Promise.resolve({ ok: false, code: "expired" }),
-    });
     const now = connect(failing("not_built"), player, 15);
     const legacy = connect(failing("not_built"), player, 14);
     for (const link of [now, legacy]) {

@@ -143,8 +143,10 @@ describe("정원사 2: 보호 레이드(D-500)", () => {
 describe("수비 휴먼이 없는 도시의 웨이브(기획 답 472 가, D-311)", () => {
   it("수호신이 있으면 수비 휴먼이 없어도 전투를 연다, 없으면 전투 없이 웨이브가 이긴다(질문 218 가)", () => {
     for (const guarded of [false, true]) {
-      const { world, gardener, events, faction, fights } = setup(TEST_GARDENER_COEFFICIENTS, false, (cityId) =>
-        guarded ? cityId > 0 : false,
+      const { world, gardener, events, faction, fights } = setup(
+        TEST_GARDENER_COEFFICIENTS,
+        false,
+        (cityId) => (guarded ? cityId > 0 : false),
       );
       const home = faction("home");
       const two = faction("two");

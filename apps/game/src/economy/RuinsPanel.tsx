@@ -219,17 +219,7 @@ function ProjectPart({
 }
 
 /** 정부 건물 상태 한 줄(유저가 지은 것. NPC 주인은 줄 없음). 개발 시험: 내 정부 건물을 바로 다 짓는다(건물 칸 [바로 끝내기]와 같은 명령) */
-function HallLine({
-  ruin,
-  dev,
-  busy,
-  run,
-}: {
-  ruin: RuinView;
-  dev: boolean;
-  busy: string | null;
-  run: Run;
-}) {
+function HallLine({ ruin, dev, busy, run }: { ruin: RuinView; dev: boolean; busy: string | null; run: Run }) {
   const hall = ruin.owner?.hall;
   if (!hall) return null;
   const text =
@@ -313,7 +303,9 @@ function RuinCard({
       {government && at ? (
         <>
           <p className="field-hint">
-            {ruin.project ? m.ruins_rebuild_hint({ x: at.x, y: at.y }) : m.ruins_build_hint({ x: at.x, y: at.y })}
+            {ruin.project
+              ? m.ruins_rebuild_hint({ x: at.x, y: at.y })
+              : m.ruins_build_hint({ x: at.x, y: at.y })}
           </p>
           <div className="labor-actions">
             {data.dev ? (

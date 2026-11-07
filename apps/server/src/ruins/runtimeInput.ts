@@ -8,27 +8,32 @@ import type { TempleService } from "../temple/service.ts";
 import type { OwnerRow } from "../world/persist/load.ts";
 import type { RuinService } from "./service.ts";
 
-export function npcRuinsInputOf(o: {
-  readonly ruins: () => RuinService | undefined;
-  readonly temple: () => TempleService | undefined;
+/** 월드 저장 묶음 가운데 이 고리가 읽는 것(WorldPersistence와 같은 모양) */
+export interface RuinsInputSource {
+  readonly ruins: RuinService;
   readonly cyborgs: CyborgService;
-  readonly owners: ReadonlyMap<number, OwnerRow>;
-  readonly now: () => number;
-}): NpcRuinsInput {
+  readonly fusion: { readonly temple: TempleService };
+}
+
+export function npcRuinsInputOf(
+  source: () => RuinsInputSource | undefined,
+  owners: ReadonlyMap<number, OwnerRow>,
+  now: () => number,
+): NpcRuinsInput {
   /** 세력 행 ID → 그 세력의 소유 주체 ID */
   const ownerOfFactionRow = (rowId: number): number | undefined => {
-    for (const owner of o.owners.values()) if (owner.factionId === rowId) return owner.id;
+    for (const owner of owners.values()) if (owner.factionId === rowId) return owner.id;
     return undefined;
   };
   return {
-    government: (buildingId) => o.ruins()?.governmentStatus(buildingId) ?? { state: "down", level: 0 },
-    governmentLevels: () => o.ruins()?.governmentLevels() ?? new Map(),
-    hasGuardians: (cityId) => o.temple()?.hasFightingGuardian(cityId, o.now()) ?? false,
+    government: (buildingId) => source()?.ruins.governmentStatus(buildingId) ?? { state: "down", level: 0 },
+    governmentLevels: () => source()?.ruins.governmentLevels() ?? new Map(),
+    hasGuardians: (cityId) => source()?.fusion.temple.hasFightingGuardian(cityId, now()) ?? false,
     nationOf(ownerId) {
-      const owner = o.owners.get(ownerId);
+      const owner = owners.get(ownerId);
       if (!owner) return undefined;
       if (owner.factionId !== null) return ownerId;
-      const record = owner.userId ? o.cyborgs.record(owner.userId) : undefined;
+      const record = owner.userId ? source()?.cyborgs.record(owner.userId) : undefined;
       return record ? ownerOfFactionRow(record.factionId) : undefined;
     },
   };

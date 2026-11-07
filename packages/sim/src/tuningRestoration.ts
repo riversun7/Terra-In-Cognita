@@ -28,7 +28,12 @@ export const RESTORATION_TUNING_KEYS: readonly TuningKey[] = [
     "복원 목표의 주거 1당 값(최소 단위)",
     "Restoration goal per housing (minor units)",
   ),
-  k("d510_fund_days", "fundDays", "복원 모금 기한(일, 0 = 없음)", "Restoration funding deadline (days, 0 = none)"),
+  k(
+    "d510_fund_days",
+    "fundDays",
+    "복원 모금 기한(일, 0 = 없음)",
+    "Restoration funding deadline (days, 0 = none)",
+  ),
   k(
     "d510_npc_claim_after_days",
     "npcClaimAfterDays",

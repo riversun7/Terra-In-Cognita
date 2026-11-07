@@ -835,7 +835,7 @@ export function startWorld(
           guardianSatisfaction: () => persistence?.fusion.temple.citySatisfaction() ?? new Map(),
           economy: npcEconomyInputOf(config.economy, facilities, maps),
           // 폐허 2: 정부 건물·행정 레벨(489 다)·수호신(472 가)·유저 나라(535 폐허 창고 물건)
-          ruins: npcRuinsInputOf({ ruins: () => persistence?.ruins, temple: () => persistence?.fusion.temple, cyborgs, owners, now }),
+          ruins: npcRuinsInputOf(() => persistence, owners, now),
         });
       } catch (error) {
         log.error({ err: error }, "npc society failed to start; bots keep walking");

@@ -14,6 +14,10 @@ import { inheritTraits, rollTraits, type Traits } from "./traits.ts";
 const calm: Traits = { aggression: 100, commerce: 500, faith: 500, station: 500 };
 const warlike: Traits = { aggression: 900, commerce: 200, faith: 200, station: 500 };
 
+/** 폐허 복원 후보 점수(없으면 undefined) */
+const restoreScoreOf = (me: FactionView): number | undefined =>
+  scoreActions(me, [], c).find((entry) => entry.action.kind === "restore")?.score;
+
 function view(over: Partial<FactionView> = {}): FactionView {
   return {
     id: 1,
@@ -175,21 +179,19 @@ describe("판단 틀(D-323): 지표 → 후보 점수 → 가장 높은 행동",
       ruin: 7,
       mode: "claim",
     });
-    const score = (me: FactionView): number | undefined =>
-      scoreActions(me, [], c).find((entry) => entry.action.kind === "restore")?.score;
-    const base = score(view({ traits: merchant, restores: [claim] })) ?? 0;
-    expect(score(view({ traits: calm, restores: [claim] }))).toBeLessThan(base);
-    expect(score(view({ traits: merchant, restores: [{ ...claim, former: false }] }))).toBe(
+    const base = restoreScoreOf(view({ traits: merchant, restores: [claim] })) ?? 0;
+    expect(restoreScoreOf(view({ traits: calm, restores: [claim] }))).toBeLessThan(base);
+    expect(restoreScoreOf(view({ traits: merchant, restores: [{ ...claim, former: false }] }))).toBe(
       base - c.restoreFormerBonus,
     );
-    expect(score(view({ traits: merchant, cities: 6, restores: [claim] }))).toBe(
+    expect(restoreScoreOf(view({ traits: merchant, cities: 6, restores: [claim] }))).toBe(
       base - 4 * c.restoreCityPenalty,
     );
     // 예비금(값 × 2)이 없으면 정부 짓기는 후보가 아니다. 넣기·투자는 국고와 상관없이(넣는 값은 부르는 쪽이 국고 몫으로 정함)
-    expect(score(view({ traits: merchant, treasury: 3000n, restores: [claim] }))).toBeUndefined();
+    expect(restoreScoreOf(view({ traits: merchant, treasury: 3000n, restores: [claim] }))).toBeUndefined();
     const fund = { ruin: 3, mode: "fund", cost: 500n, former: false } as const;
     const invest = { ruin: 2, mode: "invest", cost: 100n, former: false } as const;
-    expect(score(view({ traits: merchant, treasury: 3000n, restores: [invest, fund] }))).toBe(
+    expect(restoreScoreOf(view({ traits: merchant, treasury: 3000n, restores: [invest, fund] }))).toBe(
       c.restoreFundScore + 225,
     );
     // 투자는 상업 성향이 높아야 쉬기를 넘는다

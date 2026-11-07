@@ -10,7 +10,9 @@ import {
   formatAmount,
   formatK,
   formatMilli,
+  formatSigned,
   formatStat,
+  formatStatShare,
   injuryLabel,
   jobLabel,
   localName,
@@ -146,6 +148,16 @@ describe("수·시간", () => {
     expect(formatStat({ id: "mp_regen", shape: "quantity", value: 0 }, "en")).toBe("0/min");
     expect(formatAmount("1200000", "ko")).toBe("1,200,000");
     expect(formatAmount("not-a-number", "ko")).toBe("not-a-number");
+  });
+
+  it("버프 몫은 부호를 붙여 줄 단위로(질문 354)", () => {
+    expect(formatSigned(3, "en")).toBe("+3");
+    expect(formatSigned(-1200, "en")).toBe("-1,200");
+    expect(formatStatShare({ id: "evade", shape: "probability", value: 50 }, "en")).toBe("+5.0%");
+    expect(formatStatShare({ id: "defense_rate", shape: "probability", value: -25 }, "en")).toBe("-2.5%");
+    expect(formatStatShare({ id: "crit_multiplier", shape: "quantity", value: 100 }, "en")).toBe("+0.10");
+    expect(formatStatShare({ id: "shield_regen", shape: "quantity", value: 5 }, "ko")).toBe("+5/분");
+    expect(formatStatShare({ id: "hp", shape: "quantity", value: 1284 }, "en")).toBe("+1,284");
   });
 
   it("천분의 일 정수는 소수로(뒤 0 없이): 풀이의 곱·가중치", () => {

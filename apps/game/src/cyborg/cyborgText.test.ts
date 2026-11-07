@@ -1,12 +1,15 @@
-// 사이보그 화면 다듬기 시험 — 속성 계열 묶음(기본·강화), 상세 전투 스펙 묶음·막대 채움, 핵심 사양 출처 칸
+// 사이보그 화면 다듬기 시험 — 속성 계열 묶음(기본·강화), 상세 전투 스펙 묶음·막대 채움, 핵심 사양 출처 칸, 버프 몫(질문 354)
 import type { RosterPrimarySource, RosterStatBreakdown } from "@terra/shared/roster";
 import { describe, expect, it } from "vitest";
 import {
   barFill,
+  barSplit,
+  buffTone,
   combatGroupOf,
   combatGroups,
   coreSegments,
   corePartOf,
+  effectShare,
   elementFamilies,
   elementLabel,
   termMilliSum,
@@ -123,5 +126,55 @@ describe("핵심 사양 출처", () => {
     ]);
     expect(corePartOf({ kind: "item", slot: "part", item: "x", value: 1 })).toBe("organ");
     expect(corePartOf({ kind: "growth", value: 30, kPm: 1100 })).toBe("growth");
+  });
+});
+
+describe("버프 몫(질문 354 → D-515: 기본값과 버프를 나눠 보인다)", () => {
+  it("1차 스탯 몫 = 효과 합, 버프는 막대 끝 효과 칸, 디버프는 기본 막대 끝을 깎은 디버프 칸", () => {
+    const buffed: RosterPrimarySource[] = [
+      { kind: "body", value: 10 },
+      { kind: "item", slot: "accessory", item: "ring", value: 2 },
+      { kind: "effect", id: "food", value: 3 },
+    ];
+    expect(effectShare(buffed)).toBe(3);
+    expect(coreSegments(buffed)).toEqual([
+      { part: "body", value: 10 },
+      { part: "gear", value: 2 },
+      { part: "effect", value: 3 },
+    ]);
+    const cursed: RosterPrimarySource[] = [
+      { kind: "body", value: 10 },
+      { kind: "item", slot: "accessory", item: "ring", value: 2 },
+      { kind: "effect", id: "curse", value: -3 },
+      { kind: "effect", id: "food", value: 1 },
+    ];
+    expect(effectShare(cursed)).toBe(-2);
+    // 막대 길이 = 기본 12, 끝 2칸(장비 칸 전부 → 몸 값은 그대로)이 디버프 칸
+    expect(coreSegments(cursed)).toEqual([
+      { part: "body", value: 10 },
+      { part: "debuff", value: 2 },
+    ]);
+    // 기본보다 큰 디버프는 막대 전체
+    expect(
+      coreSegments([
+        { kind: "body", value: 4 },
+        { kind: "effect", id: "x", value: -9 },
+      ]),
+    ).toEqual([{ part: "debuff", value: 4 }]);
+  });
+
+  it("막대 두 칸: 앞 = 작은 값, 뒤 = 차이, 끝 = 큰 값의 barFill / 쪽: 낮을수록 좋은 값은 뒤집는다", () => {
+    const quantity = { shape: "quantity", cap: null } as const;
+    const up = barSplit(quantity, 60, 80);
+    expect(up.fill + up.extra).toBeCloseTo(barFill({ ...quantity, value: 80 }));
+    expect(up.fill).toBeCloseTo(60 / 100);
+    const down = barSplit({ shape: "probability", cap: 850 }, 77, 50);
+    expect(down.fill).toBeCloseTo(50 / 850);
+    expect(down.extra).toBeCloseTo(27 / 850);
+    expect(barSplit(quantity, 0, 0)).toEqual({ fill: 0, extra: 0 });
+    expect(buffTone(5)).toBe("up");
+    expect(buffTone(-5)).toBe("down");
+    expect(buffTone(-100, true)).toBe("up");
+    expect(buffTone(100, true)).toBe("down");
   });
 });

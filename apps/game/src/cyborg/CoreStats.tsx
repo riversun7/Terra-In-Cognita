@@ -4,6 +4,8 @@
 // - 막대를 올리면(마우스) 또는 누르면(휴대폰·키보드) 출처 상세: 몸 값(평소 하나, 만렙이면 처음 값·레벨 성장 + K, D-449),
 //   장비 칸 아이템마다, 인공장기, 스킬·효과, 합계. 출처는 서버가 보낸다(CyborgBody.primarySources).
 // - 두 칸씩 묶음·스탯 색은 그대로(D-448).
+// - 버프 몫(질문 354 → D-515 "기본값과 버프를 나눠 보인다"): 합계 칸 = 기본(몸 값 + 장비) + 걸린 효과의 몫 알약(버프 색, 디버프는 디버프 색).
+//   막대의 효과 칸도 버프 색 빗금, 디버프는 기본 막대 끝에서 깎인 몫을 디버프 색으로. 상세 판의 합계는 판정 값(기본 + 몫).
 import {
   type CyborgBody,
   PRIMARY_STAT_PAIRS,
@@ -17,12 +19,14 @@ import { PreviewTag, Section } from "../roster/parts.tsx";
 import {
   formatK,
   formatNumber,
+  formatSigned,
   localName,
   primaryCode,
   primaryLabel,
   slotLabel,
 } from "../roster/rosterText.ts";
-import { type CorePart, coreSegments, corePartOf } from "./cyborgText.ts";
+import { BuffChip } from "./BuffChip.tsx";
+import { type CorePart, coreSegments, corePartOf, effectShare } from "./cyborgText.ts";
 import "../roster/statPairs.css";
 import "./coreStats.css";
 
@@ -52,6 +56,10 @@ export function CoreStats({ body, names }: { body: CyborgBody; names: RosterName
     { part: "gear", text: m.cyborg_core_legend_gear() },
     { part: "organ", text: m.cyborg_core_legend_organ() },
     { part: "effect", text: m.cyborg_core_legend_effect() },
+    // 디버프가 걸린 스탯이 있을 때만(깎인 몫의 색)
+    ...(PRIMARY_STAT_PAIRS.flat().some((stat) => effectShare(sources[stat]) < 0)
+      ? [{ part: "debuff" as const, text: m.cyborg_core_legend_debuff() }]
+      : []),
   ];
   return (
     <Section id={`${id}-core`} title={m.cyborg_core_title()} end={body.preview ? <PreviewTag /> : null}>
@@ -112,7 +120,8 @@ function CoreRow({
   const id = useId();
   const sum = total(sources);
   const growth = sources.find((source) => source.kind === "growth");
-  const effects = sources.filter((source) => source.kind === "effect");
+  // 버프 몫(걸린 효과의 합)과 기본(몸 값 + 장비)
+  const share = effectShare(sources);
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
     if (event.key === "Escape" && open) {
       event.preventDefault();
@@ -120,7 +129,12 @@ function CoreRow({
     }
   };
   return (
-    <div className="core-row" data-stat={stat} data-open={open ? "true" : undefined}>
+    <div
+      className="core-row"
+      data-stat={stat}
+      data-buff={share === 0 ? undefined : share}
+      data-open={open ? "true" : undefined}
+    >
       <button
         type="button"
         className="core-toggle"
@@ -148,7 +162,10 @@ function CoreRow({
             />
           ))}
         </span>
-        <span className="core-total">{formatNumber(sum)}</span>
+        <span className="core-total">
+          <span className="core-total-value">{formatNumber(sum - share)}</span>
+          {share === 0 ? null : <BuffChip text={formatSigned(share)} tone={share > 0 ? "up" : "down"} />}
+        </span>
       </button>
       <div id={`${id}-pop`} className="core-pop" hidden={!open}>
         <p className="core-pop-title">
@@ -171,10 +188,10 @@ function CoreRow({
                 </span>
               </li>
             ))}
-          <li className="core-pop-row" data-part="effect">
+          <li className="core-pop-row" data-part={share < 0 ? "debuff" : "effect"}>
             <span className="core-swatch" aria-hidden="true" />
             <span className="core-pop-name">{m.cyborg_source_effect()}</span>
-            <span className="core-pop-value">{signed(total(effects))}</span>
+            <span className="core-pop-value">{signed(share)}</span>
           </li>
         </ul>
         <p className="core-pop-total">

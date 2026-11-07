@@ -113,9 +113,12 @@ export function barFill(row: Pick<RosterStatBreakdown, "shape" | "value" | "cap"
   return Math.min(1, row.value / niceCeil(row.value));
 }
 
-/** 핵심 사양 막대의 칸(같은 스탯 색의 진하기, 옛 StatBar의 태생·성장·투자·장비처럼). 투자는 없다(D-024) */
+/**
+ * 핵심 사양 막대의 칸(같은 스탯 색의 진하기, 옛 StatBar의 태생·성장·투자·장비처럼). 투자는 없다(D-024).
+ * 걸린 효과(effect)는 버프 색, 디버프로 깎인 몫(debuff)은 디버프 색이다(질문 354 → D-515: 버프 몫은 다른 색)
+ */
 export const CORE_PARTS = ["body", "initial", "growth", "gear", "organ", "effect"] as const;
-export type CorePart = (typeof CORE_PARTS)[number];
+export type CorePart = (typeof CORE_PARTS)[number] | "debuff";
 
 /** 출처 하나의 칸: 장비 칸 아이템은 인공장기·부품 칸이면 organ, 그 밖은 gear */
 export function corePartOf(source: RosterPrimarySource): CorePart {
@@ -123,17 +126,57 @@ export function corePartOf(source: RosterPrimarySource): CorePart {
   return source.kind;
 }
 
-/** 칸마다 더한 값(칸 차례, 0 이하는 막대에서 뺀다) */
+/** 걸린 효과(버프·디버프)의 합 — 1차 스탯 줄의 버프 몫 */
+export const effectShare = (sources: readonly RosterPrimarySource[]): number =>
+  sources.reduce((sum, source) => sum + (source.kind === "effect" ? source.value : 0), 0);
+
+/**
+ * 칸마다 더한 값(칸 차례, 0 이하는 막대에서 뺀다). 효과 합이 음수(디버프)면 기본 막대 끝에서 그만큼을 디버프 칸으로 바꾼다
+ * (막대 길이 = 기본, 끝의 디버프 칸 = 깎인 몫)
+ */
 export function coreSegments(sources: readonly RosterPrimarySource[]): { part: CorePart; value: number }[] {
   const sums = new Map<CorePart, number>();
   for (const source of sources) {
     const part = corePartOf(source);
     sums.set(part, (sums.get(part) ?? 0) + source.value);
   }
-  return CORE_PARTS.flatMap((part) => {
+  const segments = CORE_PARTS.flatMap((part): { part: CorePart; value: number }[] => {
     const value = sums.get(part) ?? 0;
     return value > 0 ? [{ part, value }] : [];
   });
+  const lost = -(sums.get("effect") ?? 0);
+  if (lost <= 0) return segments;
+  let cut = lost;
+  const kept: { part: CorePart; value: number }[] = [];
+  for (const segment of segments.toReversed()) {
+    const take = Math.min(cut, segment.value);
+    cut -= take;
+    if (segment.value > take) kept.unshift({ part: segment.part, value: segment.value - take });
+  }
+  const debuff: { part: CorePart; value: number } = { part: "debuff", value: lost - cut };
+  return [...kept, debuff].filter((segment) => segment.value > 0);
+}
+
+/** 버프 몫의 쪽: up = 좋아짐(버프 색), down = 나빠짐(디버프 색). 낮을수록 좋은 값(공격 간격)은 뒤집는다 */
+export const buffTone = (share: number, lowerIsBetter = false): "up" | "down" =>
+  share > 0 !== lowerIsBetter ? "up" : "down";
+
+/**
+ * 상세 전투 스펙 막대를 기본·몫 두 칸으로(0~1): 끝 = 기본과 판정 값 가운데 큰 값의 barFill 규칙, 앞 칸 = 둘 가운데 작은 값,
+ * 뒤 칸 = 차이(버프면 더한 몫, 디버프면 깎인 몫). 받은 값을 비율로 바꿀 뿐이다
+ */
+export function barSplit(
+  row: Pick<RosterStatBreakdown, "shape" | "cap">,
+  base: number,
+  total: number,
+): { fill: number; extra: number } {
+  const top = Math.max(base, total);
+  const end = barFill({ ...row, value: top });
+  if (top <= 0 || end <= 0) return { fill: 0, extra: 0 };
+  const unit = end / top;
+  const low = Math.max(0, Math.min(base, total));
+  const fill = low * unit;
+  return { fill, extra: Math.max(0, end - fill) };
 }
 
 /** 풀이 글의 가중합(받은 곱을 더해 보이기만 한다. 결과·내림 값은 서버의 weighted) */

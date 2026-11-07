@@ -236,7 +236,7 @@
   overflow-wrap: anywhere;
 }
 .combat-bar {
-  display: block;
+  display: flex;
   height: var(--space-1);
   overflow: hidden;
   border-radius: var(--radius-pill);
@@ -247,18 +247,53 @@
 }
 .combat-bar-fill {
   display: block;
+  flex: none;
   height: 100%;
   border-radius: var(--radius-pill);
   background-color: var(--sec);
   transition: inline-size var(--duration-slow) var(--easing-out);
 }
+/* 버프 몫 칸(기본 칸 바로 뒤, 색·빗금은 buffChip.css) — 앞 칸과 이어 보이게 앞쪽 모서리는 각지게 */
+.combat-bar-buff {
+  display: block;
+  flex: none;
+  height: 100%;
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  transition: inline-size var(--duration-slow) var(--easing-out);
+}
+.combat-bar[data-split] .combat-bar-fill {
+  border-radius: var(--radius-pill) 0 0 var(--radius-pill);
+}
 .combat-value {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
   color: var(--sec);
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-strong);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* 알약의 뜻(몫이 있을 때 카드 머리 아래) */
+.combat-buff-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+.buff-swatch {
+  display: inline-block;
+  flex: none;
+  width: var(--status-dot);
+  height: var(--status-dot);
+  border-radius: var(--hairline);
 }
 
 /* ── 공식 상자 ───────────────────────────────── */
@@ -297,6 +332,11 @@
   padding-block-start: var(--space-1);
   border-top: var(--hairline) solid var(--color-border);
   color: var(--sec);
+  font-weight: var(--font-weight-strong);
+}
+/* 버프 줄: 판정 값(기본 + 몫) — 버프 색 글자(자기 판 바탕 위, 대비 검사 쌍) */
+.combat-buff-line {
+  color: var(--color-success);
   font-weight: var(--font-weight-strong);
 }
 

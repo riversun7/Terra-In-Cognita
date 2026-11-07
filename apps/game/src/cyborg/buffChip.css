@@ -1,0 +1,47 @@
+/*
+ * 버프 몫 — 사이보그 판 스탯 줄의 기본값 옆 알약(BuffChip.tsx)과 막대의 몫 칸. 질문 354 → D-515: 버프 몫은 다른 색.
+ * 좋아짐 = 상태색 성공, 나빠짐 = 상태색 위험(글자는 자기 알림 바탕 위 — 대비 검사 쌍). 막대 몫 칸은 같은 색의 빗금이라
+ * 스탯 색(AGI 초록 등)과 색상이 겹쳐도 모양으로 갈린다. 값은 var(--…)만 쓴다.
+ */
+.buff-chip {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: 0 var(--space-1);
+  border: var(--hairline) solid currentColor;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-success-surface);
+  color: var(--color-success);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-snug);
+  white-space: nowrap;
+}
+.buff-chip[data-tone="down"] {
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+/* 막대의 몫 칸(핵심 사양 .core-seg[data-part="effect"|"debuff"], 상세 전투 스펙 .combat-bar-buff)과 범례 네모 */
+.core-seg[data-part="effect"],
+.core-seg[data-part="debuff"],
+[data-part="effect"] > .core-swatch,
+[data-part="debuff"] > .core-swatch,
+.combat-bar-buff,
+.buff-swatch {
+  --buff: var(--color-success);
+  background-color: var(--buff);
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--buff) 0 var(--hairline),
+    color-mix(in srgb, var(--buff) 45%, var(--color-surface)) var(--hairline) var(--space-1)
+  );
+}
+.core-seg[data-part="debuff"],
+[data-part="debuff"] > .core-swatch,
+.combat-bar-buff[data-tone="down"],
+.buff-swatch[data-tone="down"] {
+  --buff: var(--color-danger);
+}

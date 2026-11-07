@@ -7,10 +7,14 @@
 // - player: 권한 없음, tRPC battleLab.*는 403.
 // - 배치·사진: 390·1440 × 파스텔·다크 × 한국어·영어. 가로 넘침·작은 누르는 곳 없음. 3D 관람 창은 테마 둘 × 390·1440(언어 섞어 넷).
 // 팀 프리셋은 시험끼리 DB를 같이 쓴다: 만든 프리셋은 시험 안에서 지운다.
+// 사용자별 속도 제한도 같이 쓴다(설정 칸 계열 조회 순간 30·분당 120, 전투 순간 4·분당 8, 서버를 켤 때마다 처음부터. 앞 파일
+// balance.spec.ts의 admin 시험과도 같다). 배치·사진 시험은 서버 상태를 바꾸지 않으므로 같은 입력의 조회·전투를 처음 한 번만
+// 서버에 묻는다(replayTrpc). 실제 서버 경로(전투·몬테카를로·3D 관람·프리셋)는 "개발자" 시험이 본다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
+import { createTrpcReplay, replayTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
 /** 화면 안에서 tRPC를 부른다(같은 출처, 화면과 같은 쿠키) */
@@ -248,8 +252,22 @@ const LAYOUTS: readonly { theme: DevTheme; language: Language; width: number; he
   ]),
 );
 
+/** 배치·사진 시험(admin)이 함께 쓰는 서버 답 */
+const layoutReplay = createTrpcReplay();
+/** 화면을 열고 전투장을 돌릴 때 부르는 것: 목록·프리셋·미리 보기, 한 판·3D 관람 리플레이(계산만 하고 상태를 바꾸지 않는다) */
+const LAYOUT_CALLS = [
+  "battleLab.catalog",
+  "battleLab.presets",
+  "battleLab.preview",
+  "battleLab.battle",
+  "battleLab.replay",
+] as const;
+
 test.describe("배치·사진", () => {
   test.use({ account: "admin" });
+  test.beforeEach(async ({ page }) => {
+    await replayTrpc(page, layoutReplay, LAYOUT_CALLS);
+  });
 
   for (const { theme, language, width, height } of LAYOUTS) {
     test.describe(`${theme}·${language}·${width}px`, () => {

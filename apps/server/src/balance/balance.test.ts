@@ -18,6 +18,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { bodyView } from "../roster/body.ts";
 import { rosterCatalogOf } from "../roster/catalog.ts";
+import { tsWorkerUrl } from "../testWorkers.ts";
 import { ErrorReason } from "../trpc/init.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { createTuningShared } from "../tuning/services.ts";
@@ -382,7 +383,7 @@ describe("대결 워커", () => {
       limitMs: 30_000,
       mapSize: 32,
     };
-    const worker = workerDuelRunner({ workerUrl: new URL("./duelWorker.ts", import.meta.url) });
+    const worker = workerDuelRunner({ workerUrl: tsWorkerUrl("./duelWorker.ts", import.meta.url) });
     expect(await worker(job)).toEqual(runDuelJob(job));
   });
 
@@ -400,7 +401,7 @@ describe("대결 워커", () => {
       mapSize: 32,
     } satisfies DuelJob;
     const worker = workerDuelRunner({
-      workerUrl: new URL("./duelWorker.ts", import.meta.url),
+      workerUrl: tsWorkerUrl("./duelWorker.ts", import.meta.url),
       timeoutMs: 50,
     });
     await expect(worker(job)).rejects.toMatchObject({ reason: "timeout" });

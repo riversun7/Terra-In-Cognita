@@ -187,6 +187,8 @@ export function runSimulation(options: RunOptions): RunSummary {
   if (scenario.economy && !options.catalog) throw new Error("scenario with economy needs a catalog");
   const societyCoefficients = societyCoefficientsFrom(options.tuning ?? new Map());
   const world = createWorld(scenario, seed, SIM_START_MS, { systemRule, npc: societyCoefficients.npc });
+  // 부상(D-521): 정산·조우 전투가 시나리오 설정 칸을 얹은 값을 쓴다
+  world.injury = societyCoefficients.injury;
   const recorder = createMetricsRecorder({ startMs: SIM_START_MS, sink: emit });
   const byKind = new Map<string, number>();
   const ctxRef: { ctx?: NpcContext } = {};

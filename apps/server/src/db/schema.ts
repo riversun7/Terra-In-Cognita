@@ -575,10 +575,12 @@ export const worldUnits = pgTable(
     jobPhase: smallint("job_phase").notNull().default(0),
     jobProgressMs: integer("job_progress_ms").notNull().default(0),
     fatigue: integer("fatigue").notNull().default(0),
-    /** 부상 단계(D-099·D-145): 0 없음, 1 경상, 2 중상, 3 중태(활동 불가). 전투 결과가 넣는다(docs/adr/2026-10-31-combat-core.md 8절) */
+    /** 부상 단계(D-521): 0 초록, 1 흰, 2 노랑, 3 빨강(활동 불가). 전투·작업이 넣는다(docs/adr/2026-11-08-injury.md) */
     injury: smallint("injury").notNull().default(0),
-    /** 저절로 낫는 시각(실제 시간, T6 [임시]). 부상이 없으면 null */
+    /** 그 단계가 한 단계 내려가는 시각(실제 시간, 49 N55). 부상이 없으면 null */
     injuryUntilMs: bigint("injury_until_ms", { mode: "number" }),
+    /** 치유 배율(‰, 1000 = 자연 치유, 병원 치료가 올린다 — D-521) */
+    injuryHealPm: integer("injury_heal_pm").notNull().default(1000),
     /** 포로로 잡은 주체(D-187). 주인(owner_id)은 그대로다(몸값은 원래 주인하고만, D-242) */
     heldBy: bigint("held_by", { mode: "number" }).references(() => worldOwners.id),
   },
@@ -592,6 +594,7 @@ export const worldUnits = pgTable(
     check("world_units_domain", sql`${table.domain} in ('space', 'sky', 'land', 'sea')`),
     check("world_units_injury", sql`${table.injury} between 0 and 3`),
     check("world_units_injury_until", sql`(${table.injury} = 0) = (${table.injuryUntilMs} is null)`),
+    check("world_units_injury_heal", sql`${table.injuryHealPm} >= 1`),
     check("world_units_held_by_other", sql`${table.heldBy} is null or ${table.heldBy} <> ${table.ownerId}`),
   ],
 );

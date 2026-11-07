@@ -103,6 +103,25 @@ describe("HP·아머 회복(D-514)", () => {
       { until: 5 * MIN, regen: { hp: 50, armor: 0, shield: 0 } },
     ]);
     expect(regenPhases({ hp: 100, armor: 0, shield: 0 }, NO_MODIFIERS, 0)).toEqual([]);
+    // 부상 4단계(D-521): 지금 단계 뒤 아래 단계 구간마다 그 단계 ‰(빨강 → 노랑 → 흰)
+    expect(
+      regenPhases(
+        { hp: 100, armor: 0, shield: 0 },
+        {
+          injury: { stage: 3, untilMs: 2 * MIN, regenPm: 100 },
+          later: [
+            { untilMs: 4 * MIN, regenPm: 250 },
+            { untilMs: 5 * MIN, regenPm: 500 },
+          ],
+          hot: [],
+        },
+        0,
+      ).map((phase) => [phase.until, phase.regen.hp]),
+    ).toEqual([
+      [2 * MIN, 10],
+      [4 * MIN, 25],
+      [5 * MIN, 50],
+    ]);
     // 지난 경계는 뺀다
     expect(
       regenPhases({ hp: 100, armor: 0, shield: 0 }, { hot: [{ untilMs: MIN, hpPerMinute: 5 }] }, MIN),

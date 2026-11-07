@@ -440,3 +440,57 @@
   border-color: var(--color-deco-3);
   background-color: var(--color-deco-2);
 }
+
+/* ── 부상 단계(D-521: 초록(정상) · 흰 · 노랑 · 빨강, docs/adr/2026-11-08-injury.md) ── */
+.injury-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+  min-height: calc(var(--tap-size) / 2);
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  white-space: nowrap;
+}
+/* 점: 단계 색 채움 + 입력칸 테두리 색(흰 점이 판 위에서도 보이게) */
+.injury-dot {
+  display: inline-block;
+  flex: none;
+  inline-size: var(--status-dot);
+  block-size: var(--status-dot);
+  border: var(--hairline) solid var(--color-field-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-injury-green);
+}
+[data-stage="1"] > .injury-dot {
+  background-color: var(--color-injury-white);
+}
+[data-stage="2"] > .injury-dot {
+  background-color: var(--color-injury-yellow);
+}
+[data-stage="3"] > .injury-dot {
+  background-color: var(--color-injury-red);
+}
+.injury-track {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.injury-track-step {
+  display: inline-flex;
+  padding: var(--space-1);
+  border: var(--hairline) solid transparent;
+  border-radius: var(--radius-pill);
+}
+.injury-track-step[data-current="true"] {
+  border-color: var(--color-text);
+}
+.injury-track-step[data-past="true"] {
+  opacity: 0.4;
+}

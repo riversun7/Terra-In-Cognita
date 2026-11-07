@@ -1,0 +1,77 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "b2b18d55-97af-452f-bc41-5b344c2839f8",
+  "prevIds": [
+    "ee304024-c36f-4db2-b03e-88253507b668",
+    "c24eaeec-0223-4a23-9ea1-db6709eeb0e4"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_units",
+        "injury_heal_pm"
+      ],
+      "writes": [
+        "s|col|public.world_units.injury_heal_pm",
+        "n|col|public.world_units.injury_heal_pm",
+        "e|col|public.world_units.injury_heal_pm"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_units"
+      ],
+      "writes": [
+        "s|ck|public.world_units.world_units_injury_heal",
+        "n|ck|public.world_units.world_units_injury_heal",
+        "e|ck|public.world_units.world_units_injury_heal",
+        "n|con|public.world_units.world_units_injury_heal"
+      ],
+      "reads": [
+        "n|tbl|public.world_units",
+        "n|sch|public",
+        "n|col|public.world_units.injury_heal_pm"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "injury_heal_pm",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1000",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_units",
+        "name": "world_units_injury_heal",
+        "value": "\"injury_heal_pm\" >= 1",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

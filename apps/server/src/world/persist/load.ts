@@ -94,7 +94,7 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
   );
   const units = await pool.query(
     `select id, owner_id, kind, size, speed, map_key, planet_id, domain, path, depart_at_ms, wake_at_ms, ai_step,
-            job, job_phase, job_progress_ms, fatigue, injury, injury_until_ms, held_by from world_units`,
+            job, job_phase, job_progress_ms, fatigue, injury, injury_until_ms, injury_heal_pm, held_by from world_units`,
   );
   const buildings = await pool.query(
     `select id, map_key, planet_id, domain, owner_id, x, y, width, height, rotation from world_buildings`,
@@ -146,6 +146,8 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
       condition: {
         injury: num(row.injury ?? 0),
         injuryUntilMs: numOrNull(row.injury_until_ms),
+        // 치유 배율(D-521 병원 치료). 1000(자연 치유)이면 칸을 두지 않는다
+        ...(num(row.injury_heal_pm ?? 1000) === 1000 ? {} : { injuryHealPm: num(row.injury_heal_pm) }),
         heldBy: numOrNull(row.held_by),
       },
     })),

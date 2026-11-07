@@ -42,6 +42,7 @@ export const WORLD_TABLES = {
       "fatigue",
       "injury",
       "injury_until_ms",
+      "injury_heal_pm",
       "held_by",
     ],
     key: ["id"],

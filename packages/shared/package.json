@@ -21,6 +21,7 @@
     "./formula": "./src/formula.ts",
     "./goodsPlaces": "./src/goodsPlaces.ts",
     "./holdings": "./src/holdings.ts",
+    "./hospital": "./src/hospital.ts",
     "./inbox": "./src/inbox.ts",
     "./itemEditor": "./src/itemEditor.ts",
     "./labor": "./src/labor.ts",

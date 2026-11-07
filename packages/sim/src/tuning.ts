@@ -18,6 +18,7 @@ import { RANKING_TUNING_KEYS } from "./tuningRanking.ts";
 import { SWITCH_TUNING_KEYS } from "./tuningSwitches.ts";
 import { TERRITORY_TUNING_KEYS } from "./tuningTerritory.ts";
 import { VITALS_TUNING_KEYS } from "./tuningVitals.ts";
+import { INJURY_TUNING_KEYS } from "./tuningInjury.ts";
 import { WORLD_SEED_TUNING_KEYS } from "./tuningWorldSeed.ts";
 
 export interface TuningKey {
@@ -551,6 +552,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   // 랭킹(20 §8, D-037·D-041·D-042, 49에 칸 없음 [임시]): tuningRanking.ts
   ...RANKING_TUNING_KEYS,
   ...VITALS_TUNING_KEYS,
+  // 부상 단계·작업 중 부상·자연 치유·병원(49 N55, D-521): tuningInjury.ts
+  ...INJURY_TUNING_KEYS,
   // 구인 카드(49 N45, D-469 — S39 출생 칸을 대신함): tuningRecruit.ts
   ...RECRUIT_TUNING_KEYS,
   ...LABOR_TUNING_KEYS,

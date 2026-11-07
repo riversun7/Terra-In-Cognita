@@ -53,6 +53,7 @@ import type {
   RecruitReadServices,
   FusionReadServices,
   TempleReadServices,
+  HospitalReadServices,
   RuinReadServices,
   Viewer,
   WorldMapReads,
@@ -113,6 +114,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   fusion?: (() => FusionReadServices | undefined) | undefined;
   /** 신전 조회(세계가 준비되면 서비스). 없으면 늘 준비 전 */
   temple?: (() => TempleReadServices | undefined) | undefined;
+  /** 부상·병원 조회(세계가 준비되면 서비스, D-521). 없으면 늘 준비 전 */
+  hospital?: (() => HospitalReadServices | undefined) | undefined;
   /** 폐허 복원 조회(세계·NPC 사회 런타임이 준비되면 서비스). 없으면 늘 준비 전 */
   ruins?: (() => RuinReadServices | undefined) | undefined;
   /** 보유 물건 조회(월드가 있을 때, docs/adr/2026-11-03-item-holdings.md). 없으면 늘 빈 목록 */
@@ -199,6 +202,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       recruits: options.recruits,
       fusion: options.fusion,
       temple: options.temple,
+      hospital: options.hospital,
       ruins: options.ruins,
       secondMapLab: options.secondMapLab,
       territory: options.territory,

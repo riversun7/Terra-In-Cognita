@@ -30,6 +30,11 @@ import { type WorkRecord, workRow } from "./work.ts";
 export interface ProductionSource {
   /** 그 건물이 채집 시설이면 그 정의·레벨·도시·자리 수. 아니면(시설 줄 없음·채집 아님) undefined */
   site(buildingId: number): (GatherSite & { readonly slots: number }) | undefined;
+  /**
+   * 채집이 아닌 일터(병원 — 의사 직무 배치, D-521·docs/adr/2026-11-08-injury.md)면 다 지은 레벨·자리 수. 물건을 내지 않는다(산출 없음).
+   * 없으면 채집 시설만 일터
+   */
+  workplace?(buildingId: number): { readonly level: number; readonly slots: number } | undefined;
   /** 유닛의 1차 스탯(입은 장비·버프 포함, 공방 장인 실력과 같은 셈 — holdings primariesOf) */
   primaries(unitId: number): Primaries;
   /**

@@ -11,6 +11,7 @@ import { type RankingCoefficients, TEST_RANKING_COEFFICIENTS } from "../ranking/
 import { type SystemSwitches, TEST_SYSTEM_SWITCHES } from "../tuningSwitches.ts";
 import type { CyborgTemperament } from "./cyborgStats.ts";
 import { type FusionCoefficients, OLD_FUSION_COEFFICIENTS } from "./fusion.ts";
+import { type InjuryCoefficients, START_INJURY_COEFFICIENTS } from "./injury.ts";
 import { OLD_RECRUIT_COEFFICIENTS, type RecruitCoefficients } from "./recruitment.ts";
 import { type RestorationCoefficients, START_RESTORATION_COEFFICIENTS } from "./restoration.ts";
 import { OLD_TEMPLE_COEFFICIENTS, type TempleCoefficients } from "./temple.ts";
@@ -308,6 +309,11 @@ export interface SocietyCoefficients {
     readonly injuryRegenPm: readonly number[];
     readonly injuryPenaltyPm: readonly number[];
   };
+  /**
+   * 부상 단계·작업 중 부상·단계별 자연 치유·병원(D-521, 49 N55, 팩 tuning 경로 "injury.*"). 단계 = 0 초록·1 흰·2 노랑·3 빨강(vitals 칸의
+   * 번호와 같다). 규칙은 society/injury.ts, docs/adr/2026-11-08-injury.md
+   */
+  readonly injury: InjuryCoefficients;
   /** 운영자 런타임 온/오프 스위치(49 N53, D-513, 팩 tuning 경로 "switches.*") */
   readonly switches: SystemSwitches;
 }
@@ -466,5 +472,6 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   },
   // [임시] D-514: 부상 중 회복은 경상 ½·중상 ¼·중태 ⅒, 불이익은 D-145 범위 가운데(경상 15%·중상 40%)·중태 50%
   vitals: { injuryRegenPm: [1000, 500, 250, 100], injuryPenaltyPm: [0, 150, 400, 500] },
+  injury: START_INJURY_COEFFICIENTS,
   switches: { ...TEST_SYSTEM_SWITCHES },
 };

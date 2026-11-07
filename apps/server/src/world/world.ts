@@ -41,6 +41,7 @@ import { type VitalsConfig, type WorldVitals, createWorldVitals } from "../vital
 import { type LaborService, createLaborService } from "../labor/service.ts";
 import { EMPTY_LABOR, type LoadedLabor, loadLabor } from "../labor/store.ts";
 import { UNIT_KIND_CYBORG_UNIT } from "./unitKinds.ts";
+import { conditionColumns, createWorkInjury } from "./unitCondition.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
 import { type BattleBodies, createBattleBodies } from "./battleBodies.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
@@ -475,9 +476,7 @@ export function startWorld(
           job_phase: row.job.phase,
           job_progress_ms: row.job.progressMs,
           fatigue: row.job.fatigue,
-          injury: row.condition.injury,
-          injury_until_ms: row.condition.injuryUntilMs,
-          held_by: row.condition.heldBy,
+          ...conditionColumns(row.condition),
         }),
       saveBuilding: (row) =>
         writer.upsert("buildings", {
@@ -710,6 +709,7 @@ export function startWorld(
     // 건물 작업에 묶인 유닛은 그 동안 직무 산출이 없다(D-516 364). 정산 뒤 노동 계약 유예 끝 물건 옮기기(382)
     settlement.pauseOutputs((ownerId) => facilities.service.pausesFor(ownerId));
     settlement.afterSettle((ownerId, toMs) => labor.afterSettle(ownerId, toMs));
+    settlement.injureWork(createWorkInjury()); // 작업 중 부상(D-521, docs/adr/2026-11-08-injury.md)
     // 사이보그 유닛 융합·유전자(D-516 인스턴스 = 보유 물건, 유저 휴먼 수명): 재료·유전자 = 실효 팩 아이템, 규칙 = 설정 칸 실효 값
     const fusion = createFusionService({
       maps,

@@ -13,9 +13,7 @@ import {
   basesOf,
   filterUnits,
   formatNumber,
-  injuryLabel,
   jobLabel,
-  remaining,
   sortUnits,
   statusLabel,
   typeLabel,
@@ -23,6 +21,7 @@ import {
   unitStatus,
 } from "../roster/rosterText.ts";
 import { type VitalsNow, type VitalsShown, worldUnitId } from "../roster/useVitals.ts";
+import { InjuryBadge } from "../roster/InjuryBadge.tsx";
 import { UnitAvatar, UnitDetail } from "./UnitDetail.tsx";
 
 // 사이보그 = 융합한 사이보그 유닛(D-470 "유닛 탭 종류에 사이보그도"). 본체는 사이보그 화면이다
@@ -246,8 +245,6 @@ function UnitRow({
 }) {
   const label = unitLabel(unit);
   const status = unitStatus(unit);
-  const injury = injuryLabel(unit.injury.stage);
-  const heal = unit.injury.untilMs === null ? null : remaining(unit.injury.untilMs, data.generatedAt);
   const meta = [
     unit.level === null ? null : m.roster_level({ level: formatNumber(unit.level) }),
     typeLabel(unit.type),
@@ -278,11 +275,7 @@ function UnitRow({
               {statusLabel(status)}
             </span>
             {unit.job ? <span className="roster-tag">{jobLabel(unit.job, data.names)}</span> : null}
-            {injury ? (
-              <span className="roster-tag" data-tone="injured">
-                {heal ? m.roster_injury_heal({ stage: injury, time: heal }) : injury}
-              </span>
-            ) : null}
+            <InjuryBadge injury={unit.injury} now={data.generatedAt} />
             {vitals ? (
               <span
                 className="roster-tag"

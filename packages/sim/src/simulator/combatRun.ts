@@ -17,6 +17,7 @@ import {
 import { type EquippedItem, itemAt, loadoutOf, skillSlotCount } from "../combat/equipment.ts";
 import type { CombatSkill } from "../combat/skills.ts";
 import { specFromStats } from "../combat/unitSpec.ts";
+import { NO_INJURY, START_INJURY_COEFFICIENTS, combatInjuryStage, injure } from "../society/injury.ts";
 import type { MetricsRecorder } from "./metrics.ts";
 import type { ScenarioCombat } from "./scenario.ts";
 import type { SimFaction, SimUnit, SimWorld } from "./world.ts";
@@ -240,6 +241,24 @@ export function attachCombat(
     if (result.winner === 1) attackerWins += 1;
     if (result.reason === "timeout") timeouts += 1;
     const down = { attacker: 0, defender: 0 };
+    // 전투 부상(D-521): 유닛마다 쓰러짐·잃은 HP 몫으로 굴린다(서버 battleResults.ts와 같은 함수)
+    const injury = world.injury ?? START_INJURY_COEFFICIENTS;
+    for (const unit of state.units) {
+      const sim = world.units.get(unit.id);
+      const spec = init.units.find((entry) => entry.id === unit.id);
+      if (!sim || !spec) continue;
+      const stage = combatInjuryStage(
+        {
+          seed: init.seed,
+          unit: unit.id,
+          maxHp: spec.maxHp,
+          startHp: spec.start?.hp ?? spec.maxHp,
+          endHp: unit.hp,
+        },
+        injury,
+      );
+      if (stage > 0) sim.injury = injure(sim.injury ?? NO_INJURY, stage, nowMs, injury);
+    }
     for (const unit of state.units) {
       if (unit.hp > 0) continue;
       downed += 1;

@@ -45,7 +45,7 @@
 - 마이그레이션 `20261107110833_city_names`는 올라가면 고치지 않는다.
 
 ## 미검증·TODO·알려진 문제
-- 시험(Verified): 시뮬 꾸러미 시험 전체 86파일 669개 통과(작업 중), 서버 단위 `nations.test.ts`·`npcSeed.test.ts`·`ranking/paths.test.ts`·콘텐츠 꾸러미 통과, DB `npcSeed.db.test.ts`·`market.db.test.ts` 5개 통과. 끝 검사(`pnpm check`·`check:docs`) 결과는 아래 "끝 검사".
+- 시험(Verified): 작업 중 시뮬 꾸러미 시험 전체·서버 단위·DB `npcSeed.db.test.ts`·`market.db.test.ts`, 끝 검사는 아래.
 - 빌드한 서버·NAS 실행은 미실행(행성 값 기반 시설 고르기는 지형 서비스가 있는 서버에서만 돈다 — 단위 시험·캐시된 행성 값으로만 확인).
 - 화면 시험(`first-login.spec.ts`·`play-map.spec.ts`)은 미실행: 화면 변경은 이름 문자열 하나(이름이 있으면 그 이름)라 조정자가 묶음 검사 때 돌린다.
 - 굶음 먼저의 하루 양은 레시피 대표 산출 어림(채집 추첨 시설은 다를 수 있다, Assumed).
@@ -53,7 +53,8 @@
 - 확인 대기: 질문 550~555.
 
 ## 끝 검사
-- (아래에 적는다)
+- `TEST_DATABASE_URL=… pnpm check && pnpm check:docs` 한 번(Verified, 2026-11-07 KST, 커밋 `063b06be15` 위): 포맷·린트·타입·경계·파일 크기·다국어·디자인 값·콘텐츠(core@49) 통과, 단위·DB 시험 466파일 3711개 통과, 문서 규칙 통과(기준 `d5a320b`).
+- 빌드·`check-pwa`·`check:bundle`·화면 시험은 돌리지 않았다(조정자가 묶음에서).
 
 ## 사용자 결정 대기
 - 없음(기획 확인 대기만: 550~555)

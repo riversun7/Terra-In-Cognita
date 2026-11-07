@@ -2,7 +2,14 @@
 // docs/adr/2026-11-07-play-flow.md "WP4 도시 경제·거래소". 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장). 폐허 명령(ruinsCommands.ts)과
 // 같은 틀이다: 인사 전이면 기다렸다 보내고, 끊기면 "offline", TIMEOUT_MS 안에 답이 없으면 "timeout". 경제 화면 지연 조각 안에서만 쓴다.
 // 체결 알림(market_fill)은 거래창을 연 동안 켜 두고(useMarketFills), 알림이 오면 받은 자료를 다시 받는다.
-import type { ClientMessageOf, MarketResultCode, ServerMessageOf } from "@terra/protocol";
+// 환전(프로토콜 15, docs/adr/2026-11-07-play-flow.md WP6): fx_place·fx_cancel을 같은 틀로 보내고 fx_result를 기다린다.
+import type {
+  ClientMessageOf,
+  FxResultCode,
+  MarketResultCode,
+  ServerMessage,
+  ServerMessageOf,
+} from "@terra/protocol";
 import { useEffect } from "react";
 import { type ServerLink, serverLink } from "../../net/serverLink.ts";
 
@@ -21,6 +28,14 @@ export type MarketOutcome =
 
 export type MarketFill = ServerMessageOf<"market_fill">;
 
+export type FxCommand = Omit<ClientMessageOf<"fx_place">, "id"> | Omit<ClientMessageOf<"fx_cancel">, "id">;
+
+export type FxOutcome =
+  | { readonly ok: true; readonly orderId?: number | undefined }
+  | { readonly ok: false; readonly code: FxResultCode | "offline" | "timeout" };
+
+type Request = ClientMessageOf<"market_place" | "market_cancel" | "market_watch" | "fx_place" | "fx_cancel">;
+
 const TIMEOUT_MS = 15_000;
 
 const noop = (): void => {};
@@ -38,18 +53,34 @@ const takeId = (): number => {
   return id;
 };
 
-/** 메시지 하나를 보내고 결과를 기다린다(인사 전이면 기다렸다 보낸다) */
-function request(
-  build: (id: number) => ClientMessageOf<"market_place" | "market_cancel" | "market_watch">,
+/** 거래소 결과(market_result) → 결과 */
+function marketOutcome(message: ServerMessage, id: number): MarketOutcome | undefined {
+  if (message.t !== "market_result" || message.id !== id) return undefined;
+  return message.ok
+    ? { ok: true, orderId: message.orderId, filled: message.filled, resting: message.resting }
+    : { ok: false, code: message.code };
+}
+
+/** 환전 결과(fx_result) → 결과 */
+function fxOutcome(message: ServerMessage, id: number): FxOutcome | undefined {
+  if (message.t !== "fx_result" || message.id !== id) return undefined;
+  return message.ok ? { ok: true, orderId: message.orderId } : { ok: false, code: message.code };
+}
+
+/** 메시지 하나를 보내고 결과를 기다린다(인사 전이면 기다렸다 보낸다). match = 받은 메시지가 이 요청의 답이면 결과 */
+function request<T>(
+  build: (id: number) => Request,
   link: ServerLink,
-): Promise<MarketOutcome> {
+  match: (message: ServerMessage, id: number) => T | undefined,
+  lost: (code: "offline" | "timeout") => T,
+): Promise<T> {
   const id = takeId();
   return new Promise((resolve) => {
     let sent = false;
     let done = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stop: () => void = noop;
-    const finish = (outcome: MarketOutcome): void => {
+    const finish = (outcome: T): void => {
       if (done) return;
       done = true;
       clearTimeout(timer);
@@ -62,17 +93,13 @@ function request(
     };
     stop = link.listen((event) => {
       if (event.kind === "ready") trySend();
-      else if (event.kind === "down" && sent) finish({ ok: false, code: "offline" });
-      else if (event.kind === "message" && event.message.t === "market_result" && event.message.id === id) {
-        const message = event.message;
-        finish(
-          message.ok
-            ? { ok: true, orderId: message.orderId, filled: message.filled, resting: message.resting }
-            : { ok: false, code: message.code },
-        );
+      else if (event.kind === "down" && sent) finish(lost("offline"));
+      else if (event.kind === "message") {
+        const outcome = match(event.message, id);
+        if (outcome !== undefined) finish(outcome);
       }
     });
-    timer = setTimeout(() => finish({ ok: false, code: sent ? "timeout" : "offline" }), TIMEOUT_MS);
+    timer = setTimeout(() => finish(lost(sent ? "timeout" : "offline")), TIMEOUT_MS);
     trySend();
   });
 }
@@ -82,7 +109,22 @@ export function sendMarketCommand(
   command: MarketCommand,
   link: ServerLink = serverLink,
 ): Promise<MarketOutcome> {
-  return request((id) => ({ ...command, id }), link);
+  return request(
+    (id) => ({ ...command, id }),
+    link,
+    marketOutcome,
+    (code) => ({ ok: false, code }),
+  );
+}
+
+/** 환전 주문 내기·거두기 하나를 보내고 결과를 기다린다 */
+export function sendFxCommand(command: FxCommand, link: ServerLink = serverLink): Promise<FxOutcome> {
+  return request(
+    (id) => ({ ...command, id }),
+    link,
+    fxOutcome,
+    (code) => ({ ok: false, code }),
+  );
 }
 
 /**
@@ -91,7 +133,12 @@ export function sendMarketCommand(
 export function useMarketFills(onFill: (fill: MarketFill) => void, link: ServerLink = serverLink): void {
   useEffect(() => {
     const watch = (on: boolean): void => {
-      void request((id) => ({ t: "market_watch", id, on }), link);
+      void request(
+        (id) => ({ t: "market_watch", id, on }),
+        link,
+        marketOutcome,
+        (code): MarketOutcome => ({ ok: false, code }),
+      );
     };
     const stop = link.listen((event) => {
       if (event.kind === "ready") watch(true);

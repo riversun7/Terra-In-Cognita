@@ -194,8 +194,11 @@ export interface InboxListResponse {
   readonly badges: { readonly [navItemId: string]: number };
 }
 
-/** 복귀 요약 칸(D-6014): 생산·습격과 방어·부상·세계 소식 */
-export const SUMMARY_SECTION_KINDS = ["production", "raid", "injury", "world_news"] as const;
+/**
+ * 복귀 요약 칸(D-6014): 생산·습격과 방어·부상·세계 소식, 거래(없는 동안 체결·만료된 내 주문, 질문 538 다 — docs/adr/2026-11-07-play-flow.md WP6.
+ * D-6014의 네 칸 밖이라 기술 제안, 확인 대기 질문 562). 한 번 쓴 칸 ID는 다시 쓰지 않는다
+ */
+export const SUMMARY_SECTION_KINDS = ["production", "raid", "injury", "world_news", "market"] as const;
 
 export type SummarySectionKind = (typeof SUMMARY_SECTION_KINDS)[number];
 

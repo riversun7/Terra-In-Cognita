@@ -3,8 +3,10 @@
 // 실제 거래소(live: 서버 도시 경제, docs/adr/2026-11-07-play-flow.md WP4)면 [주문]이 WebSocket market_place를 보내고 결과를 알린다(지정가·시장가.
 // 조건 주문은 아직 서버에 없어 잠근다). 시안 자료·거래소가 없는 세계는 "곧 열림"으로 잠근다(aria-disabled: 초점은 남고 누르면 아무 일도 없다).
 // 칸 오류는 사람이 그 칸을 건드린 뒤에만 보인다(처음부터 빨간 글이 뜨지 않게). [주문]을 누르면 모든 칸을 건드린 것으로 친다.
+// 값은 그 도시 화폐(나라 화폐, WP6)라 실제 거래소에서 그 화폐가 모자라면 환전 화면으로 가는 길을 함께 보인다.
 import { type Dispatch, type ReactNode, type SetStateAction, useId, useState } from "react";
 import { m } from "../../paraglide/messages.js";
+import { AppLink } from "../../shell/AppLink.tsx";
 import { formatRate } from "../amount.ts";
 import { sendMarketCommand } from "./marketCommands.ts";
 import { MARKET_ERROR_TEXT, refreshMarket, wireAmount } from "./marketText.ts";
@@ -376,6 +378,12 @@ export function OrderFormPanel({
             {problem === "limit" && limit.recoversAt !== null
               ? m.economy_limit_reached_at({ time: formatClock(limit.recoversAt, now) })
               : PROBLEMS[problem]()}
+            {problem === "cash" && live ? (
+              <>
+                {" "}
+                <AppLink to={{ route: "economy_exchange" }}>{m.market_go_exchange()}</AppLink>
+              </>
+            ) : null}
           </p>
         ))}
       </div>

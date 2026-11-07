@@ -2,14 +2,22 @@
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다(잔고·걸린 주문을 차례로 본다).
 // - 사용자별 속도 제한(순간 10번, 분당 60번 — 거래창은 건물 명령보다 잦다 [임시]). 밀린 요청이 MAX_PENDING을 넘으면 busy. 거래소가 아직 없으면 busy.
 // - 체결 알림(market_watch on): 그 연결을 사용자 몫 알림 목록에 둔다. 거래소 모음의 체결이 그 사용자의 걸린 주문이면 market_fill을 보낸다.
+// - 환전(fx_place·fx_cancel, 프로토콜 15)도 같은 연결 차례·속도 제한으로 받아 fx_result로 답한다(WP6).
 // - 판정·저장은 서비스(service.ts)가 한다.
-import { type ClientMessageOf, type MarketResultCode, encodeMessage } from "@terra/protocol";
+import {
+  type ClientMessageOf,
+  type FxResultCode,
+  type MarketResultCode,
+  encodeMessage,
+} from "@terra/protocol";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { FillNotice } from "./books.ts";
-import type { MarketCommandResult, MarketService } from "./service.ts";
+import type { FxCommandResult, MarketCommandResult, MarketService } from "./service.ts";
 
-export type MarketClientMessage = ClientMessageOf<"market_place" | "market_cancel" | "market_watch">;
+export type MarketClientMessage = ClientMessageOf<
+  "market_place" | "market_cancel" | "market_watch" | "fx_place" | "fx_cancel"
+>;
 
 const MAX_PENDING = 8;
 const LIMIT = { capacity: 10, refillPerMinute: 60 };
@@ -40,6 +48,20 @@ function resultText(id: number, result: MarketCommandResult): string {
   });
 }
 
+function fxResultText(id: number, result: FxCommandResult): string {
+  if (!result.ok) return encodeMessage({ t: "fx_result", id, ok: false, code: result.code });
+  return encodeMessage({
+    t: "fx_result",
+    id,
+    ok: true,
+    ...(result.orderId === undefined ? {} : { orderId: result.orderId }),
+  });
+}
+
+/** 환전 메시지인가(답 모양이 fx_result) */
+const isFx = (message: MarketClientMessage): message is ClientMessageOf<"fx_place" | "fx_cancel"> =>
+  message.t === "fx_place" || message.t === "fx_cancel";
+
 function fillText(notice: FillNotice): string {
   return encodeMessage({
     t: "market_fill",
@@ -56,6 +78,7 @@ function fillText(notice: FillNotice): string {
 }
 
 const fail = (code: MarketResultCode): MarketCommandResult => ({ ok: false, code });
+const fxFail = (code: FxResultCode & MarketResultCode): FxCommandResult => ({ ok: false, code });
 
 export function createMarketGateway(options: {
   /** 세계·도시 경제가 준비되면 서비스(없으면 busy) */
@@ -92,6 +115,11 @@ export function createMarketGateway(options: {
         if (!closed) link.send(text);
       };
       const reply = (id: number, result: MarketCommandResult): void => send(resultText(id, result));
+      /** 공통 실패(로그인·바쁨·속도 제한·내부 오류)를 그 메시지 모양으로 */
+      const replyFail = (message: MarketClientMessage, code: FxResultCode & MarketResultCode): void => {
+        if (isFx(message)) send(fxResultText(message.id, fxFail(code)));
+        else reply(message.id, fail(code));
+      };
       const unwatch = (): void => {
         if (watchingAs === undefined) return;
         const set = watchers.get(watchingAs);
@@ -103,9 +131,9 @@ export function createMarketGateway(options: {
       const process = async (message: MarketClientMessage): Promise<void> => {
         const viewer = await link.viewer();
         if (closed) return;
-        if (!viewer) return reply(message.id, fail("sign_in_required"));
+        if (!viewer) return replyFail(message, "sign_in_required");
         const service = options.service();
-        if (!service) return reply(message.id, fail("busy"));
+        if (!service) return replyFail(message, "busy");
         if (message.t === "market_watch") {
           unwatch();
           if (message.on) {
@@ -117,7 +145,21 @@ export function createMarketGateway(options: {
           }
           return reply(message.id, { ok: true });
         }
-        if (!limiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
+        if (!limiter.take(viewer.id)) return replyFail(message, "rate_limited");
+        if (message.t === "fx_place")
+          return send(
+            fxResultText(
+              message.id,
+              await service.fxPlace(viewer.id, {
+                currency: message.currency,
+                side: message.side,
+                price: message.price,
+                lots: message.lots,
+              }),
+            ),
+          );
+        if (message.t === "fx_cancel")
+          return send(fxResultText(message.id, await service.fxCancel(viewer.id, message.order)));
         if (message.t === "market_cancel")
           return reply(message.id, await service.cancel(viewer.id, message.order));
         reply(
@@ -138,7 +180,7 @@ export function createMarketGateway(options: {
         handle(message) {
           if (closed) return;
           if (pending >= MAX_PENDING) {
-            reply(message.id, fail("busy"));
+            replyFail(message, "busy");
             return;
           }
           pending += 1;
@@ -146,7 +188,7 @@ export function createMarketGateway(options: {
             .then(() => process(message))
             .catch((error: unknown) => {
               options.log.error({ err: error, t: message.t }, "market request failed");
-              reply(message.id, fail("internal_error"));
+              replyFail(message, "internal_error");
             })
             .finally(() => {
               pending -= 1;

@@ -433,7 +433,7 @@ export const WORLD_TABLES = {
   /** 물자 거래소(docs/adr/2026-11-07-play-flow.md WP4): 도시 × 물건 거래소 ID(에스크로 계정 열쇠) */
   marketBooks: {
     name: "market_books",
-    columns: ["id", "city_id", "item", "created_at_ms"],
+    columns: ["id", "city_id", "item", "created_at_ms", "currency"],
     key: ["id"],
   },
   /** 거래소 주문(걸 때·체결·취소·만료마다 — 에스크로·체결 거래와 같은 묶음). NPC 세력 주문은 끝나면 지운다 */
@@ -470,7 +470,40 @@ export const WORLD_TABLES = {
       "maker_owner_id",
       "taker_owner_id",
       "at_ms",
+      "currency",
     ],
+    key: [],
+  },
+  /** 환전 짝(화폐마다 하나, ID = 에스크로 열쇠 — docs/adr/2026-11-07-play-flow.md WP6) */
+  fxPairs: {
+    name: "fx_pairs",
+    columns: ["id", "currency", "created_at_ms"],
+    key: ["id"],
+  },
+  /** 환전 주문(낼 때·거둘 때·회차가 끝날 때 — 에스크로·회차 정산 거래와 같은 묶음). NPC 세력 주문은 회차가 끝나면 지운다 */
+  fxOrders: {
+    name: "fx_orders",
+    columns: [
+      "id",
+      "pair_id",
+      "owner_id",
+      "side",
+      "price",
+      "lots",
+      "locked",
+      "seq",
+      "placed_at_ms",
+      "state",
+      "filled_lots",
+      "clear_price",
+      "done_at_ms",
+    ],
+    key: ["id"],
+  },
+  /** 환전 회차 결과(추가만) */
+  fxRounds: {
+    name: "fx_rounds",
+    columns: ["id", "pair_id", "at_ms", "price", "lots"],
     key: [],
   },
   transactions: {
@@ -552,6 +585,9 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "marketBooks",
   "marketOrders",
   "marketTrades",
+  "fxPairs",
+  "fxOrders",
+  "fxRounds",
   "transactions",
   "entries",
   "battleResults",

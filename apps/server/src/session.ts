@@ -25,6 +25,7 @@ import {
   GENE_INCUBATE_LAB_PROTOCOL_VERSION,
   GUARDIAN_BUFF_PROTOCOL_VERSION,
   TEMPLE_PROTOCOL_VERSION,
+  FX_PROTOCOL_VERSION,
   MARKET_PROTOCOL_VERSION,
   RUINS_PROTOCOL_VERSION,
   type ServerMessage,
@@ -438,14 +439,18 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       }
       case "market_place":
       case "market_cancel":
-      case "market_watch": {
-        // 거래소 명령은 프로토콜 14의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
-        if (protocolVersion < MARKET_PROTOCOL_VERSION) {
+      case "market_watch":
+      case "fx_place":
+      case "fx_cancel": {
+        // 거래소 명령은 프로토콜 14, 환전은 15의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        const fx = message.t === "fx_place" || message.t === "fx_cancel";
+        if (protocolVersion < (fx ? FX_PROTOCOL_VERSION : MARKET_PROTOCOL_VERSION)) {
           reject("invalid_message");
           return;
         }
         if (!context.market) {
-          send({ t: "market_result", id: message.id, ok: false, code: "busy" });
+          if (fx) send({ t: "fx_result", id: message.id, ok: false, code: "busy" });
+          else send({ t: "market_result", id: message.id, ok: false, code: "busy" });
           return;
         }
         marketSocket ??= context.market.open({ send: sendText, viewer: context.viewer ?? signedOut });

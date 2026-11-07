@@ -477,9 +477,36 @@ export interface FxPairView {
   readonly balance: DecimalString;
 }
 
+/** 내 환전 주문(이번 회차에 낸 것, 회차 전에 거둘 수 있다 — 실제 자료, docs/adr/2026-11-07-play-flow.md WP6) */
+export interface FxMyOrder {
+  readonly id: string;
+  readonly currency: string;
+  readonly side: OrderSide;
+  /** 로트당 기준 통화(살 때 상한, 팔 때 하한) */
+  readonly price: DecimalString;
+  readonly lots: DecimalString;
+  readonly placedAt: number;
+}
+
+/** 내 끝난 환전 주문(회차가 끝남·거둠) */
+export interface FxMyDone {
+  readonly id: string;
+  readonly currency: string;
+  readonly side: OrderSide;
+  readonly price: DecimalString;
+  readonly lots: DecimalString;
+  /** 체결 로트(남은 양은 돌려받았다) */
+  readonly filled: DecimalString;
+  /** 그 회차 체결가. 체결이 없었으면 null */
+  readonly clearPrice: DecimalString | null;
+  /** done = 회차가 끝남, cancelled = 회차 전에 거둠 */
+  readonly status: "done" | "cancelled";
+  readonly at: number;
+}
+
 /** economy.exchange */
 export interface EconomyExchangeResponse extends EconomyResponseHead {
-  /** 기준 통화 코드. 없으면 null */
+  /** 기준 통화 코드(실제 자료는 서버 기준 통화 s3_test_credit, 시안은 첫 나라 화폐). 없으면 null */
   readonly base: string | null;
   readonly baseBalance: DecimalString;
   /** 회차 길이(ms, E8 기존 1시간) */
@@ -487,6 +514,11 @@ export interface EconomyExchangeResponse extends EconomyResponseHead {
   /** 다음 체결 시각 */
   readonly nextAuctionAt: number;
   readonly pairs: readonly FxPairView[];
+  /** 내 이번 회차 주문·최근 끝난 주문(실제 자료만. 시안 자료·옛 서버는 없음) */
+  readonly open?: readonly FxMyOrder[];
+  readonly done?: readonly FxMyDone[];
+  /** 한 회차에 낼 수 있는 내 주문 수(실제 자료만) */
+  readonly maxOrders?: number;
 }
 
 /** 10진 글자 모양(최소 단위 정수, 음수·앞자리 0 없음) */

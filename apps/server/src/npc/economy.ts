@@ -1,8 +1,9 @@
 // NPC 도시 경제(서버) — docs/adr/2026-11-07-play-flow.md "WP4 도시 경제·거래소", 경제 코어 ADR 2026-10-31-economy-core.md 7·8절.
 // NPC 사회 런타임의 거울 세계에 시뮬과 같은 경제 실행(@terra/sim runEconomy: 생산·생필품 유지비·NPC 거래·운송·세력 고리)을 붙인다.
 // 서버 몫만 여기 둔다:
-// - 화폐: 서버는 시험 화폐 하나(ASSET_CREDIT)를 모든 세력·거래소에 쓴다(D-441 해석과 같은 [임시], 환전은 다음 줄기). 거래세 = 국가 프리셋 세율
-//   (반란 세력은 부모 것, 없으면 DEFAULT_TAX_BP). 중앙은행 발행은 돌지 않는다(발행 나라 없음 — 시험 화폐는 처음 국고 1e9).
+// - 화폐(WP6 나라 화폐, npc/currency.ts): 도시 거래소 값 = 그 도시 주인 나라의 국가 프리셋 화폐(반란 세력은 부모 것), 거래세 = 그 프리셋 세율.
+//   기준 통화 = 서버 시험 화폐(ASSET_CREDIT, 유저 지갑·서버 돈). 환전 = 나라 화폐 ↔ 기준 통화 동시호가(market/fx.ts, 시뮬 createFxMarket·onFx·quoteFx
+//   그대로), 처음 발행(E6)·하루 끝 중앙은행(bankDay)도 시뮬 함수 그대로 돈다. 중앙은행의 아직 소각하지 못한 이자(interestOwed)는 메모리다(다시 켜면 0).
 // - 거래소: market/books.ts 모음(도시 × 물건, 저장·복원). 시뮬 Economy.markets가 그 표를 그대로 본다.
 // - 생산 시설: 그 도시에 선 NPC 세력 시설(건물, 다 지은 것)의 첫 레시피 + 건물이 없는 기본 직무(도시 직무: 농장·주방·벌목장 [임시]).
 //   일꾼 = 그 도시 휴먼을 시설마다 한 명씩 돌려 자리 수(레벨 × 자리)까지 [임시]. 처음·하루 끝·새 도시마다 다시 맞춘다.
@@ -16,16 +17,15 @@ import {
   type EcoFacility,
   type Economy,
   type EconomyRun,
+  EVENT_FX,
   EVENT_PRODUCE,
   EVENT_TRADE,
   EVENT_UPKEEP,
   type GatherSettings,
   HOUR_MS,
-  type PreparedCatalog,
   type ScenarioEconomy,
   type ScheduledEvent,
   type SimEvent,
-  type SimFaction,
   type SimHooks,
   type SimLoop,
   type SimWorld,
@@ -43,13 +43,14 @@ import {
 } from "@terra/sim";
 import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { type MarketRegistry, createMarketRegistry } from "../market/books.ts";
-import { loadMarkets } from "../market/load.ts";
+import { type FxRegistry, createFxRegistry } from "../market/fx.ts";
+import { loadFx, loadMarkets } from "../market/load.ts";
 import type { OwnerRow, QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
+import { DEFAULT_TAX_BP, MINT_KEY, mintNationCurrencies, nationCurrencies } from "./currency.ts";
 
-/** [임시] 국가 프리셋이 없는 세력의 거래세(만분율, 팩 프리셋 값과 같다) */
-export const DEFAULT_TAX_BP = 200;
+export { DEFAULT_TAX_BP } from "./currency.ts";
 /** [임시] 도시 매입 호가 = 지난 값의 이 %(시뮬 매도 101%·싸게 팔기 95%와 짝) */
 export const BID_PCT = 90n;
 /** 처음 창고: 생필품 몇 시간분(시뮬 목표 재고 NECESSITY_BUFFER_HOURS와 같다) */
@@ -72,7 +73,9 @@ const PRODUCING_STAGES = new Set(["gather", "process", "parts", "finish"]);
 
 /**
  * [임시] 서버 경제 손잡이(시뮬 시나리오 economy 칸 모양, econ16 값에서): 거래 판단 1시간(econ16 3시간보다 잦게 — 실제 시간 화면이라),
- * 운송 즉시, 걸어 둔 주문 수명 7일(E10 기획 잠정), 환전 회차 1시간(환전 시장은 없다)
+ * 운송 즉시, 걸어 둔 주문 수명 7일(E10 기획 잠정), 환전 회차 1시간(E8 기존 값), 1인당 하루 거래액 200(처음 발행 E6), 기준 통화 준비금 0
+ * (고정 나라가 처음 받은 시험 화폐가 그 자리), 환전 로트 10(화폐 최소 단위 — 정착 지원금 72~108로도 몇 로트를 살 수 있게. 값 눈금은 로트당
+ * 기준 통화 1이라 10%다, 질문 561)
  */
 export const SERVER_ECONOMY_SETTINGS: ScenarioEconomy = {
   tradeEveryMs: HOUR_MS,
@@ -81,7 +84,7 @@ export const SERVER_ECONOMY_SETTINGS: ScenarioEconomy = {
   orderLifeMs: 7 * DAY_MS,
   perCapitaDaily: 200n,
   baseReserveBp: 0,
-  fxLot: 100n,
+  fxLot: 10n,
 };
 
 /** 그 도시에 선 시설 하나(다 지은 것) */
@@ -112,12 +115,14 @@ export interface FacilityRun {
 export interface ServerEconomy {
   readonly economy: Economy;
   readonly registry: MarketRegistry;
+  /** 환전 시장 모음(나라 화폐 ↔ 기준 통화) */
+  readonly fx: FxRegistry;
   readonly run: EconomyRun;
   /** 세력·사회·NPC 판단에 넘기는 고리(시뮬 고리 + 서버 몫) */
   readonly hooks: SimHooks;
   /** 경제 사건이면 처리하고 true */
   handle(event: ScheduledEvent<SimEvent>, nowMs: number): boolean;
-  /** 하루 끝(세력·사회 하루 끝 전): 중앙은행(돌지 않음) */
+  /** 하루 끝(세력·사회 하루 끝 전): 중앙은행(시뮬 bankDay) */
   beforeDay(nowMs: number): void;
   /** 하루 끝(세력·사회 하루 끝 뒤): 하루 줄 기록·시설 다시 맞추기 */
   afterDay(nowMs: number, day: number): void;
@@ -125,6 +130,8 @@ export interface ServerEconomy {
   production(cityId: number): FacilityRun[];
   /** 만료 주문 거두기(런타임 틱이 부른다) */
   expire(nowMs: number): number;
+  /** 다음 환전 회차 시각(마지막 회차 + 회차 길이, 아직 없으면 켠 시각 + 회차 길이) */
+  nextFxAt(): number;
   /** 지난 호출 뒤 구간 지표 */
   takeMetrics(): Record<string, number>;
   check(): string[];
@@ -157,23 +164,6 @@ export function gatherSettingsOf(c: SocietyCoefficients): GatherSettings {
   };
 }
 
-/** 세력의 거래세: 그 세력 코드의 국가 프리셋 → 반란 부모·종주 → 기본값 */
-function taxOfFaction(
-  world: SimWorld,
-  faction: SimFaction,
-  catalog: PreparedCatalog,
-  seen = new Set<number>(),
-): number {
-  const preset = catalog.presets.find((entry) => entry.id === faction.code);
-  if (preset) return preset.tradeTaxBp;
-  seen.add(faction.id);
-  for (const parentId of [faction.rebelOf, faction.overlord]) {
-    const parent = parentId === null ? undefined : world.factions.get(parentId);
-    if (parent && !seen.has(parent.id)) return taxOfFaction(world, parent, catalog, seen);
-  }
-  return DEFAULT_TAX_BP;
-}
-
 const pct = (value: bigint, percent: bigint): bigint => {
   const out = (value * percent) / 100n;
   return out > 0n ? out : 1n;
@@ -187,20 +177,21 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   const book = world.book;
   const catalog = prepareCatalog(source.catalog);
   const loaded = await loadMarkets(o.pool, o.startMs);
-  const endowed = new Set(
-    (
-      await o.pool.query(`select idempotency_key from ledger_transactions where idempotency_key like $1`, [
-        `${ENDOW_KEY}%`,
-      ])
-    ).rows.map((row) => String(row.idempotency_key)),
-  );
+  const loadedFx = await loadFx(o.pool, o.startMs);
+  const keysLike = async (prefix: string): Promise<Set<string>> =>
+    new Set(
+      (
+        await o.pool.query(`select idempotency_key from ledger_transactions where idempotency_key like $1`, [
+          `${prefix}%`,
+        ])
+      ).rows.map((row) => String(row.idempotency_key)),
+    );
+  const endowed = await keysLike(ENDOW_KEY);
+  const minted = await keysLike(MINT_KEY);
 
-  const currencyOf = new Map<number, string>();
-  const taxOf = new Map<number, number>();
-  for (const faction of world.factions.values()) {
-    currencyOf.set(faction.id, ASSET_CREDIT);
-    taxOf.set(faction.id, taxOfFaction(world, faction, catalog));
-  }
+  // 나라 화폐(npc/currency.ts): 세력마다 화폐·세율, 화폐마다 찍는 나라
+  const { currencyOf, taxOf, issuer } = nationCurrencies(world, catalog, ASSET_CREDIT);
+  const isUser = (ownerId: number): boolean => (o.owners.get(ownerId)?.userId ?? null) !== null;
   // 거래소 모음: 호가창 물건 + 있는 도시에만. 화폐·세율·국고 = 그 도시 주인
   const registry = createMarketRegistry({
     ledger: book,
@@ -216,9 +207,20 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
         lotSize: lotSizeOf(catalog, asset),
       };
     },
-    isUser: (ownerId) => (o.owners.get(ownerId)?.userId ?? null) !== null,
+    isUser,
     now: o.now,
   });
+  // 환전 시장(찍는 나라가 있는 화폐마다, 걸린 주문이 남은 짝은 fx.ts가 부팅 때 되살린다)
+  const fx = createFxRegistry({
+    ledger: book,
+    writer,
+    loaded: loadedFx,
+    base: ASSET_CREDIT,
+    lotSize: SERVER_ECONOMY_SETTINGS.fxLot,
+    isUser,
+    now: o.now,
+  });
+  for (const currency of issuer.keys()) fx.ensure(currency);
   let lastOrderId = 0;
   const economy: Economy = {
     catalog,
@@ -226,11 +228,11 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     gather: gatherSettingsOf(o.rules()),
     base: ASSET_CREDIT,
     markets: registry.markets,
-    fx: new Map(),
+    fx: fx.markets,
     currencyOf,
     taxOf,
     baseTax: new Map(taxOf),
-    issuer: new Map(),
+    issuer,
     interestOwed: new Map(),
     interestPaid: new Map(),
     facilities: new Map(),
@@ -259,13 +261,23 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
     },
   };
   const run = runEconomy(economy, world, loop, o.rules().npc);
+  // 처음 발행(E6): 찍는 나라마다 한 번
+  for (const [currency, amount] of mintNationCurrencies({
+    world,
+    book,
+    issuer,
+    minted,
+    perCapitaDaily: SERVER_ECONOMY_SETTINGS.perCapitaDaily,
+    atMs: o.startMs,
+  }))
+    economy.today.issued.set(currency, (economy.today.issued.get(currency) ?? 0n) + amount);
 
   // 없는 도시(폐허 등)의 복원한 거래소는 걸린 주문을 돌려주고 닫는다
   // (지우면서 훑어도 된다: Map 반복은 지운 열쇠를 건너뛴다)
   for (const cityId of registry.markets.keys())
     if (!world.cities.has(cityId)) registry.dropCity(cityId, o.startMs);
   for (const cityId of world.cities.keys()) registry.ensureCity(cityId);
-  const escrow = registry.check();
+  const escrow = [...registry.check(), ...fx.check()];
   if (escrow.length > 0) o.log.warn({ problems: escrow }, "market escrow differs after restore");
 
   const recount = (): void => {
@@ -414,6 +426,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   syncAll(o.startMs);
 
   const metrics = { produced: 0, trades: 0, bids: 0, expired: 0 };
+  let lastFxAt: number | undefined;
   registry.onFill(() => {
     metrics.trades += 1;
   });
@@ -468,6 +481,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   return {
     economy,
     registry,
+    fx,
     run,
     hooks,
     handle(event, nowMs) {
@@ -491,6 +505,12 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       if (kind === EVENT_TRADE && c.switches.marketEnabled === 0) {
         // 거래소 끔(49 N53): 판단을 건너뛰고 다음 판단만 잡는다
         loop.schedule(nowMs + economy.settings.tradeEveryMs, { kind: EVENT_TRADE, subject });
+        return true;
+      }
+      if (kind === EVENT_FX) lastFxAt = nowMs;
+      if (kind === EVENT_FX && c.switches.marketEnabled === 0) {
+        // 거래소 끔: 환전 회차도 건너뛴다(걸린 주문은 다음 회차까지 그대로, 거두기는 된다)
+        loop.schedule(nowMs + economy.settings.fxEveryMs, { kind: EVENT_FX, subject });
         return true;
       }
       if (!run.handle(event, nowMs)) return false;
@@ -518,6 +538,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       }
       return out.toSorted((a, b) => a.facility.id - b.facility.id);
     },
+    nextFxAt: () => (lastFxAt ?? o.startMs) + economy.settings.fxEveryMs,
     expire(nowMs) {
       const count = registry.expire(nowMs);
       metrics.expired += count;

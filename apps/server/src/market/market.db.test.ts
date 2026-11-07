@@ -1,6 +1,8 @@
 // NPC 도시 경제·물자 거래소 DB 통합 시험(docs/adr/2026-11-07-play-flow.md WP4) — TEST_DATABASE_URL이 있을 때만. 계정·값은 시험용 가짜다.
 // 도시 직무 생산·생필품 처음 창고·NPC 매물(남는 물건 팔기)·도시 매입 호가 → 유저가 사고(체결·창고로 들어옴)·팔고(에스크로)·취소(돌려받음)
 // → 다시 켜면 걸린 주문·체결이 그대로(에스크로 불변식 M1).
+// 나라 화폐(WP6): 도시 거래소 값 = 그 나라 화폐, 처음 발행(나라마다 한 번), 유저가 기준 통화로 나라 화폐를 사서(환전 회차) 물건을 사고, 환전 주문을
+// 거두고, 다시 켜도 걸린 환전 주문이 그대로(M2). 없는 동안 체결된 내 주문은 복귀 요약 거래 칸에 센다(질문 538).
 import { loadContentPack } from "@terra/content/node";
 import { DAY_MS, HOUR_MS, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -9,6 +11,7 @@ import { createContentEditState } from "../contentEdit/state.ts";
 import { economyCatalogFromPack } from "../economyView/catalog.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { ASSET_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
+import { createWorldSummaryBackend } from "../world/summarySources.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { marketSourceOf } from "./appSource.ts";
@@ -129,15 +132,96 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     expect(npcAsks).toBeGreaterThan(0);
     expect(await world.checkInvariants()).toEqual([]);
 
+    // 나라 화폐: 나라마다 화폐 하나(처음 발행 한 번), 도시 거래소 값 = 그 도시 주인 나라 화폐, 환전 짝 셋·회차 둘(1·2시간)
+    const currency = econ.economy.currencyOf.get(owner) ?? "";
+    expect(currency.startsWith("cur:")).toBe(true);
+    expect(econ.economy.issuer.size).toBe(3);
+    expect(await count(`select id from ledger_transactions where idempotency_key like 'npc_mint:%'`)).toBe(3);
+    expect(ledger.balanceOf(owner, currency)).toBeGreaterThan(0n);
+    expect([...econ.registry.books()].every((book) => book.market.config.currency.startsWith("cur:"))).toBe(
+      true,
+    );
+    expect(await count(`select id from market_books where currency like 'cur:%'`)).toBeGreaterThan(0);
+    expect(await count(`select id from fx_rounds`)).toBe(6);
+
     // 유저가 NPC 매물을 산다(지정가 = 가장 싼 매도 호가): 바로 체결, 산 물건은 그 도시 내 창고
     const source = marketSourceOf(world, () => clock)();
     if (!source) throw new Error("market source");
     const buyer = await trader(world, "MarketBuyer", 1_000_000n);
     const ask = [...econ.registry.books()]
-      .filter((book) => book.market.best("sell") !== undefined)
+      .filter((book) => book.market.best("sell") !== undefined && book.cityId === cityId)
       .toSorted((a, b) => a.id - b.id)[0];
     const best = ask?.market.best("sell");
     if (!ask || !best) throw new Error("no npc ask");
+    // 기준 통화만 있으면 나라 화폐 값의 물건을 살 수 없다
+    expect(
+      await source.service.place(buyer.userId, {
+        city: ask.cityId,
+        item: ask.item,
+        side: "buy",
+        kind: "limit",
+        price: String(best.price),
+        qty: "1",
+        expiryDays: 7,
+      }),
+    ).toEqual({ ok: false, code: "insufficient_funds" });
+    // 환전: 기준 통화로 그 나라 화폐를 산다(상한 200/로트) → 다음 회차에 나라의 매도 값(지난 환율 102%)으로 체결
+    const code = currency.slice(4);
+    const exchange = source.views.exchange(buyer.userId, clock);
+    expect(exchange.base).toBe(ASSET_CREDIT);
+    expect(exchange.pairs.map((pair) => pair.currency)).toContain(code);
+    expect(exchange.pairs.find((pair) => pair.currency === code)?.sells.length).toBeGreaterThan(0);
+    expect(
+      await source.service.fxPlace(buyer.userId, {
+        currency: "placeholder_none",
+        side: "buy",
+        price: "1",
+        lots: "1",
+      }),
+    ).toEqual({ ok: false, code: "unknown_currency" });
+    const fxBuy = await source.service.fxPlace(buyer.userId, {
+      currency: code,
+      side: "buy",
+      price: "200",
+      lots: "20",
+    });
+    if (!fxBuy.ok || fxBuy.orderId === undefined) throw new Error("fx buy");
+    expect(ledger.balanceOf(buyer.ownerId, ASSET_CREDIT)).toBe(1_000_000n - 4_000n);
+    expect(source.views.exchange(buyer.userId, clock).open?.map((order) => order.id)).toEqual([
+      String(fxBuy.orderId),
+    ]);
+    // 거두기는 묶은 것을 돌려받는다
+    const fxCancel = await source.service.fxPlace(buyer.userId, {
+      currency: code,
+      side: "buy",
+      price: "150",
+      lots: "2",
+    });
+    if (!fxCancel.ok || fxCancel.orderId === undefined) throw new Error("fx cancel");
+    expect(await source.service.fxCancel(buyer.userId, fxCancel.orderId)).toEqual({ ok: true });
+    expect(ledger.balanceOf(buyer.ownerId, ASSET_CREDIT)).toBe(1_000_000n - 4_000n);
+    for (let step = 0; step < 12; step += 1) {
+      clock += 5 * 60_000;
+      await npc.tick();
+    }
+    await writer.durable();
+    const fxRow = (
+      await rows<{ state: string; filled_lots: string; clear_price: string }>(
+        test.db,
+        `select state, filled_lots, clear_price from fx_orders where id = $1`,
+        [fxBuy.orderId],
+      )
+    )[0];
+    expect(fxRow?.state).toBe("done");
+    expect(BigInt(fxRow?.filled_lots ?? "0")).toBeGreaterThan(0n);
+    const fxLot = econ.fx.get(currency)?.market.pair.lotSize ?? 0n;
+    expect(ledger.balanceOf(buyer.ownerId, currency)).toBe(BigInt(fxRow?.filled_lots ?? "0") * fxLot);
+    expect(source.views.exchange(buyer.userId, clock).done?.[0]).toMatchObject({
+      id: String(fxBuy.orderId),
+      status: "done",
+    });
+    expect(await world.checkInvariants()).toEqual([]);
+    const summaryFrom = clock - 3 * HOUR_MS;
     const before = ledger.balanceOf(buyer.ownerId, ask.asset, ask.cityId);
     const bought = await source.service.place(buyer.userId, {
       city: ask.cityId,
@@ -172,7 +256,7 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     });
     expect(sell).toMatchObject({ ok: true, filled: "0", resting: "1" });
     expect(ledger.balanceOf(buyer.ownerId, ask.asset, ask.cityId)).toBe(before);
-    const cash = ledger.balanceOf(buyer.ownerId, ASSET_CREDIT);
+    const cash = ledger.balanceOf(buyer.ownerId, currency);
     const low = await source.service.place(buyer.userId, {
       city: ask.cityId,
       item: ask.item,
@@ -183,9 +267,9 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
       expiryDays: 1,
     });
     if (!low.ok || low.orderId === undefined) throw new Error("low bid");
-    expect(ledger.balanceOf(buyer.ownerId, ASSET_CREDIT)).toBe(cash - 2n);
+    expect(ledger.balanceOf(buyer.ownerId, currency)).toBe(cash - 2n);
     expect(await source.service.cancel(buyer.userId, low.orderId)).toMatchObject({ ok: true });
-    expect(ledger.balanceOf(buyer.ownerId, ASSET_CREDIT)).toBe(cash);
+    expect(ledger.balanceOf(buyer.ownerId, currency)).toBe(cash);
     // 남의 주문은 거두지 못하고, 모자라면 묶지 않는다
     const other = await trader(world, "MarketOther", 10n);
     if (!sell.ok || sell.orderId === undefined) throw new Error("sell");
@@ -213,7 +297,21 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
       }),
     ).toEqual({ ok: false, code: "unknown_item" });
     expect(source.views.orders(buyer.userId, clock).open).toHaveLength(1);
+    expect(source.views.orders(buyer.userId, clock).open[0]?.currency).toBe(code);
     expect(await world.checkInvariants()).toEqual([]);
+    // 복귀 요약 거래 칸: 마지막 확인 뒤 체결된 내 환전 주문(회차가 끝남)
+    const market = createWorldSummaryBackend(world).sources.find((entry) => entry.kind === "market");
+    const section = await market?.collect({ userId: buyer.userId, roles: [] }, summaryFrom, clock);
+    expect(section).toMatchObject({ kind: "market", params: { fx: 1 }, target: { route: "economy_orders" } });
+    expect(section?.count).toBeGreaterThanOrEqual(1);
+    // 다음 회차에 걸어 둘 환전 주문(다시 켜도 그대로)
+    const fxOpen = await source.service.fxPlace(buyer.userId, {
+      currency: code,
+      side: "buy",
+      price: "1",
+      lots: "3",
+    });
+    if (!fxOpen.ok || fxOpen.orderId === undefined) throw new Error("fx open");
 
     // 다시 켜면 걸린 주문(같은 차례)·체결이 그대로
     await world.stop();
@@ -229,6 +327,12 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     expect(reloaded.registry.check()).toEqual([]);
     const restored = marketSourceOf(again, () => clock)();
     expect(restored?.views.orders(buyer.userId, clock).open[0]?.id).toBe(String(sell.orderId));
+    // 걸린 환전 주문도 같은 짝·같은 차례로 되살아난다(에스크로 M2), 지난 체결가가 이어진다
+    const pair = reloaded.fx.get(currency);
+    expect(pair?.market.orders().map((order) => order.id)).toEqual([fxOpen.orderId]);
+    expect(pair?.market.lastPrice).toBeDefined();
+    expect(reloaded.fx.check()).toEqual([]);
+    expect(await count(`select id from ledger_transactions where idempotency_key like 'npc_mint:%'`)).toBe(3);
     expect(await again.checkInvariants()).toEqual([]);
   });
 });

@@ -1,5 +1,6 @@
 // 거래소 모음 시험(docs/adr/2026-11-07-play-flow.md WP4) — 처음 쓸 때 만들기·ID 고정, 주문·체결 줄 쓰기(유저는 남기고 NPC는 지움),
-// 부팅 복원(같은 차례·에스크로), 없는 도시 닫기, 만료. 원장은 시뮬 장부(메모리), 쓰기 대기열은 가짜.
+// 부팅 복원(같은 차례·에스크로), 없는 도시 닫기, 만료, 나라 화폐로 바꾸기(WP6: 남긴 화폐로 되살린 뒤 돌려주고 바꿈). 원장은 시뮬 장부(메모리),
+// 쓰기 대기열은 가짜.
 import { type LedgerBook, createLedgerBook } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import type { Row, WorldTable } from "../world/persist/tables.ts";
@@ -45,13 +46,18 @@ function endow(book: LedgerBook, owner: number, asset: string, qty: bigint, loca
   });
 }
 
-function registry(book: LedgerBook, writer: WorldWriter, loaded: LoadedMarkets = EMPTY_MARKETS) {
+function registry(
+  book: LedgerBook,
+  writer: WorldWriter,
+  loaded: LoadedMarkets = EMPTY_MARKETS,
+  currency = CREDIT,
+) {
   return createMarketRegistry({
     ledger: book,
     writer,
     loaded,
     allowed: (cityId, asset) => cityId === CITY && asset !== "item:iron_sword",
-    configOf: () => ({ currency: CREDIT, taxBp: 200, treasuryOwner: NPC, lotSize: 1n }),
+    configOf: () => ({ currency, taxBp: 200, treasuryOwner: NPC, lotSize: 1n }),
     isUser: (ownerId) => ownerId === USER,
     now: () => T0,
   });
@@ -71,7 +77,7 @@ describe("거래소 모음", () => {
     expect(markets.book(CITY, "item:iron_sword")).toBeUndefined();
     expect(markets.book(99, "item:grain")).toBeUndefined();
     expect(ops.filter((op) => op.table === "marketBooks").map((op) => op.row)).toEqual([
-      { id: 1, city_id: CITY, item: "grain", created_at_ms: T0 },
+      { id: 1, city_id: CITY, item: "grain", created_at_ms: T0, currency: CREDIT },
     ]);
   });
 
@@ -100,6 +106,7 @@ describe("거래소 모음", () => {
       qty: 4n,
       taker_side: "buy",
       maker_order_id: ask.orderId,
+      currency: CREDIT,
     });
     // NPC 주문(다 참)은 지우고, 유저 주문은 걸어 둔 줄(남은 2, locked 14)
     expect(ops.some((op) => op.op === "remove" && op.row.id === ask.orderId)).toBe(true);
@@ -147,8 +154,8 @@ describe("거래소 모음", () => {
     if (!a.ok || !b.ok) throw new Error("asks");
     const loaded: LoadedMarkets = {
       books: [
-        { id: grain.id, cityId: CITY, item: "grain" },
-        { id: 2, cityId: 7, item: "grain" },
+        { id: grain.id, cityId: CITY, item: "grain", currency: CREDIT, createdAtMs: T0 },
+        { id: 2, cityId: 7, item: "grain", currency: null, createdAtMs: T0 },
       ],
       open: grain.market
         .orders()
@@ -166,6 +173,7 @@ describe("거래소 모음", () => {
           takerOrderId: 2,
           makerOwner: NPC,
           takerOwner: USER,
+          currency: CREDIT,
         },
       ],
       maxOrderId: 2,
@@ -214,5 +222,76 @@ describe("거래소 모음", () => {
     endow(book, USER, CREDIT, 100n, null);
     const next = again.book(CITY, "item:grain")?.market.place(USER, "buy", 1n, 1n, T0 + 6, T0 + 100);
     expect(next?.ok && next.orderId).toBe(100);
+  });
+
+  it("나라 화폐: 남긴 화폐(빈 칸 = 시험 화폐)로 걸린 주문을 되살린 뒤 돌려주고 도시 화폐로 바꾼다. 옛 체결은 차트에서 뺀다", () => {
+    const NATION = "cur:placeholder_cur_16";
+    const book = ledger();
+    endow(book, USER, CREDIT, 100n, null);
+    endow(book, USER, "item:grain", 4n, CITY);
+    const first = registry(book, fakeWriter().writer);
+    const grain = first.book(CITY, "item:grain");
+    if (!grain) throw new Error("market");
+    const bid = grain.market.place(USER, "buy", 6n, 5n, T0, T0 + 10_000);
+    const ask = grain.market.place(USER, "sell", 9n, 4n, T0, T0 + 10_000);
+    if (!bid.ok || !ask.ok) throw new Error("orders");
+    expect(book.balanceOf(USER, CREDIT)).toBe(70n);
+    const { writer, ops } = fakeWriter();
+    const again = registry(
+      book,
+      writer,
+      {
+        // WP4 판 앱이 쓴 줄: 화폐 칸이 비었다
+        books: [
+          { id: grain.id, cityId: CITY, item: "grain", currency: null, createdAtMs: T0 - 1 },
+          { id: 2, cityId: CITY, item: "timber", currency: null, createdAtMs: T0 - 1 },
+        ],
+        open: grain.market.orders().map((order) => ({
+          marketId: grain.id,
+          qty: order.remaining,
+          placedAtMs: T0,
+          order: { ...order },
+        })),
+        done: [],
+        trades: [
+          {
+            id: 1,
+            marketId: grain.id,
+            at: T0 - 5,
+            price: 8n,
+            qty: 1n,
+            side: "buy",
+            makerOrderId: 1,
+            takerOrderId: 2,
+            makerOwner: NPC,
+            takerOwner: USER,
+            currency: CREDIT,
+          },
+        ],
+        maxOrderId: 2,
+        maxTradeId: 1,
+        maxBookId: 2,
+      },
+      NATION,
+    );
+    const restored = again.existing(CITY, "item:grain");
+    // 걸린 주문은 시험 화폐 에스크로에서 돌려받고(취소로 끝남), 거래소는 나라 화폐가 된다
+    expect(restored?.market.config.currency).toBe(NATION);
+    expect(restored?.market.orders()).toEqual([]);
+    expect(restored?.trades).toEqual([]);
+    expect(book.balanceOf(USER, CREDIT)).toBe(100n);
+    expect(book.balanceOf(USER, "item:grain", CITY)).toBe(4n);
+    expect(again.doneOf(USER).map((row) => row.state)).toEqual(["cancelled", "cancelled"]);
+    expect(again.check()).toEqual([]);
+    const rows = ops.filter((op) => op.table === "marketBooks").map((op) => op.row);
+    expect(rows).toEqual([
+      { id: grain.id, city_id: CITY, item: "grain", created_at_ms: T0 - 1, currency: NATION },
+    ]);
+    // 쓰지 않던 옛 거래소도 처음 쓸 때 줄의 화폐를 고친다
+    expect(again.book(CITY, "item:timber")?.market.config.currency).toBe(NATION);
+    expect(ops.filter((op) => op.table === "marketBooks").at(-1)?.row).toMatchObject({
+      id: 2,
+      currency: NATION,
+    });
   });
 });

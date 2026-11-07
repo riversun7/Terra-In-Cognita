@@ -1,9 +1,9 @@
 // 경제 화면 자료 — tRPC economy.*(조회만, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)").
 // - 실제 자료: 팩 목록(economy.catalog), 로그인한 본인의 원장 잔고(economy.holdings, 월드 원장 메모리 장부를 읽기만 한다),
 //   물자 거래소(거래 물건·도시별 값·호가창·체결·봉·내 주문)와 내 기준 도시의 생산(NPC 도시 경제, docs/adr/2026-11-07-play-flow.md WP4 —
-//   market/views.ts). 거래소·생산은 NPC 사회 런타임이 도시 경제를 돌릴 때만 ready다.
+//   market/views.ts), 환전(나라 화폐 ↔ 기준 통화, WP6 — market/fxViews.ts). 거래소·생산·환전은 NPC 사회 런타임이 도시 경제를 돌릴 때만 ready다.
 // - 시안 자료(preview, 권한 home: preview를 프로시저가 본 뒤): 창고·생산·거래창·내 주문·환전(previewWorld·Market·Exchange·Production).
-// - 시안이 아니면 서버가 아직 돌리지 않는 시스템(환전, 도시 경제가 없는 세계의 거래소·생산)은 status "not_ready"와 빈 목록이다
+// - 시안이 아니면 서버가 아직 돌리지 않는 시스템(도시 경제가 없는 세계의 거래소·생산·환전)은 status "not_ready"와 빈 목록이다
 //   (지어내지 않는다, [결정 2]).
 // 게임 상태를 바꾸지 않는다(주문·취소 명령은 WebSocket market_place·market_cancel, packages/protocol/src/market.ts).
 import type {
@@ -433,7 +433,12 @@ export function createEconomyServices(options: {
       return { ...head(query, true), open, done, limit: orderLimit(query.now) };
     },
 
-    exchange(_viewer: Viewer, query: EconomyQuery): EconomyExchangeResponse {
+    exchange(viewer: Viewer, query: EconomyQuery): EconomyExchangeResponse {
+      if (!query.preview) {
+        // 실제 환전(나라 화폐 ↔ 기준 통화, docs/adr/2026-11-07-play-flow.md WP6 — market/fxViews.ts)
+        const real = world?.market?.();
+        if (real) return { ...head(query, true), ...real.exchange(viewer.id, query.now) };
+      }
       const { catalog } = view();
       const base = catalog.baseCurrency;
       const common = { base, intervalMs: FX_INTERVAL_MS, nextAuctionAt: nextAuctionAt(query.now) };

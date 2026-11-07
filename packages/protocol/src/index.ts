@@ -79,6 +79,9 @@ export {
   type RestorationResultCode,
 } from "./ruins.ts";
 export {
+  FX_PROTOCOL_VERSION,
+  FX_RESULT_CODES,
+  type FxResultCode,
   MARKET_EXPIRY_DAYS_MAX,
   MARKET_PROTOCOL_VERSION,
   MARKET_RESULT_CODES,

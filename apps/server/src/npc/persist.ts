@@ -6,8 +6,10 @@
 //   사망 = 휴먼 행·유닛을 지움. 도시 주인이 산 구인 카드 칸은 recruit_draws(고용 주체 = 세력 소유 주체)에 쓴다.
 // - 정원사(docs/adr/2026-11-01-gardener-r5b.md 5절): 바뀐 칸 오염(0이 되면 지움), 웨이브 줄(예고·전투 ID·결과·종류·보상), 도시 쉬는 시간,
 //   npc_society.gardener(모함 칸·유목 부대·세력마다 관계도·명성). 폐허가 된 도시는 도시 행을 지우고(휴먼을 먼저 옮긴 같은 묶음), 노숙 휴먼은 city_id null.
+// - 폐허·복원 사업(docs/adr/2026-11-07-ruins-restoration.md)은 ruinsPersist.ts: 폐허 줄·낸 값, 복원하면 같은 ID 도시 행을 다시 쓴다.
 import { HOMELESS, type SimFaction, type SimWorld, recruitElementSlots, traitsToArray } from "@terra/sim";
 import { type ServerGardener, storedGardenerOf } from "./gardener.ts";
+import { createRuinsPersist } from "./ruinsPersist.ts";
 import type { QueryPool, OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
@@ -81,6 +83,8 @@ export interface NpcPersist {
   dirtyFaction(id: number): void;
   /** 바뀐 것을 쓰기 대기열에 넣는다. 늦게 넣을 세력 행이 있으면 기다린다 */
   flush(day: number): Promise<{ rows: number; recruited: number; deaths: number; owners: number }>;
+  /** 폐허·낸 값·복원한 도시 행만 바로 넣는다(동기, 유저 폐허 명령 뒤 — 원장 거래와 같은 쓰기 묶음). 쓴 행 수 */
+  flushRuins(): number;
 }
 
 /** 웨이브 줄의 저장 모습(바뀌었는지 견줄 때) */
@@ -312,6 +316,46 @@ export function createNpcPersist(
     return rows;
   };
 
+  /** 도시 행 하나를 쓴다(바뀌었을 때만, 새 마을은 자리부터). 쓴 행 수 */
+  const saveCity = (id: number): number => {
+    const city = world.cities.get(id);
+    if (!city) return 0;
+    let place = places.get(id);
+    if (!place) {
+      place = placeTown(id, city.owner);
+      if (!place) return 0;
+      places.set(id, place);
+    }
+    const sig = citySig(id);
+    if (savedCities.get(id) === sig) return 0;
+    const factionRow = rowOf.get(city.owner);
+    if (factionRow === undefined) return 0;
+    writer.upsert("cities", {
+      wave_cooldown_until_ms: o.gardener()?.run.cooldownUntil.get(id) ?? 0,
+      id,
+      faction_id: factionRow,
+      planet_id: place.planetId,
+      map_key: place.mapKey,
+      cell_x: place.cellX,
+      cell_y: place.cellY,
+      start: city.start,
+      housing: city.housing,
+      research_level: city.researchLevel,
+      founded_at_ms: place.foundedAtMs,
+      development: city.development,
+      next_rebellion_ms: city.nextRebellionMs,
+      admin_level: city.adminLevel,
+    });
+    savedCities.set(id, sig);
+    // 주인이 바뀌었으면 그 도시의 영토 비콘도 넘어간다(D-512 335, 같은 묶음)
+    if (savedOwners.get(id) !== factionRow) {
+      if (savedOwners.has(id)) o.onCityOwner?.(id, factionRow);
+      savedOwners.set(id, factionRow);
+    }
+    return 1;
+  };
+  const ruins = createRuinsPersist({ world, writer, places, rowOf, saveCity });
+
   const insertSpareRow = async (): Promise<number> => {
     const found = await o.pool.query(
       `insert into factions (kind, dissolved_at_ms) values ('npc', $1) returning id`,
@@ -358,12 +402,14 @@ export function createNpcPersist(
         savedHumans.set(unit.id, { sig: humanSig(unit.id), owner: unit.owner });
       for (const [key, row] of warRows()) savedWars.set(key, JSON.stringify(row));
       savedDay = day;
+      ruins.markSaved();
       const gardener = o.gardener();
       if (gardener) {
         for (const [cell, value] of gardener.run.layer()) savedPollution.set(cell, value);
         for (const wave of gardener.run.waves.values()) savedWaves.set(wave.id, waveSig(wave));
       }
     },
+    flushRuins: () => ruins.flush(o.now()),
     async flush(day) {
       const count = { rows: 0, recruited: 0, deaths: 0, owners: 0 };
       // 늦게 넣는 세력 행(예비가 모자랐을 때)
@@ -398,42 +444,10 @@ export function createNpcPersist(
         savedFactions.set(f.id, sig);
         count.rows += 1;
       }
+      // 폐허·복원 사업(복원한 도시 행은 자리의 세운 시각을 고친 뒤 여기서 먼저 쓴다)
+      count.rows += ruins.flush(nowMs);
       // 도시
-      for (const [id, city] of [...world.cities].toSorted((a, b) => a[0] - b[0])) {
-        let place = places.get(id);
-        if (!place) {
-          place = placeTown(id, city.owner);
-          if (!place) continue;
-          places.set(id, place);
-        }
-        const sig = citySig(id);
-        if (savedCities.get(id) === sig) continue;
-        const factionRow = rowOf.get(city.owner);
-        if (factionRow === undefined) continue;
-        writer.upsert("cities", {
-          wave_cooldown_until_ms: o.gardener()?.run.cooldownUntil.get(id) ?? 0,
-          id,
-          faction_id: factionRow,
-          planet_id: place.planetId,
-          map_key: place.mapKey,
-          cell_x: place.cellX,
-          cell_y: place.cellY,
-          start: city.start,
-          housing: city.housing,
-          research_level: city.researchLevel,
-          founded_at_ms: place.foundedAtMs,
-          development: city.development,
-          next_rebellion_ms: city.nextRebellionMs,
-          admin_level: city.adminLevel,
-        });
-        savedCities.set(id, sig);
-        // 주인이 바뀌었으면 그 도시의 영토 비콘도 넘어간다(D-512 335, 같은 묶음)
-        if (savedOwners.get(id) !== factionRow) {
-          if (savedOwners.has(id)) o.onCityOwner?.(id, factionRow);
-          savedOwners.set(id, factionRow);
-        }
-        count.rows += 1;
-      }
+      for (const [id] of [...world.cities].toSorted((a, b) => a[0] - b[0])) count.rows += saveCity(id);
       // 폐허가 된 도시(웨이브, D-464 217): 도시 행을 지운다. 그 도시 휴먼은 아래에서 옮긴 도시·노숙으로 먼저 고친다(같은 묶음,
       // 쓰기 대기열은 고치기를 먼저, 지우기를 나중에 한다). 자리(places)는 남긴다(칸 오염의 칸)
       for (const id of savedCities.keys()) {

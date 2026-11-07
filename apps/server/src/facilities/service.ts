@@ -15,6 +15,8 @@
 // - "바뀜 (창고·직무)"(D-516 361·364·382): 재료는 건물이 선 도시 창고 + 그 도시의 내 창고 시설 + 그 2차맵 내 유닛 화물에서만 꺼낸다
 //   (places.ts). 작업(짓기·레벨업·수리·장비 수리)에 묶인 유닛은 그 동안 원래 직무 산출을 내지 않는다(소유 주체 정산이 pausesFor를 물어
 //   그 구간 산출을 버린다, 작업이 끝나거나 지워지기 전에 그 시각까지 정산한다). 창고 시설 넣기·꺼내기는 storage.ts.
+// - 행정 건물(단계 government, D-510 폐허 정부): 주인 없는 폐허 자리(그 칸에서 가장 가까운 도시·폐허 = 그 폐허)에만 짓고, 짓기 시작한 쪽이
+//   폐허 주인이 된다(고리 GovernmentHook = 폐허 서비스, docs/adr/2026-11-07-ruins-restoration.md). 같은 동기 처리 = 같은 커밋.
 import type { FacilityResultCode } from "@terra/protocol";
 import { type CityCell, cityLocation, cityOfCell } from "@terra/shared/goodsPlaces";
 import { buildCostAt, buildTimeAt } from "@terra/shared/facilityBuild";
@@ -79,6 +81,21 @@ export type FacilityCommandResult =
 
 export type FacilityTarget = { readonly buildingId: number } | { readonly beaconId: number };
 
+/** 행정 건물(폐허 정부) 짓기 고리 — 폐허 서비스(src/ruins/service.ts)가 붙인다 */
+export interface GovernmentHook {
+  /** 그 칸이 주인 없는 폐허 자리인가(주체가 짓기 시작하면 주인이 될 수 있나) */
+  check(
+    ownerId: number,
+    mapKey: number,
+    x: number,
+    y: number,
+  ):
+    | { readonly ok: true; readonly ruinId: number }
+    | { readonly ok: false; readonly code: FacilityResultCode };
+  /** 짓기를 시작했다(같은 동기 처리): 주인이 된다 */
+  claimed(ruinId: number, ownerId: number, buildingId: number, atMs: number): void;
+}
+
 export interface FacilityBuildInput {
   readonly mapKey: number;
   readonly facility: string;
@@ -135,6 +152,8 @@ export interface FacilityService {
   pausesFor(ownerId: number): ReadonlyMap<number, readonly { fromMs: number; untilMs: number }[]> | undefined;
   /** 물건 자리 셈의 세계(화면 자료가 쓴다) */
   readonly places: PlaceWorld;
+  /** 행정 건물(폐허 정부) 짓기 고리를 붙인다(없으면 행정 건물은 not_ruin) */
+  attachGovernment(hook: GovernmentHook): void;
   readonly facilities: ReadonlyMap<number, FacilityRecord>;
   readonly jobs: ReadonlyMap<number, JobRecord>;
   stop(): void;
@@ -199,6 +218,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
   const facilities = new Map<number, FacilityRecord>(options.loaded.facilities.map((f) => [f.buildingId, f]));
   const jobs = new Map<number, JobRecord>(options.loaded.jobs.map((job) => [job.id, job]));
   let lastJobId = options.loaded.maxJobId;
+  let government: GovernmentHook | undefined;
   const runtime = (): FacilityRuntimeRules => options.rules().facilityRuntime;
   const saveFacility = (record: FacilityRecord): void => writer.upsert("facilities", facilityRow(record));
   /**
@@ -426,6 +446,9 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       jobOn((job) => job.kind === "equipment" && job.holdingId === holdingId) !== undefined,
     unitInJob,
     places,
+    attachGovernment(hook) {
+      government = hook;
+    },
     pausesFor(ownerId) {
       const out = new Map<number, { fromMs: number; untilMs: number }[]>();
       for (const job of jobs.values()) {
@@ -448,6 +471,14 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
       if (!def.footprint || !def.build || def.stage === "territory") return fail("not_buildable");
       const map = maps.get(input.mapKey);
       if (!map) return fail("unknown_map");
+      // 행정 건물(D-510): 주인 없는 폐허 자리에만 — 짓기 시작한 쪽이 주인
+      let ruinId: number | undefined;
+      if (def.stage === "government") {
+        const claim = government?.check(me, input.mapKey, input.x, input.y);
+        if (!claim) return fail("not_ruin");
+        if (!claim.ok) return fail(claim.code);
+        ruinId = claim.ruinId;
+      }
       const unitIds = input.unitIds ?? [];
       const unitProblem = checkUnits(me, unitIds);
       if (unitProblem) return fail(unitProblem);
@@ -497,6 +528,7 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
         doneAtMs: at + ms,
       });
       if (ms === 0) finish(job);
+      if (ruinId !== undefined) government?.claimed(ruinId, me, record.buildingId, at);
       return done({ ok: true, buildingId: record.buildingId, doneAtMs: at + ms });
     },
 

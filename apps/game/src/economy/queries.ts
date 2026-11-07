@@ -16,6 +16,7 @@ import type {
 } from "@terra/shared/economy";
 import type { FacilitiesOverviewResponse } from "@terra/shared/facilities";
 import type { LaborJobsResponse, LaborOverviewResponse } from "@terra/shared/labor";
+import type { RuinsOverviewResponse } from "@terra/shared/ruins";
 import type { TempleOverviewResponse } from "@terra/shared/temple";
 import { useEffect, useSyncExternalStore } from "react";
 import { refreshSession } from "../auth/session.ts";
@@ -186,6 +187,11 @@ export const useFacilities = createQuery<FacilitiesOverviewResponse>((_args, _pr
 /** 신전·생명과학 연구소(비활성 휴먼 환생·신격화·유전자 변환, D-517 — docs/adr/2026-11-07-temple-religion.md) */
 export const useTemple = createQuery<TempleOverviewResponse>((_args, _preview, signal) =>
   api.temple.overview.query(undefined, { signal }),
+);
+
+/** 폐허 복원(정부를 먼저 지은 쪽이 주인 → 복원 사업 모금, D-510 — docs/adr/2026-11-07-ruins-restoration.md) */
+export const useRuins = createQuery<RuinsOverviewResponse>((_args, _preview, signal) =>
+  api.ruins.overview.query(undefined, { signal }),
 );
 
 /** 매개변수 없는 조회의 args(같은 배열을 넘겨 열쇠가 그대로이게) */

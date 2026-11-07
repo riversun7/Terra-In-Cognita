@@ -52,6 +52,8 @@ export const FACILITY_ERROR_TEXT: Readonly<Record<FacilityResultCode | "offline"
     target_ruined: m.facility_error_target_ruined,
     out_of_reach: m.facility_error_out_of_reach,
     safe_zone: m.facility_error_safe_zone,
+    not_ruin: m.facility_error_not_ruin,
+    ruin_claimed: m.facility_error_ruin_claimed,
     internal_error: m.facility_error_internal_error,
     offline: m.facility_error_offline,
     timeout: m.facility_error_timeout,

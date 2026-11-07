@@ -427,7 +427,7 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
     }
     // 사이보그 만들기 결과(프로토콜 4)는 만들기 화면이, 보유 물건 결과(프로토콜 6)·구인 카드 고용 결과(프로토콜 7)는 그 화면이, 영토 비콘
     // 결과(프로토콜 7)는 영토 화면이, 노동 계약 결과(프로토콜 7)·건물 결과(프로토콜 10)는 경제 화면이, 융합·유전자 결과(프로토콜 9·11)는
-    // 유닛 화면이, 신전 결과(프로토콜 12)는 경제 화면이 받는다
+    // 유닛 화면이, 신전 결과(프로토콜 12)·폐허 복원 결과(프로토콜 13)는 경제 화면이 받는다
     if (
       message.t === "cyborg_result" ||
       message.t === "item_result" ||
@@ -436,7 +436,8 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       message.t === "labor_result" ||
       message.t === "fusion_result" ||
       message.t === "facility_result" ||
-      message.t === "temple_result"
+      message.t === "temple_result" ||
+      message.t === "restoration_result"
     )
       return;
     if (message.mapKey !== mapKey) return;

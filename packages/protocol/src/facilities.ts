@@ -210,6 +210,10 @@ export const FACILITY_RESULT_CODES = [
   "out_of_reach",
   /** 도시 시가지(안전지대, D-146) 안이라 칠 수 없다 — 시가지 안 건물은 공성 시간에만(D-174·D-184, 12) */
   "safe_zone",
+  /** 행정 건물은 주인 없는 폐허 자리에만 짓는다(D-510, 13 — 더 낮은 판 연결은 not_buildable) */
+  "not_ruin",
+  /** 그 폐허는 이미 주인이 있다(먼저 지은 쪽이 주인, D-510, 13 — 더 낮은 판 연결은 not_buildable) */
+  "ruin_claimed",
   "internal_error",
 ] as const;
 export type FacilityResultCode = (typeof FACILITY_RESULT_CODES)[number];

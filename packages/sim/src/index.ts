@@ -261,11 +261,22 @@ export {
   newFaction,
   rulingFamilyOf,
   streamRng,
+  restoreEscrow,
   type SimCity,
   type SimFaction,
+  type SimRuin,
   type SimUnit,
   type SimWorld,
 } from "./simulator/world.ts";
+// 폐허 복원(docs/adr/2026-11-07-ruins-restoration.md): 규칙·시뮬·서버 같은 실행
+export type { RuinResult, RuinsSummary, SocietyRuins } from "./simulator/societyRuins.ts";
+export {
+  START_RESTORATION_COEFFICIENTS,
+  contributionList,
+  raisedOf,
+  restorationShares,
+} from "./society/restoration.ts";
+export type { RestorationCoefficients } from "./society/restoration.ts";
 // 오염·정원사(R5b, docs/adr/2026-11-01-gardener-r5b.md): 순수 규칙, 시뮬·서버가 같이 쓰는 실행 접착·웨이브 전투
 export { TEST_GARDENER_COEFFICIENTS, type GardenerCoefficients } from "./gardener/coefficients.ts";
 export {

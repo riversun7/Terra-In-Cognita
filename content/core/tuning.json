@@ -4203,6 +4203,71 @@
       "unit": "minor",
       "min": 0,
       "max": 1000000000000
+    },
+    {
+      "id": "d510_claim_cost",
+      "code": "",
+      "name": {
+        "ko": "NPC 정부 짓기 값(최소 단위)",
+        "en": "NPC government build cost (minor units)"
+      },
+      "value": 2000,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000000
+    },
+    {
+      "id": "d510_restore_goal",
+      "code": "",
+      "name": {
+        "ko": "복원 목표(최소 단위)",
+        "en": "Restoration goal (minor units)"
+      },
+      "value": 10000,
+      "structural": false,
+      "unit": "minor",
+      "min": 1,
+      "max": 1000000000000
+    },
+    {
+      "id": "d510_npc_claim_after_days",
+      "code": "",
+      "name": {
+        "ko": "옛 주인이 아닌 NPC가 폐허에 정부를 짓기까지(일)",
+        "en": "Days before other NPCs may claim a ruin"
+      },
+      "value": 7,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 3650
+    },
+    {
+      "id": "d510_npc_fund_pm",
+      "code": "",
+      "name": {
+        "ko": "주인 NPC 하루 넣는 국고 몫(‰)",
+        "en": "Owner NPC daily funding (‰ of treasury)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "d510_npc_invest_pm",
+      "code": "",
+      "name": {
+        "ko": "다른 NPC 하루 투자 몫(‰, 상업 1000일 때)",
+        "en": "Other NPC daily investment (‰ at commerce 1000)"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
     }
   ]
 }

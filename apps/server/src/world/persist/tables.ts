@@ -247,6 +247,33 @@ export const WORLD_TABLES = {
     ],
     key: ["id"],
   },
+  /** 폐허·복원 사업(docs/adr/2026-11-07-ruins-restoration.md): 폐허 한 줄 + 낸 값(폐허 × 소유 주체). 복원하면 폐허 줄을 지운다 */
+  ruins: {
+    name: "world_ruins",
+    columns: [
+      "id",
+      "planet_id",
+      "map_key",
+      "cell_x",
+      "cell_y",
+      "former_faction_id",
+      "ruined_at_ms",
+      "housing",
+      "claimant_owner_id",
+      "join_faction_id",
+      "claimed_at_ms",
+      "government_building_id",
+      "goal",
+      "currency",
+      "open",
+    ],
+    key: ["id"],
+  },
+  restorationContributions: {
+    name: "restoration_contributions",
+    columns: ["ruin_id", "owner_id", "amount"],
+    key: ["ruin_id", "owner_id"],
+  },
   /**
    * 보유 물건(아이템 인스턴스, docs/adr/2026-11-03-item-holdings.md 2절). stats·gene(유전자 값 D-516)은 JSON 글자로 넣는다(pg가 배열을
    * Postgres 배열로 바꾸지 않게)
@@ -443,6 +470,8 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "npcSociety",
   "pollution",
   "gardenerWaves",
+  "ruins",
+  "restorationContributions",
   "beacons",
   "buildings",
   "presence",

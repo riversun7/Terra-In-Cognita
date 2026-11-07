@@ -714,6 +714,39 @@
         "height": 2
       },
       "durability": 200
+    },
+    {
+      "id": "government_hall",
+      "name": {
+        "ko": "행정 건물(마을회관)",
+        "en": "Government hall"
+      },
+      "stage": "government",
+      "maxLevel": 1,
+      "slotsPerLevel": 0,
+      "build": {
+        "mulPm": 3000,
+        "levels": [
+          {
+            "from": 1,
+            "materials": [
+              {
+                "item": "pine_log",
+                "qty": 20
+              },
+              {
+                "item": "stone",
+                "qty": 15
+              }
+            ]
+          }
+        ]
+      },
+      "footprint": {
+        "width": 3,
+        "height": 3
+      },
+      "durability": 500
     }
   ]
 }

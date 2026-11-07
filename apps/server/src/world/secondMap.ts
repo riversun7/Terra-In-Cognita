@@ -254,6 +254,8 @@ export interface SecondMap {
   moveUnit(unitId: number, target: Point): Promise<CommandResult>;
   /** ownerId = 건물 주인 주체(시험 건물은 놓은 사람, 없으면 null) */
   placeBuilding(placement: BuildingPlacement, ownerId?: number | null): CommandResult;
+  /** 놓을 수 있나만 본다(놓지 않음 — 폐허 정부 짓기 자리 제안, docs/adr/2026-11-07-ruins-restoration.md) */
+  canPlace(placement: BuildingPlacement): boolean;
   removeBuilding(buildingId: number): CommandResult;
   /** 건물 주인(노동 계약의 시설 주인). 건물이 없으면 undefined */
   buildingOwner(buildingId: number): number | null | undefined;
@@ -899,6 +901,11 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
         options.onFirstEdit?.();
       }
       return { ok: true, buildingId: id };
+    },
+    canPlace(placement) {
+      if (buildings.size >= MAX_BUILDINGS) return false;
+      const check = validatePlacement(grid, placement);
+      return check.ok && !unitInRect(check.rect);
     },
     buildingOwner(buildingId) {
       const building = buildings.get(buildingId);

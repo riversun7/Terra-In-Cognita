@@ -33,6 +33,7 @@ import { DAY_MS } from "./metrics.ts";
 import { checkSociety } from "./societyCheck.ts";
 import { createSocietyPayouts } from "./societyPayouts.ts";
 import { createSocietyRecruit } from "./societyRecruit.ts";
+import { createSocietyRuins } from "./societyRuins.ts";
 import type { SocietyOptions, SocietyRun } from "./societyTypes.ts";
 import {
   HOMELESS,
@@ -239,8 +240,17 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       ],
     });
   };
+  // 폐허 복원(D-510, societyRuins.ts): 폐허 기록·정부 짓기·모금·복원, 하루 끝 NPC 규칙식
+  const ruins = createSocietyRuins({
+    world,
+    c,
+    hooks: o.hooks,
+    treasuryAsset,
+    onRestored: (faction, _city, nowMs) => recordTech(faction, nowMs, 0, "city_restored"),
+  });
 
   return {
+    ruins,
     occupy(attacker, target, cityId, decision: OccupationChoice, nowMs) {
       const city = world.cities.get(cityId);
       if (!city || city.start) return;
@@ -423,6 +433,8 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
       const owner = city ? world.factions.get(city.owner) : undefined;
       if (!city || !owner || city.start) return;
       o.hooks?.cityRuined?.(cityId, nowMs);
+      // 폐허로 남긴다(D-510: 정부를 먼저 지은 쪽이 주인 → 복원 사업, societyRuins.ts)
+      ruins.record(city, nowMs);
       const refuge = [...owner.cities].filter((id) => id !== cityId).toSorted((a, b) => a - b)[0];
       for (const unit of [...world.units.values()].toSorted((a, b) => a.id - b.id)) {
         if (unit.city !== cityId) continue;
@@ -668,6 +680,8 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
 
       if (day % periodDays(c.dividendEveryMs) === 0) payouts.settleDividends(nowMs);
       if (day % periodDays(c.tributeEveryMs) === 0) payouts.payTribute(nowMs);
+      // 폐허 복원 NPC 규칙식(정부 짓기·넣기·투자, societyRuins.ts)
+      ruins.endOfDay(nowMs);
 
       // 굶어 멈춤(D-220, 기술 정의): 국고 0 + 가장 모자란 도시의 생필품 충족 < 문턱이 며칠 이어짐. 처음 닿을 때 한 번 센다
       for (const faction of [...world.factions.values()].toSorted((a, b) => a.id - b.id)) {
@@ -694,7 +708,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     },
 
     check(nowMs) {
-      return checkSociety(world, offers, c, nowMs);
+      return [...checkSociety(world, offers, c, nowMs), ...ruins.check()];
     },
     currentDay: () => day,
     summary() {
@@ -731,6 +745,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
           homeless: counts.homeless,
           wandering: counts.wandering,
           dispersed: counts.dispersed,
+          ...ruins.summary(),
         },
         satisfaction: Math.floor(average(units) / 1000),
       };

@@ -6,6 +6,7 @@ import type { MetricsRecorder } from "./metrics.ts";
 import type { ScenarioSociety } from "./scenario.ts";
 import type { SimHooks } from "./npcRun.ts";
 import type { RecruitView } from "./societyRecruit.ts";
+import type { RuinsSummary, SocietyRuins } from "./societyRuins.ts";
 import type { SimFaction, SimUnit, SimWorld } from "./world.ts";
 
 export interface SocietySummary {
@@ -34,9 +35,10 @@ export interface SocietySummary {
   readonly stalled: number;
   /**
    * 정원사 웨이브 결과(docs/adr/2026-11-01-gardener-r5b.md, D-464 217): 폐허가 된 도시, 건물 피해를 받은 시작 도시, 피난한·노숙이 된
-   * 휴먼, 떠도는 세력이 된 수, 구성원이 모두 떠나 사라진 떠도는 세력 수
+   * 휴먼, 떠도는 세력이 된 수, 구성원이 모두 떠나 사라진 떠도는 세력 수. 폐허 복원(docs/adr/2026-11-07-ruins-restoration.md, 출력 형식 11):
+   * 남은 폐허·정부를 지은 수·복원된 수·돌려준 수·넣은 거래 수·넣은 값
    */
-  readonly ruins: {
+  readonly ruins: RuinsSummary & {
     readonly ruined: number;
     readonly damaged: number;
     readonly fled: number;
@@ -49,6 +51,8 @@ export interface SocietySummary {
 }
 
 export interface SocietyRun {
+  /** 폐허 복원(D-510): 정부 짓기·모금·복원. 서버 유저 명령도 이 함수를 부른다 */
+  readonly ruins: SocietyRuins;
   /** 공성에서 이긴 뒤: 점령 처리(46 §5.1). decision = 점령자가 고른 처리(NPC 규칙식) */
   occupy(
     attacker: SimFaction,

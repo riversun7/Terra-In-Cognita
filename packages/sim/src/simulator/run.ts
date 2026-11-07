@@ -53,8 +53,10 @@ import {
  * 10: 정원사 2(docs/adr/2026-11-01-gardener-r5b.md "바뀜 (2026-11-07)"): wave 줄 kind "protection"(보호 레이드 예고·결과, D-500),
  *    도시 웨이브 예고에 factionSum(세력 오염), 막아 낸 도시 웨이브 결과에 reward(D-499), gardener 하루 줄 factions([세력, 세력 오염,
  *    관계도]), 요약 gardener 칸 protection·relations·rewards
+ * 11: 폐허 복원(docs/adr/2026-11-07-ruins-restoration.md): 요약 society.ruins 칸에 left(남은 폐허)·claimed(정부를 지은 수)·
+ *    restored(복원된 수)·released(돌려준 수)·contributions(넣은 거래 수)·raised(자산 → 넣은 값)
  */
-export const SIM_OUTPUT_FORMAT = 10;
+export const SIM_OUTPUT_FORMAT = 11;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 정원사 합성 격자 한 변(도시마다 3칸 간격, 한 줄 32도시 — 1만 도시까지), 웨이브 전투 기본값(시나리오에 combat 칸이 없을 때) */

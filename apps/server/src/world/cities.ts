@@ -80,13 +80,15 @@ export function nearestSafeCity(
 
 /**
  * 띄운 2차맵의 도시 자리(건물이 선 도시 = 가장 가까운 도시, docs/adr/2026-11-07-buildings-runtime.md "바뀜 (창고·직무)"):
- * 부팅 때 읽은 도시 + NPC 런타임이 새로 세운 도시(같은 ID면 런타임 값)
+ * 부팅 때 읽은 도시 + NPC 런타임이 새로 세운 도시(같은 ID면 런타임 값). 폐허(ruins, docs/adr/2026-11-07-ruins-restoration.md)는 도시가
+ * 아니라 뺀다(런타임 자리 표에는 칸 오염·복원 자리로 남아 있다)
  */
 export function cityCellsOf(
   boot: readonly CityRow[],
   live: ReadonlyMap<number, { planetId: string; mapKey: number; cellX: number; cellY: number }> | undefined,
   planetId: string,
   maps: { has(mapKey: number): boolean },
+  ruins?: { has(id: number): boolean },
 ): CityCell[] {
   const byId = new Map<number, CityCell>();
   for (const city of boot)
@@ -95,5 +97,5 @@ export function cityCellsOf(
   for (const [id, place] of live ?? [])
     if (place.planetId === planetId && maps.has(place.mapKey))
       byId.set(id, { id, mapKey: place.mapKey, x: place.cellX, y: place.cellY });
-  return [...byId.values()];
+  return [...byId.values()].filter((cell) => !ruins?.has(cell.id));
 }

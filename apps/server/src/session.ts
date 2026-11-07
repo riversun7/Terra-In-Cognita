@@ -22,6 +22,7 @@ import {
   GENE_PROTOCOL_VERSION,
   GENE_CONVERT_PROTOCOL_VERSION,
   TEMPLE_PROTOCOL_VERSION,
+  RUINS_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -38,6 +39,7 @@ import type { LaborGateway, LaborSocket } from "./labor/gateway.ts";
 import type { FacilityGateway, FacilitySocket } from "./facilities/gateway.ts";
 import type { FusionGateway, FusionSocket } from "./fusion/gateway.ts";
 import type { TempleGateway, TempleSocket } from "./temple/gateway.ts";
+import type { RuinGateway, RuinSocket } from "./ruins/gateway.ts";
 import type { WorldGateway, WorldSocket } from "./world/gateway.ts";
 
 export interface SessionContext {
@@ -62,6 +64,8 @@ export interface SessionContext {
   facilities?: FacilityGateway | undefined;
   /** 신전 기도·헌금·의식(프로토콜 12, docs/adr/2026-11-07-temple-religion.md). 없으면 busy */
   temple?: TempleGateway | undefined;
+  /** 폐허 복원 모금(프로토콜 13, docs/adr/2026-11-07-ruins-restoration.md). 없으면 busy */
+  ruins?: RuinGateway | undefined;
   /** 이 연결의 로그인 사용자(쿠키). 로그인하지 않았거나 인증이 꺼져 있으면 null */
   viewer?: (() => Promise<Viewer | null>) | undefined;
   /**
@@ -97,6 +101,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let fusionSocket: FusionSocket | undefined;
   let facilitySocket: FacilitySocket | undefined;
   let templeSocket: TempleSocket | undefined;
+  let ruinSocket: RuinSocket | undefined;
   let releasePresence: (() => void) | undefined;
 
   const sendText = (text: string): void => {
@@ -135,6 +140,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
     fusionSocket?.close();
     facilitySocket?.close();
     templeSocket?.close();
+    ruinSocket?.close();
     releasePresence?.();
   });
 
@@ -370,7 +376,11 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send({ t: "facility_result", id: message.id, ok: false, code: "busy" });
           return;
         }
-        facilitySocket ??= context.facilities.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        facilitySocket ??= context.facilities.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          protocolVersion,
+        });
         facilitySocket.handle(message);
         return;
       }
@@ -389,6 +399,22 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         }
         templeSocket ??= context.temple.open({ send: sendText, viewer: context.viewer ?? signedOut });
         templeSocket.handle(message);
+        return;
+      }
+      case "restoration_open":
+      case "restoration_fund":
+      case "dev_make_ruin": {
+        // 폐허 복원 명령은 프로토콜 13의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        if (protocolVersion < RUINS_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.ruins) {
+          send({ t: "restoration_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        ruinSocket ??= context.ruins.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        ruinSocket.handle(message);
         return;
       }
     }

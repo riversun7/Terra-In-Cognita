@@ -92,6 +92,16 @@ export async function checkSqlInvariants(pool: QueryPool, nowMs: number): Promis
      select -a.id from ledger_accounts a where a.system_code like 'escrow:labor:%' and a.balance <> 0
      and not exists (select 1 from labor_contracts c where a.system_code = 'escrow:labor:' || c.id)`,
   );
+  // 폐허 복원(docs/adr/2026-11-07-ruins-restoration.md): 에스크로(escrow:restore:<폐허>:<화폐>) = 그 폐허의 낸 값 합, 폐허가 없는 에스크로는
+  // 비어 있다(복원하면 소각, 돌려주면 0). 시뮬 메모리 검사(societyRuins.ts R2)와 같은 조건
+  await count(
+    "R2 restoration escrow differs from contributions",
+    `select r.id from world_ruins r left join ledger_accounts a on a.system_code = 'escrow:restore:' || r.id || ':' || r.currency
+     where coalesce(a.balance, 0) <> coalesce((select sum(c.amount) from restoration_contributions c where c.ruin_id = r.id), 0)
+     union all
+     select -a.id from ledger_accounts a where a.system_code like 'escrow:restore:%' and a.balance <> 0
+     and not exists (select 1 from world_ruins r where a.system_code = 'escrow:restore:' || r.id || ':' || r.currency)`,
+  );
   // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md 2절): 본체 유닛이 그 사용자의 것으로 있다(없으면 부팅이 다시 놓는다)
   await count(
     "I13 cyborgs without their body unit",

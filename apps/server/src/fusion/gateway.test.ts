@@ -26,7 +26,9 @@ function fakeService(calls: string[]): FusionService {
       offer: () => Promise.reject(new Error("unused")),
       rite: () => Promise.reject(new Error("unused")),
       devInactivate: () => Promise.reject(new Error("unused")),
+      devGuardianBuff: () => Promise.reject(new Error("unused")),
       isInactive: () => false,
+      isAway: () => false,
       sweep: () => Promise.resolve(0),
     },
     fuse: (userId, input) => {
@@ -46,7 +48,9 @@ function fakeService(calls: string[]): FusionService {
       return Promise.resolve({ ok: false, code: "no_skill_slot" });
     },
     incubate: (userId, input) => {
-      calls.push(`incubate:${userId}:${input.gene}:${input.apply}`);
+      calls.push(
+        `incubate:${userId}:${input.gene}:${input.apply}${input.lab ? `:${input.lab.buildingId}:${input.lab.cost}` : ""}`,
+      );
       return Promise.resolve({ ok: true, unitId: 50, stats: [10, 10, 10, 10, 10, 10] });
     },
     devGrantGene: (userId, input) => {
@@ -123,5 +127,16 @@ describe("융합·유전자 연결 처리", () => {
     ]);
     expect(signedOut.sent).toEqual([{ t: "fusion_result", id: 3, ok: false, code: "sign_in_required" }]);
     expect(notReady.sent).toEqual([{ t: "fusion_result", id: 3, ok: false, code: "busy" }]);
+  });
+
+  it("연구소 인큐베이터(연구소 칸, 판 13 — 기획 답 459 가)는 플레이어도 연구소·본 값과 함께 넘긴다", async () => {
+    const calls: string[] = [];
+    const asPlayer = open(fakeService(calls), player);
+    asPlayer.socket.handle({ ...incubate, buildingId: 12, cost: "5000" });
+    for (let i = 0; i < 4; i++) await settle();
+    expect(calls).toEqual(["incubate:user-1:7:total:12:5000"]);
+    expect(asPlayer.sent).toEqual([
+      { t: "fusion_result", id: 7, ok: true, unitId: 50, stats: [10, 10, 10, 10, 10, 10] },
+    ]);
   });
 });

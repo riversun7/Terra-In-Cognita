@@ -90,9 +90,22 @@ export interface UnitGear {
 
 export const NO_GEAR: UnitGear = { equipped: [], effects: [] };
 
-/** 몸 바탕: 만든 사이보그 또는 [임시] 기본 몸(저장된 유닛 스탯이 아직 없는 세계 유닛) */
+/**
+ * 몸 바탕: 만든 사이보그, 저장된 1차 스탯 몸(수호신: 신격화한 휴먼의 스탯·레벨·환생·속성, 성장 없음 — 기획 답 456 가) 또는 [임시] 기본 몸
+ * (저장된 유닛 스탯이 아직 없는 세계 유닛)
+ */
 export type BodyBase =
   | { readonly kind: "cyborg"; readonly record: CyborgRecord }
+  | {
+      readonly kind: "stats";
+      /** 팩 unit_kinds ID(칸 배치·스킬 칸) */
+      readonly unitKind: string;
+      readonly primaries: Primaries;
+      readonly level: number;
+      readonly rebirths: number;
+      /** 속성값 12칸(없으면 null) */
+      readonly elements: readonly number[] | null;
+    }
   | { readonly kind: "baseline" };
 
 export const BASELINE_BASE: BodyBase = { kind: "baseline" };
@@ -182,6 +195,21 @@ export function bodySpecOf(base: BodyBase, gear: UnitGear): BodySpec {
       equipped,
       innateSkills: [],
       source: "baseline",
+      buffs,
+      injuryPm: gear.injuryPm,
+    };
+  if (base.kind === "stats")
+    return {
+      kind: base.unitKind,
+      initial: base.primaries,
+      // 성장 없음(저장된 1차 스탯 그대로, D-416 안드로이드와 같은 꼴)
+      kPm: null,
+      level: base.level,
+      rebirths: base.rebirths,
+      equipped,
+      innateSkills: [],
+      source: "computed",
+      ...(base.elements ? { elements: base.elements } : {}),
       buffs,
       injuryPm: gear.injuryPm,
     };

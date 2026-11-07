@@ -1,12 +1,16 @@
-// 신전·종교 규칙 시험(docs/adr/2026-11-07-temple-religion.md, D-517): 비활성 구간, 의식 막는 것, 휴먼 환생, 기도·헌금 신앙도
+// 신전·종교 규칙 시험(docs/adr/2026-11-07-temple-religion.md, D-517·기획 답 456): 비활성 구간, 의식 막는 것, 휴먼 환생, 기도·헌금 신앙도,
+// 수호신 방어 버프
 import { describe, expect, it } from "vitest";
 import { TEST_SOCIETY_COEFFICIENTS as S } from "./coefficients.ts";
 import { FAITH_MAX } from "./faith.ts";
 import {
+  GUARDIAN_BUFFS,
   OLD_TEMPLE_COEFFICIENTS as C,
   addDevotion,
   devotionGain,
+  guardianDefensePm,
   inactiveWindow,
+  isGuardianBuff,
   isInactiveAt,
   rebirthHuman,
   riteBlockers,
@@ -81,5 +85,15 @@ describe("신전·종교", () => {
     expect(devotionGain("offer", 10n ** 30n, C)).toBe(2_147_483_647);
     expect(addDevotion(95, 10, 20)).toEqual({ faith: FAITH_MAX, faithPoints: 30 });
     expect(addDevotion(0, 0, 0)).toEqual({ faith: 0, faithPoints: 0 });
+  });
+
+  it("수호신 방어 버프(기획 답 456 가): 방어 버프 수호신마다 guardianDefensePm을 더하고 다른 버프·음수 칸은 0", () => {
+    expect(GUARDIAN_BUFFS).toEqual(["defense", "satisfaction", "production"]);
+    expect(isGuardianBuff("defense")).toBe(true);
+    expect(isGuardianBuff("attack")).toBe(false);
+    expect(guardianDefensePm([], C)).toBe(0);
+    expect(guardianDefensePm(["defense", "production", "defense"], C)).toBe(2 * C.guardianDefensePm);
+    expect(guardianDefensePm(["satisfaction"], C)).toBe(0);
+    expect(guardianDefensePm(["defense"], { ...C, guardianDefensePm: -5 })).toBe(0);
   });
 });

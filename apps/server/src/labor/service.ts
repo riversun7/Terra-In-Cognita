@@ -85,8 +85,10 @@ export interface LaborService {
   /** 메모리 불변 조건(I14: 에스크로 = 보증금) */
   check(): string[];
   readonly contracts: ReadonlyMap<number, LaborContract>;
-  /** 유닛에 열린 계약(일함·일시 중지)이 있거나 비활성(D-517)인가 — 건물 작업 일꾼 확인 */
+  /** 유닛에 열린 계약(일함·일시 중지)이 있거나 비활성(D-517)·수호신(기획 답 456 가)인가 — 건물 작업 일꾼·공격 유닛 확인 */
   unitBusy(unitId: number): boolean;
+  /** 일하지 않는 유닛인가(비활성·수호신, unitAway 고리) — 건물 공격 수비 고르기가 뺀다(수호신은 도시 방어가 따로 넣는다) */
+  unitAway(unitId: number): boolean;
   /** 건물에 지금 일하는 계약(active)이 있나 — 건물 사용 닳음(D-509) */
   buildingInUse(buildingId: number): boolean;
   /** 정산 뒤 고리(소유 주체 정산이 산출 거래를 넣은 뒤 부른다): 그 주체의 유예가 끝난 임대형 계약의 남은 물건을 시설 주인에게 */
@@ -122,8 +124,8 @@ export function createLaborService(options: {
   /** 그 유닛이 건물 작업에 묶였나(건물 서비스). 묶였으면 계약을 맺지 못한다. 없으면 늘 false */
   unitInJob?: ((unitId: number) => boolean) | undefined;
   /**
-   * 그 유닛이 일을 멈췄나(비활성 — 수명이 다한 휴먼, D-517, docs/adr/2026-11-07-temple-religion.md). 멈췄으면 계약을
-   * 맺지 못하고, 열린 계약은 다음 정산에서 "유닛 사라짐"으로 끝난다(옛 LifeEngine _processWraith "활성 계약 종료"). 없으면 늘 false
+   * 그 유닛이 일을 멈췄나(비활성 — 수명이 다한 휴먼, D-517, docs/adr/2026-11-07-temple-religion.md — 또는 수호신, 기획 답 456 가). 멈췄으면
+   * 계약을 맺지 못하고, 열린 계약은 다음 정산에서 "유닛 사라짐"으로 끝난다(옛 LifeEngine _processWraith "활성 계약 종료"). 없으면 늘 false
    */
   unitAway?: ((unitId: number) => boolean) | undefined;
 }): LaborService {
@@ -281,6 +283,7 @@ export function createLaborService(options: {
     outputsFor,
     contracts,
     unitBusy: (unitId) => openContractOf(unitId) !== undefined || (options.unitAway?.(unitId) ?? false),
+    unitAway: (unitId) => options.unitAway?.(unitId) ?? false,
     afterSettle(ownerId) {
       for (const c of leftoverQueue.splice(0)) {
         if (c.workerOwnerId !== ownerId) {

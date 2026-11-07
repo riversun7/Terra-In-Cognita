@@ -8,6 +8,8 @@
 //   유전자는 들지 않는다(D-517). 유전자로 바꾸는 길은 생명과학 연구소(서버 유전자 명령)다.
 // - 신앙도 얻는 길(옛 REL-1 기도·헌금): 기도 = 한 번에 prayFaith(쿨다운), 헌금 = max(1, ⌊금액 ÷ offeringPerFaith⌋). 신앙도는 FAITH_MAX에서
 //   멈추고 신앙 포인트는 다 쌓인다(D-451·D-455 186).
+// - 수호신(기획 답 456 가): 새 종류 유닛으로 그 도시에 남아 방어전에 나서고 도시 버프 하나. 버프 종류는 기획이 고르지 않고 수호신마다 편집기
+//   칸(GUARDIAN_BUFFS, 출발값 방어). 방어 = 그 도시가 공격받는 전투의 수비 유닛 방어율 + guardianDefensePm(수호신마다 더함 [임시]).
 // 시뮬은 이 규칙을 쓰지 않는다(NPC 휴먼은 D-395 확률, population.ts). 정수만 쓴다.
 import type { SocietyCoefficients } from "./coefficients.ts";
 import { FAITH_MAX, FAITH_POINTS_MAX } from "./faith.ts";
@@ -33,13 +35,16 @@ export interface TempleCoefficients {
   readonly prayCooldownMs: number;
   /** 헌금: 신앙도 1당 화폐(옛 50) */
   readonly offeringPerFaith: number;
+  /** 수호신 방어 버프(기획 답 456 가): 그 도시 수비 유닛 방어율 ‰(방어 버프 수호신마다 더함) [임시] */
+  readonly guardianDefensePm: number;
 }
 
 const HOUR_MS = 3_600_000;
 
 /**
  * 출발값: 기도 +1·쿨다운 1시간·헌금 50당 +1은 옛 religion_routes.js. 환생 신앙도 50·화폐 10,000은 사이보그 N34 [임시]와 같게, 신격화 신앙도
- * 100은 D-311 예("신앙도 100인 휴먼 장군"). 기다림 상한은 D-517 출발값 없음(0 = 상한 없음). 신격화 화폐 20,000·수호신 상한 3은 [임시]
+ * 100은 D-311 예("신앙도 100인 휴먼 장군"). 기다림 상한은 D-517 출발값 없음(0 = 상한 없음). 신격화 화폐 20,000·수호신 상한 3·수호신 방어
+ * 버프 100‰은 [임시]
  */
 export const OLD_TEMPLE_COEFFICIENTS: TempleCoefficients = {
   inactiveCapMs: 0,
@@ -51,7 +56,27 @@ export const OLD_TEMPLE_COEFFICIENTS: TempleCoefficients = {
   prayFaith: 1,
   prayCooldownMs: HOUR_MS,
   offeringPerFaith: 50,
+  guardianDefensePm: 100,
 };
+
+/**
+ * 수호신 도시 버프 종류(기획 답 456 가 "도시 버프 하나", 종류는 수호신마다 편집기 칸, 출발값 방어). 방어만 효과가 있다 — 만족도·생산이 무엇을
+ * 바꾸는지는 확인 대기(질문 470). 저장된 값이라 이름을 바꾸거나 지우지 않는다
+ */
+export const GUARDIAN_BUFFS = ["defense", "satisfaction", "production"] as const;
+export type GuardianBuff = (typeof GUARDIAN_BUFFS)[number];
+/** 새 수호신의 버프(출발값) */
+export const DEFAULT_GUARDIAN_BUFF: GuardianBuff = "defense";
+
+/** 수호신 버프 값인가(DB·메시지에서 읽은 글자) */
+export const isGuardianBuff = (value: unknown): value is GuardianBuff =>
+  typeof value === "string" && (GUARDIAN_BUFFS as readonly string[]).includes(value);
+
+/** 그 도시 수비 유닛의 방어율 더하기(‰): 방어 버프 수호신 수 × guardianDefensePm(음수는 0) [임시 — 더하기] */
+export function guardianDefensePm(buffs: readonly GuardianBuff[], c: TempleCoefficients): number {
+  const count = buffs.filter((buff) => buff === "defense").length;
+  return count * Math.max(0, Math.floor(c.guardianDefensePm));
+}
 
 /** 신전 의식: 환생·신격화 */
 export const TEMPLE_RITES = ["rebirth", "deify"] as const;

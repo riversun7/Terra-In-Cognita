@@ -89,3 +89,16 @@
   min-inline-size: 0;
   inline-size: 100%;
 }
+/* 수호신 버프 칸(개발 편집, dev·admin): 좁으면 이름 아래로 감싼다 */
+.temple-buff {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  font-size: var(--font-size-sm);
+}
+.temple-buff-select {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}

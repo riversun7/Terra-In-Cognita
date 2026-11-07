@@ -147,6 +147,43 @@
       },
       "naturalWeaponIsWeapon": true,
       "enabled": true
+    },
+    {
+      "id": "guardian",
+      "name": {
+        "ko": "수호신",
+        "en": "Guardian Spirit"
+      },
+      "slots": ["weapon", "offhand", "head", "body", "accessory", "accessory"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 10
+      },
+      "naturalWeapon": {
+        "physical": { "attack": 0 },
+        "hitPm": 850,
+        "critPm": 50,
+        "intervalMs": 1000,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 0,
+        "unarmed": true
+      },
+      "naturalElementalWeapon": {
+        "elemental": { "attack": 0 },
+        "hitPm": 850,
+        "critPm": 50,
+        "intervalMs": 1000,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 0,
+        "unarmed": true
+      },
+      "naturalWeaponIsWeapon": false,
+      "enabled": true
     }
   ]
 }

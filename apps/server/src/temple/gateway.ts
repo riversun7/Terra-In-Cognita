@@ -1,7 +1,8 @@
 // WebSocket 연결 하나의 신전 메시지 처리(src/session.ts가 넘긴다) — docs/adr/2026-11-07-temple-religion.md. 융합 게이트웨이와 같은 틀이다:
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다(잔고·신앙도를 차례로 본다).
 // - 사용자별 속도 제한(순간 10번, 분당 30번 — 건물 명령과 같음). 밀린 요청이 MAX_PENDING을 넘으면 busy. 세계가 아직 없으면 busy.
-// - 개발 시험(dev_inactivate_unit)은 dev·admin(secondMap dev-spawn — 융합 개발 시험과 같은 권한).
+// - 개발 시험(dev_inactivate_unit)·개발 편집(dev_guardian_buff, 기획 답 456 가 — 수호신마다 버프 칸)은 dev·admin(secondMap dev-spawn — 융합 개발
+//   시험과 같은 권한).
 // - 판정·저장은 서비스(service.ts)가 한다.
 import { type ClientMessageOf, type TempleResultCode, encodeMessage } from "@terra/protocol";
 import { rolesAllow } from "../auth/permissions.ts";
@@ -10,7 +11,7 @@ import type { Viewer } from "../trpc/context.ts";
 import type { TempleCommandResult, TempleService } from "./service.ts";
 
 export type TempleClientMessage = ClientMessageOf<
-  "temple_pray" | "temple_offer" | "temple_rite" | "dev_inactivate_unit"
+  "temple_pray" | "temple_offer" | "temple_rite" | "dev_inactivate_unit" | "dev_guardian_buff"
 >;
 
 const MAX_PENDING = 8;
@@ -60,6 +61,9 @@ async function run(service: TempleService, viewer: Viewer, message: TempleClient
     case "dev_inactivate_unit":
       if (!rolesAllow(viewer.roles, { secondMap: ["dev-spawn"] })) return fail("forbidden");
       return service.devInactivate(viewer.id, { unit: message.unit });
+    case "dev_guardian_buff":
+      if (!rolesAllow(viewer.roles, { secondMap: ["dev-spawn"] })) return fail("forbidden");
+      return service.devGuardianBuff({ unit: message.unit, buff: message.buff });
     default: {
       const unknown: never = message;
       return unknown;

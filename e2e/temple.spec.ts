@@ -1,7 +1,8 @@
 // 신전·생명과학 연구소 화면 시험 — 생산 칸 "신전·생명과학 연구소"(D-517·D-311·D-441·D-451, docs/adr/2026-11-07-temple-religion.md).
 // - admin: 유닛 화면 [융합] 칸에서 시험 스탯 유전자 둘 → 인큐베이터(주력)로 휴먼 둘 → 경제 → 생산에서 그 휴먼들 곁에 신전·생명과학 연구소를
 //   짓고 [바로 끝내기] → 신전 칸: 휴먼 A [비활성으로(시험)] → 신전 카드에 보임, 환생 막힘(신앙도 0) → 시험 화폐 → 헌금 2,500(+50) → [환생]
-//   (다시 일함) → 다시 비활성 → 헌금 5,000 → [신격화](수호신 1) → 휴먼 B 비활성 → 연구소 [유전자로 변환]. 유닛 화면 [융합] 칸의 비활성 표시도 본다.
+//   (다시 일함) → 다시 비활성 → 헌금 5,000 → [신격화](수호신 1, 버프 방어 → 개발 편집으로 생산) → 휴먼 B 비활성 → 연구소 [유전자로 변환] →
+//   유닛 화면 [융합] 칸 연구소 인큐베이터(주력)로 새 휴먼(사는 도시 = 연구소 도시, 기획 답 459 가). 유닛 화면 [융합] 칸의 비활성 표시도 본다.
 // - 사진(E2E_SHOTS_DIR): 신전 칸 390 파스텔 한국어·390 다크 영어·1440 파스텔 한국어·1440 다크 영어, 유닛 화면 비활성 카드 390 파스텔·다크.
 // 복귀 요약은 띄우지 않는다(hideSummary).
 import type { Locator, Page } from "@playwright/test";
@@ -199,10 +200,15 @@ test.describe("신전·생명과학 연구소", () => {
       message("ko", "temple_offered", { gained: 100, faith: "@" }).split("@")[0] ?? "",
     );
     await clickFor(page, ghostA.locator(".temple-deify"), message("ko", "temple_deified", { id: a }));
-    await expect(
-      panel.locator(`[data-part="temple-guardians"] li[data-guardian="${String(a)}"]`),
-    ).toBeVisible();
+    const guardianA = panel.locator(`[data-part="temple-guardians"] li[data-guardian="${String(a)}"]`);
+    await expect(guardianA).toBeVisible();
+    // 수호신은 같은 유닛으로 남고(내 휴먼 줄에서는 빠짐) 버프 출발값은 방어 → 개발 편집으로 생산
+    await expect(guardianA).toHaveAttribute("data-buff", "defense");
     await expect(rowA).toHaveCount(0);
+    await expect(async () => {
+      await guardianA.locator(".temple-buff-select").selectOption("production");
+      await expect(guardianA).toHaveAttribute("data-buff", "production", { timeout: 5_000 });
+    }).toPass({ timeout: 40_000, intervals: [2_000] });
 
     // 휴먼 B: 비활성 → 연구소에서 유전자로 변환(유닛이 떠남)
     const rowB = panel.locator(`ul[data-part="temple-humans"] li[data-unit="${String(b)}"]`);
@@ -216,6 +222,23 @@ test.describe("신전·생명과학 연구소", () => {
     await expect(rowB).toHaveCount(0);
     expect(await horizontalOverflow(page)).toEqual([]);
     await elementShot(panel, "temple-pastel-ko-390");
+
+    // 연구소 인큐베이터(459 가): 유전자 판에서 연구소를 고르고 [연구소 인큐베이터(주력)] → 새 휴먼의 사는 도시 = 연구소 도시
+    await page.goto("/units");
+    await page.getByRole("tab", { name: new RegExp(`^${message("ko", "units_tab_fusion")}`) }).click();
+    await expect(page.locator(".fusion")).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
+    await expect(page.locator('[data-part="incubate-lab"]')).toBeVisible();
+    const before = await humanIds(page);
+    const statGenes = page.locator('.fusion-gene[data-kind="stat"]');
+    const count = await statGenes.count();
+    await page.getByRole("button", { name: message("ko", "fusion_dev_stat_gene"), exact: true }).click();
+    await expect(statGenes).toHaveCount(count + 1, { timeout: 20_000 });
+    await statGenes.last().locator(".fusion-incubate-lab-main").click();
+    await expect(statGenes).toHaveCount(count, { timeout: 20_000 });
+    const overview = await trpcGet(page, "temple.overview");
+    const born = list(field(overview, "humans")).find((h) => !before.includes(Number(field(h, "unitId"))));
+    const labCity = field(list(field(overview, "labs"))[0], "cityId");
+    expect(field(born, "cityId")).toBe(labCity);
     expect(deviceErrors).toEqual([]);
   });
 

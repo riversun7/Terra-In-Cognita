@@ -9,12 +9,9 @@ import { gunzipSync } from "node:zlib";
 import { type CellKey, EARTH_FACE_LEVEL, cellKey, stepCell } from "@terra/planet";
 import { DEFAULT_WORLD_PLANET_ID } from "../db/schema.ts";
 import {
-  type BattleInit,
-  CELL_UNITS,
   type CombatCatalog,
   type CombatCoefficients,
   generateTempTerrain,
-  positionAt,
   seedFromCellKey,
 } from "@terra/sim";
 import type { WorldDirectory } from "./gateway.ts";
@@ -25,10 +22,10 @@ import { type WorldWriter, type WriterPool, createWorldWriter } from "./persist/
 import { createWorkerPathService } from "./pathPool.ts";
 import { type PathService, createInlinePathService } from "./pathService.ts";
 import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
-import type { BattleWorld } from "./battleResults.ts";
 import { createBattleApply } from "./battleApply.ts";
+import { createBattleWorld, createWorldBattleStart } from "./battleStart.ts";
 import { type BattleItems, createBattleItems } from "./battleItems.ts";
-import { type CityRow, cityCellsOf, ensureTestStartCities, loadCities, nearestSafeCity } from "./cities.ts";
+import { type CityRow, cityCellsOf, ensureTestStartCities, loadCities } from "./cities.ts";
 import {
   type CyborgRules,
   type CyborgService,
@@ -532,24 +529,7 @@ export function startWorld(
       upkeepWeightPm: (kind) =>
         kind === UNIT_KIND_CYBORG_UNIT ? (config.cyborgRules ?? defaultCyborgRules)().fusion.upkeepPm : 1000,
     });
-    const battleWorld: BattleWorld = {
-      mapOf: (unitId) => [...maps.values()].find((map) => map.unitInfo(unitId) !== undefined),
-      safeCellFor: (unitId, ownerId, map) => {
-        const at = map.unitInfo(unitId)?.motion;
-        if (!at) return undefined;
-        const point = positionAt(at, now());
-        const city = nearestSafeCity(
-          cities,
-          map.planetId,
-          map.mapKey,
-          { x: Math.floor(point.x / CELL_UNITS), y: Math.floor(point.y / CELL_UNITS) },
-          owners.get(ownerId)?.factionId ?? null,
-        );
-        return city ? { x: city.cellX, y: city.cellY } : undefined;
-      },
-      ownerExists: (ownerId) => owners.has(ownerId) || ownerId === npcOwnerId,
-      ledger,
-    };
+    const battleWorld = createBattleWorld({ maps, cities: () => cities, owners, npcOwnerId, ledger, now });
     // 끝 시각에 한 번: 부상·귀환·포로·탈취·장비 닳기·물약·탄·생명 수치·건물 피해를 세계에 적용한다(battleApply.ts, 결과 기록과 같은 커밋).
     // 전투 물건(287): 보유 물건 서비스를 만든 뒤 채운다(그 전에는 아무것도 붙이지 않는다)
     let items: BattleItems = { battleStart: (init) => init, apply: () => ({ potions: 0, shots: 0 }) };
@@ -663,14 +643,22 @@ export function startWorld(
       holdings: holdings.service,
       exists: (unitId) => [...maps.values()].some((map) => map.unitInfo(unitId) !== undefined),
     });
-    // 세계 전투를 여는 한 길(정원사 웨이브·건물 공격): 몸(입은 장비·버프) → 남은 HP·아머·쉴드(D-512) → 물약·탄(287)
-    const startWorldBattle = (init: BattleInit, war: boolean) =>
-      battles.start(
-        items.battleStart(vitals.service.battleStart(bodies.battleStart(init, now()), now()), now()),
-        {
-          war,
-        },
-      );
+    // 세계 전투를 여는 한 길(정원사 웨이브·건물 공격): 몸 → 도시 방어(비활성 빼기·수호신·방어 버프) → 생명 수치 → 물약·탄(battleStart.ts)
+    const startWorldBattle = createWorldBattleStart({
+      battles,
+      bodies,
+      vitals: vitals.service,
+      items: () => items,
+      pool: db,
+      writer,
+      maps,
+      now,
+      rules: () => societyRules().temple,
+      isInactive: (unitId) => persistence?.fusion.temple.isInactive(unitId) ?? false,
+      waveCity: (waveId) => npc?.gardener.run.waves.get(waveId)?.city,
+      facilities: () => facilities.service,
+      territory: () => territory,
+    });
     // 건물: 짓기·노화·수리(노동 계약 정산이 시설이 일하는지 묻는다 — 서로 고리라 계약 서비스는 뒤에 잇는다)
     // 건물이 선 도시(재료·창고 자리, D-516 361): 부팅 때 읽은 도시 + NPC 런타임이 새로 세운 도시
     const cityCells = () => cityCellsOf(cities, npc?.places, TEST_PLANET_ID, maps);
@@ -711,7 +699,7 @@ export function startWorld(
       ready: () => status.state === "ready",
       buildingWorks: (buildingId) => facilities.service.works(buildingId),
       unitInJob: (unitId) => facilities.service.unitInJob(unitId),
-      unitAway: (unitId) => persistence?.fusion.temple.isInactive(unitId) ?? false,
+      unitAway: (unitId) => persistence?.fusion.temple.isAway(unitId) ?? false,
     });
     facilities.attachLabor(labor);
     settlement.routeOutputs((ownerId, fromMs, toMs) => labor.outputsFor(ownerId, fromMs, toMs));

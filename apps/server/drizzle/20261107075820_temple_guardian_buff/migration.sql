@@ -1,0 +1,2 @@
+ALTER TABLE "temple_guardians" ADD COLUMN "buff" text DEFAULT 'defense' NOT NULL;--> statement-breakpoint
+ALTER TABLE "temple_guardians" ADD CONSTRAINT "temple_guardians_buff" CHECK ("buff" in ('defense', 'satisfaction', 'production'));

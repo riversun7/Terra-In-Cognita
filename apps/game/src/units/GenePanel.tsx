@@ -1,13 +1,15 @@
 // 유닛 화면 [융합] 칸의 유전자 판 — 기획 D-478(수명이 다한 휴먼·크리쳐의 스탯·스킬이 유전자로 남음, 스킬 유전자는 주입, 스탯 유전자는
 // 인큐베이터), D-481(조합 속성 = 평균 + 오차), D-516(스탯 유전자 = 총합·분포·속성 인스턴스, 총합·주력 스탯 골라 적용, 합성은 확률로 오름·
 // 내림·그대로), docs/adr/2026-11-07-cyborg-fusion-genes.md "바뀜 (D-516)". 기술 기본 화면이다(옛 유전자 화면이 없다):
-// 규칙(합성 확률·인큐베이터) → 합성(스탯 유전자 둘 고르기 → [합성]) → 유전자 목록(스탯: 총합·칸 값·주력·속성, [인큐베이터 총합·주력],
-// 스킬: 스킬 이름, 주입할 휴먼 고르기 → [주입]). dev·admin은 시험 유전자를 받는다. 명령은 FusionPanel의 실행기(run)로 보낸다.
+// 규칙(합성 확률·인큐베이터) → 합성(스탯 유전자 둘 고르기 → [합성]) → 인큐베이터 연구소 고르기(기획 답 459 가: 생명과학 연구소에서 화폐로,
+// 새 휴먼은 연구소 둘레·그 도시에 산다) → 유전자 목록(스탯: 총합·칸 값·주력·속성, [연구소 인큐베이터 총합·주력], dev·admin은 연구소 없는
+// 개발 시험 [인큐베이터 총합·주력]도, 스킬: 스킬 이름, 주입할 휴먼 고르기 → [주입]). dev·admin은 시험 유전자를 받는다. 명령은 FusionPanel의
+// 실행기(run)로 보낸다.
 import { ELEMENT_CODES, type ElementCode } from "@terra/shared/roster";
 import { FUSION_STAT_ORDER, type FusionGeneView, type FusionOverviewResponse } from "@terra/shared/fusion";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
-import { formatNumber } from "../roster/rosterText.ts";
+import { formatAmount, formatNumber } from "../roster/rosterText.ts";
 import { type RunFusion, SPECIES_NAME, STAT_CODE, StatRow, getLang, percent } from "./fusionParts.tsx";
 
 const ELEMENT_TEXT: Readonly<Record<ElementCode, () => string>> = {
@@ -25,7 +27,7 @@ const ELEMENT_TEXT: Readonly<Record<ElementCode, () => string>> = {
   necro: m.cyborg_element_necro,
 };
 
-/** 인큐베이터 적용 방식(D-516: 총합·주력 스탯). 팩에 인큐베이터 시설이 없어 dev·admin에게만 보인다 */
+/** 인큐베이터 적용 방식(D-516: 총합·주력 스탯) */
 const GENE_APPLIES = ["total", "main"] as const;
 
 const OUTCOME_TEXT = {
@@ -82,7 +84,15 @@ export function GenePanel({
 }) {
   const [picked, setPicked] = useState<readonly number[]>([]);
   const [targets, setTargets] = useState<Readonly<Record<number, number>>>({});
+  const [labChoice, setLabChoice] = useState<number | null>(null);
   const rules = data.rules.genes;
+  // 고른 연구소가 사라졌으면 일하는 첫 연구소(없으면 첫 연구소)
+  const lab =
+    data.labs.find((entry) => entry.buildingId === labChoice) ??
+    data.labs.find((entry) => entry.works) ??
+    data.labs[0];
+  const incubateCost = rules.incubateCurrency;
+  const canIncubate = lab !== undefined && lab.works && BigInt(data.balance) >= BigInt(incubateCost);
   const statGenes = data.genes.filter((gene) => gene.kind === "stat");
   const live = picked.filter((id) => statGenes.some((gene) => gene.id === id));
   const humans = data.humans.filter((human) => !human.captive);
@@ -125,7 +135,38 @@ export function GenePanel({
         </li>
         <li>{m.fusion_incubate_rule({ base: formatNumber(rules.incubateBase) })}</li>
         <li className="field-hint">{m.fusion_gene_facility_note()}</li>
+        {data.devGrant ? <li className="field-hint">{m.fusion_incubate_dev_note()}</li> : null}
       </ul>
+      {lab === undefined ? (
+        <p className="field-hint" data-part="incubate-no-lab">
+          {m.fusion_incubate_no_lab()}
+        </p>
+      ) : (
+        <div className="units-panel-actions fusion-incubate-lab" data-part="incubate-lab">
+          <label className="fusion-target">
+            <span className="field-hint">{m.fusion_incubate_lab()}</span>
+            <select
+              value={lab.buildingId}
+              disabled={busy !== null}
+              onChange={(event) => setLabChoice(Number(event.target.value))}
+            >
+              {data.labs.map((entry) => (
+                <option key={entry.buildingId} value={entry.buildingId}>
+                  {m.fusion_incubate_lab_option({
+                    name: entry.name[getLang()],
+                    id: entry.buildingId,
+                    city: entry.cityId === null ? "—" : `#${entry.cityId}`,
+                  })}
+                  {entry.works ? "" : ` ${m.fusion_incubate_lab_closed()}`}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className="field-hint">
+            {m.fusion_incubate_lab_cost({ cost: formatAmount(incubateCost) })}
+          </span>
+        </div>
+      )}
       <div className="units-panel-actions fusion-synth">
         <span className="field-hint" aria-live="polite">
           {m.fusion_synth_pick({ count: formatNumber(live.length) })}
@@ -172,6 +213,34 @@ export function GenePanel({
                       />
                       {m.fusion_synth_select()}
                     </label>
+                    {lab
+                      ? GENE_APPLIES.map((apply) => (
+                          <button
+                            key={`lab-${apply}`}
+                            type="button"
+                            className={`button-small fusion-incubate-lab-${apply}`}
+                            disabled={busy !== null || !canIncubate}
+                            aria-busy={busy === `incubate-lab-${apply}-${gene.id}`}
+                            onClick={() =>
+                              void run(
+                                `incubate-lab-${apply}-${gene.id}`,
+                                [
+                                  {
+                                    t: "gene_incubate",
+                                    gene: gene.id,
+                                    apply,
+                                    buildingId: lab.buildingId,
+                                    cost: incubateCost,
+                                  },
+                                ],
+                                (outcome) => m.fusion_incubated({ id: outcome.unitId ?? 0 }),
+                              )
+                            }
+                          >
+                            {apply === "total" ? m.fusion_incubate_lab_total() : m.fusion_incubate_lab_main()}
+                          </button>
+                        ))
+                      : null}
                     {data.devGrant
                       ? GENE_APPLIES.map((apply) => (
                           <button

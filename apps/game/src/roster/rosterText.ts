@@ -23,6 +23,7 @@ const TYPE_LABELS = {
   human: (locale) => m.roster_type_human({}, { locale }),
   creature: (locale) => m.roster_type_creature({}, { locale }),
   android: (locale) => m.roster_type_android({}, { locale }),
+  guardian: (locale) => m.roster_type_guardian({}, { locale }),
   test_worker: (locale) => m.roster_type_test_worker({}, { locale }),
   test_unit: (locale) => m.roster_type_test_unit({}, { locale }),
 } satisfies Record<UnitType, Text>;

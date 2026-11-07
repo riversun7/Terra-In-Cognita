@@ -22,3 +22,9 @@ export const UNIT_KIND_HUMAN = 4;
  * 종류만 4 → 5로 바뀐다. 레벨·스탯·속성은 cyborg_units 행이다. 수명이 없고 유지비가 비싸다(설정 칸 n46_upkeep)
  */
 export const UNIT_KIND_CYBORG_UNIT = 5;
+/**
+ * 수호신(기획 답 456 가, D-311·D-5059): 신전에서 신격화한 유저 휴먼. 바탕 휴먼의 유닛 ID를 그대로 쓰고 종류만 4 → 6으로 바뀐다(융합과 같은 꼴).
+ * 레벨·스탯·속성·도시·버프는 temple_guardians 행이다. 그 도시에 머물며(주인이 옮기지 못한다) 그 도시가 공격받는 전투에 수비로 들고, 일하지
+ * 않는다. 수명이 없다
+ */
+export const UNIT_KIND_GUARDIAN = 6;

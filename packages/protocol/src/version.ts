@@ -37,19 +37,22 @@
  *    신전·종교(temple.ts, docs/adr/2026-11-07-temple-religion.md, D-517) — temple_pray·temple_offer·temple_rite·dev_inactivate_unit →
  *    temple_result. 비활성 휴먼 유전자 변환(fusion.ts gene_convert → fusion_result, 새 코드 not_inactive·not_lab·lab_closed·wrong_city는
  *    이 판 메시지의 답에만 간다). 두 줄기를 배포 전에 합쳐 한 판으로 올렸다. 더하기만 했고 11판 기기는 그대로 받는다.
+ * 13: 신전 2(docs/adr/2026-11-07-temple-religion.md "바뀜 (기획 답 451~459)") — 생명과학 연구소 인큐베이터(fusion.ts gene_incubate에
+ *    연구소 칸 buildingId·cost, 기획 답 459 가: 누구나, 칸이 없으면 판 11 그대로 개발 시험)·개발 편집 수호신 버프(temple.ts
+ *    dev_guardian_buff → temple_result, 기획 답 456 가). 더하기만 했고 12판 기기는 그대로 받는다(연구소 칸·이 메시지를 보내지 않는다).
  */
-export const PROTOCOL_VERSION = 12;
+export const PROTOCOL_VERSION = 13;
 
 /**
  * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7). 5부터 3판 기기는 인사에서
  * protocol_unsupported를 받고 새 앱을 받는다(PWA 강제 적용). 6부터 4판 기기도, 7부터 5판 기기도, 8부터 6판 기기도, 9부터 7판 기기도,
- * 10부터 8판 기기도, 11부터 9판 기기도, 12부터 10판 기기도 같다(현재 + 직전 1개).
+ * 10부터 8판 기기도, 11부터 9판 기기도, 12부터 10판 기기도, 13부터 11판 기기도 같다(현재 + 직전 1개).
  * (3에서는 예외로 2를 받지 않았다: 2판 기기는 걸러지지 않은 2차맵 흐름을 기대하는데, 시야 전송은 보안 규칙이라 그 흐름을 남기지
  * 않는다, S3 ADR 3절.)
  * 속성 분배 전 사이보그(elements null)는 이제 기기가 만들지 않는다(5판부터 만들기에 분배가 꼭 든다). 화면 시험의 legacy 계정은
  * 지금 판으로 만든 뒤 서버를 끄고 DB에서 속성값을 비워 다시 켠다(e2e/global-setup.ts).
  */
-export const MIN_SUPPORTED_PROTOCOL_VERSION = 11;
+export const MIN_SUPPORTED_PROTOCOL_VERSION = 12;
 
 /** WebSocket 메시지 1개의 최대 크기 (바이트) */
 export const MAX_MESSAGE_BYTES = 64 * 1024;

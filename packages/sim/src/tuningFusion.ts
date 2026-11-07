@@ -93,4 +93,11 @@ export const FUSION_TUNING_KEYS: readonly TuningKey[] = [
     "유전자 변환 화폐(생명과학 연구소, 최소 단위)",
     "Gene conversion currency (biotech lab, minor units)",
   ),
+  k(
+    "n47_incubate_currency",
+    "N47",
+    "incubateCurrency",
+    "인큐베이터 화폐(생명과학 연구소, 최소 단위)",
+    "Incubator currency (biotech lab, minor units)",
+  ),
 ];

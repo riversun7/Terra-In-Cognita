@@ -11,12 +11,12 @@ import { MIN_SUPPORTED_PROTOCOL_VERSION, PROTOCOL_VERSION } from "./version.ts";
 const bad = (message: object) => JSON.stringify(message);
 
 describe("건물 메시지(프로토콜 10, 창고 11, 공격 12)", () => {
-  it("판 10부터(창고 옮기기 11, 공격 12), 지금 판 12·최소 판 11", () => {
+  it("판 10부터(창고 옮기기 11, 공격 12), 지금 판 13·최소 판 12", () => {
     expect(FACILITY_PROTOCOL_VERSION).toBe(10);
     expect(STORAGE_PROTOCOL_VERSION).toBe(11);
     expect(ATTACK_PROTOCOL_VERSION).toBe(12);
-    expect(PROTOCOL_VERSION).toBe(12);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(11);
+    expect(PROTOCOL_VERSION).toBe(13);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(12);
   });
 
   it("건물·비콘 공격(12)이 왕복하고, 둘 다·둘 다 없음·유닛 없음은 받지 않는다. 새 코드는 결과로 온다", () => {

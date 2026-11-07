@@ -1,5 +1,5 @@
 // 전투 결과를 세계에 적용 — docs/adr/2026-10-31-combat-core.md 8절, 기획 D-099·D-145(부상)·D-173(탈취)·D-187(포로)·
-// D-190(퇴각 손실 없음)·D-351(사이보그 즉시 귀환)·질문 108 기본안(D-381: 진 유닛은 같은 때 안전한 곳으로, 전쟁이면 포로)
+// D-190(퇴각 손실 없음)·D-351(사이보그 즉시 귀환)·질문 108 기본안(D-381: 진 유닛은 같은 때 안전한 곳으로, 전쟁이면 포로 — 수호신은 빼고)
 // 전투 서비스(battles.ts)가 끝 시각에 한 번 부른다. 모든 바뀜(유닛 상태·자리, 탈취 거래)은 동기로 쓰기 대기열에 들어가고,
 // 전투 서비스가 같은 묶음에 결과 기록(world_battle_results)을 더한다 → 한 커밋이라 두 번 적용되지 않는다.
 // 전투에서 죽지 않는다(D-099: 사망은 수명만). 전투 유닛 ID = 세계 유닛 ID, 편의 faction = 소유 주체 ID([임시] 서버 해석).
@@ -8,6 +8,7 @@ import type { Ledger } from "../economy/ledger.ts";
 import type { BattleOutcome } from "./battles.ts";
 import type { SecondMap } from "./secondMap.ts";
 import { DOWNED_INJURY, type UnitCondition, injure } from "./unitCondition.ts";
+import { UNIT_KIND_GUARDIAN } from "./unitKinds.ts";
 
 export interface BattleWorld {
   /** 세계 유닛이 있는 2차맵 */
@@ -54,11 +55,13 @@ export function applyBattleOutcome(
       missing += 1;
       continue;
     }
-    const next = conditionAfter(info.condition, result, captor, info.ownerId, atMs);
+    // 수호신(기획 답 456 가)은 그 도시에 머문다: 다쳐도 잡히거나 옮겨지지 않는다 [임시]
+    const guardian = info.kind === UNIT_KIND_GUARDIAN;
+    const next = conditionAfter(info.condition, result, guardian ? undefined : captor, info.ownerId, atMs);
     if (next !== info.condition) map.setCondition(result.unit, next);
     if (result.injured) injured += 1;
     if (result.outcome === "stays" && receiver === null) receiver = cargoLocation(result.unit);
-    if (result.outcome === "returned" || result.outcome === "prisoner") {
+    if (!guardian && (result.outcome === "returned" || result.outcome === "prisoner")) {
       // 질문 108 기본안·D-351: 끝나는 때 바로 가장 가까운 안전 도시로(포로는 잡은 쪽 세력의 도시)
       const owner = next.heldBy ?? info.ownerId;
       map.relocateToSafety(result.unit, world.safeCellFor(result.unit, owner, map));

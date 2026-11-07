@@ -12,6 +12,7 @@ import {
   createWorldGateway,
 } from "./gateway.ts";
 import { createTestMap } from "./testSupport.ts";
+import { UNIT_KIND_GUARDIAN } from "./unitKinds.ts";
 
 // 2^48 + 9: 셀 키 검사를 통과하는 키(시험 2차맵 키와 같은 값을 쓴다)
 const MAP_KEY = 281_474_976_710_665;
@@ -304,18 +305,21 @@ describe("시야 전송(S3)", () => {
     map.stop();
   });
 
-  it("자기 유닛은 움직일 수 있고 남의 유닛은 forbidden, 시험 명령은 dev-spawn 권한", async () => {
+  it("자기 유닛은 움직일 수 있고 남의 유닛·내 수호신(그 도시에 머묾)은 forbidden, 시험 명령은 dev-spawn 권한", async () => {
     const { gateway, map } = setup();
     map.addUnit({ id: 1, size: 1, speed: 437, cellX: 10, cellY: 10, ownerId: 5 });
     map.addUnit({ id: 2, size: 1, speed: 437, cellX: 30, cellY: 30 });
+    map.addUnit({ id: 3, size: 1, speed: 437, cellX: 12, cellY: 12, ownerId: 5, kind: UNIT_KIND_GUARDIAN });
     const socket = link(PLAYER);
     const session = gateway.open(socket);
     session.handle({ t: "move_unit", id: 1, mapKey: MAP_KEY, unitId: 2, x: 20 * 1024, y: 20 * 1024 });
     session.handle({ t: "dev_spawn_units", id: 2, mapKey: MAP_KEY, count: 2 });
+    session.handle({ t: "move_unit", id: 3, mapKey: MAP_KEY, unitId: 3, x: 20 * 1024, y: 20 * 1024 });
     await vi.advanceTimersByTimeAsync(0);
     expect(results(socket.received)).toEqual([
       { t: "result", id: 1, ok: false, code: "forbidden" },
       { t: "result", id: 2, ok: false, code: "forbidden" },
+      { t: "result", id: 3, ok: false, code: "forbidden" },
     ]);
     const own = map.moveUnit(1, { x: 20 * 1024 + 512, y: 10 * 1024 + 512 });
     await vi.advanceTimersByTimeAsync(0);

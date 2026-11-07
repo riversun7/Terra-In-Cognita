@@ -3,8 +3,8 @@
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다(잔고·재료·조각을 차례로 본다).
 // - 사용자별 속도 제한(순간 20번, 분당 60번 — 유전자 명령이 더해져 보유 물건 순간 20과 맞춤). 밀린 요청이 MAX_PENDING을 넘으면 busy.
 //   세계가 아직 없으면 busy.
-// - 개발 시험(dev_grant_goods·dev_grant_gene·dev_expire_unit)과 인큐베이터(gene_incubate — 팩에 인큐베이터 시설이 아직 없다)는 dev·admin
-//   (secondMap dev-spawn — 보유 물건 dev_grant_item과 같은 권한).
+// - 개발 시험(dev_grant_goods·dev_grant_gene·dev_expire_unit)과 연구소 칸이 없는 인큐베이터(gene_incubate 개발 시험)는 dev·admin
+//   (secondMap dev-spawn — 보유 물건 dev_grant_item과 같은 권한). 연구소 칸이 있는 인큐베이터(판 13, 기획 답 459 가)는 누구나.
 // - 판정·저장은 서비스(service.ts)가 한다.
 import { type ClientMessageOf, type FusionResultCode, encodeMessage } from "@terra/protocol";
 import { rolesAllow } from "../auth/permissions.ts";
@@ -75,7 +75,13 @@ async function run(service: FusionService, viewer: Viewer, message: FusionClient
     case "gene_inject":
       return service.inject(viewer.id, { gene: message.gene, unit: message.unit });
     case "gene_incubate":
-      // 인큐베이터 시설이 팩에 아직 없어 개발 시험으로만 연다(시설 줄기에서 플레이어 명령으로)
+      // 생명과학 연구소에서는 누구나(기획 답 459 가). 연구소 칸이 없으면 개발 시험(사이보그 둘레·값 없음)
+      if (message.buildingId !== undefined && message.cost !== undefined)
+        return service.incubate(viewer.id, {
+          gene: message.gene,
+          apply: message.apply,
+          lab: { buildingId: message.buildingId, cost: message.cost },
+        });
       if (!canDevGrant(viewer)) return fail("forbidden");
       return service.incubate(viewer.id, { gene: message.gene, apply: message.apply });
     case "dev_grant_gene":

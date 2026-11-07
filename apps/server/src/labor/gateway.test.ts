@@ -17,6 +17,7 @@ function fakeService(calls: string[]): LaborService {
     outputsFor: () => undefined,
     afterSettle: () => {},
     unitBusy: () => false,
+    unitAway: () => false,
     buildingInUse: () => false,
     create: (userId, input) => {
       calls.push(

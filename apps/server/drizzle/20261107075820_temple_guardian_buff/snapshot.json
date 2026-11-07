@@ -1,0 +1,77 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "b1011e2c-efc6-40b8-9f16-da60338cc551",
+  "prevIds": [
+    "94eafeb7-f764-4dac-9656-7b45ba06484b",
+    "5c45c76e-d1a3-45ff-b3a1-a773751f3458"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "temple_guardians",
+        "buff"
+      ],
+      "writes": [
+        "s|col|public.temple_guardians.buff",
+        "n|col|public.temple_guardians.buff",
+        "e|col|public.temple_guardians.buff"
+      ],
+      "reads": [
+        "n|tbl|public.temple_guardians",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "temple_guardians"
+      ],
+      "writes": [
+        "s|ck|public.temple_guardians.temple_guardians_buff",
+        "n|ck|public.temple_guardians.temple_guardians_buff",
+        "e|ck|public.temple_guardians.temple_guardians_buff",
+        "n|con|public.temple_guardians.temple_guardians_buff"
+      ],
+      "reads": [
+        "n|tbl|public.temple_guardians",
+        "n|sch|public",
+        "n|col|public.temple_guardians.buff"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "buff",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'defense'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "temple_guardians_buff",
+        "value": "\"buff\" in ('defense', 'satisfaction', 'production')",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

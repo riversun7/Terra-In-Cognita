@@ -2,7 +2,8 @@
 // D-517(수명이 다한 유저 휴먼은 비활성 — 신전에서 환생·신격화하거나 생명과학 연구소에서 유전자로 변환, 유전자 변환은 fusion.ts gene_convert),
 // docs/adr/2026-11-07-temple-religion.md.
 // - 바꾸는 명령: 기도(temple_pray: 쿨다운마다 내 사이보그·휴먼 신앙도 +), 헌금(temple_offer: 화폐 → 신앙도 +), 의식(temple_rite: 비활성인
-//   내 휴먼을 환생 또는 신격화), 개발 시험 비활성 만들기(dev_inactivate_unit). 조회(신전·연구소·내 휴먼 신앙도·비활성·수호신)는 tRPC
+//   내 휴먼을 환생 또는 신격화 — 신격화하면 같은 유닛이 수호신 유닛이 되어 그 도시에 남는다, 기획 답 456 가), 개발 시험 비활성 만들기
+//   (dev_inactivate_unit), 개발 편집 수호신 버프 바꾸기(dev_guardian_buff, 판 13). 조회(신전·연구소·내 휴먼 신앙도·비활성·수호신)는 tRPC
 //   temple.overview다.
 // - 기기는 본 값(의식 화폐)을 함께 보낸다: 그 사이 설정 칸 값이 바뀌었으면 서버가 cost_changed로 거절한다.
 // - 서버가 판정한다: 신전(신앙 단계 시설·다 지음·30% 이상), 소유·종류·포로·비활성·선 도시·신앙도·잔고·도시당 수호신. 결과는 temple_result 하나.
@@ -11,8 +12,12 @@ import { z } from "zod";
 
 /** 신전 메시지에 필요한 가장 낮은 프로토콜 버전. 더 낮게 인사한 연결이 보내면 invalid_message로 거절한다 */
 export const TEMPLE_PROTOCOL_VERSION = 12;
+/** 개발 편집 수호신 버프 바꾸기(dev_guardian_buff, 기획 답 456 가)에 필요한 가장 낮은 프로토콜 버전 */
+export const GUARDIAN_BUFF_PROTOCOL_VERSION = 13;
 /** 신전 의식(환생·신격화) */
 export const TEMPLE_RITE_IDS = ["rebirth", "deify"] as const;
+/** 수호신 도시 버프 종류(수호신마다 편집기 칸, 출발값 방어 — 기획 답 456 가). 방어만 효과가 있다(만족도·생산은 확인 대기) */
+export const GUARDIAN_BUFF_IDS = ["defense", "satisfaction", "production"] as const;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -53,6 +58,14 @@ export const devInactivateUnitMessage = z.object({
   unit: rowId,
 });
 
+/** 개발 편집: 수호신 하나의 도시 버프 종류를 바꾼다(dev·admin, 누구의 수호신이든, 판 13) */
+export const devGuardianBuffMessage = z.object({
+  t: z.literal("dev_guardian_buff"),
+  id: requestId,
+  unit: rowId,
+  buff: z.enum(GUARDIAN_BUFF_IDS),
+});
+
 // ---------- 서버 → 기기 ----------
 
 /** 결과 코드. 화면 문구는 기기가 코드로 고른다 */
@@ -72,7 +85,7 @@ export const TEMPLE_RESULT_CODES = [
   "temple_closed",
   /** 내 유닛이 아니거나 없다 */
   "unknown_unit",
-  /** 그 명령을 받을 수 없는 유닛 종류(내가 고용한 휴먼만) */
+  /** 그 명령을 받을 수 없는 유닛 종류(의식 = 내가 고용한 휴먼만, 버프 바꾸기 = 수호신만) */
   "wrong_kind",
   /** 잡힌 유닛(포로) */
   "captive",
@@ -120,5 +133,6 @@ export const templeClientMessages = [
   templeOfferMessage,
   templeRiteMessage,
   devInactivateUnitMessage,
+  devGuardianBuffMessage,
 ] as const;
 export const templeServerMessages = [templeResultMessage] as const;

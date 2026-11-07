@@ -1,5 +1,5 @@
-// 노동 계약 화면 자료(tRPC labor.overview) — docs/adr/2026-11-03-labor-contracts.md, 기획 D-479·49 N48
-// 바꾸는 명령(맺기·해지·보증금 채우기·임대료 정하기)은 WebSocket(@terra/protocol labor.ts)으로만 보낸다(AGENTS 4장).
+// 노동 계약 화면 자료(tRPC labor.overview·labor.jobs) — docs/adr/2026-11-03-labor-contracts.md, 기획 D-479·49 N48
+// 바꾸는 명령(맺기·해지·보증금 채우기·임대료 정하기·구인 내기·거두기·받기)은 WebSocket(@terra/protocol labor.ts)으로만 보낸다(AGENTS 4장).
 // 금액은 최소 단위 정수를 10진 글자로 보낸다(JSON에 BigInt가 없다). 시각은 서버 UTC ms.
 
 /** 10진 정수 글자(화폐 최소 단위) */
@@ -42,7 +42,54 @@ export interface LaborContractView {
   readonly paidTotal: LaborAmount;
   /** 마지막으로 정산한 시각(이 뒤의 지급은 아직 반영 전) */
   readonly settledAt: number;
+  /** 유예가 끝나 시설에 남은 임차인 물건이 시설 주인에게 넘어간 시각(기획 341, 시설 창고가 없어 기록만). 아니면 null */
+  readonly leftoversMovedAt: number | null;
 }
+
+/** 직무(서버 시설에 종류가 아직 없어 시험 채집 하나) */
+export type LaborJobKindView = "gather";
+
+/** 구인 게시 하나(시설 주인이 낸 일자리, 받으면 임금형 계약) */
+export interface LaborJobView {
+  readonly id: number;
+  readonly buildingId: number;
+  /** [임시] 시설에서 가장 가까운 도시(같은 2차맵) 번호. 없으면 null */
+  readonly cityId: number | null;
+  readonly job: LaborJobKindView;
+  /** 고용주 조정(N28, ‰) */
+  readonly adjustPm: number;
+  /** 기준 유닛이 받을 주기당 임금(효율 × 단가 × 조정) */
+  readonly wage: LaborAmount;
+  /** 한 명 받을 때 고용주가 넣는 보증금(임금 × 보증금 주기 수) */
+  readonly deposit: LaborAmount;
+  readonly slots: number;
+  readonly filled: number;
+  /** 계약 기간(시간). null = 기간 없음 */
+  readonly termHours: number | null;
+  readonly postedAt: number;
+  /** 내가 낸 게시 */
+  readonly own: boolean;
+}
+
+/** 구인 게시판에 열린 일자리가 있는 도시(거르기) */
+export interface LaborJobCityView {
+  readonly id: number;
+  readonly jobs: number;
+}
+
+/** labor.jobs — 남이 낸 열린 일자리(임금 높은 차례, 최대 LABOR_JOBS_LIMIT개) */
+export interface LaborJobsResponse {
+  readonly status: "ready" | "not_ready";
+  readonly generatedAt: number;
+  readonly jobs: readonly LaborJobView[];
+  /** 거르기에 맞는 일자리 수(목록 상한 전) */
+  readonly total: number;
+  /** 열린 일자리가 있는 도시(거르기 전, 번호 차례) */
+  readonly cities: readonly LaborJobCityView[];
+}
+
+/** 구인 게시판 한 번에 보내는 일자리 수 상한(화면 목록) */
+export const LABOR_JOBS_LIMIT = 50;
 
 /** 내 건물(시설) 또는 빌릴 수 있는 남의 건물 */
 export interface LaborBuildingView {
@@ -91,4 +138,6 @@ export interface LaborOverviewResponse {
   readonly contracts: readonly LaborContractView[];
   readonly buildings: readonly LaborBuildingView[];
   readonly units: readonly LaborUnitView[];
+  /** 내가 낸 열린 구인 게시 */
+  readonly jobs: readonly LaborJobView[];
 }

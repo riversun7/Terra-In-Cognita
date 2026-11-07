@@ -971,7 +971,7 @@ export const tuningRevision = pgTable(
 /** 개발자 도구 표(전투 실험실 프리셋·계산식 덮어쓰기 등)는 따로 둔다(이 파일 1,000줄 상한) */
 export { battleLabPresets, formulaOverrides } from "./devToolsSchema.ts";
 /** 노동 계약 표(docs/adr/2026-11-03-labor-contracts.md) */
-export { laborContracts, laborRents } from "./laborSchema.ts";
+export { laborContracts, laborPostings, laborRents } from "./laborSchema.ts";
 
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

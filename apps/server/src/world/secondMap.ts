@@ -254,8 +254,15 @@ export interface SecondMap {
   removeBuilding(buildingId: number): CommandResult;
   /** 건물 주인(노동 계약의 시설 주인). 건물이 없으면 undefined */
   buildingOwner(buildingId: number): number | null | undefined;
-  /** 모든 건물 ID와 주인(노동 계약 화면) */
-  forEachBuilding(visit: (building: { readonly id: number; readonly ownerId: number | null }) => void): void;
+  /** 모든 건물 ID·주인·기준 칸(노동 계약 화면, 구인 게시판의 가까운 도시) */
+  forEachBuilding(
+    visit: (building: {
+      readonly id: number;
+      readonly ownerId: number | null;
+      readonly x: number;
+      readonly y: number;
+    }) => void,
+  ): void;
   gauges(): { units: number; moving: number; planning: number };
   /** 유닛의 크기 등급·속도·지금 움직임·주인·상태·종류 코드(unitKinds.ts, 보유 물건 칸 배치가 읽는다) */
   unitInfo(unitId: number):
@@ -887,7 +894,13 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       return building ? building.ownerId : undefined;
     },
     forEachBuilding(visit) {
-      for (const building of buildings.values()) visit({ id: building.id, ownerId: building.ownerId });
+      for (const building of buildings.values())
+        visit({
+          id: building.id,
+          ownerId: building.ownerId,
+          x: building.placement.x,
+          y: building.placement.y,
+        });
     },
     removeBuilding(buildingId) {
       if (!buildings.has(buildingId)) return { ok: false, code: "unknown_building" };

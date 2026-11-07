@@ -1,6 +1,7 @@
-// 노동 계약 명령 (프로토콜 6에 더함) — docs/adr/2026-11-03-labor-contracts.md, 기획 D-479·49 N48
+// 노동 계약 명령 (프로토콜 7, 구인 게시는 8) — docs/adr/2026-11-03-labor-contracts.md, 기획 D-479·49 N48
 // - 바꾸는 명령: 맺기(labor_create: 임금형·임대형), 해지(labor_terminate), 임금형 보증금 채우기(labor_top_up),
-//   시설 임대료 정하기(labor_set_rent). 조회는 tRPC labor.overview다.
+//   시설 임대료 정하기(labor_set_rent). 구인 게시(판 8, 기획 338~342): 내기(labor_post_job), 거두기(labor_withdraw_job),
+//   받기(labor_accept_job = 남의 시설 일자리를 내 유닛으로 → 임금형 계약). 조회는 tRPC labor.overview·labor.jobs다.
 // - 서버가 판정한다: 소유(시설 주인·유닛 소유 주체), 임금(식 × 고용주 조정 범위), 보증금, 잔고. 기기는 결과만 보인다.
 // - 결과는 labor_result 하나로 온다(id = 요청 id). 오류는 문장이 아니라 코드다(기기가 번역).
 // - 금액은 10진 정수 글자다(화폐 최소 단위, BigInt). 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다.
@@ -12,6 +13,12 @@ import { z } from "zod";
  * 노동 계약 화면이 없는 6판 기기는 이 메시지를 보내지 않는다(ADR labor-contracts "프로토콜")
  */
 export const LABOR_PROTOCOL_VERSION = 7;
+
+/**
+ * 구인 게시 메시지(labor_post_job·labor_withdraw_job·labor_accept_job)에 필요한 가장 낮은 프로토콜 버전.
+ * 메시지를 더해 판을 올렸다(ADR 7). 7판 기기는 이 메시지를 보내지 않는다(그 기기는 새 결과 코드도 받지 않는다)
+ */
+export const LABOR_JOBS_PROTOCOL_VERSION = 8;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -63,6 +70,44 @@ export const laborSetRentMessage = z.object({
   rent: z.string().regex(/^(0|[1-9][0-9]{0,17})$/),
 });
 
+/**
+ * 구인 내기(판 8): 내 시설에 일자리를 낸다. 직무는 시설이 정한다(서버 시설은 아직 시험 채집 하나).
+ * adjustPm = 고용주 조정 ‰(N28 범위, 임금 = 받는 유닛의 효율 × 단가 × 조정), slots = 뽑을 자리 수, termHours = 계약 기간(선택).
+ * 그 시설에 열린 게시가 있으면 바꾼다(앞 게시는 거둠, 이미 맺은 계약은 그대로). 성공하면 labor_result.jobId
+ */
+export const laborPostJobMessage = z.object({
+  t: z.literal("labor_post_job"),
+  id: requestId,
+  buildingId: rowId,
+  adjustPm: z.number().int().min(0).max(100_000),
+  /** 입력 한도(게임 값 아님): 한 게시의 자리 1~100 */
+  slots: z.number().int().min(1).max(100),
+  termHours: z
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 365)
+    .optional(),
+});
+
+/** 구인 거두기(판 8, 낸 사람만). 더 받지 않을 뿐 이미 맺은 계약은 그대로다(옛 is_accepting_workers) */
+export const laborWithdrawJobMessage = z.object({
+  t: z.literal("labor_withdraw_job"),
+  id: requestId,
+  jobId: rowId,
+});
+
+/**
+ * 구인 받기(판 8): 남의 시설 일자리를 내 유닛으로 받는다 → 임금형 계약(고용주 = 시설 주인, 보증금은 그 지갑에서,
+ * 임금은 내 지갑으로). 성공하면 labor_result.contractId
+ */
+export const laborAcceptJobMessage = z.object({
+  t: z.literal("labor_accept_job"),
+  id: requestId,
+  jobId: rowId,
+  unitId: rowId,
+});
+
 // ---------- 서버 → 기기 ----------
 
 export const LABOR_RESULT_CODES = [
@@ -83,9 +128,13 @@ export const LABOR_RESULT_CODES = [
   "invalid_terms",
   /** 그 시설은 빌려주지 않는다(임대료 없음) */
   "not_for_lease",
-  /** 이미 끝났거나 그 명령을 받지 않는 상태 */
+  /** 이미 끝났거나 그 명령을 받지 않는 상태(유예 중인 계약은 손으로 끝내지 않는다) */
   "not_open",
   "internal_error",
+  /** (판 8) 그 구인은 없거나 이미 닫혔다(자리 다 참·거둠·시설 사라짐) */
+  "job_not_open",
+  /** (판 8) 시설 주인 잔고가 보증금보다 적어 받을 수 없다 */
+  "employer_insufficient_funds",
 ] as const;
 export type LaborResultCode = (typeof LABOR_RESULT_CODES)[number];
 
@@ -94,8 +143,10 @@ const laborResultMessage = z.discriminatedUnion("ok", [
     t: z.literal("labor_result"),
     id: requestId,
     ok: z.literal(true),
-    /** labor_create면 새 계약 ID */
+    /** labor_create·labor_accept_job이면 새 계약 ID */
     contractId: rowId.optional(),
+    /** labor_post_job이면 새 게시 ID */
+    jobId: rowId.optional(),
   }),
   z.object({
     t: z.literal("labor_result"),
@@ -110,5 +161,8 @@ export const laborClientMessages = [
   laborTerminateMessage,
   laborTopUpMessage,
   laborSetRentMessage,
+  laborPostJobMessage,
+  laborWithdrawJobMessage,
+  laborAcceptJobMessage,
 ] as const;
 export const laborServerMessages = [laborResultMessage] as const;

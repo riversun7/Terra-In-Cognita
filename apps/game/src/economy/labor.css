@@ -79,3 +79,53 @@
   flex-direction: column;
   gap: var(--space-1);
 }
+/* 구인 게시판·내 구인(LaborJobs.tsx): 칸 위 거르기 둘은 좁은 화면에서 세로, 넓으면 나란히. 줄은 글 + [받기]·[거두기] */
+.labor-board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block-start: var(--space-2);
+  border-block-start: var(--hairline) solid var(--color-border);
+}
+.labor-board p {
+  margin: 0;
+}
+.labor-board-pick {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+}
+@media (min-width: 40em) {
+  .labor-board-pick {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.labor-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.labor-job {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  min-inline-size: 0;
+}
+.labor-job-main {
+  display: flex;
+  flex: 1 1 12rem;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+.labor-job .button-small {
+  margin-inline-start: auto;
+}

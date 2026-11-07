@@ -1,0 +1,461 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "1d607d04-fa2a-47fa-b15d-a12363f74505",
+  "prevIds": [
+    "e49e9ee8-a467-4775-a74d-f7945b88f327",
+    "b17d251a-1f87-4356-a8f1-684f97df8766",
+    "1aec0a6f-79a7-4418-a66d-0acacc3e1408"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "labor_postings"
+      ],
+      "writes": [
+        "s|tbl|public.labor_postings",
+        "n|tbl|public.labor_postings",
+        "e|tbl|public.labor_postings",
+        "n|rel|public.labor_postings",
+        "n|type|public.labor_postings",
+        "n|rel|public.labor_postings_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "labor_contracts",
+        "leftovers_moved_at_ms"
+      ],
+      "writes": [
+        "s|col|public.labor_contracts.leftovers_moved_at_ms",
+        "n|col|public.labor_contracts.leftovers_moved_at_ms",
+        "e|col|public.labor_contracts.leftovers_moved_at_ms"
+      ],
+      "reads": [
+        "n|tbl|public.labor_contracts",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "labor_postings",
+        "labor_postings_building_idx"
+      ],
+      "writes": [
+        "s|idx|public.labor_postings_building_idx",
+        "n|idx|public.labor_postings_building_idx",
+        "e|idx|public.labor_postings_building_idx",
+        "n|rel|public.labor_postings_building_idx"
+      ],
+      "reads": [
+        "n|tbl|public.labor_postings",
+        "n|sch|public",
+        "n|col|public.labor_postings.building_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "labor_postings",
+        "labor_postings_owner_idx"
+      ],
+      "writes": [
+        "s|idx|public.labor_postings_owner_idx",
+        "n|idx|public.labor_postings_owner_idx",
+        "e|idx|public.labor_postings_owner_idx",
+        "n|rel|public.labor_postings_owner_idx"
+      ],
+      "reads": [
+        "n|tbl|public.labor_postings",
+        "n|sch|public",
+        "n|col|public.labor_postings.owner_id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "labor_contracts"
+      ],
+      "writes": [
+        "s|ck|public.labor_contracts.labor_contracts_leftovers",
+        "n|ck|public.labor_contracts.labor_contracts_leftovers",
+        "e|ck|public.labor_contracts.labor_contracts_leftovers",
+        "n|con|public.labor_contracts.labor_contracts_leftovers"
+      ],
+      "reads": [
+        "n|tbl|public.labor_contracts",
+        "n|sch|public",
+        "n|col|public.labor_contracts.leftovers_moved_at_ms",
+        "n|col|public.labor_contracts.state",
+        "n|col|public.labor_contracts.kind"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "labor_postings",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_contracts",
+        "name": "leftovers_moved_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "building_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "job",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "asset",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "adjust_pm",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "slots",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "filled",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "term_hours",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "state",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "posted_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "closed_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "labor_postings_building_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "building_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "labor_postings_owner_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "owner_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "labor_postings_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_contracts",
+        "name": "labor_contracts_leftovers",
+        "value": "\"leftovers_moved_at_ms\" is null or (\"state\" = 'ended' and \"kind\" = 'lease')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "labor_postings_job",
+        "value": "\"job\" in ('gather')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "labor_postings_state",
+        "value": "\"state\" in ('open', 'filled', 'withdrawn', 'gone')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "labor_postings_counts",
+        "value": "\"slots\" > 0 and \"filled\" >= 0 and \"filled\" <= \"slots\" and \"adjust_pm\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "labor_postings_term",
+        "value": "\"term_hours\" is null or \"term_hours\" > 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "labor_postings_closed",
+        "value": "(\"state\" = 'open') = (\"closed_at_ms\" is null)",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "labor_postings",
+        "name": "labor_postings_asset_format",
+        "value": "\"asset\" ~ '^[a-z][a-z0-9_]{1,47}$'",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

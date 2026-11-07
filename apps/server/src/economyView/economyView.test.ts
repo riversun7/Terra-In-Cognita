@@ -258,5 +258,22 @@ describe("holdingsFromAccounts", () => {
       ["101", "warehouse", 1],
     ]);
     expect(places[2]?.lines[0]).toMatchObject({ item: "grain", qty: "40", locked: "0" });
+    expect(places.map((place) => place.name)).toEqual([null, null, null]);
+  });
+
+  it('도시 창고 곳의 이름 = 도시 이름(이름 없는 도시는 null — 화면이 "창고 #ID")', () => {
+    const { places } = holdingsFromAccounts(
+      [
+        { asset: "item:grain", location: 101, balance: 40n },
+        { asset: "item:grain", location: 102, balance: 1n },
+        { asset: "item:iron_ore", location: -12, balance: 3n },
+      ],
+      (cityId) => (cityId === 101 ? "Verdane" : undefined),
+    );
+    expect(places.map((place) => [place.id, place.name])).toEqual([
+      ["101", "Verdane"],
+      ["102", null],
+      ["cargo_12", null],
+    ]);
   });
 });

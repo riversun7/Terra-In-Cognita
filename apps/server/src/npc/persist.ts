@@ -2,13 +2,15 @@
 // 거울 세계(SimWorld)를 마지막으로 저장한 모습과 견줘 바뀐 것만 월드 쓰기 대기열에 넣고, 2차맵 유닛(출생·사망·주인)을 맞춘다.
 // - 세력 ID(거울) = 소유 주체 ID. 세력 행 ID와는 rowOf로 잇는다. 새 세력은 예비 세력 행(이미 DB에 있음)을 받아 동기로 ID를 얻는다
 //   → 같은 처리에서 생긴 원장 계정이 소유 주체를 가리켜도 외래 키가 깨지지 않는다. 예비 행은 처리 뒤 채운다(refillSpares).
-// - 새 도시(마을)는 부모 도시 둘레의 빈 자리에 둔다. 구인(D-469, 출생 없음) = 그 도시 둘레에 봇을 세움(레벨·스탯·속성은 휴먼 행),
+// - 새 도시(마을)는 부모 도시 둘레의 빈 자리에 두고, 주인이 따르는 나라의 도시 이름 목록에서 이름을 붙인다(기획 답 601 나 — 도시 줄 다음
+//   이름 칸만 쓰는 cityNames 몫). 구인(D-469, 출생 없음) = 그 도시 둘레에 봇을 세움(레벨·스탯·속성은 휴먼 행),
 //   사망 = 휴먼 행·유닛을 지움. 도시 주인이 산 구인 카드 칸은 recruit_draws(고용 주체 = 세력 소유 주체)에 쓴다.
 // - 정원사(docs/adr/2026-11-01-gardener-r5b.md 5절): 바뀐 칸 오염(0이 되면 지움), 웨이브 줄(예고·전투 ID·결과·종류·보상), 도시 쉬는 시간,
 //   npc_society.gardener(모함 칸·유목 부대·세력마다 관계도·명성). 폐허가 된 도시는 도시 행을 지우고(휴먼을 먼저 옮긴 같은 묶음), 노숙 휴먼은 city_id null.
 // - 폐허·복원 사업(docs/adr/2026-11-07-ruins-restoration.md)은 ruinsPersist.ts: 폐허 줄·낸 값, 복원하면 같은 ID 도시 행을 다시 쓴다.
 import { HOMELESS, type SimFaction, type SimWorld, recruitElementSlots, traitsToArray } from "@terra/sim";
 import { type ServerGardener, storedGardenerOf } from "./gardener.ts";
+import { nextCityName } from "./nations.ts";
 import { createRuinsPersist } from "./ruinsPersist.ts";
 import type { QueryPool, OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
@@ -22,8 +24,8 @@ export interface CityPlace {
   readonly cellY: number;
   readonly foundedAtMs: number;
   /**
-   * 도시 이름(world_cities.name, 기획 답 510 다·552 다). 폐허가 되면 폐허 줄에 남기고, 복원되면 같은 ID 도시가 되찾는다. 켤 때 읽은 값이라
-   * 실행 중에 세운 마을은 다음 켤 때 이름이 붙는다
+   * 도시 이름(world_cities.name, 기획 답 510 다·552 다·601 나). 폐허가 되면 폐허 줄에 남기고, 복원되면 같은 ID 도시가 되찾는다. 켤 때 읽은
+   * 값이고, 실행 중에 세운 마을·이름 없이 복원된 도시는 처음 저장할 때 주인이 따르는 나라 목록에서 받는다(nameCity)
    */
   readonly name?: string | undefined;
 }
@@ -72,6 +74,13 @@ export interface NpcPersistOptions {
    * 동기 처리라 같은 커밋에 든다
    */
   readonly onCityOwner?: ((cityId: number, factionRowId: number) => void) | undefined;
+  /**
+   * 그 세력(거울 ID)이 따르는 나라의 도시 이름 목록(기획 답 601 나, nations.ts nationPresetOf). 실행 중에 세운 마을·이름 없이 복원된 도시가
+   * 처음 저장할 때 여기서 다음 이름을 받는다. 없거나 undefined면 이름 없이(화면은 "<국가> 도시 N")
+   */
+  readonly cityNamesOf?: ((ownerId: number) => readonly string[] | undefined) | undefined;
+  /** 그 행성 도시·폐허가 이미 쓴 이름(켤 때 DB에서 읽음, 새 이름을 붙이면 더한다). 없으면 자리(places)의 이름 */
+  readonly takenNames?: Set<string> | undefined;
 }
 
 export interface NpcPersist {
@@ -197,6 +206,26 @@ export function createNpcPersist(
     return out;
   };
 
+  /** 쓴 이름(새 이름이 겹치지 않게) */
+  const takenNames =
+    o.takenNames ?? new Set([...places.values()].flatMap((place) => (place.name ? [place.name] : [])));
+  /** 이름을 붙였지만 아직 도시 줄과 함께 쓰지 않은 도시 */
+  const pendingNames = new Set<number>();
+  /**
+   * 이름 없는 도시 자리에 그 주인이 따르는 나라 목록의 다음 이름을 붙인다(601 나, 목록을 다 쓰면 번호 — 552 다). 도시 줄을 쓸 때 이름 칸도
+   * 쓴다(saveCity). 이미 이름이 있거나 따르는 나라가 없으면 그대로
+   */
+  const nameCity = (cityId: number): void => {
+    const place = places.get(cityId);
+    const city = world.cities.get(cityId);
+    if (!place || !city || place.name !== undefined) return;
+    const name = nextCityName(o.cityNamesOf?.(city.owner), takenNames);
+    if (name === undefined) return;
+    takenNames.add(name);
+    places.set(cityId, { ...place, name });
+    pendingNames.add(cityId);
+  };
+
   const mapOfCity = (cityId: number): SecondMap | undefined => {
     const place = places.get(cityId);
     return place ? maps.get(place.mapKey) : undefined;
@@ -241,7 +270,7 @@ export function createNpcPersist(
         };
       }
     }
-    // 자리가 없으면 부모 도시 자리에(이름은 물려받지 않는다 — 다음 켤 때 붙는다)
+    // 자리가 없으면 부모 도시 자리에(이름은 물려받지 않는다 — saveCity가 새 이름을 붙인다)
     return { ...parentCity, foundedAtMs: o.now(), name: undefined };
   };
 
@@ -331,6 +360,8 @@ export function createNpcPersist(
       place = placeTown(id, city.owner);
       if (!place) return 0;
       places.set(id, place);
+      // 실행 중에 세운 마을: 주인이 따르는 나라 목록에서 이름(601 나)
+      nameCity(id);
     }
     const sig = citySig(id);
     if (savedCities.get(id) === sig) return 0;
@@ -353,14 +384,21 @@ export function createNpcPersist(
       admin_level: city.adminLevel,
     });
     savedCities.set(id, sig);
+    let rows = 1;
+    // 새로 붙인 이름: 도시 줄 다음 차례로 이름 칸만(도시 줄 쓰기는 이름 칸을 건드리지 않는다)
+    const name = places.get(id)?.name;
+    if (pendingNames.delete(id) && name !== undefined) {
+      writer.upsert("cityNames", { id, name });
+      rows += 1;
+    }
     // 주인이 바뀌었으면 그 도시의 영토 비콘도 넘어간다(D-512 335, 같은 묶음)
     if (savedOwners.get(id) !== factionRow) {
       if (savedOwners.has(id)) o.onCityOwner?.(id, factionRow);
       savedOwners.set(id, factionRow);
     }
-    return 1;
+    return rows;
   };
-  const ruins = createRuinsPersist({ world, writer, places, rowOf, saveCity });
+  const ruins = createRuinsPersist({ world, writer, places, rowOf, saveCity, nameCity });
 
   const insertSpareRow = async (): Promise<number> => {
     const found = await o.pool.query(

@@ -68,6 +68,10 @@ export interface EconomyWorldSource {
   accountsOf(ownerId: number): readonly EconomyAccountRow[];
   /** 실제 거래소·도시 생산 화면 자료(도시 경제가 돌 때만) */
   readonly market?: (() => MarketViews | undefined) | undefined;
+  /** 도시 이름(팩 도시 이름, 번역하지 않는다 D-476 — NPC 런타임 도시 자리). 없거나 이름 없는 도시는 undefined */
+  readonly cityName?: ((cityId: number) => string | undefined) | undefined;
+  /** 이름 있는 도시 모두(도시 ID 차례) */
+  readonly cityNames?: (() => readonly { readonly id: number; readonly name: string }[]) | undefined;
 }
 
 /** [임시] 남은 주문 한도(D-148·D-6034). 거래소 유닛 INT·WIS 식은 기획 Step 5 */
@@ -84,8 +88,11 @@ function holdingLine(row: EconomyAccountRow): HoldingLine {
   return { asset: row.asset, item, currency, qty: String(row.balance), locked: "0", spoilsAt: null };
 }
 
-/** 실제 원장 계정 → 지갑·곳(잔고 0은 뺀다) */
-export function holdingsFromAccounts(rows: readonly EconomyAccountRow[]): {
+/** 실제 원장 계정 → 지갑·곳(잔고 0은 뺀다). 도시 창고 곳의 이름 = 도시 이름(cityName, 없으면 null — 화면이 "창고 #ID") */
+export function holdingsFromAccounts(
+  rows: readonly EconomyAccountRow[],
+  cityName: (cityId: number) => string | undefined = () => undefined,
+): {
   wallet: HoldingLine[];
   places: HoldingPlace[];
 } {
@@ -110,7 +117,7 @@ export function holdingsFromAccounts(rows: readonly EconomyAccountRow[]): {
   const places = [...byPlace.entries()].map(([id, place]) => ({
     id,
     kind: place.kind,
-    name: null,
+    name: place.kind === "warehouse" ? (cityName(Number(id)) ?? null) : null,
     store: null,
     capacity: null,
     lines: place.lines,
@@ -244,6 +251,7 @@ export function createEconomyServices(options: {
 
   return {
     catalog: () => view().catalog,
+    cityNames: () => ({ cities: world?.cityNames?.() ?? [] }),
 
     async holdings(viewer: Viewer, query: EconomyQuery): Promise<EconomyHoldingsResponse> {
       const { catalog } = view();
@@ -251,7 +259,7 @@ export function createEconomyServices(options: {
       const real =
         owner === undefined
           ? { wallet: [], places: [] }
-          : holdingsFromAccounts(world?.accountsOf(owner) ?? []);
+          : holdingsFromAccounts(world?.accountsOf(owner) ?? [], world?.cityName);
       if (!query.preview) {
         return { ...head(query, true), hasOwner: owner !== undefined, ...real };
       }

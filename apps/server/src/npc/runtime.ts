@@ -37,6 +37,7 @@ import {
   type SimCity,
   type SimEvent,
   type SimFaction,
+  type SimHooks,
   type SimUnit,
   type SimWorld,
   type SocietyCoefficients,
@@ -65,6 +66,7 @@ import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
 import { type NpcEconomyInput, type ServerEconomy, startServerEconomy } from "./economy.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
+import { nationPresetOf } from "./nations.ts";
 import { type CityPlace, type NpcPersist, createNpcPersist } from "./persist.ts";
 import { type NpcRuinsInput, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsRuntime.ts";
 import { ruinsOf } from "./ruinsState.ts";
@@ -344,6 +346,29 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     },
     nextUnitId: o.nextUnitId,
   };
+  // 도시 이름(기획 답 601 나): 실행 중에 세운 마을은 주인이 따르는 나라(반란 부모 → 종주 → 태어날 때 부모)의 목록에서. 태어날 때 부모는
+  // 메모리만 든다(독립을 고른 새 가문 — 경제 고리 factionBorn이 채운다). 쓴 이름 = 그 행성 모든 도시·폐허 줄(띄우지 않은 2차맵도)
+  const bornOf = new Map<number, number>();
+  const presets = o.economy?.presets ?? [];
+  const takenNames = new Set(
+    [...state.cities, ...state.ruins].flatMap((row) => (row.name === null ? [] : [row.name])),
+  );
+  const cityNamesOf = (ownerId: number): readonly string[] | undefined =>
+    nationPresetOf(
+      ownerId,
+      (id) => {
+        const faction = factions.get(id);
+        return faction
+          ? {
+              code: faction.code,
+              rebelOf: faction.rebelOf,
+              overlord: faction.overlord,
+              bornOf: bornOf.get(id),
+            }
+          : undefined;
+      },
+      presets,
+    )?.cityNames;
   const persist = createNpcPersist(
     {
       world,
@@ -358,6 +383,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       planetId: o.planetId,
       gardener: () => gardenerRef.current,
       onCityOwner: o.onCityOwner,
+      cityNamesOf,
+      takenNames,
     },
     { rowOf, places, spares: state.spares },
   );
@@ -477,6 +504,16 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       })
     : undefined;
   econRef.current = econ;
+  // 사회·판단 고리 = 경제 고리 + 태어날 때 부모 적기(도시 이름, 위)
+  const hooks: SimHooks | undefined = econ
+    ? {
+        ...econ.hooks,
+        factionBorn: (child, parent) => {
+          bornOf.set(child.id, parent.id);
+          econ.hooks.factionBorn(child, parent);
+        },
+      }
+    : undefined;
   const ctx: NpcContext = {
     world,
     loop,
@@ -486,7 +523,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     settings: DEFAULT_SCENARIO_SOCIETY,
     trips: undefined,
     counts: emptyNpcCounts(),
-    hooks: econ?.hooks,
+    hooks,
   };
   ctxRef.ctx = ctx;
   const society = attachSociety(
@@ -495,7 +532,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       settings: DEFAULT_SCENARIO_SOCIETY,
       recorder,
       c,
-      hooks: econ?.hooks,
+      hooks,
       combat: undefined,
       scheduleFaction: (faction, nowMs) => scheduleDecide(ctx, faction, nowMs),
       scheduleUnit: () => {},

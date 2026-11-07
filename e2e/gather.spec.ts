@@ -7,10 +7,14 @@ import { expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
+const READY_MARKER = '.gather-marker[data-state="ready"]:not([hidden])';
+const BUILDING_MARKER = ".gather-building-marker:not([hidden])";
+
 /** tRPC 조회 하나(로그인한 이 화면의 쿠키로)의 data */
 async function trpcData(page: Page, procedure: string): Promise<unknown> {
   return page.evaluate(async (name) => {
     const response: unknown = await fetch(`/api/trpc/${name}`).then((reply) => reply.json());
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
     const pick = (value: unknown, key: string): unknown =>
       typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
     return pick(pick(response, "result"), "data");
@@ -40,14 +44,41 @@ async function openMap(page: Page): Promise<void> {
       timeout: 30_000,
     })
     .toBeGreaterThan(0);
-  await expect(page.locator('.gather-marker[data-state="ready"]:not([hidden])').first()).toBeVisible({
-    timeout: 20_000,
-  });
+  await expect(page.locator(READY_MARKER).first()).toBeVisible({ timeout: 20_000 });
 }
 
-/** 화면 가운데에 가장 가까운 채집할 수 있는 오브젝트 판을 연다 */
+/**
+ * 위·아래 판(HUD)에 가리지 않은 표시 가운데 화면 가운데에 가장 가까운 것을 누른다(표시는 가운데에 가까운 차례로 놓인다).
+ * 가리지 않은 것이 없으면 false
+ */
+async function clickFreeMarker(page: Page, selector: string): Promise<boolean> {
+  const index = await page.locator(selector).evaluateAll((elements) =>
+    elements.findIndex((element) => {
+      const box = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+      return hit !== null && (hit === element || element.contains(hit));
+    }),
+  );
+  if (index < 0) return false;
+  await page.locator(selector).nth(index).click();
+  return true;
+}
+
+/**
+ * 화면 가운데에 가장 가까운(판에 가리지 않은) 채집할 수 있는 오브젝트 판을 연다. 둘레(시작 도시 초지)에 오브젝트가 드물어 판에 가린 것뿐이면
+ * 휠로 조금씩 멀리 본다(헤드리스 휠 이벤트는 합쳐지므로 단계마다 띄운다)
+ */
 async function openObjectSheet(page: Page): Promise<void> {
-  await page.locator('.gather-marker[data-state="ready"]:not([hidden])').first().click();
+  const size = page.viewportSize() ?? { width: 390, height: 844 };
+  let opened = false;
+  for (let step = 0; step < 8 && !opened; step++) {
+    opened = await clickFreeMarker(page, READY_MARKER);
+    if (opened) break;
+    await page.mouse.move(size.width / 2, size.height / 2);
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(400);
+  }
+  expect(opened).toBe(true);
   await expect(page.locator(".gather-sheet[data-object]")).toBeVisible();
 }
 
@@ -84,9 +115,8 @@ test.describe("원자재 오브젝트 채집·건물 들어가기: 플레이어"
     expect(await myLoop(page)).toEqual({ phase: "done", stop: "stopped" });
 
     // 건물 표시(시작 도시의 시설) → 건물 판: 들어가면 하는 일·안에 있는 유닛·[들어가기]
-    const building = page.locator(".gather-building-marker:not([hidden])").first();
-    await expect(building).toBeVisible({ timeout: 15_000 });
-    await building.click();
+    await expect(page.locator(BUILDING_MARKER).first()).toBeVisible({ timeout: 15_000 });
+    await expect.poll(() => clickFreeMarker(page, BUILDING_MARKER), { timeout: 15_000 }).toBe(true);
     const buildingSheet = page.locator(".gather-sheet[data-building]");
     await expect(buildingSheet).toBeVisible();
     await expect(buildingSheet.locator(".gather-inside-title")).toBeVisible({ timeout: 10_000 });
@@ -122,9 +152,7 @@ test.describe("채집 사진", () => {
           await shot(page, `gather-loop-390-${theme}-${language}`);
           await loop.locator(".gather-stop").click();
           await expect(loop).toHaveAttribute("data-stop", "stopped", { timeout: 15_000 });
-          const building = page.locator(".gather-building-marker:not([hidden])").first();
-          if ((await building.count()) > 0) {
-            await building.click();
+          if (await clickFreeMarker(page, BUILDING_MARKER)) {
             await expect(page.locator(".gather-sheet[data-building] .gather-inside-title")).toBeVisible({
               timeout: 10_000,
             });

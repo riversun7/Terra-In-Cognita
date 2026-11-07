@@ -104,12 +104,7 @@ export interface NpcRuntimeOptions {
   readonly combatRules?: (() => CombatCoefficients) | undefined;
   /** 도시 주인이 바뀐 것을 저장할 때(영토 비콘이 도시를 따라간다, D-512 335) */
   readonly onCityOwner?: ((cityId: number, factionRowId: number) => void) | undefined;
-  /**
-   * 휴먼이 수명으로 죽었을 때(환생·신격화가 아닌 사망, 상속 뒤): 소유 주체(그 세력)에게 그 종의 유전자 조각을 준다
-   * (D-478, src/fusion/service.ts dropOnDeath). 같은 동기 처리 = 같은 저장 묶음
-   */
-  readonly onHumanDied?: ((ownerId: number, nowMs: number) => void) | undefined;
-  /** 막아 낸 도시 웨이브 보상 아이템(D-499: 팩 유전자 조각·크리쳐 재료, waveRewards.ts). 없으면 명성만 */
+  /** 막아 낸 도시 웨이브 보상 아이템(D-499: 팩 유전자·크리쳐 재료, waveRewards.ts). 없으면 명성만 */
   readonly waveRewardItems?: (() => WaveRewardItems) | undefined;
 }
 
@@ -464,7 +459,6 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       scheduleUnit: () => {},
       cancel: (eventId) => loop.cancel(eventId),
       restoreDay: restoredDay,
-      onDeath: o.onHumanDied ? (unit, nowMs) => o.onHumanDied?.(unit.owner, nowMs) : undefined,
     },
     startMs,
   );

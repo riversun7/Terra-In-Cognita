@@ -2401,8 +2401,8 @@
     {
       "id": "gene_stat_human",
       "name": {
-        "ko": "휴먼 스탯 유전자 조각",
-        "en": "Human stat gene shard"
+        "ko": "휴먼 스탯 유전자",
+        "en": "Human stat gene"
       },
       "category": "part",
       "subcategory": "gene",
@@ -2419,8 +2419,8 @@
     {
       "id": "gene_skill_human",
       "name": {
-        "ko": "휴먼 스킬 유전자 조각",
-        "en": "Human skill gene shard"
+        "ko": "휴먼 스킬 유전자",
+        "en": "Human skill gene"
       },
       "category": "part",
       "subcategory": "gene",
@@ -2429,15 +2429,16 @@
       "weight": 1,
       "gene": {
         "kind": "skill",
-        "species": "human"
+        "species": "human",
+        "drops": ["death"]
       },
       "enabled": true
     },
     {
       "id": "gene_stat_creature",
       "name": {
-        "ko": "크리쳐 스탯 유전자 조각",
-        "en": "Creature stat gene shard"
+        "ko": "크리쳐 스탯 유전자",
+        "en": "Creature stat gene"
       },
       "category": "part",
       "subcategory": "gene",
@@ -2454,8 +2455,8 @@
     {
       "id": "gene_skill_creature",
       "name": {
-        "ko": "크리쳐 스킬 유전자 조각",
-        "en": "Creature skill gene shard"
+        "ko": "크리쳐 스킬 유전자",
+        "en": "Creature skill gene"
       },
       "category": "part",
       "subcategory": "gene",
@@ -2464,7 +2465,8 @@
       "weight": 1,
       "gene": {
         "kind": "skill",
-        "species": "creature"
+        "species": "creature",
+        "drops": ["death"]
       },
       "enabled": true
     }

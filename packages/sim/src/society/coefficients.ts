@@ -57,8 +57,8 @@ export interface SocietyCoefficients {
    */
   readonly recruit: RecruitCoefficients;
   /**
-   * 사이보그 유닛 융합·유전자 조각(D-470·D-478·D-481, 49 N46·N47, 옛 craftCyborg·LifeEngine·reincarnate 값). 팩 tuning 경로 "fusion.*".
-   * 규칙은 society/fusion.ts. 시뮬은 읽지 않는다(서버 융합·환생·사망 조각이 읽는다)
+   * 사이보그 유닛 융합·유전자(D-470·D-478·D-481·D-516, 49 N46·N47, 옛 craftCyborg 값 + 유전자 합성·인큐베이터 [임시]). 팩 tuning 경로
+   * "fusion.*". 규칙은 society/fusion.ts·genes.ts. 시뮬은 읽지 않는다(서버 융합·유전자 명령이 읽는다)
    */
   readonly fusion: FusionCoefficients;
   /** 지상 기술 단계 상한(질문 121 기본안: 시설 Lv1~5 사다리) */

@@ -1,11 +1,11 @@
-// 유닛 화면 [융합] 칸 시험 — 사이보그 유닛 융합(D-470)·유전자 조각(D-478), docs/adr/2026-11-07-cyborg-fusion-genes.md.
+// 유닛 화면 [융합] 칸 시험 — 사이보그 유닛 융합(D-470)·유전자(D-478·D-516), docs/adr/2026-11-07-cyborg-fusion-genes.md.
 // - admin: [시험 재료 받기](화폐·티타늄 괴·마이크로칩) → /dev/recruit에서 가장 비싼 카드 고용(가장 싼 카드는 뒤에 도는 구인 시험
-//   recruit.spec.ts가 같은 창에서 산다) → [융합] 칸에 그 휴먼(지금 스탯·융합 뒤 범위)
-//   → [융합]하면 WebSocket cyborg_fuse가 성공하고 그 유닛이 "내 사이보그 유닛"으로 옮겨 간다, 유닛 목록 종류 거르기 "사이보그"에 보인다.
-//   [시험 유전자 조각 받기] → 휴먼 스탯 유전자 조각 수가 는다. 수명이 남은 휴먼의 [유전자 환생]은 막혀 있다.
-//   시험 재료는 두 번 받는다(구인 시험 recruit.spec.ts가 뒤에 admin 잔고로 카드를 사므로 화폐를 남긴다).
-// - player: [융합] 칸은 보이고(고용한 휴먼 없음 안내), 개발 받기 단추가 없다. tRPC fusion.overview는 200.
-// - 사진: 390·1440 × 파스텔·다크 × 한국어·영어(admin, E2E_SHOTS_DIR). 융합한 사이보그 유닛이 보이는 상태.
+//   recruit.spec.ts가 같은 창에서 산다) → [융합] 칸에 그 휴먼(지금 스탯·융합 뒤 범위·배운 스킬 없음, 유전자 환생 단추 없음)
+//   → [시험 스킬 유전자 받기] → 그 휴먼에게 [주입](배운 스킬 1/3) → [시험 스탯 유전자 받기] 둘 → 골라 [합성](하나가 된다)
+//   → [인큐베이터(주력)](새 휴먼) → 그 휴먼 [수명 끝내기(시험)](스탯 유전자를 남기고 떠난다) → 고용한 휴먼 [융합](사이보그 유닛),
+//   유닛 목록 종류 거르기 "사이보그"에 보인다. 시험 재료는 두 번 받는다(구인 시험이 뒤에 admin 잔고로 카드를 사므로 화폐를 남긴다).
+// - player: [융합] 칸은 보이고(고용한 휴먼·유전자 없음 안내), 개발 시험 단추가 없고 [합성]은 막혀 있다. tRPC fusion.overview는 200.
+// - 사진: 390·1440 × 파스텔·다크 × 한국어·영어(admin, E2E_SHOTS_DIR). 융합한 사이보그 유닛·유전자가 보이는 상태.
 // 복귀 요약은 띄우지 않는다(hideSummary).
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
@@ -48,18 +48,17 @@ async function openFusion(page: Page, language: Language = "ko"): Promise<void> 
 test.describe("관리자", () => {
   test.use({ account: "admin", ...VIEWPORTS.desktop });
 
-  test("시험 재료 → 휴먼 고용 → 융합하면 사이보그 유닛이 되고, 유전자 조각을 받는다", async ({
+  test("시험 재료 → 휴먼 고용 → 스킬 유전자 주입·스탯 유전자 합성·인큐베이터·수명 끝내기 → 융합하면 사이보그 유닛", async ({
     page,
     deviceErrors,
   }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
     await openFusion(page);
+    const success = page.locator(".message-success");
     const grant = page.getByRole("button", { name: message("ko", "fusion_dev_materials"), exact: true });
     for (let i = 0; i < 2; i++) {
       await grant.click();
-      await expect(page.locator(".message-success")).toContainText(message("ko", "fusion_dev_granted"), {
-        timeout: 20_000,
-      });
+      await expect(success).toContainText(message("ko", "fusion_dev_granted"), { timeout: 20_000 });
       await expect(grant).toBeEnabled();
     }
     const before = await trpcGet(page, "fusion.overview");
@@ -82,8 +81,8 @@ test.describe("관리자", () => {
       .nth(priciest.slot)
       .getByRole("button", { name: message("ko", "dev_recruit_hire"), exact: true })
       .click();
-    await expect(page.locator(".message-success")).toBeVisible({ timeout: 20_000 });
-    // [융합] 칸에 새 휴먼이 보인다
+    await expect(success).toBeVisible({ timeout: 20_000 });
+    // [융합] 칸에 새 휴먼이 보인다(지금 스탯·융합 뒤 범위, 배운 스킬 없음). 유전자 환생 단추는 없다(D-516)
     await openFusion(page);
     const after = await trpcGet(page, "fusion.overview");
     const fresh = list(field(after.data, "humans"))
@@ -93,20 +92,62 @@ test.describe("관리자", () => {
     const card = page.locator(`.fusion-card[data-unit="${String(fresh)}"]`);
     await expect(card).toBeVisible();
     await expect(card.locator(".fusion-stat-row")).toHaveCount(2);
-    // 수명이 남았으니 유전자 환생은 막혀 있다
-    await expect(card.locator(".fusion-rebirth")).toBeDisabled();
+    await expect(card.locator(".fusion-skills")).toContainText(
+      message("ko", "fusion_human_skills_none", { slots: 3 }),
+    );
+    await expect(page.locator(".fusion-rebirth")).toHaveCount(0);
+    // 스킬 유전자 받기 → 그 휴먼에게 주입 → 배운 스킬 1개
+    const skillGenes = page.locator('.fusion-gene[data-kind="skill"]');
+    const skillCount = await skillGenes.count();
+    await page.getByRole("button", { name: message("ko", "fusion_dev_skill_gene"), exact: true }).click();
+    await expect(skillGenes).toHaveCount(skillCount + 1, { timeout: 20_000 });
+    const newestSkill = skillGenes.last();
+    await newestSkill.locator("select").selectOption(String(fresh));
+    await newestSkill.locator(".fusion-inject").click();
+    await expect(success).toContainText(`#${String(fresh)}`, { timeout: 20_000 });
+    await expect(skillGenes).toHaveCount(skillCount);
+    await expect(card.locator(".fusion-skills")).toContainText("1/3");
+    // 스탯 유전자 둘 받기 → 둘 고르기 → 합성하면 하나가 된다(총합·칸 값·주력 칸)
+    const statGenes = page.locator('.fusion-gene[data-kind="stat"]');
+    const statCount = await statGenes.count();
+    const statGrant = page.getByRole("button", { name: message("ko", "fusion_dev_stat_gene"), exact: true });
+    for (let i = 1; i <= 2; i++) {
+      await statGrant.click();
+      await expect(statGenes).toHaveCount(statCount + i, { timeout: 20_000 });
+    }
+    await expect(statGenes.last().locator('.fusion-stat[data-main="true"]')).toHaveCount(1);
+    await statGenes.nth(statCount).locator(".fusion-pick input").check();
+    await statGenes
+      .nth(statCount + 1)
+      .locator(".fusion-pick input")
+      .check();
+    await page.locator(".fusion-synth-go").click();
+    const synthText = message("ko", "fusion_synth_done", { id: "@", total: "@", outcome: "@" });
+    await expect(success).toContainText(synthText.split("@")[0] ?? "", { timeout: 20_000 });
+    await expect(statGenes).toHaveCount(statCount + 1);
+    // 인큐베이터(주력): 그 유전자로 새 휴먼이 태어난다
+    const humansBefore = await page.locator(".fusion-card[data-unit]").count();
+    await statGenes.last().locator(".fusion-incubate-main").click();
+    const bornText = message("ko", "fusion_incubated", { id: "@" });
+    await expect(success).toContainText(bornText.split("@")[1] ?? "", { timeout: 20_000 });
+    await expect(page.locator(".fusion-card[data-unit]")).toHaveCount(humansBefore + 1);
+    await expect(statGenes).toHaveCount(statCount);
+    const overview = await trpcGet(page, "fusion.overview");
+    const born = list(field(overview.data, "humans"))
+      .map((h) => Number(field(h, "unitId")))
+      .find((id) => id !== fresh && !knownHumans.has(id));
+    if (born === undefined) throw new Error("incubated human not listed");
+    // 수명 끝내기(시험): 태어난 휴먼이 스탯 유전자를 남기고 떠난다
+    await page.locator(`.fusion-card[data-unit="${String(born)}"] .fusion-expire`).click();
+    await expect(success).toContainText(`#${String(born)}`, { timeout: 20_000 });
+    await expect(page.locator(`.fusion-card[data-unit="${String(born)}"]`)).toHaveCount(0);
+    await expect(statGenes).toHaveCount(statCount + 1);
+    await expect(statGenes.last()).toContainText(message("ko", "fusion_gene_from", { id: born, level: 1 }));
+    // 고용한 휴먼을 융합한다 → 내 사이보그 유닛(배운 스킬은 같은 유닛이라 남는다)
     await card.locator(".fusion-fuse").click();
-    await expect(page.locator(".message-success")).toContainText(`#${String(fresh)}`, { timeout: 20_000 });
+    await expect(success).toContainText(`#${String(fresh)}`, { timeout: 20_000 });
     await expect(page.locator(`.fusion-card[data-cyborg="${String(fresh)}"]`)).toBeVisible();
     await expect(page.locator(`.fusion-card[data-unit="${String(fresh)}"]`)).toHaveCount(0);
-    // 유전자 조각 받기 → 휴먼 스탯 유전자 수가 는다
-    const gene = page.locator('.fusion-gene[data-item="gene_stat_human"] .fusion-gene-qty');
-    const geneBefore = Number((await gene.textContent())?.replaceAll(",", "") ?? "0");
-    await page.getByRole("button", { name: message("ko", "fusion_dev_genes"), exact: true }).click();
-    await expect(page.locator(".message-success")).toContainText(message("ko", "fusion_dev_granted"), {
-      timeout: 20_000,
-    });
-    await expect(gene).toHaveText(new Intl.NumberFormat("ko").format(geneBefore + 5));
     // 유닛 목록 종류 거르기 "사이보그"에 융합한 유닛이 있다
     await tab(page, "units_tab_list").click();
     await page.getByLabel(message("ko", "units_filter_type")).selectOption("cyborg");
@@ -119,16 +160,20 @@ test.describe("관리자", () => {
 test.describe("플레이어", () => {
   test.use({ account: "player" });
 
-  test("[융합] 칸: 고용한 휴먼 없음 안내, 개발 받기 단추 없음, fusion.overview 200", async ({
+  test("[융합] 칸: 고용한 휴먼 없음 안내, 유전자 없음, 개발 시험 단추 없음, fusion.overview 200", async ({
     page,
     deviceErrors,
   }) => {
     await openFusion(page);
     await expect(page.getByText(message("ko", "fusion_humans_empty"))).toBeVisible();
+    await expect(page.getByText(message("ko", "fusion_genes_empty"))).toBeVisible();
     await expect(
       page.getByRole("button", { name: message("ko", "fusion_dev_materials"), exact: true }),
     ).toHaveCount(0);
-    await expect(page.locator('.fusion-gene[data-item="gene_stat_human"]')).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: message("ko", "fusion_dev_stat_gene"), exact: true }),
+    ).toHaveCount(0);
+    await expect(page.locator(".fusion-synth-go")).toBeDisabled();
     const overview = await trpcGet(page, "fusion.overview");
     expect(overview.status).toBe(200);
     expect(field(overview.data, "devGrant")).toBe(false);
@@ -138,7 +183,7 @@ test.describe("플레이어", () => {
   });
 });
 
-// 사진: 390·1440 × 파스텔·다크 × 한국어·영어(admin — 앞 시험이 만든 사이보그 유닛·유전자 조각이 보인다)
+// 사진: 390·1440 × 파스텔·다크 × 한국어·영어(admin — 앞 시험이 만든 사이보그 유닛·유전자가 보인다)
 for (const viewport of ["phone", "desktop"] as const) {
   for (const theme of ["pastel", "dark"] as const satisfies readonly Theme[]) {
     for (const language of ["ko", "en"] as const satisfies readonly Language[]) {

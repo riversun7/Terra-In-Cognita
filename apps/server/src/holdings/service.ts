@@ -77,6 +77,7 @@ export type {
   BattleUse,
   BattleUnitWear,
   BattleWearSummary,
+  GeneInput,
   HeldDef,
   HoldingContent,
   HoldingFailure,
@@ -91,7 +92,7 @@ export type {
 
 /** 팩 항목 → 보유 판정 칸 */
 export function heldDefOf(item: ItemEntry): HeldDef {
-  const { equip, perish, use } = item;
+  const { equip, perish, use, gene } = item;
   return {
     id: item.id,
     name: item.name,
@@ -100,6 +101,7 @@ export function heldDefOf(item: ItemEntry): HeldDef {
     tier: item.tier,
     ...(item.subcategory ? { subcategory: item.subcategory.id } : {}),
     ...(item.stackMax === undefined ? {} : { stackMax: item.stackMax }),
+    ...(gene ? { gene: { kind: gene.kind, species: gene.species.id } } : {}),
     ...(perish ? { perish: { shelfLifeMs: perish.shelfLifeMs, spoilsTo: perish.spoilsTo.id } } : {}),
     ...(use
       ? {
@@ -409,7 +411,8 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
       const def = map.items.get(input.item);
       if (!def?.enabled) return { ok: false, code: "unknown_item" };
       const kind = holdingKindOf(def);
-      if (kind === null) return { ok: false, code: "not_holdable" };
+      // 유전자는 값(총합·분포·속성·스킬)이 있어야 하므로 addGene으로만 생긴다(D-516)
+      if (kind === null || def.gene !== undefined) return { ok: false, code: "not_holdable" };
       const created: number[] = [];
       const base = {
         ownerId: input.ownerId,
@@ -472,6 +475,54 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
         left -= add;
       }
       return { ok: true, holdings: created };
+    },
+
+    addGene(input) {
+      const def = lookup().items.get(input.item);
+      if (!def?.enabled || def.gene?.kind !== input.gene.kind) return undefined;
+      const record: HoldingRecord = {
+        id: nextId(),
+        ownerId: input.ownerId,
+        itemId: input.item,
+        location: input.location,
+        slot: null,
+        quantity: 1,
+        stats: [],
+        scorePm: null,
+        durability: null,
+        maxDurability: null,
+        age: null,
+        createdAtMs: input.atMs,
+        source: input.source,
+        gene: input.gene,
+      };
+      holdings.set(record.id, record);
+      save(record);
+      return record.id;
+    },
+
+    geneOf(ownerId, holdingId) {
+      const record = owned(ownerId, holdingId);
+      return record?.gene ? record : undefined;
+    },
+
+    remove(holdingId) {
+      const record = holdings.get(holdingId);
+      if (!record) return false;
+      drop(record);
+      return true;
+    },
+
+    moveCarried(unitId, location) {
+      let moved = 0;
+      for (const record of [...holdings.values()].toSorted(byId)) {
+        if (record.location !== carriedBy(unitId)) continue;
+        record.location = location;
+        record.slot = null;
+        save(record);
+        moved += 1;
+      }
+      return moved;
     },
 
     equip(ownerId, holdingId, slot) {

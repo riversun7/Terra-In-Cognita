@@ -1,17 +1,14 @@
-// 사이보그 유닛 융합·유전자 조각 규칙 시험(society/fusion.ts, docs/adr/2026-11-07-cyborg-fusion-genes.md) — 옛 craftCyborg·reincarnate 값
+// 사이보그 유닛 융합·유전자 아이템 규칙 시험(society/fusion.ts, docs/adr/2026-11-07-cyborg-fusion-genes.md) — 옛 craftCyborg 값
 import { createRng } from "@terra/shared";
 import { describe, expect, it } from "vitest";
 import {
   OLD_FUSION_COEFFICIENTS as C,
   type GeneItem,
-  deathGeneDrops,
   fuseStatRange,
   fuseStats,
   fusionBonusPm,
-  geneRebirthBonus,
-  geneRebirthCost,
+  geneItemOf,
   partsDonorStats,
-  rebirthGeneOf,
   sixStats,
   upkeepWeightPm,
 } from "./fusion.ts";
@@ -62,38 +59,20 @@ describe("융합 스탯(옛 craftCyborg)", () => {
   });
 });
 
-describe("유전자 조각(옛 LifeEngine·reincarnate)", () => {
-  it("환생 조각 수 = max(1, ⌈레벨 ÷ 10⌉)", () => {
-    expect(geneRebirthCost(1, C)).toBe(1);
-    expect(geneRebirthCost(10, C)).toBe(1);
-    expect(geneRebirthCost(11, C)).toBe(2);
-    expect(geneRebirthCost(50, C)).toBe(5);
-    expect(geneRebirthCost(0, C)).toBe(1);
-    expect(geneRebirthCost(25, { ...C, geneLevelDivisor: 0, geneMin: 3 })).toBe(25);
-  });
-
-  it("조각 1개마다 무작위 칸 하나에 +1, 더한 합 = 조각 수, 같은 시드면 같다", () => {
-    const result = geneRebirthBonus([10, 10, 10, 10, 10, 10], 5, createRng(42), C);
-    expect(result.bonus.reduce((a, b) => a + b, 0)).toBe(5);
-    expect(result.stats.reduce((a, b) => a + b, 0)).toBe(65);
-    expect(result).toEqual(geneRebirthBonus([10, 10, 10, 10, 10, 10], 5, createRng(42), C));
-    expect(geneRebirthBonus([1, 2, 3, 4, 5, 6], 0, createRng(1), C).stats).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(geneRebirthBonus([0, 0, 0, 0, 0, 0], 3, createRng(1), { ...C, genePoints: 2 }).bonus).toSatisfy(
-      (bonus: number[]) => bonus.reduce((a, b) => a + b, 0) === 6,
-    );
-  });
-
+describe("유전자 아이템·유지비", () => {
   const genes: GeneItem[] = [
     { item: "gene_stat_human", kind: "stat", species: "human", drops: ["death"] },
-    { item: "gene_skill_human", kind: "skill", species: "human", drops: [] },
+    { item: "gene_skill_human", kind: "skill", species: "human", drops: ["death"] },
+    { item: "gene_skill_creature", kind: "skill", species: "creature", drops: [] },
     { item: "gene_stat_creature", kind: "stat", species: "creature", drops: ["death"] },
   ];
 
-  it("사망 조각 = 그 종이고 얻는 길에 death가 있는 것, 환생 조각 = 그 종의 스탯 유전자", () => {
-    expect(deathGeneDrops(genes, "human")).toEqual(["gene_stat_human"]);
-    expect(deathGeneDrops(genes, "android")).toEqual([]);
-    expect(rebirthGeneOf(genes, "human")).toBe("gene_stat_human");
-    expect(rebirthGeneOf(genes, "cyborg")).toBeUndefined();
+  it("그 종·종류의 유전자 아이템, 얻는 길을 주면 그 길이 있는 것만", () => {
+    expect(geneItemOf(genes, "human", "stat", "death")).toBe("gene_stat_human");
+    expect(geneItemOf(genes, "human", "skill", "death")).toBe("gene_skill_human");
+    expect(geneItemOf(genes, "creature", "skill", "death")).toBeUndefined();
+    expect(geneItemOf(genes, "creature", "skill")).toBe("gene_skill_creature");
+    expect(geneItemOf(genes, "android", "stat")).toBeUndefined();
   });
 
   it("유지비 무게: 보통 유닛 1000‰, 사이보그 유닛 upkeepPm(출발값 3000‰)", () => {

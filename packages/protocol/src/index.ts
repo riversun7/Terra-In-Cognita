@@ -59,6 +59,9 @@ export {
   DEV_GRANT_GOODS_MAX,
   FUSION_PROTOCOL_VERSION,
   FUSION_RESULT_CODES,
+  GENE_APPLY_MODES,
+  GENE_OUTCOMES,
+  GENE_PROTOCOL_VERSION,
   type FusionResultCode,
 } from "./fusion.ts";
 export {

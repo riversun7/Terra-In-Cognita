@@ -25,7 +25,7 @@ describe("막아 낸 웨이브 보상(D-499)", () => {
     expect(items.materials).toEqual([]);
   });
 
-  it("보상 아이템을 그 소유 주체 장부에 시스템 발행으로 낸다(조각마다 reward.genes개), 기록에 양과 준 것", () => {
+  it("크리쳐 재료만 그 소유 주체 장부에 시스템 발행으로 낸다, 유전자는 인스턴스(D-516)라 양만 기록한다", () => {
     const ledger = createLedgerBook({ nextAccountId: counter(), nextTxId: counter() });
     const reward = waveReward("city", 15, TEST_GARDENER_COEFFICIENTS);
     const granted = grantWaveReward(
@@ -35,20 +35,14 @@ describe("막아 낸 웨이브 보상(D-499)", () => {
       { genes: ["gene_stat_creature"], materials: ["fake_hide"] },
       1000,
     );
-    expect(granted).toEqual([
-      { item: "fake_hide", quantity: 7 },
-      { item: "gene_stat_creature", quantity: 1 },
-    ]);
-    expect(ledger.balanceOf(42, "gene_stat_creature")).toBe(1n);
+    expect(granted).toEqual([{ item: "fake_hide", quantity: 7 }]);
+    expect(ledger.balanceOf(42, "gene_stat_creature")).toBe(0n);
     expect(ledger.balanceOf(42, "fake_hide")).toBe(7n);
     expect(JSON.parse(rewardRecordOf(reward, granted))).toEqual({
       renown: 150,
       genes: 1,
       materials: 7,
-      items: [
-        ["fake_hide", 7],
-        ["gene_stat_creature", 1],
-      ],
+      items: [["fake_hide", 7]],
     });
   });
 

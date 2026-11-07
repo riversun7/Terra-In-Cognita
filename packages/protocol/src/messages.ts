@@ -1,7 +1,7 @@
 // 메시지 정의 (Zod 스키마 = 런타임 검증 + 타입)
 // 2차맵 메시지(구독·명령·전송)는 secondMap.ts(프로토콜 2부터), 사이보그 만들기 메시지는 cyborg.ts(프로토콜 4부터),
 // 보유 물건 메시지는 items.ts(프로토콜 6부터), 영토 비콘 메시지는 territory.ts, 구인 카드 고용 메시지는 recruit.ts, 노동 계약 명령은
-// labor.ts(셋 다 프로토콜 7부터, 노동 계약의 구인 게시는 8부터), 사이보그 유닛 융합·유전자 환생은 fusion.ts(프로토콜 9부터),
+// labor.ts(셋 다 프로토콜 7부터, 노동 계약의 구인 게시는 8부터), 사이보그 유닛 융합은 fusion.ts(프로토콜 9부터, 유전자는 11부터),
 // 건물 짓기·수리 명령은 facilities.ts(프로토콜 10부터)에 있다.
 import { z } from "zod";
 import { cyborgClientMessages, cyborgServerMessages } from "./cyborg.ts";

@@ -31,11 +31,13 @@ export interface HoldableDef {
   readonly category: string;
   readonly perish?: { readonly shelfLifeMs: number; readonly spoilsTo: string } | undefined;
   readonly use?: unknown;
+  /** 유전자(팩 gene 칸): 하나하나 값이 다른 인스턴스(D-516) */
+  readonly gene?: unknown;
 }
 
-/** 보유 표에 두는 아이템인가, 둔다면 어떤 모양인가(아니면 null = 원장 물자) */
+/** 보유 표에 두는 아이템인가, 둔다면 어떤 모양인가(아니면 null = 원장 물자). 장비·유전자(D-516)는 하나하나 */
 export function holdingKindOf(def: HoldableDef): HoldingKind | null {
-  if (def.category === "equipment") return "instance";
+  if (def.category === "equipment" || def.gene !== undefined) return "instance";
   if (def.perish !== undefined) return "lot";
   if (def.use !== undefined) return "stack";
   return null;
@@ -44,9 +46,9 @@ export function holdingKindOf(def: HoldableDef): HoldingKind | null {
 /** stackMax가 없을 때 한 칸 상한(팩 스키마 상한과 같은 값, 기술 기본) */
 export const DEFAULT_STACK_MAX = 1_000_000;
 
-/** 한 칸에 쌓는 수(장비는 1) */
+/** 한 칸에 쌓는 수(장비·유전자는 1) */
 export function stackMaxOf(def: HoldableDef & { readonly stackMax?: number | undefined }): number {
-  if (def.category === "equipment") return 1;
+  if (def.category === "equipment" || def.gene !== undefined) return 1;
   return Math.max(1, def.stackMax ?? DEFAULT_STACK_MAX);
 }
 

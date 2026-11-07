@@ -7,10 +7,10 @@ import { MIN_SUPPORTED_PROTOCOL_VERSION, PROTOCOL_VERSION } from "./version.ts";
 const bad = (message: object) => JSON.stringify(message);
 
 describe("건물 메시지(프로토콜 10)", () => {
-  it("판 10부터, 최소 판 9", () => {
+  it("판 10부터(지금 판 11, 최소 판 10)", () => {
     expect(FACILITY_PROTOCOL_VERSION).toBe(10);
-    expect(PROTOCOL_VERSION).toBe(10);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(9);
+    expect(PROTOCOL_VERSION).toBe(11);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(10);
   });
 
   it("짓기·레벨업·수리·장비 수리·개발 명령·결과가 왕복한다", () => {

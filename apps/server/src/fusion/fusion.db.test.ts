@@ -1,11 +1,10 @@
-// 사이보그 유닛 융합·유전자 조각 DB 통합 시험(D-470·D-478, 49 N46·N47) — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
-// 융합(휴먼 + 화폐·재료 → 같은 유닛이 사이보그 유닛, 휴먼 행 지움·사이보그 유닛 행, 유지비 무게), 유전자 환생(수명이 다한 휴먼 +
-// 조각 → 레벨 1·수명 다시·환생 +1·스탯 +조각), 사망 조각(NPC 휴먼이 수명으로 죽으면 그 세력이 조각을 받는다)을 본다.
+// 사이보그 유닛 융합·유전자 DB 통합 시험(D-470·D-478·D-516, 49 N46·N47) — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
+// 융합(휴먼 + 화폐·재료 → 같은 유닛이 사이보그 유닛, 휴먼 행 지움·사이보그 유닛 행, 유지비 무게), 유전자(수명이 다한 유저 휴먼 → 스탯·스킬
+// 유전자 인스턴스·지닌 물건 옮김·유닛 떠남, 합성, 주입·스킬 칸, 인큐베이터)를 본다.
 import { loadContentPack } from "@terra/content/node";
 import {
   DAY_MS,
   OLD_FUSION_COEFFICIENTS,
-  TEST_SOCIETY_COEFFICIENTS,
   TEST_UPKEEP_PER_UNIT,
   UPKEEP_PERIOD_MS,
   fuseStats,
@@ -14,6 +13,8 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
+import { carriedBy } from "../holdings/state.ts";
+import { rosterCatalogOf } from "../roster/catalog.ts";
 import { createWorldRosterSource } from "../roster/worldUnits.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { silentLog } from "../world/testSupport.ts";
@@ -24,6 +25,7 @@ import { type World, type WorldConfig, startWorld } from "../world/world.ts";
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source) throw new Error("content pack");
 const pack = createContentEditState(loaded.source).effective();
+const rosterCatalog = rosterCatalogOf(loaded.source);
 
 let test: TestDatabase;
 const worlds: World[] = [];
@@ -233,93 +235,171 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 유닛 융합(D-470)", () => {
   });
 });
 
-describe.skipIf(!TEST_DATABASE_URL)("유전자 조각(D-478)", () => {
-  it("유전자 환생: 수명이 다한 휴먼 + 휴먼 스탯 유전자 max(1, ⌈레벨 ÷ 10⌉)개 → 레벨 1·수명 다시·환생 +1·스탯 +1", async () => {
-    const world = await boot();
+describe.skipIf(!TEST_DATABASE_URL)("유전자(D-478·D-516)", () => {
+  it("수명이 다하면(1분 처리) 스탯 유전자 1 + 배운 스킬마다 스킬 유전자, 지닌 물건은 본체로, 유닛은 떠난다, 다시 켜도 값이 남는다", async () => {
+    const world = await boot({ roster: () => rosterCatalog });
     const persistence = persistenceOf(world);
-    const { fusion, ledger } = persistence;
-    const { userId, ownerId, unitId, stats } = await withHuman(world, "GeneOne", 2_000n);
+    const { fusion, holdings } = persistence;
+    const { userId, ownerId, unitId, stats } = await withHuman(world, "GeneLife", 2_000n);
     const view = await fusion.overview({ id: userId, devGrant: true }, clock);
-    const human = view.humans[0];
-    expect(human?.rebirthShards).toBe(1);
-    expect(view.genes.map((g) => g.item)).toEqual([
-      "gene_skill_creature",
-      "gene_skill_human",
-      "gene_stat_creature",
-      "gene_stat_human",
-    ]);
-    expect(await fusion.rebirth(userId, { unit: unitId, shards: 1 })).toEqual({ ok: false, code: "alive" });
-    // 수명이 다하게(DB 행을 바로 고친다: 유저 휴먼의 수명은 서버가 아직 돌리지 않는다)
+    expect(view.humans.map((h) => [h.unitId, h.skills, h.skillSlots])).toEqual([[unitId, [], 3]]);
+    expect(view.genes).toEqual([]);
+    // 스킬 유전자 셋을 받아 둘을 주입한다(등급 1), 같은 스킬은 다시 못 배운다
+    const first = await fusion.devGrantGene(userId, { kind: "skill", skill: "fire_bolt" });
+    const second = await fusion.devGrantGene(userId, { kind: "skill", skill: "first_aid" });
+    const again = await fusion.devGrantGene(userId, { kind: "skill", skill: "fire_bolt" });
+    if (!first.ok || !second.ok || !again.ok || !first.gene || !second.gene || !again.gene)
+      throw new Error("dev gene");
+    expect(await fusion.inject(userId, { gene: first.gene, unit: unitId })).toEqual({
+      ok: true,
+      unitId,
+      skill: "fire_bolt",
+    });
+    expect(await fusion.inject(userId, { gene: second.gene, unit: unitId })).toMatchObject({ ok: true });
+    expect(await fusion.inject(userId, { gene: again.gene, unit: unitId })).toEqual({
+      ok: false,
+      code: "skill_known",
+    });
+    expect(await fusion.inject(userId, { gene: first.gene, unit: unitId })).toEqual({
+      ok: false,
+      code: "unknown_gene",
+    });
+    // 사람이 든 물건(보유 물건)
+    const carried = holdings.service.acquire({
+      ownerId,
+      item: "test_sword",
+      quantity: 1,
+      location: carriedBy(unitId),
+      source: "dev_grant",
+      atMs: clock,
+      seed: 3,
+    });
+    if (!carried.ok) throw new Error("acquire");
+    // 수명이 다하게(DB 행을 고친다) → 1분 처리
+    await persistence.writer.durable();
     await test.db.$client.query(
       `update world_humans set born_at_ms = $1, lifespan_ms = 1000 where unit_id = $2`,
       [clock - 10_000, unitId],
     );
-    expect(await fusion.rebirth(userId, { unit: unitId, shards: 1 })).toEqual({
-      ok: false,
-      code: "insufficient_genes",
-    });
-    expect(await fusion.rebirth(userId, { unit: unitId, shards: 2 })).toEqual({
-      ok: false,
-      code: "cost_changed",
-    });
-    expect(await fusion.devGrant(userId, { item: "gene_stat_human", quantity: 3 })).toEqual({ ok: true });
-    const reborn = await fusion.rebirth(userId, { unit: unitId, shards: 1 });
-    if (!reborn.ok || !reborn.stats) throw new Error("rebirth failed");
-    expect(reborn.shards).toBe(1);
-    expect(reborn.stats.reduce((a, b) => a + b, 0)).toBe(stats.reduce((a, b) => a + b, 0) + 1);
-    expect(ledger.balanceOf(ownerId, "gene_stat_human")).toBe(2n);
+    expect(await fusion.expireDue(clock)).toBe(1);
+    expect(await fusion.expireDue(clock)).toBe(0);
+    expect([...world.maps.values()].some((map) => map.unitInfo(unitId))).toBe(false);
     await persistence.writer.durable();
-    const saved = await rows<{
-      level: number;
-      rebirths: number;
-      born_at_ms: string;
-      lifespan_ms: string;
-      stats: number[];
-    }>(
-      test.db,
-      `select level, rebirths, born_at_ms, lifespan_ms, stats from world_humans where unit_id = $1`,
-      [unitId],
-    );
-    expect(Number(saved[0]?.level)).toBe(1);
-    expect(Number(saved[0]?.rebirths)).toBe(1);
-    expect(Number(saved[0]?.born_at_ms)).toBe(clock);
-    expect(Number(saved[0]?.lifespan_ms)).toBeGreaterThanOrEqual(TEST_SOCIETY_COEFFICIENTS.lifespanMinMs);
-    expect(saved[0]?.stats.map(Number)).toEqual(reborn.stats);
-    // 다시 수명이 생겼다
-    expect(await fusion.rebirth(userId, { unit: unitId, shards: 1 })).toEqual({ ok: false, code: "alive" });
-    const kind = await rows<{ kind: number }>(test.db, `select kind from world_units where id = $1`, [
-      unitId,
-    ]);
-    expect(Number(kind[0]?.kind)).toBe(UNIT_KIND_HUMAN);
+    expect(await rows(test.db, `select id from world_units where id = $1`, [unitId])).toEqual([]);
+    expect(await rows(test.db, `select unit_id from unit_skills where unit_id = $1`, [unitId])).toEqual([]);
+    const cyborgUnit = persistence.cyborgs.record(userId)?.unitId;
+    if (!cyborgUnit) throw new Error("cyborg unit");
+    const after = await fusion.overview({ id: userId, devGrant: true }, clock);
+    expect(after.humans).toEqual([]);
+    const stat = after.genes.find((g) => g.kind === "stat");
+    expect(stat).toMatchObject({
+      item: "gene_stat_human",
+      species: "human",
+      total: stats.reduce((a, b) => a + b, 0),
+      stats,
+      fromUnit: unitId,
+      level: 1,
+      generation: 0,
+      unit: cyborgUnit,
+    });
+    expect(stat?.dist?.reduce((a, b) => a + b, 0)).toBe(1000);
+    // 남은 스킬 유전자 = 배운 스킬 둘(그 유닛에서) + 주입하지 않은 하나(받은 그대로)
+    expect(
+      after.genes
+        .filter((g) => g.kind === "skill")
+        .map((g) => `${g.skill ?? ""}:${String(g.fromUnit)}`)
+        .toSorted(),
+    ).toEqual([`fire_bolt:${String(unitId)}`, "fire_bolt:null", `first_aid:${String(unitId)}`].toSorted());
+    // 들던 칼은 본체가 든다
+    const sword = holdings.service.list(ownerId, clock).holdings.find((h) => h.itemId === "test_sword");
+    expect(sword?.location).toBe(carriedBy(cyborgUnit));
+    expect(await world.checkInvariants()).toEqual([]);
+    // 다시 켜도 유전자 값이 남는다
+    await world.stop();
+    worlds.splice(worlds.indexOf(world), 1);
+    const reborn = await boot({ roster: () => rosterCatalog });
+    const reloaded = await persistenceOf(reborn).fusion.overview({ id: userId, devGrant: false }, clock);
+    expect(reloaded.genes.find((g) => g.kind === "stat")).toEqual(stat);
   });
 
-  it("사망 조각: NPC 휴먼이 수명으로 죽으면 그 세력이 휴먼 스탯 유전자 조각 1개씩을 받는다(원장에 저장)", async () => {
-    // 환생·신격화 0이면 모두 죽는다. 하루 끝(UTC 0시)을 지나게 시계를 맞춘다
-    clock = 1_800_000_000_000 - (1_800_000_000_000 % DAY_MS) + DAY_MS - 60_000;
-    const world = await boot({
-      cyborgRules: () => ({ ...TEST_SOCIETY_COEFFICIENTS, rebirthPm: 0, deifyPm: 0 }),
-    });
-    const npc = world.npc;
-    const persistence = persistenceOf(world);
-    if (!npc) throw new Error("npc runtime");
-    const owners = new Set([...npc.world.units.values()].map((unit) => unit.owner));
-    const humans = npc.world.units.size;
-    expect(humans).toBe(12);
-    for (const unit of npc.world.units.values()) unit.bornAtMs = clock - unit.lifespanMs - 1;
-    clock += 120_000;
-    await npc.tick();
-    await persistence.writer.durable();
-    expect(npc.world.units.size).toBe(0);
-    let total = 0n;
-    for (const owner of owners) total += persistence.ledger.balanceOf(owner, "gene_stat_human");
-    expect(total).toBe(BigInt(humans));
-    // 크리쳐 조각은 휴먼 죽음에서 나오지 않는다
-    for (const owner of owners) expect(persistence.ledger.balanceOf(owner, "gene_stat_creature")).toBe(0n);
-    const saved = await rows<{ total: string }>(
-      test.db,
-      `select coalesce(sum(balance), 0) as total from ledger_accounts where owner_id is not null and asset = 'gene_stat_human'`,
+  it("합성: 같은 종 스탯 유전자 둘 → 새 유전자 하나(총합 = 평균 ± 걸음, 세대 +1), 둘은 사라진다", async () => {
+    const world = await boot({ roster: () => rosterCatalog });
+    const { fusion } = persistenceOf(world);
+    const { userId } = await withHuman(world, "GeneSynth", 2_000n);
+    const made: number[] = [];
+    for (let i = 0; i < 2; i++) {
+      const granted = await fusion.devGrantGene(userId, { kind: "stat" });
+      if (!granted.ok || !granted.gene) throw new Error("dev gene");
+      made.push(granted.gene);
+    }
+    const skill = await fusion.devGrantGene(userId, { kind: "skill" });
+    if (!skill.ok || !skill.gene) throw new Error("dev skill gene");
+    const [a, b] = made;
+    if (a === undefined || b === undefined) throw new Error("genes");
+    const before = await fusion.overview({ id: userId, devGrant: true }, clock);
+    const totals = before.genes.filter((g) => g.kind === "stat").map((g) => g.total ?? 0);
+    const mean = Math.floor(((totals[0] ?? 0) + (totals[1] ?? 0)) / 2);
+    expect(await fusion.synthesize(userId, { a, b: a })).toEqual({ ok: false, code: "same_gene" });
+    expect(await fusion.synthesize(userId, { a, b: skill.gene })).toEqual({ ok: false, code: "wrong_gene" });
+    expect(await fusion.synthesize(userId, { a, b: 999_999 })).toEqual({ ok: false, code: "unknown_gene" });
+    const result = await fusion.synthesize(userId, { a, b });
+    if (!result.ok || result.gene === undefined || result.total === undefined) throw new Error("synth");
+    const step = Math.max(1, Math.floor((mean * OLD_FUSION_COEFFICIENTS.geneStepPm) / 1000));
+    expect(result.total).toBe(
+      result.outcome === "up" ? mean + step : result.outcome === "down" ? mean - step : mean,
     );
-    expect(Number(saved[0]?.total)).toBe(humans);
+    const after = await fusion.overview({ id: userId, devGrant: true }, clock);
+    const stats = after.genes.filter((g) => g.kind === "stat");
+    expect(stats.map((g) => [g.id, g.total, g.generation])).toEqual([[result.gene, result.total, 1]]);
+    expect(await world.checkInvariants()).toEqual([]);
+  });
+
+  it("인큐베이터: 휴먼 스탯 유전자 → 새 휴먼(주력 스탯 적용, 속성 = 유전자), 스킬 칸이 차면 주입 거절", async () => {
+    const world = await boot({ roster: () => rosterCatalog });
+    const persistence = persistenceOf(world);
+    const { fusion } = persistence;
+    const { userId, ownerId, unitId } = await withHuman(world, "GeneIncubate", 2_000n);
+    const granted = await fusion.devGrantGene(userId, { kind: "stat" });
+    if (!granted.ok || !granted.gene) throw new Error("dev gene");
+    const before = await fusion.overview({ id: userId, devGrant: true }, clock);
+    const gene = before.genes.find((g) => g.id === granted.gene);
+    const main = gene?.main ?? null;
+    if (!gene?.stats || main === null) throw new Error("gene view");
+    const born = await fusion.incubate(userId, { gene: granted.gene, apply: "main" });
+    if (!born.ok || !born.unitId || !born.stats) throw new Error("incubate");
+    const expected = gene.stats.map((value, index) => (index === main ? Math.max(10, value) : 10));
+    expect(born.stats).toEqual(expected);
+    const bornId = born.unitId;
+    const info = [...world.maps.values()].map((map) => map.unitInfo(bornId)).find((x) => x);
+    expect(info?.kind).toBe(UNIT_KIND_HUMAN);
+    expect(info?.ownerId).toBe(ownerId);
+    await persistence.writer.durable();
+    const saved = await rows<{ stats: number[]; elements: number[]; city_id: string | null }>(
+      test.db,
+      `select stats, elements, city_id from world_humans where unit_id = $1`,
+      [bornId],
+    );
+    expect(saved[0]?.stats.map(Number)).toEqual(expected);
+    expect(saved[0]?.elements.map(Number)).toEqual(gene.elements);
+    expect(saved[0]?.city_id).toBeNull();
+    const after = await fusion.overview({ id: userId, devGrant: true }, clock);
+    expect(after.genes.some((g) => g.id === granted.gene)).toBe(false);
+    expect(after.humans.map((h) => h.unitId).toSorted((x, y) => x - y)).toEqual([unitId, bornId]);
+    // 스킬 칸 3(팩 human skillSlots.base): 넷째는 no_skill_slot, 스탯 유전자는 주입 못 함
+    const results: string[] = [];
+    for (const skill of ["power_strike", "fire_bolt", "shock_bash", "war_cry"]) {
+      const one = await fusion.devGrantGene(userId, { kind: "skill", skill });
+      if (!one.ok || !one.gene) throw new Error("skill gene");
+      const injected = await fusion.inject(userId, { gene: one.gene, unit: unitId });
+      results.push(injected.ok ? "ok" : injected.code);
+    }
+    expect(results).toEqual(["ok", "ok", "ok", "no_skill_slot"]);
+    const statGene = await fusion.devGrantGene(userId, { kind: "stat" });
+    if (!statGene.ok || !statGene.gene) throw new Error("stat gene");
+    expect(await fusion.inject(userId, { gene: statGene.gene, unit: unitId })).toEqual({
+      ok: false,
+      code: "wrong_gene",
+    });
     expect(await world.checkInvariants()).toEqual([]);
   });
 });

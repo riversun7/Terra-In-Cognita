@@ -96,6 +96,38 @@
       "compensation": {
         "kind": "none"
       }
+    },
+    {
+      "category": "tuning",
+      "id": "n47_rebirth_divisor",
+      "since": 41,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "n47_rebirth_min",
+      "since": 41,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "n47_gene_points",
+      "since": 41,
+      "compensation": {
+        "kind": "none"
+      }
+    },
+    {
+      "category": "tuning",
+      "id": "n47_death_drop",
+      "since": 41,
+      "compensation": {
+        "kind": "none"
+      }
     }
   ]
 }

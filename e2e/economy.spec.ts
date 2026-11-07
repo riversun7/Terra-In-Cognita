@@ -94,7 +94,10 @@ test.describe("플레이어(실제 자료)", () => {
     await expect(economy(page).locator(".eco-fx-form .eco-row-meta").last()).toHaveText(
       message("ko", "fx_limit", { used: 1, max: 10 }),
     );
-    const withdraw = economy(page).getByRole("button", { name: message("ko", "fx_cancel"), exact: true });
+    // [거두기]의 읽는 이름은 "<화폐> 환전 주문 거두기"(fx_cancel_label)
+    const withdraw = economy(page).getByRole("button", {
+      name: new RegExp(`${message("ko", "fx_cancel")}$`),
+    });
     await expect(withdraw).toHaveCount(1);
     await withdraw.click();
     await expect(economy(page).getByText(message("ko", "fx_open_empty"))).toBeVisible();

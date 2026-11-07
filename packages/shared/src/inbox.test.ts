@@ -143,8 +143,8 @@ describe("전송 타입", () => {
     expect(response.items[0]?.count).toBe(6);
   });
 
-  it("summary.get 응답과 복귀 요약 칸 4종(D-6014)", () => {
-    expect(SUMMARY_SECTION_KINDS).toEqual(["production", "raid", "injury", "world_news"]);
+  it("summary.get 응답과 복귀 요약 칸 4종(D-6014) + 거래 칸(질문 538, WP6)", () => {
+    expect(SUMMARY_SECTION_KINDS).toEqual(["production", "raid", "injury", "world_news", "market"]);
     for (const kind of SUMMARY_SECTION_KINDS) expect(kind).toMatch(SAVED_ID_PATTERN);
     expect(isSummarySectionKind("raid")).toBe(true);
     expect(isSummarySectionKind("weather")).toBe(false);

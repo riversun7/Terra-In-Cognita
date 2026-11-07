@@ -176,7 +176,7 @@ describe("입은 장비 → 사이보그 화면(cyborg.get 몸)", () => {
     ]);
     // 2차 스탯도 깎인 1차로 센다(HP 행)
     const fresh = realCyborgBody(catalog, record, false);
-    const hp = (view: typeof body) => view.stats.secondary.find((row) => row.id === "hp")?.value ?? 0;
+    const hp = (view: typeof body) => view.stats.secondary.find((entry) => entry.id === "hp")?.value ?? 0;
     expect(hp(body)).toBeLessThan(hp(fresh));
     expect(hasGear({ ...NO_GEAR, injuryPm: 400 })).toBe(false);
   });

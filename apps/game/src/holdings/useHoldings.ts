@@ -56,6 +56,8 @@ export interface HoldingsController {
   readonly consume: (holding: HoldingView) => void;
   /** 개발 시험 받기(dev·admin). 성공하면 true */
   readonly grant: (item: string, quantity: number, unit: number | null, label: string) => Promise<boolean>;
+  /** 개발 시험 병원 치료(dev·admin, D-514): 부상을 지우고 HP를 가득. 성공하면 true */
+  readonly treat: (unit: number | null) => Promise<boolean>;
   readonly replace: ReplaceRequest | null;
   readonly confirmReplace: () => void;
   readonly cancelReplace: () => void;
@@ -175,6 +177,12 @@ export function useHoldings(): HoldingsController {
     [run],
   );
 
+  const treat = useCallback(
+    (unit: number | null) =>
+      run(-1, { t: "dev_treat_unit", ...(unit === null ? {} : { unit }) }, () => m.holdings_done_treat()),
+    [run],
+  );
+
   const confirmReplace = useCallback(() => {
     const request = replace;
     setReplace(null);
@@ -191,6 +199,7 @@ export function useHoldings(): HoldingsController {
     unequip,
     consume: useCallback((holding: HoldingView) => consumeHolding(holding, false), [consumeHolding]),
     grant,
+    treat,
     replace,
     confirmReplace,
     cancelReplace: useCallback(() => setReplace(null), []),

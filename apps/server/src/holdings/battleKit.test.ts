@@ -15,8 +15,9 @@ const MIN = 60_000;
 const OWNER = 7;
 const UNIT = 40;
 
+const noop = (_table: WorldTable, _row: Row): void => undefined;
+
 function fakeWriter(): WorldWriter {
-  const noop = (_table: WorldTable, _row: Row): void => undefined;
   return {
     upsert: noop,
     remove: noop,

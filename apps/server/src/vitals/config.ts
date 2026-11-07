@@ -34,7 +34,7 @@ export function vitalsBodyOf(
 
 export function vitalsConfigOf(
   roster: RosterCatalog | undefined,
-  tuning?: TuningState | undefined,
+  tuning?: TuningState,
 ): VitalsConfig | undefined {
   if (!roster) return undefined;
   return {

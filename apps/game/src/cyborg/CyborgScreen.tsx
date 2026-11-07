@@ -15,7 +15,6 @@
 // 지연 로딩 조각(routeViews.tsx). 그림·이 화면 코드는 첫 화면 묶음에 들어가지 않는다.
 import type { CyborgBody, CyborgGetResponse, RosterNames, RosterSlot } from "@terra/shared/roster";
 import type { HoldingsListResponse } from "@terra/shared/holdings";
-import type { VitalsSnapshot } from "@terra/shared/vitals";
 import { useEffect, useId, useRef } from "react";
 import { DevGrant } from "../holdings/DevGrant.tsx";
 import { SlotTileButton } from "../holdings/HoldingParts.tsx";
@@ -33,7 +32,7 @@ import { LoadState, Meter, PreviewTag, Section, SoonButton, slotValueText } from
 import { PreviewSwitch } from "../roster/PreviewSwitch.tsx";
 import { formatNumber, localName, slotLabel } from "../roster/rosterText.ts";
 import { loadCyborg, useRosterQuery } from "../roster/useRosterQuery.ts";
-import { useVitals } from "../roster/useVitals.ts";
+import { type VitalsShown, useVitals } from "../roster/useVitals.ts";
 import { VitalsMeters } from "../roster/VitalsMeters.tsx";
 import { CyborgAvatar } from "./CyborgAvatar.tsx";
 import { CombatSpecs } from "./CombatSpecs.tsx";
@@ -230,7 +229,7 @@ function Hero({
 }: {
   data: CyborgGetResponse;
   holdings: CyborgHoldings | null;
-  vitals: VitalsSnapshot | undefined;
+  vitals: VitalsShown | undefined;
 }) {
   const id = useId();
   const body = data.body;

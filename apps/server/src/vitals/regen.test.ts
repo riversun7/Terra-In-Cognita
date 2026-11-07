@@ -12,8 +12,9 @@ const T0 = 1_800_000_000_000;
 const MIN = 60_000;
 const UNIT = 40;
 
+const noop = (_table: WorldTable, _row: Row): void => undefined;
+
 function fakeWriter(): WorldWriter {
-  const noop = (_table: WorldTable, _row: Row): void => undefined;
   return {
     upsert: noop,
     remove: noop,

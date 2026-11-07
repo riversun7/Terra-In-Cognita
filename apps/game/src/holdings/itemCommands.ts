@@ -1,4 +1,4 @@
-// 보유 물건 명령(WebSocket, 프로토콜 6) — item_equip·item_unequip·item_use·dev_grant_item을 보내고 같은 요청 번호의 item_result를
+// 보유 물건 명령(WebSocket, 프로토콜 6) — item_equip·item_unequip·item_use·dev_grant_item·dev_treat_unit(9)을 보내고 같은 요청 번호의 item_result를
 // 기다린다. docs/adr/2026-11-03-item-holdings.md 5절. 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장).
 // - 연결이 아직 인사 전이면 인사가 끝날 때까지 기다렸다 보낸다. 기다림·답 모두 TIMEOUT_MS 안.
 // - 끊기면(down) 기다리던 명령은 "offline"으로 끝난다. 서버가 받았는지 모르므로 화면은 holdings.list를 다시 물어 확인한다.
@@ -11,7 +11,8 @@ export type ItemCommand =
   | Omit<ClientMessageOf<"item_equip">, "id">
   | Omit<ClientMessageOf<"item_unequip">, "id">
   | Omit<ClientMessageOf<"item_use">, "id">
-  | Omit<ClientMessageOf<"dev_grant_item">, "id">;
+  | Omit<ClientMessageOf<"dev_grant_item">, "id">
+  | Omit<ClientMessageOf<"dev_treat_unit">, "id">;
 
 /** 기기 쪽 실패(서버 코드 밖): 연결 끊김·답 없음 */
 export type ItemFailureCode = ItemResultCode | "offline" | "timeout";

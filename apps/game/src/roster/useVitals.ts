@@ -5,6 +5,7 @@
 import {
   type VitalsListResponse,
   type VitalsSnapshot,
+  type VitalsView,
   vitalsAt,
   vitalsNextChange,
 } from "@terra/shared/vitals";
@@ -22,11 +23,16 @@ const loadVitals = async (_preview: boolean, signal: AbortSignal): Promise<Recei
   return { ...data, receivedAt: Date.now() };
 };
 
+/** 화면에 보이는 생명 수치: 지금 값 + 부상(나을 시각이 지났으면 뺌, D-514 회복이 느림) */
+export interface VitalsShown extends VitalsSnapshot {
+  readonly injury?: VitalsView["injury"];
+}
+
 export interface VitalsNow {
   /** 세계 유닛의 지금 생명 수치(받지 못했거나 없는 유닛이면 undefined) */
-  readonly of: (unitId: number) => VitalsSnapshot | undefined;
+  readonly of: (unitId: number) => VitalsShown | undefined;
   /** 사이보그 본체의 지금 생명 수치 */
-  readonly cyborg: VitalsSnapshot | undefined;
+  readonly cyborg: VitalsShown | undefined;
   /** 다시 받기(회복 물약을 쓴 뒤 등) */
   readonly reload: () => void;
 }
@@ -73,11 +79,15 @@ export function useVitals(refreshOn?: unknown): VitalsNow {
   return useMemo(() => {
     const serverNow = clientNow + offset;
     const byUnit = new Map((data?.units ?? []).map((unit) => [unit.unit, unit]));
-    const of = (unitId: number): VitalsSnapshot | undefined => {
+    const shown = (view: VitalsView): VitalsShown => {
+      const now = vitalsAt(view, serverNow);
+      return view.injury && view.injury.until > serverNow ? { ...now, injury: view.injury } : now;
+    };
+    const of = (unitId: number): VitalsShown | undefined => {
       const found = byUnit.get(unitId);
-      return found ? vitalsAt(found, serverNow) : undefined;
+      return found ? shown(found) : undefined;
     };
     const cyborgView = data?.units.find((unit) => unit.cyborg);
-    return { of, cyborg: cyborgView ? vitalsAt(cyborgView, serverNow) : undefined, reload };
+    return { of, cyborg: cyborgView ? shown(cyborgView) : undefined, reload };
   }, [data, clientNow, offset, reload]);
 }

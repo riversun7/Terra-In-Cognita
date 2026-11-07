@@ -5,11 +5,14 @@
 // - 얻기(acquire): 실효 팩의 켜진 아이템만(끈 항목은 새로 나오지 않는다 D-398). 장비는 칸마다 굴림(N49 285: 굴린 값은 만들 때 정해짐),
 //   내구도 = 지금 정의의 최대 내구도. 신선도 묶음은 같은 숙성 상태끼리, 쌓이는 소모품은 같은 것끼리 stackMax까지 쌓는다.
 // - 입기(equip): 내구도 0이면 못 입는다(N49 286). 그 칸에 있던 것은 벗는다. 칸 종류·입을 수 있는 유닛 종류는 지금 정의를 읽는다.
-// - 쓰기(use): 효과량 = @terra/sim useAmountRange·rollUseAmount(D-501), 교체는 planEffects(같은 효과는 높은 것만, 다른 효과는 확인),
-//   수량 −1(0이면 칸을 지운다). 전투 중 회복(287)·자동 사용 판단식은 기획 질문이라 밖(전투 밖) 시간 버프만 건다.
-// - 썩기(spoilDue): 신선도 0이 된 묶음을 고른 아이템으로 바꾼다(사슬, 꺼진 대상이면 버림). 목록을 읽기 전과 타이머가 부른다.
-// - 탄약(spendAmmo)·수리(repair)는 고리다: 전투 판정이 원거리 타격 수를 알려 주면(다음 줄기) spendAmmo를 부른다. 탄약 보충(291·294)과
-//   수리 시설·장인·재료(D-5031)는 기획·시설 줄기에서 정해지면 부른다.
+// - 쓰기(use): 효과량 = @terra/sim useAmountRange·rollUseAmount(D-501) × 신선도(D-512 320, 신선도 묶음만), 교체는 planEffects(같은 효과는
+//   높은 것만, 다른 효과는 확인), 수량 −1(0이면 칸을 지운다). 전투 중 회복(287)·자동 사용 판단식은 기획 질문이라 밖(전투 밖) 시간 버프만
+//   건다. 버프 지속은 아이템 효과 줄의 편집기 값(1시간 상한 없음, D-512 328)이고 실제 시간으로 끝난다.
+// - 썩기(spoilDue): 신선도 0이 된 묶음을 고른 아이템으로 바꾼다(사슬, 꺼진 대상이면 버림). 목록을 읽기 전과 타이머가 부른다. 보존 배율은
+//   보관 곳마다 설정 칸(D-512 322: 유닛이 듦 ×1, 창고·냉장·절임·통조림·냉동·거래소 — 지금 서버의 보관 곳은 유닛·창고 둘뿐)이고 셀 때마다 읽는다.
+// - 전투 닳기(applyBattle): 퇴각한 유닛은 패배 닳음이 없다(D-512 324, D-190).
+// - 탄약(spendAmmo)·수리(repair)는 고리다: 전투 판정이 원거리 타격 수를 알려 주면(다음 줄기) spendAmmo를 부른다. 수리(D-512 323)는
+//   시설 수리 줄·장인 1차 스탯을 받아 끝까지 고치고 재료를 돌려준다(차감·장인 직무 시간은 시설 줄기).
 import type {
   EffectEntry,
   ItemEntry,
@@ -22,16 +25,28 @@ import {
   type ItemBuff,
   type IncomingEffect,
   type Primaries,
+  type PreserveTable,
+  type RepairMaterial,
+  type RepairRule,
   type SpoilDef,
   type StatRange,
+  type StatRow,
+  type StoragePlace,
   type HoldableDef,
+  type WearOutcome,
+  TEST_STAT_TABLE,
   battleWearAmount,
+  craftScore,
+  craftSkillPm,
+  planEquipmentRepair,
+  preservePmOf,
+  repairRuleFor,
+  storagePlaceOfLocation,
   belowPotionThreshold,
   holdingKindOf,
   pickPotion,
   planEffects,
   refillAmmo,
-  repairDurable,
   repairMaterialQty,
   rollHoldingStats,
   rollUseAmount,
@@ -117,10 +132,10 @@ export interface AcquireInput {
   readonly seed: number;
 }
 
-/** 전투 하나에서 유닛 하나(이긴 쪽인가) */
+/** 전투 하나에서 유닛 하나(이김·짐·퇴각 — 퇴각은 패배 닳음 없음, D-512 324) */
 export interface BattleUnitWear {
   readonly unit: number;
-  readonly won: boolean;
+  readonly outcome: WearOutcome;
 }
 
 export interface BattleWearSummary {
@@ -134,6 +149,13 @@ export interface RepairOutcome {
   readonly destroyed: boolean;
   readonly maxLoss: number;
   readonly restored: number;
+}
+
+/** 수리 한 번에 받는 것(D-512 323): 시설 Lv·그 시설의 수리 줄(팩 facilities repair)·일하는 장인의 1차 스탯 */
+export interface RepairInput {
+  readonly facilityLevel: number;
+  readonly rules: readonly RepairRule[];
+  readonly craftsman: Primaries;
 }
 
 export interface HoldingService {
@@ -161,8 +183,17 @@ export interface HoldingService {
    * 같은 유닛이 든 같은 탄약 종류(같은 아이템 먼저, 그다음 많이 남은 것)를 입는다(옛 BattleResult 자동 교체, D-501 294). 보충은 하지 않는다
    */
   spendAmmo(unitId: number, shots: number): { readonly spent: number; readonly replacedBy: number | null };
-  /** 수리 고리(D-5031·F11·F12): 시설 Lv·장인 실력‰. 파괴되면 내구도 0·벗김(분해만 가능) */
-  repair(holdingId: number, facilityLevel: number, skillPm: number): HoldingResult<RepairOutcome>;
+  /**
+   * 수리 고리(D-512 323·D-5031·F11·F12): 끝까지만 고친다. 그 시설의 수리 줄이 이 장비를 받지 않으면 wrong_slot. 장인 실력‰ = 제작 직무 점수 ÷
+   * 적정 점수(설정 칸 f11_craft_appropriate), 재료 = 줄의 기본 재료 × 티어 × 잃은 ÷ 최대(차감은 부르는 쪽, 수수료 없음). 파괴되면 내구도 0·벗김
+   * (분해만 가능)·재료 없음
+   */
+  repair(
+    holdingId: number,
+    input: RepairInput,
+  ): HoldingResult<
+    RepairOutcome & { readonly materials: readonly RepairMaterial[]; readonly skillPm: number }
+  >;
   /** 신선도 0이 된 묶음을 바꾼다. 바꾼(버린) 칸 수 */
   spoilDue(nowMs: number): number;
   /** 끝난 효과·쿨을 지운다. 지운 수 */
@@ -215,8 +246,13 @@ export interface HoldingServiceOptions {
   readonly world: HoldingWorld;
   readonly content: () => HoldingContent;
   readonly rules: () => HoldingRules;
-  /** 보존 배율 ‰(위치마다, 1000 = 그대로, 0 = 멈춤). 없으면 모두 1000(창고 종류·냉장 시설이 서버에 아직 없다) */
-  readonly preservePm?: ((location: number) => number) | undefined;
+  /**
+   * 자리 → 보관 곳(D-512 322). 없으면 음수(유닛이 듦) = unit, 양수 = storage(창고 종류·냉장 시설이 서버에 아직 없다). 배율은 규칙의
+   * consumables.preservePm(설정 칸 n49_preserve_*)을 셀 때마다 읽는다
+   */
+  readonly storagePlaceOf?: ((location: number) => StoragePlace) | undefined;
+  /** 가중치 표 실효 값(수리 장인 실력의 제작 직무 행). 없으면 시험 표 */
+  readonly statTable?: (() => readonly StatRow[]) | undefined;
 }
 
 /** 팩 아이템 항목에서 보유 판정이 읽는 칸(참조 ContentRef → ID 글자) */
@@ -365,7 +401,10 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
   let lastId = Math.max(0, options.loaded.maxId);
   for (const id of holdings.keys()) lastId = Math.max(lastId, id);
   const nextId = (): number => (lastId += 1);
-  const preserve = options.preservePm ?? (() => 1000);
+  const placeOf = options.storagePlaceOf ?? storagePlaceOfLocation;
+  /** 지금 보존 배율 표(설정 칸 실효 값). 한 번의 명령·조회에서 한 번 읽어 넘긴다 */
+  const preserveTable = (): PreserveTable => options.rules().consumables.preservePm;
+  const preserve = (location: number, table: PreserveTable): number => preservePmOf(placeOf(location), table);
   let cached: { source: HoldingContent; lookup: Lookup } | undefined;
   const lookup = (): Lookup => {
     const content = options.content();
@@ -382,9 +421,9 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
     return record?.ownerId === ownerId ? record : undefined;
   };
   /** 묶음 하나를 nowMs까지 썩힌다(바뀌면 저장). 버렸으면 false */
-  const settleLot = (record: HoldingRecord, nowMs: number, map: Lookup): boolean => {
+  const settleLot = (record: HoldingRecord, nowMs: number, map: Lookup, table: PreserveTable): boolean => {
     if (record.age === null) return true;
-    const pm = preserve(record.location);
+    const pm = preserve(record.location, table);
     const outcome = settleSpoilage({ item: record.itemId, age: record.age }, nowMs, pm, spoilDef(map));
     if (outcome.kind === "disposed") {
       drop(record);
@@ -400,10 +439,17 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
   };
 
   /** 지금 정의로 그 물건이 다 썩을 시각(신선도가 없거나 멈춤이면 null) */
-  const spoilTime = (record: HoldingRecord, map: Lookup): number | null => {
+  const spoilTime = (record: HoldingRecord, map: Lookup, table: PreserveTable): number | null => {
     const perish = map.items.get(record.itemId)?.perish;
     if (!perish || record.age === null) return null;
-    return spoilAtMs(record.age, perish.shelfLifeMs, preserve(record.location));
+    return spoilAtMs(record.age, perish.shelfLifeMs, preserve(record.location, table));
+  };
+
+  /** 지금 신선도(‰, D-512 320 효과량에 곱한다). 신선도가 없는 물건은 1000 */
+  const freshNow = (record: HoldingRecord, nowMs: number, map: Lookup, table: PreserveTable): number => {
+    const perish = map.items.get(record.itemId)?.perish;
+    if (!perish || record.age === null) return 1000;
+    return freshnessPm(agedAt(record.age, nowMs, preserve(record.location, table)), perish.shelfLifeMs);
   };
 
   const unitEffects = (unitId: number, nowMs: number): UnitEffectRecord[] =>
@@ -435,7 +481,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
   };
 
   /** 같은 주인·아이템·자리에서 같이 쌓을 수 있는 칸(듦·창고, 입지 않음, 같은 숙성 상태) */
-  const stackable = (input: AcquireInput, age: HoldingRecord["age"]): HoldingRecord[] =>
+  const stackable = (input: AcquireInput, age: HoldingRecord["age"], table: PreserveTable): HoldingRecord[] =>
     [...holdings.values()]
       .filter(
         (record) =>
@@ -448,7 +494,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
           (age === null
             ? record.age === null
             : record.age !== null &&
-              settleAge(record.age, input.atMs, preserve(record.location)).agedMs === age.agedMs),
+              settleAge(record.age, input.atMs, preserve(record.location, table)).agedMs === age.agedMs),
       )
       .toSorted(byId);
 
@@ -460,8 +506,9 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
   return {
     list(ownerId, nowMs) {
       const map = lookup();
+      const table = preserveTable();
       const mine = [...holdings.values()].filter((record) => record.ownerId === ownerId).toSorted(byId);
-      const kept = mine.filter((record) => settleLot(record, nowMs, map));
+      const kept = mine.filter((record) => settleLot(record, nowMs, map, table));
       const units = new Set<number>();
       for (const [unitId] of effects) if (world.unitOwner(unitId) === ownerId) units.add(unitId);
       // 효과 없이 쿨만 남은 유닛(확률에 빠진 쓰기 등)도 쿨을 보인다
@@ -515,7 +562,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
       const age = kind === "lot" ? { agedMs: 0, atMs: input.atMs } : null;
       const cap = stackMaxOf(def);
       let left = input.quantity;
-      for (const record of stackable(input, age)) {
+      for (const record of stackable(input, age, preserveTable())) {
         if (left <= 0) break;
         const room = cap - record.quantity;
         if (room <= 0) continue;
@@ -583,8 +630,9 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
 
     use(ownerId, holdingId, use) {
       const map = lookup();
+      const table = preserveTable();
       const record = owned(ownerId, holdingId);
-      if (!record || !settleLot(record, use.nowMs, map)) return { ok: false, code: "unknown_holding" };
+      if (!record || !settleLot(record, use.nowMs, map, table)) return { ok: false, code: "unknown_holding" };
       const unitId = carrierOf(record.location);
       if (unitId === null) return { ok: false, code: "not_carried" };
       if (world.unitOwner(unitId) !== ownerId) return { ok: false, code: "unknown_unit" };
@@ -594,6 +642,8 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
       const rules = options.rules();
       const kind = cooldownKindOf(def, map);
       const primaries = world.unitPrimaries(unitId);
+      // 신선도(D-512 320): 효과량 = 기준 × 신선도. 거래소 안 식품은 최대 신선도(D-289)라 거래소 물건은 모두 같다
+      const fresh = freshNow(record, use.nowMs, map, table);
       const rng = createRng(use.seed);
       const rolled: { line: IncomingEffect; hit: boolean }[] = [];
       for (const line of lines) {
@@ -608,6 +658,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
           scale,
           rules.appropriateCapPm,
           line.variancePm ?? rules.useVariancePm,
+          fresh,
         );
         const amount = rollUseAmount(range, rng);
         const hit = rng.nextInt(1000) < line.chancePm;
@@ -659,7 +710,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
           if (record.durability === null || record.maxDurability === null || record.durability <= 0) continue;
           const type = map.items.get(record.itemId)?.equip?.weaponType;
           if (type !== undefined && map.ammoTypes.has(type)) continue;
-          const amount = battleWearAmount(unit.won, rules, createRng(wearSeed(battleSeed, record.id)));
+          const amount = battleWearAmount(unit.outcome, rules, createRng(wearSeed(battleSeed, record.id)));
           const next = wearDurable(
             { durability: record.durability, maxDurability: record.maxDurability },
             amount,
@@ -721,33 +772,49 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
       return { spent, replacedBy };
     },
 
-    repair(holdingId, facilityLevel, skillPm) {
+    repair(holdingId, input) {
+      const map = lookup();
       const record = holdings.get(holdingId);
       if (!record) return { ok: false, code: "unknown_holding" };
-      if (record.durability === null || record.maxDurability === null)
+      const def = map.items.get(record.itemId);
+      if (record.durability === null || record.maxDurability === null || !def?.equip)
         return { ok: false, code: "not_usable" };
-      if (record.maxDurability <= options.rules().durability.destroyAtMax)
-        return { ok: false, code: "broken" };
-      const done = repairDurable(
+      const rules = options.rules();
+      if (record.maxDurability <= rules.durability.destroyAtMax) return { ok: false, code: "broken" };
+      // 그 시설의 수리 줄(옛 REPAIR_MAP): 무기 종류나 칸이 맞는 첫 줄
+      const rule = repairRuleFor(input.rules, { slot: def.equip.slot, weaponType: def.equip.weaponType });
+      if (!rule) return { ok: false, code: "wrong_slot" };
+      const table = options.statTable?.() ?? TEST_STAT_TABLE;
+      const skillPm = craftSkillPm(craftScore(input.craftsman, table), rules.durability.craftAppropriate);
+      const done = planEquipmentRepair(
         { durability: record.durability, maxDurability: record.maxDurability },
-        facilityLevel,
-        skillPm,
-        options.rules(),
+        { rule, tier: def.tier, facilityLevel: input.facilityLevel, skillPm },
+        rules,
       );
-      record.durability = done.item.durability;
-      record.maxDurability = done.item.maxDurability;
-      if (done.destroyed) record.slot = null;
-      save(record);
-      return { ok: true, destroyed: done.destroyed, maxLoss: done.maxLoss, restored: done.restored };
+      if (done.item.durability !== record.durability || done.item.maxDurability !== record.maxDurability) {
+        record.durability = done.item.durability;
+        record.maxDurability = done.item.maxDurability;
+        if (done.destroyed) record.slot = null;
+        save(record);
+      }
+      return {
+        ok: true,
+        destroyed: done.destroyed,
+        maxLoss: done.maxLoss,
+        restored: done.restored,
+        materials: done.materials,
+        skillPm,
+      };
     },
 
     spoilDue(nowMs) {
       const map = lookup();
+      const table = preserveTable();
       let changed = 0;
       for (const record of [...holdings.values()].toSorted(byId)) {
-        const at = spoilTime(record, map);
+        const at = spoilTime(record, map, table);
         if (at === null || at > nowMs) continue;
-        settleLot(record, nowMs, map);
+        settleLot(record, nowMs, map, table);
         changed += 1;
       }
       return changed;
@@ -833,12 +900,14 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
         return null;
       if (cooldownUntil(unitId, "potion") > nowMs) return null;
       const primaries = world.unitPrimaries(unitId);
+      const table = preserveTable();
       const candidates = [...holdings.values()]
         .filter((record) => record.location === carriedBy(unitId))
         .toSorted(byId)
         .flatMap((record) => {
           const def = map.items.get(record.itemId);
           if (!def?.use || cooldownKindOf(def, map) !== "potion") return [];
+          const fresh = freshNow(record, nowMs, map, table);
           let heal = 0;
           for (const line of def.use.effects) {
             const effect = map.effects.get(line.effect);
@@ -851,6 +920,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
               scale,
               rules.appropriateCapPm,
               line.variancePm ?? rules.useVariancePm,
+              fresh,
             );
             heal += effect.valueMode === "permille" ? Math.floor((hp.max * scaled) / 1000) : scaled;
           }
@@ -873,7 +943,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
     freshnessOf(record, nowMs) {
       const perish = lookup().items.get(record.itemId)?.perish;
       if (!perish || record.age === null) return null;
-      const pm = preserve(record.location);
+      const pm = preserve(record.location, preserveTable());
       return {
         freshnessPm: freshnessPm(agedAt(record.age, nowMs, pm), perish.shelfLifeMs),
         spoilsAt: spoilAtMs(record.age, perish.shelfLifeMs, pm),

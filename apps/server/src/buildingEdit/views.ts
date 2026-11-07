@@ -6,6 +6,7 @@ import type {
   ItemEntry,
   ItemSubcategoryEntry,
   RecipeEntry,
+  WeaponTypeEntry,
 } from "@terra/content";
 import type {
   BuildingEditorFacility,
@@ -13,6 +14,7 @@ import type {
   BuildingEditorItem,
   BuildingEditorRecipe,
   BuildingEditorSubcategory,
+  BuildingEditorWeaponType,
   FacilityJson,
   GatherTierJson,
 } from "@terra/shared/buildingEditor";
@@ -23,7 +25,7 @@ const nameOf = (entry: { name: { ko: string; en: string } }) => ({ ko: entry.nam
 
 /** 파싱한 시설 → 화면 JSON(팩 파일 한 줄 모양, 없는 선택 칸은 적지 않는다) */
 export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
-  const { gather, build } = entry;
+  const { gather, build, repair } = entry;
   return {
     id: entry.id,
     name: nameOf(entry),
@@ -53,6 +55,15 @@ export function facilityJsonOf(entry: FacilityEntry): FacilityJson {
               materials: band.materials.map((stack) => ({ item: stack.item.id, qty: stack.qty })),
             })),
           },
+        }
+      : {}),
+    ...(repair
+      ? {
+          repair: repair.map((rule) => ({
+            slots: [...rule.slots],
+            weaponTypes: rule.weaponTypes.map((type) => type.id),
+            materials: rule.materials.map((stack) => ({ item: stack.item.id, qty: stack.qty })),
+          })),
         }
       : {}),
   };
@@ -139,4 +150,9 @@ export function gatherBandViews(
       hash: state.hashOf("gather_tiers", entry.id) ?? "",
     };
   });
+}
+
+/** 수리 줄 무기 종류 고르기(실효 무기 종류, 파일 차례, D-512 323) */
+export function weaponTypeOptions(entries: readonly WeaponTypeEntry[]): BuildingEditorWeaponType[] {
+  return entries.map((entry) => ({ id: entry.id, name: nameOf(entry), slot: entry.slot }));
 }

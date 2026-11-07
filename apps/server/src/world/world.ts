@@ -35,6 +35,7 @@ import {
 import { type LoadedCyborgs, loadCyborgs } from "../cyborg/state.ts";
 import { type HoldingsConfig, type WorldHoldings, createWorldHoldings } from "../holdings/world.ts";
 import { type LoadedHoldings, loadHoldings } from "../holdings/state.ts";
+import { wearOutcomeOf } from "../holdings/rules.ts";
 import { type LaborService, createLaborService } from "../labor/service.ts";
 import { EMPTY_LABOR, type LoadedLabor, loadLabor } from "../labor/store.ts";
 import { TEST_NPC_FACTION_CODE } from "./unitKinds.ts";
@@ -518,10 +519,10 @@ export function startWorld(
       // 끝 시각에 한 번: 부상·귀환·포로·탈취를 세계에 적용한다(battleResults.ts, docs/adr/2026-10-31-combat-core.md 8절)
       apply: (battleId, init, outcome, atMs) => {
         const applied = applyBattleOutcome(battleWorld, battleId, init, outcome, atMs);
-        // 장비 닳기(D-496 289·N49): 결과 적용과 같은 동기 처리 → 같은 커밋(두 번 닳지 않는다)
+        // 장비 닳기(D-496 289·N49): 결과 적용과 같은 동기 처리 → 같은 커밋(두 번 닳지 않는다). 퇴각은 패배 닳음 없음(D-512 324)
         const wear = holdings.service.applyBattle(
           init.seed,
-          outcome.units.map((unit) => ({ unit: unit.unit, won: unit.side === outcome.result.winner })),
+          outcome.units.map((unit) => ({ unit: unit.unit, outcome: wearOutcomeOf(unit) })),
         );
         log.info(
           {
@@ -704,6 +705,11 @@ export function startWorld(
           },
           combatCatalog: config.combatCatalog,
           combatRules: config.combatRules,
+          // 기준 도시를 빼앗기면 영토 비콘도 함께 넘어간다(D-512 335, 도시 줄과 같은 쓰기 묶음)
+          onCityOwner: (cityId, factionId) => {
+            const moved = territory.cityOwnerChanged(cityId, factionId);
+            if (moved > 0) log.info({ cityId, factionId, moved }, "beacons follow city owner");
+          },
         });
       } catch (error) {
         log.error({ err: error }, "npc society failed to start; bots keep walking");

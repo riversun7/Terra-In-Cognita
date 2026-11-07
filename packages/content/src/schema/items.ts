@@ -52,6 +52,11 @@ export const ITEM_SCHEMA_LIMITS = {
   useVarianceMaxPm: 500,
   /** 거래 묶음 크기 상한(기본 단위 개수, 302·D-506: 광석 1,000 = 1kg) */
   lotSizeMax: 1_000_000,
+  /**
+   * 사용 효과 줄 지속(ms) 상한: 게임 상한은 없다(D-512 328 "1시간 상한을 두지 않는다", 지속 = 편집기 값 D-472, 전투 밖 버프는 실제 시간).
+   * 365일은 정수 범위를 지키는 기술 범위다(유통기한 상한과 같다). 효과 사전·스킬 효과 줄의 1시간은 전투 효과라 그대로
+   */
+  useDurationMaxMs: 31_536_000_000,
 } as const;
 
 const enabled = z.boolean({ error: "enabled가 없습니다. true 또는 false로 적으세요(D-398 켬·끔)." });
@@ -87,8 +92,8 @@ export const useSchema = z.strictObject({
         effect: ref("effects"),
         value: z.int().min(-1_000_000).max(1_000_000),
         chancePm: z.int().min(0).max(1000),
-        /** 없으면 효과 사전의 기본 지속 */
-        durationMs: z.int().min(0).max(3_600_000).optional(),
+        /** 없으면 효과 사전의 기본 지속. 1시간 상한 없음(D-512 328, 범위는 기술 상한) */
+        durationMs: z.int().min(0).max(ITEM_SCHEMA_LIMITS.useDurationMaxMs).optional(),
         /**
          * 효과량 비례(D-496 286, D-501): 쓰는 유닛의 stat 값 ÷ appropriate(적정 스탯) 비율(상한 N10)을 기준 값에 곱한다.
          * 스탯은 1차 6개 중 아무것(보통 HP는 VIT, MP는 WIS). 없으면 기준 값 그대로

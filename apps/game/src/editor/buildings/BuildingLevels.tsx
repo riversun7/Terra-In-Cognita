@@ -12,6 +12,7 @@ import { useId } from "react";
 import { m } from "../../paraglide/messages.js";
 import { NumberField, RemoveButton, SelectField } from "../content/contentEditorFields.tsx";
 import {
+  MATERIAL_CATEGORIES,
   addBand,
   addMaterial,
   bandRange,
@@ -25,10 +26,8 @@ import {
   setMaterial,
 } from "./buildingModel.ts";
 
-/** 재료로 고를 수 있는 아이템 대분류(장비·소모품·문서는 건설 재료로 쓰지 않는다) */
-const MATERIAL_CATEGORIES = new Set(["raw", "processed", "part", "construction", "gem", "precious"]);
-
-function optionsFor(
+/** 재료 고르기 칸 목록(재료 대분류만, 지금 값은 대분류가 달라도 남긴다). 수리 판(BuildingRepair)도 쓴다 */
+export function materialOptions(
   items: readonly BuildingEditorItem[],
   locale: "ko" | "en",
   current: string,
@@ -105,7 +104,7 @@ function BandEditor({
               hideLabel={line > 0}
               className="be-material-item"
               value={stack.item}
-              options={optionsFor(items, locale, stack.item)}
+              options={materialOptions(items, locale, stack.item)}
               onChange={(item) => onEdit(setMaterial(entry, index, line, { ...stack, item }))}
             />
             <NumberField

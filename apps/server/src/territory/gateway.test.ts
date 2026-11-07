@@ -28,6 +28,7 @@ function fakeService(calls: string[]): TerritoryService {
     },
     planetView: () => Promise.resolve(undefined),
     mineView: () => Promise.resolve(undefined),
+    cityOwnerChanged: () => 0,
     beaconCount: () => next,
   };
 }

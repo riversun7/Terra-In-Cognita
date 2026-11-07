@@ -131,9 +131,9 @@ describe("몸 계산", () => {
     expect(body.preview).toBe(true);
   });
 
-  it("사이보그 풀이: 켜진 2차 스탯 14개 + 시야(D-458, D-502로 명중·크리·행동 속도 점수는 끔), 새 네 행도 공식 항과 함께 온다", () => {
+  it("사이보그 풀이: 켜진 2차 스탯 14개 + 시야 + 제작 직무(D-458, D-502로 명중·크리·행동 속도 점수는 끔, D-512 323), 새 네 행도 공식 항과 함께 온다", () => {
     const body = previewCyborg(catalog);
-    expect(body.breakdown).toHaveLength(15);
+    expect(body.breakdown).toHaveLength(16);
     // 물리 공격력 = (STR + VIT) ÷ 2(D-502): 항 STR·VIT 500‰
     const attack = body.breakdown.find((entry) => entry.id === "physical_attack");
     expect(attack?.terms.map((term) => [term.stat, term.weightPm])).toEqual([

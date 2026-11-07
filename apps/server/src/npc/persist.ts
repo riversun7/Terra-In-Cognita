@@ -60,6 +60,11 @@ export interface NpcPersistOptions {
   readonly planetId: string;
   /** 정원사(런타임이 사회 규칙 뒤에 붙인다) */
   readonly gardener: () => ServerGardener | undefined;
+  /**
+   * 도시 주인(세력 행)이 바뀐 것을 저장할 때(점령·반란·독립 모두 여기를 거친다): 영토 비콘이 도시를 따라간다(D-512 335). 도시 줄과 같은
+   * 동기 처리라 같은 커밋에 든다
+   */
+  readonly onCityOwner?: ((cityId: number, factionRowId: number) => void) | undefined;
 }
 
 export interface NpcPersist {
@@ -113,6 +118,8 @@ export function createNpcPersist(
   const late = new Set<number>();
   const savedFactions = new Map<number, string>();
   const savedCities = new Map<number, string>();
+  /** 도시 → 저장한 세력 행(주인이 바뀌었나 견줄 때) */
+  const savedOwners = new Map<number, number>();
   const savedDraws = new Map<number, string>();
   const savedHumans = new Map<number, { sig: string; owner: number }>();
   const savedWars = new Map<string, string>();
@@ -329,9 +336,11 @@ export function createNpcPersist(
     },
     markSaved(day) {
       for (const f of world.factions.values()) savedFactions.set(f.id, factionSig(f));
-      for (const id of world.cities.keys()) {
+      for (const [id, city] of world.cities) {
         savedCities.set(id, citySig(id));
         savedDraws.set(id, drawSig(id));
+        const row = rowOf.get(city.owner);
+        if (row !== undefined) savedOwners.set(id, row);
       }
       for (const unit of world.units.values())
         savedHumans.set(unit.id, { sig: humanSig(unit.id), owner: unit.owner });
@@ -406,6 +415,11 @@ export function createNpcPersist(
           admin_level: city.adminLevel,
         });
         savedCities.set(id, sig);
+        // 주인이 바뀌었으면 그 도시의 영토 비콘도 넘어간다(D-512 335, 같은 묶음)
+        if (savedOwners.get(id) !== factionRow) {
+          if (savedOwners.has(id)) o.onCityOwner?.(id, factionRow);
+          savedOwners.set(id, factionRow);
+        }
         count.rows += 1;
       }
       // 폐허가 된 도시(웨이브, D-464 217): 도시 행을 지운다. 그 도시 휴먼은 아래에서 옮긴 도시·노숙으로 먼저 고친다(같은 묶음,
@@ -414,6 +428,7 @@ export function createNpcPersist(
         if (world.cities.has(id)) continue;
         writer.remove("cities", { id });
         savedCities.delete(id);
+        savedOwners.delete(id);
         savedDraws.delete(id);
         count.rows += 1;
       }

@@ -33,7 +33,10 @@ const buff = (id: string, exclusive: string | undefined, kind = "buff", duration
     enabled: true,
   });
 
-/** 시험 아이템: 내구도 장비, 탄약(화살통 3발·50발), 신선도 묶음(72시간 → 썩은 생선), 요리·버프 아이템(같은 배타 묶음, 쿨 종류는 다름), 회복약(전투 중만), 꺼진 장비 */
+/**
+ * 시험 아이템: 내구도 장비, 탄약(화살통 3발·50발), 신선도 묶음(72시간 → 썩은 생선), 신선도 있는 음료, 요리·버프 아이템(같은 배타 묶음,
+ * 쿨 종류는 다름), 24시간 버프 약, 회복약(전투 중만), 꺼진 장비
+ */
 export const TEST_HOLDING_ITEMS: readonly ItemEntry[] = [
   item({
     id: "hold_vest",
@@ -69,6 +72,31 @@ export const TEST_HOLDING_ITEMS: readonly ItemEntry[] = [
     perish: { shelfLifeMs: 72 * HOUR_MS, spoilsTo: "hold_rotten_fish" },
   }),
   item({ id: "hold_rotten_fish", category: "raw" }),
+  // 신선도 있는 요리(D-512 320 효과 × 신선도): 10시간이면 상한다
+  item({
+    id: "hold_milk",
+    category: "consumable",
+    subcategory: "drink",
+    perish: { shelfLifeMs: 10 * HOUR_MS, spoilsTo: "hold_rotten_fish" },
+    use: {
+      effects: [
+        {
+          effect: "hold_meal_str",
+          value: 40,
+          chancePm: 1000,
+          scale: { stat: "vit", appropriate: 10 },
+          variancePm: 250,
+        },
+      ],
+    },
+  }),
+  // 1시간이 넘는 버프(D-512 328: 지속은 편집기 값, 1시간 상한 없음)
+  item({
+    id: "hold_long_tonic",
+    category: "consumable",
+    subcategory: "medicine",
+    use: { effects: [{ effect: "hold_vigor", value: 7, chancePm: 1000, durationMs: 24 * HOUR_MS }] },
+  }),
   item({
     id: "hold_stew",
     category: "consumable",

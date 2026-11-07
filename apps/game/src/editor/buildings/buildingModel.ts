@@ -8,10 +8,12 @@ import {
   type BuildingEditorSubcategory,
   FACILITY_BUILD_LIMITS,
   FACILITY_LEVEL_MAX,
+  FACILITY_REPAIR_LIMITS,
   type FacilityBuildJson,
   type FacilityBuildRules,
   type FacilityGatherJson,
   type FacilityJson,
+  type FacilityRepairJson,
   GATHER_BAND_WEIGHT_TOTAL,
   GATHER_TIER_SLOTS,
   type GatherTierJson,
@@ -160,6 +162,7 @@ export function cleanFacility(entry: FacilityJson): FacilityJson {
     ...(entry.pollution === undefined ? {} : { pollution: entry.pollution }),
     ...(entry.gather === undefined ? {} : { gather: cleanGather(entry.gather) }),
     ...(entry.build === undefined ? {} : { build: entry.build }),
+    ...(entry.repair === undefined ? {} : { repair: entry.repair }),
   };
 }
 
@@ -168,7 +171,7 @@ const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.str
 
 /**
  * 3방향 합치기(entry_changed 뒤 다시 얹기): base = 내가 고치기 시작한 항목, mine = 내 초안, theirs = 지금 서버 항목. 칸마다 내가 바꾼
- * 칸만 theirs 위에 얹는다(이름·건설·채집 칸은 통째). 양쪽이 같은 칸을 다르게 바꿨으면 내 값을 넣고 칸 이름을 알린다
+ * 칸만 theirs 위에 얹는다(이름·건설·채집·수리 칸은 통째). 양쪽이 같은 칸을 다르게 바꿨으면 내 값을 넣고 칸 이름을 알린다
  */
 export function mergeFacility(
   base: FacilityJson,
@@ -190,6 +193,7 @@ export function mergeFacility(
     pollution: pick("pollution"),
     gather: pick("gather"),
     build: pick("build"),
+    repair: pick("repair"),
   });
   return { entry, conflicts };
 }
@@ -278,6 +282,50 @@ export const setGather = (entry: FacilityJson, gather: FacilityGatherJson | unde
   const { gather: _old, ...rest } = entry;
   return gather === undefined ? rest : { ...rest, gather };
 };
+
+/** 재료로 고를 수 있는 아이템 대분류(장비·소모품·문서는 건설·수리 재료로 쓰지 않는다) */
+export const MATERIAL_CATEGORIES: ReadonlySet<string> = new Set([
+  "raw",
+  "processed",
+  "part",
+  "construction",
+  "gem",
+  "precious",
+]);
+
+/** 수리 칸을 바꾼다(빈 목록·undefined = 칸 없음 = 수리하지 않는 시설, D-512 323) */
+export const setRepair = (
+  entry: FacilityJson,
+  repair: readonly FacilityRepairJson[] | undefined,
+): FacilityJson => {
+  const { repair: _old, ...rest } = entry;
+  return repair === undefined || repair.length === 0
+    ? rest
+    : { ...rest, repair: repair.slice(0, FACILITY_REPAIR_LIMITS.rules) };
+};
+
+/** 새 수리 줄: 칸 없음·무기 종류 없음(고를 때까지 서버 검사가 막는다), 재료 = 첫 재료 아이템 1. 재료 아이템이 없으면 null */
+export function newRepairRule(items: readonly BuildingEditorItem[]): FacilityRepairJson | null {
+  const item = items.find((option) => MATERIAL_CATEGORIES.has(option.category));
+  return item ? { slots: [], weaponTypes: [], materials: [{ item: item.id, qty: 1 }] } : null;
+}
+
+/** 목록에 값을 넣거나 뺀다(넣을 때는 order 차례를 지킨다 — 팩 줄과 같은 차례로 견준다) */
+export function toggleIn(
+  list: readonly string[],
+  value: string,
+  on: boolean,
+  order: readonly string[],
+): string[] {
+  const next = new Set(list);
+  if (on) next.add(value);
+  else next.delete(value);
+  const rank = (id: string): number => {
+    const index = order.indexOf(id);
+    return index < 0 ? order.length : index;
+  };
+  return [...next].toSorted((a, b) => rank(a) - rank(b) || (a < b ? -1 : a > b ? 1 : 0));
+}
 
 /** 레벨 표 한 줄(편집기 미리 보기) */
 export interface LevelRow {

@@ -100,6 +100,8 @@ export interface NpcRuntimeOptions {
   /** 전투 자료(팩 + 덮어쓰기 실효 값)·전투 계수(설정 칸 실효 값), 부를 때마다 읽는다. 없으면 시험 자료 */
   readonly combatCatalog?: (() => CombatCatalog) | undefined;
   readonly combatRules?: (() => CombatCoefficients) | undefined;
+  /** 도시 주인이 바뀐 것을 저장할 때(영토 비콘이 도시를 따라간다, D-512 335) */
+  readonly onCityOwner?: ((cityId: number, factionRowId: number) => void) | undefined;
 }
 
 export interface NpcRuntime {
@@ -325,6 +327,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       seed,
       planetId: o.planetId,
       gardener: () => gardenerRef.current,
+      onCityOwner: o.onCityOwner,
     },
     { rowOf, places, spares: state.spares },
   );

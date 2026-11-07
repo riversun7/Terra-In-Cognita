@@ -41,6 +41,27 @@ export interface FacilityBuildJson {
   readonly levels: readonly BuildLevelJson[];
 }
 
+/**
+ * 장비 수리 줄 범위(팩 facilities repair, 기획 D-512 323 — 옛 enhancement_routes.js REPAIR_MAP). 수량은 기본 양(수리 한 번 =
+ * max(1, ⌈기본 × 티어 × 잃은 ÷ 최대⌉), 셈은 @terra/sim items/repair.ts)
+ */
+export const FACILITY_REPAIR_LIMITS = {
+  /** 줄 수(옛 공방 넷) */
+  rules: 16,
+  /** 줄 하나의 칸·무기 종류 수 */
+  targets: 32,
+  /** 줄 하나의 재료 줄 수 */
+  materials: 8,
+  qty: { min: 1, max: 1000 },
+} as const;
+
+/** 수리 줄 하나: 무기 종류가 weaponTypes에 있거나 칸이 slots에 있는 장비를 고치고, 재료는 기본 양 */
+export interface FacilityRepairJson {
+  readonly slots: readonly string[];
+  readonly weaponTypes: readonly string[];
+  readonly materials: readonly BuildStackJson[];
+}
+
 /** 설정 칸 M14의 시간 규칙(세력·사회 계수표 facilityBuild 칸) */
 export interface FacilityBuildRules {
   /** 재료 1kg당 건설 시간(ms). 옛 10초 */

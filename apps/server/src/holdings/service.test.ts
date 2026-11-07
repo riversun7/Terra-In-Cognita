@@ -1,5 +1,5 @@
 // 보유 물건 서비스 시험(DB 없음) — docs/adr/2026-11-03-item-holdings.md 3·4절. 쓰기 대기열은 가짜(바뀜만 모은다).
-import type { Primaries } from "@terra/sim";
+import type { Primaries, RepairRule } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { Row, WorldTable } from "../world/persist/tables.ts";
@@ -142,7 +142,7 @@ describe("입기·벗기(N49 286)", () => {
       rules: () => always,
       world: { unitOwner: () => OWNER, unitKind: () => "cyborg", unitPrimaries: () => flat(10) },
     });
-    expect(worn.applyBattle(5, [{ unit: UNIT, won: true }])).toEqual({ worn: 1, broken: 1 });
+    expect(worn.applyBattle(5, [{ unit: UNIT, outcome: "won" }])).toEqual({ worn: 1, broken: 1 });
     expect(worn.equippedOn(UNIT)).toEqual([]);
     expect(worn.equip(OWNER, a, 3)).toEqual({ ok: false, code: "broken" });
   });
@@ -156,7 +156,7 @@ describe("전투 닳기(D-496 289, 옛 25%)", () => {
     grant(service, "hold_vest", 1);
     let worn = 0;
     for (let battle = 1; battle <= 200; battle++)
-      worn += service.applyBattle(battle, [{ unit: UNIT, won: true }]).worn;
+      worn += service.applyBattle(battle, [{ unit: UNIT, outcome: "won" }]).worn;
     expect(worn).toBeGreaterThan(30);
     expect(worn).toBeLessThan(70);
     const [equipped, carried] = service.list(OWNER, T0).holdings;
@@ -181,7 +181,7 @@ describe("전투 닳기(D-496 289, 옛 25%)", () => {
       rules: () => rules,
       world: { unitOwner: () => OWNER, unitKind: () => "cyborg", unitPrimaries: () => flat(10) },
     });
-    expect(strict.applyBattle(1, [{ unit: UNIT, won: false }])).toEqual({ worn: 0, broken: 0 });
+    expect(strict.applyBattle(1, [{ unit: UNIT, outcome: "lost" }])).toEqual({ worn: 0, broken: 0 });
   });
 });
 
@@ -201,12 +201,32 @@ describe("탄약 고리(D-497·D-501 294)", () => {
   });
 });
 
-describe("수리 고리(D-5031·F11·F12)", () => {
-  it("최대 내구도가 시설 Lv만큼 줄고 내구도 = 새 최대, 10 이하면 파괴(벗김·다시 수리 못 함)", () => {
+/** 옛 공방 수리 줄(REPAIR_MAP 878~883)의 방어구 공방: 머리·몸 칸 + 방패, 주괴 1·가죽 1 */
+const ARMOR_SHOP: readonly RepairRule[] = [
+  {
+    slots: ["head", "body"],
+    weaponTypes: ["shield"],
+    materials: [
+      { item: "iron_ingot", qty: 1 },
+      { item: "deer_hide", qty: 1 },
+    ],
+  },
+];
+
+describe("수리 고리(D-512 323·D-5031·F11·F12)", () => {
+  it("끝까지만 고친다: 최대 내구도가 시설 Lv만큼 줄고 내구도 = 새 최대, 재료는 옛 식, 수수료 없음, 10 이하면 파괴", () => {
     const { service } = setup();
     const [a = 0] = ids(grant(service, "hold_vest"));
     service.equip(OWNER, a, 3);
-    expect(service.repair(a, 1, 0)).toEqual({ ok: true, destroyed: false, maxLoss: 0, restored: 0 });
+    const craftsman = flat(0);
+    expect(service.repair(a, { facilityLevel: 1, rules: ARMOR_SHOP, craftsman })).toEqual({
+      ok: true,
+      destroyed: false,
+      maxLoss: 0,
+      restored: 0,
+      materials: [],
+      skillPm: 0,
+    });
     const always = rulesWithWear({ chancePm: 1000, amount: 60, lossChancePm: 0, lossAmount: 0 });
     const shop = createHoldingService({
       loaded: {
@@ -220,12 +240,100 @@ describe("수리 고리(D-5031·F11·F12)", () => {
       rules: () => always,
       world: { unitOwner: () => OWNER, unitKind: () => "cyborg", unitPrimaries: () => flat(10) },
     });
-    shop.applyBattle(1, [{ unit: UNIT, won: true }]);
-    expect(shop.repair(a, 1, 0)).toEqual({ ok: true, destroyed: false, maxLoss: 30, restored: 30 });
+    shop.applyBattle(1, [{ unit: UNIT, outcome: "won" }]);
+    // 40/100, Lv1 −30%, 장인 실력 0, 티어 1: 재료 = max(1, ⌈1 × 1 × 60 ÷ 100⌉) = 1씩
+    expect(shop.repair(a, { facilityLevel: 1, rules: ARMOR_SHOP, craftsman })).toEqual({
+      ok: true,
+      destroyed: false,
+      maxLoss: 30,
+      restored: 30,
+      materials: [
+        { item: "iron_ingot", qty: 1 },
+        { item: "deer_hide", qty: 1 },
+      ],
+      skillPm: 0,
+    });
     const [after] = shop.list(OWNER, T0).holdings;
     expect([after?.durability, after?.maxDurability]).toEqual([70, 70]);
-    expect(shop.repair(a, 1, 0)).toEqual({ ok: true, destroyed: false, maxLoss: 0, restored: 0 });
-    expect(shop.repair(999, 1, 0)).toEqual({ ok: false, code: "unknown_holding" });
+    expect(shop.repair(a, { facilityLevel: 1, rules: ARMOR_SHOP, craftsman })).toMatchObject({
+      ok: true,
+      maxLoss: 0,
+      restored: 0,
+      materials: [],
+    });
+    expect(shop.repair(999, { facilityLevel: 1, rules: ARMOR_SHOP, craftsman })).toEqual({
+      ok: false,
+      code: "unknown_holding",
+    });
+  });
+
+  it("장인 실력 = 제작 직무 점수 ÷ 적정(f11_craft_appropriate 50): 점수 50이면 1000‰ → 감소 반(F11)", () => {
+    const always = rulesWithWear({ chancePm: 1000, amount: 60, lossChancePm: 0, lossAmount: 0 });
+    const { service } = setup();
+    const [a = 0] = ids(grant(service, "hold_vest"));
+    service.equip(OWNER, a, 3);
+    const shop = createHoldingService({
+      loaded: {
+        holdings: service.list(OWNER, T0).holdings.map((h) => ({ ...h })),
+        effects: [],
+        cooldowns: [],
+        maxId: 0,
+      },
+      writer: fakeWriter().writer,
+      content: () => TEST_HOLDING_CONTENT,
+      rules: () => always,
+      world: { unitOwner: () => OWNER, unitKind: () => "cyborg", unitPrimaries: () => flat(10) },
+    });
+    shop.applyBattle(1, [{ unit: UNIT, outcome: "won" }]);
+    // 1차 모두 50 → 제작 직무 점수 = 50 × (200 + 500 + 200 + 100) ÷ 1000 = 50 = 적정 → 실력 1000 → Lv1 30% → 15%
+    expect(shop.repair(a, { facilityLevel: 1, rules: ARMOR_SHOP, craftsman: flat(50) })).toMatchObject({
+      ok: true,
+      maxLoss: 15,
+      restored: 45,
+      skillPm: 1000,
+    });
+  });
+
+  it("그 시설의 줄이 받지 않는 장비는 wrong_slot, 내구도 없는 물건은 not_usable", () => {
+    const { service } = setup();
+    const [ring = 0] = ids(grant(service, "hold_ring"));
+    const [quiver = 0] = ids(grant(service, "hold_quiver_b"));
+    expect(service.repair(quiver, { facilityLevel: 1, rules: ARMOR_SHOP, craftsman: flat(10) })).toEqual({
+      ok: false,
+      code: "wrong_slot",
+    });
+    expect(service.repair(ring, { facilityLevel: 1, rules: ARMOR_SHOP, craftsman: flat(10) })).toEqual({
+      ok: false,
+      code: "not_usable",
+    });
+  });
+});
+
+describe("퇴각과 패배 닳음(D-512 324, D-190)", () => {
+  it("진 편은 패배 닳음을 더 받고, 퇴각은 전투마다 닳음만(이긴 편과 같다)", () => {
+    const rules = rulesWithWear({ chancePm: 1000, amount: 1, lossChancePm: 1000, lossAmount: 4 });
+    const after = (outcome: "won" | "lost" | "retreated"): number | null | undefined => {
+      const { service } = setup();
+      const [a = 0] = ids(grant(service, "hold_vest"));
+      service.equip(OWNER, a, 3);
+      const battle = createHoldingService({
+        loaded: {
+          holdings: service.list(OWNER, T0).holdings.map((h) => ({ ...h })),
+          effects: [],
+          cooldowns: [],
+          maxId: 0,
+        },
+        writer: fakeWriter().writer,
+        content: () => TEST_HOLDING_CONTENT,
+        rules: () => rules,
+        world: { unitOwner: () => OWNER, unitKind: () => "cyborg", unitPrimaries: () => flat(10) },
+      });
+      battle.applyBattle(1, [{ unit: UNIT, outcome }]);
+      return battle.list(OWNER, T0).holdings[0]?.durability;
+    };
+    expect(after("won")).toBe(99);
+    expect(after("lost")).toBe(95);
+    expect(after("retreated")).toBe(99);
   });
 });
 
@@ -468,5 +576,99 @@ describe("썩기(D-496 288·N49)", () => {
       age: null,
       source: "spoil",
     });
+  });
+
+  it("보관 곳마다 보존 배율(D-512 322, 설정 칸 실효 값): 유닛 ×1, 창고 자리를 냉장으로 보면 ×2, 냉동이면 멈춤", () => {
+    const { writer } = fakeWriter();
+    let place: "unit" | "fridge" | "freezer" = "fridge";
+    const service = createHoldingService({
+      loaded: { holdings: [], effects: [], cooldowns: [], maxId: 0 },
+      writer,
+      content: () => TEST_HOLDING_CONTENT,
+      rules: () => TEST_HOLDING_RULES,
+      storagePlaceOf: (location) => (location < 0 ? "unit" : place),
+      world: { unitOwner: () => OWNER, unitKind: () => "cyborg", unitPrimaries: () => flat(10) },
+    });
+    const store = (location: number) =>
+      service.acquire({
+        ownerId: OWNER,
+        item: "hold_fish",
+        quantity: 1,
+        location,
+        source: "dev_grant",
+        atMs: T0,
+        seed: 1,
+      });
+    store(carriedBy(UNIT));
+    store(5);
+    const [carried, stored] = service.list(OWNER, T0).holdings;
+    expect(carried && service.freshnessOf(carried, T0)?.spoilsAt).toBe(T0 + 72 * HOUR_MS);
+    expect(stored && service.freshnessOf(stored, T0)?.spoilsAt).toBe(T0 + 144 * HOUR_MS);
+    expect(stored && service.freshnessOf(stored, T0 + 72 * HOUR_MS)?.freshnessPm).toBe(500);
+    place = "freezer";
+    expect(stored && service.freshnessOf(stored, T0 + 999 * HOUR_MS)).toEqual({
+      freshnessPm: 1000,
+      spoilsAt: null,
+    });
+    expect(service.spoilDue(T0 + 999 * HOUR_MS)).toBe(1);
+    expect(service.list(OWNER, T0 + 999 * HOUR_MS).holdings.map((h) => h.itemId)).toEqual([
+      "hold_rotten_fish",
+      "hold_fish",
+    ]);
+    // 설정 칸 값을 바꾸면 다음 셈에 바로 든다(유닛이 든 것 ×1 → ×4)
+    const slow = {
+      ...TEST_HOLDING_RULES,
+      consumables: {
+        ...TEST_HOLDING_RULES.consumables,
+        preservePm: { ...TEST_HOLDING_RULES.consumables.preservePm, unit: 4000 },
+      },
+    };
+    const later = createHoldingService({
+      loaded: { holdings: [], effects: [], cooldowns: [], maxId: 0 },
+      writer,
+      content: () => TEST_HOLDING_CONTENT,
+      rules: () => slow,
+      world: { unitOwner: () => OWNER, unitKind: () => "cyborg", unitPrimaries: () => flat(10) },
+    });
+    later.acquire({
+      ownerId: OWNER,
+      item: "hold_fish",
+      quantity: 1,
+      location: carriedBy(UNIT),
+      source: "dev_grant",
+      atMs: T0,
+      seed: 1,
+    });
+    const [mine] = later.list(OWNER, T0).holdings;
+    expect(mine && later.freshnessOf(mine, T0)?.spoilsAt).toBe(T0 + 288 * HOUR_MS);
+  });
+});
+
+describe("신선도와 효과량(D-512 320)", () => {
+  it("효과량 = 기준 × 신선도: 갓 만든 음료 30~50, 신선도 반이면 15~25", () => {
+    const fresh = setup({ vit: 10 });
+    const [a = 0] = ids(grant(fresh.service, "hold_milk", 1));
+    const now = fresh.service.use(OWNER, a, { confirm: false, nowMs: T0, seed: 9 });
+    const amountNow = now.ok ? (now.effects[0]?.amount ?? 0) : -1;
+    expect(amountNow).toBeGreaterThanOrEqual(30);
+    expect(amountNow).toBeLessThanOrEqual(50);
+    const half = setup({ vit: 10 });
+    const [b = 0] = ids(grant(half.service, "hold_milk", 1));
+    const later = half.service.use(OWNER, b, { confirm: false, nowMs: T0 + 5 * HOUR_MS, seed: 9 });
+    const amountLater = later.ok ? (later.effects[0]?.amount ?? 0) : -1;
+    expect(amountLater).toBeGreaterThanOrEqual(15);
+    expect(amountLater).toBeLessThanOrEqual(25);
+  });
+});
+
+describe("버프 지속(D-512 328)", () => {
+  it("1시간이 넘는 지속도 편집기 값 그대로(24시간), 실제 시간으로 끝난다", () => {
+    const { service } = setup();
+    const [tonic = 0] = ids(grant(service, "hold_long_tonic"));
+    expect(service.use(OWNER, tonic, { confirm: false, nowMs: T0, seed: 1 }).ok).toBe(true);
+    const listed = service.list(OWNER, T0 + 23 * HOUR_MS).effects;
+    expect(listed).toMatchObject([{ effect: "hold_vigor", untilMs: T0 + 24 * HOUR_MS }]);
+    expect(service.sweepEffects(T0 + 24 * HOUR_MS)).toBe(2);
+    expect(service.list(OWNER, T0 + 24 * HOUR_MS).effects).toEqual([]);
   });
 });

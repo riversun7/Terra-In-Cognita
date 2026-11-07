@@ -1,7 +1,7 @@
 // 건물 편집기 요청 처리(tRPC buildings.*) — docs/adr/2026-11-02-building-editor.md. 권한(tuning:read·write 두 겹)과 속도 제한은
 // 라우터가 먼저 본다. 스킬·아이템 편집기와 같은 덮어쓰기 층(ContentEditShared: 판·차례·감사·켤 때 고르기)을 쓴다.
-// - list: 시설(실효·팩·덮어쓰기·해시·이 시설 레시피), 재료 고르기 창(실효 아이템), 채집 중분류, 건설 시간 규칙(설정 칸 M14 실효
-//   값)·채집 레벨 보너스(N43), 잠든 시설 줄, 판.
+// - list: 시설(실효·팩·덮어쓰기·해시·이 시설 레시피), 재료 고르기 창(실효 아이템), 채집 중분류, 수리 줄 무기 종류(D-512 323),
+//   건설 시간 규칙(설정 칸 M14 실효 값)·채집 레벨 보너스(N43), 잠든 시설 줄, 판.
 // - check: 묶음을 얹은 실효 팩 전체를 팩 검사기로 본다(저장하지 않음). 오류가 없으면 시설 파일의 권고(꺼진 재료 등)를 보낸다.
 // - save: baseHash 묶음(고치기·끄기·되돌리기·잠든 줄 버리기). 팩에 없는 ID(만들기)는 받지 않는다(레시피 편집이 없어 시설만 만들 수 없다).
 // - history: 감사 기록 요약 가운데 시설 줄이 든 것.
@@ -26,7 +26,13 @@ import { readContentHistory } from "../contentEdit/store.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { reasonedError } from "../trpc/init.ts";
 import type { TuningShared } from "../tuning/services.ts";
-import { facilityViews, gatherBandViews, itemOptions, subcategoryOptions } from "./views.ts";
+import {
+  facilityViews,
+  gatherBandViews,
+  itemOptions,
+  subcategoryOptions,
+  weaponTypeOptions,
+} from "./views.ts";
 
 /** 받지 않은 요청(BAD_REQUEST)의 message. 무엇이 틀렸는지는 data.reason(@terra/shared BUILDING_EDITOR_REASONS) */
 export const BUILDING_EDITOR_REJECTED = "BUILDING_EDITOR_REJECTED";
@@ -117,6 +123,7 @@ export function createBuildingEditorServices(deps: {
       gatherBands: gatherBandViews(state, snapshot),
       items: itemOptions(snapshot.effective.items),
       subcategories: subcategoryOptions(snapshot.effective.itemSubcategories),
+      weaponTypes: weaponTypeOptions(snapshot.effective.weaponTypes),
       rules: {
         msPerKg: rules.msPerKg,
         timeFactorPm: [...rules.timeFactorPm],

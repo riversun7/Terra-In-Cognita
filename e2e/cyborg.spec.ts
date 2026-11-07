@@ -101,12 +101,17 @@ test.describe("플레이어: 사이보그 화면", () => {
     await expect(page.locator(".core-k")).toHaveCount(0);
     await expect(page.locator(".cyborg")).toContainText(message("ko", "cyborg_core_note"));
 
-    // 상세 전투 스펙: 옛 묶음(효율은 행이 없어 빠진다), HP 줄을 누르면 공식 상자(입력 6줄)·"= 결과"(= 줄 값)
+    // 상세 전투 스펙: 옛 묶음(효율 = 제작 직무 행, D-512 323), HP 줄을 누르면 공식 상자(입력 6줄)·"= 결과"(= 줄 값)
     expect(
       await page
         .locator(".combat-group")
         .evaluateAll((list) => list.map((group) => group.getAttribute("data-group"))),
-    ).toEqual(["vitals", "offense", "defense", "mobility"]);
+    ).toEqual(["vitals", "offense", "defense", "mobility", "efficiency"]);
+    expect(
+      await page
+        .locator('.combat-group[data-group="efficiency"] .combat-row')
+        .evaluateAll((list) => list.map((row) => row.getAttribute("data-sec"))),
+    ).toEqual(["job_crafting"]);
     // D-458 새 행: 옛 묶음 자리(재생·회복은 VITALS, 속성 방어율은 DEFENSE), 막대는 자기 색(1차 스탯 색·다른 2차 스탯 색과 다름)
     const rowsOf = (group: string) =>
       page

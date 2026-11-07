@@ -8,12 +8,15 @@
 //   굴린 값은 만들 때 정해지고(N49, 옛 user_equipments bonus_*), 그 밖 칸(무기 사양·속성·칸 등)은 실효 아이템 정의를 그때그때 읽는다
 //   (옛 CharacterRepository가 template 값을 늘 읽음, 기획 285 해석). 다시 굴리기는 개발자 소급 명령만(D-496).
 // - 닳기(D-496 289, 옛 BattleResult.processDurability): 전투가 끝날 때 입은 장비마다 확률로 깎는다(이겨도), 지면 더 깎을 수 있다.
-//   확률·양은 설정 칸(N49·C20). 0이면 입지 못한다(옛: 내구도 0 → 강제로 벗김).
+//   확률·양은 설정 칸(N49·C20). 0이면 입지 못한다(옛: 내구도 0 → 강제로 벗김). 퇴각한 유닛은 패배 닳음을 받지 않는다(D-512 324,
+//   D-190 "퇴각하면 장비 내구도를 잃지 않는다": 전투마다 닳음만 이긴 쪽과 같다).
 // - 수리(D-5031·F11·F12): 최대 내구도 감소는 society/cyborgUpkeep.ts repairDurable 하나. 재료 양 = max(1, ⌈기본 양 × 티어 × 잃은 ÷ 최대⌉)
 //   (옛 enhancement_routes.js 장비 수리, 티어 0은 1로 친다 — 옛 `Number(tier) || 1`).
 // - 신선도(D-285·D-496 288, 옛 GDD Consolidated_Item 4장): 신선도 = max(0, 1 − 경과 ÷ 유통기한). 경과는 실제 시간을 보존 배율로 나눈
 //   합(숙성 ms)이고 유통기한은 실효 정의를 그때그때 읽는다. 0이 되면 편집기에서 고른 다른 아이템으로 바뀐다(그 아이템이 꺼졌거나 없으면
 //   버린다 — 옛 "자동 폐기 또는 변환", 끈 항목은 새로 나오지 않는다). 옛 코드의 하루 −10% 수량 감소·만료 지우기는 쓰지 않는다(N49).
+//   보존 배율은 보관 곳마다 설정 칸(D-512 322, 옛 문서 Consolidated_Item.md:1862~1868: 냉장 ×2·절임 ×3·통조림 ×5·냉동 멈춤, 유닛이 듦 ×1,
+//   거래소 멈춤 D-289). 효과량은 신선도에 비례한다(D-512 320, combat/useAmount.ts).
 // - 소모품 효과 교체(D-501): 같은 효과는 높은 값만 남는다(낮거나 같으면 쓰지 않는다 = 낭비 막기). 같은 배타 묶음의 다른 효과는 확인
 //   뒤 새 것으로 바꾼다. 자동 사용의 "상황에 더 좋은 쪽" 판단식은 기획 질문(287)이라 자동 사용은 다른 효과를 바꾸지 않는다.
 import type { Rng } from "@terra/shared";
@@ -91,10 +94,19 @@ function chance(rng: Rng, pm: number): boolean {
   return rng.nextInt(1000) < pm;
 }
 
-/** 장비 하나가 전투 하나에서 닳는 양. 난수는 늘 두 번 뽑는다(이겨도 패배 굴림을 버린다 — 같은 시드면 이김·짐과 상관없이 같은 흐름) */
-export function battleWearAmount(won: boolean, rules: WearRules, rng: Rng): number {
+/**
+ * 전투 하나에서 유닛 하나가 끝난 모양(닳기에 드는 것): 이긴 편(won), 진 편(lost), 퇴각(retreated — 이긴 편이든 진 편이든 가장자리로
+ * 빠짐, D-190·D-205). 퇴각은 패배 닳음을 받지 않는다(D-512 324)
+ */
+export type WearOutcome = "won" | "lost" | "retreated";
+
+/**
+ * 장비 하나가 전투 하나에서 닳는 양. 난수는 늘 두 번 뽑는다(이겨도·퇴각해도 패배 굴림을 버린다 — 같은 시드면 끝난 모양과 상관없이 같은
+ * 흐름). 패배 닳음은 진 편(lost)만
+ */
+export function battleWearAmount(outcome: WearOutcome, rules: WearRules, rng: Rng): number {
   const base = chance(rng, rules.chancePm) ? Math.max(0, rules.amount) : 0;
-  const extra = chance(rng, rules.lossChancePm) && !won ? Math.max(0, rules.lossAmount) : 0;
+  const extra = chance(rng, rules.lossChancePm) && outcome === "lost" ? Math.max(0, rules.lossAmount) : 0;
   return base + extra;
 }
 
@@ -158,6 +170,26 @@ export interface AgeState {
 
 /** 보존 배율 ‰(1000 = 그대로, 2000 = 유통기한 두 배 = 숙성이 반 속도). 0 = 멈춤(냉동·거래소 포장 D-289) */
 export type PreservePm = number;
+
+/**
+ * 보관 곳(D-512 322 "보관 곳(시설)마다 편집기 값"): 유닛이 듦(unit)·창고(storage, 보존 시설 없음)·냉장(fridge)·절임(pickle)·통조림(can)·
+ * 냉동(freezer)·거래소(exchange, 포장 D-289). 훈제는 보관 곳이 아니라 다른 아이템으로 바뀌는 가공이다(옛 문서 1865, 레시피 몫)
+ */
+export const STORAGE_PLACES = ["unit", "storage", "fridge", "pickle", "can", "freezer", "exchange"] as const;
+export type StoragePlace = (typeof STORAGE_PLACES)[number];
+
+/** 보관 곳마다 보존 배율(‰, 설정 칸 N49 — 계수표 consumables.preservePm) */
+export type PreserveTable = { readonly [P in StoragePlace]: PreservePm };
+
+/** 보관 곳의 보존 배율(음수는 0 = 멈춤으로 친다) */
+export function preservePmOf(place: StoragePlace, table: PreserveTable): PreservePm {
+  return Math.max(0, table[place]);
+}
+
+/** 보유 칸 자리 → 보관 곳 기본값: 음수(−유닛 ID) = 유닛이 듦, 그 밖 = 창고(창고 종류·냉장 시설은 서버에 아직 없다) */
+export function storagePlaceOfLocation(location: number): StoragePlace {
+  return location < 0 ? "unit" : "storage";
+}
 
 /** nowMs의 숙성 ms(되돌아가지 않는다) */
 export function agedAt(state: AgeState, nowMs: number, preservePm: PreservePm): number {

@@ -121,6 +121,17 @@ describe("소모품 효과량 굴림", () => {
     );
   });
 
+  it("신선도(D-512 320, 옛 문서 Consolidated_Item.md 1844~1845 효과 = 기준 × 신선도): 1000이면 그대로, 500이면 반, 0이면 0", () => {
+    const scale = { statValue: 20, appropriate: 20 };
+    expect(useAmountRange(40, scale, CAP, 500, 1000)).toEqual(useAmountRange(40, scale, CAP, 500));
+    expect(useAmountRange(40, scale, CAP, 500, 500)).toEqual({ ratioPm: 1000, scaled: 20, min: 10, max: 30 });
+    expect(useAmountRange(40, scale, CAP, 500, 0)).toEqual({ ratioPm: 1000, scaled: 0, min: 0, max: 0 });
+    // 비율과 함께 곱한 뒤 한 번 내린다: 기준 45 × 500‰ × 333‰ → 7(7.4925 내림). 범위 밖 신선도는 0~1000으로 자른다
+    expect(useAmountRange(45, { statValue: 5, appropriate: 10 }, CAP, 0, 333).scaled).toBe(7);
+    expect(useAmountRange(45, null, CAP, 0, 1500).scaled).toBe(45);
+    expect(useAmountRange(45, null, CAP, 0, -3).scaled).toBe(0);
+  });
+
   it("폭 1이면 그 값, 2^32를 넘는 폭도 범위 안", () => {
     expect(rollUseAmount({ min: 9, max: 9 }, createRng(1))).toBe(9);
     const wide = { min: -1, max: 0x1_0000_0000 * 3 };

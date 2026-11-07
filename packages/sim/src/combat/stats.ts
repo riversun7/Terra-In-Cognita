@@ -217,7 +217,7 @@ const pr = (id: string, cap: number, halfConstant: number, weights: readonly num
 });
 
 /**
- * 가중치 표(STR·DEX·AGI·VIT·INT·WIS 차례, ‰). 2차 스탯 17개(D-458) + 시야(활동 수치, D-5037). 차례는 48 §3.2 묶음 차례.
+ * 가중치 표(STR·DEX·AGI·VIT·INT·WIS 차례, ‰). 2차 스탯 17개(D-458) + 시야(활동 수치, D-5037) + 직무 효율(제작, 48 §3.3). 차례는 48 §3.2 묶음 차례.
  * HP·쉴드·MP·스태미나·회피는 기획 49 N1·N3·N14 출발값. 새 네 행(N40 출발값 없음)은 설정값 출발값(D-5032, 기술):
  * 속성 방어율 = 물리 방어율과 짝(WIS·VIT를 맞바꿈), 스태미나 회복 = 적정 STA에서의 회복(D-511 적정 스탯 개념: 실제 회복 = 이 값 ×
  * min(2, STA 점수 ÷ 적정 STA), 계산식 real_stamina_regen. [임시] 분당 720 = 초당 12 — 가장 빠른 팩 무기(간격 900ms)의 기본 공격 10을
@@ -243,4 +243,6 @@ export const TEST_STAT_TABLE: readonly StatRow[] = [
   q("mp_regen", 0, [0, 0, 0, 0, 1000, 2000]),
   q("shield_regen", 0, [0, 0, 0, 0, 0, 1000]),
   q("sight", 10, [0, 0, 50, 0, 0, 100]),
+  // 직무 효율 행(48 §3.3·§7.2, D-431): 제작 = 옛 salary_engine.js:40~47 crafting(DEX 0.5·STR 0.2·INT 0.2·WIS 0.1). 수리 장인 실력(D-512 323)
+  q("job_crafting", 0, [200, 500, 0, 0, 200, 100]),
 ];

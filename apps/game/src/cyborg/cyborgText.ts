@@ -44,7 +44,7 @@ export function elementFamilies(
 
 /**
  * 상세 전투 스펙 묶음 — 옛 프로젝트 SecondaryStatsCard의 다섯 칸(VITALS 전투자원·OFFENSE 공격·DEFENSE 방어·MOBILITY 기동·
- * EFFICIENCY 효율)에 팩 stat_rows를 넣는다(ADR 2026-11-01-ui-visibility "바뀜"). 효율은 지금 행이 없다(48 §3.3 직무 효율 행이 생기면 여기).
+ * EFFICIENCY 효율)에 팩 stat_rows를 넣는다(ADR 2026-11-01-ui-visibility "바뀜"). 효율 = 48 §3.3 직무 효율 행(지금 제작 job_crafting 하나, D-512 323).
  * D-458 새 행: 쉴드 재생·MP 회복·스태미나 회복은 VITALS(옛 "보호막 재생" 자리처럼 그 자원 바로 아래), 속성 방어율은 DEFENSE(물리 방어율 다음).
  * 표에 없는 행은 기타. 묶음 안 차례는 아래 표 차례, 모르는 행은 받은 차례
  */
@@ -70,6 +70,8 @@ const COMBAT_ROWS: readonly (readonly [string, CombatGroup])[] = [
   ["evade", "defense"],
   ["action_speed", "mobility"],
   ["sight", "mobility"],
+  // 직무 효율 행(48 §3.3): 제작 = 수리 장인 실력(D-512 323)
+  ["job_crafting", "efficiency"],
 ];
 
 export const combatGroupOf = (id: string): CombatGroup =>

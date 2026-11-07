@@ -225,4 +225,61 @@ describe.skipIf(!TEST_DATABASE_URL)("영토 비콘", () => {
     expect(view?.myFactionId).toBeNull();
     expect(cellKey(0, EARTH_FACE_LEVEL, 282, 328)).toBe(TEST_MAP_KEY);
   });
+
+  it("기준 도시를 빼앗기면 비콘이 도시와 함께 넘어간다(D-512 335): 개수·거리는 새 주인 기준, 다시 켜도 남음", async () => {
+    const world = await boot();
+    const territory = territoryOf(world);
+    const owner = await testFaction();
+    const member = await fakeUser("FollowMember");
+    const dev = await fakeUser("FollowDev");
+    await join(member, owner);
+    for (const key of [near(5, 0), near(0, 5), near(5, 5)])
+      expect((await territory.place(player(member), { planetId: TEST_PLANET_ID, cellKey: key })).ok).toBe(
+        true,
+      );
+    // 다른 세력이 시험 NPC 세력의 시작 도시를 빼앗음(NPC 런타임 점령과 같은 저장: 도시 줄 + cityOwnerChanged, 같은 묶음)
+    const taker = await rows<{ id: string }>(
+      test.db,
+      `insert into factions (kind, code, regime, fixed) values ('npc', 'territory_taker', 'democracy', true) returning id`,
+    );
+    const takerId = Number(taker[0]?.id);
+    const startCity = await rows<{ id: string }>(
+      test.db,
+      `select id from world_cities where faction_id = $1 and planet_id = $2 order by id limit 1`,
+      [owner, TEST_PLANET_ID],
+    );
+    const cityId = Number(startCity[0]?.id);
+    await rows(test.db, `update world_cities set faction_id = $1 where id = $2`, [takerId, cityId]);
+    expect(territory.cityOwnerChanged(cityId, takerId)).toBe(3);
+    expect(territory.cityOwnerChanged(cityId, takerId)).toBe(0);
+    const view = await territory.planetView(TEST_PLANET_ID, null);
+    expect(view?.beacons.map((beacon) => [beacon.factionId, beacon.cityId])).toEqual([
+      [takerId, cityId],
+      [takerId, cityId],
+      [takerId, cityId],
+    ]);
+    // 새 주인 기준으로 다시 셈: 도시의 비콘 3/3, 껍질은 새 주인 것, 칸 표도 새 주인
+    const city = view?.cities.find((entry) => entry.id === cityId);
+    expect([city?.factionId, city?.beaconsUsed, city?.beaconsMax]).toEqual([takerId, 3, 3]);
+    expect(view?.groups.map((group) => group.factionId)).toEqual([takerId]);
+    expect(view?.cells.every(([, faction]) => faction === takerId)).toBe(true);
+    // 옛 주인은 이제 그 비콘을 치우지 못한다(새 주인 세력의 것)
+    expect(await territory.remove(player(member), 1)).toEqual({ ok: false, code: "forbidden" });
+    // 저장(커밋)되어 다시 켜도 새 주인
+    await world.stop();
+    worlds.splice(0);
+    const saved = await rows<{ faction_id: string }>(
+      test.db,
+      `select faction_id from territory_beacons order by id`,
+    );
+    expect(saved.map((row) => Number(row.faction_id))).toEqual([takerId, takerId, takerId]);
+    // 다른 길(옛 판이 남긴 줄)로 도시 주인만 바뀐 경우: 셈할 때 비콘이 도시를 따라간다
+    await rows(test.db, `update world_cities set faction_id = $1 where id = $2`, [owner, cityId]);
+    const again = territoryOf(await boot());
+    const fixed = await again.planetView(TEST_PLANET_ID, dev);
+    expect(fixed?.beacons.every((beacon) => beacon.factionId === owner)).toBe(true);
+    await worlds[0]?.persistence?.writer.durable();
+    const after = await rows<{ faction_id: string }>(test.db, `select faction_id from territory_beacons`);
+    expect(after.every((row) => Number(row.faction_id) === owner)).toBe(true);
+  });
 });

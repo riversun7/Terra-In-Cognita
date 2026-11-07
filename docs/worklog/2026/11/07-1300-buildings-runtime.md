@@ -44,6 +44,11 @@
 - 화면 시험 `pnpm e2e facilities.spec.ts labor.spec.ts territory.spec.ts economy.spec.ts`: 35개 통과(3.7분). 새 `facilities` 4개: 개발 [시험 재료 받기] → 빈 칸 찾아 공방 짓기(짓는 중·작업 줄) → [바로 끝내기] → Lv1·정상·100%·300/300 → Lv2 올리기 → Lv2·360/360, 고칠 장비 없음 안내, 넘침 없음, 사진 4장.
 - 사진(저장소 밖): `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/facility-shots/facilities-{pastel-ko-390,dark-en-390,pastel-ko-1440,dark-en-1440}.png`(건물 칸) + 같은 실행의 economy·labor·territory 사진. 눈으로 확인: 390 파스텔 한국어, 390 다크 영어, 1440 다크 영어(이때 "0% 수리"로 보이던 작은 닳음은 올림으로 고쳤다).
 
+## 합친 뒤 (main `0faf14c` 위, Verified, 개발 컨테이너, 무거운 잠금 안)
+- 합칠 때 바꾼 것: 프로토콜 9 → 10(최소 9), 팩 core@38 → core@39, 개발 재료 받기 `dev_grant_goods` → `dev_facility_grant`(융합의 같은 이름과 겹침), 질문 370~373 → 379~382, 노동 계약·영토 화면 시험의 인사 판은 `PROTOCOL_VERSION`을 쓴다(판을 올릴 때마다 깨지지 않게).
+- `TEST_DATABASE_URL=… pnpm check` 통과: 시험 430파일 3,534개(DB 포함), `pnpm check:docs`·`pnpm build`·`check-pwa`·`check:bundle`(첫 화면 JS 105,915 B / 상한 131,416 B) 통과. `db:generate` "No schema changes"(마이그레이션 `cyborg_units`·`facilities_runtime` 형제).
+- 화면 시험 `facilities`·`labor`·`territory`·`economy`·`fusion`·`units`: 57 통과·1 실패 → 실패는 `economy.spec.ts`의 거래 물건 수 150(융합 줄기 core@38이 마이크로칩·유전자 조각 4개를 더해 155). 기대값을 155로 고친 뒤 `economy.spec.ts` 21개 통과.
+
 ## 함께 바꿔야 하는 파일
 - 시설 칸을 더하면 `packages/content` 스키마 ↔ `@terra/shared/buildingEditor` `FacilityJson` ↔ `apps/server/src/buildingEdit/views.ts` `facilityJsonOf`(빠지면 편집기 저장 때 그 칸이 사라진다) ↔ `facilities/catalog.ts`.
 - 원장에 새 앞머리 자산을 쓰면 DB 검사 `ledger_accounts_asset_format`(앞머리:ID 하나까지).

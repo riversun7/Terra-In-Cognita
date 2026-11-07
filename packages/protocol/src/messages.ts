@@ -3,7 +3,7 @@
 // 보유 물건 메시지는 items.ts(프로토콜 6부터), 영토 비콘 메시지는 territory.ts, 구인 카드 고용 메시지는 recruit.ts, 노동 계약 명령은
 // labor.ts(셋 다 프로토콜 7부터, 노동 계약의 구인 게시는 8부터), 사이보그 유닛 융합은 fusion.ts(프로토콜 9부터, 유전자는 11부터),
 // 건물 짓기·수리 명령은 facilities.ts(프로토콜 10부터), 신전 기도·헌금·의식은 temple.ts(프로토콜 12부터), 폐허 복원 모금은
-// ruins.ts(프로토콜 13부터), 물자 거래소 주문·취소·체결 알림은 market.ts(프로토콜 14부터)에 있다.
+// ruins.ts(프로토콜 13부터), 물자 거래소 주문·취소·체결 알림은 market.ts(프로토콜 14부터), 2차맵 사이 이동은 travel.ts(프로토콜 16부터)에 있다.
 import { z } from "zod";
 import { cyborgClientMessages, cyborgServerMessages } from "./cyborg.ts";
 import { facilityClientMessages, facilityServerMessages } from "./facilities.ts";
@@ -16,6 +16,7 @@ import { ruinsClientMessages, ruinsServerMessages } from "./ruins.ts";
 import { secondMapClientMessages, secondMapServerMessages } from "./secondMap.ts";
 import { templeClientMessages, templeServerMessages } from "./temple.ts";
 import { territoryClientMessages, territoryServerMessages } from "./territory.ts";
+import { travelClientMessages, travelServerMessages } from "./travel.ts";
 
 const nonNegativeInt = z.number().int().nonnegative();
 const timestampMs = z.number().nonnegative();
@@ -50,6 +51,7 @@ export const clientMessageSchema = z.discriminatedUnion("t", [
   ...templeClientMessages,
   ...ruinsClientMessages,
   ...marketClientMessages,
+  ...travelClientMessages,
 ]);
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
 
@@ -92,6 +94,7 @@ export const serverMessageSchema = z.discriminatedUnion("t", [
   ...templeServerMessages,
   ...ruinsServerMessages,
   ...marketServerMessages,
+  ...travelServerMessages,
 ]);
 export type ServerMessage = z.infer<typeof serverMessageSchema>;
 

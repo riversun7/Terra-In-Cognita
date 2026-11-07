@@ -33,6 +33,7 @@ import { TEST_NPC_FACTION_CODE } from "../world/unitKinds.ts";
 import type { World } from "../world/world.ts";
 import { canObserve, canViewSecondMap } from "../world/visibility.ts";
 import { hullKnown, isCityKnown, knownWithoutSight } from "./knownCities.ts";
+import { type TravelReads, createTravelReads } from "./travelReads.ts";
 
 /** 이 모듈이 세계에서 읽는 것(시험은 가짜를 넣는다) */
 export interface WorldMapSource {
@@ -363,7 +364,7 @@ export function worldMapReadsOf(options: {
   readonly faceLevel: number;
   readonly presets?: readonly NationPreset[] | undefined;
   readonly planets?: WorldMapPlanets | undefined;
-}): () => WorldMapReadServices | undefined {
+}): () => (WorldMapReadServices & TravelReads) | undefined {
   const { world, planets, planetId } = options;
   const reads = createWorldMapReads({
     planetId,
@@ -386,5 +387,11 @@ export function worldMapReadsOf(options: {
     factionName: (code) =>
       code === TEST_NPC_FACTION_CODE ? TEST_FACTION_NAME : nationName(code, options.presets),
   });
-  return () => (world.status().state === "ready" && world.persistence ? reads : undefined);
+  // 2차맵 사이 이동 조회(WP9): 확인 단계·가는 중인 길(이동 서비스, 지금 자리의 위도·경도를 붙인다)
+  const travel = createTravelReads(
+    () => world.persistence?.travel,
+    (mapKey, x, y) => (isCellKey(mapKey) ? placeLatLon(mapKey, x, y) : { latDeg: 0, lonDeg: 0 }),
+  );
+  const services = { ...reads, ...travel };
+  return () => (world.status().state === "ready" && world.persistence ? services : undefined);
 }

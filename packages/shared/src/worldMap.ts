@@ -113,3 +113,74 @@ export interface WorldPositionResponse {
   readonly fallbackMapKey: number | null;
   readonly generatedAt: number;
 }
+
+/**
+ * 2차맵 사이 이동(tRPC world.travelPlan·world.travels, WebSocket travel_start·travel_cancel) — docs/adr/2026-11-07-play-flow.md
+ * "WP9 2차맵 사이 이동", 기획 D-197·D-6019·D-6021·질문 571 가. 1차맵 명령 판의 확인 단계(길·걸리는 시간)와 가는 중 표시가 쓴다.
+ * 시각은 서버 ms, 거리 m·시간 ms는 보기 값(곧은 거리 ÷ 유닛 속도 — 실제 길은 2차맵마다 서버가 찾는다)
+ */
+export interface WorldTravelPlan {
+  /** 보낼 유닛(지정하지 않으면 내 사이보그 본체) */
+  readonly unitId: number;
+  /** 지나는 2차맵(출발 포함, 마지막 = 목적 2차맵) */
+  readonly route: readonly number[];
+  readonly distanceM: number;
+  readonly durationMs: number;
+  /** 지금 보내면 도착 예상 시각 */
+  readonly arriveAt: number;
+  /** 지금 직무(채집·계약)가 있다 — 출발 2차맵을 떠나면 직무가 끝난다(질문 582) */
+  readonly working: boolean;
+}
+
+/** 확인 단계에서 보낼 수 없는 까닭(WebSocket travel_result 코드와 같은 이름, no_cyborg = 보낼 유닛이 없다) */
+export type WorldTravelProblem =
+  | "no_cyborg"
+  | "unknown_unit"
+  | "forbidden"
+  | "unknown_map"
+  | "no_route"
+  | "border_blocked"
+  | "goal_blocked"
+  | "unavailable";
+
+export interface WorldTravelPlanResponse {
+  readonly status: "ready" | "not_ready";
+  readonly plan: WorldTravelPlan | null;
+  /** plan이 null일 때 까닭(not_ready면 null) */
+  readonly problem: WorldTravelProblem | null;
+  readonly generatedAt: number;
+}
+
+/** 멈춘 까닭: 멈추기·다른 명령·전투 등으로 길에서 벗어남·막힘(넘는 변·목표·길 없음)·움직일 수 없음 */
+export type WorldTravelStop = "cancelled" | "interrupted" | "blocked" | "unavailable";
+
+export interface WorldTravel {
+  readonly unitId: number;
+  readonly kind: "move" | "scout";
+  /** 지나는 2차맵(출발 포함, 마지막 = 목적 2차맵) */
+  readonly route: readonly number[];
+  /** 지금 있는 2차맵의 route 차례 */
+  readonly leg: number;
+  /** 지금(또는 멈춘·도착한) 2차맵과 배치 칸, 위도·경도(1차맵 표시) */
+  readonly mapKey: number;
+  readonly cellX: number;
+  readonly cellY: number;
+  readonly latDeg: number;
+  readonly lonDeg: number;
+  /** 목표 칸(마지막 2차맵 안) */
+  readonly targetX: number;
+  readonly targetY: number;
+  readonly startedAt: number;
+  /** 도착 예상 시각(가는 중: 지금 자리에서 곧은 거리 ÷ 속도, 도착: 도착한 시각, 멈춤: 멈춘 시각) */
+  readonly arriveAt: number;
+  /** going 가는 중, arrived 도착(최근 10분), stopped 멈춤(최근 10분, 까닭 stop) */
+  readonly state: "going" | "arrived" | "stopped";
+  readonly stop: WorldTravelStop | null;
+}
+
+export interface WorldTravelsResponse {
+  readonly status: "ready" | "not_ready";
+  /** 내 유닛의 길(가는 중 + 최근 끝난 것), 유닛 ID 차례 */
+  readonly travels: readonly WorldTravel[];
+  readonly generatedAt: number;
+}

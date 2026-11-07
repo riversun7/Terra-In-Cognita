@@ -56,7 +56,7 @@ describe("world.mapUnits", () => {
     map.stop();
   });
 
-  it("중태는 명령할 수 없다(나을 시각이 지나면 다시 된다)", () => {
+  it("빨강(옛 중태)은 명령할 수 없다(노랑으로 내려가면 다시 된다 — 부상 4단계 D-521)", () => {
     const { reads, map } = setup();
     map.setCondition(7, { injury: 3, injuryUntilMs: NOW + 1_000, heldBy: null });
     expect(reads.mapUnits(PLAYER, MAP_KEY, NOW).units.find((unit) => unit.unitId === 7)).toMatchObject({
@@ -65,7 +65,7 @@ describe("world.mapUnits", () => {
     });
     expect(
       reads.mapUnits(PLAYER, MAP_KEY, NOW + 1_000).units.find((unit) => unit.unitId === 7),
-    ).toMatchObject({ injury: 0, hold: null });
+    ).toMatchObject({ injury: 2, hold: null });
     map.stop();
   });
 

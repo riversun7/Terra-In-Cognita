@@ -371,9 +371,10 @@ export function createNpcPersist(
       place = placeTown(id, city.owner);
       if (!place) return 0;
       places.set(id, place);
-      // 실행 중에 세운 마을: 주인이 따르는 나라 목록에서 이름(601 나)
-      nameCity(id);
     }
+    // 실행 중에 세운 마을(처음 저장): 주인이 따르는 나라 목록에서 이름(601 나). 자리 검사(canFound, 세계 배치)가 자리를 미리 잡아 둔
+    // 마을도 여기서 받는다(이름이 이미 있거나 따르는 나라가 없으면 그대로)
+    if (!savedCities.has(id)) nameCity(id);
     const sig = citySig(id);
     if (savedCities.get(id) === sig) return 0;
     const factionRow = rowOf.get(city.owner);

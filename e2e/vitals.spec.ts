@@ -145,17 +145,18 @@ test.describe("dev: 유닛 목록·상세 생명 수치", () => {
       "vitals.list": addUnitVitals,
     });
     await page.goto("/units");
-    const chip = page.locator('.units-row [data-vitals="hp"]');
+    // 시험 계정에 앞 시험이 받은 실제 유닛(가득, "HP n/n")이 있을 수 있어 이름으로 줄을 고른다
+    const row = page.locator(".units-row", { hasText: "Vitals Test" });
+    const chip = row.locator('[data-vitals="hp"]');
     await expect(chip).toHaveText(message("ko", "vitals_hp_short", { value: "12", max: "40" }), {
       timeout: 15_000,
     });
     await expect(chip).toHaveAttribute("data-tone", "injured");
     // 시안 유닛(p…)에는 생명 수치가 없다
-    await expect(page.locator('.units-row [data-vitals="hp"]')).toHaveCount(1);
-    await page
-      .locator(".units-row", { has: page.locator('[data-vitals="hp"]') })
-      .locator(".units-row-main")
-      .click();
+    await expect(
+      page.locator(".units-row", { hasText: message("ko", "inbox_preview_tag") }).locator("[data-vitals]"),
+    ).toHaveCount(0);
+    await row.locator(".units-row-main").click();
     const detail = page.locator(".units-detail [data-vitals]");
     await expect(detail).toBeVisible();
     expect(await meterValues(page, "hp", detail)).toEqual([12, 40]);
@@ -198,12 +199,9 @@ for (const viewport of ["phone", "desktop"] as const) {
             "vitals.list": addUnitVitals,
           });
           await page.goto("/units");
-          const chip = page.locator('.units-row [data-vitals="hp"]');
-          await expect(chip).toBeVisible({ timeout: 15_000 });
-          await page
-            .locator(".units-row", { has: page.locator('[data-vitals="hp"]') })
-            .locator(".units-row-main")
-            .click();
+          const row = page.locator(".units-row", { hasText: "Vitals Test" });
+          await expect(row.locator('[data-vitals="hp"]')).toBeVisible({ timeout: 15_000 });
+          await row.locator(".units-row-main").click();
           await expect(page.locator(".units-detail [data-vitals]")).toBeVisible();
           await shot(page, `vitals-units-${suffix}`);
           expect(await horizontalOverflow(page)).toEqual([]);

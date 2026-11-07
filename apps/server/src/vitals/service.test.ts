@@ -295,4 +295,16 @@ describe("전투 밖 회복 물약(D-512·D-509)", () => {
     // 가득이 되어 줄을 지웠다
     expect(low.vitals.service.size).toBe(0);
   });
+
+  it("버프 물약을 쓴 뒤 회복 물약은 HP가 가득이어도 물약 쿨이 먼저다(인벤토리 화면 시험의 차례)", () => {
+    const full = holdingsWith(92);
+    const tonic = full.grant("hold_tonic");
+    const potion = full.grant("hold_potion");
+    expect(full.holdings.use(OWNER, tonic, { confirm: false, nowMs: T0, seed: 1 }).ok).toBe(true);
+    expect(full.holdings.use(OWNER, potion, { confirm: false, nowMs: T0 + 2_000, seed: 2 })).toEqual({
+      ok: false,
+      code: "cooldown",
+      readyAt: T0 + TEST_HOLDING_RULES.consumables.potionCooldownMs,
+    });
+  });
 });

@@ -31,7 +31,9 @@
 
 ## 검사·시험 (개발 컨테이너, Node 24.22.1, 무거운 잠금 안)
 - 작업 중(Verified): 시뮬·프로토콜·공용·콘텐츠 141파일, 프로토콜 17파일 100개, DB(`TEST_DATABASE_URL`) 노동 계약·플레이어 생산·건물·정산·앱·구인·사이보그 17파일 76개 통과.
-- 끝 검사: (아래 "끝 검사 결과"에 적는다)
+- 끝 검사(Verified, 무거운 잠금 안): `TEST_DATABASE_URL=… pnpm check` 통과(포맷·린트·타입·경계·크기·다국어·대비·콘텐츠 core@49·시험 463파일 3,710개, DB 시험 포함 — 첫 실행은 새 시험 도우미 두 개의 린트 경고 `consistent-function-scoping`로 실패 → 밖으로 옮겨 고침). `pnpm check:docs` 통과(기준 d5a320b).
+- 화면 시험(Verified, `pnpm e2e`, 빌드한 앱·서버, 헤드리스 Chromium): `produce`·`labor`·`facilities` 11개 통과. 일꾼 칸 사진(390 파스텔 한국어): 벌목장 카드 "창고 0/200kg"(채집 시설 상한), 사이보그 본체 직무 배치 → 일꾼 1/10, 바뀐 안내 글 — 넘침·잘림 없음. e2e 계정의 사이보그·시험 건물은 모두 같은 2차맵이라 "다른 2차맵" 줄은 사진에 나오지 않는다(DB 시험이 `wrong_map`·`mapKey`를 본다).
+- 시뮬 출력: 시뮬 유닛은 직무 없음이면 피로 0이라 바뀐 길이 결과를 바꾸지 않는다(Verified: 코드 `simulator/world.ts`·`waveBattle.ts`, 시뮬 시험·골든 그대로 통과). 시나리오를 따로 돌려 견주지는 않았다.
 
 ## 함께 바꿔야 하는 파일
 - 프로토콜 판을 다른 줄기와 합칠 때: `packages/protocol/src/version.ts`(15 설명 한 줄씩 합침), 판을 세는 시험 `cyborg`·`facilities`·`market`·`ruins`·`labor`.

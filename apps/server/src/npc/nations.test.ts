@@ -60,13 +60,16 @@ describe("시작 도시 자리(세계 씨앗, D-6041)", () => {
     expect(startCitiesFor({ ...START_WORLD_SEED, startCitiesMin: 1, startCitiesMax: 1 }, 4)).toBe(1);
   });
 
-  it("세력 코드 → 프리셋(1번 = 16번째), 도시 이름은 쓰지 않은 첫 이름(510 다)", () => {
+  it("세력 코드 → 프리셋(1번 = 16번째), 도시 이름은 쓰지 않은 첫 이름(510 다), 다 쓰면 번호를 붙여 다시 돈다(552 다)", () => {
     expect(presetOfCode("s3_test_npc", sixteen)?.code).toBe("placeholder_nation_16");
     expect(presetOfCode("placeholder_nation_02", sixteen)?.code).toBe("placeholder_nation_02");
     expect(presetOfCode("npc_nation_04", sixteen)).toBeUndefined();
     expect(nextCityName(["A", "B", "C"], new Set(["A", "C"]))).toBe("B");
-    expect(nextCityName(["A"], new Set(["A"]))).toBeUndefined();
+    expect(nextCityName(["A"], new Set(["A"]))).toBe("A 2");
+    expect(nextCityName(["A", "B"], new Set(["A", "B", "A 2"]))).toBe("B 2");
+    expect(nextCityName(["A", "B"], new Set(["A", "B", "A 2", "B 2"]))).toBe("A 3");
     expect(nextCityName(undefined, new Set())).toBeUndefined();
+    expect(nextCityName([], new Set())).toBeUndefined();
   });
 
   it("빈 세계: 자리 차례마다 2차맵을 돌아 국가 하나의 도시가 서로 다른 2차맵에, 2차맵마다 1~2곳", () => {

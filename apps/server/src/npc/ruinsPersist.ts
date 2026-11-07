@@ -1,7 +1,9 @@
 // 폐허·복원 사업의 바뀜 저장(NPC 사회 런타임 persist.ts가 만든다) — docs/adr/2026-11-07-ruins-restoration.md
 // 거울 세계의 폐허(world.ruins)를 마지막으로 저장한 모습과 견줘 바뀐 것만 쓰기 대기열에 넣는다(동기). NPC 처리 뒤 persist.flush가 부르고,
 // 유저 명령(정부 짓기·모금 열기·넣기)은 명령과 같은 동기 처리에서 바로 부른다(원장 거래와 같은 쓰기 묶음 = 같은 커밋, S3 U2).
-// - 폐허가 사라졌고 같은 ID 도시가 있으면 복원이다: 도시 행을 먼저 쓰고(saveCity, 자리의 세운 시각 = 복원 시각) 낸 값·폐허 줄을 지운다.
+// - 폐허가 사라졌고 같은 ID 도시가 있으면 복원이다: 도시 행을 먼저 쓰고(saveCity, 자리의 세운 시각 = 복원 시각) 무너지기 전 이름을 되찾고
+//   (기획 답 552 다, 폐허 줄의 name → world_cities.name) 낸 값·폐허 줄을 지운다.
+// - 폐허 줄에는 무너지기 전 도시 이름(자리 places의 name)을 남긴다.
 // - 세력은 세력 행 ID로 적는다(rowOf). 자리가 없는 폐허(띄우지 않은 2차맵)는 쓰지 않는다.
 import type { SimRuin, SimWorld } from "@terra/sim";
 import type { WorldWriter } from "../world/persist/writer.ts";
@@ -62,6 +64,7 @@ export function createRuinsPersist(o: RuinsPersistOptions): RuinsPersist {
       currency: claimed ? ruin.currency : null,
       open: claimed && ruin.open,
       deadline_ms: claimed && ruin.deadlineMs > 0 ? ruin.deadlineMs : null,
+      name: place.name ?? null,
     };
   };
 
@@ -107,6 +110,11 @@ export function createRuinsPersist(o: RuinsPersistOptions): RuinsPersist {
           const place = places.get(id);
           if (place) places.set(id, { ...place, foundedAtMs: nowMs });
           rows += o.saveCity(id);
+          // 무너지기 전 이름을 되찾는다(552 다). 이름이 없던 도시는 다음 켤 때 새 주인 목록에서 붙는다
+          if (place?.name !== undefined) {
+            writer.upsert("cityNames", { id, name: place.name });
+            rows += 1;
+          }
         }
         for (const owner of savedPaid.get(id)?.keys() ?? []) {
           writer.remove("restorationContributions", { ruin_id: id, owner_id: owner });

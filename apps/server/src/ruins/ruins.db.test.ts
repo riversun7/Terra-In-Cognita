@@ -3,7 +3,7 @@
 // 같은 ID로 도시가 돌아오고 지분 1000주 = 낸 값 비례(독재면 나라 과반) → 다시 켜도 그대로 → 되살아난 도시가 다시 무너지면 폐허 줄이 남는다.
 // 폐허 2(기획 답 480 다·482 나·485 다·487 다·489 다, 535): 정부 건물을 다 지어야 모금(짓는 중 not_built), 목표 = 옛 주거 × 주거 1당 값, 기한,
 // 정부 건물이 0%가 되면 다시 지은 쪽이 주인(낸 값은 사업에 남음), 되살아난 도시 행정 레벨 = 그 건물 레벨(올리면 따라 오름), 폐허가 된 도시 창고의
-// 유저 물건은 소각하지 않고 그 유저 나라의 가장 가까운 도시 창고로.
+// 유저 물건은 소각하지 않고 그 유저 나라의 가장 가까운 도시 창고로, NPC 세력 물건도 같은 규칙(540 나).
 import { loadContentPack } from "@terra/content/node";
 import { buildCostAt } from "@terra/shared/facilityBuild";
 import { DAY_MS, holdingsOf } from "@terra/sim";
@@ -125,6 +125,11 @@ describe.skipIf(!TEST_DATABASE_URL)("폐허 복원(D-510)", () => {
     const made = await ruins.devMakeRuin(one.userId);
     if (!made.ok || made.ruinId === undefined) throw new Error(`dev ruin ${JSON.stringify(made)}`);
     const ruinId = made.ruinId;
+    // 이름 있던 도시가 무너진 것처럼(552 다: 폐허는 무너지기 전 이름을 지니고, 복원되면 그 도시가 되찾는다)
+    const madePlace = npc.places.get(ruinId);
+    if (!madePlace) throw new Error("ruin place");
+    expect(madePlace.name).toBeUndefined();
+    npc.places.set(ruinId, { ...madePlace, name: "Testburg" });
     let row = await rows<{ claimant_owner_id: string | null; join_faction_id: string | null }>(
       test.db,
       `select claimant_owner_id, join_faction_id from world_ruins where id = $1`,
@@ -133,6 +138,7 @@ describe.skipIf(!TEST_DATABASE_URL)("폐허 복원(D-510)", () => {
     expect(row).toEqual([{ claimant_owner_id: null, join_faction_id: null }]);
     let view = ruins.overview({ id: one.userId, devGrant: true }, clock);
     const card = view?.ruins.find((r) => r.id === ruinId);
+    expect(card?.name).toBe("Testburg");
     expect(card?.owner).toBeNull();
     expect(view?.government?.facilityId).toBe("government_hall");
     const at = card?.buildAt;
@@ -267,12 +273,14 @@ describe.skipIf(!TEST_DATABASE_URL)("폐허 복원(D-510)", () => {
 
     // 같은 ID로 도시가 돌아오고(유저의 나라), 폐허·낸 값 줄은 지워진다
     await writer.durable();
-    const city = await rows<{ faction_id: string; start: boolean; admin_level: number }>(
+    const city = await rows<{ faction_id: string; start: boolean; admin_level: number; name: string | null }>(
       test.db,
-      `select faction_id, start, admin_level from world_cities where id = $1`,
+      `select faction_id, start, admin_level, name from world_cities where id = $1`,
       [ruinId],
     );
-    expect(city).toEqual([{ faction_id: String(two.factionRow), start: false, admin_level: 1 }]);
+    expect(city).toEqual([
+      { faction_id: String(two.factionRow), start: false, admin_level: 1, name: "Testburg" },
+    ]);
     expect(await rows(test.db, `select id from world_ruins`)).toEqual([]);
     expect(await rows(test.db, `select ruin_id from restoration_contributions`)).toEqual([]);
     const shares = holdingsOf(ledger, ruinId);
@@ -312,18 +320,22 @@ describe.skipIf(!TEST_DATABASE_URL)("폐허 복원(D-510)", () => {
     if (!npc2) throw new Error("npc runtime");
     expect(npc2.world.cities.get(ruinId)?.owner).toBe(nation);
     expect(npc2.world.ruins.size).toBe(0);
-    // 폐허가 될 도시 창고에 첫째의 물건 7(535: 소각하지 않고 첫째 나라의 가장 가까운 다른 도시 창고로)
+    // 폐허가 될 도시 창고에 첫째의 물건 7, 나라(NPC 세력)의 물건 5(535·540 나: 둘 다 소각하지 않고 그 주인 나라의 가장 가까운 다른 도시
+    // 창고로 — NPC·유저 같은 규칙)
     const ledger2 = persistenceOf(second).ledger;
     const asset = "item:plank";
     const homes = [...(npc2.world.factions.get(nation)?.cities ?? [])].filter((id) => id !== ruinId);
-    const heldAt = () => homes.reduce((sum, id) => sum + ledger2.balanceOf(one.ownerId, asset, id), 0n);
+    const heldAt = (owner = one.ownerId) =>
+      homes.reduce((sum, id) => sum + ledger2.balanceOf(owner, asset, id), 0n);
     const before = heldAt();
+    const beforeNation = heldAt(nation);
     ledger2.post({
       kind: "endow",
       atMs: clock,
       entries: [
-        { account: ledger2.systemAccount(`source:${asset}`, asset), amount: -7n },
+        { account: ledger2.systemAccount(`source:${asset}`, asset), amount: -12n },
         { account: ledger2.ownerAccount(one.ownerId, asset, ruinId), amount: 7n },
+        { account: ledger2.ownerAccount(nation, asset, ruinId), amount: 5n },
       ],
     });
     npc2.society.ruin(ruinId, clock);
@@ -332,12 +344,15 @@ describe.skipIf(!TEST_DATABASE_URL)("폐허 복원(D-510)", () => {
     expect(await rows(test.db, `select id from world_cities where id = $1`, [ruinId])).toEqual([]);
     expect(ledger2.balanceOf(one.ownerId, asset, ruinId)).toBe(0n);
     expect(heldAt()).toBe(before + 7n);
-    const again = await rows<{ id: string; claimant_owner_id: string | null }>(
+    expect(ledger2.balanceOf(nation, asset, ruinId)).toBe(0n);
+    expect(heldAt(nation)).toBe(beforeNation + 5n);
+    const again = await rows<{ id: string; claimant_owner_id: string | null; name: string | null }>(
       test.db,
-      `select id, claimant_owner_id from world_ruins`,
+      `select id, claimant_owner_id, name from world_ruins`,
     );
-    // 옛 주인 나라(NPC)는 판단 후보 "폐허 복원"으로 바로 정부를 지을 수 있다(484 다)
+    // 옛 주인 나라(NPC)는 판단 후보 "폐허 복원"으로 바로 정부를 지을 수 있다(484 다). 폐허 줄은 되찾은 이름을 다시 지닌다(552 다)
     expect(again.map((r) => r.id)).toEqual([String(ruinId)]);
+    expect(again[0]?.name).toBe("Testburg");
     expect([null, String(nation)]).toContain(again[0]?.claimant_owner_id ?? null);
     await second.stop();
     const third = await boot();

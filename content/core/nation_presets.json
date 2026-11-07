@@ -30,14 +30,11 @@
             "recipe": "cut_timber"
           }
         ],
+        "startNecessityHours": 72,
         "startStock": [
           {
-            "item": "ration",
-            "qty": 240
-          },
-          {
-            "item": "household_goods",
-            "qty": 10
+            "item": "grain",
+            "qty": 60
           }
         ]
       },
@@ -78,15 +75,8 @@
             "recipe": "cook_ration"
           }
         ],
+        "startNecessityHours": 48,
         "startStock": [
-          {
-            "item": "ration",
-            "qty": 120
-          },
-          {
-            "item": "household_goods",
-            "qty": 40
-          },
           {
             "item": "iron_ingot",
             "qty": 20
@@ -130,15 +120,8 @@
             "recipe": "cook_ration"
           }
         ],
+        "startNecessityHours": 48,
         "startStock": [
-          {
-            "item": "ration",
-            "qty": 200
-          },
-          {
-            "item": "household_goods",
-            "qty": 10
-          },
           {
             "item": "pine_log",
             "qty": 30
@@ -195,14 +178,11 @@
             "recipe": "cut_timber"
           }
         ],
+        "startNecessityHours": 72,
         "startStock": [
           {
-            "item": "ration",
-            "qty": 240
-          },
-          {
-            "item": "household_goods",
-            "qty": 10
+            "item": "grain",
+            "qty": 60
           }
         ]
       },
@@ -243,15 +223,8 @@
             "recipe": "cook_ration"
           }
         ],
+        "startNecessityHours": 48,
         "startStock": [
-          {
-            "item": "ration",
-            "qty": 120
-          },
-          {
-            "item": "household_goods",
-            "qty": 40
-          },
           {
             "item": "iron_ingot",
             "qty": 20
@@ -295,15 +268,8 @@
             "recipe": "cook_ration"
           }
         ],
+        "startNecessityHours": 48,
         "startStock": [
-          {
-            "item": "ration",
-            "qty": 200
-          },
-          {
-            "item": "household_goods",
-            "qty": 10
-          },
           {
             "item": "pine_log",
             "qty": 30
@@ -360,14 +326,11 @@
             "recipe": "cut_timber"
           }
         ],
+        "startNecessityHours": 72,
         "startStock": [
           {
-            "item": "ration",
-            "qty": 240
-          },
-          {
-            "item": "household_goods",
-            "qty": 10
+            "item": "grain",
+            "qty": 60
           }
         ]
       },
@@ -408,15 +371,8 @@
             "recipe": "cook_ration"
           }
         ],
+        "startNecessityHours": 48,
         "startStock": [
-          {
-            "item": "ration",
-            "qty": 120
-          },
-          {
-            "item": "household_goods",
-            "qty": 40
-          },
           {
             "item": "iron_ingot",
             "qty": 20
@@ -460,15 +416,8 @@
             "recipe": "cook_ration"
           }
         ],
+        "startNecessityHours": 48,
         "startStock": [
-          {
-            "item": "ration",
-            "qty": 200
-          },
-          {
-            "item": "household_goods",
-            "qty": 10
-          },
           {
             "item": "pine_log",
             "qty": 30
@@ -525,14 +474,11 @@
             "recipe": "cut_timber"
           }
         ],
+        "startNecessityHours": 72,
         "startStock": [
           {
-            "item": "ration",
-            "qty": 240
-          },
-          {
-            "item": "household_goods",
-            "qty": 10
+            "item": "grain",
+            "qty": 60
           }
         ]
       },
@@ -573,15 +519,8 @@
             "recipe": "cook_ration"
           }
         ],
+        "startNecessityHours": 48,
         "startStock": [
-          {
-            "item": "ration",
-            "qty": 120
-          },
-          {
-            "item": "household_goods",
-            "qty": 40
-          },
           {
             "item": "iron_ingot",
             "qty": 20
@@ -625,15 +564,8 @@
             "recipe": "cook_ration"
           }
         ],
+        "startNecessityHours": 48,
         "startStock": [
-          {
-            "item": "ration",
-            "qty": 200
-          },
-          {
-            "item": "household_goods",
-            "qty": 10
-          },
           {
             "item": "pine_log",
             "qty": 30

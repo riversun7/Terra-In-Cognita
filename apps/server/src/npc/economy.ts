@@ -5,13 +5,18 @@
 //   기준 통화 = 서버 시험 화폐(ASSET_CREDIT, 유저 지갑·서버 돈). 환전 = 나라 화폐 ↔ 기준 통화 동시호가(market/fx.ts, 시뮬 createFxMarket·onFx·quoteFx
 //   그대로), 처음 발행(E6)·하루 끝 중앙은행(bankDay)도 시뮬 함수 그대로 돈다. 중앙은행의 아직 소각하지 못한 이자(interestOwed)는 메모리다(다시 켜면 0).
 // - 거래소: market/books.ts 모음(도시 × 물건, 저장·복원). 시뮬 Economy.markets가 그 표를 그대로 본다.
-// - 생산 시설: 그 도시에 선 NPC 세력 시설(건물, 다 지은 것)의 첫 레시피 + 건물이 없는 도시 직무(나라 특산: 국가 프리셋 성격 칸 cityJobs,
-//   없으면 기본 셋 농장·주방·벌목장 [임시] — 기획 답 531 다). 일꾼 = 그 도시 휴먼을 굶음 먼저(생필품 사슬에 하루 몫만큼, 기획 답 532 나) 둔 뒤
-//   시설마다 한 명씩 돌려 자리 수(레벨 × 자리)까지(@terra/sim assignCityWorkers). 처음·하루 끝·새 도시마다 다시 맞춘다.
-// - 처음 창고: NPC 도시마다 한 번 국가 프리셋 성격 칸 startStock(나라 특산, 기획 답 533 다), 없으면 생필품 48시간분(휴먼 수 기준, 시뮬 목표
-//   재고와 같은 시간)을 넣는다(원장 endow, 중복 방지 키 npc_endow:<도시>). 반란 세력은 부모 국가의 성격을 쓴다.
+// - 생산 시설(@terra/sim planCityFacilities): 그 도시에 선 NPC 세력 시설(건물, 다 지은 것)은 그 시설의 특산 레시피(나라 특산 = 국가 프리셋
+//   성격 칸 cityJobs, 없으면 기본 셋 농장·주방·벌목장 [임시] — 특산 차례가 레시피를 고른다, 기획 답 553 나. 그 시설 특산이 없으면 팩 첫
+//   레시피) + 건물이 없는 시설의 특산 직무(휴먼이 Lv1, 기획 답 531 다). 일꾼 = 그 도시 휴먼을 굶음 먼저(생필품 사슬에 하루 몫만큼, 기획 답
+//   532 나) 둔 뒤 시설마다 한 명씩 돌려 자리 수(레벨 × 자리)까지(@terra/sim assignCityWorkers). 처음·하루 끝·새 도시마다 다시 맞춘다.
+// - 처음 창고(@terra/sim cityStartStock, 기획 답 554 다): NPC 도시마다 한 번 생필품 = 휴먼 수 × 몇 시간분(국가 프리셋 성격 칸
+//   startNecessityHours, 없으면 48시간 — 시뮬 목표 재고와 같은 시간) + 특산 물건 = 성격 칸 startStock의 고정 양을 넣는다(원장 endow, 중복
+//   방지 키 npc_endow:<도시>). 반란 세력은 부모 국가의 성격을 쓴다.
 // - 도시 매입 호가(기획 답 530 가): 시뮬 NPC 거래 판단(onTrade)의 마지막 차례가 자기 도시의 모자란 물건을 지난 값의 90%로 상시 매수 주문한다
-//   (시뮬·서버 같은 함수 placeCityBids — docs/adr/2026-11-07-play-flow.md "WP5 나라 성격"). 다음 판단이 주문 거두기로 함께 거둔다.
+//   (시뮬·서버 같은 함수 placeCityBids — docs/adr/2026-11-07-play-flow.md "WP5 나라 성격"). 같은 판단에서 수입한 양은 뺀다(기획 답 555 나).
+//   다음 판단이 주문 거두기로 함께 거둔다.
+// - 환전 회차(기획 답 564 다): 회차 길이의 정시(1시간이면 매시 정각, UTC 0시부터 센 배수)에 돈다(@terra/sim nextFxRoundAt). 서버를 다시
+//   켜도 화면 "다음 체결까지"가 같은 시각이고, 끈 동안 지나간 회차는 따라 돌리지 않는다(걸린 주문은 켠 뒤 첫 회차에 체결).
 // - 운송은 즉시다(shipMs 0: 화물 줄을 저장하지 않아도 같은 처리 안에서 도착한다 [임시]). 운영 스위치(49 N53): 생산 끔이면 생산을 건너뛰고 다음
 //   차례만 잡고, 거래소 끔이면 NPC 거래 판단을 건너뛴다(주문 명령은 거래소 서비스가 막는다).
 import {
@@ -36,9 +41,11 @@ import {
   type SocietyCoefficients,
   assignCityWorkers,
   type CityWorkSlot,
+  cityStartStock,
   defaultGatherStat,
-  itemAsset,
   lotSizeOf,
+  nextFxRoundAt,
+  planCityFacilities,
   prepareCatalog,
   runEconomy,
   scheduleEconomy,
@@ -56,8 +63,6 @@ import { DEFAULT_TAX_BP, MINT_KEY, mintNationCurrencies, nationCurrencies } from
 import { type NationPersonality, type NationPreset, presetOfCode } from "./nations.ts";
 
 export { DEFAULT_TAX_BP } from "./currency.ts";
-/** 처음 창고: 생필품 몇 시간분(시뮬 목표 재고 NECESSITY_BUFFER_HOURS와 같다) */
-const ENDOW_HOURS = 48n;
 /** 처음 창고 중복 방지 키 앞머리 */
 const ENDOW_KEY = "npc_endow:";
 /** 도시 직무 시설 ID(건물 ID와 겹치지 않게 큰 수부터, 도시마다 16칸 — 팩 성격 칸 cityJobs는 8개까지) */
@@ -71,8 +76,6 @@ export const CITY_JOBS: readonly { readonly facility: string; readonly recipe: s
   { facility: "kitchen", recipe: "cook_ration" },
   { facility: "lumber_camp", recipe: "cut_timber" },
 ];
-/** 생산하는 시설 단계(채집·가공·완제품). 창고·행정·신전 같은 시설은 생산하지 않는다 */
-const PRODUCING_STAGES = new Set(["gather", "process", "parts", "finish"]);
 
 /**
  * [임시] 서버 경제 손잡이(시뮬 시나리오 economy 칸 모양, econ16 값에서): 거래 판단 1시간(econ16 3시간보다 잦게 — 실제 시간 화면이라),
@@ -135,7 +138,7 @@ export interface ServerEconomy {
   production(cityId: number): FacilityRun[];
   /** 만료 주문 거두기(런타임 틱이 부른다) */
   expire(nowMs: number): number;
-  /** 다음 환전 회차 시각(마지막 회차 + 회차 길이, 아직 없으면 켠 시각 + 회차 길이) */
+  /** 다음 환전 회차 시각(회차 길이의 정시, 564 다: 마지막 회차 다음 정시, 아직 없으면 켠 시각 다음 정시) */
   nextFxAt(): number;
   /** 지난 호출 뒤 구간 지표 */
   takeMetrics(): Record<string, number>;
@@ -153,7 +156,10 @@ export interface ServerEconomyOptions {
   readonly startMs: number;
   readonly now: () => number;
   readonly log: { info(obj: object, message: string): void; warn(obj: object, message: string): void };
-  /** 폐허가 된 도시 창고 물건의 갈 곳(기획 D-518 535, npc/ruinsRuntime.ts). 없으면 시뮬 기본(주인 세력의 가장 오래된 다른 도시) */
+  /**
+   * 폐허가 된 도시 창고 물건의 갈 곳(기획 D-518 535·540 나, npc/ruinsRuntime.ts — 2차맵 칸 거리·유저 나라). 없으면 시뮬 기본(거리를 모를 때:
+   * 주인의 가장 오래된 다른 도시, 다른 도시가 없는 NPC 세력 물건은 소각, 유저 물건은 자리 없음)
+   */
   readonly goodsHome?: RuinedGoodsHome | undefined;
 }
 
@@ -312,30 +318,20 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
   };
   recount();
 
-  /** 처음 창고(도시마다 한 번): 나라 성격 칸 startStock(팩 수량 × 묶음 크기), 없으면 생필품 48시간분 */
+  /** 처음 창고(도시마다 한 번, 554 다): 생필품 = 휴먼 수 × 나라 성격 칸 시간(없으면 48시간), 특산 물건 = 성격 칸 고정 양(팩 수량 × 묶음 크기) */
   const endow = (cityId: number, atMs: number): void => {
     const key = `${ENDOW_KEY}${cityId}`;
     const city = world.cities.get(cityId);
     if (endowed.has(key) || !city) return;
-    const stock: { asset: string; qty: bigint }[] = [];
-    const special = personalityOfCity(cityId)?.startStock;
-    if (special) {
-      for (const line of special) {
-        const asset = itemAsset(line.item);
-        if (catalog.startPrice.has(asset))
-          stock.push({ asset, qty: BigInt(line.qty) * lotSizeOf(catalog, asset) });
-      }
-    } else {
-      const humans = BigInt(Math.max(1, economy.cityUnits.get(cityId) ?? 0));
-      for (const spec of catalog.necessities)
-        stock.push({
-          asset: spec.asset,
-          qty: (humans * spec.perUnit * ENDOW_HOURS) / BigInt(spec.periodHours),
-        });
-    }
+    const personality = personalityOfCity(cityId);
+    const stock = cityStartStock(
+      catalog,
+      economy.cityUnits.get(cityId) ?? 0,
+      personality?.startNecessityHours,
+      personality?.startStock,
+    );
     const entries = [];
-    for (const { asset, qty } of stock) {
-      if (qty <= 0n) continue;
+    for (const [asset, qty] of stock) {
       entries.push({ account: book.systemAccount(`source:${asset}`, asset), amount: -qty });
       entries.push({ account: book.ownerAccount(city.owner, asset, cityId), amount: qty });
     }
@@ -361,39 +357,22 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       { recipe: string; facility: string; level: number; buildingId: number | null; slots: number }
     >();
     if (city) {
+      // 건물(건물 ID 차례)은 그 시설의 특산 레시피(553 나), 건물이 없는 시설은 특산 직무(531 다) — 시뮬 planCityFacilities
       const buildings = o.input
         .facilitiesIn(cityId)
-        .filter((entry) => entry.ownerId === city.owner && entry.level >= 1)
-        .toSorted((a, b) => a.buildingId - b.buildingId);
-      const firstRecipe = (facility: string): string | undefined => {
-        for (const recipe of catalog.recipes.values()) if (recipe.facility === facility) return recipe.id;
-        return undefined;
-      };
-      for (const entry of buildings) {
-        const spec = catalog.facilities.get(entry.facility);
-        const recipe = firstRecipe(entry.facility);
-        if (!spec || !recipe || !PRODUCING_STAGES.has(spec.stage)) continue;
-        wanted.set(entry.buildingId, {
-          recipe,
-          facility: entry.facility,
-          level: entry.level,
-          buildingId: entry.buildingId,
-          slots: spec.slotsPerLevel * entry.level,
+        .filter((entry) => entry.ownerId === city.owner && entry.level >= 1);
+      for (const plan of planCityFacilities(
+        buildings,
+        personalityOfCity(cityId)?.cityJobs ?? CITY_JOBS,
+        catalog,
+      ))
+        wanted.set(plan.buildingId ?? CITY_JOB_BASE + cityId * 16 + (plan.jobIndex ?? 0), {
+          recipe: plan.recipe,
+          facility: plan.facility,
+          level: plan.level,
+          buildingId: plan.buildingId,
+          slots: plan.slots,
         });
-      }
-      (personalityOfCity(cityId)?.cityJobs ?? CITY_JOBS).forEach((job, index) => {
-        if (buildings.some((entry) => entry.facility === job.facility)) return;
-        const spec = catalog.facilities.get(job.facility);
-        // 레시피의 시설이 직무 시설과 다르면 쓰지 않는다(팩 성격 칸은 참조만 검사한다)
-        if (!spec || catalog.recipes.get(job.recipe)?.facility !== job.facility) return;
-        wanted.set(CITY_JOB_BASE + cityId * 16 + index, {
-          recipe: job.recipe,
-          facility: job.facility,
-          level: 1,
-          buildingId: null,
-          slots: spec.slotsPerLevel,
-        });
-      });
     }
     // 일꾼: 굶음 먼저(생필품 사슬에 하루 몫만큼) → 남은 휴먼은 시설마다 한 명씩 돌려 자리 수까지(기획 답 532 나)
     const slots: CityWorkSlot[] = [];
@@ -517,7 +496,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       if (kind === EVENT_FX) lastFxAt = nowMs;
       if (kind === EVENT_FX && c.switches.marketEnabled === 0) {
         // 거래소 끔: 환전 회차도 건너뛴다(걸린 주문은 다음 회차까지 그대로, 거두기는 된다)
-        loop.schedule(nowMs + economy.settings.fxEveryMs, { kind: EVENT_FX, subject });
+        loop.schedule(nextFxRoundAt(nowMs, economy.settings.fxEveryMs), { kind: EVENT_FX, subject });
         return true;
       }
       return run.handle(event, nowMs);
@@ -543,7 +522,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       }
       return out.toSorted((a, b) => a.facility.id - b.facility.id);
     },
-    nextFxAt: () => (lastFxAt ?? o.startMs) + economy.settings.fxEveryMs,
+    nextFxAt: () => nextFxRoundAt(lastFxAt ?? o.startMs, economy.settings.fxEveryMs),
     expire(nowMs) {
       const count = registry.expire(nowMs);
       metrics.expired += count;

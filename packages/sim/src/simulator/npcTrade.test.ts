@@ -50,4 +50,43 @@ describe("도시 매입 호가(530 가)", () => {
     onTrade(economy, world, loop, faction.id, 2, TEST_NPC_COEFFICIENTS);
     expect(market?.best("buy")).toMatchObject({ remaining: target - stock });
   });
+
+  it("같은 판단에서 남의 도시 매도 호가로 수입한 양은 매입 호가에서 뺀다(555 나 — 도시 ID 차례로 덜어 감)", () => {
+    const { world, economy, loop, faction } = setup();
+    const cities = [...faction.cities].toSorted((a, b) => a - b);
+    const [first, second] = cities;
+    if (first === undefined || second === undefined) throw new Error("cities");
+    // 파는 쪽: 공업 나라(다른 세력)의 도시에 배급 식량 100을 값 1로 건다
+    const seller = [...world.factions.values()].find((entry) => entry.code.startsWith("ind"));
+    const sellerCity = seller ? [...seller.cities].toSorted((a, b) => a - b)[0] : undefined;
+    if (!seller || sellerCity === undefined) throw new Error("seller");
+    const book = world.book;
+    const give = (owner: number, asset: string, qty: bigint, location: number | null) =>
+      book.post({
+        kind: "endow",
+        atMs: 0,
+        entries: [
+          { account: book.systemAccount(`source:${asset}`, asset), amount: -qty },
+          { account: book.ownerAccount(owner, asset, location), amount: qty },
+        ],
+      });
+    give(seller.id, "item:ration", 100n, sellerCity);
+    const sellerMarket = economy.markets.get(sellerCity)?.get("item:ration");
+    expect(sellerMarket?.place(seller.id, "sell", 1n, 100n, 0, 1_000_000).ok).toBe(true);
+    // 사는 쪽은 파는 나라 화폐를 갖고 있다(환율은 아직 같은 값이라 1:1)
+    const sellerCurrency = economy.currencyOf.get(seller.id) ?? economy.base;
+    give(faction.id, sellerCurrency, 10_000n, null);
+    const gap = (cityId: number): bigint =>
+      (cityTargets(economy, cityId).get("item:ration") ?? 0n) -
+      book.balanceOf(faction.id, "item:ration", cityId);
+    const gapFirst = gap(first);
+    const gapSecond = gap(second);
+    expect(gapFirst).toBeGreaterThan(100n);
+    onTrade(economy, world, loop, faction.id, 1, TEST_NPC_COEFFICIENTS);
+    // 100을 수입했다(파는 도시에 내 물건으로 있다 — 다음 판단이 내 도시로 보낸다)
+    expect(book.balanceOf(faction.id, "item:ration", sellerCity)).toBe(100n);
+    // 첫 도시 매입 호가는 그만큼 적고, 둘째 도시는 그대로
+    expect(economy.markets.get(first)?.get("item:ration")?.best("buy")?.remaining).toBe(gapFirst - 100n);
+    expect(economy.markets.get(second)?.get("item:ration")?.best("buy")?.remaining).toBe(gapSecond);
+  });
 });

@@ -8,7 +8,8 @@
 //    그 화폐가 모자라면 환전 주문을 낸다(기준 통화를 거쳐서). 자기 화폐를 발행하는 나라는 자기 화폐를 팔지 않는다
 //    (시장 조성 quoteFx가 이미 내므로, 같은 회차의 자기 주문끼리 맞물리지 않게).
 // 6. 자기 도시마다 모자란 것은 그 도시 거래소에 지난 값의 90%로 상시 매수 주문을 건다(도시 매입 호가 placeCityBids, 기획 답 530 가 —
-//    서버 WP4에서 옮겨 시뮬·서버가 같은 규칙. 유저가 NPC 도시에 모자란 물건을 팔 곳이 된다).
+//    서버 WP4에서 옮겨 시뮬·서버가 같은 규칙. 유저가 NPC 도시에 모자란 물건을 팔 곳이 된다). 같은 판단의 5에서 수입 주문으로 산 양(바로
+//    체결된 것 + 걸어 둔 것)은 모자란 양에서 뺀다(기획 답 555 나 — 두 번 사지 않게, 도시 ID 차례로 나눠 뺀다).
 // 쓰는 돈은 판단 한 번에 국고의 1/4까지다(생필품이 모자라면 1/2). 발행 나라는 환전 회차마다 자기 화폐 양쪽 값을 낸다(quoteFx, 가진 것의 5%씩).
 // 묶음(302·D-506): 목표 재고·남는 양·운송은 기본 단위(광석 g), 거래소 주문은 묶음 단위다. 팔 때는 남는 양 ÷ 묶음(버림, 묶음 하나가
 // 안 되면 팔지 않음), 살 때는 모자란 양 ÷ 묶음(올림).
@@ -119,6 +120,8 @@ export function onTrade(
   const foodShort = cities.some((cityId) => (economy.today.shortByCity.get(cityId) ?? 0) > 0);
   const policy = tradePolicy(faction.traits, foodShort, npc);
   const budget = { left: book.balanceOf(factionId, currency) / policy.spendDivisor };
+  /** 이번 판단에서 수입 주문으로 산 양(기본 단위, 자산 → 양 — 555 나) */
+  const imported = new Map<string, bigint>();
   for (const asset of economy.catalog.items) {
     // 3. 내 도시끼리 나누기
     let shortfall = 0n;
@@ -146,16 +149,21 @@ export function onTrade(
       market.place(factionId, "sell", price, lots, nowMs, nowMs + economy.settings.orderLifeMs);
     }
     // 5. 모자란 것 사기
-    if (shortfall > 0n) importGoods(economy, world, faction, currency, asset, shortfall, budget, nowMs);
+    if (shortfall > 0n) {
+      const lots = importGoods(economy, world, faction, currency, asset, shortfall, budget, nowMs);
+      if (lots > 0n) imported.set(asset, lots * lotSizeOf(economy.catalog, asset));
+    }
   }
-  // 6. 자기 도시 매입 호가
-  return placeCityBids(economy, world, faction, policy, nowMs);
+  // 6. 자기 도시 매입 호가(수입한 양은 뺀다)
+  return placeCityBids(economy, world, faction, policy, nowMs, imported);
 }
 
 /**
  * 도시 매입 호가(기획 답 530 가, D-518 — 서버 WP4 규칙을 옮김): 자기 도시마다 목표 재고(cityTargets)보다 모자란 물건(목표 − 그 도시 재고 −
- * 그 도시로 오는 중인 내 화물)을 지난 값(marketRefPrice)의 bidPct%로, 모자란 양만큼(묶음 올림) 그 도시 거래소에 매수 주문한다.
- * 국고 ÷ 지출 분모(판단 끝 잔고 기준) 안에서 도시 ID 차례·목표 차례로 건다. 다음 판단의 주문 거두기(1)가 함께 거둔다. 건 주문 수를 돌려준다
+ * 그 도시로 오는 중인 내 화물 − 같은 판단에서 수입한 양)을 지난 값(marketRefPrice)의 bidPct%로, 모자란 양만큼(묶음 올림) 그 도시 거래소에
+ * 매수 주문한다. 수입한 양(imported, 자산 → 기본 단위 양, 555 나)은 도시 ID 차례로 모자란 양을 채운 만큼 덜어 간다(남의 도시에서 산 물건은
+ * 다음 판단의 2가 가장 모자란 내 도시로 보낸다). 국고 ÷ 지출 분모(판단 끝 잔고 기준) 안에서 도시 ID 차례·목표 차례로 건다. 다음 판단의 주문
+ * 거두기(1)가 함께 거둔다. 건 주문 수를 돌려준다
  */
 export function placeCityBids(
   economy: Economy,
@@ -163,6 +171,7 @@ export function placeCityBids(
   faction: SimFaction,
   policy: TradePolicy,
   nowMs: number,
+  imported: ReadonlyMap<string, bigint> = new Map(),
 ): number {
   const { book } = world;
   const currency = economy.currencyOf.get(faction.id) ?? economy.base;
@@ -173,15 +182,23 @@ export function placeCityBids(
     const key = `${cargo.to}|${cargo.asset}`;
     incoming.set(key, (incoming.get(key) ?? 0n) + cargo.qty);
   }
+  const importLeft = new Map(imported);
   let budget = book.balanceOf(faction.id, currency) / policy.spendDivisor;
   let placed = 0;
   for (const cityId of [...faction.cities].toSorted((a, b) => a - b)) {
     const perItem = economy.markets.get(cityId);
     if (!perItem) continue;
     for (const [asset, target] of cityTargets(economy, cityId)) {
-      const gap =
+      let gap =
         target - book.balanceOf(faction.id, asset, cityId) - (incoming.get(`${cityId}|${asset}`) ?? 0n);
       if (gap <= 0n) continue;
+      const bought = importLeft.get(asset) ?? 0n;
+      if (bought > 0n) {
+        const used = bought < gap ? bought : gap;
+        importLeft.set(asset, bought - used);
+        gap -= used;
+        if (gap <= 0n) continue;
+      }
       const market = perItem.get(asset);
       if (!market) continue;
       const price = pct(marketRefPrice(economy, cityId, asset), policy.bidPct);
@@ -204,6 +221,7 @@ export function placeCityBids(
   return placed;
 }
 
+/** 모자란 것을 남의 도시 매도 호가에서 산다(5). 산 묶음 수(바로 체결 + 걸어 둔 양)를 돌려준다 */
 function importGoods(
   economy: Economy,
   world: SimWorld,
@@ -214,7 +232,7 @@ function importGoods(
   shortfall: bigint,
   budget: { left: bigint },
   nowMs: number,
-): void {
+): bigint {
   const { book } = world;
   // 남의 도시 매도 호가를 내 화폐로 바꾼 값이 싼 차례(같으면 도시 ID 차례)
   const offers: { cityId: number; price: bigint; cost: bigint; qty: bigint; currency: string }[] = [];
@@ -229,18 +247,19 @@ function importGoods(
   }
   offers.sort((a, b) => (a.cost !== b.cost ? (a.cost < b.cost ? -1 : 1) : a.cityId - b.cityId));
   // 모자란 양(기본 단위) → 묶음(올림)
-  let left = ceilDiv(shortfall, lotSizeOf(economy.catalog, asset));
+  const want = ceilDiv(shortfall, lotSizeOf(economy.catalog, asset));
+  let left = want;
   for (const offer of offers) {
-    if (left <= 0n) return;
+    if (left <= 0n) break;
     let qty = left < offer.qty ? left : offer.qty;
     const affordable = budget.left / offer.cost;
     if (affordable < qty) qty = affordable;
-    if (qty <= 0n) return;
+    if (qty <= 0n) break;
     const pay = offer.price * qty;
     const have = book.balanceOf(faction.id, offer.currency);
     if (have < pay) {
       requestCurrency(economy, world, faction, currency, offer.currency, pay - have, budget, nowMs);
-      return;
+      break;
     }
     const market = economy.markets.get(offer.cityId)?.get(asset);
     const result = market?.place(
@@ -251,10 +270,12 @@ function importGoods(
       nowMs,
       nowMs + economy.settings.orderLifeMs,
     );
-    if (!result?.ok) return;
+    if (!result?.ok) break;
     budget.left -= offer.cost * qty;
     left -= qty;
   }
+  // 산 묶음 수(바로 체결된 것 + 걸어 둔 것)
+  return want - left;
 }
 
 /** 화폐 target을 amount만큼 얻으려는 환전 주문(기준 통화를 거친다). 이번 회차에 못 받으면 다음 판단에 다시 본다 */

@@ -253,14 +253,21 @@ const cityName = z
   });
 
 /**
- * 국가 성격(기획 답 504 다·531 다·533 다, D-518 — docs/adr/2026-11-07-play-flow.md "WP5 나라 성격"). 칸이 없으면 모든 국가가 같은 기본이다
- * (시작 도시 수 = 설정 칸 아래 끝, 도시 직무 = 서버 기본 셋, 처음 창고 = 생필품 48시간분).
+ * 국가 성격(기획 답 504 다·531 다·533 다·553 나·554 다, D-518 — docs/adr/2026-11-07-play-flow.md "WP5 나라 성격"·"WP10 경제 마무리"). 칸이
+ * 없으면 모든 국가가 같은 기본이다(시작 도시 수 = 설정 칸 아래 끝, 도시 직무 = 서버 기본 셋, 처음 창고 = 생필품 48시간분).
  * - startCities: 큰 나라·작은 나라(고정 NPC 국가의 시작 도시 수, 설정 칸 d6041_start_cities_min~max 안으로 자른다)
- * - cityJobs: 특산 — 그 시설 건물이 없는 NPC 도시의 휴먼이 이 레시피를 Lv1로 돌린다(레시피의 시설이 facility와 같아야 쓴다)
- * - startStock: NPC 도시 하나가 처음 한 번 받는 물건(팩 수량 = 묶음 단위)
+ * - cityJobs: 특산 — 그 시설 건물이 없는 NPC 도시의 휴먼이 이 레시피를 Lv1로 돌리고, 그 시설 건물이 있으면 건물이 특산 차례대로 이 레시피를
+ *   돌린다(레시피의 시설이 facility와 같아야 쓴다)
+ * - startNecessityHours: 처음 창고 생필품 = 휴먼 수 × 이 시간분(없으면 48시간, 554 다)
+ * - startStock: 처음 창고 특산 물건 — NPC 도시 하나가 처음 한 번 받는 고정 양(팩 수량 = 묶음 단위). 생필품은 위 시간분으로 받는다(554 다)
  */
 const nationPersonality = z.strictObject({
   startCities: z.int().min(1).max(4).optional(),
+  startNecessityHours: z
+    .int()
+    .min(0)
+    .max(24 * 30)
+    .optional(),
   cityJobs: z
     .array(z.strictObject({ facility: ref("facilities"), recipe: ref("recipes") }))
     .min(1)

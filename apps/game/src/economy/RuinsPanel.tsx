@@ -7,18 +7,22 @@
 //   미리 셈·[모금 열기]·넣기).
 // - 폐허 2(기획 답 480 다·482 나·485 다·487 다·489 다, 프로토콜 15): 정부 건물 상태(짓는 중이면 모금 닫힘, 0%·사라지면 [다시 짓기] — 다시 지은
 //   쪽이 주인, 낸 값은 남음)·모금 기한·목표 = 옛 주거 비례·행정 레벨 = 건물 레벨 규칙 줄.
+// - 경제 마무리(기획 답 546 가·552 다, docs/adr/2026-11-07-play-flow.md "WP10"): 모금 화폐는 도시가 들어갈 나라의 화폐 그대로다. 사업마다 모금
+//   화폐 이름과 내 그 화폐 잔고를 보이고, 넣을 수 있는데 잔고가 0이거나 적은 값보다 적으면 거래창처럼 [환전하러 가기]를 보인다. 폐허 카드
+//   제목은 무너지기 전 도시 이름(있으면).
 import type { RuinView, RuinsOverviewResponse } from "@terra/shared/ruins";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { formatAmount } from "../roster/rosterText.ts";
+import { AppLink } from "../shell/AppLink.tsx";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { sendFusionCommand } from "../units/fusionCommands.ts";
 import { RESULT_TEXT as FUSION_RESULT_TEXT } from "../units/fusionParts.tsx";
-import { formatClock, pickName } from "./economyText.ts";
+import { type CatalogIndex, currencyName, formatClock, indexCatalog, pickName } from "./economyText.ts";
 import { sendFacilityCommand } from "./facilityCommands.ts";
 import { FACILITY_ERROR_TEXT } from "./facilityText.ts";
 import { Loaded } from "./parts.tsx";
-import { NO_ARGS, useFacilities, useRuins } from "./queries.ts";
+import { NO_ARGS, useCatalog, useFacilities, useRuins } from "./queries.ts";
 import { type RuinCommand, type RuinOutcome, sendRuinCommand } from "./ruinsCommands.ts";
 import "./ruins.css";
 
@@ -104,13 +108,21 @@ function raisedPm(goal: string, raised: string): number {
   return Number((BigInt(raised) * 1000n) / total);
 }
 
+/** 넣을 수 있는데 그 화폐가 모자라나(잔고 0, 또는 적은 값이 잔고보다 큼 — 546 가) */
+function fundShort(balance: string, amount: string): boolean {
+  const have = BigInt(balance);
+  return have <= 0n || (isAmount(amount) && BigInt(amount) > have);
+}
+
 function ProjectPart({
   ruin,
+  index,
   nowMs,
   busy,
   run,
 }: {
   ruin: RuinView;
+  index: CatalogIndex;
   nowMs: number;
   busy: string | null;
   run: Run;
@@ -121,6 +133,7 @@ function ProjectPart({
   const pm = raisedPm(project.goal, project.raised);
   const pct = Math.floor(pm / 10);
   const left = BigInt(project.goal) - BigInt(project.raised);
+  const short = project.canFund && fundShort(project.balance, amount);
   return (
     <>
       <div className="facility-meter-row">
@@ -141,6 +154,12 @@ function ProjectPart({
         {m.ruins_progress({ raised: formatAmount(project.raised), goal: formatAmount(project.goal) })}
       </p>
       <p className="eco-footnote">{m.ruins_mine({ amount: formatAmount(project.mine) })}</p>
+      <p className="eco-footnote" data-part="ruin-currency">
+        {m.ruins_fund_currency({
+          currency: currencyName(index, project.currencyCode),
+          amount: formatAmount(project.balance),
+        })}
+      </p>
       {project.deadlineAtMs === null ? null : (
         <p className="eco-footnote" data-part="ruin-deadline">
           {m.ruins_deadline({ at: formatClock(project.deadlineAtMs, nowMs) })}
@@ -214,6 +233,14 @@ function ProjectPart({
       ) : (
         <p className="field-hint">{closedText(ruin, nowMs)}</p>
       )}
+      {short ? (
+        <p className="field-hint ruins-short" data-part="ruin-short">
+          {m.ruins_fund_short()}{" "}
+          <AppLink className="ruins-go-exchange" to={{ route: "economy_exchange" }}>
+            {m.market_go_exchange()}
+          </AppLink>
+        </p>
+      ) : null}
     </>
   );
 }
@@ -264,11 +291,13 @@ function HallLine({ ruin, dev, busy, run }: { ruin: RuinView; dev: boolean; busy
 function RuinCard({
   ruin,
   data,
+  index,
   busy,
   run,
 }: {
   ruin: RuinView;
   data: RuinsOverviewResponse;
+  index: CatalogIndex;
   busy: string | null;
   run: Run;
 }) {
@@ -281,7 +310,11 @@ function RuinCard({
   return (
     <li className="ruins-card" data-part="ruin-card" data-ruin={ruin.id} data-state={state}>
       <div className="ruins-card-head">
-        <p className="ruins-card-title">{m.ruins_card_title({ id: ruin.id })}</p>
+        <p className="ruins-card-title">
+          {ruin.name === null
+            ? m.ruins_card_title({ id: ruin.id })
+            : m.ruins_card_title_named({ name: ruin.name, id: ruin.id })}
+        </p>
         <span className="eco-tag ruins-state" data-state={state}>
           {STATE_TEXT[state]()}
         </span>
@@ -299,7 +332,9 @@ function RuinCard({
         </p>
       ) : null}
       <HallLine ruin={ruin} dev={data.dev} busy={busy} run={run} />
-      {ruin.project ? <ProjectPart ruin={ruin} nowMs={data.generatedAt} busy={busy} run={run} /> : null}
+      {ruin.project ? (
+        <ProjectPart ruin={ruin} index={index} nowMs={data.generatedAt} busy={busy} run={run} />
+      ) : null}
       {government && at ? (
         <>
           <p className="field-hint">
@@ -371,6 +406,8 @@ function RuinCard({
 
 export function RuinsPanel() {
   const ruins = useRuins(NO_ARGS);
+  const catalog = useCatalog(NO_ARGS);
+  const index = indexCatalog(catalog.data);
   const live = useLiveLines();
   const [busy, setBusy] = useState<string | null>(null);
   const [tone, setTone] = useState<"success" | "error">("success");
@@ -466,7 +503,7 @@ export function RuinsPanel() {
               {loaded.ruins.length === 0 ? <p className="eco-empty">{m.ruins_empty()}</p> : null}
               <ul className="ruins-list" data-part="ruins-list">
                 {loaded.ruins.map((ruin) => (
-                  <RuinCard key={ruin.id} ruin={ruin} data={loaded} busy={busy} run={run} />
+                  <RuinCard key={ruin.id} ruin={ruin} data={loaded} index={index} busy={busy} run={run} />
                 ))}
               </ul>
             </>

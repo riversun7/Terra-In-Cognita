@@ -37,6 +37,8 @@ export interface NpcCityRow {
   readonly waveCooldownUntilMs: number;
   /** 행정 건물 레벨(1~5, D-469) */
   readonly adminLevel: number;
+  /** 도시 이름(NPC 도시는 팩 목록, 없으면 null — 폐허가 되면 폐허 줄에 남아 복원 때 되찾는다, 기획 답 552 다) */
+  readonly name: string | null;
 }
 
 export interface NpcHumanRow {
@@ -136,7 +138,7 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
       ),
       pool.query(
         `select id, faction_id, planet_id, map_key, cell_x, cell_y, start, housing, research_level, founded_at_ms,
-              development, next_rebellion_ms, wave_cooldown_until_ms, admin_level from world_cities order by id`,
+              development, next_rebellion_ms, wave_cooldown_until_ms, admin_level, name from world_cities order by id`,
       ),
       pool.query(
         `select unit_id, city_id, satisfaction_milli, born_at_ms, lifespan_ms, rebirths, level, stats, elements
@@ -196,6 +198,7 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
       nextRebellionMs: num(row.next_rebellion_ms),
       waveCooldownUntilMs: num(row.wave_cooldown_until_ms ?? 0),
       adminLevel: Math.max(1, num(row.admin_level ?? 1)),
+      name: typeof row.name === "string" ? row.name : null,
     })),
     humans: humans.rows.map((row) => ({
       unitId: num(row.unit_id),

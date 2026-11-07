@@ -3,7 +3,7 @@ import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "../society/
 import { holdingsOf } from "../society/shares.ts";
 import { DAY_MS, createMetricsRecorder } from "./metrics.ts";
 import { parseScenario } from "./scenario.ts";
-import { rehomeRuinedGoods, simGoodsHome } from "./economy.ts";
+import { nearestOtherCity, rehomeRuinedGoods, ruinedGoodsHome } from "./ruinedGoods.ts";
 import { attachSociety } from "./society.ts";
 import { TEST_ASSET_CREDIT, checkWorld, createWorld, restoreEscrow } from "./world.ts";
 
@@ -40,6 +40,10 @@ function setup(c: SocietyCoefficients = TEST_SOCIETY_COEFFICIENTS) {
   const credit = (owner: number) => world.book.balanceOf(owner, TEST_ASSET_CREDIT);
   return { world, society, problems, credit };
 }
+
+/** 시험 거리: 도시 ID 차이(도시 2는 거리를 모름 — 가까운 도시 후보에서 빠진다) */
+const idGapExcept2 = (from: number, to: number): number | undefined =>
+  to === 2 ? undefined : Math.abs(from - to);
 
 /** NPC 규칙식을 끈 계수(정부 짓기·넣기를 시험이 직접 부른다) */
 const MANUAL: SocietyCoefficients = {
@@ -250,35 +254,51 @@ describe("폐허 복원(D-510·D-339·D-343·D-344)", () => {
     expect(problems(2000)).toEqual([]);
   });
 
-  it("폐허가 된 도시 창고 물건(535): 유저 물건은 갈 곳(그 주인 도시 창고)으로 옮기고, NPC 세력 물건은 옛 규칙대로 소각, 갈 곳이 없으면 자리 없음", () => {
+  it("폐허가 된 도시 창고 물건(535·540 나): NPC 세력·유저 모두 주인의 가장 가까운 다른 도시 창고로, 다른 도시가 없는 NPC 세력 물건만 소각", () => {
     const { world } = setup(MANUAL);
     const asset = "item:plank";
     const source = world.book.systemAccount(`source:${asset}`, asset);
     const sink = world.book.systemAccount(`sink:${asset}`, asset);
-    const give = (owner: number, qty: bigint) =>
+    const give = (owner: number, qty: bigint, city: number) =>
       world.book.post({
         kind: "endow",
         atMs: 0,
         entries: [
           { account: source, amount: -qty },
-          { account: world.book.ownerAccount(owner, asset, 5), amount: qty },
+          { account: world.book.ownerAccount(owner, asset, city), amount: qty },
         ],
       });
-    // 도시 5(세력 2) 창고: 세력 2 물건 7, 세력 3 물건 4, 세력이 아닌 주체(유저 자리) 77 물건 9
-    give(2, 7n);
-    give(3, 4n);
-    give(77, 9n);
-    // 시뮬 기본: 세력 물건은 소각, 유저 자리는 자리 없음
-    expect(rehomeRuinedGoods(world, 5, 1000, simGoodsHome(world))).toBe(3);
+    // 도시 5(세력 2) 창고: 세력 2 물건 7, 세력 3 물건 4, 세력 1 물건 6, 세력이 아닌 주체(유저 자리) 77 물건 9
+    give(2, 7n, 5);
+    give(3, 4n, 5);
+    give(1, 6n, 5);
+    give(77, 9n, 5);
+    // 거리를 모르면 가장 오래된 다른 도시: 세력 2 → 4, 세력 3 → 6, 세력 1 → 1. 유저는 나라를 모르면 자리 없음
+    expect(rehomeRuinedGoods(world, 5, 1000, ruinedGoodsHome(world))).toBe(4);
     expect(world.book.balanceOf(2, asset, 5)).toBe(0n);
-    expect(world.book.balance(sink)).toBe(11n);
+    expect(world.book.balanceOf(2, asset, 4)).toBe(7n);
+    expect(world.book.balanceOf(3, asset, 6)).toBe(4n);
+    expect(world.book.balanceOf(1, asset, 1)).toBe(6n);
     expect(world.book.balanceOf(77, asset, null)).toBe(9n);
-    // 서버처럼 유저를 그 나라 도시(여기선 도시 1)로 보내는 고리, 고리가 폐허가 될 도시를 고르면 자리 없음으로 친다
-    give(77, 5n);
-    rehomeRuinedGoods(world, 5, 2000, (owner) => (owner === 77 ? 1 : "burn"));
-    expect(world.book.balanceOf(77, asset, 1)).toBe(5n);
-    give(77, 1n);
-    rehomeRuinedGoods(world, 5, 3000, () => 5);
+    expect(world.book.balance(sink)).toBe(0n);
+    // 거리를 주면 가장 가까운 도시(같으면 작은 ID), 거리를 모르는 도시는 가까운 도시 후보에서 빠진다. 유저는 그 나라의 도시로
+    give(1, 2n, 5);
+    give(77, 5n, 5);
+    rehomeRuinedGoods(
+      world,
+      5,
+      2000,
+      ruinedGoodsHome(world, idGapExcept2, (owner) => (owner === 77 ? 1 : undefined)),
+    );
+    expect(world.book.balanceOf(1, asset, 3)).toBe(2n);
+    expect(world.book.balanceOf(77, asset, 3)).toBe(5n);
+    // 다른 도시가 없는 세력(세력 3, 도시 6 하나)의 물건은 소각, 고리가 폐허가 될 도시를 고르면 자리 없음으로 친다
+    expect(nearestOtherCity(world, 3, 6)).toBeUndefined();
+    rehomeRuinedGoods(world, 6, 3000, ruinedGoodsHome(world));
+    expect(world.book.balanceOf(3, asset, 6)).toBe(0n);
+    expect(world.book.balance(sink)).toBe(4n);
+    give(77, 1n, 5);
+    rehomeRuinedGoods(world, 5, 4000, () => 5);
     expect(world.book.balanceOf(77, asset, null)).toBe(10n);
   });
 });

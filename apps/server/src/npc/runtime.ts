@@ -256,6 +256,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       cellX: row.cellX,
       cellY: row.cellY,
       foundedAtMs: row.foundedAtMs,
+      name: row.name ?? undefined,
     });
     faction.cities.add(row.id);
   }

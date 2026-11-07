@@ -50,7 +50,8 @@
 - 고치기 전 `pnpm e2e e2e/balance.spec.ts --workers=1`: 13 통과·"큰 숫자·en" 실패(trace에서 `balance.contribution` 429).
 - 고친 뒤 `pnpm e2e e2e/balance.spec.ts e2e/formulas.spec.ts e2e/battleLab.spec.ts --workers=1`: 45 통과(2.1분, 고치기 전 같은 묶음은 대결·전투 거절 뒤 쉬기 때문에 약 4.8분).
 - 재현 횟수는 위 2절.
-- (마지막 검사는 아래에 적는다)
+- 마지막 검사(origin/main `a1fa83f` 합친 뒤): `TEST_DATABASE_URL=… pnpm check` 통과(418 파일·3,464 시험). `pnpm check:docs`·`node scripts/check-docs.mjs origin/main`·`node scripts/check-content.mjs origin/main` 통과. `pnpm e2e e2e/balance.spec.ts e2e/formulas.spec.ts e2e/battleLab.spec.ts --workers=1` 45 통과(2.2분). 전체 `vitest run`(DB 포함) 3번 더 — 모두 통과, 프로세스 죽음 0(위 `pnpm check`까지 4번 연속).
+- 합친 뒤 첫 `pnpm check`는 린트에서 멈췄다: 이 작업 트리의 Paraglide 생성 파일(`apps/game/src/paraglide/`, git 제외)이 main이 더한 메시지 키보다 오래됐다(`pnpm check`는 린트가 타입 검사(다시 생성)보다 먼저). `paraglide-js compile` 뒤 다시 돌려 통과. CI는 새로 만든다.
 
 ## 미검증·TODO·알려진 문제
 - V8 안에서 지워진 모듈이 왜 남는지(Assumed, 위). 더 새 Node 24가 고쳤는지 Unknown(이 환경에서 Node 배포·V8 소스에 닿지 못함). Node를 올리면 `tsWorkerUrl` 없이 위 재현을 다시 돌려 본다.

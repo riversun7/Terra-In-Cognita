@@ -2,6 +2,7 @@
 // ADR 2026-10-28-s1-second-map: 휴대폰은 한 손가락 끌기 = 이동, 두 손가락 = 확대·회전(+ 가운데 점 이동), 누르기 = 고르기·명령.
 // 데스크톱은 끌기 = 이동, 휠 = 확대(커서 아래 땅 기준), 오른쪽(가운데) 끌기 = 회전(가로)·기울이기(세로).
 // 누르기: 거의 움직이지 않고(TAP_SLOP) 짧게(TAP_MAX_MS) 뗀 한 손가락·왼쪽 단추.
+// 가장 멀리에 닿은 채 다시 줄이면 알린다(zoomPush.ts, D-6018: 2차맵을 끝까지 줄이면 1차맵 5단계, ADR 2026-11-07-planet-view 2절).
 import {
   type CameraLimits,
   type CameraState,
@@ -14,6 +15,7 @@ import {
   transformAround,
   twoPointerChange,
 } from "./cameraMath.ts";
+import { type ZoomEdge, createZoomPush, edgeOf } from "./zoomPush.ts";
 
 export interface ControlTarget {
   getState(): CameraState;
@@ -25,6 +27,8 @@ export interface ControlTarget {
   onTap(point: ScreenPoint): void;
   /** 손가락·단추를 누르고 있는 동안(목표점 높이 맞추기를 미룬다) */
   onGestureChange(active: boolean): void;
+  /** 끝에 닿은 채 더 키우기(in)·줄이기(out) */
+  onZoomPush?(edge: ZoomEdge): void;
 }
 
 /** 움직였다고 볼 거리(CSS px): 손가락, 마우스 */
@@ -50,6 +54,11 @@ export function attachControls(element: HTMLElement, target: ControlTarget): () 
   let orbitLast: ScreenPoint | null = null;
   let pinchPrevious: [ScreenPoint, ScreenPoint] | null = null;
   let tap: { id: number; start: ScreenPoint; time: number; slop: number } | null = null;
+  const zoomPush = createZoomPush((edge) => target.onZoomPush?.(edge));
+  const edgeNow = (): ZoomEdge | null => {
+    const limits = target.limits();
+    return edgeOf(target.getState().distance, limits.minDistance, limits.maxDistance);
+  };
 
   const local = (event: PointerEvent | WheelEvent): ScreenPoint => {
     const rect = element.getBoundingClientRect();
@@ -91,6 +100,7 @@ export function attachControls(element: HTMLElement, target: ControlTarget): () 
       mode = "pinch";
       pinchPrevious = firstTwo();
       tap = null;
+      zoomPush.begin(edgeNow());
     }
   };
 
@@ -128,6 +138,7 @@ export function attachControls(element: HTMLElement, target: ControlTarget): () 
           limits,
         ),
       );
+      zoomPush.push(change.scale);
     }
   };
 
@@ -148,10 +159,12 @@ export function attachControls(element: HTMLElement, target: ControlTarget): () 
       panAnchor = null;
       orbitLast = null;
       pinchPrevious = null;
+      zoomPush.end();
       target.onGestureChange(false);
     } else if (pointers.size === 1 && mode === "pinch") {
       // 두 손가락 중 하나를 떼면 남은 손가락으로 이어서 끈다(튀지 않게 새로 붙잡는다)
       const remaining = [...pointers.values()][0];
+      zoomPush.end();
       if (remaining) startPan(remaining);
     } else if (pointers.size >= 2) {
       pinchPrevious = firstTwo();
@@ -166,7 +179,9 @@ export function attachControls(element: HTMLElement, target: ControlTarget): () 
     const strength = event.ctrlKey ? PINCH_WHEEL_ZOOM : WHEEL_ZOOM;
     const factor = Math.min(2, Math.max(0.5, Math.exp(event.deltaY * unit * strength)));
     const point = local(event);
+    const edge = edgeNow();
     target.setState(transformAround(target.getState(), point, point, factor, 0, viewport, target.limits()));
+    zoomPush.wheel(factor, edge, event.timeStamp);
   };
 
   element.addEventListener("pointerdown", onPointerDown);

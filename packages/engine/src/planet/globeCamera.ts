@@ -113,8 +113,8 @@ function orthonormal(target: Vec3, forward: Vec3): { target: Vec3; forward: Vec3
   return { target: t, forward: normalize(f) };
 }
 
-/** 북쪽(+z를 접평면에 투영). 극이면 +x 쪽 */
-function fallbackForward(target: Vec3): Vec3 {
+/** 북쪽(+z를 접평면에 투영). 극이면 +x 쪽 — 돌림판 조작(turntable.ts)이 화면 위쪽으로 쓴다 */
+export function fallbackForward(target: Vec3): Vec3 {
   const north = sub([0, 0, 1], scale(target, target[2]));
   if (length(north) > 1e-6) return normalize(north);
   return normalize(sub([1, 0, 0], scale(target, target[0])));

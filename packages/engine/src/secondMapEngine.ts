@@ -20,8 +20,10 @@ import {
   pixelsPerMetre,
   screenRay,
   spanForDistance,
+  transformAround,
 } from "./camera/cameraMath.ts";
 import { attachControls } from "./camera/controls.ts";
+import { edgeOf } from "./camera/zoomPush.ts";
 import { inertEngine } from "./engineParts.ts";
 import type {
   EngineStats,
@@ -296,6 +298,9 @@ export function createSecondMapEngine(
       const ground = pickGround(point);
       if (ground) options.onGroundTap?.({ x: ground.x / cellM, y: ground.z / cellM });
     },
+    onZoomPush: (edge) => {
+      if (!disposed) options.onZoomEdge?.(edge);
+    },
   });
 
   // 컨텍스트 손실(iOS 앱 전환 등): 멈췄다가 복구되면 다시 그린다. three.js가 손실 이벤트의 기본 동작을 막아 복구를 받는다
@@ -490,6 +495,15 @@ export function createSecondMapEngine(
 
     setUnitLook(id, look) {
       if (roster.setLook(id, look)) scheduler.request();
+    },
+
+    zoomStep(direction) {
+      // 화면 가운데를 붙잡고 거리 ÷ 2(키우기)·× 2(줄이기). 이미 그쪽 끝이면 false(화면이 1차맵으로 넘어간다, D-6018)
+      const edge = edgeOf(state.distance, limits.minDistance, limits.maxDistance);
+      if ((direction === 1 && edge === "in") || (direction === -1 && edge === "out")) return false;
+      const centre = { x: viewport.width / 2, y: viewport.height / 2 };
+      setCamera(transformAround(state, centre, centre, direction === 1 ? 0.5 : 2, 0, viewport, limits));
+      return true;
     },
 
     setView(view) {

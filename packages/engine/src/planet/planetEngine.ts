@@ -1,6 +1,8 @@
 // 1차맵(행성) 엔진 — Three.js 장면 하나를 화면 요소(container)에 붙이고 행성 타일을 고르고 받아 그린다. React와 나눈 모듈이다.
 // ADR 2026-10-29-s2-planet-lod "렌더러". 2차맵 엔진(secondMapEngine.ts)과 같은 렌더러(acquireRenderer)·프레임 예약(FrameScheduler)을 쓴다.
-// 한 프레임: 움직임(두 번 누르기) → 목표점 높이 맞추기 → 카메라(가장 낮은 고도) → 올리기(상한) → 고르기(화면 오차·시야·상한)
+// 카메라는 돌림판(turntable.ts, 화면 위쪽 = 북쪽, 위도 ±80°)이고 확대 단계(zoomStages.ts)·[+]·[−](zoomStep)·끝 너머 밀기(onZoomEdge)를 준다.
+// 우주는 검정 + 별 점(planetView.ts·starfield.ts). ADR 2026-11-07-planet-view.
+// 한 프레임: 움직임(확대·관성) → 목표점 높이 맞추기 → 카메라(가장 낮은 고도) → 올리기(상한) → 고르기(화면 오차·시야·상한)
 //          → 받기(동시 상한, 원하지 않게 된 것 취소) → 그리기 목록 놓기(카메라 기준 좌표) → 그리기 → 메모리 상한.
 // 화면 변화가 없으면 그리지 않는다. 받기·만들기가 끝나면 다시 그린다. 컨텍스트를 잃으면 멈췄다가 복구되면 다시 그린다.
 // 가장 높은 땅(시야 거르기 경계구·지평선·누르기·먼 자르기 면): 행성 설명 값(없으면 1,000m)과 받은 타일 중 높은 것.
@@ -17,8 +19,6 @@ import {
   type GlobeState,
   type ScreenPoint,
   type Viewport,
-  clampGlobe,
-  dragGlobe,
   globeLimits,
   globePose,
   grabDirection,
@@ -27,6 +27,7 @@ import {
   latLonOf,
   screenRay,
 } from "./globeCamera.ts";
+import { CameraMotion } from "./cameraMotion.ts";
 import { attachGlobeControls } from "./globeControls.ts";
 import { inertPlanetEngine } from "./inertPlanetEngine.ts";
 import { GpuBench } from "./gpuBench.ts";
@@ -55,7 +56,9 @@ import { createTileBuilder } from "./tileBuilder.ts";
 import { TilePipeline } from "./tilePipeline.ts";
 import { TileShapeCache, coarsestSagM, directionToFaceST, skirtDepthM } from "./tileShape.ts";
 import { PRIMARY_LEVELS, type TileLayout, nodeSTRange, primaryLevelOf, tileLayout } from "./tileTree.ts";
+import { uprightGlobe } from "./turntable.ts";
 import { type Vec3, length, normalize } from "./vec3.ts";
+import { type ZoomStages, zoomStageOf, zoomStages, zoomStepTarget } from "./zoomStages.ts";
 
 const DEFAULT_EXAGGERATION = 6;
 const MIN_EXAGGERATION = 1;
@@ -69,23 +72,14 @@ const DEFAULT_VIEW: PlanetViewOption = { latDeg: 20, lonDeg: 30 };
 const TARGET_HEIGHT_SMOOTH_MS = 120;
 /** 카메라 아래 땅에서 띄울 높이 = 가장 가까운 거리 × 이 값 */
 const GROUND_CLEARANCE = 0.3;
-/** 두 번 누르기: 거리 ÷ 이 값, 걸리는 시간(ms) */
+/** 두 번 누르기: 거리 ÷ 이 값 */
 const DOUBLE_TAP_ZOOM = 2.5;
-const DOUBLE_TAP_MS = 300;
 /** 대기 띠를 보이는 거리(행성 반지름 비) */
 const ATMOSPHERE_MIN_DISTANCE = 0.25;
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 const reducedMotion = (): boolean =>
   typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-interface ZoomAnimation {
-  readonly point: ScreenPoint;
-  readonly anchor: Vec3;
-  readonly from: number;
-  readonly to: number;
-  elapsed: number;
-}
 
 export function createPlanetEngine(container: HTMLElement, options: PlanetEngineOptions): PlanetEngine {
   const owner = {};
@@ -139,14 +133,18 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
 
   let viewport: Viewport = { width: 1, height: 1 };
   let limits: GlobeLimits = globeLimits(radiusM, finestCellM, viewport);
+  let stages: ZoomStages = zoomStages(limits);
   const startView = options.initialView ?? DEFAULT_VIEW;
-  let state: GlobeState = initialGlobe(startView.latDeg, startView.lonDeg, limits.maxDistance, limits);
+  /** 돌림판 처음 상태(북쪽이 위, 위도 묶음 안) */
+  const placeAt = (latDeg: number, lonDeg: number, distance: number): GlobeState =>
+    uprightGlobe(initialGlobe(latDeg, lonDeg, distance, limits), limits);
+  let state: GlobeState = placeAt(startView.latDeg, startView.lonDeg, limits.maxDistance);
   let cameraPlaced = false;
   let pose: GlobePose = globePose(state, radiusM, limits);
   let gestureActive = false;
   /** 마지막 손가락 동작이 끝난 때(performance.now) — 구름은 300ms 뒤부터 굽는다 */
   let gestureEndedAt = Number.NEGATIVE_INFINITY;
-  let animation: ZoomAnimation | null = null;
+  const motion = new CameraMotion();
   let lastSelection: Selection | null = null;
   let tileBudgetHits = 0;
   let lastInfo = { calls: 0, triangles: 0 };
@@ -200,18 +198,23 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     return { near, far: Math.max(near * 4, horizon * 1.05 + 1000) };
   };
 
+  /** 확대·관성 움직임 한 걸음. 기기의 "동작 줄이기"면 확대는 바로 가고 관성은 없다 */
   const stepAnimation = (deltaMs: number): boolean => {
-    if (!animation) return false;
-    animation.elapsed += deltaMs;
-    // 기기의 "동작 줄이기"를 켜면 움직임 없이 바로 간다
-    const u = reducedMotion() ? 1 : Math.min(1, animation.elapsed / DOUBLE_TAP_MS);
-    const eased = 1 - (1 - u) ** 3;
-    const distance = Math.exp(
-      Math.log(animation.from) + (Math.log(animation.to) - Math.log(animation.from)) * eased,
+    if (!motion.active) return false;
+    const result = motion.step(state, deltaMs, { radiusM, limits, viewport, reducedMotion: reducedMotion() });
+    state = result.state;
+    return result.moving;
+  };
+  /** 화면 점 아래 땅을 붙잡고 거리 to로 움직인다 */
+  const zoomToward = (point: ScreenPoint, to: number): void => {
+    const anchor = grabDirection(
+      globePose(state, radiusM, limits),
+      viewport,
+      point,
+      radiusM + state.targetHeight,
     );
-    state = dragGlobe({ ...state, distance }, animation.anchor, animation.point, radiusM, limits, viewport);
-    if (u >= 1) animation = null;
-    return animation !== null;
+    motion.zoomTo(point, anchor, state.distance, clamp(to, limits.minDistance, limits.maxDistance));
+    scheduler.request();
   };
 
   const updateCenterLevel = (selection: Selection): void => {
@@ -245,6 +248,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     const aspect = viewport.width / Math.max(1, viewport.height);
     const { near, far } = clipRange();
     view.applyCamera(pose, aspect, near, far);
+    view.setPixelRatio(pixelRatio);
     view.setAtmosphere(state.distance > radiusM * ATMOSPHERE_MIN_DISTANCE);
     const planes = frustumPlanes(
       multiplyMatrices(
@@ -363,12 +367,13 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(viewport.width, viewport.height, false);
     limits = globeLimits(radiusM, finestCellM, viewport);
+    stages = zoomStages(limits);
     if (!cameraPlaced) {
       const distance = startView.distanceM ?? limits.maxDistance * INITIAL_DISTANCE_FACTOR;
-      state = initialGlobe(startView.latDeg, startView.lonDeg, distance, limits);
+      state = placeAt(startView.latDeg, startView.lonDeg, distance);
       cameraPlaced = viewport.width > 1 && viewport.height > 1;
     } else {
-      state = clampGlobe(state, limits);
+      state = uprightGlobe(state, limits);
     }
     scheduler.request();
   };
@@ -396,7 +401,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     getState: () => state,
     setState: (next) => {
       state = next;
-      animation = null;
+      motion.cancel();
       scheduler.request();
     },
     limits: () => limits,
@@ -404,23 +409,20 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     viewport: () => viewport,
     onGestureChange: (active) => {
       gestureActive = active;
-      if (active) animation = null;
+      if (active) motion.cancel();
       else {
         gestureEndedAt = performance.now();
         scheduler.request();
       }
     },
     onTap: (point) => options.onPick?.(pick(point)),
-    onDoubleTap: (point) => {
-      const anchor = grabDirection(
-        globePose(state, radiusM, limits),
-        viewport,
-        point,
-        radiusM + state.targetHeight,
-      );
-      const to = clamp(state.distance / DOUBLE_TAP_ZOOM, limits.minDistance, limits.maxDistance);
-      animation = { point, anchor, from: state.distance, to, elapsed: 0 };
+    onDoubleTap: (point) => zoomToward(point, state.distance / DOUBLE_TAP_ZOOM),
+    onFling: (fling) => {
+      motion.startFling(fling, reducedMotion());
       scheduler.request();
+    },
+    onZoomPush: (edge) => {
+      if (!disposed) options.onZoomEdge?.(edge);
     },
   });
 
@@ -484,9 +486,16 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
 
     lookAt(target: PlanetViewOption) {
       const distance = target.distanceM ?? state.distance;
-      state = initialGlobe(target.latDeg, target.lonDeg, distance, limits);
-      animation = null;
+      state = placeAt(target.latDeg, target.lonDeg, distance);
+      motion.cancel();
       scheduler.request();
+    },
+
+    zoomStep(direction) {
+      const to = zoomStepTarget(state.distance, direction, stages);
+      if (to === null) return false;
+      zoomToward({ x: viewport.width / 2, y: viewport.height / 2 }, to);
+      return true;
     },
 
     requestFrame() {
@@ -526,6 +535,7 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
         maxElevationM: maxElevationM(),
         primaryLevel: center.primaryLevel,
         mapLevel: center.mapLevel,
+        zoomStage: zoomStageOf(state.distance, stages),
         incomplete: lastSelection?.incomplete ?? true,
         firstDisplayMs,
         exaggeration,

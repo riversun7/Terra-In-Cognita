@@ -69,6 +69,7 @@ export function inertEngine(): SecondMapEngine {
     addLayer: () => () => undefined,
     requestFrame: () => undefined,
     setUnitLook: () => undefined,
+    zoomStep: () => false,
     setView: () => undefined,
     dispose: () => undefined,
   };

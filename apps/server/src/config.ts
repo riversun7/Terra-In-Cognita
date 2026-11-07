@@ -45,6 +45,11 @@ export interface NpcConfig {
    * 사용자 결정(2026-11-01 "합치되 웨이브 끔"): 도시 몫 문제·폐허 복원(D-339)을 정할 때까지 운영 세계에서 끈다
    */
   gardenerWaves: boolean;
+  /**
+   * 옛 세계 시작 도시 옮기기(WORLD_RELAYOUT, 기본 0 = 계획만 기록, 1 = 옮김, docs/adr/2026-11-07-world-layout.md). 시험 2차맵 줄에 모인
+   * 고정 국가 시작 도시 가운데 플레이어 것이 걸리지 않은 도시만 행성 위 그 국가 자리로 옮긴다(플레이어 자료는 지우지 않는다)
+   */
+  relayout: boolean;
 }
 
 /**
@@ -126,6 +131,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       testNations: readInteger(env.NPC_TEST_NATIONS, 4, 1, 16, "NPC_TEST_NATIONS"),
       dayMs: readInteger(env.NPC_DAY_MS, 86_400_000, 60_000, 86_400_000, "NPC_DAY_MS"),
       gardenerWaves: readInteger(env.GARDENER_WAVES, 0, 0, 1, "GARDENER_WAVES") === 1,
+      relayout: readInteger(env.WORLD_RELAYOUT, 0, 0, 1, "WORLD_RELAYOUT") === 1,
     },
     planetCacheDir: env.PLANET_CACHE_DIR || DEFAULT_PLANET_CACHE_DIR,
   };

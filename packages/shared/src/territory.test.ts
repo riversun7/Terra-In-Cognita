@@ -8,6 +8,7 @@ import {
   checkBeaconPlacement,
   claimAt,
   convexHull,
+  foundingConflict,
   nearestFactionCity,
   orient,
   polygonContains,
@@ -283,6 +284,25 @@ describe("영토 배치·소속(D-485·D-486)", () => {
     expect(urbanCityAt(layout, at(40, 0))).toBeNull();
     // 등급 1 마을(영향권 100 → 시가지 약 33)과 겹치는 곳
     expect(urbanCityAt(layout, at(6, 0))).toBe(1);
+  });
+
+  it("새 도시 세우기 검사: 남의 영향권 + 새 영향권 안이면 막고(작은 ID), 같은 편 도시는 보지 않는다", () => {
+    const cities = [
+      { id: 7, faction: 20, point: at(1000, 0), radiusMilli: 1100 },
+      { id: 3, faction: 20, point: at(1050, 0), radiusMilli: 100 },
+      { id: 1, faction: 10, point: at(0, 0), radiusMilli: 3600 },
+    ];
+    const mine = (faction: number) => faction === 10;
+    // x 100 ≈ 1000분율 1000: 도시 7 영향권 1100 + 새 마을 100 = 1200 → x 880(거리 1200)은 닿는다, x 870은 닿지 않는다
+    expect(foundingConflict(cities, metric, mine, at(880, 0), 100)).toBe(7);
+    expect(foundingConflict(cities, metric, mine, at(870, 0), 100)).toBeNull();
+    // 둘 다 닿으면 작은 ID(입력 차례와 상관없이)
+    expect(foundingConflict(cities, metric, mine, at(1040, 0), 100)).toBe(3);
+    expect(foundingConflict(cities.toReversed(), metric, mine, at(1040, 0), 100)).toBe(3);
+    // 내 도시 영향권 안은 막지 않는다
+    expect(foundingConflict(cities, metric, mine, at(100, 0), 100)).toBeNull();
+    // 다른 세력 눈으로는 내 도시(10)가 막는다
+    expect(foundingConflict(cities, metric, (faction) => faction === 20, at(100, 0), 100)).toBe(1);
   });
 
   it("입력 차례와 상관없이 같은 배치", () => {

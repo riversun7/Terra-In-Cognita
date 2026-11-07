@@ -479,6 +479,38 @@ export function urbanCityAt(layout: TerritoryLayout, point: TerritoryVec): numbe
   return null;
 }
 
+/** 새 도시 세우기 검사가 보는 도시 하나(영향권 반경 = 지금 등급의 M3 값) */
+export interface FoundingCity {
+  readonly id: number;
+  readonly faction: number;
+  readonly point: TerritoryVec;
+  readonly radiusMilli: number;
+}
+
+/**
+ * 이 점에 새 도시를 세우면 다른 세력 도시의 영향권과 겹치나(D-104 영향권·D-486 "남의 도시를 잠식하지 못한다", 사용자 지적 2026-11-07
+ * "다른 세력 범위에 도시를 건설할 수 없다"): 같은 편(own)이 아닌 도시 가운데 거리 ≤ 그 도시 영향권 반경 + 새 도시 영향권 반경인 첫 도시
+ * (ID 차례)의 ID, 없으면 null. 두 원이 닿기만 해도 막는다(새 도시 원이 남의 원 안으로 들어가지 않게). 세계 씨앗의 시작 도시 자리·NPC
+ * 마을 자리(서버)·나중의 플레이어 도시 세우기가 같은 함수를 쓴다. 폐허 복원은 같은 자리라 이 검사를 거치지 않는다
+ */
+export function foundingConflict(
+  cities: readonly FoundingCity[],
+  metric: TerritoryMetric,
+  own: (faction: number) => boolean,
+  point: TerritoryVec,
+  newRadiusMilli: number,
+): number | null {
+  if (!isTerritoryVec(point)) return null;
+  let blocking: number | null = null;
+  for (const city of cities) {
+    if (own(city.faction) || !isTerritoryVec(city.point)) continue;
+    if (blocking !== null && city.id > blocking) continue;
+    const reach = Math.max(0, city.radiusMilli) + Math.max(0, newRadiusMilli);
+    if (territoryDistanceMilli(point, city.point, metric) <= reach) blocking = city.id;
+  }
+  return blocking;
+}
+
 /**
  * 그 세력에서 점과 가장 가까운 도시(같으면 작은 ID). 없으면 null. 영토 비콘(1차맵) 짓기·수리 재료를 꺼내는 도시다(질문 410 ①, 기획
  * D-121 "가장 가까운 창고" 포인터): 기준 도시(비콘 수가 남은 도시)와 다를 수 있다. 서버 판정과 화면 미리 셈이 같은 함수를 쓴다

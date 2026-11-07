@@ -10,6 +10,7 @@
 import { HOMELESS, type SimFaction, type SimWorld, recruitElementSlots, traitsToArray } from "@terra/sim";
 import { type ServerGardener, storedGardenerOf } from "./gardener.ts";
 import { createRuinsPersist } from "./ruinsPersist.ts";
+import { type TownSiteCity, pickTownSite } from "./townSites.ts";
 import type { QueryPool, OwnerRow } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
@@ -30,12 +31,6 @@ export interface CityPlace {
 
 /** 구인 휴먼(봇)을 세우는 도시 둘레 반경(칸) */
 const RECRUIT_RADIUS_CELLS = 8;
-/** 새 마을 자리: 부모 도시에서 떨어진 거리(칸)와 다른 도시와 띄울 거리 */
-const TOWN_DISTANCES = [28, 40, 52] as const;
-const TOWN_SPACING = 14;
-const TOWN_DIRECTIONS = 16;
-const MAP_MARGIN = 8;
-const MAP_SIZE = 256;
 
 /** 세력 하나의 저장 모습(바뀌었는지 견줄 때) */
 function factionSig(f: SimFaction): string {
@@ -72,6 +67,13 @@ export interface NpcPersistOptions {
    * 동기 처리라 같은 커밋에 든다
    */
   readonly onCityOwner?: ((cityId: number, factionRowId: number) => void) | undefined;
+  /**
+   * 영토 규칙(설정 칸 실효 값): 발전도 → 영향권 반경, 새 마을 영향권 반경. 마을 자리가 다른 세력 영향권과 닿지 않게 한다(townSites.ts,
+   * docs/adr/2026-11-07-world-layout.md). 없으면 영향권을 보지 않는다(시험)
+   */
+  readonly territory?:
+    | (() => { influenceOf(development: number): number; newRadiusMilli: number })
+    | undefined;
 }
 
 export interface NpcPersist {
@@ -90,6 +92,8 @@ export interface NpcPersist {
   flush(day: number): Promise<{ rows: number; recruited: number; deaths: number; owners: number }>;
   /** 폐허·낸 값·복원한 도시 행만 바로 넣는다(동기, 유저 폐허 명령 뒤 — 원장 거래와 같은 쓰기 묶음). 쓴 행 수 */
   flushRuins(): number;
+  /** 그 도시(붐비는 도시) 둘레의 마을 자리(다른 세력 영향권 밖, townSites.ts). founder = 세우는 세력. 없으면 undefined */
+  townSiteFrom(fromCityId: number, founder: number): CityPlace | undefined;
 }
 
 /** 웨이브 줄의 저장 모습(바뀌었는지 견줄 때) */
@@ -202,7 +206,31 @@ export function createNpcPersist(
     return place ? maps.get(place.mapKey) : undefined;
   };
 
-  /** 새 마을 자리: 부모 세력 첫 도시 둘레, 다른 도시와 띄운 첫 빈 자리(정해진 차례) */
+  /** 마을 자리(townSites.ts): from 둘레, 다른 도시와 띄우고 founder가 아닌 세력 영향권과 닿지 않는 첫 칸 */
+  const siteFrom = (from: CityPlace, founder: number): CityPlace | undefined => {
+    const rules = o.territory?.();
+    const cities: TownSiteCity[] = [...places].map(([id, place]) => {
+      const city = world.cities.get(id);
+      return {
+        id,
+        place,
+        owner: city ? city.owner : null,
+        radiusMilli: city && rules ? rules.influenceOf(city.development) : 0,
+      };
+    });
+    return pickTownSite({
+      from,
+      founder: rules ? founder : Number.NaN,
+      cities: rules ? cities : cities.map((city) => ({ ...city, owner: null })),
+      newRadiusMilli: rules?.newRadiusMilli ?? 0,
+      nowMs: o.now(),
+    });
+  };
+
+  /**
+   * 자리가 없는 새 마을(자리 검사 canFound를 거치지 않은 길 — 보통은 그 검사가 자리를 미리 잡는다): 부모 세력 첫 도시 둘레. 그 세력 도시가
+   * 없으면 상위 세력 도시, 그것도 없으면 아무 도시. 빈 자리가 없으면 부모 도시 자리에(이름은 물려받지 않는다)
+   */
   const placeTown = (cityId: number, ownerId: number): CityPlace | undefined => {
     const owner = world.factions.get(ownerId);
     const anchors = [...(owner?.cities ?? [])]
@@ -210,7 +238,6 @@ export function createNpcPersist(
       .toSorted((a, b) => a - b)
       .map((id) => places.get(id))
       .filter((p) => p !== undefined);
-    // 세운 세력의 도시가 없으면(새 가문) 부모 = 상위 세력·아무 세력 도시
     const fallback = [...places.values()].toSorted((a, b) => a.mapKey - b.mapKey || a.cellX - b.cellX);
     const parentCity =
       anchors[0] ??
@@ -221,27 +248,9 @@ export function createNpcPersist(
         : undefined) ??
       fallback[0];
     if (!parentCity) return undefined;
-    const taken = [...places.values()].filter((p) => p.mapKey === parentCity.mapKey);
-    for (const distance of TOWN_DISTANCES) {
-      for (let k = 0; k < TOWN_DIRECTIONS; k++) {
-        // 방향은 정수 표(16방위, 1000배)로 정한다
-        const [dx, dy] = DIRECTIONS[k] ?? [0, 0];
-        const x = parentCity.cellX + Math.trunc((dx * distance) / 1000);
-        const y = parentCity.cellY + Math.trunc((dy * distance) / 1000);
-        if (x < MAP_MARGIN || y < MAP_MARGIN || x >= MAP_SIZE - MAP_MARGIN || y >= MAP_SIZE - MAP_MARGIN)
-          continue;
-        if (taken.some((p) => Math.max(Math.abs(p.cellX - x), Math.abs(p.cellY - y)) < TOWN_SPACING))
-          continue;
-        return {
-          planetId: parentCity.planetId,
-          mapKey: parentCity.mapKey,
-          cellX: x,
-          cellY: y,
-          foundedAtMs: o.now(),
-        };
-      }
-    }
-    // 자리가 없으면 부모 도시 자리에(이름은 물려받지 않는다 — 다음 켤 때 붙는다)
+    const site = siteFrom(parentCity, owner?.overlord ?? ownerId);
+    if (site) return site;
+    o.log.warn({ cityId, ownerId }, "npc town: no free site, using the parent city spot");
     return { ...parentCity, foundedAtMs: o.now(), name: undefined };
   };
 
@@ -415,6 +424,10 @@ export function createNpcPersist(
         for (const wave of gardener.run.waves.values()) savedWaves.set(wave.id, waveSig(wave));
       }
     },
+    townSiteFrom(fromCityId, founder) {
+      const from = places.get(fromCityId);
+      return from ? siteFrom(from, founder) : undefined;
+    },
     flushRuins: () => ruins.flush(o.now()),
     async flush(day) {
       const count = { rows: 0, recruited: 0, deaths: 0, owners: 0 };
@@ -567,23 +580,3 @@ export function createNpcPersist(
     },
   };
 }
-
-/** 16방위 단위 벡터(1000배, 정수 표 — 초월함수를 쓰지 않는다) */
-const DIRECTIONS: readonly (readonly [number, number])[] = [
-  [1000, 0],
-  [924, 383],
-  [707, 707],
-  [383, 924],
-  [0, 1000],
-  [-383, 924],
-  [-707, 707],
-  [-924, 383],
-  [-1000, 0],
-  [-924, -383],
-  [-707, -707],
-  [-383, -924],
-  [0, -1000],
-  [383, -924],
-  [707, -707],
-  [924, -383],
-];

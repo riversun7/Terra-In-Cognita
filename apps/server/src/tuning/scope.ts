@@ -267,6 +267,14 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "temple.guardianDefensePm",
   "temple.guardianSatisfactionMilli",
   "temple.guardianProductionPm",
+  // 세계 씨앗(npc/nations.ts·facilities/npcSeed.ts, docs/adr/2026-11-07-play-flow.md WP1): 켤 때 한 번 읽는다(바꾸면 다음 켤 때 모자란
+  // 시작 도시·기본 시설만 더한다 — 이미 있는 것은 줄이지 않는다)
+  "worldSeed.startCitiesMin",
+  "worldSeed.startCitiesMax",
+  "worldSeed.farms",
+  "worldSeed.lumberCamps",
+  "worldSeed.mines",
+  "worldSeed.storehouses",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

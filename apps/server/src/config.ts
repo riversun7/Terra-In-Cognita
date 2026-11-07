@@ -14,6 +14,11 @@ export { SIM_VERSION } from "@terra/sim";
 export const MAX_TEST_BOTS = 100_000;
 /** 시험 2차맵 수 상한(S1_TEST_MAPS). 봇을 2차맵마다 나눈다(한 2차맵 256×256칸에 몰리지 않게) */
 export const MAX_TEST_MAPS = 64;
+/**
+ * 시험 2차맵 수 기본값(S1_TEST_MAPS). 세계 씨앗(docs/adr/2026-11-07-play-flow.md WP1): 고정 국가 4(NPC_TEST_NATIONS 기본) × 시작 도시
+ * 2~3 = 10곳을 2차맵 6장에 1~2곳씩 나눈다(국가 하나의 도시가 서로 다른 2차맵에). NAS도 같은 값(ops/compose.yml)
+ */
+export const DEFAULT_TEST_MAPS = 6;
 /** 경로 워커 수 상한(PATH_WORKERS). NAS는 2코어 4스레드(ops/nas-facts.md) */
 export const MAX_PATH_WORKERS = 8;
 
@@ -23,7 +28,7 @@ export interface S1Config {
   testBots: number;
   /** 경로탐색 워커 스레드 수 (PATH_WORKERS, 기본 1) */
   pathWorkers: number;
-  /** 시험 2차맵 수 (S1_TEST_MAPS, 기본 1) */
+  /** 시험 2차맵 수 (S1_TEST_MAPS, 기본 DEFAULT_TEST_MAPS) */
   testMaps: number;
 }
 
@@ -114,7 +119,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     s1: {
       testBots: readInteger(env.S1_TEST_BOTS, 0, 0, MAX_TEST_BOTS, "S1_TEST_BOTS"),
       pathWorkers: readInteger(env.PATH_WORKERS, 1, 1, MAX_PATH_WORKERS, "PATH_WORKERS"),
-      testMaps: readInteger(env.S1_TEST_MAPS, 1, 1, MAX_TEST_MAPS, "S1_TEST_MAPS"),
+      testMaps: readInteger(env.S1_TEST_MAPS, DEFAULT_TEST_MAPS, 1, MAX_TEST_MAPS, "S1_TEST_MAPS"),
     },
     npc: {
       enabled: readInteger(env.NPC_SOCIETY, 1, 0, 1, "NPC_SOCIETY") === 1,

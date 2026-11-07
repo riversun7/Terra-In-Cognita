@@ -45,7 +45,7 @@ import type { CityRow } from "../world/cities.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
-import { TEST_NPC_FACTION_CODE, UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
+import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
 import {
   type CyborgRecord,
   type JoinableFaction,
@@ -90,11 +90,6 @@ export function crowdingBand(cyborgs: number, rules: CyborgRules): "quiet" | "no
 
 /** 시작 도시 둘레에서 빈 칸을 찾는 반지름 상한(칸) */
 export const PLACE_SEARCH_RADIUS = 24;
-
-/** [임시] 세력 이름(세력 표에 이름 칸이 아직 없다). 16개국이 세계에 들어오면 팩 nation_presets 이름을 쓴다 */
-const FACTION_NAMES: Readonly<Record<string, LocalizedName>> = {
-  [TEST_NPC_FACTION_CODE]: { ko: "시험 NPC 세력", en: "Test NPC faction" },
-};
 
 export type CyborgCommandResult =
   | { readonly ok: true; readonly roll?: CyborgRollWire }
@@ -337,9 +332,8 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       const fewest = Math.min(...open.map((entry) => perFaction.get(entry.faction.id) ?? 0));
       const list: CreationFaction[] = open.map(({ faction, cities }) => ({
         id: faction.id,
-        name: (faction.code
-          ? (FACTION_NAMES[faction.code] ?? options.factionName?.(faction.code))
-          : undefined) ?? {
+        // 세력 이름 = 팩 국가 프리셋 이름(시험 NPC 세력 포함, npc/nations.ts nationName — docs/adr/2026-11-07-play-flow.md WP1)
+        name: (faction.code ? options.factionName?.(faction.code) : undefined) ?? {
           ko: faction.code ?? `#${faction.id}`,
           en: faction.code ?? `#${faction.id}`,
         },

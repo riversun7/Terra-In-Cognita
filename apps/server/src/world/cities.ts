@@ -1,7 +1,9 @@
 // 도시(서버) — docs/adr/2026-10-31-faction-society-core.md "서버"
 // 규칙(점령·반란·독립·출생·기술)은 @terra/sim society/*이고, 서버는 지금 표(world_cities)와 안전한 곳 찾기만 한다.
 // 세계에서 세력·도시를 실제로 돌리는 일(NPC 두뇌, 도시 만들기·점령 명령)은 R5다.
-// [임시] 시험 NPC 세력에게 시험 2차맵마다 시작 도시 하나를 둔다(가운데 칸). 진 유닛이 돌아갈 "가장 가까운 안전 도시"가 된다.
+// 시작 도시 차리기: NPC 사회 세계(NPC_SOCIETY, 기본 켬)는 고정 국가마다 시작 도시 여러 곳을 시험 2차맵들에 나눈다(npc/nations.ts
+// ensureTestNations, docs/adr/2026-11-07-play-flow.md "WP1 세계 씨앗"). NPC 사회를 끈 세계(봇만 걷는 측정·시험)만 옛 방식 그대로
+// 시험 NPC 세력에게 시험 2차맵마다 가운데 시작 도시 하나를 둔다(ensureTestStartCities). 진 유닛이 돌아갈 "가장 가까운 안전 도시"가 된다.
 import type { CityCell } from "@terra/shared/goodsPlaces";
 import { PLACEMENT_SIZE } from "@terra/sim";
 import type { QueryPool } from "./persist/load.ts";
@@ -31,7 +33,10 @@ export async function loadCities(pool: QueryPool): Promise<CityRow[]> {
   }));
 }
 
-/** [임시] 시험 NPC 세력의 시작 도시: 2차맵마다 가운데 칸에 하나(없을 때만 넣는다). 세력은 고정(D-324) */
+/**
+ * [임시] NPC 사회를 끈 세계의 시작 도시: 시험 NPC 세력에게 2차맵마다 가운데 칸에 하나(없을 때만 넣는다). 세력은 고정(D-324).
+ * NPC 사회 세계는 npc/nations.ts ensureTestNations가 시작 도시를 나눈다(국가 1을 모든 2차맵에 두지 않는다)
+ */
 export async function ensureTestStartCities(
   pool: QueryPool,
   factionCode: string,

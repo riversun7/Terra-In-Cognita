@@ -1,6 +1,6 @@
 // S1 측정값 요약 시험 — 백분위, 초당 비율, 구간 비우기, 설정(S1_TEST_BOTS·PATH_WORKERS) 읽기
 import { describe, expect, it } from "vitest";
-import { MAX_TEST_BOTS, MAX_TEST_MAPS, readConfig } from "../config.ts";
+import { DEFAULT_TEST_MAPS, MAX_TEST_BOTS, MAX_TEST_MAPS, readConfig } from "../config.ts";
 import {
   emptyWorldStats,
   percentile,
@@ -80,8 +80,9 @@ describe("요약", () => {
 });
 
 describe("설정", () => {
-  it("기본: 봇 0, 워커 1, 시험 2차맵 1", () => {
-    expect(readConfig({}).s1).toEqual({ testBots: 0, pathWorkers: 1, testMaps: 1 });
+  it("기본: 봇 0, 워커 1, 시험 2차맵 6(세계 씨앗 — 국가 넷의 시작 도시를 나눈다)", () => {
+    expect(readConfig({}).s1).toEqual({ testBots: 0, pathWorkers: 1, testMaps: DEFAULT_TEST_MAPS });
+    expect(DEFAULT_TEST_MAPS).toBe(6);
   });
 
   it("S1_TEST_BOTS·PATH_WORKERS를 읽고, 범위 밖·숫자가 아니면 시작하지 않는다", () => {

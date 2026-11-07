@@ -198,7 +198,10 @@ function outcomeText(row: OccupationRow, now: number): string | null {
 function sideText(row: OccupationRow): string {
   switch (row.side) {
     case "as_occupier":
-      return m.faction_occ_as_occupier({ name: row.other.name });
+      // 약탈·점령 상태는 도시를 가져오지 않는다(소유 그대로) → "옛 주인"이 아니라 "상대"
+      return row.lootChoice === "loot" || row.lootChoice === "occupy"
+        ? m.faction_occ_as_winner({ name: row.other.name })
+        : m.faction_occ_as_occupier({ name: row.other.name });
     case "as_target":
       return m.faction_occ_as_target({ name: row.other.name });
     case "offer_to_me":

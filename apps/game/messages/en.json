@@ -2188,6 +2188,7 @@
   "faction_occ_donate": "Donate",
   "faction_occ_occupy": "Occupied",
   "faction_occ_as_target": "Our city was hit · by {name}",
+  "faction_occ_as_winner": "We won · against {name}",
   "faction_occ_outcome_loot": "Treasury share taken {amount} {currency} · the city keeps its owner",
   "faction_occ_outcome_occupy": "Taxes collected {amount} {currency} · occupation ends {time}",
   "faction_occ_outcome_occupy_ended": "Taxes collected {amount} {currency} · the occupation has ended",

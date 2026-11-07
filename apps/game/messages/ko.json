@@ -2188,6 +2188,7 @@
   "faction_occ_donate": "모금에 내기",
   "faction_occ_occupy": "점령 상태",
   "faction_occ_as_target": "우리 도시가 당함 · 상대 {name}",
+  "faction_occ_as_winner": "우리가 이김 · 상대 {name}",
   "faction_occ_outcome_loot": "넘어간 금고 몫 {amount} {currency} · 도시 소유는 그대로",
   "faction_occ_outcome_occupy": "거둔 세금 {amount} {currency} · 점령 상태 끝 {time}",
   "faction_occ_outcome_occupy_ended": "거둔 세금 {amount} {currency} · 점령 상태가 끝났습니다",

@@ -232,7 +232,9 @@ test.describe("dev 시안 자료", () => {
       message("ko", "faction_occ_outcome_loot", { amount: "18,400", currency: "Sol" }),
     );
     await expect(panel).toContainText(message("ko", "faction_occ_occupy"));
-    await expect(panel.locator(".faction-item", { hasText: "Saltmere" })).toContainText("7,250 Sol");
+    const saltmere = panel.locator(".faction-item", { hasText: "Saltmere" });
+    await expect(saltmere).toContainText("7,250 Sol");
+    await expect(saltmere).toContainText(message("ko", "faction_occ_as_winner", { name: "Driftwood" }));
     // 편입 거부 = 빼앗김·쫓겨남·적대(C6), 복원 모금 = 낸 만큼 지분(C5: 6,000 / 120,000 → 50주)
     await expect(panel).toContainText(message("ko", "faction_occ_offer_hint"));
     await expect(panel).toContainText(message("ko", "faction_occ_restoration_hint", { count: "1,000" }));

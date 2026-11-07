@@ -466,16 +466,16 @@
   block-size: var(--status-dot);
   border: var(--hairline) solid var(--color-field-border);
   border-radius: var(--radius-pill);
-  background-color: var(--color-injury-green);
+  background-color: var(--color-injury-0);
 }
 [data-stage="1"] > .injury-dot {
-  background-color: var(--color-injury-white);
+  background-color: var(--color-injury-1);
 }
 [data-stage="2"] > .injury-dot {
-  background-color: var(--color-injury-yellow);
+  background-color: var(--color-injury-2);
 }
 [data-stage="3"] > .injury-dot {
-  background-color: var(--color-injury-red);
+  background-color: var(--color-injury-3);
 }
 .injury-track {
   display: inline-flex;

@@ -229,11 +229,11 @@
   --color-sec-action-speed: #566b00;
   --color-sec-sight: #486e00;
   --color-sec-other: #5c6470;
-  /* 부상 단계 색(D-521 "초록(정상) 흰색 노랑 빨강", docs/adr/2026-11-08-injury.md): 점·막대 채움만(글자는 --color-text). 흰 점은 --color-field-border 테두리로 보인다 */
-  --color-injury-green: #3fae4f;
-  --color-injury-white: #ffffff;
-  --color-injury-yellow: #f2c230;
-  --color-injury-red: #d63a4a;
+  /* 부상 단계 색(D-521 "초록(정상) 흰색 노랑 빨강", docs/adr/2026-11-08-injury.md): 0 초록·1 흰·2 노랑·3 빨강. 점·막대 채움만(글자는 --color-text). 흰 점은 --color-field-border 테두리로 보인다 */
+  --color-injury-0: #3fae4f;
+  --color-injury-1: #ffffff;
+  --color-injury-2: #f2c230;
+  --color-injury-3: #d63a4a;
 }
 
 /* 다크 — 밤의 들판. 잎색 버튼은 그대로 두어 톤을 잇는다. 세계(지도) 조명은 바꾸지 않는다(D-070) → 판은 불투명 */
@@ -298,10 +298,10 @@
   --color-sec-action-speed: #c8e254;
   --color-sec-sight: #aee47a;
   --color-sec-other: #b3bbc7;
-  --color-injury-green: #6fdc7a;
-  --color-injury-white: #f4f7fb;
-  --color-injury-yellow: #ffd257;
-  --color-injury-red: #ff6b7d;
+  --color-injury-0: #6fdc7a;
+  --color-injury-1: #f4f7fb;
+  --color-injury-2: #ffd257;
+  --color-injury-3: #ff6b7d;
 }
 
 /* 선명 — 고대비(본문 7:1 이상) + 색각 배려(성공=파랑, 위험=주황빨강, 상태는 늘 아이콘·글자와 함께). 그림자 없음 */
@@ -366,10 +366,10 @@
   --color-sec-action-speed: #435300;
   --color-sec-sight: #385500;
   --color-sec-other: #474e59;
-  --color-injury-green: #0b7a2a;
-  --color-injury-white: #ffffff;
-  --color-injury-yellow: #c99400;
-  --color-injury-red: #b3001b;
+  --color-injury-0: #0b7a2a;
+  --color-injury-1: #ffffff;
+  --color-injury-2: #c99400;
+  --color-injury-3: #b3001b;
 }
 /* 선명: 초점 표시를 4px로(테두리는 이미 2px). 굵기 값은 바꾸지 않는다(본문 글꼴은 400·600만 받는다) */
 :root[data-theme="contrast"] {
@@ -447,10 +447,10 @@
   --color-sec-action-speed: #c6ff3d;
   --color-sec-sight: #9cf55a;
   --color-sec-other: #a3adbf;
-  --color-injury-green: #3dffa0;
-  --color-injury-white: #f0f6ff;
-  --color-injury-yellow: #ffe14d;
-  --color-injury-red: #ff4d6d;
+  --color-injury-0: #3dffa0;
+  --color-injury-1: #f0f6ff;
+  --color-injury-2: #ffe14d;
+  --color-injury-3: #ff4d6d;
 }
 
 /* 촘촘 변형 — 관리자·거래창처럼 빽빽한 화면(data-density="compact"): 턱 0, 모서리 작게, 조작부 44px */
@@ -588,10 +588,10 @@
   --color-sec-action-speed: #c6ff3d;
   --color-sec-sight: #9cf55a;
   --color-sec-other: #a3adbf;
-  --color-injury-green: #3dffa0;
-  --color-injury-white: #f0f6ff;
-  --color-injury-yellow: #ffe14d;
-  --color-injury-red: #ff4d6d;
+  --color-injury-0: #3dffa0;
+  --color-injury-1: #f0f6ff;
+  --color-injury-2: #ffe14d;
+  --color-injury-3: #ff4d6d;
   --dev-head-bg: #14162b;
   --dev-row-alt: #121325;
   --dev-row-hover: #1b1e38;
@@ -657,10 +657,10 @@
   --color-sec-action-speed: #566b00;
   --color-sec-sight: #486e00;
   --color-sec-other: #5c6470;
-  --color-injury-green: #3fae4f;
-  --color-injury-white: #ffffff;
-  --color-injury-yellow: #f2c230;
-  --color-injury-red: #d63a4a;
+  --color-injury-0: #3fae4f;
+  --color-injury-1: #ffffff;
+  --color-injury-2: #f2c230;
+  --color-injury-3: #d63a4a;
   --dev-head-bg: #e7ebf1;
   --dev-row-alt: #f6f8fb;
   --dev-row-hover: #e8f0fc;

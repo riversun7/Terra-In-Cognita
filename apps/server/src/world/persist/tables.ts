@@ -126,6 +126,16 @@ export const WORLD_TABLES = {
     ],
     key: ["id"],
   },
+  /**
+   * 도시 이름만 고친다(복원된 도시가 무너지기 전 이름을 되찾을 때 — 기획 답 552 다). 도시 행(cities)은 이름 칸을 쓰지 않는다(켤 때 붙인
+   * 이름을 덮지 않게)
+   */
+  cityNames: {
+    name: "world_cities",
+    columns: ["id", "name"],
+    key: ["id"],
+    updateOnly: true,
+  },
   /** 휴먼(유닛 하나 = 휴먼 하나: NPC 나라의 시험 봇·유저가 고용한 휴먼). 유닛 다음에 쓰고 유닛보다 먼저 지운다 */
   humans: {
     name: "world_humans",
@@ -268,6 +278,7 @@ export const WORLD_TABLES = {
       "currency",
       "open",
       "deadline_ms",
+      "name",
     ],
     key: ["id"],
   },
@@ -551,6 +562,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "factionState",
   "accounts",
   "cities",
+  "cityNames",
   "units",
   "humans",
   "cyborgUnits",

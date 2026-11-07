@@ -11,7 +11,6 @@ import {
   EVENT_UPKEEP,
   type Economy,
   type GatherSettings,
-  type RuinedGoodsHome,
   bankDay,
   beforeCityTransfer,
   cityRuined,
@@ -31,6 +30,7 @@ import {
 } from "./economy.ts";
 import type { NpcCoefficients } from "../npc/coefficients.ts";
 import { onTrade, quoteFx } from "./npcTrade.ts";
+import type { RuinedGoodsHome } from "./ruinedGoods.ts";
 import type { SimLoop } from "./loop.ts";
 import type { Scenario } from "./scenario.ts";
 import type { SimEvent, SimHooks } from "./npcRun.ts";
@@ -114,17 +114,18 @@ export function attachEconomy(
   startMs: number,
   npc: NpcCoefficients,
   gather?: GatherSettings,
+  goodsHome?: RuinedGoodsHome,
 ): EconomyRun {
   const economy = createEconomy(world, scenario, catalog, startMs, gather);
   scheduleEconomy(economy, world, loop, startMs);
-  return runEconomy(economy, world, loop, npc);
+  return runEconomy(economy, world, loop, npc, goodsHome);
 }
 
 /**
  * 차린 경제(시나리오 createEconomy 또는 서버가 거울 세계에서 차린 것)에 사건 나누기·세력·사회 고리·하루 줄·불변 조건을 붙인다.
  * 서버 NPC 사회 런타임(apps/server/src/npc/economy.ts)이 같은 함수로 도시 경제를 돌린다(docs/adr/2026-11-07-play-flow.md WP4).
- * 예약(scheduleEconomy 등)은 부르는 쪽이 한다. goodsHome = 폐허가 된 도시 창고 물건의 갈 곳(기획 D-518 535, 없으면 시뮬 기본 —
- * NPC 세력 물건은 소각, economy.ts simGoodsHome)
+ * 예약(scheduleEconomy 등)은 부르는 쪽이 한다. goodsHome = 폐허가 된 도시 창고 물건의 갈 곳(기획 D-518 535·540 나, ruinedGoods.ts — 없으면
+ * 거리를 모를 때의 규칙: 주인의 가장 오래된 다른 도시, NPC 세력에 다른 도시가 없으면 소각)
  */
 export function runEconomy(
   economy: Economy,

@@ -1,0 +1,49 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "ee304024-c36f-4db2-b03e-88253507b668",
+  "prevIds": [
+    "18d55798-3615-48d7-808e-9f3632bf4731",
+    "fa80ebab-944a-4bcd-97d2-5f64c81e0c25",
+    "dcf1d841-ef0a-4549-8c78-a8ab54035aec"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_ruins",
+        "name"
+      ],
+      "writes": [
+        "s|col|public.world_ruins.name",
+        "n|col|public.world_ruins.name",
+        "e|col|public.world_ruins.name"
+      ],
+      "reads": [
+        "n|tbl|public.world_ruins",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_ruins",
+        "name": "name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

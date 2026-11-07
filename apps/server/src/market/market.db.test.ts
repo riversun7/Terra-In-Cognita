@@ -74,6 +74,20 @@ async function boot(presets?: readonly NationPreset[]): Promise<World> {
 const count = async (sql: string): Promise<number> =>
   Number((await rows<{ n: string }>(test.db, `select count(*) as n from (${sql}) t`))[0]?.n ?? 0);
 
+/** 그 도시 처음 창고 거래(npc_endow:<도시>)로 들어간 물건(자산 → 양) */
+const endowOf = async (cityId: number): Promise<Record<string, string>> =>
+  Object.fromEntries(
+    (
+      await rows<{ asset: string; amount: string }>(
+        test.db,
+        `select a.asset, e.amount::text as amount from ledger_entries e
+         join ledger_transactions t on t.id = e.tx_id join ledger_accounts a on a.id = e.account_id
+         where t.idempotency_key = $1 and e.amount > 0`,
+        [`npc_endow:${String(cityId)}`],
+      )
+    ).map((row) => [row.asset, row.amount]),
+  );
+
 /** 시험 사용자(소유 주체 + 시험 화폐) */
 async function trader(
   world: World,
@@ -339,7 +353,7 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     expect(await again.checkInvariants()).toEqual([]);
   });
 
-  it("나라 성격(531 다·533 다): 국가마다 도시 직무·처음 창고가 다르고, 모자란 생필품은 굶음 먼저 일꾼을 둔다(532 나)", async () => {
+  it("나라 성격(531 다·533 다·553 나·554 다): 국가마다 도시 직무·처음 창고가 다르고, 모자란 생필품은 굶음 먼저 일꾼을 둔다(532 나)", async () => {
     const presets = packPresets;
     const world = await boot(presets);
     const npc = world.npc;
@@ -371,6 +385,22 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 도시 경제·물자 거래소", () =>
     expect(econ.production(indCity ?? 0).map((run) => run.facility.recipe.id)).toEqual(
       expect.arrayContaining(["smelt_iron", "make_household_goods", "cook_ration"]),
     );
+    // 553 나: 건물은 그 시설의 특산 레시피(특산이 없으면 팩 첫 레시피) — 공업 나라는 벌목장 특산이 없어 세계 씨앗 벌목장 건물이 팩 첫
+    // 레시피(원목)
+    for (const run of econ.production(indCity ?? 0))
+      if (run.buildingId !== null && run.facility.recipe.facility === "lumber_camp")
+        expect(run.facility.recipe.id).toBe("cut_timber");
+    // 554 다: 처음 창고 = 생필품 몇 시간분(휴먼 수 비례) + 특산 고정 양(농업 나라 곡물 60, 공업 나라 철 주괴 20 — 생필품은 고정 양이 아님)
+    await world.persistence?.writer.durable();
+    const agri = [...npc.world.factions.values()].find((faction) => faction.code === presets[0]?.code);
+    const [agriCity] = [...(agri?.cities ?? [])];
+    const agriStock = await endowOf(agriCity ?? 0);
+    expect(agriStock["item:grain"]).toBe("60");
+    expect(BigInt(agriStock["item:ration"] ?? "0") % 72n).toBe(0n);
+    const indStock = await endowOf(indCity ?? 0);
+    expect(indStock["item:iron_ingot"]).toBe("20");
+    expect(BigInt(indStock["item:ration"] ?? "0") % 48n).toBe(0n);
+    expect(BigInt(indStock["item:ration"] ?? "0")).toBeGreaterThan(0n);
     expect(await world.checkInvariants()).toEqual([]);
   });
 });

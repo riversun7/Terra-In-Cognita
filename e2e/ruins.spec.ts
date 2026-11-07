@@ -2,6 +2,7 @@
 // - admin: [시험 폐허 만들기] → 카드(주인 없음) → [행정 건물 재료 받기(시험)] → [행정 건물 짓기] = 주인(정부 짓는 중 — 모금 닫힘, 폐허 2
 //   480 다) → [행정 건물 바로 짓기(시험)](주인만 넣음, 모금 기한 줄) → 시험 화폐 → 4,000 넣기 → [모금 열기](모금 중) → 6,000 넣기(목표 =
 //   옛 주거 8 × 700 = 5,600이라 남은 몫만 받음) = 도시가 되살아남(카드가 빠짐). 둘째 폐허는 주인·모금 중·일부 모인 채 남겨 사진에 쓴다.
+// - 모금 화폐(기획 답 546 가): 카드에 모금 화폐·내 잔고 줄, 가진 것보다 큰 값을 적으면 [환전하러 가기]가 환전 화면으로 이어진다.
 // - 사진(E2E_SHOTS_DIR): 폐허 칸 390 파스텔 한국어·390 다크 영어·1440 파스텔 한국어·1440 다크 영어.
 // 복귀 요약은 띄우지 않는다(hideSummary).
 import type { Locator, Page } from "@playwright/test";
@@ -85,6 +86,14 @@ test.describe("폐허 복원", () => {
     const firstId = Number(await first.getAttribute("data-ruin"));
     await claim(page, first);
     await expect(first.locator('[data-part="ruin-progress"]')).toBeVisible();
+    // 546 가: 모금 화폐·내 잔고, 가진 것보다 큰 값이면 [환전하러 가기]
+    await expect(first.locator('[data-part="ruin-currency"]')).toBeVisible();
+    await expect(first.locator('[data-part="ruin-short"]')).toHaveCount(0);
+    await first.locator(".ruins-fund input").fill("999999999999");
+    await expect(first.locator('[data-part="ruin-short"]')).toBeVisible();
+    await expect(first.locator(".ruins-go-exchange")).toHaveAttribute("href", /\/economy\/exchange$/);
+    await elementShot(first, "ruins-short-pastel-ko-390");
+    await first.locator(".ruins-fund input").fill("");
     await fund(page, first, "4000", message("ko", "ruins_funded", { amount: "4,000" }));
     await expect(first.locator('[data-part="ruin-progress"]')).toContainText("4,000");
     await clickFor(page, first.locator(".ruins-open"), message("ko", "ruins_opened", { id: firstId }));
@@ -124,6 +133,16 @@ test.describe("폐허 복원", () => {
         await expect(panel.locator('li[data-part="ruin-card"]').first()).toBeVisible({ timeout: 15_000 });
         expect(await horizontalOverflow(page)).toEqual([]);
         await elementShot(panel, `ruins-${look.theme}-${look.language}-${look.width}`);
+        // 546 가: 넣을 수 있는 카드에 가진 것보다 큰 값을 적으면 [환전하러 가기](사진)
+        const open = panel
+          .locator('li[data-part="ruin-card"]', { has: page.locator(".ruins-fund input") })
+          .first();
+        if ((await open.count()) > 0) {
+          await open.locator(".ruins-fund input").fill("999999999999");
+          await expect(open.locator('[data-part="ruin-short"]')).toBeVisible();
+          expect(await horizontalOverflow(page)).toEqual([]);
+          await elementShot(open, `ruins-short-${look.theme}-${look.language}-${look.width}`);
+        }
         expect(deviceErrors).toEqual([]);
       });
     });

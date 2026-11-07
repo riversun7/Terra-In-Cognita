@@ -21,6 +21,11 @@ export interface CityPlace {
   readonly cellX: number;
   readonly cellY: number;
   readonly foundedAtMs: number;
+  /**
+   * 도시 이름(world_cities.name, 기획 답 510 다·552 다). 폐허가 되면 폐허 줄에 남기고, 복원되면 같은 ID 도시가 되찾는다. 켤 때 읽은 값이라
+   * 실행 중에 세운 마을은 다음 켤 때 이름이 붙는다
+   */
+  readonly name?: string | undefined;
 }
 
 /** 구인 휴먼(봇)을 세우는 도시 둘레 반경(칸) */
@@ -236,7 +241,8 @@ export function createNpcPersist(
         };
       }
     }
-    return { ...parentCity, foundedAtMs: o.now() };
+    // 자리가 없으면 부모 도시 자리에(이름은 물려받지 않는다 — 다음 켤 때 붙는다)
+    return { ...parentCity, foundedAtMs: o.now(), name: undefined };
   };
 
   const saveOwner = (ownerId: number, rowId: number): void => {

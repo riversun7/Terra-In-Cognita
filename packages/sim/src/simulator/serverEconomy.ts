@@ -8,17 +8,33 @@ export {
   EVENT_UPKEEP,
   checkEconomy,
   defaultGatherStat,
+  nextFxRoundAt,
   scheduleEconomy,
   scheduleProduce,
-  simGoodsHome,
   workerEffects,
   type EcoFacility,
   type Economy,
   type GatherSettings,
-  type RuinedGoodsHome,
 } from "./economy.ts";
+// 폐허가 된 도시 창고 물건의 갈 곳(기획 D-518 535·540 나 — 시뮬·서버 같은 규칙)
+export {
+  nearestOtherCity,
+  rehomeRuinedGoods,
+  ruinedGoodsHome,
+  type CityDistance,
+  type RuinedGoodsHome,
+} from "./ruinedGoods.ts";
 export { runEconomy, type EconomyRun, type EconomySummary } from "./economyRun.ts";
 export { cityTargets, marketRefPrice, onTrade, placeCityBids } from "./npcTrade.ts";
 // 도시 일꾼 나누기(굶음 먼저, 기획 답 532 나 — docs/adr/2026-11-07-play-flow.md WP5)
 export { assignCityWorkers, type CityWorkSlot } from "./cityWorkers.ts";
+// 도시 계획(나라 특산이 건물 레시피를 고름 553 나, 처음 창고 = 생필품 몇 시간분 + 특산 고정 양 554 다 — WP10)
+export {
+  START_NECESSITY_HOURS,
+  cityStartStock,
+  planCityFacilities,
+  type CityBuilding,
+  type CityJob,
+  type PlannedFacility,
+} from "./cityPlan.ts";
 export type { ScenarioEconomy } from "./scenario.ts";

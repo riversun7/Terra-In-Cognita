@@ -25,6 +25,8 @@ export interface RuinRow {
   readonly open: boolean;
   /** 모금 기한(ms, 폐허 2 — 485 다). 0 = 정하지 않음 */
   readonly deadlineMs: number;
+  /** 무너지기 전 도시 이름(복원하면 되찾는다, 기획 답 552 다). 없으면 null */
+  readonly name: string | null;
   readonly contributions: readonly { readonly ownerId: number; readonly amount: bigint }[];
 }
 
@@ -41,7 +43,7 @@ export async function loadRuins(pool: QueryPool, planetId: string): Promise<Ruin
     pool.query(
       `select r.id, r.planet_id, r.map_key, r.cell_x, r.cell_y, fo.id as former_owner_id, r.ruined_at_ms, r.housing,
               r.claimant_owner_id, jo.id as join_owner_id, r.claimed_at_ms, r.government_building_id, r.goal::text as goal,
-              r.currency, r.open, r.deadline_ms
+              r.currency, r.open, r.deadline_ms, r.name
        from world_ruins r
        left join world_owners fo on fo.faction_id = r.former_faction_id
        left join world_owners jo on jo.faction_id = r.join_faction_id
@@ -77,6 +79,7 @@ export async function loadRuins(pool: QueryPool, planetId: string): Promise<Ruin
     currency: typeof row.currency === "string" ? row.currency : null,
     open: row.open === true,
     deadlineMs: num(row.deadline_ms ?? 0),
+    name: typeof row.name === "string" ? row.name : null,
     contributions: byRuin.get(num(row.id)) ?? [],
   }));
 }
@@ -115,6 +118,7 @@ export function ruinsOf(
       cellX: row.cellX,
       cellY: row.cellY,
       foundedAtMs: row.ruinedAtMs,
+      name: row.name ?? undefined,
     });
   }
   return out;

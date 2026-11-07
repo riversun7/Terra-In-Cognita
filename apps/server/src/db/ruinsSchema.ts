@@ -56,6 +56,8 @@ export const worldRuins = pgTable(
      * 또는 직전 판 앱이 쓴 줄 — 그때는 주인이 된 때 + 기한 날 수로 본다)
      */
     deadlineMs: bigint("deadline_ms", { mode: "number" }),
+    /** 무너지기 전 도시 이름(복원하면 같은 ID 도시가 되찾는다, 기획 답 552 다). null = 이름 없던 도시·직전 판 앱이 쓴 줄 */
+    name: text("name"),
   },
   (table) => [
     index("world_ruins_map_idx").on(table.mapKey),

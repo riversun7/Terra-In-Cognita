@@ -16,6 +16,7 @@ import type { Scenario } from "./scenario.ts";
 import type { EconomyCatalog } from "./catalog.ts";
 import { defaultGatherStat } from "./economy.ts";
 import { type EconomyRun, type EconomySummary, attachEconomy, systemRule } from "./economyRun.ts";
+import { ruinedGoodsHome } from "./ruinedGoods.ts";
 import { type CombatSummary, attachCombat } from "./combatRun.ts";
 import type { CombatCatalog } from "../combat/catalog.ts";
 import type { CombatFormulaSet } from "../combat/formulas.ts";
@@ -71,12 +72,28 @@ const DEFAULT_WAVE_DEFENDERS = 10;
 /** 정원사 크리쳐 전투 유닛 ID 시작(시뮬 유닛 ID와 겹치지 않게) */
 const WAVE_CREATURE_ID_BASE = 1_900_000_000;
 
-/** 도시 → 합성 격자 칸(도시 ID 차례로 3칸 간격, 가장자리에서 4칸 띄움) */
-function simCityCell(grid: ReturnType<typeof squareGrid>, cityId: number): number | undefined {
+/** 도시 → 합성 격자 자리(도시 ID 차례로 3칸 간격, 가장자리에서 4칸 띄움). 격자 밖이면 undefined */
+function simCityXY(cityId: number): { x: number; y: number } | undefined {
   const slot = cityId - 1;
-  const x = 4 + (slot % SIM_GRID_ROW) * 3;
   const y = 4 + Math.floor(slot / SIM_GRID_ROW) * 3;
-  return slot < 0 || y >= SIM_GRID_SIZE - 4 ? undefined : grid.cellOf(x, y);
+  return slot < 0 || y >= SIM_GRID_SIZE - 4 ? undefined : { x: 4 + (slot % SIM_GRID_ROW) * 3, y };
+}
+
+/** 도시 → 합성 격자 칸 */
+function simCityCell(grid: ReturnType<typeof squareGrid>, cityId: number): number | undefined {
+  const at = simCityXY(cityId);
+  return at ? grid.cellOf(at.x, at.y) : undefined;
+}
+
+/**
+ * 두 도시의 합성 격자 제곱 거리(정원사와 같은 칸 자리). 격자 밖 도시는 모른다(undefined) — 폐허 창고 물건의 "가장 가까운 다른 도시"
+ * (기획 답 540 나, ruinedGoods.ts)가 쓴다
+ */
+function simCityDistance(from: number, to: number): number | undefined {
+  const a = simCityXY(from);
+  const b = simCityXY(to);
+  if (!a || !b) return undefined;
+  return (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
 }
 
 /** 요약에 남기는 불변 조건 위반 문장 수 */
@@ -202,16 +219,25 @@ export function runSimulation(options: RunOptions): RunSummary {
   // 경제: 사건 처리기가 쓰기 전에 붙인다(예약은 아직 돌지 않는다)
   const econ: EconomyRun | undefined =
     scenario.economy && options.catalog
-      ? attachEconomy(world, scenario, options.catalog, loop, SIM_START_MS, societyCoefficients.npc, {
-          levelBonus: societyCoefficients.gatherLevelBonus,
-          defaultStat: defaultGatherStat(societyCoefficients.cyborg.initialSum),
-          progressDivisor: societyCoefficients.productionMainDivisor,
-          yieldPerStatPm: societyCoefficients.productionSubYieldPm,
-          tierProgressBase: societyCoefficients.gatherTierProgressBase,
-          tierProgressStep: societyCoefficients.gatherTierProgressStep,
-          tickMs: societyCoefficients.gatherTickMs,
-          oreGrams: societyCoefficients.gatherOreGrams,
-        })
+      ? attachEconomy(
+          world,
+          scenario,
+          options.catalog,
+          loop,
+          SIM_START_MS,
+          societyCoefficients.npc,
+          {
+            levelBonus: societyCoefficients.gatherLevelBonus,
+            defaultStat: defaultGatherStat(societyCoefficients.cyborg.initialSum),
+            progressDivisor: societyCoefficients.productionMainDivisor,
+            yieldPerStatPm: societyCoefficients.productionSubYieldPm,
+            tierProgressBase: societyCoefficients.gatherTierProgressBase,
+            tierProgressStep: societyCoefficients.gatherTierProgressStep,
+            tickMs: societyCoefficients.gatherTickMs,
+            oreGrams: societyCoefficients.gatherOreGrams,
+          },
+          ruinedGoodsHome(world, simCityDistance),
+        )
       : undefined;
   const ctx: NpcContext = {
     world,

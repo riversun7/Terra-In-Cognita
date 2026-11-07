@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { nextFxRoundAt } from "./economy.ts";
 import { runSimulation } from "./run.ts";
 import { TEST_CATALOG, TEST_ECONOMY_SCENARIO } from "./testEconomy.ts";
 
@@ -40,5 +41,15 @@ describe("시뮬레이터 경제(생산·유지비·물자 거래소·환전·�
     expect(econLines).toHaveLength(20);
     expect(econLines[0]).toHaveProperty("money");
     expect(econLines.some((record) => Object.keys(record.issued).length > 0)).toBe(true);
+  });
+});
+
+describe("환전 회차 시각(기획 답 564 다)", () => {
+  it("회차 길이의 정시에 맞춘다: 시뮬 시작 0은 옛 예약(시작 + 회차)과 같고, 서버가 아무 때나 켜도 다음 정시, 회차 시각이면 그다음", () => {
+    const hour = 3_600_000;
+    expect(nextFxRoundAt(0, hour)).toBe(hour);
+    expect(nextFxRoundAt(10 * hour + 1_234, hour)).toBe(11 * hour);
+    expect(nextFxRoundAt(11 * hour, hour)).toBe(12 * hour);
+    expect(nextFxRoundAt(11 * hour - 1, hour)).toBe(11 * hour);
   });
 });

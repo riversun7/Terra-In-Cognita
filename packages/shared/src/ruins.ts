@@ -4,6 +4,8 @@
 // 금액은 10진 문자열(최소 단위)이다.
 // 폐허 2(기획 답 480 다·485 다·487 다·489 다): 정부 건물 상태(짓는 중·서 있음·0%·사라짐 — 다 지어야 모금을 열고 넣는다, 0%·사라지면 다시 지은
 // 쪽이 주인)·모금 기한·행정 건물 최대 레벨(되살아난 도시의 행정 레벨 = 그 건물 레벨).
+// 경제 마무리(기획 답 546 가·552 다, docs/adr/2026-11-07-play-flow.md "WP10"): 모금 화폐는 도시가 들어갈 나라의 화폐 그대로이고, 사업마다 내
+// 그 화폐 잔고를 실어 화면이 모자라면 [환전하러 가기]를 보인다. 폐허는 무너지기 전 도시 이름을 지닌다(복원하면 되찾는다).
 import type { LocalizedName } from "./roster.ts";
 
 /** 세력 이름(나라 프리셋 이름이 있으면 그 이름, 없으면 코드) */
@@ -36,6 +38,8 @@ export interface RuinView {
   readonly x: number;
   readonly y: number;
   readonly ruinedAtMs: number;
+  /** 무너지기 전 도시 이름(번역하지 않는다, D-476 — 복원하면 그 도시가 되찾는다, 552 다). 없으면 null */
+  readonly name: string | null;
   readonly formerOwner: RuinFactionView | null;
   /** 주인 없음 = null. 주인이 나면 mine */
   readonly owner: {
@@ -51,7 +55,12 @@ export interface RuinView {
   readonly project: {
     readonly goal: string;
     readonly raised: string;
+    /** 모금 화폐(원장 자산 코드, 도시가 들어갈 나라의 화폐 "cur:<코드>" — 546 가) */
     readonly currency: string;
+    /** 그 화폐 코드(팩 화폐 코드, 원장 "cur:" 앞머리를 뗀 것 — 화면이 화폐 이름을 찾는다) */
+    readonly currencyCode: string;
+    /** 내 그 화폐 잔고(모자라면 화면이 [환전하러 가기]를 보인다) */
+    readonly balance: string;
     /** 모금이 열렸나(열리면 누구나 넣는다) */
     readonly open: boolean;
     /** 내가 낸 값 */

@@ -53,7 +53,9 @@ export interface NationPersonality {
   readonly startCities?: number | undefined;
   /** 도시 직무: 그 시설 건물이 없는 NPC 도시의 휴먼이 돌리는 레시피(npc/economy.ts) */
   readonly cityJobs?: readonly { readonly facility: string; readonly recipe: string }[] | undefined;
-  /** 처음 창고: NPC 도시 하나가 한 번 받는 물건(팩 수량 = 묶음 단위) */
+  /** 처음 창고 생필품: 휴먼 수 × 몇 시간분(기획 답 554 다, 없으면 48시간) */
+  readonly startNecessityHours?: number | undefined;
+  /** 처음 창고 특산 물건: NPC 도시 하나가 한 번 받는 고정 양(팩 수량 = 묶음 단위, 554 다) */
   readonly startStock?: readonly { readonly item: string; readonly qty: number }[] | undefined;
 }
 
@@ -98,12 +100,26 @@ export function presetOfCode(code: string, presets: readonly NationPreset[] = []
   return presets.find((entry) => entry.code === code);
 }
 
-/** 이름 목록에서 아직 쓰지 않은 첫 이름(없으면 undefined) */
+/** 이름이 모자랄 때 붙이는 번호의 끝(목록 32개 × 이 수까지 — 넘으면 이름 없이 둔다) */
+const CITY_NAME_ROUNDS = 999;
+
+/**
+ * 이름 목록에서 아직 쓰지 않은 첫 이름. 목록을 다 쓰면 번호를 붙여 다시 돈다("<첫 이름> 2", "<둘째 이름> 2", …, "<첫 이름> 3" — 기획 답
+ * 552 다). 목록이 없으면 undefined
+ */
 export function nextCityName(
   names: readonly string[] | undefined,
   used: ReadonlySet<string>,
 ): string | undefined {
-  return names?.find((name) => !used.has(name));
+  if (!names || names.length === 0) return undefined;
+  const free = names.find((name) => !used.has(name));
+  if (free !== undefined) return free;
+  for (let round = 2; round <= CITY_NAME_ROUNDS; round += 1)
+    for (const name of names) {
+      const numbered = `${name} ${String(round)}`;
+      if (!used.has(numbered)) return numbered;
+    }
+  return undefined;
 }
 
 /** 시작 도시 자리(2차맵 키, 칸) */
@@ -226,9 +242,9 @@ export async function ensureTestNations(
 }
 
 /**
- * NPC 도시 이름(기획 답 510 다): 국가마다 그 행성의 이름 없는 도시(ID 차례)에 프리셋 목록에서 그 국가 도시가 아직 쓰지 않은 이름을 붙인다.
- * 이미 붙은 이름은 고치지 않는다(멱등 — 목록을 바꿔도 옛 이름은 그대로). 목록이 모자라면 남은 도시는 이름 없이 둔다(화면이 "도시 N").
- * 붙인 수를 돌려준다
+ * NPC 도시 이름(기획 답 510 다·552 다): 국가마다 그 행성의 이름 없는 도시(ID 차례)에 프리셋 목록에서 그 행성 도시·폐허가 아직 쓰지 않은
+ * 이름을 붙인다(폐허 이름은 복원되면 그 도시가 되찾으므로 비워 둔다). 목록을 다 쓰면 번호를 붙인다("<첫 이름> 2", nextCityName). 이미 붙은
+ * 이름은 고치지 않는다(멱등 — 목록을 바꿔도, 점령으로 주인이 바뀌어도 옛 이름은 그대로). 붙인 수를 돌려준다
  */
 export async function nameNationCities(
   pool: QueryPool,
@@ -236,14 +252,16 @@ export async function nameNationCities(
   nations: readonly { readonly factionId: number; readonly names: readonly string[] }[],
 ): Promise<number> {
   if (nations.length === 0) return 0;
-  const result = await pool.query(
-    `select id, faction_id, name from world_cities where planet_id = $1 and faction_id = any($2::bigint[]) order by id`,
-    [planetId, nations.map((nation) => nation.factionId)],
+  const [result, ruins] = await Promise.all([
+    pool.query(`select id, faction_id, name from world_cities where planet_id = $1 order by id`, [planetId]),
+    pool.query(`select name from world_ruins where planet_id = $1 and name is not null`, [planetId]),
+  ]);
+  const used = new Set(
+    [...result.rows, ...ruins.rows].flatMap((row) => (typeof row.name === "string" ? [row.name] : [])),
   );
   let named = 0;
   for (const nation of nations) {
     const mine = result.rows.filter((row) => Number(row.faction_id) === nation.factionId);
-    const used = new Set(mine.flatMap((row) => (typeof row.name === "string" ? [row.name] : [])));
     for (const row of mine) {
       if (typeof row.name === "string") continue;
       const name = nextCityName(nation.names, used);

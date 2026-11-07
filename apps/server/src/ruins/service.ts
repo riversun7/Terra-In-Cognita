@@ -19,6 +19,7 @@ import type { GovernmentStatus, RuinResult, SimRuin } from "@terra/sim";
 import type { CyborgService } from "../cyborg/service.ts";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
+import { currencyCode } from "../market/fxViews.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
 import type { CityPlace } from "../npc/persist.ts";
 import type { OwnerRow } from "../world/persist/load.ts";
@@ -261,6 +262,7 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
           x: place.cellX,
           y: place.cellY,
           ruinedAtMs: ruin.ruinedAtMs,
+          name: place.name ?? null,
           formerOwner: factionView(runtime, ruin.formerOwner),
           owner:
             ruin.claimant === null
@@ -280,6 +282,8 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
                 goal: String(ruin.goal),
                 raised: String(raised),
                 currency: ruin.currency,
+                currencyCode: currencyCode(ruin.currency),
+                balance: String(me === undefined ? 0n : d.ledger.balanceOf(me, ruin.currency)),
                 open: ruin.open,
                 mine: String(me === undefined ? 0n : (ruin.contributions.get(me) ?? 0n)),
                 canFund: open && me !== undefined && (ruin.claimant === me || ruin.open),
@@ -392,7 +396,8 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
       if (!spot) return fail("no_place");
       const at = d.now();
       const id = runtime.world.nextCityId();
-      runtime.places.set(id, { ...start, cellX: spot.x, cellY: spot.y, foundedAtMs: at });
+      // 시험 폐허는 이름이 없다(시작 도시 이름을 물려받지 않게)
+      runtime.places.set(id, { ...start, cellX: spot.x, cellY: spot.y, foundedAtMs: at, name: undefined });
       runtime.society.ruins.record(
         {
           id,

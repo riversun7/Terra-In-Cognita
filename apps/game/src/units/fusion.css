@@ -1,0 +1,174 @@
+/*
+ * 유닛 화면 [융합] 칸 — 사이보그 유닛 융합·유전자 조각(D-470·D-478). 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 390px 먼저: 카드 한 줄에 하나, 스탯 여섯 칸은 3 × 2 격자. 넓으면(48em 이상) 카드를 둘씩, 스탯은 한 줄.
+ */
+
+.fusion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.fusion-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.fusion-heading {
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+.fusion-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* ── 비용 ─────────────────────────────────────── */
+.fusion-costs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+}
+.fusion-cost {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  min-width: 0;
+}
+.fusion-cost dt {
+  overflow-wrap: anywhere;
+}
+.fusion-cost dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: baseline;
+  margin: 0;
+}
+.fusion-rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-inline-start: var(--space-4);
+  font-size: var(--font-size-sm);
+}
+
+/* ── 카드 ─────────────────────────────────────── */
+.fusion-list,
+.fusion-genes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fusion-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  min-width: 0;
+}
+.fusion-card-title {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.fusion-stat-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.fusion-stat-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.fusion-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-1);
+  margin: 0;
+}
+.fusion-stat {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  font-size: var(--font-size-sm);
+  min-width: 0;
+}
+.fusion-stat dt {
+  font-weight: 700;
+}
+.fusion-stat dd {
+  margin: 0;
+}
+.fusion-stat[data-stat="str"] dt {
+  color: var(--color-stat-str);
+}
+.fusion-stat[data-stat="dex"] dt {
+  color: var(--color-stat-dex);
+}
+.fusion-stat[data-stat="agi"] dt {
+  color: var(--color-stat-agi);
+}
+.fusion-stat[data-stat="vit"] dt {
+  color: var(--color-stat-vit);
+}
+.fusion-stat[data-stat="int"] dt {
+  color: var(--color-stat-int);
+}
+.fusion-stat[data-stat="wis"] dt {
+  color: var(--color-stat-wis);
+}
+
+/* ── 유전자 조각 ───────────────────────────────── */
+.fusion-gene {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-3);
+  align-items: baseline;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  min-width: 0;
+}
+.fusion-gene-name {
+  overflow-wrap: anywhere;
+}
+.fusion-gene .field-hint {
+  grid-column: 1;
+}
+.fusion-gene-qty {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+@media (min-width: 48em) {
+  .fusion-costs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .fusion-list,
+  .fusion-genes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .fusion-stats {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}

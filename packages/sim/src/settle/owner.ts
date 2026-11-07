@@ -4,6 +4,7 @@
 // 나눠 정산해도 같다(settle.ts의 성질 + 경계 시각 차례대로 낸다, owner.test.ts).
 // [임시] 시험 자산·시험 직무·유지비 수치는 기획 Step 5 전 시험값이다(R2 경제 코어에서 진짜 자산으로 바꾼다).
 import type { LedgerBook } from "../ledger/ledgerBook.ts";
+import { mix32 } from "../math/hash.ts";
 import {
   type JobRules,
   type JobState,
@@ -70,10 +71,25 @@ export interface OwnerSettleInput {
   readonly outputs?: readonly (readonly OutputSegment[] | undefined)[] | undefined;
 }
 
-/** 산출 구간: 직전 구간 끝부터 untilMs까지의 산출이 stock 계정으로 간다(null = 산출 없음) */
+/**
+ * 산출 구간: 직전 구간 끝부터 untilMs까지의 산출이 stock 계정으로 간다(null = 산출 없음). bonusPm = 그 구간 산출 더하기 ‰(서버 수호신 생산
+ * 버프, 기획 답 470 가 — 없거나 0이면 예전과 같다. 시뮬은 쓰지 않는다)
+ */
 export interface OutputSegment {
   readonly untilMs: number;
   readonly stock: (() => number) | null;
+  readonly bonusPm?: number | undefined;
+}
+
+/**
+ * 산출 더하기 ‰의 덤 개수: ⌊산출 × ‰ ÷ 1000⌋ + (남은 몫 ÷ 1000 확률로 1). 확률은 salt의 해시로 정해 같은 입력이면 같다(시드 난수·Math.random
+ * 없음). 정산을 나누는 자리가 다르면 덤 개수가 조금 달라질 수 있다(기댓값은 같다) [임시]
+ */
+export function bonusCycles(cycles: number, bonusPm: number, salt: number): number {
+  if (cycles <= 0 || bonusPm <= 0) return 0;
+  const scaled = cycles * Math.floor(bonusPm);
+  const whole = Math.floor(scaled / 1000);
+  return whole + (mix32(salt) % 1000 < scaled % 1000 ? 1 : 0);
 }
 
 export interface OwnerSettleResult {
@@ -132,9 +148,17 @@ export function settleOwnerPeriod(
         continue;
       }
       const account = segment.stock();
-      cycles += result.cycles;
-      routedTotal += result.cycles;
-      routed.set(account, (routed.get(account) ?? 0) + result.cycles);
+      // 수호신 생산 버프(서버만): 덤은 같은 계정으로, 매장량에서 함께 나온다
+      const made =
+        result.cycles +
+        bonusCycles(
+          result.cycles,
+          segment.bonusPm ?? 0,
+          Math.imul(input.ownerId, 0x9e37_79b1) ^ Math.imul(index + 1, 0x85eb_ca6b) ^ (until % 0x1_0000_0000),
+        );
+      cycles += made;
+      routedTotal += made;
+      routed.set(account, (routed.get(account) ?? 0) + made);
     }
     if (from < toMs) {
       const result = settleJob(state, from, toMs, input.offlineSinceMs, rules);

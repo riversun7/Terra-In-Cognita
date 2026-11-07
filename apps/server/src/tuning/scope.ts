@@ -262,8 +262,11 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "temple.prayFaith",
   "temple.prayCooldownMs",
   "temple.offeringPerFaith",
-  // 수호신 방어 버프(temple/cityDefense.ts, 기획 답 456 가): 세계 전투를 열 때마다 읽는다
+  // 수호신 버프(기획 답 456 가·470 가): 방어 = 세계 전투를 열 때마다(temple/cityDefense.ts), 만족도 = NPC 사회 하루 끝마다,
+  // 생산 = 노동 계약 정산마다(temple/service.ts) 읽는다
   "temple.guardianDefensePm",
+  "temple.guardianSatisfactionMilli",
+  "temple.guardianProductionPm",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

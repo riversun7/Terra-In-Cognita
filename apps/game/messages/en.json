@@ -4103,7 +4103,7 @@
   "temple_rule_devotion": "Prayer: faith +{faith} (every {wait}) · Offering: +1 per {per} — your cyborg and all your humans",
   "temple_rule_cap": "An inactive human leaves its genes and departs after {wait}.",
   "temple_rule_no_cap": "An inactive human stays until you choose.",
-  "temple_rule_guardian": "Guardian spirits defend their city when it's attacked (gardener waves, building attacks). Even the owner can't move them, and they don't work. Buff: defense = city defenders' defense rate +{pm}‰ per guardian; morale and production have no effect yet.",
+  "temple_rule_guardian": "Guardian spirits defend their city when it's attacked (gardener waves, building attacks). Even the owner can't move them, and they don't work. Buffs (added per guardian): defense = city defenders' defense rate +{pm}‰, morale = city humans' satisfaction +{sat} per day, production = city facility output +{prod}‰.",
   "temple_my_faith": "Cyborg faith {faith}/100 · faith points {points} · currency {balance}",
   "temple_no_cyborg": "You have no cyborg yet.",
   "temple_temples_title": "Temples",

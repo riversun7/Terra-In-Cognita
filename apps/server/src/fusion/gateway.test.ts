@@ -29,6 +29,8 @@ function fakeService(calls: string[]): FusionService {
       devGuardianBuff: () => Promise.reject(new Error("unused")),
       isInactive: () => false,
       isAway: () => false,
+      citySatisfaction: () => new Map(),
+      buildingProductionPm: () => 0,
       sweep: () => Promise.resolve(0),
     },
     fuse: (userId, input) => {

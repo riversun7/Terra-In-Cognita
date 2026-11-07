@@ -60,6 +60,8 @@ export async function buildTempleOverview(
       prayCooldownMs: Math.max(0, c.prayCooldownMs),
       offeringPerFaith: String(Math.max(1, c.offeringPerFaith)),
       guardianDefensePm: Math.max(0, c.guardianDefensePm),
+      guardianSatisfactionMilli: Math.max(0, c.guardianSatisfactionMilli),
+      guardianProductionPm: Math.max(0, c.guardianProductionPm),
     },
     devGrant: viewer.devGrant,
     generatedAt: nowMs,

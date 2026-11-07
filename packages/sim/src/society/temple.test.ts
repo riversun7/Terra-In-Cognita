@@ -8,6 +8,7 @@ import {
   OLD_TEMPLE_COEFFICIENTS as C,
   addDevotion,
   devotionGain,
+  guardianBuffValue,
   guardianDefensePm,
   inactiveWindow,
   isGuardianBuff,
@@ -95,5 +96,13 @@ describe("신전·종교", () => {
     expect(guardianDefensePm(["defense", "production", "defense"], C)).toBe(2 * C.guardianDefensePm);
     expect(guardianDefensePm(["satisfaction"], C)).toBe(0);
     expect(guardianDefensePm(["defense"], { ...C, guardianDefensePm: -5 })).toBe(0);
+  });
+
+  it("수호신 만족도·생산 버프(기획 답 470 가): 그 종류 수호신마다 한 명 몫을 더한다", () => {
+    const buffs = ["satisfaction", "production", "satisfaction", "defense"] as const;
+    expect(guardianBuffValue(buffs, "satisfaction", C)).toBe(2 * C.guardianSatisfactionMilli);
+    expect(guardianBuffValue(buffs, "production", C)).toBe(C.guardianProductionPm);
+    expect(guardianBuffValue(buffs, "defense", C)).toBe(guardianDefensePm(buffs, C));
+    expect(guardianBuffValue(["production"], "production", { ...C, guardianProductionPm: -1 })).toBe(0);
   });
 });

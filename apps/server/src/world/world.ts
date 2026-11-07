@@ -700,6 +700,7 @@ export function startWorld(
       buildingWorks: (buildingId) => facilities.service.works(buildingId),
       unitInJob: (unitId) => facilities.service.unitInJob(unitId),
       unitAway: (unitId) => persistence?.fusion.temple.isAway(unitId) ?? false,
+      outputBonusPm: (buildingId) => persistence?.fusion.temple.buildingProductionPm(buildingId) ?? 0,
     });
     facilities.attachLabor(labor);
     settlement.routeOutputs((ownerId, fromMs, toMs) => labor.outputsFor(ownerId, fromMs, toMs));
@@ -826,6 +827,8 @@ export function startWorld(
           },
           // 막아 낸 도시 웨이브 보상 아이템(D-499): 팩 유전자(gene.drops wave)·크리쳐 재료(중분류 creature_material)
           waveRewardItems: () => waveRewardItemsOf(config.holdings?.content().items ?? []),
+          // 수호신 만족도 버프(기획 답 470 가): 하루 끝에 그 도시 휴먼마다
+          guardianSatisfaction: () => persistence?.fusion.temple.citySatisfaction() ?? new Map(),
         });
       } catch (error) {
         log.error({ err: error }, "npc society failed to start; bots keep walking");

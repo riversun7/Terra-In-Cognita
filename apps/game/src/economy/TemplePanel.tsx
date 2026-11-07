@@ -138,6 +138,10 @@ function GuardianRow({
   );
 }
 
+/** 밀리점 → 점(만족도 0~100, 소수 한 자리까지) */
+const formatPoints = (milli: number): string =>
+  milli % 1000 === 0 ? formatNumber(milli / 1000) : (milli / 1000).toFixed(1);
+
 /** 개발 시험 화폐 한 번(최소 단위) */
 const DEV_CURRENCY = 100_000;
 
@@ -482,7 +486,13 @@ export function TemplePanel() {
                     ? m.temple_rule_cap({ wait: formatDuration(rules.inactiveCapMs) })
                     : m.temple_rule_no_cap()}
                 </li>
-                <li>{m.temple_rule_guardian({ pm: rules.guardianDefensePm })}</li>
+                <li>
+                  {m.temple_rule_guardian({
+                    pm: rules.guardianDefensePm,
+                    sat: formatPoints(rules.guardianSatisfactionMilli),
+                    prod: rules.guardianProductionPm,
+                  })}
+                </li>
               </ul>
               {loaded.devGrant ? (
                 <div className="labor-actions">

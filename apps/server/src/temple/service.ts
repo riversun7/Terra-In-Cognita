@@ -11,7 +11,10 @@
 //   그 도시에 남는다(휴먼 행은 지우고 지닌 것·배운 스킬·신앙은 그대로 — 융합과 같은 꼴). 수호신은 일하지 않고(isAway), 주인이 옮기지 못하며,
 //   그 도시가 공격받는 전투에 수비로 든다(cityDefense.ts). 유전자는 들지 않는다(D-517). 유전자로 바꾸는 길(생명과학 연구소)은 유전자 명령
 //   convert(fusion/geneCommands.ts)다.
-// - 수호신 버프(456 가: 종류는 수호신마다 편집기 칸): 개발 편집 devGuardianBuff(dev·admin, 누구의 수호신이든).
+// - 수호신 버프(456 가: 종류는 수호신마다 편집기 칸): 개발 편집 devGuardianBuff(dev·admin, 누구의 수호신이든). 효과(470 가): 방어 = 도시 방어
+//   (cityDefense.ts), 만족도 = 그 도시 휴먼 만족도 하루 +(NPC 사회 런타임 하루 끝이 citySatisfaction을 읽는다), 생산 = 그 도시 시설 산출 ‰ +
+//   (노동 계약 정산이 buildingProductionPm을 읽는다). 정산·하루 끝은 동기라 도시마다 버프를 메모리 표로 둔다(1분 sweep·신격화·버프 편집마다
+//   고친다).
 // - 기도·헌금(옛 religion_routes.js): 내 사이보그와 내 휴먼 모두(비활성 포함)의 신앙도·포인트를 함께 올린다. 종교 목록이 아직 없어 종교 없이
 //   쌓인다 [임시](질문 457).
 // 명령 하나 = 읽기(DB, 쓰기 대기열이 따라잡은 뒤) → 다시 확인(메모리) → 한 번의 동기 처리 → 커밋 뒤 답(U2).
@@ -26,6 +29,7 @@ import {
   type TempleRite,
   addDevotion,
   devotionGain,
+  guardianBuffValue,
   inactiveWindow,
   positionAt,
   rebirthHuman,
@@ -34,6 +38,7 @@ import {
 } from "@terra/sim";
 import type { CyborgService } from "../cyborg/service.ts";
 import type { Ledger } from "../economy/ledger.ts";
+import { buildingPlace } from "../facilities/places.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
@@ -101,6 +106,10 @@ export interface TempleService {
   isInactive(unitId: number): boolean;
   /** 일하지 않는 유닛인가(비활성 또는 수호신) — 노동 계약·건물 작업·건물 공격이 묻는다 */
   isAway(unitId: number): boolean;
+  /** 도시마다 수호신 만족도 버프(하루 + 밀리점, 470 가). 버프가 없는 도시는 없다 */
+  citySatisfaction(): ReadonlyMap<number, number>;
+  /** 그 건물이 선 도시의 수호신 생산 버프(산출 + ‰, 470 가). 없으면 0 */
+  buildingProductionPm(buildingId: number): number;
   /** 비활성 표를 다시 만들고 새 비활성의 주체를 정산한다(계약 끝). 새로 비활성이 된 유닛 수 */
   sweep(nowMs: number): Promise<number>;
 }
@@ -111,7 +120,26 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
   const { ledger, writer, settlement } = o;
   /** 비활성 유닛 → 소유 주체 */
   const inactive = new Map<number, number>();
+  /** 수호신 → 도시·버프(메모리 표, DB 행이 원본 — 1분 sweep·신격화·버프 편집마다 고친다) */
+  const guardianBuffs = new Map<number, { readonly cityId: number; readonly buff: GuardianBuff }>();
   let sweeping = false;
+  const reloadGuardians = async (): Promise<void> => {
+    const rows = await readGuardians(o.pool);
+    guardianBuffs.clear();
+    for (const row of rows) guardianBuffs.set(row.unitId, { cityId: row.cityId, buff: row.buff });
+  };
+  /** 도시마다 버프 종류 목록 */
+  // 처음 한 번(1분 sweep 전에도 버프가 들게). 실패하면 다음 sweep이 다시 읽는다
+  void reloadGuardians().catch(() => undefined);
+  const buffsByCity = (): Map<number, GuardianBuff[]> => {
+    const out = new Map<number, GuardianBuff[]>();
+    for (const entry of guardianBuffs.values()) {
+      const list = out.get(entry.cityId);
+      if (list) list.push(entry.buff);
+      else out.set(entry.cityId, [entry.buff]);
+    }
+    return out;
+  };
 
   const unitOf = (unitId: number) => {
     for (const map of o.maps.values()) {
@@ -264,6 +292,7 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
           deifiedAtMs: at,
           buff: DEFAULT_GUARDIAN_BUFF,
         });
+        guardianBuffs.set(input.unit, { cityId: temple.cityId, buff: DEFAULT_GUARDIAN_BUFF });
         const found = unitOf(input.unit);
         if (found) {
           found.map.setKind(input.unit, UNIT_KIND_GUARDIAN);
@@ -309,6 +338,7 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
       const [row] = await readGuardians(o.pool, { unitId: input.unit });
       if (!row) return fail(unitOf(input.unit) ? "wrong_kind" : "unknown_unit");
       writeGuardian(writer, { ...row, buff: input.buff });
+      guardianBuffs.set(row.unitId, { cityId: row.cityId, buff: input.buff });
       await writer.durable();
       return { ok: true, unitId: input.unit };
     },
@@ -317,11 +347,31 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
 
     isAway: (unitId) => inactive.has(unitId) || unitOf(unitId)?.info.kind === UNIT_KIND_GUARDIAN,
 
+    citySatisfaction() {
+      const c = o.rules().temple;
+      const out = new Map<number, number>();
+      for (const [cityId, buffs] of buffsByCity()) {
+        const value = guardianBuffValue(buffs, "satisfaction", c);
+        if (value > 0) out.set(cityId, value);
+      }
+      return out;
+    },
+
+    buildingProductionPm(buildingId) {
+      const world = o.facilities;
+      if (!world || guardianBuffs.size === 0) return 0;
+      const cityId = buildingPlace(world.service.places, buildingId)?.cityId;
+      if (cityId === null || cityId === undefined) return 0;
+      return guardianBuffValue(buffsByCity().get(cityId) ?? [], "production", o.rules().temple);
+    },
+
     async sweep(nowMs) {
       if (!o.ready() || sweeping) return 0;
       sweeping = true;
       try {
         await writer.durable();
+        // 수호신 버프 표도 DB 행으로 다시 맞춘다(만족도·생산 버프가 읽는다)
+        await reloadGuardians();
         const result = await o.pool.query(
           `select h.unit_id, u.owner_id, h.born_at_ms + h.lifespan_ms as ends
              from world_humans h join world_units u on u.id = h.unit_id

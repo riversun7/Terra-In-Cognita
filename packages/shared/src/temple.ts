@@ -22,9 +22,13 @@ export interface TempleRulesView {
   readonly offeringPerFaith: string;
   /** 수호신 방어 버프: 그 도시 수비 유닛 방어율 ‰(방어 버프 수호신마다 더함, 설정 칸 d311_guardian_defense_pm [임시]) */
   readonly guardianDefensePm: number;
+  /** 수호신 만족도 버프: 그 도시 휴먼 만족도 하루 + 밀리점(수호신마다, d311_guardian_satisfaction_milli [임시], 기획 답 470 가) */
+  readonly guardianSatisfactionMilli: number;
+  /** 수호신 생산 버프: 그 도시 시설 산출 + ‰(수호신마다, d311_guardian_production_pm [임시], 기획 답 470 가) */
+  readonly guardianProductionPm: number;
 }
 
-/** 수호신 도시 버프 종류(기획 답 456 가: 수호신마다 편집기 칸, 출발값 방어). 방어만 효과가 있다(만족도·생산은 확인 대기 — 질문 470) */
+/** 수호신 도시 버프 종류(기획 답 456 가: 수호신마다 편집기 칸, 출발값 방어 — 효과는 470 가: 방어·만족도·생산) */
 export const TEMPLE_GUARDIAN_BUFFS = ["defense", "satisfaction", "production"] as const;
 export type TempleGuardianBuff = (typeof TEMPLE_GUARDIAN_BUFFS)[number];
 

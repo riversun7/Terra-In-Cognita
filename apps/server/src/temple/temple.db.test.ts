@@ -401,13 +401,25 @@ describe.skipIf(!TEST_DATABASE_URL)("신전·종교(D-517)", () => {
     expect(
       prepared.units[0]?.startEffects?.find((effect) => effect.id === GUARDIAN_DEFENSE_EFFECT)?.value,
     ).toBe(C.guardianDefensePm);
-    // 버프를 생산으로 바꾸면 수비로는 들되 방어 버프는 없다. 목표 도시를 모르면 비활성만 뺀다
+    // 방어 버프만 있으면 만족도·생산 버프는 없다
+    expect(temple.buildingProductionPm(templeId)).toBe(0);
+    expect(temple.citySatisfaction().size).toBe(0);
+    // 버프를 생산으로 바꾸면 수비로는 들되 방어 버프는 없고, 그 도시 시설 산출 ‰ 덤이 생긴다(470 가). 목표 도시를 모르면 비활성만 뺀다
     expect(await temple.devGuardianBuff({ unit: first, buff: "production" })).toMatchObject({ ok: true });
     const again = await defense.prepare(init, clock);
     expect(again.units.map((unit) => unit.id)).toEqual([first]);
     expect(again.units[0]?.startEffects ?? []).toEqual([]);
+    expect(temple.buildingProductionPm(templeId)).toBe(C.guardianProductionPm);
     const elsewhere = await defense.prepare({ ...init, targets: [] }, clock);
     expect(elsewhere.units).toEqual([]);
+    // 만족도 버프(470 가): 그 도시 휴먼 만족도 하루 + 밀리점(NPC 사회 하루 끝이 읽는다). 1분 표 다시 읽기 뒤에도 같다
+    expect(await temple.devGuardianBuff({ unit: first, buff: "satisfaction" })).toMatchObject({ ok: true });
+    const templeCity = buildingPlace(persistence.facilities.service.places, templeId)?.cityId;
+    expect([...temple.citySatisfaction()]).toEqual([[templeCity, C.guardianSatisfactionMilli]]);
+    expect(temple.buildingProductionPm(templeId)).toBe(0);
+    clock += 120_000;
+    await persistence.fusion.expireDue(clock);
+    expect([...temple.citySatisfaction()]).toEqual([[templeCity, C.guardianSatisfactionMilli]]);
   });
 
   it("비활성 휴먼의 노동 계약은 끝나고 새 계약을 맺지 못한다(unit_busy)", async () => {

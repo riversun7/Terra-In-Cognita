@@ -4,6 +4,7 @@ import {
   TEST_ASSET_CREDIT,
   TEST_ASSET_ORE,
   TEST_SYSTEM_ISSUE_CREDIT,
+  bonusCycles,
   settleOwnerPeriod,
   testSettleAccounts,
 } from "./owner.ts";
@@ -204,5 +205,34 @@ describe("소유 주체 정산 — 산출 구간(노동 계약, docs/adr/2026-11
     );
     expect(posted).toEqual([2]);
     expect(book.balanceOf(3, TEST_ASSET_ORE)).toBe(60n);
+  });
+
+  it("구간 덤(수호신 생산 버프 bonusPm, 기획 답 470 가): ⌊산출 × ‰ ÷ 1000⌋ + 남은 몫 확률(해시) 1, 매장량에서 함께 나온다", () => {
+    expect(bonusCycles(60, 100, 7)).toBe(6);
+    expect(bonusCycles(0, 100, 7)).toBe(0);
+    expect(bonusCycles(5, 0, 7)).toBe(0);
+    // 남은 몫(5 × 100 = 500 → 0.5): 해시가 정해 0이나 1, 같은 입력이면 같다
+    expect([0, 1]).toContain(bonusCycles(5, 100, 7));
+    expect(bonusCycles(5, 100, 7)).toBe(bonusCycles(5, 100, 7));
+    const ones = Array.from({ length: 1000 }, (_, salt) => bonusCycles(1, 300, salt)).filter((n) => n === 1);
+    expect(ones.length).toBeGreaterThan(200);
+    expect(ones.length).toBeLessThan(400);
+    const book = bookWithCredit(3, 10n);
+    const employer = () => book.ownerAccount(9, TEST_ASSET_ORE);
+    const result = settleOwnerPeriod(
+      {
+        ownerId: 3,
+        jobs: [fresh],
+        fromMs: 0,
+        toMs: HOUR,
+        offlineSinceMs: null,
+        outputs: [[{ untilMs: HOUR, stock: employer, bonusPm: 100 }]],
+      },
+      book,
+      testSettleAccounts(book, 3),
+    );
+    // 1시간 = 60주기 + 덤 6 = 66, 매장량에서 66이 나온다
+    expect(book.balanceOf(9, TEST_ASSET_ORE)).toBe(66n);
+    expect(result.cycles).toBe(66);
   });
 });

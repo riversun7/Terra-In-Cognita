@@ -128,6 +128,8 @@ export function createLaborService(options: {
    * 계약을 맺지 못하고, 열린 계약은 다음 정산에서 "유닛 사라짐"으로 끝난다(옛 LifeEngine _processWraith "활성 계약 종료"). 없으면 늘 false
    */
   unitAway?: ((unitId: number) => boolean) | undefined;
+  /** 그 건물 산출 더하기 ‰(그 도시 수호신 생산 버프, 기획 답 470 가). 일한 구간에만 든다. 없으면 0 */
+  outputBonusPm?: ((buildingId: number) => number) | undefined;
 }): LaborService {
   const { maps, settlement, ledger, writer, now } = options;
   const contracts = new Map<number, LaborContract>(options.loaded.contracts.map((c) => [c.id, c]));
@@ -220,9 +222,12 @@ export function createLaborService(options: {
       if (start > fromMs) list.push({ untilMs: start, stock: productionOn ? stockOf(ownerId) : null });
       // 시설이 일하지 않으면(짓는 중·30% 미만, N50) 계약대로 일한 구간도 산출이 없다. 정산하는 때의 상태로 본다(분 단위 노화)
       const works = options.buildingWorks?.(c.buildingId) ?? true;
+      // 그 도시 수호신 생산 버프(470 가): 일한 구간 산출에 ‰ 덤
+      const bonusPm = works ? (options.outputBonusPm?.(c.buildingId) ?? 0) : 0;
       for (const segment of segments) {
         list.push({
           untilMs: segment.untilMs,
+          ...(bonusPm > 0 && segment.mode === "work" ? { bonusPm } : {}),
           stock:
             !productionOn || segment.mode === "idle" || (segment.mode === "work" && !works)
               ? null

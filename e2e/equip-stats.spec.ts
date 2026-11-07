@@ -1,7 +1,8 @@
 // 입은 장비 → 스탯·공격 값 화면 시험 — docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07, 입은 장비·버프 → 스탯·전투)".
-// - dev 계정(사이보그 있음): 무기 칸을 비우고 실제 공격력(맨손 = 스탯 공격력, "맨손 — 맨손 스킬만")을 읽은 뒤, 팩 시험용 검을 받아
+// - admin 계정(사이보그 있음, 개발 받기 권한 dev·admin): 무기 칸을 비우고 실제 공격력(맨손 = 스탯 공격력, "맨손 — 맨손 스킬만")을 읽은 뒤, 팩 시험용 검을 받아
 //   쥐면 실제 공격력이 오르고("든 무기: 시험용 검") 벗으면 돌아온다(보유 물건 목록이 다시 오면 cyborg.get을 다시 받는다).
-//   스태미나 회복 줄은 실제 회복(행 값 × 적정 STA 비율, D-511)과 그 셈을 보인다.
+//   스태미나 회복 줄은 실제 회복(행 값 × 적정 STA 비율, D-511)과 그 셈을 보인다. 보유 물건은 버릴 길이 없어 실행 안에 남으므로
+//   dev 본체의 칸·인벤토리를 세는 inventory.spec과 겹치지 않게 admin 계정을 쓴다.
 // - 유닛 상세(세계 유닛 = 시험 일꾼): 시험용 조끼를 입히면 2차 스탯 아머 HP가 오른다(units.list를 다시 받는다).
 // - 사진: 390·1440 × 파스텔·다크 × 한국어·영어 — 사이보그 상세 전투 스펙(실제 공격력·스태미나 회복 펼침), 유닛 상세 스탯 판.
 //   폴더는 E2E_SHOTS_DIR.
@@ -105,8 +106,8 @@ async function wearVest(page: Page, detail: Locator, language: Language): Promis
   await expect(body).toContainText(name);
 }
 
-test.describe("개발 계정: 입은 장비 → 사이보그 스탯·공격 값", () => {
-  test.use({ account: "dev" });
+test.describe("관리자 계정: 입은 장비 → 사이보그 스탯·공격 값", () => {
+  test.use({ account: "admin" });
 
   test("검을 쥐면 실제 공격력이 오르고 벗으면 돌아온다, 스태미나 회복은 실제 값", async ({
     page,
@@ -142,10 +143,9 @@ test.describe("개발 계정: 입은 장비 → 사이보그 스탯·공격 값"
     await expect(regen.locator(".combat-value")).toContainText("/분");
     await regen.locator(".combat-toggle").click();
     await expect(regen.locator(".combat-detail")).toContainText(message("ko", "cyborg_stamina_real_formula"));
-    const shownRegen = numberIn(await regen.locator(".combat-value").textContent());
-    await expect(regen.locator(".combat-detail .combat-result").last()).toContainText(
-      `= ${String(shownRegen)}/분`,
-    );
+    // 줄 값 = 셈의 끝 값(예: 적정보다 STA가 높으면 행 값 720보다 크다)
+    const shownRegen = (await regen.locator(".combat-value").textContent()) ?? "";
+    await expect(regen.locator(".combat-detail .combat-result").last()).toContainText(`= ${shownRegen}`);
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);
 
@@ -198,7 +198,7 @@ test.describe("사진(390·1440 × 파스텔·다크 × 한국어·영어)", () 
   for (const { viewport, theme, language } of SHOTS) {
     const width = viewport === "phone" ? 390 : 1440;
     test.describe(`${String(width)} ${theme} ${language}`, () => {
-      test.use({ ...VIEWPORTS[viewport], account: "dev", theme, language });
+      test.use({ ...VIEWPORTS[viewport], account: "admin", theme, language });
 
       test(`상세 전투 스펙·유닛 스탯 (${String(width)} ${theme} ${language})`, async ({
         page,

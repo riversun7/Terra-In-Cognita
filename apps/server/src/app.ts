@@ -513,6 +513,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           faceLevel: worldPlanet?.faceLevel ?? EARTH_FACE_LEVEL,
           presets: options.world?.npc?.presets,
           planets: planets && worldPlanet ? planets : undefined,
+          pollutionDanger: tuningState ? () => tuningState.society().gardener.nomadThreshold : undefined,
         })
       : undefined;
   if (world) {

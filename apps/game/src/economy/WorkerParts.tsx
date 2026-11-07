@@ -8,6 +8,7 @@
 import type { FacilitiesOverviewResponse, FacilityView, FacilityWorkerView } from "@terra/shared/facilities";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
+import { useCityText } from "./cityText.ts";
 import type { LaborRun } from "./laborText.ts";
 
 type Stat = "str" | "dex" | "agi" | "vit" | "int" | "wis";
@@ -55,6 +56,7 @@ export function FacilityWorkers({
   const free = idle.filter((unit) => unit.mapKey === facility.mapKey);
   const elsewhere = idle.length - free.length;
   const [picked, setPicked] = useState<number | null>(null);
+  const cityText = useCityText();
   if (!gather && !medical) return null;
   const unitId = free.some((unit) => unit.id === picked) ? picked : (free[0]?.id ?? null);
   const full = facility.workers.length >= facility.slots;
@@ -86,7 +88,7 @@ export function FacilityWorkers({
             {" · "}
             {facility.cityId === null
               ? m.facility_workers_output_building()
-              : m.facility_workers_output_city({ id: facility.cityId })}
+              : m.facility_workers_output_city({ city: cityText(facility.cityId) })}
           </>
         ) : (
           m.facility_workers_rule_medical()

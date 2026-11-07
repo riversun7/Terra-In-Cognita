@@ -6,6 +6,7 @@
 // 이 모듈은 경제 지연 조각에만 들어간다(tRPC 클라이언트가 첫 화면에 들어가지 않게, ADR 37 11절).
 import type {
   EconomyCatalogResponse,
+  EconomyCityNamesResponse,
   EconomyExchangeResponse,
   EconomyHoldingsResponse,
   EconomyOrdersResponse,
@@ -148,6 +149,10 @@ const previewInput = (preview: boolean) => (preview ? { preview: true } : undefi
 
 export const useCatalog = createQuery<EconomyCatalogResponse>((_args, _preview, signal) =>
   api.economy.catalog.query(undefined, { signal }),
+);
+/** 도시 이름(실제 자료만 — 구인·노동·건물·신전 칸의 도시 표시, cityText.ts) */
+export const useCityNames = createQuery<EconomyCityNamesResponse>((_args, _preview, signal) =>
+  api.economy.cityNames.query(undefined, { signal }),
 );
 export const useHoldings = createQuery<EconomyHoldingsResponse>((_args, preview, signal) =>
   api.economy.holdings.query(previewInput(preview), { signal }),

@@ -47,9 +47,15 @@ export function formatAtParam(x: number, y: number): string {
   return `${Math.trunc(x)},${Math.trunc(y)}`;
 }
 
+/** 내 사이보그가 서버가 띄운 2차맵에 있는 자리(띄우지 않은 2차맵을 건너뛰는 중이면 null — 그 2차맵은 열 수 없다, WP11) */
+function onMap(position: WorldPositionResponse | null) {
+  const mine = position?.position ?? null;
+  return mine && !mine.hidden ? mine : null;
+}
+
 /** 내 사이보그가 그 맵에 있나 */
 function cyborgFocus(position: WorldPositionResponse | null, mapKey: number): MapFocus | null {
-  const mine = position?.position ?? null;
+  const mine = onMap(position);
   return mine && mine.mapKey === mapKey
     ? { unitId: mine.unitId, cellX: mine.cellX, cellY: mine.cellY, source: "cyborg" }
     : null;
@@ -80,7 +86,7 @@ export function chooseMapTarget(
   options: { readonly at?: string | undefined; readonly cities?: readonly WorldMapCity[] | null } = {},
 ): MapTarget {
   const asked = parseMapKey(keyParam);
-  const mine = position?.position ?? null;
+  const mine = onMap(position);
   if (asked !== null) {
     const picked = parseAtParam(options.at);
     const cyborg = cyborgFocus(position, asked);

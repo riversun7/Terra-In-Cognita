@@ -2,7 +2,7 @@
 // 거울 세계의 폐허(world.ruins)를 마지막으로 저장한 모습과 견줘 바뀐 것만 쓰기 대기열에 넣는다(동기). NPC 처리 뒤 persist.flush가 부르고,
 // 유저 명령(정부 짓기·모금 열기·넣기)은 명령과 같은 동기 처리에서 바로 부른다(원장 거래와 같은 쓰기 묶음 = 같은 커밋, S3 U2).
 // - 폐허가 사라졌고 같은 ID 도시가 있으면 복원이다: 도시 행을 먼저 쓰고(saveCity, 자리의 세운 시각 = 복원 시각) 무너지기 전 이름을 되찾고
-//   (기획 답 552 다, 폐허 줄의 name → world_cities.name) 낸 값·폐허 줄을 지운다.
+//   (기획 답 552 다, 폐허 줄의 name → world_cities.name — 이름이 없던 폐허는 지금 주인이 따르는 나라 목록에서, 601 나) 낸 값·폐허 줄을 지운다.
 // - 폐허 줄에는 무너지기 전 도시 이름(자리 places의 name)을 남긴다.
 // - 세력은 세력 행 ID로 적는다(rowOf). 자리가 없는 폐허(띄우지 않은 2차맵)는 쓰지 않는다.
 import type { SimRuin, SimWorld } from "@terra/sim";
@@ -23,6 +23,8 @@ export interface RuinsPersistOptions {
   readonly rowOf: ReadonlyMap<number, number>;
   /** 도시 행 하나를 쓴다(바뀌었을 때만, persist.ts). 쓴 행 수 */
   readonly saveCity: (cityId: number) => number;
+  /** 이름 없는 도시에 주인이 따르는 나라 목록의 이름을 붙인다(기획 답 601 나, persist.ts — 다음 saveCity가 이름 칸도 쓴다) */
+  readonly nameCity?: ((cityId: number) => void) | undefined;
 }
 
 const sigOf = (ruin: SimRuin): string =>
@@ -109,8 +111,10 @@ export function createRuinsPersist(o: RuinsPersistOptions): RuinsPersist {
         if (world.cities.has(id)) {
           const place = places.get(id);
           if (place) places.set(id, { ...place, foundedAtMs: nowMs });
+          // 이름이 없던 도시는 지금 주인이 따르는 나라 목록에서 새 이름(601 나 — saveCity가 함께 쓴다)
+          if (place?.name === undefined) o.nameCity?.(id);
           rows += o.saveCity(id);
-          // 무너지기 전 이름을 되찾는다(552 다). 이름이 없던 도시는 다음 켤 때 새 주인 목록에서 붙는다
+          // 무너지기 전 이름을 되찾는다(552 다)
           if (place?.name !== undefined) {
             writer.upsert("cityNames", { id, name: place.name });
             rows += 1;

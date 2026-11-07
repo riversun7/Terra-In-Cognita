@@ -4,6 +4,7 @@
 // 둘레 땅·[들어가기] → /map?key=&at=), [내 위치], 가장 가까이(5단계)에서 들어갈 수 있는 2차맵이 가운데면 [이 2차맵으로 들어가기](기획 60 §4.1).
 // WP7: 도시는 서버가 아는 도시만 준다(안개, 514). 들어갈 때 고른 곳(도시 시청·화면 가운데 배치 칸)을 ?at=로 넘긴다(515). 볼 수 없는 맵의
 // 도시는 [정찰 보내기] → 1차맵 명령 판(PlanetCommandPanel, 513) → [확정]이면 내 사이보그가 이웃 2차맵을 지나 걸어간다(WP9, 571 가).
+// WP11: 가는 동안 내 자리 표시가 따라간다(useMyTravel — world.travels의 지금 자리, 건너뛰는 중이면 곧은 선 위 자리).
 // 처음 볼 곳: ?planet-view= > ?key=(그 2차맵) > 내 사이보그 자리 > 엔진 기본.
 // 타일은 서버 이진 그대로 엔진에 넘기고 메시 워커가 푼다(planetSource.ts, ADR 36 "서버 굽기·전송").
 // 앱 화면 흐름(홈·아래 탭)이 정해지면 이 화면을 그곳으로 옮긴다: onClose·monitor만 받는다.
@@ -25,7 +26,7 @@ import {
   placementAtLatLon,
 } from "@terra/engine/planet";
 import type { WorldCitiesResponse, WorldMapCity, WorldPosition } from "@terra/shared/worldMap";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { refreshSession } from "../auth/session.ts";
 import { serverLink } from "../net/serverLink.ts";
 import { navigate } from "../shell/routerStore.ts";
@@ -57,6 +58,7 @@ import { clusterView, focusView } from "./planetFocus.ts";
 import { PlanetCityPanel } from "./PlanetCityPanel.tsx";
 import { PlanetCommandPanel } from "./PlanetCommandPanel.tsx";
 import { formatAtParam } from "./mapTarget.ts";
+import { type MyTravelEvent, liveMe, reachedMap, useMyTravel } from "./useMyTravel.ts";
 import { enterableAt, loadMyPosition, loadWorldCities, parseMapKey } from "./worldMapData.ts";
 import "./map.css";
 import "./planetMap.css";
@@ -126,15 +128,21 @@ function PlanetMapView({
   const [commanding, setCommanding] = useState(false);
   const [planet, setPlanet] = useState<{ faceLevel: number; radiusM: number } | null>(null);
   const requestFrame = useCallback(() => engineRef.current?.requestFrame(), []);
-  // 2차맵 사이 이동이 그 도시 2차맵에 닿으면(WP9): 도시 목록(볼 수 있음)·내 자리를 다시 받고 도시 판으로 돌아간다([들어가기])
-  const reloadWorld = useCallback(() => {
+  // 2차맵 사이 이동(WP9·WP11): 길이 끝나거나 정찰이 돌아서면 도시 목록(볼 수 있음)·내 자리를 다시 받고, 그 도시 명령 판이면 도시 판으로
+  // 돌아간다([들어가기])
+  const commandMapRef = useRef<number | null>(null);
+  const onTravelEvent = useCallback((event: MyTravelEvent) => {
     loadWorldCities().then(setWorld, () => undefined);
     loadMyPosition().then(
       (answer) => setMe(answer.position),
       () => undefined,
     );
-    setCommanding(false);
+    const reached = reachedMap(event);
+    if (reached !== null && reached === commandMapRef.current) setCommanding(false);
   }, []);
+  const { travel, refresh: refreshTravel } = useMyTravel(me?.unitId ?? null, onTravelEvent);
+  // 같은 값이면 같은 객체(덧그림이 바뀐 때만 다시 그린다)
+  const shownMe = useMemo(() => liveMe(me, travel), [me, travel]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -269,11 +277,15 @@ function PlanetMapView({
     engineRef.current?.lookAt(clusterView(place, stats?.camera.distanceM));
   };
   const goToMe = (): void => {
-    if (!me) return;
-    engineRef.current?.lookAt({ latDeg: me.latDeg, lonDeg: me.lonDeg });
+    if (!shownMe) return;
+    engineRef.current?.lookAt({ latDeg: shownMe.latDeg, lonDeg: shownMe.lonDeg });
   };
   const cities = world?.status === "ready" ? world.cities : [];
   const city = cities.find((entry) => entry.id === cityId) ?? null;
+  const commandMapKey = commanding && city ? city.mapKey : null;
+  useEffect(() => {
+    commandMapRef.current = commandMapKey;
+  }, [commandMapKey]);
   // 가장 고운 단계에서 화면 가운데 2차맵에 들어갈 수 있으면 [이 2차맵으로 들어가기](기획 60 §4.1 "그곳 줌인 → 그 2차맵")
   const centerKey =
     stats && planet ? mapKeyAtLatLon(stats.camera.latDeg, stats.camera.lonDeg, planet.faceLevel) : null;
@@ -374,7 +386,9 @@ function PlanetMapView({
       data-cities={world ? cities.length : undefined}
       data-city={city?.id}
       data-commanding={commanding && city ? "true" : undefined}
-      data-me={me ? me.mapKey : undefined}
+      data-me={shownMe ? shownMe.mapKey : undefined}
+      data-me-at={shownMe ? `${fixed(shownMe.latDeg, 5)},${fixed(shownMe.lonDeg, 5)}` : undefined}
+      data-me-travel={travel?.state === "going" ? (travel.hidden ? "hidden" : "going") : undefined}
       data-center-key={centerKey ?? undefined}
     >
       <div ref={hostRef} className="map-view" role="img" aria-label={m.planet_view_label()} />
@@ -384,7 +398,7 @@ function PlanetMapView({
           factions={world.factions}
           hulls={world.hulls}
           milliPerRadian={world.milliPerRadian}
-          me={me}
+          me={shownMe}
           selected={cityId}
           onSelect={(next) => {
             setCityId(next.id);
@@ -484,7 +498,8 @@ function PlanetMapView({
             city={city}
             factions={world.factions}
             me={me}
-            onArrived={reloadWorld}
+            travel={travel}
+            onTravelChanged={refreshTravel}
             onClose={() => setCommanding(false)}
           />
         ) : null}
@@ -510,7 +525,7 @@ function PlanetMapView({
           ) : null}
         </div>
         <div className="map-panel planet-controls">
-          {me || here ? (
+          {shownMe || here ? (
             <div className="planet-jump">
               {here ? (
                 <button
@@ -521,7 +536,7 @@ function PlanetMapView({
                   {m.world_enter_here()}
                 </button>
               ) : null}
-              {me ? (
+              {shownMe ? (
                 <button type="button" className="button-small planet-go-me" onClick={goToMe}>
                   {m.world_my_position()}
                 </button>

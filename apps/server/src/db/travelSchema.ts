@@ -3,6 +3,9 @@
 // 이 행(다음 구간)이 같은 커밋에 든다. 직전 판 앱은 이 표를 모른 채 그대로 돈다(더하기만 — 유닛은 걷던 경로 끝에 선다).
 // 유닛·소유 주체에 외래 키를 두지 않는다(노동 계약과 같은 까닭: 유닛은 NPC 런타임이 지운다 → 부팅·확인 때 유닛이 없으면 줄을 지운다).
 // 끝난 길(도착·멈춤)은 지운다(기록으로 남기지 않는다).
+// WP11 이동 2(같은 ADR "WP11"): 칸 더하기만(모두 null 허용 — 직전 판 앱은 칸을 모른 채 돈다). user_id = 보낸 사용자(탐사 기록),
+// origin_* = 출발 자리(정찰이 돌아올 곳, 질문 591 나), scouted_map_key = 정찰한 2차맵(값이 있으면 돌아오는 중 — route·target은 돌아오는 길),
+// hidden_until_ms = 띄우지 않은 2차맵을 건너뛰는 중이면 나타나는 시각(질문 593 나 — 그동안 유닛 행은 사라진 2차맵의 변 끝에 그대로 있다).
 import { sql } from "drizzle-orm";
 import { bigint, check, index, integer, pgTable, text } from "drizzle-orm/pg-core";
 import { planetIdColumn } from "./planetColumns.ts";
@@ -24,6 +27,12 @@ export const worldTravels = pgTable(
     targetY: integer("target_y").notNull(),
     startedAtMs: bigint("started_at_ms", { mode: "number" }).notNull(),
     arriveAtMs: bigint("arrive_at_ms", { mode: "number" }).notNull(),
+    userId: text("user_id"),
+    originMapKey: bigint("origin_map_key", { mode: "number" }),
+    originX: integer("origin_x"),
+    originY: integer("origin_y"),
+    scoutedMapKey: bigint("scouted_map_key", { mode: "number" }),
+    hiddenUntilMs: bigint("hidden_until_ms", { mode: "number" }),
   },
   (table) => [
     index("world_travels_owner_idx").on(table.ownerId),
@@ -35,6 +44,10 @@ export const worldTravels = pgTable(
     check(
       "world_travels_target",
       sql`${table.targetX} between 0 and 255 and ${table.targetY} between 0 and 255`,
+    ),
+    check(
+      "world_travels_origin",
+      sql`(${table.originX} is null or ${table.originX} between 0 and 255) and (${table.originY} is null or ${table.originY} between 0 and 255)`,
     ),
   ],
 );

@@ -10,6 +10,7 @@ import { getLocale } from "../paraglide/runtime.js";
 import { RECRUIT_RESULT_TEXT, sendRecruitHire } from "../recruit/recruitCommands.ts";
 import { RECRUIT_STAT_PAIRS, activeElements, hireState, refreshLeft } from "../recruit/recruitModel.ts";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
+import { useCityText } from "./cityText.ts";
 import { Loaded } from "./parts.tsx";
 import { useFacilities, useLabor, useRecruitBoard } from "./queries.ts";
 import "./recruit.css";
@@ -56,6 +57,7 @@ function elementText(card: RecruitCardView): string {
 export function RecruitPanel() {
   const [city, setCity] = useState("");
   const board = useRecruitBoard([city]);
+  const cityText = useCityText();
   const live = useLiveLines();
   const [tone, setTone] = useState<"success" | "error">("success");
   const [busySlot, setBusySlot] = useState<number | null>(null);
@@ -105,8 +107,8 @@ export function RecruitPanel() {
                     {loaded.cities.map((entry) => (
                       <option key={entry.id} value={String(entry.id)}>
                         {entry.start
-                          ? m.recruit_city_start({ id: entry.id, level: entry.adminLevel })
-                          : m.recruit_city({ id: entry.id, level: entry.adminLevel })}
+                          ? m.recruit_city_start({ city: cityText(entry.id), level: entry.adminLevel })
+                          : m.recruit_city({ city: cityText(entry.id), level: entry.adminLevel })}
                       </option>
                     ))}
                   </select>
@@ -114,7 +116,7 @@ export function RecruitPanel() {
               ) : null}
               <p className="eco-have" data-part="recruit-meta">
                 {m.recruit_meta({
-                  id: cityId,
+                  city: cityText(cityId),
                   level: loaded.level,
                   amount: money(loaded.balance),
                   hours: left.hours,

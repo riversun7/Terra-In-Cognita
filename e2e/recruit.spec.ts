@@ -29,6 +29,10 @@ const screen = (page: Page) => page.locator(".rl-screen");
 const cards = (page: Page) => page.locator(".rl-card");
 
 async function ready(page: Page, path = "/dev/recruit"): Promise<void> {
+  // 앞 시험(거래·환전)이 남긴 체결이 있으면 복귀 요약이 떠서 단추를 가린다 — 뜨면 Esc로 닫는다(summary.spec.ts)
+  await page.addLocatorHandler(page.locator("dialog.summary-dialog[open]"), async () => {
+    await page.keyboard.press("Escape");
+  });
   await page.goto(path);
   await expect(screen(page)).toHaveAttribute("data-status", "ready", { timeout: 20_000 });
 }

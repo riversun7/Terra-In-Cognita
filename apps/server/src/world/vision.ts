@@ -12,6 +12,7 @@ import {
   BUILDING_VISION_CELLS,
   type BuildingPlacement,
   type Motion,
+  type Point,
   UNIT_VISION_CELLS,
   VISION_CELLS,
   VISION_CELL,
@@ -90,6 +91,11 @@ export interface MapVision {
   unitChanged(unit: VisionUnit): void;
   /** 유닛이 세계에서 사라졌다(NPC 휴먼 사망): 보던 무리에 숨김으로 보낸다 */
   unitRemoved(unitId: number, ownerId: number): void;
+  /**
+   * 내 유닛이 지나간 자리(points, 단위)의 시야를 그 사용자 탐사 기록에 더한다 — 구독하지 않아도(2차맵 사이 이동이 지나간 2차맵·정찰이 본
+   * 2차맵, docs/adr/2026-11-07-play-flow.md "WP11", 질문 591 나). 바뀌면 바로 저장하고 보던 무리에 알린다. 바뀌었으면 true
+   */
+  explore(userId: string, points: Iterable<Point>): Promise<boolean>;
   buildingPlaced(building: VisionBuilding): void;
   buildingRemoved(buildingId: number): void;
   /** 시험용: 시야 틱 한 번 */
@@ -230,18 +236,22 @@ export function createMapVision(options: {
     for (const subscriber of group.subscribers) subscriber.send(text);
   };
 
+  /** 새로 탐사한 칸의 건물을 그 무리에 보낸다 */
+  const revealBuildings = (group: Group): void => {
+    for (const building of source.buildings()) {
+      if (group.buildings.has(building.id) || !buildingVisible(group, building)) continue;
+      group.buildings.add(building.id);
+      group.rev += 1;
+      group.stream.buildingPlaced(group.rev, building.entry.value);
+    }
+  };
+
   const tickGroup = (group: Group): void => {
     group.cover = computeCover(group);
     if (addCoverBits(group.explored, group.cover)) {
       group.exploredDirty = true;
       sendVision(group);
-      // 새로 탐사한 칸의 건물
-      for (const building of source.buildings()) {
-        if (group.buildings.has(building.id) || !buildingVisible(group, building)) continue;
-        group.buildings.add(building.id);
-        group.rev += 1;
-        group.stream.buildingPlaced(group.rev, building.entry.value);
-      }
+      revealBuildings(group);
     }
     const at = now();
     for (const unit of source.units()) {
@@ -398,6 +408,21 @@ export function createMapVision(options: {
           showUnit(group, unit);
         }
       }
+    },
+    async explore(userId, points) {
+      const bits = await loadExplored(userId);
+      const cover = new Uint16Array(VISION_CELLS);
+      for (const point of points) stampVision(cover, visionCellOf(point), UNIT_RADIUS);
+      if (!addCoverBits(bits, cover)) return false;
+      options.explored?.save(userId, bits);
+      // 보던 무리는 같은 비트 배열을 든다(loadExplored·createGroup이 나눠 쓴다): 알리고 새로 드러난 건물을 보낸다
+      for (const group of groups.values()) {
+        if (group.viewer.userId !== userId) continue;
+        group.exploredDirty = false;
+        sendVision(group);
+        revealBuildings(group);
+      }
+      return true;
     },
     unitRemoved(unitId, ownerId) {
       for (const group of groups.values()) {

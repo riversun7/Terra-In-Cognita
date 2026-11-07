@@ -223,6 +223,14 @@ export interface EconomyHoldingsResponse extends EconomyResponseHead {
   readonly places: readonly HoldingPlace[];
 }
 
+/**
+ * economy.cityNames — 경제 화면(구인·노동·건물·신전 칸)이 도시 ID 대신 보이는 도시 이름(팩 도시 이름, 번역하지 않는다 D-476 — 기획 답 510 다·
+ * 601 나). 이름 없는 도시는 빠진다(화면은 "#<도시 ID>"). docs/adr/2026-11-07-play-flow.md "WP12 특산·이름 마무리"
+ */
+export interface EconomyCityNamesResponse {
+  readonly cities: readonly { readonly id: number; readonly name: string }[];
+}
+
 // ── 생산 ─────────────────────────────────────────
 
 export type FacilityStatus = "running" | "idle" | "no_input" | "storage_full";

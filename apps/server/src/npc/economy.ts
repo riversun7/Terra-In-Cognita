@@ -7,7 +7,8 @@
 // - 거래소: market/books.ts 모음(도시 × 물건, 저장·복원). 시뮬 Economy.markets가 그 표를 그대로 본다.
 // - 생산 시설(@terra/sim planCityFacilities): 그 도시에 선 NPC 세력 시설(건물, 다 지은 것)은 그 시설의 특산 레시피(나라 특산 = 국가 프리셋
 //   성격 칸 cityJobs, 없으면 기본 셋 농장·주방·벌목장 [임시] — 특산 차례가 레시피를 고른다, 기획 답 553 나. 그 시설 특산이 없으면 팩 첫
-//   레시피) + 건물이 없는 시설의 특산 직무(휴먼이 Lv1, 기획 답 531 다). 일꾼 = 그 도시 휴먼을 굶음 먼저(생필품 사슬에 하루 몫만큼, 기획 답
+//   레시피) + 건물이 받지 못한 특산의 도시 직무(그 시설 건물이 없거나 건물보다 특산이 많아 남은 것 — 휴먼이 Lv1, 기획 답 531 다·600 나).
+//   일꾼 = 그 도시 휴먼을 굶음 먼저(생필품 사슬에 하루 몫만큼, 기획 답
 //   532 나) 둔 뒤 시설마다 한 명씩 돌려 자리 수(레벨 × 자리)까지(@terra/sim assignCityWorkers). 처음·하루 끝·새 도시마다 다시 맞춘다.
 // - 처음 창고(@terra/sim cityStartStock, 기획 답 554 다): NPC 도시마다 한 번 생필품 = 휴먼 수 × 몇 시간분(국가 프리셋 성격 칸
 //   startNecessityHours, 없으면 48시간 — 시뮬 목표 재고와 같은 시간) + 특산 물건 = 성격 칸 startStock의 고정 양을 넣는다(원장 endow, 중복
@@ -60,7 +61,7 @@ import type { OwnerRow, QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
 import { DEFAULT_TAX_BP, MINT_KEY, mintNationCurrencies, nationCurrencies } from "./currency.ts";
-import { type NationPersonality, type NationPreset, presetOfCode } from "./nations.ts";
+import { type NationPersonality, type NationPreset, nationPresetOf } from "./nations.ts";
 
 export { DEFAULT_TAX_BP } from "./currency.ts";
 /** 처음 창고 중복 방지 키 앞머리 */
@@ -177,21 +178,13 @@ export function gatherSettingsOf(c: SocietyCoefficients): GatherSettings {
   };
 }
 
-/** 세력의 나라 성격: 그 세력 코드의 국가 프리셋 → 반란 부모·종주 → 없음(거래세와 같은 차례) */
+/** 세력의 나라 성격: 그 세력 코드의 국가 프리셋 → 반란 부모·종주 → 없음(거래세와 같은 차례, 도시 이름과 같은 nationPresetOf) */
 export function personalityOfFaction(
   world: SimWorld,
   faction: SimFaction,
   presets: readonly NationPreset[],
-  seen = new Set<number>(),
 ): NationPersonality | undefined {
-  const preset = presetOfCode(faction.code, presets);
-  if (preset) return preset.personality;
-  seen.add(faction.id);
-  for (const parentId of [faction.rebelOf, faction.overlord]) {
-    const parent = parentId === null ? undefined : world.factions.get(parentId);
-    if (parent && !seen.has(parent.id)) return personalityOfFaction(world, parent, presets, seen);
-  }
-  return undefined;
+  return nationPresetOf(faction.id, (id) => world.factions.get(id), presets)?.personality;
 }
 
 export async function startServerEconomy(o: ServerEconomyOptions): Promise<ServerEconomy | undefined> {
@@ -357,7 +350,7 @@ export async function startServerEconomy(o: ServerEconomyOptions): Promise<Serve
       { recipe: string; facility: string; level: number; buildingId: number | null; slots: number }
     >();
     if (city) {
-      // 건물(건물 ID 차례)은 그 시설의 특산 레시피(553 나), 건물이 없는 시설은 특산 직무(531 다) — 시뮬 planCityFacilities
+      // 건물(건물 ID 차례)은 그 시설의 특산 레시피(553 나), 건물이 받지 못한 특산은 도시 직무(531 다·600 나) — 시뮬 planCityFacilities
       const buildings = o.input
         .facilitiesIn(cityId)
         .filter((entry) => entry.ownerId === city.owner && entry.level >= 1);

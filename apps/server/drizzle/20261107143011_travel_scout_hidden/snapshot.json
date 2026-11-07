@@ -1,0 +1,248 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "4cb1078a-f7be-41a4-bb21-24713a380c2d",
+  "prevIds": [
+    "ee304024-c36f-4db2-b03e-88253507b668",
+    "c24eaeec-0223-4a23-9ea1-db6709eeb0e4"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_travels",
+        "user_id"
+      ],
+      "writes": [
+        "s|col|public.world_travels.user_id",
+        "n|col|public.world_travels.user_id",
+        "e|col|public.world_travels.user_id"
+      ],
+      "reads": [
+        "n|tbl|public.world_travels",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_travels",
+        "origin_map_key"
+      ],
+      "writes": [
+        "s|col|public.world_travels.origin_map_key",
+        "n|col|public.world_travels.origin_map_key",
+        "e|col|public.world_travels.origin_map_key"
+      ],
+      "reads": [
+        "n|tbl|public.world_travels",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_travels",
+        "origin_x"
+      ],
+      "writes": [
+        "s|col|public.world_travels.origin_x",
+        "n|col|public.world_travels.origin_x",
+        "e|col|public.world_travels.origin_x"
+      ],
+      "reads": [
+        "n|tbl|public.world_travels",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_travels",
+        "origin_y"
+      ],
+      "writes": [
+        "s|col|public.world_travels.origin_y",
+        "n|col|public.world_travels.origin_y",
+        "e|col|public.world_travels.origin_y"
+      ],
+      "reads": [
+        "n|tbl|public.world_travels",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_travels",
+        "scouted_map_key"
+      ],
+      "writes": [
+        "s|col|public.world_travels.scouted_map_key",
+        "n|col|public.world_travels.scouted_map_key",
+        "e|col|public.world_travels.scouted_map_key"
+      ],
+      "reads": [
+        "n|tbl|public.world_travels",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_travels",
+        "hidden_until_ms"
+      ],
+      "writes": [
+        "s|col|public.world_travels.hidden_until_ms",
+        "n|col|public.world_travels.hidden_until_ms",
+        "e|col|public.world_travels.hidden_until_ms"
+      ],
+      "reads": [
+        "n|tbl|public.world_travels",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "world_travels"
+      ],
+      "writes": [
+        "s|ck|public.world_travels.world_travels_origin",
+        "n|ck|public.world_travels.world_travels_origin",
+        "e|ck|public.world_travels.world_travels_origin",
+        "n|con|public.world_travels.world_travels_origin"
+      ],
+      "reads": [
+        "n|tbl|public.world_travels",
+        "n|sch|public",
+        "n|col|public.world_travels.origin_x",
+        "n|col|public.world_travels.origin_y"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_travels",
+        "name": "user_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_travels",
+        "name": "origin_map_key",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_travels",
+        "name": "origin_x",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_travels",
+        "name": "origin_y",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_travels",
+        "name": "scouted_map_key",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_travels",
+        "name": "hidden_until_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_travels",
+        "name": "world_travels_origin",
+        "value": "(\"origin_x\" is null or \"origin_x\" between 0 and 255) and (\"origin_y\" is null or \"origin_y\" between 0 and 255)",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

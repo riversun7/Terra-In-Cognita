@@ -7,6 +7,7 @@ import type { Role, UserSettings } from "@terra/shared";
 import type { DashboardCardsResponse } from "@terra/shared/dashboard";
 import type {
   EconomyCatalogResponse,
+  EconomyCityNamesResponse,
   EconomyExchangeResponse,
   EconomyHoldingsResponse,
   EconomyOrdersResponse,
@@ -350,6 +351,8 @@ export interface EconomyQuery {
  */
 export interface EconomyServices {
   catalog(): EconomyCatalogResponse;
+  /** 도시 이름(이름 있는 도시만, 도시 ID 차례) */
+  cityNames(): EconomyCityNamesResponse;
   holdings(viewer: Viewer, query: EconomyQuery): Promise<EconomyHoldingsResponse>;
   production(viewer: Viewer, query: EconomyQuery): EconomyProductionResponse;
   marketItems(viewer: Viewer, query: EconomyQuery): MarketItemsResponse;

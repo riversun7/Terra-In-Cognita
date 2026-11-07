@@ -13,6 +13,7 @@ import {
   RECRUIT_PROTOCOL_VERSION,
   ITEM_PROTOCOL_VERSION,
   LABOR_PROTOCOL_VERSION,
+  LABOR_JOBS_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -265,8 +266,18 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "labor_create":
       case "labor_terminate":
       case "labor_top_up":
-      case "labor_set_rent": {
-        if (protocolVersion < LABOR_PROTOCOL_VERSION) {
+      case "labor_set_rent":
+      case "labor_post_job":
+      case "labor_withdraw_job":
+      case "labor_accept_job": {
+        // 구인 게시 셋은 판 8부터(그 앞 판 기기는 보내지 않는다)
+        const needs =
+          message.t === "labor_post_job" ||
+          message.t === "labor_withdraw_job" ||
+          message.t === "labor_accept_job"
+            ? LABOR_JOBS_PROTOCOL_VERSION
+            : LABOR_PROTOCOL_VERSION;
+        if (protocolVersion < needs) {
           reject("invalid_message");
           return;
         }

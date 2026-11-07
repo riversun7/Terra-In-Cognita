@@ -425,6 +425,20 @@ export {
   type LaborState,
 } from "./economy/laborContract.ts";
 export {
+  LABOR_JOB_KINDS,
+  LABOR_JOB_STATES,
+  acceptLaborJob,
+  closeLaborJob,
+  laborJobWage,
+  postLaborJob,
+  type LaborJob,
+  type LaborJobAcceptInput,
+  type LaborJobFailure,
+  type LaborJobInput,
+  type LaborJobKind,
+  type LaborJobState,
+} from "./economy/laborJobs.ts";
+export {
   TEST_CENTRAL_BANK_RULE,
   centralBankStep,
   initialMint,

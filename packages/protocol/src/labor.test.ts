@@ -1,6 +1,7 @@
-// 노동 계약 메시지 스키마 시험 — 왕복, 금액 글자, 결과 코드, 프로토콜 판(더하기만, 5 그대로)
+// 노동 계약 메시지 스키마 시험 — 왕복, 금액 글자, 결과 코드, 프로토콜 판(계약 7, 구인 게시 8)
 import { describe, expect, it } from "vitest";
 import {
+  LABOR_JOBS_PROTOCOL_VERSION,
   LABOR_PROTOCOL_VERSION,
   LABOR_RESULT_CODES,
   PROTOCOL_VERSION,
@@ -60,7 +61,30 @@ describe("노동 계약 메시지", () => {
     expect(decodes(decodeServerMessage, { t: "labor_result", id: 7, ok: false, code: "nope" })).toBe(false);
   });
 
-  it("판을 올리지 않고 지금 판에 더했다", () => {
-    expect(LABOR_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION);
+  it("구인 내기·거두기·받기는 왕복하고, 자리(1~100)·조정·기간 모양을 본다. 결과에 새 게시 ID", () => {
+    const messages = [
+      { t: "labor_post_job", id: 1, buildingId: 3, adjustPm: 1200, slots: 2 },
+      { t: "labor_post_job", id: 2, buildingId: 3, adjustPm: 800, slots: 1, termHours: 72 },
+      { t: "labor_withdraw_job", id: 3, jobId: 4 },
+      { t: "labor_accept_job", id: 4, jobId: 4, unitId: 9 },
+    ] as const;
+    for (const message of messages) expect(decodeClientMessage(encodeMessage(message))).toEqual(message);
+    const post = messages[0];
+    for (const slots of [0, 101, 1.5]) expect(decodes(decodeClientMessage, { ...post, slots })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...post, adjustPm: -1 })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...post, termHours: 0 })).toBe(false);
+    expect(decodes(decodeClientMessage, { t: "labor_accept_job", id: 1, jobId: 4 })).toBe(false);
+    expect(decodeServerMessage(encodeMessage({ t: "labor_result", id: 7, ok: true, jobId: 3 }))).toEqual({
+      t: "labor_result",
+      id: 7,
+      ok: true,
+      jobId: 3,
+    });
+  });
+
+  it("계약 명령은 판 7, 구인 게시는 판 8(메시지를 더해 올렸다)", () => {
+    expect(LABOR_PROTOCOL_VERSION).toBe(7);
+    expect(LABOR_JOBS_PROTOCOL_VERSION).toBe(8);
+    expect(LABOR_JOBS_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION);
   });
 });

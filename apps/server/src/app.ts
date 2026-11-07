@@ -709,6 +709,17 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
             after: { mapKey },
           }).catch((error: unknown) => app.log.warn({ err: error }, "observe audit failed"));
         },
+        // 운영자가 남의 유닛을 옮기거나 세우면 감사 기록(docs/adr/2026-11-07-unit-control.md)
+        onOperatorCommand: (viewer, command) => {
+          app.log.info({ userId: viewer.id, ...command }, "second map operator command");
+          if (!auditDb) return;
+          void writeAudit(auditDb, {
+            actor: { kind: "admin", id: viewer.id, ip: null },
+            action: "second_map.operator_command",
+            targetId: String(command.unitId),
+            after: command,
+          }).catch((error: unknown) => app.log.warn({ err: error }, "operator command audit failed"));
+        },
       })
     : undefined;
   const cyborgGateway = world

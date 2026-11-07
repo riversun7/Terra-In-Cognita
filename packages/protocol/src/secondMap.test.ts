@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_PATH_POINTS,
   ProtocolError,
+  PROTOCOL_VERSION,
   RESULT_CODES,
   SECOND_MAP_UNITS,
+  UNIT_CONTROL_PROTOCOL_VERSION,
   decodeClientMessage,
   decodeServerMessage,
   encodeMessage,
@@ -60,6 +62,7 @@ describe("2차맵 기기 → 서버 메시지", () => {
       { t: "move_unit", id: 3, mapKey: 9, unitId: 12, x: 0, y: SECOND_MAP_UNITS - 1 },
       { t: "place_building", id: 4, mapKey: 9, x: 255, y: 0, width: 32, height: 1, rotation: 270 },
       { t: "remove_building", id: 5, mapKey: 9, buildingId: 1 },
+      { t: "stop_unit", id: 6, mapKey: 9, unitId: 12 },
     ] as const;
     for (const message of messages) {
       expect(decodeClientMessage(encodeMessage(message))).toEqual(message);
@@ -75,6 +78,20 @@ describe("2차맵 기기 → 서버 메시지", () => {
     expect(clientOk({ ...move, unitId: 0 })).toBe(false);
     expect(clientOk({ ...move, id: 2 ** 32 })).toBe(false);
     expect(clientOk({ ...move, mapKey: 2 ** 53 })).toBe(false);
+  });
+
+  it("멈추기(프로토콜 17): 유닛 ID는 1 이상, 위치 칸은 없다", () => {
+    expect(UNIT_CONTROL_PROTOCOL_VERSION).toBe(17);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(UNIT_CONTROL_PROTOCOL_VERSION);
+    const stop = { t: "stop_unit", id: 1, mapKey: 9, unitId: 3 };
+    expect(clientOk(stop)).toBe(true);
+    expect(clientOk({ ...stop, unitId: 0 })).toBe(false);
+    expect(clientOk({ t: "stop_unit", id: 1, mapKey: 9 })).toBe(false);
+    // 결과 코드 둘(내 유닛이 아님·수호신은 머문다)이 결과 메시지로 오간다
+    for (const code of ["not_owner", "unit_stays"] as const) {
+      expect(RESULT_CODES).toContain(code);
+      expect(serverOk({ t: "result", id: 1, ok: false, code })).toBe(true);
+    }
   });
 
   it("건물: 회전은 90° 단위, 한 변 1~32칸, 칸 좌표 0~255", () => {

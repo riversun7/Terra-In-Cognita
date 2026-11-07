@@ -35,6 +35,7 @@ import type { World } from "../world/world.ts";
 import { canObserve, canViewSecondMap } from "../world/visibility.ts";
 import { hullKnown, isCityKnown, knownWithoutSight } from "./knownCities.ts";
 import { createTravelDanger } from "./travelDanger.ts";
+import { type MapUnitReads, createMapUnitReads } from "./mapUnits.ts";
 import { type TravelReads, createTravelReads } from "./travelReads.ts";
 
 /** 이 모듈이 세계에서 읽는 것(시험은 가짜를 넣는다) */
@@ -389,7 +390,7 @@ export function worldMapReadsOf(options: {
   readonly planets?: WorldMapPlanets | undefined;
   /** 확인 단계 오염 위험 문턱(설정 칸 실효 값, 없으면 시험 계수 — 유목 목표 오염 문턱 S17) */
   readonly pollutionDanger?: (() => number) | undefined;
-}): () => (WorldMapReadServices & TravelReads) | undefined {
+}): () => (WorldMapReadServices & TravelReads & MapUnitReads) | undefined {
   const { world, planets, planetId } = options;
   const sighted = (mapKey: number, viewer: Viewer) =>
     world.maps.get(mapKey)?.vision.sighted({ userId: viewer.id, ownerId: world.ownerOfUser?.(viewer.id) }) ??
@@ -426,6 +427,12 @@ export function worldMapReadsOf(options: {
     (mapKey, x, y) => (isCellKey(mapKey) ? placeLatLon(mapKey, x, y) : { latDeg: 0, lonDeg: 0 }),
     danger,
   );
-  const services = { ...reads, ...travel };
+  // 2차맵 화면의 내 유닛 목록(docs/adr/2026-11-07-unit-control.md): 메모리 유닛만 읽는다
+  const units = createMapUnitReads({
+    map: (mapKey) => world.maps.get(mapKey),
+    ownerOfUser: (userId) => world.ownerOfUser?.(userId),
+    cyborgName: (userId) => world.persistence?.cyborgs.record(userId)?.name,
+  });
+  const services = { ...reads, ...travel, ...units };
   return () => (world.status().state === "ready" && world.persistence ? services : undefined);
 }

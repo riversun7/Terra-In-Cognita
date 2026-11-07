@@ -7,14 +7,16 @@
 // [임시] 앱 화면 흐름(홈·아래 탭)이 따로 설계되는 중이다. 그때 이 화면을 "지도" 탭으로 옮긴다: onClose·monitor만 받는다.
 // 자료는 서버에서 온다(mapFeed.ts, ADR 2026-10-28-s1-second-map "전송"). 연결·시계 차이는 앱의 연결 하나를 함께 쓴다(serverLink).
 // 고빈도 상태(유닛 위치)는 엔진 안 타입 배열에 있고, 이 화면은 1초마다 요약(stats)만 읽는다(PLAN 5.7).
-// 이동 명령은 관리자만 보낸다. 보기 전용이면 안내만 하고 보내지 않는다(서버도 명령마다 확인한다).
+// 유닛 조종(docs/adr/2026-11-07-unit-control.md): 플레이어는 내 유닛만 고르고 명령한다 — 내 유닛 목록(사이보그 먼저, UnitControlPanels.tsx)에서
+// 고르면 카메라가 그 자리로 가고, 땅을 누르면 이동, [멈추기]는 세운다. 남의 유닛은 눌러도 정보만 보인다(보내지 않는다). dev·admin은
+// [운영자 모드]를 켜면 아무 유닛이나 명령하고 안개 없이(전체 보기) 2차맵 어디든 본다(위 판에 "운영자"). 서버도 명령마다 소유·권한을 본다.
 // 픽셀 비율 재기: 주소에 ?pixel-ratio=<1~4>를 붙이면 엔진 상한을 바꾼다(시험용, pixelRatioParam.ts). HUD에 쓰는 값·그리기 버퍼가 보인다.
 // 낮밤(secondMapSky.ts): 1차맵과 같은 서버 시계·달력으로 이 2차맵 자리의 빛을 바꾼다. 동작 줄이기면 연 시각에 멈춘다(바뀌면 setSky).
 // 시험·사진 주소: ?second-map-time=<0~24> 지역 시각에 멈춤, ?second-map-sky=off 낮밤 끔. HUD에 지역 시각·항성·달 줄이 보인다.
 // 경계 너머 보기(ADR 2026-10-31-second-map-from-planet WP-4): 카메라가 경계에 다가오면 이웃 2차맵 지형을 받아 둘레에 그린다
 // (secondMapNeighbourLoader.ts). ?second-map-neighbours=all이면 처음부터 8장(개발자 3×3 이어 보기). 나침반은 그 2차맵의 북쪽을 가리킨다
 // (2차맵은 면 격자 틀이라 북쪽이 2차맵마다 돌아가 있다, 사용자 결정 U1).
-// 탐사한 곳이 없으면(유닛 없는 계정, S3 시야 안개) 온통 어두운 까닭을 알리고, dev·admin에게는 [시험 일꾼 받기]·[전체 보기]와
+// 탐사한 곳이 없으면(유닛 없는 계정, S3 시야 안개) 온통 어두운 까닭을 알리고, dev·admin에게는 [시험 일꾼 받기]·[운영자 모드]와
 // 개발자 2차맵 시험(/dev/second-map)을 가리킨다.
 import {
   type EngineStats,
@@ -27,7 +29,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { refreshSession, useSession } from "../auth/session.ts";
 import { offerBuildPick, pendingBuildPick } from "../economy/buildPick.ts";
-import { hasDevTools, isAdmin } from "../auth/sessionState.ts";
+import { hasDevTools } from "../auth/sessionState.ts";
 import { serverLink } from "../net/serverLink.ts";
 import { navigate } from "../shell/routerStore.ts";
 import { m } from "../paraglide/messages.js";
@@ -35,27 +37,40 @@ import type { FrameMonitor } from "../perf/frameMonitor.ts";
 import { usePerfStats } from "../perf/usePerfStats.ts";
 import { setTelemetryView } from "../telemetry/reporter.ts";
 import { useMountFocus } from "../ui/useMountFocus.ts";
-import {
-  type CommandReport,
-  type FeedStats,
-  type FeedStatus,
-  INITIAL_FEED_STATUS,
-  type MapFeed,
-} from "./feedTypes.ts";
+import { type FeedStats, type FeedStatus, INITIAL_FEED_STATUS, type MapFeed } from "./feedTypes.ts";
 import { startMapFeed } from "./mapFeed.ts";
 import { resultText } from "./mapMessages.ts";
-import { formatPixelRatio, pixelRatioOption } from "./pixelRatioParam.ts";
+import { pixelRatioOption } from "./pixelRatioParam.ts";
 import { createSkyClock, reducedMotionList } from "./planetSky.ts";
 import { compassAngle, northOnMap } from "./secondMapCompass.ts";
 import { createNeighbourLoader } from "./secondMapNeighbourLoader.ts";
 import { viewMap, wantsAllNeighbours } from "./secondMapNeighbours.ts";
-import { formatLocalTime, readSecondMapSkyParams, secondMapSkyMode } from "./secondMapSky.ts";
+import { readSecondMapSkyParams, secondMapSkyMode } from "./secondMapSky.ts";
+import { MapPerfPanel } from "./MapPerfPanel.tsx";
 import { fetchTerrain } from "./terrainLoader.ts";
 import type { MapFocus } from "./mapTarget.ts";
 import { MapTargetGate } from "./MapTargetGate.tsx";
 import { screenNotice } from "./secondMapNotice.ts";
 import { CrossingNotice, CyborgActions, TravelLine } from "./SecondMapTravel.tsx";
 import { useTravelFollow } from "./useCyborgTravel.ts";
+import type { MapUnit } from "@terra/shared/mapUnits";
+import {
+  type CommandNotice,
+  NO_SELECTION,
+  type SelectionState,
+  commandState,
+  commandText,
+  wideScreen,
+} from "./commandNotice.ts";
+import { canCommand, selectionText, unitControlOf, unitName } from "./mapUnits.ts";
+import { useMapUnits } from "./useMapUnits.ts";
+import {
+  MyUnitsPanel,
+  OperatorActions,
+  OperatorBadge,
+  SelectedActions,
+  UnitsToggle,
+} from "./UnitControlPanels.tsx";
 import "./map.css";
 
 /** 성능 보고에 붙이는 화면 이름 */
@@ -104,13 +119,6 @@ interface SecondMapViewProps {
   cyborg: MapFocus | null;
 }
 
-/** 아래 판의 명령 안내 */
-type CommandNotice =
-  | { kind: "view_only" }
-  | { kind: "offline" }
-  | { kind: "sent"; unitId: number }
-  | { kind: "result"; report: CommandReport };
-
 interface HudSnapshot {
   stats: EngineStats;
   feed: FeedStats;
@@ -120,35 +128,7 @@ interface HudSnapshot {
   viewMap: string;
 }
 
-function commandText(notice: CommandNotice): string {
-  switch (notice.kind) {
-    case "view_only":
-      return m.map_view_only();
-    case "offline":
-      return m.map_command_offline();
-    case "sent":
-      return m.map_command_sent({ id: notice.unitId });
-    case "result": {
-      const { outcome, unitId } = notice.report;
-      if (outcome.ok) return m.map_command_ok({ id: unitId });
-      return `${m.map_command_failed({ id: unitId })} ${resultText(outcome.code)}`;
-    }
-    default: {
-      const unhandled: never = notice;
-      return unhandled;
-    }
-  }
-}
-
-/** 시험(data-command)용 명령 상태: view_only·offline·sent·ok·결과 코드 */
-function commandState(notice: CommandNotice | null): string | undefined {
-  if (!notice) return undefined;
-  if (notice.kind !== "result") return notice.kind;
-  return notice.report.outcome.ok ? "ok" : notice.report.outcome.code;
-}
-
 const fixed = (value: number, digits: number): string => value.toFixed(digits);
-const roundOrDash = (value: number | null): string | number => (value === null ? "–" : Math.round(value));
 
 /** 개발 시험 명령 한 번에 받는 시험 일꾼 수 */
 const DEV_SPAWN_COUNT = 5;
@@ -161,12 +141,16 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
   const feedRef = useRef<MapFeed | null>(null);
   const selectedRef = useRef<number | null>(null);
   const session = useSession();
-  const admin = isAdmin(session);
   const devTools = hasDevTools(session);
-  const adminRef = useRef(admin);
-  // 관리자 전체 보기(시야로 거르지 않음, dev·admin). 바꾸면 다시 구독한다(S3 시야 전송)
-  const [observe, setObserve] = useState(false);
-  const observeRef = useRef(false);
+  // 운영자 모드(dev·admin): 모든 유닛 명령 + 전체 보기(시야로 거르지 않음 — 안개 없이 어디든). 바꾸면 다시 구독한다(S3 시야 전송)
+  const [operator, setOperator] = useState(false);
+  const operatorRef = useRef(false);
+  // 내 유닛 목록(서버, 5초마다) — 엔진 콜백은 ref로 읽는다
+  const myUnits = useMapUnits(mapKey);
+  const unitsRef = useRef<readonly MapUnit[] | null>(null);
+  const [listOpen, setListOpen] = useState(wideScreen);
+  const [liveMoving, setLiveMoving] = useState<ReadonlySet<number>>(() => new Set());
+  const [selection, setSelection] = useState<SelectionState>(NO_SELECTION);
   const [devNotice, setDevNotice] = useState<string | null>(null);
   const [status, setStatus] = useState<EngineStatus>({ kind: "loading" });
   const [feedStatus, setFeedStatus] = useState<FeedStatus>(INITIAL_FEED_STATUS);
@@ -179,8 +163,8 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
   const { going, crossedTo } = useTravelFollow(cyborg?.unitId ?? null, mapKey, following);
 
   useEffect(() => {
-    adminRef.current = admin;
-  }, [admin]);
+    unitsRef.current = myUnits.units;
+  }, [myUnits.units]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -207,6 +191,15 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
         reducedMotion: reduced?.matches ?? false,
         utcForHour: (hour) => (place ? utcMsForLocalHour(place.lonDeg, hour) : null),
       });
+    let lastMovingKey = "";
+    // 고른 유닛의 지금 상태(엔진·자료가 아직 없으면 없음으로)
+    const selectionOf = (id: number | null): SelectionState => {
+      if (id === null) return NO_SELECTION;
+      return {
+        own: feedRef.current?.isOwn(id) ?? false,
+        moving: engineRef.current?.unitState(id)?.moving ?? false,
+      };
+    };
     const engine = createSecondMapEngine(host, {
       serverNow,
       unitCapacity: UNIT_CAPACITY,
@@ -227,8 +220,9 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       onSelect: (id) => {
         selectedRef.current = id;
         setSelected(id);
+        setSelection(selectionOf(id));
       },
-      // 고른 유닛이 있으면 누른 칸으로 보낸다(관리자만). 경로는 서버가 찾아 unit_paths로 보낸다
+      // 고른 유닛이 내 유닛(운영자 모드면 아무 유닛)이면 누른 칸으로 보낸다. 경로는 서버가 찾아 unit_paths로 보낸다
       onGroundTap: (cell) => {
         // 경제 화면 [지도에서 고르기](WP3 연결점, economy/buildPick.ts): 짓기 자리를 고르는 중이면 그 칸을 돌려주고 생산 칸으로 돌아간다
         if (offerBuildPick(mapKey, cell)) {
@@ -238,8 +232,24 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
         const unitId = selectedRef.current;
         const current = feedRef.current;
         if (unitId === null || !current) return;
+        const mine = unitsRef.current?.find((unit) => unit.unitId === unitId);
+        const control = unitControlOf({
+          operator: operatorRef.current,
+          mine,
+          ownByFeed: current.isOwn(unitId),
+        });
+        if (control.kind === "hold") {
+          setCommand({ kind: "hold", hold: control.hold, label: mine ? unitName(mine) : String(unitId) });
+          return;
+        }
+        if (!canCommand(control)) {
+          setCommand({ kind: "view_only" });
+          return;
+        }
         const attempt = current.moveUnit(unitId, cell);
-        setCommand(attempt.kind === "sent" ? { kind: "sent", unitId } : { kind: attempt.kind });
+        setCommand(
+          attempt.kind === "sent" ? { kind: "sent", unitId, action: "move" } : { kind: attempt.kind },
+        );
       },
     });
     engineRef.current = engine;
@@ -256,8 +266,8 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
         neighbourLoader.setMain(url, mapSizeM);
         return terrain;
       },
-      canCommand: () => adminRef.current,
-      observe: () => observeRef.current,
+      canCommand: () => operatorRef.current,
+      observe: () => operatorRef.current,
       onDevSpawn: (outcome) =>
         setDevNotice(
           outcome.ok ? m.map_vision_spawned() : `${m.map_vision_spawn_failed()} ${resultText(outcome.code)}`,
@@ -290,6 +300,21 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
         setSelected(id);
       }
       const unit = id === null ? null : engine.unitState(id);
+      const own = id !== null && feed.isOwn(id);
+      const moving = unit?.moving ?? false;
+      setSelection((previous) =>
+        previous.own === own && previous.moving === moving ? previous : { own, moving },
+      );
+      // 내 유닛 목록의 "이동 중"은 엔진의 지금 값(바뀔 때만 상태를 바꾼다)
+      const list = unitsRef.current ?? [];
+      const movingIds = list
+        .filter((row) => engine.unitState(row.unitId)?.moving === true)
+        .map((row) => row.unitId);
+      const movingKey = movingIds.join(",");
+      if (movingKey !== lastMovingKey) {
+        lastMovingKey = movingKey;
+        setLiveMoving(new Set(movingIds));
+      }
       setSnapshot({
         stats: engine.stats(),
         feed: feed.stats(),
@@ -338,11 +363,33 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
     return () => clearTimeout(timer);
   }, [devNotice]);
 
-  const toggleObserve = (): void => {
-    const next = !observeRef.current;
-    observeRef.current = next;
-    setObserve(next);
+  const toggleOperator = (): void => {
+    const next = !operatorRef.current;
+    operatorRef.current = next;
+    setOperator(next);
     feedRef.current?.refresh();
+  };
+
+  /** 목록에서 고르기: 그 유닛을 고르고 카메라를 지금 자리로. 좁은 화면이면 목록을 접어 땅을 누를 수 있게 한다 */
+  const pickUnit = (unit: MapUnit): void => {
+    const engine = engineRef.current;
+    selectedRef.current = unit.unitId;
+    setSelected(unit.unitId);
+    setCommand(null);
+    engine?.select(unit.unitId);
+    const state = engine?.unitState(unit.unitId) ?? null;
+    engine?.setView({ x: state?.x ?? unit.cellX + 0.5, y: state?.y ?? unit.cellY + 0.5 });
+    setSelection({ own: true, moving: state?.moving ?? unit.moving });
+    if (!wideScreen()) setListOpen(false);
+  };
+
+  /** [멈추기]: 고른 유닛을 지금 자리에 세운다(stop_unit) */
+  const stopSelected = (): void => {
+    const unitId = selectedRef.current;
+    const current = feedRef.current;
+    if (unitId === null || !current) return;
+    const attempt = current.stopUnit(unitId);
+    setCommand(attempt.kind === "sent" ? { kind: "sent", unitId, action: "stop" } : { kind: attempt.kind });
   };
 
   const spawnWorkers = (): void => {
@@ -360,6 +407,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
   const deselect = (): void => {
     selectedRef.current = null;
     setSelected(null);
+    setSelection(NO_SELECTION);
     setCommand(null);
     engineRef.current?.select(null);
   };
@@ -369,15 +417,21 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
   const light = stats?.light ?? null;
   const feed = snapshot?.feed ?? null;
   // 탐사한 곳이 하나도 없으면(유닛 없는 계정) 안개로 온통 어둡다: 까닭과 할 일을 알린다(전체 보기면 안개가 없다)
-  const dark = !notice && !observe && feed?.explored === 0;
+  const dark = !notice && !operator && feed?.explored === 0;
+  // 고른 유닛을 어떻게 다루나(운영자·내 유닛·못 함·남의 유닛) — 목록의 줄 또는 시야 전송의 내 유닛 표시로
+  const mine = selected === null ? undefined : myUnits.units?.find((unit) => unit.unitId === selected);
+  const control = selected === null ? null : unitControlOf({ operator, mine, ownByFeed: selection.own });
   const hint =
     pendingBuildPick() !== null
       ? m.map_build_pick_hint()
-      : selected === null
+      : selected === null || control === null
         ? m.map_hint()
-        : admin
-          ? m.map_selected({ id: selected })
-          : m.map_selected_view({ id: selected });
+        : selectionText(
+            control,
+            mine ? unitName(mine) : m.map_unit_number({ id: selected }),
+            selected,
+            selection.moving,
+          );
 
   return (
     <section
@@ -413,6 +467,9 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       data-command-ms={command?.kind === "result" ? command.report.elapsedMs.toFixed(0) : undefined}
       data-camera={snapshot?.camera}
       data-selected-at={snapshot?.selectedAt}
+      data-selected={selected ?? undefined}
+      data-control={control?.kind}
+      data-operator={operator ? "on" : "off"}
       data-light-clock={light?.clock}
       data-light-day={light ? fixed(light.day, 3) : undefined}
       data-light-source={light?.source}
@@ -440,6 +497,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
           <h1 id="map-title" className="map-title" ref={headingRef} tabIndex={-1}>
             {m.map_title()}
           </h1>
+          {operator ? <OperatorBadge /> : null}
           {/* 나침반: 바늘(북 글자 쪽)이 이 2차맵의 북쪽을 가리킨다(카메라를 돌리면 함께 돈다) */}
           <span className="map-compass" role="img" aria-label={m.map_compass_label()}>
             <span className="map-compass-needle" ref={needleRef}>
@@ -449,61 +507,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
             </span>
           </span>
         </div>
-        <p className="map-panel map-perf">
-          <span>
-            {perf
-              ? m.map_perf_frames({ fps: perf.fps, ms: perf.p95Ms })
-              : m.map_perf_frames({ fps: "–", ms: "–" })}
-            {perf?.memoryMb === undefined ? null : ` · ${m.map_perf_memory({ mb: perf.memoryMb })}`}
-          </span>
-          {stats ? (
-            <span>
-              {m.map_perf_scene({ units: stats.units, calls: stats.drawCalls })} ·{" "}
-              {stats.unitMode === "icon" ? m.map_mode_icon() : m.map_mode_model()}
-            </span>
-          ) : null}
-          {/* 엔진 몫(갱신 + 그리기 명령, 최근 1초 p95). 위 줄의 프레임 시간은 화면 전체(브라우저 합성 포함)다 */}
-          {stats ? <span>{m.map_perf_engine({ ms: stats.renderP95Ms.toFixed(1) })}</span> : null}
-          {/* 쓰는 픽셀 비율 = min(기기, 상한)과 그리기 버퍼(실제 픽셀) — 선명도·비용 재기용 */}
-          {stats ? (
-            <span>
-              {m.map_perf_pixels({
-                ratio: formatPixelRatio(stats.pixelRatio),
-                width: stats.drawingBufferWidth,
-                height: stats.drawingBufferHeight,
-              })}
-            </span>
-          ) : null}
-          {/* 낮밤: 그 2차맵의 지역 시각, 항성 고도, 달 밝은 비율(낮밤을 끄거나 시각을 모르면 줄이 없다) */}
-          {light && light.localHours !== null ? (
-            <span>
-              {m.map_perf_light({
-                time: formatLocalTime(light.localHours),
-                sun: roundOrDash(light.sunElevationDeg),
-                moon: light.moonLit === null ? "–" : Math.round(light.moonLit * 100),
-              })}
-            </span>
-          ) : null}
-          {/* 서버 자료: 스냅샷 크기·연 때부터 준비까지·다시 구독 수, 최근 1초 갱신 양·움직임 지연(S1 측정) */}
-          {feed ? (
-            <span>
-              {m.map_perf_feed({
-                kb: fixed(feed.snapshotBytes / 1024, 1),
-                ready: roundOrDash(feed.readyMs),
-                resubs: feed.resubscribes,
-              })}
-            </span>
-          ) : null}
-          {feed ? (
-            <span>
-              {m.map_perf_updates({
-                ups: Math.round(feed.unitUpdatesPerSec),
-                kbps: fixed(feed.bytesPerSec / 1024, 1),
-                lag: roundOrDash(feed.pathLagMs),
-              })}
-            </span>
-          ) : null}
-        </p>
+        <MapPerfPanel perf={perf} stats={stats} feed={feed} />
       </header>
       {notice ? (
         <div className="map-panel map-notice" role={notice.tone}>
@@ -537,7 +541,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
           <p>{m.map_dark_explain()}</p>
           {devTools ? (
             <>
-              <p>{m.map_dark_dev({ spawn: m.map_vision_spawn(), observe: m.map_vision_observe() })}</p>
+              <p>{m.map_dark_dev({ spawn: m.map_vision_spawn(), observe: m.map_operator_mode() })}</p>
               <button
                 type="button"
                 className="button-small map-dark-lab"
@@ -551,38 +555,40 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       ) : null}
       <CrossingNotice show={crossedTo !== null && following} />
       <footer className="map-hud map-hud-bottom">
+        {listOpen ? (
+          <MyUnitsPanel
+            units={myUnits.units}
+            failed={myUnits.failed}
+            moving={liveMoving}
+            selected={selected}
+            onPick={pickUnit}
+            onClose={() => setListOpen(false)}
+          />
+        ) : null}
         <div className="map-panel map-hint" role="status">
           <p>{hint}</p>
           {command ? <p className="map-command">{commandText(command)}</p> : null}
           <TravelLine going={going} />
         </div>
         <CyborgActions onGoToCyborg={cyborg ? goToCyborg : null} followTo={following ? null : crossedTo} />
-        {selected === null ? null : (
+        {listOpen ? null : (
           <div className="map-actions">
-            <button type="button" className="button-small" onClick={deselect}>
-              {m.map_deselect()}
-            </button>
+            <UnitsToggle count={myUnits.units?.length ?? null} onOpen={() => setListOpen(true)} />
           </div>
         )}
+        {selected === null ? null : (
+          <SelectedActions
+            onStop={control !== null && canCommand(control) && selection.moving ? stopSelected : null}
+            onDeselect={deselect}
+          />
+        )}
         {devTools ? (
-          <div className="map-actions" data-observe={observe ? "on" : "off"}>
-            {devNotice ? (
-              <p className="map-panel map-command" role="status">
-                {devNotice}
-              </p>
-            ) : null}
-            <button type="button" className="button-small map-dev-spawn" onClick={spawnWorkers}>
-              {m.map_vision_spawn()}
-            </button>
-            <button
-              type="button"
-              className="button-small map-dev-observe"
-              aria-pressed={observe}
-              onClick={toggleObserve}
-            >
-              {m.map_vision_observe()}
-            </button>
-          </div>
+          <OperatorActions
+            operator={operator}
+            notice={devNotice}
+            onSpawn={spawnWorkers}
+            onToggle={toggleOperator}
+          />
         ) : null}
       </footer>
     </section>

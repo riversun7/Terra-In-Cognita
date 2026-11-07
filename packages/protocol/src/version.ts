@@ -57,20 +57,23 @@
  * 16: 2차맵 사이 이동(travel.ts travel_start·travel_cancel → travel_result, docs/adr/2026-11-07-play-flow.md "WP9", 기획 D-197·질문 571 가) —
  *    1차맵 명령 [확정]이 내 유닛을 이웃 2차맵을 하나씩 지나 목적 2차맵으로 걷게 한다. 더하기만 했고 15판 기기는 그대로 받는다(이 메시지를
  *    보내지 않는다).
+ * 17: 2차맵 유닛 조종 권한(secondMap.ts stop_unit → result, docs/adr/2026-11-07-unit-control.md, 사용자 지적 2026-11-07 "유저는 맵 진입시 본인의
+ *    유닛만 움직일 수 있어야함") — 멈추기 명령 stop_unit과 결과 코드 not_owner(내 유닛이 아님)·unit_stays(수호신은 도시에 머문다). 두 코드는 17판
+ *    연결에만 가고 16판 연결은 전처럼 forbidden을 받는다. 더하기만 했고 16판 기기는 그대로 받는다(stop_unit을 보내지 않는다).
  */
-export const PROTOCOL_VERSION = 16;
+export const PROTOCOL_VERSION = 17;
 
 /**
  * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7). 5부터 3판 기기는 인사에서
  * protocol_unsupported를 받고 새 앱을 받는다(PWA 강제 적용). 6부터 4판 기기도, 7부터 5판 기기도, 8부터 6판 기기도, 9부터 7판 기기도,
- * 10부터 8판 기기도, 11부터 9판 기기도, 12부터 10판 기기도, 13부터 11판 기기도, 14부터 12판 기기도, 15부터 13판 기기도, 16부터 14판 기기도 같다
- * (현재 + 직전 1개).
+ * 10부터 8판 기기도, 11부터 9판 기기도, 12부터 10판 기기도, 13부터 11판 기기도, 14부터 12판 기기도, 15부터 13판 기기도, 16부터 14판 기기도,
+ * 17부터 15판 기기도 같다(현재 + 직전 1개).
  * (3에서는 예외로 2를 받지 않았다: 2판 기기는 걸러지지 않은 2차맵 흐름을 기대하는데, 시야 전송은 보안 규칙이라 그 흐름을 남기지
  * 않는다, S3 ADR 3절.)
  * 속성 분배 전 사이보그(elements null)는 이제 기기가 만들지 않는다(5판부터 만들기에 분배가 꼭 든다). 화면 시험의 legacy 계정은
  * 지금 판으로 만든 뒤 서버를 끄고 DB에서 속성값을 비워 다시 켠다(e2e/global-setup.ts).
  */
-export const MIN_SUPPORTED_PROTOCOL_VERSION = 15;
+export const MIN_SUPPORTED_PROTOCOL_VERSION = 16;
 
 /** WebSocket 메시지 1개의 최대 크기 (바이트) */
 export const MAX_MESSAGE_BYTES = 64 * 1024;

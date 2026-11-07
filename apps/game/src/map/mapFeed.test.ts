@@ -400,8 +400,8 @@ describe("명령", () => {
     feed.moveUnit(1, { x: 0, y: 0 });
     net.receive({ t: "result", id: 102, ok: false, code: "goal_blocked" });
     expect(reports).toEqual([
-      { id: 101, unitId: 2, outcome: { ok: true }, elapsedMs: 40 },
-      { id: 102, unitId: 1, outcome: { ok: false, code: "goal_blocked" }, elapsedMs: 0 },
+      { id: 101, unitId: 2, action: "move", outcome: { ok: true }, elapsedMs: 40 },
+      { id: 102, unitId: 1, action: "move", outcome: { ok: false, code: "goal_blocked" }, elapsedMs: 0 },
     ]);
     expect(feed.stats()).toMatchObject({ commands: 2, pendingCommands: 0 });
   });
@@ -425,7 +425,7 @@ describe("명령", () => {
     feed.moveUnit(1, { x: 5, y: 5 });
     await vi.advanceTimersByTimeAsync(20_000);
     expect(reports).toEqual([
-      { id: 101, unitId: 1, outcome: { ok: false, code: "no_reply" }, elapsedMs: 20_000 },
+      { id: 101, unitId: 1, action: "move", outcome: { ok: false, code: "no_reply" }, elapsedMs: 20_000 },
     ]);
   });
 
@@ -495,9 +495,23 @@ describe("시야 전송(S3)", () => {
   it("관리자가 아니어도 내 유닛(own)은 움직일 수 있다", async () => {
     const { net, feed, live } = setup({ admin: false });
     await live(snapshot({ rev: 1, units: [unit(1, { own: true }), unit(2)] }));
+    expect(feed.isOwn(1)).toBe(true);
+    expect(feed.isOwn(2)).toBe(false);
     expect(feed.moveUnit(2, { x: 1, y: 1 })).toEqual({ kind: "view_only" });
     expect(feed.moveUnit(1, { x: 1, y: 1 }).kind).toBe("sent");
     expect(net.of("move_unit")).toHaveLength(1);
+  });
+
+  it("멈추기(stop_unit, 프로토콜 17): 내 유닛만 보내고 결과에 멈추기로 알린다", async () => {
+    const { net, feed, live, reports } = setup({ admin: false });
+    await live(snapshot({ rev: 1, units: [unit(1, { own: true }), unit(2)] }));
+    expect(feed.stopUnit(2)).toEqual({ kind: "view_only" });
+    expect(feed.stopUnit(1)).toEqual({ kind: "sent", id: 101 });
+    expect(net.of("stop_unit")).toEqual([{ t: "stop_unit", id: 101, mapKey: MAP, unitId: 1 }]);
+    net.receive({ t: "result", id: 101, ok: false, code: "not_owner" });
+    expect(reports).toEqual([
+      { id: 101, unitId: 1, action: "stop", outcome: { ok: false, code: "not_owner" }, elapsedMs: 0 },
+    ]);
   });
 
   it("시험 일꾼 받기: 보내고, 되면 알리고 다시 구독한다", async () => {

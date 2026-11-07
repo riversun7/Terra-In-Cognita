@@ -26,6 +26,11 @@ const PLAYER: Viewer = {
   loginId: "Fake_Player",
   roles: ["player"],
 };
+const DEV: Viewer = {
+  id: "00000000-0000-4000-8000-000000000003",
+  loginId: "Fake_Dev",
+  roles: ["player", "dev"],
+};
 
 /** 사용자 → 소유 주체(시야 시험). 시험 맵의 유닛은 소유 주체를 주지 않으면 0이다 */
 const OWNERS = new Map([[PLAYER.id, 5]]);
@@ -37,17 +42,26 @@ function setup() {
     stats: test.stats,
     ownerOfUser: (userId) => OWNERS.get(userId),
   };
-  const gateway = createWorldGateway({ world, now: () => Date.now(), log: { error: () => {} } });
-  return { ...test, gateway };
+  /** 운영자 명령 감사 기록(남의 유닛에 된 명령만) */
+  const audits: string[] = [];
+  const gateway = createWorldGateway({
+    world,
+    now: () => Date.now(),
+    log: { error: () => {} },
+    onOperatorCommand: (viewer, command) =>
+      audits.push(`${viewer.loginId}:${command.t}:${command.unitId}:${command.ownerId}`),
+  });
+  return { ...test, gateway, audits };
 }
 
-function link(viewer: Viewer | null): SocketLink & { received: ServerMessage[] } {
+function link(viewer: Viewer | null, protocolVersion?: number): SocketLink & { received: ServerMessage[] } {
   const received: ServerMessage[] = [];
   return {
     received,
     send: (text) => received.push(decodeServerMessage(text)),
     bufferedAmount: () => 0,
     viewer: () => Promise.resolve(viewer),
+    protocolVersion,
   };
 }
 
@@ -324,6 +338,102 @@ describe("시야 전송(S3)", () => {
     const own = map.moveUnit(1, { x: 20 * 1024 + 512, y: 10 * 1024 + 512 });
     await vi.advanceTimersByTimeAsync(0);
     expect(await own).toEqual({ ok: true });
+    map.stop();
+  });
+});
+
+const move = (id: number, unitId: number) =>
+  ({ t: "move_unit", id, mapKey: MAP_KEY, unitId, x: 20 * 1024 + 512, y: 20 * 1024 + 512 }) as const;
+const stop = (id: number, unitId: number) => ({ t: "stop_unit", id, mapKey: MAP_KEY, unitId }) as const;
+
+/** 내 유닛 1(주체 5), 남의 유닛 2, 내 수호신 3 */
+function threeUnits() {
+  const test = setup();
+  test.map.addUnit({ id: 1, size: 1, speed: 437, cellX: 10, cellY: 10, ownerId: 5 });
+  test.map.addUnit({ id: 2, size: 1, speed: 437, cellX: 30, cellY: 30 });
+  test.map.addUnit({
+    id: 3,
+    size: 1,
+    speed: 437,
+    cellX: 12,
+    cellY: 12,
+    ownerId: 5,
+    kind: UNIT_KIND_GUARDIAN,
+  });
+  return test;
+}
+
+describe("유닛 조종 권한(docs/adr/2026-11-07-unit-control.md, 프로토콜 17)", () => {
+  it("17판 플레이어: 남의 유닛·없는 유닛은 같은 not_owner, 내 수호신은 unit_stays, 내 유닛은 옮기고 세운다", async () => {
+    const { gateway, map, paths } = threeUnits();
+    const socket = link(PLAYER, 17);
+    const session = gateway.open(socket);
+    session.handle(move(1, 2));
+    session.handle(stop(2, 2));
+    session.handle(move(3, 99));
+    session.handle(move(4, 3));
+    session.handle(stop(5, 3));
+    session.handle(move(6, 1));
+    await vi.advanceTimersByTimeAsync(0);
+    paths.release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(results(socket.received).map((m) => (m.ok ? "ok" : m.code))).toEqual([
+      "not_owner",
+      "not_owner",
+      "not_owner",
+      "unit_stays",
+      "unit_stays",
+      "ok",
+    ]);
+    // 가는 중인 내 유닛을 멈추면 그 자리에 선다(경로 점 하나)
+    expect(map.unitInfo(1)?.motion.waypoints.length).toBeGreaterThan(1);
+    session.handle(stop(7, 1));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(results(socket.received).at(-1)).toEqual({ t: "result", id: 7, ok: true });
+    expect(map.unitInfo(1)?.motion.waypoints.length).toBe(1);
+    map.stop();
+  });
+
+  it("16판 연결은 새 코드 대신 forbidden을 받는다", async () => {
+    const { gateway, map } = threeUnits();
+    const socket = link(PLAYER, 16);
+    const session = gateway.open(socket);
+    session.handle(move(1, 2));
+    session.handle(move(2, 3));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(results(socket.received).map((m) => (m.ok ? "ok" : m.code))).toEqual(["forbidden", "forbidden"]);
+    map.stop();
+  });
+
+  it("운영자(dev)는 남의 유닛·수호신도 옮기고, 없는 유닛은 unknown_unit, 서버 봇은 세우지 않는다", async () => {
+    // 봇을 먼저 만든다(봇 ID는 2차맵이 정한다), 시험 유닛은 그 뒤 겹치지 않는 ID로
+    const { gateway, map, paths, audits } = setup();
+    map.spawnBots(1);
+    let bot = 0;
+    map.forEachUnit((unit) => {
+      bot = unit.id;
+    });
+    expect(bot).toBeGreaterThan(0);
+    map.addUnit({ id: 1, size: 1, speed: 437, cellX: 10, cellY: 10, ownerId: 5 });
+    map.addUnit({ id: 2, size: 1, speed: 437, cellX: 30, cellY: 30 });
+    map.addUnit({ id: 3, size: 1, speed: 437, cellX: 12, cellY: 12, ownerId: 5, kind: UNIT_KIND_GUARDIAN });
+    const socket = link(DEV, 17);
+    const session = gateway.open(socket);
+    session.handle(move(1, 2));
+    session.handle(move(2, 3));
+    session.handle(stop(3, 99));
+    session.handle(stop(4, bot));
+    await vi.advanceTimersByTimeAsync(0);
+    paths.release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(results(socket.received).map((m) => (m.ok ? "ok" : m.code))).toEqual([
+      "ok",
+      "ok",
+      "unknown_unit",
+      "invalid_request",
+    ]);
+    // 운영자 권한으로만 된 명령(남의 유닛 2, 남의 수호신 3)만 감사 기록. 없는 유닛·거절된 봇 멈추기는 남기지 않는다
+    expect(audits).toEqual(["Fake_Dev:move_unit:2:0", "Fake_Dev:move_unit:3:5"]);
     map.stop();
   });
 });

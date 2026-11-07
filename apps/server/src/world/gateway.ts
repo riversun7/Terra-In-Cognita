@@ -1,26 +1,40 @@
 // WebSocket 연결 하나의 2차맵 메시지 처리 (src/session.ts가 넘긴다) — ADR 33 "전송", ADR 7 "명령"
 // - 한 연결의 요청은 받은 순서대로 하나씩 처리한다(명령의 순서 보장). 밀린 요청이 MAX_PENDING을 넘으면 busy.
 // - 보기(구독)는 로그인한 사용자만. 플레이어는 시야로 거른 전송(map.vision), 전체 보기(observe, dev·admin)는 거르지 않은
-//   전송(map.stream)을 받는다(S3 ADR 3절). 이동 명령은 자기 유닛이거나 권한 표의 move-unit(admin), 건물 명령은 admin,
-//   개발 시험 명령(dev_spawn_units)은 dev-spawn(dev·admin). 명령마다 서버가 확인한다.
+//   전송(map.stream)을 받는다(S3 ADR 3절). 이동·멈추기 명령은 자기 유닛(수호신 빼고)이거나 운영자(권한 표 move-unit = dev·admin,
+//   unitControl.ts — docs/adr/2026-11-07-unit-control.md), 건물 명령은 admin, 개발 시험 명령(dev_spawn_units)은 dev-spawn(dev·admin).
+//   명령마다 서버가 확인한다. 남의 유닛은 not_owner, 내 수호신은 unit_stays(프로토콜 17 연결만, 더 낮으면 forbidden).
 // - 사용자별 속도 제한, 명령 중복 방지(같은 사용자·같은 요청 번호면 10분 동안 같은 결과를 다시 준다 —
 //   끊긴 뒤 다시 보낸 명령이 두 번 실행되지 않게).
 // - 볼 수 있는지는 canViewSecondMap(ADR 26, 내 유닛·건물 또는 탐사한 칸)이 정한다.
 import { isCellKey } from "@terra/planet";
-import { type ClientMessageOf, type ResultCode, encodeMessage } from "@terra/protocol";
+import {
+  type ClientMessageOf,
+  type ResultCode,
+  SECOND_MAP_PROTOCOL_VERSION,
+  UNIT_CONTROL_PROTOCOL_VERSION,
+  encodeMessage,
+} from "@terra/protocol";
 import { rolesAllow } from "../auth/permissions.ts";
 import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { StreamSubscriber } from "./mapStream.ts";
 import type { CommandResult, SecondMap } from "./secondMap.ts";
-import { UNIT_KIND_GUARDIAN } from "./unitKinds.ts";
+import { unavailable } from "./unitCondition.ts";
+import { type UnitControlDenial, canCommandAnyUnit, unitControlDenial } from "./unitControl.ts";
 import { canObserve, canViewSecondMap } from "./visibility.ts";
 import type { WorldStats } from "./worldStats.ts";
 
 export type SecondMapClientMessage = ClientMessageOf<
-  "subscribe" | "unsubscribe" | "move_unit" | "place_building" | "remove_building" | "dev_spawn_units"
+  | "subscribe"
+  | "unsubscribe"
+  | "move_unit"
+  | "stop_unit"
+  | "place_building"
+  | "remove_building"
+  | "dev_spawn_units"
 >;
-type CommandMessage = ClientMessageOf<"move_unit" | "place_building" | "remove_building">;
+type CommandMessage = ClientMessageOf<"move_unit" | "stop_unit" | "place_building" | "remove_building">;
 
 /** 한 연결에서 처리를 기다릴 수 있는 요청 수 */
 const MAX_PENDING = 16;
@@ -36,8 +50,8 @@ const DEDUP_MAX_ENTRIES = 20_000;
 /** 다시 해 볼 수 있는 실패는 기억하지 않는다 */
 const TRANSIENT_CODES: ReadonlySet<ResultCode> = new Set(["busy", "internal_error"]);
 
-const COMMAND_ACTIONS = {
-  move_unit: "move-unit",
+/** 건물 명령의 권한 표 동작(유닛 명령은 소유·운영자로 본다, unitControl.ts) */
+const BUILDING_ACTIONS = {
   place_building: "place-building",
   remove_building: "remove-building",
 } as const;
@@ -59,6 +73,8 @@ export interface SocketLink {
   bufferedAmount(): number;
   /** 이 연결의 로그인 사용자(정지·로그아웃이면 null) */
   viewer(): Promise<Viewer | null>;
+  /** 이 연결이 인사한 프로토콜 판(새 결과 코드를 받는지). 없으면 2차맵 첫 판 — not_owner·unit_stays 대신 forbidden */
+  protocolVersion?: number | undefined;
 }
 
 export interface WorldSocket {
@@ -76,6 +92,17 @@ export interface GatewayLog {
 
 /** 관리자 전체 보기를 켠 기록(감사 기록, app.ts가 DB에 쓴다) */
 export type ObserveAudit = (viewer: Viewer, mapKey: number) => void;
+
+/** 운영자가 남의 유닛(또는 내 수호신)에 한 명령(감사 기록, app.ts가 DB에 쓴다 — docs/adr/2026-11-07-unit-control.md). 된 명령만 */
+export type OperatorCommandAudit = (
+  viewer: Viewer,
+  command: {
+    readonly t: "move_unit" | "stop_unit";
+    readonly mapKey: number;
+    readonly unitId: number;
+    readonly ownerId: number | null;
+  },
+) => void;
 
 /** 명령 중복 방지 — 같은 키면 처음 결과(진행 중이면 그 약속)를 돌려준다 */
 export function createCommandDedup(now: () => number, ttlMs = DEDUP_TTL_MS, maxEntries = DEDUP_MAX_ENTRIES) {
@@ -137,11 +164,28 @@ function resultText(id: number, result: CommandResult): string {
 const fail = (code: ResultCode): CommandResult => ({ ok: false, code });
 
 /**
+ * 멈추기(stop_unit): 지금 자리에 세운다. 포로·중태는 이동과 같이 받지 않고(invalid_request), 서버 봇은 판단 예약이 끊기지 않게 세우지 않는다
+ * (halt가 거절 — invalid_request). 2차맵 사이를 가는 중이었으면 이동 서비스가 다음 확인에서 "길에서 벗어남"으로 끝낸다(WP9)
+ */
+function stopUnit(map: SecondMap, unitId: number, nowMs: number): CommandResult {
+  const info = map.unitInfo(unitId);
+  if (!info) return fail("unknown_unit");
+  if (unavailable(info.condition, nowMs)) return fail("invalid_request");
+  return map.halt(unitId) ? { ok: true } : fail("invalid_request");
+}
+
+/**
  * 명령을 2차맵에 적용한다(권한·제한 확인은 앞에서 끝났다). 시험 건물은 놓은 사람의 소유 주체 것이다(없으면 주인 없음) —
  * 노동 계약의 시설 주인(docs/adr/2026-11-03-labor-contracts.md)
  */
-function execute(map: SecondMap, message: CommandMessage, ownerId: number | null): Promise<CommandResult> {
+function execute(
+  map: SecondMap,
+  message: CommandMessage,
+  ownerId: number | null,
+  nowMs: number,
+): Promise<CommandResult> {
   if (message.t === "move_unit") return map.moveUnit(message.unitId, { x: message.x, y: message.y });
+  if (message.t === "stop_unit") return Promise.resolve(stopUnit(map, message.unitId, nowMs));
   if (message.t === "place_building") {
     const { x, y, width, height, rotation } = message;
     return Promise.resolve(map.placeBuilding({ x, y, width, height, rotation }, ownerId));
@@ -154,6 +198,7 @@ export function createWorldGateway(options: {
   now: () => number;
   log: GatewayLog;
   onObserve?: ObserveAudit | undefined;
+  onOperatorCommand?: OperatorCommandAudit | undefined;
 }): WorldGateway {
   const { world, now, log } = options;
   const commandLimiter: RateLimiter = createRateLimiter({ ...COMMAND_LIMIT, now });
@@ -173,6 +218,10 @@ export function createWorldGateway(options: {
       const reply = (id: number, result: CommandResult): void => {
         if (!closed) link.send(resultText(id, result));
       };
+      // 유닛 조종 결과 코드(not_owner·unit_stays)는 그 코드를 아는 연결에만, 아니면 전처럼 forbidden
+      const knowsUnitCodes =
+        (link.protocolVersion ?? SECOND_MAP_PROTOCOL_VERSION) >= UNIT_CONTROL_PROTOCOL_VERSION;
+      const denialCode = (denial: UnitControlDenial): ResultCode => (knowsUnitCodes ? denial : "forbidden");
 
       const process = async (message: SecondMapClientMessage): Promise<void> => {
         const mapKey = message.mapKey;
@@ -224,22 +273,26 @@ export function createWorldGateway(options: {
           return reply(message.id, made > 0 ? { ok: true } : fail("busy"));
         }
 
-        // 내 유닛은 옮길 수 있다. 수호신은 그 도시에 머문다(기획 답 456 가 — 주인도 옮기지 못하고, 옮기기 권한이 있는 관리자만)
-        const moving = message.t === "move_unit" ? map.unitInfo(message.unitId) : undefined;
-        const ownUnit =
-          moving !== undefined &&
-          moving.kind !== UNIT_KIND_GUARDIAN &&
-          world.ownerOfUser !== undefined &&
-          moving.ownerId === world.ownerOfUser(viewer.id);
-        if (!ownUnit && !rolesAllow(viewer.roles, { secondMap: [COMMAND_ACTIONS[message.t]] })) {
+        // 유닛 명령: 내 유닛(수호신은 그 도시에 머문다 — 기획 답 456 가)이거나 운영자(dev·admin). 건물 명령은 권한 표(admin)
+        let operatorOverride: { readonly unitId: number; readonly ownerId: number | null } | undefined;
+        if (message.t === "move_unit" || message.t === "stop_unit") {
+          const unit = map.unitInfo(message.unitId);
+          const ownerId = world.ownerOfUser?.(viewer.id);
+          const denial = unitControlDenial(unit, ownerId, false);
+          if (denial && !canCommandAnyUnit(viewer.roles)) return reply(message.id, fail(denialCode(denial)));
+          // 운영자 권한으로만 되는 명령은 감사 기록에 남긴다(없는 유닛은 2차맵이 unknown_unit으로 끝낸다)
+          if (denial && unit) operatorOverride = { unitId: message.unitId, ownerId: unit.ownerId };
+        } else if (!rolesAllow(viewer.roles, { secondMap: [BUILDING_ACTIONS[message.t]] })) {
           return reply(message.id, fail("forbidden"));
         }
         if (!commandLimiter.take(viewer.id)) return reply(message.id, fail("rate_limited"));
         world.stats.commands += 1;
         const placer = world.ownerOfUser?.(viewer.id) ?? null;
         const result = await dedup.run(`${viewer.id}:${mapKey}:${message.id}`, () =>
-          execute(map, message, placer),
+          execute(map, message, placer, now()),
         );
+        if (operatorOverride && result.ok && (message.t === "move_unit" || message.t === "stop_unit"))
+          options.onOperatorCommand?.(viewer, { t: message.t, mapKey, ...operatorOverride });
         reply(message.id, result);
       };
 

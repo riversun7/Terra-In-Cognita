@@ -4,7 +4,8 @@
 //   rev ≤ 내 rev면 버리고, 빠졌으면(unit_paths는 fromRev > 내 rev, 건물은 rev − 1 > 내 rev) 다시 구독한다(= 새 스냅샷).
 //   다시 구독한 뒤 새 스냅샷이 올 때까지 오는 변화는 버린다(순서가 이미 끊겼다).
 // - 지형은 스냅샷의 주소를 HTTP로 받는다(첫 조각이 오면 바로 시작). 주소가 바뀌거나 앞서 실패했을 때만 다시 받는다.
-// - 이동 명령은 내 유닛(own)이거나 canCommand(관리자)일 때만 보낸다(서버도 명령마다 권한·소유를 본다).
+// - 이동·멈추기 명령은 내 유닛(own)이거나 canCommand(운영자 모드, dev·admin)일 때만 보낸다(서버도 명령마다 권한·소유를 본다,
+//   docs/adr/2026-11-07-unit-control.md). 멈추기(stop_unit)는 프로토콜 17이다.
 // - 시야 전송(S3 ADR 3절): 남의 유닛은 자른 경로가 오고, 시야에서 사라지면 unit_paths.hidden으로 지운다. 탐사 칸(vision)은
 //   onExplored로 넘긴다(화면이 안개를 칠한다). 전체 보기(observe, dev·admin)로 구독하면 안개를 끈다.
 //   결과 전에 끊기면 다시 연결된 뒤 같은 요청 번호로 다시 보낸다 — 서버 중복 방지가 두 번 실행을 막는다(ADR 7).
@@ -25,6 +26,7 @@ import type {
   FeedStatus,
   MapFeed,
   MapFeedOptions,
+  MoveAttempt,
   TerrainState,
 } from "./feedTypes.ts";
 import { targetUnits, toFootprint, toUnitPath, toUnitSpawn } from "./mapWire.ts";
@@ -71,7 +73,7 @@ const defaultRequestId = (): number => {
 };
 
 interface PendingCommand {
-  message: ClientMessageOf<"move_unit">;
+  message: ClientMessageOf<"move_unit" | "stop_unit">;
   unitId: number;
   sentAt: number;
   timer: ReturnType<typeof setTimeout>;
@@ -396,7 +398,33 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
     if (!command) return;
     pending.delete(id);
     clearTimeout(command.timer);
-    options.onCommand?.({ id, unitId: command.unitId, outcome, elapsedMs: now() - command.sentAt });
+    options.onCommand?.({
+      id,
+      unitId: command.unitId,
+      action: command.message.t === "stop_unit" ? "stop" : "move",
+      outcome,
+      elapsedMs: now() - command.sentAt,
+    });
+  };
+
+  /** 유닛 명령 보내기(이동·멈추기): 내 유닛이거나 운영자일 때만, 연결·스냅샷이 있을 때만. 결과는 onCommand로 */
+  const sendCommand = (
+    unitId: number,
+    build: (id: number) => ClientMessageOf<"move_unit" | "stop_unit">,
+  ): MoveAttempt => {
+    if (!options.canCommand() && units.get(unitId)?.own !== true) return { kind: "view_only" };
+    if (stopped || !hasSnapshot || !link.isReady()) return { kind: "offline" };
+    const id = nextId();
+    const message = build(id);
+    if (!link.send(message)) return { kind: "offline" };
+    counts.commands += 1;
+    pending.set(id, {
+      message,
+      unitId,
+      sentAt: now(),
+      timer: setTimeout(() => finishCommand(id, { ok: false, code: "no_reply" }), COMMAND_TIMEOUT_MS),
+    });
+    return { kind: "sent", id };
   };
 
   const onResult = (message: ServerMessageOf<"result">): void => {
@@ -517,26 +545,20 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       };
     },
     moveUnit(unitId, cell) {
-      if (!options.canCommand() && units.get(unitId)?.own !== true) return { kind: "view_only" };
-      if (stopped || !hasSnapshot || !link.isReady()) return { kind: "offline" };
-      const id = nextId();
-      const message: ClientMessageOf<"move_unit"> = {
+      return sendCommand(unitId, (id) => ({
         t: "move_unit",
         id,
         mapKey,
         unitId,
         x: targetUnits(cell.x),
         y: targetUnits(cell.y),
-      };
-      if (!link.send(message)) return { kind: "offline" };
-      counts.commands += 1;
-      pending.set(id, {
-        message,
-        unitId,
-        sentAt: now(),
-        timer: setTimeout(() => finishCommand(id, { ok: false, code: "no_reply" }), COMMAND_TIMEOUT_MS),
-      });
-      return { kind: "sent", id };
+      }));
+    },
+    stopUnit(unitId) {
+      return sendCommand(unitId, (id) => ({ t: "stop_unit", id, mapKey, unitId }));
+    },
+    isOwn(unitId) {
+      return units.get(unitId)?.own === true;
     },
     retry() {
       if (stopped) return;

@@ -42,14 +42,16 @@
 | `apps/game/src/map/travelData.ts`(+시험)·`inbox/inboxText.ts` | `raided` 문구, 처리할 일 제목 |
 | `apps/game/messages/{ko,en}.json` | 새 문구 11개, 전쟁 위험 문구 "나와 전쟁 중" |
 | `e2e/control-move3.spec.ts`(새) | 630·631·632·636·612 화면 시험 + 사진 |
-| `e2e/unit-control.spec.ts`·`play-map.spec.ts`·`vision.spec.ts` | 카메라 묶기에 맞춤: 남의 유닛 시험은 건물 원도 비움, 572 다 시험은 고른 곳을 내 사이보그 둘레 안으로, 경계 너머 끌기는 운영자 모드를 켬 |
+| `e2e/unit-control.spec.ts`·`play-map.spec.ts`·`vision.spec.ts` | 카메라 묶기·운영자 모드 기억에 맞춤: 남의 유닛 시험은 건물 원도 비움, 572 다 시험은 고른 곳을 내 사이보그 둘레 안으로, 시야 시험 `openMap`은 운영자 모드가 꺼져 있을 때만 누름 |
+| `packages/shared/src/inbox.test.ts`·`apps/server/src/inbox/preview.test.ts` | 종류 표에 `scout_returned`(제공 함수 있음, 시안 자료 없음) |
 
 ## 판·마이그레이션
 - 팩 core@51(설정 칸 넷). 프로토콜 17 그대로(메시지·결과 코드 없음). `SIM_VERSION` 그대로(계수표에 서버만 읽는 칸 — 시뮬 규칙·출력 그대로). 마이그레이션 없음.
 
 ## 검사 (끝에 한 번)
 - 작업 중: 서버 `travel/*`·`worldMap/mapUnits`·`travelDanger`·`inbox/registry`·`tuning` 시험, 게임 `map/*`(바꾼 것)·`inbox`, 엔진 `camera`, 시뮬 `tuning` 시험 통과(Verified).
-- 화면 시험 `pnpm e2e control-move3.spec.ts unit-control.spec.ts play-map.spec.ts`: 결과는 아래 "끝 검사".
+- 끝 검사(Verified, 2026-11-08 KST): 메시지 다시 만들기 → `TEST_DATABASE_URL=… pnpm check` — 포맷·린트·타입·경계·크기·다국어·디자인 값·콘텐츠(core@51) 통과, 단위·DB 시험 3,822 통과 · 2 실패(처리할 일 종류 표 시험 둘이 새 종류 `scout_returned`를 몰랐다 → 고친 뒤 그 파일들 `packages/shared/src/inbox.test.ts`·`apps/server/src/inbox/*` 39 통과 · 7 건너뜀). `pnpm check:docs origin/main` 통과.
+- 화면 시험(Verified): `pnpm e2e control-move3.spec.ts unit-control.spec.ts play-map.spec.ts` 32 통과(5.3분), `inbox.spec.ts` 17 통과, `vision.spec.ts` 13 통과 · 1 건너뜀(측정). 처음 `vision.spec.ts` 경계 너머 시험은 실패했다 — 이 파일의 `openMap`이 이미 운영자 모드를 켜는데 내가 한 번 더 눌러 껐다. 고친 뒤: `openMap`은 운영자 모드가 꺼져 있을 때만 누른다(이 기기에서 기억하므로 같은 시험 안에서 다시 열면 이미 켜짐 — 낮밤 시험이 여러 번 연다).
 - 사진(390): `control-move3-list-390-{pastel,dark}`(목록 + 다른 곳 줄), `control-move3-scout-notice-390-{pastel,dark}`(정찰 알림) — 눈으로 봄: 넘침 없음, 글 줄바꿈, 위 띠 아래 판.
 
 ## 함께 바꿔야 하는 파일

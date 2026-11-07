@@ -52,7 +52,7 @@ export type CommandOutcome = { ok: true } | { ok: false; code: ResultCode | "no_
 
 export type MoveAttempt =
   | { kind: "sent"; id: number }
-  /** 보기 전용 계정 — 보내지 않았다 */
+  /** 내 유닛이 아니고 운영자 모드도 아님 — 보내지 않았다 */
   | { kind: "view_only" }
   /** 연결이나 스냅샷이 없어 보내지 않았다 */
   | { kind: "offline" };
@@ -60,6 +60,8 @@ export type MoveAttempt =
 export interface CommandReport {
   id: number;
   unitId: number;
+  /** 이동(move_unit)·멈추기(stop_unit) */
+  action: "move" | "stop";
   outcome: CommandOutcome;
   /** 보낸 때부터 결과까지(ms) */
   elapsedMs: number;
@@ -98,7 +100,7 @@ export interface MapFeedOptions {
   mapKey: number;
   sink: FeedSink;
   loadTerrain: (url: string) => Promise<TerrainInput>;
-  /** 모든 유닛에 명령을 보내도 되는가(관리자). 내 유닛(own)은 늘 된다. 서버가 따로 확인한다 */
+  /** 모든 유닛에 명령을 보내도 되는가(운영자 모드, dev·admin). 내 유닛(own)은 늘 된다. 서버가 따로 확인한다 */
   canCommand: () => boolean;
   /** 관리자 전체 보기로 구독할까(dev·admin, S3 시야 전송). 없으면 시야로 거른 구독 */
   observe?: () => boolean;
@@ -119,8 +121,12 @@ export interface MapFeedOptions {
 export interface MapFeed {
   status(): FeedStatus;
   stats(): FeedStats;
-  /** 관리자 시험 명령: 유닛을 누른 칸(배치 칸, 실수)의 가운데로 보낸다 */
+  /** 유닛을 누른 칸(배치 칸, 실수)의 가운데로 보낸다(내 유닛이거나 운영자) */
   moveUnit(unitId: number, cell: { x: number; y: number }): MoveAttempt;
+  /** 유닛을 지금 자리에 세운다(프로토콜 17 stop_unit, 내 유닛이거나 운영자) */
+  stopUnit(unitId: number): MoveAttempt;
+  /** 시야 전송이 내 유닛(own)이라고 한 유닛인가(전체 보기 구독에는 표시가 없다) */
+  isOwn(unitId: number): boolean;
   /** [다시 시도] — 실패한 구독·지형을 다시 */
   retry(): void;
   /** 지금 다시 구독한다(전체 보기를 켜고 끌 때) */

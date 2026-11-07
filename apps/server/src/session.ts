@@ -29,6 +29,7 @@ import {
   MARKET_PROTOCOL_VERSION,
   RUINS_PROTOCOL_VERSION,
   TRAVEL_PROTOCOL_VERSION,
+  UNIT_CONTROL_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -221,10 +222,13 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "subscribe":
       case "unsubscribe":
       case "move_unit":
+      case "stop_unit":
       case "place_building":
       case "remove_building":
       case "dev_spawn_units": {
-        if (protocolVersion < SECOND_MAP_PROTOCOL_VERSION) {
+        // 멈추기(stop_unit)는 프로토콜 17의 메시지다(docs/adr/2026-11-07-unit-control.md). 더 낮게 인사한 연결은 모르는 메시지로 본다
+        const needs = message.t === "stop_unit" ? UNIT_CONTROL_PROTOCOL_VERSION : SECOND_MAP_PROTOCOL_VERSION;
+        if (protocolVersion < needs) {
           reject("invalid_message");
           return;
         }
@@ -236,6 +240,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send: sendText,
           bufferedAmount: () => socket.bufferedAmount,
           viewer: context.viewer ?? signedOut,
+          protocolVersion,
         });
         worldSocket.handle(message);
         return;

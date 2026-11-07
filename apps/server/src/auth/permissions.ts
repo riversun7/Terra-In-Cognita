@@ -9,9 +9,10 @@ import { defaultStatements } from "better-auth/plugins/admin/access";
 
 /**
  * 권한 문장 — Better Auth 관리자 플러그인 기본(user·session 동작) + 게임 기능.
- * secondMap: 시험 2차맵 명령(WebSocket, src/world/gateway.ts). 이동·건물은 admin만 한다(ADR 2026-10-28-s1-second-map).
- *   자기 유닛 이동은 권한 없이 소유로 된다(S3). observe = 관리자 전체 보기(시야로 거르지 않음, 감사 기록),
- *   dev-spawn = 개발 시험 명령(내 시험 일꾼 받기). 둘 다 dev·admin(S3 ADR 3절).
+ * secondMap: 시험 2차맵 명령(WebSocket, src/world/gateway.ts). 건물은 admin만 한다(ADR 2026-10-28-s1-second-map).
+ *   자기 유닛 이동·멈추기는 권한 없이 소유로 된다(S3). move-unit = 운영자가 남의 유닛도 옮기고 세운다 — dev·admin
+ *   (docs/adr/2026-11-07-unit-control.md, 사용자 지적 2026-11-07 "운영자는 다른 유닛 조종이나 시야 자유이동이 가능", src/world/unitControl.ts).
+ *   observe = 관리자 전체 보기(시야로 거르지 않음, 감사 기록), dev-spawn = 개발 시험 명령(내 시험 일꾼 받기). 둘 다 dev·admin(S3 ADR 3절).
  * home: 홈 대시보드 시험(ADR 2026-10-29-app-shell 6절, 사용자 결정 2). dev·admin만.
  *   - preview: 처리할 일·복귀 요약의 시안 자료를 받는다(inbox.list·summary.get의 preview). 다른 역할은 403
  *   - template: 기본값(dt_hybrid)이 아닌 템플릿을 저장한다(settings.set). 다른 역할이 보낸 값은 거절하지 않고 dt_hybrid로 바꿔 저장한다
@@ -44,7 +45,7 @@ export const roles = {
   dev: ac.newRole({
     user: [],
     session: [],
-    secondMap: ["observe", "dev-spawn"],
+    secondMap: ["move-unit", "observe", "dev-spawn"],
     home: ["preview", "template"],
     planetEditor: ["read", "write"],
     tuning: ["read", "write"],

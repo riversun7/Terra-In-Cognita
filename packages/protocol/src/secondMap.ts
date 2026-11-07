@@ -36,6 +36,11 @@ export const S1_TEST_MAP_KEY = 312_905_547_382_793;
 
 /** 2차맵 메시지에 필요한 가장 낮은 프로토콜 버전(시야 전송, S3). 더 낮게 인사한 연결이 보내면 invalid_message로 거절한다 */
 export const SECOND_MAP_PROTOCOL_VERSION = 3;
+/**
+ * 유닛 조종 권한(docs/adr/2026-11-07-unit-control.md): 멈추기 명령 stop_unit, 결과 코드 not_owner(내 유닛이 아님)·unit_stays(수호신은 그 도시에
+ * 머문다). 더 낮게 인사한 연결이 stop_unit을 보내면 invalid_message, 그 연결은 두 코드 대신 forbidden을 받는다
+ */
+export const UNIT_CONTROL_PROTOCOL_VERSION = 17;
 /** 탐사 칸 비트 모음 바이트 수(시야 칸 32×32, packages/sim VISION_BYTES와 같다) */
 export const VISION_BYTES = 128;
 /** 개발 시험 명령 한 번에 받는 시험 일꾼 상한 */
@@ -79,7 +84,10 @@ export const subscribeMessage = z.object({
 
 export const unsubscribeMessage = z.object({ t: z.literal("unsubscribe"), id: requestId, mapKey });
 
-/** 이동 명령: 유닛을 목표 위치(고정소수점)로 보낸다. 서버가 경로를 찾는다. 자기 유닛이거나 관리자(S3) */
+/**
+ * 이동 명령: 유닛을 목표 위치(고정소수점)로 보낸다. 서버가 경로를 찾는다. 자기 유닛이거나 운영자(dev·admin, 권한 표 move-unit) —
+ * 남의 유닛이면 not_owner, 내 수호신이면 unit_stays(프로토콜 17부터, 더 낮은 연결은 forbidden)
+ */
 export const moveUnitMessage = z.object({
   t: z.literal("move_unit"),
   id: requestId,
@@ -87,6 +95,17 @@ export const moveUnitMessage = z.object({
   unitId,
   x: position,
   y: position,
+});
+
+/**
+ * 멈추기 명령(프로토콜 17): 하던 이동을 멈추고 지금 자리에 세운다. 권한·소유 규칙은 move_unit과 같다(서버 봇·포로·중태는 invalid_request).
+ * 그 유닛이 2차맵 사이를 가는 중이면 그 길도 끝난다("길에서 벗어남")
+ */
+export const stopUnitMessage = z.object({
+  t: z.literal("stop_unit"),
+  id: requestId,
+  mapKey,
+  unitId,
 });
 
 /**
@@ -221,7 +240,7 @@ const buildingRemovedMessage = z.object({
 export const RESULT_CODES = [
   /** 로그인하지 않음(구독·명령 모두 로그인 필요) */
   "sign_in_required",
-  /** 권한 없음(명령은 관리자만, S1) */
+  /** 권한 없음(건물 명령은 관리자만, 전체 보기는 dev·admin만. 프로토콜 16 이하 연결은 not_owner·unit_stays 대신 이것) */
   "forbidden",
   "rate_limited",
   /** 서버가 바쁨(경로 대기열이 참, 같은 연결의 요청이 너무 많이 밀림) */
@@ -252,6 +271,10 @@ export const RESULT_CODES = [
   "building_limit",
   "invalid_request",
   "internal_error",
+  /** 내 유닛이 아님(남의 유닛이거나 없는 유닛 — 둘을 나누지 않는다, 시야 밖 유닛이 있는지 새지 않게). 프로토콜 17부터 */
+  "not_owner",
+  /** 수호신은 그 도시에 머문다(기획 답 456 가 — 주인도 옮기거나 세우지 못한다). 프로토콜 17부터 */
+  "unit_stays",
 ] as const;
 export type ResultCode = (typeof RESULT_CODES)[number];
 
@@ -271,6 +294,7 @@ export const secondMapClientMessages = [
   subscribeMessage,
   unsubscribeMessage,
   moveUnitMessage,
+  stopUnitMessage,
   placeBuildingMessage,
   removeBuildingMessage,
   devSpawnUnitsMessage,

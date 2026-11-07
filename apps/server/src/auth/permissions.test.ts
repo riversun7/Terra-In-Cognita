@@ -19,8 +19,7 @@ const ADMIN_ACTIONS: PermissionRequest[] = [
   { user: ["set-password"] },
   { session: ["list"] },
   { session: ["revoke"] },
-  // S1 시험 2차맵 명령(WebSocket)
-  { secondMap: ["move-unit"] },
+  // S1 시험 2차맵 건물 명령(WebSocket). 유닛 명령(move-unit)은 운영자 권한이라 dev도 한다(아래)
   { secondMap: ["place-building"] },
   { secondMap: ["remove-building"] },
 ];
@@ -36,6 +35,13 @@ const NOBODY: PermissionRequest[] = [
 ];
 
 describe("역할 표", () => {
+  it("운영자(dev·admin)만 모든 유닛에 명령한다(move-unit, docs/adr/2026-11-07-unit-control.md)", () => {
+    expect(rolesAllow(["dev"], { secondMap: ["move-unit"] })).toBe(true);
+    expect(rolesAllow(["admin"], { secondMap: ["move-unit"] })).toBe(true);
+    for (const role of ["player", "gm"] as const)
+      expect(rolesAllow([role], { secondMap: ["move-unit"] })).toBe(false);
+  });
+
   it("역할 표의 이름은 공용 역할 목록(ROLES)과 같다", () => {
     expect(Object.keys(roles).toSorted()).toEqual([...ROLES].toSorted());
   });
@@ -109,9 +115,9 @@ describe("개발 도구 권한(home·planetEditor·tuning)", () => {
     expect(rolesAllow([], { home: ["preview"] })).toBe(false);
   });
 
-  it("dev는 개발 도구 권한이 있어도 계정 관리·2차맵 명령은 못 한다", () => {
+  it("dev는 개발 도구 권한이 있어도 계정 관리·2차맵 건물 명령은 못 한다", () => {
     expect(rolesAllow(["dev"], { user: ["list"] })).toBe(false);
-    expect(rolesAllow(["dev"], { secondMap: ["move-unit"] })).toBe(false);
+    expect(rolesAllow(["dev"], { secondMap: ["place-building"] })).toBe(false);
     // 한 요청에 섞으면 모두 허용돼야 한다
     expect(rolesAllow(["dev"], { home: ["preview"], user: ["list"] })).toBe(false);
   });

@@ -33,6 +33,7 @@ import { TEST_NPC_FACTION_CODE } from "../world/unitKinds.ts";
 import type { World } from "../world/world.ts";
 import { canObserve, canViewSecondMap } from "../world/visibility.ts";
 import { hullKnown, isCityKnown, knownWithoutSight } from "./knownCities.ts";
+import { type MapUnitReads, createMapUnitReads } from "./mapUnits.ts";
 import { type TravelReads, createTravelReads } from "./travelReads.ts";
 
 /** 이 모듈이 세계에서 읽는 것(시험은 가짜를 넣는다) */
@@ -364,7 +365,7 @@ export function worldMapReadsOf(options: {
   readonly faceLevel: number;
   readonly presets?: readonly NationPreset[] | undefined;
   readonly planets?: WorldMapPlanets | undefined;
-}): () => (WorldMapReadServices & TravelReads) | undefined {
+}): () => (WorldMapReadServices & TravelReads & MapUnitReads) | undefined {
   const { world, planets, planetId } = options;
   const reads = createWorldMapReads({
     planetId,
@@ -392,6 +393,12 @@ export function worldMapReadsOf(options: {
     () => world.persistence?.travel,
     (mapKey, x, y) => (isCellKey(mapKey) ? placeLatLon(mapKey, x, y) : { latDeg: 0, lonDeg: 0 }),
   );
-  const services = { ...reads, ...travel };
+  // 2차맵 화면의 내 유닛 목록(docs/adr/2026-11-07-unit-control.md): 메모리 유닛만 읽는다
+  const units = createMapUnitReads({
+    map: (mapKey) => world.maps.get(mapKey),
+    ownerOfUser: (userId) => world.ownerOfUser?.(userId),
+    cyborgName: (userId) => world.persistence?.cyborgs.record(userId)?.name,
+  });
+  const services = { ...reads, ...travel, ...units };
   return () => (world.status().state === "ready" && world.persistence ? services : undefined);
 }

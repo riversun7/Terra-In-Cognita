@@ -241,8 +241,9 @@ export function facilitiesOverview(
         maxDurability: max,
         storageKg: def.storageKg === undefined ? null : storageCapacityAt(def.storageKg, level, rt),
         storage: def.stage === "storage",
+        // 창고 시설과 상한이 있는 시설(채집 시설의 임대형 몫 상한, WP8 523 ②)은 든 무게를 보인다
         storedKg:
-          def.stage === "storage"
+          def.stage === "storage" || def.storageKg !== undefined
             ? Number((storedGrams(source.ledger, catalog, building.id) + 999n) / 1000n)
             : null,
         cityId: record.cityId ?? buildingPlace(service.places, building.id)?.cityId ?? null,
@@ -336,6 +337,7 @@ export function facilitiesOverview(
         units.push({
           id: unit.id,
           cyborg: unit.kind === UNIT_KIND_CYBORG,
+          mapKey: map.mapKey,
           busy,
           craftScore: craftScore(primaries, table),
           stats: {

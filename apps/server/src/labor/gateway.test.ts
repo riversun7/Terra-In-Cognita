@@ -1,4 +1,4 @@
-// 노동 계약 연결 처리 시험 — 로그인, 세계 준비 전, 차례 처리, 금액 글자 → BigInt, 결과 메시지 모양, 구인 게시 셋, 직무 배치 둘
+// 노동 계약 연결 처리 시험 — 로그인, 세계 준비 전, 차례 처리, 금액 글자 → BigInt, 결과 메시지 모양, 구인 게시 셋, 직무 배치 둘, 판별 코드(wrong_map)
 import { decodeServerMessage } from "@terra/protocol";
 import { describe, expect, it } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
@@ -67,12 +67,13 @@ function fakeService(calls: string[]): LaborService {
   };
 }
 
-function open(service: LaborService | undefined, who: Viewer | null) {
+function open(service: LaborService | undefined, who: Viewer | null, protocolVersion?: number) {
   const sent: unknown[] = [];
   const gateway = createLaborGateway({ service: () => service, now: () => 0, log: { error: () => {} } });
   const socket = gateway.open({
     send: (text) => sent.push(decodeServerMessage(text)),
     viewer: () => Promise.resolve(who),
+    protocolVersion,
   });
   return { sent, socket };
 }
@@ -126,6 +127,20 @@ describe("노동 계약 연결 처리", () => {
       { t: "labor_result", id: 1, ok: true },
       { t: "labor_result", id: 2, ok: false, code: "not_assigned" },
     ]);
+  });
+
+  it("wrong_map(판 15)은 15판 연결에만, 14판 연결은 invalid_terms(WP8 522 ①)", async () => {
+    const service: LaborService = {
+      ...fakeService([]),
+      assign: () => Promise.resolve({ ok: false, code: "wrong_map" }),
+    };
+    const now = open(service, viewer, 15);
+    const older = open(service, viewer, 14);
+    now.socket.handle({ t: "labor_assign", id: 1, buildingId: 3, unitId: 9 });
+    older.socket.handle({ t: "labor_assign", id: 2, buildingId: 3, unitId: 9 });
+    for (let i = 0; i < 4; i++) await settle();
+    expect(now.sent).toEqual([{ t: "labor_result", id: 1, ok: false, code: "wrong_map" }]);
+    expect(older.sent).toEqual([{ t: "labor_result", id: 2, ok: false, code: "invalid_terms" }]);
   });
 
   it("로그인하지 않았으면 sign_in_required, 세계가 준비 전이면 busy", async () => {

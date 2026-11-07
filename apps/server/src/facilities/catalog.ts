@@ -37,6 +37,11 @@ export interface FacilityCatalog {
   readonly facilities: readonly FacilityDef[];
   /** 재료 한 묶음 무게(g, 아이템 weight × lotSize). 모르면 undefined(건설 시간에서 0으로 센다) */
   weightOf(item: string): number | undefined;
+  /**
+   * 기본 단위 하나의 무게(g, 아이템 weight — 광석은 1g). 원장 잔고(창고·운반)는 기본 단위라 창고 무게는 이것으로 센다(302·D-506). 모르면
+   * undefined
+   */
+  unitWeightOf(item: string): number | undefined;
   itemName(item: string): LocalizedName | undefined;
   /** 원장 물자(보유 물건이 아닌 아이템)인가 — 개발 시험 재료 받기 */
   isGoods(item: string): boolean;
@@ -127,6 +132,7 @@ export function facilityCatalogOf(source: () => CatalogSource): () => FacilityCa
         const item = items.get(id);
         return item?.weight === undefined ? undefined : item.weight * (item.lotSize ?? 1);
       },
+      unitWeightOf: (id) => items.get(id)?.weight,
       itemName(id) {
         const item = items.get(id);
         return item ? { ko: item.name.ko, en: item.name.en } : undefined;

@@ -42,6 +42,20 @@ export function capacityGrams(ctx: StorageContext, buildingId: number): bigint |
   return BigInt(storageCapacityAt(def.storageKg, Math.max(1, record.level), ctx.rules)) * 1000n;
 }
 
+/**
+ * 그 건물 창고의 남은 자리(g) = 상한(팩 시설 storageKg × 레벨, N50) − 든 무게(모든 주인). storageKg가 없는 시설·시설 줄이 없는 건물은
+ * undefined(상한 없음). 채집 시설의 임대형 임차인 몫 상한(docs/adr/2026-11-07-play-flow.md "WP8", 기획 정리 D-518 523 ② — 414 옛 상한
+ * 벌목장·광산 200kg·농장 300kg)이 쓴다. 넣기 명령은 여전히 창고 시설만 받는다
+ */
+export function roomGrams(ctx: StorageContext, buildingId: number): bigint | undefined {
+  const record = ctx.world.facilities.get(buildingId);
+  const def = record ? ctx.catalog.facility(record.facilityId) : undefined;
+  if (!record || def?.storageKg === undefined) return undefined;
+  const capacity = BigInt(storageCapacityAt(def.storageKg, Math.max(1, record.level), ctx.rules)) * 1000n;
+  const used = storedGrams(ctx.ledger, ctx.catalog, buildingId);
+  return capacity > used ? capacity - used : 0n;
+}
+
 /** 옮긴다(같은 동기 처리 안에서 확인 → 거래). 결과 코드 또는 null(성공) */
 export function moveStorage(
   ctx: StorageContext,

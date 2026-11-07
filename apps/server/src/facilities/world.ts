@@ -4,7 +4,7 @@
 // - 건물 공격(질문 381, attack.ts): 세계 전투를 여는 길(몸·생명 수치·물약·탄 → 전투 서비스)을 받아 공성 전투를 열고, 결과의 건물 피해는
 //   damage(건물 서비스·영토 서비스)가 받는다.
 // - 플레이어 생산(docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산"): 계약 서비스를 이을 때 채집 산출 자료(채집 시설의 정의·레벨·도시·
-//   자리 수, 유닛 1차 스탯)를 함께 넘긴다(gatherSiteOf).
+//   자리 수, 유닛 1차 스탯)를 함께 넘긴다(gatherSiteOf). 임대형 임차인 몫의 건물 창고 남은 자리(storage.ts roomGrams, WP8 523 ②)도 함께.
 import type { SocietyCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldHoldings } from "../holdings/world.ts";
@@ -24,8 +24,9 @@ import {
 } from "./attack.ts";
 import { type CatalogSource, type FacilityCatalog, facilityCatalogOf } from "./catalog.ts";
 import { spendGoods } from "./materials.ts";
-import { type PlaceWorld, beaconMaterialScope, buildingPlace } from "./places.ts";
+import { type PlaceWorld, assetWeightG, beaconMaterialScope, buildingPlace } from "./places.ts";
 import { type FacilityService, createFacilityService } from "./service.ts";
+import { roomGrams } from "./storage.ts";
 import type { LoadedFacilities } from "./state.ts";
 
 /** 월드 설정의 건물 칸(app.ts가 실효 콘텐츠 접근자를 넘긴다) */
@@ -166,6 +167,18 @@ export function createWorldFacilities(input: {
       next.attachProduction({
         site: (buildingId) => gatherSiteOf(service, catalog(), buildingId),
         primaries: (unitId) => input.holdings.primariesOf(unitId),
+        // 임대형 임차인 몫의 건물 창고 상한(523 ②)
+        roomGrams: (buildingId) =>
+          roomGrams(
+            {
+              world: service.places,
+              ledger: input.ledger,
+              catalog: catalog(),
+              rules: input.rules().facilityRuntime,
+            },
+            buildingId,
+          ),
+        weightGrams: (asset) => assetWeightG(catalog(), asset),
       });
     },
   };

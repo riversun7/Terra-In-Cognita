@@ -25,8 +25,8 @@ function decodes(decode: (text: string) => unknown, message: unknown): boolean {
 describe("폐허 복원 메시지(프로토콜 13)", () => {
   it("모금 열기·넣기·개발 폐허가 왕복하고 값 모양을 본다", () => {
     expect(RUINS_PROTOCOL_VERSION).toBe(13);
-    expect(PROTOCOL_VERSION).toBe(14);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(13);
+    expect(PROTOCOL_VERSION).toBe(15);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(14);
     const open = { t: "restoration_open", id: 1, ruin: 12 } as const;
     expect(decodeClientMessage(encodeMessage(open))).toEqual(open);
     expect(decodes(decodeClientMessage, { ...open, ruin: 0 })).toBe(false);

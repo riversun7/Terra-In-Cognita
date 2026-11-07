@@ -55,6 +55,19 @@ describe("소유 주체 정산(시험 직무·유지비, 서버·시뮬 공용)"
     expect(book.balanceOf(5, TEST_ASSET_ORE)).toBe(240n);
   });
 
+  it("직무 없는 유닛은 산출 없이 쉬어 피로가 풀린다(WP8 525 ①: 2분에 1점, 시험 규칙)", () => {
+    const book = bookWithCredit(6, 0n);
+    const tired: JobState = { ...idle, fatigue: 100 };
+    const result = settleOwnerPeriod(
+      { ownerId: 6, jobs: [tired], fromMs: 0, toMs: HOUR, offlineSinceMs: 0 },
+      book,
+      testSettleAccounts(book, 6),
+    );
+    expect(result.cycles).toBe(0);
+    expect(result.jobs[0]).toEqual({ ...idle, fatigue: 70 });
+    expect(book.balanceOf(6, TEST_ASSET_ORE)).toBe(0n);
+  });
+
   it("나눠 정산해도 한 번에 한 것과 같다(장부 잔고까지)", () => {
     const once = bookWithCredit(1, 50n);
     const whole = settleOwnerPeriod(

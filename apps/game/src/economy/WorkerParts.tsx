@@ -1,6 +1,7 @@
 // 채집 시설 카드의 일꾼 칸 — 직무 배치(내 유닛 → 내 채집 시설, 돈 없음)·일하는 유닛 목록·빼기.
 // docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산", 기획 60_UX §7.1 ③(첫 유닛 고용·직무 배치 → "없는 동안에도 일합니다", D-6045)·D-506·D-507.
-// - 판정은 서버(labor_assign·labor_unassign, 프로토콜 14 — 소유·일터·자리·바쁨). 화면은 쉬는 유닛만 고르게 하고 자리가 차면 단추를 막는다.
+// - 판정은 서버(labor_assign·labor_unassign, 프로토콜 14 — 소유·일터·자리·바쁨, 판 15 같은 2차맵). 화면은 그 시설과 같은 2차맵의 쉬는 유닛만
+//   고르게 하고(기획 정리 D-518 522 ①, 다른 2차맵 유닛 수는 한 줄로) 자리가 차면 단추를 막는다.
 // - 스탯 짝(주 = 진행 속도, 보조 = 수확량)을 유닛 고르기에 함께 보인다(유닛 1차 스탯, 입은 장비 포함).
 // - 산출은 그 시설이 선 도시의 내 도시 창고로 간다(도시가 없으면 이 건물 창고).
 import type { FacilitiesOverviewResponse, FacilityView, FacilityWorkerView } from "@terra/shared/facilities";
@@ -47,7 +48,10 @@ export function FacilityWorkers({
   busy: boolean;
 }) {
   const gather = facility.gather;
-  const free = data.units.filter((unit) => !unit.busy);
+  const idle = data.units.filter((unit) => !unit.busy);
+  // 같은 2차맵의 유닛만 둘 수 있다(522 ①)
+  const free = idle.filter((unit) => unit.mapKey === facility.mapKey);
+  const elsewhere = idle.length - free.length;
   const [picked, setPicked] = useState<number | null>(null);
   if (!gather) return null;
   const unitId = free.some((unit) => unit.id === picked) ? picked : (free[0]?.id ?? null);
@@ -136,6 +140,9 @@ export function FacilityWorkers({
           </button>
         </div>
       )}
+      {built && elsewhere > 0 ? (
+        <p className="eco-footnote">{m.facility_workers_other_map({ count: elsewhere })}</p>
+      ) : null}
       {built && full ? <p className="eco-footnote">{m.facility_workers_full()}</p> : null}
       <p className="eco-footnote">{m.facility_workers_note()}</p>
     </fieldset>

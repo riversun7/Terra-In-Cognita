@@ -174,8 +174,11 @@ function NewContract({ data, run, busy }: { data: LaborOverviewResponse; run: La
   const buildings = data.buildings.filter((entry) =>
     kind === "wage" ? entry.own : !entry.own && entry.rent !== null,
   );
-  const units = data.units.filter((entry) => !entry.busy);
   const chosenBuilding = buildings.find((entry) => String(entry.id) === building) ?? buildings[0];
+  const idle = data.units.filter((entry) => !entry.busy);
+  // 고른 시설과 같은 2차맵의 유닛만 일할 수 있다(기획 정리 D-518 522 ①, 서버 wrong_map)
+  const units = chosenBuilding ? idle.filter((entry) => entry.mapKey === chosenBuilding.mapKey) : idle;
+  const elsewhere = idle.length - units.length;
   const chosenUnit = units.find((entry) => String(entry.id) === unit) ?? units[0];
   const rules = data.rules;
   const adjustPm = Number(adjust);
@@ -250,6 +253,7 @@ function NewContract({ data, run, busy }: { data: LaborOverviewResponse; run: La
           ))}
         </select>
       </label>
+      {elsewhere > 0 ? <p className="eco-footnote">{m.labor_units_other_map({ count: elsewhere })}</p> : null}
       {kind === "wage" ? (
         <label className="eco-field">
           <span>{m.labor_field_adjust({ min: rules.adjustMinPm, max: rules.adjustMaxPm })}</span>

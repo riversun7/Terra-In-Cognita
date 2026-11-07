@@ -124,8 +124,38 @@ export function jobCutoffMs(job: number, offlineSinceMs: number | null): number 
 }
 
 /**
+ * 직무 없는 유닛의 쉼(D-430 "쉬면 자동으로 회복", docs/adr/2026-11-07-play-flow.md "WP8"): durationMs 동안 restStepMs마다 피로 −1.
+ * 일 주기 쉼 단계와 같은 회복 값이다(주거·만족도 배율은 그 값에 얹는다 — society/labor.ts rulesWithRecovery). 0이 되면 일 단계·진행 0으로
+ * 둔다(다시 직무를 받으면 바로 일한다). 직무를 풀었다 다시 받아도 피로가 지워지지 않고 시간만큼만 풀린다.
+ * 나눠 셈해도 같다: 0까지 남은 시간(피로 × 걸음 − 진행)이 지난 시간만큼 줄어드는 꼴이다(settle.test.ts).
+ */
+export function restIdle(state: JobState, durationMs: number, rules: JobRules): JobState {
+  checkRules(rules);
+  if (!Number.isSafeInteger(durationMs) || durationMs < 0) throw new RangeError("duration must be >= 0");
+  if (durationMs === 0 || state.fatigue <= 0) return state;
+  const toZero = state.fatigue * rules.restStepMs - state.progressMs;
+  if (durationMs >= toZero) return { job: state.job, phase: PHASE_WORK, progressMs: 0, fatigue: 0 };
+  const done = Math.floor((state.progressMs + durationMs) / rules.restStepMs);
+  return {
+    job: state.job,
+    phase: state.phase,
+    progressMs: (state.progressMs + durationMs) % rules.restStepMs,
+    fatigue: state.fatigue - done,
+  };
+}
+
+/**
+ * 직무를 바꾼다(직무 배치·풀기, 계약 시작·끝 — 정산을 그 시각까지 한 뒤에 부른다). 피로·단계는 그대로 두고 진행은 0으로: 일 주기 진행과
+ * 쉼 걸음 진행은 단위가 달라 넘겨 쓰지 않는다(넘기면 바꿀 때마다 덤 주기가 생긴다). 피로가 0이면 일 단계로 둔다
+ */
+export function switchJob(state: JobState, job: number): JobState {
+  return { job, phase: state.fatigue <= 0 ? PHASE_WORK : state.phase, progressMs: 0, fatigue: state.fatigue };
+}
+
+/**
  * 유닛 하나의 직무를 (fromMs, toMs] 구간 정산한다. 접속 상태(offlineSinceMs)는 구간 안에서 바뀌지 않아야 한다
  * (서버는 접속 상태가 바뀔 때마다 정산한다). 일할 수 있는 끝을 넘은 시간은 멈춘 채로 둔다(24시간 뒤 대기, D-061).
+ * 직무 없는 유닛은 구간 내내 쉰다(restIdle, 접속 상태와 상관없이 — 오프라인에도 같은 회복 규칙, D-144·48 §7.1).
  */
 export function settleJob(
   state: JobState,
@@ -134,6 +164,8 @@ export function settleJob(
   offlineSinceMs: number | null,
   rules: JobRules,
 ): JobAdvance {
+  if (state.job === JOB_NONE)
+    return { state: toMs > fromMs ? restIdle(state, toMs - fromMs, rules) : state, cycles: 0 };
   const end = Math.min(toMs, jobCutoffMs(state.job, offlineSinceMs));
   if (end <= fromMs) return { state, cycles: 0 };
   return advanceJob(state, end - fromMs, rules);

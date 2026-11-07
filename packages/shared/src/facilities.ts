@@ -74,7 +74,7 @@ export interface FacilityView {
   readonly storageKg: number | null;
   /** 창고 시설(창고 단계)인가 — 물건을 넣고 꺼낸다(storage_move, 프로토콜 11) */
   readonly storage: boolean;
-  /** 창고 시설에 든 무게(kg, 모든 주인, 올림). 창고 시설이 아니면 null */
+  /** 건물 창고에 든 무게(kg, 모든 주인, 올림). 창고 시설·상한이 있는 시설(채집 시설의 임대형 몫, 523 ②)만, 그 밖은 null */
   readonly storedKg: number | null;
   /** 건물이 선 도시(재료를 꺼내는 도시 창고, @terra/shared/goodsPlaces). 그 2차맵에 도시가 없으면 null */
   readonly cityId: number | null;
@@ -159,6 +159,8 @@ export interface FacilityUnitView {
   readonly id: number;
   /** 사이보그 본체인가 */
   readonly cyborg: boolean;
+  /** 유닛이 있는 2차맵(직무 배치는 같은 2차맵 시설에만, 기획 정리 D-518 522 ①) */
+  readonly mapKey: number;
   /** 다른 작업·계약 중 */
   readonly busy: boolean;
   /** 제작 직무 점수(가중치 표 job_crafting, 장인 보정) */

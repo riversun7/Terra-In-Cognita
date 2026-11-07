@@ -45,7 +45,8 @@
         "width": 4,
         "height": 4
       },
-      "durability": 150
+      "durability": 150,
+      "storageKg": 300
     },
     {
       "id": "lumber_camp",
@@ -99,7 +100,8 @@
         "width": 3,
         "height": 3
       },
-      "durability": 200
+      "durability": 200,
+      "storageKg": 200
     },
     {
       "id": "mine",
@@ -153,7 +155,8 @@
         "width": 3,
         "height": 3
       },
-      "durability": 300
+      "durability": 300,
+      "storageKg": 200
     },
     {
       "id": "smelter",

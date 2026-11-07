@@ -20,6 +20,9 @@
 //   (workBook.ts goodsFor — 임금형·직무 배치 = 그 건물이 선 도시의 도시 창고, 임대형 = 그 건물 창고). 계약 밖 구간(앞·끝 뒤)은 개발 시험 일꾼만
 //   시험 광석을 내고 플레이어 유닛은 내지 않는다. 계약을 맺으면 유닛 직무를 채집으로 켜고, 일이 끝나면 정산 뒤 고리가 끈다.
 //   직무 배치(assign·unassign, 프로토콜 14)는 내 유닛을 내 채집 시설에 돈 없이 둔다(질문 521, 자리 = 레벨 × 레벨당 자리).
+// - 직무 위치·임대 상한(docs/adr/2026-11-07-play-flow.md "WP8", 기획 정리 D-518 522 ①·523 ②): 직무 배치·계약 맺기·구인 받기는 유닛이 그
+//   시설과 같은 2차맵에 있어야 한다(wrong_map). 정산 때 유닛이 그 2차맵을 떠났으면 배치는 풀고 계약은 "유닛 사라짐"으로 끝낸다. 임대형
+//   임차인 몫(그 건물 창고)은 그 건물 창고 상한(팩 시설 storageKg × 레벨, N50)까지만 쌓인다(workBook.ts leaseRooms).
 import type { LaborResultCode } from "@terra/protocol";
 import type {
   LaborContractView,
@@ -179,6 +182,12 @@ export function createLaborService(options: {
     }
     return undefined;
   };
+  /** 유닛이 그 시설과 같은 2차맵에 있나(522 ①, 가장 단순한 위치 조건). 유닛·시설이 없으면 false */
+  const onSiteMap = (unitId: number, buildingId: number): boolean => {
+    for (const map of maps.values())
+      if (map.unitInfo(unitId)) return map.buildingOwner(buildingId) !== undefined;
+    return false;
+  };
   /** 건물 주인(없는 건물이면 undefined, 주인 없음이면 null) */
   const buildingOwnerOf = (buildingId: number): number | null | undefined => {
     for (const map of maps.values()) {
@@ -226,7 +235,8 @@ export function createLaborService(options: {
     unitOwnerOf(unitId) !== ownerId ||
     (options.unitAway?.(unitId) ?? false) ||
     buildingOwnerOf(buildingId) !== ownerId ||
-    work.source()?.site(buildingId) === undefined;
+    work.source()?.site(buildingId) === undefined ||
+    !onSiteMap(unitId, buildingId);
   /** 이번 정산에서 유예가 끝난 임대형 계약(정산 뒤 고리가 남은 물건을 옮긴다) */
   const leftoverQueue: LaborContract[] = [];
 
@@ -237,7 +247,9 @@ export function createLaborService(options: {
     if (unitOwner === undefined || unitOwner !== c.workerOwnerId || (options.unitAway?.(c.unitId) ?? false))
       return "unit_gone";
     const buildingOwner = buildingOwnerOf(c.buildingId);
-    return buildingOwner === undefined || buildingOwner !== c.ownerId ? "building_gone" : null;
+    if (buildingOwner === undefined || buildingOwner !== c.ownerId) return "building_gone";
+    // 유닛이 그 시설의 2차맵을 떠났으면 유닛이 사라진 것처럼 끝낸다(522 ①)
+    return onSiteMap(c.unitId, c.buildingId) ? null : "unit_gone";
   };
   /**
    * 사라짐·주인 바뀜이면 마지막 정산 시각에 해지한다(임금형 끝·임대형 유예, 시설이 사라지면 유예 없이). 유예 중이면 시설이
@@ -264,6 +276,8 @@ export function createLaborService(options: {
     const society = options.rules();
     const rules = wageRulesOf(society).labor;
     const productionOn = society.switches.productionEnabled !== 0;
+    // 임대형 임차인 몫이 쌓이는 건물 창고의 남은 자리(이번 정산 안에서 함께 줄인다, 523 ②)
+    const rooms = work.leaseRooms();
     const out = new Map<number, OutputSegment[]>();
     for (const c of mine) {
       // 사라진 유닛·시설의 산출은 나누지 않는다(유예에 들었으면 다음 정산부터 시각만 흐른다). 플레이어 유닛은 그 구간 산출이 없다
@@ -295,6 +309,7 @@ export function createLaborService(options: {
         ownerId,
         c.buildingId,
         c.kind === "wage" ? cityReceiver(c.ownerId) : buildingReceiver(ownerId),
+        c.kind === "lease" ? rooms : undefined,
       );
       for (const segment of segments) {
         const producing = productionOn && segment.mode === "work" && works;
@@ -360,6 +375,7 @@ export function createLaborService(options: {
     unitOwnerOf,
     buildingOwnerOf,
     unitBusy,
+    onSiteMap,
     nextContractId: () => lastId + 1,
     addContract: (c) => {
       lastId = Math.max(lastId, c.id);
@@ -438,6 +454,7 @@ export function createLaborService(options: {
       const unitOwner = unitOwnerOf(input.unitId);
       if (unitOwner === undefined) return fail("unknown_unit");
       if (unitOwner !== me) return fail("forbidden");
+      if (!onSiteMap(input.unitId, input.buildingId)) return fail("wrong_map");
       if (unitBusy(input.unitId)) return fail("unit_busy");
       const rules = wageRulesOf(options.rules());
       let ownerId: number;
@@ -600,11 +617,12 @@ export function createLaborService(options: {
               : null;
           const own = me !== undefined && building.ownerId === me;
           if (own || (posted !== null && building.ownerId !== null))
-            buildings.push({ id: building.id, own, rent: posted });
+            buildings.push({ id: building.id, own, rent: posted, mapKey: map.mapKey });
         });
         if (me !== undefined)
           map.forEachUnit((unit) => {
-            if (unit.ownerId === me) units.push({ id: unit.id, kind: unit.kind, busy: unitBusy(unit.id) });
+            if (unit.ownerId === me)
+              units.push({ id: unit.id, kind: unit.kind, busy: unitBusy(unit.id), mapKey: map.mapKey });
           });
       }
       return {
@@ -646,6 +664,7 @@ export function createLaborService(options: {
       // 다 지은 채집 시설만(팩 gather가 있는 시설, 레벨 1 이상)
       const site = work.source()?.site(buildingId);
       if (!site || site.level < 1) return fail("not_workplace");
+      if (!onSiteMap(unitId, buildingId)) return fail("wrong_map");
       if (unitBusy(unitId)) return fail("unit_busy");
       if (workersAt(buildingId).length >= site.slots) return fail("facility_full");
       // 바꾸기 전에 지금까지 정산한다(배치 구간이 이 시각에서 시작한다)

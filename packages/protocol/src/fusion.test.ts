@@ -40,13 +40,13 @@ describe("융합·유전자 메시지(프로토콜 9)", () => {
 
   it("결과는 성공(유닛·스탯·보너스·조각 수) 또는 코드", () => {
     const ok = {
-      t: "fusion_result",
+      t: "fusion_result" as const,
       id: 3,
-      ok: true,
+      ok: true as const,
       unitId: 41,
       stats: [12, 13, 14, 20, 21, 22],
       bonusPm: 1100,
-    } as const;
+    };
     expect(decodeServerMessage(encodeMessage(ok))).toEqual(ok);
     expect(decodes(decodeServerMessage, { ...ok, stats: [1, 2, 3] })).toBe(false);
     for (const code of FUSION_RESULT_CODES)

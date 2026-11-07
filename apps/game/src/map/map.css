@@ -96,6 +96,13 @@
 .map-notice p + p {
   font-weight: var(--font-weight-regular);
 }
+/* 안내 단추 줄([1차맵에서 보기]·[다시 시도]) — 좁은 화면에서는 줄을 바꾼다 */
+.map-notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
 /* 탐사 없음 알림(유닛 없는 계정): 오른쪽 가운데 1·2차맵 전환 단추(shell overlays.css .map-switch)를 피해 왼쪽에 붙인다 */
 .map-dark {
   max-width: none;

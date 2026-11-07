@@ -1,6 +1,7 @@
 // 2차맵 화면(S1) — 서버의 2차맵을 구독해 지형·건물·유닛을 그린다. 지연 로딩 조각 하나로만 들어온다(App.tsx의 React.lazy).
 // 열 맵(docs/adr/2026-11-07-play-flow.md "WP2 지도 흐름", 기획 60 §4.1 D-6017): 주소 ?key=, 없으면 내 사이보그가 있는 맵(MapTargetGate.tsx),
-// 카메라는 지형이 서면 내 사이보그 자리에 맞춘다.
+// 카메라는 지형이 서면 내 사이보그 자리에 맞춘다. 내 사이보그가 없는 맵이면 1차맵에서 고른 곳(?at=) 또는 그 2차맵 도시 시청(WP7, 515).
+// 서버가 띄우지 않은 맵(unknown_map)·볼 수 없는 맵(not_visible)이면 다시 묻지 않고 까닭과 [1차맵에서 보기](1차맵 명령 흐름으로, 513)를 보인다.
 // [임시] 앱 화면 흐름(홈·아래 탭)이 따로 설계되는 중이다. 그때 이 화면을 "지도" 탭으로 옮긴다: onClose·monitor만 받는다.
 // 자료는 서버에서 온다(mapFeed.ts, ADR 2026-10-28-s1-second-map "전송"). 연결·시계 차이는 앱의 연결 하나를 함께 쓴다(serverLink).
 // 고빈도 상태(유닛 위치)는 엔진 안 타입 배열에 있고, 이 화면은 1초마다 요약(stats)만 읽는다(PLAN 5.7).
@@ -40,7 +41,7 @@ import {
   type MapFeed,
 } from "./feedTypes.ts";
 import { startMapFeed } from "./mapFeed.ts";
-import { resultText, terrainFailureText } from "./mapMessages.ts";
+import { resultText } from "./mapMessages.ts";
 import { formatPixelRatio, pixelRatioOption } from "./pixelRatioParam.ts";
 import { createSkyClock, reducedMotionList } from "./planetSky.ts";
 import { compassAngle, northOnMap } from "./secondMapCompass.ts";
@@ -50,6 +51,7 @@ import { formatLocalTime, readSecondMapSkyParams, secondMapSkyMode } from "./sec
 import { fetchTerrain } from "./terrainLoader.ts";
 import type { MapFocus } from "./mapTarget.ts";
 import { MapTargetGate } from "./MapTargetGate.tsx";
+import { screenNotice } from "./secondMapNotice.ts";
 import "./map.css";
 
 /** 성능 보고에 붙이는 화면 이름 */
@@ -67,12 +69,14 @@ interface SecondaryMapScreenProps {
   monitor: FrameMonitor;
   /** 주소 ?key= 2차맵 키(없으면 내 사이보그가 있는 맵) */
   mapKey?: string | undefined;
+  /** 주소 ?at= 1차맵에서 고른 배치 칸(내 사이보그가 없는 맵의 카메라) */
+  at?: string | undefined;
 }
 
 /** 열 맵을 정한 뒤(MapTargetGate) 그 맵을 그린다. 맵이 바뀌면 화면을 새로 만든다 */
-export default function SecondaryMapScreen({ mapKey, ...props }: SecondaryMapScreenProps) {
+export default function SecondaryMapScreen({ mapKey, at, ...props }: SecondaryMapScreenProps) {
   return (
-    <MapTargetGate keyParam={mapKey} onClose={props.onClose}>
+    <MapTargetGate keyParam={mapKey} atParam={at} onClose={props.onClose}>
       {(target) => (
         <SecondMapView key={target.mapKey} {...props} mapKey={target.mapKey} focus={target.focus} />
       )}
@@ -84,7 +88,7 @@ interface SecondMapViewProps {
   onClose: () => void;
   monitor: FrameMonitor;
   mapKey: number;
-  /** 카메라를 맞출 내 사이보그(이 맵에 없으면 null) */
+  /** 카메라를 맞출 곳(내 사이보그·1차맵에서 고른 곳·도시 시청, 없으면 맵 가운데) */
   focus: MapFocus | null;
 }
 
@@ -95,13 +99,6 @@ type CommandNotice =
   | { kind: "sent"; unitId: number }
   | { kind: "result"; report: CommandReport };
 
-interface Notice {
-  tone: "status" | "alert";
-  lines: string[];
-  /** [다시 시도]를 보인다 */
-  retry: boolean;
-}
-
 interface HudSnapshot {
   stats: EngineStats;
   feed: FeedStats;
@@ -109,35 +106,6 @@ interface HudSnapshot {
   selectedAt: string;
   /** 카메라 목표점이 있는 2차맵(지금 "0,0", 이웃이면 방향) */
   viewMap: string;
-}
-
-/** 가운데 안내 — 엔진 상태와 자료 상태 중 지금 가장 중요한 것 하나 */
-function screenNotice(engine: EngineStatus, feed: FeedStatus): Notice | null {
-  const { phase, terrain, hasSnapshot } = feed;
-  if (engine.kind === "unsupported") return { tone: "alert", lines: [m.map_unsupported()], retry: false };
-  if (engine.kind === "error") return { tone: "alert", lines: [m.map_error()], retry: false };
-  if (phase.kind === "failed") {
-    return { tone: "alert", lines: [m.map_feed_failed(), resultText(phase.code)], retry: true };
-  }
-  if (terrain.kind === "failed") {
-    return {
-      tone: "alert",
-      lines: [m.map_terrain_failed(), terrainFailureText(terrain.reason)],
-      retry: terrain.reason !== "render",
-    };
-  }
-  if (engine.kind === "context-lost") return { tone: "status", lines: [m.map_context_lost()], retry: false };
-  if (phase.kind === "offline") return { tone: "status", lines: [m.status_disconnected()], retry: false };
-  if (phase.kind === "connecting") return { tone: "status", lines: [m.map_feed_connecting()], retry: false };
-  if (phase.kind === "retrying" && !hasSnapshot) {
-    return { tone: "status", lines: [resultText(phase.code), m.map_feed_retry_soon()], retry: false };
-  }
-  if (!hasSnapshot) return { tone: "status", lines: [m.map_feed_receiving()], retry: false };
-  if (terrain.kind === "none" || terrain.kind === "loading") {
-    return { tone: "status", lines: [m.map_terrain_loading()], retry: false };
-  }
-  if (engine.kind === "loading") return { tone: "status", lines: [m.map_preparing()], retry: false };
-  return null;
 }
 
 function commandText(notice: CommandNotice): string {
@@ -287,11 +255,11 @@ function SecondMapView({ onClose, monitor, mapKey, focus }: SecondMapViewProps) 
     });
     feedRef.current = feed;
 
-    // 내 사이보그에 카메라를 맞춘다(D-6017): 지형이 서면 한 번. 유닛을 받았으면 그 지금 자리, 아니면 서버가 알려 준 칸
+    // 카메라를 맞춘다(D-6017·515): 지형이 서면 한 번. 내 사이보그면 유닛을 받았을 때 그 지금 자리, 아니면 알려 준 칸
     const focusTimer = focus
       ? setInterval(() => {
           if (engine.stats().terrainBuildMs === null) return;
-          const unit = engine.unitState(focus.unitId);
+          const unit = focus.unitId === null ? null : engine.unitState(focus.unitId);
           engine.setView({ x: unit?.x ?? focus.cellX + 0.5, y: unit?.y ?? focus.cellY + 0.5 });
           clearInterval(focusTimer);
         }, FOCUS_POLL_MS)
@@ -434,7 +402,9 @@ function SecondMapView({ onClose, monitor, mapKey, focus }: SecondMapViewProps) 
       data-props={stats?.props}
       data-view-map={snapshot?.viewMap}
       data-map-key={mapKey}
-      data-focus={focus ? focus.unitId : undefined}
+      data-focus={focus?.unitId ?? undefined}
+      data-focus-source={focus?.source}
+      data-focus-at={focus ? `${focus.cellX},${focus.cellY}` : undefined}
     >
       <div ref={hostRef} className="map-view" role="img" aria-label={m.map_view_label()} />
       <header className="map-hud map-hud-top">
@@ -515,10 +485,25 @@ function SecondMapView({ onClose, monitor, mapKey, focus }: SecondMapViewProps) 
           {notice.lines.map((line) => (
             <p key={line}>{line}</p>
           ))}
-          {notice.retry ? (
-            <button type="button" className="button-small" onClick={() => feedRef.current?.retry()}>
-              {m.retry()}
-            </button>
+          {notice.retry || notice.planet ? (
+            <div className="map-notice-actions">
+              {notice.planet ? (
+                <button
+                  type="button"
+                  className="button-small button-primary map-open-planet"
+                  onClick={() =>
+                    navigate({ route: "map_planet", search: { key: String(mapKey) } }, { replace: true })
+                  }
+                >
+                  {m.map_open_planet_here()}
+                </button>
+              ) : null}
+              {notice.retry ? (
+                <button type="button" className="button-small" onClick={() => feedRef.current?.retry()}>
+                  {m.retry()}
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}

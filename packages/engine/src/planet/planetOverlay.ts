@@ -2,7 +2,7 @@
 // docs/adr/2026-11-07-play-flow.md "WP2 지도 흐름". 엔진은 그린 프레임마다 투영기(PlanetProjector)를 onOverlay로 넘긴다:
 // 화면은 그 자리에서 DOM 위치만 바꾼다(React 상태를 바꾸지 않는다, PLAN 5.7 고빈도 상태는 엔진 안).
 // 보임: 카메라 앞이고, 카메라에서 그 점까지 가는 시선이 행성 몸(가리는 구)에 먼저 닿지 않을 때(지평선 너머는 숨긴다).
-import { type CellKey, isCellKey } from "@terra/planet";
+import { type CellKey, PLACEMENT_SUBLEVELS, isCellKey, offsetInAncestor } from "@terra/planet";
 import { cellCenter, xyzToCell } from "@terra/planet/projection";
 import {
   type GlobePose,
@@ -82,4 +82,18 @@ export function mapKeyAtLatLon(latDeg: number, lonDeg: number, faceLevel: number
 /** 2차맵 키(1차맵 칸 셀 키) 가운데의 위도·경도(°). 셀 키가 아니면 null */
 export function latLonOfMapKey(mapKey: number): { latDeg: number; lonDeg: number } | null {
   return isCellKey(mapKey) ? latLonOf(cellCenter(mapKey)) : null;
+}
+
+/**
+ * 위도·경도(°) 자리의 2차맵 키와 그 안 배치 칸(0 ~ 255) — 1차맵에서 고른 곳을 2차맵 카메라로 넘길 때(docs/adr/2026-11-07-play-flow.md "WP7").
+ * 배치 칸 = 2차맵 칸의 PLACEMENT_SUBLEVELS 아래 칸(서버 placementCellKey와 같은 틀)
+ */
+export function placementAtLatLon(
+  latDeg: number,
+  lonDeg: number,
+  faceLevel: number,
+): { mapKey: CellKey; x: number; y: number } {
+  const cell = xyzToCell(directionOfLatLon(latDeg, lonDeg), faceLevel + PLACEMENT_SUBLEVELS);
+  const { ancestor, x, y } = offsetInAncestor(cell, faceLevel);
+  return { mapKey: ancestor, x, y };
 }

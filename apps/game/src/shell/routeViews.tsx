@@ -174,14 +174,15 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <HomeScreen match={match} monitor={monitor} />;
     case "start":
       return <StartScreen user={user} />;
-    // ?key= 2차맵 키(docs/adr/2026-11-07-play-flow.md "WP2"): 키가 바뀌면 화면을 새로 만든다
+    // ?key= 2차맵 키(docs/adr/2026-11-07-play-flow.md "WP2"), ?at= 1차맵에서 고른 배치 칸(WP7): 바뀌면 화면을 새로 만든다
     case "map":
       return (
         <SecondaryMapScreen
-          key={match.search.key ?? ""}
+          key={`${match.search.key ?? ""}|${match.search.at ?? ""}`}
           onClose={goBack}
           monitor={monitor}
           mapKey={match.search.key}
+          at={match.search.at}
         />
       );
     case "map_planet":

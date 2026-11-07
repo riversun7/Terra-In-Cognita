@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { mapSwitchTarget } from "../shell/MapSwitch.tsx";
 import { circlePoints } from "./CityOverlay.tsx";
 import { landText, waterFeatures } from "./landText.ts";
-import { chooseMapTarget } from "./mapTarget.ts";
+import { chooseMapTarget, formatAtParam, needsCities, parseAtParam } from "./mapTarget.ts";
 import { clusterView, focusView } from "./planetFocus.ts";
 import {
   cityLabel,
@@ -113,7 +113,7 @@ describe("2차맵 화면이 열 맵", () => {
     expect(chooseMapTarget("500", position())).toEqual({
       kind: "ready",
       mapKey: 500,
-      focus: { unitId: 77, cellX: 120, cellY: 131 },
+      focus: { unitId: 77, cellX: 120, cellY: 131, source: "cyborg" },
     });
     expect(chooseMapTarget("600", position())).toEqual({ kind: "ready", mapKey: 600, focus: null });
     expect(chooseMapTarget(undefined, position())).toMatchObject({ mapKey: 500, focus: { unitId: 77 } });
@@ -131,6 +131,38 @@ describe("2차맵 화면이 열 맵", () => {
     expect(chooseMapTarget("600", null)).toEqual({ kind: "ready", mapKey: 600, focus: null });
     expect(chooseMapTarget(undefined, null)).toEqual({ kind: "failed" });
     expect(chooseMapTarget("x", null)).toEqual({ kind: "failed" });
+  });
+
+  it("내 사이보그가 없는 맵의 카메라(WP7, 515): ?at= > 그 2차맵 도시 시청(시작 도시 먼저) > 맵 가운데", () => {
+    const cities = [
+      city({ id: 9, mapKey: 600, start: false, cellX: 30, cellY: 40 }),
+      city({ id: 12, mapKey: 600, start: true, cellX: 200, cellY: 210 }),
+      city({ id: 3, mapKey: 700, cellX: 1, cellY: 2 }),
+    ];
+    expect(chooseMapTarget("600", position(), { at: "17,250", cities })).toMatchObject({
+      focus: { unitId: null, cellX: 17, cellY: 250, source: "picked" },
+    });
+    expect(chooseMapTarget("600", position(), { cities })).toMatchObject({
+      focus: { unitId: null, cellX: 200, cellY: 210, source: "city" },
+    });
+    expect(chooseMapTarget("800", position(), { cities })).toMatchObject({ mapKey: 800, focus: null });
+    // 내 사이보그가 있으면 ?at=보다 내 사이보그(D-6017)
+    expect(chooseMapTarget("500", position(), { at: "1,1", cities })).toMatchObject({
+      focus: { source: "cyborg", unitId: 77 },
+    });
+    // 도시 목록이 필요한 때: 주소 맵에 내 사이보그가 없고 ?at=도 없을 때만
+    expect(needsCities("600", undefined, position())).toBe(true);
+    expect(needsCities("600", "3,4", position())).toBe(false);
+    expect(needsCities("500", undefined, position())).toBe(false);
+    expect(needsCities(undefined, undefined, position())).toBe(false);
+  });
+
+  it("?at= 읽기·쓰기: 0 ~ 255 정수 쌍만", () => {
+    expect(parseAtParam("0,255")).toEqual({ x: 0, y: 255 });
+    for (const bad of ["256,1", "-1,2", "01,2", "1.5,2", "1,2,3", "", "a,b"])
+      expect(parseAtParam(bad)).toBeNull();
+    expect(parseAtParam(undefined)).toBeNull();
+    expect(formatAtParam(12.9, 200)).toBe("12,200");
   });
 });
 

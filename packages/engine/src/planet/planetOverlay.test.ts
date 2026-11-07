@@ -1,9 +1,15 @@
 // 1차맵 덧그림 투영 시험 — 화면 가운데 땅은 화면 가운데에 보이고, 지평선 너머(반대쪽)는 숨기고, 셀 키 찾기는 투영과 같은 칸을 준다
-import { cellKey, decodeCellKey } from "@terra/planet";
+import { cellKey, decodeCellKey, descendantAt, PLACEMENT_SUBLEVELS } from "@terra/planet";
 import { averageCellEdgeMeters, cellCenter } from "@terra/planet/projection";
 import { describe, expect, it } from "vitest";
 import { type Viewport, globeLimits, globePose, initialGlobe, latLonOf } from "./globeCamera.ts";
-import { createProjector, latLonOfMapKey, mapKeyAtLatLon, pointVisible } from "./planetOverlay.ts";
+import {
+  createProjector,
+  latLonOfMapKey,
+  mapKeyAtLatLon,
+  placementAtLatLon,
+  pointVisible,
+} from "./planetOverlay.ts";
 import { EARTH_RADIUS_M } from "./testSupport.ts";
 
 const R = EARTH_RADIUS_M;
@@ -68,6 +74,19 @@ describe("위도·경도 → 2차맵 키", () => {
       const found = mapKeyAtLatLon(latDeg, lonDeg, 9);
       expect(decodeCellKey(found)).toEqual({ face, level: 9, i, j });
       expect(latLonOfMapKey(key)).toEqual({ latDeg, lonDeg });
+    }
+  });
+
+  it("배치 칸 가운데의 위도·경도는 그 2차맵 키·배치 칸으로 돌아온다(서버 placementCellKey와 같은 틀)", () => {
+    const mapKey = cellKey(2, 9, 140, 77);
+    for (const [x, y] of [
+      [0, 0],
+      [128, 64],
+      [255, 255],
+      [17, 230],
+    ] as const) {
+      const { latDeg, lonDeg } = latLonOf(cellCenter(descendantAt(mapKey, PLACEMENT_SUBLEVELS, x, y)));
+      expect(placementAtLatLon(latDeg, lonDeg, 9)).toEqual({ mapKey, x, y });
     }
   });
 

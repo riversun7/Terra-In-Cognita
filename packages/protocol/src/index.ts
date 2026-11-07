@@ -96,6 +96,7 @@ export {
   type TravelKind,
   type TravelResultCode,
 } from "./travel.ts";
+export { GATHER_PROTOCOL_VERSION, GATHER_RESULT_CODES, type GatherResultCode } from "./gather.ts";
 export {
   GUARDIAN_BUFF_IDS,
   GUARDIAN_BUFF_PROTOCOL_VERSION,

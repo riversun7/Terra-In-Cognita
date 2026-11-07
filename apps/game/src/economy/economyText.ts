@@ -90,7 +90,7 @@ const TEST_ASSETS: Readonly<Record<string, () => string>> = {
   s3_test_ore: m.economy_asset_test_ore,
 };
 
-/** 화폐 이름: 팩 화폐 → 시험 화폐(서버 거래소는 지금 시험 화폐 하나로 값을 매긴다, docs/adr/2026-11-07-play-flow.md WP4) → 코드 */
+/** 화폐 이름: 팩 화폐(나라 화폐) → 시험 화폐(서버 기준 통화, docs/adr/2026-11-07-play-flow.md WP6) → 코드 */
 export const currencyName = (index: CatalogIndex, code: string): string => {
   const known = index.currencies.get(code);
   if (known) return pickName(known.name, code);

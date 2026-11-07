@@ -1,7 +1,8 @@
 // 경제·거래창 화면 시험 — /economy 아래 칸(한눈에·창고·생산·거래·환전), 거래창 흐름(물건 → 도시 → 호가 + 주문표), 내 주문.
 // ADR 2026-10-29-app-shell 끝 "구현하며 정한 것 (경제·거래창 화면)", 기획 60_UX §6(D-6032~D-6035).
 // - 플레이어: 실제 자료(팩 목록·원장 잔고, 서버 도시 경제의 거래소·내 주문·기준 도시 생산 — docs/adr/2026-11-07-play-flow.md WP4). 환전은
-//   "곧 열림". 시안 자료를 묻지 않는다. 실제 거래소의 [주문]은 명령을 보낸다(주문 넣기·체결·취소 셈은 서버 DB 시험 market.db.test.ts가 본다).
+//   나라 화폐 ↔ 기준 통화 실제 짝(WP6): 주문을 내고 거둔다. 시안 자료를 묻지 않는다. 실제 거래소의 [주문]은 명령을 보낸다(주문 넣기·체결·취소·
+//   환전 회차 셈은 서버 DB 시험 market.db.test.ts가 본다).
 // - admin + 시안 자료: 서버가 sim 거래소로 만든 시험 호가·체결(apps/server/src/economyView/). 앱을 켤 때 뜨는 복귀 요약은
 //   summary.get 응답을 고쳐 띄우지 않는다(helpers/trpc.ts hideSummary).
 // - 주문표: 호가 줄을 누르면 값이 들어가고, 거래세·묶이는 돈 미리 보기가 바뀌며, [주문]은 "곧 열림"으로 잠겨 있다(명령 없음).
@@ -42,7 +43,7 @@ async function fullShot(page: Page, name: string): Promise<void> {
 test.describe("플레이어(실제 자료)", () => {
   test.use({ account: "player" });
 
-  test("한눈에·거래·환전: 실제 거래소(NPC 도시 매물)·내 주문·도시 생산, 환전은 곧 열림, 시안 자료를 묻지 않는다", async ({
+  test("한눈에·거래·환전: 실제 거래소(NPC 도시 매물)·내 주문·도시 생산, 환전 주문 내기·거두기, 시안 자료를 묻지 않는다", async ({
     page,
     deviceErrors,
   }) => {
@@ -78,10 +79,29 @@ test.describe("플레이어(실제 자료)", () => {
     await expect(economy(page).locator(".eco-limit-line")).toHaveText(
       message("ko", "economy_limit", { left: 10, max: 10 }),
     );
+    // 환전(WP6): 고정 나라 넷의 화폐 ↔ 기준 통화(시험 화폐). 1로트를 값 1로 내고(다음 회차, 다른 시험이 잔고를 써도 묶을 수 있게), 회차 전에 거둔다
     await page.goto("/economy/exchange");
-    await expect(economy(page).locator(".eco-not-ready")).toContainText(
-      message("ko", "economy_not_ready_exchange"),
+    await expect(economy(page).locator(".eco-not-ready")).toHaveCount(0);
+    await expect(economy(page).locator(".eco-fx")).toHaveCount(4);
+    await expect(economy(page).getByText(message("ko", "fx_intro_live"))).toBeVisible();
+    await expect(economy(page).getByText(message("ko", "fx_open_empty"))).toBeVisible();
+    await page.getByLabel(message("ko", "economy_exchange_lots"), { exact: true }).fill("1");
+    await page.getByLabel(message("ko", "fx_price_buy"), { exact: true }).fill("1");
+    await economy(page)
+      .getByRole("button", { name: message("ko", "fx_submit") })
+      .click();
+    await expect(economy(page).locator(".eco-fx-form .eco-sent")).toHaveAttribute("data-tone", "ok");
+    await expect(economy(page).locator(".eco-fx-form .eco-row-meta").last()).toHaveText(
+      message("ko", "fx_limit", { used: 1, max: 10 }),
     );
+    // [거두기]의 읽는 이름은 "<화폐> 환전 주문 거두기"(fx_cancel_label)
+    const withdraw = economy(page).getByRole("button", {
+      name: new RegExp(`${message("ko", "fx_cancel")}$`),
+    });
+    await expect(withdraw).toHaveCount(1);
+    await withdraw.click();
+    await expect(economy(page).getByText(message("ko", "fx_open_empty"))).toBeVisible();
+    await expect(economy(page).getByText(message("ko", "fx_done_title"))).toBeVisible();
     await page.goto("/economy/production");
     // 기준 도시의 생산(NPC 시설·도시 직무)과 실제 팩 레시피 목록
     await expect(economy(page).getByText(message("ko", "market_city_production_note"))).toBeVisible();
@@ -445,7 +465,7 @@ test.describe("실제 거래소 사진", () => {
     test.describe(`${theme}·${language}`, () => {
       test.use({ theme, language, viewport: { width: 390, height: 844 } });
 
-      test("거래창·내 주문·도시 생산: 가로 넘침·작은 누르는 곳 없음, 사진", async ({
+      test("거래창·내 주문·도시 생산·환전: 가로 넘침·작은 누르는 곳 없음, 사진", async ({
         page,
         deviceErrors,
       }) => {
@@ -458,6 +478,8 @@ test.describe("실제 거래소 사진", () => {
           { name: "live-book", ready: ".eco-submit", path: null },
           { name: "live-orders", ready: ".eco-limit-line", path: "/economy/orders" },
           { name: "live-production", ready: ".eco-facility", path: "/economy/production" },
+          // 환전(WP6, 나라 화폐 ↔ 기준 통화 실제 짝)
+          { name: "live-exchange", ready: ".eco-fx", path: "/economy/exchange" },
         ];
         for (const screen of screens) {
           if (screen.path !== null) await page.goto(screen.path);

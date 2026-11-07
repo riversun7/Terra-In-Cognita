@@ -1,0 +1,904 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "dcf1d841-ef0a-4549-8c78-a8ab54035aec",
+  "prevIds": [
+    "fe0c6aba-b539-4da4-b3a2-3aa24a61a263",
+    "e62c11b4-4467-480d-89bc-1124abd9d05f"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "fx_orders"
+      ],
+      "writes": [
+        "s|tbl|public.fx_orders",
+        "n|tbl|public.fx_orders",
+        "e|tbl|public.fx_orders",
+        "n|rel|public.fx_orders",
+        "n|type|public.fx_orders",
+        "n|rel|public.fx_orders_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "fx_pairs"
+      ],
+      "writes": [
+        "s|tbl|public.fx_pairs",
+        "n|tbl|public.fx_pairs",
+        "e|tbl|public.fx_pairs",
+        "n|rel|public.fx_pairs",
+        "n|type|public.fx_pairs",
+        "n|rel|public.fx_pairs_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "fx_rounds"
+      ],
+      "writes": [
+        "s|tbl|public.fx_rounds",
+        "n|tbl|public.fx_rounds",
+        "e|tbl|public.fx_rounds",
+        "n|rel|public.fx_rounds",
+        "n|type|public.fx_rounds",
+        "n|rel|public.fx_rounds_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "market_books",
+        "currency"
+      ],
+      "writes": [
+        "s|col|public.market_books.currency",
+        "n|col|public.market_books.currency",
+        "e|col|public.market_books.currency"
+      ],
+      "reads": [
+        "n|tbl|public.market_books",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "market_trades",
+        "currency"
+      ],
+      "writes": [
+        "s|col|public.market_trades.currency",
+        "n|col|public.market_trades.currency",
+        "e|col|public.market_trades.currency"
+      ],
+      "reads": [
+        "n|tbl|public.market_trades",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "fx_orders",
+        "fx_orders_pair_idx"
+      ],
+      "writes": [
+        "s|idx|public.fx_orders_pair_idx",
+        "n|idx|public.fx_orders_pair_idx",
+        "e|idx|public.fx_orders_pair_idx",
+        "n|rel|public.fx_orders_pair_idx"
+      ],
+      "reads": [
+        "n|tbl|public.fx_orders",
+        "n|sch|public",
+        "n|col|public.fx_orders.pair_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "fx_orders",
+        "fx_orders_owner_idx"
+      ],
+      "writes": [
+        "s|idx|public.fx_orders_owner_idx",
+        "n|idx|public.fx_orders_owner_idx",
+        "e|idx|public.fx_orders_owner_idx",
+        "n|rel|public.fx_orders_owner_idx"
+      ],
+      "reads": [
+        "n|tbl|public.fx_orders",
+        "n|sch|public",
+        "n|col|public.fx_orders.owner_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "fx_pairs",
+        "fx_pairs_currency"
+      ],
+      "writes": [
+        "s|idx|public.fx_pairs_currency",
+        "n|idx|public.fx_pairs_currency",
+        "e|idx|public.fx_pairs_currency",
+        "n|rel|public.fx_pairs_currency"
+      ],
+      "reads": [
+        "n|tbl|public.fx_pairs",
+        "n|sch|public",
+        "n|col|public.fx_pairs.currency"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "fx_rounds",
+        "fx_rounds_pair_at_idx"
+      ],
+      "writes": [
+        "s|idx|public.fx_rounds_pair_at_idx",
+        "n|idx|public.fx_rounds_pair_at_idx",
+        "e|idx|public.fx_rounds_pair_at_idx",
+        "n|rel|public.fx_rounds_pair_at_idx"
+      ],
+      "reads": [
+        "n|tbl|public.fx_rounds",
+        "n|sch|public",
+        "n|col|public.fx_rounds.pair_id",
+        "n|col|public.fx_rounds.at_ms"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "fx_orders"
+      ],
+      "writes": [
+        "s|fk|public.fx_orders.fx_orders_pair_id_fx_pairs_id_fkey",
+        "n|fk|public.fx_orders.fx_orders_pair_id_fx_pairs_id_fkey",
+        "e|fk|public.fx_orders.fx_orders_pair_id_fx_pairs_id_fkey",
+        "n|con|public.fx_orders.fx_orders_pair_id_fx_pairs_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.fx_orders",
+        "n|sch|public",
+        "n|tbl|public.fx_pairs",
+        "n|sch|public",
+        "n|col|public.fx_orders.pair_id",
+        "n|col|public.fx_pairs.id",
+        "e|uniqueness|public.fx_pairs.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "fx_orders"
+      ],
+      "writes": [
+        "s|fk|public.fx_orders.fx_orders_owner_id_world_owners_id_fkey",
+        "n|fk|public.fx_orders.fx_orders_owner_id_world_owners_id_fkey",
+        "e|fk|public.fx_orders.fx_orders_owner_id_world_owners_id_fkey",
+        "n|con|public.fx_orders.fx_orders_owner_id_world_owners_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.fx_orders",
+        "n|sch|public",
+        "n|tbl|public.world_owners",
+        "n|sch|public",
+        "n|col|public.fx_orders.owner_id",
+        "n|col|public.world_owners.id",
+        "e|uniqueness|public.world_owners.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "fx_rounds"
+      ],
+      "writes": [
+        "s|fk|public.fx_rounds.fx_rounds_pair_id_fx_pairs_id_fkey",
+        "n|fk|public.fx_rounds.fx_rounds_pair_id_fx_pairs_id_fkey",
+        "e|fk|public.fx_rounds.fx_rounds_pair_id_fx_pairs_id_fkey",
+        "n|con|public.fx_rounds.fx_rounds_pair_id_fx_pairs_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.fx_rounds",
+        "n|sch|public",
+        "n|tbl|public.fx_pairs",
+        "n|sch|public",
+        "n|col|public.fx_rounds.pair_id",
+        "n|col|public.fx_pairs.id",
+        "e|uniqueness|public.fx_pairs.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "fx_orders",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "fx_pairs",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "fx_rounds",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "pair_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "side",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "price",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "lots",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "locked",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "seq",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "placed_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "state",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "filled_lots",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "clear_price",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "done_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_pairs",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_pairs",
+        "name": "currency",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_pairs",
+        "name": "created_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_rounds",
+        "name": "id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_rounds",
+        "name": "pair_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_rounds",
+        "name": "at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_rounds",
+        "name": "price",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_rounds",
+        "name": "lots",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_books",
+        "name": "currency",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "market_trades",
+        "name": "currency",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "fx_orders_pair_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "pair_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "fx_orders_owner_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "owner_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_pairs",
+        "name": "fx_pairs_currency",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "currency",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_rounds",
+        "name": "fx_rounds_pair_at_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "pair_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "at_ms",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "fx_orders_pair_id_fx_pairs_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "pair_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "fx_pairs",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "fx_orders_owner_id_world_owners_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "owner_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_owners",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_rounds",
+        "name": "fx_rounds_pair_id_fx_pairs_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "pair_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "fx_pairs",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "fx_orders_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_pairs",
+        "name": "fx_pairs_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_rounds",
+        "name": "fx_rounds_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "fx_orders_side",
+        "value": "\"side\" in ('buy', 'sell')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "fx_orders_state",
+        "value": "\"state\" in ('open', 'done', 'cancelled')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "fx_orders_amounts",
+        "value": "\"price\" > 0 and \"lots\" > 0 and \"locked\" >= 0 and \"filled_lots\" >= 0 and \"filled_lots\" <= \"lots\"",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_orders",
+        "name": "fx_orders_done",
+        "value": "(\"state\" = 'open') = (\"done_at_ms\" is null)",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "fx_rounds",
+        "name": "fx_rounds_amounts",
+        "value": "(\"price\" is null or \"price\" > 0) and \"lots\" >= 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

@@ -405,7 +405,7 @@ export {
   createGoodsMarket,
 } from "./economy/goodsMarket.ts";
 export { type AuctionOrder, type AuctionResult, clearCallAuction } from "./economy/callAuction.ts";
-export { type FxMarket, type FxPair, createFxMarket } from "./economy/fxMarket.ts";
+export * from "./economy/fxMarket.ts";
 export {
   BASE_EFFICIENCY,
   HOUR_MS,

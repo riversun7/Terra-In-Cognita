@@ -8,7 +8,7 @@ import type { Locator, Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { expect, test } from "./helpers/test.ts";
-import { watchTrpc } from "./helpers/trpc.ts";
+import { rewriteTrpc, watchTrpc } from "./helpers/trpc.ts";
 
 interface Entry {
   /** history.length */
@@ -145,5 +145,38 @@ test.describe("시안 자료(dev)", () => {
       await framed(page);
       expect(deviceErrors).toEqual([]);
     });
+  });
+});
+
+test.describe("플레이어 거래 칸(질문 538 다)", () => {
+  test.use({ account: "player" });
+
+  test("없는 동안 체결·만료된 내 주문은 거래 칸으로 보이고, 숫자를 누르면 내 주문 화면으로 간다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    // 실제 계정의 요약 응답에 거래 칸을 넣는다(체결 셈은 서버 DB 시험 market.db.test.ts가 본다)
+    await rewriteTrpc(page, {
+      "summary.get": (data) => {
+        if (typeof data !== "object" || data === null) throw new Error("summary.get 응답 모양이 다릅니다");
+        Reflect.set(data, "show", true);
+        Reflect.set(data, "sections", [
+          {
+            kind: "market",
+            count: 3,
+            params: { filled: 2, expired: 1, fx: 0 },
+            target: { route: "economy_orders" },
+          },
+        ]);
+      },
+    });
+    await page.goto("/");
+    const dialog = await openedSummary(page);
+    await expect(dialog.locator(".summary-label")).toHaveText(message("ko", "summary_section_market"));
+    await expect(dialog.locator(".summary-count")).toHaveText("3");
+    await dialog.locator("a.summary-link").click();
+    await expect(page).toHaveURL((url) => url.pathname === "/economy/orders");
+    await expect(dialog).toHaveCount(0);
+    expect(deviceErrors).toEqual([]);
   });
 });

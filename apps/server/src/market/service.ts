@@ -5,7 +5,10 @@
 // - 취소: 내 걸린 주문만. 거래소 끔(49 N53)이어도 취소는 된다(묶인 것을 돌려받는다).
 // - 바뀜(원장 거래·주문 줄·체결 줄)은 같은 동기 처리에서 쓰기 대기열에 들어가고, 커밋 뒤 답한다(S3 U2, 경제 ADR 5절).
 // - 체결 알림: 거래소 모음의 체결을 걸린 주문(maker) 주인에게 알린다(게이트웨이가 알림을 켠 연결로 보낸다).
-import type { MarketResultCode } from "@terra/protocol";
+// - 환전(WP6, docs/adr/2026-11-07-play-flow.md "WP6 나라 화폐·체결 알림"): 나라 화폐 ↔ 기준 통화 동시호가(market/fx.ts)에 주문을 낸다. 사기 = 지갑
+//   기준 통화, 팔기 = 지갑의 그 화폐를 묶고 다음 회차(1시간)에 한꺼번에 체결, 남은 양은 회차 뒤 돌려받는다. 한 회차에 낼 수 있는 내 주문 수 =
+//   ORDER_MAX [임시]. 회차 전에 거둘 수 있다. 거래소 끔(49 N53)이면 내기만 막는다.
+import type { FxResultCode, MarketResultCode } from "@terra/protocol";
 import { DAY_MS, type Side, type SocietyCoefficients } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { NpcRuntime } from "../npc/runtime.ts";
@@ -25,6 +28,18 @@ export type MarketCommandResult =
   | { readonly ok: true; readonly orderId?: number; readonly filled?: string; readonly resting?: string }
   | { readonly ok: false; readonly code: MarketResultCode };
 
+export type FxCommandResult =
+  | { readonly ok: true; readonly orderId?: number }
+  | { readonly ok: false; readonly code: FxResultCode };
+
+export interface FxPlaceInput {
+  /** 팩 화폐 코드(원장 자산 cur:<코드>의 코드) */
+  readonly currency: string;
+  readonly side: Side;
+  readonly price: string;
+  readonly lots: string;
+}
+
 export interface MarketPlaceInput {
   readonly city: number;
   readonly item: string;
@@ -38,6 +53,10 @@ export interface MarketPlaceInput {
 export interface MarketService {
   place(userId: string, input: MarketPlaceInput): Promise<MarketCommandResult>;
   cancel(userId: string, orderId: number): Promise<MarketCommandResult>;
+  /** 환전 주문 내기(다음 회차에 체결) */
+  fxPlace(userId: string, input: FxPlaceInput): Promise<FxCommandResult>;
+  /** 회차 전에 내 환전 주문을 거둔다 */
+  fxCancel(userId: string, orderId: number): Promise<FxCommandResult>;
   /** 사용자의 소유 주체(없으면 undefined, 만들지 않는다) */
   ownerOf(userId: string): number | undefined;
   /** 소유 주체의 사용자(세력이면 undefined) */
@@ -57,14 +76,15 @@ export interface MarketDeps {
 }
 
 const fail = (code: MarketResultCode): MarketCommandResult => ({ ok: false, code });
+const fxFail = (code: FxResultCode): FxCommandResult => ({ ok: false, code });
 
 export function createMarketService(d: MarketDeps): MarketService | undefined {
   const econ = d.runtime.economy;
   if (!econ) return undefined;
-  const { registry } = econ;
+  const { registry, fx } = econ;
   const world = d.runtime.world;
 
-  const commit = async (result: MarketCommandResult): Promise<MarketCommandResult> => {
+  const commit = async <T>(result: T): Promise<T> => {
     await d.writer.durable();
     return result;
   };
@@ -131,6 +151,35 @@ export function createMarketService(d: MarketDeps): MarketService | undefined {
       if (me === undefined || order.owner !== me) return fail("not_owner");
       book.market.cancel(orderId, d.now());
       return commit({ ok: true, orderId });
+    },
+
+    async fxPlace(userId, input) {
+      if (d.rules().switches.marketEnabled === 0) return fxFail("market_paused");
+      const book = fx.get(`cur:${input.currency}`);
+      if (!book) return fxFail("unknown_currency");
+      const price = BigInt(input.price);
+      const lots = BigInt(input.lots);
+      if (price * lots > INT8_MAX || lots * book.market.pair.lotSize > INT8_MAX)
+        return fxFail("invalid_amount");
+      const at = d.now();
+      const me = d.settlement.ownerOfUser(userId, at).id;
+      // 잔고를 지금까지 정산한 뒤 본다(직무 산출·유지비가 먼저)
+      d.settlement.settleOwner(me, at);
+      if (fx.openOf(me).length >= ORDER_MAX) return fxFail("order_limit");
+      const result = book.market.place(me, input.side, price, lots, at);
+      if (!result.ok) return fxFail("insufficient_funds");
+      return commit({ ok: true, orderId: result.orderId });
+    },
+
+    async fxCancel(userId, orderId) {
+      const meta = fx.meta(orderId);
+      const book = meta ? fx.bookById(meta.pairId) : undefined;
+      const order = book?.market.orders().find((entry) => entry.id === orderId);
+      if (!book || !order) return fxFail("unknown_order");
+      const me = d.settlement.findOwnerOfUser(userId);
+      if (me === undefined || order.owner !== me) return fxFail("not_owner");
+      book.market.cancel(orderId, d.now());
+      return commit({ ok: true });
     },
   };
 }

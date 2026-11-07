@@ -81,11 +81,18 @@ describe("환전 시장(동시호가 + 장부 에스크로)", () => {
     give(1, BASE, 1_000n);
     give(2, QUOTE, 10_000n);
     // 1: base 10로트(1000) 팔기 하한 90, 2: base 6로트 사기 상한 110 (값 = 로트당 quote)
-    expect(fx.place(1, "sell", 90n, 10n, 0).ok).toBe(true);
-    expect(fx.place(2, "buy", 110n, 6n, 0).ok).toBe(true);
+    const sell = fx.place(1, "sell", 90n, 10n, 0);
+    const buy = fx.place(2, "buy", 110n, 6n, 0);
+    expect(sell.ok && buy.ok).toBe(true);
     expect(book.balanceOf(2, QUOTE)).toBe(10_000n - 660n);
     const result = fx.run(60_000);
-    expect(result).toEqual({ price: 90n, lots: 6n });
+    expect(result.price).toBe(90n);
+    expect(result.lots).toBe(6n);
+    // 주문마다 체결 로트(서버가 주문 줄에 남긴다)
+    expect(sell.ok && buy.ok ? [result.fills.get(sell.orderId), result.fills.get(buy.orderId)] : []).toEqual([
+      6n,
+      6n,
+    ]);
     expect(book.balanceOf(2, BASE)).toBe(600n);
     expect(book.balanceOf(2, QUOTE)).toBe(10_000n - 540n);
     expect(book.balanceOf(1, QUOTE)).toBe(540n);
@@ -93,6 +100,35 @@ describe("환전 시장(동시호가 + 장부 에스크로)", () => {
     expect(book.balanceOf(1, BASE)).toBe(400n);
     expect(fx.orders()).toEqual([]);
     expect(fx.checkEscrow()).toEqual([]);
+    expect(audit.check(book.accounts())).toEqual([]);
+  });
+
+  it("회차 전 거두기는 묶은 것을 돌려주고, 복원한 주문·지난 체결가로 이어서 체결한다(서버 부팅)", () => {
+    const { book, give, fx, audit } = setup();
+    give(1, BASE, 1_000n);
+    give(2, QUOTE, 10_000n);
+    const sell = fx.place(1, "sell", 95n, 5n, 0);
+    const buy = fx.place(2, "buy", 100n, 3n, 0);
+    if (!sell.ok || !buy.ok) throw new Error("place failed");
+    expect(fx.cancel(buy.orderId, 1)).toBe(true);
+    expect(fx.cancel(buy.orderId, 1)).toBe(false);
+    expect(book.balanceOf(2, QUOTE)).toBe(10_000n);
+    expect(fx.checkEscrow()).toEqual([]);
+    // 같은 장부·같은 짝 ID로 다시 만든다(걸린 팔 주문 하나, 지난 체결가 97)
+    const again = createFxMarket({ id: 1, base: BASE, quote: QUOTE, lotSize: 100n }, book, () => 99, {
+      orders: fx.orders(),
+      lastPrice: 97n,
+    });
+    expect(again.lastPrice).toBe(97n);
+    expect(again.checkEscrow()).toEqual([]);
+    const next = again.place(2, "buy", 100n, 2n, 2);
+    expect(next.ok && next.orderId).toBe(99);
+    // 복원한 주문보다 차례가 뒤다
+    expect(again.orders().map((order) => order.seq)).toEqual([1, 2]);
+    const result = again.run(3);
+    expect([result.price, result.lots]).toEqual([95n, 2n]);
+    expect(book.balanceOf(1, BASE)).toBe(800n);
+    expect(book.balanceOf(1, QUOTE)).toBe(190n);
     expect(audit.check(book.accounts())).toEqual([]);
   });
 

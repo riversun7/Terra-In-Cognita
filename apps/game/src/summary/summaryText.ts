@@ -9,6 +9,7 @@ export const SECTION_LABELS = {
   raid: m.summary_section_raid,
   injury: m.summary_section_injury,
   world_news: m.summary_section_world_news,
+  market: m.summary_section_market,
 } satisfies Record<SummarySectionKind, () => string>;
 
 function isKnownSection(kind: string): kind is SummarySectionKind {

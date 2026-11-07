@@ -2,6 +2,7 @@
 // 읽기만 한다(거래소를 새로 만들지 않는다: 아직 쓰지 않은 도시 × 물건은 빈 호가창으로 보인다). 모양 만들기는 시안과 같은 함수(economyView/marketShape.ts).
 // - 기준 도시 = 내 사이보그 시작 도시(없으면 내 창고가 있는 첫 도시, 그것도 없으면 가장 작은 도시 ID).
 // - 도시 이름 칸이 아직 없어 "#<도시 ID>"로 보인다 [임시]. 시야·운임은 아직 없다(모두 지금 값, 운임 없음).
+// - 화폐(WP6): 값은 그 도시 거래소 화폐(주인 나라 화폐)다. 화면에는 팩 화폐 코드(원장 자산 cur:<코드>의 코드, 기준 통화는 자산 코드 그대로)로 보낸다.
 import type {
   EconomyOrdersResponse,
   EconomyProductionResponse,
@@ -19,6 +20,7 @@ import { bookLevels, candles, changeBp, recentTrades, tradeStats } from "../econ
 import type { NpcRuntime } from "../npc/runtime.ts";
 import { ASSET_CREDIT } from "../world/settlement.ts";
 import type { MarketBook, TradeRecord } from "./books.ts";
+import { type FxExchangeView, createFxViews, currencyCode } from "./fxViews.ts";
 import { EXPIRY_DAYS, ORDER_MAX } from "./service.ts";
 
 const HOUR_MS = 3_600_000;
@@ -58,6 +60,8 @@ export interface MarketViews {
   ): Omit<MarketBookResponse, "generatedAt" | "preview" | "status"> | undefined;
   orders(userId: string, now: number): Omit<EconomyOrdersResponse, "generatedAt" | "preview" | "status">;
   production(userId: string): Omit<EconomyProductionResponse, "generatedAt" | "preview" | "status">;
+  /** 환전(나라 화폐 ↔ 기준 통화, WP6 — fxViews.ts) */
+  exchange(userId: string, now: number): FxExchangeView;
 }
 
 export const cityLabel = (cityId: number): string => `#${cityId}`;
@@ -74,6 +78,7 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
     return runtime.economy;
   };
   const cityIds = (): number[] => [...runtime.world.cities.keys()].toSorted((a, b) => a - b);
+  const fxViews = createFxViews({ runtime, ledger, ownerOf: src.ownerOf });
 
   const homeCity = (userId: string, me: number | undefined): number | undefined => {
     const start = src.homeCityOf(userId);
@@ -115,6 +120,12 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
     const owner = runtime.world.cities.get(cityId)?.owner ?? 0;
     return econ().economy.taxOf.get(owner) ?? 0;
   };
+  /** 도시 거래소의 화폐(원장 자산): 만든 거래소면 그 설정, 아니면 도시 주인 나라 화폐 */
+  const currencyOf = (cityId: number, book?: MarketBook): string => {
+    if (book) return book.market.config.currency;
+    const owner = runtime.world.cities.get(cityId)?.owner ?? 0;
+    return econ().economy.currencyOf.get(owner) ?? ASSET_CREDIT;
+  };
 
   const orderView = (book: MarketBook, order: BookOrder): MyOrder => {
     const meta = econ().registry.meta(order.id);
@@ -123,7 +134,7 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
       item: book.item,
       city: String(book.cityId),
       cityName: cityLabel(book.cityId),
-      currency: book.market.config.currency,
+      currency: currencyCode(book.market.config.currency),
       side: order.side,
       type: "limit",
       price: String(order.price),
@@ -143,6 +154,7 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
   };
 
   return {
+    exchange: (userId, now) => fxViews.exchange(userId, now),
     items(userId, bookItems, now) {
       const me = src.ownerOf(userId);
       const home = homeCity(userId, me);
@@ -163,7 +175,7 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
           cities: cities.length,
           volume: String(volume),
           last: last === undefined ? null : String(last),
-          currency: ASSET_CREDIT,
+          currency: currencyCode(home === undefined ? ASSET_CREDIT : currencyOf(home, homeBook)),
           changeBp: changeBp(stats?.last, stats?.first),
           spark: homeBook
             ? candles(homeBook.trades, end - DAY, end, HOUR_MS).map((candle) => candle.close)
@@ -187,7 +199,7 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
         return {
           city: String(cityId),
           name: cityLabel(cityId),
-          currency: ASSET_CREDIT,
+          currency: currencyCode(currencyOf(cityId, found)),
           bestBid: bid ? String(bid.price) : null,
           bestAsk: ask ? String(ask.price) : null,
           last: last === undefined ? null : String(last),
@@ -217,11 +229,12 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
       const lot = found?.market.config.lotSize ?? econ().economy.catalog.lotSize.get(asset) ?? 1n;
       const last = stats.last ?? found?.market.lastPrice ?? found?.trades.at(-1)?.price;
       const levels = found ? bookLevels(found.market.orders(), me ?? -1) : { asks: [], bids: [] };
+      const currency = currencyOf(cityId, found);
       return {
         item,
         city: String(cityId),
         cityName: cityLabel(cityId),
-        currency: found?.market.config.currency ?? ASSET_CREDIT,
+        currency: currencyCode(currency),
         taxBp: found?.market.config.taxBp ?? taxOf(cityId),
         ...levels,
         last: last === undefined ? null : String(last),
@@ -235,9 +248,7 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
         // 팔 수 있는 양 = 이 도시 내 창고(기본 단위) ÷ 묶음(버림), 살 수 있는 돈 = 지갑의 이 화폐
         mine: {
           goods: String(me === undefined ? 0n : ledger.balanceOf(me, asset, cityId) / lot),
-          cash: String(
-            me === undefined ? 0n : ledger.balanceOf(me, found?.market.config.currency ?? ASSET_CREDIT),
-          ),
+          cash: String(me === undefined ? 0n : ledger.balanceOf(me, currency)),
         },
         limit: limitOf(me),
         expiryDays: [...EXPIRY_DAYS],
@@ -263,7 +274,7 @@ export function createMarketViews(src: MarketViewSource): MarketViews {
           item: book.item,
           city: String(book.cityId),
           cityName: cityLabel(book.cityId),
-          currency: book.market.config.currency,
+          currency: currencyCode(book.market.config.currency),
           side: row.side,
           price: String(row.price),
           qty: String(row.qty),

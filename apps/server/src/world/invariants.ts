@@ -114,6 +114,18 @@ export async function checkSqlInvariants(pool: QueryPool, nowMs: number): Promis
        <> coalesce((select sum(o.locked) from market_orders o
                     where o.market_id = b.id and o.state = 'open' and o.side = 'buy'), 0)`,
   );
+  // 환전(docs/adr/2026-11-07-play-flow.md WP6): 짝마다 화폐 에스크로(escrow:fx:<짝>:base) = 걸린 팔 주문 locked 합, 기준 통화 에스크로(:quote) = 걸린
+  // 살 주문 locked 합. 시뮬 메모리 검사(fxMarket checkEscrow)와 같은 조건
+  await count(
+    "M2 fx escrow differs from open orders",
+    `select p.id from fx_pairs p
+     where coalesce((select a.balance from ledger_accounts a where a.system_code = 'escrow:fx:' || p.id || ':base'), 0)
+       <> coalesce((select sum(o.locked) from fx_orders o
+                    where o.pair_id = p.id and o.state = 'open' and o.side = 'sell'), 0)
+       or coalesce((select a.balance from ledger_accounts a where a.system_code = 'escrow:fx:' || p.id || ':quote'), 0)
+       <> coalesce((select sum(o.locked) from fx_orders o
+                    where o.pair_id = p.id and o.state = 'open' and o.side = 'buy'), 0)`,
+  );
   // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md 2절): 본체 유닛이 그 사용자의 것으로 있다(없으면 부팅이 다시 놓는다)
   await count(
     "I13 cyborgs without their body unit",

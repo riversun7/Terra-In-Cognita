@@ -553,7 +553,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         cities: faction.cities.size,
         population: faction.units.size,
         tech: faction.tech,
-        treasury: ledger.balanceOf(faction.id, ASSET_CREDIT),
+        // 국고 = 그 나라 화폐(시뮬 run.ts와 같은 칸, 도시 경제가 없으면 시험 화폐)
+        treasury: ledger.balanceOf(faction.id, econ?.hooks.treasuryAsset(faction) ?? ASSET_CREDIT),
         ...society.dayFields(faction),
       });
     }

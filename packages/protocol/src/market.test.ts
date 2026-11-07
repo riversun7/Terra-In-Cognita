@@ -1,6 +1,8 @@
 // 물자 거래소 메시지 스키마 시험(프로토콜 14, docs/adr/2026-11-07-play-flow.md WP4) — 왕복, 값 모양, 결과 코드, 체결 알림
 import { describe, expect, it } from "vitest";
 import {
+  FX_PROTOCOL_VERSION,
+  FX_RESULT_CODES,
   MARKET_EXPIRY_DAYS_MAX,
   MARKET_PROTOCOL_VERSION,
   MARKET_RESULT_CODES,
@@ -88,5 +90,32 @@ describe("물자 거래소 메시지(프로토콜 14)", () => {
     } as const;
     expect(decodeServerMessage(encodeMessage(fill))).toEqual(fill);
     expect(decodes(decodeServerMessage, { ...fill, qty: "0" })).toBe(false);
+  });
+
+  it("환전 주문 내기·거두기와 결과(프로토콜 15)", () => {
+    expect(FX_PROTOCOL_VERSION).toBe(15);
+    const place = {
+      t: "fx_place",
+      id: 7,
+      currency: "placeholder_cur_02",
+      side: "buy",
+      price: "102",
+      lots: "3",
+    } as const;
+    expect(decodeClientMessage(encodeMessage(place))).toEqual(place);
+    expect(decodes(decodeClientMessage, { ...place, currency: "cur:placeholder_cur_02" })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...place, lots: "0" })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...place, price: "1.5" })).toBe(false);
+    const cancel = { t: "fx_cancel", id: 8, order: 5 } as const;
+    expect(decodeClientMessage(encodeMessage(cancel))).toEqual(cancel);
+    const ok = { t: "fx_result", id: 7, ok: true, orderId: 5 } as const;
+    expect(decodeServerMessage(encodeMessage(ok))).toEqual(ok);
+    for (const code of FX_RESULT_CODES) {
+      const failed = { t: "fx_result", id: 7, ok: false, code } as const;
+      expect(decodeServerMessage(encodeMessage(failed))).toEqual(failed);
+    }
+    expect(decodes(decodeServerMessage, { t: "fx_result", id: 7, ok: false, code: "no_liquidity" })).toBe(
+      false,
+    );
   });
 });

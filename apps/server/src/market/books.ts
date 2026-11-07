@@ -6,7 +6,11 @@
 //   동기 처리 = 같은 커밋). 유저 주문은 끝나도 줄을 남기고(내 주문 기록), NPC 세력 주문은 끝나면 지운다.
 // - 체결은 최근 창(TRADE_WINDOW_MS)을 메모리에 둔다(차트·최근 체결·24시간 수치). 체결 알림 듣는 쪽(거래소 게이트웨이)에 알린다.
 // - 부팅: 걸린 주문(seq 그대로)과 최근 체결로 거래소를 다시 만든다(createGoodsMarket restore).
+// - 화폐(docs/adr/2026-11-07-play-flow.md WP6 나라 화폐): 거래소 줄에 값을 매기는 화폐를 남긴다(비었으면 WP4 시험 화폐). 부팅 때 걸린 주문을
+//   남긴 화폐로 되살린 뒤 지금 도시 주인의 화폐(configOf)와 다르면 시뮬 retarget으로 주문을 돌려주고 화폐를 바꾼다(주인이 바뀔 때와 같은 길).
+//   화폐가 바뀌면 메모리 체결 창을 비운다(다른 화폐 값을 한 차트에 섞지 않는다). 체결 줄에도 화폐를 남긴다.
 import {
+  TEST_ASSET_CREDIT,
   type BookFill,
   type BookOrder,
   type GoodsMarket,
@@ -18,6 +22,8 @@ import {
 } from "@terra/sim";
 import type { WorldWriter } from "../world/persist/writer.ts";
 
+/** 화폐 칸이 빈 거래소·체결 줄(WP4 판 앱이 쓴 것)의 화폐 */
+export const LEGACY_MARKET_CURRENCY = TEST_ASSET_CREDIT;
 /** 메모리에 두는 체결 창(차트 24시간 + 여유) */
 export const TRADE_WINDOW_MS = 8 * 24 * 3_600_000;
 /** 유저마다 메모리에 두는 끝난 주문 수 */
@@ -37,6 +43,8 @@ export interface TradeRecord {
   readonly takerOrderId: number;
   readonly makerOwner: number;
   readonly takerOwner: number;
+  /** 값을 매긴 화폐(원장 자산 코드) */
+  readonly currency: string;
 }
 
 /** 주문 하나의 서버 몫(호가창 BookOrder에 없는 것) */
@@ -79,7 +87,14 @@ export interface FillNotice {
 
 /** 부팅 때 읽은 거래소 자료(load.ts) */
 export interface LoadedMarkets {
-  readonly books: readonly { readonly id: number; readonly cityId: number; readonly item: string }[];
+  readonly books: readonly {
+    readonly id: number;
+    readonly cityId: number;
+    readonly item: string;
+    /** 값을 매기는 화폐(비었으면 LEGACY_MARKET_CURRENCY) */
+    readonly currency: string | null;
+    readonly createdAtMs: number;
+  }[];
   readonly open: readonly LoadedOrder[];
   readonly done: readonly DoneOrder[];
   readonly trades: readonly TradeRecord[];
@@ -162,6 +177,10 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
   };
   /** (도시|물건) → 거래소 ID(만든 적이 있으면 그 ID) */
   const idOf = new Map<string, number>(loaded.books.map((row) => [`${row.cityId}|${row.item}`, row.id]));
+  /** 거래소 줄(화폐를 바꿀 때 다시 쓴다) */
+  const bookRows = new Map<number, { cityId: number; item: string; createdAtMs: number }>();
+  /** 남긴 화폐(쓰지 않던 거래소를 처음 쓸 때도 이 화폐로 시작해 다르면 바꾼다) */
+  const storedCurrency = new Map(loaded.books.map((row) => [row.id, row.currency ?? LEGACY_MARKET_CURRENCY]));
   const byId = new Map<number, MarketBook>();
   const metas = new Map<number, OrderMeta>();
   const done = new Map<number, DoneOrder[]>();
@@ -262,6 +281,7 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
       takerOrderId: fill.takerId,
       makerOwner: fill.makerOwner,
       takerOwner: fill.takerOwner,
+      currency: book.market.config.currency,
     };
     writer.append("marketTrades", {
       id: trade.id,
@@ -274,6 +294,7 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
       maker_owner_id: trade.makerOwner,
       taker_owner_id: trade.takerOwner,
       at_ms: atMs,
+      currency: trade.currency,
     });
     book.trades.push(trade);
     const cut = atMs - TRADE_WINDOW_MS;
@@ -365,7 +386,13 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
         return guarded("expired", nowMs, () => inner.expire(nowMs));
       },
       retarget(nowMs, currency, treasuryOwner, taxBp) {
+        const before = inner.config.currency;
         guarded("cancelled", nowMs, () => inner.retarget(nowMs, currency, treasuryOwner, taxBp));
+        const book = bookRef.current;
+        if (!book || before === currency) return;
+        // 다른 화폐의 값은 차트에 섞지 않는다. 거래소 줄의 화폐를 바꿔 둔다(부팅 복원이 이 화폐로 주문을 되살린다)
+        book.trades.length = 0;
+        writeBook(book.id, currency);
       },
       setTax(taxBp) {
         inner.setTax(taxBp);
@@ -382,20 +409,54 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
     };
   };
 
+  /** 거래소 줄을 쓴다(만들 때·화폐가 바뀔 때) */
+  function writeBook(id: number, currency: string): void {
+    const row = bookRows.get(id);
+    if (!row) return;
+    writer.upsert("marketBooks", {
+      id,
+      city_id: row.cityId,
+      item: row.item,
+      created_at_ms: row.createdAtMs,
+      currency,
+    });
+  }
+
+  /**
+   * 거래소를 만든다. stored = 남긴 화폐(복원할 때, 걸린 주문을 이 화폐로 되살린다). 지금 주인의 화폐와 다르면(둘 수 있는 도시일 때만 —
+   * 없는 도시는 dropCity가 남긴 화폐로 돌려준다) 주문을 돌려주고 화폐를 바꾼다
+   */
   const create = (
     id: number,
     cityId: number,
     asset: string,
     restore: readonly BookOrder[],
     trades: TradeRecord[],
+    stored?: string,
   ): MarketBook => {
-    const config: GoodsMarketConfig = { ...o.configOf(cityId, asset), id, location: cityId, item: asset };
+    const wanted = o.configOf(cityId, asset);
+    const config: GoodsMarketConfig = {
+      ...wanted,
+      currency: stored ?? wanted.currency,
+      id,
+      location: cityId,
+      item: asset,
+    };
     const ref: { current?: MarketBook } = {};
     const market = wrap(ref, createGoodsMarket(config, ledger, nextOrderId, restore));
-    const book: MarketBook = { id, cityId, item: asset.slice(5), asset, market, trades };
+    const book: MarketBook = {
+      id,
+      cityId,
+      item: asset.slice(5),
+      asset,
+      market,
+      trades: trades.filter((trade) => trade.currency === config.currency),
+    };
     ref.current = book;
     byId.set(id, book);
     markets.get(cityId)?.set(asset, market);
+    if (config.currency !== wanted.currency && o.allowed(cityId, asset))
+      market.retarget(o.now(), wanted.currency, wanted.treasuryOwner, wanted.taxBp);
     return book;
   };
 
@@ -414,10 +475,12 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
       lastBookId += 1;
       id = lastBookId;
       idOf.set(`${cityId}|${item}`, id);
-      writer.upsert("marketBooks", { id, city_id: cityId, item, created_at_ms: o.now() });
+      bookRows.set(id, { cityId, item, createdAtMs: o.now() });
+      writeBook(id, o.configOf(cityId, asset).currency);
     }
     if (!markets.has(cityId)) markets.set(cityId, cityMap(cityId));
-    return create(id, cityId, asset, [], []);
+    // 쓰지 않던 옛 거래소는 남긴 화폐로 만든 뒤 다르면 바꾼다(거래소 줄의 화폐를 고쳐 둔다)
+    return create(id, cityId, asset, [], [], storedCurrency.get(id));
   };
 
   /** 도시 표: get은 없으면 만든다(시뮬 NPC 거래 규칙이 도시 × 물건 거래소를 찾을 때) */
@@ -442,6 +505,8 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
     tradesByBook.set(trade.marketId, list);
   }
   const restoring = new Set([...openByBook.keys(), ...tradesByBook.keys()]);
+  for (const row of loaded.books)
+    bookRows.set(row.id, { cityId: row.cityId, item: row.item, createdAtMs: row.createdAtMs });
   for (const row of loaded.books) {
     if (!restoring.has(row.id)) continue;
     if (!markets.has(row.cityId)) markets.set(row.cityId, cityMap(row.cityId));
@@ -451,6 +516,7 @@ export function createMarketRegistry(o: MarketRegistryOptions): MarketRegistry {
       `item:${row.item}`,
       openByBook.get(row.id) ?? [],
       (tradesByBook.get(row.id) ?? []).toSorted((a, b) => a.at - b.at || a.id - b.id),
+      storedCurrency.get(row.id),
     );
   }
 

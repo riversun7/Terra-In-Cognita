@@ -58,7 +58,14 @@ import { TileShapeCache, coarsestSagM, directionToFaceST, skirtDepthM } from "./
 import { PRIMARY_LEVELS, type TileLayout, nodeSTRange, primaryLevelOf, tileLayout } from "./tileTree.ts";
 import { uprightGlobe } from "./turntable.ts";
 import { type Vec3, length, normalize } from "./vec3.ts";
-import { type ZoomStages, zoomStageOf, zoomStages, zoomStepTarget } from "./zoomStages.ts";
+import {
+  type ZoomStages,
+  atFarEdge,
+  stageDistance,
+  zoomStageOf,
+  zoomStages,
+  zoomStepTarget,
+} from "./zoomStages.ts";
 
 const DEFAULT_EXAGGERATION = 6;
 const MIN_EXAGGERATION = 1;
@@ -153,6 +160,8 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
   let pixelRatio = 1;
   let center = { primaryLevel: 0, mapLevel: 0 };
   let frameNo = 0;
+  /** 화면에 알린 확대 단계(바뀔 때만 onZoomStage) */
+  let shownStage = 0;
   const timer = new RenderTimer();
 
   const pipeline = new TilePipeline<PlanetTileGpu>({
@@ -245,6 +254,11 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
       }
     }
     keepAboveGround();
+    const stage = zoomStageOf(state.distance, stages);
+    if (stage !== shownStage) {
+      shownStage = stage;
+      options.onZoomStage?.(stage);
+    }
     const aspect = viewport.width / Math.max(1, viewport.height);
     const { near, far } = clipRange();
     view.applyCamera(pose, aspect, near, far);
@@ -366,14 +380,20 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     pixelRatio = Math.min(window.devicePixelRatio || 1, maxPixelRatio);
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(viewport.width, viewport.height, false);
+    // 가장 멀리 보던 중이면 크기가 바뀌어도 가장 멀리(행성 전체·항성계로 넘어갈 끝)에 남는다
+    const wasFar = cameraPlaced && atFarEdge(state.distance, stages);
     limits = globeLimits(radiusM, finestCellM, viewport);
     stages = zoomStages(limits);
     if (!cameraPlaced) {
-      const distance = startView.distanceM ?? limits.maxDistance * INITIAL_DISTANCE_FACTOR;
+      const distance =
+        startView.distanceM ??
+        (options.initialStage === undefined
+          ? limits.maxDistance * INITIAL_DISTANCE_FACTOR
+          : stageDistance(options.initialStage, stages));
       state = placeAt(startView.latDeg, startView.lonDeg, distance);
       cameraPlaced = viewport.width > 1 && viewport.height > 1;
     } else {
-      state = uprightGlobe(state, limits);
+      state = uprightGlobe(wasFar ? { ...state, distance: limits.maxDistance } : state, limits);
     }
     scheduler.request();
   };

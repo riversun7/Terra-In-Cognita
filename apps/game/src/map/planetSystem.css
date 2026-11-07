@@ -1,0 +1,98 @@
+/*
+ * 1차맵 항성계 보기(PlanetSystemView) — 행성 화면을 검은 우주로 덮는다. 세계 색이라 화면 테마와 상관없다(D-070):
+ * 바탕·글자·판은 우주 색(tokens.css --color-space-*). 위 판 줄(머리 판·확대 단계)은 그대로 위에 뜨고 아래 판은 숨는다.
+ * 휴대폰: 제목 → 정사각 그림(화면 폭 전체 — 천체 누르는 곳이 --tap-size 이상이게) → 고른 천체 카드·안내.
+ * 카드·안내는 오른쪽 1·2차맵 전환 단추(화면 틀) 자리를 비운다. 넓은 화면: 그림 가운데, 카드는 왼쪽 아래.
+ */
+.planet-system {
+  /* 쌓임은 DOM 차례: 지도 < 항성계 보기 < 위 판(머리 줄) < 확대 단계 */
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  /* 위 판 줄(머리 판·확대 단계)을 비운다: 화면이 잰 아래 끝(--planet-system-top), 못 재면 한 줄 높이 */
+  padding: calc(
+      var(
+        --planet-system-top,
+        calc(max(var(--space-3), env(safe-area-inset-top)) + var(--tap-size) + var(--space-5))
+      ) +
+      var(--space-3)
+    )
+    max(var(--space-3), env(safe-area-inset-right)) max(var(--space-3), env(safe-area-inset-bottom))
+    max(var(--space-3), env(safe-area-inset-left));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background-color: var(--color-space);
+  color: var(--color-space-text);
+  animation: planet-system-in var(--duration-slow) var(--easing-out);
+}
+@keyframes planet-system-in {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+.planet-system-head {
+  align-self: stretch;
+}
+.planet-system-title {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+}
+.planet-system-hint {
+  align-self: stretch;
+  margin-inline-end: calc(var(--tap-size) + var(--space-8));
+  color: var(--color-space-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+.planet-system-stage {
+  width: min(100%, 70vh);
+  flex: none;
+}
+.planet-system-card {
+  align-self: stretch;
+  margin-inline-end: calc(var(--tap-size) + var(--space-8));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--color-space-line);
+  border-radius: var(--radius-control);
+  background-color: var(--color-space-panel);
+}
+.planet-system-card-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
+}
+.planet-system-card-facts,
+.planet-system-card-note {
+  color: var(--color-space-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+@media (min-width: 48em) {
+  .planet-system-hint {
+    align-self: center;
+    margin-inline-end: 0;
+  }
+  .planet-system-card {
+    margin-inline-end: 0;
+    position: absolute;
+    left: max(var(--space-3), env(safe-area-inset-left));
+    bottom: max(var(--space-3), env(safe-area-inset-bottom));
+    width: min(22em, 40%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .planet-system {
+    animation: none;
+  }
+}

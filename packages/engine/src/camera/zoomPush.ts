@@ -26,7 +26,8 @@ export interface ZoomPush {
   end(): void;
 }
 
-export const ZOOM_PUSH_THRESHOLD = 1.25;
+/** 휠 한 칸(보통 deltaY 100 → 배율 약 1.16)이면 넘어가게. 두 손가락은 15% 벌리기·오므리기 */
+export const ZOOM_PUSH_THRESHOLD = 1.15;
 const ZOOM_PUSH_IDLE_MS = 350;
 
 export function createZoomPush(onPush: (edge: ZoomEdge) => void, options: ZoomPushOptions = {}): ZoomPush {

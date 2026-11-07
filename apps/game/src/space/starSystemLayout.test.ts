@@ -1,7 +1,10 @@
 // 항성계 평면 배치 시험 — 제곱근 눈금, 범위(가장 먼 궤도·생명 가능 지대), 띠 반지름, 천체 각도
 import { habitableZone } from "@terra/shared";
 import { describe, expect, it } from "vitest";
-import { STAR_RADIUS, VIEW_EDGE, bodyPosition, systemLayout } from "./starSystemLayout.ts";
+import { STAR_RADIUS, type SystemLayout, VIEW_EDGE, bodyPosition, systemLayout } from "./starSystemLayout.ts";
+
+/** 안쪽 넷(수성~화성)이 차지하는 폭 */
+const spread = (layout: SystemLayout): number => layout.radiusOf(1.524) - layout.radiusOf(0.387);
 
 describe("항성계 배치", () => {
   it("0 AU는 항성 가장자리, 범위 끝은 VIEW_EDGE, 사이는 제곱근 눈금", () => {
@@ -50,5 +53,17 @@ describe("항성계 배치", () => {
     const first = bodyPosition(0, 1);
     expect(first.x).toBeGreaterThan(0);
     expect(first.y).toBeLessThan(0);
+  });
+
+  it("로그 눈금: 순서를 지키고 안쪽 궤도를 제곱근보다 넓게 벌린다", () => {
+    const solar = [0.387, 0.723, 1, 1.524, 2.77, 5.2, 9.54, 19.2, 30.1];
+    const log = systemLayout(1, solar, "log");
+    const sqrt = systemLayout(1, solar);
+    const radii = solar.map((distance) => log.radiusOf(distance));
+    expect(radii.toSorted((a, b) => a - b)).toEqual(radii);
+    expect(radii[0] ?? 0).toBeGreaterThan(STAR_RADIUS);
+    expect(radii.at(-1) ?? 1).toBeLessThan(VIEW_EDGE);
+    expect(log.radiusOf(0)).toBe(STAR_RADIUS);
+    expect(spread(log)).toBeGreaterThan(spread(sqrt) * 1.8);
   });
 });

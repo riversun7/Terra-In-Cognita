@@ -1,15 +1,29 @@
 /*
  * 항성계 편집기 화면(StarSystemScreen) — 틀 숨김, 화면 전체. 뿌리·머리 줄·빈 화면·확인 창은 행성 편집기 CSS(pe-*)를 같이 쓴다.
- * 값은 styles/tokens.css의 var(--…)만 쓴다.
- * - 휴대폰(48em 미만): 한 줄로 내려 읽는다 — 이름·[저장] 줄, 그림(정사각), 고른 궤도 카드, 항성·궤도 판. 본문 전체가 스크롤된다.
+ * 값은 styles/tokens.css의 var(--…)만 쓴다. 그림은 우주 그림(space/starSystemView.css, 테마와 상관없는 검정 바탕)이다.
+ * - 휴대폰(48em 미만): 화면 전체가 한 번에 스크롤된다 — 머리 줄([뒤로]·제목·[새 항성계] / 항성계 고르기), 이름 줄(위에 붙음:
+ *   이름·[이름 바꾸기]·[저장]), 그림(정사각), 고른 궤도 카드, 항성·궤도 판, 지우기 칸. (그 전에는 머리 줄·이름 줄이 늘 화면 위
+ *   약 300px을 차지하고 본문만 따로 스크롤됐다 — ADR 2026-11-07-planet-view 3절)
  * - 넓은 화면(48em 이상): 왼쪽 그림(높이에 맞춘 정사각), 오른쪽 판(카드 + 항성·궤도). 둘은 따로 스크롤된다.
  */
-/* 머리 줄(행성 편집기 pe-header): 휴대폰에서는 [뒤로]·제목 한 줄, 항성계 고르기·[새 항성계] 한 줄 */
+/* 휴대폰: 뿌리(pe-screen, 고정·넘침 숨김)를 스크롤 상자로 */
+.ss-screen {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* 머리 줄(행성 편집기 pe-header): 휴대폰에서는 [뒤로]·제목·[새 항성계] 한 줄, 항성계 고르기는 아래 한 줄 전체 */
+.ss-screen .ss-new {
+  flex: none;
+}
 .ss-screen .ss-system-select {
-  flex: 1 1 12em;
-  max-width: 28em;
+  order: 3;
+  flex: 1 1 100%;
+  max-width: none;
 }
 .ss-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -19,23 +33,27 @@
   background-color: var(--color-surface);
 }
 .ss-toolbar-name {
-  flex: 1 1 10em;
+  flex: 1 1 0;
   min-width: 0;
+}
+.ss-name,
+.ss-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ss-name {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-snug);
-  overflow-wrap: anywhere;
 }
 .ss-meta {
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
-  overflow-wrap: anywhere;
 }
 .ss-toolbar-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex: none;
   gap: var(--space-2);
 }
 .ss-notice {
@@ -43,10 +61,6 @@
 }
 
 .ss-main {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-content: start;
@@ -58,10 +72,6 @@
   justify-self: center;
   width: 100%;
   max-width: 32em;
-  padding: var(--space-2);
-  border: var(--border-w) solid var(--color-border);
-  border-radius: var(--radius-panel);
-  background-color: var(--color-surface-2);
 }
 .ss-side {
   display: flex;
@@ -115,6 +125,7 @@
   border-top: var(--border-w) solid var(--color-border);
 }
 .ss-suggest-title {
+  margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
@@ -209,8 +220,25 @@
   gap: var(--space-1);
 }
 
+/* 지우기 칸: 판 맨 아래, 위험 색 테두리 */
+.ss-danger {
+  border-color: var(--color-danger);
+}
+
 @media (min-width: 48em) {
+  .ss-screen {
+    overflow: hidden;
+  }
+  .ss-screen .ss-system-select {
+    order: 0;
+    flex: 0 1 28em;
+  }
+  .ss-toolbar {
+    position: static;
+  }
   .ss-main {
+    flex: 1 1 auto;
+    min-height: 0;
     grid-template-columns: minmax(0, 1fr) minmax(20em, 26em);
     overflow: hidden;
     padding-bottom: var(--space-3);
@@ -223,7 +251,7 @@
     height: 100%;
     min-height: 0;
   }
-  .ss-stage .ssv {
+  .ss-stage .ssv-wrap {
     width: min(100cqw, 100cqh);
   }
   .ss-side {

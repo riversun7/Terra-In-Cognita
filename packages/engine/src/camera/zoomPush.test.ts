@@ -7,7 +7,7 @@ function recorder() {
 }
 
 describe("확대 한계 너머로 밀기", () => {
-  it("가장 멀리에 닿은 채 시작한 두 손가락 묶음이 1.25배 넘게 줄이면 out을 한 번 알린다", () => {
+  it("가장 멀리에 닿은 채 시작한 두 손가락 묶음이 1.15배 넘게 줄이면 out을 한 번 알린다", () => {
     const { pushed, push } = recorder();
     push.begin("out");
     push.push(1.1);

@@ -5,6 +5,8 @@
 //   0 AU는 항성 원의 가장자리(STAR_RADIUS), 가장 먼 거리는 VIEW_EDGE에 온다.
 // - 생명 가능 지대 띠는 @terra/shared habitableZone(√L 배)을 같은 눈금으로 옮긴 것이다. 궤도가 없어도 띠가 보이게 범위를 잡는다.
 // - 천체 각도: 궤도 차례마다 황금각(약 137.5°)만큼 돌린다(늘 같은 그림, 이웃 궤도의 천체가 겹치지 않게). 공전은 그리지 않는다.
+// - 로그 눈금(scale "log")은 1차맵 항성계 보기가 쓴다(ADR 2026-11-07-planet-view 3절): 태양계(0.39 ~ 30 AU)를 제곱근으로 그리면
+//   안쪽 행성 넷이 그림 반지름의 0.16 ~ 0.25에 몰려 이름표가 겹친다. 로그는 가장 가까운 궤도 ÷ 1.6을 항성 가장자리에 둔다.
 // 게임 규칙(거리 단위·공전 주기 등)이 정해지면 이 모듈의 눈금만 바꾼다.
 import { habitableZone } from "@terra/shared";
 
@@ -16,6 +18,8 @@ export const VIEW_EDGE = 0.92;
 const RANGE_PADDING = 1.08;
 /** 궤도가 없을 때 범위 = 생명 가능 지대 바깥 끝 × 이 몫 */
 const EMPTY_RANGE = 1.6;
+/** 로그 눈금: 항성 가장자리 = 가장 가까운 궤도(또는 생명 가능 지대 안쪽 끝) ÷ 이 몫 */
+const LOG_INNER_GAP = 1.6;
 /** 황금각(라디안) = π × (3 − √5) */
 export const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
@@ -28,14 +32,29 @@ export interface SystemLayout {
   readonly radiusOf: (distanceAu: number) => number;
 }
 
+/** 거리 눈금: 제곱근(편집기, 0 AU를 그릴 수 있다) · 로그(1차맵 항성계 보기, 안쪽 궤도를 벌린다) */
+export type SystemScale = "sqrt" | "log";
+
 /** 항성 광도와 궤도 거리(AU, 가까운 것부터)로 배치를 잡는다 */
-export function systemLayout(luminosity: number, distancesAu: readonly number[]): SystemLayout {
+export function systemLayout(
+  luminosity: number,
+  distancesAu: readonly number[],
+  scale: SystemScale = "sqrt",
+): SystemLayout {
   const zone = habitableZone(luminosity);
   const farthest = distancesAu.reduce((max, distance) => Math.max(max, distance), 0);
   const maxAu = farthest > 0 ? Math.max(farthest, zone.outer) * RANGE_PADDING : zone.outer * EMPTY_RANGE;
+  const nearest = distancesAu.reduce((min, distance) => Math.min(min, distance), zone.inner);
+  const innerAu = Math.min(maxAu / 2, nearest / LOG_INNER_GAP);
+  const span = Math.log(maxAu / innerAu);
   const radiusOf = (distanceAu: number): number => {
-    const share = Math.min(1, Math.max(0, distanceAu / maxAu));
-    return STAR_RADIUS + (VIEW_EDGE - STAR_RADIUS) * Math.sqrt(share);
+    const share =
+      scale === "log"
+        ? distanceAu <= innerAu
+          ? 0
+          : Math.min(1, Math.log(distanceAu / innerAu) / span)
+        : Math.sqrt(Math.min(1, Math.max(0, distanceAu / maxAu)));
+    return STAR_RADIUS + (VIEW_EDGE - STAR_RADIUS) * share;
   };
   return { maxAu, habitable: { inner: radiusOf(zone.inner), outer: radiusOf(zone.outer) }, radiusOf };
 }

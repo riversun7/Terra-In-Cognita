@@ -234,6 +234,10 @@ export interface PlanetEngineOptions {
    * 화면이 정한다: in = 가운데 2차맵 들어가기(D-6018), out = 항성계 보기(사용자 요청 2026-11-07)
    */
   onZoomEdge?: (edge: "in" | "out") => void;
+  /** 확대 단계(1~5, zoomStages.ts)가 바뀌었을 때(처음 한 번 포함). 화면의 단계 표시가 1초 요약을 기다리지 않게 */
+  onZoomStage?: (stage: number) => void;
+  /** 처음 확대 단계(1~5): 처음 볼 곳에 거리가 없을 때 그 단계의 대표 거리로 연다(2차맵을 끝까지 줄여 온 1차맵 = 5, D-6018) */
+  initialStage?: number;
   /**
    * [재기 모드] 프레임마다 장면을 이 횟수(1 ~ 4)만큼 그리고 1화소 읽기로 GPU 끝을 기다린 시간을 잰다(stats().gpuBench).
    * 휴대폰 GPU 몫을 재는 데만 쓴다(화면 주소 ?planet-sky-bench=). 없으면 재지 않는다

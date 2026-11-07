@@ -57,6 +57,7 @@ import type {
   Viewer,
   WorldMapReads,
 } from "./context.ts";
+import type { GatherReads } from "../gather/reads.ts";
 import { reasonedError } from "./init.ts";
 
 export interface ContextFactoryOptions extends TrpcContextOptions {
@@ -81,6 +82,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   territory?: (() => TerritoryReadServices | undefined) | undefined;
   /** 지도 흐름 조회(세계가 준비되면 서비스, src/worldMap/reads.ts). 없으면 늘 준비 전 */
   worldMap?: (() => WorldMapReads | undefined) | undefined;
+  /** 원자재 오브젝트 채집 조회(세계가 준비되면, src/gather/reads.ts). 없으면 늘 준비 전 */
+  gather?: (() => GatherReads | undefined) | undefined;
   /** 경제 화면 자료(팩 목록·월드 원장). 없으면 빈 목록·잔고 없음 */
   economy?: EconomyServices | undefined;
   /** 세력 화면 실제 자료(DB·월드가 있을 때) */
@@ -203,6 +206,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       secondMapLab: options.secondMapLab,
       territory: options.territory,
       worldMap: options.worldMap,
+      gather: options.gather,
       economy,
       faction,
       mail,

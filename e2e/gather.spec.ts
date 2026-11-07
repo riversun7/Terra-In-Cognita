@@ -1,0 +1,171 @@
+// 2차맵 원자재 오브젝트 채집·건물 들어가기 화면 시험(docs/adr/2026-11-07-gather-objects.md, 사용자 지적 2026-11-07 문제 2·3).
+// 플레이어(가짜 계정)가 내 사이보그 2차맵을 열면 오브젝트 표시가 보이고, 누르면 아래 판(채집·정보·닫기), [채집]이면 내 사이보그가 오브젝트로 걸어가는
+// 채집 줄이 뜨고 [멈추기]로 멈춘다. 건물 표시를 누르면 건물 판(들어가기·안에 있는 유닛). 사진은 390 파스텔·다크(ko·en).
+import type { Page } from "@playwright/test";
+import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
+import { expect, test } from "./helpers/test.ts";
+import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
+import { VIEWPORTS } from "./helpers/viewports.ts";
+
+const READY_MARKER = '.gather-marker[data-state="ready"]:not([hidden])';
+const BUILDING_MARKER = ".gather-building-marker:not([hidden])";
+
+/** tRPC 조회 하나(로그인한 이 화면의 쿠키로)의 data */
+async function trpcData(page: Page, procedure: string): Promise<unknown> {
+  return page.evaluate(async (name) => {
+    const response: unknown = await fetch(`/api/trpc/${name}`).then((reply) => reply.json());
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
+    const pick = (value: unknown, key: string): unknown =>
+      typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
+    return pick(pick(response, "result"), "data");
+  }, procedure);
+}
+
+const field = (value: unknown, key: string): unknown =>
+  typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
+
+/** 내 채집 줄(서버) 단계·끝난 까닭 */
+async function myLoop(page: Page): Promise<{ phase: unknown; stop: unknown } | null> {
+  const loops = field(await trpcData(page, "gather.loops"), "loops");
+  if (!Array.isArray(loops) || loops.length === 0) return null;
+  const first: unknown = loops[0];
+  return { phase: field(first, "phase"), stop: field(first, "stop") };
+}
+
+/** 내 사이보그 2차맵을 열고 오브젝트 자료·표시가 설 때까지 */
+async function openMap(page: Page): Promise<void> {
+  await rewriteTrpc(page, { "summary.get": hideSummary });
+  await page.goto("/map");
+  const map = page.locator(".map-screen[data-map-key]");
+  await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
+  await expect(map).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
+  await expect
+    .poll(async () => Number(await page.locator(".gather-panel").getAttribute("data-objects")), {
+      timeout: 30_000,
+    })
+    .toBeGreaterThan(0);
+  await expect(page.locator(READY_MARKER).first()).toBeVisible({ timeout: 20_000 });
+}
+
+/**
+ * 위·아래 판(HUD)에 가리지 않은 표시 가운데 화면 가운데에 가장 가까운 것을 누른다(표시는 가운데에 가까운 차례로 놓인다).
+ * 가리지 않은 것이 없으면 false
+ */
+async function clickFreeMarker(page: Page, selector: string): Promise<boolean> {
+  const index = await page.locator(selector).evaluateAll((elements) =>
+    elements.findIndex((element) => {
+      const box = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+      return hit !== null && (hit === element || element.contains(hit));
+    }),
+  );
+  if (index < 0) return false;
+  // 위 판(성능 줄)은 1초마다 다시 그려져 커질 수 있다: 그 사이 가려지면 짧게 기다리고 다음 차례에 다시 고른다
+  try {
+    await page.locator(selector).nth(index).click({ timeout: 2_000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 화면 가운데에 가장 가까운(판에 가리지 않은) 채집할 수 있는 오브젝트 판을 연다. 둘레(시작 도시 초지)에 오브젝트가 드물어 판에 가린 것뿐이면
+ * 휠로 조금씩 멀리 본다(헤드리스 휠 이벤트는 합쳐지므로 단계마다 띄운다)
+ */
+async function openObjectSheet(page: Page): Promise<void> {
+  const size = page.viewportSize() ?? { width: 390, height: 844 };
+  let opened = false;
+  for (let step = 0; step < 8 && !opened; step++) {
+    opened = await clickFreeMarker(page, READY_MARKER);
+    if (opened) break;
+    await page.mouse.move(size.width / 2, size.height / 2);
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(400);
+  }
+  expect(opened).toBe(true);
+  await expect(page.locator(".gather-sheet[data-object]")).toBeVisible();
+}
+
+test.describe("원자재 오브젝트 채집·건물 들어가기: 플레이어", () => {
+  test.use({ account: "player" });
+
+  test("오브젝트 표시 → 판([정보]) → [채집] → 채집 줄 → [멈추기], 건물 표시 → 건물 판", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(240_000);
+    await openMap(page);
+    await openObjectSheet(page);
+    const sheet = page.locator(".gather-sheet[data-object]");
+    await expect(sheet).toHaveAttribute("data-state", "ready");
+    await sheet.locator(".gather-sheet-info").click();
+    await expect(sheet.locator(".gather-details")).toBeVisible();
+    await sheet.locator(".gather-sheet-gather").click();
+    // 보낸 뒤: 판이 닫히고 채집 줄(내 사이보그가 오브젝트로 가는 중·캐는 중)
+    await expect(page.locator(".gather-panel")).toHaveAttribute("data-sheet", "none");
+    const loop = page.locator(".gather-loop");
+    await expect(loop).toHaveAttribute("data-phase", /^(to_object|gathering|to_deposit)$/, {
+      timeout: 20_000,
+    });
+    const server = await myLoop(page);
+    expect(server?.stop ?? null).toBeNull();
+    expect(["to_object", "gathering", "to_deposit"]).toContain(server?.phase);
+    expect(await horizontalOverflow(page)).toEqual([]);
+    expect(await smallTapTargets(page)).toEqual([]);
+
+    // [멈추기]: 그 자리에 서고 줄이 "멈췄습니다"로 끝난다
+    await loop.locator(".gather-stop").click();
+    await expect(loop).toHaveAttribute("data-stop", "stopped", { timeout: 15_000 });
+    expect(await myLoop(page)).toEqual({ phase: "done", stop: "stopped" });
+
+    // 건물 표시(시작 도시의 시설) → 건물 판: 들어가면 하는 일·안에 있는 유닛·[들어가기]
+    await expect(page.locator(BUILDING_MARKER).first()).toBeVisible({ timeout: 15_000 });
+    await expect.poll(() => clickFreeMarker(page, BUILDING_MARKER), { timeout: 15_000 }).toBe(true);
+    const buildingSheet = page.locator(".gather-sheet[data-building]");
+    await expect(buildingSheet).toBeVisible();
+    await expect(buildingSheet.locator(".gather-inside-title")).toBeVisible({ timeout: 10_000 });
+    await expect(buildingSheet.locator(".gather-sheet-enter")).toBeEnabled();
+    await buildingSheet.locator(".gather-sheet-close").click();
+    await expect(page.locator(".gather-panel")).toHaveAttribute("data-sheet", "none");
+    expect(deviceErrors).toEqual([]);
+  });
+});
+
+test.describe("채집 사진", () => {
+  test.use({ account: "player" });
+
+  for (const theme of ["pastel", "dark"] as const) {
+    for (const language of ["ko", "en"] as const) {
+      test.describe(`390 ${theme} ${language}`, () => {
+        test.use({ ...VIEWPORTS.phone, theme, language });
+
+        test(`오브젝트 판·채집 줄 (390·${theme}·${language})`, async ({ page, deviceErrors }) => {
+          test.setTimeout(240_000);
+          await openMap(page);
+          await openObjectSheet(page);
+          await page.locator(".gather-sheet-info").click();
+          expect(await horizontalOverflow(page)).toEqual([]);
+          expect(await smallTapTargets(page)).toEqual([]);
+          await shot(page, `gather-object-390-${theme}-${language}`);
+          await page.locator(".gather-sheet-gather").click();
+          const loop = page.locator(".gather-loop");
+          await expect(loop).toHaveAttribute("data-phase", /^(to_object|gathering|to_deposit)$/, {
+            timeout: 20_000,
+          });
+          expect(await horizontalOverflow(page)).toEqual([]);
+          await shot(page, `gather-loop-390-${theme}-${language}`);
+          await loop.locator(".gather-stop").click();
+          await expect(loop).toHaveAttribute("data-stop", "stopped", { timeout: 15_000 });
+          if (await clickFreeMarker(page, BUILDING_MARKER)) {
+            await expect(page.locator(".gather-sheet[data-building] .gather-inside-title")).toBeVisible({
+              timeout: 10_000,
+            });
+            await shot(page, `gather-building-390-${theme}-${language}`);
+          }
+          expect(deviceErrors).toEqual([]);
+        });
+      });
+    }
+  }
+});

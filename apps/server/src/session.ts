@@ -30,6 +30,7 @@ import {
   RUINS_PROTOCOL_VERSION,
   TRAVEL_PROTOCOL_VERSION,
   UNIT_CONTROL_PROTOCOL_VERSION,
+  GATHER_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -49,6 +50,7 @@ import type { TempleGateway, TempleSocket } from "./temple/gateway.ts";
 import type { RuinGateway, RuinSocket } from "./ruins/gateway.ts";
 import type { MarketGateway, MarketSocket } from "./market/gateway.ts";
 import type { TravelGateway, TravelSocket } from "./travel/gateway.ts";
+import type { GatherGateway, GatherSocket } from "./gather/gateway.ts";
 import type { WorldGateway, WorldSocket } from "./world/gateway.ts";
 
 export interface SessionContext {
@@ -79,6 +81,8 @@ export interface SessionContext {
   market?: MarketGateway | undefined;
   /** 2차맵 사이 이동(프로토콜 16, docs/adr/2026-11-07-play-flow.md WP9). 없으면 busy */
   travel?: TravelGateway | undefined;
+  /** 원자재 오브젝트 채집·건물 들어가기(프로토콜 17, docs/adr/2026-11-07-gather-objects.md) */
+  gather?: GatherGateway | undefined;
   /** 이 연결의 로그인 사용자(쿠키). 로그인하지 않았거나 인증이 꺼져 있으면 null */
   viewer?: (() => Promise<Viewer | null>) | undefined;
   /**
@@ -117,6 +121,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let ruinSocket: RuinSocket | undefined;
   let marketSocket: MarketSocket | undefined;
   let travelSocket: TravelSocket | undefined;
+  let gatherSocket: GatherSocket | undefined;
   let releasePresence: (() => void) | undefined;
 
   const sendText = (text: string): void => {
@@ -158,6 +163,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
     ruinSocket?.close();
     marketSocket?.close();
     travelSocket?.close();
+    gatherSocket?.close();
     releasePresence?.();
   });
 
@@ -489,6 +495,22 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         }
         travelSocket ??= context.travel.open({ send: sendText, viewer: context.viewer ?? signedOut });
         travelSocket.handle(message);
+        return;
+      }
+      case "gather_start":
+      case "gather_stop":
+      case "unit_enter": {
+        // 채집·들어가기는 프로토콜 17의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        if (protocolVersion < GATHER_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.gather) {
+          send({ t: "gather_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        gatherSocket ??= context.gather.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        gatherSocket.handle(message);
         return;
       }
     }

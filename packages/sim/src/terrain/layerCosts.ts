@@ -4,6 +4,9 @@
 //   4 ~ 10은 기획 질문 124·126 기술 기본안의 [임시] 출발값(Step 5 설정값 전): 얕은 물(하천 등급 1 ~ 2)은 걸어서 건너되 비싸다.
 // - 지형 칸 네 꼭짓점 높이 차가 CLIFF_RELIEF_CM 이상이면 벼랑(막힘). 엄폐 값 2(차폐: 빽빽한 숲·큰 바위)는 막힘(D-227 ①·D-234).
 //   planet secondMap SM_CLIFF_RELIEF_CM과 같다(서버 시험이 본다).
+// - 숲 들어가기(docs/adr/2026-11-07-gather-objects.md, 사용자 지적 2026-11-07 "숲이나 건물로 진입 등의 상호작용 불가", SIM_VERSION 19):
+//   소품 그림 층(art)을 함께 주면 나무 그림(활엽수·침엽수·야자수)이 선 차폐 칸은 막지 않고 그 칸 지표 비용 × FOREST_COST_PM ÷ 1000으로
+//   지나간다(시야는 그대로 막는다 — 엄폐 값은 바꾸지 않는다). 큰 바위 등 다른 차폐는 그대로 막힘. art가 없으면(전투장·옛 호출) 예전 그대로.
 // - 지형 칸 하나 = 배치 칸 2×2. 엄폐는 배치 칸마다다.
 import {
   PLACEMENT_CELLS,
@@ -34,6 +37,16 @@ export const CLIFF_RELIEF_CM = 650;
 /** 차폐 엄폐 값(지나갈 수 없다) */
 export const COVER_BLOCKING = 2;
 
+/** [임시] 숲(나무가 선 차폐 칸) 지나는 비용 배율(천분율). 기획 수치 없음 → 확인 대기(질문 667) */
+export const FOREST_COST_PM = 1800;
+
+/** 나무 그림 번호(@terra/shared MAP_PROP_ARTS: tree_broadleaf 1·tree_conifer 2·tree_palm 3). sim은 shared 표를 가져오지 않아 번호로 둔다 */
+const TREE_ART_MIN = 1;
+const TREE_ART_MAX = 3;
+
+/** 그 소품 그림 번호가 나무인가 */
+export const isTreeArt = (art: number): boolean => art >= TREE_ART_MIN && art <= TREE_ART_MAX;
+
 /** 비용을 만들 지형 층 */
 export interface TerrainLayers {
   /** 꼭짓점 높이(cm) 129², 행 우선 */
@@ -42,6 +55,8 @@ export interface TerrainLayers {
   readonly surface: Uint8Array;
   /** 배치 칸 엄폐 값(0 · 1 · 2) 256². 없으면 엄폐 없음 */
   readonly cover?: Uint8Array | undefined;
+  /** 배치 칸 소품 그림 번호 256²(@terra/shared MAP_PROP_ARTS). 있으면 나무가 선 차폐 칸을 숲 비용으로 지나간다 */
+  readonly art?: Uint8Array | undefined;
 }
 
 /** 지형 칸 (tx, ty) 꼭짓점 4개의 높이 차(cm) */
@@ -55,9 +70,15 @@ export function cellRelief(heights: Int32Array, tx: number, ty: number): number 
   return Math.max(a, b, c, d) - Math.min(a, b, c, d);
 }
 
+/** 숲 칸 비용(지표 비용 × 배율, u16 상한). 지표가 막힘이면 막힘 */
+function forestCost(cost: number): number {
+  if (cost === 0) return 0;
+  return Math.min(0xffff, Math.floor((cost * FOREST_COST_PM) / 1000));
+}
+
 /** 배치 칸 65,536개의 지형 비용(천분율, 0 = 막힘). createPlacementGrid에 넣는다. 모르는 지표 번호는 막힘 */
 export function placementCostsFromLayers(layers: TerrainLayers): Uint16Array {
-  const { heights, surface, cover } = layers;
+  const { heights, surface, cover, art } = layers;
   if (
     heights.length !== TERRAIN_VERTEX_SIZE * TERRAIN_VERTEX_SIZE ||
     surface.length !== TERRAIN_SIZE * TERRAIN_SIZE
@@ -66,6 +87,7 @@ export function placementCostsFromLayers(layers: TerrainLayers): Uint16Array {
   }
   if (cover && cover.length !== PLACEMENT_CELLS)
     throw new RangeError("cover does not match the placement size");
+  if (art && art.length !== PLACEMENT_CELLS) throw new RangeError("art does not match the placement size");
   const costs = new Uint16Array(PLACEMENT_CELLS);
   for (let ty = 0; ty < TERRAIN_SIZE; ty++) {
     for (let tx = 0; tx < TERRAIN_SIZE; tx++) {
@@ -74,7 +96,10 @@ export function placementCostsFromLayers(layers: TerrainLayers): Uint16Array {
       for (let dy = 0; dy < PLACEMENT_PER_TERRAIN; dy++) {
         const row = (ty * PLACEMENT_PER_TERRAIN + dy) * PLACEMENT_SIZE + tx * PLACEMENT_PER_TERRAIN;
         for (let dx = 0; dx < PLACEMENT_PER_TERRAIN; dx++) {
-          costs[row + dx] = cover && cover[row + dx] === COVER_BLOCKING ? 0 : cost;
+          const cell = row + dx;
+          if (!cover || cover[cell] !== COVER_BLOCKING) costs[cell] = cost;
+          else if (art && isTreeArt(art[cell] ?? 0)) costs[cell] = forestCost(cost);
+          else costs[cell] = 0;
         }
       }
     }

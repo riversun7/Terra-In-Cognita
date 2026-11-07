@@ -57,9 +57,14 @@
  * 16: 2차맵 사이 이동(travel.ts travel_start·travel_cancel → travel_result, docs/adr/2026-11-07-play-flow.md "WP9", 기획 D-197·질문 571 가) —
  *    1차맵 명령 [확정]이 내 유닛을 이웃 2차맵을 하나씩 지나 목적 2차맵으로 걷게 한다. 더하기만 했고 15판 기기는 그대로 받는다(이 메시지를
  *    보내지 않는다).
- * 17: 2차맵 유닛 조종 권한(secondMap.ts stop_unit → result, docs/adr/2026-11-07-unit-control.md, 사용자 지적 2026-11-07 "유저는 맵 진입시 본인의
- *    유닛만 움직일 수 있어야함") — 멈추기 명령 stop_unit과 결과 코드 not_owner(내 유닛이 아님)·unit_stays(수호신은 도시에 머문다). 두 코드는 17판
- *    연결에만 가고 16판 연결은 전처럼 forbidden을 받는다. 더하기만 했고 16판 기기는 그대로 받는다(stop_unit을 보내지 않는다).
+ * 17: 2차맵 유닛 조종·채집·건물 들어가기(합친 판 — 여러 줄기가 더한 것을 한 판으로 묶었다. 모두 더하기만 했고 16판 기기는 그대로 받는다
+ *    — 새 메시지를 보내지 않는다).
+ *    - 유닛 조종 권한(secondMap.ts stop_unit → result, docs/adr/2026-11-07-unit-control.md, 사용자 지적 2026-11-07 "유저는 맵 진입시 본인의
+ *      유닛만 움직일 수 있어야함") — 멈추기 명령 stop_unit과 결과 코드 not_owner(내 유닛이 아님)·unit_stays(수호신은 도시에 머문다). 두 코드는
+ *      17판 연결에만 가고 16판 연결은 전처럼 forbidden을 받는다.
+ *    - 원자재 오브젝트 채집·건물 들어가기(gather.ts gather_start·gather_stop·unit_enter → gather_result,
+ *      docs/adr/2026-11-07-gather-objects.md, 사용자 지적 2026-11-07 문제 2·3) — 내 유닛이 오브젝트로 걸어가 캐고 넣는 곳에 넣기를 되풀이하고,
+ *      건물로 걸어가 화물 넣기·직무 받기·안에 머물기를 한다.
  */
 export const PROTOCOL_VERSION = 17;
 

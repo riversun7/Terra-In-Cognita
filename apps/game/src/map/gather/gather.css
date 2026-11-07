@@ -1,0 +1,177 @@
+/*
+ * 2차맵 채집·들어가기(gatherOverlay.ts·GatherPanel.tsx) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
+ * 오브젝트 표시: 누르는 곳은 --tap-size, 안에 무리 색 점(원목·돌·광석·약초). 떨어진 것은 속 빈 회색 고리(색에만 기대지 않는다).
+ * 덧그림 판은 지도 위를 덮지만 누르기는 지나보낸다(표시 단추만 받는다). 위치는 엔진 프레임이 transform으로 놓는다.
+ */
+.gather-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  isolation: isolate;
+}
+[data-kind="wood"] {
+  --gather-color: var(--color-success);
+}
+[data-kind="stone"] {
+  --gather-color: var(--color-text-muted);
+}
+[data-kind="ore"] {
+  --gather-color: var(--color-warning);
+}
+[data-kind="herb"] {
+  --gather-color: var(--color-stat-wis);
+}
+
+.gather-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  box-shadow: none;
+  transition: none;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.gather-marker[hidden] {
+  display: none;
+}
+.gather-marker-dot {
+  width: calc(var(--status-dot) * 2);
+  height: calc(var(--status-dot) * 2);
+  border: var(--border-w) solid var(--color-surface);
+  border-radius: var(--radius-sm);
+  background-color: var(--gather-color, var(--color-success));
+  box-shadow: var(--shadow-control);
+}
+.gather-marker[data-state="depleted"] .gather-marker-dot {
+  border: var(--border-w) dashed var(--color-text-muted);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+}
+.gather-marker[aria-pressed="true"] .gather-marker-dot,
+.gather-marker:focus-visible .gather-marker-dot {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
+/* 건물 표시: 건물 위 작은 단추(누르면 건물 판) */
+.gather-building-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  margin: 0;
+  padding: 0 var(--space-2);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+  transition: none;
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.gather-building-marker[hidden] {
+  display: none;
+}
+.gather-building-marker:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
+/* 내 유닛 채집 이름표 */
+.gather-chip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: calc(var(--tap-size) * 4);
+  padding: 0 var(--space-2);
+  overflow: hidden;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.gather-chip[hidden] {
+  display: none;
+}
+
+/* 아래 판: 채집 줄·안내·오브젝트·건물 판 */
+.gather-panel {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+}
+/* 판 사이 빈 곳은 지도를 그대로 누를 수 있게 지나보낸다(map.css .map-hud와 같은 규칙) */
+.map-hud > .gather-panel {
+  pointer-events: none;
+}
+.gather-panel > * {
+  pointer-events: auto;
+}
+.gather-panel:empty {
+  display: none;
+}
+.gather-loop,
+.gather-sheet,
+.gather-notice {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+  overflow-wrap: anywhere;
+}
+.gather-loop p,
+.gather-sheet p {
+  margin: 0;
+}
+.gather-loop .gather-stop {
+  justify-self: end;
+}
+.gather-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.gather-muted {
+  color: var(--color-text-muted);
+}
+.gather-actor {
+  font-weight: var(--font-weight-strong);
+}
+.gather-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+.gather-inside-title {
+  font-weight: var(--font-weight-strong);
+}
+.gather-inside {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-4);
+}

@@ -16,6 +16,7 @@ import { closeDatabase, createDatabase } from "./db/client.ts";
 import { createWorkerBaker } from "./planet/baker.ts";
 import { type PlanetSourceSpec, createPlanetSource, planetSpecsFromPack } from "./planet/sources.ts";
 import { mapPropInputsFromPack } from "./world/mapProps.ts";
+import { gatherKindsFromPack } from "./gather/kinds.ts";
 import {
   PLANET_EDITOR_READY_MESSAGE,
   type PlanetEditorBuild,
@@ -154,6 +155,8 @@ app = await buildApp({
   // 랭킹(docs/adr/2026-11-07-ranking.md): 팩 경로 목록(공개 여부·지표)과 세력 이름(국가 프리셋)
   ranking: { paths: rankingPathsOf(loaded.pack), nations: nationNamesOf(loaded.pack) },
   // 시험 2차맵 지형 = 행성 값에서 만든 2차맵(ADR 46 WP-3). 지형 워커가 만들고 행성 캐시 폴더 아래 second-maps/에 둔다
+  // 2차맵 원자재 오브젝트 종류(docs/adr/2026-11-07-gather-objects.md): 팩 gather_objects
+  gatherObjects: gatherKindsFromPack(loaded.pack),
   secondMaps: {
     props: mapPropInputsFromPack(loaded.pack),
     runner: { kind: "worker", workerUrl: terrainWorkerUrl },

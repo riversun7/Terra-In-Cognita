@@ -1,0 +1,48 @@
+// 원자재 오브젝트 종류(콘텐츠 gather_objects) → 서버 채집이 쓰는 모양 — docs/adr/2026-11-07-gather-objects.md.
+// 팩 항목은 2단계(참조)까지 통과한 파싱 결과라 아이템·시설이 참조 객체다. 정규 JSON(참조 → ID 문자열)으로 되돌린 뒤 스키마로 다시 읽는다
+// (map_props와 같은 방식, world/mapProps.ts). 그림 종류 이름은 소품 그림 번호(@terra/shared MAP_PROP_ARTS)로 바꿔 둔다.
+import { type ContentPack, gatherObjectEntrySchema } from "@terra/content";
+import { mapPropArtCode } from "@terra/shared";
+
+export interface GatherKind {
+  readonly id: string;
+  readonly name: { readonly ko: string; readonly en: string };
+  readonly source: "prop" | "rock";
+  /** source prop: 소품 그림 번호들 */
+  readonly arts: readonly number[];
+  /** source rock: 바위 지표 묶음 가운데 설 천분율 */
+  readonly chancePm: number;
+  /** 아이템 ID(item: 앞머리 없음) */
+  readonly item: string;
+  readonly lots: number;
+  readonly workMs: number;
+  readonly uses: number;
+  readonly regrowMs: number;
+  /** 맡는 시설 ID(없으면 null) */
+  readonly facility: string | null;
+  readonly primary: string;
+  readonly secondary: string;
+}
+
+/** 팩의 오브젝트 종류(팩 차례 = 같은 그림을 둘이 맡을 때 앞의 것) */
+export function gatherKindsFromPack(pack: ContentPack): GatherKind[] {
+  return (pack.entries.get("gather_objects") ?? []).map((entry) => {
+    const json: unknown = JSON.parse(JSON.stringify(entry));
+    const kind = gatherObjectEntrySchema.parse(json);
+    return {
+      id: kind.id,
+      name: { ko: kind.name.ko, en: kind.name.en },
+      source: kind.source,
+      arts: kind.source === "prop" ? kind.arts.map(mapPropArtCode).filter((code) => code > 0) : [],
+      chancePm: kind.source === "rock" ? kind.chancePm : 0,
+      item: kind.item.id,
+      lots: kind.lots,
+      workMs: kind.workMs,
+      uses: kind.uses,
+      regrowMs: kind.regrowMs,
+      facility: kind.facility?.id ?? null,
+      primary: kind.primary,
+      secondary: kind.secondary,
+    };
+  });
+}

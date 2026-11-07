@@ -15,6 +15,7 @@ import { OLD_RECRUIT_COEFFICIENTS, type RecruitCoefficients } from "./recruitmen
 import { type RestorationCoefficients, START_RESTORATION_COEFFICIENTS } from "./restoration.ts";
 import { OLD_TEMPLE_COEFFICIENTS, type TempleCoefficients } from "./temple.ts";
 import { START_WORLD_SEED, type WorldSeedCoefficients } from "./worldSeed.ts";
+import { type GatherObjectCoefficients, START_GATHER_OBJECTS } from "./gatherObjects.ts";
 
 export interface SocietyCoefficients {
   /** 도시 주식 수(D-130) */
@@ -80,6 +81,8 @@ export interface SocietyCoefficients {
    * 시뮬은 읽지 않는다(서버가 켤 때 시험 세계를 차린다, docs/adr/2026-11-07-play-flow.md "WP1 세계 씨앗")
    */
   readonly worldSeed: WorldSeedCoefficients;
+  /** 2차맵 원자재 오브젝트 채집(팩 tuning 경로 "gatherObjects.*", 모두 [임시]). docs/adr/2026-11-07-gather-objects.md. 시뮬은 읽지 않는다 */
+  readonly gatherObjects: GatherObjectCoefficients;
   /** 지상 기술 단계 상한(질문 121 기본안: 시설 Lv1~5 사다리) */
   readonly techGroundMax: number;
   /** [임시] 단계 n으로 오르는 연구 작업량(효율 1000인 연구 일꾼 한 시간 = 1000) = researchWorkBase × n */
@@ -344,6 +347,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   temple: { ...OLD_TEMPLE_COEFFICIENTS },
   restoration: { ...START_RESTORATION_COEFFICIENTS },
   worldSeed: { ...START_WORLD_SEED },
+  gatherObjects: { ...START_GATHER_OBJECTS },
   techGroundMax: 5,
   researchWorkBase: 48_000,
   developmentPerTech: 20,

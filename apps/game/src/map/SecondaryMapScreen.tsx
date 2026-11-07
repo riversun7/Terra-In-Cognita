@@ -2,6 +2,8 @@
 // 열 맵(docs/adr/2026-11-07-play-flow.md "WP2 지도 흐름", 기획 60 §4.1 D-6017): 주소 ?key=, 없으면 내 사이보그가 있는 맵(MapTargetGate.tsx),
 // 카메라는 지형이 서면 내 사이보그 자리에 맞춘다. 내 사이보그가 없는 맵이면 1차맵에서 고른 곳(?at=) 또는 그 2차맵 도시 시청(WP7, 515).
 // 서버가 띄우지 않은 맵(unknown_map)·볼 수 없는 맵(not_visible)이면 다시 묻지 않고 까닭과 [1차맵에서 보기](1차맵 명령 흐름으로, 513)를 보인다.
+// 572 다: ?at=가 있으면 내 사이보그가 있는 맵이어도 그곳을 보고, 구석 [내 사이보그]로 돌아간다. 2차맵 사이 이동(WP9): 내 사이보그가 가는 중이면
+// 한 줄(2차맵 몇 번째·도착 예상), 내 사이보그를 따라 연 화면이면 옆 2차맵으로 넘어갈 때 짧은 안내 뒤 그 2차맵으로 바꾼다(D-139), 아니면 [따라가기].
 // [임시] 앱 화면 흐름(홈·아래 탭)이 따로 설계되는 중이다. 그때 이 화면을 "지도" 탭으로 옮긴다: onClose·monitor만 받는다.
 // 자료는 서버에서 온다(mapFeed.ts, ADR 2026-10-28-s1-second-map "전송"). 연결·시계 차이는 앱의 연결 하나를 함께 쓴다(serverLink).
 // 고빈도 상태(유닛 위치)는 엔진 안 타입 배열에 있고, 이 화면은 1초마다 요약(stats)만 읽는다(PLAN 5.7).
@@ -52,6 +54,8 @@ import { fetchTerrain } from "./terrainLoader.ts";
 import type { MapFocus } from "./mapTarget.ts";
 import { MapTargetGate } from "./MapTargetGate.tsx";
 import { screenNotice } from "./secondMapNotice.ts";
+import { CrossingNotice, CyborgActions, TravelLine } from "./SecondMapTravel.tsx";
+import { useTravelFollow } from "./useCyborgTravel.ts";
 import "./map.css";
 
 /** 성능 보고에 붙이는 화면 이름 */
@@ -78,7 +82,13 @@ export default function SecondaryMapScreen({ mapKey, at, ...props }: SecondaryMa
   return (
     <MapTargetGate keyParam={mapKey} atParam={at} onClose={props.onClose}>
       {(target) => (
-        <SecondMapView key={target.mapKey} {...props} mapKey={target.mapKey} focus={target.focus} />
+        <SecondMapView
+          key={target.mapKey}
+          {...props}
+          mapKey={target.mapKey}
+          focus={target.focus}
+          cyborg={target.cyborg}
+        />
       )}
     </MapTargetGate>
   );
@@ -88,8 +98,10 @@ interface SecondMapViewProps {
   onClose: () => void;
   monitor: FrameMonitor;
   mapKey: number;
-  /** 카메라를 맞출 곳(내 사이보그·1차맵에서 고른 곳·도시 시청, 없으면 맵 가운데) */
+  /** 카메라를 맞출 곳(1차맵에서 고른 곳·내 사이보그·도시 시청, 없으면 맵 가운데) */
   focus: MapFocus | null;
+  /** 이 맵에 내 사이보그가 있으면 그 자리([내 사이보그] 단추·가는 중 줄) */
+  cyborg: MapFocus | null;
 }
 
 /** 아래 판의 명령 안내 */
@@ -141,7 +153,7 @@ const roundOrDash = (value: number | null): string | number => (value === null ?
 /** 개발 시험 명령 한 번에 받는 시험 일꾼 수 */
 const DEV_SPAWN_COUNT = 5;
 
-function SecondMapView({ onClose, monitor, mapKey, focus }: SecondMapViewProps) {
+function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const engineRef = useRef<SecondMapEngine | null>(null);
@@ -162,6 +174,9 @@ function SecondMapView({ onClose, monitor, mapKey, focus }: SecondMapViewProps) 
   const [command, setCommand] = useState<CommandNotice | null>(null);
   const [snapshot, setSnapshot] = useState<HudSnapshot | null>(null);
   const perf = usePerfStats(monitor);
+  // 2차맵 사이 이동(WP9): 내 사이보그가 가는 중인 길. 내 사이보그를 따라 연 화면이면 넘어갈 때 따라간다(D-139)
+  const following = focus?.source === "cyborg";
+  const { going, crossedTo } = useTravelFollow(cyborg?.unitId ?? null, mapKey, following);
 
   useEffect(() => {
     adminRef.current = admin;
@@ -334,6 +349,14 @@ function SecondMapView({ onClose, monitor, mapKey, focus }: SecondMapViewProps) 
     if (!feedRef.current?.devSpawn(DEV_SPAWN_COUNT)) setDevNotice(m.map_vision_spawn_failed());
   };
 
+  /** [내 사이보그]: 카메라를 내 사이보그의 지금 자리로(엔진이 유닛을 모르면 들어올 때의 칸) */
+  const goToCyborg = (): void => {
+    const engine = engineRef.current;
+    if (!engine || !cyborg) return;
+    const unit = cyborg.unitId === null ? null : engine.unitState(cyborg.unitId);
+    engine.setView({ x: unit?.x ?? cyborg.cellX + 0.5, y: unit?.y ?? cyborg.cellY + 0.5 });
+  };
+
   const deselect = (): void => {
     selectedRef.current = null;
     setSelected(null);
@@ -405,6 +428,8 @@ function SecondMapView({ onClose, monitor, mapKey, focus }: SecondMapViewProps) 
       data-focus={focus?.unitId ?? undefined}
       data-focus-source={focus?.source}
       data-focus-at={focus ? `${focus.cellX},${focus.cellY}` : undefined}
+      data-cyborg={cyborg?.unitId ?? undefined}
+      data-travel={going ? `${going.leg + 1}/${going.route.length}` : undefined}
     >
       <div ref={hostRef} className="map-view" role="img" aria-label={m.map_view_label()} />
       <header className="map-hud map-hud-top">
@@ -524,11 +549,14 @@ function SecondMapView({ onClose, monitor, mapKey, focus }: SecondMapViewProps) 
           ) : null}
         </div>
       ) : null}
+      <CrossingNotice show={crossedTo !== null && following} />
       <footer className="map-hud map-hud-bottom">
         <div className="map-panel map-hint" role="status">
           <p>{hint}</p>
           {command ? <p className="map-command">{commandText(command)}</p> : null}
+          <TravelLine going={going} />
         </div>
+        <CyborgActions onGoToCyborg={cyborg ? goToCyborg : null} followTo={following ? null : crossedTo} />
         {selected === null ? null : (
           <div className="map-actions">
             <button type="button" className="button-small" onClick={deselect}>

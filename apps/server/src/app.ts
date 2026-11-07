@@ -36,6 +36,7 @@ import { cacheViewer, createWorldGateway } from "./world/gateway.ts";
 import { createCyborgGateway } from "./cyborg/gateway.ts";
 import { createRecruitGateway } from "./recruit/gateway.ts";
 import { createFusionGateway } from "./fusion/gateway.ts";
+import { createTempleGateway } from "./temple/gateway.ts";
 import { holdingsConfigOf } from "./holdings/config.ts";
 import { vitalsConfigOf } from "./vitals/config.ts";
 import { createVitalsReads } from "./vitals/reads.ts";
@@ -454,6 +455,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const laborService = () => (world?.status().state === "ready" ? world.persistence?.labor : undefined);
   // 사이보그 유닛 융합·유전자(docs/adr/2026-11-07-cyborg-fusion-genes.md): 세계가 준비된 뒤의 서비스(DB가 있는 월드만)
   const fusionService = () => (world?.status().state === "ready" ? world.persistence?.fusion : undefined);
+  // 신전·종교(docs/adr/2026-11-07-temple-religion.md): 융합 서비스 안의 신전(같은 조건)
+  const templeService = () => fusionService()?.temple;
   // 건물(docs/adr/2026-11-07-buildings-runtime.md): 같은 조건
   const facilityService = () =>
     world?.status().state === "ready" ? world.persistence?.facilities.service : undefined;
@@ -563,6 +566,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       },
       recruits: recruitService,
       fusion: fusionService,
+      temple: templeService,
       holdings: world
         ? createHoldingsReads({
             access: holdingsAccess,
@@ -653,6 +657,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const facilityGateway = world
     ? createFacilityGateway({ service: facilityService, now, log: app.log })
     : undefined;
+  const templeGateway = world
+    ? createTempleGateway({ service: templeService, now, log: app.log })
+    : undefined;
 
   if (planets && options.planets) {
     registerPlanetRoutes(app, { planets, viewer: httpViewer, now, limits: options.planets.limits });
@@ -678,6 +685,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         labor: laborGateway,
         fusion: fusionGateway,
         facilities: facilityGateway,
+        temple: templeGateway,
         viewer: socketViewer(request),
         // 접속 상태(D-136): 월드가 DB에 저장할 때만. 연결은 부팅 복구가 끝난 뒤에만 들어온다(listen이 기다린다)
         presence: world

@@ -856,6 +856,21 @@ export {
 } from "./society/cyborgStats.ts";
 export { deathFate, inherit, lifespanMs, type DeathFate } from "./society/population.ts";
 export {
+  OLD_TEMPLE_COEFFICIENTS,
+  TEMPLE_RITES,
+  addDevotion,
+  devotionGain,
+  inactiveWindow,
+  isInactiveAt,
+  rebirthHuman,
+  riteBlockers,
+  riteCost,
+  type InactiveWindow,
+  type RiteBlocker,
+  type TempleCoefficients,
+  type TempleRite,
+} from "./society/temple.ts";
+export {
   ADMIN_LEVEL_MAX,
   OLD_RECRUIT_COEFFICIENTS,
   RECRUIT_CARDS_CAP,

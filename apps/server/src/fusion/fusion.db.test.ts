@@ -1,6 +1,6 @@
 // 사이보그 유닛 융합·유전자 DB 통합 시험(D-470·D-478·D-516, 49 N46·N47) — TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다.
-// 융합(휴먼 + 화폐·재료 → 같은 유닛이 사이보그 유닛, 휴먼 행 지움·사이보그 유닛 행, 유지비 무게), 유전자(수명이 다한 유저 휴먼 → 스탯·스킬
-// 유전자 인스턴스·지닌 물건 옮김·유닛 떠남, 합성, 주입·스킬 칸, 인큐베이터)를 본다.
+// 융합(휴먼 + 화폐·재료 → 같은 유닛이 사이보그 유닛, 휴먼 행 지움·사이보그 유닛 행, 유지비 무게), 유전자(수명이 다한 유저 휴먼 = 비활성 →
+// 변환하면 스탯·스킬 유전자 인스턴스·지닌 물건 옮김·유닛 떠남(D-517), 합성, 주입·스킬 칸, 인큐베이터)를 본다.
 import { loadContentPack } from "@terra/content/node";
 import {
   DAY_MS,
@@ -236,7 +236,7 @@ describe.skipIf(!TEST_DATABASE_URL)("사이보그 유닛 융합(D-470)", () => {
 });
 
 describe.skipIf(!TEST_DATABASE_URL)("유전자(D-478·D-516)", () => {
-  it("수명이 다하면(1분 처리) 스탯 유전자 1 + 배운 스킬마다 스킬 유전자, 지닌 물건은 본체로, 유닛은 떠난다, 다시 켜도 값이 남는다", async () => {
+  it("수명이 다하면 비활성으로 남고(D-517), 변환하면 스탯 유전자 1 + 배운 스킬마다 스킬 유전자, 지닌 물건은 본체로, 유닛은 떠난다, 다시 켜도 값이 남는다", async () => {
     const world = await boot({ roster: () => rosterCatalog });
     const persistence = persistenceOf(world);
     const { fusion, holdings } = persistence;
@@ -275,14 +275,21 @@ describe.skipIf(!TEST_DATABASE_URL)("유전자(D-478·D-516)", () => {
       seed: 3,
     });
     if (!carried.ok) throw new Error("acquire");
-    // 수명이 다하게(DB 행을 고친다) → 1분 처리
+    // 수명이 다하게(DB 행을 고친다) → 1분 처리: 비활성으로 남는다(상한 출발값 없음, D-517) → 주입·융합을 받지 않는다
     await persistence.writer.durable();
     await test.db.$client.query(
       `update world_humans set born_at_ms = $1, lifespan_ms = 1000 where unit_id = $2`,
       [clock - 10_000, unitId],
     );
-    expect(await fusion.expireDue(clock)).toBe(1);
     expect(await fusion.expireDue(clock)).toBe(0);
+    expect([...world.maps.values()].some((map) => map.unitInfo(unitId))).toBe(true);
+    expect(fusion.temple.isInactive(unitId)).toBe(true);
+    expect(await fusion.inject(userId, { gene: again.gene, unit: unitId })).toEqual({
+      ok: false,
+      code: "wrong_kind",
+    });
+    // 변환(개발 시험 바로 변환 = 연구소 변환과 같은 처리, 연구소 길은 temple.db.test.ts)
+    expect(await fusion.devExpire(userId, { unit: unitId })).toMatchObject({ ok: true, unitId });
     expect([...world.maps.values()].some((map) => map.unitInfo(unitId))).toBe(false);
     await persistence.writer.durable();
     expect(await rows(test.db, `select id from world_units where id = $1`, [unitId])).toEqual([]);

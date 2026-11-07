@@ -20,6 +20,15 @@ const expire = { t: "dev_expire_unit", id: 9, unit: 41 } as const;
 function fakeService(calls: string[]): FusionService {
   return {
     overview: () => Promise.reject(new Error("unused")),
+    temple: {
+      overview: () => Promise.reject(new Error("unused")),
+      pray: () => Promise.reject(new Error("unused")),
+      offer: () => Promise.reject(new Error("unused")),
+      rite: () => Promise.reject(new Error("unused")),
+      devInactivate: () => Promise.reject(new Error("unused")),
+      isInactive: () => false,
+      sweep: () => Promise.resolve(0),
+    },
     fuse: (userId, input) => {
       calls.push(`fuse:${userId}:${input.human}:${input.cost}`);
       return Promise.resolve({ ok: true, unitId: input.human, stats: [1, 2, 3, 4, 5, 6], bonusPm: 1100 });
@@ -43,6 +52,10 @@ function fakeService(calls: string[]): FusionService {
     devGrantGene: (userId, input) => {
       calls.push(`devGene:${userId}:${input.kind}`);
       return Promise.resolve({ ok: true, gene: 11 });
+    },
+    convert: (userId, input) => {
+      calls.push(`convert:${userId}:${input.buildingId}:${input.unit}:${input.cost}`);
+      return Promise.resolve({ ok: true, unitId: input.unit, genes: [14] });
     },
     devExpire: (userId, input) => {
       calls.push(`expire:${userId}:${input.unit}`);

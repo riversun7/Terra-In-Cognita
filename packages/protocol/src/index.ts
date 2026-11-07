@@ -62,6 +62,7 @@ export {
   GENE_APPLY_MODES,
   GENE_OUTCOMES,
   GENE_PROTOCOL_VERSION,
+  GENE_CONVERT_PROTOCOL_VERSION,
   type FusionResultCode,
 } from "./fusion.ts";
 export {
@@ -70,6 +71,12 @@ export {
   type FacilityResultCode,
   STORAGE_PROTOCOL_VERSION,
 } from "./facilities.ts";
+export {
+  TEMPLE_PROTOCOL_VERSION,
+  TEMPLE_RESULT_CODES,
+  TEMPLE_RITE_IDS,
+  type TempleResultCode,
+} from "./temple.ts";
 export {
   LABOR_JOBS_PROTOCOL_VERSION,
   LABOR_PROTOCOL_VERSION,

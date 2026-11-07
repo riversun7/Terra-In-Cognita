@@ -24,8 +24,13 @@ export interface FusionHumanView {
   readonly stats: readonly number[];
   /** 융합하면 나올 스탯 범위(보너스 최소·최대) */
   readonly fused: { readonly min: readonly number[]; readonly max: readonly number[] };
-  /** 수명이 끝나는 시각(실제 시간 ms). 지나면 서버가 1분 안에 수명이 다한 처리를 한다(유전자가 남고 떠남) */
+  /**
+   * 수명이 끝나는 시각(실제 시간 ms). 지나면 비활성이 된다(D-517): 일하지 않고, 신전 환생·신격화나 생명과학 연구소 유전자 변환을
+   * 기다린다(docs/adr/2026-11-07-temple-religion.md)
+   */
   readonly lifespanEndsAtMs: number;
+  /** 비활성이 떠나는 시각(수명 끝 + 상한 설정 칸). 상한이 없으면(출발값) null — 떠나지 않는다 */
+  readonly departsAtMs: number | null;
   /** 잡힌 유닛(포로)이면 참 — 융합·주입 못 함 */
   readonly captive: boolean;
   /** 배운 스킬(스킬 유전자 주입, 스킬 ID 차례) */

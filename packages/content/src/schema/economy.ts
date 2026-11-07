@@ -18,8 +18,19 @@ export { ITEM_CATEGORIES, itemEntrySchema, type ItemEntry } from "./items.ts";
 /**
  * 생산 단계(D-114) + 영토(영토 비콘처럼 생산하지 않는 시설, D-485·49 N51 — docs/adr/2026-11-03-territory-layer.md) + 창고(일하지 않고
  * 물건을 두는 시설, 옛 야적장·창고·중앙창고·대규모 창고, 49 N50·D-121·D-516 382 — docs/adr/2026-11-07-buildings-runtime.md "바뀜 (창고·직무)")
+ * + 신앙(일하지 않고 기도·헌금·환생·신격화 집전을 받는 신앙 시설, 46 §7·D-311) + 생명공학(비활성 휴먼을 유전자로 바꾸는 생명과학 연구소,
+ * D-517·D-469 — 둘 다 docs/adr/2026-11-07-temple-religion.md)
  */
-export const FACILITY_STAGES = ["gather", "process", "part", "finish", "territory", "storage"] as const;
+export const FACILITY_STAGES = [
+  "gather",
+  "process",
+  "part",
+  "finish",
+  "territory",
+  "storage",
+  "religion",
+  "biotech",
+] as const;
 
 /** 채집 방식: roll = 확률표 추첨, select = 선택 + 효율(옛 ITM-10) */
 export const GATHER_MODES = ["roll", "select"] as const;

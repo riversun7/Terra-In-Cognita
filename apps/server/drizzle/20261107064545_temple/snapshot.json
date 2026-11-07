@@ -1,0 +1,654 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "94eafeb7-f764-4dac-9656-7b45ba06484b",
+  "prevIds": [
+    "178c8ab5-af30-4bfb-b2d4-cf8b7f90ad8b",
+    "7add08bf-1998-4745-9c2b-a2731c05e426",
+    "aa8992a7-0f3d-411b-9d74-27d9f902bde6"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "temple_devotions"
+      ],
+      "writes": [
+        "s|tbl|public.temple_devotions",
+        "n|tbl|public.temple_devotions",
+        "e|tbl|public.temple_devotions",
+        "n|rel|public.temple_devotions",
+        "n|type|public.temple_devotions",
+        "n|rel|public.temple_devotions_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "temple_guardians"
+      ],
+      "writes": [
+        "s|tbl|public.temple_guardians",
+        "n|tbl|public.temple_guardians",
+        "e|tbl|public.temple_guardians",
+        "n|rel|public.temple_guardians",
+        "n|type|public.temple_guardians",
+        "n|rel|public.temple_guardians_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "unit_faith"
+      ],
+      "writes": [
+        "s|tbl|public.unit_faith",
+        "n|tbl|public.unit_faith",
+        "e|tbl|public.unit_faith",
+        "n|rel|public.unit_faith",
+        "n|type|public.unit_faith",
+        "n|rel|public.unit_faith_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "temple_guardians",
+        "temple_guardians_city_idx"
+      ],
+      "writes": [
+        "s|idx|public.temple_guardians_city_idx",
+        "n|idx|public.temple_guardians_city_idx",
+        "e|idx|public.temple_guardians_city_idx",
+        "n|rel|public.temple_guardians_city_idx"
+      ],
+      "reads": [
+        "n|tbl|public.temple_guardians",
+        "n|sch|public",
+        "n|col|public.temple_guardians.city_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "temple_devotions"
+      ],
+      "writes": [
+        "s|fk|public.temple_devotions.temple_devotions_owner_id_world_owners_id_fkey",
+        "n|fk|public.temple_devotions.temple_devotions_owner_id_world_owners_id_fkey",
+        "e|fk|public.temple_devotions.temple_devotions_owner_id_world_owners_id_fkey",
+        "n|con|public.temple_devotions.temple_devotions_owner_id_world_owners_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.temple_devotions",
+        "n|sch|public",
+        "n|tbl|public.world_owners",
+        "n|sch|public",
+        "n|col|public.temple_devotions.owner_id",
+        "n|col|public.world_owners.id",
+        "e|uniqueness|public.world_owners.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "temple_guardians"
+      ],
+      "writes": [
+        "s|fk|public.temple_guardians.temple_guardians_owner_id_world_owners_id_fkey",
+        "n|fk|public.temple_guardians.temple_guardians_owner_id_world_owners_id_fkey",
+        "e|fk|public.temple_guardians.temple_guardians_owner_id_world_owners_id_fkey",
+        "n|con|public.temple_guardians.temple_guardians_owner_id_world_owners_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.temple_guardians",
+        "n|sch|public",
+        "n|tbl|public.world_owners",
+        "n|sch|public",
+        "n|col|public.temple_guardians.owner_id",
+        "n|col|public.world_owners.id",
+        "e|uniqueness|public.world_owners.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "temple_guardians"
+      ],
+      "writes": [
+        "s|fk|public.temple_guardians.temple_guardians_city_id_world_cities_id_fkey",
+        "n|fk|public.temple_guardians.temple_guardians_city_id_world_cities_id_fkey",
+        "e|fk|public.temple_guardians.temple_guardians_city_id_world_cities_id_fkey",
+        "n|con|public.temple_guardians.temple_guardians_city_id_world_cities_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.temple_guardians",
+        "n|sch|public",
+        "n|tbl|public.world_cities",
+        "n|sch|public",
+        "n|col|public.temple_guardians.city_id",
+        "n|col|public.world_cities.id",
+        "e|uniqueness|public.world_cities.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "unit_faith"
+      ],
+      "writes": [
+        "s|fk|public.unit_faith.unit_faith_unit_id_world_units_id_fkey",
+        "n|fk|public.unit_faith.unit_faith_unit_id_world_units_id_fkey",
+        "e|fk|public.unit_faith.unit_faith_unit_id_world_units_id_fkey",
+        "n|con|public.unit_faith.unit_faith_unit_id_world_units_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.unit_faith",
+        "n|sch|public",
+        "n|tbl|public.world_units",
+        "n|sch|public",
+        "n|col|public.unit_faith.unit_id",
+        "n|col|public.world_units.id",
+        "e|uniqueness|public.world_units.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "temple_devotions",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "temple_guardians",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "unit_faith",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_devotions",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_devotions",
+        "name": "last_prayed_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "city_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "temple_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "level",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "rebirths",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "stats",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "elements",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "faith",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "deified_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_faith",
+        "name": "unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_faith",
+        "name": "faith",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_faith",
+        "name": "faith_points",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "temple_guardians_city_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "city_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_devotions",
+        "name": "temple_devotions_owner_id_world_owners_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "owner_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_owners",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "temple_guardians_owner_id_world_owners_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "owner_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_owners",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "temple_guardians_city_id_world_cities_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "city_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_cities",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_faith",
+        "name": "unit_faith_unit_id_world_units_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "unit_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_units",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_devotions",
+        "name": "temple_devotions_pkey",
+        "columns": [
+          "owner_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "temple_guardians_pkey",
+        "columns": [
+          "unit_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_faith",
+        "name": "unit_faith_pkey",
+        "columns": [
+          "unit_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "temple_guardians_level",
+        "value": "\"level\" >= 1 and \"rebirths\" >= 0",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "temple_guardians_stats",
+        "value": "cardinality(\"stats\") = 6",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "temple_guardians_elements",
+        "value": "\"elements\" is null or (cardinality(\"elements\") = 12 and 0 <= all(\"elements\") and 10 >= all(\"elements\"))",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "temple_guardians",
+        "name": "temple_guardians_faith",
+        "value": "\"faith\" between 0 and 100",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_faith",
+        "name": "unit_faith_faith",
+        "value": "\"faith\" between 0 and 100",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_faith",
+        "name": "unit_faith_points",
+        "value": "\"faith_points\" >= 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

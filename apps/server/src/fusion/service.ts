@@ -5,6 +5,8 @@
 //   사이보그 유닛(종류 5)이 된다: 화물·지닌 물건·생명 수치·노동 계약이 따라온다. 휴먼 행(수명)은 지우고 사이보그 유닛 행을 넣는다. 휴먼
 //   지갑은 서버에 아직 없어 상속할 것이 없다(D-470 "지갑은 상속처럼" — 휴먼 지갑이 생기면 이 자리에서 @terra/sim inherit를 부른다).
 // - 유전자(D-516): 수명·합성·주입·인큐베이터·개발 시험은 geneCommands.ts. 유전자 하나하나는 보유 물건 인스턴스(item_holdings.gene)다.
+// - 신전·종교(src/temple/, docs/adr/2026-11-07-temple-religion.md, D-517): 수명이 다한 휴먼은 비활성(1분 타이머가 비활성 표를 다시 만든다)
+//   이고, 신전에서 환생·신격화하거나 생명과학 연구소에서 유전자로 바꾼다(geneCommands.ts convert). 비활성은 융합·주입을 받지 않는다(wrong_kind).
 //   옛 유전자 환생(조각마다 무작위 +1)은 D-516으로 지웠다(유전자는 환생 재료가 아니다, D-441).
 // - 명령 하나 = 읽기(DB, 쓰기 대기열이 따라잡은 뒤) → 다시 확인(메모리) → 한 번의 동기 처리(원장·유닛·행) → 커밋 뒤 답(U2).
 import { DEV_GRANT_CURRENCY, type FusionResultCode } from "@terra/protocol";
@@ -24,6 +26,7 @@ import {
   fuseStatRange,
   fuseStats,
   fusionBonusPm,
+  inactiveWindow,
   partsDonorStats,
   sixStats,
   skillSlotCount,
@@ -40,6 +43,9 @@ import {
   type Settlement,
 } from "../world/settlement.ts";
 import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
+import type { CyborgService } from "../cyborg/service.ts";
+import type { WorldFacilities } from "../facilities/world.ts";
+import { type TempleService, createTempleService } from "../temple/service.ts";
 import { type GeneCatalog, type GeneCommands, createGeneCommands } from "./geneCommands.ts";
 import { burnGoods, geneViewOf, goodsAsset, issueGoods } from "./genes.ts";
 import { HUMAN_COLUMNS, HUMAN_SPECIES, humanOf, intArray, readHuman, readSkills } from "./humans.ts";
@@ -103,9 +109,15 @@ export interface FusionServiceOptions {
   readonly log?: { warn(obj: object, message: string): void; error(obj: object, message: string): void };
   /** 수명 타이머를 돌리지 않는다(시험이 expireDue를 직접 부른다) */
   readonly manual?: boolean | undefined;
+  /** 건물(신전 시설 줄·일함·도시 자리). 없으면 신전이 없다 */
+  readonly facilities?: WorldFacilities | undefined;
+  /** 사이보그(신전 기도·헌금이 본체 신앙도를 올린다) */
+  readonly cyborgs?: CyborgService | undefined;
 }
 
-export interface FusionService extends Omit<GeneCommands, "expireDue"> {
+export interface FusionService extends Omit<GeneCommands, "expireDue" | "release"> {
+  /** 신전·종교(비활성 표·기도·헌금·환생·신격화) */
+  readonly temple: TempleService;
   overview(viewer: { id: string; devGrant: boolean }, nowMs: number): Promise<FusionOverviewResponse>;
   fuse(
     userId: string,
@@ -115,7 +127,7 @@ export interface FusionService extends Omit<GeneCommands, "expireDue"> {
     userId: string,
     input: { readonly item: string; readonly quantity: number },
   ): Promise<FusionCommandResult>;
-  /** 수명이 다한 유저 휴먼을 처리한다(타이머가 1분마다 부른다). 처리한 휴먼 수 */
+  /** 비활성 표를 다시 만든 뒤 상한(설정 칸, 0 = 없음)이 지난 유저 휴먼을 유전자로 바꿔 떠나보낸다(타이머가 1분마다). 떠난 휴먼 수 */
   expireDue(nowMs: number): Promise<number>;
   stop(): void;
 }
@@ -139,11 +151,17 @@ function materialsOf(items: readonly ItemEntry[], c: FusionCoefficients) {
 export function createFusionService(o: FusionServiceOptions): FusionService {
   const { ledger, writer } = o;
   const catalog = (): GeneCatalog => o.catalog?.() ?? NO_SKILLS;
-  const genes = createGeneCommands({
+  const { release, expireDue, ...genes } = createGeneCommands({
     ...o,
     items: () => o.content().items,
     catalog,
   });
+  const temple = createTempleService({ ...o, release });
+  /** 1분마다: 비활성 표(새 비활성은 노동 계약이 끝난다) → 상한이 지난 휴먼 떠남(상한이 없으면 아무도) */
+  const lifespanSweep = async (nowMs: number): Promise<number> => {
+    await temple.sweep(nowMs);
+    return expireDue(nowMs);
+  };
 
   /** 메모리의 유닛(2차맵에 있는 것): 주인·종류·포로 */
   const unitOf = (unitId: number) => {
@@ -170,7 +188,7 @@ export function createFusionService(o: FusionServiceOptions): FusionService {
   const timer = o.manual
     ? undefined
     : setInterval(() => {
-        genes.expireDue(o.now()).catch((error: unknown) => {
+        lifespanSweep(o.now()).catch((error: unknown) => {
           o.log?.error({ err: error }, "genes: lifespan sweep failed");
         });
       }, EXPIRE_SWEEP_MS);
@@ -178,6 +196,8 @@ export function createFusionService(o: FusionServiceOptions): FusionService {
 
   return {
     ...genes,
+    temple,
+    expireDue: lifespanSweep,
 
     async overview(viewer, nowMs) {
       const c = o.rules().fusion;
@@ -265,6 +285,7 @@ export function createFusionService(o: FusionServiceOptions): FusionService {
         stats: human.stats,
         fused: fuseStatRange(human.stats, donorStats, c),
         lifespanEndsAtMs: human.bornAtMs + human.lifespanMs,
+        departsAtMs: inactiveWindow(human.bornAtMs, human.lifespanMs, o.rules().temple).departsAtMs,
         captive: (unitOf(human.unitId)?.info.condition.heldBy ?? null) !== null,
         skills: (learned.get(human.unitId) ?? []).map((id) => ({
           id,
@@ -290,6 +311,8 @@ export function createFusionService(o: FusionServiceOptions): FusionService {
       await writer.durable();
       const human = await readHuman(o.pool, input.human);
       if (!human) return fail("unknown_unit");
+      // 비활성(수명이 다한 휴먼, D-517)은 일하지 않는다 — 융합해 수명을 피하지 못한다(docs/adr/2026-11-07-temple-religion.md)
+      if (human.bornAtMs + human.lifespanMs <= o.now()) return fail("wrong_kind");
       // 읽는 동안 바뀌었을 수 있다(다른 연결의 융합) → 메모리로 다시 본다. 여기부터 커밋 전까지 기다림이 없다
       const checked = checkHuman(userId, input.human);
       if ("fail" in checked) return fail(checked.fail);

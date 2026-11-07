@@ -10,8 +10,8 @@ describe("건물 메시지(프로토콜 10, 창고 11)", () => {
   it("판 10부터(창고 옮기기 11), 지금 판 11·최소 판 10", () => {
     expect(FACILITY_PROTOCOL_VERSION).toBe(10);
     expect(STORAGE_PROTOCOL_VERSION).toBe(11);
-    expect(PROTOCOL_VERSION).toBe(11);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(10);
+    expect(PROTOCOL_VERSION).toBe(12);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(11);
   });
 
   it("창고 옮기기(11)·개발 재료 받기 자리 칸이 왕복하고, 틀린 방향·자산·수량은 받지 않는다", () => {

@@ -3917,6 +3917,136 @@
       "unit": "pm",
       "min": 0,
       "max": 1000
+    },
+    {
+      "id": "d517_inactive_cap_ms",
+      "code": "",
+      "name": {
+        "ko": "비활성 기다림 상한(수명 끝 → 떠남, ms, 0 = 상한 없음)",
+        "en": "Inactive wait cap (end of life → leaves, ms, 0 = none)"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 2592000000
+    },
+    {
+      "id": "d311_rebirth_faith",
+      "code": "",
+      "name": {
+        "ko": "휴먼 환생 신앙도 문턱(환생하면 0)",
+        "en": "Human rebirth faith threshold (reset to 0)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "d311_rebirth_currency",
+      "code": "",
+      "name": {
+        "ko": "휴먼 환생 화폐(최소 단위)",
+        "en": "Human rebirth currency cost (minor units)"
+      },
+      "value": 10000,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000000
+    },
+    {
+      "id": "d311_deify_faith",
+      "code": "",
+      "name": {
+        "ko": "신격화 신앙도 문턱",
+        "en": "Deification faith threshold"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "d311_deify_currency",
+      "code": "",
+      "name": {
+        "ko": "신격화 화폐(최소 단위)",
+        "en": "Deification currency cost (minor units)"
+      },
+      "value": 20000,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000000
+    },
+    {
+      "id": "s15_guardian_cap",
+      "code": "S15",
+      "name": {
+        "ko": "수호신 도시당 상한",
+        "en": "Guardian spirits per city"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "d444_pray_faith",
+      "code": "",
+      "name": {
+        "ko": "기도 한 번 신앙도",
+        "en": "Faith per prayer"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 100
+    },
+    {
+      "id": "d444_pray_cooldown_ms",
+      "code": "",
+      "name": {
+        "ko": "기도 쿨다운(ms)",
+        "en": "Prayer cooldown (ms)"
+      },
+      "value": 3600000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 604800000
+    },
+    {
+      "id": "d444_offering_per_faith",
+      "code": "",
+      "name": {
+        "ko": "헌금: 신앙도 1당 화폐(최소 단위)",
+        "en": "Offering: currency per faith point (minor units)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "minor",
+      "min": 1,
+      "max": 1000000000
+    },
+    {
+      "id": "n47_convert_currency",
+      "code": "N47",
+      "name": {
+        "ko": "유전자 변환 화폐(생명과학 연구소, 최소 단위)",
+        "en": "Gene conversion currency (biotech lab, minor units)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000000
     }
   ]
 }

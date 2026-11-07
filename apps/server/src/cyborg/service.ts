@@ -28,6 +28,7 @@ import {
   type SocietyCoefficients,
   TEST_SOCIETY_COEFFICIENTS,
   WALK_SPEED,
+  addDevotion,
   firstStatRoll,
   kFromRolls,
   rerollStats,
@@ -122,6 +123,14 @@ export interface CyborgService {
   userOfUnit(unitId: number): string | undefined;
   /** 부팅: 유닛 행이 없는 사이보그를 시작 도시에 다시 놓는다. 다시 놓은 수 */
   repairUnits(knownUnitIds: ReadonlySet<number>): number;
+  /**
+   * 신앙도·신앙 포인트를 함께 올린다(신전 기도·헌금, D-444 165·D-451 — 신앙도는 100에서 멈춘다). 사이보그가 없으면 undefined.
+   * 쓰기 대기열에 넣기만 한다(커밋은 부르는 쪽이 기다린다)
+   */
+  addFaith(
+    userId: string,
+    gain: number,
+  ): { readonly faith: number; readonly faithPoints: number } | undefined;
   readonly size: number;
 }
 
@@ -481,6 +490,15 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
     record: (userId) => byUser.get(userId),
     isBodyUnit: (unitId) => bodyUnits.has(unitId),
     userOfUnit: (unitId) => bodyUnits.get(unitId),
+    addFaith(userId, gain) {
+      const record = byUser.get(userId);
+      if (!record) return undefined;
+      const next = addDevotion(record.faith, record.faithPoints, gain);
+      record.faith = next.faith;
+      record.faithPoints = next.faithPoints;
+      writer.upsert("cyborgs", cyborgRow(record));
+      return next;
+    },
     repairUnits(knownUnitIds) {
       let repaired = 0;
       for (const record of byUser.values()) {

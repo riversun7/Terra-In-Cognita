@@ -41,6 +41,10 @@ export const RESULT_TEXT: Readonly<Record<FusionResultCode | "offline" | "timeou
   skill_known: m.fusion_err_skill_known,
   no_skill_slot: m.fusion_err_no_skill_slot,
   no_room: m.fusion_err_no_room,
+  not_inactive: m.fusion_err_not_inactive,
+  not_lab: m.fusion_err_not_lab,
+  lab_closed: m.fusion_err_lab_closed,
+  wrong_city: m.fusion_err_wrong_city,
   offline: m.fusion_err_offline,
   timeout: m.fusion_err_timeout,
 };

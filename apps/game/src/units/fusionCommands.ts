@@ -1,4 +1,4 @@
-// 융합·개발 물자 받기(프로토콜 9)·유전자 합성·주입·인큐베이터·개발 시험(프로토콜 11) 명령(WebSocket) — 보내고 같은 요청 번호의
+// 융합·개발 물자 받기(프로토콜 9)·유전자 합성·주입·인큐베이터·개발 시험(프로토콜 11)·비활성 휴먼 유전자 변환(12) 명령(WebSocket) — 보내고 같은 요청 번호의
 // fusion_result를 기다린다. 기획 D-470·D-478·D-516, docs/adr/2026-11-07-cyborg-fusion-genes.md. 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장).
 // 구인 카드 명령(editor/recruit/recruitCommands.ts)과 같은 틀이다:
 // - 연결이 아직 인사 전이면 인사가 끝날 때까지 기다렸다 보낸다. 기다림·답 모두 TIMEOUT_MS 안.
@@ -14,7 +14,8 @@ export type FusionCommand =
   | Omit<ClientMessageOf<"gene_inject">, "id">
   | Omit<ClientMessageOf<"gene_incubate">, "id">
   | Omit<ClientMessageOf<"dev_grant_gene">, "id">
-  | Omit<ClientMessageOf<"dev_expire_unit">, "id">;
+  | Omit<ClientMessageOf<"dev_expire_unit">, "id">
+  | Omit<ClientMessageOf<"gene_convert">, "id">;
 
 /** 성공 결과 칸(명령마다 쓰는 칸만 온다) */
 export interface FusionSuccess {

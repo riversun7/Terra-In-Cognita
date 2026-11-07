@@ -96,19 +96,16 @@ export const TEST_MAP_KEY: CellKey = cellKey(
 
 /** 시험 2차맵이 놓인 행성(콘텐츠 팩 ID). 지구가 팩에 들어오면 시험 2차맵도 옮긴다(D-372, S3 ADR "행성 ID·영역") */
 export const TEST_PLANET_ID: string = DEFAULT_WORLD_PLANET_ID;
-
 /** 시험 2차맵 k번째(0 = TEST_MAP_KEY). 규모 시험(S1_TEST_MAPS)은 오른쪽으로 나란히 둔다 */
 export function testMapKey(index: number): CellKey {
   return cellKey(TEST_MAP_ORIGIN.face, EARTH_FACE_LEVEL, TEST_MAP_ORIGIN.i + index, TEST_MAP_ORIGIN.j);
 }
-
 /** 옛 시험 2차맵(S1 임시 지형 시절, S2 시험 행성에서는 깊은 바다 위) k번째. 부팅 때 행을 지운다(U4 (가), pins.ts) */
 export function retiredTestMapKey(index: number): number {
   return cellKey(0, EARTH_FACE_LEVEL, 256 + index, 256);
 }
 /** 옛 시험 2차맵 수(그때의 S1_TEST_MAPS 상한) */
 export const RETIRED_TEST_MAPS = 64;
-
 /** 생존 시각을 쓰는 간격(ms). kill -9 뒤 접속 상태를 고칠 때의 오차 상한이다 */
 export const HEARTBEAT_MS = 10_000;
 /** 부팅 때 DB를 기다리는 횟수·간격(배포 때 DB가 늦게 켜질 수 있다) */
@@ -716,6 +713,7 @@ export function startWorld(
       ready: () => status.state === "ready",
       buildingWorks: (buildingId) => facilities.service.works(buildingId),
       unitInJob: (unitId) => facilities.service.unitInJob(unitId),
+      unitAway: (unitId) => persistence?.fusion.temple.isInactive(unitId) ?? false,
     });
     facilities.attachLabor(labor);
     settlement.routeOutputs((ownerId, fromMs, toMs) => labor.outputsFor(ownerId, fromMs, toMs));
@@ -731,6 +729,8 @@ export function startWorld(
       pool: db,
       holdings: holdings.service,
       hasCyborg: (userId) => cyborgs.record(userId) !== undefined,
+      cyborgs,
+      facilities,
       rules: config.cyborgRules ?? defaultCyborgRules,
       content: () => config.holdings?.content() ?? { items: [] },
       catalog: config.roster ? geneCatalogFrom(config.roster) : undefined,

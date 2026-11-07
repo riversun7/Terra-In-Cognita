@@ -28,6 +28,7 @@ import {
 } from "./economyText.ts";
 import { FacilityPanel } from "./FacilityPanel.tsx";
 import { LaborPanel } from "./LaborPanel.tsx";
+import { TemplePanel } from "./TemplePanel.tsx";
 import { NotReady, PreviewTag } from "./parts.tsx";
 import { NO_ARGS, useCatalog, useNowTick, useProduction } from "./queries.ts";
 import { dailyWage, progressOf } from "./shape.ts";
@@ -316,6 +317,7 @@ export default function ProductionView() {
         </>
       )}
       <FacilityPanel />
+      <TemplePanel />
       <LaborPanel />
       <section className="panel" aria-labelledby="eco-recipes-title">
         <h2 id="eco-recipes-title" className="eco-section-title">

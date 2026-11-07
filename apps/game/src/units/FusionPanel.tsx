@@ -1,7 +1,8 @@
 // 유닛 화면 [융합] 칸 — 사이보그 유닛 융합(D-470: 휴먼 + 기계 부품 → 사이보그 유닛, 수명 없음·유지비 비쌈)과 유전자
 // (D-478·D-481·D-516: 수명이 다한 휴먼에서 남는 인스턴스 — 합성·주입·인큐베이터, GenePanel.tsx). 49 N46·N47,
 // docs/adr/2026-11-07-cyborg-fusion-genes.md. 기술 기본 화면이다(옛 융합 화면이 없다): 비용·비율 → 내 휴먼(지금 스탯 → 융합 뒤 범위,
-// 배운 스킬, 수명, [융합]) → 내 사이보그 유닛 → 유전자 판. dev·admin은 시험 재료·유전자를 받고 휴먼의 수명을 끝낸다.
+// 배운 스킬, 수명·비활성(D-517, docs/adr/2026-11-07-temple-religion.md — 비활성은 융합 막음), [융합]) → 내 사이보그 유닛 → 유전자 판.
+// dev·admin은 시험 재료·유전자를 받고 휴먼을 바로 유전자로 바꾼다.
 // 자료는 tRPC fusion.overview, 바꾸는 명령은 WebSocket(프로토콜 9·11). 명령 뒤에는 목록을 다시 받는다(onChanged = 유닛 목록도 다시).
 import type { FusionOverviewResponse } from "@terra/shared/fusion";
 import { useEffect, useRef, useState } from "react";
@@ -9,6 +10,7 @@ import { refreshSession } from "../auth/session.ts";
 import { api } from "../net/api.ts";
 import { field } from "../net/json.ts";
 import { m } from "../paraglide/messages.js";
+import { formatDuration } from "../economy/economyText.ts";
 import { formatAmount, formatNumber } from "../roster/rosterText.ts";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { GenePanel } from "./GenePanel.tsx";
@@ -201,12 +203,20 @@ export function FusionPanel({ onChanged }: { onChanged: () => void }) {
                         ? m.fusion_lifespan_over()
                         : m.fusion_lifespan_left({ days: formatNumber(Math.ceil(left / DAY_MS)) })}
                     </p>
+                    {over ? (
+                      <p className="fusion-inactive" data-part="fusion-inactive">
+                        {m.fusion_inactive()}
+                        {human.departsAtMs === null
+                          ? null
+                          : ` ${m.fusion_inactive_departs({ wait: formatDuration(Math.max(0, human.departsAtMs - data.generatedAt)) })}`}
+                      </p>
+                    ) : null}
                     {human.captive ? <p className="field-error">{m.fusion_err_captive()}</p> : null}
                     <div className="units-panel-actions">
                       <button
                         type="button"
                         className="button-small fusion-fuse"
-                        disabled={busy !== null || human.captive}
+                        disabled={busy !== null || human.captive || over}
                         aria-busy={busy === `fuse-${human.unitId}`}
                         onClick={() =>
                           void run(

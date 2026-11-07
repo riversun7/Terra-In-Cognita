@@ -982,6 +982,8 @@ export { battleLabPresets, formulaOverrides } from "./devToolsSchema.ts";
 export { laborContracts, laborPostings, laborRents } from "./laborSchema.ts";
 /** 건물(시설) 상태·작업 표(docs/adr/2026-11-07-buildings-runtime.md) */
 export { facilityJobs, worldFacilities } from "./facilitySchema.ts";
+/** 신전·종교 표(docs/adr/2026-11-07-temple-religion.md) */
+export { templeDevotions, templeGuardians, unitFaith } from "./templeSchema.ts";
 
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

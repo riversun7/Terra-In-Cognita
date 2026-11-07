@@ -1,5 +1,6 @@
 // 경제 화면 자료 받기 — tRPC economy.*(조회만). 화면 밖 저장소(useSyncExternalStore)라 효과 안에서 setState하지 않는다.
 // - 조회마다 저장소 하나, 열쇠 = (시안 자료 여부, 매개변수). 같은 열쇠는 받는 중이면 함께 기다리고, 30초 안에 받은 값은 다시 받지 않는다.
+//   받는 중에 다시 받으라고 하면(명령이 이어질 때) 끝난 뒤 한 번 더 받는다(앞 답이 명령 전 값일 수 있다).
 // - 칸을 옮겨도 받은 값이 남는다(경제 조각이 살아 있는 동안). 시안 자료를 켜고 끄면 열쇠가 바뀌어 새로 받는다.
 // - 실패는 값으로 둔다(문구 키는 net/apiErrors.ts). 로그인이 끝났으면 세션을 다시 확인한다.
 // 이 모듈은 경제 지연 조각에만 들어간다(tRPC 클라이언트가 첫 화면에 들어가지 않게, ADR 37 11절).
@@ -15,6 +16,7 @@ import type {
 } from "@terra/shared/economy";
 import type { FacilitiesOverviewResponse } from "@terra/shared/facilities";
 import type { LaborJobsResponse, LaborOverviewResponse } from "@terra/shared/labor";
+import type { TempleOverviewResponse } from "@terra/shared/temple";
 import { useEffect, useSyncExternalStore } from "react";
 import { refreshSession } from "../auth/session.ts";
 import { usePreviewOn } from "../inbox/preview.ts";
@@ -39,6 +41,8 @@ interface Entry<T> {
   view: QueryView<T>;
   fetchedAt: number;
   inflight: boolean;
+  /** 받는 동안 새로 받으라는 요청이 왔다(명령이 이어지면 끝난 뒤 한 번 더 받는다 — 앞 요청의 답이 바뀌기 전 값일 수 있다) */
+  again: boolean;
 }
 
 const IDLE: QueryView<never> = { status: "idle", data: null, error: null, receivedAt: 0 };
@@ -65,11 +69,22 @@ function createQuery<T>(
   const fetchKey = (key: string, force: boolean): void => {
     const [mode = "o", ...args] = key.split("|");
     const existing = entries.get(key);
-    if (existing && (existing.inflight || (!force && Date.now() - existing.fetchedAt < FRESH_MS))) return;
+    if (existing?.inflight) {
+      if (force) existing.again = true;
+      return;
+    }
+    if (existing && !force && Date.now() - existing.fetchedAt < FRESH_MS) return;
     const entry: Entry<T> = existing ?? {
       view: { status: "loading", data: null, error: null, receivedAt: 0 },
       fetchedAt: 0,
       inflight: true,
+      again: false,
+    };
+    /** 받는 동안 다시 받으라는 요청이 있었으면 한 번 더 */
+    const follow = (): void => {
+      if (!entry.again) return;
+      entry.again = false;
+      fetchKey(key, true);
     };
     entry.inflight = true;
     // 다시 받는 동안 앞 값을 그대로 보인다
@@ -83,6 +98,7 @@ function createQuery<T>(
         entry.fetchedAt = Date.now();
         entry.view = { status: "ready", data, error: null, receivedAt: entry.fetchedAt };
         emit();
+        follow();
       },
       (error: unknown) => {
         const info = apiErrorInfo(error);
@@ -96,6 +112,7 @@ function createQuery<T>(
           receivedAt: entry.view.receivedAt,
         };
         emit();
+        follow();
       },
     );
   };
@@ -117,7 +134,11 @@ function createQuery<T>(
       },
     };
   }
-  return useQuery;
+  /** 이 조회의 받아 둔 값을 모두 다시 받는다(다른 칸의 명령이 이 자료를 바꿨을 때 — 예: 건물을 지으면 신전 칸) */
+  const refreshAll = (): void => {
+    for (const key of entries.keys()) fetchKey(key, true);
+  };
+  return Object.assign(useQuery, { refreshAll });
 }
 
 /** 시안 자료면 { preview: true }, 아니면 입력 없음 */
@@ -160,6 +181,11 @@ export const useLaborJobs = createQuery<LaborJobsResponse>(([city = ""], _previe
 /** 건물(짓기·레벨업·노화·수리, docs/adr/2026-11-07-buildings-runtime.md) */
 export const useFacilities = createQuery<FacilitiesOverviewResponse>((_args, _preview, signal) =>
   api.facilities.overview.query(undefined, { signal }),
+);
+
+/** 신전·생명과학 연구소(비활성 휴먼 환생·신격화·유전자 변환, D-517 — docs/adr/2026-11-07-temple-religion.md) */
+export const useTemple = createQuery<TempleOverviewResponse>((_args, _preview, signal) =>
+  api.temple.overview.query(undefined, { signal }),
 );
 
 /** 매개변수 없는 조회의 args(같은 배열을 넘겨 열쇠가 그대로이게) */

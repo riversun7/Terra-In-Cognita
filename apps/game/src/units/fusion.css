@@ -85,6 +85,16 @@
   font-weight: 700;
   overflow-wrap: anywhere;
 }
+/* 비활성 휴먼(D-517: 수명이 다해 일하지 않음 — 신전·생명과학 연구소에서 바꾼다, docs/adr/2026-11-07-temple-religion.md) */
+.fusion-inactive {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
 .fusion-stat-row {
   display: flex;
   flex-direction: column;

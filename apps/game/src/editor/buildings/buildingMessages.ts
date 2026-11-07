@@ -20,6 +20,8 @@ export const STAGE_TEXT: Readonly<Record<FacilityStageId, Text>> = {
   finish: m.economy_stage_finish,
   territory: m.economy_stage_territory,
   storage: m.economy_stage_storage,
+  religion: m.economy_stage_religion,
+  biotech: m.economy_stage_biotech,
 };
 
 export const STAT_TEXT: Readonly<Record<FacilityStatId, Text>> = {

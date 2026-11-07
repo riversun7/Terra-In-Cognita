@@ -236,6 +236,17 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "fusion.geneTotalMax",
   "fusion.geneElementVariance",
   "fusion.incubateBaseStat",
+  "fusion.geneConvertCurrency",
+  // 신전·종교(temple/service.ts·fusion/geneCommands.ts, 49 S15·D-311·D-444 165): 명령·조회·수명 처리(1분)마다 읽는다
+  "temple.inactiveCapMs",
+  "temple.rebirthFaith",
+  "temple.rebirthCurrency",
+  "temple.deifyFaith",
+  "temple.deifyCurrency",
+  "temple.guardianCap",
+  "temple.prayFaith",
+  "temple.prayCooldownMs",
+  "temple.offeringPerFaith",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

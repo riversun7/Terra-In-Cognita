@@ -107,6 +107,7 @@ app = await buildApp({
   world: {
     testBots: config.s1.testBots,
     testMaps: config.s1.testMaps,
+    relayout: config.npc.relayout,
     paths: { kind: "workers", workerUrl: pathWorkerUrl, workers: config.s1.pathWorkers },
     // NPC 사회 런타임(docs/adr/2026-11-01-npc-brain-r5.md 7절): 시험 세계 NPC 국가에 세력·사회 규칙을 실제 시간으로
     npc: config.npc.enabled

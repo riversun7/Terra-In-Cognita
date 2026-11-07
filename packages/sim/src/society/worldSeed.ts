@@ -1,6 +1,7 @@
 // 세계 씨앗(고정 NPC 국가의 시작 도시 수·기본 시설 수) — 기획 D-6041(세력마다 시작 도시 여러 곳, 60 §7.1 "2~4곳")·46 §9.2(고정 국가)·
 // 90 §2.1(기본 NPC 국가·시작 도시 배치), docs/adr/2026-11-07-play-flow.md "WP1 세계 씨앗"·"WP5 나라 성격". 수치는 모두 [임시](D-515: 밸런싱
-// 단계에서 정한다). 시뮬은 읽지 않는다(서버가 켤 때 시험 세계를 차릴 때만 읽는다: apps/server/src/npc/nations.ts·facilities/npcSeed.ts).
+// 단계에서 정한다). 시뮬은 읽지 않는다(서버가 켤 때 시험 세계를 차릴 때만 읽는다: apps/server/src/npc/nations.ts·facilities/npcSeed.ts·
+// world/worldLayout.ts — 국가 자리, docs/adr/2026-11-07-world-layout.md).
 
 export interface WorldSeedCoefficients {
   /**
@@ -28,6 +29,22 @@ export interface WorldSeedCoefficients {
   /** [임시] 기온(°C)이 이 값 이상이고 강수(mm)가 아래 값 이상이면 농장(농사지을 땅) */
   readonly farmMinTempC: number;
   readonly farmMinRainMm: number;
+  /**
+   * [임시] 국가 자리 고르기(사용자 지적 2026-11-07 "도시가 겹치고 세력 범위가 엉망", docs/adr/2026-11-07-world-layout.md): 첫 국가 수도
+   * 둘레 이 반경(1차맵 칸) 안의 알맞은 땅에서 국가 수도를 서로 가장 멀게 고른다. 국가 사이 거리가 아래 값보다 짧으면 반경을 두 배씩 넓힌다
+   */
+  readonly layoutRegionCells: number;
+  /** [임시] 국가 수도 사이 가장 짧은 거리(1차맵 칸). 비콘 거리(N42 위 끝 13.3칸)의 두 배보다 길어 국가 영토가 닿지 않는다 */
+  readonly layoutNationGapCells: number;
+  /** [임시] 한 국가 시작 도시 사이 칸(1 = 수도와 붙은 2차맵 — 띄운 2차맵끼리 이어져 걸어서 오간다) */
+  readonly layoutCityStepCells: number;
+  /** [임시] 시작 도시가 설 땅: 물(바다·호수·강·해안) 없음 + 칸 고도 0 초과 이 값(m) 이하 */
+  readonly layoutLandMaxHeightM: number;
+  /** [임시] 시작 도시가 설 땅: 기온(°C) 아래 끝·위 끝 */
+  readonly layoutLandMinTempC: number;
+  readonly layoutLandMaxTempC: number;
+  /** [임시] 시작 도시가 설 땅: 강수(mm) 아래 끝(사막을 빼고 농사지을 땅) */
+  readonly layoutLandMinRainMm: number;
 }
 
 /** 출발값 — 모두 [임시](옛 규칙 없음, D-515). 시작 도시 2~4곳(60 §7.1), 기본 시설은 종류마다 하나 */
@@ -43,6 +60,14 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   mineMinHeightM: 500,
   farmMinTempC: 5,
   farmMinRainMm: 250,
+  // 국가 자리: 지금 시험 행성(반지름 약 531km)에서 국가 넷이 수십~백 km 떨어지게, 사막·추운 땅을 빼고(기온 8~32°C·강수 300mm 이상)
+  layoutRegionCells: 48,
+  layoutNationGapCells: 30,
+  layoutCityStepCells: 1,
+  layoutLandMaxHeightM: 1500,
+  layoutLandMinTempC: 8,
+  layoutLandMaxTempC: 32,
+  layoutLandMinRainMm: 300,
 };
 
 /** 시작 도시 수가 놓일 수 있는 범위(60 §7.1 "2~4곳"을 넘지 않게, 칸이 1까지는 받는다) */

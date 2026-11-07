@@ -4,9 +4,12 @@
 // - 가까운 표시는 묶는다: 화면에서 CLUSTER_PX 안에 겹치면 앞 것 하나만 보이고 "+N"을 단다. 묶음을 누르면 그곳으로 다가간다(onZoomTo).
 // - 이름표는 이웃 표시와 LABEL_GAP_PX보다 떨어져 있거나 고른 도시일 때만 보인다(겹친 글자를 막는다). 단추의 읽는 이름은 늘 있다.
 // - 지평선 너머 표시는 숨긴다(hidden). 키보드·화면 읽기 대안은 화면의 도시 목록이다.
+// - 영토(docs/adr/2026-11-07-world-layout.md): 국가마다 도시 영향권 원들을 한 경로로 그린다 — 겹친 원은 한 번만 칠하고(같은 경로의 칠은
+//   한 번), 테두리는 원들의 바깥 둘레만(원 안쪽을 가리는 가리개로 안쪽 호를 지운다). 국가 사이 경계는 서버가 정한 자리(세계 배치·마을
+//   자리 규칙)라 겹치지 않는다.
 import type { PlanetProjector, ProjectedPoint } from "@terra/engine/planet";
 import type { WorldMapCity, WorldMapFaction, WorldMapHull } from "@terra/shared/worldMap";
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { m } from "../paraglide/messages.js";
 import { cityLabel, factionColor } from "./worldMapData.ts";
 import "./cityOverlay.css";
@@ -77,6 +80,18 @@ const place = (element: HTMLElement, point: ProjectedPoint): void => {
   element.style.transform = `translate(${Math.round(point.x)}px, ${Math.round(point.y)}px) translate(-50%, -50%)`;
 };
 
+/** 영토를 그릴 국가(도시 차례에 처음 나온 차례) */
+function areaNations(cities: readonly WorldMapCity[]): number[] {
+  return [...new Set(cities.map((city) => city.factionId))];
+}
+
+/** 국가 영토 한 벌(칠·바깥 테두리·테두리 가리개)의 경로 */
+interface AreaPaths {
+  fill: SVGPathElement | null;
+  edge: SVGPathElement | null;
+  cover: SVGPathElement | null;
+}
+
 /** 표시 차례: 고른 도시 → 시작 도시 → 나머지(ID 차례). 묶을 때 앞 것이 남는다 */
 function drawOrder(cities: readonly WorldMapCity[], selected: number | null): WorldMapCity[] {
   return cities.toSorted(
@@ -90,7 +105,9 @@ function drawOrder(cities: readonly WorldMapCity[], selected: number | null): Wo
 export function CityOverlay(props: CityOverlayProps) {
   const { cities, factions, selected, register, requestFrame } = props;
   const markers = useRef(new Map<number, HTMLButtonElement>());
-  const circles = useRef(new Map<number, SVGPathElement>());
+  const areas = useRef(new Map<number, AreaPaths>());
+  // 가리개 ID 앞머리(SVG url(#…)에 쓰니 영문·숫자만)
+  const maskPrefix = `city-area-${useId().replaceAll(/[^a-zA-Z0-9]/g, "")}`;
   const hullPaths = useRef<(SVGPathElement | null)[]>([]);
   const meRef = useRef<HTMLSpanElement>(null);
   const latest = useRef(props);
@@ -145,21 +162,24 @@ export function CityOverlay(props: CityOverlayProps) {
         );
         element.dataset.label = entry.count === 1 && (!crowded || entry.city.id === chosen) ? "on" : "off";
       }
-      // 영향권 원: 도시 가운데가 보이고 원이 몇 px 이상일 때
+      // 영향권 원: 도시 가운데가 보이고 원이 몇 px 이상일 때. 국가마다 한 경로(칠·테두리·가리개가 같은 모양)
+      const byNation = new Map<number, string>();
       for (const city of list) {
-        const path = circles.current.get(city.id);
-        if (!path) continue;
         const angle = milliPerRadian && city.radiusMilli ? city.radiusMilli / milliPerRadian : 0;
         const center = angle > 0 ? projector.project(city.latDeg, city.lonDeg) : null;
-        let d = "";
-        if (center?.visible) {
-          const ring = circlePoints(city.latDeg, city.lonDeg, angle).map(([lat, lon]) =>
-            projector.project(lat, lon),
-          );
-          const edge = ring[0];
-          if (edge && Math.hypot(edge.x - center.x, edge.y - center.y) >= CIRCLE_MIN_PX) d = closedPath(ring);
-        }
-        path.setAttribute("d", d);
+        if (!center?.visible) continue;
+        const ring = circlePoints(city.latDeg, city.lonDeg, angle).map(([lat, lon]) =>
+          projector.project(lat, lon),
+        );
+        const edge = ring[0];
+        if (!edge || Math.hypot(edge.x - center.x, edge.y - center.y) < CIRCLE_MIN_PX) continue;
+        byNation.set(city.factionId, (byNation.get(city.factionId) ?? "") + closedPath(ring));
+      }
+      for (const [nation, paths] of areas.current) {
+        const d = byNation.get(nation) ?? "";
+        paths.fill?.setAttribute("d", d);
+        paths.edge?.setAttribute("d", d);
+        paths.cover?.setAttribute("d", d);
       }
       (hulls ?? []).forEach((hull, index) => {
         hullPaths.current[index]?.setAttribute(
@@ -177,6 +197,16 @@ export function CityOverlay(props: CityOverlayProps) {
     requestFrame();
     return () => register(null);
   }, [register, requestFrame]);
+
+  /** 그 국가 영토 경로 한 벌(없으면 만든다). 국가가 목록에서 빠지면 세 경로가 모두 null이 되고 다음 그리기에서 지운다 */
+  const areaRef = (nation: number): AreaPaths => {
+    let paths = areas.current.get(nation);
+    if (!paths) {
+      paths = { fill: null, edge: null, cover: null };
+      areas.current.set(nation, paths);
+    }
+    return paths;
+  };
 
   const click = (city: WorldMapCity): void => {
     const count = Number(markers.current.get(city.id)?.dataset.cluster ?? "1");
@@ -198,16 +228,44 @@ export function CityOverlay(props: CityOverlayProps) {
             data-nation={factionColor(factions, hull.factionId)}
           />
         ))}
-        {cities.map((city) => (
-          <path
-            key={city.id}
-            ref={(element) => {
-              if (element) circles.current.set(city.id, element);
-              else circles.current.delete(city.id);
-            }}
-            className="city-area"
-            data-nation={factionColor(factions, city.factionId)}
-          />
+        <defs>
+          {areaNations(cities).map((nation) => (
+            // 가리개: 흰 곳만 남는다(밝기 가리개라 테마 색이 아니라 흑백을 쓴다). 원 안쪽(검정)의 테두리를 지워 바깥 둘레만 남긴다
+            <mask
+              key={nation}
+              id={`${maskPrefix}-${String(nation)}`}
+              maskUnits="userSpaceOnUse"
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+            >
+              <rect x="0" y="0" width="100%" height="100%" fill="white" />
+              <path
+                ref={(element) => {
+                  areaRef(nation).cover = element;
+                }}
+                fill="black"
+              />
+            </mask>
+          ))}
+        </defs>
+        {areaNations(cities).map((nation) => (
+          <g key={nation} className="city-area" data-nation={factionColor(factions, nation)}>
+            <path
+              ref={(element) => {
+                areaRef(nation).fill = element;
+              }}
+              className="city-area-fill"
+            />
+            <path
+              ref={(element) => {
+                areaRef(nation).edge = element;
+              }}
+              className="city-area-edge"
+              mask={`url(#${maskPrefix}-${String(nation)})`}
+            />
+          </g>
         ))}
       </svg>
       {cities.map((city) => {

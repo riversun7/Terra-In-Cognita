@@ -123,4 +123,10 @@ export interface SocietyOptions {
    * 시뮬레이터도 넘기지 않는다(출력 그대로)
    */
   readonly onDeath?: ((unit: SimUnit, nowMs: number) => void) | undefined;
+  /**
+   * 마을 세우기 자리 검사(사용자 지적 2026-11-07 "다른 세력 범위에 도시를 건설할 수 없다", docs/adr/2026-11-07-world-layout.md): 붐비는
+   * 도시(fromCityId)에서 마을을 세울 자리가 있나. false면 값을 내지 않고 세우지 않는다. 자리(다른 세력 영향권 밖)를 아는 서버만 넘긴다 —
+   * 시뮬레이터에는 도시 자리가 없어 넘기지 않는다(출력 그대로)
+   */
+  readonly canFound?: ((parent: SimFaction, fromCityId: number, nowMs: number) => boolean) | undefined;
 }

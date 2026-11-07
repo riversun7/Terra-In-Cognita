@@ -68,6 +68,7 @@ import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { nationPresetOf } from "./nations.ts";
 import { type CityPlace, type NpcPersist, createNpcPersist } from "./persist.ts";
+import { territoryOf } from "./townSites.ts";
 import { type NpcRuinsInput, ruinedGoodsHomeOf, syncAdminLevels } from "./ruinsRuntime.ts";
 import { ruinsOf } from "./ruinsState.ts";
 import type { NpcHumanRow } from "./state.ts";
@@ -385,6 +386,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       onCityOwner: o.onCityOwner,
       cityNamesOf,
       takenNames,
+      territory: () => territoryOf(o.rules().territory),
     },
     { rowOf, places, spares: state.spares },
   );
@@ -538,6 +540,14 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       scheduleUnit: () => {},
       cancel: (eventId) => loop.cancel(eventId),
       restoreDay: restoredDay,
+      // 마을 자리 검사(docs/adr/2026-11-07-world-layout.md): 다른 세력 영향권 밖 자리가 있을 때만 세우고, 그 자리를 다음 도시 ID에 잡아 둔다
+      // (같은 동기 처리에서 found가 곧 nextCityId로 그 도시를 만든다 → 저장할 때 그 자리를 쓴다)
+      canFound: (parent, fromCityId) => {
+        const site = persist.townSiteFrom(fromCityId, parent.id);
+        if (!site) return false;
+        places.set(nextCity + 1, site);
+        return true;
+      },
     },
     startMs,
   );

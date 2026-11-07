@@ -353,6 +353,8 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         : [];
       const asset = treasuryAsset(parent);
       if (!crowded || movers.length < s.founders || book.balanceOf(parent.id, asset) < s.foundCost) return;
+      // 자리 검사(서버만: 다른 세력 영향권 밖의 빈 자리가 없으면 세우지 않는다)
+      if (o.canFound && !o.canFound(parent, crowded.id, nowMs)) return;
       // [임시] 마을 세우기 값(가문 창설 비용 D-216 Step 5 전)
       book.post({
         kind: "burn",

@@ -1,7 +1,7 @@
 // 영토 화면 모형 — 서버 자료(tRPC territory.planet)로 배치를 다시 만들고, 지도 투영(중심 투영 평면)·칸 고르기·세밀 표본을 셈한다.
 // docs/adr/2026-11-03-territory-layer.md 5절. 서버와 같은 함수(@terra/shared/territory buildTerritory·claimAt)·같은 입력이라 같은 답이다.
 // 중심 투영은 대원을 직선으로 보내서 껍질 가장자리(대원)가 화면에서 곧은 선이다.
-import { type CellKey, cellKey, decodeCellKey, descendantAt, isCellKey } from "@terra/planet";
+import { type CellKey, cellKey, decodeCellKey, descendantAt, isCellKey, parseCellKey } from "@terra/planet";
 import { type Vec3, cellCenter, cellCorners, xyzToCell } from "@terra/planet/projection";
 import { territoryPoint } from "@terra/planet/territory";
 import {
@@ -12,6 +12,17 @@ import {
   claimAt,
 } from "@terra/shared/territory";
 import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
+import { S1_TEST_MAP_KEY } from "@terra/protocol";
+
+/**
+ * 지도 가운데: 놓을 세력의 첫 도시(작은 ID) 2차맵 칸. 세계 배치(docs/adr/2026-11-07-world-layout.md) 뒤로 국가마다 행성 위 자리가 달라
+ * 고른 세력 둘레를 보여 준다. 그 세력 도시가 없으면 첫 도시, 도시가 없으면 시험 2차맵(S1_TEST_MAP_KEY)
+ */
+export function labCenter(view: TerritoryPlanetView | null, factionId: number | null): CellKey {
+  const cities = (view?.cities ?? []).toSorted((a, b) => a.id - b.id);
+  const city = cities.find((entry) => entry.factionId === factionId) ?? cities[0];
+  return city && isCellKey(city.mapKey) ? city.mapKey : parseCellKey(S1_TEST_MAP_KEY);
+}
 
 /** 서버 자료 → 배치(서버와 같은 입력) */
 export function layoutOf(view: TerritoryPlanetView): TerritoryLayout {

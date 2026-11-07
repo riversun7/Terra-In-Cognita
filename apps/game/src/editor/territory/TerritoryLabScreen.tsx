@@ -4,9 +4,8 @@
 // - 자료 = tRPC territory.planet(모든 세력, 권한 territory: observe). 놓기·치우기 = WebSocket beacon_place·beacon_remove(다른 세력 대신은
 //   territory: dev-place). 명령이 끝나면 다시 읽는다. 세밀 경계는 기기가 같은 함수(claimAt)로 다시 셈한 것이다(서버 칸 표와 같은 규칙).
 // 조각 이름 TerritoryLabScreen-*([Tt]erritoryLab).
-import { type CellKey, decodeCellKey, parseCellKey } from "@terra/planet";
+import { type CellKey, decodeCellKey } from "@terra/planet";
 import { territoryPoint } from "@terra/planet/territory";
-import { S1_TEST_MAP_KEY } from "@terra/protocol";
 import { claimAt } from "@terra/shared/territory";
 import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -22,12 +21,11 @@ import { sendBeaconCommand } from "./beaconCommands.ts";
 import { TerritoryMap } from "./TerritoryMap.tsx";
 import { TerritoryTables } from "./TerritoryTables.tsx";
 import { BEACON_CODE_TEXT, factionLabel } from "./territoryMessages.ts";
-import { cellRows, factionColorToken, layoutOf } from "./territoryModel.ts";
+import { cellRows, factionColorToken, labCenter, layoutOf } from "./territoryModel.ts";
 import "./territoryLab.css";
 
-/** 세계 행성(시험 행성)과 지도 가운데(시험 2차맵 칸) */
+/** 세계 행성(시험 행성) */
 const PLANET_ID = "s2_test_planet";
-const CENTER = parseCellKey(S1_TEST_MAP_KEY);
 
 type Load =
   | { readonly status: "loading" }
@@ -143,7 +141,7 @@ export default function TerritoryLabScreen() {
             <TerritoryMap
               data={data}
               layout={layout}
-              center={CENTER}
+              center={labCenter(data, chosenFaction)}
               selected={selected}
               onSelect={setSelected}
             />

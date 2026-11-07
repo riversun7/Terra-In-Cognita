@@ -54,4 +54,47 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "NPC 시작 도시 농장: 강수 문턱(mm)",
     "NPC start city farm: precipitation from (mm)",
   ),
+  // 국가 자리(docs/adr/2026-11-07-world-layout.md): 49에 칸이 없어 world_layout_*를 앞머리로 쓴다
+  k(
+    "world_layout_region_cells",
+    "layoutRegionCells",
+    "고정 국가 자리: 처음 찾는 반경(1차맵 칸)",
+    "Fixed nation homes: first search radius (planet cells)",
+  ),
+  k(
+    "world_layout_nation_gap_cells",
+    "layoutNationGapCells",
+    "고정 국가 자리: 국가 수도 사이 가장 짧은 거리(1차맵 칸)",
+    "Fixed nation homes: shortest distance between capitals (planet cells)",
+  ),
+  k(
+    "world_layout_city_step_cells",
+    "layoutCityStepCells",
+    "고정 국가 자리: 같은 국가 시작 도시 사이(1차맵 칸)",
+    "Fixed nation homes: spacing of one nation's start cities (planet cells)",
+  ),
+  k(
+    "world_layout_land_max_height_m",
+    "layoutLandMaxHeightM",
+    "고정 국가 자리: 시작 도시 땅 칸 고도 위 끝(m)",
+    "Fixed nation homes: start city land height up to (m)",
+  ),
+  k(
+    "world_layout_land_min_temp_c",
+    "layoutLandMinTempC",
+    "고정 국가 자리: 시작 도시 땅 기온 아래 끝(°C)",
+    "Fixed nation homes: start city land temperature from (°C)",
+  ),
+  k(
+    "world_layout_land_max_temp_c",
+    "layoutLandMaxTempC",
+    "고정 국가 자리: 시작 도시 땅 기온 위 끝(°C)",
+    "Fixed nation homes: start city land temperature up to (°C)",
+  ),
+  k(
+    "world_layout_land_min_rain_mm",
+    "layoutLandMinRainMm",
+    "고정 국가 자리: 시작 도시 땅 강수 아래 끝(mm)",
+    "Fixed nation homes: start city land precipitation from (mm)",
+  ),
 ];

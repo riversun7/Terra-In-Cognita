@@ -6,7 +6,9 @@
 // 차례로 쓴다(기획 답 510 다, D-476 번역 안 함 — 이름이 없는 도시만 켤 때 채운다). docs/adr/2026-11-07-play-flow.md "WP5 나라 성격".
 // 고정 나라가 아닌 세력(반란·독립·새 가문)의 도시는 그 세력이 따르는 나라(반란 부모 → 종주 → 태어날 때 부모, 화폐·성격과 같은 차례)의 목록에서
 // 이름을 받는다(기획 답 601 나, nationPresetOf). 따르는 나라가 없을 때만 이름 없이 둔다(화면은 "<국가> 도시 N").
-// 시작 도시는 띄운 시험 2차맵들에 고르게 나눈다(자리 차례 = 칸 자리마다 2차맵을 돈다). 켤 때마다 모자란 도시만 더한다(있는 도시는 그대로,
+// 시작 도시 자리: 행성 값이 있는 세계는 국가마다 행성 위 자기 자리(수도 + 붙은 2차맵, 다른 세력 영향권 밖 — world/worldLayout.ts,
+// docs/adr/2026-11-07-world-layout.md), 행성 값이 없는 세계(시험·DB만 있는 개발)는 옛 방식대로 띄운 시험 2차맵들에 고르게 나눈다
+// (자리 차례 = 칸 자리마다 2차맵을 돈다). 켤 때마다 모자란 도시만 더한다(있는 도시는 그대로,
 // 옛 세계의 첫 장 고정 자리 도시도 그대로 — 멱등). 시작 도시는 주인이 바뀌지 않으므로(D-325·D-341) 지우거나 옮기지 않는다.
 // 체제는 국가 차례로 셋을 돌리고(시뮬 "mixed"와 같다), 성향은 NPC 사회 런타임이 세계 시드로 굴려 채운다(D-327).
 import { PLACEMENT_SIZE, type WorldSeedCoefficients, startCitiesFor } from "@terra/sim";
@@ -197,6 +199,24 @@ export function planStartCities(
   return out;
 }
 
+/** 이미 선 도시 하나(새 시작 도시 자리를 고를 때 본다) */
+export interface ExistingCity extends CitySpot {
+  readonly factionId: number;
+  readonly start: boolean;
+  /** 발전도(영향권 반경 = 등급, D-104) */
+  readonly development: number;
+}
+
+/**
+ * 새 시작 도시 자리를 고르는 함수(행성 값이 있는 세계: world/worldBoot.ts가 세계 배치 worldLayout.ts로 만든다 — 국가마다 행성 위 자기
+ * 자리, docs/adr/2026-11-07-world-layout.md). 없으면 옛 방식(시험 2차맵들에 나눔, planStartCities)
+ */
+export type StartCityPlacer = (
+  nations: readonly { readonly factionId: number; readonly missing: number }[],
+  existing: readonly ExistingCity[],
+  ruins: readonly CitySpot[],
+) => readonly { readonly factionId: number; readonly spot: CitySpot }[];
+
 /**
  * 고정 국가 1…count를 (없을 때만) 만들고, 국가마다 시작 도시를 설정 칸 수만큼 채운다(모자란 것만). 1번 세력 행·소유 주체는
  * persist/load.ts ensureTestNpcOwner가 먼저 만든다. 이미 있는 세력·도시 행은 고치지 않는다(1번은 고정 표시만 켠다).
@@ -213,6 +233,8 @@ export async function ensureTestNations(
     presets?: readonly NationPreset[] | undefined;
     /** 세계 씨앗 설정 칸(시작 도시 수) */
     seed: WorldSeedCoefficients;
+    /** 새 시작 도시 자리(행성 값이 있는 세계). 없으면 시험 2차맵들에 나눈다 */
+    placer?: StartCityPlacer | undefined;
   },
 ): Promise<number> {
   const count = Math.max(1, Math.min(MAX_TEST_NATIONS, options.count));
@@ -235,7 +257,7 @@ export async function ensureTestNations(
   const factions = await pool.query(`select id, code from factions where code = any($1::text[])`, [codes]);
   const idOf = new Map(factions.rows.map((row) => [String(row.code), Number(row.id)]));
   const cities = await pool.query(
-    `select faction_id, map_key, cell_x, cell_y, start from world_cities where planet_id = $1`,
+    `select faction_id, map_key, cell_x, cell_y, start, development from world_cities where planet_id = $1 order by id`,
     [options.planetId],
   );
   const have = new Map<number, number>();
@@ -256,7 +278,24 @@ export async function ensureTestNations(
     x: Number(row.cell_x),
     y: Number(row.cell_y),
   }));
-  const planned = planStartCities(nations, options.mapKeys, taken);
+  const existing: ExistingCity[] = cities.rows.map((row) => ({
+    factionId: Number(row.faction_id),
+    mapKey: Number(row.map_key),
+    x: Number(row.cell_x),
+    y: Number(row.cell_y),
+    start: row.start === true,
+    development: Number(row.development ?? 0),
+  }));
+  const ruinSpots = ruins.rows.map((row) => ({
+    mapKey: Number(row.map_key),
+    x: Number(row.cell_x),
+    y: Number(row.cell_y),
+  }));
+  const planned = nations.some((nation) => nation.missing > 0)
+    ? options.placer
+      ? options.placer(nations, existing, ruinSpots)
+      : planStartCities(nations, options.mapKeys, taken)
+    : [];
   for (const { factionId, spot } of planned)
     await pool.query(
       `insert into world_cities (id, faction_id, planet_id, map_key, cell_x, cell_y, start, housing, research_level, founded_at_ms)
@@ -354,6 +393,8 @@ export async function ensureWorldNations(
     mapKeys: readonly number[];
     nowMs: number;
     seed: WorldSeedCoefficients;
+    /** 새 시작 도시 자리(행성 값이 있는 세계, ensureTestNations) */
+    placer?: StartCityPlacer | undefined;
   },
 ): Promise<void> {
   const { npc, planetId, mapKeys, nowMs } = options;
@@ -368,5 +409,6 @@ export async function ensureWorldNations(
     nowMs,
     presets: npc.presets,
     seed: options.seed,
+    placer: options.placer,
   });
 }

@@ -6,8 +6,7 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { gunzipSync } from "node:zlib";
-import { type CellKey, EARTH_FACE_LEVEL, cellKey, stepCell } from "@terra/planet";
-import { DEFAULT_WORLD_PLANET_ID } from "../db/schema.ts";
+import { type CellKey, EARTH_FACE_LEVEL, stepCell } from "@terra/planet";
 import {
   type CombatCatalog,
   type CombatCoefficients,
@@ -57,7 +56,17 @@ import {
   createSettlement,
 } from "./settlement.ts";
 import { emptyWorldStats, resetWorldStats, summarizeWorldStats } from "./worldStats.ts";
-import { type NationPreset, ensureWorldNations, nationName } from "../npc/nations.ts";
+import { type NationPreset, nationName } from "../npc/nations.ts";
+import { relocateUnits } from "./relayout.ts";
+import {
+  RETIRED_TEST_MAPS,
+  TEST_MAP_KEY,
+  TEST_MAP_ORIGIN,
+  TEST_PLANET_ID,
+  retiredTestMapKey,
+  testMapKey,
+} from "./testMaps.ts";
+import { bootWorldSeed } from "./worldBoot.ts";
 import { type NpcRuntime, startNpcRuntime } from "../npc/runtime.ts";
 import { waveRewardItemsOf } from "../npc/waveRewards.ts";
 import type { TerritoryBeaconFacilityView } from "@terra/shared/territoryApi";
@@ -84,32 +93,8 @@ import type { ServerEconomyCatalog } from "../market/catalog.ts";
 import { npcEconomyInputOf } from "../market/worldInput.ts";
 import { type TravelService, createWorldTravel } from "../travel/service.ts";
 
-/**
- * 시험 2차맵 자리(ADR 2026-10-31-second-map-from-planet 8절): S2 시험 행성(면 레벨 9) 면 0의 (i, j) = (282, 328) 칸부터
- * 오른쪽으로. 64장(MAX_TEST_MAPS)이 모두 땅·초지이고 강·호수·바다가 둘레에 없는 줄이다(지금 생성기 판에서, 시험이 본다).
- * 기기는 같은 값을 @terra/protocol S1_TEST_MAP_KEY로 안다(시험이 두 값이 같은지 본다).
- * 지형 서비스가 있으면 행성 값에서 만든 2차맵, 없으면(시험·DB 없는 개발) S1 임시 지형이다.
- */
-export const TEST_MAP_ORIGIN = { face: 0, i: 282, j: 328 } as const;
-export const TEST_MAP_KEY: CellKey = cellKey(
-  TEST_MAP_ORIGIN.face,
-  EARTH_FACE_LEVEL,
-  TEST_MAP_ORIGIN.i,
-  TEST_MAP_ORIGIN.j,
-);
-
-/** 시험 2차맵이 놓인 행성(콘텐츠 팩 ID). 지구가 팩에 들어오면 시험 2차맵도 옮긴다(D-372, S3 ADR "행성 ID·영역") */
-export const TEST_PLANET_ID: string = DEFAULT_WORLD_PLANET_ID;
-/** 시험 2차맵 k번째(0 = TEST_MAP_KEY). 규모 시험(S1_TEST_MAPS)은 오른쪽으로 나란히 둔다 */
-export function testMapKey(index: number): CellKey {
-  return cellKey(TEST_MAP_ORIGIN.face, EARTH_FACE_LEVEL, TEST_MAP_ORIGIN.i + index, TEST_MAP_ORIGIN.j);
-}
-/** 옛 시험 2차맵(S1 임시 지형 시절, S2 시험 행성에서는 깊은 바다 위) k번째. 부팅 때 행을 지운다(U4 (가), pins.ts) */
-export function retiredTestMapKey(index: number): number {
-  return cellKey(0, EARTH_FACE_LEVEL, 256 + index, 256);
-}
-/** 옛 시험 2차맵 수(그때의 S1_TEST_MAPS 상한) */
-export const RETIRED_TEST_MAPS = 64;
+// 시험 2차맵 자리·시험 행성은 testMaps.ts(다른 모듈·시험이 world.ts에서 가져오던 이름을 그대로 다시 내보낸다)
+export { RETIRED_TEST_MAPS, TEST_MAP_KEY, TEST_MAP_ORIGIN, TEST_PLANET_ID, retiredTestMapKey, testMapKey };
 /** 생존 시각을 쓰는 간격(ms). kill -9 뒤 접속 상태를 고칠 때의 오차 상한이다 */
 export const HEARTBEAT_MS = 10_000;
 /** 부팅 때 DB를 기다리는 횟수·간격(배포 때 DB가 늦게 켜질 수 있다) */
@@ -123,6 +108,8 @@ export interface WorldConfig {
   testBots: number;
   /** 시험 2차맵 수(S1_TEST_MAPS, 기본 1). 규모 시험용 */
   testMaps?: number | undefined;
+  /** 옛 세계의 시작 도시를 새 배치 자리로 옮긴다(WORLD_RELAYOUT, docs/adr/2026-11-07-world-layout.md). 없으면 계획만 기록 */
+  relayout?: boolean | undefined;
   paths: WorldPathsConfig;
   /** 쓰기가 오래 실패할 때(기본: 프로세스 종료 → 컨테이너가 다시 켜서 복구). 시험이 바꾼다 */
   onFatal?: ((error: unknown) => void) | undefined;
@@ -301,7 +288,8 @@ export function startWorld(
   const bootId = randomUUID();
 
   const terrainService = config.terrain;
-  const mapKeys = Array.from({ length: mapCount }, (_, index) => testMapKey(index));
+  /** 시험 2차맵 줄(봇 자리·옛 시작 도시 자리). 띄우는 2차맵은 여기에 도시가 있는 2차맵을 더한다(worldBoot.ts) */
+  const testKeys = Array.from({ length: mapCount }, (_, index) => testMapKey(index));
 
   /** 2차맵 지형: 고정본 → 지형 서비스(캐시 → 생성기). 지형 서비스가 없으면 S1 임시 지형 */
   const terrainFor = async (mapKey: number, pins: ReadonlyMap<number, MapPin>): Promise<MapTerrain> => {
@@ -334,6 +322,7 @@ export function startWorld(
     npcOwnerId: number,
     exploredStore?: (mapKey: number) => ExploredStore,
     db?: QueryPool,
+    mapKeys: readonly CellKey[] = testKeys,
   ): Promise<void> => {
     const pins =
       db && terrainService ? await loadPins(db, TEST_PLANET_ID, mapKeys) : new Map<number, MapPin>();
@@ -376,11 +365,11 @@ export function startWorld(
     }
   };
 
-  /** 봇을 2차맵마다 고르게 나눈다(앞 2차맵부터 하나씩 더) */
+  /** 봇을 띄운 2차맵마다 고르게 나눈다(앞 2차맵부터 하나씩 더 — 도시가 있는 2차맵의 봇은 NPC 사회가 휴먼으로 들인다) */
   const spawnBots = (): void => {
     let index = 0;
     for (const map of maps.values()) {
-      const share = Math.floor(config.testBots / mapCount) + (index < config.testBots % mapCount ? 1 : 0);
+      const share = Math.floor(config.testBots / maps.size) + (index < config.testBots % maps.size ? 1 : 0);
       map.spawnBots(share);
       index += 1;
     }
@@ -407,6 +396,9 @@ export function startWorld(
     let vitalsData: VitalsRecord[] = [];
     let laborData: LoadedLabor = EMPTY_LABOR;
     let facilityData: LoadedFacilities = EMPTY_FACILITIES;
+    let seeded: Awaited<ReturnType<typeof bootWorldSeed>> | undefined;
+    // 세계 배치는 행성 값을 읽는다(행성 서비스가 캐시를 읽거나 굽는 동안 기다린다. 실패하면 옛 방식 — 2차맵 만들기가 따로 실패를 알린다)
+    await terrainService?.ready.catch(() => undefined);
     for (let attempt = 1; !loaded; attempt++) {
       try {
         // 옛 시험 2차맵(깊은 바다 위)의 행을 지운다(지울 것이 없으면 그대로). U4 (가)
@@ -419,10 +411,13 @@ export function startWorld(
           log.info(retired, "world boot: retired the old test maps");
         }
         npcOwnerId = await ensureTestNpcOwner(db, now());
-        // 세계 씨앗(docs/adr/2026-11-07-play-flow.md WP1): 고정 국가·국가마다 시작 도시 여러 곳을 시험 2차맵들에(모자란 것만)
-        const { worldSeed } = (config.cyborgRules ?? defaultCyborgRules)();
-        const seedAt = { planetId: TEST_PLANET_ID, mapKeys, nowMs: now(), seed: worldSeed };
-        await ensureWorldNations(db, { npc: config.npc, ...seedAt });
+        // 세계 씨앗(WP1·docs/adr/2026-11-07-world-layout.md): 고정 국가·시작 도시(행성 위 국가마다 자기 자리, 모자란 것만)·띄울 2차맵
+        // 다시 시도해도 앞 시도가 옮긴 계획은 남긴다(옮긴 도시의 유닛을 복구 직전에 새 자리로)
+        const seedAt = { planetId: TEST_PLANET_ID, testMapKeys: testKeys, nowMs: now(), log };
+        const rules = (config.cyborgRules ?? defaultCyborgRules)();
+        const opts = { npc: config.npc, terrain: terrainService, rules, relayout: config.relayout ?? false };
+        const boot = await bootWorldSeed(db, { ...seedAt, ...opts });
+        seeded = { ...boot, relayout: boot.relayout ?? seeded?.relayout };
         cities = await loadCities(db);
         cyborgData = await loadCyborgs(db);
         beaconRows = await loadBeacons(db);
@@ -518,7 +513,7 @@ export function startWorld(
         });
       },
     });
-    await createMaps(persist, nextId, npcOwnerId, exploredStore, db);
+    await createMaps(persist, nextId, npcOwnerId, exploredStore, db, seeded?.mapKeys);
     const settlement = createSettlement({
       maps,
       owners,
@@ -773,17 +768,19 @@ export function startWorld(
     let badUnits = 0;
     let badBuildings = 0;
     let orphanUnits = 0;
+    // 옮긴 옛 자리 도시의 휴먼·사이보그를 새 도시 둘레에 세운다(relayout.ts, 복구 직전)
+    const save = (row: Parameters<MapPersist["saveUnit"]>[0]) => persist.saveUnit(row);
+    const units = relocateUnits(loaded.units, seeded?.relayout, maps, save, now()).rows;
     for (const [mapKey, map] of maps) {
       const onMap = (row: { planetId: string; mapKey: number }) =>
         row.planetId === map.planetId && row.mapKey === mapKey;
-      const result = map.restore(loaded.units.filter(onMap), loaded.buildings.filter(onMap));
+      const result = map.restore(units.filter(onMap), loaded.buildings.filter(onMap));
       badUnits += result.badUnits.length;
       badBuildings += result.badBuildings.length;
     }
     // 이 서버가 띄우지 않은 (행성, 2차맵)의 유닛은 DB에 그대로 둔다(지우지 않는다)
-    for (const unit of loaded.units) {
+    for (const unit of units)
       if (unit.planetId !== TEST_PLANET_ID || !maps.has(unit.mapKey)) orphanUnits += 1;
-    }
     // 세계 씨앗: NPC 시작 도시 기본 시설(봇을 채우기 전, 모자란 것만, 동기 — facilities/npcSeed.ts)
     const seedWith = { maps, cities, owners, facilities, log, rules: societyRules, terrain: terrainService };
     if (config.npc) seedNpcFacilitiesAtBoot({ ...seedWith, planetId: TEST_PLANET_ID, nowMs: now() });

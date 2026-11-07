@@ -2840,6 +2840,344 @@
       "max": 100000
     },
     {
+      "id": "n52_relation_min",
+      "code": "N52",
+      "name": {
+        "ko": "정원 관계도 하한",
+        "en": "Gardener relation minimum"
+      },
+      "value": -100,
+      "structural": true,
+      "unit": "points",
+      "min": -1000,
+      "max": 0
+    },
+    {
+      "id": "n52_relation_max",
+      "code": "N52",
+      "name": {
+        "ko": "정원 관계도 상한",
+        "en": "Gardener relation maximum"
+      },
+      "value": 100,
+      "structural": true,
+      "unit": "points",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n52_relation_start",
+      "code": "N52",
+      "name": {
+        "ko": "정원 관계도 시작값",
+        "en": "Gardener relation start"
+      },
+      "value": 0,
+      "structural": true,
+      "unit": "points",
+      "min": -1000,
+      "max": 1000
+    },
+    {
+      "id": "n52_allied",
+      "code": "N52",
+      "name": {
+        "ko": "관계도 동맹 문턱",
+        "en": "Relation allied threshold"
+      },
+      "value": 70,
+      "structural": true,
+      "unit": "points",
+      "min": -1000,
+      "max": 1000
+    },
+    {
+      "id": "n52_friendly",
+      "code": "N52",
+      "name": {
+        "ko": "관계도 우호 문턱",
+        "en": "Relation friendly threshold"
+      },
+      "value": 30,
+      "structural": true,
+      "unit": "points",
+      "min": -1000,
+      "max": 1000
+    },
+    {
+      "id": "n52_neutral",
+      "code": "N52",
+      "name": {
+        "ko": "관계도 중립 문턱",
+        "en": "Relation neutral threshold"
+      },
+      "value": -20,
+      "structural": true,
+      "unit": "points",
+      "min": -1000,
+      "max": 1000
+    },
+    {
+      "id": "n52_wary",
+      "code": "N52",
+      "name": {
+        "ko": "관계도 경계 문턱",
+        "en": "Relation wary threshold"
+      },
+      "value": -50,
+      "structural": true,
+      "unit": "points",
+      "min": -1000,
+      "max": 1000
+    },
+    {
+      "id": "n52_others_max",
+      "code": "N52",
+      "name": {
+        "ko": "필수 NPC 세력이 아닌 세력의 관계도 상한",
+        "en": "Relation cap for non-core factions"
+      },
+      "value": 0,
+      "structural": false,
+      "unit": "points",
+      "min": -1000,
+      "max": 1000
+    },
+    {
+      "id": "n52_pollution_step",
+      "code": "N52",
+      "name": {
+        "ko": "관계도 −1당 세력 오염(하루)",
+        "en": "Faction pollution per daily relation −1 (points)"
+      },
+      "value": 30000,
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 10000000
+    },
+    {
+      "id": "n52_drop_max",
+      "code": "N52",
+      "name": {
+        "ko": "관계도 하루 최대 감소",
+        "en": "Max daily relation drop"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n52_peace_daily",
+      "code": "N52",
+      "name": {
+        "ko": "평화 몫 관계도 증가",
+        "en": "Relation gain per peace step"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n52_peace_every_days",
+      "code": "N52",
+      "name": {
+        "ko": "평화 몫 간격(일)",
+        "en": "Peace step interval (days)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 365
+    },
+    {
+      "id": "n52_purify_gain",
+      "code": "N52",
+      "name": {
+        "ko": "정화 한 번 관계도 증가",
+        "en": "Relation gain per purification"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "n52_chance_allied",
+      "code": "N52",
+      "name": {
+        "ko": "동맹 세력 웨이브 확률 배율(‰)",
+        "en": "Wave chance factor: allied (‰)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "n52_chance_friendly",
+      "code": "N52",
+      "name": {
+        "ko": "우호 세력 웨이브 확률 배율(‰)",
+        "en": "Wave chance factor: friendly (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "n52_chance_neutral",
+      "code": "N52",
+      "name": {
+        "ko": "중립 세력 웨이브 확률 배율(‰)",
+        "en": "Wave chance factor: neutral (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "n52_chance_wary",
+      "code": "N52",
+      "name": {
+        "ko": "경계 세력 웨이브 확률 배율(‰)",
+        "en": "Wave chance factor: wary (‰)"
+      },
+      "value": 1250,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "n52_chance_hostile",
+      "code": "N52",
+      "name": {
+        "ko": "적대 세력 웨이브 확률 배율(‰)",
+        "en": "Wave chance factor: hostile (‰)"
+      },
+      "value": 1500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "c16_strength_pollution",
+      "code": "C16",
+      "name": {
+        "ko": "세기 세력 오염 나눗수",
+        "en": "Strength faction pollution divisor (points)"
+      },
+      "value": 100000,
+      "structural": false,
+      "unit": "points",
+      "min": 1,
+      "max": 1000000000
+    },
+    {
+      "id": "p15_war_daily",
+      "code": "P15",
+      "name": {
+        "ko": "전선 도시 칸 하루 오염",
+        "en": "Daily pollution per front city (points)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "p15_front_radius",
+      "code": "P15",
+      "name": {
+        "ko": "전선 도시 거리(칸)",
+        "en": "Front city range (cells)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 16
+    },
+    {
+      "id": "d500_raid_strength",
+      "code": "",
+      "name": {
+        "ko": "보호 레이드 세기 배율(‰)",
+        "en": "Protection raid strength factor (‰)"
+      },
+      "value": 2000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "d500_raid_physical",
+      "code": "",
+      "name": {
+        "ko": "보호 레이드 물리형 비율(‰)",
+        "en": "Protection raid physical share (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "d499_reward_renown",
+      "code": "",
+      "name": {
+        "ko": "웨이브 보상 명성(마리당)",
+        "en": "Wave reward renown per creature"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000000
+    },
+    {
+      "id": "d499_reward_genes",
+      "code": "",
+      "name": {
+        "ko": "웨이브 보상 유전자 조각(종류마다)",
+        "en": "Wave reward gene fragments (each)"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "d499_reward_materials",
+      "code": "",
+      "name": {
+        "ko": "웨이브 보상 크리쳐 재료(마리당 ‰)",
+        "en": "Wave reward creature materials per creature (‰)"
+      },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000000
+    },
+    {
       "id": "m2_grade_l2",
       "code": "M2",
       "name": {

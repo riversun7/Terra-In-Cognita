@@ -242,7 +242,7 @@ export interface ItemJson {
     | {
         readonly kind: "stat" | "skill";
         readonly species: string;
-        readonly drops?: readonly "death"[] | undefined;
+        readonly drops?: readonly ("death" | "wave")[] | undefined;
       }
     | undefined;
   readonly enabled: boolean;

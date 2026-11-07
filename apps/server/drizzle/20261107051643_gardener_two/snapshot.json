@@ -1,0 +1,110 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "aa8992a7-0f3d-411b-9d74-27d9f902bde6",
+  "prevIds": [
+    "58429802-d1f4-46d4-9b24-2aeed39d24b0"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "gardener_waves",
+        "kind"
+      ],
+      "writes": [
+        "s|col|public.gardener_waves.kind",
+        "n|col|public.gardener_waves.kind",
+        "e|col|public.gardener_waves.kind"
+      ],
+      "reads": [
+        "n|tbl|public.gardener_waves",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "gardener_waves",
+        "reward"
+      ],
+      "writes": [
+        "s|col|public.gardener_waves.reward",
+        "n|col|public.gardener_waves.reward",
+        "e|col|public.gardener_waves.reward"
+      ],
+      "reads": [
+        "n|tbl|public.gardener_waves",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "gardener_waves"
+      ],
+      "writes": [
+        "s|ck|public.gardener_waves.gardener_waves_kind",
+        "n|ck|public.gardener_waves.gardener_waves_kind",
+        "e|ck|public.gardener_waves.gardener_waves_kind",
+        "n|con|public.gardener_waves.gardener_waves_kind"
+      ],
+      "reads": [
+        "n|tbl|public.gardener_waves",
+        "n|sch|public",
+        "n|col|public.gardener_waves.kind"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "gardener_waves",
+        "name": "kind",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'city'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "gardener_waves",
+        "name": "reward",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "gardener_waves",
+        "name": "gardener_waves_kind",
+        "value": "\"kind\" in ('city', 'protection')",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

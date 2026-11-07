@@ -142,7 +142,7 @@ export interface GeneItem {
   readonly kind: "stat" | "skill";
   /** 그 종(팩 unit_kinds ID) */
   readonly species: string;
-  /** 얻는 길(데이터, 지금은 death 하나) */
+  /** 얻는 길(데이터: death = 사망, wave = 막아 낸 정원사 웨이브 보상 D-499) */
   readonly drops: readonly string[];
 }
 
@@ -150,6 +150,17 @@ export interface GeneItem {
 export function deathGeneDrops(genes: readonly GeneItem[], species: string): string[] {
   return genes
     .filter((gene) => gene.species === species && gene.drops.includes("death"))
+    .map((gene) => gene.item)
+    .toSorted();
+}
+
+/**
+ * 정원사 도시 웨이브를 막아 낸 도시 주인이 받는 조각(아이템 ID 차례): 얻는 길에 wave가 있는 켜진 조각(D-499, 종은 데이터가 정한다 —
+ * 지금 팩은 크리쳐 스탯 조각). 조각마다 수는 설정 칸 d499_reward_genes(@terra/sim waveReward)
+ */
+export function waveGeneDrops(genes: readonly GeneItem[]): string[] {
+  return genes
+    .filter((gene) => gene.drops.includes("wave"))
     .map((gene) => gene.item)
     .toSorted();
 }

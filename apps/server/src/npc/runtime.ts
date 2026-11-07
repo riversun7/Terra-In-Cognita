@@ -6,7 +6,8 @@
 //   구인 카드를 산다, D-469 출생 없음), 하루 끝(UTC 0시)에 endOfDay(만족도·수명·상속·반란·독립·백지 강화·연구, 7일마다 배당·공물).
 // - 처리 뒤 거울 세계의 바뀜을 쓰기 대기열·2차맵에 맞춘다(persist.ts).
 // - 정원사(docs/adr/2026-11-01-gardener-r5b.md 5절, gardener.ts): 하루 끝에 칸 오염·도시 웨이브 굴림·유목 부대, 웨이브 도착은
-//   서버 전투 서비스의 공성 전투로 싸운다(결과가 오면 다음 틱에 피해·폐허·쉬는 시간).
+//   서버 전투 서비스의 공성 전투로 싸운다(결과가 오면 다음 틱에 피해·폐허·쉬는 시간). 정원사 2: 정원 세력 관계도·세력 오염·
+//   보호 레이드(판단의 치기 → onAttack)·막아 낸 웨이브 보상(waveRewards.ts).
 // - 서버에서 아직 안 하는 것: 실시간 공성(NPC 공격은 전투 없이 점령 — 시뮬 "전투 끔"과 같은 규칙), NPC 시장·세금(배당 0),
 //   휴먼 지갑(상속은 빈 지갑), 편입 제안 저장(메모리), NPC 생산 시설의 오염(시설이 없다), 행정 건물 올리기(모든 도시 Lv1 [임시]).
 import { randomInt } from "node:crypto";
@@ -56,6 +57,7 @@ import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, NPC_START_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
+import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { type CityPlace, type NpcPersist, createNpcPersist } from "./persist.ts";
 import type { NpcHumanRow } from "./state.ts";
 import { loadNpcState } from "./state.ts";
@@ -107,6 +109,8 @@ export interface NpcRuntimeOptions {
    * (D-478, src/fusion/service.ts dropOnDeath). 같은 동기 처리 = 같은 저장 묶음
    */
   readonly onHumanDied?: ((ownerId: number, nowMs: number) => void) | undefined;
+  /** 막아 낸 도시 웨이브 보상 아이템(D-499: 팩 유전자 조각·크리쳐 재료, waveRewards.ts). 없으면 명성만 */
+  readonly waveRewardItems?: (() => WaveRewardItems) | undefined;
 }
 
 export interface NpcRuntime {
@@ -126,11 +130,12 @@ export interface NpcRuntime {
 
 /** 다음 하루 끝(UTC 0시, 하루 길이를 줄였으면 그 배수) */
 /**
- * 웨이브를 끄면 도시 웨이브 확률 상한(chanceMaxPm)을 0으로 둔다: 굴림은 돌지만 늘 실패하고, 오염 층은 그대로 쌓인다.
+ * 웨이브를 끄면 도시 웨이브 확률 상한(chanceMaxPm)과 보호 레이드 세기 배율(raidStrengthPm, D-500)을 0으로 둔다: 굴림은 돌지만 늘
+ * 실패하고 레이드는 생기지 않으며, 오염 층·관계도는 그대로 돈다.
  * 사용자 결정(2026-11-01 "합치되 웨이브 끔", D-513 운영자 온/오프 스위치 49 N53 `n53_gardener_waves`), GARDENER_WAVES
  */
 export function gardenerRulesOf(rules: GardenerCoefficients, wavesOn: boolean): GardenerCoefficients {
-  return wavesOn ? rules : { ...rules, chanceMaxPm: 0 };
+  return wavesOn ? rules : { ...rules, chanceMaxPm: 0, raidStrengthPm: 0 };
 }
 
 /**
@@ -144,6 +149,7 @@ export function gardenerWavesEnabled(envFlag: boolean | undefined, switchValue: 
 }
 
 const nextDayEnd = (nowMs: number, dayMs: number): number => (Math.floor(nowMs / dayMs) + 1) * dayMs;
+const NO_ITEMS: WaveRewardItems = { genes: [], materials: [] };
 
 /** 구인 카드로 온 휴먼의 레벨·스탯·속성(저장 값). 처음부터 있던 휴먼은 null */
 const recruitOf = (row: NpcHumanRow): SimUnit["recruit"] =>
@@ -487,9 +493,17 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     treasuryOf: (ownerId) => ledger.balanceOf(ownerId, ASSET_CREDIT),
     timeScale: dayMs / DAY_MS,
     startBattle: o.startBattle,
+    grantReward: o.waveRewardItems
+      ? (ownerId, reward, atMs) =>
+          grantWaveReward(ledger, ownerId, reward, o.waveRewardItems?.() ?? NO_ITEMS, atMs)
+      : undefined,
     log,
   });
   gardenerRef.current = gardener;
+  // 보호 레이드(D-500): NPC 판단이 필수 NPC 세력의 도시를 치려 하면 공격자에게
+  ctx.onAttack = (attacker, target, cityId, nowMs) => {
+    gardener.run.protect(attacker, target, cityId, nowMs);
+  };
   o.onBattleEnded?.((battleId, attackerWon) => {
     gardener.battleEnded(battleId, attackerWon);
   });

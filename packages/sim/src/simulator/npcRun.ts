@@ -98,6 +98,11 @@ export interface NpcContext {
   /** 진짜 규칙(점령 처리·마을·지분·연구·전쟁). run.ts가 붙인다 */
   society?: SocietyRun | undefined;
   readonly counts: NpcCounts;
+  /**
+   * 세력이 남의 도시를 치려 한다(도시를 고른 뒤, 공성 전). 정원사가 필수 NPC 세력을 친 세력에게 보호 레이드를 보낸다
+   * (D-500, docs/adr/2026-11-01-gardener-r5b.md "바뀜 (2026-11-07, 정원사 2)"). run.ts·서버 런타임이 붙인다
+   */
+  onAttack?: ((attacker: SimFaction, target: SimFaction, cityId: number, nowMs: number) => void) | undefined;
 }
 
 /** 다음 판단 시각: 간격 ±25% */
@@ -282,6 +287,7 @@ function attack(ctx: NpcContext, attacker: SimFaction, targetId: number, roll: n
   const takeable = [...target.cities].filter((cityId) => world.cities.get(cityId)?.start === false);
   const cityId = takeable[roll % Math.max(1, takeable.length)];
   if (cityId === undefined) return;
+  ctx.onAttack?.(attacker, target, cityId, nowMs);
   if (ctx.combat) {
     const won = ctx.combat.siege(attacker, target, cityId, nowMs);
     recordFight(attacker, attacker.id, target, target.id, nowMs);

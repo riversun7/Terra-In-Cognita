@@ -4,8 +4,8 @@
 //   → 같은 처리에서 생긴 원장 계정이 소유 주체를 가리켜도 외래 키가 깨지지 않는다. 예비 행은 처리 뒤 채운다(refillSpares).
 // - 새 도시(마을)는 부모 도시 둘레의 빈 자리에 둔다. 구인(D-469, 출생 없음) = 그 도시 둘레에 봇을 세움(레벨·스탯·속성은 휴먼 행),
 //   사망 = 휴먼 행·유닛을 지움. 도시 주인이 산 구인 카드 칸은 recruit_draws(고용 주체 = 세력 소유 주체)에 쓴다.
-// - 정원사(docs/adr/2026-11-01-gardener-r5b.md 5절): 바뀐 칸 오염(0이 되면 지움), 웨이브 줄(예고·전투 ID·결과), 도시 쉬는 시간,
-//   npc_society.gardener(모함 칸·유목 부대). 폐허가 된 도시는 도시 행을 지우고(휴먼을 먼저 옮긴 같은 묶음), 노숙 휴먼은 city_id null.
+// - 정원사(docs/adr/2026-11-01-gardener-r5b.md 5절): 바뀐 칸 오염(0이 되면 지움), 웨이브 줄(예고·전투 ID·결과·종류·보상), 도시 쉬는 시간,
+//   npc_society.gardener(모함 칸·유목 부대·세력마다 관계도·명성). 폐허가 된 도시는 도시 행을 지우고(휴먼을 먼저 옮긴 같은 묶음), 노숙 휴먼은 city_id null.
 import { HOMELESS, type SimFaction, type SimWorld, recruitElementSlots, traitsToArray } from "@terra/sim";
 import { type ServerGardener, storedGardenerOf } from "./gardener.ts";
 import type { QueryPool, OwnerRow } from "../world/persist/load.ts";
@@ -97,6 +97,8 @@ interface WaveFields {
   readonly createdAtMs: number;
   readonly arriveAtMs: number;
   readonly battleId: number | null;
+  /** 도시 웨이브 | 보호 레이드(정원사 2) */
+  readonly kind: "city" | "protection";
 }
 
 /** 끝난 웨이브의 결과 → 줄 상태 */
@@ -253,7 +255,12 @@ export function createNpcPersist(
     });
   };
 
-  const waveRow = (wave: WaveFields, state: string, resolvedAtMs: number | null) => ({
+  const waveRow = (
+    wave: WaveFields,
+    state: string,
+    resolvedAtMs: number | null,
+    reward: string | null = null,
+  ) => ({
     id: wave.id,
     planet_id: o.planetId,
     city_id: wave.city,
@@ -266,6 +273,8 @@ export function createNpcPersist(
     state,
     battle_id: wave.battleId,
     resolved_at_ms: resolvedAtMs,
+    kind: wave.kind,
+    reward,
   });
 
   /** 정원사 바뀜: 칸 오염(바뀐 칸만, 0이면 지움), 진군·전투 중인 웨이브, 끝난 웨이브의 결과 */
@@ -293,7 +302,10 @@ export function createNpcPersist(
       rows += 1;
     }
     for (const done of gardener.run.takeResolved()) {
-      writer.upsert("gardenerWaves", waveRow(done.wave, resolvedState(done.outcome), done.atMs));
+      writer.upsert(
+        "gardenerWaves",
+        waveRow(done.wave, resolvedState(done.outcome), done.atMs, gardener.takeRewardRecord(done.wave.id)),
+      );
       savedWaves.delete(done.wave.id);
       rows += 1;
     }

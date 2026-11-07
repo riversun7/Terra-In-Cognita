@@ -191,7 +191,7 @@ export const WORLD_TABLES = {
     columns: ["planet_id", "cell_key", "value", "updated_at_ms"],
     key: ["planet_id", "cell_key"],
   },
-  /** 정원사 도시 웨이브(예고부터 결과까지 한 줄) */
+  /** 정원사 도시 웨이브·보호 레이드(예고부터 결과까지 한 줄). reward는 JSON 글자로 넣는다 */
   gardenerWaves: {
     name: "gardener_waves",
     columns: [
@@ -207,6 +207,8 @@ export const WORLD_TABLES = {
       "state",
       "battle_id",
       "resolved_at_ms",
+      "kind",
+      "reward",
     ],
     key: ["id"],
   },

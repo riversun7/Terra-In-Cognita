@@ -60,6 +60,7 @@ import {
 import { emptyWorldStats, resetWorldStats, summarizeWorldStats } from "./worldStats.ts";
 import { type NationPreset, ensureTestNations, nationName } from "../npc/nations.ts";
 import { type NpcRuntime, startNpcRuntime } from "../npc/runtime.ts";
+import { waveRewardItemsOf } from "../npc/waveRewards.ts";
 import type { TerritoryBeaconFacilityView } from "@terra/shared/territoryApi";
 import {
   type BeaconRow,
@@ -837,6 +838,8 @@ export function startWorld(
           onHumanDied: (ownerId, nowMs) => {
             fusion.dropOnDeath(ownerId, HUMAN_SPECIES, nowMs);
           },
+          // 막아 낸 도시 웨이브 보상 아이템(D-499): 팩 유전자 조각(gene.drops wave)·크리쳐 재료(중분류 creature_material)
+          waveRewardItems: () => waveRewardItemsOf(config.holdings?.content().items ?? []),
         });
       } catch (error) {
         log.error({ err: error }, "npc society failed to start; bots keep walking");

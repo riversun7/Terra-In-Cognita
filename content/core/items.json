@@ -2447,7 +2447,7 @@
       "gene": {
         "kind": "stat",
         "species": "creature",
-        "drops": ["death"]
+        "drops": ["death", "wave"]
       },
       "enabled": true
     },

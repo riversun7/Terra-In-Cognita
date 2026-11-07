@@ -226,6 +226,10 @@ export interface HoldingService {
   ): { readonly holding: number; readonly heal: number } | null;
   /** 유닛이 입은 물건(칸 차례) */
   equippedOn(unitId: number): readonly HoldingRecord[];
+  /** 유닛의 칸 배치(팩 unit_kinds ID와 칸 차례 — 화면이 칸 번호를 칸 종류로 읽는다). 없는 유닛·종류면 undefined */
+  unitLayout(unitId: number): { readonly kind: string; readonly slots: readonly string[] } | undefined;
+  /** 쓸 수 있는 물건의 쓰기 쿨 종류(D-509·D-510). 쓸 수 없거나 팩에서 사라졌으면 null */
+  useCooldownOf(itemId: string): CooldownKind | null;
   /** 지금 실효 정의(보유 판정 칸, 팩에서 사라졌으면 undefined) */
   defOf(itemId: string): HeldDef | undefined;
   /** 신선도 묶음의 지금 신선도(‰)와 그 자리에 두면 다 썩는 시각(신선도가 없으면 null) */
@@ -507,6 +511,9 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
       const kept = mine.filter((record) => settleLot(record, nowMs, map, table));
       const units = new Set<number>();
       for (const [unitId] of effects) if (world.unitOwner(unitId) === ownerId) units.add(unitId);
+      // 효과 없이 쿨만 남은 유닛(확률에 빠진 쓰기 등)도 쿨을 보인다
+      for (const entry of cooldowns.values())
+        if (world.unitOwner(entry.unitId) === ownerId) units.add(entry.unitId);
       const live = [...units].toSorted((a, b) => a - b).flatMap((unitId) => unitEffects(unitId, nowMs));
       const waits = [...cooldowns.values()]
         .filter((entry) => entry.untilMs > nowMs && units.has(entry.unitId))
@@ -922,6 +929,16 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
       return pickPotion(Math.max(0, hp.max - hp.current), candidates);
     },
     equippedOn,
+    unitLayout(unitId) {
+      const kind = world.unitKind(unitId);
+      const slots = kind === undefined ? undefined : lookup().unitSlots.get(kind);
+      return kind === undefined || slots === undefined ? undefined : { kind, slots };
+    },
+    useCooldownOf(itemId) {
+      const map = lookup();
+      const def = map.items.get(itemId);
+      return def?.use ? cooldownKindOf(def, map) : null;
+    },
     defOf: (itemId) => lookup().items.get(itemId),
     freshnessOf(record, nowMs) {
       const perish = lookup().items.get(record.itemId)?.perish;

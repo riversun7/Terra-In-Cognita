@@ -233,12 +233,200 @@ export interface RosterPrisoner {
   readonly preview: boolean;
 }
 
+/**
+ * 파티 진형 자유 배치 범위(사각형, 2차맵·전투맵 배치 칸 1칸 ≈ 1m 단위).
+ * - 가로 폭(x): 좌익 -4 ~ 중앙 0 ~ 우익 +4 (총 9칸, 홀수 폭이라 정중앙 0 열에 V자·역V자 꼭짓점을 둘 수 있다)
+ * - 전후 깊이(y): 최전방 0 ~ 최후방 5 (총 6칸, 전투맵 중앙 전선에서 4~9칸 거리로 최소 32×32 전투맵에서도 퇴각 구역과 겹치지 않는다)
+ */
+export const FORMATION_X_MIN = -4;
+export const FORMATION_X_MAX = 4;
+export const FORMATION_WIDTH = 9;
+export const FORMATION_Y_MIN = 0;
+export const FORMATION_Y_MAX = 5;
+export const FORMATION_DEPTH = 6;
+/** 전투맵 중앙선에서 최전방(y = 0)까지의 기본 거리(배치 칸) */
+export const FORMATION_FRONT_DISTANCE = 4;
+
+/** 파티원 한 명의 진형 시작 좌표(x: 좌우 -4..+4, y: 전후 깊이 0..5) */
+export interface FormationPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** 기본 진형 프리셋 ID */
+export const FORMATION_PRESET_IDS = [
+  "two_row",
+  "three_row",
+  "v_wing",
+  "wedge",
+  "phalanx",
+  "wide_line",
+] as const;
+export type FormationPresetId = (typeof FORMATION_PRESET_IDS)[number];
+
+export interface FormationPresetSpec {
+  readonly id: FormationPresetId;
+  readonly name: LocalizedName;
+  readonly shortName: LocalizedName;
+  readonly desc: LocalizedName;
+  /** 최대 6명의 시작 좌표(차례 0~5) */
+  readonly points: readonly FormationPoint[];
+}
+
+/** 기본 진형 프리셋 6종(2열, 3열, V자 학익진, 역V 쐐기진, 방진·호위, 횡대 산개) */
+export const FORMATION_PRESETS: readonly FormationPresetSpec[] = [
+  {
+    id: "two_row",
+    name: { ko: "2열 기본진", en: "2-Row Standard" },
+    shortName: { ko: "2열", en: "2-Row" },
+    desc: {
+      ko: "전열 3명(y=1) · 후열 3명(y=4) 표준 밸런스 진형",
+      en: "Standard balanced line with 3 front (y=1) and 3 rear (y=4)",
+    },
+    points: [
+      { x: -2, y: 1 },
+      { x: 0, y: 1 },
+      { x: 2, y: 1 },
+      { x: -2, y: 4 },
+      { x: 0, y: 4 },
+      { x: 2, y: 4 },
+    ],
+  },
+  {
+    id: "three_row",
+    name: { ko: "3열 종심진", en: "3-Row Depth" },
+    shortName: { ko: "3열", en: "3-Row" },
+    desc: {
+      ko: "선봉 2명(y=0) · 중위 2명(y=2) · 후위 2명(y=4) 3단 종심 진형",
+      en: "3-row depth with 2 vanguard (y=0), 2 mid (y=2), and 2 rear (y=4)",
+    },
+    points: [
+      { x: -1, y: 0 },
+      { x: 1, y: 0 },
+      { x: -2, y: 2 },
+      { x: 2, y: 2 },
+      { x: -1, y: 4 },
+      { x: 1, y: 4 },
+    ],
+  },
+  {
+    id: "v_wing",
+    name: { ko: "V자 학익진", en: "V-Wing (Crane)" },
+    shortName: { ko: "V자", en: "V-Wing" },
+    desc: {
+      ko: "양 날개 전진(y=0·2) + 중앙 본대 후방(y=4) 포위 사격 진형",
+      en: "Enveloping V-shape with forward wings (y=0·2) and rear center (y=4)",
+    },
+    points: [
+      { x: -4, y: 0 },
+      { x: 4, y: 0 },
+      { x: -2, y: 2 },
+      { x: 2, y: 2 },
+      { x: -1, y: 4 },
+      { x: 1, y: 4 },
+    ],
+  },
+  {
+    id: "wedge",
+    name: { ko: "역V 쐐기진", en: "Wedge (Arrow)" },
+    shortName: { ko: "역V", en: "Wedge" },
+    desc: {
+      ko: "중앙 선봉 돌파(0,0) + 좌우 날개 계단식(y=1·3) 돌격 진형",
+      en: "Assault wedge led by center point (0,0) with stepped wings (y=1·3)",
+    },
+    points: [
+      { x: 0, y: 0 },
+      { x: -2, y: 1 },
+      { x: 2, y: 1 },
+      { x: 0, y: 3 },
+      { x: -4, y: 3 },
+      { x: 4, y: 3 },
+    ],
+  },
+  {
+    id: "phalanx",
+    name: { ko: "방진 · 호위진", en: "Box Escort" },
+    shortName: { ko: "방진", en: "Box" },
+    desc: {
+      ko: "중앙 핵심(0,2)을 전방·좌우·후방에서 감싸 보호하는 호위 진형",
+      en: "Protective box surrounding the center unit (0,2) on all sides",
+    },
+    points: [
+      { x: -1, y: 0 },
+      { x: 1, y: 0 },
+      { x: -3, y: 2 },
+      { x: 3, y: 2 },
+      { x: 0, y: 2 },
+      { x: 0, y: 4 },
+    ],
+  },
+  {
+    id: "wide_line",
+    name: { ko: "횡대 산개진", en: "Wide Skirmish" },
+    shortName: { ko: "산개", en: "Wide" },
+    desc: {
+      ko: "광역 스킬 피해 분산을 위해 좌우 폭(-4~+4)으로 넓게 벌린 진형",
+      en: "Wide lateral spread (-4..+4) to minimize area-of-effect damage",
+    },
+    points: [
+      { x: -3, y: 0 },
+      { x: 0, y: 0 },
+      { x: 3, y: 0 },
+      { x: -4, y: 3 },
+      { x: 0, y: 3 },
+      { x: 4, y: 3 },
+    ],
+  },
+];
+
+export function isValidFormationPoint(point: FormationPoint): boolean {
+  return (
+    Number.isInteger(point.x) &&
+    point.x >= FORMATION_X_MIN &&
+    point.x <= FORMATION_X_MAX &&
+    Number.isInteger(point.y) &&
+    point.y >= FORMATION_Y_MIN &&
+    point.y <= FORMATION_Y_MAX
+  );
+}
+
+/** 전후 깊이 y(0..5) → 전열·중열·후열 분류 */
+export function rowFromFormationY(y: number): "front" | "middle" | "back" {
+  return y <= 1 ? "front" : y <= 3 ? "middle" : "back";
+}
+
+/** 전열·중열·후열 + 같은 줄 순번 → 기본 시작 좌표(x, y) */
+export function formationPointFromRow(row: "front" | "middle" | "back", indexInRow: number): FormationPoint {
+  const y = row === "front" ? 0 : row === "middle" ? 3 : 5;
+  const offsets = [0, -2, 2, -4, 4, -1, 1, -3, 3];
+  const x = offsets[indexInRow] ?? 0;
+  return { x, y };
+}
+
+/** 프리셋에서 순번(0~5)의 기본 좌표를 돌려준다 */
+export function presetFormationPoint(index: number, presetId: FormationPresetId = "two_row"): FormationPoint {
+  const preset = FORMATION_PRESETS.find((entry) => entry.id === presetId) ?? FORMATION_PRESETS[0]!;
+  return preset.points[index % preset.points.length] ?? { x: 0, y: 0 };
+}
+
+/** 파티원 하나(유닛·역할·순번·시작 좌표) */
+export interface RosterPartyMember {
+  readonly unit: string;
+  readonly role: PartyRole;
+  /** 편성 순번(0~5) */
+  readonly spot: number;
+  /** 시작 좌표(배치 사각형 안: x = -4..+4, y = 0..5) */
+  readonly x?: number | undefined;
+  readonly y?: number | undefined;
+}
+
 /** 파티(D-179: 최대 6, 진형 저장). 시안만 */
 export interface RosterParty {
   readonly id: string;
   readonly name: string;
-  /** 칸 = 진형 자리(앞줄 3 · 뒷줄 3, 0~5). unit = RosterUnit.id */
-  readonly members: readonly { readonly unit: string; readonly role: PartyRole; readonly spot: number }[];
+  /** 기본 진형 프리셋 ID */
+  readonly preset?: FormationPresetId | undefined;
+  readonly members: readonly RosterPartyMember[];
   readonly preview: boolean;
 }
 

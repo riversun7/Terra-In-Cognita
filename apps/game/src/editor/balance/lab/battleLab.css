@@ -199,6 +199,86 @@
   gap: var(--space-1);
 }
 
+/* ── 9×6 자유 배치 구역 · 기본 진형 프리셋 ── */
+.bl-formation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+}
+.bl-formation-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.bl-formation-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text-muted);
+}
+.bl-formation-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.bl-formation-presets > button[data-active="true"] {
+  border-color: var(--color-focus);
+  color: var(--color-focus);
+  font-weight: var(--font-weight-strong);
+}
+.bl-formation-board {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+.bl-formation-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.75rem;
+  min-width: 0;
+  border: var(--hairline) dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  user-select: none;
+}
+.bl-formation-cell[data-center-x] {
+  border-inline-color: var(--color-border-strong);
+}
+.bl-formation-cell[data-occupied] {
+  border-style: solid;
+  border-color: var(--color-primary);
+  background-color: var(--color-surface-2);
+}
+.bl-team[data-team="b"] .bl-formation-cell[data-occupied] {
+  border-color: var(--color-warning);
+}
+.bl-formation-cell[data-selected] {
+  border-style: solid;
+  border-color: var(--color-focus);
+  box-shadow: inset 0 0 0 var(--hairline) var(--color-focus);
+}
+.bl-formation-token {
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-focus);
+}
+.bl-team[data-team="b"] .bl-formation-token {
+  color: var(--color-warning);
+}
+.bl-formation-dot {
+  color: var(--color-text-muted);
+  opacity: 0.45;
+}
+
 /* ── 숫자 칸·격자 ── */
 .bl-num {
   display: flex;

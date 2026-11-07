@@ -5,6 +5,7 @@ import {
   GATHER_MODES,
   PRIMARY_STAT_CODES,
   facilityEntrySchema,
+  gatherTierEntrySchema,
   readCategoryFile,
 } from "@terra/content";
 import {
@@ -20,7 +21,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { loadServerContent } from "../content.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
-import { facilityJsonOf, facilityViews } from "./views.ts";
+import { facilityJsonOf, facilityViews, gatherBandViews, gatherTierJsonOf } from "./views.ts";
 
 const loaded = loadServerContent(DEFAULT_CONTENT_DIR);
 if (!loaded.ok) throw new Error(loaded.lines.join("\n"));
@@ -34,10 +35,18 @@ const base = {
 const ok = (extra: Record<string, unknown>) => facilityEntrySchema.safeParse({ ...base, ...extra }).success;
 
 describe("건물 편집기 화면 자료", () => {
-  it("팩 시설마다 화면 JSON = 팩 파일 한 줄(빠지는 칸이 없다)", () => {
+  it("팩 시설·채집 티어 확률표마다 화면 JSON = 팩 파일 한 줄(빠지는 칸이 없다)", () => {
     const raw = readCategoryFile(loaded.source, "facilities").entries;
     expect(raw.length).toBeGreaterThanOrEqual(8);
     for (const line of raw) expect(facilityJsonOf(facilityEntrySchema.parse(line))).toEqual(line);
+    const rawBands = readCategoryFile(loaded.source, "gather_tiers").entries;
+    expect(rawBands).toHaveLength(12);
+    for (const line of rawBands) expect(gatherTierJsonOf(gatherTierEntrySchema.parse(line))).toEqual(line);
+    const state = createContentEditState(loaded.source);
+    const bands = gatherBandViews(state, state.snapshot());
+    expect(bands).toHaveLength(12);
+    expect(bands[0]?.entry.id).toBe("band_000");
+    expect(bands[0]?.origin).toBe("pack");
   });
 
   it("목록 줄: 실효·팩 항목·해시·이 시설 레시피", () => {

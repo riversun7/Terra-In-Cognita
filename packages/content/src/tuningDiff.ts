@@ -64,6 +64,7 @@ export const ENTRY_DIFF_CATEGORIES = [
   "weapon_types",
   "effects",
   "facilities",
+  "gather_tiers",
 ] as const;
 
 export const entriesDiffChangeSchema = z.strictObject({

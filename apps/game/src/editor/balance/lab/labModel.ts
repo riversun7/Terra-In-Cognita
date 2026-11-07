@@ -13,7 +13,15 @@ import {
   type LabWeapon,
   newLabUnit,
 } from "@terra/shared/battleLab";
-import type { LocalizedName, PrimaryStat } from "@terra/shared/roster";
+import {
+  type FormationPoint,
+  type FormationPresetId,
+  formationPointFromRow,
+  isValidFormationPoint,
+  type LocalizedName,
+  type PrimaryStat,
+  presetFormationPoint,
+} from "@terra/shared/roster";
 import { field } from "../../../net/json.ts";
 
 export type Teams = Readonly<Record<LabTeam, LabParty>>;
@@ -101,7 +109,63 @@ export const withElement = (unit: LabUnit, index: number, value: number): LabUni
   ...unit,
   elements: unit.elements.map((entry, at) => (at === index ? value : entry)),
 });
-export const withRow = (unit: LabUnit, row: LabRow): LabUnit => ({ ...unit, row });
+const labRowFromY = (y: number): LabRow => (y <= 2 ? "front" : "back");
+
+export const withRow = (unit: LabUnit, row: LabRow): LabUnit => {
+  if (!unit.pos || !isValidFormationPoint(unit.pos)) return { ...unit, row };
+  const y = row === "front" ? Math.min(2, unit.pos.y) : Math.max(3, unit.pos.y);
+  return { ...unit, row, pos: { x: unit.pos.x, y } };
+};
+
+/** 파티 유닛마다 9×6 배치 구역(x ∈ [-4, +4], y ∈ [0, 5]) 좌표를 구한다 */
+export function partyFormationPositions(party: LabParty): readonly FormationPoint[] {
+  let frontCount = 0;
+  let backCount = 0;
+  return party.units.map((unit) => {
+    if (unit.pos && isValidFormationPoint(unit.pos)) return unit.pos;
+    if (unit.row === "front") {
+      const point = formationPointFromRow("front", frontCount);
+      frontCount += 1;
+      return point;
+    }
+    const point = formationPointFromRow("back", backCount);
+    backCount += 1;
+    return point;
+  });
+}
+
+/** 기본 진형 프리셋(2열·3열·V자·역V·방진·산개)을 한 팀에 입힌다 */
+export function applyFormationPreset(teams: Teams, team: LabTeam, presetId: FormationPresetId): Teams {
+  const party = teams[team];
+  const units = party.units.map((unit, index) => {
+    const pos = presetFormationPoint(index, presetId);
+    return { ...unit, pos, row: labRowFromY(pos.y) };
+  });
+  return { ...teams, [team]: { ...party, units } };
+}
+
+/** 고른 유닛을 9×6 배치 구역 안의 (x, y) 칸으로 옮긴다(다른 유닛이 있던 칸이면 두 유닛 자리를 바꾼다) */
+export function moveUnitFormationPos(teams: Teams, at: Selection, pos: FormationPoint): Teams {
+  if (!isValidFormationPoint(pos)) return teams;
+  const party = teams[at.team];
+  if (at.index < 0 || at.index >= party.units.length) return teams;
+  const positions = partyFormationPositions(party);
+  const currentPos = positions[at.index] ?? pos;
+  const otherIndex = positions.findIndex(
+    (entry, idx) => idx !== at.index && entry.x === pos.x && entry.y === pos.y,
+  );
+  const units = party.units.map((unit, index) => {
+    if (index === at.index) {
+      return { ...unit, pos, row: labRowFromY(pos.y) };
+    }
+    if (index === otherIndex) {
+      return { ...unit, pos: currentPos, row: labRowFromY(currentPos.y) };
+    }
+    const fallback = positions[index] ?? pos;
+    return unit.pos ? unit : { ...unit, pos: fallback, row: labRowFromY(fallback.y) };
+  });
+  return { ...teams, [at.team]: { ...party, units } };
+}
 
 /** 장비 칸 하나: item null이면 비운다 */
 export function withEquip(unit: LabUnit, slot: number, item: string | null, pm = 500): LabUnit {

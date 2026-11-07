@@ -14,6 +14,9 @@ import {
   type FacilityGatherJson,
   type FacilityJson,
   type FacilityRepairJson,
+  GATHER_BAND_WEIGHT_TOTAL,
+  GATHER_TIER_SLOTS,
+  type GatherTierJson,
   buildCostAt,
   buildLevelAt,
   buildTimeAt,
@@ -29,13 +32,28 @@ export type StagedFacility =
     }
   | { readonly op: "revert"; readonly base: FacilityJson; readonly baseHash: string };
 
+/** 1차 생산 티어 확률표 구간 하나의 담은 변경(49 N43, D-513) */
+export type StagedGatherBand =
+  | {
+      readonly op: "put_gather_band";
+      readonly entry: GatherTierJson;
+      readonly base: GatherTierJson;
+      readonly baseHash: string;
+    }
+  | { readonly op: "revert_gather_band"; readonly base: GatherTierJson; readonly baseHash: string };
+
 export interface BuildingStage {
   readonly facilities: ReadonlyMap<string, StagedFacility>;
+  readonly gatherBands: ReadonlyMap<string, StagedGatherBand>;
   /** 버릴 잠든 줄(시설 ID) */
   readonly discard: ReadonlySet<string>;
 }
 
-export const EMPTY_STAGE: BuildingStage = { facilities: new Map(), discard: new Set() };
+export const EMPTY_STAGE: BuildingStage = {
+  facilities: new Map(),
+  gatherBands: new Map(),
+  discard: new Set(),
+};
 
 /** 시설 하나의 담음을 바꾼다(null = 뺀다) */
 export function stageFacility(stage: BuildingStage, id: string, next: StagedFacility | null): BuildingStage {
@@ -43,6 +61,18 @@ export function stageFacility(stage: BuildingStage, id: string, next: StagedFaci
   if (next === null) facilities.delete(id);
   else facilities.set(id, next);
   return { ...stage, facilities };
+}
+
+/** 채집 확률표 구간 하나의 담음을 바꾼다(null = 뺀다) */
+export function stageGatherBand(
+  stage: BuildingStage,
+  id: string,
+  next: StagedGatherBand | null,
+): BuildingStage {
+  const gatherBands = new Map(stage.gatherBands);
+  if (next === null) gatherBands.delete(id);
+  else gatherBands.set(id, next);
+  return { ...stage, gatherBands };
 }
 
 /** 잠든 줄 버리기를 담거나 뺀다 */
@@ -53,9 +83,13 @@ export function stageDiscard(stage: BuildingStage, id: string, on: boolean): Bui
   return { ...stage, discard };
 }
 
-/** 담은 키(시설 ID, 버릴 잠든 줄은 "sleeping/<ID>") */
+/** 담은 키(시설 ID, 확률표 구간은 "gather_tiers/<ID>", 버릴 잠든 줄은 "sleeping/<ID>") */
 export function stageKeys(stage: BuildingStage): string[] {
-  return [...stage.facilities.keys(), ...[...stage.discard].map((id) => `sleeping/${id}`)];
+  return [
+    ...stage.facilities.keys(),
+    ...[...stage.gatherBands.keys()].map((id) => `gather_tiers/${id}`),
+    ...[...stage.discard].map((id) => `sleeping/${id}`),
+  ];
 }
 
 /** 담은 변경 → 서버 묶음 */
@@ -65,8 +99,40 @@ export function changesOf(stage: BuildingStage): BuildingEditorChange[] {
     if (staged.op === "put") changes.push({ op: "put", entry: staged.entry, baseHash: staged.baseHash });
     else changes.push({ op: "revert", id, baseHash: staged.baseHash });
   }
+  for (const [id, staged] of stage.gatherBands) {
+    if (staged.op === "put_gather_band")
+      changes.push({ op: "put_gather_band", entry: staged.entry, baseHash: staged.baseHash });
+    else changes.push({ op: "revert_gather_band", id, baseHash: staged.baseHash });
+  }
   for (const id of stage.discard) changes.push({ op: "discard_sleeping", id });
   return changes;
+}
+
+/** 가중치 배열(T0~T9)을 합 1000‰ 정수로 맞춘다(가장 큰 칸에 반올림 나머지를 더한다) */
+export function normalizeWeightsPm(raw: readonly number[]): number[] {
+  const clean = Array.from({ length: GATHER_TIER_SLOTS }, (_, index) => Math.max(0, raw[index] ?? 0));
+  const sum = clean.reduce((acc, val) => acc + val, 0);
+  if (sum <= 0) {
+    const fallback = Array.from({ length: GATHER_TIER_SLOTS }, () => 0);
+    fallback[0] = GATHER_BAND_WEIGHT_TOTAL;
+    return fallback;
+  }
+  const scaled = clean.map((val) => Math.floor((val * GATHER_BAND_WEIGHT_TOTAL) / sum));
+  let remainder = GATHER_BAND_WEIGHT_TOTAL - scaled.reduce((acc, val) => acc + val, 0);
+  const order = clean
+    .map((val, index) => ({
+      index,
+      frac: (val * GATHER_BAND_WEIGHT_TOTAL) % sum,
+      val,
+    }))
+    .toSorted((a, b) => b.frac - a.frac || b.val - a.val || a.index - b.index);
+  for (let i = 0; i < order.length && remainder > 0; i++) {
+    const item = order[i];
+    if (!item) continue;
+    scaled[item.index] = (scaled[item.index] ?? 0) + 1;
+    remainder -= 1;
+  }
+  return scaled;
 }
 
 /** 시설의 최고 레벨(없으면 5) */

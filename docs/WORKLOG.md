@@ -5,7 +5,11 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-04 08:10 | 파티 9×6 자유 배치 사각형 진형 및 기본 진형 프리셋 6종 추가 | Claude Code | [04-0810-party-free-formation-presets](worklog/2026/11/04-0810-party-free-formation-presets.md) |
+| 2026-11-04 01:45 | D-513 반영 — 49 N53 운영자 런타임 스위치, 49 N43 채집 티어 확률 편집, 운영자(/admin)·개발자(/dev) 화면 구분 | Claude Code | [04-0145-d513-admin-dev-n43-n53](worklog/2026/11/04-0145-d513-admin-dev-n43-n53.md) |
+| 2026-11-04 00:59 | 기획서 미러 동기화 (0596914, D-513) 및 설정 칸 목록 갱신 | Claude Code | [04-0059-design-mirror-sync](worklog/2026/11/04-0059-design-mirror-sync.md) |
 | 2026-11-03 15:15 | main CI 빨강 고침: 구인 카드 개발 화면 조각을 미리 캐시에서 뺌 | Claude Code | [03-1515-pwa-recruit-chunk](worklog/2026/11/03-1515-pwa-recruit-chunk.md) |
+| 2026-11-03 14:30 | 인벤토리 화면: 사이보그·유닛 상세의 보유 물건(장착·해제·사용·쿨·교체 확인·개발 받기) | Claude Code | [03-1430-inventory-ui](worklog/2026/11/03-1430-inventory-ui.md) |
 | 2026-11-03 09:00 ~ 14:30 | 노동 계약(임금형·임대형): 규칙 한 벌·보증금 에스크로·서버 표·명령·조회·경제 화면 | Claude Code | [03-1400-labor-contracts](worklog/2026/11/03-1400-labor-contracts.md) |
 | 2026-11-03 13:30 | 스태미나 274: 적정 스탯 개념(D-511) — 적정 STA 레벨 식, 회복 = 기본 회복 × 적정 비율, 일반 공격이 이어지게 | Claude Code | [03-1330-stamina](worklog/2026/11/03-1330-stamina.md) |
 | 2026-11-03 10:00 | 정원사 웨이브 다시 재기와 스태미나(274) 견주기 — 측정만 | Claude Code | [03-1000-gardener-cal](worklog/2026/11/03-1000-gardener-cal.md) |

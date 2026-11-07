@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   addSkill,
   addUnit,
+  applyFormationPreset,
   clampSelection,
   clockText,
   copyName,
@@ -11,7 +12,9 @@ import {
   looksLikeTeams,
   moveSkill,
   moveUnit,
+  moveUnitFormationPos,
   parseIntIn,
+  partyFormationPositions,
   removeUnit,
   updateUnit,
   weaponChoice,
@@ -72,6 +75,29 @@ describe("전투 실험실 팀 고치기", () => {
       id: "test_staff",
       pm: 500,
     });
+  });
+
+  it("9×6 자유 배치 구역과 기본 진형 프리셋(2열·3열·V자·역V·방진·산개) 적용·자리 바꾸기", () => {
+    let teams = initialTeams();
+    for (let i = 1; i < 6; i++) teams = addUnit(teams, "a", newLabUnit("cyborg"));
+    teams = applyFormationPreset(teams, "a", "v_wing");
+    expect(partyFormationPositions(teams.a)).toEqual([
+      { x: -4, y: 0 },
+      { x: 4, y: 0 },
+      { x: -2, y: 2 },
+      { x: 2, y: 2 },
+      { x: -1, y: 4 },
+      { x: 1, y: 4 },
+    ]);
+    expect(teams.a.units.map((u) => u.row)).toEqual(["front", "front", "front", "front", "back", "back"]);
+
+    // A1((-4, 0))을 빈 칸((0, 5))으로 옮기면 후열로 바뀌고, 이미 A2가 있는 ((4, 0))으로 옮기면 자리를 맞바꾼다
+    teams = moveUnitFormationPos(teams, { team: "a", index: 0 }, { x: 0, y: 5 });
+    expect(teams.a.units[0]?.pos).toEqual({ x: 0, y: 5 });
+    expect(teams.a.units[0]?.row).toBe("back");
+    teams = moveUnitFormationPos(teams, { team: "a", index: 0 }, { x: 4, y: 0 });
+    expect(teams.a.units[0]?.pos).toEqual({ x: 4, y: 0 });
+    expect(teams.a.units[1]?.pos).toEqual({ x: 0, y: 5 });
   });
 });
 

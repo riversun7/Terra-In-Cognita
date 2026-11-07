@@ -649,6 +649,7 @@ export {
 } from "./tuning.ts";
 export { newTuningProblems, statTableProblems, tuningProblems } from "./tuningChecks.ts";
 export { TEST_SOCIETY_COEFFICIENTS, type SocietyCoefficients } from "./society/coefficients.ts";
+export { SWITCH_TUNING_KEYS, TEST_SYSTEM_SWITCHES, type SystemSwitches } from "./tuningSwitches.ts";
 export {
   PROTECTOR_ASSET,
   TEST_GEM_RULES,

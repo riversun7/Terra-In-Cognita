@@ -324,26 +324,34 @@ export function previewPrisoners(now: number): RosterPrisoner[] {
   ];
 }
 
-const member = (unit: string, role: PartyRole, spot: number) => ({ unit, role, spot });
+const member = (unit: string, role: PartyRole, spot: number, x: number, y: number) => ({
+  unit,
+  role,
+  spot,
+  x,
+  y,
+});
 
-/** 파티 2(D-179: 최대 6, 진형 = 앞줄 0~2 · 뒷줄 3~5). 역할은 정해 둔 값이다(자동 판정 규칙은 규칙 줄기 몫) */
+/** 파티 2(D-179: 최대 6, 진형 = 9×6 배치 구역 자유 좌표 + 기본 프리셋). 역할은 정해 둔 값이다(자동 판정 규칙은 규칙 줄기 몫) */
 export function previewParties(): RosterParty[] {
   return [
     {
       id: "pa1",
       name: "Alpha",
+      preset: "v_wing",
       members: [
-        member("p1", "tank", 1),
-        member("p4", "control", 0),
-        member("p2", "dealer", 4),
-        member("p3", "support", 5),
+        member("p1", "tank", 0, -4, 0),
+        member("p4", "control", 1, 4, 0),
+        member("p2", "dealer", 2, -2, 2),
+        member("p3", "support", 3, -1, 4),
       ],
       preview: true,
     },
     {
       id: "pa2",
       name: "Bravo",
-      members: [member("p8", "tank", 1), member("p9", "dealer", 4)],
+      preset: "wedge",
+      members: [member("p8", "tank", 0, 0, 0), member("p9", "dealer", 1, -2, 1)],
       preview: true,
     },
   ];

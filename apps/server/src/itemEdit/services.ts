@@ -432,9 +432,11 @@ export function createItemEditorServices(deps: {
       // 채집 추첨 레벨 보너스(N43)·진행·수확량(N32·N44): 실효 세력·사회 계수표(설정 칸 덮어쓰기)를 쓸 때마다 읽는다
       const society = shared.tuning?.state.society() ?? TEST_SOCIETY_COEFFICIENTS;
       const gather = {
-        // 시설은 실효 항목(건물 편집기 덮어쓰기)
+        // 시설·채집 티어 확률표는 실효 항목(건물 편집기 덮어쓰기, D-513)
         facilities: state.effective().facilities,
-        bands: shared.gatherBands,
+        bands: state
+          .effective()
+          .gatherTiers.map((band) => ({ from: band.from, weightsPm: [...band.weightsPm] })),
         levelBonus: society.gatherLevelBonus,
         rules: society,
         items: state.effective().items.map((item) => ({

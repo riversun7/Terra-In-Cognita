@@ -18,6 +18,7 @@ import {
   newBuild,
   newGather,
   newRepairRule,
+  normalizeWeightsPm,
   removeBand,
   removeMaterial,
   setGather,
@@ -25,6 +26,7 @@ import {
   setRepair,
   stageDiscard,
   stageFacility,
+  stageGatherBand,
   stageKeys,
   toggleIn,
 } from "./buildingModel.ts";
@@ -90,6 +92,21 @@ describe("담은 변경", () => {
   it("빈 선택 칸은 빼고 견준다(팩 줄 모양)", () => {
     const loose: FacilityJson = { ...MINE, pollution: undefined, gather: { ...GATHER, mode: undefined } };
     expect(cleanFacility(loose)).toEqual(MINE);
+  });
+
+  it("1차 생산 티어 확률표 담음(gather_tiers) 및 1000‰ 정규화", () => {
+    const band = { id: "band_000", from: 0, weightsPm: [700, 150, 100, 50, 0, 0, 0, 0, 0, 0] };
+    const stage = stageGatherBand(EMPTY_STAGE, "band_000", {
+      op: "put_gather_band",
+      entry: band,
+      base: band,
+      baseHash: "c".repeat(64),
+    });
+    expect(stageKeys(stage)).toEqual(["gather_tiers/band_000"]);
+    expect(changesOf(stage)).toEqual([{ op: "put_gather_band", entry: band, baseHash: "c".repeat(64) }]);
+    const normalized = normalizeWeightsPm([100, 70, 40, 20]);
+    expect(normalized.reduce((a, b) => a + b, 0)).toBe(1000);
+    expect(normalized).toHaveLength(10);
   });
 });
 

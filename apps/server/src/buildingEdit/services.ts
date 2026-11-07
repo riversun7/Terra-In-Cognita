@@ -8,6 +8,8 @@
 import { type RecipeEntry, readCategoryFile, recipeEntrySchema } from "@terra/content";
 import {
   BUILDING_EDITOR_HISTORY_LIMIT,
+  BUILDING_EDIT_CATEGORIES,
+  type BuildingEditCategory,
   type BuildingEditorChange,
   type BuildingEditorCheckResponse,
   type BuildingEditorHistoryRow,
@@ -24,7 +26,13 @@ import { readContentHistory } from "../contentEdit/store.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { reasonedError } from "../trpc/init.ts";
 import type { TuningShared } from "../tuning/services.ts";
-import { facilityViews, itemOptions, subcategoryOptions, weaponTypeOptions } from "./views.ts";
+import {
+  facilityViews,
+  gatherBandViews,
+  itemOptions,
+  subcategoryOptions,
+  weaponTypeOptions,
+} from "./views.ts";
 
 /** 받지 않은 요청(BAD_REQUEST)의 message. 무엇이 틀렸는지는 data.reason(@terra/shared BUILDING_EDITOR_REASONS) */
 export const BUILDING_EDITOR_REJECTED = "BUILDING_EDITOR_REJECTED";
@@ -45,27 +53,39 @@ export interface BuildingEditorServices {
   history(): Promise<{ rows: BuildingEditorHistoryRow[] }>;
 }
 
-/** 시설 쪽 문제인가(시설 파일·모르는 파일) */
+/** 시설·채집 확률표 쪽 문제인가(시설·확률표 파일·모르는 파일) */
 const facilityIssue = (issue: ContentIssueView): boolean =>
-  issue.file === null || issue.file.startsWith("facilities");
+  issue.file === null || issue.file.startsWith("facilities") || issue.file.startsWith("gather_tiers");
 
 /**
- * 화면 바꿈 → 덮어쓰기 묶음(잠든 줄 버리기는 따로). 지금 실효 시설에 없는 ID는 unknown_entry(만들기 없음), 같은 ID 두 번은 plan이
+ * 화면 바꿈 → 덮어쓰기 묶음(잠든 줄 버리기는 따로). 지금 실효 시설·확률표에 없는 ID는 unknown_entry(만들기 없음), 같은 ID 두 번은 plan이
  * duplicate_entry로 거절한다
  */
 function putsOf(
   changes: readonly BuildingEditorChange[],
-  known: ReadonlySet<string>,
-): { puts: ContentPut[]; discard: { category: "facilities"; id: string }[] } {
+  knownFacilities: ReadonlySet<string>,
+  knownBands: ReadonlySet<string>,
+): { puts: ContentPut[]; discard: { category: BuildingEditCategory; id: string }[] } {
   const puts: ContentPut[] = [];
-  const discard: { category: "facilities"; id: string }[] = [];
+  const discard: { category: BuildingEditCategory; id: string }[] = [];
   for (const change of changes) {
     if (change.op === "discard_sleeping") {
-      discard.push({ category: "facilities", id: change.id });
+      discard.push({ category: change.category ?? "facilities", id: change.id });
+      continue;
+    }
+    if (change.op === "put_gather_band" || change.op === "revert_gather_band") {
+      const id = change.op === "put_gather_band" ? change.entry.id : change.id;
+      if (!knownBands.has(id)) throw rejected("unknown_entry", [`gather_tiers/${id}`]);
+      puts.push({
+        category: "gather_tiers",
+        id,
+        entry: change.op === "put_gather_band" ? Object.fromEntries(Object.entries(change.entry)) : null,
+        baseHash: change.baseHash,
+      });
       continue;
     }
     const id = change.op === "put" ? change.entry.id : change.id;
-    if (!known.has(id)) throw rejected("unknown_entry", [`facilities/${id}`]);
+    if (!knownFacilities.has(id)) throw rejected("unknown_entry", [`facilities/${id}`]);
     puts.push({
       category: "facilities",
       id,
@@ -88,7 +108,8 @@ export function createBuildingEditorServices(deps: {
   const recipes: readonly RecipeEntry[] = readCategoryFile(state.core.source, "recipes").entries.map((raw) =>
     recipeEntrySchema.parse(raw),
   );
-  const known = (): Set<string> => new Set(state.effective().facilities.map((entry) => entry.id));
+  const knownFacilities = (): Set<string> => new Set(state.effective().facilities.map((entry) => entry.id));
+  const knownBands = (): Set<string> => new Set(state.effective().gatherTiers.map((entry) => entry.id));
 
   const list = (): Promise<BuildingEditorListResponse> => {
     const snapshot = state.snapshot();
@@ -99,6 +120,7 @@ export function createBuildingEditorServices(deps: {
       contentVersion: shared.pack.contentVersion,
       revision: snapshot.revision,
       facilities: facilityViews(state, snapshot, recipes),
+      gatherBands: gatherBandViews(state, snapshot),
       items: itemOptions(snapshot.effective.items),
       subcategories: subcategoryOptions(snapshot.effective.itemSubcategories),
       weaponTypes: weaponTypeOptions(snapshot.effective.weaponTypes),
@@ -107,7 +129,9 @@ export function createBuildingEditorServices(deps: {
         timeFactorPm: [...rules.timeFactorPm],
       },
       gatherLevelBonus: society.gatherLevelBonus,
-      sleeping: state.sleepingRows().filter((row) => row.category === "facilities"),
+      sleeping: state
+        .sleepingRows()
+        .filter((row) => (BUILDING_EDIT_CATEGORIES as readonly string[]).includes(row.category)),
     });
   };
 
@@ -115,7 +139,7 @@ export function createBuildingEditorServices(deps: {
     list,
 
     check(changes) {
-      const { puts } = putsOf(changes, known());
+      const { puts } = putsOf(changes, knownFacilities(), knownBands());
       const plan = state.plan(puts);
       if (!plan.ok) {
         // entry_changed 등 검사기 밖의 까닭도 문제 한 줄로 보인다(코드 = 까닭)
@@ -142,7 +166,7 @@ export function createBuildingEditorServices(deps: {
     async save(viewer, input) {
       const note = normalizeTuningNote(input.note);
       if (note === false) throw rejected("invalid_note");
-      const { puts, discard } = putsOf(input.changes, known());
+      const { puts, discard } = putsOf(input.changes, knownFacilities(), knownBands());
       await applyContentBatch(
         { db, shared, ip: deps.ip },
         viewer,
@@ -153,9 +177,21 @@ export function createBuildingEditorServices(deps: {
     },
 
     async history() {
-      return {
-        rows: await readContentHistory(db, BUILDING_EDITOR_HISTORY_LIMIT, { category: "facilities" }),
-      };
+      const [fac, tiers] = await Promise.all([
+        readContentHistory(db, BUILDING_EDITOR_HISTORY_LIMIT, { category: "facilities" }),
+        readContentHistory(db, BUILDING_EDITOR_HISTORY_LIMIT, { category: "gather_tiers" }),
+      ]);
+      const seen = new Set<number>();
+      const rows = [...fac, ...tiers]
+        .toSorted((a, b) => (b.auditId ?? 0) - (a.auditId ?? 0))
+        .filter((row) => {
+          if (row.auditId === null) return true;
+          if (seen.has(row.auditId)) return false;
+          seen.add(row.auditId);
+          return true;
+        })
+        .slice(0, BUILDING_EDITOR_HISTORY_LIMIT);
+      return { rows };
     },
   };
 }

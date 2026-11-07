@@ -76,6 +76,7 @@ export {
   type RecipeEntry,
 } from "./schema/economy.ts";
 export { mapPropEntrySchema, type MapPropEntry } from "./schema/mapProps.ts";
+export { gatherObjectEntrySchema, type GatherObjectEntry } from "./schema/gatherObjects.ts";
 export { statRowEntrySchema, type StatRowEntry } from "./schema/stats.ts";
 export { formulaEntrySchema, type FormulaEntry } from "./schema/formulas.ts";
 export { rankingPathEntrySchema, type RankingPathEntry } from "./schema/ranking.ts";

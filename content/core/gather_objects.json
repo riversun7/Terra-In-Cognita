@@ -1,0 +1,101 @@
+{
+  "entries": [
+    {
+      "id": "conifer_tree",
+      "name": { "ko": "침엽수", "en": "Conifer" },
+      "source": "prop",
+      "arts": ["tree_conifer"],
+      "item": "pine_log",
+      "lots": 1,
+      "workMs": 20000,
+      "uses": 5,
+      "regrowMs": 1800000,
+      "facility": "lumber_camp",
+      "primary": "dex",
+      "secondary": "str"
+    },
+    {
+      "id": "broadleaf_tree",
+      "name": { "ko": "활엽수", "en": "Broadleaf tree" },
+      "source": "prop",
+      "arts": ["tree_broadleaf"],
+      "item": "birch_log",
+      "lots": 1,
+      "workMs": 24000,
+      "uses": 5,
+      "regrowMs": 1800000,
+      "facility": "lumber_camp",
+      "primary": "dex",
+      "secondary": "str"
+    },
+    {
+      "id": "palm_tree",
+      "name": { "ko": "야자수", "en": "Palm" },
+      "source": "prop",
+      "arts": ["tree_palm"],
+      "item": "pine_log",
+      "lots": 1,
+      "workMs": 20000,
+      "uses": 4,
+      "regrowMs": 1800000,
+      "facility": "lumber_camp",
+      "primary": "dex",
+      "secondary": "str"
+    },
+    {
+      "id": "fallen_log",
+      "name": { "ko": "쓰러진 나무", "en": "Fallen log" },
+      "source": "prop",
+      "arts": ["log"],
+      "item": "pine_log",
+      "lots": 1,
+      "workMs": 12000,
+      "uses": 2,
+      "regrowMs": 3600000,
+      "facility": "lumber_camp",
+      "primary": "dex",
+      "secondary": "str"
+    },
+    {
+      "id": "boulder_stone",
+      "name": { "ko": "바위", "en": "Rock" },
+      "source": "prop",
+      "arts": ["boulder"],
+      "item": "stone",
+      "lots": 1,
+      "workMs": 24000,
+      "uses": 5,
+      "regrowMs": 1800000,
+      "facility": "mine",
+      "primary": "str",
+      "secondary": "vit"
+    },
+    {
+      "id": "ore_vein",
+      "name": { "ko": "광맥", "en": "Ore vein" },
+      "source": "rock",
+      "chancePm": 250,
+      "item": "copper_ore",
+      "lots": 1,
+      "workMs": 30000,
+      "uses": 5,
+      "regrowMs": 3600000,
+      "facility": "mine",
+      "primary": "str",
+      "secondary": "vit"
+    },
+    {
+      "id": "herb_bush",
+      "name": { "ko": "약초 덤불", "en": "Herb bush" },
+      "source": "prop",
+      "arts": ["bush", "reeds"],
+      "item": "wild_herb",
+      "lots": 1,
+      "workMs": 15000,
+      "uses": 3,
+      "regrowMs": 1800000,
+      "primary": "int",
+      "secondary": "wis"
+    }
+  ]
+}

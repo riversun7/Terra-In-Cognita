@@ -4538,6 +4538,99 @@
       "unit": "pct",
       "min": 1,
       "max": 100
+    },
+    {
+      "id": "gather_obj_carry_g",
+      "code": "",
+      "name": { "ko": "채집 화물 상한(g)", "en": "Gather carry limit (g)" },
+      "value": 80000,
+      "structural": false,
+      "unit": "grams",
+      "min": 1000,
+      "max": 1000000
+    },
+    {
+      "id": "gather_obj_direct_pm",
+      "code": "",
+      "name": { "ko": "직접 채집 수확 배율(‰)", "en": "Direct gather yield (‰)" },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "gather_obj_camp_radius",
+      "code": "",
+      "name": { "ko": "벌목장·광산 반경(배치 칸)", "en": "Lumber camp/mine radius (cells)" },
+      "value": 40,
+      "structural": false,
+      "unit": "cells",
+      "min": 1,
+      "max": 255
+    },
+    {
+      "id": "gather_obj_camp_level_pm",
+      "code": "",
+      "name": { "ko": "시설 레벨당 수확 더함(‰)", "en": "Extra yield per facility level (‰)" },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "gather_obj_camp_fatigue_pm",
+      "code": "",
+      "name": { "ko": "시설 반경 안 피로 배율(‰)", "en": "Fatigue near a facility (‰)" },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "gather_obj_camp_regrow_pm",
+      "code": "",
+      "name": { "ko": "시설 반경 안 다시 자람 시간 배율(‰)", "en": "Regrow time near a facility (‰)" },
+      "value": 500,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 1000
+    },
+    {
+      "id": "gather_obj_fatigue",
+      "code": "",
+      "name": { "ko": "채집 한 번의 피로(점)", "en": "Fatigue per gather (points)" },
+      "value": 1,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 120
+    },
+    {
+      "id": "gather_obj_next_radius",
+      "code": "",
+      "name": { "ko": "다음 오브젝트 찾는 반경(배치 칸)", "en": "Next object search radius (cells)" },
+      "value": 24,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 255
+    },
+    {
+      "id": "gather_obj_pollution_pm",
+      "code": "",
+      "name": {
+        "ko": "오염 최대일 때 다시 자람 시간 더함(‰)",
+        "en": "Extra regrow time at full pollution (‰)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000
     }
   ]
 }

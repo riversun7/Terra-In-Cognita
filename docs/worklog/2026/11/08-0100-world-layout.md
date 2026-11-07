@@ -35,7 +35,11 @@
 | `docs/adr/2026-11-07-world-layout.md`(새), `docs/questions/2026-11-07-world-layout.md`(새), `docs/PLAN.md` | 결정·확인 대기·14장 줄 |
 
 ## 검사·시험 (개발 컨테이너, Node 24.22.1, 무거운 잠금 안)
-- (끝에 채움)
+- 작업 중(고친 꾸러미만): `worldLayout.test.ts` 6·`townSites.test.ts` 3·`nations.test.ts` 7·shared `territory.test.ts` 16·sim `tuning*.test.ts`+content 143·game `territoryModel.test.ts`+`worldMap.test.ts` 19 통과, DB `worldLayout.db.test.ts` 2 통과, `pnpm check:content --no-compat` 통과(core@51).
+- 화면 시험 `pnpm e2e e2e/first-login.spec.ts e2e/play-map.spec.ts e2e/territory.spec.ts`: **37 통과**(4.4분, 첫 실행이라 빌드 포함). play-map의 WP9 이동 시험은 국가 1의 둘째 시작 도시(붙은 2차맵)로 길을 찾아 그대로 통과했다.
+- 사진(`E2E_SHOTS_DIR`, 저장소 밖): 1차맵 도시 판 390 파스텔·다크(한국어·영어) — 국가 1 수도 "Highmoor"(열대우림·숲 94%·24°C·강수 2794mm), 영토 개발 화면 1440·390 네온·라이트(두 세력 모두 껍질, 프리셋 "임시 국가 1"의 시작 도시 넷이 붙은 2차맵에 모임).
+- 메모리·부팅(빌드한 서버 `node apps/server/dist/main.js`, 새 DB, `S1_TEST_BOTS=1000`, `PATH_WORKERS=1`, NPC 사회 켬, 캐시된 행성): 띄운 2차맵 **17장**(시험 줄 6 + 도시 11), 국가 수도 0:92,228·0:52,204·0:100,276·0:68,260(반경 48칸, 가장 짧은 국가 간격 38칸), 부팅 698ms(다시 켤 때 500ms), 불변 조건 위반 0, NPC 휴먼 646(도시 2차맵 11장의 봇), 세력 4. RSS 처음 켬 409MB(60초)·402MB(120초), 다시 켬 432MB·428MB(최고 437MB), 1분 지표 `rssMb` 417~422. 비교(WP1 잰 값, 같은 조건): 2차맵 6장 350MB → 2차맵 하나 약 5~7MB 더. NAS 상한 1GiB 안.
+- 전체 `TEST_DATABASE_URL=… pnpm check`(포맷·린트·타입·경계·크기·다국어·디자인 값·콘텐츠·단위 시험 + DB 시험): **477파일 3,778 시험 통과**(193초). 첫 번째 돌림은 린트 셋(묶이지 않은 메서드·안쪽 함수 둘)에서 멈춰 고친 뒤 다시 돌렸다. `pnpm check:docs origin/main` 통과. 빌드·check-pwa·check:bundle은 돌리지 않았다(지시 — 화면 시험의 전역 준비가 빌드만 했다).
 
 ## 함께 바꿔야 하는 파일
 - 설정 칸을 더하면 `packages/sim/src/society/worldSeed.ts`(칸)·`tuningWorldSeed.ts`(키)·`content/core/tuning.json`(값·범위)·`manifest.json`(판)을 함께.

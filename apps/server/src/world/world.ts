@@ -25,7 +25,8 @@ import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from ".
 import { createBattleApply } from "./battleApply.ts";
 import { createBattleWorld, createWorldBattleStart } from "./battleStart.ts";
 import { type BattleItems, createBattleItems } from "./battleItems.ts";
-import { type CityRow, cityCellsOf, ensureTestStartCities, loadCities } from "./cities.ts";
+import { type CityRow, cityCellsOf, loadCities } from "./cities.ts";
+import { seedNpcFacilitiesAtBoot } from "../facilities/npcSeed.ts";
 import {
   type CyborgRules,
   type CyborgService,
@@ -39,7 +40,7 @@ import { type VitalsRecord, loadVitals } from "../vitals/state.ts";
 import { type VitalsConfig, type WorldVitals, createWorldVitals } from "../vitals/world.ts";
 import { type LaborService, createLaborService } from "../labor/service.ts";
 import { EMPTY_LABOR, type LoadedLabor, loadLabor } from "../labor/store.ts";
-import { TEST_NPC_FACTION_CODE, UNIT_KIND_CYBORG_UNIT } from "./unitKinds.ts";
+import { UNIT_KIND_CYBORG_UNIT } from "./unitKinds.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
 import { type BattleBodies, createBattleBodies } from "./battleBodies.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
@@ -56,7 +57,7 @@ import {
   createSettlement,
 } from "./settlement.ts";
 import { emptyWorldStats, resetWorldStats, summarizeWorldStats } from "./worldStats.ts";
-import { type NationPreset, ensureTestNations, nationName } from "../npc/nations.ts";
+import { type NationPreset, ensureWorldNations, nationName } from "../npc/nations.ts";
 import { type NpcRuntime, startNpcRuntime } from "../npc/runtime.ts";
 import { waveRewardItemsOf } from "../npc/waveRewards.ts";
 import type { TerritoryBeaconFacilityView } from "@terra/shared/territoryApi";
@@ -410,15 +411,10 @@ export function startWorld(
           log.info(retired, "world boot: retired the old test maps");
         }
         npcOwnerId = await ensureTestNpcOwner(db, now());
-        await ensureTestStartCities(db, TEST_NPC_FACTION_CODE, TEST_PLANET_ID, mapKeys, now());
-        if (config.npc && mapKeys[0] !== undefined)
-          await ensureTestNations(db, {
-            count: config.npc.testNations,
-            planetId: TEST_PLANET_ID,
-            mapKey: mapKeys[0],
-            nowMs: now(),
-            presets: config.npc.presets,
-          });
+        // 세계 씨앗(docs/adr/2026-11-07-play-flow.md WP1): 고정 국가·국가마다 시작 도시 여러 곳을 시험 2차맵들에(모자란 것만)
+        const { worldSeed } = (config.cyborgRules ?? defaultCyborgRules)();
+        const seedAt = { planetId: TEST_PLANET_ID, mapKeys, nowMs: now(), seed: worldSeed };
+        await ensureWorldNations(db, { npc: config.npc, ...seedAt });
         cities = await loadCities(db);
         cyborgData = await loadCyborgs(db);
         beaconRows = await loadBeacons(db);
@@ -776,6 +772,9 @@ export function startWorld(
     for (const unit of loaded.units) {
       if (unit.planetId !== TEST_PLANET_ID || !maps.has(unit.mapKey)) orphanUnits += 1;
     }
+    // 세계 씨앗: NPC 시작 도시 기본 시설(봇을 채우기 전, 모자란 것만, 동기 — facilities/npcSeed.ts)
+    const seedWith = { maps, cities, owners, facilities, log, rules: societyRules };
+    if (config.npc) seedNpcFacilitiesAtBoot({ ...seedWith, planetId: TEST_PLANET_ID, nowMs: now() });
     paths.start();
     spawnBots();
     // 유닛을 다시 놓은 뒤에 전투 끝을 다시 건다(지난 끝 시각은 곧바로 적용된다)

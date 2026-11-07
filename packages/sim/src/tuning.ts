@@ -18,6 +18,7 @@ import { RANKING_TUNING_KEYS } from "./tuningRanking.ts";
 import { SWITCH_TUNING_KEYS } from "./tuningSwitches.ts";
 import { TERRITORY_TUNING_KEYS } from "./tuningTerritory.ts";
 import { VITALS_TUNING_KEYS } from "./tuningVitals.ts";
+import { WORLD_SEED_TUNING_KEYS } from "./tuningWorldSeed.ts";
 
 export interface TuningKey {
   /** 팩 항목 ID */
@@ -559,6 +560,8 @@ export const TUNING_KEYS: readonly TuningKey[] = [
   ...TEMPLE_TUNING_KEYS,
   // 폐허 복원(D-510·D-339·D-343·D-344, 49에 칸 없음 [임시]): tuningRestoration.ts
   ...RESTORATION_TUNING_KEYS,
+  // 세계 씨앗(D-6041·46 §9.2, 49에 칸 없음 [임시]): tuningWorldSeed.ts
+  ...WORLD_SEED_TUNING_KEYS,
   // 운영자 시스템 온/오프 스위치(49 N53, D-513): tuningSwitches.ts
   ...SWITCH_TUNING_KEYS,
 ];

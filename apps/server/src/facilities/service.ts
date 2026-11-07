@@ -154,6 +154,11 @@ export interface FacilityService {
   readonly places: PlaceWorld;
   /** 행정 건물(폐허 정부) 짓기 고리를 붙인다(없으면 행정 건물은 not_ruin) */
   attachGovernment(hook: GovernmentHook): void;
+  /**
+   * 다 지은 시설 줄을 그대로 넣는다(세계 씨앗 = NPC 시작 도시 기본 시설, facilities/npcSeed.ts). 건물 칸은 부르는 쪽이 먼저 놓는다.
+   * 재료·작업 없이 쓰기 대기열에만 쓴다(건물 칸과 같은 묶음)
+   */
+  seedBuilt(record: FacilityRecord): void;
   readonly facilities: ReadonlyMap<number, FacilityRecord>;
   readonly jobs: ReadonlyMap<number, JobRecord>;
   stop(): void;
@@ -448,6 +453,10 @@ export function createFacilityService(options: FacilityServiceOptions): Facility
     places,
     attachGovernment(hook) {
       government = hook;
+    },
+    seedBuilt(record) {
+      facilities.set(record.buildingId, record);
+      saveFacility(record);
     },
     pausesFor(ownerId) {
       const out = new Map<number, { fromMs: number; untilMs: number }[]>();

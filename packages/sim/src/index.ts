@@ -278,6 +278,13 @@ export {
   restorationShares,
 } from "./society/restoration.ts";
 export type { RestorationCoefficients } from "./society/restoration.ts";
+// 세계 씨앗(docs/adr/2026-11-07-play-flow.md "WP1 세계 씨앗"): 고정 NPC 국가 시작 도시 수·기본 시설 수 [임시]. 서버만 읽는다
+export {
+  START_CITIES_LIMIT,
+  START_WORLD_SEED,
+  type WorldSeedCoefficients,
+  startCitiesFor,
+} from "./society/worldSeed.ts";
 // 오염·정원사(R5b, docs/adr/2026-11-01-gardener-r5b.md): 순수 규칙, 시뮬·서버가 같이 쓰는 실행 접착·웨이브 전투
 export { TEST_GARDENER_COEFFICIENTS, type GardenerCoefficients } from "./gardener/coefficients.ts";
 export {

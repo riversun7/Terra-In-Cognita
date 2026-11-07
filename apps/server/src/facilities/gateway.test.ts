@@ -26,6 +26,7 @@ function fakeService(calls: string[]): FacilityService {
     pausesFor: () => undefined,
     damage: () => false,
     attachGovernment: () => {},
+    seedBuilt: () => {},
     places: { maps: new Map(), facilities: new Map(), catalog: notUsed, cities: () => [] },
     storageMove: (userId, input) => {
       calls.push(`move:${userId}:${input.buildingId}:${input.asset}:${input.qty}:${input.direction}`);

@@ -19,10 +19,14 @@ let test: TestDatabase;
 const worlds: World[] = [];
 let clock = 0;
 
-/** 확률이 오염 합 그대로(상한 1000‰ = 늘 온다)인 시험 계수 */
+/**
+ * 확률이 오염 합 그대로(상한 1000‰ = 늘 온다)인 시험 계수. 시작 도시는 국가마다 하나(세계 씨앗 칸, 시험 2차맵 한 장에 셋 —
+ * docs/adr/2026-11-07-play-flow.md WP1)
+ */
 const PRESSURE = {
   ...TEST_SOCIETY_COEFFICIENTS,
   gardener: { ...TEST_GARDENER_COEFFICIENTS, chanceDivisor: 1, chanceMaxPm: 1000 },
+  worldSeed: { ...TEST_SOCIETY_COEFFICIENTS.worldSeed, startCitiesMin: 1, startCitiesMax: 1 },
 };
 
 beforeEach(async () => {

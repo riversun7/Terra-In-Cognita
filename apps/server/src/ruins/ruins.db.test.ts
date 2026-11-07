@@ -181,6 +181,22 @@ describe.skipIf(!TEST_DATABASE_URL)("폐허 복원(D-510)", () => {
       { claimant_owner_id: String(one.ownerId), join_faction_id: String(one.factionRow) },
     ]);
 
+    // 모금 화폐 = 들어갈 나라의 화폐(거래소 나라 화폐 534 가 뒤, 시뮬 treasuryAsset). 유저는 환전으로 마련한다 — 시험은 그 화폐를 바로 준다
+    const fundAsset = npc.world.ruins.get(ruinId)?.currency ?? ASSET_CREDIT;
+    if (fundAsset !== ASSET_CREDIT) {
+      const grant = 100_000n;
+      for (const ownerId of [one.ownerId, two.ownerId])
+        ledger.post({
+          kind: "issue",
+          atMs: clock,
+          entries: [
+            { account: ledger.systemAccount(`issue:${fundAsset}`, fundAsset), amount: -grant },
+            { account: ledger.ownerAccount(ownerId, fundAsset), amount: grant },
+          ],
+        });
+      await writer.durable();
+    }
+
     // 짓는 동안은 모금을 열지도 넣지도 못한다(480 다) → 다 지음
     expect(await ruins.fund(one.userId, ruinId, "1000")).toEqual({ ok: false, code: "not_built" });
     expect(await ruins.open(one.userId, ruinId)).toEqual({ ok: false, code: "not_built" });

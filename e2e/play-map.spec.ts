@@ -252,7 +252,8 @@ test.describe("도시 안개·들어가기·카메라(WP7): 플레이어", () =>
     await expect(notice).toContainText(message("ko", "world_city_not_loaded"));
     await expect(notice.getByRole("button", { name: message("ko", "retry") })).toHaveCount(0);
     await expect(page.locator(".map-open-planet")).toBeVisible();
-    // 다시 구독하지 않는다(2초 뒤에도 그대로 실패, 구독 수 그대로)
+    // 다시 구독하지 않는다(2초 뒤에도 그대로 실패, 구독 수 그대로). 구독 수는 1초마다 읽는 요약이라 처음 값이 설 때까지 기다린다
+    await expect(map).toHaveAttribute("data-subscribes", /^\d+$/, { timeout: 5_000 });
     const subscribes = await map.getAttribute("data-subscribes");
     await page.waitForTimeout(2_000);
     await expect(map).toHaveAttribute("data-feed", "failed");

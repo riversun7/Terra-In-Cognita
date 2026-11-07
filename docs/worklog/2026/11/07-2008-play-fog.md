@@ -25,6 +25,7 @@
 | `apps/game/src/map/PlanetMapScreen.tsx`·`planetNotice.ts`(새, 화면에서 나눔 — 600줄 아래로) | `?at=` 넘기기, 명령 판 열기 |
 | `apps/game/src/map/PlanetCityPanel.tsx`·`PlanetCommandPanel.tsx`(새) | [정찰 보내기], 1차맵 명령 판 |
 | `apps/game/src/map/map.css` | 안내 단추 줄 |
+| `apps/game/src/map/cityOverlay.css` | 덧그림 쌓임 맥락(고른 도시 표시가 아래 판 위로 올라오지 않게) |
 | `apps/game/src/shell/routeViews.tsx` | `?at=`를 2차맵 화면에 넘김(화면 열쇠에 넣음) |
 | `apps/game/messages/{ko,en}.json` | 명령 판·[1차맵에서 보기] 문구 |
 | `e2e/play-map.spec.ts` | WP7 화면 시험(볼 수 없는 맵 → 명령 판, 열리지 않은 맵, 카메라 `?at=`·도시 시청, 사진) |
@@ -45,7 +46,10 @@
 - 1차맵 [이 2차맵으로 들어가기]는 아는 도시가 있는 2차맵만 고른다(내 유닛이 있어 볼 수 있어도 도시를 모르면 뜨지 않는다).
 
 ## 검사
-- (끝에 채운다)
+- `TEST_DATABASE_URL=… pnpm check` 한 번: 통과(Verified) — 단위·DB 시험 464파일 3,711개 통과, 포맷·린트·타입·경계·크기(600줄 경고는 이 줄기 파일 아님)·다국어·디자인 값·콘텐츠. `pnpm check:docs` 통과.
+- 화면 시험 `pnpm e2e e2e/play-map.spec.ts e2e/first-login.spec.ts`: 첫 실행 28 통과·1 실패(내 시험 잘못 — 구독 수 칸은 1초마다 서는 요약이라 처음 값이 없었다. 처음 값을 기다리게 고침), 명령 판 사진에서 고른 도시 이름표가 판 위로 올라온 것을 보고 `cityOverlay.css`에 `isolation: isolate`(쌓임 맥락)를 더한 뒤 다시 실행 29 통과(Verified, 빌드 다시 함).
+- 사진(390, 파스텔·다크): 1차맵 명령 판 한국어·영어(`play-fog-command-390-{pastel,dark}-{ko,en}.png`), 열리지 않은 2차맵 안내(`play-fog-not-open-390-{pastel,dark}.png`), WP2 도시 판 사진도 다시 찍힘. 저장소 밖 세션 임시 폴더. 넘침·작은 누르는 곳 없음(시험이 본다). 명령 판이 오른쪽 가운데 [2차맵] 전환 단추(틀 단추, 판보다 위 층)와 판 오른쪽 위 모서리에서 겹친다 — 글자는 가리지 않음(WP2부터 있던 배치, 고치지 않음).
+- 빌드·`check-pwa`·`check:bundle`은 돌리지 않았다(합치는 쪽이 돌린다). 새 화면 코드는 모두 1차맵·2차맵 지연 조각 안이다(첫 화면 묶음에 더한 import 없음, Assumed: 소스로 확인, 빌드 크기는 재지 않음).
 
 ## 사용자 결정 대기
 - 질문 570~572(기획 세션, 모양만).

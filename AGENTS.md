@@ -23,6 +23,11 @@
 - 푸시 전 `git pull --rebase`. **main의 CI가 실패 상태면 다른 일보다 먼저 고친다.**
 - 커밋 메시지는 Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `perf:`, `build:`, `ci:`, `chore:`. 커밋 하나에 목적 하나.
 - 한 작업이 끝나면 작업 기록을 남긴다(5장).
+- 검사는 모아서 한 번 돌린다(사용자 지시 2026-11-07 "불필요한 테스트를 줄이고 모아서 해라"):
+  - 작업 중에는 고친 꾸러미 시험만 돌린다(`pnpm --filter <꾸러미> test`, `pnpm vitest run <파일>`).
+  - 전체 `pnpm check`는 작업이 끝날 때 한 번 돌린다. 화면 시험은 바꾼 화면 spec만 한 번 돌린다.
+  - main을 합친 뒤에는 코드 충돌을 손으로 풀었을 때만 다시 돌린다.
+  - 여러 줄기를 main에 올릴 때는 끝난 줄기를 모아 한 번에 합친다. 전체 검사는 그 묶음에 한 번 돌린다. 빌드·`check-pwa`·`check:bundle`은 `apps/game`이 바뀐 묶음에만 돌린다. main 푸시도 한 번만 한다.
 
 ## 4. 코드 규칙
 

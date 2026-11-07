@@ -42,6 +42,9 @@ import { type LaborService, createLaborService } from "../labor/service.ts";
 import { EMPTY_LABOR, type LoadedLabor, loadLabor } from "../labor/store.ts";
 import { TEST_NPC_FACTION_CODE } from "./unitKinds.ts";
 import { type BattleService, createBattleService } from "./battles.ts";
+import { type BattleBodies, createBattleBodies } from "./battleBodies.ts";
+import type { RosterCatalog } from "../roster/catalog.ts";
+import { NO_GEAR, type UnitGear } from "../roster/unitBody.ts";
 import { type MapTerrain, mapTerrainFromBuilt, mapTerrainFromTemp, terrainFromFile } from "./mapTerrain.ts";
 import { type MapPin, loadPins, retireTestMaps, savePin } from "./pins.ts";
 import type { TerrainService } from "./terrainService.ts";
@@ -156,6 +159,11 @@ export interface WorldConfig {
   holdings?: HoldingsConfig | undefined;
   /** 생명 수치 몸 자료(D-512, 사이보그·유닛 화면과 같은 셈). 없으면 저장한 줄만 보인다(시험) */
   vitals?: VitalsConfig | undefined;
+  /**
+   * 유닛 화면 자료(실효 장비·스킬·가중치 표·전투 계수표): 세계 전투 시작 사양이 사이보그 화면·유닛 상세와 같은 몸(입은 장비·버프)으로
+   * 싸우게 한다(battleBodies.ts). 없으면 시작 자료 그대로(시험)
+   */
+  roster?: (() => RosterCatalog) | undefined;
 }
 
 export interface WorldLog extends MapLog {
@@ -194,6 +202,8 @@ export interface WorldPersistence {
   readonly holdings: WorldHoldings;
   /** 유닛 생명 수치(D-512: HP·아머·쉴드가 전투 뒤에도 남고 전투 밖에서도 분 단위로 회복) */
   readonly vitals: WorldVitals;
+  /** 세계 전투 시작 사양의 몸(입은 장비·버프 — 사이보그 화면과 같은 셈). NPC 런타임 startBattle이 거친다 */
+  readonly bodies: BattleBodies;
   /** 노동 계약(임금형·임대형, docs/adr/2026-11-03-labor-contracts.md) */
   readonly labor: LaborService;
 }
@@ -241,6 +251,8 @@ function counter(start: number): () => number {
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+/** 보유 물건을 잇기 전의 빈 몸(생명 수치가 먼저 만들어진다) */
+const noGear = (): UnitGear => NO_GEAR;
 
 export function startWorld(
   config: WorldConfig & { now: () => number; log: WorldLog; pool?: WorldPool | undefined },
@@ -602,7 +614,9 @@ export function startWorld(
       now,
       draws: await loadRecruitDraws(db),
     });
-    // 생명 수치(D-512): 보유 물건이 전투 밖 회복 물약을 쓸 때 부른다(holdings/world.ts) → 보유 물건보다 먼저 만든다
+    // 생명 수치(D-512): 보유 물건이 전투 밖 회복 물약을 쓸 때 부른다(holdings/world.ts) → 보유 물건보다 먼저 만든다.
+    // 몸 자료의 입은 장비·버프는 보유 물건을 부를 때 찾는다(아래에서 잇는다)
+    let gearOf: (unitId: number, nowMs: number) => UnitGear = noGear;
     const vitals = createWorldVitals({
       loaded: vitalsData,
       writer,
@@ -611,6 +625,7 @@ export function startWorld(
       settlement,
       config: config.vitals,
       now,
+      gearOf: (unitId, nowMs) => gearOf(unitId, nowMs),
     });
     const holdings = createWorldHoldings({
       loaded: holdingData,
@@ -629,6 +644,9 @@ export function startWorld(
         heal: (unitId, amount, nowMs) => vitals.service.heal(unitId, amount, nowMs),
       },
     });
+    gearOf = holdings.gearOf;
+    // 세계 전투 시작 사양의 몸: 사이보그 화면·유닛 상세와 같은 셈(입은 장비·인공장기·버프)
+    const bodies = createBattleBodies({ maps, cyborgs, gearOf: holdings.gearOf, catalog: config.roster });
     // 노동 계약: 소유 주체 정산이 계약을 같은 시각까지 정산하고 산출을 계약 몫으로 나눈다
     const labor = createLaborService({
       loaded: laborData,
@@ -656,6 +674,7 @@ export function startWorld(
       recruits,
       holdings,
       vitals,
+      bodies,
       labor,
     };
     // [임시] 시험 NPC 세력은 처음에 시험 화폐를 받는다(봇 유지비를 낸다)
@@ -726,8 +745,9 @@ export function startWorld(
           manual: config.npc.manual,
           gardenerWaves: config.npc.gardenerWaves,
           planetId: TEST_PLANET_ID,
-          // 남은 HP·아머·쉴드로 시작한다(D-512, 줄이 있는 세계 유닛만)
-          startBattle: (init) => battles.start(vitals.service.battleStart(init, now()), { war: false }),
+          // 세계가 몸을 아는 유닛은 입은 장비·버프로 다시 만들고(사이보그 화면과 같은 셈), 남은 HP·아머·쉴드로 시작한다(D-512)
+          startBattle: (init) =>
+            battles.start(vitals.service.battleStart(bodies.battleStart(init, now()), now()), { war: false }),
           onBattleEnded: (listener) => {
             battleEnded.add(listener);
             for (const [battleId, attackerWon] of endedBeforeListen.splice(0))

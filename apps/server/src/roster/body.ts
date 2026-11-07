@@ -2,6 +2,9 @@
 // 계산한다. 기획 D-414(2차 스탯은 계산), D-417(성장), D-422·D-423(칸·올리는 스탯), D-426·D-427(스킬). 게임 앱은 결과만 받는다.
 // 성장률은 설정 칸 N5(n5_growth_rate, 48 §2.3 출발값 100‰)의 실효 값이다(catalog.society, 읽을 때마다 지금 값).
 // 시험 유닛은 저장된 스탯이 없어 기본값으로 계산한다.
+// 장비 칸은 시안·미리 보기의 범위 자리(‰, itemAt) 또는 보유 물건의 굴린 값(values, docs/adr/2026-11-03-item-holdings.md N49 285)이다.
+// 1차 스탯 버프(걸린 효과, D-501)는 성장값 뒤에 더한다(48 §2.3 "쓰는 1차 = 성장값 + 장비 1차 보너스 + 버프"). 타고난 무기는 유닛 종류의
+// 것(D-436, 맨손 D-490 — 전투 사양 unitBody.ts가 같은 장비 묶음을 쓴다).
 import {
   ELEMENT_CODES,
   type EquipSlot,
@@ -15,15 +18,18 @@ import {
   type RosterStats,
 } from "@terra/shared/roster";
 import {
+  type EquipDef,
   type EquippedItem,
   type Loadout,
   type Primaries,
   UNARMED,
+  type UnitKindDef,
   explainSecondary,
   itemAt,
   loadoutOf,
   primaryAtLevel,
   skillSlotCount,
+  wrongStatGroup,
 } from "@terra/sim";
 import type { RosterCatalog } from "./catalog.ts";
 
@@ -39,12 +45,26 @@ export interface BodySpec {
   /** 레벨(성장이 없으면 무시) */
   readonly level: number;
   readonly rebirths: number;
-  /** 칸 번호(팩 unit_kinds slots의 차례) → 아이템 ID와 범위 안 자리(‰) */
-  readonly equipped: ReadonlyMap<number, { readonly item: string; readonly pm: number }>;
+  /** 칸 번호(팩 unit_kinds slots의 차례) → 아이템 ID와 범위 안 자리(‰, 시안) 또는 굴린 값(보유 물건) */
+  readonly equipped: ReadonlyMap<number, EquippedSpec>;
   readonly innateSkills: readonly string[];
   readonly source: RosterStats["source"];
   /** 장비 밖 속성값 12칸(생성·환생·신앙 출처의 합, D-450). 없으면 0. 장비 속성값은 loadoutOf가 더한다 */
   readonly elements?: readonly number[] | undefined;
+  /** 1차 스탯 버프(걸린 효과마다, 디버프는 음수, D-501). 성장값 뒤에 더한다(48 §2.3) */
+  readonly buffs?: readonly PrimaryBuff[] | undefined;
+}
+
+/** 장비 칸 하나: 범위 자리(‰, 시안·미리 보기) 또는 굴린 값(보유 물건, 만들 때 정해짐 N49 285) */
+export type EquippedSpec =
+  | { readonly item: string; readonly pm: number }
+  | { readonly item: string; readonly values: readonly { readonly stat: string; readonly value: number }[] };
+
+/** 1차 스탯 버프 하나(효과 ID, 스탯, 더하는 값) */
+export interface PrimaryBuff {
+  readonly id: string;
+  readonly stat: PrimaryStat;
+  readonly value: number;
 }
 
 export interface BodyView {
@@ -73,10 +93,13 @@ export interface BodySheet extends BodyView {
   readonly elements: number[];
 }
 
-interface BodyParts {
+export interface BodyParts {
   readonly view: BodyView;
   readonly loadout: Loadout;
+  /** 성장값(버프·장비 전) */
   readonly base: Primaries;
+  /** 유닛 종류(칸 배치·타고난 무기). 팩에 없으면 undefined */
+  readonly kind: UnitKindDef | undefined;
   readonly slots: readonly EquipSlot[];
   readonly equipped: readonly (EquippedItem | null)[];
   readonly skillRule: { readonly base: number; readonly perRebirth: number; readonly max: number } | null;
@@ -116,6 +139,9 @@ function primarySources(
       for (const gem of item.gems ?? []) if (gem.kind === "stat" && gem.stat === stat) value += gem.value;
       if (value !== 0) list.push({ kind: "item", slot, item: item.item, value });
     });
+    for (const buff of spec.buffs ?? [])
+      if (buff.stat === stat && buff.value !== 0)
+        list.push({ kind: "effect", id: buff.id, value: buff.value });
     return list;
   };
   return { str: of("str"), vit: of("vit"), int: of("int"), wis: of("wis"), dex: of("dex"), agi: of("agi") };
@@ -167,24 +193,49 @@ export function bodySheet(
   };
 }
 
-function bodyParts(catalog: RosterCatalog, spec: BodySpec): BodyParts {
+/** 1차 스탯에 버프를 더한다(48 §2.3: 성장값 + 버프, 장비 1차 보너스는 loadoutOf가 더한다) */
+function withBuffs(base: Primaries, buffs: readonly PrimaryBuff[] | undefined): Primaries {
+  if (!buffs || buffs.length === 0) return base;
+  const out = { ...base };
+  for (const buff of buffs) out[buff.stat] += buff.value;
+  return out;
+}
+
+/**
+ * 칸 하나의 장비 → 만든 물건. 굴린 값은 지금 정의의 칸 묶음에 맞는 것만 남긴다(정의의 칸이 바뀌어 1차·2차 묶음이 달라진 줄은 빼고,
+ * 무기 사양·속성·스킬은 지금 정의를 읽는다 — N49 "굴린 값만 두고 나머지는 그때 읽음")
+ */
+function equippedItemOf(def: EquipDef, wanted: EquippedSpec): EquippedItem {
+  if ("pm" in wanted) return itemAt(def, wanted.pm);
+  return {
+    ...itemAt(def, 0),
+    values: wanted.values
+      .filter((entry) => wrongStatGroup(def.slot, [entry]) === undefined)
+      .map((entry) => ({ stat: entry.stat, value: entry.value })),
+  };
+}
+
+/** 몸 하나의 장비 묶음·화면 자료(사이보그 화면·유닛 화면·전투 사양이 같이 쓴다) */
+export function bodyParts(catalog: RosterCatalog, spec: BodySpec): BodyParts {
   const kind = catalog.combat.unitKinds.find((entry) => entry.id === spec.kind);
   const slots = kind?.slots ?? [];
   const equipped: (EquippedItem | null)[] = slots.map((slot, index) => {
     const wanted = spec.equipped.get(index);
     const def = wanted ? catalog.combat.equipment.find((item) => item.id === wanted.item) : undefined;
-    return wanted && def && def.slot === slot ? itemAt(def, wanted.pm) : null;
+    return wanted && def && def.slot === slot ? equippedItemOf(def, wanted) : null;
   });
   const base = grown(spec, catalog.society.cyborg.growthPm);
   const skillSlots = kind
     ? skillSlotCount(kind.skillSlots.base, spec.rebirths * kind.skillSlots.perRebirth, kind.skillSlots.max)
     : 0;
   const loadout = loadoutOf({
-    base,
+    base: withBuffs(base, spec.buffs),
     slots,
     equipped,
     table: catalog.combat.statTable,
-    unarmed: UNARMED,
+    // 유닛 종류의 타고난 무기(D-436). 무기 칸이 비면 맨손(D-490: 타고난 무기를 무기로 치는 종류만 스킬에 쓴다)
+    unarmed: kind?.naturalWeapon ?? UNARMED,
+    naturalIsWeapon: kind?.naturalWeaponIsWeapon ?? false,
     innateSkills: spec.innateSkills,
     skillSlots,
     // 행 식의 LV(docs/adr/2026-11-01-formula-editor.md)
@@ -222,7 +273,7 @@ function bodyParts(catalog: RosterCatalog, spec: BodySpec): BodyParts {
       list: loadout.skills.map((id) => ({ id, source: innate.has(id) ? "innate" : "equipment" })),
     },
   };
-  return { view, loadout, base, slots, equipped, skillRule: kind ? kind.skillSlots : null };
+  return { view, loadout, base, kind, slots, equipped, skillRule: kind ? kind.skillSlots : null };
 }
 
 /** [임시] 저장된 스탯이 없는 시험 유닛(휴먼 칸 배치, 1차 모두 10, 레벨 1, 장비 없음) */

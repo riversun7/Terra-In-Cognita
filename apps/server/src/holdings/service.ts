@@ -757,6 +757,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
       return pickPotion(Math.max(0, hp.max - hp.current), candidates);
     },
     equippedOn,
+    effectsOn: unitEffects,
     unitLayout(unitId) {
       const kind = world.unitKind(unitId);
       const slots = kind === undefined ? undefined : lookup().unitSlots.get(kind);

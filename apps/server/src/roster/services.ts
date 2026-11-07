@@ -4,7 +4,6 @@
 import type { CyborgGetResponse, RosterPrisoner, RosterUnit, UnitsListResponse } from "@terra/shared/roster";
 import type { HomeQuery, RosterServices, Viewer } from "../trpc/context.ts";
 import type { CyborgService } from "../cyborg/service.ts";
-import { baselineBody } from "./body.ts";
 import { realCyborgBody } from "./cyborgBody.ts";
 import { type RosterCatalog, namesFor, testRosterCatalog } from "./catalog.ts";
 import {
@@ -17,12 +16,19 @@ import {
   previewPrisoners,
   previewUnits,
 } from "./preview.ts";
+import { BASELINE_BASE, NO_GEAR, type UnitGear, effectiveView } from "./unitBody.ts";
 import { EMPTY_WORLD_ROSTER, type WorldRosterRow, type WorldRosterSource } from "./worldUnits.ts";
 
 const worldId = (id: number): string => `w${id}`;
 
-/** 실제 세계 유닛 → 화면 한 줄. 이름·레벨·장비가 아직 없다(스탯은 [임시] 기본값) */
-export function realUnit(catalog: RosterCatalog, row: WorldRosterRow): RosterUnit {
+/** 유닛이 지닌 것을 읽는 곳(보유 물건 서비스, 세계가 준비된 뒤). 유닛 ID·시각 → 입은 물건·걸린 효과 */
+export type GearReader = (unitId: number, nowMs: number) => UnitGear;
+
+/**
+ * 실제 세계 유닛 → 화면 한 줄. 이름·레벨이 아직 없다. 스탯 = [임시] 기본 몸 + 입은 장비·1차 스탯 버프(사이보그 화면·세계 전투 시작과
+ * 같은 unitBody.ts, docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07 …)")
+ */
+export function realUnit(catalog: RosterCatalog, row: WorldRosterRow, gear: UnitGear = NO_GEAR): RosterUnit {
   return {
     id: worldId(row.id),
     name: null,
@@ -38,7 +44,7 @@ export function realUnit(catalog: RosterCatalog, row: WorldRosterRow): RosterUni
     cargo: row.cargo,
     satisfaction: null,
     party: null,
-    ...baselineBody(catalog),
+    ...effectiveView(catalog, BASELINE_BASE, gear),
     preview: false,
   };
 }
@@ -79,14 +85,20 @@ export function createRosterServices(
     world?: WorldRosterSource | undefined;
     /** 만든 사이보그(세계가 준비되면, docs/adr/2026-11-01-first-login-cyborg.md). 없으면 본체는 시안만 */
     cyborgs?: (() => Pick<CyborgService, "record" | "livingUnpaid"> | undefined) | undefined;
+    /** 유닛이 입은 물건·걸린 효과(세계가 준비되면 보유 물건 서비스). 없으면 빈 몸 */
+    gear?: (() => GearReader | undefined) | undefined;
   } = {},
 ): RosterServices {
   const catalog = options.catalog ?? testRosterCatalog();
   const world = options.world ?? EMPTY_WORLD_ROSTER;
+  const gearOf = (unitId: number | null, nowMs: number): UnitGear => {
+    const read = options.gear?.();
+    return read && unitId !== null ? read(unitId, nowMs) : NO_GEAR;
+  };
   return {
     async units(viewer: Viewer, query: HomeQuery): Promise<UnitsListResponse> {
       const real = await world.read(viewer.id, query.now);
-      const units = real.units.map((row) => realUnit(catalog, row));
+      const units = real.units.map((row) => realUnit(catalog, row, gearOf(row.id, query.now)));
       const prisoners = real.prisoners.map(realPrisoner);
       if (query.preview) {
         units.push(...previewUnits(catalog, query.now));
@@ -112,7 +124,12 @@ export function createRosterServices(
       const body = query.preview
         ? previewCyborg(catalog)
         : record
-          ? realCyborgBody(catalog, record, cyborgs?.livingUnpaid(viewer.id) ?? false)
+          ? realCyborgBody(
+              catalog,
+              record,
+              cyborgs?.livingUnpaid(viewer.id) ?? false,
+              gearOf(record.unitId, query.now),
+            )
           : null;
       const names = body
         ? namesFor(catalog, {

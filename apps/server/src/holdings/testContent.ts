@@ -18,13 +18,19 @@ const name = (id: string) => ({ ko: id, en: id });
 const item = (raw: Record<string, unknown>): ItemEntry =>
   itemEntrySchema.parse({ tier: 1, startPrice: 1, enabled: true, name: name(String(raw.id)), ...raw });
 
-const buff = (id: string, exclusive: string | undefined, kind = "buff", durationMs = HOUR_MS): EffectEntry =>
+const buff = (
+  id: string,
+  exclusive: string | undefined,
+  kind = "buff",
+  durationMs = HOUR_MS,
+  stat = "attack",
+): EffectEntry =>
   effectEntrySchema.parse({
     id,
     name: name(id),
     durationMs,
     kind,
-    ...(kind === "buff" ? { stat: "attack" } : {}),
+    ...(kind === "buff" ? { stat } : {}),
     valueMode: "flat",
     tickMs: 0,
     stacking: "refresh",
@@ -35,7 +41,7 @@ const buff = (id: string, exclusive: string | undefined, kind = "buff", duration
 
 /**
  * 시험 아이템: 내구도 장비, 탄약(화살통 3발·50발), 신선도 묶음(72시간 → 썩은 생선), 신선도 있는 음료, 요리·버프 아이템(같은 배타 묶음,
- * 쿨 종류는 다름), 24시간 버프 약, 회복약(전투 중만), 꺼진 장비
+ * 쿨 종류는 다름), 24시간 버프 약, 회복약(전투 중만), 꺼진 장비, 내구도 있는 검, 1차 스탯(STR) 버프 빵
  */
 export const TEST_HOLDING_ITEMS: readonly ItemEntry[] = [
   item({
@@ -145,6 +151,34 @@ export const TEST_HOLDING_ITEMS: readonly ItemEntry[] = [
     use: { effects: [{ effect: "hold_mend", value: 800, chancePm: 1000 }] },
   }),
   item({ id: "hold_off", category: "equipment", enabled: false, equip: { slot: "body", stats: [] } }),
+  // 내구도 있는 무기(입은 장비 → 스탯·전투 시험): 무기 사양은 팩 시험 검과 같다(공격력 20·적정 STR 25·DEX 12·AGI 12)
+  item({
+    id: "hold_sword",
+    category: "equipment",
+    equip: {
+      slot: "weapon",
+      stats: [{ stat: "crit_multiplier", min: 0, max: 100 }],
+      weapon: {
+        physical: { attack: 20 },
+        appropriate: { str: 25, dex: 12, agi: 12 },
+        hitPm: 900,
+        critPm: 100,
+        intervalMs: 1000,
+        range: 1,
+        arc: false,
+        staminaCost: 10,
+        mpCost: 0,
+      },
+      maxDurability: 10,
+    },
+  }),
+  // 1차 스탯 버프 요리(D-472 모양: STR 고정값 +, 1시간)
+  item({
+    id: "hold_bread",
+    category: "consumable",
+    subcategory: "buff_item",
+    use: { effects: [{ effect: "hold_food_str", value: 6, chancePm: 1000 }] },
+  }),
 ];
 
 export const TEST_HOLDING_EFFECTS: readonly EffectEntry[] = [
@@ -152,7 +186,11 @@ export const TEST_HOLDING_EFFECTS: readonly EffectEntry[] = [
   buff("hold_meal_int", "meal"),
   buff("hold_mend", undefined, "heal", 0),
   buff("hold_vigor", undefined),
+  buff("hold_food_str", "meal", "buff", HOUR_MS, "str"),
 ];
+
+/** 팩 스킬(실효 항목, 유닛 화면 전투 자료를 시험 아이템과 함께 만들 때) */
+export const TEST_PACK_SKILLS = pack.skills;
 
 /** 팩 유닛 종류·무기 종류·효과 + 시험 아이템·효과 */
 export const TEST_HOLDING_CONTENT: HoldingContent = {

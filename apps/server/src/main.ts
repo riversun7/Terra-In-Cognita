@@ -4,6 +4,7 @@ import { buildApp } from "./app.ts";
 import { readConfig } from "./config.ts";
 import { loadServerContent } from "./content.ts";
 import { rosterCatalogOf } from "./roster/catalog.ts";
+import { combatCoefficientsFrom } from "@terra/sim";
 import { effectNamesOf } from "./battleReplay/names.ts";
 import { createTuningState } from "./tuning/state.ts";
 import { formulaEntriesOf, statRowsOf, tuningEntriesOf, unitKindNamesOf } from "./world/combatCatalog.ts";
@@ -130,6 +131,8 @@ app = await buildApp({
     () => tuning.society(),
     () => tuning.statTable(),
     () => contentEdit.effective(),
+    // 전투 계수표(설정 칸·계산식 실효 값): 사이보그 화면 공격 값·세계 전투 시작 사양이 판정과 같은 식으로 셈한다
+    () => combatCoefficientsFrom(tuning.values(), undefined, tuning.combatFormulas()),
   ),
   // 설정 칸: 사이보그 만들기·지원금·세력 화면(공물·민심 문턱·주기)이 쓰고, 개발자 패널(/dev/tuning)이 덮어쓴다
   tuning: { state: tuning, packId: loaded.pack.manifest.packId },

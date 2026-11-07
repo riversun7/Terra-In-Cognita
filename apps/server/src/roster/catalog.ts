@@ -2,7 +2,7 @@
 // 전투 자료는 서버 전투 변환(world/combatCatalog.ts)과 같은 @terra/sim combatCatalogFrom으로 만든다. 이름은 화면이 쓴다.
 // 서버를 켤 때 한 번 만든다(main.ts → app.ts roster). 시험은 실제 팩(content/core)이나 시험 자료로 만든다.
 // 스킬·장비·유닛 종류는 스킬 편집기 덮어쓰기를 얹은 실효 항목이다(읽을 때마다 접근자, docs/adr/2026-11-01-skill-editor.md 4절).
-// society(설정 칸 실효 값을 얹은 계수표)만은 읽을 때마다 접근자에서 받는다(개발자 패널 덮어쓰기가 다음 요청부터 듣게,
+// society(설정 칸 실효 값을 얹은 계수표)·coefficients(전투 계수표)는 읽을 때마다 접근자에서 받는다(개발자 패널 덮어쓰기가 다음 요청부터 듣게,
 // docs/adr/2026-11-01-dev-settings-panel.md 5·7절).
 import {
   type EffectEntry,
@@ -23,11 +23,14 @@ import {
 import type { LocalizedName, RosterNames } from "@terra/shared/roster";
 import {
   type CombatCatalog,
+  type CombatCoefficients,
   type SocietyCoefficients,
   type StatRow,
   TEST_COMBAT_CATALOG,
+  TEST_COMBAT_COEFFICIENTS,
   TEST_SOCIETY_COEFFICIENTS,
   combatCatalogFrom,
+  combatCoefficientsFrom,
   societyCoefficientsFrom,
   withStatTable,
 } from "@terra/sim";
@@ -45,6 +48,11 @@ export interface RosterCatalog {
    * 생활비 N38, D-440·D-441). 읽을 때마다 지금 값이다(rosterCatalogOf의 society 접근자). 받아 두지 말고 쓸 때 읽는다
    */
   readonly society: SocietyCoefficients;
+  /**
+   * 전투 계수표(설정 칸 실효 값·실효 계산식, 읽을 때마다 지금 값). 사이보그 화면의 공격 값·세계 전투 시작 사양이 판정과 같은 식으로
+   * 셈한다(docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07, 입은 장비·버프 → 스탯·전투)")
+   */
+  readonly coefficients: CombatCoefficients;
 }
 
 function entriesOf<T>(source: PackSource, file: string, parse: (raw: unknown) => T): T[] {
@@ -85,6 +93,7 @@ export function rosterCatalogOf(
   society?: () => SocietyCoefficients,
   statTable?: () => readonly StatRow[],
   content?: () => RosterContentEntries,
+  coefficients?: () => CombatCoefficients,
 ): RosterCatalog {
   const statRows = entriesOf(source, "stat_rows.json", (raw) => statRowEntrySchema.parse(raw));
   const packEntries: RosterContentEntries = {
@@ -97,6 +106,9 @@ export function rosterCatalogOf(
   const planets = entriesOf(source, "planets.json", (raw) => planetEntrySchema.parse(raw));
   const packSociety = societyCoefficientsFrom(tuningOf(source));
   const current = society ?? (() => packSociety);
+  // 계수표 접근자가 없으면(시험) 팩 설정 칸 값을 얹은 계수표(계산식은 기본 식)
+  const packCoefficients = combatCoefficientsFrom(tuningOf(source));
+  const coefficientsNow = coefficients ?? (() => packCoefficients);
   const entriesNow = content ?? (() => packEntries);
   /** 실효 항목 한 벌 → 전투 자료(팩 표)·이름 표 */
   const build = (entries: RosterContentEntries) => ({
@@ -144,6 +156,9 @@ export function rosterCatalogOf(
     get society() {
       return current();
     },
+    get coefficients() {
+      return coefficientsNow();
+    },
   };
 }
 
@@ -163,6 +178,7 @@ export function testRosterCatalog(): RosterCatalog {
       planets: {},
     },
     society: TEST_SOCIETY_COEFFICIENTS,
+    coefficients: TEST_COMBAT_COEFFICIENTS,
   };
 }
 

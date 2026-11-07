@@ -420,8 +420,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
           tuning: tuningState,
           roster: rosterCatalog,
         }),
-        // 생명 수치(D-512): 사이보그·유닛 화면과 같은 몸 자료(최대 HP·아머·쉴드, 쉴드 재생)
+        // 생명 수치(D-512): 사이보그·유닛 화면과 같은 몸 자료(최대 HP·아머·쉴드, 쉴드 재생 — 입은 장비·버프 포함)
         vitals: vitalsConfigOf(rosterCatalog),
+        // 세계 전투 시작 사양의 몸(입은 장비·버프, 사이보그 화면과 같은 셈 — docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07 …)")
+        roster: rosterCatalog ? () => rosterCatalog : undefined,
       })
     : undefined;
   // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md): 세계가 준비된 뒤의 서비스(DB가 있는 월드만)
@@ -535,6 +537,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         catalog: options.roster,
         world: world && options.db ? createWorldRosterSource(world) : undefined,
         cyborgs: cyborgService,
+        // 입은 물건·걸린 효과(보유 물건): 사이보그 화면·유닛 상세 스탯에 든다
+        gear: () => (world?.status().state === "ready" ? world.persistence?.holdings.gearOf : undefined),
       },
       cyborgs: () => {
         const service = cyborgService();

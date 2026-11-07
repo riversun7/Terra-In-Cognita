@@ -146,7 +146,7 @@ export interface RosterStatBreakdown {
 
 /**
  * 1차 스탯 한 칸의 출처 하나(서버가 계산해 보낸다). item = 장비 칸의 아이템(slot "organ"이면 인공장기, "part"면 부품, 보석 몫 포함),
- * effect = 스킬·효과(버프, 지금은 없다)
+ * effect = 걸린 효과(아이템 1차 스탯 버프 D-501, 고정값만 — docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07 …)")
  */
 export type RosterPrimarySource =
   | { readonly kind: "body"; readonly value: number }
@@ -500,6 +500,42 @@ export interface CyborgRanking {
   readonly score: number;
 }
 
+/** 무기 몫 하나의 적정 비율(D-502): 보는 1차 스탯·무기 적정(밀리점, 0 = 없음 → 100%, 맨손 DEX·AGI는 레벨 식)·비율(‰, 상한 N10) */
+export interface RosterWeaponPart {
+  readonly stat: number;
+  readonly appropriateMilli: number;
+  readonly ratioPm: number;
+}
+
+/**
+ * 판정에 들어가는 공격 값(서버가 전투 사양 specFromStats와 같은 함수로 셈해 보낸다, 기기는 보이기만). 입은 장비(굴린 값·무기 사양,
+ * 내구도 > 0만)·1차 스탯 버프가 든 몸이다(docs/adr/2026-11-03-item-holdings.md "바뀜 (2026-11-07, 입은 장비·버프 → 스탯·전투)").
+ * 공격력 = 스탯 공격력 + 무기 공격력 × 비율(STR·INT), 명중·크리 = 무기 값 × 비율(DEX), 간격 = 무기 간격 ÷ 비율(AGI)(D-502),
+ * 스태미나 회복 = 행 값 × min(2, STA 점수 ÷ 적정 STA)(D-511 real_stamina_regen)
+ */
+export interface RosterCombat {
+  /** 든 무기 아이템 ID(names.items). 맨손이면 null(D-490: 맨손 스킬만) */
+  readonly weapon: string | null;
+  readonly attack: {
+    readonly kind: "physical" | "elemental";
+    readonly statAttack: number;
+    readonly weaponAttack: number;
+    readonly part: RosterWeaponPart;
+    readonly real: number;
+  };
+  readonly hit: { readonly weaponPm: number; readonly part: RosterWeaponPart; readonly real: number };
+  readonly crit: { readonly weaponPm: number; readonly part: RosterWeaponPart; readonly real: number };
+  readonly interval: { readonly weaponMs: number; readonly part: RosterWeaponPart; readonly real: number };
+  readonly staminaRegen: {
+    /** 2차 스탯 행 stamina_regen 값(적정 STA에서의 분당 회복) */
+    readonly row: number;
+    readonly score: number;
+    readonly appropriateMilli: number;
+    /** 실제 분당 회복(판정 값) */
+    readonly real: number;
+  };
+}
+
 /** 사이보그 본체(D-018·D-026·D-040). 만든 사이보그(첫 접속, docs/adr/2026-11-01-first-login-cyborg.md)나 dev·admin 시안에서 온다 */
 export interface CyborgBody {
   readonly level: number;
@@ -551,6 +587,8 @@ export interface CyborgBody {
   readonly skillSlotsMax: number;
   readonly skillSlotUnlocks: readonly number[];
   readonly fatigue: { readonly value: number; readonly max: number };
+  /** 판정에 들어가는 공격·스태미나 회복 값(만든 사이보그만, 시안·옛 서버는 없음 → 화면은 2차 스탯 행만 보인다) */
+  readonly combat?: RosterCombat | undefined;
   readonly inventory: readonly CyborgItem[];
   readonly rankings: readonly CyborgRanking[];
   /** 시안 자료인지(만든 사이보그면 false) */

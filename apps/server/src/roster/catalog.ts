@@ -4,6 +4,8 @@
 // 스킬·장비·유닛 종류는 스킬 편집기 덮어쓰기를 얹은 실효 항목이다(읽을 때마다 접근자, docs/adr/2026-11-01-skill-editor.md 4절).
 // society(설정 칸 실효 값을 얹은 계수표)·coefficients(전투 계수표)는 읽을 때마다 접근자에서 받는다(개발자 패널 덮어쓰기가 다음 요청부터 듣게,
 // docs/adr/2026-11-01-dev-settings-panel.md 5·7절).
+// 입은·가진 물건은 꺼진 항목이어도 정의를 찾는다(heldEquipment, 이름 표도 모든 아이템 — 질문 355 → D-515·D-512 "콘텐츠에 켜고 끄기를
+// 두지 않는다"). 새로 생기는 것(보유 물건 받기)과 고르는 목록(전투 실험실·밸런스 무기, combat.equipment)은 그대로 켜진 것만이다.
 import {
   type EffectEntry,
   type FacilityEntry,
@@ -24,6 +26,7 @@ import type { LocalizedName, RosterNames } from "@terra/shared/roster";
 import {
   type CombatCatalog,
   type CombatCoefficients,
+  type EquipDef,
   type SocietyCoefficients,
   type StatRow,
   TEST_COMBAT_CATALOG,
@@ -31,6 +34,7 @@ import {
   TEST_SOCIETY_COEFFICIENTS,
   combatCatalogFrom,
   combatCoefficientsFrom,
+  equipDefOf,
   societyCoefficientsFrom,
   withStatTable,
 } from "@terra/sim";
@@ -41,7 +45,12 @@ export interface RosterCatalog {
    * 전투 자료. 스탯 표는 그 세계의 실효 가중치 표, 스킬·장비·유닛 종류는 실효 항목이다(읽을 때마다 지금 값, 받아 두지 말고 요청마다 읽는다)
    */
   readonly combat: CombatCatalog;
-  /** 이름 표 전체(응답에는 쓴 ID만 넣는다, namesFor) */
+  /**
+   * 입은·가진 물건의 장비 정의: 꺼진 항목도 든다(질문 355 → D-515·D-512 — 이미 입은 물건은 스탯을 준다). 몸 묶음(body.ts bodyParts)이 칸의
+   * 물건을 이것으로 찾는다. 변환은 combat.equipment와 같다(equipDefOf, 꺼진 스킬은 뺀다). 새로 생기는 길은 그대로 켜진 것만이다
+   */
+  readonly heldEquipment: readonly EquipDef[];
+  /** 이름 표 전체(응답에는 쓴 ID만 넣는다, namesFor). 아이템은 꺼진 항목도 든다(입은 물건 이름) */
   readonly names: RosterNames;
   /**
    * 설정 칸 실효 값(팩 tuning + 그 세계의 덮어쓰기)을 얹은 세력·사회 계수표(사이보그 만렙·스킬 등급 상한·환생 비용 N7·N34,
@@ -113,6 +122,7 @@ export function rosterCatalogOf(
   /** 실효 항목 한 벌 → 전투 자료(팩 표)·이름 표 */
   const build = (entries: RosterContentEntries) => ({
     entries,
+    heldEquipment: heldEquipmentOf(entries),
     combat: combatCatalogFrom({
       statRows,
       skills: entries.skills,
@@ -123,7 +133,8 @@ export function rosterCatalogOf(
     }),
     names: {
       stats: nameTable(statRows.filter((row) => row.enabled)),
-      items: nameTable(entries.items.filter((item) => item.enabled)),
+      // 꺼진 아이템도(입은 물건 이름, 질문 355)
+      items: nameTable(entries.items),
       skills: nameTable(entries.skills.filter((skill) => skill.enabled)),
       // 시설은 늘 켜짐(켬·끔 없음, 팩 core@32)
       facilities: nameTable(entries.facilities ?? facilities),
@@ -150,6 +161,9 @@ export function rosterCatalogOf(
     get combat() {
       return combatOf();
     },
+    get heldEquipment() {
+      return latest().heldEquipment;
+    },
     get names() {
       return latest().names;
     },
@@ -162,6 +176,15 @@ export function rosterCatalogOf(
   };
 }
 
+/** 모든 아이템(꺼진 것 포함)의 장비 정의 — combatCatalogFrom과 같은 변환(꺼진 스킬은 뺀다) */
+function heldEquipmentOf(entries: RosterContentEntries): EquipDef[] {
+  const enabledSkills = new Set(entries.skills.filter((skill) => skill.enabled).map((skill) => skill.id));
+  return entries.items.flatMap((item) => {
+    const def = equipDefOf(item, enabledSkills);
+    return def ? [def] : [];
+  });
+}
+
 const named = (ids: readonly string[]): Record<string, LocalizedName> =>
   Object.fromEntries(ids.map((id) => [id, { ko: id, en: id }]));
 
@@ -170,6 +193,7 @@ export function testRosterCatalog(): RosterCatalog {
   const combat = TEST_COMBAT_CATALOG;
   return {
     combat,
+    heldEquipment: combat.equipment,
     names: {
       stats: named(combat.statTable.map((row) => row.id)),
       items: named(combat.equipment.map((item) => item.id)),

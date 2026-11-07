@@ -61,7 +61,7 @@ export const HOLDINGS_SWEEP_MS = 60_000;
 export interface WorldHoldings {
   readonly service: HoldingService;
   readonly access: HoldingsAccess;
-  /** 유닛이 지닌 것: 입은 물건(칸 차례)과 nowMs에 걸린 효과(켜진 효과 사전 항목만, 종류·수치·값 방식을 붙임) */
+  /** 유닛이 지닌 것: 입은 물건(칸 차례)과 nowMs에 걸린 효과(효과 사전에 있는 항목 — 꺼진 것 포함, 종류·수치·값 방식을 붙임) */
   readonly gearOf: (unitId: number, nowMs: number) => UnitGear;
   stop(): void;
 }
@@ -103,8 +103,9 @@ export function createWorldHoldings(input: {
     })),
     effects: service.effectsOn(unitId, nowMs).flatMap((record) => {
       const def = effectDef(record.effect);
-      // 꺼진 효과(D-398)·사전에서 사라진 효과는 몸을 바꾸지 않는다
-      return def?.enabled
+      // 이미 걸린 효과는 사전 항목이 꺼져도 몸을 바꾼다(질문 355 → D-515·D-512 "콘텐츠에 켜고 끄기를 두지 않는다", 입은 물건과 같은 뜻).
+      // 사전에서 사라진 효과만 뺀다(종류·수치를 모른다)
+      return def
         ? [
             {
               effect: record.effect,

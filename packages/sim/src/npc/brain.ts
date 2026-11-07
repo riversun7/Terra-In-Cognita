@@ -2,8 +2,9 @@
 // 상태 지표(FactionView·RivalView) → 행동 후보마다 점수(성향 가중, 정수) → 가장 높은 행동 하나. 같은 점수는 굴림으로 고른다.
 // 순수 함수다: 입력은 평범한 값이고 세계를 바꾸지 않는다. 부르는 쪽(시뮬레이터 npcRun·서버)이 지표를 만들고 행동을 실행한다.
 // 결과(점령·반란·기술 등)는 규칙이 정한다. 여기서는 "무엇을 해 볼지"만 고른다.
-// 폐허 복원(기획 답 484 다, docs/adr/2026-11-07-ruins-restoration.md "바뀜 (기획 답 480~489)"): 부르는 쪽이 고른 후보(정부 짓기·내 사업에
-// 넣기·남의 열린 모금에 투자)마다 점수(상업 성향 + 확장 — 성향 축에 확장이 없어 도시가 적을수록, 옛 내 도시면 더)를 매겨 가장 좋은 하나를 낸다.
+// 폐허 복원(기획 답 484 다, docs/adr/2026-11-07-ruins-restoration.md "바뀜 (기획 답 480~489, 472, 535)"): 부르는 쪽이 고른 정부 짓기 후보마다
+// 점수(상업 성향 + 확장 — 성향 축에 확장이 없어 도시가 적을수록, 옛 내 도시면 더)를 매겨 가장 좋은 하나를 낸다. 복원 사업에 넣기·투자는 판단
+// 칸을 쓰지 않는 하루 끝 규칙식이다(societyRuins.ts endOfDay — 판단마다 되풀이되면 연구 등을 밀어낸다).
 import type { NpcCoefficients } from "./coefficients.ts";
 import type { Traits } from "./traits.ts";
 
@@ -38,13 +39,9 @@ export interface FactionView {
   readonly restores: readonly RestoreView[];
 }
 
-/**
- * 폐허 복원 후보 하나(484 다). claim = 주인 없는 폐허에 정부 짓기(cost = 정부 짓기 값), fund = 내 복원 사업에 넣기, invest = 남의 열린 모금에
- * 넣기(cost = 넣을 값). former = 내가 옛 주인인 폐허
- */
+/** 폐허 복원 후보 하나(484 다): 주인 없는(또는 정부 건물이 0%인) 폐허에 정부 짓기. cost = 정부 짓기 값, former = 내가 옛 주인인 폐허 */
 export interface RestoreView {
   readonly ruin: number;
-  readonly mode: "claim" | "fund" | "invest";
   readonly cost: bigint;
   readonly former: boolean;
 }
@@ -72,7 +69,7 @@ export type NpcAction =
   | { readonly kind: "sell_shares" }
   | { readonly kind: "peace"; readonly target: number }
   | { readonly kind: "break_vassal" }
-  | { readonly kind: "restore"; readonly ruin: number; readonly mode: RestoreView["mode"] };
+  | { readonly kind: "restore"; readonly ruin: number };
 
 export interface ScoredAction {
   readonly action: NpcAction;
@@ -116,14 +113,14 @@ function peaceBase(me: FactionView, r: RivalView, c: NpcCoefficients): number {
   return score;
 }
 
-/** 폐허 복원 점수(후보 하나). 정부 짓기는 국고에 예비금이 있을 때만(undefined = 후보 아님) */
+/** 정부 짓기 점수(후보 하나). 국고에 예비금이 있을 때만(undefined = 후보 아님) */
 function restoreScore(me: FactionView, r: RestoreView, c: NpcCoefficients): number | undefined {
-  const commerce = Math.floor(me.traits.commerce / 4);
-  if (r.mode === "fund") return c.restoreFundScore + commerce;
-  if (r.mode === "invest") return c.restoreInvestScore + commerce;
   if (!needs(me.treasury, r.cost, c)) return undefined;
   return (
-    c.restoreClaimScore + commerce + (r.former ? c.restoreFormerBonus : 0) - me.cities * c.restoreCityPenalty
+    c.restoreClaimScore +
+    Math.floor(me.traits.commerce / 4) +
+    (r.former ? c.restoreFormerBonus : 0) -
+    me.cities * c.restoreCityPenalty
   );
 }
 
@@ -179,7 +176,7 @@ export function scoreActions(
   }
   if (restore)
     out.push({
-      action: { kind: "restore", ruin: restore.r.ruin, mode: restore.r.mode },
+      action: { kind: "restore", ruin: restore.r.ruin },
       score: restore.score,
     });
   return out;

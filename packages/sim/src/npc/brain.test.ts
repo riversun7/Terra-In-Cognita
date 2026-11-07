@@ -172,14 +172,14 @@ describe("판단 틀(D-323): 지표 → 후보 점수 → 가장 높은 행동",
 
   it("폐허 복원(484 다): 상업 성향·옛 내 도시·도시가 적을수록 정부 짓기 점수가 오르고, 예비금이 없으면 짓지 않는다", () => {
     const merchant: Traits = { aggression: 100, commerce: 900, faith: 300, station: 500 };
-    const claim = { ruin: 7, mode: "claim", cost: 2000n, former: true } as const;
-    // 상인 + 옛 내 도시 + 도시 둘 → 250 + 225 + 150 − 80 = 545 > 쉬기 250
+    const claim = { ruin: 7, cost: 2000n, former: true } as const;
+    // 상인 + 옛 내 도시 + 도시 둘 → 400 + 225 + 150 − 80 = 695 > 쉬기 250
     expect(decideAction(view({ traits: merchant, restores: [claim] }), [], 0, c)).toEqual({
       kind: "restore",
       ruin: 7,
-      mode: "claim",
     });
     const base = restoreScoreOf(view({ traits: merchant, restores: [claim] })) ?? 0;
+    expect(base).toBe(c.restoreClaimScore + 225 + c.restoreFormerBonus - 2 * c.restoreCityPenalty);
     expect(restoreScoreOf(view({ traits: calm, restores: [claim] }))).toBeLessThan(base);
     expect(restoreScoreOf(view({ traits: merchant, restores: [{ ...claim, former: false }] }))).toBe(
       base - c.restoreFormerBonus,
@@ -187,20 +187,17 @@ describe("판단 틀(D-323): 지표 → 후보 점수 → 가장 높은 행동",
     expect(restoreScoreOf(view({ traits: merchant, cities: 6, restores: [claim] }))).toBe(
       base - 4 * c.restoreCityPenalty,
     );
-    // 예비금(값 × 2)이 없으면 정부 짓기는 후보가 아니다. 넣기·투자는 국고와 상관없이(넣는 값은 부르는 쪽이 국고 몫으로 정함)
+    // 예비금(값 × 2)이 없으면 정부 짓기는 후보가 아니다
     expect(restoreScoreOf(view({ traits: merchant, treasury: 3000n, restores: [claim] }))).toBeUndefined();
-    const fund = { ruin: 3, mode: "fund", cost: 500n, former: false } as const;
-    const invest = { ruin: 2, mode: "invest", cost: 100n, former: false } as const;
-    expect(restoreScoreOf(view({ traits: merchant, treasury: 3000n, restores: [invest, fund] }))).toBe(
-      c.restoreFundScore + 225,
-    );
-    // 투자는 상업 성향이 높아야 쉬기를 넘는다
-    expect(decideAction(view({ traits: calm, restores: [invest] }), [], 0, c)).toEqual({ kind: "idle" });
-    expect(decideAction(view({ traits: merchant, restores: [invest] }), [], 0, c)).toEqual({
-      kind: "restore",
-      ruin: 2,
-      mode: "invest",
-    });
+    // 후보가 여럿이면 가장 높은 하나(옛 내 폐허)
+    expect(
+      decideAction(
+        view({ traits: merchant, restores: [{ ...claim, ruin: 3, former: false }, claim] }),
+        [],
+        0,
+        c,
+      ),
+    ).toEqual({ kind: "restore", ruin: 7 });
   });
 
   it("강화 수락: 이기고 있는 공격 성향 세력은 받지 않고, 지는 쪽·순한 쪽은 받는다", () => {

@@ -112,7 +112,7 @@ describe("폐허 복원(D-510·D-339·D-343·D-344)", () => {
     expect(problems(4000)).toEqual([]);
   });
 
-  it("NPC 판단 후보(484 다): 옛 주인은 바로 정부를 짓고, 내 사업에 넣고, 국고가 모자라면 모금을 열어 다른 NPC가 투자한다", () => {
+  it("NPC(484 다): 정부 짓기는 판단 후보(옛 주인은 바로, 다른 세력은 며칠 뒤), 넣기·투자는 하루 끝 규칙식 — 국고가 모자라면 모금을 열어 다른 NPC가 투자", () => {
     const c: SocietyCoefficients = {
       ...TEST_SOCIETY_COEFFICIENTS,
       restoration: {
@@ -134,27 +134,18 @@ describe("폐허 복원(D-510·D-339·D-343·D-344)", () => {
     // 세력 3(국고 1,000)의 마지막 도시가 무너진다 → 옛 주인은 바로 정부 짓기 후보, 다른 세력은 며칠 뒤
     society.ruin(6, 1000);
     expect(world.ruins.get(6)?.claimant).toBeNull();
-    expect(society.ruins.npcOptions(faction(3), 2000)).toEqual([
-      { ruin: 6, mode: "claim", cost: 500n, former: true },
-    ]);
+    expect(society.ruins.npcOptions(faction(3), 2000)).toEqual([{ ruin: 6, cost: 500n, former: true }]);
     expect(society.ruins.npcOptions(faction(2), 2000)).toEqual([]);
     expect(society.ruins.npcOptions(faction(2), 1000 + 3 * DAY_MS)).toEqual([
-      { ruin: 6, mode: "claim", cost: 500n, former: false },
+      { ruin: 6, cost: 500n, former: false },
     ]);
-    // 정부(값 500) → 국고(500)가 목표보다 적어 모금이 열린다 → 주인 넣기(국고 50%) 후보
-    expect(society.ruins.npcAct(faction(3), 6, "claim", 2000)).toBe(true);
+    // 정부(값 500) → 국고(500)가 목표보다 적어 모금이 열린다. 주인이면 더는 후보가 아니다
+    expect(society.ruins.npcAct(faction(3), 6, 2000)).toBe(true);
     expect(world.ruins.get(6)).toMatchObject({ claimant: 3, joinFaction: 3, open: true });
-    expect(society.ruins.npcOptions(faction(3), 3000)).toEqual([
-      { ruin: 6, mode: "fund", cost: 250n, former: false },
-    ]);
-    expect(society.ruins.npcAct(faction(3), 6, "fund", 3000)).toBe(true);
-    // 열린 모금: 다른 세력은 국고 × 200‰ × 상업 ÷ 1000만큼 투자 후보(상업 성향이 0이면 후보 없음)
-    for (let i = 0; i < 200 && world.ruins.has(6); i++) {
-      for (const id of [1, 2]) {
-        const invest = society.ruins.npcOptions(faction(id), 4000 + i).find((v) => v.mode === "invest");
-        if (invest) society.ruins.npcAct(faction(id), 6, "invest", 4000 + i);
-      }
-    }
+    expect(society.ruins.npcOptions(faction(3), 3000)).toEqual([]);
+    expect(society.ruins.npcAct(faction(1), 6, 3000)).toBe(false);
+    // 같은 하루 끝: 주인 50% 넣기 → 다른 NPC가 국고 × 200‰ × 상업 ÷ 1000만큼 투자해 목표를 채움
+    society.endOfDay(DAY_MS);
     expect(world.ruins.has(6)).toBe(false);
     expect(world.cities.get(6)?.owner).toBe(3);
     const holders = holdingsOf(world.book, 6);

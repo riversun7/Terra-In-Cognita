@@ -3,8 +3,8 @@
 // - 정부 짓기: NPC는 국고에서 정부 짓기 값(claimCost)을 내고 주인이 된다(시설 칸 없이 — 연구 시설과 같은 꼴). 유저는 서버 건물 짓기로.
 // - 복원 사업: 목표를 채우면 도시가 되살아난다. 넣는 값은 남은 몫까지만 받는다. 목표 = 옛 주거 × 주거 1당 값(482 나), 주거를 모르면(0)
 //   (또는 주거 1당 값이 0이면) 목표 기본값(goal). 모금 기한 = 주인이 된 때 + fundDays일(485 다, 지나면 돌려주고 주인 없음).
-// - NPC 행동(484 다): 판단 후보 "폐허 복원"(npc/brain.ts)의 넣는 몫 — 주인 NPC가 넣는 국고 몫(‰), 다른 NPC가 열린 모금에 넣는 몫
-//   (‰ × 상업 성향 ÷ 1000). 옛 주인이 아닌 NPC는 폐허가 된 지 npcClaimAfterDays일이 지나야 정부를 짓는다.
+// - NPC(484 다): 정부 짓기는 판단 후보 "폐허 복원"(npc/brain.ts) — 옛 주인이 아닌 NPC는 폐허가 된 지 npcClaimAfterDays일이 지나야 짓는다.
+//   넣는 몫은 하루 끝 규칙식: 주인 NPC가 넣는 국고 몫(‰), 다른 NPC가 열린 모금에 넣는 몫(‰ × 상업 성향 ÷ 1000).
 // - 지분: 1000주를 낸 값 비례로(가장 큰 나머지, shares.ts allocateShares). 도시가 드는 세력이 독재면 지배 주체가 과반(> 50%)을 늘 갖는다
 //   — 지배 주체 몫이 과반에 못 미치면 ⌊총 ÷ 2⌋ + 1주를 주고 나머지를 다른 주체가 낸 값 비례로 나눈다(D-344, 기획 답 483 가).
 import { type Holding, type Regime, allocateShares } from "./shares.ts";
@@ -20,9 +20,9 @@ export interface RestorationCoefficients {
   readonly fundDays: number;
   /** [임시] 옛 주인이 아닌 NPC 세력이 주인 없는 폐허에 정부를 지을 수 있게 되는 날 수(폐허가 된 뒤) */
   readonly npcClaimAfterDays: number;
-  /** [임시] 주인 NPC가 "폐허 복원" 행동 한 번에 넣는 국고 몫(‰) */
+  /** [임시] 주인 NPC가 하루에 넣는 국고 몫(‰) */
   readonly npcFundPm: number;
-  /** [임시] 다른 NPC가 열린 모금에 "폐허 복원" 행동 한 번에 넣는 국고 몫(‰, 상업 성향 1000일 때) */
+  /** [임시] 다른 NPC가 열린 모금에 하루 넣는 국고 몫(‰, 상업 성향 1000일 때) */
   readonly npcInvestPm: number;
 }
 
@@ -96,13 +96,13 @@ export function restorationShares(
   return [...others, { owner: ruler, amount: majority }].toSorted((a, b) => a.owner - b.owner);
 }
 
-/** 주인 NPC가 행동 한 번에 넣는 값(국고 × ‰, 남은 몫까지) */
+/** 주인 NPC가 오늘 넣는 값(국고 × ‰, 남은 몫까지) */
 export function npcFundAmount(treasury: bigint, goal: bigint, raised: bigint, pm: number): bigint {
   if (treasury <= 0n || pm <= 0) return 0n;
   return acceptedContribution(goal, raised, (treasury * BigInt(pm)) / 1000n);
 }
 
-/** 다른 NPC가 행동 한 번에 열린 모금에 넣는 값(국고 × ‰ × 상업 ÷ 1000, 남은 몫까지) */
+/** 다른 NPC가 오늘 열린 모금에 넣는 값(국고 × ‰ × 상업 ÷ 1000, 남은 몫까지) */
 export function npcInvestAmount(
   treasury: bigint,
   goal: bigint,

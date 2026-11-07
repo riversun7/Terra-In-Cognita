@@ -4299,8 +4299,8 @@
       "id": "d510_npc_fund_pm",
       "code": "",
       "name": {
-        "ko": "주인 NPC 한 번 넣는 국고 몫(‰)",
-        "en": "Owner NPC funding per action (‰ of treasury)"
+        "ko": "주인 NPC 하루 넣는 국고 몫(‰)",
+        "en": "Owner NPC daily funding (‰ of treasury)"
       },
       "value": 100,
       "structural": false,
@@ -4312,8 +4312,8 @@
       "id": "d510_npc_invest_pm",
       "code": "",
       "name": {
-        "ko": "다른 NPC 한 번 투자 몫(‰, 상업 1000일 때)",
-        "en": "Other NPC investment per action (‰ at commerce 1000)"
+        "ko": "다른 NPC 하루 투자 몫(‰, 상업 1000일 때)",
+        "en": "Other NPC daily investment (‰ at commerce 1000)"
       },
       "value": 20,
       "structural": false,
@@ -4328,7 +4328,7 @@
         "ko": "NPC 폐허 정부 짓기 기본 점수",
         "en": "NPC ruin claim base score"
       },
-      "value": 250,
+      "value": 400,
       "structural": false,
       "unit": "count",
       "min": 0,

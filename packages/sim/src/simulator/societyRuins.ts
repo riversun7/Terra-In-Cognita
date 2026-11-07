@@ -12,8 +12,10 @@
 //   society/restoration.ts). 도시는 같은 ID로 도시가 드는 세력에 돌아온다(주거 = 옛 주거, 행정 레벨 = 정부 건물 레벨 489 다 — NPC는 Lv1,
 //   휴먼 없음 — 구인 카드로).
 // - 하루 끝: 도시가 드는 세력이 사라졌거나 기한이 지난 사업은 낸 값을 돌려주고 주인 없음으로 되돌린다.
-// - NPC(484 다): 하루 끝 규칙식 대신 판단 후보 "폐허 복원"(npc/brain.ts)이 고른다. 후보(npcOptions) = 주인 없는 폐허에 정부 짓기(옛 주인은
-//   바로, 다른 세력은 폐허가 된 지 며칠 뒤), 내 사업에 넣기(국고 몫), 남의 열린 모금에 투자(국고 몫 × 상업 성향). 실행은 npcAct.
+// - NPC(484 다): 정부 짓기는 판단 후보 "폐허 복원"(npc/brain.ts)이 고른다. 후보(npcOptions) = 주인 없는(또는 정부 건물이 0%인) 폐허(옛
+//   주인은 바로, 다른 세력은 폐허가 된 지 며칠 뒤), 실행은 npcAct. 넣기·투자는 판단 칸을 쓰지 않고 하루 끝 규칙식으로 돈다(판단마다
+//   되풀이되면 연구 등을 밀어내 econ16 D-391 기술 조건이 떨어졌다 — ADR 잰 값): 주인 NPC는 국고 몫, 열린 모금에는 다른 NPC가 국고 몫 ×
+//   상업 성향.
 import type { RestoreView } from "../npc/brain.ts";
 import type { LedgerBook } from "../ledger/ledgerBook.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
@@ -111,10 +113,10 @@ export interface SocietyRuins {
   previewShares(ruinId: number): Holding[];
   /** 정부 건물 상태 고리(서버). 없으면 건물이 있는 폐허도 다 지어진 것으로 친다(시뮬은 NPC만 — 건물이 없다) */
   attachGovernment(lookup: GovernmentLookup): void;
-  /** NPC 판단 후보(484 다): 정부 짓기 하나·내 사업에 넣기 하나·남의 열린 모금 투자 하나(있는 것만, 폐허 ID 차례) */
+  /** NPC 판단 후보(484 다): 정부를 지을 폐허 하나(옛 내 폐허 먼저, 같으면 작은 ID). 없으면 빈 목록 */
   npcOptions(faction: SimFaction, nowMs: number): RestoreView[];
-  /** NPC가 고른 "폐허 복원" 행동을 실행한다. 무언가 바뀌었나 */
-  npcAct(faction: SimFaction, ruinId: number, mode: RestoreView["mode"], nowMs: number): boolean;
+  /** NPC가 고른 "폐허 복원"(정부 짓기)을 실행한다. 지었나 */
+  npcAct(faction: SimFaction, ruinId: number, nowMs: number): boolean;
   endOfDay(nowMs: number): void;
   check(): string[];
   summary(): RuinsSummary;
@@ -378,55 +380,31 @@ export function createSocietyRuins(o: SocietyRuinsOptions): SocietyRuins {
 
     npcOptions(faction, nowMs) {
       const r = rules();
-      let claimPick: SimRuin | undefined;
-      let fundPick: { ruin: SimRuin; amount: bigint } | undefined;
-      let investPick: { ruin: SimRuin; amount: bigint } | undefined;
+      let pick: SimRuin | undefined;
       for (const ruin of sorted()) {
-        if (canClaim(ruin)) {
-          // 주인 없음, 또는 주인의 정부 건물이 0%·사라짐(487 다 — 다시 지은 쪽이 주인). 내가 주인이면 건너뛴다(NPC는 건물 없이 값으로 짓는다)
-          if (ruin.claimant === faction.id) continue;
-          // 옛 주인은 바로, 다른 세력은 폐허가 된 지 며칠 뒤. 옛 내 폐허를 먼저(같으면 작은 ID)
-          const former = ruin.formerOwner === faction.id;
-          if (!former && Math.floor((nowMs - ruin.ruinedAtMs) / DAY_MS) < r.npcClaimAfterDays) continue;
-          if (!claimPick || (former && claimPick.formerOwner !== faction.id)) claimPick = ruin;
-          continue;
-        }
-        if (!isReady(ruin) || nowMs >= deadlineOf(ruin)) continue;
-        if (ruin.claimant !== faction.id && !ruin.open) continue;
-        const amount = npcAmount(faction, ruin);
-        if (amount <= 0n) continue;
-        if (ruin.claimant === faction.id) fundPick ??= { ruin, amount };
-        else investPick ??= { ruin, amount };
+        // 주인 없음, 또는 주인의 정부 건물이 0%·사라짐(487 다 — 다시 지은 쪽이 주인). 내가 주인이면 건너뛴다(NPC는 건물 없이 값으로 짓는다)
+        if (!canClaim(ruin) || ruin.claimant === faction.id) continue;
+        // 옛 주인은 바로, 다른 세력은 폐허가 된 지 며칠 뒤. 옛 내 폐허를 먼저(같으면 작은 ID)
+        const former = ruin.formerOwner === faction.id;
+        if (!former && Math.floor((nowMs - ruin.ruinedAtMs) / DAY_MS) < r.npcClaimAfterDays) continue;
+        if (!pick || (former && pick.formerOwner !== faction.id)) pick = ruin;
       }
-      const out: RestoreView[] = [];
-      if (claimPick)
-        out.push({
-          ruin: claimPick.id,
-          mode: "claim",
-          cost: BigInt(r.claimCost),
-          former: claimPick.formerOwner === faction.id,
-        });
-      if (fundPick) out.push({ ruin: fundPick.ruin.id, mode: "fund", cost: fundPick.amount, former: false });
-      if (investPick)
-        out.push({ ruin: investPick.ruin.id, mode: "invest", cost: investPick.amount, former: false });
-      return out.toSorted((a, b) => a.ruin - b.ruin);
+      return pick
+        ? [{ ruin: pick.id, cost: BigInt(r.claimCost), former: pick.formerOwner === faction.id }]
+        : [];
     },
 
-    npcAct(faction, ruinId, mode, nowMs) {
+    npcAct(faction, ruinId, nowMs) {
       const ruin = world.ruins.get(ruinId);
       if (!ruin || !faction.alive) return false;
-      if (mode === "claim") {
-        if (claim(ruinId, faction.id, faction.id, nowMs, { pay: true }) !== "ok") return false;
-        // 국고가 목표보다 적으면 모금을 연다(누구나 넣게)
-        if (treasury(faction) < ruin.goal) ruin.open = true;
-        return true;
-      }
-      const amount = npcAmount(faction, ruin);
-      return amount > 0n && fund(ruinId, faction.id, amount, nowMs).result === "ok";
+      if (claim(ruinId, faction.id, faction.id, nowMs, { pay: true }) !== "ok") return false;
+      // 국고가 목표보다 적으면 모금을 연다(누구나 넣게)
+      if (treasury(faction) < ruin.goal) ruin.open = true;
+      return true;
     },
 
     endOfDay(nowMs) {
-      // 도시가 드는 세력이 사라졌거나 모금 기한이 지난 사업: 낸 값을 돌려주고 주인 없음으로(485 다)
+      // 1) 도시가 드는 세력이 사라졌거나 모금 기한이 지난 사업: 낸 값을 돌려주고 주인 없음으로(485 다)
       for (const ruin of sorted()) {
         if (ruin.joinFaction === null) continue;
         if (!world.factions.get(ruin.joinFaction)?.alive) {
@@ -435,6 +413,25 @@ export function createSocietyRuins(o: SocietyRuinsOptions): SocietyRuins {
         } else if (nowMs >= deadlineOf(ruin)) {
           release(ruin, nowMs);
           counts.expired += 1;
+        }
+      }
+      // 2) NPC 넣기 규칙식: 주인 NPC는 국고 몫, 열린 모금에는 다른 NPC가 국고 몫 × 상업 성향(누구나, D-343). 정부 건물이 서 있고 기한 전인
+      //    사업만(fund가 본다). 유저 주인 사업에도 투자한다
+      const alive = [...world.factions.values()].filter((f) => f.alive).toSorted((a, b) => a.id - b.id);
+      for (const ruin of sorted()) {
+        const owner = ruin.claimant === null ? undefined : world.factions.get(ruin.claimant);
+        if (!owner?.alive) continue;
+        const amount = npcAmount(owner, ruin);
+        if (amount > 0n) fund(ruin.id, owner.id, amount, nowMs);
+      }
+      for (const ruin of sorted()) {
+        if (!ruin.open) continue;
+        for (const f of alive) {
+          const live = world.ruins.get(ruin.id);
+          if (!live) break;
+          if (f.id === live.claimant) continue;
+          const amount = npcAmount(f, live);
+          if (amount > 0n) fund(live.id, f.id, amount, nowMs);
         }
       }
     },

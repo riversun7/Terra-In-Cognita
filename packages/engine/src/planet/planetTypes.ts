@@ -14,6 +14,7 @@ import {
   WATER_RIVER,
 } from "@terra/planet";
 import type { PlanetTileData } from "@terra/protocol";
+import type { PlanetProjector } from "./planetOverlay.ts";
 import type { PlanetSkyDescription, PlanetSkyMode } from "./sky.ts";
 import type { PlanetSkyStats } from "./skyController.ts";
 
@@ -224,6 +225,11 @@ export interface PlanetEngineOptions {
    */
   sky?: PlanetSkyMode;
   /**
+   * 덧그림(도시 표시·영토 경계 등, docs/adr/2026-11-07-play-flow.md "WP2"): 그린 프레임마다 투영기를 넘긴다(카메라가 바뀐 프레임만 그린다).
+   * 화면은 그 자리에서 DOM 위치만 바꾼다. 덧그림 자료가 바뀌면 requestFrame으로 한 번 더 그리게 한다
+   */
+  onOverlay?: (projector: PlanetProjector) => void;
+  /**
    * [재기 모드] 프레임마다 장면을 이 횟수(1 ~ 4)만큼 그리고 1화소 읽기로 GPU 끝을 기다린 시간을 잰다(stats().gpuBench).
    * 휴대폰 GPU 몫을 재는 데만 쓴다(화면 주소 ?planet-sky-bench=). 없으면 재지 않는다
    */
@@ -310,6 +316,8 @@ export interface PlanetEngine {
   pickAt(point: { x: number; y: number }): PickedCell | null;
   /** 그곳으로 카메라를 옮긴다(움직임 없이) */
   lookAt(view: PlanetView): void;
+  /** 한 번 더 그린다(덧그림 자료가 바뀌었을 때 — onOverlay가 다시 불린다) */
+  requestFrame(): void;
   stats(): PlanetStats;
   /** 모두 버린다: 그리기 멈춤, 받기 취소, 입력·워커·지오메트리·재질 정리, 캔버스 떼기(렌더러는 다음 화면이 다시 쓴다) */
   dispose(): void;

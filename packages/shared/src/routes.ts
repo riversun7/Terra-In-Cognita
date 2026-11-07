@@ -54,22 +54,26 @@ export const ROUTES = {
   // 첫 접속(6-6, ADR 37 1절 예약 → docs/adr/2026-11-01-first-login-cyborg.md): 사이보그 만들기 6단계. 틀을 숨긴 전체 화면이고,
   // 사이보그가 없는 계정은 틀(shell/Shell.tsx)이 다른 주소를 여기로 바꾼다. 만들면 홈으로
   start: { path: "/start", search: [], parent: "home", frame: "hidden", access: "everyone" },
+  // ?key=<2차맵 키(10진 셀 키)>: 그 2차맵을 연다. 없으면 내 사이보그가 있는 2차맵이고 카메라를 내 사이보그에 맞춘다
+  // (docs/adr/2026-11-07-play-flow.md "WP2 지도 흐름", 기획 60 §4.1 D-6017). 1차맵 도시 판 [들어가기]가 이 주소로 온다.
   // 시험·측정용(map/SecondaryMapScreen.tsx): ?pixel-ratio= 픽셀 비율 상한, 2차맵 낮밤(map/secondMapSky.ts,
   // ADR 2026-10-28-s1-second-map "2차맵 낮밤"): ?second-map-time= 지역 시각 멈춤, ?second-map-sky=off 낮밤 끔,
   // ?second-map-neighbours=all 이웃 8장을 처음부터(개발자 3×3 이어 보기, ADR 2026-10-31-second-map-from-planet WP-4)
   map: {
     path: "/map",
-    search: ["pixel-ratio", "second-map-time", "second-map-sky", "second-map-neighbours"],
+    search: ["key", "pixel-ratio", "second-map-time", "second-map-sky", "second-map-neighbours"],
     parent: "home",
     frame: "hidden",
     access: "everyone",
   },
+  // ?key=<2차맵 키>: 그 2차맵 자리를 가운데로 연다(2차맵 → 1차맵 전환). 없으면 내 사이보그 자리(docs/adr/2026-11-07-play-flow.md "WP2").
   // 시험·측정용(map/PlanetMapScreen.tsx): ?planet-debug=cracks 타일 틈 찾기, ?pixel-ratio= 픽셀 비율 상한(pixelRatioParam.ts),
   // 1차맵 하늘(map/planetSky.ts, ADR 2026-10-29-primary-map-sky 9절): ?planet-time= 시각 멈춤, ?planet-sky=off 하늘 끔,
   // ?planet-sky-skip= 요소 끔, ?planet-sky-bench= GPU 몫 재기, ?planet-view= 처음 볼 곳(map/planetViewParam.ts)
   map_planet: {
     path: "/map/planet",
     search: [
+      "key",
       "planet-debug",
       "pixel-ratio",
       "planet-time",

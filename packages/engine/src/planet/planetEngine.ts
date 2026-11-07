@@ -45,6 +45,7 @@ import {
   planetDescriptionProblem,
 } from "./planetTypes.ts";
 import { cloudLiftM } from "./cloudSchedule.ts";
+import { createProjector } from "./planetOverlay.ts";
 import { ATMOSPHERE_SCALE, type PlanetTileGpu, PlanetView } from "./planetView.ts";
 import type { PlanetSkyMode } from "./sky.ts";
 import { SkyController } from "./skyController.ts";
@@ -305,6 +306,17 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
     else renderer.render(view.scene, view.camera);
     const info = renderer.info.render;
     lastInfo = { calls: info.calls, triangles: info.triangles };
+    // 덧그림(도시 표시 등): 이 프레임의 카메라로 투영기를 넘긴다(planetOverlay.ts)
+    options.onOverlay?.(
+      createProjector({
+        pose,
+        viewport,
+        radiusM,
+        occluderRadiusM,
+        distanceM: state.distance,
+        heightAt: shownHeight,
+      }),
+    );
     pipeline.evict(frameNo, (node) => node.mapLevel <= layout.firstLevel);
 
     if (firstDisplayMs === null && !selection.incomplete) {
@@ -474,6 +486,10 @@ export function createPlanetEngine(container: HTMLElement, options: PlanetEngine
       const distance = target.distanceM ?? state.distance;
       state = initialGlobe(target.latDeg, target.lonDeg, distance, limits);
       animation = null;
+      scheduler.request();
+    },
+
+    requestFrame() {
       scheduler.request();
     },
 

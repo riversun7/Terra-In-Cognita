@@ -232,6 +232,20 @@
 .start-badge[data-crowding="busy"] {
   background: var(--color-danger-surface);
 }
+/* 고른 시작 도시의 둘레 땅(D-6041 "주변 자원·기후", map/LandFacts.tsx) */
+.start-city-land {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+.start-city-land-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+}
 
 /* ── 외형 ──────────────────────────────── */
 .start-looks {

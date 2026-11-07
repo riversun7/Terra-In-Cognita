@@ -1,5 +1,8 @@
-// 1차맵 시험 화면(S2) — 행성 LOD 엔진(@terra/engine/planet)으로 서버가 구운 행성을 그린다. 지연 로딩 조각 하나로만 들어온다
-// (App.tsx의 React.lazy). 순서: 목록 정보 받기(굽는 중이면 기다리며 다시 묻기) → 행성 설명·서버 타일 원천 → 엔진.
+// 1차맵 화면(S2) — 행성 LOD 엔진(@terra/engine/planet)으로 서버가 구운 행성을 그린다. 지연 로딩 조각 하나로만 들어온다
+// (App.tsx의 React.lazy). 순서: 목록 정보 받기(굽는 중이면 기다리며 다시 묻기) + 내 사이보그 자리 → 행성 설명·서버 타일 원천 → 엔진.
+// 지도 흐름(docs/adr/2026-11-07-play-flow.md "WP2"): 도시·국가 표시·영토 경계(CityOverlay, world.cities), 도시를 누르면 도시 판(이름·국가·
+// 둘레 땅·[들어가기] → /map?key=), [내 위치], 가장 가까이(5단계)에서 들어갈 수 있는 2차맵이 가운데면 [이 2차맵으로 들어가기](기획 60 §4.1).
+// 처음 볼 곳: ?planet-view= > ?key=(그 2차맵) > 내 사이보그 자리 > 엔진 기본.
 // 타일은 서버 이진 그대로 엔진에 넘기고 메시 워커가 푼다(planetSource.ts, ADR 36 "서버 굽기·전송").
 // 앱 화면 흐름(홈·아래 탭)이 정해지면 이 화면을 그곳으로 옮긴다: onClose·monitor만 받는다.
 // 고빈도 상태는 엔진 안에 있고, 이 화면은 1초마다 요약(stats)만 읽는다(PLAN 5.7). 시험(Playwright)은 data-* 값을 읽는다.
@@ -12,13 +15,17 @@ import {
   type PickedCell,
   type PlanetEngine,
   type PlanetLayer,
+  type PlanetProjector,
   type PlanetStats,
   type PlanetStatus,
   createPlanetEngine,
+  mapKeyAtLatLon,
 } from "@terra/engine/planet";
-import { useEffect, useRef, useState } from "react";
+import type { WorldCitiesResponse, WorldMapCity, WorldPosition } from "@terra/shared/worldMap";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { refreshSession } from "../auth/session.ts";
 import { serverLink } from "../net/serverLink.ts";
+import { navigate } from "../shell/routerStore.ts";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import type { FrameMonitor } from "../perf/frameMonitor.ts";
@@ -42,11 +49,17 @@ import {
 } from "./planetSky.ts";
 import { planetViewOption } from "./planetViewParam.ts";
 import { cellLines, planetFailureText } from "./planetText.ts";
+import { CityOverlay } from "./CityOverlay.tsx";
+import { clusterView, focusView } from "./planetFocus.ts";
+import { PlanetCityPanel } from "./PlanetCityPanel.tsx";
+import { enterableAt, loadMyPosition, loadWorldCities, parseMapKey } from "./worldMapData.ts";
 import "./map.css";
 import "./planetMap.css";
 
 /** [임시] 시험 화면이 여는 행성 = 콘텐츠 팩 S2 시험 행성. 행성을 고르는 화면이 생기면 그쪽에서 받는다 */
 const PLANET_ID = "s2_test_planet";
+/** 1차맵 가장 고운 단계 — 여기서 가운데 2차맵에 들어갈 수 있다(기획 60 §4.1) */
+const FINEST_LEVEL = 5;
 /** 성능 보고에 붙이는 화면 이름 */
 const TELEMETRY_VIEW = "planet-map";
 /** 고도 과장(화면 설정): 처음 값과 범위 */
@@ -59,6 +72,8 @@ interface PlanetMapScreenProps {
   onClose: () => void;
   /** 앱의 프레임 측정기 — 화면 전체 프레임 시간(엔진 그리기 포함) */
   monitor: FrameMonitor;
+  /** 주소 ?key= — 그 2차맵 자리를 가운데로 연다(2차맵 → 1차맵 전환) */
+  mapKey?: string | undefined;
 }
 
 /** 목록 정보 받기 단계 */
@@ -120,7 +135,17 @@ export default function PlanetMapScreen(props: PlanetMapScreenProps) {
   return <PlanetMapView key={attempt} {...props} onRetry={() => setAttempt((count) => count + 1)} />;
 }
 
-function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { onRetry: () => void }) {
+/** 2차맵 들어가기: 2차맵 화면으로 바꾸기(replace — 뒤로 = 지도를 떠남, MapSwitch와 같다) */
+function enterMap(key: number): void {
+  navigate({ route: "map", search: { key: String(key) } }, { replace: true });
+}
+
+function PlanetMapView({
+  onClose,
+  monitor,
+  onRetry,
+  mapKey: keyParam,
+}: PlanetMapScreenProps & { onRetry: () => void }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const engineRef = useRef<PlanetEngine | null>(null);
@@ -135,6 +160,16 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
   const [exaggeration, setExaggeration] = useState(DEFAULT_EXAGGERATION);
   const [picked, setPicked] = useState<{ cell: PickedCell | null; lines: string[] } | null>(null);
   const perf = usePerfStats(monitor);
+  // 지도 흐름: 도시·국가(world.cities), 내 자리, 고른 도시, 행성 면 레벨(가운데 2차맵 키)
+  const overlayDraw = useRef<((projector: PlanetProjector) => void) | null>(null);
+  const registerOverlay = useCallback((draw: ((projector: PlanetProjector) => void) | null) => {
+    overlayDraw.current = draw;
+  }, []);
+  const [world, setWorld] = useState<WorldCitiesResponse | null>(null);
+  const [me, setMe] = useState<WorldPosition | null>(null);
+  const [cityId, setCityId] = useState<number | null>(null);
+  const [faceLevel, setFaceLevel] = useState<number | null>(null);
+  const requestFrame = useCallback(() => engineRef.current?.requestFrame(), []);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -153,12 +188,27 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
     const onReducedMotion = (): void => engine?.setSky(skyMode());
     reduced?.addEventListener("change", onReducedMotion);
     setTelemetryView(planetTelemetryView(TELEMETRY_VIEW, skyParams));
-    loadPlanetManifest(PLANET_ID, {
+    // 도시·국가는 엔진을 기다리지 않는다(오면 덧그림이 그린다). 내 자리는 처음 볼 곳이라 목록 정보와 함께 기다린다(실패하면 없이)
+    loadWorldCities(controller.signal).then(
+      (cities) => {
+        if (!controller.signal.aborted) setWorld(cities);
+      },
+      () => undefined,
+    );
+    const position = loadMyPosition(controller.signal).then(
+      (answer) => answer.position,
+      () => null,
+    );
+    const manifestLoaded = loadPlanetManifest(PLANET_ID, {
       signal: controller.signal,
       onWaiting: (reason, retryInMs) => setLoad({ kind: reason, retryInMs }),
-    }).then(
-      (manifest) => {
+    });
+    Promise.all([manifestLoaded, position]).then(
+      ([manifest, mine]) => {
         if (controller.signal.aborted) return;
+        setMe(mine);
+        setFaceLevel(manifest.faceLevel);
+        const focus = focusView(parseMapKey(keyParam), mine, manifest.radiusM);
         try {
           // 바이옴 이름은 서버 범례(자료, ko·en)에서
           const english = getLocale() === "en";
@@ -178,15 +228,20 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
             exaggeration: exaggerationRef.current,
             debugCracks,
             ...pixelRatioOption(search),
+            ...(focus ? { initialView: focus } : {}),
             ...planetViewOption(search),
             sky: skyMode(),
             ...(skyParams.benchRepeat === null ? {} : { gpuBenchRepeat: skyParams.benchRepeat }),
             onStatus: setStatus,
-            onPick: (cell) =>
+            onPick: (cell) => {
+              // 땅을 누르면 도시 판을 닫고 그 칸을 본다
+              setCityId(null);
               setPicked({
                 cell,
                 lines: cell ? cellLines(cell, (id) => names.get(id) ?? null) : [m.planet_cell_none()],
-              }),
+              });
+            },
+            onOverlay: (projector) => overlayDraw.current?.(projector),
           });
           engine = created;
           engineRef.current = created;
@@ -215,7 +270,8 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
       engineRef.current = null;
       setTelemetryView(null);
     };
-  }, []);
+    // 주소 ?key=는 처음 볼 곳만 정한다(바뀌면 화면 열쇠가 바뀌어 다시 만든다 — routeViews.tsx)
+  }, [keyParam]);
 
   // 로그인이 풀렸다고 하면 로그인 상태를 다시 확인한다(끝났으면 앱이 로그인 화면으로 바꾸며 이 화면을 닫는다).
   // 아직 로그인한 채면(잠깐 401) 타일 로그인 안내를 지운다 — 엔진은 실패한 타일을 저절로 다시 받는다
@@ -243,6 +299,21 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
     setExaggeration(value);
     engineRef.current?.setExaggeration(value);
   };
+
+  const zoomTo = (place: WorldMapCity): void => {
+    engineRef.current?.lookAt(clusterView(place, stats?.camera.distanceM));
+  };
+  const goToMe = (): void => {
+    if (!me) return;
+    engineRef.current?.lookAt({ latDeg: me.latDeg, lonDeg: me.lonDeg });
+  };
+  const cities = world?.status === "ready" ? world.cities : [];
+  const city = cities.find((entry) => entry.id === cityId) ?? null;
+  // 가장 고운 단계에서 화면 가운데 2차맵에 들어갈 수 있으면 [이 2차맵으로 들어가기](기획 60 §4.1 "그곳 줌인 → 그 2차맵")
+  const centerKey =
+    stats && faceLevel !== null ? mapKeyAtLatLon(stats.camera.latDeg, stats.camera.lonDeg, faceLevel) : null;
+  const here =
+    stats?.primaryLevel === FINEST_LEVEL && centerKey !== null ? enterableAt(cities, centerKey) : null;
 
   const shown = screenNotice(load, tileProblem, status);
   const level = stats?.primaryLevel ?? 0;
@@ -329,8 +400,26 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
           : undefined
       }
       data-picked={cell ? `${cell.face},${cell.mapLevel},${cell.i},${cell.j}` : undefined}
+      data-cities={world ? cities.length : undefined}
+      data-city={city?.id}
+      data-me={me ? me.mapKey : undefined}
+      data-center-key={centerKey ?? undefined}
     >
       <div ref={hostRef} className="map-view" role="img" aria-label={m.planet_view_label()} />
+      {world?.status === "ready" ? (
+        <CityOverlay
+          cities={cities}
+          factions={world.factions}
+          hulls={world.hulls}
+          milliPerRadian={world.milliPerRadian}
+          me={me}
+          selected={cityId}
+          onSelect={(next) => setCityId(next.id)}
+          onZoomTo={zoomTo}
+          register={registerOverlay}
+          requestFrame={requestFrame}
+        />
+      ) : null}
       <header className="map-hud map-hud-top">
         <div className="map-panel map-heading">
           <button type="button" className="button-small" onClick={onClose}>
@@ -415,7 +504,16 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
         </div>
       ) : null}
       <footer className="map-hud map-hud-bottom planet-bottom">
-        <div className="map-panel planet-readout" role="status">
+        {city && world ? (
+          <PlanetCityPanel
+            city={city}
+            factions={world.factions}
+            mine={world.myFactionId === city.factionId}
+            onEnter={enterMap}
+            onClose={() => setCityId(null)}
+          />
+        ) : null}
+        <div className="map-panel planet-readout" role="status" hidden={city !== null}>
           {(picked?.lines ?? [m.planet_hint()]).map((line, index) => (
             // 같은 문장이 두 번 나올 수 있어 순서도 키에 넣는다
             <p key={`${index}-${line}`}>{line}</p>
@@ -427,6 +525,24 @@ function PlanetMapView({ onClose, monitor, onRetry }: PlanetMapScreenProps & { o
           ) : null}
         </div>
         <div className="map-panel planet-controls">
+          {me || here ? (
+            <div className="planet-jump">
+              {here ? (
+                <button
+                  type="button"
+                  className="button-small button-primary planet-enter-here"
+                  onClick={() => enterMap(here.mapKey)}
+                >
+                  {m.world_enter_here()}
+                </button>
+              ) : null}
+              {me ? (
+                <button type="button" className="button-small planet-go-me" onClick={goToMe}>
+                  {m.world_my_position()}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
           <div className="planet-row">
             <p className="planet-level">
               <span>{m.planet_level({ level: level > 0 ? level : "–" })}</span>

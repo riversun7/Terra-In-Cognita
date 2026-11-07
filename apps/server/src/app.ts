@@ -54,6 +54,8 @@ import { createWorldRosterSource } from "./roster/worldUnits.ts";
 import { createSecondMapLab } from "./world/secondMapLab.ts";
 import { registerTerrainRoute } from "./world/terrainRoute.ts";
 import type { MapPropInput } from "@terra/planet/secondMap";
+import { EARTH_FACE_LEVEL } from "@terra/planet";
+import { worldMapReadsOf } from "./worldMap/reads.ts";
 import type { EconomyCatalogResponse } from "@terra/shared/economy";
 import type { TuningState } from "./tuning/state.ts";
 import { type TuningLimits, bootTuning, createTuningShared } from "./tuning/services.ts";
@@ -473,6 +475,18 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // 건물(docs/adr/2026-11-07-buildings-runtime.md): 같은 조건
   const facilityService = () =>
     world?.status().state === "ready" ? world.persistence?.facilities.service : undefined;
+  // 지도 흐름 조회(docs/adr/2026-11-07-play-flow.md "WP2"): 1차맵 도시·국가, 내 사이보그 자리(세계가 준비된 뒤, DB가 있는 월드만)
+  const worldMapService =
+    world && options.db
+      ? worldMapReadsOf({
+          world,
+          pool: options.db.$client,
+          planetId: TEST_PLANET_ID,
+          faceLevel: worldPlanet?.faceLevel ?? EARTH_FACE_LEVEL,
+          presets: options.world?.npc?.presets,
+          planets: planets && worldPlanet ? planets : undefined,
+        })
+      : undefined;
   if (world) {
     app.addHook("onReady", async () => world.ready);
     app.addHook("onClose", async () => {
@@ -625,6 +639,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       secondMapLab,
       // 영토 조회(내 세력·개발 화면 전체)
       territory: territoryService,
+      worldMap: worldMapService,
       // 경제 화면: 팩 목록 + 월드 원장 잔고(읽기만) + 시안 자료
       economy: options.economyCatalog
         ? createEconomyServices({

@@ -1,0 +1,29 @@
+/* 도시 둘레 땅 요약(LandFacts.tsx) — 값은 styles/tokens.css의 var(--…)만 쓴다. 이름 칸(작게·흐리게) + 값, 좁은 폭에서도 한 줄씩 */
+.land-facts {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.land-facts > div {
+  display: grid;
+  grid-template-columns: minmax(3.5em, max-content) 1fr;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+.land-facts dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.land-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.land-facts-none {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}

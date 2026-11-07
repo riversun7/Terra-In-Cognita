@@ -196,7 +196,8 @@ describe("주소 표", () => {
         "home",
         "hidden",
         "everyone",
-        ["pixel-ratio", "second-map-time", "second-map-sky", "second-map-neighbours"],
+        // ?key= 2차맵 키(docs/adr/2026-11-07-play-flow.md "WP2 지도 흐름")
+        ["key", "pixel-ratio", "second-map-time", "second-map-sky", "second-map-neighbours"],
       ],
       map_planet: [
         "/map/planet",
@@ -204,6 +205,7 @@ describe("주소 표", () => {
         "hidden",
         "everyone",
         [
+          "key",
           "planet-debug",
           "pixel-ratio",
           "planet-time",

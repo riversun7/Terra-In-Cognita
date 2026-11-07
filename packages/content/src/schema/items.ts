@@ -118,8 +118,11 @@ export const useSchema = z.strictObject({
 
 /** 유전자 조각 종류(D-478): 스탯 유전자(속성 포함)·스킬 유전자 */
 export const GENE_KINDS = ["stat", "skill"] as const;
-/** 유전자 조각을 얻는 길(D-478 "얻는 길은 데이터", 49 N47): death = 그 종 유닛이 죽으면 소유자에게(옛 LifeEngine) */
-export const GENE_SOURCES = ["death"] as const;
+/**
+ * 유전자 조각을 얻는 길(D-478 "얻는 길은 데이터", 49 N47): death = 그 종 유닛이 죽으면 소유자에게(옛 LifeEngine),
+ * wave = 정원사 도시 웨이브를 막아 낸 도시 주인에게(D-499 웨이브 보상, 양은 설정 칸 d499_reward_genes)
+ */
+export const GENE_SOURCES = ["death", "wave"] as const;
 
 /**
  * 유전자 조각(D-478·D-481, 49 N47, docs/adr/2026-11-07-cyborg-fusion-genes.md): 어느 종(유닛 종류)의 어떤 유전자인지와 얻는 길.

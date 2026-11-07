@@ -22,22 +22,35 @@ export function floorLog2(x: bigint): number {
   return bitLength(x) - 1;
 }
 
-/** 웨이브 세기를 정하는 세력 규모(D-322): 도시 수, 유닛(휴먼) 수, 국고(질문 220 가: 그 세력 화폐 그대로) */
+/**
+ * 웨이브 세기를 정하는 세력 규모(D-322): 도시 수, 유닛(휴먼) 수, 국고(질문 220 가: 그 세력 화폐 그대로), 세력 오염(D-509, 없으면 0 —
+ * 맞추기 도구 gardener:cal은 넘기지 않는다)
+ */
 export interface FactionScale {
   readonly cities: number;
   readonly humans: number;
   readonly treasury: bigint;
+  readonly pollution?: number | undefined;
 }
 
-/** 세기(정원사 유닛 수) = strengthBase × (1 + ⌊log2(1 + 도시 + ⌊휴먼 ÷ k⌋ + ⌊국고 ÷ 단위⌋)⌋). 빚(음수 국고)은 0 */
+/**
+ * 세기(정원사 유닛 수) = strengthBase × (1 + ⌊log2(1 + 도시 + ⌊휴먼 ÷ k⌋ + ⌊국고 ÷ 단위⌋ + ⌊세력 오염 ÷ 오염 단위⌋)⌋).
+ * 빚(음수 국고)은 0. 세력 오염 항은 D-509("세력 오염이 세기를 정한다")로 더했다 — 규모 항을 남길지는 확인 대기(질문 384)
+ */
 export function waveStrength(scale: FactionScale, c: GardenerCoefficients): number {
   const treasury = scale.treasury > 0n ? scale.treasury / BigInt(Math.max(1, c.strengthTreasuryUnit)) : 0n;
   const x =
     1n +
     BigInt(Math.max(0, scale.cities)) +
     BigInt(Math.floor(Math.max(0, scale.humans) / Math.max(1, c.strengthHumansPer))) +
-    treasury;
+    treasury +
+    BigInt(Math.floor(Math.max(0, scale.pollution ?? 0) / Math.max(1, c.strengthPollutionUnit)));
   return c.strengthBase * (1 + floorLog2(x));
+}
+
+/** 보호 레이드 세기(D-500 "세기는 공격자 기준"): 공격자 웨이브 세기 × raidStrengthPm ÷ 1000(내림) */
+export function raidStrength(attacker: FactionScale, c: GardenerCoefficients): number {
+  return Math.floor((waveStrength(attacker, c) * Math.max(0, c.raidStrengthPm)) / 1000);
 }
 
 /** 도착 시각 = 생성 + max(이동, 최소 예고)(D-196). 이동 시간은 진군 경로가 생기기 전까지 0(질문 219 가) */

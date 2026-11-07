@@ -6,7 +6,10 @@
 // 전투 한 번(공성·반란·조우·웨이브)은 그때 그 칸에 +battle. 웨이브 도착: 수비 휴먼이 없으면 웨이브가 이긴다.
 // 이기면 시작 도시는 건물 피해(society.damage), 다른 도시는 폐허(society.ruin, 떠도는 세력 D-464 217). 지면 그 도시 쉬는 시간.
 // 굴림 수는 날마다 같다(도시마다 하나, 유목 부대마다 하나 — 무엇이 일어나든 다음 굴림이 밀리지 않게).
-import { type GardenerCoefficients } from "../gardener/coefficients.ts";
+// 정원사 2("바뀜 (2026-11-07)"): 하루 끝에 전쟁 중인 세력의 도시 칸 오염(D-509) → 세력 오염·관계도(gardenerFactions.ts, 49 N52) →
+// 도시 굴림은 관계도 단계 배율을 곱하고, 웨이브는 세력 오염이 높은 세력부터 모함 몫을 받는다(목표 순위, D-509). 세기에 세력 오염 항.
+// 필수 NPC 세력의 도시를 친 세력에게 보호 레이드(protect, D-500: 보상 없음). 막아 낸 도시 웨이브는 보상(D-499, onReward).
+import type { GardenerCoefficients } from "../gardener/coefficients.ts";
 import {
   type NomadParty,
   nomadFits,
@@ -16,7 +19,6 @@ import {
   startingNomads,
 } from "../gardener/nomads.ts";
 import {
-  type PollutionGrid,
   type PollutionLayer,
   addPollution,
   dailyPollutionStep,
@@ -24,135 +26,45 @@ import {
   humanPollution,
   influenceCells,
   influenceSum,
+  purify,
 } from "../gardener/pollution.ts";
+import { clampRelation, relationChancePm, relationStage } from "../gardener/relations.ts";
+import { NO_REWARD, type WaveReward, waveReward } from "../gardener/rewards.ts";
 import {
+  type FactionScale,
   grantGardenerUnits,
   mothershipCap,
   physicalCount,
   physicalPm,
+  raidStrength,
   waveArrivalMs,
   waveChancePm,
   waveStrength,
 } from "../gardener/waves.ts";
-import type { MetricsRecorder } from "./metrics.ts";
-import type { SocietyRun } from "./societyTypes.ts";
-import { type SimFaction, type SimUnit, type SimWorld, streamRng } from "./world.ts";
+import {
+  factionPollutionOf,
+  oldestCityOf,
+  relationCounts,
+  relationOf,
+  updateRelations,
+} from "./gardenerFactions.ts";
+import type { GardenerOptions, GardenerRun, GardenerWave, ResolvedWave } from "./gardenerTypes.ts";
+import { type SimCity, type SimFaction, type SimUnit, streamRng } from "./world.ts";
+
+export type {
+  GardenerOptions,
+  GardenerRestore,
+  GardenerRun,
+  GardenerSummary,
+  GardenerWave,
+  ResolvedWave,
+  WaveState,
+} from "./gardenerTypes.ts";
 
 export const EVENT_WAVE = "wave";
 export const EVENT_NOMAD = "nomad";
 /** 난수 흐름 6 = 정원사(1~5는 world.ts·society.ts) */
 export const STREAM_GARDENER = 6;
-
-export type WaveState = "marching" | "fighting";
-
-export interface GardenerWave {
-  readonly id: number;
-  readonly city: number;
-  /** 생길 때 그 도시 주인(세기를 정한 세력) */
-  readonly faction: number;
-  readonly strength: number;
-  readonly physical: number;
-  readonly createdAtMs: number;
-  readonly arriveAtMs: number;
-  state: WaveState;
-  /** 서버: 전투 서비스의 전투 ID(싸우는 중) */
-  battleId: number | null;
-  eventId: number | undefined;
-}
-
-/** 끝난 웨이브(서버가 결과 줄을 쓴다). outcome = damaged | ruined | repelled | disbanded */
-export interface ResolvedWave {
-  readonly wave: GardenerWave;
-  readonly outcome: "damaged" | "ruined" | "repelled" | "disbanded";
-  readonly atMs: number;
-}
-
-export interface GardenerSummary {
-  readonly pollution: { readonly cells: number; readonly total: number; readonly max: number };
-  readonly waves: {
-    readonly noticed: number;
-    readonly battles: number;
-    readonly won: number;
-    readonly failed: number;
-    readonly undefended: number;
-    /** 물리형 0마리라 넥서스를 부술 수 없어 전투 없이 막힌 웨이브(규칙으로 정해진 결과, ADR 4절) */
-    readonly noSiege: number;
-    readonly disbanded: number;
-    readonly budgetSkipped: number;
-    readonly strengthMax: number;
-  };
-  readonly nomads: { readonly marches: number; readonly raids: number; readonly retargets: number };
-  /**
-   * 웨이브 결과 목표(49 C16a, D-468): 끝난 웨이브를 생길 때 영향권 오염 합이 기준 이상(band)·미만(below)으로 나눈 웨이브 승률.
-   * goalPm = 목표 승률. 흩어진 웨이브는 세지 않는다
-   */
-  readonly target: {
-    readonly sumAtLeast: number;
-    readonly goalPm: number;
-    readonly band: { readonly waves: number; readonly won: number; readonly winPm: number };
-    readonly below: { readonly waves: number; readonly won: number; readonly winPm: number };
-  };
-}
-
-export interface GardenerRestore {
-  readonly layer: PollutionLayer;
-  readonly waves: readonly GardenerWave[];
-  readonly cooldownUntil: ReadonlyMap<number, number>;
-  readonly nomads: readonly NomadParty[];
-  readonly nextWaveId: number;
-  /** 이어 돌린 시각(지난 도착은 이 시각으로 다시 건다) */
-  readonly nowMs: number;
-}
-
-export interface GardenerOptions {
-  readonly world: SimWorld;
-  /** 지금 계수(서버는 설정 칸 실효 값을 부를 때마다 읽는다) */
-  readonly rules: () => GardenerCoefficients;
-  readonly grid: PollutionGrid;
-  /** 도시 → 1차맵 칸(폐허가 된 도시도 칸을 안다) */
-  readonly cellOf: (cityId: number) => number | undefined;
-  readonly isForest?: ((cell: number) => boolean) | undefined;
-  /** 모함 칸(유목 부대 처음 자리, D-379) */
-  readonly mothershipCell: number;
-  readonly recorder: MetricsRecorder;
-  readonly society: SocietyRun;
-  readonly schedule: (atMs: number, kind: string, subject: number) => number;
-  readonly cancel: (eventId: number) => void;
-  /** 웨이브 공성 전투: true = 웨이브가 이김, false = 짐, "pending" = 나중에 resolve(서버) */
-  readonly fight: (wave: GardenerWave, defenders: readonly SimUnit[], nowMs: number) => boolean | "pending";
-  /** 세력 국고(질문 220 가: 그 세력 화폐 그대로) */
-  readonly treasuryOf: (faction: SimFaction) => bigint;
-  /** 시간 배율(예고·쉬는 시간·유목 제외 기간에 곱한다). 서버 측정용 하루 줄이기(NPC_DAY_MS)만 1 아래로 쓴다 */
-  readonly timeScale?: number | undefined;
-  readonly seed: number;
-  /** 이어 돌리기(서버): 저장한 상태 */
-  readonly restore?: GardenerRestore | undefined;
-}
-
-export interface GardenerRun {
-  /** 시설이 생산했다(레벨 × 오염 값 × 일한 ms) — 하루 끝에 1시간 단위로 내림해 더한다 */
-  addWork(cityId: number, weightedWorkMs: number): void;
-  /** 전투 한 번(그 도시 칸에 +battle) */
-  addBattle(cityId: number): void;
-  endOfDay(nowMs: number, day: number): void;
-  /** 예약 처리(EVENT_WAVE·EVENT_NOMAD). 그 종류가 아니면 false */
-  handle(kind: string, subject: number, nowMs: number): boolean;
-  /** 싸우던 웨이브의 결과(서버: 전투가 끝났을 때) */
-  resolve(waveId: number, won: boolean, nowMs: number): void;
-  /** 웨이브를 흩는다(서버: 전투를 열지 못했을 때). 쉬는 시간은 걸지 않는다 */
-  disband(waveId: number, nowMs: number): void;
-  /** 지난 호출 뒤 끝난 웨이브(꺼내면 비운다) */
-  takeResolved(): ResolvedWave[];
-  readonly layer: () => PollutionLayer;
-  readonly waves: ReadonlyMap<number, GardenerWave>;
-  readonly cooldownUntil: ReadonlyMap<number, number>;
-  readonly nomads: readonly NomadParty[];
-  nextWaveId(): number;
-  /** 진군·전투 중인 정원사 유닛 수(모함 몫) */
-  inUse(): number;
-  summary(): GardenerSummary;
-  check(): string[];
-}
 
 /** 웨이브 승률(‰, 웨이브가 없으면 0) */
 const rate = (bucket: { waves: number; won: number }): number =>
@@ -169,9 +81,20 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
     o.restore?.nomads.map((party) => ({ ...party, excluded: new Map(party.excluded) })) ??
     startingNomads(o.mothershipCell, o.rules());
   let nextWave = o.restore?.nextWaveId ?? 1;
+  const relations = new Map(o.restore?.relations ?? []);
+  const renown = new Map(o.restore?.renown ?? []);
+  let factionPollution = new Map<number, number>();
   /** 도시 → 오늘 모은 시설 일(레벨 × 오염 값 × ms) */
   const workToday = new Map<number, number>();
   const counts = {
+    protectionNoticed: 0,
+    protectionWon: 0,
+    protectionRepelled: 0,
+    protectionSkipped: 0,
+    rewardWaves: 0,
+    renown: 0,
+    genes: 0,
+    materials: 0,
     noticed: 0,
     battles: 0,
     won: 0,
@@ -185,6 +108,14 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
     raids: 0,
     retargets: 0,
   };
+
+  /** 웨이브 세기를 정하는 세력 규모(D-322) + 지난 하루 끝 세력 오염(D-509) */
+  const scaleOf = (faction: SimFaction): FactionScale => ({
+    cities: faction.cities.size,
+    humans: faction.units.size,
+    treasury: o.treasuryOf(faction),
+    pollution: factionPollution.get(faction.id) ?? 0,
+  });
 
   const inUse = (): number => {
     let sum = 0;
@@ -217,18 +148,18 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
     wave: GardenerWave,
     outcome: ResolvedWave["outcome"],
     nowMs: number,
-    extra: object = {},
+    reward: WaveReward = NO_REWARD,
   ): void => {
     if (wave.eventId !== undefined) o.cancel(wave.eventId);
     waves.delete(wave.id);
-    resolvedOut.push({ wave, outcome, atMs: nowMs });
+    resolvedOut.push({ wave, outcome, atMs: nowMs, reward });
     o.recorder.wave(nowMs, {
-      kind: "city",
+      kind: wave.kind,
       phase: "result",
       wave: wave.id,
       city: wave.city,
       outcome,
-      ...extra,
+      ...(reward === NO_REWARD ? {} : { reward }),
     });
   };
 
@@ -247,17 +178,35 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
       bucket.waves += 1;
       if (won) bucket.won += 1;
     }
+    const protection = wave.kind === "protection";
     if (won) {
       counts.won += 1;
+      if (protection) counts.protectionWon += 1;
       const start = city?.start === true;
       if (city && start) o.society.damage(city.id, nowMs);
       else if (city) o.society.ruin(city.id, nowMs);
       finish(wave, start ? "damaged" : "ruined", nowMs);
-    } else {
-      counts.failed += 1;
-      cooldownUntil.set(wave.city, nowMs + scaled(c.cooldownMs));
-      finish(wave, "repelled", nowMs);
+      return;
     }
+    counts.failed += 1;
+    // 보호 레이드는 막아도 아무것도 얻지 않는다(쉬는 시간도 없음, D-500 "보상은 없어야 그걸 노리고 공격하는 세력이 없어짐")
+    if (protection) {
+      counts.protectionRepelled += 1;
+      finish(wave, "repelled", nowMs);
+      return;
+    }
+    cooldownUntil.set(wave.city, nowMs + scaled(c.cooldownMs));
+    const reward = waveReward(wave.kind, wave.strength, c);
+    const owner = city ? world.factions.get(city.owner) : undefined;
+    if (owner?.alive && (reward.renown > 0 || reward.genes > 0 || reward.materials > 0)) {
+      counts.rewardWaves += 1;
+      counts.renown += reward.renown;
+      counts.genes += reward.genes;
+      counts.materials += reward.materials;
+      renown.set(owner.id, (renown.get(owner.id) ?? 0) + reward.renown);
+      o.onReward?.(wave, owner.id, reward, nowMs);
+      finish(wave, "repelled", nowMs, reward);
+    } else finish(wave, "repelled", nowMs);
   };
 
   const arrive = (waveId: number, nowMs: number): void => {
@@ -266,7 +215,8 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
     wave.eventId = undefined;
     const city = world.cities.get(wave.city);
     const owner = city ? world.factions.get(city.owner) : undefined;
-    if (!city || !owner?.alive) {
+    // 보호 레이드는 그 공격자만 친다: 그 도시 주인이 바뀌었으면 흩어진다
+    if (!city || !owner?.alive || (wave.kind === "protection" && owner.id !== wave.faction)) {
       counts.disbanded += 1;
       finish(wave, "disbanded", nowMs);
       return;
@@ -369,6 +319,66 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
     addBattle(cityId) {
       addAt(cityId, o.rules().battle);
     },
+    protect(attacker, target, cityId, nowMs) {
+      if (!target.fixed || !attacker.alive || attacker.id === target.id) return false;
+      const c = o.rules();
+      const want = raidStrength(scaleOf(attacker), c);
+      // 세기 배율 0(서버 웨이브 끔 스위치) = 레이드 없음
+      if (want <= 0) return false;
+      const home = oldestCityOf(attacker, o.cellOf);
+      if (home === undefined || [...waves.values()].some((wave) => wave.city === home)) {
+        counts.protectionSkipped += 1;
+        return false;
+      }
+      const strength = grantGardenerUnits(want, inUse(), c);
+      if (strength === 0) {
+        counts.budgetSkipped += 1;
+        return false;
+      }
+      const wave: GardenerWave = {
+        id: nextWave,
+        kind: "protection",
+        city: home,
+        faction: attacker.id,
+        strength,
+        physical: physicalCount(strength, c.raidPhysicalPm),
+        createdAtMs: nowMs,
+        arriveAtMs: waveArrivalMs(nowMs, 0, { ...c, noticeMs: scaled(c.noticeMs) }),
+        state: "marching",
+        battleId: null,
+        eventId: undefined,
+      };
+      nextWave += 1;
+      wave.eventId = o.schedule(wave.arriveAtMs, EVENT_WAVE, wave.id);
+      waves.set(wave.id, wave);
+      counts.protectionNoticed += 1;
+      counts.strengthMax = Math.max(counts.strengthMax, strength);
+      o.recorder.wave(nowMs, {
+        kind: "protection",
+        phase: "notice",
+        wave: wave.id,
+        city: home,
+        faction: attacker.id,
+        target: target.id,
+        attacked: cityId,
+        strength,
+        physical: wave.physical,
+        arriveAtMs: wave.arriveAtMs,
+      });
+      return true;
+    },
+    purify(cityId) {
+      const c = o.rules();
+      const cell = o.cellOf(cityId);
+      if (cell === undefined) return;
+      purify(layer, cell, c);
+      const owner = world.factions.get(world.cities.get(cityId)?.owner ?? -1);
+      if (owner?.alive)
+        relations.set(
+          owner.id,
+          clampRelation(relationOf(relations, owner, c) + c.relationPurifyGain, owner.fixed, c),
+        );
+    },
     endOfDay(nowMs, day) {
       const c = o.rules();
       // 오염원: 휴먼(도시마다 하루), 시설 일(오늘 모은 몫)
@@ -379,23 +389,38 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
       for (const cityId of [...workToday.keys()].toSorted((a, b) => a - b))
         addAt(cityId, facilityPollution(workToday.get(cityId) ?? 0));
       workToday.clear();
+      // 전쟁 중인 세력의 도시 칸(D-509 "전쟁이면 훨씬 크게"): 전투 한 번(+battle)과 따로 하루마다
+      for (const faction of [...world.factions.values()].toSorted((a, b) => a.id - b.id))
+        if (faction.alive && faction.wars.size > 0)
+          for (const cityId of [...faction.cities].toSorted((a, b) => a - b)) addAt(cityId, c.warDaily);
       layer = dailyPollutionStep(layer, grid, c, o.isForest);
+      // 세력 오염(D-509) → 관계도(49 N52, D-510)
+      factionPollution = factionPollutionOf(world, layer, grid, o.cellOf, c.influenceRadius);
+      updateRelations(world, relations, factionPollution, c);
 
-      // 도시 웨이브: 도시마다 굴림 하나(진군 중인 도시도 굴림은 뺀다 — 굴림 수를 같게)
+      // 도시 웨이브: 도시마다 굴림 하나(진군 중인 도시도 굴림은 뺀다 — 굴림 수를 같게). 확률 = 칸 오염(C14) × 관계도 단계 배율
       const rng = streamRng(o.seed, STREAM_GARDENER, 0, day);
       const busy = new Set([...waves.values()].map((wave) => wave.city));
+      const hits: { city: SimCity; owner: SimFaction; sum: number; chance: number }[] = [];
       for (const city of [...world.cities.values()].toSorted((a, b) => a.id - b.id)) {
         const roll = rng.nextInt(1000);
         const cell = o.cellOf(city.id);
         const owner = world.factions.get(city.owner);
         if (cell === undefined || !owner?.alive || busy.has(city.id)) continue;
         const sum = influenceSum(layer, cell, grid, c.influenceRadius);
-        const chance = waveChancePm(sum, (cooldownUntil.get(city.id) ?? 0) > nowMs, c);
-        if (roll >= chance) continue;
-        const want = waveStrength(
-          { cities: owner.cities.size, humans: owner.units.size, treasury: o.treasuryOf(owner) },
+        const stage = relationStage(relationOf(relations, owner, c), c);
+        const chance = relationChancePm(
+          waveChancePm(sum, (cooldownUntil.get(city.id) ?? 0) > nowMs, c),
+          stage,
           c,
         );
+        if (roll < chance) hits.push({ city, owner, sum, chance });
+      }
+      // 목표 순위(D-509): 세력 오염이 높은 세력의 도시부터 모함 몫을 받는다(같으면 도시 ID 차례)
+      const rank = (faction: SimFaction): number => factionPollution.get(faction.id) ?? 0;
+      hits.sort((a, b) => rank(b.owner) - rank(a.owner) || a.city.id - b.city.id);
+      for (const { city, owner, sum, chance } of hits) {
+        const want = waveStrength(scaleOf(owner), c);
         const strength = grantGardenerUnits(want, inUse(), c);
         if (strength === 0) {
           counts.budgetSkipped += 1;
@@ -404,6 +429,7 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
         const pm = physicalPm(sum, c);
         const wave: GardenerWave = {
           id: nextWave,
+          kind: "city",
           city: city.id,
           faction: owner.id,
           strength,
@@ -427,6 +453,7 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
           city: city.id,
           faction: owner.id,
           sum,
+          factionSum: rank(owner),
           chancePm: chance,
           strength,
           physical: wave.physical,
@@ -452,7 +479,19 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
         total += value;
         max = Math.max(max, value);
       }
-      o.recorder.gardener(day, { cells: layer.size, total, max, waves: waves.size, inUse: inUse() });
+      o.recorder.gardener(day, {
+        cells: layer.size,
+        total,
+        max,
+        waves: waves.size,
+        inUse: inUse(),
+        // 세력마다 [세력 ID, 세력 오염, 관계도](세력 ID 차례, 49 N52·D-509)
+        factions: [...factionPollution.keys()].map((id) => [
+          id,
+          factionPollution.get(id) ?? 0,
+          relations.get(id) ?? 0,
+        ]),
+      });
     },
     handle(kind, subject, nowMs) {
       if (kind === EVENT_WAVE) arrive(subject, nowMs);
@@ -474,6 +513,11 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
     waves,
     cooldownUntil,
     nomads,
+    relations,
+    renown,
+    get factionPollution() {
+      return factionPollution;
+    },
     nextWaveId: () => nextWave,
     inUse,
     summary() {
@@ -497,6 +541,19 @@ export function attachGardener(o: GardenerOptions): GardenerRun {
           strengthMax: counts.strengthMax,
         },
         nomads: { marches: counts.marches, raids: counts.raids, retargets: counts.retargets },
+        protection: {
+          noticed: counts.protectionNoticed,
+          won: counts.protectionWon,
+          repelled: counts.protectionRepelled,
+          skipped: counts.protectionSkipped,
+        },
+        relations: relationCounts(world, relations, o.rules()),
+        rewards: {
+          waves: counts.rewardWaves,
+          renown: counts.renown,
+          genes: counts.genes,
+          materials: counts.materials,
+        },
         target: {
           sumAtLeast: o.rules().targetSum,
           goalPm: o.rules().targetWinPm,

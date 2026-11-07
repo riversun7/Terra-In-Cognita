@@ -2,6 +2,8 @@
 // 세력·사회 계수표의 gardener 칸이다(팩 tuning 경로 "gardener.*"). 49 P15·C14~C18·S16·S17에 출발값이 없어 D-460 표의 값이
 // 설정값 출발값(D-5032)이고, D-460에 없는 자리는 질문 214~225 가(기술 기본안)다. 오염 값은 칸마다 0~cellMax 정수,
 // 시각은 실제 시간 ms, 비율은 ‰ 또는 만분율(bp).
+// 정원사 2(docs/adr/2026-11-01-gardener-r5b.md "바뀜 (2026-11-07, 정원사 2)"): 정원 세력 관계도(49 N52, D-500·D-510), 세력 오염(D-509),
+// 전쟁 칸 오염(D-509), 보호 레이드(D-500), 막아 낸 웨이브 보상(D-499). 수치는 모두 [임시] 출발값(D-515).
 
 export interface GardenerCoefficients {
   /** 칸 하나의 오염 상한(D-460 200: 0~10,000) */
@@ -63,6 +65,41 @@ export interface GardenerCoefficients {
   /** 정화 군단만 고르는 목표 오염 문턱(이 값 이상), 정화 군단 규모의 오염 한 걸음 */
   readonly nomadLegionAt: number;
   readonly nomadLegionStep: number;
+  /** 정원 세력 관계도 범위·시작값(49 N52, D-510: 옛 NpcDiplomacyAI.js 우호도 −100~+100, 시작 0) */
+  readonly relationMin: number;
+  readonly relationMax: number;
+  readonly relationStart: number;
+  /** 관계도 단계 문턱(이 값 이상): 동맹 70·우호 30·중립 −20·경계 −50, 그 아래 적대(D-510) */
+  readonly relationAllied: number;
+  readonly relationFriendly: number;
+  readonly relationNeutral: number;
+  readonly relationWary: number;
+  /** 필수 NPC 세력(고정 국가)이 아닌 세력의 관계도 상한(D-500 "필수 NPC 세력은 양수가 될 수 있다", [임시] 0) */
+  readonly relationOthersMax: number;
+  /**
+   * 하루 관계도 바뀜(D-510 "세력 오염이 쌓이면 내려가고 정화·평화로 올라간다", 양은 [임시]): 세력 오염 relationPollutionStep마다 −1
+   * (하루 최대 relationDropMax), 전쟁이 없는 날 +relationPeaceDaily, 그 세력 칸 정화 한 번 +relationPurifyGain
+   */
+  readonly relationPollutionStep: number;
+  readonly relationDropMax: number;
+  readonly relationPeaceDaily: number;
+  readonly relationPurifyGain: number;
+  /** 단계별 도시 웨이브 확률 배율(‰, 동맹·우호·중립·경계·적대 차례). 동맹 0 = 웨이브 없음(협력, D-500) [임시] */
+  readonly stageChancePm: readonly number[];
+  /** 세기 로그 안 세력 오염 항의 나눗수(C16 보완, D-509 "세력 오염이 세기를 정한다") [임시] */
+  readonly strengthPollutionUnit: number;
+  /** 전쟁 중인 세력의 도시 칸에 하루마다 더하는 오염(P15 보완, D-509 "전쟁이면 훨씬 크게") [임시] */
+  readonly warDaily: number;
+  /** 보호 레이드(D-500): 세기 = 공격자 웨이브 세기 × raidStrengthPm ÷ 1000, 물리형 ‰ = raidPhysicalPm [임시] */
+  readonly raidStrengthPm: number;
+  readonly raidPhysicalPm: number;
+  /**
+   * 막아 낸 도시 웨이브 보상(D-499, 보호 레이드는 없음 D-500): 명성 = 마리당 rewardRenownPer, 유전자 조각 = 웨이브마다 조각 아이템
+   * (gene.drops에 wave)마다 rewardGenes개, 크리쳐 재료 = 재료 아이템마다 ⌊마리 × rewardMaterialsPm ÷ 1000⌋개 [임시]
+   */
+  readonly rewardRenownPer: number;
+  readonly rewardGenes: number;
+  readonly rewardMaterialsPm: number;
 }
 
 const HOUR_MS = 3_600_000;
@@ -101,4 +138,24 @@ export const TEST_GARDENER_COEFFICIENTS: GardenerCoefficients = {
   nomadScoutSize: 4,
   nomadLegionAt: 5000,
   nomadLegionStep: 1000,
+  relationMin: -100,
+  relationMax: 100,
+  relationStart: 0,
+  relationAllied: 70,
+  relationFriendly: 30,
+  relationNeutral: -20,
+  relationWary: -50,
+  relationOthersMax: 0,
+  relationPollutionStep: 30_000,
+  relationDropMax: 10,
+  relationPeaceDaily: 2,
+  relationPurifyGain: 1,
+  stageChancePm: [0, 500, 1000, 1250, 1500],
+  strengthPollutionUnit: 100_000,
+  warDaily: 100,
+  raidStrengthPm: 2000,
+  raidPhysicalPm: 500,
+  rewardRenownPer: 10,
+  rewardGenes: 1,
+  rewardMaterialsPm: 500,
 };

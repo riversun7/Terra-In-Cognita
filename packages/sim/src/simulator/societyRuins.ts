@@ -382,7 +382,9 @@ export function createSocietyRuins(o: SocietyRuinsOptions): SocietyRuins {
       let fundPick: { ruin: SimRuin; amount: bigint } | undefined;
       let investPick: { ruin: SimRuin; amount: bigint } | undefined;
       for (const ruin of sorted()) {
-        if (ruin.claimant === null) {
+        if (canClaim(ruin)) {
+          // 주인 없음, 또는 주인의 정부 건물이 0%·사라짐(487 다 — 다시 지은 쪽이 주인). 내가 주인이면 건너뛴다(NPC는 건물 없이 값으로 짓는다)
+          if (ruin.claimant === faction.id) continue;
           // 옛 주인은 바로, 다른 세력은 폐허가 된 지 며칠 뒤. 옛 내 폐허를 먼저(같으면 작은 ID)
           const former = ruin.formerOwner === faction.id;
           if (!former && Math.floor((nowMs - ruin.ruinedAtMs) / DAY_MS) < r.npcClaimAfterDays) continue;

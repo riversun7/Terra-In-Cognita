@@ -98,7 +98,10 @@ export interface SimRuin {
   readonly housing: number;
   /** 정부(행정 건물)를 먼저 지은 주체(소유 주체 ID — 시뮬은 세력, 서버는 유저 주체도). null = 주인 없음 */
   claimant: number | null;
-  /** 복원하면 도시가 드는 세력(NPC 주인은 그 세력, 유저 주인은 그 유저의 나라 — 확인 대기 질문 481) */
+  /**
+   * 복원하면 도시가 드는 세력(NPC 주인은 그 세력, 유저 주인은 그 유저의 나라 — 기획 답 481: 유저 세력 층이 생기면 봉신·독립 고르기, 그
+   * 전엔 유저 나라)
+   */
   joinFaction: number | null;
   claimedAtMs: number;
   /**

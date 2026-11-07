@@ -71,7 +71,7 @@ export interface NpcCoefficients {
   readonly recruitTargetPm: number;
   readonly recruitReservePm: number;
   /**
-   * [임시] 폐허 복원 행동 점수(기획 답 484 다, 성향 가중 — 상업 성향 ÷ 4를 더하고 투자는 ÷ 2): 정부 짓기 기본 점수·옛 내 도시 더하기·가진 도시마다
+   * [임시] 폐허 복원 행동 점수(기획 답 484 다, 성향 가중 — 상업 성향 ÷ 4를 더한다): 정부 짓기 기본 점수·옛 내 도시 더하기·가진 도시마다
    * 빼기(확장 — 도시가 적을수록), 내 사업에 넣기 기본 점수, 남의 열린 모금 투자 기본 점수
    */
   readonly restoreClaimScore: number;

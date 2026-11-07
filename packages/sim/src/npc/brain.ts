@@ -120,7 +120,7 @@ function peaceBase(me: FactionView, r: RivalView, c: NpcCoefficients): number {
 function restoreScore(me: FactionView, r: RestoreView, c: NpcCoefficients): number | undefined {
   const commerce = Math.floor(me.traits.commerce / 4);
   if (r.mode === "fund") return c.restoreFundScore + commerce;
-  if (r.mode === "invest") return c.restoreInvestScore + Math.floor(me.traits.commerce / 2);
+  if (r.mode === "invest") return c.restoreInvestScore + commerce;
   if (!needs(me.treasury, r.cost, c)) return undefined;
   return (
     c.restoreClaimScore + commerce + (r.former ? c.restoreFormerBonus : 0) - me.cities * c.restoreCityPenalty

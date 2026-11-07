@@ -8,12 +8,14 @@ export {
   EVENT_UPKEEP,
   checkEconomy,
   defaultGatherStat,
+  oldestHome,
   scheduleEconomy,
   scheduleProduce,
   workerEffects,
   type EcoFacility,
   type Economy,
   type GatherSettings,
+  type RuinedGoodsHome,
 } from "./economy.ts";
 export { runEconomy, type EconomyRun, type EconomySummary } from "./economyRun.ts";
 export { cityTargets, marketRefPrice, onTrade } from "./npcTrade.ts";

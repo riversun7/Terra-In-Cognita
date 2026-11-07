@@ -704,8 +704,29 @@ export function beforeCityTransfer(
 }
 
 /**
+ * 폐허가 된 도시 창고 물건의 갈 곳(기획 D-518 535): 주인 → 그 주인의 도시 창고(도시 ID) 또는 null(자리 없음 — 원장 보유, 주인이 그대로
+ * 본다). 폐허가 될 도시는 아직 세계에 있으니 고르지 않는다(골라도 자리 없음으로 친다)
+ */
+export type RuinedGoodsHome = (ownerId: number, ruinedCityId: number) => number | null;
+
+/**
+ * 시뮬 기본 갈 곳: 주인 세력의 다른 도시 가운데 가장 오래된(작은 ID) 도시 — 휴먼이 피난하는 도시와 같다(society.ts ruinCity). 시뮬은 도시 자리가
+ * 없어 "가장 가까운"을 가장 오래된 도시로 친다. 다른 도시가 없으면(떠도는 세력) 자리 없음. 서버는 같은 꼴로 자리·유저 나라를 본다
+ * (apps/server/src/npc/economy.ts)
+ */
+export function oldestHome(world: SimWorld): RuinedGoodsHome {
+  return (ownerId, ruinedCityId) => {
+    const faction = world.factions.get(ownerId);
+    if (!faction?.alive) return null;
+    return [...faction.cities].filter((id) => id !== ruinedCityId).toSorted((a, b) => a - b)[0] ?? null;
+  };
+}
+
+/**
  * 도시가 폐허가 되기 바로 전(docs/adr/2026-11-01-gardener-r5b.md 4절, D-464 217): 그 도시 거래소의 걸린 주문을 돌려주고 거래소를
- * 닫는다, 그 도시 시설은 멈춘다, 그 도시 창고(누구 것이든)의 물건은 소각한다. 운송 중인 화물은 그대로 도착한다(받을 곳 없음)
+ * 닫는다, 그 도시 시설은 멈춘다. 그 도시 창고(누구 것이든)의 물건은 소각하지 않고 주인마다 갈 곳(homeOf)으로 옮긴다(기획 D-518 535 — 소유는
+ * 점령으로만 바뀐다 D-161, 건물이 사라질 때 416과 같은 결). 걸린 주문을 먼저 돌려주므로 묶였던 물건도 함께 옮긴다. 운송 중인 화물은 그대로
+ * 도착한다(받을 곳 없음)
  */
 export function cityRuined(
   economy: Economy,
@@ -713,6 +734,7 @@ export function cityRuined(
   loop: SimLoop<SimEvent>,
   cityId: number,
   nowMs: number,
+  homeOf: RuinedGoodsHome = oldestHome(world),
 ): void {
   for (const market of economy.markets.get(cityId)?.values() ?? []) {
     const owners = [...new Set(market.orders().map((order) => order.owner))].toSorted((a, b) => a - b);
@@ -725,16 +747,35 @@ export function cityRuined(
     economy.facilities.delete(id);
   }
   economy.cityUnits.delete(cityId);
+  rehomeRuinedGoods(world, cityId, nowMs, homeOf);
+}
+
+/** 그 도시 창고의 물건을 주인마다 갈 곳으로 옮긴다(535). 거래 하나(storage_rehome — 서버 건물 창고 옮기기와 같은 종류). 옮긴 계정 수 */
+export function rehomeRuinedGoods(
+  world: SimWorld,
+  cityId: number,
+  nowMs: number,
+  homeOf: RuinedGoodsHome,
+): number {
+  const found = [...world.book.accounts()]
+    .filter((account) => account.ownerId !== null && account.location === cityId && account.balance > 0n)
+    .toSorted((a, b) => a.id - b.id);
+  const homes = new Map<number, number | null>();
   const entries = [];
-  for (const account of world.book.accounts()) {
-    if (account.ownerId === null || account.location !== cityId || account.balance <= 0n) continue;
+  for (const account of found) {
+    const owner = account.ownerId ?? 0;
+    if (!homes.has(owner)) {
+      const home = homeOf(owner, cityId);
+      homes.set(owner, home === cityId ? null : home);
+    }
     entries.push({ account: account.id, amount: -account.balance });
     entries.push({
-      account: world.book.systemAccount(`sink:${account.asset}`, account.asset),
+      account: world.book.ownerAccount(owner, account.asset, homes.get(owner) ?? null),
       amount: account.balance,
     });
   }
-  if (entries.length > 0) world.book.post({ kind: "burn", atMs: nowMs, entries });
+  if (entries.length > 0) world.book.post({ kind: "storage_rehome", atMs: nowMs, entries });
+  return found.length;
 }
 
 /** 반란 세력은 부모 화폐·세율을 빌려 쓴다 */

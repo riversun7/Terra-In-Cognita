@@ -2,11 +2,11 @@
 // D-343(누구나 낸다)·D-344(독재는 지배 가문 과반), docs/adr/2026-11-07-ruins-restoration.md("바뀜 (기획 답 480~489)").
 // - 정부 짓기: NPC는 국고에서 정부 짓기 값(claimCost)을 내고 주인이 된다(시설 칸 없이 — 연구 시설과 같은 꼴). 유저는 서버 건물 짓기로.
 // - 복원 사업: 목표를 채우면 도시가 되살아난다. 넣는 값은 남은 몫까지만 받는다. 목표 = 옛 주거 × 주거 1당 값(482 나), 주거를 모르면(0)
-//   목표 기본값(goal). 모금 기한 = 주인이 된 때 + fundDays일(485 다, 지나면 돌려주고 주인 없음).
+//   (또는 주거 1당 값이 0이면) 목표 기본값(goal). 모금 기한 = 주인이 된 때 + fundDays일(485 다, 지나면 돌려주고 주인 없음).
 // - NPC 행동(484 다): 판단 후보 "폐허 복원"(npc/brain.ts)의 넣는 몫 — 주인 NPC가 넣는 국고 몫(‰), 다른 NPC가 열린 모금에 넣는 몫
 //   (‰ × 상업 성향 ÷ 1000). 옛 주인이 아닌 NPC는 폐허가 된 지 npcClaimAfterDays일이 지나야 정부를 짓는다.
 // - 지분: 1000주를 낸 값 비례로(가장 큰 나머지, shares.ts allocateShares). 도시가 드는 세력이 독재면 지배 주체가 과반(> 50%)을 늘 갖는다
-//   — 지배 주체 몫이 과반에 못 미치면 ⌊총 ÷ 2⌋ + 1주를 주고 나머지를 다른 주체가 낸 값 비례로 나눈다(D-344, 확인 대기 질문 483).
+//   — 지배 주체 몫이 과반에 못 미치면 ⌊총 ÷ 2⌋ + 1주를 주고 나머지를 다른 주체가 낸 값 비례로 나눈다(D-344, 기획 답 483 가).
 import { type Holding, type Regime, allocateShares } from "./shares.ts";
 
 export interface RestorationCoefficients {
@@ -40,9 +40,12 @@ export const START_RESTORATION_COEFFICIENTS: RestorationCoefficients = {
   npcInvestPm: 20,
 };
 
-/** 복원 목표(482 나): 옛 주거 × 주거 1당 값. 주거를 모르면(0 이하) 목표 기본값. 1 이상 */
+/** 복원 목표(482 나): 옛 주거 × 주거 1당 값. 주거를 모르거나(0 이하) 주거 1당 값이 0 이하면 목표 기본값. 1 이상 */
 export function restorationGoal(housing: number, c: RestorationCoefficients): bigint {
-  const goal = housing > 0 ? BigInt(housing) * BigInt(Math.max(0, c.goalPerHousing)) : BigInt(c.goal);
+  const goal =
+    housing > 0 && c.goalPerHousing > 0
+      ? BigInt(Math.floor(housing)) * BigInt(Math.floor(c.goalPerHousing))
+      : BigInt(Math.floor(c.goal));
   return goal > 0n ? goal : 1n;
 }
 

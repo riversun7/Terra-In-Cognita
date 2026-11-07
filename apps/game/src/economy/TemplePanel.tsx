@@ -143,6 +143,9 @@ function GuardianRow({
 /** 밀리점 → 점(만족도 0~100, 소수 한 자리까지) */
 const formatPoints = (milli: number): string =>
   milli % 1000 === 0 ? formatNumber(milli / 1000) : (milli / 1000).toFixed(1);
+/** 만분율 → 퍼센트 글(3000 → "30", 125 → "1.25") */
+const formatPercentBp = (bp: number): string =>
+  bp % 100 === 0 ? formatNumber(bp / 100) : (bp / 100).toFixed(2);
 
 /** 개발 시험 화폐 한 번(최소 단위) */
 const DEV_CURRENCY = 100_000;
@@ -470,6 +473,16 @@ export function TemplePanel() {
                     cost: formatAmount(rules.rebirthCurrency),
                   })}
                 </li>
+                {rules.rebirthStatChanceBp === undefined ? null : (
+                  <li>
+                    {m.temple_rule_rebirth_advantage({
+                      stat: formatPercentBp(rules.rebirthStatChanceBp),
+                      statAmount: rules.rebirthStatAmount ?? 0,
+                      k: formatPercentBp(rules.rebirthKChanceBp ?? 0),
+                      kAmount: rules.rebirthKAmountPm ?? 0,
+                    })}
+                  </li>
+                )}
                 <li>
                   {m.temple_rule_deify({
                     faith: rules.deifyFaith,

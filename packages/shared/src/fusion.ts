@@ -1,9 +1,11 @@
 // 사이보그 유닛 융합·유전자 화면 자료(tRPC fusion.overview) — 기획 D-470(휴먼 + 기계 부품 → 사이보그 유닛, 수명 없음·유지비 비쌈),
 // D-478·D-481·D-516(유전자: 수명이 다한 휴먼·크리쳐에서 남는 인스턴스 — 스탯 유전자 = 총합·분포·속성, 스킬 유전자 = 스킬 하나, 합성은
 // 확률로 오름·내림·그대로, 인큐베이터는 총합 또는 주력 스탯 적용), 49 N46·N47, docs/adr/2026-11-07-cyborg-fusion-genes.md.
-// 바꾸는 명령은 WebSocket cyborg_fuse·dev_grant_goods(프로토콜 9)·gene_*·dev_grant_gene·dev_expire_unit(프로토콜 11)이다.
+// 바꾸는 명령은 WebSocket cyborg_fuse·dev_grant_goods(프로토콜 9)·gene_*·dev_grant_gene·dev_expire_unit(프로토콜 11)이다. 생명과학 연구소
+// 인큐베이터(gene_incubate 연구소 칸)는 프로토콜 13(기획 답 459 가, docs/adr/2026-11-07-temple-religion.md "바뀜 (기획 답 451~459)").
 // 화폐는 최소 단위 10진 문자열이다. 1차 스탯 배열 차례는 STR·DEX·AGI·VIT·INT·WIS(사이보그·구인 휴먼과 같다), 속성은 ELEMENT_IDS 차례.
 import type { LocalizedName } from "./roster.ts";
+import type { TempleView } from "./temple.ts";
 
 /** 1차 스탯 배열 차례(STR·DEX·AGI·VIT·INT·WIS) */
 export const FUSION_STAT_ORDER = ["str", "dex", "agi", "vit", "int", "wis"] as const;
@@ -91,7 +93,9 @@ export interface GeneRulesView {
   readonly elementVariance: number;
   /** 인큐베이터 휴먼의 바탕 1차 스탯(칸마다) */
   readonly incubateBase: number;
-  /** [임시] 인큐베이터·주입 시설(팩에 아직 없다 — 시설을 보지 않는다) */
+  /** 인큐베이터 화폐(생명과학 연구소, 기획 답 459 가, 설정 칸 n47_incubate_currency [임시]) */
+  readonly incubateCurrency: string;
+  /** 인큐베이터 시설 단계(생명공학 = 생명과학 연구소, 연구소 목록은 labs). 주입은 시설을 보지 않는다 */
   readonly facility: string | null;
 }
 
@@ -123,6 +127,8 @@ export interface FusionOverviewResponse {
   readonly cyborgUnits: readonly FusionCyborgUnitView[];
   /** 내 유전자(보유 물건 ID 차례) */
   readonly genes: readonly FusionGeneView[];
+  /** 생명과학 연구소(인큐베이터를 여는 곳, 누구의 연구소든 — 기획 답 459 가). 신전 조회의 labs와 같은 모양 */
+  readonly labs: readonly TempleView[];
   /** 개발 시험(물자·유전자 받기, 수명 끝내기)을 쓸 수 있는가(dev·admin) */
   readonly devGrant: boolean;
   readonly generatedAt: number;

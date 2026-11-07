@@ -123,6 +123,7 @@ export function createWorldFacilities(input: {
     catalog,
     rules: input.rules,
     unitBusy: (unitId) => labor?.unitBusy(unitId) ?? false,
+    unitAway: (unitId) => labor?.unitAway(unitId) ?? false,
     now: input.now,
     ready: input.ready,
   });

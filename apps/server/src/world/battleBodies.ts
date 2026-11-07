@@ -24,9 +24,9 @@ export interface BattleBodies {
   battleStart(init: BattleInit, nowMs: number): BattleInit;
   /**
    * 세계 유닛 하나의 전투 사양(바탕 = 사이보그 본체 또는 [임시] 기본 몸 + 입은 물건·걸린 효과). 세계에 없거나 전투 자료가 없으면 undefined.
-   * 건물 공격 전투(facilities/attack.ts)가 시작 자료를 만들 때 쓴다
+   * 건물 공격 전투(facilities/attack.ts)가 시작 자료를 만들 때 쓴다. base를 주면 그 바탕을 쓴다(수호신 = 저장된 스탯 몸, temple/cityDefense.ts)
    */
-  build(unitId: number, place: SpecPlace, nowMs: number): CombatUnitSpec | undefined;
+  build(unitId: number, place: SpecPlace, nowMs: number, base?: BodyBase): CombatUnitSpec | undefined;
 }
 
 export function createBattleBodies(input: {
@@ -47,10 +47,10 @@ export function createBattleBodies(input: {
     return record ? { kind: "cyborg", record } : BASELINE_BASE;
   };
   return {
-    build(unitId, place, nowMs) {
+    build(unitId, place, nowMs, base) {
       const catalog = input.catalog?.();
       if (!catalog || !exists(unitId)) return undefined;
-      return combatSpecOf(catalog, baseOf(unitId), input.gearOf(unitId, nowMs), place, nowMs);
+      return combatSpecOf(catalog, base ?? baseOf(unitId), input.gearOf(unitId, nowMs), place, nowMs);
     },
     battleStart(init, nowMs) {
       const catalog = input.catalog?.();

@@ -1,10 +1,18 @@
 // 신전·생명과학 연구소 칸(생산 칸, 건물 아래) — 기획 D-517(수명이 다한 휴먼은 비활성 → 신전에서 환생·신격화하거나 생명과학 연구소에서
 // 유전자로 변환)·D-311·D-441·D-451, docs/adr/2026-11-07-temple-religion.md. 기술 기본 화면이다(옛 화면 없음).
-// - 자료는 tRPC temple.overview(실제 자료만). 바꾸는 명령은 WebSocket: 기도·헌금·의식·비활성 만들기(templeCommands.ts, 프로토콜 12),
+// - 자료는 tRPC temple.overview(실제 자료만). 바꾸는 명령은 WebSocket: 기도·헌금·의식·비활성 만들기(templeCommands.ts, 프로토콜 12)·수호신 버프 편집(13),
 //   유전자 변환(units/fusionCommands.ts gene_convert). 서버가 판정한다(비활성·선 도시·신앙도·잔고·도시당 수호신). 화면은 막는 까닭만 미리 보인다.
 // - 차례: 설명·규칙 → 내 신앙도 → 신전 카드(기도·헌금, 그 도시에 선 내 비활성 휴먼마다 [환생]·[신격화]) → 연구소 카드(그 도시 비활성 휴먼마다
-//   [유전자로 변환]) → 내 휴먼(신앙도·비활성·수명) → 수호신. 신전·연구소는 위 건물 칸 [새로 짓기]에서 짓는다(건물 런타임 그대로).
-import type { TempleHumanView, TempleOverviewResponse, TempleView } from "@terra/shared/temple";
+//   [유전자로 변환]) → 내 휴먼(신앙도·비활성·수명) → 수호신(버프, 기획 답 456 가 — dev·admin은 수호신마다 버프 칸을 바꾼다: 개발 편집
+//   dev_guardian_buff). 신전·연구소는 위 건물 칸 [새로 짓기]에서 짓는다(건물 런타임 그대로).
+import {
+  TEMPLE_GUARDIAN_BUFFS,
+  type TempleGuardianBuff,
+  type TempleGuardianView,
+  type TempleHumanView,
+  type TempleOverviewResponse,
+  type TempleView,
+} from "@terra/shared/temple";
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { formatAmount, formatNumber } from "../roster/rosterText.ts";
@@ -62,6 +70,77 @@ const templeAction =
       ? { ok: true, text: success(outcome) }
       : { ok: false, text: TEMPLE_ERROR_TEXT[outcome.code]() };
   };
+
+/** 수호신 도시 버프 이름(기획 답 456 가) */
+const BUFF_TEXT: Readonly<Record<TempleGuardianBuff, () => string>> = {
+  defense: m.temple_buff_defense,
+  satisfaction: m.temple_buff_satisfaction,
+  production: m.temple_buff_production,
+};
+
+const isBuff = (value: string): value is TempleGuardianBuff =>
+  (TEMPLE_GUARDIAN_BUFFS as readonly string[]).includes(value);
+
+/** 수호신 한 줄: 도시·레벨·환생·버프, 유닛이 없으면(이전 기록) 표시. dev·admin은 버프 칸을 바꾼다(개발 편집) */
+function GuardianRow({
+  guardian,
+  dev,
+  busy,
+  run,
+}: {
+  guardian: TempleGuardianView;
+  dev: boolean;
+  busy: string | null;
+  run: Run;
+}) {
+  const key = `buff-${guardian.unitId}`;
+  return (
+    <li className="temple-human" data-guardian={guardian.unitId} data-buff={guardian.buff}>
+      <p>
+        {m.temple_guardian_line({
+          id: guardian.unitId,
+          city: guardian.cityId,
+          level: guardian.level,
+          rebirths: guardian.rebirths,
+          buff: BUFF_TEXT[guardian.buff](),
+        })}
+        {guardian.mine ? <span className="eco-tag">{m.temple_card_mine()}</span> : null}
+        {guardian.present ? null : <span className="eco-tag">{m.temple_guardian_absent()}</span>}
+      </p>
+      {dev ? (
+        <label className="temple-buff">
+          <span className="field-hint">{m.temple_guardian_buff_field()}</span>
+          <select
+            className="temple-buff-select"
+            value={guardian.buff}
+            disabled={busy !== null}
+            aria-busy={busy === key}
+            onChange={(event) => {
+              const buff = event.target.value;
+              if (!isBuff(buff)) return;
+              void run(
+                key,
+                templeAction({ t: "dev_guardian_buff", unit: guardian.unitId, buff }, () =>
+                  m.temple_guardian_buff_done({ id: guardian.unitId, buff: BUFF_TEXT[buff]() }),
+                ),
+              );
+            }}
+          >
+            {TEMPLE_GUARDIAN_BUFFS.map((buff) => (
+              <option key={buff} value={buff}>
+                {BUFF_TEXT[buff]()}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+    </li>
+  );
+}
+
+/** 밀리점 → 점(만족도 0~100, 소수 한 자리까지) */
+const formatPoints = (milli: number): string =>
+  milli % 1000 === 0 ? formatNumber(milli / 1000) : (milli / 1000).toFixed(1);
 
 /** 개발 시험 화폐 한 번(최소 단위) */
 const DEV_CURRENCY = 100_000;
@@ -407,6 +486,13 @@ export function TemplePanel() {
                     ? m.temple_rule_cap({ wait: formatDuration(rules.inactiveCapMs) })
                     : m.temple_rule_no_cap()}
                 </li>
+                <li>
+                  {m.temple_rule_guardian({
+                    pm: rules.guardianDefensePm,
+                    sat: formatPoints(rules.guardianSatisfactionMilli),
+                    prod: rules.guardianProductionPm,
+                  })}
+                </li>
               </ul>
               {loaded.devGrant ? (
                 <div className="labor-actions">
@@ -483,17 +569,13 @@ export function TemplePanel() {
               ) : null}
               <ul className="temple-humans" data-part="temple-guardians">
                 {loaded.guardians.map((guardian) => (
-                  <li key={guardian.unitId} className="temple-human" data-guardian={guardian.unitId}>
-                    <p>
-                      {m.temple_guardian_line({
-                        id: guardian.unitId,
-                        city: guardian.cityId,
-                        level: guardian.level,
-                        rebirths: guardian.rebirths,
-                      })}
-                      {guardian.mine ? <span className="eco-tag">{m.temple_card_mine()}</span> : null}
-                    </p>
-                  </li>
+                  <GuardianRow
+                    key={guardian.unitId}
+                    guardian={guardian}
+                    dev={loaded.devGrant}
+                    busy={busy}
+                    run={run}
+                  />
                 ))}
               </ul>
             </>

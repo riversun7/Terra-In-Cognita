@@ -5,12 +5,14 @@
 //   고르지 않으면 그대로 남는다. 바뀌는 길은 둘: 신전 환생·신격화(src/temple/service.ts) 또는 생명과학 연구소 유전자 변환(convert) → 그 유닛의
 //   스탯 유전자 하나(총합·분포·속성)와 배운 스킬마다 스킬 유전자 하나를 소유자에게 남기고, 지닌 물건·화물을 소유자에게 옮긴 뒤 유닛이 떠난다
 //   (지워진다). [임시] 남는 곳 = 소유자 사이보그 본체가 듦(창고 자리는 질문 396). 비활성 상한(설정 칸, 출발값 없음 = 상한 없음)을 두면
-//   수명 끝 + 상한에 같은 변환으로 떠난다(expireDue, [임시] 질문). 신격화는 같은 길로 떠나되 유전자는 남기지 않는다(release).
+//   수명 끝 + 상한에 같은 변환으로 떠난다(expireDue, [임시] 질문). 신격화는 떠나지 않고 수호신 유닛이 된다(기획 답 456 가, src/temple/).
 //   NPC 세력 휴먼은 유전자를 남기지 않는다(쓰는 곳이 없다, 질문 397). devExpire = 개발 시험 바로 변환(연구소·비활성·값 없이).
 // - 합성(synthesize): 같은 종 스탯 유전자 둘 → 새 스탯 유전자 하나(둘 다 사라짐). 시드 굴림 하나.
 // - 주입(inject): 스킬 유전자 하나 → 내 휴먼이 그 스킬을 등급 1로 배운다(스킬 칸 규칙 = 팩 unit_kinds skillSlots, 이미 배운 스킬은 거절).
-// - 인큐베이터(incubate): 휴먼 스탯 유전자 하나 → 새 휴먼(유닛 종류 4) 하나가 사이보그 본체 둘레에 태어난다(총합 또는 주력 스탯 적용, 속성은
-//   유전자 값, 수명 T4 굴림). 팩에 인큐베이터 시설이 없어 개발 시험(dev·admin, gateway.ts)으로만 연다. 비용 없음 [임시](질문).
+// - 인큐베이터(incubate): 휴먼 스탯 유전자 하나 → 새 휴먼(유닛 종류 4) 하나(총합 또는 주력 스탯 적용, 속성은 유전자 값, 수명 T4 굴림).
+//   기획 답 459 가: 생명과학 연구소(생명공학 단계, Lv1부터 — 다 지음·30% 이상)에서 플레이어 명령으로 연다. 비용 = 화폐(설정 칸
+//   n47_incubate_currency [임시], 남의 연구소 = 주인 수입·내 연구소 = 소각, 454 가), 재료 없음. 새 휴먼은 연구소 둘레에 태어나고 사는 도시 =
+//   연구소 도시. 연구소 없이 여는 것은 개발 시험(dev·admin, gateway.ts — 사이보그 본체 둘레·사는 도시 없음·값 없음)이다.
 // - 개발 시험(dev·admin): 시험 유전자 받기(devGrantGene), 수명 끝내기(devExpire).
 // 명령 하나 = 읽기(DB, 쓰기 대기열이 따라잡은 뒤) → 다시 확인(메모리) → 한 번의 동기 처리 → 커밋 뒤 답(U2).
 import type { ItemEntry } from "@terra/content";
@@ -40,6 +42,7 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
+import { buildingCell } from "../facilities/places.ts";
 import { BIOTECH_STAGE, payServiceFee, serviceFacility, unitCity } from "../temple/places.ts";
 import { UNIT_KIND_CYBORG, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import { geneItemsOf, statGeneOfPayload } from "./genes.ts";
@@ -102,9 +105,14 @@ export interface GeneCommandOptions {
 export interface GeneCommands {
   synthesize(userId: string, input: { readonly a: number; readonly b: number }): Promise<GeneCommandResult>;
   inject(userId: string, input: { readonly gene: number; readonly unit: number }): Promise<GeneCommandResult>;
+  /** lab = 생명과학 연구소와 기기가 본 인큐베이터 화폐(없으면 개발 시험 — 권한은 게이트웨이가 본다) */
   incubate(
     userId: string,
-    input: { readonly gene: number; readonly apply: GeneApply },
+    input: {
+      readonly gene: number;
+      readonly apply: GeneApply;
+      readonly lab?: { readonly buildingId: number; readonly cost: string } | undefined;
+    },
   ): Promise<GeneCommandResult>;
   devGrantGene(
     userId: string,
@@ -121,11 +129,6 @@ export interface GeneCommands {
   ): Promise<GeneCommandResult>;
   /** 비활성 상한(설정 칸, 0 = 상한 없음)이 지난 유저 휴먼을 유전자로 바꿔 떠나보낸다(1분마다). 처리한 휴먼 수 */
   readonly expireDue: (nowMs: number) => Promise<number>;
-  /**
-   * 유저 휴먼 하나를 유전자 없이 떠나보낸다(신격화, 한 번의 동기 처리): 지닌 것·화물을 소유자에게, 배운 스킬·신앙·휴먼 행·유닛을 지운다.
-   * 메모리 유닛이 없거나 휴먼이 아니거나 주인이 바뀌었으면 false
-   */
-  readonly release: (ownerId: number, human: HumanRow, skills: readonly string[], atMs: number) => boolean;
 }
 
 const fail = (code: FusionResultCode): GeneCommandResult => ({ ok: false, code });
@@ -172,15 +175,14 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
   };
 
   /**
-   * 떠나는 휴먼 하나(한 번의 동기 처리): 유전자를 남기고(leaveGenes — 신격화는 남기지 않음), 지닌 것·화물을 소유자에게 옮기고, 유닛이
-   * 떠난다. 남은 유전자 칸 ID. 메모리 유닛이 이미 없거나 휴먼이 아니거나 주인이 바뀌었으면 아무것도 하지 않는다(undefined)
+   * 떠나는 휴먼 하나(한 번의 동기 처리): 유전자를 남기고, 지닌 것·화물을 소유자에게 옮기고, 유닛이 떠난다. 남은 유전자 칸 ID. 메모리 유닛이
+   * 이미 없거나 휴먼이 아니거나 주인이 바뀌었으면 아무것도 하지 않는다(undefined)
    */
   const retire = (
     ownerId: number,
     human: HumanRow,
     skills: readonly string[],
     atMs: number,
-    leaveGenes = true,
   ): number[] | undefined => {
     const found = unitOf(human.unitId);
     if (!found || found.info.kind !== UNIT_KIND_HUMAN || found.info.ownerId !== ownerId) return undefined;
@@ -197,10 +199,8 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
         const id = holdings.addGene({ ownerId, item, location: place, gene, atMs, source: "lifespan" });
         if (id !== undefined) created.push(id);
       };
-      if (leaveGenes) {
-        add(statItem, { kind: "stat", ...statGeneOf(human.stats, human.elements), generation: 0, ...origin });
-        for (const skill of skills) add(skillItem, { kind: "skill", skill, ...origin });
-      }
+      add(statItem, { kind: "stat", ...statGeneOf(human.stats, human.elements), generation: 0, ...origin });
+      for (const skill of skills) add(skillItem, { kind: "skill", skill, ...origin });
       holdings.moveCarried(human.unitId, place);
     } else {
       o.log?.warn({ unitId: human.unitId, ownerId }, "genes: owner has no cyborg unit; no genes left");
@@ -322,20 +322,46 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
       if (!record?.gene) return fail("unknown_gene");
       // 크리쳐는 바탕 개체(포획·알)가 종을 정한다(D-481) — 바탕 개체 고르기는 크리쳐 줄기에서
       if (record.gene.kind !== "stat" || record.gene.species !== HUMAN_SPECIES) return fail("wrong_gene");
-      const cyborg = cyborgUnitOf(owner.ownerId);
-      const motion = cyborg?.map.unitInfo(cyborg.id)?.motion;
-      if (!cyborg || !motion) return fail("no_cyborg");
       const society = o.rules();
-      const stats = incubateStats(statGeneOfPayload(record.gene), input.apply, society.fusion);
       const at = o.now();
-      const point = positionAt(motion, at);
-      const center = { x: Math.floor(point.x / CELL_UNITS), y: Math.floor(point.y / CELL_UNITS) };
-      // 한 번의 동기 처리: 유닛 → 유전자 지우기 → 휴먼 행(같은 커밋)
+      // 태어나는 자리: 연구소면 그 건물 기준 칸 둘레·사는 도시 = 연구소 도시(459 가), 개발 시험이면 사이보그 본체 둘레·노숙
+      let birth: {
+        readonly map: SecondMap;
+        readonly x: number;
+        readonly y: number;
+        readonly cityId: number | null;
+      };
+      let fee: { readonly to: number | null; readonly amount: bigint } | undefined;
+      if (input.lab) {
+        const lab = labOf(input.lab.buildingId);
+        if (!lab.ok) return fail(lab.code);
+        const cell = buildingCell(o.maps, input.lab.buildingId);
+        const map = cell ? o.maps.get(cell.mapKey) : undefined;
+        if (!cell || !map) return fail("not_lab");
+        const amount = BigInt(Math.max(0, society.fusion.incubateCurrency));
+        if (String(amount) !== input.lab.cost) return fail("cost_changed");
+        if (ledger.balanceOf(owner.ownerId, ASSET_CREDIT) < amount) return fail("insufficient_funds");
+        birth = { map, x: cell.x, y: cell.y, cityId: lab.cityId };
+        fee = { to: lab.ownerId, amount };
+      } else {
+        const cyborg = cyborgUnitOf(owner.ownerId);
+        const motion = cyborg?.map.unitInfo(cyborg.id)?.motion;
+        if (!cyborg || !motion) return fail("no_cyborg");
+        const point = positionAt(motion, at);
+        birth = {
+          map: cyborg.map,
+          x: Math.floor(point.x / CELL_UNITS),
+          y: Math.floor(point.y / CELL_UNITS),
+          cityId: null,
+        };
+      }
+      const stats = incubateStats(statGeneOfPayload(record.gene), input.apply, society.fusion);
+      // 한 번의 동기 처리: 유닛 → 요금 → 유전자 지우기 → 휴먼 행(같은 커밋)
       const unitId = o.nextUnitId();
       let placed = false;
-      for (const cell of spiralCells(center.x, center.y, PLACE_RADIUS)) {
+      for (const cell of spiralCells(birth.x, birth.y, PLACE_RADIUS)) {
         if (
-          cyborg.map.addUnit({
+          birth.map.addUnit({
             id: unitId,
             size: 1,
             speed: WALK_SPEED,
@@ -350,12 +376,13 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
         }
       }
       if (!placed) return fail("no_room");
+      if (fee) payServiceFee(ledger, owner.ownerId, fee.to, fee.amount, at, "gene_incubate");
       holdings.remove(record.id);
       const rng = createRng(o.seed());
       writer.upsert("humans", {
         unit_id: unitId,
-        // [임시] 사는 도시 없음(노숙): 인큐베이터 시설·도시가 정해지지 않았다(질문)
-        city_id: null,
+        // 사는 도시 = 연구소 도시(459 가). 개발 시험은 노숙(도시 없음)
+        city_id: birth.cityId,
         satisfaction_milli: START_SATISFACTION,
         born_at_ms: at,
         lifespan_ms: lifespanMs(rng.nextInt(10_000), society),
@@ -446,8 +473,6 @@ export function createGeneCommands(o: GeneCommandOptions): GeneCommands {
         expiring = false;
       }
     },
-
-    release: (ownerId, human, skills, atMs) => retire(ownerId, human, skills, atMs, false) !== undefined,
 
     async convert(userId, input) {
       const owner = ownerFor(userId);

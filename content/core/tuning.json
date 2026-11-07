@@ -4268,6 +4268,58 @@
       "unit": "pm",
       "min": 0,
       "max": 1000
+    },
+    {
+      "id": "d311_guardian_defense_pm",
+      "code": "",
+      "name": {
+        "ko": "수호신 방어 버프: 그 도시 수비 유닛 방어율(‰, 수호신마다)",
+        "en": "Guardian defense buff: city defenders' defense rate (‰ per guardian)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "d311_guardian_satisfaction_milli",
+      "code": "",
+      "name": {
+        "ko": "수호신 만족도 버프: 그 도시 휴먼 만족도 하루 +(밀리점, 수호신마다)",
+        "en": "Guardian morale buff: city humans' satisfaction per day (milli-points per guardian)"
+      },
+      "value": 1000,
+      "structural": false,
+      "unit": "milli",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "d311_guardian_production_pm",
+      "code": "",
+      "name": {
+        "ko": "수호신 생산 버프: 그 도시 시설 산출 +(‰, 수호신마다)",
+        "en": "Guardian production buff: city facility output (‰ per guardian)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "id": "n47_incubate_currency",
+      "code": "N47",
+      "name": {
+        "ko": "인큐베이터 화폐(생명과학 연구소, 최소 단위)",
+        "en": "Incubator currency (biotech lab, minor units)"
+      },
+      "value": 5000,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000000
     }
   ]
 }

@@ -1,6 +1,8 @@
-// 신전·종교 메시지 스키마 시험(프로토콜 12, docs/adr/2026-11-07-temple-religion.md) — 왕복, 값 모양, 결과 코드
+// 신전·종교 메시지 스키마 시험(프로토콜 12·13, docs/adr/2026-11-07-temple-religion.md) — 왕복, 값 모양, 결과 코드
 import { describe, expect, it } from "vitest";
 import {
+  GUARDIAN_BUFF_IDS,
+  GUARDIAN_BUFF_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
   ProtocolError,
   TEMPLE_PROTOCOL_VERSION,
@@ -37,6 +39,21 @@ describe("신전 메시지(프로토콜 12)", () => {
     expect(decodes(decodeClientMessage, { ...rite, unit: 0 })).toBe(false);
     const inactivate = { t: "dev_inactivate_unit", id: 4, unit: 41 } as const;
     expect(decodeClientMessage(encodeMessage(inactivate))).toEqual(inactivate);
+  });
+
+  it("판 13: 개발 편집 수호신 버프 바꾸기", () => {
+    expect(GUARDIAN_BUFF_PROTOCOL_VERSION).toBe(13);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(GUARDIAN_BUFF_PROTOCOL_VERSION);
+    for (const buff of GUARDIAN_BUFF_IDS) {
+      const message = { t: "dev_guardian_buff", id: 5, unit: 41, buff } as const;
+      expect(decodeClientMessage(encodeMessage(message))).toEqual(message);
+    }
+    expect(decodes(decodeClientMessage, { t: "dev_guardian_buff", id: 5, unit: 41, buff: "attack" })).toBe(
+      false,
+    );
+    expect(decodes(decodeClientMessage, { t: "dev_guardian_buff", id: 5, unit: 0, buff: "defense" })).toBe(
+      false,
+    );
   });
 
   it("결과: 성공 칸(유닛·신앙도·얻은 양)과 코드", () => {

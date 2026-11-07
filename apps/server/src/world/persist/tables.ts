@@ -166,7 +166,7 @@ export const WORLD_TABLES = {
     columns: ["owner_id", "last_prayed_at_ms"],
     key: ["owner_id"],
   },
-  /** 수호신 기록(D-311, 바탕 유닛 ID 열쇠 — 소유 주체·도시 다음에 쓴다) */
+  /** 수호신(D-311·기획 답 456 가, 바탕 유닛 ID 열쇠 — 소유 주체·도시 다음에 쓴다) */
   templeGuardians: {
     name: "temple_guardians",
     columns: [
@@ -180,6 +180,7 @@ export const WORLD_TABLES = {
       "elements",
       "faith",
       "deified_at_ms",
+      "buff",
     ],
     key: ["unit_id"],
   },

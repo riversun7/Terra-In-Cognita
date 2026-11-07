@@ -5,8 +5,9 @@
 //   않는다, 전쟁 상대끼리는 악명 없음) → 누구나 남의 시설·다른 세력 비콘을 칠 수 있다. 도시 시가지(D-146, 영향권 반경 ÷ 3) 안은 공성 시간에만
 //   (D-184, 기획 45 "시가지 안의 시설은 공성 시간에 공격받는다") → 공성 선포가 아직 없어 늘 safe_zone. 내 것·내 세력 것은 못 친다
 //   (own_target). 전쟁 중인 세력끼리면 전쟁 전투(진 유닛은 포로, D-187). 악명·현상금은 아직 없다(TODO).
-// - 전투: 넥서스 = 대상(지금 내구도 점, 2×2칸, 가운데), 공격 = 내 유닛(그 건물·비콘 칸의 2차맵에 있는 것), 수비 = 그 주인(비콘은 그 세력)의
-//   유닛 가운데 근처(ATTACK_DEFENDER_RADIUS칸)에 있는 것. [임시] 열린 공성 맵(일반 크기 64, 정원사 웨이브와 같은 틀) — 2차맵 구역 복사는
+// - 전투: 넥서스 = 대상(지금 내구도 점, 2×2칸, 가운데), 공격 = 내 유닛(그 건물·비콘 칸의 2차맵에 있는 것, 비활성·수호신은 unit_busy), 수비 = 그
+//   주인(비콘은 그 세력)의 유닛 가운데 근처(ATTACK_DEFENDER_RADIUS칸)에 있는 것(비활성·수호신 빼고 — 그 도시 수호신은 도시 방어가 넣는다,
+//   기획 답 452 다·456 가). [임시] 열린 공성 맵(일반 크기 64, 정원사 웨이브와 같은 틀) — 2차맵 구역 복사는
 //   전투맵 인스턴스 ADR(2026-10-29-combat-map-instances.md)의 다음 단계. 몸은 세계 전투와 같은 셈(bodies·생명 수치·물약·탄).
 // - 결과(battleTargets.ts): 전투 서비스가 끝 시각에 결과를 적용할 때 같은 동기 처리로 상태(ppm)를 줄인다(0이면 폐허 = 기능 정지, 366).
 import {
@@ -68,8 +69,13 @@ export interface BuildingAttackOptions {
   readonly startBattle: (init: BattleInit, war: boolean) => Promise<number>;
   /** 전투 결과를 적용하는 시각(전투가 없으면 undefined) */
   readonly endsAt: (battleId: number) => Promise<number | undefined>;
-  /** 유닛이 노동 계약 중인가 */
+  /** 유닛이 노동 계약 중이거나 일하지 않는가(비활성·수호신) — 공격 유닛으로 못 쓴다 */
   readonly unitBusy: (unitId: number) => boolean;
+  /**
+   * 일하지 않는 유닛인가(비활성 = 전투만 막음 — 기획 답 452 다, 수호신 = 도시 방어가 그 도시 전투에만 따로 넣음 — 456 가). 수비로 고르지 않는다.
+   * 없으면 늘 false
+   */
+  readonly unitAway?: ((unitId: number) => boolean) | undefined;
   readonly seed: () => number;
   readonly now: () => number;
   readonly ready: () => boolean;
@@ -108,11 +114,19 @@ interface AttackTarget {
   readonly defends: (ownerId: number) => boolean;
 }
 
-/** 수비: 그 주인(비콘은 그 세력)의 쓸 수 있는 유닛 가운데 기준 칸에서 가까운 차례(같으면 작은 ID) */
-function pickDefenders(target: AttackTarget, attackers: ReadonlySet<number>, at: number): number[] {
+/**
+ * 수비: 그 주인(비콘은 그 세력)의 쓸 수 있는 유닛 가운데 기준 칸에서 가까운 차례(같으면 작은 ID). 일하지 않는 유닛(비활성·수호신)은 뺀다 —
+ * 수호신은 도시 방어(temple/cityDefense.ts)가 그 도시 전투에 넣는다
+ */
+function pickDefenders(
+  target: AttackTarget,
+  attackers: ReadonlySet<number>,
+  at: number,
+  away: (unitId: number) => boolean,
+): number[] {
   const found: { id: number; d: number }[] = [];
   target.map.forEachUnit((unit) => {
-    if (attackers.has(unit.id) || !target.defends(unit.ownerId)) return;
+    if (attackers.has(unit.id) || !target.defends(unit.ownerId) || away(unit.id)) return;
     const info = target.map.unitInfo(unit.id);
     const cell = unitCell(target.map, unit.id, at);
     if (!info || !cell || unavailable(info.condition, at)) return;
@@ -331,7 +345,7 @@ export function createBuildingAttack(options: BuildingAttackOptions): BuildingAt
       if (urban !== undefined && urban !== null) return fail("safe_zone");
       const problem = checkAttackers(me, found.map, unitIds, at);
       if (problem) return fail(problem);
-      const defenders = pickDefenders(found, new Set(unitIds), at);
+      const defenders = pickDefenders(found, new Set(unitIds), at, (id) => options.unitAway?.(id) ?? false);
       const init = initOf(me, found, unitIds, defenders, at);
       if (!init) return fail("busy");
       const war = myFaction !== null && found.faction !== null && (await atWar(myFaction, found.faction));

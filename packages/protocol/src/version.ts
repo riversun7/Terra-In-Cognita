@@ -39,7 +39,9 @@
  *    이 판 메시지의 답에만 간다). 두 줄기를 배포 전에 합쳐 한 판으로 올렸다. 더하기만 했고 11판 기기는 그대로 받는다.
  * 13: 폐허 복원(ruins.ts, docs/adr/2026-11-07-ruins-restoration.md, D-510) — restoration_open·restoration_fund·dev_make_ruin →
  *    restoration_result. 행정 건물(시설 단계 government) 짓기의 facility_result 새 코드 not_ruin·ruin_claimed는 13판 연결에만 가고
- *    더 낮은 판은 not_buildable을 받는다. 더하기만 했고 12판 기기는 그대로 받는다.
+ *    더 낮은 판은 not_buildable을 받는다. 신전 2(docs/adr/2026-11-07-temple-religion.md "바뀜 (기획 답 451~459)") — 생명과학 연구소
+ *    인큐베이터(fusion.ts gene_incubate에 연구소 칸 buildingId·cost, 칸이 없으면 판 11 그대로 개발 시험)·개발 편집 수호신 버프
+ *    (temple.ts dev_guardian_buff → temple_result). 두 줄기를 배포 전에 합쳐 한 판으로 올렸다. 더하기만 했고 12판 기기는 그대로 받는다.
  */
 export const PROTOCOL_VERSION = 13;
 

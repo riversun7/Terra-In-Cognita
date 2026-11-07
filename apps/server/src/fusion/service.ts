@@ -45,6 +45,8 @@ import {
 import { UNIT_KIND_CYBORG_UNIT, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import type { CyborgService } from "../cyborg/service.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
+import { serviceFacilityViews } from "../temple/overview.ts";
+import { BIOTECH_STAGE } from "../temple/places.ts";
 import { type TempleService, createTempleService } from "../temple/service.ts";
 import { type GeneCatalog, type GeneCommands, createGeneCommands } from "./geneCommands.ts";
 import { burnGoods, geneViewOf, goodsAsset, issueGoods } from "./genes.ts";
@@ -115,7 +117,7 @@ export interface FusionServiceOptions {
   readonly cyborgs?: CyborgService | undefined;
 }
 
-export interface FusionService extends Omit<GeneCommands, "expireDue" | "release"> {
+export interface FusionService extends Omit<GeneCommands, "expireDue"> {
   /** 신전·종교(비활성 표·기도·헌금·환생·신격화) */
   readonly temple: TempleService;
   overview(viewer: { id: string; devGrant: boolean }, nowMs: number): Promise<FusionOverviewResponse>;
@@ -151,12 +153,12 @@ function materialsOf(items: readonly ItemEntry[], c: FusionCoefficients) {
 export function createFusionService(o: FusionServiceOptions): FusionService {
   const { ledger, writer } = o;
   const catalog = (): GeneCatalog => o.catalog?.() ?? NO_SKILLS;
-  const { release, expireDue, ...genes } = createGeneCommands({
+  const { expireDue, ...genes } = createGeneCommands({
     ...o,
     items: () => o.content().items,
     catalog,
   });
-  const temple = createTempleService({ ...o, release });
+  const temple = createTempleService(o);
   /** 1분마다: 비활성 표(새 비활성은 노동 계약이 끝난다) → 상한이 지난 휴먼 떠남(상한이 없으면 아무도) */
   const lifespanSweep = async (nowMs: number): Promise<number> => {
     await temple.sweep(nowMs);
@@ -248,10 +250,13 @@ export function createFusionService(o: FusionServiceOptions): FusionService {
             totalMax: c.geneTotalMax,
             elementVariance: c.geneElementVariance,
             incubateBase: c.incubateBaseStat,
-            facility: null,
+            incubateCurrency: String(Math.max(0, c.incubateCurrency)),
+            facility: BIOTECH_STAGE,
           },
         },
         genes: geneViews,
+        // 인큐베이터를 여는 생명과학 연구소(누구의 것이든, 459 가)
+        labs: serviceFacilityViews(o.maps, o.facilities, ownerId, new Map()).labs,
         devGrant: viewer.devGrant,
         generatedAt: nowMs,
       };

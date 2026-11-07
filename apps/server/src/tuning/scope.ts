@@ -250,6 +250,8 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "fusion.geneElementVariance",
   "fusion.incubateBaseStat",
   "fusion.geneConvertCurrency",
+  // 연구소 인큐베이터(fusion/geneCommands.ts, 기획 답 459 가): 명령·조회마다 읽는다
+  "fusion.incubateCurrency",
   // 신전·종교(temple/service.ts·fusion/geneCommands.ts, 49 S15·D-311·D-444 165): 명령·조회·수명 처리(1분)마다 읽는다
   "temple.inactiveCapMs",
   "temple.rebirthFaith",
@@ -260,6 +262,11 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "temple.prayFaith",
   "temple.prayCooldownMs",
   "temple.offeringPerFaith",
+  // 수호신 버프(기획 답 456 가·470 가): 방어 = 세계 전투를 열 때마다(temple/cityDefense.ts), 만족도 = NPC 사회 하루 끝마다,
+  // 생산 = 노동 계약 정산마다(temple/service.ts) 읽는다
+  "temple.guardianDefensePm",
+  "temple.guardianSatisfactionMilli",
+  "temple.guardianProductionPm",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

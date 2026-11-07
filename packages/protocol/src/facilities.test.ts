@@ -11,7 +11,7 @@ import { MIN_SUPPORTED_PROTOCOL_VERSION, PROTOCOL_VERSION } from "./version.ts";
 const bad = (message: object) => JSON.stringify(message);
 
 describe("건물 메시지(프로토콜 10, 창고 11, 공격 12)", () => {
-  it("판 10부터(창고 옮기기 11, 공격 12), 지금 판 12·최소 판 11", () => {
+  it("판 10부터(창고 옮기기 11, 공격 12), 지금 판 13·최소 판 12", () => {
     expect(FACILITY_PROTOCOL_VERSION).toBe(10);
     expect(STORAGE_PROTOCOL_VERSION).toBe(11);
     expect(ATTACK_PROTOCOL_VERSION).toBe(12);

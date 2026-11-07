@@ -3,7 +3,16 @@
 // 가져오기가 문제되지 않는다. 쓰기는 월드 쓰기 대기열(src/world/persist/writer.ts) 하나다. 직전 판 앱은 이 표를 모른 채 그대로 돈다(더하기만).
 // 비활성(수명이 다한 유저 휴먼, D-517)은 표에 두지 않는다: 수명 끝(world_humans 태어난 시각 + 수명) ≤ 지금으로 셈한다.
 import { sql } from "drizzle-orm";
-import { type AnyPgColumn, bigint, check, index, integer, pgTable, smallint } from "drizzle-orm/pg-core";
+import {
+  type AnyPgColumn,
+  bigint,
+  check,
+  index,
+  integer,
+  pgTable,
+  smallint,
+  text,
+} from "drizzle-orm/pg-core";
 import { worldCities, worldOwners, worldUnits } from "./schema.ts";
 
 /**
@@ -35,9 +44,10 @@ export const templeDevotions = pgTable("temple_devotions", {
 });
 
 /**
- * 수호신(D-311·D-5059): 신전에서 신격화한 휴먼의 기록. 바탕 유닛은 지워지므로 그 ID를 열쇠로 둔다(유닛 ID는 다시 쓰지 않는다).
- * 그 도시에 묶이고(도시당 상한 49 S15), 소유자에게 속한다. 도시 버프·방어전·지역 신화 모습은 아직 없다([임시] 기록만, 질문 456).
- * 도시가 지워지면 함께 지운다
+ * 수호신(D-311·D-5059): 신전에서 신격화한 휴먼. 열쇠 = 바탕 휴먼의 유닛 ID(유닛 ID는 다시 쓰지 않는다). 기획 답 456 가부터 같은 유닛이 수호신
+ * 유닛(world_units.kind 6)으로 그 도시에 남아 방어전에 나서고, 도시 버프 하나(buff, 수호신마다 편집기 칸, 출발값 방어)를 준다. 이 판 전에
+ * 신격화한 줄은 유닛이 지워졌다(기록·버프만 남는다) — 그래서 world_units 외래 키를 두지 않는다. 그 도시에 묶이고(도시당 상한 49 S15),
+ * 소유자에게 속한다. 지역 신화 모습은 아직 없다. 도시가 지워지면 함께 지운다
  */
 export const templeGuardians = pgTable(
   "temple_guardians",
@@ -59,6 +69,8 @@ export const templeGuardians = pgTable(
     elements: smallint("elements").array(),
     faith: smallint("faith").notNull(),
     deifiedAtMs: bigint("deified_at_ms", { mode: "number" }).notNull(),
+    /** 도시 버프 종류(@terra/sim GUARDIAN_BUFFS). 직전 판 앱은 이 칸을 모른 채 넣는다 → 기본값 방어 */
+    buff: text("buff").notNull().default("defense"),
   },
   (table) => [
     index("temple_guardians_city_idx").on(table.cityId),
@@ -69,5 +81,6 @@ export const templeGuardians = pgTable(
       sql`${table.elements} is null or (cardinality(${table.elements}) = 12 and 0 <= all(${table.elements}) and 10 >= all(${table.elements}))`,
     ),
     check("temple_guardians_faith", sql`${table.faith} between 0 and 100`),
+    check("temple_guardians_buff", sql`${table.buff} in ('defense', 'satisfaction', 'production')`),
   ],
 );

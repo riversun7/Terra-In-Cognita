@@ -53,4 +53,25 @@ export const TEMPLE_TUNING_KEYS: readonly TuningKey[] = [
     "헌금: 신앙도 1당 화폐(최소 단위)",
     "Offering: currency per faith point (minor units)",
   ),
+  k(
+    "d311_guardian_defense_pm",
+    "",
+    "guardianDefensePm",
+    "수호신 방어 버프: 그 도시 수비 유닛 방어율(‰, 수호신마다)",
+    "Guardian defense buff: city defenders' defense rate (‰ per guardian)",
+  ),
+  k(
+    "d311_guardian_satisfaction_milli",
+    "",
+    "guardianSatisfactionMilli",
+    "수호신 만족도 버프: 그 도시 휴먼 만족도 하루 +(밀리점, 수호신마다)",
+    "Guardian morale buff: city humans' satisfaction per day (milli-points per guardian)",
+  ),
+  k(
+    "d311_guardian_production_pm",
+    "",
+    "guardianProductionPm",
+    "수호신 생산 버프: 그 도시 시설 산출 +(‰, 수호신마다)",
+    "Guardian production buff: city facility output (‰ per guardian)",
+  ),
 ];

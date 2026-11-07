@@ -5,6 +5,7 @@ import {
   FUSION_PROTOCOL_VERSION,
   FUSION_RESULT_CODES,
   GENE_CONVERT_PROTOCOL_VERSION,
+  GENE_INCUBATE_LAB_PROTOCOL_VERSION,
   GENE_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
   ProtocolError,
@@ -54,6 +55,14 @@ describe("유전자 메시지(프로토콜 11, D-516)", () => {
     const incubate = { t: "gene_incubate", id: 3, gene: 7, apply: "main" } as const;
     expect(decodeClientMessage(encodeMessage(incubate))).toEqual(incubate);
     expect(decodes(decodeClientMessage, { ...incubate, apply: "random" })).toBe(false);
+    // 판 13: 생명과학 연구소 칸(연구소와 본 값은 함께)
+    const lab = { ...incubate, buildingId: 12, cost: "5000" } as const;
+    expect(decodeClientMessage(encodeMessage(lab))).toEqual(lab);
+    expect(decodes(decodeClientMessage, { ...incubate, buildingId: 12 })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...incubate, cost: "5000" })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...lab, cost: "05" })).toBe(false);
+    expect(GENE_INCUBATE_LAB_PROTOCOL_VERSION).toBe(13);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(GENE_INCUBATE_LAB_PROTOCOL_VERSION);
     const devGene = { t: "dev_grant_gene", id: 4, kind: "skill", skill: "fireball" } as const;
     expect(decodeClientMessage(encodeMessage(devGene))).toEqual(devGene);
     expect(decodes(decodeClientMessage, { t: "dev_grant_gene", id: 4, kind: "stat" })).toBe(true);

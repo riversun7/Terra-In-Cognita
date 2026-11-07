@@ -13,6 +13,7 @@ import { type RateLimiter, createRateLimiter } from "../rateLimit.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { StreamSubscriber } from "./mapStream.ts";
 import type { CommandResult, SecondMap } from "./secondMap.ts";
+import { UNIT_KIND_GUARDIAN } from "./unitKinds.ts";
 import { canObserve, canViewSecondMap } from "./visibility.ts";
 import type { WorldStats } from "./worldStats.ts";
 
@@ -223,10 +224,13 @@ export function createWorldGateway(options: {
           return reply(message.id, made > 0 ? { ok: true } : fail("busy"));
         }
 
+        // 내 유닛은 옮길 수 있다. 수호신은 그 도시에 머문다(기획 답 456 가 — 주인도 옮기지 못하고, 옮기기 권한이 있는 관리자만)
+        const moving = message.t === "move_unit" ? map.unitInfo(message.unitId) : undefined;
         const ownUnit =
-          message.t === "move_unit" &&
+          moving !== undefined &&
+          moving.kind !== UNIT_KIND_GUARDIAN &&
           world.ownerOfUser !== undefined &&
-          map.unitInfo(message.unitId)?.ownerId === world.ownerOfUser(viewer.id);
+          moving.ownerId === world.ownerOfUser(viewer.id);
         if (!ownUnit && !rolesAllow(viewer.roles, { secondMap: [COMMAND_ACTIONS[message.t]] })) {
           return reply(message.id, fail("forbidden"));
         }

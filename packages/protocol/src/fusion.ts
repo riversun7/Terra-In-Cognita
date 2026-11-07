@@ -21,6 +21,11 @@ export const GENE_PROTOCOL_VERSION = 11;
  * 낮은 프로토콜 버전. 이 메시지의 답에만 새 코드(not_inactive·not_lab·lab_closed·wrong_city)가 간다
  */
 export const GENE_CONVERT_PROTOCOL_VERSION = 12;
+/**
+ * 생명과학 연구소 인큐베이터(gene_incubate의 buildingId·cost, 기획 답 459 가 — 연구소 Lv1부터 플레이어 명령)에 필요한 가장 낮은 프로토콜
+ * 버전. 연구소 칸이 없는 gene_incubate는 판 11 그대로 개발 시험(dev·admin)이다
+ */
+export const GENE_INCUBATE_LAB_PROTOCOL_VERSION = 13;
 /** 개발 시험 물자 받기 한 번의 상한(기본 단위 개 또는 화폐 최소 단위) */
 export const DEV_GRANT_GOODS_MAX = 1_000_000;
 /** 개발 시험 물자 받기에서 화폐(시험 화폐)를 가리키는 값 */
@@ -74,15 +79,22 @@ export const geneInjectMessage = z.object({
 });
 
 /**
- * 인큐베이터: 내 스탯 유전자 하나로 새 휴먼을 만든다(적용 = 총합 또는 주력 스탯, 유전자는 사라짐, D-478·D-516). 팩에 인큐베이터 시설이
- * 아직 없어 지금은 dev·admin만(그 밖은 forbidden)
+ * 인큐베이터: 내 스탯 유전자 하나로 새 휴먼을 만든다(적용 = 총합 또는 주력 스탯, 유전자는 사라짐, D-478·D-516).
+ * - 연구소 칸(buildingId·cost, 판 13, 기획 답 459 가): 그 생명과학 연구소(다 지음·30% 이상)에서 화폐(cost = 기기가 본 인큐베이터 화폐)를 내고,
+ *   새 휴먼은 연구소 둘레에 태어나며 사는 도시 = 연구소 도시. 누구나 쓴다(남의 연구소 = 주인 수입, 내 연구소 = 소각).
+ * - 연구소 칸이 없으면 판 11 그대로 개발 시험(dev·admin만, 사이보그 본체 둘레·사는 도시 없음, 값 없음 — 그 밖은 forbidden)
  */
-export const geneIncubateMessage = z.object({
-  t: z.literal("gene_incubate"),
-  id: requestId,
-  gene: rowId,
-  apply: z.enum(GENE_APPLY_MODES),
-});
+export const geneIncubateMessage = z
+  .object({
+    t: z.literal("gene_incubate"),
+    id: requestId,
+    gene: rowId,
+    apply: z.enum(GENE_APPLY_MODES),
+    buildingId: rowId.optional(),
+    cost: amount.optional(),
+  })
+  // 연구소와 본 값은 함께 온다(하나만 오면 틀린 메시지)
+  .refine((message) => (message.buildingId === undefined) === (message.cost === undefined));
 
 /** 개발 시험: 시험 유전자 하나를 받는다(dev·admin). 스탯 유전자는 굴린 값, 스킬 유전자는 skill(없으면 팩 첫 스킬) */
 export const devGrantGeneMessage = z.object({

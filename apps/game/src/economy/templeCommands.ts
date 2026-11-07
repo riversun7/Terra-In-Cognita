@@ -1,4 +1,5 @@
-// 신전 명령(WebSocket, 프로토콜 12) — 기도·헌금·의식·개발 시험 비활성 만들기를 보내고 같은 요청 번호의 temple_result를 기다린다.
+// 신전 명령(WebSocket, 프로토콜 12·13) — 기도·헌금·의식·개발 시험 비활성 만들기·개발 편집 수호신 버프(13)를 보내고 같은 요청 번호의
+// temple_result를 기다린다.
 // 기획 D-517·D-311·D-441·D-451, docs/adr/2026-11-07-temple-religion.md. 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장).
 // 융합 명령(units/fusionCommands.ts)과 같은 틀이다: 인사 전이면 기다렸다 보내고, 끊기면 "offline", TIMEOUT_MS 안에 답이 없으면 "timeout".
 // 경제 화면 지연 조각 안에서만 쓴다.
@@ -9,7 +10,8 @@ export type TempleCommand =
   | Omit<ClientMessageOf<"temple_pray">, "id">
   | Omit<ClientMessageOf<"temple_offer">, "id">
   | Omit<ClientMessageOf<"temple_rite">, "id">
-  | Omit<ClientMessageOf<"dev_inactivate_unit">, "id">;
+  | Omit<ClientMessageOf<"dev_inactivate_unit">, "id">
+  | Omit<ClientMessageOf<"dev_guardian_buff">, "id">;
 
 export type TempleOutcome =
   | {

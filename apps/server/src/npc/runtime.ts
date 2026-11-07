@@ -24,6 +24,7 @@ import {
   type GardenerCoefficients,
   HOMELESS,
   type NpcContext,
+  SATISFACTION_MAX_MILLI,
   STREAM_SOCIETY,
   STREAM_TRAITS,
   TEST_COMBAT_CATALOG,
@@ -107,6 +108,8 @@ export interface NpcRuntimeOptions {
   readonly onCityOwner?: ((cityId: number, factionRowId: number) => void) | undefined;
   /** 막아 낸 도시 웨이브 보상 아이템(D-499: 팩 유전자·크리쳐 재료, waveRewards.ts). 없으면 명성만 */
   readonly waveRewardItems?: (() => WaveRewardItems) | undefined;
+  /** 도시마다 수호신 만족도 버프(하루 끝에 그 도시 휴먼 만족도 + 밀리점, 기획 답 470 가 — 신전 서비스). 없으면 버프 없음 */
+  readonly guardianSatisfaction?: (() => ReadonlyMap<number, number>) | undefined;
 }
 
 export interface NpcRuntime {
@@ -503,6 +506,13 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
 
   function endOfDay(nowMs: number): void {
     society.endOfDay(nowMs);
+    // 수호신 만족도 버프(470 가): 사회 규칙의 하루 끝 다음에 그 도시 휴먼마다 더한다(상한에서 자름 [임시]). 바뀜은 휴먼 저장이 줄 비교로 쓴다
+    const lift = o.guardianSatisfaction?.();
+    if (lift && lift.size > 0)
+      for (const unit of world.units.values()) {
+        const add = lift.get(unit.city) ?? 0;
+        if (add > 0) unit.satisfactionMilli = Math.min(SATISFACTION_MAX_MILLI, unit.satisfactionMilli + add);
+      }
     const started = performance.now();
     gardener.run.endOfDay(nowMs, society.currentDay());
     metrics.gardenerMs += performance.now() - started;

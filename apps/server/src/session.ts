@@ -21,6 +21,8 @@ import {
   FUSION_PROTOCOL_VERSION,
   GENE_PROTOCOL_VERSION,
   GENE_CONVERT_PROTOCOL_VERSION,
+  GENE_INCUBATE_LAB_PROTOCOL_VERSION,
+  GUARDIAN_BUFF_PROTOCOL_VERSION,
   TEMPLE_PROTOCOL_VERSION,
   RUINS_PROTOCOL_VERSION,
   type ServerMessage,
@@ -334,13 +336,16 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "dev_grant_gene":
       case "dev_expire_unit":
       case "gene_convert": {
-        // 융합·개발 물자 받기는 프로토콜 9, 유전자 명령은 11, 비활성 휴먼 유전자 변환은 12의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        // 융합·개발 물자 받기는 프로토콜 9, 유전자 명령은 11, 비활성 휴먼 유전자 변환은 12, 연구소 인큐베이터(연구소 칸)는 13의 메시지다.
+        // 더 낮게 인사한 연결은 모르는 메시지로 본다
         const needs =
           message.t === "cyborg_fuse" || message.t === "dev_grant_goods"
             ? FUSION_PROTOCOL_VERSION
             : message.t === "gene_convert"
               ? GENE_CONVERT_PROTOCOL_VERSION
-              : GENE_PROTOCOL_VERSION;
+              : message.t === "gene_incubate" && message.buildingId !== undefined
+                ? GENE_INCUBATE_LAB_PROTOCOL_VERSION
+                : GENE_PROTOCOL_VERSION;
         if (protocolVersion < needs) {
           reject("invalid_message");
           return;
@@ -387,9 +392,12 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "temple_pray":
       case "temple_offer":
       case "temple_rite":
-      case "dev_inactivate_unit": {
-        // 신전 명령은 프로토콜 12의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
-        if (protocolVersion < TEMPLE_PROTOCOL_VERSION) {
+      case "dev_inactivate_unit":
+      case "dev_guardian_buff": {
+        // 신전 명령은 프로토콜 12, 수호신 버프 편집은 13의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        const needs =
+          message.t === "dev_guardian_buff" ? GUARDIAN_BUFF_PROTOCOL_VERSION : TEMPLE_PROTOCOL_VERSION;
+        if (protocolVersion < needs) {
           reject("invalid_message");
           return;
         }

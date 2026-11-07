@@ -63,6 +63,7 @@ export {
   GENE_OUTCOMES,
   GENE_PROTOCOL_VERSION,
   GENE_CONVERT_PROTOCOL_VERSION,
+  GENE_INCUBATE_LAB_PROTOCOL_VERSION,
   type FusionResultCode,
 } from "./fusion.ts";
 export {
@@ -78,6 +79,8 @@ export {
   type RestorationResultCode,
 } from "./ruins.ts";
 export {
+  GUARDIAN_BUFF_IDS,
+  GUARDIAN_BUFF_PROTOCOL_VERSION,
   TEMPLE_PROTOCOL_VERSION,
   TEMPLE_RESULT_CODES,
   TEMPLE_RITE_IDS,

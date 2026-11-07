@@ -53,6 +53,11 @@ export interface FusionCoefficients {
    * 기술이 정했다(docs/adr/2026-11-07-temple-religion.md)
    */
   readonly geneConvertCurrency: number;
+  /**
+   * 생명과학 연구소 인큐베이터 값(기획 답 459 가: 연구소 Lv1부터 플레이어 명령, 비용 = 화폐, 재료 없음, 화폐 최소 단위) [임시] — 값이 없어
+   * 기술이 정했다(docs/adr/2026-11-07-temple-religion.md "바뀜 (기획 답 451~459)")
+   */
+  readonly incubateCurrency: number;
 }
 
 /** 옛 값(위 머리 주석의 옛 코드). [임시] 칸은 출발값이 없어 기술이 정한 값 */
@@ -74,6 +79,7 @@ export const OLD_FUSION_COEFFICIENTS: FusionCoefficients = {
   geneElementVariance: 1,
   incubateBaseStat: 10,
   geneConvertCurrency: 1000,
+  incubateCurrency: 5000,
 };
 
 /** 배열을 1차 스탯 6칸으로 맞춘다(모자라면 0, 정수가 아니면 0, 음수면 0) */

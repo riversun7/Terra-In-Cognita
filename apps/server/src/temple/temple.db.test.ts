@@ -1,19 +1,26 @@
 // 신전·종교 DB 통합 시험(D-517·D-311·D-441·D-451, docs/adr/2026-11-07-temple-religion.md) — TEST_DATABASE_URL이 있을 때만. 계정은 가짜 값이다.
 // 수명이 다한 유저 휴먼 = 비활성(떠나지 않음, 노동 계약·융합 막음) → 신전 기도·헌금으로 신앙도 → 환생(레벨 1·수명 다시·환생 +1·신앙도 0) →
-// 다시 비활성 → 신격화(수호신 줄, 유닛 떠남, 유전자 없음) / 생명과학 연구소 유전자 변환(유전자를 남기고 떠남)을 본다.
+// 다시 비활성 → 신격화(수호신 줄 + 같은 유닛이 수호신 유닛으로 남음, 유전자 없음, 버프 편집 — 기획 답 456 가) / 생명과학 연구소 유전자 변환
+// (유전자를 남기고 떠남)·인큐베이터(연구소 둘레에 태어나고 사는 도시 = 연구소 도시, 459 가) / 도시 방어(수호신이 수비로 들고 방어 버프, 비활성
+// 휴먼은 빠짐 — 452 다·456 가)를 본다.
 import { loadContentPack } from "@terra/content/node";
 import { CELL_UNITS, DAY_MS, OLD_TEMPLE_COEFFICIENTS as C, positionAt } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { createContentEditState } from "../contentEdit/state.ts";
+import { buildingPlace } from "../facilities/places.ts";
+import { rosterCatalogOf } from "../roster/catalog.ts";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { silentLog } from "../world/testSupport.ts";
 import { ASSET_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
+import type { WorldBattleInit } from "../world/battleTargets.ts";
 import { type World, startWorld } from "../world/world.ts";
+import { GUARDIAN_DEFENSE_EFFECT, createCityDefense } from "./cityDefense.ts";
 
 const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
 if (!loaded.source) throw new Error("content pack");
 const pack = createContentEditState(loaded.source).effective();
+const roster = rosterCatalogOf(loaded.source);
 
 let test: TestDatabase;
 const worlds: World[] = [];
@@ -44,6 +51,7 @@ async function boot(): Promise<World> {
     npc: { testNations: 2, manual: true },
     holdings: { content: () => pack },
     facilities: { content: () => pack },
+    roster: () => roster,
   });
   worlds.push(world);
   await world.ready;
@@ -267,12 +275,30 @@ describe.skipIf(!TEST_DATABASE_URL)("신전·종교(D-517)", () => {
         cost: String(C.deifyCurrency),
       }),
     ).toEqual({ ok: true, unitId: first });
+    // 같은 유닛이 수호신 유닛(종류 6)으로 남는다(휴먼 행만 지움, 버프 출발값 방어, 일하지 않음)
     view = await temple.overview({ id: userId, devGrant: true }, clock);
-    expect(view.guardians.map((g) => [g.unitId, g.cityId, g.mine])).toEqual([[first, templeCity, true]]);
+    expect(view.rules.guardianDefensePm).toBe(C.guardianDefensePm);
+    expect(view.guardians.map((g) => [g.unitId, g.cityId, g.mine, g.buff, g.present])).toEqual([
+      [first, templeCity, true, "defense", true],
+    ]);
     expect(view.temples[0]?.guardians).toBe(1);
     expect(view.humans.map((h) => h.unitId)).toEqual([second]);
-    expect(await rows(test.db, `select 1 from world_units where id = $1`, [first])).toEqual([]);
+    expect(await rows(test.db, `select kind from world_units where id = $1`, [first])).toEqual([{ kind: 6 }]);
+    expect(await rows(test.db, `select 1 from world_humans where unit_id = $1`, [first])).toEqual([]);
+    expect(temple.isAway(first)).toBe(true);
+    expect(persistence.labor.unitBusy(first)).toBe(true);
     expect((await fusion.overview({ id: userId, devGrant: true }, clock)).genes.length).toBe(genesBefore);
+    // 개발 편집: 수호신마다 버프 칸(수호신이 아니면 wrong_kind)
+    expect(await temple.devGuardianBuff({ unit: first, buff: "production" })).toEqual({
+      ok: true,
+      unitId: first,
+    });
+    expect(await temple.devGuardianBuff({ unit: second, buff: "defense" })).toEqual({
+      ok: false,
+      code: "wrong_kind",
+    });
+    view = await temple.overview({ id: userId, devGrant: true }, clock);
+    expect(view.guardians.map((g) => g.buff)).toEqual(["production"]);
 
     // 다른 휴먼: 비활성 → 생명과학 연구소에서 유전자로 변환(스탯 유전자가 남고 유닛이 떠난다)
     expect(await temple.devInactivate(userId, { unit: second })).toMatchObject({ ok: true });
@@ -287,6 +313,113 @@ describe.skipIf(!TEST_DATABASE_URL)("신전·종교(D-517)", () => {
     const after = await fusion.overview({ id: userId, devGrant: true }, clock);
     expect(after.genes.length).toBe(genesBefore + (converted.genes?.length ?? 0));
     expect(after.humans).toEqual([]);
+
+    // 인큐베이터(459 가): 연구소에서 화폐를 내고(내 연구소 = 소각) 새 휴먼이 연구소 둘레에 태어나며 사는 도시 = 연구소 도시
+    expect(after.labs.map((lab) => [lab.buildingId, lab.works])).toEqual([[labId, true]]);
+    expect(after.rules.genes.incubateCurrency).toBe("5000");
+    const gene = await fusion.devGrantGene(userId, { kind: "stat" });
+    if (!gene.ok || gene.gene === undefined) throw new Error("stat gene");
+    const lab = { buildingId: labId, cost: "5000" };
+    expect(
+      await fusion.incubate(userId, { gene: gene.gene, apply: "total", lab: { ...lab, cost: "1" } }),
+    ).toEqual({ ok: false, code: "cost_changed" });
+    expect(
+      await fusion.incubate(userId, {
+        gene: gene.gene,
+        apply: "total",
+        lab: { ...lab, buildingId: templeId },
+      }),
+    ).toEqual({ ok: false, code: "not_lab" });
+    const beforeIncubate = ledger.balanceOf(ownerId, ASSET_CREDIT);
+    const born = await fusion.incubate(userId, { gene: gene.gene, apply: "total", lab });
+    if (!born.ok || born.unitId === undefined) throw new Error("incubate");
+    expect(ledger.balanceOf(ownerId, ASSET_CREDIT)).toBe(beforeIncubate - 5000n);
+    const labCity = after.labs[0]?.cityId;
+    expect(await rows(test.db, `select city_id from world_humans where unit_id = $1`, [born.unitId])).toEqual(
+      [{ city_id: String(labCity) }],
+    );
+    view = await temple.overview({ id: userId, devGrant: true }, clock);
+    expect(view.humans.find((h) => h.unitId === born.unitId)?.cityId).toBe(labCity);
+  });
+
+  it("도시 방어: 그 도시 수호신이 수비 편으로 들고 방어 버프를 주며, 비활성 휴먼은 전투에서 빠진다", async () => {
+    const world = await boot();
+    const persistence = persistenceOf(world);
+    const temple = persistence.fusion.temple;
+    const { userId, ownerId, units } = await withHumans(world, "TempleThree");
+    const [first, second] = units;
+    if (first === undefined || second === undefined) throw new Error("two humans");
+    const templeId = await buildNear(world, userId, first, "temple");
+    expect(await temple.devInactivate(userId, { unit: first })).toMatchObject({ ok: true });
+    expect(await temple.offer(userId, { buildingId: templeId, amount: "5000" })).toMatchObject({ ok: true });
+    expect(
+      await temple.rite(userId, {
+        buildingId: templeId,
+        unit: first,
+        rite: "deify",
+        cost: String(C.deifyCurrency),
+      }),
+    ).toEqual({ ok: true, unitId: first });
+    expect(await temple.devInactivate(userId, { unit: second })).toMatchObject({ ok: true });
+    const defense = createCityDefense({
+      pool: test.db.$client,
+      writer: persistence.writer,
+      maps: world.maps,
+      bodies: persistence.bodies,
+      isInactive: (unitId) => temple.isInactive(unitId),
+      waveCity: () => undefined,
+      targetCity: (target) => buildingPlace(persistence.facilities.service.places, target.id)?.cityId ?? null,
+      rules: () => C,
+    });
+    const place = { side: 2, party: 101, x: 30, y: 32, moveIntervalMs: 1000, buildingMulPm: 2000 };
+    const inactive = persistence.bodies.build(second, { ...place, id: second }, clock);
+    if (!inactive) throw new Error("body");
+    const size = 64;
+    const init: WorldBattleInit = {
+      id: 0,
+      kind: "siege",
+      seed: 1,
+      map: {
+        size,
+        passable: new Uint8Array(size * size).fill(1),
+        cover: new Uint8Array(size * size),
+        height: new Int32Array(size * size),
+        buildings: [{ id: 1, cells: [32 * size + 32], durability: 100, nexus: true }],
+      },
+      sides: [
+        { id: 1, faction: ownerId + 1000, defender: false, edge: 3 },
+        { id: 2, faction: ownerId, defender: true, edge: 1 },
+      ],
+      parties: [{ id: 101, side: 2, retreatHpPct: 0 }],
+      units: [inactive],
+      targets: [{ building: 1, kind: "facility", id: templeId }],
+    };
+    const prepared = await defense.prepare(init, clock);
+    // 비활성 휴먼(second)은 빠지고 수호신(first)이 수비 편 새 파티로 든다. 방어 버프 수호신 하나 = d311_guardian_defense_pm ‰
+    expect(prepared.units.map((unit) => [unit.id, unit.side])).toEqual([[first, 2]]);
+    expect(prepared.parties).toEqual([{ id: prepared.units[0]?.party, side: 2, retreatHpPct: 0 }]);
+    expect(
+      prepared.units[0]?.startEffects?.find((effect) => effect.id === GUARDIAN_DEFENSE_EFFECT)?.value,
+    ).toBe(C.guardianDefensePm);
+    // 방어 버프만 있으면 만족도·생산 버프는 없다
+    expect(temple.buildingProductionPm(templeId)).toBe(0);
+    expect(temple.citySatisfaction().size).toBe(0);
+    // 버프를 생산으로 바꾸면 수비로는 들되 방어 버프는 없고, 그 도시 시설 산출 ‰ 덤이 생긴다(470 가). 목표 도시를 모르면 비활성만 뺀다
+    expect(await temple.devGuardianBuff({ unit: first, buff: "production" })).toMatchObject({ ok: true });
+    const again = await defense.prepare(init, clock);
+    expect(again.units.map((unit) => unit.id)).toEqual([first]);
+    expect(again.units[0]?.startEffects ?? []).toEqual([]);
+    expect(temple.buildingProductionPm(templeId)).toBe(C.guardianProductionPm);
+    const elsewhere = await defense.prepare({ ...init, targets: [] }, clock);
+    expect(elsewhere.units).toEqual([]);
+    // 만족도 버프(470 가): 그 도시 휴먼 만족도 하루 + 밀리점(NPC 사회 하루 끝이 읽는다). 1분 표 다시 읽기 뒤에도 같다
+    expect(await temple.devGuardianBuff({ unit: first, buff: "satisfaction" })).toMatchObject({ ok: true });
+    const templeCity = buildingPlace(persistence.facilities.service.places, templeId)?.cityId;
+    expect([...temple.citySatisfaction()]).toEqual([[templeCity, C.guardianSatisfactionMilli]]);
+    expect(temple.buildingProductionPm(templeId)).toBe(0);
+    clock += 120_000;
+    await persistence.fusion.expireDue(clock);
+    expect([...temple.citySatisfaction()]).toEqual([[templeCity, C.guardianSatisfactionMilli]]);
   });
 
   it("비활성 휴먼의 노동 계약은 끝나고 새 계약을 맺지 못한다(unit_busy)", async () => {

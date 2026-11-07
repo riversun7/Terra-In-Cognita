@@ -58,7 +58,7 @@ async function clearBeacons(page: Page, attempt = 1): Promise<void> {
       if (t === "beacon_result") replies.set(Number(Reflect.get(data, "id")), Reflect.get(data, "ok"));
     });
     await new Promise((resolve) => socket.addEventListener("open", resolve));
-    socket.send(JSON.stringify({ t: "hello", protocolVersion: 7, clientBuild: "e2e-territory" }));
+    socket.send(JSON.stringify({ t: "hello", protocolVersion: 9, clientBuild: "e2e-territory" }));
     await ready;
     // 요청 번호는 부를 때마다 새로(서버는 같은 사용자·같은 번호면 10분 동안 처음 결과를 다시 준다)
     const base = Math.floor(Math.random() * 1_000_000_000);

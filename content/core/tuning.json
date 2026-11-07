@@ -1963,7 +1963,10 @@
         "en": "Repair max durability loss Lv1 (%)"
       },
       "value": 30,
-      "structural": false
+      "structural": false,
+      "unit": "pct",
+      "min": 0,
+      "max": 100
     },
     {
       "id": "f11_repair_lv2",
@@ -1973,7 +1976,10 @@
         "en": "Repair max durability loss Lv2 (%)"
       },
       "value": 25,
-      "structural": false
+      "structural": false,
+      "unit": "pct",
+      "min": 0,
+      "max": 100
     },
     {
       "id": "f11_repair_lv3",
@@ -1983,7 +1989,10 @@
         "en": "Repair max durability loss Lv3 (%)"
       },
       "value": 20,
-      "structural": false
+      "structural": false,
+      "unit": "pct",
+      "min": 0,
+      "max": 100
     },
     {
       "id": "f11_repair_lv4",
@@ -1993,7 +2002,10 @@
         "en": "Repair max durability loss Lv4 (%)"
       },
       "value": 15,
-      "structural": false
+      "structural": false,
+      "unit": "pct",
+      "min": 0,
+      "max": 100
     },
     {
       "id": "f11_repair_lv5",
@@ -2003,7 +2015,10 @@
         "en": "Repair max durability loss Lv5 (%)"
       },
       "value": 10,
-      "structural": false
+      "structural": false,
+      "unit": "pct",
+      "min": 0,
+      "max": 100
     },
     {
       "id": "f11_repair_floor",
@@ -2013,7 +2028,10 @@
         "en": "Repair max durability loss floor (%)"
       },
       "value": 5,
-      "structural": false
+      "structural": false,
+      "unit": "pct",
+      "min": 0,
+      "max": 100
     },
     {
       "id": "f12_destroy_at",
@@ -2023,7 +2041,10 @@
         "en": "Destroyed at or below max durability"
       },
       "value": 10,
-      "structural": false
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 1000000
     },
     {
       "id": "n49_wear_chance",

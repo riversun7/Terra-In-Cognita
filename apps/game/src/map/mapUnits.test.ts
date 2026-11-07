@@ -1,9 +1,17 @@
 // 2차맵 내 유닛 목록 도우미 시험(docs/adr/2026-11-07-unit-control.md) — 줄 이름·상태 한 마디(기본 언어 한국어), 고른 유닛 다룸(운영자·내 유닛·못 함·남의 유닛),
-// 선택 안내 문장, 새 결과 코드 문구
+// 선택 안내 문장, 새 결과 코드 문구. 바뀜(기획 답 630~637): 목록 차례(637 나 — 유닛 화면 규칙), 남의 유닛 세력·종류(636 나), 다른 곳 수(632 다)
 import type { MapUnit } from "@terra/shared/mapUnits";
 import { describe, expect, it } from "vitest";
 import { resultText } from "./mapMessages.ts";
-import { canCommand, selectionText, unitControlOf, unitName, unitStatusText } from "./mapUnits.ts";
+import {
+  canCommand,
+  elsewhereText,
+  selectionText,
+  sortMapUnits,
+  unitControlOf,
+  unitName,
+  unitStatusText,
+} from "./mapUnits.ts";
 
 function unit(overrides: Partial<MapUnit>): MapUnit {
   return {
@@ -70,6 +78,48 @@ describe("고른 유닛 다룸", () => {
       "휴먼 #7 선택됨. 땅을 누르면 그곳으로 보냅니다.",
     );
     expect(selectionText({ kind: "hold", hold: "guardian" }, "수호신 #3", 3, false)).toContain("머물러");
+  });
+
+  it("636 나: 시야 안 남의 유닛은 세력·종류까지(무소속·세력 이름 없음·남의 사이보그 본체)", () => {
+    const faction = {
+      id: 4,
+      code: "npc_nation_01",
+      kind: "npc" as const,
+      name: { ko: "가 나라", en: "Nation A" },
+    };
+    expect(selectionText({ kind: "other" }, "", 9, false, { unitId: 9, kind: "human", faction })).toBe(
+      "가 나라의 휴먼 #9(서 있음)입니다. 정보만 볼 수 있습니다.",
+    );
+    expect(
+      selectionText({ kind: "other" }, "", 9, true, {
+        unitId: 9,
+        kind: "cyborg_body",
+        faction: { ...faction, name: null, code: null },
+      }),
+    ).toBe("세력 #4의 사이보그 본체 #9(이동 중)입니다. 정보만 볼 수 있습니다.");
+    expect(selectionText({ kind: "other" }, "", 9, false, { unitId: 9, kind: "human", faction: null })).toBe(
+      "무소속 휴먼 #9(서 있음)입니다. 정보만 볼 수 있습니다.",
+    );
+  });
+
+  it("637 나: 사이보그 본체 먼저, 그다음 유닛 화면처럼 손이 필요한 순(포로 → 부상 무거운 순 → 대기 → 쉼 → 일함), 같으면 이름·번호", () => {
+    const sorted = sortMapUnits([
+      unit({ unitId: 30, job: { kind: "test_gather", phase: "work" } }),
+      unit({ unitId: 11 }),
+      unit({ unitId: 5, kind: "guardian" }),
+      unit({ unitId: 20, job: { kind: "test_gather", phase: "rest" } }),
+      unit({ unitId: 2, injury: 1 }),
+      unit({ unitId: 3, injury: 3, hold: "critical" }),
+      unit({ unitId: 40, hold: "captive" }),
+      unit({ unitId: 99, kind: "cyborg_body", name: "레온" }),
+      unit({ unitId: 9 }),
+    ]);
+    expect(sorted.map((row) => row.unitId)).toEqual([99, 40, 3, 2, 5, 9, 11, 20, 30]);
+  });
+
+  it("632 다: 다른 곳 내 유닛 수 한 줄(0이면 없음)", () => {
+    expect(elsewhereText(0)).toBeNull();
+    expect(elsewhereText(3)).toBe("다른 곳에 내 유닛 3 — 유닛 화면에서 보기");
   });
 
   it("새 결과 코드(not_owner·unit_stays)도 문구가 있다", () => {

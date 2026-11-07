@@ -43,7 +43,8 @@ export interface InboxKindDefinition {
 }
 
 /**
- * 종류 표. 지금은 시안 자료(dev·admin만, 권한 home: preview)가 쓰는 8개뿐이고 모두 planned다.
+ * 종류 표. 시안 자료(dev·admin만, 권한 home: preview)가 쓰는 8개 + 정찰 끝(scout_returned, 시안 자료 없음). 제공 함수가 있는 종류는
+ * planned: false다(wave_incoming·scout_returned).
  * 5분류를 모두 보이고, 묶기·마감 없음·바로 처리 0~2개를 고루 넣었다. 나머지 예약 ID는 ADR 37 7절 표에 있다.
  * 새 종류를 더하는 순서(ADR 37 7절): 이 표 → messages의 inbox_<종류>_title(ko·en) → 기기 inboxText.ts →
  * 그 시스템의 제공 함수·등록부 한 줄·시험 → 바로 처리 처리기 → 푸시 분류(W6, 이 표에 칸을 더한다).
@@ -103,6 +104,17 @@ export const INBOX_KINDS = {
     actions: ["repair"],
     badge: null,
     planned: true,
+  },
+  // 제안·결정: 정찰이 목표 2차맵을 보고 돌아섰다(기획 답 612 나) — 들어가 볼지 고른다. 정찰 길마다 한 줄, 마감 없음. 확인 저장이 아직 없어
+  // 돌아온 뒤 이동 서비스가 끝난 길을 보이는 동안만 있다(docs/adr/2026-11-07-play-flow.md "WP13")
+  scout_returned: {
+    category: "decision",
+    grouped: false,
+    route: "map",
+    actions: [],
+    badge: null,
+    // 제공 함수: 서버 travel/scoutInbox.ts
+    planned: false,
   },
   // 제안·결정: 맞는 의뢰(D-036)
   contract_match: {

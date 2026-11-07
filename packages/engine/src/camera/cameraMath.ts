@@ -1,7 +1,8 @@
 // 쿼터뷰 카메라 계산 — 순수 함수(시험 대상). three.js를 쓰지 않는다. ADR 2026-10-28-s1-second-map "카메라와 조작"
 // - 기울기(pitch)는 약 35~55°(기본 45°)로 묶어 지평선이 보이지 않게 한다. 회전(yaw)은 자유다.
 // - 확대: 근접(화면 짧은 변이 약 40m)부터 2차맵 전체가 보이는 거리까지. 화면 가로가 짧은 휴대폰(세로)에서는 가로가 40m다.
-// - 이동: 목표점(화면 가운데가 보는 땅)이 2차맵 안에 머문다.
+// - 이동: 목표점(화면 가운데가 보는 땅)이 2차맵 안에 머문다. 보기 범위(area, 원 여러 개)가 있으면 그 원들 가운데 하나 안에 머문다
+//   (플레이어 카메라는 내 유닛·건물 둘레만 — 기획 정리 630, docs/adr/2026-11-07-unit-control.md "바뀜 (기획 답 630~637)").
 // - 잡아 끌기: 손가락 아래 땅이 손가락을 따라간다(높이 targetY인 평면 기준). 확대·회전도 손가락 아래 땅을 붙잡고 한다.
 // 좌표: x 동쪽, z 남쪽, y 위(m). yaw 0이면 카메라가 목표의 남쪽에서 북쪽을 본다(화면 위 = 북쪽).
 
@@ -50,6 +51,34 @@ export interface CameraLimits {
   maxX: number;
   minZ: number;
   maxZ: number;
+  /** 보기 범위: 목표점이 이 원들 가운데 하나 안에 머문다(m). 없거나 비면 상자 범위만 */
+  area?: readonly ViewDisc[] | undefined;
+}
+
+/** 보기 범위 원 하나(땅 좌표 m) */
+export interface ViewDisc {
+  x: number;
+  z: number;
+  r: number;
+}
+
+/** 원들 가운데 하나 안의 가장 가까운 점(이미 안이면 그대로). 원이 없으면 그대로 */
+export function clampToArea(point: GroundPoint, area: readonly ViewDisc[]): GroundPoint {
+  let best: GroundPoint | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const disc of area) {
+    const dx = point.x - disc.x;
+    const dz = point.z - disc.z;
+    const distance = Math.sqrt(dx * dx + dz * dz);
+    if (distance <= disc.r) return point;
+    const gap = distance - disc.r;
+    if (gap < bestDistance) {
+      bestDistance = gap;
+      const scale = distance > 0 ? disc.r / distance : 0;
+      best = { x: disc.x + dx * scale, z: disc.z + dz * scale };
+    }
+  }
+  return best ?? point;
 }
 
 const DEG = Math.PI / 180;
@@ -138,10 +167,14 @@ export function normalizeAngle(angle: number): number {
 }
 
 export function clampCamera(state: CameraState, limits: CameraLimits): CameraState {
+  const inArea =
+    limits.area && limits.area.length > 0
+      ? clampToArea({ x: state.targetX, z: state.targetZ }, limits.area)
+      : { x: state.targetX, z: state.targetZ };
   return {
-    targetX: clamp(state.targetX, limits.minX, limits.maxX),
+    targetX: clamp(inArea.x, limits.minX, limits.maxX),
     targetY: state.targetY,
-    targetZ: clamp(state.targetZ, limits.minZ, limits.maxZ),
+    targetZ: clamp(inArea.z, limits.minZ, limits.maxZ),
     yaw: normalizeAngle(state.yaw),
     pitch: clamp(state.pitch, limits.minPitch, limits.maxPitch),
     distance: clamp(state.distance, limits.minDistance, limits.maxDistance),

@@ -375,20 +375,24 @@ test.describe("2차맵 사이 이동(WP9): 플레이어", () => {
     await rewriteTrpc(page, { "summary.get": hideSummary });
     await page.goto("/");
     const mine = await myMapKey(page);
-    await page.goto(`/map?key=${mine}&at=12,12`);
+    const position = field(await trpcData(page, "world.myPosition"), "position");
+    const cell = { x: Number(field(position, "cellX")), y: Number(field(position, "cellY")) };
+    // 고른 곳은 내 사이보그 둘레 안(플레이어 카메라는 내 유닛 둘레로 묶인다 — 기획 정리 630, ADR unit-control "바뀜 (기획 답 630~637)")
+    const atX = cell.x + 24 <= 255 ? cell.x + 24 : cell.x - 24;
+    await page.goto(`/map?key=${mine}&at=${String(atX)},${String(cell.y)}`);
     const map = page.locator(".map-screen[data-map-key]");
     await expect(map).toHaveAttribute("data-feed", "live", { timeout: 20_000 });
     await expect(map).toHaveAttribute("data-focus-source", "picked");
-    await expect(map).toHaveAttribute("data-focus-at", "12,12");
+    await expect(map).toHaveAttribute("data-focus-at", `${String(atX)},${String(cell.y)}`);
     await expect(map).toHaveAttribute("data-cyborg", /\d+/);
     const ratio = async (): Promise<number> => {
       const [x = 0, z = 1] = ((await map.getAttribute("data-camera")) ?? "").split(",").map(Number);
       return x / z;
     };
-    await expect.poll(async () => Math.abs((await ratio()) - 1) < 0.02, { timeout: 20_000 }).toBe(true);
+    await expect
+      .poll(async () => Math.abs((await ratio()) - (atX + 0.5) / (cell.y + 0.5)) < 0.02, { timeout: 20_000 })
+      .toBe(true);
     // [내 사이보그]: 카메라가 내 사이보그 자리로(배치 칸 비율)
-    const position = field(await trpcData(page, "world.myPosition"), "position");
-    const cell = { x: Number(field(position, "cellX")), y: Number(field(position, "cellY")) };
     await page.locator(".map-go-cyborg").click();
     await expect
       .poll(async () => Math.abs((await ratio()) - (cell.x + 0.5) / (cell.y + 0.5)) < 0.05, {

@@ -26,6 +26,7 @@ function fakeService(calls: string[]): TravelService {
     },
     list: () => [],
     hiddenAt: () => undefined,
+    attachRaids: () => {},
     restore: () => Promise.resolve(0),
     runDue: () => {},
     active: 0,

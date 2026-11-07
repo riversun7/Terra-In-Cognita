@@ -3,11 +3,21 @@
 // - 목록은 서버가 준다(그 2차맵의 내 유닛, 사이보그 본체 먼저, 명령할 수 없는 까닭). 화면은 MAP_UNITS_POLL_MS마다 다시 묻는다.
 // - 고른 유닛을 어떻게 다룰지(unitControlOf)는 화면 판단이다: 운영자 모드면 무엇이든, 아니면 내 유닛(목록 또는 시야 전송의 own)만.
 //   서버가 명령마다 다시 본다(not_owner·unit_stays). 엔진을 가져오지 않는다(시험 대상, mapUnits.test.ts).
-import type { MapUnit, MapUnitHold, MapUnitsResponse } from "@terra/shared/mapUnits";
+// 바뀜(기획 답 630~637, ADR "바뀜 (기획 답 630~637)"): 목록 차례는 유닛 화면의 손이 필요한 순(637 나, sortMapUnits), 다른 곳 내 유닛 수 한 줄
+// (632 다), 남의 유닛을 누르면 시야 안일 때 세력·종류(636 나, world.unitGlance → selectionText).
+import type {
+  MapUnit,
+  MapUnitGlance,
+  MapUnitGlanceResponse,
+  MapUnitHold,
+  MapUnitKind,
+  MapUnitsResponse,
+} from "@terra/shared/mapUnits";
 import type { RosterJob } from "@terra/shared/roster";
 import { api } from "../net/api.ts";
 import { m } from "../paraglide/messages.js";
-import { injuryLabel, typeLabel } from "../roster/rosterText.ts";
+import { type Locale, getLocale } from "../paraglide/runtime.js";
+import { type UnitStatus, UNIT_STATUSES, injuryLabel, localName, typeLabel } from "../roster/rosterText.ts";
 
 /** 내 유닛 목록을 다시 묻는 간격(ms). 메모리만 읽는 가벼운 조회다(서버 src/worldMap/mapUnits.ts) */
 export const MAP_UNITS_POLL_MS = 5_000;
@@ -15,6 +25,52 @@ const REQUEST_TIMEOUT_MS = 10_000;
 
 export function loadMapUnits(mapKey: number, signal?: AbortSignal): Promise<MapUnitsResponse> {
   return api.world.mapUnits.query({ mapKey }, { signal: signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+}
+
+/** 남의 유닛 한눈 정보(636 나). 시야 밖·없는 유닛이면 glance null */
+export function loadUnitGlance(
+  mapKey: number,
+  unitId: number,
+  signal: AbortSignal,
+): Promise<MapUnitGlanceResponse> {
+  return api.world.unitGlance.query({ mapKey, unitId }, { signal });
+}
+
+/** 유닛 화면 상태 분류(손이 필요한 순, rosterText.ts unitStatus와 같은 규칙): 포로 → 부상 → 직무 없음 → 쉼 → 일함 */
+function attentionOf(unit: Pick<MapUnit, "hold" | "injury" | "job">): UnitStatus {
+  if (unit.hold === "captive") return "captive";
+  if (unit.injury > 0) return "injured";
+  if (unit.job === null) return "idle";
+  return unit.job.phase === "rest" ? "resting" : "working";
+}
+
+/** 손이 필요한 순 차례 번호 */
+const attentionRank = (unit: MapUnit): number => UNIT_STATUSES.indexOf(attentionOf(unit));
+
+/**
+ * 목록 차례(637 나): 사이보그 본체 먼저, 그다음 유닛 화면 정렬(rosterText.ts sortUnits)과 같은 규칙 — 손이 필요한 순(포로 → 부상 무거운 순 →
+ * 직무 없음 → 쉼 → 일함), 같으면 이름·번호 순
+ */
+export function sortMapUnits(units: readonly MapUnit[], locale: Locale = getLocale()): MapUnit[] {
+  const collator = new Intl.Collator(locale, { numeric: true });
+  return units.toSorted(
+    (a, b) =>
+      Number(b.kind === "cyborg_body") - Number(a.kind === "cyborg_body") ||
+      attentionRank(a) - attentionRank(b) ||
+      b.injury - a.injury ||
+      collator.compare(unitName(a), unitName(b)),
+  );
+}
+
+/** 종류 이름(남의 사이보그 본체는 "사이보그 본체") */
+function kindLabel(kind: MapUnitKind): string {
+  return kind === "cyborg_body" ? m.map_unit_kind_cyborg_body() : typeLabel(kind);
+}
+
+/** 한눈 정보의 세력 이름(팩 이름, 없으면 코드, 코드도 없으면 "세력 #ID") */
+function factionLabel(faction: NonNullable<MapUnitGlance["faction"]>): string {
+  if (faction.name) return localName(faction.name, String(faction.id));
+  return faction.code ?? m.map_unit_faction_number({ id: faction.id });
 }
 
 /** 줄 이름: 사이보그 본체 = "이름 · 내 사이보그"(이름을 모르면 "내 사이보그"), 그 밖 = "종류 #번호"(유닛 이름 칸이 아직 없다) */
@@ -84,8 +140,17 @@ const HOLD_TEXT = {
   critical: (unit: string) => m.map_unit_hold_critical({ unit }),
 } satisfies Record<MapUnitHold, (unit: string) => string>;
 
-/** 고른 유닛 안내 한 줄. label = 내 유닛이면 목록 이름, 아니면 "유닛 #번호" */
-export function selectionText(control: UnitControl, label: string, unitId: number, moving: boolean): string {
+/**
+ * 고른 유닛 안내 한 줄. label = 내 유닛이면 목록 이름, 아니면 "유닛 #번호". glance = 남의 유닛 한눈 정보(시야 안이면 세력·종류, 636 나 —
+ * 아직 받지 않았거나 시야 밖이면 null: 번호·움직임만)
+ */
+export function selectionText(
+  control: UnitControl,
+  label: string,
+  unitId: number,
+  moving: boolean,
+  glance: MapUnitGlance | null = null,
+): string {
   switch (control.kind) {
     case "operator":
       return m.map_unit_selected_operator({ unit: label });
@@ -93,14 +158,22 @@ export function selectionText(control: UnitControl, label: string, unitId: numbe
       return m.map_unit_selected_own({ unit: label });
     case "hold":
       return HOLD_TEXT[control.hold](label);
-    case "other":
-      return m.map_unit_selected_other({
-        id: unitId,
-        state: moving ? m.map_unit_state_moving() : m.map_unit_state_standing(),
-      });
+    case "other": {
+      const state = moving ? m.map_unit_state_moving() : m.map_unit_state_standing();
+      if (glance === null) return m.map_unit_selected_other({ id: unitId, state });
+      const unit = m.roster_unnamed({ type: kindLabel(glance.kind), number: String(unitId) });
+      return glance.faction
+        ? m.map_unit_selected_glance({ faction: factionLabel(glance.faction), unit, state })
+        : m.map_unit_selected_glance_free({ unit, state });
+    }
     default: {
       const unhandled: never = control;
       return unhandled;
     }
   }
+}
+
+/** 다른 곳 내 유닛 수 한 줄(632 다). 0이면 null(줄을 그리지 않는다) */
+export function elsewhereText(count: number): string | null {
+  return count > 0 ? m.map_units_elsewhere({ count }) : null;
 }

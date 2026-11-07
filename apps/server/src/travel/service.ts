@@ -5,7 +5,8 @@
 //   자리(590 나). 그 움직임의 도착 시각에 확인해서 그대로면 옆 2차맵으로 넘긴다(transferOut → transferIn: 유닛 행은 새 2차맵 키로 같은 쓰기 묶음,
 //   지나는 2차맵마다 실제 유닛이라 그곳 시야·조우가 있다). 마지막 2차맵에서는 목표 칸 둘레의 설 칸까지 걷는다.
 // - 건너뛰기(593 나): 다음 2차맵을 서버가 띄우지 않았으면 변 끝에서 사라지고(유닛 행은 이 서비스가 들고, DB 행은 사라진 자리 그대로),
-//   곧은 거리 ÷ 속도 뒤 다음 띄운 2차맵의 변에 나타난다. 그동안 직무·시야·전투에서 빠진다. 도중 습격은 없다(확인 대기, 질문 610).
+//   곧은 거리 ÷ 속도 뒤 다음 띄운 2차맵의 변에 나타난다. 그동안 직무·시야·전투에서 빠진다. 도중 습격(610 나, raid.ts): 숨길 때 건너뛰는
+//   2차맵마다 확률로 굴리고, 났으면 나타난 자리에서 빨리감기 전투 — 지면 부상으로 그 자리에 멈춘다(raided).
 // - 정찰(591 나): 목표에 닿으면 출발한 자리로 돌아온다(줄·목표를 돌아오는 길로 바꾼다). 지나간 2차맵마다 걸은 자리의 시야를 탐사 기록에
 //   남긴다(구독하지 않아도 — U3: 한 칸이라도 탐사하면 그 2차맵을 볼 수 있다). 이동도 같은 기록을 남긴다(내 유닛의 시야다).
 // - 넘기 직전에 그 주인을 정산한다: 넘기 전까지 한 일은 떠나는 2차맵 몫이고, 다음 정산이 "유닛이 시설의 2차맵에 없다"로 직무 배치를 풀고
@@ -66,6 +67,7 @@ import {
   startCode,
   stopOf,
 } from "./serviceTypes.ts";
+import { raidSeed } from "./raid.ts";
 import { type TravelRecord, loadTravels, travelWriter } from "./store.ts";
 
 export type {
@@ -100,6 +102,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
   ): RouteContext => routeContext(journey.route.slice(from), journey.target, size, standable, loaded);
   let timer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
+  let raids = deps.raids;
 
   /** 유닛이 선 2차맵과 유닛 정보 */
   const locate = (unitId: number) => {
@@ -354,6 +357,31 @@ export function createTravelService(deps: TravelDeps): TravelService {
     );
   };
 
+  /**
+   * 도중 습격(610 나): 나타난 자리에서 건너뛴 2차맵마다 굴리고(씨앗이 길·구간마다 정해져 다시 켜도 같다), 났으면 그 자리에서 싸운다.
+   * 졌으면 부상으로 그 자리에 멈추고 true
+   */
+  const raided = (journey: Journey, map: SecondMap, hidden: Hidden): boolean => {
+    if (!raids) return false;
+    const seed = raidSeed(journey.unitId, journey.startedAtMs, hidden.hop.from);
+    let outcome: ReturnType<typeof raids.fight> = null;
+    let raidAt: number | null = null;
+    try {
+      raidAt = raids.raidAt(journey.route.slice(hidden.hop.from + 1, hidden.hop.to), seed);
+      if (raidAt !== null) outcome = raids.fight(map, journey.unitId, seed, now());
+    } catch (error) {
+      log.error({ err: error, unitId: journey.unitId }, "travel: raid battle failed");
+    }
+    if (!outcome) return false;
+    log.info(
+      { unitId: journey.unitId, raidAt, lost: outcome.lost, ticks: outcome.ticks },
+      "travel: raided while crossing maps that are not loaded",
+    );
+    if (!outcome.lost) return false;
+    finish(journey, "stopped", "raided");
+    return true;
+  };
+
   /** 나타난다: 다음 띄운 2차맵의 변(막혔으면 다시 찾는다). 어디에도 못 서면 사라진 자리로 되돌리고 멈춘다 */
   const appear = (journey: Journey, hidden: Hidden): void => {
     const mapKey = journey.route[hidden.hop.to] ?? -1;
@@ -367,6 +395,7 @@ export function createTravelService(deps: TravelDeps): TravelService {
       journey.hidden = null;
       journey.hiddenUntilMs = null;
       journey.leg = hidden.hop.to;
+      if (raided(journey, target, hidden)) return;
       if (hidden.cancelled) {
         finish(journey, "stopped", "cancelled");
         return;
@@ -610,6 +639,10 @@ export function createTravelService(deps: TravelDeps): TravelService {
       for (const [unitId, finished] of recent)
         if (finished.ownerId === ownerId && !journeys.has(unitId)) out.push(finished.view);
       return out.toSorted((a, b) => a.unitId - b.unitId);
+    },
+
+    attachRaids(next) {
+      raids = next;
     },
 
     hiddenAt(unitId) {

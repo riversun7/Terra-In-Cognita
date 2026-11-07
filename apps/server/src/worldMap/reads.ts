@@ -14,6 +14,7 @@ import { cellCenter } from "@terra/planet/projection";
 import { placementCellKey } from "@terra/planet/territory";
 import { planetCellValuesFromFile } from "@terra/planet/secondMap";
 import { CELL_UNITS, PLACEMENT_SIZE, TEST_GARDENER_COEFFICIENTS, positionAt } from "@terra/sim";
+import type { MapUnitGlance } from "@terra/shared/mapUnits";
 import type { LocalizedName } from "@terra/shared/roster";
 import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
 import type {
@@ -395,6 +396,25 @@ export interface WorldMapPlanets {
   ): { readonly biomes: readonly { readonly id: string; readonly name: LocalizedName }[] } | undefined;
 }
 
+/** 소유 주체 → 세력(NPC 주체는 그 세력, 유저 주체는 가입한 국가 — faction_members). 사라진 세력·무소속이면 null */
+async function factionOfOwner(
+  pool: QueryPool,
+  owner: { readonly userId: string | null; readonly factionId: number | null } | undefined,
+  nameOf: (code: string | null) => LocalizedName | null,
+): Promise<MapUnitGlance["faction"]> {
+  if (!owner) return null;
+  const factionId = owner.factionId ?? (owner.userId === null ? null : await myFactionOf(pool, owner.userId));
+  if (factionId === null) return null;
+  const result = await pool.query(
+    `select id, code, kind from factions where id = $1 and dissolved_at_ms is null`,
+    [factionId],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  const code = typeof row.code === "string" ? row.code : null;
+  return { id: Number(row.id), code, kind: row.kind === "player" ? "player" : "npc", name: nameOf(code) };
+}
+
 /**
  * 앱(app.ts)이 세계·행성 서비스로 조회를 만든다: 세계가 준비된 뒤에만 서비스(아니면 undefined → not_ready). 세력 이름 = 시험 NPC 세력 + 팩 국가
  * 프리셋(nationName), 바이옴 이름 = 행성 목록 정보 범례, 둘레 땅 = 월드 행성 값
@@ -410,6 +430,8 @@ export function worldMapReadsOf(options: {
   readonly pollutionDanger?: (() => number) | undefined;
 }): () => (WorldMapReadServices & TravelReads & MapUnitReads) | undefined {
   const { world, planets, planetId } = options;
+  const nameOfCode = (code: string): LocalizedName | undefined =>
+    code === TEST_NPC_FACTION_CODE ? TEST_FACTION_NAME : nationName(code, options.presets);
   const sighted = (mapKey: number, viewer: Viewer) =>
     world.maps.get(mapKey)?.vision.sighted({ userId: viewer.id, ownerId: world.ownerOfUser?.(viewer.id) }) ??
     Promise.resolve(undefined);
@@ -428,8 +450,7 @@ export function worldMapReadsOf(options: {
     },
     values: planets ? () => planets.planetValues(planetId) : undefined,
     biomeName: (id) => planets?.manifest(planetId)?.biomes.find((biome) => biome.id === id)?.name,
-    factionName: (code) =>
-      code === TEST_NPC_FACTION_CODE ? TEST_FACTION_NAME : nationName(code, options.presets),
+    factionName: nameOfCode,
   });
   // 2차맵 사이 이동 조회(WP9·WP11): 확인 단계(+ 위험 구간, 질문 594 나)·가는 중인 길(이동 서비스, 지금 자리의 위도·경도를 붙인다)
   const danger = createTravelDanger({
@@ -439,17 +460,32 @@ export function worldMapReadsOf(options: {
     directory: world,
     sighted,
     threshold: options.pollutionDanger ?? (() => TEST_GARDENER_COEFFICIENTS.nomadThreshold),
+    territory: (id, userId) =>
+      world.persistence?.territory.planetView(id, userId) ?? Promise.resolve(undefined),
   });
   const travel = createTravelReads(
     () => world.persistence?.travel,
     (mapKey, x, y) => (isCellKey(mapKey) ? placeLatLon(mapKey, x, y) : { latDeg: 0, lonDeg: 0 }),
     danger,
   );
-  // 2차맵 화면의 내 유닛 목록(docs/adr/2026-11-07-unit-control.md): 메모리 유닛만 읽는다
+  // 2차맵 화면의 내 유닛 목록(docs/adr/2026-11-07-unit-control.md): 메모리 유닛만 읽는다. 남의 유닛 한눈 정보(636 나)만 세력 행을 DB에서 읽는다
   const units = createMapUnitReads({
     map: (mapKey) => world.maps.get(mapKey),
     ownerOfUser: (userId) => world.ownerOfUser?.(userId),
     cyborgName: (userId) => world.persistence?.cyborgs.record(userId)?.name,
+    maps: () => world.maps.values(),
+    hiddenUnits: (userId) =>
+      world.persistence?.travel.list(userId).filter((entry) => entry.hidden && entry.state === "going")
+        .length ?? 0,
+    sees: (mapKey, viewer, unitId) =>
+      world.maps
+        .get(mapKey)
+        ?.vision.sees({ userId: viewer.id, ownerId: world.ownerOfUser?.(viewer.id) }, unitId) ?? false,
+    observer: canObserve,
+    factionOfOwner: (ownerId) =>
+      factionOfOwner(options.pool, world.persistence?.owners.get(ownerId), (code) =>
+        code === null ? null : (nameOfCode(code) ?? null),
+      ),
   });
   const services = { ...reads, ...travel, ...units };
   return () => (world.status().state === "ready" && world.persistence ? services : undefined);

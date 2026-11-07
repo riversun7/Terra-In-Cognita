@@ -9,7 +9,7 @@ const NOW = 1_761_700_000_000;
 describe("처리할 일 시안 자료", () => {
   const list = orderInbox(previewInboxEntries(NOW), NOW);
 
-  it("종류 표의 8종류가 5분류 순서로, 마감 없는 항목은 그 분류의 끝에 온다", () => {
+  it("종류 표의 시안 자료 8종류가 5분류 순서로, 마감 없는 항목은 그 분류의 끝에 온다", () => {
     expect(
       list.items.map(({ id, category, count, deadlineAt }) => [id, category, count, deadlineAt]),
     ).toEqual([
@@ -22,7 +22,10 @@ describe("처리할 일 시안 자료", () => {
       ["contract_match:preview_contract_1", "decision", 1, NOW + 20 * 3_600_000],
       ["craft_done:preview_event_1", "done", 1, null],
     ]);
-    expect(new Set(list.items.map((item) => item.kind))).toEqual(new Set(Object.keys(INBOX_KINDS)));
+    // 시안 자료가 없는 종류: 정찰 끝(scout_returned, 기획 답 612 나 — 실제 제공 함수만, 시안 자료 8개는 그대로)
+    expect(new Set(list.items.map((item) => item.kind))).toEqual(
+      new Set(Object.keys(INBOX_KINDS).filter((kind) => kind !== "scout_returned")),
+    );
   });
 
   it("모든 줄에 시안 자료 표시가 있고, 키는 preview_로 시작해 실제 항목 ID와 겹치지 않는다", () => {

@@ -4,9 +4,11 @@
 //   띄우지 않은 2차맵이면 탐사 기록(world_exploration)이 있을 때. 아는 2차맵만 오염 값을 보인다.
 // - 오염이 위험: 그 2차맵(F9 칸 키)의 planet_pollution 값 ≥ 문턱. [임시] 문턱 = 유목 목표 오염 문턱(설정 칸 S17 — 유목 부대가 노리는
 //   오염이라 지나기 위험하다, 새 칸 없음, 확인 대기 질문 611).
-// - 전쟁: 그 2차맵에 내가 아는 도시(1차맵 도시 안개와 같은 규칙, knownCities.ts)가 있고 그 도시 세력이 전쟁(faction_wars state = war) 중.
-//   [임시] 영토 = 도시가 선 2차맵만(영향권 반경은 보지 않는다, 확인 대기 질문 611).
+// - 전쟁(기획 답 611 나, docs/adr/2026-11-07-play-flow.md "WP13"): 내 국가(faction_members)와 전쟁(faction_wars state = war) 중인 세력만.
+//   영토 = 그 세력의 영토 칸(영토 셈 territory planetView cells — 1차맵 칸 = 2차맵 키)이 덮는 2차맵. 안개 규칙: 아는 2차맵의 영토 칸이거나,
+//   그 2차맵에 내가 아는 그 세력 도시(1차맵 도시 안개와 같은 규칙, knownCities.ts)가 있을 때. 국가가 없으면 전쟁 위험도 없다.
 // 출발 2차맵(route 차례 0)은 넣지 않는다(이미 그곳에 있다).
+import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
 import type { WorldTravelDanger } from "@terra/shared/worldMap";
 import type { Viewer } from "../trpc/context.ts";
 import type { WorldDirectory } from "../world/gateway.ts";
@@ -23,8 +25,10 @@ export interface TravelDangerFacts {
   readonly pollution: ReadonlyMap<number, number>;
   /** 지나는 2차맵의 내가 아는 도시(세력·2차맵) */
   readonly knownCities: readonly { readonly factionId: number; readonly mapKey: number }[];
-  /** 전쟁 중인 세력 */
-  readonly warring: ReadonlySet<number>;
+  /** 내 국가와 전쟁 중인 세력 */
+  readonly enemies: ReadonlySet<number>;
+  /** 영토 칸: 2차맵 키(1차맵 칸) → 차지한 세력 */
+  readonly territory: ReadonlyMap<number, number>;
   /** 오염 위험 문턱 */
   readonly threshold: number;
 }
@@ -43,13 +47,14 @@ export function travelDangers(
     if (!known) unknownMaps += 1;
     const pollution = known ? (facts.pollution.get(mapKey) ?? 0) : null;
     const pollutionHigh = pollution !== null && pollution >= facts.threshold;
-    const warFactionIds = [
-      ...new Set(
-        facts.knownCities
-          .filter((city) => city.mapKey === mapKey && facts.warring.has(city.factionId))
-          .map((city) => city.factionId),
-      ),
-    ].toSorted((a, b) => a - b);
+    const enemies = new Set(
+      facts.knownCities
+        .filter((city) => city.mapKey === mapKey && facts.enemies.has(city.factionId))
+        .map((city) => city.factionId),
+    );
+    const holder = facts.territory.get(mapKey);
+    if (known && holder !== undefined && facts.enemies.has(holder)) enemies.add(holder);
+    const warFactionIds = [...enemies].toSorted((a, b) => a - b);
     if (pollutionHigh || warFactionIds.length > 0)
       dangers.push({ leg, mapKey, pollution, pollutionHigh, warFactionIds });
   }
@@ -65,6 +70,10 @@ export interface TravelDangerDeps {
   readonly sighted?: ((mapKey: number, viewer: Viewer) => Promise<Uint8Array | undefined>) | undefined;
   /** 오염 위험 문턱(설정 칸 실효 값) */
   readonly threshold: () => number;
+  /** 영토 셈(조회 캐시). 없으면 영토 칸 없이 도시가 선 2차맵만 본다 */
+  readonly territory?:
+    | ((planetId: string, userId: string) => Promise<TerritoryPlanetView | undefined>)
+    | undefined;
 }
 
 /** DB·세계에서 사실을 모아 위험 구간을 낸다 */
@@ -77,7 +86,7 @@ export function createTravelDanger(deps: TravelDangerDeps) {
     const keys = [...new Set(route.slice(1))];
     if (keys.length === 0) return { dangers: [], unknownMaps: 0 };
     const observer = canObserve(viewer);
-    const [pollutionRows, warRows, cityRows, exploredRows, factionRows] = await Promise.all([
+    const [pollutionRows, warRows, cityRows, exploredRows, factionRows, territory] = await Promise.all([
       pool.query(
         `select cell_key, value from planet_pollution where planet_id = $1 and cell_key = any($2::bigint[])`,
         [planetId, keys],
@@ -95,6 +104,7 @@ export function createTravelDanger(deps: TravelDangerDeps) {
         [viewer.id, planetId, keys],
       ),
       pool.query(`select faction_id from faction_members where user_id = $1`, [viewer.id]),
+      deps.territory?.(planetId, viewer.id).catch(() => undefined) ?? Promise.resolve(undefined),
     ]);
     const sighted = new Map<number, Uint8Array>();
     for (const row of exploredRows.rows)
@@ -120,18 +130,27 @@ export function createTravelDanger(deps: TravelDangerDeps) {
       cellY: Number(row.cell_y),
       start: row.start === true,
     }));
-    const warring = new Set<number>();
+    // 내 국가와 전쟁 중인 세력(611 나 — 남의 전쟁은 넣지 않는다)
+    const enemies = new Set<number>();
+    const mine = knowing.myFactionId;
     for (const row of warRows.rows) {
-      warring.add(Number(row.faction_a));
-      warring.add(Number(row.faction_b));
+      const a = Number(row.faction_a);
+      const b = Number(row.faction_b);
+      if (a === mine) enemies.add(b);
+      else if (b === mine) enemies.add(a);
     }
+    const wanted = new Set(keys);
+    const cells = new Map<number, number>();
+    for (const [cellKey, factionId] of territory?.cells ?? [])
+      if (wanted.has(cellKey) && enemies.has(factionId)) cells.set(cellKey, factionId);
     return travelDangers(route, {
       knownMap: (key) => observer || viewable.has(key) || (!maps.has(key) && explored(key)),
       pollution: new Map(pollutionRows.rows.map((row) => [Number(row.cell_key), Number(row.value)])),
       knownCities: cities.filter(
         (city) => knownWithoutSight(city, knowing) || isCityKnown(city, { ...knowing, sighted }),
       ),
-      warring,
+      enemies,
+      territory: cells,
       threshold: deps.threshold(),
     });
   };

@@ -60,7 +60,9 @@ describe("처리할 일 등록부", () => {
 
   it("등록부와 종류 표가 맞다: 제공 함수가 있는 종류는 planned가 아니고, planned가 아닌 종류는 제공 함수가 있다", () => {
     const pool = { query: async () => ({ rows: [] }) };
-    const registered = new Set<string>(createInboxProviders({ pool }).map((provider) => provider.kind));
+    const registered = new Set<string>(
+      createInboxProviders({ pool, travel: () => ({ list: () => [] }) }).map((provider) => provider.kind),
+    );
     for (const [kind, definition] of Object.entries(INBOX_KINDS)) {
       expect(definition.planned, kind).toBe(!registered.has(kind));
     }

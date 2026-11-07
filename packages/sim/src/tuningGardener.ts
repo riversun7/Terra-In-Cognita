@@ -222,4 +222,21 @@ export const GARDENER_TUNING_KEYS: readonly TuningKey[] = [
     "웨이브 보상 크리쳐 재료(마리당 ‰)",
     "Wave reward creature materials per creature (‰)",
   ),
+  // 2차맵 사이 이동 도중 습격(기획 답 593 나·610 나, docs/adr/2026-11-07-play-flow.md "WP13"): 49에 칸이 없어 travel_raid_* 앞머리
+  k(
+    "travel_raid_base",
+    "",
+    "travelRaidBasePm",
+    "이동 도중 습격 기본 확률(건너뛰는 2차맵마다 ‰)",
+    "Travel raid base chance per skipped map (‰)",
+  ),
+  k(
+    "travel_raid_pollution_div",
+    "",
+    "travelRaidPollutionDivisor",
+    "이동 도중 습격: 오염 나눗수(오염 ÷ 이 값 = 더하는 ‰)",
+    "Travel raid: pollution divisor (pollution ÷ this = added ‰)",
+  ),
+  k("travel_raid_max", "", "travelRaidMaxPm", "이동 도중 습격 확률 상한(‰)", "Travel raid chance cap (‰)"),
+  k("travel_raid_creatures", "", "travelRaidCreatures", "이동 도중 습격 크리쳐 수", "Travel raid creatures"),
 ];

@@ -39,6 +39,7 @@ import { createBuildingEditorServices } from "../buildingEdit/services.ts";
 import { type ContentEditShared, createSkillEditorServices } from "../contentEdit/services.ts";
 import { type ItemEditShared, createItemEditorServices } from "../itemEdit/services.ts";
 import type { SummaryBackend } from "../summary/summary.ts";
+import type { TravelService } from "../travel/service.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type {
   BalanceServices,
@@ -75,6 +76,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   summary?: SummaryBackend | undefined;
   /** 처리할 일 제공 함수가 읽는 DB(정원사 웨이브 예고, DB가 있을 때) */
   inboxPool?: QueryPool | undefined;
+  /** 처리할 일 정찰 끝(scout_returned)이 읽는 이동 서비스(세계가 준비된 뒤, 기획 답 612 나) */
+  inboxTravel?: (() => Pick<TravelService, "list"> | undefined) | undefined;
   /** 유닛·사이보그 화면: 콘텐츠 팩 자료(없으면 시험 자료)와 실제 유닛 출처(DB·월드가 있을 때) */
   roster?: Parameters<typeof createRosterServices>[0] | undefined;
   /** 개발자 2차맵 시험(월드·지형 서비스·행성 서비스가 다 있을 때, src/world/secondMapLab.ts) */
@@ -156,7 +159,11 @@ export async function loadViewer(auth: TerraAuth, headers: Headers): Promise<Vie
 /** 요청마다 맥락을 만드는 함수. req가 없으면(서버 안 호출·시험) 로그인하지 않은 맥락 */
 export function createContextFactory(options: ContextFactoryOptions) {
   // 홈 자료(처리할 일·복귀 요약·서버 카드)는 요청마다 만들지 않고 앱에 하나다(제공 함수 목록을 한 번 만든다)
-  const home = createHomeServices({ summary: options.summary, pool: options.inboxPool });
+  const home = createHomeServices({
+    summary: options.summary,
+    pool: options.inboxPool,
+    travel: options.inboxTravel,
+  });
   const roster = createRosterServices(options.roster);
   // 경제 화면 자료도 앱에 하나다(시안 시장 캐시를 함께 쓴다)
   const economy =

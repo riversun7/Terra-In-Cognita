@@ -176,6 +176,8 @@ export function travelStopText(stop: WorldTravelStop): string {
       return m.world_travel_stopped_blocked();
     case "unavailable":
       return m.world_travel_stopped_unavailable();
+    case "raided":
+      return m.world_travel_stopped_raided();
     default: {
       const unhandled: never = stop;
       return unhandled;

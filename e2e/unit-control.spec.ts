@@ -117,7 +117,11 @@ test.describe("유닛 조종: 플레이어", () => {
     await rewriteTrpc(page, {
       "summary.get": hideSummary,
       "world.mapUnits": (data) => {
-        if (typeof data === "object" && data !== null) Reflect.set(data, "units", []);
+        if (typeof data !== "object" || data === null) return;
+        Reflect.set(data, "units", []);
+        // 카메라 범위(기획 정리 630)가 내 건물 둘레로 가지 않게: 유닛이 없으면 탐사 칸 둘레(내 사이보그 자리)
+        const view: unknown = Reflect.get(data, "view");
+        if (typeof view === "object" && view !== null) Reflect.set(view, "buildings", []);
       },
     });
     await openMap(page);

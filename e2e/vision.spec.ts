@@ -12,14 +12,18 @@ import { VIEWPORTS } from "./helpers/viewports.ts";
 /** 낮밤 사진·시험 시각(S1 시험 2차맵 = 적도·경도 0 근처, 달력 3일째: 달이 거의 보름) — 낮 12시, 박명 18:09(항성 약 −2°), 밤 23시(달 약 52°) */
 const DAY_NIGHT_HOURS = { day: "12", dusk: "18.15", night: "23" } as const;
 
-/** 2차맵을 그 주소로 열고 준비를 기다린 뒤, 전체 보기를 켜 안개를 끈다(dev) */
+/**
+ * 2차맵을 그 주소로 열고 준비를 기다린 뒤, 운영자 모드(전체 보기)를 켜 안개를 끈다(dev). 운영자 모드는 이 기기에서 기억하므로(기획 답 631 다)
+ * 같은 시험 안에서 다시 열면 이미 켜져 있다 — 꺼져 있을 때만 누른다. 운영자 모드는 카메라도 자유다(플레이어는 내 유닛 둘레, 기획 정리 630)
+ */
 async function openMap(page: Page, search: string): Promise<void> {
   await page.goto(`/map${search}`);
   const screen = page.locator(".map-screen");
   await expect(screen).toHaveAttribute("data-status", "ready", { timeout: 15_000 });
   await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
-  await page.locator(".map-dev-observe").click();
-  await expect(page.locator(".map-dev-observe")).toHaveAttribute("aria-pressed", "true");
+  const toggle = page.locator(".map-dev-observe");
+  if ((await toggle.getAttribute("aria-pressed")) !== "true") await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
   await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });
 }
 

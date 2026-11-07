@@ -71,6 +71,7 @@ export function inertEngine(): SecondMapEngine {
     setUnitLook: () => undefined,
     zoomStep: () => false,
     setView: () => undefined,
+    setViewArea: () => undefined,
     dispose: () => undefined,
   };
 }

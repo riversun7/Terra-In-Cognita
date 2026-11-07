@@ -10,6 +10,8 @@
 // 유닛 조종(docs/adr/2026-11-07-unit-control.md): 플레이어는 내 유닛만 고르고 명령한다 — 내 유닛 목록(사이보그 먼저, UnitControlPanels.tsx)에서
 // 고르면 카메라가 그 자리로 가고, 땅을 누르면 이동, [멈추기]는 세운다. 남의 유닛은 눌러도 정보만 보인다(보내지 않는다). dev·admin은
 // [운영자 모드]를 켜면 아무 유닛이나 명령하고 안개 없이(전체 보기) 2차맵 어디든 본다(위 판에 "운영자"). 서버도 명령마다 소유·권한을 본다.
+// 기획 답 630~637(ADR "바뀜"): 플레이어 카메라는 내 유닛·건물 둘레로 묶고(useCameraArea), 운영자 모드는 이 기기에서 기억한다(operatorMode.ts),
+// 목록은 유닛 화면 차례 + 다른 곳 내 유닛 수, 남의 유닛은 시야 안이면 세력·종류(useUnitGlance).
 // 픽셀 비율 재기: 주소에 ?pixel-ratio=<1~4>를 붙이면 엔진 상한을 바꾼다(시험용, pixelRatioParam.ts). HUD에 쓰는 값·그리기 버퍼가 보인다.
 // 낮밤(secondMapSky.ts): 1차맵과 같은 서버 시계·달력으로 이 2차맵 자리의 빛을 바꾼다. 동작 줄이기면 연 시각에 멈춘다(바뀌면 setSky).
 // 시험·사진 주소: ?second-map-time=<0~24> 지역 시각에 멈춤, ?second-map-sky=off 낮밤 끔. HUD에 지역 시각·항성·달 줄이 보인다.
@@ -66,7 +68,10 @@ import {
   wideScreen,
 } from "./commandNotice.ts";
 import { canCommand, selectionText, unitControlOf, unitName } from "./mapUnits.ts";
+import { useOperatorMode } from "./operatorMode.ts";
+import { useCameraArea } from "./useCameraArea.ts";
 import { useMapUnits } from "./useMapUnits.ts";
+import { useUnitGlance } from "./useUnitGlance.ts";
 import {
   MyUnitsPanel,
   OperatorActions,
@@ -153,11 +158,15 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
   const selectedRef = useRef<number | null>(null);
   const session = useSession();
   const devTools = hasDevTools(session);
-  // 운영자 모드(dev·admin): 모든 유닛 명령 + 전체 보기(시야로 거르지 않음 — 안개 없이 어디든). 바꾸면 다시 구독한다(S3 시야 전송)
-  const [operator, setOperator] = useState(false);
-  const operatorRef = useRef(false);
-  // 내 유닛 목록(서버, 5초마다) — 엔진 콜백은 ref로 읽는다
+  // 운영자 모드(dev·admin): 모든 유닛 명령 + 전체 보기(시야로 거르지 않음 — 안개 없이 어디든). 바꾸면 다시 구독한다(S3 시야 전송), 기억한다(631 다)
+  const {
+    operator,
+    operatorRef,
+    toggle: toggleOperator,
+  } = useOperatorMode(devTools, () => feedRef.current?.refresh());
+  // 내 유닛 목록(서버, 5초마다) — 엔진 콜백은 ref로 읽는다. 플레이어 카메라는 내 유닛·건물 둘레(630)
   const myUnits = useMapUnits(mapKey);
+  const cameraTap = useCameraArea(engineRef, operator, myUnits.units, myUnits.view);
   const unitsRef = useRef<readonly MapUnit[] | null>(null);
   const [listOpen, setListOpen] = useState(wideScreen);
   const [liveMoving, setLiveMoving] = useState<ReadonlySet<number>>(() => new Set());
@@ -279,7 +288,8 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
     const feed = startMapFeed({
       link: serverLink,
       mapKey,
-      sink: gatherSink(engine, gather),
+      // 자료 흐름: 채집 덧그림(건물) → 카메라 범위(탐사 비트) → 엔진
+      sink: cameraTap.current(gatherSink(engine, gather)),
       loadTerrain: async (url) => {
         const terrain = await fetchTerrain(url);
         mapSizeM = terrain.cellSizeM * 128;
@@ -359,8 +369,8 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       engineRef.current = null;
       setTelemetryView(null);
     };
-    // 맵·카메라 대상은 화면 열쇠(맵 키)와 함께 정해진다(바뀌면 화면을 새로 만든다)
-  }, [mapKey, focus, gather]);
+    // 맵·카메라 대상은 화면 열쇠(맵 키)와 함께 정해진다(바뀌면 화면을 새로 만든다). 채집 상태와 두 ref는 늘 같은 객체다
+  }, [mapKey, focus, gather, operatorRef, cameraTap]);
 
   // 명령 안내는 잠시 보이고 지운다(보낸 뒤 결과를 기다리는 동안은 그대로)
   useEffect(() => {
@@ -383,13 +393,6 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
     const timer = setTimeout(() => setDevNotice(null), COMMAND_NOTICE_MS);
     return () => clearTimeout(timer);
   }, [devNotice]);
-
-  const toggleOperator = (): void => {
-    const next = !operatorRef.current;
-    operatorRef.current = next;
-    setOperator(next);
-    feedRef.current?.refresh();
-  };
 
   /** 목록에서 고르기: 그 유닛을 고르고 카메라를 지금 자리로. 좁은 화면이면 목록을 접어 땅을 누를 수 있게 한다 */
   const pickUnit = (unit: MapUnit): void => {
@@ -442,6 +445,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
   // 고른 유닛을 어떻게 다루나(운영자·내 유닛·못 함·남의 유닛) — 목록의 줄 또는 시야 전송의 내 유닛 표시로
   const mine = selected === null ? undefined : myUnits.units?.find((unit) => unit.unitId === selected);
   const control = selected === null ? null : unitControlOf({ operator, mine, ownByFeed: selection.own });
+  const glance = useUnitGlance(mapKey, selected, control?.kind === "other");
   const hint =
     pendingBuildPick() !== null
       ? m.map_build_pick_hint()
@@ -452,6 +456,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
             mine ? unitName(mine) : m.map_unit_number({ id: selected }),
             selected,
             selection.moving,
+            glance,
           );
 
   return (
@@ -587,6 +592,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
           <MyUnitsPanel
             units={myUnits.units}
             failed={myUnits.failed}
+            elsewhere={myUnits.elsewhere}
             moving={liveMoving}
             selected={selected}
             onPick={pickUnit}

@@ -9,6 +9,7 @@ import { BuildingView } from "./buildings/buildingView.ts";
 import {
   CAMERA_FOV_RAD,
   type CameraLimits,
+  type ViewDisc,
   type CameraState,
   type ScreenPoint,
   type Viewport,
@@ -165,11 +166,19 @@ export function createSecondMapEngine(
     propView.setSources(sources, cellM, groundAt);
   };
 
-  /** 카메라 한계: 확대·기울기는 지금 2차맵 기준, 목표점 범위는 이웃까지(경계 너머 보기) */
+  /** 보기 범위(m, setViewArea). null이면 없음 */
+  let viewArea: ViewDisc[] | null = null;
+  /** 카메라 한계: 확대·기울기는 지금 2차맵 기준, 목표점 범위는 이웃까지(경계 너머 보기). 보기 범위가 있으면 그 원들과 가장 큰 원 기준 줄이기 */
   const computeLimits = (): CameraLimits => {
     const base = cameraLimitsFor(mapSize, viewport);
     const bounds = neighbours.bounds(mapSize);
-    return { ...base, ...bounds };
+    if (!viewArea || viewArea.length === 0) return { ...base, ...bounds };
+    const widest = viewArea.reduce((max, disc) => Math.max(max, disc.r), 0);
+    const maxDistance = Math.max(
+      base.minDistance,
+      Math.min(base.maxDistance, distanceForSpan(widest * 4, viewport)),
+    );
+    return { ...base, ...bounds, maxDistance, area: viewArea };
   };
 
   const applyCamera = (): void => {
@@ -510,6 +519,23 @@ export function createSecondMapEngine(
       const distance = view.spanM === undefined ? state.distance : distanceForSpan(view.spanM, viewport);
       state = clampCamera({ ...state, targetX: view.x * cellM, targetZ: view.y * cellM, distance }, limits);
       scheduler.request();
+    },
+
+    setViewArea(area) {
+      viewArea =
+        area === null
+          ? null
+          : area.map((disc) => ({ x: disc.x * cellM, z: disc.y * cellM, r: disc.r * cellM }));
+      limits = computeLimits();
+      const next = clampCamera(state, limits);
+      if (
+        next.targetX !== state.targetX ||
+        next.targetZ !== state.targetZ ||
+        next.distance !== state.distance
+      ) {
+        state = next;
+        scheduler.request();
+      }
     },
 
     dispose() {

@@ -1,13 +1,31 @@
-// 2차맵 화면의 내 유닛 목록(서버, 읽기만) — tRPC world.mapUnits. docs/adr/2026-11-07-unit-control.md(사용자 지적 2026-11-07 "사이보그 포함 유닛 목록을
-// 통해 선택하여 명령").
+// 2차맵 화면의 내 유닛 목록(서버, 읽기만) — tRPC world.mapUnits·world.unitGlance. docs/adr/2026-11-07-unit-control.md(사용자 지적 2026-11-07 "사이보그
+// 포함 유닛 목록을 통해 선택하여 명령").
 // - 그 2차맵(띄운 맵)의 메모리 유닛에서 내 소유 주체의 것만 고른다. DB를 읽지 않는다(목록을 자주 다시 묻는다 — 2차맵 화면 5초마다).
 // - 줄마다 지금 명령할 수 없는 까닭(hold)은 명령 판정과 같은 함수(world/unitControl.ts)다. 운영자(dev·admin)도 목록은 내 유닛만 —
 //   남의 유닛은 지도에서 눌러 고른다(전체 유닛 목록은 수천이 될 수 있다).
 // - 직무는 정산 전 메모리 값이다(사이보그 화면처럼 정산하지 않는다 — 목록 표시용).
+// 바뀜(기획 답 630~637, ADR "바뀜 (기획 답 630~637)"):
+// - 632 다: 이 2차맵 밖의 내 유닛 수(elsewhere — 다른 띄운 2차맵 + 건너뛰는 중). 모든 2차맵을 훑으므로 주체마다 ELSEWHERE_CACHE_MS 동안 같은 수를 쓴다.
+// - 630: 플레이어 카메라 범위(view) — 시야 반지름(서버 판정 칸, @terra/sim) + 여유 VIEW_MARGIN_CELLS, 내 건물 기준 칸.
+// - 636 나: 남의 유닛 한눈 정보(glance) — 지금 내 시야 안(시야 전송과 같은 규칙, MapVision.sees)이거나 전체 보기 권한일 때만 세력·종류.
+//   시야 밖·없는 유닛은 같은 답(null).
 // 세계 규칙·표는 바꾸지 않는다.
-import type { MapUnit, MapUnitKind, MapUnitsResponse } from "@terra/shared/mapUnits";
+import type {
+  MapUnit,
+  MapUnitGlance,
+  MapUnitGlanceResponse,
+  MapUnitKind,
+  MapUnitsResponse,
+} from "@terra/shared/mapUnits";
 import type { Viewer } from "../trpc/context.ts";
-import { CELL_UNITS, PLACEMENT_SIZE, arrivalAt, positionAt } from "@terra/sim";
+import {
+  BUILDING_VISION_CELLS,
+  CELL_UNITS,
+  PLACEMENT_SIZE,
+  UNIT_VISION_CELLS,
+  arrivalAt,
+  positionAt,
+} from "@terra/sim";
 import { jobOf, unitTypeOf } from "../roster/worldUnits.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { injuryAt } from "../world/unitCondition.ts";
@@ -16,16 +34,32 @@ import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
 
 /** 이 조회가 세계에서 읽는 것(시험은 가짜를 넣는다) */
 export interface MapUnitSource {
-  map(mapKey: number): Pick<SecondMap, "forEachUnit" | "unitInfo"> | undefined;
+  map(mapKey: number): Pick<SecondMap, "forEachUnit" | "unitInfo" | "forEachBuilding"> | undefined;
   /** 사용자의 소유 주체(없으면 내 유닛 없음) */
   ownerOfUser(userId: string): number | undefined;
   /** 사이보그 이름(없으면 undefined) */
   cyborgName(userId: string): string | undefined;
+  /** 띄운 모든 2차맵(다른 곳 내 유닛 수). 없으면 0 */
+  maps?: (() => Iterable<Pick<SecondMap, "mapKey" | "forEachUnit">>) | undefined;
+  /** 띄우지 않은 2차맵을 건너뛰는 중인 내 유닛 수(이동 서비스). 없으면 0 */
+  hiddenUnits?: ((userId: string) => number) | undefined;
+  /** 그 사람이 지금 그 유닛을 보는가(MapVision.sees). 없으면 내 유닛만 본다 */
+  sees?: ((mapKey: number, viewer: Viewer, unitId: number) => boolean) | undefined;
+  /** 전체 보기 권한(dev·admin — 시야로 거르지 않는다) */
+  observer?: ((viewer: Viewer) => boolean) | undefined;
+  /** 소유 주체 → 세력 정보(NPC 주체는 세력, 유저 주체는 가입한 국가). 없으면 null */
+  factionOfOwner?: ((ownerId: number) => Promise<MapUnitGlance["faction"]>) | undefined;
 }
 
 export interface MapUnitReads {
   mapUnits(viewer: Viewer, mapKey: number, nowMs: number): MapUnitsResponse;
+  unitGlance(viewer: Viewer, mapKey: number, unitId: number, nowMs: number): Promise<MapUnitGlanceResponse>;
 }
+
+/** 카메라 범위 여유(배치 칸): 시야 반지름 바깥으로 이만큼 더 본다(안개가 덮는 둘레). [임시] 화면 값 — 판정에 쓰지 않는다 */
+export const VIEW_MARGIN_CELLS = 16;
+/** 다른 곳 내 유닛 수를 다시 세기까지(ms). 화면은 5초마다 묻지만 모든 2차맵을 훑는 셈이라 주체마다 이만큼 같은 수를 쓴다 */
+export const ELSEWHERE_CACHE_MS = 15_000;
 
 /** 세계 유닛 종류 코드 → 목록 종류(사이보그 본체는 따로, 나머지는 유닛 화면과 같은 이름) */
 function kindOf(kind: number): MapUnitKind {
@@ -39,17 +73,43 @@ const injuryStage = (stage: number): MapUnit["injury"] =>
   stage >= 3 ? 3 : stage === 2 ? 2 : stage === 1 ? 1 : 0;
 
 export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
+  const elsewhereCache = new Map<number, { readonly atMs: number; readonly mapKey: number; count: number }>();
+
+  /** 이 2차맵 밖의 내 유닛 수(띄운 다른 2차맵 + 건너뛰는 중) */
+  const elsewhereOf = (userId: string, ownerId: number, mapKey: number, nowMs: number): number => {
+    const cached = elsewhereCache.get(ownerId);
+    if (cached && cached.mapKey === mapKey && nowMs - cached.atMs < ELSEWHERE_CACHE_MS) return cached.count;
+    let count = source.hiddenUnits?.(userId) ?? 0;
+    for (const other of source.maps?.() ?? []) {
+      if (other.mapKey === mapKey) continue;
+      other.forEachUnit((unit) => {
+        if (unit.ownerId === ownerId) count += 1;
+      });
+    }
+    elsewhereCache.set(ownerId, { atMs: nowMs, mapKey, count });
+    return count;
+  };
+
   return {
     mapUnits(viewer, mapKey, nowMs) {
       const operator = canCommandAnyUnit(viewer.roles);
       const map = source.map(mapKey);
       const ownerId = source.ownerOfUser(viewer.id);
+      const view = {
+        unitRadius: UNIT_VISION_CELLS + VIEW_MARGIN_CELLS,
+        buildingRadius: BUILDING_VISION_CELLS + VIEW_MARGIN_CELLS,
+        buildings: [] as { x: number; y: number }[],
+      };
       const base = { status: "ready", mapKey, operator, generatedAt: nowMs } as const;
-      if (!map) return { ...base, loaded: false, units: [] };
-      if (ownerId === undefined) return { ...base, loaded: true, units: [] };
+      const elsewhere = ownerId === undefined ? 0 : elsewhereOf(viewer.id, ownerId, mapKey, nowMs);
+      if (!map) return { ...base, loaded: false, units: [], elsewhere, view };
+      if (ownerId === undefined) return { ...base, loaded: true, units: [], elsewhere, view };
       const mine: number[] = [];
       map.forEachUnit((unit) => {
         if (unit.ownerId === ownerId) mine.push(unit.id);
+      });
+      map.forEachBuilding((building) => {
+        if (building.ownerId === ownerId) view.buildings.push({ x: building.x, y: building.y });
       });
       const units: MapUnit[] = [];
       for (const unitId of mine) {
@@ -73,7 +133,21 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
       units.sort(
         (a, b) => Number(b.kind === "cyborg_body") - Number(a.kind === "cyborg_body") || a.unitId - b.unitId,
       );
-      return { ...base, loaded: true, units };
+      return { ...base, loaded: true, units, elsewhere, view };
+    },
+
+    async unitGlance(viewer, mapKey, unitId, nowMs) {
+      const none: MapUnitGlanceResponse = { status: "ready", glance: null, generatedAt: nowMs };
+      const info = source.map(mapKey)?.unitInfo(unitId);
+      if (!info) return none;
+      const ownerId = source.ownerOfUser(viewer.id);
+      const visible =
+        info.ownerId === ownerId ||
+        (source.observer?.(viewer) ?? false) ||
+        (source.sees?.(mapKey, viewer, unitId) ?? false);
+      if (!visible) return none;
+      const faction = (await source.factionOfOwner?.(info.ownerId)) ?? null;
+      return { ...none, glance: { unitId, kind: kindOf(info.kind), faction } };
     },
   };
 }

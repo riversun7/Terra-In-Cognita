@@ -1,6 +1,6 @@
 // 관리 명령 — 계정 만들기, 역할 바꾸기, 비밀번호 바꾸기 (ADR 2026-10-28-auth-and-accounts)
 // 운영 컨테이너 안에서 돈다: docker exec -e TIC_PASSWORD -e TIC_ACTOR tic-app node dist/cli.js <명령> …
-// (GitHub Actions 수동 작업 .github/workflows/account-admin.yml이 부른다)
+// (GitHub Actions 수동 작업 .github/workflows/account-admin.yml이 부른다. reset-world는 world-reset.yml — 앱을 멈춘 뒤 새 컨테이너로)
 // - 비밀번호는 환경 변수 TIC_PASSWORD로만 받는다. 명령줄 인자는 프로세스 목록·셸 기록에 남는다.
 // - 실행자는 TIC_ACTOR(예: "github:<계정>:run <번호>")로 감사 기록에 남긴다(actor_kind: cli).
 // - 출력에 비밀번호·이메일·토큰을 쓰지 않는다.
@@ -20,6 +20,7 @@ import {
 import { readAuthConfig } from "../auth/config.ts";
 import { type Database, closeDatabase, createDatabase } from "../db/client.ts";
 import { checkSqlInvariants } from "../world/invariants.ts";
+import { WorldResetRefused, formatResetResult, parseResetArgs, resetWorld } from "./resetWorld.ts";
 
 export const USAGE = [
   "사용: node dist/cli.js <명령> [옵션]",
@@ -27,6 +28,8 @@ export const USAGE = [
   "  set-roles    --id <아이디> --roles <역할,역할>                    역할 바꾸기 (예: player,admin)",
   "  set-password --id <아이디> [--allow-weak]                        비밀번호 바꾸기 (그 계정의 세션을 모두 끊는다)",
   "  check-world                                                      월드 불변 조건(원장·정산) 검사. 위반이 있으면 종료 코드 3",
+  "  reset-world  --confirm RESET-WORLD [--wait <초>] | --dry-run     세계 표를 모두 비운다(계정·감사 기록·개발 도구 자료는 남김).",
+  "                                                                   앱 서버를 먼저 멈춘다(같은 DB에 다른 연결이 있으면 종료 코드 3)",
   "환경 변수: DATABASE_URL(필수), BETTER_AUTH_SECRET·BETTER_AUTH_URL(운영 필수),",
   "           TIC_PASSWORD(create-user·set-password의 비밀번호), TIC_ACTOR(감사 기록에 남길 실행자)",
   "역할: player, gm, dev, admin. --allow-weak는 비밀번호 규칙(8자 이상 등)을 건너뛴다(경고를 남긴다).",
@@ -235,6 +238,25 @@ export async function runCli(argv: readonly string[], env: NodeJS.ProcessEnv, io
       const problems = await checkSqlInvariants(db.$client, Date.now());
       io.out(JSON.stringify({ ok: problems.length === 0, problems }));
       return problems.length === 0 ? 0 : 3;
+    }
+    if (argv[0] === "reset-world") {
+      // 시험 세계 새로 시작(docs/adr/2026-11-08-world-reset.md). 인증 설정은 쓰지 않는다
+      const parsed = parseResetArgs(argv.slice(1));
+      if (!parsed.ok) throw new CliError(2, parsed.message);
+      const resetUrl = env.DATABASE_URL;
+      if (!resetUrl) throw new CliError(2, "환경 변수 DATABASE_URL이 없습니다.");
+      db = createDatabase(resetUrl, (error) => io.err(`DB 연결 오류: ${error.message}`));
+      try {
+        const result = await resetWorld(db.$client, { actor: actorName(env), ...parsed.args });
+        if (result.missingKeep.length > 0) {
+          io.err(`경고: 남길 목록에 있지만 DB에 없는 표: ${result.missingKeep.join(", ")}`);
+        }
+        for (const line of formatResetResult(result)) io.out(line);
+        return 0;
+      } catch (error) {
+        if (error instanceof WorldResetRefused) throw new CliError(3, error.message);
+        throw error;
+      }
     }
     const args = parseCliArgs(argv);
     const url = env.DATABASE_URL;

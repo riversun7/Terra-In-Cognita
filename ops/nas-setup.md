@@ -100,6 +100,23 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
    - `forwardedFor`에 공인 주소가 있는데 `ip`가 사설 주소면, 로그의 `remoteAddress` 대역을 믿도록 `ops/compose.yml`의 app 환경에 `TRUST_PROXY`(예: `loopback, uniquelocal, <대역>`)를 넣는다(작업 기록 `docs/worklog/2026/10/28-1935-proxy-trust-static-404.md`).
 4. 확인한 날짜와 결과를 작업 기록에 적는다.
 
+## 12. 시험 세계 새로 시작 (계정은 남김)
+NAS 시험 세계(세력·도시·유닛·원장·사이보그 등)를 모두 지우고, 앱을 다시 켜서 세계를 새로 만든다(사용자 결정 645 다, `docs/adr/2026-11-08-world-reset.md`). 계정·로그인 세션·계정 설정·감사 기록·개발 도구 자료(행성 보관함·항성계·설정 칸·편집기 저장)·기기 기록은 남는다. 플레이어는 다음 로그인 때 사이보그를 새로 만든다.
+
+1. GitHub 저장소 → **Actions → world-reset → Run workflow** (브랜치는 `main`), `confirm`에 `RESET-WORLD`를 정확히 적는다. 배포 중이면 배포가 끝난 뒤 돈다.
+2. 하는 일: 새 백업 `docker/terra-in-cognita/backups/reset-<시각>.dump`(실패하면 멈춤) → 앱(`tic-app`)만 멈춤(DB는 그대로) → 같은 이미지의 새 컨테이너로 `node dist/cli.js reset-world --confirm RESET-WORLD`(트랜잭션 하나, 감사 기록 `world.reset`) → 앱 다시 켬(앞이 실패해도) → healthy·`/health` 월드 ready·불변 조건(`check-world`)·자동 점검.
+3. 결과는 실행 화면 Summary에 나온다: 백업 파일 이름, 지운 표 수·행 수(펼치면 표별), 헬스.
+   - `✗ 같은 DB에 다른 연결이 N개 있습니다`: 앱이 멈추지 않았거나 다른 접속(백업·psql)이 있다. 아무것도 지우지 않았고 앱은 다시 켜졌다. 그 접속이 끝난 뒤 다시 실행한다.
+   - 미리 보기(바꾸지 않음): `docker exec tic-app node dist/cli.js reset-world --dry-run` — 지울 표·남길 표와 지금 행 수.
+4. 옛 세계로 되돌리기(DB 전체가 백업 때로 돌아간다 — 그 뒤 만든 계정도 사라진다):
+   1. `docker stop tic-app`
+   2. `docker exec tic-db psql -U terra -d postgres -c "drop database terra"` 다음 `docker exec tic-db psql -U terra -d postgres -c "create database terra"`
+   3. `docker exec -i tic-db pg_restore -U terra -d terra --no-owner --exit-on-error < /volume1/docker/terra-in-cognita/backups/reset-<시각>.dump`
+   4. 백업 뒤 배포가 있었으면 마이그레이션: 저장소 폴더에서 `TERRA_TAG=$(cat /volume1/docker/terra-in-cognita/deployed-tag) docker compose -p tic -f ops/compose.yml --env-file /volume1/docker/terra-in-cognita/.env run --rm --no-deps app node dist/migrate.js`
+   5. `docker start tic-app`
+- `reset-*.dump`는 자동으로 지우지 않는다(계정 비밀번호 해시가 들어 있다). 필요 없어지면 File Station에서 지운다.
+- 실제 플레이어가 생기기 전까지만 쓰는 도구다(ADR "다시 볼 조건").
+
 ## 문제가 생기면
 - **실행기가 계속 다시 시작된다**(로그에 `DISABLE_AUTOMATIC_DEREGISTRATION should be set to true`): compose에 `DISABLE_AUTOMATIC_DEREGISTRATION: "true"`가 없거나 `tic-runner/config` 폴더가 없는 것이다. 프로젝트를 중지하고 YAML을 저장소의 `ops/runner/compose.yml`로 바꾼 뒤(토큰은 새로 받아 넣는다) 다시 빌드한다.
 
@@ -108,4 +125,4 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions → Variab
 ## 참고
 - 실행기는 NAS의 Docker를 제어할 수 있다. 배포 작업은 main 브랜치 실행에서만 돈다. 저장소에 쓰기 권한을 가진 사람만 작업을 실행할 수 있으니 협업자를 추가할 때 주의한다.
 - 실행기를 다시 설치하려면 토큰을 새로 받아 2단계를 다시 한다.
-- 관련 파일: `ops/compose.yml`(게임 서버 + DB), `ops/deploy.sh`(배포 순서), `ops/smoke.mjs`(배포 자동 점검), `ops/runner/compose.yml`(실행기), `.github/workflows/ci.yml`, `.github/workflows/nas-facts.yml`, `.github/workflows/nas-metrics.yml`(지표 보기), `.github/workflows/account-admin.yml`(계정 관리).
+- 관련 파일: `ops/compose.yml`(게임 서버 + DB), `ops/deploy.sh`(배포 순서), `ops/smoke.mjs`(배포 자동 점검), `ops/runner/compose.yml`(실행기), `.github/workflows/ci.yml`, `.github/workflows/nas-facts.yml`, `.github/workflows/nas-metrics.yml`(지표 보기), `.github/workflows/account-admin.yml`(계정 관리), `.github/workflows/world-reset.yml`(시험 세계 새로 시작).

@@ -195,6 +195,7 @@ export function UnitList({ data, vitals }: { data: UnitsListResponse; vitals?: V
             unit={open}
             data={data}
             vitals={vitalsOf(vitals, open)}
+            onVitalsStale={vitals?.reload}
             onClose={closeDetail}
           />
         ) : (

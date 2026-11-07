@@ -68,7 +68,7 @@ async function waitFor(check: () => Promise<boolean>): Promise<void> {
   throw new Error("timed out");
 }
 
-interface VitalsRow {
+type VitalsRow = {
   unit_id: string;
   hp: string;
   armor: string;
@@ -77,7 +77,7 @@ interface VitalsRow {
   max_shield: string;
   regen_shield: string;
   updated_at_ms: string;
-}
+};
 
 const savedVitals = () =>
   rows<VitalsRow>(

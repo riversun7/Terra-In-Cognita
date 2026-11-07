@@ -21,6 +21,7 @@ import {
   applyTuningDiff,
   effectEntrySchema,
   facilityEntrySchema,
+  gatherTierEntrySchema,
   itemEntrySchema,
   itemSubcategoryEntrySchema,
   itemTagEntrySchema,
@@ -41,8 +42,9 @@ export const ENTRY_FILES = {
   weapon_types: { file: "weapon_types.json", schema: weaponTypeEntrySchema },
   // 효과 사전(아이템 편집기 WP-6)
   effects: { file: "effects.json", schema: effectEntrySchema },
-  // 시설(건물 편집기 /dev/buildings, docs/adr/2026-11-02-building-editor.md)
+  // 시설·1차 생산 티어 확률 분포(건물 편집기 /dev/buildings, docs/adr/2026-11-02-building-editor.md, D-513)
   facilities: { file: "facilities.json", schema: facilityEntrySchema },
+  gather_tiers: { file: "gather_tiers.json", schema: gatherTierEntrySchema },
 };
 
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;

@@ -2,13 +2,16 @@
 import { TEST_GARDENER_COEFFICIENTS, waveChancePm } from "@terra/sim";
 import { describe, expect, it } from "vitest";
 import { readConfig } from "../config.ts";
-import { gardenerRulesOf } from "./runtime.ts";
+import { gardenerRulesOf, gardenerWavesEnabled } from "./runtime.ts";
 
 describe("정원사 웨이브 스위치", () => {
-  it("운영 설정은 기본 끔이고 GARDENER_WAVES=1이면 켠다", () => {
+  it("운영 설정은 기본 끔이고 GARDENER_WAVES=1 또는 운영 스위치(n53_gardener_waves=1)면 켠다", () => {
     expect(readConfig({}).npc.gardenerWaves).toBe(false);
     expect(readConfig({ GARDENER_WAVES: "0" }).npc.gardenerWaves).toBe(false);
     expect(readConfig({ GARDENER_WAVES: "1" }).npc.gardenerWaves).toBe(true);
+    expect(gardenerWavesEnabled(false, 0)).toBe(false);
+    expect(gardenerWavesEnabled(false, 1)).toBe(true);
+    expect(gardenerWavesEnabled(undefined, 0)).toBe(true);
   });
 
   it("끄면 오염이 상한이어도 도시 웨이브 확률이 0이고, 켜면 계수표 그대로다", () => {

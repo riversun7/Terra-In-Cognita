@@ -4,13 +4,24 @@
 // - 머리 판: 가운데 큰 그림(외형 ID로 그린 SVG, 포인트 색 빛) + 양옆 인공장기·장비 칸(팩 unit_kinds 칸) + 경험치·피로·신앙도.
 // - 핵심 사양(CoreStats.tsx, 옛 StatBar + 출처 상세)·상세 전투 스펙(CombatSpecs.tsx, 옛 SecondaryStatsCard), 스킬 칸·속성·인벤토리·
 //   환생·랭킹·상태 줄(CyborgExtras.tsx). 값은 모두 서버가 계산해 보낸다.
-// - 바꾸는 동작(장착·인공장기 시술·환생)은 "곧 열림"이다. 환생 단추는 "가장 가까운 환생 시설로 가는 길"이다(D-441).
+// - 장비·인공장기 칸과 인벤토리는 보유 물건(holdings/, tRPC holdings.list + WebSocket 프로토콜 6)이다: 칸을 누르면 칸 고르기 창
+//   (옛 EquipmentSlot → EquipmentSelectionModal), 인벤토리는 옛 LocationInventory 카드(장착·해제·사용, 걸린 효과·쓰기 쿨, D-501 교체 확인).
+//   시안 자료를 켜면 시안 본체의 칸·인벤토리를 그대로 보인다(바꾸는 동작 없음). docs/adr/2026-11-03-item-holdings.md "바뀜 (화면)".
+// - 환생은 "곧 열림"이다. 환생 단추는 "가장 가까운 환생 시설로 가는 길"이다(D-441).
 // - 좁은 폭은 판을 위에서 아래로(머리 → 핵심 사양 → 전투 스펙 → 스킬 → 속성 → 인벤토리 → 환생 → 랭킹),
 //   넓은 폭(64em 이상)은 머리 판을 가로로 길게(인공장기 | 그림 | 장비) 두고 그 아래 두 열(왼쪽 핵심 사양·전투 스펙, 오른쪽 나머지).
 // 지연 로딩 조각(routeViews.tsx). 그림·이 화면 코드는 첫 화면 묶음에 들어가지 않는다.
 import type { CyborgBody, CyborgGetResponse, RosterNames, RosterSlot } from "@terra/shared/roster";
 import type { VitalsSnapshot } from "@terra/shared/vitals";
 import { useId } from "react";
+import { DevGrant } from "../holdings/DevGrant.tsx";
+import { SlotTileButton } from "../holdings/HoldingParts.tsx";
+import { ReplaceDialog, SlotSheet } from "../holdings/HoldingsDialogs.tsx";
+import { HoldingsPanel } from "../holdings/HoldingsPanel.tsx";
+import { type UnitHoldings, unitHoldings } from "../holdings/holdingsModel.ts";
+import { holdingName, nameCompare } from "../holdings/holdingsText.ts";
+import { type HoldingsController, useHoldings } from "../holdings/useHoldings.ts";
+import "../holdings/holdings.css";
 import { usePreviewOn } from "../inbox/preview.ts";
 import { m } from "../paraglide/messages.js";
 import { BackButton } from "../shell/BackButton.tsx";
@@ -50,15 +61,79 @@ export default function CyborgScreen() {
   );
 }
 
+/** 만든 사이보그(시안이 아님)면 보유 물건을 받아 칸·인벤토리에 쓴다 */
 function CyborgBodyView({ data }: { data: CyborgGetResponse }) {
+  const real = !data.preview && data.body !== null && !data.body.preview;
+  return real ? <WithHoldings data={data} /> : <BodyLayout data={data} holdings={null} />;
+}
+
+/** 보유 물건 조작 묶음 + 사이보그 유닛의 칸·든 물건(사이보그가 아직 세계에 없으면 view = null) */
+interface CyborgHoldings {
+  readonly controller: HoldingsController;
+  readonly view: UnitHoldings | null;
+}
+
+function WithHoldings({ data }: { data: CyborgGetResponse }) {
+  const controller = useHoldings();
+  const state = controller.state;
+  const unit = state.status === "ready" ? (state.data.cyborgUnit ?? null) : null;
+  const view =
+    state.status === "ready" && unit !== null
+      ? unitHoldings(
+          state.data,
+          unit,
+          (data.body?.slots ?? []).map((slot) => slot.slot),
+          controller.now,
+          nameCompare(),
+          holdingName,
+        )
+      : null;
+  return (
+    <>
+      <BodyLayout data={data} holdings={{ controller, view }} />
+      <SlotSheet view={view} controller={controller} names={data.names} />
+      <ReplaceDialog view={view} controller={controller} />
+    </>
+  );
+}
+
+/** 인벤토리 판 내용: 보유 물건(받는 중·실패·사이보그 유닛 없음) 또는 시안 인벤토리 */
+function InventoryBody({
+  body,
+  data,
+  holdings,
+}: {
+  body: CyborgBody;
+  data: CyborgGetResponse;
+  holdings: CyborgHoldings | null;
+}) {
+  if (!holdings) return <Inventory body={body} data={data} />;
+  const { controller, view } = holdings;
+  if (controller.state.status !== "ready")
+    return <LoadState state={controller.state} onRetry={controller.reload} />;
+  return (
+    <>
+      {view ? (
+        <HoldingsPanel view={view} controller={controller} names={data.names} />
+      ) : (
+        <p className="roster-empty">{m.holdings_no_cyborg_unit()}</p>
+      )}
+      <DevGrant controller={controller} unit={view?.unit ?? null} />
+    </>
+  );
+}
+
+function BodyLayout({ data, holdings }: { data: CyborgGetResponse; holdings: CyborgHoldings | null }) {
   const id = useId();
   const body = data.body;
-  // 생명 수치(D-512): 실제 본체만(시안 본체에는 붙이지 않는다)
-  const vitals = useVitals();
+  // 생명 수치(D-512): 실제 본체만(시안 본체에는 붙이지 않는다). 보유 물건 목록이 다시 오면(회복 물약 등) 같이 다시 받는다
+  const holdingsData =
+    holdings?.controller.state.status === "ready" ? holdings.controller.state.data : undefined;
+  const vitals = useVitals(holdingsData);
   return (
     <>
       {data.preview ? <p className="roster-notice">{m.roster_preview_notice()}</p> : null}
-      <Hero data={data} vitals={data.preview ? undefined : vitals.cyborg} />
+      <Hero data={data} holdings={holdings} vitals={data.preview ? undefined : vitals.cyborg} />
       <div className="cyborg-columns">
         <div className="cyborg-column">
           {body ? (
@@ -90,7 +165,11 @@ function CyborgBodyView({ data }: { data: CyborgGetResponse }) {
             title={m.cyborg_inventory_title()}
             end={body?.preview ? <PreviewTag /> : null}
           >
-            {body ? <Inventory body={body} data={data} /> : <Later text={m.cyborg_inventory_later()} />}
+            {body ? (
+              <InventoryBody body={body} data={data} holdings={holdings} />
+            ) : (
+              <Later text={m.cyborg_inventory_later()} />
+            )}
           </Section>
           <Section id={`${id}-rebirth`} title={m.cyborg_rebirth_title()}>
             <Rebirth body={body} rule={data.rebirth} />
@@ -114,7 +193,15 @@ function Later({ text }: { text: string }) {
 }
 
 /** 머리 판: 이름·레벨, 그림(가운데)과 인공장기·장비 칸, 막대(생명 수치 D-512 → 경험치·피로) */
-function Hero({ data, vitals }: { data: CyborgGetResponse; vitals: VitalsSnapshot | undefined }) {
+function Hero({
+  data,
+  holdings,
+  vitals,
+}: {
+  data: CyborgGetResponse;
+  holdings: CyborgHoldings | null;
+  vitals: VitalsSnapshot | undefined;
+}) {
   const id = useId();
   const body = data.body;
   return (
@@ -159,6 +246,7 @@ function Hero({ data, vitals }: { data: CyborgGetResponse; vitals: VitalsSnapsho
           body={body}
           names={data.names}
           later={null}
+          holdings={holdings}
         />
         <SlotGroup
           id={`${id}-gear`}
@@ -168,6 +256,7 @@ function Hero({ data, vitals }: { data: CyborgGetResponse; vitals: VitalsSnapsho
           body={body}
           names={data.names}
           later={m.cyborg_gear_later()}
+          holdings={holdings}
         />
       </div>
       {body ? (
@@ -208,7 +297,10 @@ function Hero({ data, vitals }: { data: CyborgGetResponse; vitals: VitalsSnapsho
   );
 }
 
-/** 칸 묶음(인공장기 또는 그 밖의 장비). 칸 배치는 팩 unit_kinds 차례 그대로 */
+/**
+ * 칸 묶음(인공장기 또는 그 밖의 장비). 칸 배치는 팩 unit_kinds 차례 그대로. 보유 물건이 있으면(만든 사이보그가 세계에 있음) 칸마다
+ * 누르는 칸(칸 고르기 창), 아니면 시안 본체의 칸(바꾸는 동작은 곧 열림)
+ */
 function SlotGroup({
   id,
   side,
@@ -217,6 +309,7 @@ function SlotGroup({
   body,
   names,
   later,
+  holdings,
 }: {
   id: string;
   side: "organ" | "gear";
@@ -225,18 +318,33 @@ function SlotGroup({
   body: CyborgBody | null;
   names: RosterNames;
   later: string | null;
+  holdings: CyborgHoldings | null;
 }) {
   const slots = body ? body.slots.filter((slot) => (side === "organ") === (slot.slot === "organ")) : [];
+  const view = holdings?.view ?? null;
+  const cells = view ? view.slots.filter((cell) => (side === "organ") === (cell.kind === "organ")) : null;
   return (
     <section className="cyborg-slot-group" data-side={side} aria-labelledby={id}>
       <div className="cyborg-slot-head">
         <h2 id={id} className="cyborg-slot-title">
           {title}
         </h2>
-        {body ? <SoonButton label={action} /> : null}
+        {body && !cells ? <SoonButton label={action} /> : null}
       </div>
       {side === "organ" ? <p className="roster-note">{m.cyborg_organs_note()}</p> : null}
-      {body ? (
+      {cells && view && holdings ? (
+        <ul className="cyborg-slots">
+          {cells.map((cell) => (
+            <SlotTileButton
+              key={cell.index}
+              cell={cell}
+              names={names}
+              className="cyborg-slot"
+              onOpen={() => holdings.controller.openSlot({ unit: view.unit, index: cell.index })}
+            />
+          ))}
+        </ul>
+      ) : body ? (
         <ul className="cyborg-slots">
           {slots.map((slot, index) => (
             // 같은 종류 칸이 여럿이다(장신구 2·인공장기 3): 차례로 열쇠를 만든다

@@ -2,6 +2,121 @@
  * 개발자 홈(/dev) — 개발자 홈 조각과 함께 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
  * 개발 화면 층(ADR 2026-11-02-dev-ui): 도구 줄은 얇은 테두리 줄(넓은 폭은 두 줄로 나란히). 턱(--lip)은 이 층에서 0이다.
  */
+.dev-role-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.dev-role-info {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.dev-role-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.dev-part-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.dev-workflow-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+.dev-workflow-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+.dev-workflow-arrow {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.dev-role-banner .lead {
+  margin: 0;
+}
+.dev-hub-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-size);
+  padding: var(--space-1) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.dev-hub-link:hover {
+  border-color: var(--color-primary);
+}
+.dev-sections {
+  display: grid;
+  gap: var(--space-4);
+}
+.dev-section {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.dev-section-head {
+  display: grid;
+  gap: var(--space-1);
+}
+.dev-section-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.dev-section-sub {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.dev-tool-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-2);
+  color: var(--dev-code);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
 .dev-tools {
   margin: 0;
   padding: 0;

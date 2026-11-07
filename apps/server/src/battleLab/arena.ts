@@ -15,6 +15,7 @@ import {
   labScorePm,
   labUnitKey,
 } from "@terra/shared/battleLab";
+import { FORMATION_FRONT_DISTANCE, type FormationPoint, isValidFormationPoint } from "@terra/shared/roster";
 import {
   type BattleInit,
   type BattleMapInput,
@@ -39,6 +40,7 @@ const LANE_OFFSETS = [0, -2, 2, -4, 4, -6, 6, -8, 8];
 export interface ArenaUnit {
   readonly spec: CombatUnitSpec;
   readonly row: LabRow;
+  readonly pos?: FormationPoint | undefined;
 }
 
 export interface ArenaParty {
@@ -112,12 +114,20 @@ export function arenaInit(job: ArenaJob, seed: number, swapped: boolean): Battle
     const side = (team === "a") !== swapped ? 1 : 2;
     const lanes: Record<LabRow, number> = { front: 0, middle: 0, back: 0 };
     return party.units.map((unit, index) => {
-      const lane = lanes[unit.row];
-      lanes[unit.row] = lane + 1;
-      const depth = ROW_DEPTH[unit.row];
+      let depth: number;
+      let lateral: number;
+      if (unit.pos && isValidFormationPoint(unit.pos)) {
+        depth = FORMATION_FRONT_DISTANCE + unit.pos.y;
+        lateral = unit.pos.x;
+      } else {
+        const lane = lanes[unit.row];
+        lanes[unit.row] = lane + 1;
+        depth = ROW_DEPTH[unit.row];
+        lateral = LANE_OFFSETS[lane] ?? lane;
+      }
       // 가운데(center − 0.5)를 두고 좌우 대칭
       const x = side === 1 ? center - depth : center + depth - 1;
-      const y = center + (LANE_OFFSETS[lane] ?? lane);
+      const y = center + lateral;
       const cell = nearestFree(map, taken, x, y);
       taken.add(cell);
       return {

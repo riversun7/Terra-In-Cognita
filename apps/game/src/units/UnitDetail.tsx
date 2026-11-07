@@ -1,9 +1,12 @@
 // 유닛 상세 — 상태(직무·피로/배터리·부상·포로·이동·만족도), 스탯(서버 계산), 장비 칸, 스킬, 화물, 동작(곧 열림).
 // 좁은 폭은 목록 대신 보이고 [목록으로]가 닫는다. 넓은 폭은 목록 옆 판이다(UnitList.tsx).
+// 세계 유닛(w…)의 장비 칸은 보유 물건(holdings/UnitHoldings.tsx: 칸 고르기·장착·해제·사용, docs/adr/2026-11-03-item-holdings.md
+// "바뀜 (화면)"), 시안 유닛은 시안 칸 목록.
 import type { RosterUnit, UnitsListResponse } from "@terra/shared/roster";
 import type { VitalsSnapshot } from "@terra/shared/vitals";
 import { useEffect, useId, useRef } from "react";
 import { m } from "../paraglide/messages.js";
+import { UnitHoldings } from "../holdings/UnitHoldings.tsx";
 import { Meter, PreviewTag, Section, SkillList, SlotList, SoonButton, StatBlock } from "../roster/parts.tsx";
 import { VitalsMeters } from "../roster/VitalsMeters.tsx";
 import {
@@ -55,12 +58,15 @@ export function UnitDetail({
   unit,
   data,
   vitals,
+  onVitalsStale,
   onClose,
 }: {
   unit: RosterUnit;
   data: UnitsListResponse;
   /** 지금 생명 수치(실제 세계 유닛만, D-512). 없으면 막대를 그리지 않는다 */
   vitals?: VitalsSnapshot | undefined;
+  /** 보유 물건이 바뀐 뒤(회복 물약 등) 생명 수치를 다시 받는다 */
+  onVitalsStale?: (() => void) | undefined;
   onClose: () => void;
 }) {
   const id = useId();
@@ -70,6 +76,8 @@ export function UnitDetail({
   const injury = injuryLabel(unit.injury.stage);
   const heal = unit.injury.untilMs === null ? null : remaining(unit.injury.untilMs, now);
   const place = unit.place;
+  // 세계 유닛 번호("w42" → 42). 시안 유닛이면 null
+  const worldUnit = !unit.preview && /^w\d+$/.test(unit.id) ? Number(unit.id.slice(1)) : null;
 
   // 연 유닛의 이름으로 초점을 옮긴다(좁은 폭에서 목록이 사라지므로). 다른 유닛을 열면 key가 바뀌어 다시 돈다
   useEffect(() => {
@@ -195,13 +203,24 @@ export function UnitDetail({
         <StatBlock stats={unit.stats} names={names} />
       </Section>
 
-      <Section
-        id={`${id}-gear`}
-        title={m.roster_gear_title()}
-        end={<SoonButton label={m.roster_action_equip()} />}
-      >
-        <SlotList slots={unit.slots} names={names} />
-      </Section>
+      {worldUnit === null ? (
+        <Section
+          id={`${id}-gear`}
+          title={m.roster_gear_title()}
+          end={<SoonButton label={m.roster_action_equip()} />}
+        >
+          <SlotList slots={unit.slots} names={names} />
+        </Section>
+      ) : (
+        <Section id={`${id}-gear`} title={m.holdings_unit_title()}>
+          <UnitHoldings
+            unit={worldUnit}
+            fallbackLayout={unit.slots.map((slot) => slot.slot)}
+            names={names}
+            onChanged={onVitalsStale}
+          />
+        </Section>
+      )}
 
       <Section id={`${id}-skills`} title={m.roster_skills_title()}>
         <SkillList skills={unit.skills} names={names} />

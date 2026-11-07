@@ -8,7 +8,7 @@ import {
   vitalsAt,
   vitalsNextChange,
 } from "@terra/shared/vitals";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../net/api.ts";
 import { useRosterQuery } from "./useRosterQuery.ts";
 
@@ -27,6 +27,8 @@ export interface VitalsNow {
   readonly of: (unitId: number) => VitalsSnapshot | undefined;
   /** 사이보그 본체의 지금 생명 수치 */
   readonly cyborg: VitalsSnapshot | undefined;
+  /** 다시 받기(회복 물약을 쓴 뒤 등) */
+  readonly reload: () => void;
 }
 
 /** 화면 유닛 ID("w<세계 유닛 ID>") → 세계 유닛 ID. 시안 자료("p…")면 null */
@@ -39,8 +41,18 @@ export function worldUnitId(id: string): number | null {
 /** 다음 분 경계에 다시 그린다(그 뒤 조금 늦게: 경계 바로 앞에 그리지 않게) */
 const REDRAW_SLACK_MS = 50;
 
-export function useVitals(): VitalsNow {
+/**
+ * refreshOn: 바뀌면 다시 받는 값(보유 물건 목록 — 회복 물약을 쓰면 목록이 다시 온다). 처음 값은 다시 받지 않는다
+ */
+export function useVitals(refreshOn?: unknown): VitalsNow {
   const query = useRosterQuery(loadVitals, false);
+  const { reload } = query;
+  const seen = useRef<unknown>(undefined);
+  useEffect(() => {
+    if (refreshOn === undefined) return;
+    if (seen.current !== undefined && seen.current !== refreshOn) reload();
+    seen.current = refreshOn;
+  }, [refreshOn, reload]);
   const data = query.state.status === "ready" ? query.state.data : null;
   const [clientNow, setClientNow] = useState(() => Date.now());
   const offset = data ? data.generatedAt - data.receivedAt : 0;
@@ -66,6 +78,6 @@ export function useVitals(): VitalsNow {
       return found ? vitalsAt(found, serverNow) : undefined;
     };
     const cyborgView = data?.units.find((unit) => unit.cyborg);
-    return { of, cyborg: cyborgView ? vitalsAt(cyborgView, serverNow) : undefined };
-  }, [data, clientNow, offset]);
+    return { of, cyborg: cyborgView ? vitalsAt(cyborgView, serverNow) : undefined, reload };
+  }, [data, clientNow, offset, reload]);
 }

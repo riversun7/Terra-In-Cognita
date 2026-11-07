@@ -8,6 +8,14 @@ import {
   type LabTeam,
   newLabUnit,
 } from "@terra/shared/battleLab";
+import {
+  FORMATION_DEPTH,
+  FORMATION_PRESETS,
+  type FormationPresetId,
+  FORMATION_WIDTH,
+  FORMATION_X_MIN,
+  FORMATION_Y_MIN,
+} from "@terra/shared/roster";
 import { useId, useState } from "react";
 import { m } from "../../../paraglide/messages.js";
 import { NumberField } from "./fields.tsx";
@@ -16,8 +24,11 @@ import {
   type Selection,
   type Teams,
   addUnit,
+  applyFormationPreset,
   moveUnit,
+  moveUnitFormationPos,
   nameIn,
+  partyFormationPositions,
   partyPresets,
   removeUnit,
   replaceParty,
@@ -27,6 +38,11 @@ import {
 } from "./labModel.ts";
 import { itemName, localized, rowText, teamText, unitTitle } from "./labMessages.ts";
 import { PresetBar } from "./PresetBar.tsx";
+
+const FORMATION_X_COLS = Array.from({ length: FORMATION_WIDTH }, (_, idx) => FORMATION_X_MIN + idx);
+const FORMATION_Y_ROWS = Array.from({ length: FORMATION_DEPTH }, (_, idx) => FORMATION_Y_MIN + idx);
+
+const formatCoord = (x: number, y: number): string => `(${x > 0 ? `+${x}` : x}, ${y})`;
 
 export function TeamPanel(props: {
   readonly team: LabTeam;
@@ -44,8 +60,11 @@ export function TeamPanel(props: {
   const party = teams[team];
   const id = useId();
   const [adding, setAdding] = useState("");
+  const [presetId, setPresetId] = useState<FormationPresetId | null>(null);
   const full = party.units.length >= LAB_LIMITS.partyMax;
   const units = unitPresets(props.presets?.presets ?? []);
+  const positions = partyFormationPositions(party);
+  const activeUnitIndex = props.selected.team === team ? props.selected.index : 0;
 
   const add = (): void => {
     if (full) return;
@@ -59,6 +78,23 @@ export function TeamPanel(props: {
     }
     props.setTeams((current) => addUnit(current, team, unit));
     props.onSelect({ team, index: party.units.length });
+  };
+
+  const applyPreset = (nextPreset: FormationPresetId): void => {
+    setPresetId(nextPreset);
+    props.setTeams((current) => applyFormationPreset(current, team, nextPreset));
+  };
+
+  const pickCell = (x: number, y: number): void => {
+    const occupant = positions.findIndex((entry) => entry.x === x && entry.y === y);
+    if (occupant >= 0 && (props.selected.team !== team || occupant !== activeUnitIndex)) {
+      props.onSelect({ team, index: occupant });
+      return;
+    }
+    setPresetId(null);
+    const targetIndex = Math.max(0, Math.min(party.units.length - 1, activeUnitIndex));
+    props.setTeams((current) => moveUnitFormationPos(current, { team, index: targetIndex }, { x, y }));
+    props.onSelect({ team, index: targetIndex });
   };
 
   return (
@@ -79,16 +115,66 @@ export function TeamPanel(props: {
         current={() => ({ kind: "party", data: party })}
         onLoad={(value) => {
           if (value.kind !== "party") return;
+          setPresetId(null);
           props.setTeams((current) => replaceParty(current, team, value.data));
           props.onSelect({ team, index: 0 });
         }}
         onList={props.onPresets}
         onNotice={props.onNotice}
       />
+      <div className="bl-formation" data-testid={`lab-formation-${team}`}>
+        <div className="bl-formation-head">
+          <span className="bl-formation-title">
+            {locale === "en" ? "9×6 Free Formation & Presets" : "9×6 자유 배치 구역 · 기본 진형"}
+          </span>
+          <div className="bl-formation-presets">
+            {FORMATION_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                className="button-small"
+                data-active={presetId === preset.id ? "true" : undefined}
+                title={localized(preset.desc, locale, preset.id)}
+                onClick={() => applyPreset(preset.id)}
+              >
+                {localized(preset.shortName, locale, preset.id)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="bl-formation-board" aria-label={`${teamText(team)} 9x6`}>
+          {FORMATION_Y_ROWS.flatMap((y) =>
+            FORMATION_X_COLS.map((x) => {
+              const unitIdx = positions.findIndex((entry) => entry.x === x && entry.y === y);
+              const isSelected = props.selected.team === team && unitIdx === activeUnitIndex && unitIdx >= 0;
+              return (
+                // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 9×6 시각 배치 격자 칸
+                <div
+                  key={`${x}:${y}`}
+                  className="bl-formation-cell"
+                  data-x={x}
+                  data-y={y}
+                  data-center-x={x === 0 ? "" : undefined}
+                  data-occupied={unitIdx >= 0 ? "" : undefined}
+                  data-selected={isSelected ? "" : undefined}
+                  onClick={() => pickCell(x, y)}
+                >
+                  {unitIdx >= 0 ? (
+                    <span className="bl-formation-token">{`${team.toUpperCase()}${unitIdx + 1}`}</span>
+                  ) : (
+                    <span className="bl-formation-dot">{y === 0 && x === 0 ? "0" : "·"}</span>
+                  )}
+                </div>
+              );
+            }),
+          )}
+        </div>
+      </div>
       <ol className="bl-units">
         {party.units.map((unit, index) => {
           const at = { team, index };
           const active = props.selected.team === team && props.selected.index === index;
+          const pos = positions[index] ?? { x: 0, y: 1 };
           const weapon =
             unit.weapon.kind === "item"
               ? itemName(catalog, unit.weapon.id, locale)
@@ -107,7 +193,7 @@ export function TeamPanel(props: {
                 <span className="bl-unit-key">{`${team.toUpperCase()}${index + 1}`}</span>
                 <span className="bl-unit-name">{unitTitle(unit, catalog, locale)}</span>
                 <span className="bl-unit-meta">
-                  {weapon}
+                  {`${formatCoord(pos.x, pos.y)} · ${weapon}`}
                   {unit.skills.length > 0 ? ` · ${m.dev_lab_skill_count({ count: unit.skills.length })}` : ""}
                 </span>
               </button>

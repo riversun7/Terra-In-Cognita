@@ -1,7 +1,9 @@
 // 1차맵 화면(S2) — 행성 LOD 엔진(@terra/engine/planet)으로 서버가 구운 행성을 그린다. 지연 로딩 조각 하나로만 들어온다
 // (App.tsx의 React.lazy). 순서: 목록 정보 받기(굽는 중이면 기다리며 다시 묻기) + 내 사이보그 자리 → 행성 설명·서버 타일 원천 → 엔진.
 // 지도 흐름(docs/adr/2026-11-07-play-flow.md "WP2"): 도시·국가 표시·영토 경계(CityOverlay, world.cities), 도시를 누르면 도시 판(이름·국가·
-// 둘레 땅·[들어가기] → /map?key=), [내 위치], 가장 가까이(5단계)에서 들어갈 수 있는 2차맵이 가운데면 [이 2차맵으로 들어가기](기획 60 §4.1).
+// 둘레 땅·[들어가기] → /map?key=&at=), [내 위치], 가장 가까이(5단계)에서 들어갈 수 있는 2차맵이 가운데면 [이 2차맵으로 들어가기](기획 60 §4.1).
+// WP7: 도시는 서버가 아는 도시만 준다(안개, 514). 들어갈 때 고른 곳(도시 시청·화면 가운데 배치 칸)을 ?at=로 넘긴다(515). 볼 수 없는 맵의
+// 도시는 [정찰 보내기] → 1차맵 명령 판(PlanetCommandPanel, 513).
 // 처음 볼 곳: ?planet-view= > ?key=(그 2차맵) > 내 사이보그 자리 > 엔진 기본.
 // 타일은 서버 이진 그대로 엔진에 넘기고 메시 워커가 푼다(planetSource.ts, ADR 36 "서버 굽기·전송").
 // 앱 화면 흐름(홈·아래 탭)이 정해지면 이 화면을 그곳으로 옮긴다: onClose·monitor만 받는다.
@@ -20,6 +22,7 @@ import {
   type PlanetStatus,
   createPlanetEngine,
   mapKeyAtLatLon,
+  placementAtLatLon,
 } from "@terra/engine/planet";
 import type { WorldCitiesResponse, WorldMapCity, WorldPosition } from "@terra/shared/worldMap";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -33,7 +36,6 @@ import { usePerfStats } from "../perf/usePerfStats.ts";
 import { setTelemetryView } from "../telemetry/reporter.ts";
 import { useMountFocus } from "../ui/useMountFocus.ts";
 import {
-  type PlanetFailure,
   PlanetLoadError,
   createServerTileSource,
   loadPlanetManifest,
@@ -48,10 +50,13 @@ import {
   reducedMotionList,
 } from "./planetSky.ts";
 import { planetViewOption } from "./planetViewParam.ts";
-import { cellLines, planetFailureText } from "./planetText.ts";
+import { cellLines } from "./planetText.ts";
 import { CityOverlay } from "./CityOverlay.tsx";
+import { type LoadPhase, type TileProblem, screenNotice } from "./planetNotice.ts";
 import { clusterView, focusView } from "./planetFocus.ts";
 import { PlanetCityPanel } from "./PlanetCityPanel.tsx";
+import { PlanetCommandPanel } from "./PlanetCommandPanel.tsx";
+import { formatAtParam } from "./mapTarget.ts";
 import { enterableAt, loadMyPosition, loadWorldCities, parseMapKey } from "./worldMapData.ts";
 import "./map.css";
 import "./planetMap.css";
@@ -76,57 +81,6 @@ interface PlanetMapScreenProps {
   mapKey?: string | undefined;
 }
 
-/** 목록 정보 받기 단계 */
-type LoadPhase =
-  /** 목록 정보를 받는 중 */
-  | { kind: "manifest" }
-  /** 서버가 굽는 중(다시 묻기까지 ms) */
-  | { kind: "generating"; retryInMs: number }
-  /** 목록 정보 요청이 너무 많다(429, 다시 묻기까지 ms) */
-  | { kind: "rate_limited"; retryInMs: number }
-  /** 엔진을 만들었다(그 뒤 상태는 엔진 status) */
-  | { kind: "ready" }
-  | { kind: "failed"; reason: PlanetFailure };
-
-/** 화면이 알아야 할 타일 실패(그 밖의 실패는 엔진이 저절로 다시 받는다) */
-type TileProblem = Extract<PlanetFailure, "sign_in" | "not_found">;
-
-interface Notice {
-  tone: "status" | "alert";
-  lines: string[];
-  retry: boolean;
-}
-
-/** 가운데 안내 — 받기 단계·타일 실패·엔진 상태 중 지금 가장 중요한 것 하나 */
-function screenNotice(load: LoadPhase, tiles: TileProblem | null, status: PlanetStatus): Notice | null {
-  if (load.kind === "failed") {
-    return { tone: "alert", lines: [m.planet_failed(), planetFailureText(load.reason)], retry: true };
-  }
-  if (status.kind === "unsupported") return { tone: "alert", lines: [m.map_unsupported()], retry: false };
-  if (status.kind === "error") return { tone: "alert", lines: [m.map_error()], retry: false };
-  if (tiles === "sign_in") return { tone: "alert", lines: [m.map_code_sign_in_required()], retry: false };
-  if (tiles === "not_found") return { tone: "alert", lines: [m.planet_tiles_outdated()], retry: true };
-  if (load.kind === "manifest") return { tone: "status", lines: [m.planet_manifest_loading()], retry: false };
-  if (load.kind === "generating" || load.kind === "rate_limited") {
-    const seconds = Math.max(1, Math.round(load.retryInMs / 1000));
-    const line =
-      load.kind === "generating" ? m.planet_generating({ seconds }) : m.planet_rate_limited({ seconds });
-    return { tone: "status", lines: [line], retry: false };
-  }
-  switch (status.kind) {
-    case "loading":
-      return { tone: "status", lines: [m.planet_preparing()], retry: false };
-    case "context-lost":
-      return { tone: "status", lines: [m.map_context_lost()], retry: false };
-    case "ready":
-      return null;
-    default: {
-      const unhandled: never = status;
-      return unhandled;
-    }
-  }
-}
-
 const fixed = (value: number, digits: number): string => value.toFixed(digits);
 
 /** 다시 시도하면 화면 안쪽을 새로 만든다(목록 정보부터 다시 받고 엔진·상태를 모두 새로) */
@@ -135,9 +89,9 @@ export default function PlanetMapScreen(props: PlanetMapScreenProps) {
   return <PlanetMapView key={attempt} {...props} onRetry={() => setAttempt((count) => count + 1)} />;
 }
 
-/** 2차맵 들어가기: 2차맵 화면으로 바꾸기(replace — 뒤로 = 지도를 떠남, MapSwitch와 같다) */
-function enterMap(key: number): void {
-  navigate({ route: "map", search: { key: String(key) } }, { replace: true });
+/** 2차맵 들어가기: 2차맵 화면으로 바꾸기(replace — 뒤로 = 지도를 떠남, MapSwitch와 같다). at = 1차맵에서 고른 배치 칸(카메라) */
+function enterMap(key: number, at: { readonly x: number; readonly y: number }): void {
+  navigate({ route: "map", search: { key: String(key), at: formatAtParam(at.x, at.y) } }, { replace: true });
 }
 
 function PlanetMapView({
@@ -168,7 +122,9 @@ function PlanetMapView({
   const [world, setWorld] = useState<WorldCitiesResponse | null>(null);
   const [me, setMe] = useState<WorldPosition | null>(null);
   const [cityId, setCityId] = useState<number | null>(null);
-  const [faceLevel, setFaceLevel] = useState<number | null>(null);
+  // 고른 도시의 판 대신 1차맵 명령 판(볼 수 없는 맵의 [정찰 보내기])
+  const [commanding, setCommanding] = useState(false);
+  const [planet, setPlanet] = useState<{ faceLevel: number; radiusM: number } | null>(null);
   const requestFrame = useCallback(() => engineRef.current?.requestFrame(), []);
 
   useEffect(() => {
@@ -207,7 +163,7 @@ function PlanetMapView({
       ([manifest, mine]) => {
         if (controller.signal.aborted) return;
         setMe(mine);
-        setFaceLevel(manifest.faceLevel);
+        setPlanet({ faceLevel: manifest.faceLevel, radiusM: manifest.radiusM });
         const focus = focusView(parseMapKey(keyParam), mine, manifest.radiusM);
         try {
           // 바이옴 이름은 서버 범례(자료, ko·en)에서
@@ -311,9 +267,15 @@ function PlanetMapView({
   const city = cities.find((entry) => entry.id === cityId) ?? null;
   // 가장 고운 단계에서 화면 가운데 2차맵에 들어갈 수 있으면 [이 2차맵으로 들어가기](기획 60 §4.1 "그곳 줌인 → 그 2차맵")
   const centerKey =
-    stats && faceLevel !== null ? mapKeyAtLatLon(stats.camera.latDeg, stats.camera.lonDeg, faceLevel) : null;
+    stats && planet ? mapKeyAtLatLon(stats.camera.latDeg, stats.camera.lonDeg, planet.faceLevel) : null;
   const here =
     stats?.primaryLevel === FINEST_LEVEL && centerKey !== null ? enterableAt(cities, centerKey) : null;
+  // 화면 가운데 배치 칸(그 2차맵 카메라가 볼 곳, 515). 못 구하면 그 도시 시청
+  const enterHere = (target: WorldMapCity): void => {
+    const at =
+      stats && planet ? placementAtLatLon(stats.camera.latDeg, stats.camera.lonDeg, planet.faceLevel) : null;
+    enterMap(target.mapKey, at?.mapKey === target.mapKey ? at : { x: target.cellX, y: target.cellY });
+  };
 
   const shown = screenNotice(load, tileProblem, status);
   const level = stats?.primaryLevel ?? 0;
@@ -402,6 +364,7 @@ function PlanetMapView({
       data-picked={cell ? `${cell.face},${cell.mapLevel},${cell.i},${cell.j}` : undefined}
       data-cities={world ? cities.length : undefined}
       data-city={city?.id}
+      data-commanding={commanding && city ? "true" : undefined}
       data-me={me ? me.mapKey : undefined}
       data-center-key={centerKey ?? undefined}
     >
@@ -414,7 +377,10 @@ function PlanetMapView({
           milliPerRadian={world.milliPerRadian}
           me={me}
           selected={cityId}
-          onSelect={(next) => setCityId(next.id)}
+          onSelect={(next) => {
+            setCityId(next.id);
+            setCommanding(false);
+          }}
           onZoomTo={zoomTo}
           register={registerOverlay}
           requestFrame={requestFrame}
@@ -504,12 +470,22 @@ function PlanetMapView({
         </div>
       ) : null}
       <footer className="map-hud map-hud-bottom planet-bottom">
-        {city && world ? (
+        {city && world && commanding ? (
+          <PlanetCommandPanel
+            city={city}
+            factions={world.factions}
+            me={me}
+            radiusM={planet?.radiusM ?? null}
+            onClose={() => setCommanding(false)}
+          />
+        ) : null}
+        {city && world && !commanding ? (
           <PlanetCityPanel
             city={city}
             factions={world.factions}
             mine={world.myFactionId === city.factionId}
-            onEnter={enterMap}
+            onEnter={(target) => enterMap(target.mapKey, { x: target.cellX, y: target.cellY })}
+            onScout={() => setCommanding(true)}
             onClose={() => setCityId(null)}
           />
         ) : null}
@@ -531,7 +507,7 @@ function PlanetMapView({
                 <button
                   type="button"
                   className="button-small button-primary planet-enter-here"
-                  onClick={() => enterMap(here.mapKey)}
+                  onClick={() => enterHere(here)}
                 >
                   {m.world_enter_here()}
                 </button>

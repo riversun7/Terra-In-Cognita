@@ -4,6 +4,8 @@
 // - 둘레 땅: 행성 값 파일(월드 행성, 2차맵 지형 서비스와 같은 바이트)에서 그 2차맵 칸 하나만 읽는다. 행성 값이 아직 없으면(굽는 중) 기다리지
 //   않고 land null로 답한다(다음 조회에서 채운다).
 // - 들어갈 수 있나: 띄운 2차맵(loaded)과 내 시야 규칙(viewable = 구독과 같은 canViewSecondMap).
+// - 도시 안개(WP7, 기획 정리 D-518 514): 내가 아는 도시만 보낸다(knownCities.ts — 시작 도시·내 국가·본 적 있는 자리·전체 보기 권한).
+//   "도시 N" 차례는 모든 도시로 센다(알게 된 도시가 늘어도 이름이 바뀌지 않게). 껍질은 그 덩이의 도시를 모두 알 때만.
 // - 내 자리: 사이보그 본체 유닛이 있는 띄운 2차맵과 지금 시각의 배치 칸.
 // 세계 규칙은 바꾸지 않는다(조회만). 표·쓰기 대기열·NPC 런타임 파일은 건드리지 않는다.
 import { type CellKey, decodeCellKey, isCellKey } from "@terra/planet";
@@ -29,7 +31,8 @@ import type { QueryPool } from "../world/persist/load.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { TEST_NPC_FACTION_CODE } from "../world/unitKinds.ts";
 import type { World } from "../world/world.ts";
-import { canViewSecondMap } from "../world/visibility.ts";
+import { canObserve, canViewSecondMap } from "../world/visibility.ts";
+import { hullKnown, isCityKnown, knownWithoutSight } from "./knownCities.ts";
 
 /** 이 모듈이 세계에서 읽는 것(시험은 가짜를 넣는다) */
 export interface WorldMapSource {
@@ -39,6 +42,8 @@ export interface WorldMapSource {
   readonly directory: WorldDirectory;
   /** 사이보그 본체 유닛 ID·시작 도시(없으면 undefined) */
   cyborgOf(userId: string): { readonly unitId: number | null; readonly startCityId: number } | undefined;
+  /** 띄운 2차맵에서 내가 아는 시야 칸(탐사 기록 ∪ 지금 시야, MapVision.sighted). 없으면 DB 탐사 기록만 본다 */
+  sighted?: ((mapKey: number, viewer: Viewer) => Promise<Uint8Array | undefined>) | undefined;
   /** 영토 셈(조회 캐시). 없으면(영토 서비스 없음) undefined */
   territory?: ((planetId: string, userId: string) => Promise<TerritoryPlanetView | undefined>) | undefined;
 }
@@ -116,6 +121,23 @@ async function loadCityRecords(pool: QueryPool, planetId: string): Promise<CityR
   }));
 }
 
+/** 내 탐사 기록(그 행성의 2차맵마다 시야 칸 비트, world_exploration) */
+async function exploredOf(
+  pool: QueryPool,
+  planetId: string,
+  userId: string,
+): Promise<Map<number, Uint8Array>> {
+  const result = await pool.query(
+    `select map_key, cells from world_exploration where user_id = $1 and planet_id = $2`,
+    [userId, planetId],
+  );
+  const bits = new Map<number, Uint8Array>();
+  for (const row of result.rows) {
+    if (row.cells instanceof Uint8Array) bits.set(Number(row.map_key), new Uint8Array(row.cells));
+  }
+  return bits;
+}
+
 async function myFactionOf(pool: QueryPool, userId: string): Promise<number | null> {
   const result = await pool.query(`select faction_id from faction_members where user_id = $1`, [userId]);
   const row = result.rows[0];
@@ -191,8 +213,24 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
       const territoryCities = new Map((territory?.cities ?? []).map((city) => [city.id, city]));
       const factions = new Map<number, WorldMapFaction>();
       const numbers = new Map<number, number>();
+      // 도시 안개: 시작 도시·내 국가 도시가 아닌 도시가 있는 2차맵만 내 시야 칸을 읽는다(DB 탐사 기록, 띄운 맵은 지금 시야까지)
+      const observer = canObserve(viewer);
+      const knowing = { observer, myFactionId };
+      const unsure = new Set(
+        records.filter((record) => !knownWithoutSight(record, knowing)).map((record) => record.mapKey),
+      );
+      const sighted =
+        unsure.size > 0 ? await exploredOf(pool, planetId, viewer.id) : new Map<number, Uint8Array>();
+      await Promise.all(
+        [...unsure].map(async (key) => {
+          const bits = source.maps.has(key) ? await source.sighted?.(key, viewer) : undefined;
+          if (bits) sighted.set(key, bits);
+        }),
+      );
+      const known = records.filter((record) => isCityKnown(record, { ...knowing, sighted }));
+      const knownIds = new Set(known.map((record) => record.id));
       // 띄운 2차맵마다 내 시야(구독과 같은 규칙)를 한 번씩 본다
-      const loadedKeys = [...new Set(records.map((record) => record.mapKey))].filter((key) =>
+      const loadedKeys = [...new Set(known.map((record) => record.mapKey))].filter((key) =>
         source.maps.has(key),
       );
       const viewable = new Map(
@@ -208,6 +246,10 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
         if (!isCellKey(record.mapKey)) continue;
         const cell = decodeCellKey(record.mapKey);
         if (cell.level !== faceLevel) continue;
+        // 차례는 모르는 도시까지 센다("도시 N" 이름이 알게 된 도시 수에 따라 바뀌지 않게)
+        const number = (numbers.get(record.factionId) ?? 0) + 1;
+        numbers.set(record.factionId, number);
+        if (!knownIds.has(record.id)) continue;
         if (!factions.has(record.factionId))
           factions.set(record.factionId, {
             id: record.factionId,
@@ -215,8 +257,6 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
             kind: record.kind,
             name: nameOf(record.code),
           });
-        const number = (numbers.get(record.factionId) ?? 0) + 1;
-        numbers.set(record.factionId, number);
         const map = source.maps.get(record.mapKey);
         const area = territoryCities.get(record.id);
         cities.push({
@@ -241,6 +281,7 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
       const hulls: WorldMapHull[] = [];
       for (const group of territory?.groups ?? []) {
         if (!group.hull || !factions.has(group.factionId)) continue;
+        if (!observer && !hullKnown(group, (id) => knownIds.has(id), myFactionId)) continue;
         hulls.push({
           factionId: group.factionId,
           points: group.hull.map((vertex) => {
@@ -329,6 +370,11 @@ export function worldMapReadsOf(options: {
       maps: world.maps,
       directory: world,
       cyborgOf: (userId) => world.persistence?.cyborgs.record(userId),
+      sighted: (mapKey, viewer) =>
+        world.maps
+          .get(mapKey)
+          ?.vision.sighted({ userId: viewer.id, ownerId: world.ownerOfUser?.(viewer.id) }) ??
+        Promise.resolve(undefined),
       territory: (id, userId) =>
         world.persistence?.territory.planetView(id, userId) ?? Promise.resolve(undefined),
     },

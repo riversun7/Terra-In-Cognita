@@ -80,6 +80,11 @@ export interface VisionViewer {
 export interface MapVision {
   /** 이 사용자가 이 2차맵을 볼 수 있는가(탐사 기록을 먼저 읽는다) */
   canView(viewer: VisionViewer): Promise<boolean>;
+  /**
+   * 이 사용자가 아는 시야 칸 비트(탐사 기록 ∪ 지금 내 유닛·건물의 시야, VISION_BYTES 사본). 1차맵 도시 안개가 도시 자리를 본다
+   * (docs/adr/2026-11-07-play-flow.md "WP7")
+   */
+  sighted(viewer: VisionViewer): Promise<Uint8Array>;
   subscribe(subscriber: StreamSubscriber, viewer: VisionViewer): void;
   unsubscribe(subscriber: StreamSubscriber): void;
   unitChanged(unit: VisionUnit): void;
@@ -167,21 +172,21 @@ export function createMapVision(options: {
   const buildingVisible = (group: Group, building: VisionBuilding): boolean =>
     owns(group.viewer, building.ownerId) || hasBit(group.explored, buildingCell(building.placement));
 
-  const computeCover = (group: Group): Uint16Array => {
+  /** 그 소유 주체의 유닛·건물이 지금 덮는 시야 칸 */
+  const coverOf = (ownerId: number | undefined): Uint16Array => {
     const cover = new Uint16Array(VISION_CELLS);
-    if (group.viewer.ownerId === undefined) return cover;
+    if (ownerId === undefined) return cover;
     const at = now();
     for (const unit of source.units()) {
-      if (unit.ownerId === group.viewer.ownerId)
+      if (unit.ownerId === ownerId)
         stampVision(cover, visionCellOf(positionAt(unit.motion, at)), UNIT_RADIUS);
     }
     for (const building of source.buildings()) {
-      if (building.ownerId === group.viewer.ownerId) {
-        stampVision(cover, buildingCell(building.placement), BUILDING_RADIUS);
-      }
+      if (building.ownerId === ownerId) stampVision(cover, buildingCell(building.placement), BUILDING_RADIUS);
     }
     return cover;
   };
+  const computeCover = (group: Group): Uint16Array => coverOf(group.viewer.ownerId);
 
   /** 남의 유닛 하나를 지금 덮인 칸으로 잘라 본다. 안 보이면 undefined */
   const clip = (
@@ -345,6 +350,12 @@ export function createMapVision(options: {
       }
       const bits = await loadExplored(viewer.userId);
       return bits.some((byte) => byte !== 0);
+    },
+    async sighted(viewer) {
+      // 탐사 기록은 구독하는 동안만 쌓이므로 지금 내 유닛·건물이 덮는 칸을 더해 본다(기록은 바꾸지 않는다, 사본)
+      const bits = new Uint8Array(await loadExplored(viewer.userId));
+      addCoverBits(bits, coverOf(viewer.ownerId));
+      return bits;
     },
     subscribe(subscriber, viewer) {
       const previous = bySubscriber.get(subscriber);

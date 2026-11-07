@@ -39,6 +39,7 @@ export {
   type ProjectedPoint,
   latLonOfMapKey,
   mapKeyAtLatLon,
+  placementAtLatLon,
   pointVisible,
 } from "./planetOverlay.ts";
 export { skySeedOfHash } from "./cloudNoise.ts";

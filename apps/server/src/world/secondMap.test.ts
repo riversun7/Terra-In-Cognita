@@ -35,8 +35,12 @@ import {
   terrainHash,
 } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { remainingPathBlocked } from "./secondMap.ts";
-import { createTestMap } from "./testSupport.ts";
+import { performance } from "node:perf_hooks";
+import { mapTerrainFromTemp } from "./mapTerrain.ts";
+import { createInlinePathService } from "./pathService.ts";
+import { createSecondMap, remainingPathBlocked } from "./secondMap.ts";
+import { createTestMap, flatTerrain, heldPathService, silentLog } from "./testSupport.ts";
+import { emptyWorldStats } from "./worldStats.ts";
 import { TEST_MAP_KEY } from "./world.ts";
 
 const START = 1_798_000_000_000;
@@ -202,6 +206,33 @@ describe("관리자 이동 명령", () => {
     const after = map.unitInfo(1)?.motion;
     expect(after?.waypoints[0]).toEqual(here);
     expect(after?.waypoints.at(-1)).toEqual(center(50, 60));
+    map.stop();
+  });
+
+  it("경로 워커 사본에 2차맵이 없으면(unknown_map, 판 −1) 다시 찾지 않고 unknown_map으로 끝난다", async () => {
+    // 워커 사본이 비어 있는 경로 서비스(부팅 차례가 어긋난 때와 같다). 고치기 전에는 다시 찾기가 끝없이 돌았다
+    const stats = emptyWorldStats();
+    const paths = heldPathService(
+      createInlinePathService(
+        () => [],
+        () => performance.now(),
+      ),
+    );
+    const map = createSecondMap({
+      mapKey: 9,
+      terrain: mapTerrainFromTemp(9, flatTerrain()),
+      paths,
+      now: () => Date.now(),
+      stats,
+      log: silentLog,
+    });
+    paths.start();
+    map.addUnit({ id: 1, size: 1, speed: WALK_SPEED, cellX: 10, cellY: 10 });
+    const result = map.moveUnit(1, center(30, 10));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await result).toEqual({ ok: false, code: "unknown_map" });
+    expect(paths.requests).toBe(1);
+    expect(stats.paths.staleReplans).toBe(0);
     map.stop();
   });
 

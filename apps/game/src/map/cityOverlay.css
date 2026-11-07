@@ -8,6 +8,8 @@
   inset: 0;
   overflow: hidden;
   pointer-events: none;
+  /* 쌓임 맥락을 따로 둔다: 고른 도시 표시(z-index 1)가 아래 판(도시 판·명령 판) 위로 올라오지 않게(WP7) */
+  isolation: isolate;
 }
 [data-nation="0"] {
   --nation: var(--color-stat-str);

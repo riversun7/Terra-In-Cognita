@@ -56,12 +56,13 @@ export const ROUTES = {
   start: { path: "/start", search: [], parent: "home", frame: "hidden", access: "everyone" },
   // ?key=<2차맵 키(10진 셀 키)>: 그 2차맵을 연다. 없으면 내 사이보그가 있는 2차맵이고 카메라를 내 사이보그에 맞춘다
   // (docs/adr/2026-11-07-play-flow.md "WP2 지도 흐름", 기획 60 §4.1 D-6017). 1차맵 도시 판 [들어가기]가 이 주소로 온다.
+  // ?at=<x>,<y>(배치 칸): 1차맵에서 고른 곳 — 그 2차맵에 내 사이보그가 없으면 카메라가 여기를 본다(WP7, 기획 정리 D-518 515).
   // 시험·측정용(map/SecondaryMapScreen.tsx): ?pixel-ratio= 픽셀 비율 상한, 2차맵 낮밤(map/secondMapSky.ts,
   // ADR 2026-10-28-s1-second-map "2차맵 낮밤"): ?second-map-time= 지역 시각 멈춤, ?second-map-sky=off 낮밤 끔,
   // ?second-map-neighbours=all 이웃 8장을 처음부터(개발자 3×3 이어 보기, ADR 2026-10-31-second-map-from-planet WP-4)
   map: {
     path: "/map",
-    search: ["key", "pixel-ratio", "second-map-time", "second-map-sky", "second-map-neighbours"],
+    search: ["key", "at", "pixel-ratio", "second-map-time", "second-map-sky", "second-map-neighbours"],
     parent: "home",
     frame: "hidden",
     access: "everyone",

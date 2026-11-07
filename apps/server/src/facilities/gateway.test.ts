@@ -3,6 +3,7 @@ import { decodeServerMessage } from "@terra/protocol";
 import { describe, expect, it } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
 import { createFacilityGateway } from "./gateway.ts";
+import type { BuildingAttack } from "./attack.ts";
 import type { FacilityService } from "./service.ts";
 
 const player: Viewer = { id: "user-1", loginId: "tester", roles: ["player"] };
@@ -23,6 +24,7 @@ function fakeService(calls: string[]): FacilityService {
     holdingLocked: () => false,
     unitInJob: () => false,
     pausesFor: () => undefined,
+    damage: () => false,
     places: { maps: new Map(), facilities: new Map(), catalog: notUsed, cities: () => [] },
     storageMove: (userId, input) => {
       calls.push(`move:${userId}:${input.buildingId}:${input.asset}:${input.qty}:${input.direction}`);
@@ -58,9 +60,14 @@ function fakeService(calls: string[]): FacilityService {
   };
 }
 
-function open(service: FacilityService | undefined, who: Viewer | null) {
+function open(service: FacilityService | undefined, who: Viewer | null, attack?: BuildingAttack) {
   const sent: unknown[] = [];
-  const gateway = createFacilityGateway({ service: () => service, now: () => 0, log: { error: () => {} } });
+  const gateway = createFacilityGateway({
+    service: () => service,
+    attack: () => attack,
+    now: () => 0,
+    log: { error: () => {} },
+  });
   const socket = gateway.open({
     send: (text) => sent.push(decodeServerMessage(text)),
     viewer: () => Promise.resolve(who),
@@ -124,5 +131,29 @@ describe("건물 연결 처리", () => {
     expect(calls).toEqual(["grant:dev-1:pine_log:3@9:40:128", 'finish:dev-1:{"buildingId":7}']);
     expect(signedOut.sent).toEqual([{ t: "facility_result", id: 4, ok: false, code: "sign_in_required" }]);
     expect(booting.sent).toEqual([{ t: "facility_result", id: 5, ok: false, code: "busy" }]);
+  });
+
+  it("건물·비콘 공격(12)은 공격 서비스로 넘기고, 공격 서비스가 없으면 busy", async () => {
+    const calls: string[] = [];
+    const attack: BuildingAttack = {
+      attack: (userId, target, unitIds) => {
+        calls.push(`attack:${userId}:${JSON.stringify(target)}:${unitIds.join(",")}`);
+        return Promise.resolve(
+          "beaconId" in target ? { ok: false, code: "own_target" } : { ok: true, doneAtMs: 9 },
+        );
+      },
+    };
+    const armed = open(fakeService(calls), player, attack);
+    armed.socket.handle({ t: "facility_attack", id: 1, buildingId: 7, unitIds: [5, 6] });
+    armed.socket.handle({ t: "facility_attack", id: 2, beaconId: 3, unitIds: [5] });
+    const unarmed = open(fakeService(calls), player);
+    unarmed.socket.handle({ t: "facility_attack", id: 3, buildingId: 7, unitIds: [5] });
+    for (let i = 0; i < 10; i++) await settle();
+    expect(calls).toEqual(['attack:user-1:{"buildingId":7}:5,6', 'attack:user-1:{"beaconId":3}:5']);
+    expect(armed.sent).toEqual([
+      { t: "facility_result", id: 1, ok: true, doneAtMs: 9 },
+      { t: "facility_result", id: 2, ok: false, code: "own_target" },
+    ]);
+    expect(unarmed.sent).toEqual([{ t: "facility_result", id: 3, ok: false, code: "busy" }]);
   });
 });

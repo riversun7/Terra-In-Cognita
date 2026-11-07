@@ -63,6 +63,13 @@ describe("물건 자리", () => {
     ]);
     // 도시가 없는 2차맵: 화물만
     expect(refs.filter((ref) => isMaterialSource(ref, null, 1)).map((ref) => ref.id)).toEqual([8, 4]);
+    // 영토 비콘(1차맵, 질문 410 ①): 2차맵 없음 → 그 도시 창고 + 그 도시의 내 창고 시설만(화물 없음)
+    expect(
+      refs
+        .filter((ref) => isMaterialSource(ref, 2, null))
+        .toSorted(sourceOrder)
+        .map((ref) => `${ref.kind}:${String(ref.id)}`),
+    ).toEqual(["city:2", "building:12", "building:30"]);
   });
 
   it("화면 재료 합은 같은 자리 규칙으로 센다(시험 광석 같은 물자가 아닌 줄은 뺀다)", () => {
@@ -122,5 +129,7 @@ describe("물건 자리", () => {
       ["plank", 12n],
       ["brick", 2n],
     ]);
+    // 영토 비콘 재료(질문 410 ①): 화물을 뺀다
+    expect([...materialStockAt(places, null, 2)]).toEqual([["plank", 12n]]);
   });
 });

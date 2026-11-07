@@ -8,9 +8,11 @@ import {
   checkBeaconPlacement,
   claimAt,
   convexHull,
+  nearestFactionCity,
   orient,
   polygonContains,
   territoryDistanceMilli,
+  urbanCityAt,
 } from "./territory.ts";
 
 // 평면 시험: 점 (x, y) → (x, y, Z). Z가 커서 작은 x·y는 거의 평면이다(중심 투영 평면 = z = Z 평면)
@@ -248,6 +250,39 @@ describe("영토 배치·소속(D-485·D-486)", () => {
       ok: false,
       problem: "beacon_limit",
     });
+  });
+
+  it("비콘 재료 도시(질문 410 ①): 그 세력에서 가장 가까운 도시, 같으면 작은 ID, 없으면 null", () => {
+    const cities = [
+      { id: 3, faction: 10, point: at(900, 0) },
+      { id: 1, faction: 10, point: at(-300, 0) },
+      { id: 2, faction: 20, point: at(100, 0) },
+      { id: 4, faction: 10, point: at(300, 0) },
+    ];
+    expect(nearestFactionCity(cities, 10, at(0, 0))).toBe(1);
+    expect(nearestFactionCity(cities, 10, at(700, 0))).toBe(3);
+    expect(nearestFactionCity(cities, 20, at(700, 0))).toBe(2);
+    expect(nearestFactionCity(cities, 30, at(0, 0))).toBeNull();
+    // 도시 1(−300)과 4(+300)의 가운데는 같은 거리 → 입력 차례와 상관없이 작은 ID
+    expect(nearestFactionCity(cities.toReversed(), 10, at(0, 0))).toBe(1);
+    expect(nearestFactionCity(cities, 10, at(1, 0))).toBe(4);
+  });
+
+  it("시가지(D-146): 도시 중심에서 영향권 반경 ÷ 3 안, 겹치면 작은 ID", () => {
+    const layout = buildTerritory(
+      [
+        { id: 2, faction: 10, point: at(0, 0), grade: 4 },
+        { id: 1, faction: 20, point: at(5, 0), grade: 1 },
+      ],
+      [],
+      rules,
+      metric,
+    );
+    // 등급 4 영향권 1100 → 시가지 약 367(1000분율 칸), 이 시험 평면에서 x 100 ≈ 1000
+    expect(urbanCityAt(layout, at(30, 0))).toBe(2);
+    expect(urbanCityAt(layout, at(40, 0))).toBeNull();
+    // 등급 1 마을(영향권 100 → 시가지 약 33)과 겹치는 곳
+    expect(urbanCityAt(layout, at(6, 0))).toBe(1);
   });
 
   it("입력 차례와 상관없이 같은 배치", () => {

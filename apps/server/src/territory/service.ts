@@ -6,6 +6,8 @@
 // - 비콘 시설: 팩 시설 territory_beacon(건설 재료 D-508, 시설은 늘 켜져 있고 팩에 없을 때만 disabled). 건물 규칙(기획 336,
 //   docs/adr/2026-11-07-buildings-runtime.md): 놓을 때 레벨 1 재료를 놓는 사용자의 주인 원장에서 빼고(construction.spend), 건설 시간(M14)
 //   뒤에 꼭짓점이 된다. 상태는 쓰지 않는 건물이라 노화만(30%에서 멈춤, D-509) — 그때 셈한다. 30% 미만(공격·옛 줄)이면 꼭짓점에서 빠진다.
+//   재료는 그 세력에서 비콘 칸과 가장 가까운 도시의 내 도시 창고 + 그 도시의 내 창고 시설에서만 꺼낸다(질문 410 ①). 전투 피해(질문 381)는
+//   damageBeacon이 상태를 줄인다(0이어도 지우지 않는다, 380).
 //   개발 대신 놓기(territory: dev-place)는 옛 관리자 짓기처럼 재료 없이 바로 선다. 수리는 건물 서비스가 작업으로 하고 repairBeacon으로 더한다.
 // - 기준 도시를 빼앗기면 비콘도 도시와 함께 넘어간다(D-512 335, 사용자 답): 도시 주인이 바뀌는 길(NPC 사회 런타임의 점령·반란·독립)은 모두
 //   런타임 저장(npc/persist.ts flush)의 도시 줄 쓰기를 거치고, 그 자리에서 cityOwnerChanged를 같은 묶음으로 부른다. 셈(compute)도 DB 도시
@@ -25,6 +27,8 @@ import {
   checkBeaconPlacement,
   cityGrade,
   gradeValue,
+  nearestFactionCity,
+  urbanCityAt,
 } from "@terra/shared/territory";
 import type {
   TerritoryBeaconFacilityView,
@@ -113,16 +117,42 @@ export interface TerritoryService {
   repairBeacon(beaconId: number, restorePpm: number, atMs: number): boolean;
   /** 짓기를 바로 끝낸다(개발 시험). 짓는 중이 아니면 false */
   finishBeacon(beaconId: number, atMs: number): boolean;
+  /** 재료를 꺼내는 도시: 그 비콘 세력에서 비콘 칸과 가장 가까운 도시(질문 410 ①). 세력 도시가 없으면 null */
+  supplyCity(beaconId: number): Promise<BeaconSupply | null>;
+  /**
+   * 그 자리가 어느 도시의 시가지(안전지대, D-146: 영향권 반경 ÷ 3) 안인가 — 그 도시 ID, 아니면 null. 2차맵 배치 칸(건물) 또는 1차맵 칸
+   * 중심(비콘). 시가지 안의 건물은 공성 시간에만 공격받는다(D-174·D-184). 영토를 셈하지 않는 행성이면 null
+   */
+  urbanCity(
+    planetId: string,
+    at: { readonly mapKey: number; readonly x: number; readonly y: number } | { readonly cellKey: number },
+  ): Promise<number | null>;
+  /**
+   * 전투 피해(질문 381·기획 336 ③): 잃은 내구도 점 × 가득 ÷ N51만큼 상태를 줄인다(destroyed면 0). 30% 미만이면 꼭짓점이 아니고 0이어도
+   * 지우지 않는다(380, 수리하면 돌아온다). 쓰기 대기열에만 쓴다(전투 결과 기록과 같은 커밋). 없으면 false
+   */
+  damageBeacon(beaconId: number, lost: number, destroyed: boolean, atMs: number): boolean;
+}
+
+/** 영토 비콘 재료를 꺼내는 도시(그 세력에서 비콘 칸과 가장 가까운 도시, 질문 410 ①) */
+export interface BeaconSupply {
+  readonly cityId: number;
+  /** 그 도시 시청이 선 2차맵(그 도시의 창고 시설을 찾는다) */
+  readonly mapKey: number;
 }
 
 /** 비콘 짓기(건물 규칙, 기획 336): 설정 칸 N50과 재료 빼기 */
 export interface BeaconConstruction {
   readonly rules: () => FacilityRuntimeRules;
-  /** 놓는 사용자의 주인 원장에서 재료를 뺀다. 모자라면 false(아무것도 바꾸지 않는다) */
+  /**
+   * 놓는 사용자의 주인 원장에서 재료를 뺀다: 그 도시(supply)의 내 도시 창고 + 그 도시의 내 창고 시설에서만(질문 410 ①). 도시가 없거나
+   * 모자라면 false(아무것도 바꾸지 않는다)
+   */
   readonly spend: (
     userId: string,
     materials: readonly { readonly item: string; readonly qty: number }[],
     atMs: number,
+    supply: BeaconSupply | null,
   ) => boolean;
 }
 
@@ -338,6 +368,13 @@ export function createTerritoryService(
     return compute(planetId, faceLevel);
   };
 
+  /** 재료를 꺼내는 도시(질문 410 ①): 그 세력에서 비콘 칸과 가장 가까운 도시 */
+  const supplyOf = (computed: Computed, faction: number, cell: number): BeaconSupply | null => {
+    const id = nearestFactionCity(computed.layout.cities, faction, territoryPoint(parseCellKey(cell)));
+    const city = id === null ? undefined : computed.cities.find((entry) => entry.id === id);
+    return city ? { cityId: city.id, mapKey: city.mapKey } : null;
+  };
+
   const factionOfUser = async (userId: string): Promise<number | null> => {
     const result = await pool.query(
       `select m.faction_id from faction_members m join factions f on f.id = m.faction_id
@@ -463,11 +500,13 @@ export function createTerritoryService(
         let used = 0;
         for (const beacon of beacons.values()) if (beacon.cityId === check.anchorCity) used += 1;
         if (anchor && used >= limit) return fail("beacon_limit");
-        // 건물 규칙(기획 336): 재료를 빼고 건설 시간 뒤에 선다. 개발 대신 놓기는 옛 관리자처럼 재료 없이 바로
+        // 건물 규칙(기획 336): 재료를 빼고 건설 시간 뒤에 선다. 개발 대신 놓기는 옛 관리자처럼 재료 없이 바로.
+        // 재료는 그 세력에서 비콘 칸과 가장 가까운 도시의 내 도시 창고 + 그 도시의 내 창고 시설에서(질문 410 ①)
         const at = now();
         const facility = options.beaconFacility();
         const build = options.construction && !actor.devPlace;
-        if (build && !options.construction?.spend(actor.userId, facility.materials, at))
+        const supply = supplyOf(computed, faction, input.cellKey);
+        if (build && !options.construction?.spend(actor.userId, facility.materials, at, supply))
           return fail("insufficient_materials");
         const buildMs = build ? (facility.buildMs ?? 0) : 0;
         lastId += 1;
@@ -543,6 +582,33 @@ export function createTerritoryService(
       const row = beacons.get(beaconId);
       if (!row || row.readyAtMs === null || row.readyAtMs <= atMs) return false;
       saveBeacon({ ...row, readyAtMs: null, conditionAtMs: atMs });
+      return true;
+    },
+    async urbanCity(planetId, at) {
+      const computed = await current(planetId);
+      if (!computed) return null;
+      const key =
+        "cellKey" in at ? parseCellKey(at.cellKey) : placementCellKey(parseCellKey(at.mapKey), at.x, at.y);
+      return urbanCityAt(computed.layout, territoryPoint(key));
+    },
+    async supplyCity(beaconId) {
+      const row = beacons.get(beaconId);
+      const computed = row ? await current(row.planetId) : undefined;
+      return row && computed ? supplyOf(computed, row.factionId, row.cellKey) : null;
+    },
+    damageBeacon(beaconId, lost, destroyed, atMs) {
+      const row = beacons.get(beaconId);
+      if (!row) return false;
+      const condition = conditionNow(row, atMs);
+      const max = Math.max(1, options.rules().beaconDurability);
+      const loss = destroyed ? condition : Math.ceil((lost * CONDITION_FULL) / max);
+      // 짓는 중이면 노화 시작 시각(다 지은 시각)을 그대로 둔다
+      const building = row.readyAtMs !== null && row.readyAtMs > atMs;
+      saveBeacon({
+        ...row,
+        conditionPpm: Math.max(0, condition - loss),
+        conditionAtMs: building ? row.conditionAtMs : atMs,
+      });
       return true;
     },
   };

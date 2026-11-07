@@ -3,6 +3,7 @@
 // - 바꾸는 명령: 짓기(facility_build), 레벨업(facility_upgrade), 건물·영토 비콘 수리(facility_repair), 공방 장비 수리(equipment_repair),
 //   개발 시험(dev_facility_grant: 재료 받기, dev_facility_finish: 하던 작업 바로 끝내기 — 권한 secondMap: dev-spawn).
 //   창고 옮기기(storage_move, 프로토콜 11): 도시 창고·화물 ↔ 창고 시설, 건물 창고(임대 몫) → 도시 창고. 조회는 tRPC facilities.overview다.
+//   건물·영토 비콘 공격(facility_attack, 프로토콜 12, 질문 381): 내 유닛으로 남의 시설·다른 세력 비콘을 넥서스로 하는 공성 전투를 연다.
 // - 재료를 꺼내는 자리(12부터 서버 규칙, D-516 361): 건물이 선 도시 창고 + 그 도시의 내 창고 시설 + 그 2차맵 내 유닛 화물(@terra/shared/goodsPlaces).
 // - 서버가 판정한다: 소유(내 건물·내 유닛·내 물건), 재료(주인 원장의 재료를 뺀다), 배치(2차맵 칸), 시간(M14 식 × 일꾼 단축),
 //   상태(30% 미만 기능 정지). 결과는 facility_result 하나(id = 요청 id). 오류는 코드다(기기가 번역).
@@ -13,6 +14,8 @@ import { z } from "zod";
 export const FACILITY_PROTOCOL_VERSION = 10;
 /** 창고 옮기기(storage_move)·개발 재료 받기 자리 칸(mapKey·x·y)이 생긴 프로토콜 버전 */
 export const STORAGE_PROTOCOL_VERSION = 11;
+/** 건물·영토 비콘 공격(facility_attack, 질문 381)이 생긴 프로토콜 버전 */
+export const ATTACK_PROTOCOL_VERSION = 12;
 
 const u32 = z.number().int().nonnegative().max(0xffff_ffff);
 const requestId = u32;
@@ -116,6 +119,22 @@ export const storageMoveMessage = z.object({
   direction: z.enum(["in", "out"]),
 });
 
+/**
+ * 건물·영토 비콘 공격(프로토콜 12, 질문 381, D-175·D-5043·기획 336 ③): 내 유닛(unitIds, 그 건물·비콘 칸의 2차맵에 있는 것)으로 남의 시설
+ * (buildingId) 또는 다른 세력의 영토 비콘(beaconId)을 넥서스로 하는 공성 전투를 연다(빨리감기, 결과는 실시간으로 끝나는 시각에 적용).
+ * 넥서스 내구도 = 지금 내구도 점이고, 전투가 깎은 만큼 상태(ppm)가 준다(0이면 폐허 = 기능 정지, 수리로 되돌린다). 답의 doneAtMs = 결과
+ * 적용 시각. 수비는 그 건물 주인(비콘은 그 세력)의 근처 유닛이다
+ */
+export const facilityAttackMessage = z
+  .object({
+    t: z.literal("facility_attack"),
+    id: requestId,
+    buildingId: rowId.optional(),
+    beaconId: rowId.optional(),
+    unitIds: units.min(1),
+  })
+  .refine((message) => (message.buildingId === undefined) !== (message.beaconId === undefined));
+
 /** 개발 시험: 하던 작업(짓기·레벨업·수리·장비 수리) 바로 끝내기(권한 secondMap: dev-spawn) */
 export const devFacilityFinishMessage = z
   .object({
@@ -183,6 +202,14 @@ export const FACILITY_RESULT_CODES = [
   "storage_full",
   /** 물건을 둘 자리가 없다: 그 2차맵에 도시가 없고(도시 창고 없음) 내 유닛도 없다(12) */
   "no_place",
+  /** 내 것이거나 내 세력 것이라 칠 수 없다(12, facility_attack) */
+  "own_target",
+  /** 이미 부서졌다(상태 0%, 폐허, 12) */
+  "target_ruined",
+  /** 공격 유닛이 그 건물·비콘 칸의 2차맵에 없다(12) */
+  "out_of_reach",
+  /** 도시 시가지(안전지대, D-146) 안이라 칠 수 없다 — 시가지 안 건물은 공성 시간에만(D-174·D-184, 12) */
+  "safe_zone",
   "internal_error",
 ] as const;
 export type FacilityResultCode = (typeof FACILITY_RESULT_CODES)[number];
@@ -194,7 +221,7 @@ const facilityResultMessage = z.discriminatedUnion("ok", [
     ok: z.literal(true),
     /** facility_build면 새 건물 ID */
     buildingId: rowId.optional(),
-    /** 작업이 생겼으면 끝나는 시각(ms) */
+    /** 작업이 생겼으면 끝나는 시각(ms). facility_attack이면 전투 결과를 적용하는 시각 */
     doneAtMs: z.number().int().nonnegative().optional(),
   }),
   z.object({
@@ -213,5 +240,6 @@ export const facilityClientMessages = [
   devFacilityGrantMessage,
   devFacilityFinishMessage,
   storageMoveMessage,
+  facilityAttackMessage,
 ] as const;
 export const facilityServerMessages = [facilityResultMessage] as const;

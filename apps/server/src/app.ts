@@ -690,7 +690,13 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     ? createFusionGateway({ service: fusionService, now, log: app.log })
     : undefined;
   const facilityGateway = world
-    ? createFacilityGateway({ service: facilityService, now, log: app.log })
+    ? createFacilityGateway({
+        service: facilityService,
+        // 건물·영토 비콘 공격(질문 381): 같은 조건
+        attack: () => (world.status().state === "ready" ? world.persistence?.facilities.attack : undefined),
+        now,
+        log: app.log,
+      })
     : undefined;
 
   if (planets && options.planets) {

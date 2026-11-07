@@ -6,7 +6,8 @@
 //   BUILDING_LOCATION_BASE + 건물 ID = 건물 창고(창고 시설·임대 몫, D-117 "도시·건물 창고"), 음수 = 유닛 화물(−유닛 ID, 전투 ADR 8절).
 // - 건물이 선 도시 = 같은 2차맵의 가장 가까운 도시(칸 거리 제곱, 같으면 작은 ID) [임시]. 필지·도시 경계(D-149)가 생기면 그것으로 바꾼다.
 // - 건물 재료를 꺼내는 자리(D-516 361): 그 도시 창고 → 그 도시에 선 내 창고 시설(작은 건물 ID) → 그 2차맵에 있는 내 유닛 화물(작은
-//   유닛 ID). 자리 없음·다른 도시·다른 건물 창고(임대 몫)는 쓰지 않는다(먼저 옮긴다).
+//   유닛 ID). 자리 없음·다른 도시·다른 건물 창고(임대 몫)는 쓰지 않는다(먼저 옮긴다). 영토 비콘(1차맵)은 그 세력에서 비콘 칸과 가장
+//   가까운 도시의 도시 창고 + 그 도시의 내 창고 시설만(화물 없음, 질문 410 ①).
 
 /** 건물 창고 위치의 시작(도시 ID는 이보다 작다) */
 export const BUILDING_LOCATION_BASE = 1_000_000_000_000;
@@ -75,11 +76,14 @@ export interface PlaceRef extends GoodsPlace {
   readonly storage: boolean;
 }
 
-/** 그 도시·2차맵의 건물 재료를 꺼낼 수 있는 자리인가(D-516 361) */
-export function isMaterialSource(place: PlaceRef, cityId: number | null, mapKey: number): boolean {
+/**
+ * 그 도시·2차맵의 건물 재료를 꺼낼 수 있는 자리인가(D-516 361). mapKey가 null이면 화물은 쓰지 않는다: 영토 비콘(1차맵)은 그 세력에서
+ * 비콘 칸과 가장 가까운 도시의 내 도시 창고 + 그 도시의 내 창고 시설에서만 꺼낸다(질문 410 ①)
+ */
+export function isMaterialSource(place: PlaceRef, cityId: number | null, mapKey: number | null): boolean {
   if (place.kind === "city") return cityId !== null && place.id === cityId;
   if (place.kind === "building") return place.storage && cityId !== null && place.cityId === cityId;
-  if (place.kind === "cargo") return place.mapKey === mapKey;
+  if (place.kind === "cargo") return mapKey !== null && place.mapKey === mapKey;
   return false;
 }
 

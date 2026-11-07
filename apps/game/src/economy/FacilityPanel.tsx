@@ -2,7 +2,8 @@
 // docs/adr/2026-11-07-buildings-runtime.md. 기술 기본 화면: 값은 건물 편집기(/dev/buildings)·설정 패널에서 고친다.
 // - 자료는 tRPC facilities.overview(실제 자료만), 바꾸는 명령은 WebSocket(facilityCommands.ts, 프로토콜 10)이다.
 // - 서버가 판정한다(소유·배치·재료·시간). 화면은 미리 셈(재료·시간, 같은 식)과 결과 코드 문구만 보인다.
-// - 차례: 규칙 한 줄 → 일꾼 고르기(짓기·레벨업 단축, 수리·장비 수리에 꼭) → 내 시설 → 새로 짓기 → 고칠 장비 → 내 세력 비콘 → 내 창고·화물.
+// - 차례: 규칙 한 줄 → 일꾼 고르기(짓기·레벨업 단축, 수리·장비 수리·공격에 꼭) → 내 시설 → 새로 짓기 → 고칠 장비 → 내 세력 비콘 →
+//   칠 수 있는 건물(질문 381, AttackParts.tsx) → 내 창고·화물. 비콘 재료는 그 세력의 가장 가까운 도시 창고(질문 410 ①).
 // - 재료 자리(D-516 361, "바뀜 (창고·직무)"): 짓는 칸이 속한 도시(같은 2차맵의 가장 가까운 도시) 창고 + 그 도시의 내 창고 시설 + 그 2차맵
 //   내 유닛 화물. 미리 셈·단추 막기도 그 자리의 물자로 센다(@terra/shared/facilities materialStockAt). 개발 재료 받기는 그 칸의 도시 창고로.
 import type { FacilitiesOverviewResponse } from "@terra/shared/facilities";
@@ -11,6 +12,7 @@ import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import { formatDuration, pickName } from "./economyText.ts";
+import { TargetList } from "./AttackParts.tsx";
 import { BeaconCard, FacilityCard, HoldingRepairRow } from "./FacilityCards.tsx";
 import { sendFacilityCommand } from "./facilityCommands.ts";
 import {
@@ -315,6 +317,7 @@ export function FacilityPanel() {
                   </ul>
                 </>
               ) : null}
+              <TargetList data={loaded} units={units} run={run} busy={busy} />
               <h3 className="eco-subtitle">{m.facility_places_title()}</h3>
               <PlacesList data={loaded} run={run} busy={busy} />
             </>

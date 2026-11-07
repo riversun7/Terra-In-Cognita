@@ -3,6 +3,7 @@
 // - 도시 창고 = 주인의 원장 계정(위치 = 도시 ID). 용량 없음 [임시](질문 411).
 // - 창고 시설 = 창고 단계(stage storage) 시설. 원장 위치 = 그 건물, 무게 합 ≤ 용량(N50). 다 짓고 30% 이상일 때만 넣는다.
 // - 건물 창고의 다른 몫(임대형 임차인 산출 등)도 같은 위치다(노동 계약 유예 뒤 시설 주인 것이 된다).
+// - 영토 비콘(1차맵)은 그 세력에서 비콘 칸과 가장 가까운 도시의 도시 창고 + 그 도시의 내 창고 시설만(화물 없음, 질문 410 ①).
 import {
   type CityCell,
   type PlaceRef,
@@ -15,6 +16,7 @@ import {
   sourceOrder,
 } from "@terra/shared/goodsPlaces";
 import type { Ledger } from "../economy/ledger.ts";
+import type { BeaconSupply } from "../territory/service.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { FacilityCatalog } from "./catalog.ts";
 import type { FacilityRecord } from "./state.ts";
@@ -71,13 +73,14 @@ export function isStorage(world: PlaceWorld, buildingId: number): boolean {
 
 /**
  * 건물 재료를 꺼내는 자리 차례(D-516 361): 그 도시의 내 도시 창고 → 그 도시에 선 내 창고 시설(작은 건물 ID) → 그 2차맵에 있는 내 유닛
- * 화물(작은 유닛 ID). 원장 위치 목록으로 돌려준다
+ * 화물(작은 유닛 ID). 원장 위치 목록으로 돌려준다. cargo가 false면 화물을 뺀다(영토 비콘, 질문 410 ①)
  */
 export function materialScope(
   world: PlaceWorld,
   ownerId: number,
   mapKey: number,
   cityId: number | null,
+  cargo = true,
 ): number[] {
   const refs: PlaceRef[] = [];
   if (cityId !== null) refs.push({ kind: "city", id: cityId, cityId, mapKey: null, storage: false });
@@ -89,12 +92,13 @@ export function materialScope(
     if (owner !== ownerId) continue;
     refs.push({ kind: "building", id: record.buildingId, cityId, mapKey, storage: true });
   }
-  world.maps.get(mapKey)?.forEachUnit((unit) => {
-    if (unit.ownerId === ownerId)
-      refs.push({ kind: "cargo", id: unit.id, cityId: null, mapKey, storage: false });
-  });
+  if (cargo)
+    world.maps.get(mapKey)?.forEachUnit((unit) => {
+      if (unit.ownerId === ownerId)
+        refs.push({ kind: "cargo", id: unit.id, cityId: null, mapKey, storage: false });
+    });
   return refs
-    .filter((ref) => isMaterialSource(ref, cityId, mapKey))
+    .filter((ref) => isMaterialSource(ref, cityId, cargo ? mapKey : null))
     .toSorted(sourceOrder)
     .map((ref) =>
       ref.kind === "city"
@@ -104,6 +108,13 @@ export function materialScope(
           : cargoLocation(ref.id ?? 0),
     );
 }
+
+/**
+ * 영토 비콘(1차맵) 짓기·수리 재료를 꺼내는 자리(질문 410 ①, 기획 커밋 52afc21 D-121 포인터): 그 세력에서 비콘 칸과 가장 가까운 도시의 내
+ * 도시 창고 → 그 도시의 내 창고 시설. 화물은 쓰지 않는다(2차맵 건물 규칙 361과 같은 꼴에서 화물만 뺀다)
+ */
+export const beaconMaterialScope = (world: PlaceWorld, ownerId: number, supply: BeaconSupply): number[] =>
+  materialScope(world, ownerId, supply.mapKey, supply.cityId, false);
 
 /** 자산 한 단위(재료 묶음)의 무게(g). 물자가 아니면(시험 광석 등) 0 */
 export function assetWeightG(catalog: FacilityCatalog, asset: string): bigint {

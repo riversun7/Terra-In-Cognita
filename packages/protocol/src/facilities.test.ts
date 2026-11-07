@@ -1,17 +1,38 @@
 import { describe, expect, it } from "vitest";
 import { decodeClientMessage, decodeServerMessage } from "./codec.ts";
 import { encodeMessage } from "./encode.ts";
-import { FACILITY_PROTOCOL_VERSION, STORAGE_PROTOCOL_VERSION } from "./facilities.ts";
+import {
+  ATTACK_PROTOCOL_VERSION,
+  FACILITY_PROTOCOL_VERSION,
+  STORAGE_PROTOCOL_VERSION,
+} from "./facilities.ts";
 import { MIN_SUPPORTED_PROTOCOL_VERSION, PROTOCOL_VERSION } from "./version.ts";
 
 const bad = (message: object) => JSON.stringify(message);
 
-describe("건물 메시지(프로토콜 10, 창고 11)", () => {
-  it("판 10부터(창고 옮기기 11), 지금 판 11·최소 판 10", () => {
+describe("건물 메시지(프로토콜 10, 창고 11, 공격 12)", () => {
+  it("판 10부터(창고 옮기기 11, 공격 12), 지금 판 12·최소 판 11", () => {
     expect(FACILITY_PROTOCOL_VERSION).toBe(10);
     expect(STORAGE_PROTOCOL_VERSION).toBe(11);
-    expect(PROTOCOL_VERSION).toBe(11);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(10);
+    expect(ATTACK_PROTOCOL_VERSION).toBe(12);
+    expect(PROTOCOL_VERSION).toBe(12);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(11);
+  });
+
+  it("건물·비콘 공격(12)이 왕복하고, 둘 다·둘 다 없음·유닛 없음은 받지 않는다. 새 코드는 결과로 온다", () => {
+    const building = { t: "facility_attack" as const, id: 3, buildingId: 9, unitIds: [4, 5] };
+    expect(decodeClientMessage(encodeMessage(building))).toEqual(building);
+    const beacon = { t: "facility_attack" as const, id: 4, beaconId: 2, unitIds: [4] };
+    expect(decodeClientMessage(encodeMessage(beacon))).toEqual(beacon);
+    expect(() => decodeClientMessage(bad({ ...building, beaconId: 2 }))).toThrow();
+    expect(() => decodeClientMessage(bad({ t: "facility_attack", id: 5, unitIds: [4] }))).toThrow();
+    expect(() => decodeClientMessage(bad({ ...building, unitIds: [] }))).toThrow();
+    for (const code of ["own_target", "target_ruined", "out_of_reach", "safe_zone"] as const) {
+      const failed = { t: "facility_result", id: 3, ok: false, code } as const;
+      expect(decodeServerMessage(encodeMessage(failed))).toEqual(failed);
+    }
+    const started = { t: "facility_result", id: 3, ok: true, doneAtMs: 1_800_000_060_000 } as const;
+    expect(decodeServerMessage(encodeMessage(started))).toEqual(started);
   });
 
   it("창고 옮기기(11)·개발 재료 받기 자리 칸이 왕복하고, 틀린 방향·자산·수량은 받지 않는다", () => {

@@ -3,7 +3,7 @@ import path from "node:path";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import { MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "@terra/protocol";
-import { combatCoefficientsFrom } from "@terra/sim";
+import { TEST_RANKING_COEFFICIENTS, combatCoefficientsFrom } from "@terra/sim";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { registerAccountRoutes } from "./auth/account.ts";
 import { type AuthSettings, type TerraAuth, createAuth, verifyAuth } from "./auth/auth.ts";
@@ -81,6 +81,10 @@ import {
 import type { ReplayName } from "@terra/protocol/battleReplay";
 import { createTerrainService } from "./world/terrainService.ts";
 import { TEST_MAP_KEY, TEST_PLANET_ID, type WorldConfig, startWorld } from "./world/world.ts";
+import type { RankingPathInfo } from "@terra/shared/ranking";
+import type { NationNames } from "./ranking/paths.ts";
+import { createRankingRuntime, createRankingServices } from "./ranking/services.ts";
+import { ASSET_CREDIT } from "./world/settlement.ts";
 import { beaconFacilityView } from "./territory/facility.ts";
 import { createTerritoryGateway } from "./territory/gateway.ts";
 import type { TerritoryService } from "./territory/service.ts";
@@ -204,6 +208,11 @@ export interface AppOptions {
    * 없으면 빈 목록
    */
   economyCatalog?: EconomyCatalogResponse | (() => EconomyCatalogResponse) | undefined;
+  /**
+   * 랭킹(docs/adr/2026-11-07-ranking.md): 팩 경로 목록(ranking_paths)·국가 프리셋 이름. DB와 월드가 있으면 집계 일정(하루 한 번 [임시],
+   * 설정 칸 ranking_period)을 돌리고 ranking.* 조회가 집계 표를 읽는다. 없으면 빈 판
+   */
+  ranking?: { paths: readonly RankingPathInfo[]; nations?: NationNames | undefined } | undefined;
   /**
    * 시험용: 요청의 로그인 사용자를 직접 정한다(DB 없는 시험). 주면 인증 세션 조회와 WebSocket 출처 검사를 하지 않는다.
    * 운영 코드는 쓰지 않는다.
@@ -466,6 +475,32 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     });
   }
 
+  // 랭킹(docs/adr/2026-11-07-ranking.md): 설정 칸 실효 값(부를 때마다), 집계 일정은 월드가 준비된 뒤 1분마다 경계를 본다(DB가 있는 월드만)
+  const rankingCoefficients = tuningState ? () => tuningState.society().ranking : undefined;
+  const rankingPaths = options.ranking?.paths ?? [];
+  const rankingPool = options.db?.$client;
+  const ranking = createRankingServices({
+    db: rankingPool,
+    paths: rankingPaths,
+    nations: options.ranking?.nations,
+    coefficients: rankingCoefficients,
+  });
+  if (world && rankingPool) {
+    const runtime = createRankingRuntime({
+      pool: rankingPool,
+      paths: rankingPaths,
+      coefficients: rankingCoefficients ?? (() => TEST_RANKING_COEFFICIENTS),
+      creditAsset: ASSET_CREDIT,
+      now,
+      ready: () => world.status().state === "ready",
+      durable: async () => world.persistence?.writer.durable(),
+      log: app.log,
+    });
+    // 월드 부팅 복구(앞 onReady 훅) 뒤에 일정을 건다. 집계는 준비를 막지 않는다(뒤에서 돈다)
+    app.addHook("onReady", async () => runtime.start());
+    app.addHook("onClose", async () => runtime.stop());
+  }
+
   const secondMapLab =
     world && terrain && planets && worldPlanet
       ? createSecondMapLab({
@@ -556,6 +591,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         cyborgs: cyborgService,
         // 입은 물건·걸린 효과(보유 물건): 사이보그 화면·유닛 상세 스탯에 든다
         gear: () => (world?.status().state === "ready" ? world.persistence?.holdings.gearOf : undefined),
+        // 사이보그 화면 랭킹 칸(경로마다 내 자리, docs/adr/2026-11-07-ranking.md)
+        rankings: rankingPool ? (userId: string) => ranking.cyborgRankings(userId) : undefined,
       },
       cyborgs: () => {
         const service = cyborgService();
@@ -573,6 +610,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       vitals: world
         ? createVitalsReads(() => (world.status().state === "ready" ? world.persistence?.vitals : undefined))
         : undefined,
+      // 랭킹 조회(집계 표, DB가 있을 때). 사이보그 화면 랭킹 칸도 같은 서비스(roster.rankings)
+      ranking,
       // 개발자 2차맵 시험: 월드 행성의 2차맵 지형 주소·칸 값(보기 전용, src/world/secondMapLab.ts)
       secondMapLab,
       // 영토 조회(내 세력·개발 화면 전체)

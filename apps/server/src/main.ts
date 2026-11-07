@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { buildApp } from "./app.ts";
 import { readConfig } from "./config.ts";
 import { loadServerContent } from "./content.ts";
+import { nationNamesOf, rankingPathsOf } from "./ranking/paths.ts";
 import { rosterCatalogOf } from "./roster/catalog.ts";
 import { combatCoefficientsFrom } from "@terra/sim";
 import { effectNamesOf } from "./battleReplay/names.ts";
@@ -149,6 +150,8 @@ app = await buildApp({
   },
   // 경제 화면 목록(팩의 경제 분류, ADR 37 끝 "구현하며 정한 것 (경제·거래창 화면)"). 아이템·시설은 실효 항목(아이템·건물 편집기가 덮어쓴다)
   economyCatalog: economyCatalogAccessor(loaded.pack, content, () => contentEdit.effective()),
+  // 랭킹(docs/adr/2026-11-07-ranking.md): 팩 경로 목록(공개 여부·지표)과 세력 이름(국가 프리셋)
+  ranking: { paths: rankingPathsOf(loaded.pack), nations: nationNamesOf(loaded.pack) },
   // 시험 2차맵 지형 = 행성 값에서 만든 2차맵(ADR 46 WP-3). 지형 워커가 만들고 행성 캐시 폴더 아래 second-maps/에 둔다
   secondMaps: {
     props: mapPropInputsFromPack(loaded.pack),

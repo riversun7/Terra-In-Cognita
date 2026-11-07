@@ -29,6 +29,7 @@ import type { SkillEditorServices } from "../contentEdit/services.ts";
 import type { ItemEditorServices } from "../itemEdit/services.ts";
 import type { HoldingsReadServices } from "../holdings/reads.ts";
 import type { VitalsReadServices } from "../vitals/reads.ts";
+import type { RankingServices } from "../ranking/services.ts";
 import type { BuildingEditorServices } from "../buildingEdit/services.ts";
 import type { FormulaListResponse } from "@terra/shared/formula";
 import type { BattleLabShared } from "../battleLab/services.ts";
@@ -379,6 +380,8 @@ export interface TrpcContext {
   holdings: HoldingsReadServices;
   /** 생명 수치 조회(D-512). 늘 있다(월드가 없거나 준비 전이면 빈 목록) */
   vitals: VitalsReadServices;
+  /** 랭킹 조회(docs/adr/2026-11-07-ranking.md). 맥락 팩토리는 늘 넣는다(DB가 없으면 빈 판). 없으면(시험 맥락) 빈 판 */
+  ranking?: RankingServices | undefined;
   /** 노동 계약 조회(src/labor/views.ts). 맥락 팩토리는 늘 넣는다(세계·DB가 없으면 status "not_ready"). 없으면(시험 맥락) not_ready */
   labor?: LaborScreenServices | undefined;
   /** 건물 조회(src/facilities/screen.ts). 맥락 팩토리는 늘 넣는다(세계·DB가 없으면 status "not_ready"). 없으면(시험 맥락) not_ready */

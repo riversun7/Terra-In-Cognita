@@ -16,6 +16,7 @@ import { inboxRouter } from "./inbox.ts";
 import { router } from "./init.ts";
 import { mailRouter } from "./mail.ts";
 import { planetEditorRouter } from "./planetEditor.ts";
+import { rankingRouter } from "./ranking.ts";
 import { recruitRouter } from "./recruit.ts";
 import { fusionRouter } from "./fusion.ts";
 import { cyborgRouter, unitsRouter } from "./roster.ts";
@@ -68,6 +69,8 @@ export const appRouter = router({
   mail: mailRouter,
   // 영토 층 조회(docs/adr/2026-11-03-territory-layer.md 5절). 비콘 놓기·치우기는 WebSocket
   territory: territoryRouter,
+  // 랭킹 조회(docs/adr/2026-11-07-ranking.md). 집계는 서버 일정, 화면은 사이보그·세력 화면 안(D-6010)
+  ranking: rankingRouter,
   // 보유 물건(아이템 인스턴스) 조회(docs/adr/2026-11-03-item-holdings.md 4절)
   holdings: holdingsRouter,
   // 유닛 생명 수치(HP·아머·쉴드) 조회(D-512). 회복 물약은 WebSocket item_use

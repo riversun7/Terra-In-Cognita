@@ -138,6 +138,22 @@ export const ROUTES = {
   },
   faction: { path: "/faction", search: [], parent: "home", frame: "shown", access: "everyone" },
   cyborg: { path: "/cyborg", search: [], parent: "home", frame: "shown", access: "everyone" },
+  // 랭킹 판(docs/adr/2026-11-07-ranking.md): 메뉴가 아니라 사이보그·세력 화면 안에서 연다(D-6010). ?path=<경로 ID>는 그 경로 판을 바로 연다
+  cyborg_ranking: {
+    path: "/cyborg/ranking",
+    search: ["path"],
+    parent: "cyborg",
+    frame: "shown",
+    access: "everyone",
+  },
+  // 세력 판(같은 화면을 세력 칸으로 연다)
+  faction_ranking: {
+    path: "/faction/ranking",
+    search: [],
+    parent: "faction",
+    frame: "shown",
+    access: "everyone",
+  },
   // ?item=<항목 ID>: 한 항목을 강조한다(inbox.ts 항목 ID 규칙)
   inbox: { path: "/inbox", search: ["item"], parent: "home", frame: "shown", access: "everyone" },
   mail: { path: "/mail", search: [], parent: "home", frame: "shown", access: "everyone" },

@@ -1,0 +1,239 @@
+/*
+ * 랭킹 화면(/cyborg/ranking·/faction/ranking) — 지연 로딩 조각과 함께 내려온다. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 모바일(390) 기준으로 한 줄로 쌓고, 본문이 넓으면(@container 56em) 왼쪽에 내 자리·등급 문턱, 오른쪽에 순위표를 둔다.
+ */
+.ranking {
+  container-type: inline-size;
+  container-name: ranking;
+}
+.ranking-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: var(--content-max);
+}
+.ranking-measures {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+}
+.ranking-measures-label {
+  color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+}
+.ranking-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.ranking-aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+@container ranking (min-width: 56em) {
+  .ranking-layout {
+    display: grid;
+    grid-template-columns: minmax(16rem, 21rem) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+.ranking-muted {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.ranking-soon {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+/* 내 자리 */
+.ranking-me {
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+.ranking-me-name {
+  margin: 0;
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.ranking-me-rank {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
+  font-variant-numeric: tabular-nums;
+  text-shadow: var(--shadow-heading);
+  overflow-wrap: anywhere;
+}
+.ranking-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+.ranking-me-score {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* 등급 문턱 */
+.ranking-tiers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.ranking-subtitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+}
+.ranking-tier-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ranking-tier-cut {
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+.ranking-tier-cut[data-empty] {
+  color: var(--color-text-muted);
+  border-style: dashed;
+}
+
+/* 순위표 */
+.ranking-board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+  overflow: hidden;
+}
+.ranking-row {
+  display: grid;
+  grid-template-columns: var(--tap-size) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-height: var(--tap-size);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--hairline) solid var(--color-border);
+  content-visibility: auto;
+}
+.ranking-row:last-child {
+  border-bottom: none;
+}
+.ranking-row[data-me] {
+  background-color: var(--color-surface-2);
+  box-shadow: inset var(--space-1) 0 0 var(--color-primary);
+}
+.ranking-rank {
+  justify-self: center;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  font-size: var(--font-size-lg);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.ranking-row[data-top] .ranking-rank {
+  display: grid;
+  place-items: center;
+  min-width: var(--badge-size);
+  min-height: var(--badge-size);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.ranking-who {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.ranking-name {
+  font-weight: var(--font-weight-strong);
+  overflow-wrap: anywhere;
+}
+.ranking-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.ranking-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  text-align: end;
+}
+.ranking-score {
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+.ranking-tier {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+.ranking-tier[data-tier] {
+  color: var(--color-success);
+  font-weight: var(--font-weight-strong);
+}
+.ranking-change {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+.ranking-change[data-kind="up"] {
+  color: var(--color-success);
+}
+.ranking-change[data-kind="down"] {
+  color: var(--color-danger);
+}
+.ranking-gap {
+  padding: var(--space-1) var(--space-3);
+  border-bottom: var(--hairline) solid var(--color-border);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+.ranking-notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+.ranking-notes p {
+  margin: 0;
+}

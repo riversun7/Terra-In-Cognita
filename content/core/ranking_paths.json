@@ -1,0 +1,288 @@
+{
+  "entries": [
+    {
+      "id": "conqueror",
+      "name": {
+        "ko": "정복자",
+        "en": "Conqueror"
+      },
+      "area": "force",
+      "open": true,
+      "measures": [
+        {
+          "measure": "war_wins",
+          "weightPm": 1000
+        },
+        {
+          "measure": "cities_held",
+          "weightPm": 1000
+        }
+      ]
+    },
+    {
+      "id": "mercenary",
+      "name": {
+        "ko": "용병·투사",
+        "en": "Mercenary & Gladiator"
+      },
+      "area": "force",
+      "open": true,
+      "measures": [
+        {
+          "measure": "battle_wins",
+          "weightPm": 1000
+        }
+      ]
+    },
+    {
+      "id": "outlaw",
+      "name": {
+        "ko": "무법자",
+        "en": "Outlaw"
+      },
+      "area": "force",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "bounty_hunter",
+      "name": {
+        "ko": "현상금 사냥꾼",
+        "en": "Bounty Hunter"
+      },
+      "area": "force",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "geneticist",
+      "name": {
+        "ko": "유전공학자",
+        "en": "Geneticist"
+      },
+      "area": "life",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "hunter",
+      "name": {
+        "ko": "사냥꾼",
+        "en": "Hunter"
+      },
+      "area": "life",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "trader",
+      "name": {
+        "ko": "무역상",
+        "en": "Trader"
+      },
+      "area": "wealth",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "entrepreneur",
+      "name": {
+        "ko": "기업가·투자가",
+        "en": "Entrepreneur & Investor"
+      },
+      "area": "wealth",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "transporter",
+      "name": {
+        "ko": "운송업자",
+        "en": "Transporter"
+      },
+      "area": "wealth",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "landlord",
+      "name": {
+        "ko": "대지주",
+        "en": "Landlord"
+      },
+      "area": "wealth",
+      "open": true,
+      "measures": [
+        {
+          "measure": "production",
+          "weightPm": 1000
+        }
+      ]
+    },
+    {
+      "id": "financier",
+      "name": {
+        "ko": "금융가",
+        "en": "Financier"
+      },
+      "area": "wealth",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "researcher",
+      "name": {
+        "ko": "연구자",
+        "en": "Researcher"
+      },
+      "area": "tech",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "artisan",
+      "name": {
+        "ko": "장인",
+        "en": "Artisan"
+      },
+      "area": "tech",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "engineer",
+      "name": {
+        "ko": "공학자",
+        "en": "Engineer"
+      },
+      "area": "tech",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "architect",
+      "name": {
+        "ko": "건축가",
+        "en": "Architect"
+      },
+      "area": "tech",
+      "open": true,
+      "measures": [
+        {
+          "measure": "facilities",
+          "weightPm": 1000
+        }
+      ]
+    },
+    {
+      "id": "alchemist",
+      "name": {
+        "ko": "연금술사",
+        "en": "Alchemist"
+      },
+      "area": "tech",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "explorer",
+      "name": {
+        "ko": "탐험가",
+        "en": "Explorer"
+      },
+      "area": "frontier",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "archaeologist",
+      "name": {
+        "ko": "고고학자",
+        "en": "Archaeologist"
+      },
+      "area": "frontier",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "informant",
+      "name": {
+        "ko": "정보상",
+        "en": "Information Broker"
+      },
+      "area": "frontier",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "politician",
+      "name": {
+        "ko": "정치가",
+        "en": "Politician"
+      },
+      "area": "influence",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "priest",
+      "name": {
+        "ko": "신관",
+        "en": "Priest"
+      },
+      "area": "influence",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "educator",
+      "name": {
+        "ko": "교육자",
+        "en": "Educator"
+      },
+      "area": "influence",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "artist",
+      "name": {
+        "ko": "예술가",
+        "en": "Artist"
+      },
+      "area": "influence",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "chef",
+      "name": {
+        "ko": "셰프",
+        "en": "Chef"
+      },
+      "area": "living",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "hotelier",
+      "name": {
+        "ko": "호텔리어",
+        "en": "Hotelier"
+      },
+      "area": "living",
+      "open": false,
+      "measures": []
+    },
+    {
+      "id": "doctor",
+      "name": {
+        "ko": "의사",
+        "en": "Doctor"
+      },
+      "area": "living",
+      "open": false,
+      "measures": []
+    }
+  ]
+}

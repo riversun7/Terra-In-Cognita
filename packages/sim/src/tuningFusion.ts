@@ -1,8 +1,8 @@
 // 사이보그 유닛 융합·유전자 조각 설정 칸 값 ↔ 계수표 — 기획 49 N46·N47, D-470·D-478·D-481·D-507,
 // docs/adr/2026-11-07-cyborg-fusion-genes.md. 팩 항목 ID ↔ 세력·사회 계수표 fusion 칸(경로).
-// 출발값 = 옛 CharacterRepository.craftCyborg(금화 5,000·티타늄 50·마이크로칩 20, 0.7·0.3, ×1.05~1.15),
-// LifeEngine._processDeath(사망 조각 1), character_routes.js reincarnate(max(1, ⌈레벨 ÷ 10⌉), 조각마다 +1)이고 값은
-// society/fusion.ts OLD_FUSION_COEFFICIENTS다. 부품 스탯·유지비 배율은 옛 값이 없어 [임시].
+// 출발값 = 옛 CharacterRepository.craftCyborg(금화 5,000·티타늄 50·마이크로칩 20, 0.7·0.3, ×1.05~1.15)이고 값은
+// society/fusion.ts OLD_FUSION_COEFFICIENTS다. 부품 스탯·유지비 배율·유전자 합성·인큐베이터(D-516)는 옛 값이 없어 [임시].
+// 옛 환생 칸(n47_rebirth_divisor·n47_rebirth_min·n47_gene_points)과 사망 조각 수(n47_death_drop)는 D-516으로 지웠다(팩 id-changes).
 import type { TuningKey } from "./tuning.ts";
 
 const k = (id: string, code: string, path: string, ko: string, en: string): TuningKey => ({
@@ -44,13 +44,46 @@ export const FUSION_TUNING_KEYS: readonly TuningKey[] = [
   k("n46_parts_stat", "N46", "partsStat", "융합 부품 쪽 1차 스탯", "Fusion parts-side primary stat"),
   k("n46_upkeep", "N46", "upkeepPm", "사이보그 유닛 유지비 배율(‰)", "Cyborg unit upkeep multiplier (‰)"),
   k(
-    "n47_rebirth_divisor",
+    "n47_synth_up",
     "N47",
-    "geneLevelDivisor",
-    "환생 유전자 조각: 레벨 나눗수",
-    "Rebirth gene shards: level divisor",
+    "geneUpPm",
+    "유전자 합성: 총합이 오를 확률(‰)",
+    "Gene synthesis: total up chance (‰)",
   ),
-  k("n47_rebirth_min", "N47", "geneMin", "환생 유전자 조각 최소", "Rebirth gene shards minimum"),
-  k("n47_gene_points", "N47", "genePoints", "유전자 조각 1개의 스탯 +", "Stat points per gene shard"),
-  k("n47_death_drop", "N47", "geneDeathDrop", "사망 때 주는 유전자 조각 수", "Gene shards dropped on death"),
+  k(
+    "n47_synth_down",
+    "N47",
+    "geneDownPm",
+    "유전자 합성: 총합이 내릴 확률(‰)",
+    "Gene synthesis: total down chance (‰)",
+  ),
+  k(
+    "n47_synth_keep",
+    "N47",
+    "geneKeepPm",
+    "유전자 합성: 총합이 그대로일 확률(‰)",
+    "Gene synthesis: total unchanged chance (‰)",
+  ),
+  k(
+    "n47_synth_step",
+    "N47",
+    "geneStepPm",
+    "유전자 합성: 오르내리는 양(바탕 총합의 ‰)",
+    "Gene synthesis: step (‰ of base total)",
+  ),
+  k("n47_total_max", "N47", "geneTotalMax", "스탯 유전자 총합 상한", "Stat gene total cap"),
+  k(
+    "n47_element_variance",
+    "N47",
+    "geneElementVariance",
+    "유전자 합성: 속성값 오차(± 점)",
+    "Gene synthesis: element variance (± points)",
+  ),
+  k(
+    "n47_incubate_base",
+    "N47",
+    "incubateBaseStat",
+    "인큐베이터 휴먼의 바탕 1차 스탯",
+    "Incubator human base primary stat",
+  ),
 ];

@@ -118,12 +118,13 @@ export const useSchema = z.strictObject({
 
 /** 유전자 조각 종류(D-478): 스탯 유전자(속성 포함)·스킬 유전자 */
 export const GENE_KINDS = ["stat", "skill"] as const;
-/** 유전자 조각을 얻는 길(D-478 "얻는 길은 데이터", 49 N47): death = 그 종 유닛이 죽으면 소유자에게(옛 LifeEngine) */
+/** 유전자를 얻는 길(D-478 "얻는 길은 데이터", 49 N47): death = 그 종 유닛이 수명을 다하면 소유자에게(D-478·D-516) */
 export const GENE_SOURCES = ["death"] as const;
 
 /**
- * 유전자 조각(D-478·D-481, 49 N47, docs/adr/2026-11-07-cyborg-fusion-genes.md): 어느 종(유닛 종류)의 어떤 유전자인지와 얻는 길.
- * 한 번 쓰면 사라진다. 쌓이는 물자(원장)라 거래소에서 사고판다. 쓰는 곳(환생 조각 수·효과량)은 설정 칸 N47이다
+ * 유전자(D-478·D-481·D-516, 49 N47, docs/adr/2026-11-07-cyborg-fusion-genes.md "바뀜 (D-516)"): 어느 종(유닛 종류)의 어떤 유전자인지와
+ * 얻는 길. 유전자 하나하나는 값이 다른 보유 물건 인스턴스다(스탯 유전자 = 총합·분포·속성, 스킬 유전자 = 스킬 하나). 한 번 쓰면 사라진다.
+ * 합성 확률·인큐베이터 바탕 스탯은 설정 칸 N47이다
  */
 export const geneSchema = z.strictObject({
   kind: z.enum(GENE_KINDS),

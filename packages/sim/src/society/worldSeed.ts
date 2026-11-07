@@ -43,6 +43,8 @@ export interface WorldSeedCoefficients {
   /** [임시] 시작 도시가 설 땅: 기온(°C) 아래 끝·위 끝 */
   readonly layoutLandMinTempC: number;
   readonly layoutLandMaxTempC: number;
+  /** [임시] 시작 도시가 설 땅: 강수(mm) 아래 끝(사막을 빼고 농사지을 땅) */
+  readonly layoutLandMinRainMm: number;
 }
 
 /** 출발값 — 모두 [임시](옛 규칙 없음, D-515). 시작 도시 2~4곳(60 §7.1), 기본 시설은 종류마다 하나 */
@@ -58,13 +60,14 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   mineMinHeightM: 500,
   farmMinTempC: 5,
   farmMinRainMm: 250,
-  // 국가 자리: 지금 시험 행성(반지름 약 531km)에서 국가 넷이 수십~백 km 떨어지게
+  // 국가 자리: 지금 시험 행성(반지름 약 531km)에서 국가 넷이 수십~백 km 떨어지게, 사막·추운 땅을 빼고(기온 8~32°C·강수 300mm 이상)
   layoutRegionCells: 48,
   layoutNationGapCells: 30,
   layoutCityStepCells: 1,
   layoutLandMaxHeightM: 1500,
-  layoutLandMinTempC: 0,
+  layoutLandMinTempC: 8,
   layoutLandMaxTempC: 32,
+  layoutLandMinRainMm: 300,
 };
 
 /** 시작 도시 수가 놓일 수 있는 범위(60 §7.1 "2~4곳"을 넘지 않게, 칸이 1까지는 받는다) */

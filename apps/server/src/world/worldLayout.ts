@@ -1,7 +1,7 @@
 // 세계 배치(고정 NPC 국가의 자리와 시작 도시) — docs/adr/2026-11-07-world-layout.md, 사용자 지적(2026-11-07, 원문) "1차맵에서 도시가 너무
 // 겹침. 다른 세력 범위에 도시를 건설할 수 없는데, 현재 강제배치로 다른 세력내에 중첩되게 배치되어 문제. 세력범위 구분도 엉망인 상태".
 // 순수 함수(행성 값 읽기는 부르는 쪽이 land로 넘긴다). 같은 입력이면 같은 결과다(칸 키 차례·정수 걸음·결정적 거리 detAtan2).
-// 1. 국가 수도(국가 자리): 행성을 고르게 띄엄띄엄 본 칸(SAMPLE_CELLS_PER_FACE) 가운데 알맞은 땅(물 없음·고도·기온, 설정 칸 [임시])에서 고른다.
+// 1. 국가 수도(국가 자리): 행성을 고르게 띄엄띄엄 본 칸(SAMPLE_CELLS_PER_FACE) 가운데 알맞은 땅(물 없음·고도·기온·강수, 설정 칸 [임시])에서 고른다.
 //    시작 도시가 이미 선 국가는 그 첫 도시의 2차맵이 수도다. 아무 국가도 자리가 없으면 첫 수도는 세계 시드로 고른 칸이다.
 //    나머지는 가장 먼 점 고르기(이미 고른 수도들과의 가장 짧은 거리가 가장 긴 칸, 같으면 작은 키) — 첫 수도 둘레 반경(설정 칸) 안에서.
 //    국가 사이 가장 짧은 거리가 설정 칸보다 짧으면 반경을 두 배씩 넓혀 다시 고른다(행성 전체까지). 피할 2차맵(시험 2차맵 줄) 둘레 국가 간격
@@ -39,6 +39,7 @@ export interface LayoutLand {
   readonly biomeId: string | null;
   readonly elevationM: number;
   readonly temperatureC: number;
+  readonly precipitationMm: number;
   /** 물 비트(바다 1·호수 2·강 4·해안 8). 0이어야 도시가 선다 */
   readonly water: number;
 }
@@ -95,10 +96,11 @@ export interface LayoutResult {
   readonly short: number;
 }
 
-/** 시작 도시가 설 땅인가(설정 칸 [임시]): 바이옴이 있고, 물 비트가 없고, 고도 0 초과 위 끝 이하, 기온이 아래 끝~위 끝 */
+/** 시작 도시가 설 땅인가(설정 칸 [임시]): 바이옴이 있고, 물 비트가 없고, 고도 0 초과 위 끝 이하, 기온이 아래 끝~위 끝, 강수가 아래 끝 이상 */
 export function isSettleLand(cell: LayoutLand | undefined, seed: WorldSeedCoefficients): boolean {
   if (!cell || cell.biomeId === null || cell.water !== 0) return false;
   if (cell.elevationM <= 0 || cell.elevationM > seed.layoutLandMaxHeightM) return false;
+  if (cell.precipitationMm < seed.layoutLandMinRainMm) return false;
   return cell.temperatureC >= seed.layoutLandMinTempC && cell.temperatureC <= seed.layoutLandMaxTempC;
 }
 

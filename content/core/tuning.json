@@ -4584,7 +4584,7 @@
         "ko": "고정 국가 자리: 시작 도시 땅 기온 아래 끝(°C)",
         "en": "Fixed nation homes: start city land temperature from (°C)"
       },
-      "value": 0,
+      "value": 8,
       "structural": false,
       "min": -100,
       "max": 100
@@ -4600,6 +4600,18 @@
       "structural": false,
       "min": -100,
       "max": 100
+    },
+    {
+      "id": "world_layout_land_min_rain_mm",
+      "code": "",
+      "name": {
+        "ko": "고정 국가 자리: 시작 도시 땅 강수 아래 끝(mm)",
+        "en": "Fixed nation homes: start city land precipitation from (mm)"
+      },
+      "value": 300,
+      "structural": false,
+      "min": 0,
+      "max": 20000
     },
     {
       "id": "d530_city_bid_pct",

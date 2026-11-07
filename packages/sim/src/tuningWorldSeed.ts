@@ -91,4 +91,10 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "고정 국가 자리: 시작 도시 땅 기온 위 끝(°C)",
     "Fixed nation homes: start city land temperature up to (°C)",
   ),
+  k(
+    "world_layout_land_min_rain_mm",
+    "layoutLandMinRainMm",
+    "고정 국가 자리: 시작 도시 땅 강수 아래 끝(mm)",
+    "Fixed nation homes: start city land precipitation from (mm)",
+  ),
 ];

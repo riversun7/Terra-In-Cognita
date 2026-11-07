@@ -38,16 +38,23 @@
   height: 100%;
   overflow: visible;
 }
-.city-hull,
-.city-area {
-  fill: color-mix(in srgb, var(--nation) 14%, transparent);
+.city-hull {
+  fill: none;
   stroke: var(--nation);
   stroke-width: var(--border-w);
   stroke-linejoin: round;
-}
-.city-hull {
-  fill: none;
   stroke-dasharray: var(--space-2) var(--space-1);
+}
+/* 국가 영토 = 영향권 원들의 합: 칠은 한 번(겹쳐도 진해지지 않는다), 테두리는 바깥 둘레만(가리개가 안쪽 반을 지우니 두 배 굵기) */
+.city-area-fill {
+  fill: color-mix(in srgb, var(--nation) 14%, transparent);
+  stroke: none;
+}
+.city-area-edge {
+  fill: none;
+  stroke: var(--nation);
+  stroke-width: calc(var(--border-w) * 2);
+  stroke-linejoin: round;
 }
 
 /* 도시 표시: 누르는 곳은 --tap-size, 안에 국가 색 점과 이름표 */

@@ -11,6 +11,7 @@ import {
   cellRows,
   factionColorToken,
   fineSamples,
+  labCenter,
   layoutOf,
   mapViewOf,
   project,
@@ -105,5 +106,20 @@ describe("영토 지도 투영", () => {
     expect(factionColorToken(data, 1)).toBe(FACTION_COLOR_TOKENS[0]);
     expect(factionColorToken(data, 2)).toBe(FACTION_COLOR_TOKENS[1]);
     expect(factionColorToken(data, 99)).toBe(FACTION_COLOR_TOKENS[0]);
+  });
+  it("지도 가운데: 고른 세력의 첫 도시 2차맵, 없으면 첫 도시, 도시가 없으면 시험 2차맵", () => {
+    const view = viewOf([]);
+    const far = cell(100, 40);
+    const base = view.cities[0];
+    if (!base) throw new Error("no city");
+    const two: TerritoryPlanetView = {
+      ...view,
+      cities: [...view.cities, { ...base, id: 11, factionId: 2, mapKey: far }],
+    };
+    expect(labCenter(two, 2)).toBe(far);
+    expect(labCenter(two, 1)).toBe(CENTER);
+    expect(labCenter(two, 77)).toBe(CENTER);
+    expect(labCenter({ ...view, cities: [] }, 1)).toBe(CENTER);
+    expect(labCenter(null, null)).toBe(CENTER);
   });
 });

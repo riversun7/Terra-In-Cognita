@@ -20,7 +20,13 @@ import {
 
 const LEVEL = 6;
 const metric = territoryMetric(LEVEL);
-const GRASS: LayoutLand = { biomeId: "grassland", elevationM: 100, temperatureC: 15, water: 0 };
+const GRASS: LayoutLand = {
+  biomeId: "grassland",
+  elevationM: 100,
+  temperatureC: 15,
+  precipitationMm: 400,
+  water: 0,
+};
 /** 가짜 행성: 면 5는 바다, 면 0의 i < 8은 높은 산, 나머지는 j % 9 == 4인 줄이 강(물) */
 function land(key: CellKey): LayoutLand {
   const { face, i, j } = decodeCellKey(key);
@@ -55,6 +61,7 @@ describe("세계 배치(국가 자리·시작 도시)", () => {
     expect(isSettleLand({ ...GRASS, elevationM: 1600 }, seed)).toBe(false);
     expect(isSettleLand({ ...GRASS, temperatureC: -5 }, seed)).toBe(false);
     expect(isSettleLand({ ...GRASS, biomeId: null }, seed)).toBe(false);
+    expect(isSettleLand({ ...GRASS, precipitationMm: 120 }, seed)).toBe(false);
     expect(isSettleLand(undefined, seed)).toBe(false);
     expect(sampleLand({ faceLevel: LEVEL, land, seed }).every((key) => isSettleLand(land(key), seed))).toBe(
       true,

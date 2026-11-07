@@ -16,8 +16,11 @@ export interface GatherKindView {
   /** 나오는 아이템 ID와 이름(모르면 null) */
   readonly item: string;
   readonly itemName: GatherName | null;
-  /** 가득일 때 캘 수 있는 번수 */
+  /** 가득일 때 캘 수 있는 번수·한 번 캘 때 묶음 수·기본 일(ms)·다시 자라는 기본 시간(ms) */
   readonly uses: number;
+  readonly lots: number;
+  readonly workMs: number;
+  readonly regrowMs: number;
   /** 맡는 시설 ID와 이름(없으면 null) */
   readonly facility: string | null;
   readonly facilityName: GatherName | null;

@@ -56,6 +56,9 @@ import { MapTargetGate } from "./MapTargetGate.tsx";
 import { screenNotice } from "./secondMapNotice.ts";
 import { CrossingNotice, CyborgActions, TravelLine } from "./SecondMapTravel.tsx";
 import { useTravelFollow } from "./useCyborgTravel.ts";
+import { GatherPanel } from "./gather/GatherPanel.tsx";
+import { attachGatherOverlay } from "./gather/gatherOverlay.ts";
+import { createGatherState, gatherSink } from "./gather/gatherState.ts";
 import "./map.css";
 
 /** 성능 보고에 붙이는 화면 이름 */
@@ -177,6 +180,8 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
   // 2차맵 사이 이동(WP9): 내 사이보그가 가는 중인 길. 내 사이보그를 따라 연 화면이면 넘어갈 때 따라간다(D-139)
   const following = focus?.source === "cyborg";
   const { going, crossedTo } = useTravelFollow(cyborg?.unitId ?? null, mapKey, following);
+  // 원자재 오브젝트 채집·건물 들어가기(docs/adr/2026-11-07-gather-objects.md): 덧그림과 아래 판이 같이 보는 상태(React 밖)
+  const [gather] = useState(createGatherState);
 
   useEffect(() => {
     adminRef.current = admin;
@@ -235,6 +240,8 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
           navigate({ route: "economy_production" });
           return;
         }
+        // 채집(gather/): 둘레 오브젝트·건물을 누르면 아래 작은 판(채집·들어가기·정보)을 연다
+        if (gather.tapCell(cell)) return;
         const unitId = selectedRef.current;
         const current = feedRef.current;
         if (unitId === null || !current) return;
@@ -243,13 +250,14 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       },
     });
     engineRef.current = engine;
+    const detachGather = attachGatherOverlay(engine, host, gather, { mapKey, serverNow });
     const onReducedMotion = (): void => engine.setSky(skyMode());
     reduced?.addEventListener("change", onReducedMotion);
     setTelemetryView(TELEMETRY_VIEW);
     const feed = startMapFeed({
       link: serverLink,
       mapKey,
-      sink: engine,
+      sink: gatherSink(engine, gather),
       loadTerrain: async (url) => {
         const terrain = await fetchTerrain(url);
         mapSizeM = terrain.cellSizeM * 128;
@@ -309,12 +317,13 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       // 해제를 먼저 보내고(엔진을 버린 뒤에는 자료를 넣지 않는다) 엔진을 버린다
       feed.stop();
       feedRef.current = null;
+      detachGather();
       engine.dispose();
       engineRef.current = null;
       setTelemetryView(null);
     };
     // 맵·카메라 대상은 화면 열쇠(맵 키)와 함께 정해진다(바뀌면 화면을 새로 만든다)
-  }, [mapKey, focus]);
+  }, [mapKey, focus, gather]);
 
   // 명령 안내는 잠시 보이고 지운다(보낸 뒤 결과를 기다리는 동안은 그대로)
   useEffect(() => {
@@ -551,6 +560,12 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       ) : null}
       <CrossingNotice show={crossedTo !== null && following} />
       <footer className="map-hud map-hud-bottom">
+        <GatherPanel
+          state={gather}
+          mapKey={mapKey}
+          selected={selected}
+          cyborgUnitId={cyborg?.unitId ?? null}
+        />
         <div className="map-panel map-hint" role="status">
           <p>{hint}</p>
           {command ? <p className="map-command">{commandText(command)}</p> : null}

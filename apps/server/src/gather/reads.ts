@@ -70,6 +70,9 @@ export function gatherReadsOf(source: () => GatherWorld | undefined): GatherRead
             item: kind.item,
             itemName: catalog?.itemName(kind.item) ?? null,
             uses: kind.uses,
+            lots: kind.lots,
+            workMs: kind.workMs,
+            regrowMs: kind.regrowMs,
             facility: kind.facility,
             facilityName: facility ? facility.name : null,
           };

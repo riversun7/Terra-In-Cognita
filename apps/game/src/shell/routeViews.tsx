@@ -174,10 +174,25 @@ function renderRoute(match: RouteMatch, user: AccountView, monitor: FrameMonitor
       return <HomeScreen match={match} monitor={monitor} />;
     case "start":
       return <StartScreen user={user} />;
+    // ?key= 2차맵 키(docs/adr/2026-11-07-play-flow.md "WP2"): 키가 바뀌면 화면을 새로 만든다
     case "map":
-      return <SecondaryMapScreen onClose={goBack} monitor={monitor} />;
+      return (
+        <SecondaryMapScreen
+          key={match.search.key ?? ""}
+          onClose={goBack}
+          monitor={monitor}
+          mapKey={match.search.key}
+        />
+      );
     case "map_planet":
-      return <PlanetMapScreen onClose={goBack} monitor={monitor} />;
+      return (
+        <PlanetMapScreen
+          key={match.search.key ?? ""}
+          onClose={goBack}
+          monitor={monitor}
+          mapKey={match.search.key}
+        />
+      );
     case "inbox":
       return <InboxScreen itemId={match.search.item} onNavigate={navigate} headerEnd={<BackButton />} />;
     case "settings":

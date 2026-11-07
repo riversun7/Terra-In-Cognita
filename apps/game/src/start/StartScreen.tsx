@@ -3,6 +3,7 @@
 // 속성 분배가 없는 옛 사이보그는 속성 단계만 보인다(elementsStep.tsx ElementsOnly).
 // - 틀이 없는 전체 화면이라 머리에 [설정]·[로그아웃]을 둔다. 사이보그가 없으면 틀이 다른 주소를 여기로 보낸다.
 // - 자료(지금 굴림·성향·세력·도시)는 tRPC cyborg.creation, 이름 확인은 cyborg.nameCheck, 굴리기·만들기는 WebSocket(cyborgCommands.ts).
+//   시작 도시의 1차맵 자리·둘레 땅은 tRPC world.cities(받지 못하면 지도·땅 없이 목록만, docs/adr/2026-11-07-play-flow.md "WP2").
 // - 서버가 판정한다: 굴림 값·남은 횟수, 이름 고유, 외형 ID, 세력·도시, 놓을 자리. 화면은 결과를 보이고 잘못된 단계로 돌아간다.
 // - 만들면 짧은 강하 연출(움직임 줄이기면 없음) 뒤 홈으로(D-445 179). 튜토리얼은 다음 단계다(D-445 176).
 // 좁은 폭(휴대폰 세로)이 기준이고, 넓은 폭은 가운데 한 열(--content-max)로 둔다. 지연 로딩 조각(shell/routeViews.tsx).
@@ -13,6 +14,7 @@ import {
   type CyborgRollView,
   DEFAULT_CYBORG_APPEARANCE,
 } from "@terra/shared/cyborg";
+import type { WorldCitiesResponse } from "@terra/shared/worldMap";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { refreshSession, signOut } from "../auth/session.ts";
 import { api } from "../net/api.ts";
@@ -24,6 +26,7 @@ import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
 import type { PlainMessageKey } from "../ui/messageRef.ts";
 import { text } from "../ui/text.ts";
 import { useMountFocus } from "../ui/useMountFocus.ts";
+import { loadWorldCities } from "../map/worldMapData.ts";
 import { markCyborgCreated, refreshCyborgGate } from "./cyborgGate.ts";
 import { sendCyborgCommand } from "./cyborgCommands.ts";
 import {
@@ -95,6 +98,7 @@ export default function StartScreen({ user }: { user: AccountView }) {
   const [factionId, setFactionId] = useState<number | null>(null);
   const [cityId, setCityId] = useState<number | null>(null);
   const [descending, setDescending] = useState(false);
+  const [world, setWorld] = useState<WorldCitiesResponse | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const problem = useLiveLines();
   const clearProblem = problem.clear;
@@ -128,6 +132,19 @@ export default function StartScreen({ user }: { user: AccountView }) {
       requestRef.current += 1;
     };
   }, [fetchData]);
+  // 시작 도시의 1차맵 자리·둘레 땅(도시 단계에서 쓴다). 받지 못하면 목록만 보인다
+  useEffect(() => {
+    let current = true;
+    loadWorldCities().then(
+      (answer) => {
+        if (current && answer.status === "ready") setWorld(answer);
+      },
+      () => undefined,
+    );
+    return () => {
+      current = false;
+    };
+  }, []);
 
   const data = load.status === "ready" ? load.data : null;
   const place = data ? pickPlace(data, factionId, cityId) : { faction: undefined, city: undefined };
@@ -318,7 +335,12 @@ export default function StartScreen({ user }: { user: AccountView }) {
                 }}
               />
             ) : step === "city" && place.faction ? (
-              <CityStep faction={place.faction} selected={place.city?.id ?? null} onSelect={setCityId} />
+              <CityStep
+                faction={place.faction}
+                world={world}
+                selected={place.city?.id ?? null}
+                onSelect={setCityId}
+              />
             ) : step === "descent" && place.faction && place.city && roll ? (
               <DescentStep
                 name={name}

@@ -36,7 +36,8 @@
     "./territory": "./src/territory.ts",
     "./territoryApi": "./src/territoryApi.ts",
     "./tuning": "./src/tuning.ts",
-    "./vitals": "./src/vitals.ts"
+    "./vitals": "./src/vitals.ts",
+    "./worldMap": "./src/worldMap.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"

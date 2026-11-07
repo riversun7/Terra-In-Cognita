@@ -1,0 +1,34 @@
+/*
+ * 첫 접속 도시 단계의 1차맵 작은 보기(StartCityMap.tsx) — 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 휴대폰 세로 기준: 패널 폭 그대로, 높이는 폭의 3/4쯤(누르기 쉬운 크기), 넓은 폭에서도 너무 커지지 않게 묶는다.
+ * 행성 색은 테마와 상관없이 밝다: 안내 글은 불투명한 판에 둔다(D-070).
+ */
+.start-city-map {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  max-height: calc(var(--tap-size) * 9);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface-2);
+  /* 지도 위 끌기가 화면 스크롤로 새지 않게 */
+  overscroll-behavior: contain;
+  touch-action: none;
+}
+.start-city-map-view {
+  position: absolute;
+  inset: 0;
+}
+.start-city-map-notice {
+  position: absolute;
+  left: var(--space-2);
+  right: var(--space-2);
+  bottom: var(--space-2);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}

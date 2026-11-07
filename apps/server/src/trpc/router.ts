@@ -31,6 +31,7 @@ import { summaryRouter } from "./summary.ts";
 import { systemRouter } from "./system.ts";
 import { territoryRouter } from "./territory.ts";
 import { tuningRouter } from "./tuning.ts";
+import { worldRouter } from "./world.ts";
 
 export const appRouter = router({
   system: systemRouter,
@@ -85,6 +86,8 @@ export const appRouter = router({
   labor: laborRouter,
   // 건물 짓기·레벨업·노화·수리 조회(docs/adr/2026-11-07-buildings-runtime.md). 바꾸는 명령은 WebSocket facility_*
   facilities: facilitiesRouter,
+  // 지도 흐름 조회(1차맵 도시·국가, 내 사이보그 자리 — docs/adr/2026-11-07-play-flow.md "WP2 지도 흐름")
+  world: worldRouter,
 });
 
 export type AppRouter = typeof appRouter;

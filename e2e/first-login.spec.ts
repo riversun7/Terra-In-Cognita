@@ -140,6 +140,18 @@ test.describe("첫 접속: 새 플레이어", () => {
     await next(page);
     await expectStep(page, "city");
     await expect(page.locator(".start-choice[data-city] input").first()).toBeChecked();
+    // 시작 도시를 1차맵 작은 보기에서 고른다(D-6041, docs/adr/2026-11-07-play-flow.md "WP2"): 국가의 시작 도시가 지도에 있고,
+    // 고른 도시의 주변 자원·기후(행성 값)가 보인다. 목록 줄에도 땅·기후 한 줄
+    const cityMap = page.locator(".start-city-map");
+    await expect(cityMap).toHaveAttribute("data-phase", "ready", { timeout: 60_000 });
+    expect(Number(await cityMap.getAttribute("data-cities"))).toBeGreaterThan(0);
+    await expect(cityMap.locator(".city-marker:not([hidden])").first()).toBeVisible({ timeout: 15_000 });
+    const chosenCity = await page
+      .locator(".start-choice[data-city]:has(input:checked)")
+      .getAttribute("data-city");
+    await expect(page.locator(".start-city-land")).toHaveAttribute("data-city", chosenCity ?? "");
+    await expect(page.locator(".start-city-land .land-facts dd")).toHaveCount(3);
+    await expect(page.locator(".start-choice .start-city-ground").first()).toBeVisible();
     await next(page);
     await expectStep(page, "descent");
     await expect(page.locator(".start-summary-name")).toHaveText("새싹로봇");
@@ -281,6 +293,13 @@ test.describe("첫 접속 사진", () => {
         await shot(page, `first-login-5-faction-${width}-${theme}-${language}`, { fullPage: true });
         await next(page);
         await expectStep(page, "city");
+        // 1차맵 작은 보기가 그려진 뒤에 찍는다(도시 표시·주변 자원·기후)
+        await expect(page.locator(".start-city-map")).toHaveAttribute("data-phase", "ready", {
+          timeout: 60_000,
+        });
+        await expect(page.locator(".start-city-map .city-marker:not([hidden])").first()).toBeVisible();
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
         await shot(page, `first-login-6-city-${width}-${theme}-${language}`, { fullPage: true });
         await next(page);
         await expectStep(page, "descent");

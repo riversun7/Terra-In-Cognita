@@ -42,6 +42,7 @@ function fakeService(calls: string[]): TempleService {
     isAway: () => false,
     citySatisfaction: () => new Map(),
     buildingProductionPm: () => 0,
+    hasFightingGuardian: () => false,
     sweep: () => Promise.resolve(0),
   };
 }

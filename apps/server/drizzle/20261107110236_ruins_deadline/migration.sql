@@ -1,0 +1,1 @@
+ALTER TABLE "world_ruins" ADD COLUMN "deadline_ms" bigint;

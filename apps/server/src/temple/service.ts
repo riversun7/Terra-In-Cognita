@@ -44,6 +44,7 @@ import type { QueryPool } from "../world/persist/load.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, type Settlement } from "../world/settlement.ts";
+import { unavailable } from "../world/unitCondition.ts";
 import { UNIT_KIND_GUARDIAN, UNIT_KIND_HUMAN } from "../world/unitKinds.ts";
 import { buildTempleOverview } from "./overview.ts";
 import { RELIGION_STAGE, payServiceFee, serviceFacility, unitCity } from "./places.ts";
@@ -110,6 +111,11 @@ export interface TempleService {
   citySatisfaction(): ReadonlyMap<number, number>;
   /** 그 건물이 선 도시의 수호신 생산 버프(산출 + ‰, 470 가). 없으면 0 */
   buildingProductionPm(buildingId: number): number;
+  /**
+   * 그 도시에 싸울 수 있는 수호신 유닛이 있나(기획 답 472 가 — 수비 휴먼이 없어도 웨이브 전투를 연다): 세계에 있고 수호신 종류·부상·포로·
+   * 비활성이 아님(도시 방어 cityDefense.ts가 전투에 넣는 조건과 같다)
+   */
+  hasFightingGuardian(cityId: number, nowMs: number): boolean;
   /** 비활성 표를 다시 만들고 새 비활성의 주체를 정산한다(계약 끝). 새로 비활성이 된 유닛 수 */
   sweep(nowMs: number): Promise<number>;
 }
@@ -355,6 +361,15 @@ export function createTempleService(o: TempleServiceOptions): TempleService {
         if (value > 0) out.set(cityId, value);
       }
       return out;
+    },
+
+    hasFightingGuardian(cityId, nowMs) {
+      for (const [unitId, entry] of guardianBuffs) {
+        if (entry.cityId !== cityId || inactive.has(unitId)) continue;
+        const info = unitOf(unitId)?.info;
+        if (info?.kind === UNIT_KIND_GUARDIAN && !unavailable(info.condition, nowMs)) return true;
+      }
+      return false;
     },
 
     buildingProductionPm(buildingId) {

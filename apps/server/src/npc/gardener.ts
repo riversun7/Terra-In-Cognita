@@ -179,6 +179,11 @@ export interface ServerGardenerOptions {
   readonly grantReward?:
     | ((ownerId: number, reward: WaveReward, atMs: number) => readonly GrantedItem[])
     | undefined;
+  /**
+   * 그 도시에 싸울 수 있는 수호신이 있나(기획 답 472 가 — 신전 서비스). 있으면 수비 휴먼이 없어도 웨이브 전투를 연다(도시 방어가 전투 시작
+   * 자료에 수호신을 수비 편으로 넣는다, temple/cityDefense.ts). 없으면 수비 휴먼이 없는 도시는 전투 없이 진다
+   */
+  readonly hasGuardians?: ((cityId: number) => boolean) | undefined;
   readonly log: { warn(obj: object, message: string): void; error(obj: object, message: string): void };
 }
 
@@ -233,6 +238,7 @@ export function attachServerGardener(o: ServerGardenerOptions): ServerGardener {
     schedule: (atMs, kind, subject) => o.loop.schedule(Math.max(atMs, o.loop.nowMs), { kind, subject }),
     cancel: (eventId) => o.loop.cancel(eventId),
     treasuryOf: (faction) => o.treasuryOf(faction.id),
+    hasGuardians: o.hasGuardians,
     timeScale: o.timeScale,
     seed: o.seed,
     restore: {

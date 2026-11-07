@@ -28,15 +28,18 @@ function fakeService(calls: string[]): RuinService {
       calls.push(`make:${userId}`);
       return Promise.resolve({ ok: true, ruinId: 40 });
     },
+    governmentStatus: () => ({ state: "up", level: 1 }),
+    governmentLevels: () => new Map(),
   };
 }
 
-function connect(service: RuinService | undefined, who: Viewer | null) {
+function connect(service: RuinService | undefined, who: Viewer | null, protocolVersion?: number) {
   const sent: unknown[] = [];
   const gateway = createRuinGateway({ service: () => service, now: () => 0, log: { error: () => {} } });
   const socket = gateway.open({
     send: (text) => sent.push(decodeServerMessage(text)),
     viewer: () => Promise.resolve(who),
+    protocolVersion,
   });
   return { sent, socket };
 }
@@ -68,5 +71,28 @@ describe("폐허 복원 연결 처리", () => {
     expect(asPlayer.sent).toEqual([{ t: "restoration_result", id: 3, ok: false, code: "forbidden" }]);
     expect(signedOut.sent).toEqual([{ t: "restoration_result", id: 2, ok: false, code: "sign_in_required" }]);
     expect(booting.sent).toEqual([{ t: "restoration_result", id: 1, ok: false, code: "busy" }]);
+  });
+
+  it("폐허 2 결과 코드 not_built·expired는 15판 연결에만, 14판 연결은 not_claimed(모르는 코드라 풀지 못한다)", async () => {
+    const failing = (code: "not_built" | "expired"): RuinService => ({
+      ...fakeService([]),
+      open: () => Promise.resolve({ ok: false, code }),
+      fund: () => Promise.resolve({ ok: false, code: "expired" }),
+    });
+    const now = connect(failing("not_built"), player, 15);
+    const legacy = connect(failing("not_built"), player, 14);
+    for (const link of [now, legacy]) {
+      link.socket.handle(open);
+      link.socket.handle(fund);
+    }
+    for (let i = 0; i < 8; i++) await settle();
+    expect(now.sent).toEqual([
+      { t: "restoration_result", id: 1, ok: false, code: "not_built" },
+      { t: "restoration_result", id: 2, ok: false, code: "expired" },
+    ]);
+    expect(legacy.sent).toEqual([
+      { t: "restoration_result", id: 1, ok: false, code: "not_claimed" },
+      { t: "restoration_result", id: 2, ok: false, code: "not_claimed" },
+    ]);
   });
 });

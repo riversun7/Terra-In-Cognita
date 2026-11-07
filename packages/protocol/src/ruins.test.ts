@@ -6,6 +6,8 @@ import {
   PROTOCOL_VERSION,
   ProtocolError,
   RESTORATION_RESULT_CODES,
+  RUINS_DEADLINE_CODES,
+  RUINS_DEADLINE_PROTOCOL_VERSION,
   RUINS_PROTOCOL_VERSION,
   decodeClientMessage,
   decodeServerMessage,
@@ -25,8 +27,9 @@ function decodes(decode: (text: string) => unknown, message: unknown): boolean {
 describe("폐허 복원 메시지(프로토콜 13)", () => {
   it("모금 열기·넣기·개발 폐허가 왕복하고 값 모양을 본다", () => {
     expect(RUINS_PROTOCOL_VERSION).toBe(13);
-    expect(PROTOCOL_VERSION).toBe(14);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(13);
+    expect(RUINS_DEADLINE_PROTOCOL_VERSION).toBe(15);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(RUINS_DEADLINE_PROTOCOL_VERSION);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
     const open = { t: "restoration_open", id: 1, ruin: 12 } as const;
     expect(decodeClientMessage(encodeMessage(open))).toEqual(open);
     expect(decodes(decodeClientMessage, { ...open, ruin: 0 })).toBe(false);
@@ -57,6 +60,9 @@ describe("폐허 복원 메시지(프로토콜 13)", () => {
     expect(decodes(decodeServerMessage, { t: "restoration_result", id: 3, ok: false, code: "nope" })).toBe(
       false,
     );
+    // 폐허 2(프로토콜 15): 정부 건물을 다 지어야·모금 기한이 지남
+    expect(RUINS_DEADLINE_CODES).toEqual(["not_built", "expired"]);
+    for (const code of RUINS_DEADLINE_CODES) expect(RESTORATION_RESULT_CODES).toContain(code);
     expect(FACILITY_RESULT_CODES).toContain("not_ruin");
     expect(FACILITY_RESULT_CODES).toContain("ruin_claimed");
   });

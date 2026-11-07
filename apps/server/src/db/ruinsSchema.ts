@@ -51,6 +51,11 @@ export const worldRuins = pgTable(
     currency: text("currency"),
     /** 주인이 모금을 열었나(열면 누구나 넣는다, D-343) */
     open: boolean("open").notNull().default(false),
+    /**
+     * 모금 기한(ms, 폐허 2 기획 답 485 다: 처음 주인이 된 때 + 기한 날 수 — 지나면 하루 끝에 돌려주고 주인 없음). null = 정하지 않음(주인 없음,
+     * 또는 직전 판 앱이 쓴 줄 — 그때는 주인이 된 때 + 기한 날 수로 본다)
+     */
+    deadlineMs: bigint("deadline_ms", { mode: "number" }),
   },
   (table) => [
     index("world_ruins_map_idx").on(table.mapKey),

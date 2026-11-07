@@ -7,11 +7,15 @@
 //   대기열에 넣는다(flushRuins — 원장 거래와 같은 커밋). 커밋 뒤 답한다(S3 U2).
 // - 화폐 = 도시가 드는 세력의 국고 화폐(서버는 시험 화폐 하나, D-441 해석과 같은 [임시]).
 // - 개발 시험 폐허(dev_make_ruin): 내 시작 도시 둘레 빈 자리에 주인 없는 폐허를 하나 둔다(옛 주인 = 내 나라, 웨이브를 켜지 않고 시험하려고).
+// - 폐허 2(기획 답 480 다·485 다·487 다·489 다, ADR "바뀜 (기획 답 480~489, 472, 535)"): 정부 건물 상태(짓는 중·서 있음·0%·사라짐)를 거울
+//   세계 규칙에 고리로 알려 준다(attachGovernment) — 다 지어야 모금을 열고 넣고, 0%·사라지면 다시 지은 쪽이 주인(낸 값은 사업에 남음). 모금
+//   기한이 지나면 하루 끝에 돌려준다. 행정 건물은 그 폐허(되살아날 도시)의 시설로 적는다(시설 줄 도시 = 폐허 ID) — 되살아난 도시의 행정 레벨 =
+//   그 건물 레벨(govLevels, NPC 사회 런타임이 모든 도시에 맞춘다).
 import type { RestorationResultCode } from "@terra/protocol";
 import { buildCostAt } from "@terra/shared/facilityBuild";
 import { type CityCell, cityOfCell } from "@terra/shared/goodsPlaces";
 import type { RuinFactionView, RuinView, RuinsOverviewResponse } from "@terra/shared/ruins";
-import type { RuinResult, SimRuin } from "@terra/sim";
+import type { GovernmentStatus, RuinResult, SimRuin } from "@terra/sim";
 import type { CyborgService } from "../cyborg/service.ts";
 import type { Ledger } from "../economy/ledger.ts";
 import type { WorldFacilities } from "../facilities/world.ts";
@@ -63,6 +67,13 @@ export interface RuinService extends RuinReadServices {
   open(userId: string, ruinId: number): Promise<RuinCommandResult>;
   fund(userId: string, ruinId: number, amount: string): Promise<RuinCommandResult>;
   devMakeRuin(userId: string): Promise<RuinCommandResult>;
+  /** 정부 건물 상태(건물 서비스 시설 줄): 짓는 중·서 있음·0%·사라짐(기획 답 480 다·487 다) */
+  governmentStatus(buildingId: number): GovernmentStatus;
+  /**
+   * 도시마다 행정 건물 레벨(기획 답 489 다 — 모든 도시의 행정 레벨 = 그 도시 안 행정 건물 레벨): 시설 줄 도시가 그 도시인 행정 단계 시설
+   * 가운데 다 지은 것의 가장 높은 레벨. 행정 건물이 없는 도시는 없다(그 도시 레벨은 그대로)
+   */
+  governmentLevels(): ReadonlyMap<number, number>;
 }
 
 export interface RuinDeps {
@@ -88,6 +99,8 @@ const CODE_OF: Readonly<Record<Exclude<RuinResult, "ok">, RestorationResultCode>
   insufficient_funds: "insufficient_funds",
   no_faction: "no_faction",
   invalid_amount: "invalid_amount",
+  not_built: "not_built",
+  expired: "expired",
 };
 
 /** 세력 이름표(이름은 아직 없음 — 코드만, 화면이 코드를 보인다) */
@@ -125,6 +138,20 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
     return near ? runtime.world.ruins.get(near.id) : undefined;
   };
   const governmentDef = () => places.catalog().facilities.find((def) => def.stage === "government");
+  const isGovernment = (facilityId: string): boolean =>
+    places.catalog().facility(facilityId)?.stage === "government";
+  /** 그 건물이 2차맵에 있나 */
+  const standing = (buildingId: number): boolean => {
+    for (const map of places.maps.values()) if (map.buildingOwner(buildingId) !== undefined) return true;
+    return false;
+  };
+  /** 정부 건물 상태: 시설 줄·건물이 없으면 사라짐, 레벨 0 = 짓는 중, 상태 0% = 0%(폐허, 366 — 수리로 되돌림) */
+  const governmentStatus = (buildingId: number): GovernmentStatus => {
+    const record = d.facilities.service.facilities.get(buildingId);
+    if (!record || !standing(buildingId)) return { state: "down", level: 0 };
+    if (record.level < 1) return { state: "building", level: 0 };
+    return { state: record.conditionPpm <= 0 ? "down" : "up", level: record.level };
+  };
   /** 폐허 둘레에서 행정 건물을 놓을 수 있고 그 폐허 자리인 첫 칸(나선 차례) */
   const buildCellOf = (
     runtime: NpcRuntime,
@@ -165,19 +192,31 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
     return result;
   };
 
-  // 건물 서비스 고리: 행정 건물은 주인 없는 폐허 자리에만, 짓기 시작한 쪽이 주인
+  // 정부 건물 상태 고리(거울 세계 규칙): NPC 사회 런타임이 다시 생겨도(시험) 부를 때마다 붙인다
+  const attached = new WeakSet<NpcRuntime>();
+  const live = (): NpcRuntime | undefined => {
+    const runtime = npc();
+    if (runtime && !attached.has(runtime)) {
+      runtime.society.ruins.attachGovernment(governmentStatus);
+      attached.add(runtime);
+    }
+    return runtime;
+  };
+
+  // 건물 서비스 고리: 행정 건물은 주인 없는(또는 정부 건물이 0%·사라진) 폐허 자리에만, 짓기 시작한 쪽이 주인(480 다 — 다 지어야 모금)
   d.facilities.service.attachGovernment({
     check(ownerId, mapKey, x, y) {
-      const runtime = npc();
+      const runtime = live();
       if (!runtime) return { ok: false, code: "not_ruin" };
       const ruin = ruinAt(runtime, mapKey, x, y);
       if (!ruin) return { ok: false, code: "not_ruin" };
-      if (ruin.claimant !== null) return { ok: false, code: "ruin_claimed" };
+      // 주인 없음, 또는 주인의 정부 건물이 0%·사라짐이면 다시 지은 쪽이 주인(487 다)
+      if (!runtime.society.ruins.claimable(ruin.id)) return { ok: false, code: "ruin_claimed" };
       if (joinOf(runtime, ownerId) === undefined) return { ok: false, code: "forbidden" };
       return { ok: true, ruinId: ruin.id };
     },
     claimed(ruinId, ownerId, buildingId, atMs) {
-      const runtime = npc();
+      const runtime = live();
       const join = runtime ? joinOf(runtime, ownerId) : undefined;
       if (!runtime || join === undefined) return;
       runtime.society.ruins.claim(ruinId, ownerId, join, atMs, { pay: false, building: buildingId });
@@ -186,8 +225,19 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
   });
 
   return {
+    governmentStatus,
+    governmentLevels() {
+      const out = new Map<number, number>();
+      for (const record of d.facilities.service.facilities.values()) {
+        if (record.cityId === null || record.level < 1 || !isGovernment(record.facilityId)) continue;
+        if (!standing(record.buildingId)) continue;
+        out.set(record.cityId, Math.max(out.get(record.cityId) ?? 0, record.level));
+      }
+      return out;
+    },
+
     overview(viewer, nowMs) {
-      const runtime = npc();
+      const runtime = live();
       if (!runtime) return undefined;
       const me = d.settlement.findOwnerOfUser(viewer.id);
       const ruins: RuinView[] = [];
@@ -196,6 +246,10 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
         if (!place || !places.maps.has(place.mapKey)) continue;
         const claimed = ruin.claimant !== null;
         const raised = [...ruin.contributions.values()].reduce((sum, v) => sum + v, 0n);
+        const rules = runtime.society.ruins;
+        const ready = rules.ready(ruin.id);
+        const deadline = rules.deadlineOf(ruin.id);
+        const open = claimed && ready && nowMs < deadline;
         ruins.push({
           id: ruin.id,
           mapKey: place.mapKey,
@@ -210,6 +264,8 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
                   mine: ruin.claimant === me,
                   label: labelOf(runtime, ruin.claimant),
                   joins: factionView(runtime, ruin.joinFaction),
+                  // 정부 건물(유저가 지은 것). NPC 주인은 건물 없이 값으로 지어 늘 서 있다
+                  hall: ruin.building === null ? null : governmentStatus(ruin.building),
                 },
           project: claimed
             ? {
@@ -218,7 +274,9 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
                 currency: ruin.currency,
                 open: ruin.open,
                 mine: String(me === undefined ? 0n : (ruin.contributions.get(me) ?? 0n)),
-                canFund: me !== undefined && (ruin.claimant === me || ruin.open),
+                canFund: open && me !== undefined && (ruin.claimant === me || ruin.open),
+                ready,
+                deadlineAtMs: deadline >= Number.MAX_SAFE_INTEGER ? null : deadline,
                 shares: runtime.society.ruins
                   .previewShares(ruin.id)
                   .map((h) => ({
@@ -229,7 +287,7 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
                   .toSorted((a, b) => b.shares - a.shares),
               }
             : null,
-          buildAt: claimed ? null : buildCellOf(runtime, ruin, place),
+          buildAt: rules.claimable(ruin.id) ? buildCellOf(runtime, ruin, place) : null,
         });
       }
       const def = governmentDef();
@@ -242,6 +300,7 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
             ? {
                 facilityId: def.id,
                 name: def.name,
+                maxLevel: def.maxLevel,
                 materials: buildCostAt(def.build, 1).map((stack) => ({
                   item: stack.item,
                   name: catalog.itemName(stack.item) ?? { ko: stack.item, en: stack.item },
@@ -258,17 +317,17 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
     },
 
     async open(userId, ruinId) {
-      const runtime = npc();
+      const runtime = live();
       if (!runtime) return fail("busy");
       const me = d.settlement.findOwnerOfUser(userId);
       if (me === undefined) return fail("not_owner");
-      const result = runtime.society.ruins.open(ruinId, me);
+      const result = runtime.society.ruins.open(ruinId, me, d.now());
       if (result !== "ok") return fail(CODE_OF[result]);
       return commit(runtime, { ok: true, ruinId });
     },
 
     async fund(userId, ruinId, text) {
-      const runtime = npc();
+      const runtime = live();
       if (!runtime) return fail("busy");
       const amount = amountOf(text);
       if (amount === undefined) return fail("invalid_amount");
@@ -291,7 +350,7 @@ export function createRuins(d: RuinDeps, npc: () => NpcRuntime | undefined): Rui
     },
 
     async devMakeRuin(userId) {
-      const runtime = npc();
+      const runtime = live();
       if (!runtime) return fail("busy");
       const record = d.cyborgs.record(userId);
       if (!record) return fail("no_cyborg");

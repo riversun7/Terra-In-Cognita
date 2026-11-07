@@ -14,7 +14,11 @@ import { createWorld } from "./world.ts";
 const HOUR = 3_600_000;
 
 /** 고정 나라 1(시작 도시 1 + 마을 2·3), 유동 세력 2(도시 4·5), 유동 세력 3(도시 6) */
-function setup(rules: GardenerCoefficients = TEST_GARDENER_COEFFICIENTS, fightWins = false) {
+function setup(
+  rules: GardenerCoefficients = TEST_GARDENER_COEFFICIENTS,
+  fightWins = false,
+  hasGuardians?: (cityId: number) => boolean,
+) {
   const scenario = parseScenario({
     id: "gardener_two",
     factions: [
@@ -48,6 +52,7 @@ function setup(rules: GardenerCoefficients = TEST_GARDENER_COEFFICIENTS, fightWi
   const events: { atMs: number; kind: string; subject: number; id: number }[] = [];
   let eventId = 0;
   const rewards: { wave: GardenerWave; ownerId: number; reward: WaveReward }[] = [];
+  const fights: { city: number; defenders: number }[] = [];
   const gardener = attachGardener({
     world,
     rules: () => rules,
@@ -65,7 +70,11 @@ function setup(rules: GardenerCoefficients = TEST_GARDENER_COEFFICIENTS, fightWi
       const at = events.findIndex((event) => event.id === id);
       if (at >= 0) events.splice(at, 1);
     },
-    fight: () => fightWins,
+    fight: (wave, defenders) => {
+      fights.push({ city: wave.city, defenders: defenders.length });
+      return fightWins;
+    },
+    hasGuardians,
     treasuryOf: () => 0n,
     seed: 5,
     onReward: (wave, ownerId, reward) => rewards.push({ wave, ownerId, reward }),
@@ -75,7 +84,7 @@ function setup(rules: GardenerCoefficients = TEST_GARDENER_COEFFICIENTS, fightWi
     if (!found) throw new Error(code);
     return found;
   };
-  return { world, gardener, lines, events, rewards, faction, cellOf };
+  return { world, gardener, lines, events, rewards, faction, cellOf, fights };
 }
 
 describe("정원사 2: 보호 레이드(D-500)", () => {
@@ -128,6 +137,33 @@ describe("정원사 2: 보호 레이드(D-500)", () => {
     const { gardener, faction } = setup({ ...TEST_GARDENER_COEFFICIENTS, raidStrengthPm: 0 });
     expect(gardener.protect(faction("two"), faction("home"), 2, 0)).toBe(false);
     expect(gardener.waves.size).toBe(0);
+  });
+});
+
+describe("수비 휴먼이 없는 도시의 웨이브(기획 답 472 가, D-311)", () => {
+  it("수호신이 있으면 수비 휴먼이 없어도 전투를 연다, 없으면 전투 없이 웨이브가 이긴다(질문 218 가)", () => {
+    for (const guarded of [false, true]) {
+      const { world, gardener, events, faction, fights } = setup(TEST_GARDENER_COEFFICIENTS, false, (cityId) =>
+        guarded ? cityId > 0 : false,
+      );
+      const home = faction("home");
+      const two = faction("two");
+      gardener.protect(two, home, [...home.cities][1] ?? 0, 0);
+      const target = [...gardener.waves.values()][0]?.city ?? 0;
+      // 그 도시 휴먼을 모두 다른 도시로 옮긴다(수비 휴먼 없음)
+      const other = [...two.cities].find((id) => id !== target) ?? 0;
+      for (const unit of world.units.values()) if (unit.city === target) unit.city = other;
+      const arrival = events.find((event) => event.kind === EVENT_WAVE);
+      gardener.handle(EVENT_WAVE, arrival?.subject ?? 0, arrival?.atMs ?? 0);
+      const [done] = gardener.takeResolved();
+      if (guarded) {
+        expect(fights).toEqual([{ city: target, defenders: 0 }]);
+        expect(done?.outcome).toBe("repelled");
+      } else {
+        expect(fights).toEqual([]);
+        expect(done?.outcome).not.toBe("repelled");
+      }
+    }
   });
 });
 

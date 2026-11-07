@@ -5,11 +5,15 @@
 // - 바꾸는 명령: 모금 열기(restoration_open: 주인만 — 열면 누구나 넣는다), 넣기(restoration_fund: 주인은 언제든, 모금이 열렸으면 누구나 —
 //   남은 몫까지만 받는다, 목표를 채우면 도시가 되살아난다), 개발 시험 폐허 만들기(dev_make_ruin, dev·admin). 조회(폐허 목록·주인·모금·내 몫)는
 //   tRPC ruins.overview다.
+// - 프로토콜 15(폐허 2, 기획 답 480 다·485 다): 새 결과 코드 not_built(정부 건물을 다 짓고 서 있어야 모금을 열고 넣는다)·expired(모금 기한이
+//   지났다 — 하루 끝에 돌려준다)는 15판 연결의 답에만 간다. 더 낮은 판은 not_claimed를 받는다(그 판 기기는 모르는 코드라 메시지를 풀지 못한다).
 // 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다: 폐허·잔고 확인은 서버가 하고, 여기서는 모양만 본다.
 import { z } from "zod";
 
 /** 폐허 메시지에 필요한 가장 낮은 프로토콜 버전. 더 낮게 인사한 연결이 보내면 invalid_message로 거절한다 */
 export const RUINS_PROTOCOL_VERSION = 13;
+/** 결과 코드 not_built·expired를 받는 가장 낮은 프로토콜 버전(폐허 2). 더 낮은 판 연결은 not_claimed를 받는다 */
+export const RUINS_DEADLINE_PROTOCOL_VERSION = 15;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -70,7 +74,13 @@ export const RESTORATION_RESULT_CODES = [
   "no_faction",
   /** 폐허를 둘 자리가 없다(개발 시험) */
   "no_place",
+  /** 정부 건물이 아직 다 지어지지 않았거나 0%·사라졌다(프로토콜 15, 기획 답 480 다·487 다) */
+  "not_built",
+  /** 모금 기한이 지났다(프로토콜 15, 기획 답 485 다 — 하루 끝에 낸 값을 돌려주고 주인 없음) */
+  "expired",
 ] as const;
+/** 15판에서 더한 결과 코드(더 낮은 판 연결은 not_claimed로 바꿔 보낸다) */
+export const RUINS_DEADLINE_CODES: readonly RestorationResultCode[] = ["not_built", "expired"];
 export type RestorationResultCode = (typeof RESTORATION_RESULT_CODES)[number];
 
 const restorationResultMessage = z.discriminatedUnion("ok", [

@@ -75,6 +75,8 @@ export {
 } from "./facilities.ts";
 export {
   RESTORATION_RESULT_CODES,
+  RUINS_DEADLINE_CODES,
+  RUINS_DEADLINE_PROTOCOL_VERSION,
   RUINS_PROTOCOL_VERSION,
   type RestorationResultCode,
 } from "./ruins.ts";

@@ -432,7 +432,11 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
           send({ t: "restoration_result", id: message.id, ok: false, code: "busy" });
           return;
         }
-        ruinSocket ??= context.ruins.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        ruinSocket ??= context.ruins.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+          protocolVersion,
+        });
         ruinSocket.handle(message);
         return;
       }

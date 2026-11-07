@@ -31,6 +31,7 @@ function fakeService(calls: string[]): FusionService {
       isAway: () => false,
       citySatisfaction: () => new Map(),
       buildingProductionPm: () => 0,
+      hasFightingGuardian: () => false,
       sweep: () => Promise.resolve(0),
     },
     fuse: (userId, input) => {

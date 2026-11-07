@@ -25,8 +25,8 @@ function decodes(decode: (text: string) => unknown, message: unknown): boolean {
 describe("물자 거래소 메시지(프로토콜 14)", () => {
   it("주문 넣기·취소·알림 켜기가 왕복하고 값 모양을 본다", () => {
     expect(MARKET_PROTOCOL_VERSION).toBe(14);
-    expect(PROTOCOL_VERSION).toBe(14);
-    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(13);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(14);
+    expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
     const place = {
       t: "market_place",
       id: 1,

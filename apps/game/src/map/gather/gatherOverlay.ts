@@ -2,6 +2,7 @@
 // (다시보기 HUD battleHud.ts와 같은 방식: transform·data-*·글자만 바꾼다, 색·크기는 gather.css 토큰).
 // - 오브젝트 표시: 누를 수 있는 단추(누르면 채집 판). 화면 안 가장 가운데에 가까운 MARKERS개만 놓는다(묶음 하나에 하나라 2차맵 하나에 많아야 1,024개).
 //   떨어진 오브젝트는 다른 모양(data-state="depleted": 속 빈 회색 고리). 멀리서 보면(1m가 MIN_PX_PER_M보다 작게) 숨긴다.
+// - 건물 표시: 화면 안 가장 가운데에 가까운 BUILDING_MARKERS개 건물 위 작은 단추(누르면 건물 판 — 들어가기·안에 있는 유닛). 땅을 눌러도 같은 판이 열린다.
 // - 채집 줄 표시: 내 유닛 머리 위 작은 이름표(단계·화물 kg). 누르지 않는다.
 import type { EngineLayer, EngineLayerView, SecondMapEngine } from "@terra/engine";
 import { m } from "../../paraglide/messages.js";
@@ -12,6 +13,10 @@ import type { GatherObjectEntry, GatherState } from "./gatherState.ts";
 const MARKERS = 40;
 /** 채집 줄 이름표 수 */
 const CHIPS = 8;
+/** 한 화면에 놓는 건물 표시 수(누르면 건물 판 — 들어가기·안에 있는 유닛) */
+const BUILDING_MARKERS = 12;
+/** 건물 표시 높이(m) */
+const BUILDING_LIFT_M = 4;
 /** 표시를 띄우는 높이(m) */
 const MARKER_LIFT_M = 1.2;
 const CHIP_LIFT_M = 3.4;
@@ -71,6 +76,19 @@ export function attachGatherOverlay(
     });
     root.append(button);
     markers.push({ button, key: "", transform: "" });
+  }
+  const buildingMarkers: Marker[] = [];
+  for (let i = 0; i < BUILDING_MARKERS; i++) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "gather-building-marker";
+    button.hidden = true;
+    button.addEventListener("click", () => {
+      const id = Number(button.dataset.building);
+      if (Number.isInteger(id)) state.open({ kind: "building", id });
+    });
+    root.append(button);
+    buildingMarkers.push({ button, key: "", transform: "" });
   }
   for (let i = 0; i < CHIPS; i++) {
     const chip = document.createElement("span");
@@ -134,6 +152,45 @@ export function attachGatherOverlay(
     return shown;
   };
 
+  const placeBuildings = (view: EngineLayerView): void => {
+    if (view.pixelsPerMetre < MIN_PX_PER_M) {
+      hideAll(buildingMarkers);
+      return;
+    }
+    const cx = view.width / 2;
+    const cy = view.height / 2;
+    const seen: { id: number; x: number; y: number; d: number }[] = [];
+    for (const building of state.buildings) {
+      const quarter = building.rotation === 1 || building.rotation === 3;
+      const width = quarter ? building.depth : building.width;
+      const height = quarter ? building.width : building.depth;
+      const point = view.project(building.cellX + width / 2, building.cellY + height / 2, BUILDING_LIFT_M);
+      if (!point || point.x < 0 || point.y < 0 || point.x > view.width || point.y > view.height) continue;
+      seen.push({ id: building.id, x: point.x, y: point.y, d: (point.x - cx) ** 2 + (point.y - cy) ** 2 });
+    }
+    seen.sort((a, b) => a.d - b.d);
+    for (const [index, marker] of buildingMarkers.entries()) {
+      const entry = seen[index];
+      if (!entry) {
+        if (!marker.button.hidden) marker.button.hidden = true;
+        continue;
+      }
+      const key = String(entry.id);
+      if (marker.key !== key) {
+        marker.key = key;
+        marker.button.dataset.building = key;
+        marker.button.textContent = m.gather_building_marker_text();
+        marker.button.setAttribute("aria-label", m.gather_building_marker({ id: entry.id }));
+      }
+      const transform = `translate(${entry.x.toFixed(1)}px, ${entry.y.toFixed(1)}px) translate(-50%, -50%)`;
+      if (marker.transform !== transform) {
+        marker.transform = transform;
+        marker.button.style.transform = transform;
+      }
+      if (marker.button.hidden) marker.button.hidden = false;
+    }
+  };
+
   const placeChips = (view: EngineLayerView): void => {
     const active = state.loops.filter((loop) => loop.mapKey === options.mapKey && loop.phase !== "done");
     for (const [index, chip] of chips.entries()) {
@@ -169,6 +226,7 @@ export function attachGatherOverlay(
   const layer: EngineLayer = {
     after(view) {
       placeMarkers(view);
+      placeBuildings(view);
       placeChips(view);
     },
   };
@@ -176,6 +234,7 @@ export function attachGatherOverlay(
   // 자료·판이 바뀌면 한 번 더 그린다(카메라가 멈춰 있어도 표시가 바뀌게)
   const unsubscribe = state.subscribe(() => {
     for (const marker of markers) marker.key = "";
+    for (const marker of buildingMarkers) marker.key = "";
     engine.requestFrame();
   });
   return () => {

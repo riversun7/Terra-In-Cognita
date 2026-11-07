@@ -33,6 +33,8 @@ export interface GatherState {
   readonly kinds: readonly GatherKindView[];
   readonly objects: readonly GatherObjectEntry[];
   readonly loops: readonly GatherLoopView[];
+  /** 지도 자료의 건물 칸(덧그림이 건물 표시를 놓는다) */
+  readonly buildings: readonly BuildingFootprint[];
   readonly sheet: GatherSheet | null;
   /** 바뀔 때마다 오른다(React 구독) */
   readonly version: number;
@@ -130,6 +132,9 @@ export function createGatherState(): GatherState {
     get loops() {
       return state.loops;
     },
+    get buildings() {
+      return buildings;
+    },
     get sheet() {
       return state.sheet;
     },
@@ -154,6 +159,7 @@ export function createGatherState(): GatherState {
     },
     setBuildings(list) {
       buildings = list;
+      changed();
     },
     open(sheet) {
       state.sheet = sheet;

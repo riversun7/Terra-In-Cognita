@@ -63,6 +63,36 @@
   outline-offset: var(--focus-offset);
 }
 
+/* 건물 표시: 건물 위 작은 단추(누르면 건물 판) */
+.gather-building-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  margin: 0;
+  padding: 0 var(--space-2);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+  transition: none;
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.gather-building-marker[hidden] {
+  display: none;
+}
+.gather-building-marker:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+
 /* 내 유닛 채집 이름표 */
 .gather-chip {
   position: absolute;

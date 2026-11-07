@@ -52,7 +52,7 @@ describe("채집 화면 상태", () => {
     expect(state.tapCell({ x: 51.5, y: 50.5 })).toBe(true);
     expect(state.sheet).toEqual({ kind: "building", id: 9 });
     expect(state.tapCell({ x: 120.5, y: 120.5 })).toBe(false);
-    expect(calls).toBe(3);
+    expect(calls).toBe(4);
     off();
   });
 

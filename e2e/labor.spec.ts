@@ -116,8 +116,9 @@ test.describe("노동 계약", () => {
     deviceErrors,
   }) => {
     test.setTimeout(180_000);
-    // 일꾼 40(시험 화폐 960) + 시험 건물
+    // 일꾼 60(시험 화폐 1,440: 내 임금형 보증금 480 + 채우기 10 + 구인 받힘 보증금 720) + 시험 건물
     const spawned = await sendCommands(page, [
+      { t: "dev_spawn_units", mapKey: S1_TEST_MAP_KEY, count: 20 },
       { t: "dev_spawn_units", mapKey: S1_TEST_MAP_KEY, count: 20 },
       { t: "dev_spawn_units", mapKey: S1_TEST_MAP_KEY, count: 20 },
     ]);

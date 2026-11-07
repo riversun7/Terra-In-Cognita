@@ -1,8 +1,8 @@
 # 노동 계약 2: 손 해지 유예(기획 341)·구인 게시판(남의 유닛을 임금형으로)
 
-- 일시: 2026-11-03 14:40 ~ 16:30 (KST)
+- 일시: 2026-11-03 14:40 ~ 16:30, 2026-11-07 09:30 ~ 10:10 (KST, 주간 사용량 한도로 멈췄다가 이어서)
 - 작업 도구: Claude Code
-- 관련: ADR `docs/adr/2026-11-03-labor-contracts.md` "바뀜 (2026-11-03, 기획 338~342 답·구인 게시판)", 기획 D-479 기획 정리(338~342, 원본 bd5d754 = 미러 `0c8f523`)·D-161·D-432·D-507·49 N48, 앞 작업 기록 `03-1400-labor-contracts.md`, 가지 `work/labor-2`(main `f2dd7b1` 합침)
+- 관련: ADR `docs/adr/2026-11-03-labor-contracts.md` "바뀜 (2026-11-03, 기획 338~342 답·구인 게시판)", 기획 D-479 기획 정리(338~342, 원본 bd5d754 = 미러 `0c8f523`)·D-161·D-432·D-507·49 N48, 앞 작업 기록 `03-1400-labor-contracts.md`, 가지 `work/labor-2`(main `f2dd7b1`, 이어서 `25dab48`(D-513 N53 스위치·N43 편집기·core@36) 합침)
 
 ## 한 일
 - 옛 프로젝트(AntiGravt01 작업 트리, 앞 ADR과 같은 줄 번호)를 먼저 읽었다: 건물 운영 설정 한 줄의 모집 여부·기본 임금(`production_routes.js:147-206`·`:315-317`·`:336-338`, `schema.js:4345-4370`), 남의 건물에 내 미니언으로 계약(`:326-332`), 해지 권한(`:396-409`), 일꾼 종류 MINION·USER(`schema.js:4393-4395`), 지갑(`ContractDistributor.js:105-114`), 시장 단가 고정(`salary_engine.js:159-163`), 유예 끝 창고 합치기(`StorageUtils.js:286-298`, `ServerBootstrap.js:184-197`). 표는 ADR "바뀜" 2절.
@@ -41,13 +41,19 @@
 - 에스크로 계정 코드·거래 종류 넷(앞 기록과 같음), 게시 상태 이름 넷(`open`·`filled`·`withdrawn`·`gone`, DB 검사).
 
 ## 미검증·TODO·알려진 문제
-- 검사·시험 결과는 아래 "검사" 절(채움).
 - 유예의 "남은 물건 옮기기"는 기록만이다: 시설 창고가 없고 임대형 산출은 지금 임차인 주체 창고로 바로 간다. 창고가 생기면 `leftoversMovedAtMs`가 새로 생긴 계약의 물건을 그 시각에 옮긴다.
 - 게시판 도시는 부팅 때 읽은 도시 목록이라 NPC가 새로 세운 도시는 다시 켤 때까지 없다. 단가는 도시마다 같다(도시 노동 시장 없음).
 - 받는 쪽은 고용주가 보증금을 낼 수 있는지 미리 모른다(받을 때 `employer_insufficient_funds`).
 - 시뮬레이터 출력 그대로: 시뮬레이터 모듈은 계약 함수를 부르지 않는다(Verified: 소스 검색 — `laborContract`·`laborJobs`를 가져오는 비시험 파일은 `index.ts`·`tuningLabor.ts`·`society/coefficients.ts`뿐이고 둘은 형식·출발값만). `SIM_VERSION` 12 그대로, 팩 core@35 그대로.
 
 ## 검사
+- main `25dab48`을 합친 뒤(충돌: `docs/PLAN.md` 14장 한 줄 = main 글 + 이 가지 D-479 문장, `docs/WORKLOG.md` = 다시 만듦. `service.ts`는 main의 N53 생산 스위치와 자동으로 합쳐짐. `db:generate` = No schema changes. 마이그레이션 갈래(이 가지 `20261103061305_labor_postings` ↔ main `20261103162444_content_overrides_gather_tiers`)는 다시 만들지 않고 그대로 합침), 모두 무거운 작업 잠금 아래에서 돌렸다(Verified):
+  - `TEST_DATABASE_URL=… pnpm check`: 통과, 시험 파일 409개·시험 3,403개(건너뜀 없음 = DB 시험 포함). 처음 한 번은 `src/paraglide` 생성 파일이 합치기 전 것이라 oxlint `import(namespace)`가 main의 새 메시지 키를 못 찾아 실패 → `paraglide-js compile`로 다시 만든 뒤 통과(코드 문제 아님).
+  - 노동 계약 시험: sim `laborContract.test.ts`·`laborJobs.test.ts` 25개, 서버 `labor.db.test.ts` 8개(DB)·`gateway.test.ts` 3개, protocol `labor.test.ts` 5개.
+  - `pnpm build && node scripts/check-pwa.mjs && pnpm check:bundle`: 통과, 첫 화면 JS 105,905 B / 상한 131,416 B(노동 칸은 경제 지연 조각 안, 새 지연 조각 없음).
+  - `pnpm check:content origin/main`(팩 바꾸지 않음)·`pnpm check:docs origin/main`·`check:i18n`(3,662키)·`check:contrast`·`check:boundaries`·`check:size`: 통과.
+  - 화면 시험 `pnpm e2e e2e/labor.spec.ts`: 4개 통과(4.5·2.7·2.1·2.1초, 전체 17.8초). 처음 실행은 admin 시험 화폐(일꾼 40 × 24)가 구인 받힘 보증금 720에 모자라 `employer_insufficient_funds`로 실패 → 시험에서 일꾼을 60으로 늘림(규칙대로 막힌 것을 화면이 알림 문구로 보인 것도 확인).
+  - 사진(파스텔·다크 × 한국어·영어 × 390·1440): `/tmp/claude-0/-home-user/cb0728c6-6627-53f8-b5b7-9c38043bcdcc/scratchpad/labor2/shots/`의 `labor-admin-pastel-ko-390.png`, `labor-board-pastel-ko-390.png`, `labor-player-pastel-ko-390.png`, `labor-admin-dark-en-390.png`, `labor-player-dark-en-390.png`, `labor-admin-pastel-ko-1440.png`, `labor-player-pastel-ko-1440.png`, `labor-admin-dark-en-1440.png`, `labor-player-dark-en-1440.png`. 가로 넘침 없음(시험이 본다), 1440에서 게시판 거르기 둘이 나란히.
 
 ## 사용자 결정 대기
 - ADR 확인 대기 A~D: 유닛 사라진 임대형도 유예, 유예는 손으로 일찍 끝내지 않음(임차인 포함), 게시에 자리 수, 보증금은 받을 때 고용주 지갑에서.

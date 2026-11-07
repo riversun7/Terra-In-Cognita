@@ -134,9 +134,8 @@ export const TEST_NPC_COEFFICIENTS: NpcCoefficients = {
   restoreClaimScore: 250,
   restoreFormerBonus: 150,
   restoreCityPenalty: 40,
-  // 넣기·투자는 판단마다 되풀이되므로 연구(150 + 성향 ÷ 8)를 밀어내지 않게 낮게 둔다(econ16 D-391 기술 조건, ADR 폐허 2 잰 값)
-  restoreFundScore: 100,
-  restoreInvestScore: 50,
+  restoreFundScore: 300,
+  restoreInvestScore: 100,
   razeAggression: 900,
   stallFoodPm: 500,
   stallDays: 7,

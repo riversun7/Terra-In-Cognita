@@ -52,7 +52,9 @@
 - 별 점은 깊이를 보지도 쓰지도 않고 맨 먼저 그린다(`renderOrder` 가장 작음). 바꾸면 행성 위에 별이 비친다.
 
 ## 미검증·TODO·알려진 문제
-- 검사 결과: (아래 "검사" 줄에 적음)
+- 검사(마지막 한 번, 2026-11-08): 메시지 다시 만들기 → `TEST_DATABASE_URL=… pnpm check` 통과(시험 파일 480·시험 3,798, DB 시험 포함) → `pnpm check:docs origin/main` 통과 → `pnpm e2e planet-view.spec.ts star-system.spec.ts` 23개 통과(2.9분). 그 전 두 번은 실패해서 고쳤다: 휠 시험(헤드리스 휠 한 번 배율이 문턱 1.25보다 작음 → 문턱 1.15, 가장 멀리면 크기가 바뀌어도 가장 멀리), 돌림판 시험(끌기 시작점이 성능 판 위 → 지도 띠로, 느린 소프트웨어 WebGL이라 멀리서·적게).
+- 사진(390px 파스텔·다크 × 한국어·영어, 1440px, 개발 화면 네온·라이트 390·1440): `planet-view-ladder-390-*`·`planet-view-system-390-*`·`planet-view-system-1440-pastel-ko`·`planet-view-stage1-1440-pastel-ko`·`planet-view-local-390-*`·`star-system-390-*`·`star-system-1440-*`(세션 임시 폴더, 저장소 밖).
+- 390px 항성계 보기에서 화면 틀의 1·2차맵 전환 단추(오른쪽 가운데)가 그림 오른쪽 끝 바깥 궤도 일부를 가린다(이름표는 가리지 않음, 사진 확인).
 - 빌드·`check-pwa`·`check:bundle`은 돌리지 않았다(줄기 지침: 합칠 때). 첫 화면 JS 크기는 Unknown(새 코드는 지도·편집기 지연 조각, Assumed).
 - 휴대폰 실기기(터치 관성·두 손가락 돌아가기)는 보지 않았다(헤드리스 마우스·휠만).
 - 옛 자유 회전 함수(`dragGlobe`·`rotateHeading`·`zoomAround`)는 쓰는 곳이 없다(시험만). 다음 정리 후보.

@@ -704,29 +704,25 @@ export function beforeCityTransfer(
 }
 
 /**
- * 폐허가 된 도시 창고 물건의 갈 곳(기획 D-518 535): 주인 → 그 주인의 도시 창고(도시 ID) 또는 null(자리 없음 — 원장 보유, 주인이 그대로
- * 본다). 폐허가 될 도시는 아직 세계에 있으니 고르지 않는다(골라도 자리 없음으로 친다)
+ * 폐허가 된 도시 창고 물건의 갈 곳(기획 D-518 535): 주인 → 그 주인의 도시 창고(도시 ID), null(자리 없음 — 원장 보유, 주인이 그대로 본다),
+ * "burn"(옛 규칙대로 소각 — NPC 세력 물건, 확인 대기 질문 540). 폐허가 될 도시는 아직 세계에 있으니 고르지 않는다(골라도 자리 없음으로 친다)
  */
-export type RuinedGoodsHome = (ownerId: number, ruinedCityId: number) => number | null;
+export type RuinedGoodsHome = (ownerId: number, ruinedCityId: number) => number | null | "burn";
 
 /**
- * 시뮬 기본 갈 곳: 주인 세력의 다른 도시 가운데 가장 오래된(작은 ID) 도시 — 휴먼이 피난하는 도시와 같다(society.ts ruinCity). 시뮬은 도시 자리가
- * 없어 "가장 가까운"을 가장 오래된 도시로 친다. 다른 도시가 없으면(떠도는 세력) 자리 없음. 서버는 같은 꼴로 자리·유저 나라를 본다
- * (apps/server/src/npc/economy.ts)
+ * 시뮬 기본 갈 곳: 세력(NPC) 물건은 옛 규칙대로 소각(D-464 217 해석 — 535는 유저 물건을 지킨다. NPC 물건까지 옮기면 econ16에서 도시·인구가
+ * 크게 줄었다, ADR 폐허 2 잰 값), 세력이 아닌 주인(서버의 유저)은 자리 없음. 시뮬 주인은 모두 세력이라 소각만 돈다. 서버는 유저를 그 나라의
+ * 가장 가까운 도시 창고로 보낸다(apps/server/src/npc/ruinsRuntime.ts)
  */
-export function oldestHome(world: SimWorld): RuinedGoodsHome {
-  return (ownerId, ruinedCityId) => {
-    const faction = world.factions.get(ownerId);
-    if (!faction?.alive) return null;
-    return [...faction.cities].filter((id) => id !== ruinedCityId).toSorted((a, b) => a - b)[0] ?? null;
-  };
+export function simGoodsHome(world: SimWorld): RuinedGoodsHome {
+  return (ownerId) => (world.factions.has(ownerId) ? "burn" : null);
 }
 
 /**
  * 도시가 폐허가 되기 바로 전(docs/adr/2026-11-01-gardener-r5b.md 4절, D-464 217): 그 도시 거래소의 걸린 주문을 돌려주고 거래소를
- * 닫는다, 그 도시 시설은 멈춘다. 그 도시 창고(누구 것이든)의 물건은 소각하지 않고 주인마다 갈 곳(homeOf)으로 옮긴다(기획 D-518 535 — 소유는
- * 점령으로만 바뀐다 D-161, 건물이 사라질 때 416과 같은 결). 걸린 주문을 먼저 돌려주므로 묶였던 물건도 함께 옮긴다. 운송 중인 화물은 그대로
- * 도착한다(받을 곳 없음)
+ * 닫는다, 그 도시 시설은 멈춘다. 그 도시 창고의 물건은 주인마다 갈 곳(homeOf)으로: 유저 물건은 소각하지 않고 그 주인의 도시 창고로 옮기고
+ * (기획 D-518 535 — 소유는 점령으로만 바뀐다 D-161, 건물이 사라질 때 416과 같은 결), NPC 세력 물건은 옛 규칙대로 소각한다. 걸린 주문을 먼저
+ * 돌려주므로 묶였던 물건도 함께 간다. 운송 중인 화물은 그대로 도착한다(받을 곳 없음)
  */
 export function cityRuined(
   economy: Economy,
@@ -734,7 +730,7 @@ export function cityRuined(
   loop: SimLoop<SimEvent>,
   cityId: number,
   nowMs: number,
-  homeOf: RuinedGoodsHome = oldestHome(world),
+  homeOf: RuinedGoodsHome = simGoodsHome(world),
 ): void {
   for (const market of economy.markets.get(cityId)?.values() ?? []) {
     const owners = [...new Set(market.orders().map((order) => order.owner))].toSorted((a, b) => a - b);
@@ -750,7 +746,10 @@ export function cityRuined(
   rehomeRuinedGoods(world, cityId, nowMs, homeOf);
 }
 
-/** 그 도시 창고의 물건을 주인마다 갈 곳으로 옮긴다(535). 거래 하나(storage_rehome — 서버 건물 창고 옮기기와 같은 종류). 옮긴 계정 수 */
+/**
+ * 그 도시 창고의 물건을 주인마다 갈 곳으로(535). 소각 몫은 거래 하나(burn → sink), 옮기는 몫은 거래 하나(storage_rehome — 서버 건물 창고
+ * 옮기기와 같은 종류). 옮기거나 태운 계정 수
+ */
 export function rehomeRuinedGoods(
   world: SimWorld,
   cityId: number,
@@ -760,21 +759,29 @@ export function rehomeRuinedGoods(
   const found = [...world.book.accounts()]
     .filter((account) => account.ownerId !== null && account.location === cityId && account.balance > 0n)
     .toSorted((a, b) => a.id - b.id);
-  const homes = new Map<number, number | null>();
-  const entries = [];
+  const homes = new Map<number, number | null | "burn">();
+  const burned = [];
+  const moved = [];
   for (const account of found) {
     const owner = account.ownerId ?? 0;
     if (!homes.has(owner)) {
       const home = homeOf(owner, cityId);
       homes.set(owner, home === cityId ? null : home);
     }
-    entries.push({ account: account.id, amount: -account.balance });
-    entries.push({
-      account: world.book.ownerAccount(owner, account.asset, homes.get(owner) ?? null),
-      amount: account.balance,
-    });
+    const home = homes.get(owner) ?? null;
+    if (home === "burn") {
+      burned.push({ account: account.id, amount: -account.balance });
+      burned.push({
+        account: world.book.systemAccount(`sink:${account.asset}`, account.asset),
+        amount: account.balance,
+      });
+      continue;
+    }
+    moved.push({ account: account.id, amount: -account.balance });
+    moved.push({ account: world.book.ownerAccount(owner, account.asset, home), amount: account.balance });
   }
-  if (entries.length > 0) world.book.post({ kind: "storage_rehome", atMs: nowMs, entries });
+  if (burned.length > 0) world.book.post({ kind: "burn", atMs: nowMs, entries: burned });
+  if (moved.length > 0) world.book.post({ kind: "storage_rehome", atMs: nowMs, entries: moved });
   return found.length;
 }
 

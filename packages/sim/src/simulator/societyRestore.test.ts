@@ -3,7 +3,7 @@ import { type SocietyCoefficients, TEST_SOCIETY_COEFFICIENTS } from "../society/
 import { holdingsOf } from "../society/shares.ts";
 import { DAY_MS, createMetricsRecorder } from "./metrics.ts";
 import { parseScenario } from "./scenario.ts";
-import { oldestHome, rehomeRuinedGoods } from "./economy.ts";
+import { rehomeRuinedGoods, simGoodsHome } from "./economy.ts";
 import { attachSociety } from "./society.ts";
 import { TEST_ASSET_CREDIT, checkWorld, createWorld, restoreEscrow } from "./world.ts";
 
@@ -250,10 +250,11 @@ describe("폐허 복원(D-510·D-339·D-343·D-344)", () => {
     expect(problems(2000)).toEqual([]);
   });
 
-  it("폐허가 된 도시 창고 물건은 소각하지 않고 주인마다 다른 도시 창고로(535): 세력은 가장 오래된 다른 도시, 갈 곳이 없으면 자리 없음", () => {
+  it("폐허가 된 도시 창고 물건(535): 유저 물건은 갈 곳(그 주인 도시 창고)으로 옮기고, NPC 세력 물건은 옛 규칙대로 소각, 갈 곳이 없으면 자리 없음", () => {
     const { world } = setup(MANUAL);
     const asset = "item:plank";
     const source = world.book.systemAccount(`source:${asset}`, asset);
+    const sink = world.book.systemAccount(`sink:${asset}`, asset);
     const give = (owner: number, qty: bigint) =>
       world.book.post({
         kind: "endow",
@@ -267,14 +268,17 @@ describe("폐허 복원(D-510·D-339·D-343·D-344)", () => {
     give(2, 7n);
     give(3, 4n);
     give(77, 9n);
-    expect(rehomeRuinedGoods(world, 5, 1000, oldestHome(world))).toBe(3);
+    // 시뮬 기본: 세력 물건은 소각, 유저 자리는 자리 없음
+    expect(rehomeRuinedGoods(world, 5, 1000, simGoodsHome(world))).toBe(3);
     expect(world.book.balanceOf(2, asset, 5)).toBe(0n);
-    expect(world.book.balanceOf(2, asset, 4)).toBe(7n);
-    expect(world.book.balanceOf(3, asset, 6)).toBe(4n);
+    expect(world.book.balance(sink)).toBe(11n);
     expect(world.book.balanceOf(77, asset, null)).toBe(9n);
-    // 갈 곳 고리가 폐허가 될 도시를 고르면 자리 없음으로 친다
-    give(2, 1n);
-    rehomeRuinedGoods(world, 5, 2000, () => 5);
-    expect(world.book.balanceOf(2, asset, null)).toBe(1n);
+    // 서버처럼 유저를 그 나라 도시(여기선 도시 1)로 보내는 고리, 고리가 폐허가 될 도시를 고르면 자리 없음으로 친다
+    give(77, 5n);
+    rehomeRuinedGoods(world, 5, 2000, (owner) => (owner === 77 ? 1 : "burn"));
+    expect(world.book.balanceOf(77, asset, 1)).toBe(5n);
+    give(77, 1n);
+    rehomeRuinedGoods(world, 5, 3000, () => 5);
+    expect(world.book.balanceOf(77, asset, null)).toBe(10n);
   });
 });

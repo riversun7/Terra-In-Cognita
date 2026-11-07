@@ -4,9 +4,9 @@
 // - 행정 레벨(489 다): 모든 도시의 행정 레벨 = 그 도시 안 행정 건물 레벨. 행정 건물이 있는 도시만 맞추고(없는 도시는 그대로 [임시]),
 //   바뀐 도시는 도시 저장이 줄 비교로 쓴다.
 // - 수호신(472 가): 신전 서비스가 그 도시에 싸울 수 있는 수호신이 있는지 알려 주면 수비 휴먼이 없어도 웨이브 전투를 연다.
-// - 폐허가 된 도시 창고 물건(535, D-518): 주인마다 그 주인이 드는 나라(유저 = 사이보그 나라, 세력 = 그 세력)의 다른 도시 가운데 같은
-//   2차맵에서 가장 가까운 도시(칸 거리 제곱, 같으면 작은 ID), 같은 2차맵에 없으면 가장 오래된(작은 ID) 도시의 그 주인 도시 창고로. 나라를
-//   모르거나 다른 도시가 없으면 자리 없음(원장 보유 — 주인이 물건 목록에서 그대로 본다, 확인 대기 질문 541).
+// - 폐허가 된 도시 창고 물건(535, D-518): 유저 물건은 그 유저 사이보그 나라의 다른 도시 가운데 같은 2차맵에서 가장 가까운 도시(칸 거리
+//   제곱, 같으면 작은 ID), 같은 2차맵에 없으면 가장 오래된(작은 ID) 도시의 그 유저 도시 창고로. 나라를 모르거나 다른 도시가 없으면 자리 없음
+//   (원장 보유 — 주인이 물건 목록에서 그대로 본다, 확인 대기 질문 541). NPC 세력 물건은 시뮬과 같이 옛 규칙대로 소각(확인 대기 질문 540).
 import type { GovernmentLookup, RuinedGoodsHome, SimWorld } from "@terra/sim";
 import type { CityPlace } from "./persist.ts";
 
@@ -21,7 +21,7 @@ export interface NpcRuinsInput {
   readonly governmentLevels?: (() => ReadonlyMap<number, number>) | undefined;
   /** 그 도시에 싸울 수 있는 수호신이 있나(신전 서비스) */
   readonly hasGuardians?: ((cityId: number) => boolean) | undefined;
-  /** 소유 주체가 드는 나라(세력 소유 주체 ID). 유저 = 사이보그 나라, 세력 주체 = 그 세력. 모르면 undefined */
+  /** 유저 소유 주체가 드는 나라(세력 소유 주체 ID, 사이보그 나라). 세력 주체·모르면 undefined */
   readonly nationOf?: ((ownerId: number) => number | undefined) | undefined;
 }
 
@@ -40,14 +40,15 @@ export function syncAdminLevels(world: SimWorld, levels: ReadonlyMap<number, num
   return changed;
 }
 
-/** 폐허가 된 도시 창고 물건의 갈 곳(535). nationOf가 없으면 세력 주체만 그 세력으로 친다 */
+/** 폐허가 된 도시 창고 물건의 갈 곳(535): NPC 세력 물건은 소각, 유저 물건은 그 나라의 가장 가까운 다른 도시 창고(없으면 자리 없음) */
 export function ruinedGoodsHomeOf(
   world: SimWorld,
   places: ReadonlyMap<number, CityPlace>,
   nationOf: ((ownerId: number) => number | undefined) | undefined,
 ): RuinedGoodsHome {
   return (ownerId, ruinedCityId) => {
-    const nation = nationOf ? nationOf(ownerId) : world.factions.has(ownerId) ? ownerId : undefined;
+    if (world.factions.has(ownerId)) return "burn";
+    const nation = nationOf?.(ownerId);
     const faction = nation === undefined ? undefined : world.factions.get(nation);
     if (!faction?.alive) return null;
     const from = places.get(ruinedCityId);

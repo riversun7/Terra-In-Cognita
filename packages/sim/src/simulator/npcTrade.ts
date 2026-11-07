@@ -35,8 +35,8 @@ const pct = (value: bigint, percent: bigint): bigint => {
   return out > 0n ? out : 1n;
 };
 
-/** 도시 하나의 목표 재고 */
-function targets(economy: Economy, cityId: number): Map<string, bigint> {
+/** 도시 하나의 목표 재고(서버 도시 매입 호가도 같은 값을 쓴다) */
+export function cityTargets(economy: Economy, cityId: number): Map<string, bigint> {
   const need = new Map<string, bigint>();
   const add = (asset: string, qty: bigint): void => {
     need.set(asset, (need.get(asset) ?? 0n) + qty);
@@ -57,7 +57,7 @@ function targets(economy: Economy, cityId: number): Map<string, bigint> {
 }
 
 /** 거래소 기준값: 시장 시세(마지막 체결가). 체결이 아직 없으면 시작 시세(그 시장의 첫 가격, 295) */
-function refPrice(economy: Economy, cityId: number, asset: string): bigint {
+export function marketRefPrice(economy: Economy, cityId: number, asset: string): bigint {
   return economy.markets.get(cityId)?.get(asset)?.lastPrice ?? economy.catalog.startPrice.get(asset) ?? 1n;
 }
 
@@ -85,7 +85,7 @@ export function onTrade(
     for (const market of perItem.values()) market.cancelOwner(factionId, nowMs);
 
   const cities = [...faction.cities].toSorted((a, b) => a - b);
-  const need = new Map(cities.map((cityId) => [cityId, targets(economy, cityId)]));
+  const need = new Map(cities.map((cityId) => [cityId, cityTargets(economy, cityId)]));
   const stock = (cityId: number, asset: string): bigint => book.balanceOf(factionId, asset, cityId);
   const deficit = (cityId: number, asset: string): bigint =>
     (need.get(cityId)?.get(asset) ?? 0n) - stock(cityId, asset);
@@ -139,7 +139,7 @@ export function onTrade(
       if (lots <= 0n || !market) continue;
       const target = need.get(cityId)?.get(asset) ?? 0n;
       const glut = stock(cityId, asset) > target * GLUT_MULTIPLE;
-      const price = pct(refPrice(economy, cityId, asset), glut ? policy.glutPct : policy.sellPct);
+      const price = pct(marketRefPrice(economy, cityId, asset), glut ? policy.glutPct : policy.sellPct);
       market.place(factionId, "sell", price, lots, nowMs, nowMs + economy.settings.orderLifeMs);
     }
     // 5. 모자란 것 사기

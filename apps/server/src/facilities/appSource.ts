@@ -20,6 +20,7 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
       rules: facilities.rules,
       catalog: facilities.catalog,
       unitBusy: (unitId) => labor.unitBusy(unitId),
+      workersOf: (buildingId) => labor.workersAt(buildingId),
     },
     ownerOf: (userId) => settlement.findOwnerOfUser(userId),
     async beaconsOf(userId) {

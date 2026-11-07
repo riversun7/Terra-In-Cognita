@@ -1,0 +1,163 @@
+// 세계 씨앗 DB 통합 시험 — docs/adr/2026-11-07-play-flow.md "WP1 세계 씨앗". TEST_DATABASE_URL이 있을 때만. 값은 모두 시험용 가짜다.
+// 고정 국가마다 시작 도시 2~3곳을 시험 2차맵들에 나누고, 시작 도시마다 기본 시설을 다 지은 채로 세우며, 다시 켜도 그대로(멱등)이고,
+// 옛 세계(국가마다 첫 장 도시 하나)에서 켜면 모자란 도시만 더하는지, 사이보그 만들기 목록에 그대로 보이는지 본다.
+import { loadContentPack } from "@terra/content/node";
+import { DAY_MS, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { DEFAULT_CONTENT_DIR } from "../config.ts";
+import { createContentEditState } from "../contentEdit/state.ts";
+import { nationPresetsOf } from "../npc/presets.ts";
+import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
+import { silentLog } from "../world/testSupport.ts";
+import { type World, startWorld, testMapKey } from "../world/world.ts";
+
+const loaded = loadContentPack(DEFAULT_CONTENT_DIR);
+if (!loaded.source || !loaded.pack) throw new Error("content pack");
+const pack = createContentEditState(loaded.source).effective();
+const presets = nationPresetsOf(loaded.pack);
+/** 옛 세계 흉내: 국가마다 시작 도시 하나 */
+const ONE_CITY = {
+  ...TEST_SOCIETY_COEFFICIENTS,
+  worldSeed: { ...TEST_SOCIETY_COEFFICIENTS.worldSeed, startCitiesMin: 1, startCitiesMax: 1 },
+};
+
+let test: TestDatabase;
+const worlds: World[] = [];
+let clock = 0;
+
+beforeEach(async () => {
+  if (!TEST_DATABASE_URL) return;
+  test = await createTestDatabase();
+  clock = 1_800_000_000_000 - (1_800_000_000_000 % DAY_MS) + 3_600_000;
+});
+afterEach(async () => {
+  if (!TEST_DATABASE_URL) return;
+  for (const world of worlds.splice(0)) await world.stop().catch(() => undefined);
+  await test.drop();
+});
+
+async function boot(options: {
+  testMaps: number;
+  npc?: boolean;
+  rules?: typeof TEST_SOCIETY_COEFFICIENTS;
+}): Promise<World> {
+  const rules = options.rules;
+  const world = startWorld({
+    testBots: 12,
+    testMaps: options.testMaps,
+    paths: { kind: "inline" },
+    now: () => clock,
+    log: silentLog,
+    pool: test.db.$client,
+    writeIntervalMs: 10,
+    onFatal: (error) => {
+      throw error;
+    },
+    npc: options.npc === false ? undefined : { testNations: 4, manual: true, presets },
+    cyborgRules: rules ? () => rules : undefined,
+    holdings: { content: () => pack },
+    facilities: { content: () => pack },
+  });
+  worlds.push(world);
+  await world.ready;
+  await world.persistence?.writer.durable();
+  return world;
+}
+
+async function stop(world: World): Promise<void> {
+  await world.stop();
+  worlds.splice(worlds.indexOf(world), 1);
+}
+
+type CityLine = {
+  id: string;
+  code: string;
+  map_key: string;
+  cell_x: number;
+  cell_y: number;
+};
+const startCities = () =>
+  rows<CityLine>(
+    test.db,
+    `select c.id, f.code, c.map_key, c.cell_x, c.cell_y from world_cities c join factions f on f.id = c.faction_id
+     where c.start order by c.id`,
+  );
+const seeded = () =>
+  rows<{ city_id: string; facility_id: string; level: number; owner_ok: boolean }>(
+    test.db,
+    `select wf.city_id, wf.facility_id, wf.level,
+            (b.owner_id = (select o.id from world_owners o join world_cities c on c.faction_id = o.faction_id
+                           where c.id = wf.city_id)) as owner_ok
+     from world_facilities wf join world_buildings b on b.id = wf.building_id order by wf.city_id, wf.facility_id`,
+  );
+const codes = ["s3_test_npc", ...presets.slice(0, 3).map((preset) => preset.code)];
+
+describe.skipIf(!TEST_DATABASE_URL)("세계 씨앗(고정 국가 시작 도시·기본 시설)", () => {
+  it("빈 세계: 국가 넷 × 2~3곳을 2차맵 셋에 나누고, 도시마다 기본 시설 다섯(주인 = 그 국가), 다시 켜도 그대로", async () => {
+    const world = await boot({ testMaps: 3 });
+    const cities = await startCities();
+    const perNation = codes.map((code) => cities.filter((city) => city.code === code));
+    expect(perNation.map((list) => list.length)).toEqual([2, 3, 2, 3]);
+    // 국가 하나의 도시는 서로 다른 2차맵에, 2차맵마다 도시가 있다(국가 1이 모든 2차맵에 있지는 않다)
+    for (const list of perNation) expect(new Set(list.map((city) => city.map_key)).size).toBe(list.length);
+    const mapKeys = [0, 1, 2].map((k) => String(testMapKey(k)));
+    for (const mapKey of mapKeys) expect(cities.some((city) => city.map_key === mapKey)).toBe(true);
+    expect(perNation[0]?.map((city) => city.map_key)).toEqual(mapKeys.slice(0, 2));
+
+    const facilities = await seeded();
+    expect(facilities).toHaveLength(cities.length * 5);
+    for (const city of cities)
+      expect(facilities.filter((row) => row.city_id === city.id).map((row) => row.facility_id)).toEqual([
+        "farm",
+        "government_hall",
+        "lumber_camp",
+        "mine",
+        "storehouse",
+      ]);
+    expect(facilities.every((row) => row.level === 1 && row.owner_ok)).toBe(true);
+
+    // 사이보그 만들기 목록: 국가 넷, 국가마다 2~3곳, 이름 = 팩 국가 프리셋(국가 1 = 16번째 프리셋)
+    const creation = world.persistence?.cyborgs.creation("fake-user", clock);
+    expect(creation?.factions.map((faction) => faction.cities.length)).toEqual([2, 3, 2, 3]);
+    expect(creation?.factions[0]?.name).toEqual(presets[15]?.name);
+    expect(creation?.factions[1]?.name).toEqual(presets[0]?.name);
+    expect(await world.checkInvariants()).toEqual([]);
+
+    await stop(world);
+    const again = await boot({ testMaps: 3 });
+    expect(await startCities()).toEqual(cities);
+    expect(await seeded()).toEqual(facilities);
+    expect(await again.checkInvariants()).toEqual([]);
+  }, 60_000);
+
+  it("옛 세계(국가마다 첫 장 도시 하나): 있는 도시는 그대로 두고 모자란 도시만 다른 2차맵에 더한다", async () => {
+    const old = await boot({ testMaps: 1, rules: ONE_CITY });
+    const before = await startCities();
+    expect(before.map((city) => city.code)).toEqual(codes);
+    await stop(old);
+
+    const world = await boot({ testMaps: 3 });
+    const after = await startCities();
+    expect(after.slice(0, before.length)).toEqual(before);
+    expect(codes.map((code) => after.filter((city) => city.code === code).length)).toEqual([2, 3, 2, 3]);
+    // 새 도시는 옛 도시와 32칸 넘게 떨어진다
+    for (const city of after.slice(before.length))
+      for (const other of before)
+        if (other.map_key === city.map_key)
+          expect(Math.hypot(other.cell_x - city.cell_x, other.cell_y - city.cell_y)).toBeGreaterThanOrEqual(
+            32,
+          );
+    expect(await seeded()).toHaveLength(after.length * 5);
+    expect(await world.checkInvariants()).toEqual([]);
+  }, 60_000);
+
+  it("NPC 사회를 끈 세계는 옛 방식(시험 NPC 세력이 2차맵마다 가운데 도시 하나, 기본 시설 없음)", async () => {
+    await boot({ testMaps: 2, npc: false });
+    const cities = await startCities();
+    expect(cities.map((city) => [city.code, city.cell_x, city.cell_y])).toEqual([
+      ["s3_test_npc", 128, 128],
+      ["s3_test_npc", 128, 128],
+    ]);
+    expect(await seeded()).toEqual([]);
+  });
+});

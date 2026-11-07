@@ -1,4 +1,4 @@
-// WebSocket 연결 하나의 노동 계약 명령 처리(src/session.ts가 넘긴다, 구인 게시 셋은 판 8) — docs/adr/2026-11-03-labor-contracts.md
+// WebSocket 연결 하나의 노동 계약 명령 처리(src/session.ts가 넘긴다, 구인 게시 셋은 판 8, 직무 배치 둘은 판 14) — docs/adr/2026-11-03-labor-contracts.md
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다(같은 유닛·계약을 차례로 바꾼다).
 // - 사용자별 속도 제한(순간 10번, 분당 30번). 밀린 요청이 MAX_PENDING을 넘으면 busy.
 // - 판정·저장은 서비스(service.ts)가 한다. 세계가 아직 없으면(부팅 중·DB 없음) busy.
@@ -15,6 +15,8 @@ export type LaborClientMessage = ClientMessageOf<
   | "labor_post_job"
   | "labor_withdraw_job"
   | "labor_accept_job"
+  | "labor_assign"
+  | "labor_unassign"
 >;
 
 const MAX_PENDING = 8;
@@ -78,6 +80,10 @@ function run(
       return service.withdrawJob(userId, message.jobId);
     case "labor_accept_job":
       return service.acceptJob(userId, message.jobId, message.unitId);
+    case "labor_assign":
+      return service.assign(userId, message.buildingId, message.unitId);
+    case "labor_unassign":
+      return service.unassign(userId, message.unitId);
     default: {
       const unhandled: never = message;
       return unhandled;

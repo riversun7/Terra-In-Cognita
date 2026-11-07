@@ -14,6 +14,7 @@ import {
   ITEM_PROTOCOL_VERSION,
   TREAT_PROTOCOL_VERSION,
   LABOR_PROTOCOL_VERSION,
+  LABOR_ASSIGN_PROTOCOL_VERSION,
   LABOR_JOBS_PROTOCOL_VERSION,
   ATTACK_PROTOCOL_VERSION,
   FACILITY_PROTOCOL_VERSION,
@@ -24,6 +25,7 @@ import {
   GENE_INCUBATE_LAB_PROTOCOL_VERSION,
   GUARDIAN_BUFF_PROTOCOL_VERSION,
   TEMPLE_PROTOCOL_VERSION,
+  MARKET_PROTOCOL_VERSION,
   RUINS_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
@@ -42,6 +44,7 @@ import type { FacilityGateway, FacilitySocket } from "./facilities/gateway.ts";
 import type { FusionGateway, FusionSocket } from "./fusion/gateway.ts";
 import type { TempleGateway, TempleSocket } from "./temple/gateway.ts";
 import type { RuinGateway, RuinSocket } from "./ruins/gateway.ts";
+import type { MarketGateway, MarketSocket } from "./market/gateway.ts";
 import type { WorldGateway, WorldSocket } from "./world/gateway.ts";
 
 export interface SessionContext {
@@ -68,6 +71,8 @@ export interface SessionContext {
   temple?: TempleGateway | undefined;
   /** 폐허 복원 모금(프로토콜 13, docs/adr/2026-11-07-ruins-restoration.md). 없으면 busy */
   ruins?: RuinGateway | undefined;
+  /** 물자 거래소 주문·취소·체결 알림(프로토콜 14, docs/adr/2026-11-07-play-flow.md WP4). 없으면 busy */
+  market?: MarketGateway | undefined;
   /** 이 연결의 로그인 사용자(쿠키). 로그인하지 않았거나 인증이 꺼져 있으면 null */
   viewer?: (() => Promise<Viewer | null>) | undefined;
   /**
@@ -104,6 +109,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let facilitySocket: FacilitySocket | undefined;
   let templeSocket: TempleSocket | undefined;
   let ruinSocket: RuinSocket | undefined;
+  let marketSocket: MarketSocket | undefined;
   let releasePresence: (() => void) | undefined;
 
   const sendText = (text: string): void => {
@@ -143,6 +149,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
     facilitySocket?.close();
     templeSocket?.close();
     ruinSocket?.close();
+    marketSocket?.close();
     releasePresence?.();
   });
 
@@ -308,14 +315,18 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
       case "labor_set_rent":
       case "labor_post_job":
       case "labor_withdraw_job":
-      case "labor_accept_job": {
-        // 구인 게시 셋은 판 8부터(그 앞 판 기기는 보내지 않는다)
+      case "labor_accept_job":
+      case "labor_assign":
+      case "labor_unassign": {
+        // 구인 게시 셋은 판 8부터, 직무 배치 둘은 판 14부터(그 앞 판 기기는 보내지 않는다)
         const needs =
-          message.t === "labor_post_job" ||
-          message.t === "labor_withdraw_job" ||
-          message.t === "labor_accept_job"
-            ? LABOR_JOBS_PROTOCOL_VERSION
-            : LABOR_PROTOCOL_VERSION;
+          message.t === "labor_assign" || message.t === "labor_unassign"
+            ? LABOR_ASSIGN_PROTOCOL_VERSION
+            : message.t === "labor_post_job" ||
+                message.t === "labor_withdraw_job" ||
+                message.t === "labor_accept_job"
+              ? LABOR_JOBS_PROTOCOL_VERSION
+              : LABOR_PROTOCOL_VERSION;
         if (protocolVersion < needs) {
           reject("invalid_message");
           return;
@@ -423,6 +434,22 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         }
         ruinSocket ??= context.ruins.open({ send: sendText, viewer: context.viewer ?? signedOut });
         ruinSocket.handle(message);
+        return;
+      }
+      case "market_place":
+      case "market_cancel":
+      case "market_watch": {
+        // 거래소 명령은 프로토콜 14의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        if (protocolVersion < MARKET_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.market) {
+          send({ t: "market_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        marketSocket ??= context.market.open({ send: sendText, viewer: context.viewer ?? signedOut });
+        marketSocket.handle(message);
         return;
       }
     }

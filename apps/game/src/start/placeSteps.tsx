@@ -1,5 +1,7 @@
 // 첫 접속 4~6단계 — 세력(추천 지역 D-218, 지원금 금액은 공식이 오면 D-445 174), 시작 도시(붐빔·기본 = 가장 덜 붐빔 D-6041,
-// 자원·기후는 곧 D-445 175), 강하(요약 + [강하], 짧은 연출 D-445 179).
+// 주변 자원·기후 D-445 175), 강하(요약 + [강하], 짧은 연출 D-445 179).
+// 시작 도시는 1차맵 작은 보기(StartCityMap, 지연 조각)에서 눌러 고르고, 목록은 접근성 대안으로 그대로 둔다. 둘레 땅·기후·1차맵 자리는
+// tRPC world.cities(docs/adr/2026-11-07-play-flow.md "WP2 지도 흐름"). 그 조회가 없으면(실패) 지도·땅 없이 목록만.
 import type {
   CreationCity,
   CreationFaction,
@@ -8,13 +10,19 @@ import type {
   CyborgRollView,
 } from "@terra/shared/cyborg";
 import { PRIMARY_STAT_PAIRS } from "@terra/shared/roster";
-import { type ReactNode, useId } from "react";
+import type { WorldCitiesResponse } from "@terra/shared/worldMap";
+import { type ReactNode, Suspense, lazy, useId } from "react";
 import { CyborgAvatar } from "../cyborg/CyborgAvatar.tsx";
 import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import { formatNumber, primaryCode, primaryLabel } from "../roster/rosterText.ts";
 import "../roster/statPairs.css";
+import { LandFacts } from "../map/LandFacts.tsx";
+import { landText } from "../map/landText.ts";
 import { crowdingText, temperamentText } from "./startText.ts";
+
+// 1차맵 작은 보기: 엔진·three.js는 이 조각에만(첫 접속 조각을 가볍게)
+const StartCityMap = lazy(() => import("./StartCityMap.tsx"));
 
 const localName = (name: { ko: string; en: string }): string => (getLocale() === "en" ? name.en : name.ko);
 
@@ -67,17 +75,35 @@ export function FactionStep({
 
 export function CityStep({
   faction,
+  world,
   selected,
   onSelect,
 }: {
   faction: CreationFaction;
+  /** 1차맵 자리·둘레 땅(world.cities). 없으면 목록만 */
+  world: WorldCitiesResponse | null;
   selected: number | null;
   onSelect: (id: number) => void;
 }) {
   const id = useId();
+  const placed = new Map((world?.cities ?? []).map((city) => [city.id, city]));
+  // 이 국가의 시작 도시 가운데 1차맵 자리를 아는 것(지도에 그린다)
+  const onMap = faction.cities.flatMap((city) => {
+    const found = placed.get(city.id);
+    return found ? [found] : [];
+  });
+  const chosen = selected === null ? undefined : placed.get(selected);
   return (
     <fieldset className="start-group">
       <legend className="visually-hidden">{m.start_step_city()}</legend>
+      {world && onMap.length > 0 ? (
+        <>
+          <Suspense fallback={<p className="start-hint">{m.start_city_map_loading()}</p>}>
+            <StartCityMap cities={onMap} factions={world.factions} selected={selected} onSelect={onSelect} />
+          </Suspense>
+          <p className="start-hint">{m.start_city_map_hint()}</p>
+        </>
+      ) : null}
       <div className="start-choices">
         {faction.cities.map((city) => (
           <label key={city.id} className="start-choice" data-city={city.id}>
@@ -97,14 +123,28 @@ export function CityStep({
               <span className="start-choice-meta">
                 {m.start_city_started({ count: formatNumber(city.cyborgs) })}
               </span>
-              <span className="start-choice-meta">{m.start_city_soon()}</span>
+              <CityLandLine land={placed.get(city.id)?.land ?? null} />
             </span>
           </label>
         ))}
       </div>
+      {/* 고른 도시의 둘레 땅(D-6041 "주변 자원·기후") */}
+      {chosen ? (
+        <section className="start-city-land" aria-label={m.start_city_land_title()} data-city={chosen.id}>
+          <h3 className="start-city-land-title">{m.start_city_land_title()}</h3>
+          <LandFacts land={chosen.land} />
+        </section>
+      ) : null}
       <p className="start-hint">{m.start_city_safe()}</p>
     </fieldset>
   );
+}
+
+/** 목록 한 줄의 둘레 땅 요약(바이옴·높이). 값이 없으면 줄이 없다 */
+function CityLandLine({ land }: { land: Parameters<typeof landText>[0] | null }) {
+  if (!land) return null;
+  const line = landText(land);
+  return <span className="start-choice-meta start-city-ground">{`${line.ground} · ${line.climate}`}</span>;
 }
 
 export function DescentStep({

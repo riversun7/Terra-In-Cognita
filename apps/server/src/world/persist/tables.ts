@@ -381,6 +381,21 @@ export const WORLD_TABLES = {
     columns: ["building_id", "owner_id", "asset", "rent_per_hour", "updated_at_ms"],
     key: ["building_id"],
   },
+  /** 유닛 직무(직무 배치·채집 진행, docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산") — 산출 거래와 같은 묶음 */
+  unitWork: {
+    name: "unit_work",
+    columns: [
+      "unit_id",
+      "owner_id",
+      "building_id",
+      "assigned_at_ms",
+      "gather_building_id",
+      "gather_points",
+      "gather_seq",
+      "updated_at_ms",
+    ],
+    key: ["unit_id"],
+  },
   /** 건물(시설) 상태(docs/adr/2026-11-07-buildings-runtime.md) — 짓기·수리 재료 거래와 같은 묶음 */
   facilities: {
     name: "world_facilities",
@@ -414,6 +429,49 @@ export const WORLD_TABLES = {
       "done_at_ms",
     ],
     key: ["id"],
+  },
+  /** 물자 거래소(docs/adr/2026-11-07-play-flow.md WP4): 도시 × 물건 거래소 ID(에스크로 계정 열쇠) */
+  marketBooks: {
+    name: "market_books",
+    columns: ["id", "city_id", "item", "created_at_ms"],
+    key: ["id"],
+  },
+  /** 거래소 주문(걸 때·체결·취소·만료마다 — 에스크로·체결 거래와 같은 묶음). NPC 세력 주문은 끝나면 지운다 */
+  marketOrders: {
+    name: "market_orders",
+    columns: [
+      "id",
+      "market_id",
+      "owner_id",
+      "side",
+      "price",
+      "qty",
+      "remaining",
+      "locked",
+      "seq",
+      "placed_at_ms",
+      "expires_at_ms",
+      "state",
+      "done_at_ms",
+    ],
+    key: ["id"],
+  },
+  /** 체결 한 건(추가만) */
+  marketTrades: {
+    name: "market_trades",
+    columns: [
+      "id",
+      "market_id",
+      "price",
+      "qty",
+      "taker_side",
+      "maker_order_id",
+      "taker_order_id",
+      "maker_owner_id",
+      "taker_owner_id",
+      "at_ms",
+    ],
+    key: [],
   },
   transactions: {
     name: "ledger_transactions",
@@ -488,8 +546,12 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "laborContracts",
   "laborPostings",
   "laborRents",
+  "unitWork",
   "facilities",
   "facilityJobs",
+  "marketBooks",
+  "marketOrders",
+  "marketTrades",
   "transactions",
   "entries",
   "battleResults",

@@ -53,6 +53,7 @@ export function inertPlanetEngine(
     setExaggeration: () => undefined,
     pickAt: () => null,
     lookAt: () => undefined,
+    requestFrame: () => undefined,
     stats: () => stats,
     dispose: () => undefined,
   };

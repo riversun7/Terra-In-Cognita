@@ -3,9 +3,11 @@
 // 사이보그 만들기 명령(start/cyborgCommands.ts)과 같은 틀이다:
 // - 연결이 아직 인사 전이면 인사가 끝날 때까지 기다렸다 보낸다. 기다림·답 모두 TIMEOUT_MS 안.
 // - 끊기면(down) 기다리던 명령은 "offline"으로 끝난다. 서버가 받았는지 모르므로 화면은 카드 목록을 다시 받아 확인한다.
-// 지연 조각(구인 카드 시험 화면) 안에서만 쓴다.
+// 지연 조각(경제 → 생산의 구인 칸, 구인 카드 시험 화면) 안에서만 쓴다. 두 조각이 같이 쓰므로 개발자 소스 폴더(src/editor/) 밖에 둔다
+// (docs/adr/2026-11-07-play-flow.md "WP3 플레이어 생산").
 import type { ClientMessageOf, RecruitResultCode } from "@terra/protocol";
-import { type ServerLink, serverLink } from "../../net/serverLink.ts";
+import { m } from "../paraglide/messages.js";
+import { type ServerLink, serverLink } from "../net/serverLink.ts";
 
 export type RecruitHireCommand = Omit<ClientMessageOf<"recruit_hire">, "id" | "t">;
 
@@ -14,6 +16,23 @@ export type RecruitHireOutcome =
   | { readonly ok: false; readonly code: RecruitResultCode | "offline" | "timeout" };
 
 const TIMEOUT_MS = 15_000;
+
+/** 고용 결과 문구(경제 구인 칸·개발자 구인 화면이 같이 쓴다) */
+export const RECRUIT_RESULT_TEXT: Readonly<Record<RecruitResultCode | "offline" | "timeout", () => string>> =
+  {
+    sign_in_required: m.dev_recruit_err_sign_in,
+    busy: m.dev_recruit_err_busy,
+    rate_limited: m.dev_recruit_err_rate_limited,
+    no_cyborg: m.dev_recruit_err_no_cyborg,
+    unknown_city: m.dev_recruit_err_unknown_city,
+    cards_changed: m.dev_recruit_err_cards_changed,
+    taken: m.dev_recruit_err_taken,
+    insufficient_funds: m.dev_recruit_err_funds,
+    no_room: m.dev_recruit_err_no_room,
+    internal_error: m.dev_recruit_err_internal,
+    offline: m.dev_recruit_err_offline,
+    timeout: m.dev_recruit_err_timeout,
+  };
 
 const noop = (): void => {};
 

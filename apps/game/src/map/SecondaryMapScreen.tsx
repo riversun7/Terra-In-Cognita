@@ -1,4 +1,6 @@
-// 2차맵 시험 화면(S1) — 서버의 시험 2차맵을 구독해 지형·건물·유닛을 그린다. 지연 로딩 조각 하나로만 들어온다(App.tsx의 React.lazy).
+// 2차맵 화면(S1) — 서버의 2차맵을 구독해 지형·건물·유닛을 그린다. 지연 로딩 조각 하나로만 들어온다(App.tsx의 React.lazy).
+// 열 맵(docs/adr/2026-11-07-play-flow.md "WP2 지도 흐름", 기획 60 §4.1 D-6017): 주소 ?key=, 없으면 내 사이보그가 있는 맵(MapTargetGate.tsx),
+// 카메라는 지형이 서면 내 사이보그 자리에 맞춘다.
 // [임시] 앱 화면 흐름(홈·아래 탭)이 따로 설계되는 중이다. 그때 이 화면을 "지도" 탭으로 옮긴다: onClose·monitor만 받는다.
 // 자료는 서버에서 온다(mapFeed.ts, ADR 2026-10-28-s1-second-map "전송"). 연결·시계 차이는 앱의 연결 하나를 함께 쓴다(serverLink).
 // 고빈도 상태(유닛 위치)는 엔진 안 타입 배열에 있고, 이 화면은 1초마다 요약(stats)만 읽는다(PLAN 5.7).
@@ -19,9 +21,9 @@ import {
   secondMapPlace,
   utcMsForLocalHour,
 } from "@terra/engine";
-import { S1_TEST_MAP_KEY } from "@terra/protocol";
 import { useEffect, useRef, useState } from "react";
 import { refreshSession, useSession } from "../auth/session.ts";
+import { offerBuildPick, pendingBuildPick } from "../economy/buildPick.ts";
 import { hasDevTools, isAdmin } from "../auth/sessionState.ts";
 import { serverLink } from "../net/serverLink.ts";
 import { navigate } from "../shell/routerStore.ts";
@@ -46,6 +48,8 @@ import { createNeighbourLoader } from "./secondMapNeighbourLoader.ts";
 import { viewMap, wantsAllNeighbours } from "./secondMapNeighbours.ts";
 import { formatLocalTime, readSecondMapSkyParams, secondMapSkyMode } from "./secondMapSky.ts";
 import { fetchTerrain } from "./terrainLoader.ts";
+import type { MapFocus } from "./mapTarget.ts";
+import { MapTargetGate } from "./MapTargetGate.tsx";
 import "./map.css";
 
 /** 성능 보고에 붙이는 화면 이름 */
@@ -54,11 +58,34 @@ const TELEMETRY_VIEW = "second-map";
 const UNIT_CAPACITY = 2_048;
 /** 명령 안내를 지우기까지(ms) */
 const COMMAND_NOTICE_MS = 6_000;
+/** 내 사이보그에 카메라를 맞출 때 지형이 섰는지 보는 간격(ms) */
+const FOCUS_POLL_MS = 100;
 
 interface SecondaryMapScreenProps {
   onClose: () => void;
   /** 앱의 프레임 측정기 — 화면 전체 프레임 시간(엔진 그리기 포함) */
   monitor: FrameMonitor;
+  /** 주소 ?key= 2차맵 키(없으면 내 사이보그가 있는 맵) */
+  mapKey?: string | undefined;
+}
+
+/** 열 맵을 정한 뒤(MapTargetGate) 그 맵을 그린다. 맵이 바뀌면 화면을 새로 만든다 */
+export default function SecondaryMapScreen({ mapKey, ...props }: SecondaryMapScreenProps) {
+  return (
+    <MapTargetGate keyParam={mapKey} onClose={props.onClose}>
+      {(target) => (
+        <SecondMapView key={target.mapKey} {...props} mapKey={target.mapKey} focus={target.focus} />
+      )}
+    </MapTargetGate>
+  );
+}
+
+interface SecondMapViewProps {
+  onClose: () => void;
+  monitor: FrameMonitor;
+  mapKey: number;
+  /** 카메라를 맞출 내 사이보그(이 맵에 없으면 null) */
+  focus: MapFocus | null;
 }
 
 /** 아래 판의 명령 안내 */
@@ -146,7 +173,7 @@ const roundOrDash = (value: number | null): string | number => (value === null ?
 /** 개발 시험 명령 한 번에 받는 시험 일꾼 수 */
 const DEV_SPAWN_COUNT = 5;
 
-export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScreenProps) {
+function SecondMapView({ onClose, monitor, mapKey, focus }: SecondMapViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const engineRef = useRef<SecondMapEngine | null>(null);
@@ -179,7 +206,7 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
     const serverNow = (): number => Date.now() + serverLink.clockOffsetMs();
     // 낮밤: 그 2차맵 자리(위도·경도)의 지역 시각. 하늘 시계는 시계를 재기 전엔 null(엔진은 낮으로 그린다)
     const skyParams = readSecondMapSkyParams(window.location.search);
-    const place = secondMapPlace(S1_TEST_MAP_KEY);
+    const place = secondMapPlace(mapKey);
     const skyClock = createSkyClock(serverLink);
     const reduced = reducedMotionList();
     const north = place ? northOnMap(place) : null;
@@ -187,7 +214,7 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
     let mapSizeM = 0;
     let viewMapNow = "0,0";
     const neighbourLoader = createNeighbourLoader({
-      mapKey: S1_TEST_MAP_KEY,
+      mapKey,
       all: wantsAllNeighbours(window.location.search),
       setNeighbours: (list) => engineRef.current?.setNeighbours(list) ?? Promise.resolve(),
       fetchTerrain: (url) => fetchTerrain(url),
@@ -200,7 +227,7 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
     const engine = createSecondMapEngine(host, {
       serverNow,
       unitCapacity: UNIT_CAPACITY,
-      mapKey: S1_TEST_MAP_KEY,
+      mapKey,
       sky: skyMode(),
       ...pixelRatioOption(window.location.search),
       onStatus: setStatus,
@@ -220,6 +247,11 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
       },
       // 고른 유닛이 있으면 누른 칸으로 보낸다(관리자만). 경로는 서버가 찾아 unit_paths로 보낸다
       onGroundTap: (cell) => {
+        // 경제 화면 [지도에서 고르기](WP3 연결점, economy/buildPick.ts): 짓기 자리를 고르는 중이면 그 칸을 돌려주고 생산 칸으로 돌아간다
+        if (offerBuildPick(mapKey, cell)) {
+          navigate({ route: "economy_production" });
+          return;
+        }
         const unitId = selectedRef.current;
         const current = feedRef.current;
         if (unitId === null || !current) return;
@@ -233,7 +265,7 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
     setTelemetryView(TELEMETRY_VIEW);
     const feed = startMapFeed({
       link: serverLink,
-      mapKey: S1_TEST_MAP_KEY,
+      mapKey,
       sink: engine,
       loadTerrain: async (url) => {
         const terrain = await fetchTerrain(url);
@@ -254,6 +286,16 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
       onCommand: (report) => setCommand({ kind: "result", report }),
     });
     feedRef.current = feed;
+
+    // 내 사이보그에 카메라를 맞춘다(D-6017): 지형이 서면 한 번. 유닛을 받았으면 그 지금 자리, 아니면 서버가 알려 준 칸
+    const focusTimer = focus
+      ? setInterval(() => {
+          if (engine.stats().terrainBuildMs === null) return;
+          const unit = engine.unitState(focus.unitId);
+          engine.setView({ x: unit?.x ?? focus.cellX + 0.5, y: unit?.y ?? focus.cellY + 0.5 });
+          clearInterval(focusTimer);
+        }, FOCUS_POLL_MS)
+      : undefined;
 
     // 1초마다 요약만 읽는다. 카메라·고른 유닛 위치는 화면 시험(Playwright)이 결과를 확인하는 데 쓴다(data-*)
     const timer = setInterval(() => {
@@ -278,6 +320,7 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
 
     return () => {
       clearInterval(timer);
+      clearInterval(focusTimer);
       neighbourLoader.stop();
       reduced?.removeEventListener("change", onReducedMotion);
       // 해제를 먼저 보내고(엔진을 버린 뒤에는 자료를 넣지 않는다) 엔진을 버린다
@@ -287,7 +330,8 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
       engineRef.current = null;
       setTelemetryView(null);
     };
-  }, []);
+    // 맵·카메라 대상은 화면 열쇠(맵 키)와 함께 정해진다(바뀌면 화면을 새로 만든다)
+  }, [mapKey, focus]);
 
   // 명령 안내는 잠시 보이고 지운다(보낸 뒤 결과를 기다리는 동안은 그대로)
   useEffect(() => {
@@ -336,11 +380,13 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
   // 탐사한 곳이 하나도 없으면(유닛 없는 계정) 안개로 온통 어둡다: 까닭과 할 일을 알린다(전체 보기면 안개가 없다)
   const dark = !notice && !observe && feed?.explored === 0;
   const hint =
-    selected === null
-      ? m.map_hint()
-      : admin
-        ? m.map_selected({ id: selected })
-        : m.map_selected_view({ id: selected });
+    pendingBuildPick() !== null
+      ? m.map_build_pick_hint()
+      : selected === null
+        ? m.map_hint()
+        : admin
+          ? m.map_selected({ id: selected })
+          : m.map_selected_view({ id: selected });
 
   return (
     <section
@@ -387,6 +433,8 @@ export default function SecondaryMapScreen({ onClose, monitor }: SecondaryMapScr
       data-neighbours={stats?.neighbours}
       data-props={stats?.props}
       data-view-map={snapshot?.viewMap}
+      data-map-key={mapKey}
+      data-focus={focus ? focus.unitId : undefined}
     >
       <div ref={hostRef} className="map-view" role="img" aria-label={m.map_view_label()} />
       <header className="map-hud map-hud-top">

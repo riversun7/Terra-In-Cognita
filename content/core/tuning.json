@@ -1956,6 +1956,32 @@
       "max": 10000
     },
     {
+      "id": "start_goods_pine_log",
+      "code": "",
+      "name": {
+        "ko": "시작 재료: 소나무 원목(개, 시작 도시 창고)",
+        "en": "Starting goods: pine logs (count, start city storage)"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 100000
+    },
+    {
+      "id": "start_goods_stone",
+      "code": "",
+      "name": {
+        "ko": "시작 재료: 석재(개, 시작 도시 창고)",
+        "en": "Starting goods: stone (count, start city storage)"
+      },
+      "value": 10,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 100000
+    },
+    {
       "id": "f11_repair_lv1",
       "code": "F11",
       "name": {
@@ -4372,6 +4398,84 @@
       "unit": "minor",
       "min": 0,
       "max": 1000000000000
+    },
+    {
+      "id": "d6041_start_cities_min",
+      "code": "",
+      "name": {
+        "ko": "고정 NPC 국가 시작 도시 수 아래 끝",
+        "en": "Fixed NPC nation start cities (low)"
+      },
+      "value": 2,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 4
+    },
+    {
+      "id": "d6041_start_cities_max",
+      "code": "",
+      "name": {
+        "ko": "고정 NPC 국가 시작 도시 수 위 끝",
+        "en": "Fixed NPC nation start cities (high)"
+      },
+      "value": 3,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 4
+    },
+    {
+      "id": "npc_seed_farms",
+      "code": "",
+      "name": {
+        "ko": "NPC 시작 도시 기본 농장 수",
+        "en": "NPC start city farms"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 4
+    },
+    {
+      "id": "npc_seed_lumber_camps",
+      "code": "",
+      "name": {
+        "ko": "NPC 시작 도시 기본 벌목장 수",
+        "en": "NPC start city lumber camps"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 4
+    },
+    {
+      "id": "npc_seed_mines",
+      "code": "",
+      "name": {
+        "ko": "NPC 시작 도시 기본 광산 수",
+        "en": "NPC start city mines"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 4
+    },
+    {
+      "id": "npc_seed_storehouses",
+      "code": "",
+      "name": {
+        "ko": "NPC 시작 도시 기본 창고 수",
+        "en": "NPC start city storehouses"
+      },
+      "value": 1,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 4
     }
   ]
 }

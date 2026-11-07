@@ -1,7 +1,7 @@
 // NPC 사회 런타임 DB 통합 시험(docs/adr/2026-11-01-npc-brain-r5.md 7절) — TEST_DATABASE_URL이 있을 때만. 값은 모두 시험용 가짜다.
 // 시험 국가를 만들고 봇을 휴먼으로 들이고, 하루 끝·마을 세우기·사망을 DB·2차맵에 맞추고, 다시 켜면 이어 돈다.
 import { cellKey, decodeCellKey, parseCellKey } from "@terra/planet";
-import { DAY_MS } from "@terra/sim";
+import { DAY_MS, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "../testDb.ts";
 import { silentLog } from "../world/testSupport.ts";
@@ -9,6 +9,11 @@ import { type World, startWorld } from "../world/world.ts";
 
 let test: TestDatabase;
 const worlds: World[] = [];
+/** 시작 도시는 국가마다 하나(세계 씨앗 칸 — 마을 세우기·점령 시험이 도시 하나에 휴먼을 모은다, docs/adr/2026-11-07-play-flow.md WP1) */
+const ONE_CITY = {
+  ...TEST_SOCIETY_COEFFICIENTS,
+  worldSeed: { ...TEST_SOCIETY_COEFFICIENTS.worldSeed, startCitiesMin: 1, startCitiesMax: 1 },
+};
 /** 시험 시계(UTC 0시 몇 분 전에서 시작) */
 let clock = 0;
 
@@ -35,6 +40,7 @@ async function boot(testBots: number): Promise<World> {
       throw error;
     },
     npc: { testNations: 3, manual: true },
+    cyborgRules: () => ONE_CITY,
   });
   worlds.push(world);
   await world.ready;

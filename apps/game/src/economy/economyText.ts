@@ -84,13 +84,17 @@ export const facilityName = (index: CatalogIndex, id: string): string =>
   pickName(index.facilities.get(id)?.name, id);
 export const recipeName = (index: CatalogIndex, id: string): string =>
   pickName(index.recipes.get(id)?.name, id);
-export const currencyName = (index: CatalogIndex, code: string): string =>
-  pickName(index.currencies.get(code)?.name, code);
-
 /** 시험 자원(S3 정산) 이름 */
 const TEST_ASSETS: Readonly<Record<string, () => string>> = {
   s3_test_credit: m.economy_asset_test_credit,
   s3_test_ore: m.economy_asset_test_ore,
+};
+
+/** 화폐 이름: 팩 화폐 → 시험 화폐(서버 거래소는 지금 시험 화폐 하나로 값을 매긴다, docs/adr/2026-11-07-play-flow.md WP4) → 코드 */
+export const currencyName = (index: CatalogIndex, code: string): string => {
+  const known = index.currencies.get(code);
+  if (known) return pickName(known.name, code);
+  return TEST_ASSETS[code]?.() ?? code;
 };
 
 /** 보유 한 줄의 이름: 물건 → 화폐 → 시험 자원 → 원장 자산 코드 */

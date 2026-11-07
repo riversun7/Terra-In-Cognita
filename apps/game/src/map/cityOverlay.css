@@ -1,0 +1,156 @@
+/*
+ * 1차맵 도시 덧그림(CityOverlay.tsx) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
+ * 국가 색 = --color-stat-* 여섯을 국가 차례대로(data-nation 0 ~ 5 → --nation, 개발 영토 화면과 같은 돌려 쓰기). 위치는 엔진 프레임이 transform으로 놓는다.
+ * 덧그림 판은 지도 위를 덮지만 누르기는 지나보낸다(표시 단추만 받는다).
+ */
+.city-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+[data-nation="0"] {
+  --nation: var(--color-stat-str);
+}
+[data-nation="1"] {
+  --nation: var(--color-stat-int);
+}
+[data-nation="2"] {
+  --nation: var(--color-stat-agi);
+}
+[data-nation="3"] {
+  --nation: var(--color-stat-wis);
+}
+[data-nation="4"] {
+  --nation: var(--color-stat-dex);
+}
+[data-nation="5"] {
+  --nation: var(--color-stat-vit);
+}
+
+/* 영토 경계: 껍질(선)·영향권(엷은 면 + 선) */
+.city-territory {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.city-hull,
+.city-area {
+  fill: color-mix(in srgb, var(--nation) 14%, transparent);
+  stroke: var(--nation);
+  stroke-width: var(--border-w);
+  stroke-linejoin: round;
+}
+.city-hull {
+  fill: none;
+  stroke-dasharray: var(--space-2) var(--space-1);
+}
+
+/* 도시 표시: 누르는 곳은 --tap-size, 안에 국가 색 점과 이름표 */
+.city-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  /* 앱 단추의 입술 그림자·눌림 움직임을 끈다(위치는 엔진 프레임이 transform으로 놓는다 — 옮겨 갈 때 움직임이 끼면 늦게 따라온다) */
+  box-shadow: none;
+  transition: none;
+  color: var(--color-text);
+  pointer-events: auto;
+  cursor: pointer;
+}
+/* 고른 도시는 이웃 표시 위에 */
+.city-marker[aria-pressed="true"] {
+  z-index: 1;
+}
+.city-marker[hidden] {
+  display: none;
+}
+.city-marker-dot {
+  width: calc(var(--status-dot) * 2);
+  height: calc(var(--status-dot) * 2);
+  border: var(--border-w) solid var(--color-surface);
+  border-radius: var(--radius-pill);
+  background-color: var(--nation);
+  box-shadow: var(--shadow-control);
+}
+/* 시작 도시: 네모 점(색에만 기대지 않는다) */
+.city-marker[data-start="true"] .city-marker-dot {
+  border-radius: var(--radius-sm);
+}
+.city-marker[aria-pressed="true"] .city-marker-dot {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}
+.city-marker:focus-visible {
+  outline: var(--focus-w) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--radius-control);
+}
+/* 이름표: 점 아래 가운데(단추 폭 44px에 묶이지 않게 글자 폭 그대로, 상한 넘으면 말줄임) */
+.city-marker-name {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: max-content;
+  transform: translateX(-50%);
+  /* 이름표는 누르지 않는다(이웃 표시를 가리지 않게 누르기를 지나보낸다) */
+  pointer-events: none;
+  max-width: calc(var(--tap-size) * 4);
+  padding: 0 var(--space-2);
+  overflow: hidden;
+  border: var(--hairline) solid var(--nation);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.city-marker[data-label="off"] .city-marker-name {
+  display: none;
+}
+/* 묶음: 겹친 도시 수 */
+.city-marker:not([data-cluster="1"])::after {
+  content: attr(data-cluster);
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: var(--badge-size);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-text);
+  color: var(--color-surface);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--badge-size);
+  text-align: center;
+}
+
+/* 내 사이보그: 테두리 고리(누르지 않는다) */
+.city-me {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(var(--status-dot) * 2.4);
+  height: calc(var(--status-dot) * 2.4);
+  border: var(--focus-w) solid var(--color-primary);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+}
+.city-me[hidden] {
+  display: none;
+}

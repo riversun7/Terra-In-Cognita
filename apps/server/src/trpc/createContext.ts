@@ -55,6 +55,7 @@ import type {
   TempleReadServices,
   RuinReadServices,
   Viewer,
+  WorldMapReads,
 } from "./context.ts";
 import { reasonedError } from "./init.ts";
 
@@ -78,6 +79,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   secondMapLab?: SecondMapLabServices | undefined;
   /** 영토 조회(세계가 준비되면 서비스, docs/adr/2026-11-03-territory-layer.md 5절). 없으면 늘 준비 전 */
   territory?: (() => TerritoryReadServices | undefined) | undefined;
+  /** 지도 흐름 조회(세계가 준비되면 서비스, src/worldMap/reads.ts). 없으면 늘 준비 전 */
+  worldMap?: (() => WorldMapReads | undefined) | undefined;
   /** 경제 화면 자료(팩 목록·월드 원장). 없으면 빈 목록·잔고 없음 */
   economy?: EconomyServices | undefined;
   /** 세력 화면 실제 자료(DB·월드가 있을 때) */
@@ -199,6 +202,7 @@ export function createContextFactory(options: ContextFactoryOptions) {
       ruins: options.ruins,
       secondMapLab: options.secondMapLab,
       territory: options.territory,
+      worldMap: options.worldMap,
       economy,
       faction,
       mail,

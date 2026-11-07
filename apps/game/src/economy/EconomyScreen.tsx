@@ -2,8 +2,10 @@
 // ADR 37 1절 "경제", 끝의 "구현하며 정한 것 (경제·거래창 화면)". 기획 60_UX §6(거래창 D-6032~D-6035)·§9(창고·생산 예약, 세부 미정).
 // - 지연 로딩 조각이다(default export, shell/routeViews.tsx). 칸마다 다시 따로 조각이다(아래 lazy).
 // - 칸끼리 옮기기는 바꾸기(replace), 거래창 안(물건 → 도시)은 쌓기(push)다.
-// - 자료는 서버 조회(queries.ts)다. 플레이어는 실제 자료(팩 목록·원장 잔고)만 보고, 서버가 아직 돌리지 않는 거래소·생산·환전은
-//   "곧 열림"이다. dev·admin이 시안 자료를 켜면(홈 [편집], inbox/preview.ts) 시험 거래소가 보이고 화면이 "시험 자료"를 알린다.
+// - 자료는 서버 조회(queries.ts)다. 플레이어는 실제 자료(팩 목록·원장 잔고, 서버 도시 경제가 돌면 거래소·내 주문·기준 도시 생산 —
+//   docs/adr/2026-11-07-play-flow.md WP4)를 보고, 서버가 아직 돌리지 않는 것(환전, 도시 경제가 없는 세계의 거래소·생산)은 "곧 열림"이다.
+//   주문·취소는 WebSocket(market/marketCommands.ts). dev·admin이 시안 자료를 켜면(홈 [편집], inbox/preview.ts) 시험 거래소가 보이고 화면이
+//   "시험 자료"를 알린다(시안 자료에서는 명령을 보내지 않는다).
 // - 거래창은 촘촘하다(data-density="compact", AGENTS 8장).
 // - 시세 색(D-442): 뿌리에 data-market-colors(한국식·서양식)를 건다. 설정 "시세 색"이 없으면 언어 기본(economy.css가 색을 고른다).
 import type { AccountView, RouteMatch, RouteTarget } from "@terra/shared";

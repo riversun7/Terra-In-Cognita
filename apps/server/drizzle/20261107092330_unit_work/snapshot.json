@@ -1,0 +1,291 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "fe0c6aba-b539-4da4-b3a2-3aa24a61a263",
+  "prevIds": [
+    "50b051d2-61ee-479a-bd01-6edc3f3f033d",
+    "b1011e2c-efc6-40b8-9f16-da60338cc551"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "unit_work"
+      ],
+      "writes": [
+        "s|tbl|public.unit_work",
+        "n|tbl|public.unit_work",
+        "e|tbl|public.unit_work",
+        "n|rel|public.unit_work",
+        "n|type|public.unit_work",
+        "n|rel|public.unit_work_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "unit_work",
+        "unit_work_owner_idx"
+      ],
+      "writes": [
+        "s|idx|public.unit_work_owner_idx",
+        "n|idx|public.unit_work_owner_idx",
+        "e|idx|public.unit_work_owner_idx",
+        "n|rel|public.unit_work_owner_idx"
+      ],
+      "reads": [
+        "n|tbl|public.unit_work",
+        "n|sch|public",
+        "n|col|public.unit_work.owner_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "unit_work",
+        "unit_work_building_idx"
+      ],
+      "writes": [
+        "s|idx|public.unit_work_building_idx",
+        "n|idx|public.unit_work_building_idx",
+        "e|idx|public.unit_work_building_idx",
+        "n|rel|public.unit_work_building_idx"
+      ],
+      "reads": [
+        "n|tbl|public.unit_work",
+        "n|sch|public",
+        "n|col|public.unit_work.building_id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "unit_work",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_work",
+        "name": "unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_work",
+        "name": "owner_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_work",
+        "name": "building_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_work",
+        "name": "assigned_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_work",
+        "name": "gather_building_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_work",
+        "name": "gather_points",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_work",
+        "name": "gather_seq",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_work",
+        "name": "updated_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_work",
+        "name": "unit_work_owner_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "owner_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_work",
+        "name": "unit_work_building_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "building_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_work",
+        "name": "unit_work_pkey",
+        "columns": [
+          "unit_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_work",
+        "name": "unit_work_assigned",
+        "value": "(\"building_id\" is null) = (\"assigned_at_ms\" is null)",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "unit_work",
+        "name": "unit_work_gather",
+        "value": "\"gather_points\" >= 0 and \"gather_seq\" >= 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

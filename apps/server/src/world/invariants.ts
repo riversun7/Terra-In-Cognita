@@ -102,6 +102,18 @@ export async function checkSqlInvariants(pool: QueryPool, nowMs: number): Promis
      select -a.id from ledger_accounts a where a.system_code like 'escrow:restore:%' and a.balance <> 0
      and not exists (select 1 from world_ruins r where a.system_code = 'escrow:restore:' || r.id || ':' || r.currency)`,
   );
+  // 물자 거래소(docs/adr/2026-11-07-play-flow.md WP4): 거래소마다 물건 에스크로 = 걸린 팔 주문 locked 합, 돈 에스크로(화폐마다 합) = 걸린
+  // 살 주문 locked 합. 시뮬 메모리 검사(goodsMarket checkEscrow)와 같은 조건
+  await count(
+    "M1 market escrow differs from open orders",
+    `select b.id from market_books b
+     where coalesce((select a.balance from ledger_accounts a where a.system_code = 'escrow:goods:' || b.id), 0)
+       <> coalesce((select sum(o.locked) from market_orders o
+                    where o.market_id = b.id and o.state = 'open' and o.side = 'sell'), 0)
+       or coalesce((select sum(a.balance) from ledger_accounts a where a.system_code like 'escrow:cash:' || b.id || ':%'), 0)
+       <> coalesce((select sum(o.locked) from market_orders o
+                    where o.market_id = b.id and o.state = 'open' and o.side = 'buy'), 0)`,
+  );
   // 사이보그(docs/adr/2026-11-01-first-login-cyborg.md 2절): 본체 유닛이 그 사용자의 것으로 있다(없으면 부팅이 다시 놓는다)
   await count(
     "I13 cyborgs without their body unit",

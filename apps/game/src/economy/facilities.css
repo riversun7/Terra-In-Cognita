@@ -141,3 +141,54 @@
   min-inline-size: 0;
   inline-size: 100%;
 }
+/* 채집 시설 일꾼 칸(WorkerParts.tsx, 직무 배치) — 창고 넣기·꺼내기와 같은 틀. 고르기는 넓게, 단추는 옆(좁으면 감싼다) */
+.facility-workers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  min-inline-size: 0;
+}
+.facility-workers legend {
+  padding: 0 var(--space-1);
+}
+.facility-workers p {
+  margin: 0;
+}
+.facility-worker-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.facility-worker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--tap-size);
+  min-inline-size: 0;
+}
+.facility-worker-name {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-sm);
+}
+.facility-worker-pick {
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.facility-worker-field {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+}
+.facility-worker-field .eco-select {
+  min-inline-size: 0;
+  inline-size: 100%;
+}

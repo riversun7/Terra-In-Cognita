@@ -60,8 +60,13 @@ async function clickFreeMarker(page: Page, selector: string): Promise<boolean> {
     }),
   );
   if (index < 0) return false;
-  await page.locator(selector).nth(index).click();
-  return true;
+  // 위 판(성능 줄)은 1초마다 다시 그려져 커질 수 있다: 그 사이 가려지면 짧게 기다리고 다음 차례에 다시 고른다
+  try {
+    await page.locator(selector).nth(index).click({ timeout: 2_000 });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

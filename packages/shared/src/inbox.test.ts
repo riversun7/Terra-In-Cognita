@@ -33,7 +33,7 @@ describe("분류", () => {
 describe("종류 표", () => {
   const kinds = Object.entries(INBOX_KINDS);
 
-  it("시안 자료용 8개, 모두 planned(제공 함수 없음)", () => {
+  it("시안 자료용 8개 + 정찰 끝(scout_returned), 제공 함수가 있는 종류만 planned가 아니다", () => {
     expect(Object.keys(INBOX_KINDS)).toEqual([
       "wave_incoming",
       "siege_declared",
@@ -41,11 +41,13 @@ describe("종류 표", () => {
       "unit_injured",
       "unit_idle",
       "building_stopped",
+      "scout_returned",
       "contract_match",
       "craft_done",
     ]);
-    // 제공 함수가 있는 종류(서버 등록부와 짝): wave_incoming(정원사 웨이브). 나머지는 시안 자료만
-    for (const [kind, definition] of kinds) expect(definition.planned, kind).toBe(kind !== "wave_incoming");
+    // 제공 함수가 있는 종류(서버 등록부와 짝): wave_incoming(정원사 웨이브)·scout_returned(정찰 끝, 기획 답 612 나). 나머지는 시안 자료만
+    const live = new Set(["wave_incoming", "scout_returned"]);
+    for (const [kind, definition] of kinds) expect(definition.planned, kind).toBe(!live.has(kind));
   });
 
   it("5분류를 모두 덮고, 표 순서가 분류 순서다(시안 자료가 순서대로 보인다)", () => {

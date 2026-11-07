@@ -17,3 +17,8 @@ export const UNIT_KIND_CYBORG = 3;
  * NPC 나라의 휴먼은 시험 봇(0)이다
  */
 export const UNIT_KIND_HUMAN = 4;
+/**
+ * 사이보그 유닛(D-470): 유저가 휴먼 + 기계 부품을 융합해 만든 유닛(src/fusion/service.ts). 바탕 휴먼의 유닛 ID를 그대로 쓰고
+ * 종류만 4 → 5로 바뀐다. 레벨·스탯·속성은 cyborg_units 행이다. 수명이 없고 유지비가 비싸다(설정 칸 n46_upkeep)
+ */
+export const UNIT_KIND_CYBORG_UNIT = 5;

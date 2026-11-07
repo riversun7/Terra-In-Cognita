@@ -58,6 +58,11 @@ export interface OwnerSettleInput {
   readonly upkeepPerUnit?: bigint | undefined;
   readonly upkeepPeriodMs?: number | undefined;
   /**
+   * 유지비 무게 합(‰, 보통 유닛 하나 = 1000). 유지비 = ⌊유닛당 유지비 × 무게 ÷ 1000⌋. 없으면 유닛 수 × 1000(예전과 같다).
+   * 사이보그 유닛은 비싸다(D-470, society/fusion.ts upkeepWeightPm)
+   */
+  readonly upkeepWeightPm?: number | undefined;
+  /**
    * 유닛마다 산출이 가는 곳을 구간으로 나눈다(노동 계약, docs/adr/2026-11-03-labor-contracts.md). 입력 jobs와 같은 차례.
    * 구간은 fromMs부터 차례로 덮고, 마지막 구간 뒤는 accounts.stock()이다. stock이 null이면 그 구간 산출은 없다(일시 중지).
    * 직무 상태는 나눠 정산해도 같다(settle.ts). 없으면 모두 accounts.stock() — 예전과 같은 거래 하나
@@ -141,7 +146,11 @@ export function settleOwnerPeriod(
   let upkeepPaid = 0;
   let upkeepUnpaid = 0;
   let lastUpkeepPaid: boolean | null = null;
-  const charge = BigInt(input.jobs.length) * (input.upkeepPerUnit ?? TEST_UPKEEP_PER_UNIT);
+  const perUnit = input.upkeepPerUnit ?? TEST_UPKEEP_PER_UNIT;
+  const charge =
+    input.upkeepWeightPm === undefined
+      ? BigInt(input.jobs.length) * perUnit
+      : (perUnit * BigInt(Math.max(0, input.upkeepWeightPm))) / 1000n;
   const boundaries = upkeepBoundaries(fromMs, toMs, input.upkeepPeriodMs ?? UPKEEP_PERIOD_MS);
   if (charge > 0n && boundaries.length > 0) {
     const wallet = accounts.wallet();

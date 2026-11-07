@@ -105,6 +105,15 @@ export function itemJsonOf(entry: ItemEntry): ItemJson {
           },
         }
       : {}),
+    ...(entry.gene
+      ? {
+          gene: {
+            kind: entry.gene.kind,
+            species: entry.gene.species.id,
+            ...(entry.gene.drops ? { drops: [...entry.gene.drops] } : {}),
+          },
+        }
+      : {}),
     enabled: entry.enabled,
   };
 }

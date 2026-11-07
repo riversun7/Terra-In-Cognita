@@ -132,7 +132,8 @@ interface UnitState {
   readonly id: number;
   /** NPC 사회 런타임이 도시 주인이 바뀔 때 바꾼다(setOwner) */
   ownerId: number;
-  readonly kind: number;
+  /** 사이보그 융합이 휴먼(4) → 사이보그 유닛(5)으로 바꾼다(setKind) */
+  kind: number;
   readonly domain: WorldDomain;
   readonly size: SizeClass;
   readonly speed: number;
@@ -240,6 +241,8 @@ export interface SecondMap {
   ): boolean;
   /** 유닛 주인을 바꾸고 저장한다(도시 주인이 바뀜). 없으면 false */
   setOwner(unitId: number, ownerId: number): boolean;
+  /** 유닛 종류 코드를 바꾸고 저장한다(사이보그 융합 D-470: 휴먼 → 사이보그 유닛, 봇 ↔ 봇 아닌 것은 바꾸지 않는다). 없으면 false */
+  setKind(unitId: number, kind: number): boolean;
   /** 유닛을 지운다(NPC 휴먼 사망). 하던 이동·예약은 버리고 보던 기기에 숨김을 보낸다. 없으면 false */
   removeUnit(unitId: number): boolean;
   /** 안전한 곳(기준 칸 = 가장 가까운 안전 도시, 없으면 가운데)으로 바로 옮긴다(질문 108 기본안·D-351). 하던 이동은 버린다 */
@@ -804,6 +807,14 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
       unit.ownerId = ownerId;
       save(unit);
       vision.unitChanged(unit);
+      return true;
+    },
+    setKind(unitId, kind) {
+      const unit = units.get(unitId);
+      if (!unit || unit.bot || kind === UNIT_KIND_BOT) return false;
+      if (unit.kind === kind) return true;
+      unit.kind = kind;
+      save(unit);
       return true;
     },
     removeUnit(unitId) {

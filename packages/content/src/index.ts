@@ -41,11 +41,14 @@ export {
 export { biomeEntrySchema, planetEntrySchema, type BiomeEntry, type PlanetEntry } from "./schema/planets.ts";
 export {
   FOOD_FAMILIES,
+  GENE_KINDS,
+  GENE_SOURCES,
   ITEM_SCHEMA_LIMITS,
   PERISH_CATEGORIES,
   STORAGE_KINDS,
   WEAPON_TYPE_SLOTS,
   itemSubcategoryEntrySchema,
+  geneSchema,
   itemTagEntrySchema,
   perishSchema,
   useSchema,

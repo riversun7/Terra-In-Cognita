@@ -543,6 +543,7 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
           // 국고 = 사는 도시 주인(노숙이면 소유 세력), 소유자 = 그 휴먼의 주인(NPC 세력)
           const treasuryOwner = world.cities.get(unit.city)?.owner ?? unit.owner;
           inherit(book, WALLET_BASE + unit.id, unit.owner, treasuryOwner, nowMs, c);
+          o.onDeath?.(unit, nowMs);
           counts.deaths += 1;
         }
         removeUnit(unit);

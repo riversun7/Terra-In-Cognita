@@ -1,0 +1,287 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "58429802-d1f4-46d4-9b24-2aeed39d24b0",
+  "prevIds": [
+    "afeda4f7-a278-4719-8d44-4e61892951fd",
+    "e45afa41-dcee-44f8-be8d-105c1ae1af6f",
+    "1d607d04-fa2a-47fa-b15d-a12363f74505"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "cyborg_units"
+      ],
+      "writes": [
+        "s|tbl|public.cyborg_units",
+        "n|tbl|public.cyborg_units",
+        "e|tbl|public.cyborg_units",
+        "n|rel|public.cyborg_units",
+        "n|type|public.cyborg_units",
+        "n|rel|public.cyborg_units_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "cyborg_units"
+      ],
+      "writes": [
+        "s|fk|public.cyborg_units.cyborg_units_unit_id_world_units_id_fkey",
+        "n|fk|public.cyborg_units.cyborg_units_unit_id_world_units_id_fkey",
+        "e|fk|public.cyborg_units.cyborg_units_unit_id_world_units_id_fkey",
+        "n|con|public.cyborg_units.cyborg_units_unit_id_world_units_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.cyborg_units",
+        "n|sch|public",
+        "n|tbl|public.world_units",
+        "n|sch|public",
+        "n|col|public.cyborg_units.unit_id",
+        "n|col|public.world_units.id",
+        "e|uniqueness|public.world_units.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "name": "cyborg_units",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "level",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "1",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "stats",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "elements",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "human_stats",
+        "type": "smallint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 1,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "donor",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "bonus_pm",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "fused_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "cyborg_units_unit_id_world_units_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "unit_id"
+        ],
+        "schemaTo": "public",
+        "tableTo": "world_units",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "cyborg_units_pkey",
+        "columns": [
+          "unit_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "cyborg_units_level",
+        "value": "\"level\" >= 1",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "cyborg_units_stats",
+        "value": "cardinality(\"stats\") = 6 and 0 <= all(\"stats\")",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "cyborg_units_human_stats",
+        "value": "cardinality(\"human_stats\") = 6",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "cyborg_units_elements",
+        "value": "\"elements\" is null or (cardinality(\"elements\") = 12 and 0 <= all(\"elements\") and 10 >= all(\"elements\"))",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "cyborg_units_donor",
+        "value": "\"donor\" in ('parts', 'android')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "cyborg_units",
+        "name": "cyborg_units_bonus",
+        "value": "\"bonus_pm\" >= 0",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

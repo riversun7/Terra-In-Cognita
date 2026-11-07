@@ -1,0 +1,56 @@
+// 사이보그 유닛 융합·유전자 조각 설정 칸 값 ↔ 계수표 — 기획 49 N46·N47, D-470·D-478·D-481·D-507,
+// docs/adr/2026-11-07-cyborg-fusion-genes.md. 팩 항목 ID ↔ 세력·사회 계수표 fusion 칸(경로).
+// 출발값 = 옛 CharacterRepository.craftCyborg(금화 5,000·티타늄 50·마이크로칩 20, 0.7·0.3, ×1.05~1.15),
+// LifeEngine._processDeath(사망 조각 1), character_routes.js reincarnate(max(1, ⌈레벨 ÷ 10⌉), 조각마다 +1)이고 값은
+// society/fusion.ts OLD_FUSION_COEFFICIENTS다. 부품 스탯·유지비 배율은 옛 값이 없어 [임시].
+import type { TuningKey } from "./tuning.ts";
+
+const k = (id: string, code: string, path: string, ko: string, en: string): TuningKey => ({
+  id,
+  code,
+  target: "society",
+  path: `fusion.${path}`,
+  structural: false,
+  ko,
+  en,
+});
+
+export const FUSION_TUNING_KEYS: readonly TuningKey[] = [
+  k(
+    "n46_currency",
+    "N46",
+    "currency",
+    "사이보그 융합 화폐(최소 단위)",
+    "Cyborg fusion currency (minor units)",
+  ),
+  k("n46_titanium", "N46", "titaniumQty", "사이보그 융합 티타늄 괴 수", "Cyborg fusion titanium bars"),
+  k("n46_microchip", "N46", "microchipQty", "사이보그 융합 마이크로칩 수", "Cyborg fusion microchips"),
+  k(
+    "n46_physical_donor",
+    "N46",
+    "physicalDonorPm",
+    "융합 STR·DEX·AGI의 안드로이드(부품) 몫(‰)",
+    "Fusion STR·DEX·AGI android (parts) share (‰)",
+  ),
+  k(
+    "n46_mental_human",
+    "N46",
+    "mentalHumanPm",
+    "융합 VIT·INT·WIS의 휴먼 몫(‰)",
+    "Fusion VIT·INT·WIS human share (‰)",
+  ),
+  k("n46_bonus_min", "N46", "bonusMinPm", "융합 보너스 배율 최소(‰)", "Fusion bonus multiplier min (‰)"),
+  k("n46_bonus_max", "N46", "bonusMaxPm", "융합 보너스 배율 최대(‰)", "Fusion bonus multiplier max (‰)"),
+  k("n46_parts_stat", "N46", "partsStat", "융합 부품 쪽 1차 스탯", "Fusion parts-side primary stat"),
+  k("n46_upkeep", "N46", "upkeepPm", "사이보그 유닛 유지비 배율(‰)", "Cyborg unit upkeep multiplier (‰)"),
+  k(
+    "n47_rebirth_divisor",
+    "N47",
+    "geneLevelDivisor",
+    "환생 유전자 조각: 레벨 나눗수",
+    "Rebirth gene shards: level divisor",
+  ),
+  k("n47_rebirth_min", "N47", "geneMin", "환생 유전자 조각 최소", "Rebirth gene shards minimum"),
+  k("n47_gene_points", "N47", "genePoints", "유전자 조각 1개의 스탯 +", "Stat points per gene shard"),
+  k("n47_death_drop", "N47", "geneDeathDrop", "사망 때 주는 유전자 조각 수", "Gene shards dropped on death"),
+];

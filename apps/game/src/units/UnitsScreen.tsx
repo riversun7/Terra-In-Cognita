@@ -1,5 +1,6 @@
 // 유닛 화면 — 기획 60 §9 "유닛" 두 줄(D-6016·D-179·D-246 / D-242·D-244·D-269·D-271). ADR 37 "구현하며 정한 것 (유닛·사이보그 화면)".
-// 칸(탭) 여섯: 목록(걸러 보기·다중 선택·상세) · 파티(진형) · 직무 프리셋 · 관리인 · 경매소 · 포로.
+// 칸(탭) 일곱: 목록(걸러 보기·다중 선택·상세) · 파티(진형) · 직무 프리셋 · 관리인 · 경매소 · 포로 ·
+// 융합(사이보그 유닛 융합·유전자 조각, D-470·D-478 — FusionPanel.tsx, 자료는 fusion.overview·명령은 WebSocket 프로토콜 9).
 // - 자료는 units.list 하나(실제 세계 유닛 + dev·admin 시안 자료). 바꾸는 명령(직무 배치·장착·편성·입찰·포로 처리)은 아직 없어
 //   "곧 열림" 버튼이다(명령은 WebSocket으로 만들 때 켠다, AGENTS 4장).
 // - 좁은 폭: 목록 ↔ 상세를 바꿔 보인다(상세 [목록으로]). 넓은 폭(64em 이상): 목록 옆에 상세 판(데스크톱 옆 판, D-6003).
@@ -15,11 +16,12 @@ import { PreviewSwitch } from "../roster/PreviewSwitch.tsx";
 import { loadUnits, useRosterQuery } from "../roster/useRosterQuery.ts";
 import { type VitalsNow, useVitals } from "../roster/useVitals.ts";
 import { formatNumber } from "../roster/rosterText.ts";
+import { FusionPanel } from "./FusionPanel.tsx";
 import { UnitList } from "./UnitList.tsx";
 import { AuctionPanel, ManagersPanel, PartiesPanel, PresetsPanel, PrisonersPanel } from "./UnitPanels.tsx";
 import "./units.css";
 
-const TABS = ["list", "parties", "presets", "managers", "auction", "prisoners"] as const;
+const TABS = ["list", "parties", "presets", "managers", "auction", "prisoners", "fusion"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS = {
@@ -29,6 +31,7 @@ const TAB_LABELS = {
   managers: m.units_tab_managers,
   auction: m.units_tab_auction,
   prisoners: m.units_tab_prisoners,
+  fusion: m.units_tab_fusion,
 } satisfies Record<Tab, () => string>;
 
 export default function UnitsScreen() {
@@ -57,6 +60,8 @@ export default function UnitsScreen() {
             managers: data.bases.length,
             auction: data.auction.length,
             prisoners: data.prisoners.length,
+            // 융합 칸은 자기 자료(fusion.overview)를 따로 받는다
+            fusion: 0,
           }
         : null,
     [data],
@@ -158,6 +163,8 @@ function TabBody({
       return <AuctionPanel data={data} />;
     case "prisoners":
       return <PrisonersPanel data={data} />;
+    case "fusion":
+      return <FusionPanel onChanged={onHoldingsChanged} />;
     default: {
       const unknown: never = tab;
       return unknown;

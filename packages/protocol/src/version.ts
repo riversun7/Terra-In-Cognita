@@ -20,8 +20,9 @@
  * 8: 구인 게시(labor.ts, docs/adr/2026-11-03-labor-contracts.md "바뀜 (기획 338~342·구인 게시판)") — labor_post_job·
  *    labor_withdraw_job·labor_accept_job → labor_result(jobId, 결과 코드 job_not_open·employer_insufficient_funds).
  *    더하기만 했다. 7판 기기는 그대로 받는다(이 메시지를 보내지 않고, 새 코드는 이 메시지에만 간다).
- * 9: 개발 시험 병원 치료(items.ts, D-514 — 병원 시설이 생기기 전 규칙 고리) — dev_treat_unit → item_result. 더하기만 했다.
- *    8판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
+ * 9: 개발 시험 병원 치료(items.ts, D-514 — 병원 시설이 생기기 전 규칙 고리) — dev_treat_unit → item_result. 사이보그 유닛 융합·유전자
+ *    환생(fusion.ts, docs/adr/2026-11-07-cyborg-fusion-genes.md) — cyborg_fuse·unit_rebirth·dev_grant_goods → fusion_result. 둘 다
+ *    더하기만 했고 한 번에 합쳐 판 하나로 올렸다. 8판 기기는 그대로 받는다(이 메시지를 보내지 않는다).
  */
 export const PROTOCOL_VERSION = 9;
 

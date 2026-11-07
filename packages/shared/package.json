@@ -24,6 +24,7 @@
     "./mail": "./src/mail.ts",
     "./planetCalendar": "./src/planetCalendar.ts",
     "./recruit": "./src/recruit.ts",
+    "./fusion": "./src/fusion.ts",
     "./roster": "./src/roster.ts",
     "./skillEditor": "./src/skillEditor.ts",
     "./territory": "./src/territory.ts",

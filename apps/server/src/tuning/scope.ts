@@ -166,6 +166,21 @@ export const SERVER_LIVE_PATHS: readonly string[] = [
   "switches.exchangeEnabled",
   "switches.productionEnabled",
   "switches.npcAiEnabled",
+  // 사이보그 유닛 융합·유전자 환생·사망 조각(fusion/service.ts, 49 N46·N47): 명령·조회마다 읽는다. 유지비 배율은 정산마다
+  // (world.ts createSettlement upkeepWeightPm)
+  "fusion.currency",
+  "fusion.titaniumQty",
+  "fusion.microchipQty",
+  "fusion.physicalDonorPm",
+  "fusion.mentalHumanPm",
+  "fusion.bonusMinPm",
+  "fusion.bonusMaxPm",
+  "fusion.partsStat",
+  "fusion.upkeepPm",
+  "fusion.geneLevelDivisor",
+  "fusion.geneMin",
+  "fusion.genePoints",
+  "fusion.geneDeathDrop",
 ];
 
 const LIVE = new Set(SERVER_LIVE_PATHS);

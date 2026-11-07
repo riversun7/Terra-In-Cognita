@@ -55,6 +55,13 @@ export {
   type ItemResultCode,
 } from "./items.ts";
 export {
+  DEV_GRANT_CURRENCY,
+  DEV_GRANT_GOODS_MAX,
+  FUSION_PROTOCOL_VERSION,
+  FUSION_RESULT_CODES,
+  type FusionResultCode,
+} from "./fusion.ts";
+export {
   LABOR_JOBS_PROTOCOL_VERSION,
   LABOR_PROTOCOL_VERSION,
   LABOR_RESULT_CODES,

@@ -2,7 +2,7 @@
 
 - 일시: 2026-11-08 21:15 (KST)
 - 작업 도구: Claude Code
-- 관련: 기획 D-528(기획 커밋 1f57a02), ADR `docs/adr/2026-11-07-world-layout.md` "바뀜 (D-528)"(상태 → 확정 2026-11-08, 사용자 결정 — D-528 반영), 질문 `docs/questions/2026-11-08-world-placement.md` 860~868(새, 확인 대기), ADR `2026-11-02-dev-ui.md`·`2026-11-07-play-flow.md` "WP-NPC"·`2026-11-08-world-reset.md`, 가지 `work/world-placement`(시작점 main `8306207`, 통합 가지 `merge/integration` 합침 — 설정 칸 분야 페이지 core@56·식품 포장 프로토콜 19)
+- 관련: 기획 D-528(기획 커밋 1f57a02), ADR `docs/adr/2026-11-07-world-layout.md` "바뀜 (D-528)"(상태 → 확정 2026-11-08, 사용자 결정 — D-528 반영), 질문 `docs/questions/2026-11-08-world-placement.md` 860~868(새, 확인 대기), ADR `2026-11-02-dev-ui.md`·`2026-11-07-play-flow.md` "WP-NPC"·`2026-11-08-world-reset.md`, 가지 `work/world-placement`(시작점 main `8306207`, 통합 가지 `merge/integration` 합침 — 설정 칸 분야 페이지 core@56·식품 포장 프로토콜 19, 다시 2734570 부상·귀화, origin/main c18ad1b)
 
 ## 한 일
 - **세계 배치 화면 `/dev/world-layout`**(dev·admin, 개발 화면 층): 행성 편집기 평면 미니맵(`FlatMap`)을 1차맵 타일(맵 레벨 F−3, 24장, 같은 바이옴 색 — 엔진 없이 같은 주소·해석기)로 칠하고 국가 도시·수도·놓은 자리·자동 제안 표시를 겹친다(`pointer-events: none`). 국가 고르기 → 지도 누르기 → [여기에 놓기]·[놓은 자리 지우기]·[자동 제안 보기]→[제안 모두 놓기]. 표 = 도시 수·수도(발전도)·자리 상태(자동·다음 시작 때 듦·적용됨·막힘 + 막는 것)·놓은 사람.
@@ -12,7 +12,7 @@
 - **지도자도 옮긴다**: 옛 자리 옮기기의 함께 옮기는 유닛에 그 2차맵의 그 나라 지도자를 더했다(`inspectLegacyCity`) — 빼면 옛 2차맵에 지도자가 남고 새 수도에 하나 더 섰다(DB 시험으로 확인한 문제).
 - **NPC 수도**(`npc/capitals.ts`): 발전도 최고(같으면 시작 도시 → 작은 ID) [임시]. 런타임이 켤 때·하루 끝마다 다시 보고 다른 도시가 설정 칸 `npc_capital_switch_dev`(10점) 이상 앞서면 옮긴다(수도를 잃으면 바로). 저장 = 쓰기 대기열 `factionCapital`. 지도자(`npc/leaders.ts` `moveLeaderToCapital` — 켤 때 수도 아닌 2차맵의 지도자도 옮김)·정부 판 "수도"·지도자 창구(`government/reads.ts` 런타임 `capitalOf`)가 따른다.
 - **D-341**: 그대로(처음 세운 시작 도시만 보호). "시작 = 시작 세력" 보호 범위는 질문 864.
-- **설정 칸**: `npc_capital_switch_dev`(세력·사회 계수표 `worldSeed.capitalSwitchDev`, 출발값 10, 설명·출처 칸, 분야 페이지 = NPC). 팩 판은 core@56 그대로(같은 묶음).
+- **설정 칸**: `npc_capital_switch_dev`(세력·사회 계수표 `worldSeed.capitalSwitchDev`, 출발값 10, 설명·출처 칸, 분야 페이지 = NPC). 팩 core@57(main이 이미 core@56 — 통합에서 다른 줄기와 한 판으로 접는다). 프로토콜 19(최소 18)·`SIM_VERSION` 21 그대로.
 
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
@@ -47,7 +47,10 @@
 - 세력 상태 쓰기(`factionState`)에 `capital_city_id`를 넣지 않는다(직전 판 앱이 지운다).
 
 ## 검사
-- (작업 끝에 채움)
+- `TEST_DATABASE_URL=… pnpm check`(merge/integration 2734570·origin/main c18ad1b 합친 뒤): 통과 — 단위·DB 시험 547 파일 4,130개 통과(Verified).
+- `pnpm check:docs origin/main`·`pnpm check:content origin/main`(core@57): 통과(Verified).
+- 새 시험: `npc/capitals.test.ts` 3, `npc/leaders.test.ts` +2, `world/worldLayout.test.ts` +1, `world/nationPlacement.db.test.ts` 2(DB), `trpc/worldLayout.test.ts` 2, `editor/worldLayout/worldLayoutModel.test.ts` 5 — 모두 통과.
+- `pnpm e2e e2e/world-layout.spec.ts`: 6/6 통과(관리자 흐름·플레이어 403·사진 4장 × 2: 네온·라이트 × 390·1440, 가로 넘침 없음, 기기 오류 없음). 사진을 눈으로 봄: 지도·표시·판·표가 두 테마에서 읽힌다. 국가 넷이 행성 한 지역에 모여(자동 배치 반경 48칸) 행성 전체 지도에서는 표시가 겹쳐 보인다 — 자리를 놓으면 흩어진다(사진은 `E2E_SHOTS_DIR` 임시 폴더, 커밋하지 않음).
 
 ## 미검증·TODO·알려진 문제
 - 실행 중에는 자리가 들지 않는다(서버를 다시 켜야 함, 질문 861). 화면이 "다음 시작 때 듦"으로 알린다.

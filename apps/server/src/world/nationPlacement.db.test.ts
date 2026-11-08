@@ -28,7 +28,7 @@ const presets = nationPresetsOf(loaded.pack);
 const metric = territoryMetric(9);
 const PLANET = "s2_test_planet";
 /** 놓아 볼 자리(면 1~4 가운데 — 시험 2차맵 줄(면 0)과 멀다) */
-const SPOTS = [1, 2, 3, 4].map((face) => cellKey(face, 9, 256, 256));
+const SPOTS = ([1, 2, 3, 4] as const).map((face) => cellKey(face, 9, 256, 256));
 
 function cellValues(mapKey: number): PlanetCellValues {
   const { face, i, j } = decodeCellKey(parseCellKey(mapKey));

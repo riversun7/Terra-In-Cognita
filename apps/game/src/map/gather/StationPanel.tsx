@@ -288,7 +288,7 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
             ))}
           </ul>
         )}
-        <p className="gather-muted">{m.station_workers_note()}</p>
+        {ok.kind === "objects" ? <p className="gather-muted">{m.station_workers_note()}</p> : null}
         <div className="gather-actions">
           {ok.mine && ok.level >= 1 ? (
             <button

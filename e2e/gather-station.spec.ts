@@ -22,55 +22,72 @@ async function openMap(page: Page): Promise<void> {
   await expect(page.locator(BUILDING_MARKER).first()).toBeVisible({ timeout: 30_000 });
 }
 
-/** 보이는 건물 표시 가운데 채집소(objects 먼저, 없으면 facility) 건물 ID */
-async function findStation(page: Page): Promise<number | null> {
+/** 보이는 건물 표시 가운데 채집소 건물 ID(objectsOnly면 원자재 채집소만, 아니면 원자재 채집소 먼저, 그다음 농장 등). 없으면 빈 목록 */
+async function findStations(page: Page, objectsOnly: boolean): Promise<number[]> {
   const ids = await page
     .locator(BUILDING_MARKER)
     .evaluateAll((elements) => elements.map((element) => Number(element.getAttribute("data-building"))));
-  return page.evaluate(async (list) => {
-    let fallback: number | null = null;
-    for (const id of list) {
-      if (!Number.isInteger(id)) continue;
-      const input = encodeURIComponent(JSON.stringify({ buildingId: id }));
-      const reply: unknown = await fetch(`/api/trpc/gather.station?input=${input}`).then((r) => r.json());
-      const data: unknown =
-        typeof reply === "object" && reply !== null
-          ? Reflect.get(Reflect.get(reply, "result") ?? {}, "data")
-          : undefined;
-      if (typeof data !== "object" || data === null || Reflect.get(data, "status") !== "ok") continue;
-      if (Reflect.get(data, "kind") === "objects") return id;
-      fallback ??= id;
-    }
-    return fallback;
-  }, ids);
+  return page
+    .evaluate(async (list) => {
+      const objects: number[] = [];
+      const others: number[] = [];
+      for (const id of list) {
+        if (!Number.isInteger(id)) continue;
+        const input = encodeURIComponent(JSON.stringify({ buildingId: id }));
+        const reply: unknown = await fetch(`/api/trpc/gather.station?input=${input}`).then((r) => r.json());
+        const data: unknown =
+          typeof reply === "object" && reply !== null
+            ? Reflect.get(Reflect.get(reply, "result") ?? {}, "data")
+            : undefined;
+        if (typeof data !== "object" || data === null || Reflect.get(data, "status") !== "ok") continue;
+        if (Reflect.get(data, "kind") === "objects") objects.push(id);
+        else others.push(id);
+      }
+      return { objects, others };
+    }, ids)
+    .then((found) => (objectsOnly ? found.objects : [...found.objects, ...found.others]));
 }
 
-/** 그 건물 표시를 누른다(판에 가리지 않을 때까지 짧게 다시) */
-async function clickBuilding(page: Page, id: number): Promise<boolean> {
+/** 그 건물 표시가 위·아래 판(HUD)에 가리지 않았으면 누르고 true */
+async function clickFreeBuilding(page: Page, id: number): Promise<boolean> {
   const marker = page.locator(`.gather-building-marker[data-building="${id}"]:not([hidden])`);
+  if ((await marker.count()) === 0) return false;
+  const free = await marker.first().evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    return hit !== null && (hit === element || element.contains(hit));
+  });
+  if (!free) return false;
   try {
-    await marker.click({ timeout: 3_000 });
+    await marker.first().click({ timeout: 2_000 });
     return true;
   } catch {
     return false;
   }
 }
 
+/**
+ * 채집소 건물 판을 연다. 채집소 표시가 판(성능 줄 등)에 가려 있으면 휠로 조금씩 멀리 본다(헤드리스 휠 이벤트는 합쳐지므로 단계마다 띄운다,
+ * gather.spec.ts와 같은 방법)
+ */
 async function openStationSheet(page: Page): Promise<Locator> {
   await openMap(page);
-  let id: number | null = null;
-  await expect
-    .poll(
-      async () => {
-        id = await findStation(page);
-        return id;
-      },
-      { timeout: 30_000 },
-    )
-    .not.toBeNull();
-  const found = id ?? 0;
-  await expect.poll(() => clickBuilding(page, found), { timeout: 15_000 }).toBe(true);
-  const station = page.locator(`.gather-sheet[data-building="${found}"] [data-part="gather-station"]`);
+  const size = page.viewportSize() ?? { width: 390, height: 844 };
+  let opened: number | null = null;
+  // 처음 여섯 단계는 원자재 채집소(벌목장·광산)만, 그 뒤에는 농장도
+  for (let step = 0; step < 10 && opened === null; step++) {
+    for (const id of await findStations(page, step < 6))
+      if (await clickFreeBuilding(page, id)) {
+        opened = id;
+        break;
+      }
+    if (opened !== null) break;
+    await page.mouse.move(size.width / 2, size.height / 2);
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(400);
+  }
+  expect(opened).not.toBeNull();
+  const station = page.locator(`.gather-sheet[data-building="${opened ?? 0}"] [data-part="gather-station"]`);
   await expect(station).toBeVisible({ timeout: 20_000 });
   return station;
 }

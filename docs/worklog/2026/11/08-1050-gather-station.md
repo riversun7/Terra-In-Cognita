@@ -43,10 +43,13 @@
 - 정산이 길게 밀리면(오프라인, 최대 1시간마다) 그 사이 다시 자란 번수는 세지 못한다(정산하는 때의 남은 번수만).
 - 일꾼 상태·끝낸 묶음 수·피로 나머지는 메모리(다시 켜면 0부터, 질문 757).
 - 반경 안에 오브젝트가 없는 곳의 기존 벌목장·광산은 일꾼이 있어도 내지 않는다(NAS의 기존 시설 — 판이 "원자재 없음"을 알린다, 질문 750).
-- 검사 결과: (아래 "검사"에 적는다)
+- 지도 반경 고리는 반경(40칸 ≈ 235m)이 확대한 화면보다 커서 사진에는 거의 보이지 않는다(시험은 고리가 그려졌는지·닫으면 지우는지만 본다). 멀리 보면 점선 원으로 보인다(눈으로 확인 안 함 — Unknown).
+- 화면 시험 사진의 사각형 빈 땅(지도 색 배경)은 탐사하지 않은 시야 칸이다(DOM 요소 없음, 캔버스가 비움 — 채집소 판과 무관, 시험 안 조사로 확인).
 
 ## 검사
-- (끝에 적는다)
+- `TEST_DATABASE_URL=… pnpm check`: 통과(시험 파일 508·시험 3,940, DB 시험 포함). `pnpm check:docs origin/main`·`pnpm check:content origin/main`(core@52): 통과.
+- 화면 시험(`pnpm e2e`): `gather.spec`·`produce.spec`·`facilities.spec`·`labor.spec` 16개 통과(첫 실행). `gather-station.spec` 5개 통과(마지막 실행 — 첫 실행에서 다크·영어 채집소 표시가 성능 줄에 가려 누르지 못해 실패 → 가리지 않은 표시만 누르고 휠로 멀리 보게 고침).
+- 사진(390, E2E_SHOTS_DIR = 세션 임시 폴더, 저장소 밖): 채집소 판 `gather-station-390-{pastel-ko,dark-en}.png`·`gather-station-sheet-390-…`, 건물 화면 채집소 칸 `gather-station-card-390-{pastel-ko,dark-en}.png`. 파스텔·다크 모두 넘침·작은 누르는 곳 없음.
 
 ## 사용자 결정 대기
 - 질문 750~757(`docs/questions/2026-11-08-gather-station.md`).

@@ -94,6 +94,11 @@ export {
   type MarketResultCode,
 } from "./market.ts";
 export {
+  CITIZENSHIP_PROTOCOL_VERSION,
+  NATIONALITY_RESULT_CODES,
+  type NationalityResultCode,
+} from "./citizenship.ts";
+export {
   HOSPITAL_PROTOCOL_VERSION,
   HOSPITAL_RESULT_CODES,
   type HospitalResultCode,

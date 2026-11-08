@@ -54,6 +54,7 @@ import type { WorldCitiesResponse, WorldPositionResponse } from "@terra/shared/w
 import type { MapUnitReads } from "../worldMap/mapUnits.ts";
 import type { TravelReads } from "../worldMap/travelReads.ts";
 import type { GovernmentReads } from "../government/reads.ts";
+import type { NaturalizationReads } from "../citizenship/attach.ts";
 import type { NationNameReads } from "../worldMap/reads.ts";
 import type { GatherReads } from "../gather/reads.ts";
 import type { PlanetLibraryBase } from "@terra/shared";
@@ -394,6 +395,8 @@ export interface WorldMapReads {
   government?: GovernmentReads["government"];
   /** 지도자 창구(742 나 "WP-NPC3", 같은 모듈 — 누른 지도자의 나라 수도 정부 판). 없으면 not_ready */
   governmentOfLeader?: GovernmentReads["governmentOfLeader"];
+  /** 국적 바꾸기 조건(docs/adr/2026-11-08-citizenship.md, src/citizenship/service.ts). 없으면 not_ready */
+  naturalization?: NaturalizationReads["naturalization"];
   /** 세력 코드 → 나라·지도자 이름(세력 화면, 같은 절) */
   nationNames?: NationNameReads["nationNames"];
 }

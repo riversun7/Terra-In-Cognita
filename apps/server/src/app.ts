@@ -39,6 +39,8 @@ import { createFusionGateway } from "./fusion/gateway.ts";
 import { createTempleGateway } from "./temple/gateway.ts";
 import { hospitalServiceOf } from "./hospital/attach.ts";
 import { createHospitalGateway } from "./hospital/gateway.ts";
+import { citizenshipServiceOf } from "./citizenship/attach.ts";
+import { createCitizenshipGateway } from "./citizenship/gateway.ts";
 import { configureInjuryRules } from "./world/unitCondition.ts";
 import { createRuinGateway } from "./ruins/gateway.ts";
 import { marketSourceOf } from "./market/appSource.ts";
@@ -811,6 +813,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const hospitalGateway = world
     ? createHospitalGateway({ service: hospitalService, now, log: app.log })
     : undefined;
+  // 국적 바꾸기(docs/adr/2026-11-08-citizenship.md): 세계가 준비되고 NPC 사회 런타임이 돌 때만(서비스가 busy로 답한다)
+  const citizenshipGateway = world
+    ? createCitizenshipGateway({ service: citizenshipServiceOf(world, { now }), now, log: app.log })
+    : undefined;
   const marketGateway = world
     ? createMarketGateway({ service: () => marketSource()?.service, now, log: app.log })
     : undefined;
@@ -861,6 +867,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         travel: travelGateway,
         gather: gatherGateway,
         hospital: hospitalGateway,
+        citizenship: citizenshipGateway,
         viewer: socketViewer(request),
         // 접속 상태(D-136): 월드가 DB에 저장할 때만. 연결은 부팅 복구가 끝난 뒤에만 들어온다(listen이 기다린다)
         presence: world

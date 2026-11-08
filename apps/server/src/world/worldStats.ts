@@ -117,6 +117,11 @@ export function summarizeWorldStats(
     s1SlowMarked: stats.stream.slowMarked,
     s1Resyncs: stats.stream.resyncs,
     s1Commands: stats.commands,
+    // 시야 틱(같은 나라 시야 공유 포함, docs/adr/2026-11-08-citizenship.md): 무리 덮개 수·나라 덮개 수·틱 시간 합·최대
+    visionGroupTicks: stats.stream.visionGroupTicks,
+    visionNationCovers: stats.stream.visionNationCovers,
+    visionTickMs: round1(stats.stream.visionTickMs),
+    visionTickMaxMs: round1(stats.stream.visionTickMaxMs),
   };
 }
 

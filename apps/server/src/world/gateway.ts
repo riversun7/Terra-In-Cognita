@@ -22,6 +22,7 @@ import type { StreamSubscriber } from "./mapStream.ts";
 import type { CommandResult, SecondMap } from "./secondMap.ts";
 import { unavailable } from "./unitCondition.ts";
 import { type UnitControlDenial, canCommandAnyUnit, unitControlDenial } from "./unitControl.ts";
+import { type NationSource, nationLookupOf } from "./nationVision.ts";
 import { canObserve, canViewSecondMap } from "./visibility.ts";
 import type { WorldStats } from "./worldStats.ts";
 
@@ -63,6 +64,8 @@ export interface WorldDirectory {
   isReady?(): boolean;
   /** 사용자의 소유 주체(저장하는 월드만). 없으면 내 유닛 없음 */
   ownerOfUser?(userId: string): number | undefined;
+  /** 월드 저장 층(저장하는 월드만) — 같은 나라 시야 공유의 소유 주체 → 나라(nationVision.ts) */
+  readonly persistence?: NationSource["persistence"];
   /** 개발 시험 명령: 내 시험 일꾼 count개. 만든 수(저장하는 월드만) */
   devSpawn?(userId: string, mapKey: number, count: number): number;
 }
@@ -260,7 +263,11 @@ export function createWorldGateway(options: {
             options.onObserve?.(viewer, mapKey);
           } else {
             map.stream.unsubscribe(subscriber);
-            map.vision.subscribe(subscriber, { userId: viewer.id, ownerId: world.ownerOfUser?.(viewer.id) });
+            map.vision.subscribe(subscriber, {
+              userId: viewer.id,
+              ownerId: world.ownerOfUser?.(viewer.id),
+              nations: nationLookupOf(world),
+            });
           }
           return;
         }

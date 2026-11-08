@@ -56,6 +56,8 @@ const record: CyborgRecord = {
   religion: null,
   faithPoints: 0,
   startGrant: null,
+  nationChangedAtMs: null,
+  grantReturned: 0n,
 };
 const cyborg = { kind: "cyborg", record } as const;
 

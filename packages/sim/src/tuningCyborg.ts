@@ -155,6 +155,21 @@ export const CYBORG_TUNING_KEYS: readonly TuningKey[] = [
     "시작 재료: 석재(개, 시작 도시 창고)",
     "Starting goods: stone (count, start city storage)",
   ),
+  // 국적 바꾸기(귀화, 질문 745 나 "값·쉬는 날은 설정 칸", docs/adr/2026-11-08-citizenship.md — 기획 칸 없음 → [임시] 설정값)
+  k(
+    "citizenship_fee",
+    "",
+    "cyborg.naturalizeFee",
+    "귀화 값(최소 단위, 받는 나라 국고)",
+    "Naturalization fee (minor units, to the new nation's treasury)",
+  ),
+  k(
+    "citizenship_rest_ms",
+    "",
+    "cyborg.naturalizeRestMs",
+    "귀화 뒤 쉬는 기간(ms)",
+    "Rest period after naturalization (ms)",
+  ),
   // 장비·인공장기 수리(F11 시설 Lv별 최대 내구도 감소 %, 하한 %, F12 파괴 문턱, D-5031)
   k(
     "f11_repair_lv1",

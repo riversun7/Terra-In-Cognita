@@ -1,9 +1,11 @@
 // 2차맵을 볼 수 있는지 — ADR 2026-10-28-fog-and-map-visibility(26), S3 ADR 3절(사용자 결정 U3: 한 칸이라도 탐사하면 지형 통째)
-// 전체 보기 권한(dev·admin)이면 늘 된다. 아니면 그 2차맵에 내 유닛·건물이 있거나 한 칸이라도 탐사했을 때(map.vision.canView).
+// 전체 보기 권한(dev·admin)이면 늘 된다. 아니면 그 2차맵에 내 유닛·건물이 있거나 한 칸이라도 탐사했을 때, 또는 같은 나라 유닛·건물이
+// 있을 때(같은 나라 시야 공유, docs/adr/2026-11-08-citizenship.md — map.vision.canView).
 // 구독(src/world/gateway.ts)과 지형 파일(src/world/terrainRoute.ts)이 이 함수를 거친다. 명령은 권한·소유로 따로 본다.
 import { rolesAllow } from "../auth/permissions.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { WorldDirectory } from "./gateway.ts";
+import { nationLookupOf } from "./nationVision.ts";
 import type { SecondMap } from "./secondMap.ts";
 
 /** 관리자 전체 보기 권한(시야로 거르지 않는다) */
@@ -17,5 +19,10 @@ export async function canViewSecondMap(
   map: SecondMap,
 ): Promise<boolean> {
   if (canObserve(viewer)) return true;
-  return map.vision.canView({ userId: viewer.id, ownerId: world.ownerOfUser?.(viewer.id) });
+  // 같은 나라 시야 공유(질문 746 나): 저장하는 월드면 소유 주체 → 나라를 넘긴다(시험 디렉터리는 공유 없음)
+  return map.vision.canView({
+    userId: viewer.id,
+    ownerId: world.ownerOfUser?.(viewer.id),
+    nations: nationLookupOf(world),
+  });
 }

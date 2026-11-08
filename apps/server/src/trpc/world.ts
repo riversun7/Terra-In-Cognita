@@ -8,6 +8,8 @@
 // - government: 2차맵에서 누른 행정 건물의 정부 판(도시·주인 나라·지도자·세율·행정 레벨·휴먼 수, "WP-NPC"). 모르는 도시면 unknown_building.
 //   도시 하루 값(만족도·발전도·생필품 충족, 743 나 "WP-NPC3")도 함께.
 // - leaderGovernment: 2차맵에서 누른 NPC 국가 지도자의 정부 판(742 나 — 지도자 = 정부 창구, 그 나라 수도 행정 건물 판). 시야 밖이면 unknown_unit.
+// - naturalization: 그 행정 건물에서 귀화하는 조건(값·지원금 반환·쉬는 날·막는 까닭, docs/adr/2026-11-08-citizenship.md). 신청은 WebSocket
+//   nationality_change.
 // 읽기만 한다. 게임 상태를 바꾸는 명령은 WebSocket이다(AGENTS 4장 — 보내기·멈추기는 travel_start·travel_cancel).
 // 오류(error.data.code): UNAUTHORIZED(로그인 안 함·정지), BAD_REQUEST(틀린 입력). 세계(DB)가 없거나 부팅 복구 전이면 status "not_ready"(빈 목록)
 import type {
@@ -18,6 +20,7 @@ import type {
 } from "@terra/shared/worldMap";
 import type { MapUnitGlanceResponse, MapUnitsResponse } from "@terra/shared/mapUnits";
 import type { GovernmentResponse } from "@terra/shared/government";
+import type { NaturalizationResponse } from "@terra/shared/citizenship";
 import { z } from "zod";
 import { canCommandAnyUnit } from "../world/unitControl.ts";
 import { router, signedInProcedure } from "./init.ts";
@@ -141,6 +144,15 @@ export const worldRouter = router({
       return services?.governmentOfLeader
         ? services.governmentOfLeader(ctx.viewer, input.mapKey, input.unitId, ctx.now())
         : notReadyGovernment(0, ctx.now());
+    }),
+  /** 그 행정 건물에서 귀화하는 조건(읽기만 — 신청은 WebSocket nationality_change) */
+  naturalization: signedInProcedure
+    .input(governmentInput)
+    .query(async ({ ctx, input }): Promise<NaturalizationResponse> => {
+      const services = ctx.worldMap?.();
+      return services?.naturalization
+        ? services.naturalization(ctx.viewer, input.buildingId, ctx.now())
+        : { status: "not_ready", buildingId: input.buildingId, terms: null, generatedAt: ctx.now() };
     }),
   /** 내 유닛의 길(가는 중 + 최근 끝난 것) */
   travels: signedInProcedure.query(({ ctx }): WorldTravelsResponse => {

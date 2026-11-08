@@ -560,6 +560,7 @@ function PlanetMapView({
             mine={world.myFactionId === city.factionId}
             onEnter={(target) => enterMap(target.mapKey, { x: target.cellX, y: target.cellY })}
             onScout={() => setCommanding(true)}
+            canSend={me !== null && me.mapKey !== city.mapKey}
             onClose={() => setCityId(null)}
           />
         ) : null}

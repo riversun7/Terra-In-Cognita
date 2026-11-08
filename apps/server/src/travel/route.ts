@@ -37,8 +37,18 @@ import {
 
 export { type Side, sideToward } from "./frame.ts";
 
-/** 길 하나의 2차맵 수 상한(출발 포함). 서버가 띄우는 시험 2차맵(S1_TEST_MAPS 최대 64)이면 넉넉하다 */
-export const MAX_ROUTE_MAPS = 64;
+/**
+ * 길 하나의 2차맵 수 상한(출발 포함, 프로토콜 travel_result maps 상한과 같다). 세계 배치(국가마다 행성 위 자기 자리, ADR
+ * 2026-11-07-world-layout)에서는 국가 사이가 수십~수백 장이다(시험 행성 국가 넷: 49~121장) — WP14
+ */
+export const MAX_ROUTE_MAPS = 1024;
+/**
+ * 둘레 전체를 너비 우선으로 찾는 2차맵 수(옛 상한 64). 이보다 먼 목적지는 큰 원 둘레 띠 안에서만 찾는다(넓게 찾으면 수백 장 길이
+ * 수백 ms — 이벤트 루프를 막는다, 2026-11-08 잼: 355장 434ms)
+ */
+export const OPEN_SEARCH_MAPS = 64;
+/** 먼 길의 띠 반폭(2차맵 칸 수). 곧은 선을 따르는 계단 줄이 들어가고 남는 너비 */
+export const BAND_CELLS = 8;
 /** 목표 칸 둘레에서 설 칸을 찾는 반경(칸). 건물 한 변 상한(32칸)과 같다 */
 export const STAND_SEARCH_CELLS = 32;
 /** 큰 원 가까움을 같다고 보는 차이(단위 벡터 내적) */
@@ -64,9 +74,45 @@ function greatCircleNormal(from: number, to: number): Vec3 | null {
   return length > TIE ? [n[0] / length, n[1] / length, n[2] / length] : null;
 }
 
+/** 그 2차맵 가운데에서 변 이웃 가운데까지 곧은 거리(단위 구 위 현) 가운데 가장 긴 것 — 띠 너비를 칸 수로 재는 자 */
+function edgeChord(key: number): number {
+  if (!isCellKey(key)) return 0;
+  const here = cellCenter(key);
+  let longest = 0;
+  for (const next of neighbors4(key))
+    longest = Math.max(longest, Math.sqrt(distance2(here, cellCenter(next))));
+  return longest;
+}
+
+/** 먼 길의 띠: 출발·목적을 잇는 큰 원에서 width 안이고, 두 끝까지 현 합이 곧은 현 + 2·width 안인 2차맵만. 큰 원을 못 정하면 null */
+function corridor(from: number, to: number, cells: number): ((key: number) => boolean) | null {
+  const normal = greatCircleNormal(from, to);
+  if (!normal || !isCellKey(from) || !isCellKey(to)) return null;
+  const a = cellCenter(from);
+  const b = cellCenter(to);
+  const width = cells * Math.max(edgeChord(from), edgeChord(to));
+  const span = Math.sqrt(distance2(a, b)) + 2 * width;
+  return (key) => {
+    if (!isCellKey(key)) return false;
+    const c = cellCenter(key);
+    return (
+      Math.abs(dot(c, normal)) <= width && Math.sqrt(distance2(c, a)) + Math.sqrt(distance2(c, b)) <= span
+    );
+  };
+}
+
+/** 두 2차맵 가운데 사이 대략의 칸 수(큰 원 현 ÷ 출발 칸 변) — 둘레 전체를 찾을지 띠로 찾을지 고른다 */
+function roughHops(from: number, to: number): number {
+  if (!isCellKey(from) || !isCellKey(to)) return 0;
+  const edge = edgeChord(from);
+  return edge > 0 ? Math.sqrt(distance2(cellCenter(from), cellCenter(to))) / edge : 0;
+}
+
 /**
  * 출발 → 목적 2차맵의 가장 짧은 줄(출발·목적 포함). 같은 2차맵이면 [from]. 출발·목적이 띄운 2차맵이 아니거나 상한 안에 이을 수 없으면 null.
- * 지나는 2차맵은 띄우지 않은 것이어도 된다(593 나 — 이동 서비스가 그 구간을 건너뛴다)
+ * 지나는 2차맵은 띄우지 않은 것이어도 된다(593 나 — 이동 서비스가 그 구간을 건너뛴다).
+ * 가까운 목적지(OPEN_SEARCH_MAPS 안)는 둘레 전체를 찾는다(띄운 2차맵 먼저 등 WP11 규칙 그대로). 먼 목적지는 큰 원 둘레 띠(BAND_CELLS) 안에서
+ * 찾고, 못 찾으면 띠를 넷 배로 한 번 더 넓힌다(WP14 — 세계 배치의 국가 사이 길)
  */
 export function mapRoute(
   from: number,
@@ -77,10 +123,34 @@ export function mapRoute(
   if (!loaded(from) || !loaded(to)) return null;
   if (from === to) return [from];
   if (!isCellKey(from) || !isCellKey(to)) return null;
+  const open = Math.min(maxMaps, OPEN_SEARCH_MAPS);
+  if (roughHops(from, to) < open) {
+    const near = searchRoute(from, to, loaded, open, null);
+    if (near || maxMaps <= open) return near;
+  }
+  for (const cells of [BAND_CELLS, BAND_CELLS * 4]) {
+    const inside = corridor(from, to, cells);
+    if (!inside) return null;
+    const far = searchRoute(from, to, loaded, maxMaps, inside);
+    if (far) return far;
+  }
+  return null;
+}
+
+/** 너비 우선 줄 찾기(inside가 있으면 그 2차맵만 지난다) */
+function searchRoute(
+  from: number,
+  to: number,
+  loaded: (mapKey: number) => boolean,
+  maxMaps: number,
+  inside: ((key: number) => boolean) | null,
+): number[] | null {
+  if (!isCellKey(from) || !isCellKey(to)) return null;
   // 목적에서 너비 우선: 걸음 수(hops)와 그 걸음 수로 가는 줄 가운데 띄우지 않은 2차맵이 가장 적은 수(hidden). 출발을 찾으면 멈춘다
-  // (출발 이웃의 한 층 아래는 이미 다 셌다)
+  // (출발 이웃의 한 층 아래는 이미 다 셌다). 띠 밖으로 본 2차맵은 다시 재지 않는다(outside)
   const hops = new Map<number, number>([[to, 0]]);
   const hidden = new Map<number, number>([[to, 0]]);
+  const outside = new Set<number>();
   const queue: number[] = [to];
   let found = false;
   for (let head = 0; head < queue.length && !found; head++) {
@@ -95,6 +165,13 @@ export function mapRoute(
       if (known !== undefined) {
         if (known === depth + 1 && cost < (hidden.get(next) ?? cost)) hidden.set(next, cost);
         continue;
+      }
+      if (inside && next !== from) {
+        if (outside.has(next)) continue;
+        if (!inside(next)) {
+          outside.add(next);
+          continue;
+        }
       }
       hops.set(next, depth + 1);
       hidden.set(next, cost);

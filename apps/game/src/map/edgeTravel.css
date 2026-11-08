@@ -83,11 +83,12 @@
 .map-edge-side[data-state="closed"] {
   background-color: var(--color-warning-surface);
 }
+/* 가까운 변 표시: 테마마다 대비가 맞춰진 짝(주 색 위 글자)을 쓴다 */
 .map-edge-badge {
   padding: 0 var(--space-1);
   border-radius: var(--radius-pill);
-  background-color: var(--color-highlight);
-  color: var(--color-text);
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-strong);
 }

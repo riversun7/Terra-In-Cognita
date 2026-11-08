@@ -2,6 +2,7 @@
 // - 로그인한 사용자만. 한 연결의 요청은 받은 순서대로 하나씩 처리한다(사이보그 메시지와 같은 틀).
 // - 사용자별 속도 제한(순간 20번, 분당 120번). 밀린 요청이 MAX_PENDING을 넘으면 busy.
 // - 판정은 서비스(service.ts)가 동기로 하고, 바뀐 것이 있으면 커밋을 기다린 뒤 답한다(물건·소유는 커밋 뒤 응답, S3 U2).
+// - 식품 포장 풀기(item_unpack, 프로토콜 19, D-524): 성공하면 새 낱개 칸 ID들을 holdings로 답한다.
 // - 개발 시험 받기(dev_grant_item)·병원 치료(dev_treat_unit, D-514)는 dev·admin(secondMap dev-spawn — "개발 시험 명령으로 내 시험 것
 //   받기"와 같은 권한).
 import { type ClientMessageOf, type ItemResultCode, encodeMessage } from "@terra/protocol";
@@ -12,7 +13,7 @@ import type { HoldingService } from "./service.ts";
 import { carriedBy } from "./state.ts";
 
 export type ItemClientMessage = ClientMessageOf<
-  "item_equip" | "item_unequip" | "item_use" | "dev_grant_item" | "dev_treat_unit"
+  "item_equip" | "item_unequip" | "item_use" | "item_unpack" | "dev_grant_item" | "dev_treat_unit"
 >;
 
 const MAX_PENDING = 8;
@@ -123,6 +124,10 @@ async function run(
       seed: access.seed(),
     });
     return settled(access, result, result.ok ? { effects: result.effects } : {});
+  }
+  if (message.t === "item_unpack") {
+    const result = service.unpack(ownerId, message.holding, message.quantity ?? 1, now);
+    return settled(access, result, result.ok ? { holdings: result.holdings } : {});
   }
   // dev_grant_item: 내 유닛(없으면 내 사이보그)이 든 것으로 받는다. dev_treat_unit: 그 유닛을 병원 치료한다
   const unitId = message.unit ?? access.cyborgUnitOf(viewer.id);

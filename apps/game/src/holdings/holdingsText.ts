@@ -29,6 +29,7 @@ const FAILURES = {
   battle_only: () => m.holdings_error_battle_only(),
   not_better: () => m.holdings_error_not_better(),
   confirm_replace: () => m.holdings_error_confirm_replace(),
+  not_packed: () => m.holdings_error_not_packed(),
   offline: () => m.holdings_error_offline(),
   timeout: () => m.holdings_error_timeout(),
 } satisfies Record<Exclude<ItemFailureCode, "cooldown">, () => string>;
@@ -42,7 +43,11 @@ export function failureText(code: ItemFailureCode, readyAt: number | undefined, 
 
 /** 실패 뒤 목록을 다시 받아야 하는가(서버 상태를 모름·물건이 바뀜) */
 export const failureNeedsReload = (code: ItemFailureCode): boolean =>
-  code === "offline" || code === "timeout" || code === "unknown_holding" || code === "not_carried";
+  code === "offline" ||
+  code === "timeout" ||
+  code === "unknown_holding" ||
+  code === "not_carried" ||
+  code === "not_packed";
 
 const isEquipSlot = (value: string): value is EquipSlot => (EQUIP_SLOTS as readonly string[]).includes(value);
 

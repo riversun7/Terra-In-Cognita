@@ -9,12 +9,15 @@
 //   높은 것만, 다른 효과는 확인), 수량 −1(0이면 칸을 지운다). 전투 밖에서는 시간 버프와 한 번에 채우는 HP 회복(D-512 327, 저장한 HP —
 //   src/vitals/)만 건다. 주기 회복·상태·도트와 전투 중 사용(287)·자동 사용 판단식은 전투 사용 줄기다. 버프 지속은 아이템 효과 줄의
 //   편집기 값(1시간 상한 없음, D-512 328)이고 실제 시간으로 끝난다.
+// - 식품 포장(D-524): 얻은 식품은 포장 칸(packed)으로 들어와 같은 포장끼리만 겹쳐 쌓이고 숙성이 멈춘다. 포장 풀기(unpack)는 낱개(수량 1
+//   칸 하나하나)를 꺼내고 그 시각부터 보관 곳 배율로 숙성한다(@terra/sim items/foodPack.ts). 풀린 낱개는 쌓이지 않고 다시 포장하지 않는다.
+//   D-524 전에 저장된 묶음(packed 칸이 빈 줄)은 부팅 때 옛 규칙으로 그 시각까지 숙성한 뒤 포장 칸이 된다(packLegacy).
 // - 썩기(spoilDue): 신선도 0이 된 묶음을 고른 아이템으로 바꾼다(사슬, 꺼진 대상이면 버림). 목록을 읽기 전과 타이머가 부른다. 보존 배율은
 //   보관 곳마다 설정 칸(D-512 322: 유닛이 듦 ×1, 창고·냉장·절임·통조림·냉동·거래소 — 지금 서버의 보관 곳은 유닛·창고 둘뿐)이고 셀 때마다 읽는다.
 // - 전투 닳기(applyBattle): 퇴각한 유닛은 닳지 않는다(D-514 352, D-190 — 전투마다 닳음도 없음).
 // - 탄약(spendAmmo)·수리(repair)는 고리다: 전투 판정이 원거리 타격 수를 알려 주면(다음 줄기) spendAmmo를 부른다. 수리(D-512 323)는
 //   시설 수리 줄·장인 1차 스탯을 받아 끝까지 고치고 재료를 돌려준다(차감·장인 직무 시간은 시설 줄기).
-import type { EffectEntry, ItemEntry } from "@terra/content";
+import type { EffectEntry } from "@terra/content";
 import { createRng } from "@terra/shared";
 import {
   type ItemBuff,
@@ -31,7 +34,9 @@ import {
   storagePlaceOfLocation,
   belowPotionThreshold,
   holdingKindOf,
+  lotPreserve,
   pickPotion,
+  planUnpack,
   planEffects,
   refillAmmo,
   repairMaterialQty,
@@ -48,6 +53,7 @@ import {
   wearDurable,
   wearable,
 } from "@terra/sim";
+import { type Lookup, cooldownKindOf, lookupOf } from "./defs.ts";
 import { wearRulesOf } from "./rules.ts";
 import { hotPerMinute, potionOf } from "./battleKit.ts";
 import {
@@ -64,7 +70,6 @@ import {
 
 import type {
   AcquireInput,
-  HeldDef,
   HoldingContent,
   HoldingService,
   HoldingServiceOptions,
@@ -89,83 +94,7 @@ export type {
   RepairInput,
   RepairOutcome,
 } from "./serviceTypes.ts";
-
-/** 팩 항목 → 보유 판정 칸 */
-export function heldDefOf(item: ItemEntry): HeldDef {
-  const { equip, perish, use, gene } = item;
-  return {
-    id: item.id,
-    name: item.name,
-    category: item.category,
-    enabled: item.enabled,
-    tier: item.tier,
-    ...(item.subcategory ? { subcategory: item.subcategory.id } : {}),
-    ...(item.stackMax === undefined ? {} : { stackMax: item.stackMax }),
-    ...(gene ? { gene: { kind: gene.kind, species: gene.species.id } } : {}),
-    ...(perish ? { perish: { shelfLifeMs: perish.shelfLifeMs, spoilsTo: perish.spoilsTo.id } } : {}),
-    ...(use
-      ? {
-          use: {
-            effects: use.effects.map((line) => ({
-              effect: line.effect.id,
-              value: line.value,
-              chancePm: line.chancePm,
-              ...(line.durationMs === undefined ? {} : { durationMs: line.durationMs }),
-              ...(line.scale
-                ? { scale: { stat: line.scale.stat, appropriate: line.scale.appropriate } }
-                : {}),
-              ...(line.variancePm === undefined ? {} : { variancePm: line.variancePm }),
-            })),
-          },
-        }
-      : {}),
-    ...(equip
-      ? {
-          equip: {
-            slot: equip.slot,
-            stats: equip.stats.map((range) => ({
-              stat: typeof range.stat === "string" ? range.stat : range.stat.id,
-              min: range.min,
-              max: range.max,
-            })),
-            ...(equip.maxDurability === undefined ? {} : { maxDurability: equip.maxDurability }),
-            ...(equip.weaponType ? { weaponType: equip.weaponType.id } : {}),
-            ...(equip.kinds ? { kinds: equip.kinds.map((kind) => kind.id) } : {}),
-            ...(equip.weapon?.ammo ? { ammo: equip.weapon.ammo.id } : {}),
-          },
-        }
-      : {}),
-  };
-}
-
-/** 콘텐츠 스냅숏마다 한 번 만드는 찾기 표 */
-interface Lookup {
-  readonly items: ReadonlyMap<string, HeldDef>;
-  readonly effects: ReadonlyMap<string, EffectEntry>;
-  readonly unitSlots: ReadonlyMap<string, readonly string[]>;
-  readonly ammoTypes: ReadonlySet<string>;
-  readonly foodSubcategories: ReadonlySet<string>;
-}
-
-function lookupOf(content: HoldingContent): Lookup {
-  return {
-    items: new Map(content.items.map((item) => [item.id, heldDefOf(item)])),
-    effects: new Map(content.effects.map((effect) => [effect.id, effect])),
-    unitSlots: new Map(content.unitKinds.map((kind) => [kind.id, kind.slots])),
-    ammoTypes: new Set(content.weaponTypes.filter((type) => type.ammo === true).map((type) => type.id)),
-    foodSubcategories: new Set(
-      content.itemSubcategories.filter((entry) => entry.food === true).map((entry) => entry.id),
-    ),
-  };
-}
-
-/**
- * 소모품의 쿨 종류(D-509·D-510): 식품 중분류(요리·음료) = food(5분), 그 밖(약·버프·중분류 없음) = potion(30초)
- * (질문 331: 버프 아이템도 물약 쿨인가)
- */
-function cooldownKindOf(def: HeldDef, map: Lookup): CooldownKind {
-  return def.subcategory !== undefined && map.foodSubcategories.has(def.subcategory) ? "food" : "potion";
-}
+export { heldDefOf } from "./defs.ts";
 
 /** 전투 시드 + 칸 ID → 닳기 시드(같은 전투·같은 칸 = 같은 굴림) */
 const wearSeed = (battleSeed: number, holdingId: number): number =>
@@ -218,6 +147,9 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
   /** 지금 보존 배율 표(설정 칸 실효 값). 한 번의 명령·조회에서 한 번 읽어 넘긴다 */
   const preserveTable = (): PreserveTable => options.rules().consumables.preservePm;
   const preserve = (location: number, table: PreserveTable): number => preservePmOf(placeOf(location), table);
+  /** 칸의 실제 보존 배율: 포장된 식품은 멈춤(D-524), 그 밖은 보관 곳 배율 */
+  const preserveOf = (record: HoldingRecord, table: PreserveTable): number =>
+    lotPreserve(record.packed === true, preserve(record.location, table));
   let cached: { source: HoldingContent; lookup: Lookup } | undefined;
   const lookup = (): Lookup => {
     const content = options.content();
@@ -236,7 +168,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
   /** 묶음 하나를 nowMs까지 썩힌다(바뀌면 저장). 버렸으면 false */
   const settleLot = (record: HoldingRecord, nowMs: number, map: Lookup, table: PreserveTable): boolean => {
     if (record.age === null) return true;
-    const pm = preserve(record.location, table);
+    const pm = preserveOf(record, table);
     const outcome = settleSpoilage({ item: record.itemId, age: record.age }, nowMs, pm, spoilDef(map));
     if (outcome.kind === "disposed") {
       drop(record);
@@ -245,6 +177,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
     if (outcome.kind === "changed") {
       record.itemId = outcome.item;
       record.age = map.items.get(outcome.item)?.perish ? outcome.age : null;
+      if (record.age === null) record.packed = false;
       record.source = "spoil";
       save(record);
     }
@@ -255,14 +188,14 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
   const spoilTime = (record: HoldingRecord, map: Lookup, table: PreserveTable): number | null => {
     const perish = map.items.get(record.itemId)?.perish;
     if (!perish || record.age === null) return null;
-    return spoilAtMs(record.age, perish.shelfLifeMs, preserve(record.location, table));
+    return spoilAtMs(record.age, perish.shelfLifeMs, preserveOf(record, table));
   };
 
   /** 지금 신선도(‰, D-512 320 효과량에 곱한다). 신선도가 없는 물건은 1000 */
   const freshNow = (record: HoldingRecord, nowMs: number, map: Lookup, table: PreserveTable): number => {
     const perish = map.items.get(record.itemId)?.perish;
     if (!perish || record.age === null) return 1000;
-    return freshnessPm(agedAt(record.age, nowMs, preserve(record.location, table)), perish.shelfLifeMs);
+    return freshnessPm(agedAt(record.age, nowMs, preserveOf(record, table)), perish.shelfLifeMs);
   };
 
   const unitEffects = (unitId: number, nowMs: number): UnitEffectRecord[] =>
@@ -293,7 +226,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
     else effects.set(unitId, after);
   };
 
-  /** 같은 주인·아이템·자리에서 같이 쌓을 수 있는 칸(듦·창고, 입지 않음, 같은 숙성 상태) */
+  /** 같은 주인·아이템·자리에서 같이 쌓을 수 있는 칸(듦·창고, 입지 않음, 식품은 포장 칸끼리 같은 숙성 상태 — 풀린 낱개는 쌓지 않는다 D-524) */
   const stackable = (input: AcquireInput, age: HoldingRecord["age"], table: PreserveTable): HoldingRecord[] =>
     [...holdings.values()]
       .filter(
@@ -307,7 +240,8 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
           (age === null
             ? record.age === null
             : record.age !== null &&
-              settleAge(record.age, input.atMs, preserve(record.location, table)).agedMs === age.agedMs),
+              record.packed === true &&
+              settleAge(record.age, input.atMs, preserveOf(record, table)).agedMs === age.agedMs),
       )
       .toSorted(byId);
 
@@ -436,6 +370,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
             durability: max,
             maxDurability: max,
             age: null,
+            packed: false,
           };
           holdings.set(record.id, record);
           save(record);
@@ -468,6 +403,8 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
           durability: null,
           maxDurability: null,
           age,
+          // 얻은 식품은 포장 칸으로 들어온다(D-524). 그 밖은 포장이 없다
+          packed: age !== null,
         };
         holdings.set(record.id, record);
         save(record);
@@ -682,6 +619,72 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
           ...heals.map((heal) => ({ effect: heal.effect, amount: heal.value })),
         ],
       };
+    },
+
+    unpack(ownerId, holdingId, want, nowMs) {
+      const map = lookup();
+      const record = owned(ownerId, holdingId);
+      if (!record || !settleLot(record, nowMs, map, preserveTable()))
+        return { ok: false, code: "unknown_holding" };
+      if (options.locked?.(holdingId)) return { ok: false, code: "busy" };
+      const unitId = carrierOf(record.location);
+      if (unitId !== null && world.unitOwner(unitId) !== ownerId) return { ok: false, code: "unknown_unit" };
+      const plan = map.items.get(record.itemId)?.perish
+        ? planUnpack(
+            { quantity: record.quantity, packed: record.packed === true, age: record.age },
+            want,
+            nowMs,
+          )
+        : null;
+      if (!plan) return { ok: false, code: "not_packed" };
+      // 낱개는 수량 1 칸 하나하나(쌓이지 않는다), 같은 자리·얻은 길·만든 시각. 숙성은 지금부터 그 자리 배율로 흐른다
+      const created: number[] = [];
+      for (let i = 0; i < plan.count; i++) {
+        const single: HoldingRecord = {
+          id: nextId(),
+          ownerId: record.ownerId,
+          itemId: record.itemId,
+          location: record.location,
+          slot: null,
+          quantity: 1,
+          stats: [],
+          scorePm: null,
+          durability: null,
+          maxDurability: null,
+          age: plan.age,
+          packed: false,
+          createdAtMs: record.createdAtMs,
+          source: record.source,
+        };
+        holdings.set(single.id, single);
+        save(single);
+        created.push(single.id);
+      }
+      if (plan.left <= 0) drop(record);
+      else {
+        record.quantity = plan.left;
+        save(record);
+      }
+      return { ok: true, holdings: created };
+    },
+
+    packLegacy(ids, nowMs) {
+      const map = lookup();
+      const table = preserveTable();
+      let packed = 0;
+      for (const id of [...ids].toSorted((a, b) => a - b)) {
+        const record = holdings.get(id);
+        if (!record || record.age === null || record.packed !== undefined) continue;
+        // 옛 규칙(보관 곳 배율)으로 지금까지 숙성·썩힌 뒤 그 값에서 멈춘 포장 칸으로 둔다(D-524 전 묶음은 겹쳐 쌓여 있었다)
+        record.packed = false;
+        if (!settleLot(record, nowMs, map, table)) continue;
+        if (record.age === null) continue;
+        record.age = settleAge(record.age, nowMs, preserveOf(record, table));
+        record.packed = true;
+        save(record);
+        packed += 1;
+      }
+      return packed;
     },
 
     applyBattle(battleSeed, units) {
@@ -913,7 +916,7 @@ export function createHoldingService(options: HoldingServiceOptions): HoldingSer
     freshnessOf(record, nowMs) {
       const perish = lookup().items.get(record.itemId)?.perish;
       if (!perish || record.age === null) return null;
-      const pm = preserve(record.location, preserveTable());
+      const pm = preserveOf(record, preserveTable());
       return {
         freshnessPm: freshnessPm(agedAt(record.age, nowMs, pm), perish.shelfLifeMs),
         spoilsAt: spoilAtMs(record.age, perish.shelfLifeMs, pm),

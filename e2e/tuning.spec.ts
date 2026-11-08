@@ -2,6 +2,8 @@
 // - dev: N39 기본액을 새 값 칸에 넣고 [담기] → [적용]하면 그 세계에 바로 든다(사이보그 만들기 화면의 정착 지원금 72 × 1.5 = 108 → 135).
 //   [되돌리기] → [적용]이면 팩 값(108). 서로 묶인 칸(N9 합·칸 최대)은 하나만 보내면 규칙 문제로 거절되고 함께 보내면 받는다.
 //   구조 값은 확인 창. [내보내기]는 팩 차이 JSON. [모두 되돌리기]. 49 칸 목록(연결됨·값 없음·연결 없음).
+// - 분야 페이지(2026-11-08): 탭(전체·세력·사회·NPC 두뇌·정원사·보유 아이템·전투 코어·경제 코어·기타)마다 그 분야 칸만, 칸 줄에 쉬운 풀이·단위·출처.
+//   ←→ 키로 탭을 옮기고, 고른 탭은 다시 열어도 남는다(localStorage).
 // - player: 권한 없음 화면, tRPC tuning.*는 403.
 // - 사진: 390·1440 × 개발 화면 테마 둘(네온 다크·라이트, ADR 2026-11-02-dev-ui) × 한국어·영어(E2E_SHOTS_DIR), 화면 크기.
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 덮어쓰기를 모두 지운다(다른 줄기의 지원금·환생 값 시험을 흔들지 않게).
@@ -185,6 +187,46 @@ test.describe("개발자", () => {
     expect(unexpected(deviceErrors, 400)).toEqual([]);
   });
 
+  test("분야 페이지: 탭마다 그 분야 칸만, 풀이·단위·출처, 키로 옮기기, 다시 열어도 남음", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await panelReady(page);
+    const tabs = page.locator(".tp-pages [role='tab']");
+    await expect(tabs).toHaveCount(PAGES.length);
+    // 처음은 전체(모든 칸)
+    await expect(page.locator(".tp-page[data-page='all']")).toHaveAttribute("aria-selected", "true");
+    const total = await page.locator(".tp-row").count();
+    for (const [tab, inside, outside] of PAGE_SAMPLES) {
+      await page.locator(`.tp-page[data-page='${tab}']`).click();
+      await expect(page.locator(".tp-page-panel")).toHaveAttribute("data-page", tab);
+      await expect(row(page, inside)).toBeVisible();
+      await expect(row(page, outside)).toHaveCount(0);
+      const count = Number(await page.locator(`.tp-page[data-page='${tab}'] .tp-page-count`).textContent());
+      await expect(page.locator(".tp-row")).toHaveCount(count);
+      expect(count).toBeLessThan(total);
+    }
+    // 칸 줄: 쉬운 풀이·단위·출처(세력·사회의 반란 문턱)
+    await page.locator(".tp-page[data-page='society']").click();
+    const rebellion = row(page, "s26_rebellion");
+    await expect(rebellion.locator(".tp-desc")).toContainText("반란");
+    await expect(rebellion.locator(".tp-source")).toContainText("faction-society-core");
+    await expect(rebellion.locator(".tp-meta")).toContainText(message("ko", "dev_tuning_unit_label"));
+    // 키로 옮기기: 세력·사회 → (→) NPC 두뇌
+    await page.locator(".tp-page[data-page='society']").focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.locator(".tp-page[data-page='npc']")).toBeFocused();
+    await expect(page.locator(".tp-page-panel")).toHaveAttribute("data-page", "npc");
+    await expect(row(page, "npc_idle_score")).toBeVisible();
+    // 다시 열어도 고른 탭이 남는다
+    await page.reload();
+    await expect(page.locator(".tp-screen")).toHaveAttribute("data-status", "ready");
+    await expect(page.locator(".tp-page[data-page='npc']")).toHaveAttribute("aria-selected", "true");
+    await page.locator(".tp-page[data-page='all']").click();
+    await expect(page.locator(".tp-row")).toHaveCount(total);
+    expect(deviceErrors).toEqual([]);
+  });
+
   test("49 칸 중 N개 연결: 연결됨(N9)·값 없음(T6)·연결 없음(T1)", async ({ page }) => {
     await panelReady(page);
     const cells = page.locator(".tp-cells");
@@ -216,6 +258,20 @@ test.describe("플레이어", () => {
     expect(unexpected(deviceErrors, 403)).toEqual([]);
   });
 });
+
+/** 분야 페이지 탭(전체 포함, 화면 차례) */
+const PAGES = ["all", "society", "npc", "gardener", "holdings", "combat", "economy", "other"] as const;
+
+/** 페이지마다 그 안에 있어야 할 칸·없어야 할 칸 */
+const PAGE_SAMPLES: readonly (readonly [string, string, string])[] = [
+  ["society", "d186_loot_take", "c19_loot"],
+  ["npc", "d323_decide_every", "s26_rebellion"],
+  ["gardener", "p15_cell_max", "npc_idle_score"],
+  ["holdings", "n49_wear_chance", "p15_cell_max"],
+  ["combat", "c19_loot", "n49_wear_chance"],
+  ["economy", "npc_bank_gain", "c19_loot"],
+  ["other", "n39_grant_base", "npc_bank_gain"],
+];
 
 // 개발 화면 층(ADR 2026-11-02-dev-ui): 게임 테마와 상관없이 개발 화면 테마 둘(네온 다크·라이트)로 찍는다
 const LAYOUTS: readonly { theme: DevTheme; language: Language; width: number; height: number }[] = (
@@ -258,6 +314,19 @@ test.describe("배치·사진", () => {
         // 화면 크기 사진(한 화면에 보이는 줄 수를 본다)
         await shot(page, `tuning-${theme}-${language}-${width}`);
         await resetTuning(page);
+        expect(deviceErrors).toEqual([]);
+      });
+
+      test("분야 페이지마다: 가로 넘침·작은 누르는 곳 없음, 사진", async ({ page, deviceErrors }) => {
+        await panelReady(page);
+        for (const tab of PAGES) {
+          await page.locator(`.tp-page[data-page='${tab}']`).click();
+          await expect(page.locator(".tp-page-panel")).toHaveAttribute("data-page", tab);
+          await page.evaluate(() => document.fonts.ready.then(() => undefined));
+          expect(await horizontalOverflow(page), tab).toEqual([]);
+          expect(await smallTapTargets(page), tab).toEqual([]);
+          await shot(page, `tuning-page-${tab}-${theme}-${language}-${width}`);
+        }
         expect(deviceErrors).toEqual([]);
       });
 

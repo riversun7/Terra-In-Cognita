@@ -1,6 +1,7 @@
 // 보유 물건 부품 — 막대(내구도·신선도), 물건 카드(옛 LocationInventory 카드 + ItemTooltip 내용), 걸린 효과·쓰기 쿨, 알림 줄.
 // 옛 화면에서 가져온 것: 분류 색 왼쪽 띠, 수량 표 "×n", 착용 표, 굴린 스탯 표(+초록·−빨강), 내구도 막대(60%·30% 문턱 색)와 "현재/최대",
-// 파손이면 장착 막음("수리 필요"). 새로 더한 것: 신선도 막대·썩는 때(N49), 점수(D-5006), 쓰기 버튼과 쿨 남은 시간(D-509·D-510).
+// 파손이면 장착 막음("수리 필요"). 새로 더한 것: 신선도 막대·썩는 때(N49), 점수(D-5006), 쓰기 버튼과 쿨 남은 시간(D-509·D-510),
+// 식품 포장 표·[포장 풀기](D-524 — 포장 칸은 신선도가 멈추고, 풀면 낱개가 되어 그때부터 준다).
 // 스타일은 holdings.css(토큰만).
 import type { RosterNames } from "@terra/shared/roster";
 import type { HoldingView } from "@terra/shared/holdings";
@@ -15,6 +16,7 @@ import {
   formatClock,
   isBroken,
   isEquipment,
+  isPacked,
   isUsable,
   percentOf,
   pickSlot,
@@ -85,10 +87,10 @@ export function DurabilityLine({ holding }: { holding: HoldingView }) {
   );
 }
 
-/** 신선도 막대와 썩는 때(신선도 묶음만) */
+/** 신선도 막대와 썩는 때(신선도 묶음만). 포장 칸이면 멈춘 까닭을 함께(D-524) */
 function FreshnessLine({ holding, now }: { holding: HoldingView; now: number }) {
   if (holding.freshnessPm === null) return null;
-  const spoils = holding.spoilsAt === null ? null : remaining(holding.spoilsAt, now);
+  const spoils = holding.spoilsAt === null || isPacked(holding) ? null : remaining(holding.spoilsAt, now);
   return (
     <>
       <HoldingBar
@@ -99,6 +101,7 @@ function FreshnessLine({ holding, now }: { holding: HoldingView; now: number }) 
         valueText={m.holdings_percent({ percent: formatNumber(percentOf(holding.freshnessPm)) })}
       />
       {spoils ? <p className="roster-meta">{m.holdings_spoils({ time: spoils })}</p> : null}
+      {isPacked(holding) ? <p className="roster-note">{m.holdings_packed_note()}</p> : null}
     </>
   );
 }
@@ -127,6 +130,11 @@ export function HoldingTitle({ holding }: { holding: HoldingView }) {
       ) : null}
       {holding.slot !== null ? (
         <span className="roster-tag holding-worn">{m.holdings_equipped()}</span>
+      ) : null}
+      {holding.packed === true || holding.packed === false ? (
+        <span className="roster-tag holding-pack" data-packed={holding.packed ? "true" : "false"}>
+          {holding.packed ? m.holdings_packed() : m.holdings_unpacked()}
+        </span>
       ) : null}
     </span>
   );
@@ -162,6 +170,7 @@ export function HoldingCard({
       data-holding={holding.id}
       data-item={holding.item}
       data-broken={broken ? "true" : undefined}
+      data-packed={holding.packed === true ? "true" : holding.packed === false ? "false" : undefined}
     >
       <HoldingTitle holding={holding} />
       <StatChips holding={holding} names={names} />
@@ -174,7 +183,7 @@ export function HoldingCard({
       ) : null}
       <DurabilityLine holding={holding} />
       <FreshnessLine holding={holding} now={controller.now} />
-      {holding.slot !== null || target || isUsable(holding) ? (
+      {holding.slot !== null || target || isUsable(holding) || isPacked(holding) ? (
         <div className="holding-actions">
           {holding.slot !== null ? (
             <button
@@ -217,6 +226,20 @@ export function HoldingCard({
               {waiting ? (
                 <span className="holding-wait">{m.holdings_action_wait({ time: formatClock(waitMs) })}</span>
               ) : null}
+            </button>
+          ) : null}
+          {isPacked(holding) ? (
+            <button
+              type="button"
+              className="button-small"
+              data-action="unpack"
+              aria-label={label(m.holdings_action_unpack())}
+              aria-disabled={busy ? "true" : undefined}
+              onClick={() => {
+                if (!busy) controller.unpack(holding);
+              }}
+            >
+              {m.holdings_action_unpack()}
             </button>
           ) : null}
         </div>

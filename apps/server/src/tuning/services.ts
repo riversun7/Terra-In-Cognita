@@ -27,6 +27,7 @@ import type { TuningAction, TuningServices, Viewer } from "../trpc/context.ts";
 import { reasonedError } from "../trpc/init.ts";
 import { type ContentEditShared, contentExportEntries } from "../contentEdit/services.ts";
 import { tuningScopeOf } from "./scope.ts";
+import { tuningPageOf } from "@terra/sim";
 import type { TuningOverrideRecord, TuningState } from "./state.ts";
 import {
   type FormulaWrite,
@@ -206,6 +207,10 @@ export function tuningList(shared: TuningShared): TuningListResponse {
       value: snapshot.values.get(entry.id) ?? entry.value,
       scope: tuningScopeOf(entry.id),
       override: record ? overrideView(record) : null,
+      // 분야 페이지(규칙 코드가 정한다)·쉬운 풀이·출처(팩 항목, 2026-11-08 분야별 페이지)
+      page: tuningPageOf(entry.id),
+      desc: entry.desc ? { ko: entry.desc.ko, en: entry.desc.en } : null,
+      source: entry.source ?? null,
     };
   });
   return {

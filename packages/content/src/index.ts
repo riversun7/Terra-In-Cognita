@@ -115,6 +115,25 @@ export {
   type FormulasApplyResult,
 } from "./formulaDiff.ts";
 export {
+  CREATURE_CATEGORIES,
+  CREATURE_GRADES,
+  CREATURE_PRESET_TAGS,
+  CREATURE_SIZES,
+  creatureDropSchema,
+  creatureEntrySchema,
+  creatureNaturalWeaponSchema,
+  creaturePortraitCropSchema,
+  creatureSkillLinkSchema,
+  type CreatureCategory,
+  type CreatureDrop,
+  type CreatureEntry,
+  type CreatureGrade,
+  type CreatureNaturalWeapon,
+  type CreaturePortraitCrop,
+  type CreatureSize,
+  type CreatureSkillLink,
+} from "./schema/creatures.ts";
+export {
   EFFECT_COMBAT_STATS,
   EQUIP_SLOT_KINDS,
   PRIMARY_STAT_CODES,

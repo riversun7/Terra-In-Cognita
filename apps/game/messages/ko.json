@@ -5039,5 +5039,7 @@
   "ops_save": "저장",
   "ops_open": "열기",
   "ops_unit_remove_note": "유닛 지우기는 아직 없습니다(종류마다 정리할 자료가 달라 다음 단계).",
-  "ops_col_num": "ID"
+  "ops_col_num": "ID",
+  "shell_route_dev_creatures": "크리처 편집기",
+  "dev_tool_creatures_desc": "크리처 도감·원형 초상화 영역 선택·특성 스탯 분배·고유 무기 범위·드롭 시뮬레이터를 편집하고 바로 반영합니다"
 }

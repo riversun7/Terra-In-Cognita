@@ -12,6 +12,7 @@
     "./buildingEditor": "./src/buildingEditor.ts",
     "./citizenship": "./src/citizenship.ts",
     "./contentEdit": "./src/contentEdit.ts",
+    "./creatureEditor": "./src/creatureEditor.ts",
     "./cyborg": "./src/cyborg.ts",
     "./dashboard": "./src/dashboard.ts",
     "./economy": "./src/economy.ts",

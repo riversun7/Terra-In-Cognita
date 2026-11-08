@@ -26,6 +26,7 @@ import {
 } from "./items.ts";
 import { mapPropEntrySchema } from "./mapProps.ts";
 import { gatherObjectEntrySchema } from "./gatherObjects.ts";
+import { creatureEntrySchema } from "./creatures.ts";
 import { effectEntrySchema, skillEntrySchema, unitKindEntrySchema } from "./combat.ts";
 import { biomeEntrySchema, planetEntrySchema, planetTemplateEntrySchema } from "./planets.ts";
 import { formulaEntrySchema } from "./formulas.ts";
@@ -69,6 +70,7 @@ export const CATEGORIES: CategoryRegistry = {
   effects: { entry: effectEntrySchema },
   skills: { entry: skillEntrySchema },
   unit_kinds: { entry: unitKindEntrySchema },
+  creatures: { entry: creatureEntrySchema },
   tuning: { entry: tuningEntrySchema },
   biomes: { entry: biomeEntrySchema },
   planets: { entry: planetEntrySchema },

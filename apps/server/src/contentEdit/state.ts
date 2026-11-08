@@ -9,6 +9,7 @@
 // - 잠든 줄(지금 판이 읽지 못하는 새 판 줄·팩 ID와 겹친 만든 항목·모르는 분류)은 적용하지 않고 DB에 둔다(편집기 띠).
 // 서버에서 팩 항목을 읽는 곳(전투 자료·유닛 화면·NPC 정원사 웨이브·전투 서비스·경제 목록)은 effective()를 쓸 때마다 부른다.
 import {
+  type CreatureEntry,
   type EffectEntry,
   type FacilityEntry,
   type GatherTierEntry,
@@ -19,6 +20,7 @@ import {
   type SkillEntry,
   type UnitKindEntry,
   type WeaponTypeEntry,
+  creatureEntrySchema,
   effectEntrySchema,
   facilityEntrySchema,
   gatherTierEntrySchema,
@@ -73,6 +75,8 @@ export interface ContentEffective {
   readonly facilities: readonly FacilityEntry[];
   /** 1차 생산 스탯 구간별 티어 확률 분포(49 N43, D-513, 건물 편집기가 덮어쓴다). 채집 미리 보기·생산 시뮬이 읽는다 */
   readonly gatherTiers: readonly GatherTierEntry[];
+  /** 크리처(크리처 편집기가 덮어쓴다, /dev/creatures) */
+  readonly creatures: readonly CreatureEntry[];
 }
 
 export interface ContentSnapshot {
@@ -149,6 +153,7 @@ function parseEffective(raw: RawEntries): ContentEffective {
     effects: raw.effects.map((entry) => effectEntrySchema.parse(entry)),
     facilities: raw.facilities.map((entry) => facilityEntrySchema.parse(entry)),
     gatherTiers: raw.gather_tiers.map((entry) => gatherTierEntrySchema.parse(entry)),
+    creatures: raw.creatures.map((entry) => creatureEntrySchema.parse(entry)),
   };
 }
 

@@ -6,6 +6,7 @@ import { balanceRouter } from "./balance.ts";
 import { battleLabRouter } from "./battleLab.ts";
 import { battleReplayRouter } from "./battleReplay.ts";
 import { buildingsRouter } from "./buildings.ts";
+import { creaturesRouter } from "./creatures.ts";
 import { formulasRouter } from "./formulas.ts";
 import { holdingsRouter } from "./holdings.ts";
 import { vitalsRouter } from "./vitals.ts";
@@ -53,6 +54,8 @@ export const appRouter = router({
   items: itemsRouter,
   // 개발자 건물 편집기(docs/adr/2026-11-02-building-editor.md)
   buildings: buildingsRouter,
+  // 개발자 크리처 편집기(/dev/creatures)
+  creatures: creaturesRouter,
   // 개발자 전투 실험실(같은 화면의 [전투 실험실] 탭, 같은 ADR "바뀜 (2026-11-01, 전투 실험실)")
   battleLab: battleLabRouter,
   // 개발자 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 5절)

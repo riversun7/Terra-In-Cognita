@@ -278,6 +278,8 @@ describe("디자인 시스템 규칙(테마 시작 스크립트·글꼴)", () =>
       "assets/ItemEditorScreen-I1t2E3m4.css",
       "assets/BuildingEditorScreen-B1u2I3l4.js",
       "assets/BuildingEditorScreen-B1u2I3l4.css",
+      "assets/CreatureEditorScreen-C1r2E3a4.js",
+      "assets/CreatureEditorScreen-C1r2E3a4.css",
       "assets/contentEditorFields-C1e2F3d4.js",
       "assets/contentEditorFields-C1e2F3d4.css",
       "assets/BattleReplayLabScreen-R1e2P3l4.js",

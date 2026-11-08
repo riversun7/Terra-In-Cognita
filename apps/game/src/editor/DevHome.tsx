@@ -19,6 +19,7 @@ import {
   GaugeIcon,
   HouseIcon,
   OrbitIcon,
+  PawIcon,
   PersonCardIcon,
   ScaleIcon,
   SlidersIcon,
@@ -116,6 +117,15 @@ const DEV_TOOLS = {
     tagEn: "LIVE EDIT · N43 Tier Prob",
     ready: true,
   },
+  // 크리처 편집기(/dev/creatures): 크리처 카탈로그·원형 초상화 영역 선택·특성 스탯 분배·고유 무기 범위·드롭 시뮬레이터
+  dev_creatures: {
+    name: m.shell_route_dev_creatures,
+    desc: m.dev_tool_creatures_desc,
+    mark: <PawIcon />,
+    tagKo: "LIVE EDIT · 초상화·스탯·무기",
+    tagEn: "LIVE EDIT · Portrait & Stats",
+    ready: true,
+  },
   // 영토 층(docs/adr/2026-11-03-territory-layer.md): 도시·비콘 볼록 껍질, 겹침 규칙, 1차맵 칸 표, 시험 세력 비콘 놓기
   dev_territory: {
     name: m.shell_route_dev_territory,
@@ -171,7 +181,7 @@ const DEV_SECTIONS: readonly DevSection[] = [
       "시설·채집 티어 확률(N43), 아이템·총량 자원(P1~P4), 스킬·소모, 구인 카드를 담고(Draft) 검사 뒤 즉시 반영합니다.",
     subEn:
       "Stage, validate, and live-apply facilities, N43 gather tier probabilities, items (P1~P4 reserves), skills, and recruitment.",
-    routes: ["dev_buildings", "dev_items", "dev_skills", "dev_recruit"],
+    routes: ["dev_creatures", "dev_buildings", "dev_items", "dev_skills", "dev_recruit"],
   },
   {
     id: "balance",

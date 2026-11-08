@@ -1,0 +1,8464 @@
+{
+  "entries": [
+    {
+      "id": "wolf",
+      "name": {
+        "ko": "회색늑대",
+        "en": "Grey Wolf"
+      },
+      "description": {
+        "ko": "평원과 숲에서 무리지어 생활하는 늑대. 민첩하고 집요하다.",
+        "en": "Grey Wolf (beast, M)."
+      },
+      "category": "beast",
+      "grade": "common",
+      "size": "M",
+      "image": "WOLF.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 7,
+        "dex": 6,
+        "agi": 8,
+        "vit": 5,
+        "int": 3,
+        "wis": 3
+      },
+      "elements": [2, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 4,
+        "perRebirth": 1,
+        "max": 8
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "회색늑대의 야수의 송곳니와 발톱",
+          "en": "Grey Wolf's Beast Fang & Claw"
+        },
+        "appropriate": "agi",
+        "physical": {
+          "attack": 17,
+          "min": 14,
+          "max": 22
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 870,
+        "critPm": 88,
+        "intervalMs": 1200,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 10,
+            "max": 25
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 48
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "deer_hide",
+          "chancePm": 400,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "dire_wolf",
+      "name": {
+        "ko": "방랑대늑대",
+        "en": "Dire Wolf"
+      },
+      "description": {
+        "ko": "일반 늑대보다 두 배 큰 야생 포식자. 강력한 물기와 높은 체력.",
+        "en": "Dire Wolf (beast, L)."
+      },
+      "category": "beast",
+      "grade": "rare",
+      "size": "L",
+      "tags": ["tendency_mount"],
+      "image": "DIRE_WOLF.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 11,
+        "dex": 7,
+        "agi": 7,
+        "vit": 9,
+        "int": 4,
+        "wis": 4
+      },
+      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 6
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "방랑대늑대의 야수의 송곳니와 발톱",
+          "en": "Dire Wolf's Beast Fang & Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 30,
+          "min": 25,
+          "max": 38
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 875,
+        "critPm": 96,
+        "intervalMs": 1225,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 18,
+            "max": 45
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 56
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "bison_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "armored_bear",
+      "name": {
+        "ko": "강철곰",
+        "en": "Armored Bear"
+      },
+      "description": {
+        "ko": "두꺼운 피부와 골격 돌기로 방어력이 뛰어난 거대 곰. 느리지만 압도적인 근력.",
+        "en": "Armored Bear (beast, L)."
+      },
+      "category": "beast",
+      "grade": "common",
+      "size": "L",
+      "tags": ["tendency_attack"],
+      "image": "ARMORED_BEAR.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 13,
+        "dex": 3,
+        "agi": 4,
+        "vit": 12,
+        "int": 3,
+        "wis": 4
+      },
+      "elements": [2, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "강철곰의 야수의 송곳니와 발톱",
+          "en": "Armored Bear's Beast Fang & Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 31,
+          "min": 25,
+          "max": 40
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 855,
+        "critPm": 64,
+        "intervalMs": 1300,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 24,
+            "max": 60
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "deer_hide",
+          "chancePm": 450,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "shadow_cat",
+      "name": {
+        "ko": "그림자살쾡이",
+        "en": "Shadow Cat"
+      },
+      "description": {
+        "ko": "암흑 속에서 소리 없이 이동하는 고양이과 크리쳐. 치명타 확률이 극히 높음.",
+        "en": "Shadow Cat (beast, S)."
+      },
+      "category": "beast",
+      "grade": "rare",
+      "size": "S",
+      "tags": ["tendency_agile"],
+      "image": "SHADOW_CAT.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 450,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 5,
+        "dex": 10,
+        "agi": 12,
+        "vit": 4,
+        "int": 5,
+        "wis": 5
+      },
+      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "그림자살쾡이의 야수의 송곳니와 발톱",
+          "en": "Shadow Cat's Beast Fang & Claw"
+        },
+        "appropriate": "agi",
+        "physical": {
+          "attack": 17,
+          "min": 14,
+          "max": 22
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 890,
+        "critPm": 120,
+        "intervalMs": 1100,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 8,
+            "max": 20
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 80
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "bison_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "stone_rhino",
+      "name": {
+        "ko": "돌코뿔소",
+        "en": "Stone Rhino"
+      },
+      "description": {
+        "ko": "석회화된 피부를 가진 거대 코뿔소. 돌진 시 적을 관통하는 압도적 파괴력.",
+        "en": "Stone Rhino (beast, XL)."
+      },
+      "category": "beast",
+      "grade": "rare",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense"],
+      "image": "STONE_RHINO.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 16,
+        "dex": 2,
+        "agi": 3,
+        "vit": 15,
+        "int": 2,
+        "wis": 2
+      },
+      "elements": [0, 0, 4, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 6
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "돌코뿔소의 야수의 송곳니와 발톱",
+          "en": "Stone Rhino's Beast Fang & Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 41,
+          "min": 34,
+          "max": 52
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 850,
+        "critPm": 56,
+        "intervalMs": 1325,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 30,
+            "max": 75
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "bison_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "thunder_boar",
+      "name": {
+        "ko": "뇌전멧돼지",
+        "en": "Thunder Boar"
+      },
+      "description": {
+        "ko": "번개를 머금은 거대 멧돼지. 전기를 방출하며 돌진하는 독특한 공격 패턴.",
+        "en": "Thunder Boar (beast, L)."
+      },
+      "category": "beast",
+      "grade": "common",
+      "size": "L",
+      "image": "THUNDER_BOAR.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 12,
+        "dex": 5,
+        "agi": 6,
+        "vit": 10,
+        "int": 2,
+        "wis": 3
+      },
+      "elements": [0, 4, 6, 0, 0, 0, 0, 0, 0, 3, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire", "sub_light"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "뇌전멧돼지의 야수의 송곳니와 발톱",
+          "en": "Thunder Boar's Beast Fang & Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 28,
+          "min": 23,
+          "max": 36
+        },
+        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 865,
+        "critPm": 80,
+        "intervalMs": 1250,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 20,
+            "max": 50
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "deer_hide",
+          "chancePm": 450,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "sabertooth",
+      "name": {
+        "ko": "검치호",
+        "en": "Saber-toothed Tiger"
+      },
+      "description": {
+        "ko": "빙하기의 대형 검치호. 길고 예리한 송곳니로 치명적 일격을 가하는 고대 최강 포식자.",
+        "en": "Saber-toothed Tiger (beast, L)."
+      },
+      "category": "beast",
+      "grade": "rare",
+      "size": "L",
+      "tags": ["tendency_attack", "tendency_mount"],
+      "image": "SABERTOOTH.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 13,
+        "dex": 9,
+        "agi": 10,
+        "vit": 10,
+        "int": 4,
+        "wis": 4
+      },
+      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "검치호의 야수의 송곳니와 발톱",
+          "en": "Saber-toothed Tiger's Beast Fang & Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 35,
+          "min": 29,
+          "max": 45
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 885,
+        "critPm": 112,
+        "intervalMs": 1150,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 20,
+            "max": 50
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 72
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "bison_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "mammoth",
+      "name": {
+        "ko": "매머드",
+        "en": "Mammoth"
+      },
+      "description": {
+        "ko": "빙하기 거대 코끼리. 두꺼운 털과 엄청난 체구로 냉기 저항이 뛰어나고 압도적인 힘을 지닌다.",
+        "en": "Mammoth (beast, XL)."
+      },
+      "category": "beast",
+      "grade": "rare",
+      "size": "XL",
+      "giant3Tile": true,
+      "tags": ["tendency_attack", "tendency_defense"],
+      "image": "MAMMOTH.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 17,
+        "dex": 2,
+        "agi": 3,
+        "vit": 16,
+        "int": 5,
+        "wis": 5
+      },
+      "elements": [0, 0, 4, 6, 0, 0, 0, 0, 2, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 6
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "매머드의 야수의 송곳니와 발톱",
+          "en": "Mammoth's Beast Fang & Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 43,
+          "min": 35,
+          "max": 55
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 850,
+        "critPm": 56,
+        "intervalMs": 1325,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 32,
+            "max": 80
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "bison_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "king_cobra",
+      "name": {
+        "ko": "킹코브라",
+        "en": "King Cobra"
+      },
+      "description": {
+        "ko": "세계 최대의 독사. 신경독으로 즉시 행동 불능을 일으키며 독 내성이 높다.",
+        "en": "King Cobra (beast, M)."
+      },
+      "category": "beast",
+      "grade": "rare",
+      "size": "M",
+      "image": "KING_COBRA.png",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 7,
+        "dex": 10,
+        "agi": 11,
+        "vit": 6,
+        "int": 5,
+        "wis": 5
+      },
+      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "킹코브라의 야수의 송곳니와 발톱",
+          "en": "King Cobra's Beast Fang & Claw"
+        },
+        "appropriate": "agi",
+        "physical": {
+          "attack": 21,
+          "min": 17,
+          "max": 27
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 890,
+        "critPm": 120,
+        "intervalMs": 1125,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 12,
+            "max": 30
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 80
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "bison_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "drake",
+      "name": {
+        "ko": "드레이크",
+        "en": "Drake"
+      },
+      "description": {
+        "ko": "비행 능력이 없는 소형 용. 화염 브레스와 강인한 비늘을 보유.",
+        "en": "Drake (dragon, M)."
+      },
+      "category": "dragon",
+      "grade": "rare",
+      "size": "M",
+      "image": "DRAKE.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 10,
+        "dex": 5,
+        "agi": 6,
+        "vit": 8,
+        "int": 6,
+        "wis": 5
+      },
+      "elements": [1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "fire_bolt",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "드레이크의 용의 숨결과 발톱",
+          "en": "Drake's Dragon Breath & Talon"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 28,
+          "min": 23,
+          "max": 36
+        },
+        "elemental": {
+          "attack": 23,
+          "min": 19,
+          "max": 29
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 865,
+        "critPm": 80,
+        "intervalMs": 1250,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 16,
+            "max": 40
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "dragon_meat",
+          "chancePm": 250,
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "wyvern",
+      "name": {
+        "ko": "와이번",
+        "en": "Wyvern"
+      },
+      "description": {
+        "ko": "두 날개와 두 다리를 가진 중형 용족. 불꽃 브레스와 독침 꼬리가 주 무기.",
+        "en": "Wyvern (dragon, L)."
+      },
+      "category": "dragon",
+      "grade": "rare",
+      "size": "L",
+      "tags": ["tendency_attack", "tendency_mount"],
+      "image": "WYVERN.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 14,
+        "dex": 7,
+        "agi": 10,
+        "vit": 12,
+        "int": 7,
+        "wis": 6
+      },
+      "elements": [1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 4
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "fire_bolt",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "와이번의 용의 숨결과 발톱",
+          "en": "Wyvern's Dragon Breath & Talon"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 37,
+          "min": 30,
+          "max": 47
+        },
+        "elemental": {
+          "attack": 25,
+          "min": 21,
+          "max": 32
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 875,
+        "critPm": 96,
+        "intervalMs": 1150,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 24,
+            "max": 60
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 56
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "dragon_meat",
+          "chancePm": 250,
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "elder_dragon",
+      "name": {
+        "ko": "고룡",
+        "en": "Elder Dragon"
+      },
+      "description": {
+        "ko": "수천 년을 살아온 고대의 대룡. 그 존재 자체가 재앙이며 비늘 하나가 광대한 화력을 품는다.",
+        "en": "Elder Dragon (dragon, XL)."
+      },
+      "category": "dragon",
+      "grade": "boss",
+      "size": "XL",
+      "giant3Tile": true,
+      "tags": ["tendency_attack", "tendency_defense", "tendency_agile", "tendency_magic", "tendency_mount"],
+      "image": "ELDER_DRAGON.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 20,
+        "dex": 10,
+        "agi": 12,
+        "vit": 18,
+        "int": 16,
+        "wis": 14
+      },
+      "elements": [2, 2, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 2
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "고룡의 용의 숨결과 발톱",
+          "en": "Elder Dragon's Dragon Breath & Talon"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 60,
+          "min": 49,
+          "max": 77
+        },
+        "elemental": {
+          "attack": 45,
+          "min": 37,
+          "max": 58
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 890,
+        "critPm": 120,
+        "intervalMs": 1100,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 36,
+            "max": 90
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 80
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "dragon_meat",
+          "chancePm": 250,
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "frost_drake",
+      "name": {
+        "ko": "빙결 드레이크",
+        "en": "Frost Drake"
+      },
+      "description": {
+        "ko": "빙하 지대를 지배하는 냉기 용. 얼어붙은 브레스로 지형까지 동결시킨다.",
+        "en": "Frost Drake (dragon, L)."
+      },
+      "category": "dragon",
+      "grade": "epic",
+      "size": "L",
+      "tags": ["tendency_attack", "tendency_mount"],
+      "image": "FROST_DRAKE.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 13,
+        "dex": 8,
+        "agi": 9,
+        "vit": 12,
+        "int": 10,
+        "wis": 9
+      },
+      "elements": [5, 3, 2, 0, 0, 0, 0, 0, 3, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_light"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 4
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "frost_bolt",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "빙결 드레이크의 용의 숨결과 발톱",
+          "en": "Frost Drake's Dragon Breath & Talon"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 41,
+          "min": 34,
+          "max": 52
+        },
+        "elemental": {
+          "attack": 32,
+          "min": 26,
+          "max": 41
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 880,
+        "critPm": 104,
+        "intervalMs": 1175,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 24,
+            "max": 60
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 64
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "dragon_meat",
+          "chancePm": 250,
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "rathalos",
+      "name": {
+        "ko": "라타로스",
+        "en": "Rathalos"
+      },
+      "description": {
+        "ko": "하늘의 왕으로 불리는 비행룡. 날카로운 발톱 독과 화염 브레스를 조합하며 공중에서 일방적으로 공격한다.",
+        "en": "Rathalos (dragon, XL)."
+      },
+      "category": "dragon",
+      "grade": "epic",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "tendency_agile", "tendency_mount", "set_mh_homage"],
+      "image": "RATHALOS.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 17,
+        "dex": 11,
+        "agi": 13,
+        "vit": 14,
+        "int": 8,
+        "wis": 7
+      },
+      "elements": [0, 5, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "라타로스의 용의 숨결과 발톱",
+          "en": "Rathalos's Dragon Breath & Talon"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 49,
+          "min": 40,
+          "max": 63
+        },
+        "elemental": {
+          "attack": 28,
+          "min": 23,
+          "max": 36
+        },
+        "skillElementsPm": [0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 895,
+        "critPm": 128,
+        "intervalMs": 1075,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 28,
+            "max": 70
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 88
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "dragon_meat",
+          "chancePm": 250,
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "lagiacrus",
+      "name": {
+        "ko": "라기아크루스",
+        "en": "Lagiacrus"
+      },
+      "description": {
+        "ko": "바다의 뇌신이라 불리는 해룡. 몸 표면에 방전체를 뒤덮어 광역 전격을 방출한다.",
+        "en": "Lagiacrus (dragon, XL)."
+      },
+      "category": "dragon",
+      "grade": "epic",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "tendency_mount", "set_mh_homage"],
+      "image": "LAGIACRUS.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 16,
+        "dex": 9,
+        "agi": 11,
+        "vit": 15,
+        "int": 9,
+        "wis": 8
+      },
+      "elements": [0, 0, 0, 10, 0, 0, 0, 0, 0, 2, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "라기아크루스의 용의 숨결과 발톱",
+          "en": "Lagiacrus's Dragon Breath & Talon"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 47,
+          "min": 39,
+          "max": 60
+        },
+        "elemental": {
+          "attack": 30,
+          "min": 25,
+          "max": 38
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 885,
+        "critPm": 112,
+        "intervalMs": 1125,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 30,
+            "max": 75
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 72
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "dragon_meat",
+          "chancePm": 250,
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "sea_serpent",
+      "name": {
+        "ko": "바다뱀",
+        "en": "Sea Serpent"
+      },
+      "description": {
+        "ko": "고대 심해에 잠든 거대 해룡. 배를 뒤엎는 수압파와 독물 분비가 특기.",
+        "en": "Sea Serpent (aquatic, XL)."
+      },
+      "category": "aquatic",
+      "grade": "rare",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense"],
+      "image": "SEA_SERPENT.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 15,
+        "dex": 6,
+        "agi": 8,
+        "vit": 14,
+        "int": 6,
+        "wis": 7
+      },
+      "elements": [7, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 5
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "바다뱀의 심해의 아가리와 지느러미",
+          "en": "Sea Serpent's Abyssal Maw & Fin"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 39,
+          "min": 32,
+          "max": 50
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 870,
+        "critPm": 88,
+        "intervalMs": 1200,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 28,
+            "max": 70
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 48
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "kraken",
+      "name": {
+        "ko": "크라켄",
+        "en": "Kraken"
+      },
+      "description": {
+        "ko": "전설의 심해 거대 두족류. 수십 개의 촉수로 적함을 포박하고 먹물로 광역 실명을 일으킨다.",
+        "en": "Kraken (aquatic, XL)."
+      },
+      "category": "aquatic",
+      "grade": "epic",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "tendency_magic"],
+      "image": "KRAKEN.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 20,
+        "dex": 8,
+        "agi": 5,
+        "vit": 20,
+        "int": 12,
+        "wis": 10
+      },
+      "elements": [6, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "크라켄의 심해의 아가리와 지느러미",
+          "en": "Kraken's Abyssal Maw & Fin"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 56,
+          "min": 46,
+          "max": 72
+        },
+        "elemental": {
+          "attack": 36,
+          "min": 30,
+          "max": 46
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 880,
+        "critPm": 104,
+        "intervalMs": 1275,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 40,
+            "max": 100
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 64
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "mermaid",
+      "name": {
+        "ko": "인어",
+        "en": "Mermaid"
+      },
+      "description": {
+        "ko": "상반신은 인간, 하반신은 물고기인 신비로운 존재. 세이렌의 노래로 정신 지배가 가능하다.",
+        "en": "Mermaid (aquatic, M)."
+      },
+      "category": "aquatic",
+      "grade": "epic",
+      "size": "M",
+      "tags": ["tendency_agile", "tendency_magic"],
+      "image": "MERMAID.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 6,
+        "dex": 11,
+        "agi": 13,
+        "vit": 7,
+        "int": 14,
+        "wis": 14
+      },
+      "elements": [5, 0, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 5
+      },
+      "skills": [
+        {
+          "skill": "frost_bolt",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "인어의 심해의 아가리와 지느러미",
+          "en": "Mermaid's Abyssal Maw & Fin"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 25,
+          "min": 21,
+          "max": 32
+        },
+        "elemental": {
+          "attack": 41,
+          "min": 34,
+          "max": 52
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 895,
+        "critPm": 128,
+        "intervalMs": 1075,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 14,
+            "max": 35
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 88
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "leviathan",
+      "name": {
+        "ko": "레비아탄",
+        "en": "Leviathan"
+      },
+      "description": {
+        "ko": "성서의 바다 괴물. 몸통 하나로 대양을 채울 수 있으며 그 존재가 곧 홍수와 폭풍의 전조.",
+        "en": "Leviathan (aquatic, XL)."
+      },
+      "category": "aquatic",
+      "grade": "legendary",
+      "size": "XL",
+      "giant3Tile": true,
+      "tags": ["tendency_attack", "tendency_defense", "tendency_magic"],
+      "image": "LEVIATHAN.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 22,
+        "dex": 7,
+        "agi": 9,
+        "vit": 20,
+        "int": 14,
+        "wis": 12
+      },
+      "elements": [4, 2, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 2
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "레비아탄의 심해의 아가리와 지느러미",
+          "en": "Leviathan's Abyssal Maw & Fin"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 68,
+          "min": 56,
+          "max": 87
+        },
+        "elemental": {
+          "attack": 51,
+          "min": 42,
+          "max": 65
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 875,
+        "critPm": 96,
+        "intervalMs": 1175,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 40,
+            "max": 100
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 56
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "electric_eel_giant",
+      "name": {
+        "ko": "자이언트 전기뱀장어",
+        "en": "Giant Electric Eel"
+      },
+      "description": {
+        "ko": "수중에서 강력한 전기를 방전하는 거대 뱀장어. 수십 미터 반경을 마비시킨다.",
+        "en": "Giant Electric Eel (aquatic, L)."
+      },
+      "category": "aquatic",
+      "grade": "rare",
+      "size": "L",
+      "image": "ELECTRIC_EEL_GIANT.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 10,
+        "dex": 8,
+        "agi": 9,
+        "vit": 10,
+        "int": 4,
+        "wis": 4
+      },
+      "elements": [8, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 6
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "자이언트 전기뱀장어의 심해의 아가리와 지느러미",
+          "en": "Giant Electric Eel's Abyssal Maw & Fin"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 28,
+          "min": 23,
+          "max": 36
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 880,
+        "critPm": 104,
+        "intervalMs": 1175,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 20,
+            "max": 50
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 64
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "deep_horror",
+      "name": {
+        "ko": "심해 공포체",
+        "en": "Deep Horror"
+      },
+      "description": {
+        "ko": "심해 압력 속에서 진화한 공포 생명체. 생물 발광으로 먹이를 유인하고 의식을 잠식한다.",
+        "en": "Deep Horror (aquatic, L)."
+      },
+      "category": "aquatic",
+      "grade": "rare",
+      "size": "L",
+      "image": "DEEP_HORROR.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 12,
+        "dex": 7,
+        "agi": 8,
+        "vit": 11,
+        "int": 9,
+        "wis": 7
+      },
+      "elements": [8, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 5
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "frost_bolt",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "심해 공포체의 심해의 아가리와 지느러미",
+          "en": "Deep Horror's Abyssal Maw & Fin"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 32,
+          "min": 26,
+          "max": 41
+        },
+        "elemental": {
+          "attack": 30,
+          "min": 25,
+          "max": 38
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 875,
+        "critPm": 96,
+        "intervalMs": 1200,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 22,
+            "max": 55
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 56
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "tide_turtle",
+      "name": {
+        "ko": "조류거북",
+        "en": "Tide Turtle"
+      },
+      "description": {
+        "ko": "등껍데기가 작은 섬처럼 보이는 초대형 거북. 해류를 조종하며 수백 년을 유유히 산다.",
+        "en": "Tide Turtle (aquatic, XL)."
+      },
+      "category": "aquatic",
+      "grade": "rare",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense"],
+      "image": "TIDE_TURTLE.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 14,
+        "dex": 3,
+        "agi": 3,
+        "vit": 18,
+        "int": 5,
+        "wis": 6
+      },
+      "elements": [7, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "조류거북의 심해의 아가리와 지느러미",
+          "en": "Tide Turtle's Abyssal Maw & Fin"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 37,
+          "min": 30,
+          "max": 47
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 855,
+        "critPm": 64,
+        "intervalMs": 1325,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 36,
+            "max": 90
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "phoenix",
+      "name": {
+        "ko": "피닉스",
+        "en": "Phoenix"
+      },
+      "description": {
+        "ko": "불꽃 속에서 재생하는 불사조. 죽으면 화염 속에서 새 생명으로 부활하며 치유의 눈물을 흘린다.",
+        "en": "Phoenix (bird, L)."
+      },
+      "category": "bird",
+      "grade": "legendary",
+      "size": "L",
+      "tags": ["tendency_attack", "tendency_agile", "tendency_magic", "tendency_mount"],
+      "image": "PHOENIX.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 14,
+        "dex": 14,
+        "agi": 15,
+        "vit": 12,
+        "int": 15,
+        "wis": 16
+      },
+      "elements": [0, 5, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 2
+      },
+      "skills": [
+        {
+          "skill": "fire_bolt",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "피닉스의 맹금의 발톱과 부리",
+          "en": "Phoenix's Raptor Talon & Beak"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 51,
+          "min": 42,
+          "max": 65
+        },
+        "elemental": {
+          "attack": 53,
+          "min": 43,
+          "max": 68
+        },
+        "skillElementsPm": [0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 910,
+        "critPm": 152,
+        "intervalMs": 1025,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 24,
+            "max": 60
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 112
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "gryphon_feather",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raptor_beak",
+          "chancePm": 250,
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "thunderbird",
+      "name": {
+        "ko": "천둥새",
+        "en": "Thunderbird"
+      },
+      "description": {
+        "ko": "날개짓 한 번에 폭풍을 일으키는 전설의 거대 조류. 번개를 타고 하늘을 누비는 신성한 새.",
+        "en": "Thunderbird (bird, XL)."
+      },
+      "category": "bird",
+      "grade": "epic",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "tendency_agile", "tendency_mount"],
+      "image": "THUNDERBIRD.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 16,
+        "dex": 12,
+        "agi": 14,
+        "vit": 13,
+        "int": 9,
+        "wis": 8
+      },
+      "elements": [0, 2, 6, 2, 0, 0, 0, 0, 0, 3, 0, 0],
+      "allowedSubspecies": ["sub_fire", "sub_light"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "천둥새의 맹금의 발톱과 부리",
+          "en": "Thunderbird's Raptor Talon & Beak"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 47,
+          "min": 39,
+          "max": 60
+        },
+        "elemental": {
+          "attack": 30,
+          "min": 25,
+          "max": 38
+        },
+        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 900,
+        "critPm": 136,
+        "intervalMs": 1050,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 26,
+            "max": 65
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 96
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "gryphon_feather",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raptor_beak",
+          "chancePm": 250,
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "harpy",
+      "name": {
+        "ko": "하르피아",
+        "en": "Harpy"
+      },
+      "description": {
+        "ko": "그리스 신화의 반인반조 괴물. 폭풍 같은 비행과 날카로운 발톱으로 약탈하며 탈출이 어렵다.",
+        "en": "Harpy (bird, M)."
+      },
+      "category": "bird",
+      "grade": "rare",
+      "size": "M",
+      "tags": ["tendency_agile", "set_greek_myth"],
+      "image": "HARPY.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 8,
+        "dex": 12,
+        "agi": 14,
+        "vit": 7,
+        "int": 8,
+        "wis": 7
+      },
+      "elements": [0, 0, 7, 3, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 5
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "chain_lightning",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "하르피아의 맹금의 발톱과 부리",
+          "en": "Harpy's Raptor Talon & Beak"
+        },
+        "appropriate": "agi",
+        "physical": {
+          "attack": 24,
+          "min": 20,
+          "max": 31
+        },
+        "elemental": {
+          "attack": 28,
+          "min": 23,
+          "max": 36
+        },
+        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 900,
+        "critPm": 136,
+        "intervalMs": 1050,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 14,
+            "max": 35
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 96
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "gryphon_feather",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raptor_beak",
+          "chancePm": 250,
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "roc",
+      "name": {
+        "ko": "로크",
+        "en": "Roc"
+      },
+      "description": {
+        "ko": "아라비안나이트의 전설적 거대 조류. 코끼리를 통째로 들어 올릴 수 있는 압도적 크기.",
+        "en": "Roc (bird, XL)."
+      },
+      "category": "bird",
+      "grade": "epic",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "tendency_agile", "tendency_mount"],
+      "image": "ROC.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 18,
+        "dex": 9,
+        "agi": 12,
+        "vit": 15,
+        "int": 5,
+        "wis": 5
+      },
+      "elements": [2, 0, 5, 3, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 4
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "로크의 맹금의 발톱과 부리",
+          "en": "Roc's Raptor Talon & Beak"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 52,
+          "min": 43,
+          "max": 67
+        },
+        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 885,
+        "critPm": 112,
+        "intervalMs": 1100,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 30,
+            "max": 75
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 72
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "gryphon_feather",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raptor_beak",
+          "chancePm": 250,
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "cockatrice",
+      "name": {
+        "ko": "코카트리스",
+        "en": "Cockatrice"
+      },
+      "description": {
+        "ko": "닭 머리와 파충류 몸체를 가진 석화 능력자. 시선 또는 날숨으로 석화를 유발한다.",
+        "en": "Cockatrice (bird, M)."
+      },
+      "category": "bird",
+      "grade": "rare",
+      "size": "M",
+      "image": "COCKATRICE.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 9,
+        "dex": 10,
+        "agi": 11,
+        "vit": 8,
+        "int": 5,
+        "wis": 5
+      },
+      "elements": [0, 0, 8, 2, 0, 0, 0, 0, 2, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "코카트리스의 맹금의 발톱과 부리",
+          "en": "Cockatrice's Raptor Talon & Beak"
+        },
+        "appropriate": "agi",
+        "physical": {
+          "attack": 26,
+          "min": 21,
+          "max": 33
+        },
+        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 890,
+        "critPm": 120,
+        "intervalMs": 1125,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 16,
+            "max": 40
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 80
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "gryphon_feather",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raptor_beak",
+          "chancePm": 250,
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "giant_mantis",
+      "name": {
+        "ko": "거대사마귀",
+        "en": "Giant Mantis"
+      },
+      "description": {
+        "ko": "의태와 기습으로 사냥하는 거대 사마귀. 두 낫 모양의 앞다리로 공격하며 상위 속도를 보유.",
+        "en": "Giant Mantis (insect, M)."
+      },
+      "category": "insect",
+      "grade": "rare",
+      "size": "M",
+      "image": "GIANT_MANTIS.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 8,
+        "dex": 12,
+        "agi": 11,
+        "vit": 5,
+        "int": 3,
+        "wis": 3
+      },
+      "elements": [0, 0, 4, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 6
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "거대사마귀의 갑충의 큰턱과 독침",
+          "en": "Giant Mantis's Chitin Mandible & Stinger"
+        },
+        "appropriate": "agi",
+        "physical": {
+          "attack": 24,
+          "min": 20,
+          "max": 31
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 900,
+        "critPm": 136,
+        "intervalMs": 1125,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 10,
+            "max": 25
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 96
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "queen_bee",
+      "name": {
+        "ko": "여왕벌",
+        "en": "Queen Bee"
+      },
+      "description": {
+        "ko": "군집을 지배하는 거대 여왕벌. 독침과 집단 소환으로 광역 공격을 수행한다.",
+        "en": "Queen Bee (insect, M)."
+      },
+      "category": "insect",
+      "grade": "epic",
+      "size": "M",
+      "tags": ["tendency_agile"],
+      "image": "QUEEN_BEE.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 7,
+        "dex": 13,
+        "agi": 14,
+        "vit": 6,
+        "int": 10,
+        "wis": 10
+      },
+      "elements": [3, 0, 2, 5, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 5
+      },
+      "skills": [
+        {
+          "skill": "stone_spike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "여왕벌의 갑충의 큰턱과 독침",
+          "en": "Queen Bee's Chitin Mandible & Stinger"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 27,
+          "min": 22,
+          "max": 35
+        },
+        "elemental": {
+          "attack": 32,
+          "min": 26,
+          "max": 41
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 905,
+        "critPm": 144,
+        "intervalMs": 1050,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 12,
+            "max": 30
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 104
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "beetle_titan",
+      "name": {
+        "ko": "타이탄장수풍뎅이",
+        "en": "Titan Beetle"
+      },
+      "description": {
+        "ko": "강철 수준의 외골격을 가진 거대 풍뎅이. 뿔로 적을 들어 올리는 압도적 근력이 특기.",
+        "en": "Titan Beetle (insect, L)."
+      },
+      "category": "insect",
+      "grade": "common",
+      "size": "L",
+      "tags": ["tendency_attack", "tendency_defense"],
+      "image": "BEETLE_TITAN.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 13,
+        "dex": 4,
+        "agi": 4,
+        "vit": 14,
+        "int": 2,
+        "wis": 2
+      },
+      "elements": [0, 0, 4, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 6
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "타이탄장수풍뎅이의 갑충의 큰턱과 독침",
+          "en": "Titan Beetle's Chitin Mandible & Stinger"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 31,
+          "min": 25,
+          "max": 40
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 860,
+        "critPm": 72,
+        "intervalMs": 1300,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 28,
+            "max": 70
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 450,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "venom_spider",
+      "name": {
+        "ko": "독거미",
+        "en": "Venom Spider"
+      },
+      "description": {
+        "ko": "강력한 신경독을 분비하는 거대 거미. 웹으로 함정을 만들고 매복 공격을 선호한다.",
+        "en": "Venom Spider (insect, M)."
+      },
+      "category": "insect",
+      "grade": "rare",
+      "size": "M",
+      "image": "VENOM_SPIDER.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 6,
+        "dex": 11,
+        "agi": 10,
+        "vit": 7,
+        "int": 7,
+        "wis": 6
+      },
+      "elements": [2, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 6
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "독거미의 갑충의 큰턱과 독침",
+          "en": "Venom Spider's Chitin Mandible & Stinger"
+        },
+        "appropriate": "agi",
+        "physical": {
+          "attack": 19,
+          "min": 16,
+          "max": 24
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 895,
+        "critPm": 128,
+        "intervalMs": 1150,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 14,
+            "max": 35
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 88
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "scorpion_emperor",
+      "name": {
+        "ko": "황제전갈",
+        "en": "Emperor Scorpion"
+      },
+      "description": {
+        "ko": "황제급 거대 전갈. 집게발과 독침을 복합 사용하며 사막에서 최상위 포식자 위치를 점한다.",
+        "en": "Emperor Scorpion (insect, L)."
+      },
+      "category": "insect",
+      "grade": "rare",
+      "size": "L",
+      "image": "SCORPION_EMPEROR.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 12,
+        "dex": 8,
+        "agi": 7,
+        "vit": 11,
+        "int": 4,
+        "wis": 4
+      },
+      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 6
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "황제전갈의 갑충의 큰턱과 독침",
+          "en": "Emperor Scorpion's Chitin Mandible & Stinger"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 32,
+          "min": 26,
+          "max": 41
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 880,
+        "critPm": 104,
+        "intervalMs": 1225,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 22,
+            "max": 55
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 64
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "moth_lunar",
+      "name": {
+        "ko": "달빛나방",
+        "en": "Lunar Moth"
+      },
+      "description": {
+        "ko": "달빛을 흡수해 마법 가루를 뿌리는 신성한 나방. 가루에 맞은 적은 혼란과 수면 상태에 빠진다.",
+        "en": "Lunar Moth (insect, M)."
+      },
+      "category": "insect",
+      "grade": "rare",
+      "size": "M",
+      "tags": ["tendency_agile", "tendency_magic"],
+      "image": "MOTH_LUNAR.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 3,
+        "dex": 12,
+        "agi": 15,
+        "vit": 4,
+        "int": 11,
+        "wis": 13
+      },
+      "elements": [0, 0, 0, 3, 7, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire", "sub_wind"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 5
+      },
+      "skills": [
+        {
+          "skill": "light_heal",
+          "innate": true
+        },
+        {
+          "skill": "radiant_ward",
+          "unlockLevel": 8
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "달빛나방의 갑충의 큰턱과 독침",
+          "en": "Lunar Moth's Chitin Mandible & Stinger"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 13,
+          "min": 11,
+          "max": 17
+        },
+        "elemental": {
+          "attack": 34,
+          "min": 28,
+          "max": 44
+        },
+        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 900,
+        "critPm": 136,
+        "intervalMs": 1025,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 8,
+            "max": 20
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 96
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "skeleton",
+      "name": {
+        "ko": "스켈레톤",
+        "en": "Skeleton"
+      },
+      "description": {
+        "ko": "네크로맨서가 소환한 기본 불사체. 독/수면/마비 면역이지만 타격에 약하다.",
+        "en": "Skeleton (undead, M)."
+      },
+      "category": "undead",
+      "grade": "common",
+      "size": "M",
+      "image": "SKELETON.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 6,
+        "dex": 5,
+        "agi": 5,
+        "vit": 4,
+        "int": 2,
+        "wis": 2
+      },
+      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 2, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 4,
+        "perRebirth": 1,
+        "max": 8
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "stone_spike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "스켈레톤의 망자의 원한 발톱",
+          "en": "Skeleton's Wraith Bone Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 15,
+          "min": 12,
+          "max": 19
+        },
+        "elemental": {
+          "attack": 14,
+          "min": 11,
+          "max": 18
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 865,
+        "critPm": 80,
+        "intervalMs": 1275,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 8,
+            "max": 20
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 450,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "zombie",
+      "name": {
+        "ko": "좀비",
+        "en": "Zombie"
+      },
+      "description": {
+        "ko": "부패한 육체의 언데드. 느리지만 물리면 감염 디버프를 전파하는 군중 유형.",
+        "en": "Zombie (undead, M)."
+      },
+      "category": "undead",
+      "grade": "common",
+      "size": "M",
+      "image": "ZOMBIE.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 7,
+        "dex": 3,
+        "agi": 2,
+        "vit": 8,
+        "int": 1,
+        "wis": 1
+      },
+      "elements": [2, 0, 0, 8, 0, 0, 0, 0, 0, 0, 2, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 4,
+        "perRebirth": 1,
+        "max": 9
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "stone_spike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "좀비의 망자의 원한 발톱",
+          "en": "Zombie's Wraith Bone Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 17,
+          "min": 14,
+          "max": 22
+        },
+        "elemental": {
+          "attack": 12,
+          "min": 10,
+          "max": 15
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 855,
+        "critPm": 64,
+        "intervalMs": 1350,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 16,
+            "max": 40
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 450,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "lich",
+      "name": {
+        "ko": "리치",
+        "en": "Lich"
+      },
+      "description": {
+        "ko": "고대 마법사가 불사를 택해 변한 최고위 마법 언데드. 필로그터리에 영혼을 봉인해 진짜로 죽이기 불가능.",
+        "en": "Lich (undead, M)."
+      },
+      "category": "undead",
+      "grade": "boss",
+      "size": "M",
+      "tags": ["tendency_magic"],
+      "image": "LICH.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 8,
+        "dex": 10,
+        "agi": 8,
+        "vit": 9,
+        "int": 22,
+        "wis": 20
+      },
+      "elements": [3, 2, 0, 5, 0, 0, 0, 0, 0, 0, 2, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "stone_spike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "리치의 망자의 원한 발톱",
+          "en": "Lich's Wraith Bone Claw"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 34,
+          "min": 28,
+          "max": 44
+        },
+        "elemental": {
+          "attack": 58,
+          "min": 48,
+          "max": 74
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 890,
+        "critPm": 120,
+        "intervalMs": 1200,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 18,
+            "max": 45
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 80
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "wight",
+      "name": {
+        "ko": "와이트",
+        "en": "Wight"
+      },
+      "description": {
+        "ko": "의지와 힘을 보유한 고등 언데드. 촉으로 생명력 흡수가 가능하며 비마법 무기로는 상처를 줄 수 없다.",
+        "en": "Wight (undead, M)."
+      },
+      "category": "undead",
+      "grade": "epic",
+      "size": "M",
+      "tags": ["tendency_attack", "tendency_magic"],
+      "image": "WIGHT.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 13,
+        "dex": 9,
+        "agi": 8,
+        "vit": 11,
+        "int": 11,
+        "wis": 10
+      },
+      "elements": [3, 0, 2, 5, 0, 0, 0, 0, 0, 0, 2, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 4
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "stone_spike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "와이트의 망자의 원한 발톱",
+          "en": "Wight's Wraith Bone Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 41,
+          "min": 34,
+          "max": 52
+        },
+        "elemental": {
+          "attack": 34,
+          "min": 28,
+          "max": 44
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 885,
+        "critPm": 112,
+        "intervalMs": 1200,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 22,
+            "max": 55
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 72
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "banshee",
+      "name": {
+        "ko": "밴시",
+        "en": "Banshee"
+      },
+      "description": {
+        "ko": "아일랜드 전설의 죽음의 여인. 절규가 즉사 판정이며 비물질화로 물리 공격을 회피한다.",
+        "en": "Banshee (undead, S)."
+      },
+      "category": "undead",
+      "grade": "epic",
+      "size": "S",
+      "tags": ["tendency_agile", "tendency_magic"],
+      "image": "BANSHEE.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 450,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 4,
+        "dex": 12,
+        "agi": 14,
+        "vit": 6,
+        "int": 13,
+        "wis": 12
+      },
+      "elements": [2, 1, 3, 4, 0, 0, 0, 0, 0, 0, 2, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 5
+      },
+      "skills": [
+        {
+          "skill": "fire_bolt",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "밴시의 망자의 원한 발톱",
+          "en": "Banshee's Wraith Bone Claw"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 21,
+          "min": 17,
+          "max": 27
+        },
+        "elemental": {
+          "attack": 39,
+          "min": 32,
+          "max": 50
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 900,
+        "critPm": 136,
+        "intervalMs": 1050,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 12,
+            "max": 30
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 96
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "goblin",
+      "name": {
+        "ko": "고블린",
+        "en": "Goblin"
+      },
+      "description": {
+        "ko": "소형 인간형 몬스터. 비열하지만 군집 전술과 함정 설치 능력이 뛰어나다.",
+        "en": "Goblin (humanoid, S)."
+      },
+      "category": "humanoid",
+      "grade": "common",
+      "size": "S",
+      "image": "GOBLIN.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 450,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 4,
+        "dex": 8,
+        "agi": 9,
+        "vit": 4,
+        "int": 5,
+        "wis": 3
+      },
+      "elements": [0, 0, 4, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 4,
+        "perRebirth": 1,
+        "max": 8
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "고블린의 전투 무구",
+          "en": "Goblin's Tribal Warblade"
+        },
+        "appropriate": "agi",
+        "physical": {
+          "attack": 11,
+          "min": 9,
+          "max": 14
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 880,
+        "critPm": 104,
+        "intervalMs": 1175,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 8,
+            "max": 20
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 64
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 450,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "orc_warrior",
+      "name": {
+        "ko": "오크 전사",
+        "en": "Orc Warrior"
+      },
+      "description": {
+        "ko": "전투를 위해 태어난 거구의 오크. 광전사 상태(버서크)에서 극도의 근력과 내성을 발휘한다.",
+        "en": "Orc Warrior (humanoid, L)."
+      },
+      "category": "humanoid",
+      "grade": "rare",
+      "size": "L",
+      "tags": ["tendency_attack", "tendency_defense"],
+      "image": "ORC_WARRIOR.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 14,
+        "dex": 5,
+        "agi": 5,
+        "vit": 13,
+        "int": 4,
+        "wis": 3
+      },
+      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 6
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "오크 전사의 전투 무구",
+          "en": "Orc Warrior's Tribal Warblade"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 37,
+          "min": 30,
+          "max": 47
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 865,
+        "critPm": 80,
+        "intervalMs": 1275,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 26,
+            "max": 65
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "troll",
+      "name": {
+        "ko": "트롤",
+        "en": "Troll"
+      },
+      "description": {
+        "ko": "강력한 재생 능력을 가진 대형 인간형. 불 또는 산성 공격이 아니면 재생이 멈추지 않는다.",
+        "en": "Troll (humanoid, XL)."
+      },
+      "category": "humanoid",
+      "grade": "rare",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense"],
+      "image": "TROLL.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 18,
+        "dex": 4,
+        "agi": 4,
+        "vit": 19,
+        "int": 3,
+        "wis": 2
+      },
+      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "트롤의 전투 무구",
+          "en": "Troll's Tribal Warblade"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 46,
+          "min": 38,
+          "max": 59
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 860,
+        "critPm": 72,
+        "intervalMs": 1300,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 38,
+            "max": 95
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "mind_flayer",
+      "name": {
+        "ko": "마인드 플레이어",
+        "en": "Mind Flayer"
+      },
+      "description": {
+        "ko": "촉수 달린 머리를 가진 뇌파 지배자. 마인드블라스트로 광역 혼절을 일으키고 뇌를 추출해 먹는다.",
+        "en": "Mind Flayer (humanoid, M)."
+      },
+      "category": "humanoid",
+      "grade": "epic",
+      "size": "M",
+      "tags": ["tendency_magic"],
+      "image": "MIND_FLAYER.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 10,
+        "dex": 12,
+        "agi": 10,
+        "vit": 9,
+        "int": 20,
+        "wis": 18
+      },
+      "elements": [0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "stone_spike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "마인드 플레이어의 전투 무구",
+          "en": "Mind Flayer's Tribal Warblade"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 34,
+          "min": 28,
+          "max": 44
+        },
+        "elemental": {
+          "attack": 54,
+          "min": 44,
+          "max": 69
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 900,
+        "critPm": 136,
+        "intervalMs": 1150,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 18,
+            "max": 45
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 96
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "minotaur",
+      "name": {
+        "ko": "미노타우로스",
+        "en": "Minotaur"
+      },
+      "description": {
+        "ko": "그리스 신화의 소머리 인간. 미궁을 완벽하게 파악하며 돌진 공격은 벽도 부순다.",
+        "en": "Minotaur (humanoid, XL)."
+      },
+      "category": "humanoid",
+      "grade": "rare",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "set_greek_myth"],
+      "image": "MINOTAUR.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 19,
+        "dex": 5,
+        "agi": 5,
+        "vit": 17,
+        "int": 5,
+        "wis": 4
+      },
+      "elements": [2, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 4
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "미노타우로스의 전투 무구",
+          "en": "Minotaur's Tribal Warblade"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 48,
+          "min": 39,
+          "max": 61
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 865,
+        "critPm": 80,
+        "intervalMs": 1275,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 34,
+            "max": 85
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "centaur",
+      "name": {
+        "ko": "켄타우로스",
+        "en": "Centaur"
+      },
+      "description": {
+        "ko": "상반신은 인간, 하반신은 말인 전사 종족. 궁술과 창술이 뛰어나며 탑승 마운트 역할도 가능.",
+        "en": "Centaur (humanoid, L)."
+      },
+      "category": "humanoid",
+      "grade": "epic",
+      "size": "L",
+      "tags": ["tendency_attack", "tendency_agile", "set_greek_myth"],
+      "image": "CENTAUR.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 14,
+        "dex": 13,
+        "agi": 14,
+        "vit": 12,
+        "int": 10,
+        "wis": 9
+      },
+      "elements": [3, 2, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "켄타우로스의 전투 무구",
+          "en": "Centaur's Tribal Warblade"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 43,
+          "min": 35,
+          "max": 55
+        },
+        "elemental": {
+          "attack": 32,
+          "min": 26,
+          "max": 41
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 905,
+        "critPm": 144,
+        "intervalMs": 1050,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 24,
+            "max": 60
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 104
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "unicorn",
+      "name": {
+        "ko": "유니콘",
+        "en": "Unicorn"
+      },
+      "description": {
+        "ko": "이마에 나선 뿔을 가진 순수의 존재. 뿔은 독을 중화하고 상처를 치유하는 신성한 힘을 지닌다.",
+        "en": "Unicorn (mythical, L)."
+      },
+      "category": "mythical",
+      "grade": "epic",
+      "size": "L",
+      "tags": ["tendency_agile", "tendency_magic", "tendency_mount"],
+      "image": "UNICORN.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 12,
+        "dex": 13,
+        "agi": 14,
+        "vit": 11,
+        "int": 13,
+        "wis": 15
+      },
+      "elements": [1, 0, 3, 2, 4, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire", "sub_wind"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "light_heal",
+          "innate": true
+        },
+        {
+          "skill": "radiant_ward",
+          "unlockLevel": 8
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "유니콘의 신비의 뿔과 발톱",
+          "en": "Unicorn's Mythic Horn & Claw"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 38,
+          "min": 31,
+          "max": 49
+        },
+        "elemental": {
+          "attack": 39,
+          "min": 32,
+          "max": 50
+        },
+        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 905,
+        "critPm": 144,
+        "intervalMs": 1050,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 22,
+            "max": 55
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 104
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "purifying_horn",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "cerberus",
+      "name": {
+        "ko": "케르베로스",
+        "en": "Cerberus"
+      },
+      "description": {
+        "ko": "하데스의 세 머리 지옥 문지기. 세 머리가 각기 다른 공격 패턴을 보이며 명계 탈출을 원천 차단.",
+        "en": "Cerberus (mythical, XL)."
+      },
+      "category": "mythical",
+      "grade": "epic",
+      "size": "XL",
+      "tags": [
+        "tendency_attack",
+        "tendency_defense",
+        "tendency_agile",
+        "tendency_magic",
+        "tendency_mount",
+        "set_greek_myth"
+      ],
+      "image": "CERBERUS.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 18,
+        "dex": 11,
+        "agi": 12,
+        "vit": 16,
+        "int": 11,
+        "wis": 10
+      },
+      "elements": [0, 2, 3, 5, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "케르베로스의 신비의 뿔과 발톱",
+          "en": "Cerberus's Mythic Horn & Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 52,
+          "min": 43,
+          "max": 67
+        },
+        "elemental": {
+          "attack": 34,
+          "min": 28,
+          "max": 44
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 895,
+        "critPm": 128,
+        "intervalMs": 1100,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 32,
+            "max": 80
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 88
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "purifying_horn",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "griffon",
+      "name": {
+        "ko": "그리폰",
+        "en": "Griffon"
+      },
+      "description": {
+        "ko": "독수리 머리와 사자 몸통의 하이브리드. 고귀한 기사단의 문장으로도 쓰이는 신성한 포식자.",
+        "en": "Griffon (mythical, XL)."
+      },
+      "category": "mythical",
+      "grade": "epic",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "tendency_agile", "tendency_mount", "set_greek_myth"],
+      "image": "GRIFFON.png",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 17,
+        "dex": 12,
+        "agi": 13,
+        "vit": 14,
+        "int": 9,
+        "wis": 9
+      },
+      "elements": [0, 2, 6, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "그리폰의 신비의 뿔과 발톱",
+          "en": "Griffon's Mythic Horn & Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 49,
+          "min": 40,
+          "max": 63
+        },
+        "elemental": {
+          "attack": 30,
+          "min": 25,
+          "max": 38
+        },
+        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 900,
+        "critPm": 136,
+        "intervalMs": 1075,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 28,
+            "max": 70
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 96
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "purifying_horn",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "manticore",
+      "name": {
+        "ko": "만티코어",
+        "en": "Manticore"
+      },
+      "description": {
+        "ko": "사자 몸통, 인간 얼굴, 전갈 꼬리를 가진 페르시아 신화의 괴물. 독 가시를 투사하고 인육을 탐한다.",
+        "en": "Manticore (mythical, XL)."
+      },
+      "category": "mythical",
+      "grade": "epic",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "tendency_mount", "set_greek_myth"],
+      "image": "MANTICORE.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 17,
+        "dex": 10,
+        "agi": 11,
+        "vit": 15,
+        "int": 10,
+        "wis": 8
+      },
+      "elements": [2, 1, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "만티코어의 신비의 뿔과 발톱",
+          "en": "Manticore's Mythic Horn & Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 49,
+          "min": 40,
+          "max": 63
+        },
+        "elemental": {
+          "attack": 32,
+          "min": 26,
+          "max": 41
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 890,
+        "critPm": 120,
+        "intervalMs": 1125,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 30,
+            "max": 75
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 80
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "purifying_horn",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "pegasus",
+      "name": {
+        "ko": "페가수스",
+        "en": "Pegasus"
+      },
+      "description": {
+        "ko": "날개 달린 천마. 번개와 같은 비행 속도로 전장을 누비며 기사의 이상적 탑승 크리쳐.",
+        "en": "Pegasus (mythical, XL)."
+      },
+      "category": "mythical",
+      "grade": "legendary",
+      "size": "XL",
+      "tags": [
+        "tendency_attack",
+        "tendency_defense",
+        "tendency_agile",
+        "tendency_magic",
+        "tendency_mount",
+        "set_greek_myth"
+      ],
+      "image": "PEGASUS.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 14,
+        "dex": 14,
+        "agi": 16,
+        "vit": 13,
+        "int": 11,
+        "wis": 12
+      },
+      "elements": [2, 0, 3, 0, 5, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire", "sub_wind"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "페가수스의 신비의 뿔과 발톱",
+          "en": "Pegasus's Mythic Horn & Claw"
+        },
+        "appropriate": "agi",
+        "physical": {
+          "attack": 51,
+          "min": 42,
+          "max": 65
+        },
+        "elemental": {
+          "attack": 44,
+          "min": 36,
+          "max": 56
+        },
+        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 910,
+        "critPm": 152,
+        "intervalMs": 1000,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 26,
+            "max": 65
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 112
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "purifying_horn",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "sphinx",
+      "name": {
+        "ko": "스핑크스",
+        "en": "Sphinx"
+      },
+      "description": {
+        "ko": "수수께끼를 내는 이집트 신화의 인간-사자 혼합체. 수수께끼를 못 맞힌 자를 즉석에서 처형한다.",
+        "en": "Sphinx (mythical, XL)."
+      },
+      "category": "mythical",
+      "grade": "legendary",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "tendency_magic", "tendency_mount", "set_greek_myth"],
+      "image": "SPHINX.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 16,
+        "dex": 9,
+        "agi": 10,
+        "vit": 14,
+        "int": 20,
+        "wis": 22
+      },
+      "elements": [2, 0, 2, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 2
+      },
+      "skills": [
+        {
+          "skill": "stone_spike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "스핑크스의 신비의 뿔과 발톱",
+          "en": "Sphinx's Mythic Horn & Claw"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 55,
+          "min": 45,
+          "max": 70
+        },
+        "elemental": {
+          "attack": 64,
+          "min": 52,
+          "max": 82
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 885,
+        "critPm": 112,
+        "intervalMs": 1150,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 28,
+            "max": 70
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 72
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "purifying_horn",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "beholder",
+      "name": {
+        "ko": "비홀더",
+        "en": "Beholder"
+      },
+      "description": {
+        "ko": "구체 몸통에 중앙 눈과 10개의 눈줄기를 가진 D&D 이콘. 각 눈에서 각기 다른 마법 광선을 발사한다.",
+        "en": "Beholder (mythical, L)."
+      },
+      "category": "mythical",
+      "grade": "legendary",
+      "size": "L",
+      "tags": ["tendency_defense", "tendency_agile", "tendency_magic", "tendency_mount"],
+      "image": "BEHOLDER.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 10,
+        "dex": 14,
+        "agi": 12,
+        "vit": 14,
+        "int": 20,
+        "wis": 18
+      },
+      "elements": [0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 2
+      },
+      "skills": [
+        {
+          "skill": "stone_spike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "비홀더의 신비의 뿔과 발톱",
+          "en": "Beholder's Mythic Horn & Claw"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 42,
+          "min": 34,
+          "max": 54
+        },
+        "elemental": {
+          "attack": 64,
+          "min": 52,
+          "max": 82
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 910,
+        "critPm": 152,
+        "intervalMs": 1100,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 28,
+            "max": 70
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 112
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "purifying_horn",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "azure_dragon",
+      "name": {
+        "ko": "청룡",
+        "en": "Azure Dragon"
+      },
+      "description": {
+        "ko": "동방을 수호하는 전설의 푸른 용. 구름과 바람을 다스리며 거대한 기상 이변을 일으킨다.",
+        "en": "Azure Dragon (mythical, XL)."
+      },
+      "category": "mythical",
+      "grade": "mythic",
+      "size": "XL",
+      "giant3Tile": true,
+      "tags": [
+        "tendency_attack",
+        "tendency_defense",
+        "tendency_agile",
+        "tendency_magic",
+        "tendency_mount",
+        "set_four_gods"
+      ],
+      "image": "AZURE_DRAGON.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 18,
+        "dex": 10,
+        "agi": 12,
+        "vit": 15,
+        "int": 20,
+        "wis": 20
+      },
+      "elements": [0, 0, 10, 0, 0, 0, 0, 0, 0, 6, 0, 0],
+      "allowedSubspecies": ["sub_fire", "sub_light"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 2
+      },
+      "skills": [
+        {
+          "skill": "chain_lightning",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "청룡의 신비의 뿔과 발톱",
+          "en": "Azure Dragon's Mythic Horn & Claw"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 68,
+          "min": 56,
+          "max": 87
+        },
+        "elemental": {
+          "attack": 72,
+          "min": 59,
+          "max": 92
+        },
+        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 890,
+        "critPm": 120,
+        "intervalMs": 1100,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 30,
+            "max": 75
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 80
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "purifying_horn",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "white_tiger",
+      "name": {
+        "ko": "백호",
+        "en": "White Tiger"
+      },
+      "description": {
+        "ko": "서방을 수호하는 전설의 하얀 호랑이. 파도를 가르는 속도와 치명적인 이빨을 지니고 있다.",
+        "en": "White Tiger (mythical, XL)."
+      },
+      "category": "mythical",
+      "grade": "mythic",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "tendency_agile", "tendency_mount", "set_four_gods"],
+      "image": "WHITE_TIGER.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 22,
+        "dex": 18,
+        "agi": 20,
+        "vit": 14,
+        "int": 10,
+        "wis": 10
+      },
+      "elements": [10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 2
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "백호의 신비의 뿔과 발톱",
+          "en": "White Tiger's Mythic Horn & Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 76,
+          "min": 62,
+          "max": 97
+        },
+        "elemental": {
+          "attack": 50,
+          "min": 41,
+          "max": 64
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 930,
+        "critPm": 184,
+        "intervalMs": 900,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 28,
+            "max": 70
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 144
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "purifying_horn",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "vermilion_bird",
+      "name": {
+        "ko": "주작",
+        "en": "Vermilion Bird"
+      },
+      "description": {
+        "ko": "남방을 수호하는 전설의 붉은 새. 꺼지지 않는 영겁의 화염으로 모든 사악함을 불태운다.",
+        "en": "Vermilion Bird (mythical, XL)."
+      },
+      "category": "mythical",
+      "grade": "mythic",
+      "size": "XL",
+      "tags": ["tendency_agile", "tendency_magic", "tendency_mount", "set_four_gods"],
+      "image": "VERMILION_BIRD.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 10,
+        "dex": 15,
+        "agi": 18,
+        "vit": 12,
+        "int": 22,
+        "wis": 18
+      },
+      "elements": [0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 2
+      },
+      "skills": [
+        {
+          "skill": "flame_burst",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "주작의 신비의 뿔과 발톱",
+          "en": "Vermilion Bird's Mythic Horn & Claw"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 50,
+          "min": 41,
+          "max": 64
+        },
+        "elemental": {
+          "attack": 76,
+          "min": 62,
+          "max": 97
+        },
+        "skillElementsPm": [0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 915,
+        "critPm": 160,
+        "intervalMs": 950,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 24,
+            "max": 60
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 120
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "purifying_horn",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "black_tortoise",
+      "name": {
+        "ko": "현무",
+        "en": "Black Tortoise"
+      },
+      "description": {
+        "ko": "북방을 수호하는 전설의 거북. 뱀의 아종과 공생하며 대지의 울림을 다루는 요새와 같은 존재.",
+        "en": "Black Tortoise (mythical, XL)."
+      },
+      "category": "mythical",
+      "grade": "mythic",
+      "size": "XL",
+      "giant3Tile": true,
+      "tags": ["tendency_attack", "tendency_defense", "tendency_magic", "set_four_gods"],
+      "image": "BLACK_TORTOISE.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 20,
+        "dex": 5,
+        "agi": 5,
+        "vit": 30,
+        "int": 15,
+        "wis": 20
+      },
+      "elements": [0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 2
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "현무의 신비의 뿔과 발톱",
+          "en": "Black Tortoise's Mythic Horn & Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 72,
+          "min": 59,
+          "max": 92
+        },
+        "elemental": {
+          "attack": 61,
+          "min": 50,
+          "max": 78
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 865,
+        "critPm": 80,
+        "intervalMs": 1275,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 60,
+            "max": 150
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "purifying_horn",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "iron_golem",
+      "name": {
+        "ko": "철제 골렘",
+        "en": "Iron Golem"
+      },
+      "description": {
+        "ko": "마법으로 제작된 금속 거인. 관통 무기 면역이며 체내 용광로에서 유독 연기를 방출한다.",
+        "en": "Iron Golem (construct, XL)."
+      },
+      "category": "construct",
+      "grade": "rare",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense"],
+      "image": "IRON_GOLEM.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 20,
+        "dex": 2,
+        "agi": 2,
+        "vit": 22,
+        "int": 2,
+        "wis": 2
+      },
+      "elements": [0, 0, 0, 10, 0, 0, 6, 2, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire", "sub_earth"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "철제 골렘의 강철 파쇄 주먹",
+          "en": "Iron Golem's Construct Crusher Fist"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 50,
+          "min": 41,
+          "max": 64
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 850,
+        "critPm": 56,
+        "intervalMs": 1350,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 44,
+            "max": 110
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "mithril",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "copper_ore",
+          "chancePm": 400,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "stone_golem",
+      "name": {
+        "ko": "석제 골렘",
+        "en": "Stone Golem"
+      },
+      "description": {
+        "ko": "마법 룬으로 새겨진 돌 거인. 슬로우 효과에 면역이며 마법 공격을 물리로 전환한다.",
+        "en": "Stone Golem (construct, XL)."
+      },
+      "category": "construct",
+      "grade": "rare",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense"],
+      "image": "STONE_GOLEM.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 16,
+        "dex": 2,
+        "agi": 2,
+        "vit": 18,
+        "int": 1,
+        "wis": 1
+      },
+      "elements": [0, 0, 0, 10, 0, 0, 6, 2, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire", "sub_earth"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "석제 골렘의 강철 파쇄 주먹",
+          "en": "Stone Golem's Construct Crusher Fist"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 41,
+          "min": 34,
+          "max": 52
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 850,
+        "critPm": 56,
+        "intervalMs": 1350,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 36,
+            "max": 90
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "mithril",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "copper_ore",
+          "chancePm": 400,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "clockwork_titan",
+      "name": {
+        "ko": "태엽 타이탄",
+        "en": "Clockwork Titan"
+      },
+      "description": {
+        "ko": "정밀 태엽 기계로 구동되는 자동 전투 기계. 내장된 회전 톱날과 로켓 주먹이 주 무장.",
+        "en": "Clockwork Titan (construct, XL)."
+      },
+      "category": "construct",
+      "grade": "epic",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "tendency_magic"],
+      "image": "CLOCKWORK_TITAN.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 18,
+        "dex": 8,
+        "agi": 7,
+        "vit": 17,
+        "int": 12,
+        "wis": 10
+      },
+      "elements": [2, 2, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "태엽 타이탄의 강철 파쇄 주먹",
+          "en": "Clockwork Titan's Construct Crusher Fist"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 52,
+          "min": 43,
+          "max": 67
+        },
+        "elemental": {
+          "attack": 36,
+          "min": 30,
+          "max": 46
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 880,
+        "critPm": 104,
+        "intervalMs": 1225,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 34,
+            "max": 85
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 64
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "mithril",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "copper_ore",
+          "chancePm": 400,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "mimic",
+      "name": {
+        "ko": "미믹",
+        "en": "Mimic"
+      },
+      "description": {
+        "ko": "D&D의 아이콘적 함정 몬스터. 보물 상자로 위장하다 열려는 자를 점착성 혀로 포박하고 소화한다.",
+        "en": "Mimic (construct, M)."
+      },
+      "category": "construct",
+      "grade": "rare",
+      "size": "M",
+      "tags": ["set_dq_ff"],
+      "image": "MIMIC.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 11,
+        "dex": 9,
+        "agi": 8,
+        "vit": 10,
+        "int": 7,
+        "wis": 6
+      },
+      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 4
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "미믹의 강철 파쇄 주먹",
+          "en": "Mimic's Construct Crusher Fist"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 30,
+          "min": 25,
+          "max": 38
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 885,
+        "critPm": 112,
+        "intervalMs": 1200,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 20,
+            "max": 50
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 72
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "mithril",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "copper_ore",
+          "chancePm": 400,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "tyrannosaurus",
+      "name": {
+        "ko": "티라노사우루스",
+        "en": "Tyrannosaurus Rex"
+      },
+      "description": {
+        "ko": "백악기 최강 육식 공룡. 압도적인 턱 힘과 체구로 어떤 상대도 제압하는 정점 포식자.",
+        "en": "Tyrannosaurus Rex (dinosaur, XL)."
+      },
+      "category": "dinosaur",
+      "grade": "boss",
+      "size": "XL",
+      "giant3Tile": true,
+      "tags": ["tendency_attack", "tendency_defense"],
+      "image": "TYRANNOSAURUS.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 20,
+        "dex": 3,
+        "agi": 5,
+        "vit": 18,
+        "int": 3,
+        "wis": 3
+      },
+      "elements": [3, 2, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 5
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "티라노사우루스의 고대 폭룡의 턱과 꼬리",
+          "en": "Tyrannosaurus Rex's Primeval Jaw & Tail"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 60,
+          "min": 49,
+          "max": 77
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 855,
+        "critPm": 64,
+        "intervalMs": 1275,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 36,
+            "max": 90
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "triceratops",
+      "name": {
+        "ko": "트리케라톱스",
+        "en": "Triceratops"
+      },
+      "description": {
+        "ko": "세 개의 뿔과 두꺼운 프릴이 특징인 백악기 초식 공룡. 돌진 공격과 방어력이 탱커급.",
+        "en": "Triceratops (dinosaur, XL)."
+      },
+      "category": "dinosaur",
+      "grade": "rare",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense"],
+      "image": "TRICERATOPS.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 16,
+        "dex": 2,
+        "agi": 4,
+        "vit": 18,
+        "int": 3,
+        "wis": 3
+      },
+      "elements": [6, 0, 0, 4, 0, 0, 0, 0, 3, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire", "sub_light"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 6
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "트리케라톱스의 고대 폭룡의 턱과 꼬리",
+          "en": "Triceratops's Primeval Jaw & Tail"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 41,
+          "min": 34,
+          "max": 52
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 850,
+        "critPm": 56,
+        "intervalMs": 1300,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 36,
+            "max": 90
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "velociraptor",
+      "name": {
+        "ko": "벨로키랍토르",
+        "en": "Velociraptor"
+      },
+      "description": {
+        "ko": "빠른 속도와 날카로운 발톱으로 집단 사냥하는 소형 공룡. 영리하고 협동 전술을 구사.",
+        "en": "Velociraptor (dinosaur, M)."
+      },
+      "category": "dinosaur",
+      "grade": "rare",
+      "size": "M",
+      "tags": ["tendency_agile"],
+      "image": "VELOCIRAPTOR.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 9,
+        "dex": 13,
+        "agi": 14,
+        "vit": 7,
+        "int": 7,
+        "wis": 6
+      },
+      "elements": [2, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 5
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "벨로키랍토르의 고대 폭룡의 턱과 꼬리",
+          "en": "Velociraptor's Primeval Jaw & Tail"
+        },
+        "appropriate": "agi",
+        "physical": {
+          "attack": 26,
+          "min": 21,
+          "max": 33
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 905,
+        "critPm": 144,
+        "intervalMs": 1050,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 14,
+            "max": 35
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 104
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "pteranodon",
+      "name": {
+        "ko": "프테라노돈",
+        "en": "Pteranodon"
+      },
+      "description": {
+        "ko": "거대한 날개로 비행하는 백악기 익룡. 공중 강습과 탑승 마운트로 활용 가능.",
+        "en": "Pteranodon (dinosaur, L)."
+      },
+      "category": "dinosaur",
+      "grade": "rare",
+      "size": "L",
+      "tags": ["tendency_agile"],
+      "image": "PTERANODON.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 10,
+        "dex": 9,
+        "agi": 12,
+        "vit": 8,
+        "int": 4,
+        "wis": 4
+      },
+      "elements": [0, 0, 2, 8, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "프테라노돈의 고대 폭룡의 턱과 꼬리",
+          "en": "Pteranodon's Primeval Jaw & Tail"
+        },
+        "appropriate": "agi",
+        "physical": {
+          "attack": 28,
+          "min": 23,
+          "max": 36
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 885,
+        "critPm": 112,
+        "intervalMs": 1100,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 16,
+            "max": 40
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 72
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "spinosaurus",
+      "name": {
+        "ko": "스피노사우루스",
+        "en": "Spinosaurus"
+      },
+      "description": {
+        "ko": "수륙양용 백악기 최대 육식 공룡. 등의 거대한 돛과 수중 활동 능력이 특징.",
+        "en": "Spinosaurus (dinosaur, XL)."
+      },
+      "category": "dinosaur",
+      "grade": "rare",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense"],
+      "image": "SPINOSAURUS.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 19,
+        "dex": 5,
+        "agi": 7,
+        "vit": 17,
+        "int": 3,
+        "wis": 3
+      },
+      "elements": [2, 2, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 4
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "스피노사우루스의 고대 폭룡의 턱과 꼬리",
+          "en": "Spinosaurus's Primeval Jaw & Tail"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 48,
+          "min": 39,
+          "max": 61
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 865,
+        "critPm": 80,
+        "intervalMs": 1225,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 34,
+            "max": 85
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "ifrit",
+      "name": {
+        "ko": "이프리트",
+        "en": "Ifrit"
+      },
+      "description": {
+        "ko": "이슬람 신화의 화염 정령. 불꽃으로 이루어진 몸체와 강력한 화속성 마법이 특기.",
+        "en": "Ifrit (elemental, M)."
+      },
+      "category": "elemental",
+      "grade": "epic",
+      "size": "M",
+      "tags": ["tendency_magic"],
+      "image": "IFRIT.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 12,
+        "dex": 8,
+        "agi": 10,
+        "vit": 9,
+        "int": 12,
+        "wis": 10
+      },
+      "elements": [0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 5
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "flame_burst",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "이프리트의 원소 핵 파동",
+          "en": "Ifrit's Elemental Core Pulse"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 38,
+          "min": 31,
+          "max": 49
+        },
+        "elemental": {
+          "attack": 36,
+          "min": 30,
+          "max": 46
+        },
+        "skillElementsPm": [0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 880,
+        "critPm": 104,
+        "intervalMs": 1150,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 18,
+            "max": 45
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 64
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "mithril",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "undine",
+      "name": {
+        "ko": "운디네",
+        "en": "Undine"
+      },
+      "description": {
+        "ko": "유럽 연금술의 물 정령. 물 위를 걷고 수중에서 자유롭게 이동하며 치유와 수속성 마법을 부린다.",
+        "en": "Undine (elemental, M)."
+      },
+      "category": "elemental",
+      "grade": "rare",
+      "size": "M",
+      "tags": ["tendency_magic"],
+      "image": "UNDINE.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 6,
+        "dex": 10,
+        "agi": 11,
+        "vit": 7,
+        "int": 12,
+        "wis": 13
+      },
+      "elements": [10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 5
+      },
+      "skills": [
+        {
+          "skill": "frost_bolt",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "운디네의 원소 핵 파동",
+          "en": "Undine's Elemental Core Pulse"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 19,
+          "min": 16,
+          "max": 24
+        },
+        "elemental": {
+          "attack": 36,
+          "min": 30,
+          "max": 46
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 890,
+        "critPm": 120,
+        "intervalMs": 1125,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 14,
+            "max": 35
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 80
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "mithril",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "sylph",
+      "name": {
+        "ko": "실프",
+        "en": "Sylph"
+      },
+      "description": {
+        "ko": "공기를 지배하는 바람 정령. 투명에 가까운 몸체와 극한의 속도로 탐지와 회피가 어렵다.",
+        "en": "Sylph (elemental, S)."
+      },
+      "category": "elemental",
+      "grade": "rare",
+      "size": "S",
+      "tags": ["tendency_agile", "tendency_magic"],
+      "image": "SYLPH.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 450,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 3,
+        "dex": 14,
+        "agi": 16,
+        "vit": 3,
+        "int": 11,
+        "wis": 12
+      },
+      "elements": [0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 4
+      },
+      "skills": [
+        {
+          "skill": "chain_lightning",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "실프의 원소 핵 파동",
+          "en": "Sylph's Elemental Core Pulse"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 13,
+          "min": 11,
+          "max": 17
+        },
+        "elemental": {
+          "attack": 34,
+          "min": 28,
+          "max": 44
+        },
+        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 910,
+        "critPm": 152,
+        "intervalMs": 1000,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 6,
+            "max": 15
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 112
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "mithril",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "gnome_spirit",
+      "name": {
+        "ko": "놈 정령",
+        "en": "Gnome Spirit"
+      },
+      "description": {
+        "ko": "대지와 광물을 수호하는 땅의 정령. 광맥을 감지하고 암석을 조작하는 실용적 능력을 보유.",
+        "en": "Gnome Spirit (elemental, S)."
+      },
+      "category": "elemental",
+      "grade": "rare",
+      "size": "S",
+      "tags": ["tendency_magic"],
+      "image": "GNOME_SPIRIT.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 450,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 7,
+        "dex": 6,
+        "agi": 6,
+        "vit": 10,
+        "int": 10,
+        "wis": 11
+      },
+      "elements": [0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 6
+      },
+      "skills": [
+        {
+          "skill": "stone_spike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "놈 정령의 원소 핵 파동",
+          "en": "Gnome Spirit's Elemental Core Pulse"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 21,
+          "min": 17,
+          "max": 27
+        },
+        "elemental": {
+          "attack": 32,
+          "min": 26,
+          "max": 41
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 870,
+        "critPm": 88,
+        "intervalMs": 1250,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 20,
+            "max": 50
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 48
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "mithril",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "luminara",
+      "name": {
+        "ko": "루미나라",
+        "en": "Luminara"
+      },
+      "description": {
+        "ko": "순수한 빛 에너지로 구성된 광속성 정령. 성역을 형성하고 아군을 회복하는 치유 역할에 특화.",
+        "en": "Luminara (elemental, M)."
+      },
+      "category": "elemental",
+      "grade": "epic",
+      "size": "M",
+      "tags": ["tendency_agile", "tendency_magic"],
+      "image": "LUMINARA.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 7,
+        "dex": 13,
+        "agi": 14,
+        "vit": 8,
+        "int": 14,
+        "wis": 16
+      },
+      "elements": [0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_wind"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "light_heal",
+          "innate": true
+        },
+        {
+          "skill": "radiant_ward",
+          "unlockLevel": 8
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "루미나라의 원소 핵 파동",
+          "en": "Luminara's Elemental Core Pulse"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 27,
+          "min": 22,
+          "max": 35
+        },
+        "elemental": {
+          "attack": 41,
+          "min": 34,
+          "max": 52
+        },
+        "skillElementsPm": [0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 905,
+        "critPm": 144,
+        "intervalMs": 1050,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 16,
+            "max": 40
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 104
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "mithril",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "void_shade",
+      "name": {
+        "ko": "공허의 그림자",
+        "en": "Void Shade"
+      },
+      "description": {
+        "ko": "암흑 차원에서 소환된 무형의 어둠 정령. 물리 공격을 통과시키며 심리 공격으로 정신을 침식한다.",
+        "en": "Void Shade (elemental, M)."
+      },
+      "category": "elemental",
+      "grade": "epic",
+      "size": "M",
+      "tags": ["tendency_agile", "tendency_magic"],
+      "image": "VOID_SHADE.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 8,
+        "dex": 14,
+        "agi": 15,
+        "vit": 7,
+        "int": 13,
+        "wis": 11
+      },
+      "elements": [0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_wind"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "dark_curse",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "공허의 그림자의 원소 핵 파동",
+          "en": "Void Shade's Elemental Core Pulse"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 30,
+          "min": 25,
+          "max": 38
+        },
+        "elemental": {
+          "attack": 39,
+          "min": 32,
+          "max": 50
+        },
+        "skillElementsPm": [0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0],
+        "hitPm": 910,
+        "critPm": 152,
+        "intervalMs": 1025,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 14,
+            "max": 35
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 112
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "mithril",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "imp",
+      "name": {
+        "ko": "임프",
+        "en": "Imp"
+      },
+      "description": {
+        "ko": "소형 악마족. 장난 좋아하고 자질구레한 저주를 거는 것이 특기. 고급 악마의 심부름꾼.",
+        "en": "Imp (demon, S)."
+      },
+      "category": "demon",
+      "grade": "rare",
+      "size": "S",
+      "image": "IMP.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 450,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 5,
+        "dex": 9,
+        "agi": 11,
+        "vit": 4,
+        "int": 7,
+        "wis": 5
+      },
+      "elements": [0, 4, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "fire_bolt",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "임프의 심연의 마조",
+          "en": "Imp's Infernal Demon Claw"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 17,
+          "min": 14,
+          "max": 22
+        },
+        "elemental": {
+          "attack": 25,
+          "min": 21,
+          "max": 32
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 885,
+        "critPm": 112,
+        "intervalMs": 1125,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 8,
+            "max": 20
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 72
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "succubus",
+      "name": {
+        "ko": "서큐버스",
+        "en": "Succubus"
+      },
+      "description": {
+        "ko": "욕망을 조종하는 유혹의 악마. 매혹 능력으로 강력한 적을 전투 불능 상태로 만들어 기력을 흡수한다.",
+        "en": "Succubus (demon, M)."
+      },
+      "category": "demon",
+      "grade": "legendary",
+      "size": "M",
+      "tags": ["tendency_agile", "tendency_magic"],
+      "image": "SUCCUBUS.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 9,
+        "dex": 15,
+        "agi": 16,
+        "vit": 10,
+        "int": 18,
+        "wis": 16
+      },
+      "elements": [0, 2, 2, 0, 0, 6, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_wind"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 2
+      },
+      "skills": [
+        {
+          "skill": "dark_curse",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "서큐버스의 심연의 마조",
+          "en": "Succubus's Infernal Demon Claw"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 40,
+          "min": 33,
+          "max": 51
+        },
+        "elemental": {
+          "attack": 60,
+          "min": 49,
+          "max": 77
+        },
+        "skillElementsPm": [0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0],
+        "hitPm": 915,
+        "critPm": 160,
+        "intervalMs": 1000,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 20,
+            "max": 50
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 120
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "balor",
+      "name": {
+        "ko": "발로르",
+        "en": "Balor"
+      },
+      "description": {
+        "ko": "D&D 최강의 대악마. 화염 채찍과 번개 검으로 무장하며 사망 시 광역 화염 폭발을 일으킨다.",
+        "en": "Balor (demon, XL)."
+      },
+      "category": "demon",
+      "grade": "boss",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "tendency_magic"],
+      "image": "BALOR.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 22,
+        "dex": 9,
+        "agi": 10,
+        "vit": 20,
+        "int": 14,
+        "wis": 12
+      },
+      "elements": [2, 4, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 2
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "발로르의 심연의 마조",
+          "en": "Balor's Infernal Demon Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 64,
+          "min": 52,
+          "max": 82
+        },
+        "elemental": {
+          "attack": 41,
+          "min": 34,
+          "max": 52
+        },
+        "skillElementsPm": [0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 885,
+        "critPm": 112,
+        "intervalMs": 1150,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 40,
+            "max": 100
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 72
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "behemoth",
+      "name": {
+        "ko": "베히모스",
+        "en": "Behemoth"
+      },
+      "description": {
+        "ko": "파이널판타지 시리즈의 상징적 괴물. 죽기 직전 자기 강화 마법을 시전하며 번개 광선을 발사한다.",
+        "en": "Behemoth (demon, XL)."
+      },
+      "category": "demon",
+      "grade": "boss",
+      "size": "XL",
+      "giant3Tile": true,
+      "tags": ["tendency_attack", "tendency_defense", "set_dq_ff"],
+      "image": "BEHEMOTH.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 19,
+        "dex": 6,
+        "agi": 7,
+        "vit": 18,
+        "int": 7,
+        "wis": 6
+      },
+      "elements": [0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_wind"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 4
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "베히모스의 심연의 마조",
+          "en": "Behemoth's Infernal Demon Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 58,
+          "min": 48,
+          "max": 74
+        },
+        "elemental": {
+          "attack": 25,
+          "min": 21,
+          "max": 32
+        },
+        "skillElementsPm": [0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0],
+        "hitPm": 870,
+        "critPm": 88,
+        "intervalMs": 1225,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 36,
+            "max": 90
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 48
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "pit_fiend",
+      "name": {
+        "ko": "핏 피엔드",
+        "en": "Pit Fiend"
+      },
+      "description": {
+        "ko": "9번째 지옥의 최고위 악마 군주. 독 미사일, 화염, 저주, 공포를 복합 구사하는 전략형 악마.",
+        "en": "Pit Fiend (demon, XL)."
+      },
+      "category": "demon",
+      "grade": "legendary",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "tendency_magic"],
+      "image": "PIT_FIEND.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 21,
+        "dex": 11,
+        "agi": 11,
+        "vit": 19,
+        "int": 17,
+        "wis": 16
+      },
+      "elements": [2, 6, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 2
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "핏 피엔드의 심연의 마조",
+          "en": "Pit Fiend's Infernal Demon Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 66,
+          "min": 54,
+          "max": 84
+        },
+        "elemental": {
+          "attack": 57,
+          "min": 47,
+          "max": 73
+        },
+        "skillElementsPm": [0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 895,
+        "critPm": 128,
+        "intervalMs": 1125,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 38,
+            "max": 95
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 88
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "dryad",
+      "name": {
+        "ko": "드리아드",
+        "en": "Dryad"
+      },
+      "description": {
+        "ko": "나무에 깃드는 숲의 정령. 나무를 자유자재로 조종하고 자연 치유로 아군을 회복시킨다.",
+        "en": "Dryad (plant, M)."
+      },
+      "category": "plant",
+      "grade": "epic",
+      "size": "M",
+      "tags": ["tendency_magic"],
+      "image": "DRYAD.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 7,
+        "dex": 10,
+        "agi": 8,
+        "vit": 11,
+        "int": 13,
+        "wis": 14
+      },
+      "elements": [3, 2, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 5
+      },
+      "skills": [
+        {
+          "skill": "stone_spike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "드리아드의 가시 덩굴 채찍",
+          "en": "Dryad's Thorn Vine Lash"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 27,
+          "min": 22,
+          "max": 35
+        },
+        "elemental": {
+          "attack": 39,
+          "min": 32,
+          "max": 50
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 890,
+        "critPm": 120,
+        "intervalMs": 1200,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 22,
+            "max": 55
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 80
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "malboro",
+      "name": {
+        "ko": "말보로",
+        "en": "Malboro"
+      },
+      "description": {
+        "ko": "FF 시리즈 대표 악몽. 악취 숨결(Bad Breath)로 독·혼란·수면·침묵 등 전 부정 상태이상을 동시 부여.",
+        "en": "Malboro (plant, L)."
+      },
+      "category": "plant",
+      "grade": "rare",
+      "size": "L",
+      "tags": ["tendency_defense", "set_dq_ff"],
+      "image": "MALBORO.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 11,
+        "dex": 6,
+        "agi": 5,
+        "vit": 13,
+        "int": 8,
+        "wis": 7
+      },
+      "elements": [0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "stone_spike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "말보로의 가시 덩굴 채찍",
+          "en": "Malboro's Thorn Vine Lash"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 30,
+          "min": 25,
+          "max": 38
+        },
+        "elemental": {
+          "attack": 28,
+          "min": 23,
+          "max": 36
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 870,
+        "critPm": 88,
+        "intervalMs": 1275,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 26,
+            "max": 65
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 48
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "treant",
+      "name": {
+        "ko": "트리언트",
+        "en": "Treant"
+      },
+      "description": {
+        "ko": "수백 년 자란 마법적 걸어다니는 나무. 평시엔 일반 나무로 위장하며 숲의 침입자를 응징한다.",
+        "en": "Treant (plant, XL)."
+      },
+      "category": "plant",
+      "grade": "epic",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "tendency_magic"],
+      "image": "TREANT.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 18,
+        "dex": 2,
+        "agi": 2,
+        "vit": 20,
+        "int": 9,
+        "wis": 11
+      },
+      "elements": [2, 2, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 5
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        },
+        {
+          "skill": "stone_spike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "트리언트의 가시 덩굴 채찍",
+          "en": "Treant's Thorn Vine Lash"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 52,
+          "min": 43,
+          "max": 67
+        },
+        "elemental": {
+          "attack": 30,
+          "min": 25,
+          "max": 38
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 850,
+        "critPm": 56,
+        "intervalMs": 1350,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 40,
+            "max": 100
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "venus_trap",
+      "name": {
+        "ko": "마계 파리지옥",
+        "en": "Venus Man-Trap"
+      },
+      "description": {
+        "ko": "인간 크기의 변형된 식충 식물. 강산성 소화액과 촉수로 먹이를 포박해 소화한다.",
+        "en": "Venus Man-Trap (plant, L)."
+      },
+      "category": "plant",
+      "grade": "rare",
+      "size": "L",
+      "tags": ["tendency_defense"],
+      "image": "VENUS_TRAP.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 12,
+        "dex": 4,
+        "agi": 3,
+        "vit": 14,
+        "int": 4,
+        "wis": 4
+      },
+      "elements": [4, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "마계 파리지옥의 가시 덩굴 채찍",
+          "en": "Venus Man-Trap's Thorn Vine Lash"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 32,
+          "min": 26,
+          "max": 41
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 860,
+        "critPm": 72,
+        "intervalMs": 1325,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 28,
+            "max": 70
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "spore_fungus",
+      "name": {
+        "ko": "포자 버섯 괴물",
+        "en": "Spore Fungus"
+      },
+      "description": {
+        "ko": "균류에서 진화한 괴물. 포자를 대량 방출해 광역 독과 혼란을 일으키고 시체를 비료로 흡수한다.",
+        "en": "Spore Fungus (plant, M)."
+      },
+      "category": "plant",
+      "grade": "common",
+      "size": "M",
+      "image": "SPORE_FUNGUS.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 6,
+        "dex": 5,
+        "agi": 4,
+        "vit": 9,
+        "int": 3,
+        "wis": 3
+      },
+      "elements": [6, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 4,
+        "perRebirth": 1,
+        "max": 8
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "포자 버섯 괴물의 가시 덩굴 채찍",
+          "en": "Spore Fungus's Thorn Vine Lash"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 15,
+          "min": 12,
+          "max": 19
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 865,
+        "critPm": 80,
+        "intervalMs": 1300,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 18,
+            "max": 45
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 450,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "gibbering_mouther",
+      "name": {
+        "ko": "웅얼거리는 입 괴물",
+        "en": "Gibbering Mouther"
+      },
+      "description": {
+        "ko": "D&D의 카오스 생물. 무수한 입이 웅얼거리는 소리로 정신을 교란하고 바닥을 습지로 바꾼다.",
+        "en": "Gibbering Mouther (aberration, M)."
+      },
+      "category": "aberration",
+      "grade": "rare",
+      "size": "M",
+      "image": "GIBBERING_MOUTHER.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 10,
+        "dex": 7,
+        "agi": 6,
+        "vit": 12,
+        "int": 5,
+        "wis": 4
+      },
+      "elements": [7, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 7
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "웅얼거리는 입 괴물의 이계의 촉수",
+          "en": "Gibbering Mouther's Eldritch Tentacle"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 28,
+          "min": 23,
+          "max": 36
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 875,
+        "critPm": 96,
+        "intervalMs": 1250,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 24,
+            "max": 60
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 56
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "shoggoth",
+      "name": {
+        "ko": "쇼고스",
+        "en": "Shoggoth"
+      },
+      "description": {
+        "ko": "러브크래프트의 프로토플라즘 생명체. 어떤 형태로도 변형 가능하고 눈이나 입을 즉석 생성한다.",
+        "en": "Shoggoth (aberration, XL)."
+      },
+      "category": "aberration",
+      "grade": "boss",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense"],
+      "image": "SHOGGOTH.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 20,
+        "dex": 8,
+        "agi": 8,
+        "vit": 22,
+        "int": 10,
+        "wis": 8
+      },
+      "elements": [0, 2, 2, 0, 0, 6, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_wind"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "쇼고스의 이계의 촉수",
+          "en": "Shoggoth's Eldritch Tentacle"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 60,
+          "min": 49,
+          "max": 77
+        },
+        "elemental": {
+          "attack": 32,
+          "min": 26,
+          "max": 41
+        },
+        "skillElementsPm": [0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0],
+        "hitPm": 880,
+        "critPm": 104,
+        "intervalMs": 1200,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 44,
+            "max": 110
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 64
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "aboleth",
+      "name": {
+        "ko": "아볼레스",
+        "en": "Aboleth"
+      },
+      "description": {
+        "ko": "D&D 수중 고대 존재. 강력한 텔레파시와 노예화 능력으로 군주가 되며 피부 점액은 수중 호흡을 강제한다.",
+        "en": "Aboleth (aberration, XL)."
+      },
+      "category": "aberration",
+      "grade": "legendary",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "tendency_magic"],
+      "image": "ABOLETH.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 16,
+        "dex": 8,
+        "agi": 9,
+        "vit": 16,
+        "int": 21,
+        "wis": 17
+      },
+      "elements": [0, 2, 2, 0, 0, 6, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_wind"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 2
+      },
+      "skills": [
+        {
+          "skill": "dark_curse",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "아볼레스의 이계의 촉수",
+          "en": "Aboleth's Eldritch Tentacle"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 55,
+          "min": 45,
+          "max": 70
+        },
+        "elemental": {
+          "attack": 66,
+          "min": 54,
+          "max": 84
+        },
+        "skillElementsPm": [0, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0],
+        "hitPm": 880,
+        "critPm": 104,
+        "intervalMs": 1175,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 32,
+            "max": 80
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 64
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "phase_spider",
+      "name": {
+        "ko": "페이즈 거미",
+        "en": "Phase Spider"
+      },
+      "description": {
+        "ko": "D&D의 차원 이동 거미. 에테르계와 물질계를 자유롭게 오가며 기습 후 즉시 도주하는 전략을 취한다.",
+        "en": "Phase Spider (aberration, M)."
+      },
+      "category": "aberration",
+      "grade": "epic",
+      "size": "M",
+      "tags": ["tendency_agile"],
+      "image": "PHASE_SPIDER.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 11,
+        "dex": 14,
+        "agi": 14,
+        "vit": 10,
+        "int": 6,
+        "wis": 7
+      },
+      "elements": [0, 2, 2, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 4
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "페이즈 거미의 이계의 촉수",
+          "en": "Phase Spider's Eldritch Tentacle"
+        },
+        "appropriate": "agi",
+        "physical": {
+          "attack": 36,
+          "min": 30,
+          "max": 46
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 910,
+        "critPm": 152,
+        "intervalMs": 1050,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 20,
+            "max": 50
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 112
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "zinogre",
+      "name": {
+        "ko": "지노기어",
+        "en": "Zinogre"
+      },
+      "description": {
+        "ko": "뇌속성 늑대형 몬스터. 공생하는 뇌충을 활성화해 전신에 번개를 축적하고 폭발적 전격을 방출한다.",
+        "en": "Zinogre (beast, XL)."
+      },
+      "category": "beast",
+      "grade": "epic",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "tendency_agile", "tendency_mount", "set_mh_homage"],
+      "image": "ZINOGRE.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 16,
+        "dex": 12,
+        "agi": 14,
+        "vit": 14,
+        "int": 8,
+        "wis": 7
+      },
+      "elements": [0, 0, 10, 0, 0, 0, 0, 0, 0, 6, 0, 0],
+      "allowedSubspecies": ["sub_fire", "sub_light"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "지노기어의 야수의 송곳니와 발톱",
+          "en": "Zinogre's Beast Fang & Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 47,
+          "min": 39,
+          "max": 60
+        },
+        "elemental": {
+          "attack": 28,
+          "min": 23,
+          "max": 36
+        },
+        "skillElementsPm": [0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 900,
+        "critPm": 136,
+        "intervalMs": 1050,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 28,
+            "max": 70
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 96
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "bison_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "nargacuga",
+      "name": {
+        "ko": "나르가쿠가",
+        "en": "Nargacuga"
+      },
+      "description": {
+        "ko": "흑표범형 고속 몬스터. 전신이 흑요석처럼 날카로우며 꼬리를 이용한 고속 연속 베기가 주 기술.",
+        "en": "Nargacuga (beast, XL)."
+      },
+      "category": "beast",
+      "grade": "epic",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_agile", "tendency_mount", "set_mh_homage"],
+      "image": "NARGACUGA.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 15,
+        "dex": 17,
+        "agi": 18,
+        "vit": 12,
+        "int": 7,
+        "wis": 6
+      },
+      "elements": [0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 3
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "나르가쿠가의 야수의 송곳니와 발톱",
+          "en": "Nargacuga's Beast Fang & Claw"
+        },
+        "appropriate": "agi",
+        "physical": {
+          "attack": 45,
+          "min": 37,
+          "max": 58
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 925,
+        "critPm": 176,
+        "intervalMs": 950,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 24,
+            "max": 60
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 136
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "bison_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "slime",
+      "name": {
+        "ko": "슬라임",
+        "en": "Slime"
+      },
+      "description": {
+        "ko": "DQ 시리즈의 마스코트 몬스터. 약하지만 귀여운 외모와 달리 뭉치면 위협적이다.",
+        "en": "Slime (aquatic, S)."
+      },
+      "category": "aquatic",
+      "grade": "common",
+      "size": "S",
+      "tags": ["set_dq_ff"],
+      "image": "SLIME.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 450,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 2,
+        "dex": 5,
+        "agi": 5,
+        "vit": 4,
+        "int": 3,
+        "wis": 3
+      },
+      "elements": [8, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water"],
+      "skillSlots": {
+        "base": 4,
+        "perRebirth": 1,
+        "max": 8
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "슬라임의 심해의 아가리와 지느러미",
+          "en": "Slime's Abyssal Maw & Fin"
+        },
+        "appropriate": "agi",
+        "physical": {
+          "attack": 8,
+          "min": 7,
+          "max": 10
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 865,
+        "critPm": 80,
+        "intervalMs": 1275,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 8,
+            "max": 20
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 450,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "metal_slime",
+      "name": {
+        "ko": "메탈 슬라임",
+        "en": "Metal Slime"
+      },
+      "description": {
+        "ko": "DQ의 희귀 고경험치 몬스터. 금속 몸체로 대부분의 공격을 1 데미지로 흡수하고 즉시 도주한다.",
+        "en": "Metal Slime (aquatic, S)."
+      },
+      "category": "aquatic",
+      "grade": "rare",
+      "size": "S",
+      "tags": ["tendency_agile", "set_dq_ff"],
+      "image": "METAL_SLIME.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 450,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 3,
+        "dex": 16,
+        "agi": 20,
+        "vit": 2,
+        "int": 8,
+        "wis": 8
+      },
+      "elements": [7, 0, 3, 0, 0, 0, 2, 2, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 4
+      },
+      "skills": [
+        {
+          "skill": "frost_bolt",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "메탈 슬라임의 심해의 아가리와 지느러미",
+          "en": "Metal Slime's Abyssal Maw & Fin"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 13,
+          "min": 11,
+          "max": 17
+        },
+        "elemental": {
+          "attack": 28,
+          "min": 23,
+          "max": 36
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 920,
+        "critPm": 168,
+        "intervalMs": 900,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 5,
+            "max": 15
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 128
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "king_slime",
+      "name": {
+        "ko": "킹 슬라임",
+        "en": "King Slime"
+      },
+      "description": {
+        "ko": "왕관을 쓴 슬라임의 최대 형태. 무수한 슬라임을 합체시켜 만들어지며 분열과 재결합으로 싸운다.",
+        "en": "King Slime (aquatic, XL)."
+      },
+      "category": "aquatic",
+      "grade": "rare",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "set_dq_ff"],
+      "image": "KING_SLIME.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 14,
+        "dex": 5,
+        "agi": 5,
+        "vit": 16,
+        "int": 8,
+        "wis": 8
+      },
+      "elements": [8, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 5
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        },
+        {
+          "skill": "frost_bolt",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "킹 슬라임의 심해의 아가리와 지느러미",
+          "en": "King Slime's Abyssal Maw & Fin"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 37,
+          "min": 30,
+          "max": 47
+        },
+        "elemental": {
+          "attack": 28,
+          "min": 23,
+          "max": 36
+        },
+        "skillElementsPm": [50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 865,
+        "critPm": 80,
+        "intervalMs": 1275,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 32,
+            "max": 80
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "croc_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "tonberry",
+      "name": {
+        "ko": "톤베리",
+        "en": "Tonberry"
+      },
+      "description": {
+        "ko": "FF 시리즈의 아이콘 소형 괴물. 느리게 접근하다 도착하는 순간 즉사급 단도를 찌르는 공포 존재.",
+        "en": "Tonberry (humanoid, S)."
+      },
+      "category": "humanoid",
+      "grade": "epic",
+      "size": "S",
+      "tags": ["tendency_magic", "set_dq_ff"],
+      "image": "TONBERRY.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 450,
+        "radiusPm": 300
+      },
+      "primaries": {
+        "str": 8,
+        "dex": 10,
+        "agi": 4,
+        "vit": 10,
+        "int": 15,
+        "wis": 15
+      },
+      "elements": [0, 2, 2, 6, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_fire"],
+      "skillSlots": {
+        "base": 2,
+        "perRebirth": 1,
+        "max": 5
+      },
+      "skills": [
+        {
+          "skill": "stone_spike",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "톤베리의 전투 무구",
+          "en": "Tonberry's Tribal Warblade"
+        },
+        "appropriate": "int",
+        "physical": {
+          "attack": 30,
+          "min": 25,
+          "max": 38
+        },
+        "elemental": {
+          "attack": 43,
+          "min": 35,
+          "max": 55
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 890,
+        "critPm": 120,
+        "intervalMs": 1300,
+        "range": 3,
+        "arc": false,
+        "staminaCost": 10,
+        "mpCost": 5,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 20,
+            "max": 50
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 80
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "raw_meat",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        }
+      ],
+      "enabled": true
+    },
+    {
+      "id": "catoblepas",
+      "name": {
+        "ko": "카토블레파스",
+        "en": "Catoblepas"
+      },
+      "description": {
+        "ko": "그리스·FF 전통 괴물. 무거운 머리를 들어 올려 시선을 맞닿는 순간 석화 또는 즉사 효과를 부여한다.",
+        "en": "Catoblepas (beast, XL)."
+      },
+      "category": "beast",
+      "grade": "rare",
+      "size": "XL",
+      "tags": ["tendency_attack", "tendency_defense", "set_dq_ff"],
+      "image": "CATOBLEPAS.webp",
+      "portraitCrop": {
+        "cxPm": 500,
+        "cyPm": 340,
+        "radiusPm": 260
+      },
+      "primaries": {
+        "str": 15,
+        "dex": 4,
+        "agi": 3,
+        "vit": 16,
+        "int": 5,
+        "wis": 4
+      },
+      "elements": [0, 3, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0],
+      "allowedSubspecies": ["sub_water", "sub_fire"],
+      "skillSlots": {
+        "base": 3,
+        "perRebirth": 1,
+        "max": 6
+      },
+      "skills": [
+        {
+          "skill": "power_strike",
+          "innate": true
+        },
+        {
+          "skill": "shock_bash",
+          "unlockLevel": 5
+        },
+        {
+          "skill": "war_cry",
+          "unlockLevel": 10
+        },
+        {
+          "skill": "iron_skin",
+          "innate": true
+        }
+      ],
+      "naturalWeapon": {
+        "name": {
+          "ko": "카토블레파스의 야수의 송곳니와 발톱",
+          "en": "Catoblepas's Beast Fang & Claw"
+        },
+        "appropriate": "str",
+        "physical": {
+          "attack": 39,
+          "min": 32,
+          "max": 50
+        },
+        "skillElementsPm": [0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0],
+        "hitPm": 860,
+        "critPm": 72,
+        "intervalMs": 1325,
+        "range": 1,
+        "arc": false,
+        "staminaCost": 10,
+        "stats": [
+          {
+            "stat": "phys_defense",
+            "min": 32,
+            "max": 80
+          },
+          {
+            "stat": "crit_damage_pm",
+            "min": 10,
+            "max": 40
+          }
+        ]
+      },
+      "drops": [
+        {
+          "item": "bison_hide",
+          "chancePm": 350,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "raw_meat",
+          "chancePm": 500,
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "enabled": true
+    }
+  ]
+}

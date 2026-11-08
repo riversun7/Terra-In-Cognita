@@ -125,3 +125,16 @@ export function TerritoryIcon() {
     </DevIcon>
   );
 }
+
+/** 크리처 편집기(발바닥 표식) */
+export function PawIcon() {
+  return (
+    <DevIcon>
+      <circle cx="7" cy="9" r="1.7" />
+      <circle cx="10.5" cy="6.8" r="1.7" />
+      <circle cx="13.5" cy="6.8" r="1.7" />
+      <circle cx="17" cy="9" r="1.7" />
+      <path d="M9.2 13.5c1.1-1.3 4.5-1.3 5.6 0 1.4 1.6 2 4-.8 4.9-1.3.4-2.7.4-4 0-2.8-.9-2.2-3.3-.8-4.9Z" />
+    </DevIcon>
+  );
+}

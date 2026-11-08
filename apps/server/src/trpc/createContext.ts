@@ -37,6 +37,7 @@ import {
 import { createSettingsServices } from "../settings/store.ts";
 import { type TuningShared, betterAuthTuningCheck, createTuningServices } from "../tuning/services.ts";
 import { createBuildingEditorServices } from "../buildingEdit/services.ts";
+import { createCreatureEditorServices } from "../creatureEdit/services.ts";
 import { type ContentEditShared, createSkillEditorServices } from "../contentEdit/services.ts";
 import { type ItemEditShared, createItemEditorServices } from "../itemEdit/services.ts";
 import type { SummaryBackend } from "../summary/summary.ts";
@@ -256,6 +257,14 @@ export function createContextFactory(options: ContextFactoryOptions) {
               db: authDeps.db,
               shared: options.contentEdit,
               tuning,
+              ip: request.ip,
+            })
+          : undefined,
+      creatures:
+        authDeps && request && tuning && options.contentEdit
+          ? createCreatureEditorServices({
+              db: authDeps.db,
+              shared: options.contentEdit,
               ip: request.ip,
             })
           : undefined,

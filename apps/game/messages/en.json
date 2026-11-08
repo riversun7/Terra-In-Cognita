@@ -5039,5 +5039,7 @@
   "ops_save": "Save",
   "ops_open": "Open",
   "ops_unit_remove_note": "Unit removal is not available yet (needs per-kind cleanup).",
-  "ops_col_num": "ID"
+  "ops_col_num": "ID",
+  "shell_route_dev_creatures": "Creature Editor",
+  "dev_tool_creatures_desc": "Edit creatures, circular portrait crops, stat auto-allocation, innate weapon roll ranges, and loot tables, then apply live"
 }

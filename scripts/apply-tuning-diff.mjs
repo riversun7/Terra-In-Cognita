@@ -19,6 +19,7 @@ import {
   applyFormulasDiff,
   applyStatRowsDiff,
   applyTuningDiff,
+  creatureEntrySchema,
   effectEntrySchema,
   facilityEntrySchema,
   gatherTierEntrySchema,
@@ -45,6 +46,8 @@ export const ENTRY_FILES = {
   // 시설·1차 생산 티어 확률 분포(건물 편집기 /dev/buildings, docs/adr/2026-11-02-building-editor.md, D-513)
   facilities: { file: "facilities.json", schema: facilityEntrySchema },
   gather_tiers: { file: "gather_tiers.json", schema: gatherTierEntrySchema },
+  // 크리쳐 도감(크리쳐 편집기 /dev/creatures)
+  creatures: { file: "creatures.json", schema: creatureEntrySchema },
 };
 
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;

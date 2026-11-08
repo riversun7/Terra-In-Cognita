@@ -239,6 +239,14 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
+  // 크리처 편집기(/dev/creatures): 틀 안 빽빽한 편집 화면. ?creature=<ID>는 그 크리처를 바로 연다. 적용하면 그 세계에 바로 든다
+  dev_creatures: {
+    path: "/dev/creatures",
+    search: ["creature"],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
   // 영토 층(docs/adr/2026-11-03-territory-layer.md 5절): 틀 안 촘촘한 화면. 도시·비콘 껍질과 1차맵 칸 표를 보고 시험 세력 비콘을 놓는다
   dev_territory: {
     path: "/dev/territory",

@@ -33,6 +33,7 @@ import type { HoldingsReadServices } from "../holdings/reads.ts";
 import type { VitalsReadServices } from "../vitals/reads.ts";
 import type { RankingServices } from "../ranking/services.ts";
 import type { BuildingEditorServices } from "../buildingEdit/services.ts";
+import type { CreatureEditorServices } from "../creatureEdit/services.ts";
 import type { FormulaListResponse } from "@terra/shared/formula";
 import type { BattleLabShared } from "../battleLab/services.ts";
 import type { Database } from "../db/client.ts";
@@ -473,6 +474,8 @@ export interface TrpcContext {
   items?: ItemEditorServices | undefined;
   /** 건물 편집기. 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다, docs/adr/2026-11-02-building-editor.md) */
   buildings?: BuildingEditorServices | undefined;
+  /** 크리처 편집기. 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */
+  creatures?: CreatureEditorServices | undefined;
   /** 전투 실험실(앱에 하나인 서비스 + 이 요청의 DB·접속 주소). 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */
   battleLab?: { readonly shared: BattleLabShared; readonly db: Database; readonly ip: string } | undefined;
   /** 전투 다시보기. 설정 칸 패널과 같이 있을 때만(권한은 tuning이 본다) */

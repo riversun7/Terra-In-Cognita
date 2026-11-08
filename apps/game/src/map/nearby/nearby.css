@@ -1,0 +1,146 @@
+/*
+ * 2차맵 근처 판(docs/adr/2026-11-08-seamless-second-map.md WP-2) — 자원·건물·유닛 탭과 가까운 차례 목록. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 모바일 우선(390px): 아래 판 맨 위에 판 너비로 놓고(order −1), 목록은 화면 높이의 3분의 1까지(넘으면 목록만 스크롤). 넓은 화면은 왼쪽에 좁게.
+ */
+.map-nearby {
+  order: -1;
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+@media (min-width: 64em) {
+  .map-nearby {
+    flex: 0 1 24rem;
+    margin-right: auto;
+  }
+}
+.map-nearby-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* 탭 셋 — 남은 너비를 셋이 나눈다. 긴 영어도 줄바꿈 */
+.map-nearby-tabs {
+  flex: 1 1 auto;
+  display: flex;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.map-nearby-tab {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+  min-block-size: var(--tap-size);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.map-nearby-tab:focus-visible,
+.map-nearby-row:focus-visible {
+  outline: var(--border-w) solid var(--color-focus);
+  outline-offset: var(--border-w);
+}
+/* 고른 탭 — 테두리 색·둘째 판 바탕·굵은 글자(색에만 기대지 않는다) */
+.map-nearby-tab[aria-pressed="true"] {
+  border-color: var(--color-primary-lip);
+  background-color: var(--color-surface-2);
+  font-weight: var(--font-weight-strong);
+}
+/* 수 — 자리 너비가 같은 숫자, 작은 알약 */
+.map-nearby-count {
+  min-inline-size: 1.75em;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.map-nearby-close {
+  flex: none;
+}
+.map-nearby-note {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.map-nearby-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-block-size: 33vh;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+/* 줄: 이름(남는 너비) · 덧말 · 거리(오른쪽, 자리 너비가 같은 숫자) */
+.map-nearby-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  inline-size: 100%;
+  min-block-size: var(--tap-size);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-w) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  text-align: start;
+  cursor: pointer;
+}
+.map-nearby-row[aria-pressed="true"] {
+  border-color: var(--color-primary-lip);
+  background-color: var(--color-surface-2);
+}
+.map-nearby-row[aria-pressed="true"] .map-nearby-name {
+  font-weight: var(--font-weight-strong);
+}
+.map-nearby-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.map-nearby-detail {
+  flex: 0 1 auto;
+  max-inline-size: 45%;
+  color: var(--color-text-muted);
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+.map-nearby-distance {
+  flex: none;
+  min-inline-size: 3.5em;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+/* 내 유닛·내 건물 — 이름 앞 작은 점 대신 굵게(색에만 기대지 않는다) */
+.map-nearby-row[data-mine="true"] .map-nearby-name {
+  font-weight: var(--font-weight-strong);
+}
+/* 다시 자라는 자원 — 흐린 글자 */
+.map-nearby-row[data-depleted] .map-nearby-name {
+  color: var(--color-text-muted);
+}
+.map-nearby-more {
+  align-self: center;
+}

@@ -127,6 +127,8 @@ export interface MapFeed {
   stopUnit(unitId: number): MoveAttempt;
   /** 시야 전송이 내 유닛(own)이라고 한 유닛인가(전체 보기 구독에는 표시가 없다) */
   isOwn(unitId: number): boolean;
+  /** 지금 받은 유닛 ID(시야 안 유닛 — 근처 목록 유닛 탭, docs/adr/2026-11-08-seamless-second-map.md WP-2) */
+  unitIds(): Iterable<number>;
   /**
    * 표시 종류가 붙은 지금 유닛(유닛 ID → 종류, 프로토콜 18 kind — NPC 국가 지도자 npc_leader 등). 보통 유닛은 없다. 같은 Map을 계속 바꾼다
    * (덧그림이 프레임마다 읽는다 — leaderTags.ts)

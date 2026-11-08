@@ -4,11 +4,16 @@
 // - 놓는 자리: 이웃 칸 (열 c, 행 r) → 지금 2차맵 칸 좌표 (x, z) = (a·c + b·r + tx, cc·c + d·r + tz). 면 경계 너머 이웃은
 //   면 틀이 90°의 배수로 돌아가 있다(뒤집힘은 없다: 두 면 모두 오른손 틀). 계산은 게임 앱이 한다(@terra/planet).
 // - 칸 크기는 지금 2차맵 값으로 맞춘다(이웃끼리 1% 아래로 다르다: 그대로 두면 변 끝에서 칸 수 × 차이만큼 어긋난다).
-// - 안개는 그리지 않는다(지형은 숨김 정보가 아니다, ADR 26).
+// - 안개: 지금 2차맵에 안개가 있으면(setFog(true)) 이웃도 그 2차맵의 탐사 칸(setExplored)으로 칠하고, 아직 모르는 이웃은 온통 어둡게 그린다.
+//   지금 2차맵이 전체 보기(안개 없음)면 이웃도 끈다. 사용자 지적 2026-11-08 "인접한 맵은 포그가 적용되지 않는 문제"
+//   (docs/adr/2026-11-08-seamless-second-map.md WP-3). 그 전에는 지형이 숨김 정보가 아니라 안개를 뺐다(ADR 26).
 import { Group } from "three";
 import type { TerrainBuilder } from "./terrainBuilder.ts";
 import { TERRAIN_CELLS, type TerrainInput, sampleHeightM } from "./terrainData.ts";
 import { TerrainView } from "./terrainView.ts";
+
+/** 아직 탐사 칸을 모르는 이웃(온통 어두움) — 시야 칸 32×32 비트 */
+const UNEXPLORED = new Uint8Array(128);
 
 /** 이웃 칸 좌표 → 지금 2차맵 칸 좌표(지형 칸 단위). a·b·cc·d는 −1·0·1(90°의 배수 돌림) */
 export interface NeighbourPlacement {
@@ -45,6 +50,10 @@ export class NeighbourTerrains {
   private readonly entries = new Map<string, Entry>();
   private version = 0;
   private grid = false;
+  /** 안개를 그리나(지금 2차맵에 안개가 있을 때) */
+  private fog = false;
+  /** 이웃 id → 탐사 칸(받은 것만) */
+  private readonly explored = new Map<string, Uint8Array>();
 
   constructor(private readonly builder: TerrainBuilder) {}
 
@@ -79,6 +88,7 @@ export class NeighbourTerrains {
       const view = new TerrainView();
       view.setWalls(false);
       view.setGrid(this.grid);
+      view.setExplored(this.fogOf(item.id));
       view.set(built.mesh, terrain, built.noise, shade);
       const { a, b, cc, d, tx, tz } = item.placement;
       view.group.matrixAutoUpdate = false;
@@ -89,6 +99,24 @@ export class NeighbourTerrains {
       changed = true;
     }
     return changed;
+  }
+
+  /** 안개를 켜고 끈다(지금 2차맵의 안개와 같게). 지금 이웃과 뒤에 올 이웃 모두 */
+  setFog(on: boolean): void {
+    if (this.fog === on) return;
+    this.fog = on;
+    for (const [id, entry] of this.entries) entry.view.setExplored(this.fogOf(id));
+  }
+
+  /** 이웃 하나의 탐사 칸(그 2차맵을 구독해 받은 것). null이면 잊는다(온통 어두움) */
+  setExplored(id: string, bits: Uint8Array | null): void {
+    if (bits) this.explored.set(id, bits);
+    else this.explored.delete(id);
+    this.entries.get(id)?.view.setExplored(this.fogOf(id));
+  }
+
+  private fogOf(id: string): Uint8Array | null {
+    return this.fog ? (this.explored.get(id) ?? UNEXPLORED) : null;
   }
 
   /** 격자 선(개발자 2차맵 시험): 지금 이웃과 뒤에 올 이웃 모두 */

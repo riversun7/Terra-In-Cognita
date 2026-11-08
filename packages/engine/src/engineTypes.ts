@@ -70,7 +70,7 @@ export interface SecondMapEngineOptions {
   onZoomEdge?: (edge: "in" | "out") => void;
   /** 확대 단계(1 = 가장 멀리 ~ 5 = 가장 가까이, camera/secondMapZoom.ts)가 바뀔 때. 확대 사다리 표시(사용자 지적 2026-11-08) */
   onZoomStage?: (stage: number) => void;
-  /** 손으로 끌거나(누르기 거리 넘게) setView로 옮겨 유닛 따라가기(follow)가 끊겼을 때 — 끊긴 유닛 */
+  /** setView로 옮겨 유닛 따라가기(follow)가 끊겼을 때 — 끊긴 유닛(손으로 끌면 끊지 않고 돌린다) */
   onFollowBreak?: (unitId: number) => void;
 }
 
@@ -157,6 +157,11 @@ export interface SecondMapEngine {
    * 카메라 목표점이 이웃 위로도 갈 수 있게 된다
    */
   setNeighbours(neighbours: readonly NeighbourTerrain[]): Promise<void>;
+  /**
+   * 이웃 2차맵 하나(id = setNeighbours의 id)의 탐사 칸(그 2차맵 구독의 vision). 지금 2차맵에 안개가 있으면 이웃도 이것으로 칠하고, 모르는 이웃은
+   * 온통 어둡다. null이면 잊는다(docs/adr/2026-11-08-seamless-second-map.md WP-3)
+   */
+  setNeighbourExplored(id: string, bits: Uint8Array | null): void;
   /** 유닛 목록을 통째로 바꾼다(고른 것은 풀린다) */
   setUnits(units: readonly UnitSpawn[]): void;
   /** 서버가 보낸 새 경로 */
@@ -195,8 +200,8 @@ export interface SecondMapEngine {
    */
   setView(view: { x: number; y: number; spanM?: number | undefined }): void;
   /**
-   * 카메라가 이 유닛을 따라간다(목표점이 그 유닛의 지금 자리로 미끄러진다, null이면 그만). 손으로 끌면 끊고 onFollowBreak를 부른다.
-   * 따라가는 동안 두 손가락·휠 확대는 화면 가운데(그 유닛) 기준이다. instant면 미끄러지지 않고 바로 붙는다(동작 줄이기)
+   * 카메라가 이 유닛을 따라간다(목표점이 그 유닛의 지금 자리로 미끄러진다, null이면 그만). 따라가는 동안 한 손가락 끌기는 카메라 돌리기이고
+   * 두 손가락·휠 확대는 화면 가운데(그 유닛) 기준이다. instant면 미끄러지지 않고 바로 붙는다(동작 줄이기)
    */
   follow(unitId: number | null, options?: { readonly instant?: boolean }): void;
   /**

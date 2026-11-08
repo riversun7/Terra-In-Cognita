@@ -4,7 +4,7 @@
 // 유닛이 가는 중이거나 카메라가 움직이면 다음 프레임을 예약하고, 아니면 멈춘다(FrameScheduler).
 // 낮밤(lighting/): 1차맵과 같은 하늘 모드·달력으로 그 2차맵 자리의 빛을 1초마다 계산하고, 눈에 띄게 바뀔 때만 한 번 그린다.
 // 지도 조작(사용자 지적 2026-11-08, docs/adr/2026-11-08-map-input.md): 누르기는 유닛 → 덧그림 층 표시(화면 거리) → 땅 차례, 고른 유닛 따라가기
-// (follow, 끌면 끊김)·확대 단계 1~5(zoomStep은 단계 대표 거리로 미끄러짐, onZoomStage)는 camera/cameraGlide.ts·secondMapZoom.ts.
+// (follow, 끌면 돌리기 — docs/adr/2026-11-08-seamless-second-map.md WP-1)·확대 단계 1~5(zoomStep은 단계 대표 거리로 미끄러짐, onZoomStage)는 camera/cameraGlide.ts·secondMapZoom.ts.
 import { Frustum, Matrix4, PerspectiveCamera, Scene, type WebGLRenderer } from "three";
 import { type BuildingFootprint, footprintMask } from "./buildings/footprint.ts";
 import { BuildingView } from "./buildings/buildingView.ts";
@@ -160,7 +160,7 @@ export function createSecondMapEngine(
   const glide = new CameraGlide();
   let followSmoothMs = FOLLOW_SMOOTH_MS;
   let zoomStage = 0;
-  /** 따라가기를 끊고 알린다(손으로 끌기·setView) */
+  /** 따라가기를 끊고 알린다(setView) */
   const breakFollow = (): void => {
     const id = glide.followId;
     if (id === null) return;
@@ -363,7 +363,7 @@ export function createSecondMapEngine(
     onZoomPush: (edge) => {
       if (!disposed) options.onZoomEdge?.(edge);
     },
-    onDragStart: breakFollow,
+    // 따라가는 동안 한 손가락 끌기는 돌리기다(따라가기를 끊지 않는다, docs/adr/2026-11-08-seamless-second-map.md WP-1). 끊기는 setView·follow(null)뿐
     centreLocked: () => glide.followId !== null,
   });
 
@@ -438,6 +438,11 @@ export function createSecondMapEngine(
       }
     },
 
+    setNeighbourExplored(id, bits) {
+      neighbours.setExplored(id, bits);
+      scheduler.request();
+    },
+
     async setNeighbours(list) {
       if (!terrain) {
         pendingNeighbours = list;
@@ -475,6 +480,8 @@ export function createSecondMapEngine(
 
     setExplored(bits) {
       terrainView.setExplored(bits);
+      // 이웃도 같은 안개 모드(전체 보기면 끈다)
+      neighbours.setFog(bits !== null);
       scheduler.request();
     },
     setBuildings(buildings) {

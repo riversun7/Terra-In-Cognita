@@ -2,9 +2,10 @@
 // ADR 2026-10-28-s1-second-map: 휴대폰은 한 손가락 끌기 = 이동, 두 손가락 = 확대·회전(+ 가운데 점 이동), 누르기 = 고르기·명령.
 // 데스크톱은 끌기 = 이동, 휠 = 확대(커서 아래 땅 기준), 오른쪽(가운데) 끌기 = 회전(가로)·기울이기(세로).
 // 누르기: 거의 움직이지 않고(TAP_SLOP) 짧게(TAP_MAX_MS) 뗀 한 손가락·왼쪽 단추. 두 손가락(확대)은 누르기가 아니다.
-// 끌기: 한 손가락·왼쪽 단추가 TAP_SLOP을 넘게 움직이면 한 번 알린다(onDragStart — 유닛 따라가기를 끊는다, 사용자 지적 2026-11-08,
-// docs/adr/2026-11-08-map-input.md). 가운데를 붙잡은 동안(centreLocked = 유닛 따라가는 중) 확대·회전은 화면 가운데 기준이고,
-// 끌기는 TAP_SLOP을 넘기 전에는 화면을 움직이지 않는다(누르다 손이 떨려도 따라가기가 흔들리지 않게).
+// 끌기: 한 손가락·왼쪽 단추가 TAP_SLOP을 넘게 움직이면 한 번 알린다(onDragStart, docs/adr/2026-11-08-map-input.md).
+// 가운데를 붙잡은 동안(centreLocked = 유닛 따라가는 중) 확대·회전은 화면 가운데 기준이고, 한 손가락 끌기는 옮기기가 아니라 카메라 돌리기다
+// (가로 = 방위, 세로 = 기울기 — 오른쪽 끌기와 같다. 자유 시점 없애기, docs/adr/2026-11-08-seamless-second-map.md WP-1 Q1). 끌기는 TAP_SLOP을
+// 넘기 전에는 화면을 움직이지 않는다(누르다 손이 떨려도 흔들리지 않게).
 // 가장 멀리에 닿은 채 다시 줄이면 알린다(zoomPush.ts, D-6018: 2차맵을 끝까지 줄이면 1차맵 5단계, ADR 2026-11-07-planet-view 2절).
 import {
   type CameraLimits,
@@ -128,10 +129,13 @@ export function attachControls(element: HTMLElement, target: ControlTarget): () 
     if (mode === "pan" && panAnchor) {
       if (drag && !drag.started && Math.hypot(point.x - drag.start.x, point.y - drag.start.y) > drag.slop) {
         drag.started = true;
-        const wasLocked = locked();
         target.onDragStart?.();
-        // 붙잡았던 동안은 화면을 움직이지 않았다: 끌기가 시작된 이 점에서 다시 붙잡는다(누르기 거리만큼 튀지 않게)
-        if (wasLocked) panAnchor = groundUnder(target.getState(), viewport, point) ?? panAnchor;
+        // 붙잡은 동안(따라가는 중): 끌기는 돌리기다. 끌기가 시작된 이 점부터 센다(누르기 거리만큼 튀지 않게)
+        if (locked()) {
+          mode = "orbit";
+          orbitLast = point;
+          return;
+        }
       }
       if (drag?.started === true || !locked()) {
         target.setState(keepGroundUnder(target.getState(), panAnchor, point, viewport, limits));

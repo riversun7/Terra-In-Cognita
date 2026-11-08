@@ -17,9 +17,11 @@ const fakeTerrain: TerrainInput = {
 function setup(all: boolean) {
   const urls: string[] = [];
   const lists: (readonly NeighbourTerrain[])[] = [];
+  const near: (readonly number[])[] = [];
   const loader = createNeighbourLoader({
     mapKey: KEY,
     all,
+    onNear: (keys) => near.push(keys),
     setNeighbours: (list) => {
       lists.push(list);
       return Promise.resolve();
@@ -29,7 +31,7 @@ function setup(all: boolean) {
       return Promise.resolve(fakeTerrain);
     },
   });
-  return { loader, urls, lists };
+  return { loader, urls, lists, near };
 }
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -60,6 +62,17 @@ describe("이웃 받기", () => {
     await settle();
     expect(lists.some((list) => list.length === 0)).toBe(true);
     expect(urls).toHaveLength(16);
+    loader.stop();
+  });
+
+  it("카메라 쪽 이웃이 바뀔 때만 알린다(이웃 안개 구독, WP-3): 가운데 = 알리지 않음, 오른쪽 변 = 하나, 모서리 = 셋", () => {
+    const { loader, near } = setup(false);
+    loader.setMain(`/api/maps/${KEY}/terrain?v=1.3.aaaaaaaa.bbbbbbbb`, SIZE);
+    loader.onView(SIZE / 2, SIZE / 2);
+    loader.onView(SIZE - 10, SIZE / 2);
+    loader.onView(SIZE - 5, SIZE / 2);
+    loader.onView(SIZE - 5, SIZE - 5);
+    expect(near.map((keys) => keys.length)).toEqual([1, 3]);
     loader.stop();
   });
 });

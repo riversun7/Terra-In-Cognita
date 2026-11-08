@@ -74,7 +74,15 @@ describe("건물 겉모습 잇기", () => {
     const load = vi.fn(() =>
       Promise.resolve(
         response([
-          { buildingId: 2, facilityId: "mine", level: 0, state: "building", upgrading: false, factionId: 9 },
+          {
+            buildingId: 2,
+            facilityId: "mine",
+            level: 0,
+            state: "building",
+            upgrading: false,
+            factionId: 9,
+            mine: false,
+          },
         ]),
       ),
     );

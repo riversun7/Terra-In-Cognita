@@ -95,6 +95,7 @@ describe("mapBuildingLooks", () => {
         maps,
         service: { facilities, jobs: new Map([[1, upgrade]]) },
         rules: () => TEST_SOCIETY_COEFFICIENTS,
+        facilityName: (id) => (id === "storehouse" ? { ko: "창고", en: "Storehouse" } : undefined),
       },
       KEY,
       NOW,
@@ -113,10 +114,36 @@ describe("mapBuildingLooks", () => {
         state: "damaged",
         upgrading: false,
         factionId: 12,
+        name: { ko: "창고", en: "Storehouse" },
+        mine: false,
       },
-      { buildingId: farm, facilityId: "farm", level: 0, state: "building", upgrading: false, factionId: 12 },
-      { buildingId: mine, facilityId: "mine", level: 1, state: "ok", upgrading: true, factionId: null },
-      { buildingId: test, facilityId: null, level: 1, state: "ok", upgrading: false, factionId: null },
+      {
+        buildingId: farm,
+        facilityId: "farm",
+        level: 0,
+        state: "building",
+        upgrading: false,
+        factionId: 12,
+        mine: false,
+      },
+      {
+        buildingId: mine,
+        facilityId: "mine",
+        level: 1,
+        state: "ok",
+        upgrading: true,
+        factionId: null,
+        mine: false,
+      },
+      {
+        buildingId: test,
+        facilityId: null,
+        level: 1,
+        state: "ok",
+        upgrading: false,
+        factionId: null,
+        mine: false,
+      },
     ]);
   });
 
@@ -148,7 +175,7 @@ describe("mapBuildingLooks", () => {
       { observer: false, ownerId: PLAYER_OWNER, sighted: none },
       new Map(),
     );
-    expect(mineOnly.buildings.map((row) => row.buildingId)).toEqual([mine]);
+    expect(mineOnly.buildings.map((row) => [row.buildingId, row.mine])).toEqual([[mine, true]]);
     // 첫 건물(40,40 + 3×3 → 가운데 41.5 → 시야 칸 5,5 = 8칸 단위)만 안다
     const bits = new Uint8Array(VISION_BYTES);
     const cell = 5 * 32 + 5;

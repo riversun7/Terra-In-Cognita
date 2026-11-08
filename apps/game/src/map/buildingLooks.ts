@@ -69,6 +69,8 @@ export interface BuildingLooks {
 export interface BuildingLooksOptions {
   readonly load?: (mapKey: number, signal: AbortSignal) => Promise<MapLooksResponse>;
   readonly loadFactions?: (signal: AbortSignal) => Promise<readonly WorldMapFaction[]>;
+  /** 새 겉모습 답을 받았을 때(근처 목록 건물 탭의 이름·내 것) */
+  readonly onLooks?: (rows: readonly MapBuildingLook[]) => void;
 }
 
 /** 엔진(engine)에 건물 겉모습을 이어 준다. 화면을 닫을 때 stop */
@@ -105,6 +107,7 @@ export function startBuildingLooks(
       if (signature === lastSignature) return;
       lastSignature = signature;
       looks = new Map(response.buildings.map((row) => [row.buildingId, lookOf(row, factions)]));
+      options.onLooks?.(response.buildings);
       push();
     } catch {
       // 겉모습은 그림만 바꾼다: 실패하면 다음 차례에 다시 묻는다

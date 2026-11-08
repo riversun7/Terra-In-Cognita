@@ -1,5 +1,5 @@
 // 2차맵 조작 시험(DOM 없이) — 요소는 이벤트 듣기만 흉내 낸다. 끌기와 누르기 구분(사용자 지적 2026-11-08 "맵조작시 오브젝트가 걸려 드래그가 안되고"),
-// 따라가는 동안 가운데 붙잡기(docs/adr/2026-11-08-map-input.md 1·2절)
+// 따라가는 동안 가운데 붙잡기(docs/adr/2026-11-08-map-input.md 1·2절), 따라가는 동안 한 손가락 끌기 = 돌리기(docs/adr/2026-11-08-seamless-second-map.md WP-1)
 import { describe, expect, it } from "vitest";
 import { type CameraState, type ScreenPoint, cameraLimitsFor, initialCamera } from "./cameraMath.ts";
 import { attachControls } from "./controls.ts";
@@ -35,8 +35,6 @@ function harness(options: { locked?: boolean } = {}) {
     onGestureChange: () => undefined,
     onDragStart: () => {
       drags += 1;
-      // 엔진처럼: 끌면 따라가기가 끊겨 가운데 붙잡기가 풀린다
-      locked = false;
     },
     centreLocked: () => locked,
   });
@@ -97,7 +95,7 @@ describe("2차맵 조작: 끌기와 누르기", () => {
     expect(h.drags()).toBe(0);
   });
 
-  it("가운데를 붙잡은 동안(따라가는 중): 누르기 거리 안의 떨림은 지도를 움직이지 않고, 넘으면 끊고 그 점부터 끈다", () => {
+  it("가운데를 붙잡은 동안(따라가는 중): 떨림은 지도를 움직이지 않고, 넘으면 목표점은 그대로 두고 카메라를 돌린다", () => {
     const h = harness({ locked: true });
     const before = h.state();
     h.fire("pointerdown", 1, 200, 400);
@@ -105,13 +103,15 @@ describe("2차맵 조작: 끌기와 누르기", () => {
     expect(h.state()).toEqual(before);
     h.fire("pointermove", 1, 230, 400);
     expect(h.drags()).toBe(1);
-    expect(h.locked()).toBe(false);
-    // 끌기가 시작된 점(230)에서 다시 붙잡으므로 그 이동만큼은 튀지 않는다
-    const atStart = h.state();
-    expect(atStart.targetX).toBeCloseTo(before.targetX, 6);
-    h.fire("pointermove", 1, 300, 400);
-    expect(h.state().targetX).toBeLessThan(atStart.targetX);
-    h.fire("pointerup", 1, 300, 400);
+    expect(h.locked()).toBe(true);
+    // 끌기가 시작된 점(230)부터 센다: 그 이동만큼은 돌지 않는다
+    expect(h.state().yaw).toBeCloseTo(before.yaw, 6);
+    h.fire("pointermove", 1, 300, 360);
+    const after = h.state();
+    expect(after.yaw).not.toBeCloseTo(before.yaw, 3);
+    expect(after.targetX).toBeCloseTo(before.targetX, 6);
+    expect(after.targetZ).toBeCloseTo(before.targetZ, 6);
+    h.fire("pointerup", 1, 300, 360);
     expect(h.taps).toHaveLength(0);
   });
 

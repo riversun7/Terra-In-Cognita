@@ -67,7 +67,8 @@ export function createRequestIds(start: number = randomU32()): () => number {
 }
 
 let sharedRequestIds: (() => number) | null = null;
-const defaultRequestId = (): number => {
+/** 앱 안 요청 번호(지도 자료·이웃 구독이 함께 쓴다 — 같은 연결에서 겹치지 않게) */
+export const defaultRequestId = (): number => {
   sharedRequestIds ??= createRequestIds();
   return sharedRequestIds();
 };
@@ -574,6 +575,7 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
     isOwn(unitId) {
       return units.get(unitId)?.own === true;
     },
+    unitIds: () => units.keys(),
     unitKinds: () => kinds,
     retry() {
       if (stopped) return;

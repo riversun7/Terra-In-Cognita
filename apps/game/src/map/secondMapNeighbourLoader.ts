@@ -18,6 +18,11 @@ export interface NeighbourLoaderOptions {
   fetchTerrain: (url: string) => Promise<TerrainInput>;
   /** 받은 이웃 수가 바뀌었을 때 */
   onChange?: (loaded: number) => void;
+  /**
+   * 카메라 쪽 이웃(변 이웃 먼저, 많아야 3장 — all이어도 카메라 쪽만)이 바뀌었을 때. 이웃 안개 구독(neighbourVision.ts)이 쓴다
+   * (docs/adr/2026-11-08-seamless-second-map.md WP-3)
+   */
+  onNear?: (mapKeys: readonly number[]) => void;
 }
 
 export interface NeighbourLoader {
@@ -36,6 +41,7 @@ export function createNeighbourLoader(options: NeighbourLoaderOptions): Neighbou
   let mapSizeM = 0;
   let generation = 0;
   let stopped = false;
+  let nearKey = "";
 
   const request = (spot: NeighbourSpot): void => {
     if (!mainUrl || requested.has(spot.key)) return;
@@ -58,6 +64,17 @@ export function createNeighbourLoader(options: NeighbourLoaderOptions): Neighbou
 
   const want = (targetX: number, targetZ: number): void => {
     if (!mainUrl || stopped) return;
+    if (options.onNear) {
+      const near = wantedDirections(targetX, targetZ, mapSizeM).flatMap((direction) => {
+        const spot = spots.find((item) => `${item.ox},${item.oy}` === direction);
+        return spot ? [spot.key] : [];
+      });
+      const key = near.join(",");
+      if (key !== nearKey) {
+        nearKey = key;
+        options.onNear(near);
+      }
+    }
     const directions = new Set(
       options.all
         ? spots.map((spot) => `${spot.ox},${spot.oy}`)

@@ -38,7 +38,12 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
       // 건물 주인 → 국가(NPC 세력 주체는 메모리, 플레이어는 가입한 국가를 DB에서 한 번에)
       const factions = await ownerFactionsOf(pool, owners, mapOwnerIds(world.maps, mapKey));
       return mapBuildingLooks(
-        { maps: world.maps, service: facilities.service, rules: facilities.rules },
+        {
+          maps: world.maps,
+          service: facilities.service,
+          rules: facilities.rules,
+          facilityName: (id) => facilities.catalog().facility(id)?.name,
+        },
         mapKey,
         nowMs,
         { observer, ownerId, sighted },

@@ -24,7 +24,11 @@
 // 확대 단계(ADR 2026-11-07-planet-view 1·2절): 오른쪽 사다리(ZoomLadder, "2차맵 3/5") [+]·[−]. 가장 멀리에서 [−]나 한 번 더 줄이기
 // (휠·두 손가락) = 이 2차맵 자리의 1차맵 5단계(D-6018, /map/planet?key=&stage=5).
 // 지도 조작(사용자 지적 2026-11-08, docs/adr/2026-11-08-map-input.md): 채집 표시는 누르기를 지나보내 끌기가 걸리지 않고(엔진이 누르기만 화면 거리로
-// 고른다), 내 유닛을 고르면 카메라가 따라간다(UnitFollow.tsx — 끌면 끊기고 [따라가기]), 사다리는 2차맵 확대 단계 1~5(엔진 onZoomStage).
+// 고른다), 사다리는 2차맵 확대 단계 1~5(엔진 onZoomStage).
+// 자유 시점 없애기(docs/adr/2026-11-08-seamless-second-map.md WP-1): 카메라는 늘 기준 유닛(anchorUnit.ts — 고른 내 유닛, 기본 내 사이보그)을
+// 따라가고 한 손가락 끌기는 돌리기다(UnitFollow.tsx). 늘 유닛 하나가 골라져 있다. 이 맵에 내 유닛이 없으면 들어갈 수 없다(안내 + [1차맵에서 보기]).
+// 운영자 모드에서만 [자유 시점](빨간 운영자 단추)으로 따라가기를 끄고 끌어서 옮긴다.
+// 근처 판(WP-2, nearby/): 자원·건물·유닛 탭, 기준 유닛에서 가까운 차례 20개씩. 지도에는 고른 탭 표시만(닫으면 없음). 옛 [내 유닛 N] 목록은 유닛 탭이다.
 // NPC 국가 지도자("WP-NPC3", 기획 정리 748 나·742 나): 머리 위 이름표(leaderTags.ts — 전송의 표시 종류), 지도자나 이름표를 누르면 그 지도자를
 // 고르고 아래 지도자 판(government/LeaderSheet.tsx) → 그 나라 수도 정부 판.
 import {
@@ -35,7 +39,7 @@ import {
   secondMapPlace,
   utcMsForLocalHour,
 } from "@terra/engine";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { refreshSession, useSession } from "../auth/session.ts";
 import { offerBuildPick, pendingBuildPick } from "../economy/buildPick.ts";
 import { hasDevTools } from "../auth/sessionState.ts";
@@ -53,6 +57,7 @@ import { pixelRatioOption } from "./pixelRatioParam.ts";
 import { createSkyClock, reducedMotionList } from "./planetSky.ts";
 import { compassAngle, northOnMap } from "./secondMapCompass.ts";
 import { createNeighbourLoader } from "./secondMapNeighbourLoader.ts";
+import { startNeighbourVision } from "./neighbourVision.ts";
 import { viewMap, wantsAllNeighbours } from "./secondMapNeighbours.ts";
 import { readSecondMapSkyParams, secondMapSkyMode } from "./secondMapSky.ts";
 import { MapPerfPanel } from "./MapPerfPanel.tsx";
@@ -64,7 +69,8 @@ import { CrossingNotice, CyborgActions, TravelLine } from "./SecondMapTravel.tsx
 import { EdgeTravel } from "./EdgeTravel.tsx";
 import { edgeUnitOf } from "./edgeTravelData.ts";
 import { ZoomLadder } from "./ZoomLadder.tsx";
-import { FollowAction, followableOf, useUnitFollow } from "./UnitFollow.tsx";
+import { useAnchorFollow } from "./UnitFollow.tsx";
+import { blockedWithoutUnits, chooseAnchor } from "./anchorUnit.ts";
 import { useTravelFollow } from "./useCyborgTravel.ts";
 import type { MapUnit } from "@terra/shared/mapUnits";
 import {
@@ -81,13 +87,9 @@ import { useOperatorMode } from "./operatorMode.ts";
 import { useCameraArea } from "./useCameraArea.ts";
 import { useMapUnits } from "./useMapUnits.ts";
 import { useUnitGlance } from "./useUnitGlance.ts";
-import {
-  MyUnitsPanel,
-  OperatorActions,
-  OperatorBadge,
-  SelectedActions,
-  UnitsToggle,
-} from "./UnitControlPanels.tsx";
+import { OperatorActions, OperatorBadge, SelectedActions } from "./UnitControlPanels.tsx";
+import { NearbyPanel, type NearbySources, NearbyToggle } from "./nearby/NearbyPanel.tsx";
+import { createNearbyState } from "./nearby/nearbyState.ts";
 import { GatherPanel } from "./gather/GatherPanel.tsx";
 import { attachGatherOverlay } from "./gather/gatherOverlay.ts";
 import { createGatherState, gatherSink } from "./gather/gatherState.ts";
@@ -183,7 +185,14 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
   const myUnits = useMapUnits(mapKey);
   const cameraTap = useCameraArea(engineRef, operator, myUnits.units, myUnits.view);
   const unitsRef = useRef<readonly MapUnit[] | null>(null);
-  const [listOpen, setListOpen] = useState(wideScreen);
+  // 근처 판(덧그림과 같이 보는 상태, React 밖). 넓은 화면은 유닛 탭을 펼친 채 연다(옛 내 유닛 목록처럼)
+  const [nearby] = useState(() =>
+    createNearbyState(wideScreen() ? { tab: "units", expanded: true } : { tab: null, expanded: false }),
+  );
+  const nearbyTab = useSyncExternalStore(
+    (listener) => nearby.subscribe(listener),
+    () => nearby.tab,
+  );
   const [liveMoving, setLiveMoving] = useState<ReadonlySet<number>>(() => new Set());
   const [selection, setSelection] = useState<SelectionState>(NO_SELECTION);
   const [devNotice, setDevNotice] = useState<string | null>(null);
@@ -193,8 +202,11 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
   const [command, setCommand] = useState<CommandNotice | null>(null);
   const [snapshot, setSnapshot] = useState<HudSnapshot | null>(null);
   const perf = usePerfStats(monitor);
-  // 2차맵 사이 이동(WP9): 내 사이보그가 가는 중인 길. 내 사이보그를 따라 연 화면이면 넘어갈 때 따라간다(D-139)
-  const following = focus?.source === "cyborg";
+  // 기준 유닛(카메라가 따라가는 유닛, WP-1): 마지막으로 고른 유닛과 운영자 자유 시점
+  const [lastPicked, setLastPicked] = useState<number | null>(null);
+  const [freeView, setFreeView] = useState(false);
+  // 2차맵 사이 이동(WP9): 내 사이보그가 가는 중인 길. 기준 유닛이 내 사이보그면(기본) 넘어갈 때 따라간다(D-139)
+  const following = cyborg?.unitId != null && (lastPicked ?? cyborg.unitId) === cyborg.unitId;
   const { going, crossedTo } = useTravelFollow(cyborg?.unitId ?? null, mapKey, following);
   // 원자재 오브젝트 채집·건물 들어가기(docs/adr/2026-11-07-gather-objects.md): 덧그림과 아래 판이 같이 보는 상태(React 밖)
   const [gather] = useState(createGatherState);
@@ -202,16 +214,43 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
   const [leaderTags] = useState(createLeaderTagState);
   // 고른 유닛 따라가기(내 유닛·운영자 모드)와 2차맵 확대 단계(사다리, 엔진이 바뀔 때 알린다)
   const [zoomStage, setZoomStage] = useState(0);
-  const {
-    following: followOn,
-    lost: followLost,
-    resume: resumeFollow,
-    onBreak: onFollowBreak,
-  } = useUnitFollow(
-    engineRef,
+  const selectedMine =
+    selected === null ? undefined : myUnits.units?.find((unit) => unit.unitId === selected);
+  const anchor = chooseAnchor({
+    operator,
+    freeView,
     selected,
-    followableOf({ operator, selected, units: myUnits.units, ownByFeed: selection.own }),
-  );
+    selectedFollowable:
+      selected !== null &&
+      unitControlOf({ operator, mine: selectedMine, ownByFeed: selection.own }).kind !== "other",
+    lastPicked,
+    units: myUnits.units,
+    cyborgUnitId: cyborg?.unitId ?? null,
+  });
+  const { refollow, anchorRef } = useAnchorFollow(engineRef, anchor);
+  useEffect(() => {
+    nearby.setAnchor(anchor);
+  }, [nearby, anchor]);
+  // 근처 판이 읽는 엔진·자료(늘 같은 객체 — 부를 때 ref를 읽는다)
+  const [nearbySources] = useState<NearbySources>(() => ({
+    anchorAt: () => {
+      const id = anchorRef.current;
+      const unit = id === null ? null : (engineRef.current?.unitState(id) ?? null);
+      return unit ? { x: unit.x, y: unit.y } : null;
+    },
+    unitAt: (id) => {
+      const unit = engineRef.current?.unitState(id) ?? null;
+      return unit ? { x: unit.x, y: unit.y } : null;
+    },
+    visibleUnits: () => feedRef.current?.unitIds() ?? [],
+    serverNow: () => Date.now() + serverLink.clockOffsetMs(),
+  }));
+  // 늘 유닛 하나가 골라져 있다: 고른 것이 없으면 기준 유닛을 고른다(화면 상태는 1초 요약이 엔진에서 읽는다)
+  useEffect(() => {
+    if (selected !== null || anchor === null) return;
+    selectedRef.current = anchor;
+    engineRef.current?.select(anchor);
+  }, [selected, anchor]);
 
   useEffect(() => {
     unitsRef.current = myUnits.units;
@@ -231,11 +270,17 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
     // 경계 너머 보기: 지금 2차맵 지형을 받으면 그 판 표지로 이웃을 받는다
     let mapSizeM = 0;
     let viewMapNow = "0,0";
+    // 이웃 안개(WP-3): 카메라 쪽 이웃 2차맵을 구독해 탐사 칸을 이웃 지형에 칠한다(운영자 전체 보기면 구독하지 않는다 — 안개가 없다)
+    const neighbourVision = startNeighbourVision({
+      link: serverLink,
+      onExplored: (key, bits) => engineRef.current?.setNeighbourExplored(String(key), bits),
+    });
     const neighbourLoader = createNeighbourLoader({
       mapKey,
       all: wantsAllNeighbours(window.location.search),
       setNeighbours: (list) => engineRef.current?.setNeighbours(list) ?? Promise.resolve(),
       fetchTerrain: (url) => fetchTerrain(url),
+      onNear: (keys) => neighbourVision.want(operatorRef.current ? [] : keys),
     });
     const skyMode = () =>
       secondMapSkyMode(skyParams, skyClock, {
@@ -251,9 +296,9 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
         moving: engineRef.current?.unitState(id)?.moving ?? false,
       };
     };
-    // 지도에서 (다시) 누른 유닛은 (다시) 따라간다 — 유닛을 누를 때와 지도자 이름표를 누를 때 같다
+    // 지도에서 누른 유닛 — 유닛을 누를 때와 지도자 이름표를 누를 때 같다. 다룰 수 있는 유닛이면 기준 유닛이 된다(chooseAnchor)
     const selectFromMap = (id: number | null): void => {
-      resumeFollow();
+      if (id !== null && (operatorRef.current || feedRef.current?.isOwn(id) === true)) setLastPicked(id);
       selectedRef.current = id;
       setSelected(id);
       setSelection(selectionOf(id));
@@ -265,7 +310,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
         if (edge === "out") openPlanetStage(mapKey);
       },
       onZoomStage: setZoomStage,
-      onFollowBreak,
+      onFollowBreak: refollow,
       unitCapacity: UNIT_CAPACITY,
       mapKey,
       sky: skyMode(),
@@ -291,7 +336,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
         }
         // 채집(gather/): 둘레 오브젝트·건물을 누르면 아래 작은 판(채집·들어가기·정보)을 연다
         if (gather.tapCell(cell)) return;
-        const unitId = selectedRef.current;
+        const unitId = selectedRef.current ?? anchorRef.current;
         const current = feedRef.current;
         if (unitId === null || !current) return;
         const mine = unitsRef.current?.find((unit) => unit.unitId === unitId);
@@ -315,6 +360,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       },
     });
     engineRef.current = engine;
+    refollow();
     // 지도자 이름표: 전송의 표시 종류(npc_leader)로 찾고 이름은 한눈 정보로. 누르면 그 지도자를 고른다. 채집 덧그림보다 먼저 붙인다
     // (누르기를 먼저 받고 위에 그린다 — 지도자는 적고 표시는 많다)
     const detachLeaders = attachLeaderTags(engine, host, leaderTags, {
@@ -327,8 +373,8 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
         selectFromMap(unitId);
       },
     });
-    const detachGather = attachGatherOverlay(engine, host, gather, { mapKey, serverNow });
-    const looks = startBuildingLooks(engine, mapKey);
+    const detachGather = attachGatherOverlay(engine, host, gather, { mapKey, serverNow, nearby });
+    const looks = startBuildingLooks(engine, mapKey, { onLooks: (rows) => nearby.setLooks(rows) });
     const onReducedMotion = (): void => engine.setSky(skyMode());
     reduced?.addEventListener("change", onReducedMotion);
     setTelemetryView(TELEMETRY_VIEW);
@@ -340,6 +386,8 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       loadTerrain: async (url) => {
         const terrain = await fetchTerrain(url);
         mapSizeM = terrain.cellSizeM * 128;
+        // 배치 칸 한 변(m) = 2차맵 한 변 ÷ 256(근처 판 거리 글자)
+        nearby.setCellM(mapSizeM / 256);
         neighbourLoader.setMain(url, mapSizeM);
         return terrain;
       },
@@ -357,10 +405,15 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
     });
     feedRef.current = feed;
 
-    // 카메라를 맞춘다(D-6017·515): 지형이 서면 한 번. 내 사이보그면 유닛을 받았을 때 그 지금 자리, 아니면 알려 준 칸
+    // 카메라를 맞춘다(D-6017·515): 지형이 서면 한 번. 내 사이보그면 유닛을 받았을 때 그 지금 자리, 아니면 알려 준 칸.
+    // 기준 유닛을 따라가는 중이면 옮기지 않는다(WP-1 — 운영자 자유 시점·기준 유닛이 아직 없을 때만)
     const focusTimer = focus
       ? setInterval(() => {
           if (engine.stats().terrainBuildMs === null) return;
+          if (engine.stats().following !== null) {
+            clearInterval(focusTimer);
+            return;
+          }
           const unit = focus.unitId === null ? null : engine.unitState(focus.unitId);
           engine.setView({ x: unit?.x ?? focus.cellX + 0.5, y: unit?.y ?? focus.cellY + 0.5 });
           clearInterval(focusTimer);
@@ -370,8 +423,13 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
     // 1초마다 요약만 읽는다. 카메라·고른 유닛 위치는 화면 시험(Playwright)이 결과를 확인하는 데 쓴다(data-*)
     const timer = setInterval(() => {
       const camera = engine.camera();
-      // 고른 유닛이 새 스냅샷에서 사라졌으면 화면도 맞춘다(엔진은 목록을 바꾸면 고르기를 푼다)
-      const id = engine.selected();
+      // 고른 유닛이 새 스냅샷에서 사라졌으면 화면도 맞춘다(엔진은 목록을 바꾸면 고르기를 푼다). 고른 것이 없으면 기준 유닛을 고른다(WP-1)
+      let id = engine.selected();
+      const anchorNow = anchorRef.current;
+      if (id === null && anchorNow !== null && engine.unitState(anchorNow)) {
+        engine.select(anchorNow);
+        id = anchorNow;
+      }
       if (id !== selectedRef.current) {
         selectedRef.current = id;
         setSelected(id);
@@ -407,6 +465,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       clearInterval(timer);
       clearInterval(focusTimer);
       neighbourLoader.stop();
+      neighbourVision.stop();
       reduced?.removeEventListener("change", onReducedMotion);
       // 해제를 먼저 보내고(엔진을 버린 뒤에는 자료를 넣지 않는다) 엔진을 버린다
       feed.stop();
@@ -419,7 +478,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       setTelemetryView(null);
     };
     // 맵·카메라 대상은 화면 열쇠(맵 키)와 함께 정해진다(바뀌면 화면을 새로 만든다). 채집 상태와 두 ref는 늘 같은 객체다
-  }, [mapKey, focus, gather, leaderTags, operatorRef, cameraTap, onFollowBreak, resumeFollow]);
+  }, [mapKey, focus, gather, nearby, leaderTags, operatorRef, cameraTap, refollow, anchorRef]);
 
   // 명령 안내는 잠시 보이고 지운다(보낸 뒤 결과를 기다리는 동안은 그대로)
   useEffect(() => {
@@ -451,10 +510,24 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
     setCommand(null);
     engine?.select(unit.unitId);
     const state = engine?.unitState(unit.unitId) ?? null;
+    setLastPicked(unit.unitId);
     if (!state) engine?.setView({ x: unit.cellX + 0.5, y: unit.cellY + 0.5 });
-    resumeFollow();
     setSelection({ own: true, moving: state?.moving ?? unit.moving });
-    if (!wideScreen()) setListOpen(false);
+    if (!wideScreen()) nearby.setExpanded(false);
+  };
+
+  /** 근처 판의 다른 유닛 줄: 그 유닛을 고른다(정보만 — 카메라는 기준 유닛에 그대로) */
+  const inspectUnit = (unitId: number): void => {
+    const engine = engineRef.current;
+    selectedRef.current = unitId;
+    setSelected(unitId);
+    setCommand(null);
+    engine?.select(unitId);
+    setSelection({
+      own: feedRef.current?.isOwn(unitId) ?? false,
+      moving: engine?.unitState(unitId)?.moving ?? false,
+    });
+    if (!wideScreen()) nearby.setExpanded(false);
   };
 
   /** [멈추기]: 고른 유닛을 지금 자리에 세운다(stop_unit) */
@@ -470,45 +543,58 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
     if (!feedRef.current?.devSpawn(DEV_SPAWN_COUNT)) setDevNotice(m.map_vision_spawn_failed());
   };
 
-  /** [내 사이보그]: 카메라를 내 사이보그의 지금 자리로(엔진이 유닛을 모르면 들어올 때의 칸). 고른 유닛이 내 사이보그면 다시 따라간다 */
+  /** [내 사이보그]: 내 사이보그를 고른다(기준 유닛 — 카메라가 따라간다). 엔진이 아직 모르면 들어올 때의 칸으로 한 번 옮긴다 */
   const goToCyborg = (): void => {
     const engine = engineRef.current;
-    if (!engine || !cyborg) return;
-    if (cyborg.unitId !== null && cyborg.unitId === selected && engine.unitState(cyborg.unitId)) {
-      resumeFollow();
-      return;
-    }
-    const unit = cyborg.unitId === null ? null : engine.unitState(cyborg.unitId);
-    engine.setView({ x: unit?.x ?? cyborg.cellX + 0.5, y: unit?.y ?? cyborg.cellY + 0.5 });
+    if (!engine || !cyborg || cyborg.unitId === null) return;
+    selectedRef.current = cyborg.unitId;
+    setSelected(cyborg.unitId);
+    setLastPicked(cyborg.unitId);
+    engine.select(cyborg.unitId);
+    if (!engine.unitState(cyborg.unitId)) engine.setView({ x: cyborg.cellX + 0.5, y: cyborg.cellY + 0.5 });
   };
 
-  const deselect = (): void => {
-    selectedRef.current = null;
-    setSelected(null);
+  /** [내 유닛으로]: 남의 유닛을 살펴보다가 기준 유닛 고르기로 돌아간다(늘 유닛 하나가 골라져 있다) */
+  const backToAnchor = (): void => {
+    const id = anchorRef.current;
+    selectedRef.current = id;
+    setSelected(id);
     setSelection(NO_SELECTION);
     setCommand(null);
-    engineRef.current?.select(null);
+    engineRef.current?.select(id);
+  };
+
+  /** 운영자 모드를 끄면 자유 시점도 끈다(자유 시점은 운영자만) */
+  const toggleOperatorMode = (): void => {
+    if (operator) setFreeView(false);
+    toggleOperator();
   };
 
   const notice = screenNotice(status, feedStatus);
   const stats = snapshot?.stats ?? null;
   const light = stats?.light ?? null;
   const feed = snapshot?.feed ?? null;
-  // 탐사한 곳이 하나도 없으면(유닛 없는 계정) 안개로 온통 어둡다: 까닭과 할 일을 알린다(전체 보기면 안개가 없다)
-  const dark = !notice && !operator && feed?.explored === 0;
+
+  // 이 맵에 내 유닛이 없으면 들어갈 수 없다(WP-1 Q3 — 카메라가 따라갈 유닛이 없다). 운영자 모드는 들어간다
+  const blocked = !notice && blockedWithoutUnits({ operator, units: myUnits.units });
+  // 탐사한 곳이 하나도 없으면(유닛 없는 계정) 안개로 온통 어둡다: 까닭과 할 일을 알린다(전체 보기면 안개가 없다, 들어갈 수 없으면 그 안내만)
+  const dark = !notice && !operator && !blocked && feed?.explored === 0;
+  // 고른 유닛(늘 하나 — 엔진이 아직 고르기 전이면 기준 유닛)
+  const shown = selected ?? anchor;
   // 고른 유닛을 어떻게 다루나(운영자·내 유닛·못 함·남의 유닛) — 목록의 줄 또는 시야 전송의 내 유닛 표시로
-  const mine = selected === null ? undefined : myUnits.units?.find((unit) => unit.unitId === selected);
-  const control = selected === null ? null : unitControlOf({ operator, mine, ownByFeed: selection.own });
-  const glance = useUnitGlance(mapKey, selected, control?.kind === "other");
+  const mine = shown === null ? undefined : myUnits.units?.find((unit) => unit.unitId === shown);
+  const control =
+    shown === null ? null : unitControlOf({ operator, mine, ownByFeed: shown === anchor || selection.own });
+  const glance = useUnitGlance(mapKey, shown, control?.kind === "other");
   const hint =
     pendingBuildPick() !== null
       ? m.map_build_pick_hint()
-      : selected === null || control === null
+      : shown === null || control === null
         ? m.map_hint()
         : selectionText(
             control,
-            mine ? unitName(mine) : m.map_unit_number({ id: selected }),
-            selected,
+            mine ? unitName(mine) : m.map_unit_number({ id: shown }),
+            shown,
             selection.moving,
             glance,
           );
@@ -549,7 +635,10 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       data-selected-at={snapshot?.selectedAt}
       data-selected={selected ?? undefined}
       data-control={control?.kind}
-      data-follow={followLost ? "lost" : followOn ? "on" : undefined}
+      data-follow={anchor !== null ? "on" : undefined}
+      data-anchor={anchor ?? undefined}
+      data-free-view={operator && freeView ? "on" : undefined}
+      data-blocked={blocked ? "no-units" : undefined}
       data-operator={operator ? "on" : "off"}
       data-light-clock={light?.clock}
       data-light-day={light ? fixed(light.day, 3) : undefined}
@@ -624,6 +713,22 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
           ) : null}
         </div>
       ) : null}
+      {blocked ? (
+        <div className="map-panel map-notice map-blocked" role="status">
+          <p>{m.map_blocked_no_units()}</p>
+          <div className="map-notice-actions">
+            <button
+              type="button"
+              className="button-small button-primary map-open-planet"
+              onClick={() =>
+                navigate({ route: "map_planet", search: { key: String(mapKey) } }, { replace: true })
+              }
+            >
+              {m.map_open_planet_here()}
+            </button>
+          </div>
+        </div>
+      ) : null}
       {dark ? (
         <div className="map-panel map-notice map-dark" role="status">
           <p>{m.map_dark_explain()}</p>
@@ -643,27 +748,23 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       ) : null}
       <CrossingNotice show={crossedTo !== null && following} />
       <footer className="map-hud map-hud-bottom">
-        {listOpen ? (
-          <MyUnitsPanel
-            units={myUnits.units}
-            failed={myUnits.failed}
-            elsewhere={myUnits.elsewhere}
-            moving={liveMoving}
-            selected={selected}
-            onPick={pickUnit}
-            onClose={() => setListOpen(false)}
-          />
-        ) : null}
-        <GatherPanel
-          state={gather}
-          mapKey={mapKey}
-          selected={selected}
-          cyborgUnitId={cyborg?.unitId ?? null}
+        <NearbyPanel
+          nearby={nearby}
+          gather={gather}
+          sources={nearbySources}
+          myUnits={myUnits.units}
+          unitsFailed={myUnits.failed}
+          elsewhere={myUnits.elsewhere}
+          moving={liveMoving}
+          selected={shown}
+          onPickUnit={pickUnit}
+          onInspectUnit={inspectUnit}
         />
+        <GatherPanel state={gather} mapKey={mapKey} selected={anchor} cyborgUnitId={cyborg?.unitId ?? null} />
         {/* 누른 건물이 행정 건물이면 정부 판(docs/adr/2026-11-07-play-flow.md "WP-NPC") */}
         <GovernmentSheet state={gather} />
         {/* 고른 유닛이 NPC 국가 지도자면 지도자 판 → 수도 정부 판("WP-NPC3") */}
-        <LeaderSheet tags={leaderTags} selected={selected} mapKey={mapKey} />
+        <LeaderSheet tags={leaderTags} selected={shown} mapKey={mapKey} />
         <div className="map-panel map-hint" role="status">
           <p>{hint}</p>
           {command ? <p className="map-command">{commandText(command)}</p> : null}
@@ -673,29 +774,30 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
         {/* 옆 2차맵으로(WP14): 고른 내 유닛(없으면 내 사이보그)을 변 너머 옆 2차맵으로 보낸다 */}
         <EdgeTravel
           mapKey={mapKey}
-          unit={edgeUnitOf({ selected, units: myUnits.units, cyborgUnitId: cyborg?.unitId ?? null })}
+          unit={edgeUnitOf({ selected: anchor, units: myUnits.units, cyborgUnitId: cyborg?.unitId ?? null })}
           engineRef={engineRef}
           hostRef={hostRef}
           screenFollows={following ? (cyborg?.unitId ?? null) : null}
         />
-        {listOpen ? null : (
+        {nearbyTab === null ? (
           <div className="map-actions">
-            <UnitsToggle count={myUnits.units?.length ?? null} onOpen={() => setListOpen(true)} />
+            <NearbyToggle nearby={nearby} />
           </div>
-        )}
-        <FollowAction show={followLost} onResume={resumeFollow} />
-        {selected === null ? null : (
+        ) : null}
+        {shown === null ? null : (
           <SelectedActions
             onStop={control !== null && canCommand(control) && selection.moving ? stopSelected : null}
-            onDeselect={deselect}
+            onBack={shown !== anchor && anchor !== null ? backToAnchor : null}
           />
         )}
         {devTools ? (
           <OperatorActions
             operator={operator}
             notice={devNotice}
+            freeView={freeView}
             onSpawn={spawnWorkers}
-            onToggle={toggleOperator}
+            onToggle={toggleOperatorMode}
+            onFreeView={() => setFreeView((on) => !on)}
           />
         ) : null}
       </footer>

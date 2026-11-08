@@ -1,9 +1,12 @@
 // 2차맵 원자재 오브젝트·채집 줄 덧그림 — docs/adr/2026-11-07-gather-objects.md 6절. 엔진 덧그림 층(after(보기))에서 프레임마다 화면 좌표로 놓는다
 // (다시보기 HUD battleHud.ts와 같은 방식: transform·data-*·글자만 바꾼다, 색·크기는 gather.css 토큰). 자리는 도시 표시(CityOverlay)처럼 정수 px로
 // 놓는다 — 소수 px 이동이면 단추 상자가 44px에서 부동소수 오차만큼 모자라게 재진다(화면 시험 smallTapTargets, 합치기 2026-11-08).
-// - 오브젝트 표시: 단추(누르면 채집 판). 화면 안 가장 가운데에 가까운 MARKERS개만 놓는다(묶음 하나에 하나라 2차맵 하나에 많아야 1,024개).
+// - 근처 판(nearby/, docs/adr/2026-11-08-seamless-second-map.md WP-2): 자원 표시는 근처 판이 자원 탭일 때만, 건물 표시는 건물 탭일 때만 놓는다
+//   (사용자 지적 2026-11-08 "자원 오브젝트를 항상 표시하지 않는다"). 판이 닫혀 있으면 둘 다 없다. 놓는 것 = 근처 목록과 같은 것(기준 유닛에서 가까운
+//   차례로 목록 줄 수까지) 가운데 화면 안에 든 것. 기준 유닛이 없으면(운영자 자유 시점) 화면 가운데에 가까운 차례.
+// - 오브젝트 표시: 단추(누르면 채집 판). 많아야 MARKERS개(묶음 하나에 하나라 2차맵 하나에 많아야 1,024개).
 //   떨어진 오브젝트는 다른 모양(data-state="depleted": 속 빈 회색 고리). 멀리서 보면(1m가 MIN_PX_PER_M보다 작게) 숨긴다.
-// - 건물 표시: 화면 안 가장 가운데에 가까운 BUILDING_MARKERS개 건물 위 작은 단추(누르면 건물 판 — 들어가기·안에 있는 유닛). 땅을 눌러도 같은 판이 열린다.
+// - 건물 표시: 많아야 BUILDING_MARKERS개 건물 위 작은 단추(누르면 건물 판 — 들어가기·안에 있는 유닛). 땅을 눌러도 같은 판이 열린다.
 // - 채집 줄 표시: 내 유닛 머리 위 작은 이름표(단계·화물 kg). 누르지 않는다.
 // - 채집소 반경: 채집소 판이 열려 있으면 그 반경 고리(stationRing.ts, 사용자 지적 2026-11-08).
 // 누르기(사용자 지적 2026-11-08 "맵조작시 오브젝트가 걸려 드래그가 안되고 계속 오브젝트가 잘못눌린다", docs/adr/2026-11-08-map-input.md 1절):
@@ -12,6 +15,8 @@
 // 고른다(반경 HIT_RADIUS_PX = 누름 영역 44px의 반). 키보드는 그대로 단추로 닿는다(Tab·Enter).
 import type { EngineLayer, EngineLayerView, SecondMapEngine } from "@terra/engine";
 import { m } from "../../paraglide/messages.js";
+import { type Point, buildingCentre, objectCentre, rankByDistance } from "../nearby/nearbyData.ts";
+import type { NearbyState } from "../nearby/nearbyState.ts";
 import { kgText, nameText, phaseText } from "./gatherData.ts";
 import type { GatherObjectEntry, GatherSheet, GatherState } from "./gatherState.ts";
 import { createStationRing } from "./stationRing.ts";
@@ -20,8 +25,8 @@ import { createStationRing } from "./stationRing.ts";
 const MARKERS = 40;
 /** 채집 줄 이름표 수 */
 const CHIPS = 8;
-/** 한 화면에 놓는 건물 표시 수(누르면 건물 판 — 들어가기·안에 있는 유닛) */
-const BUILDING_MARKERS = 12;
+/** 한 화면에 놓는 건물 표시 수(누르면 건물 판 — 들어가기·안에 있는 유닛) — 근처 목록 한 쪽(20줄)만큼 */
+const BUILDING_MARKERS = 20;
 /** 건물 표시 높이(m) */
 const BUILDING_LIFT_M = 4;
 /** 누르기로 표시를 고르는 반경(CSS px) — 누름 영역(--tap-size 44px)의 반, 엔진 유닛 고르기와 같다 */
@@ -80,12 +85,47 @@ function hideAll(list: readonly { readonly root?: HTMLElement; readonly button?:
   }
 }
 
+/** 근처 목록과 같은 것 가운데 화면 안에 든 것(at = 기준점, 없으면 화면 가운데에 가까운 차례). limit = 목록 줄 수 */
+function pickOnScreen<T>(
+  items: readonly T[],
+  view: EngineLayerView,
+  at: Point | null,
+  centreOf: (item: T) => Point,
+  idOf: (item: T) => number,
+  liftM: number,
+  limit: number,
+): { item: T; x: number; y: number }[] {
+  const ordered = at ? rankByDistance(items, at, centreOf, idOf, limit).map((row) => row.item) : items;
+  const cx = view.width / 2;
+  const cy = view.height / 2;
+  const seen: { item: T; x: number; y: number; d: number }[] = [];
+  for (const item of ordered) {
+    const centre = centreOf(item);
+    const point = view.project(centre.x, centre.y, liftM);
+    if (!point || point.x < 0 || point.y < 0 || point.x > view.width || point.y > view.height) continue;
+    seen.push({ item, x: point.x, y: point.y, d: (point.x - cx) ** 2 + (point.y - cy) ** 2 });
+  }
+  if (!at) seen.sort((a, b) => a.d - b.d);
+  return seen.slice(0, limit);
+}
+
 export function attachGatherOverlay(
   engine: Pick<SecondMapEngine, "addLayer" | "requestFrame" | "unitState">,
   host: HTMLElement,
   state: GatherState,
-  options: { readonly mapKey: number; readonly serverNow: () => number },
+  options: {
+    readonly mapKey: number;
+    readonly serverNow: () => number;
+    /** 근처 판(고른 탭·줄 수·기준 유닛) */
+    readonly nearby: Pick<NearbyState, "tab" | "limit" | "anchor" | "subscribe">;
+  },
 ): () => void {
+  const { nearby } = options;
+  /** 기준 유닛의 지금 자리(배치 칸, 엔진이 모르면 null) */
+  const anchorAt = (): Point | null => {
+    const unit = nearby.anchor === null ? null : engine.unitState(nearby.anchor);
+    return unit ? { x: unit.x, y: unit.y } : null;
+  };
   const root = document.createElement("div");
   root.className = "gather-overlay";
   host.after(root);
@@ -133,20 +173,21 @@ export function attachGatherOverlay(
   }
 
   const placeMarkers = (view: EngineLayerView): number => {
-    if (view.pixelsPerMetre < MIN_PX_PER_M) {
+    if (nearby.tab !== "resources" || view.pixelsPerMetre < MIN_PX_PER_M) {
       hideAll(markers);
+      root.dataset.markers = "0";
       return 0;
     }
     const now = options.serverNow();
-    const cx = view.width / 2;
-    const cy = view.height / 2;
-    const seen: { object: GatherObjectEntry; x: number; y: number; d: number }[] = [];
-    for (const object of state.objects) {
-      const point = view.project(object.x + 0.5, object.y + 0.5, MARKER_LIFT_M);
-      if (!point || point.x < 0 || point.y < 0 || point.x > view.width || point.y > view.height) continue;
-      seen.push({ object, x: point.x, y: point.y, d: (point.x - cx) ** 2 + (point.y - cy) ** 2 });
-    }
-    seen.sort((a, b) => a.d - b.d);
+    const seen = pickOnScreen(
+      state.objects,
+      view,
+      anchorAt(),
+      objectCentre,
+      (object: GatherObjectEntry) => object.id,
+      MARKER_LIFT_M,
+      Math.min(nearby.limit, MARKERS),
+    );
     let shown = 0;
     for (const [index, marker] of markers.entries()) {
       const entry = seen[index];
@@ -155,7 +196,7 @@ export function attachGatherOverlay(
         continue;
       }
       shown += 1;
-      const { object } = entry;
+      const object = entry.item;
       const kind = state.kinds[object.kind];
       const depleted = object.usesLeft <= 0 && object.regrowAtMs > now;
       const key = `${object.id}:${depleted ? "d" : "a"}:${object.usesLeft}`;
@@ -189,22 +230,19 @@ export function attachGatherOverlay(
   };
 
   const placeBuildings = (view: EngineLayerView): void => {
-    if (view.pixelsPerMetre < MIN_PX_PER_M) {
+    if (nearby.tab !== "buildings" || view.pixelsPerMetre < MIN_PX_PER_M) {
       hideAll(buildingMarkers);
       return;
     }
-    const cx = view.width / 2;
-    const cy = view.height / 2;
-    const seen: { id: number; x: number; y: number; d: number }[] = [];
-    for (const building of state.buildings) {
-      const quarter = building.rotation === 1 || building.rotation === 3;
-      const width = quarter ? building.depth : building.width;
-      const height = quarter ? building.width : building.depth;
-      const point = view.project(building.cellX + width / 2, building.cellY + height / 2, BUILDING_LIFT_M);
-      if (!point || point.x < 0 || point.y < 0 || point.x > view.width || point.y > view.height) continue;
-      seen.push({ id: building.id, x: point.x, y: point.y, d: (point.x - cx) ** 2 + (point.y - cy) ** 2 });
-    }
-    seen.sort((a, b) => a.d - b.d);
+    const seen = pickOnScreen(
+      state.buildings,
+      view,
+      anchorAt(),
+      buildingCentre,
+      (building) => building.id,
+      BUILDING_LIFT_M,
+      Math.min(nearby.limit, BUILDING_MARKERS),
+    ).map((entry) => ({ id: entry.item.id, x: entry.x, y: entry.y }));
     for (const [index, marker] of buildingMarkers.entries()) {
       const entry = seen[index];
       if (!entry) {
@@ -280,13 +318,17 @@ export function attachGatherOverlay(
   };
   const detach = engine.addLayer(layer);
   // 자료·판이 바뀌면 한 번 더 그린다(카메라가 멈춰 있어도 표시가 바뀌게)
-  const unsubscribe = state.subscribe(() => {
+  const redraw = (): void => {
     for (const marker of markers) marker.key = "";
     for (const marker of buildingMarkers) marker.key = "";
     engine.requestFrame();
-  });
+  };
+  const unsubscribe = state.subscribe(redraw);
+  // 근처 판 탭·줄 수·기준 유닛이 바뀌면 표시를 다시 고른다
+  const unsubscribeNearby = nearby.subscribe(redraw);
   return () => {
     unsubscribe();
+    unsubscribeNearby();
     detach();
     root.remove();
   };

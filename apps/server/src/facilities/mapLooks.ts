@@ -2,8 +2,10 @@
 // 띄운 2차맵의 건물마다 시설 ID·레벨·상태(짓는 중·정상·손상·멈춤·폐허)·레벨 올리는 중·주인의 국가를 준다. 화면은 이것으로 건물 모델을 고른다.
 // 상태 셈은 건물 화면(views.ts)과 같다: 다 지은 시설은 지금 시각까지 상태를 흐르게 한 값(advanceCondition), 처음 짓는 중은 "building".
 // 보이는 건물만 준다: 시야 전송(world/vision.ts)이 건물을 보내는 규칙과 같다 — 전체 보기 권한, 내 건물, 아는 시야 칸(탐사 ∪ 지금 시야)에 든 건물.
+// 시설 이름·내 건물인가도 준다(2차맵 근처 목록 건물 탭, docs/adr/2026-11-08-seamless-second-map.md WP-2).
 import { advanceCondition, conditionStateOf } from "@terra/shared/facilityRuntime";
 import type { MapBuildingLook, MapLooksResponse } from "@terra/shared/mapLooks";
+import type { LocalizedName } from "@terra/shared/roster";
 import { type SocietyCoefficients, hasBit } from "@terra/sim";
 import type { SecondMap } from "../world/secondMap.ts";
 import { buildingCell } from "../world/vision.ts";
@@ -23,6 +25,8 @@ export interface MapLooksSource {
     readonly jobs: ReadonlyMap<number, JobRecord>;
   };
   readonly rules: () => SocietyCoefficients;
+  /** 시설 이름(팩). 없으면 이름을 싣지 않는다 */
+  readonly facilityName?: (facilityId: string) => LocalizedName | undefined;
 }
 
 /** 그 2차맵 건물들의 주인 주체 ID(중복 없음) — 국가를 한 번에 찾는다 */
@@ -57,6 +61,7 @@ export function mapBuildingLooks(
     if (!visible) return;
     const record = source.service.facilities.get(building.id);
     const factionId = building.ownerId === null ? null : (ownerFactions.get(building.ownerId) ?? null);
+    const mine = viewer.ownerId !== undefined && building.ownerId === viewer.ownerId;
     if (!record) {
       buildings.push({
         buildingId: building.id,
@@ -65,9 +70,11 @@ export function mapBuildingLooks(
         state: "ok",
         upgrading: false,
         factionId,
+        mine,
       });
       return;
     }
+    const name = source.facilityName?.(record.facilityId);
     const condition =
       record.level >= 1 && nowMs > record.conditionAtMs
         ? advanceCondition(record.conditionPpm, nowMs - record.conditionAtMs, false, rt)
@@ -79,6 +86,8 @@ export function mapBuildingLooks(
       state: record.level < 1 ? "building" : conditionStateOf(condition, rt),
       upgrading: record.level >= 1 && upgrading.has(building.id),
       factionId,
+      ...(name ? { name } : {}),
+      mine,
     });
   });
   buildings.sort((a, b) => a.buildingId - b.buildingId);

@@ -56,6 +56,7 @@ export function inertEngine(): SecondMapEngine {
   return {
     setTerrain: () => Promise.resolve(),
     setNeighbours: () => Promise.resolve(),
+    setNeighbourExplored: () => undefined,
     setUnits: () => undefined,
     setUnitPath: () => undefined,
     stopUnit: () => undefined,

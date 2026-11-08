@@ -472,7 +472,8 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
       message.t === "fx_result" ||
       message.t === "travel_result" ||
       message.t === "gather_result" ||
-      message.t === "hospital_result"
+      message.t === "hospital_result" ||
+      message.t === "nationality_result"
     )
       return;
     if (message.mapKey !== mapKey) return;

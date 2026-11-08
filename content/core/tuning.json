@@ -1982,6 +1982,32 @@
       "max": 100000
     },
     {
+      "id": "citizenship_fee",
+      "code": "",
+      "name": {
+        "ko": "귀화 값(최소 단위, 받는 나라 국고)",
+        "en": "Naturalization fee (minor units, to the new nation's treasury)"
+      },
+      "value": 100,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000
+    },
+    {
+      "id": "citizenship_rest_ms",
+      "code": "",
+      "name": {
+        "ko": "귀화 뒤 쉬는 기간(ms)",
+        "en": "Rest period after naturalization (ms)"
+      },
+      "value": 604800000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 31536000000
+    },
+    {
       "id": "f11_repair_lv1",
       "code": "F11",
       "name": {

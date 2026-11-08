@@ -32,6 +32,7 @@ import {
   UNIT_CONTROL_PROTOCOL_VERSION,
   GATHER_PROTOCOL_VERSION,
   HOSPITAL_PROTOCOL_VERSION,
+  CITIZENSHIP_PROTOCOL_VERSION,
   type ServerMessage,
   decodeClientMessage,
   encodeMessage,
@@ -53,6 +54,7 @@ import type { MarketGateway, MarketSocket } from "./market/gateway.ts";
 import type { TravelGateway, TravelSocket } from "./travel/gateway.ts";
 import type { GatherGateway, GatherSocket } from "./gather/gateway.ts";
 import type { HospitalGateway, HospitalSocket } from "./hospital/gateway.ts";
+import type { CitizenshipGateway, CitizenshipSocket } from "./citizenship/gateway.ts";
 import type { WorldGateway, WorldSocket } from "./world/gateway.ts";
 
 export interface SessionContext {
@@ -87,6 +89,8 @@ export interface SessionContext {
   gather?: GatherGateway | undefined;
   /** 병원 치료(프로토콜 17, docs/adr/2026-11-08-injury.md). 없으면 busy */
   hospital?: HospitalGateway | undefined;
+  /** 국적 바꾸기(프로토콜 18, docs/adr/2026-11-08-citizenship.md). 없으면 busy */
+  citizenship?: CitizenshipGateway | undefined;
   /** 이 연결의 로그인 사용자(쿠키). 로그인하지 않았거나 인증이 꺼져 있으면 null */
   viewer?: (() => Promise<Viewer | null>) | undefined;
   /**
@@ -127,6 +131,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
   let travelSocket: TravelSocket | undefined;
   let gatherSocket: GatherSocket | undefined;
   let hospitalSocket: HospitalSocket | undefined;
+  let citizenshipSocket: CitizenshipSocket | undefined;
   let releasePresence: (() => void) | undefined;
 
   const sendText = (text: string): void => {
@@ -170,6 +175,7 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
     travelSocket?.close();
     gatherSocket?.close();
     hospitalSocket?.close();
+    citizenshipSocket?.close();
     releasePresence?.();
   });
 
@@ -532,6 +538,23 @@ export function handleSession(socket: WebSocket, context: SessionContext): void 
         }
         hospitalSocket ??= context.hospital.open({ send: sendText, viewer: context.viewer ?? signedOut });
         hospitalSocket.handle(message);
+        return;
+      }
+      case "nationality_change": {
+        // 국적 바꾸기는 프로토콜 18의 메시지다. 더 낮게 인사한 연결은 모르는 메시지로 본다
+        if (protocolVersion < CITIZENSHIP_PROTOCOL_VERSION) {
+          reject("invalid_message");
+          return;
+        }
+        if (!context.citizenship) {
+          send({ t: "nationality_result", id: message.id, ok: false, code: "busy" });
+          return;
+        }
+        citizenshipSocket ??= context.citizenship.open({
+          send: sendText,
+          viewer: context.viewer ?? signedOut,
+        });
+        citizenshipSocket.handle(message);
         return;
       }
     }

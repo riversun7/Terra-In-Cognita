@@ -27,12 +27,14 @@ import type {
   WorldPositionResponse,
 } from "@terra/shared/worldMap";
 import { type GovernmentReads, governmentReadsOfWorld } from "../government/reads.ts";
+import { type NaturalizationReads, naturalizationReadsOfWorld } from "../citizenship/attach.ts";
 import { type NationPreset, nationLeaderName, nationName } from "../npc/nations.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { WorldDirectory } from "../world/gateway.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { World } from "../world/world.ts";
+import { visionViewerOf } from "../world/nationVision.ts";
 import { canObserve, canViewSecondMap } from "../world/visibility.ts";
 import { hullKnown, isCityKnown, knownWithoutSight } from "./knownCities.ts";
 import { createTravelDanger } from "./travelDanger.ts";
@@ -434,15 +436,19 @@ export function worldMapReadsOf(options: {
   /** 확인 단계 오염 위험 문턱(설정 칸 실효 값, 없으면 시험 계수 — 유목 목표 오염 문턱 S17) */
   readonly pollutionDanger?: (() => number) | undefined;
 }): () =>
-  | (WorldMapReadServices & TravelReads & MapUnitReads & GovernmentReads & NationNameReads)
+  | (WorldMapReadServices &
+      TravelReads &
+      MapUnitReads &
+      GovernmentReads &
+      NationNameReads &
+      NaturalizationReads)
   | undefined {
   const { world, planets, planetId } = options;
   // 국가 1(시험 NPC 세력)도 사이보그 만들기·랭킹과 같은 이름(16번째 프리셋, nationName — WP1 6절. 지도에만 옛 "시험 NPC 세력"이 남아 있었다)
   const nameOfCode = (code: string): LocalizedName | undefined => nationName(code, options.presets);
   const leaderOfCode = (code: string): LocalizedName | undefined => nationLeaderName(code, options.presets);
   const sighted = (mapKey: number, viewer: Viewer) =>
-    world.maps.get(mapKey)?.vision.sighted({ userId: viewer.id, ownerId: world.ownerOfUser?.(viewer.id) }) ??
-    Promise.resolve(undefined);
+    world.maps.get(mapKey)?.vision.sighted(visionViewerOf(world, viewer.id)) ?? Promise.resolve(undefined);
   const reads = createWorldMapReads({
     planetId,
     faceLevel: options.faceLevel,
@@ -486,9 +492,7 @@ export function worldMapReadsOf(options: {
       world.persistence?.travel.list(userId).filter((entry) => entry.hidden && entry.state === "going")
         .length ?? 0,
     sees: (mapKey, viewer, unitId) =>
-      world.maps
-        .get(mapKey)
-        ?.vision.sees({ userId: viewer.id, ownerId: world.ownerOfUser?.(viewer.id) }, unitId) ?? false,
+      world.maps.get(mapKey)?.vision.sees(visionViewerOf(world, viewer.id), unitId) ?? false,
     observer: canObserve,
     factionOfOwner: (ownerId) =>
       factionOfOwner(options.pool, world.persistence?.owners.get(ownerId), (code) =>
@@ -505,6 +509,11 @@ export function worldMapReadsOf(options: {
   const nations: NationNameReads = {
     nationNames: (code) => ({ name: nameOfCode(code), leader: leaderOfCode(code) }),
   };
-  const services = { ...reads, ...travel, ...units, ...government, ...nations };
+  // 국적 바꾸기 조건(docs/adr/2026-11-08-citizenship.md): 정부 판과 같은 안개·이름
+  const citizenship = naturalizationReadsOfWorld(world, {
+    knownCityIds: (viewer) => reads.knownCityIds(viewer),
+    nationName: nameOfCode,
+  });
+  const services = { ...reads, ...travel, ...units, ...government, ...nations, ...citizenship };
   return () => (world.status().state === "ready" && world.persistence ? services : undefined);
 }

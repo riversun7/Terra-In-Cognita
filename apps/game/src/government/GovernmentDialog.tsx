@@ -2,10 +2,12 @@
 // 2차맵 정부 작은 판(GovernmentSheet.tsx)의 [정부 열기]가 연다. 모바일 우선: 좁으면 화면 전체, 넓으면 가운데 판(복귀 요약과 같은 틀).
 // - 도시와 주인 나라: 나라 이름(내 나라 표)·지도자(NPC 국가 지도자 사이보그)·시장(서버에 임명이 없어 "없음", 질문 744)·세율·행정 레벨·휴먼 수.
 // - 구인: 경제 화면 구인 판(economy/RecruitPanel.tsx)을 이 도시로 그대로 쓴다(tRPC recruit.board → WebSocket recruit_hire). 판정은 서버.
-// - [창고]·[거래소]: 경제 화면 칸으로 간다(대화상자를 닫고 이동). 국적 바꾸기·가입은 규칙·서버 명령이 아직 없어 그리지 않는다(질문 745).
+// - [창고]·[거래소]: 경제 화면 칸으로 간다(대화상자를 닫고 이동).
+// - 국적 바꾸기(귀화, 질문 745 나): 내 나라가 아닌 도시면 NaturalizePanel.tsx 한 칸(docs/adr/2026-11-08-citizenship.md).
 import type { GovernmentResponse } from "@terra/shared/government";
 import { useEffect, useId, useRef } from "react";
 import { RecruitPanel } from "../economy/RecruitPanel.tsx";
+import { NaturalizePanel } from "./NaturalizePanel.tsx";
 import { m } from "../paraglide/messages.js";
 import { navigate } from "../shell/routerStore.ts";
 import { cityTitle, leaderTitle, nationTitle, populationText, taxText } from "./governmentData.ts";
@@ -105,6 +107,7 @@ export default function GovernmentDialog({ government, onClose }: GovernmentDial
             {m.government_go_market()}
           </button>
         </div>
+        <NaturalizePanel government={government} />
         <p className="gov-muted">{m.government_recruit_hint()}</p>
         <RecruitPanel cityId={city.id} />
       </div>

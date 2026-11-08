@@ -122,6 +122,15 @@ export interface CyborgService {
   userOfUnit(unitId: number): string | undefined;
   /** 부팅: 유닛 행이 없는 사이보그를 시작 도시에 다시 놓는다. 다시 놓은 수 */
   repairUnits(knownUnitIds: ReadonlySet<number>): number;
+  /** 첫 접속에서 고를 수 있는 나라인가(고정 NPC 국가 + 이 서버에 시작 도시) — 국적 바꾸기의 받는 나라도 같은 목록이다 */
+  joinable(factionId: number): boolean;
+  /**
+   * 국적을 바꾼다(docs/adr/2026-11-08-citizenship.md): 나라·내 도시·바꾼 시각·돌려준 지원금을 메모리에 고치고 사이보그 행·세력 가입·기록 한 줄을
+   * 쓰기 대기열에 넣는다(커밋은 부르는 쪽이 원장 거래와 함께 기다린다). 판정(쉬는 날·값·자리)은 부르는 쪽(citizenship/service.ts)이 먼저 한다
+   */
+  changeNation(userId: string, change: NationChange): boolean;
+  /** 국적 바꾸기 설정 칸(실효 값, 부를 때마다): 귀화 값(최소 단위)·쉬는 기간(ms) */
+  naturalizationRules(): { readonly fee: bigint; readonly restMs: number };
   /**
    * 신앙도·신앙 포인트를 함께 올린다(신전 기도·헌금, D-444 165·D-451 — 신앙도는 100에서 멈춘다). 사이보그가 없으면 undefined.
    * 쓰기 대기열에 넣기만 한다(커밋은 부르는 쪽이 기다린다)
@@ -131,6 +140,16 @@ export interface CyborgService {
     gain: number,
   ): { readonly faith: number; readonly faithPoints: number } | undefined;
   readonly size: number;
+}
+
+/** 국적 바꾸기 한 번(판정을 마친 값) */
+export interface NationChange {
+  readonly factionId: number;
+  readonly cityId: number;
+  readonly buildingId: number;
+  readonly atMs: number;
+  readonly fee: bigint;
+  readonly grantReturned: bigint;
 }
 
 export interface CyborgServiceOptions {
@@ -476,6 +495,8 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         religion: null,
         faithPoints: 0,
         startGrant: paid,
+        nationChangedAtMs: null,
+        grantReturned: 0n,
       };
       byUser.set(userId, record);
       byName.set(record.nameKey, userId);
@@ -522,6 +543,37 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       record.faithPoints = next.faithPoints;
       writer.upsert("cyborgs", cyborgRow(record));
       return next;
+    },
+    naturalizationRules() {
+      const { naturalizeFee, naturalizeRestMs } = options.rules().cyborg;
+      return {
+        fee: Number.isSafeInteger(naturalizeFee) && naturalizeFee > 0 ? BigInt(naturalizeFee) : 0n,
+        restMs: Number.isSafeInteger(naturalizeRestMs) && naturalizeRestMs > 0 ? naturalizeRestMs : 0,
+      };
+    },
+    joinable: (factionId) =>
+      factions.some((faction) => faction.id === factionId) && startCitiesOf(factionId).length > 0,
+    changeNation(userId, change) {
+      const record = byUser.get(userId);
+      if (!record || record.factionId === change.factionId) return false;
+      const from = record.factionId;
+      record.factionId = change.factionId;
+      record.startCityId = change.cityId;
+      record.nationChangedAtMs = change.atMs;
+      record.grantReturned += change.grantReturned;
+      writer.upsert("factionMembers", { user_id: userId, faction_id: change.factionId });
+      writer.upsert("cyborgs", cyborgRow(record));
+      writer.append("nationalityChanges", {
+        user_id: userId,
+        from_faction: from,
+        to_faction: change.factionId,
+        city_id: change.cityId,
+        building_id: change.buildingId,
+        at_ms: change.atMs,
+        fee: change.fee,
+        grant_returned: change.grantReturned,
+      });
+      return true;
     },
     repairUnits(knownUnitIds) {
       let repaired = 0;

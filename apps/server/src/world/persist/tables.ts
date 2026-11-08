@@ -100,6 +100,21 @@ export const WORLD_TABLES = {
     ],
     key: ["user_id"],
   },
+  /** 국적 바꾸기 기록(추가만, docs/adr/2026-11-08-citizenship.md) — 사이보그 행·세력 가입·원장 거래와 같은 커밋 */
+  nationalityChanges: {
+    name: "nationality_changes",
+    columns: [
+      "user_id",
+      "from_faction",
+      "to_faction",
+      "city_id",
+      "building_id",
+      "at_ms",
+      "fee",
+      "grant_returned",
+    ],
+    key: [],
+  },
   /** 만드는 중인 초기 스탯 굴림(만들면 지운다) */
   cyborgRolls: {
     name: "cyborg_rolls",
@@ -661,6 +676,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "heartbeat",
   "factionMembers",
   "cyborgs",
+  "nationalityChanges",
   "cyborgRolls",
   "holdings",
   "unitEffects",

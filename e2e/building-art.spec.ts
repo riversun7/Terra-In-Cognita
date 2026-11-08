@@ -72,6 +72,51 @@ async function openCityMap(page: Page, query = ""): Promise<{ looks: Awaited<Ret
   return { looks };
 }
 
+/** 보이는 건물 표시(채집 덧그림)의 가운데(CSS px) */
+async function buildingMarkerPoints(page: Page): Promise<{ id: number; x: number; y: number }[]> {
+  return page.locator(".gather-building-marker[data-building]:not([hidden])").evaluateAll((elements) =>
+    elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return {
+        id: Number(element.getAttribute("data-building")),
+        x: box.x + box.width / 2,
+        y: box.y + box.height / 2,
+      };
+    }),
+  );
+}
+
+/**
+ * 건물 무리를 화면 가운데로 끌어 온다(마우스로 땅을 끈다, 두 번). NPC 도시 시설은 도시 칸 둘레의 지을 수 있는 땅에 서서
+ * 도시 칸(카메라)에서 떨어져 위 판(HUD) 밑에 걸릴 수 있다
+ */
+async function centreOnBuildings(page: Page): Promise<void> {
+  const size = page.viewportSize() ?? { width: 390, height: 844 };
+  const cx = size.width / 2;
+  const cy = size.height / 2;
+  for (let pass = 0; pass < 2; pass++) {
+    await expect
+      .poll(async () => (await buildingMarkerPoints(page)).length, { timeout: 20_000 })
+      .toBeGreaterThan(0);
+    const points = await buildingMarkerPoints(page);
+    const ax = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+    const ay = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+    const tx = Math.min(size.width - 20, Math.max(20, cx + (cx - ax)));
+    const ty = Math.min(size.height - 20, Math.max(20, cy + (cy - ay)));
+    if (Math.hypot(tx - cx, ty - cy) < 30) return;
+    // 끄는 동안 덧그림 표시가 누르기를 받지 않게 잠깐 숨긴다
+    const hide = await page.addStyleTag({
+      content: ".gather-overlay > * { visibility: hidden !important; }",
+    });
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    await page.mouse.move(tx, ty, { steps: 12 });
+    await page.mouse.up();
+    await hide.evaluate((node) => node.parentNode?.removeChild(node));
+    await page.waitForTimeout(800);
+  }
+}
+
 test.describe("건물 모델: 도시 2차맵", () => {
   test.use({ account: "dev" });
 
@@ -92,18 +137,8 @@ test.describe("건물 모델: 도시 2차맵", () => {
     expect(Number(calls)).toBeGreaterThan(0);
 
     // 건물 표시(DOM)를 숨기고 그 자리를 캔버스에서 누른다 — 표시 자리 = 건물 가운데 4m 위 = 건물 모델 위
-    const markers = page.locator(".gather-building-marker[data-building]:not([hidden])");
-    await expect(markers.first()).toBeVisible({ timeout: 20_000 });
-    const boxes = await markers.evaluateAll((elements) =>
-      elements.map((element) => {
-        const box = element.getBoundingClientRect();
-        return {
-          id: Number(element.getAttribute("data-building")),
-          x: box.x + box.width / 2,
-          y: box.y + box.height / 2,
-        };
-      }),
-    );
+    await centreOnBuildings(page);
+    const boxes = await buildingMarkerPoints(page);
     // 채집 덧그림의 표시(오브젝트·건물)를 모두 숨긴다 → 누르기가 캔버스(엔진)로 간다
     await page.addStyleTag({ content: ".gather-overlay > * { visibility: hidden !important; }" });
     // 위 판(HUD)에 가리지 않은 표시 자리만(그 점의 맨 위 요소가 캔버스), 행정 건물 먼저
@@ -148,6 +183,7 @@ test.describe("건물 모델: 도시 2차맵", () => {
           test(`도시 2차맵 사진 (${width}·${theme}·${time})`, async ({ page, deviceErrors }) => {
             test.setTimeout(180_000);
             await openCityMap(page, `&second-map-time=${String(hour)}`);
+            await centreOnBuildings(page);
             // 채집 덧그림 표시(오브젝트 점·건물 이름표)는 건물 모양을 가려서 사진에서만 숨긴다
             await page.addStyleTag({ content: ".gather-overlay > * { visibility: hidden !important; }" });
             await page.waitForTimeout(500);

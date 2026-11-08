@@ -24,7 +24,7 @@
 | `apps/game/src/editor/balance/FormulaTab.tsx` | "쓸 수 있는 이름" 접기 지움(조각판이 대신) |
 | `apps/game/src/editor/balance/formulaMessages.ts` | 연산자 풀이 표·칩 풀이 함수 |
 | `apps/game/src/editor/balance/formulaTab.css` | 지운 접기의 `.fx-vars` 규칙 지움 |
-| `apps/game/messages/{ko,en}.json` | 조각판·연산자 문구 23개 더함, `dev_formula_vars_label` 지움 |
+| `apps/game/messages/{ko,en}.json` | 조각판·연산자 문구 23개 더함, `dev_formula_vars_label` 지움. 영어 함수 풀이 넷(clamp·if·curve·lerp)의 인자 이름을 자리표시와 같게 |
 | `e2e/formulas.spec.ts` | 끌어 놓기(앞·끝)·누르기·감싸기·자리표시가 담기를 막음·중간값 줄·키보드·휴대폰 누르기 시험, 조각판 사진(390·1440 × 네온·라이트 × ko·en) |
 | `docs/adr/2026-11-01-formula-editor.md` | 상태 확정(사용자 조건), "바뀜 (2026-11-08 끌어 넣기)" |
 | `docs/PLAN.md` | 14장 표 한 줄 |
@@ -35,6 +35,10 @@
 
 ## 건드리지 말 것
 - 검사·저장 흐름(`checkSource`·`parseFormula`·`tuning.save`)은 그대로다. 조각판은 글만 바꾼다.
+
+## 검사 결과 (merge/integration fe3c4c4를 합친 뒤)
+- `TEST_DATABASE_URL=… pnpm check` 통과(단위 시험 파일 548·시험 4,143 모두 통과), `pnpm check:docs origin/main`·`pnpm check:content origin/main` 통과.
+- `pnpm e2e e2e/formulas.spec.ts e2e/balance.spec.ts` 31개 모두 통과(새 시험 셋: 끌어 놓기·누르기·감싸기·자리표시 막힘·중간값 줄, 키보드, 휴대폰 누르기 + 조각판 사진 390·1440 × 네온·라이트 × ko·en). 사진을 보고 넓은 화면 옆 칸 배치를 글 상자 아래로 바꿨다(옆 칸은 글 상자 옆이 비었다). 그 뒤 영어 함수 풀이 문구 넷만 바꿨다(시험이 보지 않는 글, `check:i18n` 다시 통과).
 
 ## 미검증·TODO·알려진 문제
 - 실제 휴대폰·iOS Safari에서 손가락 누르기는 재지 않았다(헤드리스 Chromium 휴대폰 흉내만). 놓은 자리 셈은 줄을 접지 않는 글 상자(white-space: pre)와 탭 글자 없음에 기댄다(탭은 너비를 다르게 셀 수 있다).

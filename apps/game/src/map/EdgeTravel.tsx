@@ -12,6 +12,7 @@ import type { MapUnit } from "@terra/shared/mapUnits";
 import type { WorldTravel, WorldTravelPlan, WorldTravelProblem } from "@terra/shared/worldMap";
 import type { TravelResultCode } from "@terra/protocol";
 import { type RefObject, useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { serverLink } from "../net/serverLink.ts";
 import { m } from "../paraglide/messages.js";
 import { navigate } from "../shell/routerStore.ts";
@@ -309,9 +310,11 @@ export function EdgeTravel({ mapKey, unit, engineRef, hostRef, screenFollows }: 
       const plan = plans.get(target.mapKey);
       return plan?.kind === "ready" && plan.plan.working;
     });
-    return (
+    // 판은 화면 아래에 붙는 판으로 지도 화면 밖(문서 끝)에 그린다: 키가 커서 아래 판 줄에 두면 오른쪽 가운데 1·2차맵 전환 단추(shell
+    // overlays.css .map-switch, 층 5)에 가린다. 판이 열린 동안은 이 판이 그 단추 위(층 6)다 — 판에 [1차맵에서 고르기]·[닫기]가 있다
+    return createPortal(
       <section
-        className="map-panel map-edge"
+        className="map-panel map-edge map-edge-sheet"
         aria-labelledby={titleId}
         data-edge="open"
         data-edge-unit={unit.unitId}
@@ -386,7 +389,8 @@ export function EdgeTravel({ mapKey, unit, engineRef, hostRef, screenFollows }: 
             {m.world_city_close()}
           </button>
         </div>
-      </section>
+      </section>,
+      document.body,
     );
   }
 

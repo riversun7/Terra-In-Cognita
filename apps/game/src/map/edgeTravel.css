@@ -5,9 +5,24 @@
 .map-edge {
   display: grid;
   gap: var(--space-2);
-  width: 100%;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-snug);
+}
+/*
+ * 아래에 붙는 판(지도 화면 밖, 문서 끝): 지도 위 단추(전환 단추 층 5)보다 위 층 6, 방향 안내(층 6)와 같은 층이지만 그 안내는 누르기를
+ * 지나보낸다. 키가 화면을 넘으면 판 안에서 넘긴다. 넓은 화면은 가운데에 32rem까지
+ */
+.map-edge-sheet {
+  position: fixed;
+  left: max(var(--space-3), env(safe-area-inset-left));
+  right: max(var(--space-3), env(safe-area-inset-right));
+  bottom: max(var(--space-3), env(safe-area-inset-bottom));
+  z-index: 6;
+  max-width: 32rem;
+  max-height: calc(100dvh - 2 * var(--space-12));
+  margin-inline: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .map-edge-title {
   margin: 0;

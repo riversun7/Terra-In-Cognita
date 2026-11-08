@@ -24,11 +24,27 @@
   background: var(--color-surface);
 }
 .start-element[data-picked="true"] {
-  border-color: var(--color-primary);
+  border-color: var(--element-color, var(--color-primary));
   background: var(--color-surface-2);
 }
-.start-element-name {
+.start-element-head {
   grid-area: name;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.start-element-icon {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: color var(--duration-fast) var(--easing-out);
+}
+.start-element[data-picked="true"] .start-element-icon {
+  color: var(--element-color, var(--color-primary));
+}
+.start-element-name {
   font-weight: var(--font-weight-strong);
   overflow-wrap: anywhere;
 }
@@ -50,6 +66,9 @@
   font-weight: var(--font-weight-strong);
   font-variant-numeric: tabular-nums;
 }
+.start-element[data-picked="true"] .start-element-value {
+  color: var(--element-color, var(--color-primary));
+}
 .start-element-all {
   grid-area: all;
   min-height: var(--tap-size);
@@ -69,17 +88,21 @@
   background: var(--element-fill, var(--color-primary));
   transition: inline-size var(--duration-fast) var(--easing-out);
 }
-/* 막대 색(사용자 정의 속성으로 빌려 쓴다: 토큰 이름의 색 낱말은 직접 쓴 값 검사에 걸린다) */
+/* 막대 및 강조 색(사용자 정의 속성으로 빌려 쓴다: 토큰 이름의 색 낱말은 직접 쓴 값 검사에 걸린다) */
 .start-element[data-element="water"] {
+  --element-color: var(--color-market-blue);
   --element-fill: var(--color-market-blue);
 }
 .start-element[data-element="fire"] {
+  --element-color: var(--color-danger);
   --element-fill: var(--color-danger);
 }
 .start-element[data-element="wind"] {
+  --element-color: var(--color-success);
   --element-fill: var(--color-success);
 }
 .start-element[data-element="earth"] {
+  --element-color: var(--color-warning);
   --element-fill: var(--color-warning);
 }
 @media (prefers-reduced-motion: reduce) {

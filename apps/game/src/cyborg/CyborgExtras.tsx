@@ -7,6 +7,7 @@ import { getLocale } from "../paraglide/runtime.js";
 import { SoonButton } from "../roster/parts.tsx";
 import { AppLink } from "../shell/AppLink.tsx";
 import { assetLabel, formatAmount, formatNumber, localName } from "../roster/rosterText.ts";
+import { ElementIcon } from "../ui/elementIcons.tsx";
 import { elementFamilies, elementLabel } from "./cyborgText.ts";
 
 /** 스킬 칸: 연 칸(쓰는 스킬·빈 칸) + 닫힌 칸(환생 n회에 열림) */
@@ -64,6 +65,7 @@ export function Elements({ values }: { values: readonly number[] }) {
                 data-element={cell.code}
                 data-empty={cell.value === 0 ? "true" : undefined}
               >
+                <ElementIcon code={cell.code} className="cyborg-element-icon" />
                 <span className="cyborg-element-name">{elementLabel(cell.code)}</span>
                 <span className="cyborg-element-pips" aria-hidden="true">
                   {Array.from({ length: 10 }, (_, pip) => (

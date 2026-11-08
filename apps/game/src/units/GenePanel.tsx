@@ -10,6 +10,7 @@ import { FUSION_STAT_ORDER, type FusionGeneView, type FusionOverviewResponse } f
 import { useState } from "react";
 import { m } from "../paraglide/messages.js";
 import { formatAmount, formatNumber } from "../roster/rosterText.ts";
+import { ElementIcon } from "../ui/elementIcons.tsx";
 import { type RunFusion, SPECIES_NAME, STAT_CODE, StatRow, getLang, percent } from "./fusionParts.tsx";
 
 const ELEMENT_TEXT: Readonly<Record<ElementCode, () => string>> = {
@@ -47,7 +48,9 @@ function ElementChips({ values }: { values: readonly number[] }) {
     <ul className="fusion-elements" aria-label={m.fusion_gene_elements()}>
       {shown.map((entry) => (
         <li key={entry.code} className="fusion-element" data-element={entry.code}>
-          {ELEMENT_TEXT[entry.code]()} <span className="fusion-num">{formatNumber(entry.value)}</span>
+          <ElementIcon code={entry.code} className="fusion-element-icon" />
+          <span>{ELEMENT_TEXT[entry.code]()}</span>
+          <span className="fusion-num">{formatNumber(entry.value)}</span>
         </li>
       ))}
     </ul>

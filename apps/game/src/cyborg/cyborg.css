@@ -265,16 +265,25 @@
 }
 .cyborg-element {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
-    "name value"
-    "pips pips";
-  align-items: baseline;
+    "icon name value"
+    "pips pips pips";
+  align-items: center;
   gap: var(--space-1) var(--space-2);
   padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
   border-radius: var(--radius-sm);
   background-color: var(--color-surface-2);
   font-size: var(--font-size-sm);
+  transition: border-color var(--duration-fast) var(--easing-out);
+}
+.cyborg-element-icon {
+  grid-area: icon;
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  color: var(--element-color, var(--color-text-muted));
+  flex-shrink: 0;
 }
 .cyborg-element-name {
   grid-area: name;
@@ -286,8 +295,23 @@
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-strong);
 }
+.cyborg-element[data-empty="true"] .cyborg-element-icon {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+.cyborg-element[data-empty="true"] .cyborg-element-name {
+  color: var(--color-text-muted);
+}
 .cyborg-element[data-empty="true"] .cyborg-element-value {
   color: var(--color-text-muted);
+}
+.cyborg-element:not([data-empty="true"]) {
+  border-color: var(--element-color);
+}
+.cyborg-element:not([data-empty="true"]) .cyborg-element-value {
+  color: var(--element-color);
+  font-family: var(--font-display);
+  font-size: var(--font-size-base);
 }
 /* 눈금 10칸(0~10) */
 .cyborg-element-pips {
@@ -302,7 +326,44 @@
   background-color: var(--color-border);
 }
 .cyborg-element-pip[data-on="true"] {
-  background-color: var(--color-primary-lip);
+  background-color: var(--element-color, var(--color-primary-lip));
+}
+/* 속성 12칸 고유 색(토큰을 연결하여 테마 대비 자동 충족) */
+.cyborg-element[data-element="water"] {
+  --element-color: var(--color-market-blue);
+}
+.cyborg-element[data-element="frost"] {
+  --element-color: var(--color-sec-shield-hp);
+}
+.cyborg-element[data-element="fire"] {
+  --element-color: var(--color-danger);
+}
+.cyborg-element[data-element="blaze"] {
+  --element-color: var(--color-stat-vit);
+}
+.cyborg-element[data-element="wind"] {
+  --element-color: var(--color-success);
+}
+.cyborg-element[data-element="lightning"] {
+  --element-color: var(--color-stat-dex);
+}
+.cyborg-element[data-element="earth"] {
+  --element-color: var(--color-warning);
+}
+.cyborg-element[data-element="crystal"] {
+  --element-color: var(--color-sec-hp);
+}
+.cyborg-element[data-element="light"] {
+  --element-color: var(--color-highlight);
+}
+.cyborg-element[data-element="holy"] {
+  --element-color: var(--color-sec-mp-regen);
+}
+.cyborg-element[data-element="dark"] {
+  --element-color: var(--color-stat-wis);
+}
+.cyborg-element[data-element="necro"] {
+  --element-color: var(--color-sec-elemental-attack);
 }
 
 /* ── 환생·랭킹 ────────────────────────────────── */

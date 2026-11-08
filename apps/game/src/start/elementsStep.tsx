@@ -18,6 +18,7 @@ import { m } from "../paraglide/messages.js";
 import { formatNumber } from "../roster/rosterText.ts";
 import { navigate } from "../shell/routerStore.ts";
 import { LiveMessage, useLiveLines } from "../ui/LiveMessage.tsx";
+import { ElementIcon } from "../ui/elementIcons.tsx";
 import { markCyborgElementsSet } from "./cyborgGate.ts";
 import { sendCyborgCommand } from "./cyborgCommands.ts";
 import { commandErrorText } from "./startText.ts";
@@ -107,8 +108,11 @@ export function ElementsStep({
               data-element={element}
               data-picked={value > 0 ? "true" : "false"}
             >
-              <span className="start-element-name" id={`${id}-${element}`}>
-                {elementText(element)}
+              <span className="start-element-head">
+                <ElementIcon code={element} className="start-element-icon" />
+                <span className="start-element-name" id={`${id}-${element}`}>
+                  {elementText(element)}
+                </span>
               </span>
               <button
                 type="button"
@@ -168,15 +172,30 @@ export function ElementsStep({
   );
 }
 
-/** 강하 요약의 한 줄(DescentStep 사실 목록 안): "불 6 · 바람 4" */
+/** 강하 요약의 한 줄(DescentStep 사실 목록 안): 속성별 아이콘과 색상 칩 목록 */
 export function ElementsSummaryRow({ draft }: { draft: ElementDraft }) {
-  const parts = BASIC_ELEMENTS.flatMap((element) =>
-    draft[element] > 0 ? [`${elementText(element)} ${formatNumber(draft[element])}`] : [],
+  const picked = BASIC_ELEMENTS.flatMap((element) =>
+    draft[element] > 0 ? [{ element, value: draft[element] }] : [],
   );
   return (
     <div className="start-elements-summary">
       <dt>{m.start_step_elements()}</dt>
-      <dd>{parts.join(" · ")}</dd>
+      <dd>
+        {picked.length === 0 ? (
+          <span className="start-summary-empty">—</span>
+        ) : (
+          <ul className="start-summary-elements">
+            {picked.map(({ element, value }, index) => (
+              <li key={element} className="start-summary-element-chip" data-element={element}>
+                <ElementIcon code={element} className="start-summary-element-icon" />
+                <span className="start-summary-element-name">{elementText(element)}</span>{" "}
+                <span className="start-summary-element-value">{formatNumber(value)}</span>
+                {index < picked.length - 1 ? <span className="visually-hidden"> · </span> : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </dd>
     </div>
   );
 }

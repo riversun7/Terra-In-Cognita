@@ -166,10 +166,56 @@
   list-style: none;
 }
 .fusion-element {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
+  border: var(--hairline) solid var(--element-color, var(--color-border));
   border-radius: var(--radius-sm);
   background-color: var(--color-surface-2);
   font-size: var(--font-size-sm);
+}
+.fusion-element-icon {
+  inline-size: 1rem;
+  block-size: 1rem;
+  color: var(--element-color, var(--color-text-muted));
+  flex-shrink: 0;
+}
+.fusion-element[data-element="water"] {
+  --element-color: var(--color-market-blue);
+}
+.fusion-element[data-element="frost"] {
+  --element-color: var(--color-sec-shield-hp);
+}
+.fusion-element[data-element="fire"] {
+  --element-color: var(--color-danger);
+}
+.fusion-element[data-element="blaze"] {
+  --element-color: var(--color-stat-vit);
+}
+.fusion-element[data-element="wind"] {
+  --element-color: var(--color-success);
+}
+.fusion-element[data-element="lightning"] {
+  --element-color: var(--color-stat-dex);
+}
+.fusion-element[data-element="earth"] {
+  --element-color: var(--color-warning);
+}
+.fusion-element[data-element="crystal"] {
+  --element-color: var(--color-sec-hp);
+}
+.fusion-element[data-element="light"] {
+  --element-color: var(--color-highlight);
+}
+.fusion-element[data-element="holy"] {
+  --element-color: var(--color-sec-mp-regen);
+}
+.fusion-element[data-element="dark"] {
+  --element-color: var(--color-stat-wis);
+}
+.fusion-element[data-element="necro"] {
+  --element-color: var(--color-sec-elemental-attack);
 }
 .fusion-pick,
 .fusion-target {

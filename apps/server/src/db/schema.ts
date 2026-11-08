@@ -419,6 +419,8 @@ export const factions = pgTable(
     bornOf: bigint("born_of", { mode: "number" }).references((): AnyPgColumn => factions.id),
     /** NPC가 고른 수도 도시(D-528, src/npc/capitals.ts — 발전도로 고르고 옮긴다). null = 아직(가장 작은 ID 시작 도시로 읽는다). 외래 키 없음(도시가 폐허가 되면 다시 고른다) */
     capitalCityId: bigint("capital_city_id", { mode: "number" }),
+    /** 그 나라가 정한 귀화 조건(D-526, 부호 있는 최소 단위: + 입회비 / − 지원금). null = 설정 칸 기본값(NPC 국가는 늘 null) */
+    naturalizeFee: bigint("naturalize_fee", { mode: "bigint" }),
   },
   (table) => [
     check("factions_kind", sql`${table.kind} in ('npc', 'player')`),
@@ -956,7 +958,7 @@ export { gatherObjectStates } from "./gatherSchema.ts";
 /** 공성 결과 표(docs/adr/2026-11-07-war-outcomes.md) */
 export { warOutcomes } from "./warSchema.ts";
 /** 국적 바꾸기(귀화) 기록 표(docs/adr/2026-11-08-citizenship.md) */
-export { nationalityChanges } from "./citizenshipSchema.ts";
+export { nationalityChanges, userNationStandings } from "./citizenshipSchema.ts";
 
 /** 운영 권한 체크박스 표(docs/adr/2026-11-08-operator-console.md) */
 export { opsGrants, opsSwitches } from "./opsSchema.ts";

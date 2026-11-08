@@ -283,11 +283,18 @@ export interface SocietyCoefficients {
     readonly startPineLog: number;
     readonly startStone: number;
     /**
-     * 국적 바꾸기(귀화, 기획 정리 D-523 포인터 질문 745 나 "값·쉬는 날은 설정 칸", docs/adr/2026-11-08-citizenship.md, 기획 칸 없음 → [임시]
-     * 설정값): 받는 나라 국고에 내는 값(최소 단위)과 바꾼 뒤 다시 바꿀 수 없는 기간(ms, 실제 시간 D-5030). 판정 코드는 쓰지 않는다(서버만)
+     * 국적 바꾸기(귀화, 기획 정리 D-523 포인터 질문 745 나 "값·쉬는 날은 설정 칸"·D-526, docs/adr/2026-11-08-citizenship.md, 기획 칸 없음 →
+     * [임시] 설정값). 판정 코드는 쓰지 않는다(서버만).
+     * - naturalizeFee: 받는 나라가 정하는 귀화 조건의 기본값(나라가 따로 정하지 않으면 이 값, NPC 국가는 늘 이 값 — D-526). 부호 있는 최소 단위:
+     *   + = 입회비(옮겨 오는 사람 → 받는 나라 국고), − = 지원금(받는 나라 국고 → 옮겨 오는 사람), 0 = 둘 다 없음.
+     * - naturalizeRestMs: 바꾼 뒤 다시 바꿀 수 없는 기간(ms, 실제 시간 D-5030).
+     * - naturalizeStandingDrop·naturalizeStandingDropHostile: 떠난 사람과 옛 나라 사이 우호도(−100~100, 46 §4.1 호감 띠와 같은 눈금)가 떨어지는
+     *   양 — 보통 / 옛 나라와 전쟁 중인 나라(적대 세력)로 옮길 때(D-526 "크게 하락")
      */
     readonly naturalizeFee: number;
     readonly naturalizeRestMs: number;
+    readonly naturalizeStandingDrop: number;
+    readonly naturalizeStandingDropHostile: number;
   };
   /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
@@ -492,6 +499,8 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     startStone: 10,
     naturalizeFee: 100,
     naturalizeRestMs: 7 * 86_400_000,
+    naturalizeStandingDrop: 20,
+    naturalizeStandingDropHostile: 60,
   },
   durability: {
     repairLossPct: [30, 25, 20, 15, 10],

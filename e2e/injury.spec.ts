@@ -1,7 +1,8 @@
-// 부상·병원 화면 시험 — 기획 D-521(부상 4단계 초록·흰·노랑·빨강, 자연 치유 한 단계씩, 병원은 등급·의사·스킬로 매우 빠르고 비용), docs/adr/2026-11-08-injury.md.
+// 부상·병원 화면 시험 — 기획 D-521(부상 4단계 초록·흰·노랑·빨강, 자연 치유 한 단계씩, 병원은 등급·의사·스킬로 매우 빠르고 비용)·D-525(이름 정상·
+// 경상·중상·중태, 남은 회복 시간은 "N시간 M분"), docs/adr/2026-11-08-injury.md.
 // - admin: 유닛 화면 [융합] 칸 시험 유전자 → 인큐베이터로 휴먼 하나 → 경제 → 생산에서 그 휴먼 곁에 병원을 짓고 [바로 끝내기] → 병원 카드 일꾼 칸에
-//   그 휴먼을 의사로 배치(직무 배치 길) → 신전 칸 [시험 화폐] → 유닛 화면 그 휴먼 상세 [부상·병원] 칸: 초록 표 → 개발 시험 [빨강] → 빨강 표·
-//   목록 줄 표 → 병원 견적 카드(의사 줄) → [병원 치료 · 값] → 치료 중 안내·견적 없음.
+//   그 휴먼을 의사로 배치(직무 배치 길) → 신전 칸 [시험 화폐] → 유닛 화면 그 휴먼 상세 [부상·병원] 칸: 정상 표 → 개발 시험 [중태] → 중태 표
+//   ("중상까지 N시간 M분")·정상까지 시간·분·목록 줄 표 → 병원 견적 카드(의사 줄) → [병원 치료 · 값] → 치료 중 안내·견적 없음.
 // - 사진(E2E_SHOTS_DIR): [부상·병원] 칸과 목록 줄 390 파스텔 한국어·390 다크 영어.
 // 복귀 요약은 띄우지 않는다(hideSummary).
 import type { Locator, Page } from "@playwright/test";
@@ -128,7 +129,7 @@ async function openCare(
 test.describe("부상·병원", () => {
   test.use({ account: "admin" });
 
-  test("빨강 → 병원 견적(의사) → 치료, 목록·상세 단계 표(사진 390 파스텔 한국어)", async ({
+  test("중태 → 병원 견적(의사) → 치료, 목록·상세 단계 표·남은 시간(사진 390 파스텔 한국어)", async ({
     page,
     deviceErrors,
   }) => {
@@ -156,7 +157,7 @@ test.describe("부상·병원", () => {
 
     const { row, care } = await openCare(page, unit);
     await expect(care.locator('[data-part="injury-badge"]')).toHaveAttribute("data-stage", "0");
-    // 개발 시험 [빨강] → 빨강 표, 병원 견적 카드(의사 줄)
+    // 개발 시험 [중태] → 중태 표, 병원 견적 카드(의사 줄)
     await care
       .locator('[data-part="hospital-dev"]')
       .getByRole("button", { name: message("ko", "injury_stage_3"), exact: true })
@@ -165,6 +166,11 @@ test.describe("부상·병원", () => {
       timeout: 15_000,
     });
     await expect(care).toContainText(message("ko", "injury_red_note"));
+    // 이름(D-525)과 남은 시간 "N시간 M분": 중태 → 중상까지 자연 치유 3일 = 72시간 근처, 정상까지도 시간·분
+    const badge = care.locator('[data-part="injury-badge"]');
+    await expect(badge).toContainText(message("ko", "injury_stage_3"));
+    await expect(badge).toContainText(/중상까지 7[12]시간 \d{1,2}분/);
+    await expect(care).toContainText(/정상까지 \d+시간 \d{1,2}분/);
     const option = care.locator('[data-part="hospital-option"]').first();
     await expect(option).toBeVisible();
     await expect(option).toContainText(`#${String(unit)}`);
@@ -183,6 +189,9 @@ test.describe("부상·병원", () => {
     // 좁은 폭은 상세만 보인다 → [목록으로] 뒤 목록 줄의 단계 표
     await page.getByRole("button", { name: message("ko", "units_detail_back"), exact: true }).click();
     await expect(row.locator('[data-part="injury-badge"]')).toBeVisible();
+    await expect(row.locator('[data-part="injury-badge"]')).toContainText(
+      /중태 · 중상까지 \d+시간 \d{1,2}분/,
+    );
     await elementShot(row, "injury-row-pastel-ko-390");
     expect(deviceErrors).toEqual([]);
   });
@@ -192,7 +201,7 @@ for (const [theme, language] of [["dark", "en"]] as const satisfies readonly (re
   test.describe(`사진 390 ${theme} ${language}`, () => {
     test.use({ account: "admin", theme, language });
 
-    test("[부상·병원] 칸(노랑)", async ({ page, deviceErrors }) => {
+    test("[부상·병원] 칸(중상)", async ({ page, deviceErrors }) => {
       test.setTimeout(120_000);
       const unit = await incubateHuman(page, language);
       const { care } = await openCare(page, unit, language);
@@ -203,6 +212,10 @@ for (const [theme, language] of [["dark", "en"]] as const satisfies readonly (re
       await expect(care.locator('[data-part="injury-badge"]')).toHaveAttribute("data-stage", "2", {
         timeout: 15_000,
       });
+      // 영어 이름(D-525 Serious)과 시간·분("47h 59m to Light")
+      await expect(care.locator('[data-part="injury-badge"]')).toContainText(
+        /Serious · \d+h \d{1,2}m to Light/,
+      );
       expect(await horizontalOverflow(page)).toEqual([]);
       await elementShot(care, `injury-care-${theme}-${language}-390`);
       expect(deviceErrors).toEqual([]);

@@ -14,6 +14,8 @@ export interface MapUnitsState {
   readonly elsewhere: number;
   /** 카메라 범위(받기 전 null — 범위를 걸지 않는다) */
   readonly view: MapViewArea | null;
+  /** 마지막으로 받은 목록의 서버 시각(부상 남은 시간 표시, 받기 전 undefined) */
+  readonly at?: number | undefined;
 }
 
 const INITIAL: MapUnitsState = { units: null, failed: false, elsewhere: 0, view: null };
@@ -33,6 +35,7 @@ export function useMapUnits(mapKey: number): MapUnitsState {
               failed: false,
               elsewhere: answer.elsewhere,
               view: answer.view,
+              at: answer.generatedAt,
             });
         },
         () => {

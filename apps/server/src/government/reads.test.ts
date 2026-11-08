@@ -16,6 +16,11 @@ function fakeMap(mapKey: number, leader: boolean) {
   return {
     mapKey,
     buildingOwner: (id: number) => (id === 10 || id === 11 || id === 12 ? 101 : undefined),
+    forEachBuilding: (
+      visit: (building: { id: number; ownerId: number | null; x: number; y: number }) => void,
+    ) => {
+      for (const id of [10, 11, 12]) visit({ id, ownerId: 101, x: id * 2, y: id * 3 });
+    },
     forEachUnit: (visit: (unit: { id: number; ownerId: number; kind: number }) => void) => {
       if (leader) visit({ id: 900, ownerId: 101, kind: UNIT_KIND_NPC_LEADER });
       visit({ id: 901, ownerId: 101, kind: 0 });
@@ -92,6 +97,8 @@ describe("world.government", () => {
       here: false,
     });
     expect(answer.mayor).toBeNull();
+    // 행정 건물 기준 칸(이 도시 2차맵에서)
+    expect(answer.building).toEqual({ x: 20, y: 30 });
   });
 
   it("수도의 행정 건물이면 capital, 내 나라가 아니면 mine false", async () => {

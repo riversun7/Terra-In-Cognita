@@ -114,6 +114,7 @@ export const worldRouter = router({
             city: null,
             nation: null,
             leader: null,
+            building: null,
             mayor: null,
             generatedAt: ctx.now(),
           };

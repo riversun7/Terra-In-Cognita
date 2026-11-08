@@ -10,6 +10,7 @@ import type { LocalizedName } from "@terra/shared/roster";
 import type { SimCity, SimFaction, SimUnit } from "@terra/sim";
 import type { Viewer } from "../trpc/context.ts";
 import { type LeaderUnits, leaderUnitOf } from "../npc/leaders.ts";
+import type { SecondMap } from "../world/secondMap.ts";
 import type { World } from "../world/world.ts";
 
 /** 행정 건물 시설 ID(팩 content/core/facilities.json, npcSeed.ts seedPlan과 같다) */
@@ -18,7 +19,7 @@ export const GOVERNMENT_FACILITY = "government_hall";
 /** 이 조회가 세계에서 읽는 것(시험은 가짜를 넣는다) */
 export interface GovernmentSource {
   /** 띄운 2차맵(건물이 서 있나·지도자 유닛) */
-  readonly maps: ReadonlyMap<number, LeaderUnits & { buildingOwner(id: number): number | null | undefined }>;
+  readonly maps: ReadonlyMap<number, LeaderUnits & Pick<SecondMap, "buildingOwner" | "forEachBuilding">>;
   /** 건물 ID → 시설 줄(없으면 undefined) */
   facility(buildingId: number): { readonly facilityId: string; readonly cityId: number | null } | undefined;
   /** NPC 사회 런타임 거울 세계·도시 자리·도시 경제 세율(런타임이 없으면 undefined) */
@@ -61,9 +62,22 @@ const empty = (
   city: null,
   nation: null,
   leader: null,
+  building: null,
   mayor: null,
   generatedAt: nowMs,
 });
+
+/** 그 2차맵에서 건물 기준 칸(없으면 null) */
+function buildingCell(
+  map: Pick<SecondMap, "forEachBuilding"> | undefined,
+  buildingId: number,
+): { x: number; y: number } | null {
+  let cell: { x: number; y: number } | null = null;
+  map?.forEachBuilding((building) => {
+    if (building.id === buildingId) cell = { x: building.x, y: building.y };
+  });
+  return cell;
+}
 
 export function createGovernmentReads(source: GovernmentSource): GovernmentReads {
   /** 건물이 띄운 2차맵에 서 있나 */
@@ -129,6 +143,7 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
                 name: code === null ? null : (source.leaderName(code) ?? null),
                 here,
               },
+        building: buildingCell(cityMap, buildingId),
         mayor: null,
         generatedAt: nowMs,
       };

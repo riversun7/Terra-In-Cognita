@@ -57,6 +57,8 @@ export interface GovernmentResponse {
   readonly city: GovernmentCity | null;
   readonly nation: GovernmentNation | null;
   readonly leader: GovernmentLeader | null;
+  /** 행정 건물 기준 칸(그 도시 2차맵 배치 칸 — 지도가 그곳으로 카메라를 옮길 때). 모르면 null */
+  readonly building: { readonly x: number; readonly y: number } | null;
   /** 시장(46 §2 시장·관리인, D-5062). 서버에 시장 임명이 아직 없어 늘 null(화면 "없음") — 질문 744 */
   readonly mayor: null;
   readonly generatedAt: number;

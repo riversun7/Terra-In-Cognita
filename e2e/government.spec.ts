@@ -11,8 +11,6 @@ import { type Language, type Theme, expect, test } from "./helpers/test.ts";
 import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 import { VIEWPORTS } from "./helpers/viewports.ts";
 
-const BUILDING_MARKER = ".gather-building-marker:not([hidden])";
-
 const field = (value: unknown, key: string): unknown =>
   typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
 
@@ -31,46 +29,29 @@ async function trpcData(page: Page, procedure: string, input?: unknown): Promise
   );
 }
 
-/** 내 사이보그 2차맵을 연다(지형·자료가 설 때까지) */
-async function openMap(page: Page): Promise<void> {
-  await rewriteTrpc(page, { "summary.get": hideSummary });
-  await page.goto("/map");
+/** 2차맵을 연다(지형·자료가 설 때까지). path 없으면 내 사이보그 2차맵 */
+async function openMap(page: Page, path = "/map"): Promise<number> {
+  await page.goto(path);
   const map = page.locator(".map-screen[data-map-key]");
   await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
   await expect(map).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
-  await expect(page.locator(BUILDING_MARKER).first()).toBeVisible({ timeout: 30_000 });
+  return Number(await map.getAttribute("data-map-key"));
 }
 
-/** 보이는 건물 표시 가운데 정부 판이 ready인 건물(행정 건물)의 ID와 응답 */
-async function findHall(page: Page): Promise<{ id: number; data: unknown }> {
-  let found: { id: number; data: unknown } | null = null;
-  await expect
-    .poll(
-      async () => {
-        const ids = await page
-          .locator(BUILDING_MARKER)
-          .evaluateAll((elements) =>
-            elements.map((element) => Number(element.getAttribute("data-building"))),
-          );
-        for (const id of ids) {
-          const data = await trpcData(page, "world.government", { buildingId: id });
-          if (field(data, "status") === "ready") {
-            found = { id, data };
-            return true;
-          }
-        }
-        return false;
-      },
-      { timeout: 30_000 },
-    )
-    .toBe(true);
-  if (!found) throw new Error("no government hall on screen");
-  return found;
+/** 이 2차맵의 행정 건물(정부 판이 ready) — 서버 건물 ID를 차례로 물어 찾는다(씨앗 시설은 작은 ID) */
+async function findHall(page: Page, mapKey: number): Promise<{ id: number; data: unknown }> {
+  for (let id = 1; id <= 200; id++) {
+    const data = await trpcData(page, "world.government", { buildingId: id });
+    if (field(data, "status") === "ready" && field(field(data, "city"), "mapKey") === String(mapKey))
+      return { id, data };
+  }
+  throw new Error("no government hall on this second map");
 }
 
 /** 그 건물 표시를 누른다. 위·아래 판에 가렸으면 표시의 누름 처리만 부른다(같은 판이 열린다) */
 async function tapBuilding(page: Page, id: number): Promise<void> {
-  const marker = page.locator(`.gather-building-marker[data-building="${id}"]`);
+  const marker = page.locator(`.gather-building-marker[data-building="${id}"]:not([hidden])`);
+  await expect(marker).toBeVisible({ timeout: 30_000 });
   try {
     await marker.click({ timeout: 3_000 });
   } catch {
@@ -78,10 +59,16 @@ async function tapBuilding(page: Page, id: number): Promise<void> {
   }
 }
 
-/** 행정 건물을 눌러 정부 작은 판을 띄운다 */
+/**
+ * 내 사이보그 2차맵의 행정 건물을 찾아 그 자리로 카메라를 옮겨(주소 ?at= — 행정 건물은 사이보그 자리에서 화면 밖일 수 있다) 누르고
+ * 정부 작은 판을 띄운다
+ */
 async function openSheet(page: Page): Promise<{ id: number; data: unknown }> {
-  await openMap(page);
-  const hall = await findHall(page);
+  await rewriteTrpc(page, { "summary.get": hideSummary });
+  const mapKey = await openMap(page);
+  const hall = await findHall(page, mapKey);
+  const cell = field(hall.data, "building");
+  await openMap(page, `/map?key=${mapKey}&at=${String(field(cell, "x"))},${String(field(cell, "y"))}`);
   await tapBuilding(page, hall.id);
   await expect(page.locator(`.gov-sheet[data-building="${hall.id}"]`)).toBeVisible({ timeout: 15_000 });
   return hall;

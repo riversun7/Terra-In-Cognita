@@ -26,7 +26,7 @@
 | `apps/server/src/npc/leaders.ts`(새)·`leaders.test.ts`(새)·`leaders.db.test.ts`(새) | 수도·지도자 찾기·지도자 씨앗·부팅 씨앗 묶음(`seedNpcAtBoot`) |
 | `apps/server/src/world/world.ts` | 부팅 씨앗 부르는 한 줄(가져오기 한 줄·주석 한 줄, 979줄 그대로) |
 | `apps/server/src/npc/nations.ts`·`presets.ts`, `packages/content/src/schema/economy.ts`, `content/core/nation_presets.json`·`manifest.json` | 국가 프리셋 `leaderName`(선택 칸), `nationLeaderName`, core@52 |
-| `apps/server/src/government/reads.ts`(새)·`reads.test.ts`(새), `packages/shared/src/government.ts`(새)·`package.json` | 정부 판 조회와 응답 모양 |
+| `apps/server/src/government/reads.ts`(새)·`reads.test.ts`(새), `packages/shared/src/government.ts`(새)·`package.json` | 정부 판 조회와 응답 모양(행정 건물 기준 칸 `building` 포함) |
 | `apps/server/src/worldMap/reads.ts`, `trpc/world.ts`·`context.ts` | `world.government`, 나라·지도자 이름(`nationNames`), 국가 1 이름 = 프리셋 |
 | `apps/server/src/worldMap/mapUnits.ts`·`mapUnits.test.ts`, `packages/shared/src/mapUnits.ts` | 한눈 정보 `npc_leader`·지도자 이름 |
 | `apps/server/src/factionScreen/source.ts`·`overview.ts`·`overview.test.ts`, `packages/shared/src/faction.ts`, `apps/server/src/app.ts`(한 줄) | 세력 화면 지도자 유닛 읽기·나라·지도자 이름 |
@@ -48,7 +48,10 @@
 
 ## 검사·시험 (개발 컨테이너, Node 24.22.1)
 - 작업 중(고친 꾸러미만): 서버 `leaders.test.ts`·`government/reads.test.ts`·`bots.test.ts`·`secondMap.test.ts`·`mapUnits.test.ts`·`overview.test.ts`·`factionScreen`·`worldMap`·`nations`·`townSites`·`trpc/world.test.ts`·content 통과, DB `npc/leaders.db.test.ts` 통과(시험 DB PostgreSQL 16), 게임 `government`·`mapUnits`·`faction`·`recruit`·`economy` 시험 통과, 서버·게임·e2e 타입 검사 통과, 고친 파일 oxlint(`--type-aware --deny-warnings`) 통과, `pnpm check:content origin/main` 통과(core@52).
-- 끝 검사: 아래 "끝 검사"에 적는다.
+- 끝 검사(Verified, 무거운 잠금 안, 시험 DB PostgreSQL 16): `TEST_DATABASE_URL=… pnpm check` 통과 — 포맷·린트·타입·경계·파일 크기·다국어·디자인 값·콘텐츠(core@52)·단위·DB 시험 **511파일 3,948개 통과**. `pnpm check:docs origin/main` 통과, `pnpm check:content origin/main` 통과.
+- 화면 시험 첫 돌림 `pnpm e2e government.spec.ts faction.spec.ts unit-control.spec.ts`: 33 통과·6 실패(6.5분). 실패 ① `government.spec.ts` 넷 — 행정 건물이 내 사이보그 자리에서 화면 밖이라 건물 표시가 없었다(시험 쪽 문제) → 정부 판 응답에 행정 건물 기준 칸(`building`)을 더하고 시험이 `/map?key=&at=`로 카메라를 그곳에 둔 뒤 누르게 고침. ② `unit-control.spec.ts` 둘(33행·103행) — 사진을 보니 땅을 누른 자리의 원자재 오브젝트 표시(나무)가 눌려 오브젝트 판이 열렸다(유닛 명령 없음). 이 줄기 코드와 무관하다고 본다(Assumed: 같은 시각 다른 줄기 `map-input`도 33행이 같은 까닭으로 실패, 그 줄기가 "오브젝트 위 끌기·누르기"를 고치는 중). 화면 시험 서버는 시험 봇이 없어(`S1_TEST_BOTS` 0) 도시 둘레 휴먼은 이 시험에 나오지 않는다. `faction.spec.ts`는 모두 통과(나라 이름 "임시 국가 16"·지도자 "임시 지도자 16").
+- 화면 시험 다시 돌림 `pnpm e2e government.spec.ts`: **4 통과**(39.6초). 사진(`E2E_SHOTS_DIR`, 저장소 밖) 390 파스텔·다크(한국어)·파스텔 영어 — 작은 판·대화상자·구인 카드: 넘침 없음, 누르는 곳 44px 이상, 긴 영어 제목은 두 줄로 접힘, 거래세 2%(도시 경제가 도는 화면 시험 서버), 휴먼 0명(봇 없음).
+- 고친 뒤 다시: 서버·게임 타입 검사, `government/reads.test.ts`·`npc/leaders.db.test.ts`·`trpc/world.test.ts` 통과(전체 `pnpm check`는 다시 돌리지 않음 — 바뀐 것은 정부 판 응답 칸 하나와 화면 시험).
 
 ## 미검증·TODO·알려진 문제
 - NAS에서 돌려 보지 않았다(미실행). NAS 세계는 이 줄기가 들어간 이미지로 켜면 지도자 넷이 서고, 휴먼은 몇 분에 걸쳐 도시로 모인다(세계를 다시 비울 필요 없음 — 표·마이그레이션 없음).

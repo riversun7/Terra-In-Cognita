@@ -4,6 +4,8 @@
 //   [도시 창고로 옮기기]·자동 옮김 다음 시각)·일꾼(상태·묶음·피로, [고른 유닛을 일꾼으로]·[빼기])·[고른 유닛으로 직접 캐기]·레벨 올리기(재료·시간).
 // - 판정은 서버다. 바꾸는 명령은 이미 있는 WebSocket 명령: labor_assign·labor_unassign, facility_upgrade, storage_move(out), gather_start.
 // - 보내는 유닛 = 건물 판과 같다(고른 유닛, 없으면 이 2차맵의 내 사이보그). 모바일 우선: 판은 세로로 넘친 만큼만 안에서 넘긴다.
+// - 농장(facility 채집소, 오브젝트 없음 — 기획 정리 756 ②): 반경 고리·원자재·[직접 캐기]는 없고, 수확·피로 버프·채집소 창고·자동 옮김·일꾼·
+//   레벨 올리기는 같다.
 import type { GatherStationResponse } from "@terra/shared/gatherStation";
 import { useEffect, useState } from "react";
 import { formatDuration } from "../../economy/economyText.ts";
@@ -23,6 +25,7 @@ import {
   kgOf,
   loadGatherStation,
   nearestReady,
+  nextLevelText,
   qtyOf,
   usedPct,
   workerStateText,
@@ -78,11 +81,11 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
     }
   };
 
-  // 반경 고리: 채집소 자료가 있으면 그린다, 판이 닫히면 지운다
+  // 반경 고리: 반경이 있는 채집소(벌목장·광산) 자료가 있으면 그린다, 판이 닫히면 지운다
   const ok = station?.status === "ok" && station.buildingId === buildingId ? station : null;
-  const ringX = ok?.buffs ? ok.x : null;
-  const ringY = ok?.buffs ? ok.y : null;
   const ringRadius = ok?.buffs?.radiusCells ?? null;
+  const ringX = ok && ringRadius !== null ? ok.x : null;
+  const ringY = ok && ringRadius !== null ? ok.y : null;
   useEffect(() => {
     if (ringX === null || ringY === null || ringRadius === null) state.setRing(null);
     else state.setRing({ x: ringX, y: ringY, radius: ringRadius });
@@ -90,6 +93,7 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
   }, [state, ringX, ringY, ringRadius]);
 
   if (!ok || ok.kind === null) return null;
+  const kind = ok.kind;
 
   const now = serverNow();
   const run = async (task: () => Promise<string>): Promise<void> => {
@@ -153,7 +157,7 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
     <div className="gather-station" data-part="gather-station" data-kind={ok.kind} data-building={buildingId}>
       <p className="gather-station-head">
         <span className="gather-station-title">{m.station_title({ level: ok.level })}</span>
-        {ok.buffs ? (
+        {ok.buffs && ok.buffs.radiusCells !== null ? (
           <span className="gather-muted"> · {m.station_radius({ cells: ok.buffs.radiusCells })}</span>
         ) : null}
       </p>
@@ -227,15 +231,13 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
             ))}
           </ul>
         )}
-        {ok.kind === "objects" ? (
-          <p className="gather-muted" data-part="station-haul">
-            {ok.cityId === null
-              ? m.station_haul_no_city()
-              : ok.haul.nextAtMs === null
-                ? m.station_haul_off()
-                : m.station_haul_next({ time: minutesText(ok.haul.nextAtMs - now) })}
-          </p>
-        ) : null}
+        <p className="gather-muted" data-part="station-haul">
+          {ok.cityId === null
+            ? m.station_haul_no_city()
+            : ok.haul.nextAtMs === null
+              ? m.station_haul_off()
+              : m.station_haul_next({ time: minutesText(ok.haul.nextAtMs - now) })}
+        </p>
         {ok.mine && ok.cityId !== null && ok.storage.goods.length > 0 ? (
           <div className="gather-actions">
             <button type="button" className="button-small" disabled={sending} onClick={haul}>
@@ -264,7 +266,7 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
                   {m.station_worker_line({ id: worker.unitId, via: workerViaText(worker) })}
                   {worker.mine ? ` · ${m.station_worker_mine()}` : ""}
                   {" · "}
-                  <strong>{workerStateText(worker.state)}</strong>
+                  <strong>{workerStateText(worker.state, kind)}</strong>
                   <span className="gather-muted">
                     {" · "}
                     {m.station_worker_lots({
@@ -288,7 +290,9 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
             ))}
           </ul>
         )}
-        {ok.kind === "objects" ? <p className="gather-muted">{m.station_workers_note()}</p> : null}
+        <p className="gather-muted">
+          {ok.kind === "objects" ? m.station_workers_note() : m.station_workers_note_facility()}
+        </p>
         <div className="gather-actions">
           {ok.mine && ok.level >= 1 ? (
             <button
@@ -336,13 +340,7 @@ export function StationPanel({ state, mapKey, buildingId, actor, notify }: Stati
                 })}
               </p>
               {ok.upgrade.buffs ? (
-                <p className="gather-muted">
-                  {m.station_next_level({
-                    level: ok.upgrade.level,
-                    cells: ok.upgrade.buffs.radiusCells,
-                    buffs: buffsText(ok.upgrade.buffs),
-                  })}
-                </p>
+                <p className="gather-muted">{nextLevelText(ok.upgrade.level, ok.upgrade.buffs)}</p>
               ) : null}
               <div className="gather-actions">
                 <button

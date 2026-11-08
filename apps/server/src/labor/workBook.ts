@@ -11,9 +11,10 @@
 // - 임대형 상한(523 ②): 임대형 임차인 몫(그 건물 창고)은 그 건물 창고 상한까지만 쌓인다(leaseRooms — 정산 하나 안에서 함께 줄이는 남은 자리).
 //   넘친 물건은 나오지 않는다(묶음 진행은 쓴다, 확인 대기 질문 580). 임금형·직무 배치(도시 창고)는 상한이 없다(질문 411).
 // - 사라짐: 유닛·시설이 사라지거나 주인이 바뀌거나 유닛이 일을 멈추면(비활성·수호신) 다음 정산에서 배치를 푼다(그 구간 산출 없음).
-// - 채집소(사용자 지적 2026-11-08 "원자재채집소의 기능도 필요", gather/station.ts가 고리를 잇는다): 반경 안 원자재 오브젝트를 맡는 채집 시설(벌목장·
-//   광산)이면 묶음마다 반경 안 오브젝트 번수를 하나씩 쓰고(없으면 그 묶음을 끝내지 못한다 — 질문 664 ②), 레벨 수확 버프를 곱하고, 산출은 그 건물
-//   창고(채집소 창고, 상한 = 팩 storageKg × 레벨 — 모든 몫이 함께 쓴다)로 간다. 피로 덜기는 정산 뒤 고리(afterSettle)에서 한다.
+// - 채집소(사용자 지적 2026-11-08 "원자재채집소의 기능도 필요", gather/station.ts가 고리를 잇는다): 채집 시설이면 레벨 수확 버프를 곱하고, 산출은
+//   그 건물 창고(채집소 창고, 상한 = 팩 storageKg × 레벨 — 모든 몫이 함께 쓴다)로 간다. 반경 안 원자재 오브젝트를 맡는 시설(벌목장·광산)은 묶음마다
+//   반경 안 오브젝트 번수를 하나씩 쓴다(없으면 그 묶음을 끝내지 못한다 — 질문 664 ②). 오브젝트가 없는 농장도 창고·버프를 받는다(기획 정리 756 ②).
+//   피로 덜기는 정산 뒤 고리(afterSettle)에서 한다. 고리가 없으면(DB 없는 세계·채집 세계 준비 전) 위 직무 배치·임대형 규칙 그대로 낸다.
 import type { Primaries, SocietyCoefficients, OutputSegment, GoodsLine } from "@terra/sim";
 import { JOB_GATHER, JOB_NONE, TEST_JOB_RULES, switchJob } from "@terra/sim";
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
@@ -59,7 +60,7 @@ export interface LeaseRooms {
 /** 채집소 고리(gather/station.ts가 잇는다). 없으면 채집 시설은 예전처럼 낸다 */
 export interface StationHook {
   /**
-   * 그 건물이 채집소(반경 안 원자재 오브젝트를 맡는 채집 시설)면 이번 산출 계획, 아니면 undefined.
+   * 그 건물이 채집소(채집 시설 — 오브젝트를 맡는 벌목장·광산, 오브젝트 없는 농장)면 이번 산출 계획, 아니면 undefined.
    * room = 그 건물 창고 남은 자리(g, 정산 하나 안에서 함께 줄인 값). null = 상한 없음
    */
   plan(buildingId: number, unitId: number, room: bigint | null): StationPlan | undefined;
@@ -69,15 +70,15 @@ export interface StationHook {
 
 /** 채집소 일꾼 하나의 이번 산출 계획 */
 export interface StationPlan {
-  /** 끝낼 수 있는 묶음 수 상한(반경 안 남은 오브젝트 번수, 창고가 가득이면 0) */
-  readonly maxLots: number;
+  /** 끝낼 수 있는 묶음 수 상한(반경 안 남은 오브젝트 번수, 창고가 가득이면 0). undefined = 상한 없음(오브젝트 없는 농장, 756 ②) */
+  readonly maxLots: number | undefined;
   /** 레벨 수확 버프를 곱한 수량(‰ 나머지는 (유닛, 묶음 차례, 자산)으로 정한 굴림 — 같은 입력이면 같다) */
   scale(asset: string, qty: bigint, seq: number): bigint;
   /** 끝낸 묶음만큼 오브젝트 번수를 쓰고 일꾼 상태·피로 덜기를 적는다 */
   commit(result: {
     readonly made: number;
     readonly lots: number;
-    /** 오브젝트 상한에 막혔나 */
+    /** 묶음 상한(오브젝트·가득 찬 창고)에 막혔나 */
     readonly capped: boolean;
     /** 창고 자리가 모자라 덜 넣었나 */
     readonly clipped: boolean;
@@ -234,7 +235,7 @@ export function createWorkBook(options: {
           record.gatherBuildingId = buildingId;
           record.gatherPoints = 0;
         }
-        // 채집소면 반경 안 오브젝트 번수·창고 자리로 묶음 수를 막고 산출을 채집소 창고로(몫에 상관없이 그 건물 창고 상한)
+        // 채집소면 창고 자리(벌목장·광산은 반경 안 오브젝트 번수도)로 묶음 수를 막고 산출을 채집소 창고로(몫에 상관없이 그 건물 창고 상한)
         const limit = rooms ?? shared;
         const plan = station?.plan(buildingId, unitId, limit ? limit.left(buildingId) : null);
         const result = gatherLots({ points: record.gatherPoints, seq: record.gatherSeq }, made, {

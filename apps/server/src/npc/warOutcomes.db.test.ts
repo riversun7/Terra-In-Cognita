@@ -230,13 +230,14 @@ describe.skipIf(!TEST_DATABASE_URL)("공성 결과 셋(D-520·D-527)", () => {
     clock = untilMs;
     calm();
     npc.society.endOfDay(untilMs);
+    // 다시 전쟁은 하루 끝에서 바로 본다. 이어지는 틱의 NPC 판단이 강화를 맺을 수 있다(정상 규칙, 판단 시각에 따라 갈려 CI에서 가끔 실패했다)
+    expect(npc.world.factions.get(second.id)?.wars.has(first.id)).toBe(true);
     await npc.tick(true);
     await persistence.writer.durable();
     const rebuilt = await lootRow();
     expect(rebuilt?.end_reason).toBe("rebuilt");
     expect(rebuilt?.ended_at_ms).not.toBeNull();
     expect(npc.world.occupations.has(townId)).toBe(false);
-    expect(npc.world.factions.get(second.id)?.wars.has(first.id)).toBe(true);
     const ended = await readOccupationRows(test.db.$client, secondRow);
     expect(ended[0]?.outcome?.endReason).toBe("rebuilt");
   });

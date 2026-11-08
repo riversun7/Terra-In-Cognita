@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-08 16:40 | 운영자 콘솔(/ops): 유저·NPC·유닛 감시와 통제, 운영 역할 둘과 권한 체크박스 | Claude Code | [08-1640-operator-console](worklog/2026/11/08-1640-operator-console.md) |
 | 2026-11-08 16:00 | NPC 휴먼 낮밤 일·이름·처음 스탯·하루 생필품 (WP-NPC4) | Claude Code | [08-1600-npc-humans-2](worklog/2026/11/08-1600-npc-humans-2.md) |
 | 2026-11-08 15:00 | D-523 기획 답 따라 다섯 줄기 합치기 (NPC 휴먼·지도자·국적·옆 2차맵 띄우기·농장 채집소) | Claude Code | [08-1500-d523-followup-merge](worklog/2026/11/08-1500-d523-followup-merge.md) |
 | 2026-11-08 14:00 | NPC 지도자 창구·이름표·정부 판 하루 값 (WP-NPC3) | Claude Code | [08-1400-npc-leader](worklog/2026/11/08-1400-npc-leader.md) |

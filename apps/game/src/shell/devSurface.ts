@@ -11,9 +11,9 @@ export type DevTheme = "neon" | "light";
 /** 기기 저장 열쇠(값은 "neon" | "light" 글자 그대로) */
 export const DEV_THEME_STORAGE_KEY = "terra.devTheme";
 
-/** 개발 화면 층을 쓰는 주소: 개발자 영역(/dev, /dev/…)과 관리자(/admin) */
+/** 개발 화면 층을 쓰는 주소: 개발자 영역(/dev, /dev/…)과 관리자(/admin)·운영자 콘솔(/ops) */
 export function isDevSurfaceRoute(id: RouteId): boolean {
-  return id === "admin" || id === "dev" || id.startsWith("dev_");
+  return id === "admin" || id === "ops" || id === "dev" || id.startsWith("dev_");
 }
 
 function readTheme(): DevTheme {

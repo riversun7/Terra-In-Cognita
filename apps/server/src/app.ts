@@ -732,6 +732,18 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       battleLab,
       battleReplay,
       formulas,
+      // 운영자 콘솔(docs/adr/2026-11-08-operator-console.md): DB가 있을 때만
+      ops: options.db
+        ? {
+            pool: options.db.$client,
+            world: () => (world?.status().state === "ready" ? world : undefined),
+            worldStatus: () => world?.status(),
+            wsConnections: () => wsConnections,
+            // 운영 화면 이름표는 한국어 나라 이름(팩 국가 프리셋)을 쓴다[임시]
+            nationName: (code) => worldMapService?.()?.nationNames?.(code).name?.ko,
+            now,
+          }
+        : undefined,
     }),
   });
 

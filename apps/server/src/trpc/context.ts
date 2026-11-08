@@ -2,6 +2,7 @@
 // 이 타입은 AppRouter 타입에 들어가 게임 앱의 타입 검사에도 쓰인다.
 // 그래서 Node 전용 타입(fastify, pg, drizzle, better-auth 등)을 여기에 직접 넣지 않는다.
 // 넣으면 기기 코드에서 Node 전역(process, Buffer)이 타입 오류 없이 보이게 된다 — scripts/check-boundaries.mjs가 잡는다.
+import type { OpsServices } from "../ops/services.ts";
 import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
 import type { Role, UserSettings } from "@terra/shared";
 import type { DashboardCardsResponse } from "@terra/shared/dashboard";
@@ -418,6 +419,8 @@ export interface TrpcContext {
   admin: AdminServices | undefined;
   /** 계정 화면 설정. 인증이 꺼져 있으면(DB 없음) 없다 */
   settings: SettingsServices | undefined;
+  /** 운영자 콘솔(docs/adr/2026-11-08-operator-console.md). 인증(DB)이 꺼져 있으면 없다. 권한은 ops 라우터가 본다 */
+  ops?: OpsServices | undefined;
   /** 행성 편집기. 인증이 꺼져 있거나 정의 조회 자료를 받지 않았으면 없다 */
   planetEditor: PlanetEditorServices | undefined;
   /** 홈 자료. 늘 있다(지금 제공 함수가 0개라 DB가 필요 없다). 로그인 검사는 프로시저가 먼저 한다 */

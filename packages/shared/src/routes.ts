@@ -16,7 +16,7 @@ import type { Role } from "./roles.ts";
 export type RouteFrame = "shown" | "hidden";
 
 /** 누가 여는지. 화면에서 가리는 것은 편의이고, 서버가 요청마다 권한을 본다 */
-export type RouteAccess = "everyone" | "dev_admin" | "admin";
+export type RouteAccess = "everyone" | "dev_admin" | "admin" | "ops";
 
 /**
  * 매개변수 값 규칙
@@ -166,6 +166,14 @@ export const ROUTES = {
   mail: { path: "/mail", search: [], parent: "home", frame: "shown", access: "everyone" },
   settings: { path: "/settings", search: [], parent: "home", frame: "shown", access: "everyone" },
   admin: { path: "/admin", search: [], parent: "home", frame: "shown", access: "admin" },
+  // 운영자 콘솔(docs/adr/2026-11-08-operator-console.md): ?tab= 탭, ?user=·?faction=·?unit= 상세(새로고침·즐겨찾기에도 남는다)
+  ops: {
+    path: "/ops",
+    search: ["tab", "user", "faction", "unit"],
+    parent: "home",
+    frame: "shown",
+    access: "ops",
+  },
   // 개발자 영역(ADR 38 1절): 개발 도구는 모두 /dev 아래에 둔다
   dev: { path: "/dev", search: [], parent: "home", frame: "shown", access: "dev_admin" },
   dev_planet_editor: {
@@ -708,6 +716,8 @@ const ACCESS_ROLES: { readonly [A in RouteAccess]: readonly Role[] | null } = {
   everyone: null,
   dev_admin: ["dev", "admin"],
   admin: ["admin"],
+  // 운영자 콘솔(@terra/shared/ops OPS_CONSOLE_ROLES와 같다 — 이 파일은 첫 화면 묶음이라 그 모듈을 가져오지 않는다)
+  ops: ["gm", "gm_lead", "dev", "admin"],
 };
 
 /** 이 역할들로 그 화면을 여는지. 아니면 "권한 없음" + [홈](ADR 37 2절). 화면 편의일 뿐이고 서버가 요청마다 본다 */

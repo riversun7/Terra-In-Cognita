@@ -2,7 +2,8 @@
 // 여러 개를 함께 가질 수 있다. 무엇을 할 수 있는지는 서버만 정한다(apps/server/src/auth/permissions.ts).
 // 결정: docs/PLAN.md 4.8, docs/adr/2026-10-28-auth-and-accounts.md
 
-export const ROLES = ["player", "gm", "dev", "admin"] as const;
+// gm = 운영자(감시·가벼운 통제), gm_lead = 운영자(강한 통제). 운영 권한 묶음은 ops.ts(docs/adr/2026-11-08-operator-console.md)
+export const ROLES = ["player", "gm", "gm_lead", "dev", "admin"] as const;
 
 export type Role = (typeof ROLES)[number];
 

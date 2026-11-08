@@ -37,6 +37,7 @@
     "./gather": "./src/gather.ts",
     "./gatherStation": "./src/gatherStation.ts",
     "./temple": "./src/temple.ts",
+    "./ops": "./src/ops.ts",
     "./ruins": "./src/ruins.ts",
     "./roster": "./src/roster.ts",
     "./skillEditor": "./src/skillEditor.ts",

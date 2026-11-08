@@ -1,0 +1,346 @@
+// 운영자 콘솔(/ops) — 권한 목록·역할 기본 묶음·응답 모양. 서버(권한 판정·자료)와 기기(화면·체크박스)가 같은 목록을 쓴다.
+// 결정: docs/adr/2026-11-08-operator-console.md(사용자 요청 2026-11-08 "개발자는 전체, 운영자는 2종류로 감시+가벼운통제 정도와
+// 강한 통제까지 가능하게. 가능한 권한을 체크 박스처럼 부여하기도 할 수 있게 한다").
+// 무엇을 할 수 있는지는 서버만 정한다(apps/server/src/ops/access.ts). 기기는 화면 편의로만 쓴다.
+import type { Role } from "./roles.ts";
+
+/**
+ * 운영 권한 ID. 계정에 저장되는 값(ops_grants.permissions)이라 한 번 쓴 ID는 다시 쓰지 않는다(새 것은 끝에 더한다).
+ * - view_*: 감시(조회)
+ * - account_kick·account_ban·unit_stop·unit_rescue: 가벼운 통제
+ * - unit_heal·unit_teleport·ledger_grant: 강한 통제
+ * - manage_grants: 다른 계정에 운영 권한 체크박스 주기
+ */
+export const OPS_PERMISSIONS = [
+  "view_players",
+  "view_npcs",
+  "view_economy",
+  "view_audit",
+  "view_server",
+  "account_kick",
+  "account_ban",
+  "unit_stop",
+  "unit_rescue",
+  "unit_heal",
+  "unit_teleport",
+  "ledger_grant",
+  "manage_grants",
+] as const;
+
+export type OpsPermission = (typeof OPS_PERMISSIONS)[number];
+
+/** 화면에서 권한을 묶어 보이는 단계 */
+export type OpsTier = "monitor" | "light" | "strong" | "manage";
+
+export const OPS_PERMISSION_TIER: { readonly [P in OpsPermission]: OpsTier } = {
+  view_players: "monitor",
+  view_npcs: "monitor",
+  view_economy: "monitor",
+  view_audit: "monitor",
+  view_server: "monitor",
+  account_kick: "light",
+  account_ban: "light",
+  unit_stop: "light",
+  unit_rescue: "light",
+  unit_heal: "strong",
+  unit_teleport: "strong",
+  ledger_grant: "strong",
+  manage_grants: "manage",
+};
+
+export function isOpsPermission(value: string): value is OpsPermission {
+  return (OPS_PERMISSIONS as readonly string[]).includes(value);
+}
+
+const LIGHT: readonly OpsPermission[] = OPS_PERMISSIONS.filter(
+  (p) => OPS_PERMISSION_TIER[p] === "monitor" || OPS_PERMISSION_TIER[p] === "light",
+);
+const STRONG: readonly OpsPermission[] = OPS_PERMISSIONS.filter((p) => OPS_PERMISSION_TIER[p] !== "manage");
+
+/** 역할마다 기본으로 가지는 운영 권한. 계정마다 체크박스로 더 줄 수 있다(빼지는 못한다) */
+export const OPS_ROLE_DEFAULTS: { readonly [R in Role]: readonly OpsPermission[] } = {
+  player: [],
+  gm: LIGHT,
+  gm_lead: STRONG,
+  dev: OPS_PERMISSIONS,
+  admin: OPS_PERMISSIONS,
+};
+
+/** 운영자 콘솔을 여는 역할(화면 주소 /ops). 체크박스 권한은 이 역할 위에 더해진다 */
+export const OPS_CONSOLE_ROLES: readonly Role[] = ["gm", "gm_lead", "dev", "admin"];
+
+/** 역할 기본 + 계정에 준 권한 → 실효 권한(OPS_PERMISSIONS 차례, 중복 없음). 콘솔 역할이 없으면 빈 목록 */
+export function effectiveOpsPermissions(roles: readonly Role[], granted: readonly string[]): OpsPermission[] {
+  if (!roles.some((role) => OPS_CONSOLE_ROLES.includes(role))) return [];
+  const set = new Set<string>(granted);
+  for (const role of roles) for (const permission of OPS_ROLE_DEFAULTS[role]) set.add(permission);
+  return OPS_PERMISSIONS.filter((permission) => set.has(permission));
+}
+
+// ── 응답 모양 ──
+
+/** 소유 주체 종류: 유저(사용자) 또는 NPC 세력 */
+export type OpsOwnerKind = "user" | "faction";
+
+export interface OpsAccess {
+  permissions: OpsPermission[];
+  /** 체크박스로 받은 것(역할 기본은 빠진다) */
+  granted: OpsPermission[];
+}
+
+export interface OpsServerOverview {
+  nowMs: number;
+  uptimeSec: number;
+  memory: { rssMb: number; heapUsedMb: number; heapTotalMb: number; externalMb: number };
+  wsConnections: number;
+  world: {
+    state: "none" | "recovering" | "ready" | "failed";
+    issues: number;
+    bootMs: number | null;
+    maps: number;
+    units: number;
+    moving: number;
+    npcRuntime: boolean;
+  };
+  counts: {
+    users: number;
+    bannedUsers: number;
+    online: number;
+    cyborgs: number;
+    factionsNpc: number;
+    factionsPlayer: number;
+    cities: number;
+    humans: number;
+    buildings: number;
+    wars: number;
+  };
+  recent: {
+    clientErrors24h: number;
+    audit24h: number;
+    signups24h: number;
+  };
+}
+
+export interface OpsPlayerRow {
+  id: string;
+  loginId: string;
+  roles: Role[];
+  banned: boolean;
+  banReason: string | null;
+  banExpires: string | null;
+  createdAt: string;
+  online: boolean;
+  /** 마지막으로 끊긴 시각(접속 중이면 null, 기록 없으면 null) */
+  offlineSinceMs: number | null;
+  cyborgName: string | null;
+  level: number | null;
+  factionId: number | null;
+  factionName: string | null;
+  ownerId: number | null;
+  units: number;
+  /** 기본 화폐 잔고(최소 단위, 문자열 — BigInt) */
+  credit: string;
+}
+
+export interface OpsBalance {
+  asset: string;
+  location: number | null;
+  /** 최소 단위 정수(문자열) */
+  balance: string;
+}
+
+export interface OpsUnitRow {
+  id: number;
+  kind: number;
+  ownerId: number;
+  ownerKind: OpsOwnerKind | null;
+  ownerLabel: string;
+  planetId: string;
+  mapKey: number;
+  cellX: number;
+  cellY: number;
+  moving: boolean;
+  injury: number;
+  captive: boolean;
+}
+
+export interface OpsPlayerDetail {
+  player: OpsPlayerRow;
+  cyborg: {
+    name: string;
+    temperament: string;
+    level: number;
+    exp: number;
+    rebirths: number;
+    faith: number;
+    faithPoints: number;
+    religion: string | null;
+    /** STR·DEX·AGI·VIT·INT·WIS */
+    initial: number[];
+    kPm: number[];
+    elements: number[] | null;
+    startCityId: number;
+    unitId: number | null;
+    createdAtMs: number;
+  } | null;
+  balances: OpsBalance[];
+  units: OpsUnitRow[];
+  items: OpsItemRow[];
+  skills: OpsSkillRow[];
+  sessions: { count: number; lastSeen: string | null };
+  audit: OpsAuditRow[];
+}
+
+export interface OpsItemRow {
+  id: number;
+  itemId: string;
+  location: number;
+  slot: number | null;
+  quantity: number;
+  durability: number | null;
+  maxDurability: number | null;
+  source: string;
+}
+
+export interface OpsSkillRow {
+  unitId: number;
+  skillId: string;
+  grade: number;
+  source: string;
+}
+
+export interface OpsFactionRow {
+  id: number;
+  kind: "npc" | "player";
+  code: string | null;
+  name: string;
+  parentId: number | null;
+  regime: string;
+  fixed: boolean;
+  techLevel: number;
+  dissolved: boolean;
+  cities: number;
+  humans: number;
+  units: number;
+  members: number;
+  ownerId: number | null;
+  credit: string;
+  wars: number;
+}
+
+export interface OpsCityRow {
+  id: number;
+  name: string | null;
+  factionId: number;
+  factionName: string;
+  planetId: string;
+  mapKey: number;
+  cellX: number;
+  cellY: number;
+  start: boolean;
+  housing: number;
+  humans: number;
+  development: number;
+  adminLevel: number;
+  researchLevel: number;
+  necessitiesPm: number | null;
+  mayorUnitId: number | null;
+}
+
+export interface OpsFactionDetail {
+  faction: OpsFactionRow;
+  traits: number[] | null;
+  researchProgress: number;
+  aiStep: number;
+  bornOf: number | null;
+  rebelOf: number | null;
+  cities: OpsCityRow[];
+  wars: { otherId: number; otherName: string; state: "war" | "truce"; atMs: number }[];
+  balances: OpsBalance[];
+  members: { id: string; loginId: string }[];
+  units: OpsUnitRow[];
+}
+
+export interface OpsUnitDetail {
+  unit: OpsUnitRow;
+  speed: number;
+  size: number;
+  job: { kind: number; phase: number; progressMs: number; fatigue: number };
+  injuryUntilMs: number | null;
+  heldBy: number | null;
+  human: {
+    cityId: number | null;
+    satisfactionMilli: number;
+    level: number;
+    bornAtMs: number;
+    /** 서버 시각 기준 나이(ms) */
+    ageMs: number;
+    lifespanMs: number;
+    rebirths: number;
+    stats: number[] | null;
+    elements: number[] | null;
+  } | null;
+  vitals: {
+    hp: number;
+    maxHp: number;
+    armor: number;
+    maxArmor: number;
+    shield: number;
+    maxShield: number;
+  } | null;
+  skills: OpsSkillRow[];
+  items: OpsItemRow[];
+  cargo: OpsBalance[];
+}
+
+export interface OpsAuditRow {
+  id: number;
+  at: string;
+  actorKind: string;
+  actorId: string | null;
+  actorLoginId: string | null;
+  action: string;
+  targetId: string | null;
+  before?: unknown;
+  after?: unknown;
+  meta?: unknown;
+  ip: string | null;
+}
+
+export interface OpsAssetTotal {
+  asset: string;
+  /** 유저·세력이 가진 합(최소 단위, 문자열) */
+  held: string;
+  /** 시스템 계정 잔고 합(발행 −, 소멸 +) */
+  system: string;
+  holders: number;
+}
+
+export interface OpsEconomy {
+  totals: OpsAssetTotal[];
+  /** 고른 자산의 상위 보유 주체 */
+  top: { ownerId: number; ownerKind: OpsOwnerKind | null; label: string; balance: string }[];
+  /** 최근 거래 중 금액이 큰 항목 */
+  largeEntries: {
+    txId: number;
+    kind: string;
+    atMs: number;
+    asset: string;
+    ownerId: number | null;
+    label: string;
+    amount: string;
+  }[];
+  /** 운영자 지급·회수 거래(최근) */
+  operatorTx: { txId: number; kind: string; atMs: number; key: string | null }[];
+}
+
+/** 유닛 통제 결과 코드 */
+export const OPS_UNIT_RESULTS = [
+  "ok",
+  "not_found",
+  "not_ready",
+  "not_standable",
+  "unsupported_kind",
+  "failed",
+] as const;
+export type OpsUnitResult = (typeof OPS_UNIT_RESULTS)[number];

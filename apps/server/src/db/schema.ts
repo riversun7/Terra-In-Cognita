@@ -956,5 +956,8 @@ export { warOutcomes } from "./warSchema.ts";
 /** 국적 바꾸기(귀화) 기록 표(docs/adr/2026-11-08-citizenship.md) */
 export { nationalityChanges } from "./citizenshipSchema.ts";
 
+/** 운영 권한 체크박스 표(docs/adr/2026-11-08-operator-console.md) */
+export { opsGrants } from "./opsSchema.ts";
+
 /** Better Auth Drizzle 어댑터에 넘기는 표 (usePlural: 모델 이름 + s) */
 export const authSchema = { users, sessions, accounts, verifications };

@@ -15,6 +15,7 @@ import { factionRouter } from "./faction.ts";
 import { inboxRouter } from "./inbox.ts";
 import { router } from "./init.ts";
 import { mailRouter } from "./mail.ts";
+import { opsRouter } from "./ops.ts";
 import { planetEditorRouter } from "./planetEditor.ts";
 import { rankingRouter } from "./ranking.ts";
 import { recruitRouter } from "./recruit.ts";
@@ -39,6 +40,8 @@ export const appRouter = router({
   system: systemRouter,
   account: accountRouter,
   admin: adminRouter,
+  // 운영자 콘솔(docs/adr/2026-11-08-operator-console.md)
+  ops: opsRouter,
   settings: settingsRouter,
   planetEditor: planetEditorRouter,
   // 개발자 설정 칸 패널(docs/adr/2026-11-01-dev-settings-panel.md 8절)

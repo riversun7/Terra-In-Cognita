@@ -27,6 +27,7 @@ export const WORLD_RESET_KEEP: Readonly<Record<string, string>> = {
   verifications: "Better Auth 확인 값",
   account_recovery: "복구 이메일",
   user_settings: "계정 설정(테마·언어·메뉴·홈)",
+  ops_grants: "운영 권한 체크박스(계정마다, docs/adr/2026-11-08-operator-console.md)",
   audit_log: "감사 기록(추가만, 트리거가 TRUNCATE를 막는다 — PROTECTED)",
   planet_drafts: "행성 편집기 초안",
   planet_draft_revisions: "행성 편집기 초안 판 기록",

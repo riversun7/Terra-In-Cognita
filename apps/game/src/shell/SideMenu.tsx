@@ -104,6 +104,7 @@ export function SideMenu({ variant, user, nav, current, badges, onClose }: SideM
   // 여는 역할은 주소 표 한 곳(access)에서 본다 — 권한 없음 화면(Shell.tsx)과 같은 판단
   const dev = canOpenRoute("dev", user.roles);
   const admin = canOpenRoute("admin", user.roles);
+  const ops = canOpenRoute("ops", user.roles);
   const item = (id: NavItemId): ReactNode => {
     const entry = MENU_ITEMS[id];
     return (
@@ -180,6 +181,11 @@ export function SideMenu({ variant, user, nav, current, badges, onClose }: SideM
               name={m.account_admin()}
               current={current === "admin"}
             />
+          </li>
+        ) : null}
+        {ops ? (
+          <li>
+            <SideLink to={{ route: "ops" }} icon="admin" name={m.ops_title()} current={current === "ops"} />
           </li>
         ) : null}
         <li>

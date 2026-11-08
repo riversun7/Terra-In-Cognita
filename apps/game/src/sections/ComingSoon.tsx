@@ -22,6 +22,7 @@ type ComingSoonRoute = Exclude<
   | "map_planet"
   | "settings"
   | "admin"
+  | "ops"
   | "inbox"
   | "start"
   | "dev"

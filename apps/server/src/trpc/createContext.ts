@@ -8,6 +8,7 @@
 // 프로시저는 하나도 돌지 않는다.
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { createAdminServices } from "../auth/adminServices.ts";
+import { type OpsShared, createOpsServices } from "../ops/services.ts";
 import type { TerraAuth } from "../auth/auth.ts";
 import { authHeaders } from "../auth/http.ts";
 import { parseRoleString } from "../auth/permissions.ts";
@@ -130,6 +131,8 @@ export interface ContextFactoryOptions extends TrpcContextOptions {
   vitals?: VitalsReadServices | undefined;
   /** 랭킹 조회(docs/adr/2026-11-07-ranking.md). 없으면 빈 판(경로 목록 없음) */
   ranking?: RankingServices | undefined;
+  /** 운영자 콘솔(앱에 하나, src/ops/services.ts). 인증이 켜져 있어야 쓴다 */
+  ops?: OpsShared | undefined;
 }
 
 /** 읽기 요청(출처 규칙이 쓰기보다 느슨하다: 주소창에서 연 것도 받는다). tRPC 조회는 GET, 쓰기는 POST다 */
@@ -197,6 +200,8 @@ export function createContextFactory(options: ContextFactoryOptions) {
           ? createAdminServices({ ...authDeps, request, reply: opts?.res, viewer })
           : undefined,
       settings: authDeps ? createSettingsServices(authDeps.db) : undefined,
+      ops:
+        authDeps && request && options.ops ? createOpsServices(options.ops, { ip: request.ip }) : undefined,
       planetEditor:
         authDeps && request && editor
           ? createPlanetEditorServices({

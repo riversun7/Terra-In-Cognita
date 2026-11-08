@@ -24,6 +24,12 @@
 - 짧은 실제 서버 실행(Verified, `merge/integration` 7c80aa9를 합친 판, `node --import tsx src/main.ts`, 새 DB, `S1_TEST_BOTS=1000`·`S1_TEST_MAPS=6`·`NPC_SOCIETY=1`·`NPC_TEST_NATIONS=4`·`PATH_WORKERS=1`, 캐시된 행성): 첫 실행 `/health` world ready·worldIssues 0·띄운 2차맵 17·`mapsOnDemand` 0 → 끄고 첫 시작 도시 2차맵의 띄우지 않은 옆 2차맵에 가짜 계정 유닛 하나를 DB로 넣음 → 다시 켬: 띄운 2차맵 18·`mapsOnDemand` 1·`orphanUnits` 0·`problems` [] → 끄고 `node --import tsx src/cli.ts check-world` = `{"ok":true,"problems":[]}`.
 - 불변 조건: 32장 띄운 뒤 `checkInvariants`(메모리 + DB = `check-world`의 DB 몫) 위반 0. DB 시험(`layoutTravel.db.test.ts`)도 넘어간 뒤·다시 켠 뒤·내린 뒤 모두 0.
 
+## 끝 검사 (Verified, `merge/integration` 7c4d141을 합친 판 — 지도자·농장 채집소·국적 바꾸기 줄기 포함)
+- `TEST_DATABASE_URL=… pnpm check`: 포맷·린트·타입·경계·파일 크기·다국어·디자인 값·콘텐츠·단위 시험 통과 — 시험 파일 528개·시험 4,036개 모두 통과(DB 시험 포함).
+- `pnpm check:content origin/main`: core@53 호환 통과. `pnpm check:docs origin/main`: 통과.
+- `pnpm e2e map-travel.spec.ts`: 5개 모두 통과(띄우지 않은 옆 2차맵 [보내기]·"닿으면 이 2차맵을 엽니다"·막힌 변 없음 → 가는 중·이름표 → [멈추기], [1차맵에서 고르기], 사진 390 파스텔·다크 한국어, 파스텔 영어). 사진(`map-edge-sheet-390-*`, `map-edge-going-390-*`)을 눈으로 봄: 수도 2차맵 네 변 모두 [보내기], 띄우지 않은 세 변에 "닿으면 이 2차맵을 엽니다"(영어 "opens on arrival"), 넘침 없음.
+- 같은 나라 시야 공유(국적 바꾸기 줄기): 그때 띄운 2차맵도 2차맵마다 `createMapVision`이고 나라 찾기는 구독·볼 수 있나에서 보는 사람에 붙어(`world/gateway.ts`·`visibility.ts`) 따로 등록할 것이 없다 — DB 시험에 그 나라 NPC 주체로 보면 그때 띄운 2차맵의 내 유닛이 보이는지 더함(Verified).
+
 ## 바꾼 파일과 이유
 | 파일 | 이유 |
 |---|---|

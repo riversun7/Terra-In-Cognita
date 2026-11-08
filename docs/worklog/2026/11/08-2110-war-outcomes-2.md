@@ -42,7 +42,8 @@
 
 ## 검사
 - 작업 중: `@terra/sim` 전체 vitest 91 파일 722 통과(바꾸기 전 단계, 그 뒤 `societyWar.test.ts` 11 통과), 서버 `src/npc src/factionScreen src/tuning src/db` DB 포함 21 파일 105 통과(Verified).
-- 끝 검사(합친 뒤): 아래에 적는다.
+- 끝 검사(`merge/integration` fe3c4c4를 합치고 마이그레이션을 그 뒤로 다시 만든 뒤, Verified): `TEST_DATABASE_URL=… pnpm check` 통과(단위·DB 시험 547 파일 4,136 통과), `pnpm check:docs origin/main` 통과, `pnpm check:content origin/main` 통과(core@57). 화면 시험 `pnpm e2e e2e/faction.spec.ts` 28 통과(1.8분) — 사진 390px 파스텔·다크 × ko·en(지분 탭 점령 칸: 약탈 진행 중·점령 상태·재건된 약탈 문구를 눈으로 봄).
+- 그 뒤 `merge/integration` b718f51(계산식 팔레트, 화면만)을 합침: 충돌은 문서(PLAN·WORKLOG 목차)뿐이라 전체 검사는 다시 돌리지 않고 `check:i18n`·게임 앱 타입·`check:docs`·`check:content`만 다시 돌려 통과.
 
 ## 미검증·TODO·알려진 문제
 - 다른 세력은 약탈·점령 중인 도시를 계속 칠 수 있어 상태 대부분이 7일 안에 덮인다(재건·저절로 회복이 드묾 — ADR 잰 값). 밸런싱 단계에서 본다(853).

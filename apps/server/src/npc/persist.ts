@@ -555,6 +555,9 @@ export function createNpcPersist(
           for (const map of maps.values()) if (map.setOwner(unit.id, unit.owner)) break;
           count.owners += 1;
         }
+        // 집 = 지금 도시 시청 칸(옮겨 간 휴먼도 새 도시 둘레를 걷는다, WP-NPC). 노숙이면 그대로
+        const home = places.get(unit.city);
+        if (home) maps.get(home.mapKey)?.setHome(unit.id, { x: home.cellX, y: home.cellY });
         writer.upsert("humans", {
           unit_id: unit.id,
           city_id: unit.city === HOMELESS ? null : unit.city,

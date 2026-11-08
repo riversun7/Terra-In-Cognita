@@ -53,6 +53,8 @@ import type { RuinsOverviewResponse } from "@terra/shared/ruins";
 import type { WorldCitiesResponse, WorldPositionResponse } from "@terra/shared/worldMap";
 import type { MapUnitReads } from "../worldMap/mapUnits.ts";
 import type { TravelReads } from "../worldMap/travelReads.ts";
+import type { GovernmentReads } from "../government/reads.ts";
+import type { NationNameReads } from "../worldMap/reads.ts";
 import type { GatherReads } from "../gather/reads.ts";
 import type { PlanetLibraryBase } from "@terra/shared";
 import type {
@@ -388,6 +390,10 @@ export interface WorldMapReads {
   mapUnits?: MapUnitReads["mapUnits"];
   /** 누른 남의 유닛의 세력·종류(기획 답 636 나, 같은 모듈). 없으면 not_ready */
   unitGlance?: MapUnitReads["unitGlance"];
+  /** 정부(행정 건물) 판(docs/adr/2026-11-07-play-flow.md "WP-NPC", src/government/reads.ts). 없으면 not_ready */
+  government?: GovernmentReads["government"];
+  /** 세력 코드 → 나라·지도자 이름(세력 화면, 같은 절) */
+  nationNames?: NationNameReads["nationNames"];
 }
 
 /** 영토 조회(src/territory/service.ts). 없는 행성이면 undefined */

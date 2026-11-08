@@ -1,5 +1,6 @@
 // 세력 화면 옆 판 — 내 세력·가문 요약(46 §1), 내 몫(실제 자료), 잠긴 메뉴(D-5055). 넓은 화면은 왼쪽 옆 판, 좁으면 맨 위.
 // 고정 NPC 국가(D-324)는 표를 붙인다. 공물은 주마다 국고의 비율이다(D-443 설정값). 세력 순위 칸은 FactionRanking.tsx(ranking.mine).
+// 나라 이름·지도자는 서버가 준 두 언어 이름(label·leaderName — 팩 국가 프리셋, NPC 국가 지도자 사이보그)이 있으면 그것을 보인다("WP-NPC").
 import type {
   FactionOverviewResponse,
   FactionRules,
@@ -12,6 +13,7 @@ import { m } from "../paraglide/messages.js";
 import { getLocale } from "../paraglide/runtime.js";
 import { Fact, PreviewTag, SoonButton, StateChip } from "../sections/screenParts.tsx";
 import { amountText, dateText, durationText } from "../sections/screenText.ts";
+import { localName } from "../roster/rosterText.ts";
 import { Icon } from "../ui/icons.tsx";
 import { FactionRanking } from "./FactionRanking.tsx";
 import { KIND_NAMES, LOCK_NAMES, REGIME_NAMES, STAGE_NAMES, assetName } from "./factionText.ts";
@@ -22,7 +24,7 @@ function NameLine({ faction }: { faction: FactionSummary }) {
   return (
     <h2 id="faction-card-title" className="faction-name">
       <span className="faction-name-text" translate="no">
-        {faction.name}
+        {faction.label ? localName(faction.label, faction.name) : faction.name}
       </span>
       {faction.tag === null ? null : (
         <span className="faction-tag" translate="no">
@@ -60,7 +62,11 @@ function FactionCard({ faction, rules }: { faction: FactionSummary; rules: Facti
         <Fact label={m.faction_field_regime()}>
           {faction.regime === null ? m.faction_regime_unset() : REGIME_NAMES[faction.regime]()}
         </Fact>
-        <Fact label={m.faction_field_leader()}>{faction.leader ?? m.faction_unknown()}</Fact>
+        <Fact label={m.faction_field_leader()}>
+          {faction.leaderName
+            ? localName(faction.leaderName, faction.leader ?? "")
+            : (faction.leader ?? m.faction_unknown())}
+        </Fact>
         <Fact label={m.faction_field_members()}>{formatCount(faction.memberCount)}</Fact>
         <Fact label={m.faction_field_cities()}>{formatCount(faction.cityCount)}</Fact>
         <Fact label={m.faction_field_joined()}>

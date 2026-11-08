@@ -26,12 +26,12 @@ import type {
   WorldPosition,
   WorldPositionResponse,
 } from "@terra/shared/worldMap";
-import { type NationPreset, nationName } from "../npc/nations.ts";
+import { type GovernmentReads, governmentReadsOfWorld } from "../government/reads.ts";
+import { type NationPreset, nationLeaderName, nationName } from "../npc/nations.ts";
 import type { Viewer } from "../trpc/context.ts";
 import type { WorldDirectory } from "../world/gateway.ts";
 import type { QueryPool } from "../world/persist/load.ts";
 import type { SecondMap } from "../world/secondMap.ts";
-import { TEST_NPC_FACTION_CODE } from "../world/unitKinds.ts";
 import type { World } from "../world/world.ts";
 import { canObserve, canViewSecondMap } from "../world/visibility.ts";
 import { hullKnown, isCityKnown, knownWithoutSight } from "./knownCities.ts";
@@ -385,8 +385,13 @@ export function createWorldMapReads(deps: WorldMapReadDeps): WorldMapReadService
 
 const clampCell = (value: number): number => Math.max(0, Math.min(PLACEMENT_SIZE - 1, value));
 
-/** [임시] 시험 NPC 세력 이름(세력 표에 이름 칸이 없다 — 사이보그 만들기 화면과 같은 글자, cyborg/service.ts) */
-const TEST_FACTION_NAME: LocalizedName = { ko: "시험 NPC 세력", en: "Test NPC faction" };
+/** 세력 코드 → 나라 이름·지도자 이름(팩 국가 프리셋, 세력 화면 — WP-NPC). 모르면 undefined */
+export interface NationNameReads {
+  nationNames(code: string): {
+    readonly name: LocalizedName | undefined;
+    readonly leader: LocalizedName | undefined;
+  };
+}
 
 /** 행성 서비스에서 이 조회가 쓰는 것(목록 정보의 바이옴 범례, 행성 값) */
 export interface WorldMapPlanets {
@@ -416,8 +421,8 @@ async function factionOfOwner(
 }
 
 /**
- * 앱(app.ts)이 세계·행성 서비스로 조회를 만든다: 세계가 준비된 뒤에만 서비스(아니면 undefined → not_ready). 세력 이름 = 시험 NPC 세력 + 팩 국가
- * 프리셋(nationName), 바이옴 이름 = 행성 목록 정보 범례, 둘레 땅 = 월드 행성 값
+ * 앱(app.ts)이 세계·행성 서비스로 조회를 만든다: 세계가 준비된 뒤에만 서비스(아니면 undefined → not_ready). 세력 이름 = 팩 국가 프리셋
+ * (nationName — 국가 1은 16번째 프리셋), 바이옴 이름 = 행성 목록 정보 범례, 둘레 땅 = 월드 행성 값, 정부(행정 건물) 판(government/reads.ts)
  */
 export function worldMapReadsOf(options: {
   readonly world: World;
@@ -428,10 +433,13 @@ export function worldMapReadsOf(options: {
   readonly planets?: WorldMapPlanets | undefined;
   /** 확인 단계 오염 위험 문턱(설정 칸 실효 값, 없으면 시험 계수 — 유목 목표 오염 문턱 S17) */
   readonly pollutionDanger?: (() => number) | undefined;
-}): () => (WorldMapReadServices & TravelReads & MapUnitReads) | undefined {
+}): () =>
+  | (WorldMapReadServices & TravelReads & MapUnitReads & GovernmentReads & NationNameReads)
+  | undefined {
   const { world, planets, planetId } = options;
-  const nameOfCode = (code: string): LocalizedName | undefined =>
-    code === TEST_NPC_FACTION_CODE ? TEST_FACTION_NAME : nationName(code, options.presets);
+  // 국가 1(시험 NPC 세력)도 사이보그 만들기·랭킹과 같은 이름(16번째 프리셋, nationName — WP1 6절. 지도에만 옛 "시험 NPC 세력"이 남아 있었다)
+  const nameOfCode = (code: string): LocalizedName | undefined => nationName(code, options.presets);
+  const leaderOfCode = (code: string): LocalizedName | undefined => nationLeaderName(code, options.presets);
   const sighted = (mapKey: number, viewer: Viewer) =>
     world.maps.get(mapKey)?.vision.sighted({ userId: viewer.id, ownerId: world.ownerOfUser?.(viewer.id) }) ??
     Promise.resolve(undefined);
@@ -486,7 +494,17 @@ export function worldMapReadsOf(options: {
       factionOfOwner(options.pool, world.persistence?.owners.get(ownerId), (code) =>
         code === null ? null : (nameOfCode(code) ?? null),
       ),
+    leaderName: leaderOfCode,
   });
-  const services = { ...reads, ...travel, ...units };
+  // 정부(행정 건물) 판(WP-NPC): 아는 도시·이름은 위와 같은 함수. 세력 화면은 nationNames로 나라·지도자 이름을 받는다
+  const government = governmentReadsOfWorld(world, {
+    knownCityIds: (viewer) => reads.knownCityIds(viewer),
+    nationName: nameOfCode,
+    leaderName: leaderOfCode,
+  });
+  const nations: NationNameReads = {
+    nationNames: (code) => ({ name: nameOfCode(code), leader: leaderOfCode(code) }),
+  };
+  const services = { ...reads, ...travel, ...units, ...government, ...nations };
   return () => (world.status().state === "ready" && world.persistence ? services : undefined);
 }

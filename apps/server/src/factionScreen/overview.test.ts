@@ -22,7 +22,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_CONTENT_DIR } from "../config.ts";
 import { tuningOf } from "../world/combatCatalog.ts";
 import { LOCK_RULES, buildFactionOverview, createFactionScreenServices, evaluateLocks } from "./overview.ts";
-import { type FactionReal, NO_FACTION_REAL } from "./source.ts";
+import { type FactionReal, NO_FACTION_REAL, withNationNames } from "./source.ts";
 import { TEST_FACTION_RULES, factionRulesFrom } from "./tuning.ts";
 
 /** 실제 콘텐츠 팩(content/core)의 tuning으로 만든 세력 화면 설정값 */
@@ -61,6 +61,39 @@ const CITIZEN: FactionReal = {
       ? null
       : { ...MEMBER.faction, parent: null, regime: "dictatorship", fixed: true, cityCount: 2 },
 };
+
+describe("나라 이름·지도자 이름(WP-NPC)", () => {
+  const names = {
+    nationNames: (code: string) =>
+      code === "s3_test_npc"
+        ? {
+            name: { ko: "임시 국가 16", en: "Placeholder nation 16" },
+            leader: { ko: "임시 지도자 16", en: "L16" },
+          }
+        : { name: undefined, leader: undefined },
+  };
+
+  it("지도자 유닛이 있으면 팩 이름(label)과 지도자 이름(leaderName)을 붙여 요약에 싣는다", () => {
+    const real = withNationNames(
+      { ...CITIZEN, faction: CITIZEN.faction ? { ...CITIZEN.faction, leaderUnit: 900 } : null },
+      names,
+    );
+    const view = buildFactionOverview(real, OFF);
+    expect(view.faction?.label).toEqual({ ko: "임시 국가 16", en: "Placeholder nation 16" });
+    expect(view.faction?.leaderName).toEqual({ ko: "임시 지도자 16", en: "L16" });
+    // 옛 글 칸(name = 코드, leader = null)은 그대로(옛 기기)
+    expect(view.faction?.name).toBe("s3_test_npc");
+    expect(view.faction?.leader).toBeNull();
+  });
+
+  it("지도자 유닛이 없으면 지도자 이름을 싣지 않는다, 이름 출처가 없으면 그대로", () => {
+    const view = buildFactionOverview(withNationNames(CITIZEN, names), OFF);
+    expect(view.faction?.label?.ko).toBe("임시 국가 16");
+    expect(view.faction?.leaderName).toBeNull();
+    expect(withNationNames(CITIZEN, undefined)).toBe(CITIZEN);
+    expect(withNationNames(NO_FACTION_REAL, names)).toBe(NO_FACTION_REAL);
+  });
+});
 
 describe("실제 자료만(시안 자료 꺼짐)", () => {
   it("세력이 없으면 개인 단계, 잠긴 메뉴 없음, 여섯 칸은 모두 준비 중", () => {

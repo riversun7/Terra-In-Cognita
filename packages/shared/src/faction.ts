@@ -290,6 +290,10 @@ export interface FactionSummary {
   /** 고정 세력(D-324: 기본 NPC 국가, 멸망하지 않는다) */
   readonly fixed: boolean;
   readonly leader: string | null;
+  /** 화면 이름(팩 국가 프리셋, ko·en — docs/adr/2026-11-07-play-flow.md "WP-NPC"). 있으면 기기는 name 대신 이것을 보인다 */
+  readonly label?: LocalizedName | null;
+  /** 지도자 이름(NPC 국가 지도자 사이보그, 팩 국가 프리셋 leaderName). 있으면 기기는 leader 대신 이것을 보인다 */
+  readonly leaderName?: LocalizedName | null;
   readonly memberCount: number;
   readonly cityCount: number;
   /** 내가 들어온 시각(서버 ms) */

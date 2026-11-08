@@ -30,7 +30,7 @@ import { jobOf, unitTypeOf } from "../roster/worldUnits.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { injuryAt } from "../world/unitCondition.ts";
 import { canCommandAnyUnit, unitHold } from "../world/unitControl.ts";
-import { UNIT_KIND_CYBORG } from "../world/unitKinds.ts";
+import { UNIT_KIND_CYBORG, UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
 
 /** 이 조회가 세계에서 읽는 것(시험은 가짜를 넣는다) */
 export interface MapUnitSource {
@@ -49,6 +49,8 @@ export interface MapUnitSource {
   observer?: ((viewer: Viewer) => boolean) | undefined;
   /** 소유 주체 → 세력 정보(NPC 주체는 세력, 유저 주체는 가입한 국가). 없으면 null */
   factionOfOwner?: ((ownerId: number) => Promise<MapUnitGlance["faction"]>) | undefined;
+  /** 세력 코드 → 그 나라 지도자 이름(팩 국가 프리셋, "WP-NPC"). 없으면 지도자 이름 없음 */
+  leaderName?: ((code: string) => MapUnitGlance["name"] | undefined) | undefined;
 }
 
 export interface MapUnitReads {
@@ -64,6 +66,7 @@ export const ELSEWHERE_CACHE_MS = 15_000;
 /** 세계 유닛 종류 코드 → 목록 종류(사이보그 본체는 따로, 나머지는 유닛 화면과 같은 이름) */
 function kindOf(kind: number): MapUnitKind {
   if (kind === UNIT_KIND_CYBORG) return "cyborg_body";
+  if (kind === UNIT_KIND_NPC_LEADER) return "npc_leader";
   const type = unitTypeOf(kind);
   return type === "creature" || type === "android" ? "test_unit" : type;
 }
@@ -147,7 +150,15 @@ export function createMapUnitReads(source: MapUnitSource): MapUnitReads {
         (source.sees?.(mapKey, viewer, unitId) ?? false);
       if (!visible) return none;
       const faction = (await source.factionOfOwner?.(info.ownerId)) ?? null;
-      return { ...none, glance: { unitId, kind: kindOf(info.kind), faction } };
+      // NPC 국가 지도자는 그 나라 지도자 이름(WP-NPC)
+      const leader =
+        info.kind === UNIT_KIND_NPC_LEADER && faction?.code
+          ? (source.leaderName?.(faction.code) ?? null)
+          : null;
+      return {
+        ...none,
+        glance: { unitId, kind: kindOf(info.kind), faction, ...(leader ? { name: leader } : {}) },
+      };
     },
   };
 }

@@ -242,7 +242,7 @@ describe("몸 계산", () => {
       faithPoints: 0,
       startGrant: 108n,
       nationChangedAtMs: null,
-      grantReturned: 0n,
+      standings: new Map(),
     };
     const fresh = realCyborgBody(catalog, record, false);
     // 속성값(D-450) = 저장된 생성 값(12칸, 차례 = ELEMENT_CODES). 분배 전(null)이면 모두 0

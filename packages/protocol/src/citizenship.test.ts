@@ -1,9 +1,10 @@
-// 국적 바꾸기 메시지 스키마 시험(프로토콜 18, docs/adr/2026-11-08-citizenship.md) — 왕복, 값 모양, 결과 코드
+// 국적 바꾸기 메시지 스키마 시험(프로토콜 18·19, docs/adr/2026-11-08-citizenship.md "바뀜 (D-526)") — 왕복, 값 모양, 결과 코드
 import { describe, expect, it } from "vitest";
 import {
   CITIZENSHIP_PROTOCOL_VERSION,
   MIN_SUPPORTED_PROTOCOL_VERSION,
   NATIONALITY_RESULT_CODES,
+  NATURALIZE_TERMS_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
   ProtocolError,
   decodeClientMessage,
@@ -21,9 +22,11 @@ function decodes(decode: (text: string) => unknown, message: unknown): boolean {
   }
 }
 
-describe("국적 바꾸기 메시지(프로토콜 18)", () => {
-  it("판: 국적 바꾸기는 18부터, 받는 가장 낮은 판 = 현재 − 1", () => {
+describe("국적 바꾸기 메시지(프로토콜 18·19)", () => {
+  it("판: 국적 바꾸기는 18부터, 지원금·입회비·우호도는 19부터, 받는 가장 낮은 판 = 현재 − 1", () => {
     expect(CITIZENSHIP_PROTOCOL_VERSION).toBe(18);
+    expect(NATURALIZE_TERMS_PROTOCOL_VERSION).toBe(19);
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(NATURALIZE_TERMS_PROTOCOL_VERSION);
     expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(CITIZENSHIP_PROTOCOL_VERSION);
     expect(MIN_SUPPORTED_PROTOCOL_VERSION).toBe(PROTOCOL_VERSION - 1);
   });
@@ -31,8 +34,12 @@ describe("국적 바꾸기 메시지(프로토콜 18)", () => {
   it("신청이 왕복하고 값 모양을 본다", () => {
     const change = { t: "nationality_change", id: 3, buildingId: 12, factionId: 4, cost: "208" } as const;
     expect(decodeClientMessage(encodeMessage(change))).toEqual(change);
-    expect(decodes(decodeClientMessage, { ...change, cost: "-1" })).toBe(false);
+    // 19부터 부호 있는 값(음수 = 지원금을 받는다)
+    const grant = { ...change, cost: "-250" } as const;
+    expect(decodeClientMessage(encodeMessage(grant))).toEqual(grant);
+    expect(decodes(decodeClientMessage, { ...change, cost: "-0" })).toBe(false);
     expect(decodes(decodeClientMessage, { ...change, cost: "007" })).toBe(false);
+    expect(decodes(decodeClientMessage, { ...change, cost: "-007" })).toBe(false);
     expect(decodes(decodeClientMessage, { ...change, buildingId: 0 })).toBe(false);
     expect(decodes(decodeClientMessage, { ...change, factionId: 1.5 })).toBe(false);
     const { factionId: _faction, ...missing } = change;
@@ -47,11 +54,19 @@ describe("국적 바꾸기 메시지(프로토콜 18)", () => {
       factionId: 4,
       cityId: 9,
       paid: "100",
-      returned: "108",
+      returned: "0",
+      granted: "0",
+      standingDrop: 60,
+      hostile: true,
       nextAtMs: 1_800_000_000_000,
     } as const;
     expect(decodeServerMessage(encodeMessage(ok))).toEqual(ok);
+    // 18 서버 결과(새 칸 없음)도 받는다
+    const { granted: _g, standingDrop: _s, hostile: _h, ...v18 } = ok;
+    expect(decodeServerMessage(encodeMessage(v18))).toEqual(v18);
     expect(decodes(decodeServerMessage, { ...ok, returned: "-5" })).toBe(false);
+    expect(decodes(decodeServerMessage, { ...ok, granted: "-5" })).toBe(false);
+    expect(decodes(decodeServerMessage, { ...ok, standingDrop: 201 })).toBe(false);
     for (const code of NATIONALITY_RESULT_CODES) {
       const fail = { t: "nationality_result", id: 3, ok: false, code } as const;
       expect(decodeServerMessage(encodeMessage(fail))).toEqual(fail);

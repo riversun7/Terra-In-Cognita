@@ -1,6 +1,6 @@
 # 국적 바꾸기(귀화)와 같은 나라 시야 공유, 프로토콜 18
 
-- 상태: 제안
+- 상태: 확정 (2026-11-08, 사용자 결정 — D-525/D-526 반영)
 - 날짜: 2026-11-08
 - 관련: docs/PLAN.md 4.3(조회는 tRPC·바꾸는 명령은 WebSocket)·14장(질문 790~797), ADR `2026-11-01-first-login-cyborg.md`(세력 가입·"바뀜 (D-455)" 정착 지원금), `2026-11-07-play-flow.md`("WP-NPC" 정부 판, "WP7" 도시 안개), `2026-10-31-s3-server-stage.md`(3절 시야 전송, U2 커밋 뒤 답), `2026-11-08-injury.md`(같은 꼴의 서버 명령·설정 칸), `2026-10-28-time-and-session-protocol.md`(프로토콜 판), 기획 D-523 포인터(질문 745 나·746 나)·D-163·D-218·D-7032·D-250·D-103·D-6041·D-515·46 §3.1, 질문 `docs/questions/2026-11-08-npc-presence.md`(745·746)·`docs/questions/2026-11-08-citizenship.md`(790~797)
 
@@ -78,3 +78,16 @@
   - 시야 공유가 2차맵 전체라 한 나라 유닛이 넓게 흩어진 2차맵에서는 시야 틱·전송이 무거워진다(위 표 가장 나쁜 경우). 무거우면 질문 796 나(내 나라 도시 영향권 안만)로 좁힌다.
   - 나라 덮개는 시야 틱 하나(1초) 동안 다시 쓴다 — 귀화 직후·새 휴먼은 길어야 1초 늦게 들어온다.
 - 다시 볼 조건: 질문 790~797 답, 세력 화폐·테라코인 상점(D-6049), 유저 세력·가문 독립(46 §3.1 — 가입할 유저 세력이 생기면 `joinable`을 넓힌다), 받는 나라 정책(745 다), 실제 서버 1분 지표의 `visionTickMaxMs`.
+
+## 바뀜 (D-526, 2026-11-08 — 줄기 `work/injury-citizen2`)
+- 사용자 원문(기획 D-526, 미러 `2900a13`): "국적변경시 지원금이 있을수도있고 반대로 입회비를 설정할수도 있음. 기존 국가에 반환하는것은 없으나 우호도가 떨어지며 적대 세력으로 이전시 크게 하락한다." — 기획 정리 792(지원금 전부 반환)·795(귀화 값 고정 → 받는 나라 국고)를 대체한다. 위 1절 "값"의 지원금 반환과 3절 결과의 반환 칸은 이것으로 바뀐다.
+- **받는 나라 조건 하나(부호 있는 값)**: + = 입회비(옮겨 오는 사람 → 받는 나라 국고), − = 지원금(받는 나라 국고 → 옮겨 오는 사람), 0 = 없음. 나라마다 `factions.naturalize_fee`(null = 설정 칸 기본값 `citizenship_fee` [임시] +100 — 이름·범위를 −10억~+10억으로 넓힘). NPC 국가는 늘 기본값(값을 정하는 화면·NPC 판단은 없다 — 유저 나라가 생기면 그 나라 정부가 정한다, 질문 846). 지원금은 받는 나라 국고에 있는 만큼만 준다(새 화폐를 만들지 않음, 정착 지원금과 같은 규칙 [임시] 질문 845). 입회비가 잔고보다 크면 `insufficient_funds`(지원금은 잔고와 상관없이 받는다).
+- **반환 없음**: 옛 나라 국고로 가는 돈이 없다. 정착 지원금 기록(`start_grant`)은 그대로이고 새 나라도 다시 주지 않는다(D-163·D-7032). 기록 표의 `grant_returned`는 옛 기록만 남고 새 줄은 0이다(사이보그 기록의 반환 합 `grantReturned`는 지웠다).
+- **우호도(사람 × 나라)**: 새 표 `user_nation_standings`(사용자·세력 행·점수·바뀐 시각, 점수 −100~100 — 세력 호감 띠 `relationBand`와 같은 눈금, 줄이 없으면 0 = 보통). 세력 쌍 호감(D-255, 지금 서버에는 미리 보기만)·개인 신뢰도(D-315)와 다른 값이다(이 둘이 생기면 어떻게 묶을지 질문 848). 귀화하면 떠난 사람과 옛 나라 사이 점수가 `citizenship_standing_drop` [임시] 20만큼, 받는 나라가 옛 나라와 **전쟁 중**(NPC 사회 런타임 전쟁 상태 = `faction_wars` war — 지금 서버에 있는 유일한 적대 판정)이면 `citizenship_standing_drop_hostile` [임시] 60만큼 떨어진다(−100에서 멈춤). 우호도가 바꾸는 것(가격·거절·다시 받기 등)은 아직 없다(보이기만, 질문 847). 불가침(truce)은 적대로 보지 않는다(질문 849).
+- 저장(마이그레이션 `20261108112036_naturalize_terms_standing`, 더하기만): 새 표 `user_nation_standings`, `factions.naturalize_fee`(null 허용), `nationality_changes`에 `grant_paid`·`standing_drop`·`hostile`(기본값 0·0·false — 직전 판 앱은 이 칸 없이 넣고 그대로 돈다). 쓰기는 같은 커밋(원장 거래·사이보그 행·가입·우호도·기록). 세계 새로 시작은 우호도 표도 비운다(세계 표). 부팅이 사이보그 기록에 우호도(`standings`)와 나라 조건(`JoinableFaction.naturalizeFee`)을 얹는다.
+- 프로토콜 19(받는 가장 낮은 판 18): `nationality_change.cost`가 부호 있는 값(입회비 − 지원금, 음수 = 받는다), `nationality_result` 성공에 `granted`·`standingDrop`·`hostile`(선택 칸), `returned`는 늘 "0"(18 기기가 읽는 칸이라 남김). 18 기기는 그대로 받는다(지원금을 주는 나라에서는 18 기기가 보낸 합이 맞지 않아 `terms_changed`).
+- 조회 `world.naturalization`: `fee`(입회비)·`grant`(지원금)·`cost`(보낼 값)·`balance`·`standing { now, drop, after, hostile }`(옛 나라)·`targetStanding`(받는 나라와 지금 점수). `grantReturn`·`total`은 뺐다.
+- 화면(`NaturalizePanel`): "이 나라 조건"(입회비 N / 지원금 N / 없음)·"주고받는 값"(N 냄 / N 받음 · 내 잔고)·"옛 나라 우호도"(0(보통) → −20(경고))·"이 나라 우호도"·적대 세력이면 크게 떨어진다는 줄, 확인 줄은 낼 값 또는 받을 값과 "옛 나라와의 우호도가 N 떨어집니다", 결과에 받은 지원금. 문구 ko·en.
+- 설정 칸: `citizenship_fee`(뜻을 부호 있는 기본값으로 넓힘), `citizenship_standing_drop`·`citizenship_standing_drop_hostile`(새로) — 팩 core@56. 판정 코드(`packages/sim`)는 쓰지 않아 `SIM_VERSION` 그대로.
+- 시험: 서버 DB `citizenship/citizenship.db.test.ts`(입회비 → 새 나라·옛 나라 국고 그대로·우호도 −20·기록 칸·다시 켜도 남음·되돌아가면 떠나는 나라 우호도 / 나라 설정 지원금 + 전쟁 중 → 지원금 ← 새 나라 국고·우호도 −60·hostile / 입회비가 잔고보다 크면 거절), 프로토콜 `citizenship.test.ts`(부호 있는 cost·새 결과 칸·18 결과도 받음), 게임 `naturalizeData.test.ts`, 화면 `e2e/citizenship.spec.ts`(실제 조건 = 입회비 100·지원금 0·우호도 하락 20, 입회비 칸·우호도 줄·확인 줄, 다크 사진은 고친 응답으로 지원금 250·적대 세력 줄).
+- 확인 대기: 질문 845~849(`docs/questions/2026-11-08-injury-citizen2.md`).

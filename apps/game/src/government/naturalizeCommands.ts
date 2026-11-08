@@ -1,4 +1,4 @@
-// 국적 바꾸기(귀화) 명령(WebSocket, 프로토콜 18) — 신청을 보내고 같은 요청 번호의 nationality_result를 기다린다.
+// 국적 바꾸기(귀화) 명령(WebSocket, 프로토콜 18·19) — 신청을 보내고 같은 요청 번호의 nationality_result를 기다린다.
 // 질문 745 나, docs/adr/2026-11-08-citizenship.md. 바꾸는 명령은 WebSocket으로만 보낸다(AGENTS.md 4장).
 // 병원 명령(units/hospitalCommands.ts)과 같은 틀이다: 인사 전이면 기다렸다 보내고, 끊기면 "offline", TIMEOUT_MS 안에 답이 없으면 "timeout".
 import type { ClientMessageOf, NationalityResultCode } from "@terra/protocol";
@@ -11,7 +11,9 @@ export type NaturalizeOutcome =
       readonly ok: true;
       readonly factionId: number;
       readonly paid: string;
-      readonly returned: string;
+      /** 받은 지원금(D-526, 옛 서버면 "0")·옛 나라 우호도가 떨어진 양 */
+      readonly granted: string;
+      readonly standingDrop: number;
       readonly nextAtMs: number;
     }
   | { readonly ok: false; readonly code: NationalityResultCode | "offline" | "timeout" };
@@ -66,7 +68,8 @@ export function sendNaturalize(
                 ok: true,
                 factionId: message.factionId,
                 paid: message.paid,
-                returned: message.returned,
+                granted: message.granted ?? "0",
+                standingDrop: message.standingDrop ?? 0,
                 nextAtMs: message.nextAtMs,
               }
             : { ok: false, code: message.code },

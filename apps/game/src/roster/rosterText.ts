@@ -148,6 +148,26 @@ export function remaining(untilMs: number, now: number, locale: Locale = getLoca
   return format.format(Math.floor(left / DAY), "day");
 }
 
+/**
+ * 기간을 "N시간 M분"으로(기획 D-525 "자연회복은 시간,분 단위로 표시"). 날로 묶지 않는다(3일 = "72시간 0분"). 분은 올림이다 — 남은 회복 시간을
+ * 줄여 말하지 않고 0분이 보이지 않게(30초 남음 = "1분"). 1시간이 안 되면 "M분". 0 이하면 "0분"
+ */
+export function formatHoursMinutes(ms: number, locale: Locale = getLocale()): string {
+  const total = ms <= 0 ? 0 : Math.ceil(ms / MINUTE);
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  if (hours <= 0) return m.injury_time_m({ minutes: formatNumber(minutes, locale) }, { locale });
+  return m.injury_time_hm(
+    { hours: formatNumber(hours, locale), minutes: formatNumber(minutes, locale) },
+    { locale },
+  );
+}
+
+/** 남은 회복 시간 "N시간 M분"(D-525). 지났으면 null */
+export function recoveryLeft(untilMs: number, now: number, locale: Locale = getLocale()): string | null {
+  return untilMs <= now ? null : formatHoursMinutes(untilMs - now, locale);
+}
+
 /** [임시] ‰로 저장하는 양 모양 행(크리 배율 1300 = ×1.30). 표에 행이 생기면 서버가 단위를 보내게 바꾼다 */
 const PERMILLE_QUANTITIES: ReadonlySet<string> = new Set(["crit_multiplier"]);
 /** [임시] 분당 값인 양 모양 행(스태미나·MP 회복, 쉴드 재생 D-458: 1분에 그만큼 찬다). 단위도 서버가 보내게 바꿀 때 함께 */

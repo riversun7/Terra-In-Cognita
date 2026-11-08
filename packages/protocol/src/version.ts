@@ -74,20 +74,24 @@
  *    - 국적 바꾸기(citizenship.ts nationality_change → nationality_result, docs/adr/2026-11-08-citizenship.md, 질문 745 나) — 다른 나라 도시의
  *      행정 건물에서 값을 내고 옛 나라 정착 지원금을 돌려준 뒤 그 나라 국민이 된다. 더하기만 했고 17판 기기는 그대로 받는다(이 메시지를 보내지
  *      않는다). 같은 나라 시야 공유(질문 746 나)는 메시지 모양이 그대로다(서버가 보내는 남의 유닛이 늘 뿐).
+ * 19: 귀화 조건 바뀜(citizenship.ts, docs/adr/2026-11-08-citizenship.md "바뀜 (D-526)") — 받는 나라가 지원금 또는 입회비를 정하고 옛 나라에
+ *    돌려주지 않는다. nationality_change의 cost가 부호 있는 값(입회비 − 지원금, 음수 = 받는다)이 되었고, nationality_result 성공에 granted·
+ *    standingDrop·hostile(선택 칸)을 더했고 returned는 늘 "0"이다. 18 기기는 그대로 받는다(cost는 0 이상만 보내고, 결과의 새 칸은 버린다 —
+ *    지원금을 주는 나라에서는 18 기기가 보낸 합이 맞지 않아 terms_changed).
  */
-export const PROTOCOL_VERSION = 18;
+export const PROTOCOL_VERSION = 19;
 
 /**
  * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7). 5부터 3판 기기는 인사에서
  * protocol_unsupported를 받고 새 앱을 받는다(PWA 강제 적용). 6부터 4판 기기도, 7부터 5판 기기도, 8부터 6판 기기도, 9부터 7판 기기도,
  * 10부터 8판 기기도, 11부터 9판 기기도, 12부터 10판 기기도, 13부터 11판 기기도, 14부터 12판 기기도, 15부터 13판 기기도, 16부터 14판 기기도,
- * 17부터 15판 기기도, 18부터 16판 기기도 같다(현재 + 직전 1개).
+ * 17부터 15판 기기도, 18부터 16판 기기도, 19부터 17판 기기도 같다(현재 + 직전 1개).
  * (3에서는 예외로 2를 받지 않았다: 2판 기기는 걸러지지 않은 2차맵 흐름을 기대하는데, 시야 전송은 보안 규칙이라 그 흐름을 남기지
  * 않는다, S3 ADR 3절.)
  * 속성 분배 전 사이보그(elements null)는 이제 기기가 만들지 않는다(5판부터 만들기에 분배가 꼭 든다). 화면 시험의 legacy 계정은
  * 지금 판으로 만든 뒤 서버를 끄고 DB에서 속성값을 비워 다시 켠다(e2e/global-setup.ts).
  */
-export const MIN_SUPPORTED_PROTOCOL_VERSION = 17;
+export const MIN_SUPPORTED_PROTOCOL_VERSION = 18;
 
 /** WebSocket 메시지 1개의 최대 크기 (바이트) */
 export const MAX_MESSAGE_BYTES = 64 * 1024;

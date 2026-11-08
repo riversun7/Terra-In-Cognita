@@ -40,8 +40,14 @@ describe("줄 이름·상태", () => {
     expect(unitStatusText(unit({ hold: "guardian" }), true)).toBe("도시에 머묾");
     expect(unitStatusText(unit({ hold: "captive" }), false)).toBe("포로로 잡힘");
     expect(unitStatusText(unit({ injury: 2 }), true)).toBe("이동 중");
-    // 부상 이름은 부상 4단계(D-521) 단계 색: 2 = 노랑
-    expect(unitStatusText(unit({ injury: 2 }), false)).toBe("노랑 부상");
+    // 부상 이름(D-525): 2 = 중상(노랑). 조회 시각이 있으면 한 단계 나을 때까지 남은 시간·분
+    expect(unitStatusText(unit({ injury: 2 }), false)).toBe("중상");
+    expect(unitStatusText(unit({ injury: 2, injuryUntilMs: 5_000 + 90 * 60_000 }), false, 5_000)).toBe(
+      "중상 · 1시간 30분 뒤 한 단계 나음",
+    );
+    expect(unitStatusText(unit({ hold: "critical", injury: 3, injuryUntilMs: 60_000 }), false, 0)).toBe(
+      "중태 · 1분 뒤 한 단계 나음",
+    );
     expect(unitStatusText(unit({ job: { kind: "test_gather", phase: "rest" } }), false)).toBe(
       "채집 · 쉬는 중",
     );

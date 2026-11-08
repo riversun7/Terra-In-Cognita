@@ -40,6 +40,7 @@ export function MyUnitsPanel({
   elsewhere,
   moving,
   selected,
+  now,
   onPick,
   onClose,
 }: {
@@ -50,6 +51,8 @@ export function MyUnitsPanel({
   /** 엔진이 지금 가는 중이라고 하는 유닛(1초마다) */
   readonly moving: ReadonlySet<number>;
   readonly selected: number | null;
+  /** 목록을 받은 서버 시각(부상 남은 시간 "N시간 M분", D-525) */
+  readonly now?: number | undefined;
   readonly onPick: (unit: MapUnit) => void;
   readonly onClose: () => void;
 }) {
@@ -97,7 +100,7 @@ export function MyUnitsPanel({
                 onClick={() => onPick(unit)}
               >
                 <span className="map-unit-name">{unitName(unit)}</span>
-                <span className="map-unit-status">{unitStatusText(unit, moving.has(unit.unitId))}</span>
+                <span className="map-unit-status">{unitStatusText(unit, moving.has(unit.unitId), now)}</span>
               </button>
             </li>
           ))}

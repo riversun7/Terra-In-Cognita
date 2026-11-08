@@ -1985,14 +1985,40 @@
       "id": "citizenship_fee",
       "code": "",
       "name": {
-        "ko": "귀화 값(최소 단위, 받는 나라 국고)",
-        "en": "Naturalization fee (minor units, to the new nation's treasury)"
+        "ko": "귀화 조건 기본값(최소 단위, + 입회비 → 받는 나라 국고 / − 지원금 ← 받는 나라 국고)",
+        "en": "Default naturalization terms (minor units, + entrance fee to the new nation / − grant from it)"
       },
       "value": 100,
       "structural": false,
       "unit": "minor",
-      "min": 0,
+      "min": -1000000000,
       "max": 1000000000
+    },
+    {
+      "id": "citizenship_standing_drop",
+      "code": "",
+      "name": {
+        "ko": "귀화 때 옛 나라 우호도 하락(−100~100 눈금)",
+        "en": "Standing lost with the old nation on naturalization (−100–100 scale)"
+      },
+      "value": 20,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 200
+    },
+    {
+      "id": "citizenship_standing_drop_hostile",
+      "code": "",
+      "name": {
+        "ko": "적대 세력(전쟁 중)으로 귀화할 때 옛 나라 우호도 하락",
+        "en": "Standing lost with the old nation when joining its enemy (at war)"
+      },
+      "value": 60,
+      "structural": false,
+      "unit": "points",
+      "min": 0,
+      "max": 200
     },
     {
       "id": "citizenship_rest_ms",

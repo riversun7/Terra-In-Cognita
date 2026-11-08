@@ -112,8 +112,17 @@ export const WORLD_TABLES = {
       "at_ms",
       "fee",
       "grant_returned",
+      "grant_paid",
+      "standing_drop",
+      "hostile",
     ],
     key: [],
+  },
+  /** 사람·나라 우호도(D-526, 덮어쓰기) — 국적 바꾸기와 같은 커밋 */
+  userNationStandings: {
+    name: "user_nation_standings",
+    columns: ["user_id", "faction_id", "score", "updated_at_ms"],
+    key: ["user_id", "faction_id"],
   },
   /** 만드는 중인 초기 스탯 굴림(만들면 지운다) */
   cyborgRolls: {
@@ -699,6 +708,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "factionMembers",
   "cyborgs",
   "nationalityChanges",
+  "userNationStandings",
   "cyborgRolls",
   "holdings",
   "unitEffects",

@@ -4,6 +4,9 @@
 //   팩 식으로 되돌리기 → 적용이면 HP가 돌아온다.
 //   이름 자동 완성(fl → floor(), Enter). 맨손 일반 공격 식: Lv 30 균형형·맨손이면 굴림 0 → 13, 9999 → 27(10 상한 없음).
 //   적정 STA 식(D-511): Lv 1 → 10, Lv 30 → 39. 스태미나 표: 보통 표본은 모든 무기로 일반 공격이 이어진다.
+//   식 조각(2026-11-08 끌어 넣기): 칩을 글 상자에 끌어 놓으면 놓은 자리(앞·끝)에, 누르면 글자 위치에 들어간다. 고른 글 + 함수 = 감쌈,
+//   함수는 자리표시 인자의 첫 인자를 고른 채 들어가고, 채우지 않은 자리표시는 모르는 이름이라 담기가 막힌다(고치기 권함 없음).
+//   키보드: 화살표로 칩을 옮기고 Enter로 넣는다. 휴대폰(손가락): 칩은 끌 수 없고 누르면 글자 위치에 들어간다(글 상자에 초점을 주지 않는다).
 // - player: tRPC formulas.list는 403.
 // - 배치·사진: 390·1440 × 네온·라이트 × 한국어·영어(오류 상태를 펼친 채). 가로 넘침·작은 누르는 곳 없음.
 // 시험끼리 서버·DB를 같이 쓴다: 바꾸는 시험은 처음과 끝에 덮어쓰기를 모두 지운다(밸런스 화면 시험과 같은 결).
@@ -14,6 +17,7 @@ import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
 import { createTrpcReplay, replayTrpc } from "./helpers/trpc.ts";
+import { VIEWPORTS } from "./helpers/viewports.ts";
 
 /** 화면 안에서 tRPC를 부른다(같은 출처, 화면과 같은 쿠키). 결과 data 또는 오류 코드 */
 async function trpc(
@@ -194,6 +198,127 @@ test.describe("개발자", () => {
   });
 });
 
+/** 글 상자의 고른 범위 */
+const selectionOf = (page: Page) =>
+  page
+    .locator(".fx-input")
+    .evaluate((element: HTMLTextAreaElement) =>
+      element.value.slice(element.selectionStart, element.selectionEnd),
+    );
+
+/** 칩 하나 */
+const chip = (page: Page, token: string) => page.locator(`.fx-chip[data-token="${token}"]`);
+
+test.describe("식 조각(끌어 넣기)", () => {
+  // 마우스(가는 포인터) 화면: 기본 화면(휴대폰, 터치)이 아니라 데스크톱
+  test.use({ account: "dev", ...VIEWPORTS.desktop });
+
+  test("끌어 놓기는 놓은 자리에, 누르기는 글자 위치에, 함수는 첫 인자를 고르고 검사는 그대로", async ({
+    page,
+    deviceErrors,
+  }) => {
+    await tabReady(page);
+    await pick(page, "hp.formula");
+    const input = page.locator(".fx-input");
+    await expect(chip(page, "STR")).toHaveAttribute("draggable", "true");
+
+    // 끌어 놓기: 맨 앞에 VIT, 끝에 +와 STR → 새 사이보그 VIT 10 × 3 + STR 10 = 40
+    await input.fill("* 3");
+    const box = await input.boundingBox();
+    if (!box) throw new Error("글 상자가 보이지 않는다");
+    await chip(page, "VIT").dragTo(input, { targetPosition: { x: 2, y: 12 } });
+    await expect(input).toHaveValue("VIT * 3");
+    await chip(page, "+").dragTo(input, { targetPosition: { x: box.width - 12, y: 12 } });
+    await expect(input).toHaveValue("VIT * 3 + ");
+    await chip(page, "STR").dragTo(input, { targetPosition: { x: box.width - 12, y: 12 } });
+    await expect(input).toHaveValue("VIT * 3 + STR");
+    await expect(page.locator(".fx-ok")).toHaveText(message("ko", "dev_formula_ok"));
+    await expect(page.locator(".fx-result-value")).toHaveText(/^40(?!\d)/);
+
+    // 고른 글 + 함수 = 감쌈
+    await input.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(0, 7));
+    await chip(page, "floor").click();
+    await expect(input).toHaveValue("floor(VIT * 3) + STR");
+    await expect(input).toBeFocused();
+
+    // 누르기: 글자 위치에 함수 → 첫 인자를 고름 → 바로 입력해 바꿈. 남은 자리표시는 모르는 이름이라 담기가 막힌다
+    await input.fill("");
+    await expect(page.locator(".fx-issues li[data-code='empty']")).toBeVisible();
+    await chip(page, "clamp").click();
+    await expect(input).toHaveValue("clamp(value, lower, upper)");
+    expect(await selectionOf(page)).toBe("value");
+    await page.keyboard.type("STR");
+    await expect(input).toHaveValue("clamp(STR, lower, upper)");
+    await expect(page.locator(".fx-issues li[data-code='unknown_name']")).toHaveCount(2);
+    await expect(page.locator(".fx-fix")).toHaveCount(0);
+    await expect(page.locator(".fx-stage")).toHaveAttribute("aria-disabled", "true");
+    // 자리표시를 조각으로 채우면 맞는 식
+    await input.evaluate((element: HTMLTextAreaElement) => {
+      const at = element.value.indexOf("lower");
+      element.focus();
+      element.setSelectionRange(at, at + "lower".length);
+    });
+    await chip(page, "LV").click();
+    await expect(input).toHaveValue("clamp(STR, LV, upper)");
+    await input.evaluate((element: HTMLTextAreaElement) => {
+      const at = element.value.indexOf("upper");
+      element.setSelectionRange(at, at + "upper".length);
+    });
+    await chip(page, "VIT").click();
+    await expect(input).toHaveValue("clamp(STR, LV, VIT)");
+    await expect(page.locator(".fx-ok")).toBeVisible();
+    await expect(page.locator(".fx-stage")).toHaveAttribute("aria-disabled", "false");
+
+    // 중간값 줄: 고른 글을 중간값으로 빼면 조각판에 그 이름이 생긴다
+    await input.fill("VIT * 3 + STR");
+    await input.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(0, 7));
+    await chip(page, "=").click();
+    await expect(input).toHaveValue("temp = VIT * 3\ntemp + STR");
+    await expect(page.locator('.fx-chip[data-kind="local"][data-token="temp"]')).toBeVisible();
+    await expect(page.locator(".fx-result-value")).toHaveText(/^40(?!\d)/);
+    expect(unexpected(deviceErrors)).toEqual([]);
+  });
+
+  test("키보드: 조각판은 Tab 한 번, 화살표로 옮기고 Enter로 넣는다", async ({ page, deviceErrors }) => {
+    await tabReady(page);
+    await pick(page, "hp.formula");
+    const input = page.locator(".fx-input");
+    await input.fill("");
+    // 칩 하나만 Tab 차례에 든다(도구 막대)
+    await expect(page.locator('.fx-chip[tabindex="0"]')).toHaveCount(1);
+    await chip(page, "STR").focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(chip(page, "DEX")).toBeFocused();
+    await expect(chip(page, "DEX")).toHaveAttribute("tabindex", "0");
+    await page.keyboard.press("Enter");
+    await expect(input).toHaveValue("DEX");
+    await expect(input).toBeFocused();
+    expect(unexpected(deviceErrors)).toEqual([]);
+  });
+});
+
+test.describe("식 조각(휴대폰)", () => {
+  // 기본 화면 = 휴대폰 세로(390px, 터치)
+  test.use({ account: "dev" });
+
+  test("손가락: 칩은 끌 수 없고 누르면 글자 위치에 들어간다", async ({ page, deviceErrors }) => {
+    await tabReady(page);
+    await pick(page, "hp.formula");
+    const input = page.locator(".fx-input");
+    await input.fill("VIT * 3 + ");
+    await input.evaluate((element: HTMLTextAreaElement) => element.blur());
+    await expect(chip(page, "STR")).toHaveAttribute("draggable", "false");
+    await expect(page.locator(".fx-palette-hint")).toHaveText(message("ko", "dev_formula_palette_hint_tap"));
+    await chip(page, "STR").tap();
+    await expect(input).toHaveValue("VIT * 3 + STR");
+    // 자판이 조각판을 가리지 않게 글 상자에 초점을 주지 않는다. 누른 칩의 풀이는 도움 줄에
+    await expect(input).not.toBeFocused();
+    await expect(page.locator(".fx-palette-help")).toContainText("STR");
+    await expect(page.locator(".fx-result-value")).toHaveText(/^40(?!\d)/);
+    expect(unexpected(deviceErrors)).toEqual([]);
+  });
+});
+
 test.describe("플레이어", () => {
   test.use({ account: "player" });
 
@@ -233,7 +358,13 @@ test.describe("배치·사진", () => {
 
   for (const { theme, language, width, height } of LAYOUTS) {
     test.describe(`${theme}·${language}·${width}px`, () => {
-      test.use({ devTheme: theme, language, viewport: { width, height } });
+      // 1440은 마우스 데스크톱(조각판 끌기·뜻 함께 보기), 390은 휴대폰(터치, 누르기만)
+      test.use({
+        devTheme: theme,
+        language,
+        ...(width > 600 ? VIEWPORTS.desktop : VIEWPORTS.phone),
+        viewport: { width, height },
+      });
 
       test("오류를 펼친 식 칸·미리 보기·적정치 표: 가로 넘침·작은 누르는 곳 없음, 사진", async ({
         page,
@@ -256,6 +387,18 @@ test.describe("배치·사진", () => {
         expect(await horizontalOverflow(page)).toEqual([]);
         expect(await smallTapTargets(page)).toEqual([]);
         await shot(page, `formulas-stamina-${theme}-${language}-${width}`);
+        // 식 조각판(끌어 넣기): 긴 중간값 이름(사용자가 쓴 글)도 좁은 폭에서 넘치지 않는다
+        await pick(page, "hp.formula");
+        await page
+          .locator(".fx-input")
+          .fill(
+            "physical_attack_with_gear_bonus_before_cap = STR * 2\nphysical_attack_with_gear_bonus_before_cap + VIT",
+          );
+        await expect(page.locator('.fx-chip[data-kind="local"]')).toHaveCount(1);
+        await page.locator(".fx-palette").scrollIntoViewIfNeeded();
+        expect(await horizontalOverflow(page)).toEqual([]);
+        expect(await smallTapTargets(page)).toEqual([]);
+        await shot(page, `formulas-palette-${theme}-${language}-${width}`);
         // 오류 상태
         await pick(page, "hp.formula");
         await page.locator(".fx-input").fill("VIT * 3 + STRR");

@@ -215,7 +215,7 @@ export function createMapVision(options: {
     const cut = truncateMotion(unit.motion, at, Math.max(at, until));
     return {
       sent: { motion: unit.motion, until },
-      entry: sized({ ...motionToWire(unit.id, unit.size, cut), until }),
+      entry: sized({ ...motionToWire(unit.id, unit.size, cut, unit.entry.value.kind), until }),
     };
   };
 

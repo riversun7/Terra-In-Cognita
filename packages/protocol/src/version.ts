@@ -67,20 +67,23 @@
  *      건물로 걸어가 화물 넣기·직무 받기·안에 머물기를 한다.
  *    - 병원 치료(hospital.ts hospital_treat·dev_injure_unit → hospital_result, docs/adr/2026-11-08-injury.md, 기획 D-521) — 다친 내 유닛을
  *      그 유닛이 선 도시의 병원(의료 단계 시설)에서 화폐를 내고 빨리 낫게 한다.
+ * 18: 유닛 표시 종류(secondMap.ts unitMotionSchema kind, docs/adr/2026-11-07-play-flow.md "WP-NPC3", 기획 정리 748 나) — 서버가 지도에 따로 그릴
+ *    유닛(NPC 국가 지도자 npc_leader)의 움직임에 종류를 붙이고, 기기는 그 유닛 머리 위에 이름표·지도자 표시를 늘 그린다. 더하기만 했다: 17판
+ *    기기는 모르는 칸을 버리고(zod object) 그대로 받는다(지도자는 다른 유닛과 같은 모양). 서버는 연결 판에 따라 나누지 않는다(스냅샷 조각을 함께 쓴다).
  */
-export const PROTOCOL_VERSION = 17;
+export const PROTOCOL_VERSION = 18;
 
 /**
  * 서버가 받아주는 가장 낮은 기기 프로토콜 버전. 원칙은 현재 + 직전 1개 지원이다(ADR 7). 5부터 3판 기기는 인사에서
  * protocol_unsupported를 받고 새 앱을 받는다(PWA 강제 적용). 6부터 4판 기기도, 7부터 5판 기기도, 8부터 6판 기기도, 9부터 7판 기기도,
  * 10부터 8판 기기도, 11부터 9판 기기도, 12부터 10판 기기도, 13부터 11판 기기도, 14부터 12판 기기도, 15부터 13판 기기도, 16부터 14판 기기도,
- * 17부터 15판 기기도 같다(현재 + 직전 1개).
+ * 17부터 15판 기기도, 18부터 16판 기기도 같다(현재 + 직전 1개).
  * (3에서는 예외로 2를 받지 않았다: 2판 기기는 걸러지지 않은 2차맵 흐름을 기대하는데, 시야 전송은 보안 규칙이라 그 흐름을 남기지
  * 않는다, S3 ADR 3절.)
  * 속성 분배 전 사이보그(elements null)는 이제 기기가 만들지 않는다(5판부터 만들기에 분배가 꼭 든다). 화면 시험의 legacy 계정은
  * 지금 판으로 만든 뒤 서버를 끄고 DB에서 속성값을 비워 다시 켠다(e2e/global-setup.ts).
  */
-export const MIN_SUPPORTED_PROTOCOL_VERSION = 16;
+export const MIN_SUPPORTED_PROTOCOL_VERSION = 17;
 
 /** WebSocket 메시지 1개의 최대 크기 (바이트) */
 export const MAX_MESSAGE_BYTES = 64 * 1024;

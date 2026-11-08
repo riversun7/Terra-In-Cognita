@@ -1,4 +1,5 @@
-// 정부(행정 건물) 판 조회 시험 — docs/adr/2026-11-07-play-flow.md "WP-NPC". 가짜 세계(거울 도시·시설 줄·2차맵)로 판정만 본다.
+// 정부(행정 건물) 판 조회 시험 — docs/adr/2026-11-07-play-flow.md "WP-NPC"·"WP-NPC3"(도시 하루 값·지도자 창구). 가짜 세계(거울 도시·시설 줄·
+// 2차맵)로 판정만 본다.
 import { describe, expect, it } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
 import { UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
@@ -8,7 +9,7 @@ const viewer: Viewer = { id: "u1", loginId: "tester", roles: ["player"] };
 const NOW = 1_800_000_000_000;
 
 function cityOf(id: number, owner: number, start: boolean) {
-  return { id, owner, start, housing: 40, adminLevel: 2 };
+  return { id, owner, start, housing: 40, adminLevel: 2, development: id * 10 };
 }
 
 /** 가짜 2차맵: 건물 10·11·12가 서 있고, 지도자 유닛 900(주체 101) */
@@ -45,8 +46,11 @@ function source(overrides: Partial<GovernmentSource> = {}): GovernmentSource {
     [4, cityOf(4, 101, true)],
   ]);
   const factions = new Map([[101, { code: "placeholder_nation_01", fixed: true }]]);
-  const units = new Map<number, { city: number }>();
-  for (let i = 0; i < 5; i++) units.set(1000 + i, { city: i < 3 ? 4 : 3 });
+  const units = new Map<number, { city: number; satisfactionMilli: number }>();
+  // 도시 4: 휴먼 셋(만족도 60·70·81.5 → 평균 70.5 → 70), 도시 3: 둘
+  const satisfaction = [60_000, 70_000, 81_500, 40_000, 50_000];
+  for (let i = 0; i < 5; i++)
+    units.set(1000 + i, { city: i < 3 ? 4 : 3, satisfactionMilli: satisfaction[i] ?? 0 });
   return {
     maps: new Map([
       [7, fakeMap(7, true)],
@@ -67,6 +71,7 @@ function source(overrides: Partial<GovernmentSource> = {}): GovernmentSource {
         [4, { mapKey: 8, name: "Ashfield" }],
       ]),
       taxOf: (id) => (id === 101 ? 250 : undefined),
+      necessitiesPm: (cityId) => (cityId === 4 ? 875 : undefined),
     }),
     factionRowOf: (ownerId) => (ownerId === 101 ? 2 : undefined),
     myFactionRow: () => 2,
@@ -74,6 +79,8 @@ function source(overrides: Partial<GovernmentSource> = {}): GovernmentSource {
     nationName: (code) =>
       code === "placeholder_nation_01" ? { ko: "임시 국가 1", en: "Placeholder nation 1" } : undefined,
     leaderName: () => ({ ko: "임시 지도자 1", en: "Placeholder leader 1" }),
+    // 지도자 900은 2차맵 7에서 보인다
+    seesUnit: (_viewer, mapKey, unitId) => mapKey === 7 && unitId === 900,
     ...overrides,
   };
 }
@@ -92,6 +99,8 @@ describe("world.government", () => {
       adminLevel: 2,
       humans: 3,
       housing: 40,
+      // 도시 하루 값(743 나): 휴먼 평균 만족도·발전도·오늘 생필품 충족
+      day: { satisfaction: 70, development: 40, necessitiesPm: 875 },
     });
     expect(answer.nation).toEqual({
       id: 2,
@@ -119,6 +128,28 @@ describe("world.government", () => {
     expect(answer.leader?.here).toBe(true);
     expect(answer.city?.humans).toBe(2);
     expect(answer.nation?.mine).toBe(false);
+    // 생필품을 아직 셈하지 않은 도시는 null(화면 "—")
+    expect(answer.city?.day).toEqual({ satisfaction: 45, development: 30, necessitiesPm: null });
+  });
+
+  it("휴먼이 없는 도시의 만족도는 null", async () => {
+    const reads = createGovernmentReads(
+      source({
+        runtime: () => ({
+          world: {
+            cities: new Map([[3, cityOf(3, 101, true)]]),
+            factions: new Map([[101, { code: "placeholder_nation_01", fixed: true }]]),
+            units: new Map(),
+          },
+          places: new Map([[3, { mapKey: 7, name: "Verdane" }]]),
+        }),
+      }),
+    );
+    expect((await reads.government(viewer, 12, NOW)).city?.day).toEqual({
+      satisfaction: null,
+      development: 30,
+      necessitiesPm: null,
+    });
   });
 
   it("행정 건물이 아니면 not_government, 없는 건물·모르는 도시는 unknown_building, 런타임 전이면 not_ready", async () => {
@@ -132,5 +163,35 @@ describe("world.government", () => {
     expect(hidden.nation).toBeNull();
     const early = createGovernmentReads(source({ runtime: () => undefined }));
     expect((await early.government(viewer, 10, NOW)).status).toBe("not_ready");
+  });
+});
+
+describe("world.leaderGovernment(지도자 창구, 742 나)", () => {
+  it("시야 안의 지도자를 누르면 그 나라 수도 행정 건물의 정부 판(같은 답)", async () => {
+    const reads = createGovernmentReads(source());
+    const answer = await reads.governmentOfLeader(viewer, 7, 900, NOW);
+    expect(answer.status).toBe("ready");
+    expect(answer.buildingId).toBe(12);
+    expect(answer.city).toMatchObject({ id: 3, capital: true });
+    expect(answer.leader).toEqual({
+      unitId: 900,
+      name: { ko: "임시 지도자 1", en: "Placeholder leader 1" },
+      here: true,
+    });
+    expect(answer).toEqual(await reads.government(viewer, 12, NOW));
+  });
+
+  it("시야 밖·지도자가 아닌 유닛·없는 유닛은 같은 unknown_unit, 수도 행정 건물이 없으면 not_government", async () => {
+    const reads = createGovernmentReads(source());
+    expect((await reads.governmentOfLeader(viewer, 7, 901, NOW)).status).toBe("unknown_unit");
+    expect((await reads.governmentOfLeader(viewer, 7, 999, NOW)).status).toBe("unknown_unit");
+    const blind = createGovernmentReads(source({ seesUnit: () => false }));
+    const hidden = await blind.governmentOfLeader(viewer, 7, 900, NOW);
+    expect(hidden.status).toBe("unknown_unit");
+    expect(hidden.nation).toBeNull();
+    const noHall = createGovernmentReads(source({ facility: () => undefined }));
+    expect((await noHall.governmentOfLeader(viewer, 7, 900, NOW)).status).toBe("not_government");
+    const early = createGovernmentReads(source({ runtime: () => undefined }));
+    expect((await early.governmentOfLeader(viewer, 7, 900, NOW)).status).toBe("not_ready");
   });
 });

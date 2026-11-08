@@ -28,6 +28,8 @@ export {
   SECOND_MAP_PROTOCOL_VERSION,
   SECOND_MAP_UNITS,
   UNIT_CONTROL_PROTOCOL_VERSION,
+  UNIT_KIND_PROTOCOL_VERSION,
+  UNIT_WIRE_KINDS,
   VISION_BYTES,
   MAX_DEV_SPAWN_UNITS,
   UNIT_SIZE_CLASSES,
@@ -36,6 +38,7 @@ export {
   type BuildingWire,
   type ResultCode,
   type UnitMotionWire,
+  type UnitWireKind,
 } from "./secondMap.ts";
 export {
   CYBORG_ELEMENTS_PROTOCOL_VERSION,

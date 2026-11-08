@@ -3,11 +3,16 @@
 // - 도시와 주인 나라: 나라 이름(내 나라 표)·지도자(NPC 국가 지도자 사이보그)·시장(서버에 임명이 없어 "없음", 질문 744)·세율·행정 레벨·휴먼 수.
 // - 구인: 경제 화면 구인 판(economy/RecruitPanel.tsx)을 이 도시로 그대로 쓴다(tRPC recruit.board → WebSocket recruit_hire). 판정은 서버.
 // - [창고]·[거래소]: 경제 화면 칸으로 간다(대화상자를 닫고 이동). 국적 바꾸기·가입은 규칙·서버 명령이 아직 없어 그리지 않는다(질문 745).
+// 바뀜("WP-NPC3", 기획 정리 742 나·743 나): 지도자로 열면(via "leader" — 2차맵에서 누른 지도자, LeaderSheet.tsx) 머리가 지도자(이름·나라)다.
+// 사실 줄 아래 도시 하루 값(GovernmentDay.tsx), 링크 아래 창구(외교·의뢰·국적 상담, GovernmentDesk.tsx — 국적 상담은 CitizenshipSlot.tsx).
 import type { GovernmentResponse } from "@terra/shared/government";
 import { useEffect, useId, useRef } from "react";
 import { RecruitPanel } from "../economy/RecruitPanel.tsx";
 import { m } from "../paraglide/messages.js";
 import { navigate } from "../shell/routerStore.ts";
+import { GovernmentDay } from "./GovernmentDay.tsx";
+import { type DeskRoute, GovernmentDesk } from "./GovernmentDesk.tsx";
+import { LeaderHead } from "./LeaderHead.tsx";
 import { cityTitle, leaderTitle, nationTitle, populationText, taxText } from "./governmentData.ts";
 import "../economy/economy.css";
 import "../economy/labor.css";
@@ -18,6 +23,8 @@ export interface GovernmentDialogProps {
   readonly government: GovernmentResponse;
   /** 대화상자가 닫혔다([닫기]·Esc·이동) */
   readonly onClose: () => void;
+  /** 어디서 열었나: 행정 건물(기본) 또는 2차맵 지도자(742 나 — 머리가 지도자) */
+  readonly via?: "building" | "leader" | undefined;
 }
 
 /** 사실 한 줄(이름표 + 값) */
@@ -30,7 +37,7 @@ function Fact({ label, value, part }: { label: string; value: string; part: stri
   );
 }
 
-export default function GovernmentDialog({ government, onClose }: GovernmentDialogProps) {
+export default function GovernmentDialog({ government, onClose, via = "building" }: GovernmentDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const titleId = useId();
@@ -43,7 +50,7 @@ export default function GovernmentDialog({ government, onClose }: GovernmentDial
   }, []);
 
   const close = (): void => dialogRef.current?.close();
-  const go = (route: "economy_warehouse" | "economy_market"): void => {
+  const go = (route: "economy_warehouse" | "economy_market" | DeskRoute): void => {
     close();
     navigate({ route });
   };
@@ -61,13 +68,18 @@ export default function GovernmentDialog({ government, onClose }: GovernmentDial
     >
       <div className="gov-panel">
         <div className="gov-head">
-          <h2 id={titleId} ref={headingRef} className="gov-title" tabIndex={-1}>
-            {m.government_title({ city: cityTitle(city) })}
-          </h2>
+          {via === "leader" ? (
+            <LeaderHead government={government} titleId={titleId} headingRef={headingRef} />
+          ) : (
+            <h2 id={titleId} ref={headingRef} className="gov-title" tabIndex={-1}>
+              {m.government_title({ city: cityTitle(city) })}
+            </h2>
+          )}
           <button type="button" className="button-small gov-close" onClick={close}>
             {m.government_close()}
           </button>
         </div>
+        {via === "leader" ? <p className="gov-muted">{m.government_leader_desk_hint()}</p> : null}
         <p className="gov-chips">
           {nation.mine ? <span className="gov-chip">{m.government_chip_mine()}</span> : null}
           {city.capital ? <span className="gov-chip">{m.government_chip_capital()}</span> : null}
@@ -97,6 +109,7 @@ export default function GovernmentDialog({ government, onClose }: GovernmentDial
           />
           <Fact part="government-humans" label={m.government_field_humans()} value={populationText(city)} />
         </dl>
+        <GovernmentDay day={city.day} />
         <div className="gov-links">
           <button type="button" className="button-small gov-link" onClick={() => go("economy_warehouse")}>
             {m.government_go_storage()}
@@ -105,6 +118,7 @@ export default function GovernmentDialog({ government, onClose }: GovernmentDial
             {m.government_go_market()}
           </button>
         </div>
+        <GovernmentDesk government={government} onNavigate={go} />
         <p className="gov-muted">{m.government_recruit_hint()}</p>
         <RecruitPanel cityId={city.id} />
       </div>

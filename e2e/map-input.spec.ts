@@ -6,6 +6,7 @@
 // - 확대 단계: 사다리 "2차맵 n/5"(data-stage), [−]·[+]가 한 단계씩, 가장 가까이에서 [+]는 그대로.
 // - 사진: 사다리·[따라가기] 390 × 파스텔·다크.
 import type { Locator, Page } from "@playwright/test";
+import { groundOffsets } from "./helpers/mapGround.ts";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { expect, test } from "./helpers/test.ts";
@@ -164,16 +165,9 @@ test.describe("지도 조작: 플레이어", () => {
     await expect(map).toHaveAttribute("data-follow", "on");
     await expect.poll(async () => centred(await followRatio(map)), { timeout: 10_000 }).toBe(true);
 
-    // 보낸다: 갈 수 있는 곳이 나올 때까지 카메라 목표점(= 내 사이보그) 둘레 몇 곳을 눌러 본다
+    // 보낸다: 갈 수 있는 곳이 나올 때까지 카메라 목표점(= 내 사이보그) 둘레의 빈 땅(표시·건물을 피한 곳)을 눌러 본다
     let sent = false;
-    // (오른쪽 가운데의 [1차맵] 단추를 누르지 않게 가로는 110px까지)
-    for (const [dx, dy] of [
-      [0, -110],
-      [-110, 0],
-      [0, 110],
-      [110, 0],
-      [80, -80],
-    ] as const) {
+    for (const { dx, dy } of (await groundOffsets(page)).slice(0, 8)) {
       await tapMap(page, dx, dy);
       await page.waitForTimeout(300);
       await expect(map).not.toHaveAttribute("data-command", "sent", { timeout: 20_000 });

@@ -7,6 +7,7 @@
 // - dev: [운영자 모드] → 위 판 "운영자", 안개 없는 전체 보기로 다시 구독, 고른 유닛 다룸 = 운영자.
 // - 사진: 목록·운영자 390 × 파스텔·다크. 넘침·작은 누르는 곳 없음.
 import type { Page } from "@playwright/test";
+import { groundOffsets } from "./helpers/mapGround.ts";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { expect, test } from "./helpers/test.ts";
@@ -25,46 +26,6 @@ async function tapMap(page: Page, dx: number, dy: number): Promise<void> {
   const box = await page.locator(".map-view canvas").boundingBox();
   if (!box) throw new Error("no canvas");
   await page.mouse.click(box.x + box.width / 2 + dx, box.y + box.height / 2 + dy);
-}
-
-/**
- * 땅을 누를 자리(화면 가운데에서 떨어진 거리 px): 가운데 둘레 고리(먼 것 먼저) 가운데 지도 캔버스 위이고 채집 표시·건물 표시에서 떨어진 곳.
- * 표시는 누르기를 지나보내고 엔진이 화면 거리 22px로 고르며(docs/adr/2026-11-08-map-input.md), 건물 모델을 누르면 건물 판이 열린다 —
- * 그 자리를 누르면 땅 누르기(이동)가 아니다
- */
-async function groundOffsets(page: Page): Promise<{ dx: number; dy: number }[]> {
-  return page.evaluate(() => {
-    const canvas = document.querySelector(".map-view canvas");
-    if (!canvas) return [];
-    const box = canvas.getBoundingClientRect();
-    const cx = box.x + box.width / 2;
-    const cy = box.y + box.height / 2;
-    // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
-    const centres = (selector: string): { x: number; y: number }[] =>
-      [...document.querySelectorAll(selector)].flatMap((element) => {
-        if (element instanceof HTMLElement && element.hidden) return [];
-        const rect = element.getBoundingClientRect();
-        return [{ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }];
-      });
-    const objects = centres(".gather-marker");
-    const buildings = centres(".gather-building-marker");
-    const out: { dx: number; dy: number }[] = [];
-    for (const radius of [150, 110]) {
-      for (let step = 0; step < 12; step++) {
-        const angle = (step * Math.PI) / 6 - Math.PI / 2;
-        const dx = Math.round(Math.cos(angle) * radius);
-        const dy = Math.round(Math.sin(angle) * radius);
-        const x = cx + dx;
-        const y = cy + dy;
-        const hit = document.elementFromPoint(x, y);
-        if (!(hit instanceof HTMLCanvasElement) || !hit.closest(".map-view")) continue;
-        if (objects.some((point) => Math.hypot(point.x - x, point.y - y) < 34)) continue;
-        if (buildings.some((point) => Math.hypot(point.x - x, point.y - y) < 80)) continue;
-        out.push({ dx, dy });
-      }
-    }
-    return out;
-  });
 }
 
 test.describe("유닛 조종: 플레이어", () => {

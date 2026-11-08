@@ -17,9 +17,20 @@ function fakeMap(mapKey: number, leader: boolean) {
     mapKey,
     buildingOwner: (id: number) => (id === 10 || id === 11 || id === 12 ? 101 : undefined),
     forEachBuilding: (
-      visit: (building: { id: number; ownerId: number | null; x: number; y: number }) => void,
+      visit: (building: {
+        id: number;
+        ownerId: number | null;
+        x: number;
+        y: number;
+        placement: { x: number; y: number; width: number; height: number; rotation: 0 };
+      }) => void,
     ) => {
-      for (const id of [10, 11, 12]) visit({ id, ownerId: 101, x: id * 2, y: id * 3 });
+      // 건물 칸(placement)은 건물 모델 줄기가 더한 칸 — 판정에는 쓰지 않아 2×2로 둔다
+      for (const id of [10, 11, 12]) {
+        const x = id * 2;
+        const y = id * 3;
+        visit({ id, ownerId: 101, x, y, placement: { x, y, width: 2, height: 2, rotation: 0 } });
+      }
     },
     forEachUnit: (visit: (unit: { id: number; ownerId: number; kind: number }) => void) => {
       if (leader) visit({ id: 900, ownerId: 101, kind: UNIT_KIND_NPC_LEADER });

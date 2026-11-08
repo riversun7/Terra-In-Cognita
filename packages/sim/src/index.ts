@@ -868,6 +868,7 @@ export {
   type WearOutcome,
   type WearRules,
 } from "./items/holding.ts";
+export * from "./items/foodPack.ts";
 export {
   CRAFT_JOB_ROW,
   craftScore,

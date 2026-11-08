@@ -164,6 +164,9 @@ export function createWorldHoldings(input: {
       vitals: input.vitals,
     },
   });
+  // D-524 전에 저장된 신선도 묶음 → 포장 칸(그 시각까지 옛 규칙으로 숙성한 뒤 멈춤). 부팅 때 한 번, 다음 쓰기 대기열 커밋에 든다
+  if ((input.loaded.legacyLots ?? []).length > 0)
+    service.packLegacy(input.loaded.legacyLots ?? [], input.now());
   const timer = setInterval(() => {
     const at = input.now();
     service.spoilDue(at);

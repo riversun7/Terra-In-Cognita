@@ -1,0 +1,2 @@
+ALTER TABLE "item_holdings" ADD COLUMN "packed" boolean;--> statement-breakpoint
+ALTER TABLE "item_holdings" ADD CONSTRAINT "item_holdings_unpacked_single" CHECK ("packed" is distinct from false or "quantity" = 1);

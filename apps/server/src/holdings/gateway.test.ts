@@ -74,6 +74,16 @@ describe("보유 물건 WebSocket", () => {
     expect(sent[2]).toEqual({ t: "item_result", id: 3, ok: false, code: "cooldown", readyAt: 31_000 });
   });
 
+  it("식품 포장 풀기(D-524): 새 낱개 칸 ID를 돌려주고, 포장이 아니면 not_packed", async () => {
+    const { sent, socket } = open(access([]), dev);
+    socket.handle({ t: "dev_grant_item", id: 1, item: "hold_fish", quantity: 3 });
+    socket.handle({ t: "item_unpack", id: 2, holding: 1, quantity: 2 });
+    socket.handle({ t: "item_unpack", id: 3, holding: 2 });
+    await settle();
+    expect(sent[1]).toEqual({ t: "item_result", id: 2, ok: true, holdings: [2, 3] });
+    expect(sent[2]).toEqual({ t: "item_result", id: 3, ok: false, code: "not_packed" });
+  });
+
   it("로그인·세계 준비·권한을 먼저 본다", async () => {
     const grant: ItemClientMessage = { t: "dev_grant_item", id: 1, item: "hold_vest", quantity: 1 };
     const anonymous = open(access([]), null);

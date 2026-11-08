@@ -42,6 +42,9 @@ export const isEquipment = (holding: HoldingView): boolean =>
 /** 이 물건을 쓸 수 있는가(쓰기 쿨 종류가 있음) */
 export const isUsable = (holding: HoldingView): boolean => (holding.useCooldown ?? null) !== null;
 
+/** 포장된 식품 칸인가(D-524 — [포장 풀기]를 보인다). 옛 서버는 packed를 보내지 않는다(false) */
+export const isPacked = (holding: HoldingView): boolean => holding.packed === true;
+
 /** 내구도 0(입지 못함, 수리 필요 — N49 286) */
 export const isBroken = (holding: HoldingView): boolean =>
   holding.durability !== null && holding.maxDurability !== null && holding.durability <= 0;

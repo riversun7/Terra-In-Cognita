@@ -168,6 +168,7 @@ export function PlanetCommandPanel({
       }),
     );
     if (plan.plan.hiddenMaps > 0) lines.push(m.world_travel_hidden_maps({ count: plan.plan.hiddenMaps }));
+    if (plan.plan.opensMap) lines.push(m.world_travel_opens_map());
     lines.push(...dangerLines(plan.plan, factions));
     if (plan.plan.working) lines.push(m.world_travel_working());
     if (going) lines.push(m.world_travel_replace());

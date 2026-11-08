@@ -45,6 +45,8 @@ export function heldPathService(inner: PathService): HeldPathService {
     requests: 0,
     start: () => inner.start(),
     edit: (mapKey, version, edit) => inner.edit(mapKey, version, edit),
+    add: (init) => inner.add(init),
+    drop: (mapKey) => inner.drop(mapKey),
     queued: () => inner.queued(),
     close: () => inner.close(),
     request(job) {

@@ -6,7 +6,7 @@
 //   더 띄우지 않고 모든 작업에 busy를 준다(같은 오류로 계속 죽는 경우).
 import { performance } from "node:perf_hooks";
 import { Worker } from "node:worker_threads";
-import type { FromWorker, GridEdit, PathJobMessage, ToWorker } from "./pathMessages.ts";
+import type { FromWorker, GridEdit, MapReplicaInit, PathJobMessage, ToWorker } from "./pathMessages.ts";
 import {
   type PathOutcome,
   type PathRequest,
@@ -236,6 +236,12 @@ export function createWorkerPathService(options: WorkerPoolOptions): PathService
     },
     edit(mapKey: number, version: number, edit: GridEdit) {
       for (const owner of workers) if (owner) post(owner.worker, { type: "edit", mapKey, version, edit });
+    },
+    add(init: MapReplicaInit) {
+      for (const owner of workers) if (owner) post(owner.worker, { type: "add", map: init });
+    },
+    drop(mapKey: number) {
+      for (const owner of workers) if (owner) post(owner.worker, { type: "drop", mapKey });
     },
     queued: () => queues.command.length + queues.bot.length,
     async close() {

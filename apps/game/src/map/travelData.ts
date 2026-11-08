@@ -154,6 +154,8 @@ export function travelProblemText(
       return m.world_travel_problem_unavailable();
     case "in_transit":
       return m.world_travel_problem_in_transit();
+    case "map_full":
+      return m.world_travel_problem_map_full();
     case "not_traveling":
       return m.world_travel_problem_not_traveling();
     case "offline":
@@ -184,6 +186,8 @@ export function travelStopText(stop: WorldTravelStop): string {
       return m.world_travel_stopped_unavailable();
     case "raided":
       return m.world_travel_stopped_raided();
+    case "map_full":
+      return m.world_travel_stopped_map_full();
     default: {
       const unhandled: never = stop;
       return unhandled;

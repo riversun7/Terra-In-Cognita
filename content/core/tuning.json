@@ -5199,6 +5199,32 @@
       "max": 20000
     },
     {
+      "id": "map_spawn_max_loaded",
+      "code": "",
+      "name": {
+        "ko": "그때 띄우는 2차맵 상한(씨앗 2차맵 빼고)",
+        "en": "On-demand second maps limit (seed maps not counted)"
+      },
+      "value": 32,
+      "structural": false,
+      "unit": "count",
+      "min": 0,
+      "max": 512
+    },
+    {
+      "id": "map_spawn_idle_ms",
+      "code": "",
+      "name": {
+        "ko": "그때 띄운 2차맵: 비어 있으면 내리기까지(ms)",
+        "en": "On-demand second map: time empty before closing (ms)"
+      },
+      "value": 600000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 86400000
+    },
+    {
       "id": "d530_city_bid_pct",
       "code": "",
       "name": {

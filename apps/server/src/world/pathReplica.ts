@@ -93,6 +93,18 @@ export function createReplicaStore(clock: () => number): ReplicaStore {
         }
         return undefined;
       }
+      // 그때 띄운 2차맵(add)·내린 2차맵(drop) — world/mapSpawn.ts
+      if (message.type === "add") {
+        replicas.set(message.map.mapKey, {
+          grid: buildReplicaGrid(message.map),
+          version: message.map.version,
+        });
+        return undefined;
+      }
+      if (message.type === "drop") {
+        replicas.delete(message.mapKey);
+        return undefined;
+      }
       const replica = replicas.get(message.mapKey);
       // 사본을 만든 뒤에 보낸 편집만 따라 한다(만들 때 이미 들어간 편집은 건너뛴다)
       if (!replica || message.version <= replica.version) return undefined;

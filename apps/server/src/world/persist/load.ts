@@ -61,6 +61,77 @@ const toRotation = (value: unknown): Rotation => {
   return rotation === 90 || rotation === 180 || rotation === 270 ? rotation : 0;
 };
 
+const UNIT_COLUMNS = `id, owner_id, kind, size, speed, map_key, planet_id, domain, path, depart_at_ms, wake_at_ms, ai_step,
+  job, job_phase, job_progress_ms, fatigue, injury, injury_until_ms, injury_heal_pm, held_by`;
+const BUILDING_COLUMNS = "id, map_key, planet_id, domain, owner_id, x, y, width, height, rotation";
+
+/** world_units 한 줄 → 유닛 행 */
+function unitRowOf(row: Record<string, unknown>): UnitRow {
+  return {
+    id: num(row.id),
+    ownerId: num(row.owner_id),
+    kind: num(row.kind),
+    size: toSize(row.size),
+    speed: num(row.speed),
+    mapKey: num(row.map_key),
+    planetId: toPlanet(row.planet_id),
+    domain: toDomain(row.domain),
+    path: Array.isArray(row.path) ? row.path.map(num) : [],
+    departAtMs: num(row.depart_at_ms),
+    wakeAtMs: numOrNull(row.wake_at_ms),
+    aiStep: num(row.ai_step),
+    job: {
+      job: num(row.job),
+      phase: num(row.job_phase),
+      progressMs: num(row.job_progress_ms),
+      fatigue: num(row.fatigue),
+    },
+    condition: {
+      injury: num(row.injury ?? 0),
+      injuryUntilMs: numOrNull(row.injury_until_ms),
+      // 치유 배율(D-521 병원 치료). 1000(자연 치유)이면 칸을 두지 않는다
+      ...(num(row.injury_heal_pm ?? 1000) === 1000 ? {} : { injuryHealPm: num(row.injury_heal_pm) }),
+      heldBy: numOrNull(row.held_by),
+    },
+  };
+}
+
+/** world_buildings 한 줄 → 건물 행 */
+function buildingRowOf(row: Record<string, unknown>): BuildingRow {
+  return {
+    id: num(row.id),
+    mapKey: num(row.map_key),
+    planetId: toPlanet(row.planet_id),
+    domain: toDomain(row.domain),
+    ownerId: numOrNull(row.owner_id),
+    placement: {
+      x: num(row.x),
+      y: num(row.y),
+      width: num(row.width),
+      height: num(row.height),
+      rotation: toRotation(row.rotation),
+    },
+  };
+}
+
+/**
+ * 2차맵 하나의 유닛·건물 행(그때 띄우는 2차맵에 DB에만 남아 있던 것 — 부팅이 띄우지 않은 2차맵의 유닛은 DB에 그대로 있다,
+ * docs/adr/2026-11-07-play-flow.md "WP15")
+ */
+export async function loadMapRows(
+  pool: QueryPool,
+  planetId: string,
+  mapKey: number,
+): Promise<{ units: UnitRow[]; buildings: BuildingRow[] }> {
+  const where = "where planet_id = $1 and map_key = $2";
+  const units = await pool.query(`select ${UNIT_COLUMNS} from world_units ${where}`, [planetId, mapKey]);
+  const buildings = await pool.query(`select ${BUILDING_COLUMNS} from world_buildings ${where}`, [
+    planetId,
+    mapKey,
+  ]);
+  return { units: units.rows.map(unitRowOf), buildings: buildings.rows.map(buildingRowOf) };
+}
+
 /** 시험 NPC 세력과 그 소유 주체를 (없으면 만들고) 소유 주체 ID를 돌려준다 */
 export async function ensureTestNpcOwner(pool: QueryPool, nowMs: number): Promise<number> {
   await pool.query(`insert into factions (kind, code) values ('npc', $1) on conflict (code) do nothing`, [
@@ -92,13 +163,8 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
   const owners = await pool.query(
     `select id, user_id, faction_id, settled_at_ms, upkeep_arrears, upkeep_unpaid_at_ms from world_owners`,
   );
-  const units = await pool.query(
-    `select id, owner_id, kind, size, speed, map_key, planet_id, domain, path, depart_at_ms, wake_at_ms, ai_step,
-            job, job_phase, job_progress_ms, fatigue, injury, injury_until_ms, injury_heal_pm, held_by from world_units`,
-  );
-  const buildings = await pool.query(
-    `select id, map_key, planet_id, domain, owner_id, x, y, width, height, rotation from world_buildings`,
-  );
+  const units = await pool.query(`select ${UNIT_COLUMNS} from world_units`);
+  const buildings = await pool.query(`select ${BUILDING_COLUMNS} from world_buildings`);
   const accounts = await pool.query(
     `select id, owner_id, system_code, asset, location, balance from ledger_accounts`,
   );
@@ -124,47 +190,8 @@ export async function loadWorld(pool: QueryPool, nowMs: number): Promise<LoadedW
       upkeepArrears: num(row.upkeep_arrears),
       upkeepUnpaidAtMs: numOrNull(row.upkeep_unpaid_at_ms),
     })),
-    units: units.rows.map((row) => ({
-      id: num(row.id),
-      ownerId: num(row.owner_id),
-      kind: num(row.kind),
-      size: toSize(row.size),
-      speed: num(row.speed),
-      mapKey: num(row.map_key),
-      planetId: toPlanet(row.planet_id),
-      domain: toDomain(row.domain),
-      path: Array.isArray(row.path) ? row.path.map(num) : [],
-      departAtMs: num(row.depart_at_ms),
-      wakeAtMs: numOrNull(row.wake_at_ms),
-      aiStep: num(row.ai_step),
-      job: {
-        job: num(row.job),
-        phase: num(row.job_phase),
-        progressMs: num(row.job_progress_ms),
-        fatigue: num(row.fatigue),
-      },
-      condition: {
-        injury: num(row.injury ?? 0),
-        injuryUntilMs: numOrNull(row.injury_until_ms),
-        // 치유 배율(D-521 병원 치료). 1000(자연 치유)이면 칸을 두지 않는다
-        ...(num(row.injury_heal_pm ?? 1000) === 1000 ? {} : { injuryHealPm: num(row.injury_heal_pm) }),
-        heldBy: numOrNull(row.held_by),
-      },
-    })),
-    buildings: buildings.rows.map((row) => ({
-      id: num(row.id),
-      mapKey: num(row.map_key),
-      planetId: toPlanet(row.planet_id),
-      domain: toDomain(row.domain),
-      ownerId: numOrNull(row.owner_id),
-      placement: {
-        x: num(row.x),
-        y: num(row.y),
-        width: num(row.width),
-        height: num(row.height),
-        rotation: toRotation(row.rotation),
-      },
-    })),
+    units: units.rows.map(unitRowOf),
+    buildings: buildings.rows.map(buildingRowOf),
     accounts: accounts.rows.map((row) => ({
       id: num(row.id),
       ownerId: numOrNull(row.owner_id),

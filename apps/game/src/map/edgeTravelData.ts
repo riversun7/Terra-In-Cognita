@@ -2,7 +2,8 @@
 // (edgeTravelData.test.ts). 엔진·React를 가져오지 않는다.
 // - 변 넷: 이 2차맵 변 너머 옆 2차맵 키(면 경계 너머는 틀이 돌아가 있다 — secondMapNeighbours.ts의 놓는 자리를 거꾸로 쓴다), 나침반 이름(2차맵
 //   북쪽 northOnMap 기준 가장 가까운 동서남북), 목표 칸 = 유닛 자리에서 변에 곧게 내린 점의 변 너머 EDGE_STEP_CELLS번째 칸(옆 2차맵 틀).
-// - 서버가 길을 정한다(WP9·WP11 규칙 그대로: 변까지 걷고 넘고, 띄우지 않은 2차맵이면 설 수 없다 — unknown_map). 기기는 목적 2차맵·칸만 보낸다.
+// - 서버가 길을 정한다(WP9·WP11 규칙 그대로: 변까지 걷고 넘는다. 띄우지 않은 옆 2차맵은 닿을 때 서버가 띄운다 — WP15·730 다). 기기는 목적
+//   2차맵·칸만 보낸다.
 // - 보낼 유닛: 고른 내 유닛(목록에 있는 것), 고르지 않았으면 이 2차맵의 내 사이보그.
 import type { MapUnit } from "@terra/shared/mapUnits";
 import { neighbourSpots } from "./secondMapNeighbours.ts";

@@ -16,6 +16,9 @@
 // - 저장: world_travels(유닛당 한 줄, 끝나면 지운다). 다시 켜면 유닛이 있는 2차맵부터 그 구간을 다시 시작한다(경로를 다시 찾는다). 건너뛰던
 //   유닛은 사라진 자리에 다시 놓이므로 다시 숨기고 남은 시간을 기다린다.
 // - 끝난 길(도착·멈춤)은 RECENT_MS 동안 메모리에서 보인다(화면이 "도착했습니다"를 띄운다). 저장하지 않는다.
+// - 그때 띄우기(기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 길의 마지막 2차맵(목적지)을 서버가 띄우지 않았으면 보낼 수 있고
+//   (확인 단계·길 고르기는 그 2차맵을 띄운 것처럼 — 설 칸은 닿을 때 다시 본다), 유닛이 그 2차맵에 들어서려 할 때(변 끝에 닿음·건너뛰다 나타남)
+//   world/mapSpawn.ts가 띄운 뒤 넘긴다. 띄우는 동안 유닛은 변 앞에 서서 기다린다. 못 띄우면(상한) map_full로 멈춘다. 지나는 2차맵은 그대로 건너뛴다.
 import { AVERAGE_CELL_EDGE_METERS } from "@terra/planet/territory";
 import {
   type CellPoint,
@@ -95,14 +98,37 @@ export function createTravelService(deps: TravelDeps): TravelService {
   const standable: Standable = (mapKey, cell, size) =>
     maps.get(mapKey)?.isStandable(cell.x, cell.y, size) ?? false;
   const loaded = (mapKey: number): boolean => maps.has(mapKey);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let stopped = false;
+  let raids = deps.raids;
+  let spawn = deps.spawn;
+  /** 닿을 때 띄울 2차맵: 아직 띄우지 않았고 그때 띄울 수 있으면 그 키(띄웠으면 undefined), 띄울 수 없으면 null */
+  const opening = (mapKey: number): number | undefined | null =>
+    maps.has(mapKey) ? undefined : spawn?.canOpen(mapKey) ? mapKey : null;
+  /** 길의 마지막 2차맵이 닿을 때 띄울 것이면 그 키 */
+  const opensAt = (route: readonly number[]): number | undefined => {
+    const last = route.at(-1);
+    return last === undefined ? undefined : (opening(last) ?? undefined);
+  };
+  const loadedOr =
+    (opens: number | undefined) =>
+    (mapKey: number): boolean =>
+      maps.has(mapKey) || mapKey === opens;
+  /** 아직 띄우지 않은 목적지는 설 수 있다고 본다(보기 값 — 닿아서 띄운 뒤 실제 지형으로 다시 고른다) */
+  const standableOr =
+    (opens: number | undefined): Standable =>
+    (mapKey, cell, size) => {
+      const map = maps.get(mapKey);
+      return map ? map.isStandable(cell.x, cell.y, size) : mapKey === opens;
+    };
   const contextOf = (
     journey: Pick<TravelRecord, "route" | "target">,
     size: SizeClass,
     from = 0,
-  ): RouteContext => routeContext(journey.route.slice(from), journey.target, size, standable, loaded);
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let stopped = false;
-  let raids = deps.raids;
+  ): RouteContext => {
+    const opens = opensAt(journey.route);
+    return routeContext(journey.route.slice(from), journey.target, size, standableOr(opens), loadedOr(opens));
+  };
 
   /** 유닛이 선 2차맵과 유닛 정보 */
   const locate = (unitId: number) => {
@@ -412,12 +438,41 @@ export function createTravelService(deps: TravelDeps): TravelService {
     schedule(journey, now() + RETRY_MS);
   };
 
+  /**
+   * 닿을 때 띄울 목적지(730 다): 띄운 뒤 next(넘기기·나타나기). 그동안 유닛은 그 자리에 서서 기다린다. 못 띄우면 멈춘다(상한이면 map_full,
+   * 건너뛰던 중이면 finish가 사라진 자리로 되돌린다)
+   */
+  const openThen = (journey: Journey, mapKey: number, next: () => void): void => {
+    const seq = journey.seq;
+    const current = () => journeys.get(journey.unitId) === journey && journey.seq === seq;
+    if (!spawn) {
+      finish(journey, "stopped", "blocked");
+      return;
+    }
+    spawn.open(mapKey).then(
+      (outcome) => {
+        if (!current()) return;
+        if (outcome === "ok" && maps.has(mapKey)) next();
+        else finish(journey, "stopped", outcome === "full" ? "map_full" : "blocked");
+        arm();
+      },
+      (error: unknown) => {
+        log.error(
+          { err: error, unitId: journey.unitId, mapKey },
+          "travel: opening the destination map failed",
+        );
+        if (current()) finish(journey, "stopped", "blocked");
+      },
+    );
+  };
+
   /** 정찰이 목표에 닿았다: 출발한 자리로 돌아오는 길로 바꾼다(591 나). 돌아갈 수 없으면 끝(그 자리에 선다) */
   const turnBack = (journey: Journey, map: SecondMap, info: Info): boolean => {
     const origin = journey.origin;
-    if (journey.kind !== "scout" || journey.scoutedMapKey !== null || !origin || !maps.has(origin.mapKey))
-      return false;
-    const route = mapRoute(map.mapKey, origin.mapKey, loaded);
+    // 출발 2차맵이 그동안 내려갔으면(비어서) 돌아올 때 다시 띄운다(730 다)
+    const opens = origin ? opening(origin.mapKey) : null;
+    if (journey.kind !== "scout" || journey.scoutedMapKey !== null || !origin || opens === null) return false;
+    const route = mapRoute(map.mapKey, origin.mapKey, loadedOr(opens));
     if (!route) return false;
     journey.scoutedMapKey = map.mapKey;
     journey.route = route;
@@ -433,9 +488,13 @@ export function createTravelService(deps: TravelDeps): TravelService {
 
   /** 확인 시각: 그 움직임 그대로 끝났으면 넘기거나(중간) 끝낸다(마지막). 건너뛰는 중이면 나타날 때 */
   const check = (journey: Journey): void => {
-    if (journey.hidden) {
-      if (now() < journey.hidden.untilMs) schedule(journey, journey.hidden.untilMs);
-      else appear(journey, journey.hidden);
+    const hidden = journey.hidden;
+    if (hidden) {
+      const appearIn = journey.route[hidden.hop.to] ?? -1;
+      if (now() < hidden.untilMs) schedule(journey, hidden.untilMs);
+      else if (!maps.has(appearIn) && appearIn === opensAt(journey.route))
+        openThen(journey, appearIn, () => appear(journey, hidden));
+      else appear(journey, hidden);
       return;
     }
     if (journey.motion === null) {
@@ -461,6 +520,12 @@ export function createTravelService(deps: TravelDeps): TravelService {
       return;
     }
     if (loaded(nextKey)) cross(journey, map, info, nextKey);
+    else if (nextKey === opensAt(journey.route))
+      // 띄운 뒤 이 2차맵의 넘는 자리를 실제 지형으로 다시 고른다(이미 그 칸이면 바로 넘는다). 기다리는 동안 다른 명령을 받았으면 벗어남
+      openThen(journey, nextKey, () => {
+        if (map.unitInfo(journey.unitId)?.motion === info.motion) void beginLeg(journey, true);
+        else finish(journey, "stopped", "interrupted");
+      });
     else hide(journey, map, info);
   };
 
@@ -510,18 +575,21 @@ export function createTravelService(deps: TravelDeps): TravelService {
   const planFor = (
     where: NonNullable<ReturnType<typeof locate>>,
     target: TravelTarget,
-  ): { route: number[]; distance: number } | { problem: WorldTravelProblem } => {
-    if (!maps.has(target.mapKey)) return { problem: "unknown_map" };
+  ): { route: number[]; distance: number; opens: boolean } | { problem: WorldTravelProblem } => {
+    // 띄우지 않은 목적지는 닿을 때 띄운다(730 다) — 지금 더 띄울 자리가 없으면 map_full(닿을 때 다시 본다)
+    const opens = opening(target.mapKey);
+    if (opens === null) return { problem: "unknown_map" };
     if (unavailable(where.info.condition, now())) return { problem: "unavailable" };
-    const route = mapRoute(where.map.mapKey, target.mapKey, loaded);
+    if (opens !== undefined && !spawn?.hasRoom()) return { problem: "map_full" };
+    const route = mapRoute(where.map.mapKey, target.mapKey, loadedOr(opens));
     if (!route) return { problem: "no_route" };
     const cell = { x: target.x, y: target.y };
     const legs = planLegs(
-      routeContext(route, cell, where.info.size, standable, loaded),
+      routeContext(route, cell, where.info.size, standableOr(opens), loadedOr(opens)),
       positionAt(where.info.motion, now()),
     );
     if (!legs.ok) return { problem: legs.problem };
-    return { route, distance: legs.distance };
+    return { route, distance: legs.distance, opens: opens !== undefined };
   };
 
   /** 가는 중인 길의 도착 예상: 지금 자리에서 남은 줄의 곧은 거리 ÷ 속도(못 재면 보낼 때 잰 값) */
@@ -559,7 +627,8 @@ export function createTravelService(deps: TravelDeps): TravelService {
           durationMs,
           arriveAt: now() + durationMs,
           working: found.info.job.job !== JOB_NONE,
-          hiddenMaps: planned.route.filter((key) => !loaded(key)).length,
+          hiddenMaps: planned.route.filter((key) => !loaded(key) && key !== request.mapKey).length,
+          opensMap: planned.opens,
           cost: "walk",
         },
       };
@@ -601,6 +670,8 @@ export function createTravelService(deps: TravelDeps): TravelService {
       };
       journeys.set(found.id, journey);
       store.save(journey);
+      // 닿을 때 띄울 목적지는 지형을 미리 받아 둔다(닿을 때 캐시에서 — 이벤트 루프를 막지 않는다)
+      if (planned.opens) spawn?.prefetch(request.mapKey);
       const first = await beginLeg(journey, false);
       return first.ok ? { ok: true, maps: planned.route.length, arriveAt: journey.arriveAtMs } : first;
     },
@@ -643,6 +714,18 @@ export function createTravelService(deps: TravelDeps): TravelService {
 
     attachRaids(next) {
       raids = next;
+    },
+
+    attachSpawn(next) {
+      spawn = next;
+    },
+
+    touches(mapKey) {
+      for (const journey of journeys.values()) {
+        if (journey.route.at(-1) === mapKey || journey.route[journey.leg] === mapKey) return true;
+        if (journey.hidden && journey.route[journey.hidden.hop.to] === mapKey) return true;
+      }
+      return false;
     },
 
     hiddenAt(unitId) {

@@ -5,14 +5,8 @@
 //   대기열이 0.25초마다 묶어 커밋하고, 10초마다 생존 시각을 쓴다. 끌 때 대기열을 비운다.
 import { randomInt, randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
-import { gunzipSync } from "node:zlib";
-import { type CellKey, EARTH_FACE_LEVEL, stepCell } from "@terra/planet";
-import {
-  type CombatCatalog,
-  type CombatCoefficients,
-  generateTempTerrain,
-  seedFromCellKey,
-} from "@terra/sim";
+import { EARTH_FACE_LEVEL } from "@terra/planet";
+import type { CombatCatalog, CombatCoefficients } from "@terra/sim";
 import type { WorldDirectory } from "./gateway.ts";
 import { type Ledger, createLedger } from "../economy/ledger.ts";
 import { type MemoryChecks, checkMemoryInvariants, checkSqlInvariants } from "./invariants.ts";
@@ -20,7 +14,7 @@ import { type OwnerRow, type QueryPool, ensureTestNpcOwner, loadWorld } from "./
 import { type WorldWriter, type WriterPool, createWorldWriter } from "./persist/writer.ts";
 import { createWorkerPathService } from "./pathPool.ts";
 import { type PathService, createInlinePathService } from "./pathService.ts";
-import { type MapLog, type MapPersist, type SecondMap, createSecondMap } from "./secondMap.ts";
+import type { MapLog, MapPersist, SecondMap } from "./secondMap.ts";
 import { createBattleApply } from "./battleApply.ts";
 import { createBattleWorld, createWorldBattleStart } from "./battleStart.ts";
 import { type BattleItems, createBattleItems } from "./battleItems.ts";
@@ -45,10 +39,10 @@ import { type BattleService, createBattleService } from "./battles.ts";
 import { type BattleBodies, createBattleBodies } from "./battleBodies.ts";
 import type { RosterCatalog } from "../roster/catalog.ts";
 import { NO_GEAR, type UnitGear } from "../roster/unitBody.ts";
-import { type MapTerrain, mapTerrainFromBuilt, mapTerrainFromTemp, terrainFromFile } from "./mapTerrain.ts";
-import { type MapPin, loadPins, retireTestMaps, savePin } from "./pins.ts";
+import { retireTestMaps } from "./pins.ts";
 import type { TerrainService } from "./terrainService.ts";
-import type { ExploredStore } from "./vision.ts";
+import { createMapFactory, exploredStoreOf } from "./mapFactory.ts";
+import { type MapSpawner, attachMapSpawn, bootExtraMaps, sameLevelAs } from "./mapSpawnWorld.ts";
 import {
   ASSET_CREDIT,
   NPC_START_CREDIT,
@@ -218,6 +212,8 @@ export interface WorldPersistence {
   readonly ruins: RuinService;
   /** 2차맵 사이 이동(docs/adr/2026-11-07-play-flow.md WP9): 1차맵 명령 [확정] → 이웃 2차맵을 하나씩 지나 걷는다 */
   readonly travel: TravelService;
+  /** 옆 2차맵을 그때 띄우기·비면 내리기(WP15, 기획 답 730 다) */
+  readonly spawn: MapSpawner;
 }
 export interface WorldStatus {
   state: "recovering" | "ready" | "failed";
@@ -292,87 +288,27 @@ export function startWorld(
   /** 시험 2차맵 줄(봇 자리·옛 시작 도시 자리). 띄우는 2차맵은 여기에 도시가 있는 2차맵을 더한다(worldBoot.ts) */
   const testKeys = Array.from({ length: mapCount }, (_, index) => testMapKey(index));
 
-  /** 2차맵 지형: 고정본 → 지형 서비스(캐시 → 생성기). 지형 서비스가 없으면 S1 임시 지형 */
-  const terrainFor = async (mapKey: number, pins: ReadonlyMap<number, MapPin>): Promise<MapTerrain> => {
-    if (!terrainService) return mapTerrainFromTemp(mapKey, generateTempTerrain(seedFromCellKey(mapKey)));
-    const pin = pins.get(mapKey);
-    if (pin) {
-      try {
-        return mapTerrainFromBuilt(terrainFromFile(mapKey, pin.terrainVersion, pin.tctrGzip, gunzipSync));
-      } catch (error) {
-        // 고정본이 틀리면 생성기로 만든다(고정본은 그대로 두고 알린다: 사람이 본다)
-        log.error({ err: error, mapKey }, "second map pin does not decode, generating instead");
-      }
-    }
-    return terrainService.get(mapKey);
-  };
+  // 2차맵 만들기(고정본 → 지형 서비스 → 임시 지형) — 부팅과 그때 띄우기(mapSpawn.ts)가 같이 쓴다
+  const factory = createMapFactory({
+    maps,
+    paths,
+    terrain: terrainService,
+    now,
+    stats,
+    log,
+    planetId: TEST_PLANET_ID,
+  });
 
-  /** 처음 손댄 2차맵의 지금 지형을 고정본으로 쓴다(행성 값 2차맵만. S1 임시 지형은 고정하지 않는다) */
-  const pinner = (db: QueryPool | undefined, mapKey: number) => (): void => {
-    const map = maps.get(mapKey);
-    if (!db || !terrainService || !map) return;
-    const pin = { mapKey, terrainVersion: map.terrainVersion, tctrGzip: map.terrainFile().gzip };
-    savePin(db, TEST_PLANET_ID, pin, now())
-      .then(() => log.info({ mapKey, terrainVersion: pin.terrainVersion }, "second map pinned"))
-      .catch((error: unknown) => log.warn({ err: error, mapKey }, "second map pin failed"));
-  };
-
-  const createMaps = async (
-    persist: MapPersist | undefined,
-    ids: WorldPersistence["nextId"] | undefined,
-    npcOwnerId: number,
-    exploredStore?: (mapKey: number) => ExploredStore,
-    db?: QueryPool,
-    mapKeys: readonly CellKey[] = testKeys,
-  ): Promise<void> => {
-    const pins =
-      db && terrainService ? await loadPins(db, TEST_PLANET_ID, mapKeys) : new Map<number, MapPin>();
-    const terrains = await Promise.all(mapKeys.map((mapKey) => terrainFor(mapKey, pins)));
-    for (const [index, mapKey] of mapKeys.entries()) {
-      const terrain = terrains[index];
-      if (!terrain) continue;
-      maps.set(
-        mapKey,
-        createSecondMap({
-          mapKey,
-          terrain,
-          paths,
-          now,
-          stats,
-          log,
-          persist,
-          planetId: TEST_PLANET_ID,
-          explored: exploredStore?.(mapKey),
-          botOwnerId: npcOwnerId,
-          allocateUnitId: ids?.unit,
-          allocateBuildingId: ids?.building,
-          onFirstEdit: pins.has(mapKey) ? undefined : pinner(db, mapKey),
-        }),
-      );
-    }
-    // 이웃 미리 받기: 띄운 2차맵 둘레 8장의 지형을 캐시에 둔다(경계 너머 보기·나중의 2차맵 넘기)
-    if (terrainService) {
-      const neighbours = new Set<number>();
-      for (const mapKey of mapKeys) {
-        for (let dj = -1; dj <= 1; dj++) {
-          for (let di = -1; di <= 1; di++) {
-            if (di === 0 && dj === 0) continue;
-            const next = stepCell(mapKey, di, dj);
-            if (next !== null && !maps.has(next)) neighbours.add(next);
-          }
-        }
-      }
-      terrainService.prefetch([...neighbours]);
-    }
-  };
-
-  /** 봇을 시험 2차맵 줄에만 고르게 나눈다(규모 시험, 앞부터 하나씩 더). 도시 인구는 세계 규칙이다(play-flow ADR "WP-NPC2", 749 다) */
+  /**
+   * 봇을 시험 2차맵 줄에만 고르게 나눈다(규모 시험, 앞부터 하나씩 더). 도시 인구는 세계 규칙이다(play-flow ADR "WP-NPC2", 749 다).
+   * 시험 줄은 부팅 씨앗 2차맵이라 그때 띄운 2차맵(WP15)에는 봇이 서지 않는다
+   */
   const spawnBots = (): void => {
     const row = testKeys.flatMap((mapKey) => maps.get(mapKey) ?? []);
-    for (const [index, map] of row.entries()) {
-      const share = Math.floor(config.testBots / row.length) + (index < config.testBots % row.length ? 1 : 0);
-      map.spawnBots(share);
-    }
+    for (const [index, map] of row.entries())
+      map.spawnBots(
+        Math.floor(config.testBots / row.length) + (index < config.testBots % row.length ? 1 : 0),
+      );
   };
 
   const memoryChecks = (extra: Partial<MemoryChecks>): MemoryChecks => {
@@ -492,26 +428,12 @@ export function startWorld(
       accounts: loaded.accounts,
     });
     // 탐사 기록: 구독할 때 읽고, 시야 틱이 바뀐 것을 쓰기 대기열로 쓴다
-    const exploredStore = (mapKey: number): ExploredStore => ({
-      async load(userId) {
-        const found = await db.query(
-          `select cells from world_exploration where user_id = $1 and map_key = $2 and planet_id = $3`,
-          [userId, mapKey, TEST_PLANET_ID],
-        );
-        const cells = found.rows[0]?.cells;
-        return cells instanceof Uint8Array ? new Uint8Array(cells) : null;
-      },
-      save(userId, bits) {
-        writer.upsert("exploration", {
-          user_id: userId,
-          map_key: mapKey,
-          planet_id: TEST_PLANET_ID,
-          cells: Buffer.from(bits),
-          updated_at_ms: now(),
-        });
-      },
-    });
-    await createMaps(persist, nextId, npcOwnerId, exploredStore, db, seeded?.mapKeys);
+    const explored = exploredStoreOf(db, writer, TEST_PLANET_ID, now);
+    factory.attach({ persist, ids: nextId, botOwnerId: npcOwnerId, explored, db });
+    // 씨앗 2차맵 + 플레이어 유닛·건물이 선 2차맵(그때 띄웠던 것, docs/adr/2026-11-07-play-flow.md "WP15")
+    const seedKeys = seeded?.mapKeys ?? testKeys;
+    const extraKeys = bootExtraMaps(loaded, seedKeys, TEST_PLANET_ID, sameLevelAs(testKeys[0] ?? 0));
+    await factory.createMaps([...seedKeys, ...extraKeys]);
     const settlement = createSettlement({
       maps,
       owners,
@@ -728,7 +650,17 @@ export function startWorld(
     });
     const travelParts = { maps, writer, pool: db, now, log, settlement, cyborgs, planetId: TEST_PLANET_ID };
     const travel = createWorldTravel({ ...travelParts, ready: () => status.state === "ready" });
+    // 옆 2차맵을 그때 띄우기(730 다, mapSpawnWorld.ts): 이동 서비스에 잇고 부팅이 함께 띄운 플레이어 2차맵을 센다
+    const spawnParts = { maps, factory, paths, pool: db, planetId: TEST_PLANET_ID, travel, now, log };
+    const spawnRules = {
+      rules: societyRules,
+      cities: () => cities,
+      npc: () => npc,
+      sample: testKeys[0] ?? 0,
+    };
+    const spawn = attachMapSpawn({ ...spawnParts, ...spawnRules, extraKeys });
     persistence = {
+      spawn,
       travel,
       writer,
       pool: db,
@@ -866,7 +798,7 @@ export function startWorld(
     if (pool) {
       await bootWithDb(pool);
     } else {
-      await createMaps(undefined, undefined, 0);
+      await factory.createMaps(testKeys);
       paths.start();
       spawnBots();
       status.bootMs = 0;
@@ -937,7 +869,8 @@ export function startWorld(
       const summary = summarizeWorldStats(stats, gauges, at - windowStart);
       resetWorldStats(stats);
       windowStart = at;
-      return { ...summary, ...persistence?.writer.takeMetrics(), ...npc?.takeMetrics() };
+      const spawned = persistence?.spawn.takeMetrics();
+      return { ...summary, ...persistence?.writer.takeMetrics(), ...npc?.takeMetrics(), ...spawned };
     },
     async stop() {
       stopped = true;
@@ -951,6 +884,7 @@ export function startWorld(
       persistence?.facilities.service.stop();
       persistence?.fusion.stop();
       persistence?.travel.stop();
+      persistence?.spawn.stop();
       for (const map of maps.values()) map.stop();
       if (persistence) {
         persistence.writer.upsert("heartbeat", { id: 1, boot_id: bootId, alive_at_ms: now() });
@@ -970,6 +904,7 @@ export function startWorld(
       persistence?.facilities.service.stop();
       persistence?.fusion.stop();
       persistence?.travel.stop();
+      persistence?.spawn.stop();
       if (heartbeat) clearInterval(heartbeat);
       for (const map of maps.values()) map.stop();
       await paths.close();

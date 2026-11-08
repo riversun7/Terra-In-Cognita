@@ -2,7 +2,7 @@
 // 계정·행성 값은 시험용 가짜다(면 5만 바다인 풀밭 — worldLayout.db.test.ts와 같은 무늬).
 // 사용자 지적(2026-11-08 "2차맵 넘어서 이동이 되지 않음"): 국가마다 행성 위 자기 자리(수도 + 붙은 2차맵)에 선 새 세계에서
 // 1. 시작 도시 2차맵의 옆 2차맵: 띄운 옆 2차맵(같은 국가의 붙은 시작 도시)은 변 너머 바로 그 자리로 보낼 수 있고 넘어가 닿는다. 띄우지 않은 옆
-//    2차맵은 unknown_map(설 수 없다 — 화면이 까닭을 보인다).
+//    2차맵도 보낼 수 있다(닿을 때 띄운다 — 기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15", 아래 둘째 시험).
 // 2. 다른 국가의 도시 2차맵: 띄우지 않은 2차맵을 건너뛰어(593 나) 닿는다(국가 사이 길이 옛 상한 64장보다 길어도 — 시험 행성 국가 넷은 49~121장).
 // 3. 다시 켜도 가는 길이 이어진다(건너뛰는 중이면 다시 숨긴다).
 import { loadContentPack } from "@terra/content/node";
@@ -17,6 +17,7 @@ import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "
 import { mapTerrainFromTemp } from "../world/mapTerrain.ts";
 import type { TerrainService } from "../world/terrainService.ts";
 import { flatTerrain } from "../world/testSupport.ts";
+import { nationLookupOf } from "../world/nationVision.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { OPEN_SEARCH_MAPS, mapRoute, sideToward } from "./route.ts";
 
@@ -151,9 +152,10 @@ async function makeCyborg(world: World, userId: string, cityId: number): Promise
   return unitId;
 }
 
-/** 쌓인 약속·마이크로태스크(같은 스레드 길 찾기)를 몇 바퀴 돌린다 */
+/** 쌓인 약속·마이크로태스크(같은 스레드 길 찾기)를 몇 바퀴 돌린다. 그때 띄우기(WP15)는 DB를 읽으므로 잠깐 기다린다 */
 async function flush(): Promise<void> {
   for (let i = 0; i < 6; i++) await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setTimeout(resolve, 2));
 }
 
 /** 유닛이 선 2차맵 키(띄운 2차맵에 없으면 — 건너뛰는 중 — undefined) */
@@ -214,9 +216,9 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 배치 위 2차맵 사이 이동(WP1
     const neighbours = neighbors4(parseCellKey(start));
     const closed = neighbours.find((key) => !world.maps.has(key));
     expect(closed).toBeDefined();
-    expect(p.travel.plan(userId, { mapKey: closed ?? 0, x: 128, y: 128 })).toEqual({
-      ok: false,
-      problem: "unknown_map",
+    expect(p.travel.plan(userId, { mapKey: closed ?? 0, x: 128, y: 128 })).toMatchObject({
+      ok: true,
+      plan: { route: [start, closed], hiddenMaps: 0, opensMap: true },
     });
     const open = Number(sibling.map_key);
     expect(neighbours).toContain(open);
@@ -264,6 +266,80 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 배치 위 2차맵 사이 이동(WP1
     expect(second.view?.state).toBe("arrived");
     expect(second.hiddenSeen).toBe(true);
     expect(mapOf(again, unitId)).toBe(target.mapKey);
+    expect(await again.checkInvariants()).toEqual([]);
+  });
+
+  it("730 다: 띄우지 않은 옆 2차맵에 닿으면 띄우고 선다 — 다시 켜면 그 2차맵을 함께 띄우고, 떠나서 비면 내린다", async () => {
+    const world = await boot();
+    const cities = await startCities();
+    const capital = cities[0];
+    if (!capital) throw new Error("no start city");
+    const userId = await newUser("SpawnTraveler");
+    const unitId = await makeCyborg(world, userId, Number(capital.id));
+    const p = persistence(world);
+    const start = Number(capital.map_key);
+    const seedMaps = world.maps.size;
+    const closed = neighbors4(parseCellKey(start)).find((key) => !world.maps.has(key));
+    if (closed === undefined) throw new Error("no unopened neighbour");
+    expect(p.spawn.canOpen(closed)).toBe(true);
+
+    // 보내기 → 변 끝 → 띄움 → 넘어가 (128, 128) 둘레에 선다
+    expect((await p.travel.start(userId, { mapKey: closed, x: 128, y: 128, unitId, kind: "move" })).ok).toBe(
+      true,
+    );
+    const first = await travelUntilDone(world, userId, unitId);
+    expect(first.view?.state).toBe("arrived");
+    expect(first.hiddenSeen).toBe(false);
+    expect(world.maps.size).toBe(seedMaps + 1);
+    expect(mapOf(world, unitId)).toBe(closed);
+    expect(p.spawn.onDemand.has(closed)).toBe(true);
+    // 다른 사람도 그 2차맵을 띄운 2차맵처럼 쓴다(구독 자리·보낼 곳), 같은 나라 시야 공유도 걸린다(그 나라 NPC 주체로 보면 내 유닛이 보인다)
+    expect(world.map(closed)?.mapKey).toBe(closed);
+    const nation = p.cyborgs.record(userId)?.factionId;
+    const nationOwner = [...p.owners.values()].find(
+      (owner) => owner.factionId === nation && owner.userId === null,
+    );
+    expect(nationOwner).toBeDefined();
+    const sameNation = {
+      userId: "same-nation-viewer",
+      ownerId: nationOwner?.id,
+      nations: nationLookupOf(world),
+    };
+    expect(world.map(closed)?.vision.sees(sameNation, unitId)).toBe(true);
+    expect(world.map(closed)?.vision.sees({ userId: "stranger", ownerId: undefined }, unitId)).toBe(false);
+    await p.writer.durable();
+    const saved = await rows<{ map_key: string }>(test.db, `select map_key from world_units where id = $1`, [
+      unitId,
+    ]);
+    expect(Number(saved[0]?.map_key)).toBe(closed);
+    expect(await world.checkInvariants()).toEqual([]);
+    // 유닛이 선 동안은 오래 지나도 내리지 않는다
+    clock += 60 * 60_000;
+    expect(p.spawn.sweep()).toBe(0);
+    p.spawn.sweep();
+    expect(world.maps.has(closed)).toBe(true);
+
+    // 다시 켜면 플레이어 유닛이 선 그 2차맵을 함께 띄운다(그때 띄운 2차맵으로 센다)
+    await world.stop();
+    worlds.splice(worlds.indexOf(world), 1);
+    const again = await boot();
+    const q = persistence(again);
+    expect(again.maps.has(closed)).toBe(true);
+    expect(mapOf(again, unitId)).toBe(closed);
+    expect(q.spawn.onDemand.has(closed)).toBe(true);
+    expect(await again.checkInvariants()).toEqual([]);
+
+    // 수도로 돌아가면 그 2차맵이 빈다 → 비어 있은 지 idle(설정 칸 10분)이 지나면 내린다
+    const back = { mapKey: start, x: capital.cell_x, y: capital.cell_y };
+    expect((await q.travel.start(userId, { ...back, unitId, kind: "move" })).ok).toBe(true);
+    const returned = await travelUntilDone(again, userId, unitId);
+    expect(returned.view?.state).toBe("arrived");
+    expect(mapOf(again, unitId)).toBe(start);
+    q.spawn.sweep();
+    clock += TEST_SOCIETY_COEFFICIENTS.worldSeed.mapSpawnIdleMs;
+    q.spawn.sweep();
+    expect(again.maps.has(closed)).toBe(false);
+    expect(q.spawn.onDemand.size).toBe(0);
     expect(await again.checkInvariants()).toEqual([]);
   });
 });

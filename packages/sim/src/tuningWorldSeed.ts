@@ -104,4 +104,17 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
     "고정 국가 자리: 시작 도시 땅 강수 아래 끝(mm)",
     "Fixed nation homes: start city land precipitation from (mm)",
   ),
+  // 옆 2차맵을 그때 띄우기(기획 답 730 다, docs/adr/2026-11-07-play-flow.md "WP15"): 49에 칸이 없어 map_spawn_*를 앞머리로 쓴다
+  k(
+    "map_spawn_max_loaded",
+    "mapSpawnMaxLoaded",
+    "그때 띄우는 2차맵 상한(씨앗 2차맵 빼고)",
+    "On-demand second maps limit (seed maps not counted)",
+  ),
+  k(
+    "map_spawn_idle_ms",
+    "mapSpawnIdleMs",
+    "그때 띄운 2차맵: 비어 있으면 내리기까지(ms)",
+    "On-demand second map: time empty before closing (ms)",
+  ),
 ];

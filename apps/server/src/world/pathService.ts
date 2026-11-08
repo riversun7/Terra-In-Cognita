@@ -49,6 +49,10 @@ export interface PathService {
   request(job: PathRequest): Promise<PathOutcome>;
   /** 격자 편집을 모든 사본에 보낸다. 원본에 적용한 순서 그대로 부른다 */
   edit(mapKey: number, version: number, edit: GridEdit): void;
+  /** 그때 띄운 2차맵의 사본을 모든 워커에 더한다(start 뒤, world/mapSpawn.ts). 워커를 새로 띄우면 sources가 이미 그 2차맵을 준다 */
+  add(init: MapReplicaInit): void;
+  /** 내린 2차맵의 사본을 모든 워커에서 버린다 */
+  drop(mapKey: number): void;
   /** 기다리는(아직 보내지 않은) 작업 수 */
   queued(): number;
   close(): Promise<void>;
@@ -128,6 +132,12 @@ export function createInlinePathService(sources: ReplicaSources, clock: () => nu
     edit(mapKey, version, edit) {
       const reply = send({ type: "edit", mapKey, version, edit });
       if (reply?.type === "replica_error") throw new Error(`replica error: ${reply.reason}`);
+    },
+    add(init) {
+      send({ type: "add", map: init });
+    },
+    drop(mapKey) {
+      send({ type: "drop", mapKey });
     },
     queued: () => waiting,
     async close() {

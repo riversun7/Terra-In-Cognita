@@ -1,8 +1,9 @@
 // 이웃 2차맵 안개·로딩 없는 2차맵 이동 화면 시험(docs/adr/2026-11-08-seamless-second-map.md WP-3, 사용자 지적 2026-11-08 "인접한 맵은 포그가 적용되지
 // 않는 문제", "로딩없이 2차맵 이동") — player.
 // 실제로 걸어서 변을 넘는 데 몇 분 걸려(map-travel.spec.ts 머리 주석) 시험은 연결을 가운데서 고쳐 흉내 낸다:
-// - 서버 → 기기: 내 사이보그(own) 경로를 2차맵 동쪽 변 가까이(배치 칸 250, 가운데 줄)에 선 것으로 바꾼다 → 카메라가 따라가 동쪽 이웃이 카메라 쪽이 된다.
-// - 기기가 그 이웃을 받아 그리고(data-neighbours) 같은 연결로 구독한다(이웃 안개) → 서버가 그 2차맵 vision을 보낸다. 사진(390 파스텔·다크).
+// - 서버 → 기기: 내 사이보그(own) 경로를 2차맵 한 변 가까이(가운데 줄)에 선 것으로 바꾼다 → 카메라가 따라가 그쪽 이웃이 카메라 쪽이 된다.
+// - 기기가 그 이웃을 받아 그리고(data-neighbours) 같은 연결로 구독한다(이웃 안개). 볼 수 있는 이웃(같은 나라 시작 도시 등)이면 서버가 vision을 보내고,
+//   볼 수 없으면 구독이 거절된다(온통 어둡게). 시험은 vision이 오는 변을 찾을 때까지 변을 바꿔 다시 연다. 사진(390 파스텔·다크).
 // - 기기에 그 이웃 2차맵의 가짜 경로(내 사이보그)를 넣으면 기기가 넘는다: 주소 key·data-map-key가 이웃, data-switched="in-place", 지도 캔버스가
 //   같은 요소(화면을 다시 만들지 않음), 카메라 목표가 한 2차맵만큼 옮겨진 틀, "받는 중" 안내 없음 → 새 2차맵 자료 구독이 live.
 //   서버에서는 사이보그가 넘지 않았으므로 내 유닛 목록은 넘기 전 목록을 그대로 돌려준다(들어갈 수 없음 안내가 뜨지 않게).
@@ -13,13 +14,21 @@ import { hideSummary, rewriteTrpc } from "./helpers/trpc.ts";
 
 /** 위치 단위/배치 칸(@terra/protocol POSITION_UNITS_PER_CELL) */
 const UNITS_PER_CELL = 1024;
-/** 내 사이보그를 세울 자리(배치 칸): 동쪽 변 가까이, 가운데 줄 */
-const EDGE_X = 250;
-const EDGE_Y = 128;
+/** 내 사이보그를 세울 자리(배치 칸): 변 넷의 가까이, 가운데 줄 — 볼 수 있는 이웃이 나올 때까지 차례로 */
+const EDGES: readonly { readonly x: number; readonly y: number }[] = [
+  { x: 250, y: 128 },
+  { x: 5, y: 128 },
+  { x: 128, y: 5 },
+  { x: 128, y: 250 },
+];
 
 interface Rig {
+  /** 내 사이보그를 세울 자리(바꾸면 다음 스냅샷·경로부터) */
+  edge: { readonly x: number; readonly y: number };
   /** 기기가 구독한 2차맵 키(차례대로) */
   readonly subscribed: number[];
+  /** 구독이 거절된 2차맵 키 */
+  readonly refused: number[];
   /** 기기가 받은 vision의 2차맵 키 */
   readonly visions: number[];
   /** 기기에 서버 메시지를 넣는다 */
@@ -29,18 +38,26 @@ interface Rig {
 const field = (value: unknown, key: string): unknown =>
   typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
 
-/** 내 사이보그 경로를 변 가까이 선 것으로 바꾸고, 구독·vision을 적는 연결 */
+/** 내 사이보그 경로를 변 가까이 선 것으로 바꾸고, 구독·거절·vision을 적는 연결 */
 async function rigSocket(page: Page): Promise<Rig> {
-  const subscribed: number[] = [];
-  const visions: number[] = [];
+  const subscribeIds = new Map<number, number>();
   let toPage: ((text: string) => void) | null = null;
+  const rig: Rig = {
+    edge: EDGES[0] ?? { x: 250, y: 128 },
+    subscribed: [],
+    refused: [],
+    visions: [],
+    inject: (message) => toPage?.(JSON.stringify(message)),
+  };
   await page.routeWebSocket(/\/ws$/, (socket) => {
     const server = socket.connectToServer();
     toPage = (text) => socket.send(text);
     socket.onMessage((data) => {
       if (typeof data === "string" && data.includes('"t":"subscribe"')) {
         const parsed: unknown = JSON.parse(data);
-        subscribed.push(Number(field(parsed, "mapKey")));
+        const key = Number(field(parsed, "mapKey"));
+        rig.subscribed.push(key);
+        subscribeIds.set(Number(field(parsed, "id")), key);
       }
       server.send(data);
     });
@@ -51,12 +68,16 @@ async function rigSocket(page: Page): Promise<Rig> {
       }
       const parsed: unknown = JSON.parse(data);
       const kind = field(parsed, "t");
-      if (kind === "vision") visions.push(Number(field(parsed, "mapKey")));
+      if (kind === "vision") rig.visions.push(Number(field(parsed, "mapKey")));
+      if (kind === "result" && field(parsed, "ok") === false) {
+        const key = subscribeIds.get(Number(field(parsed, "id")));
+        if (key !== undefined) rig.refused.push(key);
+      }
       const units = field(parsed, "units");
       if ((kind === "map_snapshot" || kind === "unit_paths") && Array.isArray(units)) {
         for (const unit of units) {
           if (field(unit, "own") === true)
-            Reflect.set(unit, "path", [EDGE_X * UNITS_PER_CELL + 512, EDGE_Y * UNITS_PER_CELL + 512]);
+            Reflect.set(unit, "path", [rig.edge.x * UNITS_PER_CELL + 512, rig.edge.y * UNITS_PER_CELL + 512]);
         }
         socket.send(JSON.stringify(parsed));
         return;
@@ -64,11 +85,7 @@ async function rigSocket(page: Page): Promise<Rig> {
       socket.send(data);
     });
   });
-  return {
-    subscribed,
-    visions,
-    inject: (message) => toPage?.(JSON.stringify(message)),
-  };
+  return rig;
 }
 
 /** 내 유닛 목록: 처음 받은 목록을 기억하고, 넘은 뒤 빈 목록이면 그것으로(서버에서는 사이보그가 넘지 않았다) */
@@ -85,24 +102,34 @@ async function keepMyUnits(page: Page): Promise<void> {
   });
 }
 
-/** 2차맵을 열고 카메라가 변 가까이 선 내 사이보그를 따라가 동쪽 이웃을 받아 구독할 때까지. 동쪽 이웃 키 */
-async function openAtEdge(page: Page, rig: Rig): Promise<{ main: number; east: number }> {
-  await page.goto("/map");
+/**
+ * 2차맵을 열고 카메라가 변 가까이 선 내 사이보그를 따라가 그쪽 이웃을 받아 구독할 때까지. 볼 수 있는 이웃(vision이 온다)이 나올 때까지 변을 바꿔
+ * 다시 연다. 지금 2차맵과 그 이웃 키
+ */
+async function openAtEdge(page: Page, rig: Rig): Promise<{ main: number; near: number }> {
   const map = page.locator(".map-screen[data-map-key]");
-  await expect(map).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
-  await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
-  const main = Number(await map.getAttribute("data-map-key"));
-  await expect(map).toHaveAttribute("data-follow", "on", { timeout: 15_000 });
-  await expect
-    .poll(async () => Number(await map.getAttribute("data-neighbours")), { timeout: 30_000 })
-    .toBeGreaterThan(0);
-  await expect
-    .poll(() => rig.subscribed.find((key) => key !== main) ?? null, { timeout: 30_000 })
-    .not.toBeNull();
-  const east = rig.subscribed.find((key) => key !== main) ?? 0;
-  // 이웃 안개: 그 2차맵 vision을 받는다(볼 수 없는 이웃이면 거절 — 온통 어둡게)
-  await expect.poll(() => rig.visions.includes(east), { timeout: 15_000 }).toBe(true);
-  return { main, east };
+  for (const edge of EDGES) {
+    rig.edge = edge;
+    rig.subscribed.length = 0;
+    await page.goto("/map");
+    await expect(map).toHaveAttribute("data-status", "ready", { timeout: 60_000 });
+    await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
+    const main = Number(await map.getAttribute("data-map-key"));
+    await expect(map).toHaveAttribute("data-follow", "on", { timeout: 15_000 });
+    await expect
+      .poll(async () => Number(await map.getAttribute("data-neighbours")), { timeout: 30_000 })
+      .toBeGreaterThan(0);
+    await expect
+      .poll(() => rig.subscribed.find((key) => key !== main) ?? null, { timeout: 30_000 })
+      .not.toBeNull();
+    const near = rig.subscribed.find((key) => key !== main) ?? 0;
+    // 이웃 안개: 그 2차맵 vision을 받거나(볼 수 있음) 구독이 거절된다(볼 수 없음 — 온통 어둡게)
+    await expect
+      .poll(() => rig.visions.includes(near) || rig.refused.includes(near), { timeout: 20_000 })
+      .toBe(true);
+    if (rig.visions.includes(near)) return { main, near };
+  }
+  throw new Error("볼 수 있는 이웃 2차맵이 없습니다");
 }
 
 test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
@@ -112,10 +139,10 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
     page,
     deviceErrors,
   }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(360_000);
     const rig = await rigSocket(page);
     await keepMyUnits(page);
-    const { main, east } = await openAtEdge(page, rig);
+    const { main, near: east } = await openAtEdge(page, rig);
     const map = page.locator(".map-screen[data-map-key]");
     const cyborg = Number(await map.getAttribute("data-cyborg"));
     expect(cyborg).toBeGreaterThan(0);
@@ -138,7 +165,7 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
           size: 1,
           speed: 437,
           departAtMs: Date.now(),
-          path: [2 * UNITS_PER_CELL, EDGE_Y * UNITS_PER_CELL],
+          path: [128 * UNITS_PER_CELL, 128 * UNITS_PER_CELL],
         },
       ],
     });
@@ -150,10 +177,11 @@ test.describe("이웃 안개·로딩 없는 2차맵 이동", () => {
     // 화면을 다시 만들지 않았다: 같은 캔버스 요소, "받는 중" 안내 없음
     await expect(page.locator('.map-view canvas[data-e2e-mark="kept"]')).toHaveCount(1);
     await expect(page.locator(".map-notice")).toHaveCount(0);
-    // 카메라는 새 2차맵 틀로 옮겨졌다(같은 땅 — 목표점이 한 2차맵 한 변만큼 다른 좌표)
+    // 카메라는 새 2차맵 틀로 옮겨졌다: 같은 땅을 보므로 목표점 좌표가 크게 바뀐다(면 경계 너머 돌아간 이웃이면 차이는 한 변과 다르다).
+    // 넘은 뒤 자리는 보지 않는다: 시험은 내 유닛 목록을 옛 2차맵 목록(옛 좌표)으로 돌려줘 카메라 묶기 범위가 그 좌표로 걸린다
     await page.waitForTimeout(1_200);
     const [ax = 0, az = 0] = ((await map.getAttribute("data-camera")) ?? "").split(",").map(Number);
-    expect(Math.hypot(ax - bx, az - bz)).toBeGreaterThan(1_000);
+    expect(Math.hypot(ax - bx, az - bz)).toBeGreaterThan(300);
     // 새 2차맵 자료 구독(실제 서버)
     await expect(map).toHaveAttribute("data-feed", "live", { timeout: 30_000 });
     expect(rig.subscribed.filter((key) => key === east).length).toBeGreaterThanOrEqual(2);
@@ -169,7 +197,7 @@ test.describe("이웃 안개 사진", () => {
     test.describe(`390 ${theme}`, () => {
       test.use({ theme });
       test(`변 가까이 이웃 안개 (390·${theme})`, async ({ page, deviceErrors }) => {
-        test.setTimeout(150_000);
+        test.setTimeout(360_000);
         const rig = await rigSocket(page);
         await keepMyUnits(page);
         await openAtEdge(page, rig);

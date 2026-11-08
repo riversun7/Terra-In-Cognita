@@ -2,6 +2,7 @@
 // 채집 표시는 누르기를 지도로 지나보내고 엔진이 유닛 → 표시(화면 거리 22px) → 건물 모델 → 땅 차례로 고른다. 그래서 "땅을 눌러 보낸다"는 시험은
 // 표시·건물에서 떨어진 자리를 눌러야 한다(표시 바로 위를 누르면 채집 판이 열리는 것이 맞는 동작이다).
 import type { Page } from "@playwright/test";
+import { collapseNearby, openNearby } from "./nearby.ts";
 
 /**
  * 땅을 누를 자리(화면 가운데에서 떨어진 거리 px): 가운데 둘레 고리(먼 것 먼저) 가운데 지도 캔버스 위이고 채집 표시·건물 표시에서 떨어진 곳.
@@ -9,6 +10,10 @@ import type { Page } from "@playwright/test";
  * 그 자리를 누르면 땅 누르기(이동)가 아니다
  */
 export async function groundOffsets(page: Page): Promise<{ dx: number; dy: number }[]> {
+  // 건물 표시는 근처 판 건물 탭일 때만 보인다(docs/adr/2026-11-08-seamless-second-map.md WP-2): 접힌 건물 탭으로 표시를 띄워 건물을 피한다
+  await openNearby(page, "buildings");
+  await collapseNearby(page);
+  await page.waitForTimeout(300);
   return page.evaluate(() => {
     const canvas = document.querySelector(".map-view canvas");
     if (!canvas) return [];

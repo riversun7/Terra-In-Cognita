@@ -69,6 +69,9 @@ test.describe("유닛 조종: 플레이어", () => {
         await page.waitForTimeout(300);
         await expect(screen).not.toHaveAttribute("data-command", "sent", { timeout: 20_000 });
         if ((await screen.getAttribute("data-command")) === "ok") return true;
+        // 건물을 눌러 건물 판이 열렸으면 닫는다
+        const close = page.locator(".gather-sheet-close");
+        if (await close.count()) await close.first().click();
         // 땅을 누르지 못하고 다른 유닛을 골랐으면 다시 내 사이보그를 고른다
         if ((await screen.getAttribute("data-selected")) !== cyborg) await pickMyUnit(page, cyborg ?? "");
       }

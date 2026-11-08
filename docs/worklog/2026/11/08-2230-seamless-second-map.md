@@ -58,9 +58,15 @@
 - 들어올 때 기준 유닛을 고르며 `selectedRef`를 먼저 바꿔, 1초 요약이 화면 고르기 상태(`data-selected`)를 채우지 않던 것(`SecondaryMapScreen.tsx`).
 - 응답 고치기 도우미(`e2e/helpers/trpc.ts`)가 시험 끝에 버려진 응답을 읽어 실패하던 것(근처 판이 건물 겉모습 조회를 부르는 때와 겹침) — 버려진 응답이면 넘긴다.
 - 지도자 이름표 시험: 카메라가 사이보그를 따라가 지도자가 화면 밖일 수 있어 멀리 보아 찾는다(`e2e/government.spec.ts`).
+- 땅 누르기 시험 도우미(`e2e/helpers/mapGround.ts`)가 건물 표시로 건물을 피했는데 건물 표시가 건물 탭일 때만 보여 건물을 눌렀다 — 접힌 건물 탭을 열고 고른다.
+- 근처 목록을 펼치면 오른쪽 가운데 [1차맵] 전환 단추가 거리 글자를 가렸다 — 목록이 펼쳐진 동안 그 단추를 위쪽(30%)으로 올린다(`nearby.css`, `:has` — Firefox 121 전은 그대로). 영어 탭 "Resources"가 낱말 중간에서 끊겼다 — 탭 이름 줄바꿈 없음·말줄임, 수는 아래 줄.
 
 ## 검사
-- (작업 끝에 적는다)
+- `pnpm check`(TEST_DATABASE_URL 있음, 푸시 전 훅): 통과 — 545파일, 4,117개 시험(Verified, 커밋 `ae7d943`·`6888aac` 푸시 때). 마지막 CSS·시험 고침 뒤의 결과는 이 커밋의 푸시 전 훅이 다시 돈다.
+- 화면 시험(Playwright, 헤드리스 Chromium SwiftShader — 한 시험에 1~2분): 바꾼 화면 spec의 기능 시험 — building-art·citizenship·control-move3·gather·gather-station·government·map-input·map-travel·play-map·unit-control·vision·seamless 모두 통과(여러 번에 나눠 돌림, 실패한 것은 고친 뒤 그것만 다시: Verified). 사진 시험은 map-input(근처 판 4장)·unit-control(목록·운영자 4장)·seamless(이웃 안개 2장)만 돌려 통과·눈으로 봄. gather·gather-station·building-art·government·citizenship·control-move3의 사진 시험은 이번 묶음에서 다시 돌리지 않았다(미실행 — 모양은 근처 판이 더해진 것뿐, Assumed).
+- 사진(390, 파스텔·다크, 한국어·영어): 세션 임시 폴더. 운영자 단추 빨강 구분, 근처 판 줄·거리·[20개 더 보기], 이웃 안개(경계에 밝기 계단 없음) 확인. 나무 모델은 안개 위에도 그려진다(지금 2차맵도 같은 기존 동작).
+- 넘기 시험(`seamless.spec.ts`)은 흉내다: 넘은 뒤 화면이 어둡고 "탐사한 곳이 없다" 안내가 뜨는 것은 서버에서 사이보그가 넘지 않았기 때문이다(실제 넘기에서는 사이보그가 그 맵에 있어 밝다 — Assumed, 실제 넘기는 화면 시험으로 보지 않음).
+- 빌드는 화면 시험 준비가 돌렸다(통과). `check-pwa`·`check:bundle`은 돌리지 않았다(미실행 — 새 코드는 2차맵 지연 조각 안).
 
 ## 사용자 결정 대기
 - 없음(ADR Q1~Q5 답함).

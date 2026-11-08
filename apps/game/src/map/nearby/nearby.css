@@ -31,13 +31,13 @@
 .map-nearby-tab {
   flex: 1 1 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
-  gap: var(--space-1);
+  gap: 0;
   min-width: 0;
   min-block-size: var(--tap-size);
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-1);
   border: var(--border-w) solid var(--color-border);
   border-radius: var(--radius-control);
   background-color: var(--color-surface);
@@ -45,8 +45,14 @@
   font: inherit;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-snug);
-  overflow-wrap: anywhere;
   cursor: pointer;
+}
+/* 탭 이름은 낱말 중간에서 끊지 않는다(긴 영어 "Resources") — 넘치면 말줄임, 수는 아래 줄 */
+.map-nearby-tab > span:first-child {
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .map-nearby-tab:focus-visible,
 .map-nearby-row:focus-visible {
@@ -143,4 +149,9 @@
 }
 .map-nearby-more {
   align-self: center;
+}
+/* 목록을 펼친 동안: 오른쪽 가운데 1·2차맵 전환 단추(shell overlays.css .map-switch)가 목록 줄(거리)을 가리지 않게 위쪽 빈 자리로 올린다.
+   :has를 모르는 브라우저(Firefox 121 전)는 그대로 겹친다 */
+body:has(.map-nearby-list) .map-switch {
+  top: 30%;
 }

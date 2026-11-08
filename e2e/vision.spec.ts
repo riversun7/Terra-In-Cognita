@@ -262,7 +262,8 @@ test.describe("경계 너머 보기", () => {
     await shot(page, "second-map-neighbours-3x3");
 
     // 플레이어 카메라는 기준 유닛에 붙어 끌기가 돌리기다(docs/adr/2026-11-08-seamless-second-map.md WP-1): 화면을 옮기려면 운영자 [자유 시점]
-    await page.locator(".map-operator-toggle").click();
+    // (운영자 모드는 openMap이 이미 켰다)
+    await expect(page.locator(".map-operator-toggle")).toHaveAttribute("aria-pressed", "true");
     await page.locator(".map-free-view").click();
     await expect(screen).toHaveAttribute("data-free-view", "on");
     await expect(screen).toHaveAttribute("data-feed", "live", { timeout: 15_000 });

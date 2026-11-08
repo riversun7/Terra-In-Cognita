@@ -105,12 +105,19 @@
 }
 .an-build-head {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-3);
   align-items: center;
 }
 .an-build-name {
-  flex: 1 1 auto;
+  flex: 2 1 10em;
   min-width: 0;
+}
+.an-build-head .an-build-template {
+  flex: 1 1 9em;
+}
+.an-build-remove {
+  flex-shrink: 0;
 }
 .an-build-name input {
   width: 100%;
@@ -281,6 +288,7 @@
 .an-num {
   text-align: end;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .an-heat-wrap {
   max-width: 100%;
@@ -296,12 +304,14 @@
   font-variant-numeric: tabular-nums;
 }
 .an-caption {
-  caption-side: top;
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-surface);
+  margin: 0;
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
-  text-align: start;
+}
+.an-curve-y {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
 }
 .an-heat th,
 .an-heat td {
@@ -317,7 +327,7 @@
 }
 .an-heat-col-text {
   display: block;
-  max-inline-size: 7em;
+  max-inline-size: 6em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -327,14 +337,19 @@
   inset-inline-start: 0;
   z-index: 1;
   padding: var(--space-2) var(--space-4) !important;
-  max-inline-size: 9em;
-  overflow-wrap: anywhere;
+  /* 좁은 폭에서 표가 이름 칸을 글자 하나 폭까지 줄이지 않게: 낱말 단위로만 줄을 바꾼다 */
+  min-inline-size: 7em;
+  max-inline-size: 10em;
+  word-break: keep-all;
+  overflow-wrap: break-word;
   text-align: start;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-strong);
   background: var(--dev-head-bg) !important;
 }
 .an-heat-corner {
+  min-inline-size: 7em;
+  word-break: keep-all;
   position: sticky;
   inset-inline-start: 0;
   z-index: 2;

@@ -175,6 +175,9 @@ export function CurveChart({
 
   return (
     <div className="an-curve" ref={ref}>
+      <p className="an-curve-y" aria-hidden="true">
+        {yLabel}
+      </p>
       <svg className="an-curve-svg" width={width} height={HEIGHT} role="img" aria-label={label}>
         {ticks.map((tick) => (
           <g key={tick}>
@@ -203,13 +206,6 @@ export function CurveChart({
         ))}
         <text className="an-axis-title" x={MARGIN.left + innerW / 2} y={HEIGHT - 4} textAnchor="middle">
           {xLabel}
-        </text>
-        <text
-          className="an-axis-title"
-          transform={`translate(12 ${MARGIN.top + innerH / 2}) rotate(-90)`}
-          textAnchor="middle"
-        >
-          {yLabel}
         </text>
         {hoverStep === null ? null : (
           <line

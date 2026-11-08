@@ -19,7 +19,7 @@
 // balance.contribution 429). 그래서 배치·사진 시험은 서버 상태를 바꾸지 않고 같은 입력의 조회를 다시 쓴다.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
-import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
+import { elementShot, horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
 import { type DevTheme, type Language, expect, test } from "./helpers/test.ts";
 import { createTrpcReplay, replayTrpc } from "./helpers/trpc.ts";
 
@@ -549,11 +549,16 @@ test.describe("분석 배치·사진", () => {
         test(`${tab}: 결과 화면 가로 넘침·작은 누르는 곳 없음, 사진`, async ({ page, deviceErrors }) => {
           await replayTrpc(page, layoutReplay, ["battleLab.catalog", "battleLab.presets"]);
           await analysisReady(page, tab);
-          if (tab === "matrix") await page.locator('.an-heat tbody tr[data-row="1"] td[data-col="0"] button').click();
+          if (tab === "matrix")
+            await page.locator('.an-heat tbody tr[data-row="1"] td[data-col="0"] button').click();
           await page.evaluate(() => document.fonts.ready.then(() => undefined));
           expect(await horizontalOverflow(page)).toEqual([]);
           expect(await smallTapTargets(page)).toEqual([]);
-          await shot(page, `balance-${tab}-${theme}-${language}-${width}`, { fullPage: true });
+          await shot(page, `balance-${tab}-${theme}-${language}-${width}`);
+          await elementShot(
+            page.locator(".an-results"),
+            `balance-${tab}-results-${theme}-${language}-${width}`,
+          );
           expect(unexpected(deviceErrors)).toEqual([]);
         });
     });
@@ -568,6 +573,77 @@ test.describe("분석 권한", () => {
     await expect(page.locator("#no-permission-title")).toBeVisible();
     expect((await trpc(page, "balanceAnalysis.list")).status).toBe(403);
     expect((await trpc(page, "balanceAnalysis.start", { kind: "matrix" })).status).toBe(403);
+    expect(unexpected(deviceErrors)).toEqual([]);
+  });
+});
+
+test.describe("분석 나쁜 자료", () => {
+  test.use({ account: "admin", devTheme: "neon", language: "en", viewport: { width: 390, height: 844 } });
+
+  test("분포 10개·긴 이름(24자)·총합 둘(1,200·6,000): 승률표는 안에서만 밀고 쪽은 넘치지 않는다", async ({
+    page,
+    deviceErrors,
+  }) => {
+    test.setTimeout(180_000);
+    const labels = [
+      "INT·WIS caster, staff v2 #1",
+      "Glass cannon (very long)",
+      "Jo",
+      "균형 잡힌 기본 분포 이름이 길다",
+      "STR focus warrior build",
+      "DEX AGI evasive skirmisher",
+      "VIT",
+      "Tank with heavy armor set",
+      "Striker STR DEX mix 50/50",
+      "Custom 10",
+    ];
+    const builds = labels.map((label, index) => ({
+      id: `custom_${index + 1}`,
+      label: label.slice(0, 24),
+      weights: {
+        str: (index * 37) % 101,
+        vit: (index * 53) % 97,
+        int: index === 2 ? 0 : (index * 11) % 89,
+        wis: (index * 29) % 83,
+        dex: (index * 41) % 79,
+        agi: index === 6 ? 1000 : (index * 17) % 73,
+      },
+      templateId: null,
+    }));
+    await page.addInitScript(
+      (form) => {
+        localStorage.setItem("terra.balanceAnalysis.v1.matrix", JSON.stringify(form));
+      },
+      {
+        conditions: {
+          templateId: "sample_new_cyborg",
+          weapon: "keep",
+          level: 999,
+          mode: "sum",
+          elements: "keep",
+          skills: true,
+          gear: true,
+          teamSize: 1,
+          limitSec: 30,
+        },
+        builds,
+        sums: [1200, 6000],
+        runs: 2,
+        seed: 2_147_483_647,
+      },
+    );
+    await page.goto("/dev/balance");
+    const tab = page.locator(".an-matrix");
+    await expect(tab.locator(".an-build")).toHaveCount(10);
+    await tab.locator(".an-run").click();
+    await expect(tab).toHaveAttribute("data-status", "done", { timeout: 120_000 });
+    await expect(tab.locator(".an-heat tbody tr")).toHaveCount(10);
+    await page.locator(".an-results .an-chip").nth(1).click();
+    await expect(tab.locator('.an-heat[data-sum="6000"]')).toBeVisible();
+    await page.evaluate(() => document.fonts.ready.then(() => undefined));
+    expect(await horizontalOverflow(page)).toEqual([]);
+    await elementShot(page.locator(".an-results"), "balance-matrix-worst-en-390");
+    await elementShot(page.locator(".an-builds-panel"), "balance-matrix-worst-builds-en-390");
     expect(unexpected(deviceErrors)).toEqual([]);
   });
 });

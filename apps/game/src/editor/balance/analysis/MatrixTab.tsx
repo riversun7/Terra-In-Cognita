@@ -100,6 +100,16 @@ export function MatrixTab({ data, locale }: { data: LabData; locale: string }) {
                         }
                       />
                     </label>
+                    <TemplateSelect
+                      label={m.dev_an_build_template()}
+                      value={build.templateId}
+                      onChange={(value) => updateBuild(index, (entry) => ({ ...entry, templateId: value }))}
+                      data={data}
+                      locale={locale}
+                      allowShared
+                      hideLabel
+                      className="an-build-template"
+                    />
                     <button
                       type="button"
                       className="button-small an-build-remove"
@@ -151,15 +161,6 @@ export function MatrixTab({ data, locale }: { data: LabData; locale: string }) {
                       />
                     ))}
                   </div>
-                  <TemplateSelect
-                    label={m.dev_an_build_template()}
-                    value={build.templateId}
-                    onChange={(value) => updateBuild(index, (entry) => ({ ...entry, templateId: value }))}
-                    data={data}
-                    locale={locale}
-                    allowShared
-                    className="an-build-template"
-                  />
                 </li>
               );
             })}

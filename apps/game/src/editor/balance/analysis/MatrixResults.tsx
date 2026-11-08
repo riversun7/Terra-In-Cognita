@@ -39,14 +39,13 @@ export function MatrixResults({ result, locale }: { result: AnalysisMatrixResult
         {m.dev_an_heat_title({ runs: result.runs, seed: result.seed })}
       </h2>
       {result.tables.length > 1 ? (
-        <div className="an-chips" role="tablist" aria-label={m.dev_an_sums()}>
+        <div className="an-chips" role="group" aria-label={m.dev_an_sums()}>
           {result.tables.map((entry, index) => (
             <button
               key={entry.sum}
               type="button"
-              role="tab"
               className="an-chip"
-              aria-selected={index === tableIndex}
+              aria-pressed={index === tableIndex}
               onClick={() => {
                 setTableIndex(index);
                 setPicked(null);
@@ -57,9 +56,11 @@ export function MatrixResults({ result, locale }: { result: AnalysisMatrixResult
           ))}
         </div>
       ) : null}
+      <p className="an-caption" id="an-heat-caption">
+        {m.dev_an_heat_caption({ sum: table.sum })}
+      </p>
       <div className="an-heat-wrap">
-        <table className="an-heat" data-sum={table.sum}>
-          <caption className="an-caption">{m.dev_an_heat_caption({ sum: table.sum })}</caption>
+        <table className="an-heat" data-sum={table.sum} aria-describedby="an-heat-caption">
           <thead>
             <tr>
               <th scope="col" className="an-heat-corner">

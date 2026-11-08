@@ -709,6 +709,7 @@ export {
   type TuningKey,
 } from "./tuning.ts";
 export { newTuningProblems, statTableProblems, tuningProblems } from "./tuningChecks.ts";
+export { tuningPageOf, tuningPageTable } from "./tuningPages.ts";
 // 랭킹(20 §8, docs/adr/2026-11-07-ranking.md): 감쇠형 점수·백분위 등급·언더독·로그 압축(정수), 계수표 ranking 칸
 export {
   type RankingCoefficients,

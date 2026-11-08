@@ -1,4 +1,4 @@
-// 설정 칸 한 줄(표의 tr, ADR 2026-11-02-dev-ui) — 코드 · 이름(+ID, 덮어쓰기 정보) · 표지(구조 값·범위) · 지금 값(차이, 담은 값) ·
+// 설정 칸 한 줄(표의 tr, ADR 2026-11-02-dev-ui) — 코드 · 이름(+ID, 쉬운 풀이·단위·출처, 덮어쓰기 정보) · 표지(구조 값·범위) · 지금 값(차이, 담은 값) ·
 // 팩 값 · 범위(글 + 작은 막대) · 새 값 칸 + [담기] · [되돌리기]/[담기 취소].
 // 새 값 칸은 늘 보인다(처음 값 = 담은 값 또는 지금 값). 값을 바꾸고 [담기](또는 Enter)로 담은 변경에 넣는다(적용은 화면 아래 막대의
 // [적용], 한 묶음). 시험·측정용 data-*: data-id, data-changed(덮어쓰기 있음), data-staged(담음), data-scope.
@@ -139,6 +139,23 @@ export function TuningRow({ entry, pending, locale, onStage, onUnstage }: Tuning
       <td className="tp-c-name">
         <span className="tp-name">{locale === "en" ? entry.name.en : entry.name.ko}</span>
         <code className="tp-id">{entry.id}</code>
+        {/* 쉬운 풀이·단위·출처(팩 항목 desc·unit·source, 2026-11-08 분야별 페이지) */}
+        {entry.desc ? (
+          <span className="tp-desc">{locale === "en" ? entry.desc.en : entry.desc.ko}</span>
+        ) : null}
+        <span className="tp-meta">
+          {/* 단위가 없는 칸은 범위 칸의 "단위 없음"으로 충분하다 */}
+          {entry.unit === null ? null : (
+            <span className="tp-meta-item">
+              <span className="tp-meta-label">{m.dev_tuning_unit_label()}</span> {unitText(entry.unit)}
+            </span>
+          )}
+          {entry.source ? (
+            <span className="tp-meta-item tp-source">
+              <span className="tp-meta-label">{m.dev_tuning_source_label()}</span> {entry.source}
+            </span>
+          ) : null}
+        </span>
         {override ? (
           <span className="tp-override">
             {m.dev_tuning_changed_by({

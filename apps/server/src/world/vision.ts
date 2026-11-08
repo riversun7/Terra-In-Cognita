@@ -145,8 +145,8 @@ function groupKeyOf(viewer: VisionViewer): string {
 const owns = (viewer: VisionViewer, ownerId: number | null): boolean =>
   viewer.ownerId !== undefined && ownerId === viewer.ownerId;
 
-/** 건물이 든 시야 칸(발자국 가운데) */
-const buildingCell = (placement: BuildingPlacement): number => {
+/** 건물이 든 시야 칸(발자국 가운데). 건물 겉모습 조회(facilities/mapLooks.ts)도 같은 규칙으로 거른다 */
+export const buildingCell = (placement: BuildingPlacement): number => {
   const rect = footprintRect(placement);
   const cx = Math.min(VISION_SIDE - 1, Math.floor((rect.x + rect.width / 2) / VISION_CELL));
   const cy = Math.min(VISION_SIDE - 1, Math.floor((rect.y + rect.height / 2) / VISION_CELL));

@@ -1,6 +1,7 @@
 // 누른 곳 찾기 — 순수 코드(시험 대상).
 // - 유닛: 화면에 투영한 점 가운데 누른 곳에서 가장 가까운 것(화면 거리). 실제 크기 유닛은 작아서 누르는 반경을 넉넉히 둔다.
 // - 땅: 시선을 따라 높이 지도(heightAt) 아래로 들어가는 첫 점(일정 간격으로 걷고 이분법으로 좁힌다).
+// - 건물: 조각마다 축 정렬 상자와 시선이 만나는 거리(rayBoxDistance, buildings/buildingView.ts pick).
 import type { GroundPoint, ScreenPoint, Vec3 } from "./camera/cameraMath.ts";
 
 /**
@@ -73,6 +74,41 @@ export function rayHitsTerrain(
     if (current === tEnd) break;
   }
   return null;
+}
+
+/**
+ * 시선(원점, 단위 방향)이 축 정렬 상자(min·max)에 들어가는 거리(m). 원점이 상자 안이면 0, 만나지 않거나 뒤쪽이면 null(slab 방법)
+ */
+export function rayBoxDistance(
+  origin: Vec3,
+  dir: Vec3,
+  minX: number,
+  minY: number,
+  minZ: number,
+  maxX: number,
+  maxY: number,
+  maxZ: number,
+): number | null {
+  let near = 0;
+  let far = Number.POSITIVE_INFINITY;
+  const axes: readonly [number, number, number, number][] = [
+    [origin.x, dir.x, minX, maxX],
+    [origin.y, dir.y, minY, maxY],
+    [origin.z, dir.z, minZ, maxZ],
+  ];
+  for (const [o, d, low, high] of axes) {
+    if (Math.abs(d) < 1e-12) {
+      if (o < low || o > high) return null;
+      continue;
+    }
+    let t0 = (low - o) / d;
+    let t1 = (high - o) / d;
+    if (t0 > t1) [t0, t1] = [t1, t0];
+    near = Math.max(near, t0);
+    far = Math.min(far, t1);
+    if (near > far) return null;
+  }
+  return near;
 }
 
 function pointAt(origin: Vec3, dx: number, dy: number, dz: number, t: number): GroundPoint & { y: number } {

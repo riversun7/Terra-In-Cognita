@@ -3,6 +3,7 @@ import {
   type BuildingFootprint,
   footprintCells,
   footprintInside,
+  footprintMask,
   footprintRect,
   frontDirection,
 } from "./footprint.ts";
@@ -36,5 +37,13 @@ describe("footprint", () => {
     expect(frontDirection(1)).toEqual({ x: -1, y: 0 });
     expect(frontDirection(2)).toEqual({ x: 0, y: -1 });
     expect(frontDirection(3)).toEqual({ x: 1, y: 0 });
+  });
+
+  it("차지한 칸 표: 건물 칸만 1, 밖은 뺀다", () => {
+    const mask = footprintMask([base, { ...base, id: 2, cellX: 254, cellY: 0, width: 4, depth: 1 }], 256);
+    expect(mask.reduce((sum, value) => sum + value, 0)).toBe(4 * 2 + 2);
+    expect(mask[20 * 256 + 10]).toBe(1);
+    expect(mask[22 * 256 + 10]).toBe(0);
+    expect(mask[255]).toBe(1);
   });
 });

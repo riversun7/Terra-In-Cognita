@@ -86,6 +86,7 @@ import { GatherPanel } from "./gather/GatherPanel.tsx";
 import { attachGatherOverlay } from "./gather/gatherOverlay.ts";
 import { createGatherState, gatherSink } from "./gather/gatherState.ts";
 import { GovernmentSheet } from "../government/GovernmentSheet.tsx";
+import { startBuildingLooks } from "./buildingLooks.ts";
 import "./map.css";
 
 /** 성능 보고에 붙이는 화면 이름 */
@@ -286,14 +287,15 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
     });
     engineRef.current = engine;
     const detachGather = attachGatherOverlay(engine, host, gather, { mapKey, serverNow });
+    const looks = startBuildingLooks(engine, mapKey);
     const onReducedMotion = (): void => engine.setSky(skyMode());
     reduced?.addEventListener("change", onReducedMotion);
     setTelemetryView(TELEMETRY_VIEW);
     const feed = startMapFeed({
       link: serverLink,
       mapKey,
-      // 자료 흐름: 채집 덧그림(건물) → 카메라 범위(탐사 비트) → 엔진
-      sink: cameraTap.current(gatherSink(engine, gather)),
+      // 자료 흐름: 채집 덧그림(건물) → 카메라 범위(탐사 비트) → 건물 겉모습(buildingLooks.ts) → 엔진
+      sink: cameraTap.current(gatherSink(looks.sink, gather)),
       loadTerrain: async (url) => {
         const terrain = await fetchTerrain(url);
         mapSizeM = terrain.cellSizeM * 128;
@@ -369,6 +371,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       feed.stop();
       feedRef.current = null;
       detachGather();
+      looks.stop();
       engine.dispose();
       engineRef.current = null;
       setTelemetryView(null);

@@ -2,7 +2,9 @@
 // 세계가 준비되고 DB가 있을 때만 자료를 준다(아니면 화면은 not_ready).
 import { CONDITION_FULL } from "@terra/shared/facilityRuntime";
 import { nearestFactionCity } from "@terra/shared/territory";
+import { canObserve } from "../world/visibility.ts";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
+import { mapBuildingLooks, mapOwnerIds } from "./mapLooks.ts";
 import type { FacilityScreenSource } from "./screen.ts";
 import { attackTargetsOf, ownerFactionsOf } from "./targets.ts";
 
@@ -23,6 +25,23 @@ export function facilityScreenSourceOf(world: World): FacilityScreenSource | und
       workersOf: (buildingId) => labor.workersAt(buildingId),
     },
     ownerOf: (userId) => settlement.findOwnerOfUser(userId),
+    async mapLooks(viewer, mapKey, nowMs) {
+      // 보는 건물만(시야 전송과 같은 규칙): 전체 보기, 내 건물, 아는 시야 칸
+      const observer = canObserve(viewer);
+      const ownerId = settlement.findOwnerOfUser(viewer.id);
+      const sighted = observer
+        ? undefined
+        : await world.maps.get(mapKey)?.vision.sighted({ userId: viewer.id, ownerId });
+      // 건물 주인 → 국가(NPC 세력 주체는 메모리, 플레이어는 가입한 국가를 DB에서 한 번에)
+      const factions = await ownerFactionsOf(pool, owners, mapOwnerIds(world.maps, mapKey));
+      return mapBuildingLooks(
+        { maps: world.maps, service: facilities.service, rules: facilities.rules },
+        mapKey,
+        nowMs,
+        { observer, ownerId, sighted },
+        factions,
+      );
+    },
     async beaconsOf(userId) {
       const view = await territory.mineView(TEST_PLANET_ID, userId);
       // 재료를 꺼내는 도시(질문 410 ①): 그 세력에서 비콘 칸과 가장 가까운 도시(서버 판정과 같은 함수)

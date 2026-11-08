@@ -4,7 +4,7 @@
 // 유닛이 가는 중이거나 카메라가 움직이면 다음 프레임을 예약하고, 아니면 멈춘다(FrameScheduler).
 // 낮밤(lighting/): 1차맵과 같은 하늘 모드·달력으로 그 2차맵 자리의 빛을 1초마다 계산하고, 눈에 띄게 바뀔 때만 한 번 그린다.
 import { Frustum, Matrix4, PerspectiveCamera, Scene, type WebGLRenderer } from "three";
-import type { BuildingFootprint } from "./buildings/footprint.ts";
+import { type BuildingFootprint, footprintMask } from "./buildings/footprint.ts";
 import { BuildingView } from "./buildings/buildingView.ts";
 import {
   CAMERA_FOV_RAD,
@@ -35,7 +35,7 @@ import type {
   UnitState,
 } from "./engineTypes.ts";
 import { SceneLight } from "./lighting/sceneLight.ts";
-import { secondMapPlace } from "./lighting/secondMapLight.ts";
+import { UNIT_NIGHT_LIFT, secondMapPlace } from "./lighting/secondMapLight.ts";
 import { rayHitsTerrain } from "./picking.ts";
 import { FrameScheduler } from "./render/frameScheduler.ts";
 import { RenderTimer } from "./render/renderStats.ts";
@@ -43,6 +43,7 @@ import { EngineLayers, createLayerView } from "./render/engineLayers.ts";
 import { acquireRenderer, defaultMaxPixelRatio, releaseRenderer } from "./render/sharedRenderer.ts";
 import { type BuiltTerrain, createTerrainBuilder } from "./terrain/terrainBuilder.ts";
 import {
+  PLACEMENT_CELLS,
   TERRAIN_CELLS,
   type TerrainInput,
   mapSizeM,
@@ -67,6 +68,8 @@ const ICON_HYSTERESIS = 1.15;
 /** 목표점 높이를 땅에 맞추는 빠르기(ms, 지수 감쇠 시간) */
 const TARGET_Y_SMOOTH_MS = 120;
 const DEFAULT_UNIT_CAPACITY = 2048;
+/** 건물 상자가 땅 닿는 점보다 이만큼(m) 뒤여도 건물로 본다(바닥 판이 땅에 묻힌 곳) */
+const BUILDING_PICK_SLACK_M = 0.6;
 
 export function createSecondMapEngine(
   container: HTMLElement,
@@ -103,7 +106,11 @@ export function createSecondMapEngine(
     options.mapKey === undefined ? null : secondMapPlace(options.mapKey),
     options.sky ?? { kind: "off" },
     {
-      setNightLift: (lift) => unitView.setNightLift(lift),
+      setNightLift: (lift) => {
+        unitView.setNightLift(lift);
+        // 건물: 몸 밤 빛·창문 불빛(밤 정도 = 유닛 밤 빛 ÷ 그 상한)
+        buildingView.setNight(lift / UNIT_NIGHT_LIFT);
+      },
       redraw: () => scheduler.request(),
     },
   );
@@ -271,10 +278,11 @@ export function createSecondMapEngine(
     scheduler.request();
   };
 
-  // 누른 곳: 유닛(화면 거리, units/unitRoster.ts) → 없으면 땅
+  // 누른 곳: 유닛(화면 거리, units/unitRoster.ts) → 건물(조각 상자, 땅보다 앞이면) → 땅
   const pickGround = (point: ScreenPoint): { x: number; z: number } | null => {
     if (!terrain) return null;
     const ray = screenRay(state, viewport, point);
+    const building = buildingView.pick(ray.origin, ray.dir);
     const hit = rayHitsTerrain(
       ray.origin,
       ray.dir,
@@ -283,6 +291,14 @@ export function createSecondMapEngine(
       maxHeight + 1,
       terrain.cellSizeM / 4,
     );
+    // 건물이 땅보다 앞에서 시선을 막으면 그 건물 판 안 자리(화면은 칸으로 어느 건물인지 찾는다)
+    if (building) {
+      const groundDistance = hit
+        ? Math.hypot(hit.x - ray.origin.x, hit.y - ray.origin.y, hit.z - ray.origin.z)
+        : Number.POSITIVE_INFINITY;
+      if (building.distance <= groundDistance + BUILDING_PICK_SLACK_M)
+        return { x: building.x, z: building.z };
+    }
     if (!hit || hit.x < 0 || hit.z < 0 || hit.x > mapSize || hit.z > mapSize) return null;
     return hit;
   };
@@ -371,6 +387,7 @@ export function createSecondMapEngine(
       }
       if (pendingBuildings) {
         buildingView.set(pendingBuildings, cellM, groundAt);
+        propView.setBlocked(footprintMask(pendingBuildings, PLACEMENT_CELLS));
         pendingBuildings = null;
       }
       emit(contextLost ? { kind: "context-lost" } : { kind: "ready" });
@@ -427,6 +444,8 @@ export function createSecondMapEngine(
         return;
       }
       buildingView.set(buildings, cellM, groundAt);
+      // 건물 판 안에는 나무 등 소품 모델을 세우지 않는다
+      propView.setBlocked(footprintMask(buildings, PLACEMENT_CELLS));
       scheduler.request();
     },
 

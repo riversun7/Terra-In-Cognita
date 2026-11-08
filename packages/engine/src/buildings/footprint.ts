@@ -2,6 +2,7 @@
 // 겹침·지형·도로 검사는 서버가 한다. 기기는 그리기와 미리 보기만 한다.
 // 회전: 앞면 방향을 시계 방향으로 90°씩 돌린다(0 남쪽, 1 서쪽, 2 북쪽, 3 동쪽). 홀수면 가로·세로가 바뀐다.
 // 기준 칸(cellX, cellY)은 회전과 상관없이 차지한 칸의 왼쪽 위(가장 작은 x·y)다.
+import type { BuildingLook } from "./buildingLook.ts";
 
 export type QuarterTurns = 0 | 1 | 2 | 3;
 
@@ -14,10 +15,12 @@ export interface BuildingFootprint {
   width: number;
   depth: number;
   rotation: QuarterTurns;
-  /** 높이(m, 표시용) */
+  /** 높이(m, 표시용) — 겉모습 모델(buildingModels.ts)은 쓰지 않는다(종류마다 정한 높이). 미리 보기 등이 쓴다 */
   heightM: number;
-  /** 색 0xRRGGBB(없으면 기본 색) */
+  /** 색 0xRRGGBB — 겉모습 모델은 쓰지 않는다(색 표 buildingPalette.ts) */
   color?: number;
+  /** 겉모습: 시설 ID·레벨·상태·국가 색 번호(없으면 일반 집, ADR 2026-11-08-building-art) */
+  look?: BuildingLook | undefined;
 }
 
 /** 차지한 칸 범위: x0 ≤ x < x1, y0 ≤ y < y1 */
@@ -43,6 +46,13 @@ export function footprintCells(footprint: BuildingFootprint, gridSize: number): 
     for (let x = Math.max(0, rect.x0); x < Math.min(gridSize, rect.x1); x++) cells.push(y * gridSize + x);
   }
   return cells;
+}
+
+/** 건물이 차지한 칸 표(gridSize², 차지했으면 1) — 소품 모델이 건물 판 안에 서지 않게 거른다(props/propView.ts) */
+export function footprintMask(buildings: readonly BuildingFootprint[], gridSize: number): Uint8Array {
+  const mask = new Uint8Array(gridSize * gridSize);
+  for (const building of buildings) for (const cell of footprintCells(building, gridSize)) mask[cell] = 1;
+  return mask;
 }
 
 /** 2차맵(gridSize × gridSize) 안에 다 들어가는지 */

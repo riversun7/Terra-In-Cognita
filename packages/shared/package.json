@@ -27,6 +27,7 @@
     "./itemEditor": "./src/itemEditor.ts",
     "./labor": "./src/labor.ts",
     "./mail": "./src/mail.ts",
+    "./mapLooks": "./src/mapLooks.ts",
     "./mapUnits": "./src/mapUnits.ts",
     "./planetCalendar": "./src/planetCalendar.ts",
     "./ranking": "./src/ranking.ts",

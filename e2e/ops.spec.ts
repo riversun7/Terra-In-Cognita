@@ -37,9 +37,9 @@ test.describe("운영자 콘솔 — admin", () => {
     // 감사 기록 탭
     await page.locator(".ops-tabs [role='tab']").nth(6).click();
     await expect(page.locator(".ops-main form")).toBeVisible();
-    // 권한 부여: dev 계정을 열면 역할 기본이 잠긴 체크박스
+    // 권한 부여: dev 계정(아이디 e2e_dev, e2e/global-setup.ts)을 열면 역할 기본이 잠긴 체크박스
     await page.locator(".ops-tabs [role='tab']").nth(7).click();
-    await page.locator(".ops-main form input").fill("dev");
+    await page.locator(".ops-main form input").fill("e2e_dev");
     await page.locator(".ops-main form button[type='submit']").click();
     await expect(page.locator(".ops-grants input[type='checkbox']")).toHaveCount(13);
     await expect(page.locator(".ops-grants input[type='checkbox']:disabled")).toHaveCount(13);

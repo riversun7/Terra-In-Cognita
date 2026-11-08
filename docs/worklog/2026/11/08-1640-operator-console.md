@@ -42,7 +42,8 @@
 
 ## 검증
 - `pnpm check` 통과(시험 3,810 통과 / 265 건너뜀 — DB 없이).
-- DB 통합 시험: 이 컨테이너의 PostgreSQL 16을 켜고 `TEST_DATABASE_URL`로 `apps/server/src/ops/ops.db.test.ts` 통과(실제 월드·SQL: 현황·유저·유닛·치료·순간이동·지급/회수·정지/해제·세션 지움·체크박스·감사 기록·세력·도시). 서버 DB 시험 전체 결과는 아래 "미검증"에 적는다.
+- DB 통합 시험: 이 컨테이너의 PostgreSQL 16을 켜고 `TEST_DATABASE_URL`로 `apps/server/src/ops/ops.db.test.ts` 통과(실제 월드·SQL: 현황·유저·유닛·치료·순간이동·지급/회수·정지/해제·세션 지움·체크박스·감사 기록·세력·도시). 서버 DB 시험 전체(`TEST_DATABASE_URL=… pnpm vitest run apps/server`): 179파일 / 1,154개 통과, 건너뜀 0.
+- 화면 시험 `e2e/ops.spec.ts` 6개 통과(admin: 탭 8개·현황·유저 상세·유닛·감사·권한 체크박스 13개 잠김, 1440·390px × 네온·라이트 사진, 390px 가로 넘침·누르는 곳 검사, player 권한 없음). 첫 실행에서 390px 상세 판 가로 넘침(문서 폭 790px)을 잡아 `ops.css`(`.ops-stack` 칸 최소 폭 0)로 고쳤다. 사진 8장은 저장소 밖(세션 임시 폴더)에 두었다.
 - Node는 이 컨테이너가 22.23.4라 저장소 기준(24)과 다르다(경고만, 시험은 돌았다).
 
 ## 미검증·TODO·알려진 문제

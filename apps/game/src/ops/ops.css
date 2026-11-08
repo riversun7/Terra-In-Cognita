@@ -55,7 +55,12 @@
 }
 .ops-stack {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
+  min-width: 0;
+}
+/* 격자 칸의 기본 최소 폭(auto)이 넓은 표만큼 판을 늘리지 않게 */
+.ops-stack > * {
   min-width: 0;
 }
 .ops-toolbar {

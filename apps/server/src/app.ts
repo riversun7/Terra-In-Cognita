@@ -82,6 +82,8 @@ import { createItemEditShared } from "./itemEdit/services.ts";
 import { createFormulaServices } from "./formulas/services.ts";
 import { createHeavyGate } from "./balance/gate.ts";
 import { duelRunnerOf, inlineJobRunner, workerJobRunner } from "./balance/runner.ts";
+import type { AnalysisLimits } from "./battleLab/analysisJobs.ts";
+import { inlineBatchRunner, workerBatchRunner } from "./battleLab/analysisRunner.ts";
 import { type BattleLabLimits, createBattleLabShared } from "./battleLab/services.ts";
 import { worldArenaTerrains } from "./battleLab/worldTerrains.ts";
 import type { LocalizedName } from "@terra/shared/roster";
@@ -99,7 +101,9 @@ import {
 } from "./battleReplay/services.ts";
 import type { ReplayName } from "@terra/protocol/battleReplay";
 import { createTerrainService } from "./world/terrainService.ts";
-import { TEST_MAP_KEY, TEST_PLANET_ID, type WorldConfig, startWorld } from "./world/world.ts";
+import { TEST_MAP_KEY, TEST_PLANET_ID, type WorldConfig, startWorld, testMapKey } from "./world/world.ts";
+import { placementSourceOf } from "./world/placementService.ts";
+import { nationName } from "./npc/nations.ts";
 import type { RankingPathInfo } from "@terra/shared/ranking";
 import type { NationNames } from "./ranking/paths.ts";
 import { createRankingRuntime, createRankingServices } from "./ranking/services.ts";
@@ -209,6 +213,7 @@ export interface AppOptions {
     | {
         unitKindNames?: ReadonlyMap<string, LocalizedName> | undefined;
         limits?: Partial<BattleLabLimits> | undefined;
+        analysisLimits?: Partial<AnalysisLimits> | undefined;
       }
     | undefined;
   /**
@@ -488,6 +493,21 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // 영토(docs/adr/2026-11-03-territory-layer.md): 같은 조건
   const territoryService = (): TerritoryService | undefined =>
     world?.status().state === "ready" ? world.persistence?.territory : undefined;
+  // 세계 배치 화면(기획 D-528, src/world/placementService.ts): DB가 있는 세계, 행성 값이 있을 때
+  const worldLayout =
+    world && options.db && tuningState
+      ? placementSourceOf({
+          world,
+          pool: options.db.$client,
+          planetId: TEST_PLANET_ID,
+          testMapKeys: Array.from({ length: Math.max(1, options.world?.testMaps ?? 1) }, (_, n) =>
+            testMapKey(n),
+          ),
+          seed: () => tuningState.society().worldSeed,
+          nationName: (code) => nationName(code, options.world?.npc?.presets),
+          now,
+        })
+      : undefined;
   // 구인 카드(D-469): 세계가 준비되고 NPC 사회 런타임이 돌 때만(거울 도시·시드가 런타임에 있다)
   const recruitService = (): RecruitService | undefined =>
     world?.status().state === "ready" && world.npc ? world.persistence?.recruits : undefined;
@@ -615,6 +635,12 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         }),
         runner: jobRunner,
         gate: heavyGate,
+        // 밸런스 분석 묶음 일: 같은 워커 진입 파일(일 종류 batch), 따로 센 바쁨
+        batches:
+          balanceRunner?.kind === "worker"
+            ? workerBatchRunner({ workerUrl: balanceRunner.workerUrl })
+            : inlineBatchRunner(),
+        analysisLimits: options.battleLab?.analysisLimits,
         now,
         log: app.log,
         limits: options.battleLab?.limits,
@@ -713,6 +739,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       secondMapLab,
       // 영토 조회(내 세력·개발 화면 전체)
       territory: territoryService,
+      worldLayout,
       worldMap: worldMapService,
       gather: gatherReads ? () => (worldGather?.current() ? gatherReads : undefined) : undefined,
       // 경제 화면: 팩 목록 + 월드 원장 잔고(읽기만) + 시안 자료

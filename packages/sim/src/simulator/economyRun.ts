@@ -1,6 +1,7 @@
 // 시뮬레이터 실행에 경제를 붙이는 접착 — docs/adr/2026-10-31-economy-core.md 7절
 // run.ts가 시나리오에 economy 칸이 있을 때 부른다: 경제 차리기·예약, 사건 나누기, 하루 끝(중앙은행·지표 줄), 불변 조건, 요약.
 import { HOUR_MS } from "../economy/production.ts";
+import { centralBankRuleOf } from "../economy/centralBank.ts";
 import type { ScheduledEvent } from "../events/eventQueue.ts";
 import type { EconomyCatalog } from "./catalog.ts";
 import {
@@ -226,7 +227,8 @@ export function runEconomy(
       return true;
     },
     endOfDay(nowMs) {
-      bankDay(economy, world, nowMs);
+      // 중앙은행 공식 계수 = NPC 판단 계수표의 bank* 칸(설정 칸, 서버는 rules().npc)
+      bankDay(economy, world, nowMs, centralBankRuleOf(npc));
     },
     bidsPlaced: () => bids,
     dayLine() {

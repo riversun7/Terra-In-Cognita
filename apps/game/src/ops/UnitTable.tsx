@@ -1,6 +1,7 @@
 // 운영자 콘솔 · 유닛 표(유닛 탭·유저 상세·세력 상세가 같이 쓴다)
 import type { OpsUnitRow } from "@terra/shared/ops";
 import { m } from "../paraglide/messages.js";
+import { injuryStageName } from "../roster/InjuryBadge.tsx";
 import type { OpenDetail } from "./OpsConsole.tsx";
 import { unitKindLabel, whereText } from "./opsUi.tsx";
 
@@ -44,7 +45,9 @@ export function UnitTable({ rows, open }: { rows: readonly OpsUnitRow[]; open: O
               <td>
                 {row.moving ? <span className="dev-badge">{m.ops_status_moving()}</span> : null}
                 {row.injury > 0 ? (
-                  <span className="dev-badge ops-bad">{m.ops_injury({ stage: row.injury })}</span>
+                  <span className="dev-badge ops-bad">
+                    {m.ops_injury({ stage: injuryStageName(row.injury) })}
+                  </span>
                 ) : null}
                 {row.captive ? <span className="dev-badge ops-bad">{m.ops_status_captive()}</span> : null}
               </td>

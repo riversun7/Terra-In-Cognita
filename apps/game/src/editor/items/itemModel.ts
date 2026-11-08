@@ -64,13 +64,19 @@ export const EMPTY_QUERY: ItemQuery = {
 
 const lower = (text: string): string => text.toLocaleLowerCase();
 
-/** 찾기(ID·이름 ko/en·태그)와 거르기. staged = 담은 변경이 있는 아이템 ID */
+/**
+ * 찾기(ID·이름 ko/en·태그·대분류·중분류 ID, 낱말 여럿이면 모두 맞는 것)와 거르기. staged = 담은 변경이 있는 아이템 ID.
+ * labels = 화면 글로도 찾을 대분류 이름(예 "장비")
+ */
 export function filterItems(
   rows: readonly ItemRow[],
   query: ItemQuery,
   staged: ReadonlySet<string>,
+  labels?: Readonly<Partial<Record<string, string>>>,
 ): ItemRow[] {
-  const text = lower(query.text.trim());
+  const words = lower(query.text.trim())
+    .split(/\s+/)
+    .filter((word) => word !== "");
   return rows.filter((row) => {
     if (query.category !== "all" && row.category !== query.category) return false;
     if (query.subcategory !== "all" && row.subcategory !== query.subcategory) return false;
@@ -82,13 +88,19 @@ export function filterItems(
     if (row.tier < query.tierMin || row.tier > query.tierMax) return false;
     if (query.advice && row.advice === 0) return false;
     if (query.staged && !staged.has(row.id)) return false;
-    if (text === "") return true;
-    return (
-      lower(row.id).includes(text) ||
-      lower(row.name.ko).includes(text) ||
-      lower(row.name.en).includes(text) ||
-      row.tags.some((tag) => lower(tag).includes(text))
+    if (words.length === 0) return true;
+    const hay = lower(
+      [
+        row.id,
+        row.name.ko,
+        row.name.en,
+        ...row.tags,
+        row.category,
+        labels?.[row.category] ?? "",
+        row.subcategory ?? "",
+      ].join(" "),
     );
+    return words.every((word) => hay.includes(word));
   });
 }
 
@@ -263,6 +275,16 @@ function setIn<T>(
   if (staged === null) next.delete(id);
   else next.set(id, staged);
   return next;
+}
+
+/** 담은 키 하나(분류/ID)를 뺀 새 담은 변경(담은 변경 막대의 [×]) */
+export function unstageKey(stage: Stage, key: string): Stage {
+  const cut = key.indexOf("/");
+  const category = ITEM_EDIT_CATEGORIES.find((name) => name === key.slice(0, cut));
+  if (cut < 0 || !category) return stage;
+  const next = new Map(stage[category]);
+  next.delete(key.slice(cut + 1));
+  return { ...stage, [category]: next };
 }
 
 /** 아이템 변경 하나를 바꾼 새 담은 변경(null = 뺀다) */

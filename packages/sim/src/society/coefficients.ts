@@ -19,6 +19,19 @@ import { START_WAR_COEFFICIENTS, type WarCoefficients } from "./warOutcomes.ts";
 import { START_WORLD_SEED, type WorldSeedCoefficients } from "./worldSeed.ts";
 import { type GatherObjectCoefficients, START_GATHER_OBJECTS } from "./gatherObjects.ts";
 
+/** 도시 발전도 식 계수([임시], SocietyCoefficients.development) */
+export interface DevelopmentCoefficients {
+  /** 평균 만족도(밀리점)를 이 값으로 나눈 몫(만족도 100점 = 100,000 ÷ 2000 = 50) */
+  readonly satisfactionDivisorMilli: number;
+  /** 유닛(휴먼) 하나가 더하는 발전도와 그 몫의 상한 */
+  readonly perUnit: number;
+  readonly unitCap: number;
+  /** 연구 시설 레벨 하나가 더하는 발전도 */
+  readonly perResearchLevel: number;
+  /** 발전도 상한 */
+  readonly max: number;
+}
+
 export interface SocietyCoefficients {
   /** 도시 주식 수(D-130) */
   readonly sharesPerCity: number;
@@ -48,7 +61,7 @@ export interface SocietyCoefficients {
   readonly dictatorshipSatisfactionDrop: number;
   /** [임시] 상장폐지 때 다른 세력과의 관계 점수 하락(S31) */
   readonly delistRelationDrop: number;
-  /** [임시] 약탈이 가져가는 도시 금고·공공 창고 몫(만분율) */
+  /** [임시] 약탈: 정부 재건 전까지 하루마다 꺼내 가는 도시 금고 몫(만분율, D-186·D-527) */
   readonly lootTakeBp: number;
   /** 상속세(S22 기존 50%, 만분율) */
   readonly inheritanceTaxBp: number;
@@ -95,6 +108,14 @@ export interface SocietyCoefficients {
   readonly developmentPerTech: number;
   /** 설계도 할인(D-396 출발값 50%, 만분율) */
   readonly blueprintDiscountBp: number;
+  /**
+   * [임시] 도시 발전도 식(D-254 7요소 전, 하루 끝): min(상한, ⌊평균 만족도(밀리) ÷ 만족도 나눗수⌋ + min(인구 상한, 유닛 수 × 유닛당)
+   * + 연구 시설 Lv × 레벨당). 기술 단계 문턱(developmentPerTech)·도시 등급(M2)이 이 값을 본다. 설정 칸 2026-11-08(분야별 페이지)
+   */
+  readonly development: DevelopmentCoefficients;
+  /** [임시] NPC 지분 팔기 한 번(simulator/society.ts sellShares): 파는 주식 수와 주당 값(사는 쪽 국고 화폐 최소 단위) */
+  readonly shareSaleAmount: number;
+  readonly shareSalePrice: number;
   /** 피로 상한(N21 구조 값 120) */
   readonly fatigueMax: number;
   /** 피로 구간 불이익(N23): 구간 하한(포함) → 능력 ‰, 이동 ‰ */
@@ -262,11 +283,18 @@ export interface SocietyCoefficients {
     readonly startPineLog: number;
     readonly startStone: number;
     /**
-     * 국적 바꾸기(귀화, 기획 정리 D-523 포인터 질문 745 나 "값·쉬는 날은 설정 칸", docs/adr/2026-11-08-citizenship.md, 기획 칸 없음 → [임시]
-     * 설정값): 받는 나라 국고에 내는 값(최소 단위)과 바꾼 뒤 다시 바꿀 수 없는 기간(ms, 실제 시간 D-5030). 판정 코드는 쓰지 않는다(서버만)
+     * 국적 바꾸기(귀화, 기획 정리 D-523 포인터 질문 745 나 "값·쉬는 날은 설정 칸"·D-526, docs/adr/2026-11-08-citizenship.md, 기획 칸 없음 →
+     * [임시] 설정값). 판정 코드는 쓰지 않는다(서버만).
+     * - naturalizeFee: 받는 나라가 정하는 귀화 조건의 기본값(나라가 따로 정하지 않으면 이 값, NPC 국가는 늘 이 값 — D-526). 부호 있는 최소 단위:
+     *   + = 입회비(옮겨 오는 사람 → 받는 나라 국고), − = 지원금(받는 나라 국고 → 옮겨 오는 사람), 0 = 둘 다 없음.
+     * - naturalizeRestMs: 바꾼 뒤 다시 바꿀 수 없는 기간(ms, 실제 시간 D-5030).
+     * - naturalizeStandingDrop·naturalizeStandingDropHostile: 떠난 사람과 옛 나라 사이 우호도(−100~100, 46 §4.1 호감 띠와 같은 눈금)가 떨어지는
+     *   양 — 보통 / 옛 나라와 전쟁 중인 나라(적대 세력)로 옮길 때(D-526 "크게 하락")
      */
     readonly naturalizeFee: number;
     readonly naturalizeRestMs: number;
+    readonly naturalizeStandingDrop: number;
+    readonly naturalizeStandingDropHostile: number;
   };
   /**
    * 장비·인공장기 수리(D-5031, 49 F11·F12): 수리 시설 Lv1~5의 최대 내구도 감소(%, 장인 실력 1000‰이면 반으로 줄어든다), 감소 하한(%),
@@ -348,7 +376,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   delistSatisfactionDrop: 15,
   dictatorshipSatisfactionDrop: 20,
   delistRelationDrop: 20,
-  lootTakeBp: 5000,
+  lootTakeBp: 1000,
   inheritanceTaxBp: 5000,
   lifespanMinMs: 60 * DAY,
   lifespanMaxMs: 90 * DAY,
@@ -368,6 +396,9 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   researchWorkBase: 48_000,
   developmentPerTech: 20,
   blueprintDiscountBp: 5000,
+  development: { satisfactionDivisorMilli: 2000, perUnit: 2, unitCap: 30, perResearchLevel: 4, max: 100 },
+  shareSaleAmount: 100,
+  shareSalePrice: 10,
   fatigueMax: 120,
   fatigueBands: [
     { from: 0, abilityPm: 1000, movePm: 1000 },
@@ -468,6 +499,8 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     startStone: 10,
     naturalizeFee: 100,
     naturalizeRestMs: 7 * 86_400_000,
+    naturalizeStandingDrop: 20,
+    naturalizeStandingDropHostile: 60,
   },
   durability: {
     repairLossPct: [30, 25, 20, 15, 10],

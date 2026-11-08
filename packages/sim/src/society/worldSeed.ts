@@ -69,6 +69,12 @@ export interface WorldSeedCoefficients {
    */
   readonly workStartPm: number;
   readonly workEndPm: number;
+  /**
+   * [임시] NPC 수도 옮기기 문턱(기획 D-528 "수도는 발전도가 높은곳이나 적정한 곳을 npc가 설정하고 상황에 따라 바꿀 수있음",
+   * docs/adr/2026-11-07-world-layout.md "바뀜 (D-528)"): 하루 끝에 같은 나라의 다른 도시 발전도가 지금 수도보다 이 값(발전도 점, 0~100) 이상 높으면
+   * 수도를 그 도시로 옮긴다(작은 차이로 매일 오가지 않게). 서버만 읽는다(src/npc/capitals.ts)
+   */
+  readonly capitalSwitchDev: number;
 }
 
 /** 출발값 — 모두 [임시](옛 규칙 없음, D-515). 시작 도시 2~4곳(60 §7.1), 기본 시설은 종류마다 하나 */
@@ -101,6 +107,8 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   // 낮밤 일: 06:00~18:00(춘분·추분에 해가 뜨고 지는 지역 시각 — 1차맵 하늘 자전축 [임시] 23.44°라 계절·위도에 따라 해 뜨는 때는 다르다)
   workStartPm: 250,
   workEndPm: 750,
+  // 수도 옮기기: 발전도 10점(도시 등급 한 칸쯤) 넘게 앞서야 옮긴다
+  capitalSwitchDev: 10,
 };
 
 /** 시작 도시 수가 놓일 수 있는 범위(60 §7.1 "2~4곳"을 넘지 않게, 칸이 1까지는 받는다) */

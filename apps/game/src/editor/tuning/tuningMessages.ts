@@ -9,7 +9,13 @@ import type {
   TuningUnit,
 } from "@terra/shared/tuning";
 import { m } from "../../paraglide/messages.js";
-import type { CellStatus, TuningErrorKey, TuningFilter } from "./tuningModel.ts";
+import {
+  type CellStatus,
+  NO_UNIT,
+  type ScopeFilter,
+  type TuningErrorKey,
+  type TuningPageTab,
+} from "./tuningModel.ts";
 
 const FAMILY_TEXT: Readonly<Record<KnownTuningFamily, () => string>> = {
   T: m.dev_tuning_family_T,
@@ -32,10 +38,24 @@ export function familyText(family: string): string {
   return isKnownFamily(family) ? FAMILY_TEXT[family]() : m.dev_tuning_family_other({ letter: family });
 }
 
-export const FILTER_TEXT: Readonly<Record<TuningFilter, () => string>> = {
-  all: m.dev_tuning_filter_all,
-  changed: m.dev_tuning_filter_changed,
-  live: m.dev_tuning_filter_live,
+/** 분야 페이지 탭 이름·한 줄 풀이(2026-11-08 분야별 페이지) */
+export const PAGE_TEXT: Readonly<Record<TuningPageTab, { label: () => string; lead: () => string }>> = {
+  all: { label: m.dev_tuning_page_all, lead: m.dev_tuning_page_all_lead },
+  society: { label: m.dev_tuning_page_society, lead: m.dev_tuning_page_society_lead },
+  npc: { label: m.dev_tuning_page_npc, lead: m.dev_tuning_page_npc_lead },
+  gardener: { label: m.dev_tuning_page_gardener, lead: m.dev_tuning_page_gardener_lead },
+  holdings: { label: m.dev_tuning_page_holdings, lead: m.dev_tuning_page_holdings_lead },
+  combat: { label: m.dev_tuning_page_combat, lead: m.dev_tuning_page_combat_lead },
+  economy: { label: m.dev_tuning_page_economy, lead: m.dev_tuning_page_economy_lead },
+  other: { label: m.dev_tuning_page_other, lead: m.dev_tuning_page_other_lead },
+};
+
+/** 반영 범위 거르기 단추 이름 */
+export const SCOPE_FILTER_TEXT: Readonly<Record<ScopeFilter, () => string>> = {
+  all: m.dev_tuning_scope_all,
+  live: m.dev_tuning_scope_live,
+  sim: m.dev_tuning_scope_sim,
+  none: m.dev_tuning_scope_none,
 };
 
 export const SCOPE_TEXT: Readonly<Record<TuningScope, { label: () => string; hint: () => string }>> = {
@@ -60,6 +80,14 @@ const UNIT_TEXT: Readonly<Record<TuningUnit, () => string>> = {
 
 export function unitText(unit: TuningUnit | null): string {
   return unit === null ? m.dev_tuning_unit_none() : UNIT_TEXT[unit]();
+}
+
+const isUnit = (key: string): key is TuningUnit => Object.hasOwn(UNIT_TEXT, key);
+
+/** 단위 고르기 값(TuningUnit 또는 NO_UNIT) → 이름 */
+export function unitKeyText(key: string): string {
+  if (key === NO_UNIT) return m.dev_tuning_unit_none();
+  return isUnit(key) ? UNIT_TEXT[key]() : key;
 }
 
 const ERROR_TEXT: Readonly<Record<TuningErrorKey, () => string>> = {

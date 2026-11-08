@@ -25,6 +25,7 @@ import type {
 } from "@terra/shared/cyborg";
 import { checkElementAllocation, isCyborgAppearance, parseCyborgName } from "@terra/shared/cyborg";
 import { cityLocation } from "@terra/shared/goodsPlaces";
+import { RELATION_SCORE_MAX, RELATION_SCORE_MIN } from "@terra/shared/faction";
 import type { LocalizedName } from "@terra/shared/roster";
 import type { CyborgResultCode, CyborgRollWire } from "@terra/protocol";
 import { createRng } from "@terra/shared";
@@ -125,12 +126,18 @@ export interface CyborgService {
   /** 첫 접속에서 고를 수 있는 나라인가(고정 NPC 국가 + 이 서버에 시작 도시) — 국적 바꾸기의 받는 나라도 같은 목록이다 */
   joinable(factionId: number): boolean;
   /**
-   * 국적을 바꾼다(docs/adr/2026-11-08-citizenship.md): 나라·내 도시·바꾼 시각·돌려준 지원금을 메모리에 고치고 사이보그 행·세력 가입·기록 한 줄을
-   * 쓰기 대기열에 넣는다(커밋은 부르는 쪽이 원장 거래와 함께 기다린다). 판정(쉬는 날·값·자리)은 부르는 쪽(citizenship/service.ts)이 먼저 한다
+   * 국적을 바꾼다(docs/adr/2026-11-08-citizenship.md·"바뀜 (D-526)"): 나라·내 도시·바꾼 시각·옛 나라 우호도를 메모리에 고치고 사이보그 행·세력
+   * 가입·우호도·기록 한 줄을 쓰기 대기열에 넣는다(커밋은 부르는 쪽이 원장 거래와 함께 기다린다). 판정(쉬는 날·값·자리)은 부르는 쪽
+   * (citizenship/service.ts)이 먼저 한다
    */
   changeNation(userId: string, change: NationChange): boolean;
-  /** 국적 바꾸기 설정 칸(실효 값, 부를 때마다): 귀화 값(최소 단위)·쉬는 기간(ms) */
-  naturalizationRules(): { readonly fee: bigint; readonly restMs: number };
+  /**
+   * 국적 바꾸기 설정 칸(실효 값, 부를 때마다). fee = 받는 나라(nation)의 귀화 조건(D-526 부호 있는 최소 단위: + 입회비 / − 지원금 — 나라가 정한
+   * 값, 없으면 설정 칸 기본값), restMs = 쉬는 기간, standingDrop·standingDropHostile = 옛 나라 우호도 하락(보통·적대 세력으로)
+   */
+  naturalizationRules(nation?: number): NaturalizationRules;
+  /** 그 사람과 그 나라 사이 우호도(D-526, −100~100, 없으면 0) */
+  standingOf(userId: string, factionId: number): number;
   /**
    * 신앙도·신앙 포인트를 함께 올린다(신전 기도·헌금, D-444 165·D-451 — 신앙도는 100에서 멈춘다). 사이보그가 없으면 undefined.
    * 쓰기 대기열에 넣기만 한다(커밋은 부르는 쪽이 기다린다)
@@ -142,15 +149,31 @@ export interface CyborgService {
   readonly size: number;
 }
 
+/** 국적 바꾸기 설정 칸(실효 값) */
+export interface NaturalizationRules {
+  readonly fee: bigint;
+  readonly restMs: number;
+  readonly standingDrop: number;
+  readonly standingDropHostile: number;
+}
+
 /** 국적 바꾸기 한 번(판정을 마친 값) */
 export interface NationChange {
   readonly factionId: number;
   readonly cityId: number;
   readonly buildingId: number;
   readonly atMs: number;
+  /** 낸 입회비·받은 지원금(최소 단위, 둘 중 하나만 0보다 크다) */
   readonly fee: bigint;
-  readonly grantReturned: bigint;
+  readonly grant: bigint;
+  /** 옛 나라 우호도가 떨어지는 양(0 이상)과 적대 세력으로 옮겼나 */
+  readonly standingDrop: number;
+  readonly hostile: boolean;
 }
+
+/** 우호도 하락 설정 칸 → 0 이상·눈금 폭(200) 이하 */
+const standingDropCell = (value: number): number =>
+  Number.isSafeInteger(value) && value > 0 ? Math.min(value, RELATION_SCORE_MAX - RELATION_SCORE_MIN) : 0;
 
 export interface CyborgServiceOptions {
   loaded: LoadedCyborgs;
@@ -496,7 +519,7 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         faithPoints: 0,
         startGrant: paid,
         nationChangedAtMs: null,
-        grantReturned: 0n,
+        standings: new Map<number, number>(),
       };
       byUser.set(userId, record);
       byName.set(record.nameKey, userId);
@@ -544,13 +567,19 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       writer.upsert("cyborgs", cyborgRow(record));
       return next;
     },
-    naturalizationRules() {
-      const { naturalizeFee, naturalizeRestMs } = options.rules().cyborg;
+    naturalizationRules(nation) {
+      const c = options.rules().cyborg;
+      // 나라가 정한 값이 먼저, 없으면 설정 칸 기본값(NPC 국가는 늘 기본값 — D-526)
+      const own =
+        nation === undefined ? null : (factions.find((entry) => entry.id === nation)?.naturalizeFee ?? null);
       return {
-        fee: Number.isSafeInteger(naturalizeFee) && naturalizeFee > 0 ? BigInt(naturalizeFee) : 0n,
-        restMs: Number.isSafeInteger(naturalizeRestMs) && naturalizeRestMs > 0 ? naturalizeRestMs : 0,
+        fee: own ?? (Number.isSafeInteger(c.naturalizeFee) ? BigInt(c.naturalizeFee) : 0n),
+        restMs: Number.isSafeInteger(c.naturalizeRestMs) && c.naturalizeRestMs > 0 ? c.naturalizeRestMs : 0,
+        standingDrop: standingDropCell(c.naturalizeStandingDrop),
+        standingDropHostile: standingDropCell(c.naturalizeStandingDropHostile),
       };
     },
+    standingOf: (userId, factionId) => byUser.get(userId)?.standings.get(factionId) ?? 0,
     joinable: (factionId) =>
       factions.some((faction) => faction.id === factionId) && startCitiesOf(factionId).length > 0,
     changeNation(userId, change) {
@@ -560,9 +589,20 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
       record.factionId = change.factionId;
       record.startCityId = change.cityId;
       record.nationChangedAtMs = change.atMs;
-      record.grantReturned += change.grantReturned;
+      // 옛 나라 우호도(D-526): 떨어진 값을 눈금 안으로 자르고 덮어쓴다
+      const score = Math.max(
+        RELATION_SCORE_MIN,
+        (record.standings.get(from) ?? 0) - Math.max(0, change.standingDrop),
+      );
+      record.standings.set(from, score);
       writer.upsert("factionMembers", { user_id: userId, faction_id: change.factionId });
       writer.upsert("cyborgs", cyborgRow(record));
+      writer.upsert("userNationStandings", {
+        user_id: userId,
+        faction_id: from,
+        score,
+        updated_at_ms: change.atMs,
+      });
       writer.append("nationalityChanges", {
         user_id: userId,
         from_faction: from,
@@ -571,7 +611,10 @@ export function createCyborgService(options: CyborgServiceOptions): CyborgServic
         building_id: change.buildingId,
         at_ms: change.atMs,
         fee: change.fee,
-        grant_returned: change.grantReturned,
+        grant_returned: 0n,
+        grant_paid: change.grant,
+        standing_drop: Math.max(0, change.standingDrop),
+        hostile: change.hostile,
       });
       return true;
     },

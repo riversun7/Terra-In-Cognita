@@ -160,6 +160,12 @@ export function cleanFacility(entry: FacilityJson): FacilityJson {
     ...(entry.maxLevel === undefined ? {} : { maxLevel: entry.maxLevel }),
     slotsPerLevel: entry.slotsPerLevel,
     ...(entry.pollution === undefined ? {} : { pollution: entry.pollution }),
+    // 건물 런타임 칸(docs/adr/2026-11-07-buildings-runtime.md): 빼면 다른 칸만 고쳐도 덮어쓰기가 이 칸을 지운다
+    ...(entry.footprint === undefined
+      ? {}
+      : { footprint: { width: entry.footprint.width, height: entry.footprint.height } }),
+    ...(entry.durability === undefined ? {} : { durability: entry.durability }),
+    ...(entry.storageKg === undefined ? {} : { storageKg: entry.storageKg }),
     ...(entry.gather === undefined ? {} : { gather: cleanGather(entry.gather) }),
     ...(entry.build === undefined ? {} : { build: entry.build }),
     ...(entry.repair === undefined ? {} : { repair: entry.repair }),
@@ -191,6 +197,9 @@ export function mergeFacility(
     maxLevel: pick("maxLevel"),
     slotsPerLevel: pick("slotsPerLevel"),
     pollution: pick("pollution"),
+    footprint: pick("footprint"),
+    durability: pick("durability"),
+    storageKg: pick("storageKg"),
     gather: pick("gather"),
     build: pick("build"),
     repair: pick("repair"),

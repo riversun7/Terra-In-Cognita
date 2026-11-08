@@ -16,6 +16,7 @@ import {
 import type { ReactNode } from "react";
 import { m } from "../../paraglide/messages.js";
 import { CheckField, NumberField, SelectField, TextField } from "../content/contentEditorFields.tsx";
+import { FormSection } from "../content/contentEditorLayout.tsx";
 import { CATEGORY_TEXT, MARKET_TEXT, STORAGE_TEXT } from "./itemMessages.ts";
 import { weightText } from "./itemModel.ts";
 
@@ -41,24 +42,38 @@ function lotHint(draft: ItemJson): string {
     : m.dev_items_lot_hint();
 }
 
-/** 접히는 구역 하나 */
+/** 접히는 구역 하나(공용 FormSection: 제목·쉬운 풀이·출처·담은 칸 수·팩과 다른 칸 수, 2026-11-08 화면 개편) */
 export function Section({
   title,
   open = true,
   children,
   name,
+  desc,
+  source,
+  paths,
 }: {
   title: string;
   open?: boolean;
   children: ReactNode;
   /** 시험이 고르는 구역 이름(data-section) */
   name: string;
+  desc?: string | undefined;
+  source?: string | undefined;
+  /** 이 구역의 칸 경로 앞머리 */
+  paths?: readonly string[] | undefined;
 }) {
   return (
-    <details className="ie-section" open={open} data-section={name}>
-      <summary className="ie-section-title">{title}</summary>
-      <div className="ie-section-body">{children}</div>
-    </details>
+    <FormSection
+      title={title}
+      open={open}
+      name={name}
+      desc={desc}
+      source={source}
+      paths={paths}
+      className="ie-section"
+    >
+      {children}
+    </FormSection>
   );
 }
 
@@ -122,12 +137,18 @@ export function ItemBasicSections({
   const equipment = draft.category === "equipment";
   return (
     <>
-      <Section title={m.dev_items_section_basic()} name="basic">
+      <Section
+        title={m.dev_items_section_basic()}
+        name="basic"
+        desc={m.dev_items_section_basic_desc()}
+        paths={["name", "description", "enabled"]}
+      >
         <div className="ie-grid">
           <TextField
             label={m.dev_items_field_name_ko()}
             value={draft.name.ko}
             maxLength={L.nameMax}
+            path="name.ko"
             problem={problem("name.ko") ?? problem("name")}
             onChange={(ko) => onChange({ ...draft, name: { ...draft.name, ko } })}
           />
@@ -135,6 +156,7 @@ export function ItemBasicSections({
             label={m.dev_items_field_name_en()}
             value={draft.name.en}
             maxLength={L.nameMax}
+            path="name.en"
             problem={problem("name.en")}
             onChange={(en) => onChange({ ...draft, name: { ...draft.name, en } })}
           />
@@ -142,6 +164,7 @@ export function ItemBasicSections({
             label={m.dev_items_field_desc_ko()}
             value={description.ko}
             maxLength={L.nameMax * 2}
+            path="description.ko"
             problem={problem("description.ko") ?? problem("description")}
             onChange={(ko) => onChange({ ...draft, description: { ...description, ko } })}
           />
@@ -149,6 +172,7 @@ export function ItemBasicSections({
             label={m.dev_items_field_desc_en()}
             value={description.en}
             maxLength={L.nameMax * 2}
+            path="description.en"
             problem={problem("description.en")}
             onChange={(en) => onChange({ ...draft, description: { ...description, en } })}
           />
@@ -156,13 +180,20 @@ export function ItemBasicSections({
         <p className="field-hint ie-note">{m.dev_items_name_rules()}</p>
         <CheckField
           label={m.dev_items_field_enabled()}
+          path="enabled"
           checked={draft.enabled}
           hint={fieldHint("enabled", m.dev_items_enabled_hint())}
           onChange={(enabled) => onChange({ ...draft, enabled })}
         />
       </Section>
 
-      <Section title={m.dev_items_section_class()} name="class">
+      <Section
+        title={m.dev_items_section_class()}
+        name="class"
+        desc={m.dev_items_section_class_desc()}
+        source="D-487"
+        paths={["category", "subcategory", "tags"]}
+      >
         <div className="ie-grid">
           {categoryLocked ? (
             <div className="field">
@@ -177,6 +208,7 @@ export function ItemBasicSections({
               label={m.dev_items_field_category()}
               value={draft.category}
               options={ITEM_CATEGORY_IDS.map((value) => ({ value, label: CATEGORY_TEXT[value]() }))}
+              path="category"
               problem={problem("category")}
               onChange={onCategory}
             />
@@ -197,6 +229,7 @@ export function ItemBasicSections({
                 ? [{ value: draft.subcategory, label: draft.subcategory }]
                 : []),
             ]}
+            path="subcategory"
             problem={problem("subcategory")}
             onChange={(value) => {
               const { subcategory: _drop, ...rest } = draft;
@@ -226,7 +259,13 @@ export function ItemBasicSections({
         </fieldset>
       </Section>
 
-      <Section title={m.dev_items_section_value()} name="value">
+      <Section
+        title={m.dev_items_section_value()}
+        name="value"
+        desc={m.dev_items_section_value_desc()}
+        source="295 · D-505 · D-506"
+        paths={["tier", "startPrice", "weight", "lotSize", "stackMax", "tradable", "bound"]}
+      >
         <div className="ie-grid">
           <NumberField
             label={m.dev_items_field_tier()}
@@ -234,6 +273,7 @@ export function ItemBasicSections({
             min={L.tier.min}
             max={L.tier.max}
             hint={fieldHint("tier")}
+            path="tier"
             problem={problem("tier")}
             onChange={(tier) => onChange({ ...draft, tier: tier ?? 0 })}
           />
@@ -243,6 +283,7 @@ export function ItemBasicSections({
             min={L.startPrice.min}
             max={L.startPrice.max}
             hint={fieldHint("startPrice", m.dev_items_start_price_hint())}
+            path="startPrice"
             problem={problem("startPrice")}
             onChange={(startPrice) => onChange({ ...draft, startPrice: startPrice ?? 1 })}
           />
@@ -254,6 +295,7 @@ export function ItemBasicSections({
             max={L.weight.max}
             optional
             hint={fieldHint("weight", draft.weight === undefined ? undefined : weightText(draft.weight))}
+            path="weight"
             problem={problem("weight")}
             onChange={(weight) => {
               const { weight: _drop, ...rest } = draft;
@@ -267,6 +309,7 @@ export function ItemBasicSections({
             max={L.lotSize.max}
             optional
             hint={fieldHint("lotSize", lotHint(draft))}
+            path="lotSize"
             problem={problem("lotSize")}
             onChange={(lotSize) => {
               const { lotSize: _drop, ...rest } = draft;
@@ -286,6 +329,7 @@ export function ItemBasicSections({
               max={L.stackMax.max}
               optional
               hint={fieldHint("stackMax")}
+              path="stackMax"
               problem={problem("stackMax")}
               onChange={(stackMax) => {
                 const { stackMax: _drop, ...rest } = draft;
@@ -298,6 +342,7 @@ export function ItemBasicSections({
           label={m.dev_items_field_tradable()}
           checked={draft.bound !== true && draft.tradable !== false}
           hint={fieldHint("tradable", draft.bound === true ? m.dev_items_bound_blocks_trade() : undefined)}
+          path="tradable"
           problem={problem("tradable")}
           onChange={(tradable) => {
             if (draft.bound === true) return;
@@ -307,6 +352,7 @@ export function ItemBasicSections({
         />
         <CheckField
           label={m.dev_items_field_bound()}
+          path="bound"
           checked={draft.bound === true}
           hint={fieldHint("bound", m.dev_items_bound_hint())}
           onChange={(bound) => {

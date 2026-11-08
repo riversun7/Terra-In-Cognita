@@ -1,9 +1,10 @@
-// 국적 바꾸기(귀화) 메시지(프로토콜 18부터) — 기획 정리 D-523 포인터(질문 745 나: 다른 나라 정부에서 귀화 신청, 값·쉬는 날은 설정 칸, 옛 나라
-// 지원금 반환), 정착 지원금은 다시 주지 않는다(D-163·D-7032), docs/adr/2026-11-08-citizenship.md.
+// 국적 바꾸기(귀화) 메시지(프로토콜 18부터) — 기획 정리 D-523 포인터(질문 745 나: 다른 나라 정부에서 귀화 신청, 값·쉬는 날은 설정 칸)·D-526
+// (19부터: 받는 나라가 지원금 또는 입회비를 정함, 옛 나라에 반환 없음, 옛 나라 우호도 하락), 정착 지원금은 다시 주지 않는다(D-163·D-7032),
+// docs/adr/2026-11-08-citizenship.md.
 // - 바꾸는 명령: 받는 나라 도시의 행정 건물(그 도시 정부)에서 내 국적을 그 나라로 바꾼다(nationality_change). 조건·값 조회는 tRPC
 //   world.naturalization이다.
-// - 기기는 본 받는 나라와 낼 값 합(귀화 값 + 지원금 반환)을 함께 보낸다: 그 사이 도시 주인·설정 칸·지원금이 바뀌어 다르면 서버가
-//   terms_changed로 거절한다(보이지 않은 값으로 내지 않게).
+// - 기기는 본 받는 나라와 값(19부터 부호 있음: 입회비 − 지원금, 음수면 받는다. 18은 귀화 값 + 지원금 반환)을 함께 보낸다: 그 사이 도시 주인·
+//   설정 칸·국고가 바뀌어 다르면 서버가 terms_changed로 거절한다(보이지 않은 값으로 내거나 받지 않게).
 // - 서버가 판정한다: 행정 건물·받는 나라(고정 NPC 국가, 시작 도시가 이 서버에 있음)·쉬는 날·내 사이보그가 그 도시에 섰나·잔고. 결과는
 //   nationality_result 하나로 온다(id = 요청 id).
 // 이 꾸러미는 다른 내부 꾸러미를 가져오지 않는다.
@@ -11,10 +12,16 @@ import { z } from "zod";
 
 /** 국적 바꾸기 메시지에 필요한 가장 낮은 프로토콜 버전. 더 낮게 인사한 연결이 보내면 invalid_message로 거절한다 */
 export const CITIZENSHIP_PROTOCOL_VERSION = 18;
+/** 받는 나라 조건(지원금·입회비)·우호도(D-526)가 든 판 — 부호 있는 cost, 결과 granted·standingDrop·hostile */
+export const NATURALIZE_TERMS_PROTOCOL_VERSION = 19;
 
 const requestId = z.number().int().nonnegative().max(0xffff_ffff);
 const rowId = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const amount = z.string().regex(/^(0|[1-9][0-9]{0,30})$/);
+/** 부호 있는 금액(19부터 nationality_change cost — 음수 = 지원금을 받는다) */
+const signedAmount = z.string().regex(/^(0|-?[1-9][0-9]{0,30})$/);
+/** 우호도가 떨어진 양(−100~100 눈금이라 200까지) */
+const standingDrop = z.number().int().nonnegative().max(200);
 const timestampMs = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 
 // ---------- 기기 → 서버 ----------
@@ -27,8 +34,8 @@ export const nationalityChangeMessage = z.object({
   buildingId: rowId,
   /** 기기가 본 받는 나라(세력 행 ID) */
   factionId: rowId,
-  /** 기기가 본 낼 값 합 = 귀화 값 + 옛 나라 지원금 반환(10진 문자열 최소 단위) */
-  cost: amount,
+  /** 기기가 본 값(10진 문자열 최소 단위): 19부터 입회비 − 지원금(음수 = 받는다), 18 기기는 귀화 값 + 지원금 반환이라 늘 0 이상 */
+  cost: signedAmount,
 });
 
 // ---------- 서버 → 기기 ----------
@@ -56,7 +63,7 @@ export const NATIONALITY_RESULT_CODES = [
   "resting",
   /** 기기가 본 나라·값이 지금과 다르다 — 조건을 다시 받는다 */
   "terms_changed",
-  /** 화폐가 모자람(귀화 값 + 지원금 반환) */
+  /** 화폐가 모자람(입회비가 잔고보다 큼) */
   "insufficient_funds",
 ] as const;
 export type NationalityResultCode = (typeof NATIONALITY_RESULT_CODES)[number];
@@ -69,9 +76,14 @@ const nationalityResultMessage = z.discriminatedUnion("ok", [
     /** 새 나라(세력 행 ID)와 새 내 도시(귀화한 도시) */
     factionId: rowId,
     cityId: rowId,
-    /** 낸 귀화 값·옛 나라에 돌려준 지원금(10진 문자열 최소 단위) */
+    /** 낸 입회비(10진 문자열 최소 단위) */
     paid: amount,
+    /** 옛 나라에 돌려준 지원금 — 19부터 반환이 없어 늘 "0"(D-526, 18 기기가 읽는 칸이라 남긴다) */
     returned: amount,
+    /** 19부터: 받은 지원금(받는 나라 국고에서)·옛 나라 우호도가 떨어진 양·적대 세력(옛 나라와 전쟁 중)으로 옮겼나. 18 기기는 버린다 */
+    granted: amount.optional(),
+    standingDrop: standingDrop.optional(),
+    hostile: z.boolean().optional(),
     /** 다음에 바꿀 수 있는 시각(쉬는 날 끝) */
     nextAtMs: timestampMs,
   }),

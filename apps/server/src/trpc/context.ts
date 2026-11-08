@@ -3,6 +3,7 @@
 // 그래서 Node 전용 타입(fastify, pg, drizzle, better-auth 등)을 여기에 직접 넣지 않는다.
 // 넣으면 기기 코드에서 Node 전역(process, Buffer)이 타입 오류 없이 보이게 된다 — scripts/check-boundaries.mjs가 잡는다.
 import type { OpsServices } from "../ops/services.ts";
+import type { PlacementService } from "../world/placementService.ts";
 import type { TerritoryPlanetView } from "@terra/shared/territoryApi";
 import type { Role, UserSettings } from "@terra/shared";
 import type { DashboardCardsResponse } from "@terra/shared/dashboard";
@@ -403,6 +404,12 @@ export interface WorldMapReads {
   nationNames?: NationNameReads["nationNames"];
 }
 
+/** 세계 배치 서비스와 그 행성(세계 행성) */
+export interface WorldLayoutSource {
+  readonly planetId: string;
+  readonly service: PlacementService;
+}
+
 /** 영토 조회(src/territory/service.ts). 없는 행성이면 undefined */
 export interface TerritoryReadServices {
   planetView(planetId: string, userId: string | null): Promise<TerritoryPlanetView | undefined>;
@@ -444,6 +451,13 @@ export interface TrpcContext {
   secondMapLab?: SecondMapLabServices | undefined;
   /** 영토 조회(docs/adr/2026-11-03-territory-layer.md 5절). 세계(DB)가 없거나 부팅 복구 전이면 undefined */
   territory?: (() => TerritoryReadServices | undefined) | undefined;
+  /**
+   * 세계 배치 화면(기획 D-528, src/world/placementService.ts). 세계(DB)·행성 값이 없거나 부팅 복구 전이면 service()가 undefined.
+   * ip = 요청 IP(감사 기록)
+   */
+  worldLayout?:
+    | { readonly service: () => WorldLayoutSource | undefined; readonly ip: string | null }
+    | undefined;
   /** 지도 흐름 조회(docs/adr/2026-11-07-play-flow.md "WP2"). 세계(DB)가 없거나 부팅 복구 전이면 undefined(not_ready로 답한다) */
   worldMap?: (() => WorldMapReads | undefined) | undefined;
   /** 원자재 오브젝트 채집·건물 들어가기 조회(docs/adr/2026-11-07-gather-objects.md). 세계(DB)가 없으면 undefined(not_ready로 답한다) */

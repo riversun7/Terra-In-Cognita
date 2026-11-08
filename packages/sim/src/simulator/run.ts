@@ -61,8 +61,11 @@ import {
  *    요약 npc.actions에 restore(폐허 복원 행동, 484 다)
  * 13: 공성 결과 셋(D-520, docs/adr/2026-11-07-war-outcomes.md): 요약 society.occupations에서 razed를 빼고 occupy(점령 상태)·occupationTaxes
  *    (점령 상태 세금 거래)·occupationsEnded·rebuilt(재건 비용을 낸 점령·귀속)·occupied·annexed(끝 날 남은 상태)를 더함
+ * 14: 공성 결과 다듬기(D-527, docs/adr/2026-11-07-war-outcomes.md "바뀜 (D-527)"): 요약 society.occupations에 lootWithdrawals(약탈 꺼내 가기
+ *    거래)·govRebuilt(옛 세력이 정부를 재건 = 다시 전쟁)·looted(끝 날 남은 약탈 상태)·expelled(점령 상태를 힘으로 몰아냄)·recovered(점령 상태
+ *    저절로 회복)를 더함
  */
-export const SIM_OUTPUT_FORMAT = 13;
+export const SIM_OUTPUT_FORMAT = 14;
 /** 가상 시계 시작 시각(ms). 정산 경계(정시)가 0에서 센 시각이라 0으로 둔다 */
 export const SIM_START_MS = 0;
 /** 정원사 합성 격자 한 변(도시마다 3칸 간격, 한 줄 32도시 — 1만 도시까지), 웨이브 전투 기본값(시나리오에 combat 칸이 없을 때) */

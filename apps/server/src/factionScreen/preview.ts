@@ -427,7 +427,8 @@ function restoration(raised: bigint, goal: bigint, mine: bigint): NonNullable<Oc
 
 /**
  * 점령 처리: 우리가 점령·귀속한 Sandport(주식·편입 제안·모금 진행), 내 건물이 있는 Cinderfall을 Ashen Pact가 점령·귀속(나에게 온 제안),
- * 공성 결과 셋(D-520): Kestrel League가 우리 Mossbrook을 약탈(소유 그대로), 우리가 Driftwood의 Saltmere를 점령 상태로 둠(기간마다 세금)
+ * 공성 결과 셋(D-520·D-527): Kestrel League가 우리 Mossbrook을 약탈 중(정부가 무너져 재건 전까지 꺼내 감, 소유 그대로), 우리가 Driftwood의
+ * Saltmere를 점령 상태로 둠(하루마다 세금, 저절로 회복 전), 우리가 Tidecrown의 Brinehold를 약탈했다가 상대가 정부를 재건(다시 전쟁)
  */
 export function previewOccupations(now: number): OccupationRow[] {
   return [
@@ -491,14 +492,20 @@ export function previewOccupations(now: number): OccupationRow[] {
       shareChoice: null,
       offers: { deadlineAt: now - 3 * HOUR, accepted: 0, refused: 0, pending: 0, mine: null, myBuildings: 0 },
       restoration: null,
-      outcome: { taken: "18400", currency: SOL_CURRENCY.name, untilAt: null, endedAt: now - 3 * HOUR },
+      outcome: {
+        taken: "18400",
+        currency: SOL_CURRENCY.name,
+        untilAt: now + 4 * DAY,
+        endedAt: null,
+        endReason: null,
+      },
     },
     {
       id: "preview_occupation_4",
       side: "as_occupier",
       cityName: "Saltmere",
       other: PREVIEW_FACTIONS.driftwood,
-      occurredAt: now - 9 * DAY,
+      occurredAt: now - 3 * DAY,
       steps: {
         loot_or_integrate: "done",
         regime: "skipped",
@@ -508,9 +515,40 @@ export function previewOccupations(now: number): OccupationRow[] {
       },
       lootChoice: "occupy",
       shareChoice: null,
-      offers: { deadlineAt: now - 9 * DAY, accepted: 0, refused: 0, pending: 0, mine: null, myBuildings: 0 },
+      offers: { deadlineAt: now - 3 * DAY, accepted: 0, refused: 0, pending: 0, mine: null, myBuildings: 0 },
       restoration: null,
-      outcome: { taken: "7250", currency: SOL_CURRENCY.name, untilAt: now + 21 * DAY, endedAt: null },
+      outcome: {
+        taken: "7250",
+        currency: SOL_CURRENCY.name,
+        untilAt: now + 4 * DAY,
+        endedAt: null,
+        endReason: null,
+      },
+    },
+    {
+      id: "preview_occupation_5",
+      side: "as_occupier",
+      cityName: "Brinehold",
+      other: PREVIEW_FACTIONS.tidecrown,
+      occurredAt: now - 12 * DAY,
+      steps: {
+        loot_or_integrate: "done",
+        regime: "skipped",
+        shares: "skipped",
+        incorporation: "skipped",
+        restoration: "skipped",
+      },
+      lootChoice: "loot",
+      shareChoice: null,
+      offers: { deadlineAt: now - 12 * DAY, accepted: 0, refused: 0, pending: 0, mine: null, myBuildings: 0 },
+      restoration: null,
+      outcome: {
+        taken: "31900",
+        currency: SOL_CURRENCY.name,
+        untilAt: now - 5 * DAY,
+        endedAt: now - 5 * DAY,
+        endReason: "rebuilt",
+      },
     },
   ];
 }

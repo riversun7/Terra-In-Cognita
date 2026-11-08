@@ -1,0 +1,363 @@
+/*
+ * 설정 칸 줄(TuningRow) — 무리 제목 + 줄 목록. 값은 styles/tokens.css의 var(--…)만 쓴다.
+ * 줄 배치는 칸 목록 폭(@container tp-list)으로 정한다:
+ * - 좁은 폭(휴대폰): 코드 + 이름 / 풀이·단위·출처 / 지금·팩·범위 / 값 칸(한 줄 전체, --dev-touch-tap).
+ * - 50rem 이상: 한 줄 격자 — 코드 · 이름·풀이·단위·출처 · 지금/팩 · 범위 · 값 칸 + 동작. 숫자는 오른쪽 맞춤·고정폭.
+ * 바뀐 줄(덮어쓰기) = 왼쪽 경고색 띠 + 지금 값 경고색, 담은 줄 = 왼쪽 초점색 띠 + 고른 줄 바탕.
+ */
+.tp-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--color-surface);
+}
+.tp-group-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-block-end: var(--hairline) solid var(--color-border);
+  background-color: var(--dev-head-bg);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-tight);
+  color: var(--color-text);
+}
+.tp-group-count {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+.tp-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── 줄: 좁은 폭(기본) ── */
+.tp-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "code main"
+    "values values"
+    "range range"
+    "edit edit";
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-4);
+  border-block-end: var(--hairline) solid var(--color-border);
+}
+.tp-row:last-child {
+  border-block-end: 0;
+}
+.tp-row:nth-child(even) {
+  background-color: var(--dev-row-alt);
+}
+@media (hover: hover) and (pointer: fine) {
+  .tp-row:hover {
+    background-color: var(--dev-row-hover);
+  }
+}
+.tp-row[data-changed] {
+  box-shadow: inset var(--space-2) 0 0 var(--color-warning);
+}
+.tp-row[data-staged] {
+  background-color: var(--dev-row-selected);
+  box-shadow: inset var(--space-2) 0 0 var(--color-focus);
+}
+.tp-row:focus-within {
+  background-color: var(--dev-row-hover);
+}
+.tp-row[data-staged]:focus-within {
+  background-color: var(--dev-row-selected);
+}
+.tp-r-code {
+  grid-area: code;
+}
+.tp-r-main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.tp-r-values {
+  grid-area: values;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-6);
+  min-width: 0;
+}
+.tp-r-range {
+  grid-area: range;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.tp-r-edit {
+  grid-area: edit;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* 코드·이름·ID·표지 */
+.tp-code {
+  display: inline-block;
+  min-width: 3.5ch;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-strong);
+  color: var(--color-text);
+}
+.tp-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+}
+.tp-name {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+  overflow-wrap: anywhere;
+}
+.tp-id {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--dev-code);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.tp-desc {
+  margin: 0;
+  max-width: 72ch;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-body);
+  color: var(--color-text);
+}
+.tp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-6);
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.tp-meta-item {
+  overflow-wrap: anywhere;
+}
+.tp-meta-label {
+  font-weight: var(--font-weight-strong);
+}
+.tp-override {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+  overflow-wrap: anywhere;
+}
+.tp-note {
+  color: var(--color-text);
+}
+.tp-chip {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-body);
+  white-space: nowrap;
+}
+.tp-chip-changed,
+.tp-chip-structural {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning);
+}
+.tp-chip-staged {
+  border-color: var(--color-focus);
+  color: var(--color-focus);
+}
+.tp-scope[data-scope="live"] {
+  border-color: var(--color-success);
+  background-color: var(--color-success-surface);
+  color: var(--color-success);
+}
+.tp-scope[data-scope="sim"] {
+  background-color: var(--color-surface-2);
+  color: var(--color-text-muted);
+}
+.tp-scope[data-scope="none"] {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger);
+}
+
+/* 값: 이름표(작게) + 수(고정폭) + 풀이(10분·70%) */
+.tp-value {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+}
+.tp-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.tp-number {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+.tp-value-pack .tp-number {
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+.tp-row[data-changed] .tp-value-now .tp-number {
+  color: var(--color-warning);
+}
+.tp-value-staged .tp-number,
+.tp-value-staged .tp-label {
+  color: var(--color-focus);
+}
+.tp-gloss {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.tp-delta {
+  /* 내림 = 시세 파랑(한국식 오르내림, economy.css와 같은 결). 검사가 이름 속 "blue"를 색 이름으로 읽어 칸 이름으로 받는다 */
+  --tp-down: var(--color-market-blue);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+}
+.tp-delta[data-sign="up"] {
+  color: var(--color-danger);
+}
+.tp-delta[data-sign="down"] {
+  color: var(--tp-down);
+}
+
+/* 범위: 작은 막대(아래 끝 ~ 위 끝, 팩 값 = 속 빈 눈금, 지금 값 = 찬 눈금) + 글 */
+.tp-range {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--dev-range-w);
+  height: var(--stat-bar);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-2);
+  box-shadow: inset 0 0 0 var(--hairline) var(--color-border);
+}
+.tp-range-mark {
+  position: absolute;
+  top: 50%;
+  width: var(--stat-bar-lg);
+  height: var(--stat-bar-lg);
+  border-radius: var(--radius-pill);
+  transform: translate(-50%, -50%);
+}
+.tp-range-pack {
+  border: var(--hairline) solid var(--color-text-muted);
+  background-color: var(--color-surface);
+}
+.tp-range-now {
+  background-color: var(--color-primary);
+}
+.tp-row[data-changed] .tp-range-now {
+  background-color: var(--color-warning);
+}
+.tp-row[data-staged] .tp-range-now {
+  background-color: var(--color-focus);
+}
+.tp-range-text {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* 값 칸 + [담기] + 줄 동작 */
+.tp-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tp-input {
+  grid-column: 1;
+  min-width: 0;
+  min-height: var(--dev-touch-tap);
+  text-align: end;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.tp-editor[data-dirty] .tp-input:not([aria-invalid="true"]) {
+  border-color: var(--color-focus);
+}
+.tp-stage,
+.tp-row-action {
+  min-height: var(--dev-touch-tap);
+  padding: 0 var(--space-4);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+.tp-row-action {
+  flex: 0 0 auto;
+}
+.tp-error,
+.tp-preview {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--font-size-xs);
+}
+.tp-preview {
+  color: var(--color-focus);
+}
+
+/* ── 줄: 넓은 폭(한 줄 격자) ── */
+@container tp-list (min-width: 50rem) {
+  .tp-row {
+    grid-template-columns: 4.5em minmax(0, 1fr) 11em 10em 15em;
+    grid-template-areas: "code main values range edit";
+    align-items: start;
+    gap: var(--space-4) var(--space-6);
+    padding: var(--space-4) var(--space-6);
+  }
+  .tp-r-code,
+  .tp-r-values,
+  .tp-r-range {
+    padding-block-start: var(--space-1);
+  }
+  .tp-r-values {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-1);
+  }
+  .tp-r-values .tp-value {
+    justify-content: flex-end;
+  }
+  .tp-r-range {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+  .tp-range {
+    margin-block-start: var(--space-3);
+  }
+  .tp-r-edit {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}

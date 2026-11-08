@@ -33,6 +33,8 @@ import type { RosterCatalog } from "../roster/catalog.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { reasonedError } from "../trpc/init.ts";
 import type { TuningShared } from "../tuning/services.ts";
+import { type AnalysisLimits, type AnalysisService, createAnalysisService } from "./analysisJobs.ts";
+import { type BatchRunner, inlineBatchRunner } from "./analysisRunner.ts";
 import type { ArenaJob, ArenaParty } from "./arena.ts";
 import {
   type LabRules,
@@ -93,6 +95,8 @@ export interface BattleLabShared {
     ip: string,
     input: { id: string; expectedVersion: number },
   ): Promise<LabPresetListResponse>;
+  /** 밸런스 분석 일(분포 상성·영향도, tRPC balanceAnalysis.*) — 같은 실효 규칙(rulesNow)·같은 사양 만들기 */
+  readonly analysis: AnalysisService;
 }
 
 const rejected = (reason: string, code: "BAD_REQUEST" | "CONFLICT" | "NOT_FOUND" = "BAD_REQUEST") =>
@@ -165,6 +169,9 @@ export function createBattleLabShared(deps: {
   now: () => number;
   log: BattleLabLog;
   limits?: Partial<BattleLabLimits> | undefined;
+  /** 밸런스 분석 묶음 일을 돌리는 쪽(없으면 같은 스레드)·속도 제한 */
+  batches?: BatchRunner | undefined;
+  analysisLimits?: Partial<AnalysisLimits> | undefined;
 }): BattleLabShared {
   const { tuning, roster, terrains, runner, gate, now, log } = deps;
   const { state } = tuning;
@@ -239,7 +246,17 @@ export function createBattleLabShared(deps: {
     }
   };
 
+  const analysis = createAnalysisService({
+    rules: rulesNow,
+    batches: deps.batches ?? inlineBatchRunner(),
+    now,
+    log,
+    limits: deps.analysisLimits,
+  });
+
   return {
+    analysis,
+
     catalog() {
       const snapshot = state.snapshot();
       const society = societyCoefficientsFrom(snapshot.values);

@@ -51,6 +51,8 @@ interface NearbyPanelProps {
   readonly unitsFailed: boolean;
   readonly elsewhere: number;
   readonly moving: ReadonlySet<number>;
+  /** 내 유닛 목록을 받은 서버 시각(부상 남은 시간 "N시간 M분", D-525) */
+  readonly now?: number | undefined;
   readonly selected: number | null;
   readonly onPickUnit: (unit: MapUnit) => void;
   readonly onInspectUnit: (unitId: number) => void;
@@ -111,6 +113,7 @@ export function NearbyPanel(props: NearbyPanelProps) {
           visibleUnits: now.sources.visibleUnits(),
           unitAt: now.sources.unitAt,
           moving: now.moving,
+          listedAt: now.now,
         }),
       );
     };

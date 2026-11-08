@@ -16,6 +16,8 @@ export interface MapUnitsState {
   readonly view: MapViewArea | null;
   /** 이 답의 2차맵(받기 전 null). 옆 2차맵으로 넘은 뒤 새 답이 오기 전에는 옛 2차맵 답이다 — 화면은 지금 2차맵 답만 쓴다 */
   readonly mapKey: number | null;
+  /** 마지막으로 받은 목록의 서버 시각(부상 남은 시간 표시, 받기 전 undefined) */
+  readonly at?: number | undefined;
 }
 
 export const NO_MAP_UNITS: MapUnitsState = {
@@ -43,6 +45,7 @@ export function useMapUnits(mapKey: number): MapUnitsState {
               elsewhere: answer.elsewhere,
               view: answer.view,
               mapKey,
+              at: answer.generatedAt,
             });
         },
         () => {

@@ -313,8 +313,19 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
     treasuryAsset,
     onRestored: (faction, _city, nowMs) => recordTech(faction, nowMs, 0, "city_restored"),
   });
-  // 공성 결과 셋(D-520, societyWar.ts): 약탈·점령 상태·점령·귀속 불이익
-  const war = createSocietyWar({ world, c, hooks: o.hooks, treasuryAsset });
+  // 공성 결과 셋(D-520·D-527, societyWar.ts): 약탈(정부 무너짐·꺼내 가기·재건)·점령 상태·점령·귀속 불이익
+  const war = createSocietyWar({
+    world,
+    c,
+    hooks: o.hooks,
+    treasuryAsset,
+    // 옛 세력이 정부를 재건하면 약탈 세력과 다시 전쟁(D-527). 선포 비용은 없다(재건이 전쟁을 되살린다)
+    resumeWar: (owner, looter, nowMs) => {
+      if (owner.wars.has(looter.id)) recordFight(owner, owner.id, looter, looter.id, nowMs);
+      else declareWar(owner, owner.id, looter, looter.id, nowMs);
+    },
+    onEnd: o.onWarStateEnd,
+  });
 
   return {
     ruins,
@@ -330,20 +341,29 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
         else declareWar(attacker, attacker.id, target, target.id, nowMs);
       };
       if (treatment === "loot") {
-        // 약탈: 경제 이득만(도시 금고·공공 창고 몫), 소유는 원래 세력 그대로, 폐허가 되지 않는다. 공공 건물 일부가 부서진다(45 §10.4 — 연구 시설 −1)
+        // 약탈(D-527): 그 도시 정부가 무너진다. 소유는 원래 세력 그대로, 폐허가 되지 않는다. 옛 세력이 정부를 재건할 때까지 하루마다 금고·공공 창고를
+        // 꺼내 간다(societyWar.ts). 공공 건물 일부가 부서진다(45 §10.4 — 연구 시설 −1)
         counts.loot += 1;
-        const taken = war.raid(attacker, target, city, nowMs);
+        const entry = war.raid(attacker, target, city, nowMs);
         const { satisfactionShift } = occupationShifts("loot", "keep", target.regime, target.regime, c);
         for (const unit of cityUnits())
           unit.satisfactionMilli = shiftSatisfaction(unit.satisfactionMilli, satisfactionShift);
         city.researchLevel = Math.max(0, city.researchLevel - 1);
         fight();
         recordTech(target, nowMs, 0, "raided");
-        o.onWarOutcome?.({ atMs: nowMs, city: cityId, attacker, target, outcome: "loot", taken });
+        o.onWarOutcome?.({
+          atMs: nowMs,
+          city: cityId,
+          attacker,
+          target,
+          outcome: "loot",
+          taken: 0n,
+          untilMs: entry.untilMs,
+        });
         return;
       }
       if (treatment === "occupy") {
-        // 점령 상태: 소유는 그대로, 점령자가 기간마다 그 도시 몫 세금을 거둔다(하루 끝, societyWar.ts)
+        // 점령 상태: 소유·체제는 그대로, 점령자가 세금 주기마다 그 도시 몫 세금을 거둔다(하루 끝, societyWar.ts). 정해진 끝은 없다(D-527)
         counts.occupied += 1;
         const entry = war.occupy(attacker, target, city, nowMs);
         for (const unit of cityUnits())
@@ -452,13 +472,13 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
 
     sellShares(seller, cityId, nowMs) {
       if (!seller.cities.has(cityId)) return;
-      // [임시] 사는 쪽 = 국고가 가장 많은 다른 살아 있는 세력, 값 = 주당 10(사는 쪽 국고 화폐)
+      // [임시] 사는 쪽 = 국고가 가장 많은 다른 살아 있는 세력, 수량·주당 값 = 설정 칸(d_share_sale_*, 출발값 100주·주당 10, 사는 쪽 국고 화폐)
       let buyer: SimFaction | undefined;
       for (const other of world.factions.values())
         if (other.alive && other.id !== seller.id && (!buyer || treasury(other) > treasury(buyer)))
           buyer = other;
-      const amount = 100n;
-      const price = amount * 10n;
+      const amount = BigInt(c.shareSaleAmount);
+      const price = amount * BigInt(c.shareSalePrice);
       if (!buyer || treasury(buyer) < price) return;
       const result = transferShares(
         book,
@@ -610,10 +630,13 @@ export function attachSociety(o: SocietyOptions, startMs: number): SocietyRun {
           unit.satisfactionMilli = satisfactionToward(unit.satisfactionMilli, target, dayPm, c);
         });
         const avg = average(units);
-        // [임시] 발전도(D-254 7요소 전): 만족도 몫(0~50) + 인구 몫(유닛 × 2, 30까지) + 연구 시설 Lv × 4
+        // [임시] 발전도(D-254 7요소 전): 만족도 몫(0~50) + 인구 몫(유닛 × 2, 30까지) + 연구 시설 Lv × 4 — 계수는 설정 칸(c.development)
+        const dev = c.development;
         city.development = Math.min(
-          100,
-          Math.floor(avg / 2000) + Math.min(30, units.length * 2) + city.researchLevel * 4,
+          dev.max,
+          Math.floor(avg / dev.satisfactionDivisorMilli) +
+            Math.min(dev.unitCap, units.length * dev.perUnit) +
+            city.researchLevel * dev.perResearchLevel,
         );
       }
 

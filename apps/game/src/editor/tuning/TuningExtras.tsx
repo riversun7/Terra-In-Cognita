@@ -14,6 +14,7 @@ import {
   parseSettingsCells,
   tuningErrorOf,
 } from "./tuningModel.ts";
+import "./tuningExtras.css";
 
 export interface ConfirmRequest {
   readonly title: string;

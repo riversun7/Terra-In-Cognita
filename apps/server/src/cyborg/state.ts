@@ -44,8 +44,8 @@ export interface CyborgRecord {
   startGrant: bigint | null;
   /** 마지막으로 국적을 바꾼 시각(쉬는 날, 표 nationality_changes의 가장 늦은 at_ms). 바꾼 적이 없으면 null */
   nationChangedAtMs: number | null;
-  /** 옛 나라에 돌려준 정착 지원금 합(nationality_changes.grant_returned 합). 0이면 아직 돌려주지 않았다(한 번만 돌려준다) */
-  grantReturned: bigint;
+  /** 나라(세력 행 ID)별 우호도(D-526, 표 user_nation_standings, −100~100). 줄이 없는 나라는 0(보통) */
+  readonly standings: Map<number, number>;
 }
 
 export interface RollRecord {
@@ -61,6 +61,8 @@ export interface RollRecord {
 export interface JoinableFaction {
   readonly id: number;
   readonly code: string | null;
+  /** 그 나라가 정한 귀화 조건(D-526, + 입회비 / − 지원금). null·없음 = 설정 칸 기본값 */
+  readonly naturalizeFee?: bigint | null | undefined;
 }
 
 export interface LoadedCyborgs {
@@ -95,23 +97,30 @@ const numOrNull = (value: unknown): number | null =>
   value === null || value === undefined ? null : Number(value);
 
 export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
-  const [cyborgRows, rollRows, factionRows, nationRows] = await Promise.all([
+  const [cyborgRows, rollRows, factionRows, nationRows, standingRows] = await Promise.all([
     pool.query(
       `select user_id, name, name_key, temperament, initial, k_pm, appearance, faction_id, start_city_id, unit_id,
               level, exp, rebirths, faith, created_at_ms, elements, religion, faith_points, start_grant
          from cyborgs order by created_at_ms, user_id`,
     ),
     pool.query(`select user_id, temperament, stats, rolls_used, seed, updated_at_ms from cyborg_rolls`),
-    pool.query(`select id, code from factions where kind = 'npc' and fixed = true order by id`),
-    // 국적 바꾸기 기록(docs/adr/2026-11-08-citizenship.md): 사용자마다 마지막 바꾼 시각·돌려준 지원금 합
     pool.query(
-      `select user_id, max(at_ms) as last_at, coalesce(sum(grant_returned), 0) as returned
-         from nationality_changes group by user_id`,
+      `select id, code, naturalize_fee from factions where kind = 'npc' and fixed = true order by id`,
     ),
+    // 국적 바꾸기 기록(docs/adr/2026-11-08-citizenship.md): 사용자마다 마지막 바꾼 시각(쉬는 날)
+    pool.query(`select user_id, max(at_ms) as last_at from nationality_changes group by user_id`),
+    // 사람·나라 우호도(D-526)
+    pool.query(`select user_id, faction_id, score from user_nation_standings`),
   ]);
-  const nations = new Map<string, { lastAt: number; returned: bigint }>();
-  for (const row of nationRows.rows)
-    nations.set(String(row.user_id), { lastAt: num(row.last_at), returned: bigOrNull(row.returned) ?? 0n });
+  const nations = new Map<string, number>();
+  for (const row of nationRows.rows) nations.set(String(row.user_id), num(row.last_at));
+  const standings = new Map<string, Map<number, number>>();
+  for (const row of standingRows.rows) {
+    const user = String(row.user_id);
+    const map = standings.get(user) ?? new Map<number, number>();
+    map.set(num(row.faction_id), num(row.score));
+    standings.set(user, map);
+  }
   let fixedAppearances = 0;
   const cyborgs = cyborgRows.rows.map((row): CyborgRecord => {
     const appearance = row.appearance;
@@ -137,8 +146,8 @@ export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
       religion: typeof row.religion === "string" ? row.religion : null,
       faithPoints: num(row.faith_points ?? 0),
       startGrant: bigOrNull(row.start_grant),
-      nationChangedAtMs: nations.get(String(row.user_id))?.lastAt ?? null,
-      grantReturned: nations.get(String(row.user_id))?.returned ?? 0n,
+      nationChangedAtMs: nations.get(String(row.user_id)) ?? null,
+      standings: standings.get(String(row.user_id)) ?? new Map<number, number>(),
     };
   });
   const rolls = rollRows.rows.map(
@@ -155,6 +164,7 @@ export async function loadCyborgs(pool: QueryPool): Promise<LoadedCyborgs> {
     (row): JoinableFaction => ({
       id: num(row.id),
       code: typeof row.code === "string" ? row.code : null,
+      naturalizeFee: bigOrNull(row.naturalize_fee),
     }),
   );
   return { cyborgs, rolls, factions, fixedAppearances };

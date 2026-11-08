@@ -73,6 +73,8 @@ export interface NearbyInput {
   /** 엔진이 아는 유닛의 지금 자리(배치 칸) */
   readonly unitAt: (id: number) => Point | null;
   readonly moving: ReadonlySet<number>;
+  /** 내 유닛 목록을 받은 서버 시각(부상 남은 시간, D-525) */
+  readonly listedAt?: number | undefined;
 }
 
 function objectRow(object: GatherObjectEntry, cells: number, input: NearbyInput): NearbyRow {
@@ -148,7 +150,7 @@ export function buildNearbyRows(input: NearbyInput): NearbyRows {
       kind: "unit",
       id: row.item.unitId,
       name: unitName(row.item),
-      detail: unitStatusText(row.item, input.moving.has(row.item.unitId)),
+      detail: unitStatusText(row.item, input.moving.has(row.item.unitId), input.listedAt),
       cells: row.cells,
       unit: row.item,
     }),

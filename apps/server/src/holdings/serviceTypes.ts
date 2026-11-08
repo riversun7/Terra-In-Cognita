@@ -97,6 +97,8 @@ export type HoldingFailure =
   | "not_better"
   | "confirm_replace"
   | "cooldown"
+  /** 포장된 식품 칸이 아님(풀린 낱개·식품이 아닌 물건, D-524) */
+  | "not_packed"
   /** 공방에서 고치는 중(docs/adr/2026-11-07-buildings-runtime.md) — 끝날 때까지 입기·쓰기·벗기를 받지 않는다 */
   | "busy";
 
@@ -188,6 +190,21 @@ export interface HoldingService {
     holdingId: number,
     options: { readonly confirm: boolean; readonly nowMs: number; readonly seed: number },
   ): HoldingResult<{ readonly effects: readonly { readonly effect: string; readonly amount: number }[] }>;
+  /**
+   * 식품 포장 풀기(D-524): 그 주체의 포장된 식품 칸에서 quantity개(1 ≤ 수 ≤ min(수량, @terra/sim UNPACK_MAX))를 낱개(수량 1 칸 하나하나)로
+   * 꺼낸다. 낱개는 포장 때 멈춘 숙성에서 nowMs부터 보관 곳 배율로 숙성한다. 새 낱개 칸 ID들. 포장 칸이 아니면 not_packed
+   */
+  unpack(
+    ownerId: number,
+    holdingId: number,
+    quantity: number,
+    nowMs: number,
+  ): HoldingResult<{ readonly holdings: readonly number[] }>;
+  /**
+   * D-524 전에 저장된 신선도 묶음(부팅 때 읽은 packed 칸이 빈 줄, LoadedHoldings.legacyLots)을 포장 칸으로 바꾼다: 옛 규칙(보관 곳 배율)으로
+   * nowMs까지 숙성·썩힌 뒤 그 값에서 멈춘다. 부팅 때 한 번(쓰기 대기열). 바꾼 칸 수
+   */
+  packLegacy(ids: readonly number[], nowMs: number): number;
   /** 전투가 끝날 때(결과 적용과 같은 동기 처리): 참전 유닛이 입은 장비를 닳게 한다(탄약 종류는 빼고 — 탄 수는 spendAmmo) */
   applyBattle(battleSeed: number, units: readonly BattleUnitWear[]): BattleWearSummary;
   /**

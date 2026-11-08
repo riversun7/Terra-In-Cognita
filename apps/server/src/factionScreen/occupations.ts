@@ -1,7 +1,15 @@
-// 세력 화면 점령 칸의 실제 자료 — 공성 결과 표 war_outcomes(docs/adr/2026-11-07-war-outcomes.md, 기획 D-520)에서 내 세력이 이기거나 당한 결과.
+// 세력 화면 점령 칸의 실제 자료 — 공성 결과 표 war_outcomes(docs/adr/2026-11-07-war-outcomes.md, 기획 D-520·D-527)에서 내 세력이 이기거나 당한
+// 결과(약탈 = 정부가 무너져 재건 전까지 꺼내 가는 중인지·끝난 까닭까지).
 // 읽기만 한다. 서버 NPC 공격은 아직 실시간 공성 없이 결과를 고르고, 편입 제안은 런타임 메모리에만 있어(저장 전) ④는 넘김(skipped)으로 보인다
 // [임시]. ⑤ 복원 모금은 전쟁이 폐허를 만들지 않아(486 가) 늘 넘김이다.
-import type { FactionKind, OccupationRow, OccupationStep, StepState } from "@terra/shared/faction";
+import {
+  type FactionKind,
+  OCCUPATION_END_REASONS,
+  type OccupationEndReason,
+  type OccupationRow,
+  type OccupationStep,
+  type StepState,
+} from "@terra/shared/faction";
 import type { Queryable } from "./source.ts";
 
 /** 한 번에 보이는 결과 수(최근 차례) */
@@ -11,6 +19,8 @@ const asNumber = (value: unknown): number => (typeof value === "string" ? Number
 const asNumberOrNull = (value: unknown): number | null =>
   value === null || value === undefined ? null : asNumber(value);
 const asKind = (value: unknown): FactionKind => (value === "player" ? "player" : "npc");
+const asEndReason = (value: unknown): OccupationEndReason | null =>
+  OCCUPATION_END_REASONS.find((reason) => reason === value) ?? null;
 
 const ONLY_FIRST: Readonly<Record<OccupationStep, StepState>> = {
   loot_or_integrate: "done",
@@ -31,7 +41,7 @@ const ANNEXED: Readonly<Record<OccupationStep, StepState>> = {
 export async function readOccupationRows(db: Queryable, factionId: number): Promise<OccupationRow[]> {
   const result = await db.query(
     `select w.id, w.city_id, w.attacker_faction_id, w.target_faction_id, w.outcome, w.share_choice, w.at_ms, w.until_ms,
-            w.ended_at_ms, w.taken::text as taken, w.taken_asset,
+            w.ended_at_ms, w.end_reason, w.taken::text as taken, w.taken_asset,
             coalesce(c.name, r.name) as city_name, o.id as other_id, o.kind as other_kind, o.code as other_code
        from war_outcomes w
        left join world_cities c on c.id = w.city_id
@@ -71,6 +81,7 @@ export async function readOccupationRows(db: Queryable, factionId: number): Prom
           currency: typeof row.taken_asset === "string" ? row.taken_asset : null,
           untilAt: asNumberOrNull(row.until_ms),
           endedAt: asNumberOrNull(row.ended_at_ms),
+          endReason: asEndReason(row.end_reason),
         },
       },
     ];

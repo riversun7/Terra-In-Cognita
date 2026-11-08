@@ -4,6 +4,7 @@ import {
   cleanSkill,
   filterSkills,
   freeSkillId,
+  issueLinesById,
   newSkillTemplate,
   parseInt32,
   sameSkill,
@@ -31,6 +32,38 @@ describe("스킬 편집기 모델", () => {
     expect(filterSkills(skills, { text: "", filter: "created" }).map((s) => s.entry.id)).toEqual(["kick"]);
     expect(filterSkills(skills, { text: "", filter: "edited" }).map((s) => s.entry.id)).toEqual(["bash"]);
     expect(filterSkills(skills, { text: "", filter: "disabled" }).map((s) => s.entry.id)).toEqual(["bash"]);
+  });
+
+  it("거르기: 모양·자원·담은 것만, 낱말 여럿은 모두 맞는 것", () => {
+    const skills = [
+      view("slash"),
+      view("bolt", { entry: { ...newSkillTemplate("bolt"), shape: "projectile", resource: "mp" } }),
+    ];
+    expect(
+      filterSkills(skills, { text: "", filter: "all", shape: "projectile" }).map((s) => s.entry.id),
+    ).toEqual(["bolt"]);
+    expect(
+      filterSkills(skills, { text: "", filter: "all", resource: "stamina" }).map((s) => s.entry.id),
+    ).toEqual(["slash"]);
+    expect(
+      filterSkills(skills, { text: "", filter: "all", staged: new Set(["bolt"]) }).map((s) => s.entry.id),
+    ).toEqual(["bolt"]);
+    expect(filterSkills(skills, { text: "lt bo", filter: "all" }).map((s) => s.entry.id)).toEqual(["bolt"]);
+    expect(filterSkills(skills, { text: "bo zzz", filter: "all" })).toEqual([]);
+  });
+
+  it("저장 거절 줄을 스킬·칸으로 나눈다", () => {
+    const lines = [
+      "✗ [스키마] skills.json › power_strike › radius: 반지름은 0이어야 합니다",
+      "✗ [참조] skills.json › power_strike › effects.0.effect: 없는 효과",
+      "✗ [스키마] skills.json › bolt: 이름이 없습니다",
+      "아무 말",
+    ];
+    const found = issueLinesById(lines);
+    expect(found.get("power_strike")?.get("radius")).toBe("반지름은 0이어야 합니다");
+    expect(found.get("power_strike")?.get("effects.0.effect")).toBe("없는 효과");
+    expect(found.get("bolt")?.get("")).toBe("이름이 없습니다");
+    expect(found.size).toBe(2);
   });
 
   it("복제 ID는 있는 ID·지운 ID를 피한다", () => {

@@ -5,8 +5,23 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-08 23:20 | 아이템·스킬·건물 편집기 화면 개편(/dev/items·/dev/skills·/dev/buildings) | Claude Code | [08-2320-devtools-editors](worklog/2026/11/08-2320-devtools-editors.md) |
+| 2026-11-08 23:05 | 공성 결과 DB 시험 가끔 실패 고침 | Claude Code | [08-2305-war-outcomes-test-flake](worklog/2026/11/08-2305-war-outcomes-test-flake.md) |
+| 2026-11-08 22:35 | 묶음 합치기: 세계 배치(D-528)·공성 결과(D-527)·계산식 끌어 넣기·/dev/tuning 개편·/dev/balance 완전 개편 | Claude Code | [08-2235-devtools-war-world-merge](worklog/2026/11/08-2235-devtools-war-world-merge.md) |
 | 2026-11-08 22:30 | 2차맵 고정 카메라·근처 판·이웃 안개·로딩 없는 2차맵 이동 | Claude Code | [08-2230-seamless-second-map](worklog/2026/11/08-2230-seamless-second-map.md) |
+| 2026-11-08 21:30 | 밸런스 화면 완전 개편: 분포 상성·스탯 영향도 | Claude Code | [08-2130-devtools-balance](worklog/2026/11/08-2130-devtools-balance.md) |
+| 2026-11-08 21:20 | 묶음 합치기: 개발자 패널 분야별 페이지 + 식품 포장(D-524) + 부상·귀화(D-525·D-526) | Claude Code | [08-2120-tuning-food-injury-merge](worklog/2026/11/08-2120-tuning-food-injury-merge.md) |
+| 2026-11-08 21:15 | 세계 배치 2(D-528): 개발자·관리자가 고정 NPC 국가 자리를 놓는 화면, NPC 수도 고르기·옮기기 | Claude Code | [08-2115-world-placement](worklog/2026/11/08-2115-world-placement.md) |
+| 2026-11-08 21:10 | 공성 결과 다듬기(D-527): 약탈 = 정부가 무너져 재건 전까지 꺼내 감·재건되면 다시 전쟁, 점령 상태 = 정해진 끝 없이 저절로 회복·몰아냄 | Claude Code | [08-2110-war-outcomes-2](worklog/2026/11/08-2110-war-outcomes-2.md) |
+| 2026-11-08 21:10 | 설정 칸 패널(/dev/tuning) 화면 개편 | Claude Code | [08-2110-devtools-tuning](worklog/2026/11/08-2110-devtools-tuning.md) |
+| 2026-11-08 21:10 | 계산식 식 조각판·끌어 넣기 | Claude Code | [08-2110-devtools-formula](worklog/2026/11/08-2110-devtools-formula.md) |
+| 2026-11-08 20:45 | 휴대폰 확인 결과로 ADR 8개 확정 | Claude Code | [08-2045-phone-check-confirm](worklog/2026/11/08-2045-phone-check-confirm.md) |
+| 2026-11-08 20:35 | 부상 이름·회복 시간 표시(D-525)와 귀화 지원금/입회비·우호도(D-526) | Claude Code | [08-2035-injury-citizen2](worklog/2026/11/08-2035-injury-citizen2.md) |
+| 2026-11-08 20:30 | 식품 포장·포장 풀기(D-524: 포장된 식품만 스택, 풀면 낱개·신선도 하락 시작) | Claude Code | [08-2030-food-pack](worklog/2026/11/08-2030-food-pack.md) |
+| 2026-11-08 20:26 | 설정 칸 패널 분야별 페이지·[임시] 값 칸 열기 | Claude Code | [08-2026-tuning-pages](worklog/2026/11/08-2026-tuning-pages.md) |
+| 2026-11-08 20:25 | ADR 확정 표시 2차(6개) — 사용자 ADR 검토 | Claude Code | [08-2025-adr-confirm-2](worklog/2026/11/08-2025-adr-confirm-2.md) |
 | 2026-11-08 20:10 | 2차맵 계획: 고른 유닛 고정 카메라·근처 목록 탭·로딩 없는 이동(이웃 안개) | Claude Code | [08-2010-seamless-second-map-plan](worklog/2026/11/08-2010-seamless-second-map-plan.md) |
+| 2026-11-08 20:05 | ADR 10개 확정 표시, 휴대폰 확인표 | Claude Code | [08-2005-adr-confirm-phone-checklist](worklog/2026/11/08-2005-adr-confirm-phone-checklist.md) |
 | 2026-11-08 19:20 | 운영 역할 다시 나눔·조회 감사 기록 스위치·권한 부여 이동·읽기 쉬운 감사 기록 | Claude Code | [08-1920-operator-roles-log-switch](worklog/2026/11/08-1920-operator-roles-log-switch.md) |
 | 2026-11-08 18:50 | 사이보그 생성과정 및 스탯 창 속성별 아이콘과 색상 적용 | Antigravity | [08-1850-cyborg-element-icons-and-colors](worklog/2026/11/08-1850-cyborg-element-icons-and-colors.md) |
 | 2026-11-08 16:50 | 크리처 편집기(`/dev/creatures`) 구현 및 구형 도감 91종·이미지 통합 | Antigravity | [08-1650-creature-editor](worklog/2026/11/08-1650-creature-editor.md) |

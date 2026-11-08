@@ -2,7 +2,8 @@
 // 겹침. 다른 세력 범위에 도시를 건설할 수 없는데, 현재 강제배치로 다른 세력내에 중첩되게 배치되어 문제. 세력범위 구분도 엉망인 상태".
 // 순수 함수(행성 값 읽기는 부르는 쪽이 land로 넘긴다). 같은 입력이면 같은 결과다(칸 키 차례·정수 걸음·결정적 거리 detAtan2).
 // 1. 국가 수도(국가 자리): 행성을 고르게 띄엄띄엄 본 칸(SAMPLE_CELLS_PER_FACE) 가운데 알맞은 땅(물 없음·고도·기온·강수, 설정 칸 [임시])에서 고른다.
-//    시작 도시가 이미 선 국가는 그 첫 도시의 2차맵이 수도다. 아무 국가도 자리가 없으면 첫 수도는 세계 시드로 고른 칸이다.
+//    시작 도시가 이미 선 국가는 그 첫 도시의 2차맵이 수도다. 사람이 자리를 고른 국가(D-528, home)는 그 2차맵이 수도다.
+//    아무 국가도 자리가 없으면 첫 수도는 세계 시드로 고른 칸이다(자동 배치는 사람이 고르지 않은 국가의 뒷길·화면의 "제안").
 //    나머지는 가장 먼 점 고르기(이미 고른 수도들과의 가장 짧은 거리가 가장 긴 칸, 같으면 작은 키) — 첫 수도 둘레 반경(설정 칸) 안에서.
 //    국가 사이 가장 짧은 거리가 설정 칸보다 짧으면 반경을 두 배씩 넓혀 다시 고른다(행성 전체까지). 피할 2차맵(시험 2차맵 줄) 둘레 국가 간격
 //    안의 칸은 수도 후보에서 뺀다.
@@ -59,6 +60,11 @@ export interface LayoutNation {
   readonly missing: number;
   /** 이미 제자리에 선 이 국가의 시작 도시(첫 것의 2차맵이 수도) */
   readonly placed: readonly LayoutSpot[];
+  /**
+   * 사람이 고른 국가 자리(수도 2차맵, 기획 D-528 — 개발자·관리자 세계 배치 화면 /dev/world-layout, 표 world_nation_placements).
+   * 제자리 시작 도시가 없을 때 그 국가의 고정 수도가 된다(가장 먼 점 고르기를 하지 않는다)
+   */
+  readonly home?: CellKey | undefined;
 }
 
 /** 피할 도시(다른 세력 도시·폐허 자리 등 — 같은 2차맵에 새 시작 도시를 두지 않고 영향권과 닿지 않게) */
@@ -181,6 +187,7 @@ function pickHomes(
   for (const nation of input.nations) {
     const first = nation.placed[0];
     if (first && isCellKey(first.mapKey)) fixed.set(nation.factionId, first.mapKey);
+    else if (nation.home !== undefined && isCellKey(nation.home)) fixed.set(nation.factionId, nation.home);
   }
   const free = input.nations.filter((nation) => !fixed.has(nation.factionId) && nation.missing > 0);
   let anchor = [...fixed.values()][0];

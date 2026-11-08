@@ -2,7 +2,12 @@ import type { TuningEntryView } from "@terra/shared/tuning";
 import { describe, expect, it } from "vitest";
 import cellsJson from "./settingsCells.json";
 import {
-  ALL_FAMILIES,
+  ALL_PAGES,
+  NO_UNIT,
+  type Pending,
+  type TuningQuery,
+  checkValueInput,
+  TUNING_PAGE_TABS,
   cellCounts,
   cellRows,
   deltaOf,
@@ -11,6 +16,10 @@ import {
   formatDuration,
   formatGloss,
   groupEntries,
+  openQuery,
+  pageChangedCounts,
+  pageCounts,
+  parsePageTab,
   parseSettingsCells,
   parseValueInput,
   pendingChanges,
@@ -18,6 +27,7 @@ import {
   rangePositions,
   stagedValue,
   tuningErrorOf,
+  unitsOf,
 } from "./tuningModel.ts";
 
 const entry = (id: string, code: string, extra: Partial<TuningEntryView> = {}): TuningEntryView => ({
@@ -32,6 +42,9 @@ const entry = (id: string, code: string, extra: Partial<TuningEntryView> = {}): 
   value: 10,
   scope: "sim",
   override: null,
+  page: "other",
+  desc: null,
+  source: null,
   ...extra,
 });
 
@@ -46,10 +59,10 @@ const override = {
 
 const ENTRIES = [
   entry("n9_a", "N9", { scope: "live" }),
-  entry("c2_b", "C2", { value: 12, override }),
-  entry("d130_c", ""),
-  entry("n13_d", "N13"),
-  entry("n9_e", "N9"),
+  entry("c2_b", "C2", { value: 12, override, page: "combat" }),
+  entry("d130_c", "", { page: "society", source: "ADR 2026-10-31-faction-society-core · D-130" }),
+  entry("n13_d", "N13", { desc: { ko: "반란이 일어나는 문턱", en: "Rebellion threshold" } }),
+  entry("n9_e", "N9", { unit: "ms" }),
   entry("x5_f", "Q5"),
 ];
 
@@ -64,17 +77,71 @@ describe("설정 칸 패널 거르기·무리", () => {
     ]);
   });
 
-  it("찾기(코드·ID·이름 ko/en, 대소문자 무시)·바꾼 것(덮어쓰기·담음)·서버 즉시·무리", () => {
-    const all = { text: "", filter: "all", family: ALL_FAMILIES } as const;
-    expect(filterEntries(ENTRIES, { ...all, text: "n13" }, new Map()).map((e) => e.id)).toEqual(["n13_d"]);
-    expect(filterEntries(ENTRIES, { ...all, text: "NAME D130" }, new Map()).map((e) => e.id)).toEqual([
-      "d130_c",
+  it("찾기(코드·ID·이름·풀이·출처, 대소문자 무시, 낱말 모두)·바꾼 것만(덮어쓰기·담음)·반영 범위·단위·무리", () => {
+    const all = openQuery(ALL_PAGES);
+    const ids = (query: TuningQuery, pending: Pending = new Map()) =>
+      filterEntries(ENTRIES, query, pending).map((e) => e.id);
+    expect(ids({ ...all, text: "n13" })).toEqual(["n13_d"]);
+    expect(ids({ ...all, text: "NAME D130" })).toEqual(["d130_c"]);
+    expect(ids({ ...all, changedOnly: true }, new Map([["n9_e", 3]]))).toEqual(["c2_b", "n9_e"]);
+    expect(ids({ ...all, scope: "live" })).toEqual(["n9_a"]);
+    expect(ids({ ...all, scope: "sim", changedOnly: true })).toEqual(["c2_b"]);
+    expect(ids({ ...all, family: "" })).toEqual(["d130_c"]);
+    // 출처(ADR·결정 ID)로도 찾는다
+    expect(ids({ ...all, text: "d-130" })).toEqual(["d130_c"]);
+    // 풀이(ko·en)로도, 낱말 여럿이면 모두 맞아야 한다
+    expect(ids({ ...all, text: "반란 문턱" })).toEqual(["n13_d"]);
+    expect(ids({ ...all, text: "rebellion n13" })).toEqual(["n13_d"]);
+    expect(ids({ ...all, text: "반란 c2" })).toEqual([]);
+    // 단위: 그 단위만, NO_UNIT = 단위 없는 칸
+    expect(ids({ ...all, unit: "ms" })).toEqual(["n9_e"]);
+    expect(ids({ ...all, unit: NO_UNIT })).toHaveLength(5);
+    expect(unitsOf(ENTRIES)).toEqual(["ms", NO_UNIT]);
+    expect(unitsOf(ENTRIES.slice(4, 5))).toEqual(["ms"]);
+  });
+
+  it("분야마다 바뀐 칸 수(덮어쓰기 + 담음, 전체 포함)", () => {
+    expect(pageChangedCounts(ENTRIES, new Map([["d130_c", 1]]))).toMatchObject({
+      all: 2,
+      combat: 1,
+      society: 1,
+      other: 0,
+    });
+  });
+
+  it("분야 페이지: 탭 차례(전체 먼저), 탭마다 칸 수, 페이지 거르기, 저장 글 읽기", () => {
+    expect(TUNING_PAGE_TABS).toEqual([
+      "all",
+      "society",
+      "npc",
+      "gardener",
+      "holdings",
+      "combat",
+      "economy",
+      "other",
     ]);
+    expect(pageCounts(ENTRIES)).toEqual({
+      all: 6,
+      society: 1,
+      npc: 0,
+      gardener: 0,
+      holdings: 0,
+      combat: 1,
+      economy: 0,
+      other: 4,
+    });
+    expect(filterEntries(ENTRIES, openQuery("combat"), new Map()).map((e) => e.id)).toEqual(["c2_b"]);
+    expect(filterEntries(ENTRIES, openQuery(ALL_PAGES), new Map())).toHaveLength(6);
+    // 페이지 안에서도 다른 거르기가 함께 든다
     expect(
-      filterEntries(ENTRIES, { ...all, filter: "changed" }, new Map([["n9_e", 3]])).map((e) => e.id),
-    ).toEqual(["c2_b", "n9_e"]);
-    expect(filterEntries(ENTRIES, { ...all, filter: "live" }, new Map()).map((e) => e.id)).toEqual(["n9_a"]);
-    expect(filterEntries(ENTRIES, { ...all, family: "" }, new Map()).map((e) => e.id)).toEqual(["d130_c"]);
+      filterEntries(ENTRIES, { ...openQuery("other"), scope: "live" }, new Map()).map((e) => e.id),
+    ).toEqual(["n9_a"]);
+    expect([parsePageTab("npc"), parsePageTab("all"), parsePageTab("nope"), parsePageTab(null)]).toEqual([
+      "npc",
+      "all",
+      null,
+      null,
+    ]);
   });
 });
 
@@ -87,6 +154,16 @@ describe("값", () => {
     expect(parseValueInput("")).toBeNull();
     expect(parseValueInput("1e3")).toBeNull();
     expect(parseValueInput("2000000000000")).toBeNull();
+  });
+
+  it("줄 입력 검사: 같음·정수 아님·범위 밖(양 끝 포함)·담을 수 있음", () => {
+    const range = { min: 0, max: 100 };
+    expect(checkValueInput(range, "50", 50)).toEqual({ status: "same" });
+    expect(checkValueInput(range, "5.5", 50)).toEqual({ status: "invalid" });
+    expect(checkValueInput(range, "", 50)).toEqual({ status: "invalid" });
+    expect(checkValueInput(range, "101", 50)).toEqual({ status: "out_of_range", value: 101 });
+    expect(checkValueInput(range, "100", 50)).toEqual({ status: "ok", value: 100 });
+    expect(checkValueInput({ min: null, max: null }, "-1,000", 0)).toEqual({ status: "ok", value: -1000 });
   });
 
   it("담은 값(되돌리기 = 팩 값), 차이·비율, 범위 막대 자리", () => {

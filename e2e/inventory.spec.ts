@@ -4,7 +4,7 @@
 //   두 버프는 같은 배타 묶음(D-501 교체 확인). items.spec이 시작할 때 만든 항목을 되돌린다(같은 세계).
 // - dev 계정(사이보그 있음): 개발 받기(dev_grant_item) → 목록(수량·내구도·신선도) → 카드 [장착] → 칸 창 [해제] → 칸 창에서 고르기 → 카드
 //   [해제] → 물약 [사용](걸린 효과·물약 쿨·버튼 남은 시간) → 연고 실패(battle_only, 전투 밖 회복이 열리면 cooldown) → 원장 물자 not_holdable → 스튜 [사용] → 교체 확인(그만두기·
-//   그래도 사용).
+//   그래도 사용) → 스튜 포장 풀기(D-524: 포장 표·멈춘 신선도 → [포장 풀기] → 낱개 표·상하는 때).
 // - 내구도 0(응답을 고쳐 본다): 카드·칸 창의 장착을 막고 "수리 필요".
 // - 유닛 상세(세계 유닛 = 시험 일꾼): 휴먼 칸 배치 6칸, 그 유닛으로 받기 → 카드 [장착] → 무기 칸.
 // - 사진: 390·1440 × 파스텔·다크 × 한국어·영어(인벤토리 판, 머리 판 칸, 칸 고르기 창, 교체 확인 창). 폴더는 E2E_SHOTS_DIR.
@@ -312,6 +312,21 @@ test.describe("개발 계정: 받기 → 목록 → 장착·해제 → 사용·�
     await expect(page.locator('.holding-cooldown[data-kind="food"]')).toBeVisible();
     await expect(stewUse).toHaveAttribute("aria-disabled", "true");
 
+    // 식품 포장(D-524): 남은 스튜 하나는 포장 칸(포장 표·멈춘 신선도, 상하는 때 없음) → [포장 풀기] → 낱개(낱개 표·상하는 때)
+    const stew = card(page, ID.stew);
+    await expect(stew).toHaveAttribute("data-packed", "true");
+    await expect(stew.locator(".holding-pack")).toHaveText(message("ko", "holdings_packed"));
+    await expect(stew).toContainText(message("ko", "holdings_packed_note"));
+    const spoilsText = new RegExp(message("ko", "holdings_spoils", { time: "TIME" }).replace("TIME", ".+"));
+    await expect(stew).not.toContainText(spoilsText);
+    await stew.locator('[data-action="unpack"]').click();
+    await expect(notice(page)).toContainText(message("ko", "holdings_done_unpack", { item: "시험 스튜" }));
+    await expect(card(page, ID.stew)).toHaveAttribute("data-packed", "false");
+    await expect(card(page, ID.stew).locator(".holding-pack")).toHaveText(message("ko", "holdings_unpacked"));
+    await expect(card(page, ID.stew).locator('[data-action="unpack"]')).toHaveCount(0);
+    await expect(card(page, ID.stew)).toContainText(spoilsText);
+    await expect(card(page, ID.stew)).not.toContainText(message("ko", "holdings_packed_note"));
+
     // 걸러 보기: 장비만 → 장검 카드만
     await inventory(page)
       .getByRole("button", { name: message("ko", "holdings_filter_equipment"), exact: true })
@@ -429,6 +444,13 @@ test.describe("사진(390·1440 × 파스텔·다크 × 한국어·영어)", () 
         const bladeName = language === "ko" ? "시험 장검" : "Test longsword";
         if ((await card(page, ID.tonic).count()) === 0)
           await grant(page, language, ID.tonic, 2, language === "ko" ? "시험 물약" : "Test tonic");
+        // 식품 포장 칸(D-524 포장 표·[포장 풀기])도 사진에 보이게
+        if (
+          (await page
+            .locator(`.holdings .holding-card[data-item="${ID.stew}"][data-packed="true"]`)
+            .count()) === 0
+        )
+          await grant(page, language, ID.stew, 2, language === "ko" ? "시험 스튜" : "Test stew");
         // 사진에 장착한 칸(내구도)과 칸 창의 두 판(지금 장착·고를 거리)이 보이게: 장검 둘, 하나는 무기 칸에
         const blades = await card(page, ID.blade).count();
         if (blades < 2) await grant(page, language, ID.blade, 2 - blades, bladeName);

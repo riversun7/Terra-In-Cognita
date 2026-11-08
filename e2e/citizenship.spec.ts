@@ -1,8 +1,9 @@
-// 정부 대화상자의 국적 바꾸기(귀화) 칸 화면 시험(질문 745 나, docs/adr/2026-11-08-citizenship.md).
+// 정부 대화상자의 국적 바꾸기(귀화) 칸 화면 시험(질문 745 나·D-526, docs/adr/2026-11-08-citizenship.md).
 // 플레이어(가짜 계정, 첫 접속 국가 1의 수도)가 내 사이보그 2차맵의 행정 건물을 누른다. 내 나라 정부에는 귀화 칸이 없다(실제 응답). 그다음
 // 정부 판 응답만 "남의 나라"로, 귀화 조건 응답만 "신청할 수 있음"으로 고쳐(tRPC 응답 고치기) 칸을 그리고 [귀화 신청] → 확인 → [귀화 확정]을
 // 누른다: 명령은 진짜 WebSocket nationality_change로 가고, 서버는 그 건물이 실제로는 내 나라 정부라 same_nation으로 거절한다 → 그 문구가 뜬다.
-// 사진: 390 파스텔·다크(한국어) + 파스텔 영어(긴 문구), E2E_SHOTS_DIR.
+// 받는 나라 조건(D-526)은 입회비(설정 칸 출발값 100)와 지원금(응답을 고쳐 250·적대 세력 — 우호도 크게 하락 안내)을 둘 다 그린다.
+// 사진: 390 파스텔·다크(한국어) + 파스텔 영어(긴 문구), E2E_SHOTS_DIR. 다크 한국어는 지원금·적대 세력 꼴.
 import type { Page } from "@playwright/test";
 import { message } from "./helpers/messages.ts";
 import { horizontalOverflow, shot, smallTapTargets } from "./helpers/screen.ts";
@@ -52,8 +53,8 @@ async function tapBuilding(page: Page, id: number): Promise<void> {
   await openBuildingFromList(page, id);
 }
 
-/** 고친 응답 쓰기: 켜면 정부 판은 남의 나라, 귀화 조건은 신청할 수 있음(받는 나라 이름 = 임시 국가 2) */
-const mock = { on: false };
+/** 고친 응답 쓰기: 켜면 정부 판은 남의 나라, 귀화 조건은 신청할 수 있음(받는 나라 이름 = 임시 국가 2). grant면 지원금 250·적대 세력 */
+const mock = { on: false, grant: false };
 const OTHER_NATION = { ko: "임시 국가 2", en: "Placeholder nation 2" };
 
 function asOtherNation(data: unknown): void {
@@ -71,6 +72,12 @@ function asOpenTerms(data: unknown): void {
   Reflect.set(terms, "restUntilMs", null);
   const target = field(terms, "target");
   if (typeof target === "object" && target !== null) Reflect.set(target, "name", OTHER_NATION);
+  if (mock.grant) {
+    Reflect.set(terms, "fee", "0");
+    Reflect.set(terms, "grant", "250");
+    Reflect.set(terms, "cost", "-250");
+    Reflect.set(terms, "standing", { now: 0, drop: 60, after: -60, hostile: true });
+  }
 }
 
 /** 응답 고치기를 건다(시험마다 한 번 — mock.on이 켜졌을 때만 고친다) */
@@ -104,6 +111,7 @@ test.describe("귀화 칸: 플레이어", () => {
   }) => {
     test.setTimeout(240_000);
     mock.on = false;
+    mock.grant = false;
     await installMocks(page);
     const hall = await openDialog(page);
     const dialog = page.locator("dialog.gov-dialog[open]");
@@ -112,7 +120,12 @@ test.describe("귀화 칸: 플레이어", () => {
     // 실제 조건(고치지 않음): 내 나라 정부 = 같은 나라, 귀화 값은 설정 칸 출발값
     const real = field(await trpcData(page, "world.naturalization", { buildingId: hall.id }), "terms");
     expect(field(real, "blocked")).toBe("same_nation");
+    // 받는 나라 조건(D-526): NPC 국가는 설정 칸 기본값 = 입회비 100, 지원금 없음, 옛 나라 우호도 −20(보통 하락)
     expect(field(real, "fee")).toBe("100");
+    expect(field(real, "grant")).toBe("0");
+    expect(field(real, "cost")).toBe("100");
+    expect(field(field(real, "standing"), "drop")).toBe(20);
+    expect(field(real, "grantReturn")).toBeUndefined();
 
     // 남의 나라 정부처럼 고친 응답으로 다시 연다(지도를 다시 열어 건물을 다시 누른다 — 정부 판을 새로 받는다)
     mock.on = true;
@@ -121,8 +134,19 @@ test.describe("귀화 칸: 플레이어", () => {
     const panel = opened.locator('[data-part="government-naturalize"]');
     await expect(panel).toBeVisible({ timeout: 20_000 });
     await expect(panel.locator('[data-part="naturalize-target"] dd')).toHaveText(OTHER_NATION.ko);
-    await expect(panel.locator('[data-part="naturalize-fee"] dd')).toHaveText("100");
+    await expect(panel.locator('[data-part="naturalize-terms"] dd')).toHaveText(
+      message("ko", "naturalize_terms_fee", { amount: "100" }),
+    );
+    await expect(panel.locator('[data-part="naturalize-standing"] dd')).toHaveText(
+      message("ko", "naturalize_standing", {
+        now: "0",
+        nowBand: message("ko", "faction_band_neutral"),
+        after: "-20",
+        afterBand: message("ko", "faction_band_wary"),
+      }),
+    );
     await expect(panel.locator('[data-part="naturalize-reason"]')).toHaveCount(0);
+    await expect(panel.locator('[data-part="naturalize-hostile"]')).toHaveCount(0);
     expect(await horizontalOverflow(page)).toEqual([]);
     expect(await smallTapTargets(page)).toEqual([]);
 
@@ -131,6 +155,9 @@ test.describe("귀화 칸: 플레이어", () => {
     const confirm = panel.locator('[data-part="naturalize-confirm"]');
     await expect(confirm).toBeVisible();
     await expect(confirm).toContainText(OTHER_NATION.ko);
+    await expect(confirm).toContainText(
+      message("ko", "naturalize_confirm_pay", { nation: OTHER_NATION.ko, amount: "100" }),
+    );
     await confirm
       .getByRole("button", { name: message("ko", "naturalize_confirm_button"), exact: true })
       .click();
@@ -157,18 +184,33 @@ test.describe("귀화 칸 사진", () => {
       test(`귀화 칸·확인 줄 (390·${theme}·${language})`, async ({ page, deviceErrors }) => {
         test.setTimeout(240_000);
         mock.on = true;
+        // 다크 한국어는 지원금·적대 세력 꼴(D-526), 나머지는 입회비 꼴
+        mock.grant = theme === "dark";
         await installMocks(page);
         await openDialog(page);
         const panel = page.locator('dialog.gov-dialog[open] [data-part="government-naturalize"]');
-        await expect(panel.locator('[data-part="naturalize-total"] dd')).not.toHaveText("", {
+        await expect(panel.locator('[data-part="naturalize-net"] dd')).not.toHaveText("", {
           timeout: 20_000,
         });
+        if (mock.grant) {
+          await expect(panel.locator('[data-part="naturalize-terms"] dd')).toHaveText(
+            message(language, "naturalize_terms_grant", { amount: "250" }),
+          );
+          await expect(panel.locator('[data-part="naturalize-hostile"]')).toBeVisible();
+        }
         await panel.scrollIntoViewIfNeeded();
         expect(await horizontalOverflow(page)).toEqual([]);
         expect(await smallTapTargets(page)).toEqual([]);
         await shot(page, `naturalize-panel-390-${theme}-${language}`);
         await panel.getByRole("button", { name: message(language, "naturalize_apply"), exact: true }).click();
         await expect(panel.locator('[data-part="naturalize-confirm"]')).toBeVisible();
+        if (mock.grant)
+          await expect(panel.locator('[data-part="naturalize-confirm"]')).toContainText(
+            message(language, "naturalize_confirm_receive", {
+              nation: OTHER_NATION[language],
+              amount: "250",
+            }),
+          );
         await panel.locator('[data-part="naturalize-confirm"]').scrollIntoViewIfNeeded();
         expect(await smallTapTargets(page)).toEqual([]);
         await shot(page, `naturalize-confirm-390-${theme}-${language}`);

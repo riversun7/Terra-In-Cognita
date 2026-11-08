@@ -1,6 +1,6 @@
 # 건물 런타임: 짓기·레벨업·노화·수리·장비 수리(서버 권위), 표 `world_facilities`·`facility_jobs`, 영토 비콘도 같은 규칙, 프로토콜 10
 
-- 상태: 제안
+- 상태: 확정 (2026-11-08, 사용자 결정 — 진행상황 세션 ADR 검토)
 - 날짜: 2026-11-07
 - 관련: docs/PLAN.md 4.3(조회는 tRPC·바꾸는 명령은 WebSocket)·7장(설정값)·14장, ADR `2026-11-02-building-editor.md`(건설 재료 레벨 구간·M14 식 — 이 ADR이 처음으로 셈한다), `2026-11-03-item-holdings.md`(D-512 323 수리 규칙, `HoldingService.repair` — 이 ADR이 명령을 단다), `2026-11-03-labor-contracts.md`(시설 창고 없음, 계약 정산 = 산출 구간), `2026-11-03-territory-layer.md`(비콘, 336), `2026-10-31-s3-server-stage.md`(쓰기 대기열·커밋 뒤 답 U2·부팅 복구), `2026-10-28-time-and-session-protocol.md`(프로토콜 판), 질문 `docs/questions/2026-11-07-buildings-runtime.md`(360~369·379~382), 기획 49 N50·M14·M15·N54·N51, D-171·D-508·D-509·D-512(336)·D-513·D-514(351)·D-515·D-507·D-5041·D-149
 

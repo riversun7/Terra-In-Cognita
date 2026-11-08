@@ -8,7 +8,6 @@ import {
   type FormulaListResponse,
   type FormulaSlotView,
   type FormulaWeaponView,
-  slotVarNames,
 } from "@terra/shared/formula";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { refreshSession } from "../../auth/session.ts";
@@ -32,7 +31,7 @@ import {
   slotDefOf,
   sourceOf,
 } from "./formulaModel.ts";
-import { issueText, sampleText, unitText, varText } from "./formulaMessages.ts";
+import { issueText, sampleText, unitText } from "./formulaMessages.ts";
 import { StaminaTable } from "./StaminaTable.tsx";
 import "./formulaTab.css";
 
@@ -405,17 +404,6 @@ function SlotEditor(props: {
           </button>
         ) : null}
       </div>
-      <details className="fx-names">
-        <summary>{m.dev_formula_vars_label()}</summary>
-        <dl className="fx-vars">
-          {slotVarNames(def).map((name) => (
-            <div key={name}>
-              <dt translate="no">{name}</dt>
-              <dd>{varText(name)}</dd>
-            </div>
-          ))}
-        </dl>
-      </details>
       <details className="fx-names">
         <summary>{m.dev_formula_pack_label()}</summary>
         <pre className="fx-pack" translate="no">

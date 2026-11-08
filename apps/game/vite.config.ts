@@ -111,7 +111,7 @@ export default defineConfig({
         // scripts/check-pwa.mjs가 빌드된 sw.js에서 이 규칙을 확인한다
         navigateFallbackDenylist: [/^\/(api|ws|health)(\/|\?|$)/],
         // 개발자 도구 조각(셰이더 측정 gpuBench…·행성 편집기 planetEditor…·항성계 편집기 starSystem…·2차맵 시험 secondMapLab…·
-        // 설정 칸 패널 tuningPanel…·밸런스 화면 balancePanel…·스킬 편집기 skillEditor…·아이템 편집기 itemEditor…·건물 편집기 buildingEditor…·영토 층 territoryLab…·편집기 공용 contentEditor…·전투 다시보기 battleReplayLab…·구인 카드 시험 recruitLab…의
+        // 설정 칸 패널 tuningPanel…·밸런스 화면 balancePanel…·스킬 편집기 skillEditor…·아이템 편집기 itemEditor…·건물 편집기 buildingEditor…·영토 층 territoryLab…·편집기 공용 contentEditor…·전투 다시보기 battleReplayLab…·구인 카드 시험 recruitLab…·세계 배치 worldLayout…의
         // JS·CSS)은
         // 미리 캐시하지 않는다 — 도구를 열 때만
         // 받는다(ADR 2026-10-29-planet-editor-stage1 1절). scripts/pwa-build.mjs DEV_ONLY_CHUNK와 같은 파일이다.
@@ -132,6 +132,10 @@ export default defineConfig({
           "assets/[Cc]ontentEditor*.{js,css}",
           "assets/[Bb]attleReplayLab*.{js,css}",
           "assets/[Rr]ecruitLab*.{js,css}",
+          "assets/[Ww]orldLayout*.{js,css}",
+          // 개발 도구 셋(행성 편집기·항성계·세계 배치)이 같이 쓰는 평면 지도·생성기 공용 조각(이름은 묶인 모듈에서 정해진다)
+          "assets/generator-*.{js,css}",
+          "assets/cellReport-*.{js,css}",
         ],
       },
       // 개발 서버에서는 SW를 쓰지 않는다(virtual:pwa-register는 아무것도 하지 않는 대체 코드)

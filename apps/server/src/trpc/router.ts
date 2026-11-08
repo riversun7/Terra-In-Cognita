@@ -3,6 +3,7 @@
 import { accountRouter } from "./account.ts";
 import { adminRouter } from "./admin.ts";
 import { balanceRouter } from "./balance.ts";
+import { balanceAnalysisRouter } from "./balanceAnalysis.ts";
 import { battleLabRouter } from "./battleLab.ts";
 import { battleReplayRouter } from "./battleReplay.ts";
 import { buildingsRouter } from "./buildings.ts";
@@ -34,6 +35,7 @@ import { skillsRouter } from "./skills.ts";
 import { summaryRouter } from "./summary.ts";
 import { systemRouter } from "./system.ts";
 import { territoryRouter } from "./territory.ts";
+import { worldLayoutRouter } from "./worldLayout.ts";
 import { tuningRouter } from "./tuning.ts";
 import { worldRouter } from "./world.ts";
 
@@ -49,6 +51,8 @@ export const appRouter = router({
   tuning: tuningRouter,
   // 개발자 밸런스 화면(docs/adr/2026-11-01-balance-screen.md 3절)
   balance: balanceRouter,
+  // 밸런스 분석 일(분포 상성·영향도, 같은 ADR "바뀜 (2026-11-08 완전 개편)")
+  balanceAnalysis: balanceAnalysisRouter,
   // 개발자 스킬 편집기·행동별 소모 화면(docs/adr/2026-11-01-skill-editor.md 6절)
   skills: skillsRouter,
   items: itemsRouter,
@@ -86,6 +90,8 @@ export const appRouter = router({
   mail: mailRouter,
   // 영토 층 조회(docs/adr/2026-11-03-territory-layer.md 5절). 비콘 놓기·치우기는 WebSocket
   territory: territoryRouter,
+  // 세계 배치 화면(기획 D-528): 고정 NPC 국가 자리 보기·놓기(다음 서버 시작 때 든다)
+  worldLayout: worldLayoutRouter,
   // 랭킹 조회(docs/adr/2026-11-07-ranking.md). 집계는 서버 일정, 화면은 사이보그·세력 화면 안(D-6010)
   ranking: rankingRouter,
   // 보유 물건(아이템 인스턴스) 조회(docs/adr/2026-11-03-item-holdings.md 4절)

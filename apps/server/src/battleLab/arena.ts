@@ -295,8 +295,12 @@ export interface ArenaMonteResult {
 /** 판마다 시드(seed에서 갈라 씀) */
 const runSeed = (seed: number, run: number): number => mix32(seed ^ Math.imul(run + 1, 0x9e37_79b1));
 
-/** 몬테카를로 runs판(짝수 판 = 팀 A 서쪽, 홀수 판 = 동쪽) */
-export function runArenaMonteCarlo(job: ArenaJob, runs: number): ArenaMonteResult {
+/** 몬테카를로 runs판(짝수 판 = 팀 A 서쪽, 홀수 판 = 동쪽). onRun = 판 하나가 끝날 때마다(진행 알림, 결과를 바꾸지 않는다) */
+export function runArenaMonteCarlo(
+  job: ArenaJob,
+  runs: number,
+  onRun?: (done: number) => void,
+): ArenaMonteResult {
   const wins = { a: 0, b: 0 };
   const timeoutWins = { a: 0, b: 0 };
   let timeouts = 0;
@@ -334,6 +338,7 @@ export function runArenaMonteCarlo(job: ArenaJob, runs: number): ArenaMonteResul
       if (unit.hp > 0) sum.alive += 1;
       sums.set(unit.id, sum);
     }
+    onRun?.(run + 1);
   }
   const sorted = times.toSorted((x, y) => x - y);
   const mid = sorted.length >> 1;

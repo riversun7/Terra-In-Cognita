@@ -1,6 +1,6 @@
 # 첫 접속: 사이보그 만들기와 시작 도시 강하
 
-- 상태: 제안 (기획 답 D-445 받음(기획 원본 ee254fa, 2026-11-01): 질문 168~179 모두 기술 추천 가 + 덧붙임 넷. 구현 중, 화면 시험 뒤 확정한다)
+- 상태: 확정 (2026-11-08, 사용자 휴대폰 확인 — 휴대폰 확인 통과)
 - 날짜: 2026-11-01
 - 관련: docs/PLAN.md 14장(질문 168~179), ADR `2026-10-29-app-shell.md`(37, 주소·틀·`/start` 예약), `2026-10-31-s3-server-stage.md`(소유 주체·유닛·시야·저장), `2026-10-31-faction-society-core.md`(`world_cities`·시작 도시·`nearestSafeCity`), `2026-10-28-time-and-session-protocol.md`(7, 프로토콜 버전), `2026-10-28-db-access-and-migrations.md`(22), 기획 `docs/design/60_UX_FTUE.md` 7.1, D-096·D-134·D-140·D-163·D-218·D-058·D-341·D-372·D-417·D-443 159·D-444 164·D-6039~D-6045, 질문 파일 `docs/questions/2026-11-01-first-login.md`
 

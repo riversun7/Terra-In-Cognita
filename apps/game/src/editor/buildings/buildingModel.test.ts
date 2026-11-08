@@ -94,6 +94,22 @@ describe("담은 변경", () => {
     expect(cleanFacility(loose)).toEqual(MINE);
   });
 
+  it("건물 런타임 칸(칸 크기·내구도·창고)은 다듬어도 남고, 3방향 합치기도 칸마다 고른다", () => {
+    const withRuntime: FacilityJson = {
+      ...MINE,
+      footprint: { width: 3, height: 2 },
+      durability: 900,
+      storageKg: 500,
+    };
+    expect(cleanFacility(withRuntime)).toEqual(withRuntime);
+    const mine: FacilityJson = { ...withRuntime, durability: 1200 };
+    const theirs: FacilityJson = { ...withRuntime, storageKg: 800 };
+    expect(mergeFacility(withRuntime, mine, theirs)).toEqual({
+      entry: { ...withRuntime, durability: 1200, storageKg: 800 },
+      conflicts: [],
+    });
+  });
+
   it("1차 생산 티어 확률표 담음(gather_tiers) 및 1000‰ 정규화", () => {
     const band = { id: "band_000", from: 0, weightsPm: [700, 150, 100, 50, 0, 0, 0, 0, 0, 0] };
     const stage = stageGatherBand(EMPTY_STAGE, "band_000", {

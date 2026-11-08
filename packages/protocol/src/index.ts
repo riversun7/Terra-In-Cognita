@@ -56,6 +56,7 @@ export {
   ITEM_PROTOCOL_VERSION,
   ITEM_RESULT_CODES,
   TREAT_PROTOCOL_VERSION,
+  UNPACK_PROTOCOL_VERSION,
   type ItemResultCode,
 } from "./items.ts";
 export {
@@ -96,6 +97,7 @@ export {
 export {
   CITIZENSHIP_PROTOCOL_VERSION,
   NATIONALITY_RESULT_CODES,
+  NATURALIZE_TERMS_PROTOCOL_VERSION,
   type NationalityResultCode,
 } from "./citizenship.ts";
 export {

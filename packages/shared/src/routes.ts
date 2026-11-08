@@ -263,6 +263,14 @@ export const ROUTES = {
     frame: "shown",
     access: "dev_admin",
   },
+  // 세계 배치(기획 D-528, docs/adr/2026-11-07-world-layout.md "바뀜 (D-528)"): 틀 안 촘촘한 화면. 행성 평면 지도에 고정 NPC 국가 자리를 놓는다
+  dev_world_layout: {
+    path: "/dev/world-layout",
+    search: [],
+    parent: "dev",
+    frame: "shown",
+    access: "dev_admin",
+  },
   // 구인 카드 시험(D-469, docs/adr/2026-10-31-faction-society-core.md "바뀜 (D-469 구인 카드)"): 틀 안. 행정 건물 화면(UX)이 정해지기
   // 전, 도시마다 내 카드·도시 주인(NPC) 카드를 보고 WebSocket recruit_hire로 고용해 본다. ?city=<ID>는 그 도시를 바로 연다
   dev_recruit: {

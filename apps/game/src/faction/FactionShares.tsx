@@ -1,11 +1,13 @@
 // 지분 탭 — 도시 지분(46 §3, D-130 도시마다 1000주): 내 지분, 최대 주주, 최근 배당(D-304·D-338: 이자 소각 → 운영비 → 남은 이익을
 // 체제대로, 민주주의 = 국고라 배당 없음), 독립하는 길(체제마다, §3.2)과 열린 독립 투표.
 // 그 아래 점령 처리(46 §5.1 다섯 가지): 우리가 점령한 도시, 내 자산이 있는 도시에 온 편입 제안(거부 = 빼앗김·쫓겨남·적대, D-342·D-348),
-// 복원 모금(낸 돈만큼 지분, D-339·D-343). 공성 결과 셋(D-520): 약탈(소유 그대로)·점령 상태(기간마다 세금)는 ①만 하고 나머지는 넘김, 결과 값
-// (가져간 몫·거둔 세금·재건 비용·끝 시각) 한 줄. 우리 도시가 당한 결과도 보인다. 고르기·답·모금은 곧 열림.
+// 복원 모금(낸 돈만큼 지분, D-339·D-343). 공성 결과 셋(D-520·D-527): 약탈(정부가 무너져 재건 전까지 꺼내 감, 소유 그대로)·점령 상태(체제
+// 그대로, 재정은 점령 세력, 정해진 끝 없음)는 ①만 하고 나머지는 넘김, 결과 값(가져간 값 · 지금 상태나 끝난 까닭) 한 줄. 우리 도시가 당한 결과도
+// 보인다. 고르기·답·모금은 곧 열림.
 import {
   type CityShareRow,
   OCCUPATION_STEPS,
+  type OccupationEndReason,
   type OccupationRow,
   SHARES_PER_CITY,
 } from "@terra/shared/faction";
@@ -165,33 +167,56 @@ function restorationPm(row: OccupationRow): number {
   return Number((BigInt(row.restoration.raised) * 1000n) / goal);
 }
 
-/** 결과 값 한 줄(D-520): 약탈 = 넘어간 금고 몫, 점령 상태 = 거둔 세금·끝, 점령·귀속 = 재건 비용·회복 불이익 끝 */
+/** 남은 상태가 끝난 까닭 문구(D-527). 옛 줄(까닭 없음)은 "끝났습니다" */
+const END_REASON_TEXT: Readonly<Record<OccupationEndReason, () => string>> = {
+  rebuilt: m.faction_occ_end_rebuilt,
+  recovered: m.faction_occ_end_recovered,
+  expelled: m.faction_occ_end_expelled,
+  owner_changed: m.faction_occ_end_owner_changed,
+  gone: m.faction_occ_end_gone,
+  replaced: m.faction_occ_end_replaced,
+  expired: m.faction_occ_end_expired,
+};
+
+/**
+ * 결과 값 한 줄(D-520·D-527): 가져간 값(약탈 = 꺼내 간 금고 몫, 점령 상태 = 거둔 세금, 점령·귀속 = 재건 비용) · 지금 상태(약탈 = 정부가 무너져
+ * 재건 전까지 꺼내 감·재건 가능 시각, 점령 상태 = 체제 그대로·재정은 점령 세력·저절로 회복 시각, 점령·귀속 = 회복 불이익 끝) 또는 끝난 까닭
+ */
 function outcomeText(row: OccupationRow, now: number): string | null {
   const outcome = row.outcome;
   if (outcome === undefined || row.lootChoice === null) return null;
   const amount = amountText(outcome.taken);
   const currency = outcome.currency ?? "";
   const ended = outcome.endedAt !== null || outcome.untilAt === null;
+  const until = outcome.untilAt ?? now;
+  let taken: string;
+  let state: string;
   switch (row.lootChoice) {
     case "loot":
-      return m.faction_occ_outcome_loot({ amount, currency });
+      taken = m.faction_occ_amount_loot({ amount, currency });
+      state =
+        until > now
+          ? m.faction_occ_state_loot({ time: relativeText(until, now) })
+          : m.faction_occ_state_loot_waiting();
+      break;
     case "occupy":
-      return ended
-        ? m.faction_occ_outcome_occupy_ended({ amount, currency })
-        : m.faction_occ_outcome_occupy({ amount, currency, time: relativeText(outcome.untilAt ?? now, now) });
+      taken = m.faction_occ_amount_occupy({ amount, currency });
+      state = m.faction_occ_state_occupy({ time: relativeText(until, now) });
+      break;
     case "integrate":
-      return ended
-        ? m.faction_occ_outcome_integrate_ended({ amount, currency })
-        : m.faction_occ_outcome_integrate({
-            amount,
-            currency,
-            time: relativeText(outcome.untilAt ?? now, now),
-          });
+      taken = m.faction_occ_amount_integrate({ amount, currency });
+      state = m.faction_occ_state_integrate({ time: relativeText(until, now) });
+      break;
     default: {
       const unhandled: never = row.lootChoice;
       return unhandled;
     }
   }
+  if (ended) {
+    const reason = outcome.endReason ?? null;
+    state = reason === null ? m.faction_occ_end_unknown() : END_REASON_TEXT[reason]();
+  }
+  return `${taken} · ${state}`;
 }
 
 /** 카드 머리 아래 한 줄: 누가 누구에게 */

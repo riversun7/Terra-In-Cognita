@@ -35,7 +35,11 @@ function resultText(id: number, result: NationalityCommandResult): string {
     factionId: result.factionId,
     cityId: result.cityId,
     paid: result.paid,
-    returned: result.returned,
+    // 19부터 옛 나라에 돌려주지 않는다(D-526). 18 기기가 읽는 칸이라 "0"으로 남긴다
+    returned: "0",
+    granted: result.granted,
+    standingDrop: result.standingDrop,
+    hostile: result.hostile,
     nextAtMs: result.nextAtMs,
   });
 }
@@ -81,7 +85,9 @@ export function createCitizenshipGateway(options: {
               factionId: result.factionId,
               cityId: result.cityId,
               paid: result.paid,
-              returned: result.returned,
+              granted: result.granted,
+              standingDrop: result.standingDrop,
+              hostile: result.hostile,
             },
             "nationality changed",
           );

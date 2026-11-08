@@ -4,6 +4,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   check,
   index,
   integer,
@@ -21,6 +22,8 @@ import { worldOwners } from "./schema.ts";
  * - stats: 얻는 때 굴린 스탯 [{stat, value, pm}](pm = 범위 안 자리 ‰). 굴린 값은 만들 때 정해지고 그 밖 칸은 실효 아이템 정의를 읽는다(N49·285)
  * - score_pm: 등급 점수(D-5006, 만든 직후 값). durability·max_durability: 내구도가 있는 장비만(수리로 최대가 준다 D-5031)
  * - aged_ms·aged_at_ms: 신선도 묶음의 숙성 상태(실제 시간 ÷ 보존 배율의 합, aged_at_ms까지). 신선도 = 1 − 숙성 ÷ 유통기한(실효 값)
+ * - packed: 식품 포장 상태(D-524, 신선도 묶음만): true = 포장(겹쳐 쌓임, 숙성 멈춤), false = 풀린 낱개(수량 1, 숙성이 흐름), 빈 칸 = 묶음이 아니거나
+ *   D-524 전 줄(서버가 부팅 때 그 시각까지 숙성한 뒤 포장 칸으로 바꾼다). 더하기만 한 칸이라 직전 판 앱은 모른 채 그대로 돈다
  * - source: 얻은 길(dev_grant·craft·drop·gather·spoil 등, 감사용)
  * - gene: 유전자 하나의 값(D-516, 유전자 아이템만): 스탯 유전자 = 총합·분포(‰)·속성 12칸, 스킬 유전자 = 스킬 ID, 둘 다 종·남긴 유닛
  *   (src/holdings/genePayload.ts). 유전자는 하나하나 값이 달라 수량 1인 인스턴스다
@@ -45,6 +48,7 @@ export const itemHoldings = pgTable(
     createdAtMs: bigint("created_at_ms", { mode: "number" }).notNull(),
     source: text("source").notNull(),
     gene: jsonb("gene"),
+    packed: boolean("packed"),
   },
   (table) => [
     index("item_holdings_owner_idx").on(table.ownerId),
@@ -61,6 +65,11 @@ export const itemHoldings = pgTable(
       sql`(${table.durability} is null and ${table.maxDurability} is null) or (${table.durability} between 0 and ${table.maxDurability})`,
     ),
     check("item_holdings_age", sql`(${table.agedMs} is null) = (${table.agedAtMs} is null)`),
+    // 풀린 낱개는 수량 1(D-524)
+    check(
+      "item_holdings_unpacked_single",
+      sql`${table.packed} is distinct from false or ${table.quantity} = 1`,
+    ),
   ],
 );
 

@@ -17,7 +17,7 @@ import { spiralCells } from "../cyborg/service.ts";
 import type { QueryPool } from "./persist/load.ts";
 import type { WriterPool } from "./persist/writer.ts";
 import type { SecondMap, UnitRow } from "./secondMap.ts";
-import { UNIT_KIND_BOT } from "./unitKinds.ts";
+import { UNIT_KIND_BOT, UNIT_KIND_NPC_LEADER } from "./unitKinds.ts";
 import type { LayoutSpot } from "./worldLayout.ts";
 
 /** 옛 자리 도시 하나 */
@@ -29,7 +29,7 @@ export interface LegacyCity {
 
 export interface RelayoutMove extends LegacyCity {
   readonly to: LayoutSpot;
-  /** 새 도시 둘레로 옮길 유닛(NPC 휴먼 + 그 도시가 시작 도시인 사이보그 본체, 옛 2차맵에 선 것) */
+  /** 새 도시 둘레로 옮길 유닛(NPC 휴먼 + 그 도시가 시작 도시인 사이보그 본체 + 그 나라 지도자, 옛 2차맵에 선 것) */
   readonly units: readonly number[];
   /** 함께 옮기는 사이보그의 사용자 */
   readonly cyborgUsers: readonly string[];
@@ -177,6 +177,12 @@ export async function inspectLegacyCity(
     [id, planetId, spot.mapKey],
   );
   const humanIds = ids(humans.rows, "unit_id");
+  // 그 2차맵에 선 그 나라 지도자(D-528 — 수도 행정 건물 곁에 선다): 도시와 함께 새 자리로 옮긴다(남기면 옛 2차맵에 지도자가 하나 더 남는다)
+  const leaders = await pool.query(
+    `select u.id from world_units u join world_owners o on o.id = u.owner_id
+     where o.faction_id = $1 and u.kind = $2 and u.planet_id = $3 and u.map_key = $4 order by u.id`,
+    [city.factionId, UNIT_KIND_NPC_LEADER, planetId, spot.mapKey],
+  );
   add(
     "npc_human_contract",
     (
@@ -201,7 +207,9 @@ export async function inspectLegacyCity(
   );
   return {
     reasons,
-    units: [...humanIds, ...ids(cyborgs.rows, "unit_id")].toSorted((a, b) => a - b),
+    units: [...humanIds, ...ids(cyborgs.rows, "unit_id"), ...ids(leaders.rows, "id")].toSorted(
+      (a, b) => a - b,
+    ),
     cyborgUsers: cyborgs.rows.map((row) => String(row.user_id)),
     npcBuildings: npcBuildings.toSorted((a, b) => a - b),
     playerGoods: goods.rows.length,
@@ -262,7 +270,13 @@ export async function planRelayout(
 }
 
 /** 계획대로 도시 줄을 옮기고 NPC 시설을 지운다(한 트랜잭션, 감사 기록 한 줄씩) */
-export async function applyRelayout(pool: WriterPool, plan: RelayoutPlan, nowMs: number): Promise<void> {
+export async function applyRelayout(
+  pool: WriterPool,
+  plan: RelayoutPlan,
+  nowMs: number,
+  /** 감사 기록 동작(옛 자리 옮기기 world.relayout_city, 사람이 고른 국가 자리 world.place_nation_city — D-528) */
+  action = "world.relayout_city",
+): Promise<void> {
   if (plan.moves.length === 0) return;
   const client = await pool.connect();
   try {
@@ -284,7 +298,7 @@ export async function applyRelayout(pool: WriterPool, plan: RelayoutPlan, nowMs:
       await client.query(`delete from world_facilities where building_id = any($1::bigint[])`, [buildings]);
       await client.query(`delete from world_buildings where id = any($1::bigint[])`, [buildings]);
       await client.query(
-        `insert into audit_log (actor_kind, action, before, after, meta) values ('system', 'world.relayout_city', $1, $2, $3)`,
+        `insert into audit_log (actor_kind, action, before, after, meta) values ('system', $4, $1, $2, $3)`,
         [
           JSON.stringify(move.spot),
           JSON.stringify(move.to),
@@ -297,6 +311,7 @@ export async function applyRelayout(pool: WriterPool, plan: RelayoutPlan, nowMs:
             playerGoods: move.playerGoods,
             atMs: nowMs,
           }),
+          action,
         ],
       );
     }

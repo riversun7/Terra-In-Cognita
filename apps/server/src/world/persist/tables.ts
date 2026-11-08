@@ -112,8 +112,17 @@ export const WORLD_TABLES = {
       "at_ms",
       "fee",
       "grant_returned",
+      "grant_paid",
+      "standing_drop",
+      "hostile",
     ],
     key: [],
+  },
+  /** 사람·나라 우호도(D-526, 덮어쓰기) — 국적 바꾸기와 같은 커밋 */
+  userNationStandings: {
+    name: "user_nation_standings",
+    columns: ["user_id", "faction_id", "score", "updated_at_ms"],
+    key: ["user_id", "faction_id"],
   },
   /** 만드는 중인 초기 스탯 굴림(만들면 지운다) */
   cyborgRolls: {
@@ -263,6 +272,15 @@ export const WORLD_TABLES = {
     key: ["id"],
     updateOnly: true,
   },
+  /**
+   * NPC 수도(D-528, src/npc/capitals.ts)만 고친다. 세력 상태(factionState)는 이 칸을 쓰지 않는다(직전 판 앱이 세력 행을 써도 수도가 지워지지 않게)
+   */
+  factionCapital: {
+    name: "factions",
+    columns: ["id", "capital_city_id"],
+    key: ["id"],
+    updateOnly: true,
+  },
   /** 세력 쌍의 전쟁·불가침(작은 ID가 앞) */
   factionWars: {
     name: "faction_wars",
@@ -353,20 +371,21 @@ export const WORLD_TABLES = {
       "ended_at_ms",
       "taken",
       "taken_asset",
+      "end_reason",
     ],
     key: ["id"],
   },
-  /** 공성 결과 줄의 남은 상태만 고친다(점령 상태의 다음 세금·거둔 세금) */
+  /** 공성 결과 줄의 남은 상태만 고친다(점령 상태의 다음 세금·거둔 세금·약탈이 꺼내 간 금고 몫) */
   warOutcomeState: {
     name: "war_outcomes",
     columns: ["id", "next_tax_ms", "taken"],
     key: ["id"],
     updateOnly: true,
   },
-  /** 공성 결과 줄의 끝난 시각만 고친다(남은 상태가 끝남) */
+  /** 공성 결과 줄의 끝난 시각·까닭만 고친다(남은 상태가 끝남, 까닭은 D-527) */
   warOutcomeEnds: {
     name: "war_outcomes",
-    columns: ["id", "ended_at_ms"],
+    columns: ["id", "ended_at_ms", "end_reason"],
     key: ["id"],
     updateOnly: true,
   },
@@ -392,6 +411,7 @@ export const WORLD_TABLES = {
       "created_at_ms",
       "source",
       "gene",
+      "packed",
     ],
     key: ["id"],
   },
@@ -668,6 +688,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "factionState",
   "accounts",
   "cities",
+  "factionCapital",
   "cityNames",
   "units",
   "travels",
@@ -699,6 +720,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "factionMembers",
   "cyborgs",
   "nationalityChanges",
+  "userNationStandings",
   "cyborgRolls",
   "holdings",
   "unitEffects",

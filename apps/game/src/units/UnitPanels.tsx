@@ -25,6 +25,7 @@ import {
   formatNumber,
   houseLabel,
   injuryLabel,
+  recoveryLeft,
   remaining,
   roleLabel,
   typeLabel,
@@ -455,7 +456,7 @@ export function AuctionPanel({ data }: { data: UnitsListResponse }) {
 
 function CaptiveRow({ unit, now }: { unit: RosterUnit; now: number }) {
   const injury = injuryLabel(unit.injury.stage);
-  const heal = unit.injury.untilMs === null ? null : remaining(unit.injury.untilMs, now);
+  const heal = unit.injury.untilMs === null ? null : recoveryLeft(unit.injury.untilMs, now);
   return (
     <li className="roster-list-row">
       <span className="roster-list-main">

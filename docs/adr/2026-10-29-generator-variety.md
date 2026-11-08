@@ -1,6 +1,6 @@
 # 행성 생성기 다양성 고침: 출력 판 3
 
-- 상태: 제안 (가지 `work/generator-variety` 끝. 통합 담당 검토 뒤 확정)
+- 상태: 확정 (2026-11-08, 사용자 결정 — 진행상황 세션 ADR 검토)
 - 날짜: 2026-10-29 (검토 뒤 고침 2026-10-31)
 - 관련: `2026-10-29-s2-planet-lod.md`(ADR 36, 생성기 1판·출력 판 2), `2026-10-28-planet-generation-order.md`(ADR 31), `docs/questions/2026-10-29-special-terrain.md` 4장(반복 분석·지표·고칠 순서), docs/PLAN.md 5.3, 작업 기록 `docs/worklog/2026/10/29-2035-generator-variety-check.md`·`29-2130-generator-variety-stage1.md`·`29-2200-generator-variety-stage2.md`·`29-2330-generator-variety-stage3.md`·`31-0910-generator-variety.md`
 

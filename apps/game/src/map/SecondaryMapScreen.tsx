@@ -552,6 +552,7 @@ function SecondMapView({
           unitsFailed={myUnits.failed}
           elsewhere={myUnits.elsewhere}
           moving={liveMoving}
+          now={myUnits.at}
           selected={shown}
           onPickUnit={pickUnit}
           onInspectUnit={inspectUnit}

@@ -67,6 +67,7 @@ function ScaleRows({
                 { value: "", label: m.dev_items_scale_none() },
                 ...ITEM_PRIMARY_CODES.map((code) => ({ value: code, label: PRIMARY_TEXT[code]() })),
               ]}
+              path={`use.effects[${index}].scale`}
               problem={problem(`use.effects[${index}].scale`)}
               onChange={(value) => {
                 const stat = ITEM_PRIMARY_CODES.find((code) => code === value) ?? null;
@@ -79,6 +80,7 @@ function ScaleRows({
                 value={row.scale.appropriate}
                 min={L.useAppropriate.min}
                 max={L.useAppropriate.max}
+                path={`use.effects[${index}].scale.appropriate`}
                 problem={problem(`use.effects[${index}].scale.appropriate`)}
                 onChange={(value) =>
                   replace(index, withScale(row, row.scale?.stat ?? null, value ?? L.useAppropriate.min))
@@ -93,6 +95,7 @@ function ScaleRows({
               min={L.variancePm.min}
               max={L.variancePm.max}
               optional
+              path={`use.effects[${index}].variancePm`}
               problem={problem(`use.effects[${index}].variancePm`)}
               onChange={(value) => {
                 const { variancePm: _drop, ...rest } = row;
@@ -132,6 +135,7 @@ export function ItemUseFields({
         locale={locale}
         max={ITEM_LIMITS.effectsMax}
         durationMax={ITEM_LIMITS.useDurationMs.max}
+        pathPrefix="use.effects"
         classes={{
           section: "ie-sub",
           title: "field-label",
@@ -245,6 +249,7 @@ export function ItemPerishFields({
                 : [{ value: perish.spoilsTo, label: perish.spoilsTo }]),
               ...targets.map((row) => ({ value: row.id, label: `${row.name[locale]} · ${row.id}` })),
             ]}
+            path="perish.spoilsTo"
             problem={problem("perish.spoilsTo") ?? problem("perish")}
             onChange={(spoilsTo) => onChange({ ...draft, perish: { ...perish, spoilsTo } })}
           />

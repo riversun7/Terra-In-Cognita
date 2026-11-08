@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./balance": "./src/balance.ts",
+    "./balanceAnalysis": "./src/balanceAnalysis.ts",
     "./battleLab": "./src/battleLab.ts",
     "./battleReplay": "./src/battleReplay.ts",
     "./buildingEditor": "./src/buildingEditor.ts",
@@ -44,6 +45,7 @@
     "./skillEditor": "./src/skillEditor.ts",
     "./territory": "./src/territory.ts",
     "./territoryApi": "./src/territoryApi.ts",
+    "./worldPlacementApi": "./src/worldPlacementApi.ts",
     "./tuning": "./src/tuning.ts",
     "./vitals": "./src/vitals.ts",
     "./worldMap": "./src/worldMap.ts"

@@ -230,16 +230,26 @@ test.describe("dev 시안 자료", () => {
     await tabOf(page, "ko", "diplomacy").focus();
     await page.keyboard.press("End");
     await expect(tabOf(page, "ko", "shares")).toHaveAttribute("aria-selected", "true");
-    await expect(panel.locator(".faction-step")).toHaveCount(20);
-    // 공성 결과 셋(D-520): 우리 도시가 약탈당함(소유 그대로)·우리가 점령 상태로 둠(거둔 세금·끝)
+    await expect(panel.locator(".faction-step")).toHaveCount(25);
+    // 공성 결과 셋(D-520·D-527): 우리 도시가 약탈당함(정부가 무너져 재건 전까지 꺼내 감)·우리가 점령 상태로 둠(거둔 세금·저절로 회복)·
+    // 우리가 약탈한 도시는 상대가 정부를 재건해 끝(다시 전쟁)
     await expect(panel).toContainText(message("ko", "faction_occ_as_target", { name: "Kestrel League" }));
-    await expect(panel).toContainText(
-      message("ko", "faction_occ_outcome_loot", { amount: "18,400", currency: "Sol" }),
+    const mossbrook = panel.locator(".faction-item", { hasText: "Mossbrook" });
+    await expect(mossbrook).toContainText(
+      message("ko", "faction_occ_amount_loot", { amount: "18,400", currency: "Sol" }),
+    );
+    await expect(mossbrook).toContainText(
+      message("ko", "faction_occ_state_loot", { time: "" }).split("·")[0]?.trim() ?? "",
     );
     await expect(panel).toContainText(message("ko", "faction_occ_occupy"));
     const saltmere = panel.locator(".faction-item", { hasText: "Saltmere" });
     await expect(saltmere).toContainText("7,250 Sol");
     await expect(saltmere).toContainText(message("ko", "faction_occ_as_winner", { name: "Driftwood" }));
+    await expect(saltmere).toContainText(
+      message("ko", "faction_occ_state_occupy", { time: "" }).split("·")[0]?.trim() ?? "",
+    );
+    const brinehold = panel.locator(".faction-item", { hasText: "Brinehold" });
+    await expect(brinehold).toContainText(message("ko", "faction_occ_end_rebuilt"));
     // 편입 거부 = 빼앗김·쫓겨남·적대(C6), 복원 모금 = 낸 만큼 지분(C5: 6,000 / 120,000 → 50주)
     await expect(panel).toContainText(message("ko", "faction_occ_offer_hint"));
     await expect(panel).toContainText(message("ko", "faction_occ_restoration_hint", { count: "1,000" }));

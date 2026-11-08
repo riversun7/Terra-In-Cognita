@@ -1,6 +1,8 @@
-// 밸런스·전투 실험실(/dev/balance) — docs/adr/2026-11-01-balance-screen.md 7절·"바뀜 (2026-11-01, 전투 실험실)". dev·admin, 틀 안, 촘촘.
-// 탭 셋: [전투 실험실](기본, lab/BattleLab.tsx — 팀 A·B 파티·유닛 편집·미리 보기·전투장), [가중치 표](WeightTab.tsx — 가중치 칸·1차 +10 기여·승률),
-// [계산식](FormulaTab.tsx — 2차 스탯 행 식·전투 식 편집, docs/adr/2026-11-01-formula-editor.md).
+// 밸런스·전투 실험실(/dev/balance) — docs/adr/2026-11-01-balance-screen.md 7절·"바뀜 (2026-11-01, 전투 실험실)"·"바뀜 (2026-11-08 완전 개편)".
+// dev·admin, 틀 안, 촘촘. 탭: [분포 상성](기본, analysis/MatrixTab.tsx — 같은 총합의 1차 분포끼리 승률표·상성 요약),
+// [스탯 영향도](analysis/SensitivityTab.tsx — 1차 옮기기·더하기의 2차 스탯·사양·승률 변화), [전투 실험실](lab/BattleLab.tsx — 팀 A·B 파티·
+// 유닛 편집·미리 보기·전투장), [가중치 표](WeightTab.tsx — 가중치 칸·1차 +10 기여·승률), [계산식](FormulaTab.tsx — docs/adr/2026-11-01-formula-editor.md).
+// 주소 ?tab=<ID>로 바로 그 탭을 연다(시험·링크).
 // 앞 두 탭이 같은 실험실 자료(목록·프리셋·팀, useLabData)를 쓴다: 가중치 표의 기준 유닛을 팀 A 유닛·유닛 프리셋에서 불러온다.
 // 탭은 처음 열 때 그리고(가중치 표 조회는 그때부터), 연 뒤에는 숨겨도 남겨 둔다(고친 값·결과가 사라지지 않게).
 // 탭을 더하거나 바꾸려면 TABS 줄 하나(ID·이름·그리기)를 고친다(계산식 탭 등 다른 줄기의 탭도 같은 자리에 단다).
@@ -10,6 +12,8 @@ import { m } from "../../paraglide/messages.js";
 import { getLocale } from "../../paraglide/runtime.js";
 import { BackButton } from "../../shell/BackButton.tsx";
 import { useMountFocus } from "../../ui/useMountFocus.ts";
+import { MatrixTab } from "./analysis/MatrixTab.tsx";
+import { SensitivityTab } from "./analysis/SensitivityTab.tsx";
 import { BattleLab } from "./lab/BattleLab.tsx";
 import { type LabData, useLabData } from "./lab/useLabData.ts";
 import { WeightTab } from "./WeightTab.tsx";
@@ -17,8 +21,9 @@ import FormulaTab from "./FormulaTab.tsx";
 import "./balancePanel.css";
 import "./lab/battleLab.css";
 import "./lab/battleLabResults.css";
+import "./analysis/analysis.css";
 
-type Tab = "lab" | "weights" | "formulas";
+type Tab = "matrix" | "sensitivity" | "lab" | "weights" | "formulas";
 
 /** 탭 목록(차례 = 화면 차례, 첫 줄이 기본). 그리기는 두 탭이 같이 쓰는 실험실 자료를 받는다 */
 const TABS: readonly {
@@ -26,6 +31,16 @@ const TABS: readonly {
   readonly label: () => string;
   readonly render: (data: LabData, locale: string) => ReactNode;
 }[] = [
+  {
+    id: "matrix",
+    label: m.dev_lab_tab_matrix,
+    render: (data, locale) => <MatrixTab data={data} locale={locale} />,
+  },
+  {
+    id: "sensitivity",
+    label: m.dev_lab_tab_sensitivity,
+    render: (data, locale) => <SensitivityTab data={data} locale={locale} />,
+  },
   {
     id: "lab",
     label: m.dev_lab_tab_lab,
@@ -43,12 +58,19 @@ const TABS: readonly {
   },
 ];
 
+/** 주소 ?tab=<ID>(없거나 모르면 첫 탭) */
+function tabFromLocation(): Tab {
+  const wanted = new URLSearchParams(globalThis.location?.search ?? "").get("tab");
+  return TABS.find((entry) => entry.id === wanted)?.id ?? TABS[0]?.id ?? "matrix";
+}
+
 export default function BalancePanelScreen() {
   const locale = getLocale();
   const headingRef = useMountFocus<HTMLHeadingElement>(true);
   const data = useLabData();
-  const [tab, setTab] = useState<Tab>(TABS[0]?.id ?? "lab");
-  const [opened, setOpened] = useState<ReadonlySet<Tab>>(new Set([TABS[0]?.id ?? "lab"]));
+  const [first] = useState<Tab>(tabFromLocation);
+  const [tab, setTab] = useState<Tab>(first);
+  const [opened, setOpened] = useState<ReadonlySet<Tab>>(new Set([first]));
 
   const open = (next: Tab): void => {
     setTab(next);

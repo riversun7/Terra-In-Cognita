@@ -48,6 +48,13 @@ export function footprintCells(footprint: BuildingFootprint, gridSize: number): 
   return cells;
 }
 
+/** 건물이 차지한 칸 표(gridSize², 차지했으면 1) — 소품 모델이 건물 판 안에 서지 않게 거른다(props/propView.ts) */
+export function footprintMask(buildings: readonly BuildingFootprint[], gridSize: number): Uint8Array {
+  const mask = new Uint8Array(gridSize * gridSize);
+  for (const building of buildings) for (const cell of footprintCells(building, gridSize)) mask[cell] = 1;
+  return mask;
+}
+
 /** 2차맵(gridSize × gridSize) 안에 다 들어가는지 */
 export function footprintInside(footprint: BuildingFootprint, gridSize: number): boolean {
   const rect = footprintRect(footprint);

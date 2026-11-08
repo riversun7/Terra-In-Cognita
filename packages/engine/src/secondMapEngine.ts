@@ -4,7 +4,7 @@
 // 유닛이 가는 중이거나 카메라가 움직이면 다음 프레임을 예약하고, 아니면 멈춘다(FrameScheduler).
 // 낮밤(lighting/): 1차맵과 같은 하늘 모드·달력으로 그 2차맵 자리의 빛을 1초마다 계산하고, 눈에 띄게 바뀔 때만 한 번 그린다.
 import { Frustum, Matrix4, PerspectiveCamera, Scene, type WebGLRenderer } from "three";
-import type { BuildingFootprint } from "./buildings/footprint.ts";
+import { type BuildingFootprint, footprintMask } from "./buildings/footprint.ts";
 import { BuildingView } from "./buildings/buildingView.ts";
 import {
   CAMERA_FOV_RAD,
@@ -43,6 +43,7 @@ import { EngineLayers, createLayerView } from "./render/engineLayers.ts";
 import { acquireRenderer, defaultMaxPixelRatio, releaseRenderer } from "./render/sharedRenderer.ts";
 import { type BuiltTerrain, createTerrainBuilder } from "./terrain/terrainBuilder.ts";
 import {
+  PLACEMENT_CELLS,
   TERRAIN_CELLS,
   type TerrainInput,
   mapSizeM,
@@ -386,6 +387,7 @@ export function createSecondMapEngine(
       }
       if (pendingBuildings) {
         buildingView.set(pendingBuildings, cellM, groundAt);
+        propView.setBlocked(footprintMask(pendingBuildings, PLACEMENT_CELLS));
         pendingBuildings = null;
       }
       emit(contextLost ? { kind: "context-lost" } : { kind: "ready" });
@@ -442,6 +444,8 @@ export function createSecondMapEngine(
         return;
       }
       buildingView.set(buildings, cellM, groundAt);
+      // 건물 판 안에는 나무 등 소품 모델을 세우지 않는다
+      propView.setBlocked(footprintMask(buildings, PLACEMENT_CELLS));
       scheduler.request();
     },
 

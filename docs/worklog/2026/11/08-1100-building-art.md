@@ -33,8 +33,9 @@
 | `packages/engine/src/buildings/buildingModels.ts`(새)·`buildingKinds.ts`(새) | 상태·판 안 맞추기 / 종류별 몸체(파일 크기로 나눔) |
 | `packages/engine/src/buildings/buildingGeometry.ts`(새) | 단위 도형 지오메트리(박공 지붕은 직접 만든 삼각 기둥) |
 | `packages/engine/src/buildings/buildingView.ts` | 상자 그리기 → 도형별 인스턴싱·재질(몸 밤 빛 + 창문 빛)·누르기 |
-| `packages/engine/src/buildings/footprint.ts` | `BuildingFootprint.look`(선택) |
+| `packages/engine/src/buildings/footprint.ts`(+시험) | `BuildingFootprint.look`(선택), `footprintMask`(차지한 칸 표) |
 | `packages/engine/src/picking.ts` | `rayBoxDistance`(slab) |
+| `packages/engine/src/props/propView.ts` | `setBlocked`: 건물 판 안 칸에는 소품 모델을 세우지 않는다(나무가 마당·밭을 뚫고 나왔다) |
 | `packages/engine/src/secondMapEngine.ts` | 누르기 순서(유닛 → 건물 → 땅), 밤 정도를 건물에 |
 | `packages/engine/src/index.ts` | `BuildingLook`·`BuildingCondition` 타입 내보내기 |
 | `packages/shared/src/mapLooks.ts`(새)·`package.json` | 응답 모양 `MapLooksResponse`, 진입점 `@terra/shared/mapLooks` |

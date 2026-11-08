@@ -332,6 +332,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+@media (min-width: 64em) {
+  .an-heat-col-text {
+    max-inline-size: 11em;
+  }
+}
 .an-heat-row {
   position: sticky;
   inset-inline-start: 0;
@@ -663,6 +668,7 @@
 .an-effect[data-zero] {
   color: var(--color-text-muted);
 }
+.an-rps-table td,
 .an-effects th[scope="row"],
 .an-points th[scope="row"],
 .an-specs th[scope="row"],

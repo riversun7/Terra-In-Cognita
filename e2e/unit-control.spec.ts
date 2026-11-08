@@ -27,6 +27,46 @@ async function tapMap(page: Page, dx: number, dy: number): Promise<void> {
   await page.mouse.click(box.x + box.width / 2 + dx, box.y + box.height / 2 + dy);
 }
 
+/**
+ * 땅을 누를 자리(화면 가운데에서 떨어진 거리 px): 가운데 둘레 고리(먼 것 먼저) 가운데 지도 캔버스 위이고 채집 표시·건물 표시에서 떨어진 곳.
+ * 표시는 누르기를 지나보내고 엔진이 화면 거리 22px로 고르며(docs/adr/2026-11-08-map-input.md), 건물 모델을 누르면 건물 판이 열린다 —
+ * 그 자리를 누르면 땅 누르기(이동)가 아니다
+ */
+async function groundOffsets(page: Page): Promise<{ dx: number; dy: number }[]> {
+  return page.evaluate(() => {
+    const canvas = document.querySelector(".map-view canvas");
+    if (!canvas) return [];
+    const box = canvas.getBoundingClientRect();
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- 브라우저에서 도는 함수 안이라 밖으로 뺄 수 없다
+    const centres = (selector: string): { x: number; y: number }[] =>
+      [...document.querySelectorAll(selector)].flatMap((element) => {
+        if (element instanceof HTMLElement && element.hidden) return [];
+        const rect = element.getBoundingClientRect();
+        return [{ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }];
+      });
+    const objects = centres(".gather-marker");
+    const buildings = centres(".gather-building-marker");
+    const out: { dx: number; dy: number }[] = [];
+    for (const radius of [150, 110]) {
+      for (let step = 0; step < 12; step++) {
+        const angle = (step * Math.PI) / 6 - Math.PI / 2;
+        const dx = Math.round(Math.cos(angle) * radius);
+        const dy = Math.round(Math.sin(angle) * radius);
+        const x = cx + dx;
+        const y = cy + dy;
+        const hit = document.elementFromPoint(x, y);
+        if (!(hit instanceof HTMLCanvasElement) || !hit.closest(".map-view")) continue;
+        if (objects.some((point) => Math.hypot(point.x - x, point.y - y) < 34)) continue;
+        if (buildings.some((point) => Math.hypot(point.x - x, point.y - y) < 80)) continue;
+        out.push({ dx, dy });
+      }
+    }
+    return out;
+  });
+}
+
 test.describe("유닛 조종: 플레이어", () => {
   test.use({ account: "player" });
 
@@ -59,30 +99,22 @@ test.describe("유닛 조종: 플레이어", () => {
     await expect(panel).toHaveCount(0);
     await expect(toggle).toBeVisible();
 
-    // 땅을 누르면 보낸다: 갈 수 있는 곳이 나올 때까지 카메라 목표점 둘레 몇 곳을 눌러 본다
-    let sent = false;
-    for (const [dx, dy] of [
-      [0, -110],
-      [110, 0],
-      [-110, 0],
-      [0, 110],
-      [80, -80],
-    ] as const) {
-      await tapMap(page, dx, dy);
-      await page.waitForTimeout(300);
-      await expect(screen).not.toHaveAttribute("data-command", "sent", { timeout: 20_000 });
-      const state = await screen.getAttribute("data-command");
-      if (state === "ok") {
-        sent = true;
-        break;
+    // 땅을 누르면 보낸다: 갈 수 있는 곳이 나올 때까지 카메라 목표점(따라가는 내 사이보그) 둘레의 빈 땅을 눌러 본다
+    const send = async (): Promise<boolean> => {
+      for (const { dx, dy } of (await groundOffsets(page)).slice(0, 8)) {
+        await tapMap(page, dx, dy);
+        await page.waitForTimeout(300);
+        await expect(screen).not.toHaveAttribute("data-command", "sent", { timeout: 20_000 });
+        if ((await screen.getAttribute("data-command")) === "ok") return true;
+        // 땅을 누르지 못하고 다른 유닛을 골랐으면 다시 내 사이보그를 고른다
+        if ((await screen.getAttribute("data-selected")) !== cyborg) {
+          await toggle.click();
+          await page.locator(`.map-unit-row[data-unit-id="${cyborg}"]`).click();
+        }
       }
-      // 땅을 누르지 못하고 다른 유닛을 골랐으면 다시 내 사이보그를 고른다
-      if ((await screen.getAttribute("data-selected")) !== cyborg) {
-        await toggle.click();
-        await page.locator(`.map-unit-row[data-unit-id="${cyborg}"]`).click();
-      }
-    }
-    expect(sent).toBe(true);
+      return false;
+    };
+    expect(await send()).toBe(true);
     await expect(page.locator(".map-hint .map-command").first()).toHaveText(
       message("ko", "map_command_ok", { id: cyborg ?? "" }),
     );
@@ -90,6 +122,11 @@ test.describe("유닛 조종: 플레이어", () => {
     const stop = page.locator(".map-unit-stop");
     await expect(stop).toBeVisible({ timeout: 5_000 });
     await shot(page, "unit-control-moving-390");
+    // 헤드리스 소프트웨어 WebGL은 느려(프레임 몇 장/초) 사진을 찍는 사이 닿을 수 있다: 닿았으면 다시 보내고 바로 멈춘다
+    if ((await stop.count()) === 0) {
+      expect(await send()).toBe(true);
+      await expect(stop).toBeVisible({ timeout: 5_000 });
+    }
     await stop.click();
     await expect(page.locator(".map-hint .map-command").first()).toHaveText(
       message("ko", "map_command_stopped", { id: cyborg ?? "" }),
@@ -134,7 +171,9 @@ test.describe("유닛 조종: 플레이어", () => {
     await expect(screen).toHaveAttribute("data-control", "other");
     await expect(page.locator(".map-hint p").first()).toContainText("#");
     await expect(page.locator(".map-unit-stop")).toHaveCount(0);
-    await tapMap(page, 0, -110);
+    const [ground] = await groundOffsets(page);
+    if (!ground) throw new Error("빈 땅이 없습니다");
+    await tapMap(page, ground.dx, ground.dy);
     await expect(screen).toHaveAttribute("data-command", "view_only", { timeout: 5_000 });
     expect(sentMoves).toEqual([]);
     expect(deviceErrors).toEqual([]);

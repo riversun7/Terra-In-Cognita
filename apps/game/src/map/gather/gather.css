@@ -1,7 +1,9 @@
 /*
  * 2차맵 채집·들어가기(gatherOverlay.ts·GatherPanel.tsx) — 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
  * 오브젝트 표시: 누르는 곳은 --tap-size, 안에 무리 색 점(원목·돌·광석·약초). 떨어진 것은 속 빈 회색 고리(색에만 기대지 않는다).
- * 덧그림 판은 지도 위를 덮지만 누르기는 지나보낸다(표시 단추만 받는다). 위치는 엔진 프레임이 transform으로 놓는다.
+ * 덧그림 판과 표시는 손가락·마우스를 지도로 지나보낸다(pointer-events: none — 표시 위에서 시작한 끌기도 지도를 끈다, 사용자 지적 2026-11-08).
+ * 표시를 누르는 것은 엔진 누르기 판정 뒤 gatherOverlay.ts tap()이 화면 거리로 고른다. 키보드는 단추로 닿는다(포커스 고리는 그대로).
+ * 위치는 엔진 프레임이 transform으로 놓는다.
  */
 .gather-overlay {
   position: absolute;
@@ -38,8 +40,7 @@
   background: none;
   box-shadow: none;
   transition: none;
-  pointer-events: auto;
-  cursor: pointer;
+  pointer-events: none;
 }
 .gather-marker[hidden] {
   display: none;
@@ -82,8 +83,7 @@
   font-weight: var(--font-weight-strong);
   line-height: var(--line-height-snug);
   white-space: nowrap;
-  pointer-events: auto;
-  cursor: pointer;
+  pointer-events: none;
 }
 .gather-building-marker[hidden] {
   display: none;

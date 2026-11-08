@@ -20,8 +20,10 @@
 // (2차맵은 면 격자 틀이라 북쪽이 2차맵마다 돌아가 있다, 사용자 결정 U1).
 // 탐사한 곳이 없으면(유닛 없는 계정, S3 시야 안개) 온통 어두운 까닭을 알리고, dev·admin에게는 [시험 일꾼 받기]·[운영자 모드]와
 // 개발자 2차맵 시험(/dev/second-map)을 가리킨다.
-// 확대 단계(ADR 2026-11-07-planet-view 1·2절): 오른쪽 사다리(ZoomLadder, "2차맵 지역") [+]·[−]. 가장 멀리에서 [−]나 한 번 더 줄이기
+// 확대 단계(ADR 2026-11-07-planet-view 1·2절): 오른쪽 사다리(ZoomLadder, "2차맵 3/5") [+]·[−]. 가장 멀리에서 [−]나 한 번 더 줄이기
 // (휠·두 손가락) = 이 2차맵 자리의 1차맵 5단계(D-6018, /map/planet?key=&stage=5).
+// 지도 조작(사용자 지적 2026-11-08, docs/adr/2026-11-08-map-input.md): 채집 표시는 누르기를 지나보내 끌기가 걸리지 않고(엔진이 누르기만 화면 거리로
+// 고른다), 내 유닛을 고르면 카메라가 따라간다(UnitFollow.tsx — 끌면 끊기고 [따라가기]), 사다리는 2차맵 확대 단계 1~5(엔진 onZoomStage).
 import {
   type EngineStats,
   type EngineStatus,
@@ -57,6 +59,7 @@ import { MapTargetGate } from "./MapTargetGate.tsx";
 import { screenNotice } from "./secondMapNotice.ts";
 import { CrossingNotice, CyborgActions, TravelLine } from "./SecondMapTravel.tsx";
 import { ZoomLadder } from "./ZoomLadder.tsx";
+import { FollowAction, followableOf, useUnitFollow } from "./UnitFollow.tsx";
 import { useTravelFollow } from "./useCyborgTravel.ts";
 import type { MapUnit } from "@terra/shared/mapUnits";
 import {
@@ -183,6 +186,18 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
   const { going, crossedTo } = useTravelFollow(cyborg?.unitId ?? null, mapKey, following);
   // 원자재 오브젝트 채집·건물 들어가기(docs/adr/2026-11-07-gather-objects.md): 덧그림과 아래 판이 같이 보는 상태(React 밖)
   const [gather] = useState(createGatherState);
+  // 고른 유닛 따라가기(내 유닛·운영자 모드)와 2차맵 확대 단계(사다리, 엔진이 바뀔 때 알린다)
+  const [zoomStage, setZoomStage] = useState(0);
+  const {
+    following: followOn,
+    lost: followLost,
+    resume: resumeFollow,
+    onBreak: onFollowBreak,
+  } = useUnitFollow(
+    engineRef,
+    selected,
+    followableOf({ operator, selected, units: myUnits.units, ownByFeed: selection.own }),
+  );
 
   useEffect(() => {
     unitsRef.current = myUnits.units;
@@ -228,6 +243,8 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       onZoomEdge: (edge) => {
         if (edge === "out") openPlanetStage(mapKey);
       },
+      onZoomStage: setZoomStage,
+      onFollowBreak,
       unitCapacity: UNIT_CAPACITY,
       mapKey,
       sky: skyMode(),
@@ -244,6 +261,8 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
         }
       },
       onSelect: (id) => {
+        // 지도에서 (다시) 누른 유닛은 (다시) 따라간다
+        resumeFollow();
         selectedRef.current = id;
         setSelected(id);
         setSelection(selectionOf(id));
@@ -370,7 +389,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       setTelemetryView(null);
     };
     // 맵·카메라 대상은 화면 열쇠(맵 키)와 함께 정해진다(바뀌면 화면을 새로 만든다). 채집 상태와 두 ref는 늘 같은 객체다
-  }, [mapKey, focus, gather, operatorRef, cameraTap]);
+  }, [mapKey, focus, gather, operatorRef, cameraTap, onFollowBreak, resumeFollow]);
 
   // 명령 안내는 잠시 보이고 지운다(보낸 뒤 결과를 기다리는 동안은 그대로)
   useEffect(() => {
@@ -394,7 +413,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
     return () => clearTimeout(timer);
   }, [devNotice]);
 
-  /** 목록에서 고르기: 그 유닛을 고르고 카메라를 지금 자리로. 좁은 화면이면 목록을 접어 땅을 누를 수 있게 한다 */
+  /** 목록에서 고르기: 그 유닛을 고르고 카메라가 따라간다(엔진이 아직 모르는 유닛이면 목록의 칸으로). 좁은 화면이면 목록을 접어 땅을 누를 수 있게 한다 */
   const pickUnit = (unit: MapUnit): void => {
     const engine = engineRef.current;
     selectedRef.current = unit.unitId;
@@ -402,7 +421,8 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
     setCommand(null);
     engine?.select(unit.unitId);
     const state = engine?.unitState(unit.unitId) ?? null;
-    engine?.setView({ x: state?.x ?? unit.cellX + 0.5, y: state?.y ?? unit.cellY + 0.5 });
+    if (!state) engine?.setView({ x: unit.cellX + 0.5, y: unit.cellY + 0.5 });
+    resumeFollow();
     setSelection({ own: true, moving: state?.moving ?? unit.moving });
     if (!wideScreen()) setListOpen(false);
   };
@@ -420,10 +440,14 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
     if (!feedRef.current?.devSpawn(DEV_SPAWN_COUNT)) setDevNotice(m.map_vision_spawn_failed());
   };
 
-  /** [내 사이보그]: 카메라를 내 사이보그의 지금 자리로(엔진이 유닛을 모르면 들어올 때의 칸) */
+  /** [내 사이보그]: 카메라를 내 사이보그의 지금 자리로(엔진이 유닛을 모르면 들어올 때의 칸). 고른 유닛이 내 사이보그면 다시 따라간다 */
   const goToCyborg = (): void => {
     const engine = engineRef.current;
     if (!engine || !cyborg) return;
+    if (cyborg.unitId !== null && cyborg.unitId === selected && engine.unitState(cyborg.unitId)) {
+      resumeFollow();
+      return;
+    }
     const unit = cyborg.unitId === null ? null : engine.unitState(cyborg.unitId);
     engine.setView({ x: unit?.x ?? cyborg.cellX + 0.5, y: unit?.y ?? cyborg.cellY + 0.5 });
   };
@@ -495,6 +519,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       data-selected-at={snapshot?.selectedAt}
       data-selected={selected ?? undefined}
       data-control={control?.kind}
+      data-follow={followLost ? "lost" : followOn ? "on" : undefined}
       data-operator={operator ? "on" : "off"}
       data-light-clock={light?.clock}
       data-light-day={light ? fixed(light.day, 3) : undefined}
@@ -534,7 +559,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
           </span>
         </div>
         <ZoomLadder
-          rung={{ kind: "local" }}
+          rung={{ kind: "local", stage: zoomStage }}
           onZoomIn={() => engineRef.current?.zoomStep(1)}
           onZoomOut={() => {
             if (engineRef.current && !engineRef.current.zoomStep(-1)) openPlanetStage(mapKey);
@@ -616,6 +641,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
             <UnitsToggle count={myUnits.units?.length ?? null} onOpen={() => setListOpen(true)} />
           </div>
         )}
+        <FollowAction show={followLost} onResume={resumeFollow} />
         {selected === null ? null : (
           <SelectedActions
             onStop={control !== null && canCommand(control) && selection.moving ? stopSelected : null}

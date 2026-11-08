@@ -1,5 +1,7 @@
 // 엔진 덧그림 층 — 2차맵 엔진 장면에 붙이는 일반 층(전투 효과 등). docs/adr/2026-11-01-battle-replay.md 6절.
 // 한 프레임 차례: before(시각) → 카메라·유닛 → after(보기) → 그리기. before가 true면 다음 프레임도 그린다.
+// 누르기(tap): 유닛을 누르지 않았을 때 땅보다 먼저 층에 묻는다 — HTML 덧층 표시(채집 오브젝트 등)는 누르기를 지나보내고(pointer-events: none)
+// 화면 거리로 여기서 고른다(끌기가 표시에 걸리지 않게, 사용자 지적 2026-11-08, docs/adr/2026-11-08-map-input.md 1절).
 // 층은 리플레이 형식을 몰라도 된다(엔진은 그릴 것만 받는다). secondMapEngine.ts가 쓴다(파일 크기를 나눈 것).
 import { type Camera, type Object3D, type Scene, Vector3 } from "three";
 
@@ -25,6 +27,8 @@ export interface EngineLayer {
   before?(timeMs: number): boolean;
   /** 카메라·유닛을 맞춘 뒤, 그리기 전 */
   after?(view: EngineLayerView): void;
+  /** 누른 곳(캔버스 CSS 픽셀)이 이 층의 표시면 처리하고 true(유닛·땅 누르기를 하지 않는다). 마지막 after()의 자리로 고른다 */
+  tap?(point: { readonly x: number; readonly y: number }): boolean;
 }
 
 /** 엔진 상태를 읽는 보기(프레임마다 만들지 않는다: 값은 부를 때 읽는다) */
@@ -89,6 +93,11 @@ export class EngineLayers {
 
   after(view: EngineLayerView): void {
     for (const layer of this.layers) layer.after?.(view);
+  }
+
+  /** 누르기를 층에 차례로 묻는다(먼저 붙인 층 먼저). 하나가 받으면 true */
+  tap(point: { readonly x: number; readonly y: number }): boolean {
+    return this.layers.some((layer) => layer.tap?.(point) === true);
   }
 
   clear(): void {

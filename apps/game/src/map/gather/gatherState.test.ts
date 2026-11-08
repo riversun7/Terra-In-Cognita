@@ -1,7 +1,7 @@
 // 2차맵 채집 화면 상태 시험 — 서버 응답 풀기, 누른 칸 → 오브젝트·건물 판, 건물 돌림(docs/adr/2026-11-07-gather-objects.md 6절)
 import type { BuildingFootprint } from "@terra/engine";
 import { describe, expect, it } from "vitest";
-import { kindClass } from "./gatherOverlay.ts";
+import { kindClass, pickHit } from "./gatherOverlay.ts";
 import { buildingAt, createGatherState, decodeObjects, nearestObject } from "./gatherState.ts";
 
 const building = (over: Partial<BuildingFootprint>): BuildingFootprint => ({
@@ -24,7 +24,7 @@ describe("채집 화면 상태", () => {
     expect(decodeObjects({ objects: [1, 2, 3] })).toEqual([]);
   });
 
-  it("누른 칸: 반경 2칸 안 가장 가까운 오브젝트, 없으면 돌린 건물 칸, 둘 다 없으면 false", () => {
+  it("칸 둘레 오브젝트(반경 2칸), 누른 칸은 돌린 건물 칸만 판을 연다(없으면 false)", () => {
     const objects = decodeObjects({ objects: [16 * 256 + 20, 0, 5, 0, 16 * 256 + 23, 0, 5, 0] });
     expect(nearestObject(objects, { x: 21.6, y: 16.2 })?.id).toBe(16 * 256 + 20);
     expect(nearestObject(objects, { x: 22.5, y: 16.5 })?.id).toBe(16 * 256 + 23);
@@ -47,13 +47,28 @@ describe("채집 화면 상태", () => {
       generatedAt: 0,
     });
     state.setBuildings([building({ id: 9 })]);
-    expect(state.tapCell({ x: 20.5, y: 17.5 })).toBe(true);
-    expect(state.sheet).toEqual({ kind: "object", id: 4116 });
+    // 오브젝트 둘레 땅을 눌러도 판을 열지 않는다(표시는 화면 거리로 고른다 — 사용자 지적 2026-11-08)
+    expect(state.tapCell({ x: 20.5, y: 17.5 })).toBe(false);
+    expect(state.sheet).toBeNull();
     expect(state.tapCell({ x: 51.5, y: 50.5 })).toBe(true);
     expect(state.sheet).toEqual({ kind: "building", id: 9 });
     expect(state.tapCell({ x: 120.5, y: 120.5 })).toBe(false);
+    state.open({ kind: "object", id: 4116 });
+    expect(state.sheet).toEqual({ kind: "object", id: 4116 });
     expect(calls).toBe(4);
     off();
+  });
+
+  it("표시 누르기: 화면 거리 22px(누름 영역 44px의 반) 안 가장 가까운 표시, 밖이면 없음", () => {
+    const hits = [
+      { x: 100, y: 100, sheet: { kind: "object", id: 1 } as const },
+      { x: 130, y: 100, sheet: { kind: "building", id: 2 } as const },
+    ];
+    expect(pickHit(hits, { x: 104, y: 103 })?.sheet).toEqual({ kind: "object", id: 1 });
+    expect(pickHit(hits, { x: 120, y: 100 })?.sheet).toEqual({ kind: "building", id: 2 });
+    expect(pickHit(hits, { x: 100, y: 122 })?.sheet).toEqual({ kind: "object", id: 1 });
+    expect(pickHit(hits, { x: 100, y: 123 })).toBeNull();
+    expect(pickHit([], { x: 0, y: 0 })).toBeNull();
   });
 
   it("표시 무리: 원목·돌·광석·약초", () => {

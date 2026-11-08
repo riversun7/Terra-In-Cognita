@@ -3,6 +3,8 @@
 // 한 프레임: 목표점 높이 맞추기 → 카메라 → 유닛 위치(서버 시계로 보간) → 표현 단계(실제 크기/아이콘) → 빛 → 그리기.
 // 유닛이 가는 중이거나 카메라가 움직이면 다음 프레임을 예약하고, 아니면 멈춘다(FrameScheduler).
 // 낮밤(lighting/): 1차맵과 같은 하늘 모드·달력으로 그 2차맵 자리의 빛을 1초마다 계산하고, 눈에 띄게 바뀔 때만 한 번 그린다.
+// 지도 조작(사용자 지적 2026-11-08, docs/adr/2026-11-08-map-input.md): 누르기는 유닛 → 덧그림 층 표시(화면 거리) → 땅 차례, 고른 유닛 따라가기
+// (follow, 끌면 끊김)·확대 단계 1~5(zoomStep은 단계 대표 거리로 미끄러짐, onZoomStage)는 camera/cameraGlide.ts·secondMapZoom.ts.
 import { Frustum, Matrix4, PerspectiveCamera, Scene, type WebGLRenderer } from "three";
 import type { BuildingFootprint } from "./buildings/footprint.ts";
 import { BuildingView } from "./buildings/buildingView.ts";
@@ -21,10 +23,10 @@ import {
   pixelsPerMetre,
   screenRay,
   spanForDistance,
-  transformAround,
 } from "./camera/cameraMath.ts";
+import { CameraGlide, FOLLOW_SMOOTH_MS } from "./camera/cameraGlide.ts";
 import { attachControls } from "./camera/controls.ts";
-import { edgeOf } from "./camera/zoomPush.ts";
+import { localZoomStage, localZoomStepTarget } from "./camera/secondMapZoom.ts";
 import { inertEngine } from "./engineParts.ts";
 import type {
   EngineStats,
@@ -147,6 +149,17 @@ export function createSecondMapEngine(
   /** 격자 선(개발자 2차맵 시험, setViewOptions) */
   let grid = false;
   let lastView = "";
+  /** 고른 유닛 따라가기·확대 단계 움직임, 지금 확대 단계(바뀔 때 알린다) */
+  const glide = new CameraGlide();
+  let followSmoothMs = FOLLOW_SMOOTH_MS;
+  let zoomStage = 0;
+  /** 따라가기를 끊고 알린다(손으로 끌기·setView) */
+  const breakFollow = (): void => {
+    const id = glide.followId;
+    if (id === null) return;
+    glide.follow(null);
+    if (!disposed) options.onFollowBreak?.(id);
+  };
 
   // 땅 높이: 지금 2차맵 위면 그 지형, 밖이면 이웃 지형(없으면 가장자리 값)
   const groundAt = (x: number, z: number): number => {
@@ -215,6 +228,19 @@ export function createSecondMapEngine(
     const started = performance.now();
     // 덧그림 층이 먼저 유닛 자리·카메라 목표를 바꾼다(전투 다시보기 시계)
     let animating = layers.before(time);
+    // 고른 유닛 따라가기·확대 단계 움직임: 그 유닛의 지금 자리(서버 시계로 보간)로 목표점을 옮긴다
+    if (glide.active) {
+      const unit = glide.followId === null ? null : roster.state(glide.followId);
+      const step = glide.step(
+        state,
+        unit ? { x: unit.x * cellM, z: unit.y * cellM } : null,
+        deltaMs,
+        limits,
+        followSmoothMs,
+      );
+      state = step.state;
+      if (step.busy) animating = true;
+    }
     // 누르고 있지 않을 때 목표점 높이를 땅에 맞춘다(끄는 동안은 잡은 평면을 그대로 둔다)
     if (terrain && !gestureActive) {
       const desired = groundAt(state.targetX, state.targetZ);
@@ -233,6 +259,11 @@ export function createSecondMapEngine(
     if (view !== lastView) {
       lastView = view;
       options.onView?.(state);
+    }
+    const stage = localZoomStage(state.distance, limits);
+    if (stage !== zoomStage) {
+      zoomStage = stage;
+      options.onZoomStage?.(stage);
     }
     const blending = sceneLight.frame(performance.now());
     moving = motion.update(serverNow());
@@ -289,7 +320,11 @@ export function createSecondMapEngine(
 
   const detachControls = attachControls(canvas, {
     getState: () => state,
-    setState: setCamera,
+    // 손가락·휠로 바꾸면 [+]·[−] 움직임은 그만둔다(따라가기는 끌기만 끊는다)
+    setState: (next) => {
+      glide.stopZoom();
+      setCamera(next);
+    },
     limits: () => limits,
     viewport: () => viewport,
     onGestureChange: (active) => {
@@ -304,12 +339,16 @@ export function createSecondMapEngine(
         options.onSelect?.(roster.idAt(slot));
         return;
       }
+      // 덧그림 층 표시(채집 오브젝트·건물 표시 등 — 누르기를 지나보내는 HTML)를 화면 거리로 고른다
+      if (layers.tap(point)) return;
       const ground = pickGround(point);
       if (ground) options.onGroundTap?.({ x: ground.x / cellM, y: ground.z / cellM });
     },
     onZoomPush: (edge) => {
       if (!disposed) options.onZoomEdge?.(edge);
     },
+    onDragStart: breakFollow,
+    centreLocked: () => glide.followId !== null,
   });
 
   // 컨텍스트 손실(iOS 앱 전환 등): 멈췄다가 복구되면 다시 그린다. three.js가 손실 이벤트의 기본 동작을 막아 복구를 받는다
@@ -467,6 +506,8 @@ export function createSecondMapEngine(
         propSpanM: propView.limits.spanM,
         propCap: propView.limits.maxProps,
         grid,
+        zoomStage: localZoomStage(state.distance, limits),
+        following: glide.followId,
       };
     },
 
@@ -507,17 +548,26 @@ export function createSecondMapEngine(
     },
 
     zoomStep(direction) {
-      // 화면 가운데를 붙잡고 거리 ÷ 2(키우기)·× 2(줄이기). 이미 그쪽 끝이면 false(화면이 1차맵으로 넘어간다, D-6018)
-      const edge = edgeOf(state.distance, limits.minDistance, limits.maxDistance);
-      if ((direction === 1 && edge === "in") || (direction === -1 && edge === "out")) return false;
-      const centre = { x: viewport.width / 2, y: viewport.height / 2 };
-      setCamera(transformAround(state, centre, centre, direction === 1 ? 0.5 : 2, 0, viewport, limits));
+      // 이웃 확대 단계의 대표 거리로 미끄러진다(화면 가운데 = 목표점을 붙잡으므로 거리만 바꾼다). 움직이는 중이면 그 목표에서 센다 —
+      // 거듭 누르면 단계를 하나씩 건너고, 이미 그쪽 끝이면 false(화면이 1차맵으로 넘어간다, D-6018)
+      const to = localZoomStepTarget(glide.distanceGoal ?? state.distance, direction, limits);
+      if (to === null) return false;
+      glide.zoomTo(to);
+      scheduler.request();
       return true;
     },
 
     setView(view) {
+      breakFollow();
+      if (view.spanM !== undefined) glide.stopZoom();
       const distance = view.spanM === undefined ? state.distance : distanceForSpan(view.spanM, viewport);
       state = clampCamera({ ...state, targetX: view.x * cellM, targetZ: view.y * cellM, distance }, limits);
+      scheduler.request();
+    },
+
+    follow(unitId, followOptions) {
+      glide.follow(unitId);
+      followSmoothMs = followOptions?.instant === true ? 0 : FOLLOW_SMOOTH_MS;
       scheduler.request();
     },
 

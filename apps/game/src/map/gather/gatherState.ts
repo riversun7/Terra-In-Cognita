@@ -1,7 +1,8 @@
 // 2차맵 채집·들어가기 화면 상태(React 밖) — docs/adr/2026-11-07-gather-objects.md 6절.
 // 엔진 덧그림(gatherOverlay.ts)과 React 판(GatherPanel.tsx)이 같은 상태를 본다: 덧그림은 프레임마다 읽고, React는 판 번호(version)를 구독한다.
 // - 자료: 오브젝트(서버 gather.objects를 풀어 둔 것), 내 채집 줄(gather.loops), 건물 칸(지도 자료의 건물 — 누른 칸이 어느 건물인지).
-// - 판: 누른 오브젝트·건물(아래 작은 판). 땅을 누르면(엔진 onGroundTap) 둘레 오브젝트 → 건물 차례로 판을 연다.
+// - 판: 누른 오브젝트·건물(아래 작은 판). 오브젝트·건물 표시는 화면 거리로 고르고(gatherOverlay.ts tap), 땅을 누르면(엔진 onGroundTap) 그 칸이 든
+//   건물의 판만 연다 — 둘레 칸 반경으로 오브젝트를 잡으면 이동하려고 누른 땅이 오브젝트 판을 열었다(사용자 지적 2026-11-08 "계속 오브젝트가 잘못눌린다").
 import type { BuildingFootprint } from "@terra/engine";
 import type { FeedSink } from "../feedTypes.ts";
 import {
@@ -26,7 +27,7 @@ export type GatherSheet =
   | { readonly kind: "object"; readonly id: number }
   | { readonly kind: "building"; readonly id: number };
 
-/** 땅을 눌렀을 때 오브젝트를 찾는 반경(배치 칸) */
+/** 칸 둘레 오브젝트를 찾는 반경(배치 칸) — 땅 누르기에는 쓰지 않는다(표시는 화면 거리로 고른다) */
 export const TAP_RADIUS_CELLS = 2;
 
 export interface GatherState {
@@ -43,7 +44,7 @@ export interface GatherState {
   setLoops(loops: readonly GatherLoopView[]): void;
   setBuildings(buildings: readonly BuildingFootprint[]): void;
   open(sheet: GatherSheet | null): void;
-  /** 누른 칸: 둘레 오브젝트·건물이 있으면 판을 열고 true */
+  /** 누른 칸: 그 칸이 든 건물이 있으면 판을 열고 true(오브젝트는 표시를 눌러 고른다) */
   tapCell(cell: { readonly x: number; readonly y: number }): boolean;
   objectById(id: number): GatherObjectEntry | undefined;
 }
@@ -166,12 +167,6 @@ export function createGatherState(): GatherState {
       changed();
     },
     tapCell(cell) {
-      const object = nearestObject(state.objects, cell);
-      if (object) {
-        state.sheet = { kind: "object", id: object.id };
-        changed();
-        return true;
-      }
       const building = buildingAt(buildings, cell);
       if (building) {
         state.sheet = { kind: "building", id: building.id };

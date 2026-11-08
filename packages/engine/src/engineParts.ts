@@ -49,6 +49,8 @@ export function inertEngine(): SecondMapEngine {
     propSpanM: 0,
     propCap: 0,
     grid: false,
+    zoomStage: 0,
+    following: null,
   };
   const camera: CameraState = { targetX: 0, targetY: 0, targetZ: 0, yaw: 0, pitch: 0, distance: 0 };
   return {
@@ -71,6 +73,7 @@ export function inertEngine(): SecondMapEngine {
     setUnitLook: () => undefined,
     zoomStep: () => false,
     setView: () => undefined,
+    follow: () => undefined,
     setViewArea: () => undefined,
     dispose: () => undefined,
   };

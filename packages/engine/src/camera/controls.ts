@@ -1,7 +1,10 @@
 // 카메라 조작 — 포인터(터치·마우스·펜)와 휠을 받아 카메라 상태를 바꾼다. 계산은 cameraMath.ts(순수 함수).
 // ADR 2026-10-28-s1-second-map: 휴대폰은 한 손가락 끌기 = 이동, 두 손가락 = 확대·회전(+ 가운데 점 이동), 누르기 = 고르기·명령.
 // 데스크톱은 끌기 = 이동, 휠 = 확대(커서 아래 땅 기준), 오른쪽(가운데) 끌기 = 회전(가로)·기울이기(세로).
-// 누르기: 거의 움직이지 않고(TAP_SLOP) 짧게(TAP_MAX_MS) 뗀 한 손가락·왼쪽 단추.
+// 누르기: 거의 움직이지 않고(TAP_SLOP) 짧게(TAP_MAX_MS) 뗀 한 손가락·왼쪽 단추. 두 손가락(확대)은 누르기가 아니다.
+// 끌기: 한 손가락·왼쪽 단추가 TAP_SLOP을 넘게 움직이면 한 번 알린다(onDragStart — 유닛 따라가기를 끊는다, 사용자 지적 2026-11-08,
+// docs/adr/2026-11-08-map-input.md). 가운데를 붙잡은 동안(centreLocked = 유닛 따라가는 중) 확대·회전은 화면 가운데 기준이고,
+// 끌기는 TAP_SLOP을 넘기 전에는 화면을 움직이지 않는다(누르다 손이 떨려도 따라가기가 흔들리지 않게).
 // 가장 멀리에 닿은 채 다시 줄이면 알린다(zoomPush.ts, D-6018: 2차맵을 끝까지 줄이면 1차맵 5단계, ADR 2026-11-07-planet-view 2절).
 import {
   type CameraLimits,
@@ -29,6 +32,10 @@ export interface ControlTarget {
   onGestureChange(active: boolean): void;
   /** 끝에 닿은 채 더 키우기(in)·줄이기(out) */
   onZoomPush?(edge: ZoomEdge): void;
+  /** 한 손가락·왼쪽 단추 끌기가 누르기 거리를 넘었을 때 한 번(누르기가 아니라 지도 끌기다) */
+  onDragStart?(): void;
+  /** true면 화면 가운데를 붙잡는다(유닛 따라가는 중): 확대·회전은 가운데 기준, 끌기는 누르기 거리를 넘은 뒤부터 */
+  centreLocked?(): boolean;
 }
 
 /** 움직였다고 볼 거리(CSS px): 손가락, 마우스 */
@@ -44,6 +51,9 @@ const PINCH_WHEEL_ZOOM = 0.01;
 
 type Mode = "none" | "pan" | "orbit" | "pinch";
 
+/** 화면 가운데(따라가는 유닛이 있는 곳) */
+const centreOf = (viewport: Viewport): ScreenPoint => ({ x: viewport.width / 2, y: viewport.height / 2 });
+
 /** 캔버스 위 오른쪽 단추 메뉴를 막는다(오른쪽 끌기 = 회전) */
 const preventContextMenu = (event: Event): void => event.preventDefault();
 
@@ -54,6 +64,8 @@ export function attachControls(element: HTMLElement, target: ControlTarget): () 
   let orbitLast: ScreenPoint | null = null;
   let pinchPrevious: [ScreenPoint, ScreenPoint] | null = null;
   let tap: { id: number; start: ScreenPoint; time: number; slop: number } | null = null;
+  // 끌기 판정: 이 손가락(pan을 시작한 곳)에서 slop을 넘으면 끌기
+  let drag: { start: ScreenPoint; slop: number; started: boolean } | null = null;
   const zoomPush = createZoomPush((edge) => target.onZoomPush?.(edge));
   const edgeNow = (): ZoomEdge | null => {
     const limits = target.limits();
@@ -70,10 +82,12 @@ export function attachControls(element: HTMLElement, target: ControlTarget): () 
     const b = values[1];
     return a && b ? [a, b] : null;
   };
-  const startPan = (point: ScreenPoint): void => {
+  const startPan = (point: ScreenPoint, slop: number): void => {
     mode = "pan";
     panAnchor = groundUnder(target.getState(), target.viewport(), point);
+    drag = { start: point, slop, started: false };
   };
+  const locked = (): boolean => target.centreLocked?.() ?? false;
 
   const onPointerDown = (event: PointerEvent): void => {
     if (event.pointerType === "mouse" && event.button > 2) return;
@@ -88,18 +102,15 @@ export function attachControls(element: HTMLElement, target: ControlTarget): () 
       return;
     }
     if (pointers.size === 1) {
-      startPan(point);
-      tap = {
-        id: event.pointerId,
-        start: point,
-        time: event.timeStamp,
-        slop: event.pointerType === "mouse" ? TAP_SLOP_MOUSE : TAP_SLOP_TOUCH,
-      };
+      const slop = event.pointerType === "mouse" ? TAP_SLOP_MOUSE : TAP_SLOP_TOUCH;
+      startPan(point, slop);
+      tap = { id: event.pointerId, start: point, time: event.timeStamp, slop };
     } else {
       // 두 손가락 이상: 확대·회전. 누르기는 취소한다
       mode = "pinch";
       pinchPrevious = firstTwo();
       tap = null;
+      drag = null;
       zoomPush.begin(edgeNow());
     }
   };
@@ -115,7 +126,16 @@ export function attachControls(element: HTMLElement, target: ControlTarget): () 
     const viewport = target.viewport();
     const limits = target.limits();
     if (mode === "pan" && panAnchor) {
-      target.setState(keepGroundUnder(state, panAnchor, point, viewport, limits));
+      if (drag && !drag.started && Math.hypot(point.x - drag.start.x, point.y - drag.start.y) > drag.slop) {
+        drag.started = true;
+        const wasLocked = locked();
+        target.onDragStart?.();
+        // 붙잡았던 동안은 화면을 움직이지 않았다: 끌기가 시작된 이 점에서 다시 붙잡는다(누르기 거리만큼 튀지 않게)
+        if (wasLocked) panAnchor = groundUnder(target.getState(), viewport, point) ?? panAnchor;
+      }
+      if (drag?.started === true || !locked()) {
+        target.setState(keepGroundUnder(target.getState(), panAnchor, point, viewport, limits));
+      }
     } else if (mode === "orbit" && orbitLast) {
       const dx = point.x - orbitLast.x;
       const dy = point.y - orbitLast.y;
@@ -127,11 +147,13 @@ export function attachControls(element: HTMLElement, target: ControlTarget): () 
       if (!next || !pinchPrevious) return;
       const change = twoPointerChange(pinchPrevious, next);
       pinchPrevious = next;
+      // 따라가는 중이면 두 손가락 가운데가 아니라 화면 가운데(따라가는 유닛)를 붙잡는다
+      const centre = locked() ? centreOf(viewport) : null;
       target.setState(
         transformAround(
           state,
-          change.previousMid,
-          change.nextMid,
+          centre ?? change.previousMid,
+          centre ?? change.nextMid,
           change.scale,
           change.rotation,
           viewport,
@@ -159,13 +181,14 @@ export function attachControls(element: HTMLElement, target: ControlTarget): () 
       panAnchor = null;
       orbitLast = null;
       pinchPrevious = null;
+      drag = null;
       zoomPush.end();
       target.onGestureChange(false);
     } else if (pointers.size === 1 && mode === "pinch") {
       // 두 손가락 중 하나를 떼면 남은 손가락으로 이어서 끈다(튀지 않게 새로 붙잡는다)
       const remaining = [...pointers.values()][0];
       zoomPush.end();
-      if (remaining) startPan(remaining);
+      if (remaining) startPan(remaining, TAP_SLOP_TOUCH);
     } else if (pointers.size >= 2) {
       pinchPrevious = firstTwo();
     }
@@ -178,7 +201,7 @@ export function attachControls(element: HTMLElement, target: ControlTarget): () 
     const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.height : 1;
     const strength = event.ctrlKey ? PINCH_WHEEL_ZOOM : WHEEL_ZOOM;
     const factor = Math.min(2, Math.max(0.5, Math.exp(event.deltaY * unit * strength)));
-    const point = local(event);
+    const point = locked() ? centreOf(viewport) : local(event);
     const edge = edgeNow();
     target.setState(transformAround(target.getState(), point, point, factor, 0, viewport, target.limits()));
     zoomPush.wheel(factor, edge, event.timeStamp);

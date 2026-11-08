@@ -68,6 +68,10 @@ export interface SecondMapEngineOptions {
    * 화면이 정한다: out = 1차맵 5단계로(D-6018)
    */
   onZoomEdge?: (edge: "in" | "out") => void;
+  /** 확대 단계(1 = 가장 멀리 ~ 5 = 가장 가까이, camera/secondMapZoom.ts)가 바뀔 때. 확대 사다리 표시(사용자 지적 2026-11-08) */
+  onZoomStage?: (stage: number) => void;
+  /** 손으로 끌거나(누르기 거리 넘게) setView로 옮겨 유닛 따라가기(follow)가 끊겼을 때 — 끊긴 유닛 */
+  onFollowBreak?: (unitId: number) => void;
 }
 
 export interface EngineStats {
@@ -101,6 +105,10 @@ export interface EngineStats {
   contextLost: boolean;
   /** 낮밤 빛 요약(시험·HUD) */
   light: EngineLightStats;
+  /** 확대 단계(1 = 가장 멀리 ~ 5 = 가장 가까이) — 지금 거리 한계 기준 */
+  zoomStage: number;
+  /** 따라가는 유닛(없으면 null) */
+  following: number | null;
   /** 그린 이웃 2차맵 수(경계 너머 보기) */
   neighbours: number;
   /** 세운 소품 모델 수(가까이만, 0이면 땅 색만) */
@@ -177,11 +185,20 @@ export interface SecondMapEngine {
   /** 유닛 하나의 모습(키·굵기·색)을 바꾼다(쓰러짐 등). 없는 유닛이면 아무것도 하지 않는다 */
   setUnitLook(id: number, look: UnitLook): void;
   /**
-   * 확대 한 칸(1 = 키우기 [+] 거리 ÷ 2, −1 = 줄이기 [−] 거리 × 2), 화면 가운데 기준. 이미 그쪽 끝이면 false(화면이 1차맵으로 넘어간다)
+   * 확대 한 단계(1 = 키우기 [+], −1 = 줄이기 [−]): 이웃 확대 단계의 대표 거리로 약 0.3초에 걸쳐 간다(화면 가운데 기준, 움직이는 중이면 그 목표에서
+   * 센다). 이미 그쪽 끝이면 false(화면이 1차맵으로 넘어간다)
    */
   zoomStep(direction: 1 | -1): boolean;
-  /** 카메라 목표(배치 칸)와 화면 짧은 변에 보일 길이(m, 없으면 거리 그대로). 한계 안으로 자른다 */
+  /**
+   * 카메라 목표(배치 칸)와 화면 짧은 변에 보일 길이(m, 없으면 거리 그대로). 한계 안으로 자른다. 유닛을 따라가는 중이면 따라가기를 끊는다
+   * (onFollowBreak)
+   */
   setView(view: { x: number; y: number; spanM?: number | undefined }): void;
+  /**
+   * 카메라가 이 유닛을 따라간다(목표점이 그 유닛의 지금 자리로 미끄러진다, null이면 그만). 손으로 끌면 끊고 onFollowBreak를 부른다.
+   * 따라가는 동안 두 손가락·휠 확대는 화면 가운데(그 유닛) 기준이다. instant면 미끄러지지 않고 바로 붙는다(동작 줄이기)
+   */
+  follow(unitId: number | null, options?: { readonly instant?: boolean }): void;
   /**
    * 보기 범위(배치 칸 원 여러 개 — 가운데 x·y, 반지름 r): 카메라 목표점이 그 원들 가운데 하나 안에 머물고, 가장 멀리 줄여도 가장 큰 원 지름의
    * 두 배까지만 보인다. null이면 범위 없음(2차맵·이웃 전체). 플레이어 카메라 묶기(기획 정리 630) — 운영자 모드는 null

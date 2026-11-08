@@ -19,6 +19,9 @@ const record = (value: unknown): Record<string, unknown> => {
   return value;
 };
 
+/** 정규식 특수 문자를 글자 그대로 */
+const escapeRegExp = (text: string): string => text.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /** 본체 HP 회복(분당, 옛 문서 식 초당 2.2 × 60)과 중상 ‰(250) — 시험이 정한 값 */
 const HP_REGEN = 132;
 const SLOW_HP = 33;
@@ -81,8 +84,13 @@ test.describe("플레이어: 다친 본체의 회복 안내(D-514)", () => {
       message("ko", "vitals_regen_armor_note", { amount: "2" }),
     );
     await expect(vitals.locator('[data-regen="shield"]')).toBeVisible();
+    // 부상 안내 = 단계 이름(D-525 중상) + 한 단계 나을 때까지 남은 시간·분(나을 시각 = 응답 + 4시간, 분은 올림)
+    const [before, after] = message("ko", "vitals_injury_note", {
+      stage: message("ko", "roster_injury_2"),
+      time: "@",
+    }).split("@");
     await expect(vitals.locator('[data-injury="2"]')).toHaveText(
-      message("ko", "vitals_injury_note", { stage: message("ko", "roster_injury_2") }),
+      new RegExp(`^${escapeRegExp(before ?? "")}4시간 [01]분${escapeRegExp(after ?? "")}$`),
     );
     // 회복이 있으니 "저절로 차지 않음"은 없다
     await expect(vitals.getByText(message("ko", "vitals_no_regen_note"))).toHaveCount(0);

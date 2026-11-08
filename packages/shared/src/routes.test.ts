@@ -258,6 +258,8 @@ describe("주소 표", () => {
       dev_creatures: ["/dev/creatures", "dev", "shown", "dev_admin", ["creature"]],
       // 영토 층(docs/adr/2026-11-03-territory-layer.md 5절)
       dev_territory: ["/dev/territory", "dev", "shown", "dev_admin", []],
+      // 세계 배치(D-528)
+      dev_world_layout: ["/dev/world-layout", "dev", "shown", "dev_admin", []],
       // 구인 카드 시험(D-469)
       dev_recruit: ["/dev/recruit", "dev", "shown", "dev_admin", ["city"]],
       // 전투 다시보기(docs/adr/2026-11-01-battle-replay.md 7절)

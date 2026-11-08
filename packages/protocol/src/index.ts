@@ -97,6 +97,7 @@ export {
 export {
   CITIZENSHIP_PROTOCOL_VERSION,
   NATIONALITY_RESULT_CODES,
+  NATURALIZE_TERMS_PROTOCOL_VERSION,
   type NationalityResultCode,
 } from "./citizenship.ts";
 export {

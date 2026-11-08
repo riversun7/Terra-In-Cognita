@@ -17,7 +17,14 @@ import type { RosterJob } from "@terra/shared/roster";
 import { api } from "../net/api.ts";
 import { m } from "../paraglide/messages.js";
 import { type Locale, getLocale } from "../paraglide/runtime.js";
-import { type UnitStatus, UNIT_STATUSES, injuryLabel, localName, typeLabel } from "../roster/rosterText.ts";
+import {
+  type UnitStatus,
+  UNIT_STATUSES,
+  injuryLabel,
+  localName,
+  recoveryLeft,
+  typeLabel,
+} from "../roster/rosterText.ts";
 
 /** 내 유닛 목록을 다시 묻는 간격(ms). 메모리만 읽는 가벼운 조회다(서버 src/worldMap/mapUnits.ts) */
 export const MAP_UNITS_POLL_MS = 5_000;
@@ -95,14 +102,33 @@ const HOLD_STATUS = {
   critical: () => m.roster_injury_3(),
 } satisfies Record<MapUnitHold, () => string>;
 
+/** 부상 이름 + 한 단계 나을 때까지 남은 "N시간 M분"(D-525). 시각을 모르면 이름만 */
+function injuryWithTime(
+  unit: Pick<MapUnit, "injury" | "injuryUntilMs">,
+  now: number | undefined,
+): string | null {
+  const injury = injuryLabel(unit.injury);
+  if (!injury) return null;
+  const left =
+    now === undefined || unit.injuryUntilMs === null || unit.injuryUntilMs === undefined
+      ? null
+      : recoveryLeft(unit.injuryUntilMs, now);
+  return left ? m.roster_injury_heal({ stage: injury, time: left }) : injury;
+}
+
 /**
  * 지금 상태 한 마디: 명령할 수 없는 까닭(머묾·포로·중태) > 이동 중 > 부상 > 직무(일함·쉼) > 대기.
- * moving = 엔진의 지금 값(없으면 조회 때 값)
+ * moving = 엔진의 지금 값(없으면 조회 때 값). now = 목록 조회 시각(부상 남은 시간, 없으면 이름만)
  */
-export function unitStatusText(unit: Pick<MapUnit, "hold" | "injury" | "job">, moving: boolean): string {
+export function unitStatusText(
+  unit: Pick<MapUnit, "hold" | "injury" | "job" | "injuryUntilMs">,
+  moving: boolean,
+  now?: number,
+): string {
+  if (unit.hold === "critical") return injuryWithTime({ ...unit, injury: 3 }, now) ?? HOLD_STATUS.critical();
   if (unit.hold) return HOLD_STATUS[unit.hold]();
   if (moving) return m.map_unit_state_moving();
-  const injury = injuryLabel(unit.injury);
+  const injury = injuryWithTime(unit, now);
   if (injury) return injury;
   if (unit.job) {
     const phase = unit.job.phase === "rest" ? m.units_status_resting() : m.units_status_working();

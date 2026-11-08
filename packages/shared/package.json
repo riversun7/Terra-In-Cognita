@@ -44,6 +44,7 @@
     "./skillEditor": "./src/skillEditor.ts",
     "./territory": "./src/territory.ts",
     "./territoryApi": "./src/territoryApi.ts",
+    "./worldPlacementApi": "./src/worldPlacementApi.ts",
     "./tuning": "./src/tuning.ts",
     "./vitals": "./src/vitals.ts",
     "./worldMap": "./src/worldMap.ts"

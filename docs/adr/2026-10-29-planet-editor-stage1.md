@@ -1,6 +1,6 @@
 # 행성 편집기 1단계: 개발자 도구 한곳, 기기 미리보기, 서버 초안
 
-- 상태: 제안 (휴대폰에서 열기·미리보기·초안 저장을 확인한 뒤 확정)
+- 상태: 확정 (2026-11-08, 사용자 휴대폰 확인 — 휴대폰 확인 통과)
 - 날짜: 2026-10-29
 - 관련: docs/PLAN.md 4.1·4.8·5.5·6.2·6.3·7장·11장, ADR `2026-10-29-s2-planet-lod.md`(36) "시험 화면과 편집기 1단계", `2026-10-29-app-shell.md`(37, 주소 표·사이드 메뉴), `2026-10-28-planet-generation-and-versioning.md`(10), `2026-10-28-editor-and-placement.md`(12), `2026-10-28-content-pack-format.md`(24), `2026-10-28-auth-and-accounts.md`(29), `2026-10-28-db-access-and-migrations.md`(22), `2026-10-28-design-system.md`(30), `2026-10-28-pwa-and-browser-baseline.md`(28), 기획 질문 `docs/questions/2026-10-29-special-terrain.md`, 기획 D-141·D-154·D-155·D-156·D-214·D-215·D-258·D-259·D-5020·D-6002·D-6003, 작업 기록 `docs/worklog/2026/10/29-1920-planet-editor-decisions.md`
 

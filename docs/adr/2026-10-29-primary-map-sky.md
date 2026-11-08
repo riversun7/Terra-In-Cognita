@@ -1,6 +1,6 @@
 # 1차맵 하늘: 구름·항성 기준 낮밤·달
 
-- 상태: 제안 (픽셀 비율 상한 2에서 하늘 없는 1차맵 기준선을 휴대폰에서 다시 재고, 10절 기준으로 하늘 켬·끔을 잰 뒤 확정)
+- 상태: 확정 (2026-11-08, 사용자 휴대폰 확인 — 휴대폰 확인: 60 fps · p95 17~18ms, 메모리 93~101MB)
 - 날짜: 2026-10-29 (같은 날 검토 반영, 사용자 결정 U1~U3 반영. 맨 끝 "사용자 결정"·"검토 반영")
 - 파일: `docs/adr/2026-10-29-primary-map-sky.md`. 번호는 PLAN 13장이 합치는 차례로 정한다(`work/generator-variety`의 `2026-10-29-planet-generator-variety.md`도 같은 날짜다, Verified: 가지 파일). 그래서 다른 문서에서는 번호 대신 이 파일 이름으로 가리킨다.
 - 관련: docs/PLAN.md 2장·4.6·5.1·5.7·11장·14장, `2026-10-28-time-and-session-protocol.md`, `2026-10-28-fog-and-map-visibility.md`, `2026-10-28-design-system.md`, `2026-10-28-s1-second-map.md`("2차맵 선명도", 가지 `work/second-map-sharpness`), `2026-10-29-s2-planet-lod.md`, `2026-10-29-app-shell.md`, `2026-10-29-planet-editor-stage1.md`, 기획 D-055·D-063·D-064·D-070 ①·D-091·D-118·D-142·D-5019·D-5030·D-6017~D-6022·G12, `docs/design/00_README.md` "우주 오브젝트 … ⏳ Step 4", 조사 `docs/research/2026-10-29-primary-map-sky.md`, 기획 질문 `docs/questions/2026-10-29-game-calendar.md`(질문 1~4)·`docs/questions/2026-10-29-primary-map-sky.md`(질문 5~22)

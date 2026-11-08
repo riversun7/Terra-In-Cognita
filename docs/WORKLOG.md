@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-08 20:45 | 휴대폰 확인 결과로 ADR 8개 확정 | Claude Code | [08-2045-phone-check-confirm](worklog/2026/11/08-2045-phone-check-confirm.md) |
 | 2026-11-08 20:25 | ADR 확정 표시 2차(6개) — 사용자 ADR 검토 | Claude Code | [08-2025-adr-confirm-2](worklog/2026/11/08-2025-adr-confirm-2.md) |
 | 2026-11-08 20:05 | ADR 10개 확정 표시, 휴대폰 확인표 | Claude Code | [08-2005-adr-confirm-phone-checklist](worklog/2026/11/08-2005-adr-confirm-phone-checklist.md) |
 | 2026-11-08 19:20 | 운영 역할 다시 나눔·조회 감사 기록 스위치·권한 부여 이동·읽기 쉬운 감사 기록 | Claude Code | [08-1920-operator-roles-log-switch](worklog/2026/11/08-1920-operator-roles-log-switch.md) |

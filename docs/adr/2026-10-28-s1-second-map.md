@@ -1,6 +1,6 @@
 # S1 2차맵: 쿼터뷰 카메라, 서버 경로 이동, 건물 배치, 측정 계획
 
-- 상태: 제안 (휴대폰 1회 측정은 기준 안. 20분 연속·중가 안드로이드·4G 진입 측정 뒤 확정)
+- 상태: 확정 (2026-11-08, 사용자 휴대폰 확인 — 휴대폰 확인: 시험 2차맵 p95 18ms)
 - 날짜: 2026-10-28
 - 관련: docs/PLAN.md 5.2·5.7·11장(S1), `2026-10-28-planet-grid-contract.md`(격자·ID), `2026-10-28-map-delivery-and-rendering.md`(전송·렌더링), `2026-10-28-unit-display-real-size.md`(유닛 표현), `2026-10-28-simulation-model.md`(이벤트 예약), `2026-10-28-server-authority.md`, `2026-10-28-time-and-session-protocol.md`, `2026-10-28-fog-and-map-visibility.md`, `2026-10-28-stack-baseline.md`(Three.js), 기획 D-064·D-102·D-108·D-120·D-133·D-135·D-139
 

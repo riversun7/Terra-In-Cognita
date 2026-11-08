@@ -1,6 +1,6 @@
 # S2 행성 LOD: 결정적 생성기, 쿼드트리 타일, 서버 굽기, 렌더러, 편집기 1단계, 측정 계획
 
-- 상태: 제안 (S2 측정 뒤 확정)
+- 상태: 확정 (2026-11-08, 사용자 휴대폰 확인 — 휴대폰 확인 통과)
 - 날짜: 2026-10-29
 - 관련: docs/PLAN.md 5.2~5.7·6.2·11장(S2), `2026-10-28-planet-grid-contract.md`(ADR 9), `2026-10-28-planet-generation-and-versioning.md`(ADR 10), `2026-10-28-map-delivery-and-rendering.md`(ADR 11), `2026-10-28-editor-and-placement.md`(ADR 12), `2026-10-28-fog-and-map-visibility.md`(ADR 26), `2026-10-28-planet-generation-order.md`(ADR 31), `2026-10-29-cell-key-layout.md`(ADR 34), `2026-10-28-s1-second-map.md`(ADR 33), 기획 D-055·D-104·D-107·D-141·D-154~D-156
 

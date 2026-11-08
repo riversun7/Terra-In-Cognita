@@ -15,6 +15,7 @@ import {
   isMatrixForm,
   matrixCsv,
   matrixInputOf,
+  niceTicks,
   parseSteps,
   rankedBars,
   secondaryEffects,
@@ -237,5 +238,15 @@ describe("입력 글·저장 모양", () => {
     expect(isMatrixForm({ ...form, runs: 1.5 })).toBe(false);
     expect(isMatrixForm({ ...form, builds: [{ ...form.builds[0], id: "Bad Id" }] })).toBe(false);
     expect(isMatrixForm(null)).toBe(false);
+  });
+});
+
+describe("곡선 눈금", () => {
+  it("0을 지나고 위·아래 끝 값을 덮는다", () => {
+    const ticks = niceTicks(-50, 50);
+    expect(ticks[0]).toBeLessThanOrEqual(-50);
+    expect(ticks.at(-1)).toBeGreaterThanOrEqual(50);
+    expect(ticks).toContain(0);
+    expect(niceTicks(0, 0)).toContain(0);
   });
 });

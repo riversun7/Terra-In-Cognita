@@ -5,6 +5,7 @@
 import { PRIMARY_STATS, type PrimaryStat } from "@terra/shared/roster";
 import { type PointerEvent, type RefObject, useEffect, useRef, useState } from "react";
 import { primaryCode } from "../balanceMessages.ts";
+import { niceTicks } from "./analysisModel.ts";
 
 /** 줄 모양(색 말고 둘째 표시) — 화면 차례 */
 const DASH: Readonly<Record<PrimaryStat, string | undefined>> = {
@@ -95,20 +96,6 @@ function useWidth(fallback: number): [RefObject<HTMLDivElement | null>, number] 
     return () => observer.disconnect();
   }, [fallback]);
   return [ref, width];
-}
-
-/** 0을 지나는 보기 좋은 눈금(5개 안팎) */
-export function niceTicks(min: number, max: number, count = 5): number[] {
-  const low = Math.min(min, 0);
-  const high = Math.max(max, 0);
-  const span = high - low || 1;
-  const raw = span / count;
-  const power = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 5, 10].map((k) => k * power).find((candidate) => candidate >= raw) ?? raw;
-  const ticks: number[] = [];
-  for (let value = Math.floor(low / step) * step; value <= high + step * 1e-9; value += step)
-    ticks.push(Math.round(value * 1e6) / 1e6);
-  return ticks;
 }
 
 export interface CurveSeries {

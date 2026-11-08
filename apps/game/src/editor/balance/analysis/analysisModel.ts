@@ -357,6 +357,24 @@ export function secondaryEffects(result: AnalysisSensitivityResult, step: number
   });
 }
 
+// ── 그래프 눈금 ──
+
+/** 0을 지나는 보기 좋은 눈금(5개 안팎) */
+export function niceTicks(min: number, max: number, count = 5): number[] {
+  const low = Math.min(min, 0);
+  const high = Math.max(max, 0);
+  const span = high - low || 1;
+  const raw = span / count;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 5, 10].map((k) => k * power).find((candidate) => candidate >= raw) ?? raw;
+  const ticks: number[] = [];
+  // 위 끝은 high 이상인 첫 눈금까지(점이 그림 밖으로 나가지 않게)
+  const first = Math.floor(low / step);
+  const last = Math.ceil(high / step - 1e-9);
+  for (let k = first; k <= last; k++) ticks.push(Math.round(k * step * 1e6) / 1e6);
+  return ticks;
+}
+
 // ── 내보내기 ──
 
 const csvField = (value: string | number | null): string => {

@@ -7,10 +7,13 @@ import {
   RESULT_CODES,
   SECOND_MAP_UNITS,
   UNIT_CONTROL_PROTOCOL_VERSION,
+  UNIT_KIND_PROTOCOL_VERSION,
+  UNIT_WIRE_KINDS,
   decodeClientMessage,
   decodeServerMessage,
   encodeMessage,
   type ServerMessage,
+  unitMotionSchema,
 } from "./index.ts";
 
 const unit = { id: 7, size: 1, speed: 437, departAtMs: 1_798_000_000_000, path: [512, 512, 4608, 512] };
@@ -125,6 +128,21 @@ describe("2차맵 서버 → 기기 메시지", () => {
     expect(serverOk(pathsWith({ size: 4 }))).toBe(false);
     expect(serverOk(pathsWith({ speed: 0 }))).toBe(false);
     expect(serverOk(pathsWith({ speed: 1.5 }))).toBe(false);
+  });
+
+  it("표시 종류(프로토콜 18): 없거나 영어 소문자 이름. 모르는 이름도 받고(기기가 보통 유닛으로), 17판 기기는 그 칸을 버린다", () => {
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(UNIT_KIND_PROTOCOL_VERSION);
+    expect(UNIT_WIRE_KINDS).toContain("npc_leader");
+    expect(serverOk(pathsWith({ kind: "npc_leader" }))).toBe(true);
+    // 나중에 더할 값도 옛 기기가 메시지를 버리지 않는다
+    expect(serverOk(pathsWith({ kind: "guardian_2" }))).toBe(true);
+    expect(serverOk(pathsWith({ kind: "" }))).toBe(false);
+    expect(serverOk(pathsWith({ kind: "Leader" }))).toBe(false);
+    expect(serverOk(pathsWith({ kind: "a".repeat(33) }))).toBe(false);
+    expect(serverOk(pathsWith({ kind: 7 }))).toBe(false);
+    // 17판 정의(종류 칸 없음)로 읽어도 나머지는 그대로 — 모르는 칸은 버린다(strict가 아니다)
+    const legacy = unitMotionSchema.omit({ kind: true });
+    expect(legacy.parse({ ...unit, kind: "npc_leader" })).toEqual(unit);
   });
 
   it("빈 unit_paths는 보내지 않는다(스키마가 거부). 사라진 유닛(hidden)만 있으면 된다", () => {

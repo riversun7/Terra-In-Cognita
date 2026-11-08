@@ -93,6 +93,12 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
   let hasSnapshot = false;
   let rev = 0;
   const units = new Map<number, UnitMotionWire>();
+  /** 표시 종류가 붙은 유닛(프로토콜 18 kind — NPC 국가 지도자 이름표, "WP-NPC3"). units와 함께 바뀐다 */
+  const kinds = new Map<number, string>();
+  const keepKind = (unit: UnitMotionWire): void => {
+    if (unit.kind === undefined) kinds.delete(unit.id);
+    else kinds.set(unit.id, unit.kind);
+  };
   /** 엔진 상한을 넘어 버린 유닛(다시 와도 버린다) */
   const dropped = new Set<number>();
   const buildings = new Map<number, BuildingWire>();
@@ -287,10 +293,13 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
     // 두 번 연 화면)이나 서버 따라잡기의 것이다 → 그려 두되 우리 구독의 답을 계속 기다린다(그 구독이 거절될 수도 있다)
     const answered = subscribeId === null;
     units.clear();
+    kinds.clear();
     dropped.clear();
     for (const unit of snapshot.units) {
-      if (units.has(unit.id) || units.size < capacity) units.set(unit.id, unit);
-      else dropped.add(unit.id);
+      if (units.has(unit.id) || units.size < capacity) {
+        units.set(unit.id, unit);
+        keepKind(unit);
+      } else dropped.add(unit.id);
     }
     buildings.clear();
     for (const building of snapshot.buildings) buildings.set(building.id, building);
@@ -363,12 +372,14 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
         added = true;
       }
       units.set(unit.id, unit);
+      keepKind(unit);
       if (!added) sink.setUnitPath(unit.id, toUnitPath(unit));
     }
     // 시야에서 사라진 유닛(시야 전송) — 엔진은 하나씩 빼지 않아서 목록을 다시 넣는다
     let removed = false;
     for (const id of message.hidden ?? []) {
       dropped.delete(id);
+      kinds.delete(id);
       if (units.delete(id)) removed = true;
     }
     if (added || removed) pushUnits();
@@ -563,6 +574,7 @@ export function startMapFeed(options: MapFeedOptions): MapFeed {
     isOwn(unitId) {
       return units.get(unitId)?.own === true;
     },
+    unitKinds: () => kinds,
     retry() {
       if (stopped) return;
       failures = 0;

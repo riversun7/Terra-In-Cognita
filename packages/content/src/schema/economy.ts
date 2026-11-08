@@ -302,6 +302,9 @@ export const nationPresetEntrySchema = z.strictObject({
   /**
    * 국가 지도자 사이보그 이름(기획 46 §10.1 NPC 지도자·30 §5.3 대표 유닛 D-075 — docs/adr/2026-11-07-play-flow.md "WP-NPC"). 서버가 그 국가
    * 수도 행정 건물 곁에 지도자 유닛을 세우고 세력 화면·정부 판·지도의 한눈 정보가 이 이름을 보인다. 없으면 화면이 "지도자"
+   * 기획 정리 747 나("WP-NPC3"): 이 칸은 지도자(지금 통치자)만이다. 국가 대표 유닛(D-075 신화·전설·역사 인물, 여럿, 전투·수집 콘텐츠)은
+   * 지도자와 따로 둔다 — TODO: 대표 유닛 목록 칸(예: representativeUnits)은 개발자 페이지에서 정하는 콘텐츠(D-398)가 생길 때 더한다(지금 칸 없음).
+   * 이름은 [임시] "임시 지도자 N" 그대로.
    */
   leaderName: localizedText.optional(),
   enabled,

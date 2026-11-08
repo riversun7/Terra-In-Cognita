@@ -49,6 +49,9 @@ describe("유닛 움직임 → 전송 모양", () => {
       departAtMs: 1_000,
       path: [512, 512, 4608, 512],
     });
+    // 표시 종류(프로토콜 18): 지도자만 칸이 붙고 보통 유닛은 칸이 없다(바이트)
+    expect(motionToWire(9, 1, motion, "npc_leader")).toMatchObject({ id: 9, kind: "npc_leader" });
+    expect("kind" in motionToWire(9, 1, motion, undefined)).toBe(false);
   });
 
   it("sized는 JSON 길이를 센다", () => {

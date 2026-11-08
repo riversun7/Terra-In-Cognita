@@ -501,10 +501,19 @@ export function worldMapReadsOf(options: {
     leaderName: leaderOfCode,
   });
   // 정부(행정 건물) 판(WP-NPC): 아는 도시·이름은 위와 같은 함수. 세력 화면은 nationNames로 나라·지도자 이름을 받는다
+  // 지도자 창구(742 나, "WP-NPC3")는 한눈 정보와 같은 규칙으로 지도자가 보이는지 본다(내 유닛·전체 보기·시야 전송)
   const government = governmentReadsOfWorld(world, {
     knownCityIds: (viewer) => reads.knownCityIds(viewer),
     nationName: nameOfCode,
     leaderName: leaderOfCode,
+    seesUnit: (viewer, mapKey, unitId) => {
+      const map = world.maps.get(mapKey);
+      const ownerId = world.ownerOfUser?.(viewer.id);
+      if (!map) return false;
+      if (canObserve(viewer) || (ownerId !== undefined && map.unitInfo(unitId)?.ownerId === ownerId))
+        return true;
+      return map.vision.sees({ userId: viewer.id, ownerId }, unitId);
+    },
   });
   const nations: NationNameReads = {
     nationNames: (code) => ({ name: nameOfCode(code), leader: leaderOfCode(code) }),

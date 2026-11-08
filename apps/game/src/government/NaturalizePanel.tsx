@@ -1,5 +1,5 @@
-// 정부 대화상자의 [국적 바꾸기(귀화)] 칸 — 질문 745 나(다른 나라 정부에서 귀화 신청, 값·쉬는 날은 설정 칸, 옛 나라 지원금 반환),
-// docs/adr/2026-11-08-citizenship.md. 내 나라가 아닌 도시의 정부에서만 그린다(GovernmentDialog가 한 줄로 넣는다).
+// 정부 창구 국적 상담의 [국적 바꾸기(귀화)] 칸 — 질문 745 나(다른 나라 정부에서 귀화 신청, 값·쉬는 날은 설정 칸, 옛 나라 지원금 반환),
+// docs/adr/2026-11-08-citizenship.md. 내 나라가 아닌 도시의 정부에서만 그린다(창구 GovernmentDesk의 국적 상담 자리 CitizenshipSlot.tsx가 넣는다).
 // - 조건: tRPC world.naturalization(받는 나라·지금 내 나라·귀화 값·지원금 반환·합·내 잔고·쉬는 기간·막는 까닭). 판정은 서버가 다시 한다.
 // - 신청: [귀화 신청] → 확인 줄(받는 나라·낼 값 합) → [확정]이면 WebSocket nationality_change(본 나라·값을 함께 보낸다). 결과 뒤 조건을 다시 받는다.
 // - 무엇이 그대로인지 먼저 알린다: 유닛·건물·직무는 그대로 내 것, 내 도시가 이 도시로, 정착 지원금은 다시 받지 않음.
@@ -87,10 +87,15 @@ export function NaturalizePanel({ government }: { government: GovernmentResponse
   // 이미 그 나라(방금 귀화했거나 다른 화면에서 바뀜)면 신청 칸 대신 알림만
   const member = terms?.blocked === "same_nation";
   return (
-    <section className="gov-naturalize" data-part="government-naturalize" aria-labelledby={titleId}>
-      <h3 id={titleId} className="gov-naturalize-title">
+    <section
+      className="gov-naturalize"
+      data-part="government-naturalize"
+      data-state={terms?.blocked ?? (terms ? "open" : load.status)}
+      aria-labelledby={titleId}
+    >
+      <h4 id={titleId} className="gov-naturalize-title">
         {m.naturalize_title()}
-      </h3>
+      </h4>
       <p className="gov-muted">{m.naturalize_lead()}</p>
       {load.status === "loading" ? <p className="gov-muted">{m.naturalize_loading()}</p> : null}
       {load.status === "failed" ? (

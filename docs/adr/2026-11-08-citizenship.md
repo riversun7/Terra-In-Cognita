@@ -36,8 +36,8 @@
 - tRPC `world.naturalization { buildingId }` → 받는 나라·지금 내 나라·도시·귀화 값·반환·합·잔고·쉬는 기간·쉬는 끝·막는 까닭(`@terra/shared/citizenship`). 정부 판과 같은 안개(모르는 도시면 `unknown_building`).
 - 설정 칸 2개(기획 칸 없음 → 앞머리 `citizenship_`, 세력·사회 계수표 `cyborg.naturalizeFee`·`naturalizeRestMs`, 팩 core@53). 판정 코드(`packages/sim`)는 쓰지 않아 `SIM_VERSION` 그대로.
 
-### 4. 화면(정부 대화상자 한 칸, `apps/game/src/government/NaturalizePanel.tsx`)
-- 내 나라가 아닌 도시의 정부 대화상자에만 그린다(`GovernmentDialog`에 한 줄 — 다른 줄기가 정부 판에 칸을 더해도 겹치지 않게 칸을 따로 둔다). 받는 나라·지금 내 나라·귀화 값·지원금 반환·낼 값(잔고)·쉬는 기간, "유닛·건물·직무·고용한 휴먼은 그대로, 내 도시가 이 도시로, 지원금은 다시 받지 않음", 막는 까닭 한 줄 → [귀화 신청] → 확인 줄(나라·낼 값) → [귀화 확정](본 나라·합을 보낸다) → 결과 문구, 조건을 다시 받는다. 문구 ko·en 37개.
+### 4. 화면(정부 창구 국적 상담 자리, `apps/game/src/government/CitizenshipSlot.tsx`·`NaturalizePanel.tsx`)
+- npc-leader 줄기("WP-NPC3")가 정부 대화상자 창구(`GovernmentDesk` — 외교·의뢰·국적 상담)에 남긴 국적 상담 자리(`CitizenshipSlot`, 그 줄기에서는 "준비 중" 한 줄)를 채웠다: 다른 나라 정부면 귀화 칸(`NaturalizePanel`), 내 나라 정부면 창구 한 줄 "내 나라 정부, 귀화는 다른 나라 정부에서"(문구 `government_desk_citizenship_note`를 바꿈). 지도자로 연 정부 판(742 나)에서도 같은 창구가 뜬다. 받는 나라·지금 내 나라·귀화 값·지원금 반환·낼 값(잔고)·쉬는 기간, "유닛·건물·직무·고용한 휴먼은 그대로, 내 도시가 이 도시로, 지원금은 다시 받지 않음", 막는 까닭 한 줄 → [귀화 신청] → 확인 줄(나라·낼 값) → [귀화 확정](본 나라·합을 보낸다) → 결과 문구, 조건을 다시 받는다. 문구 ko·en 37개.
 
 ### 5. 같은 나라 시야 공유(746 나, `apps/server/src/world/vision.ts`·`nationVision.ts`)
 - 나라 = 소유 주체 → 세력 행(NPC 국가 주체 = 그 나라 — 휴먼·지도자·시설, 유저 주체 = 사이보그가 든 나라). 부를 때마다 월드 저장 층을 읽는다(귀화하면 다음 시야 틱부터 새 나라).

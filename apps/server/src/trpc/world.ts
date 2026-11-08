@@ -6,6 +6,8 @@
 //   응답 타입은 @terra/shared/mapUnits. 명령(옮기기·멈추기)은 WebSocket move_unit·stop_unit. 다른 곳 내 유닛 수·카메라 범위(기획 답 632 다·630).
 // - unitGlance: 누른 남의 유닛의 세력·종류(기획 답 636 나) — 지금 내 시야 안일 때만, 아니면 glance null.
 // - government: 2차맵에서 누른 행정 건물의 정부 판(도시·주인 나라·지도자·세율·행정 레벨·휴먼 수, "WP-NPC"). 모르는 도시면 unknown_building.
+//   도시 하루 값(만족도·발전도·생필품 충족, 743 나 "WP-NPC3")도 함께.
+// - leaderGovernment: 2차맵에서 누른 NPC 국가 지도자의 정부 판(742 나 — 지도자 = 정부 창구, 그 나라 수도 행정 건물 판). 시야 밖이면 unknown_unit.
 // - naturalization: 그 행정 건물에서 귀화하는 조건(값·지원금 반환·쉬는 날·막는 까닭, docs/adr/2026-11-08-citizenship.md). 신청은 WebSocket
 //   nationality_change.
 // 읽기만 한다. 게임 상태를 바꾸는 명령은 WebSocket이다(AGENTS 4장 — 보내기·멈추기는 travel_start·travel_cancel).
@@ -39,6 +41,18 @@ const governmentInput = z.object({ buildingId: z.number().int().positive().max(0
 
 /** 남의 유닛 한눈 정보 입력: 2차맵 키·유닛 ID */
 const unitGlanceInput = mapUnitsInput.extend({ unitId: z.number().int().positive().max(0xffff_ffff) });
+
+/** 정부 판 준비 전 답(세계·NPC 사회 런타임 전) */
+const notReadyGovernment = (buildingId: number, nowMs: number): GovernmentResponse => ({
+  status: "not_ready",
+  buildingId,
+  city: null,
+  nation: null,
+  leader: null,
+  building: null,
+  mayor: null,
+  generatedAt: nowMs,
+});
 
 const notReadyCities = (nowMs: number): WorldCitiesResponse => ({
   status: "not_ready",
@@ -121,6 +135,15 @@ export const worldRouter = router({
             mayor: null,
             generatedAt: ctx.now(),
           };
+    }),
+  /** 2차맵에서 누른 NPC 국가 지도자의 정부 판(지도자 = 정부 창구 742 나, 지금 내 시야 안일 때만) */
+  leaderGovernment: signedInProcedure
+    .input(unitGlanceInput)
+    .query(async ({ ctx, input }): Promise<GovernmentResponse> => {
+      const services = ctx.worldMap?.();
+      return services?.governmentOfLeader
+        ? services.governmentOfLeader(ctx.viewer, input.mapKey, input.unitId, ctx.now())
+        : notReadyGovernment(0, ctx.now());
     }),
   /** 그 행정 건물에서 귀화하는 조건(읽기만 — 신청은 WebSocket nationality_change) */
   naturalization: signedInProcedure

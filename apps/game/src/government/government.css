@@ -148,6 +148,67 @@
   flex: 1 1 0;
 }
 
+/*
+ * 지도자 창구·도시 하루 값·창구 줄("WP-NPC3", 기획 정리 742 나·743 나 — LeaderHead.tsx·LeaderSheet.tsx·GovernmentDay.tsx·GovernmentDesk.tsx).
+ * 지도자 표시는 지도 이름표(map/leaderTags.css)와 같은 왕관 꼴·같은 색(--color-warning) — 글자가 함께라 색에만 기대지 않는다.
+ */
+.gov-leader-head {
+  display: grid;
+  flex: 1 1 auto;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.gov-kicker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+.gov-leader-mark {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  fill: var(--color-warning);
+}
+.gov-section {
+  display: grid;
+  gap: var(--space-2);
+}
+.gov-section-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-strong);
+  line-height: var(--line-height-snug);
+}
+/* 창구 한 줄: 이름·설명 + 단추 — 좁은 화면에서는 단추가 아래로 내려간다 */
+.gov-desk-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface-2);
+}
+.gov-desk-text {
+  display: grid;
+  flex: 1 1 12em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.gov-desk-name {
+  font-weight: var(--font-weight-strong);
+}
+.gov-desk-go {
+  flex: none;
+}
+
 /* 넓으면(37.5em 이상) 가운데 판: 바탕을 비우고 판만 띄운다 */
 @media (min-width: 37.5em) {
   .gov-dialog {

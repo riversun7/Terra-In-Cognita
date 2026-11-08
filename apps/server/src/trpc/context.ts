@@ -393,6 +393,8 @@ export interface WorldMapReads {
   unitGlance?: MapUnitReads["unitGlance"];
   /** 정부(행정 건물) 판(docs/adr/2026-11-07-play-flow.md "WP-NPC", src/government/reads.ts). 없으면 not_ready */
   government?: GovernmentReads["government"];
+  /** 지도자 창구(742 나 "WP-NPC3", 같은 모듈 — 누른 지도자의 나라 수도 정부 판). 없으면 not_ready */
+  governmentOfLeader?: GovernmentReads["governmentOfLeader"];
   /** 국적 바꾸기 조건(docs/adr/2026-11-08-citizenship.md, src/citizenship/service.ts). 없으면 not_ready */
   naturalization?: NaturalizationReads["naturalization"];
   /** 세력 코드 → 나라·지도자 이름(세력 화면, 같은 절) */

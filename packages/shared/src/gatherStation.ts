@@ -13,17 +13,19 @@ export interface StationName {
 export type GatherStationStatus = "ok" | "not_ready" | "unknown_building" | "not_station";
 
 /**
- * 채집소 종류: objects = 반경 안 원자재 오브젝트를 쓰는 채집소(벌목장·광산 — 오브젝트·버프·채집소 창고),
- * facility = 오브젝트 없이 시설로만 하는 채집 시설(농장 등 — 일꾼·레벨만, 산출은 예전처럼 도시 창고)
+ * 채집소 종류: objects = 반경 안 원자재 오브젝트를 쓰는 채집소(벌목장·광산 — 오브젝트·반경·버프·채집소 창고),
+ * facility = 오브젝트 없이 시설로만 하는 채집 시설(농장 등 — 채집소 창고·수확·피로 버프, 반경·다시 자람 없음. 기획 정리 756 ②)
  */
 export type GatherStationKind = "objects" | "facility";
 
 /** 레벨 하나의 버프: 반경(배치 칸)·수확·피로·다시 자람 배율(‰, 1000 = 그대로) */
 export interface GatherStationBuffs {
-  readonly radiusCells: number;
+  /** 반경(배치 칸). facility 채집소(오브젝트 없음)는 null */
+  readonly radiusCells: number | null;
   readonly yieldPm: number;
   readonly fatiguePm: number;
-  readonly regrowPm: number;
+  /** 다시 자람 배율. facility 채집소(오브젝트 없음)는 null */
+  readonly regrowPm: number | null;
 }
 
 /** 일꾼 상태: 일함·쉼(피로)·오브젝트 없음·창고 가득·시설이 일하지 않음·2차맵 밖·아직 정산 전 */
@@ -109,7 +111,7 @@ export interface GatherStationResponse {
   readonly cityId: number | null;
   /** 다 지었고 일하는가(상태 문턱) */
   readonly works: boolean;
-  /** 지금 레벨 버프(objects 채집소만, 아니면 null) */
+  /** 지금 레벨 버프(facility 채집소는 반경·다시 자람이 null) */
   readonly buffs: GatherStationBuffs | null;
   readonly objects: GatherStationObjects | null;
   /** 채집소 창고: 상한·든 무게(g, 모든 주인)·내 몫 물건. 상한이 없으면 capacityGrams null */
@@ -118,7 +120,7 @@ export interface GatherStationResponse {
     readonly usedGrams: string;
     readonly goods: readonly GatherStationGoods[];
   };
-  /** 자동 옮김: 간격(ms, 0 = 끔)·다음 시각(서버 ms, 끔·도시 없음이면 null) */
+  /** 자동 옮김(두 종류 모두): 간격(ms, 0 = 끔)·다음 시각(서버 ms, 끔·도시 없음이면 null) */
   readonly haul: { readonly everyMs: number; readonly nextAtMs: number | null };
   readonly slots: number;
   readonly workers: readonly GatherStationWorker[];

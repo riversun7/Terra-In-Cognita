@@ -1,7 +1,7 @@
 // 시뮬 세력·사회의 모양(society.ts가 쓴다) — docs/adr/2026-10-31-faction-society-core.md "시뮬레이터"
 import type { OccupationChoice } from "../npc/policy.ts";
 import type { SocietyCoefficients } from "../society/coefficients.ts";
-import type { WarOutcome } from "../society/warOutcomes.ts";
+import type { WarOutcome, WarStateEndReason } from "../society/warOutcomes.ts";
 import type { CombatRun } from "./combatRun.ts";
 import type { MetricsRecorder } from "./metrics.ts";
 import type { ScenarioSociety } from "./scenario.ts";
@@ -9,7 +9,7 @@ import type { SimHooks } from "./npcRun.ts";
 import type { RecruitView } from "./societyRecruit.ts";
 import type { RuinsSummary, SocietyRuins } from "./societyRuins.ts";
 import type { WarSummary } from "./societyWar.ts";
-import type { SimFaction, SimUnit, SimWorld } from "./world.ts";
+import type { SimFaction, SimOccupation, SimUnit, SimWorld } from "./world.ts";
 
 export interface SocietySummary {
   /** 구인 카드로 고용한 휴먼 수(D-469 출생 없음, 출력 형식 판 9에서 births를 바꿈) */
@@ -24,7 +24,8 @@ export interface SocietySummary {
   readonly founded: number;
   /**
    * 공성 결과 수(D-520, 출력 형식 13 — 12의 razed는 뺐다): 약탈(소유 그대로)·점령·귀속·점령 상태, 상장폐지, 점령 상태 세금 거래·끝난 수,
-   * 재건 비용을 낸 수, 끝 날 남은 점령 상태·회복 불이익 수(societyWar.ts WarSummary)
+   * 재건 비용을 낸 수, 끝 날 남은 점령 상태·회복 불이익 수(societyWar.ts WarSummary). 출력 형식 14(D-527): 약탈 꺼내 가기 거래·정부 재건·
+   * 남은 약탈 상태, 점령 상태 몰아냄·저절로 회복
    */
   readonly occupations: WarSummary & {
     readonly loot: number;
@@ -136,9 +137,16 @@ export interface SocietyOptions {
   readonly canFound?: ((parent: SimFaction, fromCityId: number, nowMs: number) => boolean) | undefined;
   /** 공성 결과 하나(D-520, 서버가 기록 표·복귀 요약에 적는다). 시뮬레이터는 넘기지 않는다 */
   readonly onWarOutcome?: ((event: WarOutcomeEvent) => void) | undefined;
+  /** 공성 결과의 남은 상태가 끝남(D-527 — 서버가 war_outcomes.end_reason에 적는다). 시뮬레이터는 넘기지 않는다 */
+  readonly onWarStateEnd?:
+    | ((entry: SimOccupation, reason: WarStateEndReason, nowMs: number) => void)
+    | undefined;
 }
 
-/** 공성 결과 하나(D-520): 약탈 = taken(가져간 국고 몫), 점령·귀속 = taken(재건 비용)·shares, untilMs = 점령 상태 끝·회복 불이익 끝 */
+/**
+ * 공성 결과 하나(D-520·D-527): 약탈·점령 상태 = taken 0(꺼내 가기·세금은 남은 상태가 쌓는다), 점령·귀속 = taken(재건 비용)·shares,
+ * untilMs = 약탈 재건할 수 있는 시각·점령 상태 저절로 회복되는 시각·회복 불이익 끝
+ */
 export interface WarOutcomeEvent {
   readonly atMs: number;
   readonly city: number;

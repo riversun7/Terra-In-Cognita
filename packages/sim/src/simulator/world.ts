@@ -56,11 +56,6 @@ export interface SimFaction extends WarState {
    * 부모·종주가 없어도 화폐·나라 성격·도시 이름이 부모 나라를 따른다(601 나)
    */
   bornOf: number | null;
-  /**
-   * 내가 약탈한 도시 → 다시 치지 않는 끝 시각(D-520, 확인 대기 685 — 한 세력이 한 도시를 거듭 털지 않게). 하루 끝에 지난 것을 지운다.
-   * 서버는 저장하지 않고 켤 때 war_outcomes 약탈 줄에서 다시 만든다
-   */
-  readonly raided: Map<number, number>;
   /** 연구 작업 진행·설계도(가장 높았던 단계, D-396) */
   research: { progress: number; blueprint: number };
   /** 도시 ID(넣은 차례) */
@@ -141,21 +136,25 @@ export interface SimRuin {
 }
 
 /**
- * 공성 결과의 남은 상태(D-520, docs/adr/2026-11-07-war-outcomes.md) — 도시 ID마다 하나. occupied = 점령 상태(소유는 owner 그대로, occupier가
- * nextTaxMs마다 세금, untilMs에 끝남), annexed = 점령·귀속 불이익(그 도시 휴먼 만족도 회복이 untilMs까지 느림). 끝나면 지운다
+ * 공성 결과의 남은 상태(D-520·D-527, docs/adr/2026-11-07-war-outcomes.md) — 도시 ID마다 하나. 끝나면 지운다.
+ * - looted = 약탈(정부가 무너짐, 소유는 owner 그대로): occupier가 하루마다 그 도시 금고·공공 창고 몫을 꺼내 간다. untilMs = owner가 정부를 재건할 수
+ *   있게 되는 시각(그 뒤 첫 하루 끝에 재건하면 끝)
+ * - occupied = 점령 상태(소유·체제는 owner 그대로): occupier가 nextTaxMs마다 세금. untilMs = 저절로 회복되는 시각(정해진 끝이 아니다 — 힘 회복·주인
+ *   바뀜으로 먼저 끝날 수 있다)
+ * - annexed = 점령·귀속 불이익(그 도시 휴먼 만족도 회복이 untilMs까지 느림)
  */
 export interface SimOccupation {
   readonly city: number;
-  readonly kind: "occupied" | "annexed";
-  /** 점령자(점령 상태) · 새 주인(점령·귀속) */
+  readonly kind: "looted" | "occupied" | "annexed";
+  /** 약탈자(약탈) · 점령자(점령 상태) · 새 주인(점령·귀속) */
   readonly occupier: number;
-  /** 시작할 때 도시 주인(점령 상태 = 소유 그대로인 주인, 점령·귀속 = 옛 주인) */
+  /** 시작할 때 도시 주인(약탈·점령 상태 = 소유 그대로인 주인, 점령·귀속 = 옛 주인) */
   readonly owner: number;
   readonly sinceMs: number;
   readonly untilMs: number;
-  /** 다음 세금 시각(점령 상태). 점령·귀속은 untilMs */
+  /** 다음 세금 시각(점령 상태). 약탈·점령·귀속은 untilMs */
   nextTaxMs: number;
-  /** 지금까지 거둔 세금(그때 주인 국고 화폐 최소 단위 합 — 화면·기록용) */
+  /** 지금까지 가져간 국고 값(약탈 = 꺼내 간 금고 몫 합, 점령 상태 = 거둔 세금 합 — 그때 주인 국고 화폐 최소 단위, 화면·기록용) */
   taken: bigint;
 }
 
@@ -240,7 +239,6 @@ export function newFaction(
     stalledDays: 0,
     rebelOf: null,
     bornOf: null,
-    raided: new Map(),
     research: { progress: 0, blueprint: fields.tech },
     cities: new Set(),
     units: new Set(),

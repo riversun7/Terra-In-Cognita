@@ -353,20 +353,21 @@ export const WORLD_TABLES = {
       "ended_at_ms",
       "taken",
       "taken_asset",
+      "end_reason",
     ],
     key: ["id"],
   },
-  /** 공성 결과 줄의 남은 상태만 고친다(점령 상태의 다음 세금·거둔 세금) */
+  /** 공성 결과 줄의 남은 상태만 고친다(점령 상태의 다음 세금·거둔 세금·약탈이 꺼내 간 금고 몫) */
   warOutcomeState: {
     name: "war_outcomes",
     columns: ["id", "next_tax_ms", "taken"],
     key: ["id"],
     updateOnly: true,
   },
-  /** 공성 결과 줄의 끝난 시각만 고친다(남은 상태가 끝남) */
+  /** 공성 결과 줄의 끝난 시각·까닭만 고친다(남은 상태가 끝남, 까닭은 D-527) */
   warOutcomeEnds: {
     name: "war_outcomes",
-    columns: ["id", "ended_at_ms"],
+    columns: ["id", "ended_at_ms", "end_reason"],
     key: ["id"],
     updateOnly: true,
   },

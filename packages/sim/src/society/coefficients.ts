@@ -61,7 +61,7 @@ export interface SocietyCoefficients {
   readonly dictatorshipSatisfactionDrop: number;
   /** [임시] 상장폐지 때 다른 세력과의 관계 점수 하락(S31) */
   readonly delistRelationDrop: number;
-  /** [임시] 약탈이 가져가는 도시 금고·공공 창고 몫(만분율) */
+  /** [임시] 약탈: 정부 재건 전까지 하루마다 꺼내 가는 도시 금고 몫(만분율, D-186·D-527) */
   readonly lootTakeBp: number;
   /** 상속세(S22 기존 50%, 만분율) */
   readonly inheritanceTaxBp: number;
@@ -369,7 +369,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
   delistSatisfactionDrop: 15,
   dictatorshipSatisfactionDrop: 20,
   delistRelationDrop: 20,
-  lootTakeBp: 5000,
+  lootTakeBp: 1000,
   inheritanceTaxBp: 5000,
   lifespanMinMs: 60 * DAY,
   lifespanMaxMs: 90 * DAY,

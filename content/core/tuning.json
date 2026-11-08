@@ -2236,16 +2236,16 @@
       "id": "d186_loot_take",
       "code": "",
       "name": {
-        "ko": "약탈이 가져가는 금고 몫(만분율)",
-        "en": "Loot take (bp)"
+        "ko": "약탈: 하루마다 꺼내 가는 도시 금고 몫(만분율)",
+        "en": "Loot: city treasury share withdrawn per day (bp)"
       },
-      "value": 5000,
+      "value": 1000,
       "structural": false,
       "desc": {
-        "ko": "약탈한 쪽이 그 도시 금고에서 가져가는 몫.",
-        "en": "Share of the city treasury the looter takes."
+        "ko": "정부가 무너진 도시에서 약탈 세력이 재건 전까지 하루마다 꺼내 가는 금고 몫(나라 국고 ÷ 도시 수의 몫).",
+        "en": "Share of the city's treasury (treasury ÷ cities) the looter withdraws each day until the government is rebuilt."
       },
-      "source": "ADR 2026-10-31-faction-society-core · D-186"
+      "source": "ADR 2026-11-07-war-outcomes · D-186 · D-527"
     },
     {
       "id": "t4_lifespan_min",
@@ -7368,8 +7368,8 @@
       "id": "d520_raid_goods_bp",
       "code": "",
       "name": {
-        "ko": "약탈: 도시 공공 창고에서 가져가는 몫(만분율)",
-        "en": "Raid: share of the city's public storage taken (bp)"
+        "ko": "약탈: 하루마다 꺼내 가는 공공 창고 몫(만분율)",
+        "en": "Loot: public storage share withdrawn per day (bp)"
       },
       "value": 2500,
       "structural": false,
@@ -7377,28 +7377,10 @@
       "min": 0,
       "max": 10000,
       "desc": {
-        "ko": "약탈할 때 도시 공공 창고에서 가져가는 몫.",
-        "en": "Share of the city's public storage taken in a raid."
+        "ko": "정부가 무너진 도시의 공공 창고(도시 주인 나라 물건)에서 약탈 세력이 재건 전까지 하루마다 꺼내 가는 몫(남은 것의).",
+        "en": "Share of the remaining public storage (owner's goods in that city) the looter withdraws each day until the government is rebuilt."
       },
-      "source": "ADR 2026-11-07-war-outcomes · D-520"
-    },
-    {
-      "id": "d520_raid_cooldown_days",
-      "code": "",
-      "name": {
-        "ko": "약탈한 세력이 그 도시를 다시 치지 않는 날(일)",
-        "en": "Days a raider leaves the raided city alone"
-      },
-      "value": 7,
-      "structural": false,
-      "unit": "count",
-      "min": 0,
-      "max": 3650,
-      "desc": {
-        "ko": "약탈한 나라가 그 도시를 다시 치지 않는 날.",
-        "en": "Days the raider won't hit that city again."
-      },
-      "source": "ADR 2026-11-07-war-outcomes · D-520"
+      "source": "ADR 2026-11-07-war-outcomes · D-520 · D-527"
     },
     {
       "id": "d520_rebuild_per_housing",
@@ -7458,19 +7440,19 @@
       "id": "d520_occupy_days",
       "code": "",
       "name": {
-        "ko": "점령 상태 기간(일)",
-        "en": "Occupation length (days)"
+        "ko": "점령 상태 자율 회복(일)",
+        "en": "Occupation self-recovery (days)"
       },
-      "value": 30,
+      "value": 7,
       "structural": false,
       "unit": "count",
       "min": 1,
       "max": 3650,
       "desc": {
-        "ko": "점령 상태가 이어지는 기간.",
-        "en": "How long the occupation state lasts."
+        "ko": "점령 상태는 정해진 끝이 없고, 옛 나라가 이 날 수가 지나면 저절로 벗어난다(D-527 약 7일).",
+        "en": "Occupation has no fixed end; the old nation shakes it off on its own after this many days (D-527, about 7)."
       },
-      "source": "ADR 2026-11-07-war-outcomes · D-520"
+      "source": "ADR 2026-11-07-war-outcomes · D-527"
     },
     {
       "id": "d520_occupy_tax_every_days",
@@ -7479,7 +7461,7 @@
         "ko": "점령 상태 세금 주기(일)",
         "en": "Occupation tax period (days)"
       },
-      "value": 7,
+      "value": 1,
       "structural": false,
       "unit": "count",
       "min": 1,
@@ -7488,7 +7470,7 @@
         "ko": "점령 상태 세금을 거두는 간격.",
         "en": "Days between occupation taxes."
       },
-      "source": "ADR 2026-11-07-war-outcomes · D-520"
+      "source": "ADR 2026-11-07-war-outcomes · D-520 · D-527"
     },
     {
       "id": "d520_occupy_tax_bp",
@@ -7525,6 +7507,60 @@
         "en": "Satisfaction drop when occupied."
       },
       "source": "ADR 2026-11-07-war-outcomes · D-520"
+    },
+    {
+      "id": "d527_gov_rebuild_days",
+      "code": "",
+      "name": {
+        "ko": "약탈: 정부 재건까지 날 수(일)",
+        "en": "Loot: days until the government can be rebuilt"
+      },
+      "value": 7,
+      "structural": false,
+      "unit": "count",
+      "min": 1,
+      "max": 3650,
+      "desc": {
+        "ko": "약탈로 무너진 도시 정부를 옛 나라가 다시 세울 수 있게 되기까지 날 수. 재건하면 약탈이 끝나고 다시 전쟁이 된다.",
+        "en": "Days before the old nation can rebuild a looted city's government. Rebuilding ends the looting and the war resumes."
+      },
+      "source": "ADR 2026-11-07-war-outcomes · D-527"
+    },
+    {
+      "id": "d527_gov_rebuild_per_housing",
+      "code": "",
+      "name": {
+        "ko": "약탈: 정부 재건 비용(주거 1당, 최소 단위)",
+        "en": "Loot: government rebuild cost per housing (minor units)"
+      },
+      "value": 200,
+      "structural": false,
+      "unit": "minor",
+      "min": 0,
+      "max": 1000000000000,
+      "desc": {
+        "ko": "옛 나라가 무너진 정부를 다시 세울 때 국고에서 내는 값(주거 1당). 모자라면 있는 만큼 내고 재건한다.",
+        "en": "What the old nation pays from its treasury per housing to rebuild the fallen government. If short, it pays what it has and rebuilds anyway."
+      },
+      "source": "ADR 2026-11-07-war-outcomes · D-527"
+    },
+    {
+      "id": "d527_occupy_expel_strength_pm",
+      "code": "",
+      "name": {
+        "ko": "점령 상태: 힘으로 몰아내는 유닛 비(‰)",
+        "en": "Occupation: unit ratio to expel the occupier (‰)"
+      },
+      "value": 1200,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 100000,
+      "desc": {
+        "ko": "옛 나라 유닛 수가 점령 나라 유닛 수 × 이 값 이상이면 점령을 몰아낸다(0이면 힘으로는 끝나지 않음).",
+        "en": "The old nation expels the occupier once its unit count reaches the occupier's × this value (0 = never by strength)."
+      },
+      "source": "ADR 2026-11-07-war-outcomes · D-527"
     },
     {
       "id": "d520_npc_annex_weight",

@@ -1,0 +1,2 @@
+ALTER TABLE "war_outcomes" ADD COLUMN "end_reason" text;--> statement-breakpoint
+ALTER TABLE "war_outcomes" ADD CONSTRAINT "war_outcomes_end_reason" CHECK ("end_reason" is null or "end_reason" in ('rebuilt', 'recovered', 'expelled', 'owner_changed', 'gone', 'replaced', 'expired'));

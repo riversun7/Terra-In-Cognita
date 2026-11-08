@@ -50,7 +50,10 @@ export function tradePolicy(traits: Traits, foodShort: boolean, c: NpcCoefficien
 }
 
 export interface OccupationChoice {
-  /** 공성 결과 셋(D-520): 약탈(경제 이득만, 소유 그대로) · 점령·귀속(도시를 가져감, 재건 비용·느린 회복) · 점령 상태(소유 그대로, 기간마다 세금) */
+  /**
+   * 공성 결과 셋(D-520·D-527): 약탈(정부가 무너진 도시를 재건 전까지 꺼내 감, 소유 그대로) · 점령·귀속(도시를 가져가 재건 시도, 재건 비용·느린
+   * 회복) · 점령 상태(소유·체제 그대로, 재정을 가져감, 정해진 끝 없음)
+   */
   readonly treatment: WarOutcome;
   /** 지분 처리(점령·귀속에만 쓴다, 46 §5.1 ③) */
   readonly shares: "delist" | "keep";

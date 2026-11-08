@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-08 21:10 | 공성 결과 다듬기(D-527): 약탈 = 정부가 무너져 재건 전까지 꺼내 감·재건되면 다시 전쟁, 점령 상태 = 정해진 끝 없이 저절로 회복·몰아냄 | Claude Code | [08-2110-war-outcomes-2](worklog/2026/11/08-2110-war-outcomes-2.md) |
 | 2026-11-08 20:45 | 휴대폰 확인 결과로 ADR 8개 확정 | Claude Code | [08-2045-phone-check-confirm](worklog/2026/11/08-2045-phone-check-confirm.md) |
 | 2026-11-08 20:30 | 식품 포장·포장 풀기(D-524: 포장된 식품만 스택, 풀면 낱개·신선도 하락 시작) | Claude Code | [08-2030-food-pack](worklog/2026/11/08-2030-food-pack.md) |
 | 2026-11-08 20:26 | 설정 칸 패널 분야별 페이지·[임시] 값 칸 열기 | Claude Code | [08-2026-tuning-pages](worklog/2026/11/08-2026-tuning-pages.md) |

@@ -236,11 +236,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     faction.bornOf = row.bornOfRowId === null ? null : (ownerOfRow.get(row.bornOfRowId) ?? null);
     factions.set(faction.id, faction);
   }
-  // 공성 결과의 남은 상태(D-520, war_outcomes): 점령 상태·점령·귀속 회복 불이익
-  const raidCooldownMs = Math.max(0, c.war.raidCooldownDays) * DAY_MS;
-  const warState = await loadWarOutcomes(o.pool, ownerOfRow, startMs - raidCooldownMs);
-  for (const raid of warState.raids)
-    factions.get(raid.attacker)?.raided.set(raid.city, raid.atMs + raidCooldownMs);
+  // 공성 결과의 남은 상태(D-520·D-527, war_outcomes): 약탈(정부가 무너진 도시)·점령 상태·점령·귀속 회복 불이익
+  const warState = await loadWarOutcomes(o.pool, ownerOfRow);
   for (const war of state.wars) {
     const a = factions.get(ownerOfRow.get(war.a) ?? -1);
     const b = factions.get(ownerOfRow.get(war.b) ?? -1);
@@ -603,6 +600,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         const payer = event.outcome === "integrate" ? event.attacker : event.target;
         warPersist.record(event, econ?.hooks.treasuryAsset(payer) ?? ASSET_CREDIT);
       },
+      // 남은 상태가 끝난 까닭(D-527): 재건·저절로 회복·몰아냄 등
+      onWarStateEnd: (entry, reason) => warPersist.ended(entry, reason),
     },
     startMs,
   );

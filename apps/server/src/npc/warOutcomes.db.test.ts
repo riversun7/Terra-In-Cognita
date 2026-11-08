@@ -1,5 +1,6 @@
-// 공성 결과 셋 DB 통합 시험(docs/adr/2026-11-07-war-outcomes.md, 기획 D-520) — TEST_DATABASE_URL이 있을 때만. 값은 모두 시험용 가짜다.
-// 서버 NPC 공격과 같은 규칙(attachSociety occupy)으로 약탈·점령 상태·점령·귀속을 넣고, war_outcomes 줄·다시 켤 때 남은 상태·태어날 때 부모
+// 공성 결과 셋 DB 통합 시험(docs/adr/2026-11-07-war-outcomes.md, 기획 D-520·D-527) — TEST_DATABASE_URL이 있을 때만. 값은 모두 시험용 가짜다.
+// 서버 NPC 공격과 같은 규칙(attachSociety occupy)으로 약탈·점령 상태·점령·귀속을 넣고, war_outcomes 줄·다시 켤 때 남은 상태(약탈 = 정부가 무너진
+// 도시, 하루 끝마다 꺼내 감, 재건되면 끝·까닭·다시 전쟁)·태어날 때 부모
 // (기획 답 620 나)·세력 화면 점령 칸·복귀 요약 습격 칸을 본다.
 import { DAY_MS, TEST_SOCIETY_COEFFICIENTS } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -89,8 +90,8 @@ const factionRowOf = async (ownerId: number): Promise<number> =>
     )[0]?.faction_id,
   );
 
-describe.skipIf(!TEST_DATABASE_URL)("공성 결과 셋(D-520)", () => {
-  it("점령 상태 → 다시 켜도 남음 → 다른 세력의 점령·귀속이 덮음, 약탈은 기록만. 소유는 점령·귀속에서만 바뀐다", async () => {
+describe.skipIf(!TEST_DATABASE_URL)("공성 결과 셋(D-520·D-527)", () => {
+  it("점령 상태 → 다시 켜도 남음 → 다른 세력의 점령·귀속이 덮음 → 약탈은 재건까지 남음. 소유는 점령·귀속에서만 바뀐다", async () => {
     let world = await boot();
     let { npc, persistence, house, townId, first, second } = await townAndAttackers(world);
     const [houseRow, firstRow, secondRow] = [
@@ -156,7 +157,7 @@ describe.skipIf(!TEST_DATABASE_URL)("공성 결과 셋(D-520)", () => {
       [townId],
     );
     expect(owner[0]?.faction_id).toBe(String(secondRow));
-    // ③ 약탈: 기록만(끝 = 그때), 소유 그대로
+    // ③ 약탈(D-527): 정부가 무너진 남은 상태(끝나지 않음), 소유 그대로. 꺼내 가기는 하루 끝마다
     const victim = npc.world.factions.get(second.id);
     const raider = npc.world.factions.get(first.id);
     if (!victim || !raider) throw new Error("factions");
@@ -164,35 +165,80 @@ describe.skipIf(!TEST_DATABASE_URL)("공성 결과 셋(D-520)", () => {
     npc.society.occupy(raider, victim, townId, { treatment: "loot", shares: "keep" }, clock);
     await npc.tick(true);
     await persistence.writer.durable();
-    const loot = await rows<{ ended_at_ms: string; at_ms: string; taken: string }>(
-      test.db,
-      `select ended_at_ms, at_ms, taken::text as taken from war_outcomes where outcome = 'loot'`,
-    );
-    expect(loot[0]?.ended_at_ms).toBe(loot[0]?.at_ms);
-    expect(BigInt(loot[0]?.taken ?? "0")).toBeGreaterThan(0n);
+    const lootRow = async () =>
+      (
+        await rows<{
+          ended_at_ms: string | null;
+          until_ms: string;
+          taken: string;
+          end_reason: string | null;
+        }>(
+          test.db,
+          `select ended_at_ms, until_ms, taken::text as taken, end_reason from war_outcomes where outcome = 'loot'`,
+        )
+      )[0];
+    const untilMs = clock + TEST_SOCIETY_COEFFICIENTS.war.govRebuildDays * DAY_MS;
+    expect(await lootRow()).toEqual({
+      ended_at_ms: null,
+      until_ms: String(untilMs),
+      taken: "0",
+      end_reason: null,
+    });
     const still = await rows<{ faction_id: string }>(
       test.db,
       "select faction_id from world_cities where id = $1",
       [townId],
     );
     expect(still[0]?.faction_id).toBe(String(secondRow));
-    // 약탈한 세력은 쉬는 날 동안 그 도시를 다시 치지 않는다(685) — 다시 켜도 약탈 줄에서 돌아온다
-    const cooldown = clock + TEST_SOCIETY_COEFFICIENTS.war.raidCooldownDays * DAY_MS;
-    expect(raider.raided.get(townId)).toBe(cooldown);
+    // 하루 끝: 약탈 세력이 그 도시 금고 몫을 꺼내 간다(가져간 값이 쌓인다). 결과 셋이 거듭 깎은 만족도로 반란이 나지 않게 그 도시 휴먼 만족도를 채운다
+    const calm = (): void => {
+      for (const unit of npc.world.units.values()) if (unit.city === townId) unit.satisfactionMilli = 100_000;
+    };
+    calm();
+    npc.society.endOfDay(clock + DAY_MS / 2);
+    await npc.tick(true);
+    await persistence.writer.durable();
+    const afterDay = await lootRow();
+    expect(afterDay?.ended_at_ms).toBeNull();
+    expect(BigInt(afterDay?.taken ?? "0")).toBeGreaterThan(0n);
     // 세력 화면 점령 칸: 친 쪽(첫 세력)은 약탈·점령 상태 두 줄(as_occupier), 당한 쪽(둘째)은 약탈을 as_target으로
     const firstView = await readOccupationRows(test.db.$client, firstRow);
     expect(firstView.map((row) => [row.side, row.lootChoice])).toEqual([
       ["as_occupier", "loot"],
       ["as_occupier", "occupy"],
     ]);
+    expect(firstView[1]?.outcome?.endReason).toBe("replaced");
     const secondView = await readOccupationRows(test.db.$client, secondRow);
     expect(secondView.map((row) => [row.side, row.lootChoice])).toEqual([
       ["as_target", "loot"],
       ["as_occupier", "integrate"],
     ]);
+    expect(secondView[0]?.outcome).toMatchObject({ endedAt: null, endReason: null, untilAt: untilMs });
     expect(await world.checkInvariants()).toEqual([]);
+    // 다시 켜면 약탈 상태가 거울로 돌아온다(가져간 값 그대로)
     world = await restart(world);
-    expect(world.npc?.world.factions.get(first.id)?.raided.get(townId)).toBe(cooldown);
+    npc = world.npc ?? npc;
+    persistence = world.persistence ?? persistence;
+    expect(npc.world.occupations.get(townId)).toMatchObject({
+      kind: "looted",
+      occupier: first.id,
+      owner: second.id,
+      untilMs,
+      taken: BigInt(afterDay?.taken ?? "0"),
+    });
+    // 재건할 날이 지난 하루 끝: 옛 세력이 재건 비용을 내고 정부를 다시 세운다 → 끝(까닭 rebuilt)·다시 전쟁
+    clock = untilMs;
+    calm();
+    npc.society.endOfDay(untilMs);
+    await npc.tick(true);
+    await persistence.writer.durable();
+    const rebuilt = await lootRow();
+    expect(rebuilt?.end_reason).toBe("rebuilt");
+    expect(rebuilt?.ended_at_ms).not.toBeNull();
+    expect(npc.world.occupations.has(townId)).toBe(false);
+    expect(npc.world.factions.get(second.id)?.wars.has(first.id)).toBe(true);
+    const ended = await readOccupationRows(test.db.$client, secondRow);
+    expect(ended[0]?.outcome?.endReason).toBe("rebuilt");
   });
 
   it("태어날 때 부모(620 나): 마을 세력 행에 born_of, 다시 켜도 거울 세력이 안다", async () => {

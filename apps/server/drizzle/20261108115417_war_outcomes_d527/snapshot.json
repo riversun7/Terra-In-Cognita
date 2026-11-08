@@ -1,0 +1,76 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "35f111b6-95ed-4a12-a070-b16fa29f2915",
+  "prevIds": [
+    "73b9bd3b-50b4-4538-82bb-7240783c5eb2"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "war_outcomes",
+        "end_reason"
+      ],
+      "writes": [
+        "s|col|public.war_outcomes.end_reason",
+        "n|col|public.war_outcomes.end_reason",
+        "e|col|public.war_outcomes.end_reason"
+      ],
+      "reads": [
+        "n|tbl|public.war_outcomes",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "war_outcomes"
+      ],
+      "writes": [
+        "s|ck|public.war_outcomes.war_outcomes_end_reason",
+        "n|ck|public.war_outcomes.war_outcomes_end_reason",
+        "e|ck|public.war_outcomes.war_outcomes_end_reason",
+        "n|con|public.war_outcomes.war_outcomes_end_reason"
+      ],
+      "reads": [
+        "n|tbl|public.war_outcomes",
+        "n|sch|public",
+        "n|col|public.war_outcomes.end_reason"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "end_reason",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "war_outcomes",
+        "name": "war_outcomes_end_reason",
+        "value": "\"end_reason\" is null or \"end_reason\" in ('rebuilt', 'recovered', 'expelled', 'owner_changed', 'gone', 'replaced', 'expired')",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

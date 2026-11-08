@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-08 21:30 | 밸런스 화면 완전 개편: 분포 상성·스탯 영향도 | Claude Code | [08-2130-devtools-balance](worklog/2026/11/08-2130-devtools-balance.md) |
 | 2026-11-08 21:20 | 묶음 합치기: 개발자 패널 분야별 페이지 + 식품 포장(D-524) + 부상·귀화(D-525·D-526) | Claude Code | [08-2120-tuning-food-injury-merge](worklog/2026/11/08-2120-tuning-food-injury-merge.md) |
 | 2026-11-08 21:15 | 세계 배치 2(D-528): 개발자·관리자가 고정 NPC 국가 자리를 놓는 화면, NPC 수도 고르기·옮기기 | Claude Code | [08-2115-world-placement](worklog/2026/11/08-2115-world-placement.md) |
 | 2026-11-08 21:10 | 공성 결과 다듬기(D-527): 약탈 = 정부가 무너져 재건 전까지 꺼내 감·재건되면 다시 전쟁, 점령 상태 = 정해진 끝 없이 저절로 회복·몰아냄 | Claude Code | [08-2110-war-outcomes-2](worklog/2026/11/08-2110-war-outcomes-2.md) |

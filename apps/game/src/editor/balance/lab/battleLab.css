@@ -8,9 +8,14 @@
 .bp-tabs {
   display: flex;
   gap: var(--space-1);
+  /* 탭이 다섯이라 좁은 폭에서는 탭 줄 안에서만 옆으로 민다(낱말이 갈라지지 않게) */
+  overflow-x: auto;
+  scrollbar-width: thin;
   border-block-end: var(--border-w) solid var(--color-border);
 }
 .bp-tab {
+  flex-shrink: 0;
+  white-space: nowrap;
   min-height: var(--tap-size);
   padding: var(--space-2) var(--space-4);
   border: var(--border-w) solid transparent;

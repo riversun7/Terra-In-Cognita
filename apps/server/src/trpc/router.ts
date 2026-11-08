@@ -3,6 +3,7 @@
 import { accountRouter } from "./account.ts";
 import { adminRouter } from "./admin.ts";
 import { balanceRouter } from "./balance.ts";
+import { balanceAnalysisRouter } from "./balanceAnalysis.ts";
 import { battleLabRouter } from "./battleLab.ts";
 import { battleReplayRouter } from "./battleReplay.ts";
 import { buildingsRouter } from "./buildings.ts";
@@ -50,6 +51,8 @@ export const appRouter = router({
   tuning: tuningRouter,
   // 개발자 밸런스 화면(docs/adr/2026-11-01-balance-screen.md 3절)
   balance: balanceRouter,
+  // 밸런스 분석 일(분포 상성·영향도, 같은 ADR "바뀜 (2026-11-08 완전 개편)")
+  balanceAnalysis: balanceAnalysisRouter,
   // 개발자 스킬 편집기·행동별 소모 화면(docs/adr/2026-11-01-skill-editor.md 6절)
   skills: skillsRouter,
   items: itemsRouter,

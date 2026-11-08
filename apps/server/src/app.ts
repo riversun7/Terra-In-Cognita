@@ -82,6 +82,8 @@ import { createItemEditShared } from "./itemEdit/services.ts";
 import { createFormulaServices } from "./formulas/services.ts";
 import { createHeavyGate } from "./balance/gate.ts";
 import { duelRunnerOf, inlineJobRunner, workerJobRunner } from "./balance/runner.ts";
+import type { AnalysisLimits } from "./battleLab/analysisJobs.ts";
+import { inlineBatchRunner, workerBatchRunner } from "./battleLab/analysisRunner.ts";
 import { type BattleLabLimits, createBattleLabShared } from "./battleLab/services.ts";
 import { worldArenaTerrains } from "./battleLab/worldTerrains.ts";
 import type { LocalizedName } from "@terra/shared/roster";
@@ -211,6 +213,7 @@ export interface AppOptions {
     | {
         unitKindNames?: ReadonlyMap<string, LocalizedName> | undefined;
         limits?: Partial<BattleLabLimits> | undefined;
+        analysisLimits?: Partial<AnalysisLimits> | undefined;
       }
     | undefined;
   /**
@@ -632,6 +635,12 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
         }),
         runner: jobRunner,
         gate: heavyGate,
+        // 밸런스 분석 묶음 일: 같은 워커 진입 파일(일 종류 batch), 따로 센 바쁨
+        batches:
+          balanceRunner?.kind === "worker"
+            ? workerBatchRunner({ workerUrl: balanceRunner.workerUrl })
+            : inlineBatchRunner(),
+        analysisLimits: options.battleLab?.analysisLimits,
         now,
         log: app.log,
         limits: options.battleLab?.limits,

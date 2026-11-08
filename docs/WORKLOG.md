@@ -5,6 +5,7 @@
 
 | 일시 (KST) | 작업 | 작업 도구 | 기록 |
 |---|---|---|---|
+| 2026-11-08 20:30 | 식품 포장·포장 풀기(D-524: 포장된 식품만 스택, 풀면 낱개·신선도 하락 시작) | Claude Code | [08-2030-food-pack](worklog/2026/11/08-2030-food-pack.md) |
 | 2026-11-08 20:05 | ADR 10개 확정 표시, 휴대폰 확인표 | Claude Code | [08-2005-adr-confirm-phone-checklist](worklog/2026/11/08-2005-adr-confirm-phone-checklist.md) |
 | 2026-11-08 19:20 | 운영 역할 다시 나눔·조회 감사 기록 스위치·권한 부여 이동·읽기 쉬운 감사 기록 | Claude Code | [08-1920-operator-roles-log-switch](worklog/2026/11/08-1920-operator-roles-log-switch.md) |
 | 2026-11-08 18:50 | 사이보그 생성과정 및 스탯 창 속성별 아이콘과 색상 적용 | Antigravity | [08-1850-cyborg-element-icons-and-colors](worklog/2026/11/08-1850-cyborg-element-icons-and-colors.md) |

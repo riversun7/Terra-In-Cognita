@@ -17,6 +17,7 @@ import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "
 import { mapTerrainFromTemp } from "../world/mapTerrain.ts";
 import type { TerrainService } from "../world/terrainService.ts";
 import { flatTerrain } from "../world/testSupport.ts";
+import { nationLookupOf } from "../world/nationVision.ts";
 import { type World, startWorld } from "../world/world.ts";
 import { OPEN_SEARCH_MAPS, mapRoute, sideToward } from "./route.ts";
 
@@ -292,8 +293,20 @@ describe.skipIf(!TEST_DATABASE_URL)("세계 배치 위 2차맵 사이 이동(WP1
     expect(world.maps.size).toBe(seedMaps + 1);
     expect(mapOf(world, unitId)).toBe(closed);
     expect(p.spawn.onDemand.has(closed)).toBe(true);
-    // 다른 사람도 그 2차맵을 띄운 2차맵처럼 쓴다(구독 자리·보낼 곳)
+    // 다른 사람도 그 2차맵을 띄운 2차맵처럼 쓴다(구독 자리·보낼 곳), 같은 나라 시야 공유도 걸린다(그 나라 NPC 주체로 보면 내 유닛이 보인다)
     expect(world.map(closed)?.mapKey).toBe(closed);
+    const nation = p.cyborgs.record(userId)?.factionId;
+    const nationOwner = [...p.owners.values()].find(
+      (owner) => owner.factionId === nation && owner.userId === null,
+    );
+    expect(nationOwner).toBeDefined();
+    const sameNation = {
+      userId: "same-nation-viewer",
+      ownerId: nationOwner?.id,
+      nations: nationLookupOf(world),
+    };
+    expect(world.map(closed)?.vision.sees(sameNation, unitId)).toBe(true);
+    expect(world.map(closed)?.vision.sees({ userId: "stranger", ownerId: undefined }, unitId)).toBe(false);
     await p.writer.durable();
     const saved = await rows<{ map_key: string }>(test.db, `select map_key from world_units where id = $1`, [
       unitId,

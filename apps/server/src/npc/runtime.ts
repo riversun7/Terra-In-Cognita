@@ -69,6 +69,7 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, NPC_START_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
+import { createNpcCapitals } from "./capitals.ts";
 import { createCityDayStore } from "./cityDayStore.ts";
 import { createCityPeople, seedPopulationOf } from "./cityPeople.ts";
 import { type NpcEconomyInput, type ServerEconomy, startServerEconomy } from "./economy.ts";
@@ -142,6 +143,10 @@ export interface NpcRuntimeOptions {
    * 갈 곳). 없으면 정부 건물이 있는 폐허도 다 지은 것으로 치고, 행정 레벨은 그대로, 수호신만 있는 도시는 전투 없이 진다(시험)
    */
   readonly ruins?: NpcRuinsInput | undefined;
+  /** 수도가 바뀌었을 때(D-528, capitals.ts — 지도자를 새 수도 행정 건물 곁으로). 켤 때 처음 고른 것도 알린다 */
+  readonly onCapitalMoved?:
+    | ((owner: number, capital: { id: number; mapKey: number; cellX: number; cellY: number }) => void)
+    | undefined;
 }
 
 export interface NpcRuntime {
@@ -164,6 +169,8 @@ export interface NpcRuntime {
   humanName(unitId: number): string | undefined;
   /** 그 도시의 지난 하루 끝 생필품 충족 ‰(781 나, cityDayStore.ts). 아직 하루 끝 전이면 undefined */
   necessitiesOf(cityId: number): number | undefined;
+  /** 그 세력(소유 주체 ID)의 수도 도시(D-528, capitals.ts). 도시가 없으면 undefined */
+  capitalOf(owner: number): number | undefined;
   /** 지난 호출 뒤 구간의 지표(서버 1분 지표 한 줄에 붙인다) */
   takeMetrics(): Record<string, number>;
   stop(): void;
@@ -413,6 +420,20 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   persistRef.current = persist;
   // 공성 결과 저장(warOutcomes.ts): 세력 행을 저장한 뒤 flush한다
   const warPersist = createWarOutcomePersist({ world, writer, rowOf: persist.rowOf, state: warState, log });
+  // 수도(D-528): 저장된 수도를 읽고, 하루 끝마다 발전도로 다시 고른다
+  const capitals = createNpcCapitals({
+    world,
+    stored: new Map(state.factions.map((row) => [row.ownerId, row.capitalCityId])),
+    rowOf: (owner) => persist.rowOf.get(owner),
+    writer,
+  });
+  const reviewCapitals = (): void => {
+    for (const change of capitals.review(o.rules().worldSeed.capitalSwitchDev)) {
+      log.info(change, "npc capital chosen");
+      const place = persist.places.get(change.to);
+      if (place) o.onCapitalMoved?.(change.owner, { id: change.to, ...place });
+    }
+  };
   // DB에서 읽은 그대로를 저장된 것으로 친다. 아래(들이기·주거·성향·처음 화폐)에서 바꾼 것만 처음 저장에 들어간다
   persist.markSaved(state.society?.day ?? -1);
   for (const id of rolled) persist.dirtyFaction(id);
@@ -683,6 +704,8 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     }
     recorder.day(society.currentDay(), rows);
     econ?.afterDay(nowMs, society.currentDay());
+    // 수도(D-528): 하루 끝 발전도로 다시 고른다(점령으로 잃은 수도도 여기서 바꿔 적는다)
+    reviewCapitals();
   }
 
   recorder.start(
@@ -694,6 +717,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   );
   for (const faction of world.factions.values()) if (faction.alive) scheduleDecide(ctx, faction, startMs);
   loop.schedule(nextDayEnd(startMs, dayMs), { kind: EVENT_DAY, subject: 0 });
+  reviewCapitals();
   const first = await persist.flush(society.currentDay());
   warPersist.flush(o.now());
   // 집·일터(740 나)·시장(744 나): 저장(구인·사망·처음 인구의 봇 세우기)이 2차맵을 맞춘 뒤에
@@ -787,6 +811,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
         : undefined;
     },
     necessitiesOf: (cityId) => cityDay.necessitiesOf(cityId),
+    capitalOf: (owner) => capitals.capitalOf(owner),
     takeMetrics() {
       const out = {
         npcDecisions: metrics.decisions,

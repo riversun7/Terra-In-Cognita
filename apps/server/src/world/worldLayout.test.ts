@@ -152,4 +152,34 @@ describe("세계 배치(국가 자리·시작 도시)", () => {
     expect(none.spots).toHaveLength(0);
     expect(none.short).toBe(11);
   });
+
+  it("사람이 고른 자리(home, D-528): 제자리 도시가 없으면 그 2차맵이 수도이고 둘레에 시작 도시, 다른 국가는 거기서 멀게", () => {
+    const home = cellKey(2, LEVEL, 30, 30);
+    const result = planWorldLayout(
+      base({
+        nations: [
+          { factionId: 1, missing: 2, placed: [] },
+          { factionId: 2, missing: 3, placed: [], home },
+        ],
+      }),
+    );
+    expect(result.homes.get(2)).toBe(home);
+    const spots = result.spots.filter((entry) => entry.factionId === 2).map((entry) => entry.spot);
+    expect(spots[0]?.mapKey).toBe(home);
+    expect(spots).toHaveLength(3);
+    const other = result.homes.get(1);
+    expect(other).toBeDefined();
+    if (other !== undefined)
+      expect(
+        territoryDistanceMilli(
+          spotPoint({ mapKey: other, x: CITY_CELL, y: CITY_CELL }),
+          spotPoint(spots[0] ?? { mapKey: home, x: 0, y: 0 }),
+          metric,
+        ),
+      ).toBeGreaterThanOrEqual(seed.layoutNationGapCells * 1000);
+    // 제자리 도시가 있으면 home은 쓰지 않는다(옮기기는 부팅의 자리 옮기기가 한다)
+    const placed = { mapKey: cellKey(1, LEVEL, 20, 20), x: CITY_CELL, y: CITY_CELL };
+    const kept = planWorldLayout(base({ nations: [{ factionId: 2, missing: 1, placed: [placed], home }] }));
+    expect(kept.homes.get(2)).toBe(placed.mapKey);
+  });
 });

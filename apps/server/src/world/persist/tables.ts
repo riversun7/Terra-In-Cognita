@@ -272,6 +272,15 @@ export const WORLD_TABLES = {
     key: ["id"],
     updateOnly: true,
   },
+  /**
+   * NPC 수도(D-528, src/npc/capitals.ts)만 고친다. 세력 상태(factionState)는 이 칸을 쓰지 않는다(직전 판 앱이 세력 행을 써도 수도가 지워지지 않게)
+   */
+  factionCapital: {
+    name: "factions",
+    columns: ["id", "capital_city_id"],
+    key: ["id"],
+    updateOnly: true,
+  },
   /** 세력 쌍의 전쟁·불가침(작은 ID가 앞) */
   factionWars: {
     name: "faction_wars",
@@ -679,6 +688,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "factionState",
   "accounts",
   "cities",
+  "factionCapital",
   "cityNames",
   "units",
   "travels",

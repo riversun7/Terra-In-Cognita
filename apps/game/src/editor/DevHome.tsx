@@ -26,6 +26,7 @@ import {
   SlidersIcon,
   SparkIcon,
   TerritoryIcon,
+  GlobePinIcon,
 } from "./devIcons.tsx";
 import "./devHome.css";
 
@@ -136,6 +137,15 @@ const DEV_TOOLS = {
     tagEn: "TERRITORY · Hull",
     ready: true,
   },
+  // 세계 배치(기획 D-528): 행성 평면 지도에 고정 NPC 국가 자리를 놓는다(다음 서버 시작 때 든다)
+  dev_world_layout: {
+    name: m.shell_route_dev_world_layout,
+    desc: m.dev_tool_world_layout_desc,
+    mark: <GlobePinIcon />,
+    tagKo: "WORLD · 국가 자리",
+    tagEn: "WORLD · Nation homes",
+    ready: true,
+  },
   // 구인 카드 시험(D-469): 도시마다 내 카드·도시 주인(NPC) 카드, WebSocket으로 고용해 본다(행정 건물 화면 전)
   dev_recruit: {
     name: m.shell_route_dev_recruit,
@@ -211,7 +221,7 @@ const DEV_SECTIONS: readonly DevSection[] = [
       "S2 구체 행성 지형·기후, 항성계 공전·자전, 도시·비콘 영토 볼록 껍질, 2차맵 지형을 편집·검증합니다.",
     subEn:
       "Edit and inspect S2 planetary terrain/climate, star system orbits, territory convex hulls, and secondary map terrain.",
-    routes: ["dev_planet_editor", "dev_star_system", "dev_territory", "dev_second_map"],
+    routes: ["dev_planet_editor", "dev_star_system", "dev_world_layout", "dev_territory", "dev_second_map"],
   },
   {
     id: "diag",

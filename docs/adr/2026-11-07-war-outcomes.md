@@ -114,7 +114,7 @@
 - 칸: 더함 3(`d527_gov_rebuild_days`·`d527_gov_rebuild_per_housing`·`d527_occupy_expel_strength_pm`, 세력·사회 페이지 — `WAR_TUNING_KEYS`), 뺌 1(`d520_raid_cooldown_days` → 팩 `id-changes.json` `removed` since 57), 뜻·값 바꿈 4(`d186_loot_take`·`d520_raid_goods_bp`·`d520_occupy_days`·`d520_occupy_tax_every_days`). 모든 칸에 풀이(`desc`)·출처(`source`).
 
 ### 서버
-- 표 `war_outcomes`: 칸 `end_reason`(글자, 검사 = 위 일곱 또는 null) 더함 — 마이그레이션 `20261108115417_war_outcomes_d527`(더하기만, 직전 판 앱은 모르는 채 돈다: 직전 판은 켤 때 `outcome in ('integrate','occupy')`만 읽어 끝나지 않은 약탈 줄을 건너뛰고, 쓰는 칸에 `end_reason`이 없다).
+- 표 `war_outcomes`: 칸 `end_reason`(글자, 검사 = 위 일곱 또는 null) 더함 — 마이그레이션 `20261108124347_war_outcomes_d527`(더하기만, 직전 판 앱은 모르는 채 돈다: 직전 판은 켤 때 `outcome in ('integrate','occupy')`만 읽어 끝나지 않은 약탈 줄을 건너뛰고, 쓰는 칸에 `end_reason`이 없다).
 - 약탈 줄도 남은 상태다: `ended_at_ms` null, `until_ms` = 재건할 수 있는 시각, `taken` = 꺼내 간 금고 몫 합(바뀔 때만 `warOutcomeState`로 고침). D-520 판 약탈 줄은 넣을 때 끝냈으므로(`ended_at_ms = at_ms`) 켤 때 읽지 않는다.
 - `npc/warOutcomes.ts`: 켤 때 끝나지 않은 줄을 결과에 상관없이 거울 `world.occupations`로(약탈 = `looted`), 쉬는 날 다시 만들기(`raids`)는 지웠다. `onWarStateEnd`가 준 까닭을 flush 때 `warOutcomeEnds`(`ended_at_ms`·`end_reason`)로 쓴다(까닭이 없으면 `gone`, 새 결과가 덮으면 `replaced`, 켤 때 세력을 모르는 줄은 `gone`).
 - 반영 범위 그대로("sim" — 서버 NPC 런타임은 켤 때 계수를 읽는다).

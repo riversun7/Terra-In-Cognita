@@ -1,9 +1,11 @@
 // 채집소 판 자료(tRPC gather.station)와 문구 도우미 — 사용자 지적(2026-11-08) "원자재채집소의 기능도 필요",
 // docs/adr/2026-11-07-gather-objects.md "바뀜 (2026-11-08 사용자 지적: 채집소 기능)". 2차맵 건물 판(StationPanel.tsx)과 건물 화면 카드
 // (economy/StationParts.tsx)가 함께 쓴다. 엔진을 가져오지 않는다. 시각은 서버 ms다.
+// facility 채집소(농장 — 오브젝트 없음, 기획 정리 756 ②)는 반경·다시 자람이 없어(null) 그 문구를 빼고 보인다.
 import type { GatherKindView } from "@terra/shared/gather";
 import type {
   GatherStationBuffs,
+  GatherStationKind,
   GatherStationResponse,
   GatherStationWorker,
   GatherStationWorkerState,
@@ -29,13 +31,21 @@ export const gainPct = (pm: number): number => Math.round((Math.max(0, pm) - 100
 /** 배율(‰) → 줄임 %(500 → 50) */
 export const cutPct = (pm: number): number => Math.round((1000 - Math.min(1000, Math.max(0, pm))) / 10);
 
-/** 버프 한 줄: 채집량 +x% · 피로 −y% · 다시 자람 −z% */
+/** 버프 한 줄: 채집량 +x% · 피로 −y% · 다시 자람 −z%(다시 자람이 없으면 앞 둘만) */
 export function buffsText(buffs: GatherStationBuffs): string {
+  if (buffs.regrowPm === null)
+    return m.station_buffs_line_facility({ gain: gainPct(buffs.yieldPm), fatigue: cutPct(buffs.fatiguePm) });
   return m.station_buffs_line({
     gain: gainPct(buffs.yieldPm),
     fatigue: cutPct(buffs.fatiguePm),
     regrow: cutPct(buffs.regrowPm),
   });
+}
+
+/** 다음 레벨 미리 보기 한 줄(반경이 없으면 버프만) */
+export function nextLevelText(level: number, buffs: GatherStationBuffs): string {
+  if (buffs.radiusCells === null) return m.station_next_level_facility({ level, buffs: buffsText(buffs) });
+  return m.station_next_level({ level, cells: buffs.radiusCells, buffs: buffsText(buffs) });
 }
 
 /** g(10진 글자) → kg 글자(소수 한 자리) */
@@ -59,10 +69,14 @@ export function usedPct(storage: GatherStationResponse["storage"]): number | nul
   return Number(((used >= capacity ? capacity : used) * 100n) / capacity);
 }
 
-export function workerStateText(state: GatherStationWorkerState): string {
+/** 일꾼 상태 문구. facility 채집소의 일함은 "캐는 중"이 아니라 "일하는 중" */
+export function workerStateText(
+  state: GatherStationWorkerState,
+  kind: GatherStationKind = "objects",
+): string {
   switch (state) {
     case "working":
-      return m.station_state_working();
+      return kind === "objects" ? m.station_state_working() : m.station_state_working_facility();
     case "resting":
       return m.station_state_resting();
     case "no_objects":
@@ -104,7 +118,7 @@ export function nearestReady(
   kinds: readonly GatherKindView[],
   nowMs: number,
 ): GatherObjectEntry | undefined {
-  if (!station.buffs || station.facilityId === null) return undefined;
+  if (!station.buffs || station.buffs.radiusCells === null || station.facilityId === null) return undefined;
   const radius = station.buffs.radiusCells;
   let best: GatherObjectEntry | undefined;
   let bestDistance = 0;

@@ -21,10 +21,17 @@ export function sized<T>(value: T): SizedEntry<T> {
   return { value, bytes: JSON.stringify(value).length };
 }
 
-export function motionToWire(id: number, size: SizeClass, motion: Motion): UnitMotionWire {
+/** kind = 표시 종류(프로토콜 18, 지도에 따로 그리는 유닛만 — unitKinds.ts wireKindOf). 없으면 칸을 넣지 않는다(보통 유닛, 바이트) */
+export function motionToWire(
+  id: number,
+  size: SizeClass,
+  motion: Motion,
+  kind?: UnitMotionWire["kind"],
+): UnitMotionWire {
   const path: number[] = [];
   for (const point of motion.waypoints) path.push(point.x, point.y);
-  return { id, size, speed: motion.speed, departAtMs: motion.departAtMs, path };
+  const wire: UnitMotionWire = { id, size, speed: motion.speed, departAtMs: motion.departAtMs, path };
+  return kind === undefined ? wire : { ...wire, kind };
 }
 
 export function buildingToWire(id: number, placement: BuildingPlacement): BuildingWire {

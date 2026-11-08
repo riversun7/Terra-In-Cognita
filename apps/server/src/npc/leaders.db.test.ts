@@ -1,7 +1,7 @@
 // NPC 국가 지도자·정부 판 DB 통합 시험(docs/adr/2026-11-07-play-flow.md "WP-NPC") — TEST_DATABASE_URL이 있을 때만. 계정·행성 값은 시험용 가짜다.
 // 가짜 지형 서비스(행성 값 = 면 5만 바다인 풀밭)로 새 세계를 켜서:
 // 1. 고정 국가마다 지도자 유닛(종류 7) 하나가 수도 행정 건물 곁에 서고, 다시 켜도 그대로(같은 유닛, 더 세우지 않음).
-// 2. 정부 판(행정 건물 → 도시·나라·지도자·세율·행정 레벨·휴먼 수), 행정 건물이 아닌 건물은 not_government.
+// 2. 정부 판(행정 건물 → 도시·나라·지도자·세율·행정 레벨·휴먼 수·도시 하루 값), 행정 건물이 아닌 건물은 not_government, 지도자 창구(WP-NPC3).
 // 3. 세력 화면 실제 자료가 지도자 유닛을 읽고(leader_unit), 팩 이름을 붙인다.
 // 4. (WP-NPC2) 시험 봇은 시험 2차맵 줄에만 서고, 시작 도시 휴먼은 처음 인구 규칙(주거 40 × 750‰ = 30)으로 서며, 정부 판에 자동 시장이 보인다.
 import { loadContentPack } from "@terra/content/node";
@@ -143,6 +143,8 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 국가 지도자·정부 판 (DB)", () 
         ),
       nationName: (code) => nationName(code, presets),
       leaderName: (code) => nationLeaderName(code, presets),
+      // 지도자 창구 시험: 지도자가 늘 보인다고 둔다(시야 규칙은 worldMap/reads.ts — 한눈 정보와 같다)
+      seesUnit: () => true,
     });
     const viewer = {
       id: "00000000-0000-4000-8000-000000000000",
@@ -205,6 +207,20 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 국가 지도자·정부 판 (DB)", () 
     expect((await government.government(viewer, Number(farm[0]?.building_id), clock)).status).toBe(
       "not_government",
     );
+    // 도시 하루 값(743 나 "WP-NPC3"): 휴먼 평균 만족도·발전도, 도시 경제가 없으면 생필품 충족은 모름(null)
+    expect(answer.city?.day.satisfaction).toEqual(expect.any(Number));
+    expect(answer.city?.day.development).toEqual(expect.any(Number));
+    expect(answer.city?.day.necessitiesPm).toBeNull();
+    // 지도자 창구(742 나): 그 나라 지도자를 누르면 같은 수도 정부 판
+    const capitalLeader = first.find((row) => row.faction_id === capital.faction_id);
+    expect(
+      await government.governmentOfLeader(
+        viewer,
+        Number(capitalLeader?.map_key),
+        Number(capitalLeader?.id),
+        clock,
+      ),
+    ).toEqual(answer);
 
     // 세력 화면 실제 자료: 그 나라에 든 사용자는 지도자 유닛과 팩 이름을 받는다
     const user = await rows<{ id: string }>(

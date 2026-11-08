@@ -12,7 +12,7 @@ import {
   createWorldGateway,
 } from "./gateway.ts";
 import { createTestMap } from "./testSupport.ts";
-import { UNIT_KIND_GUARDIAN } from "./unitKinds.ts";
+import { UNIT_KIND_GUARDIAN, UNIT_KIND_NPC_LEADER } from "./unitKinds.ts";
 
 // 2^48 + 9: 셀 키 검사를 통과하는 키(시험 2차맵 키와 같은 값을 쓴다)
 const MAP_KEY = 281_474_976_710_665;
@@ -315,6 +315,40 @@ describe("시야 전송(S3)", () => {
     }
     expect(sent.some((m) => m.t === "unit_paths" && m.hidden?.includes(2))).toBe(true);
     expect(sent.some((m) => m.t === "unit_paths" && m.units.some((u) => u.id === 3))).toBe(false);
+    session.close();
+    map.stop();
+  });
+
+  it("시야 안 NPC 국가 지도자는 스냅샷과 자른 경로 모두 표시 종류 npc_leader를 단다(프로토콜 18, WP-NPC3)", async () => {
+    const { gateway, map, paths } = setup();
+    map.addUnit({ id: 1, size: 1, speed: 437, cellX: 10, cellY: 10, ownerId: 5 });
+    map.addUnit({
+      id: 2,
+      size: 1,
+      speed: 4813,
+      cellX: 14,
+      cellY: 10,
+      ownerId: 8,
+      kind: UNIT_KIND_NPC_LEADER,
+    });
+    const socket = link(PLAYER);
+    const session = gateway.open(socket);
+    session.handle({ t: "subscribe", id: 1, mapKey: MAP_KEY });
+    await vi.advanceTimersByTimeAsync(0);
+    const snapshot = socket.received.find((m) => m.t === "map_snapshot");
+    const units = snapshot?.t === "map_snapshot" ? snapshot.units : [];
+    expect(units.find((u) => u.id === 2)?.kind).toBe("npc_leader");
+    expect(units.find((u) => u.id === 1)).not.toHaveProperty("kind");
+    // 지도자가 멀리 가면(자른 경로) 그 경로에도 종류가 남는다
+    await map.moveUnit(2, { x: 250 * 1024 + 512, y: 10 * 1024 + 512 });
+    paths.release();
+    map.vision.tick();
+    await vi.advanceTimersByTimeAsync(1_000);
+    const clipped = socket.received.flatMap((m) =>
+      m.t === "unit_paths" ? m.units.filter((u) => u.id === 2) : [],
+    );
+    expect(clipped.length).toBeGreaterThan(0);
+    expect(clipped.every((u) => u.kind === "npc_leader" && u.until !== undefined)).toBe(true);
     session.close();
     map.stop();
   });

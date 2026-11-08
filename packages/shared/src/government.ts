@@ -6,9 +6,26 @@ import type { LocalizedName, PrimaryStat } from "./roster.ts";
 
 /**
  * ready 정부 판 · not_ready 세계·NPC 사회 런타임 준비 전 · unknown_building 없는 건물이거나 모르는 도시 · not_government 행정 건물이 아니다
- * (또는 도시에 묶이지 않은 행정 건물 — 폐허 복원 중인 정부)
+ * (또는 도시에 묶이지 않은 행정 건물 — 폐허 복원 중인 정부) · unknown_unit 지도자로 물었는데 그 유닛이 지금 내 시야 밖이거나 없거나 지도자가
+ * 아니다(셋을 나누지 않는다 — 시야 밖 유닛이 있는지 새지 않게, world.leaderGovernment)
  */
-export type GovernmentStatus = "ready" | "not_ready" | "unknown_building" | "not_government";
+export type GovernmentStatus = "ready" | "not_ready" | "unknown_building" | "not_government" | "unknown_unit";
+
+/**
+ * 정부 판의 도시 하루 값(기획 정리 743 나 — docs/adr/2026-11-07-play-flow.md "WP-NPC3"). 서버가 이미 셈하는 값을 읽기만 한다(새 규칙 없음):
+ * NPC 사회 런타임 하루 끝(만족도·발전도)과 도시 경제 정시 유지비(생필품). 값이 없으면 null(화면 "—")
+ */
+export interface GovernmentCityDay {
+  /** 그 도시 휴먼 평균 만족도 0~100(하루 끝마다 목표값으로 다가감, D-433). 휴먼이 없으면 null */
+  readonly satisfaction: number | null;
+  /** 발전도 0~100(하루 끝마다, [임시] 만족도·인구·연구 시설로 계산 — D-254 7요소 전) */
+  readonly development: number;
+  /**
+   * 오늘 생필품 충족 ‰(0~1000, 도시 경제가 정시 유지비마다 셈 — 낼 몫 중 낸 몫, 하루 끝 만족도의 포만감, D-438 5). 도시 경제가 돌지 않거나
+   * 오늘 아직 셈 전이면(UTC 0시 뒤 첫 정시 전) null
+   */
+  readonly necessitiesPm: number | null;
+}
 
 /** 정부 판의 도시 */
 export interface GovernmentCity {
@@ -25,6 +42,8 @@ export interface GovernmentCity {
   /** 그 도시 휴먼 수(NPC 사회 런타임 거울 세계)·주거 수 */
   readonly humans: number;
   readonly housing: number;
+  /** 도시 하루 값(만족도·발전도·생필품 충족, 743 나) */
+  readonly day: GovernmentCityDay;
 }
 
 /** 정부 판의 주인 나라 */

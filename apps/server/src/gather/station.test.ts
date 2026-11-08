@@ -1,6 +1,7 @@
 // 채집소 시험(DB 없음, 가짜 시계) — 사용자 지적(2026-11-08) "원자재채집소의 기능도 필요", docs/adr/2026-11-07-gather-objects.md "바뀜 (2026-11-08 …)".
 // 평평한 시험 2차맵에 바위 지표 묶음 둘(광맥 오브젝트 둘)·도시 하나·내 광산 하나를 두고: 레벨 버프(반경·수확·피로·다시 자람), 일꾼 산출 계획(반경 안
 // 남은 번수 = 묶음 상한, 가까운 오브젝트부터 씀, 막히면 상태), 창고 가득, 수확 배율 굴림, 정산 뒤 피로 덜기, 자동 옮김(주인 몫만 도시 창고로)을 본다.
+// 농장(오브젝트 없는 facility 채집소, 기획 정리 756 ②): 묶음 상한 없음(창고가 가득일 때만 0)·오브젝트를 쓰지 않음·수확 배율·피로 덜기·자동 옮김.
 import { performance } from "node:perf_hooks";
 import { TERRAIN_SURFACE } from "@terra/protocol";
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
@@ -29,6 +30,7 @@ const TENANT = 8;
 const MAP = testMapKey(0);
 const CITY = 5;
 const ORE = "item:copper_ore";
+const CROP = "item:potato";
 /** 바위 묶음 (2, 2)·(4, 2)의 광맥 자리(service.test.ts와 같은 셈) */
 const FIRST = 16 * 256 + 20;
 const SECOND = 16 * 256 + 36;
@@ -72,9 +74,25 @@ const MINE: FacilityDef = {
   },
 };
 
+const FARM: FacilityDef = {
+  ...MINE,
+  id: "farm",
+  name: { ko: "농장", en: "Farm" },
+  storageKg: 300,
+  gather: {
+    primary: "vit",
+    secondary: "int",
+    subcategory: "crop",
+    mode: "select",
+    yieldBase: 1,
+    yieldPerStatPm: 80,
+    yieldCap: 8,
+  },
+};
+
 const catalog: FacilityCatalog = {
-  facility: (id) => (id === "mine" ? MINE : undefined),
-  facilities: [MINE],
+  facility: (id) => (id === "mine" ? MINE : id === "farm" ? FARM : undefined),
+  facilities: [MINE, FARM],
   weightOf: () => 1000,
   unitWeightOf: () => 1,
   itemName: () => ({ ko: "구리 광석", en: "Copper ore" }),
@@ -106,20 +124,23 @@ function rig(level = 1) {
   const placed = map.placeBuilding({ x: 22, y: 24, width: 3, height: 3, rotation: 0 }, OWNER);
   if (!placed.ok || placed.buildingId === undefined) throw new Error("no building");
   const mineId = placed.buildingId;
+  // 농장(오브젝트 없음)은 광맥에서 먼 자리
+  const farmPlaced = map.placeBuilding({ x: 80, y: 80, width: 3, height: 3, rotation: 0 }, OWNER);
+  if (!farmPlaced.ok || farmPlaced.buildingId === undefined) throw new Error("no farm");
+  const farmId = farmPlaced.buildingId;
+  const record = (buildingId: number, facilityId: string): FacilityRecord => ({
+    buildingId,
+    facilityId,
+    level,
+    conditionPpm: 1_000_000,
+    conditionAtMs: NOW,
+    builtAtMs: NOW,
+    builtBy: null,
+    cityId: CITY,
+  });
   const facilities = new Map<number, FacilityRecord>([
-    [
-      mineId,
-      {
-        buildingId: mineId,
-        facilityId: "mine",
-        level,
-        conditionPpm: 1_000_000,
-        conditionAtMs: NOW,
-        builtAtMs: NOW,
-        builtBy: null,
-        cityId: CITY,
-      },
-    ],
+    [mineId, record(mineId, "mine")],
+    [farmId, record(farmId, "farm")],
   ]);
   const places: PlaceWorld = {
     maps,
@@ -146,7 +167,7 @@ function rig(level = 1) {
     pollution: () => 0,
     timers: false,
   });
-  return { maps, map, mineId, ledger, store, runtime, objects };
+  return { maps, map, mineId, farmId, ledger, store, runtime, objects };
 }
 
 const commitOf = (made: number, lots: number, capped = false, clipped = false) => ({
@@ -262,5 +283,69 @@ describe("채집소 일꾼 산출·창고", () => {
     expect(r.ledger.balanceOf(OWNER, ORE, cityLocation(CITY))).toBe(5n);
     expect(r.ledger.balanceOf(TENANT, ORE, here)).toBe(3n);
     expect(r.runtime.haulNow(NOW)).toBe(0);
+  });
+});
+
+describe("농장 채집소(오브젝트 없음, 756 ②)", () => {
+  it("묶음 상한 없음·오브젝트를 쓰지 않음, 창고가 가득이면 0·창고 가득, 레벨 수확 배율", () => {
+    const r = rig(3);
+    const site = r.runtime.site(r.farmId);
+    expect(site).toMatchObject({ kind: "facility", level: 3, cityId: CITY, ownerId: OWNER });
+    if (!site) throw new Error("no site");
+    expect(r.runtime.objectsIn(site, NOW)).toEqual([]);
+    const plan = r.runtime.hook.plan(r.farmId, 2, 50_000n);
+    expect(plan).toBeDefined();
+    expect(plan?.maxLots).toBeUndefined();
+    expect(plan?.scale(CROP, 10n, 1)).toBe(14n);
+    plan?.commit(commitOf(60, 5));
+    expect(r.runtime.status(2)).toMatchObject({ buildingId: r.farmId, state: "working", lots: 5 });
+    // 광맥 번수는 그대로
+    expect(r.store.read(MAP, FIRST, 2, NOW).usesLeft).toBe(2);
+    expect(r.store.read(MAP, SECOND, 2, NOW).usesLeft).toBe(2);
+    const full = r.runtime.hook.plan(r.farmId, 2, 0n);
+    expect(full?.maxLots).toBe(0);
+    full?.commit(commitOf(30, 0, true));
+    expect(r.runtime.status(2)).toMatchObject({ state: "storage_full", lots: 5 });
+    // 넣다 넘쳐 덜 넣었으면 창고 가득
+    r.runtime.hook.plan(r.farmId, 2, 10n)?.commit(commitOf(30, 1, false, true));
+    expect(r.runtime.status(2)).toMatchObject({ state: "storage_full", lots: 6 });
+  });
+
+  it("정산 뒤 피로 덜기(레벨 1 = 500‰), 막혀 하나도 못 끝냈으면 모두", () => {
+    const r = rig();
+    expect(
+      r.map.addUnit({
+        id: 2,
+        size: 1,
+        speed: WALK_SPEED,
+        cellX: 70,
+        cellY: 70,
+        ownerId: OWNER,
+        kind: UNIT_KIND_HUMAN,
+      }),
+    ).toBe(true);
+    r.map.setJob(2, { job: JOB_GATHER, phase: PHASE_WORK, progressMs: 0, fatigue: 10 });
+    r.runtime.hook.plan(r.farmId, 2, null)?.commit(commitOf(4, 1));
+    r.runtime.hook.afterSettle(OWNER);
+    expect(r.map.unitInfo(2)?.job.fatigue).toBe(8);
+    r.runtime.hook.plan(r.farmId, 2, 0n)?.commit(commitOf(3, 0, true));
+    r.runtime.hook.afterSettle(OWNER);
+    expect(r.map.unitInfo(2)?.job.fatigue).toBe(5);
+  });
+
+  it("자동 옮김: 농장 창고의 주인 몫도 그 도시 창고로", () => {
+    const r = rig();
+    const here = buildingLocation(r.farmId);
+    r.ledger.post({
+      kind: "test",
+      atMs: NOW,
+      entries: [
+        { account: r.ledger.systemAccount("source:item:potato", CROP), amount: -4n },
+        { account: r.ledger.ownerAccount(OWNER, CROP, here), amount: 4n },
+      ],
+    });
+    expect(r.runtime.haulNow(NOW)).toBe(1);
+    expect(r.ledger.balanceOf(OWNER, CROP, here)).toBe(0n);
+    expect(r.ledger.balanceOf(OWNER, CROP, cityLocation(CITY))).toBe(4n);
   });
 });

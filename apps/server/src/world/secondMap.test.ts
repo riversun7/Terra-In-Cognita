@@ -9,6 +9,7 @@ import {
   SECOND_MAP_CELLS,
   TERRAIN_SURFACE,
   UNIT_SIZE_CLASSES,
+  decodeServerMessage,
   decodeTerrain,
 } from "@terra/protocol";
 import {
@@ -41,6 +42,7 @@ import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import { createInlinePathService } from "./pathService.ts";
 import { createSecondMap, remainingPathBlocked } from "./secondMap.ts";
 import { createTestMap, flatTerrain, heldPathService, silentLog } from "./testSupport.ts";
+import { UNIT_KIND_HUMAN, UNIT_KIND_NPC_LEADER } from "./unitKinds.ts";
 import { emptyWorldStats } from "./worldStats.ts";
 import { TEST_MAP_KEY } from "./world.ts";
 
@@ -145,6 +147,41 @@ describe("시험용 봇", () => {
     expect(map.removeUnit(501)).toBe(false);
     expect(map.setOwner(501, 1)).toBe(false);
     expect(map.gauges().units).toBe(0);
+    map.stop();
+  });
+
+  it("NPC 국가 지도자(종류 7)의 움직임에는 표시 종류 npc_leader가 붙고(프로토콜 18), 종류가 바뀌면 같은 움직임을 다시 보낸다", () => {
+    const { map } = createTestMap();
+    const sent: string[] = [];
+    map.addUnit({
+      id: 1,
+      size: 1,
+      speed: WALK_SPEED,
+      cellX: 10,
+      cellY: 10,
+      ownerId: 3,
+      kind: UNIT_KIND_NPC_LEADER,
+    });
+    map.addUnit({
+      id: 2,
+      size: 1,
+      speed: WALK_SPEED,
+      cellX: 20,
+      cellY: 10,
+      ownerId: 3,
+      kind: UNIT_KIND_HUMAN,
+    });
+    map.stream.subscribe({ send: (text) => sent.push(text), bufferedAmount: () => 0 });
+    const snapshot = sent.map(decodeServerMessage).find((message) => message.t === "map_snapshot");
+    if (snapshot?.t !== "map_snapshot") throw new Error("no snapshot");
+    expect(snapshot.units.find((unit) => unit.id === 1)?.kind).toBe("npc_leader");
+    expect(snapshot.units.find((unit) => unit.id === 2)).not.toHaveProperty("kind");
+    sent.length = 0;
+    expect(map.setKind(2, UNIT_KIND_NPC_LEADER)).toBe(true);
+    map.stream.flush();
+    const paths = sent.map(decodeServerMessage).find((message) => message.t === "unit_paths");
+    if (paths?.t !== "unit_paths") throw new Error("no unit_paths");
+    expect(paths.units).toContainEqual(expect.objectContaining({ id: 2, kind: "npc_leader" }));
     map.stop();
   });
 

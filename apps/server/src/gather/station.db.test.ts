@@ -1,7 +1,8 @@
 // 채집소 DB 통합 시험 — 사용자 지적(2026-11-08) "원자재채집소의 기능도 필요", docs/adr/2026-11-07-gather-objects.md "바뀜 (2026-11-08 …)".
 // TEST_DATABASE_URL이 있을 때만. 계정은 시험용 가짜 값이다. 가짜 시계로: 시험 2차맵(임시 지형)의 광맥 곁에 광산을 짓고 내 휴먼을 직무 배치 → 정산하면
 // 광석이 도시 창고가 아니라 채집소 창고(그 건물 창고)에 쌓이고 반경 안 광맥 번수가 줄며, 채집소 판에 일꾼 상태·창고·버프가 보이고, 자동 옮김이
-// 주인 몫을 그 도시 창고로 옮긴다. 원장 불변 조건은 그대로다.
+// 주인 몫을 그 도시 창고로 옮긴다. 농장(오브젝트 없음, 기획 정리 756 ②)도 직무 배치 산출이 채집소 창고로 가고 판에 수확·피로 버프(반경·다시 자람
+// 없음)·자동 옮김이 보이며 자동 옮김이 도시 창고로 옮긴다. 원장 불변 조건은 그대로다.
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
 import { UPKEEP_PERIOD_MS, WALK_SPEED } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -79,6 +80,9 @@ async function boot(): Promise<{ world: World; gather: WorldGather }> {
 
 const oreAssets = TEST_HOLDING_CONTENT.items
   .filter((item) => item.subcategory?.id === "ore")
+  .map((item) => `item:${item.id}`);
+const cropAssets = TEST_HOLDING_CONTENT.items
+  .filter((item) => item.subcategory?.id === "crop")
   .map((item) => `item:${item.id}`);
 
 describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
@@ -199,6 +203,98 @@ describe.skipIf(!TEST_DATABASE_URL)("채집소(DB)", () => {
     expect(current.station.haulNow(clock)).toBeGreaterThan(0);
     expect(stationOre()).toBe(0n);
     expect(cityOre()).toBe(cityBefore + stored);
+    expect(await world.checkInvariants()).toEqual([]);
+  });
+
+  it("농장 직무 배치(756 ②): 채집소 창고에 쌓이고 판에 수확·피로 버프·자동 옮김이 보이며, 자동 옮김이 도시 창고로", async () => {
+    const { world, gather } = await boot();
+    const current = gather.current();
+    const p = world.persistence;
+    const map = [...world.maps.values()][0];
+    if (!current || !p || !map) throw new Error("gather is not ready");
+    const found = await rows<{ id: string }>(
+      test.db,
+      `insert into users (name, email, username) values ($1, $2, $3) returning id`,
+      ["Fake_farm_station", "fake-farm-station@id.placeholder.invalid", "fake_farm_station"],
+    );
+    const userId = String(found[0]?.id);
+    const ownerId = p.settlement.ownerOfUser(userId, clock).id;
+    p.settlement.grantCredit(ownerId, 100_000n, clock);
+    const service = p.facilities.service;
+    for (const [item, qty] of Object.entries({ pine_log: 20 }))
+      expect(await service.devFacilityGrant(userId, item, qty, { mapKey: map.mapKey, x: 50, y: 50 })).toEqual(
+        {
+          ok: true,
+        },
+      );
+    const built = await service.build(userId, {
+      mapKey: map.mapKey,
+      facility: "farm",
+      x: 50,
+      y: 50,
+      rotation: 0,
+    });
+    if (!built.ok || built.buildingId === undefined)
+      throw new Error(`build failed: ${JSON.stringify(built)}`);
+    const farmId = built.buildingId;
+    clock += 6 * HOUR;
+    service.finishDue(clock);
+    expect(service.facilities.get(farmId)?.level).toBe(1);
+    const cityId = service.facilities.get(farmId)?.cityId ?? null;
+    expect(cityId).not.toBeNull();
+
+    const unitId = p.nextId.unit();
+    expect(
+      map.addUnit({
+        id: unitId,
+        size: 1,
+        speed: WALK_SPEED,
+        cellX: 30,
+        cellY: 30,
+        ownerId,
+        kind: UNIT_KIND_HUMAN,
+      }),
+    ).toBe(true);
+    expect(await p.labor.assign(userId, farmId, unitId)).toEqual({ ok: true });
+    expect(current.station.site(farmId)?.kind).toBe("facility");
+
+    const sum = (location: number): bigint =>
+      cropAssets.reduce((total, asset) => total + p.ledger.balanceOf(ownerId, asset, location), 0n);
+    const cityBefore = sum(cityLocation(cityId ?? 0));
+    // 농장(선택 방식): 스탯 10·10 → 해금 T1, 필요 진행 60 = 1시간에 하나 → 90분 정산(직무 피로 상한 120 전이라 일하는 중)
+    clock += 90 * 60_000;
+    p.settlement.settleOwner(ownerId, clock);
+    expect(sum(buildingLocation(farmId))).toBeGreaterThan(0n);
+    expect(sum(cityLocation(cityId ?? 0))).toBe(cityBefore);
+    expect(current.station.status(unitId)).toMatchObject({ buildingId: farmId, state: "working" });
+    // 피로: 90주기 × 1점 − 레벨 1 피로 덜기 (1000 − 500)‰ = 45점
+    expect(map.unitInfo(unitId)?.job.fatigue).toBe(45);
+
+    const view = gatherReadsOf(() => gather.current()).station(
+      { id: userId, loginId: "fake_farm_station", roles: [] },
+      farmId,
+      clock,
+    );
+    expect(view).toMatchObject({
+      status: "ok",
+      kind: "facility",
+      mine: true,
+      objects: null,
+      buffs: { radiusCells: null, yieldPm: 1000, fatiguePm: 500, regrowPm: null },
+      haul: { everyMs: 600_000 },
+    });
+    expect(view.haul.nextAtMs).not.toBeNull();
+    expect(view.storage.capacityGrams).toBe("300000");
+    expect(view.storage.goods.length).toBeGreaterThan(0);
+    expect(view.workers).toEqual([
+      expect.objectContaining({ unitId, via: "assign", state: "working", fatigue: 45 }),
+    ]);
+    expect(view.upgrade?.buffs).toMatchObject({ radiusCells: null, yieldPm: 1200, regrowPm: null });
+
+    const stored = sum(buildingLocation(farmId));
+    expect(current.station.haulNow(clock)).toBeGreaterThan(0);
+    expect(sum(buildingLocation(farmId))).toBe(0n);
+    expect(sum(cityLocation(cityId ?? 0))).toBe(cityBefore + stored);
     expect(await world.checkInvariants()).toEqual([]);
   });
 });

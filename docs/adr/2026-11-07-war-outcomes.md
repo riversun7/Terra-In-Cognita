@@ -111,7 +111,7 @@
 
 - 남은 상태가 끝날 때 까닭을 적는다: `rebuilt`(약탈 — 재건) · `recovered` · `expelled` · `owner_changed` · `gone` · `replaced`(같은 도시에 새 결과) · `expired`(점령·귀속 불이익 기간 끝). sim `society/warOutcomes.ts WAR_STATE_END_REASONS` = shared `faction.ts OCCUPATION_END_REASONS`(시험이 같은지 본다).
 - 시뮬·서버 같은 함수: `simulator/societyWar.ts`(raid = 상태만, endOfDay = 꺼내 가기·재건·점령 끝), `society.ts`가 `resumeWar`(재건 → 다시 전쟁)·`onWarStateEnd`(끝난 까닭 → 서버)를 잇는다. 불변 조건 W1~W3 그대로(약탈의 `untilMs` = 재건할 수 있는 시각 > 시작).
-- 칸: 더함 3(`d527_gov_rebuild_days`·`d527_gov_rebuild_per_housing`·`d527_occupy_expel_strength_pm`, 세력·사회 페이지 — `WAR_TUNING_KEYS`), 뺌 1(`d520_raid_cooldown_days` → 팩 `id-changes.json` `removed` since 56), 뜻·값 바꿈 4(`d186_loot_take`·`d520_raid_goods_bp`·`d520_occupy_days`·`d520_occupy_tax_every_days`). 모든 칸에 풀이(`desc`)·출처(`source`).
+- 칸: 더함 3(`d527_gov_rebuild_days`·`d527_gov_rebuild_per_housing`·`d527_occupy_expel_strength_pm`, 세력·사회 페이지 — `WAR_TUNING_KEYS`), 뺌 1(`d520_raid_cooldown_days` → 팩 `id-changes.json` `removed` since 57), 뜻·값 바꿈 4(`d186_loot_take`·`d520_raid_goods_bp`·`d520_occupy_days`·`d520_occupy_tax_every_days`). 모든 칸에 풀이(`desc`)·출처(`source`).
 
 ### 서버
 - 표 `war_outcomes`: 칸 `end_reason`(글자, 검사 = 위 일곱 또는 null) 더함 — 마이그레이션 `20261108115417_war_outcomes_d527`(더하기만, 직전 판 앱은 모르는 채 돈다: 직전 판은 켤 때 `outcome in ('integrate','occupy')`만 읽어 끝나지 않은 약탈 줄을 건너뛰고, 쓰는 칸에 `end_reason`이 없다).
@@ -124,7 +124,7 @@
 - 문구: 새 키 15(`faction_occ_amount_*` 3·`faction_occ_state_*` 4·`faction_occ_end_*` 8), 뺀 키 5(`faction_occ_outcome_*`). 시안 자료: Mossbrook 약탈을 진행 중으로, Saltmere 점령 상태를 3일 전·4일 뒤 회복으로, 끝난 약탈(Brinehold, 재건됨) 한 줄 더함.
 
 ### 판
-- `SIM_VERSION` 22(21 → 22), 출력 형식 14(요약 `society.occupations`에 `lootWithdrawals`·`govRebuilt`·`looted`·`expelled`·`recovered`). 팩 core@56 그대로(같은 묶음의 설정 칸 페이지 줄기가 56으로 올림 — 이 줄기는 그 위에서 칸을 바꿈). 프로토콜 그대로(19).
+- `SIM_VERSION` 22(21 → 22), 출력 형식 14(요약 `society.occupations`에 `lootWithdrawals`·`govRebuilt`·`looted`·`expelled`·`recovered`). 팩 core@57(56 → 57 — 같은 묶음의 설정 칸 페이지 줄기가 올린 56이 main에 먼저 들어가 이 줄기 칸 바꿈이 57이 됐다). 프로토콜 그대로(19).
 
 ### 잰 값 (D-527, 2026-11-08, 시드 1 180일, 개발 컨테이너 — 다른 줄기와 같은 기계라 걸린 시간은 흔들린다)
 기준 = 묶음 가지 `merge/integration` `07e08fa`(SIM 21, core@56)를 따로 꺼내 돌림(Verified). "이 줄기" = SIM 22.

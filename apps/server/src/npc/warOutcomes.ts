@@ -128,6 +128,9 @@ interface LiveRow {
   sig: string;
 }
 
+/** 끝난 까닭 열쇠(도시 · 상태 시작 시각) */
+const reasonKey = (city: number, sinceMs: number): string => `${city}:${sinceMs}`;
+
 const occupationSig = (entry: SimOccupation): string =>
   JSON.stringify([entry.nextTaxMs, String(entry.taken), entry.untilMs]);
 
@@ -160,7 +163,6 @@ export function createWarOutcomePersist(o: {
   let orphaned = [...o.state.orphaned];
   /** 끝난 남은 상태의 까닭("도시:시작 시각" → 까닭) — flush가 쓰고 지운다 */
   const reasons = new Map<string, WarStateEndReason>();
-  const reasonKey = (city: number, sinceMs: number): string => `${city}:${sinceMs}`;
   const takeReason = (city: number, sinceMs: number): WarStateEndReason | null => {
     const key = reasonKey(city, sinceMs);
     const reason = reasons.get(key) ?? null;

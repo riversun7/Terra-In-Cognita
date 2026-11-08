@@ -140,7 +140,7 @@
     {
       "category": "tuning",
       "id": "d520_raid_cooldown_days",
-      "since": 56,
+      "since": 57,
       "compensation": {
         "kind": "none"
       }

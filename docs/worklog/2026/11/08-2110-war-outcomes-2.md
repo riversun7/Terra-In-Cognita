@@ -23,7 +23,7 @@
 | `packages/sim/src/society/coefficients.ts`·`tuning.ts`·`tuningWar.ts` | `d186_loot_take` 뜻·값(하루 10%), 새 칸 3, 뺀 칸 1 |
 | `packages/sim/src/version.ts`·`simulator/run.ts` | SIM 22, 출력 형식 14 |
 | `packages/sim/src/simulator/societyWar.test.ts` | 약탈 꺼내 가기·재건·다시 전쟁, 점령 저절로 회복·몰아냄·주인 바뀜, 까닭 목록 = 공유 타입 |
-| `content/core/tuning.json`·`id-changes.json` | 칸 더함 3·뺌 1(`d520_raid_cooldown_days`, removed since 56)·뜻 바꿈 4, 풀이·출처 |
+| `content/core/tuning.json`·`id-changes.json` | 칸 더함 3·뺌 1(`d520_raid_cooldown_days`, removed since 57, 팩 core@57)·뜻 바꿈 4, 풀이·출처 |
 | `apps/server/src/db/warSchema.ts`·`drizzle/20261108115417_war_outcomes_d527/` | `end_reason` 칸 더함(더하기만) |
 | `apps/server/src/world/persist/tables.ts` | 쓰기 칸에 `end_reason` |
 | `apps/server/src/npc/warOutcomes.ts`·`runtime.ts` | 끝나지 않은 줄(약탈 포함)을 거울로, 쉬는 날 다시 만들기 지움, 까닭 쓰기 |

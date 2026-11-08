@@ -36,6 +36,13 @@
 - 칸 시드 규칙(`cellSeed`)을 바꾸면 같은 시드의 옛 결과·내보낸 JSON을 다시 낼 수 없다.
 - 열지도 색 섞기 상한 45%(글자 대비).
 
+## 검사 결과 (Verified, merge/integration b718f51을 합친 뒤)
+- `TEST_DATABASE_URL=… pnpm check`: 통과(시험 파일 552, 시험 4,194 통과). `pnpm check:docs origin/main`·`pnpm check:content origin/main`(core@57) 통과.
+- `pnpm e2e e2e/balance.spec.ts e2e/battleLab.spec.ts e2e/formulas.spec.ts`: 69 통과(분석 시험 2·분석 배치·사진 16(네온·라이트 × ko·en × 390·1440 × 두 탭)·권한 1·나쁜 자료 1 포함, 실험실·계산식 탭 시험 그대로 통과).
+- 새 단위 시험: `packages/shared/src/balanceAnalysis.test.ts` 18, `apps/server/src/battleLab/analysis.test.ts` 16(워커 2 포함), `apps/server/src/battleLab/analysis.db.test.ts` 4, `apps/game/src/editor/balance/analysis/analysisModel.test.ts` 13.
+- 나쁜 자료(break-ui): 분포 10개·긴 이름(24자)·총합 6,000·Lv 999로 390px에서 봤다. 고친 것: 열지도 이름 칸이 글자 하나 폭으로 눌림 → 낱말 단위 줄바꿈·최소 폭, 표 설명이 표와 함께 밀려 잘림 → 표 밖 문단, 탭 다섯이 낱말 중간에서 갈라짐 → 탭 줄 안에서 밀기, 2차 변화 칸 숫자 줄바꿈 → nowrap, 곡선 위 눈금이 가장 큰 값보다 작아 점이 그림 밖 → 눈금 고침, 세로 축 제목이 눈금과 겹침 → 그림 위 글.
+- 색 검사기(dataviz): 1차 스탯 여섯 색은 색약 구분이 모자라(검사기 FAIL) 줄 모양·끝 이름표·범례를 보조로 둔다(토큰은 ADR 2026-11-01-ui-visibility로 정해진 값이라 바꾸지 않음).
+
 ## 미검증·TODO·알려진 문제
 - NAS에서 분석 비용을 재지 않았다(Unknown). 상한·제한 시간은 개발 컨테이너 잰 값 기준.
 - 결과는 서버 메모리에만 있다(다시 켜면 사라짐 — 같은 시드로 다시 돌리면 같다).

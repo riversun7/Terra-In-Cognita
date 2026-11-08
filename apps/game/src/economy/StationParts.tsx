@@ -3,6 +3,7 @@
 // - 자료는 tRPC gather.station(2차맵 채집소 판과 같은 자료, map/gather/stationData.ts). 카드마다 열 때와 STATION_POLL_MS마다 묻는다.
 // - 버프·반경 안 원자재·채집소 창고(무게·내 몫)·자동 옮김·일꾼 상태 수를 한눈에 보이고, [도시 창고로 옮기기]는 이미 있는 창고 꺼내기
 //   (storage_move out)를 내 몫 물자마다 보낸다. 레벨 올리기·일꾼 배치는 같은 카드의 기존 단추를 쓴다.
+// - 농장(facility 채집소, 오브젝트 없음 — 기획 정리 756 ②)도 보인다: 반경·원자재 대신 수확·피로 버프·창고·자동 옮김·일꾼 상태 수.
 import type { FacilityView } from "@terra/shared/facilities";
 import type { GatherStationResponse } from "@terra/shared/gatherStation";
 import { useEffect, useState } from "react";
@@ -58,7 +59,7 @@ export function StationSummary({
   };
 
   const ok = station?.status === "ok" && station.buildingId === buildingId ? station : null;
-  if (!ok || ok.kind !== "objects") return null;
+  if (!ok || ok.kind === null) return null;
   const now = serverNow();
   const objects = ok.objects;
   const counts = { working: 0, blocked: 0, resting: 0 };
@@ -76,9 +77,11 @@ export function StationSummary({
     await refresh();
   };
   return (
-    <fieldset className="facility-station" data-part="facility-station">
+    <fieldset className="facility-station" data-part="facility-station" data-kind={ok.kind}>
       <legend className="eco-subtitle">
-        {m.station_summary_title({ cells: ok.buffs?.radiusCells ?? 0 })}
+        {ok.buffs && ok.buffs.radiusCells !== null
+          ? m.station_summary_title({ cells: ok.buffs.radiusCells })
+          : m.station_summary_title_facility()}
       </legend>
       {ok.buffs ? <p className="eco-row-meta">{buffsText(ok.buffs)}</p> : null}
       {objects && objects.total === 0 ? (
@@ -108,14 +111,14 @@ export function StationSummary({
               .join(" · ")}`
           : ""}
       </p>
-      <p className="eco-footnote">
+      <p className="eco-footnote" data-part="station-haul">
         {ok.cityId === null
           ? m.station_haul_no_city()
           : ok.haul.nextAtMs === null
             ? m.station_haul_off()
             : m.station_haul_next({ time: minutesText(ok.haul.nextAtMs - now) })}
         {ok.workers.length > 0
-          ? ` · ${m.station_summary_workers({ working: counts.working, blocked: counts.blocked, resting: counts.resting })}`
+          ? ` · ${ok.kind === "objects" ? m.station_summary_workers(counts) : m.station_summary_workers_facility(counts)}`
           : ""}
       </p>
       {ok.mine && ok.cityId !== null && ok.storage.goods.length > 0 ? (

@@ -1,7 +1,16 @@
-// 정부(행정 건물) 판 글 시험 — docs/adr/2026-11-07-play-flow.md "WP-NPC". 이름이 없을 때의 대신 글, 세율·인구 숫자 꼴.
+// 정부(행정 건물) 판 글 시험 — docs/adr/2026-11-07-play-flow.md "WP-NPC"·"WP-NPC3". 이름이 없을 때의 대신 글, 세율·인구·도시 하루 값 숫자 꼴.
 import { describe, expect, it } from "vitest";
 import { m } from "../paraglide/messages.js";
-import { cityTitle, leaderTitle, nameIn, nationTitle, populationText, taxText } from "./governmentData.ts";
+import {
+  cityTitle,
+  leaderTitle,
+  nameIn,
+  nationTitle,
+  necessitiesText,
+  pointsText,
+  populationText,
+  taxText,
+} from "./governmentData.ts";
 
 describe("정부 판 글", () => {
   it("이름(두 언어) → 지금 언어, 없으면 대신 글", () => {
@@ -26,5 +35,13 @@ describe("정부 판 글", () => {
     expect(taxText(125, "en")).toBe("1.25%");
     expect(taxText(null)).toBe(m.government_tax_unknown());
     expect(populationText({ humans: 1234, housing: 2000 }, "en")).toContain("1,234");
+  });
+
+  it("도시 하루 값(743 나): 만족도·발전도는 0~100, 생필품 충족 ‰ → 백분율, 없으면 —", () => {
+    expect(pointsText(62, "en")).toBe(m.government_points({ value: "62" }));
+    expect(pointsText(null)).toBe(m.government_value_unknown());
+    expect(necessitiesText(875, "en")).toBe("87.5%");
+    expect(necessitiesText(1000, "en")).toBe("100%");
+    expect(necessitiesText(null)).toBe(m.government_value_unknown());
   });
 });

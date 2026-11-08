@@ -25,6 +25,8 @@
 // (휠·두 손가락) = 이 2차맵 자리의 1차맵 5단계(D-6018, /map/planet?key=&stage=5).
 // 지도 조작(사용자 지적 2026-11-08, docs/adr/2026-11-08-map-input.md): 채집 표시는 누르기를 지나보내 끌기가 걸리지 않고(엔진이 누르기만 화면 거리로
 // 고른다), 내 유닛을 고르면 카메라가 따라간다(UnitFollow.tsx — 끌면 끊기고 [따라가기]), 사다리는 2차맵 확대 단계 1~5(엔진 onZoomStage).
+// NPC 국가 지도자("WP-NPC3", 기획 정리 748 나·742 나): 머리 위 이름표(leaderTags.ts — 전송의 표시 종류), 지도자나 이름표를 누르면 그 지도자를
+// 고르고 아래 지도자 판(government/LeaderSheet.tsx) → 그 나라 수도 정부 판.
 import {
   type EngineStats,
   type EngineStatus,
@@ -73,7 +75,8 @@ import {
   commandText,
   wideScreen,
 } from "./commandNotice.ts";
-import { canCommand, selectionText, unitControlOf, unitName } from "./mapUnits.ts";
+import { canCommand, loadUnitGlance, selectionText, unitControlOf, unitName } from "./mapUnits.ts";
+import { attachLeaderTags, createLeaderTagState } from "./leaderTags.ts";
 import { useOperatorMode } from "./operatorMode.ts";
 import { useCameraArea } from "./useCameraArea.ts";
 import { useMapUnits } from "./useMapUnits.ts";
@@ -89,6 +92,7 @@ import { GatherPanel } from "./gather/GatherPanel.tsx";
 import { attachGatherOverlay } from "./gather/gatherOverlay.ts";
 import { createGatherState, gatherSink } from "./gather/gatherState.ts";
 import { GovernmentSheet } from "../government/GovernmentSheet.tsx";
+import { LeaderSheet } from "../government/LeaderSheet.tsx";
 import { startBuildingLooks } from "./buildingLooks.ts";
 import "./map.css";
 
@@ -154,6 +158,9 @@ interface HudSnapshot {
 
 const fixed = (value: number, digits: number): string => value.toFixed(digits);
 
+/** 자료 흐름 전(표시 종류 없음) */
+const NO_KINDS: ReadonlyMap<number, string> = new Map();
+
 /** 개발 시험 명령 한 번에 받는 시험 일꾼 수 */
 const DEV_SPAWN_COUNT = 5;
 
@@ -191,6 +198,8 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
   const { going, crossedTo } = useTravelFollow(cyborg?.unitId ?? null, mapKey, following);
   // 원자재 오브젝트 채집·건물 들어가기(docs/adr/2026-11-07-gather-objects.md): 덧그림과 아래 판이 같이 보는 상태(React 밖)
   const [gather] = useState(createGatherState);
+  // NPC 국가 지도자 이름표(덧그림)와 지도자 판이 같이 보는 상태("WP-NPC3")
+  const [leaderTags] = useState(createLeaderTagState);
   // 고른 유닛 따라가기(내 유닛·운영자 모드)와 2차맵 확대 단계(사다리, 엔진이 바뀔 때 알린다)
   const [zoomStage, setZoomStage] = useState(0);
   const {
@@ -242,6 +251,13 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
         moving: engineRef.current?.unitState(id)?.moving ?? false,
       };
     };
+    // 지도에서 (다시) 누른 유닛은 (다시) 따라간다 — 유닛을 누를 때와 지도자 이름표를 누를 때 같다
+    const selectFromMap = (id: number | null): void => {
+      resumeFollow();
+      selectedRef.current = id;
+      setSelected(id);
+      setSelection(selectionOf(id));
+    };
     const engine = createSecondMapEngine(host, {
       serverNow,
       // 가장 멀리에서 한 번 더 줄이면 1차맵 5단계(D-6018)
@@ -265,13 +281,7 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
           viewMapNow = viewMap(camera.targetX, camera.targetZ, mapSizeM);
         }
       },
-      onSelect: (id) => {
-        // 지도에서 (다시) 누른 유닛은 (다시) 따라간다
-        resumeFollow();
-        selectedRef.current = id;
-        setSelected(id);
-        setSelection(selectionOf(id));
-      },
+      onSelect: selectFromMap,
       // 고른 유닛이 내 유닛(운영자 모드면 아무 유닛)이면 누른 칸으로 보낸다. 경로는 서버가 찾아 unit_paths로 보낸다
       onGroundTap: (cell) => {
         // 경제 화면 [지도에서 고르기](WP3 연결점, economy/buildPick.ts): 짓기 자리를 고르는 중이면 그 칸을 돌려주고 생산 칸으로 돌아간다
@@ -305,6 +315,18 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       },
     });
     engineRef.current = engine;
+    // 지도자 이름표: 전송의 표시 종류(npc_leader)로 찾고 이름은 한눈 정보로. 누르면 그 지도자를 고른다. 채집 덧그림보다 먼저 붙인다
+    // (누르기를 먼저 받고 위에 그린다 — 지도자는 적고 표시는 많다)
+    const detachLeaders = attachLeaderTags(engine, host, leaderTags, {
+      mapKey,
+      kinds: () => feedRef.current?.unitKinds() ?? NO_KINDS,
+      loadGlance: (key, unitId, signal) =>
+        loadUnitGlance(key, unitId, signal).then((answer) => answer.glance),
+      onPick: (unitId) => {
+        engine.select(unitId);
+        selectFromMap(unitId);
+      },
+    });
     const detachGather = attachGatherOverlay(engine, host, gather, { mapKey, serverNow });
     const looks = startBuildingLooks(engine, mapKey);
     const onReducedMotion = (): void => engine.setSky(skyMode());
@@ -390,13 +412,14 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
       feed.stop();
       feedRef.current = null;
       detachGather();
+      detachLeaders();
       looks.stop();
       engine.dispose();
       engineRef.current = null;
       setTelemetryView(null);
     };
     // 맵·카메라 대상은 화면 열쇠(맵 키)와 함께 정해진다(바뀌면 화면을 새로 만든다). 채집 상태와 두 ref는 늘 같은 객체다
-  }, [mapKey, focus, gather, operatorRef, cameraTap, onFollowBreak, resumeFollow]);
+  }, [mapKey, focus, gather, leaderTags, operatorRef, cameraTap, onFollowBreak, resumeFollow]);
 
   // 명령 안내는 잠시 보이고 지운다(보낸 뒤 결과를 기다리는 동안은 그대로)
   useEffect(() => {
@@ -639,6 +662,8 @@ function SecondMapView({ onClose, monitor, mapKey, focus, cyborg }: SecondMapVie
         />
         {/* 누른 건물이 행정 건물이면 정부 판(docs/adr/2026-11-07-play-flow.md "WP-NPC") */}
         <GovernmentSheet state={gather} />
+        {/* 고른 유닛이 NPC 국가 지도자면 지도자 판 → 수도 정부 판("WP-NPC3") */}
+        <LeaderSheet tags={leaderTags} selected={selected} mapKey={mapKey} />
         <div className="map-panel map-hint" role="status">
           <p>{hint}</p>
           {command ? <p className="map-command">{commandText(command)}</p> : null}

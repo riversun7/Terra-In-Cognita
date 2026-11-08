@@ -1,5 +1,6 @@
 // 월드 유닛 종류 코드(world_units.kind) — S3 시험용 [임시]. 실제 유닛 종(콘텐츠 팩)이 생기면 그 ID로 바꾼다.
 // 저장된 값이라 번호를 바꾸거나 다시 쓰지 않는다.
+import type { UnitWireKind } from "@terra/protocol";
 
 /** 시험 NPC 세력이 움직이는 봇(S1_TEST_BOTS) */
 export const UNIT_KIND_BOT = 0;
@@ -34,3 +35,11 @@ export const UNIT_KIND_GUARDIAN = 6;
  * (봇이 아니다). 이름은 저장하지 않고 팩 국가 프리셋 leaderName에서 읽는다
  */
 export const UNIT_KIND_NPC_LEADER = 7;
+
+/**
+ * 세계 유닛 종류 → 2차맵 전송의 표시 종류(프로토콜 18 unitMotionSchema kind, docs/adr/2026-11-07-play-flow.md "WP-NPC3", 기획 정리 748 나).
+ * 지도에 따로 그리는 유닛만(지금은 NPC 국가 지도자 — 이름표·지도자 표시), 나머지는 undefined(칸을 보내지 않는다)
+ */
+export function wireKindOf(kind: number): UnitWireKind | undefined {
+  return kind === UNIT_KIND_NPC_LEADER ? "npc_leader" : undefined;
+}

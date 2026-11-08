@@ -492,6 +492,26 @@ describe("시야 전송(S3)", () => {
     expect(feed.stats().explored).toBeNull();
   });
 
+  it("표시 종류(프로토콜 18 kind): 스냅샷·바뀐 움직임·사라짐을 따라 지도자 유닛 목록이 바뀐다", async () => {
+    const { net, feed, live } = setup({ admin: false });
+    await live(snapshot({ rev: 1, units: [unit(1, { kind: "npc_leader" }), unit(2)] }));
+    expect([...feed.unitKinds()]).toEqual([[1, "npc_leader"]]);
+    // 새 지도자(스냅샷 뒤에 생김)·종류가 빠진 움직임·시야에서 사라짐
+    net.receive({
+      t: "unit_paths",
+      mapKey: MAP,
+      fromRev: 1,
+      rev: 2,
+      units: [unit(3, { kind: "npc_leader" })],
+    });
+    expect([...feed.unitKinds().keys()].toSorted((a, b) => a - b)).toEqual([1, 3]);
+    net.receive({ t: "unit_paths", mapKey: MAP, fromRev: 2, rev: 3, units: [unit(1)], hidden: [3] });
+    expect(feed.unitKinds().size).toBe(0);
+    // 다시 받은 스냅샷이 통째로 바꾼다
+    await live(snapshot({ rev: 9, units: [unit(2, { kind: "npc_leader" })], snapshotId: 2 }));
+    expect([...feed.unitKinds()]).toEqual([[2, "npc_leader"]]);
+  });
+
   it("관리자가 아니어도 내 유닛(own)은 움직일 수 있다", async () => {
     const { net, feed, live } = setup({ admin: false });
     await live(snapshot({ rev: 1, units: [unit(1, { own: true }), unit(2)] }));

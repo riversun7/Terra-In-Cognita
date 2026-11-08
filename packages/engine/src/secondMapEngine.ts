@@ -35,7 +35,7 @@ import type {
   UnitState,
 } from "./engineTypes.ts";
 import { SceneLight } from "./lighting/sceneLight.ts";
-import { secondMapPlace } from "./lighting/secondMapLight.ts";
+import { UNIT_NIGHT_LIFT, secondMapPlace } from "./lighting/secondMapLight.ts";
 import { rayHitsTerrain } from "./picking.ts";
 import { FrameScheduler } from "./render/frameScheduler.ts";
 import { RenderTimer } from "./render/renderStats.ts";
@@ -67,6 +67,8 @@ const ICON_HYSTERESIS = 1.15;
 /** 목표점 높이를 땅에 맞추는 빠르기(ms, 지수 감쇠 시간) */
 const TARGET_Y_SMOOTH_MS = 120;
 const DEFAULT_UNIT_CAPACITY = 2048;
+/** 건물 상자가 땅 닿는 점보다 이만큼(m) 뒤여도 건물로 본다(바닥 판이 땅에 묻힌 곳) */
+const BUILDING_PICK_SLACK_M = 0.6;
 
 export function createSecondMapEngine(
   container: HTMLElement,
@@ -103,7 +105,11 @@ export function createSecondMapEngine(
     options.mapKey === undefined ? null : secondMapPlace(options.mapKey),
     options.sky ?? { kind: "off" },
     {
-      setNightLift: (lift) => unitView.setNightLift(lift),
+      setNightLift: (lift) => {
+        unitView.setNightLift(lift);
+        // 건물: 몸 밤 빛·창문 불빛(밤 정도 = 유닛 밤 빛 ÷ 그 상한)
+        buildingView.setNight(lift / UNIT_NIGHT_LIFT);
+      },
       redraw: () => scheduler.request(),
     },
   );
@@ -271,10 +277,11 @@ export function createSecondMapEngine(
     scheduler.request();
   };
 
-  // 누른 곳: 유닛(화면 거리, units/unitRoster.ts) → 없으면 땅
+  // 누른 곳: 유닛(화면 거리, units/unitRoster.ts) → 건물(조각 상자, 땅보다 앞이면) → 땅
   const pickGround = (point: ScreenPoint): { x: number; z: number } | null => {
     if (!terrain) return null;
     const ray = screenRay(state, viewport, point);
+    const building = buildingView.pick(ray.origin, ray.dir);
     const hit = rayHitsTerrain(
       ray.origin,
       ray.dir,
@@ -283,6 +290,14 @@ export function createSecondMapEngine(
       maxHeight + 1,
       terrain.cellSizeM / 4,
     );
+    // 건물이 땅보다 앞에서 시선을 막으면 그 건물 판 안 자리(화면은 칸으로 어느 건물인지 찾는다)
+    if (building) {
+      const groundDistance = hit
+        ? Math.hypot(hit.x - ray.origin.x, hit.y - ray.origin.y, hit.z - ray.origin.z)
+        : Number.POSITIVE_INFINITY;
+      if (building.distance <= groundDistance + BUILDING_PICK_SLACK_M)
+        return { x: building.x, z: building.z };
+    }
     if (!hit || hit.x < 0 || hit.z < 0 || hit.x > mapSize || hit.z > mapSize) return null;
     return hit;
   };

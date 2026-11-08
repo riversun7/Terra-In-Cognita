@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickNearest, rayHitsTerrain } from "./picking.ts";
+import { pickNearest, rayBoxDistance, rayHitsTerrain } from "./picking.ts";
 
 describe("pickNearest", () => {
   const xs = [10, 50, 52, 200];
@@ -55,5 +55,22 @@ describe("rayHitsTerrain", () => {
   it("위로 가는 시선, 땅 범위를 지나간 시선은 null", () => {
     expect(rayHitsTerrain({ x: 0, y: 10, z: 0 }, { x: 1, y: 0.1, z: 0 }, () => 0, 0, 0, 1)).toBeNull();
     expect(rayHitsTerrain({ x: 0, y: -10, z: 0 }, { x: 0, y: -1, z: 0 }, () => 0, 0, 0, 1)).toBeNull();
+  });
+});
+
+describe("rayBoxDistance", () => {
+  const down = { x: 0, y: -1, z: 0 };
+
+  it("위에서 내려다보면 윗면까지 거리, 안에서는 0, 비껴가거나 뒤쪽이면 null", () => {
+    expect(rayBoxDistance({ x: 1, y: 10, z: 1 }, down, 0, 0, 0, 2, 4, 2)).toBeCloseTo(6);
+    expect(rayBoxDistance({ x: 1, y: 2, z: 1 }, down, 0, 0, 0, 2, 4, 2)).toBe(0);
+    expect(rayBoxDistance({ x: 3, y: 10, z: 1 }, down, 0, 0, 0, 2, 4, 2)).toBeNull();
+    expect(rayBoxDistance({ x: 1, y: -1, z: 1 }, down, 0, 0, 0, 2, 4, 2)).toBeNull();
+  });
+
+  it("비스듬한 시선은 옆면으로 들어간다", () => {
+    const dir = { x: Math.SQRT1_2, y: -Math.SQRT1_2, z: 0 };
+    // x = -2, y = 4에서 출발: x = 0 면을 y = 2에서 만난다(거리 2√2)
+    expect(rayBoxDistance({ x: -2, y: 4, z: 1 }, dir, 0, 0, 0, 2, 3, 2)).toBeCloseTo(2 * Math.SQRT2);
   });
 });

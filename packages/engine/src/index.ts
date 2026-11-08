@@ -34,6 +34,7 @@ export {
 } from "./props/propView.ts";
 export type { UnitDisplayMode, UnitLook } from "./units/unitView.ts";
 export type { BuildingFootprint, QuarterTurns } from "./buildings/footprint.ts";
+export type { BuildingCondition, BuildingLook } from "./buildings/buildingLook.ts";
 export { disposeSharedRenderer } from "./render/sharedRenderer.ts";
 export type { PlanetSkyFeatures, PlanetSkyMode, SkyClockSource } from "./planet/sky.ts";
 export {

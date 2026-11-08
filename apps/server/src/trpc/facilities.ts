@@ -1,6 +1,8 @@
 // facilities 라우터 — 건물 조회(docs/adr/2026-11-07-buildings-runtime.md). 응답 타입은 @terra/shared/facilities
-// FacilitiesOverviewResponse다. 짓기·레벨업·수리·장비 수리·개발 시험 명령은 게임 상태를 바꾸는 명령이라 WebSocket으로만 보낸다(AGENTS 4장).
+// FacilitiesOverviewResponse, 2차맵 건물 겉모습은 @terra/shared/mapLooks MapLooksResponse(ADR 2026-11-08-building-art)다.
+// 짓기·레벨업·수리·장비 수리·개발 시험 명령은 게임 상태를 바꾸는 명령이라 WebSocket으로만 보낸다(AGENTS 4장).
 // 오류(error.data.code): UNAUTHORIZED(로그인 안 함·정지)
+import { z } from "zod";
 import { createFacilityScreenServices } from "../facilities/screen.ts";
 import { router, signedInProcedure } from "./init.ts";
 
@@ -11,4 +13,8 @@ export const facilitiesRouter = router({
   overview: signedInProcedure.query(({ ctx }) =>
     (ctx.facilities ?? notReady).overview(ctx.viewer, ctx.now()),
   ),
+  /** 띄운 2차맵의 건물 겉모습(시설·레벨·상태·국가) — 2차맵 건물 모델 고르기용. 띄우지 않은 2차맵은 status "unknown_map" */
+  mapLooks: signedInProcedure
+    .input(z.strictObject({ mapKey: z.int().min(0).max(Number.MAX_SAFE_INTEGER) }))
+    .query(({ ctx, input }) => (ctx.facilities ?? notReady).mapLooks(ctx.viewer, input.mapKey, ctx.now())),
 });

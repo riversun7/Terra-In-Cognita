@@ -2,12 +2,15 @@
 // 세계(DB)가 있고 준비되면 건물 서비스의 자료, 아니면 빈 자료(status "not_ready", 규칙 값은 출발값)다.
 import type { FacilitiesOverviewResponse, FacilityTargetView } from "@terra/shared/facilities";
 import { OLD_FACILITY_RUNTIME_RULES as R } from "@terra/shared/facilityRuntime";
+import type { MapLooksResponse } from "@terra/shared/mapLooks";
 import { rolesAllow } from "../auth/permissions.ts";
 import type { Viewer } from "../trpc/context.ts";
 import { type BeaconEntry, type FacilityViewSource, facilitiesOverview } from "./views.ts";
 
 export interface FacilityScreenServices {
   overview(viewer: Viewer, nowMs: number): Promise<FacilitiesOverviewResponse>;
+  /** 2차맵 건물 겉모습(시설·레벨·상태·국가, mapLooks.ts — ADR 2026-11-08-building-art) */
+  mapLooks(viewer: Viewer, mapKey: number, nowMs: number): Promise<MapLooksResponse>;
 }
 
 /** 세계가 준비됐을 때의 자료 */
@@ -19,6 +22,8 @@ export interface FacilityScreenSource {
   beaconsOf(userId: string): Promise<readonly BeaconEntry[]>;
   /** 칠 수 있는 남의 시설·다른 세력 비콘(질문 381) */
   targetsOf(userId: string, nowMs: number): Promise<readonly FacilityTargetView[]>;
+  /** 띄운 2차맵의 건물 가운데 그 사람이 보는 것의 겉모습(주인 → 국가는 DB에서 찾는다) */
+  mapLooks(viewer: Viewer, mapKey: number, nowMs: number): Promise<MapLooksResponse>;
 }
 
 function notReady(nowMs: number, dev: boolean): FacilitiesOverviewResponse {
@@ -57,6 +62,11 @@ export function createFacilityScreenServices(
         beacons,
         targets,
       );
+    },
+    async mapLooks(viewer, mapKey, nowMs) {
+      const found = source?.();
+      if (!found) return { status: "not_ready", mapKey, buildings: [], generatedAt: nowMs };
+      return found.mapLooks(viewer, mapKey, nowMs);
     },
   };
 }

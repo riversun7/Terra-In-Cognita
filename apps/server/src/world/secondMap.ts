@@ -272,6 +272,8 @@ export interface SecondMap {
       readonly ownerId: number | null;
       readonly x: number;
       readonly y: number;
+      /** 칸·크기·돌림(시야 칸 셈 — 건물 겉모습 조회) */
+      readonly placement: BuildingPlacement;
     }) => void,
   ): void;
   gauges(): { units: number; moving: number; planning: number };
@@ -885,6 +887,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
           ownerId: building.ownerId,
           x: building.placement.x,
           y: building.placement.y,
+          placement: building.placement,
         });
     },
     removeBuilding(buildingId) {

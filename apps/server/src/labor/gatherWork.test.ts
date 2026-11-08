@@ -60,6 +60,25 @@ describe("채집 직무 산출(서버, 시뮬과 같은 규칙 함수)", () => {
     expect(full.outputs).toEqual([{ asset: "item:pine_log", qty: 2n }]);
   });
 
+  it("묶음 상한(채집소 반경 안 남은 번수): 닿으면 멈추고 진행은 묶음 하나 몫까지만 남는다", () => {
+    const only = site(wood, ladderOf({ 0: ["item:pine_log"] }));
+    const input = { unitId: 11, site: only, primaries: tens, settings, cycleMs: CYCLE_MS };
+    // 120주기 = 묶음 넷 몫, 상한 1 → 하나만, 진행 = 묶음 하나 몫(30주기), 막힘
+    const capped = gatherLots({ points: 0, seq: 0 }, 120, { ...input, maxLots: 1 });
+    expect(capped).toMatchObject({ lots: 1, seq: 1, capped: true, points: 30 * CYCLE_MS });
+    expect(capped.outputs).toEqual([{ asset: "item:pine_log", qty: 2n }]);
+    // 상한 0: 묶음 없음
+    expect(gatherLots({ points: 0, seq: 0 }, 120, { ...input, maxLots: 0 })).toMatchObject({
+      lots: 0,
+      capped: true,
+      outputs: [],
+    });
+    // 상한이 넉넉하면 막히지 않는다(상한 없음과 같다)
+    const free = gatherLots({ points: 0, seq: 0 }, 120, input);
+    expect(gatherLots({ points: 0, seq: 0 }, 120, { ...input, maxLots: 10 })).toEqual(free);
+    expect(free).toMatchObject({ lots: 4, capped: false });
+  });
+
   it("나눠 셈해도 한 번에 센 것과 같다(같은 묶음 차례는 같은 물건)", () => {
     const two = site(wood, ladderOf({ 0: ["item:pine_log"], 1: ["item:birch_log"] }));
     const input = {

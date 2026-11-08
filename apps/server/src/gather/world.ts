@@ -1,14 +1,18 @@
 // 채집을 세계에 잇기 — docs/adr/2026-11-07-gather-objects.md 7절. world.ts(1,000줄 상한)를 고치지 않고, 세계가 준비된 뒤(부팅 복구 끝) 세계의
 // 부품(원장·정산·건물·노동 계약·보유 물건·정원사 오염)으로 채집 서비스를 만든다. 오브젝트 상태 줄은 그때 한 번 읽는다.
 // DB가 없는 세계(시험·DB 없는 서버)는 채집이 없다(원장·건물이 없다).
+// 채집소(사용자 지적 2026-11-08 "원자재채집소의 기능도 필요", station.ts)도 여기서 만들어 노동 계약 서비스에 고리를 잇는다(labor.attachStation).
 import type { SocietyCoefficients } from "@terra/sim";
 import type { PlaceWorld } from "../facilities/places.ts";
+import type { JobRecord } from "../facilities/state.ts";
 import type { StorageContext } from "../facilities/storage.ts";
+import type { LaborWorkerEntry } from "../labor/service.ts";
 import { createGatherInjury } from "../world/unitCondition.ts";
 import { TEST_PLANET_ID, type World } from "../world/world.ts";
 import type { GatherKind } from "./kinds.ts";
 import { type GatherService, createGatherService } from "./service.ts";
 import { type ObjectStore, createObjectStore, loadObjectStates } from "./state.ts";
+import { type StationRuntime, createStationRuntime } from "./station.ts";
 
 /** 조회가 쓰는 채집 세계 */
 export interface GatherWorld {
@@ -19,7 +23,13 @@ export interface GatherWorld {
   storage(): StorageContext | undefined;
   ownerOf(userId: string): number | undefined;
   works(buildingId: number): boolean;
-  workersAt(buildingId: number): readonly { readonly unitId: number }[];
+  workersAt(buildingId: number): readonly LaborWorkerEntry[];
+  /** 채집소(반경 안 오브젝트·채집소 창고·레벨 버프·자동 옮김) */
+  readonly station: StationRuntime;
+  /** 세력·사회 계수표(설정 칸 실효 값) */
+  rules(): SocietyCoefficients;
+  /** 건물 작업(레벨 올리는 중 등) */
+  jobs(): ReadonlyMap<number, JobRecord>;
 }
 
 export interface WorldGather {
@@ -88,9 +98,26 @@ export function startWorldGather(
         workInjury: createGatherInjury(),
         ready: () => world.status().state === "ready",
       });
+      const station = createStationRuntime({
+        maps: world.maps,
+        now: options.now,
+        log: options.log,
+        kinds: options.kinds,
+        rules,
+        ledger: parts.ledger,
+        store,
+        places,
+        works,
+        objects: (mapKey) => service.objects(mapKey),
+        pollution: (mapKey) => world.npc?.gardener.run.layer().get(mapKey) ?? 0,
+      });
+      parts.labor.attachStation(station.hook);
       built = {
         service,
         store,
+        station,
+        rules,
+        jobs: () => facilities.service.jobs,
         kinds: options.kinds,
         places,
         storage: () => {
@@ -118,6 +145,7 @@ export function startWorldGather(
     stop() {
       stopped = true;
       built?.service.stop();
+      built?.station.stop();
     },
   };
 }

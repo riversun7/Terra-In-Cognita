@@ -51,7 +51,13 @@ import {
 } from "@terra/sim";
 import { buildingLocation } from "@terra/shared/goodsPlaces";
 import type { Ledger } from "../economy/ledger.ts";
-import { type ProductionSource, buildingReceiver, cityReceiver, createWorkBook } from "./workBook.ts";
+import {
+  type ProductionSource,
+  type StationHook,
+  buildingReceiver,
+  cityReceiver,
+  createWorkBook,
+} from "./workBook.ts";
 import type { CityRow } from "../world/cities.ts";
 import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
@@ -112,6 +118,8 @@ export interface LaborService {
   workersAt(buildingId: number): readonly LaborWorkerEntry[];
   /** 채집 산출 자료를 잇는다(건물 서비스 — facilities/world.ts attachLabor) */
   attachProduction(source: ProductionSource | undefined): void;
+  /** 채집소 고리를 잇는다(gather/station.ts — 반경 안 오브젝트·채집소 창고·레벨 버프, 사용자 지적 2026-11-08) */
+  attachStation(hook: StationHook | undefined): void;
 }
 
 /** 시설에서 일하는 유닛 하나 */
@@ -313,6 +321,7 @@ export function createLaborService(options: {
         c.buildingId,
         c.kind === "wage" ? cityReceiver(c.ownerId) : buildingReceiver(ownerId),
         c.kind === "lease" ? rooms : undefined,
+        rooms,
       );
       for (const segment of segments) {
         const producing = productionOn && segment.mode === "work" && works;
@@ -345,7 +354,7 @@ export function createLaborService(options: {
       const works = productionOn && (options.buildingWorks?.(buildingId) ?? true);
       const bonusPm = works ? (options.outputBonusPm?.(buildingId) ?? 0) : 0;
       const goods = works
-        ? work.goodsFor(record.unitId, ownerId, buildingId, cityReceiver(ownerId))
+        ? work.goodsFor(record.unitId, ownerId, buildingId, cityReceiver(ownerId), undefined, rooms)
         : undefined;
       out.set(record.unitId, [
         goods
@@ -407,7 +416,10 @@ export function createLaborService(options: {
     unitAway: (unitId) => options.unitAway?.(unitId) ?? false,
     workersAt,
     attachProduction: (source) => work.attach(source),
+    attachStation: (hook) => work.attachStation(hook),
     afterSettle(ownerId) {
+      // 채집소 일꾼 피로 덜기(직무 상태를 적은 뒤, 직무를 끄기 전)
+      work.station()?.afterSettle(ownerId);
       // 일이 끝난 플레이어 유닛(계약 끝·배치 풀림)의 직무를 끈다(그 구간 산출은 이미 없었다)
       work.stopIdle(ownerId, working);
       for (const c of leftoverQueue.splice(0)) {

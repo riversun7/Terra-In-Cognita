@@ -11,6 +11,9 @@
 // - 임대형 상한(523 ②): 임대형 임차인 몫(그 건물 창고)은 그 건물 창고 상한까지만 쌓인다(leaseRooms — 정산 하나 안에서 함께 줄이는 남은 자리).
 //   넘친 물건은 나오지 않는다(묶음 진행은 쓴다, 확인 대기 질문 580). 임금형·직무 배치(도시 창고)는 상한이 없다(질문 411).
 // - 사라짐: 유닛·시설이 사라지거나 주인이 바뀌거나 유닛이 일을 멈추면(비활성·수호신) 다음 정산에서 배치를 푼다(그 구간 산출 없음).
+// - 채집소(사용자 지적 2026-11-08 "원자재채집소의 기능도 필요", gather/station.ts가 고리를 잇는다): 반경 안 원자재 오브젝트를 맡는 채집 시설(벌목장·
+//   광산)이면 묶음마다 반경 안 오브젝트 번수를 하나씩 쓰고(없으면 그 묶음을 끝내지 못한다 — 질문 664 ②), 레벨 수확 버프를 곱하고, 산출은 그 건물
+//   창고(채집소 창고, 상한 = 팩 storageKg × 레벨 — 모든 몫이 함께 쓴다)로 간다. 피로 덜기는 정산 뒤 고리(afterSettle)에서 한다.
 import type { Primaries, SocietyCoefficients, OutputSegment, GoodsLine } from "@terra/sim";
 import { JOB_GATHER, JOB_NONE, TEST_JOB_RULES, switchJob } from "@terra/sim";
 import { buildingLocation, cityLocation } from "@terra/shared/goodsPlaces";
@@ -46,9 +49,40 @@ export interface ProductionSource {
   weightGrams?(asset: string): bigint;
 }
 
-/** 정산 하나 안의 건물 창고 남은 자리(임대형 몫, 523 ②): 그 자산 qty 가운데 들어가는 양을 돌려주고 자리를 줄인다 */
+/** 정산 하나 안의 건물 창고 남은 자리(임대형 몫 523 ②·채집소 창고): 그 자산 qty 가운데 들어가는 양을 돌려주고 자리를 줄인다 */
 export interface LeaseRooms {
   take(buildingId: number, asset: string, qty: bigint): bigint;
+  /** 지금 남은 자리(g). 상한이 없는 건물이면 null */
+  left(buildingId: number): bigint | null;
+}
+
+/** 채집소 고리(gather/station.ts가 잇는다). 없으면 채집 시설은 예전처럼 낸다 */
+export interface StationHook {
+  /**
+   * 그 건물이 채집소(반경 안 원자재 오브젝트를 맡는 채집 시설)면 이번 산출 계획, 아니면 undefined.
+   * room = 그 건물 창고 남은 자리(g, 정산 하나 안에서 함께 줄인 값). null = 상한 없음
+   */
+  plan(buildingId: number, unitId: number, room: bigint | null): StationPlan | undefined;
+  /** 정산 뒤(그 주체 유닛 직무 상태를 적은 뒤): 채집소 일꾼의 피로를 덜어 준다 */
+  afterSettle(ownerId: number): void;
+}
+
+/** 채집소 일꾼 하나의 이번 산출 계획 */
+export interface StationPlan {
+  /** 끝낼 수 있는 묶음 수 상한(반경 안 남은 오브젝트 번수, 창고가 가득이면 0) */
+  readonly maxLots: number;
+  /** 레벨 수확 버프를 곱한 수량(‰ 나머지는 (유닛, 묶음 차례, 자산)으로 정한 굴림 — 같은 입력이면 같다) */
+  scale(asset: string, qty: bigint, seq: number): bigint;
+  /** 끝낸 묶음만큼 오브젝트 번수를 쓰고 일꾼 상태·피로 덜기를 적는다 */
+  commit(result: {
+    readonly made: number;
+    readonly lots: number;
+    /** 오브젝트 상한에 막혔나 */
+    readonly capped: boolean;
+    /** 창고 자리가 모자라 덜 넣었나 */
+    readonly clipped: boolean;
+    readonly outputs: readonly { readonly asset: string; readonly qty: bigint }[];
+  }): void;
 }
 
 /** 산출을 받는 곳: 그 주체의 그 위치 계정(아이템 자산마다) */
@@ -63,6 +97,9 @@ const PLAYER_KINDS: ReadonlySet<number> = new Set([UNIT_KIND_CYBORG, UNIT_KIND_H
 export interface WorkBook {
   attach(source: ProductionSource | undefined): void;
   readonly source: () => ProductionSource | undefined;
+  /** 채집소 고리를 잇는다(gather/station.ts) */
+  attachStation(hook: StationHook | undefined): void;
+  readonly station: () => StationHook | undefined;
   /** 유닛이 직무 배치된 시설(없으면 undefined) */
   assignedTo(unitId: number): number | undefined;
   /** 그 시설에 직무 배치된 유닛(ID 차례) */
@@ -79,6 +116,8 @@ export interface WorkBook {
     receiver: (site: GatherSite) => GoodsReceiver,
     /** 임대형 몫이면 그 건물 창고 남은 자리(넘친 물건은 나오지 않는다). 없으면 상한 없음 */
     rooms?: LeaseRooms,
+    /** 정산 하나에 함께 쓰는 건물 창고 남은 자리(채집소면 몫에 상관없이 그 건물 창고 상한을 쓴다) */
+    shared?: LeaseRooms,
   ): OutputSegment["goods"];
   /** 정산 하나에 쓰는 건물 창고 남은 자리(처음 물을 때 원장에서 센다) */
   leaseRooms(): LeaseRooms;
@@ -105,6 +144,7 @@ export function createWorkBook(options: {
   const { maps, ledger, writer } = options;
   const records = new Map<number, WorkRecord>(options.loaded.map((record) => [record.unitId, { ...record }]));
   let production: ProductionSource | undefined;
+  let station: StationHook | undefined;
   const save = (record: WorkRecord): void => writer.upsert("unitWork", workRow(record));
   const recordOf = (unitId: number, ownerId: number): WorkRecord => {
     let record = records.get(unitId);
@@ -142,6 +182,10 @@ export function createWorkBook(options: {
       production = source;
     },
     source: () => production,
+    attachStation(hook) {
+      station = hook;
+    },
+    station: () => station,
     assignedTo: (unitId) => records.get(unitId)?.buildingId ?? undefined,
     assignedAt(buildingId) {
       const out: number[] = [];
@@ -162,20 +206,24 @@ export function createWorkBook(options: {
     },
     leaseRooms() {
       const left = new Map<number, bigint | null>();
+      const roomOf = (buildingId: number): bigint | null => {
+        if (!left.has(buildingId)) left.set(buildingId, production?.roomGrams?.(buildingId) ?? null);
+        return left.get(buildingId) ?? null;
+      };
       return {
         take(buildingId, asset, qty) {
           const weight = production?.weightGrams?.(asset) ?? 0n;
           if (qty <= 0n || weight <= 0n) return qty;
-          if (!left.has(buildingId)) left.set(buildingId, production?.roomGrams?.(buildingId) ?? null);
-          const room = left.get(buildingId) ?? null;
+          const room = roomOf(buildingId);
           if (room === null) return qty;
           const fits = room / weight < qty ? room / weight : qty;
           left.set(buildingId, room - fits * weight);
           return fits;
         },
+        left: roomOf,
       };
     },
-    goodsFor(unitId, workerOwnerId, buildingId, receiver, rooms) {
+    goodsFor(unitId, workerOwnerId, buildingId, receiver, rooms, shared) {
       const site = production?.site(buildingId);
       if (!site || !production) return undefined;
       const source = production;
@@ -186,29 +234,41 @@ export function createWorkBook(options: {
           record.gatherBuildingId = buildingId;
           record.gatherPoints = 0;
         }
+        // 채집소면 반경 안 오브젝트 번수·창고 자리로 묶음 수를 막고 산출을 채집소 창고로(몫에 상관없이 그 건물 창고 상한)
+        const limit = rooms ?? shared;
+        const plan = station?.plan(buildingId, unitId, limit ? limit.left(buildingId) : null);
         const result = gatherLots({ points: record.gatherPoints, seq: record.gatherSeq }, made, {
           unitId,
           site,
           primaries: source.primaries(unitId),
           settings: gatherSettingsOf(options.rules()),
           cycleMs: TEST_JOB_RULES.cycleMs,
+          maxLots: plan?.maxLots,
         });
         record.gatherPoints = result.points;
         record.gatherSeq = result.seq;
         record.updatedAtMs = options.now();
         save(record);
-        const to = receiver(site);
+        const given = receiver(site);
+        const to = plan ? { ownerId: given.ownerId, location: buildingLocation(buildingId) } : given;
+        const cap = plan ? limit : rooms;
         const lines: GoodsLine[] = [];
+        const placed: { asset: string; qty: bigint }[] = [];
+        let clipped = false;
         for (const stack of result.outputs) {
-          // 임대형 몫은 건물 창고 상한까지만(넘친 양은 나오지 않는다)
-          const qty = rooms ? rooms.take(buildingId, stack.asset, stack.qty) : stack.qty;
+          const scaled = plan ? plan.scale(stack.asset, stack.qty, result.seq) : stack.qty;
+          // 임대형 몫·채집소 창고는 건물 창고 상한까지만(넘친 양은 나오지 않는다)
+          const qty = cap ? cap.take(buildingId, stack.asset, scaled) : scaled;
+          if (qty < scaled) clipped = true;
           if (qty <= 0n) continue;
+          placed.push({ asset: stack.asset, qty });
           lines.push({
             source: ledger.systemAccount(`source:${stack.asset}`, stack.asset),
             account: ledger.ownerAccount(to.ownerId, stack.asset, to.location),
             qty,
           });
         }
+        plan?.commit({ made, lots: result.lots, capped: result.capped, clipped, outputs: placed });
         return lines;
       };
     },

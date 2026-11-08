@@ -24,7 +24,7 @@ import {
 } from "@terra/sim";
 import type { Ledger } from "../economy/ledger.ts";
 import type { PlaceWorld } from "../facilities/places.ts";
-import type { StorageContext } from "../facilities/storage.ts";
+import { type StorageContext, roomGrams } from "../facilities/storage.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { type GatherInjuryHook, unavailable } from "../world/unitCondition.ts";
 import { UNIT_KIND_BOT, UNIT_KIND_GUARDIAN } from "../world/unitKinds.ts";
@@ -353,17 +353,26 @@ export function createGatherService(deps: GatherDeps): GatherService {
     return where ? anchorAt(positionAt(where.info.motion, now()), where.info.size) : undefined;
   };
 
-  /** 오브젝트를 맡는 내 시설(반경 안)을 다시 본다 */
+  /** 오브젝트를 맡는 내 시설(그 레벨의 반경 안)을 다시 본다. 시설 창고가 가득이면 버프만 받고 넣기는 창고·도시로 */
   const planCamp = (action: Action, object: GatherObject): void => {
     const world = deps.places();
     const kind = kindOf(action);
-    const radius = deps.rules().gatherObjects.campRadiusCells;
     const camp =
       world && kind
-        ? campFor(world, action.mapKey, kind.facility, object, radius, action.ownerId, works)
+        ? campFor(
+            world,
+            action.mapKey,
+            kind.facility,
+            object,
+            deps.rules().gatherObjects,
+            action.ownerId,
+            works,
+          )
         : undefined;
+    const ctx = storageCtx();
+    const room = camp && ctx ? roomGrams(ctx, camp.buildingId) : undefined;
     action.campLevel = camp?.level ?? null;
-    action.deposit = world && camp ? campDeposit(world, camp) : null;
+    action.deposit = camp && (room === undefined || room > 0n) ? campDeposit(camp) : null;
   };
 
   const goToObject = (action: Action): Promise<GatherCommandResult> => {
@@ -480,17 +489,8 @@ export function createGatherService(deps: GatherDeps): GatherService {
     const rules = deps.rules();
     const at = now();
     const taken = deps.store.take(action.mapKey, object.id, kind.uses, at, () => {
-      const nearCamp =
-        campFor(
-          world,
-          action.mapKey,
-          kind.facility,
-          object,
-          rules.gatherObjects.campRadiusCells,
-          null,
-          works,
-        ) !== undefined;
-      return regrowMs(kind, rules.gatherObjects, deps.pollution(action.mapKey), nearCamp);
+      const camp = campFor(world, action.mapKey, kind.facility, object, rules.gatherObjects, null, works);
+      return regrowMs(kind, rules.gatherObjects, deps.pollution(action.mapKey), camp?.level ?? null);
     });
     if (!taken) {
       await moveOn(action);
@@ -514,10 +514,7 @@ export function createGatherService(deps: GatherDeps): GatherService {
       action.gatheredLots += lots.whole;
     }
     // 피로(시설 반경 안이면 덜)
-    const fatigue = splitPm(
-      gatherFatiguePm(rules.gatherObjects, action.campLevel !== null),
-      action.fatigueCarryPm,
-    );
+    const fatigue = splitPm(gatherFatiguePm(rules.gatherObjects, action.campLevel), action.fatigueCarryPm);
     action.fatigueCarryPm = fatigue.carryPm;
     let tired = false;
     if (fatigue.whole > 0) {

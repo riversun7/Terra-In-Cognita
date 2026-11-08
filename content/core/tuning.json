@@ -5251,6 +5251,62 @@
       "unit": "pm",
       "min": 0,
       "max": 100000
+    },
+    {
+      "id": "gather_obj_station_radius_step",
+      "code": "",
+      "name": { "ko": "채집소 레벨당 반경 더함(배치 칸)", "en": "Gather station radius per level (cells)" },
+      "value": 4,
+      "structural": false,
+      "unit": "cells",
+      "min": 0,
+      "max": 64
+    },
+    {
+      "id": "gather_obj_station_fatigue_step_pm",
+      "code": "",
+      "name": { "ko": "채집소 레벨당 피로 배율 줄임(‰)", "en": "Gather station fatigue cut per level (‰)" },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "gather_obj_station_regrow_step_pm",
+      "code": "",
+      "name": {
+        "ko": "채집소 레벨당 다시 자람 배율 줄임(‰)",
+        "en": "Gather station regrow cut per level (‰)"
+      },
+      "value": 50,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "id": "gather_obj_station_floor_pm",
+      "code": "",
+      "name": { "ko": "채집소 피로·다시 자람 배율 하한(‰)", "en": "Gather station fatigue/regrow floor (‰)" },
+      "value": 200,
+      "structural": false,
+      "unit": "pm",
+      "min": 1,
+      "max": 1000
+    },
+    {
+      "id": "gather_obj_station_haul_ms",
+      "code": "",
+      "name": {
+        "ko": "채집소 창고 → 도시 창고 자동 옮김 간격(ms)",
+        "en": "Gather station auto haul interval (ms)"
+      },
+      "value": 600000,
+      "structural": false,
+      "unit": "ms",
+      "min": 0,
+      "max": 86400000
     }
   ]
 }

@@ -1,0 +1,21 @@
+/*
+ * 건물 화면 채집소 칸(StationParts.tsx, 사용자 지적 2026-11-08 "원자재채집소의 기능도 필요") — 일꾼 칸(.facility-workers)과 같은 꼴.
+ * 값은 styles/tokens.css의 var(--…)만 쓴다(pnpm check:contrast).
+ */
+.facility-station {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-control);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.facility-station legend {
+  padding: 0 var(--space-1);
+}
+.facility-station p {
+  margin: 0;
+}

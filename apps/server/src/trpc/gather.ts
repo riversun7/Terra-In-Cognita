@@ -1,5 +1,7 @@
 // gather 라우터 — 2차맵 원자재 오브젝트 채집·건물 들어가기 조회(docs/adr/2026-11-07-gather-objects.md). 응답 타입은 @terra/shared/gather다.
 // - objects: 그 2차맵 오브젝트 자리·종류·남은 번수·다시 자라는 시각. loops: 내 유닛의 채집·들어가기. building: 2차맵 건물 판.
+// - station: 채집소 판(사용자 지적 2026-11-08 "원자재채집소의 기능도 필요" — 레벨·반경·버프·반경 안 오브젝트·채집소 창고·일꾼·다음 레벨).
+//   응답 타입은 @terra/shared/gatherStation이다.
 // 읽기만 한다. 바꾸는 명령은 WebSocket이다(AGENTS 4장 — gather_start·gather_stop·unit_enter).
 // 오류(error.data.code): UNAUTHORIZED(로그인 안 함·정지), BAD_REQUEST(틀린 입력). 세계(DB)가 없거나 준비 전이면 status "not_ready"
 import type {
@@ -7,7 +9,9 @@ import type {
   GatherLoopsResponse,
   GatherObjectsResponse,
 } from "@terra/shared/gather";
+import type { GatherStationResponse } from "@terra/shared/gatherStation";
 import { z } from "zod";
+import { emptyStation } from "../gather/stationReads.ts";
 import { router, signedInProcedure } from "./init.ts";
 
 const mapKey = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -48,5 +52,14 @@ export const gatherRouter = router({
             inside: [],
             generatedAt: ctx.now(),
           };
+    }),
+  /** 채집소 판(벌목장·광산·농장 — 레벨·반경·버프·오브젝트·창고·일꾼·다음 레벨) */
+  station: signedInProcedure
+    .input(z.object({ buildingId }))
+    .query(({ ctx, input }): GatherStationResponse => {
+      const reads = ctx.gather?.();
+      return reads
+        ? reads.station(ctx.viewer, input.buildingId, ctx.now())
+        : emptyStation("not_ready", input.buildingId, ctx.now());
     }),
 });

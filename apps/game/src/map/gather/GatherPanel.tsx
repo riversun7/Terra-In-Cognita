@@ -3,6 +3,7 @@
 // - 건물을 누르면: 이름·레벨·내 것인가·들어가면 하는 일·안에 있는 유닛 → [들어가기]·[닫기].
 // - 보내는 유닛 = 고른 유닛, 없으면 이 2차맵의 내 사이보그(남의 유닛이면 서버가 forbidden — 그 까닭을 보인다).
 // - 내 유닛의 채집 줄 한 줄(단계·화물·넣는 곳·끝난 까닭) + [멈추기].
+// - 건물이 채집소(벌목장·광산·농장)면 건물 판 안에 채집소 판(StationPanel.tsx — 사용자 지적 2026-11-08 "원자재채집소의 기능도 필요").
 // 자료는 gatherState(React 밖)에 두고 판 번호를 구독한다. 바꾸는 명령은 WebSocket(gatherCommands.ts)이다.
 import type { GatherBuildingResponse, GatherLoopView } from "@terra/shared/gather";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -26,6 +27,7 @@ import {
   stopText,
 } from "./gatherData.ts";
 import type { GatherState } from "./gatherState.ts";
+import { StationPanel } from "./StationPanel.tsx";
 import "./gather.css";
 
 /** 명령 안내를 지우기까지(ms) */
@@ -276,7 +278,7 @@ export function GatherPanel({ state, mapKey, selected, cyborgUnitId }: GatherPan
       ) : null}
       {sheet?.kind === "building" ? (
         <section
-          className="map-panel gather-sheet"
+          className="map-panel gather-sheet gather-sheet-scroll"
           aria-label={m.gather_building_label()}
           data-building={sheet.id}
         >
@@ -313,6 +315,13 @@ export function GatherPanel({ state, mapKey, selected, cyborgUnitId }: GatherPan
               )}
             </>
           ) : null}
+          <StationPanel
+            state={state}
+            mapKey={mapKey}
+            buildingId={sheet.id}
+            actor={actor}
+            notify={setNotice}
+          />
           <p className="gather-actor">{actorText}</p>
           <div className="gather-actions">
             <button

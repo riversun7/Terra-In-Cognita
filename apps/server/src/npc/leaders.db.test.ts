@@ -3,6 +3,7 @@
 // 1. 고정 국가마다 지도자 유닛(종류 7) 하나가 수도 행정 건물 곁에 서고, 다시 켜도 그대로(같은 유닛, 더 세우지 않음).
 // 2. 정부 판(행정 건물 → 도시·나라·지도자·세율·행정 레벨·휴먼 수), 행정 건물이 아닌 건물은 not_government.
 // 3. 세력 화면 실제 자료가 지도자 유닛을 읽고(leader_unit), 팩 이름을 붙인다.
+// 4. (WP-NPC2) 시험 봇은 시험 2차맵 줄에만 서고, 시작 도시 휴먼은 처음 인구 규칙(주거 40 × 750‰ = 30)으로 서며, 정부 판에 자동 시장이 보인다.
 import { loadContentPack } from "@terra/content/node";
 import { decodeCellKey, parseCellKey } from "@terra/planet";
 import type { PlanetCellValues } from "@terra/planet/secondMap";
@@ -16,7 +17,7 @@ import { TEST_DATABASE_URL, type TestDatabase, createTestDatabase, rows } from "
 import { mapTerrainFromTemp } from "../world/mapTerrain.ts";
 import type { TerrainService } from "../world/terrainService.ts";
 import { UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
-import { type World, startWorld } from "../world/world.ts";
+import { type World, startWorld, testMapKey } from "../world/world.ts";
 import { nationLeaderName, nationName } from "./nations.ts";
 import { nationPresetsOf } from "./presets.ts";
 
@@ -88,6 +89,7 @@ async function boot(): Promise<World> {
     },
     terrain: fakeTerrain(),
     npc: { testNations: 4, manual: true, presets },
+    // 처음 인구 칸은 팩 출발값(주거 40 × 750‰)
     cyborgRules: () => TEST_SOCIETY_COEFFICIENTS,
     holdings: { content: () => pack },
     facilities: { content: () => pack },
@@ -157,7 +159,39 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 국가 지도자·정부 판 (DB)", () 
       start: true,
       adminLevel: 1,
     });
-    expect(answer.city?.humans).toBeGreaterThan(0);
+    // 처음 인구(749 다): 주거 40 × 750‰ = 30, 시험 봇은 들이지 않는다(시험 줄에만)
+    expect(answer.city?.humans).toBe(30);
+    expect(
+      await rows<{ n: string }>(
+        test.db,
+        `select count(*) as n from world_units where kind = 0 and map_key = any($1::bigint[])`,
+        [[testMapKey(0), testMapKey(1)]],
+      ),
+    ).toEqual([{ n: "40" }]);
+    // 시작 도시마다 30명(가짜 지형은 물·바위가 섞여 도시 둘레에 설 곳이 모자란 도시가 드물게 한둘 적다), 모두 그 도시 2차맵에 선다
+    const perCity = await rows<{ humans: string; here: string }>(
+      test.db,
+      `select (select count(*) from world_humans h where h.city_id = c.id) as humans,
+              (select count(*) from world_humans h join world_units u on u.id = h.unit_id
+                where h.city_id = c.id and u.map_key = c.map_key) as here
+         from world_cities c where c.start order by c.id`,
+    );
+    expect(perCity.length).toBeGreaterThan(4);
+    for (const city of perCity) {
+      expect(city.here).toBe(city.humans);
+      expect(Number(city.humans)).toBeGreaterThanOrEqual(25);
+      expect(Number(city.humans)).toBeLessThanOrEqual(30);
+    }
+    // 자동 시장(744 나): 그 도시 휴먼, 저장된 스탯이 없어 기본값·레벨 1, DB에 저장
+    expect(answer.mayor).toMatchObject({ level: 1, baseline: true });
+    expect(answer.mayor?.stats.int).toBe(10);
+    const stored = await rows<{ mayor_unit_id: string; population_seeded_at_ms: string }>(
+      test.db,
+      `select mayor_unit_id, population_seeded_at_ms from world_cities where id = $1`,
+      [Number(capital.city_id)],
+    );
+    expect(Number(stored[0]?.mayor_unit_id)).toBe(answer.mayor?.unitId);
+    expect(stored[0]?.population_seeded_at_ms).not.toBeNull();
     expect(answer.nation?.fixed).toBe(true);
     expect(answer.nation?.mine).toBe(false);
     // 이 시험 세계는 도시 경제 입력이 없어 세율을 모른다(경제가 도는 서버는 그 나라 세율 — reads.test.ts)
@@ -194,7 +228,18 @@ describe.skipIf(!TEST_DATABASE_URL)("NPC 국가 지도자·정부 판 (DB)", () 
     // 다시 켜도 그대로(같은 유닛, 더 세우지 않음)
     await world.stop();
     worlds.splice(worlds.indexOf(world), 1);
+    const humansBefore = await rows<{ n: string }>(test.db, `select count(*) as n from world_humans`);
     await boot();
     expect((await leaders()).map((row) => row.id)).toEqual(first.map((row) => row.id));
+    // 처음 인구는 한 번만(다시 켜도 더 세우지 않는다), 시장은 저장된 그대로
+    expect(await rows<{ n: string }>(test.db, `select count(*) as n from world_humans`)).toEqual(
+      humansBefore,
+    );
+    const kept = await rows<{ mayor_unit_id: string }>(
+      test.db,
+      `select mayor_unit_id from world_cities where id = $1`,
+      [Number(capital.city_id)],
+    );
+    expect(Number(kept[0]?.mayor_unit_id)).toBe(answer.mayor?.unitId);
   });
 });

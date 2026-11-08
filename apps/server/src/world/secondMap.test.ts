@@ -36,7 +36,7 @@ import {
 } from "@terra/sim";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { performance } from "node:perf_hooks";
-import { HOME_RADIUS_CELLS } from "./bots.ts";
+import { HOME_RADIUS_CELLS, WORK_SHIFT_MS, atWork } from "./bots.ts";
 import { mapTerrainFromTemp } from "./mapTerrain.ts";
 import { createInlinePathService } from "./pathService.ts";
 import { createSecondMap, remainingPathBlocked } from "./secondMap.ts";
@@ -171,6 +171,35 @@ describe("시험용 봇", () => {
       expect(distance(id)).toBeLessThanOrEqual(HOME_RADIUS_CELLS + 3);
     // 집을 풀면(null) 다시 지금 자리 둘레를 걷는다
     expect(map.setHome(1, null)).toBe(true);
+    map.stop();
+  });
+
+  it("일터가 있는 NPC 휴먼(WP-NPC2, 740 나): 일하는 몫에는 일터 둘레로 가서 머물고, 쉬는 몫에는 집 둘레로 돌아온다", async () => {
+    // 그 휴먼의 일하는 몫이 막 시작되는 시각부터(일 주기는 유닛마다 흩어져 있다)
+    let start = START;
+    while (!(atWork(901, start) && !atWork(901, start - 60_000))) start += 60_000;
+    vi.setSystemTime(start);
+    const { map } = createTestMap();
+    const home = { x: 128, y: 128 };
+    const work = { x: 60, y: 70, radius: 5 };
+    expect(map.spawnBotNear(901, 7, home, 4)).toBe(true);
+    expect(map.setHome(901, { ...home, work })).toBe(true);
+    const distanceTo = (cell: { x: number; y: number }): number => {
+      const unit = map.unitInfo(901);
+      if (!unit) throw new Error("human missing");
+      const at = anchorAt(positionAt(unit.motion, Date.now()), unit.size);
+      return Math.max(Math.abs(at.x - cell.x), Math.abs(at.y - cell.y));
+    };
+    // 68칸 = 두 번 걸어 닿는다(걷기 몇 분). 그 뒤로는 일터 둘레에서만 옮긴다
+    await vi.advanceTimersByTimeAsync(8 * 60_000);
+    for (let check = 0; check < 6; check++) {
+      expect(distanceTo(work)).toBeLessThanOrEqual(work.radius + 3);
+      await vi.advanceTimersByTimeAsync(60_000);
+    }
+    // 쉬는 몫(일하는 몫 끝 뒤 몇 분): 집 둘레로 돌아와 있다
+    await vi.advanceTimersByTimeAsync(start + WORK_SHIFT_MS + 6 * 60_000 - Date.now());
+    expect(atWork(901, Date.now())).toBe(false);
+    expect(distanceTo(home)).toBeLessThanOrEqual(HOME_RADIUS_CELLS + 3);
     map.stop();
   });
 

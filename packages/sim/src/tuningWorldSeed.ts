@@ -30,6 +30,13 @@ export const WORLD_SEED_TUNING_KEYS: readonly TuningKey[] = [
   k("npc_seed_lumber_camps", "lumberCamps", "NPC 시작 도시 기본 벌목장 수", "NPC start city lumber camps"),
   k("npc_seed_mines", "mines", "NPC 시작 도시 기본 광산 수", "NPC start city mines"),
   k("npc_seed_storehouses", "storehouses", "NPC 시작 도시 기본 창고 수", "NPC start city storehouses"),
+  k("npc_seed_housing", "startHousing", "NPC 새 시작 도시 주거 수", "NPC new start city housing"),
+  k(
+    "npc_seed_population_pm",
+    "populationPm",
+    "NPC 시작 도시 처음 인구(주거 × 천분율)",
+    "NPC start city first population (housing × per mille)",
+  ),
   k(
     "npc_seed_lumber_forest_pct",
     "lumberMinForestPct",

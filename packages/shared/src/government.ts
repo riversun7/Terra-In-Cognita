@@ -2,7 +2,7 @@
 // 없음"), 기획 46 §2(행정 건물 = 도시의 정부, 구인 카드 D-469)·D-510(행정 건물 = 옛 마을회관). 2차맵에서 행정 건물을 누르면 그 도시와 주인
 // 나라(이름·지도자·시장)·세율·행정 레벨·휴먼 수를 보이고, 구인 카드(recruit.board → WebSocket recruit_hire)·창고·거래소로 잇는다.
 // 읽기만 한다. 서버가 거른다: 내가 모르는 도시(1차맵 도시 안개와 같은 규칙)의 건물이면 unknown_building(없는 건물과 같은 답).
-import type { LocalizedName } from "./roster.ts";
+import type { LocalizedName, PrimaryStat } from "./roster.ts";
 
 /**
  * ready 정부 판 · not_ready 세계·NPC 사회 런타임 준비 전 · unknown_building 없는 건물이거나 모르는 도시 · not_government 행정 건물이 아니다
@@ -51,6 +51,21 @@ export interface GovernmentLeader {
   readonly here: boolean;
 }
 
+/**
+ * 정부 판의 시장(46 §2 시장, 기획 답 744 나): NPC 도시는 그 도시 휴먼 가운데 하나를 서버가 자동으로 고른다 [임시 규칙: INT + WIS → 스탯 합 →
+ * 작은 유닛 ID, 떠나거나 죽으면 다시 고름]. 휴먼에게 이름이 아직 없어 화면은 "휴먼 #유닛 ID"로 부른다
+ */
+export interface GovernmentMayor {
+  readonly unitId: number;
+  /** 레벨(구인 카드 휴먼은 그 레벨, 처음부터 있던 휴먼은 1) */
+  readonly level: number;
+  /** 1차 스탯. baseline이면 저장된 스탯이 없어 [임시] 기본값(모두 10 — 유닛 화면 기본 스탯과 같다) */
+  readonly stats: Readonly<Record<PrimaryStat, number>>;
+  readonly baseline: boolean;
+  /** 만족도(0~100, D-219) */
+  readonly satisfaction: number;
+}
+
 export interface GovernmentResponse {
   readonly status: GovernmentStatus;
   readonly buildingId: number;
@@ -59,7 +74,7 @@ export interface GovernmentResponse {
   readonly leader: GovernmentLeader | null;
   /** 행정 건물 기준 칸(그 도시 2차맵 배치 칸 — 지도가 그곳으로 카메라를 옮길 때). 모르면 null */
   readonly building: { readonly x: number; readonly y: number } | null;
-  /** 시장(46 §2 시장·관리인, D-5062). 서버에 시장 임명이 아직 없어 늘 null(화면 "없음") — 질문 744 */
-  readonly mayor: null;
+  /** 시장(46 §2 시장·관리인, D-5062). NPC 도시는 서버가 자동 지정(744 나). 없으면 null(화면 "없음" — 휴먼이 없는 도시) */
+  readonly mayor: GovernmentMayor | null;
   readonly generatedAt: number;
 }

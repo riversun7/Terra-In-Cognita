@@ -137,6 +137,16 @@ export const WORLD_TABLES = {
     key: ["id"],
     updateOnly: true,
   },
+  /**
+   * NPC 도시의 시장·처음 인구를 채운 시각만 고친다(docs/adr/2026-11-07-play-flow.md "WP-NPC2", npc/cityPeople.ts). 도시 행(cities)은 이 칸을
+   * 쓰지 않는다(직전 판 앱이 도시 행을 써도 시장이 지워지지 않게)
+   */
+  cityPeople: {
+    name: "world_cities",
+    columns: ["id", "mayor_unit_id", "population_seeded_at_ms"],
+    key: ["id"],
+    updateOnly: true,
+  },
   /** 휴먼(유닛 하나 = 휴먼 하나: NPC 나라의 시험 봇·유저가 고용한 휴먼). 유닛 다음에 쓰고 유닛보다 먼저 지운다 */
   humans: {
     name: "world_humans",
@@ -637,6 +647,7 @@ export const WRITE_ORDER: readonly WorldTable[] = [
   "units",
   "travels",
   "humans",
+  "cityPeople",
   "humanGrowth",
   "cyborgUnits",
   "unitSkills",

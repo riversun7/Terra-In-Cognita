@@ -1,0 +1,84 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "976cbfe4-6ef7-4031-9690-fdcb0f738cfc",
+  "prevIds": [
+    "b2b18d55-97af-452f-bc41-5b344c2839f8",
+    "4c125381-097d-47a1-bec4-5131f4a3d75a",
+    "3ff444e3-acb1-4fe1-b993-4667d1e231a4",
+    "4cb1078a-f7be-41a4-bb21-24713a380c2d"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_cities",
+        "mayor_unit_id"
+      ],
+      "writes": [
+        "s|col|public.world_cities.mayor_unit_id",
+        "n|col|public.world_cities.mayor_unit_id",
+        "e|col|public.world_cities.mayor_unit_id"
+      ],
+      "reads": [
+        "n|tbl|public.world_cities",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "world_cities",
+        "population_seeded_at_ms"
+      ],
+      "writes": [
+        "s|col|public.world_cities.population_seeded_at_ms",
+        "n|col|public.world_cities.population_seeded_at_ms",
+        "e|col|public.world_cities.population_seeded_at_ms"
+      ],
+      "reads": [
+        "n|tbl|public.world_cities",
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "mayor_unit_id",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "public",
+        "table": "world_cities",
+        "name": "population_seeded_at_ms",
+        "type": "bigint",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

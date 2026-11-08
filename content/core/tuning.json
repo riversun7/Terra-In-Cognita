@@ -5011,6 +5011,32 @@
       "max": 4
     },
     {
+      "id": "npc_seed_housing",
+      "code": "",
+      "name": {
+        "ko": "NPC 새 시작 도시 주거 수",
+        "en": "NPC new start city housing"
+      },
+      "value": 40,
+      "structural": false,
+      "unit": "count",
+      "min": 4,
+      "max": 1000
+    },
+    {
+      "id": "npc_seed_population_pm",
+      "code": "",
+      "name": {
+        "ko": "NPC 시작 도시 처음 인구(주거 × 천분율)",
+        "en": "NPC start city first population (housing × per mille)"
+      },
+      "value": 750,
+      "structural": false,
+      "unit": "pm",
+      "min": 0,
+      "max": 1000
+    },
+    {
       "id": "npc_seed_lumber_forest_pct",
       "code": "",
       "name": {

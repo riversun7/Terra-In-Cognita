@@ -366,13 +366,12 @@ export function startWorld(
     }
   };
 
-  /** 봇을 띄운 2차맵마다 고르게 나눈다(앞 2차맵부터 하나씩 더 — 도시가 있는 2차맵의 봇은 NPC 사회가 휴먼으로 들인다) */
+  /** 봇을 시험 2차맵 줄에만 고르게 나눈다(규모 시험, 앞부터 하나씩 더). 도시 인구는 세계 규칙이다(play-flow ADR "WP-NPC2", 749 다) */
   const spawnBots = (): void => {
-    let index = 0;
-    for (const map of maps.values()) {
-      const share = Math.floor(config.testBots / maps.size) + (index < config.testBots % maps.size ? 1 : 0);
+    const row = testKeys.flatMap((mapKey) => maps.get(mapKey) ?? []);
+    for (const [index, map] of row.entries()) {
+      const share = Math.floor(config.testBots / row.length) + (index < config.testBots % row.length ? 1 : 0);
       map.spawnBots(share);
-      index += 1;
     }
   };
 

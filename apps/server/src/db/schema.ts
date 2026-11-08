@@ -490,6 +490,10 @@ export const worldCities = pgTable(
     adminLevel: smallint("admin_level").notNull().default(1),
     /** 도시 이름(번역하지 않음 D-476, NPC 도시는 팩 국가 프리셋 목록 — 기획 답 510 다). null = 아직 없음(화면이 "<국가> 도시 N") */
     name: text("name"),
+    /** NPC 도시 시장 유닛(기획 답 744 나, npc/cityPeople.ts — 떠나거나 죽으면 다시 고른다). null = 없음 */
+    mayorUnitId: bigint("mayor_unit_id", { mode: "number" }),
+    /** 시작 도시 처음 인구(749 다: 주거 × 비율)를 채운 시각. null = 아직(켤 때 한 번 채운다) */
+    populationSeededAtMs: bigint("population_seeded_at_ms", { mode: "number" }),
   },
   (table) => [
     index("world_cities_map_idx").on(table.mapKey),

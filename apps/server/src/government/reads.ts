@@ -4,11 +4,13 @@
 //   지금 거래세) → 지도자(국가 지도자 사이보그 유닛, npc/leaders.ts)·이름(팩 국가 프리셋).
 // - 안개(서버 권위): 내가 모르는 도시(1차맵 도시 안개 knownCities.ts와 같은 아는 도시)의 건물이면 unknown_building(없는 건물과 같은 답 —
 //   모르는 도시의 세율·인구가 새지 않게). 2차맵에서 보이는 행정 건물은 보통 아는 도시다(시청 칸이 시야 칸 안).
-// - 시장(46 §2)은 서버에 임명이 아직 없어 늘 null이다(질문 744).
-import type { GovernmentResponse } from "@terra/shared/government";
+// - 시장(46 §2, 기획 답 744 나): NPC 사회 런타임이 그 도시 휴먼 가운데 자동으로 고른 휴먼(npc/cityPeople.ts)의 레벨·1차 스탯·만족도.
+//   저장된 스탯이 없는 휴먼은 [임시] 기본값(모두 10, 유닛 화면 기본 스탯과 같다).
+import type { GovernmentMayor, GovernmentResponse } from "@terra/shared/government";
 import type { LocalizedName } from "@terra/shared/roster";
 import type { SimCity, SimFaction, SimUnit } from "@terra/sim";
 import type { Viewer } from "../trpc/context.ts";
+import { BASELINE_HUMAN_STAT } from "../npc/cityPeople.ts";
 import { type LeaderUnits, leaderUnitOf } from "../npc/leaders.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import type { World } from "../world/world.ts";
@@ -31,10 +33,12 @@ export interface GovernmentSource {
             Pick<SimCity, "id" | "owner" | "start" | "adminLevel" | "housing">
           >;
           readonly factions: ReadonlyMap<number, Pick<SimFaction, "code" | "fixed">>;
-          readonly units: ReadonlyMap<number, Pick<SimUnit, "city">>;
+          readonly units: ReadonlyMap<number, Pick<SimUnit, "city" | "recruit" | "satisfactionMilli">>;
         };
         readonly places: ReadonlyMap<number, { readonly mapKey: number; readonly name?: string | undefined }>;
         readonly taxOf?: ((factionId: number) => number | undefined) | undefined;
+        /** 그 도시 시장 유닛(npc/cityPeople.ts). 없으면 undefined */
+        readonly mayorOf?: ((cityId: number) => number | undefined) | undefined;
       }
     | undefined;
   /** 소유 주체 ID → 세력 행 ID(유저 주체·없으면 undefined) */
@@ -66,6 +70,23 @@ const empty = (
   mayor: null,
   generatedAt: nowMs,
 });
+
+/** 시장 휴먼 → 화면 자료(스탯 차례 STR·DEX·AGI·VIT·INT·WIS, 저장된 스탯이 없으면 기본값 모두 BASELINE_HUMAN_STAT) */
+export function mayorView(
+  unitId: number,
+  unit: Pick<SimUnit, "recruit" | "satisfactionMilli">,
+): GovernmentMayor {
+  const stats = unit.recruit?.stats;
+  const known = stats !== undefined && stats.length >= 6;
+  const at = (index: number): number => (known ? (stats[index] ?? 0) : BASELINE_HUMAN_STAT);
+  return {
+    unitId,
+    level: unit.recruit?.level ?? 1,
+    stats: { str: at(0), dex: at(1), agi: at(2), vit: at(3), int: at(4), wis: at(5) },
+    baseline: !known,
+    satisfaction: Math.max(0, Math.min(100, Math.round(unit.satisfactionMilli / 1000))),
+  };
+}
 
 /** 그 2차맵에서 건물 기준 칸(없으면 null) */
 function buildingCell(
@@ -114,6 +135,8 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
       const cityMap = source.maps.get(place.mapKey);
       const here = cityMap !== undefined && leaderUnitOf([cityMap], city.owner) === leaderUnit;
       const code = faction?.code ?? null;
+      const mayorId = runtime.mayorOf?.(city.id);
+      const mayorUnit = mayorId === undefined ? undefined : runtime.world.units.get(mayorId);
       return {
         status: "ready",
         buildingId,
@@ -144,7 +167,7 @@ export function createGovernmentReads(source: GovernmentSource): GovernmentReads
                 here,
               },
         building: buildingCell(cityMap, buildingId),
-        mayor: null,
+        mayor: mayorId === undefined || !mayorUnit ? null : mayorView(mayorId, mayorUnit),
         generatedAt: nowMs,
       };
     },
@@ -167,6 +190,7 @@ export function governmentReadsOfWorld(
         world: npc.world,
         places: npc.places,
         taxOf: (factionId) => npc.economy?.economy.taxOf.get(factionId),
+        mayorOf: (cityId) => npc.mayorOf(cityId),
       };
     },
     factionRowOf: (ownerId) => world.persistence?.owners.get(ownerId)?.factionId ?? undefined,

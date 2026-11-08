@@ -1,0 +1,16 @@
+/* 정부 판 시장 한 줄(MayorFact.tsx, docs/adr/2026-11-07-play-flow.md "WP-NPC2") — 사실 줄(.gov-fact) 안에서 이름·만족도·스탯 묶음을 오른쪽에 쌓는다 */
+.gov-mayor-body {
+  display: grid;
+  justify-items: end;
+  gap: var(--space-1);
+}
+.gov-mayor-mood,
+.gov-mayor-note {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-snug);
+}
+.gov-mayor-stats {
+  justify-content: flex-end;
+}

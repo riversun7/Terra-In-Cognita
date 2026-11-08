@@ -41,6 +41,10 @@ export interface NpcCityRow {
   readonly adminLevel: number;
   /** 도시 이름(NPC 도시는 팩 목록, 없으면 null — 폐허가 되면 폐허 줄에 남아 복원 때 되찾는다, 기획 답 552 다) */
   readonly name: string | null;
+  /** 시장 유닛(기획 답 744 나, cityPeople.ts). null = 없음 */
+  readonly mayorUnitId: number | null;
+  /** 처음 인구를 채운 시각(749 다). null = 아직 */
+  readonly populationSeededAtMs: number | null;
 }
 
 export interface NpcHumanRow {
@@ -140,7 +144,8 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
       ),
       pool.query(
         `select id, faction_id, planet_id, map_key, cell_x, cell_y, start, housing, research_level, founded_at_ms,
-              development, next_rebellion_ms, wave_cooldown_until_ms, admin_level, name from world_cities order by id`,
+              development, next_rebellion_ms, wave_cooldown_until_ms, admin_level, name, mayor_unit_id, population_seeded_at_ms
+       from world_cities order by id`,
       ),
       pool.query(
         `select unit_id, city_id, satisfaction_milli, born_at_ms, lifespan_ms, rebirths, level, stats, elements
@@ -202,6 +207,8 @@ export async function loadNpcState(pool: QueryPool, planetId: string): Promise<N
       waveCooldownUntilMs: num(row.wave_cooldown_until_ms ?? 0),
       adminLevel: Math.max(1, num(row.admin_level ?? 1)),
       name: typeof row.name === "string" ? row.name : null,
+      mayorUnitId: numOrNull(row.mayor_unit_id),
+      populationSeededAtMs: numOrNull(row.population_seeded_at_ms),
     })),
     humans: humans.rows.map((row) => ({
       unitId: num(row.unit_id),

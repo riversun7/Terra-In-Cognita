@@ -31,8 +31,8 @@ export interface CityPlace {
   readonly name?: string | undefined;
 }
 
-/** 구인 휴먼(봇)을 세우는 도시 둘레 반경(칸) */
-const RECRUIT_RADIUS_CELLS = 8;
+/** 구인·처음 인구 휴먼(봇)을 세우는 도시 둘레 반경(칸). 가까운 둘레가 건물·물로 막혔으면 넓혀 본다(WP-NPC2 — 도시 하나에 수십 명) */
+const RECRUIT_RADII_CELLS = [8, 24, 48] as const;
 
 /** 세력 하나의 저장 모습(바뀌었는지 견줄 때) */
 function factionSig(f: SimFaction): string {
@@ -543,7 +543,9 @@ export function createNpcPersist(
           if (
             !place ||
             !map ||
-            !map.spawnBotNear(unit.id, unit.owner, { x: place.cellX, y: place.cellY }, RECRUIT_RADIUS_CELLS)
+            !RECRUIT_RADII_CELLS.some((radius) =>
+              map.spawnBotNear(unit.id, unit.owner, { x: place.cellX, y: place.cellY }, radius),
+            )
           ) {
             world.units.delete(unit.id);
             world.factions.get(unit.owner)?.units.delete(unit.id);
@@ -555,9 +557,7 @@ export function createNpcPersist(
           for (const map of maps.values()) if (map.setOwner(unit.id, unit.owner)) break;
           count.owners += 1;
         }
-        // 집 = 지금 도시 시청 칸(옮겨 간 휴먼도 새 도시 둘레를 걷는다, WP-NPC). 노숙이면 그대로
-        const home = places.get(unit.city);
-        if (home) maps.get(home.mapKey)?.setHome(unit.id, { x: home.cellX, y: home.cellY });
+        // 집·일터는 저장 뒤에 런타임이 맞춘다(humanPlaces.ts — 옮겨 간 휴먼도 새 도시 둘레, WP-NPC·WP-NPC2)
         writer.upsert("humans", {
           unit_id: unit.id,
           city_id: unit.city === HOMELESS ? null : unit.city,

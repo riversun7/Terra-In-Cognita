@@ -1,7 +1,7 @@
 // 2차맵 정부(행정 건물) 판·NPC 국가 지도자 화면 시험(docs/adr/2026-11-07-play-flow.md "WP-NPC", 사용자 지적 2026-11-08 "Npc사이보그 세력이
 // 없어 기본 세력 npc존재도 없음 정부 건물의 기본 기능도 없음").
 // 플레이어(가짜 계정, 첫 접속에서 국가 1의 첫 시작 도시 = 수도)가 내 사이보그 2차맵을 열면 건물 표시 가운데 행정 건물을 찾아 누른다 →
-// 채집 판 아래 "정부 · 도시" 한 장 → [정부 열기] 대화상자(나라·지도자·시장·세율·행정 레벨·휴먼, 창고·거래소, 구인 카드) → [고용]이면
+// 채집 판 아래 "정부 · 도시" 한 장 → [정부 열기] 대화상자(나라·지도자·시장(자동 지정 휴먼, WP-NPC2)·세율·행정 레벨·휴먼, 창고·거래소, 구인 카드) → [고용]이면
 // WebSocket recruit_hire가 성공한다. 지도자 유닛은 수도 행정 건물 곁에 서 있고 한눈 정보가 "지도자 이름"을 준다.
 // 사진: 390 파스텔·다크(한국어) + 파스텔 영어(긴 문구), E2E_SHOTS_DIR.
 import type { Page } from "@playwright/test";
@@ -92,8 +92,11 @@ test.describe("정부 판·지도자: 플레이어", () => {
     expect(field(nation, "fixed")).toBe(true);
     expect(field(leader, "here")).toBe(true);
     expect(String(field(field(leader, "name"), "ko"))).toContain("지도자");
-    // 화면 시험 서버는 시험 봇이 없어(S1_TEST_BOTS 0) NPC 휴먼이 없다 — 수만 본다
-    expect(Number.isInteger(field(city, "humans"))).toBe(true);
+    // 처음 인구(WP-NPC2, 749 다): 시험 봇과 상관없이 시작 도시마다 주거 × 비율(팩 출발값 40 × 750‰ = 30, 설 곳이 모자라면 조금 적다)
+    expect(Number(field(city, "humans"))).toBeGreaterThanOrEqual(25);
+    // 자동 시장(744 나): 그 도시 휴먼 하나, 저장된 스탯이 없으면 기본값
+    const mayor = field(hall.data, "mayor");
+    expect(Number.isInteger(field(mayor, "unitId"))).toBe(true);
 
     const sheet = page.locator(".gov-sheet");
     await expect(sheet).toContainText(String(field(field(leader, "name"), "ko")));
@@ -117,9 +120,13 @@ test.describe("정부 판·지도자: 플레이어", () => {
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('[data-part="government-nation"] dd')).not.toHaveText("");
     await expect(dialog.locator('[data-part="government-leader"] dd')).toContainText("지도자");
-    await expect(dialog.locator('[data-part="government-mayor"] dd')).toHaveText(
-      message("ko", "government_mayor_none"),
+    await expect(dialog.locator('[data-part="government-mayor"] dd')).toContainText(
+      message("ko", "government_mayor_title", {
+        id: String(field(mayor, "unitId")),
+        level: Number(field(mayor, "level")),
+      }),
     );
+    await expect(dialog.locator('[data-part="government-mayor"] .recruit-stat')).toHaveCount(6);
     await expect(dialog.locator('[data-part="government-admin"] dd')).toHaveText(
       message("ko", "government_admin_level", { level: Number(field(city, "adminLevel")) }),
     );

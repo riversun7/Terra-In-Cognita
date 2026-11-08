@@ -38,14 +38,15 @@ import {
 } from "@terra/sim";
 import type { Rng } from "@terra/shared";
 import {
+  type BotHome,
+  arrivalIdleMs,
   botPlan,
   botRng,
-  homeArea,
-  idleMs,
   pickDestination,
   pickSpawn,
   retryMs,
   startDelayMs,
+  tripArea,
 } from "./bots.ts";
 import { bodyCells, failureCode, lastPoint, rectsOverlap, remainingPathBlocked } from "./mapGeometry.ts";
 import type { MapTerrain, TerrainFile } from "./mapTerrain.ts";
@@ -156,8 +157,8 @@ interface UnitState {
   job: UnitJob;
   condition: UnitCondition;
   readonly bot: boolean;
-  /** 봇의 집(NPC 휴먼 = 그 도시 시청 칸). 있으면 그 둘레에서 걷는다(bots.ts homeArea). 저장하지 않는다(부팅·구인이 다시 넣는다) */
-  home: { readonly x: number; readonly y: number } | undefined;
+  /** 봇의 집(NPC 휴먼 = 그 도시 시청 칸)·일터. 있으면 그 둘레에서 걷는다(bots.ts tripArea). 저장하지 않는다(NPC 사회 런타임이 다시 넣는다) */
+  home: BotHome | undefined;
 }
 
 /** 2차맵 예약: 같은 시각이면 (종류, 유닛 ID) 차례다(@terra/sim compareEventKeys, S3 ADR 1절) */
@@ -245,8 +246,8 @@ export interface SecondMap {
     near: { readonly x: number; readonly y: number },
     radiusCells: number,
   ): boolean;
-  /** 봇의 집(도시 시청 칸, null = 없음 — 지금 자리 둘레를 걷는다)을 정한다. 봇이 아니거나 없으면 false */
-  setHome(unitId: number, home: { readonly x: number; readonly y: number } | null): boolean;
+  /** 봇의 집(도시 시청 칸)·일터(null = 없음 — 지금 자리 둘레를 걷는다)를 정한다. 봇이 아니거나 없으면 false */
+  setHome(unitId: number, home: BotHome | null): boolean;
   /** 유닛 주인을 바꾸고 저장한다(도시 주인이 바뀜). 없으면 false */
   setOwner(unitId: number, ownerId: number): boolean;
   /** 유닛 종류 코드를 바꾸고 저장한다(사이보그 융합 D-470: 휴먼 → 사이보그 유닛, 봇 ↔ 봇 아닌 것은 바꾸지 않는다). 없으면 false */
@@ -525,7 +526,8 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     if (event.kind === "wake") unit.wakeAtMs = undefined;
     if (!unit.bot) return;
     if (event.kind === "arrive") {
-      scheduleEvent(unit, "wake", now() + idleMs(nextRng(unit)));
+      const rest = arrivalIdleMs(nextRng(unit), unit, lastPoint(unit.motion), now());
+      scheduleEvent(unit, "wake", now() + rest);
       return;
     }
     if (unit.planning) return;
@@ -536,7 +538,7 @@ export function createSecondMap(options: SecondMapOptions): SecondMap {
     }
     const rng = nextRng(unit);
     const from = lastPoint(unit.motion);
-    const area = unit.home ? homeArea(from, unit.size, unit.home) : undefined;
+    const area = unit.home ? tripArea(from, unit.size, unit.home, unit.id, now()) : undefined;
     const destination = pickDestination(grid, rng, unit.size, from, area);
     if (!destination) {
       scheduleEvent(unit, "wake", now() + retryMs(rng));

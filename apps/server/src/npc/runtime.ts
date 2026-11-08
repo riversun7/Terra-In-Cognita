@@ -12,6 +12,8 @@
 //   돌리고 세력·사회에 경제 고리(생필품 충족·거래세 배당·세율·도시 주인 바뀜의 창고·거래소)를 준다. 거래소는 market/books.ts(저장·복원).
 // - 폐허 2(ruinsRuntime.ts): 정부 건물 상태·행정 레벨 = 그 도시 안 행정 건물 레벨(489 다, 틱마다 맞춤)·수호신만 있는 도시의 웨이브 전투
 //   (472 가)·폐허가 된 도시 창고 물건을 주인 나라의 가장 가까운 도시 창고로(535).
+// - NPC 휴먼 일터·시장·처음 인구(docs/adr/2026-11-07-play-flow.md "WP-NPC2"): 처음 켤 때 시작 도시마다 한 번 처음 인구(주거 × 비율, 749 다,
+//   cityPeople.ts), 저장 뒤마다 휴먼의 집·일터(도시 경제 일꾼 → 그 시설 둘레, 740 나, humanPlaces.ts)와 시장(떠나면 다시 고름, 744 나)을 맞춘다.
 // - 서버에서 아직 안 하는 것: 실시간 공성(NPC 공격은 전투 없이 점령 — 시뮬 "전투 끔"과 같은 규칙), 환전·세력 화폐(시험 화폐 하나),
 //   휴먼 지갑(상속은 빈 지갑), 편입 제안 저장(메모리), NPC 생산 시설의 오염(정원사 칸 오염에 넣지 않음), NPC의 행정 건물 올리기(NPC는 짓지
 //   않는다 — 씨앗 행정 건물 Lv1 그대로).
@@ -63,7 +65,9 @@ import type { WorldWriter } from "../world/persist/writer.ts";
 import type { SecondMap } from "../world/secondMap.ts";
 import { ASSET_CREDIT, NPC_START_CREDIT, SYSTEM_ISSUE_CREDIT } from "../world/settlement.ts";
 import { UNIT_KIND_BOT } from "../world/unitKinds.ts";
+import { createCityPeople, seedPopulationOf } from "./cityPeople.ts";
 import { type NpcEconomyInput, type ServerEconomy, startServerEconomy } from "./economy.ts";
+import { createHumanPlaces } from "./humanPlaces.ts";
 import { type ServerGardener, attachServerGardener } from "./gardener.ts";
 import { type WaveRewardItems, grantWaveReward } from "./waveRewards.ts";
 import { nationPresetOf } from "./nations.ts";
@@ -146,6 +150,8 @@ export interface NpcRuntime {
   readonly economy: ServerEconomy | undefined;
   /** 폐허·복원 사업 바뀜을 바로 쓰기 대기열에 넣는다(유저 폐허 명령 뒤 같은 동기 처리, ruinsPersist.ts) */
   flushRuins(): void;
+  /** 그 도시 시장 유닛(기획 답 744 나, cityPeople.ts). 없으면 undefined */
+  mayorOf(cityId: number): number | undefined;
   /** 지난 호출 뒤 구간의 지표(서버 1분 지표 한 줄에 붙인다) */
   takeMetrics(): Record<string, number>;
   stop(): void;
@@ -425,13 +431,33 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     });
     adopted += 1;
   }
-  // 휴먼 주인은 그 도시 주인이다(봇 유닛 주인을 맞춘다). 집 = 그 도시 시청 칸(도시 둘레를 걷는다 — 사용자 지적 2026-11-08, WP-NPC)
+  // 휴먼 주인은 그 도시 주인이다(봇 유닛 주인을 맞춘다). 집·일터는 처음 저장 뒤에 맞춘다(humanPlaces — 처음 인구로 세운 휴먼도 함께)
   for (const unit of units.values()) {
     const at = onMap.get(unit.id);
     if (at && at.ownerId !== unit.owner) at.map.setOwner(unit.id, unit.owner);
-    const home = places.get(unit.city);
-    if (at && home && home.mapKey === at.map.mapKey)
-      at.map.setHome(unit.id, { x: home.cellX, y: home.cellY });
+  }
+  // 처음 인구(749 다, cityPeople.ts): 시작 도시마다 한 번, 주거 × 비율에 모자란 만큼 휴먼을 세운다(처음 저장이 구인과 같은 길로 도시 둘레에
+  // 봇을 세운다). 나이·수명은 들이기와 같이 흩는다. 이미 있는 휴먼(옛 세계의 봇 휴먼)은 그대로 센다
+  const people = createCityPeople({ world, writer, rows: state.cities });
+  let seededHumans = 0;
+  for (const city of [...cities.values()].toSorted((a, b) => a.id - b.id)) {
+    if (!people.needsSeed(city.id)) continue;
+    const target = seedPopulationOf(city.housing, c.worldSeed.populationPm);
+    // 비율이 0이면(시험 계수표) 채운 것으로 치지 않는다 — 나중에 칸을 켜면 그때 채운다
+    if (target === 0) continue;
+    let have = 0;
+    for (const unit of units.values()) if (unit.city === city.id) have += 1;
+    for (let n = have; n < target; n++) {
+      const unitId = o.nextUnitId();
+      const rng = streamRng(seed, STREAM_SOCIETY, unitId, 0);
+      const life = lifespanMs(rng.nextInt(10_000), c);
+      human(unitId, city.id, {
+        lifespanMs: life,
+        bornAtMs: startMs - Math.floor((life * rng.nextInt(10_000)) / 10_000),
+      });
+      seededHumans += 1;
+    }
+    people.markSeeded(city.id, startMs);
   }
   // 들인 휴먼이 주거를 넘으면 주거를 늘린다(휴먼 × 1.3 + 2, 시나리오 기본과 같은 식, 질문 203 가)
   const perCity = new Map<number, number>();
@@ -645,12 +671,33 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
   loop.schedule(nextDayEnd(startMs, dayMs), { kind: EVENT_DAY, subject: 0 });
   const first = await persist.flush(society.currentDay());
   warPersist.flush(o.now());
+  // 집·일터(740 나)·시장(744 나): 저장(구인·사망·처음 인구의 봇 세우기)이 2차맵을 맞춘 뒤에
+  const humanPlaces = createHumanPlaces();
+  const syncPeople = (): void => {
+    humanPlaces.sync({
+      units: world.units,
+      places: persist.places,
+      maps,
+      facilitiesOf: econ
+        ? (cityId) =>
+            econ.production(cityId).map((run) => ({
+              id: run.facility.id,
+              buildingId: run.buildingId,
+              workers: run.facility.workers,
+            }))
+        : undefined,
+    });
+    people.sync();
+    people.flush();
+  };
+  syncPeople();
   log.info(
     {
       factions: [...factions.values()].filter((f) => f.alive).length,
       cities: cities.size,
       humans: units.size,
       adopted,
+      seededHumans,
       day: society.currentDay(),
       writes: first.rows,
     },
@@ -679,6 +726,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
       const started = performance.now();
       const result = await persist.flush(society.currentDay());
       warPersist.flush(o.now());
+      syncPeople();
       await persist.refillSpares(SPARE_FACTIONS);
       metrics.persistMs += performance.now() - started;
       metrics.recruited += result.recruited;
@@ -700,6 +748,7 @@ export async function startNpcRuntime(o: NpcRuntimeOptions): Promise<NpcRuntime>
     gardener,
     economy: econ,
     flushRuins: () => void persist.flushRuins(),
+    mayorOf: (cityId) => people.mayorOf(cityId),
     takeMetrics() {
       const out = {
         npcDecisions: metrics.decisions,

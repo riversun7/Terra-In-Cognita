@@ -9,10 +9,13 @@ import { type World, startWorld } from "../world/world.ts";
 
 let test: TestDatabase;
 const worlds: World[] = [];
-/** 시작 도시는 국가마다 하나(세계 씨앗 칸 — 마을 세우기·점령 시험이 도시 하나에 휴먼을 모은다, docs/adr/2026-11-07-play-flow.md WP1) */
+/**
+ * 시작 도시는 국가마다 하나(세계 씨앗 칸 — 마을 세우기·점령 시험이 도시 하나에 휴먼을 모은다, docs/adr/2026-11-07-play-flow.md WP1).
+ * 처음 인구 칸은 끈다: 이 시험은 시작 도시가 시험 2차맵 줄에 선 세계에서 봇을 휴먼으로 들이는 옛 길을 본다(처음 인구는 population.db.test.ts, WP-NPC2)
+ */
 const ONE_CITY = {
   ...TEST_SOCIETY_COEFFICIENTS,
-  worldSeed: { ...TEST_SOCIETY_COEFFICIENTS.worldSeed, startCitiesMin: 1, startCitiesMax: 1 },
+  worldSeed: { ...TEST_SOCIETY_COEFFICIENTS.worldSeed, startCitiesMin: 1, startCitiesMax: 1, populationPm: 0 },
 };
 /** 시험 시계(UTC 0시 몇 분 전에서 시작) */
 let clock = 0;

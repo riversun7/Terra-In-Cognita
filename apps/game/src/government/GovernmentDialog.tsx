@@ -1,6 +1,7 @@
 // 정부(행정 건물) 대화상자 — docs/adr/2026-11-07-play-flow.md "WP-NPC"(사용자 지적 2026-11-08 "정부 건물의 기본 기능도 없음"). 지연 조각(default export).
 // 2차맵 정부 작은 판(GovernmentSheet.tsx)의 [정부 열기]가 연다. 모바일 우선: 좁으면 화면 전체, 넓으면 가운데 판(복귀 요약과 같은 틀).
-// - 도시와 주인 나라: 나라 이름(내 나라 표)·지도자(NPC 국가 지도자 사이보그)·시장(서버에 임명이 없어 "없음", 질문 744)·세율·행정 레벨·휴먼 수.
+// - 도시와 주인 나라: 나라 이름(내 나라 표)·지도자(NPC 국가 지도자 사이보그)·시장(NPC 도시 자동 지정 휴먼, 744 나 — MayorFact.tsx)·세율·
+//   행정 레벨·휴먼 수.
 // - 구인: 경제 화면 구인 판(economy/RecruitPanel.tsx)을 이 도시로 그대로 쓴다(tRPC recruit.board → WebSocket recruit_hire). 판정은 서버.
 // - [창고]·[거래소]: 경제 화면 칸으로 간다(대화상자를 닫고 이동). 국적 바꾸기·가입은 규칙·서버 명령이 아직 없어 그리지 않는다(질문 745).
 import type { GovernmentResponse } from "@terra/shared/government";
@@ -9,6 +10,7 @@ import { RecruitPanel } from "../economy/RecruitPanel.tsx";
 import { m } from "../paraglide/messages.js";
 import { navigate } from "../shell/routerStore.ts";
 import { cityTitle, leaderTitle, nationTitle, populationText, taxText } from "./governmentData.ts";
+import { MayorFact } from "./MayorFact.tsx";
 import "../economy/economy.css";
 import "../economy/labor.css";
 import "../economy/facilities.css";
@@ -84,11 +86,7 @@ export default function GovernmentDialog({ government, onClose }: GovernmentDial
                 : leaderTitle(leader)
             }
           />
-          <Fact
-            part="government-mayor"
-            label={m.government_field_mayor()}
-            value={m.government_mayor_none()}
-          />
+          <MayorFact mayor={government.mayor} />
           <Fact part="government-tax" label={m.government_field_tax()} value={taxText(nation.taxBp)} />
           <Fact
             part="government-admin"

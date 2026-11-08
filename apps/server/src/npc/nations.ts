@@ -20,8 +20,14 @@ import { TEST_NPC_FACTION_CODE } from "../world/unitKinds.ts";
 export const MAX_TEST_NATIONS = 16;
 /** 2번부터의 국가 코드 앞머리 */
 export const NATION_CODE_PREFIX = "npc_nation_";
-/** [임시] 새 시작 도시의 주거(옛 시작 도시와 같다) */
+/** [임시] 새 시작 도시의 주거 기본값(옛 시작 도시와 같다). 실제 값은 설정 칸 npc_seed_housing(worldSeed.startHousing) */
 export const START_CITY_HOUSING = 40;
+
+/** 새 시작 도시의 주거(설정 칸, 4 이상 정수 — 칸이 없거나 틀리면 기본값) */
+export function startHousingOf(seed: WorldSeedCoefficients): number {
+  const value = Math.trunc(seed.startHousing);
+  return Number.isFinite(value) && value >= 4 ? value : START_CITY_HOUSING;
+}
 
 const REGIMES = ["dictatorship", "democracy", "capitalism"] as const;
 const MID = PLACEMENT_SIZE >> 1;
@@ -311,7 +317,7 @@ export async function ensureTestNations(
     await pool.query(
       `insert into world_cities (id, faction_id, planet_id, map_key, cell_x, cell_y, start, housing, research_level, founded_at_ms)
        select coalesce((select max(id) from world_cities), 0) + 1, $1, $2, $3, $4, $5, true, $6, 1, $7`,
-      [factionId, options.planetId, spot.mapKey, spot.x, spot.y, START_CITY_HOUSING, options.nowMs],
+      [factionId, options.planetId, spot.mapKey, spot.x, spot.y, startHousingOf(options.seed), options.nowMs],
     );
   const fixedNames = codes.flatMap((code) => {
     const factionId = idOf.get(code);

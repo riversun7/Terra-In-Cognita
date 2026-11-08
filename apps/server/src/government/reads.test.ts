@@ -1,8 +1,9 @@
-// 정부(행정 건물) 판 조회 시험 — docs/adr/2026-11-07-play-flow.md "WP-NPC". 가짜 세계(거울 도시·시설 줄·2차맵)로 판정만 본다.
+// 정부(행정 건물) 판 조회 시험 — docs/adr/2026-11-07-play-flow.md "WP-NPC"·"WP-NPC2"(시장). 가짜 세계(거울 도시·시설 줄·2차맵)로 판정만 본다.
 import { describe, expect, it } from "vitest";
 import type { Viewer } from "../trpc/context.ts";
+import type { SimUnit } from "@terra/sim";
 import { UNIT_KIND_NPC_LEADER } from "../world/unitKinds.ts";
-import { type GovernmentSource, createGovernmentReads } from "./reads.ts";
+import { type GovernmentSource, createGovernmentReads, mayorView } from "./reads.ts";
 
 const viewer: Viewer = { id: "u1", loginId: "tester", roles: ["player"] };
 const NOW = 1_800_000_000_000;
@@ -45,8 +46,15 @@ function source(overrides: Partial<GovernmentSource> = {}): GovernmentSource {
     [4, cityOf(4, 101, true)],
   ]);
   const factions = new Map([[101, { code: "placeholder_nation_01", fixed: true }]]);
-  const units = new Map<number, { city: number }>();
-  for (let i = 0; i < 5; i++) units.set(1000 + i, { city: i < 3 ? 4 : 3 });
+  const units = new Map<number, { city: number; recruit: SimUnit["recruit"]; satisfactionMilli: number }>();
+  for (let i = 0; i < 5; i++)
+    units.set(1000 + i, { city: i < 3 ? 4 : 3, recruit: null, satisfactionMilli: 60_000 + i * 1_000 });
+  // 도시 3의 휴먼 1004는 구인 카드 휴먼(STR·DEX·AGI·VIT·INT·WIS 차례 스탯, 레벨 2)
+  units.set(1004, {
+    city: 3,
+    recruit: { level: 2, stats: [9, 8, 7, 6, 15, 14], elements: { water: 1, fire: 0, wind: 0, earth: 0 } },
+    satisfactionMilli: 72_400,
+  });
   return {
     maps: new Map([
       [7, fakeMap(7, true)],
@@ -67,6 +75,8 @@ function source(overrides: Partial<GovernmentSource> = {}): GovernmentSource {
         [4, { mapKey: 8, name: "Ashfield" }],
       ]),
       taxOf: (id) => (id === 101 ? 250 : undefined),
+      // 도시 3의 시장 = 1004, 도시 4는 시장 없음(휴먼이 없는 도시처럼)
+      mayorOf: (cityId) => (cityId === 3 ? 1004 : undefined),
     }),
     factionRowOf: (ownerId) => (ownerId === 101 ? 2 : undefined),
     myFactionRow: () => 2,
@@ -119,6 +129,24 @@ describe("world.government", () => {
     expect(answer.leader?.here).toBe(true);
     expect(answer.city?.humans).toBe(2);
     expect(answer.nation?.mine).toBe(false);
+    // 시장(744 나): 그 휴먼의 레벨·1차 스탯(카드 차례 → 이름 칸)·만족도
+    expect(answer.mayor).toEqual({
+      unitId: 1004,
+      level: 2,
+      stats: { str: 9, dex: 8, agi: 7, vit: 6, int: 15, wis: 14 },
+      baseline: false,
+      satisfaction: 72,
+    });
+  });
+
+  it("시장이 저장된 스탯이 없는 휴먼이면 기본값(모두 10, 레벨 1)", () => {
+    expect(mayorView(7, { recruit: null, satisfactionMilli: 100_400 })).toEqual({
+      unitId: 7,
+      level: 1,
+      stats: { str: 10, dex: 10, agi: 10, vit: 10, int: 10, wis: 10 },
+      baseline: true,
+      satisfaction: 100,
+    });
   });
 
   it("행정 건물이 아니면 not_government, 없는 건물·모르는 도시는 unknown_building, 런타임 전이면 not_ready", async () => {

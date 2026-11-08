@@ -20,6 +20,16 @@ export interface WorldSeedCoefficients {
   /** [임시] 시작 도시 하나의 창고 수(팩 시설 storehouse) */
   readonly storehouses: number;
   /**
+   * [임시] 새 시작 도시의 주거 수(기획 답 749 다 "주거 수 × 비율"의 주거). 이미 선 도시의 주거는 고치지 않는다(NPC 사회 런타임이 휴먼 수에
+   * 맞춰 늘린다)
+   */
+  readonly startHousing: number;
+  /**
+   * [임시] 시작 도시 처음 인구 = floor(주거 × 이 천분율 ÷ 1000)(기획 답 749 다 — 봇 수와 무관하게 세계 씨앗이 세운다,
+   * docs/adr/2026-11-07-play-flow.md "WP-NPC2"). 도시마다 한 번 모자란 만큼만 세운다(옛 세계의 휴먼은 지우지 않는다)
+   */
+  readonly populationPm: number;
+  /**
    * [임시] 둘레 땅에 맞춘 채집 시설(기획 답 503 다, 60 §7.1 "주변 자원"): 시작 도시 고르기 판이 보이는 그 2차맵 칸의 행성 값으로 고른다.
    * 숲 밀도가 이 %(0~100, 화면의 "숲 N%"와 같은 셈) 이상이면 벌목장
    */
@@ -55,6 +65,9 @@ export const START_WORLD_SEED: WorldSeedCoefficients = {
   lumberCamps: 1,
   mines: 1,
   storehouses: 1,
+  // 옛 시작 도시와 같은 주거 40(npc/nations.ts 옛 START_CITY_HOUSING), 처음 인구는 그 3/4 = 30명(NPC 구인 목표 = 주거까지 남은 자리)
+  startHousing: 40,
+  populationPm: 750,
   // 시작 도시 판의 숲 표시 문턱(숲 밀도 13/255 ≈ 5%)과 같다: 판에 숲이 보이면 벌목장
   lumberMinForestPct: 5,
   mineMinHeightM: 500,

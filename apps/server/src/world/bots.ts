@@ -5,6 +5,8 @@
 // - 크기 등급 1·2·3 = 90·8·2%, 속도는 걷기 85%·차 15%(packages/sim 출발값).
 // - 목적지는 지금 자리 둘레 TRIP_RADIUS_CELLS칸 안에서 그 등급이 설 수 있는 칸. 도착하면 2~6초 쉬고 다시 간다.
 // - 집이 있는 봇(NPC 휴먼)은 집(도시 시청 칸) 둘레 HOME_RADIUS_CELLS 안에서 고른다(homeArea, docs/adr/2026-11-07-play-flow.md "WP-NPC").
+// - 일터가 있는 NPC 휴먼(도시 경제가 일꾼으로 둔 시설, 기획 답 740 나 — docs/adr/2026-11-07-play-flow.md "WP-NPC2")은 일 주기의 일하는
+//   몫 동안 그 시설 둘레에서 짧게 옮기며 오래 쉬고, 나머지 몫은 집 둘레를 걷는다(tripArea·arrivalIdleMs). 주기 시작은 유닛마다 흩는다.
 import { createRng, type Rng } from "@terra/shared";
 import {
   CAR_SPEED,
@@ -83,25 +85,93 @@ export const HOME_RADIUS_CELLS = 32;
 /** 집에서 멀리 있는 봇이 집 쪽으로 한 번에 다가가는 곳 둘레의 반경(칸) */
 const HOME_STEP_RADIUS_CELLS = 8;
 
+/** 집이 있는 봇(NPC 휴먼)의 자리: 집(도시 시청 칸)과 일터(없으면 집 둘레만 걷는다). 저장하지 않는다(NPC 사회 런타임이 다시 넣는다) */
+export interface BotHome {
+  readonly x: number;
+  readonly y: number;
+  /** 일터 네모(도시 경제가 일꾼으로 둔 시설 건물 둘레, npc/humanPlaces.ts). 없으면 일하지 않는 휴먼(집 둘레) */
+  readonly work?: TripArea | undefined;
+}
+
 /**
- * 집이 있는 봇의 목적지 네모: 집에서 HOME_RADIUS_CELLS 안이면 집 둘레, 멀면 집 쪽으로 TRIP_RADIUS_CELLS만큼 다가간 칸 둘레(작은 반경).
- * 처음 들인 휴먼은 2차맵 아무 곳에 있다 → 몇 번 걸어 도시로 모인다(경로 예산 안의 짧은 길만 묻는다)
+ * [임시] 일 주기(기획 답 740 나 — 수치는 정해진 것이 없다, D-515): 한 주기 WORK_CYCLE_MS 가운데 WORK_SHIFT_MS 동안 일터, 나머지는 집 둘레.
+ * 유닛마다 주기 시작을 흩어(유닛 ID 해시) 한꺼번에 길을 묻지 않는다. 판정에 쓰지 않는다(보이는 움직임만 — 산출은 도시 경제가 센다)
  */
-export function homeArea(
-  from: Point,
-  size: SizeClass,
-  home: { readonly x: number; readonly y: number },
-): TripArea {
+export const WORK_CYCLE_MS = 30 * 60_000;
+export const WORK_SHIFT_MS = 20 * 60_000;
+/** [임시] 일터 안에서 옮긴 뒤 쉬는 시간(일하는 모습 — 경로 요청을 줄인다) */
+const WORK_IDLE_MIN_MS = 45_000;
+const WORK_IDLE_SPREAD_MS = 90_000;
+/** [임시] 집 둘레에 닿은 NPC 휴먼이 쉬는 시간(시험 봇 2~6초보다 길게 — 사람처럼 서 있다가 걷는다) */
+const HOME_IDLE_MIN_MS = 8_000;
+const HOME_IDLE_SPREAD_MS = 16_000;
+
+/** 그 유닛이 지금 일하는 몫인가(일 주기, 유닛마다 흩은 시작) */
+export function atWork(unitId: number, nowMs: number): boolean {
+  const offset = (mix32(Math.imul(unitId, 0x2545_f491)) >>> 0) % WORK_CYCLE_MS;
+  return (nowMs + offset) % WORK_CYCLE_MS < WORK_SHIFT_MS;
+}
+
+/** 지금 가려는 네모: 일하는 몫이고 일터가 있으면 일터, 아니면 집 둘레 */
+function targetOf(home: BotHome, unitId: number, nowMs: number): TripArea {
+  return home.work && atWork(unitId, nowMs) ? home.work : { x: home.x, y: home.y, radius: HOME_RADIUS_CELLS };
+}
+
+/**
+ * 네모로 다가가는 목적지 네모: 그 네모에 들었거나 한 번 길(TRIP_RADIUS_CELLS) 안에 닿으면 그 네모, 멀면 그쪽으로 TRIP_RADIUS_CELLS만큼 다가간
+ * 칸 둘레(작은 반경). 처음 들인 휴먼은 2차맵 아무 곳에 있다 → 몇 번 걸어 도시로 모인다(경로 예산 안의 짧은 길만 묻는다)
+ */
+function approach(from: Point, size: SizeClass, target: TripArea): TripArea {
   const here = anchorAt(from, size);
-  const dx = home.x - here.x;
-  const dy = home.y - here.y;
+  const dx = target.x - here.x;
+  const dy = target.y - here.y;
   const distance = Math.max(Math.abs(dx), Math.abs(dy));
-  if (distance <= HOME_RADIUS_CELLS) return { x: home.x, y: home.y, radius: HOME_RADIUS_CELLS };
+  if (distance <= Math.max(target.radius, TRIP_RADIUS_CELLS - target.radius)) return target;
   return {
     x: clampCell(here.x + Math.round((dx * TRIP_RADIUS_CELLS) / distance)),
     y: clampCell(here.y + Math.round((dy * TRIP_RADIUS_CELLS) / distance)),
     radius: HOME_STEP_RADIUS_CELLS,
   };
+}
+
+/** 집이 있는 봇의 목적지 네모(일터 없이 집만): 집에서 HOME_RADIUS_CELLS 안이면 집 둘레, 멀면 집 쪽으로 다가간 칸 둘레 */
+export function homeArea(
+  from: Point,
+  size: SizeClass,
+  home: { readonly x: number; readonly y: number },
+): TripArea {
+  return approach(from, size, { x: home.x, y: home.y, radius: HOME_RADIUS_CELLS });
+}
+
+/** 집이 있는 봇의 목적지 네모(일 주기에 따라 일터 또는 집) */
+export function tripArea(
+  from: Point,
+  size: SizeClass,
+  home: BotHome,
+  unitId: number,
+  nowMs: number,
+): TripArea {
+  return approach(from, size, targetOf(home, unitId, nowMs));
+}
+
+/**
+ * 도착한 뒤 쉬는 시간: 집 없는 봇(시험 봇)은 예전과 같다(idleMs). 집이 있는 봇이 지금 가려는 네모 안에 닿았으면 일터는 길게(일하는 모습),
+ * 집 둘레는 조금 길게, 아직 다가가는 중이면 짧게(예전 값). 난수는 어느 쪽이든 한 번 뽑는다(판단 차례가 같다)
+ */
+export function arrivalIdleMs(
+  rng: Rng,
+  bot: { readonly id: number; readonly size: SizeClass; readonly home: BotHome | undefined },
+  at: Point,
+  nowMs: number,
+): number {
+  const { home } = bot;
+  if (!home) return idleMs(rng);
+  const target = targetOf(home, bot.id, nowMs);
+  const here = anchorAt(at, bot.size);
+  if (Math.max(Math.abs(target.x - here.x), Math.abs(target.y - here.y)) > target.radius) return idleMs(rng);
+  return target === home.work
+    ? WORK_IDLE_MIN_MS + rng.nextInt(WORK_IDLE_SPREAD_MS + 1)
+    : HOME_IDLE_MIN_MS + rng.nextInt(HOME_IDLE_SPREAD_MS + 1);
 }
 
 /** 목적지 하나: 네모(없으면 지금 자리 둘레 TRIP_RADIUS_CELLS) 안 설 수 있는 칸. 못 고르면 undefined(잠시 뒤 다시) */

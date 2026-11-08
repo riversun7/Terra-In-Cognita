@@ -436,7 +436,7 @@ export const TEST_SOCIETY_COEFFICIENTS: SocietyCoefficients = {
     temperaments: [
       { id: "balanced", favored: [] },
       { id: "combat", favored: ["str", "vit"] },
-      { id: "tech", favored: ["int", "dex"] },
+      { id: "tech", favored: ["dex", "agi"] },
       { id: "trade", favored: ["int", "wis"] },
     ],
     initialRerolls: 3,
